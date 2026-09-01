@@ -162,54 +162,7 @@ static int resolve_term_compare(Term *a, Term *b) {
     default: return 0;
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
- static int resolve_term_is_ground(Term *t) {
-    t = t ? term_deref(t) : NULL;
-    if (!t) return 0;
-    if (t->tag == TERM_VAR) return 0;
-    if (t->tag == TERM_COMPOUND) {
-        for (int i = 0; i < t->compound.arity; i++)
-            if (!resolve_term_is_ground(t->compound.args[i])) return 0;
-    }
-    return 1;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int resolve_term_is_proper_list(Term *t) {
-    extern int ATOM_DOT, ATOM_NIL;
-    t = t ? term_deref(t) : NULL;
-    while (t) {
-        if (t->tag == TERM_ATOM && t->atom_id == ATOM_NIL) return 1;
-        if (t->tag == TERM_COMPOUND && t->compound.functor == ATOM_DOT && t->compound.arity == 2) {
-            t = term_deref(t->compound.args[1]);
-            continue;
-        }
-        return 0;
-    }
-    return 0;
-}
 static int bb_body_has_live_choice(IR_graph_t *bbg);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int type_test_common(const char *fn, Term *t) {
-    Term *d = t ? term_deref(t) : NULL;
-    int isvar = (!d || d->tag == TERM_VAR);
-    if (!fn) return 0;
-    if (strcmp(fn, "var")      == 0) return  isvar ? 1 : 0;
-    if (strcmp(fn, "nonvar")   == 0) return !isvar ? 1 : 0;
-    if (strcmp(fn, "atom")     == 0) return (d && d->tag == TERM_ATOM) ? 1 : 0;
-    if (strcmp(fn, "integer")  == 0) return (d && d->tag == TERM_INT)  ? 1 : 0;
-    if (strcmp(fn, "float")    == 0) return (d && d->tag == TERM_FLOAT) ? 1 : 0;
-    if (strcmp(fn, "number")   == 0) return (d && (d->tag == TERM_INT || d->tag == TERM_FLOAT)) ? 1 : 0;
-    if (strcmp(fn, "atomic")   == 0) return (d && (d->tag == TERM_ATOM || d->tag == TERM_INT || d->tag == TERM_FLOAT)) ? 1 : 0;
-    if (strcmp(fn, "compound") == 0) return (d && d->tag == TERM_COMPOUND) ? 1 : 0;
-    if (strcmp(fn, "callable") == 0) return (d && (d->tag == TERM_ATOM || d->tag == TERM_COMPOUND)) ? 1 : 0;
-    if (strcmp(fn, "ground")   == 0) return resolve_term_is_ground(d) ? 1 : 0;
-    if (strcmp(fn, "is_list")  == 0) return resolve_term_is_proper_list(d) ? 1 : 0;
-    return 0;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_type_test_term(const char *fn, void *t0) {
-    return type_test_common(fn, (Term *)t0);
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_is_cell_int(void *lhs_cell, long val) {
     extern pl_trail_t g_pl_trail;
@@ -349,14 +302,6 @@ bind:;
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_compound_build_n(const char *functor_name, int arity, void *args_ptr) {
-    Term **args_in = (Term **)args_ptr;
-    Term **args = (Term **)rt_ws_alloc(arity * sizeof(Term *));
-    for (int i = 0; i < arity; i++) args[i] = args_in[i];
-    int fid = prolog_atom_intern(functor_name ? functor_name : "");
-    return term_new_compound(fid, arity, args);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static Term *rt_cmp_cell_to_term_shared(pl_cell_t *c, pl_cell_t **vaddr, Term **vterm, int *vn, int cap) {
     while (c && (int)c->v == DT_N && c->slen == 2 && c->p && ((VCELL_t *)c->p)->cellp) c = (pl_cell_t *)((VCELL_t *)c->p)->cellp;
     pl_cell_t *d = pl_deref(c);
@@ -407,57 +352,6 @@ int rt_term_cmp_terms(const char *op, void *t0, void *t1) {
     if (strcmp(op, "@=<")  == 0) return (c <= 0) ? 1 : 0;
     if (strcmp(op, "@>=")  == 0) return (c >= 0) ? 1 : 0;
     return 0;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int univ_common(Term *t0, Term *t1) {
-    extern int ATOM_DOT;
-    extern Trail g_resolve_trail;
-    int mark = trail_mark(&g_resolve_trail);
-    Term *d0 = t0 ? term_deref(t0) : NULL;
-    if (d0 && d0->tag != TERM_VAR) {
-        Term *lst;
-        if (d0->tag == TERM_COMPOUND) {
-            lst = term_new_atom(prolog_atom_intern("[]"));
-            for (int i = d0->compound.arity - 1; i >= 0; i--) {
-                Term **c = (Term **)rt_ws_alloc(2 * sizeof(Term *));
-                c[0] = d0->compound.args[i]; c[1] = lst;
-                lst = term_new_compound(ATOM_DOT, 2, c);
-            }
-            Term **c = (Term **)rt_ws_alloc(2 * sizeof(Term *));
-            c[0] = term_new_atom(d0->compound.functor); c[1] = lst;
-            lst = term_new_compound(ATOM_DOT, 2, c);
-        } else {
-            Term **c = (Term **)rt_ws_alloc(2 * sizeof(Term *));
-            c[0] = d0; c[1] = term_new_atom(prolog_atom_intern("[]"));
-            lst = term_new_compound(ATOM_DOT, 2, c);
-        }
-        if (!unify(t1, lst, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
-        return 1;
-    }
-    Term *ld = t1 ? term_deref(t1) : NULL;
-    Term *elems[64]; int ne = 0;
-    Term *cur = ld;
-    while (cur && cur->tag == TERM_COMPOUND && cur->compound.functor == ATOM_DOT && cur->compound.arity == 2) {
-        if (ne >= 64) break;
-        elems[ne++] = term_deref(cur->compound.args[0]);
-        cur = term_deref(cur->compound.args[1]);
-    }
-    if (ne == 0) { trail_unwind(&g_resolve_trail, mark); return 0; }
-    Term *built;
-    if (ne == 1) { built = elems[0]; }
-    else {
-        Term *h = elems[0];
-        if (!h || h->tag != TERM_ATOM) { trail_unwind(&g_resolve_trail, mark); return 0; }
-        Term **args = (Term **)rt_ws_alloc((size_t)(ne - 1) * sizeof(Term *));
-        for (int i = 1; i < ne; i++) args[i - 1] = elems[i];
-        built = term_new_compound(h->atom_id, ne - 1, args);
-    }
-    if (!unify(t0, built, &g_resolve_trail)) { trail_unwind(&g_resolve_trail, mark); return 0; }
-    return 1;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_univ_term_term(void *t0, void *t1) {
-    return univ_common((Term *)t0, (Term *)t1);
 }
 static long g_pl_yield_seq = 1;
 typedef struct { Term **callee_env; Term **saved_env; int trail_mark; int nslots;

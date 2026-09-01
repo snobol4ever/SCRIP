@@ -20,14 +20,11 @@ extern int  rt_is_cell_lit(long lval, const char *op, int lk, void *larg, double
 extern int  rt_arith_cmp(const char *op, int k0, long i0, const char *s0, int k1, long i1, const char *s1);
 extern int  rt_term_cmp(const char *op, int k0, long i0, const char *s0, int k1, long i1, const char *s1);
 extern int  rt_type_test(const char *fn, int k0, long i0, const char *s0);
-extern int  rt_type_test_term(const char *fn, void *t0);
 extern void *rt_node_to_term(int kind, long ival, const char *sval, double dval);
-extern void *rt_compound_build_n(const char *functor_name, int arity, void *args_ptr);
 extern int  rt_functor_term(void *t0, int k1, long i1, const char *s1, int k2, long i2, const char *s2);
 extern int  rt_arg_term(int k0, long i0, const char *s0, void *t1, int k2, long i2, const char *s2);
 extern int  rt_univ_term(void *t0, int k1, long i1, const char *s1);
 extern int  rt_univ_term_list(int k0, long i0, const char *s0, void *t1);
-extern int  rt_univ_term_term(void *t0, void *t1);
 extern int  rt_functor(int k0, long i0, const char *s0, int k1, long i1, const char *s1, int k2, long i2, const char *s2);
 extern int  rt_arg(int k0, long i0, const char *s0, int k1, long i1, const char *s1, int k2, long i2, const char *s2);
 extern int  rt_univ(int k0, long i0, const char *s0, int k1, long i1, const char *s1);

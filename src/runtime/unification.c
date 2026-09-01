@@ -373,58 +373,107 @@ static int meta_solve(meta_fr *f, Term **E);
 static int meta_redo(meta_fr *f, Term **E);
 static meta_root *g_meta_compat = (meta_root *)0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_atom_id_of(pl_cell_t *d)
+{
+    if ((int)d->v == DT_A) return (int)d->i;
+    if ((int)d->v == DT_S) { extern int prolog_atom_intern(const char *); return prolog_atom_intern(d->s ? d->s : ""); }
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_is_atomlike(pl_cell_t *d) { return (int)d->v == DT_A || (int)d->v == DT_S; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_cell_is_ground(pl_cell_t *c)
+{
+    pl_cell_t *d = c ? pl_deref(c) : (pl_cell_t *)0;
+    if (!d || pl_cell_unbound(d)) return 0;
+    if ((int)d->v == DT_PLREF) {
+        int ar = (int)(d->slen & 0xFFFFu); pl_cell_t *aa = (pl_cell_t *)d->p;
+        if (ar > 0 && !aa) return 0;
+        for (int i = 0; i < ar; i++) if (!plc_cell_is_ground(&aa[i])) return 0;
+    }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_cell_is_proper_list(pl_cell_t *c)
+{
+    extern int ATOM_DOT, ATOM_NIL;
+    pl_cell_t *d = c ? pl_deref(c) : (pl_cell_t *)0;
+    while (d) {
+        if (plc_is_atomlike(d) && plc_atom_id_of(d) == ATOM_NIL) return 1;
+        if ((int)d->v == DT_PLREF && (int)(d->slen >> 16) == ATOM_DOT && (int)(d->slen & 0xFFFFu) == 2 && d->p) { d = pl_deref(&((pl_cell_t *)d->p)[1]); continue; }
+        return 0;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_type_test_cell(void *cell_term, const char *fn)
 {
-    extern int rt_type_test_term(const char *fn, void *t0);
-    return rt_type_test_term(fn, pl_cell_to_term((pl_cell_t *)cell_term));
+    pl_cell_t *d = cell_term ? pl_deref((pl_cell_t *)cell_term) : (pl_cell_t *)0;
+    int isvar = (!d || pl_cell_unbound(d));
+    int isatom = (d && !isvar && plc_is_atomlike(d));
+    int isint = (d && !isvar && (int)d->v == DT_I);
+    int isfloat = (d && !isvar && (int)d->v == DT_R);
+    int iscomp = (d && !isvar && (int)d->v == DT_PLREF);
+    if (!fn) return 0;
+    if (strcmp(fn, "var")      == 0) return  isvar ? 1 : 0;
+    if (strcmp(fn, "nonvar")   == 0) return !isvar ? 1 : 0;
+    if (strcmp(fn, "atom")     == 0) return isatom ? 1 : 0;
+    if (strcmp(fn, "integer")  == 0) return isint ? 1 : 0;
+    if (strcmp(fn, "float")    == 0) return isfloat ? 1 : 0;
+    if (strcmp(fn, "number")   == 0) return (isint || isfloat) ? 1 : 0;
+    if (strcmp(fn, "atomic")   == 0) return (isatom || isint || isfloat) ? 1 : 0;
+    if (strcmp(fn, "compound") == 0) return iscomp ? 1 : 0;
+    if (strcmp(fn, "callable") == 0) return (isatom || iscomp) ? 1 : 0;
+    if (strcmp(fn, "ground")   == 0) return plc_cell_is_ground((pl_cell_t *)cell_term) ? 1 : 0;
+    if (strcmp(fn, "is_list")  == 0) return plc_cell_is_proper_list((pl_cell_t *)cell_term) ? 1 : 0;
+    return 0;
 }
 int g_pl_functor_slot_ctr = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_functor_cell(void *t0_cell, void *name_cell, void *arity_cell)
 {
-    extern int rt_functor_term(void *t0, int k1, long i1, const char *s1, int k2, long i2, const char *s2);
     extern pl_trail_t g_pl_trail;
-    Term *t0 = pl_cell_to_term((pl_cell_t *)t0_cell);
-    Term *t1 = pl_cell_to_term((pl_cell_t *)name_cell);
+    pl_cell_t *d0 = t0_cell ? pl_deref((pl_cell_t *)t0_cell) : (pl_cell_t *)0;
+    pl_cell_t *d1 = name_cell ? pl_deref((pl_cell_t *)name_cell) : (pl_cell_t *)0;
     int mark = pl_trail_mark(&g_pl_trail);
-    Term *d0 = t0;
-    if (d0 && d0->tag != TERM_VAR) {
-        Term *nameT, *arityT;
-        if (d0->tag == TERM_COMPOUND) { nameT = term_new_atom(d0->compound.functor); arityT = term_new_int(d0->compound.arity); }
-        else if (d0->tag == TERM_ATOM) { nameT = term_new_atom(d0->atom_id); arityT = term_new_int(0); }
-        else if (d0->tag == TERM_INT) { nameT = term_new_int(d0->ival); arityT = term_new_int(0); }
-        else if (d0->tag == TERM_FLOAT) { nameT = term_new_float(d0->fval); arityT = term_new_int(0); }
+    if (d0 && !pl_cell_unbound(d0)) {
+        pl_cell_t nameV, arityV;
+        if ((int)d0->v == DT_PLREF)   { nameV = pl_make_atom((int)(d0->slen >> 16)); arityV = pl_make_int((int64_t)(d0->slen & 0xFFFFu)); }
+        else if (plc_is_atomlike(d0)) { nameV = pl_make_atom(plc_atom_id_of(d0)); arityV = pl_make_int(0); }
+        else if ((int)d0->v == DT_I)  { nameV = pl_make_int(d0->i); arityV = pl_make_int(0); }
+        else if ((int)d0->v == DT_R)  { nameV = pl_make_float(d0->r); arityV = pl_make_int(0); }
         else { pl_trail_unwind(&g_pl_trail, mark); return 0; }
-        if (!pl_unify_term_into_cell((pl_cell_t *)name_cell, nameT, &g_pl_trail) ||
-            !pl_unify_term_into_cell((pl_cell_t *)arity_cell, arityT, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+        if (!pl_unify((pl_cell_t *)name_cell, &nameV, &g_pl_trail) ||
+            !pl_unify((pl_cell_t *)arity_cell, &arityV, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
         return 1;
     }
-    Term *t2 = pl_cell_to_term((pl_cell_t *)arity_cell);
-    if (!t2 || t2->tag != TERM_INT) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
-    long ar = t2->ival;
-    Term *built;
-    if (ar == 0) { built = t1 ? t1 : term_new_atom(prolog_atom_intern("[]")); }
+    pl_cell_t *d2 = arity_cell ? pl_deref((pl_cell_t *)arity_cell) : (pl_cell_t *)0;
+    if (!d2 || (int)d2->v != DT_I) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    long ar = (long)d2->i;
+    pl_cell_t built;
+    if (ar == 0) { built = d1 ? *d1 : pl_make_atom(prolog_atom_intern("[]")); }
     else {
-        if (!t1 || t1->tag != TERM_ATOM) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+        if (!d1 || !plc_is_atomlike(d1)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
         extern int g_pl_functor_slot_ctr;
-        Term **args = (Term **)rt_ws_alloc((size_t)ar * sizeof(Term *));
-        for (long i = 0; i < ar; i++) args[i] = term_new_var(g_pl_functor_slot_ctr++);
-        built = term_new_compound(t1->atom_id, (int)ar, args);
+        pl_cell_t *args = (pl_cell_t *)PL_CELL_ALLOC((size_t)ar * sizeof(pl_cell_t));
+        for (long i = 0; i < ar; i++) pl_init_var(&args[i], g_pl_functor_slot_ctr++);
+        built = pl_make_compound(plc_atom_id_of(d1), (int)ar, args);
     }
-    if (!pl_unify_term_into_cell((pl_cell_t *)t0_cell, built, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    if (!pl_unify((pl_cell_t *)t0_cell, &built, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_arg_cell(void *n_cell, void *t_cell, void *arg_cell)
 {
     extern pl_trail_t g_pl_trail;
-    Term *tN = pl_cell_to_term((pl_cell_t *)n_cell);
-    Term *tT = pl_cell_to_term((pl_cell_t *)t_cell);
+    pl_cell_t *dN = n_cell ? pl_deref((pl_cell_t *)n_cell) : (pl_cell_t *)0;
+    pl_cell_t *dT = t_cell ? pl_deref((pl_cell_t *)t_cell) : (pl_cell_t *)0;
     int mark = pl_trail_mark(&g_pl_trail);
-    if (!tN || tN->tag != TERM_INT || !tT || tT->tag != TERM_COMPOUND) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
-    long n = tN->ival;
-    if (n < 1 || n > tT->compound.arity) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
-    if (!pl_unify_term_into_cell((pl_cell_t *)arg_cell, tT->compound.args[n - 1], &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    if (!dN || (int)dN->v != DT_I || !dT || (int)dT->v != DT_PLREF || !dT->p) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    long n = (long)dN->i;
+    if (n < 1 || n > (long)(dT->slen & 0xFFFFu)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    if (!pl_unify((pl_cell_t *)arg_cell, &((pl_cell_t *)dT->p)[n - 1], &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -432,76 +481,77 @@ int rt_pl_univ_cell(void *t0_cell, void *list_cell)
 {
     extern int ATOM_DOT;
     extern pl_trail_t g_pl_trail;
-    Term *d0 = pl_cell_to_term((pl_cell_t *)t0_cell);
+    pl_cell_t *d0 = t0_cell ? pl_deref((pl_cell_t *)t0_cell) : (pl_cell_t *)0;
     int mark = pl_trail_mark(&g_pl_trail);
-    if (d0 && d0->tag != TERM_VAR) {
-        Term *lst;
-        if (d0->tag == TERM_COMPOUND) {
-            lst = term_new_atom(prolog_atom_intern("[]"));
-            for (int i = d0->compound.arity - 1; i >= 0; i--) {
-                Term **c = (Term **)rt_ws_alloc(2 * sizeof(Term *));
-                c[0] = d0->compound.args[i]; c[1] = lst;
-                lst = term_new_compound(ATOM_DOT, 2, c);
+    if (d0 && !pl_cell_unbound(d0)) {
+        pl_cell_t lst = pl_make_atom(prolog_atom_intern("[]"));
+        if ((int)d0->v == DT_PLREF) {
+            int ar = (int)(d0->slen & 0xFFFFu); pl_cell_t *aa = (pl_cell_t *)d0->p;
+            for (int i = ar - 1; i >= 0; i--) {
+                pl_cell_t *c = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t));
+                c[0] = aa[i]; c[1] = lst;
+                lst = pl_make_compound(ATOM_DOT, 2, c);
             }
-            Term **c = (Term **)rt_ws_alloc(2 * sizeof(Term *));
-            c[0] = term_new_atom(d0->compound.functor); c[1] = lst;
-            lst = term_new_compound(ATOM_DOT, 2, c);
+            pl_cell_t *c = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t));
+            c[0] = pl_make_atom((int)(d0->slen >> 16)); c[1] = lst;
+            lst = pl_make_compound(ATOM_DOT, 2, c);
         } else {
-            Term **c = (Term **)rt_ws_alloc(2 * sizeof(Term *));
-            c[0] = d0; c[1] = term_new_atom(prolog_atom_intern("[]"));
-            lst = term_new_compound(ATOM_DOT, 2, c);
+            pl_cell_t *c = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t));
+            c[0] = *d0; c[1] = lst;
+            lst = pl_make_compound(ATOM_DOT, 2, c);
         }
-        if (!pl_unify_term_into_cell((pl_cell_t *)list_cell, lst, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+        if (!pl_unify((pl_cell_t *)list_cell, &lst, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
         return 1;
     }
-    Term *ld = pl_cell_to_term((pl_cell_t *)list_cell);
-    Term *elems[64]; int ne = 0;
-    Term *cur = ld;
-    while (cur && cur->tag == TERM_COMPOUND && cur->compound.functor == ATOM_DOT && cur->compound.arity == 2) {
+    pl_cell_t *cur = list_cell ? pl_deref((pl_cell_t *)list_cell) : (pl_cell_t *)0;
+    pl_cell_t *elems[64]; int ne = 0;
+    while (cur && (int)cur->v == DT_PLREF && (int)(cur->slen >> 16) == ATOM_DOT && (int)(cur->slen & 0xFFFFu) == 2 && cur->p) {
         if (ne >= 64) break;
-        elems[ne++] = term_deref(cur->compound.args[0]);
-        cur = term_deref(cur->compound.args[1]);
+        elems[ne++] = pl_deref(&((pl_cell_t *)cur->p)[0]);
+        cur = pl_deref(&((pl_cell_t *)cur->p)[1]);
     }
     if (ne == 0) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
-    Term *built;
-    if (ne == 1) { built = elems[0]; }
+    pl_cell_t built;
+    if (ne == 1) { built = *elems[0]; }
     else {
-        Term *h = elems[0];
-        if (!h || h->tag != TERM_ATOM) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
-        Term **args = (Term **)rt_ws_alloc((size_t)(ne - 1) * sizeof(Term *));
-        for (int i = 1; i < ne; i++) args[i - 1] = elems[i];
-        built = term_new_compound(h->atom_id, ne - 1, args);
+        pl_cell_t *h = elems[0];
+        if (!h || !plc_is_atomlike(h)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+        pl_cell_t *args = (pl_cell_t *)PL_CELL_ALLOC((size_t)(ne - 1) * sizeof(pl_cell_t));
+        for (int i = 1; i < ne; i++) args[i - 1] = *elems[i];
+        built = pl_make_compound(plc_atom_id_of(h), ne - 1, args);
     }
-    if (!pl_unify_term_into_cell((pl_cell_t *)t0_cell, built, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    if (!pl_unify((pl_cell_t *)t0_cell, &built, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_succ_plus_cell(long arity, void *a_cell, void *b_cell, void *c_cell)
 {
     extern pl_trail_t g_pl_trail;
-    Term *da = a_cell ? pl_cell_to_term((pl_cell_t *)a_cell) : (Term *)0;
-    Term *db = b_cell ? pl_cell_to_term((pl_cell_t *)b_cell) : (Term *)0;
-    Term *dc = c_cell ? pl_cell_to_term((pl_cell_t *)c_cell) : (Term *)0;
+    pl_cell_t *da = a_cell ? pl_deref((pl_cell_t *)a_cell) : (pl_cell_t *)0;
+    pl_cell_t *db = b_cell ? pl_deref((pl_cell_t *)b_cell) : (pl_cell_t *)0;
+    pl_cell_t *dc = c_cell ? pl_deref((pl_cell_t *)c_cell) : (pl_cell_t *)0;
     int mark = pl_trail_mark(&g_pl_trail);
     if (arity == 2) {
-        if (da && da->tag == TERM_INT) {
-            if (da->ival < 0) return 0;
-            if (!pl_unify_term_into_cell((pl_cell_t *)b_cell, term_new_int(da->ival + 1), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+        if (da && (int)da->v == DT_I) {
+            if (da->i < 0) return 0;
+            pl_cell_t v = pl_make_int(da->i + 1);
+            if (!pl_unify((pl_cell_t *)b_cell, &v, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
             return 1;
         }
-        if (db && db->tag == TERM_INT) {
-            if (db->ival <= 0) return 0;
-            if (!pl_unify_term_into_cell((pl_cell_t *)a_cell, term_new_int(db->ival - 1), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+        if (db && (int)db->v == DT_I) {
+            if (db->i <= 0) return 0;
+            pl_cell_t v = pl_make_int(db->i - 1);
+            if (!pl_unify((pl_cell_t *)a_cell, &v, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
             return 1;
         }
         return 0;
     }
     if (arity == 3) {
-        int va = (da && da->tag == TERM_INT), vb = (db && db->tag == TERM_INT), vc = (dc && dc->tag == TERM_INT);
-        int ok = 0;
-        if (va && vb)      ok = pl_unify_term_into_cell((pl_cell_t *)c_cell, term_new_int(da->ival + db->ival), &g_pl_trail);
-        else if (va && vc) ok = pl_unify_term_into_cell((pl_cell_t *)b_cell, term_new_int(dc->ival - da->ival), &g_pl_trail);
-        else if (vb && vc) ok = pl_unify_term_into_cell((pl_cell_t *)a_cell, term_new_int(dc->ival - db->ival), &g_pl_trail);
+        int va = (da && (int)da->v == DT_I), vb = (db && (int)db->v == DT_I), vc = (dc && (int)dc->v == DT_I);
+        int ok = 0; pl_cell_t v;
+        if (va && vb)      { v = pl_make_int(da->i + db->i); ok = pl_unify((pl_cell_t *)c_cell, &v, &g_pl_trail); }
+        else if (va && vc) { v = pl_make_int(dc->i - da->i); ok = pl_unify((pl_cell_t *)b_cell, &v, &g_pl_trail); }
+        else if (vb && vc) { v = pl_make_int(dc->i - db->i); ok = pl_unify((pl_cell_t *)a_cell, &v, &g_pl_trail); }
         if (!ok) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
         return 1;
     }

@@ -28,36 +28,3 @@ void trail_unwind(Trail *t, int mark) {
         bound->var_slot = saved_slot;
     }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void bind(Term *var, Term *val, Trail *trail) {
-    if (var->var_slot != -1)
-        trail_push(trail, var);
-    var->ref = val;
-    var->tag = TERM_REF;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int unify(Term *t1, Term *t2, Trail *trail) {
-    t1 = term_deref(t1);
-    t2 = term_deref(t2);
-    if (t1 == t2) return 1;
-    if (t1 && t1->tag == TERM_VAR) { bind(t1, t2, trail); return 1; }
-    if (t2 && t2->tag == TERM_VAR) { bind(t2, t1, trail); return 1; }
-    if (!t1 || !t2) return 0;
-    if (t1->tag == TERM_ATOM && t2->tag == TERM_ATOM)
-        return t1->atom_id == t2->atom_id;
-    if (t1->tag == TERM_INT && t2->tag == TERM_INT)
-        return t1->ival == t2->ival;
-    if (t1->tag == TERM_FLOAT && t2->tag == TERM_FLOAT)
-        return t1->fval == t2->fval;
-    if (t1->tag == TERM_COMPOUND && t2->tag == TERM_COMPOUND) {
-        if (t1->compound.functor != t2->compound.functor) return 0;
-        if (t1->compound.arity   != t2->compound.arity  ) return 0;
-        int arity = t1->compound.arity;
-        for (int i = 0; i < arity; i++) {
-            if (!unify(t1->compound.args[i], t2->compound.args[i], trail))
-                return 0;
-        }
-        return 1;
-    }
-    return 0;
-}

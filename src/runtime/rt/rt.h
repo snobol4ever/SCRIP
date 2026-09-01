@@ -193,12 +193,10 @@ int rt_aggregate_all_term(void *tmpl, void *goal, int kres, long ires, const cha
 int rt_atom_chars_codes(int as_codes, int k0, long i0, const char *s0, int k1, long i1, const char *s1);
 int rt_atom_chars_codes_term(int as_codes, int k0, long i0, const char *s0, void *t1);
 int rt_type_test(const char *fn, int k0, long i0, const char *s0);
-int rt_type_test_term(const char *fn, void *t0);
 int rt_sort_msort(int do_msort, int k0, long i0, const char *s0, int k1, long i1, const char *s1);
 int rt_sort_msort_term(int do_msort, void *t0, int k1, long i1, const char *s1);
 int rt_term_cmp(const char *op, int k0, long i0, const char *s0, int k1, long i1, const char *s1);
 int rt_arith_cmp(const char *op, int k0, long i0, const char *s0, int k1, long i1, const char *s1);
-void *rt_compound_build_n(const char *functor_name, int arity, void *args_ptr);
 int rt_term_cmp_terms(const char *op, void *t0, void *t1);
 int rt_pl_is_cell_int(void *lhs_cell, long val);
 int rt_pl_is_cell_float(void *lhs_cell, double val);

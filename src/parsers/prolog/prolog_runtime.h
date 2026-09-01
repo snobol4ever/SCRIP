@@ -16,5 +16,4 @@ typedef struct {
     int n_args;
     int trail_mark_slot;
 } EnvLayout;
-int unify(Term *t1, Term *t2, Trail *trail);
 #endif
