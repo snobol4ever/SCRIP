@@ -1389,6 +1389,13 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             if (gt && ((gt->t == TT_QLIT || gt->t == TT_NAME || gt->t == TT_FNC) && gt->v.sval)) {
                 if (pl_init_ngoals_acc < PL_INIT_GOALS_MAX) pl_init_goals_acc[pl_init_ngoals_acc++] = gt;
             }
+        } else if ((subj->t == TT_FNC || subj->t == TT_NAME || subj->t == TT_QLIT) && subj->v.sval) {
+            /* ⭐ row prolog-directive-only-file-fatals-no-main-bb-graph: a BARE `:- Goal.` load directive whose goal is not in prolog_lower.c's callable_with_args allowlist
+               (begin_tests/dynamic/use_module/...) is never wrapped into a pj_dir_<N> helper, so it never became an initialization(...) statement and never reached this accumulator --
+               the file then had no init goals AND no main/0, `clause` stayed NULL, nothing was registered as main, and the driver aborted with "[IBB] FATAL: main BB graph not found"
+               (rc=134, core dump) on a legal program both oracles run fine. A clause is TT_CHOICE here; a directive is TT_FNC/TT_NAME/TT_QLIT, so the two are separable without a name
+               test. Accumulating at the directive's own source position preserves load order alongside the wrapped ones, exactly as the initialization branch above documents. */
+            if (pl_init_ngoals_acc < PL_INIT_GOALS_MAX) pl_init_goals_acc[pl_init_ngoals_acc++] = subj;
         }
     }
     const tree_t *clause = NULL;
@@ -1397,6 +1404,18 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
         if (choice) {
             if (choice->t == TT_CLAUSE) clause = choice;
             else if (choice->t == TT_CHOICE && choice->n >= 1) clause = choice->c[0];
+        }
+        if (!clause) {
+            /* ⭐ row prolog-directive-only-file-fatals-no-main-bb-graph, the DOMINANT arm (ceo measured ~139 of 371 master-suite entries, 37%, are this one class): a CLAUSE-ONLY file
+               -- no directives, no main/0 -- left `clause` NULL, so nothing was ever registered as main and the driver ABORTED (rc=134 + core dump) rather than doing what consulting
+               the file does. Reference behaviour, measured on swipl for `foo(X,Y) :- X @>= Y.`: rc=0 with NO output. main/0 is SANCTIONED as scrip's entry-point convention
+               (ARCH-LANGUAGES.md § ENTRY-POINT CONVENTION) but it is a DEFAULT, not a requirement; synthesising `main :- true.` here makes the default hold for files that never asked
+               for one, and keeps the driver's "main BB graph not found" a genuine internal-invariant violation (scrip.c:1817's abort()-vs-return ruling) instead of a reachable state a
+               user's legal program can drive it into. */
+            tree_t *cl = ast_node_new(TT_CLAUSE);
+            cl->v.sval = (char *) "$empty_main/0"; cl->v.dval = 0.0;
+            ast_push(cl, pl_synth_qlit("true"));
+            clause = cl;
         }
     } else {
         /* Each accumulated goal is resolved and INLINED as its target clause's own body -- never called
@@ -1417,7 +1436,12 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
         const tree_t *body = NULL;
         for (int i = pl_init_ngoals_acc - 1; i >= 0; i--) {
             const tree_t *b = pl_init_resolve_body(pl_init_goals_acc[i]);
-            if (!b) continue;
+            /* ⛔ WAS `if (!b) continue;` -- A SILENT DROP, and the second half of the directive-only fatal. pl_init_resolve_body() resolves a goal NAME to a user clause's body, which
+               is right for `initialization(main)` but returns NULL for a bare directive like `write(hello)` (a builtin owns no clause row) and for `initialization(undefined_pred)`.
+               Dropping it lost the only goal in a directive-only file. A goal that resolves to no clause body IS its own body, so it is used verbatim; an unresolvable one then fails
+               at run time into the warn-and-continue arm below (warning names the goal, exit 0) instead of vanishing at compile time, which is what both oracles do with an unknown
+               procedure. */
+            if (!b) b = pl_init_goals_acc[i];
             char msg[256]; char *nm = pl_init_goal_name(pl_init_goals_acc[i]);
             snprintf(msg, sizeof msg, "Warning: initialization goal failed: %s\n", nm ? nm : "?");
             free(nm);
