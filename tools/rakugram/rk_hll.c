@@ -100,3 +100,12 @@ int rk_obs(RkCur *c)          { (void)c; return 0; }
 int rk_malformed(RkCur *c)    { (void)c; return 0; }
 int rk_missing(RkCur *c)      { (void)c; return 0; }
 int rk_NYI(RkCur *c)          { (void)c; return 0; }
+/* Braid / cursor bookkeeping (HLL::Grammar methods): they set parse STATE -- the language braid, attached pod,
+ * meta-op admissibility, deferred sorrows -- and consume no input; for MATCHING each is a no-op. can_meta is the
+ * one that could gate (it decides whether an operator admits a meta-op); it is admitted here as always-yes and
+ * recorded as an over-accept, never an over-reject. */
+int rk_set_braid_from(RkCur *c)     { (void)c; return 1; }
+int rk_attach_leading_docs(RkCur *c){ (void)c; return 1; }
+int rk_can_meta(RkCur *c)           { (void)c; return 1; }
+int rk_cry_sorrows(RkCur *c)        { (void)c; return 1; }
+int rk_explain_mystery(RkCur *c)    { (void)c; return 1; }

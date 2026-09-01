@@ -8,4 +8,6 @@ int rk_decint(RkCur *); int rk_hexint(RkCur *); int rk_octint(RkCur *); int rk_b
 int rk_before(RkCur *, RkRule); int rk_after(RkCur *, RkRule);
 int rk_panic(RkCur *); int rk_typed_panic(RkCur *); int rk_sorry(RkCur *); int rk_worry(RkCur *);
 int rk_obs(RkCur *); int rk_malformed(RkCur *); int rk_missing(RkCur *); int rk_NYI(RkCur *);
+/* braid / cursor bookkeeping: NQP HLL::Grammar methods that set parse-state and consume nothing -- no-ops for matching */
+int rk_set_braid_from(RkCur *); int rk_attach_leading_docs(RkCur *); int rk_can_meta(RkCur *); int rk_cry_sorrows(RkCur *); int rk_explain_mystery(RkCur *);
 #endif
