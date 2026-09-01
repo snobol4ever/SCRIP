@@ -121,6 +121,10 @@ def scan_decls(src):
                 disagree += 1
         nm = m.group('name') or m.group('pname'); sym = None
         params = (m.group('params') or '').strip()      # `token scoped($*SCOPE) {` -> name 'scoped', params '($*SCOPE)'
+        # ⛔ the DECL regex's `name` alternative wins for `scoped($*SCOPE)` (no space before the brace), so the
+        # parameter list rode the NAME and cname('scoped($*SCOPE)') never matched a call to <scoped('my')>.
+        if not params and '(' in nm and nm.endswith(')'):
+            params = nm[nm.index('('):]; nm = nm[:nm.index('(')]
         sm = re.match(r'([^:]+):sym[<«](.*)[>»]$', nm)
         if sm: nm, sym = sm.group(1), sm.group(2)
         ow = owner_of(ln)
