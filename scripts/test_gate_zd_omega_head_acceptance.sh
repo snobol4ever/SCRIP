@@ -163,8 +163,30 @@ else
     report raku-smoke 1 "$(printf '%s\n' "$out" | grep '^mode-' | tr '\n' ' ')"
 fi
 
-out=$(bash scripts/test_crosscheck_prolog.sh 2>&1); rc=$?
-if [ "$rc" -eq 0 ]; then report prolog-crosscheck 0 "$(printf '%s\n' "$out" | grep '^PASS=')"; else report prolog-crosscheck 1 "$(printf '%s\n' "$out" | grep '^PASS=')"; fi
+# ⭐⭐ RE-PINNED seat15 2026-09-01 UNDER hq_P'S EXPLICIT RULING (reply to ask q-prolog-instruments-were-blind:
+# "test_gate_zd_omega_head_acceptance.sh:166 is MY gate ... re-pin its crosscheck consumption to the CURRENT
+# measured state as a FLOOR WITH THE FAIL-SET BY NAME ... so the gate grades omega-head regressions and not
+# Prolog's pre-existing correctness debt (which is the umbrella's)").
+# ⛔ WHY NOT A BARE rc: this line consumed test_crosscheck_prolog.sh's exit code. That script was BLIND until
+# 2026-09-01 -- it captured --run into both sides and branched on X != X (mode 4 never invoked), read .ref
+# where the corpus stores .expected (oracle never consulted), and pre-skipped crashers -- so it reported
+# PASS=13 FAIL=0 exit 0 and this gate read a manufactured green. Cured, it honestly reports m3 3/15 m4 3/15,
+# and a bare rc would now pin THIS gate permanently red: a criterion that can never say YES, which is as
+# useless as one that can never say NO. See FINDING-2026-09-01-seat15-prolog-both-mode-instruments-were-blind.md.
+# ⭐ THE FLOOR: the twelve stems below are the measured fail-set at SCRIP 3ce7a526 (pristine -O0, corpus
+# ad1fdaa71) -- IDENTICAL for m3 and m4. A stem LEAVING the set is a red (omega-head regression, this gate's
+# business); a stem ENTERING it is a red. The set shrinking is good news that must still be acknowledged by
+# hand, so it reports red until someone re-pins it deliberately -- that is the point of a floor.
+PL_XC_KNOWN="rung11_findall_findall_arith rung11_findall_findall_filter rung14_retract_retract_basic rung14_retract_retract_mixed rung15_abolish_abolish_one_of_two rung15_abolish_abolish_then_reassert rung44_setof_group rung45_reflect_clause_facts rung45_reflect_clause_findall rung50_between_enum rung50_for_alias rung66_current_stream"
+out=$(bash scripts/test_crosscheck_prolog.sh 2>&1)
+xc_got=$(printf '%s\n' "$out" | grep -oE 'm3 FAIL [a-z0-9_]+' | sed 's/m3 FAIL //' | sort | tr '\n' ' ')
+xc_want=$(printf '%s\n' $PL_XC_KNOWN | sort | tr '\n' ' ')
+xc_sum=$(printf '%s\n' "$out" | grep '^PL-CROSSCHECK')
+if [ "$xc_got" = "$xc_want" ]; then
+    report prolog-crosscheck 0 "fail-set matches the pinned floor (12 stems, m3==m4) — $xc_sum"
+else
+    report prolog-crosscheck 1 "FAIL-SET MOVED vs pinned floor — left:[$(comm -23 <(printf '%s\n' $xc_want) <(printf '%s\n' $xc_got) | tr '\n' ' ')] entered:[$(comm -13 <(printf '%s\n' $xc_want) <(printf '%s\n' $xc_got) | tr '\n' ' ')] — $xc_sum"
+fi
 
 out=$(bash scripts/test_smoke_snocone.sh 2>&1); rc=$?
 if [ "$rc" -eq 0 ]; then report snocone-smoke 0 "$(printf '%s\n' "$out" | tail -1)"; else report snocone-smoke 1 "$(printf '%s\n' "$out" | tail -1)"; fi
