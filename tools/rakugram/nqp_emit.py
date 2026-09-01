@@ -20,6 +20,9 @@ from nqp_read import scan_decls, lex_body
 from nqp_ast import P, N, look_operand, lowers
 import nqp_cc
 
+# panic-class diagnostics inside a {…} block: these ABORT in NQP; here they fail the arm (see Emit.node).
+DIAG_FAIL = re.compile(r'\b(panic|typed_panic|obs|malformed|missing|NYI|fail-terminator|die)\b')   # fail-terminator: unterminated quote (quibble/sibble/tribble); nqp::die
+
 _CC_TABLES = {}          # items-tuple -> C table name, so identical classes share one table
 def cc_table(items):
     key = tuple(items)
@@ -128,6 +131,28 @@ class Emit:
             self.w(ind, f'  c->pos = {v}_save; if ({"!" if pos else ""}{v}_m) goto fail; }}')
         elif k == 'EMPTY':
             self.w(ind, '/* empty */')
+        elif k == 'MY':
+            # A parse-time local. For MATCHING it is a no-op: it consumes nothing and cannot fail. Its
+            # VALUE is un-modelled, so every READ of it still refuses (look_operand for <?{…}>, VAR for
+            # $*X, GOAL for <.stopper>) -- see the SEMANTIC comment in nqp_ast.py.
+            self.w(ind, f'/* :my {self.short(n.v)} -- parse-time local: no-op for matching; reads of it refuse */')
+        elif k == 'CODE':
+            t = str(n.v)
+            if DIAG_FAIL.search(t):
+                # panic-class diagnostics: rung 6 makes <.panic> FAIL THE ARM (rk_panic returns 0). The
+                # code-block spelling gets the same semantics so the two cannot disagree. ⚠ Known
+                # divergence, recorded on the baton: NQP's panic ABORTS the parse; failing the arm can let
+                # an enclosing alternation accept a program Rakudo rejects. Over-accept only; never
+                # over-reject.
+                self.w(ind, f'/* {{code}} panic-class {self.short(t)} -- arm fails (rung-6 stub semantics) */ goto fail;')
+            else:
+                self.w(ind, f'/* {{code}} {self.short(t)} -- action block: no-op for matching */')
+        elif k == 'MOD':
+            if str(n.v).lstrip().startswith(':dba'):
+                self.w(ind, f'/* {self.short(n.v)} -- diagnostic label, no-op */')
+            else:
+                self.unimpl = True
+                self.w(ind, f'/* UNIMPLEMENTED MOD {self.short(n.v)} -- :i/:s change what matches; not modelled */ return RK_UNIMPL;')
         else:
             self.unimpl = True
             self.w(ind, f'/* UNIMPLEMENTED {k} {str(n.v)[:40]!r} */ return RK_UNIMPL;')
@@ -146,6 +171,11 @@ class Emit:
         self.w(ind, f'}} while (0);')
         self.w(ind, f'{v}_f: ; {on_fail or ""}')
         self.w(ind, f'{v}_d: ;')
+
+    def short(self, v):
+        """One-line, comment-safe excerpt: no newlines, no `*/`, at most 44 chars."""
+        t = re.sub(r'\s+', ' ', str(v)).replace('*/', '* /').strip()
+        return repr(t[:44] + ('…' if len(t) > 44 else ''))
 
     def cstr(self, s):
         out = []

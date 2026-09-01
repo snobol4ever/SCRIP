@@ -8,7 +8,7 @@ patching of a `.y` was an unbounded search measured at ~3 files of PARSE-FAIL pe
 
 **Rung 1: READER + CENSUS** (`nqp_read.py`) · **Rung 2: AST + TRANSLATABILITY LADDER** (`nqp_ast.py`)
 · **Rung 3: C EMITTER** (`nqp_emit.py`) · **Rung 4: PRECEDENCE / Pratt parser** (`nqp_prec.py`),
-gated by `scripts/test_gate_rakugram_precedence.sh` · **Rung 5: REACHABILITY scoping** (`nqp_reach.py`) · **Rung 6: the hand-written HLL::Grammar layer** (`rk_hll.c`) · **Rung 7: character classes, escapes, anchors and lookahead are REAL** (`nqp_cc.py`, `rk_cc_test.c`).
+gated by `scripts/test_gate_rakugram_precedence.sh` · **Rung 5: REACHABILITY scoping** (`nqp_reach.py`) · **Rung 6: the hand-written HLL::Grammar layer** (`rk_hll.c`) · **Rung 7: character classes, escapes, anchors and lookahead are REAL** (`nqp_cc.py`, `rk_cc_test.c`) · **Rung 8: `:my`/`{code}`/`:dba` no-ops with the consultation guard; `~` rewritten**.
 
 ```bash
 python3 tools/rakugram/nqp_read.py [path/to/Grammar.nqp]   # rung 1: census of constructs
@@ -18,6 +18,34 @@ gcc -c -O0 -Wall -Wextra out.c                             # rung 3 acceptance: 
 python3 tools/rakugram/nqp_prec.py [Grammar.nqp] [out.c] --emit   # rung 4: the operator table
 bash scripts/test_gate_rakugram_precedence.sh              # rung 4 acceptance (refuses rc=2 if unmeasurable)
 ```
+
+## Rung 8 status — `:my`, `{ code }`, `:dba` are matching no-ops; `~` is rewritten; THE GUARD HOLDS (hq_C 2026-09-01)
+
+A `:my $*X := …` declaration and a `{ … }` action block **consume no input and cannot fail**, so for
+*matching* they are no-ops — but their **value is un-modelled**, so every *read* of a parse-time
+variable (`<?{ $*X }>`, `$*X` interpolation, `<.stopper>`) **must keep refusing** until the variable is
+modelled, and modelling one means implementing every write as well as every read. The gate asserts
+that `<?{ $*IN_DECL }>` still refuses while its declaration is a no-op — that assertion is the
+load-bearing half of this rung. `:dba(…)` is a diagnostic label (no-op); `:i`/`:s` change what
+matches and still refuse. Panic-class code blocks (`panic`, `typed_panic`, `obs`, `malformed`,
+`missing`, `NYI`, `fail-terminator`, `die`) **fail the arm**, matching rung 6's `<.panic>` stub —
+⚠ a known over-accept divergence (NQP's panic aborts the whole parse), recorded, never over-reject.
+The `~` goal operator is rewritten at AST level: `A ~ B C…` ⇒ `A C… B` (45 sites, C is 0–3 atoms;
+its only addition is a missing-closer *message*, not a parse decision).
+
+**Same tree, measured in two steps** (each step's prediction checked before the next): `:my`/code/`:dba`
+alone freed **94 rules, 0 for any other reason, 0 newly refusing** — the baton's "≈ MY/CODE-only rules
+and no more" held exactly. Then `~`: generated **214 → 308 → 322**, refusing **265 → 171 → 157**,
+fully-mechanical **52.0% → 67.3% → 69.1%**, runtime-helper residue 18 → 4 (`SEP`/`CONJ` only).
+**30 of 33 `quote` candidates emit**; `term`, `value`, `number`, `quote`, `identifier` emit.
+
+**What still blocks `comp_unit` → `statementlist` → `statement` (measured, definition-anchored):**
+a lone `$` end-anchor the body lexer does not know (`UNKNOWN:$`); `<!!{ …; 1 }>` — NQP's idiom for
+"run this code, always succeed" — on `statementlist`/`statement`; mixed `|`/`||` at one level on
+`pblock`/`blockoid` (`||` binds looser: `A | B || C` ≡ `(A | B) || C`, the AST currently flattens
+it); and one **real consultation**, `<!{ $*QSIGIL }>` on `termish`, which the guard rightly refuses
+until `$*QSIGIL` is modelled *with its writes*. Refusal histogram now: LOOK 69 · UNSUPPORTED 58 ·
+VAR 11 · MOD 6 · CCLASS 6 · SEP 3 · ALT_MIXED 3 · ESC 1.
 
 ## Rung 7 status — the primitives no longer lie (hq_C 2026-09-01)
 

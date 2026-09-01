@@ -13,6 +13,9 @@
 #                   `a - b` does not lex as the identifier `a-b`, that a leading underscore is not a
 #                   number, and that lookahead does not consume. Each of those misparses plausibly
 #                   and only shows up much later.
+#   6. RUNG 8: :my / {code} / :dba lower as matching no-ops and `A ~ B C` is rewritten to `A C B`;
+#      the gate's load-bearing half is THE GUARD -- a consultation of a parse-time variable
+#      (`<?{ $*IN_DECL }>`) must STILL refuse, or the no-op declaration is a silent wrong answer.
 #   5. LOWERED PRIMITIVES  character classes, backslash escapes, anchors and lookahead operands
 #      are real code (rung 7). Rung 3 shipped them as stubs that answered "matched" for any input,
 #      so this section asserts what each REJECTS -- the only thing a placeholder cannot fake.
@@ -73,6 +76,23 @@ fi
 if grep -q 'rk_look_stub\|rk_cclass(\|rk_esc_s(' "$T/rk_gen.c"; then
     echo "⛔ GATE FAIL: a placeholder primitive is back in the generated parser"; rc=1
 fi
+# ---- rung 8: :my / {code} / :dba are matching no-ops, the ~ goal operator is rewritten, AND THE GUARD HOLDS -----
+# The guard is the assertion that matters: a declaration being a no-op is only sound while every READ of the
+# variable still refuses. If `<?{ $*IN_DECL }>` ever stops refusing without $*IN_DECL being modelled, a rule
+# that consults it will run against a value nobody set -- rung 3's silent-wrong-answer class, one level up.
+python3 "$ROOT/tools/rakugram/nqp_ast.py" --selftest || { echo "⛔ GATE FAIL: goal-operator rewrite disagrees with its selftest"; rc=1; }
+if grep -q "UNIMPLEMENTED LOOK 'pos:?{ \$\*IN_DECL }'" "$T/rk_gen.c"; then
+    echo "  ok   guard: <?{ \$*IN_DECL }> consultation still REFUSES while its :my declaration is a no-op"
+else
+    echo "⛔ GATE FAIL: a parse-time-variable CONSULTATION no longer refuses -- was \$*IN_DECL modelled, writes included? If not, this is a silent wrong answer"; rc=1
+fi
+xb=$(awk '/^static int rk_xblock\(RkCur \*c\) \{$/{p=1} p{print} p&&/^}$/{exit}' "$T/rk_gen.c")
+if [ -n "$xb" ] && ! printf '%s' "$xb" | grep -q UNIMPLEMENTED; then
+    echo "  ok   rk_xblock (:my-only rule) EMITS -- :my is a matching no-op"
+else
+    echo "⛔ GATE FAIL: rk_xblock still refuses (or is missing): the :my no-op did not land"; rc=1
+fi
+if grep -q "UNIMPLEMENTED GOAL" "$T/rk_gen.c"; then echo "⛔ GATE FAIL: a ~ goal operator reached the emitter unrewritten"; rc=1; fi
 if [ "$rc" -eq 0 ]; then
     echo "✅ GATE OK: $nops operators (precedence + associativity + parse-time extension), the"
     echo "   hand-written HLL layer (ws, identifier, int literals, lookahead), and the lowered"

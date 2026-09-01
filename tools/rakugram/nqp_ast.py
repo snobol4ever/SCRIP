@@ -66,17 +66,27 @@ def lowers(n):
     60 of which could never match at all. A shape is only mechanical IF IT LOWERS; asking the same
     functions the emitter asks is the only thing that keeps the two numbers from drifting apart.
     """
+    if n.k == 'MY':     return True            # parse-time local: consumes nothing, cannot fail (rung 8)
+    if n.k == 'CODE':   return True            # action block: cannot fail a match; panic-class fails the arm
+    if n.k == 'MOD':    return str(n.v).lstrip().startswith(':dba')   # a diagnostic LABEL; :i/:s change matching
     if n.k == 'CCLASS': return nqp_cc.parse_cclass(n.v) is not None
     if n.k == 'ESC':    return nqp_cc.parse_esc(n.v) is not None
     if n.k == 'LOOK':   return look_operand(n.v.split(':', 1)[1]) is not None
     return True
 
 
-MECHANICAL = {'SEQ','ALT_LTM','ALT_ORD','CALL','LIT','CCLASS','QUANT','LOOK','CAP','ANCHOR','ESC','WB','EMPTY'}
+MECHANICAL = {'SEQ','ALT_LTM','ALT_ORD','CALL','LIT','CCLASS','QUANT','LOOK','CAP','ANCHOR','ESC','WB','EMPTY',
+              'MY','CODE','MOD'}    # MY/CODE/MOD are mechanical only when lowers() says so (rung 8)
 # Constructs that need a hand-written runtime helper, but whose SHAPE is still mechanical.
 RUNTIME    = {'GOAL','SEP','CONJ'}
 # Constructs that carry NQP semantics we cannot translate by shape alone.
-SEMANTIC   = {'CODE','MY','MOD','VAR','UNSUPPORTED'}
+# ⛔ RUNG 8 MOVED MY/CODE OUT OF HERE, AND THE MOVE IS ONLY SOUND BECAUSE OF THE CONSULTATION GUARD:
+#    a `:my $*X := …` declaration and a `{ $*X := … }` assignment consume no input and cannot fail, so for
+#    MATCHING they are no-ops -- but their VALUE is un-modelled. Every READ of a parse-time variable
+#    (`<?{ $*X }>` via look_operand, `$*X` interpolation via VAR, `<.stopper>`/goal via GOAL-with-dynvar)
+#    MUST keep refusing until the variable is modelled, and modelling one means implementing every WRITE
+#    as well as every read -- a no-op write to a modelled variable is a silent wrong answer.
+SEMANTIC   = {'VAR','UNSUPPORTED'}
 
 class P:
     def __init__(self, toks): self.t, self.i = toks, 0
@@ -114,8 +124,30 @@ class P:
             if k in ('ALT_LTM', 'ALT_ORD') or k == 'CLOSE': break
             a = self.atom()
             if a is not None: kids.append(a)
+        kids = self.goal_rewrite(kids)
         if not kids: return N('EMPTY')
         return kids[0] if len(kids) == 1 else N('SEQ', None, kids)
+
+    def goal_rewrite(self, kids):
+        """`A ~ B C…`  ==>  `A C… B`   (the S05 goal operator; rung 8).
+
+        The opener A is the atom before `~`, the closer B the atom after it, and C is THE REST OF THE
+        SEQUENCE -- measured over Grammar.nqp's 45 sites: C is 0..3 atoms and never a separate group
+        (`'(' ~ ')' <EXPR>` is the common shape). Matching-wise the rewrite is exact: what `~` adds is
+        the diagnostic on a missing closer, which is an error MESSAGE, not a parse decision. A `~` with
+        no opener or no closer is malformed and becomes UNSUPPORTED so the rule refuses.
+        """
+        out, i = [], 0
+        while i < len(kids):
+            k = kids[i]
+            if k.k != 'GOAL':
+                out.append(k); i += 1; continue
+            if not out or i + 1 >= len(kids):
+                out.append(N('UNSUPPORTED', 'goal~ without opener/closer', ok=False)); i += 1; continue
+            A, B, C = out.pop(), kids[i + 1], list(kids[i + 2:])
+            out.append(A); out.extend(self.goal_rewrite(C)); out.append(B)
+            return out
+        return out
 
     def atom(self):
         k, v = self.next()
@@ -136,8 +168,8 @@ class P:
         elif k == 'ANCHOR':   node = N('ANCHOR', v)
         elif k == 'ESC':      node = N('ESC', v)
         elif k == 'WB':       node = N('WB', v)
-        elif k == 'CODE':     node = N('CODE', v[:60], ok=False)
-        elif k == 'MY':       node = N('MY', v[:60], ok=False)
+        elif k == 'CODE':     node = N('CODE', v, ok=False)
+        elif k == 'MY':       node = N('MY', v, ok=False)
         elif k == 'MOD':      node = N('MOD', v, ok=False)
         elif k == 'VAR':      node = N('VAR', v, ok=False)
         elif k == 'GOAL':     node = N('GOAL', v)
@@ -232,5 +264,21 @@ def main(path='/home/resources/rakudo-main/src/Perl6/Grammar.nqp'):
     print("   idiomatic RD reading and is WRONG -- right on most input, silently wrong where a later")
     print("   alternative matches longer.")
 
+SELFTEST = [   # body text -> expected (kind, value) sequence after the goal rewrite
+    ("'(' ~ ')' <expr> <foo>", [('LIT','('), ('CALL','expr'), ('CALL','foo'), ('LIT',')')]),
+    ("'[' ~ ']' <arglist>",    [('LIT','['), ('CALL','arglist'), ('LIT',']')]),
+    ("'{' ~ '}'",              [('LIT','{'), ('LIT','}')]),
+    ("~ ')' <expr>",           [('UNSUPPORTED',None), ('LIT',')'), ('CALL','expr')]),   # no opener: refuses
+]
+
 if __name__ == '__main__':
+    if sys.argv[1:] == ['--selftest']:
+        bad = 0
+        for body, want in SELFTEST:
+            root = P(lex_body(body)).parse()
+            kids = root.kids if root.k == 'SEQ' else [root]
+            got = [(k.k, (k.v if k.k != 'UNSUPPORTED' else None)) for k in kids]
+            ok = got == want; bad += not ok
+            print(f"  {'ok  ' if ok else 'FAIL'} {body!r:28} -> {got}")
+        print('goal rewrite agrees' if not bad else f'{bad} MISMATCH(ES)'); sys.exit(1 if bad else 0)
     main(*sys.argv[1:])

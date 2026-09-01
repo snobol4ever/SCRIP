@@ -270,10 +270,12 @@ static int rk_cc(RkCur *c, int mode, const RkCCItem *it, int n) {
     c->pos += w; return 1;
 }
 
-/* ^^ start-of-line and $$ end-of-line. Zero-width: they constrain, they never consume. */
+/* Anchors, zero-width: ^ start-of-STRING · ^^ start-of-LINE · $ end-of-STRING · $$ end-of-LINE.
+ * ⛔ ^ and ^^ are different anchors (rung 7 conflated them: ^ also held after a newline). */
 static int rk_anchor(RkCur *c, const char *k) {
-    if (k[0] == '^') return c->pos == 0 || c->src[c->pos - 1] == '\n';
-    return c->pos >= c->len || c->src[c->pos] == '\n';
+    int two = k[1] != 0;
+    if (k[0] == '^') return c->pos == 0 || (two && c->src[c->pos - 1] == '\n');
+    return c->pos >= c->len || (two && c->src[c->pos] == '\n');
 }
 
 /* « and » -- left and right word boundary. */

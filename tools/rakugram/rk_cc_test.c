@@ -89,7 +89,12 @@ int main(void) {
       c.pos = 2; ck("$$ holds before a newline", rk_anchor(&c, "$$"), 1);
       c.pos = 1; ck("$$ REJECTS mid-line", rk_anchor(&c, "$$"), 0);
       c.pos = 5; ck("$$ holds at end of input", rk_anchor(&c, "$$"), 1);
-      c.pos = 2; rk_anchor(&c, "$$"); ck("anchor did not consume", c.pos, 2); }
+      c.pos = 2; rk_anchor(&c, "$$"); ck("anchor did not consume", c.pos, 2);
+      /* ^ and $ are STRING anchors; ^^ and $$ are LINE anchors -- rung 7 conflated the pairs */
+      c.pos = 3; ck("^ REJECTS after a newline (string anchor)", rk_anchor(&c, "^"), 0);
+      c.pos = 0; ck("^ holds at position 0",                    rk_anchor(&c, "^"), 1);
+      c.pos = 2; ck("$ REJECTS before a newline (string anchor)", rk_anchor(&c, "$"), 0);
+      c.pos = 5; ck("$ holds at end of input",                  rk_anchor(&c, "$"), 1); }
 
     printf("\nWORD BOUNDARIES:\n");
     { RkCur c = { "ab cd", 0, 5 };
