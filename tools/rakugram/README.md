@@ -8,7 +8,7 @@ patching of a `.y` was an unbounded search measured at ~3 files of PARSE-FAIL pe
 
 **Rung 1: READER + CENSUS** (`nqp_read.py`) · **Rung 2: AST + TRANSLATABILITY LADDER** (`nqp_ast.py`)
 · **Rung 3: C EMITTER** (`nqp_emit.py`) · **Rung 4: PRECEDENCE / Pratt parser** (`nqp_prec.py`),
-gated by `scripts/test_gate_rakugram_precedence.sh` · **Rung 5: REACHABILITY scoping** (`nqp_reach.py`) · **Rung 6: the hand-written HLL::Grammar layer** (`rk_hll.c`).
+gated by `scripts/test_gate_rakugram_precedence.sh` · **Rung 5: REACHABILITY scoping** (`nqp_reach.py`) · **Rung 6: the hand-written HLL::Grammar layer** (`rk_hll.c`) · **Rung 7: character classes, escapes, anchors and lookahead are REAL** (`nqp_cc.py`, `rk_cc_test.c`).
 
 ```bash
 python3 tools/rakugram/nqp_read.py [path/to/Grammar.nqp]   # rung 1: census of constructs
@@ -18,6 +18,36 @@ gcc -c -O0 -Wall -Wextra out.c                             # rung 3 acceptance: 
 python3 tools/rakugram/nqp_prec.py [Grammar.nqp] [out.c] --emit   # rung 4: the operator table
 bash scripts/test_gate_rakugram_precedence.sh              # rung 4 acceptance (refuses rc=2 if unmeasurable)
 ```
+
+## Rung 7 status — the primitives no longer lie (hq_C 2026-09-01)
+
+⛔ **What rung 3 actually shipped for five node kinds was a placeholder that answered "matched" for
+any input**, not a refusal: `rk_cclass` ignored its spec and ate one character (`<[0-9]>` matched
+`z`), `rk_esc_s` likewise (`\d` matched `z`), `rk_anchor` and `rk_wb` returned 1, and `rk_look_stub`
+returned 1 with the lookahead's operand **discarded**. Measured on the generated parser: **181 of 518
+rules** rode on at least one of them, and **60 rules could never match at all** — a negative
+lookahead over an always-true stub is `if (1) goto fail`. All five kinds were counted as MECHANICAL
+by the ladder, so the headline number included them as translated.
+
+⭐ **Why it was invisible:** every one of them passes every *positive* test. A class that matches
+everything matches `'5'`. Only asking what a primitive REJECTS separates it from a stub, which is why
+`rk_cc_test.c` is written as accept/reject pairs.
+
+**The cure (`nqp_cc.py`):** classes, escapes and anchors are lowered **at generation time**, in
+Python, into codepoint-range tables; the emitted C (`rk_cc`, `rk_anchor`, `rk_wb`) is total. A spec
+that will not lower **refuses** (`RK_UNIMPL`) — never approximates. Lookahead now emits its operand
+as a zero-width island; `<?{ code }>`, `<?after …>` and bare `<?>` refuse. `look_operand()` is ONE
+function used by both the emitter and the called-set walk, because a lookahead that resolved to
+`<alpha>` only at emit time produced a phantom `rk_alpha` — an implicit-declaration *warning*, so the
+file compiled and would have linked against nothing.
+
+**Honest numbers, same tree, one change** (`nqp_ast.py` now counts a shape as mechanical only if
+`lowers()` says it does): generated rules **236 → 214**, refusing **243 → 265**, rules on a
+silently-wrong primitive **181 → 0**, rules that can never match **60 → 0**, "fully mechanical"
+**56.7% → 52.0%** (−35 productions). **The number went down because the instrument stopped lying.**
+Three Raku facts the lowering asserts because each misparses plausibly: ranges are `..` not `-`
+(`<[-−]>` is two literals, not a range swallowing every ASCII letter); whitespace inside `<[...]>` is
+insignificant; `<?[…]>`/`<![…]>` are zero-width and must not advance.
 
 ## Rung 6 status — `ws` and the HLL layer exist
 
@@ -99,11 +129,17 @@ is cumulative — the work needed to reach that line:
 
 | reachable by | productions | cumulative |
 |---|---|---|
-| **mechanical today** | 477 | **64.5%** |
+| **mechanical today** | 477 ⚠ | **64.5%** ⚠ |
 | + finishing the reader's residue | 87 | **76.3%** |
 | + complex `:my` (a *local variable* — natural in RD, impossible in bison) | 34 | **80.9%** |
 | + regex modifiers (`:i`, `:s`, `:dba(...)`) | 43 | **86.7%** |
 | **REAL semantic work (`$*W`, `nqp::`, dynamic parse vars)** | **98** | 100% |
+
+⚠ **The "mechanical today" row does not reproduce (hq_C 2026-09-01).** On today's tree the
+shape-only count is **419 (56.7%)**, and once a shape is counted only if it actually lowers
+(rung 7, `nqp_ast.lowers()`) it is **384 (52.0%)**. The 477 was computed before the reader change
+that recovered 56 declarations and before the placeholder primitives were exposed; it is left in the
+table so the correction is visible, not because it is current. Re-run `nqp_ast.py` for the live figure.
 
 ⚠️ **These numbers supersede an earlier 87.9% over 721 productions.** That population was wrong: the
 declaration scanner did not match a parameterized head (`rule statementlist($*statement_level = 0) {`)

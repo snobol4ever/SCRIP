@@ -13,6 +13,9 @@
 #                   `a - b` does not lex as the identifier `a-b`, that a leading underscore is not a
 #                   number, and that lookahead does not consume. Each of those misparses plausibly
 #                   and only shows up much later.
+#   5. LOWERED PRIMITIVES  character classes, backslash escapes, anchors and lookahead operands
+#      are real code (rung 7). Rung 3 shipped them as stubs that answered "matched" for any input,
+#      so this section asserts what each REJECTS -- the only thing a placeholder cannot fake.
 #   4. PARSE-TIME EXTENSION — install a new operator at a precedence BETWEEN two existing levels
 #      while parsing, and see it bind correctly. This is the property that makes Raku non-LALR and
 #      the reason the bison grammar was retired (Lon 2026-08-30); a gate that did not exercise it
@@ -43,8 +46,36 @@ cp "$ROOT/tools/rakugram/rk_hll.c" "$ROOT/tools/rakugram/rk_hll.h" "$ROOT/tools/
 gcc -O0 -Wall -Wextra -o "$T/hll_test" "$T/rk_hll_test.c" "$T/rk_hll.c" -I"$T" 2> "$T/hcc.log" || {
     echo "⛔ GATE FAIL: the hand-written HLL layer does not compile"; sed -n '1,15p' "$T/hcc.log"; exit 1; }
 "$T/hll_test" || rc=1
+# ---- rung 7: character classes, escapes, anchors, lookahead are REAL, not placeholders ----------
+# Rung 3 emitted all five as stubs that answered "matched" for any input; 181 rules rode on them and
+# 60 could never match (a negative lookahead over an always-true stub fails unconditionally). The C
+# test below asserts the REJECTS -- a positive test passes against a stub that matches everything.
+# The --selftest first proves the test's hard-coded tables are what nqp_cc.py actually lowers to.
+echo
+python3 "$ROOT/tools/rakugram/nqp_cc.py" --selftest || { echo "⛔ GATE FAIL: rk_cc_test.c tables drifted from nqp_cc.py"; exit 1; }
+python3 "$ROOT/tools/rakugram/nqp_cc.py" --runtime > "$T/rk_cc_rt.c" || exit 2
+cp "$ROOT/tools/rakugram/rk_cc_test.c" "$T/" || exit 2
+gcc -O0 -Wall -Wextra -Werror -o "$T/cc_test" "$T/rk_cc_test.c" -I"$T" 2> "$T/ccc.log" || {
+    echo "⛔ GATE FAIL: the character-class runtime does not compile"; sed -n '1,15p' "$T/ccc.log"; exit 1; }
+"$T/cc_test" || rc=1
+# the full generated parser must still compile with ZERO implicit declarations -- a lookahead operand
+# that resolves to a rule nobody declared is a phantom that warns, links against nothing, and passes.
+python3 "$ROOT/tools/rakugram/nqp_emit.py" "$GRAM" "$T/rk_gen.c" > "$T/emit.log" 2>&1 || {
+    echo "⛔ REFUSES rc=2: nqp_emit.py failed"; sed -n '1,10p' "$T/emit.log"; exit 2; }
+printf '#include "rk_gen.c"\nint main(void){return 0;}\n' > "$T/gen_drv.c"
+gcc -O0 -Wall -Wextra -c "$T/gen_drv.c" -o /dev/null -I"$T" 2> "$T/gen.log"
+if grep -q 'error:\|implicit declaration' "$T/gen.log"; then
+    echo "⛔ GATE FAIL: generated parser has errors or phantom (implicitly declared) rules:"
+    grep 'error:\|implicit declaration' "$T/gen.log" | head -5; rc=1
+else
+    echo "  ok   generated parser: 0 errors, 0 implicit declarations ($(grep -c '^static int rk_' "$T/rk_gen.c") rules)"
+fi
+if grep -q 'rk_look_stub\|rk_cclass(\|rk_esc_s(' "$T/rk_gen.c"; then
+    echo "⛔ GATE FAIL: a placeholder primitive is back in the generated parser"; rc=1
+fi
 if [ "$rc" -eq 0 ]; then
-    echo "✅ GATE OK: $nops operators (precedence + associativity + parse-time extension) and the"
-    echo "   hand-written HLL layer (ws, identifier, int literals, lookahead) all verified."
+    echo "✅ GATE OK: $nops operators (precedence + associativity + parse-time extension), the"
+    echo "   hand-written HLL layer (ws, identifier, int literals, lookahead), and the lowered"
+    echo "   character classes / escapes / anchors / lookahead (rejects asserted) all verified."
 else echo "⛔ GATE FAIL: see the FAIL rows above."; fi
 exit $rc

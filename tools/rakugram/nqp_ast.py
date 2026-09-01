@@ -25,6 +25,53 @@ class N:
     def __repr__(self): return f"{self.k}({self.v!r}{',' + repr(self.kids) if self.kids else ''})"
 
 # Constructs that a recursive-descent emitter handles directly.
+import nqp_cc
+
+def look_operand(inner):
+    """Resolve the text inside <?...> / <!...> to a matchable node, or None to REFUSE.
+
+    ⛔ A lookahead we cannot translate must refuse. It must NEVER fall back to "always true":
+    under a negative marker that inverts to "always fail", which is how 60 rules came to be unable
+    to match anything at all while still looking translated.
+
+    ⛔ THIS IS THE ONE RESOLVER. The emitter and the called-set walk in emit_all() both go through
+    it, because a LOOK node stores its operand as TEXT rather than as child nodes -- so a walk that
+    does not expand it here cannot see the subrules a lookahead calls. When only the emitter
+    resolved them, `<?before <alpha>>` emitted a call to rk_alpha that no forward declaration
+    covered: an IMPLICIT-DECLARATION WARNING, not an error, so the file still compiled and would
+    have linked against nothing. That is the phantom-rule class the mkcall docstring already
+    records; keeping one resolver is what stops it coming back.
+    """
+    t = inner.strip()
+    t = t[1:].strip() if t[:1] in '?!' else t          # drop the ?/! marker
+    if not t or t[0] == '{':
+        return None                # <?{ code }> gates the match on NQP we cannot evaluate
+    m = re.match(r'^(before|after)\b(.*)$', t, re.S)
+    if m:
+        if m.group(1) == 'after':
+            return None            # backwards matching is not implemented
+        try:
+            return P(lex_body(m.group(2))).parse()
+        except Exception:
+            return None
+    m = re.match(r'^([A-Za-z_][A-Za-z0-9_:-]*)\s*$', t)
+    return N('CALL', m.group(1)) if m else None
+
+def lowers(n):
+    """Does node `n` actually lower to code, or will the emitter have to REFUSE?
+
+    ⛔ THIS IS WHY THE LADDER MOVED. CCLASS/ESC/LOOK/ANCHOR/WB were counted as MECHANICAL
+    unconditionally, while rung 3 emitted them as stubs that answered "matched" for any input --
+    so the headline "% mechanical" counted 181 rules as translated that were in fact placeholders,
+    60 of which could never match at all. A shape is only mechanical IF IT LOWERS; asking the same
+    functions the emitter asks is the only thing that keeps the two numbers from drifting apart.
+    """
+    if n.k == 'CCLASS': return nqp_cc.parse_cclass(n.v) is not None
+    if n.k == 'ESC':    return nqp_cc.parse_esc(n.v) is not None
+    if n.k == 'LOOK':   return look_operand(n.v.split(':', 1)[1]) is not None
+    return True
+
+
 MECHANICAL = {'SEQ','ALT_LTM','ALT_ORD','CALL','LIT','CCLASS','QUANT','LOOK','CAP','ANCHOR','ESC','WB','EMPTY'}
 # Constructs that need a hand-written runtime helper, but whose SHAPE is still mechanical.
 RUNTIME    = {'GOAL','SEP','CONJ'}
@@ -133,8 +180,15 @@ class P:
 
 def classify(root):
     kinds = collections.Counter()
-    for n in root.walk(): kinds[n.k] += 1
-    hard = sum(v for k, v in kinds.items() if k in SEMANTIC)
+    stub = 0
+    for n in root.walk():
+        kinds[n.k] += 1
+        # ⛔ A MECHANICAL-SHAPED NODE THAT DOES NOT LOWER IS NOT MECHANICAL. Counting the shape
+        # alone is what let 181 rules read as translated while riding placeholder primitives.
+        if not lowers(n):
+            stub += 1
+            kinds['~unlowered:' + n.k] += 1
+    hard = sum(v for k, v in kinds.items() if k in SEMANTIC) + stub
     rt   = sum(v for k, v in kinds.items() if k in RUNTIME)
     return kinds, hard, rt
 
@@ -154,6 +208,8 @@ def main(path='/home/resources/rakudo-main/src/Perl6/Grammar.nqp'):
             nsem += 1
             for k in SEMANTIC:
                 if kinds.get(k): per_sem[k] += 1
+            for k in kinds:
+                if k.startswith('~unlowered:'): per_sem[k] += 1
         rows.append((d['name'], d['sym'], hard, rt))
     n = len(rows)
     print(f"productions parsed into an AST : {n}  (of {len(decls)}; {len(decls)-n} skipped as contaminated)")

@@ -17,7 +17,14 @@ a rule that ran and correctly declined, and would make the parser confidently wr
 import sys, re, os, collections
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from nqp_read import scan_decls, lex_body
-from nqp_ast import P, N
+from nqp_ast import P, N, look_operand, lowers
+import nqp_cc
+
+_CC_TABLES = {}          # items-tuple -> C table name, so identical classes share one table
+def cc_table(items):
+    key = tuple(items)
+    if key not in _CC_TABLES: _CC_TABLES[key] = f'rk_cc{len(_CC_TABLES)}'
+    return _CC_TABLES[key]
 
 _CN = {}
 def cname(s):
@@ -58,14 +65,22 @@ class Emit:
                 self.w(ind, '/* <sym> outside a :sym<> candidate */ return RK_UNIMPL;')
                 return
             self.w(ind, f'if (!{cname(nm)}(c)) goto fail;')
-        elif k == 'CCLASS':
-            self.w(ind, f'if (!rk_cclass(c, {self.cstr(n.v)})) goto fail;')
-        elif k == 'ESC':
-            self.w(ind, f'if (!rk_esc_s(c, {self.cstr(n.v[1:2])})) goto fail;')
+        elif k in ('CCLASS', 'ESC'):
+            # ⛔ Lowered at GENERATION time (nqp_cc.py). A spec that will not parse REFUSES here
+            # rather than reaching a runtime routine that would have to guess. Rung 3's stub
+            # ignored the spec entirely and consumed one character, so <[0-9]> matched 'z'.
+            r = nqp_cc.parse_cclass(n.v) if k == 'CCLASS' else nqp_cc.parse_esc(n.v)
+            if r is None:
+                self.unimpl = True
+                self.w(ind, f'/* UNIMPLEMENTED {k} {str(n.v)[:40]!r} */ return RK_UNIMPL;')
+                return
+            mode, items = r
+            tbl = cc_table(items)
+            self.w(ind, f'if (!rk_cc(c, {mode}, {tbl}, {len(items)})) goto fail;')
         elif k == 'ANCHOR':
             self.w(ind, f'if (!rk_anchor(c, {self.cstr(n.v)})) goto fail;')
         elif k == 'WB':
-            self.w(ind, 'if (!rk_wb(c)) goto fail;')
+            self.w(ind, f'if (!rk_wb(c, {1 if n.v == chr(0xBB) else 0})) goto fail;')
         elif k == 'CAP':
             for kid in n.kids: self.node(kid, ind)
         elif k == 'ALT_ORD':
@@ -101,9 +116,15 @@ class Emit:
                 self.w(ind, f'}} if ({v}_n < {minimum}) goto fail; }}')
         elif k == 'LOOK':
             pos = n.v.startswith('pos')
+            sub = look_operand(n.v.split(':', 1)[1])
+            if sub is None:
+                self.unimpl = True
+                self.w(ind, f'/* UNIMPLEMENTED LOOK {n.v[:44]!r} */ return RK_UNIMPL;')
+                return
             v = self.t()
-            self.w(ind, f'/* lookahead {"positive" if pos else "negative"} */')
-            self.w(ind, f'{{ int {v}_save = c->pos; int {v}_m = rk_look_stub(c);')
+            self.w(ind, f'/* lookahead {"positive" if pos else "negative"} -- zero-width */')
+            self.w(ind, f'{{ int {v}_save = c->pos; int {v}_m = 0;')
+            self.sub(sub, ind + 1, f'{v}_m = 1;')
             self.w(ind, f'  c->pos = {v}_save; if ({"!" if pos else ""}{v}_m) goto fail; }}')
         elif k == 'EMPTY':
             self.w(ind, '/* empty */')
@@ -193,7 +214,14 @@ def emit_all(path, out_c):
     # forward declarations for everything, including inherited NQP builtins
     called = set()
     for d in decls:
-        for n in P(lex_body(d['body'])).parse().walk():
+        nodes = list(P(lex_body(d['body'])).parse().walk())
+        # ⛔ expand lookahead operands with the SAME resolver the emitter uses -- a LOOK node keeps
+        # its operand as text, so walk() alone never reaches the subrules inside it.
+        for n in list(nodes):
+            if n.k == 'LOOK':
+                sub = look_operand(n.v.split(':', 1)[1])
+                if sub is not None: nodes.extend(sub.walk())
+        for n in nodes:
             if n.k != 'CALL': continue
             nm = n.v.split('(')[0].strip()
             # `<sym>` is inlined as this candidate's own literal (see Emit.node), so it is never a
@@ -212,6 +240,11 @@ def emit_all(path, out_c):
     inherited = sorted({c for c in called if c and IDENT.match(c) and cname(c) not in local})
     with open(out_c, 'w') as f:
         f.write(HEADER)
+        if _CC_TABLES:
+            f.write('/* ---- character-class tables (shared; identical classes collapse) ---- */\n')
+            for items, nm in _CC_TABLES.items():
+                f.write(nqp_cc.c_table(nm, items) + '\n')
+            f.write('\n')
         f.write('/* ---- forward declarations ---- */\n')
         for nm in sorted(local): f.write(f'static int {nm}(RkCur *);\n')
         f.write('\n/* ---- inherited from NQP HLL::Grammar ----\n'
@@ -232,6 +265,7 @@ def emit_all(path, out_c):
     print(f"  generated rules  : {stats['EMITTED']}")
     print(f"  refusing rules   : {stats['UNIMPL']}   (return RK_UNIMPL, never a silent 'no match')")
     print(f"  proto dispatchers: {stats['PROTO']}")
+    print(f"  character-class tables: {len(_CC_TABLES)}   (lowered by nqp_cc.py, no runtime guessing)")
     print(f"  inherited stubs needed (NQP HLL::Grammar, hand-written): {len(inherited)}")
     print(f"    {', '.join(inherited[:14])} ...")
 
@@ -242,6 +276,11 @@ HEADER = '''/* GENERATED by tools/rakugram/nqp_emit.py from Rakudo src/Perl6/Gra
  *
  * ⛔ `|` is LONGEST-TOKEN-MATCH (rk_alt: every arm tried, longest kept) and `||` is FIRST-MATCH.
  *    They are different operators and compile to different code here.
+ *
+ * ⛔ CHARACTER CLASSES, ESCAPES, ANCHORS AND LOOKAHEAD ARE REAL, NOT PLACEHOLDERS. Rung 3 emitted
+ *    all five as stubs that answered "matched" for any input; a class we still cannot lower now
+ *    REFUSES (RK_UNIMPL) instead. Lowering happens at generation time in tools/rakugram/nqp_cc.py,
+ *    which is why the routines below are total.
  */
 #include <string.h>
 #include <stdlib.h>
@@ -252,12 +291,7 @@ static int rk_lit(RkCur *c, const char *s) {
     if (c->pos + n > c->len || memcmp(c->src + c->pos, s, (size_t)n)) return 0;
     c->pos += n; return 1;
 }
-static int rk_cclass(RkCur *c, const char *spec) { (void)spec; if (c->pos >= c->len) return 0; c->pos++; return 1; }
-static int rk_esc_s(RkCur *c, const char *k) { (void)k; if (c->pos >= c->len) return 0; c->pos++; return 1; }
-static int rk_anchor(RkCur *c, const char *k) { (void)c; (void)k; return 1; }
-static int rk_wb(RkCur *c) { (void)c; return 1; }
-static int rk_look_stub(RkCur *c) { (void)c; return 1; }
-
+''' + nqp_cc.C_RUNTIME + '''
 '''
 
 if __name__ == '__main__':
