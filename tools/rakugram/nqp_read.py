@@ -183,10 +183,15 @@ def lex_body(b):
             # ⛔ depth-count < > but SKIP quoted strings and [ ] character classes: a `>` inside `'=>'` or
             # `'>>>>>>>'` is not a closer. Measured before this fix: 101 stray `>` tokens (33 rules refusing
             # first on UNKNOWN:>) and every `?[` class truncated -- vcs-conflict, the `'=>'` lookaheads, …
-            d, j = 0, i
+            d, j, cb = 0, i, 0
             while j < n:
                 ch = b[j]
                 if ch == '\\': j += 2; continue
+                # inside a { code } block within the assertion, < and > are OPERATORS (`$rev < 3`), not brackets:
+                # counting them cut `<?{ $rev < 3 }>` short and dragged the next assertion into it.
+                if ch == '{': cb += 1; j += 1; continue
+                if ch == '}' and cb: cb -= 1; j += 1; continue
+                if cb: j += 1; continue
                 if ch in "'\"":
                     k = b.find(ch, j + 1)
                     while k > 0 and b[k-1] == '\\': k = b.find(ch, k + 1)
