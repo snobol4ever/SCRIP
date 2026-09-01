@@ -85,7 +85,10 @@ def look_operand(inner):
 # ---- parse-time dynamic variables (rung 9d) ----------------------------------------------------------
 _CONST = re.compile(r"""^\s*(?:'([^']*)'|"([^"]*)"|(-?\d+))\s*;?\s*$""")
 _MYDECL = re.compile(r':my\s+([\$@%&]\*[\w-]+)\s*(?::=|=)?\s*(.*?);?\s*$', re.S)
-_ASSIGN = re.compile(r'([\$@%&]\*[\w-]+)\s*:=(?!=)\s*([^;]*)')
+# ⛔ the VALUE stops at the next `;` OR at the next `<var> :=` -- a chained `$*LANG := $*LEAF := expr`
+# is TWO writes, and a greedy `[^;]*` swallowed the second inside the first, leaving $*LEAF looking
+# constant-written (its only visible write was `:my $*LEAF;`).
+_ASSIGN = re.compile(r'([\$@%&]\*[\w-]+)\s*:=(?!=)\s*((?:(?![\$@%&]\*[\w-]+\s*:=)[^;])*)')
 MODELLED_DYNVARS = set()      # populated by modelled_dynvars(decls) before emitting or classifying
 
 def const_value(text):
@@ -395,6 +398,9 @@ if __name__ == '__main__':
             ok = got == want; bad += not ok
             print(f"  {'ok  ' if ok else 'FAIL'} <{inner[:38]!s:38}> -> {got}")
         MODELLED_DYNVARS.update({'$*QSIGIL'})          # selftest fixture: QSIGIL modelled, IN_DECL not
+        chain = [(m.group(1), m.group(2).strip()) for m in _ASSIGN.finditer("$*LANG := $*LEAF := $/.clone_braid_from(self); 1")]
+        ok = chain == [('$*LANG', ''), ('$*LEAF', '$/.clone_braid_from(self)')] or chain == [('$*LANG', '$*LEAF'), ('$*LEAF', '$/.clone_braid_from(self)')]
+        bad += not ok; print(f"  {'ok  ' if ok else 'FAIL'} chained assignment is TWO writes, neither literal -> {chain}")
         for inner, want in [("!{ $*QSIGIL }", ('DYNREAD', ('$*QSIGIL', False))), ("?{ !$*QSIGIL }", ('DYNREAD', ('$*QSIGIL', True))), ("?{ $*IN_DECL }", None)]:
             n = look_operand(inner); got = None if n is None else (n.k, n.v); ok = got == want; bad += not ok
             print(f"  {'ok  ' if ok else 'FAIL'} <{inner:20}> -> {got}   {'(guard: not modelled -> refuses)' if want is None else ''}")
