@@ -1196,7 +1196,28 @@ static const char *PL_PRELUDE_SRC =
     "include(P,[H|T],R):-(call(P,H)->R=[H|R1];R=R1),include(P,T,R1).\n"
     "list_to_set(L,S):-'$lts_'(L,[],S).\n"
     "'$lts_'([],_,[]).\n"
-    "'$lts_'([H|T],Seen,R):-(member(H,Seen)->R=R1;R=[H|R1]),'$lts_'(T,[H|Seen],R1).\n";
+    "'$lts_'([H|T],Seen,R):-(member(H,Seen)->R=R1;R=[H|R1]),'$lts_'(T,[H|Seen],R1).\n"
+    /* maplist/2..5 + library(yall) '>>' — row prolog-missing-string-pairs-builtins. Prolog, not C: the
+       adjacent include/3 and exclude/3 already ride call/N in exactly this shape, and call/N-on-a-user-
+       predicate was the blocker seat05 split out (row prolog-call-n-user-predicate-segfault, now DONE). */
+    "maplist(_,[]).\n"
+    "maplist(G,[X|Xs]):-call(G,X),maplist(G,Xs).\n"
+    "maplist(_,[],[]).\n"
+    "maplist(G,[X|Xs],[Y|Ys]):-call(G,X,Y),maplist(G,Xs,Ys).\n"
+    "maplist(_,[],[],[]).\n"
+    "maplist(G,[X|Xs],[Y|Ys],[Z|Zs]):-call(G,X,Y,Z),maplist(G,Xs,Ys,Zs).\n"
+    "maplist(_,[],[],[],[]).\n"
+    "maplist(G,[W|Ws],[X|Xs],[Y|Ys],[Z|Zs]):-call(G,W,X,Y,Z),maplist(G,Ws,Xs,Ys,Zs).\n"
+    /* ⛔ THE copy_term IS LOAD-BEARING, NOT TIDINESS: the lambda term is reused once per list element, so
+       without a fresh copy the FIRST element binds the parameters and every later one fails to unify
+       against them. MEASURED, not assumed — the same clauses with the copy_term removed answer
+       one([6]) for a 1-element list and two_failed for a 2-element one, so a 1-element test PASSES a
+       broken version and only a 2+-element one convicts it. Copying is also what SWI's yall does, which
+       is why sharing an outer variable there needs the explicit '/'. */
+    "'>>'(P,B,A1):-copy_term(P>>B,P1>>B1),P1=[A1],call(B1).\n"
+    "'>>'(P,B,A1,A2):-copy_term(P>>B,P1>>B1),P1=[A1,A2],call(B1).\n"
+    "'>>'(P,B,A1,A2,A3):-copy_term(P>>B,P1>>B1),P1=[A1,A2,A3],call(B1).\n"
+    "'>>'(P,B,A1,A2,A3,A4):-copy_term(P>>B,P1>>B1),P1=[A1,A2,A3,A4],call(B1).\n";
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_clause_key(PlClause *cl, const char **name_out, int *ar_out) {
     if (!cl) return 0;
