@@ -155,6 +155,11 @@ def lex_body(b):
             m = re.match(r'\$<([^>]*)>\s*=', b[i:])
             if m: emit('NCAP', m.group(1)); i += m.end(); continue
             emit('VAR', b[i:j+1]); i = j + 1; continue
+        # ⛔ a lone `$` is the END-OF-STRING ANCHOR (13 sites, comp_unit among them). It must be decided
+        # BEFORE the variable regex below, whose character class includes `]` and `>` -- which is how `$]`
+        # was being lexed as a VARIABLE named `$]` (two such phantoms in the census) and `$ ` as UNKNOWN.
+        if c == '$' and (i + 1 >= len(b) or b[i + 1] in ' \t\n\r)]|&>'):
+            emit('ANCHOR', '$'); i += 1; continue
         if c == '$' or c == '@' or c == '%':
             m = re.match(r'[$@%][\w*.:<>\[\]-]+', b[i:])
             if m: emit('VAR', m.group(0)); i += m.end(); continue

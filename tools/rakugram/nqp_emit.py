@@ -124,6 +124,13 @@ class Emit:
                 self.unimpl = True
                 self.w(ind, f'/* UNIMPLEMENTED LOOK {n.v[:44]!r} */ return RK_UNIMPL;')
                 return
+            while sub.k == 'NOT':                       # <!!{…}>: each extra ! flips the polarity
+                pos = not pos; sub = sub.kids[0]
+            if sub.k in ('EMPTY', 'FAILN'):
+                # a CONSTANT code assertion (block ends in literal 1/0): decided at generation time
+                holds = (sub.k == 'EMPTY') == pos
+                self.w(ind, f'/* constant code assertion {self.short(n.v)}: {"always holds -- no-op" if holds else "never holds -- arm fails"} */' + ('' if holds else ' goto fail;'))
+                return
             v = self.t()
             self.w(ind, f'/* lookahead {"positive" if pos else "negative"} -- zero-width */')
             self.w(ind, f'{{ int {v}_save = c->pos; int {v}_m = 0;')
@@ -131,6 +138,8 @@ class Emit:
             self.w(ind, f'  c->pos = {v}_save; if ({"!" if pos else ""}{v}_m) goto fail; }}')
         elif k == 'EMPTY':
             self.w(ind, '/* empty */')
+        elif k == 'FAILN':
+            self.w(ind, f'/* {self.short(n.v)} */ goto fail;')
         elif k == 'MY':
             # A parse-time local. For MATCHING it is a no-op: it consumes nothing and cannot fail. Its
             # VALUE is un-modelled, so every READ of it still refuses (look_operand for <?{…}>, VAR for

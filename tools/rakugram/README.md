@@ -19,6 +19,27 @@ python3 tools/rakugram/nqp_prec.py [Grammar.nqp] [out.c] --emit   # rung 4: the 
 bash scripts/test_gate_rakugram_precedence.sh              # rung 4 acceptance (refuses rc=2 if unmeasurable)
 ```
 
+## Rung 9a status — `|`/`||` precedence, constant code-assertions, the lone `$` anchor: `comp_unit` and `statementlist` EMIT (hq_C 2026-09-01)
+
+Three mechanical gaps, each measured before it was built, each with a selftest (`nqp_ast.py --selftest`):
+**`||` binds looser than `|`** — `A | B || C` ≡ `(A | B) || C`; rung 8 flattened a mixed level into one
+refusing node, and that was 20 rules including the whole spine (`statement`, `pblock`, `blockoid`,
+`termish`, `_ws`). **Constant code-assertions** — `<!!{ …; 1 }>` is Grammar.nqp's idiom for "run this,
+always succeed": a block whose last statement is literal `1`/`0` is decided at generation time, extra
+`!` flip polarity; anything whose truth depends on state (`<?{ $*IN_DECL }>`, `<!{ $*QSIGIL }>`) keeps
+refusing — the gate asserts it. **The lone `$` end-anchor** (13 sites, `comp_unit` among them) was
+`UNKNOWN` to the body lexer, and its variable regex's class included `]`/`>`, so `$]` lexed as a
+variable named `$]`; the anchor is now decided before the variable regex.
+
+Generated **322 → 325 → 332**, refusing **157 → 154 → 147**. `comp_unit` (109 lines) and `statementlist`
+(63) emit. What still blocks `statement`: `<?MARKED('endstmt')>` / `<?MARKER(…)>` — NQP's per-position
+memo (a set of (pos, name) marks; `MARKER` sets and succeeds zero-width, `MARKED` tests) — and `termish`'s
+`<!{ $*QSIGIL }>`, the one real consultation, which waits on modelling `$*QSIGIL` with its writes
+(all eight are literal constants — measured). ⛔ **Before anything RUNS: `RK_UNIMPL` is `-1` and every
+one of 2041 call sites tests `if (!rk_x(c))` — a refusal deep in the tree would read as a MATCH.** A
+refusal must propagate as a refusal (`longjmp` to the entry point with the rule name; three-valued
+MATCH / NO-MATCH / REFUSED), and `RkCur` is defined in four places that must become one header first.
+
 ## Rung 8 status — `:my`, `{ code }`, `:dba` are matching no-ops; `~` is rewritten; THE GUARD HOLDS (hq_C 2026-09-01)
 
 A `:my $*X := …` declaration and a `{ … }` action block **consume no input and cannot fail**, so for

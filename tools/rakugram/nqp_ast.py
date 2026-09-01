@@ -43,9 +43,26 @@ def look_operand(inner):
     records; keeping one resolver is what stops it coming back.
     """
     t = inner.strip()
-    t = t[1:].strip() if t[:1] in '?!' else t          # drop the ?/! marker
-    if not t or t[0] == '{':
-        return None                # <?{ code }> gates the match on NQP we cannot evaluate
+    t = t[1:].strip() if t[:1] in '?!' else t          # drop the ?/! marker the LOOK node already carries
+    flips = 0
+    while t[:1] == '!':                                 # <!!{ … }>: each extra ! flips the polarity
+        flips += 1; t = t[1:].strip()
+    if not t:
+        return None
+    if t[0] == '{':
+        # ⛔ A code assertion GATES the match on NQP we cannot evaluate -- EXCEPT the one idiom whose
+        # value is a literal: a block whose LAST statement is `1` (or `0`). `<!!{ $*LANG := …; 1 }>` is
+        # Grammar.nqp's way of running code mid-rule and always succeeding (8 sites, on statementlist,
+        # statement and blockoid). Anything whose truth depends on state stays refused (the guard).
+        body = t[1:t.rindex('}')] if '}' in t else ''
+        last = re.split(r';', body.strip().rstrip(';'))[-1].strip()
+        if last == '1':   node = N('EMPTY')                        # constant TRUE
+        elif last == '0': node = N('FAILN', 'constant false')      # constant FALSE
+        else:             return None
+        for _ in range(flips): node = N('NOT', None, [node])
+        return node
+    if flips:                                           # <!!rule> -- no such spelling in the grammar; refuse
+        return None
     m = re.match(r'^(before|after)\b(.*)$', t, re.S)
     if m:
         if m.group(1) == 'after':
@@ -75,7 +92,7 @@ def lowers(n):
     return True
 
 
-MECHANICAL = {'SEQ','ALT_LTM','ALT_ORD','CALL','LIT','CCLASS','QUANT','LOOK','CAP','ANCHOR','ESC','WB','EMPTY',
+MECHANICAL = {'SEQ','ALT_LTM','ALT_ORD','CALL','LIT','CCLASS','QUANT','LOOK','CAP','ANCHOR','ESC','WB','EMPTY','FAILN','NOT',
               'MY','CODE','MOD'}    # MY/CODE/MOD are mechanical only when lowers() says so (rung 8)
 # Constructs that need a hand-written runtime helper, but whose SHAPE is still mechanical.
 RUNTIME    = {'GOAL','SEP','CONJ'}
@@ -101,21 +118,21 @@ class P:
 
     def alt(self):
         """Alternation is LOWEST precedence. ⛔ '|' is LONGEST-TOKEN-MATCH and '||' is FIRST-MATCH;
-        they are DIFFERENT operators and must not be merged into one node kind."""
+        they are DIFFERENT operators and must not be merged into one node kind -- and `||` binds
+        LOOSER than `|`: `A | B || C` is `(A | B) || C` (S05). Rung 8 flattened a level that mixed them
+        into one ALT_MIXED node that refused; measured, that was 20 rules including the whole spine
+        (statement, pblock, blockoid, termish, _ws). Rung 9 parses the precedence instead."""
         # a leading | or || is legal and just introduces the first arm
-        kind = None
-        if self.peek()[0] in ('ALT_LTM', 'ALT_ORD'):
-            kind = self.peek()[0]; self.next()
-        arms = [self.seq()]
+        if self.peek()[0] in ('ALT_LTM', 'ALT_ORD'): self.next()
+        groups = [[self.seq()]]            # groups are joined by ||; the arms inside a group by |
         while self.peek()[0] in ('ALT_LTM', 'ALT_ORD'):
             k = self.next()[0]
-            if kind is None: kind = k
-            elif kind != k:
-                # mixing | and || at one level is meaningful in Raku; keep it visible
-                kind = 'ALT_MIXED'
-            arms.append(self.seq())
-        if len(arms) == 1 and kind is None: return arms[0]
-        return N(kind or 'ALT_LTM', None, arms, ok=(kind != 'ALT_MIXED'))
+            arm = self.seq()
+            if k == 'ALT_ORD': groups.append([arm])
+            else: groups[-1].append(arm)
+        def ltm(arms): return arms[0] if len(arms) == 1 else N('ALT_LTM', None, arms)
+        nodes = [ltm(g) for g in groups]
+        return nodes[0] if len(nodes) == 1 else N('ALT_ORD', None, nodes)
 
     def seq(self):
         kids = []
@@ -270,6 +287,21 @@ SELFTEST = [   # body text -> expected (kind, value) sequence after the goal rew
     ("'{' ~ '}'",              [('LIT','{'), ('LIT','}')]),
     ("~ ')' <expr>",           [('UNSUPPORTED',None), ('LIT',')'), ('CALL','expr')]),   # no opener: refuses
 ]
+SELFTEST_LOOK = [   # inner text of <…> -> (kind of resolved node, polarity flips) or None
+    ("!!{ $*LANG := $*LEAF := $/.clone_braid_from(self); 1 }", ('NOT', 'EMPTY')),   # const true, one flip
+    ("?{ $/.set_actions($actions); 1 }",                      ('EMPTY', None)),
+    ("!{ $*QSIGIL }",                                         None),                # STATE: stays refused (guard)
+    ("?{ $*IN_DECL }",                                        None),
+    ("!{ 0 }",                                                ('FAILN', None)),
+    ("?before 'x'",                                           ('LIT', None)),
+]
+SELFTEST_ALT = [   # body -> shape, as (kind, [arm kinds]) ; `||` binds looser than `|`
+    ("<a> | <b> || <c>",   ('ALT_ORD', ['ALT_LTM', 'CALL'])),
+    ("<a> || <b> | <c>",   ('ALT_ORD', ['CALL', 'ALT_LTM'])),
+    ("<a> | <b>",          ('ALT_LTM', ['CALL', 'CALL'])),
+    ("<a> || <b>",         ('ALT_ORD', ['CALL', 'CALL'])),
+    ("<a> | <b> | <c> || <d> || <e> | <f>", ('ALT_ORD', ['ALT_LTM', 'CALL', 'ALT_LTM'])),
+]
 
 if __name__ == '__main__':
     if sys.argv[1:] == ['--selftest']:
@@ -280,5 +312,15 @@ if __name__ == '__main__':
             got = [(k.k, (k.v if k.k != 'UNSUPPORTED' else None)) for k in kids]
             ok = got == want; bad += not ok
             print(f"  {'ok  ' if ok else 'FAIL'} {body!r:28} -> {got}")
-        print('goal rewrite agrees' if not bad else f'{bad} MISMATCH(ES)'); sys.exit(1 if bad else 0)
+        for inner, want in SELFTEST_LOOK:
+            n = look_operand(inner)
+            got = None if n is None else (n.k, n.kids[0].k if n.kids else None)
+            ok = got == want; bad += not ok
+            print(f"  {'ok  ' if ok else 'FAIL'} <{inner[:38]!s:38}> -> {got}")
+        for body, (kind, arms) in SELFTEST_ALT:
+            root = P(lex_body(body)).parse()
+            got = (root.k, [k.k for k in root.kids])
+            ok = got == (kind, arms); bad += not ok
+            print(f"  {'ok  ' if ok else 'FAIL'} {body!r:40} -> {got}")
+        print('goal rewrite + alternation precedence agree' if not bad else f'{bad} MISMATCH(ES)'); sys.exit(1 if bad else 0)
     main(*sys.argv[1:])
