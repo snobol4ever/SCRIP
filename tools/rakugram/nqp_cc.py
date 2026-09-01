@@ -203,7 +203,11 @@ def parse_esc(text):
     out = []
     try:
         if ch == 'x':
-            return None            # the body lexer drops the hex digits; refusing beats mismatching
+            try:
+                cps, _ = _hexesc(text, 2)
+            except (Refuse, ValueError):
+                return None
+            return CC_IN, [(CC_RANGE, cp, cp) for cp in cps]
         _class_or_literal(ch, out)
     except Refuse:
         return None
@@ -307,7 +311,8 @@ SELFTEST_ESC = [
     ('\\d', (CC_IN, [(CC_CLASS, ord('d'), 0)])),
     ('\\h', (CC_IN, [(CC_CLASS, ord('h'), 0)])),
     ('\\N', (CC_IN, [(CC_CLASS, ord('n'), 1)])),
-    ('\\x', None),                         # the body lexer drops the digits: refuse, never guess
+    ('\\xFEFF', (CC_IN, [(CC_RANGE, 0xFEFF, 0xFEFF)])),   # bom: the first rule comp_unit calls
+    ('\\x', None),                         # bare \\x with no digits still refuses
 ]
 
 if __name__ == '__main__':

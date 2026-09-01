@@ -202,7 +202,10 @@ def lex_body(b):
         if c == '%':  emit('SEP', '%'); i += 1; continue
         if c == '~':  emit('GOAL', '~'); i += 1; continue
         if c == '\\':
-            m = re.match(r'\\.', b[i:]); emit('ESC', m.group(0)); i += 2; continue
+            # \xHHHH keeps its hex digits (and \x[…] its bracket form): bom is `\xFEFF` -- the FIRST rule comp_unit
+            # calls -- and dropping the digits made it refuse on every program, including the empty one.
+            m = re.match(r'\\x(?:\[[0-9A-Fa-f, ]+\]|[0-9A-Fa-f]{1,6})', b[i:]) or re.match(r'\\.', b[i:])
+            emit('ESC', m.group(0)); i += m.end(); continue
         if c == '«':
             j = b.find('»', i)
             if j >= 0: emit('LIT', b[i+1:j]); i = j + 1; continue

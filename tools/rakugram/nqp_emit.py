@@ -222,7 +222,7 @@ class Emit:
             else: out.append(ch)
         return '"' + ''.join(out) + '"'
 
-def emit_all(path, out_c):
+def emit_all(path, out_c, provided=()):
     decls = [d for d in scan_decls(open(path, encoding='utf-8', errors='replace').read())
              if not d.get('overrun')]
     md = modelled_dynvars(decls)          # ⛔ before any rule is emitted: MY/CODE/LOOK all consult it
@@ -309,7 +309,7 @@ def emit_all(path, out_c):
     # commas, quotes and nested angle brackets (e.g. `<?before ... , ... >`), and letting those
     # through manufactures phantom "inherited builtins" that no one will ever be able to implement.
     IDENT = re.compile(r'^[A-Za-z_][A-Za-z0-9_:-]*$')
-    inherited = sorted({c for c in called if c and IDENT.match(c) and cname(c) not in local})
+    inherited = sorted({c for c in called if c and IDENT.match(c) and cname(c) not in local and c not in set(provided)})
     with open(out_c, 'w') as f:
         f.write(HEADER)
         if _CC_TABLES:
@@ -367,6 +367,9 @@ static int rk_lit(RkCur *c, const char *s) {
 '''
 
 if __name__ == '__main__':
-    src = sys.argv[1] if len(sys.argv) > 1 else '/home/resources/rakudo-main/src/Perl6/Grammar.nqp'
-    out = sys.argv[2] if len(sys.argv) > 2 else '/tmp/claude-1000/-home-claude-C/bf92a46a-6680-4a47-b7db-57e12b40e2b1/scratchpad/rk_grammar_gen.c'
-    emit_all(src, out)
+    args = [x for x in sys.argv[1:] if not x.startswith('--provided=')]
+    prov = [x[len('--provided='):] for x in sys.argv[1:] if x.startswith('--provided=')]
+    provided = tuple(n for p in prov for n in p.split(',') if n)     # rules the glue / HLL layer define: no stub
+    src = args[0] if len(args) > 0 else '/home/resources/rakudo-main/src/Perl6/Grammar.nqp'
+    out = args[1] if len(args) > 1 else '/tmp/rk_grammar_gen.c'
+    emit_all(src, out, provided)

@@ -141,6 +141,15 @@ def dynread_node(t):
     if not m or m.group(2) not in MODELLED_DYNVARS: return None
     return N('DYNREAD', (m.group(2), m.group(1) == '!'))
 
+# Slang dispatch by name: `<.FOREIGN_LANG($*MAIN, 'statementlist', 1)>` / `<LANG('MAIN', 'rule')>` switch to a
+# language's rule at run time (27 sites). $*MAIN is a modelled constant ('MAIN') and this port has ONE grammar,
+# so the MAIN case is a direct call to the named rule; any other language (Regex, Quote, …) is a different
+# grammar and REFUSES with its name.
+_FLANG = re.compile(r"^\.?\s*(FOREIGN_LANG|LANG)\s*\(\s*(\$\*MAIN|'MAIN')\s*,\s*'([A-Za-z_][A-Za-z0-9_]*)'\s*(?:,[^)]*)?\)\s*$")
+def lang_node(t):
+    m = _FLANG.match(t.strip())
+    return N('CALL', m.group(3)) if m else None
+
 _MARK = re.compile(r"^\.?\s*(MARKER|MARKED)\s*\(\s*'([A-Za-z_][A-Za-z0-9_]*)'\s*\)\s*$")
 def mark_node(t):
     """`MARKER('n')` / `MARKED('n')` -> N('MARK', ('set'|'test', 'n')). NQP's per-name position memo:
@@ -292,7 +301,10 @@ class P:
         against nothing. A phantom that warns is worse than one that fails.
         """
         t = v.strip()
-        mk = mark_node(t)
+        # `<statementlist=.FOREIGN_LANG(…)>` -- the ALIASED spelling is how comp_unit reaches the spine; strip the
+        # `name=` prefix before the MARK/LANG resolvers, which only see the call.
+        t0 = t.split('=', 1)[1].strip() if re.match(r'^[A-Za-z_][\w-]*\s*=', t) else t
+        mk = mark_node(t0) or lang_node(t0)
         if mk is not None: return mk
         am = re.match(r'([^(]*)\((.*)\)\s*$', t, re.S)
         if am: t = am.group(1)
@@ -377,6 +389,12 @@ SELFTEST_LOOK = [   # inner text of <…> -> (kind of resolved node, polarity fl
     ("!",                                                     ('EMPTY', None)),       # <!>  the LOOK node's neg polarity makes it always FAIL
     ("?before 'x'",                                           ('LIT', None)),
 ]
+SELFTEST_LANG = [
+    (".FOREIGN_LANG($*MAIN, 'statementlist', 1)", ('CALL', 'statementlist')),
+    ("LANG('MAIN', 'EXPR')",                       ('CALL', 'EXPR')),
+    ("LANG('Regex', 'nibbler')",                   None),        # another grammar: refuses by name
+]
+SELFTEST_ALIAS = [("statementlist=.FOREIGN_LANG($*MAIN, 'statementlist', 1)", ('CALL', 'statementlist'))]
 SELFTEST_MARK = [
     ("?MARKED('endstmt')", ('MARK', ('test', 'endstmt'))),
     ("?MARKER('endstmt')", ('MARK', ('set', 'endstmt'))),
@@ -415,6 +433,12 @@ if __name__ == '__main__':
         for inner, want in [("!{ $*QSIGIL }", ('DYNREAD', ('$*QSIGIL', False))), ("?{ !$*QSIGIL }", ('DYNREAD', ('$*QSIGIL', True))), ("?{ $*IN_DECL }", None)]:
             n = look_operand(inner); got = None if n is None else (n.k, n.v); ok = got == want; bad += not ok
             print(f"  {'ok  ' if ok else 'FAIL'} <{inner:20}> -> {got}   {'(guard: not modelled -> refuses)' if want is None else ''}")
+        for inner, want in SELFTEST_ALIAS:
+            n = P([]).mkcall(inner, True); got = (n.k, n.v); ok = got == want; bad += not ok
+            print(f"  {'ok  ' if ok else 'FAIL'} <{inner[:40]:40}> -> {got}   (aliased spelling)")
+        for inner, want in SELFTEST_LANG:
+            n = lang_node(inner); got = None if n is None else (n.k, n.v); ok = got == want; bad += not ok
+            print(f"  {'ok  ' if ok else 'FAIL'} <{inner[:40]:40}> -> {got}")
         for inner, want in SELFTEST_MARK:
             n = look_operand(inner) if inner[:1] in '?!' else mark_node(inner)
             got = None if n is None else (n.k, n.v)
