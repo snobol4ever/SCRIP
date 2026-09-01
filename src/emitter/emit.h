@@ -34,9 +34,22 @@ extern int             g_use_bb_macros;
 #define MEDIUM_TEXT      (g_medium == BB_MEDIUM_TEXT)
 #define MEDIUM_BINARY    (g_medium == BB_MEDIUM_BINARY)
 #define MEDIUM_MACRO_DEF (g_medium == BB_MEDIUM_MACRO_DEF)
+#include <string.h>
 #define BB_LABEL_NAME_MAX   80
 #define BB_LABEL_UNRESOLVED (-1)
 typedef struct bb_label_t { char name[BB_LABEL_NAME_MAX]; int offset; } bb_label_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⛔ EVERY label name goes through here. A plain truncation COLLIDES: a Prolog atom of 120 dash characters mangles to 360 chars, so `%s_Î±`, `%s_Î²`, `%s_Î³` and `%s_Ï` all cut to the SAME 79 bytes and `as` rejects 5 of 6 as already defined. Keeping a prefix PLUS a hash of the FULL name means distinct names stay distinct. */
+static inline void bb_label_name_set(char * dst, const char * src) {
+    size_t n = src ? strlen(src) : 0;
+    if (n < (size_t) BB_LABEL_NAME_MAX) { if (n) memcpy(dst, src, n); dst[n] = '\0'; return; }
+    unsigned long long h = 1469598103934665603ULL;   /* FNV-1a over the WHOLE name, not the surviving prefix */
+    for (const unsigned char * p = (const unsigned char *) src; *p; p++) { h ^= (unsigned long long) *p; h *= 1099511628211ULL; }
+    int keep = BB_LABEL_NAME_MAX - 18;   /* 18 = '$' + 16 hex digits + NUL */
+    while (keep > 0 && ((unsigned char) src[keep] & 0xC0) == 0x80) keep--;   /* never cut a UTF-8 char in half: the port suffixes are Î±/Î²/Î³/Ï */
+    memcpy(dst, src, (size_t) keep);
+    snprintf(dst + keep, (size_t) (BB_LABEL_NAME_MAX - keep), "$%016llx", h);
+}
 #define bb_label_defined(lbl)  ((lbl)->offset != BB_LABEL_UNRESOLVED)
 typedef enum { JMP_JMP = 0, JMP_JE, JMP_JNE, JMP_JL, JMP_JGE, JMP_JG } jmp_kind_t;
 #define BB_PATCH_MAX   65536
@@ -194,7 +207,7 @@ void data_buf_reset(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline bb_label_t bb_label_from_name(const char *name) {
     bb_label_t lbl = { {0}, -1 };
-    if (name) { strncpy(lbl.name, name, BB_LABEL_NAME_MAX - 1); lbl.name[BB_LABEL_NAME_MAX - 1] = '\0'; }
+    if (name) bb_label_name_set(lbl.name, name);
     return lbl;
 }
 #ifdef __cplusplus

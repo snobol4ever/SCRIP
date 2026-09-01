@@ -84,8 +84,9 @@ bb_label_t *emit_label_alloc(const char *fmt, ...)
     bb_label_t *lbl = (bb_label_t *)calloc(1, sizeof(bb_label_t));
     if (!lbl) return NULL;
     va_list ap; va_start(ap, fmt);
-    vsnprintf(lbl->name, BB_LABEL_NAME_MAX, fmt, ap);
+    char nb[4096]; vsnprintf(nb, sizeof nb, fmt, ap);
     va_end(ap);
+    bb_label_name_set(lbl->name, nb);
     lbl->offset = BB_LABEL_UNRESOLVED;
     g_label_pool[g_label_pool_n++] = lbl;
     return lbl;
@@ -293,8 +294,9 @@ void bb_label_define(bb_label_t *lbl)
 void emit_label_initf(bb_label_t *lbl, const char *fmt, ...)
 {
     va_list ap; va_start(ap, fmt);
-    vsnprintf(lbl->name, BB_LABEL_NAME_MAX, fmt, ap);
+    char nb[4096]; vsnprintf(nb, sizeof nb, fmt, ap);
     va_end(ap);
+    bb_label_name_set(lbl->name, nb);
     lbl->offset = BB_LABEL_UNRESOLVED;
 }
 #include "IR.h"
