@@ -112,9 +112,10 @@ def dynvar_writes(decls):
                 # non-literal write hiding in a constant-true assertion. Scanning only CODE tokens
                 # listed $*LANG and $*LEAF as constant-written; they are not.
                 for m in _ASSIGN.finditer(v):
-                    out[m.group(1)].append(('code', const_value(m.group(2))))
-            elif k == 'VAR' and '<' in v:
-                pass
+                    rhs = m.group(2).strip()
+                    # an ASSIGNMENT with an empty right-hand side is the head of a chain (`$*LANG := $*LEAF := …`):
+                    # its value is whatever the chain ends in -- never a literal. Only a `:my` may be bare.
+                    out[m.group(1)].append(('code', None if rhs == '' else const_value(rhs)))
     return out
 
 def modelled_dynvars(decls):
@@ -399,8 +400,11 @@ if __name__ == '__main__':
             print(f"  {'ok  ' if ok else 'FAIL'} <{inner[:38]!s:38}> -> {got}")
         MODELLED_DYNVARS.update({'$*QSIGIL'})          # selftest fixture: QSIGIL modelled, IN_DECL not
         chain = [(m.group(1), m.group(2).strip()) for m in _ASSIGN.finditer("$*LANG := $*LEAF := $/.clone_braid_from(self); 1")]
-        ok = chain == [('$*LANG', ''), ('$*LEAF', '$/.clone_braid_from(self)')] or chain == [('$*LANG', '$*LEAF'), ('$*LEAF', '$/.clone_braid_from(self)')]
-        bad += not ok; print(f"  {'ok  ' if ok else 'FAIL'} chained assignment is TWO writes, neither literal -> {chain}")
+        ok = chain == [('$*LANG', ''), ('$*LEAF', '$/.clone_braid_from(self)')]
+        bad += not ok; print(f"  {'ok  ' if ok else 'FAIL'} chained assignment is TWO writes -> {chain}")
+        w = dynvar_writes([{'body': "<!!{ $*LANG := $*LEAF := $/.clone_braid_from(self); 1 }>", 'name': 'x'}])
+        ok = w['$*LANG'] == [('code', None)] and w['$*LEAF'] == [('code', None)]
+        bad += not ok; print(f"  {'ok  ' if ok else 'FAIL'} …and NEITHER counts as a literal write (chain head is not bare) -> {dict(w)}")
         for inner, want in [("!{ $*QSIGIL }", ('DYNREAD', ('$*QSIGIL', False))), ("?{ !$*QSIGIL }", ('DYNREAD', ('$*QSIGIL', True))), ("?{ $*IN_DECL }", None)]:
             n = look_operand(inner); got = None if n is None else (n.k, n.v); ok = got == want; bad += not ok
             print(f"  {'ok  ' if ok else 'FAIL'} <{inner:20}> -> {got}   {'(guard: not modelled -> refuses)' if want is None else ''}")
