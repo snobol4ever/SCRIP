@@ -70,6 +70,16 @@ def look_operand(inner):
         # honoured only if the variable is modelled (the CODE path does that); otherwise it is a no-op.
         am = re.match(r'^[\$@%&]\*[\w-]+\s*:=\s*(.*)$', last)
         val = const_value(am.group(1)) if am else (last if last in ('0', '1') else None)
+        if val is None and flips >= 1:
+            # ⛔ THE DOUBLE-BANG IDIOM WITH A NON-LITERAL VALUE: `<!!{ $/.clone_braid_from(self).set_pragma(…); }>`.
+            # `!!X` is the truthiness of X, and nobody writes a double negation to make a CONDITIONAL --
+            # the author's intent is "run this, always continue" and X is a method that returns the braid.
+            # Admitted as always-true BY IDIOM and recorded as an OVER-ACCEPT (if X were ever falsy in
+            # Rakudo, Rakudo fails the arm where this port continues). Single ?{…}/!{…} with a non-literal
+            # value ARE conditionals and keep refusing. 3 sites.
+            node = N('EMPTY')
+            for _ in range(flips - 1): node = N('NOT', None, [node])
+            return N('NOT', None, [node]) if False else node
         if val is None:  return None
         truth = val not in ('', '0')
         node = N('EMPTY') if truth else N('FAILN', 'constant false')
@@ -391,6 +401,8 @@ SELFTEST_LOOK = [   # inner text of <…> -> (kind of resolved node, polarity fl
     ("?{ $*IN_DECL }",                                        None),
     ("!{ 0 }",                                                ('FAILN', None)),
     ("!{ $*ARG_FLAT_OK := 0 }",                               ('FAILN', None)),   # value = what it assigns (the selftest reports kid-kind, not v)
+    ("!!{ $/.clone_braid_from(self).set_pragma('fatal',1); }", ('EMPTY', None)),   # double-bang idiom, non-literal: always continue (over-accept)
+    ("!{ $/.some_method() }",                                 None),               # single bang, non-literal: a real conditional -> refuses
     ("?{ $*IN_META := 'foo' }",                               ('EMPTY', None)),
     ("?",                                                     ('EMPTY', None)),       # <?>  always succeeds
     ("!",                                                     ('EMPTY', None)),       # <!>  the LOOK node's neg polarity makes it always FAIL
