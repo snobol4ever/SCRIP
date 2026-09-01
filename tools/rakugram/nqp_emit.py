@@ -230,7 +230,11 @@ def emit_all(path, out_c, provided=(), grammar='Perl6::Grammar'):
     md = modelled_dynvars(decls)          # ⛔ before any rule is emitted: MY/CODE/LOOK all consult it
     defined = collections.Counter()
     for d in decls: defined[d['name']] += 1
-    protos = {d['name'] for d in decls if d['sym'] is not None}
+    # ⛔ a proto is a proto because it is DECLARED one, not because candidates exist: `proto token
+    # prefix_circumfix_meta_operator { <...> }` has ZERO candidates in this Rakudo, and inferring protos from
+    # their :sym<> candidates left it with no dispatcher -- so the name fell into the inherited-stub list and
+    # REFUSED, where Rakudo simply fails to match (no candidate). The dispatcher's empty loop yields exactly that.
+    protos = {d['name'] for d in decls if d['sym'] is not None} | {d['name'] for d in decls if d['proto']}
     fns, stats = [], collections.Counter()
     seen = set()
     for d in decls:
@@ -283,7 +287,7 @@ def emit_all(path, out_c, provided=(), grammar='Perl6::Grammar'):
         e.w(0, '}')
         # ⛔ a refusal names its rule and propagates through rk_refuse(); `return RK_UNIMPL` would be
         # read as a MATCH by every caller (-1 is truthy at `if (!rk_x(c))`).
-        fns.append('\n'.join(ln.replace('return RK_UNIMPL;', f'return rk_refuse(c, "{nm}");') for ln in e.buf))
+        fns.append('\n'.join(ln.replace('return RK_UNIMPL;', f'return rk_refuse(c, "{pn}");') for ln in e.buf))
         stats['PROTO'] += 1
     # forward declarations for everything, including inherited NQP builtins
     called = set()
