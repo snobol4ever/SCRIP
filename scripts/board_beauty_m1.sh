@@ -61,9 +61,9 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/lib_gate.sh"   # V2-5 three-exit-code discipline: 0 CLEAN / 1 VIOLATION / 2 UNPROVEN, never conflated
 SCRIP="$S4E/SCRIP/scrip"
 SBL="$S4A/x64/bin/sbl"
-BDIR="$S4E/corpus/crosscheck/beauty"
+BDIR="$S4E/corpus/demos/snobol4/beauty"   # ⭐ REPOINTED 2026-09-01 (row dead-suite-path-consumer-sweep, seat05): was $S4E/corpus/crosscheck/beauty, deleted by corpus 69c43155e ("crosscheck: delete beauty/ fixtures", LON-20260828 total conversion) after corpus b131a913d dissolved beauty/.
 SRC="$BDIR/beauty.sno"
-CLASSIC="$S4E/corpus/demos/snobol4/beauty/beauty.sno"   # frozen pre-BEAUTY-CN snapshot, portable SPITBOL -- see header. Pinned like corpus/generated/, never hand-edited.
+CLASSIC="$S4E/corpus/demos/snobol4/beauty/beauty.sno"   # ⛔ SRC AND CLASSIC ARE NOW THE SAME FILE, AND THAT IS CORRECT, NOT A BUG -- Lon s271 (corpus b131a913d, "beauty resolution"): the DECLARED_CONSTANT/&-constant beauty.sno was DELETED ("the conversion did not help") and "beauty_classic.sno IS the correct beauty.sno", renamed to beauty.sno on the move to demos/. The two-file CN-vs-classic world this board was written for no longer exists; exactly ONE beauty.sno remains in corpus and it is the portable-SPITBOL classic. The prefix ladder is MORE valid than before, not less: its stated requirement (header, and the echo at the prefix-rung banner below) is that the graded file be the oracle-gradable classic, which is now the only file there is. The full-file rung stays oracle-free by design (Lon s117: beauty.sno is its OWN oracle).
 MODES=both; RUNGS=""; BISECT=0
 while [ $# -gt 0 ]; do case "$1" in
     --modes) MODES="$2"; shift 2;; --rungs) RUNGS="$2"; shift 2;; --bisect) BISECT=1; shift;;
