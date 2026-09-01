@@ -65,9 +65,14 @@ def look_operand(inner):
         # statement and blockoid). Anything whose truth depends on state stays refused (the guard).
         body = t[1:t.rindex('}')] if '}' in t else ''
         last = re.split(r';', body.strip().rstrip(';'))[-1].strip()
-        if last == '1':   node = N('EMPTY')                        # constant TRUE
-        elif last == '0': node = N('FAILN', 'constant false')      # constant FALSE
-        else:             return None
+        # the block's value is its last statement; an ASSIGNMENT's value is what it assigns, so
+        # `<!{ $*ARG_FLAT_OK := 0 }>` is a constant (false, negated: always holds). The WRITE itself is
+        # honoured only if the variable is modelled (the CODE path does that); otherwise it is a no-op.
+        am = re.match(r'^[\$@%&]\*[\w-]+\s*:=\s*(.*)$', last)
+        val = const_value(am.group(1)) if am else (last if last in ('0', '1') else None)
+        if val is None:  return None
+        truth = val not in ('', '0')
+        node = N('EMPTY') if truth else N('FAILN', 'constant false')
         for _ in range(flips): node = N('NOT', None, [node])
         return node
     if flips:                                           # <!!rule> -- no such spelling in the grammar; refuse
@@ -385,6 +390,8 @@ SELFTEST_LOOK = [   # inner text of <…> -> (kind of resolved node, polarity fl
     ("!{ $*QSIGIL }",                                         None),                # STATE: stays refused (guard)
     ("?{ $*IN_DECL }",                                        None),
     ("!{ 0 }",                                                ('FAILN', None)),
+    ("!{ $*ARG_FLAT_OK := 0 }",                               ('FAILN', None)),   # value = what it assigns (the selftest reports kid-kind, not v)
+    ("?{ $*IN_META := 'foo' }",                               ('EMPTY', None)),
     ("?",                                                     ('EMPTY', None)),       # <?>  always succeeds
     ("!",                                                     ('EMPTY', None)),       # <!>  the LOOK node's neg polarity makes it always FAIL
     ("?before 'x'",                                           ('LIT', None)),
