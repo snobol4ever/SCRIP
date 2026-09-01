@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# test_crosscheck_prolog.sh — 3-mode crosscheck for PROLOG (GOAL-LANG-PROLOG)
+# test_crosscheck_prolog.sh — 2-mode oracle crosscheck for PROLOG (GOAL-LANG-PROLOG)
 #
-# Runs the prolog test corpus through --run, --run, --run.
+# Runs the prolog test corpus through m3 (--run) and m4 (--compile via run_prolog_via_x86_backend.sh),
+# grading EACH MODE INDEPENDENTLY against its .expected/.ref oracle.
 # Run on every major push. Mode-consistency check, not regression.
 # If .ref present alongside test file: diffs vs oracle too.
-# Exits 0 only if all three modes agree on every test.
+# Exits 0 only if BOTH modes have FAIL=0 against the oracle.
 #
 # AUTHORS: Lon Jones Cherryholmes · Claude Sonnet 4.6  DATE: 2026-04-14
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
@@ -12,43 +13,51 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${HERE}/../scrip"
 TIMEOUT=30
-PASS=0; FAIL=0; SKIP=0; ORACLE_MISS=0
+PASS=0; FAIL=0; SKIP=0; ORACLE_MISS=0; M3_PASS=0; M3_FAIL=0; M4_PASS=0; M4_FAIL=0; DIVERGE=0; NOORACLE=0
 
 xcheck() {
     local label="$1" file="$2" ref="${3:-}"
     if [ ! -f "$file" ]; then echo "  SKIP $label (no file)"; SKIP=$((SKIP+1)); return; fi
-    local ir run_out run_rc
-    ir=$(timeout  $TIMEOUT "$SCRIP" --run  "$file" </dev/null 2>/dev/null)
-    # Mode 3 = NATIVE. --run is unconditionally native (sm_run_native: x86 SM asm + flat-wired x86 BB,
-    # NOT sm_interp_run / IR_interp / brokers). There is NO interpreter fallback anywhere — --run either
-    # runs native fully or ABORTs (rc 134 / SIGABRT). An abort is NEVER a pass: a program whose native
-    # path is unimplemented (e.g. SM_BB_PL_INVOKE MEDIUM_BINARY stub for Prolog) aborts here, and we
-    # count it NATIVE-ABORT, not a degenerate empty-output match against --run.
-    # (Lon directive 2026-05-29: run the specified mode fully or abort; no fallback paths.)
-    run_out=$(timeout $TIMEOUT "$SCRIP" --run "$file" </dev/null 2>/dev/null)
-    run_rc=$?
-    # Primary purpose of this gate: mode dispatch consistency.
-    # --run (Mode 2) and native --run (Mode 3) must agree with each other.
-    # Oracle (.ref) mismatches are a frontend completeness issue, not a mode
-    # dispatch issue, and are reported separately as ORACLE_MISS (informational).
-    local ok=1
-    if [ "$run_rc" -ge 128 ]; then
-        echo "  NATIVE-ABORT $label (mode-3 --run aborted rc=$run_rc — native emit unimplemented; not a pass)"; ok=0
-    elif [ "$run_out" != "$ir" ]; then
-        echo "  FAIL $label --run(native) vs --run"; diff <(echo "$ir") <(echo "$run_out") | head -5 | sed 's/^/    /'; ok=0
-    fi
-    if [ "$ok" -eq 1 ]; then
-        echo "  PASS $label"; PASS=$((PASS+1))
-        if [ -n "$ref" ] && [ -f "$ref" ]; then
-            local exp; exp=$(cat "$ref")
-            [ "$ir" != "$exp" ] && { echo "    (ORACLE_MISS $label — modes agree but differ from oracle)"; ORACLE_MISS=$((ORACLE_MISS+1)); }
-        fi
+    # ⛔⛔ REWRITTEN seat15 2026-09-01 -- THIS FUNCTION COULD NOT FAIL. Three independent green-manufacturing
+    # defects, each verified on a pristine -O0 tree (SCRIP f85e1fdc) before the cure:
+    #   (1) it captured `--run` into $ir and `--run` into $run_out -- THE SAME INVOCATION -- then branched on
+    #       `[ "$run_out" != "$ir" ]`. That is X != X: unreachable for any deterministic program, so the FAIL
+    #       arm was dead code and mode 4 was NEVER INVOKED AT ALL, despite the header's "3-mode crosscheck"
+    #       and "Exits 0 only if all three modes agree". The variable name `ir` is the fossil: this script
+    #       predates the deletion of modes 1-2, and when mode 2's flag went away the invocation was repointed
+    #       to --run instead of to --compile, leaving a self-comparison behind.
+    #   (2) the oracle branch read "${f%.pl}.ref" but corpus/tests/prolog stores .expected -- 0 rung*.ref vs
+    #       26 *.expected on disk -- so `[ -f "$ref" ]` was never true and ORACLE_MISS=0 meant NO ORACLE WAS
+    #       EVER CONSULTED, not "output is correct".
+    #   (3) the rung loop pre-skipped any program whose --run exited non-zero, so a crash became SKIP, never
+    #       FAIL -- it hid exactly the PZ-4 class this corpus exists to catch (25 SKIP vs 13 PASS).
+    # Measured before the cure: PASS=13 FAIL=0 SKIP=25 ORACLE_MISS=0, exit 0, on a language whose own goal
+    # file says its flagship row crashes with SIGILL. Authority: RULES.md INSTRUMENT LAWS fifth batch -- an
+    # instrument that CANNOT FAIL is worse than no instrument, because it manufactures green.
+    # ⭐ PER-MODE INDEPENDENT GRADING (RULES.md MODES MAY DIVERGE, Lon 2026-08-28): m3 and m4 are each graded
+    # against the oracle on their own; a divergence between them is reported but is NOT itself a failure.
+    local m3_out m3_rc m4_out m4_rc exp=""
+    [ -n "$ref" ] && [ -f "$ref" ] && exp="$ref"
+    [ -z "$exp" ] && [ -f "${file%.pl}.expected" ] && exp="${file%.pl}.expected"
+    [ -z "$exp" ] && [ -f "${file%.pl}.ref" ]      && exp="${file%.pl}.ref"
+    m3_out=$(timeout $TIMEOUT "$SCRIP" --run "$file" </dev/null 2>/dev/null); m3_rc=$?
+    m4_out=$(timeout $TIMEOUT bash "$HERE/run_prolog_via_x86_backend.sh" "$file" </dev/null 2>/dev/null); m4_rc=$?
+    if [ -z "$exp" ]; then
+        echo "  NO-ORACLE $label (m3_rc=$m3_rc m4_rc=$m4_rc — ungraded, not a pass)"; NOORACLE=$((NOORACLE+1))
     else
-        FAIL=$((FAIL+1))
+        local want; want=$(cat "$exp")
+        if [ "$m3_rc" -eq 0 ] && [ "$m3_out" = "$want" ]; then M3_PASS=$((M3_PASS+1)); else
+            echo "  m3 FAIL $label (rc=$m3_rc)"; M3_FAIL=$((M3_FAIL+1)); fi
+        if [ "$m4_rc" -eq 0 ] && [ "$m4_out" = "$want" ]; then M4_PASS=$((M4_PASS+1)); else
+            echo "  m4 FAIL $label (rc=$m4_rc)"; M4_FAIL=$((M4_FAIL+1)); fi
+    fi
+    if [ "$m3_out" != "$m4_out" ] || [ "$m3_rc" -ne "$m4_rc" ]; then
+        echo "    (DIVERGE $label — m3_rc=$m3_rc m4_rc=$m4_rc; legal under MODES MAY DIVERGE, reported not failed)"
+        DIVERGE=$((DIVERGE+1))
     fi
 }
 
-echo "=== Prolog 3-mode crosscheck ==="
+echo "=== Prolog 2-mode oracle crosscheck (m3 + m4, graded independently) ==="
 
 T=$(mktemp /tmp/pl_XXXXXX.pl)
 cat > "$T" << 'EOF'
@@ -85,15 +94,16 @@ RUNGS=$S4E/corpus/tests/prolog
 if [ -d "$RUNGS" ]; then
     for f in "$RUNGS"/rung*.pl; do
         [ -f "$f" ] || continue
-        # Skip programs that --run can't complete (timeout, non-zero exit)
-        ir_rc=$(timeout 4 "$SCRIP" --run "$f" </dev/null >/dev/null 2>&1; echo $?)
-        if [ "$ir_rc" != "0" ]; then SKIP=$((SKIP+1)); continue; fi
-        ref="${f%.pl}.ref"
+        # ⛔ THE PRE-SKIP IS DELETED (seat15 2026-09-01): it ran --run first and `continue`d on any non-zero
+        # rc, converting every crashing program into a SKIP instead of a failure -- 25 of 38 rungs vanished
+        # that way, and a crash is precisely what this corpus exists to catch. Grade it; do not skip it.
+        ref="${f%.pl}.expected"; [ -f "$ref" ] || ref="${f%.pl}.ref"
         xcheck "$(basename $f .pl)" "$f" "$ref"
     done
 fi
 
 echo ""
-echo "PASS=$PASS FAIL=$FAIL SKIP=$SKIP ORACLE_MISS=$ORACLE_MISS"
-echo "(PASS = 3 modes agree; ORACLE_MISS = 3 modes agree but differ from .ref — frontend gap, not mode issue)"
-[ "$FAIL" -eq 0 ]
+echo "PL-CROSSCHECK m3: PASS=$M3_PASS FAIL=$M3_FAIL   m4: PASS=$M4_PASS FAIL=$M4_FAIL   DIVERGE=$DIVERGE NO-ORACLE=$NOORACLE SKIP=$SKIP"
+echo "(per-mode INDEPENDENT grading vs .expected/.ref oracle — RULES.md MODES MAY DIVERGE; DIVERGE is reported, never failed)"
+echo "(NO-ORACLE counts programs with no .expected/.ref on disk: ungraded, deliberately NOT counted as passes)"
+[ "$M3_FAIL" -eq 0 ] && [ "$M4_FAIL" -eq 0 ]

@@ -17,7 +17,7 @@ TMP3=$(mktemp /tmp/plm3_XXXXXX); TMP4=$(mktemp /tmp/plm4_XXXXXX)
 . "$(dirname "$0")/lib_gate.sh"
 gate_require_exec "${SCRIP:-${SCRIP_BIN:-$(dirname "$0")/../scrip}}" "the scrip compiler"
 gate_require "${RT_DIR:-$(dirname "$0")/../out}/libscrip_rt.so" "the runtime shared object out/libscrip_rt.so"
-gate_floor "$(find "${CORPUS:-$(dirname "$0")/../../corpus}" -name '*.sno' 2>/dev/null | wc -l)" 1 "corpus .sno programs"
+gate_floor "$(find "${CORPUS:-$(dirname "$0")/../../corpus}" -name '*.pl' 2>/dev/null | wc -l)" 1 "corpus .pl programs"   # ⛔ WAS '*.sno' (seat15 2026-09-01): a copy-paste from a SNOBOL4 gate floored this PROLOG gate on an extension its corpus does not contain -- corpus/tests/prolog holds 0 .sno and 45 .pl, so gate_floor saw 0 < 1 and exited UNPROVEN(2) BEFORE the first comparison. The gate never compared m3 against m4 once. Honest-dead, not false-green (V2-5 refused rather than passing), but zero coverage either way.
 trap 'rm -f "$TMP3" "$TMP4"' EXIT
 for pl in "$CORPUS"/rung0[1-9]_*.pl \
           "$CORPUS"/rung1[0-9]_*.pl \
