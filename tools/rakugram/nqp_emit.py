@@ -126,6 +126,11 @@ class Emit:
                 return
             while sub.k == 'NOT':                       # <!!{…}>: each extra ! flips the polarity
                 pos = not pos; sub = sub.kids[0]
+            if sub.k == 'MARK':
+                op, name = sub.v
+                call = f'rk_mark_{"set" if op == "set" else "test"}(c, {self.cstr(name)})'
+                self.w(ind, f'if ({"!" if pos else ""}{call}) goto fail;   /* <{"?" if pos else "!"}{"MARKER" if op == "set" else "MARKED"}({name!r})> -- zero-width memo */')
+                return
             if sub.k in ('EMPTY', 'FAILN'):
                 # a CONSTANT code assertion (block ends in literal 1/0): decided at generation time
                 holds = (sub.k == 'EMPTY') == pos
@@ -138,6 +143,10 @@ class Emit:
             self.w(ind, f'  c->pos = {v}_save; if ({"!" if pos else ""}{v}_m) goto fail; }}')
         elif k == 'EMPTY':
             self.w(ind, '/* empty */')
+        elif k == 'MARK':
+            op, name = n.v
+            if op == 'set': self.w(ind, f'if (!rk_mark_set(c, {self.cstr(name)})) goto fail;   /* MARKER: always succeeds unless the table overflows (refuses) */')
+            else:           self.w(ind, f'if (!rk_mark_test(c, {self.cstr(name)})) goto fail;  /* MARKED: recorded position == current */')
         elif k == 'FAILN':
             self.w(ind, f'/* {self.short(n.v)} */ goto fail;')
         elif k == 'MY':

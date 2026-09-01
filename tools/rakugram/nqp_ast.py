@@ -71,8 +71,21 @@ def look_operand(inner):
             return P(lex_body(m.group(2))).parse()
         except Exception:
             return None
+    mk = mark_node(t)
+    if mk is not None:
+        return mk
     m = re.match(r'^([A-Za-z_][A-Za-z0-9_:-]*)\s*$', t)
     return N('CALL', m.group(1)) if m else None
+
+
+_MARK = re.compile(r"^\.?\s*(MARKER|MARKED)\s*\(\s*'([A-Za-z_][A-Za-z0-9_]*)'\s*\)\s*$")
+def mark_node(t):
+    """`MARKER('n')` / `MARKED('n')` -> N('MARK', ('set'|'test', 'n')). NQP's per-name position memo:
+    MARKER records the cursor under n and always succeeds (zero-width); MARKED succeeds iff the recorded
+    position equals the current one. The generic assertion resolver drops call ARGUMENTS, which is how
+    these became two argument-less inherited stubs that refused; the name is the whole point."""
+    m = _MARK.match(t.strip())
+    return N('MARK', ('set' if m.group(1) == 'MARKER' else 'test', m.group(2))) if m else None
 
 def lowers(n):
     """Does node `n` actually lower to code, or will the emitter have to REFUSE?
@@ -92,7 +105,7 @@ def lowers(n):
     return True
 
 
-MECHANICAL = {'SEQ','ALT_LTM','ALT_ORD','CALL','LIT','CCLASS','QUANT','LOOK','CAP','ANCHOR','ESC','WB','EMPTY','FAILN','NOT',
+MECHANICAL = {'SEQ','ALT_LTM','ALT_ORD','CALL','LIT','CCLASS','QUANT','LOOK','CAP','ANCHOR','ESC','WB','EMPTY','FAILN','NOT','MARK',
               'MY','CODE','MOD'}    # MY/CODE/MOD are mechanical only when lowers() says so (rung 8)
 # Constructs that need a hand-written runtime helper, but whose SHAPE is still mechanical.
 RUNTIME    = {'GOAL','SEP','CONJ'}
@@ -216,6 +229,8 @@ class P:
         against nothing. A phantom that warns is worse than one that fails.
         """
         t = v.strip()
+        mk = mark_node(t)
+        if mk is not None: return mk
         am = re.match(r'([^(]*)\((.*)\)\s*$', t, re.S)
         if am: t = am.group(1)
         cm = re.match(r'([^:\s]+(?:::[^:\s]+)*)\s*:\s.*$', t, re.S)
@@ -295,6 +310,12 @@ SELFTEST_LOOK = [   # inner text of <…> -> (kind of resolved node, polarity fl
     ("!{ 0 }",                                                ('FAILN', None)),
     ("?before 'x'",                                           ('LIT', None)),
 ]
+SELFTEST_MARK = [
+    ("?MARKED('endstmt')", ('MARK', ('test', 'endstmt'))),
+    ("?MARKER('endstmt')", ('MARK', ('set', 'endstmt'))),
+    (".MARKER('ws')",      ('MARK', ('set', 'ws'))),
+    ("MARKED",             None),          # no name: the name is the whole point -> refuse
+]
 SELFTEST_ALT = [   # body -> shape, as (kind, [arm kinds]) ; `||` binds looser than `|`
     ("<a> | <b> || <c>",   ('ALT_ORD', ['ALT_LTM', 'CALL'])),
     ("<a> || <b> | <c>",   ('ALT_ORD', ['CALL', 'ALT_LTM'])),
@@ -317,6 +338,11 @@ if __name__ == '__main__':
             got = None if n is None else (n.k, n.kids[0].k if n.kids else None)
             ok = got == want; bad += not ok
             print(f"  {'ok  ' if ok else 'FAIL'} <{inner[:38]!s:38}> -> {got}")
+        for inner, want in SELFTEST_MARK:
+            n = look_operand(inner) if inner[:1] in '?!' else mark_node(inner)
+            got = None if n is None else (n.k, n.v)
+            ok = got == want; bad += not ok
+            print(f"  {'ok  ' if ok else 'FAIL'} <{inner:20}> -> {got}")
         for body, (kind, arms) in SELFTEST_ALT:
             root = P(lex_body(body)).parse()
             got = (root.k, [k.k for k in root.kids])
