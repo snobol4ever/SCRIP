@@ -108,7 +108,17 @@ def scan_decls(src):
         body = src[obr+1:close]
         endln = src.count('\n', 0, close)
         limit = starts[k+1][0] if k + 1 < len(starts) else len(lines)
-        if endln >= limit: disagree += 1
+        if endln >= limit:
+            # ⛔ the brace match ran into the next declaration (a '{' literal inside the body). The
+            # indentation-anchored closing line -- `<indent>}` alone, before the next declaration -- is
+            # the body's real end in Rakudo's consistently formatted source. Recovered rather than dropped:
+            # `token variable` was one of the two, and dropping it made every program refuse on it.
+            ind = m.group('ind')
+            cl = next((j for j in range(ln + 1, limit) if lines[j] == ind + '}'), None)
+            if cl is not None:
+                close = offs[cl]; body = src[obr+1:close]; endln = cl
+            else:
+                disagree += 1
         nm = m.group('name') or m.group('pname'); sym = None
         sm = re.match(r'([^:]+):sym[<«](.*)[>»]$', nm)
         if sm: nm, sym = sm.group(1), sm.group(2)
