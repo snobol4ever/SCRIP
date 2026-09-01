@@ -1482,7 +1482,7 @@ static inline int x86_argreg_slot(const char * s, size_t n) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline const x86_argrole_t * x86_argrole_find(const char * s, size_t n) {
-    for (size_t i = 0; i < sizeof(x86_argroles) / sizeof(x86_argroles[0]); i++) { const char * c = x86_argroles[i].callee; if (strlen(c) == n && !strncmp(s, c, n)) return &x86_argroles[i]; }
+    for (size_t i = 0; i < sizeof(x86_argroles) / sizeof(x86_argroles[0]); i++) { const char * c = x86_argrole_str(x86_argroles[i].callee); if (strlen(c) == n && !strncmp(s, c, n)) return &x86_argroles[i]; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1519,7 +1519,7 @@ static inline void x86_argnote(std::string & o) {
             int slot = x86_argreg_slot(o.data() + bo, de - bo);
             if (slot < 0) break;
             if (o.find('#', beg[B]) < end[B]) continue;
-            if (rr->role[slot] && rr->role[slot][0]) ann[B] = rr->role[slot];
+            const char * rs_ = x86_argrole_str(rr->role[slot]); if (rs_[0]) ann[B] = rs_;
         }
     }
     std::string out; out.reserve(o.size() + o.size() / 8);
