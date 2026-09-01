@@ -846,12 +846,63 @@ static int rt_pl_term_compare(Term *a, Term *b) {
 }
 static Term *pl_cell_copy_walk(pl_cell_t *c, pl_cell_t **vaddr, Term **vterm, int *vn, int cap);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* Cell-native standard order of terms (slice s2). WHY AN INDEX MAP AND NOT A POINTER TEST: pl_cell_copy_walk minted one fresh heap node per distinct unbound cell from rt_pl_cterm_alloc, a strict bump
+   arena, so rt_pl_term_compare's `a < b` on TERM_VAR ordered variables by FIRST-ENCOUNTER position over (all of a, then all of b) -- never by the address of the variable cell itself. pl_vord_t
+   records that position, and that is what keeps this path byte-identical to the converter path it replaces. Cap 256 and the walk order below are inherited from pl_cell_copy_walk deliberately: they are
+   the behaviour being preserved, not a limit to round up. */
+typedef struct { pl_cell_t *seen[256]; int idx[256]; int n; int next; } pl_vord_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rt_pl_vord_of(pl_vord_t *m, pl_cell_t *d) {
+    for (int i = 0; i < m->n; i++) if (m->seen[i] == d) return m->idx[i];
+    int k = m->next++;
+    if (m->n < 256) { m->seen[m->n] = d; m->idx[m->n] = k; m->n++; }
+    return k;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rt_pl_vord_walk(pl_cell_t *c, pl_vord_t *m) {
+    pl_cell_t *d = pl_deref(c);
+    int t = (int)d->v;
+    if (pl_cell_unbound(d)) { rt_pl_vord_of(m, d); return; }
+    if (t == DT_PLREF) { int ar = (int)(d->slen & 0xFFFFu); pl_cell_t *aa = (pl_cell_t *)d->p; for (int i = 0; i < ar; i++) rt_pl_vord_walk(&aa[i], m); return; }
+    if (t != DT_I && t != DT_A && t != DT_S && t != DT_R) m->next++;   /* copy_walk fell through to term_new_var(-1): one fresh var per occurrence, so the counter advances, nothing memoised */
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rt_pl_cell_class(pl_cell_t *d) {
+    int t = (int)d->v;
+    if (pl_cell_unbound(d)) return 0;
+    if (t == DT_I || t == DT_R) return 1;
+    if (t == DT_A || t == DT_S) return 2;   /* copy_walk interned DT_S to an atom, so a string sorts AS its atom, not as a fifth class -- see QA in the s2 baton */
+    if (t == DT_PLREF) return 3;
+    return 0;                               /* unrecognised tag became term_new_var(-1), i.e. class 0, NOT the unreachable class 4 of rt_pl_term_class */
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rt_pl_cell_name(pl_cell_t *d) {
+    if ((int)d->v == DT_S) return d->s ? d->s : "";
+    const char *n = prolog_atom_name((int)d->i);
+    return n ? n : "";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rt_pl_cell_compare(pl_cell_t *ca, pl_cell_t *cb, pl_vord_t *m) {
+    pl_cell_t *a = pl_deref(ca), *b = pl_deref(cb);
+    int cla = rt_pl_cell_class(a), clb = rt_pl_cell_class(b);
+    if (cla != clb) return cla < clb ? -1 : 1;
+    if (cla == 0) { int ia = rt_pl_vord_of(m, a), ib = rt_pl_vord_of(m, b); return ia == ib ? 0 : (ia < ib ? -1 : 1); }
+    if (cla == 1) { double x = ((int)a->v == DT_I) ? (double)a->i : a->r, y = ((int)b->v == DT_I) ? (double)b->i : b->r; return x < y ? -1 : (x > y ? 1 : 0); }
+    if (cla == 2) { int c = strcmp(rt_pl_cell_name(a), rt_pl_cell_name(b)); return c < 0 ? -1 : (c > 0 ? 1 : 0); }
+    int ara = (int)(a->slen & 0xFFFFu), arb = (int)(b->slen & 0xFFFFu);
+    if (ara != arb) return ara < arb ? -1 : 1;
+    const char *na = prolog_atom_name((int)(a->slen >> 16)), *nb = prolog_atom_name((int)(b->slen >> 16));
+    int c = strcmp(na ? na : "", nb ? nb : ""); if (c) return c < 0 ? -1 : 1;
+    pl_cell_t *aa = (pl_cell_t *)a->p, *bb = (pl_cell_t *)b->p;
+    for (int i = 0; i < ara; i++) { int r = rt_pl_cell_compare(&aa[i], &bb[i], m); if (r) return r; }
+    return 0;
+}
 int rt_pl_atop_cell(int op, void *a_cell, void *b_cell)
 {
-    pl_cell_t *vaddr[256]; Term *vterm[256]; int vn = 0;
-    Term *ta = pl_cell_copy_walk((pl_cell_t *)a_cell, vaddr, vterm, &vn, 256);
-    Term *tb = pl_cell_copy_walk((pl_cell_t *)b_cell, vaddr, vterm, &vn, 256);
-    int c = rt_pl_term_compare(ta, tb);
+    pl_vord_t m; m.n = 0; m.next = 0;
+    rt_pl_vord_walk((pl_cell_t *)a_cell, &m);
+    rt_pl_vord_walk((pl_cell_t *)b_cell, &m);
+    int c = rt_pl_cell_compare((pl_cell_t *)a_cell, (pl_cell_t *)b_cell, &m);
     if (op == 0) return c < 0;
     if (op == 1) return c <= 0;
     if (op == 2) return c > 0;
