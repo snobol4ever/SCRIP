@@ -1410,6 +1410,53 @@ static Term *pl_cell_copy_walk(pl_cell_t *c, pl_cell_t **vaddr, Term **vterm, in
     }
     return term_new_var(-1);
 }
+/* CELL-NATIVE deep copy -- the DESCR twin of copy_term_deep/pl_cell_copy_walk, which build heap Terms.
+ * Structure never lives on the heap (GOAL-PROLOG-100 top block): a compound copy is a fresh cell array,
+ * an atom/int/float/string copies BY VALUE, and only unbound vars need fresh storage. Slot numbering is
+ * shared with pl_cell_copy_walk (same counter, same recursion order) so copy_term's printed variable
+ * names are unchanged. ⛔ pl_cell_copy_walk is NOT deleted: 7 functions in OTHER slices still consume its
+ * Term return (rt_pl_atop_cell, rt_pl_compare_cell, the rt_pl_dyn_* family, rt_pl_throw_set). */
+static pl_cell_t pl_cell_copy_cells(pl_cell_t *c, pl_cell_t **vaddr, pl_cell_t **vnew, int *vn, int cap)
+{
+    extern int g_pl_copy_slot_mode; extern int g_pl_copy_slot_ctr;
+    pl_cell_t *d = pl_deref(c);
+    if (pl_cell_unbound(d)) {
+        for (int i = 0; i < *vn; i++) if (vaddr[i] == d) return pl_make_ref(vnew[i], (int)vnew[i]->slen);
+        pl_cell_t *fresh = (pl_cell_t *)rt_ws_alloc(sizeof(pl_cell_t));
+        if (!fresh) return *d;
+        pl_init_var(fresh, g_pl_copy_slot_mode ? g_pl_copy_slot_ctr++ : -1);
+        if (*vn < cap) { vaddr[*vn] = d; vnew[*vn] = fresh; (*vn)++; }
+        return pl_make_ref(fresh, (int)fresh->slen);
+    }
+    if ((int)d->v == DT_PLREF) {
+        int fn = (int)(d->slen >> 16), ar = (int)(d->slen & 0xFFFFu);
+        pl_cell_t *aa = (pl_cell_t *)d->p;
+        pl_cell_t *na = (pl_cell_t *)rt_ws_alloc((size_t)(ar > 0 ? ar : 1) * sizeof(pl_cell_t));
+        if (!na) return *d;
+        for (int i = 0; i < ar; i++) na[i] = pl_cell_copy_cells(&aa[i], vaddr, vnew, vn, cap);
+        return pl_make_compound(fn, ar, na);
+    }
+    return *d;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* The findall/bagof SNAPSHOT, exported for by_name_dispatch's accumulator: capture a template's CURRENT
+ * bindings as cells before backtracking undoes them. Same primitive the in-file services use, so both
+ * accumulators agree on the element type -- they are the SAME allocation reached by two names. */
+pl_cell_t rt_pl_cell_snapshot(void *cell)
+{
+    pl_cell_t *vaddr[256]; pl_cell_t *vnew[256]; int vn = 0;
+    return pl_cell_copy_cells((pl_cell_t *)cell, vaddr, vnew, &vn, 256);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* An atom's identity as an id, read straight off the cell: DT_A carries it, DT_S carries the name. */
+static int pl_cell_atom_id(pl_cell_t *c)
+{
+    pl_cell_t *d = pl_deref(c);
+    if ((int)d->v == DT_A) return (int)d->i;
+    if ((int)d->v == DT_S) { extern int prolog_atom_intern(const char *); return prolog_atom_intern(d->s ? d->s : ""); }
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int g_pl_copy_slot_mode = 0;
 int g_pl_copy_slot_ctr = 1048576;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1417,21 +1464,20 @@ int rt_pl_copy_term_cell(void *term_cell, void *copy_cell)
 {
     extern pl_trail_t g_pl_trail;
     int mark = pl_trail_mark(&g_pl_trail);
-    pl_cell_t *vaddr[256]; Term *vterm[256]; int vn = 0;
+    pl_cell_t *vaddr[256]; pl_cell_t *vnew[256]; int vn = 0;
     g_pl_copy_slot_mode = 1; g_pl_copy_slot_ctr = 1048576;
-    Term *copy = pl_cell_copy_walk((pl_cell_t *)term_cell, vaddr, vterm, &vn, 256);
+    pl_cell_t copy = pl_cell_copy_cells((pl_cell_t *)term_cell, vaddr, vnew, &vn, 256);
     g_pl_copy_slot_mode = 0;
-    if (!copy) copy = term_new_var(-1);
-    if (!pl_unify_term_into_cell((pl_cell_t *)copy_cell, copy, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    if (!pl_unify((pl_cell_t *)copy_cell, &copy, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
-typedef struct { Term **items; int n; int cap; } pl_findall_acc;
+typedef struct { pl_cell_t *items; int n; int cap; } pl_findall_acc;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void * rt_pl_findall_begin(void)
 {
     pl_findall_acc *a = (pl_findall_acc *)rt_ws_alloc(sizeof *a);
     if (!a) return (void *)0;
-    a->cap = 16; a->n = 0; a->items = (Term **)rt_ws_alloc((size_t)a->cap * sizeof(Term *));
+    a->cap = 16; a->n = 0; a->items = (pl_cell_t *)rt_ws_alloc((size_t)a->cap * sizeof(pl_cell_t));
     return (void *)a;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1440,12 +1486,11 @@ void rt_pl_findall_collect(void *acc_v, void *tmpl_term)
     pl_findall_acc *a = (pl_findall_acc *)acc_v;
     if (!a || !a->items) return;
     if (a->n >= a->cap) {
-        int nc = a->cap * 2; Term **ni = (Term **)rt_ws_alloc((size_t)nc * sizeof(Term *)); if (!ni) return;
+        int nc = a->cap * 2; pl_cell_t *ni = (pl_cell_t *)rt_ws_alloc((size_t)nc * sizeof(pl_cell_t)); if (!ni) return;
         for (int i = 0; i < a->n; i++) ni[i] = a->items[i]; a->items = ni; a->cap = nc;
     }
-    Term *var_map[256]; int var_cap = 256, var_n = 0;
-    Term *cp = copy_term_deep(pl_cell_to_term((pl_cell_t *)tmpl_term), var_map, &var_cap, &var_n);
-    a->items[a->n++] = cp ? cp : pl_cell_to_term((pl_cell_t *)tmpl_term);
+    pl_cell_t *vaddr[256]; pl_cell_t *vnew[256]; int vn = 0;
+    a->items[a->n++] = pl_cell_copy_cells((pl_cell_t *)tmpl_term, vaddr, vnew, &vn, 256);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_findall_finish(void *acc_v, void *result_term)
@@ -1453,15 +1498,16 @@ int rt_pl_findall_finish(void *acc_v, void *result_term)
     extern pl_trail_t g_pl_trail;
     pl_findall_acc *a = (pl_findall_acc *)acc_v;
     int dot = prolog_atom_intern(".");
-    Term *lst = term_new_atom(prolog_atom_intern("[]"));
+    pl_cell_t lst; { extern const char *prolog_atom_name(int); const char *nm = prolog_atom_name(prolog_atom_intern("[]"));
+        lst.v = DT_S; lst.slen = (uint32_t)(nm ? strlen(nm) : 0); lst.s = nm ? nm : ""; }  /* ⛔ NOT pl_make_atom: it builds DT_A, but Prolog atoms ride DT_S (pl_cell_conv.h:70) -- hq_C measured the DT_A form core-dumping predicate_property (baton ledger 2026-09-01, seat10 on s5). */
     int n = a ? a->n : 0;
     for (int i = n - 1; i >= 0; i--) {
-        Term **c = (Term **)rt_ws_alloc(2 * sizeof(Term *)); if (!c) return 0;
+        pl_cell_t *c = (pl_cell_t *)rt_ws_alloc(2 * sizeof(pl_cell_t)); if (!c) return 0;
         c[0] = a->items[i]; c[1] = lst;
-        lst = term_new_compound(dot, 2, c);
+        lst = pl_make_compound(dot, 2, c);
     }
     int mark = pl_trail_mark(&g_pl_trail);
-    if (!pl_unify_term_into_cell((pl_cell_t *)result_term, lst, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    if (!pl_unify((pl_cell_t *)result_term, &lst, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1474,12 +1520,12 @@ int rt_pl_agg_count_finish(void *acc_v, void *result_term)
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int agg_num(Term *t, long *iv, double *dv, int *isf)
+static int agg_num(pl_cell_t *c, long *iv, double *dv, int *isf)
 {
-    t = t ? term_deref(t) : (Term *)0;
-    if (!t) return 0;
-    if (t->tag == TERM_INT)   { *iv = t->ival; *isf = 0; return 1; }
-    if (t->tag == TERM_FLOAT) { *dv = t->fval; *isf = 1; return 1; }
+    pl_cell_t *d = c ? pl_deref(c) : (pl_cell_t *)0;
+    if (!d) return 0;
+    if ((int)d->v == DT_I) { *iv = (long)d->i; *isf = 0; return 1; }
+    if ((int)d->v == DT_R) { *dv = d->r;       *isf = 1; return 1; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1491,12 +1537,12 @@ int rt_pl_agg_sum_finish(void *acc_v, void *result_term)
     long si = 0; double sd = 0.0; int isf = 0;
     for (int i = 0; i < n; i++) {
         long iv = 0; double dv = 0.0; int ef = 0;
-        if (!agg_num(a->items[i], &iv, &dv, &ef)) return 0;
+        if (!agg_num(&a->items[i], &iv, &dv, &ef)) return 0;
         if (ef) { sd += dv; isf = 1; } else { si += iv; sd += (double)iv; }
     }
     int mark = pl_trail_mark(&g_pl_trail);
-    Term *r = isf ? term_new_float(sd) : term_new_int(si);
-    if (!pl_unify_term_into_cell((pl_cell_t *)result_term, r, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    pl_cell_t r = isf ? pl_make_float(sd) : pl_make_int((int64_t)si);
+    if (!pl_unify((pl_cell_t *)result_term, &r, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1509,20 +1555,20 @@ static int rt_pl_agg_minmax_finish(void *acc_v, void *result_term, int want_max)
     long bi = 0; double bd = 0.0; int isf = 0, have = 0;
     for (int i = 0; i < n; i++) {
         long iv = 0; double dv = 0.0; int ef = 0;
-        if (!agg_num(a->items[i], &iv, &dv, &ef)) return 0;
+        if (!agg_num(&a->items[i], &iv, &dv, &ef)) return 0;
         double cur = ef ? dv : (double)iv;
         double best = isf ? bd : (double)bi;
         if (!have || (want_max ? (cur > best) : (cur < best))) { if (ef) { bd = dv; isf = 1; } else { bi = iv; bd = (double)iv; isf = 0; } have = 1; }
     }
     int mark = pl_trail_mark(&g_pl_trail);
-    Term *r = isf ? term_new_float(bd) : term_new_int(bi);
-    if (!pl_unify_term_into_cell((pl_cell_t *)result_term, r, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    pl_cell_t r = isf ? pl_make_float(bd) : pl_make_int((int64_t)bi);
+    if (!pl_unify((pl_cell_t *)result_term, &r, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_agg_max_finish(void *acc_v, void *result_term) { return rt_pl_agg_minmax_finish(acc_v, result_term, 1); }
 int rt_pl_agg_min_finish(void *acc_v, void *result_term) { return rt_pl_agg_minmax_finish(acc_v, result_term, 0); }
-static Term **g_rt_pl_nb = (Term **)0;
+static pl_cell_t **g_rt_pl_nb = (pl_cell_t **)0;
 static int g_rt_pl_nb_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_pl_nb_ensure(int id)
@@ -1531,9 +1577,9 @@ static int rt_pl_nb_ensure(int id)
     if (id >= g_rt_pl_nb_n) {
         extern void *rt_ws_alloc(size_t); extern void *rt_ws_realloc(void *, size_t);
         int nc = g_rt_pl_nb_n ? g_rt_pl_nb_n : 16; while (nc <= id) nc *= 2;
-        Term **nv = (Term **)(g_rt_pl_nb ? rt_ws_realloc(g_rt_pl_nb, (size_t)nc * sizeof(Term *)) : rt_ws_alloc((size_t)nc * sizeof(Term *)));
+        pl_cell_t **nv = (pl_cell_t **)(g_rt_pl_nb ? rt_ws_realloc(g_rt_pl_nb, (size_t)nc * sizeof(pl_cell_t *)) : rt_ws_alloc((size_t)nc * sizeof(pl_cell_t *)));
         if (!nv) return 0;
-        for (int i = g_rt_pl_nb_n; i < nc; i++) nv[i] = (Term *)0;
+        for (int i = g_rt_pl_nb_n; i < nc; i++) nv[i] = (pl_cell_t *)0;
         g_rt_pl_nb = nv; g_rt_pl_nb_n = nc;
     }
     return 1;
@@ -1541,39 +1587,39 @@ static int rt_pl_nb_ensure(int id)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_nb_copy_persist(void *val_cell)
 {
-    Term *var_map[256]; int var_cap = 256, var_n = 0;
-    return (void *)copy_term_deep(pl_cell_to_term((pl_cell_t *)val_cell), var_map, &var_cap, &var_n);
+    pl_cell_t *vaddr[256]; pl_cell_t *vnew[256]; int vn = 0;
+    pl_cell_t *out = (pl_cell_t *)rt_ws_alloc(sizeof(pl_cell_t));
+    if (!out) return (void *)0;
+    *out = pl_cell_copy_cells((pl_cell_t *)val_cell, vaddr, vnew, &vn, 256);
+    return (void *)out;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_nb_getval_ptr(void *stored_cell, void *val_cell)
 {
     extern pl_trail_t g_pl_trail;
-    Term *val = (Term *)stored_cell;
+    pl_cell_t *val = (pl_cell_t *)stored_cell;
     if (!val) return 0;
     int mark = pl_trail_mark(&g_pl_trail);
-    Term *var_map[256]; int var_cap = 256, var_n = 0;
-    Term *fresh = copy_term_deep(val, var_map, &var_cap, &var_n);
-    if (!fresh) fresh = val;
-    if (!pl_unify_term_into_cell((pl_cell_t *)val_cell, fresh, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    pl_cell_t *vaddr[256]; pl_cell_t *vnew[256]; int vn = 0;
+    pl_cell_t fresh = pl_cell_copy_cells(val, vaddr, vnew, &vn, 256);
+    if (!pl_unify((pl_cell_t *)val_cell, &fresh, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_nb_setval_cell(void *key_cell, void *val_cell)
 {
-    Term *k = pl_cell_to_term((pl_cell_t *)key_cell);
-    if (!k || k->tag != TERM_ATOM) return 0;
-    int id = k->atom_id;
+    int id = pl_cell_atom_id((pl_cell_t *)key_cell);
+    if (id < 0) return 0;
     if (!rt_pl_nb_ensure(id)) return 0;
-    g_rt_pl_nb[id] = (Term *)rt_pl_nb_copy_persist(val_cell);
+    g_rt_pl_nb[id] = (pl_cell_t *)rt_pl_nb_copy_persist(val_cell);
     return g_rt_pl_nb[id] ? 1 : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_nb_getval_cell(void *key_cell, void *val_cell)
 {
-    Term *k = pl_cell_to_term((pl_cell_t *)key_cell);
-    if (!k || k->tag != TERM_ATOM) return 0;
-    int id = k->atom_id;
-    Term *val = (id >= 0 && id < g_rt_pl_nb_n) ? g_rt_pl_nb[id] : (Term *)0;
+    int id = pl_cell_atom_id((pl_cell_t *)key_cell);
+    if (id < 0) return 0;
+    pl_cell_t *val = (id < g_rt_pl_nb_n) ? g_rt_pl_nb[id] : (pl_cell_t *)0;
     return rt_pl_nb_getval_ptr((void *)val, val_cell);
 }
 typedef struct dyn_clause { Term *head; Term *body; struct dyn_clause *next; } dyn_clause_t;

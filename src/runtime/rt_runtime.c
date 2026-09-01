@@ -99,29 +99,6 @@ int rt_scan_lit(const char * subj_name, const char * subj_lit, const char * pat_
 }
 static int bb_is_gen_node(IR_t * e);
 static void resolve_format_float(char *buf, size_t bufsz, double d);
-typedef struct { Term *orig; Term *copy; } BBCopyMap;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static Term *bb_copy_term_rec(Term *t, BBCopyMap *map, int *nmap) {
-    t = t ? term_deref(t) : NULL;
-    if (!t) return term_new_atom(prolog_atom_intern("[]"));
-    switch (t->tag) {
-    case TERM_VAR:
-        for (int i=0;i<*nmap;i++) if (map[i].orig==t) return map[i].copy;
-        { Term *nv=term_new_var(-1); if (*nmap<256){ map[*nmap].orig=t; map[*nmap].copy=nv; (*nmap)++; } return nv; }
-    case TERM_ATOM:  return term_new_atom(t->atom_id);
-    case TERM_INT:   return term_new_int(t->ival);
-    case TERM_FLOAT: return term_new_float(t->fval);
-    case TERM_COMPOUND: {
-        int ar=t->compound.arity;
-        Term **args=(Term**)rt_ws_alloc((size_t)ar*sizeof(Term*));
-        for (int i=0;i<ar;i++) args[i]=bb_copy_term_rec(t->compound.args[i],map,nmap);
-        return term_new_compound(t->compound.functor,ar,args);
-    }
-    default: return term_new_atom(prolog_atom_intern("[]"));
-    }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static Term *bb_copy_term(Term *t) { BBCopyMap map[256]; int n=0; return bb_copy_term_rec(t,map,&n); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int resolve_term_class(Term *t) {
     switch (t->tag) {

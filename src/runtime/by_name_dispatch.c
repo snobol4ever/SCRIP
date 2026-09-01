@@ -1102,26 +1102,7 @@ static char *pl_list_to_cstr(DESCR_t arg, int codes) {
     }
     o[n] = 0; return o;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t pl_term_to_cell(Term *t) {
-    t = term_deref(t);
-    if (!t) return pl_nil();
-    switch (t->tag) {
-        case TERM_INT: { DESCR_t d; d.v = (DTYPE_t)DT_I; d.slen = 0; d.i = t->ival; return d; }
-        case TERM_FLOAT: { DESCR_t d; d.v = (DTYPE_t)DT_R; d.slen = 0; d.r = t->fval; return d; }
-        case TERM_ATOM: { extern const char *prolog_atom_name(int); const char *nm = prolog_atom_name(t->atom_id); return pl_mk_atom(nm ? nm : ""); }
-        case TERM_VAR: { DESCR_t *c = (DESCR_t *)rt_plj_alloc(sizeof(DESCR_t)); c->v = (DTYPE_t)DT_PLVAR; c->slen = 0; c->p = (void *)c; return *c; }
-        case TERM_COMPOUND: {
-            int ar = t->compound.arity;
-            DESCR_t *kids = (DESCR_t *)rt_plj_alloc((size_t)(ar > 0 ? ar : 1) * sizeof(DESCR_t));
-            for (int i = 0; i < ar; i++) kids[i] = pl_term_to_cell(t->compound.args[i]);
-            DESCR_t d; d.v = (DTYPE_t)DT_PLREF; d.slen = (((uint32_t)t->compound.functor) << 16) | ((uint32_t)ar & 0xFFFFu); d.p = (void *)kids;
-            return d;
-        }
-        default: return pl_nil();
-    }
-}
-typedef struct { Term **items; int n; int cap; } PlFindallAcc;
+typedef struct { pl_cell_t *items; int n; int cap; } PlFindallAcc;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_findall_new(void) {
     PlFindallAcc *acc = (PlFindallAcc *)rt_ws_alloc(sizeof(PlFindallAcc)); acc->items = NULL; acc->n = 0; acc->cap = 0;
@@ -1130,15 +1111,17 @@ static DESCR_t rt_findall_new(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_findall_add(DESCR_t handle, DESCR_t tmpl_val) {
     PlFindallAcc *acc = (PlFindallAcc *)(intptr_t)handle.i; DESCR_t tmp = tmpl_val;
-    extern Term *rt_pl_cell_to_term(void *); Term *snap = rt_pl_cell_to_term(&tmp);
-    if (acc->n >= acc->cap) { int nc = acc->cap ? acc->cap * 2 : 8; Term **ni = (Term **)rt_ws_alloc((size_t)nc * sizeof(Term *)); for (int i = 0; i < acc->n; i++) ni[i] = acc->items[i]; acc->items = ni; acc->cap = nc; }
+    extern pl_cell_t rt_pl_cell_snapshot(void *); pl_cell_t snap = rt_pl_cell_snapshot(&tmp);
+    if (acc->n >= acc->cap) { int nc = acc->cap ? acc->cap * 2 : 8;
+        pl_cell_t *ni = (pl_cell_t *)rt_ws_alloc((size_t)nc * sizeof(pl_cell_t));
+        for (int i = 0; i < acc->n; i++) ni[i] = acc->items[i]; acc->items = ni; acc->cap = nc; }
     acc->items[acc->n++] = snap;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_findall_result(DESCR_t handle) {
     PlFindallAcc *acc = (PlFindallAcc *)(intptr_t)handle.i;
     DESCR_t *elems = (DESCR_t *)rt_ws_alloc((size_t)(acc->n > 0 ? acc->n : 1) * sizeof(DESCR_t));
-    for (int i = 0; i < acc->n; i++) elems[i] = pl_term_to_cell(acc->items[i]);
+    for (int i = 0; i < acc->n; i++) elems[i] = acc->items[i];
     return pl_list_from_arr(elems, acc->n);
 }
 static void out_write_descr(FILE *dest, DESCR_t av, int use_gist);
