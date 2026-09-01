@@ -66,7 +66,7 @@ void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first) {
           if (mprotect(al, (size_t)pg, PROT_NONE) != 0) scrip_co_uerror("scrip_coexpr: guard mprotect failed");
           if (pthread_attr_setstack(&attribs, lo, sz) != 0) scrip_co_uerror("scrip_coexpr: pthread_attr_setstack failed");
           new_ctx->stk_win = (void *)w; new_ctx->stk_guard = (unsigned long)al;
-          { rt_hblk_t *h = (rt_hblk_t *)w - 1; rt_gc_root_range_add((const char *)lo, (const char *)h + h->size); } }
+          { rt_hblk_t *h = (rt_hblk_t *)w - 1; char *shi = (char *)h + h->size; new_ctx->stk_lo = lo; new_ctx->stk_hi = shi; rt_gc_root_range_add((const char *)lo, (const char *)shi); } }
         if (pthread_create(&new_ctx->thread, &attribs, scrip_co_trampoline, new_ctx) != 0)
             scrip_co_uerror("scrip_coexpr: pthread_create failed");
     }
@@ -84,7 +84,7 @@ void scrip_coexpr_destroy(scrip_coctx_t *ctx) {
     sem_post(ctx->semp);
     pthread_join(ctx->thread, NULL);
     if (ctx->stk_win) { long pg = sysconf(_SC_PAGESIZE); rt_gc_root_range_del((const char *)ctx->stk_guard + pg);
-        mprotect((void *)ctx->stk_guard, (size_t)pg, PROT_READ | PROT_WRITE); ((rt_hblk_t *)ctx->stk_win - 1)->type = (uint16_t)HB_FILL; ctx->stk_win = 0; }
+        mprotect((void *)ctx->stk_guard, (size_t)pg, PROT_READ | PROT_WRITE); ((rt_hblk_t *)ctx->stk_win - 1)->type = (uint16_t)HB_FILL; ctx->stk_win = 0; ctx->stk_lo = 0; ctx->stk_hi = 0; }
     { extern long g_scrip_coexpr_live; scrip_coctx_t **pp = &g_co_gc_head; while (*pp && *pp != ctx) pp = &(*pp)->gc_next; if (*pp) { *pp = ctx->gc_next; g_scrip_coexpr_live--; } }
     if (ctx->frame_copy) { extern void rt_gc_root_range_del(const char *); rt_gc_root_range_del((const char *)ctx->frame_copy); free(ctx->frame_copy); ctx->frame_copy = NULL; }
     sem_destroy(ctx->semp);
@@ -172,6 +172,8 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[6]
     ctx->xmit[1]     = 0;
     ctx->stk_win     = 0;
     ctx->stk_guard   = 0;
+    ctx->stk_lo      = 0;
+    ctx->stk_hi      = 0;
     for (int i = 0; i < 6; i++) ctx->gc_spill[i] = 0;
     ctx->scan_state = NULL;
     ctx->gc_next = g_co_gc_head; g_co_gc_head = ctx;
@@ -210,6 +212,8 @@ void scrip_co_ctx_init(scrip_coctx_t *ctx, void (*entry_fn)(void *), void *entry
     ctx->xmit[1]     = 0;
     ctx->stk_win     = 0;
     ctx->stk_guard   = 0;
+    ctx->stk_lo      = 0;
+    ctx->stk_hi      = 0;
     for (int i = 0; i < 6; i++) ctx->gc_spill[i] = 0;
     ctx->frame_copy = NULL; ctx->frame_copy_sz = 0;
     ctx->scan_state = NULL;
@@ -222,7 +226,8 @@ scrip_coctx_t *scrip_co_gc_root(void) { return &g_root_ctx; }
 int scrip_co_main_known(pthread_t *out) { if (g_co_main_set && out) *out = g_co_main_thr; return g_co_main_set; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int scrip_co_stack_of(scrip_coctx_t *ctx, char **lo, char **hi) {
-    if (ctx->stk_win) { rt_hblk_t *h = (rt_hblk_t *)ctx->stk_win - 1; long pg = sysconf(_SC_PAGESIZE); *lo = (char *)ctx->stk_guard + pg; *hi = (char *)h + h->size; return 1; }
+    if (ctx->stk_lo && ctx->stk_hi && ctx->stk_lo < ctx->stk_hi) { *lo = ctx->stk_lo; *hi = ctx->stk_hi; return 1; }   /* ⛔ THE BOUNDS ARE READ BACK, NEVER RE-DERIVED. This arm used to recompute *hi from the GC heap-block header ((rt_hblk_t *)stk_win - 1)->size, which is the ONE line coupling the root scan to the compacting heap this row exists to leave; it also computed the pair a SECOND time, by a different expression than rt_gc_root_range_add's, so the scanned range and the registered root range could drift apart silently. Both are now the single pair recorded at allocation. */
+    if (ctx->stk_win) { rt_hblk_t *h = (rt_hblk_t *)ctx->stk_win - 1; long pg = sysconf(_SC_PAGESIZE); *lo = (char *)ctx->stk_guard + pg; *hi = (char *)h + h->size; return 1; }   /* legacy fallback: a window allocated before the bounds were recorded. Unreachable once every allocator sets stk_lo/stk_hi; kept until the destination lands so this commit is provably behaviour-preserving. */
     if (!ctx->alive) return 0;
     { pthread_attr_t a; void *sa = 0; size_t sz = 0;
       if (pthread_getattr_np(ctx->thread, &a) != 0) return 0;
