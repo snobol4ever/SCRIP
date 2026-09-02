@@ -33,7 +33,8 @@
  *   the unifier.  ⛔ DO NOT let a later rung read this file as "unify is ported" — it is not.
  *
  * ⚠ THE FLOOR IS SEMANTIC, NOT BOOKKEEPING, AND ITS VALUE IS EXACT
- *   g_plw_unwind_floor feeds plc_dead_cstack (parsers/prolog/pl_cell.h): pl_trail_unwind SKIPS the
+ *   g_plw_unwind_floor feeds pl_dead_cstack (parsers/prolog/pl_cell.h, renamed off its old name --
+ *   row prolog-call-n-compiles-through-eval-and-the-plc-runtime-solver-is-deleted): pl_trail_unwind SKIPS the
  *   restore for any trail entry whose target address is < floor+16, i.e. lives in a dead C frame.
  *   Writing a DIFFERENT floor than the C would silently change which bindings survive backtracking.
  *   The C stores __builtin_frame_address(0), which at -O0 is ___ AFTER `push ___; mov ___,rsp`,

@@ -38,12 +38,12 @@ static inline int pl_cell_unbound(const pl_cell_t *d) { return (int)d->v == DT_P
 static inline int pl_is_var(pl_cell_t *c)      { pl_cell_t *d = pl_deref(c); return pl_cell_unbound(d); }
 static inline int pl_is_int(pl_cell_t *c)      { pl_cell_t *d = pl_deref(c); return (int)d->v == DT_I; }
 static inline int pl_is_atom(pl_cell_t *c)     { pl_cell_t *d = pl_deref(c); return (int)d->v == DT_A; }
-static inline int plc_is_float(pl_cell_t *c)    { pl_cell_t *d = pl_deref(c); return (int)d->v == DT_R; }
+static inline int pl_cell_is_float(pl_cell_t *c)    { pl_cell_t *d = pl_deref(c); return (int)d->v == DT_R; }
 static inline int pl_is_compound(pl_cell_t *c) { pl_cell_t *d = pl_deref(c); return (int)d->v == DT_PLREF; }
 static inline int64_t pl_int_val(pl_cell_t *c)  { return pl_deref(c)->i; }
 static inline int     pl_atom_id(pl_cell_t *c)  { return (int)pl_deref(c)->i; }
 static inline double  pl_float_val(pl_cell_t *c) { return pl_deref(c)->r; }
-static inline int plc_functor(pl_cell_t *c) { return (int)(pl_deref(c)->slen >> 16); }
+static inline int pl_cell_functor(pl_cell_t *c) { return (int)(pl_deref(c)->slen >> 16); }
 static inline int pl_arity(pl_cell_t *c)   { return (int)(pl_deref(c)->slen & 0xFFFFu); }
 static inline void *pl_compound_heap(pl_cell_t *c) { return pl_deref(c)->p; }
 typedef struct { pl_cell_t *addr; pl_cell_t old; } pl_trail_ent_t;
@@ -61,7 +61,7 @@ static inline void pl_trail_push(pl_trail_t *t, pl_cell_t *addr) {
     t->top++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int plc_dead_cstack(const void *p) {
+static inline int pl_dead_cstack(const void *p) {
     extern char *g_plw_unwind_floor;
     if (!g_plw_unwind_floor) return 0;
     static char *stk_lo, *stk_hi; static int stk_have;
@@ -81,7 +81,7 @@ static inline void pl_trail_unwind(pl_trail_t *t, int mark) {
     pl_trail_ent_t *ents = (pl_trail_ent_t *)t->area.base;
     while (t->top > mark) {
         t->top--;
-        if (!plc_dead_cstack(ents[t->top].addr)) *ents[t->top].addr = ents[t->top].old;
+        if (!pl_dead_cstack(ents[t->top].addr)) *ents[t->top].addr = ents[t->top].old;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

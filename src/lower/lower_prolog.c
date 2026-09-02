@@ -795,7 +795,7 @@ IR_graph_t * lower_prolog_clause(const tree_t * clause) {
 extern tree_t *resolve_pred_table_lookup(Resolve_PredTable *pt, const char *key);
 extern int ir_is_generator_kind(IR_e t);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int lower_pl_pred_graph_new(const tree_t * ch, int arity, int suspend_deliver) {
+int lower_pl_pred_graph_new(const tree_t * ch, int arity, int suspend_deliver) {
     const tree_t * one[1]; const tree_t ** clauses; int nc;
     if (ch->t == TT_CLAUSE) { one[0] = ch; clauses = one; nc = 1; }
     else if (ch->t == TT_CHOICE && ch->n >= 1) { clauses = (const tree_t **) ch->c; nc = ch->n; }
@@ -848,6 +848,63 @@ static int lower_pl_pred_graph_new(const tree_t * ch, int arity, int suspend_del
     if (maxlocal >= 0) { g->nlocals = maxlocal + 1; g->lnames = (const char **) calloc((size_t)(maxlocal + 1), sizeof(const char *)); for (int k = 0; k <= maxlocal; k++) g->lnames[k] = pl_var_name(k); }
     free(centry); free(uw);
     return bb_program_add(&g_stage2.bbp, g);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* pl_compile_runtime_pred -- row prolog-call-n-compiles-through-eval-and-the-plc-runtime-solver-is-deleted.
+   Compiles ONE freshly-synthesized Prolog predicate (bb_idx already produced by lower_pl_pred_graph_new from
+   a synthetic TT_CLAUSE AST) and wires it into the SAME rt_proc_register/rt_proc_call_gen_h path every
+   normal compiled predicate uses -- mirrors the mode-3 per-proc block in src/driver/scrip.c (the loop over
+   s2->proc_table around rt_proc_register/emit_chain), trimmed to what a Prolog proc with simple by-value
+   cell params needs (no Pascal GVA, no Icon/SNOBOL4 zls_graph_name -- those are other frontends). Runs
+   standalone, long AFTER the whole-program driver loop has already finished, so it does its own per-graph
+   optimizer_run+slot-assign (mirroring the pattern JIT's bb_compile_pat_tree_sz, src/runtime/rt/bb_pat_build.cpp)
+   rather than the whole-program drive_slots_all(s2) sweep, which would re-touch every ALREADY-COMPILED
+   proc's frame layout -- unsafe mid-run. is_generator is hardcoded 1: correctness over a minor optimization,
+   never trust a det-classification for a synthetic wrapper (C10 already found one bug in that classification). */
+int pl_compile_runtime_pred(const char *name, int bb_idx, int nparams) {
+    extern void optimizer_run(IR_graph_t *);
+    extern void ir_drive_slot_assign(IR_graph_t *);
+    extern void rt_proc_register(const char *, const char **, int);
+    extern void rt_proc_set_fn(const char *, bb_box_fn);
+    extern void rt_proc_set_nformals(const char *, int);
+    extern void rt_proc_set_frame(const char *, int, int);
+    extern void rt_proc_set_byref(const char *, uint64_t);
+    extern void rt_proc_set_frame_bytes(const char *, int);
+    extern void rt_proc_set_zstatic(const char *, int);
+    extern void rt_proc_set_generator(const char *, int);
+    extern void emit_patzeta_register(const char *, int, int, int);
+    extern IR_graph_t *g_emit_cfg;
+    extern int g_last_flat_frame_bytes, g_last_flat_zstatic, g_last_flat_fp, g_last_flat_uniform;
+    extern int g_emit_frame_caller_dl;
+    extern int g_frame_active;
+    if (bb_idx < 0 || bb_idx >= g_stage2.bbp.count || !g_stage2.bbp.table[bb_idx] || !g_stage2.bbp.table[bb_idx]->entry) return 0;
+    IR_graph_t *g = g_stage2.bbp.table[bb_idx];
+    optimizer_run(g);
+    ir_drive_slot_assign(g);
+    rt_proc_register(name, (const char **)0, nparams);
+    rt_proc_set_nformals(name, nparams);
+    if (g->nslots > 0) rt_proc_set_frame(name, g->nslots - 1, 0);
+    rt_proc_set_byref(name, 0);
+    /* is_generator=0 here (EMISSION side, g_emit.flat_gen) is deliberate, matching runtime_eval.c's
+       eval_thunks_emit_from -- NOT the same as backtracking support (that comes from bb_box_fn's own
+       entry=0/1 protocol via the jump table emit_jmp_entry_for_proc arms, independent of this flag).
+       Forcing 1 here mis-shapes codegen for an Icon-generator-style body and corrupted the stack
+       (measured: "stack smashing detected" on the very first parameterized synthetic call). */
+    rt_proc_set_generator(name, 0);
+    g_emit_frame_caller_dl = -1;
+    g_emit_cfg = g;
+    g_frame_active = 1;
+    char pfx[64]; snprintf(pfx, sizeof pfx, "proc_%s", name);
+    bb_box_fn fn = emit_chain(g->entry, NULL, pfx);
+    g_frame_active = 0;
+    g_emit_frame_caller_dl = -1;
+    if (getenv("SCRIP_MC_DEBUG")) fprintf(stderr, "[MC-DEBUG] name=%s nparams=%d nslots=%d fn=%p frame_bytes=%d zstatic=%d fp=%d uniform=%d\n", name, nparams, g->nslots, (void *)fn, g_last_flat_frame_bytes, g_last_flat_zstatic, g_last_flat_fp, g_last_flat_uniform);
+    rt_proc_set_frame_bytes(name, g_last_flat_frame_bytes);
+    if (!fn) return 0;
+    rt_proc_set_fn(name, fn);
+    rt_proc_set_zstatic(name, g_last_flat_zstatic);
+    emit_patzeta_register(name, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform);
+    return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int lower_pl_clause_graph(const tree_t *clause) {
