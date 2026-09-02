@@ -124,7 +124,7 @@ gate_require "$ROOT/../corpus/tests/snobol4/ALL.ref" "master SNOBOL4 suite refs"
 # census fell back to its 1494 default and REFUSED, and line 123 ran as a command ("--pinned-population: command not found"). ⭐ bash -n answers
 # "is this parseable", NOT "is this what I meant" -- the command -v class, and a broken line-continuation is invisible to it. RUN THE GATE.
 python3 "$HERE/util_census_optimizer_bypass.py" --gate \
-  --pinned-population 1656 --pinned-opt0-max 190 --pinned-zd0-max 308
+  --pinned-population 1656 --pinned-opt0-max 191 --pinned-zd0-max 308
 # ⛔⭐ POPULATION 1655 -> 1656 (hq_C 2026-09-01, pinned against corpus 5b44ca010). ⚠️ THIS IS ME REPAIRING MY OWN COMPLIANCE BREACH, named so nobody
 # has to attribute it twice: corpus 5b44ca010 promoted user_function_eval_arbno_replace_branch_2 and moved the graded population 1655 -> 1656 WITHOUT the
 # paired SCRIP re-pin -- violating the same-commit clause of the very protocol I had written into lib_master_extract.sh hours earlier. Consequence measured
@@ -134,17 +134,39 @@ python3 "$HERE/util_census_optimizer_bypass.py" --gate \
 # over NONDETERMINISTIC units and are hq_P's lane under this gate's own header -- I have deliberately left them at 190/308 rather than tune two things at once.
 # ⛔ EXPECT THE NEXT REFUSAL TO BE opt0, NOT population: hq_P measured 191/1656 against the pinned 190 and has that re-pin in flight with the witness named.
 # That is a different fact with a different owner; do not fold the two into one "the gate is red" story.
+# ⭐ OPT0 190 -> 191 (hq_P, same file, merged with hq_C's note above rather than over it -- both facts are true and they have different owners). hq_C predicted this exact
+# next refusal and left the MAX pins alone deliberately; this is that re-pin arriving. The +1 is NOT drift and NOT load: --only user_function_eval_arbno_replace_branch_2 reads
+# default PASS / SCRIP_OPT CRASH rc=-6 / SCRIP_ZD CRASH rc=-11, and that entry is EXACTLY the marker whose promotion moved the population to 1656. The bypass count rose WITH
+# the population, structurally -- which is why a MAX carried across a GROWING population is not a conservative bound but a wrong one. Both entries are new witnesses for P8.
 # ⚠️ INTERIM RE-PIN (hq_P 2026-09-01), pinned against corpus 5eb68cb87 -- a number's tree is part of its label. The graded population MOVES with every XFAIL-marker promotion, and it is
-# MEASURED by corpus_suite_harness.read_suite, never typed: 1646 at corpus 9b657e350, 1654 at ad1fdaa71, then UNREADABLE at 2d75933ec, then 1655 at 5eb68cb87 (1726 entries, 1655 graded).
+# MEASURED by corpus_suite_harness.read_suite, never typed: 1646 at corpus 9b657e350, 1654 at ad1fdaa71, then UNREADABLE at 2d75933ec, then 1655 at 5eb68cb87, then 1656 at 5b44ca010.
+# ⛔ THE 1655 PIN LASTED MINUTES. It was measured, correct and pushed (SCRIP 409385bb) and hq_C landed corpus 5b44ca010 -- the second marker promotion -- while it was in flight. NEITHER SEAT ERRED.
+# That is the THIRD occurrence in one evening of the same seam, and it is the whole argument for the stable-subset row: a pin keyed on a population that any promotion moves is stale on arrival by
+# construction, not by carelessness. Do not read a stale pin here as a discipline failure, and do not 'fix' it by pinning higher than measured -- re-measure and re-pin, and push the row that kills the seam.
 # ⛔ THE UNREADABLE ENTRY IS NOT A GAP IN THE RECORD -- IT IS THE POINT. 2d75933ec half-applied a promotion (dropped from ALL.sno + ALL.xfail, ALL.ref's seq-1678 banner still XFAIL), so
 # read_suite RAISED 'family.ref banner mismatch at seq 1678' and no board or census on the box could grade the master suite at all. A population of NOTHING is what a half-applied promotion
 # reads as, so do not write a number there -- and note the pin is what forces the halves to converge, which is why hq_C's promotion protocol (prove it by read_suite or the board on the
 # RESULT, in the same commit) exists. ⛔ BUT THE TWO HALVES LIVE IN DIFFERENT REPOS AND CANNOT BE MADE ATOMIC: corpus grades N+1 the moment it lands, SCRIP still pins N until this file
 # follows, so a window where the box is red box-wide is STRUCTURAL, not a discipline failure. That is the stable-subset row's argument (optbypass-pin-stable-subset, hq_C, rank 0 I10) and
 # it is the real cure; this pin is the interim.
-# ⚠️ THE TWO MAX PINS ARE CARRIED, NOT RE-MEASURED (opt0 190, zd0 308, from the 1654-population readings) -- the box was at loadavg 25 with 18 concurrent master-suite runs, and hq_C's
-# band finding says a pin taken under load is a coin flip. They are sound as UPPER BOUNDS by construction: fewer graded entries cannot raise a count. So a count ABOVE either max is still a
-# real red; a count BELOW is NOT evidence the max is tight. Re-measure both at the next quiet window -- three readings, record the spread -- and replace this note with the numbers and the tree.
+# ⛔⭐ OPT0 RE-PINNED 190 -> 191, AND THE REASON IS MEASURED, NOT 'PROBABLY LOAD NOISE'. The gate fired 191/1656 and the tempting read was hq_C's band finding, because OPT0 sat exactly ON 190.
+# IT WAS NOT NOISE. `util_census_optimizer_bypass.py --only user_function_eval_arbno_replace_branch_2` says: default PASS, SCRIP_OPT=0 CRASH rc=-6 (SIGABRT), SCRIP_ZD=0 CRASH rc=-11 (SIGSEGV).
+# That entry is EXACTLY the marker hq_C promoted to take the population 1655 -> 1656, so the bypass count rose WITH the population, structurally. Its sibling promotion is the same story one arm
+# over: --only user_function_indirect_replace_2 gives default PASS, SCRIP_OPT=0 PASS, SCRIP_ZD=0 CRASH rc=-11.
+# ⛔⛔ THE REASONING THIS NOTE USED TO CARRY WAS WRONG AND IS RETRACTED: it said the carried maxes were 'sound as UPPER BOUNDS by construction: fewer graded entries cannot raise a count.' That
+# holds only if the population SHRINKS. It GREW -- 1654 -> 1655 -> 1656 -- and every entry promoted INTO the graded set brings its own bypass-arm verdict with it. A carried max is an upper bound
+# under shrinkage and a LIE under growth, which is the direction this corpus actually moves.
+# ⭐⭐ THE PROTOCOL GAP THIS EXPOSES, and it is bigger than the pin: a marker promotion is proven by read_suite or the board on the RESULT -- and BOTH grade the DEFAULT ARM ONLY. So a promotion can
+# silently push either bypass watermark up, and the promoter has no reason to look. Both promotions tonight did exactly that, in different arms. A promotion should check `--only <entry>` before it
+# lands, or the watermark gate will red on the NEXT seat's push for a reason that has nothing to do with their change. Routed to hq_C, who owns the promotion protocol.
+# ⚠️⭐ ZD0 STAYS AT 308 AND ITS SPREAD IS NOT LOAD -- IT IS BIMODALITY, WHICH IS WORSE. Readings so far: 303, then 302, then 304 (the last at population 1656, load ~20). I first wrote that off as
+# load wobble. hq_C measured the actual cause: THE ZD ARM IS BIMODAL. Running one entry three times gave HANG, CRASH, CRASH -- the same entry, the same tree. non-PASS is the stable fact; WHICH
+# non-PASS is not. hq_C independently read SCRIP_ZD as HANG rc=None on the very entry this file records as CRASH rc=-11, and neither reading is wrong. They measured the same bimodality on a
+# separate functor/3 witness: 7x SIGSEGV and 5x HANG over 12 runs of one two-line program.
+# ⛔⛔ THE CONSEQUENCE FOR THIS GATE, and it is structural rather than cosmetic: A COUNT THAT BUCKETS HANG AND CRASH SEPARATELY IS UNSTABLE BY CONSTRUCTION, so re-reading it three times measures
+# THE FLIP, NOT THE TREE -- the standard 'take three readings' discipline does not rescue a bimodal instrument, it just samples the coin. ⛔ Do NOT classify a bypass arm by its verdict KIND
+# (hq_C's clause, now in lib_master_extract.sh and GOAL-SNOBOL4-100.md); key on PASS vs non-PASS, which is stable. ⛔ Do not tighten ZD0 onto 304 -- a gate tuned to the low end of a spread whose
+# own width is not yet known fails on a coin flip -- and do NOT read a count BELOW a max as evidence the max is tight, in either arm.
 rc=$?
 
 gate_stamp
