@@ -15,7 +15,7 @@
 #  define REALVAL(r_)  ((DESCR_t){ .v = DT_R, .r = (double)(r_) })
 #endif
 #ifndef STRVAL
-#  define STRVAL(s_)   __extension__({ char *_sv_ = (char *)(s_); (DESCR_t){ .v = DT_S, .slen = _sv_ ? (uint32_t)__builtin_strlen(_sv_) : 0u, .s = _sv_ }; })   /* length carried at construction -- Lon 2026-08-30, see core.h */
+#  define STRVAL(s_)   __extension__({ char *_sv_ = (char *)(s_); (DESCR_t){ .v = DT_S, .slen = _sv_ ? (uint32_t)__builtin_strlen(_sv_) : 0u, .s = _sv_ }; })
 #endif
 typedef enum {
     IR_ACTIVATE,
@@ -232,23 +232,8 @@ struct IR_graph_t {
     int            zframe_graph;
     int            icn_cells_graph;
     int            pl_cells_graph;
-    int            zframe_pinned_base;   /* PZ-4 clause (a) PL-ZA-1: this graph's zeta-ACTIVATION frame is anchored in a PINNED BASE REGISTER, so frame references address off the pin and survive
-        arbitrary spine motion inside the body. A REGIME predicate, spelled as a storage behaviour and never as a language (RULES.md: the emitter is past language and into platform;
-           test_gate_emit_no_lang.sh
-        bans is_<language> as an identifier). It is DELIBERATELY NARROWER than zframe_graph, which three lowerers set (lower_prolog.c, lower_raku.c, lower_pascal.c) -- keying the pin on zframe_graph
-           would
-        silently re-home Raku and Pascal frames too, the exact language-blind widening that cost 47 Icon programs at s272. Set by lower_prolog.c alone today; any other lowerer whose graphs want the
-           same
-        regime sets it for itself and is graded for itself. */
-    int            runtime_fragment_graph;   /* row eval-code-end-terminates-m4 (seat06 2026-08-29, Lon-approved): set by
-        runtime_eval.c's code() on the graph it just lowered for a CODE() fragment. flat_jmp_entry (set unconditionally for
-        every chain-compiled graph by emit_jmp_entry_for_chain) conflated two populations that need OPPOSITE outer-exit
-        conventions: pattern/generator jmp-entry sub-graphs are entered via a real activation and must `ret` to their
-        caller, but a CODE() fragment is entered via bb_goto_deferred.cpp's bare tail-jmp (no `call`, nothing pushed) and
-        its own :(END) reaching bb_glue_outer_γ/ω's `ret` arm read whatever garbage happened to sit at [rsp] as a return
-        address -- SIGSEGV rip=0x0, both modes, gdb-confirmed. This flag lets bb_glue_outer_γ/ω force the same
-        unconditionally-safe call-exit() arm a non-jmp-entry (whole-program) graph already uses, without touching
-        flat_jmp_entry itself (still needed for this graph's own RBP-relative operand/frame layout). */
+    int            zframe_pinned_base;
+    int            runtime_fragment_graph;
     int            is_variadic;
     int            rest_kind;
     int            pl_zf_trail_mark_off;

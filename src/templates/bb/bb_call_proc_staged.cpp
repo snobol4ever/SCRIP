@@ -73,19 +73,6 @@ static int icn_wire_stack_on(void) { static int _v = -1; if (_v < 0) { const cha
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_wire_cross(int gid, int wid) { return icn_wire_stack_on() ? bb_glue_pass_wires_blob(gid, wid) : bb_glue_pass_wires(gid, wid); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* bcps_spine_gen_arm's callee is always a zframe_graph prologue (xa_flat_zframe_prologue_str), which
- * captures its wires UNCONDITIONALLY from rcx/rdx registers -- it has no stack-blob landing of its own.
- * bb_glue_pass_wires_blob leaves rcx correctly loaded only as a side effect of using rcx as its lea
- * scratch register for the LAST push (gid); it never touches rdx at all, so the omega wire arrives as
- * whatever rt_proc_call_open_det/rt_arg_stage last left there. Gamma is masked by that coincidence;
- * omega is not -- confirmed via gdb: a multi-clause predicate that runs its clause chain to exhaustion
- * (any backtracking query) lands at its own omega port with [kt-16]=garbage and jmp's it -- measured as
- * fact$2F1_ω reading 0 at [rsp+496] and jmp'ing to address 0 (fact(a).fact(b).fact(c). main :- fact(X),
- * write(X), nl, fail ; true.). This is independent of SCRIP_PL_GAMMA_RETAIN -- both arms reach the same
- * omega port. Icon's icn_cells_graph generators are unaffected: their own epilogue consumes the pushed
- * pair directly off the stack (bb_glue_wire_γ/ω) rather than through this prologue's register capture,
- * so adding the register load here is inert for that case and only fills in the previously-missing wire
- * for the zframe_graph (Prolog) case that actually reads it. */
 static std::string bcps_wire_cross_gen(int gid, int wid) {
     if (!icn_wire_stack_on()) return bb_glue_pass_wires(gid, wid);
     return x86_lea_id("rcx", wid) + x86("push", "rcx")
@@ -106,7 +93,7 @@ static std::string bcps_epi_named(int is_omega, uint64_t bare_fp)
     return x86_ro_load_q("rdi", 0) + x86("call", is_omega ? "rt_proc_call_epilogue_named_ω" : "rt_proc_call_epilogue_named_γ", nm_fp);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define SAI_L0 200   /* stage_arg_inline owns internal labels 200..215 (i in [0,8)); the old base 20 put i==4 on L(29), which bcps_nret_consult also defines -- a duplicate .Lx<uid>_29 in one box */
+#define SAI_L0 200
 static std::string stage_arg_inline(int i, int slot, uint64_t stage_fp) {
     bool plc = g_emit_cfg && g_emit_cfg->pl_cells_graph;
     std::string slow = x86("mov32", "edi", (long)i) + x86("mov", "rsi", FRQ(slot)) + x86("mov", "rdx", FRQ(slot + 8)) + x86("call", "rt_arg_stage", stage_fp);
@@ -694,25 +681,10 @@ static std::string bcps_spine_gen_arm() {
     int   gi_dyn = _.op_sval && rt_proc_dyn_scope(_.op_sval);
     long  gi_idx = (!gi_off && !gi_dyn && _.op_sval) ? (long)rt_proc_index_of(_.op_sval) : -1L;
     uint64_t gidet_fp; { void * (*fp)(long, int) = rt_proc_call_open_det; gidet_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    /* N2-STEP3-DBG (seat01, 2026-08-28): getenv-gated, stderr only, zero emission effect. VERIFIES two premises step 3's
-     * call-site wiring depends on before any real code is written against them: (1) _.node -- the pointer this template
-     * already uses for arg-slot lookups -- is pointer-IDENTICAL to what icn_gen_host_reserve_offset()'s scan of
-     * g_emit_cfg->all[] finds, so the offset/base it returns actually describes THIS call. MEASURED true on
-     * suspend_single (off=0 base=144) and same_gen_twice (off=0/96, base=240 both calls, matching the selftest exactly).
-     * (2) g_emit.flat_lcl_proc is true for every host in the four flat_lcl_proc-hosted D2 shapes -- but FALSE for
-     * suspend_nested's outer()->inner() call, because outer() is itself flat_gen and icn_gen_regime()'s flat_gen prologue
-     * arm (emit.cpp ~2832) never calls icn_gen_host_reserve() -- confirmed by grep, zero hits in that arm's span.
-     * ⛔ THIS IS A REAL GAP, NOT AN IMPLEMENTATION DETAIL: a generator calling another generator has no reservation
-     * mechanism at all yet. Extending icn_gen_host_reserve() to the flat_gen arm is its own piece of work, not step 3's.
-     * See .github/FINDING-2026-08-28-seat01-n2-step3-flat-gen-host-has-no-reservation-mechanism.md before scoping step 3. */
     if (getenv("SEAT01_N2_STEP3_DBG")) { int _dbgbase = -1; int _dbgoff = icn_gen_host_reserve_offset(0, _.node, &_dbgbase); fprintf(stderr, "[N2-STEP3-DBG] node=%p callee=%s host_flat_lcl_proc=%d off=%d base=%d\n", (void*)_.node, _.op_sval ? _.op_sval : "?", g_emit.flat_lcl_proc, _dbgoff, _dbgbase); }
-    /* N-2 STEP 3 (ceo s283): the call site owns the region hand-off. n2_off/n2_base come from the ONE function the carve used; n2_fb is THIS callee's registered ft (needed for the landing's value load at
-     * [H-ft]); n2_res>0 proves the host's carve actually grew -- offset() can answer off=0 for the FIRST callee while a LATER forward reference zeroed the whole reservation (plausible-zero #5 of this rung,
-     * caught at design time), so the guard is the SUM, not the offset. ⛔ A site that cannot supply a region under arming BOMBS loudly (rt_bomb at run time) rather than letting the shared prologue read
-     * garbage at [rsp+16] -- that silent-wild-rbp is exactly the shape s282 ruled UNSOUND in option (a). flat_gen-hosted calls (suspend_nested) land here until the transitive-reserve follow-on row. */
     int n2_base = -1, n2_off = -1, n2_res = 0, n2_fb = -1;
     if (icn_gen_regime()) { n2_off = icn_gen_host_reserve_offset(0, _.node, &n2_base); n2_res = icn_gen_host_reserve(0); if (_.op_sval) emit_patzeta_frame_reserve(_.op_sval, &n2_fb); }
-    if (icn_gen_regime() && (n2_off < 0 || n2_res <= 0 || n2_fb <= 0)) return x86_alpha() + x86_bomb("N-2 armed: generator call site has no reserved region (flat_gen host or forward reference) -- transitive reserve is the follow-on row; refusing loudly instead of emitting a wild-rbp protocol") + x86_beta() + x86_bomb("N-2 armed: beta re-entry into a refused generator call site");   /* the beta label must still be DEFINED -- a later box's beta chain jumps to it (suspend_nested: outer's suspend beta resumes the inner call), and an early return without it dies as an unresolved forward reference at bb_emit_end instead of as this bomb */
+    if (icn_gen_regime() && (n2_off < 0 || n2_res <= 0 || n2_fb <= 0)) return x86_alpha() + x86_bomb("N-2 armed: generator call site has no reserved region (flat_gen host or forward reference) -- transitive reserve is the follow-on row; refusing loudly instead of emitting a wild-rbp protocol") + x86_beta() + x86_bomb("N-2 armed: beta re-entry into a refused generator call site");
     int n2_ftc = (n2_fb > 0) ? ((n2_fb + 15) & ~15) : 0;
     return x86_alpha()
          + x86_scan_sync_out()
@@ -753,11 +725,7 @@ static std::string bcps_spine_gen_arm() {
          + bcps_wire_cross_gen(3, 4)
          + x86("def", L(3))
          + (icn_gen_regime()
-            ? /* N-2 STEP 3 (ceo s283): L(3) is still the SHARED landing and al still tells a RETIRE (DT_FAIL, arrives with rsp ALREADY restored to the anchor by the retire arm) from a SUSPEND (arrives on the
-               * generator's scratch rsp with rdx = the region header H). Both arms now run every FRQ at TRUE depth (rsp = carve), which buries the old trio of depth defects this landing carried: the suspend
-               * arm joined 8 low so FRQ(act) read [carve+56] (garbage), both banks wrote [carve+64] -- the act FLAG -- while beta read [carve+72], and the epilogue calls ran 8-misaligned on the suspend path
-               * (the intermittent armed m4 SIGSEGV, measured in the .s 2026-08-29). The suspend arm also loads rdi:rsi from the region's return slot [H-ft] -- rt_proc_call_epilogue_γ and rt_gen_spine_pass_γ
-               * are PASS-THROUGH (rt.c:1305, rtx_icngen.s), so the yielded descriptor must be in the argument registers HERE or the caller stores garbage: that was s273's missing value path. */
+            ?
               x86("comment", "N-2 STEP 3 LANDING: restore rsp from the ANCHOR in the region header ([rdx+24], = caller pre-pad rsp0), load the yielded descriptor from the frame's return slot, bank the header as the resume token at TRUE depth so beta's FRQ(act+8) read finds it.")
               + x86("cmp", "al", (long)DT_FAIL)
               + x86("je", L(8))
@@ -772,7 +740,6 @@ static std::string bcps_spine_gen_arm() {
               + x86("def", L(9))
             : ((pl_zf_resume && emit_pl_gamma_retain())
                ? x86_bomb("bb_call_proc_staged: PZ-4 clause (c) LANDING is scaffolded and still refuses to run -- BUT NOT FOR THE REASON THIS BOMB CARRIED UNTIL 2026-08-30. The ARITHMETIC blocker seat05 named here is CURED and the cure is measured: emit_patzeta_frame_reserve() now returns a Prolog zframe callee's TRUE frame_total on BOTH registration windows (per-emission SCRIP 3fe34608; the forward-reference PRE-PASS in scrip.c, which kept registering the Icon-shaped (np+nl)*16 after that cure and disagreed with it, fixed in the same commit family by hq_B). MEASURED on fact/2 (np=2 nl=4): pre-pass 1328 -> 1232, per-emission 1232, callee alpha carve `sub rsp, 1232` -- all three now agree, so `rsp = rax + emit_patzeta_frame_reserve(callee)` IS the correct restore and the byte count is no longer unknown. ⛔ A SECOND, INDEPENDENT BLOCKER STANDS, AND IT IS THE ONE THAT MATTERS: THE HOST IS STILL RSP-RELATIVE. Clause (b) hands rax = the callee base with NO unwind (xa_flat_zframe_epilogue_γ_str under pl_gamma_retain_on), so the retained frame lives BELOW the caller landing. Restoring rsp to rax+ft puts rsp back ABOVE that frame, leaving it below rsp and unprotected against the next call -- which is not a hypothesis: hq_P measured that exact class on 18 of 21 van Roy kernels, first invalid access at pl_trail_unwind (src/parsers/prolog/pl_cell.h:81), dead-stack writes 1672/1680 bytes below rsp, .github FINDING 3b349119. ⭐ ceo's own ruling on this row names the missing half: promotion is the ENABLING step -- 'once host ζ is rbp-relative, rsp may sit below the retained frame and the landing protects it'. MEASURED at HEAD, not assumed: a --compile of a two-clause fact/2 under SCRIP_PL_GAMMA_RETAIN=1 emits ZERO `[rbp`-relative frame references and six `qword ptr [rsp + 320]` -- the caller's whole ζ is rsp-relative, so there is no base to re-anchor off and every FRQ() would move under a protective rsp. Land the host RBP promotion for Prolog FIRST; then this landing is the two instructions above, not a redesign. Do NOT 'fix' this by restoring rsp anyway -- that trades a loud refusal for hq_P's silent dead-stack write.")
-
                : bcps_wire_land(_.op_sval)
                  + (x86("mov", FRQ(act + 8), "rsp")
                     + x86("add", "rsp", 16L))))
@@ -813,22 +780,6 @@ static std::string bcps_spine_gen_arm() {
          + x86("call", "rt_gen_spine_resume_enter", rsen_fp)
          + (pl_zf_resume
             ? ( [&]() -> std::string {
-                /* PZ-4 clause (c) RETRY (seat05 2026-08-30): NOT landed this pass, deliberately. The intended
-                 * shape (restore rsp from FRQ(act+8), jmp [rax+zf_cont_off] straight into the callee's own
-                 * resume continuation -- no re-invocation, no mailbox -- mirroring icn_gen_regime()'s own
-                 * restore+jmp roughly fifty lines below) is BLOCKED for two independent reasons, both real
-                 * and both diagnosed, neither resolved: (1) it depends on the landing-side byte-count fix,
-                 * which is itself refused-with-a-bomb above (see the landing site a few lines up in this
-                 * function) -- so even a working retry would run on a poisoned base; (2) inserting ANY new
-                 * early-return branch at this exact position -- verified even with a bare x86_bomb() call,
-                 * with and without an added x86_gamma() port-bookkeeping call -- produces
-                 * "bb_emit_end: 1 unresolved forward reference(s), label=''" at final emission, a SCRIP-
-                 * internal box/port bookkeeping issue not yet root-caused (the landing-side bomb, at a
-                 * DIFFERENT position in the same function, does NOT trigger it -- isolated by direct A/B,
-                 * not assumed). Left as the pre-existing mailbox code, UNCHANGED, so the flag stays
-                 * COMPILABLE end to end; the landing-side bomb (confirmed working, see above) makes this
-                 * branch unreachable at runtime for any program that ever suspends, so nothing is lost by
-                 * leaving it as-is for this pass. See the FINDING for the full isolation trail. */
                 uint64_t _pop3_fp; { void *(*_f)(long *, long *) = rt_pl_cp_pop3; _pop3_fp = (uint64_t)(uintptr_t)(void *)_f; }
                 uint64_t _set_fp; { void (*_f)(void *, long, long, int, int) = rt_pl_zf_resume_set; _set_fp = (uint64_t)(uintptr_t)(void *)_f; }
                 return x86("comment", "PL-FR-4 zframe β: pop triple, set pending resume, re-enter callee α")

@@ -25,14 +25,7 @@ static inline bool bb_glue_outer_whack() {
     return s ? (g_glue_entered != 0) : true;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline bool bb_glue_outer_needs_ret() {   /* row eval-code-end-terminates-m4: flat_jmp_entry alone conflates two
-    populations that need OPPOSITE outer-exit conventions -- a pattern/generator jmp-entry sub-graph is entered via a
-    real activation and must ret to its caller, but a runtime-compiled CODE() fragment (runtime_fragment_graph, set by
-    code() in runtime_eval.c) is entered via bb_goto_deferred.cpp's bare tail-jmp, never a `call`, so nothing is ever
-    pushed for a ret to consume -- SIGSEGV rip=0x0, gdb-confirmed, both modes. A fragment reaching its own :(END) always
-    means "terminate the process", the same as a whole-program's own (non-jmp-entry) exit, so it takes that same
-    unconditionally-safe call-exit() arm instead, regardless of flat_jmp_entry (still needed unchanged for this
-    graph's own RBP-relative operand/frame layout -- only the exit convention was ever wrong). */
+static inline bool bb_glue_outer_needs_ret() {
     return (g_emit.flat_jmp_entry != 0) && !(g_emit_cfg && g_emit_cfg->runtime_fragment_graph);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

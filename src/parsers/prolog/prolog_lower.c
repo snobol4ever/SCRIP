@@ -459,10 +459,6 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
         if (raw_body && raw_body->t == TT_PROGRAM && raw_body->n > 0) {
             goal_tr = raw_body->c[0];
         } else if (raw_body) {
-            /* A bare directive's body is ONE goal to run start to finish -- a "," here is ordinary
-               conjunction (":- A, B." means run A then B), not a list of separate directives. Taking
-               only c[0] silently dropped every conjunct after the first (rung
-               prolog-bare-directive-loses-conjuncts-after-the-first-at-parse-time). */
             goal_tr = raw_body;
         }
         if (!goal_tr) continue;

@@ -9,9 +9,6 @@ int rt_cmp_d(const DESCR_t *a, const DESCR_t *b);
 #include "x86_asm.h"
 #include <cstdlib>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* THE FAIL CONDITION, twice.  ct_fail_sign() reads the SIGN rt_cmp_d returned in eax after `test eax,eax`; ct_fail_int() reads the
-   flags `cmp rax,rdx` set directly on two DT_I values.  Four of the six predicates share a mnemonic between the two -- only LT and
-   GE differ (jns/js are sign-of-a-difference tests, jge/jl are the signed comparisons) -- so the pair is written out, not derived. */
 static inline const char * ct_fail_sign() {
     return (int)_.op_ival == 0 ? "jne"
          : (int)_.op_ival == 1 ? "je"
@@ -31,9 +28,6 @@ static inline const char * ct_fail_int() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_cmp_test() {
     x86_begin();
-    /* ⭐ INTEGER COMPARE IS THREE INSTRUCTIONS, NOT A CALL (s249).  Both operands arrive from coerce_numeric, so DT_I ⊕ DT_I is the
-       overwhelmingly common shape and `cmp rax, rdx` decides it outright; rt_cmp_d stays for everything else (real, string, mixed).
-       Measured on arith_loop: the box was 13 in-line + 14 inside rt_cmp_d = 27 of 133 instructions per iteration for one `LT`. */
     if (_.op_zres && getenv("SCRIP_OPT_CMPINT") && getenv("SCRIP_OPT_CMPINT")[0] == '0')
         return x86("comment", "IR_CMP_TEST zd")
              + x86_alpha()

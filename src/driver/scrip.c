@@ -41,24 +41,8 @@ static IR_graph_t *g_ab_posthook_g = NULL; static int g_ab_posthook_gva = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void bb_ab_posthook(void) { extern void bb_ab_emit_nodes(IR_graph_t*, int); if (g_ab_posthook_g) bb_ab_emit_nodes(g_ab_posthook_g, g_ab_posthook_gva); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* N-2 item 2 step 1 (hq_P): HOST-DETECTION PREDICATE, INERT -- emits nothing.  Answers two questions: (1) which graphs host a DIRECT
-   call to a generator proc, and (2) whether that callee is emitted LATER than its host -- the forward reference under which
-   proc_fb_buf[] reads 0 rather than erroring, sizing a host carve silently too small.
-   The host edge is IR_PROC_GEN, NOT a call op.  lower_icon.c:148 already resolves the callee and encodes the answer in the OPCODE
-   (`icn_proc_is_generator(name) ? IR_PROC_GEN : IR_CALL`), and :1374 rewrites the same way post-lower -- so the NODE KIND IS THE
-   PREDICATE and no is_generator lookup is needed.  The proc table is consulted only to resolve the callee INDEX for the
-   forward-reference test.  IR_CALL_VALUE is counted separately and never as a host edge: indirect dispatch is explicitly UNRULED
-   (ceo 2026-08-27) and must not enter this slice.  A callee absent from the proc table is reported as callee_idx=-1, never as 0.
-   ⛔ THE TEST IS EMISSION ORDER, NOT TABLE ORDER.  Every emit loop `continue`s on main and emits it separately afterwards, so a
-   main host is emitted LAST and can never forward-reference anything -- scoring it by table index reports a hazard that cannot
-   occur.  Emission position is therefore proc_count for main and the table index for every other proc. */
 static int n2_proc_index(const stage2_t *s2, const char *fn) { if (!s2 || !fn) return -1;
     for (int i = 0; i < s2->proc_count; i++) { const char *pn = s2->proc_table[i].name; if (pn && !strcmp(pn, fn)) return i; } return -1; }
-/* Selects "main" via module_registry.main_mod + that module's proc range first (fixes cross-language collisions:
-   picks the right MODULE, and within it the FIRST "main"-named entry -- which for Prolog's two main/0 registrations
-   is the dedicated goal-entry-point graph, registered before the generic-predicate one). Falls back to the old
-   flat-table first-wins scan when the registry is unset or its range doesn't resolve, so a frontend whose
-   main_mod/nprocs bookkeeping has a gap this pass didn't find never regresses below the already-landed baseline. */
 static int polyglot_main_bb_idx(const stage2_t *s2) { if (!s2) return -1;
     int mm = s2->module_registry.main_mod;
     if (mm >= 0 && mm < s2->module_registry.nmod) { const ScripModule *m = &s2->module_registry.mods[mm];
@@ -78,36 +62,13 @@ static void n2_host_scan_diag(const stage2_t *s2) { if (!s2 || !getenv("SCRIP_N2
         if (fired) hosts++; }
     fprintf(stderr, "[N2-HOST] SUMMARY procs=%d hosts=%d edges=%d forward_refs=%d unresolved_callees=%d indirect_call_nodes=%d\n", s2->proc_count, hosts, edges, fwd, unresolved, indirect); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* N-2 item 2, THE FORWARD-REFERENCE GUARD (hq_P 2026-08-27).  Step 1 measured 3 genuine forward host->generator edges across bench_correct (geddump event->gedval,
-   gedload->gedwalk; tgrlink dumpcode->aseq) and warned they read proc_fb_buf[] as 0 rather than erroring, sizing a host carve silently too small.  MEASURED HERE:
-   THE ARRAY IS THE HAZARD, NOT THE INFORMATION.  proc_fb_buf[] is filled DURING the emission loop from g_last_flat_frame_bytes, so a host emitted before its callee
-   reads an unwritten slot -- but g_last_flat_frame_bytes is only g_emit_cfg->jcon_value_region (emit.cpp:3475), a PER-GRAPH field assigned exactly once at IR
-   finalization (scrip_ir.c:283, after zls_build) and never assigned again anywhere in src/.  So a callee generator's frame bytes are already knowable at host-alpha
-   time by reading the callee graph directly -- no table, no two-pass emission, and NO NEW GLOBAL, which the standing rule forbids without an in-chat grant.
-   ⛔ MEASURED CORRECTION, and it is why this probe exists rather than a bare assertion: the field is NOT live as soon as the stage2 table is built.  Probing it
-   at sm_preamble() time reads region=0 for nearly every proc (measured 427 of 429 comparisons mismatching, against post-emit values of 992/720/3616/...).  It is
-   assigned by drive_slots_all() -> ir_drive_slot_assign() -> scrip_ir.c:283, which runs per-language at scrip.c:1261/1439/1683/1805 -- still BEFORE every emission
-   loop, so the claim survives, but ONLY when read after that pass.  An item-2 carve sized from the field any earlier would have silently read 0 for every callee.
-   These two probes exist to PROVE that before item 2 relies on it, rather than to assert it: PREPASS prints every proc's region BEFORE any graph is emitted;
-   POSTEMIT prints the emission-time value the old array would have stored, on both the mode-4 and mode-3 loops; scripts/test_icn_n2_fb_prepass.sh REFUSES rc=2
-   unless they agree for every proc.  Read-only, getenv-gated, no emission change -- an inert step, landed and proven inert before anything is built on it. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void n2_fb_prepass_diag(const stage2_t *s2) { if (!s2 || !getenv("SCRIP_N2_FB_PREPASS")) return;
     for (int i = 0; i < s2->proc_count; i++) { const char *pn = s2->proc_table[i].name; int gi = s2->proc_table[i].bb_idx;
         if (!pn || gi < 0 || gi >= s2->bbp.count || !s2->bbp.table[gi]) continue;
         fprintf(stderr, "[N2-FB] PREPASS proc=%s idx=%d gen=%d region=%d\n", pn, i, s2->proc_table[i].is_generator, s2->bbp.table[gi]->jcon_value_region); }
     fprintf(stderr, "[N2-FB] PREPASS-END procs=%d\n", s2->proc_count); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐⭐ N-2 TRANSITIVE-RESERVE STEP 1 (hq_P 2026-08-29, row icon-n2-flat-gen-host-transitive-reserve): VERIFY CROSS-GRAPH
-   NODE ACCESS BEFORE BUILDING THE RECURSIVE SUM ON IT. The row's own GOAL orders this first and says why: this rung has
-   FIVE plausible-zero scars (step 1 hosts=0; step 1b ft "obviously" 0 and measured 96; icn_gen_host_reserve_offset
-   returning off=0 from a host that never carved). ⛔ reserve(g) = Σ over g's generator call nodes of (align16(ft)+48+
-   reserve(callee)) has to walk a graph that is NOT g_emit_cfg, and every existing consumer of this predicate walks only
-   the CURRENT graph. Two independent things could each silently answer zero here and both look identical to "this host
-   calls no generators": (1) another graph's all[]/n may not be populated in the post-drive_slots_all window, and
-   (2) the rt_proc_is_* registration lookups may not answer yet this early -- registration is ORDERED, which is exactly
-   why icn_gen_host_reserve() carries a forward-reference refusal at all. This probe reports BOTH, per graph, so the
-   answer is measured rather than assumed. Inert: getenv-gated, stderr only, zero emission effect. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void n2_xgraph_probe(const stage2_t *s2) { if (!s2 || !getenv("SCRIP_N2_XGRAPH")) return;
     fprintf(stderr, "[N2-XG] window=post-drive_slots_all procs=%d bbp.count=%d\n", s2->proc_count, s2->bbp.count);
     for (int i = 0; i < s2->proc_count; i++) { const char *pn = s2->proc_table[i].name; int gi = s2->proc_table[i].bb_idx;
@@ -123,37 +84,6 @@ static void n2_xgraph_probe(const stage2_t *s2) { if (!s2 || !getenv("SCRIP_N2_X
                 pn, s2->proc_table[i].is_generator, g->all ? "OK" : "NULL", g->n, calls, named, reg, gen); }
     fprintf(stderr, "[N2-XG] END -- a 0 in n/calls is the plausible-zero this probe exists to expose, not evidence of no callees\n"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* N-2 FORWARD-REF PRE-PASS, THE CURE (seat01 2026-08-29, row icon-n2-forward-ref-gen-prepass): registers every generator proc's frame bytes into the
-   pz[] registry (zeta_storage.c) BEFORE any graph is emitted, so icn_gen_host_reserve()'s emit_patzeta_frame_reserve() lookup HITS even when a host
-   is emitted before the generator it calls (a forward reference in source order) -- measured live in bench_correct: geddump 6 such call sites,
-   tgrlink 2. Same window step 1b proved stable (AGREE=429/MISMATCH=0 on jcon_value_region): live immediately after drive_slots_all(), before any
-   emission loop reads or writes a graph's fields again. ⛔ ONLY frame bytes (fb) and fp are computed; uniform is passed 0, not derived: its one
-   reader, fct_defer_susp() (zeta_storage.c), only ever looks up names prefixed "PAT$" (SNOBOL4 deferred-pattern names) -- a namespace disjoint from
-   Icon proc names -- so no entry this pre-pass writes is ever read through that field, and computing it correctly would need a non-static export of
-   emit.cpp's emit_graph_uniform() for a value nothing here consumes. fp mirrors the REAL per-emission registration (g_last_flat_fp, emit.cpp:3639)
-   against the callee's OWN graph, since no graph is "current" yet at this window.
-   ⛔⭐ THE ORIGINAL CLAIM HERE -- "the two calls agree ... a pre-pass value is never stale, only ever superseded by an identical one" -- WAS TRUE WHEN
-   WRITTEN AND WENT FALSE UNDER A CURE LANDED ELSEWHERE (hq_B 2026-08-30, SCRIP 3fe34608): that commit gave the per-emission side a zframe arm
-   (fp=0, because xa_flat_zframe_prologue_str carves EXACTLY flat_frame_bytes) while this pre-pass kept registering the Icon-shaped (np+nl)*16 for
-   every is_generator proc -- and lower_prolog.c:1514 marks EVERY Prolog graph zframe_graph, so every Prolog predicate was registered here too.
-   MEASURED on fact/2 (np=2 nl=4): pre-pass ft=1328 vs per-emission ft=1232 vs the callee's own `sub rsp, 1232` -- over by exactly 96 == (np+nl)*16.
-   The disagreement is WINDOW-DEPENDENT, which is the hazard: a host emitted AFTER its callee reads the corrected 1232, a host emitted BEFORE it (the
-   forward reference this pre-pass exists to serve) reads 1328. The zframe arm below restores the agreement the paragraph asserts.
-   ⭐ A COMMENT CANNOT NOTICE THAT THE CODE IT DESCRIBES MOVED. This one asserted an invariant across two files, nothing read it, and the cure that
-   broke it was correct in its own file -- so the assertion decayed silently in the gap between them (hq_C 2026-08-30: a declared expectation nothing
-   reads is a comment, not a gate). If the two formulas ever diverge again, SCRIP_N2_FT_PROBE=1 prints both sides on one line each -- [N2-PREPASS]
-   here and [N2-FT] EMIT from emit.cpp -- so the check is one run, not a re-derivation.
-   ⛔ THE _zfA KEY IS LOAD-BEARING AND IS NOT A TUNING KNOB: it mirrors emit.cpp:3639 term for term, and the key is the α-SELECTION STATE
-   (zframe_graph && !icn_cells_graph), never the bare zframe_graph field -- a graph carrying BOTH flags takes an icn_cells α that DOES add
-   (np+nl)*16 back, so keying on the field alone would register a frame SILENTLY TOO SMALL, the exact silent-overflow direction ceo refused
-   worst-case reservation to avoid. Icon graphs never set zframe_graph at all (lower_prolog.c:1514, lower_raku.c:1141, lower_pascal.c:790 are
-   the only three writers), so this arm cannot reach an Icon proc -- measured, not assumed: Icon watermark unmoved, emitted .s byte-identical
-   Only is_generator procs are registered -- the sole population icn_gen_host_reserve() ever queries by name -- leaving pz[]'s 512-slot table
-   headroom untouched for the rest. ⭐ INERT ON THE UNARMED PATH BY CONSTRUCTION, NOT BY A GATE: pz[] registration already runs unconditionally today
-   (all four real call sites carry no icn_genframe2() check), and every consumer of emit_patzeta_frame_reserve() is itself gated on icn_genframe2()
-   (icn_gen_host_reserve() etc., x86_asm.h) -- so an unarmed build looks up nothing this pre-pass touches, armed or not. The forward-reference refusal
-   in icn_gen_host_reserve() is UNTOUCHED and still fires on a genuine miss (see the poison-arm test) -- this pre-pass only removes the miss that was
-   never supposed to be one. */
 static void n2_fb_prepass_register(const stage2_t *s2) { if (!s2) return;
     extern void emit_patzeta_register(const char *, int, int, int);
     for (int i = 0; i < s2->proc_count; i++) { if (!s2->proc_table[i].is_generator) continue;
@@ -163,8 +93,8 @@ static void n2_fb_prepass_register(const stage2_t *s2) { if (!s2) return;
         { int _zfA = (g->zframe_graph && !g->icn_cells_graph); int _fp = _zfA ? 0 : (g->nparams + g->nlocals) * 16;
           if (getenv("SCRIP_N2_FT_PROBE")) fprintf(stderr, "[N2-PREPASS] proc=%-14s np=%-3d nl=%-3d zframeA=%d icncells=%d rg=%-5d fp=%-5d ft=%d\n",
                                                   pn, g->nparams, g->nlocals, _zfA, g->icn_cells_graph, g->jcon_value_region, _fp, ((32 + g->jcon_value_region + 15) & ~15) + _fp + 16);
-          emit_patzeta_register(pn, g->jcon_value_region, _fp, 0); } } }   /* ⛔⛔ fp term = (np+nl)*16, MIRRORING the callee alpha's own frame_total = flat_frame_bytes + (np+nl)*16 (ceo s283d): the previous zls_g_fp_total(g) read 0 for every Icon generator (fct_fp_range knows zls FIELDS, not Icon params/locals), so the registry undersold frame_total by 16 per param+local -- the caller's landing then read the yielded value 16 low ([rdx-288] vs the suspend's write at [rbp-304], MEASURED on the w1 concat witness: every suspended value from a generator WITH a local arrived EMPTY -- seat15's concord one-empty-key table, seat02's garbage suspend-n) and the host reservation was one slot too small (silent slice overflow). Every proof witness to date had np=nl=0, where 0 was the right answer -- plausible-zero instance SIX on this rung. The reserve consumer's align16(32+fb)+fp+16 algebra equals flat_frame_bytes+fp exactly, so with this term the registry IS frame_total. ⛔ The _zfA arm is NOT a tuning knob -- see the zframe paragraph in the block comment above for why the key is the α-SELECTION STATE and never the bare field. */
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+          emit_patzeta_register(pn, g->jcon_value_region, _fp, 0); } } }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_zf_exit_γ(void) { exit(0); }
 static void icn_zf_exit_ω(void) { exit(1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -432,20 +362,6 @@ static int graph_var_assigned_or_param(stage2_t *s2, int gi, IR_graph_t *g, cons
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int graph_native_emittable_mode(stage2_t *s2, int for_run, char *why, size_t whysz) {
-    /* ⛔⭐ THE REASON IS REPORTED, NEVER GUESSED (hq_B 2026-09-01, row bench-grids-rebase-to-two-number-basis). Until this edit both callers printed a HARDCODED
-       "(a box has no MEDIUM_BINARY arm — Raku map/grep)" for every 0 this function returned -- measured live on `my $t = now;`, a program with no map, no grep and
-       no box at all: it was refused by the IR_VAR check below because `now` is read and never assigned, and the message blamed a construct the program did not
-       contain. A refusal that names the wrong cause costs more than no message: the reader goes looking for map/grep. Each return 0 now writes its own reason into
-       the caller's buffer and the two fprintf sites print that. (Raku's clock term `now` is still not a SCRIP builtin; the bench kernels use wall_us() instead.)
-       ⛔⛔ IR_OP_COUNT IS A LIVE OP, NOT A TOMBSTONE -- AND THIS EDIT LEARNED THAT THE EXPENSIVE WAY (hq_B, same day, one hour later). The first draft of
-       this rewrite deleted the six `nd->op == IR_OP_COUNT` guards as dead code, on a census that asked "is IR_OP_COUNT ever ASSIGNED with `=`" (zero hits)
-       and read the answer as "does any node ever carry it". lower_raku.c:82 rk_excise() and lower_prolog.c:461/773/877 BUILD nodes with op IR_OP_COUNT --
-       the excised/placeholder node, printed as UNKNOWN by the IR dump -- and the templates (bb_assign_local, bb_unop_gvar_slot, ...) test for it. With the
-       guards gone, `reverse(@a)` sailed through this gate and died in emit_drive as "IR op=133 has no template", SIGABRT, in both modes: two smoke programs
-       went from REFUSED (a clean [SMX] banner, which the smoke's PASS-or-REFUSED bar accepts) to a core dump. The old body's line 459 refused ANY such node
-       unconditionally and shadowed the later IR_OP_COUNT branches, so ONE named guard below reproduces the original semantics exactly, and now says why.
-       ⭐ THE REAL BEAUTY DEFECT is that the enum's COUNT sentinel doubles as an op: a reader who knows what a count sentinel is will call these guards dead,
-       as I did. Naming the excised node (IR_EXCISED) is row driver-emittability-predicates-sentinel-tombstones, re-scoped to that. */
     extern int rt_builtin_is_known(const char *name);
     (void)for_run;
     if (!s2) { snprintf(why, whysz, "no stage2 graph"); return 0; }
@@ -804,7 +720,7 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                 emit_textf("  .intel_syntax noprefix\n");
                 emit_textf("  lea rdi, [rip + .Lstartup_prec%d]\n", i);
                 emit_textf("  call rt_proc_register_rec@PLT\n");
-                { extern int emit_icn_n2_gen_region_ft(const char *, int, IR_graph_t *); int _gpi = proc_pidx_buf[i]; int _gft2 = 0;   /* N-2 apply-call cure (ceo s283h): the ONE_REG default lane registers via the compact record, which has no gen_region_ft field -- stamp it with one extra setter call so mode-4 binaries know the region-resident alphas too (the per-setter stamp below sits in the legacy _onereg==0 lane and never runs by default) */
+                { extern int emit_icn_n2_gen_region_ft(const char *, int, IR_graph_t *); int _gpi = proc_pidx_buf[i]; int _gft2 = 0;
                   if (_gpi >= 0 && _gpi < s2->proc_count) { int _ggi = s2->proc_table[_gpi].bb_idx; if (_ggi >= 0 && _ggi < s2->bbp.count && s2->bbp.table[_ggi]) _gft2 = emit_icn_n2_gen_region_ft(proc_names_buf[i], s2->proc_table[_gpi].is_generator, s2->bbp.table[_ggi]); }
                   if (_gft2 > 0) {
                     emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
@@ -864,7 +780,7 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                 emit_textf("  mov esi, %d\n", proc_fb_buf[i]);
                 emit_textf("  call rt_proc_set_frame_bytes@PLT\n");
             }
-            { extern int emit_icn_n2_gen_region_ft(const char *, int, IR_graph_t *); int _pig = proc_pidx_buf[i]; int _gft = 0;   /* N-2 apply-call cure (ceo s283h): mode-4 twin of the mode-3 rt_proc_set_gen_region_ft stamp -- emitted into the startup block so the standalone binary's runtime table knows the region-resident alphas too */
+            { extern int emit_icn_n2_gen_region_ft(const char *, int, IR_graph_t *); int _pig = proc_pidx_buf[i]; int _gft = 0;
               if (_pig >= 0 && _pig < s2->proc_count) { int _gi2 = s2->proc_table[_pig].bb_idx; if (_gi2 >= 0 && _gi2 < s2->bbp.count && s2->bbp.table[_gi2]) _gft = emit_icn_n2_gen_region_ft(proc_names_buf[i], s2->proc_table[_pig].is_generator, s2->bbp.table[_gi2]); }
               if (_gft > 0) {
                 emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
@@ -964,13 +880,6 @@ int main(int argc, char **argv)
     }
     if (!mode_run && !mode_compile)
         mode_run = 1;
-    /* SCRIP_PERF_MAP=1 (Lon 2026-08-28, "make the symbols accessible by the perf tools"): the emitter writes the
-     * perf jit-map at slab-seal time (emit.cpp, per sealed graph) so a mode-3 profile names graphs instead of [JIT].
-     * ⛔ The map is a MODE-3 artefact only -- mode-4 already carries real symbols in its own symbol table -- so say
-     * so plainly rather than let a --compile run leave the user waiting for a file that will never be written.
-     * ⛔ perf reads /tmp/perf-<pid>.map REGARDLESS of TMPDIR, and stale content is APPENDED to, not replaced: an
-     * old map from a previous run of the same recycled pid mis-names samples silently, which is worse than [JIT]
-     * because it is plausible. Name the path so the caller can delete it first. */
     { const char *_pm = getenv("SCRIP_PERF_MAP");
       if (_pm && *_pm && *_pm != '0')
           fprintf(stderr, "[PERF-MAP] %s: /tmp/perf-%d.map (perf jit convention; ⛔ APPEND -- delete a stale map for this pid before profiling)\n",
@@ -1166,17 +1075,6 @@ int main(int argc, char **argv)
         { extern int sno_nerrors; if (sno_nerrors > 0) { fprintf(stderr, "scrip: %d parse error(s) in '%s' -- no code generated\n", sno_nerrors, input_path); return 1; } }
     }
     if (nsegs == 1) segs[0].prog = ast_prog;
-    /* zframe-registration-order fix (row polyglot-demo-empty-output-rc0): the Prolog eager-name prepass below is
-       gated on is_prolog, which is set ONLY for a standalone .pl file (scrip.c:971) -- for a .scrip/.md polyglot
-       file every section routes through lang_polyglot instead, so is_prolog stays false even when one of the
-       parsed segments IS Prolog, and the prepass silently never runs. Without it, a graph's name is attached to
-       its zg[] registry entry lazily, one proc at a time, only when that proc reaches its own turn in the
-       proc_table emission loop (scrip.c ~1774/~1367) -- so a call site emitted for an EARLIER proc that calls a
-       LATER-emitted proc (in proc_table order, not source order) does its zls_g_resume_by_name() lookup before
-       that callee has a name at all, and silently gets -1 even though drive_slots_all() already computed its
-       resume_off correctly by pointer. This does not depend on WHICH proc is affected or on any language's
-       arming/depth computation -- has_prolog_seg only widens WHEN the pre-existing prepass runs, it changes no
-       computed value. */
     int has_prolog_seg = is_prolog;
     if (!has_prolog_seg) for (int _si = 0; _si < nsegs; _si++) if (segs[_si].fn == lower_pl_stage2) { has_prolog_seg = 1; break; }
     if (opt_bench) clock_gettime(CLOCK_MONOTONIC, &_t1);
@@ -1371,7 +1269,6 @@ int main(int argc, char **argv)
             char smx_why[256];
             if (is_raku && !graph_native_emittable(s2, smx_why, sizeof smx_why)) {
                 fprintf(stderr, "[SMX] --compile --target=x86: mode-4 native emitter does not yet cover this program: %s. REJECTED — native BB emission pending (no interpreter fallback).\n", smx_why);
-                /* ⛔⭐ 1, NOT 0 (hq_C verdict 2026-08-30, row smx-refusal-exits-zero). This returned 0, so "the compiler could not build this" and "the program ran and printed nothing" shared an exit code AND an empty stdout -- indistinguishable to any caller that checks either. The deciding evidence is nine lines below: the [IBB] FATAL neighbour already returns 1, so the driver ALREADY treats an inability-to-build as non-zero and this path was an inconsistency with its own neighbour rather than a considered refusal policy. ⛔ NOT rc=2: that is the GATE convention for cannot-measure; for a compiler "I cannot build this" is an ordinary build failure and 1 is the honest code. ⭐ Landed only after the exposed-consumer census hq_C required (FINDING-2026-08-30-hq_B-smx-rc0-exposed-population-is-empty-today): eight raku consumers, [SMX] seen by none -- the refusing programs are graded by corpus_suite_harness.py on OUTPUT vs a committed .ref, never on rc. ⚠️ Both sites are is_raku-gated, so today's blast radius is Raku-only; the refusal is the EMITTER's own not-covered path, so any frontend added to that predicate inherits this rc and the census must be re-run then. */
                 return 1;
             }
             if (main_bb_idx < 0 || main_bb_idx >= s2->bbp.count || !s2->bbp.table[main_bb_idx] || !s2->bbp.table[main_bb_idx]->entry) {
@@ -1450,10 +1347,6 @@ int main(int argc, char **argv)
             { extern int rt_grammar_count(void); n_gram_emit = rt_grammar_count(); }
             emit_textf("  .globl main\n");
             emit_textf("main:\n");
-            /* see the sibling emission's comment (same file, ~line 1543): the activation-tier
-               offsets collide with the kernel-placed envp/argv block a few hundred bytes above entry rsp
-               without this guard (pascal-m4-intermittent-segv-layout-sensitive). +65536 matches the other
-               frame modes' own guard band a few lines down; 65544 keeps the same post-sub alignment. */
             emit_textf("  sub rsp, 65544\n");
             emit_textf("  push rdi\n");
             emit_textf("  push rsi\n");
@@ -1632,16 +1525,6 @@ int main(int argc, char **argv)
             }
             int n_gva = gva_count();
             int n_proc_slot = proc_slot_count();
-            /* The activation-tier slots are addressed at fixed positive offsets from this
-               entry rsp (up into the 100s-1000s of bytes for a nontrivial "main"), with no subsequent
-               reservation of that range -- on a real exec() stack that range collides with the kernel-
-               placed envp/argv block a few hundred bytes above entry rsp (pascal-m4-intermittent-segv-
-               layout-sensitive: boolmix's own literal-cell write landed on environ[]'s slot and flipped
-               a byte from NULL to a small tag, so glibc's getenv() walked off the end into unrelated
-               memory -- intermittent because it depends on ASLR-shifted stack contents past the array).
-               +65536 matches the guard band the non-RSP frame modes already reserve+zero a few lines
-               down for the identical reason; 65536 is 16-aligned so the residual "+8" keeps the original
-               post-sub alignment (entry rsp%16==8 from the call instruction, 0 after this sub). */
             emit_textf("  .globl main\nmain:\n  sub rsp, 65544\n  push rdi\n  push rsi\n");
             { const char * hr = getenv("SCRIP_M4_HEADROOM"); if (hr && *hr) { long hb = atol(hr); if (hb > 0) { hb = (hb + 15) & ~15L; emit_textf("  sub rsp, %ld\n", hb); } } }
             if (n_procs > 0) emit_textf("  call main_init\n");
@@ -1677,7 +1560,6 @@ int main(int argc, char **argv)
                     emit_textf("  mov esi, %d\n", pe->nformals);
                     emit_textf("  call rt_proc_set_nformals@PLT\n");
                     emit_textf("  lea rdi, [rip + .Lpn%d]\n", i);
-                    /* ENTRY label is what codegen_flat_chain_body minted: FN__<name> for a non-bare "proc_" chain; <name>_alpha is a CLASS-C alias, undefined here. Mirrors emit_module_init_body(). */
                     if (pe->name && strncmp(pe->name, "LBL__", 5) == 0) emit_textf("  lea rsi, [rip + LBL__%s]\n", asm_sym_name(pe->name + 5));
                     else emit_textf("  lea rsi, [rip + FN__%s]\n", asm_sym_name(pe->name));
                     emit_textf("  call rt_proc_set_fn@PLT\n");
@@ -1776,7 +1658,7 @@ int main(int argc, char **argv)
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
                 if (!pname) continue;
-                if (strcmp(pname, "main") == 0) continue;   /* main_bb_idx now comes from polyglot_main_bb_idx() above (row polyglot-main-selector-ignores-main-mod-registry), not a table scan here -- see that function for the mode-3-vs-mode-4 order-collision history this comment used to carry. */
+                if (strcmp(pname, "main") == 0) continue;
                 int idx = s2->proc_table[_pi].bb_idx;
                 if (idx < 0 || idx >= s2->bbp.count || !s2->bbp.table[idx] || !s2->bbp.table[idx]->entry) continue;
                 int np = s2->proc_table[_pi].nparams;
@@ -1800,7 +1682,6 @@ int main(int argc, char **argv)
             char smx_why[256];
             if (is_raku && !graph_native_emittable_mode(s2, 1, smx_why, sizeof smx_why)) {
                 fprintf(stderr, "[SMX] --run: mode-3 native emitter does not yet cover this program: %s. REJECTED — native BB emission pending (no interpreter fallback).\n", smx_why);
-                /* ⛔⭐ 1, matching the MODE-4 site above -- and DELIBERATELY NOT this site's own neighbour, which calls abort(). ⭐⭐ THE RULE IS NOT PROXIMITY, IT IS THE PRINCIPLE THE NEIGHBOURS INSTANTIATE (hq_C, restating their own "match the neighbour" ruling after it was tested rather than executed): abort() is for a VIOLATED INTERNAL INVARIANT -- a state the compiler believes impossible, like "main BB graph not found" after a successful build, where no correct user action exists because the compiler is broken. A non-zero return is for an ANTICIPATED REFUSAL -- a program we knowingly do not cover yet, where the user's action is clear. ⛔⭐ AND THE SMX PATH'S OWN TEXT SETTLES WHICH IT IS: WE PRINTED A SENTENCE EXPLAINING IT IN ADVANCE. A condition you can write prose for beforehand is not an invariant violation. Executing "match the neighbour" literally here would have exited 134 and been triaged as a compiler crash -- manufacturing the exact false signal this row exists to delete, merely pointing the other way. */
                 return 1;
             }
             if (has_prolog_seg) { extern void zls_graph_name(const IR_graph_t *, const char *); for (int _pi2 = 0; _pi2 < s2->proc_count; _pi2++) { const char *_pn2 = s2->proc_table[_pi2].name; if (!_pn2 || strcmp(_pn2, "main") == 0) continue; int _idx2 = s2->proc_table[_pi2].bb_idx; if (_idx2 >= 0 && _idx2 < s2->bbp.count && s2->bbp.table[_idx2]) zls_graph_name(s2->bbp.table[_idx2], _pn2); } }
@@ -1841,7 +1722,7 @@ int main(int argc, char **argv)
                 if (pfn) m3_seal_entry_cells(pname, (void *)pfn, 1);
                 { extern int g_last_flat_zstatic; extern void rt_proc_set_zstatic(const char *, int); if (pfn) rt_proc_set_zstatic(pname, g_last_flat_zstatic); }
                 { extern int g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform; extern void emit_patzeta_register(const char *, int, int, int); if (!_islbl3) emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform); }
-                { extern int emit_icn_n2_gen_region_ft(const char *, int, IR_graph_t *); extern void rt_proc_set_gen_region_ft(const char *, int); int _gft = emit_icn_n2_gen_region_ft(pname, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]); if (_gft > 0) rt_proc_set_gen_region_ft(pname, _gft); }   /* N-2 apply-call cure (ceo s283h): tell the runtime this alpha is region-resident and how big its slice is, so the coexpr window can supply one and spine_prep can refuse the un-wired transfer */
+                { extern int emit_icn_n2_gen_region_ft(const char *, int, IR_graph_t *); extern void rt_proc_set_gen_region_ft(const char *, int); int _gft = emit_icn_n2_gen_region_ft(pname, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]); if (_gft > 0) rt_proc_set_gen_region_ft(pname, _gft); }
                 { extern long g_last_dc_off; extern void rt_proc_set_dcfn(const char *, void *); if (pfn && g_last_dc_off >= 0) rt_proc_set_dcfn(pname, (void *)((char *)pfn + g_last_dc_off)); }
                 { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); if (pfn && g_last_flat_frame_bytes > 0) rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
             }

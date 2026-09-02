@@ -272,24 +272,7 @@ static std::string bb_define_bind() {
     static int _ab = -1; if (_ab < 0) { const char * _e = getenv("SCRIP_AB"); _ab = (_e && *_e == '1') ? 1 : 0; }
     int _np = 0, _nf = 0, _fb = 0; void * _fn = 0; const char * _csv = rt_define_query(fname, &_np, &_nf, &_fb, &_fn);
     uint64_t _site_fp; { void (*fp)(const char *, const char *, int, int, int, void *) = rt_define_site; _site_fp = (uint64_t)(uintptr_t)(void *)fp; }
-    // ⛔⭐ FIX ATTEMPT (seat10, row m3-passes-m4-fails-three-polyglot-demos, bug 2): _.lbl_t0 names "the next
-    // node in program order" (set upstream in emit.cpp per IR_DEFINE role), which coincides with the proc's
-    // own entry point ONLY when the DEFINE'd body is textually the very next statement AND node numbering is
-    // undisturbed -- true for every single-language program, false once polyglot merging renumbers/reorders
-    // nodes into one flat space (seat01/seat16/seat03's root-cause chain, FINDING-2026-08-22-seat01-... and
-    // successors). The proc's real entry is always exactly `<fname>_α` -- proven reliable 10 lines below by
-    // bb_ab_seal_alpha's OWN identical direct construction (`fname + "_α"`), which has never shown this bug.
-    // Un-tested against every DEFINE role (0-6) this function serves; verify broadly before trusting.
-    // ⛔ SURGICAL: only replaces the label USED when _.lbl_t0 was already going to be trusted (the `lea`
-    // rip-relative path below stays gated on the SAME `_.lbl_t0` non-null condition, unchanged) -- the
-    // `_.lbl_t0 == NULL` stub-fallback branch ("rt_ab_undef_fn_stub", x86_load_got path) is untouched.
     static int _direct_alpha = -1; if (_direct_alpha < 0) { const char * _e = getenv("SCRIP_DEFINE_FN_DIRECT_ALPHA"); _direct_alpha = (_e && *_e == '0') ? 0 : 1; }
-    // ⛔ hq_P: a REFERENCE and its DEFINITION must be gated on the SAME predicate. `<fname>_α` is emitted ONLY when the
-    // body qualifies as a tiny shim (the identical `!bb_ab_cell_addr && bb_tiny_shim_ok` test the seal below uses, minus
-    // `_m4seal` -- measured: SCRIP_M4_ALPHA_SEAL=0 still defines the label, SCRIP_NO_TINY=1 removes it). The `lea` was gated
-    // on `_.lbl_t0` alone, so a non-tiny body (any DEFINE'd proc calling INPUT/OUTPUT) referenced a label nobody defined and
-    // the object failed to link under PIE: `R_X86_64_PC32 against undefined symbol`. Falling back to `_.lbl_t0` there is the
-    // pre-seat10 behaviour, correct for single-language programs; seat10's polyglot fix is preserved wherever the label exists.
     int _alpha_defined = (!bb_ab_cell_addr(fname) && bb_tiny_shim_ok(fname, 0));
     std::string blbl = _.lbl_t0 ? ((_direct_alpha && _alpha_defined) ? (std::string(fname) + "_\xce\xb1") : std::string(_.lbl_t0)) : std::string("rt_ab_undef_fn_stub");
     std::string reg = x86("comment", "DEFINE-SITE s57: constant-folded registration AT the statement (shared chain)")
@@ -618,14 +601,6 @@ static std::string bb_define_sr() {
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐ rax IS SAVED/RESTORED AROUND THE ADDRESS COMPUTATION (nreturn-by-name-value-broken, 2026-08-27): rax:rdx is the live DESCR_t result register
- * pair, and a value-returning NRETURN already has its result parked there by whatever assignment ran just before (e.g. `mkname = .dummy`). Classic
- * DEFINE never noticed this mark clobbering rax because ITS OWN RETURN path re-reads the result explicitly from the proc's named NV-cell -- but
- * CLASS-C's exit path (Snocone functions, since snocone-returns-codegen bug #3's RETURN-alias fix gave them a real RETURN body to fall into) has no
- * such re-read and trusts rax:rdx to survive untouched from here through to RETURN. Proven via gdb, not inferred: on a minimal
- * `mkname(){mkname=.dummy;nreturn;}` witness, rax=0x28 (DT_N, correct) right after the assignment, then a GOT-relocated pointer (whose low byte,
- * 0x20, IS exactly DT_C -- a coincidence of address bytes, not a real datatype) by the time RETURN read it -- rdx, which this function's two mov
- * instructions never touch, survived correctly throughout. Only rax needs saving. */
 std::string bb_nreturn_mark() {
     extern int rt_g_ret_by_name;
     return x86_alpha()

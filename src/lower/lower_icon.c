@@ -9,20 +9,12 @@ static int icn_const_step(const tree_t * s, int64_t * bits, int * isr);
 static IR_t * icn_arm_result(IR_t * rv);
 typedef struct {
     IR_graph_t * g; IR_t * psucc; IR_t * pfail; const char ** pn; int npn; const char ** ln; int nln;
-    IR_t * last_gen; IR_t * loop_exit; IR_t * loop_break_beta;   /* ceo s283g: the LAST break-expression's resume chain inside the loop being lowered -- the loop publishes it as ITS beta so `every` resumes INTO the suspended break expression (iconx semantics), not around the loop; single-break corpus reality, last-lowered wins on multiples */ IR_t * loop_next; IR_t * beta; IR_t * conj_resumable;
-    IR_t * loop_stk_exit[64]; IR_t * loop_stk_next[64]; IR_t * loop_stk_fail[64]; IR_t * loop_fail; int loop_sp; IR_t * scan_stk_enter[16]; int scan_sp; int loop_next_ssp;   /* scan_stk_enter/scan_sp (ceo, icon-scan-env-value-residue slice 2): the LIVE stack of IR_SCAN_ENTER nodes enclosing the point being lowered — a non-local exit crossing k scan levels must chain through k SCAN leave nodes (outer Σ/δ/Δ restore + rt_scan_leave), or the register scan env (r13/r14/r15) survives the jump; loop_next_ssp = the innermost loop's scan depth at entry, the pop-to target for `next`. */ /* loop_fail: the innermost loop's OWN failure continuation (its ω param) — a break-expression that fails or exhausts fails THE LOOP (iconx), never the exit/read path (ceo s283g: stale-value infinite yield otherwise) */
+    IR_t * last_gen; IR_t * loop_exit; IR_t * loop_break_beta;     IR_t * loop_next; IR_t * beta; IR_t * conj_resumable;
+    IR_t * loop_stk_exit[64]; IR_t * loop_stk_next[64]; IR_t * loop_stk_fail[64]; IR_t * loop_fail; int loop_sp; IR_t * scan_stk_enter[16]; int scan_sp; int loop_next_ssp;
 } icx_t;
 #define ICN_LOOP_STK_MAX 64
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_is_local(const icx_t * cx, const char * nm) { if (!nm) return 0; for (int i = 0; i < cx->nln; i++) if (cx->ln[i] && !strcmp(cx->ln[i], nm)) return 1; return 0; }
-/* Icon-lowering-local generator-kind check: ir_is_generator_kind (ir_query.c, shared by SNOBOL4/Prolog/Raku) has
-   no name-awareness, so an IR_CALL node can never be recognized there without a signature change touching every
-   frontend. tab/move are the one case that needs it: outside a ?-scan body op stays IR_CALL (bb_call_route_
-   classify's ungated fallback already routes them to bb_call_byname_str, which already has correct curmov
-   β-restore - ICN-BYNAME-CURSOR-RESTORE, bb_call.cpp); inside a ?-scan body with one arg, icn_retag_scan_body
-   (below) has already relabeled it IR_SCAN_TAB/IR_SCAN_MOVE by the time most wiring checks run. Neither form is
-   in ir_is_generator_kind's switch, so both need recognizing here - kept local to lower_icon.c's own wiring
-   helpers, never touching ir_query.c or any other frontend. */
 static int icn_gen_wiring(const IR_t * t) {
     if (!t) return 0;
     if (ir_is_generator_kind(t->op)) return 1;
@@ -50,22 +42,9 @@ static const char * icn_cset_canon(const char * s, int len, int * out_len) {
     char buf[257]; int n = 0;
     for (int c = 0; c < 256; c++) if (seen[c]) buf[n++] = (char) c;
     buf[n] = 0; if (out_len) *out_len = n;
-    /* lp_strdup (-> rt_ws_strdup) is an ordinary NUL-bounded strdup: byte 0 is a legal, ASCENDING-
-       SORTED-FIRST member here, so a canonical set containing it truncates to "" the instant it is
-       strdup'd, discarding every member (not just undercounting a length, per intern_n's already-
-       length-aware copy at the AST layer) -- confirmed live via rt_scan_enter's subject buffer reading
-       00 00 00 instead of 00 61 62 for '\x00ab'. Length-aware copy, matching intern_n's own recipe,
-       exactly here where the embedded-NUL case is real; lp_strdup itself is left untouched since its
-       many other callers never carry a length to give it. */
     { char * p = (char *) malloc((size_t) n + 1); if (p) { memcpy(p, buf, (size_t) n); p[n] = 0; } return p; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* icn-cset-embedded-nul-four-layer-gap, layer 2->3 plumbing: attach a literal's TRUE length (which
-   the AST now carries in tree_t.slen, or a canonicalized cset's real member count) as a pure-data
-   IR_LIT_INTEGER operand -- PEERS-RULE-legal (no new IR_t field; ir_operand_push is the sanctioned
-   channel), read generically at emit time via g_emit.op_a_ival_sg (populated for ANY node's
-   operands[0] regardless of kind -- see emit.cpp walk_bb_node_inner). Precedent for a NULL/NULL
-   pure-data operand node: bb_rev_swap's IR_LIT_STRING rc in this same file. */
 static void icn_attach_lit_len(icx_t * cx, IR_t * nd, int len) {
     IR_t * ln = build(cx, IR_LIT_INTEGER, NULL, NULL); IR_LIT(ln).ival = (int64_t) len;
     ir_operand_push(nd, ln);
@@ -182,12 +161,6 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
         prev = ar;
         if (ar) { ir_operand_push(call, ar); last_ar = ar; }
     }
-    /* tab/move keep op==IR_CALL (untouched: bb_call_route_classify's ungated fallback already sends them to
-       bb_call_byname_str, which already has correct curmov r14 save/restore in its β - ICN-BYNAME-CURSOR-RESTORE,
-       bb_call.cpp). The ONLY gap is that ir_is_generator_kind(IR_CALL)==0, so nothing routes INTO that β: this
-       node's own β/γ wiring below, is_cursor_mover joins gb exactly where icn_gen_wiring (γ_to/ω_to/build, top of
-       file) also recognizes it - so external wiring into this call (e.g. an enclosing write()'s ω_to(_, cx->beta))
-       resolves it as generator-kind too, without changing op, route, or retag (icn_retag_scan_body unaffected). */
     if ((icn_proc_is_generator(name) || gb || is_cursor_mover) && last_ar) lc_γ_to(last_ar, call);
     const tree_t * la = (nargs > 0) ? t->c[argbase + nargs - 1] : NULL;
     int la_res = la && is_resumable(la) && !(is_cursor_mover && icn_arg_is_scan_fn(la));
@@ -414,13 +387,6 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         const tree_t * rhs = (t->n > 1) ? t->c[1] : NULL;
         tree_t * callee;
         if (lhs && lhs->t == TT_VAR && lhs->v.sval && lhs->v.sval[0] != '&' && !icn_is_local(cx, lhs->v.sval)) {
-            /* ast_node_new() callocs, so a freshly-synthesized TT_QLIT starts slen=0 -- TT_QLIT's own
-               lowering (below, case TT_QLIT) attaches this as the literal's true length via
-               icn_attach_lit_len(), so an unset slen silently attaches length 0 for a real N-byte
-               procedure name. Dormant while nothing consumed that length for content (M4's .string
-               used to escape by NUL-scan regardless); icn-cset-embedded-nul-four-layer-gap follow-up
-               (a) made the byte count load-bearing, which is what surfaced this. Identifiers never
-               contain embedded NUL, so strlen() is exact here. */
             callee = ast_node_new(TT_QLIT); callee->v.sval = lhs->v.sval; callee->slen = (int) strlen(lhs->v.sval);
         } else callee = (tree_t *) lhs;
         IR_t * cr = NULL; IR_t * ce = lower(cx, callee, NULL, ω, &cr);
@@ -551,11 +517,10 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             IR_t * lx = (idx >= 0 && idx < ICN_LOOP_STK_MAX) ? cx->loop_stk_exit[idx] : NULL;
             if (!lx) lx = cx->loop_exit;
             if (!lx) { IR_t * nd = build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
-            /* break-value channel (ceo s283g): a bare break yields &null through the SAME __break_result cell the expression form writes — a stale value from an earlier break must never leak (the TT_CASE __case_result idiom, applied to loops). */
             IR_t * nullv = build(cx, IR_VAR, NULL, lx); IR_LIT(nullv).sval = (char *) "&null";
             IR_t * asn0 = build(cx, IR_ASSIGN, lx, lx); IR_LIT(asn0).sval = (char *) "__break_result";
             ir_operand_push(asn0, nullv); γ_to(nullv, asn0);
-            if (cx->scan_sp > cx->loop_next_ssp) { IR_t * tgt = nullv;   /* slice-4 leave chain — same contract as the expression arm below; a bare break crossing scan envs must restore the outer env before the loop's exit path runs in it */
+            if (cx->scan_sp > cx->loop_next_ssp) { IR_t * tgt = nullv;
                 for (int _k = cx->loop_next_ssp; _k < cx->scan_sp && _k < 16; _k++) { IR_t * lv = build(cx, IR_SCAN, NULL, NULL); icn_mark_γ_fail_conduit(lv); IR_LIT(lv).dval = 3.0; ir_operand_push(lv, cx->scan_stk_enter[_k]); lc_γ_to(lv, tgt); lc_ω_to(lv, tgt); tgt = lv; }
                 *res = tgt; return tgt; }
             *res = nullv; return nullv;
@@ -568,18 +533,17 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             if (idx >= 0 && idx < ICN_LOOP_STK_MAX) { cx->loop_exit = cx->loop_stk_exit[idx]; cx->loop_next = cx->loop_stk_next[idx]; cx->loop_fail = cx->loop_stk_fail[idx]; }
             IR_t * ev = NULL; IR_t * en = lower(cx, ch, NULL, fail_goto, &ev);
             cx->loop_exit = se; cx->loop_next = sn; cx->loop_fail = sf;
-            /* break-value channel (ceo s283g, measured: `write(repeat break 7)` printed EMPTY — this arm lowered the expression and then DISCARDED ev, and no loop published a result, so break transmitted nothing; with a generator (`break (1 to 5)`) the RESUME count was right and every value was null. The TT_CASE __case_result idiom: the value flows expr-γ → ASSIGN(__break_result) → the loop-exit GOTO → the loop's read box. β resumption re-enters the expression, whose γ runs the assign again — full generation transmits. */
             IR_t * asn = build(cx, IR_ASSIGN, exit_goto, exit_goto); IR_LIT(asn).sval = (char *) "__break_result";
             { IR_t * evf = icn_arm_result(ev); if (evf) { ir_operand_push(asn, evf); γ_to(evf, asn); } else if (!ev) γ_to(en, asn); }
-            cx->loop_break_beta = cx->beta;   /* unconditional: is_resumable() on the TREE misses paren-wrapped generators (measured: (1 to 5) is TT-grouped); the post-lower beta is the truth — a non-resumable expr leaves a beta that resumes-to-fail, which is correct */
-            if (cx->scan_sp > cx->loop_next_ssp) { IR_t * tgt = en;   /* icon-scan-env-value-residue slice 4 (ceo): break crossing scan envs opened inside the loop body must LEAVE them BEFORE its expression evaluates — proven against iconx by execution: `every write("12345" ? repeat { "67890" ? { write(move(1)); break upto(&digits)}})` yields 6,1..5 (upto runs on the OUTER subject at the OUTER pos), ours yielded 6,2..5 (the inner env). Resumption also stays in the outer env — the crossed envs are DEAD, never re-entered — so the leaves are final (dval 3.0 → sb=3, rt_scan_leave_ns): an rt_scan_leave here would bank one scan_saved entry per break that nothing ever pops, the slice-3 leak class. Chain innermost-first before the expr entry, the TT_LOOP_NEXT recipe. Multi-level break (break break) across scan envs still leaves only the innermost loop's crossings — loop_stk carries no per-level scan depth. */
+            cx->loop_break_beta = cx->beta;
+            if (cx->scan_sp > cx->loop_next_ssp) { IR_t * tgt = en;
                 for (int _k = cx->loop_next_ssp; _k < cx->scan_sp && _k < 16; _k++) { IR_t * lv = build(cx, IR_SCAN, NULL, NULL); icn_mark_γ_fail_conduit(lv); IR_LIT(lv).dval = 3.0; ir_operand_push(lv, cx->scan_stk_enter[_k]); lc_γ_to(lv, tgt); lc_ω_to(lv, tgt); tgt = lv; }
                 *res = tgt; return tgt; }
             *res = en; return en;
         }
     }
     case TT_LOOP_NEXT: { IR_t * ln = cx->loop_next; IR_t * nd;
-        if (ln && cx->scan_sp > cx->loop_next_ssp) {   /* icon-scan-env-value-residue slice 2 (ceo): `next` crossing scan boundaries must run each level's SCAN leave, innermost first — a bare GOTO left r13/r14/r15 holding the inner subject (measured: "98765" ? { every 1 do { "mnbv" ? next }; write(move(2)) } printed "mn"). Chain built outermost-deepest so the entry node leaves the innermost env. Explicit lc_ links: IR_SCAN is generator-kind and build()'s γ/ω redirect would wire the chain to β. */
+        if (ln && cx->scan_sp > cx->loop_next_ssp) {
             for (int _k = cx->loop_next_ssp; _k < cx->scan_sp && _k < 16; _k++) { IR_t * lv = build(cx, IR_SCAN, NULL, NULL); icn_mark_γ_fail_conduit(lv); ir_operand_push(lv, cx->scan_stk_enter[_k]); lc_γ_to(lv, ln); lc_ω_to(lv, ln); ln = lv; }
             nd = build(cx, IR_GOTO, NULL, NULL); lc_γ_to(nd, ln); lc_ω_to(nd, ln);
         } else nd = ln ? build(cx, IR_GOTO, ln, ln) : build(cx, IR_FAIL, γ, ω);
@@ -598,22 +562,22 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         *res = ini; return ini; }
     case TT_SUSPEND: { IR_t * sn = build(cx, IR_SUSPEND, cx->psucc ? cx->psucc : γ, ω); IR_LIT(sn).dval = 1.0;
         IR_t * ev = NULL; IR_t * e_entry = sn; IR_t * eβ = NULL;
-        if (t->n > 0 && t->c[0]) { cx->beta = ω; e_entry = lower(cx, t->c[0], sn, ω, &ev); if (cx->beta && cx->beta != ω) eβ = cx->beta; }   /* icon-scan-env-value-residue slice 4 (ceo): the post-lower beta is the truth, same lesson as break's line above — is_resumable() on the TREE said no for `suspend move(1)` (movers are not in icn_call_allow_gen), so resume skipped the call's β and the mover's data-backtrack r14 restore NEVER RAN across the suspend boundary (proven against iconx: foo(){suspend move(1); write("B")} driven by every left &pos 2 where iconx restores 1; scan2's non-local hunk is this shape). The call lowering already publishes the mover's own β (its is_cursor_mover arm) and a non-resumable expr leaves a beta that resumes-to-fail, which is correct. cx->beta reset to ω first: a literal publishes nothing and a stale beta would misroute. */
+        if (t->n > 0 && t->c[0]) { cx->beta = ω; e_entry = lower(cx, t->c[0], sn, ω, &ev); if (cx->beta && cx->beta != ω) eβ = cx->beta; }
         ir_operand_push(sn, ev);
         IR_t * rrt; if (t->n > 1 && t->c[1]) { IR_t * dv = NULL; rrt = lower(cx, t->c[1], eβ ? eβ : γ, eβ ? eβ : γ, &dv); }
         else rrt = eβ ? eβ : γ;
-        if (cx->scan_sp > 0) {   /* icon-scan-env-value-residue slice 3 (ceo): a suspend INSIDE scan envs opened by this body must LEAVE them on the yield edge (rt_scan_leave banks each onto the runtime's scan_saved stack and restores the caller's Σ/δ/Δ from the enter's own slots) and RE-ENTER them on resume (bb_gen_scan's β arm: rt_scan_reenter pops LIFO — outer first — then jmps inward via the operand[2] target, the slice-1 mechanism). Without this the caller scans the generator's subject after the first yield (measured: scan2's "non-local" hunk reads z/x from foo's "zxc" where q/w from "qwerty" is expected). Exit chain innermost-first between sn's γ and the yield target; resume chain outermost-first ending at the original resume target. operands: [0]=enter, [1]=NULL (never a value), [2]=the β-jmp target. Explicit lc_ links — IR_SCAN is generator-kind. */
+        if (cx->scan_sp > 0) {
             IR_t * ytgt = cx->psucc ? cx->psucc : γ;
             IR_t * lvs[16]; int nlv = 0;
-            for (int _k = cx->scan_sp - 1; _k >= 0; _k--) {   /* build innermost-first: the γ-exit chain leaves the innermost env first */
+            for (int _k = cx->scan_sp - 1; _k >= 0; _k--) {
                 IR_t * lv = build(cx, IR_SCAN, NULL, NULL);
-                IR_LIT(cx->scan_stk_enter[_k]).dval = 3.0;   /* stamp the crossed enter: its OWN leave nodes must become no-push (sb=3) — after a fresh re-enter, the ordinary leave_fail's scan_saved push is the +1-per-exhaustion leak that corrupted later same-statement scans (measured: scan2's ="abc" section read 2,3 for 4,5) */
+                IR_LIT(cx->scan_stk_enter[_k]).dval = 3.0;
                 ir_operand_push(lv, cx->scan_stk_enter[_k]); ir_operand_push(lv, NULL); ir_operand_push(lv, NULL);
                 if (nlv) { lc_γ_to(lvs[nlv - 1], lv); lc_ω_to(lvs[nlv - 1], lv); }
                 lvs[nlv++] = lv;
             }
             lc_γ_to(lvs[nlv - 1], ytgt); lc_ω_to(lvs[nlv - 1], ytgt);
-            for (int _i = 0; _i < nlv; _i++) lvs[_i]->operands[2] = (_i > 0) ? lvs[_i - 1] : rrt;   /* β jmp targets walk INWARD: lvs[nlv-1]=outermost (resume entry; scan_saved's LIFO top is the outer env) → … → lvs[0]=innermost → the original resume target */
+            for (int _i = 0; _i < nlv; _i++) lvs[_i]->operands[2] = (_i > 0) ? lvs[_i - 1] : rrt;
             lc_γ_to(sn, lvs[0]);
             rrt = lvs[nlv - 1];
         }
@@ -763,8 +727,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         if (cx->scan_sp < 16) cx->scan_stk_enter[cx->scan_sp] = enter; cx->scan_sp++;
         IR_t * bv = NULL; IR_t * b_entry = lower(cx, t->c[1], succ_tramp, fail_tramp, &bv);
         cx->scan_sp--;
-        if (IR_LIT(enter).dval == 3.0) { IR_LIT(leave_succ).dval = 3.0; IR_LIT(leave_fail).dval = 3.0; }   /* a suspend crossed this scan: its leaves go no-push (sb=3) — the suspend chain's fresh re-enter never pops, so an ordinary push here leaks one scan_saved entry per exhaustion */
-        IR_t * body_beta = cx->beta;   /* a loop body publishes its break-expression's resume chain here (loop_break_beta); captured BEFORE the subject reset so it can cross the scan boundary */
+        if (IR_LIT(enter).dval == 3.0) { IR_LIT(leave_succ).dval = 3.0; IR_LIT(leave_fail).dval = 3.0; }
+        IR_t * body_beta = cx->beta;
         for (int _si = scan_body_lo; _si < cx->g->n; _si++) if (cx->g->all[_si]) cx->g->all[_si]->in_scan = 1;
         if (bv) ir_operand_push(leave_succ, bv);
         icn_retag_scan_body(cx->g, 0);
@@ -772,11 +736,11 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         cx->beta = ω;
         IR_t * sr = NULL; IR_t * s_entry = lower(cx, t->c[0], enter, ω, &sr);
         ir_operand_push(enter, sr);
-        if (sr && sr->op == IR_SCAN && IR_LIT(sr).dval != 3.0) IR_LIT(sr).dval = 4.0;   /* icon-scan-env-value-residue 5a-residue: sr is the SUBJECT's own scan-leave (a chained `(A?B)?C`) — its bank[depth] slot is about to be reused by THIS scan's own enter/leave-around-calls (same depth, sequential not concurrent), clobbering A's pending resume before A is ever asked for its next value. sb=4 marks A's leave to resume by re-entering its OWN known subject (op_sc, mirroring sb=2's op_sa) instead of trusting the shared bank. Skipped if a suspend already claimed sb=3 (rarer, and that leave's β is accepted-dead anyway). */
+        if (sr && sr->op == IR_SCAN && IR_LIT(sr).dval != 3.0) IR_LIT(sr).dval = 4.0;
         IR_t * subj_beta = cx->beta;
         if (subj_beta && subj_beta != ω) { γ_to(leave_fail, subj_beta); ω_to(leave_fail, subj_beta); }
         int body_resumes = (bv && icn_gen_wiring(bv)) || (body_beta && body_beta != ω && body_beta != fail_tramp && body_beta != succ_tramp);
-        if (body_resumes && !(bv && icn_gen_wiring(bv))) ir_operand_push(leave_succ, body_beta);   /* operand[2]: the emitter's resume-target pass reads it when bv itself is not gen-wired (a loop's __break_result IR_VAR) */
+        if (body_resumes && !(bv && icn_gen_wiring(bv))) ir_operand_push(leave_succ, body_beta);
         cx->beta = body_resumes ? leave_succ : ((subj_beta && subj_beta != ω) ? subj_beta : ω);
         *res = leave_succ; return s_entry; }
     case TT_STMT: { const tree_t * sub = stmt_subj(t); if (sub) return lower(cx, sub, γ, ω, res); IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
@@ -947,7 +911,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
 static IR_t * lower_while(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     const tree_t * C = (t->n > 0) ? t->c[0] : NULL; const tree_t * B = (t->n > 1) ? t->c[1] : NULL;
     IR_t * W = build(cx, IR_GOTO, ω, ω); γ_to(W, ω); ω_to(W, ω);
-    IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL; IR_t * slf = cx->loop_fail; cx->loop_fail = ω; IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; int slns = cx->loop_next_ssp; IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";   /* the loop's ONLY successful results arrive via break; the read box sits on the exit path so break→assign→HERE→γ (ceo s283g) */
+    IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL; IR_t * slf = cx->loop_fail; cx->loop_fail = ω; IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; int slns = cx->loop_next_ssp; IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";
     cx->loop_exit = bres;
     IR_t * cval = NULL; IR_t * centry = lower(cx, C, NULL, W, &cval);
     IR_t * CENT = build(cx, IR_GOTO, NULL, NULL); lc_γ_to_α(CENT, centry); lc_ω_to_α(CENT, centry);
@@ -965,7 +929,7 @@ static IR_t * lower_until(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     const tree_t * C = (t->n > 0) ? t->c[0] : NULL; const tree_t * B = (t->n > 1) ? t->c[1] : NULL;
     IR_t * U = build(cx, IR_GOTO, ω, ω); γ_to(U, ω); ω_to(U, ω);
     IR_t * BENT = build(cx, IR_GOTO, γ, ω);
-    IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL; IR_t * slf = cx->loop_fail; cx->loop_fail = ω; IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; int slns = cx->loop_next_ssp; IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";   /* the loop's ONLY successful results arrive via break; the read box sits on the exit path so break→assign→HERE→γ (ceo s283g) */
+    IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL; IR_t * slf = cx->loop_fail; cx->loop_fail = ω; IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; int slns = cx->loop_next_ssp; IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";
     cx->loop_exit = bres;
     IR_t * cval = NULL; IR_t * centry = lower(cx, C, U, BENT, &cval);
     IR_t * CENT = build(cx, IR_GOTO, NULL, NULL); lc_γ_to_α(CENT, centry); lc_ω_to_α(CENT, centry);
@@ -980,14 +944,14 @@ static IR_t * lower_until(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
 static IR_t * lower_repeat(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     const tree_t * B = (t->n > 0) ? t->c[0] : NULL;
     IR_t * H = build(cx, IR_GOTO, NULL, ω);
-    IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL; IR_t * slf = cx->loop_fail; cx->loop_fail = ω; IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; int slns = cx->loop_next_ssp; IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";   /* the loop's ONLY successful results arrive via break; the read box sits on the exit path so break→assign→HERE→γ (ceo s283g) */
+    IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL; IR_t * slf = cx->loop_fail; cx->loop_fail = ω; IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; int slns = cx->loop_next_ssp; IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";
     cx->loop_exit = bres; cx->loop_next = H; cx->loop_next_ssp = cx->scan_sp;
     if (cx->loop_sp < ICN_LOOP_STK_MAX) { cx->loop_stk_exit[cx->loop_sp] = cx->loop_exit; cx->loop_stk_next[cx->loop_sp] = cx->loop_next; cx->loop_stk_fail[cx->loop_sp] = cx->loop_fail; } cx->loop_sp++;
     IR_t * bval = NULL; IR_t * b_entry = lower(cx, B, H, H, &bval);
     cx->loop_sp--;
     lc_γ_to(H, b_entry); lc_ω_to(H, b_entry);
     cx->loop_exit = sle; cx->loop_next = sln; cx->loop_fail = slf; cx->loop_next_ssp = slns;
-    { IR_t * lbb = cx->loop_break_beta; cx->loop_break_beta = slb; if (lbb) { cx->beta = lbb; *res = bres; return H; } }   /* generation-resume: a break with a resumable expr makes the LOOP resumable -- publish the break-expr's beta so a consuming call/every resumes INTO the suspended expr (iconx), not back around its own alpha (ceo s283g half two) */
+    { IR_t * lbb = cx->loop_break_beta; cx->loop_break_beta = slb; if (lbb) { cx->beta = lbb; *res = bres; return H; } }
     cx->beta = γ; *res = bres; return H;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1180,12 +1144,6 @@ static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     (void) γ;
     const tree_t * E = (t->n > 0) ? t->c[0] : NULL; const tree_t * B = (t->n > 1) ? t->c[1] : NULL;
     IR_t * eval = NULL; IR_t * e_entry = lower(cx, E, NULL, ω, &eval); IR_t * gen_beta = cx->beta;
-    /* A non-resumable E collapses gen_beta to the SAME node as ω (no distinct resume port). Driving the loop
-       would then wire E's own γ directly onto that shared node, indistinguishable by identity from a real
-       arm-level success report - in a DISJUNCTION/SEQUENCE arm, lower_alt/icn_scan_seq_nary's tagging pass
-       (per-node, keyed on ->node==dj) would then mistag E's success as the WHOLE every-expression succeeding.
-       A private GOTO(ω,ω) trampoline keeps E's γ off the shared node while still reaching ω either way; the
-       trampoline's own both-ports-same-target shape is the existing φ (fail-conduit) special case, never σ. */
     if (gen_beta == ω) gen_beta = build(cx, IR_GOTO, ω, ω);
     IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; IR_t * slf = cx->loop_fail; int slns = cx->loop_next_ssp; cx->loop_exit = ω; cx->loop_next = gen_beta; cx->loop_fail = ω; cx->loop_next_ssp = cx->scan_sp;
     IR_t * bval = NULL; (void) bval; IR_t * b_entry;
@@ -1202,7 +1160,7 @@ static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     }
     else { b_entry = gen_beta; }
     cx->loop_exit = sle; cx->loop_next = sln; cx->loop_fail = slf; cx->loop_next_ssp = slns;
-    if (!(eval && eval->op == IR_SUSPEND)) γ_to(eval, b_entry);   /* ⛔ N-2 loop cure (ceo s283): an IR_SUSPEND's γ IS ITS YIELD EDGE (psucc → the graph's γ port), and it is SELF-ITERATING — its resume operand already re-enters the generator expression's β. Redirecting its γ into the drive loop, as this line does for every ordinary expression, deleted the yield entirely: `every suspend 1 to 3` emitted suspend_α → to_β with no gen_γ anywhere, a silent no-output spin (measured, suspend_loop witness). Ordinary expressions keep the redirect — that is what makes `every` drive them. ⚠ `every suspend E do B` still redirects nothing extra for B; the do-clause-over-suspend interaction is untested and inherits today's behavior. */
+    if (!(eval && eval->op == IR_SUSPEND)) γ_to(eval, b_entry);
     cx->beta = ω; *res = NULL; return e_entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1210,7 +1168,7 @@ static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
     IR_graph_t * g = IR_alloc(8192); cx->g = g;
     IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED); IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
     cx->psucc = PSUCC; cx->pfail = PFAIL;
-    IR_t * succ = PFAIL; IR_t * fail = PFAIL;   /* ⛔ FALLING OFF `end` FAILS (ceo s283, icon-n2 loop/after): this seeded PSUCC, so the LAST statement's success edge SUCCEEDED the whole procedure with a stale value -- measured two ways: a non-generator `procedure f() write("x"); end` returned the write's value (printed "x" twice through write(f()); iconx prints one) and, once N-2's frames made generators survive resume, suspend_after's body-end reached the flat_gen graph's γ port = SUSPEND and re-yielded the stale return slot FOREVER (the 1/after infinite loop). Icon law: reaching `end` is &fail; only return/suspend produce values, and TT_RETURN routes to psucc EXPLICITLY (case TT_RETURN below), so PSUCC stays reachable exactly where the language says. An empty body now correctly fails too. */
+    IR_t * succ = PFAIL; IR_t * fail = PFAIL;
     for (int i = body->n - 1; i >= 0; i--) {
         const tree_t * s = body->c[i]; if (s && s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; } if (!s) continue;
         IR_t * r = NULL; IR_t * entry = lower(cx, s, succ, fail, &r); if (r && r->γ.node == succ) lc_γ_to(r, succ);
@@ -1245,15 +1203,6 @@ static void icn_rename_statics_walk(tree_t * n, const char ** names, char ** man
     for (int i = 0; i < n->n; i++) icn_rename_statics_walk(n->c[i], names, mangled, cnt);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐ g_icn_synth_excl -- names icn_statics_prepass SYNTHESIZES on the fly (mangled statics, INITFLAG once-
-   guards) and registers via global_register() with NO corresponding TT_GLOBAL node anywhere in the source
-   -- icn_collect_own_globals's AST scan structurally cannot see them. Reset per-procedure by lower_icon_proc,
-   populated here as each name is minted, read back by lower_icon_stage2 right after lower_icon_body returns
-   for that same proc (same static-scratch-vector pattern this file already uses for pnv/lnv). Without this,
-   icn_collect_implicit_locals wrongly adopts e.g. an INITFLAG as an implicit local -- graph_has_local()
-   becomes true for it, the once-guard gets a fresh LOCAL slot every call instead of the persistent GLOBAL
-   it must be, and `initial` silently stops being "run once" (measured regression: rung25_global's three
-   initial-using cases, caught by re-measuring against a stashed zero-touch baseline before calling this done). */
 static lc_vec g_icn_synth_excl;
 static void icn_statics_prepass(tree_t * body, const char * pname) {
     if (!body) return;
@@ -1288,21 +1237,11 @@ static void icn_statics_prepass(tree_t * body, const char * pname) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void icn_collect_own_globals(const tree_t * prog, lc_vec * out) {   /* Icon's OWN `global` namespace, scanned directly from the AST -- deliberately NOT is_global(), which is the shared cross-language registry (see icn_collect_implicit_locals below for why that distinction is the whole fix). */
+static void icn_collect_own_globals(const tree_t * prog, lc_vec * out) {
     for (int i = 0; prog && i < prog->n; i++) { const tree_t * s = prog->c[i]; if (!s) continue; if (s->t == TT_STMT) s = stmt_subj(s); if (!s) continue;
         if (s->t == TT_GLOBAL) for (int k = 0; k < s->n; k++) if (s->c[k] && s->c[k]->v.sval) lc_vec_push(out, &s->c[k]->v.sval); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* icn_collect_implicit_locals -- Icon's own scoping default, verified against the canonical source before
-   writing this (refs/icon-master src/icont/lsym.c:173-190, putlocal's "implicit local" fallback): a bare
-   identifier reference inside a procedure body that is not a formal param, not an explicit local/static/
-   global, and not a known procedure/record/builtin name defaults to being an ordinary LOCAL of that
-   procedure. Excludes using ONLY Icon's own namespaces (the caller-supplied excl[] -- own globals, params,
-   explicit locals, mangled statics -- plus dat_find_type/icn_builtin_is_known) -- deliberately never
-   is_global(), the shared cross-language registry whose false positive on a co-compiled SNOBOL4/Pascal/Raku
-   variable of the same text name is this row's own bug: graph_has_local() couldn't see these names, so
-   zeta_storage.c's vslot builder silently dropped them the moment ANY other language happened to use the
-   same identifier anywhere in the polyglot unit (icon-nlocals-zero-when-snobol4-precedes-in-polyglot-compile). */
 static void icn_collect_implicit_locals(const tree_t * n, const char ** excl, int nexcl, lc_vec * out) {
     if (!n) return;
     if (n->t == TT_PROC_DECL || n->t == TT_LOCAL || n->t == TT_STATIC_DECL || n->t == TT_GLOBAL) return;
@@ -1421,9 +1360,6 @@ stage2_t *lower_icon_stage2(const tree_t *prog) {
     int _icn_bb0 = g_stage2.bbp.count;
     icon_register_program(&g_stage2, prog);
     lc_vec _icn_own_globals; lc_vec_init(&_icn_own_globals, (int) sizeof(const char *)); icn_collect_own_globals(prog, &_icn_own_globals);
-    /* ⭐ a bare procedure name (`p0` in `plist := [3, p0, p1]`, first-class-procedure-value idiom) is a
-       reference to Icon's OWN proc namespace, not an implicit local -- matches canonical glocate()'s
-       treatment of procedure names as pre-registered globals (refs/icon-master src/icont/tsym.c:101). */
     for (int pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name) lc_vec_push(&_icn_own_globals, &g_stage2.proc_table[pi].name);
     for (int pi = 0; pi < g_stage2.proc_count; pi++) {
         const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
@@ -1460,21 +1396,10 @@ stage2_t *lower_icon_stage2(const tree_t *prog) {
               if (nl > 0) { _ln = (const char **)calloc((size_t)nl, sizeof(const char *));
                   for (int i = 0; body && i < body->n && _ln; i++) { const tree_t *st = body->c[i]; if (st && st->t == TT_STMT) st = stmt_subj(st);
                       if (st && st->t == TT_LOCAL) for (int k = 0; k < st->n; k++) if (st->c[k] && st->c[k]->v.sval) _ln[w++] = lp_strdup(st->c[k]->v.sval); } }
-              /* ⭐ icon-nlocals-zero-when-snobol4-precedes-in-polyglot-compile: `_ln` above only ever covered EXPLICIT
-                 `local` declarations -- Icon's IMPLICIT locals (assign-without-declare, the ordinary case: fibs()'s
-                 own `a`/`b`) were never fed into `g->lnames`, so `graph_has_local()` couldn't see them, and
-                 zeta_storage.c's vslot builder dropped them the instant any co-compiled SNOBOL4/Pascal/Raku section
-                 used the same text name anywhere (seat02's FINDING, root-caused three functions deep). Collect them
-                 here, scoped entirely to Icon's OWN namespaces (never is_global() -- see icn_collect_implicit_locals's
-                 own comment for why that's the load-bearing distinction). */
               lc_vec _excl; lc_vec_init(&_excl, (int) sizeof(const char *));
               for (int k = 0; k < _icn_own_globals.n; k++) lc_vec_push(&_excl, &LC_AT(&_icn_own_globals, const char *, k));
               for (int k = 0; k < sc->n; k++) lc_vec_push(&_excl, &sc->e[k].name);
               for (int k = 0; k < w; k++) lc_vec_push(&_excl, &_ln[k]);
-              /* g_icn_synth_excl (mangled statics + INITFLAG once-guards, see its own comment above) was populated by
-                 THIS proc's own lower_icon_body call a few lines up, in lower_icon_proc's call to icn_statics_prepass --
-                 captured there because by the time we get here the source AST is already rewritten (TT_INITIAL -> TT_IF)
-                 and the original names/order are no longer recoverable from a re-scan. */
               for (int k = 0; k < g_icn_synth_excl.n; k++) lc_vec_push(&_excl, &LC_AT(&g_icn_synth_excl, const char *, k));
               lc_vec _impl; lc_vec_init(&_impl, (int) sizeof(const char *));
               icn_collect_implicit_locals(body, (const char **)_excl.data, _excl.n, &_impl);

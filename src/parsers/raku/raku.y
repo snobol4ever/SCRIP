@@ -58,13 +58,6 @@ static int rk_is_array_name(const char *bare) {
     for (int i = 0; i < rk_array_names_n; i++) if (!strcmp(rk_array_names[i], bare)) return 1;
     return 0;
 }
-/* row raku-silent-wrong-answers: bare scalar names seen as the LHS of "name = [...]" (array-composer
-   RHS, tagged __rk_arr_lit below) so TT_SAY (lower_raku.c) can gist them bracketed like a real Array --
-   marked here at PARSE time (not in lower_raku.c) because lower_rblock walks statements BACKWARD
-   (continuation-passing box construction), so a lower-time mark on stmt 1 is not yet visible when
-   stmt 3's TT_SAY is lowered first; parsing is naturally forward, so parse-time marking has no such
-   ordering hazard. Deliberately NOT flow-sensitive (whole-compilation-unit fact, matching rk_array_names'
-   own precedent above) -- a later reassignment to a List does not un-mark; out of scope for this pass. */
 const char *rk_arrlit_scalars[RK_ARRNAME_MAX];
 int rk_arrlit_scalars_n = 0;
 int rk_is_arrlit_scalar(const char *bare) {
@@ -199,11 +192,6 @@ static tree_t *rk_range_ex(tree_t *lo, tree_t *hi) {
     return expr_binary(TT_TO, lo, expr_binary(TT_SUB, hi, one));
 }
 static tree_t *rk_numeric_ctx(tree_t *e) {
-    /* unary '+' (numeric context): an array numifies to its element count -- same
-       array-name-table check rk_range_ex already uses for ^@grid. Non-array operands are
-       already numeric in every corpus usage seen so far, so '+' on them is a pass-through
-       identity rather than a general (unbuilt) numify -- minimal version this needs, not a
-       general one, per this row's own standing discipline. */
     if (e && e->t == TT_VAR && rk_is_array_name(e->v.sval)) {
         tree_t *el = ast_node_new(TT_METHCALL); ast_push(el, e); ast_push(el, leaf_sval(TT_QLIT, "elems"));
         return el;
@@ -305,13 +293,6 @@ static tree_t *rk_chain_cmp(tree_t *left, tree_e op, tree_t *right) {
     if (last) return expr_binary(TT_SEQ, left, expr_binary(op, rk_tree_clone(last), right));
     return expr_binary(op, left, right);
 }
-/* ⭐ construct (f), raku-frontend-real-world-syntax-gaps: a bounded hand-rolled subscript-expression
-   scanner for "@arr[expr]" interpolation, per the task's own catalog note that the alternative (a
-   reentrant flex sub-parse) needed its reentrancy risk "not yet assessed" -- this avoids that risk
-   entirely by never re-entering the lexer/parser. Deliberately narrow: a $name/@name/integer primary,
-   optionally one +-*-/-% operator and a second primary -- measured against every "@name[...]" inside a
-   "..." string across all 17 corpus/benchmarks/raku kernels (spinner's "$_ % @spinner" is the ONLY one),
-   not guessed at a wider generality nothing in the corpus needs. */
 static tree_t *rk_interp_primary(const char *s, int *ip, int len) {
     int i = *ip;
     while (i<len && s[i]==' ') i++;

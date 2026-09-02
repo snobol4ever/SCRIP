@@ -10,12 +10,6 @@ extern "C" int zls_g_resume(const IR_graph_t *);
 extern "C" {
 #include "builtin_ids.h"
 }
-/*⭐⭐ BAKE THE BUILTIN ID AT THE CALL SITE (hq_P s262).  MEASURED on roman.sno (-O0, fixed work N=2000, callgrind): bid_of() was 4.16% of the whole program -- 11,002 calls at 166 Ir -- spent turning a baked string literal into the integer index of a cache that was ALREADY HIT (the dtax kind==4 arm dispatched 8,799 of 8,800 REPLACE calls straight to bn_replace).  The name is a compile-time constant here, so we resolve it HERE, once, and hand the runtime the answer.
-  ⛔ IT CANNOT ANSWER DIFFERENTLY, ONLY SOONER: emitter and runtime compile the same builtin_ids.h, so the baked integer is bit-identical to what bid_of() would return; a non-builtin bakes 0, which is bid_of()'s own miss value.
-  ⛔ NO PER-OP FILTER (Lon 2026-08-20): EVERY by-name call site bakes, builtin or not.  No blessed-name list exists in this cure.
-  ⛔ NO NEW GLOBAL: an immediate in the instruction stream, consumed within the call.
-  ⭐ REGISTER CHOICE IS VERIFIED, NOT ASSUMED: the RTCC veneer's pre-call save uses rax as its block scratch (x86_rtcc_wb_bin) and only the POST-call reload uses rcx (x86_rtcc_rl_bin), so ecx is free to carry an argument across the wb into the call in BOTH media.
-  KILLSWITCH SCRIP_BID_BAKE=0 -- ⛔ EMIT-time, so an OFF arm must be re-COMPILED; toggling it on a baked binary proves nothing. */
 static int bid_bake_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BID_BAKE"); v = (e && *e == '0') ? 0 : 1; } return v; }
 static long bid_bake_of(const char * fn) { if (!bid_bake_on() || !fn) return -1L; size_t n = strlen(fn); if (n > 0xFFFFu) return -1L; return (long)(((unsigned long)n << 16) | (unsigned long)(unsigned)bid_of(fn, (unsigned)n)); }
 DESCR_t rt_pl_dop_unify_ci(DESCR_t * args, long long imm);
@@ -69,9 +63,6 @@ static std::string sink_unb(const char * reg, int lyes, int lno) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string sink_trailpush(const char * creg, int lslow) {
-    /* rdi holds the marshalled args-array base that the caller's slow-path fallback (label lslow) still needs
-     * for its `call usym` -- this helper must not touch it. Use rcx (free at both call sites) for the trail
-     * base/entry pointer instead, so a bail to lslow (trail unallocated or full) leaves rdi untouched. */
     return x86("lea", "r12", "[rip + __]", (uint64_t)(uintptr_t)g_pl_trail, "g_pl_trail")
          + x86("mov", "rcx", "[r12 + 0]")
          + x86("test", "rcx", "rcx")   + x86_jcc_id("je", lslow)
@@ -357,10 +348,6 @@ static std::string sink_trail_mark_str(int argbase, uint64_t ufp, const char * u
         s += x86_jcc_id("je", 102);
         { int _gres = zls_g_resume(g_emit_cfg);
           if (_gres >= 0) {
-            /* PL-FR-4b RESEED: the α-body's unconditional resume-slot seed (emit.cpp, first suspend's β) runs AFTER
-             * lexprep2 wrote the STAGED continuation there, stomping it — so a second retry re-delivered clause 2
-             * forever (the a,b,b,b… loop). On the resumed arm the staged cursor is still in the pending global
-             * (the suspend's resumed α is its designed consumer/clearer), so re-assert it over the seed here. */
             s += x86("mov", FRQ(_gres), "rax");
           } }
         s += x86("mov", "rax", FRQ(resoff));

@@ -37,7 +37,6 @@ __attribute__((visibility("hidden"))) long  g_wsi_blocks = 0;
 static int   g_hp_report_reg = 0;
 static void gc_static_segs_init(void);
 int g_gc_pending;
-/* rt_sxt_fr_t / g_sxt_fr / g_sxt_owner now declared+defined via gc_heap.h (perf-sxt-break-unconditional-call-tax) -- the type and the extern must live where hot callers can see them too. */
 __attribute__((visibility("hidden"))) rt_sxt_fr_t g_sxt_fr = { (char *)0, 0, 0, -1 };
 _Static_assert(__builtin_offsetof(rt_sxt_fr_t, owner) ==  0, "rtx_str.s bakes g_sxt_fr.owner @0");
 _Static_assert(__builtin_offsetof(rt_sxt_fr_t, len)   ==  8, "rtx_str.s bakes g_sxt_fr.len @8");
@@ -47,7 +46,7 @@ _Static_assert(__builtin_offsetof(rt_sxt_fr_t, off)   == 20, "rtx_str.s bakes g_
 #define g_sxt_gva_n (g_sxt_fr.gva_n)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_sxt_gva_count(int n) { g_sxt_gva_n = n; }
-void rt_sxt_break(const char *s) { rt_sxt_break_fast(s); }   /* real symbol kept for rtx_icnvar.s's `call rt_sxt_break@PLT`; logic lives once, in gc_heap.h */
+void rt_sxt_break(const char *s) { rt_sxt_break_fast(s); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_sxt_note(char *s, long len)
 {
@@ -142,10 +141,6 @@ static void *rt_gcheap_carve(char *at, uint64_t total, uint16_t type)
     return (void *)(h + 1); }
 }
 static long g_ah_tn[512]; static long g_ah_tb[512]; static struct { void *ra; uint16_t type; long n; long b; } g_ah_ra[4096]; static int g_ah_reg = 0;
-/* g_ah_on widened static->hidden (RTX step 0(c) precedent, matching g_wsi_base/ws/wss/blocks below): rtx_alloc.s's
-   rt_ws_alloc fast path must skip to C whenever the alloc-histogram diagnostic is armed, so it needs to read this
-   flag directly. Hidden (not exported) keeps [rip+sym] addressing and interposition-proofing identical to a static;
-   only cross-TU linkability widens. Resolved once, before any RT call, by the rt_alloc_hist_init constructor below. */
 __attribute__((visibility("hidden"))) int g_ah_on = -1;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_alloc_hist_report(void)
@@ -237,10 +232,6 @@ static void *rt_ws_alloc_core(size_t n, uint16_t ty)
         g_wsi_ws += total; g_wsi_blocks += 1; return (void *)(h + 1); } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* rtx_alloc.s's RTX_FUNC(rt_ws_alloc) fast path jumps here (`jne/je/jb c_rt_ws_alloc`) with ONLY rdi=n staged —
-   this signature and its hardcoded HB_WS are the slow-path contract the asm veneer was written against, and
-   may not gain a second argument. rt_ws_alloc_tag below is a SEPARATE entry point (no asm fast path of its
-   own — ARBLK_t/DATINST_t headers are not hot enough to earn one) sharing the core carve via rt_ws_alloc_core. */
 void *c_rt_ws_alloc(size_t n)
 {
     if (rt_alloc_hist_on()) rt_alloc_hist_ra(__builtin_return_address(0), (uint16_t)HB_WS, (uint64_t)n);
@@ -337,7 +328,6 @@ static DESCR_t *g_gc_shield_arr = (DESCR_t *)0;
 static int g_gc_shield_n = 0;
 static const char **g_gc_shield_r = (const char **)0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* Called only through the rt_gc_point_arr asm veneer (rt_asm_helpers.S), which parks all six callee-saved registers above `floor` so the seam scan repairs them and the pops restore the repaired values. */
 void rt_gc_point_arr_c(DESCR_t *arr, int n, const char **r0, char *floor)
 {
     int pv = g_gc_pending;
@@ -384,11 +374,8 @@ static void gc_mark_blk(rt_hblk_t *h, uint16_t addf)
     if (!(old & HBF_MARK) && (h->type == HB_WS || h->type == HB_PLJ || HB_IS_AGG(h->type))) { h->fwd = (uint64_t)(uintptr_t)g_gc_mhead; g_gc_mhead = h; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⛔ PIN CODE PHYSICALLY DELETED (Lon s263: "We have no need for pinning anything").  rt_gc_pin_ptr, gc_cons_scan, gc_cons_scan_t and the HBF_PIN mechanism are GONE: every span that was conservatively
-   PINNED is now scanned by gc_zeta_frame, which REGISTERS each pointer-holding location so the slide REPAIRS it.  Nothing is ever held in place; everything relocates. */
 static void gc_zeta_frame(const char *lo0, const char *hi0);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* Lon s262: registries hold (block, offset), never a raw interior address -- a slot inside a sliding block must be repaired in whatever copy of that block survives, so its identity cannot be its address. */
 static void gc_slot_reg(void *loc)
 {
     const char *v = *(const char *const *)loc;
@@ -427,25 +414,14 @@ static void gc_visit_vcell(VCELL_t *vc)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_visit_tbblk(struct _TBBLK_t *t)
 {
-/*⭐⭐ NOTHING HERE IS PINNED, AND THAT IS THE POINT (Lon, 2026-08-23 s262).
-  His ruling, and the correction that produced this block: *"GC handles sliding pointers, they just never need to be
-  PINNED."*  Pointers are FINE.  A table points at its bucket blocks, a bucket's entries point at key strings, and
-  every one of those may relocate freely -- what a data structure must never do is require that a block STAY PUT.
-  ⛔ AN EARLIER CUT OF THIS FUNCTION PINNED THE BLOCKS A TABLE OWNS, and it was wrong twice over: it re-introduced
-  the pin path Lon had just deleted, and it did so to protect a dependency that should not have existed.  The pin is
-  gone; the cure is registration.  rt_gc_visit_raw hands the collector the LOCATION of each outbound pointer, so the
-  slide pass REWRITES it in place -- which is what "downstream and easily slidable" means in practice.
-  ✅ CURED s263 (hq_C): the unified slot registry -- gc_slot_reg -- stores (block, offset), never a raw interior
-  address, so a location inside a moved block is repaired in the copy that survives; table_variety verifies clean
-  with zero pins anywhere. */
     gc_mark_agg(t);
     rt_gc_visit_descr(&t->dflt);
     if (!t->buckets) return;
-    rt_gc_visit_raw((const char **)&t->buckets);   /*⭐ the bucket VECTOR is its own block now (sized from TABLE(n)); register its location so the slide repairs it */
+    rt_gc_visit_raw((const char **)&t->buckets);
     for (unsigned b = 0; b < t->nbuck; b++) {
         TBBUCK_t *bk = t->buckets[b];
         if (!bk) continue;
-        rt_gc_visit_raw((const char **)&t->buckets[b]);   /*⭐ DOWNSTREAM AND SLIDABLE (Lon s262): register the LOCATION so the slide rewrites it -- never pin the block so it cannot move */
+        rt_gc_visit_raw((const char **)&t->buckets[b]);
         for (unsigned i = 0; i < bk->len; i++) {
             TBPAIR_t *e = &bk->ent[i];
             if (e->key) rt_gc_visit_raw((const char **)&e->key);
@@ -573,7 +549,6 @@ static void gc_coexpr_roots(char **cur_hi)
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* WSI twin of gc_blk_of: the old gc_in_wsi took ANY address inside [g_wsi_base,g_wsi_ws) as a hit, so ASLR-shifted stack garbage that merely landed in-range got chased as a live DT_A/DT_DATA (gc-stress-arm-nondeterministic); g_gc_widx (built each collection in gc_collect_ex, mirrors g_gc_idx) makes this an EXACT header match, never a range coincidence. want_type also rules out a hit landing on some OTHER rt_ws_alloc payload shape at that address (HB_WS data buffers included) -- exact-start alone was not enough, since ARBLK_t/DATINST_t used to share HB_WS with everything else in the island; see HB_ARR/HB_DINST in gc_heap.h. */
 static int gc_wsi_exact(const char *q, uint16_t want_type)
 {
     if (!q || (uintptr_t)q < sizeof(rt_hblk_t) || ((uintptr_t)q & 7u)) return 0;
@@ -641,7 +616,6 @@ static long gc_collect_ex(int cons_stack)
         h->fwd = 0; g_gc_idx[i] = h; { char *e = p + h->size; char *gs0 = g_hp_arena + (((size_t)(p - g_hp_arena) + 511u) & ~(size_t)511u); if (w_tel && e > gs0) w_pmg += (long)((e - gs0 + 511) >> 9);
             for (char *gs = gs0; gs < e; gs += 512) g_gc_pmap[(size_t)(gs - g_hp_arena) >> 9] = (uint32_t)i; } i++; p += h->size; } if (fold) g_gc_nblk = i; g_gc_pmap_top = g_hp_top; }
     if (w_tel) { w_idx = g_gc_nblk; n_idx = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
-    /* WSI is bump-only and never compacted (unlike g_hp_arena above), so g_gc_widx grows INCREMENTALLY from g_gc_windexed instead of a full rewalk from g_wsi_base every collection -- under SCRIP_GC_STRESS that rewalk is O(collections*blocks) and timed out real programs. */
     { char *p = g_gc_windexed ? g_gc_windexed : g_wsi_base; while (p && p < g_wsi_ws) { rt_hblk_t *h = (rt_hblk_t *)p;
         if (g_gc_wn >= g_gc_wicap) { g_gc_wicap = g_gc_wicap ? g_gc_wicap * 2 : 4096; g_gc_widx = (rt_hblk_t **)realloc((void *)g_gc_widx, (size_t)g_gc_wicap * sizeof(*g_gc_widx)); if (!g_gc_widx) abort(); }
         g_gc_widx[g_gc_wn++] = h; p += h->size; } g_gc_windexed = p; }
@@ -672,7 +646,7 @@ static long gc_collect_ex(int cons_stack)
       if (wl) { while (g_gc_mhead) { rt_hblk_t *h = g_gc_mhead; g_gc_mhead = (rt_hblk_t *)(uintptr_t)h->fwd; h->fwd = 0; walked++; nscan++;
             if (h->type == HB_WS || h->type == HB_PLJ) { gc_zeta_frame((const char *)(h + 1), (const char *)h + h->size); continue; }
             if (h->type == HB_AGGV) { gc_visit_vcell((VCELL_t *)(h + 1)); continue; }
-            if (h->type == HB_AGGB) continue;   /*⭐ s262 bucket index: {hkey, entry*} records, no descriptors -- its entries are marked by gc_visit_tbblk */
+            if (h->type == HB_AGGB) continue;
             if (h->type == HB_AGGP) { TBPAIR_t *e = (TBPAIR_t *)(h + 1); if (e->key) gc_mark_agg(e->key);
                 rt_gc_visit_descr(&e->key_descr); rt_gc_visit_descr(&e->val); continue; }
             if (h->type == HB_AGGT) { struct _TBBLK_t *t = (struct _TBBLK_t *)(h + 1); if (gc_hins((void *)t)) gc_visit_tbblk(t); continue; } } }
@@ -684,7 +658,7 @@ static long gc_collect_ex(int cons_stack)
               if (scanned[i] || !(h->flags & HBF_MARK)) continue;
               if (h->type == HB_WS || h->type == HB_PLJ) { scanned[i] = 1; changed = 1; nscan++; gc_zeta_frame((const char *)(h + 1), (const char *)h + h->size); continue; }
               if (h->type == HB_AGGV) { scanned[i] = 1; changed = 1; nscan++; gc_visit_vcell((VCELL_t *)(h + 1)); continue; }
-              if (h->type == HB_AGGB) { scanned[i] = 1; changed = 1; nscan++; continue; }   /*⭐ s262 bucket index -- see the worklist arm */
+              if (h->type == HB_AGGB) { scanned[i] = 1; changed = 1; nscan++; continue; }
               if (h->type == HB_AGGP) { TBPAIR_t *e = (TBPAIR_t *)(h + 1); scanned[i] = 1; changed = 1; nscan++; if (e->key) gc_mark_agg(e->key);
                   rt_gc_visit_descr(&e->key_descr); rt_gc_visit_descr(&e->val); continue; }
               if (h->type == HB_AGGT) { struct _TBBLK_t *t = (struct _TBBLK_t *)(h + 1); scanned[i] = 1; changed = 1; nscan++; if (gc_hins((void *)t)) gc_visit_tbblk(t); continue; } } }
@@ -695,8 +669,6 @@ static long gc_collect_ex(int cons_stack)
     { int fold = gc_walk_fold();
     if (fold) { gc_live_grow(0); liveo = g_gc_liveo; livef = g_gc_livef; }
     for (long i = 0; i < g_gc_nblk; i++) { rt_hblk_t *h = g_gc_idx[i];
-        /* ⛔ TYPE-BASED PIN REMOVED (Lon s262: "Completely remove the PIN path.  Let's see what breaks.").  It was gated on !pz, i.e. it only ever fired when the collector could NOT be precise -- a fallback for imprecision, not a design.  Marked blocks now relocate like any other live block. */
-        /* ⛔ THE PIN ARM IS GONE (Lon s262).  It mapped a pinned block to itself (h->fwd = h) so the compactor left it in place; every live block now relocates. */
         if (h->flags & HBF_MARK) { h->fwd = (uint64_t)dest; dest += h->size; nlive++; }
         else h->fwd = 0;
         if (fold && h->fwd) { if (li >= g_gc_lcap) { gc_live_grow(li); liveo = g_gc_liveo; livef = g_gc_livef; } liveo[li] = h; livef[li] = h->fwd; li++; } }

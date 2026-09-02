@@ -199,7 +199,7 @@ static DESCR_t rt_ipow_descr(int64_t li, int64_t ri) {
 int operand_is_real_str(DESCR_t v) {
     if (!IS_STR_fn(v) || !v.s) return 0;
     const char *s = v.s; while (*s == ' ') s++; if (!*s) return 0;
-    if (rt_plain_int_str(s)) return 0;   /* ⭐ a plain integer is never a REAL: strtod and strtoll consume the same span, so the pair below would return 0 anyway -- see rt_plain_int_str in core.h */
+    if (rt_plain_int_str(s)) return 0;
     char *endi = 0, *endd = 0; strtoll(s, &endi, 10); strtod(s, &endd);
     if (endd <= endi) return 0; while (*endd == ' ') endd++; return *endd == '\0';
 }
@@ -250,14 +250,9 @@ RT_BINOP_ENTRY(rt_cdiff,  BINOP_CDIFF,  )
 RT_BINOP_ENTRY(rt_cinter, BINOP_CINTER, )
 static DESCR_t rt_num_arith_impl(DESCR_t a, DESCR_t b, int op) {
     int csop = (op == BINOP_CUNION || op == BINOP_CDIFF || op == BINOP_CINTER);
-    /* ⛔ WAS `!a.s[0]`, AN ORACLE-DIFFED WRONG ANSWER: that asks whether the FIRST BYTE is NUL, not whether the
-       value is EMPTY, so `CHAR(0) '5'` (2 chars, not numeric) coerced to INTVAL(0) and `x + 1` quietly answered 1
-       where SPITBOL raises ERROR 001 "addition left operand is not numeric".  The empty string IS 0 here; a value
-       that merely BEGINS with NUL is not.  Length authority is the carried .slen (Lon 2026-08-30, RULES.md FACT
-       RULE); this is the hand-inlined strlen assumption hq_C named after curing its twin in descr_identical. */
     if (!csop && (a.v == DT_S || a.v == DT_SNUL) && (!a.s || descr_slen(a) == 0)) a = INTVAL(0);
     if (!csop && (b.v == DT_S || b.v == DT_SNUL) && (!b.s || descr_slen(b) == 0)) b = INTVAL(0);
-    if (!csop && (!is_numeric_like(a) || !is_numeric_like(b))) return FAILDESCR;   /* Appendix D 1 -- reuses the GT/LT/EQ family's own numeric-string validator (core.c) instead of letting to_real/to_int's strtod/strtoll silently read a non-numeric string as 0 */
+    if (!csop && (!is_numeric_like(a) || !is_numeric_like(b))) return FAILDESCR;
     int lf = IS_REAL_fn(a), rf = IS_REAL_fn(b);
     int anyf = lf || rf || operand_is_real_str(a) || operand_is_real_str(b);
     double ld = csop ? 0.0 : to_real(a), rd = csop ? 0.0 : to_real(b);
@@ -304,10 +299,6 @@ DESCR_t rt_cset_compl(DESCR_t a) {
     else if (IS_INT_fn(a))  { snprintf(_cbuf, sizeof _cbuf, "%lld", (long long)a.i); raw = _cbuf; }
     else if (IS_REAL_fn(a)) { icon_real_str(a.r, _cbuf, sizeof _cbuf); raw = _cbuf; }
     else { raw = VARVAL_fn(a); if (!raw) raw = ""; }
-    /* NOT `for(;*p;p++)` (icon-ascii-cset-keywords-built-off-by-one): stops at the first byte-0
-       member, so a correctly-built &ascii/&cset (now legitimately starting with chr(0)) reads as
-       empty. kw_cset_len gives the true length for a registered keyword cset without touching the
-       general embedded-NUL literal gap (still open, still out of scope). */
     extern int kw_cset_len(const char *);
     int rawlen = IS_CSET_fn(a) ? kw_cset_len(raw) : -1; if (rawlen < 0) rawlen = (int)strlen(raw);
     unsigned char in[256] = {0}; for (int _i = 0; _i < rawlen; _i++) in[(unsigned char)raw[_i]] = 1;

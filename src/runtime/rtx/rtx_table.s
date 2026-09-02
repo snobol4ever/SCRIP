@@ -1,98 +1,27 @@
-/* rtx_table.s — RTX-TBL: the hashed TABLE lookup, in assembly.
- *
- * THE CONTRACT IS .github/ARCH-SNOBOL4-RTX.md. READ IT BEFORE EDITING ANY .S FILE.
- * C of record: src/runtime/aggregates.c c_table_find_pair_d, and the eight
- * per-datatype hash algorithms above it. This file is that C, arm for arm.
- *
- * ⭐⭐ WHY THIS FILE EXISTS. Lon, s262: the runtime is moving to register-aware
- * ASM and C is kept only for a few large algorithms, which is also why RT_OPT is
- * -O0 forever. Table lookup is the hottest non-string path in SNOBOL4 -- at fixed
- * work (200 rebuilds x 500 integer keys) the C spends 38.7M of 180.2M Ir inside
- * table_find_pair_d -- and at -O0 most of that is stack traffic gcc emits for
- * locals that live perfectly well in registers. Nothing here is clever; it is the
- * same algorithm with the spills deleted.
- *
- * ⭐ ONE HASH ALGORITHM PER DATATYPE, and each is a separate arm below, not a
- * shared mixer fed by a per-type extractor. Each ends in its own multiply with
- * its own constant and its own >> 8; see aggregates.c for why each constant is
- * what it is. The arms are ordered by tag value so a later port can replace the
- * compare chain with a jump on (v >> 3) without reordering anything.
- *
- * ⛔ THE GUARD IS NARROWER THAN THE C, DELIBERATELY. DT_A, DT_T and DT_DATA all
- * LAZILY ASSIGN a serial id on first use (`if (!k.arr->id) k.arr->id =
- * g_agg_list_ser++`), and those counters are file-static in aggregates.c with no
- * exported cell. Reaching them from here would mean minting a global, which
- * NO-NEW-GLOBALS forbids without an in-chat grant -- so those three tags tail-jump
- * to the C, which already has the identical signature and the args already in
- * place. Every other tag, including every user datatype above DT_DATA, is handled
- * here. This is the standard RTX narrow-guard shape, not a gap.
- *
- * KILLSWITCH: SCRIP_RTX_TABLE=0 (gate byte, tail-jumps to the C body). The typed-
- * hash killswitch SCRIP_TBL_TYPED=0 also clears this gate in rtx_init.c, because
- * that mode hashes the STRINGIFIED key and this file does not implement it.
- */
 #include "rtx_abi.inc"
-
-/* ---- TAGS. src/contracts/descr.h:11-29 (DTYPE_t). ⛔ Cited, not remembered:
- * s222 proved an undefined tag compare assembles cleanly as a relocation and
- * admits the wrong datatype silently, so every value here names its source. */
-#define DT_SNUL           0x00    /* descr.h:12 */
-#define DT_S              0x02    /* descr.h:13 */
-#define DT_I              0x03    /* descr.h:14 */
-#define DT_R              0x05    /* descr.h:15 */
-#define DT_A              0x10    /* descr.h:18 -- serial id, bails to C */
-#define DT_T              0x18    /* descr.h:19 -- serial id, bails to C */
-#define DT_DATA           0x70    /* descr.h:29 -- instance id, bails to C */
-
-/* ---- LAYOUT. All pinned by _Static_assert in rtx_init.c; a drift breaks the
- * BUILD, not the runtime. TBPAIR_t is {char *key; DESCR_t key_descr; DESCR_t val;
- * unsigned long long hkey;} = 48 bytes, and TBBLK_t opens with buckets[], so the
- * bucket vector is at offset ZERO. ⛔ A BUCKET IS 16 BYTES, NOT 8: it was a bare
- * chain pointer until s262 and is now {TBPAIR_t *ent; unsigned len, cap}. */
-#define TBPAIR_KEYD_V     8       /* key_descr.v    (uint8)         */
-#define TBPAIR_KEYD_SLEN 12       /* key_descr.slen (uint32)        */
-#define TBPAIR_KEYD_VAL  16       /* key_descr value union          */
-#define TBPAIR_HKEY      40       /* hkey           (u64, sort key) */
+#define DT_SNUL           0x00
+#define DT_S              0x02
+#define DT_I              0x03
+#define DT_R              0x05
+#define DT_A              0x10
+#define DT_T              0x18
+#define DT_DATA           0x70
+#define TBPAIR_KEYD_V     8
+#define TBPAIR_KEYD_SLEN 12
+#define TBPAIR_KEYD_VAL  16
+#define TBPAIR_HKEY      40
 #define TBPAIR_SIZE      48
-/* ⛔ A BUCKET IS A POINTER, AND THE COUNTS LIVE IN THE BLOCK IT NAMES. An
- * intermediate s262 cut made the bucket a 16-byte {ent,len,cap} struct inline in
- * the vector; that doubled TBBLK_t to 4,160 bytes, which every TABLE() memsets,
- * and CLAWS5 -- thousands of tiny tables -- lost 7.4% in CYCLES while its
- * INSTRUCTION count fell. len/cap moved into the entry block: the vector is bare
- * pointers again, an empty bucket is NULL and allocates nothing, and len now
- * shares a cache line with ent[0] instead of sitting in a separate 4 KB vector. */
-#define TBBUCK_LEN        0       /* TBBUCK_t.len   (unsigned)      */
-#define TBBUCK_ENT        8       /* TBBUCK_t.ent[] (TBPAIR_t [])   */
-/* ⛔ THE BUCKET COUNT IS NO LONGER A COMPILE-TIME CONSTANT.  It is sized per table
- * from the program's own TABLE(n) estimate (SPITBOL: Arg1 is the estimated entry
- * count, not a limit and not a bucket count), so the mask is LOADED from the
- * table, never baked here.  A literal 255 was correct only while every table had
- * 256 buckets, and it would silently select the wrong bucket for every other
- * width -- the same class of bug as the old `movzx eax,al` fold it replaced. */
-#define TBBLK_BUCKETS     0       /* TBBLK_t.buckets (TBBUCK_t **)  */
-#define TBBLK_NBUCK       8       /* TBBLK_t.nbuck   (unsigned, pow2) */
-#define TBL_LINEAR_MAX   12       /* aggregates.c _tbl_lower crossover */
-
+#define TBBUCK_LEN        0
+#define TBBUCK_ENT        8
+#define TBBLK_BUCKETS     0
+#define TBBLK_NBUCK       8
+#define TBL_LINEAR_MAX   12
 RTX_GATE_DEF(table)
-
-/*-----------------------------------------------------------------------------
- * TBPAIR_t *table_find_pair_d(TBBLK_t *tbl, DESCR_t k)
- *   rdi = tbl . rsi = k tag word (v in sil) . rdx = k value . -> rax = entry or 0
- *
- * REGISTER PLAN (no frame, no spills, no call -- this routine never touches the
- * stack, which is the entire point of porting it):
- *   r11 hash then hkey . r8 ent . r9 end . r10 p (cursor) . rdi key value, after
- *   the bucket address is computed and tbl is dead . rsi tag word, live to the end
- *   because the equality arm compares against sil . rax/rcx/rdx scratch.
- * ⛔ rbx/r13/r14/r15 are BLOB PINS and are never written here.
- */
 RTX_FUNC(table_find_pair_d)
     RTX_GATE(table, c_table_find_pair_d)
     test    rdi, rdi
     je      .Ltf_null
-    movzx   eax, sil                        /* v -- 8-bit, never a 32-bit read of  */
-                                            /*   the tag word: bits 8-31 carry the */
-                                            /*   DESCR provenance stamp            */
+    movzx   eax, sil
     cmp     al, DT_I
     je      .Ltf_h_int
     cmp     al, DT_S
@@ -102,15 +31,11 @@ RTX_FUNC(table_find_pair_d)
     cmp     al, DT_R
     je      .Ltf_h_real
     cmp     al, DT_A
-    je      c_table_find_pair_d             /* lazily assigns a file-static serial  */
+    je      c_table_find_pair_d
     cmp     al, DT_T
-    je      c_table_find_pair_d             /*   id; see the ⛔ block in the header  */
+    je      c_table_find_pair_d
     cmp     al, DT_DATA
     je      c_table_find_pair_d
-
-/* --- EVERY REMAINING TAG: identity IS the address, and an address is not an int.
- * Allocator output is 16-byte aligned, so the low FOUR bits are always zero;
- * shift them off before the multiply or a quarter of the bucket space is dead. */
 .Ltf_h_ptr:
     mov     r11, rdx
     shr     r11, 4
@@ -118,31 +43,15 @@ RTX_FUNC(table_find_pair_d)
     imul    r11, rcx
     shr     r11, 8
     jmp     .Ltf_key
-
-/* --- DT_I: Fibonacci multiplicative, ONE imul, no avalanche chain. Integer keys
- * arrive CONSECUTIVE (loop counters, ids, indices) and for consecutive inputs the
- * golden-ratio multiplier is optimal -- successive products are maximally spread.
- * ⛔ Do not "improve" this into a full mixer; that is two more multiplies to buy
- * nothing on the distribution that actually arrives. */
 .Ltf_h_int:
     mov     r11, rdx
     mov     rcx, 0x9E3779B97F4A7C15
     imul    r11, rcx
     shr     r11, 8
     jmp     .Ltf_key
-
-/* --- DT_SNUL: the null string is a SINGLETON. One possible key, so there is no
- * distribution to spread -- a constant is the whole algorithm. Distinguished (not
- * zero) so it does not share bucket 0 with every null-valued pointer key. */
 .Ltf_h_snul:
     mov     r11, 0x2F1B3D5C7E9A11
     jmp     .Ltf_key
-
-/* --- DT_R: FOLD FIRST, because a double's entropy is all in the top half. Program
- * reals have long runs of zero low mantissa bits, so hashing the raw pattern feeds
- * the multiplier dead bits; high^low moves sign+exponent+high mantissa into the
- * bits the multiply then spreads. Bitwise throughout, so -0.0 and 0.0 stay
- * DIFFERENT keys and a NaN key stays findable -- matching _tbl_eq_d exactly. */
 .Ltf_h_real:
     mov     r11, rdx
     mov     rcx, r11
@@ -152,42 +61,18 @@ RTX_FUNC(table_find_pair_d)
     imul    r11, rcx
     shr     r11, 8
     jmp     .Ltf_key
-
-/* --- DT_S: WORD-AT-A-TIME, EIGHT BYTES PER MULTIPLY. This arm used to be djb2,
- * one byte per iteration, and it compiled to ELEVEN instructions per byte
- * (test/je/movzx/mov/shl/add/xor/mov/inc/dec/jmp) -- so a 4-character tag cost
- * ~50 Ir before a single bucket was touched. MEASURED on CLAWS5 (hq_P s264):
- * table_find_pair_d was 13.02% of the whole run, 92 Ir/call over 109,360 calls
- * per parse, and this loop was the majority of it.
- * ⛔ THE TAIL IS OVERLAPPING, AND THAT IS THE ENTIRE SAFETY ARGUMENT. A 1..7-byte
- * remainder is read as a 4/2/1-byte load at the FRONT plus a second load ENDING
- * exactly at p+n, so every byte touched lies inside the string. The tempting
- * alternative -- one 8-byte load then mask -- can step into an unmapped page when
- * a string ends at a page boundary. Do not "simplify" it into that.
- * ⛔ COUNTED, NEVER NUL-TERMINATED (Lon s263) IS UNCHANGED: every load is driven by
- * the length and nothing tests a byte for zero, so 'a' CHAR(0) 'b' and
- * 'a' CHAR(0) 'c' still hash apart. The LENGTH is mixed in first, so two keys
- * sharing a prefix cannot collide on length alone.
- * ⛔⛔ THIS ARM AND aggregates.c:_tbl_h_str ARE ONE ALGORITHM IN TWO SPELLINGS.
- * SCRIP_RTX_TABLE=0 routes lookups to the C twin, so a table INSERTED through one
- * and READ through the other must agree bit for bit or entries simply vanish.
- * Edit them together; A/B any table-heavy program both ways and diff.
- * ⛔ FIXED 2026-08-24 (seat08, row rtx29-standdown-residual-crashes-mindfa-recogn-genqueen): this arm excluded slen==0
- * but not the CSETVAL sentinel slen==0xFFFFFFFF (core.h), so a cset used as a table key was hashed as a ~4GB string
- * and walked off into unmapped memory -- SIGSEGV. Twin of the same-day _tbl_slen fix in aggregates.c; see that
- * comment for the repro. Both spellings needed the identical guard per the "edit them together" rule above. */
 .Ltf_h_str:
     test    rdx, rdx
-    je      .Ltf_str_n0                     /* s == NULL reads as "", n forced to 0  */
+    je      .Ltf_str_n0
     mov     rcx, rsi
-    shr     rcx, 32                         /* ecx = k.slen, the counted length      */
+    shr     rcx, 32
     test    ecx, ecx
-    je      .Ltf_str_unstamped              /* slen 0 => unknown length, strlen scan */
+    je      .Ltf_str_unstamped
     cmp     ecx, -1
-    jne     .Ltf_str_have                   /* slen ~0 => CSET sentinel, scan too    */
+    jne     .Ltf_str_have
 .Ltf_str_unstamped:
-    mov     r9, rdx                         /* slen unstamped or CSET: strlen scan   */
-.Ltf_str_scan:                              /*   ASM and C lose the SAME distinction  */
+    mov     r9, rdx
+.Ltf_str_scan:
     cmp     byte ptr [r9], 0
     je      .Ltf_str_scand
     inc     r9
@@ -196,17 +81,17 @@ RTX_FUNC(table_find_pair_d)
     mov     rcx, r9
     sub     rcx, rdx
 .Ltf_str_have:
-    mov     r8, rdx                         /* p -- rdx must survive, .Ltf_key reads it */
-    mov     eax, ecx                        /* n, zero-extended                       */
+    mov     r8, rdx
+    mov     eax, ecx
     mov     r10, 0x9E3779B97F4A7C15
-    imul    r10, rax                        /* n * K0                                 */
+    imul    r10, rax
     mov     r11, 5381
-    xor     r11, r10                        /* h = 5381 ^ (n * K0)                    */
-    mov     r10, 0xFF51AFD7ED558CCD         /* K1, held live across the loop          */
+    xor     r11, r10
+    mov     r10, 0xFF51AFD7ED558CCD
     cmp     ecx, 8
     jb      .Ltf_str_tail
 .Ltf_str_w8:
-    xor     r11, [r8]                       /* unaligned 8-byte load is fine on x86-64 */
+    xor     r11, [r8]
     imul    r11, r10
     add     r8, 8
     sub     ecx, 8
@@ -217,10 +102,10 @@ RTX_FUNC(table_find_pair_d)
     je      .Ltf_str_fin
     cmp     ecx, 4
     jb      .Ltf_str_t2
-    mov     eax, [r8]                       /* front 4                                */
+    mov     eax, [r8]
     mov     r9d, ecx
     sub     r9d, 4
-    mov     r9d, [r8 + r9]                  /* last 4, ending exactly at p+m          */
+    mov     r9d, [r8 + r9]
     shl     r9, 32
     or      rax, r9
     jmp     .Ltf_str_mix
@@ -230,7 +115,7 @@ RTX_FUNC(table_find_pair_d)
     movzx   eax, word ptr [r8]
     mov     r9d, ecx
     sub     r9d, 2
-    movzx   r9d, word ptr [r8 + r9]         /* last 2, ending exactly at p+m          */
+    movzx   r9d, word ptr [r8 + r9]
     shl     r9, 32
     or      rax, r9
     jmp     .Ltf_str_mix
@@ -241,7 +126,7 @@ RTX_FUNC(table_find_pair_d)
     imul    r11, r10
     jmp     .Ltf_str_fin
 .Ltf_str_n0:
-    mov     r11, 5381                       /* n == 0: h = 5381 ^ (0 * K0)            */
+    mov     r11, 5381
 .Ltf_str_fin:
     mov     rax, r11
     shr     rax, 31
@@ -249,38 +134,29 @@ RTX_FUNC(table_find_pair_d)
     mov     rcx, 0xC4CEB9FE1A85EC53
     imul    r11, rcx
     shr     r11, 8
-
-/* --- hkey = (v << 56) | (h & 0x00FF_FFFF_FFFF_FFFF). The DATATYPE IS THE HIGH
- * BYTE, so the sort order is datatype-major and two keys of different type can
- * never compare equal whatever their values hash to. The bucket is read from the
- * LOW bits, which are value-hash bits, so types spread across all buckets. */
 .Ltf_key:
     movzx   rax, sil
     shl     rax, 56
     mov     rcx, 0x00FFFFFFFFFFFFFF
     and     r11, rcx
-    or      r11, rax                        /* r11 = hkey                          */
-    mov     eax, [rdi + TBBLK_NBUCK]        /* nbuck, always a power of two          */
-    dec     eax                             /* mask                                   */
-    and     eax, r11d                       /* bucket = hkey & (nbuck-1)              */
-    mov     rcx, [rdi + TBBLK_BUCKETS]      /* the vector, its own block              */
-    mov     rcx, [rcx + rax*8]              /* b = buckets[bucket]                    */
+    or      r11, rax
+    mov     eax, [rdi + TBBLK_NBUCK]
+    dec     eax
+    and     eax, r11d
+    mov     rcx, [rdi + TBBLK_BUCKETS]
+    mov     rcx, [rcx + rax*8]
     test    rcx, rcx
-    je      .Ltf_null                       /* NULL bucket == empty, no block at all  */
-    lea     r8, [rcx + TBBUCK_ENT]          /* ent                                    */
-    mov     ecx, [rcx + TBBUCK_LEN]         /* len -- same cache line as ent[0]       */
+    je      .Ltf_null
+    lea     r8, [rcx + TBBUCK_ENT]
+    mov     ecx, [rcx + TBBUCK_LEN]
     test    ecx, ecx
     je      .Ltf_null
-    mov     rdi, rdx                        /* tbl is dead; rdi carries the key value */
+    mov     rdi, rdx
     mov     rax, rcx
     imul    rax, rax, TBPAIR_SIZE
-    lea     r9, [r8 + rax]                  /* end = ent + len*48                   */
+    lea     r9, [r8 + rax]
     cmp     ecx, TBL_LINEAR_MAX
     ja      .Ltf_bin
-
-/* --- LOWER BOUND, LINEAR ARM. Below the crossover a forward walk over SORTED
- * hkeys beats halving: no imul per probe, and it keeps the early-out that an
- * unsorted chain could never have -- the first hkey past the target IS the miss. */
     mov     r10, r8
 .Ltf_lin:
     cmp     r10, r9
@@ -289,39 +165,30 @@ RTX_FUNC(table_find_pair_d)
     jae     .Ltf_scan
     add     r10, TBPAIR_SIZE
     jmp     .Ltf_lin
-
-/* --- LOWER BOUND, BINARY ARM. eax = lo, ecx = n, rdx free (the key value moved
- * to rdi above, which is exactly why it moved). */
 .Ltf_bin:
     xor     eax, eax
 .Ltf_bin_loop:
     test    ecx, ecx
     je      .Ltf_bin_done
     mov     edx, ecx
-    shr     edx, 1                          /* half                                 */
+    shr     edx, 1
     mov     r10d, eax
-    add     r10d, edx                       /* mid = lo + half                      */
+    add     r10d, edx
     imul    r10, r10, TBPAIR_SIZE
     add     r10, r8
     cmp     [r10 + TBPAIR_HKEY], r11
     jb      .Ltf_bin_lo
-    mov     ecx, edx                        /* n = half                             */
+    mov     ecx, edx
     jmp     .Ltf_bin_loop
 .Ltf_bin_lo:
     add     eax, edx
-    add     eax, 1                          /* lo = mid + 1                         */
+    add     eax, 1
     sub     ecx, edx
-    sub     ecx, 1                          /* n -= half + 1                        */
+    sub     ecx, 1
     jmp     .Ltf_bin_loop
 .Ltf_bin_done:
     imul    rax, rax, TBPAIR_SIZE
-    lea     r10, [r8 + rax]                 /* p = ent + lo*48                      */
-
-/* --- THE EQUAL-HKEY RUN. Over a 56-bit value hash this run is essentially always
- * length 1, so a hit costs one dereference; the loop exists for the genuine
- * collision. ⛔ The FIRST hkey mismatch ends the search -- the bucket is sorted,
- * so there is nothing equal further on. r8 (ent) is dead from here and the string
- * arm reuses it. */
+    lea     r10, [r8 + rax]
 .Ltf_scan:
     cmp     r10, r9
     jae     .Ltf_null
@@ -329,47 +196,33 @@ RTX_FUNC(table_find_pair_d)
     cmp     rax, r11
     jne     .Ltf_null
     movzx   eax, byte ptr [r10 + TBPAIR_KEYD_V]
-    cmp     al, sil                         /* datatype first, always               */
+    cmp     al, sil
     jne     .Ltf_next
     cmp     al, DT_S
     je      .Ltf_eq_str
     cmp     al, DT_SNUL
-    je      .Ltf_hit                        /* singleton: the tag IS the equality    */
-    mov     rax, [r10 + TBPAIR_KEYD_VAL]    /* DT_I / DT_R / every pointer tag: one  */
-    cmp     rax, rdi                        /*   64-bit bitwise compare covers all   */
+    je      .Ltf_hit
+    mov     rax, [r10 + TBPAIR_KEYD_VAL]
+    cmp     rax, rdi
     je      .Ltf_hit
 .Ltf_next:
     add     r10, TBPAIR_SIZE
     jmp     .Ltf_scan
-
-/* --- DT_S equality: strcmp, and the null guards are the C's, kept exactly
- * (`e->key_descr.s && k.s && strcmp(...) == 0`). */
-/* --- DT_S equality: LENGTH FIRST, then bytes. Never a NUL-terminated compare.
- * A length mismatch rejects without touching a byte, and an equal length then
- * compares exactly that many bytes -- so an embedded CHAR(0) is just data. */
 .Ltf_eq_str:
-/* ⛔ FIXED 2026-08-24 (seat08, row rtx29-standdown-residual-crashes-mindfa-recogn-genqueen): BOTH length loads below
- * had the same missing-sentinel bug as .Ltf_h_str above -- excluded slen==0 but not the CSETVAL sentinel
- * slen==0xFFFFFFFF (core.h), so two cset keys with identical canonical content but different slen=-1 raw fields
- * compared their SENTINELS equal (-1==-1) instead of their real lengths, then byte-compared into adjacent heap
- * garbage past the true 2-or-so-byte content -- a silent wrong MISS, not a crash (the garbage bytes almost always
- * differ within a few bytes, so .Ltf_scmp below rejects before it could walk far enough to fault). Confirmed via
- * SCRIP_RTX_TABLE=0 A/B: the C twin (_tbl_eq_d) got this right already, so a cset-keyed table found its own
- * just-inserted entry under C but not under this ASM path -- same key, same content, two different verdicts. */
-    mov     rax, [r10 + TBPAIR_KEYD_VAL]    /* e->key_descr.s                        */
+    mov     rax, [r10 + TBPAIR_KEYD_VAL]
     test    rax, rax
     je      .Ltf_next
     test    rdi, rdi
     je      .Ltf_next
     cmp     rax, rdi
-    je      .Ltf_hit                        /* same bytes, trivially equal           */
-    mov     edx, [r10 + TBPAIR_KEYD_SLEN]   /* e length                              */
+    je      .Ltf_hit
+    mov     edx, [r10 + TBPAIR_KEYD_SLEN]
     test    edx, edx
     je      .Ltf_eq_eunstamped
     cmp     edx, -1
-    jne     .Ltf_eq_klen                    /* real length, not 0 or CSET sentinel   */
+    jne     .Ltf_eq_klen
 .Ltf_eq_eunstamped:
-    mov     r8, rax                         /* unstamped or CSET: strlen fallback    */
+    mov     r8, rax
 .Ltf_eq_escan:
     cmp     byte ptr [r8], 0
     je      .Ltf_eq_escand
@@ -380,11 +233,11 @@ RTX_FUNC(table_find_pair_d)
     sub     rdx, rax
 .Ltf_eq_klen:
     mov     rcx, rsi
-    shr     rcx, 32                         /* k length                              */
+    shr     rcx, 32
     test    ecx, ecx
     je      .Ltf_eq_kunstamped
     cmp     ecx, -1
-    jne     .Ltf_eq_cmplen                  /* real length, not 0 or CSET sentinel   */
+    jne     .Ltf_eq_cmplen
 .Ltf_eq_kunstamped:
     mov     r8, rdi
 .Ltf_eq_kscan:
@@ -397,9 +250,9 @@ RTX_FUNC(table_find_pair_d)
     sub     rcx, rdi
 .Ltf_eq_cmplen:
     cmp     edx, ecx
-    jne     .Ltf_next                       /* different lengths => different keys    */
+    jne     .Ltf_next
     test    ecx, ecx
-    je      .Ltf_hit                        /* both empty                             */
+    je      .Ltf_hit
     mov     r8, rdi
 .Ltf_scmp:
     movzx   edx, byte ptr [rax]
@@ -411,7 +264,6 @@ RTX_FUNC(table_find_pair_d)
     dec     ecx
     jne     .Ltf_scmp
     jmp     .Ltf_hit
-
 .Ltf_hit:
     mov     rax, r10
     ret
@@ -419,56 +271,25 @@ RTX_FUNC(table_find_pair_d)
     xor     eax, eax
     ret
 RTX_ENDF(table_find_pair_d)
-
-/*-----------------------------------------------------------------------------
- * DESCR_t rt_subscript_var_container_only(DESCR_t base, DESCR_t idx)
- *   rdi = base tag word (v in dil) . rsi = base value . rdx = idx tag word
- *   rcx = idx value . -> rax = result tag word . rdx = result value
- *
- * ⭐⭐ WHY THIS IS HERE AND NOT LEFT IN C (hq_P s266).  This is the READ half of
- * every SNOBOL4 table subscript -- `mem[num][wrd][tag]` is FOURTEEN of them per
- * CLAWS5 token -- and at -O0 the C wrapper cost 55 Ir to reach a lookup that then
- * cost 79.  The 55 buys three things: two 16-byte struct copies gcc makes because
- * DESCR_t is passed by value (`DESCR_t b = base;` and then IS_VARREF_fn's own
- * by-value argument), the spill of all four incoming registers to the frame, and
- * a tag compare chain -- 42% of the cost of a hit, none of it the lookup.  The
- * hit path here is nine instructions plus the find.
- *
- * ⛔ THE GUARD IS DELIBERATELY NARROW, the standard RTX shape: ONLY a base that is
- * already a plain DT_T with a non-null block runs here.  A VARREF base (which must
- * be deref'd), a DT_A array, and the error arm all tail-jump to the C of record,
- * which is unchanged and still owns every one of those answers.  The MISS arm
- * likewise tail-jumps to C -- see the ⭐⭐ block on c_rt_svco_miss_d for why the
- * table default and NULVCL are bought rather than copied.
- *
- * ⛔ TBPAIR_t.val AT 24 IS PINNED BY _Static_assert IN rtx_init.c (the same one
- * rtx_icnsub.s already relies on), so a core.h drift breaks the BUILD, not the
- * lookup.  val is a DESCR_t: tag word at +24, value at +32.
- *
- * KILLSWITCH: shares SCRIP_RTX_TABLE=0 with the lookup -- one gate, one family.
- */
 RTX_FUNC(rt_subscript_var_container_only)
     RTX_GATE(table, c_rt_subscript_var_container_only)
     cmp     dil, DT_T
     je      .Lsvco_tbl
     cmp     dil, DT_A
-    je      rt_subscript_var                    /* ARRAY: the C's own tail call, and  */
-                                                /*   rt_subscript_var is already asm. */
-                                                /*   A DT_A base is never a VARREF, so */
-                                                /*   base == the C's deref'd b.        */
-    jmp     c_rt_subscript_var_container_only   /* VARREF and the error arm            */
+    je      rt_subscript_var
+    jmp     c_rt_subscript_var_container_only
 .Lsvco_tbl:
     test    rsi, rsi
-    je      c_rt_subscript_var_container_only   /* !tb -- the C answers FAILDESCR     */
-    push    rsi                                 /* tb; also aligns rsp for the call   */
-    mov     rdi, rsi                            /* tbl                                */
-    mov     rsi, rdx                            /* k tag word                         */
-    mov     rdx, rcx                            /* k value                            */
+    je      c_rt_subscript_var_container_only
+    push    rsi
+    mov     rdi, rsi
+    mov     rsi, rdx
+    mov     rdx, rcx
     call    table_find_pair_d
-    pop     rdi                                 /* tb back, for the default arm       */
+    pop     rdi
     test    rax, rax
-    je      c_rt_svco_miss_d                    /* tail call: default, else null       */
-    mov     rdx, [rax + 32]                     /* e->val.value                        */
-    mov     rax, [rax + 24]                     /* e->val tag word                     */
+    je      c_rt_svco_miss_d
+    mov     rdx, [rax + 32]
+    mov     rax, [rax + 24]
     ret
 RTX_ENDF(rt_subscript_var_container_only)

@@ -140,7 +140,7 @@ void rt_gvar_assign_str(const char *name, const char *str)
     rt_gc_point((DESCR_t *)0, &str);
     d.v    = DT_S;
     d.s    = (char *)(str ? str : "");
-    d.slen = descr_cstrlen(d.s);   /* C-STRING BOUNDARY: str arrives as a C string, so measure ONCE here and carry it */
+    d.slen = descr_cstrlen(d.s);
     NV_SET_fn(name ? name : "", d);
     if (g_monitor_bin) mon_emit_value_bin(name ? name : "", d);
 }
@@ -280,11 +280,6 @@ static const char * rt_coerce_errmsg(int code) {
     default:  return "pattern primitive argument coercion failed"; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⛔ COUNTED STRINGS: CHAR(0) IS DATA, NOT A TERMINATOR (Lon, s264).  This is the coercion every pattern primitive funnels its argument through, and it carried TWO NUL defects on ONE line.  (1) The
-   admission test was `v.s[0]`, so a string whose FIRST byte is NUL -- CHAR(0) itself -- read as EMPTY and fell into the arm below that raises "argument is not a string" (59/69/151/188).  Emptiness is
-   a question about LENGTH and must be asked of the descriptor, never of the first byte.  (2) It then OVERWROTE the incoming slen with strlen(), so 'a' CHAR(0) 'b' arrived correctly stamped at 3 and
-   left at 1 -- a silent truncation downstream of a descriptor that was right, which is why SPAN(CHAR(0)) returned no-match instead of erroring: different symptom, same line.  ⛔ 0xFFFFFFFFu is the
-   IS_CSET_fn sentinel rather than a length, so it keeps the strlen path it has always had -- widening it here would hand callers a 4-billion-byte cset. */
 void rt_coerce_str_d(const DESCR_t *in, DESCR_t *out, long codes) {
     extern void core_runtime_error(int code, const char *msg);
     int tc = (int)(codes & 0xffff);
@@ -292,11 +287,11 @@ void rt_coerce_str_d(const DESCR_t *in, DESCR_t *out, long codes) {
     DESCR_t v = *in;
     if (v.v == DT_S && v.s) { uint32_t n = (v.slen != 0xFFFFFFFFu) ? v.slen : (uint32_t)__builtin_strlen(v.s); if (n) { *out = v; out->slen = n; return; } }
     if (v.v == DT_S || v.v == DT_SNUL) { if (nc) core_runtime_error(nc, rt_coerce_errmsg(nc)); out->v = DT_S; out->s = (char *)""; out->slen = 0; return; }
-    if (v.v == DT_N && v.slen == 0 && v.s) { out->v = DT_S; out->s = v.s; out->slen = descr_cstrlen(v.s); return; }   /* a NAME is a C string -- boundary, measured once */
+    if (v.v == DT_N && v.slen == 0 && v.s) { out->v = DT_S; out->s = v.s; out->slen = descr_cstrlen(v.s); return; }
     if (v.v == DT_I || v.v == DT_R) {
         char *s = VARVAL_fn(v);
         if ((!s || !s[0]) && nc) core_runtime_error(nc, rt_coerce_errmsg(nc));
-        out->v = DT_S; out->s = s ? s : (char *)""; out->slen = descr_cstrlen(out->s); return; }   /* VARVAL_fn yields a C string -- boundary */
+        out->v = DT_S; out->s = s ? s : (char *)""; out->slen = descr_cstrlen(out->s); return; }
     if (tc) core_runtime_error(tc, rt_coerce_errmsg(tc));
     out->v = DT_S; out->s = (char *)""; out->slen = 0;
 }
@@ -382,7 +377,7 @@ void rt_coerce_real_d(const DESCR_t *in, DESCR_t *out, long codes) {
     else if (v.v == DT_I) { r = (double)v.i; ok = 1; }
     else if (v.v == DT_SNUL) { r = 0.0; ok = 1; }
     else if (v.v == DT_S && v.s) {
-        if (descr_slen(v) == 0) { r = 0.0; ok = 1; }   /* ⛔ was `!v.s[0]`: first-byte-NUL is not emptiness -- see arithmetic.c */
+        if (descr_slen(v) == 0) { r = 0.0; ok = 1; }
         else { const char *p = v.s; while (*p == ' ') p++; char *ep = NULL; double d = strtod(p, &ep);
                if (ep && ep != p) { while (*ep == ' ') ep++; if (*ep == 0) { r = d; ok = 1; } } } }
     if (!ok && ec) core_runtime_error(ec, rt_coerce_errmsg(ec));
@@ -404,7 +399,6 @@ int * const rt_k_level_p = &rt_k_level;
 typedef struct {
     const char *name; bb_box_fn fn; const char **pnames; int nparams; int frame_nslots; int decl_level; int alpha_slot; uint64_t byref_mask;
     int frame_bytes; int gen_region_ft; DESCR_t **pcells; DESCR_t *rcell; int cells_done; int is_generator; int dyn_scope; const char *result_name; int is_variadic; int rest_kind; int named_rest; int jmp_entry; int redefined; int zstatic; int pnames_owned; int nformals;
-    /* gen_region_ft (N-2, ceo s283h): frame_total of this proc's region-resident alpha, stamped by the driver from emit_icn_n2_gen_region_ft(); 0 = alpha does not take the N-2 region prologue. It occupies the 4-byte alignment HOLE that sat between frame_bytes@48 and pcells@56 (the alpha_slot precedent below) -- sizeof stays 128 and every rtx-baked offset is unmoved, which the asserts below fence. */
 } rt_proc_t;
 _Static_assert(__builtin_offsetof(rt_proc_t, fn) == 8, "rtx_call.s bakes PROC_FN for the rt_proc_open_fn port (RTX-4 slice 3); confirmed from emitted -O0 code as mov 0x8(%rax),%rax");
 _Static_assert(__builtin_offsetof(rt_proc_t, name) == 0 && __builtin_offsetof(rt_proc_t, is_generator) == 0x4c, "rtx_call.s bakes PROC_NAME and PROC_ISGEN");
@@ -545,7 +539,6 @@ int rt_proc_is_registered(const char *name)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* UNLOAD support. g_proc_hsl is open-addressed with no tombstone, so clearing its slot would break the linear-probe chain for every later insert that collided into it; sizeof(rt_proc_t)==128 is asm-baked (see the _Static_assert block above this struct), so adding a removed flag field is not safe either. Instead retarget the record's own key to a sentinel no real DEFINE name can ever match -- rt_proc_hash_lookup(name) then walks straight past this slot (non-zero, so probing continues) and correctly reports the original name unregistered, with zero changes needed at any of its many call sites. */
 int rt_proc_unregister(const char *name)
 {
     if (!name) return 0;
@@ -555,14 +548,6 @@ int rt_proc_unregister(const char *name)
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* name has no g_rt_gen_procs entry of its own -- it may be an OPSYN/DEFINE alias resolved only through
-   _func_buckets (register_fn_alias). Redirect through its entry_label, mirroring _usercall_hook's own
-   retry, instead of duplicating alias state into g_rt_gen_procs (that duplication is what caused a
-   SIGSEGV in a prior, reverted attempt at this fix -- see FINDING-2026-08-27-seat06-opsyn-rebind-two-
-   dispatch-paths-disagree-attempted-fix-reverted.md). Shared by every compiled-code accessor that reads
-   g_rt_gen_procs by name for an actual call (rt_proc_call_open/rt_proc_fn/rt_proc_jmp_entry always fire
-   together at a by-name call site, per bb_call_proc_staged.cpp) so none of them can disagree with the
-   others about whether/where an alias resolves. */
 static rt_proc_t *rt_proc_find_alias(const char *name)
 {
     extern int FNCEX_fn(const char *name);
@@ -861,11 +846,6 @@ DESCR_t rt_ret_faildescr(void) { rt_g_ret_by_name = 0; return FAILDESCR; }
 void *rt_dyn_alpha_fn(const char *name, void *fallback);
 DESCR_t rt_ret_faildescr(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*⭐⭐ THE ALPHA CELL IS RESOLVED ONCE PER PROCEDURE, NOT ONCE PER CALL (hq_P s266).  rt_dyn_alpha_fn below rebuilds "alpha$<name>" into a stack buffer, FNV-hashes the
-  whole concatenation and linear-probes the emitter's cell table -- MEASURED 402 Ir on EVERY SNOBOL4 function call (json deserializer: 29,573 calls/parse = 5.1% of the
-  program; claws5: 6,469 calls/parse).  The answer cannot change with the call: the cell table is a fixed-extent file-static, so a name maps to one slot forever, and the
-  MUTABLE half -- which function is sealed there -- is the cell's CONTENTS, which this still reads on every call.  So the slot index is cached in the proc record and the
-  string work disappears.  ⛔ It caches the SLOT, never the function pointer: OPSYN/re-DEFINE reseal the cell and must keep taking effect immediately. */
 static void **rt_alpha_cell_of(rt_proc_t *p, const char *name)
 {
     extern int bb_ab_slot_index(const char *); extern void *bb_ab_cell_at(int);
@@ -907,17 +887,6 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
         return rt_proc_call_epilogue_ret(fret);
     }
     rt_g_want_name = _wn_gen;
-    /* dyn_scope: rt_proc_call_open above already ran rt_proc_call_prologue's g_name_save shadow-push (it does
-       so unconditionally, not only on the !dyn_scope arm below), so a REAL, user-named proc's ":(RETURN)"
-       needs the NAMED epilogue to pop that shadow and read the result back by name -- rt_proc_enter's plain
-       epilogue_γ/ω never does (see rt_proc_enter_named's own comment). But a '$'-named proc is a compiler-
-       synthetic construct (e.g. pattern_match.c's embedded "EXPR$N" deferred-expression procs, reached here
-       directly with no compiled call site ever giving it a sealed alpha cell to begin with) -- its body
-       exits through its own γ/ω port directly, never through the shared SNOBOL4 ":(RETURN)" label, so it
-       needs the PLAIN rt_proc_enter (measured: demo_porter's "*EXPR$53" pattern regressed under the named
-       form -- rt_call_named_proc's own pre-existing fast-path already treats '$' names this way, at its
-       "!strchr(name, '$')" alpha-attempt guard). The alpha fast-path cell was already tried above and found
-       empty; p->fn is always a valid jmp_entry stub regardless of which epilogue it needs. */
     return (name && strchr(name, '$')) ? rt_proc_enter((void *)p->fn) : rt_proc_enter_named((void *)p->fn, name);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -959,7 +928,7 @@ typedef struct rt_genp_s {
     const char       *name;
     int               done;
     int               first_done;
-    void             *region;   /* N-2 (ceo s283h): the callee's region slice [R, R+ft+48), rt_zls_alloc'd (zeroed, GC-walkable chain, non-LIFO release) when the proc's stamped gen_region_ft > 0; the n2 entry shim pushes it to [entry rsp+16] where the region-resident alpha reads it. Released in rt_genp_destroy. */
+    void             *region;
     long              region_ft;
 } rt_genp_s;
 _Static_assert(offsetof(rt_genp_s, next) == 0 && offsetof(rt_genp_s, regs) == 8, "rt_genp_s layout drift vs rt_genp_thread_entry asm offsets");
@@ -1016,11 +985,6 @@ __asm__(
 "  call rt_genp_deliver_ω\n"
 );
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* N-2 APPLY-CALL CURE (ceo s283h, FINDING-2026-08-29-seat10-n2-default-on-apply-call-to-generator-segfaults): the shim above predates N-2 and enters with ZERO at [rsp+16] -- exactly the slot the
- * region-resident alpha (emit.cpp ~2871) reads as its REGION pointer, so any N-2 generator entered through the coexpr window wrote through ~NULL. This shim speaks the armed protocol: entry stack
- * [rsp+0]=γ [rsp+8]=ω [rsp+16]=REGION [rsp+24]=L7-slot [rsp+32]=selfrec-depth(seed 0), anchor=entry rsp+40 -- the initial subq $8 makes the anchor 0 mod 16 so the body runs at the staged callers'
- * measured 8-mod-16 parity. γ-SUSPEND arrives with rdx = the region header H (value at [H - align16(ft)]) on the generator's scratch rsp, or a RETIRE arrives at the same wire with al=DT_FAIL and rsp
- * already at the anchor (the shared-landing contract bb_call_proc_staged.cpp:780 documents); resume re-runs the staged β dance byte-for-byte: rax=H, rsp=[H+24]-40, jmp [H+32] (bcps :900). */
 extern void rt_genp_spine_enter_n2(void *fn, void *region);
 extern uint64_t rt_genp_deliver_n2_γ(uint64_t H);
 _Static_assert(DT_FAIL == 0x68, "rt_genp_spine_enter_n2's cmpb $0x68 bakes DT_FAIL");
@@ -1060,7 +1024,7 @@ uint64_t rt_genp_deliver_n2_γ(uint64_t H)
     DESCR_t v; memcpy(&v, (const void *)(uintptr_t)(H - (uint64_t)ftc), 16);
     if (!g->first_done) { g->first_done = 1; v = rt_proc_call_epilogue_γ(v); }
     { uint64_t d[2]; memcpy(d, &v, 16); scrip_coret(d[0], d[1], (void *)0); }
-    return H;   /* coret returns here on reactivation; H in rax feeds the shim's β dance and the resume landing's one-instruction rbp repoint */
+    return H;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_genp_entry_c(rt_genp_s *g)
@@ -1100,7 +1064,6 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
     rt_proc_t *p = rt_proc_find(name);
     if (!p || !p->fn) { extern void rt_pl_iso_throw_existence_key(const char *); fprintf(stderr, "[SUSP] rt_proc_call_gen_h: generator '%s' has no stackless slab\n", name ? name : "(null)"); rt_pl_iso_throw_existence_key(name ? name : "?"); if (hout) *hout = (void *)0; return FAILDESCR; }
     if (p->jmp_entry && p->is_generator) {
-        /* N2-APPLY REFUSAL RETIRED (row icon-n2-apply-nested-coexpr, seat06 2026-08-29): the refusal guarded a real stack-misalignment SIGSEGV (an apply/value call to a generator FROM INSIDE a coexpr thread crashed 8 bytes into glibc's malloc-arena bootstrap movaps). Root cause was bb_call_value.cpp's fallback call sites running at the N2 generator body's 8-mod-16 resting parity instead of the 0-mod-16 a bare call needs; cured there (g_emit.flat_gen-gated alignment pad), not here. FINDING-2026-08-29-seat13-icon-n2-apply-nested-coexpr-crash-is-stack-misalignment-in-malloc-not-pthread-create.md has the diagnosis; FINDING-2026-08-29-seat06-icon-n2-apply-nested-coexpr-cured-bb-call-value-alignment.md has the cure. */
         uint64_t cregs[5];
         __asm__ volatile("movq %%rbx,%0\n\tmovq %%r12,%1\n\tmovq %%r13,%2\n\tmovq %%r14,%3\n\tmovq %%r15,%4" : "=m"(cregs[0]), "=m"(cregs[1]), "=m"(cregs[2]), "=m"(cregs[3]), "=m"(cregs[4]));
         rt_genp_s *g = (rt_genp_s *)calloc(1, sizeof *g);
@@ -1183,14 +1146,6 @@ static struct { const char *name; DESCR_t *cell; int valid; } g_cell_cache[DCR_C
 static int            g_proc_idx_slot[DCR_CELL_CACHE_SIZE];
 static const char    *g_proc_idx_key[DCR_CELL_CACHE_SIZE];
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⛔ always_inline, and it is the -O0 fact rule biting for the sixth time in this tree (hq_P, json-match callout dig).
-   The body is ONE global read, but at -O0 -- which the s262 NO-`-O2` rule makes the number of record -- gcc emits a real
-   call for a plain `static`, so every consultation costs a prologue, a call and a ret to reach a load.  MEASURED on
-   json-match's MATCH PHASE (60,000 reps, m4, clean bracket): `call rt_call_fastpath_ok` is 9.20% of rt_name_save_push's
-   own self time, and rt_name_save_push is the largest single symbol in that phase at 5.78% of the whole program.  Three
-   call sites, all on the procedure-callout path json drives hardest.  ⭐ Same class this tree already names five times
-   over (rt_defer_merge_on, is_protected_pat_lead, _var_find_cached, sv_len, comm_var_active): a control arm is read into
-   a local and carried, and where it cannot be hoisted it is at least not a CALL. */
 static inline __attribute__((always_inline)) int rt_call_fastpath_ok(void) { return !g_call_fastpath_off; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_name_side_effecting(const char *nm)
@@ -1229,12 +1184,8 @@ static void rt_name_save_grow(void) {
     if (!np) return; g_name_save = np; g_name_save_cap = nc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐ KILLSWITCH + CONTROL ARM (RULES.md: every perf claim ships one).  SCRIP_NSAVE_FAST=0 restores both shapes below in ONE binary with no rebuild.  Default ON, opt-OUT; always_inline so the arm is a load+test and not a call, the same way rt_call_fastpath_ok was already cured. */
 static inline __attribute__((always_inline)) int rt_nsave_fast_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_NSAVE_FAST"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* MEASURED on json-match (m4, -O0): rt_proc_call_prologue is entered 92,945 times and calls this 185,890 times -- TWICE per callout, once for the parameter list and once for the result name -- while only 92,945 ELEMENTS are ever pushed.  So HALF THE CALLS PUSH NOTHING: the param push arrives with n==0 because the EXPR$n procs json drives carry no formals.  Two shapes, each provably identical to what it replaces:
-   (1) n <= 0 -> return base immediately.  The loop cannot execute, `fast` is then unused, and base is g_name_save_top unchanged -- so the observable result is the same value by construction.
-   (2) hoist rt_name_save_grow()'s OWN first test to the call site.  It opens with `if (g_name_save_top < g_name_save_cap) return;`, so when there is room the call was already a no-op, and the `break` test that follows it is false whenever top < cap.  When top >= cap this is the original sequence verbatim.  Turns a per-ELEMENT call into a per-element compare. */
 int rt_name_save_push(const char **names, DESCR_t **cells, DESCR_t *args, int nargs, int n)
 {
     int base = g_name_save_top;
@@ -1312,7 +1263,6 @@ int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
     const char *rname = p->result_name ? p->result_name : p->name;
     int fbytes = (int)(PROC_FRAME_NEST_QWORDS * 8);
     if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
-    /* CALL-SITE half of the same cure: np==0 (procedures with no formals -- the EXPR$n shape json drives) made this a call that returned g_name_save_top having done nothing, 92,945 times.  The early-return inside rt_name_save_push still paid the CALL: measured 10 Ir of prologue per entry, 185,890 entries = 1.27% of the program in function-entry alone.  Skipping the call is provably the same value, since the loop cannot execute when n<=0 and base IS g_name_save_top. */
     int save_base = (rt_nsave_fast_on() && np <= 0) ? g_name_save_top : rt_name_save_push(pn, p->pcells, args, nargs, np);
     { int rn_shadow = 0;
       for (int k = 0; k < np; k++) if (pn && pn[k] && !strcmp(pn[k], rname)) { rn_shadow = 1; break; }
@@ -1352,9 +1302,6 @@ static DESCR_t rt_proc_epilogue_named(const char *name, int failed)
     rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
     if (!p && name) p = rt_proc_find_alias(name);
     if (!p) return failed ? FAILDESCR : NULVCL;
-    /* rname/p->name is the REAL target's own name (e.g. "twice"), not the alias the call site used
-       ("double") -- load-bearing: SNOBOL4's return convention reads the variable named after the
-       procedure itself, which the callee body set under its OWN name, never the alias. */
     const char *rname = p->result_name ? p->result_name : p->name;
     DESCR_t *rcell = rt_call_fastpath_ok() ? p->rcell : (DESCR_t *)0;
     DESCR_t result = failed ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(rname));
@@ -1494,17 +1441,6 @@ __asm__(
 "  jmp rt_proc_call_epilogue_ω\n"
 );
 DESCR_t rt_proc_enter(void *fn);
-/* rt_proc_enter_named: same calling convention as rt_proc_enter above (push omega/gamma continuations, jmp
-   into fn -- the compiled body pushes into ":(RETURN)"'s shared pop-and-jmp), for the one case rt_proc_enter
-   itself cannot serve: a dyn_scope proc entered without the compiled call site that normally accompanies it.
-   A dyn_scope body returns through SNOBOL4's name convention -- rt_proc_call_prologue shadows the callee's own
-   name (e.g. "twice") onto a fresh per-call cell via g_name_save, the body writes its result under that name,
-   and unwinding it again is rt_proc_call_epilogue_named_{γ,ω}'s entire job (see rt_proc_epilogue_named) -- work
-   the plain epilogue_γ/ω never does. Confirmed by reading the working compiled call site's own emission
-   (bb_call_proc_staged.cpp): identical push/jmp shape, but its continuations call the _named forms with the
-   call's own name, never the plain ones. name is stashed in one extra pushed slot ahead of the usual five
-   registers, popped back into rdi at the continuation -- LBL__<name>'s body never reads this region; its own
-   frame is RT_AB_ANCHOR-relative, established by rt_proc_call_prologue, not rsp-relative to this caller. */
 __asm__(
 ".text\n"
 ".globl rt_proc_enter_named\n"
@@ -1589,10 +1525,8 @@ static DESCR_t rt_proc_call_c_lex(rt_proc_t *p, DESCR_t *args, int nargs, int wn
     return rt_proc_call_epilogue_ret(fret);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐ KILLSWITCH + CONTROL ARM (RULES.md: every perf claim ships one).  SCRIP_PROC_OPEN_P=0 restores the by-name re-resolution, so the cure A/Bs in ONE binary with no rebuild.  Default ON, opt-OUT -- same polarity and spelling as defer_xpat_on/defer_ic_on/patv_fast_on; a default-OFF killswitch on a cure is a deletion with a comment (s275). */
 static int proc_open_p_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_PROC_OPEN_P"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* The post-resolution half of rt_proc_call_open, split out so a caller that has ALREADY resolved the record does not resolve it a second time.  rt_call_proc_descr resolves `name` on its own first line and then handed the same `name` here, so every by-name callout paid rt_proc_find TWICE -- MEASURED on json-match: 185,890 rt_proc_find calls for 92,945 callouts, 7.50% of the program.  The two resolutions cannot disagree: nothing between them mutates the table (rt_dyn_alpha_fn_p only READS an alpha cell), and rt_call_proc_descr already dereferences its own `p` AFTER this call, so it relies on exactly that invariant today. */
 static long rt_proc_call_open_p(rt_proc_t *p, int nargs)
 {
     if (!p || !p->fn) return 0;
@@ -1703,20 +1637,8 @@ void rt_jmp_frame_lexprep2(void *fb, long suffix_off, long region_bytes)
         *(void **)((char *)fb + g_pl_zf_pending_cursor_off) = g_pl_zf_pending_cursor;
         *(long  *)((char *)fb + g_pl_zf_pending_tm_off)     = g_pl_zf_pending_tm_lo;
         *(long  *)((char *)fb + g_pl_zf_pending_tm_off + 8) = g_pl_zf_pending_tm_hi;
-        /* Every SUSPEND node's alpha-port checks a shared [fb+0]/[fb+8] "have I already suspended in this
-         * activation" pair (copied there, self-clearing, from the trail-mark slot) before deciding whether
-         * to re-run its clause or honor the resume slot above. A freshly zeroed frame reads as "never
-         * suspended", so a resumed call would silently re-run clause 1 instead of jumping to the retained
-         * cursor. Mirror the same copy the body's own first-time path makes, so re-entry looks the same
-         * whether the choicepoint was pushed by this activation or restored into a fresh one. */
         *(long  *)((char *)fb + 0) = g_pl_zf_pending_tm_lo;
         *(long  *)((char *)fb + 8) = g_pl_zf_pending_tm_hi;
-        /* Do NOT clear g_pl_zf_pending_cursor here. Two emitted consumers read it after this prologue returns:
-         * the clause's first node checks it to take its RESUMED arm (reusing the marks restored above instead of
-         * re-capturing the current trail top over them — re-capture was the one-'a' multiclause bug: unwind then
-         * ran to the wrong mark, the clause-1 binding survived, and every later clause head failed), and the
-         * SUSPEND node's resumed α-arm is the designed consumption point — it calls rt_pl_zf_resume_clear before
-         * dispatching to the retained continuation. Clearing here starved the first consumer. */
     }
 }
 __attribute__((visibility("default"))) void **g_pl_retry;
@@ -1823,9 +1745,6 @@ DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
       if (afn) { extern DESCR_t rt_tiny_record_enter(void *fn, long nargs); int _n = nargs < CALL_ARGS_MAX ? nargs : CALL_ARGS_MAX; if (_n < 0) _n = 0;
                  for (int i = 0; i < _n; i++) g_call_args[i] = args[i]; rt_g_want_name = _wn; return rt_tiny_record_enter(afn, (long)_n); } }
     (void)rt_proc_call_prologue(p, args, nargs, _wn);
-    /* Same rt_proc_enter_named/'$' rule as rt_call_proc_descr (see its comment): rt_proc_call_prologue just
-       pushed the g_name_save shadow a REAL proc's ":(RETURN)" needs unwound by name; a '$'-named synthetic
-       proc's body exits its own γ/ω port directly and needs the plain epilogue instead. */
     return (name && strchr(name, '$')) ? rt_proc_enter((void *)p->fn) : rt_proc_enter_named((void *)p->fn, name);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1837,8 +1756,6 @@ DESCR_t rt_call_proc_direct(long idx, DESCR_t *args, int nargs)
     int _wn = rt_g_want_name; rt_g_want_name = 0;
     if (!p->dyn_scope) return rt_proc_call_c_lex(p, args, nargs, _wn);
     (void)rt_proc_call_prologue(p, args, nargs, _wn);
-    /* Same rt_proc_enter_named/'$' rule as rt_call_proc_descr (see its comment) -- rt_call_proc_direct has no
-       name of its own, p->name is it. */
     return (p->name && strchr(p->name, '$')) ? rt_proc_enter((void *)p->fn) : rt_proc_enter_named((void *)p->fn, p->name);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1863,7 +1780,6 @@ static rt_proc_t * rt_proc_find(const char *name)
 {
     if (!name) return (rt_proc_t *)0;
     unsigned h = (unsigned)(((uintptr_t)name >> 4) & DCR_CELL_CACHE_MASK);
-    /* ⭐ HIT VALIDATION: POINTER FIRST, strcmp ONLY WHEN LITERALS DIFFER (ceo 2026-08-28, json-match dig — SECOND CUT, the first was measured WRONG the same hour): rt_proc_register stores the registration site's name pointer, and the PROBE arrives with the CALLSITE's literal — mode-4 emits these as SEPARATE rodata labels for the same string, so pointer-only validation MISSED EVERY CALL and degraded the whole cache to rt_proc_hash_lookup per call (measured: rt_proc_fnv+hash_lookup 16.3% of json-match, +2.7G insn — worse than the strcmp it replaced). This shape is never worse than the old strcmp-always (pointer test is ~free) and strictly better wherever literals dedupe. */
     if (g_proc_idx_key[h] == name) { int ci = g_proc_idx_slot[h]; if (ci < g_rt_gen_proc_count && (g_rt_gen_procs[ci].name == name || (g_rt_gen_procs[ci].name && strcmp(g_rt_gen_procs[ci].name, name) == 0))) return &g_rt_gen_procs[ci]; }
     { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_proc_idx_key[h] = name; g_proc_idx_slot[h] = i; return &g_rt_gen_procs[i]; } }
     return (rt_proc_t *)0;

@@ -64,11 +64,6 @@ static tree_t *dtp_rcp_tree(dtp_rcp_t *r, DESCR_t self) {
     if (!r) { tree_t *t = ast_stmt_new(TT_QLIT); t->v.sval = (char *)""; return t; }
     tree_t *t = ast_stmt_new((tree_e)r->tt);
     switch (r->tt) {
-    /* ⛔ LENGTH AUTHORITY (beauty self-host regression): r->s may be an UNTERMINATED SLICE into a live
-       subject (global.inc's `&ALPHABET POS(10) LEN(1) . nl` reaches here through a stored pattern), and
-       this tree is what the deferred-eval path (*Parse) recompiles -- tree consumers strlen sval.  Hand
-       the tree a terminated copy of exactly r->slen bytes; this path runs at pattern (re)construction,
-       never per match step. */
     case TT_QLIT: { uint32_t L = r->slen; const char *sp = r->s ? r->s : "";
         if (sp[0] && (!L ? 0 : sp[L] != '\0')) { char *cp = rt_str_alloc((long)L); if (cp) { memcpy(cp, sp, L); cp[L] = '\0'; sp = cp; } }
         t->v.sval = (char *)sp; break; }
@@ -251,7 +246,7 @@ DESCR_t subscript_get(DESCR_t arr, DESCR_t idx) {
         if (i < 0) i = slen + i + 1;
         if (i < 1 || i > slen) return FAILDESCR;
         char *buf = rt_str_alloc(1); buf[0] = s[i-1]; buf[1] = '\0';
-        return BSTRVAL(buf, 1);   /* NOT STRVAL: .slen=0 means "ask strlen", which reads 0 when the extracted byte is chr(0) itself (icon-ascii-cset-keywords-built-off-by-one) */
+        return BSTRVAL(buf, 1);
     }
     if (arr.v == DT_DATA) {
         DESCR_t *elems; int n;
@@ -327,7 +322,7 @@ static int subscript_set_body(DESCR_t arr, DESCR_t idx, DESCR_t val) {
         return 0;
     }
     if (arr.v == DT_S && arr.s) {
-        int slen = (int)descr_slen(arr);   /* ⛔ was strlen(arr.s): truncated at an embedded NUL and read a slice past its end (Lon 2026-08-30) */
+        int slen = (int)descr_slen(arr);
         int i = (int)to_int(idx);
         if (i < 0) i = slen + 1 + i;
         if (i < 1 || i > slen) { core_runtime_error(3, NULL); return 0; }
@@ -389,10 +384,6 @@ DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) {
     }
     if (arr.v == DT_S || arr.v == DT_SNUL) {
         const char *s = arr.s ? arr.s : "";
-        /* NOT strlen(s) for a cset (icon-ascii-cset-keywords-built-off-by-one): same gap as
-           subscript_get's single-index sibling -- kw_cset_len gives the true length for a
-           registered keyword cset (e.g. &cset[34+:94], htprep.icn's own idiom) without touching
-           the general embedded-NUL literal gap. */
         int slen = IS_CSET_fn(arr) ? kw_cset_len(s) : -1;
         if (slen < 0) slen = (arr.slen && arr.slen != 0xFFFFFFFFu) ? (int)arr.slen : (int)strlen(s);
         int ii = (int)to_int(i), jj = (int)to_int(j);
@@ -403,7 +394,7 @@ DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) {
         if (ii > jj) { int t = ii; ii = jj; jj = t; }
         int len = jj - ii;
         char *buf = rt_str_alloc(len); memcpy(buf, s+ii-1, len); buf[len]='\0';
-        return BSTRVAL(buf, len);   /* NOT STRVAL: the slice may itself start with chr(0) */
+        return BSTRVAL(buf, len);
     }
     return FAILDESCR;
 }
@@ -507,10 +498,6 @@ static int _sort_cmp_descr(DESCR_t a, DESCR_t b, const char *sa, const char *sb)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t sort_fn(DESCR_t arr) {
-    /*⭐ DIRECT-ARRAY OVERLOAD (conform-rsort-sort-array-noop): a table argument falls through to the
-      key/value path below; an array argument has no keys, so it is sorted on a COPY of its values using
-      the same comparator and same string-encoding (tbl_key_str) the table path already uses for its keys
-      -- one comparator, two shapes in, matching SPITBOL: SORT ascending, RSORT (via the reverse below) descending. */
     if (arr.v == DT_A) {
         ARBLK_t *src = arr.arr;
         if (!src) return arr;
@@ -635,19 +622,6 @@ __attribute__((destructor)) static void rt_rspd_report(void) {
 }
 #define RT_DCAP_ISLAND_BYTES ((size_t)64u << 20)
 typedef struct { const char *varname; uint64_t saved_delta; uint64_t len; } rt_dcap_e;
-/* ⭐⭐ THE C.A.S. EXPRESSION-THUNK ENTRY KIND (row lang-lambda-pattern-primitives; Lon 2026-08-28: "C.A.S. is the
-   vehicle -- ++ at cursor-pass, -- on backtrack, pump at success").  A second KIND of entry sharing the capture
-   entry's queue, its push, its unwind and its pump, exactly as instructed -- no second queue.
-   ⛔ IT MUST FIT INSIDE 24 BYTES AND THAT IS NOT A PREFERENCE.  The stride is baked into EMITTED CODE:
-   bb_match_capture.cpp writes [r12+0]/[r12+8]/[r12+16] and then `add r12, 24`, with the matching `sub r12, 24`
-   as the backtrack pop, in two separate arms.  Widening rt_dcap_e would silently desynchronise every already
-   emitted push from the pump that reads it, so the discriminant is carried IN the existing fields.
-   ⭐ THE TAG LIVES IN `len`, AND IT IS A MACRO, NOT A GLOBAL.  A sentinel object would have been the obvious
-   discriminant and it would have cost a new global variable -- which needs Lon's explicit in-chat permission by
-   RULES.md, and spending that grant on a tag would be absurd.  `len` is a capture SPAN: it is never negative in
-   practice, and the pump has always clamped a negative to 0, so all-ones is unreachable for a real capture and
-   unambiguous as a tag.  For a thunk entry: `len` = RT_DCAP_E_THUNK, `saved_delta` = the thunk's code address,
-   `varname` = the thunk's name or NULL (diagnostics only -- never assigned to). */
 #define RT_DCAP_E_THUNK  (~(uint64_t)0)
 const char *g_dcap_base = 0;
 #include "pin_va.h"
@@ -665,27 +639,9 @@ void rt_dcap_lazy_init(void) {
 int rt_cap_fail_retreat(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_FAIL_RETREAT"); v = (e && *e == '0') ? 0 : 1; } return v; }
 int rt_cap_name_strict(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_NAME_STRICT"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐ THE CAPTURE LENGTH-AUTHORITY INSTRUMENT (row perf-pattern-defer-capture-layer-cure, slice b).  Off by default;
-   SCRIP_CAP_POISON=1 writes a non-NUL byte where a capture's terminator would go, so any consumer that reads the
-   value past .slen answers about a longer string and produces a WRONG result instead of a silently-correct one.
-   ⭐ Why this exists as code and not as a grep: 'is DT_S length-authoritative' is a question about every consumer
-   the value can reach, and no grep of .s uses can answer it -- the 890-program board can, in one run.  Measured on
-   34aea2db: 16 board FAILs, of which 10 were the instrument's own artifact (see below) and the rest named the real
-   consumer class -- the numeric validators, now cured through rt_cstr_d (core.h).
-   ⛔ POISON ONLY AT len > 0, AND THAT BOUND IS LOAD-BEARING, NOT A TIDY-UP.  descr_slen() reads slen 0 as 'ask
-   strlen', so a zero-length value is length-authoritative by NOTHING and can never be slice-backed; poisoning its
-   byte 0 turned "" into "Z" and manufactured 10 of the original 16 failures.  An instrument that answers a
-   different question than the one you asked never says so -- it just prints a plausible board. */
 int rt_cap_poison(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_POISON"); v = (e && *e && *e != '0') ? (int)(unsigned char)'Z' : 0; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐ THE SLICE-CAPTURE CONTROL ARM (RULES.md THE INSTRUMENT LAWS clause 1: a cure defaults ON and the FLAG IS THE
-   CONTROL ARM, never the other way round).  SCRIP_CAP_SLICE=0 restores the pre-cure alloc+memcpy path so the cure
-   can be re-measured at any time WITHOUT a source edit -- which is exactly the edit I had to make by hand twice
-   while grading it, once for the price and once for the lifetime axis, and each hand edit is a chance to measure
-   two different trees and call it an A/B.  ⛔ The polarity is not cosmetic: an off-by-default cure is a cure that
-   silently is not there, which is the flag-compiled-out class this law exists to close. */
 int rt_cap_slice_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_SLICE"); v = (e && *e == '0') ? 0 : 1; } return v; }
-
 typedef struct { const char *cur; const char *top; const char *subj; DESCR_t pending; } rt_dcf_t;
 __attribute__((visibility("hidden"))) rt_dcf_t *g_dcf; __attribute__((visibility("hidden"))) int g_dcf_top; __attribute__((visibility("hidden"))) int g_dcf_cap;
 __attribute__((visibility("hidden"))) int g_dcap_trace = -1;
@@ -695,29 +651,6 @@ _Static_assert(offsetof(rt_dcf_t, top) == 8, "rtx_match.s RTX-8 slice 8 hardcode
 _Static_assert(offsetof(rt_dcf_t, subj) == 16, "rtx_match.s RTX-8 slice 8 hardcodes subj at +16");
 _Static_assert(offsetof(rt_dcf_t, pending) == 24, "rtx_match.s RTX-8 slice 8 hardcodes pending at +24");
 _Static_assert(sizeof(DESCR_t) == 16, "rtx_match.s RTX-8 slice 8 stores pending as v/slen qword + s qword");
-/* ⛔⛔⛔ NEW GLOBAL VARIABLES, GRANTED BY LON IN-CHAT 2026-08-27 (seat10, row perf-nv-set-capture-pump) against
-   the banner ask required by RULES.md's NO-NEW-GLOBALS fact rule. Two parallel arrays, the exact shape that
-   rule names explicitly. Registers and the stack cannot carry them: this must survive across ~183,602 separate
-   rt_dcap_pump() calls over one roman.sno benchmark run (FINDING-2026-08-24-seat11, perf-onedend-dcap-ceremony's
-   LEDGER) -- each a fresh, unrelated C call, so only static/global storage outlives the gaps between them.
-   ⭐ CALLER-SIDE CURE, MIRRORING rt_defer_cell_read's ALREADY-CLOSED READ-SIDE SHAPE (same file, ~line 1206):
-   don't make NV_SET_fn cheaper to call, stop calling it by name at all on a repeat. A capture site's varname is
-   a compile-time rodata literal baked once per site (bb_match_capture.cpp COND phase, `lea rcx, [rip+label]`),
-   and NV_PTR_fn's answer for a given name is stable for the life of the program (NV_t is bump-allocated off
-   rt_ws_alloc, entries only ever prepended, never freed or moved -- see NV_SET_fn's own memo comment above).
-   So a pointer-identity hit can skip NV_PTR_fn's hash+strcmp AND the whole NV_SET_fn call -- the pump writes
-   the cell directly. ⛔ VALIDATION IS POINTER-IDENTITY ONLY, NO GENERATION COUNTER -- deliberately mirroring
-   rt_defer_cell_read's accepted shape rather than g_nv_memo's stricter one (that memo must also survive a
-   later SHADOWING insert with the same name; this cache does not defend against that either, matching the
-   read side's already-shipped precedent, not a stronger guarantee invented here). A collision or a genuinely
-   stale entry just MISSES (falls through to NV_PTR_fn) -- it can reuse this array for a different site, it
-   still validates the incoming varname pointer before ever trusting the cached cell. Direct-mapped, 16 slots:
-   deliberate headroom for "a handful of distinct capture-target names," not a measured minimum -- roman.sno's
-   own captures use very few, but a program with more distinct targets than slots degrades to occasional
-   misses (correct, just cold), never a wrong answer. ⛔ EXCLUDED, same reasons the read side excludes them:
-   '*'-led indirect/NRETURN targets (handled entirely by the branch above this arm, never reach here) and any
-   name for which NV_PTR_fn itself returns NULL (the reserved I/O/control keywords -- INPUT, OUTPUT, STLIMIT,
-   ANCHOR, ... -- fall through to the real NV_SET_fn unchanged, exactly as today). */
 #define RT_DCAP_NVCACHE_N 16
 static const char *g_dcap_nv_key[RT_DCAP_NVCACHE_N];
 static DESCR_t     *g_dcap_nv_cell[RT_DCAP_NVCACHE_N];
@@ -725,7 +658,7 @@ static DESCR_t     *g_dcap_nv_cell[RT_DCAP_NVCACHE_N];
 static inline __attribute__((always_inline)) DESCR_t *rt_dcap_nv_cell(const char *name)
 {
     extern int g_call_fastpath_off;
-    if (g_call_fastpath_off) return (DESCR_t *)0;   /* ⛔ NOT an optimisation guard: see NV_CELL_IF_FASTSET_fn in core.c -- once a variable is I/O-associated every store must reach NV_SET_fn's channel hook */
+    if (g_call_fastpath_off) return (DESCR_t *)0;
     unsigned i = (unsigned)((((uintptr_t)name * 0x9E3779B97F4A7C15ull) >> 32) & (RT_DCAP_NVCACHE_N - 1));
     if (g_dcap_nv_key[i] == name) return g_dcap_nv_cell[i];
     DESCR_t *cell = NV_CELL_IF_FASTSET_fn(name);
@@ -741,30 +674,8 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
     if (g_dcf_top <= 0) return 0;
     rt_dcf_t *c = &g_dcf[g_dcf_top - 1];
     long rc = 0;
-    /* ⭐ THE MONITOR ARM IS READ ONCE PER PUMP, NOT ONCE PER CAPTURE (hq_P, slice (c) prologue of perf-pattern-defer-capture-layer-cure).
-       comm_var_active() lives in core.c and is DECLARED in core.h -- a cross-TU call, so at -O0 (the s262 number of record) it cannot be
-       inlined at all, and the loop below paid a full call/ret per captured field to re-read three globals that had not moved.  MEASURED on
-       string_pattern, m4 -O0, after slice (a): comm_var_active 2.94% of the whole program as its own symbol, plus its call site showing
-       1.23% inside rt_dcap_pump's annotation -- ~4.2% to answer the same question 8,000,000 times.  This is the fifth instance of the class
-       this file already names (rt_defer_merge_on, is_protected_pat_lead, _var_find_cached, sv_len, and slice (a)'s rt_defer_cell_ptr): a
-       control arm must be read ONCE into a local and carried, never re-consulted inside the code it guards.
-       ⛔ IT IS RE-READ, NOT JUST HOISTED, AND THAT IS THE WHOLE CORRECTNESS ARGUMENT.  The '*' indirect arm calls rt_call_proc_descr, which
-       runs USER SNOBOL CODE, and user code can execute &TRACE or attach a monitor -- so a value hoisted blindly out of this loop would go
-       stale exactly when a program turns tracing on mid-match.  _prev_star is set at the TOP of that arm, so it covers every one of the arm's
-       exits (its several `continue`s and `break`s alike) without restructuring them, and the next iteration re-reads before it can act on a
-       stale answer.  No other statement in this loop can reach user code: rt_str_alloc, memcpy, rt_sxt_break_fast, NV_SET_fn and comm_var
-       are all runtime-internal.  Cost on the hot path is one test of a register-resident local in place of a cross-TU call. */
     int _cva = comm_var_active();
     int _prev_star = 0;
-    /* ⛔⭐ A FRAME THAT CARRIES USER CODE NEVER HANDS OUT SLICES (beauty self-host regression, bisected to
-       89571dd7's slice-captures).  A THUNK entry runs arbitrary user SNOBOL mid-pump -- it can re-match,
-       reassign, extend, or read input -- and any slice minted from THIS frame's subject before or after it
-       can go stale while the program still holds it.  beauty's one-line witness: the input `START` alone
-       parses to `Parse Error` with slices on and correctly with them off; its parse frames interleave
-       deferred evaluation thunks with plain captures.  So the frame is scanned once here: any thunk entry
-       demotes every capture in the frame to the alloc+memcpy path (which is what all captures used before
-       the optimization).  Pure capture frames -- string_pattern's BREAK trio, the +110% witness -- carry no
-       thunks and keep the slice.  One pass over entries already resident in cache, at pump entry only. */
     int _frame_has_thunk = 0;
     { const char *_p = c->cur;
       while (_p + sizeof(rt_dcap_e) <= c->top) {
@@ -775,11 +686,6 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
     while (c->cur < c->top) {
         if (_prev_star) { _cva = comm_var_active(); _prev_star = 0; }
         const rt_dcap_e *e = (const rt_dcap_e *)(const void *)c->cur;
-        /* ⛔ THE THUNK ARM IS TESTED BEFORE THE CAPTURE-SPAN GUARD BELOW, AND THE ORDER IS LOAD-BEARING.  That
-           guard interprets saved_delta/len as an offset and a length into the subject and refuses the entry when
-           they exceed it -- for a thunk entry those fields are a CODE ADDRESS and a tag, so the guard would
-           "refuse" every thunk with a corruption diagnostic naming a subject overrun that never happened.  A
-           correct guard reading the wrong entry kind is indistinguishable from a real defect in its own log. */
         if (e->len == RT_DCAP_E_THUNK) {
             void (*thunk)(void) = (void (*)(void))(uintptr_t)e->saved_delta;
             c->cur += sizeof(rt_dcap_e);
@@ -787,15 +693,6 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
             continue;
         }
         int len = (int)e->len; if (len < 0) len = 0;
-        /* ⛔ THE CAPTURE MUST LIE INSIDE THE SUBJECT. Guarding len<0 was never enough: a 4-byte input of
-           "\t" reached here with len=480251808 after a deferred *F() re-entered and pushed a second dcf
-           frame, and the outer frame's entry was then read stale. That allocated ~458 MB (heap exhausted
-           at 512 MB, abort) -- and the ABORT WAS MASKING THE REAL HAZARD, because had the allocation
-           succeeded the memcpy below would have read 458 MB PAST THE SUBJECT. The same bound is already
-           enforced elsewhere in this file for literals; it simply was not applied on this path.
-           ⭐ This is a GUARD, not the root fix: the root defect is that a reentrant push invalidates the
-           outer frame's entries. Refusing here turns silent memory corruption into a named, bounded
-           failure that says exactly what it saw. */
         { extern int Σlen;
           long long _end = (long long)e->saved_delta + (long long)len;
           if (len > Σlen || _end > (long long)Σlen) {
@@ -804,41 +701,8 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
               c->cur += sizeof(rt_dcap_e);
               rc = 1;
               continue; } }
-        /* ⭐⭐ SLICE-CAPTURE (row perf-pattern-defer-capture-layer-cure, slice b).  The captured text ALREADY EXISTS,
-           contiguous, inside the subject -- so hand out a descriptor that points AT it instead of minting a block and
-           copying it byte for byte.  Measured on string_pattern (three BREAK captures per iteration): m4 6.2M -> 10.1M
-           iters/s, and gc_collect_ex leaves the profile entirely, because the per-iteration garbage it was collecting
-           was these copies.  THREE THINGS MAKE THIS SOUND, each proven rather than assumed:
-           (1) LIFETIME AND RELOCATION were never the obstacle -- rt_gc_visit_descr already maps an interior DT_S
-               pointer to its block via gc_blk_of, marks the WHOLE PARENT (so the subject cannot be collected out from
-               under a live capture), and the compactor's slot fixup already preserves interior offsets exactly
-               (gc_heap.c:438-444 and its fixup loop).  A subject outside the heap -- a rodata literal -- is immortal
-               and equally safe.
-           (2) LENGTH AUTHORITY is now a board-proven property, not a hope: a slice has no terminator of its own, and
-               SCRIP_CAP_POISON=1 (above) makes any consumer that reads past .slen answer wrongly.  That board went
-               16 -> 6 -> 1 -> 0 FAILs as the numeric-validator family was routed through rt_cstr_d (core.h).
-           (3) THE sxt EXTEND-OWNER MUST BE BROKEN, and this is the one hazard that is neither GC nor terminator:
-               rt_sxt_match keys on exact base-pointer equality, so a delta-0 slice whose base IS the current extend
-               owner would inherit the OWNER'S length (g_sxt_len, not ours) and str_concat would then append at the
-               wrong offset -- a wrong answer, not a crash.  Breaking the owner costs one compare and one store.
-           ⛔ len == 0 IS NEVER A SLICE.  ⚠️ ITS REASON CHANGED UNDER IT 2026-08-30 AND THE GUARD DID NOT: this used
-           to read "descr_slen reads slen 0 as ask-strlen, so a zero-length slice would report the whole remainder of
-           the subject".  That is now FALSE -- slen 0 means EMPTY, full stop (Lon's length-authority ruling, RULES.md
-           FACT RULE) -- so the old hazard cannot occur.  The guard STAYS because a zero-length slice is pointless
-           either way (nothing to avoid copying) and the empty capture's allocated path has a real terminator.
-           Corrected in the open rather than silently, per the correct-procedure-false-explanation FACT RULE.
-           ⛔⭐ A DEFERRED '*' ARM NEVER TAKES THE SLICE (beauty self-host regression, bisected to this commit's
-           original form).  The star arm below runs USER SNOBOL CODE with this descriptor as input, and that code can
-           start its own matches, reassign the source variable, or read further input -- each of which can move or
-           rewrite the bytes this slice points into while user code still holds it.  beauty's `Src POS(0) *Parse
-           *Space RPOS(0)` line handed *Parse a slice of Src, Parse's own body then re-matched and reassigned, and
-           the slice went stale mid-thunk: `Parse Error` on the first -INCLUDE line, output 618 -> 10 lines.  Plain
-           captures (BREAK/SPAN into a variable, no user code between mint and use) keep the slice and its measured
-           +110%; the star arm pays one alloc+memcpy, which it always did before the optimization. */
         DESCR_t d;
         int _star_arm = (e->varname && e->varname[0] == '*');
-        /* bisection instrument for the beauty regression: SCRIP_CAP_SLICE_MAX=N lets only the first N
-           mints slice (rest copy); SCRIP_CAP_SLICE_TRACE=1 names each sliced mint with its index. */
         static long _slice_budget = -2; static int _slice_trace = -1; static long _slice_idx = 0;
         if (_slice_budget == -2) { const char *_e = getenv("SCRIP_CAP_SLICE_MAX"); _slice_budget = (_e && *_e) ? atol(_e) : -1; }
         if (_slice_trace < 0) { const char *_e = getenv("SCRIP_CAP_SLICE_TRACE"); _slice_trace = (_e && *_e) ? 1 : 0; }
@@ -854,19 +718,11 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
         }
         c->cur += sizeof(rt_dcap_e);
         if (e->varname && e->varname[0] == '*') {
-            _prev_star = 1;   /* ⛔ set BEFORE the arm runs user code, so every exit path below is covered -- see the loop-head comment */
+            _prev_star = 1;
             const int strict = rt_cap_name_strict();
             extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
             extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
             extern int rt_g_ret_by_name;
-            /* ⭐ A DEFERRED TARGET THAT IS AN INDIRECT REFERENCE YIELDS A NAME BY CONSTRUCTION, AND THE LOWERER
-               KNOWS IT STATICALLY. `p = "HELLO" . *$("dummy")` must land in `dummy`, but $() lowers to an
-               unconditional IR_DEREF, so the thunk hands back the VALUE of dummy (null) and the by_name gate
-               below refused the whole match. The discrimination cannot be re-derived here -- at run time a
-               name string and an ordinary string are the same bytes, which is exactly why the gate must stay
-               as strict as it is for every other shape (it is what correctly fails `. *("dum" "my")`). So the
-               lowerer carries the fact in the callee name, the same way this varname already carries `*`:
-               an EXPRNM$ thunk lowers the INNER expression and returns the NAME STRING. */
             const int nmyield = !strncmp(e->varname + 1, "EXPRNM$", 7);
             { int _wsv = rt_g_want_name; rt_g_want_name = 1;
             DESCR_t nm = rt_call_proc_descr(e->varname + 1, 0);
@@ -881,11 +737,6 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
         }
             }
         if (e->varname && e->varname[0]) {
-            /* ⭐ row perf-nv-set-capture-pump: caller-side elimination, see the grant/design comment above
-               rt_dcap_nv_cell. Protected-pattern-variable guard checked FIRST, same order and same predicate
-               NV_SET_fn itself uses (rt_protected.h) -- falling through to the real NV_SET_fn there so its
-               core_runtime_error(42, ...) path fires unchanged; the fast path below is never reached for a
-               protected name. */
             DESCR_t *cell0;
             { extern int g_call_fastpath_off;
               unsigned _i = (unsigned)((((uintptr_t)e->varname * 0x9E3779B97F4A7C15ull) >> 32) & (RT_DCAP_NVCACHE_N - 1));
@@ -897,13 +748,9 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
                 if (cell) {
                     if (d.v == DT_S) rt_sxt_break_fast(d.s);
                     *cell = d;
-                    /* ⛔ comm_var is NOT free to call-and-let-it-no-op: it runs mon_synth_name unconditionally
-                       before its own &TRACE/monitor check (measured: ~19M Ir/183,601 calls on roman.sno when
-                       called unconditionally here -- most of this row's gain). comm_var_active() is the exact
-                       predicate NV_SET_fn's own fast path already gates on (core.c); mirror it, not skip it. */
                     if (_cva) comm_var(e->varname, d);
                 } else {
-                    NV_SET_fn(e->varname, d);   /* NV_PTR_fn refused (a reserved keyword name) -- unchanged slow path */
+                    NV_SET_fn(e->varname, d);
                 }
             }
         }
@@ -1193,20 +1040,13 @@ int rt_patv_defer_run_all(void *hv, long i, const char *fb, int cur_delta)
 {
     extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
     rt_dfx_t *s = rt_dfx_push(); if (!s) return -1;
-    DESCR_t val; { DTP_t *h = (DTP_t *)hv;   /* patv_slot's snapshot arm, hoisted -- see the block on rt_patv_defer_get_pat_dtp */
+    DESCR_t val; { DTP_t *h = (DTP_t *)hv;
       if (h && h->snap && i >= 0 && i < h->nsnap) val = h->snap[i]; else val = patv_slot(hv, i, fb, 0); }
     if (val.v == DT_X) { s->dtx_used = 1; DESCR_t _pk; if (rt_defer_xpat_on() && rt_spk_take(val.s, &_pk)) rt_defer_take(s, _pk); else rt_defer_take(s, rt_call_proc_descr(val.s ? val.s : "", 0)); return c_rt_defer_close(cur_delta); }
     s->val = val;
     return c_rt_defer_close(cur_delta);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⛔ SNOBOL4 STRINGS ARE COUNTED, NOT NUL-TERMINATED -- CHAR(0) IS A LEGAL CHARACTER (Lon, s264: "Using any C function to manipulate strings is INVALID since the NUL character problem").  This is the
-   ONE funnel every character-class builtin resolves its argument through, so it is the one place the class is fixed: BREAK, SPAN, ANY, NOTANY and their kin all arrive here.  The else arm used a bare
-   strlen(), which stops at the first NUL: ANY(CHAR(0)) resolved to a cset of length ZERO, and every caller rejects a zero-length cset -- so a legal program died with "argument is not a string or
-   expression" (59/69/151) -- an error the oracle never raises -- while SPAN silently returned no-match.  Length now comes from the DESCRIPTOR, which SIZE() already proves is stamped correctly.
-   ⛔ THE GUARDS ARE LOAD-BEARING, ALL THREE: cv == arg.s because VARVAL_fn may hand back a CONVERTED buffer (an integer rendered as text) whose length has nothing to do with arg.slen; arg.slen != 0
-   preserves the strlen fallback for any descriptor that never got its length stamped, so this cannot regress a working path; and 0xFFFFFFFFu is the IS_CSET_fn sentinel, not a length -- a real cset
-   takes the branch above and gets kw_cset_len, which is what lets &ALPHABET carry its own NUL. */
 int cset_resolve(DESCR_t arg, const char **out_ptr, int *out_len) {
     const char *cv;
     int clen;
@@ -1281,15 +1121,8 @@ void *rt_defer_xpat_dtp(const char *nm)
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*⭐⭐ THE SNAPSHOT SLOT IS READ IN PLACE, NOT THROUGH A CALL (hq_P s266).  patv_slot below stays the C OF RECORD and every arm it owns is still reached through it; what is hoisted here is
-  only its FIRST LINE -- the three-load snapshot hit -- because the json deserializer takes it 316,517 times per parse (17 per value node: every `*jvalue` / `*jelement` reference in the
-  grammar re-resolves the pattern variable).  MEASURED: patv_slot 10.1M Ir/parse + dtp_fn_of 3.5M + this function's own frame = ~11% of the whole program, to hand back a pointer that was
-  already sitting in a slot.  ⛔ Written out rather than made always_inline on purpose: s264 measured that always_inline on the descr.h/core.h tag predicates BROKE three deferred-capture
-  tests by moving descriptors out of memory where the GC's stack scan could no longer see them, and this file is the deferred-capture engine itself. */
 void *rt_patv_defer_get_pat_dtp(void *hv, long i, const char *fb)
 {
-    /*⭐ The head is returned; dtp_fn_of is called for its SIDE EFFECT (compile the blob on first use) and its result is discarded.  So when the blob is already compiled the call cannot
-       change the answer -- fn non-null is exactly dtp_fn_of's own "nothing to do" condition -- and skipping it here is an identity, not an approximation. */
     { DTP_t *h = (DTP_t *)hv;
       if (h && h->snap && i >= 0 && i < h->nsnap) { DESCR_t sv = h->snap[i]; if (sv.v == DT_P && sv.p && ((DTP_t *)sv.p)->fn) return sv.p; } }
     { DESCR_t v = patv_slot(hv, i, fb, 0);
@@ -1302,8 +1135,7 @@ long rt_patv_defer_open(void *hv, long i, const char *fb, int ival_flag)
 {
     extern long rt_proc_call_open(const char *name, int nargs);
     rt_dfx_t *s = rt_dfx_push(); if (!s) return 0;
-    DESCR_t val; { DTP_t *h = (DTP_t *)hv;   /* patv_slot's snapshot arm, hoisted -- see the block on rt_patv_defer_get_pat_dtp.  ival_flag is applied only on the NON-snapshot arm, so a
-                                                snapshot hit is flag-independent and this is the same value patv_slot would have returned. */
+    DESCR_t val; { DTP_t *h = (DTP_t *)hv;
       if (h && h->snap && i >= 0 && i < h->nsnap) val = h->snap[i]; else val = patv_slot(hv, i, fb, ival_flag); }
     if (val.v == DT_X) { s->dtx_used = 1; long fb2 = rt_proc_call_open(val.s ? val.s : "", 0); if (!fb2) s->failed = 1; return fb2; }
     s->val = val;
@@ -1332,30 +1164,8 @@ void *rt_defer_get_pat_dtp(const char *varname, int ival_flag)
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐⭐ ONE RESOLUTION PER DEFERRED NODE, NOT TWO (hq_P s260, roman row).  The emitted defer box called rt_defer_get_pat_dtp and then, when the value was not a pattern, rt_defer_run_all -- and BOTH opened with
-   rt_defer_nv_read(varname) on the SAME baked literal, back to back, with nothing between them but a test and a jz.  callgrind on roman.sno (N=2000, -O2) named the pair exactly: rt_defer_nv_read'rt_defer_get_pat_dtp
-   594,060 Ir and rt_defer_nv_read'rt_defer_run_all 594,060 Ir -- identical counts -- driving NV_GET_fn'rt_defer_nv_read to 19.35% of ALL of roman's instructions plus 5.91% of __strcmp_avx2 underneath it.  The
-   lookup was already minimal (hashed, memoised, chain length ~1); the defect was doing it TWICE.  This entry resolves ONCE and returns BOTH answers in registers -- rax=fn, rdx=dtp when the value is a pattern,
-   rax=0 and rdx=the new cursor when it is a string -- so no state persists across the call and RULES.md's NO-NEW-GLOBALS rule is satisfied by construction rather than by grant.
-   ⛔ THREE CASES DELIBERATELY FALL BACK TO THE ORIGINAL TWO-CALL PAIR, because for them the second read is NOT redundant: (1) a '*'-prefixed name, where get_pat_dtp PUSHES to g_spk and run_all POPS it -- a
-   producer/consumer pair, not a repeat; (2) DT_X, where resolving the pattern CALLS A PROCEDURE that may itself assign the variable, so the second read can legitimately differ; (3) a DT_P whose fn has not
-   materialised.  Only the plain-value case -- which is what a deferred ordinary variable is -- reuses the resolution.  ⛔ ival_flag is 0 on this arm by construction: the box emits `xor esi, esi` at the only
-   site that reaches here, and esi now carries cur_delta instead. */
-/* ⛔ always_inline, and READ ONCE PER CALL -- the fourth instance of this class in one session.  At -O0 (the s262
-   NO-`-O2` fact rule makes -O0 the number of record) gcc emits a real call for a `static inline`, so a killswitch
-   memo consulted on a hot path costs a call every time it is consulted.  MEASURED: rt_defer_merge_on was 3.66% of
-   pattern_bt's marginal profile, and rt_defer_probe_run below consulted it TWICE per call.  Sibling instances cured
-   the same day: repl_pl_off (three reads per bn_replace), is_protected_pat_lead (0.80% of roman), _var_find_cached,
-   sv_len.  ⭐ THE RULE: a control arm must be read ONCE into a local and carried -- never re-consulted inside the
-   code it guards. */
 static inline __attribute__((always_inline)) int rt_defer_merge_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_DEFER_MERGE"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐ THE dfx FRAME IS UNOBSERVABLE ON THIS PATH, SO IT IS NOT BUILT (hq_P s260).  rt_defer_run_all pushed a dfx frame, stored the resolved value into it, and had c_rt_defer_close pop it straight back off -- and
-   between the push and the pop NOTHING RUNS: no call out, no emitted code, no assembly.  The value never leaves the C frame, so the g_dfx round trip is pure ceremony.  Measured on roman.sno it was not cheap
-   ceremony: rt_dfx_push'rt_defer_probe_run 2,376,245 Ir (3.78% of the whole program) plus the pop, the 24-byte struct copy and the top-of-stack check inside c_rt_defer_close.  ⛔ ONLY this path may skip it --
-   every other caller of c_rt_defer_close can have emitted code or a procedure call between its push and its close, where the frame IS observable (rt_defer_step reads the top frame; rtx_match.s strides g_dfx by
-   24), so c_rt_defer_close itself is untouched and the push/close balance elsewhere is exactly as it was.  ⭐ The llen==1 arm is the same argument one level down: a one-byte compare was calling __strncmp_avx2,
-   1,069,308 Ir (1.70%), and a deferred single character is the common shape -- roman's deferred node is one digit. */
 static int rt_defer_close_v(int cur_delta, DESCR_t val)
 {
     if (IS_FAIL_fn(val)) return -1;
@@ -1372,37 +1182,19 @@ static int rt_defer_close_v(int cur_delta, DESCR_t val)
     }
     return -1;
 }
-/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_defer_run_all_v(const char *varname, int cur_delta, DESCR_t val)
 {
     if (varname && varname[0] == 'F' && !strcmp(varname, "FAIL")) return -1;
     return rt_defer_close_v(cur_delta, val);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐⭐⭐ SPITBOL'S vrblk DISCIPLINE FOR THE DEFERRED NAME (hq_P s261).  After the two-lookups-became-one cure, the ONE surviving resolution was still the largest runtime item in roman: NV_GET_fn'rt_defer_nv_read
-   14.85% + __strcmp_avx2'NV_GET_fn 4.37% = 19.2%, 140,381 calls at ~74 Ir each.  callgrind's line annotation says the LOOKUP is not what costs -- the CEREMONY is: NV_GET_fn's prologue 1,214,530 Ir, a NON-INLINED
-   _var_init() call 462,184 Ir to test one flag, the memo index 770,115, the memo key/generation check 1,271,736, and the strcmp that validates a memo hit 2,376,240.  You cannot make a lookup cheap enough; you
-   have to stop doing it.  NV_PTR_fn already hands back the STABLE cell -- core.c's own memo comment carries the proof: an NV_t comes from rt_ws_alloc, a bump allocator whose cursor only advances, the GC marks
-   HB_WS blocks but never moves or frees them, and NV_SET_fn REUSES an existing entry rather than shadowing it, so a resolved cell is valid for the life of the program.  That is exactly SPITBOL's static-area
-   guarantee, and it is why sbl spends 3.97% in b_vra where we spent 19.2%.
-   ⭐ THE SLOT IS SELF-VALIDATING, WHICH IS WHY A COLLISION CANNOT BECOME A WRONG ANSWER.  Each site gets a PAIR in the EXISTING g_sno_defer_cells array -- [0] the baked varname pointer that resolved, [1] the
-   cell -- and the cached cell is used only when [0] still equals the varname this call was handed.  Two sites landing on one slot therefore MISS and re-resolve; they never hand each other a cell.  No new global:
-   the array already exists for the DTP cache, and the DTP arm only allocates when ci >= 0 (a GVA-eligible name), which never fires for the PATV$ sites this arm serves.
-   ⛔ NOT CACHED, and each for its own reason: an '&' name (rt_defer_nv_read has a keyword path NV_PTR_fn does not model), a NULL return (NV_PTR_fn refuses the reserved I/O and control names -- INPUT, OUTPUT,
-   STLIMIT, ANCHOR, ...  whose value is COMPUTED, not stored), and site < 0 (the emitter had no slot to give). */
-/* ⛔ always_inline AND POINTER-RETURNING, and both halves are the -O0 fact rule biting (hq_P, slice (a) of perf-pattern-defer-capture-layer-cure).  This was a plain `static` returning a 16-byte DESCR_t through an
-   `int *ok` out-param.  At -O0 -- which the s262 NO-`-O2` fact rule makes THE number of record, so this is not a hypothetical about an optimiser we do not ship -- gcc emits a REAL CALL for it, and a real 16-byte
-   struct return, and a store through `ok`, all to deliver a value the caller immediately picks two fields out of.  MEASURED: rt_defer_cell_read was 10.5% of pattern_bt (ceo's attribution TSV
-   corpus/benchmarks/snobol4/perf-attribution-20260827T235331Z.tsv) for a body whose actual work on the hit path is ONE compare and ONE load.  ⭐ THE CLASS IS THE ONE THIS FILE ALREADY NAMES TWICE ABOVE
-   (rt_defer_merge_on, is_protected_pat_lead, _var_find_cached, sv_len): at -O0 `static inline` is a suggestion and always_inline is the instruction, so a hot helper that is cheap by inspection is not cheap by
-   measurement until it is forced inline.  Returning the CELL instead of a COPY OF THE CELL also deletes the struct return entirely -- the caller needs the live cell to read `.v` and `.p` out of, never a snapshot,
-   and NULL now carries exactly what `*ok = 0` carried.  ⛔ Behaviour is unchanged in every arm, including the three refusals ('&' keyword names, '*' indirect names, site out of range) and the NV_PTR_fn miss. */
 static inline __attribute__((always_inline)) DESCR_t *rt_defer_cell_ptr(const char *varname, long site)
 {
     extern DESCR_t *NV_PTR_fn(const char *name);
     extern uint64_t g_sno_defer_cells[4096];
     extern int g_call_fastpath_off;
-    if (site < 0 || site >= 1024 || !varname || varname[0] == '&' || varname[0] == '*' || g_call_fastpath_off) return (DESCR_t *)0;   /* g_call_fastpath_off is the READ-side half of the same class the write side cures (NV_CELL_IF_FASTSET_fn, core.c): NV_GET_fn stops using its cell fast path the moment a variable is I/O-associated, because the read must then run getline on the channel.  No witness minted here -- an I/O-associated variable holding a PATTERN is exotic -- but the gate is one global read and it is NV_GET_fn's own condition, so declining to mirror it would be keeping a known divergence for no measured gain. */
+    if (site < 0 || site >= 1024 || !varname || varname[0] == '&' || varname[0] == '*' || g_call_fastpath_off) return (DESCR_t *)0;
     uint64_t *slot = &g_sno_defer_cells[2048 + site * 2];
     if (slot[0] == (uint64_t)(uintptr_t)varname) return (DESCR_t *)(uintptr_t)slot[1];
     DESCR_t *cell = NV_PTR_fn(varname);
@@ -1410,7 +1202,7 @@ static inline __attribute__((always_inline)) DESCR_t *rt_defer_cell_ptr(const ch
     slot[0] = (uint64_t)(uintptr_t)varname; slot[1] = (uint64_t)(uintptr_t)cell;
     return cell;
 }
-/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 rt_defer_pr_t rt_defer_probe_run(const char *varname, int cur_delta, long site)
 {
     extern void *dtp_fn_of(void *);
@@ -1419,14 +1211,6 @@ rt_defer_pr_t rt_defer_probe_run(const char *varname, int cur_delta, long site)
     if (_merge && varname && varname[0] != '*') {
         DESCR_t *cp = rt_defer_cell_ptr(varname, site); const int ok = cp != (DESCR_t *)0; DESCR_t cv = ok ? *cp : NULVCL;
         if (ok && cv.v != DT_P && cv.v != DT_X) { r.aux = (long)rt_defer_run_all_v(varname, cur_delta, cv); return r; }
-        /* ⭐ THE LAZY-COMPILE CALL IS PAID ONCE, NOT EVERY ITERATION (hq_P, slice (a) of perf-pattern-defer-capture-layer-cure).
-           dtp_fn_of is a NO-OP whenever the fn has already materialised -- its whole body is `if (!h->fn && h->rcp) { compile }; return h->fn`.
-           The old line called it unconditionally and then re-read the same field it had just returned, so on every iteration after the first
-           this was a full call (prologue, frame, ret) to reach a load we then did ourselves anyway.  MEASURED at fixed work on pattern_bt:
-           dtp_fn_of was 5.1% of the whole program (ceo's post-slice-1 attribution TSV, corpus/benchmarks/snobol4/perf-attribution-20260827T235331Z.tsv).
-           ⛔ THIS IS AN ORDERING CHANGE, NOT A CACHE -- fn is read out of the LIVE DTP every single time, never memoised beside it, so a
-           reassignment of the deferred variable cannot go stale here and there is no new global.  The fn-at-offset-0 read is the same one the
-           old line did and is held by the _Static_assert at the top of this file.  When fn is NULL we call dtp_fn_of exactly as before. */
         if (ok && cv.v == DT_P && cv.p) { void *fn = *(void **)cv.p; if (!fn) { dtp_fn_of(cv.p); fn = *(void **)cv.p; } if (fn) { r.fn = fn; r.aux = (long)(uintptr_t)cv.p; return r; } r.aux = (long)rt_defer_run_all(varname, cur_delta); return r; }
     }
     if (!_merge || !varname || varname[0] == '*') {
@@ -1475,7 +1259,7 @@ DESCR_t c_rt_subscript_var(DESCR_t base, DESCR_t idx) {
     if (base.v == DT_T) {
         TBBLK_t *tb = base.tbl; if (!tb) return FAILDESCR;
         VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t));
-        vc->cellp = 0; vc->tbl = tb; vc->key = 0;   /*⛔⭐ s262 Lon: NO CODE MAY HOLD AN ADDRESS INTO A TABLE.  cellp used to be &e->val, which forced entries to be pinned against a compacting collector; the cell names (tbl, key_descr) and re-resolves instead -- and that also applies the table's DEFAULT on a miss, which the raw pointer never did.  ⭐ IT ALSO DELETED A WHOLE LOOKUP: this arm used to call table_find_pair_d purely to compute that address, so minting a subscript and then reading it hashed TWICE.  Measured at fixed work, 100,000 reads: table_find_pair_d 51.0M Ir with the probe, 38.7M without. */
+        vc->cellp = 0; vc->tbl = tb; vc->key = 0;
         vc->key_d = idx; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
         return NAMETRAP(vc);
     }
@@ -1501,9 +1285,6 @@ DESCR_t c_rt_subscript_var(DESCR_t base, DESCR_t idx) {
     return subscript_get(base, idx);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*⭐⭐ THE MISS ARM, KEPT IN C ON PURPOSE (hq_P s266).  rtx_table.s owns the exported rt_subscript_var_container_only and tail-jumps here when the hashed lookup misses.  It stays C
-  because the two things it needs -- TBBLK_t.dflt's offset and the exact bit pattern of NULVCL (which is DT_SNUL plus a pointer to a "" literal, NOT a zero word) -- are the kind of
-  constant that an .S file can only COPY, and a copied constant is a drift hazard with no build-time witness.  One call on the miss path buys both from the C of record. */
 DESCR_t c_rt_svco_miss_d(TBBLK_t *tb) {
     if (!tb) return FAILDESCR;
     if (tb->dflt.v != DT_FAIL && tb->dflt.v != 0) return tb->dflt;
@@ -1517,16 +1298,6 @@ DESCR_t c_rt_subscript_var_container_only(DESCR_t base, DESCR_t idx) {
     if (b.v != DT_A && b.v != DT_T) { kwb_error(235, "subscripted operand is not table or array"); return FAILDESCR; }
     if (b.v == DT_T) {
         TBBLK_t *tb = b.tbl; if (!tb) return FAILDESCR;
-        /*⭐⭐ RETURNS THE VALUE, AND ALLOCATES NOTHING (hq_P s264).  This arm used to look the key up, and then -- unless the hit was a nested TABLE/ARRAY -- allocate a
-           VCELL_t on the GC heap, fill seven fields, and hand back a NAMETRAP.  The caller's very next emitted instruction is rt_deref, which walked straight into
-           rt_deref_slow's `if (vc->tbl)` arm and LOOKED THE SAME KEY UP A SECOND TIME to get the value out.  One read of one table cost two hashed lookups, one heap
-           allocation and a GC root.  MEASURED on claws5: ~2.9 of the 14 container-only subscripts per token took that path, ~740 Ir each in lookup + alloc + slow deref.
-           ⛔ WHY RETURNING A BARE VALUE IS SAFE HERE, AND THE PROOF IS IN THE LOWERER, NOT IN THIS FILE.  `container-only` is set at exactly two sites in
-           lower_snobol4.c: line 392, every link of an RVALUE chain, and line 860, `if (k < nidx - 1)` -- the NON-FINAL links of an LVALUE chain.  The final link of an
-           lvalue chain is lowered to rt_subscript_var, which still builds the assignable nametrap.  So NOTHING IS EVER ASSIGNED THROUGH THIS FUNCTION'S RESULT, and the
-           nametrap it used to build could only ever be deref'd. ⛔ If a third `container-only` site is ever added, it must obey that same rule or this is wrong.
-           ⭐ The three outcomes reproduce rt_deref_slow's table arm EXACTLY -- hit, then the table's own default, then the null string -- so a chain that reads a missing
-           intermediate still yields NULVCL and still lands on the same kwb_error(235) at the next link. */
         { TBPAIR_t *e = table_find_pair_d(tb, idx);
           if (e) return e->val;
           if (tb->dflt.v != DT_FAIL && tb->dflt.v != 0) return tb->dflt;
@@ -1535,26 +1306,6 @@ DESCR_t c_rt_subscript_var_container_only(DESCR_t base, DESCR_t idx) {
     return rt_subscript_var(base, idx);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*⭐ row perf-table-subscript-fastpath lever 2 (seat12, 2026-08-27): T[I]=v (SNOBOL4 shape, base already deref'd) fuses the mint+store
-   round trip. RTX-31/RTX-NEW-ICNVAR (2026-08-24, this row's own lever 1) already proved that for a DT_T base the mint
-   (rt_subscript_var) does NO lookup -- it is seven VCELL field stores, cellp=0/tbl=tb/key_d=idx -- and rt_assign_var's own
-   .Lav_table_store arm immediately unpacks exactly those two fields back out and calls table_set_descr_d(tbl,key_d,val)
-   UNCHANGED. So for this one shape the heap-allocated VCELL and both call/ret boundaries around it are pure overhead: this
-   function calls table_set_descr_d directly with no allocation and no intermediate descriptor.
-   PRECONDITION, ENFORCED BY THE CALLER, NOT RE-CHECKED HERE (bb_assign_var_sub.cpp): base.v==DT_T and base.tbl!=0 -- the
-   template tests both INLINE (cmp dil,DT_T / test rsi,rsi) before ever calling this function, so every other base shape
-   (array, DATA, string substring, a VARREF base, a null table) never reaches here at all -- it calls rt_subscript_var then
-   rt_assign_var directly from the template instead (see that file's own header for why: an earlier version of this
-   function did that fallback itself, which added a third wrapper call frame around the same two calls for every non-table
-   write and regressed array_sum.sno's Ir count, caught by test_gate_instr_budget.sh). The one thing this function still
-   checks at runtime is g_gc_pending -- the same provably-safe window rt_assign_var's own asm entry gates its fast arms on
-   (rtx_icnvar.s:72-75): a pending collection could relocate base/idx/val before table_set_descr_d runs, and that window is
-   cheap to fall back out of (base is already known to be a table, so the two-call chain below is doing real, needed work,
-   not wrapper overhead). rt_sxt_break is replicated for a DT_S val because every other assignment path (aggregates.c:425,
-   pattern_match.c c_rt_assign_var_body:1518, core.c twice) calls it unconditionally before the store -- it is a general
-   pre-assignment hook, not something specific to the nametrap/cellp road this function bypasses. Killswitch
-   SCRIP_SUBASSIGN_FUSE (default on) lives in the lowerer (lower_snobol4.c), which is what decides whether IR_ASSIGN_VAR
-   ever carries 3 operands at all -- when it is off, this function is simply dead code, never called. */
 DESCR_t c_rt_table_assign_fast(DESCR_t base, DESCR_t idx, DESCR_t val) {
     extern int g_gc_pending;
     if (g_gc_pending) {
@@ -1566,11 +1317,6 @@ DESCR_t c_rt_table_assign_fast(DESCR_t base, DESCR_t idx, DESCR_t val) {
     table_set_descr_d(base.tbl, idx, val); return val;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*⭐ row `table-int-keys-and-nd-subscript` defect (2): a[i,j] on a plain 2-D array lowered to TWO chained single-index
-   dispatches (aggregates.c:59-73's array_get2/array_set2 row-major formula existed but nothing in codegen ever called
-   it). GUARD DELIBERATELY NARROW, the standard RTX shape: only a deref'd DT_A base with ndim==2 and both indices DT_I,
-   in-bounds, takes this path; anything else (tables, nested containers, wrong index type, out-of-range) falls through
-   to the exact pre-existing two-hop chain below, byte-identical to before this row. */
 static int rt_nd2_fast(DESCR_t base, DESCR_t idx1, DESCR_t idx2, DESCR_t *out) {
     DESCR_t b = base; if (IS_VARREF_fn(b)) b = rt_deref(b);
     if (b.v != DT_A || !b.arr || b.arr->ndim != 2 || idx1.v != DT_I || idx2.v != DT_I) return 0;
@@ -1629,7 +1375,7 @@ DESCR_t rt_list_bang_var_at(DESCR_t obj, int64_t idx) {
         TBBLK_t *tbl = obj.tbl; int64_t seen = 0; TBPAIR_t *ep;
         TBL_FOREACH(tbl, ep) {
                 if (seen == idx) {
-                    VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = tbl; vc->key = 0; vc->key_d = ep->key_descr; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;   /*⛔ s262 Lon: NO ADDRESS INTO A TABLE */
+                    VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = tbl; vc->key = 0; vc->key_d = ep->key_descr; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
                     return NAMETRAP(vc);
                 }
                 seen++;

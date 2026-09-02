@@ -44,21 +44,12 @@ static void pair_str(const char *what, long len) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* rt_ws_alloc lives in a SEPARATE arena (g_wsi_*, hidden -- not in the .so's .dynsym, so this
- * external test binary cannot read it directly the way take()/pair() read the exported g_hp_fr).
- * Verified instead through the shared bump pointer's own fencepost: c_rt_ws_alloc and rt_ws_alloc
- * carve from the SAME g_wsi_ws frontier, so calling one then the other must land the second block
- * EXACTLY where the first one's title+size ends -- any drift in the asm's `total` computation
- * either overlaps the next title (corruption) or leaves a gap (both are wrong, both show here). */
 static void pair_ws(const char *what, size_t sz) {
     char *pc = (char *)c_rt_ws_alloc(sz);
     uint32_t szc = *(uint32_t *)(pc - 8); uint16_t tyc = *(uint16_t *)(pc - 4); uint16_t flc = *(uint16_t *)(pc - 2);
     char *pa = (char *)rt_ws_alloc(sz);
     uint32_t sza = *(uint32_t *)(pa - 8); uint16_t tya = *(uint16_t *)(pa - 4); uint16_t fla = *(uint16_t *)(pa - 2);
     n++;
-    /* next payload pointer = this payload pointer + this block's total size (16B title + payload,
-     * rounded) -- pa must land exactly there, proving asm carved the SAME total off the SAME shared
-     * frontier c_rt_ws_alloc just advanced. */
     if (tyc != 203 || flc != 1 || sza != szc || tya != tyc || fla != flc || pa != pc + szc) {
         fails++;
         printf("  MISMATCH ws %-18s c{sz=%u ty=%u fl=%u p=%p} asm{sz=%u ty=%u fl=%u p=%p} want_asm_p=%p\n",
@@ -92,7 +83,7 @@ int main(void) {
     pair_str("str_alloc -1",  -1);
     pair_str("str_alloc -99", -99);
     pair_str("str_alloc 1000", 1000);
-    (void)c_rt_ws_alloc(1);   /* prime g_wsi_base so rt_ws_alloc's own first call below hits the fast path, not the lazy-init bail */
+    (void)c_rt_ws_alloc(1);
     pair_ws("ws payload 0",    0);
     pair_ws("ws payload 1",    1);
     pair_ws("ws payload 15",   15);

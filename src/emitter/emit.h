@@ -39,14 +39,13 @@ extern int             g_use_bb_macros;
 #define BB_LABEL_UNRESOLVED (-1)
 typedef struct bb_label_t { char name[BB_LABEL_NAME_MAX]; int offset; } bb_label_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⛔ EVERY label name goes through here. A plain truncation COLLIDES: a Prolog atom of 120 dash characters mangles to 360 chars, so `%s_Î±`, `%s_Î²`, `%s_Î³` and `%s_Ï` all cut to the SAME 79 bytes and `as` rejects 5 of 6 as already defined. Keeping a prefix PLUS a hash of the FULL name means distinct names stay distinct. */
 static inline void bb_label_name_set(char * dst, const char * src) {
     size_t n = src ? strlen(src) : 0;
     if (n < (size_t) BB_LABEL_NAME_MAX) { if (n) memcpy(dst, src, n); dst[n] = '\0'; return; }
-    unsigned long long h = 1469598103934665603ULL;   /* FNV-1a over the WHOLE name, not the surviving prefix */
+    unsigned long long h = 1469598103934665603ULL;
     for (const unsigned char * p = (const unsigned char *) src; *p; p++) { h ^= (unsigned long long) *p; h *= 1099511628211ULL; }
-    int keep = BB_LABEL_NAME_MAX - 18;   /* 18 = '$' + 16 hex digits + NUL */
-    while (keep > 0 && ((unsigned char) src[keep] & 0xC0) == 0x80) keep--;   /* never cut a UTF-8 char in half: the port suffixes are Î±/Î²/Î³/Ï */
+    int keep = BB_LABEL_NAME_MAX - 18;
+    while (keep > 0 && ((unsigned char) src[keep] & 0xC0) == 0x80) keep--;
     memcpy(dst, src, (size_t) keep);
     snprintf(dst + keep, (size_t) (BB_LABEL_NAME_MAX - keep), "$%016llx", h);
 }
@@ -363,7 +362,7 @@ typedef struct {
     int                          op_imm_b_ok;
     long                         op_imm_a;
     long                         op_imm_b;
-    int                          op_snul_a_ok;   /* operand's value is definitionally the null string -- see ir_value_is_null_string */
+    int                          op_snul_a_ok;
     int                          op_snul_b_ok;
     int                          op_write_route;
     int                          op_call_route;
@@ -380,7 +379,7 @@ typedef struct {
     struct bb_label_t *          lbl_β_p;
     struct bb_label_t *          lbl_t0_p;
     struct bb_label_t *          lbl_t1_p;
-    struct bb_label_t *          lbl_t0o_p;   /* na_fo's MATCH_BEGIN bridge, same shape as lbl_t0_p/na_f -- bb-label-prefix-uniform */
+    struct bb_label_t *          lbl_t0o_p;
     void *                       child_fn;
     const char *                 op_name1;
     const char *                 op_name2;
@@ -544,15 +543,7 @@ static inline int emit_jmp_pin_legacy(void) { return g_emit.flat_deep_arrival ||
 static inline int emit_heap_fb_adopt(void) { extern int g_gen_proc_active; extern int g_resumable_callable_active; return g_gen_proc_active || g_resumable_callable_active; }
 static inline int emit_rec_pin(void) { return emit_jmp_pin_legacy() || emit_heap_fb_adopt(); }
 static inline int emit_pl_gamma_retain(void) { static int r = -1; if (r < 0) { const char * e = getenv("SCRIP_PL_GAMMA_RETAIN"); r = (e && *e == '1') ? 1 : 0; } return r; }
-/* ⭐ PZ-4 clause (a) PL-ZA-1: THE PIN PREDICATE, and it is the ONLY place the emitter decides that a graph's ζ-ACTIVATION frame lives in a base register. x86_fb_pinned()/x86_fb()/x86_fb_num() all
-   derive from
-   this one mirror, so the TEXT spelling and the BINARY register number cannot pick different bases -- the s158 land mine this tree convicts over and over, and the exact drift hq_P measured at s277
-      when
-   emit_rec_fb() said "rsp" while emit_rec_fb_num() said 5. ⛔ It is keyed on the graph's own STORAGE REGIME (zframe_pinned_base), never on a language identifier, and it excludes icn_cells_graph
-      because Icon
-   already owns a different, incompatible promotion (icn_gen_zeta_ft's `off - ft` rebase off a PRE-carve rbp; this one pins POST-carve so the rebase is plain `off`). A graph must never take both. */
 static inline int emit_zframe_pinned(void) { return (g_emit.zframe_pinned_base && g_emit.zframe_graph) ? 1 : 0; }
-/* ⭐⭐ ONE DECIDER, AND THE SPELLING IS DERIVED FROM IT -- NOT TWO FUNCTIONS THAT CAN DRIFT (hq_P s277, N-2 item 1b). ⛔ THESE TWO USED TO DISAGREE, AND IT WAS A LIVE m3 != m4 DIVERGENCE ON THE DEFAULT BUILD: emit_rec_fb() returned "rsp" in BOTH its arms (the RBP-ERADICATION wave 708c22c1 rewrote the TEXT spelling rsp-only) while emit_rec_fb_num() was left returning 5 = rbp under emit_rec_pin(). Every caller pairs them by MEDIUM -- TEXT takes the string, BINARY takes the number -- so for every graph with emit_rec_pin() && !emit_rec_rsp_arm() (every Icon GENERATOR, lcl_proc, zframe graph and Prolog resumable) mode-4 emitted `pop rsp` where mode-3 emitted `pop rbp`, and at the resume-slot seed mode-4 stored to [rsp+N] where mode-3 stored to [rbp+N]. MEASURED on the four-line generator witness: text_base=rsp bin_regnum=5. ⭐ THE SHAPE IS THIS PROJECT'S OWN RECURRING ONE -- a rename/eradication wave that reached the TEXT medium and not the BINARY encoder, in a file where the two are written as separate functions so nothing forces them to agree. The comment that named exactly this hazard was deleted from this file by the 200-col strip (e25a5daf), verbatim: "all four refs read it, so the store and the load cannot pick different base registers -- the s158 land mine this file convicts over and over." ⛔ DO NOT RE-SPLIT THEM: if a future arm needs rbp again, change emit_rec_fb_num() and let the spelling follow, so BOTH-MEDIUM MANDATORY holds by construction rather than by two edits remembering each other. */
 static inline int          emit_rec_fb_num(void) { return 4; }
 static inline const char * emit_rec_fb(void)     { return emit_rec_fb_num() == 5 ? "rbp" : "rsp"; }
 static inline int emit_rec_rsp_arm(void) { static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_REC_RSP"); on = (e && *e == '0') ? 0 : 1; } return on && g_emit.flat_pat && !emit_jmp_pin_legacy(); }

@@ -11,10 +11,6 @@ static int  pascal_strpos;
 static char *pascal_raw_dup(const char *s, int n) {
     char *b = (char *)malloc((size_t)(n + 1)); memcpy(b, s, (size_t)n); b[n] = '\0'; return b;
 }
-/* ISO 7185: Pascal identifiers are case-insensitive; fpc -Miso (the oracle) accepts any casing.
- * Canonicalize to lowercase HERE, once, so every downstream strcmp (builtin recognition in
- * pascal.y, symbol-table lookups) is case-insensitive for free. String literals go through
- * pascal_raw_dup directly and are never touched -- only this identifier path lowercases. */
 static char *pascal_lower_dup(const char *s, int n) {
     char *b = pascal_raw_dup(s, n);
     for (int i = 0; i < n; i++) b[i] = (char)tolower((unsigned char)b[i]);

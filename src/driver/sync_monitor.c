@@ -32,7 +32,7 @@ void exec_snapshot_take(ExecSnapshot *s) {
     s->kw_stlimit      = kw_stlimit;
     s->kw_anchor       = kw_anchor;
     s->frame_depth = frame_depth;
-    s->resolve_trail_mark   = 0;   /* the struct-tree trail is deleted (2026-09-02); the monitor no longer has Prolog locals to list */
+    s->resolve_trail_mark   = 0;
     s->resolve_locals       = NULL;
     s->resolve_locals_count = 0;
     s->frame_locals       = NULL;

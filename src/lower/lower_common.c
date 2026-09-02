@@ -157,12 +157,6 @@ DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail) {
             DESCR_t rs_d = descr_to_str(rv);
             const char *ls = (!IS_FAIL_fn(ls_d) && ls_d.s) ? ls_d.s : "";
             const char *rs = (!IS_FAIL_fn(rs_d) && rs_d.s) ? rs_d.s : "";
-            /* ⛔ NOT strcmp: it stops at the first NUL, and a NUL is a valid string element
-               (Lon 2026-08-30). This is the sink Icon's `==` actually reaches -- measured, this is
-               where `char(0) || "abc" == ""` answered TRUE while *x answered 4, and icont/iconx
-               says they differ. descr_to_str hands back a counted value, so compare over the full
-               byte range and break ties on length, which is what lexicographic order means for
-               counted strings. The 0xFFFFFFFF cset tag is a type tag, not a count. */
             size_t lsn = (ls_d.v == DT_S && ls_d.slen != 0xFFFFFFFFu) ? (size_t)ls_d.slen : strlen(ls);
             size_t rsn = (rs_d.v == DT_S && rs_d.slen != 0xFFFFFFFFu) ? (size_t)rs_d.slen : strlen(rs);
             size_t lmn = lsn < rsn ? lsn : rsn;

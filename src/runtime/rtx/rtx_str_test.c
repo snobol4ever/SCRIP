@@ -15,7 +15,7 @@ static obs_t take(DESCR_t (*fn)(DESCR_t, DESCR_t), DESCR_t a, DESCR_t b) {
     o.v = (int)r.v; o.slen = r.slen;
     o.tok = (r.v == DT_S && r.s) ? rt_sxt_match(r.s) : -2;
     if ((r.v == DT_S || r.v == DT_SNUL) && r.s) {
-        unsigned long len = r.slen != 0xFFFFFFFFu ? r.slen : __builtin_strlen(r.s);   /* carried length; CSET tag is the only non-count (Lon 2026-08-30) */
+        unsigned long len = r.slen != 0xFFFFFFFFu ? r.slen : __builtin_strlen(r.s);
         if (len > sizeof o.bytes - 1) len = sizeof o.bytes - 1;
         o.nbytes = len; memcpy(o.bytes, r.s, len); o.bytes[len] = (char)0;
     } else if (r.v == DT_I) { o.nbytes = 8; memcpy(o.bytes, &r.i, 8); }

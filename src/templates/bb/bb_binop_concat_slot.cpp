@@ -18,11 +18,6 @@ static inline int bcs_ok() { return _.op_off >= 0 && binop_is_concat((long)_.op_
 static inline const char *bcs_rt_name() { return _.op_ival == BINOP_CONCAT_FRACDIGIT ? "str_concat_fracdigit_d" : "str_concat_d"; }
 static inline void *bcs_rt_addr() { return _.op_ival == BINOP_CONCAT_FRACDIGIT ? (void*)str_concat_fracdigit_d : (void*)str_concat_d; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐ NULL-CONCAT IS THE IDENTITY (s249).  `PRED(a,b) expr` -- THE SNOBOL4 conditional-value idiom -- lowers to a concatenation whose
-   one side is always the null string, and SPITBOL hands the other operand back UNCHANGED, datatype intact (probed against the live
-   oracle for INTEGER REAL STRING ARRAY TABLE PATTERN: all six unchanged).  So the box is a two-word copy, not a call through the PLT.
-   Measured on arith_loop: 12 in-box + 19 in str_concat_d = 31 of 165 instructions per iteration, spent computing an identity.
-   ⛔ CONCAT_FRACDIGIT is excluded -- it is a different operation and "" is not its identity. */
 static inline int bcs_null_side() { if (getenv("SCRIP_OPT_NULLCAT") && getenv("SCRIP_OPT_NULLCAT")[0] == '0') return -1;
     return (_.op_ival == BINOP_CONCAT_FRACDIGIT) ? -1 : _.op_snul_a_ok ? 1 : _.op_snul_b_ok ? 0 : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -8,7 +8,7 @@ extern "C" {
 extern "C" int sn4_choice_rbp_off(void);
 extern "C" int sn4_choice_rbp_off_nd(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string alt_entry_stubs(long N, int cro) {   /* internal labels 21..19+N, plus L(19); alt_sigma_base(N) starts ABOVE this range -- the two series collided at exactly N==21 (porter) */
+static std::string alt_entry_stubs(long N, int cro) {
     std::string r;
     for (long j = 1; j < N; j++)
         r += x86("def", L((int)(20 + j)))
@@ -35,7 +35,7 @@ static std::string alt_sigma_stubs(long N, int cro) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_alternate() {
     x86_begin();
-    const int cro = sn4_choice_rbp_off_nd();   /* per-node record slot in a multi-choice blob (s266), else the legacy shared slot, else 0 = the FLAT own-carved record */
+    const int cro = sn4_choice_rbp_off_nd();
     return x86("comment", cro ? "IR_MATCH_ALT_NARY (ALT-RBP s128, frame-resident choice record)" : "IR_MATCH_ALT_NARY (ALT-FLAT, s61 own-carved record)")
              + x86_alpha()
              + IF(!cro, x86("sub", "rsp", 32L)) + x86("mov", CROD(cro, 0), "r14d")

@@ -38,20 +38,7 @@ extern "C" int emit_defer_carve_rbp(void);
 static int dfrm(void) { return (_.op_seal == 1) || emit_defer_carve_rbp(); }
 #define rspd()  (getenv("SCRIP_RSPDIFF") ? 1 : 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⛔⭐⭐ PROMOTED TO DEFAULT-ON (hq_P, Lon's tier-1 demo campaign; the arm itself is UNCHANGED and is s168 PT-3, commit 72f9c772, 2026-08-19). ⛔ THE POLARITY WAS THE DEFECT, NOT THE
-   ARM. This read v = (e && *e && *e != CHAR0) ? 1 : 0 -- OPT-IN, so an unset variable meant the collapse was NOT EMITTED. Every other switch in this same file is opt-OUT
-   (defer_xpat_on, defer_ic_on, and rt_defer_merge_on next door): v = (e && *e == CHAR0) ? 0 : 1. So a cure that was written, reviewed, measured and committed sat DARK for eight days,
-   and every demo profile taken in that window measured the code path this arm exists to delete -- which is exactly why the tier-1 dig still found rt_patv_defer_get_pat_dtp at 16% of
-   calculator-1-match and an RTCC-wrapped PLT call per deferred grammar-node visit in the emitted boxes. ⭐ THE CLASS, AND IT IS WORTH MORE THAN THIS ONE FLAG: a default-OFF killswitch
-   on a CURE is not a killswitch, it is a deletion with a comment explaining what it used to do. It is invisible in every profile, it cannot be distinguished from unwritten code, and
-   it survives review precisely because the file still reads as though the cure shipped. A staging flag needs an owner and a promotion date, or it needs to default ON with an escape
-   hatch -- which is what it now has. ⛔ ITS ORIGINAL EVIDENCE STANDS AND WAS NOT TAKEN ON TRUST: 72f9c772 graded 1034 programs across both media with ZERO arm-caused movers (four
-   apparent m3 movers all disproven by a hold-the-arm-fixed control), oracle-graded the 112 programs that emit the collapse at PASS 74 / arm-caused FAIL 0, and measured treebank-match
-   1.41x and treebank-match-fence 1.63x on disjoint windows. RE-VERIFIED ON TODAY'S TREE before this flip -- see the commit message for the board and the A/B, because that tree is
-   eight days and hundreds of commits old. SCRIP_PATV_FAST=0 is now the control arm and reproduces the pre-flip binary exactly. */
 static int patv_fast_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_PATV_FAST"); v = (e && *e == '0') ? 0 : 1; } return v; }
-/* ⭐ KILLSWITCH + CONTROL ARM for the merged-defer inline cache below (RULES.md: every perf claim ships one). SCRIP_DEFER_IC=0 removes the inline arm entirely and every site falls back to the
-   unmodified rt_defer_probe_run call, so the cure can be A/B'd in one binary without a rebuild. Default ON, same polarity and same spelling as defer_xpat_on/rt_defer_merge_on. */
 static int defer_ic_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_DEFER_IC"); v = (e && *e == '0') ? 0 : 1; } return v; }
 #define rspd_snap(cell, nm) IF(rspd(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)(cell),nm) \
                                      + x86("mov",RDQ("rcx",0),"rsp"))
@@ -63,15 +50,10 @@ std::string bb_match_defer() {
     { const char *sv = _.op_sval, *d = sv ? strstr(sv, "$V") : 0;
       if (d && d[2] >= '0' && d[2] <= '9')
       { char *e = 0; long k = strtol(d + 2, &e, 10); if (e && !*e) vslot = (int)k; } }
-    /* ⛔ 2048 not 4096: the UPPER half of g_sno_defer_cells holds the merged arm's self-validating (key,cell) PAIRS, and a DTP written into one of those words would be read back as a cell
-       address */
     int ci = (vslot < 0 && dw_cell() && g_gva_active && _.op_gva_k >= 0 && _.op_seal == 2 && g_emit.sn4_defer_cell_n < 2048) ? g_emit.sn4_defer_cell_n++ : -1;
     static char cl[8][48]; static int cln; if (ci >= 0) { cln = (cln + 1) & 7; snprintf(cl[cln], sizeof cl[cln], "g_sno_defer_cells+%d", ci * 8); }
     const char * clbl = ci >= 0 ? cl[cln] : "";
     int merged = (vslot < 0 && one_defer() && !(g_gva_active && _.op_gva_k >= 0));
-    /* ⭐ per-site cell slot for the merged arm, taken from the UPPER half of g_sno_defer_cells so it can never overlap the DTP cache the ci arm writes into the lower half (a shared slot would let
-       one arm read the other's word as its own -- the runtime's slot[0]==varname check turns a collision into a harmless miss for US, but our write would corrupt a DTP for THEM, so the ranges
-       are kept disjoint by construction). */
     static int g_defer_site_n; int msite = merged ? (g_defer_site_n < 1024 ? g_defer_site_n++ : -1) : -1;
     static char pl[8][48]; static int pln; if (msite >= 0) { pln = (pln + 1) & 7; snprintf(pl[pln], sizeof pl[pln], "g_sno_defer_cells+%d", (2048 + msite * 2) * 8); }
     const char * pairlbl = msite >= 0 ? pl[pln] : "";

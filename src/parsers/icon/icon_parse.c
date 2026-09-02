@@ -124,7 +124,7 @@ static tree_t *parse_primary(IcnParser *p) {
     if (t.kind == TK_LPAREN) {
         advance(p);
         if (check(p, TK_RPAREN)) { advance(p); return ast_node_new(TT_SEQ_EXPR); }
-        tree_t *first = check(p, TK_COMMA) ? ast_node_new(TT_NUL) : parse_expr(p);  /* a LEADING omitted slot -- (,2) -- must be seen BEFORE parse_expr, which otherwise dies on the comma. TT_NUL is the shape the list-literal arm below already uses for exactly this. */
+        tree_t *first = check(p, TK_COMMA) ? ast_node_new(TT_NUL) : parse_expr(p);
         if (check(p, TK_SEMICOL)) {
             tree_t *seq = ast_node_new(TT_SEQ_EXPR);
             push_child(seq, first);
@@ -141,8 +141,8 @@ static tree_t *parse_primary(IcnParser *p) {
             push_child(seq, first);
             while (check(p, TK_COMMA)) {
                 advance(p);
-                if (check(p, TK_RPAREN)) { push_child(seq, ast_node_new(TT_NUL)); break; }   /* TRAILING omitted slot -- (1,) */
-                if (check(p, TK_COMMA)) { push_child(seq, ast_node_new(TT_NUL)); continue; } /* CONSECUTIVE omitted slot -- (1,,2) */
+                if (check(p, TK_RPAREN)) { push_child(seq, ast_node_new(TT_NUL)); break; }
+                if (check(p, TK_COMMA)) { push_child(seq, ast_node_new(TT_NUL)); continue; }
                 push_child(seq, parse_expr(p));
             }
             expect(p, TK_RPAREN, "mutual evaluation");
@@ -220,7 +220,7 @@ static tree_t *parse_postfix(IcnParser *p) {
             n = call;
         } else if (check(p, TK_LBRACK)) {
             advance(p);
-            if (check(p, TK_RBRACK)) {   /* empty subscript x[] -- subscript by &null; fails at run time, as the reference does */
+            if (check(p, TK_RBRACK)) {
                 advance(p);
                 n = e_binary(TT_IDX, n, e_leaf_sval(TT_VAR, "&null", -1));
                 continue;
@@ -253,8 +253,6 @@ static tree_t *parse_postfix(IcnParser *p) {
                 expect(p, TK_RBRACK, "subscript");
             }
         } else if (check(p, TK_LBRACE) && (p->prev_kind == TK_IDENT || p->prev_kind == TK_RPAREN || p->prev_kind == TK_STRING)) {
-            /* PDCO call f{e1, e2} -- parsed as a call; full co-expression argument semantics ride the
-               co-expression design work, so today the arguments evaluate eagerly */
             advance(p);
             tree_t *call = ast_node_new(TT_FNC);
             push_child(call, n);
@@ -283,16 +281,13 @@ static tree_t *parse_postfix(IcnParser *p) {
 static tree_t *parse_unary(IcnParser *p);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *parse_repalt(IcnParser *p) {
-    /* operands re-enter parse_unary so a prefix chain can mix operators: |@e, |-x, ||(1 to 10) */
     if (check(p, TK_BAR)) { advance(p); return e_unary(TT_REPALT, parse_unary(p)); }
-    if (check(p, TK_CONCAT))  { advance(p); return e_unary(TT_REPALT, e_unary(TT_REPALT, parse_unary(p))); }               /* prefix || = |(|e) */
-    if (check(p, TK_LCONCAT)) { advance(p); return e_unary(TT_REPALT, e_unary(TT_REPALT, e_unary(TT_REPALT, parse_unary(p)))); }   /* prefix ||| = |(|(|e)) */
+    if (check(p, TK_CONCAT))  { advance(p); return e_unary(TT_REPALT, e_unary(TT_REPALT, parse_unary(p))); }
+    if (check(p, TK_LCONCAT)) { advance(p); return e_unary(TT_REPALT, e_unary(TT_REPALT, e_unary(TT_REPALT, parse_unary(p)))); }
     return parse_postfix(p);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *parse_limit(IcnParser *p) {
-    /* limitation sits ABOVE the whole prefix layer: |1 \ 3 is LIMIT(REPALT(1),3), never REPALT(LIMIT(1,3)) --
-       the inverted chain emitted a consumer wire into a singleton operand's never-emitted β (rung13_repalt, s284) */
     tree_t *n = parse_unary(p);
     if (!n) return NULL;
     if (check(p, TK_BACKSLASH)) {
@@ -316,14 +311,10 @@ static tree_t *parse_unary(IcnParser *p) {
     if (check(p, TK_AT))        { advance(p); return e_unary(TT_ACTIVATE,   parse_unary(p)); }
     if (check(p, TK_TILDE))     { advance(p); return e_unary(TT_CSET_COMPL, parse_unary(p)); }
     if (check(p, TK_DOT))       { advance(p); return e_unary(TT_DEREF,      parse_unary(p)); }
-    /* doubled operator tokens in prefix position decompose into nested unary ops (Icon: ++2 is +(+2), **x is *(*x)) */
     if (check(p, TK_PLUSPLUS))   { advance(p); return e_unary(TT_PLS,  e_unary(TT_PLS,  parse_unary(p))); }
     if (check(p, TK_MINUSMINUS)) { advance(p); return e_unary(TT_MNS,  e_unary(TT_MNS,  parse_unary(p))); }
     if (check(p, TK_STARSTAR))   { advance(p); return e_unary(TT_SIZE, e_unary(TT_SIZE, parse_unary(p))); }
     if (check(p, TK_CARET)) { advance(p);
-        /* prefix ^ is co-expression refresh; until refresh semantics land with the co-expression
-           design work, parse it and pass the operand through -- the program runs (and is graded on
-           its output) instead of being rejected at the front door */
         return parse_unary(p); }
     if (check(p, TK_EQ)) { advance(p); tree_t *arg = parse_unary(p);
         tree_t *mfn = ast_node_new(TT_FNC); push_child(mfn, e_leaf_sval(TT_VAR, "match", -1)); push_child(mfn, arg);
@@ -597,7 +588,7 @@ static tree_t *parse_expr(IcnParser *p) {
         advance(p);
         tree_t *e = ast_node_new(TT_SUSPEND);
         if (icn_begins_nexpr(p->cur.kind)) push_child(e, parse_expr(p));
-        else push_child(e, e_leaf_sval(TT_VAR, "&null", -1));   /* bare `suspend;` suspends &null */
+        else push_child(e, e_leaf_sval(TT_VAR, "&null", -1));
         tree_t *body = parse_do_clause(p);
         if (body) push_child(e, body);
         return e;
@@ -769,7 +760,7 @@ static tree_t *parse_stmt(IcnParser *p) {
         advance(p);
         tree_t *e = ast_node_new(TT_SUSPEND);
         if (icn_begins_nexpr(p->cur.kind)) push_child(e, parse_expr(p));
-        else push_child(e, e_leaf_sval(TT_VAR, "&null", -1));   /* bare `suspend;` suspends &null */
+        else push_child(e, e_leaf_sval(TT_VAR, "&null", -1));
         tree_t *body = parse_do_clause(p);
         if (body) push_child(e, body);
         if (!check(p, TK_RBRACE) && !check(p, TK_END) && !check(p, TK_EOF))

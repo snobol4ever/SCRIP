@@ -9,10 +9,6 @@ int rt_icn_cset_member(const char *needle, int ch);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* parens in c1 are ADMITTED: the emitted flow checks c1 membership at depth 0 BEFORE the paren-counting
-   arm, which is exactly Icon's bal semantics for a bracket char in c1 (succeed where the prefix balances
-   and the next char is in c1) — the old strchr rejections bombed btrees/prefix's `bal(')')`, and the
-   bomb arm's missing β label then aborted the whole program at emit for a box that might never run. */
 static int bal_admit() { return _.op_off >= 0 && _.op_name1 && _.op_name1[0]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_scan_bal() {

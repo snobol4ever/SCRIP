@@ -446,11 +446,6 @@ static DESCR_t _UNLOAD_(DESCR_t *a, int n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int mon_synth_name(const char *n) { static int keep = -1; if (keep < 0) { const char *e = getenv("SCRIP_MON_SYNTH"); keep = (e && *e == '1') ? 1 : 0; } return keep ? 0 : mon_name_is_internal(n); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐ row perf-nv-set-capture-pump: the SAME predicate NV_SET_fn's own fast path (below) already gates its
-   comm_var call with, exposed so a caller outside this TU (rt_dcap_pump) can skip the call entirely rather
-   than pay comm_var's own unconditional mon_synth_name cost -- see comm_var's first lines: the &TRACE/monitor
-   early-return happens AFTER mon_synth_name runs, not before, so "tracing is off" does not make comm_var free.
-   No new global: reads the two statics just above and the existing extern monitor_fd. */
 int comm_var_active(void) { return g_comm_dbg != 0 || trace_set_n != 0 || monitor_fd >= 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void comm_var(const char *name, DESCR_t val) {
@@ -580,17 +575,12 @@ int is_numeric_like(DESCR_t d) {
     if (IS_INT(d) || IS_REAL(d) || IS_NULL(d)) return 1;
     if (IS_STR(d)) {
         const char *s = rt_cstr_d(d);
-        /* ⛔ WAS `while (*s==' '||*s=='\t') s++; if (!*s) return 1;` -- a FIRST-BYTE test standing in for
-           EMPTINESS, and it is the site that made `CHAR(0) '5' + 1` answer 1 where SPITBOL raises ERROR 001.
-           The empty (or all-blank) value IS numeric 0; a value that merely BEGINS with NUL is not, and a value
-           with an embedded NUL is not a numeric string at all -- strtod would silently stop at it. Length
-           authority is the carried .slen (Lon 2026-08-30, RULES.md FACT RULE). */
         size_t _n = descr_slen(d), _i = 0;
         while (_i < _n && (s[_i] == ' ' || s[_i] == '\t')) _i++;
-        if (_i == _n) return 1;                                   /* empty or all-blank IS numeric 0 */
-        if (memchr(s + _i, '\0', _n - _i)) return 0;   /* strtod/rt_plain_int_str would stop at an interior NUL and silently accept a PREFIX as the whole value */
+        if (_i == _n) return 1;
+        if (memchr(s + _i, '\0', _n - _i)) return 0;
         s += _i;
-        if (rt_plain_int_str(s)) return 1;   /* ⭐ see rt_plain_int_str in core.h -- strtod was 8.81% of mixed_workload */
+        if (rt_plain_int_str(s)) return 1;
         char *end;
         strtod(s, &end);
         if (end == s) return 0;
@@ -1056,10 +1046,6 @@ static DESCR_t _DATE_(DESCR_t *a, int n) {
 }
 static int64_t _g_start_ns = -1;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* NS-TIME (s249): TIME() is INTEGER NANOSECONDS of CLOCK_MONOTONIC elapsed since program start, in all three engines.
-   CLOCK_PROCESS_CPUTIME_ID -- what SPITBOL's zystm() and CSNOBOL4's mstime() used -- resolves no finer than ~471 ns on
-   this host and costs ~502 ns per read (a real syscall); CLOCK_MONOTONIC is 1 ns / ~20 ns through the vDSO.  A CPU-clock
-   "nanosecond" TIME() would be fake precision AND would perturb the loop it measures, so wall-monotonic is the arm. */
 int64_t rt_time_ns(void) {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -1144,12 +1130,6 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
     if (strcasecmp(type, "ARRAY")   == 0) {
         if (IS_ARR(val)) return val;
         if (IS_TBL(val) && val.tbl) {
-            /*⭐ NESTED, NOT FLAT (matches sort_fn, pattern_match.c:493) -- array_new2d's flat ndim=2 ARBLK_t is never
-               correctly walked by the chain-based subscript machinery (c_rt_subscript_var's DT_A arm resolves each
-               [i,j] link one index at a time and has no ndim>1 row-stride case), so a[1,1] on a flat-built table-to-
-               array conversion misreads the wrong cell regardless of key content -- reproduces with plain NUL-free
-               keys. sort_fn's outer-array-of-inner-[key,val]-arrays shape is proven correct against this same chain:
-               each level is genuinely ndim=1, so ordinary single-index subscripting composes across levels for free. */
             TBBLK_t *tbl = val.tbl;
             int n = tbl->size;
             if (n == 0) return FAILDESCR;
@@ -1184,9 +1164,6 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
             ARBLK_t *a = val.arr;
             int rows = a->hi - a->lo + 1;
             TBBLK_t *tbl = table_new_args(rows > 0 ? rows : 10, 10);
-            /*⭐ NESTED FIRST -- this is the shape CONVERT(table,'ARRAY') and SORT() now emit (outer ndim=1 array of
-               inner 2-element [key,val] DT_A arrays, see the ARRAY branch above). Fall back to the flat ndim=2
-               array_get2 layout for arrays built some other way (e.g. a hand-built ARRAY('n,2')). */
             if (a->ndim == 1 && a->data) {
                 for (int i = 0; i < rows; i++) {
                     DESCR_t rowv = a->data[i];
@@ -1707,13 +1684,6 @@ extern DESCR_t pat_arbno(DESCR_t);
 extern DESCR_t pat_fence(void);
 extern DESCR_t pat_fence_p(DESCR_t);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⛔ LENGTH AUTHORITY (beauty self-host regression, bisected to the slice-captures commit and then to
-   the exact capture: `&ALPHABET POS(10) LEN(1) . nl` in global.inc mints a 1-byte SLICE, and beauty then
-   builds `BREAK(' ' tab nl ';')`).  These wrappers flattened the descriptor to a bare char* with
-   VARVAL_fn, and pat_break_/pat_span/... then take strlen -- so an unterminated slice turned the whole
-   remainder of &ALPHABET into break/span characters and beauty's label parse died on its own first label.
-   rt_cstr_d is the routed cure (hq_P's length-authority idiom): free when the string is already
-   terminated, materializes only when it is not.  Fix the consumer, never the helper. */
 static DESCR_t _PAT_SPAN_(DESCR_t *a, int n)    { return n>=1 ? pat_span(rt_cstr_d(a[0]))    : FAILDESCR; }
 static DESCR_t _PAT_BREAK_(DESCR_t *a, int n)   { return n>=1 ? pat_break_(rt_cstr_d(a[0]))  : FAILDESCR; }
 static DESCR_t _PAT_BREAKX_(DESCR_t *a, int n)  { return n>=1 ? pat_breakx(rt_cstr_d(a[0]))  : FAILDESCR; }
@@ -1741,7 +1711,7 @@ static DESCR_t _ITEM_(DESCR_t *a, int n) {
     DESCR_t arr = a[0];
     if (IS_TBL(arr)) {
         const char *k = VARVAL_fn(a[1]);
-        return table_get_d(arr.tbl, STRVAL(k ? k : ""));   /* ⛔ this site COERCES the key to text on purpose (VARVAL_fn above), so it stays a DT_S key -- DT_S hashing is unchanged */
+        return table_get_d(arr.tbl, STRVAL(k ? k : ""));
     }
     if (IS_ARR(arr)) {
         int i = (int)to_int(a[1]);
@@ -1778,10 +1748,6 @@ void core_lib_init(void) {
     for (int i = 0; i < 256; i++) alphabet[i] = (char)i;
     alphabet[256] = '\0';
     { extern void rt_kw_seed_defaults(void); rt_kw_seed_defaults(); }
-    /* mode-4 standalone binaries have no scrip.c main() to wire this -- without it, any by-name dispatch
-       that misses g_rt_gen_procs (OPSYN aliases resolved only through _func_buckets) silently returns
-       NULVCL instead of reaching _usercall_hook's alias retry. Guarded so scrip.c's own explicit wiring
-       (driver/mode-3) is untouched. */
     if (!g_user_call_hook) { extern DESCR_t _usercall_hook(const char *name, DESCR_t *args, int nargs); g_user_call_hook = _usercall_hook; }
     { struct timespec _ts; clock_gettime(CLOCK_MONOTONIC, &_ts);
       _g_start_ns = (int64_t)_ts.tv_sec * 1000000000LL + (int64_t)_ts.tv_nsec; }
@@ -2040,19 +2006,6 @@ const char *rt_sno_indirect_name(DESCR_t v) {
         int refused = (s.v == DT_FAIL || s.v == DT_SNUL || (s.v == DT_S && n == 0));
         const char *ks = refused ? getenv("SCRIP_IND_NAME") : 0;
         if (refused && !(ks && *ks == '0')) { extern int kwb_error(int, const char *); kwb_error(239, "indirection operand is not name"); return 0; }
-        /* ⭐⭐ LENGTH AUTHORITY (row slice-capture-aliasing-breaks-beauty-selfhost, hq_P 2026-08-30). This
-           function ALREADY computes `n` honouring s.slen two lines up -- and the `return VARVAL_fn(v)` below
-           THREW IT AWAY, handing back the bare pointer. Harmless while every DT_S was NUL-terminated; wrong
-           the moment slice-captures shipped (SCRIP 89571dd7), because a slice points INTO the subject and
-           carries no terminator of its own. bn_sno_name (by_name_dispatch.c:5316) then rt_ws_strdup's that
-           pointer, so `$cap` on a captured name looked up `START  TRAILINGJUNK` instead of `START`.
-           MEASURED, slices ON: `$cap` returned "" before this line, "labelvalue" after.
-           ⭐ rt_cstr_d costs NOTHING on the common path -- it returns s.s unchanged when s.s[s.slen] is
-           already NUL and materialises only when it is not. Same length-authority program 89571dd7 applied to
-           the numeric validators, extended to the name consumer it never reached.
-           ⛔ NOT fixed in VARVAL_fn itself: hot, ported to asm (rtx_str.s:312), and by_name_dispatch.c:5180
-           carries an exact asm/C equivalence argument an always-materialise change would silently invalidate,
-           plus an allocation on every string read. Fix the consumer, never the helper. */
         if (s.v == DT_S && s.s) return rt_cstr_d(s);
     }
     return VARVAL_fn(v);
@@ -2126,10 +2079,7 @@ void core_runtime_error(int code, const char *msg) {
           rt_goto_transfer(lbl);
           exit(0);
       } }
-    { extern long g_stno;   /* row core-err-stmt-never-advances: g_core_err_stmt never had a writer
-        anywhere in the tree (permanently 0); g_stno (keywords.c's rt_stmt_enter, backing &STNO)
-        already tracks the currently-executing statement correctly, per-statement, in both media --
-        reused per s112 ONE AUTHORITY rather than giving g_core_err_stmt a second, parallel writer. */
+    { extern long g_stno;
       fprintf(stderr, "\n** Error %d in statement %d\n   %s\n",
               code, (int)g_stno, msg ? msg : ""); }
     if (core_err_is_terminal(code)) exit(1);
@@ -2158,10 +2108,6 @@ int core_icn_error(int code, DESCR_t val) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* Slow arm of rt_cstr_d (core.h) -- reached only for a value whose .s[.slen] is not '\0', i.e. a slice-backed capture.
-   Copies out exactly .slen bytes and terminates, so the caller's C string function sees the value and nothing after it.
-   Allocation follows the same rule every other rt_str_alloc caller in this tree follows: the collector runs at explicit
-   safepoints, and only reclaims inside an allocation when the heap is genuinely exhausted (gc_heap.c:187). */
 const char *rt_cstr_materialize(DESCR_t d) {
     extern char *rt_str_alloc(long n);
     size_t n = (size_t)d.slen;
@@ -2319,7 +2265,7 @@ static void _var_init(void) {
     if (_var_init_done) return;
     memset(_var_buckets, 0, sizeof(_var_buckets));
     _var_init_done = 1;
-    { extern void rt_dump_atexit_arm(void); rt_dump_atexit_arm(); }   /* ⭐ ARMED HERE, NOT AT THE &DUMP ASSIGNMENT: `&DUMP = 1` reaches g_dump through the keywords.c TABLE (a write through its int64_t* entry), not through rt_keyword_dump_set, so arming at the setter armed nothing -- measured, the keyword read back as 1 while the exit listing stayed silent. _var_init runs before any variable exists, so the handler is registered for every program and reads g_dump AT EXIT; a program that never sets &DUMP pays one atexit slot and prints nothing. */
+    { extern void rt_dump_atexit_arm(void); rt_dump_atexit_arm(); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void mon_tap_cell_store(void *cellp, DESCR_t val) {
@@ -2341,33 +2287,12 @@ static NV_t *_var_bucket_find(const char *name) {
     return (NV_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐⭐ SPITBOL's vrblk DISCIPLINE, APPLIED TO OUR OWN NV_t (Lon s258: "follow SPITBOL's algorithm almost verbatim").  sbl.min puts every vrblk in the STATIC AREA -- "allocated dynamically but never
-   deleted or moved around" -- so SPITBOL's variable hash table is consulted only to INTERN a name at compile time and for indirect ($X) references; compiled code holds the block pointer and dereferences
-   it.  That is why SPITBOL runs a 127-bucket table (e_hnb) and still spends only 3.97% in variable access (b_vra), while we spend 45.5%.  MEASURED s258, roman.sno at N=20,000, RT_OPT=-O2, callgrind:
-   3,174,837 _var_bucket_find calls (159 per iteration) at 71 Ir each = 22.42%, plus NV_GET_fn 10.81% + __strcmp_avx2 9.36% + NV_SET_fn 2.92%.  Chains are length ~1 (3,174,825 strcmp for 3,174,837
-   lookups), so the lookup was ALREADY minimal -- hash the name, one compare -- and the only remaining cure is NOT TO DO IT.
-   ⛔ WHY THIS NEEDS NO INVALIDATION, WHICH IS THE WHOLE ARGUMENT: an NV_t comes from rt_ws_alloc, a pure bump allocator over the workspace island (gc_heap.c) whose cursor only ever advances; the GC marks
-   HB_WS blocks but never moves or frees them (gc_heap.c:358 reuses ->fwd as a MARK-STACK link, not a forwarding address).  Entries are only ever PREPENDED, and NV_SET_fn REUSES an existing entry rather
-   than shadowing it, allocating only when the name is new.  So a resolved block is valid for the life of the program -- exactly SPITBOL's static-area guarantee, which our allocator already satisfied.
-   ⛔ ONLY HITS ARE MEMOISED.  A miss may later become a hit (first assignment to a new name), so caching a miss would be wrong; a hit can never become a different entry, so caching a hit is sound forever.
-   The key is the CALL SITE's baked name POINTER, not the string, so a hit costs one compare and no hashing at all.  Distinct sites hold distinct literals; the same site always names the same variable.
-   ⛔⛔⛔ NEW GLOBAL VARIABLES, GRANTED BY LON IN-CHAT 2026-08-22 s258 ("Sure. Add a global variable.") against the banner ask required by RULES.md's NO-NEW-GLOBALS fact rule.  Two parallel arrays, which
-   that rule names explicitly.  Registers and the stack cannot carry them: the table must outlive every activation and be shared by all call sites -- persistence ACROSS calls is precisely the defect. */
 #define NV_MEMO_N 2048
 static const char *g_nv_memo_key[NV_MEMO_N];
 static NV_t       *g_nv_memo_val[NV_MEMO_N];
-static unsigned long g_nv_memo_gen;             /* bumped on EVERY insert -- see the two hazards below */
+static unsigned long g_nv_memo_gen;
 static unsigned long g_nv_memo_seen[NV_MEMO_N];
 static int _nv_memo_off_get(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_NV_MEMO"); v = (e && *e == '0') ? 1 : 0; } return v; }
-/* ⛔⛔ TWO HAZARDS THE FIRST DRAFT OF THIS MEMO GOT WRONG, BOTH CAUGHT BY THE CORPUS A/B (memo ON 335/22, memo OFF 355/2 -- the killswitch IS the control, which is why it exists).  Recorded because the
-   naive version looks obviously correct and is not.
-   (1) A NAME POINTER IS NOT NECESSARILY STABLE.  Call sites in EMITTED code pass a baked literal, but the RUNTIME also passes stack buffers -- c_rt_defer_close builds one in `char nb[40]`, tbl_key_str
-       formats into the caller's `char kb[64]`.  The same stack address holds different strings at different moments, so a pointer-keyed hit can hand back the wrong variable.  Cured by VALIDATING the hit
-       with strcmp against the block's own name: a pointer collision then simply misses.
-   (2) SHADOWING.  _var_bucket_find returns the FIRST chain match and new entries are PREPENDED -- and unlike NV_SET_fn's slow path it does NOT filter on _nv_ordinary, so a later insert can legitimately
-       shadow an entry the memo still points at.  strcmp cannot see that.  Cured by a GENERATION counter bumped on every insert; a cached slot is trusted only while its generation matches.
-   WHAT SURVIVES: the hash is still skipped, which was the expensive half (a per-character djb2 walk plus the modulo).  A validated hit costs a pointer compare, a generation compare and one strcmp.
-   ⛔⛔⛔ SECOND GLOBAL UNDER THE SAME GRANT: Lon in-chat 2026-08-22 s258 ("Sure. Add a global variable.") -- g_nv_memo_gen and its per-slot witness array. */
 static inline __attribute__((always_inline)) NV_t *_var_find_cached(const char *name) {
     unsigned i = (unsigned)((((uintptr_t)name >> 3) ^ ((uintptr_t)name >> 13)) & (NV_MEMO_N - 1));
     if (g_nv_memo_key[i] == name && g_nv_memo_seen[i] == g_nv_memo_gen) {
@@ -2417,16 +2342,6 @@ DESCR_t NV_GET_fn(const char *name) {
 }
 int g_protected_pat_vars_armed = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⛔⛔ THE SINGLE ADMISSION FUNNEL FOR "MAY THIS NAME BE STORED BY A DIRECT CELL WRITE?" -- factored out of NV_SET_fn's own fast path, and NV_SET_fn now calls it, so a caller-side cure and the function it
-   short-circuits CANNOT DRIFT APART.  ⭐ MEASURED DEFECT THIS EXISTS TO CLOSE (hq_C 2026-08-28, row perf-pattern-defer-capture-layer-cure): rt_dcap_pump's landed caller-side cure keyed its cache on
-   NV_PTR_fn, reading it as "the cell NV_SET_fn would have written".  IT IS NOT THAT PREDICATE.  NV_PTR_fn ignores g_call_fastpath_off, ignores the '&' exclusion, CREATES a missing name rather than
-   declining it, and its reserved-name refusal list omits TERMINAL -- so it hands back a writable cell for names whose store NV_SET_fn routes to a SIDE-EFFECTING slow path.  Two witnesses, both oracle-graded
-   against x64/bin/sbl -bf: `OUTPUT(.CAP,2,'f') ; "hello world" ARB . CAP " "` writes "hello" to the file under SPITBOL and wrote NOTHING under SCRIP in both modes; `. TERMINAL` writes "hello" to stderr
-   under SPITBOL and wrote nothing here.  The immediate-$ twin passed only because rt_cap_open ARM A still calls NV_SET_fn -- the very call the next slice was briefed to delete, which would have propagated
-   this defect into the '$' path too.  ⭐ THE GENERAL FORM, and the reason this is a funnel and not a patch: a fast path is admissible only for inputs the slow path would have handled IDENTICALLY, so its
-   guard must be the slow path's OWN condition rather than a different function that merely looks equivalent -- NV_PTR_fn answers "where does this name live", which was read as "may I write it here".
-   ⛔ g_call_fastpath_off IS RE-READ ON EVERY CALL, NOT LATCHED: it flips 0->1 the moment any INPUT()/OUTPUT() associates a variable, which can happen long after a cell was cached.  It never flips back
-   (core.c sets only `= 1`), so a hit needs no generation counter -- but it does need this test, every time. */
 __attribute__((visibility("hidden"))) DESCR_t *NV_CELL_IF_FASTSET_fn(const char *name) {
     if (!_var_init_done) _var_init();
     if (g_call_fastpath_off || !name || name[0] == '&') return (DESCR_t *)0;
@@ -2436,10 +2351,10 @@ __attribute__((visibility("hidden"))) DESCR_t *NV_CELL_IF_FASTSET_fn(const char 
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
-    { static int _xd = -1; if (_xd) { if (_xd < 0) _xd = getenv("SCRIP_EXPR_STORE_DBG") ? 1 : 0; if (_xd && name && name[0] == 'E' && name[1] == 'X' && name[2] == 'P' && name[3] == 'R' && name[4] == '$') { extern int rt_g_ret_by_name, rt_g_want_name; fprintf(stderr, "[XSTORE] %s val.v=%d byn=%d wn=%d\n", name, (int)val.v, rt_g_ret_by_name, rt_g_want_name); } } }   /* ⭐ row perf-match-begin-beta-cure: outer _xd gate turns the disabled-case (the only case in production) from two load+test+branch sequences into one -- SCRIP_EXPR_STORE_DBG's own state, first-call init, and enabled-case behavior are all unchanged. */
-    if (!_var_init_done) _var_init();   /* ⭐ _var_init is `if (_var_init_done) return;` and nothing else on the hot path -- 17,600 cross-call hops in roman.sno to read one flag the caller can read itself.  Same file, same static; the call survives for the one time it does work. */
-    if (val.v == DT_S) rt_sxt_break_fast(val.s);   /* ⭐ row perf-sxt-break-unconditional-call-tax: always_inline fast path, see gc_heap.h -- was an unconditional PLT call on every string store, 1.87% of roman.sno */
-    if (g_protected_pat_vars_armed && name && is_protected_pat_lead(name[0]) && is_protected_pat_name(name)) {   /* ⭐ lead pre-filter, predicate shared with the function itself (rt_protected.h) -- cannot change the answer, only reach it without a PLT hop */
+    { static int _xd = -1; if (_xd) { if (_xd < 0) _xd = getenv("SCRIP_EXPR_STORE_DBG") ? 1 : 0; if (_xd && name && name[0] == 'E' && name[1] == 'X' && name[2] == 'P' && name[3] == 'R' && name[4] == '$') { extern int rt_g_ret_by_name, rt_g_want_name; fprintf(stderr, "[XSTORE] %s val.v=%d byn=%d wn=%d\n", name, (int)val.v, rt_g_ret_by_name, rt_g_want_name); } } }
+    if (!_var_init_done) _var_init();
+    if (val.v == DT_S) rt_sxt_break_fast(val.s);
+    if (g_protected_pat_vars_armed && name && is_protected_pat_lead(name[0]) && is_protected_pat_name(name)) {
         core_runtime_error(42, NULL);
         return val;
     }
@@ -2448,19 +2363,19 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
     _io_chan_setup();
     int ch = _io_chan_find_by_var(name);
     if (ch >= 0 && _io_chan[ch].is_output && _io_chan[ch].fp) {
-        const char *s = (val.v == DT_S) ? rt_cstr_d(val) : (const char *)VARVAL_fn(val);   /* ⛔ rt_cstr_d, NOT val.s: a captured value is a SLICE into the subject with no terminator of its own (pattern_match.c slice-b), so %s on .s prints the rest of the subject -- measured "hello world" where SPITBOL writes "hello" */
+        const char *s = (val.v == DT_S) ? rt_cstr_d(val) : (const char *)VARVAL_fn(val);
         fprintf(_io_chan[ch].fp, "%s\n", s ? s : "");
         return val;
     }
     if (strcmp(name, "OUTPUT") == 0) { output_val(val); return val; }
     if (strcmp(name, "TERMINAL") == 0) {
-        const char *s = IS_STR(val) ? rt_cstr_d(val) : "";   /* same slice-length authority as the io_chan arm above */
+        const char *s = IS_STR(val) ? rt_cstr_d(val) : "";
         fprintf(stderr, "%s\n", s);
         return val;
     }
     if (strcmp   (name, "&subject") == 0) {
         extern const char *scan_subj;
-        const char *s = (val.v == DT_S) ? rt_cstr_d(val) : (const char *)VARVAL_fn(val);   /* rt_ws_strdup_c is strlen-based, so a slice would carry the subject's tail into &subject */
+        const char *s = (val.v == DT_S) ? rt_cstr_d(val) : (const char *)VARVAL_fn(val);
         scan_subj = s ? rt_ws_strdup_c(s) : ""; return val;
     }
     if (strcmp   (name, "&pos") == 0) {
@@ -2602,12 +2517,6 @@ int ASGNIC_fn(const char *kw_name, DESCR_t val) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⛔⛔ THE DUMP LISTING IS A GRADED PROGRAM OUTPUT, NOT A DEBUG AID, AND IT WAS WRONG IN FOUR INDEPENDENT WAYS (hq_C 2026-08-28, snoflake RUNG SF-3).  Measured against x64/bin/sbl -bf, which PASSES both fixtures:
-   (1) STREAM -- it printed to stderr, so the graded stdout got NOTHING at all.  A fixture matching on the listing could never pass, however correct the text.
-   (2) VALUES -- it read e->val UNCONDITIONALLY, ignoring e->is_gva.  A GVA-admitted name keeps its value in *e->cell and its e->val is stale/empty, so `FRUIT = 'apple'` dumped as `FRUIT = STR()`.  ⭐ NV_GET_fn has always spelled this `e->is_gva ? *e->cell : e->val`; the dump simply never learned it -- the same shape as this session's other finds, a reader of the variable table that does not use the table's own accessor.
-   (3) ORDER -- storage order, i.e. hash-bucket order, which is not an order at all: it varies with the name set.  SPITBOL alphabetizes, and `dump-ordered` grades exactly that.
-   (4) FORM -- it printed internal tag names (`STR(...)`, `DT_DATA`) rather than SPITBOL's `name = 'string'` / `name = 3`.
-   ⛔ BUILT-IN PATTERN CONSTANTS ARE NOT NATURAL VARIABLES and sbl omits them; is_protected_pat_name is the EXISTING single authority for that set (rt_protected.h), so it is consulted rather than re-listed here -- a duplicated name list in this function is precisely the per-op filter RULES.md forbids. */
 static int var_dump_cmp(const void *a, const void *b) { const NV_t *x = *(const NV_t *const *)a, *y = *(const NV_t *const *)b; return strcmp(x->name, y->name); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void var_dump_val(FILE *f, DESCR_t d) {
@@ -2634,7 +2543,6 @@ static void var_dump(void) {
     free(v);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐ &DUMP's POST-MORTEM WAS NEVER WIRED: keywords.c stores the value in g_dump and NOTHING EVER READ IT at termination, so `&DUMP = 1` produced no listing at all (snoflake dump-ordered got empty stdout, not a wrong listing -- a silent no-op, which reads as "feature absent" rather than "feature broken").  Registered through atexit, mirroring mon_at_exit's precedent in this same file, and the flag is read AT EXIT rather than latched at registration because a program sets &DUMP while running. */
 static void var_dump_at_exit(void) { extern long g_dump; if (g_dump) var_dump(); }
 void rt_dump_atexit_arm(void) { static int armed = 0; if (!armed) { armed = 1; atexit(var_dump_at_exit); } }
 #define NSTACK_MAX 256
@@ -2838,7 +2746,6 @@ int UNLOAD_fn(const char *name) {
     for (FNCBLK_t *e = _func_buckets[h]; e; prev = e, e = (FNCBLK_t *)e->next) {
         if (strcmp(e->name, name) != 0) continue;
         if (e->fn) return 0;
-        /* a name can carry BOTH a _func_buckets metadata entry (from a runtime DEFINE(...) call re-executing over an already statically-compiled proc) AND a real g_rt_gen_procs entry (from the compiler's static registration) -- clearing only the former leaves the name fully callable through bb_call_proc_staged's rt_proc_call_open/rt_proc_fn path, so both tables must be invalidated together. */
         if (prev) prev->next = e->next; else _func_buckets[h] = (FNCBLK_t *)e->next;
         rt_proc_unregister(name);
         return 1;
@@ -2868,10 +2775,6 @@ void register_fn_alias(const char *newname, const char *oldname) {
         fe->nlocals = old_entry->nlocals;
         fe->locals  = old_entry->locals;
     } else {
-        /* oldname has no _func_buckets entry of its own (e.g. a statically-compiled proc that was never
-           also runtime-DEFINE()'d) -- entry_label must still name the REAL target so a by-name retry
-           (rt_proc_call_open's fallback, _usercall_hook) can resolve it via g_rt_gen_procs. Pointing it
-           at fe->name (newname) instead was self-referential and made every such retry a no-op. */
         fe->spec = rt_ws_strdup(newname); fe->fn = NULL;
         fe->entry_label = on;
         fe->nparams = 0; fe->params = NULL;
@@ -3090,8 +2993,7 @@ static const char *_io_extract_fname(const char *opts_str, char *buf, size_t buf
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *_io_varname(DESCR_t d) {
-    if (d.v == DT_N) {                                                                                     /* the .name argument arrives as a NAME descriptor (DT_N) -- decode mirrors _APPLY_; this arm was
-                                                                                                              MISSING and every INPUT()/OUTPUT() association silently bound varname=NULL (row conform-io-*, 2026-08-27) */
+    if (d.v == DT_N) {
         if (d.slen == 0 && d.s && *d.s) return d.s;
         if (d.slen == 1 && d.ptr) return NV_name_from_ptr((const DESCR_t *)d.ptr);
     }
@@ -3110,7 +3012,6 @@ static void _io_parse_opts(const char *spec, long *fd, long *rlen) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* SPITBOL Ch.19 I/O quartet (row conform-io-four-functions-unimplemented, 2026-08-27): channel arg by number like ENDFILE; BACKSPACE also accepts the associated NAME per the manual. Witness-verified against sbl -bf. */
 static DESCR_t _REWIND_(DESCR_t *a, int n) {
     if (n < 1) return NULVCL;
     _io_chan_setup();
@@ -3137,7 +3038,7 @@ static DESCR_t _BACKSPACE_(DESCR_t *a, int n) {
     { FILE *fp = _io_chan[ch].fp;
       long pos = ftell(fp);
       if (pos <= 0) return NULVCL;
-      { long p = pos - 1;                                                                                  /* last consumed byte: the record's terminating newline, usually */
+      { long p = pos - 1;
         { int c; fseek(fp, p, SEEK_SET); c = fgetc(fp); if (c == '\n') p--; }
         while (p >= 0) { int c; fseek(fp, p, SEEK_SET); c = fgetc(fp); if (c == '\n') break; p--; }
         fseek(fp, p + 1, SEEK_SET); clearerr(fp); } }
@@ -3148,7 +3049,7 @@ static DESCR_t _DETACH_(DESCR_t *a, int n) {
     if (n < 1) return NULVCL;
     _io_chan_setup();
     { const char *vn = _io_varname(a[0]);
-      if (vn) { int ch = _io_chan_find_by_var(vn); if (ch >= 0) _io_chan[ch].varname = NULL; } }            /* association cleared; the channel stays open for ENDFILE -- SPITBOL detach semantics */
+      if (vn) { int ch = _io_chan_find_by_var(vn); if (ch >= 0) _io_chan[ch].varname = NULL; } }
     return NULVCL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3200,19 +3101,6 @@ static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
     }
     int ch = (n >= 2 && IS_INT(a[1])) ? (int)a[1].i : -1;
     if (!fname || !fname[0]) {
-        /* ⛔ THE -fn FILE-DESCRIPTOR SPEC, WHICH THIS FUNCTION PARSED FOR NOBODY (routed by hq_P 2026-08-28).
-           OUTPUT(.E1, 3, '[-f2]') associated NOTHING and every write to E1 vanished: _io_extract_fname returns
-           NULL for a bracket-only spec (the bracket is at offset 0, so the name length is 0), and the old code
-           fell straight to `return FAILDESCR`. The failure was INVISIBLE because a bare OUTPUT() call with no
-           :F() branch just fails its statement and execution walks on -- rc=0, stdout correct, stderr empty.
-           ⭐ _io_parse_opts already understood -fn; _INPUT_ called it and _OUTPUT_ never did, so the spec was
-           parsed for the read side only. Measured against the clean oracle: -f1 and -f2 BOTH silently
-           discarded, i.e. this was never fd2-specific.
-           ⛔ dup() rather than reusing stderr/stdout directly: _io_chan_close() fcloses whatever it is handed,
-           so binding the real stream would let ENDFILE(3) close the process's stderr. The dup is ours to close.
-           ⛔ _IONBF because fdopen does NOT inherit stderr's unbuffered discipline -- a block-buffered
-           diagnostic stream reorders against stdout and loses its tail entirely if the program aborts, which
-           is precisely when a diagnostic matters most. */
         extern int dup(int);
         long fd = -1, rlen = 0;
         _io_parse_opts(n >= 3 ? VARVAL_fn(a[2]) : NULL, &fd, &rlen);

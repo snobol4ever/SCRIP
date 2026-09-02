@@ -1,17 +1,4 @@
-/* rt_asm_helpers.S — hand-written x86-64 fast paths for the SMALL, HOTTEST runtime leaves (Lon directive: asm for small helpers, C for large; -O0/-O1 only, no -O2 in this container).            */
-/* SysV AMD64 ABI, matched byte-for-byte to the SCRIP emitter's own DESCR_t marshaling (verified vs emitted caller in a mode-4 .s: arg DESCR_t in RDI:RSI = {v(lo32),slen(hi32)} : payload, return   */
-/* DESCR_t in RAX:RDX).  descr.h layout: v @0 (4B), slen @4 (4B), payload @8 (8B); tags come from descr_tags.inc (NEVER literals -- s230); NAMETRAP = {v=DT_N,slen=2,p=VCELL*}; VCELL_t.cellp @0.  The three HOT deref shapes are inlined here  */
-/* (slen==1 pointer cell, slen==0 shared-NV name, slen==2 nametrap with a direct cellp); every COLD shape (nametrap table lookup, varref substring, malformed) tail-jumps to the full C rt_deref_slow.  */
-/* RTX-5a (s200): THIS FILE IS NOW UNDER THE RTX KILL-SWITCH CONTRACT (ARCH-SNOBOL4-RTX.md section 4).  It predates the RTX ladder and was invisible to it: ARCH section 7's step-0 existence grep filtered      */
-/* --include=*.c/*.h/*.cpp and so could not see .S files at all, which is why RTX-5's rung listed rt_deref as a PORT TARGET when it has been hand-written asm here all along (sixth phantom class, s200).      */
-/* GATE = SCRIP_RTX_LEAF, byte rtx_gate_leaf, initialised in rtx/rtx_init.c alongside the other four families.  Gate 0 => tail-jump to the untouched C body, whose signature is identical, so the args are     */
-/* already in register and its return goes straight to our caller -- that tail jump IS the byte-identity proof path (same idiom as RTX_GATE in rtx_abi.inc, hand-written here because this file is AT&T        */
-/* syntax while rtx_abi.inc's macros are Intel; ARCH ruling 1 says Intel project-wide, so this file's syntax is a second way it sits outside the contract -- recorded, not fixed, as changing it would rewrite  */
-/* working code for no behavioural gain).  BOTH fallbacks are COMPLETE implementations, not cold-shape handlers: rt_deref_slow (pattern_match.c:1173) covers all four shapes the asm inlines plus the cold      */
-/* table/varref cases, and to_int_slow (core/core.c:1991) covers DT_I as well as the coercions -- verified s200, which is what makes a two-instruction gate sufficient here.                                    */
-#include "descr_tags.inc"   /* s230: was hand-encoding DT_N/DT_FAIL/DT_I as $9/$99/$6 -- the TAG-3 renumber turned all three
-                             * silently wrong (m3 276->218). This file is AT&T so it cannot include rtx_abi.inc (.intel_syntax);
-                             * descr_tags.inc is syntax-neutral for exactly that reason. NEVER re-spell a tag number here.   */
+#include "descr_tags.inc"
     .data
     .align 1
     .globl rtx_gate_leaf
@@ -28,13 +15,7 @@ rt_deref:
     jne    .Lrd_asm
     jmp    rt_deref_slow@PLT
 .Lrd_asm:
-    cmpb   $DT_N, %dil   /* BYTE compare (row descr-stamp-asm-mints): %edi's upper 24 bits now carry a real
-                          * mod_op/src_node stamp on stamped descriptors, so the old `movl %edi,%eax; cmpl
-                          * $DT_N,%eax` 32-bit compare silently stopped matching a stamped NAMETRAP -- falling
-                          * through to .Lrd_retd (return input UNCHANGED) instead of dereferencing it, which
-                          * made VARVAL_fn's DT_N recursion loop on the very same NAMETRAP forever (SIGSEGV,
-                          * stack overflow). rax was only ever read from this via the immediately-following
-                          * `movq %rdi,%rax; shrq $32,%rax`, which overwrites it, so the movl was scratch-only. */
+    cmpb   $DT_N, %dil
     jne    .Lrd_retd
     movq   %rdi, %rax
     shrq   $32, %rax
@@ -78,7 +59,6 @@ rt_deref:
     jmp    rt_deref_slow@PLT
     .size  rt_deref, .-rt_deref
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* int64_t to_int(DESCR_t v): arg RDI:RSI = {v,slen}:payload, return int64_t in RAX.  Hot case DT_I returns v.i (RSI) with two instructions; DT_R/DT_S/DT_K/error delegate to the full C to_int_slow. */
     .globl to_int
     .type  to_int, @function
 to_int:
@@ -86,10 +66,7 @@ to_int:
     jne    .Lti_asm
     jmp    to_int_slow@PLT
 .Lti_asm:
-    cmpb   $DT_I, %dil   /* BYTE compare (row descr-stamp-asm-mints): a 32-bit cmpl against %edi stops matching
-                          * once a stamped DT_I carries a nonzero mod_op/src_node -- not a crash here (falls to
-                          * the correct to_int_slow), but a silent, permanent loss of this fast path for every
-                          * stamped integer. */
+    cmpb   $DT_I, %dil
     jne    .Lti_slow
     movq   %rsi, %rax
     ret
@@ -97,8 +74,6 @@ to_int:
     jmp    to_int_slow@PLT
     .size  to_int, .-to_int
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0): GC safepoint veneer.  Parks the six callee-saved registers on the stack ABOVE the seam-scan floor, so the collector's repairing scan sees
- * (and fixes) the suspended side's rbx/rbp/r12-r15 values; the pops then restore the REPAIRED values.  Without this, a heap pointer riding a callee-saved register across a collect is restored stale. */
     .globl rt_gc_point_arr
     .type  rt_gc_point_arr, @function
 rt_gc_point_arr:
@@ -121,8 +96,6 @@ rt_gc_point_arr:
     ret
     .size  rt_gc_point_arr, .-rt_gc_point_arr
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* long rt_gc_collect(void): exhaustion-collect veneer, same contract as rt_gc_point_arr above -- parks the six callee-saved registers above the repairing scan's floor so a heap pointer riding
- * rbx/rbp/r12-r15 across a mid-statement collect is repaired in the parked copy and restored repaired. */
     .globl rt_gc_collect
     .type  rt_gc_collect, @function
 rt_gc_collect:

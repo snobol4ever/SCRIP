@@ -179,21 +179,12 @@ static std::string zf_display_restore(int kt) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string zf_pin_restore(int kt) {
-   /* ⭐ PZ-4 clause (e) PL-ZA-1: RESTORE THE CALLER'S BASE. ⛔ ONE FUNCTION, CALLED FROM EVERY EXIT -- never a line copied into γ and again into ω. This file already
-   records what the copy-per-exit shape costs: the α carve and the γ/ω release were two copies of one formula and they DRIFTED to 240-vs-144 (see icn_gen_host_reserve's own comment).
-   ⭐ It reads THROUGH THE PIN
-   (`mov pin, [pin + kt-8]`), not through rsp, so it is correct wherever the spine happens to be sitting at this exit -- which is the entire reason the frame got a pin. Emits nothing when the graph is
-   not
-   pinned, so Icon, Raku and Pascal zframe exits are byte-identical to before. ⛔ IT MUST FOLLOW zf_display_restore(), which still addresses [kt-40] through the pin. */
     if (!x86_fb_pinned()) return std::string();
     return x86("comment", "PZ-4 (e): caller base <- [kt-8], read through the pin")
          + x86("mov", x86_fb(), RDQ(x86_fb(), kt - 8));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string zf_release(int kt) {   /* ⭐ PZ-4 PL-ZA-2, THE EXACT RELEASE. Unpinned graphs release with `add rsp,kt`, which is only right if the spine is sitting exactly at alpha when the exit is reached
-   -- hq_P measured 34 rsp moves in one Prolog body (adc17766), so that is an assumption, not an invariant. A pinned graph does not need it: `lea rsp,[pin+kt]` lands rsp on the caller's spine
-   wherever this body left its own. ⛔ IT MUST RUN BEFORE zf_pin_restore() -- it reads the pin, and the restore overwrites it. ⛔ ONE helper for gamma AND omega; two copies of a release formula
-   are how the 240-vs-144 drift in this file happened. Unpinned graphs are byte-identical to before. */
+static std::string zf_release(int kt) {
     if (!x86_fb_pinned()) return x86("add", "rsp", (long)kt);
     return x86("comment", "PZ-4 PL-ZA-2: exact release off the pin, not off wherever rsp happens to be")
          + x86("lea", "rsp", RDQ(x86_fb(), kt));
@@ -237,18 +228,8 @@ static std::string xa_flat_zframe_prologue_str(void) {
             s += x86("mov", "rdi", "rsp")
                + x86("mov32", "esi", (long)seed_off)
                + x86("mov32", "edx", (long)(kt - 32))
-               /* call_bare, not call: this branch's callers can be reached with a live "wire" continuation
-                * still sitting in rcx (the retry/resume path stages it there before jumping back into this
-                * prologue). x86_rtcc_call's BINARY-medium reload half (x86_rtcc_rl_bin) uses rcx as its own
-                * scratch pointer into rtccb -- deliberately not rax, which would stomp the callee's return
-                * value, but rcx pays for that choice instead. Neither this function nor args_install below
-                * touches r8-r11, so the veneer buys nothing here and only costs the clobber. */
                + x86("call_bare", "rt_jmp_frame_lexprep2", _lex_fp);
             if (np > 0) {
-                /* nlocals=0 always: rt_jmp_frame_lexprep2 already zeroed [0,region_bytes), which covers the
-                 * locals region too -- this call exists only for its param-copy loop. The real local slot
-                 * count here is NOT contiguous with params (resume_off/zeta_mark sit in between), so passing
-                 * the true nlocals would re-zero the resume/trail-mark slots lexprep2 just restored. */
                 uint64_t _args_fp; { void (*_f)(void *, int, int) = rt_icn_zframe_args_install; _args_fp = (uint64_t)(uintptr_t)(void *)_f; }
                 s += x86("mov", "rdi", "rsp")
                    + x86("mov32", "esi", (long)np)
@@ -389,7 +370,7 @@ static int pl_gamma_retain_on(void) { return emit_pl_gamma_retain(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_zframe_epilogue_γ_str(void) {
     if (!xa_flat_class_zf()) return std::string();
-    int kt = g_emit.flat_frame_bytes; if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16; { kt += icn_gen_host_reserve((const char *)0); }   /* ⛔⭐ N-2 STEP 2b RELEASE-MIRROR (hq_P s278): the α carve reserves the generator callees' frames on top of frame_total, so THIS release must add the same bytes or the epilogue lands rsp short and the following `jmp qword ptr [rsp]` reads a wrong return address. MEASURED before the fix: armed carve 240 / release 144 on a proc host, unarmed 144/144. ⭐ Armed-only, so it never shipped broken -- but it would have surfaced the moment items 3-4 armed the path and read as THEIR bug. ⛔ The carve and the release MUST derive this from the same function; a second copy of the formula is how they drifted in the first place. */
+    int kt = g_emit.flat_frame_bytes; if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16; { kt += icn_gen_host_reserve((const char *)0); }
     if (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->zframe_graph && g_emit_cfg->resume_slot > 0) {
         extern void *g_pl_zf_pending_cursor;
         extern void rt_pl_zf_resume_clear(void);
@@ -467,7 +448,7 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_zframe_epilogue_ω_str(void) {
     if (!xa_flat_class_zf()) return std::string();
-    int kt = g_emit.flat_frame_bytes; if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16; { kt += icn_gen_host_reserve((const char *)0); }   /* ⛔⭐ N-2 STEP 2b RELEASE-MIRROR (hq_P s278): the α carve reserves the generator callees' frames on top of frame_total, so THIS release must add the same bytes or the epilogue lands rsp short and the following `jmp qword ptr [rsp]` reads a wrong return address. MEASURED before the fix: armed carve 240 / release 144 on a proc host, unarmed 144/144. ⭐ Armed-only, so it never shipped broken -- but it would have surfaced the moment items 3-4 armed the path and read as THEIR bug. ⛔ The carve and the release MUST derive this from the same function; a second copy of the formula is how they drifted in the first place. */
+    int kt = g_emit.flat_frame_bytes; if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16; { kt += icn_gen_host_reserve((const char *)0); }
     if (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc)
         return x86("comment", "N-1(b/c) ICN-FR-2 epilogue-ω: unwind; NON-CONSUMING jmp through the caller-pushed omega wire at [rsp+8] -- the caller's own landing releases the pair. Guarded to the Icon (icn_cells_graph) case only, same reasoning as epilogue-γ. SCRIP_ICN_WIRE_STACK=0 restores the [kt-16] header byte-exactly.")
              + x86("comment", "&level HALF-CURE (seat01, row icon-rung-ladder-absorption): same decrement as epilogue-γ, twin arm -- see that comment for the full rationale, the confirmed register-preservation bug this rax save/restore fixes, and what is still owed (the entry-side increment).")

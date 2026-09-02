@@ -7,14 +7,6 @@ long icn_retval = 0;
 int  icn_failed = 0;
 static char subscript_buf[2];
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* NOT `for(;a[i];i++)`-style scanning of `a`/`b` directly (icon-ascii-cset-keywords-built-off-by-one):
-   stops at the first byte-0 member, so `&cset -- &ascii`-style expressions (a natural, foreseeable use
-   of these two keywords, e.g. rung36_jcon_scan1.icn's `uppers := &cset -- &ascii`) read an operand that
-   correctly starts with chr(0) as empty. alen/blen -- resolved by each call site via kw_cset_len for a
-   registered keyword cset, strlen() otherwise -- fix the INPUT side only; results that themselves start
-   with chr(0) still hit cset_canonical's own leading-NUL gap at the call sites below, which stays open
-   (general embedded-NUL literal gap, out of scope -- neither &cset -- &ascii nor any other combination
-   exercised by the broad Icon corpus produces such a result, so this is not a live gap for those). */
 const char *cset_union(const char *a, int alen, const char *b, int blen) {
     if (!a) a = ""; if (!b) b = "";
     if (str_arena_pos + 256 > 65536) str_arena_pos = 0;
@@ -74,17 +66,6 @@ const char *cset_canonical(const char *cs) {
     return out;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* icn-cset-embedded-nul-four-layer-gap, a fifth/newly-discovered layer found while proving the
-   original four-layer fix end to end: bb_scan_{any,many,bal,upto}.cpp and bb_gcc.cpp all test cset
-   membership via a per-subject-byte strchr(needle, ch) call. strchr treats ch==0 as "find the
-   needle's own NUL terminator", which ALWAYS returns non-NULL -- so any subject byte that happens to
-   be \x00 is reported as a member of EVERY needle cset, regardless of its actual content (confirmed:
-   corpus/tests/icon/rung38_cset_embedded_nul.icn's `skips ? upto('a')` matched at the leading \x00
-   instead of the real 'a'). memchr has no such special case; resolving the needle's TRUE length here
-   (same kw_cset_len-then-strlen fallback as rt_scan_enter/c_rt_size_d) and bounding the search by it
-   fixes both an embedded-NUL SUBJECT (this bug) and an embedded-NUL NEEDLE, for the same reason.
-   Same call-site shape as strchr (rdi=needle, esi=ch as int) so every caller's null/non-null result
-   check (test+je) is unchanged -- only the call target and this function differ. */
 int rt_icn_cset_member(const char *needle, int ch) {
     if (!needle) return 0;
     extern int kw_cset_len(const char *);

@@ -107,7 +107,7 @@ static void skip_ws(IcnLexer *lx) {
         }
         if (lex_cur(lx) == '$') {
             char nx = lex_peek1(lx);
-            if (nx == '(' || nx == ')' || nx == '<' || nx == '>') break;   /* digraph tokens $( $) $< $> -- lex_one owns them */
+            if (nx == '(' || nx == ')' || nx == '<' || nx == '>') break;
             while (lex_cur(lx) && lex_cur(lx) != '\n')
                 lex_advance(lx);
             continue;
@@ -550,12 +550,11 @@ static IcnToken lex_one(IcnLexer *lx) {
         case ',': return make_tok(TK_COMMA, line, col);
         case ';': return make_tok(TK_SEMICOL, line, col);
         case '$':
-            /* alternate token forms (Icon digraphs): $( { · $) } · $< [ · $> ] */
             if (lex_cur(lx) == '(') { lex_advance(lx); return make_tok(TK_LBRACE, line, col); }
             if (lex_cur(lx) == ')') { lex_advance(lx); return make_tok(TK_RBRACE, line, col); }
             if (lex_cur(lx) == '<') { lex_advance(lx); return make_tok(TK_LBRACK, line, col); }
             if (lex_cur(lx) == '>') { lex_advance(lx); return make_tok(TK_RBRACK, line, col); }
-            while (lex_cur(lx) && lex_cur(lx) != '\n') lex_advance(lx);   /* stray directive residue */
+            while (lex_cur(lx) && lex_cur(lx) != '\n') lex_advance(lx);
             return lex_one(lx);
         default: {
             char msg[64];
@@ -631,11 +630,9 @@ static void icn_pp_run(const char *src, char **out, int *olen, int *ocap, PpDef 
             size_t j = i + 1;
             while (j < n && (src[j] == ' ' || src[j] == '\t')) j++;
             if (j >= n || !(isalpha((unsigned char)src[j]) || src[j] == '_')) {
-                /* not a directive: $( $) $< $> digraphs and stray $ pass through to the lexer */
                 if (pp_live) buf_push(out, olen, ocap, c);
                 i++; at_bol = 0; continue;
             }
-            /* conditional directives run even inside a suppressed region (they nest) */
             if ((j + 5 <= n && !strncmp(src + j, "ifdef", 5) && (j + 5 == n || !pp_word_char(src[j + 5]))) ||
                 (j + 6 <= n && !strncmp(src + j, "ifndef", 6) && (j + 6 == n || !pp_word_char(src[j + 6])))) {
                 int neg = (src[j + 2] == 'n');
@@ -668,7 +665,6 @@ static void icn_pp_run(const char *src, char **out, int *olen, int *ocap, PpDef 
                 continue;
             }
             if (!pp_live || (j + 5 <= n && !strncmp(src + j, "error", 5) && (j + 5 == n || !pp_word_char(src[j + 5])))) {
-                /* suppressed directive, or $error in a live region: blank the line ($error's diagnostic is the preprocessor's own concern, not program output) */
                 while (i < n && src[i] != '\n') { buf_push(out, olen, ocap, ' '); i++; }
                 continue;
             }
@@ -712,7 +708,7 @@ static void icn_pp_run(const char *src, char **out, int *olen, int *ocap, PpDef 
             while (i < n && src[i] != '\n') { buf_push(out, olen, ocap, ' '); i++; }
             continue;
         }
-        if (!pp_live) {   /* suppressed region: keep only the newlines so line numbers survive */
+        if (!pp_live) {
             if (c == '\n') { buf_push(out, olen, ocap, '\n'); at_bol = 1; }
             else at_bol = (at_bol && (c == ' ' || c == '\t'));
             i++; continue;

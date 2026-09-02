@@ -10,10 +10,6 @@ static const char * g_rk_class_names[RK_GRAM_MAX];
 static int          g_rk_class_n = 0;
 static char         g_rk_multi_names[RK_GRAM_MAX][128];
 static int          g_rk_multi_n = 0;
-/* row raku-silent-wrong-answers: marked at PARSE time in raku.y (rk_mark_arrlit_scalar), not here --
-   lower_rblock below walks a statement list BACKWARD (continuation-passing box construction), so a
-   lower-time mark on an earlier statement is not yet set when a later statement's TT_SAY is lowered
-   first. Parsing is naturally forward, so the parser has no such ordering hazard. */
 extern int rk_is_arrlit_scalar(const char * nm);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_multi_name(const char * nm) { if (!nm) return 0; for (int i = 0; i < g_rk_multi_n; i++) if (!strcmp(g_rk_multi_names[i], nm)) return 1; return 0; }
@@ -117,19 +113,12 @@ static IR_t * lower_rcall(rcx_t * cx, const tree_t * t, const char * nm, int fro
     if (res) *res = nd; return entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* lower_rcall1 -- exactly lower_rcall with a single, EXPLICIT-node argument (not a t->c[from..] range).
-   Needed because arr_init/arr_last/arr_tail/__rk_arr_first take exactly the receiver and nothing else,
-   and a no-arg method call's own tree_t has no child range that is "just the receiver" -- t->c[1] is
-   always the method-name literal sitting in the way. Row raku-silent-wrong-answers, seat15 2026-08-30. */
 static IR_t * lower_rcall1(rcx_t * cx, const tree_t * recv, const char * nm, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = nm;
     IR_t * ar = NULL; IR_t * ae = lower_rv(cx, recv, nd, ω, &ar);
     if (ar) ir_operand_push(nd, ar);
     if (res) *res = nd; return ae;
 }
-/* lower_rcall_skip1 -- exactly lower_rcall(cx, t, nm, 0, ...) except it OMITS t->c[1] (the method-name
-   QLIT literal) from the argument list -- for push/unshift's method-call form, whose real arguments are
-   the receiver (c[0]) plus whatever the caller wrote (c[2..]), never the method name string itself. */
 static IR_t * lower_rcall_skip1(rcx_t * cx, const tree_t * t, const char * nm, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = nm;
     int total = t->n - 1; IR_t * prev = NULL; IR_t * entry = nd; int k = 0;
@@ -486,12 +475,6 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     case TT_NAMED_CAPTURE: return lower_rcall(cx, t, "re_named_capture", 0, γ, ω, res);
     case TT_SEQ: case TT_PROGRAM: case TT_SEQ_EXPR: { IR_t * b = lower_rblock(cx, t, γ, ω); *res = b; return b; }
     case TT_METHCALL: {
-        /* ⭐ MUTATING ARRAY METHODS (row raku-silent-wrong-answers, seat15 2026-08-30): .push/.unshift/
-           .pop/.shift on a plain variable receiver, special-cased BEFORE the generic meth_call dispatch
-           below -- exactly mirroring the ALREADY-WORKING wiring this file uses for the FUNCTION-CALL
-           syntax forms push(@a,7)/pop(@a) (see the TT_FNC cases above), which method-call syntax never
-           reached. push_pure/arr_init/arr_last already existed and are correct; only arr_tail and
-           unshift_pure are new (by_name_dispatch.c), added to mirror arr_init and push_pure exactly. */
         const char * mname = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : NULL;
         if (mname && t->c[0] && t->c[0]->t == TT_VAR) {
             if (!strcmp(mname, "push") || !strcmp(mname, "unshift")) {
@@ -501,9 +484,6 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 *res = as; return e;
             }
             if (!strcmp(mname, "pop") || !strcmp(mname, "shift")) {
-                /* value-read executes FIRST (original, pre-mutation array), mutation-assign SECOND --
-                   same order as the existing $x = pop(@a) wiring above, for the same reason: the removed
-                   element must be read before the array shrinks. */
                 const char * mut_fn = !strcmp(mname, "pop") ? "arr_init" : "arr_tail";
                 const char * val_fn = !strcmp(mname, "pop") ? "arr_last" : "__rk_arr_first";
                 IR_t * asA = build(cx, IR_ASSIGN, γ, ω); IR_LIT(asA).sval = t->c[0]->v.sval;

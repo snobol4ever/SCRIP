@@ -202,14 +202,6 @@ static IR_t * sx_pred_cmp(scx_t * cx, const tree_t * t, int argbase, int lex, in
     return ae;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* IR-IDENT/DIFFER slice 2 (Lon directive s199).  REDEFINITION GUARD, measured not assumed (3 oracle probes, sbl -bf): DEFINE/OPSYN
-   targeting IDENT or DIFFER, direct or via CODE()/EVAL, is a fatal ERROR 248 "attempted redefinition of system function" in real SPITBOL
-   -- no program that redefines these can reach a second statement, so the ORACLE never exercises a live rebinding here.  SCRIP is more
-   permissive than the oracle on this one point, though: a literal-prototype DEFINE('IDENT(...)') in THIS program is honored by the
-   pre-existing sno_predef_registered() compile-time registry (same mechanism sno_pred_relop/TT_OPSYN above already defer to), so the
-   caller below refuses the fast path whenever this program's own source binds the name -- a BEHAVIOUR check (does this program DEFINE
-   the name), never a name list, and it is what keeps a redefining program's own SCRIP-native semantics unregressed by this rung.  The
-   1/2-arg split is an operand count, never an admission test on top of that. */
 static IR_t * sx_ident_differ(scx_t * cx, const tree_t * t, int argbase, int is_differ, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_graph_t * g = cx->g;
     IR_t * nd = lc_build(g, is_differ ? IR_DIFFER : IR_IDENT, γ, ω);
@@ -276,14 +268,6 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     case TT_NAME: {
         if (t->n < 1 || !t->c[0]) sno_fatal("name operator with no operand", NULL);
         if (t->c[0]->t == TT_VAR && t->c[0]->v.sval) {
-            /*⭐⭐ `.VAR` OVER A LITERAL VARIABLE NAME IS A CONSTANT, AND IT IS NOW LOWERED AS ONE (hq_P s266).  It used to lower to a runtime IR_CALL of the builtin
-               SNO$NAME with the name as a string literal operand -- which cost the whole by-name builtin dispatch chain (rt_call_arr_bl -> setjmp -> rt_call_arr_impl ->
-               try_call_builtin_by_name_bl) and then bn_sno_name, whose body is rt_ws_strdup of a name the COMPILER already had in .rodata.  MEASURED at 644 Ir per
-               evaluation: 43,487 evaluations per json parse = 12.8% of the whole deserializer, and 6,469 per claws5 parse.  `estr = .dummy` is the SNOBOL4 return-by-name
-               idiom, so it sits in the body of EVERY deferred action.
-               ⛔ The descriptor is byte-for-byte what bn_sno_name built -- { v = DT_N, slen = 0, s = <name text> } -- so nothing downstream can tell the difference; the
-               only change is that the text is the permanent .rodata literal instead of a fresh workspace copy minted on every call.  IR_LIT_NAME joins the existing
-               LITERAL family in bb_lit_scalar (INTEGER/STRING/CHARSET/REAL) rather than getting a private path. */
             sno_reg_var(t->c[0]->v.sval);
             IR_t * nl = lc_build(cx->g, IR_LIT_NAME, γ, ω); IR_LIT(nl).sval = t->c[0]->v.sval;
             if (res) *res = nl; return nl;
@@ -620,13 +604,6 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                   if (res) *res = asn;
                   return e1;
               } }
-            /*⭐ A CALL ON THE LEFT OF AN ASSIGNMENT IS THE NRETURN BY-NAME TARGET, AND THE STATEMENT PATH ALREADY LOWERED IT CORRECTLY (hq_C 2026-08-27).  SPITBOL manual p.133: a proc ending in
-             * NRETURN returns the NAME of a variable, and the documented use is `STORE() = 43` -- the call IS the assignment target, with NO `$` indirection.  Classic SNOBOL4 reaches this through the
-             * statement subject/replacement path (`:eq :subj (TT_FNC ...)`, ~:2236), which emits SNO$WANTNM BEFORE evaluating the call so the callee's nreturn keeps its DT_N result undereferenced.
-             * TT_ASSIGN -- the shape the Snocone front end builds -- fell through to the sno_fatal below, so `mkname() = 'stored'` was refused as "outside the landed subset" while the identical
-             * classic program worked.  This mirrors the proven sequence rather than inventing a second one.  ⛔ DELIBERATELY NOT DONE IN sx_nameval(): that is shared with the plain `$X` READ path, and
-             * setting the want-name flag there leaks it (rt_g_want_name has no auto-clear) into later unrelated calls -- measured by seat02 as a 4-program gate regression (213_indirect_name,
-             * assign_driver, ShiftReduce_driver, stack_driver).  Routing only TT_ASSIGN-with-TT_FNC-lhs touches no other shape. */
             {
                 IR_t * wl = lc_build(cx->g, IR_LIT_STRING, NULL, ω); IR_LIT(wl).sval = (char *) "";
                 IR_t * mk = lc_build(cx->g, IR_CALL, NULL, ω); IR_LIT(mk).sval = (char *) "SNO$WANTNM";
@@ -675,7 +652,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     case TT_NOT: {
         const tree_t * inner = (t->n > 0) ? t->c[0] : NULL;
         if (!inner) sno_fatal("TT_NOT with no operand", NULL);
-        IR_t * gate = lc_build(cx->g, IR_LIT_STRING, γ, NULL); IR_LIT(gate).sval = (char *) "";  /* ~X SUCCEEDS with the NULL STRING as its VALUE (SPITBOL: SIZE(~F())=0, DATATYPE STRING) -- a bare IR_GOTO here is control flow with no ZLS slot, so any VALUE consumer (a match subject: `~TRY() CUT(2)`) drove drive_value_slot() onto a non-value-producer and aborted. */
+        IR_t * gate = lc_build(cx->g, IR_LIT_STRING, γ, NULL); IR_LIT(gate).sval = (char *) "";
         IR_t * r = NULL;
         IR_t * e = sx_lower(cx, inner, ω, gate, &r);
         if (res) *res = gate;
@@ -757,15 +734,6 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (res) *res = mk; return nl;
     }
     case TT_VLIST: {
-        /* SPITBOL parenthesised value list (e1, e2, ...): value is the first arm that SUCCEEDS, later arms tried only on
-           failure. Lowered onto IR_DISJUNCTION (mirrors lower_icon.c's lower_alt for Icon `|` / lower_prolog.c's `;` --
-           the same host, three syntaxes): each arm's own γ AND ω both target dj itself, so the runtime template
-           (bb_disjunction) tells success from failure by which PORT fired, not by graph shape -- nodes that reach dj via
-           their own ω get tagged "φ" (try next arm), via γ get "σ" (this arm won, copy its result into dj's own cell).
-           dj's σ-copy landing gives every arm the SAME fixed result slot regardless of how many nodes any one arm cost,
-           which is what makes this immune to the old temp-var lowering's arm-length-convergence defect. SNOBOL4 has no
-           generator concept, so unlike Icon's arms (which can push a real per-arm resume point), every arm's resume is
-           dj itself -- failing an arm always falls through to dj's own next-arm dispatch, never anything finer-grained. */
         if (t->n <= 1) { const tree_t * first = (t->n > 0) ? t->c[0] : NULL; return sx_lower(cx, first, γ, ω, res); }
         IR_graph_t * g = cx->g;
         IR_t * dj = lc_build(g, IR_DISJUNCTION, γ, ω);
@@ -781,11 +749,6 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         }
         for (int j = 0; j < n; j++) ir_operand_push(dj, sno_arm_result(resv[j]));
         IR_LIT(dj).ival = (long) n;
-        /* Declare that THIS disjunction's consumers read the arm result off the ζ-spine, which is what earns the flat
-           cell. The structural shape alone does not: lower_icon.c's lower_alt and lower_if build the identical 3N-past-2N
-           host for `|` and if/then/else, and their consumers address the frame -- granting on shape cost 47 Icon programs
-           (hq_P s271, revert-proven against the 232/31/30 baseline). The host is shared by three frontends; the consuming
-           regime is not, and only the lowerer knows it. */
         { extern void fc_vdj_register(const IR_t *); fc_vdj_register(dj); }
         if (res) *res = dj; return dj;
     }
@@ -957,17 +920,6 @@ static IR_t * sx_subscript_lv(scx_t * cx, const tree_t * base, const tree_t * co
     return entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*⭐ row perf-table-subscript-fastpath lever 2 (seat12, 2026-08-27): T[I]=v's single-index lvalue shape only -- see
-   c_rt_subscript_assign_var (pattern_match.c) for what this buys and why it is safe. Deliberately narrow: nidx==1 is
-   the ONLY shape handled here (matches table_access.sno/array_sum.sno exactly, and is the common case generally);
-   nidx==2 (a[i,j]) and nidx>1 (nested a[i][j]) fall straight through to the unchanged sx_subscript_lv, unfused,
-   byte-identical to before this row -- same call, same return, nothing about their codegen moves. When fusion
-   applies, *var_res is left NULL (the caller's signal that no mint box was built) and *fuse_base/*fuse_idx carry the
-   base/index value nodes directly -- the same two nodes sx_subscript_lv's own IR_SUBSCRIPT would have operand-pushed,
-   here left for the caller to push onto a 3-operand IR_ASSIGN_VAR instead. No IR_SUBSCRIPT node is built or wired in
-   this arm -- not built-then-discarded, never allocated at all -- so there is no orphaned node and nothing to unwire.
-   Killswitch SCRIP_SUBASSIGN_FUSE, default on, same getenv-at-lower-time idiom as sx_sub_container_only above (no new
-   global -- read fresh, cached nowhere). */
 static IR_t * sx_subscript_lv_fused(scx_t * cx, const tree_t * base, const tree_t * const * idxs, int nidx, IR_t * ω, IR_t ** var_res, IR_t ** fuse_base, IR_t ** fuse_idx) {
     const char * e = getenv("SCRIP_SUBASSIGN_FUSE");
     if (nidx != 1 || (e && *e == '0')) return sx_subscript_lv(cx, base, idxs, nidx, ω, var_res);
@@ -1243,14 +1195,6 @@ static void sno_pre_req(scx_t * cx, const tree_t * t, IR_t * prim) {
     cx->pre[cx->npre].codes = sno_prearg_codes(t->t); cx->pre[cx->npre].snapg = NULL; cx->npre++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐ THE PATTERN LAMBDAS, RECOGNISED BY NAME (row lang-lambda-pattern-primitives, Lon 2026-08-28).  Returns 1 for
-   the IMMEDIATE form and 2 for the CONDITIONAL form, 0 for any other call.  ⭐ RECOGNITION BELONGS HERE AND NOT IN
-   THE GRAMMAR, and that is measured rather than preferred: `lambda(N = 1)` ALREADY parses to
-   `(TT_FNC lambda (TT_ASSIGN (TT_VAR N) (TT_ILIT 1)))` -- `fnc_args` admits an assignment expression today -- so
-   the primitive costs no grammar change at all, and lower is the last place a language may still be named before
-   the LANG-neutral boundary downstream.  The Greek spellings are first-class per Lon and cost nothing extra: the
-   lexer already admits UTF-8 Greek in identifier position, so λ and Λ arrive here as ordinary distinct call names
-   and the case discrimination that separates lambda from LAMBDA separates them too. */
 static int sno_lambda_kind(const char * n, int nargs) {
     if (!n || nargs != 1) return 0;
     if (!strcmp(n, "LAMBDA") || !strcmp(n, "\xce\x9b")) return 1;
@@ -1450,7 +1394,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         { const tree_t * arg = (t->n > 0) ? t->c[0] : NULL;
           if (arg && arg->t == TT_DEFER && arg->n > 0 && arg->c[0] && arg->c[0]->v.sval) {
               IR_LIT(nd).sval = lp_strdup(arg->c[0]->v.sval);
-              nd->pat_static = 1;   /* SN4-DEFER-CSET-MARK: sval is a deferred variable NAME, not literal cset text -- discriminator, NOT a leading-star sniff (ambiguous: a literal cset can itself start with a star, e.g. the mulop cset in expr_eval.sno) */
+              nd->pat_static = 1;
               return nd;
           } }
         sno_pre_req(cx, t, nd);
@@ -1467,12 +1411,12 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         { const tree_t * arg = (t->n > 0) ? t->c[0] : NULL;
           if (arg && arg->t == TT_VAR && arg->v.sval) {
               IR_LIT(nd).sval = lp_strdup(arg->v.sval);
-              nd->pat_static = 1;   /* SN4-DEFER-CSET-MARK, see TT_ANY */
+              nd->pat_static = 1;
               return nd;
           }
           if (arg && arg->t == TT_DEFER && arg->n > 0 && arg->c[0] && arg->c[0]->v.sval) {
               IR_LIT(nd).sval = lp_strdup(arg->c[0]->v.sval);
-              nd->pat_static = 1;   /* SN4-DEFER-CSET-MARK, see TT_ANY */
+              nd->pat_static = 1;
               return nd;
           } }
         sno_pre_req(cx, t, nd);
@@ -1486,7 +1430,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         { const tree_t * arg = (t->n > 0) ? t->c[0] : NULL;
           if (arg && arg->t == TT_DEFER && arg->n > 0 && arg->c[0] && arg->c[0]->v.sval) {
               IR_LIT(nd).sval = lp_strdup(arg->c[0]->v.sval);
-              nd->pat_static = 1;   /* SN4-DEFER-CSET-MARK, see TT_ANY */
+              nd->pat_static = 1;
               return nd;
           } }
         sno_pre_req(cx, t, nd);
@@ -1806,11 +1750,6 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
           if (lk) {
             const tree_t * ex = (t->n > argbase) ? t->c[argbase] : NULL;
             if (lk == 2) sno_fatal("lambda(expr), the CONDITIONAL pattern lambda, is not implemented yet -- the IMMEDIATE form LAMBDA(expr) is; the conditional form queues a thunk on the dcap frame and that arm is unlanded", NULL);
-            /* IMMEDIATE.  The expression's lowered subgraph is spliced into the chain AHEAD of the epsilon box and
-               wired: its gamma reaches the box (success -> match the null string, consume nothing), its omega
-               reaches the pattern's own failure continuation (SNOBOL4 failure of the expression fails the match at
-               this point).  ⛔ The element's ENTRY is the EXPRESSION's entry, not the box: control has to reach the
-               code before it can reach the port that reports on it. */
             IR_t * box = lc_build(g, IR_MATCH_LAMBDA, succ, NULL);
             sno_ω_to(box, fail);
             IR_LIT(box).ival = 0;
@@ -2147,7 +2086,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         const tree_t * subj = lc_stmt_subj(s);
         const tree_t * pat  = sfind_expr(s, ":pat");
         int has_eq = sfind(s, ":eq") != NULL;
-        if (pat) {                                                                                         /* stored-pattern statement form (:subj + :pat attrs) normalized into the modern TT_SCAN subject the branch below owns — Rebus and any legacy STMT_t producer arrive this way; mainline SNOBOL4 never mints :pat (row rebus-corpus-100pct-broken, 2026-08-28) */
+        if (pat) {
             extern tree_t *ast_stmt_new(tree_e kind);
             tree_t * sc = ast_stmt_new(TT_SCAN);
             if (subj) ast_push(sc, (tree_t *) subj);
@@ -2357,12 +2296,6 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
             IR_t * lnn = lc_build(g, IR_LIT_INTEGER, hook, hook); IR_LIT(lnn).ival = (int64_t)lp_s_int(st[i], ":line");
             lc_γ_to(num, lnn);
             ir_operand_push(hook, num); ir_operand_push(hook, lnn);
-            /* ⭐ &FILE/&LASTFILE (Lon's grant, kw-missing-4, 2026-08-27): the source path is baked as a
-               THIRD, ONE-TIME-ONLY SNO$STMT operand on whichever statement is the first to actually get
-               a hook emitted (not hardcoded to i==0 -- a leading DEFINE can make i==0 skip via `continue`
-               above, and the file must still get set). Every other statement's call is untouched (still
-               2 operands) -- &FILE never changes mid-run (no -INCLUDE support in scope), so there is
-               nothing to re-bake. See rt_stmt_file_init/rt_stmt_enter in keywords.c for the runtime side. */
             if (_stmtkw_first_hook) {
                 _stmtkw_first_hook = 0;
                 extern const char * stmt_src_get_file(void);

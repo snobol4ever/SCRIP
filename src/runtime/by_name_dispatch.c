@@ -553,11 +553,6 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     }
     if (!strcmp(meth, "chr")) { long cp = IS_INT_fn(recv) ? (long)recv.i : (long)atoll(s); char *r = (char *)rt_ws_alloc(2); r[0] = (char)(cp & 0xFF); r[1] = '\0'; *out = BSTRVAL(r, 1); return 1; }
     if (!strcmp(meth, "ord")) {
-        /* NOT the shared `n` above (strlen(s), computed before this dispatch knew which method it would
-           serve): a single character extracted from a cset/string containing chr(0) has strlen()==0
-           despite being one real character (icon-ascii-cset-keywords-built-off-by-one). descr_slen(recv)
-           reads the DESCRIPTOR's own stamped length instead of re-deriving one from the (here, misleading)
-           byte content. */
         size_t on = descr_slen(recv);
         if (!s || !on) { *out = FAILDESCR; return 1; }
         *out = INTVAL((unsigned char)s[0]); return 1;
@@ -609,11 +604,6 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     }
     if (!strcmp(meth, "elems")) { if (n == 0) { *out = INTVAL(0); return 1; } int c = 1; for (size_t i = 0; i < n; i++) if (s[i] == SOH) c++; *out = INTVAL(c); return 1; }
     if (!strcmp(meth, "trans") && nmargs >= 1) {
-        /* Str.trans(@from => @to): substring-replace scan, matched against the "one Pair, list-key,
-           list-value" shape __rk_pair builds -- the combined SOH-joined element list is split evenly
-           in half by COUNT (first half = FROM patterns, second half = TO replacements, zipped by
-           position). Not general Raku .trans (no multi-pair lists, no character ranges) -- the
-           minimal version the one real caller (string-escape.raku) needs. */
         const char *lst = VARVAL_fn(margs[0]); if (!lst) lst = "";
         int total = lst[0] ? 1 : 0; for (const char *p = lst; *p; p++) if (*p == SOH) total++;
         if (total < 2 || (total % 2) != 0) { char *r = (char *)rt_ws_alloc(n + 1); memcpy(r, s, n + 1); *out = STRVAL(r); return 1; }
@@ -971,7 +961,7 @@ void *rt_call_value_spine_prep(DESCR_t callee, DESCR_t *argv, int n) {
     const char *nm = procval_name(callee);
     if (!nm && IS_STR_fn(callee) && callee.s) nm = callee.s;
     if (!nm || !rt_proc_is_registered(nm) || !rt_proc_jmp_entry(nm) || !rt_proc_is_generator(nm)) return (void *)0;
-    { extern int rt_proc_gen_region_ft(const char *); if (rt_proc_gen_region_ft(nm) > 0) return (void *)0; }   /* N-2 (ceo s283h): bb_call_value's spine transfer pushes only the wire pair, so a region-resident callee would read garbage at [rsp+16] (seat10's apply-call SIGSEGV). Route N-2 generators through rt_proc_call_gen_h's coexpr window, whose n2 entry shim supplies a real region; the direct spine fast path for apply is its own follow-on row. */
+    { extern int rt_proc_gen_region_ft(const char *); if (rt_proc_gen_region_ft(nm) > 0) return (void *)0; }
     { extern DESCR_t g_call_args[]; for (int k = 0; k < n && k < 64; k++) g_call_args[k] = argv[k]; for (int k = (n < 0 ? 0 : n); k < 64; k++) g_call_args[k] = (DESCR_t){0}; }
     if (!rt_proc_call_open(nm, n)) return (void *)0;
     return rt_proc_fn(nm);
@@ -1220,12 +1210,6 @@ static int pl_resolve_stream_arg(DESCR_t a, const char *errfn, int want_output) 
     return idx;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* g_stage2.proc_table is compiler-internal (populated only by lowering) and never carried into a standalone
-   mode-4 binary -- gdb-confirmed g_stage2.proc_count==0 at runtime there, so clause/2's ISO permission_error
-   on a static predicate was unreachable under --compile (row prolog-det-call-bypasses-dynscope-procedure-body,
-   which mis-attributed the symptom to rt_proc_call_open_det/dyn_scope; that mechanism was not actually in play
-   -- see this row's FINDING). g_rt_gen_procs is populated identically in both modes (BOTH-MEDIUM startup
-   registration), so query that instead of the compile-time-only table. */
 int rt_pl_proc_defined_static(const char *name, long arity) {
     if (!name) return 0;
     char key[256]; snprintf(key, sizeof key, "%s/%ld", name, arity);
@@ -1483,7 +1467,7 @@ int   g_plw_floor_bypass = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void  rt_plw_floor_bypass_on(void) { g_plw_floor_bypass = 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t dop_call(dop_body_fn body, DESCR_t *args, int nargs) {   /* P7a (hq_P 2026-09-02, ARCH-PROLOG-THREE-ZETAS § 4): the setjmp barrier and its errjmp push/pop are GONE. Prolog failure is β, a wired jump the caller takes on FAILDESCR; the barrier was never taken for Prolog anyway -- core_runtime_error longjmps only when g_error != 0, and g_error has zero references on the Prolog path (it exit(1)s instead). ⛔ The plw floor lines below are P7b and STAY until PZ-4 (b) puts the trail in the frame: they are the guard that turns a dead-stack trail mark into a REFUSE instead of a crash. */
+static DESCR_t dop_call(dop_body_fn body, DESCR_t *args, int nargs) {
     extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     DESCR_t out = FAILDESCR;
     char *fl = g_plw_unwind_floor;
@@ -1498,16 +1482,6 @@ static DESCR_t dop_call_nothrow(dop_body_fn body, DESCR_t *args, int nargs) {
     extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0); extern int g_plw_floor_bypass;
     DESCR_t out = FAILDESCR;
     char *fl = g_plw_unwind_floor;
-    /* ⛔ FLOOR FORCED ON HERE, SCOPED TO THIS CALL ONLY (C39 prolog-master-red-class-abort-signal-6-four-entries):
-       the Prolog-wide g_plw_floor_bypass (scrip.c) leaves g_plw_unwind_floor NULL, which makes plc_dead_cstack()
-       a no-op -- pl_trail_unwind() then restores a trail entry whose .addr is a now-dead C-stack address (a
-       Prolog cell that rode a since-returned frame per the s273 zeta ruling) straight into whatever now occupies
-       that address. Measured (gdb -location watch): on rung list_directive_2 the stale .addr landed 8 bytes
-       inside THIS function's own `out` local, and the restoring write smashed the -fstack-protector canary right
-       above it, SIGABRT. bid_bake dead-check exists for exactly this; only this narrow leaf (trail_unwind /
-       unwind_nothrow, dop_call_nothrow's only two callers) re-arms it for its own duration -- dop_call() and the
-       rest of the Prolog run are untouched, so this does not inherit prolog-plw-floor-bypass-safety-unproven's
-       open general-safety question, which stays hq_P's row. */
     int fb = g_plw_floor_bypass;
     g_plw_floor_bypass = 0;
     g_plw_unwind_floor = (char *)__builtin_frame_address(0);
@@ -1536,7 +1510,6 @@ DESCR_t c_rt_pl_dop_unify(DESCR_t *args, int nargs) {
     { extern void rt_bomb(const char *); rt_bomb("c_rt_pl_dop_unify: DELETED (s196 Lon one-to-maintain) — rt_pl_dop_unify in rtx_plunify.s is the sole spelling (zero bails, gate removed)"); }
     return FAILDESCR;
 }
-
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_unify_ci(DESCR_t *args, long long imm) {
     extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
@@ -1870,9 +1843,6 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         int prec = (int)pv.i; int added = 0;
         DESCR_t nv = rt_pl_deref_val(args[2]); const char *single = pl_atom_str(nv);
         if (single && single[0] && strcmp(single, "[]") != 0) { added = prolog_op_table_add(single, prec, tystr); }
-        /* op/3 with a LIST of names, CELL-NATIVE (T9). It used to convert the whole list to a heap struct-tree via rt_pl_cell_to_term and walk that; this was the LAST consumer of
-           that wrapper family, so rt_runtime.c's rt_pl_cell_to_term / rt_pl_cell_to_term_named / rt_cmp_cell_to_term_shared go with it. A Prolog list is DT_PLREF '.'/2 with its two
-           arguments in the compound heap; an atom element may ride DT_A or DT_S, so pl_atom_str is used rather than testing one tag. The 4096 guard against a cyclic list is kept. */
         else { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init();
             DESCR_t tmp = args[2]; pl_cell_t *lt = pl_deref((pl_cell_t *)&tmp); int guard = 0;
             while (lt && (int)lt->v == DT_PLREF && (int)(lt->slen >> 16) == ATOM_DOT && (int)(lt->slen & 0xFFFFu) == 2 && guard++ < 4096) {
@@ -1891,47 +1861,16 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = FAILDESCR; return 1;
     }
     if (!strcmp(fn, "$wall_ms") && nargs == 1) {
-        /* bench basis (Lon 2026-08-30): benchmarks self-time at start and finish so startup/finish overhead
-           is REPORTED SEPARATELY, never buried in the work number. Monotonic ms; rivals get the same
-           predicate from a per-engine prelude (swipl statistics(walltime), gprolog real_time). */
         struct timespec _ts; clock_gettime(CLOCK_MONOTONIC, &_ts);
         DESCR_t t = INTVAL((int64_t)_ts.tv_sec * 1000 + (int64_t)_ts.tv_nsec / 1000000);
         if (plw_unify_vals(args[0], t)) { *out = t; return 1; } *out = FAILDESCR; return 1;
     }
     if (!strcmp(fn, "$wall_us") && nargs == 1) {
-        /* ⛔⭐ MICROSECOND SIBLING OF wall_ms (hq_B 2026-08-30, row bench-grids-rebase-to-two-number-basis,
-           on ceo's measured granularity datum). CLOCK_MONOTONIC reads 1 ns nominal with a ~20 ns
-           back-to-back floor (vDSO, no syscall), so the clock is nowhere near the limit -- but INTEGER
-           MILLISECONDS ARE. The string-escape kernel works in ~3 ms, i.e. THREE TICKS: that is not a
-           measurement, it is a rounding, and a published multiple built on it inherits ~33% quantization
-           before any real variance. Microseconds put ~3000 ticks under the fastest kernel and cost the
-           same single clock_gettime.
-           ⛔ wall_ms IS DELIBERATELY LEFT IN PLACE, NOT REPLACED: it is already used and tested
-           (cdcc6b89) and the rival preludes mirror it (swipl statistics(walltime), gprolog real_time) --
-           both of which are MILLISECOND sources. So the ms entry point stays honest for cross-engine
-           arms whose floor really is 1 ms, and the us entry point serves SCRIP-side work timing. The
-           per-engine precision floor is stated in the basis line rather than papered over: a multiple
-           whose denominator is quantized at 1 ms while its numerator is measured at 1 us is not a
-           comparison, and saying so costs less than defending it later. */
         struct timespec _ts; clock_gettime(CLOCK_MONOTONIC, &_ts);
         DESCR_t t = INTVAL((int64_t)_ts.tv_sec * 1000000 + (int64_t)_ts.tv_nsec / 1000);
         if (plw_unify_vals(args[0], t)) { *out = t; return 1; } *out = FAILDESCR; return 1;
     }
     if ((!strcmp(fn, "wall_us") || !strcmp(fn, "wall_ms")) && nargs == 0) {
-        /* ⛔⭐ THE RAKU CLOCK HOOK, DELIBERATELY ADJACENT TO THE PROLOG ONE ABOVE (hq_B 2026-09-01, row
-           bench-grids-rebase-to-two-number-basis, on ceo's switch ruling). Same basis law (Lon 2026-08-30,
-           RULES.md § THE TWO-NUMBER BENCHMARK BASIS): a kernel self-times its own WORK and the harness
-           reports OVERHEAD (external total - work) as a SEPARATE number, so a rival's startup constant is
-           never silently charged to its engine. The Prolog grid inverted when this basis replaced totals --
-           ahead on 1 of 10, not 10 of 10 -- so the Raku grid is re-measured on it, never converted.
-           ⛔ THESE TWO HOOKS LIVE TOGETHER BECAUSE THEY MUST NOT DRIFT APART. They are one law in two
-           frontends; separated, one gets a precision fix and the other silently keeps a stale basis, and
-           the grids they feed stop being comparable while still being printed side by side.
-           ⭐ ARITY AND SPELLING DIFFER FROM THE PROLOG PAIR, AND THAT IS NOT AN INCONSISTENCY: Prolog's
-           $wall_us/1 UNIFIES its argument (relational, out-parameter), Raku's wall_us() RETURNS a value
-           (applicative). Same clock, same units, each in its own language's idiom -- a Raku sub that took
-           an out-parameter would be the un-idiomatic thing, and the Rakudo rival prelude could not mirror
-           it. The unprefixed names cannot collide with the $-prefixed Prolog ones. */
         struct timespec _ts; clock_gettime(CLOCK_MONOTONIC, &_ts);
         int64_t us = (int64_t)_ts.tv_sec * 1000000 + (int64_t)_ts.tv_nsec / 1000;
         *out = INTVAL(!strcmp(fn, "wall_us") ? us : us / 1000); return 1;
@@ -2689,11 +2628,6 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
     }
     if (!strcmp(fn, "$clausable") && nargs == 1) {
-        /* rung prolog-swi-test-term-undefined-function: SWI's '$clausable'/1 declares that a predicate's
-           clauses stay introspectable via clause/2 despite whatever internal optimization SWI would
-           otherwise apply to it. SCRIP never hides clauses from clause/2 that way, so the declaration
-           has nothing to opt into here -- a pure no-op that always succeeds is the correct semantics,
-           not a stand-in for unimplemented behavior. */
         DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
     }
     if (!strcmp(fn, "$abolish") && nargs == 2) {
@@ -2728,11 +2662,6 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (rt_pl_throw_match((void *)plw_det_cell(&t1))) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR;
         return 1;
     }
-    // lower_ite's throw-guard (row prolog-exceptions-uncaught-propagation): a condition that THROWS reaches
-    // this exact ω edge identically to a condition that FAILS -- lower_ite wires both the same way at compile
-    // time, and nothing downstream distinguishes them without this check. Inserted between the condition and
-    // the else-branch entry: pending -> fail (skip the else branch, keep unwinding to lower_ite's own ωfail,
-    // same as catch/3's own nearest-enclosing-catch search); not pending -> succeed (proceed into else, unchanged).
     if (!strcmp(fn, "$no_throw_or_fail") && nargs == 0) {
         extern int rt_pl_throw_pending(void);
         if (rt_pl_throw_pending()) { *out = FAILDESCR; return 1; }
@@ -3008,26 +2937,12 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = rt_make_flat_agg(args, nargs); return 1;
     }
     if (!strcmp(fn, "__rk_materialize") && nargs == 1) {
-        /* row raku-eager-materialization-family (seat06 2026-08-30): a generator's yield count is
-           unknown until it finishes, so a drive-loop collects yields into a list()/put() DT_DATA
-           accumulator; but every Raku array consumer (.elems above, .sum, iteration) reads the
-           OTHER, SOH-joined-flat-STRVAL shape rt_make_flat_agg/__rk_arr produce -- the two are not
-           interchangeable (checked, not assumed: elems() here counts SOH bytes in a string, it does
-           not branch on DT_DATA at all). This is the one-time conversion between them, called once
-           when the drive loop reaches its ω (generator exhausted). */
         DESCR_t *a = 0; int n = 0;
         if (!rt_lv_is_list(args[0], &a, &n)) return 0;
         extern DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs);
         *out = rt_make_flat_agg(a, n); return 1;
     }
     if (!strcmp(fn, "__rk_pair") && nargs == 2) {
-        /* general expr OP_FATARROW expr: no Pair value type exists in this runtime, so this builds
-           the minimal thing the one real caller (.trans, below) needs -- key and value concatenated
-           via rt_make_nested_agg (SOH-joined, no flattening of either side's own internal SOH
-           structure), which .trans splits back in half by COUNT. Correct specifically for the
-           "one Pair, list-key, list-value, zipped element-wise" shape real Raku also uses for
-           .trans(@from => @to) -- not a general Pair (no .key/.value accessors, not usable as a
-           hash key), per this row's own "minimal version this needs" discipline. */
         *out = rt_make_nested_agg(args, 2); return 1;
     }
     if (!strcmp(fn, "__rk_named_call") && nargs >= 2) {
@@ -3094,29 +3009,6 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = rt_call_arr(!strcmp(fn, "rk_write") ? "write" : "writes", tmp, nargs); return 1;
     }
     if (!strcmp(fn, "note") && !rt_proc_is_registered(fn)) {
-        /* ⛔⭐ RAKU `note` -- say's stderr twin, and the reason the self-timed bench kernels can report at all
-           (hq_B 2026-09-01, row bench-grids-rebase-to-two-number-basis). The two-number basis REQUIRES the work
-           delta to leave the program without touching stdout, exactly as the Prolog kernels use
-           format(user_error, ...): stdout stays byte-comparable so every kernel's .ref still verifies unchanged.
-           A bench harness that had to strip a timing line out of stdout before diffing would be trading the
-           oracle comparison for a parser, which is how a grid stops being evidence.
-           ⭐ THIS IS A REAL FRONTEND GAP BEING FILLED, NOT A BENCH SHIM. `note` is standard Raku (say to $*ERR);
-           SCRIP simply did not have it, so any program diagnosing to stderr silently died with "Undefined
-           function or operation". It is added here rather than in the bench tree because the next Raku program
-           that wants a warning should find it, not re-mint it.
-           ⚠️ THE LISTOP FORM `note "x";` (no parens) STILL DOES NOT PARSE -- that is a grammar gap, not a
-           dispatch one, and it is left OPEN and recorded rather than half-cured here: the paren form note("x")
-           is valid Raku and is what the kernels use. Do not read this hook as `note` being finished.
-           ⛔⛔ GUARDED BY rt_proc_is_registered BECAUSE THIS DISPATCHER IS A SHARED NODE AND `note` IS A NAME
-           REAL PROGRAMS ALREADY USE. Measured before adding it, not after: FOUR corpus programs define their
-           own note -- three Icon (packages/icon/{arizona,jcon}_tests, and rung36_jcon_args -- a loose file when measured, entry 40 of
-           tests/icon/rung36_all since corpus b6767fb2) and
-           tests/snobol4/ALL.sno, which is ON THE BLOCKING BOARD. script_try_call_builtin_by_name has NO
-           entry guard: it starts matching names immediately, so an unguarded branch here would outrank a
-           user procedure of the same name for any caller that reaches this function first, and the symptom
-           would be a corpus program silently printing to stderr instead of running its own code.
-           ⭐ THE GENERAL FORM: a builtin added for one frontend lands in every frontend's namespace. The
-           short, ordinary, English-word names are exactly the ones a user program has already taken. */
         DESCR_t *tmp = (DESCR_t *)rt_ws_alloc((size_t)(nargs > 0 ? nargs : 1) * sizeof(DESCR_t));
         for (int _ri = 0; _ri < nargs; _ri++) {
             if (IS_REAL_fn(args[_ri])) { char *_rb = rt_ws_alloc(64); rk_real_str(args[_ri].r, _rb, 64); tmp[_ri] = STRVAL(_rb); }
@@ -3943,7 +3835,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
                     else { fa[0] = args[0]; for (int k = 0; k < nargs - 2; k++) fa[1 + k] = args[2 + k]; }
                     extern int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
                     if (script_try_call_builtin_by_name(afn, fa, total, out)) {
-                        if (!strcmp(mname0, "end") && IS_INT_fn(*out)) *out = INTVAL(out->i - 1);   /* @a.end == @a.elems - 1 (last valid index; -1 for an empty array) */
+                        if (!strcmp(mname0, "end") && IS_INT_fn(*out)) *out = INTVAL(out->i - 1);
                         return 1;
                     }
                 }
@@ -4164,11 +4056,6 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         }
         *out = STRVAL(acc); return 1;
     }
-    /* ⭐ unshift_pure -- row raku-silent-wrong-answers, seat15 2026-08-30. Same accumulation loop as
-       push_pure immediately above (new elements joined IN ORDER, exactly mirroring its style), just
-       built into its own buffer starting empty rather than from `cur`, then placed BEFORE the current
-       array content instead of after -- @a.unshift(4,5,6) on [1,2] yields [4,5,6,1,2], matching real
-       Raku (the new elements keep their own relative order; only their position moves). */
     if (!strcmp(fn, "unshift_pure") && nargs >= 2) {
         const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
         char *acc = rt_ws_strdup("");
@@ -4241,9 +4128,6 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         char *o = rt_ws_alloc(nl + 1); memcpy(o, cur, nl); o[nl] = '\0';
         *out = STRVAL(o); return 1;
     }
-    /* ⭐ arr_tail -- row raku-silent-wrong-answers, seat15 2026-08-30. arr_init's mirror image: everything
-       AFTER the first element instead of everything BEFORE the last -- the array-mutation half of
-       @a.shift (its "removed element" half reuses the already-existing __rk_arr_first, unmodified). */
     if (!strcmp(fn, "arr_tail") && nargs == 1) {
         const char *cur = VARVAL_fn(args[0]); if (!cur || !*cur) { *out = STRVAL(rt_ws_strdup_c("")); return 1; }
         const char *first = strchr(cur, SOH);
@@ -4574,16 +4458,6 @@ static DESCR_t *plc_cell_persist(DESCR_t *v, DESCR_t *arr, int narr) {
     return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐ perf-prolog-dop-direct (P6): dop_ax/dop_cmp (this file, :1327/:1415) already take the bare suffix
-   rt_pl_ax_suffix()/rt_pl_cmp_suffix() return -- script_try_call_builtin_by_name's "$ax_"/"$cmp_" checks
-   (:1753/:1762) exist only to strip a prefix these three call sites build for the sole purpose of having it
-   stripped back off, paying a snprintf plus ~20 dead strcmp/strncmp in between. Calling dop_ax/dop_cmp
-   directly is behavior-identical (same functions, same args, same always-returns-1/*out=FAILDESCR
-   convention) and skips both. No rt_dtax_gen gating needed: OPSYN/DEFINE (SNOBOL4-only) cannot redefine
-   these Prolog-internal targets, unlike the STEP3 bid-keyed names. ⛔ NO NEW GLOBAL: killswitch reuses the
-   pre-existing dtax_off()/SCRIP_DTAX_OFF (memoized static, :5426) rather than adding one -- same
-   name-independent-fast-path spirit as STEP3/perf-dispatch-fastpath-name-indirect, deliberately overloaded
-   rather than minting a second flag. */
 static int dtax_off(void);
 static int plc_eval(DESCR_t *c, DESCR_t *out) {
     extern const char *prolog_atom_name(int);
@@ -4673,12 +4547,6 @@ static plc_slv_t *plc_build_resolved(DESCR_t *d, DESCR_t **xav, int nx, int *cut
     { const char *dt = rt_pl_det_builtin_target(nm, n);
       if (dt) { plc_slv_t *s = plc_new(PLCK_DET, cut); s->op = 'd'; s->det = dt; s->av = argv; s->nav = n; return s; } }
     { char pib[224]; if (n == 0 && !strcmp(nm, "main")) snprintf(pib, sizeof pib, "main"); else snprintf(pib, sizeof pib, "%s/%d", nm, n);
-      /* ⛔ EXISTENCE IS is_registered, NOT is_generator (seat15 2026-09-01, row prolog-variable-goal-dispatch-to-user-predicate): is_generator
-         is det?0:1 at registration (lower_prolog.c), a classification for STATIC call sites, orthogonal to whether the proc exists -- PLCK_PRED's
-         own execution below calls det and non-det procs through the identical rt_proc_call_gen_h handle. Gating existence on is_generator here
-         silently misrouted every DETERMINISTIC user predicate reached through a variable-bound goal into the existence_error branch below.
-         (seat16, same day, independently: also confirmed call/N with a DIRECT literal goal fails identically -- the variable is not required,
-         only determinism is -- see row prolog-var-goal-dispatch-through-catch-call-silently-fails for the 8-witness table.) */
       if (rt_proc_is_registered(pib)) { plc_slv_t *s = plc_new(PLCK_PRED, cut); s->pi = strdup(pib); s->av = argv; s->nav = n; return s; } }
     rt_pl_iso_throw_pi("existence_error", "procedure", nm, n);
     return plc_new(PLCK_FAILK, cut);
@@ -4899,11 +4767,6 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) { return rt_call_arr_bl(fn, args, nargs, -1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐ bidlen is the emitter's pre-resolved (strlen(fn) << 16) | bid_of(fn,len); NEGATIVE means "resolve it yourself" -- see the note on try_call_builtin_by_name_bl. */
-/* ⛔⛔ TRIPWIRE (hq_P 2026-08-30, FINDING cd4830a2): THIS FUNCTION'S FRAME SIZE IS LOAD-BEARING FOR AN UNRELATED BUG. Emitted FENCE-branch code trusts a fixed rsp-relative offset across this call with nothing
-   tracking accumulated depth (row calling-convention-depth-tracked), so whether SNOBOL4 FENCE programs SIGSEGV is an arbitrary function of THIS frame's layout -- measured: adding volatile char pad[16] here
-   reproduces the crash byte-identically on a tree with zero other changes (8/32/40 bytes clean, 16/24/48/56/64+ SEGV). If you reshape this frame and FENCE entries start crashing, YOUR CHANGE IS NOT THE BUG --
-   it is the perturbation; do not bisect yourself into a revert (that already happened once, df800d2c). The tripwire dies when the convention row lands depth tracking. */
 DESCR_t rt_call_arr_bl(const char *fn, DESCR_t *args, int nargs, int bidlen) {
     extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
     extern char *g_plw_unwind_floor;
@@ -4925,25 +4788,9 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
     extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     extern int g_gc_pending;
     { static long _cac = -1; if (_cac == -1) { const char *ev = getenv("SCRIP_CALLARR_TRACE"); _cac = (ev && *ev && *ev != '0') ? 0 : -2; } if (_cac >= 0) { extern int g_core_errjmp_n; _cac++; fprintf(stderr, "[CAC] %ld fn='%s' nargs=%d errjmp_n=%d\n", _cac, fn ? fn : "(null)", nargs, g_core_errjmp_n); fflush(stderr); } }
-    /* ⭐ INLINE-CHEAP-CHECK (perf-dispatch-gc-safepoint-necessity): rt_gc_point_arr's asm veneer pays an UNCONDITIONAL push/pop of all 6 callee-saved
-       registers before rt_gc_point_arr_c ever reads g_gc_pending -- the overwhelming majority of calls (no collection due) pay that cost for nothing.
-       PRECEDENT: this exact shape is already landed and shipping at a sibling by-name-dispatch call site (rtx_plunify.s rt_pl_dop_unify, "absorbed
-       rt_gc_point_arr" comment) -- check g_gc_pending BEFORE paying for the veneer, call the REAL, UNCHANGED veneer only when a collection is due.
-       The cold (collecting) path below is byte-identical to today's unconditional call, so correctness when a collection actually runs is untouched
-       (same register-parking, same g_gc_seam_sp/g_gc_shield_arr); only the zero-cost-today fast path changes. Matches g_gc_pending ONLY, same as the
-       precedent -- not rt_gc_point_arr_c's second (heap-gcline) condition, deferring that trigger to whichever later safepoint next sees it, same
-       tradeoff the precedent already ships with. Killswitch SCRIP_DISPATCH_GC_INLINE=0 restores the unconditional call on the same binary. */
     { static int _gcik = -1; if (_gcik == -1) { const char *ev = getenv("SCRIP_DISPATCH_GC_INLINE"); _gcik = (ev && *ev == '0') ? 0 : 1; }
       if (!_gcik || g_gc_pending) rt_gc_point_arr(args, nargs, (const char **)0); }
     if (!fn) return out;
-    /* ⭐ FIRST-TWO-CHARACTER GUARD, the s260 FAIL-strcmp cure's shape extended (perf-by-name-builtin-dispatch, s271).
-       MEASURED, string_manip.sno -O0 N=20000, callgrind: the single-char fn[0]=='S' guard still let EVERY ordinary
-       'S'-leading builtin (SIZE, SPAN, SORT, STRING, SUBSTR, SET, SUCCEED, ...) fall through into a real
-       __strcmp_avx2 PLT hop -- 21,000 SIZE calls alone cost 651,000 Ir (1.27% of the kernel) proving a name that
-       cannot possibly match past the second byte.  strcmp(fn,"SNO$NOFAIL")==0 IMPLIES fn[1]=='N' (every internal
-       SNO$xxx name shares that prefix, but no ordinary builtin does), so adding the second-character test is a
-       strictly-narrower pre-filter -- it can only skip strcmp calls that were already guaranteed to fail, never
-       change the outcome for SNO$NOFAIL itself or any SNO$xxx sibling (those still fall through to strcmp). */
     if (fn[0] == 'S' && fn[1] == 'N' && !strcmp(fn, "SNO$NOFAIL")) { extern void rt_nofail_abort(void); rt_nofail_abort(); return out; }
     if (fn[0] == '$' && fn[1]) { if (script_try_call_builtin_by_name(fn, args, nargs, &out)) return out; out = FAILDESCR; }
     if (fn[0] && !((fn[0] >= 'a' && fn[0] <= 'z') || (fn[0] >= 'A' && fn[0] <= 'Z') || fn[0] == '_' || fn[0] == '&')) {
@@ -5122,14 +4969,6 @@ static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op) {
         return 0;
     }
     { const char *a = VARVAL_fn(lhs), *b = VARVAL_fn(rhs); if (!a) a=""; if (!b) b="";
-      /* ⛔ strcmp() STOPS AT THE FIRST NUL, and a NUL is a valid string element (Lon 2026-08-30).
-         This is the string-relational half of the same defect cured in values.c/descr_identical and
-         core.c/is_numeric_like: measured, Icon `char(0) || "abc" == ""` answered TRUE while *x
-         answered 4, and icont/iconx correctly says they differ. It reaches EVERY language, since
-         BINOP_S{EQ,NE,LT,LE,GT,GE} is the shared string-comparison sink.
-         Use the CARRIED length -- but only when VARVAL_fn actually handed back the descriptor's own
-         bytes (`== lhs.s`). When it coerced (an int, a real, a cset tag), what it returned is a
-         freshly built C string whose length is not in .slen, and strlen is then correct. */
       size_t la = (lhs.v == DT_S && lhs.slen != 0xFFFFFFFFu && a == lhs.s) ? (size_t)lhs.slen : strlen(a);
       size_t lb = (rhs.v == DT_S && rhs.slen != 0xFFFFFFFFu && b == rhs.s) ? (size_t)rhs.slen : strlen(b);
       size_t lm = la < lb ? la : lb;
@@ -5233,7 +5072,7 @@ static void out_write_descr(FILE *dest, DESCR_t av, int use_gist) {
     if (IS_INT_fn(av))  { fprintf(dest, "%lld", (long long)av.i); return; }
     if (IS_REAL_fn(av)) { char _rb[64]; fprintf(dest, "%s", icon_real_str(av.r,_rb,sizeof _rb)); return; }
     if (IS_CSET_fn(av)) { if (av.s) fwrite(av.s, 1, strlen(av.s), dest); return; }
-    if (av.v == (DTYPE_t)DT_PLREF || av.v == (DTYPE_t)DT_PLVAR) { extern void rt_pl_write_cell_fp(void *, FILE *); DESCR_t _pt = av; fflush(dest); rt_pl_write_cell_fp(plw_entry(&_pt), dest); return; }  /* was: rt_pl_cell_to_term_named() -> pl_write() with pl_wr_set_fp(dest) and a cterm arena mark/release. The cell printer now takes the stream, so the heap struct-tree round-trip is DELETED, not relocated. ⛔ dest is NOT always fh_cur_out_fp() -- it is whatever handle the caller is writing to -- so calling plain rt_pl_write_cell() here would have printed the right text to the wrong stream under redirection. */
+    if (av.v == (DTYPE_t)DT_PLREF || av.v == (DTYPE_t)DT_PLVAR) { extern void rt_pl_write_cell_fp(void *, FILE *); DESCR_t _pt = av; fflush(dest); rt_pl_write_cell_fp(plw_entry(&_pt), dest); return; }
     if (av.v == DT_DATA) { const char *s = rk_obj_stringify(av, use_gist); if (s) out_write_str(dest, s); return; }
     const char *s = VARVAL_fn(av); if (s) out_write_str(dest, s);
 }
@@ -5318,15 +5157,6 @@ static __attribute__((noinline)) int bn_identdiffer(DESCR_t *args, int nargs, DE
     *out = (ident ? same : !same) ? NULVCL : FAILDESCR; return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⛔ v.v==DT_I / DT_R / (DT_S && slen==0xFFFFFFFFu) are IS_INT_fn/IS_REAL_fn/IS_CSET_fn's bodies (core.h),
-   duplicated literally rather than called: at -O0 `static inline` is a real call/ret (FACT RULE, no -O2),
-   and this leaf is the row's own measured 2.38%-of-kernel cost on string_manip.sno. NOT `always_inline` --
-   that was TESTED AND REVERTED s264 (GOAL-HQ-PERFORM.md:157), it forces the DESCR_t out of memory into a
-   register across a call boundary the GC's conservative stack scanner needs to see, breaking deferred
-   capture (058/059/060). Plain duplication forces no residency -- -O0 still spills/reloads exactly as
-   around a call -- so the s264 mechanism does not apply here; empirically re-proven safe by 067's ARBNO
-   witness (bn_size reached via *SIZE(...) inside a deferred pattern element, under active backtracking).
-   Row perf-core-tag-predicate-o0-call-tax; do not relax core.h's own declarations, only this call site. */
 static __attribute__((noinline)) int bn_size(DESCR_t *args, int nargs, DESCR_t *out) {
     if (nargs != 1) return -1;
     DESCR_t v = args[0];
@@ -5355,8 +5185,6 @@ static __attribute__((noinline)) int bn_size(DESCR_t *args, int nargs, DESCR_t *
     *out = INTVAL(len); return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* NS-TIME (s249): ONE clock, shared with core.c's _TIME_ -- this used to be a SECOND, WORSE TIME(): clock()*1000/CLOCKS_PER_SEC,
-   i.e. CPU time truncated to whole milliseconds, and it is the arm that actually runs (core.c's registered _TIME_ never fired). */
 static __attribute__((noinline)) int bn_time(DESCR_t *args, int nargs, DESCR_t *out) {
     (void)args; if (nargs > 1) return -1;
     *out = INTVAL(rt_time_ns()); return 1;
@@ -5388,20 +5216,10 @@ static __attribute__((noinline)) int bn_dupl(DESCR_t *args, int nargs, DESCR_t *
     buf[sl * (size_t)k] = 0; *out = BSTRVAL(buf, sl * (size_t)k); return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐⭐ THE CEREMONY, NOT THE LOOP (hq_P s262).  MEASURED, roman.sno -O0 fixed work N=2000, callgrind line annotation: bn_replace is 480 Ir per call and the translate loop `buf[i] = map[sv[i]]` is 45 of them.  Of the other 435: three VARVAL_fn calls 48, three sv_len calls 81, the 4-slot map cache and its two memcmp PLT hops 101, rt_ws_alloc_c 60, result store 17.  ⭐ Ninety per cent of REPLACE was getting ready to translate five characters.
-   ⛔ WHY THE CALLS EXIST AT ALL, AND WHY `static inline` DID NOT SAVE US: at -O0 gcc honours neither `inline` nor its own cost model, so every `static inline` helper in this file is a REAL CALL with a real prologue -- and DESCR_t is 16 bytes passed BY VALUE, so sv_len pays stack traffic on top.  Under the s262 NO-`-O2` fact rule -O0 is the number of record, so a hot leaf cannot delegate its field reads to a helper and hope the optimizer folds them; it has to read the fields itself.
-   ⭐ EQUIVALENCE IS EXACT, NOT ARGUED FROM SHAPE.  VARVAL_fn is `cmp dil, DT_S / jne c_VARVAL_fn / test rsi,rsi / jz c_VARVAL_fn / mov rax,rsi / ret` (rtx_str.s:312) -- for DT_S with non-NULL .s it returns v.s unchanged and allocates nothing.  sv_len for DT_S with slen neither 0xFFFFFFFF nor 0 returns slen.  The guard below admits EXACTLY that intersection and every other descriptor -- other tags, NULL .s, the 0xFFFFFFFF sentinel, slen 0 -- falls through to the UNCHANGED pair.  It cannot answer differently, only sooner.
-   KILLSWITCH SCRIP_REPL_PL=0 restores the call pair on the same binary. */
 static int repl_pl_off(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_REPL_PL"); v = (e && *e == '0') ? 1 : 0; } return v; }
-/* RTX PORT (row perf-replace-translate-loop-scalar-byte-copy): the translate loop below is a pure gather-scatter
-   with no branch and no call -- 31.90% of string_manip.sno's fixed-work kernel Ir at -O0 N=20000 (14,553,000 Ir) --
-   so it is extracted to its own symbol and ported to rtx_str.s under the existing STR family gate, same class of
-   cure as rtx_table.s's hot-path ports. This is the C of record; rt_translate_bytes (rtx_str.s) owns the exported
-   name and tail-jumps here when SCRIP_RTX_STR=0. */
 void c_rt_translate_bytes(char *dst, const char *src, size_t n, const char *map) {
     for (size_t i = 0; i < n; i++) dst[i] = map[(unsigned char)src[i]];
 }
-/* ⛔ THE KILLSWITCH READ IS HOISTED, AND THAT IS NOT A DETAIL: the first draft called repl_pl_off() INSIDE the macro, so a getenv-memo function ran three times per REPLACE -- 26,400 non-inlined calls -- and ate two thirds of the cure it was guarding (measured -0.92% where the line annotation predicted -2.6%).  At -O0 a `static int f(void){static int v;...}` is a real call every time; a control arm has to be read ONCE and carried in a local. */
 #define BN_PTRLEN(A, P, L, F) do { DESCR_t _a = (A); \
     if ((F) && _a.v == DT_S && _a.s && _a.slen != 0xFFFFFFFFu && _a.slen != 0u) { (P) = _a.s; (L) = (size_t)_a.slen; } \
     else { (P) = VARVAL_fn(_a); if (!(P)) (P) = ""; (L) = sv_len(_a, (P)); } } while (0)
@@ -5576,11 +5394,6 @@ static void sort_msort_pairs(TBPAIR_t **a, TBPAIR_t **tmp, int n, int by_val) {
       for (t = 0; t < n; t++) a[t] = tmp[t]; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*⭐⭐ BAKED-BID ENTRY (hq_P s262).  MEASURED, roman.sno -O0 fixed work N=2000, callgrind: bid_of was 1,826,260 Ir = 4.16% of the WHOLE PROGRAM, 11,002 calls at 166 Ir each -- and its ONLY job is to turn a string into the array index g_dtax_bid[_bid].  The line annotation showed the cache it indexes is ALREADY HOT: `if (_dx->kind == 4 && _dx->ctor) return ...` dispatched 8,799 of roman's 8,800 REPLACE calls straight to bn_replace.  So the program was paying a djb2 walk plus a table probe, per call, to look up a pointer it had already cached.
-  ⭐ THE CALL SITE KNOWS THE NAME AT COMPILE TIME -- it is a baked string literal in .rodata -- so the emitter computes bid_of() ITSELF and hands the answer over as an immediate.  bidlen packs (strlen(fn) << 16) | bid_of(fn,len); a NEGATIVE value means "not baked, resolve it yourself" and is what every non-emitted caller passes.
-  ⛔ THIS CANNOT ANSWER DIFFERENTLY, ONLY SOONER: the baked integer is bit-for-bit the one bid_of() would have returned for the same bytes, because emitter and runtime compile the SAME builtin_ids.h table.  A name that is not a builtin bakes 0, which is exactly bid_of()'s miss value.  Redefinition (OPSYN/DEFINE) is unaffected -- it is handled downstream by rt_dtax_gen and the APPLY_fn fallback, neither of which this touches.
-  ⛔ NO PER-OP FILTER (Lon 2026-08-20): every by-name call site bakes its bid, builtin or not.  There is no list of blessed names anywhere in this cure -- that is what makes it a class fix and not an exception table like dop_direct_fp's.
-  ⛔ NO NEW GLOBAL: the bid rides an argument register as an immediate operand baked into the instruction stream.  Nothing persists across the call. */
 int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) { return try_call_builtin_by_name_bl(fn, args, nargs, out, -1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, int bidlen)
@@ -5593,40 +5406,6 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         }
     }
     if (!fn || !out) return 0;
-    /* ⭐ NAME-INDEPENDENT FAST PATH (perf-dispatch-callsite-cache STEP3, s272).  When rt_dtax_gen==0, NOT ONE OPSYN or
-       DATA() has EVER executed in this run (exactly two write sites in the whole tree -- rt_builtin_synonym_add and
-       driver_data.c's DATA() registration, re-grepped for this change; rt_dtax_gen starts at 0, driver_data.c:13) --
-       so bidlen's baked _bid, for this CLOSED, ENUMERATED set of bid-keyed builtins, PROVABLY still means its plain
-       compiled-in self; skip g_dtax_bid/g_dtax and the branch-selection between them entirely and call the C
-       function directly.  Scoped to the fourteen names whose _bid the switch below ALREADY re-checks explicitly
-       (SIZE..DIFFER) -- the relop family (EQ/NE/LT/LE/GT/GE/LGT/LLT/LGE/LLE/LEQ/LNE) has NO builtin_ids.h entry at
-       all (grepped, zero hits), so bid_of() bakes 0 for them and they fall through unchanged to the hash-path cache.
-       ⭐ EXTENDED TO SNO$NAME (perf-dispatch-fastpath-name-indirect, s276).  SNO$NAME (BID_SNOx24NAME) is bid-eligible
-       but MONADIC, not niladic, and unlike the fourteen above it NEVER gets a g_dtax_bid cache write at all (its own
-       case arm in the _fl>=2&&_fl<=8 switch below calls bn_sno_name directly with no dtx4/dtx5 call) -- every
-       $-indirection call was paying this whole cache-probe machinery for a slot that can never hit. STEP 1 verified:
-       (a) bn_sno_name -> rt_sno_indirect_name CAN reach core_runtime_error (core.c, via kwb_error(239,...) when the
-       indirect operand is not a name) -> longjmp(g_core_errjmp_stk[...]) under Icon &error trapping, the SAME hazard
-       class as bn_remdr above; safe for the identical reason -- this fast path never leaves
-       try_call_builtin_by_name_bl, itself reached only from inside rt_call_arr_bl's setjmp-protected region, so the
-       longjmp still targets THIS call's own frame. (b) runs after the SAME DT_DATA block above, unchanged. ⛔ UNLIKE
-       the other fourteen this arm KEEPS an explicit nargs==1 guard: the pre-existing slow-path arms for SNO$NAME (the
-       _fl-switch case below, and L_bidjmp_6468) both check nargs==1 before calling bn_sno_name and fall through to
-       "unhandled" otherwise -- preserved here rather than assumed unreachable.
-       ⛔ ORDER MATTERS, TWICE: (a) runs AFTER the DT_DATA field-precedence block above -- a record field literally
-       named SIZE/TRIM/... still wins, unchanged; (b) this function is reached ONLY from rt_call_arr_impl, itself
-       reached ONLY from inside rt_call_arr_bl's setjmp-protected region (no other caller in the tree) -- so a
-       longjmp from deep inside e.g. bn_remdr's core_runtime_error(312, "remdr caused real overflow") path (the only
-       core_runtime_error/core_icn_error call among these fourteen bodies, all read in full before writing this)
-       still unwinds to THIS SAME call's own handler under Icon &error trapping, byte-for-byte as today, because
-       this fast path never leaves that call chain -- an earlier sketch of this idea that called bn_* from EMITTED
-       CODE, bypassing rt_call_arr_bl's setjmp altogether, WOULD have retargeted that longjmp and was rejected
-       before being written, on exactly this ground.  Return-value/*out shape is EXACT, not argued from shape: every
-       case below is the identical `return bn_X(args, nargs, out[, op])` the array-cache-hit path already performs
-       (kind 4/5 a few lines below), just reached without a cache-cell read; a nargs mismatch still returns -1 with
-       *out untouched, propagating exactly as it does today.  bidlen<0 (a non-emitted caller) always fails the
-       guard.  ⛔ NO NEW GLOBAL: every read here is bidlen (a parameter), rt_dtax_gen (pre-existing extern), or
-       dtax_off()'s memoized static (pre-existing) -- nothing new persists across calls. */
     if (bidlen >= 0 && rt_dtax_gen == 0 && !dtax_off()) {
         const int _fb = bidlen & 0xFFFF;
         extern long g_bidprof[1024]; extern int g_bidprof_on; extern void bidprof_init(void);
@@ -5651,14 +5430,6 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     const size_t _fnlen = (bidlen >= 0) ? (size_t)((unsigned)bidlen >> 16) : strlen(fn);
     const int _bid = (bidlen >= 0) ? (int)(bidlen & 0xFFFF) : bid_of(fn, (unsigned)_fnlen);
     { extern long g_bidprof[1024]; extern int g_bidprof_on; extern void bidprof_init(void); if (g_bidprof_on < 0) bidprof_init(); if (g_bidprof_on && _bid >= 0 && _bid < 1024) g_bidprof[_bid]++; }
-    /* ⭐ ARRAY-PATH GEN-ONLY VALIDATION (perf-dispatch-callsite-cache STEP2, s271).  bid_of() (builtin_ids.h) is an
-       INJECTIVE map over its nonzero range -- 176 distinct builtin/operator names, 176 distinct ids, each returned
-       only after bid_of's OWN internal memcmp against g_bid_tab -- so _bid uniquely determines fn's bytes whenever
-       _bid>0, the only case g_dtax_bid[_bid] is ever indexed (the bid==0 miss value routes to g_dtax[] instead).
-       Every write into a g_dtax_bid[] slot (dtx4/dtx5, and the DATA-type/synonym/miss-cache writes further below)
-       is keyed by THAT SAME call's fn, so a later call reaching the identical slot can only do so by presenting
-       the identical fn bytes again -- the len+memcmp recheck the hash path g_dtax[] still needs (arbitrary names
-       CAN collide into one of its 256 buckets) is therefore provably redundant here once gen alone matches. */
     dtax_ent_t *_dx = 0; int _dx_hit = 0; int _dx_skip_ctor = 0; int _dx_skip_syn = 0; unsigned _dxh = 5381u; unsigned char _dxl = 0; int _dx_bid_path = 0;
     if (!dtax_off()) { if (_bid > 0 && _bid <= 1024 && _fnlen && _fnlen < 14) { _dxl = (unsigned char)_fnlen; _dx = &g_dtax_bid[_bid]; _dx_bid_path = 1; } else { const char *_q = fn; while (*_q && _dxl < 14) { _dxh = _dxh * 131u + (unsigned char)*_q; _q++; _dxl++; } if (!(!*_q && _dxl)) _dxl = 0; else _dx = &g_dtax[_dxh & 255u]; }
       if (_dx) {
@@ -5991,9 +5762,6 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     if ((_bid == BID_ord) && nargs == 1) {
         DESCR_t av = args[0];
         const char *s = VARVAL_fn(av);
-        /* NOT !*s (icon-ascii-cset-keywords-built-off-by-one): a legitimate one-character result whose
-           character IS chr(0) has *s==0 despite being non-empty; descr_slen(av) reads the descriptor's
-           own stamped length instead of testing the byte content for the C-string "empty" convention. */
         if (!s || !descr_slen(av)) { *out = FAILDESCR; return 1; }
         *out = INTVAL((unsigned char)s[0]); return 1;
     }
@@ -6742,7 +6510,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         DESCR_t v = args[0];
         if (IS_FAIL_fn(v))  { *out = FAILDESCR; return 1; }
         if (v.v == DT_SNUL) { *out = FAILDESCR; return 1; }
-        if (v.v == DT_S && (!v.s || descr_slen(v) == 0)) { *out = FAILDESCR; return 1; }   /* first-byte-NUL is not emptiness */
+        if (v.v == DT_S && (!v.s || descr_slen(v) == 0)) { *out = FAILDESCR; return 1; }
         *out = v; return 1;
     }
     L_bidjmp_6088: ;
@@ -6772,7 +6540,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         DESCR_t v = args[0];
         if (IS_FAIL_fn(v))  { *out = FAILDESCR; return 1; }
         if (v.v == DT_SNUL) { *out = NULVCL; return 1; }
-        if (v.v == DT_S && (!v.s || descr_slen(v) == 0)) { *out = NULVCL; return 1; }   /* first-byte-NUL is not emptiness */
+        if (v.v == DT_S && (!v.s || descr_slen(v) == 0)) { *out = NULVCL; return 1; }
         *out = FAILDESCR; return 1;
     }
     L_bidjmp_6115: ;
@@ -7166,25 +6934,13 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         extern DESCR_t sno_array_from_proto(const char *proto, DESCR_t init);
         DESCR_t init = (nargs >= 2) ? args[1] : NULVCL;
         char pb[64]; const char *proto;
-        /*⭐⭐ ARRAY(n) WITH AN INTEGER BOUND NO LONGER ROUND-TRIPS THROUGH TEXT (hq_P s264, measured on the json deserializer).
-           This arm used to snprintf the integer into a decimal string, hand that string to sno_array_from_proto, which copied it
-           byte by byte into its own buffer, ran strchr for a ':' and then strtol'd it BACK to the integer we started with -- and
-           then rt_ws_strdup'd the string a third time onto the block.  MEASURED: json builds one key-order ARRAY per object, so a
-           400-object parse made 400 of these, 4,405 strtol calls per 11 iterations, for arrays ONE element long; sno_array_from_proto
-           + array_new were 14.7% of the whole json run on an input containing ZERO json arrays.
-           ⛔ THE ->proto STRING IS DELIBERATELY NOT STORED, AND THAT IS NOT A LOSS: agg_prototype() (aggregates.c:114) ALREADY
-           reconstructs it from lo/hi/ndim whenever ->proto is NULL, and for the lo==1 case it formats exactly "%d" of a->hi --
-           byte-identical to what this line used to strdup.  A NULL ->proto is an established state (array_new itself sets it, and
-           pattern_match.c:532 does too), so PROTOTYPE() is unaffected.  Same lazy-mint discipline as tbl_pair_key().
-           ⛔ Only the INTEGER form takes this path.  ARRAY('3,4') and ARRAY('0:9') still carry real prototype syntax and still go
-           through sno_array_from_proto, unchanged. */
         if (IS_INT_fn(args[0])) {
             const long long _n = (long long)args[0].i;
-            if (_n < 0) { *out = FAILDESCR; return 1; }                       /* hi < lo-1, matching sno_array_from_proto */
+            if (_n < 0) { *out = FAILDESCR; return 1; }
             extern ARBLK_t *array_new(int lo, int hi);
             ARBLK_t *_a = array_new(1, (int)_n);
             if (!_a) { *out = FAILDESCR; return 1; }
-            if (!(init.v == DT_SNUL && init.slen == 0)) for (long long _k = 0; _k < _n; _k++) _a->data[_k] = init;   /* array_new already laid down NULVCL */
+            if (!(init.v == DT_SNUL && init.slen == 0)) for (long long _k = 0; _k < _n; _k++) _a->data[_k] = init;
             DESCR_t _r; memset(&_r, 0, sizeof _r); _r.v = DT_A; _r.slen = 0; _r.arr = _a;
             *out = _r; return 1;
         }
@@ -7197,7 +6953,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     L_bidjmp_6479: ;
     if ((_bid == BID_TABLE) && nargs <= 3) {
         TBBLK_t *tb = table_new_args(nargs >= 1 ? (int)to_int(args[0]) : 0, nargs >= 2 ? (int)to_int(args[1]) : 0);
-        if (nargs >= 3) tb->dflt = args[2];   /* manual v3.7 sec 4214: Arg3 is the value returned for a missing-key lookup */
+        if (nargs >= 3) tb->dflt = args[2];
         DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_T; d.slen = 0; d.tbl = tb;
         *out = d; return 1;
     }
@@ -7254,9 +7010,6 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         extern void rt_stmt_enter(long stno, long line);
         long n = IS_INT(args[0]) ? (long)args[0].i : 0;
         long ln = (nargs >= 2 && IS_INT(args[1])) ? (long)args[1].i : 0;
-        /* 3rd arg is the source path, baked once at the program's first statement only (see
-           lower_snobol4.c's SNO$STMT emission) -- set &FILE's backing global before rt_stmt_enter
-           runs so its own g_stcount==0 check (first statement) still reads &LASTFILE as empty. */
         if (nargs == 3) { extern void rt_stmt_file_init(const char *file); const char *fp = VARVAL_fn(args[2]); rt_stmt_file_init(fp ? fp : ""); }
         rt_stmt_enter(n, ln);
         *out = NULVCL; return 1;
@@ -7377,11 +7130,6 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             else if (IS_REAL_fn(a)) { char *nb=rt_ws_alloc(64); icon_real_str(a.r,nb,64); s=nb; }
             else { s=VARVAL_fn(a); if (IS_CSET_fn(a)) slen=kw_cset_len(s); }
             if(!s) s="";
-            /* NOT `for(;*p;p++)` (icon-ascii-cset-keywords-built-off-by-one): stops scanning at the
-               first byte-0 member, so a correctly-built &ascii/&cset (which now legitimately starts
-               with chr(0)) read as an EMPTY input set -- the complement then wrongly claimed almost
-               every byte. kw_cset_len(s), when s is a registered keyword cset, gives the true length
-               without touching the general embedded-NUL literal gap (still open, still out of scope). */
             if (slen<0) slen=(int)strlen(s);
             unsigned char in_set[256]={0}; for (int i=0;i<slen;i++) in_set[(unsigned char)s[i]]=1;
             char *buf=rt_ws_alloc(256); int n=0;

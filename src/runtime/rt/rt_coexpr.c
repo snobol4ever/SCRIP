@@ -62,7 +62,7 @@ void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first) {
         scrip_co_makesem(new_ctx);
         if (pthread_create(&new_ctx->thread, &attribs, scrip_co_trampoline, new_ctx) != 0)
             scrip_co_uerror("scrip_coexpr: pthread_create failed");
-        { pthread_attr_t a; void *sa = 0; size_t sz = 0;   /* bounds only exist once the thread does -- alive is set AFTER this block, never before (row coexpr-stack-of-calls-pthread-getattr-np-on-an-uncreated-thread: alive=1 preceding thread creation is exactly what let scrip_co_stack_of reach pthread_getattr_np on a thread that did not exist yet). */
+        { pthread_attr_t a; void *sa = 0; size_t sz = 0;
           if (pthread_getattr_np(new_ctx->thread, &a) != 0) scrip_co_uerror("scrip_coexpr: pthread_getattr_np on new thread failed");
           if (pthread_attr_getstack(&a, &sa, &sz) != 0) scrip_co_uerror("scrip_coexpr: pthread_attr_getstack on new thread failed");
           pthread_attr_destroy(&a);
@@ -70,7 +70,7 @@ void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first) {
           rt_gc_root_range_add((const char *)new_ctx->stk_lo, (const char *)new_ctx->stk_hi); }
         new_ctx->alive = 1;
     }
-    __asm__ volatile ("mov %%rbx,0(%0)\n\t.byte 0x48,0x89,0xe8\n\tmov %%rax,8(%0)\n\tmov %%r12,16(%0)\n\tmov %%r13,24(%0)\n\tmov %%r14,32(%0)\n\tmov %%r15,40(%0)\n\t" : : "r"(old->gc_spill) : "rax", "memory");   /* ⛔ the "rax" clobber is LOAD-BEARING (ceo s283h): the .byte trio is mov %rbp,%rax (rbp can't be named in a clobber list), so rax is destroyed mid-asm -- without declaring it, GCC is free to pick rax for %0, and the store "mov %rax,8(%0)" becomes mov %rax,8(%rax): it wrote rbp into [rbp+8], the caller's saved RETURN ADDRESS, and every coexpr activation returned into its own stack (SIGBUS at a stack rip, caught live by hardware watchpoint on this exact line). Latent until a build whose register allocator chose rax; first exercised end-to-end by the N-2 apply-call window. */
+    __asm__ volatile ("mov %%rbx,0(%0)\n\t.byte 0x48,0x89,0xe8\n\tmov %%rax,8(%0)\n\tmov %%r12,16(%0)\n\tmov %%r13,24(%0)\n\tmov %%r14,32(%0)\n\tmov %%r15,40(%0)\n\t" : : "r"(old->gc_spill) : "rax", "memory");
     { extern void rtcc_coexpr_save(uint64_t *); rtcc_coexpr_save(old->rtcc_spill); }
     sem_post(new_ctx->semp);
     while (sem_wait(old->semp) < 0) if (errno != EINTR) scrip_co_uerror("scrip_coexpr: sem_wait in scrip_coswitch");
@@ -83,7 +83,7 @@ void scrip_coexpr_destroy(scrip_coctx_t *ctx) {
     ctx->alive = 0;
     sem_post(ctx->semp);
     pthread_join(ctx->thread, NULL);
-    if (ctx->stk_lo) { rt_gc_root_range_del((const char *)ctx->stk_lo); ctx->stk_lo = 0; ctx->stk_hi = 0; }   /* pthread_join above already reclaimed the libc-mmap'd stack; nothing SCRIP-side to unprotect or refill. */
+    if (ctx->stk_lo) { rt_gc_root_range_del((const char *)ctx->stk_lo); ctx->stk_lo = 0; ctx->stk_hi = 0; }
     { extern long g_scrip_coexpr_live; scrip_coctx_t **pp = &g_co_gc_head; while (*pp && *pp != ctx) pp = &(*pp)->gc_next; if (*pp) { *pp = ctx->gc_next; g_scrip_coexpr_live--; } }
     if (ctx->frame_copy) { extern void rt_gc_root_range_del(const char *); rt_gc_root_range_del((const char *)ctx->frame_copy); free(ctx->frame_copy); ctx->frame_copy = NULL; }
     sem_destroy(ctx->semp);
@@ -223,9 +223,9 @@ scrip_coctx_t *scrip_co_gc_root(void) { return &g_root_ctx; }
 int scrip_co_main_known(pthread_t *out) { if (g_co_main_set && out) *out = g_co_main_thr; return g_co_main_set; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int scrip_co_stack_of(scrip_coctx_t *ctx, char **lo, char **hi) {
-    if (ctx->stk_lo && ctx->stk_hi && ctx->stk_lo < ctx->stk_hi) { *lo = ctx->stk_lo; *hi = ctx->stk_hi; return 1; }   /* THE BOUNDS ARE READ BACK, NEVER RE-DERIVED -- recorded once in scrip_coswitch, right after the thread that owns them is created. */
-    if (!ctx->alive || ctx->thread == 0) return 0;   /* not yet activated, or activated but no thread exists for it yet (row coexpr-stack-of-calls-pthread-getattr-np-on-an-uncreated-thread) -- never ask pthread about a thread that may not exist. */
-    { pthread_attr_t a; void *sa = 0; size_t sz = 0;   /* remaining legitimate use: the MAIN/ROOT context, whose thread is pthread_self() and which records no stk_lo/stk_hi of its own. */
+    if (ctx->stk_lo && ctx->stk_hi && ctx->stk_lo < ctx->stk_hi) { *lo = ctx->stk_lo; *hi = ctx->stk_hi; return 1; }
+    if (!ctx->alive || ctx->thread == 0) return 0;
+    { pthread_attr_t a; void *sa = 0; size_t sz = 0;
       if (pthread_getattr_np(ctx->thread, &a) != 0) return 0;
       if (pthread_attr_getstack(&a, &sa, &sz) != 0) { pthread_attr_destroy(&a); return 0; }
       pthread_attr_destroy(&a); *lo = (char *)sa; *hi = (char *)sa + sz; return 1; }

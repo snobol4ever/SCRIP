@@ -33,23 +33,7 @@ IR_graph_t * g_emit_cfg = (IR_graph_t *)0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::unordered_set<std::string> g_port_exit_promoting_labels;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void port_exit_prepass_build(void) {   /* PORT-EXIT VALUE CONTRACT pre-pass (row port-exit-value-contract-untagged-rax-forges-dt-fail,
-     * obligation 2; Lon-granted NO-NEW-GLOBALS 2026-09-02): closes x86_port_hook's coverage from 86% (current-chain-only, via
-     * g_emit.flat_lbl_γ) to every named proc in the compilation, so a jump into ANOTHER chain's promoting γ (e.g. fbench.pas
-     * calling across procedures) is recognized too. Every condition below is copied VERBATIM from the real formula it mirrors
-     * (emit_chain's flat_lcl_proc derivation ~3627 below, xa_flat_class_zf() in xa_flat.cpp:258) -- one-formula-two-copies is a
-     * named defect class on this rung, so if either real formula moves, this one must move with it. flat_jmp_entry is taken as
-     * unconditionally 1 per the IR.h comment on that field: every proc reaching this table goes through one of
-     * emit_jmp_entry_for_proc/_for_patproc/_for_chain, all of which set it via emit_jmp_entry_arm_region. This function is pure
-     * (reads g_stage2 + graph fields only, calls only the already-exported emit_graph_has_suspend) -- no emission side effects.
-     * ⛔ NO SECOND STATIC FOR "ALREADY BUILT" (ceo 2026-09-02, RULES.md:169 clarification landed mid-session: a
-     * FUNCTION-SCOPE static is 'or equivalent' under NO-NEW-GLOBALS, same as file-scope -- guards static STORAGE
-     * DURATION, not the scope keyword). `.insert()` on an already-present key is a no-op, so re-running this
-     * populate loop on every call is merely redundant, never wrong -- unlike the granted set itself, a
-     * "have I run yet" flag was never load-bearing for correctness, only for avoiding a re-scan, and this path
-     * is opt-in-diagnostic-only (SCRIP_PORT_EXIT_AUDIT), so that cost is not worth a second grant. Same reasoning
-     * killed the SCRIP_ICN_GENFRAME getenv cache below -- ceo's own words on hq_P's parallel case: "a compile-time
-     * killswitch reads its getenv() at the point of use; the cache is worth nothing a board can measure." */
+static void port_exit_prepass_build(void) {
     extern const char * bb_ab_sym_name(const char *);
     int _gfr = (getenv("SCRIP_ICN_GENFRAME") && *getenv("SCRIP_ICN_GENFRAME") == '1') ? 1 : 0;
     for (int i = 0; i < g_stage2.proc_count; i++) {
@@ -100,17 +84,12 @@ int emit_label_lookup_offset(const char * name)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * flat_label_kind(IR_e op) { const char * n = bb_op_name(op); static char b[48]; int j = 0; if (n && n[0] == 'I' && n[1] == 'R' && n[2] == '_') n += 3; if (!n) { snprintf(b, sizeof b, "op%d", (int)op); return b; } for (; n[j] && j < 47; j++) b[j] = (n[j] >= 'A' && n[j] <= 'Z') ? (char)(n[j] - 'A' + 'a') : n[j]; b[j] = 0; return b; }
-/* BB-LABEL-PREFIX-UNIFORM: a node whose OWN alpha/beta got BALIAS-renamed to a bareword proc name (the
-   n_balias/balias_node/balias_name census at emit.cpp's per-box label loop, e.g. "Push" for a DEFINE'd
-   proc entered by label) must carry THAT same bareword as its internal-label attribution too, or its own
-   `.Lx...` internal labels (resolved via x86_uid_kind) disagree with the port label sitting right next to
-   them in the same box's output. Falls back to the plain op-derived kind when no balias applies. */
 static const char * flat_label_kind_of(IR_t * nd) {
     if (g_emit_cfg && g_emit_cfg->n_balias > 0) for (int _bi = 0; _bi < g_emit_cfg->n_balias; _bi++) if (g_emit_cfg->balias_node[_bi] == nd) return g_emit_cfg->balias_name[_bi];
     return flat_label_kind(nd->op);
 }
 extern "C" const char * bb_kind_name(int op) { return flat_label_kind((IR_e)op); }
-extern "C" int emit_patzeta_frame_reserve(const char * name, int * bytes);   /* N-2 item 2 step 1 (hq_P s277): defined in src/ir/zeta_storage.c over the EXISTING pz[] registry -- no new state. Returns 1 = callee frame size already known, 0 = NOT YET REGISTERED (forward reference). Branch on the RETURN, never on the value. */
+extern "C" int emit_patzeta_frame_reserve(const char * name, int * bytes);
 static int emit_floater_kind(const IR_t * n) { if (!n) return 0; if (n->op == IR_DEFINE && IR_LIT(n).ival == 1) return 1; if (n->op == IR_DEFINE && IR_LIT(n).ival == 2) return 2; if (n->op == IR_LIT_STRING && n->γ.node && n->γ.node->op == IR_CALL && IR_LIT(n->γ.node).sval && !strcmp(IR_LIT(n->γ.node).sval, "SNO$NRET")) return 3; return 0; }
 static int emit_floater_member(const IR_t * n) { if (!n) return 0; if (emit_floater_kind(n)) return 1; if (n->op == IR_CALL && IR_LIT(n).sval && !strcmp(IR_LIT(n).sval, "SNO$NRET")) return 1; return 0; }
 static bb_label_t * emit_floater_label(int k) { static const char * fn[4] = {0, "RETURN", "FRETURN", "NRETURN"}; if (k < 1 || k > 3) return (bb_label_t *)0; if (!g_flt_lbl[k]) g_flt_lbl[k] = emit_label_alloc("%s", fn[k]); return g_flt_lbl[k]; }
@@ -803,7 +782,6 @@ static int blob_fence_frame_on(void) { static int v = -1; if (v < 0) { const cha
 static int fence_frame_candidate(const IR_t * nd) {
     if (!nd || !g_emit_cfg || nd->op != IR_MATCH_FENCE1 || nd->n_operands < 2) return 0;
     if (IR_LIT(nd).ival == 2) return 1;
-    /* ⛔⭐ s284 hq_C, MEASURED ON fz_segv_09: INSIDE A BLOB ACTIVATION FRAME THE ζ-SPINE HAS ZERO CAPACITY, SO A U2 WATERMARK THERE IS NOT "A DIFFERENT PLANE", IT IS A GUARANTEED COLLISION.  A stored-pattern blob carves exactly blob_head_bytes() + 16*count: the head holds the WIRE-STACK banked pair at [rbp-8]/[rbp-16] plus rdx/casmark, and frame_slot_off hands the cells out from -(head+8) DOWNWARD, so every byte between rsp and rbp is already owned.  bb_match_fence1's fence_u2_frame arm writes `mov [rsp + op_off], rsp` and `[rsp + op_off + 32]` -- and op_off is planned in the spine plane, which inside a blob has no carve of its own.  On fz_segv_09 (P = FENCE((FENCE(POS(2)) *G0 | LEN(3)))) that resolved to [rsp+64] = [rbp-8], overwriting the banked γ the blob had just saved from [rbp+8]; PAT$1_γ then read it back and `jmp rcx` jumped to a STACK address (SIGILL/SIGSEGV, 0x7ffffffedf78+2).  The second write, [rsp+96], landed on the CALLER's pushed rbp.  ⭐ Note what makes this invisible: nothing is out of bounds -- both stores hit mapped, writable, plausible stack, and the fault surfaces one indirect jump later in a different function.  emit.cpp's own R-4(b) banner already names "FENCE1 watermark" as a thing the blob frame exists to own; fence_frame_candidate simply never asked whether it was IN one.  Killswitch SCRIP_BLOB_FENCE_FRAME=0 restores the (broken) spine arm for bisection. */
     if (blob_fence_frame_on() && IR_LIT(nd).ival != 0) { int blob_frame_scope(void); if (blob_frame_scope()) return 1; }
     int lo = -1, hi = -1; for (int k = 0; k < g_emit_cfg->n; k++) { if (g_emit_cfg->all[k] == nd->operands[0]) lo = k; if (g_emit_cfg->all[k] == nd->operands[1]) hi = k; }
     if (lo < 0 || hi < 0) return 0; if (lo > hi) { int t = lo; lo = hi; hi = t; }
@@ -1073,11 +1051,6 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     g_emit.sid  = 0;
     g_emit.nid  = bb_node_id(nd);
     g_emit.x86_uid = g_flat_node_id++;
-    /* COPY, never point: flat_label_kind_of() may return a pointer into flat_label_kind's own shared
-       static scratch buffer, which a later comment/diagnostic helper (e.g. ZOPN-style operand-note text,
-       itself calling bb_kind_name/flat_label_kind for an unrelated node) can overwrite while THIS node's
-       own template is still being built -- x86_uid_kind must survive that untouched, so it gets its own
-       stable, per-dispatch copy instead of aliasing scratch memory owned by an unrelated call. */
     snprintf(g_emit.x86_uid_kind_buf, sizeof g_emit.x86_uid_kind_buf, "%s", flat_label_kind_of(nd));
     g_emit.x86_uid_kind = g_emit.x86_uid_kind_buf;
     g_emit.frame_region = g_emit_cfg ? ((32 + g_emit_cfg->jcon_value_region + 15) & ~15) : 0;
@@ -1290,7 +1263,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_MOVE_LABEL:            bb_emit_x86(bb_move_label());    return 0;
     case IR_DISJUNCTION: { if (nd->n_operands > 0) { { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; } } bb_emit_x86(bb_disjunction()); return 0; }
                                                   bb_emit_x86(bb_indirect_goto()); } return 0;
-    case IR_SCAN:                 { IR_t *_en = (nd->n_operands > 0) ? nd->operands[0] : NULL; IR_t *_bv = (nd->n_operands > 1) ? nd->operands[1] : NULL; g_emit.op_sb = (IR_LIT(nd).dval == 4.0) ? 4 : ((nd->n_operands > 2 && !_bv) ? 2 : (IR_LIT(nd).dval == 3.0 ? 3 : 0)); /* sb=2: a suspend-crossing leave (slice 3, operands {enter, NULL, β-target}) — its β must refresh the enter slot's banked outer-δ from the mirror before re-entering, because the outer scan MOVED between yield and resume (the enter-slot banking assumes single-threaded nesting, which suspension breaks). sb=4 (icon-scan-env-value-residue 5a-residue): this leave's VALUE feeds a chained outer scan entered at the SAME depth (not concurrently nested), so the outer's own leave-around-calls reuse and clobber this leave's bank[depth] slot before this scan is ever resumed for its next value — its β re-enters via its OWN known subject (op_sc) instead of trusting the shared bank; the ordinary value-copy (op_sa/op_ival) and outer-restore still run exactly as sb=0's. */ g_emit.op_off = nd_slot(_en); g_emit.op_sa = (g_emit.op_sb == 2 && _en && _en->n_operands > 0) ? nd_slot(_en->operands[0]) : (_bv ? nd_slot(_bv) : -1); g_emit.op_sc = (g_emit.op_sb == 4 && _en && _en->n_operands > 0) ? nd_slot(_en->operands[0]) : -1; g_emit.op_ival = zls_off(nd); g_emit.lbl_t0 = g_scan_body_beta ? g_scan_body_beta->name : NULL; g_emit.lbl_t0_p = g_scan_body_beta; bb_emit_x86(bb_gen_scan()); } return 0;
+    case IR_SCAN:                 { IR_t *_en = (nd->n_operands > 0) ? nd->operands[0] : NULL; IR_t *_bv = (nd->n_operands > 1) ? nd->operands[1] : NULL; g_emit.op_sb = (IR_LIT(nd).dval == 4.0) ? 4 : ((nd->n_operands > 2 && !_bv) ? 2 : (IR_LIT(nd).dval == 3.0 ? 3 : 0));   g_emit.op_off = nd_slot(_en); g_emit.op_sa = (g_emit.op_sb == 2 && _en && _en->n_operands > 0) ? nd_slot(_en->operands[0]) : (_bv ? nd_slot(_bv) : -1); g_emit.op_sc = (g_emit.op_sb == 4 && _en && _en->n_operands > 0) ? nd_slot(_en->operands[0]) : -1; g_emit.op_ival = zls_off(nd); g_emit.lbl_t0 = g_scan_body_beta ? g_scan_body_beta->name : NULL; g_emit.lbl_t0_p = g_scan_body_beta; bb_emit_x86(bb_gen_scan()); } return 0;
     case IR_SCAN_TAB:             bb_emit_x86(bb_scan_tab());    return 0;
     case IR_SCAN_MOVE:            bb_emit_x86(bb_scan_move());   return 0;
     case IR_SCAN_UPTO:            bb_emit_x86(bb_scan_upto());   return 0;
@@ -1435,10 +1408,6 @@ static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, 
     if (nd->op == IR_MATCH_ARBNO) { IR_t *_t = (nd->n_operands > 2) ? nd->operands[2] : (IR_t *)0; { IR_t *_s0 = (nd->n_operands > 1) ? nd->operands[1] : (IR_t *)0; int _i0 = -1, _i1 = -1; for (int k = 0; k < n; k++) { if (_s0 && nodes[k] == _s0) _i0 = k; if (_t && nodes[k] == _t) _i1 = k; } if (_i0 > _i1) { int _sw = _i0; _i0 = _i1; _i1 = _sw; } if (_i0 >= 0) for (int k = _i1; k >= _i0; k--) if (nodes[k] && nodes[k] != nd && nodes[k]->γ.node == nd) { _t = nodes[k]; break; } }    bb_label_t *_tb = node_ω; for (int k = 0; k < n; k++) if (_t && nodes[k] == _t) { _tb = betas[k]; break; } int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = NULL; g_emit.xa_bb_emit_pair_jmp[_i] = _tb; }
     if (nd->op == IR_MATCH_ALTERNATE && fc_sig && fc_sig[i])
         for (int j = 0; j < N; j++) { int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = fc_sig[i][j]; g_emit.xa_bb_emit_pair_jmp[_i] = NULL; }
-    /* na_fo's define is ALWAYS THE LAST slot appended, after every conditional block above, so it never
-       shifts an index a template already hardcodes (ARBNO's own PAIR(4), ALTERNATE's PAIR(2N+2+j) fc_sig
-       loop). Back-to-back with na_f's own define -- zero bytes between, the shared-address mechanism
-       hq_P's ruling verified safe (task QA hq_P·2026-08-29c; FINDING-2026-08-29-seat16-na-f-dual-port...). */
     { int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = na_fo[i]; g_emit.xa_bb_emit_pair_jmp[_i] = NULL; }
     g_emit.op_off = drive_value_slot(nd); g_emit.op_ival = (int64_t)N;
     if (nd->op == IR_SCAN_SEQUENCE) { for (int j = 0; j < N && j < 32; j++) g_emit.op_parts_ival[j] = zls_off(nd->operands[2 * j + 1]); g_emit.op_parts_n = N; }
@@ -1490,9 +1459,6 @@ static int bb_ab_slot_for(const char * fname) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void * bb_ab_cell_addr(const char * fname) { return MEDIUM_BINARY ? (void *)&g_ab_fn_cells[bb_ab_slot_for(fname)] : (void *)0; }
 void * bb_ab_fn_cell_ptr(const char * fname) { return (void *)&g_ab_fn_cells[bb_ab_slot_for(fname)]; }
-/*⭐ SLOT-KEYED TWIN OF bb_ab_fn_cell_ptr (hq_P s266).  The cell ARRAY is a file-static of fixed extent, so a slot index names the same cell for the life of the process
-  and the caller can resolve the NAME once instead of on every call.  rt_call_proc_descr used to rebuild "alpha$<fn>", FNV-hash it and linear-probe this table on EVERY
-  SNOBOL4 function call -- 402 Ir/call, 5.1% of the json deserializer.  Nothing here changes what a lookup ANSWERS; it only lets the answer be remembered. */
 int    bb_ab_slot_index(const char * fname) { return bb_ab_slot_for(fname); }
 void * bb_ab_cell_at(int slot) { return (slot >= 0 && slot < AB_FNCELL_MAX) ? (void *)&g_ab_fn_cells[slot] : (void *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1599,7 +1565,6 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         g_emit.op_frame_extra = emit_match_begin_frame_extra(nd);
         DRIVE_PAIR_RESET();
         if (g_emit.lbl_t0_p) { for (int _q = 0; _q < 3; _q++) { int _z = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_z] = NULL; g_emit.xa_bb_emit_pair_jmp[_z] = NULL; } int _z = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_z] = g_emit.lbl_t0_p; g_emit.xa_bb_emit_pair_jmp[_z] = NULL; g_emit.lbl_t0_p = NULL; g_emit.lbl_t0 = NULL;
-          /* na_fo's define, back-to-back with na_f's own (PAIR(3) above) -- zero bytes between, same shared-address mechanism hq_P's ruling verified safe (task QA hq_P·2026-08-29c; feasibility FINDING-2026-08-29-seat16-na-f-dual-port...). */
           int _zo = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_zo] = g_emit.lbl_t0o_p; g_emit.xa_bb_emit_pair_jmp[_zo] = NULL; g_emit.lbl_t0o_p = NULL; }
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -1708,15 +1673,13 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         g_emit.op_off = -1;
         if (!a0) { g_emit.op_sb = (int)IR_LIT(nd).ival; g_emit.op_sa = -1; }
         else if (a0->op == IR_LIT_INTEGER) { g_emit.op_sb = (int)IR_LIT(a0).ival; g_emit.op_sa = -1; }
-        else { int sl = bb_slot_get(a0); if (sl < 0) { extern int zls_off(const IR_t *); int _zsa = zls_off(a0); if (_zsa >= 0) { sl = _zsa; g_emit.op_zres = 1; } } if (sl < 0) { drive_unowned(nd); break; } g_emit.op_sa = sl; g_emit.op_sb = 0; }  /* ZLS FALLBACK, mirroring IR_MATCH_LEN: a deferred-EXPRESSION arg (POS(*(2*N))) lowers to a SNO$MKEXPR call owning no bb slot but a real ZLS offset. Every one of these templates ALREADY carries a live op_zres arm; only this caller never fed it, so the shape aborted at drive_unowned instead of emitting the arm built for it. */
+        else { int sl = bb_slot_get(a0); if (sl < 0) { extern int zls_off(const IR_t *); int _zsa = zls_off(a0); if (_zsa >= 0) { sl = _zsa; g_emit.op_zres = 1; } } if (sl < 0) { drive_unowned(nd); break; } g_emit.op_sa = sl; g_emit.op_sb = 0; }
         { const char * _sv = (nd->n_operands == 0 && (uintptr_t)(uint64_t)IR_LIT(nd).ival > (uintptr_t)0xFFFFU) ? IR_LIT(nd).sval : (const char *)0; g_emit.op_sval = (_sv && _sv[0] == '*') ? _sv : NULL; }
         g_emit.x86_scratch_off = drive_value_slot(nd);
         g_emit.op_leaf_frame_off = leaf_frame_slot(nd);
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_LAMBDA: {
-        /* Epsilon box with no operands: the expression it reports on is a spliced subgraph reached on the wired
-           edge into alpha, not an operand of this node, so there is nothing to fill and no slot to resolve. */
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_MATCH_POS: case IR_MATCH_RPOS: {
@@ -1724,7 +1687,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         g_emit.op_off = -1;
         if (!a0) { g_emit.op_sb = (int)IR_LIT(nd).ival; g_emit.op_sa = -1; }
         else if (a0->op == IR_LIT_INTEGER) { g_emit.op_sb = (int)IR_LIT(a0).ival; g_emit.op_sa = -1; { extern int fc_frameless_fpr_rsp(const IR_t *); if (g_zd_arm && fc_frameless_fpr_rsp(a0)) g_emit.op_wpop += 16; } }
-        else { int sl = bb_slot_get(a0); if (sl < 0) { extern int zls_off(const IR_t *); int _zsa = zls_off(a0); if (_zsa >= 0) { sl = _zsa; g_emit.op_zres = 1; } } if (sl < 0) { drive_unowned(nd); break; } g_emit.op_sa = sl; g_emit.op_sb = 0; }  /* ZLS FALLBACK, mirroring IR_MATCH_LEN: a deferred-EXPRESSION arg (POS(*(2*N))) lowers to a SNO$MKEXPR call owning no bb slot but a real ZLS offset. Every one of these templates ALREADY carries a live op_zres arm; only this caller never fed it, so the shape aborted at drive_unowned instead of emitting the arm built for it. */
+        else { int sl = bb_slot_get(a0); if (sl < 0) { extern int zls_off(const IR_t *); int _zsa = zls_off(a0); if (_zsa >= 0) { sl = _zsa; g_emit.op_zres = 1; } } if (sl < 0) { drive_unowned(nd); break; } g_emit.op_sa = sl; g_emit.op_sb = 0; }
         { const char * _sv = (nd->n_operands == 0 && (uintptr_t)(uint64_t)IR_LIT(nd).ival > (uintptr_t)0xFFFFU) ? IR_LIT(nd).sval : (const char *)0; g_emit.op_sval = (_sv && _sv[0] == '*') ? _sv : NULL; }
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -2332,11 +2295,11 @@ extern "C" int sn4_choice_rbp(void);
 int sn4_alt_carrier(void);
 void sn4_blob_choice_scan(int * n_choice, int * leaf_ok, int * has_fence);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int sn4_choice_rbp_single_fence(void) {   /* seat04 2026-08-23, closes json-alternate-af-spin: an nc==1 blob with a FENCE elsewhere (jarray/jobject's own trailing FENCE0, or ws's FENCE1 sibling arm) was refused RBP-residency by the LEGACY blob_choice_rbp_scan's `_fn` conjunct below -- the exact mechanism the FINDING gdb-nailed (n241_match_alternate stayed [rsp+N], reading/writing through whatever drift jvalue's own 7-arm alternation left on the stack after a deferred *jelement committed inside ARBNO). choice_frame_candidate's per-node mechanism above never asks about _fn at all -- it only refuses on _nc<2 -- so routing this gap through THAT mechanism instead of relaxing the legacy shared slot sidesteps sn4_alt_fence_relax's own measured wrong-answer regression: that regression was in composing an ARBNO interior back-out edge with the legacy record, which is anchored at the blob's frame TOP with no index of its own; the per-node record gives the alternation its OWN indexed [rbp+off] slot, the identical shape ARBNO-FRAME/capture slots already use safely under ARBNO re-entry, and the identical shape hq_C's own nc>=2 ladder already exercised colliding with ARBNO bodies (dtp_rcp_tree manufactures nc=2 from ARBNO+ALT precisely). ⭐ MEASURED SAFE, DEFAULT ON (seat04, same session): OFF is byte-identical to pre-change (direct .s diff + full corpus 364/364-minus-demo_treebank both modes); ON verified against oracle on 13 hand-built witnesses (simple/nested/mixed/backtrack-forcing incl [1,2,] [,1,2] [1,,2]), the real citm_catalog.json both modes (structurally identical to the OFF baseline), broad corpus (zero regressions, same sole unrelated demo_treebank fail both arms), smoke 7/7, M1 self-host fixed point both modes, and json-match/json-match-fence/bench-json byte-identical OFF vs ON matching .ref. `=0` restores the flat fallback for bisection. */
+int sn4_choice_rbp_single_fence(void) {
     static int _sf = -1; if (_sf < 0) { const char * e = getenv("SCRIP_CHOICE_RBP_SFENCE"); _sf = (e && *e == '0') ? 0 : 1; } return _sf;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int choice_frame_candidate(const IR_t * nd) {   /* ⭐ s266 MULTI-CHOICE RECORDS: a pattern BLOB with >=2 choice nodes could not use the shared [rbp+cro] record (one slot, N writers clobber), so blob_choice_rbp_scan refused it and every MATCH_ALTERNATE fell back to the FLAT [rsp+N] record -- which seat04 proved is read through WHATEVER drift the arm's interior (a retained ARBNO record, a defer frame) left on the stack: the json-alternate-af-spin, and the x1.sno silent wrong answer.  The cure is the planner that already exists: each unsealed MATCH_ALTERNATE in a >=2-choice blob becomes a 2-cell frame-slot candidate and its record lives at ITS OWN [rbp+off], drift-immune like ARBNO-FRAME/capture slots.  ⛔ nc==1 blobs are deliberately NOT candidates -- they keep the legacy shared-cro path byte-identical (that path is proven; this one is new), and the seat04 FENCE-relax probe (sn4_alt_fence_relax, measured-broken) is untouched: it concerned the SHARED record, not these.  Killswitch SCRIP_CHOICE_RBP_MULTI=0 restores the (broken) flat fallback for bisection.  ⭐ WIDENED (seat04, same date): nc==1 blobs that ALSO carry a FENCE are now candidates too, but ONLY behind sn4_choice_rbp_single_fence() (default OFF) -- see that function's own comment; this is a SEPARATE, ADDITIVE admission, not a relaxation of the nc<2 refusal above, and nc==1-without-fence blobs are completely unaffected (still fall through to the untouched legacy path). */
+static int choice_frame_candidate(const IR_t * nd) {
     if (!nd || nd->seal) return 0;
     { static int _cm = -1; if (_cm < 0) { const char * e = getenv("SCRIP_CHOICE_RBP_MULTI"); _cm = (e && *e == '0') ? 0 : 1; } if (!_cm) return 0; }
     if (!sn4_choice_rbp() || !sn4_alt_carrier() || !blob_frame_scope()) return 0;
@@ -2444,7 +2407,7 @@ extern "C" int sn4_choice_rbp(void) {
     static int _cr = -1; if (_cr < 0) { const char * e = getenv("SCRIP_CHOICE_RBP"); extern int sn4_pt_frame(void); _cr = e ? (*e == '1') : sn4_pt_frame(); } return _cr;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int sn4_alt_fence_relax(void) {   /* ⛔⛔ seat04 2026-08-22 MEASURED-BROKEN PROBE, DO NOT PROMOTE WITHOUT A NEW FIX: `!_fn` below was believed empirical-not-semantic (HQ, citing resume_carrier_ok tier 3 s189: `lf=0 fn=1` on BOTH ptw_min_fence_left_altresume/ptw_min_fence_alttop CURES, so FENCE presence does not discriminate THERE) and recursion-unsafety was independently measured NOT to block a fixed RBP slot for jarray/jobject (nested-array gdb witness: distinct rbp per PAT$N stored-pattern invocation, `jbig_nested.sno` `[[9]]`, 0x...dd68 outer vs 0x...da18 inner -- each gets its own push-rbp activation frame, confirmed s`2659558e`). Armed (`SCRIP_CHOICE_RBP_FENCE=1`), the json.sno `[1,2]` hang IS CURED (rc 124 -> rc 0) but the ANSWER IS WRONG (`NOMATCH`, oracle says `MATCH`) -- a silent-wrong-answer regression, worse than the hang it fixes. Ruled out: frame-slot collision (`n199`/`n241`'s identical `[rbp-184/-176/-168]` offsets are in DIFFERENT `PAT$N` blocks -- PAT$8 vs PAT$9 -- hence different physical frames, not a real collision, checked by grep across the whole `--compile` output). gdb showed the cursor (r14d) go BACKWARD (2 -> 1, not forward to 4) on what should be ARBNO's greedy extension attempt after `]` first fails at cursor 2 -- consistent with ARBNO's OWN "interior choice point af back-out edge" (`op_arbno_body_actframe`, recovered s125-127 comments, `git show e25a5daf^:src/emitter/emit.cpp`) jumping into `n241`'s ports on an assumption never verified against an RBP-resident (rather than FLAT) sibling record -- i.e. this is very likely a FRESH INSTANCE of s126's own already-named unsolved class, quoted verbatim in that recovered comment: "one-deep records compose by contiguity, two-deep do not yet." Full trace, both ruled-out hypotheses, and this hypothesis: `FINDING-2026-08-22-seat04-json-alternate-af-spin-root-cause-flat-choice-record-rsp-drift.md` §12. Default 0 (OFF), byte-identical to pre-existing behavior; DO NOT flip default-on until the ARBNO-interior/RBP-resident-record composition is actually designed and verified, not just guessed past. */
+int sn4_alt_fence_relax(void) {
     static int _fr = -1; if (_fr < 0) { const char * e = getenv("SCRIP_CHOICE_RBP_FENCE"); _fr = (e && *e == '1') ? 1 : 0; } return _fr;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2475,13 +2438,13 @@ extern "C" int sn4_choice_rbp_off(void) {
     return blob_choice_rbp_scan() ? -(int)blob_frame_bytes() : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int choice_frame_slot(const IR_t * alt_nd) {   /* the per-node record home for a multi-choice blob's MATCH_ALTERNATE (see choice_frame_candidate); 0 = no slot, caller falls back */
+static int choice_frame_slot(const IR_t * alt_nd) {
     if (!alt_nd || !choice_frame_candidate(alt_nd)) return 0;
     int idx = -1, rc = frame_slot_scan(alt_nd, &idx, NULL); if (rc != 2 || idx < 0) return 0;
-    return frame_slot_off(rc, idx + 1);   /* the node owns cells idx and idx+1; idx+1 is the LOWER address, so the record's cro+0..+23 stays inside its own 32 bytes */
+    return frame_slot_off(rc, idx + 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" int sn4_choice_rbp_off_nd(void) {   /* what bb_match_alternate actually asks: THIS node's record home -- its own slot in a multi-choice blob, else the legacy shared slot, else 0 (flat) */
+extern "C" int sn4_choice_rbp_off_nd(void) {
     if (g_emit.node && g_emit.node->op == IR_MATCH_ALTERNATE) { int off = choice_frame_slot(g_emit.node); if (off) return off; }
     return sn4_choice_rbp_off();
 }
@@ -2536,7 +2499,7 @@ int emit_match_begin_frame_extra(const IR_t * match_begin_nd) {
 static int zd_k(IR_t * nd) { int op = (int)nd->op; if (op == IR_MATCH_ARBNO) return emit_arbno_rbp() ? 32 : 16;    if (op == IR_TO) return 32;    if (op == IR_DISJUNCTION && nd->n_operands > 0) return 32;    return (op == IR_ASSIGN || op == IR_GOTO || op == IR_GOTO_DEFERRED || op == IR_DEFINE ||    op == IR_MATCH_BEGIN || op == IR_MATCH_END || op == IR_MATCH_REPLACE || op == IR_STATEMENT || op == IR_STATEMENT_BEGIN || op == IR_STATEMENT_END || op == IR_MATCH_LIT || op == IR_MATCH_LEN || op == IR_MATCH_ANY || op == IR_MATCH_NOTANY || op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_ASSIGN_COND || op == IR_MATCH_ASSIGN_IMM || op == IR_MATCH_VALUE || op == IR_MATCH_ALTERNATE || (op == IR_MATCH_FENCE1 || op == IR_MATCH_FENCE0) || op == IR_BOUND || op == IR_UNMARK || op == IR_CONJUNCTION || op == IR_CUT || op == IR_MOVE_LABEL || op == IR_GLIT || op == IR_GCC || op == IR_GALT || op == IR_RETURN || (op == IR_DISJUNCTION && nd->n_operands == 0) || (op == IR_MATCH_DEFER && nd->pat_static && IR_LIT(nd).sval && !strncmp(IR_LIT(nd).sval, "PATV$", 5))) ? 0 : 16; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zd_map_on(void) { static int _m = -1; if (_m < 0) { const char * e = getenv("SCRIP_ZD_MAP"); _m = (e && *e == '1') ? 1 : 0; } return _m; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zd_omega_test_kind(IR_e op) { static int _tf = -1; if (_tf < 0) { const char * e = getenv("SCRIP_ZD_TESTFAM"); _tf = (e && *e == '0') ? 0 : 1; } return (op == IR_CMP_TEST || (_tf && op == IR_BINOP_TEST)) ? 1 : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zd_omega_head(IR_t **nodes, int n, IR_t *t) { for (int k = 0; k < n; k++) if (zd_omega_test_kind(nodes[k]->op) && zd_chase(nodes[k]->ω.node) == t) return 1; return 0; }
@@ -2662,16 +2625,6 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                  if (_cd && rl > 0 && badi >= 0) { IR_t * _bn = nodes[badi]; int _bop = (int)_bn->op; int _is_call = (_bop == (int)IR_CALL || (_bop != (int)IR_CALL_VALUE && ir_is_call_kind((IR_e)_bop))); const char * _callee = (_is_call && IR_LIT(_bn).sval) ? IR_LIT(_bn).sval : (const char *)0; fprintf(stderr, "[CALL-DIAG] REFUSE blocker op=%s(%d) callee=%s rl=%d badi=%d narg=%d\n", bb_op_name(_bn->op), _bop, _callee ? _callee : "-", rl, badi, _is_call ? (int)_bn->n_operands : -1); } } }
     }
     }
-    /* ⭐ NORMALIZE ARRIVALS (row calling-convention-depth-tracked, hq_P 2026-09-01; design (c), hq_C+hq_P): this final pass re-derives an armed node's exit-edge pops AFTER both planning
-       passes, so the edge lands at its target's PLANNED entry depth. Until now it ran only for the zvd_ok test node that seeded an omega-head run; every OTHER edge into that run kept
-       the pass-0 pop computed while the target was still unarmed (pop-to-base-0). MEASURED on sieve.pas: i=38 omega -> i=69 arrived at depth 0, the run planned 352, the back-edge
-       popped 384 for both arrivals, rsp rose +352 per outer iteration until SEGV ([ZD-DEPTH] WALL i=69, preds 34-38). SCRIP_ZD_NORMALIZE=0 is the killswitch (old zvd_ok-only scope);
-       zd_depth_census below is the instrument -- cross-run walls must read 0 after this pass. */
-    /* ⛔ READ AT THE POINT OF USE, NOT CACHED IN A STATIC (ceo ruling 2026-09-01 on RULES.md:169, hq_P's own ask as the receipt): a function-scope mutable static is state with static
-       storage duration -- the clause's "or equivalent" -- so it needs a NO-NEW-GLOBALS grant exactly as a file-scope cell does, and the enforcement grep naming only file-scope is a HOLE,
-       not an exemption. These two were caches for the killswitches below; the cache bought nothing measurable (zd_plan runs per graph at COMPILE time and getenv walks a few dozen entries)
-       and the FAIL-direction proof of both flags is unchanged. ⚠️ The five siblings on the declaration line above (_zd _dg _zoh _zbe _zvd) are ungranted in the same way -- row
-       census-function-scope-mutable-statics-under-src (hq_P mint, ceo instruction) sweeps them; do NOT add a sixth here. */
     const char * _zne = getenv("SCRIP_ZD_NORMALIZE"); const int _zn = !(_zne && *_zne == '0');
     const char * _znie = getenv("SCRIP_ZD_NORMALIZE_INRUN"); const int _zni = !(_znie && *_znie == '0');
     if (_zvd) { for (int i = 0; i < n; i++) { if (!zon[i] || !(zvd_ok[i] || _zn)) continue; int K = zd_k(nodes[i]); int gback = -1, oback = -1;
@@ -2679,14 +2632,8 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
         if (_zbe && zot[i]) { for (int tk = 0; tk < n; tk++) if (nodes[tk] == zot[i] && zon[tk]) { oback = tk; break; } }
         int _gbpre = (gback >= 0) ? (zout[gback] - zd_k(nodes[gback])) : 0;
         int _obpre = (oback >= 0) ? (zout[oback] - zd_k(nodes[oback])) : 0;
-        /* normalize to the target's entry depth ONLY when that depth is > 0 (a mid-run or omega-head target). At a base-level head (_gbpre == 0) the pass-time formula stands, zmatch case
-           included: a STATEMENT_END after a pattern match pops zdh_match+stfh_k, the match frame releases the rest. MEASURED on roman.sno: letting gback win there popped 48 and 64
-           where zmatch said 16 and 32 (the two STATEMENT_END gammas into the next statement) -- core dump in both media. That was the whole regression of the first cut of this pass. */
         if (!zgin[i]) zgpop[i] = (gback >= 0 && _gbpre > 0) ? (zout[i] - _gbpre) : (((zmatch[i] >= 0 && (nodes[i]->op == IR_STATEMENT_END || nodes[i]->op == IR_STATEMENT)) ? zmatch[i] + emit_match_begin_stfh_k() : zout[i]));
         if (!zoin[i]) zwpop[i] = (oback >= 0) ? ((zout[i] - K) - _obpre) : (zout[i] - K);
-        /* in-run FORWARD omega skip landing on alpha (the conditional-skip shape; bubble.pas i=89 omega -> i=110, same run, rpos 18 -> 39): the skip arm arrived at its own exit depth
-           (256) while the target's planned entry was 544, and the run's fixed back-edge pop (512) then over-popped by 288 = seat09's measured +0x120. Backward edges (backtracking)
-           and beta resumes are deliberately NOT touched -- their protocols expect what they get today. SCRIP_ZD_NORMALIZE_INRUN=0 is this arm's killswitch. */
         else if (_zni && oback >= 0 && claim[oback] == claim[i] && rpos[oback] > rpos[i] && !port_sz_beta(nodes[i]->ω.sz)) zwpop[i] = (zout[i] - K) - _obpre;
         if (_dg) fprintf(stderr, "[ZD-FINAL] i=%d %s K=%d zout=%d gpop=%d wpop=%d gback=%d oback=%d\n", i, bb_op_name(nodes[i]->op), K, zout[i], zgpop[i], zwpop[i], gback, oback); } }
     { if (zd_map_on()) { fprintf(stderr, "[ZD-MAP] PLAN -- same i= indices as GRAPH above\n");
@@ -2769,9 +2716,6 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     if (strncmp(prefix, "proc_LBL__", 10) == 0) emit_label_initf(&lbl_α, "%s", prefix + 5);
     else if (strncmp(prefix, "proc_", 5) == 0 && !bare) {
         emit_label_initf(&lbl_α, "FN__%s", prefix + 5);
-        /* the FN__ rename above drops the plain "%s_α" identity that bb_ab_seal_entry_cells (mode-3, via the global g_label_pool)
-           and the linked text-mode call/tiny-shim sites both still address by that exact name -- keep it alive as an alias,
-           heap-registered (not a stack bb_label_t) so emit_label_lookup_offset's g_label_pool scan can find it. */
         lbl_α_orig_p = emit_label_alloc("%s_α", prefix + 5);
     }
     int fn_face_dead = bare && strncmp(prefix, "proc_", 5) == 0 && strncmp(prefix, "proc_LBL__", 10) != 0;
@@ -2949,7 +2893,6 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         int np = g_emit_cfg ? g_emit_cfg->nparams : 0;
         int nl = g_emit_cfg ? g_emit_cfg->nlocals : 0;
         int frame_total = kt2 + (np + nl) * 16;
-        /* N-2 STEP 3 SUPERSESSION (ceo s283, reconciling SCRIP 06d4852f), LANDED (seat06 2026-08-29, row icon-n2-flat-gen-host-transitive-reserve): seat01's flat_gen-arm reserve extension (s282-(b) as written) was REMOVED here, not merged -- under the region-resident alpha below there is NO stack carve for a reserve to extend, and the rebase's silent mash (frame_total += host_reserve feeding the HEADER offsets below) would have displaced H by the reserve size, the exact one-formula-two-copies drift this rung logs. A flat_gen host's callee regions nest inside ITS OWN region slice instead (its stack storage dies when its caller runs -- the s271 disproof), which is what makes reserve TRANSITIVE: icn_gen_host_reserve()/icn_gen_host_reserve_offset() are now recursive (see x86_asm.h), icn_gen_host_reserved()'s flat_gen arm answers 1, and bcps_spine_gen_arm's call-site refusal now only fires for a genuine forward-reference or cycle, never for "this host is flat_gen" categorically. This arm itself still carves NOTHING on the stack -- the fix lives entirely in the CALLER's reservation (bigger region handed in) and the CALL SITE's region-handoff addressing (RBP-relative here, not RSP-relative), never in this prologue. */
         extern void rt_lcl_proc_args_install(void *, int, int);
         extern void rt_icn_zframe_args_install(void *, int, int);
         int _use_zframe_install = (g_emit_cfg && g_emit_cfg->icn_cells_graph) ? 1 : 0;
@@ -2966,18 +2909,17 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                   + x86("mov", "rdi", "rax") + x86("mov32", "esi", (long)np) + x86("mov32", "edx", (long)nl)
                   + x86("call", _use_zframe_install ? "rt_icn_zframe_args_install" : "rt_lcl_proc_args_install",
                         (uint64_t)(uintptr_t)(void *)(_use_zframe_install ? rt_icn_zframe_args_install : rt_lcl_proc_args_install)));
-        if (getenv("SCRIP_N2_OFFSET_SELFTEST")) icn_gen_host_reserve_selftest(prefix);   /* N-2 transitive reserve (seat06 2026-08-29): the flat_lcl_proc arm below has always self-tested its own scan this way -- this arm gets the same direct coverage now that it has a real scan to test, not just indirect coverage via a caller's own recursion into this graph. Inert: getenv-gated, stderr only. */
+        if (getenv("SCRIP_N2_OFFSET_SELFTEST")) icn_gen_host_reserve_selftest(prefix);
     } else if (g_emit.flat_lcl_proc) {
         int kt2 = g_emit.flat_frame_bytes;
         int np = g_emit_cfg ? g_emit_cfg->nparams : 0;
         int nl = g_emit_cfg ? g_emit_cfg->nlocals : 0;
         int frame_total = kt2 + (np + nl) * 16;
-        /* ⭐⭐ N-2 ITEM 2 STEP 2b (hq_P s278): EXTEND THE HOST'S OWN CARVE BY ITS GENERATOR CALLEES' FRAMES. See icn_gen_host_reserve() for why this is the whole of the host promotion and why it is Icon-local rather than the shared-node glue change the brief predicted. ⛔ THE ONLY THING THAT MAY MOVE IS THE CARVE: the reserved region is [host_frame_base, host_frame_base + host_reserve) at the TOP of the frame, so every existing [rsp + off] stays spelled as it was. ⛔ frame_total is read again below by the LCL-SEED bound (_rg <= frame_total - 32) and by the header wires at frame_total-24/-16, so the reservation is deliberately added AFTER kt2/np/nl and BEFORE any of those readers -- growing the frame upward keeps the header at the frame's top, which is where its consumer expects it. ⭐ host_frame_base is recorded, not just the size: step 3 needs the OFFSET to hand the generator, and a size alone would make it re-derive one. */
         int host_frame_base = frame_total;
         int host_reserve = icn_gen_host_reserve(prefix);
         if (host_reserve > 0) frame_total += host_reserve;
         (void)host_frame_base;
-        if (getenv("SCRIP_N2_OFFSET_SELFTEST")) icn_gen_host_reserve_selftest(prefix);   /* N-2 item 3 prep (seat01, 2026-08-28): inert unless armed */
+        if (getenv("SCRIP_N2_OFFSET_SELFTEST")) icn_gen_host_reserve_selftest(prefix);
         extern void rt_lcl_proc_args_install(void *, int, int);
         extern void rt_icn_zframe_args_install(void *, int, int);
         int _use_zframe_install = (g_emit_cfg && g_emit_cfg->icn_cells_graph) ? 1 : 0;
@@ -2989,7 +2931,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
           if (_lo >= 0 && _rg > _lo && _rg <= frame_total - 32)
               _lseed = x86("comment", "LCL-SEED: NULVCL the named-local vslot suffix [___+lo, ___+rg) so lexical locals read unbound, not stack residue")
                      + x86("mov", "rdi", "rsp") + x86("add", "rdi", (long)_lo) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)(_rg - _lo)) + x86("rep_stosb"); }
-        static int _iws = -1; if (_iws < 0) { const char * _e = getenv("SCRIP_ICN_WIRE_STACK"); _iws = (_e && *_e == (char)48) ? 0 : 1; }   /* N-1(b/c): ON deletes the [kt-24]/[kt-16] rcx/rdx wire header -- the caller now pushes {gamma,omega} instead; =0 restores the header byte-exactly */
+        static int _iws = -1; if (_iws < 0) { const char * _e = getenv("SCRIP_ICN_WIRE_STACK"); _iws = (_e && *_e == (char)48) ? 0 : 1; }
         if (g_is_text) {
             char _lp[512]; int _lz = 0;
             _lz += _iws ? snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "sub rsp, %d\n", frame_total)
@@ -3003,7 +2945,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             if (!_iws) {
             { int _d = frame_total - 24; ef_b2(0x48, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x4C, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0x8C, 0x24); bb_emit_u32((uint32_t)_d); } }
             { int _d = frame_total - 16; ef_b2(0x48, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x54, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0x94, 0x24); bb_emit_u32((uint32_t)_d); } }
-            { static int _hd = -1; if (_hd < 0) { const char * _e = getenv("SCRIP_ICN_HDR_DEAD"); _hd = (_e && *_e == '1') ? 1 : 0; } if (_hd) { int _d = frame_total - 8; ef_b2(0x48, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x6C, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0xAC, 0x24); bb_emit_u32((uint32_t)_d); } } }   /* ⭐ N-1(a) s247: the [frame_total-8] "caller ____" slot is WRITE-ONLY — three sites fill it with two different registers (this one rbp, xa_flat:195/:247 rsp) and NOTHING READS IT: both zframe epilogues carry an empty string where the restore used to be, and neither arg installer touches the header (they write only [base+16*(i+1)]).  The store was BINARY-ONLY: the TEXT arm's snprintf passed frame_total-8 as a FOURTH vararg to a format with THREE conversions, so it was silently dropped — an m3 ≢ m4 divergence in the Icon prologue, inert only because the slot is dead.  Removed rather than added to TEXT: the media agree by losing an instruction, not by gaining a dead one.  SCRIP_ICN_HDR_DEAD=1 restores the store byte-exactly for A/B.  N-1(b/c): the whole header (this slot included) is gone under the default SCRIP_ICN_WIRE_STACK=1 arm; SCRIP_ICN_WIRE_STACK=0 restores it byte-exactly, this slot included. */
+            { static int _hd = -1; if (_hd < 0) { const char * _e = getenv("SCRIP_ICN_HDR_DEAD"); _hd = (_e && *_e == '1') ? 1 : 0; } if (_hd) { int _d = frame_total - 8; ef_b2(0x48, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x6C, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0xAC, 0x24); bb_emit_u32((uint32_t)_d); } } }
             }
             if (!_lseed.empty()) bb_emit_x86(_lseed);
             ef_b3(0x48, 0x89, 0xE7);
@@ -3013,15 +2955,6 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         }
     }
     if (!bare) emit_label_define_bb(&lbl_α_body);
-    /* name_α is the entry CLASS-C's sig-blob callers (bcps_fnsig()/rt_tiny_record_enter) jump to directly, skipping
-       whatever args-install preamble ran above -- correct ONLY for a callee that actually GETS the sig-jmp epilogue,
-       which is xa_flat_class_c_pred() && !g_rt_fragment_emit (the exact condition guarding xa_flat_chain_epilogue_sig
-       below -- EVAL's runtime-JIT'd fragments are CLASS-C-eligible by the same frame heuristic but keep the plain
-       call/ret epilogue, so aliasing them here made rt_call_proc_descr jmp into a body whose RET expects a real return
-       address, not a sig-blob rcx -- SNOBOL4 corpus regression, treebank's EVAL-invoked init_list/push_list, mode-3
-       only).  A lcl_proc/zframe/pat/gen callee's preamble is the args-install code just emitted; jumping past it into
-       a stale frame is the SAME failure mode from the non-CLASS-C side.  Mirrors mode-4's WEAK f_α: unresolved -> NULL
-       -> rt_proc_seal_alpha no-ops -- same selectivity, C-level equivalent here since mode-3 has no linker. */
     if (lbl_α_orig_p && xa_flat_class_c_pred() && !g_rt_fragment_emit) emit_label_define_bb(lbl_α_orig_p);
     { extern std::string bb_zdp_origin(long); extern int x86_zdp_on_c(void); if (x86_zdp_on_c()) bb_emit_x86(bb_zdp_origin((long)0)); }   { if (x86_zdp_rbp_on()) bb_emit_x86(x86_zsm_ev(0)); }
     if (xa_flat_class_c_pred()) xa_flat_chain_prologue(fam);
@@ -3041,13 +2974,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     bb_label_t **st_x   = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     bb_label_t **bxs   = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     for (int i = 0; i < n && g_flat_chain_set_n < FLAT_CHAIN_SET_MAX; i++) g_flat_chain_set[g_flat_chain_set_n++] = nodes[i];
-    /* ⭐⭐ N-2 ITEM 2 STEP 1 DIAGNOSTIC (hq_P s277) -- INERT BY CONSTRUCTION: reports only, emits nothing, changes no codegen. It answers the one question ceo's ruling depends on: at the moment THIS graph is emitted, is the frame size of each generator it DIRECTLY calls already KNOWN? ⛔ It exists because the favourable ordering does NOT generalize. Procs are emitted before main (every driver proc loop continues on main), so a main-host always finds its callee registered -- but a host that is ITSELF A PROC calling a generator declared LATER in the same loop is a FORWARD REFERENCE, and emit_patzeta_frame_reserve() then answers "not registered". ⭐ That miss must stay LOUD: reading it as 0 bytes would give a host carve silently too small -- the silent-overflow class ceo refused worst-case reservation over. ⭐ WHY A DIAGNOSTIC BEFORE A CURE (the s272 allocator pattern): the promotion this feeds touches x86_main_prologue()/bb_glue_framed_enter(), the glue path EVERY frontend shares, so the ordering assumption is proven on the real compiler BEFORE anything depends on it -- the window in which a wrong assumption gets baked in and is later blamed on the codegen that landed on top of it. ⛔ The estimate this checks was REGEX over .icn source (geddump 6 forward refs, tgrlink 2), explicitly labelled indicative not exact; this is the compiler's own answer. Run: SCRIP_GENHOST_DIAG=1 ./scrip --compile prog.icn */
     if (getenv("SCRIP_GENHOST_DIAG") && g_emit_cfg) {
         extern int rt_proc_is_generator(const char *); extern int rt_proc_is_registered(const char *);
-        /* ⛔⭐ SCAN THE GRAPH (g_emit_cfg->all), NOT THE FLAT CHAIN (nodes[]) -- MEASURED, hq_P s277, and it is the difference between finding every generator callsite and finding NONE. On the four-line witness the chain's only call node is `write` (a builtin, unregistered); the gen() call is an OPERAND of write, not a top-level chain node, so a nodes[] scan reported zero callsites on a program that certainly has one. ⭐ THE FLAT CHAIN IS NOT THE GRAPH -- it is the top-level statement spine, and calls nest inside operands. zls_callee_is_gen()'s own caller in zeta_storage.c iterates the graph for exactly this reason. A nodes[] scan here would have under-reported silently and made the forward-reference hazard look absent. */
         for (int _hi = 0; _hi < g_emit_cfg->n; _hi++) {
             IR_t * _hn = g_emit_cfg->all[_hi]; if (!_hn) continue;
-            /* ⛔⭐ IR_PROC_GEN IS THE GENERATOR CALLSITE AND IT IS NOT IN ir_is_call_kind() -- MEASURED hq_P s277, and omitting it reported ZERO callsites on a program that certainly has one. lower_icon.c:148 builds the node as `icn_proc_is_generator(name) ? IR_PROC_GEN : (gb ? IR_CALL_BUILTIN_GEN : IR_CALL)`, i.e. a call to a KNOWN GENERATOR gets its own op and never reaches the IR_CALL family at all. --dump-ir does not print its sval either (it shows `PROC_GEN []` where a builtin shows `"write"`), so the node looks nameless on inspection while IR_LIT(nd).sval is in fact set. TWO WAYS TO CONCLUDE "no generator callsites here" FROM A PROGRAM THAT HAS ONE. */
             if (!ir_is_call_kind(_hn->op) && _hn->op != IR_CALL && _hn->op != IR_PROC_GEN) continue;
             { const char * _cn = IR_LIT(_hn).sval;
               if (!_cn || !_cn[0] || !rt_proc_is_registered(_cn) || !rt_proc_is_generator(_cn)) continue;
@@ -3074,13 +3004,6 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         ra_t[i]  = (nodes[i]->op == IR_REPALT) ? emit_label_alloc(".L%s_ω_%d_rt", _kn, _uid) : NULL;
         na_s[i]  = ((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_ARBNO || nodes[i]->op == IR_MATCH_FENCE1 || nodes[i]->op == IR_SCAN_SEQUENCE || nodes[i]->op == IR_SCAN_ALTERNATE || nodes[i]->op == IR_DISJUNCTION) && nodes[i]->n_operands > 0) ? emit_label_alloc(".L%s_γ_%d_as", _kn, _uid) : NULL;
         { int _naf_on = (((nodes[i]->op == IR_MATCH_ALTERNATE || nodes[i]->op == IR_MATCH_ARBNO || nodes[i]->op == IR_MATCH_FENCE1 || nodes[i]->op == IR_SCAN_SEQUENCE || nodes[i]->op == IR_SCAN_ALTERNATE || nodes[i]->op == IR_DISJUNCTION) && nodes[i]->n_operands > 0) || nodes[i]->op == IR_MATCH_BEGIN);
-          /* na_f can be reached by BOTH a gamma-phi edge and an omega-phi edge onto the SAME target in
-             real programs (SCRIP_NAF_DIAG corpus sweep, bb-label-prefix-uniform row, 2026-08-29) -- one
-             mint-time label cannot carry a single correct port letter. hq_P's ruling (task QA
-             hq_P·2026-08-29c): define BOTH greek-suffixed names back-to-back at the same address (BINARY
-             feasibility independently verified, seat16, FINDING-2026-08-29-seat16-na-f-dual-port...) and
-             let each caller pick the name matching its own resolved port. na_f is the gamma name,
-             na_fo the omega name -- never rename call sites, only which of the two they read. */
           na_f[i]  = _naf_on ? emit_label_alloc(".L%s_γ_%d_af", _kn, _uid) : NULL;
           na_fo[i] = _naf_on ? emit_label_alloc(".L%s_ω_%d_af", _kn, _uid) : NULL; }
         { extern const char * bb_src_of(const IR_t *); st_pre[i] = (g_emit.flat_stmt_frame && bb_src_of(nodes[i])) ? emit_label_alloc("n%d_%s_st", _uid, _kn) : NULL; }
@@ -3111,7 +3034,6 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         for (int _si = 0; _si < n; _si++) if (nodes[_si]->op == IR_SUSPEND) { resume_init_lbl = betas[_si]; break; }
     }
     if (resume_init_lbl) {
-        /* ⭐⭐ N-2 ITEM 1b (hq_P s277): THE alpha RESUME-SLOT SEED NOW ADDRESSES THROUGH THE ζ ACCESSOR, LIKE ITS READER. ⛔ IT USED TO HAND-BUILD THE OPERAND -- `[%s + %d]` from emit_rec_fb()/emit_rec_fb_num() in TEXT and a hand-encoded ModRM in BINARY -- WHICH BROKE TWO LAWS AT ONCE AND BOTH BIT. (1) BOTH-MEDIUM: emit_rec_fb() returns "rsp" in BOTH its arms while emit_rec_fb_num() returns 5 (rbp) or 4, so for every graph with emit_rec_pin() && !emit_rec_rsp_arm() -- i.e. every Icon GENERATOR, lcl_proc, zframe graph and Prolog resumable -- TEXT emitted `mov [rsp+N], rax` and BINARY emitted `mov [rbp+N], rax`. MEASURED on the four-line witness: text_base=rsp bin_regnum=5 slot=32, in both arms, i.e. m3 stored the resume continuation 96 bytes ABOVE where m4 stored it, inside the CALLER's frame. That is the m3 != m4 design invariant broken on the default build, not only the armed one. (2) It bypassed the ζ accessor entirely, so icn_gen_zeta_ft() -- which returns the correct 96 here, MEASURED, refuting this rung's standing "ft is 0 at seed time" hypothesis -- could not rebase it, leaving the seed on rsp while its own reader (bb_suspend.cpp:49, x86("mov", FRQ(_.op_sb), "rax")) had already moved to rbp. ONE CELL, TWO BASES. ⭐ THE CURE IS TO STOP SPELLING THE ADDRESS AND ASK FOR IT: FRQ(g_suspend_resume_slot) is the SAME accessor the reader uses, so the store and the load cannot pick different base registers by construction -- which is exactly the invariant the comment deleted from emit.h by the RBP-ERADICATION wave (708c22c1) had spelled out: "all four refs read it, so the store and the load cannot pick different base registers -- the s158 land mine this file convicts over and over." That eradication rewrote the TEXT spelling to rsp and left the BINARY encoder at 5; this restores agreement at the store. ⛔ THE lea IS DELIBERATELY LEFT PER-MEDIUM: it is rip-relative and needs bb_emit_patch_rel32's label fixup in BINARY, which x86() has no vehicle for here (x86_lea_tgt is template-context only, keyed on _.lbl_t0/_.lbl_t1). It carries no ζ base and so cannot diverge. */
         if (g_is_text) {
             char _init[256];
             snprintf(_init, sizeof _init, "lea rax, [rip + %s]\n", resume_init_lbl->name);
@@ -3128,12 +3050,6 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     int _bx_open = -1;
     for (int i = 0; i < n; i++) {
         { int _fk = emit_floater_kind(nodes[i]); if (_fk && _flt_hoisted[_fk]) { g_flat_node_id += _flt_uid_burn[_fk]; continue; } }
-        /* PER-BOX ELF SYMBOL (hq_P, row emit-type-size-directives): give every flat box a REAL, TYPED, SIZED symbol so callgrind/perf attribute Ir to BOXES. valgrind DISCARDS
-           zero-sized symbols, so the labels we already emitted (NOTYPE, size 0) bought NO attribution at all -- per-box cost existed only in the SAMPLING instrument, the one
-           that needs long runs to be trusted (the 144-sample lesson). The close for box i-1 is emitted HERE, at box i OPEN, because this loop has THREE drive paths (repalt /
-           match_alt / emit_drive) each with its own `continue`: closing at the head covers all three with no per-op filter. Ranges are disjoint by construction (boxes emit
-           sequentially), so attribution is exact, not overlapping. TEXT medium only -- m3 BINARY has no symtab and `.` is an assembler notion; the g_is_text guard keeps
-           BOTH-MEDIUM intact without a MEDIUM_* branch in any template. Killswitch SCRIP_ASM_SYMSIZE=0 restores the un-symbolled output. */
         { static int _sz = -1; if (_sz < 0) { const char *_e = getenv("SCRIP_ASM_SYMSIZE"); _sz = (_e && _e[0] == '0') ? 0 : 1; }
           if (_sz && g_is_text) {
               if (_bx_open >= 0) emit_textf(".size %s, .-%s\n", bxs[_bx_open]->name, bxs[_bx_open]->name);
@@ -3154,15 +3070,6 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         int omega_is_phi  = (nodes[i]->ω.sz[0] == (char)0xcf && (unsigned char)nodes[i]->ω.sz[1] == 0x86);
         { int _gg = 0; IR_t * _g = gtgt; while (_g && _g->op == IR_GOTO && _gg++ < 128) { if (!gamma_is_beta) gamma_is_beta = port_sz_beta(_g->γ.sz); if (!gamma_is_sig) gamma_is_sig = (_g->γ.sz[0] == (char)0xcf && (unsigned char)_g->γ.sz[1] == 0x83); if (!gamma_is_phi) gamma_is_phi = (_g->γ.sz[0] == (char)0xcf && (unsigned char)_g->γ.sz[1] == 0x86); gtgt = _g->γ.node; _g = gtgt; } }
         { int _gg = 0; IR_t * _o = otgt; while (_o && _o->op == IR_GOTO && _gg++ < 128) { if (!omega_is_beta) omega_is_beta = port_sz_beta(_o->γ.sz); if (!omega_is_phi) omega_is_phi = (_o->γ.sz[0] == (char)0xcf && (unsigned char)_o->γ.sz[1] == 0x86); otgt = _o->γ.node; _o = otgt; } }
-        /* a bare mid-chain SUCCEED is a join point -- e.g. RETURN's own γ is threaded through the enclosing
-           block's "next statement" continuation by every lowerer (lower_rblock and peers), sharing the SAME
-           SUCCEED node as a sibling branch's real continuation (RPO_PUSH above schedules that shared node's
-           downstream now) -- so chase through to what it actually leads to before deciding this port is
-           terminal. EXCEPT for the always-exits family (RETURN/SUSPEND/CORET/COFAIL, grouped the same way
-           at this file's other stack-reset site): their own templates unconditionally jump to whatever this
-           resolves to and must always mean "proc exit", never "whatever the shared join happens to reach" --
-           chasing for them would silently redirect a return/suspend/coret/cofail into a sibling statement's
-           code. A genuinely terminal SUCCEED has no γ.node and the loop is a no-op either way. */
         { int _op0 = (int)nodes[i]->op; int _always_exits = (_op0 == IR_RETURN || _op0 == IR_SUSPEND || _op0 == IR_CORET || _op0 == IR_COFAIL);
           if (!_always_exits) { int _sg = 0; while (gtgt && gtgt->op == IR_SUCCEED && gtgt->γ.node && _sg++ < 4096) gtgt = gtgt->γ.node; }
           if (!_always_exits) { int _sg = 0; while (otgt && otgt->op == IR_SUCCEED && otgt->γ.node && _sg++ < 4096) otgt = otgt->γ.node; } }
@@ -3247,17 +3154,13 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (nodes[i]->op == IR_SCAN) {
             IR_t *bv = nodes[i]->n_operands > 1 ? nodes[i]->operands[1] : NULL;
             g_scan_body_beta = NULL;
-            /* IR_SCAN_TAB/MOVE (icn_retag_scan_body's by-name-arity retag of a ?-scanned tab()/move() call) carry
-               tab/move's "reverses effects if resumed" β but are not in ir_is_generator_kind's switch (ir_query.c,
-               shared by SNOBOL4/Prolog/Raku) - same gap as the IR_SUSPEND dobody check just above, same local fix:
-               widen the check at this Icon-only IR_SCAN site rather than the shared classifier. */
             if (bv && (ir_is_generator_kind(bv->op) || bv->op == IR_SCAN_TAB || bv->op == IR_SCAN_MOVE)) for (int k = 0; k < n; k++) if (nodes[k] == bv) { g_scan_body_beta = betas[k]; break; }
             if (!g_scan_body_beta && nodes[i]->n_operands > 2) { IR_t *bb2 = nodes[i]->operands[2]; int _fk = -1;
-                for (int _hops = 0; bb2 && _fk < 0 && _hops < 8; _hops++) {   /* a folded continuation (GOTO elided from the drive array) resolves through its γ target — chase until a node the array carries (suspend_scan: the CENT was op-21-folded and found_k was -1, leaving the β arm unemitted and resume re-yielding forever) */
+                for (int _hops = 0; bb2 && _fk < 0 && _hops < 8; _hops++) {
                     for (int k = 0; k < n; k++) if (nodes[k] == bb2) { _fk = k; g_scan_body_beta = betas[k] ? betas[k] : lbls[k]; break; }
                     if (_fk < 0) bb2 = bb2->γ.node;
                 }
-                if (getenv("SCRIP_SCAN3_DIAG")) fprintf(stderr, "[SCAN3] i=%d found_k=%d -> t0=%s\n", i, _fk, g_scan_body_beta ? g_scan_body_beta->name : "-"); }   /* α fallback: a non-resumable resume target (a continuation GOTO) has no β block — betas[k] NULL left the sb=2 β arm unemitted and resume fell through to re-yield forever (suspend_scan's measured spin); the pre-slice contract jumped to the continuation's ENTRY, which is lbls[k] */
+                if (getenv("SCRIP_SCAN3_DIAG")) fprintf(stderr, "[SCAN3] i=%d found_k=%d -> t0=%s\n", i, _fk, g_scan_body_beta ? g_scan_body_beta->name : "-"); }
         }
         if (nodes[i]->op == IR_GALT && nodes[i]->n_operands >= 2) {
             IR_t *arm2 = nodes[i]->operands[0]; IR_t *arm1 = nodes[i]->operands[1];
@@ -3386,7 +3289,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             if (!_f1 && !_sd && resume_tgt == &lbl_ω && sn4_alt_carrier() && g_emit_cfg->body_root && (g_emit_cfg->body_root->op == IR_MATCH_ALTERNATE || g_emit_cfg->body_root->op == IR_DISJUNCTION) && !g_emit_cfg->body_root->seal) {
                 int _nc = 0, _lf = 0, _fn = 0; sn4_blob_choice_scan(&_nc, &_lf, &_fn);
                 if (_nc == 1 && !_fn && (_lf || sn4_choice_rbp_off() != 0)) for (int i = 0; i < n; i++) if (nodes[i] == g_emit_cfg->body_root) { resume_tgt = betas[i]; break; }    }
-            if (!_sd && resume_tgt == &lbl_ω && sn4_alt_carrier()) {   /* ⭐ s266 TAIL RESUME (companion to choice_frame_candidate): a blob the arms above declined -- >=2 choice nodes, or a FENCE anywhere in the graph -- had its β entry fall through to ω: the blob answered "total failure" to any re-entry (the x1.sno silent wrong answer; the f1.sno fence-variant wrong answer).  The correct re-entry point is the TAIL -- the unique node whose γ exits the blob -- NOT body_root, which the lowerer publishes as the ENTRY.  From the tail the backward cascade runs on the blob's own static wiring, so an interior FENCE needs no blob-level refusal: recede reaches its β only through that wiring and the fence node itself answers (commit semantics live in ITS template).  The one fence case that must NOT resume is a fence AT the tail -- re-entry into a committed tail must fail -- and β→ω is exactly that, so it is kept by refusal.  Also refused: any sealed choice node, a >=2-choice blob whose alternates lack their per-node records (the cascade would clobber a shared record), any DISJUNCTION, a non-unique tail. */
+            if (!_sd && resume_tgt == &lbl_ω && sn4_alt_carrier()) {
                 int _nc = 0, _lf = 0, _fn = 0; sn4_blob_choice_scan(&_nc, &_lf, &_fn);
                 if (_nc >= 1) {
                     int _mok = 1;
@@ -3412,23 +3315,6 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     if (!bare && !_top_hoist) {
     emit_sep_rule('-'); emit_label_define_bb(&lbl_γ);
     if (xa_flat_class_c_pred()) {
-        /* s272 snocone-returns-codegen bug #3: a Snocone `function` body's own NRETURN (its SNO$NRET call node, built
-           directly by sno_build_graph -- see lower_snobol4.c -- rather than via sno_build_call_stub's classic-DEFINE
-           path) wires its success edge straight to IR_SUCCEED, never to a real RETURN(role 1)-kind node the way a
-           label-based `:(NRETURN)` inside main's own graph always does (confirmed via --dump-ir: main's construction
-           always pre-builds an unreached RETURN/FRETURN role-node pair alongside NRETURN's own, wired as its real γ/ω;
-           a Snocone function body's construction does not). The shared per-node exit resolution a few hundred lines up
-           (the `emit_floater_kind(gtgt)==0 && gtgt is the SNO$NRET call itself` case) still unconditionally redirects
-           to emit_floater_label(1) ("RETURN") regardless -- correct and necessary for the classic/main-graph shape,
-           where that label always gets a real body from _top_hoist's or bb_define's own machinery, but never
-           reachable here, since the CLASS-C-eligible graphs this fix touches are exactly the ones lacking it. Rather
-           than touch that shared resolution (tried once this session -- removing/redirecting it broke 21 unrelated
-           corpus tests: generators, pattern matching, indirect-name assignment, several classic DEFINE'd demos, all of
-           which DO rely on the redirect landing on a real RETURN body built the classic way), alias RETURN to this
-           graph's own plain success exit HERE, at the exact point lbl_γ's address is fixed -- CLASS-C's own NRETURN
-           has no distinct success behavior from an ordinary success exit (the by-name mark already ran in
-           bb_nreturn_mark before reaching here), so the alias is exact, not an approximation. Scoped to graphs that
-           actually use NRETURN so a Snocone function that never uses it never allocates or defines the label. */
         int _has_nret = 0; for (int _ni = 0; _ni < n; _ni++) if (emit_floater_kind(nodes[_ni]) == 3) { _has_nret = 1; break; }
         if (_has_nret) emit_label_define_bb(emit_floater_label(1));
     }
@@ -3456,7 +3342,6 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     emit_sep_rule('-'); emit_label_define_bb(&lbl_ω);
     if (g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && g_emit.flat_jmp_entry)) { extern void xa_flat_zframe_epilogue_ω(void); xa_flat_zframe_epilogue_ω(); }
     else if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && !g_emit.flat_jmp_entry) { int _bk = g_emit.flat_frame_bytes;
-        /* ⛔⛔ s272 hq_C — A FAILING `main` IS NORMAL TERMINATION IN ICON AND EXITS 0. This omega arm emitted `mov edi,1; call exit`, so 61 corpus programs printed the byte-correct answer and then exited 1 while real iconx exits 0. It is not a rare path: the normal exhaustion of `every` FAILS, so any main whose final expression is an `every` lands here -- which is why the count is 61 and not 3. Minimal witness: `procedure main() every write(1 to 3); end` -- prints 1 2 3, exited 1. Diagnosed by hq_P straight out of --compile (ASM-DIFF-FIRST, no gdb needed) against the gamma arm 20 lines up, which already does the right thing. ⭐ SCOPE IS ICON-ONLY AND IT WAS VERIFIED, NOT ASSUMED: this arm is guarded on icn_cells_graph, whose only two setters are lower_icon.c:1130 and :1203, so no SNOBOL4 or Prolog graph can reach it -- unlike the shared-node changes that bit us twice today. ⭐ BOTH MEDIA, mirroring the gamma arm's exact encoding (xor edi,edi + nop). */
         if (g_is_text) { char _seg[128]; snprintf(_seg, sizeof _seg, "and rsp, -16\nxor edi, edi\ncall exit@PLT\n"); emit_text_n(_seg, strlen(_seg)); }
         else { ef_b4(0x48, 0x83, 0xE4, 0xF0); ef_b3(0x31, 0xFF, 0x90); { uint64_t _ex = (uint64_t)(uintptr_t)(void *)exit; ef_b2(0x48, 0xB8); bb_emit_u64(_ex); ef_b2(0xFF, 0xD0); } } }
     else if (_blob_wire) { extern int sn4_blob_casmark(void); bb_emit_x86(IF(blob_frame_bytes() > 0, IF(sn4_blob_casmark(), x86("mov", "r12", RDQ("rbp", -32))) + x86("mov", "rsp", "rbp") + x86("pop", "rbp")) + x86("comment", "WIRE-STACK (s195) FRETURN FORM, REGISTER-FREE: after mov rsp,rbp;pop rbp the stack is back at entry depth, which is exactly where the caller's PUSHed pair sits -- the RETIRING exit owns the release.  ⛔ The LANDING must NOT release it: a γ-SUSPEND leaves the blob's resume record on top of the pair, so a landing-side add would eat the record instead (Lon s195: yielding is different from returning).") + x86("add", "rsp", 8L) + x86("ret")); }
@@ -3594,7 +3479,7 @@ long g_last_dc_off = -1;
 extern "C" int zop_audit_seen(void) { return g_emit.zop_seen; }
 extern "C" void zop_audit_seen_clear(void) { g_emit.zop_seen = 0; }
 extern "C" void emit_jmp_entry_clear(void) { extern int g_flat_frame_floor; g_flat_frame_floor = 0; g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0; g_emit.flat_seed_off = 0; g_emit.flat_layout_unknown = 0; g_emit.flat_pat = 0; g_emit.flat_lex = 0; g_emit.flat_gen = 0; g_emit.flat_deep_arrival = 0; g_emit.flat_cap_n = 0; g_flat_dc_np = -1; g_emit.flat_lcl_proc = 0; g_emit.zframe_graph = 0; g_emit.zframe_pinned_base = 0; }
-int emit_graph_has_suspend(IR_graph_t *g) { if (!g) return 0; for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->op == IR_SUSPEND) return 1; return 0; }   /* de-static (seat06 2026-08-29, row icon-n2-flat-gen-host-transitive-reserve): the ONE place g_emit.flat_gen's own rule (is_generator && has-suspend) lives -- the recursive reserve() walk in x86_asm.h reuses THIS, never a second copy, to decide whether to recurse into a callee's graph at all. */
+int emit_graph_has_suspend(IR_graph_t *g) { if (!g) return 0; for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->op == IR_SUSPEND) return 1; return 0; }
 static int emit_graph_has_deep_arrival(IR_graph_t *g) {    if (!g) return 1; for (int i = 0; i < g->n; i++) { IR_t *c = g->all[i]; if (!c) continue; switch (c->op) { case IR_SUSPEND: case IR_SCAN: case IR_SCAN_ENTER: case IR_SCAN_ALTERNATE: case IR_SCAN_SEQUENCE: case IR_SCAN_UPTO: case IR_SCAN_FIND: case IR_SCAN_BAL: case IR_SCAN_MATCH: case IR_SCAN_MOVE: case IR_SCAN_TAB: case IR_TO: case IR_TO_BY: case IR_LIMIT: case IR_REPALT: case IR_PROC_GEN: case IR_CREATE: case IR_ITERATE: case IR_DISJUNCTION: case IR_CALL_BUILTIN_GEN: case IR_KW_ICON_GEN: case IR_MATCH_FENCE1: case IR_MATCH_ABORT: case IR_MATCH_ARBNO: case IR_MATCH_CALLOUT: case IR_MATCH_VALUE: return 1; case IR_MATCH_DEFER: return 1;    default: break; } } return 0; }
 static IR_t * g_fbm_nd[8192]; static unsigned char g_fbm_bit[8192]; static int g_fbm_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3658,7 +3543,7 @@ extern "C" int emit_jmp_entry_for_proc(const char *pname, int dyn_scope, int is_
     return _r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" int emit_icn_n2_gen_region_ft(const char *pname, int is_generator, IR_graph_t *g) {   /* N-2 APPLY-CALL REGION (ceo s283h): answers "will pname's alpha take the region-resident N-2 prologue, and what frame_total did it bake" -- 0 means no. The predicate mirrors, term for term, the prologue arm selection (emit.cpp ~2859 if/else-if chain: zframe wins, then icn_gen_regime() && flat_gen) and flat_gen's own rule via the ONE blessed emit_graph_has_suspend(); ft comes from the ONE pz[] registry via emit_patzeta_frame_reserve(), never re-derived (one-formula-two-copies is a named defect class on this rung). The driver stamps this into the runtime proc table (rt_proc_set_gen_region_ft) so rt_proc_call_gen_h's coexpr window can supply a real region and rt_call_value_spine_prep can refuse the un-wired bb_call_value spine transfer -- the apply-call SIGSEGV cure, FINDING-2026-08-29-seat10-n2-default-on-apply-call-to-generator-segfaults. */
+extern "C" int emit_icn_n2_gen_region_ft(const char *pname, int is_generator, IR_graph_t *g) {
     if (!pname || !is_generator || !g || !g->icn_cells_graph || g->zframe_graph || !icn_genframe2() || !emit_graph_has_suspend(g)) return 0;
     { int ft = 0; if (!emit_patzeta_frame_reserve(pname, &ft) || ft <= 0) return 0; return ft; }
 }
@@ -3703,9 +3588,9 @@ bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
     g_last_flat_frame_bytes = g_emit_cfg ? g_emit_cfg->jcon_value_region : 0;
     { if (getenv("SCRIP_N2_FT_PROBE") && g_emit_cfg) { int _rg = g_emit_cfg->jcon_value_region, _np = g_emit_cfg->nparams, _nl = g_emit_cfg->nlocals;
         fprintf(stderr, "[N2-FT] EMIT gen=%d zframeA=%d icncells=%d lclproc=%d region=%d ffb=%d np=%d nl=%d zls=%d ft=%d predft=%d\n", g_emit.flat_gen ? 1 : 0, g_emit.zframe_graph ? 1 : 0, g_emit_cfg->icn_cells_graph ? 1 : 0, g_emit.flat_lcl_proc ? 1 : 0, _rg, g_emit.flat_frame_bytes, _np, _nl, zls_g_fp_total(g_emit_cfg),
-                g_emit.zframe_graph ? g_emit.flat_frame_bytes : g_emit.flat_frame_bytes + (_np + _nl) * 16, g_emit.zframe_graph ? ((48 + _rg + 15) & ~15) : ((48 + _rg + 15) & ~15) + (_np + _nl) * 16); } }   /* ⛔ ft/predft are CLASS-CONDITIONAL (hq_B 2026-08-30): the unconditional ffb+(np+nl)*16 this probe printed for years is the Icon region-prologue's frame_total, and printing it for a zframe callee reported a frame 96 bytes larger than the `sub rsp,1232` that callee actually emits -- a diagnostic asserting the very premise the reader is using it to check. A zframe alpha carves exactly flat_frame_bytes; see the g_last_flat_fp comment below for the measurement. */
+                g_emit.zframe_graph ? g_emit.flat_frame_bytes : g_emit.flat_frame_bytes + (_np + _nl) * 16, g_emit.zframe_graph ? ((48 + _rg + 15) & ~15) : ((48 + _rg + 15) & ~15) + (_np + _nl) * 16); } }
     g_last_flat_zstatic = (g_emit_cfg && !g_emit.flat_layout_unknown) ? emit_graph_zstatic(g_emit_cfg) : 0;
-    g_last_flat_fp = (g_emit_cfg && !g_emit.flat_layout_unknown) ? (g_emit.zframe_graph ? 0 : (g_emit.flat_gen ? (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16 : zls_g_fp_total(g_emit_cfg))) : 0;   /* ⛔⛔⭐ zframe ARM (hq_B 2026-08-30, PZ-4 item 2): the registry must equal what the callee's OWN α carves, and the two αs differ -- xa_flat_zframe_prologue_str() carves EXACTLY flat_frame_bytes, while an icn_cells generator's region prologue bakes flat_frame_bytes+(np+nl)*16. Since emit_patzeta_frame_reserve() computes align16(32+fb)+fp+16 == flat_frame_bytes+fp, a zframe callee's fp MUST be 0. The old flat_gen key was NOT Icon-only despite its comment saying so: flat_gen is (is_generator && emit_graph_has_suspend(g)) at :3586, which a resumable PROLOG predicate satisfies too -- xa_flat.cpp:367's live (flat_gen && zframe_graph) arm is the proof -- so every Prolog zframe callee was registered (np+nl)*16 too large. MEASURED fact/2: registry 1328 vs α carve `sub rsp,1232`, over by 96; Icon gen/1 unchanged at 288. ⛔ TWO CHOICES HERE ARE LOAD-BEARING. (1) Keyed on g_emit.zframe_graph, the α-SELECTION STATE, not g_emit_cfg->zframe_graph, the graph field: :3621 defines the former as (field && !icn_cells_graph), so a both-flags graph takes an icn_cells α that DOES add the term while the field still reads 1 -- gating on the field would under-report the frame, i.e. a host carve silently TOO SMALL. (2) Explicit 0, never a fallback to zls_g_fp_total(): zls reads 0 on today's witnesses (plausible-zero, instance seven on this rung) but s283e records a SCAN graph's zls fields as nonzero AND already inside flat_frame_bytes, so a fallback re-creates the same overstatement. Inert on every shipped path -- all frame_reserve consumers are Icon-gated and emit_icn_n2_gen_region_ft excludes zframe by name; emitted .s is md5-identical across this change. Full trail: FINDING-2026-08-30-hq_B-pz4-registry-overstates-every-prolog-zframe-callee-frame-by-nparams-plus-nlocals-times-16.md */
+    g_last_flat_fp = (g_emit_cfg && !g_emit.flat_layout_unknown) ? (g_emit.zframe_graph ? 0 : (g_emit.flat_gen ? (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16 : zls_g_fp_total(g_emit_cfg))) : 0;
     g_last_flat_uniform = (g_emit_cfg && !g_emit.flat_layout_unknown) ? emit_graph_uniform(g_emit_cfg) : 0;
     if (out) { emitter_init_text(out, TEXT_MODE_INVOCATION); int rc = codegen_flat_chain_body(entry, prefix); emitter_end(); return rc == 0 ? (bb_box_fn)1 : NULL; }
     bb_buf_t buf = bb_alloc(FLAT_BUF_MAX);
@@ -3725,7 +3610,6 @@ bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
         bb_free(buf, FLAT_BUF_MAX); return NULL;
     }
     bb_seal(buf, (size_t)nbytes);
-    /* SCRIP_PERF_MAP=1 (Lon 2026-08-28, "make the symbols accessible by the perf tools"): mode-3 seals its chains into an anonymous mmap slab, so perf resolves every sample in them to [JIT] and a mode-3 profile can name nothing.  Writing the perf jit-map convention (/tmp/perf-<pid>.map, "addr size symbol") at seal time makes perf name the same graphs mode-4 names.  ⛔ PRINT-ONLY: not one emitted byte changes, and the map is written AFTER the seal so it can never affect codegen.  ⛔ NO NEW GLOBALS (no cached static, no held FILE*) -- getenv and fopen(append) per seal, which is once per graph and never on a hot path.  ⚠️ GRANULARITY IS PER-GRAPH, NOT PER-BOX: the seal site knows the chain prefix, not each box's offset; per-box naming needs the emitter to record box offsets and is a named follow-up, not something this arm claims. */
     { const char *_pm = getenv("SCRIP_PERF_MAP");
       if (_pm && *_pm && *_pm != '0') {
           char _pmp[64]; snprintf(_pmp, sizeof _pmp, "/tmp/perf-%d.map", (int)getpid());

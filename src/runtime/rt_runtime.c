@@ -62,11 +62,6 @@ typedef struct { IR_t * node; DESCR_t * items; int count; } susp_gen_cache_t;
 static susp_gen_cache_t g_susp_gen_cache[SUSP_GEN_CACHE_MAX];
 static int g_susp_gen_cache_n = 0;
 extern int rt_scan_exec(const char *subj_name, const char *subj_lit, int has_repl, const char *repl_str, void *pat_graph);
-/* ⛔ THE STRUCT-TREE CONVERTER + COMPARE CLUSTER WAS DELETED HERE (T9): rt_cmp_cell_to_term_shared, rt_pl_cell_to_term, rt_pl_cell_to_term_named, resolve_term_class,
-   resolve_term_compare and rt_term_cmp_terms. All six were reachable only from each other -- rt_term_cmp_terms had NO caller anywhere (definition plus one header declaration), and the
-   two wrappers lost their last consumer when op/3's list walk went cell-native. Their live replacements are rt_pl_cell_compare + pl_vord_t in unification.c.
-   ⛔⛔ rt_pl_cell_to_term_named IS WHERE THE prolog_atom_init GUARD USED TO LIVE, and deleting it here is only safe because that guard was re-homed into the printers first
-   (plc_atoms_ready in unification.c). Removing this file's copy BEFORE that fix would have re-broken mode-4 list printing -- the same regression, arrived at from the other side. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_scan_lit(const char * subj_name, const char * subj_lit, const char * pat_lit, int is_repl, const char * repl_lit) {
     const char * subj_str = ""; int subj_len = 0;

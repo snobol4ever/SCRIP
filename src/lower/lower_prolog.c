@@ -298,10 +298,6 @@ static IR_t * lower_ite(lcx_t * cx, const tree_t * C, const tree_t * T, const tr
     IR_t * tn = thread1(cx, T, γnext, F, &te);
     IR_t * en = E ? thread1(cx, E, γnext, F, &ee) : NULL;
     IR_t * cω = E ? (ee ? ee : en) : F;
-    // A thrown exception reaches the condition's ω edge exactly like an ordinary failure (row
-    // prolog-exceptions-uncaught-propagation) -- this guard is the only thing between "condition failed,
-    // try the else branch" and "condition threw, unwind past the else branch too", so it sits ON the edge,
-    // never folded into cω itself: pending -> ωfail (skip else); not pending -> cω (else, unchanged).
     IR_t * G = build(cx, IR_CALL_PROLOG, cω, ωfail); IR_LIT(G).sval = "$no_throw_or_fail";
     IR_t * cn = thread1(cx, C, (te ? te : tn), G, &ce);
     if (entry_out) *entry_out = ce ? ce : cn;
@@ -1349,14 +1345,6 @@ static const tree_t * pl_clause_body_only(const tree_t *rc) {
     return body;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* row prolog-toplevel-main-multiclause-no-fallthrough-on-backtrack: a multi-clause TT_CHOICE used to
-   resolve to ONLY choice->c[0]'s body, so a toplevel `main :- ..., fail.` / `main :- ...` idiom never
-   reached its second clause -- an ordinary BY-NAME call already backtracks across clauses correctly
-   (verified: only this inline-the-first-clause path did not), so for the arity-0 case (the toplevel
-   convention; the only case exercised here) every alternative's body is folded into one right-nested
-   disjunction, giving inline-the-body the same backtrack-across-clauses semantics a by-name call has.
-   Head-argument unification across a synthesized disjunction is a bigger change and out of scope here,
-   so a non-zero-arity choice still falls back to its first alternative only, unchanged from before. */
 static const tree_t * pl_choice_all_bodies(const tree_t *choice) {
     if (!choice) return NULL;
     if (choice->t == TT_CLAUSE) return pl_clause_body_only(choice);
@@ -1402,24 +1390,10 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
         if (!subj) continue;
         if (subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "initialization") && subj->n >= 1) {
             const tree_t *gt = subj->c[0];
-            /* prolog_lower.c wraps a bare `:- Goal.` load directive into a synthetic `pj_dir_<N> :- Goal.`
-               helper plus an `initialization(pj_dir_<N>)` statement. These USED to be excluded here, with the
-               rationale that chaining them as by-name calls surfaced a dispatch gap -- but the accumulator
-               below resolves every goal and INLINES its clause body (never a by-name call), so that hazard is
-               gone, and the exclusion had become the row prolog-load-directives-dropped-when-main-exists:
-               with any real initialization goal present, every load directive (begin_tests, assertz, dynamic
-               setup...) silently never ran -- plunit registered zero tests off exactly this. They now ride the
-               chain at their source position, which reproduces load order: directives fire in file order,
-               ahead of a trailing initialization(main). */
             if (gt && ((gt->t == TT_QLIT || gt->t == TT_NAME || gt->t == TT_FNC) && gt->v.sval)) {
                 if (pl_init_ngoals_acc < PL_INIT_GOALS_MAX) pl_init_goals_acc[pl_init_ngoals_acc++] = gt;
             }
         } else if ((subj->t == TT_FNC || subj->t == TT_NAME || subj->t == TT_QLIT) && subj->v.sval) {
-            /* ⭐ row prolog-directive-only-file-fatals-no-main-bb-graph: a BARE `:- Goal.` load directive whose goal is not in prolog_lower.c's callable_with_args allowlist
-               (begin_tests/dynamic/use_module/...) is never wrapped into a pj_dir_<N> helper, so it never became an initialization(...) statement and never reached this accumulator --
-               the file then had no init goals AND no main/0, `clause` stayed NULL, nothing was registered as main, and the driver aborted with "[IBB] FATAL: main BB graph not found"
-               (rc=134, core dump) on a legal program both oracles run fine. A clause is TT_CHOICE here; a directive is TT_FNC/TT_NAME/TT_QLIT, so the two are separable without a name
-               test. Accumulating at the directive's own source position preserves load order alongside the wrapped ones, exactly as the initialization branch above documents. */
             if (pl_init_ngoals_acc < PL_INIT_GOALS_MAX) pl_init_goals_acc[pl_init_ngoals_acc++] = subj;
         }
     }
@@ -1434,41 +1408,15 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             clause = cl;
         }
         if (!clause) {
-            /* ⭐ row prolog-directive-only-file-fatals-no-main-bb-graph, the DOMINANT arm (ceo measured ~139 of 371 master-suite entries, 37%, are this one class): a CLAUSE-ONLY file
-               -- no directives, no main/0 -- left `clause` NULL, so nothing was ever registered as main and the driver ABORTED (rc=134 + core dump) rather than doing what consulting
-               the file does. Reference behaviour, measured on swipl for `foo(X,Y) :- X @>= Y.`: rc=0 with NO output. main/0 is SANCTIONED as scrip's entry-point convention
-               (ARCH-LANGUAGES.md § ENTRY-POINT CONVENTION) but it is a DEFAULT, not a requirement; synthesising `main :- true.` here makes the default hold for files that never asked
-               for one, and keeps the driver's "main BB graph not found" a genuine internal-invariant violation (scrip.c:1817's abort()-vs-return ruling) instead of a reachable state a
-               user's legal program can drive it into. */
             tree_t *cl = ast_node_new(TT_CLAUSE);
             cl->v.sval = (char *) "$empty_main/0"; cl->v.dval = 0.0;
             ast_push(cl, pl_synth_qlit("true"));
             clause = cl;
         }
     } else {
-        /* Each accumulated goal is resolved and INLINED as its target clause's own body -- never called
-           by name -- so a user predicate that happens to share a name with something this function's own
-           bookkeeping uses (e.g. a plain `main :- ...` picked up via `:- initialization(main).`) can never
-           collide with a live by-name dispatch cell; this mirrors the single-goal path's own pre-existing
-           inline-not-call semantics, just threaded across every accumulated goal instead of only the last. */
-        /* ⭐ rows prolog-failed-initialization-goal-exits-1-silently + prolog-failed-initialization-goal-
-           exits-1-where-swipl-exits-0 + the plunit-registers-zero-tests witness: reference load semantics run
-           each directive/initialization goal INDEPENDENTLY -- a failing `:- use_module(...)` warns and loading
-           CONTINUES, and a failed initialization goal warns (naming that goal) with exit 0. The old comma
-           chain aborted every goal after the first failure (one unsupported use_module emptied the whole
-           plunit registry) and exited 1. Each goal now wraps as `(Body ; warn-and-continue)` individually:
-           the warning names ITS goal, the goals after it always run, the synthetic clause always succeeds
-           (rc 0, matching swipl). Cross-goal backtracking does not exist in the reference semantics -- each
-           goal is its own top-level query -- so per-goal isolation is the correct behavior, and no `->` cut
-           is needed: a failing Body simply falls to the warn arm. */
         const tree_t *body = NULL;
         for (int i = pl_init_ngoals_acc - 1; i >= 0; i--) {
             const tree_t *b = pl_init_resolve_body(pl_init_goals_acc[i]);
-            /* ⛔ WAS `if (!b) continue;` -- A SILENT DROP, and the second half of the directive-only fatal. pl_init_resolve_body() resolves a goal NAME to a user clause's body, which
-               is right for `initialization(main)` but returns NULL for a bare directive like `write(hello)` (a builtin owns no clause row) and for `initialization(undefined_pred)`.
-               Dropping it lost the only goal in a directive-only file. A goal that resolves to no clause body IS its own body, so it is used verbatim; an unresolvable one then fails
-               at run time into the warn-and-continue arm below (warning names the goal, exit 0) instead of vanishing at compile time, which is what both oracles do with an unknown
-               procedure. */
             if (!b) b = pl_init_goals_acc[i];
             char msg[256]; char *nm = pl_init_goal_name(pl_init_goals_acc[i]);
             snprintf(msg, sizeof msg, "Warning: initialization goal failed: %s\n", nm ? nm : "?");
@@ -1487,14 +1435,6 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     if (clause) {
         int bb_idx = lower_pl_clause_graph(clause);
         if (bb_idx >= 0) {
-            /* Claim "main/0" in the resolve_bb cache so the later lower_pl_register_all_preds() sweep
-               (which walks resolve_pred_table and independently lowers+registers anything not already
-               there) skips re-lowering the plain, un-chained "main/0" clause under the same proc_table
-               name -- otherwise that second, unaware-of-the-chain row shadows this one under mode-3's
-               last-registration-wins main lookup, silently dropping every goal before the last. Only
-               needed when a real chain was built here (pl_init_ngoals_acc>0); the ngoals==0 fallback path
-               resolves the SAME clause lower_pl_register_all_preds() would build anyway, so the harmless
-               pre-existing duplicate there is left alone. */
             if (pl_init_ngoals_acc > 0 && !resolve_bb_lookup("main/0", 0)) resolve_bb_register("main/0", 0, bb_idx);
             if (pl_init_main_pi < 0) {
                 pl_init_main_pi = stage2_proc_grow(&g_stage2);
@@ -1513,11 +1453,6 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     pl_det_classify_all();
     { static int _zf = -1; if (_zf < 0) { const char *_e = getenv("SCRIP_PL_ZFRAME"); _zf = (_e && *_e == '0') ? 0 : 1; }
       if (_zf) for (int _gi = _pl_bb0; _gi < g_stage2.bbp.count; _gi++) if (g_stage2.bbp.table[_gi]) g_stage2.bbp.table[_gi]->zframe_graph = 1; }
-    /* PZ-4 clause (a) PL-ZA-1 (Lon 2026-09-02, in-chat: "give Prolog its activation ZETA like all the rest"): every predicate activation gets a PINNED BASE. zframe_pinned_base is a SEPARATE field
-       from
-       zframe_graph on purpose -- zframe_graph is shared with Raku and Pascal, whose frames this regime does not describe and must not move. Killswitch SCRIP_PL_ZA=0 restores the pre-pin emission
-          byte-exactly,
-       which is what makes the shared-node control arm cheap to take. */
     { static int _za = -1; if (_za < 0) { const char *_e = getenv("SCRIP_PL_ZA"); _za = (_e && *_e == '0') ? 0 : 1; }
       if (_za) for (int _gi = _pl_bb0; _gi < g_stage2.bbp.count; _gi++) if (g_stage2.bbp.table[_gi]) g_stage2.bbp.table[_gi]->zframe_pinned_base = 1; }
     return &g_stage2;

@@ -86,7 +86,7 @@ DESCR_t rt_ab_leave_env(void *frame, DESCR_t result, int is_fail);
 void rt_call_proc(const char *name, int nargs);
 DESCR_t rt_call_proc_descr(const char *name, int nargs);
 DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout);
-void rt_proc_set_gen_region_ft(const char *name, int ft);   /* N-2 (ceo s283h): stamp of emit_icn_n2_gen_region_ft() -- the callee alpha's baked frame_total; 0 = not region-resident */
+void rt_proc_set_gen_region_ft(const char *name, int ft);
 int rt_proc_gen_region_ft(const char *name);
 DESCR_t rt_proc_resume_frame(void *frame);
 DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);
@@ -159,7 +159,7 @@ void *  rt_cs_new    (const char *chars);
 void rt_cap_assign(const char *varname, const char *base, int len);
 long c_rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_imm);
 long rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_imm);
-long rt_cap_open_plain(const char *varname, int saved_delta, int cur_delta, int is_imm);   /* past-the-guards entry: ONLY for callers that prove varname non-null, non-empty and not '*' at emit time (hq_C bucket A) */
+long rt_cap_open_plain(const char *varname, int saved_delta, int cur_delta, int is_imm);
 void rt_cap_finish(DESCR_t fret);
 void rt_cap_match_begin(void);
 void rt_cap_push(void *slot, int delta);

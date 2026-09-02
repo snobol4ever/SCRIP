@@ -10,17 +10,6 @@ extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* IR_ASSIGN_VAR, 3-operand fused arm (row perf-table-subscript-fastpath lever 2): base/idx/val wired directly, no
-   intermediate IR_SUBSCRIPT box. base's tag is checked INLINE (cmp dil,DT_T / test rsi,rsi -- the same DT_T-plus-
-   non-null precondition RTX-31 already relies on) so the choice between the two arms costs 4 cheap register-only
-   instructions, not a function call: the DT_T arm calls c_rt_table_assign_fast (one call, no allocation -- see that
-   function, pattern_match.c, for what it does and why it is safe); every other base (array, DATA, string
-   substring, a VARREF base, a null table) falls to rt_subscript_var then rt_assign_var called DIRECTLY from this
-   template -- the exact same two asm entries bb_subscript()+bb_assign_var() call today, inline in THIS box instead
-   of two chained boxes, so a non-table write pays the same two calls it always paid, not a third wrapper frame
-   around them (measured: an earlier version of this box always called one dispatch function that internally
-   re-chained rt_subscript_var+rt_assign_var on the fallback, which added exactly that wrapper frame and regressed
-   array_sum.sno's Ir count -- test_gate_instr_budget.sh caught it). L(0)/L(1) are internal labels, not ports. */
 std::string bb_assign_var_sub() {
     x86_begin();
     if (_.op_zres)

@@ -1,238 +1,103 @@
-/* rtx_alloc.s — RTX family ALLOC (rung RTX-2, s163).
- *
- * READ .github/ARCH-SNOBOL4-RTX.md BEFORE EDITING. Contract macros: rtx_abi.inc.
- *
- * WHAT THIS FAMILY ACTUALLY IS (corrected s163 — see the rung's FINDING):
- *   ARCH section 5 names the ALLOC family "blk_alloc / blk_free". Those symbols are DEAD:
- *   zero live call sites, their C sat in archive/backend/ (deleted s267, in git history), and they appear only in the five
- *   legacy `scrip-cc -asm` artifacts that the inventory script sweeps alongside real output.
- *   The LIVE mint is rt_gcheap_alloc — the SIL bump allocator every string, aggregate and
- *   workspace block is carved from (manual p.216: bump until exhaustion, then regenerate).
- *
- * WHAT IS PORTED: the DETAX FAST PATH ONLY — armed, room at the frontier, and the carve
- * landing at or above the HP-2 virgin high-water mark so no payload zeroing is owed. That
- * is the hot case: a forward bump through untouched mmap-fresh pages.
- *
- * WHAT IS DELIBERATELY *NOT* PORTED (C keeps sole ownership — contract section 4):
- *   lazy heap init . GC trigger and storage regeneration . the fill-window second cursor .
- *   every path that owes a memset (recycled memory below virgin, or SCRIP_ZSKIP_OFF=1) .
- *   the alloc histogram . heap exhaustion. Each falls through to c_rt_gcheap_alloc with
- *   edi/rsi UNTOUCHED, so the tail jump needs no argument staging and is the byte-identity
- *   proof path. rt_gc_collect must never run under our feet: we jump to C before any
- *   condition that could provoke it.
- *
- * PRECEDENT: bb_call_fn.cpp's sink_carve48 already inlines this exact fast path for one
- * fixed shape (HB_PLJ/48B) via the PL-SINK-3 exported cell. This is the general form of
- * that same carve, so the two must agree — if you change one, read the other.
- *
- * ADDRESSING NOTE: g_hp_fr is EXPORTED (the emitter bakes its address into sink_carve48 and so
- * the driver must see it), therefore preemptible, therefore reached through the GOT rather than
- * a direct `lea [rip+sym]` — unlike the gate byte, which is .hidden precisely to avoid that. One
- * extra load per call, hoisted before every branch so it is never on a slow-path-only edge.
- *
- * g_hp_fr LAYOUT (baked, _Static_assert-anchored in gc_heap.c):
- *   +0 top (char*) . +8 end (char*) . +16 blocks (long) . +24 armed (int)
- *   +32 virgin (char*) . +40 zfull (int)         <- 32/40 added by RTX-2
- * rt_hblk_t TITLE (16B, gc_heap.h): +0 fwd (u64) . +8 size (u32) . +12 type (u16) . +14 flags (u16)
- *   type and flags are ONE aligned dword at +12, so the title costs three stores, not four.
- */
 #include "rtx_abi.inc"
-
 RTX_GATE_DEF(alloc)
-
 #define HBF_TTL 0x0001
-#define HB_AGGV 206                     /* gc_heap.h; anchored by _Static_assert in rtx_init.c */
-#define HB_WS   203                     /* gc_heap.h; anchored by _Static_assert in rtx_init.c */
-
-/*-----------------------------------------------------------------------------
- * void *rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes)
- *   C of record: src/runtime/rt/gc_heap.c c_rt_gcheap_alloc + c_rt_gcheap_carve
- *
- *   Args: edi = type, rsi = payload_bytes.   Returns: rax = payload pointer.
- *   Clobbers rax/rcx/r10/r11 only — edi and rsi survive for the tail jump.
- *
- *   C being reproduced, exactly:
- *     if (armed) { total = 16 + ((payload + 15) & ~15);
- *                  if (top + total <= end) { carve(top, total, type); top += total; return; } }
- *     carve: h->fwd = 0; h->size = total; h->type = type; h->flags = HBF_TTL;
- *            fresh = !zfull && at >= virgin;                    <- computed BEFORE virgin moves
- *            if (at >= virgin && at + total > virgin) virgin = at + total;
- *            if (fresh) {} else <memset paths>;  blocks += 1;  return h + 1;
- */
+#define HB_AGGV 206
+#define HB_WS   203
 RTX_FUNC(rt_gcheap_alloc)
     RTX_GATE(alloc, c_rt_gcheap_alloc)
-    mov     r10, [rip + g_hp_fr@GOTPCREL]  /* exported+preemptible => GOT, not lea */
-    mov     eax, dword ptr [r10 + 24]   /* armed: mirrors detax==1 && hist off  */
+    mov     r10, [rip + g_hp_fr@GOTPCREL]
+    mov     eax, dword ptr [r10 + 24]
     test    eax, eax
     je      .Lga_slow
-.Lga_armed:                             /* rt_str_alloc enters here, r10 loaded */
-    mov     eax, dword ptr [r10 + 40]   /* zfull: -1 unresolved, 1 force-full   */
+.Lga_armed:
+    mov     eax, dword ptr [r10 + 40]
     test    eax, eax
-    jne     .Lga_slow                   /* either one -> C resolves / memsets   */
+    jne     .Lga_slow
     lea     rcx, [rsi + 15]
     and     rcx, -16
-    add     rcx, 16                     /* total = 16 + round16(payload)        */
-    mov     r11, [r10 + 0]              /* at = top                             */
+    add     rcx, 16
+    mov     r11, [r10 + 0]
     mov     rax, r11
-    add     rax, rcx                    /* newtop                               */
-    jc      .Lga_slow                   /* address wrap on absurd size -> C     */
+    add     rax, rcx
+    jc      .Lga_slow
     cmp     rax, [r10 + 8]
-    ja      .Lga_slow                   /* newtop > end -> C (may collect)      */
+    ja      .Lga_slow
     cmp     r11, [r10 + 32]
-    jb      .Lga_slow                   /* below virgin: recycled, owes memset  */
-    mov     qword ptr [r11 + 0], 0      /* title.fwd  = 0                       */
-    mov     dword ptr [r11 + 8], ecx    /* title.size = total                   */
+    jb      .Lga_slow
+    mov     qword ptr [r11 + 0], 0
+    mov     dword ptr [r11 + 8], ecx
     movzx   ecx, di
     or      ecx, HBF_TTL << 16
-    mov     dword ptr [r11 + 12], ecx   /* title.type | title.flags, one store  */
-    mov     [r10 + 32], rax             /* virgin = at + total (at >= virgin)   */
-    mov     [r10 + 0], rax              /* top    = at + total                  */
-    add     qword ptr [r10 + 16], 1     /* blocks += 1                          */
-    lea     rax, [r11 + 16]             /* return h + 1                         */
+    mov     dword ptr [r11 + 12], ecx
+    mov     [r10 + 32], rax
+    mov     [r10 + 0], rax
+    add     qword ptr [r10 + 16], 1
+    lea     rax, [r11 + 16]
     ret
 .Lga_slow:
     jmp     c_rt_gcheap_alloc
 RTX_ENDF(rt_gcheap_alloc)
-
-/*-----------------------------------------------------------------------------
- * char *rt_str_alloc(long n)              C of record: gc_heap.c c_rt_str_alloc
- *
- *   if (rt_alloc_hist_on()) rt_alloc_hist_ra(...);
- *   want = (n < 0 ? 0 : n) + 1;                 n characters plus the NUL slot
- *   return rt_gcheap_alloc(DT_S, want);
- *
- *   THE FUSION: `armed` already encodes "histogram is off", so when it is set the
- *   histogram call provably cannot fire and is not merely skipped but ELIMINATED —
- *   this entry falls into the carve with no call at all. When armed is clear we hand
- *   the whole thing back to C, which still owns the histogram and the lazy init.
- */
 RTX_FUNC(rt_str_alloc)
     RTX_GATE(alloc, c_rt_str_alloc)
-    mov     r10, [rip + g_hp_fr@GOTPCREL]  /* exported+preemptible => GOT, not lea */
+    mov     r10, [rip + g_hp_fr@GOTPCREL]
     mov     eax, dword ptr [r10 + 24]
     test    eax, eax
-    je      c_rt_str_alloc              /* not armed -> C owns hist + init      */
+    je      c_rt_str_alloc
     xor     eax, eax
     test    rdi, rdi
     mov     rsi, rdi
-    cmovs   rsi, rax                    /* n < 0 -> 0                           */
-    inc     rsi                         /* want = n + 1                         */
+    cmovs   rsi, rax
+    inc     rsi
     mov     edi, DT_S
-    jmp     .Lga_armed                  /* armed already proven, r10 loaded     */
+    jmp     .Lga_armed
 RTX_ENDF(rt_str_alloc)
-
-/*-----------------------------------------------------------------------------
- * void *rt_agg_alloc(int kind, size_t n)     C of record: gc_heap.c c_rt_agg_alloc
- *
- *   Args: edi = kind, rsi = n.   Returns: rax = payload pointer.
- *
- *   C being reproduced, exactly:
- *     ty = HB_AGGV + (kind < 0 ? 0 : (kind > 2 ? 2 : kind));
- *     if (g_alloc_detax != 1 && rt_alloc_hist_on()) rt_alloc_hist_ra(retaddr, ty, n);
- *     return rt_gcheap_alloc(ty, n ? n : 1);
- *
- *   THE SAME FUSION AS rt_str_alloc, AND IT IS A PROOF, NOT A SKIP: `armed` mirrors
- *   (g_alloc_detax == 1 && g_ah_on <= 0), so armed set => g_alloc_detax == 1 => the
- *   guard `g_alloc_detax != 1` is FALSE => the histogram call provably cannot fire.
- *   It is therefore ELIMINATED on this path, not merely branched around. When armed is
- *   clear we hand the whole call back to C, which still owns the histogram and lazy init.
- *
- *   WHY THIS SYMBOL IS WORTH A PORT AT ALL (measured s204, step 0(d), and stated so a
- *   null result is informative): rt_agg_alloc is a SIX-LINE WRAPPER whose own body is
- *   pure -O0 ceremony -- prologue, argument spills, a call to rt_alloc_hist_on(), and a
- *   second call frame for rt_gcheap_alloc, which is ITSELF already asm (RTX-2). The port
- *   deletes the frame and turns the inner call into a fallthrough. Density: table_churn
- *   8,001,201 calls (scales linearly: 16,001,201 at 2x passes) . table_access 7,506,501 .
- *   string_manip 0.  Gate on AGG/ALLOC programs, NEVER on string_manip or the rail.
- *
- *   CLAMP IS SIGNED (kind is int): cmovs for kind<0, cmovg for kind>2 -- branchless, and
- *   the two cmovs cost less than the single mispredict the C version's branches invite.
- */
 RTX_FUNC(rt_agg_alloc)
     RTX_GATE(alloc, c_rt_agg_alloc)
-    mov     r10, [rip + g_hp_fr@GOTPCREL]  /* exported+preemptible => GOT, not lea */
-    mov     eax, dword ptr [r10 + 24]   /* armed: mirrors detax==1 && hist off  */
+    mov     r10, [rip + g_hp_fr@GOTPCREL]
+    mov     eax, dword ptr [r10 + 24]
     test    eax, eax
-    je      c_rt_agg_alloc              /* not armed -> C owns hist + init      */
+    je      c_rt_agg_alloc
     mov     eax, edi
     xor     ecx, ecx
     test    eax, eax
-    cmovs   eax, ecx                    /* kind < 0 -> 0                        */
+    cmovs   eax, ecx
     mov     ecx, 2
     cmp     eax, 2
-    cmovg   eax, ecx                    /* kind > 2 -> 2                        */
+    cmovg   eax, ecx
     add     eax, HB_AGGV
-    mov     edi, eax                    /* type = HB_AGGV + clamp(kind,0,2)     */
+    mov     edi, eax
     mov     rcx, 1
     test    rsi, rsi
-    cmove   rsi, rcx                    /* n ? n : 1                            */
-    jmp     .Lga_armed                  /* armed already proven, r10 loaded     */
+    cmove   rsi, rcx
+    jmp     .Lga_armed
 RTX_ENDF(rt_agg_alloc)
-
-/*-----------------------------------------------------------------------------
- * void *rt_ws_alloc(size_t n)             C of record: gc_heap.c c_rt_ws_alloc
- *
- *   Args: rdi = n.   Returns: rax = payload pointer.
- *   Clobbers rax/rcx/rdx/r9/r10 only -- rdi survives for the tail jump.
- *
- *   THE "WORKSPACE ISLAND" BUMP ALLOCATOR -- a SECOND, SEPARATE arena from
- *   g_hp_fr's GC heap above (rt_gcheap_alloc/rt_str_alloc/rt_agg_alloc): TTL
- *   scratch storage that is never collected, growing FORWARD from g_wsi_base
- *   through g_wsi_ws (this function) while rt_ws_strdup (not yet ported)
- *   grows BACKWARD from g_wsi_wss toward it. Same 16-byte rt_hblk_t title as
- *   the GC heap; HB_WS type, HBF_TTL flag, always -- rt_ws_alloc never omits
- *   the zero-fill decision the way rt_gcheap_alloc's detax path does, it only
- *   skips memset when g_hp_fr.zfull says the caller does not need one.
- *
- *   C being reproduced, exactly (gc_heap.c c_rt_ws_alloc):
- *     if (hist_on) hist_ra(...);                          <- diagnostic, C-only
- *     if (!g_wsi_base) rt_wsi_init();                       <- once ever, C-only
- *     total = 16 + round16(n ? n : 1);
- *     if (wss - ws < total) abort();                        <- exhaustion, C-only
- *     h = ws; h->fwd=0; h->size=total; h->type=HB_WS; h->flags=HBF_TTL;
- *     if (g_hp_fr.zfull) memset(h+1, 0, total-16);           <- zfull, C-only
- *     ws += total; blocks += 1; return h+1;
- *
- *   PORTED: the fast arm only -- histogram off, island already initialised,
- *   zfull resolved-false (0, not the -1-unresolved or 1-force-full arms), room
- *   at the frontier. Everything else falls through to C untouched (rdi still
- *   holds the original n), matching rt_gcheap_alloc's detax-only-fast-path
- *   precedent above. g_ah_on/g_wsi_* are all hidden (unlike g_hp_fr, which is
- *   exported for sink_carve48 and needs the GOT) so every one is a direct
- *   [rip+sym] load -- confirmed via readelf -sW on the compiled .o, not the
- *   .so (RTX step 0(c): the .so link-localises statics and hidden globals to
- *   the SAME lowercase letter, so only the .o tells them apart). g_ah_on was
- *   widened static->hidden for exactly this read (gc_heap.c, same rung).
- */
 RTX_FUNC(rt_ws_alloc)
     RTX_GATE(alloc, c_rt_ws_alloc)
     cmp     dword ptr [rip + g_ah_on], 0
-    jne     c_rt_ws_alloc               /* histogram armed -> C owns the record */
+    jne     c_rt_ws_alloc
     cmp     qword ptr [rip + g_wsi_base], 0
-    je      c_rt_ws_alloc               /* island not yet born -> C lazy-inits  */
+    je      c_rt_ws_alloc
     mov     r10, [rip + g_hp_fr@GOTPCREL]
-    cmp     dword ptr [r10 + 40], 0     /* zfull: -1 unresolved, 1 force-full   */
-    jne     c_rt_ws_alloc               /* either one -> C resolves / memsets   */
+    cmp     dword ptr [r10 + 40], 0
+    jne     c_rt_ws_alloc
     mov     rcx, 1
     test    rdi, rdi
-    cmovnz  rcx, rdi                    /* n ? n : 1                            */
+    cmovnz  rcx, rdi
     add     rcx, 15
     and     rcx, -16
-    add     rcx, 16                     /* total = 16 + round16(n ? n : 1)      */
-    mov     r9, [rip + g_wsi_ws]        /* at = ws (title address)              */
+    add     rcx, 16
+    mov     r9, [rip + g_wsi_ws]
     mov     rdx, [rip + g_wsi_wss]
-    sub     rdx, r9                     /* avail = wss - ws                     */
+    sub     rdx, r9
     cmp     rdx, rcx
-    jb      c_rt_ws_alloc               /* exhausted -> C aborts w/ its message */
-    mov     qword ptr [r9 + 0], 0       /* title.fwd  = 0                       */
-    mov     dword ptr [r9 + 8], ecx     /* title.size = total                   */
-    mov     dword ptr [r9 + 12], (HB_WS | (HBF_TTL << 16))  /* type | flags, one store, both compile-time */
-    lea     r10, [r9 + rcx]             /* new ws = at + total                  */
+    jb      c_rt_ws_alloc
+    mov     qword ptr [r9 + 0], 0
+    mov     dword ptr [r9 + 8], ecx
+    mov     dword ptr [r9 + 12], (HB_WS | (HBF_TTL << 16))
+    lea     r10, [r9 + rcx]
     mov     [rip + g_wsi_ws], r10
     add     qword ptr [rip + g_wsi_blocks], 1
-    lea     rax, [r9 + 16]              /* return h + 1                         */
+    lea     rax, [r9 + 16]
     ret
 RTX_ENDF(rt_ws_alloc)
-
-/* Non-executable stack marker: without it ld marks the whole .so RWX-stack. */
 .section .note.GNU-stack,"",@progbits

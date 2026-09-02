@@ -97,14 +97,6 @@ int rt_pl_unify_struct(void *dst, const char *functor_name, int arity, void *arg
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static FILE *plc_out(void) { extern FILE *fh_cur_out_fp(void); FILE *f = fh_cur_out_fp(); return f ? f : stdout; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* plc_* : the CELL-NATIVE Prolog printer (slice prolog-term-descr-s1). Mirrors prolog_builtin.c's pl_write ARM FOR ARM on DESCR cells, so the heap round-trip through the parser's structure type is deleted, not relocated. Byte-identity is the bar: the var
-   numbering below reproduces pl_cell_to_term_named's pl_v2t_index EXACTLY -- unbound cells print _G<n> by FIRST-ENCOUNTER order with shared vars reusing an index, and the map is per top-level call, NOT the cell's own slot.
-   Using pl_disc() here instead would compile, run, and silently renumber every variable in every printed term. The map is a stack local threaded through the walk; no global is added (NO-NEW-GLOBALS). */
-/* ⭐ THE MAP CARRIES THE OUTPUT STREAM (T9, hq_C). The printer wrote to plc_out() -- i.e. fh_cur_out_fp() -- at every site, so it could only ever print to the CURRENT output.
-   out_write_descr() in by_name_dispatch.c takes an arbitrary redirectable FILE *dest, which is why the retired struct-tree printer had pl_wr_set_fp(): converting that call site to the cell
-   printer without this would print correct text to the WRONG STREAM under any redirection -- a silent wrong answer that exits 0. ⛔ A static FILE * here would be a NEW GLOBAL,
-   which needs Lon's explicit permission; the stream rides the vmap for the same reason the name map does, and the s1 author's NO-NEW-GLOBALS note stays true. fp is set at every
-   construction site, never left NULL, so no site can forget a sentinel and deref garbage. */
 typedef struct { pl_cell_t *seen[1024]; int n; FILE *fp; } plc_vmap;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_vindex(plc_vmap *m, pl_cell_t *d)
@@ -148,8 +140,6 @@ static int plc_operand_prec(pl_cell_t *a)
     return n ? plc_op_prec(n, (int)(d->slen & 0xFFFFu)) : -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* nil in EITHER cell spelling. An atom that round-trips through pl_term_to_cell_word arrives as DT_S carrying the name, not DT_A carrying the id (see pl_cell_conv.h), and the converter this printer replaces interned that
-   string back to an id before comparing -- so a DT_S "[]" tail closed the bracket. Checking only DT_A here would print "|[]" for exactly those lists: a divergence the probe does not reach, because probe-built lists carry DT_A tails. */
 static int plc_is_nil(pl_cell_t *d)
 {
     extern int ATOM_NIL;
@@ -249,12 +239,6 @@ static void plc_write(pl_cell_t *c, plc_vmap *m)
     fprintf(fp, ")");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* plc_wt : the options-bearing cell-native printer, mirroring prolog_builtin.c's pl_wt arm for arm. NOT a flag on plc_write -- pl_wt is a genuinely
-   different algorithm (quoting, ignore_ops gating BOTH list and operator syntax,
-   max_depth ellipsis, no $VARNAME arm, no {} arm, '.' self-quoted in the canonical fallback), so collapsing the two would change output in both
-   directions. Written once here with the full option set: display is (0,1,0,0) and
-   write_term parses its own. The var numbering is plc_vindex again, because the caller it replaces converted through pl_cell_to_term_named FIRST
-   and pl_wt then printed that already-renumbered slot. */
 static int plc_atom_needs_quoting(const char *name)
 {
     if (!name || !name[0]) return 1;
@@ -346,7 +330,6 @@ static void plc_wt(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, lon
     fprintf(fp, ")");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* plc_writeq : mirrors prolog_builtin.c's pl_writeq_term arm for arm. NOT plc_wt with quoted=1 -- writeq always translates $VAR AND $VARNAME (no numbervars gate), always applies {} and operator/list syntax (no ignore_ops), and formats floats with the SIMPLE %.1f/%g rule, not plc_wt's round-trip-safe %.*g. Collapsing them would silently change float output. */
 static void plc_writeq(pl_cell_t *c, plc_vmap *m)
 {
     extern int ATOM_DOT;
@@ -431,7 +414,6 @@ static void plc_writeq(pl_cell_t *c, plc_vmap *m)
     fprintf(fp, ")");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* plc_write_canonical : mirrors prolog_builtin.c's pl_write_canonical_term arm for arm. Quoting always on, NO operator syntax ever (always functor(args)), NO $VAR/$VARNAME translation, dot-pairs ALWAYS print as [a,b] list notation -- MEASURED against the project's sole Prolog oracle (SWI): write_canonical/1 uses list notation for proper lists unconditionally, unlike display/1's raw '.'(H,T) form (a distinct, unaffected code path via plc_wt); matches plc_writeq's own unconditional list handling. SIMPLE %.1f/%g float format like plc_writeq -- a third, distinct algorithm from both plc_writeq and plc_wt. */
 static void plc_write_canonical(pl_cell_t *c, plc_vmap *m)
 {
     extern int ATOM_DOT;
@@ -469,17 +451,8 @@ static void plc_write_canonical(pl_cell_t *c, plc_vmap *m)
     fprintf(fp, ")");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⛔⭐ THE ATOM TABLE MUST BE LIVE BEFORE ANY CELL IS PRINTED, AND THIS GUARD IS A REGRESSION FIX -- READ IT BEFORE REMOVING IT AGAIN.
-   The printers compare a compound's functor id against ATOM_DOT to decide list sugar ([a,b,c]) versus canonical form (.(a,.(b,[]))). ATOM_DOT is -1 until prolog_atom_init() runs.
-   ⛔ IN MODE 4 NOTHING ELSE RUNS IT. A standalone binary links libscrip_rt.so and never loads the parser, and the emitted code calls core_lib_init / rtcc_load_all / rt_pl_dop_mkc --
-   not prolog_atom_init. Meanwhile dop_mkc BUILDS the list with prolog_atom_intern(".") at run time, so the cell is correct and only the COMPARISON fails: fnid != -1, and every list
-   prints canonically. Mode 3 hides it because the in-process parser has already initialised the table.
-   ⛔⛔ HOW IT WAS INTRODUCED, named because RULES.md says a removed guard is named: T9 milestone 3 converted out_write_descr from rt_pl_cell_to_term_named() -> pl_write() to a direct
-   cell print. rt_pl_cell_to_term_named (rt_runtime.c:312) CARRIES THIS EXACT GUARD, so the old route initialised the atom table AS A SIDE EFFECT of converting the value. The
-   conversion looked pure and was not: deleting the round-trip deleted an initialisation nobody had written down. Five other runtime entry points carry the same guard
-   (rt_runtime.c:307,313 and by_name_dispatch.c:167,4826,4936); the printers were the only reachable family without one. */
 static void plc_atoms_ready(void) { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); }
-/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_write_cell(void *cell)
 {
     plc_atoms_ready();
@@ -487,15 +460,13 @@ void rt_pl_write_cell(void *cell)
     plc_write((pl_cell_t *)cell, &m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* rt_pl_write_cell_fp: write/1 INTO A CALLER-SUPPLIED STREAM. The plain rt_pl_write_cell always targets fh_cur_out_fp(); out_write_descr() in by_name_dispatch.c is handed an
-   arbitrary redirectable FILE *dest, so it needs this. NULL fp falls back to plc_out(), making the two entry points interchangeable for every existing caller. */
 void rt_pl_write_cell_fp(void *cell, FILE *fp)
 {
     plc_atoms_ready();
     plc_vmap m; m.n = 0; m.fp = fp ? fp : plc_out();
     plc_write((pl_cell_t *)cell, &m);
 }
-/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_writeq_cell(void *cell)
 {
     plc_atoms_ready();
@@ -603,9 +574,6 @@ static long           g_pl_pred_n     = 0;
 extern const char *prolog_atom_name(int id);
 extern int    rt_last_ok(void);
 extern long   rt_arith(int lk, long li, const char *ls, int rk, long ri, const char *rs, const char *op);
-/* ⛔ THE "meta" COMPAT LAYER WAS DELETED HERE (T9). enum MK_*, struct meta_fr, meta_root, g_meta_builtins[], the meta_solve/meta_redo declarations and the g_meta_compat global
-   were ALL declaration-only -- each name had exactly ONE occurrence in the tree, its own. meta_solve and meta_redo were declared and DEFINED NOWHERE and CALLED NOWHERE, and
-   g_meta_compat was a global that nothing ever read or wrote. A whole subsystem's worth of shape with no machine behind it. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_atom_id_of(pl_cell_t *d)
@@ -617,8 +585,6 @@ static int plc_atom_id_of(pl_cell_t *d)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_is_atomlike(pl_cell_t *d) { return (int)d->v == DT_A || (int)d->v == DT_S; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* Every atom this slice hands to a caller (functor/3 Name; univ's =.. functor element) must be DT_S -- pl_make_atom's DT_A type-checks and links fine but SIGSEGVs in write/1's out_write_descr,
-   via c_VARVAL_fn, which never learned DT_A (FINDING-2026-09-01-seat10-prolog-atoms-ride-dt-s-not-dt-a). Matches pl_term_to_cell_word (pl_cell_conv.h:70); twin of pl_atom_cell/pl_nil_cell below. */
 static pl_cell_t plc_atom_id_cell(int id) { const char *n = prolog_atom_name(id); pl_cell_t c; c.v = DT_S; c.slen = (uint32_t)(n ? strlen(n) : 0); c.s = n ? n : ""; return c; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_cell_is_ground(pl_cell_t *c)
@@ -797,12 +763,6 @@ int rt_pl_succ_plus_cell(long arity, void *a_cell, void *b_cell, void *c_cell)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* plc_atom_op_text/plc_make_atom_cell/plc_unify_into_cell : the cell-native trio behind rt_pl_atom_op_cell, rt_pl_char_type_cell and (since T9) rt_pl_lower_upper_cell. ⭐ THE s1 NOTE THAT USED TO SIT HERE SAID
-   the struct-tree twin "STAYS -- rt_pl_lower_upper_cell (out of this slice's scope) still calls it ... re-verify its callers before ever retiring it". Re-verified under T9: it had exactly TWO callers, both in
-   rt_pl_lower_upper_cell, both of the form twin(pl_cell_to_term(x)) -- i.e. pure bridge users. Both now call plc_atom_op_text directly and the twin is DELETED. The note did its job: it named the condition for
-   its own retirement instead of just forbidding it. ⛔ plc_make_atom_cell builds DT_S, NEVER DT_A -- pl_make_atom builds DT_A but Prolog atoms ride DT_S, and readers accept both, so the wrong constructor
-   type-checks, links, and dies later in the writer (measured: seat10's predicate_property core dump; the functor/3 regression bisected to 9368c3b0). The field-setting mirrors pl_term_to_cell_word_m's atom arm.
-   plc_unify_into_cell mirrors pl_unify_term_into_cell's shape (build a value, unify it) without the heap round-trip. */
 static const char *plc_atom_op_text(pl_cell_t *t, char *buf, size_t bufsz)
 {
     if (!t) return (const char *)0;
@@ -973,12 +933,7 @@ static pl_cell_t *plc_fmt_next_arg(pl_cell_t **args) {
     if (a && (int)a->v == DT_PLREF && pl_arity(a) == 2) { pl_cell_t *aa = (pl_cell_t *)pl_compound_heap(a); pl_cell_t *h = pl_deref(&aa[0]); *args = pl_deref(&aa[1]); return h; }
     return (pl_cell_t *)0;
 }
-/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* format/2 walks DESCR CELLS DIRECTLY (T9, Lon big-bang). It used to convert the WHOLE argument list to a heap struct-tree via pl_cell_to_term_named and walk that.
-   ⭐ ONE plc_vmap IS SHARED ACROSS THE WHOLE CALL AND THAT IS LOAD-BEARING, NOT TIDINESS: the old path built its name map once for the entire list, so two ~w arguments sharing an
-   unbound variable printed the SAME _G<n>. Calling rt_pl_write_cell per argument would allocate a fresh map each time and silently renumber from _G0 on every directive -- the exact
-   trap this file warns about at plc_write. plc_write/plc_writeq are called directly (same translation unit) so the map can be threaded through. plc_out() is fh_cur_out_fp(), the same
-   stream the old pl_wr_set_fp(fd) plumbing pointed the retired struct-tree printer at, so that plumbing and the cterm arena mark/release are both gone with the conversion, not relocated. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_format_cell(const char *fmt, void *list_cell)
 {
     plc_atoms_ready();
@@ -1078,14 +1033,7 @@ int rt_pl_lower_upper_cell(void *lower_cell, void *upper_cell)
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⛔ THE STRUCT-TREE STANDARD-ORDER COMPARE WAS DELETED HERE (T9): rt_pl_term_class + rt_pl_term_compare. Its cell-native replacement is rt_pl_cell_compare below, which already
-   reproduced its variable semantics deliberately -- see that function's own note on WHY an index map and not a pointer comparison. The last caller went when rt_pl_bag_group_gen
-   was converted; nothing outside this file ever called either. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* Cell-native standard order of terms (slice s2). WHY AN INDEX MAP AND NOT A POINTER TEST: pl_cell_copy_walk minted one fresh heap node per distinct unbound cell from rt_pl_cterm_alloc, a strict bump
-   arena, so rt_pl_term_compare's `a < b` on TERM_VAR ordered variables by FIRST-ENCOUNTER position over (all of a, then all of b) -- never by the address of the variable cell itself. pl_vord_t
-   records that position, and that is what keeps this path byte-identical to the converter path it replaces. Cap 256 and the walk order below are inherited from pl_cell_copy_walk deliberately: they are
-   the behaviour being preserved, not a limit to round up. */
 typedef struct { pl_cell_t *seen[256]; int idx[256]; int n; int next; } pl_vord_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_pl_vord_of(pl_vord_t *m, pl_cell_t *d) {
@@ -1100,16 +1048,16 @@ static void rt_pl_vord_walk(pl_cell_t *c, pl_vord_t *m) {
     int t = (int)d->v;
     if (pl_cell_unbound(d)) { rt_pl_vord_of(m, d); return; }
     if (t == DT_PLREF) { int ar = (int)(d->slen & 0xFFFFu); pl_cell_t *aa = (pl_cell_t *)d->p; for (int i = 0; i < ar; i++) rt_pl_vord_walk(&aa[i], m); return; }
-    if (t != DT_I && t != DT_A && t != DT_S && t != DT_R) m->next++;   /* copy_walk fell through to term_new_var(-1): one fresh var per occurrence, so the counter advances, nothing memoised */
+    if (t != DT_I && t != DT_A && t != DT_S && t != DT_R) m->next++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_pl_cell_class(pl_cell_t *d) {
     int t = (int)d->v;
     if (pl_cell_unbound(d)) return 0;
     if (t == DT_I || t == DT_R) return 1;
-    if (t == DT_A || t == DT_S) return 2;   /* copy_walk interned DT_S to an atom, so a string sorts AS its atom, not as a fifth class -- see QA in the s2 baton */
+    if (t == DT_A || t == DT_S) return 2;
     if (t == DT_PLREF) return 3;
-    return 0;                               /* unrecognised tag became term_new_var(-1), i.e. class 0, NOT the unreachable class 4 of rt_pl_term_class */
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rt_pl_cell_name(pl_cell_t *d) {
@@ -1155,7 +1103,7 @@ int rt_pl_compare_cell(void *order_cell, void *a_cell, void *b_cell)
     rt_pl_vord_walk((pl_cell_t *)b_cell, &m);
     int c = rt_pl_cell_compare((pl_cell_t *)a_cell, (pl_cell_t *)b_cell, &m);
     const char *nm = (c < 0) ? "<" : (c > 0) ? ">" : "=";
-    const char *an = prolog_atom_name(prolog_atom_intern(nm));   /* DT_S, not pl_make_atom's DT_A -- Prolog atoms ride DT_S (pl_cell_conv.h:70-71) */
+    const char *an = prolog_atom_name(prolog_atom_intern(nm));
     pl_cell_t ord; ord.v = DT_S; ord.slen = (uint32_t)(an ? strlen(an) : 0); ord.s = an ? an : nm;
     int mark = pl_trail_mark(&g_pl_trail);
     if (!pl_unify((pl_cell_t *)order_cell, &ord, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
@@ -1249,10 +1197,7 @@ int rt_pl_sort_cell(int do_msort, void *list_cell, void *result_cell)
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* The two cell-native list readers behind the pairs family, plus the list-building idiom. Both readers mirror the walk rt_pl_keysort_cell and rt_pl_bag_prep_cell each open-coded
-   IDENTICALLY -- a Prolog list is DT_PLREF with functor '.' and arity 2, its arguments in the compound heap -- so naming it once removes a duplicate rather than adding a layer.
-   plc_pairs_extract additionally REFUSES (-1) on any element that is not a '-'/2 pair, exactly as the struct-tree version did. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_pairs_extract(void *list_cell, pl_cell_t **elems, int cap, int dot_id, int dash_id) {
     pl_cell_t *cur = list_cell ? pl_deref((pl_cell_t *)list_cell) : (pl_cell_t *)0;
     int n = 0;
@@ -1265,7 +1210,7 @@ static int plc_pairs_extract(void *list_cell, pl_cell_t **elems, int cap, int do
     }
     return n;
 }
-/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_plain_list_extract(void *list_cell, pl_cell_t **elems, int cap, int dot_id) {
     pl_cell_t *cur = list_cell ? pl_deref((pl_cell_t *)list_cell) : (pl_cell_t *)0;
     int n = 0;
@@ -1276,20 +1221,11 @@ static int plc_plain_list_extract(void *list_cell, pl_cell_t **elems, int cap, i
     }
     return n;
 }
-/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static pl_cell_t plc_nil_cell(void) { const char *nm = prolog_atom_name(prolog_atom_intern("[]")); pl_cell_t c; c.v = DT_S; c.slen = (uint32_t)(nm ? strlen(nm) : 0); c.s = nm ? nm : "[]"; return c; }
-/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static pl_cell_t plc_cons(int fid, pl_cell_t head, pl_cell_t tail) { pl_cell_t *blk = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t)); blk[0] = head; blk[1] = tail; return pl_make_compound(fid, 2, blk); }
-/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* setof/bagof preparation, CELL-NATIVE (T9). It used to convert the whole list to a heap struct-tree, sort with the struct-tree compare, and rebuild. It now mirrors
-   rt_pl_keysort_cell immediately below, ARM FOR ARM -- same list walk, same pl_vord_t, same rt_pl_cell_compare, same nil/cons construction.
-   ⭐⭐ THE ONE THING THAT IS NOT A TRANSCRIPTION, and the reason to read before editing: the old pb_canon_walk MUTATED the tree. Per element it reset next=0 with save=pool_n and
-   rebound that element's variables onto earlier pooled ones (t->tag = TERM_REF), i.e. it canonicalised variables by REWRITING them. The cell design does not rebind at all --
-   rt_pl_vord_walk (seat13, slice s2) assigns each distinct unbound cell a FIRST-ENCOUNTER INDEX in a side map. Replacing mutation with memoised numbering is what makes this safe
-   on cells: an in-place rebind would have had to go through pl_trail_push or setof/bagof backtracking could not undo it, and there is now no rebind to trail.
-   ⚠️ MEASURED BEFORE AND AFTER, because the two schemes are NOT identical in principle: the old per-element reset could make element i's variables share numbering with element 0's,
-   while the map numbers globally by first encounter. Witnesses run against swipl -- setof/bagof over variant keys, variant NON-dedup (neither implementation dedups f(_A) against
-   f(_B); both return three elements), keysort stability and msort ordering. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_bag_prep_cell(int is_setof, void *list_cell, void *result_cell)
 {
     extern pl_trail_t g_pl_trail;
@@ -1383,7 +1319,7 @@ int rt_pl_pairs_keys_values_cell(void *pairs_cell, void *keys_cell, void *values
     int dot_id = prolog_atom_intern("."); int dash_id = prolog_atom_intern("-");
     pl_cell_t *pd = pairs_cell ? pl_deref((pl_cell_t *)pairs_cell) : (pl_cell_t *)0;
     int mark = pl_trail_mark(&g_pl_trail);
-    if (pd && !pl_cell_unbound(pd)) {                       /* pairs given: split into keys and values */
+    if (pd && !pl_cell_unbound(pd)) {
         pl_cell_t *elems[4096]; int n = plc_pairs_extract(pairs_cell, elems, 4096, dot_id, dash_id);
         if (n < 0) return 0;
         pl_cell_t keys = plc_nil_cell(), vals = plc_nil_cell();
@@ -1407,12 +1343,7 @@ int rt_pl_pairs_keys_values_cell(void *pairs_cell, void *keys_cell, void *values
     return 1;
 }
 typedef struct { pl_cell_t *rest; int mark; } pl_baggrp_t;
-/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* bagof group generator, CELL-NATIVE (T9). It yields one key-[values] group per re-entry off a SORTED pair list, so it keeps its cursor in *resume across calls.
-   ⭐ THE VARIABLE-ORDER MAP IS PER CALL, AND THAT IS FAITHFUL RATHER THAN CONVENIENT: the struct-tree version compared keys with rt_pl_term_compare, whose variable case was a raw
-   POINTER comparison -- two distinct unbound vars compared unequal, the same cell compared equal. A fresh pl_vord_t per call reproduces exactly that: distinct cells get distinct
-   first-encounter indices, the same cell gets the same one. Only equality is tested here (the walk breaks on != 0), so no cross-call ordering is required and persisting the map
-   would buy nothing. ⛔ A generator that carried a stale map across re-entries would be the harder-to-see bug, not the safer choice. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_bag_group_gen(DESCR_t *args, int nargs, int64_t *resume)
 {
     extern pl_trail_t g_pl_trail;
@@ -1486,7 +1417,7 @@ int rt_pl_numbervars_cell(void *term_cell, void *start_cell, void *end_cell) {
     int var_id = prolog_atom_intern("$VAR");
     int mark = pl_trail_mark(&g_pl_trail);
     counter = pl_numbervars_walk((pl_cell_t *)term_cell, counter, var_id, &g_pl_trail);
-    pl_cell_t endv = pl_make_int((int64_t)counter);   /* struct-tree round-trip deleted 2026-09-02 (Lon 2026-09-02: the struct-tree type is deleted): the end count is a cell, unified as a cell */
+    pl_cell_t endv = pl_make_int((int64_t)counter);
     if (!pl_unify((pl_cell_t *)end_cell, &endv, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
@@ -1677,11 +1608,6 @@ int rt_pl_acyclic_cell(void *term_cell)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_term_string_cell(void *term_cell, void *str_cell)
 {
-    /* ⭐ THIS USED TO HIJACK THE PROCESS'S STDOUT TO READ ITS OWN OUTPUT. The struct-tree printer could only write to a stream, so term_to_atom captured it by opening a pipe,
-       dup2-ing it over STDOUT_FILENO, printing, restoring the real fd, and read()ing 4096 bytes back. That is gone: since T9 milestone 3 the cell printer carries its FILE* in
-       the vmap, so it prints straight into an open_memstream buffer. ⛔ THE OLD ROUTE WAS NOT MERELY UGLY, IT WAS LOSSY AND GLOBAL -- it TRUNCATED at 4095 bytes with no error,
-       and while it was in effect every other write to STDOUT in the process went into the pipe too. Nothing here touches a shared fd any more. plc_make_atom_cell interns the
-       text and points the cell at the atom table's own copy, so the temporary buffer is freed safely. */
     extern pl_trail_t g_pl_trail;
     int mark = pl_trail_mark(&g_pl_trail);
     char *buf = (char *)0; size_t len = 0;
@@ -1696,16 +1622,6 @@ int rt_pl_term_string_cell(void *term_cell, void *str_cell)
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* CELL-NATIVE deep copy -- the DESCR twin of copy_term_deep/pl_cell_copy_walk, which build heap Terms.
- * Structure never lives on the heap (GOAL-PROLOG-100 top block): a compound copy is a fresh cell array,
- * an atom/int/float/string copies BY VALUE, and only unbound vars need fresh storage. Slot numbering is
- * shared with pl_cell_copy_walk (same counter, same recursion order) so copy_term's printed variable
- * names are unchanged.
- * ⛔⭐ THE NOTE THAT USED TO SIT HERE SAID pl_cell_copy_walk "is NOT deleted: 7 functions in OTHER slices still consume its struct-tree return (rt_pl_atop_cell, rt_pl_compare_cell,
- * the rt_pl_dyn_* family, rt_pl_throw_set)". RE-MEASURED UNDER T9 AND IT HAD GONE STALE: all seven were converted by later slices, and the walker had ZERO external callers -- a
- * forward declaration, its own definition and one self-recursion. DELETED. ⭐ This is the SECOND such note retired today (the first was the struct-tree atom_op_text twin): a comment
- * saying "X stays because Y needs it" becomes false SILENTLY the moment Y is converted, and nothing re-checks it. Both named their own retirement condition, which is what made them
- * cheap to retire -- a bare "do not delete" would have survived indefinitely. Write the CONDITION, not the prohibition. */
 static pl_cell_t pl_cell_copy_cells(pl_cell_t *c, pl_cell_t **vaddr, pl_cell_t **vnew, int *vn, int cap)
 {
     extern int g_pl_copy_slot_mode; extern int g_pl_copy_slot_ctr;
@@ -1729,16 +1645,12 @@ static pl_cell_t pl_cell_copy_cells(pl_cell_t *c, pl_cell_t **vaddr, pl_cell_t *
     return *d;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* The findall/bagof SNAPSHOT, exported for by_name_dispatch's accumulator: capture a template's CURRENT
- * bindings as cells before backtracking undoes them. Same primitive the in-file services use, so both
- * accumulators agree on the element type -- they are the SAME allocation reached by two names. */
 pl_cell_t rt_pl_cell_snapshot(void *cell)
 {
     pl_cell_t *vaddr[256]; pl_cell_t *vnew[256]; int vn = 0;
     return pl_cell_copy_cells((pl_cell_t *)cell, vaddr, vnew, &vn, 256);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* An atom's identity as an id, read straight off the cell: DT_A carries it, DT_S carries the name. */
 static int pl_cell_atom_id(pl_cell_t *c)
 {
     pl_cell_t *d = pl_deref(c);
@@ -1789,7 +1701,7 @@ int rt_pl_findall_finish(void *acc_v, void *result_term)
     pl_findall_acc *a = (pl_findall_acc *)acc_v;
     int dot = prolog_atom_intern(".");
     pl_cell_t lst; { extern const char *prolog_atom_name(int); const char *nm = prolog_atom_name(prolog_atom_intern("[]"));
-        lst.v = DT_S; lst.slen = (uint32_t)(nm ? strlen(nm) : 0); lst.s = nm ? nm : ""; }  /* ⛔ NOT pl_make_atom: it builds DT_A, but Prolog atoms ride DT_S (pl_cell_conv.h:70) -- hq_C measured the DT_A form core-dumping predicate_property (baton ledger 2026-09-01, seat10 on s5). */
+        lst.v = DT_S; lst.slen = (uint32_t)(nm ? strlen(nm) : 0); lst.s = nm ? nm : ""; }
     int n = a ? a->n : 0;
     for (int i = n - 1; i >= 0; i--) {
         pl_cell_t *c = (pl_cell_t *)rt_ws_alloc(2 * sizeof(pl_cell_t)); if (!c) return 0;
@@ -1806,7 +1718,7 @@ int rt_pl_agg_count_finish(void *acc_v, void *result_term)
     extern pl_trail_t g_pl_trail;
     pl_findall_acc *a = (pl_findall_acc *)acc_v;
     int mark = pl_trail_mark(&g_pl_trail);
-    pl_cell_t cnt = pl_make_int((int64_t)(a ? a->n : 0));   /* the count is a cell (2026-09-02, struct-tree type deleted) */
+    pl_cell_t cnt = pl_make_int((int64_t)(a ? a->n : 0));
     if (!pl_unify((pl_cell_t *)result_term, &cnt, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
@@ -1942,9 +1854,6 @@ int rt_pl_dyn_abolish_cell(void *fn_cell, void *ar_cell)
     const char *name = ((int)fnc->v == DT_A) ? prolog_atom_name((int)fnc->i) : (fnc->s ? fnc->s : "");
     if (!name) return 1;
     dyn_pred_row_t *row = dyn_pred_find(name, (long)arc->i);
-    // abolish/1 (ISO 8.4.4) reverts the predicate to NOT DEFINED, unlike retractall/1 which leaves it
-    // defined-with-zero-clauses -- the `abolished` flag is what lets rt_pl_dyn_iter_gen tell the two
-    // apart and throw existence_error only for the abolished case (FINDING-2026-08-29-seat06).
     if (row) { row->head = (dyn_clause_t *)0; row->tail = (dyn_clause_t *)0; row->abolished = 1; }
     return 1;
 }
@@ -2024,10 +1933,6 @@ DESCR_t rt_pl_dyn_iter_gen(DESCR_t *args, int nargs, int64_t *resume)
     if (*resume == 0) {
         const char *nm = (args[0].v == DT_S) ? args[0].s : ((int)args[0].v == DT_A) ? prolog_atom_name((int)args[0].i) : (const char *)0;
         dyn_pred_row_t *row = nm ? dyn_pred_find(nm, arity) : (dyn_pred_row_t *)0;
-        // A row surviving abolish/1 with `abolished` set is a genuinely undefined procedure (never
-        // re-asserted since) -- ISO 8.4.4 says calling it is an existence_error, not a silent fail;
-        // a row that is merely empty (declared dynamic, or retractall'd) is not, and keeps falling
-        // through to the zero-clause loop below, unchanged.
         if (row && row->abolished) { extern void rt_pl_iso_throw_pi(const char *, const char *, const char *, int); rt_pl_iso_throw_pi("existence_error", "procedure", nm, (int)arity); return FAILDESCR; }
         pl_dyn_it_t *it = (pl_dyn_it_t *)rt_ws_alloc(sizeof *it);
         it->cur = row ? row->head : (dyn_clause_t *)0;
@@ -2300,11 +2205,6 @@ int rt_pl_dyn_iter_step(void *cursor, void **arg_cell0, long arity){
     }
     return 0;
 }
-/* The thrown ball OUTLIVES the throwing activation: it is matched by a catch box in an OLDER frame after every frame between
- * has unwound, so its storage cannot come from the workspace arena (rt_ws_alloc), which those frames reset -- measured 2026-09-02:
- * catch_between_directive_1 SEGV on its third catch when the ball copy rode rt_ws_alloc. The struct-tree path this replaces persisted
- * the ball in rt_pl_cterm_alloc and re-materialised cells through rt_plj_alloc at match time; this copy goes to rt_plj_alloc directly.
- * C37 retires the global slot itself (the ball rides omega to the catch box's beta); until then it is a persistent cell copy. */
 static pl_cell_t pl_cell_copy_persist(pl_cell_t *c, pl_cell_t **vaddr, pl_cell_t **vnew, int *vn, int cap)
 {
     extern void *rt_plj_alloc(size_t);
@@ -2317,7 +2217,7 @@ static pl_cell_t pl_cell_copy_persist(pl_cell_t *c, pl_cell_t **vaddr, pl_cell_t
         if (*vn < cap) { vaddr[*vn] = d; vnew[*vn] = fresh; (*vn)++; }
         return pl_make_ref(fresh, (int)fresh->slen);
     }
-    if ((int)d->v == DT_A) {   /* atoms ride DT_S on the way out: write/1 wild-reads a DT_A cell as an ARRAY header (core.c:1993; the functor/3 regression 9368c3b0, seat10's FINDING) -- the struct-tree path re-materialised TERM_ATOM as DT_S with the name for the same reason */
+    if ((int)d->v == DT_A) {
         extern const char *prolog_atom_name(int); const char *nm = prolog_atom_name((int)d->i);
         pl_cell_t c2; c2.v = DT_S; c2.slen = (uint32_t)(nm ? strlen(nm) : 0); c2.s = nm ? nm : ""; return c2;
     }
@@ -2331,7 +2231,7 @@ static pl_cell_t pl_cell_copy_persist(pl_cell_t *c, pl_cell_t **vaddr, pl_cell_t
     }
     return *d;
 }
-static pl_cell_t *g_pl_throw_ball = (pl_cell_t *)0;   /* the ball is a CELL copy since 2026-09-02 (Lon 2026-09-02: the struct-tree type is deleted); C37 moves it out of a polled global and into the catch box's beta */
+static pl_cell_t *g_pl_throw_ball = (pl_cell_t *)0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_throw_set(void *ball_cell)
 {

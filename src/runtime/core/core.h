@@ -7,52 +7,22 @@
 #include <stdlib.h>
 #include "descr.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⛔⭐⭐ LENGTH AUTHORITY IS THE CARRIED .slen -- NEVER strlen ON A VALUE'S BYTES (Lon, in-chat, 2026-08-30,
-   verbatim in substance: "Remove all strlen on the DESCR .s that is totally INVALID and not performant.  A NUL
-   character is a valid string element.").  Both halves of that are load-bearing.  INVALID: SNOBOL4/SPITBOL
-   strings are COUNTED, so NUL is an ordinary member of &ALPHABET and a value may legitimately contain one --
-   strlen answers a question about C strings, not about our values, and it truncates at the first embedded NUL.
-   NOT PERFORMANT: it is an O(n) rescan of bytes whose length was already known to whoever built the descriptor.
-   ⭐ THE CURE IS TO MEASURE ONCE AT CONSTRUCTION, NOT ON DEMAND: STRVAL below carries the length in, so this
-   function only READS it.  For a string literal __builtin_strlen constant-folds, so the carried form is strictly
-   cheaper than the old on-demand strlen as well as correct.
-   ⛔ THE slen == 0 "ASK strlen" SENTINEL IS RETIRED: slen == 0 now means the value IS EMPTY, full stop.  A value
-   with an embedded NUL must be built with BSTRVAL (which carries an explicit count); STRVAL's contract is and
-   always was "this argument is a C string".
-   ⚠️ THE CSET SENTINEL IS THE ONE SURVIVOR AND IT IS NOT AN OVERSIGHT: slen == 0xFFFFFFFF is a TYPE TAG, not a
-   length, so a cset has nowhere to carry a count -- its length authority is kw_cset_len (rt.c), and a cset whose
-   member set includes NUL is a separate representation question that this change does not touch. */
 static inline __attribute__((always_inline)) uint32_t descr_cstrlen(const char *s_) { return s_ ? (uint32_t)__builtin_strlen(s_) : 0u; }
 static inline size_t descr_slen(DESCR_t d) {
     if (d.v == DT_S) {
-        if (d.slen == 0xFFFFFFFFu) return d.s ? __builtin_strlen(d.s) : 0;   /* CSET: tag, not a count -- see above */
+        if (d.slen == 0xFFFFFFFFu) return d.s ? __builtin_strlen(d.s) : 0;
         return (size_t)d.slen;
     }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐⛔ THE C-STRING BOUNDARY FOR SLICE-BACKED VALUES (row perf-pattern-defer-capture-layer-cure, slice b).  A capture
-   descriptor that points INTO its subject owns no terminator: the byte at .s[.slen] is the subject's NEXT character,
-   not '\0'.  Every consumer that hands .s to a C string function -- strtod, strtoll, printf %s, strcmp -- must fetch
-   its pointer through here first, or it reads past the value and answers about a longer string than it was given.
-   ⭐ The test is STRUCTURAL and costs no flag bit and no spare DESCR_t field (there is none to spare -- 16 bytes is a
-   SysV register-pair by static_assert): reading .s[.slen] is ALWAYS in bounds, because that byte is either the
-   value's own terminator or a byte of the parent block it slices.  An already-terminated value -- every string in
-   the tree today -- costs one load and one branch and is returned unchanged, so this is not a copy on the ordinary
-   path.  ⛔ .slen == 0 deliberately returns .s untouched: descr_slen() treats slen 0 as "ask strlen", so a
-   zero-length value is NEVER slice-backed and must not be materialized here (materializing it would mint "" and
-   throw away a legitimately strlen-measured string).  ⛔ THE 0xFFFFFFFF SENTINEL IS EXCLUDED FOR THE SAME REASON AND
-   IT IS NOT COSMETIC: descr_slen() reads that value as a THIRD spelling of "ask strlen", so it is a length that is
-   not a length.  Omitting it here indexed d.s[0xFFFFFFFF] and SIGSEGV'd rung36_jcon_coerce -- an Icon program, from
-   a change whose witnesses were all SNOBOL4.  Any predicate over .slen must answer for all three spellings (0,
-   0xFFFFFFFF, and a real count) or it is not a predicate over .slen at all. */
 const char *rt_cstr_materialize(DESCR_t d);
 static inline __attribute__((always_inline)) const char *rt_cstr_d(DESCR_t d) {
     if (d.v != DT_S || !d.s || !d.slen || d.slen == 0xFFFFFFFFu) return d.s ? d.s : "";
     return d.s[d.slen] ? rt_cstr_materialize(d) : d.s;
 }
 #define NULVCL    ((DESCR_t){ .v = DT_SNUL, .slen = 0, .s = "" })
-#define STRVAL(s_) __extension__({ char *_sv_ = (char *)(s_); (DESCR_t){ .v = DT_S, .slen = descr_cstrlen(_sv_), .s = _sv_ }; })   /* measures ONCE, here; folds to a constant for a literal */
+#define STRVAL(s_) __extension__({ char *_sv_ = (char *)(s_); (DESCR_t){ .v = DT_S, .slen = descr_cstrlen(_sv_), .s = _sv_ }; })
 #define BSTRVAL(s_, len_) ((DESCR_t){ .v = DT_S, .slen = (uint32_t)(len_), .s = (s_) })
 #define INTVAL(i_) ((DESCR_t){ .v = DT_I,  .i = (i_) })
 #define REALVAL(r_)((DESCR_t){ .v = DT_R, .r = (r_) })
@@ -67,7 +37,7 @@ static inline int IS_REAL_fn(DESCR_t v)  { return v.v == DT_R; }
 static inline int IS_CSET_fn(DESCR_t v)  { return v.v == DT_S && v.slen == 0xFFFFFFFFu; }
 static inline int IS_DATA_fn(DESCR_t v)  { return v.v == DT_DATA; }
 char *VARVAL_fn(DESCR_t v);
-void rt_translate_bytes(char *dst, const char *src, size_t n, const char *map);   /* rtx_str.s owns this symbol; RTX_GATE tail-jumps to the C body below */
+void rt_translate_bytes(char *dst, const char *src, size_t n, const char *map);
 void c_rt_translate_bytes(char *dst, const char *src, size_t n, const char *map);
 DESCR_t INVOKE_fn(const char *name, DESCR_t *args, int nargs);
 DESCR_t dat_field_call(const char *name, DESCR_t *args, int nargs);
@@ -77,22 +47,6 @@ const char *rt_sno_indirect_name(DESCR_t v);
 DESCR_t INTVAL_fn(DESCR_t d);
 DESCR_t PATVAL_fn(DESCR_t d);
 DESCR_t VARVUP_fn(DESCR_t d);
-/* ⭐⭐ ONE PASS INSTEAD OF libc's NUMBER PARSER (hq_P s262).  MEASURED across the 17-kernel field, marginal profiles:
-   `mixed_workload` -- the fair single number for a realistic program, 3.28x slower than SPITBOL -- spends
-   __strtod_l_internal 8.81% + ____strtol_l_internal 4.57% + str_to_mpn 2.55% = 15.9% of its steady-state
-   instructions inside libc's locale-aware number parser.  `operand_is_real_str` was calling strtoll AND strtod on
-   every string operand purely to decide "integer or real", and `is_numeric_like` called strtod on every string to
-   decide "is this numeric at all".  strtod is not a cheap function: it is locale-sensitive and any longish digit
-   run walks its bignum path, which is what put str_to_mpn on the profile.
-   ⭐ A PLAIN INTEGER NEEDS NO CONVERSION TO CLASSIFY -- optional blanks, optional sign, digits, optional blanks,
-   NUL.  That is a single character scan and it is the overwhelmingly common case in this corpus.
-   ⛔ IT CANNOT ANSWER DIFFERENTLY, ONLY SOONER, and both callers are checked against libc's own behaviour:
-   is_numeric_like returns 1 for such a string because strtod consumes the digits and leaves only blanks;
-   operand_is_real_str returns 0 because strtod and strtoll consume exactly the same span (`endd <= endi`).
-   Everything else -- a '.', an exponent, "inf"/"nan", a 0x hex float, leading junk, overflow -- falls through to
-   the UNCHANGED libc path, which is why none of those cases had to be re-implemented here.
-   ⛔ always_inline, not plain `inline`: under the s262 NO-`-O2` fact rule -O0 is the number of record, and at -O0
-   gcc emits a real call for a `static inline` -- a lesson this seat paid 0.80% to learn earlier the same day. */
 static inline __attribute__((always_inline)) int rt_plain_int_str(const char *s) {
     if (!s) return 0;
     while (*s == ' ' || *s == '\t') s++;
@@ -149,79 +103,30 @@ DESCR_t    array_get(ARBLK_t *a, int i);
 void      array_set(ARBLK_t *a, int i, DESCR_t v);
 DESCR_t    array_get2(ARBLK_t *a, int i, int j);
 void      array_set2(ARBLK_t *a, int i, int j, DESCR_t v);
-/*⭐⭐ THE TABLE IS A SORTED-INDEX HASH (Lon, 2026-08-23 s262).  Hash by DATATYPE first, then by VALUE; one
-  CONTIGUOUS array per bucket; BINARY SEARCH inside the bucket.  `TBPAIR_t.next` is RETIRED -- buckets are no
-  longer chains -- and its 8 bytes now carry `hkey`, the (datatype,value) sort key.
-  ⛔ 48 BYTES, key@0, val@24 STILL PINNED by _Static_assert in rtx_init.c; only the last member changed name.
-  ⭐⭐ THE ENTRIES ARE INLINE IN THE BUCKET, AND THAT IS LON'S RULING (2026-08-23 s262), verbatim: "all references are
-  supposed to be downstream so that everything is easily slidable.  And we should never have in our code a place that
-  depends on that pointer not moving."
-  ⛔ THE FIRST CUT OF THIS FILE GOT THAT BACKWARDS.  It put entries OUT of line and kept them still, because
-  pattern_match.c minted a VCELL_t holding `cellp = &e->val` and stored through it later -- so the data structure was
-  bent around one caller's assumption that an address into it would stay valid.  That assumption is the bug, not the
-  constraint: it forced a whole extra indirection layer AND it required pinning table blocks against a COMPACTING
-  collector.  The caller was fixed instead -- a table VCELL now names (tbl, key_descr) and re-resolves on use, which
-  also picks up the table's default value correctly, which the raw cell pointer never did.
-  ⭐ SO A BUCKET IS ONE CONTIGUOUS BLOCK OF ENTRIES, hkey-sorted, binary-searched, and its only outbound pointers are
-  `ent` and `key` -- both downstream, both slidable, nothing anywhere holding an interior address across a statement. */
 typedef struct _TBBLK_tEntry {
     char              *key;
     DESCR_t            key_descr;
     DESCR_t            val;
     unsigned long long hkey;
 } TBPAIR_t;
-/*⭐⭐ len AND cap LIVE IN THE ENTRY BLOCK, NOT IN THE BUCKET VECTOR -- AND THAT IS A MEASUREMENT, NOT A TASTE.
-  The first cut made a bucket {TBPAIR_t *ent; unsigned len, cap} = 16 bytes, which DOUBLED TBBLK_t from 2,088 to
-  4,160 bytes.  Every TABLE() memsets that vector, and programs that build MANY SMALL TABLES pay it per table:
-  CLAWS5 (a 3-level TABLE of TABLE of TABLES, one inner table per num and per word) went to 114.7M instructions
-  from 118.7M -- FEWER instructions -- yet 68.4M cycles against 63.8M, IPC 1.65 against 1.82, and 5% slower on the
-  wall.  The work got cheaper and the program got slower, because the clearing and the sparse bucket vector
-  evicted everything else.  ⛔ INSTRUCTION COUNT COULD NOT SEE THIS AND CALLGRIND Ir SAID THE OPPOSITE: `rep
-  stosb` is one instruction whatever the length.  perf cycles/IPC was the only instrument that could answer.
-  ⭐ So the bucket is a bare pointer again (8 bytes, TBBLK_t back to 2,088 = the chained original's size), an
-  EMPTY bucket is NULL and allocates nothing, and len/cap ride in the entry block -- which is strictly better
-  locality than the first cut had, because they now share a cache line with ent[0] instead of sitting in a
-  separate 4 KB vector. */
 typedef struct _TBBUCK_t { unsigned len, cap; TBPAIR_t ent[]; } TBBUCK_t;
-/*⭐⭐ 256 BUCKETS -- KEPT, AND KEPT ON A MEASUREMENT THAT CONTRADICTED THE ARGUMENT FOR CHANGING IT (s262).
-  THE ARGUMENT WAS PLAUSIBLE AND WRONG.  A CHAINED bucket had to stay shallow because depth was linear cost, so 256 heads were the price of speed; a SEARCHED bucket
-  supposedly inverts that -- depth is cheap, so fewer and deeper should be strictly better, and TBBLK_t would shrink from 4.1 KB to 1 KB with it.  The sweep says no.
-  callgrind Ir at fixed work (200 rebuilds x 500 integer keys, RT_OPT=-O0), chained baseline 185,809,919:
-        256 -> 180,173,520 (-3.0%)      128 -> 184,480,220 (-0.7%)      64 -> 189,515,120 (+2.0%)      32 -> 200,307,020 (+7.8%)
-  Monotone, and it crosses the baseline between 128 and 64.  The reason is that the search is LINEAR below TBL_LINEAR_MAX, which is where every one of these depths
-  lands, so halving the bucket count does not buy a halved binary search -- it buys a doubled linear scan, and the bucket vector it saves is memset by `rep stosb`,
-  which is nearly free.  Depth is only cheap once it is deep enough to reach the binary arm, and a table that deep is not what SNOBOL4 programs build.
-  ⛔ TWO MEASUREMENT TRAPS ON THE WAY TO THIS NUMBER, BOTH RECORDED BECAUSE BOTH LOOKED LIKE ANSWERS: (1) the first sweep changed this constant WITHOUT updating the
-  _Static_assert in rtx_init.c that pinned it, so make failed and every arm silently re-measured the 256 binary -- the differing wall-clock figures were pure box
-  noise presented as a result.  (2) wall-clock on this box swings +/-30% run to run (6,144..8,704 iters for ONE binary), so it cannot resolve a 3% effect at all.
-  Ir at fixed work was the only instrument that could answer, which is what RULES.md says to reach for first. */
 #define TABLE_BUCKETS 256
 typedef struct _TBBLK_t {
-    TBBUCK_t     **buckets;   /*⭐ SIZED FROM THE PROGRAM'S OWN TABLE(n), not a fixed 256 -- see the ⭐⭐ block above TABLE_BUCKETS */
-    unsigned       nbuck;     /* power of two, always; TBL_BUCKET_OF masks with nbuck-1 */
+    TBBUCK_t     **buckets;
+    unsigned       nbuck;
     int            size;
     int            init, inc;
     int            is_set;
     DESCR_t        dflt;
     long           id;
 } TBBLK_t;
-/*⭐ THE ONLY SANCTIONED WALKS.  A bucket is {slot,len,cap}, never a chain -- `for (e = t->buckets[b]; e; e = e->next)`
-  no longer compiles, which is deliberate: it is how every one of the twelve former chain walks was found.  Entries
-  are dense in slot[0..len-1] (delete compacts), so the null test doubles as the loop bound.  Caller declares e_. */
 #define TBL_FOREACH(t_, e_)            for (unsigned _tb = 0; _tb < (t_)->nbuck; _tb++) if ((t_)->buckets[_tb]) for (unsigned _ts = 0; _ts < (t_)->buckets[_tb]->len && ((e_) = &(t_)->buckets[_tb]->ent[_ts]) != (TBPAIR_t *)0; _ts++)
 TBBLK_t *table_new(void);
 TBBLK_t *table_new_args(int init, int inc);
 DESCR_t agg_prototype(DESCR_t v);
 const char *tbl_key_str(DESCR_t kd, char *buf, size_t bufn);
-/* ⭐ DESCRIPTOR-KEYED TABLE API -- hash by DATATYPE, then by VALUE (Lon s262).  These are the ONLY sound entry
-   points once any key is hashed by value: a table whose entries were placed by _tbl_hash_d cannot be found by the
-   string-keyed calls above, which hash the ENCODED key as text.  Convert callers, do not mix. */
-/*⭐ THE PRINTABLE KEY IS LAZY (s262).  e->key is NOT built on insert any more -- nothing on the hot path reads it, because
-   _tbl_eq_d compares key_descr.  Iteration, CONVERT, sorting and set output go through this accessor, which materialises
-   the encoding on FIRST demand and caches it in the entry.  ⛔ It ALLOCATES: never call it from the collector -- gc_heap.c
-   tests the raw e->key field instead, and a null there simply means "never printed". */
 const char *tbl_pair_key(TBPAIR_t *e);
-TBPAIR_t  *table_find_pair_d(TBBLK_t *tbl, DESCR_t k);   /* rtx_table.s owns this symbol; RTX_GATE tail-jumps to the C body below */
+TBPAIR_t  *table_find_pair_d(TBBLK_t *tbl, DESCR_t k);
 TBPAIR_t  *c_table_find_pair_d(TBBLK_t *tbl, DESCR_t k);
 DESCR_t    table_get_d(TBBLK_t *tbl, DESCR_t k);
 DESCR_t    table_get_found_d(TBBLK_t *tbl, DESCR_t k, int *found);
@@ -417,16 +322,16 @@ DESCR_t pat_user_call(const char *name, DESCR_t *args, int nargs);
 DESCR_t subscript_get(DESCR_t arr, DESCR_t idx);
 DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx);
 DESCR_t rt_subscript_var_container_only(DESCR_t base, DESCR_t idx);
-DESCR_t c_rt_subscript_var_container_only(DESCR_t base, DESCR_t idx);   /* the C of record; rtx_table.s owns the exported name and falls back here */
-DESCR_t c_rt_svco_miss_d(struct _TBBLK_t *tb);                          /* miss arm: the table default, else the null string */
-DESCR_t c_rt_subscript_var2(DESCR_t base, DESCR_t idx1, DESCR_t idx2);      /* row `table-int-keys-and-nd-subscript`: one dispatch for a[i,j] rvalue */
-DESCR_t c_rt_subscript_var2_lv(DESCR_t base, DESCR_t idx1, DESCR_t idx2);   /* same, lvalue/assignable-nametrap fallback shape */
+DESCR_t c_rt_subscript_var_container_only(DESCR_t base, DESCR_t idx);
+DESCR_t c_rt_svco_miss_d(struct _TBBLK_t *tb);
+DESCR_t c_rt_subscript_var2(DESCR_t base, DESCR_t idx1, DESCR_t idx2);
+DESCR_t c_rt_subscript_var2_lv(DESCR_t base, DESCR_t idx1, DESCR_t idx2);
 DESCR_t rt_deref(DESCR_t d);
 DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
 DESCR_t c_rt_assign_var(DESCR_t var, DESCR_t val);
 DESCR_t rt_cset_compl(DESCR_t a);
 DESCR_t *NV_PTR_fn(const char *name);
-__attribute__((visibility("hidden"))) DESCR_t *NV_CELL_IF_FASTSET_fn(const char *name);   /* the cell NV_SET_fn's own fast path would write, or NULL when the store must go through NV_SET_fn -- see the funnel comment in core.c. row perf-nv-set-plt-hidden: intra-.so-only caller set (core.c, pattern_match.c), no emitted-code symbol reference -- widened static->hidden RTX-step-0(c) precedent (g_ah_on/g_wsi_*, gc_heap.c) to drop the PLT indirection measured at core.c:2416's call site. */
+__attribute__((visibility("hidden"))) DESCR_t *NV_CELL_IF_FASTSET_fn(const char *name);
 int NV_bind_gva(const char *name, DESCR_t *cell);
 int NV_EXISTS_fn(const char *name);
 DESCR_t NV_KW_GET_fn(const char *name);
@@ -444,7 +349,7 @@ DESCR_t subscript_get2_ext(DESCR_t arr, DESCR_t i, DESCR_t end);
 int    subscript_set2(DESCR_t arr, DESCR_t i, DESCR_t j, DESCR_t val);
 int    val_stack_depth(void);
 void   register_fn(const char *name, DESCR_t (*fn)(DESCR_t*, int), int min_args, int max_args);
-int64_t rt_time_ns(void);   /* NS-TIME (s249): THE clock behind TIME() -- CLOCK_MONOTONIC nanoseconds since program start */
+int64_t rt_time_ns(void);
 DESCR_t EVAL_fn(DESCR_t expr);
 DESCR_t EXPVAL_fn(DESCR_t expr_d);
 DESCR_t CONVE_fn(DESCR_t str_d);

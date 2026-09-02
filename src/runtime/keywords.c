@@ -25,9 +25,6 @@ long g_stcount = 0;
 long g_lastno  = 0;
 long g_line    = 0;
 long g_lastline = 0;
-/* ⭐ &FILE/&LASTFILE globals — Lon's grant, 2026-08-27 in-chat to CEO (relayed to kw-missing-4's
-   task LEDGER): "I already granted permission for those two globals... &FILE and &LASTFILE will be
-   implemented as global variables." Scope: exactly these two cells, parallel to g_line/g_lastline. */
 const char *g_file = NULL;
 const char *g_lastfile = NULL;
 const char *g_sno_errtext = NULL;
@@ -57,14 +54,6 @@ static DESCR_t make_kw_cset(const char *chars, const char *kw_name) {
     return CSETVAL(stable);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⛔ NOT cset_canonical(chars) (icon-ascii-cset-keywords-built-off-by-one): cset_canonical scans its input
-   with `for (...; *p; p++)`, so it truncates to "" the moment `chars` contains a byte-0 member -- exactly
-   what a correctly-built &ascii/&cset now does at index 0. All 6 callers of kw_cset_reg already pass
-   sorted, deduped, complete input (the very thing cset_canonical would compute), so canonicalizing here
-   was always redundant work; routing around it with an explicit-length copy costs nothing for the other
-   5 and fixes the 6th. This does not touch cset_canonical itself -- its own general-literal gap
-   (FINDING-2026-08-27-seat09-icon-cset-embedded-nul-is-a-four-layer-representation-gap.md) is untouched,
-   deliberately, same reasoning as that FINDING's own "not fixed this session". */
 static void kw_cset_reg(const char *chars, const char *name, int len) {
     for (int i = 0; i < g_kw_cset_count; i++) if (g_kw_cset_names[i].name && !strcmp(g_kw_cset_names[i].name, name)) return;
     kw_cset_grow();
@@ -88,11 +77,6 @@ static void kw_cset_prime(void) {
     { char a[256]; for (int c=0;c<256;c++) a[c]=(char)c; kw_cset_reg(a, "&cset", 256); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* icn-cset-embedded-nul-four-layer-gap, layer 5 (registry side): a literal charset's TRUE length
-   (which can exceed what strlen() reports when the set contains byte 0) is baked by codegen as a
-   compile-time constant and registered here, keyed by pointer identity -- the same lookup
-   c_rt_size_d/kw_cset_len already perform for the 6 keyword csets, now open to any literal.
-   Dedup is by pointer, never by content (strcmp cannot safely compare two embedded-NUL strings). */
 void rt_icn_cset_register(const char *ptr, int len) {
     if (!ptr) return;
     kw_cset_prime();
@@ -106,22 +90,8 @@ void rt_icn_cset_register(const char *ptr, int len) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *kw_cset_name(const char *ptr) {
     kw_cset_prime();
-    /* icn-cset-embedded-nul-four-layer-gap follow-on: &lcase/&ucase/&digits/&letters fold to a
-       compile-time IR_LIT_CHARSET at lower_icon.c's lc_key (their content is statically known), so
-       their runtime value is a CODEGEN-BAKED buffer, never make_kw_cset's own pointer -- and
-       rt_icn_cset_register now registers every IR_LIT_CHARSET literal, keyword-folded ones included,
-       with name=NULL (it has no way to know a given literal happens to BE a keyword's folded value).
-       An unnamed entry can never supply a name, so it must not win the exact-pointer match ahead of
-       the real keyword entry (registered separately, at a different address, by kw_cset_prime/
-       make_kw_cset) -- without this guard the unnamed hit short-circuits both loops and image()/etc.
-       print the raw character content instead of "&lcase". kw_cset_len is unaffected: it does not
-       care which entry it matches, since the length agrees either way. */
     for (int i = 0; i < g_kw_cset_count; i++)
         if (g_kw_cset_names[i].ptr == ptr && g_kw_cset_names[i].name) return g_kw_cset_names[i].name;
-    /* NOT strcmp against an entry starting with byte 0 (icon-ascii-cset-keywords-built-off-by-one):
-       same unsafe-comparison shape as kw_cset_len's own fallback, just above -- see its comment. An
-       unrelated short/empty pointer (e.g. rt_cset_compl's empty-complement result) would otherwise
-       strcmp-"match" a correctly-built &ascii/&cset and print its name instead of the real content. */
     if (ptr) for (int i = 0; i < g_kw_cset_count; i++)
         if (g_kw_cset_names[i].ptr && g_kw_cset_names[i].ptr[0] != '\0' && g_kw_cset_names[i].name && !strcmp(g_kw_cset_names[i].ptr, ptr)) return g_kw_cset_names[i].name;
     return NULL;
@@ -131,12 +101,6 @@ int kw_cset_len(const char *ptr) {
     kw_cset_prime();
     for (int i = 0; i < g_kw_cset_count; i++)
         if (g_kw_cset_names[i].ptr == ptr) return g_kw_cset_names[i].len;
-    /* NOT strcmp against an entry whose OWN content starts with byte 0 (icon-ascii-cset-keywords-built-off-by-one):
-       strcmp has no length for `ptr` to check, so it can only compare up to the shorter side's own NUL -- an
-       entry that starts with chr(0) (a correctly-built &ascii/&cset) matches ANY other pointer that also starts
-       with chr(0), including a short/empty/unrelated one, as spuriously "equal". Such an entry is reachable only
-       by the exact-pointer match above, which is the normal case for every caller that holds the real registered
-       pointer; refusing the content fallback here is strictly safer than a wrong length. */
     if (ptr) for (int i = 0; i < g_kw_cset_count; i++)
         if (g_kw_cset_names[i].ptr && g_kw_cset_names[i].ptr[0] != '\0' && !strcmp(g_kw_cset_names[i].ptr, ptr)) return g_kw_cset_names[i].len;
     return -1;
@@ -319,8 +283,6 @@ DESCR_t kw_read(const char *kw) {
         if (!cs) {
             char ascii_str[128];
             for (int c=0;c<128;c++) ascii_str[c]=(char)c;
-            /* NOT cset_canonical() -- see kw_cset_reg's comment (icon-ascii-cset-keywords-built-off-by-one):
-               it truncates to "" on a leading byte-0, and ascii_str is already sorted/deduped/complete. */
             extern void *rt_ws_alloc(size_t);
             char *stable = (char *)rt_ws_alloc(129); memcpy(stable, ascii_str, 128); stable[128] = '\0';
             kw_cset_grow();
@@ -337,8 +299,6 @@ DESCR_t kw_read(const char *kw) {
         if (!cs) {
             char cset_str[256];
             for (int c=0;c<256;c++) cset_str[c]=(char)c;
-            /* NOT cset_canonical() -- see kw_cset_reg's comment (icon-ascii-cset-keywords-built-off-by-one):
-               it truncates to "" on a leading byte-0, and cset_str is already sorted/deduped/complete. */
             extern void *rt_ws_alloc(size_t);
             char *stable = (char *)rt_ws_alloc(257); memcpy(stable, cset_str, 256); stable[256] = '\0';
             kw_cset_grow();
@@ -464,13 +424,6 @@ DESCR_t rt_keyword_read_snobol4(const char *sval) {
       return NV_KW_GET_fn(ck); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐ &FILE never changes mid-run (single-file execution, no -INCLUDE support in scope here) --
-   set ONCE by rt_stmt_file_init, below, not mirrored every statement the way g_line is. &LASTFILE
-   DOES need a per-statement mirror, but NOT g_line's unconditional one: verified against the live
-   oracle (/home/resources/x64/bin/sbl -bf) that &LASTFILE reads as the NULL STRING when queried
-   from the program's first statement (no previous statement exists yet), not as the current file --
-   g_stcount (already incremented past 0 by every statement after the first) is the exact signal
-   rt_stmt_enter already carries for "has a previous statement actually run". */
 void rt_stmt_file_init(const char *file) { g_file = file; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_stmt_enter(long stno, long line) {

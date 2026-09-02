@@ -215,7 +215,6 @@ static IR_t * pas_call_args_brm(pcx_t * cx, IR_t * call, uint64_t brm, const tre
     for (int k = 0; k < nargs; k++) {
         IR_t * ar = NULL; IR_t * ae;
         if (((brm >> k) & 1ULL) && args[k] && args[k]->t == TT_VAR && args[k]->v.sval && !pas_name_is_byref(cx, args[k]->v.sval)) {
-            /* byref-of-UPLEVEL is not display-reached yet (needs IR_VAR_FRAME_REF): lowers by plain name, known-red class (nested_vp_writeback) */
             IR_t * vr = build(cx, IR_VAR_REF, (k == nargs - 1) ? call : NULL, ω); IR_LIT(vr).sval = args[k]->v.sval;
             ae = vr; ar = vr;
         } else if (((brm >> k) & 1ULL) && args[k] && args[k]->t == TT_VAR && args[k]->v.sval) {
@@ -268,14 +267,6 @@ static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
     *res = nd; return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* pas_lower_idx_assign_curried -- `lhs := rhs` where lhs is TT_IDX and lhs->c[0] is ITSELF TT_IDX (a
-   curried multi-dimensional array write, e.g. `a[i,j] := v` parsed as TT_IDX(TT_IDX(a,i),j)). The plain
-   arr_set_pure path below needs a flat TT_VAR base to name the variable it writes the updated array back
-   into; it has none here. Rewritten into the same temp-var read/modify/write-back shape lower_call
-   already uses for byref array-index arguments: read the sub-array, assign into it at THIS level (an
-   ordinary 1-D array assign, base now a TT_VAR), then write the updated sub-array back to its own
-   (possibly still-curried) slot -- which recurses through lower_assign again for depth > 2, so any
-   dimension count is handled uniformly rather than special-cased per depth. */
 static IR_t * pas_lower_idx_assign_curried(pcx_t * cx, const tree_t * lhs, const tree_t * rhs, IR_t * γ, IR_t * ω, IR_t ** res) {
     const tree_t * base = lhs->c[0];
     const tree_t * idx  = (lhs->n > 1) ? lhs->c[1] : NULL;

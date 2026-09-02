@@ -10,12 +10,13 @@ Remove C/C++ comments from SCRIP source, string/char-literal aware.
 Usage:
   strip_comments.py --dry-run        # report counts only, write nothing
   strip_comments.py --apply          # rewrite files in place
+  strip_comments.py --check          # rc=1 if any comment (other than a 200-char separator) or blank line survives; the R5 gate arm
 """
 import os, re, sys
 
 KEEP_SEPARATORS = True   # Option A (default). Set False for Option B (literal zero).
 SRC_ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src")
-EXTS = (".c", ".h", ".cpp", ".y", ".l")
+EXTS = (".c", ".h", ".cpp", ".hpp", ".y", ".l", ".s", ".S")
 GENERATED = re.compile(r"(\.lex\.c|\.tab\.c|\.tab\.h|(^|/)lex\.[^/]+\.c)$")
 SEP = re.compile(r"^\s*/\*[-=]+\*/\s*$")
 
@@ -26,6 +27,25 @@ def strip_one(text):
     while i < n:
         c = text[i]
         # string / char literal — copy verbatim through the closing quote
+        # a single quote opens a char literal ONLY if it closes within 8 chars on the same line ('x', '\\n', '\\x41', '\\'');
+        # otherwise it is an ordinary character -- flex patterns like '([^']|'')*' (pascal.l) and <BODY>\\' (snobol4.l) carry
+        # unpaired quotes that swallowed the rest of the file verbatim (R5 2026-09-02 measured: 47 separators + comments survived in snobol4.l)
+        if c == "'":
+            k = text.find("'", i + 1); k2 = text.find("\n", i + 1)
+            if k == -1 or k - i > 8 or (k2 != -1 and k2 < k):
+                out.append(c); i += 1
+                continue
+        # likewise a double quote opens a string ONLY if an unescaped closing quote follows on the same line: flex patterns
+        # such as <BODY>\\" (snobol4.l) carry an unpaired quote that swallowed 34 separators and their comments verbatim (R5)
+        if c == '"':
+            k = i + 1; closed = False
+            while k < n and text[k] != "\n":
+                if text[k] == "\\": k += 2; continue
+                if text[k] == '"': closed = True; break
+                k += 1
+            if not closed:
+                out.append(c); i += 1
+                continue
         if c == '"' or c == "'":
             q = c
             out.append(c); i += 1
@@ -41,12 +61,12 @@ def strip_one(text):
         if c == "/" and i + 1 < n and text[i+1] == "*":
             j = text.find("*/", i + 2)
             j = (j + 2) if j != -1 else n
-            # KEEP the line-break separator, NORMALIZED to the canonical 120-char form
-            # (Lon 2026-06-02): /* + 116 dashes + */  (or '=' for a major/larger-file separator).
+            # KEEP the line-break separator, NORMALIZED to the canonical 200-char form
+            # (Lon 2026-09-02 "Do the line-break comments at 200 character length"; R4 2026-08-20 had 200 in the tree while this constant still said 120): /* + 196 dashes + */  (or '=' for a major separator).
             blk = text[i:j]
             if KEEP_SEPARATORS and SEP.match(blk):
                 ch = "=" if "=" in blk else "-"
-                out.append("/*" + ch * 116 + "*/")
+                out.append("/*" + ch * 196 + "*/")
             else:
                 out.append(" ")          # C semantics: a comment becomes one space (no token fusion)
             i = j
@@ -58,6 +78,27 @@ def strip_one(text):
             continue
         out.append(c); i += 1
     return "".join(out)
+
+def strip_flex(text):
+    """flex sources: the C lexer is UNSAFE here (a bare /* inside a character class -- raku.l `[a-zA-Z0-9_.:/*+?=!$,;#@|\\\\-]` --
+    is a pattern, and R4 2026-08-20 + R5 2026-09-02 both destroyed the lexer by treating it as a comment). So a .l file only loses
+    WHOLE-LINE comments (a line whose first token is /* and whose block ends on a line with nothing after */), keeps every pattern
+    and action byte, and has its separators renormalized. Trailing comments inside actions are left and reported by --check."""
+    lines = text.split("\n"); out = []; i = 0
+    while i < len(lines):
+        l = lines[i]; s = l.strip()
+        if s.startswith("/*"):
+            if SEP.match(s):
+                out.append(l[:len(l) - len(l.lstrip())] + "/*" + ("=" if "=" in s else "-") * 196 + "*/"); i += 1; continue
+            j = i
+            while j < len(lines) and "*/" not in lines[j]: j += 1
+            if j < len(lines) and lines[j].split("*/", 1)[1].strip() == "":
+                i = j + 1; continue
+        out.append(l); i += 1
+    return "\n".join(out)
+
+def strip_file(p, src):
+    return strip_flex(src) if p.endswith(".l") else strip_one(src)
 
 def clean_blank_runs(text):
     # collapse comment-removal-induced blank lines; RULES.md = zero blank lines.
@@ -80,7 +121,7 @@ def main():
         with open(p, "r", errors="surrogateescape") as f:
             src = f.read()
         before = src.count("\n")
-        stripped = clean_blank_runs(strip_one(src))
+        stripped = clean_blank_runs(strip_file(p, src))
         after = stripped.count("\n")
         tot_before += before; tot_after += after
         if stripped != src:
@@ -88,6 +129,12 @@ def main():
             if mode == "--apply":
                 with open(p, "w", errors="surrogateescape") as f:
                     f.write(stripped)
+    if mode == "--check":
+        dirty = [p for p in files if clean_blank_runs(strip_file(p, open(p, "r", errors="surrogateescape").read())) != open(p, "r", errors="surrogateescape").read()]
+        print("files scanned (generated excluded): %d" % len(files))
+        print("files still carrying a comment or a blank line: %d" % len(dirty))
+        for p in dirty[:40]: print("  " + os.path.relpath(p, SRC_ROOT))
+        sys.exit(1 if dirty else 0)
     print("files scanned (generated excluded): %d" % len(files))
     print("files that would change          : %d" % changed)
     print("total lines  before -> after     : %d -> %d  (%+d)" % (tot_before, tot_after, tot_after - tot_before))

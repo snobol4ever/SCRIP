@@ -91,20 +91,6 @@ inline bool x86_is64(const char * r) {
     return true;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* x86_is8 (row descr-stamp-asm-mints, found chasing a mode-3-only SIGSEGV): x86_rnum() maps "al"
- * to the SAME index as "eax" (0), by design, for callers like movzx where the surrounding opcode
- * already fixes the operand width. x86_cmp_imm (and every other x86_alu_rr-based ALU-immediate/
- * ALU-register encoder) had NO width detection at all, so a template requesting an 8-bit compare
- * — e.g. bb_subscript.cpp's `x86("cmp","al",(long)DT_FAIL)`, part of the 171-site conversion this
- * row's sibling row (descr-stamp-fields) landed to stop 32-bit tag-word compares from reading
- * mod_op/src_node — silently fell through to the 32-bit CMP r/m32,imm opcode in the BINARY medium
- * (mode-3's own hand-rolled encoder; mode-4's TEXT medium hands the identical "cmp al, N" string to
- * the real `as`, which encodes it correctly, so mode-4 was never wrong). Dormant since mod_op/
- * src_node were always zero before this row: a 32-bit compare against a value with zero upper
- * bytes gives the identical verdict to an 8-bit one. This row's stamping is the first thing to set
- * those bytes on a corpus-live path, which is what surfaced it (SIGSEGV via rt_deref's matching
- * 32-bit-compare defect in rt_asm_helpers.S, fixed separately; this one silently let `a<4>` on a
- * 3-element array read as in-bounds instead of failing). */
 inline bool x86_is8(const char * r) {
     if (!r) return false;
     static const char * const names8[] = { "al","cl","dl","bl","spl","bpl","sil","dil",
@@ -322,19 +308,12 @@ inline std::string x86_call_ro(const char * sym, uint64_t ptr) {
 }
 #define RTCC_C_R8   1u
 #define RTCC_C_R9   2u
-/* ⭐ r10/r11 JOIN THE VENEER (Lon s258): they carry the DIAG telemetry -- r10 = SNOBOL4 statement number,
-   r11 = BB node id (see the stamp below, and c951f257). The stamp was emitted but NOT PROTECTED, so any
-   runtime call could clobber it and a crash dump would name a stale statement with nothing marking it
-   stale. rtcc.h already reserved slots 7 and 8 (rtccb+56, +64) and RTCC_GPR_COUNT is 9 -- the block was
-   always big enough; only the save/restore was missing. Eradicating r10/r11 from 153 runtime asm lines
-   was the hard way round; protecting them across the veneer is the cheap way. */
 #define RTCC_C_R10  4u
 #define RTCC_C_R11  8u
 #define RTCC_C_ALL  (RTCC_C_R8 | RTCC_C_R9 | RTCC_C_R10 | RTCC_C_R11)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline bool x86_rtcc_noclob_on(void) { const char * e = getenv("SCRIP_RTCC_NOCLOB"); return !(e && *e == '0'); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐ MEASUREMENT KILLSWITCH (hq_P s262): SCRIP_RTCC_VENEER=0 emits NO save/restore around ANY runtime call, so the A/B on one binary pair is the veneer's exact cost.  ⛔ It is an EMIT-time switch -- toggling it on an already-baked .s proves nothing, the arm must be re-COMPILED.  ⛔ It is NOT a shipping configuration: with it off, any call that really does clobber a live r8/r9/r10/r11 answers wrong.  A `check: 1102` under it is EVIDENCE ABOUT LIVENESS, not a licence to ship. */
 static inline unsigned x86_rtcc_veneer_mask(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_RTCC_VENEER"); v = (e && *e) ? (int)strtoul(e, 0, 0) : (int)RTCC_C_ALL; } return (unsigned)v; }
 static inline int x86_rtcc_veneer_on(void) { return x86_rtcc_veneer_mask() != 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -343,9 +322,6 @@ static inline unsigned x86_rtcc_clob(const char * sym) { return x86_rtcc_clob_ra
 static inline unsigned x86_rtcc_clob_raw(const char * sym) {
     if (!sym) return RTCC_C_ALL;
     static const struct { const char * n; unsigned m; } LEAF[] = {
-        /* ⭐ r10/r11 now carry DIAG telemetry and are veneer-protected, so a leaf that WRITES them must
-           declare it or the veneer drops a live slot. The callee-class gate re-derives these from the .S
-           and caught every one -- this table is not hand-maintained trust, it is checked. */
         { "rt_cmp_d", RTCC_C_R10 | RTCC_C_R11 },
     };
     if (x86_rtcc_noclob_on()) for (size_t i = 0; i < sizeof(LEAF) / sizeof(LEAF[0]); i++) if (strcmp(sym, LEAF[i].n) == 0) return LEAF[i].m;
@@ -377,8 +353,8 @@ static inline std::string x86_rtcc_wb_bin(uint64_t block, unsigned m = RTCC_C_AL
     wb += (char)0x48; wb += (char)0xB8; wb += u64le(block);
     if (m & RTCC_C_R8)  { wb += (char)0x4C; wb += (char)0x89; wb += (char)0x40; wb += (char)40; }
     if ((m & RTCC_C_R9) && !RTCC_GLOBAL_R9_GVA) { wb += (char)0x4C; wb += (char)0x89; wb += (char)0x48; wb += (char)48; }
-    if (m & RTCC_C_R10) { wb += (char)0x4C; wb += (char)0x89; wb += (char)0x50; wb += (char)56; }   /* mov [rax+56], r10 */
-    if (m & RTCC_C_R11) { wb += (char)0x4C; wb += (char)0x89; wb += (char)0x58; wb += (char)64; }   /* mov [rax+64], r11 */
+    if (m & RTCC_C_R10) { wb += (char)0x4C; wb += (char)0x89; wb += (char)0x50; wb += (char)56; }
+    if (m & RTCC_C_R11) { wb += (char)0x4C; wb += (char)0x89; wb += (char)0x58; wb += (char)64; }
     return wb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -387,8 +363,8 @@ static inline std::string x86_rtcc_rl_bin(uint64_t block, unsigned m = RTCC_C_AL
     rl += (char)0x48; rl += (char)0xB9; rl += u64le(block);
     if (m & RTCC_C_R8)  { rl += (char)0x4C; rl += (char)0x8B; rl += (char)0x41; rl += (char)40; }
     if (m & RTCC_C_R9)  { rl += (char)0x4C; rl += (char)0x8B; rl += (char)0x49; rl += (char)48; }
-    if (m & RTCC_C_R10) { rl += (char)0x4C; rl += (char)0x8B; rl += (char)0x51; rl += (char)56; }   /* mov r10, [rcx+56] */
-    if (m & RTCC_C_R11) { rl += (char)0x4C; rl += (char)0x8B; rl += (char)0x59; rl += (char)64; }   /* mov r11, [rcx+64] */
+    if (m & RTCC_C_R10) { rl += (char)0x4C; rl += (char)0x8B; rl += (char)0x51; rl += (char)56; }
+    if (m & RTCC_C_R11) { rl += (char)0x4C; rl += (char)0x8B; rl += (char)0x59; rl += (char)64; }
     return rl;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -476,27 +452,13 @@ inline const char * x86_jcc_invert(const char * m) { return x86_jcc_canon((uint8
 inline const char * x86_zr()         { return "rsp"; }
 inline int          x86_zr_num()     { return 4; }
 inline int x86_fb_pinned() { return emit_zframe_pinned(); }
-   /* ⭐⭐ PZ-4 clause (a) PL-ZA-1 (Lon 2026-09-02): WAS AN UNCONDITIONAL `return 0` -- an inert stub the GOAL's "through the SHARED pin machinery" clause
-   named as its vehicle while it could only ever answer "not pinned". It now answers the graph's own ζ-ACTIVATION regime. ⛔ THIS IS THE WHOLE SWITCH: x86_fb()/x86_fb_num() derive from it,
-      x86_frame_off() drops
-   the spine-slide compensation under it, and x86_zop()/x86_zref() rebase their spine arms on it -- so the FR family and the SPINE family move together. hq_P measured at s276 why that matters:
-      generator ζ is
-   split across two addressing families that print IDENTICALLY as `qword ptr [rsp + N]`, and re-homing one leaves the frame straddling two bases with the half carrying the yielded value on the wrong
-      one. */
 static inline int x86_fb_stmt_on() { static int m = -1; if (m < 0) { const char * e = getenv("SCRIP_FB_STMT"); m = (e && *e == '0') ? 0 : 1; } return m; }
 inline int x86_fb_data() { return 0; }
 inline int x86_frame_off_rsp(int off) { return off + _.op_zdepth; }
 inline int x86_rsp_slide_known() { return 1; }
 inline int x86_frame_off(int off) { if (x86_fb_pinned()) return off; return x86_rsp_slide_known() ? off + _.op_zdepth : -1; }
-   /* ⛔ THE PINNED ARM DROPS op_zdepth AND THAT IS THE POINT, NOT AN OMISSION: op_zdepth
-   is the compensation for how far the SPINE has slid below the frame base at this site, so `[rsp + off + zdepth]` and `[pin + off]` are THE SAME ADDRESS whenever the pin holds the α-time rsp. Keeping
-      the term
-   under a pinned base would double-count the slide. The pin is taken AFTER the α carve (rbp = rsp), which is why the rebase is plain `off` and not Icon's `off - ft`: icn_gen_zeta_ft() pins BEFORE its
-      carve. */
 inline int          x86_fb_num()     { return (x86_fb_data() || x86_fb_pinned()) ? 5 : 4; }
 inline const char * x86_fb()         { return x86_fb_num() == 5 ? "rbp" : "rsp"; }
-   /* ⛔ SPELLING DERIVED FROM THE NUMBER, NEVER WRITTEN TWICE (emit.h's ONE DECIDER law): these two were independent literals
-   -- "rsp" here and a computation there -- which is precisely the split that let TEXT and BINARY pick different base registers for one cell at s277. Now a single arm decides and both media follow. */
 inline const char * x86_fr32_prefix() { return "dword ptr [rsp$ + "; }
 inline const char * x86_fr64_prefix() { return "qword ptr [rsp$ + "; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -582,10 +544,6 @@ inline int x86_internal_id(int n) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * L(int n) { static char b[8][8]; static int i; i = (i + 1) & 7; snprintf(b[i], 8, "L%d", n); return b[i]; }
-/* BB-LABEL-PREFIX-UNIFORM: the current box's own kind (n<uid>_<kind>, same string the box's own port
-   labels carry -- see emit.cpp flat_label_kind), for ad hoc box-local label mints outside the L(n)/
-   x86_deflabel_id family (bb_call*.cpp signature/thunk blobs). NULL outside any box dispatch (chain-level
-   XA wrapper code) -- callers fall back to "anon" so a stray chain-level mint never claims a box it is not in. */
 inline const char * x86_boxkind(void) { return _.x86_uid_kind ? _.x86_uid_kind : "anon"; }
 inline std::string x86_internal_name(int n) { return std::string(".Lx") + std::to_string(_.x86_uid) + "_" + std::to_string(n); }
 inline std::string LS(int n) { return x86_internal_name(n) + "_s"; }
@@ -861,31 +819,25 @@ inline const char * RDD(const char * base, int off);
 inline int icn_genframe2();
 inline int icn_gen_regime();
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline int icn_gen_zeta_ft() {   /* ⭐⭐ N-2 ITEM 1 (hq_P s276): RE-HOME GENERATOR ζ FROM THE RSP SPINE TO THE RBP ACTIVATION FRAME. Returns the α carve size (frame_total) when this graph is an ARMED Icon suspend-generator, else 0. ⭐ WHY A PURE REBASE IS SOUND AND EXACT: the N-2 α carve is `push rbp; mov rbp,rsp; sub rsp,frame_total` and rsp does NOT move again between α and γ (measured on the four-line witness: zero pushes in the body), so `[rsp + off]` and `[rbp + off - frame_total]` are THE SAME ADDRESS. This change therefore alters addressing ONLY -- it must be behaviourally invisible, which is exactly what makes it gradeable: the D2 witness set must not move and SNOBOL4 must stay 365/365. ⛔ IT IS NOT THE CURE AND MUST NOT BE READ AS ONE: the frame still lives on the shared stack below the point the caller resumes to, so bb_call_proc_staged.cpp:733's `lea rsp,[rax+32]` still discards it. This is the PREREQUISITE for item 2. ⛔ ITEM 2 IS NOT WHAT THIS SENTENCE USED TO SAY: the phrase "re-point rbp at the heap island e->frame" is VOID -- Lon deleted the workspace island (rt_icn_gen_frame_alloc/_retire removed at SCRIP 915bdaa4) and RULES.md:72 THE STORAGE ANSWER rules that a suspend-surviving frame carves in the ENCLOSING graph's RBP activation frame, never the heap. Item 2 is therefore a CALLER-SIDE change: the host reserves the callee's compile-time-known frame bytes inside its own carve. That size is computable from GRAPH FIELDS ALONE -- ft == ((48 + jcon_value_region + 15) & ~15) + (nparams + nlocals) * 16 -- measured 1308/1308 in both arms and gated by scripts/test_icn_n2_ft_formula.sh, so the host never needs the callee to have been emitted first. ⛔⭐ SHARED-NODE VERDICT SCOPE, THE s272 LESSON (47 Icon programs lost to a language-blind widening): this deliberately does NOT touch the SNOBOL4 pattern re-homing (xop_frame_member / frame_slot_scan / op_xf_off), which the rung's own NEXT proposed extending. Keying a grant on a SNOBOL4-pattern predicate is precisely the shape that regressed. Instead the rebase is keyed on the CONSUMING ζ REGIME -- icn_gen_regime() && flat_gen -- two conditions that no SNOBOL4 or Prolog graph can satisfy, and the first of which is DEFAULT OFF, so an unarmed build is byte-identical by construction. */
+inline int icn_gen_zeta_ft() {
     if (!icn_gen_regime() || !_.flat_gen) return 0;
     int ft = _.flat_frame_bytes + (g_emit_cfg ? (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16 : 0);
     return ft > 0 ? ft : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" int emit_patzeta_frame_reserve(const char * name, int * bytes);   /* N-2 step 2b: defined in src/ir/zeta_storage.c over the EXISTING pz[] registry. Branch on the RETURN (1 = known, 0 = forward reference), never on the value. */
+extern "C" int emit_patzeta_frame_reserve(const char * name, int * bytes);
 extern "C" int rt_proc_is_registered(const char * name);
 extern "C" int rt_proc_is_generator(const char * name);
-extern "C" IR_graph_t * n2_graph_by_proc_name(const char * name);   /* N-2 transitive reserve (seat06 2026-08-29): defined in src/driver/scrip.c over g_stage2 -- the one place the emitter reaches cross-graph. NULL on an unknown name. */
-extern "C" int emit_graph_has_suspend(IR_graph_t * g);   /* defined in emit.cpp, inside its file-wide extern "C" block (hence extern "C" here too, matching every other cross-declared emit.cpp function in this file) -- the SAME rule g_emit.flat_gen itself uses (is_generator && has-suspend), reused here rather than re-derived, so "is this callee ALSO a flat_gen host" can never drift from what the callee's own emission will actually decide. */
-extern "C" int emit_port_exit_label_promotes(const char * label);   /* defined in emit.cpp (port_exit_prepass_build) -- row port-exit-value-contract-untagged-rax-forges-dt-fail obligation 2, Lon-granted NO-NEW-GLOBALS 2026-09-02. Answers, for ANY label in the compilation (not just the current chain's own g_emit.flat_lbl_γ), whether it is a promoting procedure-exit γ -- closes x86_port_hook's chokepoint coverage from 86% to every named proc, so a jump into ANOTHER chain's promoting exit is recognized too. */
+extern "C" IR_graph_t * n2_graph_by_proc_name(const char * name);
+extern "C" int emit_graph_has_suspend(IR_graph_t * g);
+extern "C" int emit_port_exit_label_promotes(const char * label);
 #define N2_RESERVE_MAX_DEPTH 32
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define N2_SELFREC_SLOTS 64   /* row icon-n2-recursive-generator-per-activation-storage: bounded DIRECT-self-recursive generator storage (gedwalk-shaped -- a generator whose own graph calls itself,
-   never general mutual/multi-hop recursion, which this deliberately does not attempt). N is a FIXED table size, never tuned to fit one input (hq_B ruling, 2026-08-29, on seat10's measured
-   gedwalk-on-geddump.dat max depth 4): sized an order of magnitude+ over that single measurement, not "comfortably over" it -- the cost of a larger N is bytes, the cost of being one deeper than N
-   is a refused run, so the legitimacy of this bound comes from the REFUSAL below being loud, never from the number 64 itself. Cite the 4 if this is ever widened. */
-inline int icn_genframe2_selfrec() {   /* additional to icn_genframe2() -- default OFF, independently armed, so icn_genframe2()'s existing graded/armed boards are byte-identical whether or not this
-   is also set: every read of this function is additionally gated behind icn_genframe2() itself, never called alone. SCRIP_ICN_N2_SELFREC=1 arms it. */
+#define N2_SELFREC_SLOTS 64
+inline int icn_genframe2_selfrec() {
     static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ICN_N2_SELFREC"); v = (e && *e == '1') ? 1 : 0; } return v;
 }
-inline int icn_gen_is_selfrec(const char * name) {   /* does the named generator's OWN graph call itself directly (not transitively through another proc)? Property of the CALLEE, checked identically
-   at the call site (to decide what depth value to pass) and in the callee's own prologue (to decide whether to consume it) -- ONE function, never two copies, the exact two-copies-drift class this
-   file's own comments document repeatedly. NULL/unregistered/non-generator all answer 0, never guessed. */
+inline int icn_gen_is_selfrec(const char * name) {
     if (!name || !name[0] || !rt_proc_is_registered(name) || !rt_proc_is_generator(name)) return 0;
     IR_graph_t * g = n2_graph_by_proc_name(name); if (!g) return 0;
     for (int i = 0; i < g->n; i++) {
@@ -897,16 +849,7 @@ inline int icn_gen_is_selfrec(const char * name) {   /* does the named generator
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐⭐ N-2 TRANSITIVE-RESERVE (seat06 2026-08-29, row icon-n2-flat-gen-host-transitive-reserve): THE RECURSIVE CORE, shared by all three consumers below (reserve/offset/selftest) so the
-   per-callee arithmetic can never drift between them again -- the exact failure this file's own comments name twice already (the 240-vs-144 carve/release drift, the off=0/off=-1 predicate-drift
-   catch). reserve(g) = SUM over g's registered-generator call nodes of (align16(ft_callee) + 48 + reserve(callee)), where reserve(callee) recurses ONLY when callee's own graph would itself emit
-   with the flat_gen (region-nesting) prologue -- never for a zframe_graph callee, which uses a wholly different storage protocol this row does not touch, and whose registered ft is already its
-   complete self-contained size. ⛔ VISITED IS THE CURRENT RECURSION PATH, NOT AN EVER-SEEN SET: two sibling call sites legitimately calling the SAME leaf generator twice must each be summed
-   (icn_gen_host_reserve()'s own SUM-NOT-MAX law) -- a path-scoped set added-before-recurse/removed-after-return is what tells that apart from actual self/mutual recursion, which GOAL explicitly
-   rules out of THIS formula ("a recursive generator's activations cannot share one static slice; per-activation storage is a separate design, do not fold it in"). A cycle is treated exactly like
-   a forward reference already is: the WHOLE host's reservation refuses (returns 0 in icn_gen_host_reserve, -1 in the offset scan) rather than silently omitting just the cyclic branch's bytes --
-   omitting only that branch would under-reserve by exactly that branch's size, the silent-too-small class ceo refused worst-case reservation over, arriving through a new door. */
-static int icn_gen_host_slice(const char * cn, int * out_bytes, const char ** visited, int nvisited);   /* forward: the pair below is mutually recursive */
+static int icn_gen_host_slice(const char * cn, int * out_bytes, const char ** visited, int nvisited);
 static int icn_gen_host_reserve_walk(IR_graph_t * g, const char ** visited, int nvisited, int * out_total) {
     if (!g) { *out_total = 0; return 1; }
     int total = 0;
@@ -916,26 +859,22 @@ static int icn_gen_host_reserve_walk(IR_graph_t * g, const char ** visited, int 
         const char * cn = IR_LIT(hn).sval;
         if (!cn || !cn[0] || !rt_proc_is_registered(cn) || !rt_proc_is_generator(cn)) continue;
         int bytes = 0;
-        if (!icn_gen_host_slice(cn, &bytes, visited, nvisited)) return 0;   /* forward-ref or cycle anywhere below: the WHOLE host refuses, per the comment above */
+        if (!icn_gen_host_slice(cn, &bytes, visited, nvisited)) return 0;
         total += bytes;
     }
     *out_total = total; return 1;
 }
 static int icn_gen_host_slice(const char * cn, int * out_bytes, const char ** visited, int nvisited) {
     int fb = -1;
-    if (!emit_patzeta_frame_reserve(cn, &fb) || fb <= 0) return 0;   /* forward reference: not yet registered */
+    if (!emit_patzeta_frame_reserve(cn, &fb) || fb <= 0) return 0;
     for (int i = 0; i < nvisited; i++) if (visited[i] == cn || !strcmp(visited[i], cn)) {
-        /* row icon-n2-recursive-generator-per-activation-storage: i==nvisited-1 means the MOST RECENT ancestor on this path is cn itself -- cn calls itself DIRECTLY (gedwalk-shaped), not through
-           an intermediary. That is the one narrow shape N2_SELFREC_SLOTS is sized for; a deeper i (mutual/multi-hop cycle) still refuses below exactly as before -- general recursion is explicitly
-           out of scope (GOAL, this row and the parent rung). Bounded reservation: N slots total; this call contributes N-1 (the outer, non-cyclic caller already contributed the 1st via the normal
-           align16(fb)+48 arithmetic below, so the two sum to exactly N -- never re-derive N here, it must match the ONE runtime bound icn_genframe2_selfrec()'s call site/prologue pair also use). */
         if (icn_genframe2_selfrec() && i == nvisited - 1) { *out_bytes = (N2_SELFREC_SLOTS - 1) * (((fb + 15) & ~15) + 48); return 1; }
-        return 0;   /* cn is its own ancestor on this path: cycle, refuse loudly by the caller */
+        return 0;
     }
     int sub = 0;
     IR_graph_t * cg = n2_graph_by_proc_name(cn);
-    if (cg && emit_graph_has_suspend(cg) && !cg->zframe_graph) {   /* recurse only when cn's OWN graph would itself emit flat_gen -- mirrors g_emit.flat_gen's own rule plus the zframe-wins priority the prologue if/else-if chain gives it (emit.cpp ~2829) */
-        if (nvisited >= N2_RESERVE_MAX_DEPTH) return 0;   /* depth cap, refused loudly by the caller -- never silently truncated */
+    if (cg && emit_graph_has_suspend(cg) && !cg->zframe_graph) {
+        if (nvisited >= N2_RESERVE_MAX_DEPTH) return 0;
         const char * nv[N2_RESERVE_MAX_DEPTH]; int k = 0;
         for (; k < nvisited; k++) nv[k] = visited[k];
         nv[k++] = cn;
@@ -944,14 +883,8 @@ static int icn_gen_host_slice(const char * cn, int * out_bytes, const char ** vi
     *out_bytes = (((fb + 15) & ~15) + 48) + sub; return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline int icn_gen_host_reserve(const char * prefix) {   /* ⭐⭐ N-2 ITEM 2 STEP 2b (hq_P s278): THE HOST RESERVATION -- bytes THIS graph must add to its own α carve to hold the activation frames of the suspend-generators it directly calls, or 0. ⛔⭐ IT LIVES IN THIS HEADER FOR THE SAME REASON icn_gen_regime() DOES, AND I LEARNED IT THE HARD WAY: the α carve is emitted from the DRIVER (emit.cpp) while the γ/ω releases are emitted from a template into libscrip_rt.so -- TWO LINK UNITS. Defining it in emit.cpp linked clean for the driver and died `undefined reference to icn_gen_host_reserve(char const*)` when the RT tried to call it. ⛔⛔ THE CARVE AND THE RELEASE MUST DERIVE THIS FROM ONE FUNCTION: they were two copies of one formula and they DRIFTED -- measured on a proc host, armed carve 240 / release 144, with `jmp qword ptr [rsp]` then reading a wrong return address. Armed-only, so it never shipped broken, but it would have surfaced when items 3-4 armed the path and read as THEIR defect. ⭐ Pure function of g_emit_cfg + the gate, so both sides may call it and nothing is stored -- no new global. ⛔ A FORWARD REFERENCE RESERVES NOTHING AND SAYS SO: step 1 measured that a host which is itself a proc calling a generator declared LATER is not yet registered; reading that as 0 would hand step 3 a carve silently too small, the class ceo refused worst-case reservation over. `prefix` non-NULL announces that refusal; the epilogues pass NULL so one graph reports once. ⛔ SUM, NOT MAX: two generators live at once each need their own region. */
+inline int icn_gen_host_reserve(const char * prefix) {
     if (!icn_gen_regime() || !g_emit_cfg) return 0;
-    /* N-2 TRANSITIVE (seat06 2026-08-29, row icon-n2-flat-gen-host-transitive-reserve): NOW RECURSIVE. The +48-header-per-callee
-       arithmetic is unchanged (see icn_gen_host_slice/icn_gen_host_reserve_walk above, the ONE place it is written down for all
-       three consumers of this file); the addition is + reserve(callee), walked through n2_graph_by_proc_name. Seeded with
-       g_emit.flat_fam (this host's own bare name, already computed once per chain -- no new global) so DIRECT self-recursion is
-       caught the same way as transitive/mutual recursion: as a cycle on the current path, never an ever-seen set, so two sibling
-       call sites legitimately sharing one leaf generator still SUM (unchanged law, see the shared core's own comment). */
     const char * visited[N2_RESERVE_MAX_DEPTH]; int nv = 0;
     if (g_emit.flat_fam && g_emit.flat_fam[0]) visited[nv++] = g_emit.flat_fam;
     int total = 0;
@@ -962,13 +895,13 @@ inline int icn_gen_host_reserve(const char * prefix) {   /* ⭐⭐ N-2 ITEM 2 ST
     return total;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline int icn_gen_host_reserved(void) {   /* N-2 ITEM 3 (hq_P s282), FLIPPED (seat06 2026-08-29, row icon-n2-flat-gen-host-transitive-reserve): DID THIS HOST ACTUALLY RESERVE? Host-KIND predicate (which prologue arm ran: emit.cpp's if/else-if chain at ~2829, zframe first / flat_gen second / flat_lcl_proc third), not a per-compile success/failure flag -- a forward-reference or cycle is caught by icn_gen_host_reserve()/icn_gen_host_reserve_offset() returning 0/-1 on THIS specific query, same as it always was for flat_lcl_proc. The flat_gen arm now answers 1 like flat_lcl_proc always has: the region-resident carve this row adds gives a flat_gen host real reserved bytes to hand its own generator callees, so the "no reservation mechanism at all" refusal this arm existed to enforce (ceo s283, superseding 06d4852f) no longer applies. test_icn_n2_host_reserved_agrees.sh is the canary -- it compares this predicate against the carve actually emitted. */
+inline int icn_gen_host_reserved(void) {
     if (g_emit.zframe_graph) return 0;
     if (icn_gen_regime() && g_emit.flat_gen) return 1;
     return g_emit.flat_lcl_proc ? 1 : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline int icn_gen_host_reserve_offset(const char * prefix, const IR_t * call_node, int * base_out = 0) {   /* N-2 ITEM 3 (seat01 2026-08-28), EXTENDED RECURSIVE + HOST-KIND-AWARE BASE (seat06 2026-08-29, row icon-n2-flat-gen-host-transitive-reserve): PER-CALLEE OFFSET WITHIN icn_gen_host_reserve()'s summed region. KEYED ON NODE IDENTITY, NEVER CALLEE NAME (SUM-not-max: two calls to the same generator are two independent live activations, a name-keyed lookup would hand both the SAME offset). Walks g_emit_cfg->all[] with the IDENTICAL predicate icn_gen_host_reserve() uses, in the SAME order, and now shares its EXACT per-callee byte arithmetic too via icn_gen_host_slice -- not a second copy of it -- so recursion and cycle-refusal apply here identically to the total, never independently re-derived. ⛔ base_out IS HOST-KIND-AWARE, and getting this wrong is a wild-pointer bug, not a cosmetic one: a flat_lcl_proc host's OWN storage is RSP-relative (its region sits inside its own stack carve, base = frame_total before the reserve growth, unchanged from before this row), but a flat_gen host carves NOTHING on the stack -- its rbp IS H (item 1's rebase + N-2 STEP 3's region-resident alpha, emit.cpp ~2841), and its nested-callee slices start immediately past its OWN 48-byte header at rbp+48, a CONSTANT independent of frame_total/nparams/nlocals (none of which describe a flat_gen host's storage at all). Returns -1 (never a guessed offset) if call_node is not a registered-generator call in this graph, or if a forward-referenced or cyclic generator callee sits before it in scan order. */
+inline int icn_gen_host_reserve_offset(const char * prefix, const IR_t * call_node, int * base_out = 0) {
     if (base_out) *base_out = -1;
     if (!icn_gen_regime() || !g_emit_cfg || !call_node) return -1;
     if (!icn_gen_host_reserved()) return -1;
@@ -985,10 +918,10 @@ inline int icn_gen_host_reserve_offset(const char * prefix, const IR_t * call_no
         { int bytes = 0; if (!icn_gen_host_slice(cn, &bytes, visited, nv)) { if (prefix) fprintf(stderr, "[GENHOST-OFFSET] host=%s a forward-referenced or recursive/cyclic generator callee sits BEFORE the requested call site -- its offset cannot be trusted either.\n", prefix); return -1; }
           off += bytes; }
     }
-    return -1;   /* call_node was never seen as a registered-generator call in this graph's own scan */
+    return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline void icn_gen_host_reserve_selftest(const char * prefix) {   /* N-2 ITEM 3 PREP (seat01 2026-08-28), RECURSIVE (seat06 2026-08-29, row icon-n2-flat-gen-host-transitive-reserve): PROVES icn_gen_host_reserve_offset() against icn_gen_host_reserve()'s own total AND against an INDEPENDENTLY-accumulated expectation -- a check that only re-derives the function under test is not a proof (RULES.md TWO-PART PROOF). The independent accumulation now calls icn_gen_host_slice too (not a hand-rolled shadow of the arithmetic): with reserve() transitive, a shadow copy of just the direct-callee formula would systematically DISAGREE the moment any witness has a nested generator call, proving nothing about the case this row exists for. getenv-gated (SCRIP_N2_OFFSET_SELFTEST), stderr only, zero emission effect -- inert by construction, same as N-2 step 1's own diagnostic. */
+inline void icn_gen_host_reserve_selftest(const char * prefix) {
     if (!icn_gen_regime() || !g_emit_cfg) return;
     int total = icn_gen_host_reserve(0);
     const char * visited[N2_RESERVE_MAX_DEPTH]; int nv = 0;
@@ -1009,18 +942,13 @@ inline void icn_gen_host_reserve_selftest(const char * prefix) {   /* N-2 ITEM 3
 inline int x86_zop_regime(int off) { if (x86_fc_hit(off)) return 2; return x86_fb_data() ? 3 : 4; }
 inline void x86_zop_note(int r) { if (r < 1 || r > 5) return; _.zop_seen |= (1 << r); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline const char * x86_zop(int off, int q, int bump) {   /* ⭐ THE FR (FRAME) ζ FAMILY. ⛔ MEASURED hq_P s276, AND IT CORRECTS THIS RUNG'S ORDERED WORK: generator ζ is split across TWO addressing families that are INDISTINGUISHABLE in the emitted .s (both print `qword ptr [rsp + N]`), which is why the s275 .s-grep read "9 of 9 ζ refs are rsp-relative" as ONE homogeneous problem. It is two. This function is the FR family (FRQ/FR, XK_FR*) and it had NO rbp arm anywhere; ZRES/ZOPQ are the SPINE family (rsp#, XK_RSP*) and already had one via op_xf_off. ⛔⭐ THE HALF THAT HOLDS THE YIELDED VALUE IS THIS ONE: on the four-line witness the literal's result descriptor lands at [rsp+16]/[rsp+24] through bb_lit_scalar.cpp:19's FRQ(_.op_off + w) arm -- proven by elimination, since ZRES's base is 0 and could not produce 16 -- so re-homing ONLY ZOPQ/ZRES, as this rung's NEXT instructed, would have re-homed the half that does NOT carry the value, and split the frame across two bases for item 2 to trip over. */
+inline const char * x86_zop(int off, int q, int bump) {
     static char b[16][48]; static int i; i = (i + 1) & 15; int r = x86_zop_regime(off); x86_zop_note(r); int eff, spine;
     if (r == 2) { if (getenv("SCRIP_ZOP_DIAG")) fprintf(stderr, "[ZOP] off=%d op_fc_base=%d bump=%d computed=%d\n", off, _.op_fc_base, bump, off - _.op_fc_base + bump); eff = off - _.op_fc_base + bump; spine = 1; }
     else if (bump && !x86_fb_data() && !_.op_stmt_dyn) { eff = x86_frame_off(off) + bump; spine = 1; }
     else { eff = off + ((x86_fb_data() || _.op_stmt_dyn) ? 0 : bump); spine = 0; }
     { int ft = icn_gen_zeta_ft(); if (ft > 0) return q ? RDQ("rbp", eff - ft) : RDD("rbp", eff - ft); }
     if (spine && r != 2 && x86_fb_pinned()) return q ? RDQ(x86_fb(), eff) : RDD(x86_fb(), eff);
-   /* PZ-4 (a): the SPINE half of this graph's ζ, re-homed onto the same pin the FR half reaches through x86_fb().
-       ⛔ r == 2 IS DELIBERATELY EXCLUDED: that is the frame-cache window (x86_fc_hit), whose eff is measured from op_fc_base -- a live rsp-relative anchor, not the α base -- so rebasing it would be a
-          different
-       address, not the same one spelled differently. eff here is already x86_frame_off(off) + bump, and x86_frame_off() answers plain `off` under the pin, so the FR and SPINE halves agree by
-          construction. */
     if (spine) snprintf(b[i], 48, "%s ptr [rsp# + %d]", q ? "qword" : "dword", eff);
     else snprintf(b[i], 48, "%s%d]", q ? x86_fr64_prefix() : x86_fr32_prefix(), eff);
     return b[i];
@@ -1035,12 +963,10 @@ inline const char * x86_ztos(int off, int q) {
 inline const char * ZTOS(int off)  { return x86_ztos(off, 1); }
 inline const char * ZTOSD(int off) { return x86_ztos(off, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline const char * x86_zref(int off, int q) {   /* ⭐ THE SPINE ζ FAMILY (rsp#, XK_RSP*) -- ZRES/ZRESD/ZOPQ/ZOPD/ZLOC all bottom out here when op_xf_off/op_zread_xf say -1, which for an Icon generator graph is ALWAYS (xop_frame_member is gated on sn4_pt_opframe(), a SNOBOL4-pattern predicate no flat_gen graph enters). Rebasing HERE rather than by granting generators membership in the SNOBOL4 slot allocator is the whole point: one leaf function, no frame_slot_scan, no MATCH_BEGIN anchoring, and zero blast radius into pattern machinery. See icn_gen_zeta_ft() for why the rebase is exact. */
+inline const char * x86_zref(int off, int q) {
     static char b[16][48]; static int i; i = (i + 1) & 15;
     { int ft = icn_gen_zeta_ft(); if (ft > 0) return q ? RDQ("rbp", off - ft) : RDD("rbp", off - ft); }
     if (x86_fb_pinned()) return q ? RDQ(x86_fb(), off) : RDD(x86_fb(), off);
-   /* PZ-4 (a): twin of the x86_zop() arm above -- SPINE-family ζ onto the pin. No op_zdepth term appears here in EITHER arm, because
-       this family's offsets were never spine-slide-compensated; under the pin `off` is measured from the α base and addresses the same byte the unpinned `[rsp# + off]` did while rsp sat at α. */
     snprintf(b[i], 48, "%s ptr [rsp# + %d]", q ? "qword" : "dword", off);
     return b[i];
 }
@@ -1159,7 +1085,7 @@ inline std::string x86_reg_disp32_store64(const char * base, int disp, const cha
     return x86_rec("mov") + "qword ptr [" + base + " + " + std::to_string(disp) + "], " + src + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_reg_disp32_inc64(const char * base, int disp) {   /* ⛔ N-2 loop cure (ceo s283): x86("inc", FRQ(...)) under the armed generator regime resolves to a [rbp+disp] REGDISP operand, and the inc dispatch had NO arm for it -- it returned an EMPTY STRING, silently deleting the to-box's counter increment from every armed flat_gen graph (suspend_loop spun at value 1 forever, no output, no error). Encoding mirrors x86_reg_disp32_store64: REX.W (+B for r8+), FF /0, mod=10 disp32; x86_rd32_modrm carries the rsp/r12 SIB case exactly as the store does. */
+inline std::string x86_reg_disp32_inc64(const char * base, int disp) {
     int b = x86_rnum(base);
     if (MEDIUM_BINARY) {
         std::string c; uint8_t rex = 0x48; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0xFF; x86_rd32_modrm(c, 0, b);
@@ -2038,25 +1964,6 @@ extern "C" uint64_t * rt_port_counts_slot(int uid, int port, const char * label)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline int x86_portcount_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_PORT_COUNTS"); v = (e && *e && *e != '0') ? 1 : 0; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐⭐ SLICE 4 ROUTE (a): EXACT per-box α/β execution counts in MODE 3. Global granted by Lon in-chat via CEO,
- * 2026-08-28, GOAL-CEO CEO-75. ⛔ ABSENT WHEN OFF -- with SCRIP_PORT_COUNTS unset this contributes not one byte,
- * so the default build is byte-identical to before (clause-10 control arm).
- *
- * ⛔⭐ THE SEQUENCE TOUCHES NO FLAGS, AND THAT IS THE WHOLE DESIGN, NOT A DETAIL. A port label is a JUMP TARGET: the
- * `jcc` that arrived set the flags, and code after the label may still read them. Every memory-increment instruction
- * x86 offers -- `inc`, `add` -- WRITES FLAGS, so the obvious `incq [cell]` would silently corrupt a conditional
- * downstream of any instrumented port, on an arm that is only ever on during measurement. That is the worst possible
- * failure shape: a bug that exists only while you are looking. `mov` and `lea` write no flags, so the read-modify-
- * write goes through `lea rcx,[rcx+1]` instead of `inc`, and the whole sequence is flag-transparent by construction.
- * ⚠️ It DOES cost two pushes; rsp is ζ-SPINE, so the pair is strictly balanced and nothing runs between them.
- *
- * ⛔ MODE-4 EMITS NOTHING HERE, DELIBERATELY, AND THIS IS THE ONE ASYMMETRY IN THIS FILE THAT IS ARGUED RATHER THAN
- * INHERITED: m4 ALREADY has exact per-port counts, from scripts/util_port_counts.py, which reads callgrind Ir at the
- * α/β symbols the linker already carries. An emitted counter in m4 would be strictly WORSE than the instrument that
- * already exists -- it perturbs the binary, needs the granted global reachable across a .so boundary, and buys
- * nothing. m3 has no such option: its boxes live in an anonymous sealed slab with no symbols at all. The medium
- * branch lives HERE, in the encoder, where medium-specific encoding belongs -- never in a bb_*.cpp (BOTH-MEDIUM
- * MANDATORY governs templates, and no template can see this). */
 inline std::string x86_portcount(int port) {
     if (!x86_portcount_on() || (port != X86P_ALPHA && port != X86P_BETA) || !MEDIUM_BINARY) return std::string();
     uint64_t * cell = rt_port_counts_slot(_.x86_uid, port == X86P_ALPHA ? 0 : 1, x86_portname(port));
@@ -2073,8 +1980,7 @@ inline std::string x86_port_hook(int site, int port) {
     std::string s;
     if (site == X86H_DEF) s += x86_portcount(port);
     if (site == X86H_JMP) s += x86_port_canary();
-    /*⛔⭐⭐ THE PORT-EXIT VALUE CONTRACT (hq_C ruling 2026-09-01, row port-exit-value-contract-untagged-rax-forges-dt-fail, option (c)): A PORT TRANSFER CARRIES NO VALUE.  RAX IS SCRATCH ACROSS EVERY PORT.  The ONE site that promotes rax from scratch to the DESCR return register is procedure-exit wiring -- a transfer whose target IS the enclosing chain's own γ label (`g_emit.flat_lbl_γ`, set in emit.cpp) AND whose chain is a callable procedure (`g_emit.flat_lcl_proc`) -- ⛔ that second clause is NOT decoration and was MEASURED, not assumed: without it the check also fires on the top-level program exit (`flat_γ`, which is `xor edi,edi; call exit@PLT` and promotes nothing), over-reporting 46 transfers where 36 are subject to the contract. hq_C's obligation (2) is exactly this distinction -- a transfer into a non-promoting exit carries nothing and needs no check -- and that site must be preceded by an explicit tagged-DESCR write, because the caller's landing tells success from failure with `cmp al, DT_FAIL` and DESCR_t.v is a uint8_t, so ANY untagged value whose low byte is 0x68 forges a failure that cascades a spurious ω up the whole live call chain.  The contract is enforceable HERE and nowhere else: this is the one chokepoint every port transfer already passes, and it is the only place that holds both the concrete target (x86_portname) and the promotion site's identity.  ⛔ The law also lives in ARCH-ENGINE.md § THE PORT-EXIT VALUE CONTRACT -- a rule kept in one file goes stale in the other, so both were written together and either one moving obliges the other.  ⚠️ THIS AUDIT REPORTS, IT DOES NOT YET REFUSE: refusing needs emit-time rax provenance, which needs new emitter state, which needs Lon's in-chat grant per NO-NEW-GLOBALS.  It emits ZERO bytes (side-effect only) so it cannot perturb codegen, and `scripts/test_gate_port_exit_value_contract.sh` grades the emitted result against it. */
-    if ((site == X86H_JMP || site == X86H_JCC) && x86_portname(port) && getenv("SCRIP_PORT_EXIT_AUDIT") && emit_port_exit_label_promotes(x86_portname(port)))   /* was: current-chain-only (g_emit.flat_lcl_proc + strcmp against g_emit.flat_lbl_γ) -- 86% coverage. Now: every named proc, via the obligation-2 pre-pass; subsumes the old same-chain case (this chain's own label is in the set too if it promotes). */
+    if ((site == X86H_JMP || site == X86H_JCC) && x86_portname(port) && getenv("SCRIP_PORT_EXIT_AUDIT") && emit_port_exit_label_promotes(x86_portname(port)))
         fprintf(stderr, "[PORT-EXIT-PROMOTION] target=%s port=%s site=%s uid=%d\n", x86_portname(port), port == X86P_GAMMA ? "γ" : port == X86P_OMEGA ? "ω" : "?", site == X86H_JMP ? "jmp" : "jcc", _.x86_uid);
     if (site == X86H_JMP && port == X86P_OMEGA && getenv("SCRIP_ZETA_OMEGA_TRACE"))
         fprintf(stderr, "[OMEGA-TRACE] x86_uid=%d op_omega_is_death=%s\n", _.x86_uid, _.op_omega_is_death ? "TRUE-DEATH" : "internal-alias");
@@ -2128,10 +2034,10 @@ extern "C" int emit_defer_rbp(void);
 extern "C" int emit_defer_carve_rbp(void);
 extern "C" void rt_zdp_sm_init(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline int icn_genframe2() {   /* N-2 (hq_P s271): the generator ACTIVATION-FRAME protocol. Lives HERE, not in emit.cpp, because the alpha/gamma/res/omega arms are emitted from the driver while the caller-side landing is emitted from a bb_* template into libscrip_rt.so -- one switch, two link units, so it has to sit in the header both sides already include. ⛔ DEFAULT OFF until all five slices land and the D2-suspend witness set is green: alpha carve, gamma resume-record, res landing, omega retire and the caller landing are ONE protocol, and a half-built one crashes differently rather than better. SCRIP_ICN_GENFRAME2=1 arms it. */
-    static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ICN_GENFRAME2"); v = (e && *e == '0') ? 0 : 1; } return v;   /* ⭐⭐⭐ DEFAULT ON (ceo s283, 2026-08-29): the flip condition its own comment set — ALL FIVE slices landed AND the D2 witness set ALL-GREEN — was met and MEASURED at REPS=20 both modes on the pushed tree (single/multi/loop/nested/after/scan all CORRECT 20/20, controls unmoved, OFF = the six baseline crashes), plus Lon's fifth-census-class grant implemented the same day. SCRIP_ICN_GENFRAME2=0 is now the KILLSWITCH (opt-OUT, matching every other switch in the fleet). The receipts: the icon-n2 baton LEDGER-s283 series + FINDING-2026-08-29-ceo-n2-step3-*. */
+inline int icn_genframe2() {
+    static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ICN_GENFRAME2"); v = (e && *e == '0') ? 0 : 1; } return v;
 }
-inline int icn_gen_regime() {   /* ⛔⛔ THE ICON-ONLY KEY (ceo s283f, minutes after the default flip): flat_gen alone is NOT Icon-only -- a PROLOG suspend graph satisfies is_generator&&has_suspend and, once the gate defaulted ON, took the region-resident alpha whose caller half exists only in Icon's bcps template: prolog smoke went 5/5 -> 3/5 BOTH MODES, restored by the killswitch (A/B measured). icn_cells_graph's only setters are lower_icon.c, so this predicate is the regime key every generator-protocol site uses INSTEAD of bare icn_genframe2(); the bare switch survives only as the killswitch input here. */
+inline int icn_gen_regime() {
     return icn_genframe2() && g_emit_cfg && g_emit_cfg->icn_cells_graph;
 }
 inline int x86_zdp_rbp_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZSM"); v = (e && *e == '1') ? 1 : 0; if (v) rt_zdp_sm_init(); } return v; }
@@ -2290,21 +2196,6 @@ inline std::string x86_rtcc_call_descr_ops(const char * sym, uint64_t ptr, const
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⛔⛔ THE PORT MARKER IS IN-BAND, AND \x01 IS NOT A RESERVED BYTE IN EMITTED TEXT.  a01fe9f6 prepends
-   '\x01' + ('0'+port) to a port-label line and x86_internal_resolve() consumed ANY '\x01' it met, plus the
-   byte after it.  Emitted `.string` DATA legitimately contains \x01 -- Pascal record layout descriptors do --
-   so the resolver silently DELETED TWO BYTES OF THE PROGRAM'S OWN DATA.  Measured: rec1.pas emitted
-   `.string "0\x010"` before the commit and `.string "0"` after it, and the program printed 4 instead of 7.
-   That is why the damage is m4-only (this resolver runs in TEXT medium only, never BINARY), why the
-   record/variant-record/nested-proc families were hit hardest (they are the ones emitting \x01 in data), and
-   why it reads as `output mismatch` rather than a crash: nothing is malformed, the data is just wrong.
-   ⭐ THE DISCRIMINATOR IS WHERE THE MARKER CAN OCCUR, NOT WHAT IT LOOKS LIKE.  A marker is only ever emitted
-   at the START of a port-label line, so it can only appear at offset 0 or immediately after a newline; a data
-   \x01 always sits mid-line, inside a quoted operand.  Requiring line-start AND a valid port digit separates
-   them exactly, and a \x01 that fails the test now passes through VERBATIM instead of being eaten.
-   ⛔ This is a narrowing, not a redesign: in-band signalling over a channel that does not reserve the signal
-   byte stays fragile by construction, and the durable fix is to carry port transitions OUT of band. Named for
-   whoever owns the label-prefix design; this restores correctness without rewriting their commit. */
 #define X86_IS_PORTMARK(s_, i_, n_)  ((s_)[i_] == '\x01' && (i_) + 1 < (n_) && ((i_) == 0 || (s_)[(i_) - 1] == '\n') && (s_)[(i_) + 1] >= '0' && (s_)[(i_) + 1] <= '3')
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline int x86_ir_digit(char c) { return c >= '0' && c <= '9'; }
@@ -2312,20 +2203,8 @@ inline long x86_ir_num(const std::string & s, size_t & i) { long v = 0; size_t n
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_internal_resolve(const std::string & s) {
     static const char * const x86_greek[4] = { "\xce\xb1", "\xce\xb2", "\xce\xb3", "\xcf\x89" };
-    /* BB-LABEL-PREFIX-UNIFORM (Lon 2026-08-28, scope widened): an internal label belongs to the BOX that
-       minted it, not to the enclosing flat-chain -- _.x86_uid_kind is the current box's own kind (set at
-       walk_bb_node_inner dispatch, reset to NULL at chain start/end so chain-level XA wrapper code, which
-       runs outside any box dispatch, correctly falls back to the chain family instead of a stale box kind). */
     const char * fam = _.x86_uid_kind ? _.x86_uid_kind : (_.flat_fam ? _.flat_fam : "anon");
     size_t famlen = strlen(fam);
-    /* STEP 2b (seat05 2026-08-29): 7 ad hoc box-level literal-pool mints (bb_call.cpp bynamefn/bynamefnzd/
-       bynamegenfn, bb_call_fn.cpp rkfn/rkfnzd, bb_call_proc_staged.cpp sig/sigz) already bake x86_boxkind()
-       -- the exact same value as `fam` above -- into their own text at mint time, unlike the anonymous
-       .Lx<uid>_<n> family; they only ever lacked the greek infix. Each is minted and referenced back-to-back
-       with zero port transition in between (read in full, all three templates) so unlike .Lx no first-
-       occurrence lock is needed -- the CURRENT port at the position the pattern is matched is correct for
-       that occurrence, always. Longest-tag-first avoids the rkfn/rkfnzd and bynamefn/bynamefnzd prefix
-       collision (a shorter tag would otherwise falsely match inside a longer one's own name). */
     static const char * const adhoc_tags[] = { "bynamegenfn", "bynamefnzd", "bynamefn", "rkfnzd", "rkfn", "sig" };
     int portof[X86_INTERNAL_MAX]; for (int k = 0; k < X86_INTERNAL_MAX; k++) portof[k] = -1;
     int cur = X86P_ALPHA; size_t n = s.size();

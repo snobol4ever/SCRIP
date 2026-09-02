@@ -18,7 +18,7 @@ typedef struct scrip_coctx_t {
     void     *resume_addr;
     int       dead;
     uint64_t  xmit[2];
-    char *stk_lo; char *stk_hi;   /* the co-expression stack's root-scan bounds, recorded by whoever ALLOCATES the stack -- never re-derived from an allocator's header. Set once in scrip_coswitch, right after pthread_create, from pthread_getattr_np on the real (now-created) thread. */
+    char *stk_lo; char *stk_hi;
     struct scrip_coctx_t *gc_next; uint64_t gc_spill[6];
     void *frame_copy; uint64_t frame_copy_sz;
     void *scan_state;

@@ -8,17 +8,6 @@ int descr_identical(DESCR_t a, DESCR_t b);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* IR-IDENT/DIFFER slice 3 (Lon directive s199).  ONE family, ONE mechanism -- bb_differ.cpp is this file with the final jcc polarity
-   inverted, nothing else differs.  Both replace the by-name dispatch chain (bid_of hash + DTAX cache + switch: measured s199 at 121.55
-   units/call, 1-arg, vs the body's own ~4.6 units) with a direct call to the SAME descr_identical() the slow path (bn_identdiffer) already
-   calls -- zero semantic drift, this is the call-overhead fix the FINDING asked for, not a reimplementation of the comparison.  This box
-   never sees a redefined IDENT/DIFFER: the lowerer (sx_ident_differ, lower_snobol4.c) refuses the fast path whenever the compiling
-   program's own source DEFINEs the name (sno_predef_registered), so a redefining program never reaches here at all -- see that site for
-   the full redefinition-guard note.  1-arg IDENT(x) arrives as 2 operands -- LOWER synthesizes a literal "" for the missing 2nd arg,
-   matching bn_identdiffer's own nargs==1 -> compare-against-NULVCL rule -- so this box never branches on arg count: the 1/2-arg split is
-   an operand count, never an admission test.  TWO EMISSION SHAPES, same semantics: op_zres selects the "ZD" operand-array convention
-   (ZOPQ/ZRES) some graphs use instead of ordinary ζ-spine slots (op_sa/op_sb/FRQ) -- both must be implemented, no other IR_CMP_TEST-family
-   opcode gets to skip either one. */
 std::string bb_ident() {
     x86_begin();
     if (_.op_zres)

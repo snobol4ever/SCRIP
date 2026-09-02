@@ -8,9 +8,6 @@ int descr_identical(DESCR_t a, DESCR_t b);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* IR-IDENT/DIFFER slice 3 (Lon directive s199).  ONE family, ONE mechanism -- this file is bb_ident.cpp with the final jcc polarity
-   inverted (DIFFER succeeds when NOT identical), nothing else differs; see bb_ident.cpp for the full design note, the measured call-
-   overhead basis, and the redefinition-guard finding (both members share it via lower_snobol4.c's sx_ident_differ, per NO-PER-OP-FILTER). */
 std::string bb_differ() {
     x86_begin();
     if (_.op_zres)

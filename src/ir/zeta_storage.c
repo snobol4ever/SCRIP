@@ -643,20 +643,6 @@ int fc_arbno_member(const IR_t * nd) { for (int i = 0; i < fcab_n; i++) if (fcab
 int fc_seq_active(const IR_t * nd) { (void)nd; return 0; }
 static const IR_t * fvl[2048]; static int fvl_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* Value-disjunctions whose CONSUMERS read the arm result from the ζ-spine, declared by whoever lowered them. The
-   structural shape (3N operands past 2N port pairs, ival>0) is NOT sufficient to grant a flat cell: it is true of
-   every frontend that lowers a value-carrying disjunction onto this one shared host, and a grant to a host whose
-   consumers still address the FRAME re-routes FRQ() to the spine for the producer alone -- the producer/consumer
-   split. The grant is therefore keyed on the consuming regime, which only the lowerer knows, and is registered the
-   same way fc_vlit/fc_save already are. Every IR_DISJUNCTION stays eligible, so this is a behavioral condition and
-   not a per-op admission list. */
-/* ⛔ SILENT TRUNCATION IN A CORRECTNESS PATH IS A SIZE-DEPENDENT MISCOMPILE (hq_P s271). Every fc_*_register below
-   is a fixed-cap table that used to `return` at the cap without a word. For the optimization tables that merely cost
-   a missed cell; for fvdj it silently withholds a grant the consumer still expects from the spine, reintroducing the
-   producer/consumer split as a bug that appears ONLY in large programs and shows on nothing in our corpus, because
-   our programs are small. It is reported LOUDLY, once per table, and never gated on an env var -- a diagnostic you
-   have to opt into is exactly the instrument that cannot express its own failure. SCRIP_FC_REG_HIGHWATER=1 prints
-   the peak occupancy of every table so the caps can be sized from measurement rather than from guessing. */
 static void fc_reg_full(const char * tbl, int cap) { static const char * seen[16]; static int seen_n = 0;
     for (int i = 0; i < seen_n; i++) if (seen[i] == tbl) return;
     if (seen_n < 16) seen[seen_n++] = tbl;
@@ -851,14 +837,13 @@ void emit_patzeta_register(const char * name, int frame_bytes, int fp_total, int
     pz[pz_n].name = name; pz[pz_n].fb = frame_bytes; pz[pz_n].fp = fp_total; pz[pz_n].uni = uniform; pz_n++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⭐⭐ N-2 ITEM 2 STEP 1 (hq_P s277): "IS THIS CALLEE'S FRAME SIZE KNOWN YET?" -- AND IT ANSWERS *NOT YET* DISTINGUISHABLY, WHICH IS THE ENTIRE POINT.  ceo RULED that a graph hosting a suspend-surviving call promotes to an RBP activation frame and a DIRECT call reserves the callee's compile-time-known frame bytes inside the host's own carve.  That needs a name -> frame-bytes lookup at HOST-emit time, and the registry for it ALREADY EXISTS: pz[] above is populated by emit_patzeta_register() for every proc, from all three driver arms.  ⛔ SO THIS ADDS NO GLOBAL STATE -- it is an accessor over state that is already there (the s272 precedent: extend what exists, never mint a parallel array; a parallel array is named explicitly in the NO-NEW-GLOBALS law).  ⛔⭐ WHY NOT emit_patzeta_lookup(): IT CANNOT SAY "NOT REGISTERED".  It returns pz[i].uni on a hit and 0 on a miss, so a genuine uniform==0 proc and an ABSENT proc are the same answer.  For the reservation that ambiguity is not cosmetic, it is the bug: an unregistered callee would read as a 0-byte reservation, i.e. a host carve SILENTLY TOO SMALL -- exactly the silent overflow ceo refused worst-case reservation to avoid, arriving through a different door.  ⭐ THE HAZARD IS REAL AND MEASURED, NOT THEORETICAL: procs are emitted before main (every driver proc loop `continue`s on main), so a main-host always finds its callee registered -- but a host that is ITSELF A PROC calling a generator declared LATER in the same loop is a FORWARD REFERENCE and the callee is genuinely not registered yet.  Measured in the bench_correct corpus this rung scores: geddump has 6 such callsites and tgrlink 2.  So the miss case is the common case there, and it MUST be loud.  Returns 1 and fills *bytes on a hit; returns 0 and leaves *bytes untouched on a miss -- callers must branch on the RETURN, never on the value. */
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int emit_patzeta_frame_reserve(const char * name, int * bytes) {
     if (!name) return 0;
     for (int i = 0; i < pz_n; i++) if (!strcmp(pz[i].name, name)) { if (bytes) *bytes = (((32 + pz[i].fb + 15) & ~15) + pz[i].fp + 16); return 1; }
     return 0;
 }
-/*--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int emit_patzeta_lookup(const char * name, int * susp) {
     if (!name) return 0;
     for (int i = 0; i < pz_n; i++) if (!strcmp(pz[i].name, name)) { if (susp) *susp = (((32 + pz[i].fb + 15) & ~15) + pz[i].fp + 16); return pz[i].uni; }

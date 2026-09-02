@@ -18,12 +18,6 @@ DESCR_t rt_call_arr_bl(const char * fn, DESCR_t * args, int nargs, int bidlen);
 extern "C" {
 #include "builtin_ids.h"
 }
-/*⭐⭐ BAKE THE BUILTIN ID AT THE CALL SITE (hq_P s262).  MEASURED on roman.sno (-O0, fixed work N=2000, callgrind): bid_of() was 4.16% of the whole program -- 11,002 calls at 166 Ir -- spent turning a baked string literal into the integer index of a cache that was ALREADY HIT (the dtax kind==4 arm dispatched 8,799 of 8,800 REPLACE calls straight to bn_replace).  The name is a compile-time constant here, so we resolve it HERE, once, and hand the runtime the answer.
-  ⛔ IT CANNOT ANSWER DIFFERENTLY, ONLY SOONER: emitter and runtime compile the same builtin_ids.h, so the baked integer is bit-identical to what bid_of() would return; a non-builtin bakes 0, which is bid_of()'s own miss value.
-  ⛔ NO PER-OP FILTER (Lon 2026-08-20): EVERY by-name call site bakes, builtin or not.  No blessed-name list exists in this cure.
-  ⛔ NO NEW GLOBAL: an immediate in the instruction stream, consumed within the call.
-  ⭐ REGISTER CHOICE IS VERIFIED, NOT ASSUMED: the RTCC veneer's pre-call save uses rax as its block scratch (x86_rtcc_wb_bin) and only the POST-call reload uses rcx (x86_rtcc_rl_bin), so ecx is free to carry an argument across the wb into the call in BOTH media.
-  KILLSWITCH SCRIP_BID_BAKE=0 -- ⛔ EMIT-time, so an OFF arm must be re-COMPILED; toggling it on a baked binary proves nothing. */
 static int bid_bake_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BID_BAKE"); v = (e && *e == '0') ? 0 : 1; } return v; }
 static long bid_bake_of(const char * fn) { if (!bid_bake_on() || !fn) return -1L; size_t n = strlen(fn); if (n > 0xFFFFu) return -1L; return (long)(((unsigned long)n << 16) | (unsigned long)(unsigned)bid_of(fn, (unsigned)n)); }
 DESCR_t rt_pl_dop_unify(DESCR_t *, int); DESCR_t rt_pl_dop_unify_lst(DESCR_t *, int); DESCR_t rt_pl_dop_ix_g(DESCR_t *, int); DESCR_t rt_pl_dop_mkc(DESCR_t *, int); DESCR_t rt_pl_dop_trail_mark(DESCR_t *, int); DESCR_t rt_pl_dop_trail_unwind(DESCR_t *, int); DESCR_t rt_pl_dop_unwind_nothrow(DESCR_t *, int); DESCR_t rt_pl_dop_is_v(DESCR_t *, int);

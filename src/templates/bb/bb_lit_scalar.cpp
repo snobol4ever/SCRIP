@@ -78,10 +78,6 @@ std::string bb_lit_scalar() {
              + x86("label",  LS(0))
              + x86(".string", _.op_sval ? _.op_sval : "")
          : _.op_node_kind == (int)IR_LIT_CHARSET && (_.op_off >= 0 || _.op_zres)
-         /* icn-cset-embedded-nul-four-layer-gap: true length (lower_icon.c icn_attach_lit_len, Icon-only)
-            is baked/registered/escaped in BOTH modes now -- BINARY's pointer was always exact, and TEXT's
-            .string (x86_asm_str_escape's length-aware overload) no longer truncates at an embedded \0, so
-            its assembled buffer is equally exact. .slen itself stays the CSETVAL -1 identity sentinel. */
          ? x86("comment", "IR_LIT_CHARSET")
              + x86_alpha()
              + x86("note",   ZRESN())
