@@ -94,6 +94,7 @@ pristine:  # THE gate-law incantation (HQ-27 PRISTINE-BUILD-BEFORE-VERDICT), now
 
 test: scrip  # ⭐ WAS THE FALSE-GREEN TRAP (cured hq_P s268): `test`, `test-ir` and `test-all` were named in .PHONY with NO RECIPE ANYWHERE, so each exited 0 having run NOTHING ("Nothing to be done for 'test'") while reading as a full green suite. `test-ir` and `test-all` are DELETED rather than wired — nothing behind them ever existed. This target now runs THE blocking set named in CLAUDE.md and fails loudly on the first red. ⛔ Gate VERDICTS still require `make pristine` first (HQ-27); this target only builds what is missing.
 	bash scripts/test_gate_capture_stdin_and_red_exit.sh   # ~15s, mktemp-only: first because a cheap self-contained gate belongs before a 6-minute board (ceo grant 2026-08-30; move it if the order should be authored elsewhere)
+	bash scripts/test_gate_term_wordref_ratchet.sh   # ~0.13s, pure source census (no build needed): per-file `Term` word-ref RATCHET for the T-slice cell migration. Cheap+self-contained so it sits beside the stdin gate, ahead of the boards (same ceo grant 2026-08-30). Pins are LOWERED in the landing commit of each T slice; see the file header for the re-pin one-liner.
 	bash scripts/test_corpus_snobol4.sh
 	bash scripts/test_gate_emit_no_lang.sh
 	bash scripts/test_gate_template_medium_invisible.sh

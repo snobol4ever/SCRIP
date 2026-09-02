@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+# scripts/test_gate_term_wordref_ratchet.sh — MASTER-PLAN.md ladder I, rung I5 (minted hq_C 2026-09-01, landed hq_B 2026-09-02).
+#
+# WHAT IT GATES.  The T slices are migrating Prolog off the `Term *` tree representation onto cells
+# (pl_cell / pl_cell_conv).  Each T slice's DONE-WHEN prints the umbrella total, but between two landings
+# NOTHING stopped the count from rising again — a migration with no ratchet is a migration that can be
+# silently undone one merge at a time.  This gate closes that seam: PER FILE, the count only goes down.
+#
+# ⭐ WHY A RATCHET IS LEGITIMATE HERE, WHEN test_gate_rbp_census_ratchet.sh RETIRED ITS OWN.
+# That gate retired because it counted a property that could never reach zero (a pinned frame's [rbp+N]
+# refs are the design working as intended), so it "fired on progress".  Read its FLATDISP-9 header before
+# copying this shape anywhere else — the question it forces is: CAN THIS COUNT REACH ZERO BY DESIGN?
+# Here it can and is meant to: `Term` is a representation the ladder exists to DELETE, so every remaining
+# reference is debt, and 0 is the intended terminal value.  That is the whole difference, and it is the
+# only thing that makes a ratchet honest rather than a tripwire on legitimate work.
+#
+# THE COUNTING METHOD IS NOT A CHOICE — IT IS REPRODUCED FROM THE CENSUS THE ROW WAS MINTED AGAINST.
+# The row pinned "the 490 census at SCRIP bcb0ec1e".  Occurrence-counting (`grep -ow`) gives 653 there and
+# reproduces NONE of the row's per-file numbers.  MATCHING-LINE counting reproduces all 16 of them exactly
+# (unification.c 208 · prolog_parse.c 85 · rt_runtime.c 38 · prolog_lower.c 26 · prolog_builtin.c 24 ·
+# prolog_atom.c 17 · resolution.h 12 · term.h 11 · prolog_unify_test.c 10 · pl_cell_conv_test.c 10 ·
+# pl_cell_conv.h 10 · prolog_builtin.h 9 · by_name_dispatch.c 8 · prolog_unify.c 6 · resolution.c 4 ·
+# prolog_runtime.h 3) and totals 490 over src/ once `*.bak` is excluded.  So: METHOD = `grep -cw Term`,
+# SCOPE = src/**, EXCLUDING *.bak.  Verify with the ONE_LINER at the foot of this file; never retype a pin.
+# ⛔ A line with two `Term`s counts ONCE.  That is the census's definition, not an approximation of it —
+# changing to occurrences would silently re-scale every pin by ~1.33x and invalidate the whole ladder.
+#
+# ⛔ THE PINS BELOW ARE **NOT** THE ROW'S 490 NUMBERS, DELIBERATELY.  Between the mint (bcb0ec1e) and this
+# landing (c6190d9e) the T slices drove the census 490 -> 136: prolog_parse.c 85->0, prolog_lower.c 26->0,
+# unification.c 208->56, and prolog_builtin.{c,h} / prolog_unify_test.c / pl_cell_conv_test.c were DELETED
+# outright.  Pinning at the row's stale figures would have shipped a gate with 354 refs of slack — green
+# while the migration regressed by a factor of three.  The row's own doctrine is "pin-the-property: the
+# count only goes down", and "pins are LOWERED in the landing commit of every T slice"; this landing IS
+# such a commit, so the pins are the MEASURED census at c6190d9e.  Routed to hq_C as a FINDING.
+#
+# ⛔ UNPINNED FILE WITH ANY `Term` REF == FAIL.  Without this the ratchet is trivially dodged by moving a
+# refactor into a new file, which is exactly the motion a migration produces.  A new file is not a fresh
+# budget; add it below with its measured count ONLY if it is genuinely a step down elsewhere.
+#
+# HOW TO RE-PIN (manual, never automatic — several seats share this file; RULES.md CONCURRENCY note).
+# Run the ONE_LINER, paste the measured table into PINS, and land it IN THE SAME COMMIT as the slice that
+# lowered it.  A TIGHTEN hint below is the gate telling you the tree is already better than its pin.
+GATE_NAME="test_gate_term_wordref_ratchet"
+. "$(dirname "$0")/lib_gate.sh"
+gate_parse_args "$@"
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: siblings resolve under THIS root.
+SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/src"
+# ⛔ THE ROW'S OWN REFUSAL CLAUSE: no parsers dir == nothing to measure == UNPROVEN(2), never a pass.
+if [ ! -d "$SRC/parsers/prolog" ]; then
+    echo "GATE UNPROVEN(2) [$GATE_NAME]: src/parsers/prolog is absent at $SRC/parsers/prolog"
+    echo "    This is NOT a pass.  The Prolog frontend is what the Term census measures; without it the gate examined nothing."
+    gate_stamp
+    exit 2
+fi
+# ── PINS ── measured at SCRIP c6190d9e (`grep -cw Term`, src/**, excluding *.bak).  Umbrella total 136.
+# ⛔ EDIT ONLY DOWNWARD, and only in the same commit as the slice that earned it.
+PINS="
+56 src/runtime/unification.c
+17 src/parsers/prolog/prolog_atom.c
+13 src/runtime/rt_runtime.c
+11 src/runtime/builtins/resolution.h
+11 src/parsers/prolog/term.h
+10 src/parsers/prolog/pl_cell_conv.h
+ 4 src/parsers/prolog/prolog_unify.c
+ 3 src/runtime/by_name_dispatch.c
+ 3 src/runtime/builtins/resolution.c
+ 3 src/parsers/prolog/prolog_parse.h
+ 2 src/parsers/prolog/prolog_runtime.h
+ 2 src/driver/sync_monitor.c
+ 1 src/runtime/rt/rt.h
+"
+PIN_TOTAL=$(echo "$PINS" | awk 'NF{t+=$1} END{print t+0}')
+# ⚠️ *.bak is excluded because that is what reproduces the row's 490 (prolog_emit_jvm.c.bak carried 17 there).
+# It matches nothing at this tree, but a .bak must never become a place to PARK Term code, so it is reported loudly.
+BAK_HITS=$(find "$SRC" -name '*.bak' -exec grep -cw 'Term' {} + 2>/dev/null | awk -F: '{t+=$NF} END{print t+0}')
+# ⭐ WORKTREE SWEEP, NOT `git grep`: a plain `git grep` misses an UNTRACKED new file, which is precisely the
+# dodge the unpinned-file rule above exists to catch.  Verified equal (136) to the tracked sweep on a clean tree.
+FILES=$(grep -rIlw 'Term' "$SRC" 2>/dev/null | grep -v '\.bak$' | sed "s#^$SRC/#src/#" | sort)
+NFILES=$(echo "$FILES" | grep -c . )
+gate_floor "$NFILES" 1 "source files bearing a Term word-reference"
+VIOL=0; TOTAL=0; TIGHTEN=""
+echo "── per-file Term word-refs (method: grep -cw Term · scope src/** · excluding *.bak) ──"
+for f in $FILES; do
+    n=$(grep -cw 'Term' "$SRC/${f#src/}")
+    TOTAL=$((TOTAL + n))
+    pin=$(echo "$PINS" | awk -v p="$f" 'NF && $2==p {print $1; found=1} END{if(!found) print "UNPINNED"}')
+    if [ "$pin" = "UNPINNED" ]; then
+        printf '  ⛔ %6d  (unpinned)  %s\n' "$n" "$f"
+        echo "        A file carrying Term refs with no pin is a RISE from an implicit 0 — see the unpinned-file rule in this file's header."
+        VIOL=$((VIOL + 1))
+    elif [ "$n" -gt "$pin" ]; then
+        printf '  ⛔ %6d  > pin %-6d %s   ROSE by %d\n' "$n" "$pin" "$f" "$((n - pin))"
+        VIOL=$((VIOL + 1))
+    elif [ "$n" -lt "$pin" ]; then
+        printf '  ⭐ %6d  < pin %-6d %s   TIGHTEN by %d\n' "$n" "$pin" "$f" "$((pin - n))"
+        TIGHTEN="$TIGHTEN $f:$pin->$n"
+    else
+        printf '     %6d  = pin %-6d %s\n' "$n" "$pin" "$f"
+    fi
+done
+# ⭐ A PINNED FILE THAT VANISHED IS PROGRESS, AND IT MUST STILL BE REPORTED — otherwise the pin lingers
+# forever as dead slack that a later file of the same name would silently inherit.
+while read -r pin f; do
+    [ -z "$f" ] && continue
+    [ -e "$SRC/${f#src/}" ] && continue
+    printf '  ⭐ %6d  < pin %-6d %s   FILE GONE — drop this pin\n' 0 "$pin" "$f"
+    TIGHTEN="$TIGHTEN $f:$pin->GONE"
+done <<< "$(echo "$PINS" | awk 'NF')"
+echo "── umbrella total: $TOTAL Term word-refs across $NFILES files (pin total $PIN_TOTAL · row's mint census was 490 at bcb0ec1e) ──"
+[ "$BAK_HITS" -gt 0 ] && echo "  ⚠️  $BAK_HITS Term ref(s) sit in *.bak files, EXCLUDED from this count by the census definition — do not park Term code there."
+if [ -n "$TIGHTEN" ]; then
+    echo "  ⭐ TIGHTEN AVAILABLE (the tree is better than its pins — lower them in the commit that earned it):"
+    for t in $TIGHTEN; do echo "        $t"; done
+fi
+# ONE_LINER — regenerate the PINS block; never retype a number you did not produce (RULES.md § TRANSCRIPTION).
+#   cd "$S4E/SCRIP" && for f in $(grep -rIlw Term src/ | grep -v '\.bak$' | sort); do echo "$(grep -cw Term $f) $f"; done | sort -rn
+gate_verdict "$VIOL" "file(s) ROSE above their Term word-ref pin (or carry refs with no pin)"
