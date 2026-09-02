@@ -3,7 +3,8 @@
 Remove C/C++ comments from SCRIP source, string/char-literal aware.
   - Strips /* ... */ and // ... comments.
   - NEVER touches text inside "..." or '...' literals (incl. escapes).
-  - Excludes the 12 generated flex/bison files (stripping breaks flex scaffolding).
+  - Excludes the generated flex/bison outputs (their comments are the generator's; GENERATED below is the census).
+  - .l files go through strip_flex: patterns are copied verbatim, only the C regions are stripped (the R4/R5 flex hazard, cured in the tool).
   - SEPARATOR POLICY (Lon fork): KEEP_SEPARATORS=True keeps the sanctioned 200-char
     /*---*/ (minor) and /*===*/ (major) separators that RULES.md mandates; set False
     for literal "zero comments" (which also requires editing RULES.md).
@@ -79,22 +80,107 @@ def strip_one(text):
         out.append(c); i += 1
     return "".join(out)
 
+def c_block_end(text, i):
+    """text[i] == '{': index just past the matching '}', lexed as C (strings, chars, comments skipped); -1 if unbalanced."""
+    depth = 0; n = len(text)
+    while i < n:
+        c = text[i]
+        if c == '"' or c == "'":
+            q = c; i += 1
+            while i < n and text[i] != q and text[i] != "\n":
+                if text[i] == "\\": i += 1
+                i += 1
+            i += 1; continue
+        if c == "/" and i + 1 < n and text[i+1] == "*":
+            j = text.find("*/", i + 2); i = n if j == -1 else j + 2; continue
+        if c == "/" and i + 1 < n and text[i+1] == "/":
+            j = text.find("\n", i); i = n if j == -1 else j; continue
+        if c == "{": depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0: return i + 1
+        i += 1
+    return -1
+
+def flex_pattern_end(line):
+    """Index where a flex rule's PATTERN ends: the first unescaped blank outside "..." / [...] / {...}; len(line) if none.
+    This is the whole flex hazard in one place: /* inside a character class ([a-z/*+] in raku.l), an unpaired ' or " in a pattern
+    ('([^']|'')*' in pascal.l, <BODY>\\" in snobol4.l), // as a quoted token ("//" in raku.l) -- none of these is C, and R4 and R5
+    each destroyed a lexer by running the C lexer over them. Patterns are copied verbatim; only what follows them is C."""
+    i = 0; n = len(line)
+    while i < n:
+        c = line[i]
+        if c == "\\": i += 2; continue
+        if c == '"':
+            i += 1
+            while i < n and line[i] != '"':
+                if line[i] == "\\": i += 1
+                i += 1
+            i += 1; continue
+        if c == "[":
+            i += 1
+            if i < n and line[i] == "^": i += 1
+            if i < n and line[i] == "]": i += 1
+            while i < n and line[i] != "]":
+                if line[i] == "\\": i += 1
+                elif line[i] == "[" and i + 1 < n and line[i+1] == ":":
+                    j = line.find(":]", i + 2); i = j + 1 if j != -1 else i
+                i += 1
+            i += 1; continue
+        if c == "{":
+            j = line.find("}", i); i = j + 1 if j != -1 else n; continue
+        if c in " \t": return i
+        i += 1
+    return n
+
 def strip_flex(text):
-    """flex sources: the C lexer is UNSAFE here (a bare /* inside a character class -- raku.l `[a-zA-Z0-9_.:/*+?=!$,;#@|\\\\-]` --
-    is a pattern, and R4 2026-08-20 + R5 2026-09-02 both destroyed the lexer by treating it as a comment). So a .l file only loses
-    WHOLE-LINE comments (a line whose first token is /* and whose block ends on a line with nothing after */), keeps every pattern
-    and action byte, and has its separators renormalized. Trailing comments inside actions are left and reported by --check."""
-    lines = text.split("\n"); out = []; i = 0
+    """flex sources, structure-aware: the C regions -- %{ %} blocks, indented lines, %top{ }, brace and one-line actions after a
+    pattern, and the whole user-code section after the second %% -- go through strip_one; every pattern, name definition, %option and
+    %x/%s line is copied byte for byte. Proven by util_style200_oracle_yl.sh (object identity of the regenerated lexer) and by the
+    round trip strip_flex(x) == x over the four committed lexers, which already carry no comments (hq_B 2026-09-02)."""
+    lines = text.split("\n"); out = []; i = 0; sect = 1
+    def emit_c(chunk): out.append(strip_one(chunk))
     while i < len(lines):
         l = lines[i]; s = l.strip()
+        if s == "%%" and sect < 3:
+            sect += 1; out.append(l); i += 1; continue
+        if sect == 3:
+            emit_c("\n".join(lines[i:])); break
+        if s == "%{" or s.startswith("%top{"):
+            close = "%}" if s == "%{" else "}"
+            j = i + 1
+            while j < len(lines) and lines[j].strip() != close: j += 1
+            out.append(l); emit_c("\n".join(lines[i+1:j]))
+            if j < len(lines): out.append(lines[j])
+            i = j + 1; continue
         if s.startswith("/*"):
-            if SEP.match(s):
-                out.append(l[:len(l) - len(l.lstrip())] + "/*" + ("=" if "=" in s else "-") * 196 + "*/"); i += 1; continue
-            j = i
-            while j < len(lines) and "*/" not in lines[j]: j += 1
-            if j < len(lines) and lines[j].split("*/", 1)[1].strip() == "":
-                i = j + 1; continue
-        out.append(l); i += 1
+            blk = "\n".join(lines[i:]); k = blk.find("*/")
+            j = i + blk[:k+2].count("\n") if k != -1 else len(lines) - 1
+            emit_c("\n".join(lines[i:j+1])); i = j + 1; continue
+        if l[:1] in (" ", "\t"):
+            emit_c(l); i += 1; continue
+        if sect == 1 or l == "" or s.startswith("%"):
+            out.append(l); i += 1; continue
+        pe = flex_pattern_end(l); pat = l[:pe]; rest = l[pe:]
+        k = 0
+        while k < len(rest) and rest[k] in " \t": k += 1
+        act = rest[k:]
+        if act.startswith("{"):
+            blk = "\n".join(lines[i:]); start = pe + k
+            e = c_block_end(blk, start)
+            if e == -1: out.append(l); i += 1; continue
+            tail = blk[e:].split("\n", 1)[0]
+            out.append(pat + rest[:k] + strip_one(blk[start:e]) + strip_one(tail))
+            i += blk[:e].count("\n") + 1; continue
+        if act.startswith("%{"):
+            j = i + 1
+            while j < len(lines) and lines[j].strip() != "%}": j += 1
+            out.append(l); emit_c("\n".join(lines[i+1:j]))
+            if j < len(lines): out.append(lines[j])
+            i = j + 1; continue
+        if act.strip() == "|":
+            out.append(l); i += 1; continue
+        out.append(pat + rest[:k] + strip_one(act)); i += 1
     return "\n".join(out)
 
 def strip_file(p, src):

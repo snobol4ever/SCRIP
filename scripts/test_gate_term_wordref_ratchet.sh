@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # scripts/test_gate_term_wordref_ratchet.sh — MASTER-PLAN.md ladder I, rung I5 (minted hq_C 2026-09-01, landed hq_B 2026-09-02).
+# Since 2026-09-02 it also carries rung 13 clause 2 of ARCH-PROLOG-BYRD-BOX-TRANSLATION.md (no resolve_choice in resolution.{c,h}) -- see RC_HITS below.
 #
 # WHAT IT GATES.  The T slices are migrating Prolog off the `Term *` tree representation onto cells
 # (pl_cell / pl_cell_conv).  Each T slice's DONE-WHEN prints the umbrella total, but between two landings
@@ -95,6 +96,19 @@ NFILES=$(echo "$FILES" | grep -c . )
 # ⭐⭐ THE FINISH LINE (Lon 2026-09-02 10:35, in-chat to ceo: "First order of business is to simply remove the definition of the struct named Term. Delete it now."):
 # a ratchet that could only REFUSE at zero could never say YES to its own goal (the criterion-that-cannot-say-YES defect, INSTRUMENT LAWS).
 # Zero files bearing the word is the census COMPLETE, not "nothing examined": the parsers dir exists (checked above), the sweep ran, it found none.
+# ⭐ RUNG 13, CLAUSE 2 (ARCH-PROLOG-BYRD-BOX-TRANSLATION.md § E: "resolution.{c,h} hold no resolve_choice"; hq_B 2026-09-02). The second
+# choice-point/trail/env machine left resolution.{c,h} with ceo's Term deletion; a `resolve_choice` word-ref returning is that machine
+# returning under the old name. Checked BEFORE the zero-Term finish line so the ratchet cannot say YES to rung 13 on the Term half alone.
+# Absent files read 0 -- rung 2 deletes them, and a deleted file cannot carry the machine.
+RC_HITS=0
+for f in "$SRC/runtime/builtins/resolution.c" "$SRC/runtime/builtins/resolution.h"; do
+    [ -f "$f" ] && RC_HITS=$((RC_HITS + $(grep -cw 'resolve_choice' "$f")))
+done
+if [ "$RC_HITS" -ne 0 ]; then
+    echo "  ⛔ $RC_HITS resolve_choice word-ref(s) in src/runtime/builtins/resolution.{c,h} -- the second choice-point machine is back (rung 13 clause 2)"
+    GATE_EXAMINED="resolution.{c,h}"
+    gate_verdict 1 "resolve_choice word-ref(s) in resolution.{c,h} (rung 13 clause 2; Term census not reached)"
+fi
 if [ "$NFILES" -eq 0 ]; then
     echo "✅ GATE OK [$GATE_NAME]: 0 Term word-refs in 0 source files under src/ -- the ratchet reached ZERO (pin total was $PIN_TOTAL; term.h and pl_cell_conv.h are gone). A future file that reintroduces the word fails the unpinned-file rule below."
     exit 0
