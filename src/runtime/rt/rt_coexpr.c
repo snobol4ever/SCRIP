@@ -51,7 +51,8 @@ void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first) {
         g_co_main_thr = old->thread; g_co_main_set = 1;
         { const char *_cs = getenv("SCRIP_COEXP_STACK"); if (_cs && *_cs) { long _v = atol(_cs); if (_v >= (long)PTHREAD_STACK_MIN) g_coexp_stksize = _v; } }
         pthread_attr_init(&attribs);
-        old->stk_win = 0;
+        if (pthread_attr_setstacksize(&attribs, (size_t)g_coexp_stksize) != 0)
+            scrip_co_uerror("scrip_coexpr: pthread_attr_setstacksize failed");
         inited = 1;
     }
     { extern void *rt_scan_state_capture(void *); old->scan_state = rt_scan_state_capture(old->scan_state); }
@@ -59,16 +60,15 @@ void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first) {
     } else {
         { extern void rt_scan_state_reset(void); rt_scan_state_reset(); }
         scrip_co_makesem(new_ctx);
-        new_ctx->alive = 1;
-        { long pg = sysconf(_SC_PAGESIZE); size_t total = (size_t)g_coexp_stksize + 3ul * (size_t)pg; char *w = (char *)rt_gcheap_alloc((uint16_t)HB_ZBLK, (uint64_t)total);
-          char *al = (char *)(((unsigned long)w + (unsigned long)pg - 1ul) & ~((unsigned long)pg - 1ul)); char *lo = al + pg; size_t sz = (size_t)((size_t)(w + total - lo) / (size_t)pg) * (size_t)pg;
-          if (sz < (size_t)PTHREAD_STACK_MIN) scrip_co_uerror("scrip_coexpr: gcheap stack window below PTHREAD_STACK_MIN");
-          if (mprotect(al, (size_t)pg, PROT_NONE) != 0) scrip_co_uerror("scrip_coexpr: guard mprotect failed");
-          if (pthread_attr_setstack(&attribs, lo, sz) != 0) scrip_co_uerror("scrip_coexpr: pthread_attr_setstack failed");
-          new_ctx->stk_win = (void *)w; new_ctx->stk_guard = (unsigned long)al;
-          { rt_hblk_t *h = (rt_hblk_t *)w - 1; char *shi = (char *)h + h->size; new_ctx->stk_lo = lo; new_ctx->stk_hi = shi; rt_gc_root_range_add((const char *)lo, (const char *)shi); } }
         if (pthread_create(&new_ctx->thread, &attribs, scrip_co_trampoline, new_ctx) != 0)
             scrip_co_uerror("scrip_coexpr: pthread_create failed");
+        { pthread_attr_t a; void *sa = 0; size_t sz = 0;   /* bounds only exist once the thread does -- alive is set AFTER this block, never before (row coexpr-stack-of-calls-pthread-getattr-np-on-an-uncreated-thread: alive=1 preceding thread creation is exactly what let scrip_co_stack_of reach pthread_getattr_np on a thread that did not exist yet). */
+          if (pthread_getattr_np(new_ctx->thread, &a) != 0) scrip_co_uerror("scrip_coexpr: pthread_getattr_np on new thread failed");
+          if (pthread_attr_getstack(&a, &sa, &sz) != 0) scrip_co_uerror("scrip_coexpr: pthread_attr_getstack on new thread failed");
+          pthread_attr_destroy(&a);
+          new_ctx->stk_lo = (char *)sa; new_ctx->stk_hi = (char *)sa + sz;
+          rt_gc_root_range_add((const char *)new_ctx->stk_lo, (const char *)new_ctx->stk_hi); }
+        new_ctx->alive = 1;
     }
     __asm__ volatile ("mov %%rbx,0(%0)\n\t.byte 0x48,0x89,0xe8\n\tmov %%rax,8(%0)\n\tmov %%r12,16(%0)\n\tmov %%r13,24(%0)\n\tmov %%r14,32(%0)\n\tmov %%r15,40(%0)\n\t" : : "r"(old->gc_spill) : "rax", "memory");   /* ⛔ the "rax" clobber is LOAD-BEARING (ceo s283h): the .byte trio is mov %rbp,%rax (rbp can't be named in a clobber list), so rax is destroyed mid-asm -- without declaring it, GCC is free to pick rax for %0, and the store "mov %rax,8(%0)" becomes mov %rax,8(%rax): it wrote rbp into [rbp+8], the caller's saved RETURN ADDRESS, and every coexpr activation returned into its own stack (SIGBUS at a stack rip, caught live by hardware watchpoint on this exact line). Latent until a build whose register allocator chose rax; first exercised end-to-end by the N-2 apply-call window. */
     { extern void rtcc_coexpr_save(uint64_t *); rtcc_coexpr_save(old->rtcc_spill); }
@@ -83,8 +83,7 @@ void scrip_coexpr_destroy(scrip_coctx_t *ctx) {
     ctx->alive = 0;
     sem_post(ctx->semp);
     pthread_join(ctx->thread, NULL);
-    if (ctx->stk_win) { long pg = sysconf(_SC_PAGESIZE); rt_gc_root_range_del((const char *)ctx->stk_guard + pg);
-        mprotect((void *)ctx->stk_guard, (size_t)pg, PROT_READ | PROT_WRITE); ((rt_hblk_t *)ctx->stk_win - 1)->type = (uint16_t)HB_FILL; ctx->stk_win = 0; ctx->stk_lo = 0; ctx->stk_hi = 0; }
+    if (ctx->stk_lo) { rt_gc_root_range_del((const char *)ctx->stk_lo); ctx->stk_lo = 0; ctx->stk_hi = 0; }   /* pthread_join above already reclaimed the libc-mmap'd stack; nothing SCRIP-side to unprotect or refill. */
     { extern long g_scrip_coexpr_live; scrip_coctx_t **pp = &g_co_gc_head; while (*pp && *pp != ctx) pp = &(*pp)->gc_next; if (*pp) { *pp = ctx->gc_next; g_scrip_coexpr_live--; } }
     if (ctx->frame_copy) { extern void rt_gc_root_range_del(const char *); rt_gc_root_range_del((const char *)ctx->frame_copy); free(ctx->frame_copy); ctx->frame_copy = NULL; }
     sem_destroy(ctx->semp);
@@ -163,6 +162,7 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[6]
     }
     ctx->entry_fn  = scrip_coexpr_trampoline_entry;
     ctx->entry_arg = pkg;
+    ctx->thread = 0;
     ctx->alive = 0;
     ctx->semp  = NULL;
     ctx->activator   = NULL;
@@ -170,8 +170,6 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[6]
     ctx->dead        = 0;
     ctx->xmit[0]     = 0;
     ctx->xmit[1]     = 0;
-    ctx->stk_win     = 0;
-    ctx->stk_guard   = 0;
     ctx->stk_lo      = 0;
     ctx->stk_hi      = 0;
     for (int i = 0; i < 6; i++) ctx->gc_spill[i] = 0;
@@ -203,6 +201,7 @@ void scrip_co_ctx_init(scrip_coctx_t *ctx, void (*entry_fn)(void *), void *entry
     extern long g_scrip_coexpr_live; g_scrip_coexpr_live++;
     ctx->entry_fn  = entry_fn;
     ctx->entry_arg = entry_arg;
+    ctx->thread = 0;
     ctx->alive = 0;
     ctx->semp  = NULL;
     ctx->activator   = NULL;
@@ -210,8 +209,6 @@ void scrip_co_ctx_init(scrip_coctx_t *ctx, void (*entry_fn)(void *), void *entry
     ctx->dead        = 0;
     ctx->xmit[0]     = 0;
     ctx->xmit[1]     = 0;
-    ctx->stk_win     = 0;
-    ctx->stk_guard   = 0;
     ctx->stk_lo      = 0;
     ctx->stk_hi      = 0;
     for (int i = 0; i < 6; i++) ctx->gc_spill[i] = 0;
@@ -226,10 +223,9 @@ scrip_coctx_t *scrip_co_gc_root(void) { return &g_root_ctx; }
 int scrip_co_main_known(pthread_t *out) { if (g_co_main_set && out) *out = g_co_main_thr; return g_co_main_set; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int scrip_co_stack_of(scrip_coctx_t *ctx, char **lo, char **hi) {
-    if (ctx->stk_lo && ctx->stk_hi && ctx->stk_lo < ctx->stk_hi) { *lo = ctx->stk_lo; *hi = ctx->stk_hi; return 1; }   /* ⛔ THE BOUNDS ARE READ BACK, NEVER RE-DERIVED. This arm used to recompute *hi from the GC heap-block header ((rt_hblk_t *)stk_win - 1)->size, which is the ONE line coupling the root scan to the compacting heap this row exists to leave; it also computed the pair a SECOND time, by a different expression than rt_gc_root_range_add's, so the scanned range and the registered root range could drift apart silently. Both are now the single pair recorded at allocation. */
-    if (ctx->stk_win) { rt_hblk_t *h = (rt_hblk_t *)ctx->stk_win - 1; long pg = sysconf(_SC_PAGESIZE); *lo = (char *)ctx->stk_guard + pg; *hi = (char *)h + h->size; return 1; }   /* legacy fallback: a window allocated before the bounds were recorded. Unreachable once every allocator sets stk_lo/stk_hi; kept until the destination lands so this commit is provably behaviour-preserving. */
-    if (!ctx->alive) return 0;
-    { pthread_attr_t a; void *sa = 0; size_t sz = 0;
+    if (ctx->stk_lo && ctx->stk_hi && ctx->stk_lo < ctx->stk_hi) { *lo = ctx->stk_lo; *hi = ctx->stk_hi; return 1; }   /* THE BOUNDS ARE READ BACK, NEVER RE-DERIVED -- recorded once in scrip_coswitch, right after the thread that owns them is created. */
+    if (!ctx->alive || ctx->thread == 0) return 0;   /* not yet activated, or activated but no thread exists for it yet (row coexpr-stack-of-calls-pthread-getattr-np-on-an-uncreated-thread) -- never ask pthread about a thread that may not exist. */
+    { pthread_attr_t a; void *sa = 0; size_t sz = 0;   /* remaining legitimate use: the MAIN/ROOT context, whose thread is pthread_self() and which records no stk_lo/stk_hi of its own. */
       if (pthread_getattr_np(ctx->thread, &a) != 0) return 0;
       if (pthread_attr_getstack(&a, &sa, &sz) != 0) { pthread_attr_destroy(&a); return 0; }
       pthread_attr_destroy(&a); *lo = (char *)sa; *hi = (char *)sa + sz; return 1; }
