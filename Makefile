@@ -169,6 +169,7 @@ RT_PIC_SRCS := \
     $(RT)/rt/rt_coexpr.c \
     $(RT)/rt/bbprof.c \
     $(RT)/rt/portcount.c \
+    $(RT)/rt/porttrace.cpp \
     $(RT)/rt/rt_stack_overflow.c \
     $(SRC)/runtime/core/core.c \
     $(SRC)/runtime/core/argval.c \

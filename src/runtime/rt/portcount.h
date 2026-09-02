@@ -5,7 +5,9 @@
 extern "C" {
 #endif
 int        rt_port_counts_on(void);
+uint64_t * rt_port_counts_cell(int uid, int port, const char * label);
 uint64_t * rt_port_counts_slot(int uid, int port, const char * label);
+void       rt_port_counts_report(const char * tag, int four);
 void       rt_port_counts_dump(void);
 #ifdef __cplusplus
 }

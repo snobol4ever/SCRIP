@@ -416,14 +416,15 @@ inline uint8_t x86_jcc_op(const char * mnem) {
     fprintf(stderr, "[x86] FATAL x86_jcc_op: unknown condition code '%s' (no BINARY opcode; add it)\n", mnem); abort();
 }
 enum { X86H_DEF = 0, X86H_JMP = 1, X86H_JCC = 2, X86H_DEF_PAIR = 3 };
-inline std::string x86_port_hook(int site, int port);
+inline std::string x86_port_hook(int site, int port, const char * lbl = NULL);
+inline int x86_pl_trace_on() { const char * e = getenv("SCRIP_PL_TRACE"); return e && *e && *e != '0'; }
 inline int x86_fc_on();
 inline std::string x86_fc_jcc_omega(const char * mnem);
 inline std::string x86_fc_jcc_gamma(const char * mnem);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jcc(const char * mnem, int port) {
-    if (port == X86P_OMEGA && (x86_fc_on() || _.op_wpop != 0)) return x86_fc_jcc_omega(mnem);
-    if (port == X86P_GAMMA && ((x86_fc_on() && _.op_fc_base < 0) || _.op_zgpop != 0)) return x86_fc_jcc_gamma(mnem);
+    if (port == X86P_OMEGA && (x86_fc_on() || _.op_wpop != 0 || x86_pl_trace_on())) return x86_fc_jcc_omega(mnem);
+    if (port == X86P_GAMMA && ((x86_fc_on() && _.op_fc_base < 0) || _.op_zgpop != 0 || x86_pl_trace_on())) return x86_fc_jcc_gamma(mnem);
     return x86_port_hook(X86H_JCC, port)
          + (MEDIUM_BINARY ? (x86_Lrec(x86_b2(0x0F, x86_jcc_op(mnem))) + x86_Jrec(port))
                           : x86_rec(mnem) + x86_portname(port) + "\n");
@@ -1976,8 +1977,36 @@ inline std::string x86_portcount(int port) {
          + x86("pop", "rcx") + x86("pop", "rax");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_port_hook(int site, int port) {
+extern "C" void rt_pl_port_trace(const char * stem, const char * target, long ev, long uid, long ball);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_pl_trace_ro(const char * dst, const char * s) {
+    if (!s) return x86("mov", dst, 0L);
+    char lbl[24]; strtab_label(lbl, sizeof lbl, s);
+    return x86_load_ro(dst, lbl, (uint64_t)(uintptr_t)(MEDIUM_BINARY ? strdup(s) : s));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_pl_trace_ev(int site, int port, const char * lbl) {
+    int def = site == X86H_DEF || site == X86H_DEF_PAIR;
+    if (def ? (port != X86P_ALPHA && port != X86P_BETA) : (site != X86H_JMP || (port != X86P_GAMMA && port != X86P_OMEGA))) return std::string();
+    const char * own = def ? (lbl ? lbl : x86_portname(port)) : _.lbl_α;
+    char stem[192]; size_t len = own ? strlen(own) : 0;
+    if (len > 3 && own[len - 3] == '_' && (unsigned char)own[len - 2] == 0xCE) len -= 3;
+    if (len > sizeof stem - 64) len = sizeof stem - 64;
+    memcpy(stem, own ? own : "", len); stem[len] = 0;
+    if (_.op_sval && *_.op_sval) snprintf(stem + len, sizeof stem - len, " %.48s", _.op_sval);
+    const char * tgt = def ? NULL : x86_portname(port);
+    long ev = (long)port | ((long)site << 4) | ((long)_.op_node_kind << 8);
+    return x86("push", "rax") + x86("push", "rax") + x86("push", "rdi") + x86("push", "rsi") + x86("push", "rdx") + x86("push", "rcx")
+         + x86("push", "r8") + x86("push", "r9") + x86("push", "r10") + x86("push", "r11")
+         + x86_pl_trace_ro("rdi", stem) + x86_pl_trace_ro("rsi", tgt) + x86("mov", "rdx", ev) + x86("mov", "rcx", (long)_.x86_uid) + x86("mov", "r8", "r15")
+         + x86_call_ro("rt_pl_port_trace", (uint64_t)(uintptr_t)(void *)rt_pl_port_trace)
+         + x86("pop", "r11") + x86("pop", "r10") + x86("pop", "r9") + x86("pop", "r8")
+         + x86("pop", "rcx") + x86("pop", "rdx") + x86("pop", "rsi") + x86("pop", "rdi") + x86("pop", "rax") + x86("pop", "rax");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_port_hook(int site, int port, const char * lbl) {
     std::string s;
+    if (x86_pl_trace_on()) s += x86_pl_trace_ev(site, port, lbl);
     if (site == X86H_DEF) s += x86_portcount(port);
     if (site == X86H_JMP) s += x86_port_canary();
     if ((site == X86H_JMP || site == X86H_JCC) && x86_portname(port) && getenv("SCRIP_PORT_EXIT_AUDIT") && emit_port_exit_label_promotes(x86_portname(port)))
@@ -2127,10 +2156,10 @@ inline std::string x86_pair_loop() {
     std::string r;
     for (int i = 0; i < g_emit.xa_bb_emit_pair_n; i++) {
         if (MEDIUM_BINARY) {
-            if (g_emit.xa_bb_emit_pair_define[i]) { r += (char)'E'; r += (char)(unsigned char)i; r += x86_port_canary(); r += x86_port_hook(X86H_DEF, X86P_BETA); }
+            if (g_emit.xa_bb_emit_pair_define[i]) { r += (char)'E'; r += (char)(unsigned char)i; r += x86_port_canary(); r += x86_port_hook(X86H_DEF, X86P_BETA, g_emit.xa_bb_emit_pair_define[i]->name); }
             if (g_emit.xa_bb_emit_pair_jmp[i])    { r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += (char)(unsigned char)i; }
         } else {
-            if (g_emit.xa_bb_emit_pair_define[i]) { r += emit_fmt("%s:\n", g_emit.xa_bb_emit_pair_define[i]->name); r += x86_port_canary(); r += x86_port_hook(X86H_DEF, X86P_BETA); }
+            if (g_emit.xa_bb_emit_pair_define[i]) { r += emit_fmt("%s:\n", g_emit.xa_bb_emit_pair_define[i]->name); r += x86_port_canary(); r += x86_port_hook(X86H_DEF, X86P_BETA, g_emit.xa_bb_emit_pair_define[i]->name); }
             if (g_emit.xa_bb_emit_pair_jmp[i])    r += x86_rec("jmp") + g_emit.xa_bb_emit_pair_jmp[i]->name + "\n";
         }
     }
@@ -2138,8 +2167,9 @@ inline std::string x86_pair_loop() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_deflabel_pair(int idx) {
-    if (MEDIUM_BINARY) { std::string r; r += (char)'E'; r += (char)(unsigned char)idx; r += x86_port_canary(); r += x86_port_hook(X86H_DEF_PAIR, X86P_BETA); return r; }
-    return emit_fmt("%s:\n", g_emit.xa_bb_emit_pair_define[idx] ? g_emit.xa_bb_emit_pair_define[idx]->name : "??") + x86_port_canary() + x86_port_hook(X86H_DEF_PAIR, X86P_BETA);
+    const char * pnm = g_emit.xa_bb_emit_pair_define[idx] ? g_emit.xa_bb_emit_pair_define[idx]->name : "??";
+    if (MEDIUM_BINARY) { std::string r; r += (char)'E'; r += (char)(unsigned char)idx; r += x86_port_canary(); r += x86_port_hook(X86H_DEF_PAIR, X86P_BETA, pnm); return r; }
+    return emit_fmt("%s:\n", pnm) + x86_port_canary() + x86_port_hook(X86H_DEF_PAIR, X86P_BETA, pnm);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jmp_pair(int idx) {

@@ -534,6 +534,14 @@ typedef struct {
     int                          op_leaf_frame_off;
     int                          op_xf_off;
     int                          op_zread_xf[6];
+    int                          pl_trace_mode;
+    unsigned long                pl_trace_n;
+    long                         pl_trace_sp;
+    long                         pl_trace_stk_cap;
+    long *                       pl_trace_stk;
+    long                         pl_trace_lastn_cap;
+    unsigned long *              pl_trace_lastn;
+    int                          pl_trace_atexit;
 } sm_emit_t;
 extern sm_emit_t g_emit;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
