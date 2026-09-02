@@ -1271,21 +1271,36 @@ int rt_pl_sort_cell(int do_msort, void *list_cell, void *result_cell)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* ⚠️ STILL STRUCT-TREE, AND DELIBERATELY SO FOR ONE MORE STEP (T9). rt_pl_bag_prep_cell below no longer uses this -- it walks cells directly -- but rt_pl_group_pairs_by_key_cell and
-   rt_pl_pairs_keys_values_cell still do, and converting all three in one pass was a bigger unit than could be verified in one gate. Keeping this extractor alive for those two callers
-   leaves the tree compile-clean and pushable, which is the landing discipline this row runs under; it comes out with them. ⛔ It is the LAST reason pl_cell_to_term has a live caller here. */
-static int pb_pairs_extract(void *list_cell, Term **elems, int cap, int dot_id, int dash_id) {
-    Term *lst = pl_cell_to_term((pl_cell_t *)list_cell);
+/* The two cell-native list readers behind the pairs family, plus the list-building idiom. Both readers mirror the walk rt_pl_keysort_cell and rt_pl_bag_prep_cell each open-coded
+   IDENTICALLY -- a Prolog list is DT_PLREF with functor '.' and arity 2, its arguments in the compound heap -- so naming it once removes a duplicate rather than adding a layer.
+   plc_pairs_extract additionally REFUSES (-1) on any element that is not a '-'/2 pair, exactly as the struct-tree version did. */
+static int plc_pairs_extract(void *list_cell, pl_cell_t **elems, int cap, int dot_id, int dash_id) {
+    pl_cell_t *cur = list_cell ? pl_deref((pl_cell_t *)list_cell) : (pl_cell_t *)0;
     int n = 0;
-    Term *cur = lst;
-    while (cur && cur->tag == TERM_COMPOUND && cur->compound.functor == dot_id && cur->compound.arity == 2 && n < cap) {
-        Term *p = term_deref(cur->compound.args[0]);
-        if (!(p && p->tag == TERM_COMPOUND && p->compound.functor == dash_id && p->compound.arity == 2)) return -1;
-        elems[n++] = p;
-        cur = term_deref(cur->compound.args[1]);
+    while (cur && (int)cur->v == DT_PLREF && (int)(cur->slen >> 16) == dot_id && (int)(cur->slen & 0xFFFFu) == 2 && n < cap) {
+        pl_cell_t *aa = (pl_cell_t *)cur->p;
+        pl_cell_t *pr = pl_deref(&aa[0]);
+        if (!(pr && (int)pr->v == DT_PLREF && (int)(pr->slen >> 16) == dash_id && (int)(pr->slen & 0xFFFFu) == 2)) return -1;
+        elems[n++] = pr;
+        cur = pl_deref(&aa[1]);
     }
     return n;
 }
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_plain_list_extract(void *list_cell, pl_cell_t **elems, int cap, int dot_id) {
+    pl_cell_t *cur = list_cell ? pl_deref((pl_cell_t *)list_cell) : (pl_cell_t *)0;
+    int n = 0;
+    while (cur && (int)cur->v == DT_PLREF && (int)(cur->slen >> 16) == dot_id && (int)(cur->slen & 0xFFFFu) == 2 && n < cap) {
+        pl_cell_t *aa = (pl_cell_t *)cur->p;
+        elems[n++] = pl_deref(&aa[0]);
+        cur = pl_deref(&aa[1]);
+    }
+    return n;
+}
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static pl_cell_t plc_nil_cell(void) { const char *nm = prolog_atom_name(prolog_atom_intern("[]")); pl_cell_t c; c.v = DT_S; c.slen = (uint32_t)(nm ? strlen(nm) : 0); c.s = nm ? nm : "[]"; return c; }
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static pl_cell_t plc_cons(int fid, pl_cell_t head, pl_cell_t tail) { pl_cell_t *blk = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t)); blk[0] = head; blk[1] = tail; return pl_make_compound(fid, 2, blk); }
 /*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* setof/bagof preparation, CELL-NATIVE (T9). It used to convert the whole list to a heap struct-tree, sort with the struct-tree compare, and rebuild. It now mirrors
    rt_pl_keysort_cell immediately below, ARM FOR ARM -- same list walk, same pl_vord_t, same rt_pl_cell_compare, same nil/cons construction.
@@ -1300,15 +1315,9 @@ int rt_pl_bag_prep_cell(int is_setof, void *list_cell, void *result_cell)
 {
     extern pl_trail_t g_pl_trail;
     int dot_id = prolog_atom_intern("."); int dash_id = prolog_atom_intern("-");
-    pl_cell_t *elems[4096]; int n = 0;
-    pl_cell_t *cur = pl_deref((pl_cell_t *)list_cell);
-    while (cur && (int)cur->v == DT_PLREF && (int)(cur->slen >> 16) == dot_id && (int)(cur->slen & 0xFFFFu) == 2 && n < 4096) {
-        pl_cell_t *aa = (pl_cell_t *)cur->p;
-        pl_cell_t *p = pl_deref(&aa[0]);
-        if (!((int)p->v == DT_PLREF && (int)(p->slen >> 16) == dash_id && (int)(p->slen & 0xFFFFu) == 2)) return 0;
-        elems[n++] = p;
-        cur = pl_deref(&aa[1]);
-    }
+    pl_cell_t *elems[4096];
+    int n = plc_pairs_extract(list_cell, elems, 4096, dot_id, dash_id);
+    if (n < 0) return 0;
     pl_vord_t vm; vm.n = 0; vm.next = 0;
     for (int i = 0; i < n; i++) rt_pl_vord_walk((pl_cell_t *)elems[i]->p, &vm);
     for (int i = 1; i < n; i++) {
@@ -1338,15 +1347,9 @@ int rt_pl_keysort_cell(void *list_cell, void *result_cell)
 {
     extern pl_trail_t g_pl_trail;
     int dot_id = prolog_atom_intern("."); int dash_id = prolog_atom_intern("-");
-    pl_cell_t *elems[4096]; int n = 0;
-    pl_cell_t *cur = pl_deref((pl_cell_t *)list_cell);
-    while (cur && (int)cur->v == DT_PLREF && (int)(cur->slen >> 16) == dot_id && (int)(cur->slen & 0xFFFFu) == 2 && n < 4096) {
-        pl_cell_t *aa = (pl_cell_t *)cur->p;
-        pl_cell_t *p = pl_deref(&aa[0]);
-        if (!((int)p->v == DT_PLREF && (int)(p->slen >> 16) == dash_id && (int)(p->slen & 0xFFFFu) == 2)) return 0;
-        elems[n++] = p;
-        cur = pl_deref(&aa[1]);
-    }
+    pl_cell_t *elems[4096];
+    int n = plc_pairs_extract(list_cell, elems, 4096, dot_id, dash_id);
+    if (n < 0) return 0;
     pl_vord_t vm; vm.n = 0; vm.next = 0;
     for (int i = 0; i < n; i++) rt_pl_vord_walk((pl_cell_t *)elems[i]->p, &vm);
     for (int i = 1; i < n; i++) {
@@ -1366,35 +1369,32 @@ int rt_pl_keysort_cell(void *list_cell, void *result_cell)
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_plain_list_extract(void *list_cell, Term **elems, int cap, int dot_id) {
-    Term *cur = term_deref(pl_cell_to_term((pl_cell_t *)list_cell));
-    int n = 0;
-    while (cur && cur->tag == TERM_COMPOUND && cur->compound.functor == dot_id && cur->compound.arity == 2 && n < cap) { elems[n++] = cur->compound.args[0]; cur = term_deref(cur->compound.args[1]); }
-    return n;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_group_pairs_by_key_cell(void *list_cell, void *result_cell)
 {
     extern pl_trail_t g_pl_trail;
     int dot_id = prolog_atom_intern("."); int dash_id = prolog_atom_intern("-");
-    Term *elems[4096];
-    int n = pb_pairs_extract(list_cell, elems, 4096, dot_id, dash_id);
+    pl_cell_t *elems[4096];
+    int n = plc_pairs_extract(list_cell, elems, 4096, dot_id, dash_id);
     if (n < 0) return 0;
-    Term *groups[4096]; int ng = 0;
+    pl_vord_t vm; vm.n = 0; vm.next = 0;
+    for (int i = 0; i < n; i++) rt_pl_vord_walk((pl_cell_t *)elems[i]->p, &vm);
+    pl_cell_t groups[4096]; int ng = 0;
+    pl_cell_t nil = plc_nil_cell();
     int i = 0;
     while (i < n) {
-        Term *key = term_deref(elems[i]->compound.args[0]);
-        Term *vlist[4096]; int nv = 0; int j = i;
-        while (j < n && rt_pl_term_compare(term_deref(elems[j]->compound.args[0]), key) == 0 && nv < 4096) { vlist[nv++] = elems[j]->compound.args[1]; j++; }
-        Term *vals = term_new_atom(prolog_atom_intern("[]"));
-        for (int k = nv - 1; k >= 0; k--) { Term *vp[2]; vp[0] = vlist[k]; vp[1] = vals; vals = term_new_compound(dot_id, 2, vp); }
-        Term *grp[2]; grp[0] = key; grp[1] = vals; groups[ng++] = term_new_compound(dash_id, 2, grp);
+        pl_cell_t *key = pl_deref(&((pl_cell_t *)elems[i]->p)[0]);
+        pl_cell_t *vlist[4096]; int nv = 0; int j = i;
+        while (j < n && rt_pl_cell_compare(pl_deref(&((pl_cell_t *)elems[j]->p)[0]), key, &vm) == 0 && nv < 4096) { vlist[nv++] = &((pl_cell_t *)elems[j]->p)[1]; j++; }
+        pl_cell_t vals = nil;
+        for (int k = nv - 1; k >= 0; k--) vals = plc_cons(dot_id, pl_make_ref(vlist[k], (int)vlist[k]->slen), vals);
+        groups[ng++] = plc_cons(dash_id, pl_make_ref(key, (int)key->slen), vals);
         i = j;
     }
-    Term *result = term_new_atom(prolog_atom_intern("[]"));
-    for (int k = ng - 1; k >= 0; k--) { Term *gp[2]; gp[0] = groups[k]; gp[1] = result; result = term_new_compound(dot_id, 2, gp); }
+    pl_cell_t result = nil;
+    for (int k = ng - 1; k >= 0; k--) result = plc_cons(dot_id, groups[k], result);
     int mark = pl_trail_mark(&g_pl_trail);
-    if (!pl_unify_term_into_cell((pl_cell_t *)result_cell, result, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    if (!pl_unify((pl_cell_t *)result_cell, &result, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1402,28 +1402,29 @@ int rt_pl_pairs_keys_values_cell(void *pairs_cell, void *keys_cell, void *values
 {
     extern pl_trail_t g_pl_trail;
     int dot_id = prolog_atom_intern("."); int dash_id = prolog_atom_intern("-");
-    Term *pairs_t = term_deref(pl_cell_to_term((pl_cell_t *)pairs_cell));
+    pl_cell_t *pd = pairs_cell ? pl_deref((pl_cell_t *)pairs_cell) : (pl_cell_t *)0;
     int mark = pl_trail_mark(&g_pl_trail);
-    if (pairs_t && pairs_t->tag != TERM_VAR) {
-        Term *elems[4096]; int n = pb_pairs_extract(pairs_cell, elems, 4096, dot_id, dash_id);
+    if (pd && !pl_cell_unbound(pd)) {                       /* pairs given: split into keys and values */
+        pl_cell_t *elems[4096]; int n = plc_pairs_extract(pairs_cell, elems, 4096, dot_id, dash_id);
         if (n < 0) return 0;
-        Term *keys = term_new_atom(prolog_atom_intern("[]")); Term *vals = term_new_atom(prolog_atom_intern("[]"));
+        pl_cell_t keys = plc_nil_cell(), vals = plc_nil_cell();
         for (int i = n - 1; i >= 0; i--) {
-            Term *kp[2]; kp[0] = elems[i]->compound.args[0]; kp[1] = keys; keys = term_new_compound(dot_id, 2, kp);
-            Term *vp[2]; vp[0] = elems[i]->compound.args[1]; vp[1] = vals; vals = term_new_compound(dot_id, 2, vp);
+            pl_cell_t *aa = (pl_cell_t *)elems[i]->p;
+            keys = plc_cons(dot_id, pl_make_ref(&aa[0], (int)aa[0].slen), keys);
+            vals = plc_cons(dot_id, pl_make_ref(&aa[1], (int)aa[1].slen), vals);
         }
-        if (!pl_unify_term_into_cell((pl_cell_t *)keys_cell, keys, &g_pl_trail) || !pl_unify_term_into_cell((pl_cell_t *)values_cell, vals, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+        if (!pl_unify((pl_cell_t *)keys_cell, &keys, &g_pl_trail) || !pl_unify((pl_cell_t *)values_cell, &vals, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
         return 1;
     }
-    Term *kelems[4096]; int nk = pl_plain_list_extract(keys_cell, kelems, 4096, dot_id);
-    Term *velems[4096]; int nv = pl_plain_list_extract(values_cell, velems, 4096, dot_id);
+    pl_cell_t *kelems[4096]; int nk = plc_plain_list_extract(keys_cell, kelems, 4096, dot_id);
+    pl_cell_t *velems[4096]; int nv = plc_plain_list_extract(values_cell, velems, 4096, dot_id);
     if (nk != nv) return 0;
-    Term *result = term_new_atom(prolog_atom_intern("[]"));
+    pl_cell_t result = plc_nil_cell();
     for (int i = nk - 1; i >= 0; i--) {
-        Term *pr[2]; pr[0] = kelems[i]; pr[1] = velems[i]; Term *pair_term = term_new_compound(dash_id, 2, pr);
-        Term *lp[2]; lp[0] = pair_term; lp[1] = result; result = term_new_compound(dot_id, 2, lp);
+        pl_cell_t pair = plc_cons(dash_id, pl_make_ref(kelems[i], (int)kelems[i]->slen), pl_make_ref(velems[i], (int)velems[i]->slen));
+        result = plc_cons(dot_id, pair, result);
     }
-    if (!pl_unify_term_into_cell((pl_cell_t *)pairs_cell, result, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    if (!pl_unify((pl_cell_t *)pairs_cell, &result, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
 typedef struct { Term *rest; int mark; } pl_baggrp_t;
