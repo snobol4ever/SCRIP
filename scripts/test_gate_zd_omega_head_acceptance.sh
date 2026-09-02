@@ -122,12 +122,20 @@ begin i := 7; new(p); p^.f := true;  if p^.f then writeln(1) else writeln(0);
 0"
 
 # --- 3. bubble + quick, mode 4, 5/5 under setarch -R --------------------------------------------------------
+# ⛔ FIXED 2026-09-02 (seat16): both kernels open `readln(reps)` (test_bench_pascal_timed.sh:6, every
+# reps-capable Pascal benchmark) -- `< /dev/null` on a run that reads stdin overrides silently and reads
+# EOF instead of a real value (CLAUDE.md's own named trap, seat05 2026-09-01: "the redirect overrides the
+# pipe, the program reads EOF and prints a plausible answer"), which is exactly what happened here: this
+# arm reported 0/5 CLEAN on BOTH kernels even against a tree with Site 1 (bubble's spine leak) already
+# fixed. `echo 1` matches every other script that runs these two kernels (calling-convention-depth-tracked's
+# own DONE-WHEN, pascal-quick-m4-wrong-checksum-crash-masked's own DONE-WHEN, test_bench_pascal_timed.sh)
+# and is the input bubble.ref/quick.ref were generated against.
 for name in bubble quick; do
     pas="$PASCAL_BENCH/$name.pas"; ref="$PASCAL_BENCH/$name.ref"; exe="$TMP/$name.bench.exe"
     if compile_link "$pas" "$exe"; then
         hits=0
         for i in 1 2 3 4 5; do
-            out=$(setarch "$(uname -m)" -R timeout 30s "$exe" < /dev/null 2>/dev/null); rc=$?
+            out=$(echo 1 | setarch "$(uname -m)" -R timeout 30s "$exe" 2>/dev/null); rc=$?
             [ "$rc" -eq 0 ] && [ "$out" = "$(cat "$ref")" ] && hits=$((hits+1))
         done
         if [ "$hits" -eq 5 ]; then report "pascal-$name-m4-5x" 0 "5/5 clean under setarch -R (no crash => no observable spine drift)"; else report "pascal-$name-m4-5x" 1 "$hits/5 clean under setarch -R"; fi
