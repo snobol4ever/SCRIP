@@ -1270,18 +1270,10 @@ int rt_pl_sort_cell(int do_msort, void *list_cell, void *result_cell)
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pb_canon_walk(Term *t, Term **pool, int *pool_n, int save, int *next, int cap) {
-    t = term_deref(t);
-    if (!t) return;
-    if (t->tag == TERM_VAR) {
-        for (int i = 0; i < *pool_n; i++) if (pool[i] == t) return;
-        if (*next < save) { t->tag = TERM_REF; t->ref = pool[(*next)++]; return; }
-        if (*pool_n < cap) pool[(*pool_n)++] = t;
-        return;
-    }
-    if (t->tag == TERM_COMPOUND) for (int i = 0; i < t->compound.arity; i++) pb_canon_walk(t->compound.args[i], pool, pool_n, save, next, cap);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⚠️ STILL STRUCT-TREE, AND DELIBERATELY SO FOR ONE MORE STEP (T9). rt_pl_bag_prep_cell below no longer uses this -- it walks cells directly -- but rt_pl_group_pairs_by_key_cell and
+   rt_pl_pairs_keys_values_cell still do, and converting all three in one pass was a bigger unit than could be verified in one gate. Keeping this extractor alive for those two callers
+   leaves the tree compile-clean and pushable, which is the landing discipline this row runs under; it comes out with them. ⛔ It is the LAST reason pl_cell_to_term has a live caller here. */
 static int pb_pairs_extract(void *list_cell, Term **elems, int cap, int dot_id, int dash_id) {
     Term *lst = pl_cell_to_term((pl_cell_t *)list_cell);
     int n = 0;
@@ -1294,31 +1286,51 @@ static int pb_pairs_extract(void *list_cell, Term **elems, int cap, int dot_id, 
     }
     return n;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* setof/bagof preparation, CELL-NATIVE (T9). It used to convert the whole list to a heap struct-tree, sort with the struct-tree compare, and rebuild. It now mirrors
+   rt_pl_keysort_cell immediately below, ARM FOR ARM -- same list walk, same pl_vord_t, same rt_pl_cell_compare, same nil/cons construction.
+   ⭐⭐ THE ONE THING THAT IS NOT A TRANSCRIPTION, and the reason to read before editing: the old pb_canon_walk MUTATED the tree. Per element it reset next=0 with save=pool_n and
+   rebound that element's variables onto earlier pooled ones (t->tag = TERM_REF), i.e. it canonicalised variables by REWRITING them. The cell design does not rebind at all --
+   rt_pl_vord_walk (seat13, slice s2) assigns each distinct unbound cell a FIRST-ENCOUNTER INDEX in a side map. Replacing mutation with memoised numbering is what makes this safe
+   on cells: an in-place rebind would have had to go through pl_trail_push or setof/bagof backtracking could not undo it, and there is now no rebind to trail.
+   ⚠️ MEASURED BEFORE AND AFTER, because the two schemes are NOT identical in principle: the old per-element reset could make element i's variables share numbering with element 0's,
+   while the map numbers globally by first encounter. Witnesses run against swipl -- setof/bagof over variant keys, variant NON-dedup (neither implementation dedups f(_A) against
+   f(_B); both return three elements), keysort stability and msort ordering. */
 int rt_pl_bag_prep_cell(int is_setof, void *list_cell, void *result_cell)
 {
     extern pl_trail_t g_pl_trail;
     int dot_id = prolog_atom_intern("."); int dash_id = prolog_atom_intern("-");
-    Term *elems[4096];
-    int n = pb_pairs_extract(list_cell, elems, 4096, dot_id, dash_id);
-    if (n < 0) return 0;
-    Term *pool[1024]; int pool_n = 0;
-    for (int i = 0; i < n; i++) { int save = pool_n; int next = 0; pb_canon_walk(elems[i]->compound.args[0], pool, &pool_n, save, &next, 1024); }
+    pl_cell_t *elems[4096]; int n = 0;
+    pl_cell_t *cur = pl_deref((pl_cell_t *)list_cell);
+    while (cur && (int)cur->v == DT_PLREF && (int)(cur->slen >> 16) == dot_id && (int)(cur->slen & 0xFFFFu) == 2 && n < 4096) {
+        pl_cell_t *aa = (pl_cell_t *)cur->p;
+        pl_cell_t *p = pl_deref(&aa[0]);
+        if (!((int)p->v == DT_PLREF && (int)(p->slen >> 16) == dash_id && (int)(p->slen & 0xFFFFu) == 2)) return 0;
+        elems[n++] = p;
+        cur = pl_deref(&aa[1]);
+    }
+    pl_vord_t vm; vm.n = 0; vm.next = 0;
+    for (int i = 0; i < n; i++) rt_pl_vord_walk((pl_cell_t *)elems[i]->p, &vm);
     for (int i = 1; i < n; i++) {
-        Term *key = elems[i]; int j = i - 1;
-        if (is_setof) { while (j >= 0 && rt_pl_term_compare(elems[j], key) > 0) { elems[j + 1] = elems[j]; j--; } }
-        else { while (j >= 0 && rt_pl_term_compare(term_deref(elems[j]->compound.args[0]), term_deref(key->compound.args[0])) > 0) { elems[j + 1] = elems[j]; j--; } }
+        pl_cell_t *key = elems[i]; int j = i - 1;
+        if (is_setof) { while (j >= 0 && rt_pl_cell_compare(elems[j], key, &vm) > 0) { elems[j + 1] = elems[j]; j--; } }
+        else { while (j >= 0 && rt_pl_cell_compare((pl_cell_t *)elems[j]->p, (pl_cell_t *)key->p, &vm) > 0) { elems[j + 1] = elems[j]; j--; } }
         elems[j + 1] = key;
     }
     int m = 0; int out_idx[4096];
     for (int i = 0; i < n; i++) {
-        if (is_setof && m > 0 && rt_pl_term_compare(elems[out_idx[m - 1]], elems[i]) == 0) continue;
+        if (is_setof && m > 0 && rt_pl_cell_compare(elems[out_idx[m - 1]], elems[i], &vm) == 0) continue;
         out_idx[m++] = i;
     }
-    Term *result = term_new_atom(prolog_atom_intern("[]"));
-    for (int i = m - 1; i >= 0; i--) { Term *pair[2]; pair[0] = elems[out_idx[i]]; pair[1] = result; result = term_new_compound(dot_id, 2, pair); }
+    pl_cell_t nil; { const char *nm = prolog_atom_name(prolog_atom_intern("[]")); nil.v = DT_S; nil.slen = (uint32_t)(nm ? strlen(nm) : 0); nil.s = nm ? nm : "[]"; }
+    pl_cell_t result = nil;
+    for (int i = m - 1; i >= 0; i--) {
+        pl_cell_t *blk = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t));
+        blk[0] = pl_make_ref(elems[out_idx[i]], (int)elems[out_idx[i]]->slen); blk[1] = result;
+        result = pl_make_compound(dot_id, 2, blk);
+    }
     int mark = pl_trail_mark(&g_pl_trail);
-    if (!pl_unify_term_into_cell((pl_cell_t *)result_cell, result, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    if (!pl_unify((pl_cell_t *)result_cell, &result, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
