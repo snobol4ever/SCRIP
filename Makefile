@@ -28,6 +28,13 @@ BOXES   := $(SRC)/ir
 CORPUS  ?= $(ROOT)/../corpus
 # PER-TREE objdir (s150): two checkouts NEVER share .o files — the HQ-27 ABI-mix class is structurally impossible. Override only deliberately. (Comment on own line: make keeps trailing spaces before an inline #.)
 OBJ     ?= /tmp/si_objs$(subst /,-,$(ROOT))
+# PER-ROOT pristine lock (make-pristine-per-root-flock-second-builder-waits): keyed by ROOT exactly like OBJ
+# above, never global -- a second concurrent `make pristine`/`pristine-all` in THIS root waits on this file
+# instead of racing the first one's rm -rf (seat08 measured 3+ concurrent pristines wiping objdir+out/ for
+# 6+ minutes). This is a DIFFERENT lock from lib_build_governor.sh's fleet-wide governor.lock -- that one
+# serializes builds against benchmarks ACROSS seats; this one serializes builds against each other WITHIN
+# one checkout, which the shared governor's -s (shared) build mode deliberately does not do.
+BUILD_LOCK ?= /tmp/si_pristine_lock$(subst /,-,$(ROOT))
 CC      := gcc
 CXX     := g++
 WARN    := -w
@@ -69,8 +76,21 @@ pristine:  # THE gate-law incantation (HQ-27 PRISTINE-BUILD-BEFORE-VERDICT), now
 	# binary in place, so a build that failed part-way left a stale, plausible ./scrip that every later
 	# test would silently grade instead of failing loudly. Measured 2026-08-22: mid-rebuild the tree held a
 	# 20:06 -O0 binary while an -O2 build was still running. That is the "non-empty is not alive" class.
-	rm -rf $(OBJ) $(RT_OBJDIR) $(RT_SO) $(ROOT)/out/libscrip_rt.so $(RT_A) $(ROOT)/out/libscrip_rt.a $(ROOT)/scrip
-	$(MAKE) all
+	# ⛔ PER-ROOT FLOCK, EXCLUSIVE, BLOCKING (make-pristine-per-root-flock-second-builder-waits): a second
+	# `make pristine` in this same root now WAITS here instead of racing this rm -rf, then runs its own
+	# full wipe+rebuild once the first is done. S4E_NO_BUILD_LOCK=1 bypasses the lock -- control-arm /
+	# measurement use ONLY (same shape as SCRIP_OPT=0: an emergency escape hatch nothing may depend on),
+	# never for a real gate verdict.
+	@if [ -n "$${S4E_NO_BUILD_LOCK:-}" ]; then \
+		echo "⚠ S4E_NO_BUILD_LOCK set -- running pristine UNLOCKED (measurement/control-arm only)"; \
+		rm -rf $(OBJ) $(RT_OBJDIR) $(RT_SO) $(ROOT)/out/libscrip_rt.so $(RT_A) $(ROOT)/out/libscrip_rt.a $(ROOT)/scrip; \
+		$(MAKE) all; \
+	else \
+		flock $(BUILD_LOCK) -c '\
+			rm -rf $(OBJ) $(RT_OBJDIR) $(RT_SO) $(ROOT)/out/libscrip_rt.so $(RT_A) $(ROOT)/out/libscrip_rt.a $(ROOT)/scrip && \
+			$(MAKE) all \
+		'; \
+	fi
 
 test: scrip  # ⭐ WAS THE FALSE-GREEN TRAP (cured hq_P s268): `test`, `test-ir` and `test-all` were named in .PHONY with NO RECIPE ANYWHERE, so each exited 0 having run NOTHING ("Nothing to be done for 'test'") while reading as a full green suite. `test-ir` and `test-all` are DELETED rather than wired — nothing behind them ever existed. This target now runs THE blocking set named in CLAUDE.md and fails loudly on the first red. ⛔ Gate VERDICTS still require `make pristine` first (HQ-27); this target only builds what is missing.
 	bash scripts/test_gate_capture_stdin_and_red_exit.sh   # ~15s, mktemp-only: first because a cheap self-contained gate belongs before a 6-minute board (ceo grant 2026-08-30; move it if the order should be authored elsewhere)
@@ -81,8 +101,17 @@ test: scrip  # ⭐ WAS THE FALSE-GREEN TRAP (cured hq_P s268): `test`, `test-ir`
 	bash scripts/test_gate_optbypass_watermark.sh
 
 pristine-all:  # wipe EVERY cached configuration, not just this one (the pre-s258 behaviour)
-	rm -rf $(OBJ) $(ROOT)/out $(ROOT)/scrip
-	$(MAKE) all
+	# Same race, same cure, same BUILD_LOCK as `pristine` above (make-pristine-per-root-flock-second-builder-waits).
+	@if [ -n "$${S4E_NO_BUILD_LOCK:-}" ]; then \
+		echo "⚠ S4E_NO_BUILD_LOCK set -- running pristine-all UNLOCKED (measurement/control-arm only)"; \
+		rm -rf $(OBJ) $(ROOT)/out $(ROOT)/scrip; \
+		$(MAKE) all; \
+	else \
+		flock $(BUILD_LOCK) -c '\
+			rm -rf $(OBJ) $(ROOT)/out $(ROOT)/scrip && \
+			$(MAKE) all \
+		'; \
+	fi
 
 buildinfo:  # ⭐ what am I actually about to link? print it rather than assume it (LAW 0)
 	@printf 'RT_OPT     : %s\n' '$(RT_OPT)'
