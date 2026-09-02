@@ -611,7 +611,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         if (is_builtin_exec(nm)) return pl_existence_err(cx, nm, t->n, γnext, ωfail, entry_out);
         if (!strcmp(nm, "phrase") && (t->n == 2 || t->n == 3)) {
             const tree_t * gt = t->c[0];
-            const char * callee = (gt && gt->v.sval) ? gt->v.sval : "?";
+            const char * callee = (gt && gt->t == TT_FNC && gt->v.sval) ? gt->v.sval : "?";
             int base_n = (gt && gt->t == TT_FNC) ? gt->n : 0;
             IR_t * nd = build(cx, IR_CALL_PROC_STAGED, γnext, ωfail); IR_LIT(nd).sval = pl_pi_name(callee, base_n + 2);
             IR_t * prev = NULL; IR_t * first = NULL;
