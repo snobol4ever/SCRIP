@@ -374,7 +374,6 @@ RT_PIC_SRCS := \
     $(SRC)/parsers/prolog/prolog_lex.c \
     $(SRC)/parsers/prolog/prolog_parse.c \
     $(SRC)/parsers/prolog/prolog_atom.c \
-    $(SRC)/parsers/prolog/prolog_unify.c \
     $(SRC)/parsers/prolog/prolog_driver.c \
     $(SRC)/parsers/prolog/prolog_lower.c \
     $(SRC)/parsers/snocone/snocone_lex.c \

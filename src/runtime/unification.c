@@ -12,7 +12,6 @@
 #include <unistd.h>
 #include "../parsers/prolog/pl_cell.h"
 #define PL_CELL_ALLOC(n) (rt_pl_cellws_on() ? rt_pl_cellws_alloc(n) : rt_ws_alloc(n))
-#include "../parsers/prolog/pl_cell_conv.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_unify_terms(void *l, void *r)
 {
@@ -1481,13 +1480,14 @@ static long pl_numbervars_walk(pl_cell_t *c, long counter, int var_id, pl_trail_
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_numbervars_cell(void *term_cell, void *start_cell, void *end_cell) {
     extern pl_trail_t g_pl_trail;
-    Term *st = pl_cell_to_term((pl_cell_t *)start_cell);
-    if (!st || st->tag != TERM_INT) return 0;
-    long counter = st->ival;
+    pl_cell_t *st = pl_deref((pl_cell_t *)start_cell);
+    if (!st || (int)st->v != DT_I) return 0;
+    long counter = (long)st->i;
     int var_id = prolog_atom_intern("$VAR");
     int mark = pl_trail_mark(&g_pl_trail);
     counter = pl_numbervars_walk((pl_cell_t *)term_cell, counter, var_id, &g_pl_trail);
-    if (!pl_unify_term_into_cell((pl_cell_t *)end_cell, term_new_int(counter), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    pl_cell_t endv = pl_make_int((int64_t)counter);   /* struct-tree round-trip deleted 2026-09-02 (Lon 2026-09-02: the struct-tree type is deleted): the end count is a cell, unified as a cell */
+    if (!pl_unify((pl_cell_t *)end_cell, &endv, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1696,28 +1696,6 @@ int rt_pl_term_string_cell(void *term_cell, void *str_cell)
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static Term *copy_term_deep(Term *t, Term **var_map, int *var_cap, int *var_n)
-{
-    if (!t) return NULL;
-    t = term_deref(t);
-    if (!t) return NULL;
-    if (t->tag == TERM_VAR) {
-        for (int i = 0; i < *var_n; i += 2) if (var_map[i] == t) return var_map[i+1];
-        if (*var_n + 2 > *var_cap) return NULL;
-        Term *fresh = term_new_var(-1);
-        var_map[(*var_n)++] = t; var_map[(*var_n)++] = fresh;
-        return fresh;
-    }
-    if (t->tag == TERM_ATOM || t->tag == TERM_INT || t->tag == TERM_FLOAT) return t;
-    if (t->tag == TERM_COMPOUND) {
-        Term **args = (Term **)rt_ws_alloc(t->compound.arity * sizeof(Term *));
-        if (!args) return NULL;
-        for (int i = 0; i < t->compound.arity; i++) { args[i] = copy_term_deep(t->compound.args[i], var_map, var_cap, var_n); if (!args[i] && t->compound.args[i]) return NULL; }
-        return term_new_compound(t->compound.functor, t->compound.arity, args);
-    }
-    return t;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* CELL-NATIVE deep copy -- the DESCR twin of copy_term_deep/pl_cell_copy_walk, which build heap Terms.
  * Structure never lives on the heap (GOAL-PROLOG-100 top block): a compound copy is a fresh cell array,
  * an atom/int/float/string copies BY VALUE, and only unbound vars need fresh storage. Slot numbering is
@@ -1828,7 +1806,8 @@ int rt_pl_agg_count_finish(void *acc_v, void *result_term)
     extern pl_trail_t g_pl_trail;
     pl_findall_acc *a = (pl_findall_acc *)acc_v;
     int mark = pl_trail_mark(&g_pl_trail);
-    if (!pl_unify_term_into_cell((pl_cell_t *)result_term, term_new_int(a ? a->n : 0), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    pl_cell_t cnt = pl_make_int((int64_t)(a ? a->n : 0));   /* the count is a cell (2026-09-02, struct-tree type deleted) */
+    if (!pl_unify((pl_cell_t *)result_term, &cnt, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2321,23 +2300,57 @@ int rt_pl_dyn_iter_step(void *cursor, void **arg_cell0, long arity){
     }
     return 0;
 }
-static Term *g_pl_throw_ball = (Term *)0;
+/* The thrown ball OUTLIVES the throwing activation: it is matched by a catch box in an OLDER frame after every frame between
+ * has unwound, so its storage cannot come from the workspace arena (rt_ws_alloc), which those frames reset -- measured 2026-09-02:
+ * catch_between_directive_1 SEGV on its third catch when the ball copy rode rt_ws_alloc. The struct-tree path this replaces persisted
+ * the ball in rt_pl_cterm_alloc and re-materialised cells through rt_plj_alloc at match time; this copy goes to rt_plj_alloc directly.
+ * C37 retires the global slot itself (the ball rides omega to the catch box's beta); until then it is a persistent cell copy. */
+static pl_cell_t pl_cell_copy_persist(pl_cell_t *c, pl_cell_t **vaddr, pl_cell_t **vnew, int *vn, int cap)
+{
+    extern void *rt_plj_alloc(size_t);
+    pl_cell_t *d = pl_deref(c);
+    if (pl_cell_unbound(d)) {
+        for (int i = 0; i < *vn; i++) if (vaddr[i] == d) return pl_make_ref(vnew[i], (int)vnew[i]->slen);
+        pl_cell_t *fresh = (pl_cell_t *)rt_plj_alloc(sizeof(pl_cell_t));
+        if (!fresh) return *d;
+        pl_init_var(fresh, -1);
+        if (*vn < cap) { vaddr[*vn] = d; vnew[*vn] = fresh; (*vn)++; }
+        return pl_make_ref(fresh, (int)fresh->slen);
+    }
+    if ((int)d->v == DT_A) {   /* atoms ride DT_S on the way out: write/1 wild-reads a DT_A cell as an ARRAY header (core.c:1993; the functor/3 regression 9368c3b0, seat10's FINDING) -- the struct-tree path re-materialised TERM_ATOM as DT_S with the name for the same reason */
+        extern const char *prolog_atom_name(int); const char *nm = prolog_atom_name((int)d->i);
+        pl_cell_t c2; c2.v = DT_S; c2.slen = (uint32_t)(nm ? strlen(nm) : 0); c2.s = nm ? nm : ""; return c2;
+    }
+    if ((int)d->v == DT_PLREF) {
+        int fn = (int)(d->slen >> 16), ar = (int)(d->slen & 0xFFFFu);
+        pl_cell_t *aa = (pl_cell_t *)d->p;
+        pl_cell_t *na = (pl_cell_t *)rt_plj_alloc((size_t)(ar > 0 ? ar : 1) * sizeof(pl_cell_t));
+        if (!na) return *d;
+        for (int i = 0; i < ar; i++) na[i] = pl_cell_copy_persist(&aa[i], vaddr, vnew, vn, cap);
+        return pl_make_compound(fn, ar, na);
+    }
+    return *d;
+}
+static pl_cell_t *g_pl_throw_ball = (pl_cell_t *)0;   /* the ball is a CELL copy since 2026-09-02 (Lon 2026-09-02: the struct-tree type is deleted); C37 moves it out of a polled global and into the catch box's beta */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_throw_set(void *ball_cell)
 {
-    Term *var_map[256]; int var_cap = 256, var_n = 0;
-    Term *b = copy_term_deep(pl_cell_to_term((pl_cell_t *)ball_cell), var_map, &var_cap, &var_n);
-    g_pl_throw_ball = b ? b : pl_cell_to_term((pl_cell_t *)ball_cell);
+    pl_cell_t *vaddr[256]; pl_cell_t *vnew[256]; int vn = 0;
+    extern void *rt_plj_alloc(size_t);
+    pl_cell_t *b = (pl_cell_t *)rt_plj_alloc(sizeof(pl_cell_t));
+    if (!b) { g_pl_throw_ball = (pl_cell_t *)ball_cell; return; }
+    *b = pl_cell_copy_persist((pl_cell_t *)ball_cell, vaddr, vnew, &vn, 256);
+    g_pl_throw_ball = b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_throw_pending(void) { return g_pl_throw_ball != (Term *)0; }
+int rt_pl_throw_pending(void) { return g_pl_throw_ball != (pl_cell_t *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_throw_match(void *catcher_cell)
 {
     extern pl_trail_t g_pl_trail;
     if (!g_pl_throw_ball) return 0;
     int mark = pl_trail_mark(&g_pl_trail);
-    if (!pl_unify_term_into_cell((pl_cell_t *)catcher_cell, g_pl_throw_ball, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
-    g_pl_throw_ball = (Term *)0;
+    if (!pl_unify((pl_cell_t *)catcher_cell, g_pl_throw_ball, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    g_pl_throw_ball = (pl_cell_t *)0;
     return 1;
 }

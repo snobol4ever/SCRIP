@@ -1,20 +1,16 @@
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef PL_PARSE_H
 #define PL_PARSE_H
-#include "term.h"
 #include "prolog_atom.h"
 #include "ast.h"
 #include <stdio.h>
 typedef struct PlClause PlClause;
 struct PlClause {
-    Term     *head;
-    Term    **body;
     int       nbody;
     int       lineno;
     PlClause *next;
     tree_t   *tr;
     char    **var_names;
-    Term    **var_terms;
     int       nvar;
     int       is_dcg;
 };

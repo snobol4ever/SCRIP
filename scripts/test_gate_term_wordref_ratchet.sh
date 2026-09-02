@@ -92,6 +92,13 @@ BAK_HITS=$(find "$SRC" -name '*.bak' -exec grep -cw 'Term' {} + 2>/dev/null | aw
 # dodge the unpinned-file rule above exists to catch.  Verified equal (136) to the tracked sweep on a clean tree.
 FILES=$(grep -rIlw 'Term' "$SRC" 2>/dev/null | grep -v '\.bak$' | sed "s#^$SRC/#src/#" | sort)
 NFILES=$(echo "$FILES" | grep -c . )
+# ⭐⭐ THE FINISH LINE (Lon 2026-09-02 10:35, in-chat to ceo: "First order of business is to simply remove the definition of the struct named Term. Delete it now."):
+# a ratchet that could only REFUSE at zero could never say YES to its own goal (the criterion-that-cannot-say-YES defect, INSTRUMENT LAWS).
+# Zero files bearing the word is the census COMPLETE, not "nothing examined": the parsers dir exists (checked above), the sweep ran, it found none.
+if [ "$NFILES" -eq 0 ]; then
+    echo "✅ GATE OK [$GATE_NAME]: 0 Term word-refs in 0 source files under src/ -- the ratchet reached ZERO (pin total was $PIN_TOTAL; term.h and pl_cell_conv.h are gone). A future file that reintroduces the word fails the unpinned-file rule below."
+    exit 0
+fi
 gate_floor "$NFILES" 1 "source files bearing a Term word-reference"
 VIOL=0; TOTAL=0; TIGHTEN=""
 echo "── per-file Term word-refs (method: grep -cw Term · scope src/** · excluding *.bak) ──"

@@ -907,11 +907,9 @@ static PlClause *parse_clause(Parser *p) {
             perror_at(p, dot.line, "expected . after directive");
         if (if_currently_active(p)) register_op_directive(body_tr);
         if (try_handle_if_directive_tree(p, body_tr, cl->lineno)) {
-            cl->head = NULL; cl->body = NULL; cl->nbody = 0; cl->tr = NULL;
+            cl->nbody = 0; cl->tr = NULL;
             return cl;
         }
-        cl->head  = NULL;
-        cl->body  = NULL;
         cl->nbody = 0;
         { tree_t *_cl = ast_node_new(TT_CLAUSE);
           ast_push(_cl, ast_node_new(TT_NUL));
@@ -1141,7 +1139,7 @@ PlProgram *prolog_parse(const char *src, const char *filename) {
         }
         PlClause *cl = parse_clause(&p);
         if (!cl) break;
-        if (cl->head == NULL && cl->body == NULL && cl->nbody == 0 && cl->tr == NULL) {
+        if (cl->nbody == 0 && cl->tr == NULL) {
             free(cl);
             continue;
         }

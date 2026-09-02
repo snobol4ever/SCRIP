@@ -56,7 +56,6 @@ void rt_writeq_term_ptr(void *t);
 void rt_write_canonical_term_ptr(void *t);
 void rt_env_alloc(int nslots);
 void rt_main_init(void);
-struct Term;
 void *rt_node_to_term(int kind, long ival, const char *sval, double dval);
 int   rt_unify_terms(void *l, void *r);
 int   rt_trail_mark(void);

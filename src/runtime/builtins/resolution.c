@@ -4,8 +4,6 @@
 #include "ast.h"
 #include "../../parsers/snobol4/scrip_cc.h"
 #include "../../parsers/prolog/prolog_driver.h"
-#include "../../parsers/prolog/term.h"
-#include "../../parsers/prolog/prolog_runtime.h"
 #include "../../parsers/prolog/prolog_atom.h"
 extern void rt_trail_unwind(int mark);
 #include "gen_value.h"
@@ -13,8 +11,6 @@ extern void rt_trail_unwind(int mark);
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include <setjmp.h>
-Trail         g_resolve_trail;
 int           g_resolve_cut_flag = 0;
 #include "../../parsers/prolog/pl_cell.h"
 pl_trail_t    g_pl_trail          = { { (char *)0, (char *)0, (char *)0, 0 }, 0 };
@@ -51,9 +47,6 @@ void rt_value_trail_tidy_dead_below(int mark, void *upper) {
 }
 pl_area_t     g_pl_env_area       = { (char *)0, (char *)0, (char *)0, 0 };
 int           g_resolve_active   = 0;
-resolve_choice    *g_resolve_bfr      = NULL;
-resolve_choice    *g_resolve_cut_barrier = NULL;
-int           g_resolve_cp_stamp = 0;
 Resolve_PredEntry_BB g_resolve_bb_table[RESOLVE_BB_TABLE_MAX];
 int             g_resolve_bb_count = 0;
 typedef struct { IR_graph_t *cfg; int first; } resolve_dcg_state_t;
@@ -90,17 +83,6 @@ Resolve_PredEntry_BB *resolve_bb_register(const char *name, int arity, int bb_id
     e->lower_sc.n = 0;
     return e;
 }
-#define RESOLVE_CATCH_STACK_MAX 64
-typedef struct {
-    jmp_buf  jb;
-    Term    *catcher;
-    Term   **env;
-    int      trail_mark;
-    void    *cp_mark;
-} Resolve_CatchFrame;
-static Resolve_CatchFrame g_resolve_catch_stack[RESOLVE_CATCH_STACK_MAX];
-static int           g_resolve_catch_top  = 0;
-static Term         *g_resolve_exception  = NULL;
 #define RESOLVE_PRED_TABLE_SIZE RESOLVE_PRED_TABLE_SIZE_FWD
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 unsigned resolve_pred_hash(const char *s) {
@@ -120,16 +102,3 @@ tree_t *resolve_pred_table_lookup(Resolve_PredTable *pt, const char *key) {
         if (strcmp(e->key, key) == 0) return e->choice;
     return NULL;
 }
-#define RESOLVE_CP_STACK_MAX 4096
-typedef struct {
-    jmp_buf     jb;
-    Resolve_PredTable *pt;
-    const char *key;
-    int         arity;
-    Trail      *trail;
-    int         trail_mark;
-    int         next_clause;
-    int         cut;
-} Resolve_ChoicePoint;
-static Resolve_ChoicePoint resolve_cp_stack[RESOLVE_CP_STACK_MAX];
-static int            resolve_cp_top = 0;

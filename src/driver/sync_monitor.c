@@ -9,7 +9,6 @@
 #include "SM.h"
 #include "driver.h"
 #include "parsers/snobol4/scrip_cc.h"
-#include "parsers/prolog/term.h"
 #include "parsers/prolog/prolog_atom.h"
 #ifdef WITH_CSNOBOL4
 typedef struct { char *name; char *val_str; } CsnNvPair;
@@ -33,43 +32,9 @@ void exec_snapshot_take(ExecSnapshot *s) {
     s->kw_stlimit      = kw_stlimit;
     s->kw_anchor       = kw_anchor;
     s->frame_depth = frame_depth;
-    s->resolve_trail_mark   = trail_mark(&g_resolve_trail);
+    s->resolve_trail_mark   = 0;   /* the struct-tree trail is deleted (2026-09-02); the monitor no longer has Prolog locals to list */
     s->resolve_locals       = NULL;
     s->resolve_locals_count = 0;
-    {
-        int top = trail_mark(&g_resolve_trail);
-        if (top > 0 && g_resolve_trail.stack) {
-            s->resolve_locals = malloc((size_t)top * sizeof(*s->resolve_locals));
-            int out = 0;
-            for (int ti = 0; ti < top; ti++) {
-                Term *var = g_resolve_trail.stack[ti];
-                if (!var) continue;
-                char nbuf[32];
-                snprintf(nbuf, sizeof nbuf, "_V%d", var->saved_slot);
-                Term *val = term_deref(var);
-                char vbuf[256];
-                if (!val || val->tag == TT_VAR) {
-                    snprintf(vbuf, sizeof vbuf, "_");
-                } else if (val->tag == TERM_ATOM) {
-                    const char *aname = prolog_atom_name(val->atom_id);
-                    snprintf(vbuf, sizeof vbuf, "%s", aname ? aname : "?");
-                } else if (val->tag == TERM_INT) {
-                    snprintf(vbuf, sizeof vbuf, "%ld", val->ival);
-                } else if (val->tag == TERM_FLOAT) {
-                    snprintf(vbuf, sizeof vbuf, "%g", val->fval);
-                } else if (val->tag == TERM_COMPOUND) {
-                    const char *fn = prolog_atom_name(val->compound.functor);
-                    snprintf(vbuf, sizeof vbuf, "%s/%d", fn ? fn : "?", val->compound.arity);
-                } else {
-                    snprintf(vbuf, sizeof vbuf, "<term>");
-                }
-                s->resolve_locals[out].name    = strdup(nbuf);
-                s->resolve_locals[out].val_str = strdup(vbuf);
-                out++;
-            }
-            s->resolve_locals_count = out;
-        }
-    }
     s->frame_locals       = NULL;
     s->frame_locals_count = 0;
     if (frame_depth > 0) {
@@ -102,7 +67,6 @@ void exec_snapshot_restore(const ExecSnapshot *s) {
     kw_stlimit = s->kw_stlimit;
     kw_anchor  = s->kw_anchor;
     frame_depth = 0;
-    trail_unwind(&g_resolve_trail, s->resolve_trail_mark);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void exec_snapshot_free(ExecSnapshot *s) {

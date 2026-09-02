@@ -795,7 +795,6 @@ IR_graph_t * lower_prolog_clause(const tree_t * clause) {
 #include "../parsers/snobol4/scrip_cc.h"
 #include "bb_program.h"
 #include "../runtime/builtins/resolution.h"
-#include "../parsers/prolog/term.h"
 #include "../parsers/prolog/prolog_atom.h"
 extern tree_t *resolve_pred_table_lookup(Resolve_PredTable *pt, const char *key);
 extern int ir_is_generator_kind(IR_e t);

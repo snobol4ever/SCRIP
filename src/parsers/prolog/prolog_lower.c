@@ -1,6 +1,5 @@
 #include "prolog_lower.h"
 #include "prolog_atom.h"
-#include "term.h"
 #include "scrip_cc.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -453,7 +452,6 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
         expr_add_child(choices[found], ec);
     }
     for (PlClause *cl = pl_prog->head; cl; cl = cl->next) {
-        if (cl->head) continue;
         if (cl->tr && cl->tr->n > 0 && cl->tr->c[0] && cl->tr->c[0]->t != TT_NUL) continue;
         if (!cl->tr || cl->tr->n < 2) continue;
         tree_t *raw_body = cl->tr->c[1];

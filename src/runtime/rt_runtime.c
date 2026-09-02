@@ -3,8 +3,6 @@
 #include "rt/rt.h"
 #include "lower.h"
 #include "../../emitter/sil_macros.h"
-#include "../../parsers/prolog/term.h"
-#include "../../parsers/prolog/prolog_runtime.h"
 #include "../../parsers/prolog/prolog_atom.h"
 #include "../../runtime/builtins/resolution.h"
 #include "../../parsers/raku/re.h"
@@ -18,7 +16,6 @@
 #include <setjmp.h>
 #include "../../parsers/prolog/pl_cell.h"
 #define PL_CELL_ALLOC(n) rt_ws_alloc(n)
-#include "../../parsers/prolog/pl_cell_conv.h"
 #include "../ir/dtp.h"
 extern const char *Σ;
 extern int         Δ;
@@ -52,9 +49,6 @@ typedef struct { const char * name; DESCR_t old; } SaveEnt;
 static SaveEnt   g_save_stack[SAVE_MAX];
 static int          g_save_stack_top = 0;
 static const char * g_cur_func = NULL;
-#define RESOLVE_NB_SIZE 64
-typedef struct { int atom_id; Term *val; } PlNbSlot;
-static PlNbSlot g_resolve_nb[RESOLVE_NB_SIZE];
 IR_graph_t * g_current_cfg = NULL;
 static IR_graph_t * g_resolve_tail_redirect_cfg   = NULL;
 static IR_t       * g_resolve_tail_redirect_entry = NULL;
@@ -250,8 +244,6 @@ bind:;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long g_pl_yield_seq = 1;
-typedef struct { Term **callee_env; Term **saved_env; int trail_mark; int nslots;
-                 bb_node_state_t *act; void *cp_floor; int disj_hint; } PlCallSt;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
     if (obj.v == DT_DATA) {

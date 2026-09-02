@@ -75,7 +75,6 @@ int icn_builtin_is_known(const char *name)
     return 0;
 }
 #include "../parsers/prolog/pl_cell.h"
-#include "../parsers/prolog/term.h"
 extern pl_trail_t g_pl_trail;
 typedef struct { const char *key; void *alpha; void *beta; int nslots; } plw_pred_t;
 static plw_pred_t g_plw_preds[512]; static int g_plw_pred_n = 0;
