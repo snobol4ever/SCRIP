@@ -660,7 +660,7 @@ IR_graph_t * lower_pascal_proc(const tree_t * prog, const tree_t * pd) {
     int is_func = (pd->n > 3) && pd->c[3] && (pd->c[3]->t == TT_VAR);
     IR_t * top = succ;
     if (is_func) { IR_t * ret = build(&cx, IR_RETURN, succ, succ); IR_t * rv = build(&cx, IR_VAR, ret, fail); IR_LIT(rv).sval = pd->v.sval; ir_operand_push(ret, rv); top = rv; }
-    else { IR_t * safe = build(&cx, IR_LIT_INTEGER, succ, succ); IR_LIT(safe).ival = 0; top = safe; }
+    else { IR_t * ret = build(&cx, IR_RETURN, succ, succ); IR_t * safe = build(&cx, IR_LIT_INTEGER, ret, fail); IR_LIT(safe).ival = 0; ir_operand_push(ret, safe); top = safe; }
     IR_t * body_gamma = top;
     IR_t * entry = lower(&cx, body, body_gamma, fail, NULL);
     if (!entry) entry = build(&cx, IR_GOTO, body_gamma, body_gamma);

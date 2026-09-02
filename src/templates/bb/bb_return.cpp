@@ -20,6 +20,7 @@ std::string bb_return() {
         }
         s += x86("mov", FRQ(0), "rax");
         s += x86("mov", FRQ(8), "rdx");
+        if (_.op_zread[0] < 0) { s += x86("mov", "rax", FRQ(0)); s += x86("mov", "rdx", FRQ(8)); }
         s += x86_gamma();
         return s;
     }
@@ -33,7 +34,9 @@ std::string bb_return() {
              + x86("mov", FRQ(8), "rdx"))
          + IF(_.op_sa < 0,
                x86("mov", FRQ(0), (long)DT_SNUL)
-             + x86("mov", FRQ(8), 0L))
+             + x86("mov", FRQ(8), 0L)
+             + x86("mov", "rax", FRQ(0))
+             + x86("mov", "rdx", FRQ(8)))
          + IF(_.op_dval == 2.0, x86_omega())
          + IF(_.op_dval != 2.0, x86_gamma());
 }
