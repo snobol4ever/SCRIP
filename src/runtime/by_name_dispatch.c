@@ -210,6 +210,7 @@ int pl_builtin_is_known(const char *name)
     if (!strcmp(name, "$writeq2") || !strcmp(name, "$write_canonical2") || !strcmp(name, "$write_term3") || !strcmp(name, "$format3")) return 1;
     if (!strcmp(name, "$put_char") || !strcmp(name, "$tab")) return 1;
     if (!strcmp(name, "$get_char") || !strcmp(name, "$peek_char") || !strcmp(name, "$get_code") || !strcmp(name, "$peek_code") || !strcmp(name, "$put_code") || !strcmp(name, "$get_byte") || !strcmp(name, "$peek_byte") || !strcmp(name, "$put_byte")) return 1;
+    if (!strcmp(name, "$get_key") || !strcmp(name, "$get_key_no_echo")) return 1;
     if (!strcmp(name, "$unget_char") || !strcmp(name, "$unget_code") || !strcmp(name, "$unget_byte")) return 1;
     if (!strcmp(name, "$get1") || !strcmp(name, "$skip1")) return 1;
     if (!strcmp(name, "$number_atom")) return 1;
@@ -2033,6 +2034,14 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (code) { r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = (c == EOF) ? -1 : (unsigned char)c; }
         else if (c == EOF) { r = pl_mk_atom("end_of_file"); }
         else { char *o = (char *)rt_ws_alloc(2); o[0] = (char)c; o[1] = 0; r = pl_mk_atom(o); }
+        if (plw_unify_vals(args[ridx], r)) { *out = r; return 1; } *out = FAILDESCR; return 1;
+    }
+    if ((!strcmp(fn, "$get_key") || !strcmp(fn, "$get_key_no_echo")) && (nargs == 1 || nargs == 2)) {
+        extern FILE *fh_cur_in_fp(void); extern FILE *fh_get(int); extern FILE *fh_cur_out_fp(void);
+        int echo = !strcmp(fn, "$get_key"); int ridx = (nargs == 2) ? 1 : 0;
+        FILE *f; if (nargs == 2) { int idx = pl_resolve_stream_arg(args[0], echo ? "get_key/2" : "get_key_no_echo/2", 0); if (idx < 0) { *out = FAILDESCR; return 1; } f = fh_get(idx); if (!f) f = fh_cur_in_fp(); } else f = fh_cur_in_fp();
+        int c = fgetc(f); if (echo && c != EOF) fputc(c, fh_cur_out_fp());
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = (c == EOF) ? -1 : (unsigned char)c;
         if (plw_unify_vals(args[ridx], r)) { *out = r; return 1; } *out = FAILDESCR; return 1;
     }
     if (!strcmp(fn, "$put_code") && (nargs == 1 || nargs == 2)) {
@@ -4511,6 +4520,7 @@ const char *rt_pl_det_builtin_target(const char *nm, int ar) {
         { "get_code", 1, "$get_code" }, { "get_code", 2, "$get_code" }, { "peek_code", 1, "$peek_code" }, { "peek_code", 2, "$peek_code" },
         { "put_code", 1, "$put_code" }, { "put_code", 2, "$put_code" },
         { "get0", 1, "$get_code" }, { "put", 1, "$put_code" }, { "get", 1, "$get1" }, { "skip", 1, "$skip1" },
+        { "get_key", 1, "$get_key" }, { "get_key", 2, "$get_key" }, { "get_key_no_echo", 1, "$get_key_no_echo" }, { "get_key_no_echo", 2, "$get_key_no_echo" },
         { "number_atom", 2, "$number_atom" },
         { "get_byte", 1, "$get_byte" }, { "get_byte", 2, "$get_byte" }, { "peek_byte", 1, "$peek_byte" }, { "peek_byte", 2, "$peek_byte" },
         { "put_byte", 1, "$put_byte" }, { "put_byte", 2, "$put_byte" },
