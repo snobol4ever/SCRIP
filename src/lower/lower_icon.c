@@ -141,8 +141,17 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
     if (name && !strcmp(name, "key") && nargs == 1) { IR_t * kg = lower_key(cx, t, argbase, nargs, γ, ω, res); if (kg) return kg; }
     if (name && !strcmp(name, "name") && nargs == 1) {
         const tree_t * na = t->c[argbase];
-        if (na && na->t == TT_VAR && na->v.sval && na->v.sval[0] != '&') {
+        if (na && na->t == TT_ALTERNATE && na->n >= 1) {
+            tree_t * alt = ast_node_new(TT_ALTERNATE);
+            for (int k = 0; k < na->n; k++) { tree_t * call = ast_node_new(TT_FNC); tree_t * fnv = ast_node_new(TT_VAR); fnv->v.sval = (char *) "name"; ast_push(call, fnv); ast_push(call, (tree_t *) na->c[k]); ast_push(alt, call); }
+            return lower(cx, alt, γ, ω, res);
+        }
+        if (na && (na->t == TT_VAR || na->t == TT_KEYWORD) && na->v.sval && na->v.sval[0] == '&') {
             IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = na->v.sval; if (res) *res = nd; return nd;
+        }
+        if (na && na->t == TT_VAR && na->v.sval && na->v.sval[0] != '&') {
+            const char * vn = na->v.sval; const char * st = strstr(vn, "__STATIC__"); if (st && cx->pname && !strncmp(vn, cx->pname, strlen(cx->pname)) && st == vn + strlen(cx->pname)) vn = st + 10;
+            IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = (char *) vn; if (res) *res = nd; return nd;
         }
         IR_t * vr = NULL; IR_t * ve = lower_lvalue_var(cx, na, ω, &vr);
         if (ve && vr) {
