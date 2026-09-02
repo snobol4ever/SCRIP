@@ -20,7 +20,7 @@ RUNG="${1:-prolog-bench-regen}"
 [ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built"; exit 2; }
 [ -d "$B" ] || { echo "⛔ REFUSED-TO-GRADE bench corpus missing: $B"; exit 2; }
 TMPD="$(mktemp -d)"; trap 'rm -rf "$TMPD"' EXIT   # PER-INVOCATION scratch: /tmp/regen_{cerr,aserr}.$$ was PID-keyed (safe) but the .s temps escaped on SIGKILL; one dir under the trap covers both (s169 seat2 FINDING §7.5)
-changed=0; fenced=0; rejected=0; emitted=0; timedout=0; errored=0
+changed=0; fenced=0; rejected=0; emitted=0; timedout=0; errored=0; refused=0
 for pl in "$B"/*.pl; do
   s="${pl%.pl}"; base=$(basename "$s"); tmp="$(mktemp -p "$TMPD")"
   # Capture via REDIRECT-TO-TEMP (not command-substitution): a shell pipe `$(...)` can truncate bursty multi-KB asm
@@ -31,7 +31,7 @@ for pl in "$B"/*.pl; do
     emitted=$((emitted+1))
     if as --64 -o /dev/null "$tmp" 2>"$TMPD/aserr"; then
       if [ ! -f "$s.s" ] || ! cmp -s "$tmp" "$s.s"; then mv "$tmp" "$s.s"; chmod 644 "$s.s"; changed=$((changed+1)); echo "  WROTE $base.s"; else rm -f "$tmp"; fi
-      rm -f "$s.s.FENCED"
+      rm -f "$s.s.FENCED" "$s.s.REFUSED"
     else
       rm -f "$tmp"; rejected=$((rejected+1)); echo "  REJECTED-BY-AS $base (left untouched)"
     fi
@@ -41,6 +41,10 @@ for pl in "$B"/*.pl; do
     rm -f "$tmp"; fenced=$((fenced+1)); rm -f "$s.s"
     printf 'FENCED by pl_gz_admit — no codegen yet (%s)\n' "$(grep -oE 'pl_gz_admit[^"]*' "$TMPD/cerr" | head -1 | cut -c1-70)" > "$s.s.FENCED"
     echo "  FENCED $base -> $base.s.FENCED"
+  elif grep -q 'is not on the ladder yet' "$TMPD/cerr"; then
+    rm -f "$tmp"; refused=$((refused+1)); rm -f "$s.s"
+    printf 'REFUSED by the construct ladder -- no codegen until its rung lands (%s)\n' "$(grep -oE '[a-z /-]*is not on the ladder yet -- rung [0-9]+ lands it' "$TMPD/cerr" | head -1 | cut -c1-110)" > "$s.s.REFUSED"
+    echo "  REFUSED $base -> $base.s.REFUSED"
   elif [ "$rc" -eq 124 ]; then
     # TIMEOUT (the destructive-delete bug this guard fixes): the compile was KILLED, not fenced. NEVER delete the .s on a
     # timeout — a flaky 30s contention spike must not erase a good artifact. Leave it untouched and flag loudly.
@@ -50,7 +54,7 @@ for pl in "$B"/*.pl; do
     rm -f "$tmp"; errored=$((errored+1)); echo "  ERROR $base (no asm + no fence signal, rc=$rc — .s LEFT UNTOUCHED)"
   fi
 done
-echo "regen[$RUNG]: emitted=$emitted changed=$changed fenced=$fenced rejected=$rejected timedout=$timedout errored=$errored"
+echo "regen[$RUNG]: emitted=$emitted changed=$changed fenced=$fenced refused=$refused rejected=$rejected timedout=$timedout errored=$errored"
 if [ "$timedout" -ne 0 ] || [ "$errored" -ne 0 ]; then
   echo "WARNING: $timedout timed out + $errored errored — their .s were PRESERVED (re-run, or compile standalone). A timeout is NOT a fence."
 fi

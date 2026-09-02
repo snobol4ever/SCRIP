@@ -1,6 +1,5 @@
 #include "rt/rt.h"
 #include "core.h"
-#include "builtins/resolution.h"
 #include "../parsers/prolog/prolog_atom.h"
 #include <stdint.h>
 #include <stdio.h>

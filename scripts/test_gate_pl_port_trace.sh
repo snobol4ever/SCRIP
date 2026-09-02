@@ -18,6 +18,8 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"; cd "$ROOT"
 . "$HERE/lib_gate.sh"
+TO=""; ARGS=(); while [ $# -gt 0 ]; do case "$1" in --to) TO="${2:-}"; shift 2;; --to=*) TO="${1#--to=}"; shift;; *) ARGS+=("$1"); shift;; esac; done; set -- "${ARGS[@]}"
+case "$TO" in ""|*[!0-9]*) [ -z "$TO" ] || { echo "GATE UNPROVEN(2) [test_gate_pl_port_trace]: --to wants a rung number, got '$TO'"; exit 2; };; esac
 CUT=0; for a in "$@"; do [ "$a" = --cut ] && CUT=1; done
 gate_parse_args "$@"
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
@@ -29,8 +31,10 @@ gate_require "$MASTER_DIR/ALL.pl" "Prolog master suite"
 gate_require "$MASTER_DIR/ALL.csv" "Prolog master suite index"
 [ "$CUT" = 1 ] || gate_require "$REF" "trace refs (run with --cut to create them)"
 . "$HERE/lib_master_extract.sh" || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot source lib_master_extract.sh"; exit 2; }
-FAMILIES="${FAMILIES:-probe_plz ladder}"; origins=""
+FAMILIES="${FAMILIES:-probe_plz ladder}"; [ -z "$TO" ] || FAMILIES="${FAMILIES_TO:-ladder}"; origins=""
 for fam in $FAMILIES; do o=$(master_origins_of_family "$fam") || o=""; [ -n "$o" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: no $fam origins in $MASTER_DIR/ALL.csv -- the witnesses moved; re-point, never skip"; gate_stamp; exit 2; }; origins="$origins $o"; done
+if [ -n "$TO" ]; then kept=""; for o in $origins; do nn=$(printf '%s\n' "$o" | sed -nE 's/^ladder__rung0*([0-9]+)_.*/\1/p'); [ -n "$nn" ] && [ "$nn" -le "$TO" ] && kept="$kept $o"; done; origins="$kept"
+  [ -n "${origins// /}" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: no ladder origins at or below rung $TO in $MASTER_DIR/ALL.csv"; gate_stamp; exit 2; }; fi
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 norm() { grep -E '^\([0-9]+\) [0-9]+ (Call|Exit|Redo|Fail|Exception): ' "$1" | sed -E 's/^(\([0-9]+\)) [0-9]+ /\1 /; s/\bn[0-9]+_//g; s/\$2F/\//g; s/ r15=0x[0-9a-f]+$//'; }
 m4build() { [ -s "$1" ] && as --64 -o "$1.o" "$1" 2>/dev/null && gcc -no-pie -o "$2" "$1.o" "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>/dev/null; }
@@ -74,6 +78,12 @@ for o in $origins; do
   for m in m3 m4; do [ -f "$W/$o.$m.diff" ] && lines+=("$(cat "$W/$o.$m.diff")"); done
 done
 printf '%s\n' "${lines[@]}"
-if [ "$CUT" = 1 ]; then cp "$W/ALL.trace" "$REF"; echo "refs CUT -> $REF ($(grep -c '^%---- ' "$REF") blocks, prefix cap $PREFIX_CAP)"; fi
+if [ "$CUT" = 1 ]; then
+  if [ -n "$TO" ] && [ -f "$REF" ]; then
+    printf '%s\n' $origins > "$W/graded.txt"
+    awk -v gl="$W/graded.txt" 'BEGIN{while ((getline l < gl) > 0) g[l]=1} /^%---- /{keep = !($2 in g)} keep' "$REF" > "$W/kept.trace"
+    cat "$W/kept.trace" "$W/ALL.trace" > "$REF"; echo "refs CUT (merged, rungs 0..$TO re-cut, other blocks kept) -> $REF ($(grep -c '^%---- ' "$REF") blocks, prefix cap $PREFIX_CAP)"
+  else cp "$W/ALL.trace" "$REF"; echo "refs CUT -> $REF ($(grep -c '^%---- ' "$REF") blocks, prefix cap $PREFIX_CAP)"; fi
+fi
 echo "witnesses=$n modes=2 (m3 --run, m4 --compile+as+gcc) . answer ok=$ans_ok red=$ans_red (informational: the master suite grades answers) . normalisation: depth dropped, n<k>_ stripped, \$2F->/, r15= dropped"
 GATE_EXAMINED=$((n*2)); gate_verdict "$bad" "failed checks across killswitch/perturbation/trace"

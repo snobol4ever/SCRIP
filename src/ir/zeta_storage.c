@@ -20,7 +20,7 @@ typedef struct { const IR_t * nd; int scope_id; int off; int loff; int live; } z
 typedef struct { int scope_id; int off; int size; unsigned char kind; unsigned char audit; const char * what; const IR_t * nd; } zls_pfield_t;
 typedef struct { const char * name; int off; } zls_vslot_t;
 typedef struct { const IR_graph_t * g; const char * name; int start_n; const IR_t * anchor; } zls_mark_t;
-typedef struct { const IR_graph_t * g; const char * name; int first_scope; int n_scopes; int nslots; int region; int resume_off; int zeta_mark_off; int locals_off; int first_vslot; int n_vslots; int pl_trail_mark_off; } zls_graph_t;
+typedef struct { const IR_graph_t * g; const char * name; int first_scope; int n_scopes; int nslots; int region; int resume_off; int zeta_mark_off; int locals_off; int first_vslot; int n_vslots; } zls_graph_t;
 static zls_entry_t  ze[ZLS_MAX_ENTRIES];  static int ze_n = 0;
 static zls_pfield_t zf[ZLS_MAX_FIELDS];   static int zf_n = 0;
 static zls_scope_t  zs[ZLS_MAX_SCOPES];   static int zs_n = 0;
@@ -216,7 +216,7 @@ static int zls_grant(const IR_t * nd, int scope_id, int off) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_elide_ok(IR_e op) { return op == IR_MATCH_ANY || op == IR_MATCH_NOTANY || op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_LEN || op == IR_MATCH_LIT || op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_CMP_TEST || op == IR_ASSIGN; }
-static int zls_s4_ok(IR_e op) { return op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_REM || op == IR_MATCH_BAL || op == IR_MATCH_ALTERNATE || op == IR_MATCH_FENCE0 || op == IR_MATCH_FENCE1 || op == IR_MATCH_DEFER || op == IR_MATCH_VALUE || op == IR_CALL_PROLOG; }
+static int zls_s4_ok(IR_e op) { return op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_REM || op == IR_MATCH_BAL || op == IR_MATCH_ALTERNATE || op == IR_MATCH_FENCE0 || op == IR_MATCH_FENCE1 || op == IR_MATCH_DEFER || op == IR_MATCH_VALUE; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void zls_mark_value_refs(const IR_graph_t * g, char * live) {
     for (int k = 0; k < g->n; k++) { const IR_t * c = g->all[k]; if (!c) continue;
@@ -737,9 +737,6 @@ int zls_g_resume_by_name(const char *name) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void zls_g_set_pl_trail_mark(const IR_graph_t *g, int off) { if (!g) return; for (int i = 0; i < zg_n; i++) if (zg[i].g == g) { zg[i].pl_trail_mark_off = off; return; } }
-int zls_g_pl_zf_trail_mark_off_by_name(const char *name) { if (!name) return 0; for (int i = 0; i < zg_n; i++) if (zg[i].name && strcmp(zg[i].name, name) == 0) return zg[i].pl_trail_mark_off > 0 ? zg[i].pl_trail_mark_off : 0; return 0; }
-int zls_g_pl_trail_mark_by_name(const char *name) { if (!name) return -1; for (int i = 0; i < zg_n; i++) if (zg[i].name && strcmp(zg[i].name, name) == 0) return zg[i].pl_trail_mark_off; return -1; }
 int zls_g_locals(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->locals_off : -1; }
 int zls_g_zeta_mark(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->zeta_mark_off : -1; }
 int zls_g_vslot_count(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->n_vslots : 0; }

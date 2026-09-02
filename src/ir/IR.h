@@ -29,7 +29,6 @@ typedef enum {
     IR_CALL_BUILTIN,
     IR_CALL_BUILTIN_GEN,
     IR_CALL_ICON,
-    IR_CALL_PROLOG,
     IR_CALL_SNOBOL4,
     IR_CALL_PROC_STAGED,
     IR_CALL_VALUE,
@@ -170,7 +169,7 @@ static inline int ir_is_matcher_element(int t) {
 static inline int ir_is_scan_kind(IR_e t) { (void) t; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int ir_is_call_kind(IR_e t) {
-    return t == IR_CALL_PROC_STAGED || t == IR_CALL_BUILTIN || t == IR_CALL_BUILTIN_GEN || t == IR_CALL_ICON || t == IR_CALL_SNOBOL4 || t == IR_CALL_PROLOG || t == IR_CALL_VALUE;
+    return t == IR_CALL_PROC_STAGED || t == IR_CALL_BUILTIN || t == IR_CALL_BUILTIN_GEN || t == IR_CALL_ICON || t == IR_CALL_SNOBOL4 || t == IR_CALL_VALUE;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline IR_e ir_norm_call_kind(IR_e t) { return ir_is_call_kind(t) ? IR_CALL : t; }
@@ -231,12 +230,11 @@ struct IR_graph_t {
     int            ring_depth;
     int            zframe_graph;
     int            icn_cells_graph;
-    int            pl_cells_graph;
     int            zframe_pinned_base;
+    int            root_graph;
     int            runtime_fragment_graph;
     int            is_variadic;
     int            rest_kind;
-    int            pl_zf_trail_mark_off;
     IR_t         * ab_nodes[32];
     int            ab_n;
 };

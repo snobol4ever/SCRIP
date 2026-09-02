@@ -130,7 +130,6 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_COERCE_NUMERIC] = "IR_COERCE_NUMERIC",
     [IR_COERCE_REAL] = "IR_COERCE_REAL",
     [IR_CMP_TEST] = "IR_CMP_TEST",
-    [IR_CALL_PROLOG] = "IR_CALL_PROLOG",
     [IR_CUT] = "IR_CUT",
     [IR_REF_INVARIANT] = "IR_REF_INVARIANT",
     [IR_PATTERN_CAT] = "IR_PATTERN_CAT",
@@ -285,19 +284,6 @@ void ir_drive_slot_assign(IR_graph_t * g) {
     g->zeta_mark_slot = zls_g_zeta_mark(g);
     g->jcon_value_region = zls_g_region(g);
     g->nvalue_slots = zls_g_nslots(g);
-    if (g->zframe_graph) {
-        extern int zls_off(const IR_t *);
-        extern void zls_g_set_pl_trail_mark(const IR_graph_t *, int);
-        for (int _i = 0; _i < g->n; _i++) {
-            IR_t *_nd = g->all[_i];
-            if (_nd && _nd->op == IR_CALL_PROLOG && IR_LIT(_nd).sval && strcmp(IR_LIT(_nd).sval, "$trail_mark") == 0) {
-                int _off = zls_off(_nd);
-                if (_off >= 0) zls_g_set_pl_trail_mark(g, _off);
-                if (_off > 0) g->pl_zf_trail_mark_off = _off;
-                break;
-            }
-        }
-    }
     { extern int zdp_mode(void); extern void zdp_report(IR_graph_t *, const char *); if (zdp_mode()) zdp_report(g, "graph"); { extern void zdp_port_census(IR_graph_t *); zdp_port_census(g); } }
 }
 static const int * g_seq_of_node = (const int *)0;

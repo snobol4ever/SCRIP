@@ -14,8 +14,6 @@ extern int rt_g_want_name;
 extern int rt_g_ret_by_name;
 void rt_kw_set_rtntype_role(int);
 extern int * const rt_k_level_p;
-extern char g_pl_trail[];
-#define PL_TRAIL_TOP_OFF 32
 void *rt_proc_get_fn(const char *name);
 void mon_emit_call_bin(const char *fname);
 void mon_emit_return_bin(const char *fname, DESCR_t retval);
@@ -93,10 +91,6 @@ static std::string bb_define_activate() {
       + x86("movsxd", "rcx", "ecx")
       + x86("mov", RDQ("rsp", BASE + AB_OFF_WN), "rcx")
       + x86("mov", RDD("rax", 0), (long)0)
-      + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)g_pl_trail, "g_pl_trail")
-      + x86("mov", "ecx", RDD("rax", PL_TRAIL_TOP_OFF))
-      + x86("movsxd", "rcx", "ecx")
-      + x86("mov", RDQ("rsp", BASE + AB_OFF_VTMARK), "rcx")
       + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
       + x86("mov", "rax", RDQ("rax", 0))
       + x86("add", RDD("rax", 0), (long)1)
@@ -163,12 +157,6 @@ static std::string bb_define_activate() {
       + x86("mov", RDQ("rsi", AB_OFF_RES0), "rax")
       + x86("mov", RDQ("rsi", AB_OFF_RES1), "rdx")
       + x86("note", std::string("RTX-FUNC-2 leave_env fast-path guards"))
-      + x86("mov", "rcx", RDQ("rsi", AB_OFF_VTMARK))
-      + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)g_pl_trail, "g_pl_trail")
-      + x86("mov", "eax", RDD("rax", PL_TRAIL_TOP_OFF))
-      + x86("movsxd", "rax", "eax")
-      + x86("cmp", "rax", "rcx")
-      + x86("jne", L(7))
       + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_ret_by_name, "rt_g_ret_by_name")
       + x86("mov", "eax", RDD("rax", 0))
       + x86("cmp", "eax", (long)0)

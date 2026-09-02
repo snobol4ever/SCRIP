@@ -118,7 +118,6 @@ typedef struct { const char *name; void *fn; } ExpressionRegEntry;
 static ExpressionRegEntry g_expression_reg[EXPRESSION_REG_MAX];
 static int           g_expression_reg_count = 0;
 #include "IR.h"
-#include "../builtins/resolution.h"
 extern cap_t *bb_cap_new(bb_box_fn child_fn, void *child_state, const char *varname, DESCR_t *var_ptr, int immediate);
 extern cap_t *bb_cap_new_call(bb_box_fn child_fn, void *child_state, const char *fnc_name, DESCR_t *fnc_args, int fnc_nargs, char **fnc_arg_names, int fnc_n_arg_names, int immediate);
 extern void *bb_arbno_new(void *fn, void *state);
@@ -495,8 +494,6 @@ __attribute__((constructor)) static void rt_pin_init(void) {
 extern int rt_g_want_name;
 extern int rt_g_ret_by_name;
 DESCR_t rt_nret_fix(DESCR_t r, int wn);
-int rt_value_trail_mark(void);
-void rt_value_trail_tidy_dead_window(int mark, void *fb, void *top);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_ab_enter_env(void *frame)
 {
@@ -504,19 +501,15 @@ int rt_ab_enter_env(void *frame)
     *(uint64_t *)(fb + AB_OFF_SIGMA)    = (uint64_t)(uintptr_t)Σ;
     *(uint64_t *)(fb + AB_OFF_SIGMALEN) = (uint64_t)(int64_t)Σlen;
     *(uint64_t *)(fb + AB_OFF_WN)       = (uint64_t)(int64_t)rt_g_want_name; rt_g_want_name = 0;
-    int vtm = rt_value_trail_mark();
-    *(uint64_t *)(fb + AB_OFF_VTMARK)   = (uint64_t)(int64_t)vtm;
     rt_k_level++;
     kw_fnclevel = (int64_t)rt_k_level - 1;
-    return vtm;
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_ab_leave_env(void *frame, DESCR_t result, int is_fail)
 {
     char *fb = (char *)frame;
-    int vtm  = (int)(int64_t)*(uint64_t *)(fb + AB_OFF_VTMARK);
     int wn   = (int)(int64_t)*(uint64_t *)(fb + AB_OFF_WN);
-    rt_value_trail_tidy_dead_window(vtm, (void *)fb, (char *)fb + 16);
     Σ    = (const char *)(uintptr_t)*(uint64_t *)(fb + AB_OFF_SIGMA);
     Σlen = (int)(int64_t)*(uint64_t *)(fb + AB_OFF_SIGMALEN);
     rt_k_level--;
@@ -1229,9 +1222,6 @@ void mon_emit_return_bin(const char *fname, DESCR_t retval) {
     int64_t saved = kw_ftrace; kw_ftrace = 1; comm_return(fname, retval); kw_ftrace = saved;
     memcpy(kw_rtntype, saved_rt, sizeof(saved_rt));
 }
-extern int  rt_value_trail_mark(void);
-extern void rt_value_trail_tidy_dead_below(int mark, void *upper);
-extern void rt_value_trail_tidy_dead_window(int mark, void *lower, void *upper);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_lcl_proc_args_install(void *base_p, int nparams, int nlocals) {
     char *base = (char *)base_p;
@@ -1368,21 +1358,18 @@ void rt_pl_dc_prep(void *fb, long suffix_off, long region_bytes, long np, long n
     for (long k = nargs; k < np; k++) zf[1 + k] = NULVCL;
     zf[0] = NULVCL;
     { DESCR_t *sz = (DESCR_t *)((char *)fb + suffix_off); for (long zi = 0; zi < (region_bytes - suffix_off) / 16; zi++) sz[zi] = NULVCL; }
-    *(long *)((char *)fb + region_bytes + 32) = (long)rt_value_trail_mark();
     rt_k_level++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dc_leave_γ(DESCR_t r, long vtmark, void *fb)
 {
     rt_k_level--;
-    rt_value_trail_tidy_dead_window((int)vtmark, fb, (char *)__builtin_frame_address(0) + 16);
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dc_leave_ω(long vtmark, void *fb)
 {
     rt_k_level--;
-    rt_value_trail_tidy_dead_window((int)vtmark, fb, (char *)__builtin_frame_address(0) + 16);
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1622,110 +1609,12 @@ void rt_jmp_frame_lexprep(void *fb, long region_bytes)
 {
     (void)fb; (void)region_bytes;
 }
-extern void   *g_pl_zf_pending_cursor;
-extern long    g_pl_zf_pending_tm_lo;
-extern long    g_pl_zf_pending_tm_hi;
-extern int     g_pl_zf_pending_tm_off;
-extern int     g_pl_zf_pending_cursor_off;
-extern int     g_pl_zf_target_pcall_top;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_jmp_frame_lexprep2(void *fb, long suffix_off, long region_bytes)
 {
     (void)suffix_off;
     memset(fb, 0, (size_t)region_bytes);
-    if (g_pl_zf_pending_cursor) {
-        *(void **)((char *)fb + g_pl_zf_pending_cursor_off) = g_pl_zf_pending_cursor;
-        *(long  *)((char *)fb + g_pl_zf_pending_tm_off)     = g_pl_zf_pending_tm_lo;
-        *(long  *)((char *)fb + g_pl_zf_pending_tm_off + 8) = g_pl_zf_pending_tm_hi;
-        *(long  *)((char *)fb + 0) = g_pl_zf_pending_tm_lo;
-        *(long  *)((char *)fb + 8) = g_pl_zf_pending_tm_hi;
-    }
 }
-__attribute__((visibility("default"))) void **g_pl_retry;
-__attribute__((visibility("default"))) int    g_pl_retry_top;
-__attribute__((visibility("default"))) int    g_pl_retry_cap;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_pl_retry_push(void *addr)
-{
-    if (g_pl_retry_top >= g_pl_retry_cap) {
-        int nc = g_pl_retry_cap ? g_pl_retry_cap * 2 : 1024;
-        void **np = (void **)rt_ws_realloc(g_pl_retry, (size_t)nc * sizeof(void *));
-        if (!np) return;
-        g_pl_retry = np; g_pl_retry_cap = nc;
-    }
-    g_pl_retry[g_pl_retry_top++] = addr;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_pl_retry_pop(void)
-{
-    if (g_pl_retry_top <= 0) return (void *)0;
-    return g_pl_retry[--g_pl_retry_top];
-}
-__attribute__((visibility("default"))) void **g_pl_cp_stack;
-__attribute__((visibility("default"))) int    g_pl_cp_top;
-__attribute__((visibility("default"))) int    g_pl_cp_cap;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_pl_cp_push(void *addr)
-{
-    if (g_pl_cp_top >= g_pl_cp_cap) {
-        int nc = g_pl_cp_cap ? g_pl_cp_cap * 2 : 1024;
-        void **np = (void **)rt_ws_realloc(g_pl_cp_stack, (size_t)nc * sizeof(void *));
-        if (!np) return;
-        g_pl_cp_stack = np; g_pl_cp_cap = nc;
-    }
-    g_pl_cp_stack[g_pl_cp_top++] = addr;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_pl_cp_pop(void)
-{
-    if (g_pl_cp_top <= 0) return (void *)0;
-    return g_pl_cp_stack[--g_pl_cp_top];
-}
-__attribute__((visibility("default"))) void **g_pl_zf3_stack;
-__attribute__((visibility("default"))) int    g_pl_zf3_top;
-__attribute__((visibility("default"))) int    g_pl_zf3_cap;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_pl_cp_push3(long tm_lo, long tm_hi, void *cont)
-{
-    if (g_pl_zf3_top + 3 > g_pl_zf3_cap) {
-        int nc = g_pl_zf3_cap ? g_pl_zf3_cap * 2 : 1024;
-        if (nc < g_pl_zf3_top + 3) nc = g_pl_zf3_top + 3;
-        void **np = (void **)rt_ws_realloc(g_pl_zf3_stack, (size_t)nc * sizeof(void *));
-        if (!np) return;
-        g_pl_zf3_stack = np; g_pl_zf3_cap = nc;
-    }
-    g_pl_zf3_stack[g_pl_zf3_top++] = (void *)(uintptr_t)(uint64_t)tm_lo;
-    g_pl_zf3_stack[g_pl_zf3_top++] = (void *)(uintptr_t)(uint64_t)tm_hi;
-    g_pl_zf3_stack[g_pl_zf3_top++] = cont;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_pl_cp_pop3(long *tm_lo, long *tm_hi)
-{
-    if (g_pl_zf3_top < 3) { if (tm_lo) *tm_lo = 0; if (tm_hi) *tm_hi = 0; return (void *)0; }
-    void *cont     = g_pl_zf3_stack[--g_pl_zf3_top];
-    if (tm_hi) *tm_hi = (long)(uintptr_t)g_pl_zf3_stack[--g_pl_zf3_top]; else --g_pl_zf3_top;
-    if (tm_lo) *tm_lo = (long)(uintptr_t)g_pl_zf3_stack[--g_pl_zf3_top]; else --g_pl_zf3_top;
-    return cont;
-}
-__attribute__((visibility("default"))) void   *g_pl_zf_pending_cursor;
-__attribute__((visibility("default"))) long    g_pl_zf_pending_tm_lo;
-__attribute__((visibility("default"))) long    g_pl_zf_pending_tm_hi;
-__attribute__((visibility("default"))) int     g_pl_zf_pending_tm_off;
-__attribute__((visibility("default"))) int     g_pl_zf_pending_cursor_off;
-__attribute__((visibility("default"))) int     g_pl_zf_target_pcall_top;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_pl_zf_resume_set(void *cursor, long tm_lo, long tm_hi, int tm_off, int cursor_off)
-{
-    g_pl_zf_pending_cursor = cursor;
-    g_pl_zf_pending_tm_lo = tm_lo;
-    g_pl_zf_pending_tm_hi = tm_hi;
-    g_pl_zf_pending_tm_off = tm_off;
-    g_pl_zf_pending_cursor_off = cursor_off;
-    g_pl_zf_target_pcall_top = 0;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_pl_zf_resume_clear(void) { g_pl_zf_pending_cursor = (void *)0; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_frame_prep(void *fb, long fbytes)
 {
     (void)fb; (void)fbytes;
@@ -1932,12 +1821,6 @@ DESCR_t rt_list_bang_key_at(DESCR_t obj, int64_t idx)
     DESCR_t out;
     if (list_bang_key_at(obj, idx, &out)) return out;
     return FAILDESCR;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_cut_set(void)
-{
-    extern int g_resolve_cut_flag;
-    g_resolve_cut_flag = 1;
 }
 extern int     subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val);
 extern int     subscript_set2(DESCR_t arr, DESCR_t i, DESCR_t j, DESCR_t val);

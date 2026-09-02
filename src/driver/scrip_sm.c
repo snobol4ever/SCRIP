@@ -6,7 +6,6 @@
 #include "IR.h"
 #include "bb_program.h"
 #include "../runtime/builtins/gen_runtime.h"
-#include "../runtime/builtins/resolution.h"
 #include "driver_private.h"
 #include "polyglot.h"
 extern int g_core_err_active;
@@ -15,7 +14,7 @@ static void sm_resolve_proc_entry_pcs(stage2_t *s2)
 {
     for (int i = 0; i < s2->proc_count; i++)
         s2->proc_table[i].entry_pc = -1;
-    for (int b = 0; b < RESOLVE_PRED_TABLE_SIZE_FWD; b++) {
+    for (int b = 0; b < STAGE2_PL_PRED_TABLE_SIZE; b++) {
         for (Resolve_PredEntry *e = s2->resolve_pred_table.buckets[b]; e; e = e->next)
             e->entry_pc = -1;
     }

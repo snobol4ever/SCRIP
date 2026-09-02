@@ -4,17 +4,11 @@ RTX_GATE_DEF(plunify)
 #define D_HI               8
 #define D_SIZE            16
 #define FR_ARGS           16
-#define FR_FLOOR           8
 RTX_FUNC(rt_pl_dop_unify)
     cmp     esi, 2
     jne     .Lpu_fail_bare
     sub     rsp, 24
     mov     qword ptr [rsp + FR_ARGS], rdi
-    mov     rax, qword ptr [rip + g_plw_unwind_floor@GOTPCREL]
-    mov     rcx, qword ptr [rax]
-    mov     qword ptr [rsp + FR_FLOOR], rcx
-    lea     rcx, [rsp + 16]
-    mov     qword ptr [rax], rcx
     mov     rax, qword ptr [rip + g_gc_pending@GOTPCREL]
     cmp     dword ptr [rax], 0
     jne     .Lpu_gc
@@ -36,9 +30,6 @@ RTX_FUNC(rt_pl_dop_unify)
     mov     eax, DT_FAIL | (MOD_OP_RT_PL_DOP_UNIFY << 8)
     xor     edx, edx
 .Lpu_restore:
-    mov     rcx, qword ptr [rip + g_plw_unwind_floor@GOTPCREL]
-    mov     r8,  qword ptr [rsp + FR_FLOOR]
-    mov     qword ptr [rcx], r8
     add     rsp, 24
     ret
 .Lpu_gc:

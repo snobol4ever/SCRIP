@@ -33,13 +33,4 @@ char        *rt_ws_strdup(const char *s);
 void        *rt_ws_alloc_c(size_t n);
 char        *rt_ws_strdup_c(const char *s);
 void        *rt_agg_alloc(int kind, size_t n);
-void        *rt_pl_cterm_alloc(size_t n);
-arena_mark_t rt_pl_cterm_mark(void);
-void         rt_pl_cterm_release(arena_mark_t m);
-int          rt_pl_ctr_on(void);
-int          rt_pl_cellws_on(void);
-void        *rt_pl_cellws_alloc(size_t n);
-arena_mark_t rt_pl_cellws_mark(void);
-void         rt_pl_cellws_release(arena_mark_t m);
-void         rt_pl_cterm_roots(void **base, size_t *bytes);
 #endif

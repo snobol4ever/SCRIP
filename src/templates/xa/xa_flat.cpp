@@ -9,8 +9,6 @@ extern "C" {
 }
 extern "C" void rt_jmp_frame_lexprep(void *, long);
 extern "C" void rt_jmp_frame_lexprep2(void *, long, long);
-extern "C" void rt_pl_zf_resume_clear(void);
-extern "C" void *g_pl_zf_pending_cursor;
 extern "C" void rt_main_args_fetch(void);
 extern "C" int rt_proc_nformals(const char *name);
 extern "C" int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out);
@@ -160,13 +158,13 @@ extern "C" void rt_arg_stage(int idx, DESCR_t v);
 static int xa_flat_zanchor_poison(void) { static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_PL_ZANCHOR_POISON"); on = (e && *e == '1') ? 1 : 0; } return on; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zf_display_level(void) {
-    if (!g_emit_cfg || g_emit_cfg->icn_cells_graph || g_emit_cfg->pl_cells_graph) return 0;
+    if (!g_emit_cfg || g_emit_cfg->icn_cells_graph) return 0;
     int dl = g_emit_cfg->decl_level;
     return (dl >= 1 && dl <= 3) ? dl : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zf_pas_nest_graph(void) {
-    if (!g_emit_cfg || g_emit_cfg->icn_cells_graph || g_emit_cfg->pl_cells_graph) return 0;
+    if (!g_emit_cfg || g_emit_cfg->icn_cells_graph) return 0;
     return g_emit_cfg->decl_level >= 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -203,7 +201,12 @@ static std::string xa_flat_zframe_prologue_str(void) {
          + (x86_fb_pinned()
             ? (x86("comment", "PZ-4 clause (a) PL-ZA-1: [kt-8] STOPS BEING WRITE-ONLY. It held this frame's own base -- a self-anchor nothing ever read (s247, and both epilogue comments below said so). It now holds the CALLER'S base, and the next instruction pins ours. ⛔ THE PIN IS TAKEN AFTER THE CARVE, so the pinned base equals the α-time rsp and every re-homed ζ reference is `[pin + off]` with the SAME off the spine arm used -- a pure rebase, no parity change and NO PUSH. A `push rbp` here would shift every body byte by 8 and turn the two PL-CALL-ALIGN pads from cure into defect.")
              + x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rbp")
-             + x86("mov", x86_fb(), "rsp"))
+             + x86("mov", x86_fb(), "rsp")
+             + IF(g_emit_cfg && g_emit_cfg->root_graph, x86("xor", "r13d", "r13d") + x86("xor", "r15d", "r15d") + x86("lea", "r14", RDQ("rsp", kt - 64)))
+             + x86("mov", RDQ("rsp", kt - 40), "r13")
+             + x86("mov", RDQ("rsp", kt - 48), 0L)
+             + x86("mov", RDQ("rsp", kt - 56), 0L)
+             + x86("mov", RDQ("rsp", kt - 64), 0L))
             : (emit_jmp_pin_legacy() ? (xa_flat_zanchor_poison() ? std::string() : x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rsp"))
                                 + std::string("")
                                : std::string()));
@@ -227,7 +230,7 @@ static std::string xa_flat_zframe_prologue_str(void) {
             int seed_off = g_emit.flat_seed_off ? g_emit.flat_seed_off : 16;
             s += x86("mov", "rdi", "rsp")
                + x86("mov32", "esi", (long)seed_off)
-               + x86("mov32", "edx", (long)(kt - 32))
+               + x86("mov32", "edx", (long)(kt - (x86_fb_pinned() ? 64 : 32)))
                + x86("call_bare", "rt_jmp_frame_lexprep2", _lex_fp);
             if (np > 0) {
                 uint64_t _args_fp; { void (*_f)(void *, int, int) = rt_icn_zframe_args_install; _args_fp = (uint64_t)(uintptr_t)(void *)_f; }
@@ -239,7 +242,7 @@ static std::string xa_flat_zframe_prologue_str(void) {
         }
     } else {
         if (kt > 48) {
-            int data_bytes = kt - 32;
+            int data_bytes = kt - (x86_fb_pinned() ? 64 : 32);
             s += x86("mov", "rdi", "rsp")
                + x86("xor", "eax", "eax")
                + x86("mov32", "ecx", (long)data_bytes)
@@ -366,40 +369,9 @@ static std::string xa_flat_chain_epilogue_sig_str(int is_gamma, const char * fna
          + x86_jmp_reg("rcx");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_gamma_retain_on(void) { return emit_pl_gamma_retain(); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_zframe_epilogue_γ_str(void) {
     if (!xa_flat_class_zf()) return std::string();
     int kt = g_emit.flat_frame_bytes; if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16; { kt += icn_gen_host_reserve((const char *)0); }
-    if (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->zframe_graph && g_emit_cfg->resume_slot > 0) {
-        extern void *g_pl_zf_pending_cursor;
-        extern void rt_pl_zf_resume_clear(void);
-        uint64_t _clear_fp; { void (*_f)(void) = rt_pl_zf_resume_clear; _clear_fp = (uint64_t)(uintptr_t)(void *)_f; }
-        int rs = g_emit_cfg->resume_slot;
-        return x86("comment", "PL-FR-4 zframe epilogue-γ (Prolog gen): check pending resume cursor before unwind")
-             + x86("lea", "r12", "[rip + __]", (uint64_t)(uintptr_t)&g_pl_zf_pending_cursor, "g_pl_zf_pending_cursor")
-             + x86("mov", "r12", "[r12]")
-             + x86("test", "r12", "r12")
-             + x86("je", L(50))
-             + x86("mov", "qword ptr [rsp# + " + std::to_string(rs) + "]", "r12")
-             + x86("call", "rt_pl_zf_resume_clear", _clear_fp)
-             + x86("mov", "rax", "qword ptr [rsp# + " + std::to_string(rs) + "]") + x86("jmp", "rax")
-             + x86("def", L(50))
-             + x86("mov", "rdi", "rax")
-             + x86("mov", "rsi", "rdx")
-             + x86("mov", "rcx", "qword ptr [rsp# + " + std::to_string(kt - 24) + "]")
-             + (pl_gamma_retain_on()
-                ? (x86_fb_pinned()
-                   ? (x86("comment", "PZ-4 clauses (b)+(e) PL-ZA-1: hand the retained frame's TRUE base in rax -- the PIN, not rsp. ⛔ Under a pin these are no longer the same value once the body has moved the spine, and rax is what the caller's landing re-anchors off (clause (c)); handing it a stale rsp is the whole class this rung exists to close. The caller base is then reloaded THROUGH rax, because the pin is being overwritten by that same instruction.")
-                    + x86("mov", "rax", x86_fb())
-                    + x86("mov", x86_fb(), RDQ("rax", kt - 8)))
-                   : (x86("mov", "rax", "rsp")
-                    + std::string("")))
-                : (zf_release(kt)
-                 + zf_pin_restore(kt)
-                 + std::string("")))
-             + x86("jmp", "rcx");
-    }
     if (g_emit.flat_gen && g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) {
         return x86("comment", "Z-3 γ-RETAIN cells-arm generator: marshal rax:rdx→rdi:rsi; load γ wire; NO unwind (frame survives for β); gen____→rax; jmp γ wire")
              + x86("mov", "rdi", "rax")

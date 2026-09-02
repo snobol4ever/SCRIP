@@ -674,8 +674,6 @@ static void gz_emit_cell(IR_t *g, bb_label_t *next_γ, bb_label_t *gw, bb_label_
 static void gz_emit_catch(IR_t *g, bb_label_t *next_γ, bb_label_t *gw, bb_label_t *gβ, bb_label_t *cut_ω, pl_gz_callee_vec_t *cv) {
     fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "gz_emit_catch"); abort(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void resolve_choice_clause_label(char *dst, size_t dsz, int id, int ci, const char *suffix) {
-    fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "resolve_choice_clause_label"); abort(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int bb_kind_is_driver_owned(int t) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "bb_kind_is_driver_owned"); abort(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -948,7 +946,7 @@ int bb_call_write_route(IR_t *nd) {
 }
 extern "C" int icn_builtin_is_known(const char *);
 extern "C" int icn_builtin_is_generator(const char *);
-extern "C" int pl_builtin_is_known(const char *);
+extern "C++" void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int bb_call_route_classify(IR_t * nd) {
     const char * fn = g_emit.op_sval ? g_emit.op_sval : ""; int64_t narg = g_emit.op_ival; IR_t * a0 = ir_call_arg(nd, 0); double dv = g_emit.op_dval;
@@ -956,10 +954,10 @@ int bb_call_route_classify(IR_t * nd) {
     if (k == IR_CALL_BUILTIN_GEN) return CALL_ROUTE_BYNAME_GEN;
     if (k == IR_CALL_BUILTIN && fn[0] && rt_builtin_is_generator(fn)) return CALL_ROUTE_BYNAME;
     if (k == IR_CALL_PROC_STAGED) return CALL_ROUTE_PROC_STAGED;
+    if (k == IR_CALL && fn[0] == '$') { const char * _ds = 0; if (dop_direct_fp(fn, narg, &_ds)) return CALL_ROUTE_FN; }
     if (k == IR_CALL_BUILTIN && g_emit.op_write_route == 0 && fn[0] && rt_builtin_is_known(fn)) return CALL_ROUTE_FN;
     if (k == IR_CALL_ICON && fn[0] && icn_builtin_is_generator(fn)) return CALL_ROUTE_BYNAME;
     if (k == IR_CALL_ICON && fn[0] && icn_builtin_is_known(fn)) return CALL_ROUTE_FN;
-    if (k == IR_CALL_PROLOG && fn[0] && pl_builtin_is_known(fn)) return CALL_ROUTE_FN;
     if (!strcmp(fn, "__rk_bool") && narg >= 1) return CALL_ROUTE_RK_BOOL_SLOT;
     if (dv == 2.0 && fn[0] && rt_builtin_is_known(fn)) return CALL_ROUTE_BYNAME;
     if (dv == 2.0 && !strcmp(fn, "__rk_bool")) return CALL_ROUTE_RK_BOOL_COND;
@@ -1283,7 +1281,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         else { g_emit.op_sb = -1; g_emit.lbl_t1_p = (bb_label_t *)0; g_emit.lbl_t1 = (const char *)0; }
         bb_emit_x86(bb_return()); return 0; }
     case IR_CALL_PROC_STAGED: case IR_CALL_BUILTIN: case IR_CALL_BUILTIN_GEN:
-    case IR_CALL_ICON: case IR_CALL_SNOBOL4: case IR_CALL_PROLOG:
+    case IR_CALL_ICON: case IR_CALL_SNOBOL4:
     case IR_PROC_GEN:
     case IR_CALL: {
         g_emit.op_call_route = bb_call_route_classify(nd);
@@ -1549,7 +1547,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     case IR_ASSIGN_FRAME:
         g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     case IR_CALL: case IR_CALL_BUILTIN: case IR_CALL_BUILTIN_GEN: case IR_CALL_PROC_STAGED: case IR_PROC_GEN:
-    case IR_CALL_ICON: case IR_CALL_SNOBOL4: case IR_CALL_PROLOG: {
+    case IR_CALL_ICON: case IR_CALL_SNOBOL4: {
         int na = nd->n_operands; drive_arg_slots_reserve(na);
         for (int i = 0; i < na; i++) { IR_t * a = ir_call_arg(nd, i); g_emit.op_arg_slot[i] = nd_slot(a); }
         g_emit.op_arg_slot_n = na; g_emit.op_write_route = bb_call_write_route(nd);
@@ -2117,15 +2115,15 @@ static int beta_is_stmt_land(const IR_t * tgt) { return tgt && tgt->op == IR_STA
 static int zd_wl_kind(IR_t * nd) {
     int op = (int)nd->op;
     extern int is_global(const char *);
-    if (g_emit.zframe_graph && !(g_emit_cfg && (g_emit_cfg->icn_cells_graph || g_emit_cfg->pl_cells_graph))) {
+    if (g_emit.zframe_graph && !(g_emit_cfg && g_emit_cfg->icn_cells_graph)) {
         int op = (int)nd->op;
         if (op == IR_VAR || op == IR_ASSIGN) { extern int is_global(const char *); const char *vn = IR_LIT(nd).sval; if (vn && graph_has_local(g_emit_cfg, vn)) goto zframe_local_admitted; }
         return 0;
     }
-    if (!(g_emit_cfg && (g_emit_cfg->icn_cells_graph || g_emit_cfg->pl_cells_graph))) return 1;
+    if (!(g_emit_cfg && g_emit_cfg->icn_cells_graph)) return 1;
     zframe_local_admitted:;
     if (op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_LIT_CHARSET || op == IR_LIT_NAME) return 1;
-    if (op == IR_CALL_PROC_STAGED && !(g_emit_cfg && g_emit_cfg->pl_cells_graph)) { static int _zk2cps = -1; if (_zk2cps < 0) { const char * e = getenv("SCRIP_ZD_ICN_CPS"); _zk2cps = (e && *e == '0') ? 0 : 1; } return (_zk2cps && g_emit_cfg && g_emit_cfg->icn_cells_graph) ? 1 : 0; }
+    if (op == IR_CALL_PROC_STAGED) { static int _zk2cps = -1; if (_zk2cps < 0) { const char * e = getenv("SCRIP_ZD_ICN_CPS"); _zk2cps = (e && *e == '0') ? 0 : 1; } return (_zk2cps && g_emit_cfg && g_emit_cfg->icn_cells_graph) ? 1 : 0; }
     if (op == IR_UNOP) { int v = (int)IR_LIT(nd).ival; return (v == TT_MNS || v == TT_PLS || v == TT_SIZE || v == TT_CSET_COMPL) ? 1 : 0; }
     if (op == IR_BINOP) { long long o = (long long)IR_LIT(nd).ival; return (o == BINOP_ADD || o == BINOP_SUB || o == BINOP_MUL || o == BINOP_DIV || o == BINOP_MOD || o == BINOP_POW || o == BINOP_CUNION || o == BINOP_CDIFF || o == BINOP_CINTER || binop_is_concat((long)o)) ? 1 : 0; }
     if (op == IR_VAR || op == IR_ASSIGN) { const char * vn = IR_LIT(nd).sval; int _icn_cells = g_emit_cfg && g_emit_cfg->icn_cells_graph; return (vn && ((is_global(vn) && !graph_has_local(g_emit_cfg, vn) && !_icn_cells) || (graph_has_local(g_emit_cfg, vn) && x86_fb_pinned()) || (graph_has_local(g_emit_cfg, vn) && _icn_cells && x86_fb_pinned()))) ? 1 : 0; }
@@ -2151,7 +2149,7 @@ static int zd_wl_kind(IR_t * nd) {
     { static int _zdf2 = -1; if (_zdf2 < 0) { const char *_e = getenv("SCRIP_ZD_FENCE1"); _zdf2 = (_e && *_e == '0') ? 0 : 1; }
       if (_zdf2 && (op == IR_MATCH_FENCE1 || op == IR_MATCH_FENCE0)) return 1; }
     if (op == IR_MATCH_DEFER && nd->pat_static) return 1;
-    if (!(g_emit_cfg && (g_emit_cfg->icn_cells_graph || g_emit_cfg->pl_cells_graph))) return 1;
+    if (!(g_emit_cfg && g_emit_cfg->icn_cells_graph)) return 1;
     if (op == IR_MATCH_LIT) return 1;
     if (op == IR_MATCH_LEN)   return 1;
     if (op == IR_MATCH_ANY)   return 1;
@@ -2167,14 +2165,7 @@ static int zd_wl_kind(IR_t * nd) {
       if (_zc && (op == IR_MATCH_ASSIGN_SAVE || op == IR_MATCH_ASSIGN_COND || op == IR_MATCH_ASSIGN_IMM)) return 1;
       if (_zc && op == IR_MATCH_VALUE) return 1; }
     if (op == IR_TO) return 1;
-    if (op == IR_CALL_PROLOG) { static int _plcbp = -1; if (_plcbp < 0) { const char * e = getenv("SCRIP_ZD_PL_CBP"); _plcbp = (e && *e == '0') ? 0 : 1; } return (_plcbp && g_emit_cfg && g_emit_cfg->pl_cells_graph) ? 1 : 0; }
-    if (op == IR_VAR_REF) { static int _icnvr = -1; if (_icnvr < 0) { const char * e = getenv("SCRIP_ZD_ICN_VR"); _icnvr = (e && *e == '0') ? 0 : 1; } if (_icnvr && g_emit_cfg && g_emit_cfg->icn_cells_graph && x86_fb_pinned()) { const char * _vn = IR_LIT(nd).sval; extern int is_global(const char *); if (_vn && !is_global(_vn)) return 1; }    static int _plvr = -1; if (_plvr < 0) { const char * e = getenv("SCRIP_ZD_PL_VR"); _plvr = (e && *e == '0') ? 0 : 1; } return (_plvr && g_emit_cfg && g_emit_cfg->pl_cells_graph && emit_rec_pin() && emit_pl_gamma_retain()) ? 1 : 0; }
-    if (op == IR_CALL_PROC_STAGED) { static int _plcps = -1; if (_plcps < 0) { const char * e = getenv("SCRIP_ZD_PL_CPS"); _plcps = (e && *e == '0') ? 0 : 1; } return (_plcps && g_emit_cfg && g_emit_cfg->pl_cells_graph) ? 1 : 0; }
-    if (op == IR_SUSPEND) { static int _plsusp = -1; if (_plsusp < 0) { const char * e = getenv("SCRIP_ZD_PL_SUSP"); _plsusp = (e && *e == '0') ? 0 : 1; } return (_plsusp && g_emit_cfg && g_emit_cfg->pl_cells_graph) ? 1 : 0; }
-    if (op == IR_VAR) { static int _plvar = -1; if (_plvar < 0) { const char * e = getenv("SCRIP_ZD_PL_VAR"); _plvar = (e && *e == '0') ? 0 : 1; } return (_plvar && g_emit_cfg && g_emit_cfg->pl_cells_graph) ? 1 : 0; }
-    if (op == IR_DISJUNCTION) { static int _pldj = -1; if (_pldj < 0) { const char * e = getenv("SCRIP_ZD_PL_DJ"); _pldj = (e && *e == '0') ? 0 : 1; } return (_pldj && g_emit_cfg && g_emit_cfg->pl_cells_graph && nd->n_operands == 0) ? 1 : 0; }
-    if (op == IR_CUT) { static int _plcut = -1; if (_plcut < 0) { const char * e = getenv("SCRIP_ZD_PL_CUT"); _plcut = (e && *e == '0') ? 0 : 1; } return (_plcut && g_emit_cfg && g_emit_cfg->pl_cells_graph) ? 1 : 0; }
-    if (op == IR_MOVE_LABEL) { static int _plml = -1; if (_plml < 0) { const char * e = getenv("SCRIP_ZD_PL_ML"); _plml = (e && *e == '0') ? 0 : 1; } return (_plml && g_emit_cfg && g_emit_cfg->pl_cells_graph) ? 1 : 0; }
+    if (op == IR_VAR_REF) { static int _icnvr = -1; if (_icnvr < 0) { const char * e = getenv("SCRIP_ZD_ICN_VR"); _icnvr = (e && *e == '0') ? 0 : 1; } if (_icnvr && g_emit_cfg && g_emit_cfg->icn_cells_graph && x86_fb_pinned()) { const char * _vn = IR_LIT(nd).sval; extern int is_global(const char *); if (_vn && !is_global(_vn)) return 1; }    return 0; }
     if (op == IR_MAKE_LIST) { static int _icnml = -1; if (_icnml < 0) { const char * e = getenv("SCRIP_ZD_ICN_ML"); _icnml = (e && *e == '0') ? 0 : 1; } return (_icnml && g_emit_cfg && g_emit_cfg->icn_cells_graph && x86_fb_pinned()) ? 1 : 0; }
     if (op == IR_RETURN) { static int _zk4r = -1; if (_zk4r < 0) { const char * e = getenv("SCRIP_ZD_RETURN"); _zk4r = (e && *e == '0') ? 0 : 1; } return (_zk4r && g_emit_cfg && g_emit_cfg->icn_cells_graph) ? 1 : 0; }
     if (op == IR_CONJUNCTION) { static int _zk2c = -1; if (_zk2c < 0) { const char * e = getenv("SCRIP_ZD_CONJ"); _zk2c = (e && *e == '0') ? 0 : 1; } return (_zk2c && g_emit_cfg && g_emit_cfg->icn_cells_graph) ? 1 : 0; }
@@ -2187,10 +2178,8 @@ static int zd_wl_kind(IR_t * nd) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zd_nops(IR_t * nd) { int op = (int)nd->op;
-    if (op == IR_CALL_PROC_STAGED && g_emit_cfg && g_emit_cfg->pl_cells_graph) return 0;
-    if (op == IR_SUSPEND && g_emit_cfg && g_emit_cfg->pl_cells_graph) return 0;
     if (op == IR_KW_ASSIGN_SNOBOL4) return 1;
-    return (op == IR_UNOP || op == IR_ASSIGN || op == IR_DEREF || op == IR_COERCE_STRING || op == IR_COERCE_INTEGER || op == IR_FIELD_VAR || op == IR_MATCH_BEGIN || op == IR_RETURN) ? 1 :    (op == IR_BINOP || op == IR_COERCE_NUMERIC || op == IR_CMP_TEST || op == IR_IDENT || op == IR_DIFFER || op == IR_BINOP_TEST || op == IR_BINOP_RELOP_VAL) ? 2 :    (op == IR_MATCH_REPLACE) ? 2 : (op == IR_SUBSCRIPT || op == IR_ASSIGN_VAR || op == IR_MAKE_LIST || op == IR_CALL || op == IR_CALL_ICON || op == IR_CALL_PROLOG || op == IR_CALL_PROC_STAGED || op == IR_SUSPEND || op == IR_TO || op == IR_MATCH_LEN || op == IR_MATCH_ANY || op == IR_MATCH_NOTANY || op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_ASSIGN_COND || op == IR_MATCH_ASSIGN_IMM || op == IR_MATCH_VALUE) ? (int)nd->n_operands : 0; }
+    return (op == IR_UNOP || op == IR_ASSIGN || op == IR_DEREF || op == IR_COERCE_STRING || op == IR_COERCE_INTEGER || op == IR_FIELD_VAR || op == IR_MATCH_BEGIN || op == IR_RETURN) ? 1 :    (op == IR_BINOP || op == IR_COERCE_NUMERIC || op == IR_CMP_TEST || op == IR_IDENT || op == IR_DIFFER || op == IR_BINOP_TEST || op == IR_BINOP_RELOP_VAL) ? 2 :    (op == IR_MATCH_REPLACE) ? 2 : (op == IR_SUBSCRIPT || op == IR_ASSIGN_VAR || op == IR_MAKE_LIST || op == IR_CALL || op == IR_CALL_ICON || op == IR_CALL_PROC_STAGED || op == IR_SUSPEND || op == IR_TO || op == IR_MATCH_LEN || op == IR_MATCH_ANY || op == IR_MATCH_NOTANY || op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_ASSIGN_COND || op == IR_MATCH_ASSIGN_IMM || op == IR_MATCH_VALUE) ? (int)nd->n_operands : 0; }
 static int emit_graph_has_deep_arrival(IR_graph_t *g);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int emit_match_begin_stfh_k_raw(void) {
@@ -2830,7 +2819,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     {
     static int _plzk0_on = -1;
     if (_plzk0_on < 0) { const char * _e = getenv("SCRIP_ZD_CENSUS"); _plzk0_on = (_e && *_e == '1') ? 1 : 0; }
-    if (_plzk0_on && g_emit_cfg && g_emit_cfg->pl_cells_graph) {
+    if (_plzk0_on) {
         long _k_total = 0; int _armed = 0; int _refused_nodes = 0;
         int _blocker_op[512]; int _blocker_cnt[512]; int _n_blockers = 0;
         for (int _i = 0; _i < n; _i++) {
@@ -2862,9 +2851,9 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         int _slot = zw5_pool_stmts++; zw5_stmt_idx[_slot] = _i; zw5_stmt_cnt[_slot] = _ndepths;
         for (int _d = 0; _d < _ndepths; _d++) { zw5_stmt_depths[_slot][_d] = _depths[_d]; emit_label_initf(&zw5_pool[zw5_base + _d], "%s_zw5s%d_ω_d%d", fam, _stno, _depths[_d]); }
         zw5_base += _ndepths; } }
-    { g_emit.flat_all_zd = 0; { static int _zpg = -1; if (_zpg < 0) { const char *_e = getenv("SCRIP_ZD_PL_GEN"); _zpg = (_e && *_e == '0') ? 0 : 1; } int _pl_cells = (_zpg && g_emit_cfg && g_emit_cfg->pl_cells_graph); int _gen_ok = (!g_emit.flat_gen) || _pl_cells; int _jmp_ok = (!g_emit.flat_jmp_entry) || _pl_cells;  if (!g_emit.flat_pat && _gen_ok && _jmp_ok && n > 0) { int _azd = 1; for (int _i = 0; _i < n; _i++) if (!zd_on[_i]) { if (_pl_cells && zd_out[_i] == -1) continue;    _azd = 0; break; } g_emit.flat_all_zd = _azd; } } { static int _lpd = -1; if (_lpd < 0) { const char * _e = getenv("SCRIP_LP_DIAG"); _lpd = (_e && *_e == '1') ? 1 : 0; } if (_lpd) { int _arm = 0; for (int _i = 0; _i < n; _i++) if (zd_on[_i]) _arm++; fprintf(stderr, "[LP] prefix=%s n=%d armed=%d all_zd=%d region=%d jmp=%d pat=%d gen=%d\n", prefix, n, _arm, g_emit.flat_all_zd, (g_emit_cfg ? g_emit_cfg->jcon_value_region : -1), g_emit.flat_jmp_entry, g_emit.flat_pat, g_emit.flat_gen); } } }       { extern void emit_fb_divergence_check(void); emit_fb_divergence_check(); }
+    { g_emit.flat_all_zd = 0; { int _gen_ok = !g_emit.flat_gen; int _jmp_ok = !g_emit.flat_jmp_entry;  if (!g_emit.flat_pat && _gen_ok && _jmp_ok && n > 0) { int _azd = 1; for (int _i = 0; _i < n; _i++) if (!zd_on[_i]) { _azd = 0; break; } g_emit.flat_all_zd = _azd; } } { static int _lpd = -1; if (_lpd < 0) { const char * _e = getenv("SCRIP_LP_DIAG"); _lpd = (_e && *_e == '1') ? 1 : 0; } if (_lpd) { int _arm = 0; for (int _i = 0; _i < n; _i++) if (zd_on[_i]) _arm++; fprintf(stderr, "[LP] prefix=%s n=%d armed=%d all_zd=%d region=%d jmp=%d pat=%d gen=%d\n", prefix, n, _arm, g_emit.flat_all_zd, (g_emit_cfg ? g_emit_cfg->jcon_value_region : -1), g_emit.flat_jmp_entry, g_emit.flat_pat, g_emit.flat_gen); } } }       { extern void emit_fb_divergence_check(void); emit_fb_divergence_check(); }
     { static int _tp = -1; if (_tp < 0) { const char * e = getenv("SCRIP_TOP_PORTS"); _tp = (e && *e == '1') ? 1 : 0; }
-      int _cls_o = (!bare && !g_emit.flat_jmp_entry && !g_emit.zframe_graph && !g_emit.flat_stmt_frame && !g_emit.flat_lcl_proc && !g_emit.flat_pat && !g_emit.flat_gen && !g_gen_proc_active && !(g_emit_cfg && (g_emit_cfg->icn_cells_graph || g_emit_cfg->pl_cells_graph)) && !(g_emit_cfg && g_emit_cfg->body_root) && g_emit.flat_outer_nparams == 0) ? 1 : 0;
+      int _cls_o = (!bare && !g_emit.flat_jmp_entry && !g_emit.zframe_graph && !g_emit.flat_stmt_frame && !g_emit.flat_lcl_proc && !g_emit.flat_pat && !g_emit.flat_gen && !g_gen_proc_active && !(g_emit_cfg && g_emit_cfg->icn_cells_graph) && !(g_emit_cfg && g_emit_cfg->body_root) && g_emit.flat_outer_nparams == 0) ? 1 : 0;
       if (_cls_o) for (int _i = 0; _i < n; _i++) if (nodes[_i]->op == IR_SUSPEND) { _cls_o = 0; break; }
       _top_hoist = (_tp && _cls_o) ? 1 : 0;
       if (_top_hoist) {
@@ -2887,7 +2876,6 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     if (g_emit.flat_stmt_frame) { emit_label_initf(&lbl_stcγ, "%s_stγ", fam); emit_label_initf(&lbl_stcω, "%s_stω", fam); }
     if (g_emit.zframe_graph) {
         { extern void xa_flat_zframe_prologue(void); xa_flat_zframe_prologue(); }
-        if (g_emit_cfg && g_emit_cfg->pl_cells_graph && g_emit.flat_all_zd) { int _plk = 0; for (int _i = 0; _i < g_emit_cfg->n; _i++) { IR_t * _nd = g_emit_cfg->all[_i]; if (_nd && zd_wl_kind(_nd)) _plk += zd_k(_nd); } if (_plk > 0) { bb_emit_x86(x86("sub", "rsp", (long)_plk)); } }
     } else if (icn_gen_regime() && g_emit.flat_gen) {
         int kt2 = g_emit.flat_frame_bytes;
         int np = g_emit_cfg ? g_emit_cfg->nparams : 0;
@@ -3123,7 +3111,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             int wantb = (int) IR_LIT(nodes[i]).ival;
             if (rtgt->op == IR_FAIL) g_move_label_tgt = &lbl_ω;
             else if (rtgt->op == IR_SUCCEED) g_move_label_tgt = &lbl_γ;
-            else for (int k = 0; k < n; k++) if (nodes[k] == rtgt) { g_move_label_tgt = wantb ? betas[k] : lbls[k]; if (wantb && g_emit_cfg && g_emit_cfg->pl_cells_graph) { g_emit.lbl_t1 = lbls[k]->name; g_emit.lbl_t1_p = lbls[k]; }    break; }
+            else for (int k = 0; k < n; k++) if (nodes[k] == rtgt) { g_move_label_tgt = wantb ? betas[k] : lbls[k]; break; }
         }
         if (nodes[i]->op == IR_MOVE_LABEL && nodes[i]->n_operands > 1 && nodes[i]->operands[1]) {
             IR_t *igp = nodes[i]->operands[1];
@@ -3225,7 +3213,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
           bb_label_t *_zw5_saved_omega = NULL; int _zw5_wpop_stolen = 0;
           { int _h = i;
           if (_zw5_on && !_endj_stolen && !_uw_stolen && nodes[i]->op != IR_STATEMENT && nodes[i]->op != IR_STATEMENT_END && zd_on[i] && zd_wp[i] > 0 && !omega_is_retry && !omega_is_phi) { for (int _si = 0; _si < zw5_pool_stmts; _si++) { int _si_base = 0; for (int _sj = 0; _sj < _si; _sj++) _si_base += zw5_stmt_cnt[_sj]; if (zw5_stmt_idx[_si] > i) { for (int _d = 0; _d < zw5_stmt_cnt[_si]; _d++) { if (zw5_stmt_depths[_si][_d] == zd_wp[i]) { _zw5_saved_omega = node_ω; node_ω = &zw5_pool[_si_base + _d]; _zw5_wpop_stolen = zd_wp[i]; break; } } break; } } } }
-          if (zd_on[i] || zd_gp[i] > 0 || zd_wp[i] > 0) { g_zd_stage = 1; g_zd_arm = (zd_on[i] && !(g_emit_cfg && g_emit_cfg->pl_cells_graph && !g_emit.flat_all_zd)) ? 1 : 0; int _pl_suppress = (g_emit_cfg && g_emit_cfg->pl_cells_graph && !g_emit.flat_all_zd) ? 1 : 0; g_zd_gpop = _pl_suppress ? 0 : zd_gp[i]; g_zd_wpop = _pl_suppress ? 0 : (_uw_stolen ? (int)_uw_pop : ((_zw5_wpop_stolen || _endj_stolen) ? 0 : zd_wp[i])); g_zd_wsteal = _endj_stolen || _uw_stolen;
+          if (zd_on[i] || zd_gp[i] > 0 || zd_wp[i] > 0) { g_zd_stage = 1; g_zd_arm = zd_on[i] ? 1 : 0; g_zd_gpop = zd_gp[i]; g_zd_wpop = (_uw_stolen ? (int)_uw_pop : ((_zw5_wpop_stolen || _endj_stolen) ? 0 : zd_wp[i])); g_zd_wsteal = _endj_stolen || _uw_stolen;
               g_zd_k = zd_on[i] ? zd_k(nodes[i]) : 0;
               { g_zd_zunder = 0; if (zd_on[i] && nodes[i]->op == IR_MATCH_REPLACE) { int _zu = 0; for (int _zj = i - 1; _zj >= 0; _zj--) { if (nodes[_zj]->op == IR_MATCH_END) break; if (zd_on[_zj]) _zu += zd_k(nodes[_zj]); } g_zd_zunder = _zu; int _zp = 0, _inpat = 0; for (int _zj = i - 1; _zj >= 0; _zj--) { if (nodes[_zj]->op == IR_MATCH_BEGIN) break; if (nodes[_zj]->op == IR_MATCH_END) { _inpat = 1; continue; } if (_inpat && zd_on[_zj] && nodes[_zj]->op >= IR_MATCH && nodes[_zj]->op <= IR_MATCH_VALUE) _zp += zd_k(nodes[_zj]) - fence0_release_bytes(nodes[_zj]);    } g_zd_zpat = _zp; { extern int fc_head_fp(const IR_t *); IR_t * _mb = (IR_t *)0; int _jh = -1; for (int _zj = i - 1; _zj >= 0; _zj--) { if (nodes[_zj]->op == IR_MATCH_BEGIN) { _mb = nodes[_zj]; _jh = _zj; break; } } int _fp = _mb ? fc_head_fp(_mb) : -1; g_zd_zfc = (_fp >= 0) ? _fp : 0; (void)_jh; } { static int _zpd = -1; if (_zpd < 0) { const char * _e = getenv("SCRIP_ZPAT_DIAG"); _zpd = (_e && *_e == '1') ? 1 : 0; } if (_zpd) fprintf(stderr, "[ZPAT] i=%d zunder=%d zpat=%d zfc=%d zout_repl=%d op=%s\n", i, g_zd_zunder, g_zd_zpat, g_zd_zfc, zd_out[i], bb_op_name(nodes[i]->op)); } } }       { g_zd_ztail = 0; if (zd_on[i] && (nodes[i]->op == IR_TO || nodes[i]->op == IR_TO_BY)) { int _zttail = 0; for (int _zt = i + 1; _zt < n; _zt++) { if (zd_on[_zt]) _zttail += zd_k(nodes[_zt]); } g_zd_ztail = _zttail; } }
               for (int _zj = 0; _zj < 6; _zj++) { g_zd_read[_zj] = 0; g_zd_kind[_zj] = -1; }
@@ -3385,7 +3373,7 @@ static int emit_chain_arity(const IR_t *n) {
     case IR_ASSIGN: return 1;
     case IR_RETURN: return 1;
     case IR_CALL_PROC_STAGED: case IR_CALL_BUILTIN:
-    case IR_CALL_ICON: case IR_CALL_SNOBOL4: case IR_CALL_PROLOG:
+    case IR_CALL_ICON: case IR_CALL_SNOBOL4:
     case IR_CALL:  return n->n_operands;
     case IR_PROC_GEN: return 0;
     case IR_SCAN_TAB: case IR_SCAN_MOVE: case IR_SCAN_POS:
@@ -3462,7 +3450,7 @@ static int emit_jmp_entry_arm_region(IR_graph_t *g) {
     g_emit.flat_layout_unknown = 0;
     if (rg <= 0) { rg = 4096; so = -1; g_emit.flat_layout_unknown = 1; }
     { extern int g_flat_frame_floor; if (g_flat_frame_floor > 0 && rg < g_flat_frame_floor) { rg = g_flat_frame_floor; so = -1; g_emit.flat_layout_unknown = 1; } }
-    g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = (48 + (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) + 15) & ~15;
+    g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = (((g_emit_cfg && g_emit_cfg->zframe_pinned_base && g_emit_cfg->zframe_graph && !g_emit_cfg->icn_cells_graph) ? 80 : 48) + (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) + 15) & ~15;
     g_emit.flat_seed_off = (so >= 16 && so <= rg) ? so : 0;
     return 1;
 }
@@ -3574,7 +3562,7 @@ bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
         g_emit.flat_lcl_proc = (!g_emit.flat_pat && _gen_ok && g_emit_cfg && ((g_emit.flat_jmp_entry && (g_emit_cfg->nparams > 0 || g_emit_cfg->nlocals > 0)) || g_emit_cfg->icn_cells_graph)) ? 1 : 0; }
       g_emit.zframe_graph = (g_emit_cfg && g_emit_cfg->zframe_graph && !g_emit_cfg->icn_cells_graph) ? 1 : 0;
       g_emit.zframe_pinned_base = (g_emit_cfg && g_emit_cfg->zframe_pinned_base && !g_emit_cfg->icn_cells_graph) ? 1 : 0;
-      if ((g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->icn_cells_graph)) && g_emit.flat_frame_bytes == 0) { g_emit.flat_frame_bytes = (48 + (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) + 15) & ~15; }
+      if ((g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->icn_cells_graph)) && g_emit.flat_frame_bytes == 0) { g_emit.flat_frame_bytes = ((g_emit.zframe_pinned_base ? 80 : 48) + (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) + 15) & ~15; }
       int _c2g; { static int _c2 = -1; if (_c2 < 0) { const char * e = getenv("SCRIP_CALL2BB"); _c2 = (e && *e == '1') ? 1 : 0; } _c2g = _c2; }
       int _stfj = (_stf && _c2g && g_emit.flat_jmp_entry && !g_emit.flat_pat && !g_emit.flat_gen && !g_emit.flat_deep_arrival && !g_gen_proc_active && !(g_emit_cfg && g_emit_cfg->resumable_callable) && g_flat_frame_floor > 0) ? 1 : 0;
       int _pat_ok = (!g_emit.flat_pat) ? 1 : 0;

@@ -4,32 +4,12 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
-void *rt_pl_retry_pop(void);
-void *rt_pl_cp_pop(void);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_indirect_goto() {
     x86_begin();
     if (_.op_off < 0) return x86_alpha() + x86_bomb("bb_indirect_goto: no label-variable slot (op_off<0)");
-    if (_.op_zres) {
-        return x86("comment", "IR_INDIRECT_GOTO (ZD/cells: retry stack pop)")
-             + x86_alpha()
-             + x86("call", "rt_pl_retry_pop", (uint64_t)(uintptr_t)(void *)rt_pl_retry_pop)
-             + x86("test", "rax", "rax")
-             + x86_omega("je")
-             + x86("jmp", "rax")
-             + x86_beta_trampoline();
-    }
-    if (g_emit.zframe_graph) {
-        return x86("comment", "IR_INDIRECT_GOTO (zframe: cp_stack pop → jmp)")
-             + x86_alpha()
-             + x86("call", "rt_pl_cp_pop", (uint64_t)(uintptr_t)(void *)rt_pl_cp_pop)
-             + x86("test", "rax", "rax")
-             + x86_omega("je")
-             + x86("jmp", "rax")
-             + x86_beta_trampoline();
-    }
     return x86("comment", "IR_INDIRECT_GOTO alt-resume: jmp *t")
          + x86_alpha()
          + x86("jmp", FRQ(_.op_off + 16))

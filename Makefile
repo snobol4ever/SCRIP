@@ -351,7 +351,6 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/builtins/gen_runtime.c \
     $(SRC)/runtime/by_name_dispatch.c \
     $(SRC)/runtime/unification.c \
-    $(SRC)/runtime/builtins/resolution.c \
     $(SRC)/runtime/core/coerce.c \
     $(SRC)/ir/scrip_ir.c \
     $(SRC)/ir/zeta_storage.c \
@@ -395,8 +394,6 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb/bb_binop_gvar_arith_slot.cpp \
     $(SRC)/templates/bb/bb_call_define.cpp \
     $(SRC)/templates/bb/bb_case_arm.cpp \
-    $(SRC)/templates/bb/bb_cell_cut.cpp \
-    $(SRC)/templates/bb/bb_cell_ite.cpp \
     $(SRC)/templates/bb/bb_det_nl.cpp \
     $(SRC)/templates/bb/bb_idx_get.cpp \
     $(SRC)/templates/bb/bb_idx_set.cpp \

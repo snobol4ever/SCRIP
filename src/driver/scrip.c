@@ -122,7 +122,6 @@ extern const char *Σ;
 extern int         Ω;
 extern int         Δ;
 #include "../runtime/builtins/gen_runtime.h"
-#include "../runtime/builtins/resolution.h"
 #include "driver/polyglot.h"
 #include "../tools/emit_per_kind_audit.h"
 #include "../ir/zeta_choices.h"
@@ -1354,7 +1353,7 @@ int main(int argc, char **argv)
                 emit_textf("  .section .text\n  .intel_syntax noprefix\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; emit_textf("  lea rdi, [rip + .Lopn%d]\n  mov esi, %d\n  lea rdx, [rip + .Lopt%d]\n  call prolog_op_table_add@PLT\n", k, opr, k); } } }
             if (bbg->nparams >= 1) emit_textf("  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  call rt_main_args_stage@PLT\n");
             emit_textf("  mov r12, qword ptr [0x70000000]\n");
-            if (is_prolog && bbg->zframe_graph && !bbg->icn_cells_graph) emit_textf("  call rt_gcheap_warmup@PLT\n  call rt_plw_floor_bypass_on@PLT\n");
+            if (is_prolog && bbg->zframe_graph && !bbg->icn_cells_graph) emit_textf("  call rt_gcheap_warmup@PLT\n");
             { extern unsigned char g_rtcc_on; if (g_rtcc_on) emit_textf("  call rtcc_load_all@PLT\n"); }
             emit_textf("  xor esi, esi\n");
             if (bbg->zframe_graph && !bbg->icn_cells_graph) {
@@ -1760,10 +1759,9 @@ int main(int argc, char **argv)
             { extern void bbprof_start(void); bbprof_start(); }
             { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }
             if (_zframe_graph && !_icn_cells_graph) {
-                { extern int g_plw_floor_bypass; g_plw_floor_bypass = 1; }
                 icn_zf_main_call((void *)fn, mf, (void *)icn_zf_exit_γ, (void *)icn_zf_exit_ω);
             } else
-            { extern void rt_outer_call(bb_box_fn, void *, long); extern int g_plw_floor_bypass; int _bypass = is_prolog && _zframe_graph; if (_bypass) g_plw_floor_bypass = 1;  { extern void rtcc_load_all(void); extern unsigned char g_rtcc_on; if (g_rtcc_on) rtcc_load_all(); }    { extern void rt_outer_call_delta0(bb_box_fn, void *, long); if (is_icon) rt_outer_call_delta0(fn, mf, 0); else rt_outer_call(fn, mf, 0); }    if (_bypass) g_plw_floor_bypass = 0; }
+            { extern void rt_outer_call(bb_box_fn, void *, long);  { extern void rtcc_load_all(void); extern unsigned char g_rtcc_on; if (g_rtcc_on) rtcc_load_all(); }    { extern void rt_outer_call_delta0(bb_box_fn, void *, long); if (is_icon) rt_outer_call_delta0(fn, mf, 0); else rt_outer_call(fn, mf, 0); } }
             goto run_done;
         }
         {

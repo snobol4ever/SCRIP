@@ -4,7 +4,6 @@
 #include "lower.h"
 #include "../../emitter/sil_macros.h"
 #include "../../parsers/prolog/prolog_atom.h"
-#include "../../runtime/builtins/resolution.h"
 #include "../../parsers/raku/re.h"
 #include <stddef.h>
 #include <string.h>
@@ -95,22 +94,18 @@ static void resolve_format_float(char *buf, size_t bufsz, double d);
 static int bb_body_has_live_choice(IR_graph_t *bbg);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_is_cell_int(void *lhs_cell, long val) {
-    extern pl_trail_t g_pl_trail;
     pl_cell_t *lhs = (pl_cell_t *)lhs_cell;
     if (!lhs) return 0;
     pl_cell_t w = pl_make_int((int64_t)val);
-    int mark = pl_trail_mark(&g_pl_trail);
-    if (!pl_unify(lhs, &w, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    if (!pl_unify(lhs, &w)) return 0;
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_is_cell_float(void *lhs_cell, double val) {
-    extern pl_trail_t g_pl_trail;
     pl_cell_t *lhs = (pl_cell_t *)lhs_cell;
     if (!lhs) return 0;
     pl_cell_t w = pl_make_float(val);
-    int mark = pl_trail_mark(&g_pl_trail);
-    if (!pl_unify(lhs, &w, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    if (!pl_unify(lhs, &w)) return 0;
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -140,7 +135,6 @@ int rt_pl_arith_cmp_cell_val(const char *op, void *lhs_cell, long lhs_ival, void
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_is_cell_arith(void *lhs_cell, void *rhs_cell, const char *op, long rhs_ival) {
-    extern pl_trail_t g_pl_trail;
     pl_cell_t *lhs = (pl_cell_t *)lhs_cell;
     if (!lhs) return 0;
     pl_cell_t w;
@@ -181,13 +175,11 @@ int rt_pl_is_cell_arith(void *lhs_cell, void *rhs_cell, const char *op, long rhs
         } else return 0;
     } else { w = pl_make_int((int64_t)rhs_ival); }
 bind:;
-    int mark = pl_trail_mark(&g_pl_trail);
-    if (!pl_unify(lhs, &w, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    if (!pl_unify(lhs, &w)) return 0;
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_is_cell_bivar(void *lhs_cell, void *cell1, void *cell2, const char *op) {
-    extern pl_trail_t g_pl_trail;
     pl_cell_t *lhs = (pl_cell_t *)lhs_cell;
     if (!lhs || !cell1 || !cell2) return 0;
     pl_cell_t *t1 = pl_deref((pl_cell_t *)cell1), *t2 = pl_deref((pl_cell_t *)cell2);
@@ -227,8 +219,7 @@ int rt_pl_is_cell_bivar(void *lhs_cell, void *cell1, void *cell2, const char *op
         w = ((double)iv == rv) ? pl_make_int((int64_t)iv) : pl_make_float(rv);
     }
 bind:;
-    int mark = pl_trail_mark(&g_pl_trail);
-    if (!pl_unify(lhs, &w, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    if (!pl_unify(lhs, &w)) return 0;
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

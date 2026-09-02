@@ -6,7 +6,6 @@
 #include "rk_opname.h"
 #include "builtins/gen.h"
 #include "builtins/gen_runtime.h"
-#include "builtins/resolution.h"
 #include "../parsers/prolog/prolog_atom.h"
 #include <stdlib.h>
 #include <stdio.h>

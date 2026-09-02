@@ -594,7 +594,7 @@ static void gc_root_cas(void)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long gc_collect_ex(int cons_stack)
 {
-    extern void core_gc_roots(void); extern void gen_gc_roots(void); extern void rt_gc_root_args(void); extern void rt_gc_ws_roots(void); extern int rt_scan_active(void); extern int rt_value_trail_mark(void);
+    extern void core_gc_roots(void); extern void gen_gc_roots(void); extern void rt_gc_root_args(void); extern void rt_gc_ws_roots(void); extern int rt_scan_active(void);
     char anchor; long nlive = 0, npin = 0, nfill = 0, before_b, after_b; char *dest; rt_hblk_t **liveo; uint64_t *livef; long li = 0; int pz = 0; long nforeign = 0;
     long w_cnt = 0, w_idx = 0, w_pmg = 0, w_fwd = 0, w_liv = 0, w_sld = 0, w_vfy = 0, w_cel = 0, w_raw = 0, w_mov = 0; int w_tel = getenv("SCRIP_ZETA_TELEM") ? 1 : 0;
     double n_cnt = 0, n_idx = 0, n_mrk = 0, n_fwd = 0, n_liv = 0, n_sld = 0, n_vfy = 0, n_fix = 0, n_t0 = 0, n_all = w_tel ? gc_walk_ns() : 0;
@@ -621,7 +621,7 @@ static long gc_collect_ex(int cons_stack)
         g_gc_widx[g_gc_wn++] = h; p += h->size; } g_gc_windexed = p; }
     g_gc_mhead = (rt_hblk_t *)0;
     { static int legacy_env = -1; if (legacy_env < 0) { const char *e = getenv("SCRIP_GC_LEGACY"); legacy_env = (e && *e && *e != '0') ? 1 : 0; }
-      pz = (cons_stack == 0 && !legacy_env && nforeign == 0 && !rt_scan_active() && !g_scrip_coexpr_live && rt_value_trail_mark() == 0 && g_gc_rrng_n == g_gc_rrng_ss);
+      pz = (cons_stack == 0 && !legacy_env && nforeign == 0 && !rt_scan_active() && !g_scrip_coexpr_live && g_gc_rrng_n == g_gc_rrng_ss);
       if (cons_stack == 0 && !pz) cons_stack = 1; }
     g_gc_hn = 0; if (g_gc_hs) memset(g_gc_hs, 0, (size_t)g_gc_hcap * sizeof(void *));
     g_gc_nslot = 0; g_gc_interior = 0;

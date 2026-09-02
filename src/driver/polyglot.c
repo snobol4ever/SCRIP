@@ -8,7 +8,6 @@
 #include "parsers/raku/raku_driver.h"
 #include "parsers/rebus/rebus_lower.h"
 #include "runtime/builtins/gen_runtime.h"
-#include "runtime/builtins/resolution.h"
 #include "driver/driver.h"
 #include "driver/polyglot.h"
 #include "lower.h"
@@ -28,8 +27,6 @@ void polyglot_init(stage2_t *s2, const tree_t *prog)
     g_root = NULL;
     prolog_atom_init();
     memset(&s2->resolve_pred_table, 0, sizeof s2->resolve_pred_table);
-    g_resolve_cut_flag = 0;
-    g_resolve_active   = 0;
     memset(&s2->module_registry, 0, sizeof s2->module_registry);
     s2->module_registry.main_mod = -1;
 }

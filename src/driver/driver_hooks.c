@@ -57,16 +57,6 @@ DESCR_t _usercall_hook(const char *name, DESCR_t *args, int nargs) {
                 return proc_table_call(_i, args, nargs);
             }
         }
-        if (g_resolve_active) {
-            char resolve_key[256];
-            snprintf(resolve_key, sizeof resolve_key, "%s/%d", name, nargs);
-            tree_t *choice = resolve_pred_table_lookup(&g_stage2.resolve_pred_table, resolve_key);
-            if (choice) {
-                fprintf(stderr, "[PL] FATAL: brokered Prolog call path removed (driver_hooks)\n");
-                abort();
-                return FAILDESCR;
-            }
-        }
     }
     if (FNCEX_fn(name)) {
         DESCR_t _r = rt_call_named_proc(name, args, nargs); if (!IS_FAIL_fn(_r)) return _r; const char *_ent = FUNC_ENTRY_fn(name);

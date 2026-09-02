@@ -30,8 +30,6 @@ DESCR_t rt_gen_spine_pass_γ(DESCR_t v);
 DESCR_t rt_gen_spine_pass_ω(void);
 void rt_gen_spine_resume_enter(void);
 int     zls_g_resume_by_name(const char *name);
-int     zls_g_pl_zf_trail_mark_off_by_name(const char *name);
-int     zls_g_pl_zf_trail_mark_off_by_name(const char *name);
 int  rt_proc_is_generator(const char *name);
 int rt_define_tiny_ok(const char *, int);
 int rt_define_returns_by_frame(const char *);
@@ -41,8 +39,6 @@ static int bcps_wire_pair_consumed(const char *fname) {
     if (!_wpf) return 1;
     return (fname && rt_define_returns_by_frame(fname)) ? 0 : 1;
 }
-void *rt_pl_cp_pop3(long *tm_lo, long *tm_hi);
-void rt_pl_zf_resume_set(void *cursor, long tm_lo, long tm_hi, int tm_off, int cursor_off);
 int  rt_proc_dyn_scope(const char *name);
 void rt_arg_stage(int idx, DESCR_t v);
 extern "C" DESCR_t g_call_args[];
@@ -95,7 +91,6 @@ static std::string bcps_epi_named(int is_omega, uint64_t bare_fp)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define SAI_L0 200
 static std::string stage_arg_inline(int i, int slot, uint64_t stage_fp) {
-    bool plc = g_emit_cfg && g_emit_cfg->pl_cells_graph;
     std::string slow = x86("mov32", "edi", (long)i) + x86("mov", "rsi", FRQ(slot)) + x86("mov", "rdx", FRQ(slot + 8)) + x86("call", "rt_arg_stage", stage_fp);
     if (i < 0 || i >= 8 || getenv("SCRIP_NO_SINK")) return slow;
     return x86("lea", "r8", "[rip + __]", (uint64_t)(uintptr_t)&g_gc_pending, "g_gc_pending")
@@ -674,9 +669,6 @@ static std::string bcps_spine_gen_arm() {
     uint64_t pasg_fp;  { DESCR_t (*fp)(DESCR_t) = rt_gen_spine_pass_γ; pasg_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t pasw_fp;  { DESCR_t (*fp)(void) = rt_gen_spine_pass_ω; pasw_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t rsen_fp;  { void (*fp)(void) = rt_gen_spine_resume_enter; rsen_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    int  zf_cont_off = (g_emit.zframe_graph && _.op_sval) ? ([]() { extern int zls_g_resume_by_name(const char *); return zls_g_resume_by_name(_.op_sval); })() : -1;
-    bool pl_zf_resume = g_emit.zframe_graph && (zf_cont_off >= 0);
-    int  pl_tm_off = pl_zf_resume ? zls_g_pl_zf_trail_mark_off_by_name(_.op_sval) : 0;
     int   gi_off; { static int c = -1; if (c < 0) { const char *e = getenv("SCRIP_NO_GENIDX"); c = (e && *e == '1') ? 1 : 0; } gi_off = c; }
     int   gi_dyn = _.op_sval && rt_proc_dyn_scope(_.op_sval);
     long  gi_idx = (!gi_off && !gi_dyn && _.op_sval) ? (long)rt_proc_index_of(_.op_sval) : -1L;
@@ -738,11 +730,9 @@ static std::string bcps_spine_gen_arm() {
               + x86("mov32", "edi", (long)DT_FAIL) + x86("mov32", "esi", 0L)
               + x86("mov", FRQ(act + 8), "rsp")
               + x86("def", L(9))
-            : ((pl_zf_resume && emit_pl_gamma_retain())
-               ? x86_bomb("bb_call_proc_staged: PZ-4 clause (c) LANDING is scaffolded and still refuses to run -- BUT NOT FOR THE REASON THIS BOMB CARRIED UNTIL 2026-08-30. The ARITHMETIC blocker seat05 named here is CURED and the cure is measured: emit_patzeta_frame_reserve() now returns a Prolog zframe callee's TRUE frame_total on BOTH registration windows (per-emission SCRIP 3fe34608; the forward-reference PRE-PASS in scrip.c, which kept registering the Icon-shaped (np+nl)*16 after that cure and disagreed with it, fixed in the same commit family by hq_B). MEASURED on fact/2 (np=2 nl=4): pre-pass 1328 -> 1232, per-emission 1232, callee alpha carve `sub rsp, 1232` -- all three now agree, so `rsp = rax + emit_patzeta_frame_reserve(callee)` IS the correct restore and the byte count is no longer unknown. ⛔ A SECOND, INDEPENDENT BLOCKER STANDS, AND IT IS THE ONE THAT MATTERS: THE HOST IS STILL RSP-RELATIVE. Clause (b) hands rax = the callee base with NO unwind (xa_flat_zframe_epilogue_γ_str under pl_gamma_retain_on), so the retained frame lives BELOW the caller landing. Restoring rsp to rax+ft puts rsp back ABOVE that frame, leaving it below rsp and unprotected against the next call -- which is not a hypothesis: hq_P measured that exact class on 18 of 21 van Roy kernels, first invalid access at pl_trail_unwind (src/parsers/prolog/pl_cell.h:81), dead-stack writes 1672/1680 bytes below rsp, .github FINDING 3b349119. ⭐ ceo's own ruling on this row names the missing half: promotion is the ENABLING step -- 'once host ζ is rbp-relative, rsp may sit below the retained frame and the landing protects it'. MEASURED at HEAD, not assumed: a --compile of a two-clause fact/2 under SCRIP_PL_GAMMA_RETAIN=1 emits ZERO `[rbp`-relative frame references and six `qword ptr [rsp + 320]` -- the caller's whole ζ is rsp-relative, so there is no base to re-anchor off and every FRQ() would move under a protective rsp. Land the host RBP promotion for Prolog FIRST; then this landing is the two instructions above, not a redesign. Do NOT 'fix' this by restoring rsp anyway -- that trades a loud refusal for hq_P's silent dead-stack write.")
-               : bcps_wire_land(_.op_sval)
-                 + (x86("mov", FRQ(act + 8), "rsp")
-                    + x86("add", "rsp", 16L))))
+            : bcps_wire_land(_.op_sval)
+              + (x86("mov", FRQ(act + 8), "rsp")
+                 + x86("add", "rsp", 16L)))
          + x86("mov", "rax", FRQ(act))
          + x86("test", "rax", "rax")
          + x86("jne", L(5))
@@ -778,57 +768,7 @@ static std::string bcps_spine_gen_arm() {
          + x86_beta()
          + x86_scan_sync_out()
          + x86("call", "rt_gen_spine_resume_enter", rsen_fp)
-         + (pl_zf_resume
-            ? ( [&]() -> std::string {
-                uint64_t _pop3_fp; { void *(*_f)(long *, long *) = rt_pl_cp_pop3; _pop3_fp = (uint64_t)(uintptr_t)(void *)_f; }
-                uint64_t _set_fp; { void (*_f)(void *, long, long, int, int) = rt_pl_zf_resume_set; _set_fp = (uint64_t)(uintptr_t)(void *)_f; }
-                return x86("comment", "PL-FR-4 zframe β: pop triple, set pending resume, re-enter callee α")
-                     + x86("mov", FRQ(act), 0L)
-                     + x86("lea", "rdi", FRQ(act + 16))
-                     + x86("lea", "rsi", FRQ(act + 24))
-                     + x86("call", "rt_pl_cp_pop3", _pop3_fp)
-                     + x86("test", "rax", "rax")
-                     + x86_omega("je")
-                     + x86("mov", "rdi", "rax")
-                     + x86("mov", "rsi", FRQ(act + 16))
-                     + x86("mov", "rdx", FRQ(act + 24))
-                     + x86("mov32", "ecx", (long)pl_tm_off)
-                     + x86("mov32", "r8d", (long)zf_cont_off)
-                     + x86("call", "rt_pl_zf_resume_set", _set_fp)
-                     + FOR(0, (int)_.op_ival, [&](int i) {
-                         int slot = bcps_arg_slot(_.node, argblks, i);
-                         return x86("mov32", "edi", (long)i)
-                              + x86("mov", "rsi", FRQ(slot))
-                              + x86("mov", "rdx", FRQ(slot + 8))
-                              + x86("call", "rt_arg_stage", stage_fp);
-                     })
-                     + (gi_idx >= 0
-                        ? x86("mov32", "edi", (long)gi_idx)
-                        + x86("mov32", "esi", (long)_.op_ival)
-                        + x86("call", "rt_proc_call_open_det", (uint64_t)gidet_fp)
-                        : x86_ro_load_q("rdi", 0)
-                        + x86("mov32", "esi", (long)_.op_ival)
-                        + x86("call", "rt_proc_call_open", open_fp))
-                     + x86("test", "rax", "rax")
-                     + x86_omega("je")
-                     + (gi_idx >= 0 ? std::string("") : x86_ro_load_q("rdi", 0) + x86("call", "rt_proc_fn", procfn_fp))
-                     + x86("sub", "rsp", 8L)
-                     + x86_lea_id("r8", 7)
-                     + x86("push", "r8")
-                     + x86("comment", "PZ-4: the RETRY entry must use the SAME wire spelling as the first-call entry at :615.  It hardcoded the FLAT register pair (lea rcx,L3; lea rdx,L4) while the first-call path goes through bcps_wire_cross, which under icn_wire_stack_on() PUSHES the pair instead.  The callee reads its continuation from a FIXED [rsp+k] and the shared landings pop what the first-call entry pushed -- so with stack wires armed the retry entry arrived 16 bytes shallower, the landing over-popped, and the next continuation was read one slot off: a small integer (measured 17) used as a jump target, rip=0x11.  Route through the shared helper so the two entries CANNOT disagree; it emits its own jmp rax and is byte-identical to the old spelling when stack wires are OFF.")
-                     + x86("note", "PL-CALL-ALIGN: same 16B-unit pad as the first-call entry above -- this retry entry pushed L(7) unpadded too, 8-mod-16 into open_det/the callee jmp; matching add-rsp-8 below becomes 16.")
-                     + bcps_wire_cross_gen(3, 4)
-                     + x86("def", L(7))
-                     + x86("add", "rsp", 16L)
-                     + x86_anchor_leave()
-                     + x86_scan_sync_in_rr()
-                     + x86("mov", FRQ(off), "rax")
-                     + x86("mov", FRQ(off + 8), "rdx")
-                     + x86("cmp", "al", (long)DT_FAIL)
-                     + x86_omega("je")
-                     + x86_gamma();
-              })()
-            : (icn_gen_regime()
+         + ((icn_gen_regime()
                ? x86("comment", "N-2 STEP 3 BETA (ceo s283): the banked token is the region header H, not a stack record. Re-create the generator's body rsp from the ANCHOR -- [H+24] is the caller's pre-pad rsp0 and the body ran 40 below it at first entry (pad+L7+region+wire pair), so anchor-40 IS first-entry depth and parity, per activation, per call site -- then jump the resume label stored at [H+32] with the token in rax for the resume landing's one-instruction rbp repoint. The old form (mov rsp,[record]; jmp [rsp]) read a stack record the caller's own calls had already scribbled over.")
                  + x86("mov", "rax", FRQ(act + 8))
                  + x86("mov", "rsp", RDQ("rax", 24))

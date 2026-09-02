@@ -3,7 +3,6 @@
 #define PL_CELL_H
 #include "rt/rt_arena.h"
 #include "descr.h"
-#include "pl_area.h"
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -46,60 +45,20 @@ static inline double  pl_float_val(pl_cell_t *c) { return pl_deref(c)->r; }
 static inline int plc_functor(pl_cell_t *c) { return (int)(pl_deref(c)->slen >> 16); }
 static inline int pl_arity(pl_cell_t *c)   { return (int)(pl_deref(c)->slen & 0xFFFFu); }
 static inline void *pl_compound_heap(pl_cell_t *c) { return pl_deref(c)->p; }
-typedef struct { pl_cell_t *addr; pl_cell_t old; } pl_trail_ent_t;
-typedef struct { pl_area_t area; int top; } pl_trail_t;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline void pl_trail_init(pl_trail_t *t) { t->area.base = t->area.top = t->area.limit = (char *)0; t->area.cap = 0; t->top = 0; }
-static inline int  pl_trail_mark(const pl_trail_t *t) { return t->top; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline void pl_trail_push(pl_trail_t *t, pl_cell_t *addr) {
-    if (!t->area.base) pl_area_init(&t->area, PL_AREA_DEFAULT_BYTES);
-    if ((size_t)(t->top + 1) * sizeof(pl_trail_ent_t) > t->area.cap) { if (!pl_area_grow(&t->area, sizeof(pl_trail_ent_t))) return; }
-    pl_trail_ent_t *ents = (pl_trail_ent_t *)t->area.base;
-    ents[t->top].addr = addr;
-    ents[t->top].old  = *addr;
-    t->top++;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int plc_dead_cstack(const void *p) {
-    extern char *g_plw_unwind_floor;
-    if (!g_plw_unwind_floor) return 0;
-    static char *stk_lo, *stk_hi; static int stk_have;
-    if (!stk_have || ((char *)p < stk_lo && (char *)p >= stk_lo - (64L << 20))) {
-        FILE *mf = fopen("/proc/self/maps", "r"); char ln[256]; unsigned long a = 0, b = 0;
-        if (mf) { while (fgets(ln, sizeof ln, mf)) if (strstr(ln, "[stack]")) { if (sscanf(ln, "%lx-%lx", &a, &b) == 2) { stk_lo = (char *)a; stk_hi = (char *)b; stk_have = 1; } break; } fclose(mf); }
-        if (!stk_have) return 0;
-    }
-    if ((char *)p < stk_lo || (char *)p >= stk_hi) return 0;
-    return (char *)p < g_plw_unwind_floor + 16;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline void pl_trail_unwind(pl_trail_t *t, int mark) {
-    if (mark < 0) { fprintf(stderr, "SCRIP FATAL: pl_trail_unwind refuses corrupt trail mark %d (top=%d, caller=%p): its PRODUCER handed over garbage.\n", mark, t->top, __builtin_return_address(0));
-                    fprintf(stderr, "SCRIP FATAL: unwinding it would index ents[-1] and write 16 bytes past the trail array. TRIPWIRE, not a cure.\n");
-                    fflush(stderr); abort(); }
-    pl_trail_ent_t *ents = (pl_trail_ent_t *)t->area.base;
-    while (t->top > mark) {
-        t->top--;
-        if (!plc_dead_cstack(ents[t->top].addr)) *ents[t->top].addr = ents[t->top].old;
-    }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline void pl_bind(pl_cell_t *cell, pl_cell_t word, pl_trail_t *trail) {
+static inline void pl_bind(pl_cell_t *cell, pl_cell_t word) {
     pl_cell_t *v = pl_deref(cell);
     char probe; char *floor_ = &probe;
     if ((char *)v <= floor_) { extern void *rt_ws_alloc(size_t); pl_cell_t *j = (pl_cell_t *)rt_ws_alloc(sizeof(pl_cell_t)); *j = word; word.v = (DTYPE_t)DT_PLVAR; word.slen = 0; word.p = (void *)j; }
-    pl_trail_push(trail, v);
     *v = word;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int pl_unify(pl_cell_t *a, pl_cell_t *b, pl_trail_t *trail) {
+static inline int pl_unify(pl_cell_t *a, pl_cell_t *b) {
     pl_cell_t *A = pl_deref(a), *B = pl_deref(b);
     if (A == B) return 1;
     int av = pl_cell_unbound(A), bv = pl_cell_unbound(B);
-    if (av && bv) { extern void *rt_ws_alloc(size_t); pl_cell_t *j = (pl_cell_t *)rt_ws_alloc(sizeof(pl_cell_t)); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; pl_cell_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; pl_bind(A, r, trail); pl_bind(B, r, trail); return 1; }
-    if (av) { pl_bind(A, *B, trail); return 1; }
-    if (bv) { pl_bind(B, *A, trail); return 1; }
+    if (av && bv) { extern void *rt_ws_alloc(size_t); pl_cell_t *j = (pl_cell_t *)rt_ws_alloc(sizeof(pl_cell_t)); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; pl_cell_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; pl_bind(A, r); pl_bind(B, r); return 1; }
+    if (av) { pl_bind(A, *B); return 1; }
+    if (bv) { pl_bind(B, *A); return 1; }
     if (((int)A->v == DT_S || (int)A->v == DT_A) && ((int)B->v == DT_S || (int)B->v == DT_A)) {
         extern const char *prolog_atom_name(int);
         const char *as = ((int)A->v == DT_S) ? (A->s ? A->s : "") : prolog_atom_name((int)A->i);
@@ -113,7 +72,7 @@ static inline int pl_unify(pl_cell_t *a, pl_cell_t *b, pl_trail_t *trail) {
         if (A->slen != B->slen) return 0;
         int ar = (int)(A->slen & 0xFFFFu);
         pl_cell_t *aa = (pl_cell_t *)A->p, *bb = (pl_cell_t *)B->p;
-        for (int i = 0; i < ar; i++) if (!pl_unify(&aa[i], &bb[i], trail)) return 0;
+        for (int i = 0; i < ar; i++) if (!pl_unify(&aa[i], &bb[i])) return 0;
         return 1;
     }
     return 0;

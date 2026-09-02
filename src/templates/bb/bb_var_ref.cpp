@@ -22,7 +22,7 @@ std::string bb_var_ref() {
              + x86_gamma()
              + x86_beta_trampoline();
     }
-    if (_.op_zres && (_.op_sa >= 0 || _.op_gva_k >= 0) && !(g_emit_cfg && g_emit_cfg->pl_cells_graph))
+    if (_.op_zres && (_.op_sa >= 0 || _.op_gva_k >= 0))
         return x86("comment", "IR_VAR_REF icn cells zd: NAMETRAP{DT_N,slen=1,&____slot} -> ZRES")
              + x86_alpha()
              + x86("mov", "rax", (long)((long)1 << 32 | (long)DT_N))

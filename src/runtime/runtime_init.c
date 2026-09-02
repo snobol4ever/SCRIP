@@ -1,7 +1,7 @@
 #include "rt/rt.h"
 #include "dtp.h"
 #include "core.h"
-#include "builtins/resolution.h"
+#include "IR.h"
 #include "bb_pool.h"
 #include "../parsers/prolog/prolog_atom.h"
 #include <stdio.h>

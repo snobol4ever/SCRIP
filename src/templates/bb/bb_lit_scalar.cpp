@@ -20,10 +20,6 @@ static int descr_stamp_on(void) {
      | (((_.nid <= 0 || _.nid > 0xFFFE) ? (long)DESCR_SRC_NODE_OVERFLOW : (long)_.nid) << 16)))
 #define ls_rq(w) (_.op_zres ? ZRES(w) : FRQ(_.op_off + (w)))
 #define ls_rd(w) (_.op_zres ? ZRESD(w) : FR(_.op_off + (w)))
-#define ls_dual(w) ((_.op_zres && _.op_off >= 0 && g_emit_cfg && g_emit_cfg->pl_cells_graph) \
-     ? x86("mov", "rax", ZRES(w)) \
-     + x86("mov", FRQ(_.op_off + (w)), "rax") \
-     : std::string())
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_lit_scalar() {
     return _.op_node_kind == (int)IR_LIT_INTEGER && (_.op_off >= 0 || _.op_zres)
@@ -34,7 +30,6 @@ std::string bb_lit_scalar() {
              + x86("mov",    "rax", ROQ(0))
              + x86("note",   ZRESN())
              + x86("mov",    ls_rq(8), "rax")
-             + ls_dual(0) + ls_dual(8)
              + x86_gamma()
              + x86_beta_trampoline()
              + x86("def",    L(0))
@@ -51,7 +46,6 @@ std::string bb_lit_scalar() {
              + x86("mov",    "rax", ROQ(0))
              + x86("note",   ZRESN())
              + x86("mov",    ls_rq(8), "rax")
-             + ls_dual(0) + ls_dual(8)
              + x86_gamma()
              + x86_beta_trampoline()
              + x86("def",    L(0))
@@ -70,7 +64,6 @@ std::string bb_lit_scalar() {
              + x86("mov",    "rax", ROQ(0))
              + x86("note",   ZRESN())
              + x86("mov",    ls_rq(8), "rax")
-             + ls_dual(0) + ls_dual(8)
              + x86_gamma()
              + x86_beta_trampoline()
              + x86("def",    L(0))
@@ -87,7 +80,6 @@ std::string bb_lit_scalar() {
              + x86("mov",    "rax", ROQ(0))
              + x86("note",   ZRESN())
              + x86("mov",    ls_rq(8), "rax")
-             + ls_dual(0) + ls_dual(8)
              + (_.op_a_node_kind >= 0
                  ? x86("push", "rax")
                        + x86("push", "rdx")
@@ -113,7 +105,6 @@ std::string bb_lit_scalar() {
              + x86("mov",    "rax", ROQ(0))
              + x86("note",   ZRESN())
              + x86("mov",    ls_rq(8), "rax")
-             + ls_dual(0) + ls_dual(8)
              + x86_gamma()
              + x86_beta_trampoline()
              + x86("def",    L(0))

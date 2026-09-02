@@ -168,7 +168,5 @@ std::string bb_mapgrep();
 std::string bb_query_frame();
 std::string bb_det_nl();
 std::string bb_callee_frame();
-std::string bb_cell_cut();
-std::string bb_cell_ite();
 }
 #endif
