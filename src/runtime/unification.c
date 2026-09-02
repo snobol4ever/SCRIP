@@ -343,6 +343,135 @@ static void plc_wt(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, lon
     fprintf(fp, ")");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* plc_writeq : mirrors prolog_builtin.c's pl_writeq_term arm for arm. NOT plc_wt with quoted=1 -- writeq always translates $VAR AND $VARNAME (no numbervars gate), always applies {} and operator/list syntax (no ignore_ops), and formats floats with the SIMPLE %.1f/%g rule, not plc_wt's round-trip-safe %.*g. Collapsing them would silently change float output. */
+static void plc_writeq(pl_cell_t *c, plc_vmap *m)
+{
+    extern int ATOM_DOT;
+    FILE *fp = plc_out();
+    if (!c) { fprintf(fp, "'[]'"); return; }
+    pl_cell_t *d = pl_deref(c);
+    int tg = (int)d->v;
+    if (pl_cell_unbound(d)) { fprintf(fp, "_G%d", plc_vindex(m, d)); return; }
+    if (tg == DT_A || tg == DT_S) { plc_wt_atom(plc_atom_text(d), 1); return; }
+    if (tg == DT_I) { fprintf(fp, "%ld", (long)d->i); return; }
+    if (tg == DT_R) {
+        double fv = d->r;
+        if (fv == (long)fv && fv >= -1e15 && fv <= 1e15) fprintf(fp, "%.1f", fv); else fprintf(fp, "%g", fv);
+        return;
+    }
+    if (tg != DT_PLREF) { fprintf(fp, "_G%d", plc_vindex(m, d)); return; }
+    int fnid = (int)(d->slen >> 16), ar = (int)(d->slen & 0xFFFFu);
+    pl_cell_t *aa = (pl_cell_t *)d->p;
+    const char *fn = prolog_atom_name(fnid);
+    if (!fn) fn = "?";
+    if (strcmp(fn, "$VAR") == 0 && ar == 1) {
+        pl_cell_t *n = pl_deref(&aa[0]);
+        if ((int)n->v == DT_I) {
+            long num = (long)n->i; int letter = (int)(num % 26); long suffix = num / 26;
+            if (suffix == 0) fprintf(fp, "%c", 'A' + letter); else fprintf(fp, "%c%ld", 'A' + letter, suffix);
+            return;
+        }
+    }
+    if (strcmp(fn, "$VARNAME") == 0 && ar == 1) {
+        pl_cell_t *n = pl_deref(&aa[0]);
+        if ((int)n->v == DT_A || (int)n->v == DT_S) { const char *vn = plc_atom_text(n); fprintf(fp, "%s", vn ? vn : "_"); return; }
+    }
+    if (fnid == ATOM_DOT && ar == 2) {
+        fprintf(fp, "[");
+        plc_writeq(&aa[0], m);
+        pl_cell_t *tail = pl_deref(&aa[1]);
+        while ((int)tail->v == DT_PLREF && (int)(tail->slen >> 16) == ATOM_DOT && (int)(tail->slen & 0xFFFFu) == 2) {
+            pl_cell_t *ta = (pl_cell_t *)tail->p;
+            fprintf(fp, ","); plc_writeq(&ta[0], m); tail = pl_deref(&ta[1]);
+        }
+        if (!plc_is_nil(tail)) { fprintf(fp, "|"); plc_writeq(tail, m); }
+        fprintf(fp, "]"); return;
+    }
+    if (ar == 1 && strcmp(fn, "{}") == 0) { fprintf(fp, "{"); plc_writeq(&aa[0], m); fprintf(fp, "}"); return; }
+    struct { const char *name; int arity; int prec; int right_assoc; } ops[] = {
+        {":-",2,1200,1}, {";",2,1100,1}, {"->",2,1050,1}, {",",2,1000,1},
+        {"=",2,700,0},{"\\=",2,700,0},{"is",2,700,0},{"=:=",2,700,0},{"=\\=",2,700,0},
+        {"<",2,700,0},{">",2,700,0},{"=<",2,700,0},{">=",2,700,0},
+        {"==",2,700,0},{"\\==",2,700,0},{"@<",2,700,0},{"@>",2,700,0},{"@=<",2,700,0},{"@>=",2,700,0},
+        {"=..",2,700,0},{"+",2,500,0},{"-",2,500,0},
+        {"*",2,400,0},{"/",2,400,0},{"//",2,400,0},{"mod",2,400,0},{"rem",2,400,0},{"<<",2,400,0},{">>",2,400,0},
+        {"**",2,200,1},{"^",2,200,1},{"-",1,200,0},{"\\+",1,900,0},{"not",1,900,0},
+        {NULL,0,0,0}
+    };
+    for (int i = 0; ops[i].name; i++) {
+        if (strcmp(fn, ops[i].name) == 0 && ar == ops[i].arity) {
+            if (ops[i].arity == 2) {
+                int lp = plc_operand_prec(&aa[0]), rp = plc_operand_prec(&aa[1]), my_prec = ops[i].prec;
+                int lneed = (lp > my_prec) || (lp == my_prec && ops[i].right_assoc);
+                int rneed = (rp > my_prec) || (rp == my_prec && !ops[i].right_assoc);
+                if (lneed) fprintf(fp, "(");
+                plc_writeq(&aa[0], m);
+                if (lneed) fprintf(fp, ")");
+                if (isalpha((unsigned char)fn[0])) fprintf(fp, " %s ", fn); else fprintf(fp, "%s", fn);
+                if (rneed) fprintf(fp, "(");
+                plc_writeq(&aa[1], m);
+                if (rneed) fprintf(fp, ")");
+            } else {
+                int ap = plc_operand_prec(&aa[0]);
+                int aneed = (ap >= ops[i].prec);
+                if (isalpha((unsigned char)fn[0])) fprintf(fp, "%s ", fn); else fprintf(fp, "%s", fn);
+                if (aneed) fprintf(fp, "(");
+                plc_writeq(&aa[0], m);
+                if (aneed) fprintf(fp, ")");
+            }
+            return;
+        }
+    }
+    plc_wt_atom(fn, 1);
+    fprintf(fp, "(");
+    for (int i = 0; i < ar; i++) { if (i) fprintf(fp, ","); plc_writeq(&aa[i], m); }
+    fprintf(fp, ")");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* plc_write_canonical : mirrors prolog_builtin.c's pl_write_canonical_term arm for arm. Quoting always on, NO operator syntax ever (always functor(args)), NO $VAR/$VARNAME translation, dot-pairs print as [a,b] only under the SWI dialect flag (else the recursive '.'(H,T) form), SIMPLE %.1f/%g float format like plc_writeq -- a third, distinct algorithm from both plc_writeq and plc_wt. */
+static void plc_write_canonical(pl_cell_t *c, plc_vmap *m)
+{
+    extern int ATOM_DOT;
+    FILE *fp = plc_out();
+    if (!c) { fprintf(fp, "'[]'"); return; }
+    pl_cell_t *d = pl_deref(c);
+    int tg = (int)d->v;
+    if (pl_cell_unbound(d)) { fprintf(fp, "_G%d", plc_vindex(m, d)); return; }
+    if (tg == DT_A || tg == DT_S) { plc_wt_atom(plc_atom_text(d), 1); return; }
+    if (tg == DT_I) { fprintf(fp, "%ld", (long)d->i); return; }
+    if (tg == DT_R) {
+        double fv = d->r;
+        if (fv == (long)fv && fv >= -1e15 && fv <= 1e15) fprintf(fp, "%.1f", fv); else fprintf(fp, "%g", fv);
+        return;
+    }
+    if (tg != DT_PLREF) { fprintf(fp, "_G%d", plc_vindex(m, d)); return; }
+    int fnid = (int)(d->slen >> 16), ar = (int)(d->slen & 0xFFFFu);
+    pl_cell_t *aa = (pl_cell_t *)d->p;
+    const char *fn = prolog_atom_name(fnid);
+    if (!fn) fn = "?";
+    if (fnid == ATOM_DOT && ar == 2) {
+        extern int rt_pl_dialect_is_swi(void);
+        if (!rt_pl_dialect_is_swi()) {
+            fprintf(fp, "'.'("); plc_write_canonical(&aa[0], m);
+            fprintf(fp, ","); plc_write_canonical(&aa[1], m);
+            fprintf(fp, ")"); return;
+        }
+        fprintf(fp, "[");
+        plc_write_canonical(&aa[0], m);
+        pl_cell_t *tail = pl_deref(&aa[1]);
+        while ((int)tail->v == DT_PLREF && (int)(tail->slen >> 16) == ATOM_DOT && (int)(tail->slen & 0xFFFFu) == 2) {
+            pl_cell_t *ta = (pl_cell_t *)tail->p;
+            fprintf(fp, ","); plc_write_canonical(&ta[0], m); tail = pl_deref(&ta[1]);
+        }
+        if (!plc_is_nil(tail)) { fprintf(fp, "|"); plc_write_canonical(tail, m); }
+        fprintf(fp, "]"); return;
+    }
+    plc_wt_atom(fn, 1);
+    fprintf(fp, "(");
+    for (int i = 0; i < ar; i++) { if (i) fprintf(fp, ","); plc_write_canonical(&aa[i], m); }
+    fprintf(fp, ")");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_write_cell(void *cell)
 {
     plc_vmap m; m.n = 0;
@@ -351,22 +480,14 @@ void rt_pl_write_cell(void *cell)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_writeq_cell(void *cell)
 {
-    extern void pl_writeq(Term *); extern void pl_wr_set_fp(FILE *); extern FILE *fh_cur_out_fp(void);
-    pl_wr_set_fp(fh_cur_out_fp());
-    arena_mark_t cm = rt_pl_cterm_mark();
-    pl_writeq(pl_cell_to_term_named((pl_cell_t *)cell));
-    if (rt_pl_ctr_on()) rt_pl_cterm_release(cm);
-    pl_wr_set_fp((FILE *)0);
+    plc_vmap m; m.n = 0;
+    plc_writeq((pl_cell_t *)cell, &m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_write_canonical_cell(void *cell)
 {
-    extern void pl_write_canonical(Term *); extern void pl_wr_set_fp(FILE *); extern FILE *fh_cur_out_fp(void);
-    pl_wr_set_fp(fh_cur_out_fp());
-    arena_mark_t cm = rt_pl_cterm_mark();
-    pl_write_canonical(pl_cell_to_term_named((pl_cell_t *)cell));
-    if (rt_pl_ctr_on()) rt_pl_cterm_release(cm);
-    pl_wr_set_fp((FILE *)0);
+    plc_vmap m; m.n = 0;
+    plc_write_canonical((pl_cell_t *)cell, &m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_display_cell(void *cell)
