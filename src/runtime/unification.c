@@ -1941,7 +1941,7 @@ int rt_pl_nb_getval_cell(void *key_cell, void *val_cell)
     pl_cell_t *val = (id < g_rt_pl_nb_n) ? g_rt_pl_nb[id] : (pl_cell_t *)0;
     return rt_pl_nb_getval_ptr((void *)val, val_cell);
 }
-typedef struct dyn_clause { Term *head; Term *body; struct dyn_clause *next; } dyn_clause_t;
+typedef struct dyn_clause { pl_cell_t *head; pl_cell_t *body; struct dyn_clause *next; } dyn_clause_t;
 typedef struct { const char *name; long arity; dyn_clause_t *head; dyn_clause_t *tail; int abolished; } dyn_pred_row_t;
 static dyn_pred_row_t *g_pl_dyn_pred_table = (dyn_pred_row_t *)0;
 static long            g_pl_dyn_pred_n     = 0;
@@ -1988,9 +1988,9 @@ int rt_pl_dyn_retract_cell(void *head_cell)
     dyn_clause_t *prev = (dyn_clause_t *)0;
     for (dyn_clause_t *c = row->head; c; prev = c, c = c->next) {
         int mark = pl_trail_mark(&g_pl_trail);
-        Term *var_map[256]; int var_cap = 256, var_n = 0;
-        Term *hcopy = copy_term_deep(c->head, var_map, &var_cap, &var_n);
-        if (hcopy && pl_unify_term_into_cell((pl_cell_t *)head_cell, hcopy, &g_pl_trail)) {
+        pl_cell_t *vaddr[256]; pl_cell_t *vnew[256]; int vn = 0;
+        pl_cell_t hfresh = pl_cell_copy_cells(c->head, vaddr, vnew, &vn, 256);
+        if (pl_unify((pl_cell_t *)head_cell, &hfresh, &g_pl_trail)) {
             if (prev) prev->next = c->next; else row->head = c->next;
             if (row->tail == c) row->tail = prev;
             return 1;
@@ -2015,25 +2015,20 @@ static dyn_pred_row_t *dyn_pred_intern(const char *name, long arity)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_dyn_assertz_cell(void *clause_cell, int prepend)
 {
-    Term *cl = pl_cell_to_term((pl_cell_t *)clause_cell);
-    if (!cl) return 1;
-    Term *h = cl, *b = (Term *)0;
-    if (cl->tag == TERM_COMPOUND && cl->compound.arity == 2 && prolog_atom_name(cl->compound.functor) && !strcmp(prolog_atom_name(cl->compound.functor), ":-")) {
-        h = term_deref(cl->compound.args[0]); b = term_deref(cl->compound.args[1]);
-    }
-    const char *name = (const char *)0; long arity = 0;
-    pl_cell_t *clc = pl_deref((pl_cell_t *)clause_cell); pl_cell_t *hc = clc;
+    pl_cell_t *clc = pl_deref((pl_cell_t *)clause_cell); pl_cell_t *hc = clc; pl_cell_t *bc = (pl_cell_t *)0;
     const char *clf = ((int)clc->v == DT_PLREF) ? prolog_atom_name((int)(clc->slen >> 16)) : (const char *)0;
-    if (clf && (int)(clc->slen & 0xFFFFu) == 2 && !strcmp(clf, ":-")) hc = pl_deref(&((pl_cell_t *)clc->p)[0]);
+    if (clf && (int)(clc->slen & 0xFFFFu) == 2 && !strcmp(clf, ":-")) { hc = pl_deref(&((pl_cell_t *)clc->p)[0]); bc = pl_deref(&((pl_cell_t *)clc->p)[1]); }
+    const char *name = (const char *)0; long arity = 0;
     dyn_term_key(hc, &name, &arity);
     if (!name) return 1;
-    Term *var_map[256]; int var_cap = 256, var_n = 0;
-    Term *hcopy = copy_term_deep(h, var_map, &var_cap, &var_n);
-    Term *bcopy = b ? copy_term_deep(b, var_map, &var_cap, &var_n) : (Term *)0;
+    pl_cell_t *vaddr[256]; pl_cell_t *vnew[256]; int vn = 0;
+    pl_cell_t *hcopy = (pl_cell_t *)rt_ws_alloc(sizeof(pl_cell_t)); *hcopy = pl_cell_copy_cells(hc, vaddr, vnew, &vn, 256);
+    pl_cell_t *bcopy = (pl_cell_t *)0;
+    if (bc) { bcopy = (pl_cell_t *)rt_ws_alloc(sizeof(pl_cell_t)); *bcopy = pl_cell_copy_cells(bc, vaddr, vnew, &vn, 256); }
     dyn_pred_row_t *row = dyn_pred_intern(name, arity);
     row->abolished = 0;
     dyn_clause_t *node = (dyn_clause_t *)rt_ws_alloc(sizeof *node);
-    node->head = hcopy ? hcopy : h; node->body = bcopy; node->next = (dyn_clause_t *)0;
+    node->head = hcopy; node->body = bcopy; node->next = (dyn_clause_t *)0;
     if (prepend) { node->next = row->head; row->head = node; if (!row->tail) row->tail = node; }
     else { if (row->tail) row->tail->next = node; else row->head = node; row->tail = node; }
     return 1;
@@ -2072,13 +2067,15 @@ DESCR_t rt_pl_dyn_iter_gen(DESCR_t *args, int nargs, int64_t *resume)
         pl_trail_unwind(&g_pl_trail, it->mark);
         dyn_clause_t *c = it->cur;
         it->cur = c->next;
-        Term *var_map[256]; int var_cap = 256, var_n = 0;
-        Term *h = copy_term_deep(c->head, var_map, &var_cap, &var_n);
+        pl_cell_t *vaddr[256]; pl_cell_t *vnew[256]; int vn = 0;
+        pl_cell_t hfresh = pl_cell_copy_cells(c->head, vaddr, vnew, &vn, 256);
+        pl_cell_t *hd = pl_deref(&hfresh);
         int ok = 1;
-        if (arity == 0) ok = (h != (Term *)0);
-        else if (h && h->tag == TERM_COMPOUND && h->compound.arity == arity) {
+        if (arity == 0) ok = 1;
+        else if (pl_is_compound(hd) && pl_arity(hd) == (int)arity) {
+            pl_cell_t *hargs = (pl_cell_t *)pl_compound_heap(hd);
             for (long i = 0; ok && i < arity; i++)
-                ok = pl_unify_term_into_cell((pl_cell_t *)&args[1 + i], h->compound.args[i], &g_pl_trail);
+                ok = pl_unify((pl_cell_t *)&args[1 + i], &hargs[i], &g_pl_trail);
         } else ok = 0;
         if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
     }
@@ -2095,13 +2092,11 @@ DESCR_t rt_pl_clause_gen(DESCR_t *args, int nargs, int64_t *resume) {
     extern int rt_pl_proc_defined_static(const char *, long);
     if (nargs < 2 || !resume) return FAILDESCR;
     if (*resume == 0) {
-        Term *hd = pl_cell_to_term((pl_cell_t *)&args[0]);
-        hd = hd ? term_deref(hd) : (Term *)0;
-        if (!hd || hd->tag == TERM_VAR) { rt_pl_iso_throw_instantiation(); return FAILDESCR; }
-        if (hd->tag != TERM_ATOM && hd->tag != TERM_COMPOUND) { rt_pl_iso_throw_pi("type_error", "callable", (hd->tag == TERM_INT) ? "integer" : "?", 0); return FAILDESCR; }
-        Term *bd = pl_cell_to_term((pl_cell_t *)&args[1]);
-        bd = bd ? term_deref(bd) : (Term *)0;
-        if (bd && bd->tag != TERM_VAR && bd->tag != TERM_ATOM && bd->tag != TERM_COMPOUND) { rt_pl_iso_throw_pi("type_error", "callable", "?", 0); return FAILDESCR; }
+        pl_cell_t *hd = pl_deref((pl_cell_t *)&args[0]);
+        if (pl_cell_unbound(hd)) { rt_pl_iso_throw_instantiation(); return FAILDESCR; }
+        if (!pl_is_compound(hd) && (int)hd->v != DT_A && hd->v != DT_S) { rt_pl_iso_throw_pi("type_error", "callable", ((int)hd->v == DT_I) ? "integer" : "?", 0); return FAILDESCR; }
+        pl_cell_t *bd = pl_deref((pl_cell_t *)&args[1]);
+        if (!pl_cell_unbound(bd) && !pl_is_compound(bd) && (int)bd->v != DT_A && bd->v != DT_S) { rt_pl_iso_throw_pi("type_error", "callable", "?", 0); return FAILDESCR; }
         const char *name = (const char *)0; long arity = 0; dyn_term_key((pl_cell_t *)&args[0], &name, &arity);
         if (!name) return FAILDESCR;
         dyn_pred_row_t *row = dyn_pred_find(name, arity);
@@ -2114,11 +2109,11 @@ DESCR_t rt_pl_clause_gen(DESCR_t *args, int nargs, int64_t *resume) {
     while (it->cur) {
         pl_trail_unwind(&g_pl_trail, it->mark);
         dyn_clause_t *c = it->cur; it->cur = c->next;
-        Term *bt = c->body ? c->body : term_new_atom(ATOM_TRUE);
-        Term *vk[256]; pl_cell_t *vv[256]; int vn = 0;
-        pl_term_to_cell_word_m(c->head, vk, vv, &vn, 256); pl_term_to_cell_word_m(bt, vk, vv, &vn, 256);
-        pl_cell_t hcell = pl_term_to_cell_word_m(c->head, vk, vv, &vn, 256);
-        pl_cell_t bcell = pl_term_to_cell_word_m(bt, vk, vv, &vn, 256);
+        pl_cell_t *vaddr[256]; pl_cell_t *vnew[256]; int vn = 0;
+        pl_cell_t hcell = pl_cell_copy_cells(c->head, vaddr, vnew, &vn, 256);
+        pl_cell_t bcell;
+        if (c->body) bcell = pl_cell_copy_cells(c->body, vaddr, vnew, &vn, 256);
+        else { const char *nm = prolog_atom_name(prolog_atom_intern("true")); bcell.v = DT_S; bcell.slen = (uint32_t)(nm ? strlen(nm) : 0); bcell.s = nm ? nm : ""; }
         if (pl_unify((pl_cell_t *)&args[0], &hcell, &g_pl_trail) && pl_unify((pl_cell_t *)&args[1], &bcell, &g_pl_trail)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
     }
     pl_trail_unwind(&g_pl_trail, it->mark);
@@ -2315,15 +2310,17 @@ int rt_pl_dyn_iter_step(void *cursor, void **arg_cell0, long arity){
     while (cur->next) {
         dyn_clause_t *c = cur->next; cur->next = c->next;
         int mark = pl_trail_mark(&g_pl_trail);
-        Term *var_map[256]; int var_cap = 256, var_n = 0;
-        Term *hcopy = copy_term_deep(c->head, var_map, &var_cap, &var_n);
+        pl_cell_t *vaddr[256]; pl_cell_t *vnew[256]; int vn = 0;
+        pl_cell_t hfresh = pl_cell_copy_cells(c->head, vaddr, vnew, &vn, 256);
+        pl_cell_t *hd = pl_deref(&hfresh);
         int ok = 1;
-        if (arity == 0) { ok = (hcopy && hcopy->tag == TERM_ATOM); }
-        else if (!hcopy || hcopy->tag != TERM_COMPOUND || hcopy->compound.arity != (int)arity) { ok = 0; }
+        if (arity == 0) { ok = ((int)hd->v == DT_A || hd->v == DT_S); }
+        else if (!pl_is_compound(hd) || pl_arity(hd) != (int)arity) { ok = 0; }
         else {
+            pl_cell_t *hargs = (pl_cell_t *)pl_compound_heap(hd);
             for (long i = 0; i < arity && ok; i++) {
                 pl_cell_t *ac = (pl_cell_t *)((char *)arg_cell0 + (size_t)16 * (size_t)i);
-                if (!pl_unify_term_into_cell(ac, hcopy->compound.args[i], &g_pl_trail)) ok = 0;
+                if (!pl_unify(ac, &hargs[i], &g_pl_trail)) ok = 0;
             }
         }
         if (ok) return 1;
