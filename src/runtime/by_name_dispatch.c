@@ -1220,11 +1220,17 @@ static int pl_resolve_stream_arg(DESCR_t a, const char *errfn, int want_output) 
     return idx;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* g_stage2.proc_table is compiler-internal (populated only by lowering) and never carried into a standalone
+   mode-4 binary -- gdb-confirmed g_stage2.proc_count==0 at runtime there, so clause/2's ISO permission_error
+   on a static predicate was unreachable under --compile (row prolog-det-call-bypasses-dynscope-procedure-body,
+   which mis-attributed the symptom to rt_proc_call_open_det/dyn_scope; that mechanism was not actually in play
+   -- see this row's FINDING). g_rt_gen_procs is populated identically in both modes (BOTH-MEDIUM startup
+   registration), so query that instead of the compile-time-only table. */
 int rt_pl_proc_defined_static(const char *name, long arity) {
     if (!name) return 0;
     char key[256]; snprintf(key, sizeof key, "%s/%ld", name, arity);
-    for (int i = 0; i < g_stage2.proc_count; i++) if (g_stage2.proc_table[i].name && !strcmp(g_stage2.proc_table[i].name, key) && !g_stage2.proc_table[i].is_generator) return 1;
-    return 0;
+    int idx = rt_proc_index_of(key);
+    return (idx >= 0 && !rt_proc_is_generator(key)) ? 1 : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_iso_evaluable(DESCR_t v) {
