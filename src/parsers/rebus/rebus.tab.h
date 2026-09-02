@@ -129,15 +129,15 @@ extern int rebus_yydebug;
 #if ! defined REBUS_YYSTYPE && ! defined REBUS_YYSTYPE_IS_DECLARED
 union REBUS_YYSTYPE
 {
-#line 52 "rebus.y"
+#line 37 "rebus.y"
 
     char       *sval;
     long        ival;
     double      dval;
-    tree_t     *tree;   /* PST: all productions now tree_t* */
-    RCase      *rcase;  /* parser-local scratch for caselist only */
-    void       *sal;    /* SAL* — for string id lists (params/locals/fields) */
-    void       *tal;    /* TAL* — for tree_t child lists (args, stmt lists) */
+    tree_t     *tree;
+    RCase      *rcase;
+    void       *sal;
+    void       *tal;
 
 #line 143 "rebus.tab.h"
 

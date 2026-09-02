@@ -88,7 +88,7 @@ static int needs_semi(int tok) {
     }
 }
 %}
-%option noyywrap never-interactive yylineno prefix="rebus_yy"
+%option noyywrap never-interactive yylineno noinput nounput prefix="rebus_yy"
 ALPHA   [A-Za-z_\x80-\xff]
 IDENT   {ALPHA}([A-Za-z0-9_.\x80-\xff])*
 DIGIT   [0-9]

@@ -120,7 +120,6 @@ struct SwitchHead {
     struct SwitchHead *prev_switch;
     int     lineno;
 };
-static char    *sc_label_new          (ScParseState *st, const char *prefix);
 static struct IfHead    *sc_if_head_new    (ScParseState *st, tree_t *cond);
 static void     sc_finalize_while_pst  (ScParseState *st, struct WhileHead *h, tree_t *cond);
 static void     sc_finalize_do_while_pst(ScParseState *st, struct DoHead *h, tree_t *cond);
@@ -132,7 +131,6 @@ static void     sc_finalize_function_pst(ScParseState *st, struct FuncHead *h);
 static void     sc_append_label_node  (ScParseState *st, const char *name);
 static void     sc_loop_push           (ScParseState *st, char *cont_label, char *end_label, int is_loop);
 static void     sc_loop_pop            (ScParseState *st);
-static LoopFrame *sc_loop_find_innermost    (ScParseState *st, int want_loop);
 static void     sc_append_break        (ScParseState *st, char *user_label);
 static void     sc_append_continue     (ScParseState *st, char *user_label);
 static struct SwitchHead *sc_switch_head_new(ScParseState *st, tree_t *disc);
@@ -563,13 +561,6 @@ static tree_t *sc_str_literal(const char *txt) {
     e->sval = strdup(txt);
     return e;
 }
-static char *sc_label_new(ScParseState *st, const char *prefix) {
-    static int global_label_seq = 0;
-    char buf[64];
-    (void)st;
-    snprintf(buf, sizeof buf, "%s_%04d", prefix, ++global_label_seq);
-    return strdup(buf);
-}
 static struct IfHead *sc_if_head_new(ScParseState *st, tree_t *cond) {
     struct IfHead *h = calloc(1, sizeof *h);
     h->cond        = cond;
@@ -709,13 +700,6 @@ static void sc_loop_pop(ScParseState *st) {
     free(f->end_label);
     free(f);
 }
-static LoopFrame *sc_loop_find_innermost(ScParseState *st, int want_loop) {
-    for (LoopFrame *f = st->loop_top; f; f = f->outer) {
-        if (want_loop && !f->is_loop) continue;
-        return f;
-    }
-    return NULL;
-}
 static void sc_append_break(ScParseState *st, char *user_label) {
     if (!st->loop_top) {
         sc_error(st, user_label ? "break: no enclosing loop or switch" : "break outside of loop or switch");
@@ -761,9 +745,6 @@ static struct SwitchHead *sc_switch_head_new(ScParseState *st, tree_t *disc) {
     sc_loop_push(st, NULL, NULL, 0);
     st->cur_switch = h;
     return h;
-}
-static void sc_switch_emit_implicit_break(ScParseState *st, struct SwitchHead *h) {
-    (void)st; (void)h;
 }
 static void sc_switch_case_label(ScParseState *st, tree_t *value) {
     struct SwitchHead *h = st->cur_switch;

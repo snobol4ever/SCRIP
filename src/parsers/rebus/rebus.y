@@ -1,6 +1,6 @@
 %{
 #include "rebus.h"
-#include "../../ast/ast.h"
+#include "ast.h"
 #include "../../parsers/snobol4/scrip_cc.h"
 #include <stdio.h>
 #include <stdlib.h>
