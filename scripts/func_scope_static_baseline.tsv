@@ -9,9 +9,9 @@
 # A file with NO row here has an implicit ceiling of 0.
 # file	ceiling
 aggregates.c	1
-by_name_dispatch.c	20
+by_name_dispatch.c	19
 core/core.c	8
-keywords.c	10
+keywords.c	6
 pattern_match.c	12
 rt/bbprof.c	1
 rt/gc_heap.c	8

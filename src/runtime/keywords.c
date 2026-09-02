@@ -84,8 +84,8 @@ static void kw_cset_prime(void) {
     kw_cset_reg("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "&ucase", 26);
     kw_cset_reg("0123456789", "&digits", 10);
     kw_cset_reg("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", "&letters", 52);
-    { static char a[128]; for (int c=0;c<128;c++) a[c]=(char)c; kw_cset_reg(a, "&ascii", 128); }
-    { static char a[256]; for (int c=0;c<256;c++) a[c]=(char)c; kw_cset_reg(a, "&cset", 256); }
+    { char a[128]; for (int c=0;c<128;c++) a[c]=(char)c; kw_cset_reg(a, "&ascii", 128); }
+    { char a[256]; for (int c=0;c<256;c++) a[c]=(char)c; kw_cset_reg(a, "&cset", 256); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* icn-cset-embedded-nul-four-layer-gap, layer 5 (registry side): a literal charset's TRUE length
@@ -317,7 +317,7 @@ DESCR_t kw_read(const char *kw) {
     if (!strcmp(kw,"ascii")) {
         static const char *cs = NULL;
         if (!cs) {
-            static char ascii_str[128];
+            char ascii_str[128];
             for (int c=0;c<128;c++) ascii_str[c]=(char)c;
             /* NOT cset_canonical() -- see kw_cset_reg's comment (icon-ascii-cset-keywords-built-off-by-one):
                it truncates to "" on a leading byte-0, and ascii_str is already sorted/deduped/complete. */
@@ -335,7 +335,7 @@ DESCR_t kw_read(const char *kw) {
     if (!strcmp(kw,"cset")) {
         static const char *cs = NULL;
         if (!cs) {
-            static char cset_str[256];
+            char cset_str[256];
             for (int c=0;c<256;c++) cset_str[c]=(char)c;
             /* NOT cset_canonical() -- see kw_cset_reg's comment (icon-ascii-cset-keywords-built-off-by-one):
                it truncates to "" on a leading byte-0, and cset_str is already sorted/deduped/complete. */

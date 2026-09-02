@@ -5512,7 +5512,7 @@ static int bn_type_datatype(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
     else if (av.v==DT_SNUL)  t=(!strcmp(fn,"DATATYPE")) ? "string" : "null";
     else t="string";
     if (!strcmp(fn,"DATATYPE") && declared) { *out = STRVAL(rt_ws_strdup_c(t)); return 1; }
-    if (!strcmp(fn,"DATATYPE")) { static char ub[32]; int ui=0;
+    if (!strcmp(fn,"DATATYPE")) { char ub[32]; int ui=0;
         for (; t[ui] && ui<31; ui++) ub[ui]=(char)((t[ui]>='a'&&t[ui]<='z')?t[ui]-32:t[ui]); ub[ui]=0; *out = STRVAL(rt_ws_strdup_c(ub)); return 1; }
     *out = STRVAL(t); return 1;
 }
