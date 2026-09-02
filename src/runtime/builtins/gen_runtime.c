@@ -53,6 +53,9 @@ ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi) {
     uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str(sv);
     scan_depth++;
+    /* A FRESH env at this level RETIRES the bank for this level and every level below it in nesting terms (higher index): whatever was banked there belonged to the env this one replaces, and nothing can legitimately resume it any more.
+       This is the half that makes the level-indexed bank self-cleaning across statements — without it a dead level-0 bank would survive to be read by the next statement's reenter, which is the old stack's bug wearing a smaller hat. */
+    if (scan_saved_depth > scan_depth - 1) scan_saved_depth = scan_depth - 1;
     rt_gc_point(&sv, (const char **)0);
     const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
     if (!s) s = "";
@@ -76,12 +79,17 @@ ScanSubjRegs rt_scan_needle(uint64_t lo, uint64_t hi) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_scan_leave(uint64_t outer_sigma, uint64_t outer_delta) {
+    /* ⭐ THE BANK IS INDEXED BY NESTING LEVEL, NOT PUSHED ONTO A FREE STACK (icon-scan-env-value-residue 5a, seat16). It used to push at scan_saved_depth++ and rt_scan_reenter popped — but only a RESUMED env ever pops, so every env that
+       is left and then ABANDONED (the ordinary `every`-exhausts-a-scan shape) leaked one slot forever. scan_saved_depth grew monotonically across independent statements, and at SCAN_STACK_MAX the push was DROPPED SILENTLY by the old
+       `if (scan_saved_depth < SCAN_STACK_MAX)` guard, so the next reenter popped a stale entry belonging to a long-dead scan. Measured: rung36_jcon_scan diff 25, three prior slices each patched one SITE of this with a local sb=3 no-push
+       (lower_icon.c:610/:766, bb_gen_scan.cpp:42) while the general path stayed. Indexing by level makes it balanced BY CONSTRUCTION: level d's slot is overwritten by the next env at level d, so nothing accumulates and SCAN_STACK_MAX
+       now bounds NESTING DEPTH — what a fixed 16 can honestly bound — instead of a statement count it never could. scan_saved_depth keeps its old meaning for rt_scan_state_capture/apply: the count of valid banked levels from 0. */
     if (scan_depth > 0) {
         scan_depth--;
-        if (scan_saved_depth < SCAN_STACK_MAX) {
-            scan_saved[scan_saved_depth].subj  = scan_subj;
-            scan_saved[scan_saved_depth].pos   = scan_pos;
-            scan_saved_depth++;
+        if (scan_depth < SCAN_STACK_MAX) {
+            scan_saved[scan_depth].subj = scan_subj;
+            scan_saved[scan_depth].pos  = scan_pos;
+            if (scan_saved_depth < scan_depth + 1) scan_saved_depth = scan_depth + 1;
         }
     }
     scan_subj = outer_sigma ? (const char *)(uintptr_t)outer_sigma : "";
@@ -95,12 +103,13 @@ void rt_scan_leave_ns(uint64_t outer_sigma, uint64_t outer_delta) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ScanSubjRegs rt_scan_reenter(void) {
+    /* Read the bank for the level being re-entered (scan_depth), not a stack top — the pair to rt_scan_leave above. Nested resume still works because re-entry runs OUTERMOST-first (slice 3's design): outer reads [0] and lifts the depth
+       to 1, inner then reads [1]. An empty level is the honest "nothing to resume" answer the old scan_saved_depth<=0 test meant to give, and now actually gives, since a dead sibling can no longer be sitting on the stack in its place. */
     ScanSubjRegs r; r.ptr = 0; r.len = 0;
-    if (scan_saved_depth <= 0) return r;
-    scan_saved_depth--;
+    if (scan_depth < 0 || scan_depth >= SCAN_STACK_MAX || scan_depth >= scan_saved_depth) return r;
+    scan_subj = scan_saved[scan_depth].subj;
+    scan_pos  = scan_saved[scan_depth].pos;
     scan_depth++;
-    scan_subj = scan_saved[scan_saved_depth].subj;
-    scan_pos  = scan_saved[scan_saved_depth].pos;
     if (!scan_subj) scan_subj = "";
     r.ptr = (uint64_t)(uintptr_t)scan_subj;
     r.len = (uint64_t)strlen(scan_subj);
