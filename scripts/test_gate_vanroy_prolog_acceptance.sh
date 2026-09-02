@@ -23,7 +23,8 @@
 # ⭐ THE FLAPPING IS ALSO EVIDENCE, AND IT BELONGS IN THE DESIGN PAGE: a corrupt trail mark that sometimes crashes and sometimes gets CAUGHT by pl_trail_unwind is reading memory whose content varies
 # between runs -- consistent with the retained frame living BELOW rsp and being clobbered by whatever the next call happens to write there. That is PZ-4's clause (a) mechanism, observed from the outside.
 set -u
-R="${S4E_HOME:-/home/claude_P}"
+R="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the SEAT ROOT is derived from THIS script, never a hardcoded seat (hq_C measured 2026-09-02: the old /home/claude_P default graded hq_P's checkout from hq_C's seat)
+
 CLEAN_FLOOR=3      # WORST-OF-REPS, measured hq_P 2026-09-02, SCRIP fa12d7cb, -O0, mode 3: fib nrev queens_8 are clean on every pass. Raise it WITH a cure, never lower it.
 REPS="${VANROY_REPS:-3}"   # worst-of-N. 1 is NOT a valid setting for a verdict -- see the header; it is offered only for a quick eyeball.
 cd "$R/SCRIP" 2>/dev/null || { echo "⛔ REFUSED (rc=2): no $R/SCRIP"; exit 2; }

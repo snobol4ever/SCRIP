@@ -13,7 +13,8 @@
 # thread to pull), RE-PIN AGAINST IT, and record the recipe ON THE BATON so the next seat does not re-derive it. Then this gate grades the quantity the row actually names.
 # ⛔ Pinning a number whose recipe is unrecorded is how a row becomes uncloseable by a later seat -- which is exactly the defect class the live-batons row was minted for. Do not repeat it here.
 set -u
-R="${S4E_HOME:-/home/claude_P}"
+R="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the SEAT ROOT is derived from THIS script, never a hardcoded seat (hq_C measured 2026-09-02: the old /home/claude_P default graded hq_P's checkout from hq_C's seat)
+
 PIN=122092          # src/runtime/core/core.c:NV_SET_fn, measured hq_P 2026-09-02, SCRIP fa12d7cb, -O0, direct callgrind of the COMMITTED roman.sno (10 iterations). See the recipe-gap note above.
 cd "$R/SCRIP" 2>/dev/null || { echo "⛔ REFUSED (rc=2): no $R/SCRIP"; exit 2; }
 [ -x ./scrip ] || { echo "⛔ REFUSED (rc=2): ./scrip is not built -- cannot profile what does not exist"; exit 2; }

@@ -15,7 +15,8 @@
 # ⭐ SEQUENCING: P7 lands AFTER PZ-4 → PZ-5 → C36 (§ 6). Before the frame exists, deleting the barrier removes the only thing catching the corruption -- the board would get worse and this gate
 # would correctly say so. A red here BEFORE the frame lands is the sequence being violated, not the cure being wrong.
 set -u
-R="${S4E_HOME:-/home/claude_P}"
+R="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the SEAT ROOT is derived from THIS script, never a hardcoded seat (hq_C measured 2026-09-02: the old /home/claude_P default graded hq_P's checkout from hq_C's seat)
+
 cd "$R/SCRIP" 2>/dev/null || { echo "⛔ REFUSED (rc=2): no $R/SCRIP"; exit 2; }
 SO=out/libscrip_rt.so
 [ -f "$SO" ] || { echo "⛔ REFUSED (rc=2): $SO not built -- 'symbol absent' is unfalsifiable against a library that does not exist, and an unbuilt tree would PASS the nm half for free"; exit 2; }

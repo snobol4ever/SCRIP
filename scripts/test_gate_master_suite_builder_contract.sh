@@ -14,7 +14,8 @@
 # ⛔ REFUSES rc=2 RATHER THAN GRADING A MOVING BASELINE: if corpus/tests is already dirty, "did the builder write?" has no answer, and a gate that cannot measure must not pass what it failed
 # to read. ⛔ Do NOT relax a check to make this green -- every FAIL below is reproduced from a measurement, and each names the requirement it grades.
 set -u
-R="${S4E_HOME:-/home/claude_P}"
+R="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the SEAT ROOT is derived from THIS script, never a hardcoded seat (hq_C measured 2026-09-02: the old /home/claude_P default graded hq_P's checkout from hq_C's seat)
+
 cd "$R/SCRIP/scripts" 2>/dev/null || { echo "⛔ REFUSED (rc=2): no $R/SCRIP/scripts -- cannot locate the builder"; exit 2; }
 B=util_build_master_suite.py
 [ -f "$B" ] || { echo "⛔ REFUSED (rc=2): $B not found -- nothing to grade"; exit 2; }

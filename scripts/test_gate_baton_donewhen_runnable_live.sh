@@ -13,7 +13,8 @@
 # THE GATE: LIVE uncloseable == 0. The other two populations are PRINTED, never graded here -- they are the riders' material, and a gate that failed on them would block this row on work the ruling
 # deliberately routed elsewhere. ⛔ REFUSES rc=2 rather than guessing if either input is missing: an instrument that cannot measure must not pass what it failed to read.
 set -u
-R="${S4E_HOME:-/home/claude_P}"
+R="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the SEAT ROOT is derived from THIS script, never a hardcoded seat (hq_C measured 2026-09-02: the old /home/claude_P default graded hq_P's checkout from hq_C's seat)
+
 PO=/home/resources/postoffice
 Q="$PO/QUEUE.tsv"
 G="$R/SCRIP/scripts/test_gate_baton_donewhen_runnable.sh"

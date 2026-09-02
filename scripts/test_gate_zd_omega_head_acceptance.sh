@@ -185,7 +185,12 @@ fi
 # ad1fdaa71) -- IDENTICAL for m3 and m4. A stem LEAVING the set is a red (omega-head regression, this gate's
 # business); a stem ENTERING it is a red. The set shrinking is good news that must still be acknowledged by
 # hand, so it reports red until someone re-pins it deliberately -- that is the point of a floor.
-PL_XC_KNOWN="rung11_findall_findall_arith rung11_findall_findall_filter rung14_retract_retract_basic rung14_retract_retract_mixed rung15_abolish_abolish_one_of_two rung15_abolish_abolish_then_reassert rung44_setof_group rung45_reflect_clause_facts rung45_reflect_clause_findall rung50_between_enum rung50_for_alias rung66_current_stream"
+# ⭐ RE-PINNED hq_P 2026-09-02 at SCRIP 48b09e04 (-O0), measured on TWO binaries -- the pushed tree and a scratch worktree of the same tree
+# plus one Pascal-only statement -- both reading the identical 12-stem set, m3 == m4: rung15_abolish_abolish_one_of_two LEFT the set (cured
+# upstream between 3ce7a526 and 48b09e04; acknowledged here, as the floor's own text asks) and rung22_write_canonical_write_canonical_list
+# ENTERED it (a Prolog correctness regression in the same window; routed to hq_C, the umbrella's, not this gate's). DIVERGE reads 1 or 2
+# run to run on the same binary (the flapping class) and is deliberately not part of the pin.
+PL_XC_KNOWN="rung11_findall_findall_arith rung11_findall_findall_filter rung14_retract_retract_basic rung14_retract_retract_mixed rung15_abolish_abolish_then_reassert rung22_write_canonical_write_canonical_list rung44_setof_group rung45_reflect_clause_facts rung45_reflect_clause_findall rung50_between_enum rung50_for_alias rung66_current_stream"
 out=$(bash scripts/test_crosscheck_prolog.sh 2>&1)
 xc_got=$(printf '%s\n' "$out" | grep -oE 'm3 FAIL [a-z0-9_]+' | sed 's/m3 FAIL //' | sort | tr '\n' ' ')
 xc_want=$(printf '%s\n' $PL_XC_KNOWN | sort | tr '\n' ' ')
