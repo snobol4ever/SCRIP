@@ -789,20 +789,13 @@ int rt_pl_succ_plus_cell(long arity, void *a_cell, void *b_cell, void *c_cell)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *atom_op_text(Term *t, char *buf, size_t bufsz)
-{
-    t = t ? term_deref(t) : (Term *)0;
-    if (!t) return (const char *)0;
-    if (t->tag == TERM_ATOM)  return prolog_atom_name(t->atom_id);
-    if (t->tag == TERM_INT)   { snprintf(buf, bufsz, "%ld", t->ival);  return buf; }
-    if (t->tag == TERM_FLOAT) { snprintf(buf, bufsz, "%g", t->fval);   return buf; }
-    return (const char *)0;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* plc_atom_op_text/plc_make_atom_cell/plc_unify_into_cell : the cell-native trio behind rt_pl_atom_op_cell and rt_pl_char_type_cell below. atom_op_text (Term-based, above) STAYS -- rt_pl_lower_upper_cell (out of this
-   slice's scope) still calls it, so it cannot be deleted here; re-verify its callers before ever retiring it. plc_make_atom_cell builds DT_S, never DT_A -- pl_make_atom builds DT_A but Prolog atoms ride DT_S
-   (hq_C's trap, this file's LEDGER); the exact field-setting mirrors pl_term_to_cell_word_m's TERM_ATOM arm in pl_cell_conv.h. plc_unify_into_cell mirrors pl_unify_term_into_cell's shape (build a value, unify it)
-   without the Term round-trip. */
+/* plc_atom_op_text/plc_make_atom_cell/plc_unify_into_cell : the cell-native trio behind rt_pl_atom_op_cell, rt_pl_char_type_cell and (since T9) rt_pl_lower_upper_cell. ⭐ THE s1 NOTE THAT USED TO SIT HERE SAID
+   the struct-tree twin "STAYS -- rt_pl_lower_upper_cell (out of this slice's scope) still calls it ... re-verify its callers before ever retiring it". Re-verified under T9: it had exactly TWO callers, both in
+   rt_pl_lower_upper_cell, both of the form twin(pl_cell_to_term(x)) -- i.e. pure bridge users. Both now call plc_atom_op_text directly and the twin is DELETED. The note did its job: it named the condition for
+   its own retirement instead of just forbidding it. ⛔ plc_make_atom_cell builds DT_S, NEVER DT_A -- pl_make_atom builds DT_A but Prolog atoms ride DT_S, and readers accept both, so the wrong constructor
+   type-checks, links, and dies later in the writer (measured: seat10's predicate_property core dump; the functor/3 regression bisected to 9368c3b0). The field-setting mirrors pl_term_to_cell_word_m's atom arm.
+   plc_unify_into_cell mirrors pl_unify_term_into_cell's shape (build a value, unify it) without the heap round-trip. */
 static const char *plc_atom_op_text(pl_cell_t *t, char *buf, size_t bufsz)
 {
     if (!t) return (const char *)0;
@@ -1062,18 +1055,18 @@ int rt_pl_lower_upper_cell(void *lower_cell, void *upper_cell)
     if (!lo_bound && !up_bound) { extern void rt_pl_iso_throw_instantiation(void); rt_pl_iso_throw_instantiation(); return 0; }
     char b0[256];
     if (lo_bound) {
-        const char *cs = atom_op_text(pl_cell_to_term(lo), b0, sizeof b0);
+        const char *cs = plc_atom_op_text(lo, b0, sizeof b0);
         if (!cs || !cs[0] || cs[1]) return 0;
         char c2[2] = { (char)toupper((unsigned char)cs[0]), 0 };
         int mark = pl_trail_mark(&g_pl_trail);
-        if (!pl_unify_term_into_cell(up, term_new_atom(prolog_atom_intern(c2)), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+        if (!plc_unify_into_cell(up, plc_make_atom_cell(c2), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
         return 1;
     }
-    const char *cs = atom_op_text(pl_cell_to_term(up), b0, sizeof b0);
+    const char *cs = plc_atom_op_text(up, b0, sizeof b0);
     if (!cs || !cs[0] || cs[1]) return 0;
     char c2[2] = { (char)tolower((unsigned char)cs[0]), 0 };
     int mark = pl_trail_mark(&g_pl_trail);
-    if (!pl_unify_term_into_cell(lo, term_new_atom(prolog_atom_intern(c2)), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    if (!plc_unify_into_cell(lo, plc_make_atom_cell(c2), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
