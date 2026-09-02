@@ -124,7 +124,18 @@ gate_require "$ROOT/../corpus/tests/snobol4/ALL.ref" "master SNOBOL4 suite refs"
 # census fell back to its 1494 default and REFUSED, and line 123 ran as a command ("--pinned-population: command not found"). ⭐ bash -n answers
 # "is this parseable", NOT "is this what I meant" -- the command -v class, and a broken line-continuation is invisible to it. RUN THE GATE.
 python3 "$HERE/util_census_optimizer_bypass.py" --gate \
-  --pinned-population 1654 --pinned-opt0-max 190 --pinned-zd0-max 308
+  --pinned-population 1655 --pinned-opt0-max 190 --pinned-zd0-max 308
+# ⚠️ INTERIM RE-PIN (hq_P 2026-09-01), pinned against corpus 5eb68cb87 -- a number's tree is part of its label. The graded population MOVES with every XFAIL-marker promotion, and it is
+# MEASURED by corpus_suite_harness.read_suite, never typed: 1646 at corpus 9b657e350, 1654 at ad1fdaa71, then UNREADABLE at 2d75933ec, then 1655 at 5eb68cb87 (1726 entries, 1655 graded).
+# ⛔ THE UNREADABLE ENTRY IS NOT A GAP IN THE RECORD -- IT IS THE POINT. 2d75933ec half-applied a promotion (dropped from ALL.sno + ALL.xfail, ALL.ref's seq-1678 banner still XFAIL), so
+# read_suite RAISED 'family.ref banner mismatch at seq 1678' and no board or census on the box could grade the master suite at all. A population of NOTHING is what a half-applied promotion
+# reads as, so do not write a number there -- and note the pin is what forces the halves to converge, which is why hq_C's promotion protocol (prove it by read_suite or the board on the
+# RESULT, in the same commit) exists. ⛔ BUT THE TWO HALVES LIVE IN DIFFERENT REPOS AND CANNOT BE MADE ATOMIC: corpus grades N+1 the moment it lands, SCRIP still pins N until this file
+# follows, so a window where the box is red box-wide is STRUCTURAL, not a discipline failure. That is the stable-subset row's argument (optbypass-pin-stable-subset, hq_C, rank 0 I10) and
+# it is the real cure; this pin is the interim.
+# ⚠️ THE TWO MAX PINS ARE CARRIED, NOT RE-MEASURED (opt0 190, zd0 308, from the 1654-population readings) -- the box was at loadavg 25 with 18 concurrent master-suite runs, and hq_C's
+# band finding says a pin taken under load is a coin flip. They are sound as UPPER BOUNDS by construction: fewer graded entries cannot raise a count. So a count ABOVE either max is still a
+# real red; a count BELOW is NOT evidence the max is tight. Re-measure both at the next quiet window -- three readings, record the spread -- and replace this note with the numbers and the tree.
 rc=$?
 
 gate_stamp
