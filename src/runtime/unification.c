@@ -470,8 +470,20 @@ static void plc_write_canonical(pl_cell_t *c, plc_vmap *m)
     fprintf(fp, ")");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⛔⭐ THE ATOM TABLE MUST BE LIVE BEFORE ANY CELL IS PRINTED, AND THIS GUARD IS A REGRESSION FIX -- READ IT BEFORE REMOVING IT AGAIN.
+   The printers compare a compound's functor id against ATOM_DOT to decide list sugar ([a,b,c]) versus canonical form (.(a,.(b,[]))). ATOM_DOT is -1 until prolog_atom_init() runs.
+   ⛔ IN MODE 4 NOTHING ELSE RUNS IT. A standalone binary links libscrip_rt.so and never loads the parser, and the emitted code calls core_lib_init / rtcc_load_all / rt_pl_dop_mkc --
+   not prolog_atom_init. Meanwhile dop_mkc BUILDS the list with prolog_atom_intern(".") at run time, so the cell is correct and only the COMPARISON fails: fnid != -1, and every list
+   prints canonically. Mode 3 hides it because the in-process parser has already initialised the table.
+   ⛔⛔ HOW IT WAS INTRODUCED, named because RULES.md says a removed guard is named: T9 milestone 3 converted out_write_descr from rt_pl_cell_to_term_named() -> pl_write() to a direct
+   cell print. rt_pl_cell_to_term_named (rt_runtime.c:312) CARRIES THIS EXACT GUARD, so the old route initialised the atom table AS A SIDE EFFECT of converting the value. The
+   conversion looked pure and was not: deleting the round-trip deleted an initialisation nobody had written down. Five other runtime entry points carry the same guard
+   (rt_runtime.c:307,313 and by_name_dispatch.c:167,4826,4936); the printers were the only reachable family without one. */
+static void plc_atoms_ready(void) { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); }
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_write_cell(void *cell)
 {
+    plc_atoms_ready();
     plc_vmap m; m.n = 0; m.fp = plc_out();
     plc_write((pl_cell_t *)cell, &m);
 }
@@ -480,24 +492,28 @@ void rt_pl_write_cell(void *cell)
    arbitrary redirectable FILE *dest, so it needs this. NULL fp falls back to plc_out(), making the two entry points interchangeable for every existing caller. */
 void rt_pl_write_cell_fp(void *cell, FILE *fp)
 {
+    plc_atoms_ready();
     plc_vmap m; m.n = 0; m.fp = fp ? fp : plc_out();
     plc_write((pl_cell_t *)cell, &m);
 }
 /*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_writeq_cell(void *cell)
 {
+    plc_atoms_ready();
     plc_vmap m; m.n = 0; m.fp = plc_out();
     plc_writeq((pl_cell_t *)cell, &m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_write_canonical_cell(void *cell)
 {
+    plc_atoms_ready();
     plc_vmap m; m.n = 0; m.fp = plc_out();
     plc_write_canonical((pl_cell_t *)cell, &m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_display_cell(void *cell)
 {
+    plc_atoms_ready();
     plc_vmap m; m.n = 0; m.fp = plc_out();
     plc_wt((pl_cell_t *)cell, 0, 1, 0, 0, 0, &m);
 }
@@ -515,6 +531,7 @@ static int plc_opt_is_true(pl_cell_t *o)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_write_term_cell(void *term_cell, void *opts_cell)
 {
+    plc_atoms_ready();
     plc_vmap m; m.n = 0; m.fp = plc_out();
     int quoted = 0, ignore_ops = 0, numbervars = 0; long max_depth = 0;
     pl_cell_t *lst = opts_cell ? pl_deref((pl_cell_t *)opts_cell) : (pl_cell_t *)0;
@@ -587,18 +604,9 @@ static long           g_pl_pred_n     = 0;
 extern const char *prolog_atom_name(int id);
 extern int    rt_last_ok(void);
 extern long   rt_arith(int lk, long li, const char *ls, int rk, long ri, const char *rs, const char *op);
-enum { MK_TRUE, MK_FAIL, MK_PRED, MK_BUILTIN, MK_CONJ, MK_DISJ };
-typedef struct meta_fr {
-    int kind; Term *goal; const char *name; int arity; Term **args;
-    void *alpha; void *redo; resolve_choice *mark;
-    struct meta_fr **kids; int nkids; int cur;
-    resolve_choice *br_cp; int br_trail;
-} meta_fr;
-typedef struct { meta_fr *fr; Term **E; } meta_root;
-static const char *g_meta_builtins[] = { "is", "=:=", "=\\=", "<", ">", "=<", ">=", "=", "\\=", (const char *)0 };
-static int meta_solve(meta_fr *f, Term **E);
-static int meta_redo(meta_fr *f, Term **E);
-static meta_root *g_meta_compat = (meta_root *)0;
+/* ⛔ THE "meta" COMPAT LAYER WAS DELETED HERE (T9). enum MK_*, struct meta_fr, meta_root, g_meta_builtins[], the meta_solve/meta_redo declarations and the g_meta_compat global
+   were ALL declaration-only -- each name had exactly ONE occurrence in the tree, its own. meta_solve and meta_redo were declared and DEFINED NOWHERE and CALLED NOWHERE, and
+   g_meta_compat was a global that nothing ever read or wrote. A whole subsystem's worth of shape with no machine behind it. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_atom_id_of(pl_cell_t *d)
@@ -974,6 +982,7 @@ static pl_cell_t *plc_fmt_next_arg(pl_cell_t **args) {
    stream the old pl_wr_set_fp(fd) plumbing pointed the retired struct-tree printer at, so that plumbing and the cterm arena mark/release are both gone with the conversion, not relocated. */
 void rt_pl_format_cell(const char *fmt, void *list_cell)
 {
+    plc_atoms_ready();
     if (!fmt) return;
     plc_vmap vm; vm.n = 0; vm.fp = plc_out();
     FILE *fd = vm.fp;
@@ -1070,37 +1079,9 @@ int rt_pl_lower_upper_cell(void *lower_cell, void *upper_cell)
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rt_pl_term_class(Term *t) {
-    switch (t->tag) {
-    case TERM_VAR:      return 0;
-    case TERM_FLOAT:    return 1;
-    case TERM_INT:      return 1;
-    case TERM_ATOM:     return 2;
-    case TERM_COMPOUND: return 3;
-    default:            return 4;
-    }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rt_pl_term_compare(Term *a, Term *b) {
-    a = a ? term_deref(a) : NULL; b = b ? term_deref(b) : NULL;
-    if (!a && !b) return 0; if (!a) return -1; if (!b) return 1;
-    int ca = rt_pl_term_class(a), cb = rt_pl_term_class(b);
-    if (ca != cb) return ca < cb ? -1 : 1;
-    switch (a->tag) {
-    case TERM_VAR: return (a == b) ? 0 : (a < b ? -1 : 1);
-    case TERM_INT: { double x = (double)a->ival, y = (b->tag == TERM_INT) ? (double)b->ival : b->fval; return x < y ? -1 : (x > y ? 1 : 0); }
-    case TERM_FLOAT: { double x = a->fval, y = (b->tag == TERM_INT) ? (double)b->ival : b->fval; return x < y ? -1 : (x > y ? 1 : 0); }
-    case TERM_ATOM: { const char *na = prolog_atom_name(a->atom_id), *nb = prolog_atom_name(b->atom_id); int c = strcmp(na ? na : "", nb ? nb : ""); return c < 0 ? -1 : (c > 0 ? 1 : 0); }
-    case TERM_COMPOUND: {
-        if (a->compound.arity != b->compound.arity) return a->compound.arity < b->compound.arity ? -1 : 1;
-        const char *na = prolog_atom_name(a->compound.functor), *nb = prolog_atom_name(b->compound.functor);
-        int c = strcmp(na ? na : "", nb ? nb : ""); if (c) return c < 0 ? -1 : 1;
-        for (int i = 0; i < a->compound.arity; i++) { int r = rt_pl_term_compare(a->compound.args[i], b->compound.args[i]); if (r) return r; }
-        return 0;
-    }
-    default: return 0;
-    }
-}
+/* ⛔ THE STRUCT-TREE STANDARD-ORDER COMPARE WAS DELETED HERE (T9): rt_pl_term_class + rt_pl_term_compare. Its cell-native replacement is rt_pl_cell_compare below, which already
+   reproduced its variable semantics deliberately -- see that function's own note on WHY an index map and not a pointer comparison. The last caller went when rt_pl_bag_group_gen
+   was converted; nothing outside this file ever called either. */
 static Term *pl_cell_copy_walk(pl_cell_t *c, pl_cell_t **vaddr, Term **vterm, int *vn, int cap);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* Cell-native standard order of terms (slice s2). WHY AN INDEX MAP AND NOT A POINTER TEST: pl_cell_copy_walk minted one fresh heap node per distinct unbound cell from rt_pl_cterm_alloc, a strict bump
@@ -1427,46 +1408,59 @@ int rt_pl_pairs_keys_values_cell(void *pairs_cell, void *keys_cell, void *values
     if (!pl_unify((pl_cell_t *)pairs_cell, &result, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
-typedef struct { Term *rest; int mark; } pl_baggrp_t;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { pl_cell_t *rest; int mark; } pl_baggrp_t;
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* bagof group generator, CELL-NATIVE (T9). It yields one key-[values] group per re-entry off a SORTED pair list, so it keeps its cursor in *resume across calls.
+   ⭐ THE VARIABLE-ORDER MAP IS PER CALL, AND THAT IS FAITHFUL RATHER THAN CONVENIENT: the struct-tree version compared keys with rt_pl_term_compare, whose variable case was a raw
+   POINTER comparison -- two distinct unbound vars compared unequal, the same cell compared equal. A fresh pl_vord_t per call reproduces exactly that: distinct cells get distinct
+   first-encounter indices, the same cell gets the same one. Only equality is tested here (the walk breaks on != 0), so no cross-call ordering is required and persisting the map
+   would buy nothing. ⛔ A generator that carried a stale map across re-entries would be the harder-to-see bug, not the safer choice. */
 DESCR_t rt_pl_bag_group_gen(DESCR_t *args, int nargs, int64_t *resume)
 {
     extern pl_trail_t g_pl_trail;
     if (nargs < 3) return FAILDESCR;
     if (*resume == 0) {
-        pl_baggrp_t *it = (pl_baggrp_t *)rt_ws_alloc(sizeof *it);
-        DESCR_t t0 = args[0];
-        it->rest = pl_cell_to_term((pl_cell_t *)&t0);
-        it->mark = pl_trail_mark(&g_pl_trail);
-        *resume = (int64_t)(intptr_t)it;
+        pl_baggrp_t *it0 = (pl_baggrp_t *)rt_ws_alloc(sizeof *it0);
+        pl_cell_t *t0 = (pl_cell_t *)rt_ws_alloc(sizeof *t0);
+        *t0 = *(pl_cell_t *)&args[0];
+        it0->rest = pl_deref(t0);
+        it0->mark = pl_trail_mark(&g_pl_trail);
+        *resume = (int64_t)(intptr_t)it0;
     }
     pl_baggrp_t *it = (pl_baggrp_t *)(intptr_t)*resume;
     int dot_id = prolog_atom_intern("."); int dash_id = prolog_atom_intern("-");
     pl_trail_unwind(&g_pl_trail, it->mark);
-    Term *cur = term_deref(it->rest);
-    if (!(cur && cur->tag == TERM_COMPOUND && cur->compound.functor == dot_id && cur->compound.arity == 2)) return FAILDESCR;
-    Term *first = term_deref(cur->compound.args[0]);
-    if (!(first && first->tag == TERM_COMPOUND && first->compound.functor == dash_id && first->compound.arity == 2)) return FAILDESCR;
-    Term *key = term_deref(first->compound.args[0]);
-    Term *vals[4096]; int nv = 0;
-    vals[nv++] = first->compound.args[1];
-    Term *rest = term_deref(cur->compound.args[1]);
-    while (rest && rest->tag == TERM_COMPOUND && rest->compound.functor == dot_id && rest->compound.arity == 2 && nv < 4096) {
-        Term *p = term_deref(rest->compound.args[0]);
-        if (!(p && p->tag == TERM_COMPOUND && p->compound.functor == dash_id && p->compound.arity == 2)) break;
-        if (rt_pl_term_compare(key, term_deref(p->compound.args[0])) != 0) break;
-        vals[nv++] = p->compound.args[1];
-        rest = term_deref(rest->compound.args[1]);
+    pl_cell_t *cur = it->rest ? pl_deref(it->rest) : (pl_cell_t *)0;
+    if (!(cur && (int)cur->v == DT_PLREF && (int)(cur->slen >> 16) == dot_id && (int)(cur->slen & 0xFFFFu) == 2)) return FAILDESCR;
+    pl_cell_t *caa = (pl_cell_t *)cur->p;
+    pl_cell_t *first = pl_deref(&caa[0]);
+    if (!(first && (int)first->v == DT_PLREF && (int)(first->slen >> 16) == dash_id && (int)(first->slen & 0xFFFFu) == 2)) return FAILDESCR;
+    pl_cell_t *faa = (pl_cell_t *)first->p;
+    pl_cell_t *key = pl_deref(&faa[0]);
+    pl_vord_t vm; vm.n = 0; vm.next = 0;
+    rt_pl_vord_walk(key, &vm);
+    pl_cell_t *vals[4096]; int nv = 0;
+    vals[nv++] = &faa[1];
+    pl_cell_t *rest = pl_deref(&caa[1]);
+    while (rest && (int)rest->v == DT_PLREF && (int)(rest->slen >> 16) == dot_id && (int)(rest->slen & 0xFFFFu) == 2 && nv < 4096) {
+        pl_cell_t *raa = (pl_cell_t *)rest->p;
+        pl_cell_t *pr = pl_deref(&raa[0]);
+        if (!(pr && (int)pr->v == DT_PLREF && (int)(pr->slen >> 16) == dash_id && (int)(pr->slen & 0xFFFFu) == 2)) break;
+        pl_cell_t *paa = (pl_cell_t *)pr->p;
+        pl_cell_t *pkey = pl_deref(&paa[0]);
+        rt_pl_vord_walk(pkey, &vm);
+        if (rt_pl_cell_compare(key, pkey, &vm) != 0) break;
+        vals[nv++] = &paa[1];
+        rest = pl_deref(&raa[1]);
     }
     it->rest = rest;
-    Term *vlist = term_new_atom(prolog_atom_intern("[]"));
-    for (int i = nv - 1; i >= 0; i--) { Term *pr[2]; pr[0] = vals[i]; pr[1] = vlist; vlist = term_new_compound(dot_id, 2, pr); }
-    Term *kp[2]; kp[0] = key; kp[1] = vlist;
-    Term *pairT = term_new_compound(dash_id, 2, kp);
+    pl_cell_t vlist = plc_nil_cell();
+    for (int i = nv - 1; i >= 0; i--) vlist = plc_cons(dot_id, pl_make_ref(vals[i], (int)vals[i]->slen), vlist);
+    pl_cell_t pairc = plc_cons(dash_id, pl_make_ref(key, (int)key->slen), vlist);
     pl_cell_t *kids = (pl_cell_t *)rt_ws_alloc(2 * sizeof(pl_cell_t));
     kids[0] = *(pl_cell_t *)&args[1]; kids[1] = *(pl_cell_t *)&args[2];
     pl_cell_t pc = pl_make_compound(dash_id, 2, kids);
-    if (!pl_unify_term_into_cell(&pc, pairT, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, it->mark); return FAILDESCR; }
+    if (!pl_unify(&pc, &pairc, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, it->mark); return FAILDESCR; }
     { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
