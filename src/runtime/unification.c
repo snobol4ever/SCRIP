@@ -1318,18 +1318,31 @@ int rt_pl_keysort_cell(void *list_cell, void *result_cell)
 {
     extern pl_trail_t g_pl_trail;
     int dot_id = prolog_atom_intern("."); int dash_id = prolog_atom_intern("-");
-    Term *elems[4096];
-    int n = pb_pairs_extract(list_cell, elems, 4096, dot_id, dash_id);
-    if (n < 0) return 0;
+    pl_cell_t *elems[4096]; int n = 0;
+    pl_cell_t *cur = pl_deref((pl_cell_t *)list_cell);
+    while (cur && (int)cur->v == DT_PLREF && (int)(cur->slen >> 16) == dot_id && (int)(cur->slen & 0xFFFFu) == 2 && n < 4096) {
+        pl_cell_t *aa = (pl_cell_t *)cur->p;
+        pl_cell_t *p = pl_deref(&aa[0]);
+        if (!((int)p->v == DT_PLREF && (int)(p->slen >> 16) == dash_id && (int)(p->slen & 0xFFFFu) == 2)) return 0;
+        elems[n++] = p;
+        cur = pl_deref(&aa[1]);
+    }
+    pl_vord_t vm; vm.n = 0; vm.next = 0;
+    for (int i = 0; i < n; i++) rt_pl_vord_walk((pl_cell_t *)elems[i]->p, &vm);
     for (int i = 1; i < n; i++) {
-        Term *key = elems[i]; int j = i - 1;
-        while (j >= 0 && rt_pl_term_compare(term_deref(elems[j]->compound.args[0]), term_deref(key->compound.args[0])) > 0) { elems[j + 1] = elems[j]; j--; }
+        pl_cell_t *key = elems[i]; pl_cell_t *kkey = (pl_cell_t *)key->p; int j = i - 1;
+        while (j >= 0 && rt_pl_cell_compare((pl_cell_t *)elems[j]->p, kkey, &vm) > 0) { elems[j + 1] = elems[j]; j--; }
         elems[j + 1] = key;
     }
-    Term *result = term_new_atom(prolog_atom_intern("[]"));
-    for (int i = n - 1; i >= 0; i--) { Term *pair[2]; pair[0] = elems[i]; pair[1] = result; result = term_new_compound(dot_id, 2, pair); }
+    pl_cell_t nil; { const char *nm = prolog_atom_name(prolog_atom_intern("[]")); nil.v = DT_S; nil.slen = (uint32_t)(nm ? strlen(nm) : 0); nil.s = nm ? nm : "[]"; }
+    pl_cell_t result = nil;
+    for (int i = n - 1; i >= 0; i--) {
+        pl_cell_t *blk = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t));
+        blk[0] = pl_make_ref(elems[i], (int)elems[i]->slen); blk[1] = result;
+        result = pl_make_compound(dot_id, 2, blk);
+    }
     int mark = pl_trail_mark(&g_pl_trail);
-    if (!pl_unify_term_into_cell((pl_cell_t *)result_cell, result, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    if (!pl_unify((pl_cell_t *)result_cell, &result, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
