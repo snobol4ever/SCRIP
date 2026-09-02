@@ -1,0 +1,170 @@
+#!/usr/bin/env bash
+# bench_triangulate_raku.sh -- THE CROSS-PROOF SCAFFOLD for Raku (row bench-grids-rebase-to-two-number-basis,
+# hq_B 2026-09-01), modelled on bench_triangulate_prolog.sh per ARCH-BENCH-CAMPAIGN-README-TABLES.md § THREE-ANGLE
+# TRIANGULATION and Lon's 3-angle ruling (RULES.md § THE TWO-NUMBER BENCHMARK BASIS, second clause).
+#
+# ⛔⛔ READ THIS BEFORE CITING A NUMBER IT PRINTS: ONLY ANGLE 3 IS IMPLEMENTED. ANGLES 1 AND 2 ARE REFUSED, PER CELL.
+#   angle 1 (fixed TIME, live-searched iterations)  -- NO Raku instrument exists (no test_bench_raku_timed.sh).
+#   angle 2 (fixed ITERATIONS, committed N)         -- NO Raku instrument exists (no bench_raku_fixed_iter.sh, and
+#                                                       no loop-wrapped derived corpus like prolog's vanroy/ to run it on:
+#                                                       the kernels are top-level scripts, not callable subs, so a
+#                                                       loop driver needs a refactored derived twin per kernel first).
+#   angle 3 (process wrapper: external elapsed via tools/bench_rusage + self-timed WORK from the kernel's own stderr
+#            BENCH line; OVERHEAD = external - work)  -- IMPLEMENTED HERE, both units, every run byte-verified.
+# So every cell's cross-proof column reads UNPROVEN and the coverage gate (test_gate_bench_rivals_coverage.sh) will
+# NOT count these kernels MEASURED -- correctly. The work-basis numbers below are SINGLE-ANGLE and must be published
+# labelled as such ("work basis, angle 3 only, cross-proof pending"), exactly as the Prolog grid was (SCRIP 56fd19b5).
+# ⭐ WHY SHIP A ONE-ANGLE TRIANGULATOR AT ALL: the two-number basis is the part that changes the published story --
+# it inverted the Prolog grid (ahead on 1 of 10, not 10 of 10) and it is what separates Rakudo's ~200 ms startup
+# from its engine speed. A single honest angle with its gap stated beats a totals grid with no gap stated; and when
+# angles 1+2 land they slot into THIS script (extend; do not rebuild) -- the parse/verdict shape is the prolog one.
+#
+# ⛔ PRECONDITION THAT MUST SURVIVE ANY REWRITE (hq_P .github 682367fd; it fired live on the Prolog pass): no arm
+# contributes to a multiple until its stdout is compared BYTE-FOR-BYTE against <kernel>.ref -- not exit code, not
+# non-empty, and on EVERY rep, not just the first. A rival that prints a banner around the right answer passes every
+# cheap guard and fails this one.
+# ⛔ THE exit= FIELD OF THE BENCH_RUSAGE LINE IS THE ONLY CRASH SIGNAL (bench_prolog_fixed_iter.sh's law): a
+# segfaulting child still prints a well-formed rusage line with exit=139; text-sniffing stderr passed one through.
+# ⛔ INVARIANTS THAT VOID A CELL (an instrument lying about itself is worse than a missing number):
+#   work_us > elapsed_us          -> VOID-CLOCK   (self-timed work cannot exceed the process that contains it)
+#   |work_us/1000 - work_ms| > 1  -> VOID-UNITS   (same clock in two units; a disagreement is a unit bug)
+# ⛔ THE RAKUDO PRELUDE IS STAGED IN A SCRATCH DIR, NEVER LOADED WITH -I<corpus dir>: Rakudo precompiles a -M module
+# into a .precomp/ beside it, and `-I.` in corpus/benchmarks/raku/ wrote .precomp/ INTO THE CORPUS on the first
+# hand run (the tmp1/tmp2 litter class ceo just deleted, 2026-09-01). The writer is the cure: this script copies
+# prelude_rakudo.rakumod into $W and passes -I$W, so the corpus is never a Rakudo output directory.
+# ⛔ FACT RULE / LABEL DUTY: every number names its arm and basis. Precision floors: SCRIP wall_us reads
+# CLOCK_MONOTONIC (~20 ns back-to-back floor, reported in us); Rakudo wall_us reads `now` (sub-us Instant). Both
+# arms are genuinely microsecond-precise -- unlike gprolog's 1 ms real_time floor that REFUSED the gplc column.
+# RT_OPT is -O0 and there are no -O2 builds (Makefile:34).
+#
+# USAGE: bench_triangulate_raku.sh            (population = every self-timed kernel with a .ref)
+#        KERNELS="string-escape send-more-money-loops" bench_triangulate_raku.sh
+#        REPS=5 TIMEOUT=300 bench_triangulate_raku.sh
+# EXIT: 0 = every cell verified and consistent (cross-proof still UNPROVEN -- stated, never implied otherwise).
+#       1 = at least one cell DIFF / CRASH / VOID -- do not publish those cells.
+#       2 = REFUSED -- missing scrip / rakudo / corpus / prelude / lib, loud, never a plausible table.
+S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+set -u
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
+SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
+RDIR="${RAKU_DIR:-$S4E/corpus/benchmarks/raku}"
+REPS="${REPS:-3}"; T="${TIMEOUT:-120}"; KERNELS="${KERNELS:-}"
+. "$HERE/lib_perf_fmt.sh"     2>/dev/null || { echo "⛔ REFUSED: cannot load lib_perf_fmt.sh -- the ONE authority for printing a multiple (s266)." >&2; exit 2; }
+. "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "⛔ REFUSED: cannot load lib_oracle_flags.sh -- the ONE authority for rival binaries." >&2; exit 2; }
+[ -x "$SCRIP" ] || { echo "⛔ REFUSED: scrip not built ($SCRIP)." >&2; exit 2; }
+[ -f "$RT/libscrip_rt.so" ] || { echo "⛔ REFUSED: libscrip_rt.so not built ($RT)." >&2; exit 2; }
+[ -d "$RDIR" ] || { echo "⛔ REFUSED: raku bench corpus missing ($RDIR)." >&2; exit 2; }
+[ -f "$RDIR/prelude_rakudo.rakumod" ] || { echo "⛔ REFUSED: $RDIR/prelude_rakudo.rakumod missing -- the Rakudo arm has no wall_us/wall_ms without it." >&2; exit 2; }
+RAKU="$(rakudo_bin)" || exit 2
+RAKU_VER="$("$RAKU" --version 2>/dev/null | sed -n 's/.*Rakudo™ v\([0-9][0-9.]*[0-9]\).*/\1/p' | head -1)"; RAKU_VER="${RAKU_VER:-unknown}"   # anchored on a digit at both ends: the banner reads "v2026.05." and a greedy [0-9.]* kept the sentence's full stop as part of the version
+WRAP="$ROOT/tools/bench_rusage"; [ -x "$WRAP" ] || gcc -O2 -o "$WRAP" "$ROOT/tools/bench_rusage.c" || { echo "⛔ REFUSED: bench_rusage failed to build." >&2; exit 2; }
+W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
+mkdir -p "$W/prelude" && cp "$RDIR/prelude_rakudo.rakumod" "$W/prelude/" || { echo "⛔ REFUSED: cannot stage the prelude." >&2; exit 2; }
+ulimit -s unlimited 2>/dev/null || ulimit -s 1048576 2>/dev/null || true
+TS="$(date -u +%Y%m%dT%H%M%SZ)"
+OUT_TSV="${OUT_TSV:-$RDIR/worktime-$TS.tsv}"
+
+echo "RAKU TWO-NUMBER-BASIS TRIANGULATION -- angle 3 ONLY (external elapsed + self-timed work -> overhead); angles 1+2 REFUSED (no Raku instrument)"
+echo "arms: m3 (scrip --run) · m4 (scrip --compile, linked against libscrip_rt.so) · rakudo $RAKU_VER ($RAKU) -- REPS=$REPS best-of, TIMEOUT=${T}s, RT_OPT=-O0"
+echo "basis: WORK = the kernel's own wall_us() bracket (stderr BENCH line); OVERHEAD = bench_rusage elapsed - WORK; every rep byte-verified against .ref"
+echo
+
+# population: self-timed kernels (carry wall_us()) that have a .ref -- the rest are DECLARED here, never silently absent.
+all=(); timed=(); untimed=(); noref=()
+for f in "$RDIR"/*.raku; do
+  k="$(basename "$f" .raku)"; all+=("$k")
+  if [ -n "$KERNELS" ] && ! printf ' %s ' $KERNELS | grep -q " $k "; then continue; fi
+  if [ ! -f "$RDIR/$k.ref" ]; then noref+=("$k"); continue; fi
+  if grep -q 'wall_us()' "$f"; then timed+=("$k"); else untimed+=("$k"); fi
+done
+[ "${#all[@]}" -gt 0 ] || { echo "⛔ REFUSED: zero .raku kernels under $RDIR." >&2; exit 2; }
+echo "population: ${#all[@]} kernels in corpus · ${#timed[@]} self-timed with .ref (measured below) · ${#untimed[@]} NOT SELF-TIMED (declared) · ${#noref[@]} without .ref (declared)"
+[ "${#untimed[@]}" -gt 0 ] && echo "  not self-timed (add the wall_us()/note() bracket, then they join): ${untimed[*]}"
+[ "${#noref[@]}"   -gt 0 ] && echo "  no .ref (cannot be byte-verified, so cannot be timed):           ${noref[*]}"
+[ "${#timed[@]}" -gt 0 ] || { echo "⛔ REFUSED: no self-timed kernel with a .ref to measure." >&2; exit 2; }
+echo
+
+# one wrapped run -> "work_us work_ms elapsed_us" on success, or "- - - <REASON>" (never a number with a reason)
+run1() {
+  local eng="$1" k="$2" src="$RDIR/$2.raku" so="$W/so.$$" se="$W/se.$$" rl xc wu wm el
+  case "$eng" in
+    m3)     "$WRAP" timeout "$T" "$SCRIP" --run "$src" </dev/null >"$so" 2>"$se" ;;
+    m4)     "$WRAP" timeout "$T" "$W/$k.bin" </dev/null >"$so" 2>"$se" ;;
+    rakudo) "$WRAP" timeout "$T" "$RAKU" -I"$W/prelude" -Mprelude_rakudo "$src" </dev/null >"$so" 2>"$se" ;;
+  esac
+  rl=$(grep '^BENCH_RUSAGE:' "$se" 2>/dev/null | tail -1); [ -n "$rl" ] || { echo "- - - DNF"; return; }
+  xc=$(echo "$rl" | grep -oE 'exit=[0-9-]+' | cut -d= -f2)
+  case "$xc" in ''|*[!0-9]*) echo "- - - CRASH(exit=${xc:-?})"; return ;; esac
+  [ "$xc" -ge 128 ] && { echo "- - - CRASH(signal $((xc-128)))"; return; }
+  [ "$xc" -ne 0 ] && { echo "- - - NONZERO($xc)"; return; }
+  cmp -s "$so" "$RDIR/$k.ref" || { echo "- - - DIFF"; return; }
+  wu=$(grep -oE 'BENCH kernel=[^ ]+ work_us=[0-9]+' "$se" | tail -1 | grep -oE 'work_us=[0-9]+' | cut -d= -f2)
+  wm=$(grep -oE 'work_ms=[0-9]+' "$se" | tail -1 | cut -d= -f2)
+  [ -n "$wu" ] && [ -n "$wm" ] || { echo "- - - NO-BENCH-LINE"; return; }
+  el=$(( $(echo "$rl" | grep -oE 'elapsed_ns=[0-9]+' | cut -d= -f2) / 1000 ))
+  [ "$wu" -le "$el" ] || { echo "- - - VOID-CLOCK(work_us=$wu>elapsed_us=$el)"; return; }
+  awk -v u="$wu" -v m="$wm" 'BEGIN{ d=u/1000-m; if (d<0) d=-d; exit (d<=1)?0:1 }' || { echo "- - - VOID-UNITS(work_us=$wu work_ms=$wm)"; return; }
+  echo "$wu $wm $el"
+}
+build_m4() {  # compile+link once per kernel; the .s and .bin live in $W, never beside the kernel
+  local k="$1" s="$W/$1.s" o="$W/$1.o" b="$W/$1.bin"
+  (cd "$W" && timeout "$T" "$SCRIP" --compile -o "$s" "$RDIR/$k.raku" </dev/null >/dev/null 2>"$W/$k.m4build.err") && [ -s "$s" ] || return 1
+  as --64 -o "$o" "$s" 2>>"$W/$k.m4build.err" && gcc -no-pie -o "$b" "$o" "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>>"$W/$k.m4build.err"
+}
+
+{ echo -e "# raku work-time TSV -- $TS -- ANGLE 3 ONLY; cross-proof UNPROVEN (angles 1+2 have no Raku instrument) -- never hand-edit, regenerate via bench_triangulate_raku.sh"
+  echo -e "# arms: m3 · m4 · rakudo $RAKU_VER; REPS=$REPS best-of by work_us; overhead_us = elapsed_us - work_us of the best rep; spread_pct = (max-min)/min of work_us over verified reps; floor_us = clock floor of the arm"
+  echo -e "kernel\tengine\treps_ok\twork_us\twork_ms\telapsed_us\toverhead_us\tspread_pct\tverified\tfloor_us\tangle1\tangle2\tcrossproof"; } > "$OUT_TSV"
+
+declare -A BW BO BE BN BS   # best work_us, its overhead, its elapsed, ok-rep count, spread pct -- keyed k:eng
+any_bad=0
+printf '%-24s %-7s %4s %14s %14s %14s %9s  %s\n' kernel engine reps work_us elapsed_us overhead_us spread verdict
+printf '%s\n' "-------------------------------------------------------------------------------------------------------"
+for k in "${timed[@]}"; do
+  m4ok=1; build_m4 "$k" || m4ok=0
+  for eng in m3 m4 rakudo; do
+    best=""; bo=""; be=""; ok=0; reason=""; mn=""; mx=""
+    if [ "$eng" = m4 ] && [ "$m4ok" -eq 0 ]; then reason="BUILD-ERR"; else
+      for ((r=1; r<=REPS; r++)); do
+        read -r wu wm el rest <<<"$(run1 "$eng" "$k")"
+        if [ "$wu" = "-" ]; then reason="${reason:-$rest}"; continue; fi
+        ok=$((ok+1)); [ -z "$mn" ] || [ "$wu" -lt "$mn" ] && mn="$wu"; [ -z "$mx" ] || [ "$wu" -gt "$mx" ] && mx="$wu"
+        if [ -z "$best" ] || [ "$wu" -lt "$best" ]; then best="$wu"; bwm="$wm"; be="$el"; bo=$((el-wu)); fi
+      done
+    fi
+    floor=1   # both arms report integer us: SCRIP quantizes a ~20 ns CLOCK_MONOTONIC read to 1 us, Rakudo a sub-us Instant to 1 us
+    if [ "$ok" -gt 0 ] && [ -z "$reason" ]; then
+      sp=$(awk -v a="$mn" -v b="$mx" 'BEGIN{ if (a+0>0) printf "%.1f", (b-a)*100/a; else print "NA" }')
+      BW["$k:$eng"]="$best"; BO["$k:$eng"]="$bo"; BE["$k:$eng"]="$be"; BN["$k:$eng"]="$ok"; BS["$k:$eng"]="$sp"
+      printf '%-24s %-7s %4s %14s %14s %14s %8s%%  %s\n' "$k" "$eng" "$ok/$REPS" "$best" "$be" "$bo" "$sp" "VERIFIED"
+      printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$k" "$eng" "$ok/$REPS" "$best" "$bwm" "$be" "$bo" "$sp" VERIFIED "$floor" REFUSED-NO-INSTRUMENT REFUSED-NO-INSTRUMENT UNPROVEN >> "$OUT_TSV"
+    else
+      any_bad=1
+      # a partial success (some reps verified, one did not) is still a bad cell: the arm is not reproducible, and a
+      # best-of over a set that contains a DIFF would be choosing the run whose answer we did not check
+      printf '%-24s %-7s %4s %14s %14s %14s %9s  %s\n' "$k" "$eng" "$ok/$REPS" - - - - "⛔ ${reason:-UNVERIFIED}"
+      printf '%s\t%s\t%s\t-\t-\t-\t-\t-\t%s\t%s\t%s\t%s\t%s\n' "$k" "$eng" "$ok/$REPS" "${reason:-UNVERIFIED}" "$floor" REFUSED-NO-INSTRUMENT REFUSED-NO-INSTRUMENT UNPROVEN >> "$OUT_TSV"
+    fi
+  done
+done
+
+echo
+echo "-- FACT-RULE grid: WORK basis (angle 3, single angle -- label it so). multiple = rakudo work_us / SCRIP work_us; >1.000x means SCRIP does the kernel's work faster --"
+for k in "${timed[@]}"; do
+  rw="${BW["$k:rakudo"]:-}"; w3="${BW["$k:m3"]:-}"; w4="${BW["$k:m4"]:-}"
+  [ -n "$rw" ] && [ -n "$w3" ] && perf_row "$k  m3 vs rakudo" "$rw" "$w3"
+  [ -n "$rw" ] && [ -n "$w4" ] && perf_row "$k  m4 vs rakudo" "$rw" "$w4"
+  [ -z "$rw" ] && echo "  $k: rakudo arm unverified -- no multiple"
+done
+echo
+echo "-- OVERHEAD per engine (elapsed - work, us, of each kernel's best rep): the process/startup constant the totals basis was charging to the engine --"
+for eng in m3 m4 rakudo; do
+  line=""; for k in "${timed[@]}"; do o="${BO["$k:$eng"]:-}"; [ -n "$o" ] && line="$line $k=$o"; done
+  printf '  %-7s%s\n' "$eng" "${line:- (no verified cell)}"
+done
+echo
+echo "TSV: $OUT_TSV"
+echo "⚠ CROSS-PROOF: UNPROVEN for every cell -- angles 1 and 2 have no Raku instrument yet (see header). Publish the work-basis numbers ONLY with that label."
+if [ "$any_bad" -eq 1 ]; then echo "⛔ at least one cell is DIFF/CRASH/VOID/BUILD-ERR -- do not publish or cite those cells."; exit 1; fi
+echo "every measured cell VERIFIED (byte-equal stdout on every rep, clock and unit invariants held)."
+exit 0

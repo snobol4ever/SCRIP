@@ -1888,6 +1888,25 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         DESCR_t t = INTVAL((int64_t)_ts.tv_sec * 1000000 + (int64_t)_ts.tv_nsec / 1000);
         if (plw_unify_vals(args[0], t)) { *out = t; return 1; } *out = FAILDESCR; return 1;
     }
+    if ((!strcmp(fn, "wall_us") || !strcmp(fn, "wall_ms")) && nargs == 0) {
+        /* ⛔⭐ THE RAKU CLOCK HOOK, DELIBERATELY ADJACENT TO THE PROLOG ONE ABOVE (hq_B 2026-09-01, row
+           bench-grids-rebase-to-two-number-basis, on ceo's switch ruling). Same basis law (Lon 2026-08-30,
+           RULES.md § THE TWO-NUMBER BENCHMARK BASIS): a kernel self-times its own WORK and the harness
+           reports OVERHEAD (external total - work) as a SEPARATE number, so a rival's startup constant is
+           never silently charged to its engine. The Prolog grid inverted when this basis replaced totals --
+           ahead on 1 of 10, not 10 of 10 -- so the Raku grid is re-measured on it, never converted.
+           ⛔ THESE TWO HOOKS LIVE TOGETHER BECAUSE THEY MUST NOT DRIFT APART. They are one law in two
+           frontends; separated, one gets a precision fix and the other silently keeps a stale basis, and
+           the grids they feed stop being comparable while still being printed side by side.
+           ⭐ ARITY AND SPELLING DIFFER FROM THE PROLOG PAIR, AND THAT IS NOT AN INCONSISTENCY: Prolog's
+           $wall_us/1 UNIFIES its argument (relational, out-parameter), Raku's wall_us() RETURNS a value
+           (applicative). Same clock, same units, each in its own language's idiom -- a Raku sub that took
+           an out-parameter would be the un-idiomatic thing, and the Rakudo rival prelude could not mirror
+           it. The unprefixed names cannot collide with the $-prefixed Prolog ones. */
+        struct timespec _ts; clock_gettime(CLOCK_MONOTONIC, &_ts);
+        int64_t us = (int64_t)_ts.tv_sec * 1000000 + (int64_t)_ts.tv_nsec / 1000;
+        *out = INTVAL(!strcmp(fn, "wall_us") ? us : us / 1000); return 1;
+    }
     if (!strcmp(fn, "$current_output") && nargs == 1) {
         extern int fh_current_output(void);
         DESCR_t v = rt_pl_deref_val(args[0]);
@@ -3018,6 +3037,39 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             else tmp[_ri] = args[_ri];
         }
         *out = rt_call_arr(!strcmp(fn, "rk_write") ? "write" : "writes", tmp, nargs); return 1;
+    }
+    if (!strcmp(fn, "note") && !rt_proc_is_registered(fn)) {
+        /* ⛔⭐ RAKU `note` -- say's stderr twin, and the reason the self-timed bench kernels can report at all
+           (hq_B 2026-09-01, row bench-grids-rebase-to-two-number-basis). The two-number basis REQUIRES the work
+           delta to leave the program without touching stdout, exactly as the Prolog kernels use
+           format(user_error, ...): stdout stays byte-comparable so every kernel's .ref still verifies unchanged.
+           A bench harness that had to strip a timing line out of stdout before diffing would be trading the
+           oracle comparison for a parser, which is how a grid stops being evidence.
+           ⭐ THIS IS A REAL FRONTEND GAP BEING FILLED, NOT A BENCH SHIM. `note` is standard Raku (say to $*ERR);
+           SCRIP simply did not have it, so any program diagnosing to stderr silently died with "Undefined
+           function or operation". It is added here rather than in the bench tree because the next Raku program
+           that wants a warning should find it, not re-mint it.
+           ⚠️ THE LISTOP FORM `note "x";` (no parens) STILL DOES NOT PARSE -- that is a grammar gap, not a
+           dispatch one, and it is left OPEN and recorded rather than half-cured here: the paren form note("x")
+           is valid Raku and is what the kernels use. Do not read this hook as `note` being finished.
+           ⛔⛔ GUARDED BY rt_proc_is_registered BECAUSE THIS DISPATCHER IS A SHARED NODE AND `note` IS A NAME
+           REAL PROGRAMS ALREADY USE. Measured before adding it, not after: FOUR corpus programs define their
+           own note -- three Icon (packages/icon/{arizona,jcon}_tests, and rung36_jcon_args -- a loose file when measured, entry 40 of
+           tests/icon/rung36_all since corpus b6767fb2) and
+           tests/snobol4/ALL.sno, which is ON THE BLOCKING BOARD. script_try_call_builtin_by_name has NO
+           entry guard: it starts matching names immediately, so an unguarded branch here would outrank a
+           user procedure of the same name for any caller that reaches this function first, and the symptom
+           would be a corpus program silently printing to stderr instead of running its own code.
+           ⭐ THE GENERAL FORM: a builtin added for one frontend lands in every frontend's namespace. The
+           short, ordinary, English-word names are exactly the ones a user program has already taken. */
+        DESCR_t *tmp = (DESCR_t *)rt_ws_alloc((size_t)(nargs > 0 ? nargs : 1) * sizeof(DESCR_t));
+        for (int _ri = 0; _ri < nargs; _ri++) {
+            if (IS_REAL_fn(args[_ri])) { char *_rb = rt_ws_alloc(64); rk_real_str(args[_ri].r, _rb, 64); tmp[_ri] = STRVAL(_rb); }
+            else tmp[_ri] = args[_ri];
+        }
+        for (int _ri = 0; _ri < nargs; _ri++) { char _sb[512]; const char *_cs = to_cstring(tmp[_ri], _sb, sizeof _sb); fputs(_cs ? _cs : "", stderr); }
+        fputc('\n', stderr); fflush(stderr);
+        *out = INTVAL(1); return 1;
     }
     if (!strcmp(fn, "rk_write_arr") && nargs == 1) {
         const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";

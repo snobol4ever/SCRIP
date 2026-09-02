@@ -310,9 +310,9 @@ static int scan_subgraph_safe(stage2_t *s2, int gi, IR_graph_t *g, IR_graph_t *s
     }
     return 1;
 }
-static int graph_native_emittable_mode(stage2_t *s2, int for_run);
+static int graph_native_emittable_mode(stage2_t *s2, int for_run, char *why, size_t whysz);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int graph_native_emittable(stage2_t *s2) { return graph_native_emittable_mode(s2, 0); }
+static int graph_native_emittable(stage2_t *s2, char *why, size_t whysz) { return graph_native_emittable_mode(s2, 0, why, whysz); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int gen_scan_body_slotful(IR_t *r) {
     if (!r || r->op != IR_OP_COUNT || IR_LIT(r).dval != 1.0) return 0;
@@ -434,55 +434,44 @@ static int graph_var_assigned_or_param(stage2_t *s2, int gi, IR_graph_t *g, cons
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int graph_native_emittable_mode(stage2_t *s2, int for_run) {
+static int graph_native_emittable_mode(stage2_t *s2, int for_run, char *why, size_t whysz) {
+    /* ⛔⭐ THE REASON IS REPORTED, NEVER GUESSED (hq_B 2026-09-01, row bench-grids-rebase-to-two-number-basis). Until this edit both callers printed a HARDCODED
+       "(a box has no MEDIUM_BINARY arm — Raku map/grep)" for every 0 this function returned -- measured live on `my $t = now;`, a program with no map, no grep and
+       no box at all: it was refused by the IR_VAR check below because `now` is read and never assigned, and the message blamed a construct the program did not
+       contain. A refusal that names the wrong cause costs more than no message: the reader goes looking for map/grep. Each return 0 now writes its own reason into
+       the caller's buffer and the two fprintf sites print that. (Raku's clock term `now` is still not a SCRIP builtin; the bench kernels use wall_us() instead.)
+       ⛔⛔ IR_OP_COUNT IS A LIVE OP, NOT A TOMBSTONE -- AND THIS EDIT LEARNED THAT THE EXPENSIVE WAY (hq_B, same day, one hour later). The first draft of
+       this rewrite deleted the six `nd->op == IR_OP_COUNT` guards as dead code, on a census that asked "is IR_OP_COUNT ever ASSIGNED with `=`" (zero hits)
+       and read the answer as "does any node ever carry it". lower_raku.c:82 rk_excise() and lower_prolog.c:461/773/877 BUILD nodes with op IR_OP_COUNT --
+       the excised/placeholder node, printed as UNKNOWN by the IR dump -- and the templates (bb_assign_local, bb_unop_gvar_slot, ...) test for it. With the
+       guards gone, `reverse(@a)` sailed through this gate and died in emit_drive as "IR op=133 has no template", SIGABRT, in both modes: two smoke programs
+       went from REFUSED (a clean [SMX] banner, which the smoke's PASS-or-REFUSED bar accepts) to a core dump. The old body's line 459 refused ANY such node
+       unconditionally and shadowed the later IR_OP_COUNT branches, so ONE named guard below reproduces the original semantics exactly, and now says why.
+       ⭐ THE REAL BEAUTY DEFECT is that the enum's COUNT sentinel doubles as an op: a reader who knows what a count sentinel is will call these guards dead,
+       as I did. Naming the excised node (IR_EXCISED) is row driver-emittability-predicates-sentinel-tombstones, re-scoped to that. */
     extern int rt_builtin_is_known(const char *name);
-    if (!s2) return 0;
+    (void)for_run;
+    if (!s2) { snprintf(why, whysz, "no stage2 graph"); return 0; }
     for (int gi = 0; gi < s2->bbp.count; gi++) {
         IR_graph_t *g = s2->bbp.table[gi];
         if (!g || !g->all) continue;
-        int has_lassign = graph_has_local_assign(g);
-        int has_binop = graph_has_binop(g);
         for (int ni = 0; ni < g->n; ni++) {
             IR_t *nd = g->all[ni];
             if (!nd) continue;
+            if (nd->op == IR_OP_COUNT)
+                { snprintf(why, whysz, "an excised node (op IR_OP_COUNT, dumped as UNKNOWN; rk_excise) has no native template%s%s", IR_LIT(nd).sval ? " -- " : "", IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); return 0; }
             if (nd->op == IR_CALL && IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && strcmp(IR_LIT(nd).sval,"__rk_bool") && strcmp(IR_LIT(nd).sval,"__rk_try") && !rt_builtin_is_known(IR_LIT(nd).sval))
-                return 0;
-            if (nd->op == IR_OP_COUNT) {
-                if (nd->n_operands < 1 || !nd->operands[0]) return 0;
-                for (int aj = 1; aj < nd->n_operands; aj++) {
-                    IR_t *arm = nd->operands[aj];
-                    if (!arm || arm->op != IR_OP_COUNT || arm->n_operands < 1 || !arm->operands[0]) return 0;
-                }
-            }
-            if (nd->op == IR_OP_COUNT && (nd->n_operands < 1 || !nd->operands[0])) return 0;
-            if (0 && nd->op == IR_OP_COUNT) return 0;
-            if (nd->op == IR_OP_COUNT) return 0;             if (nd->op == IR_OP_COUNT) {
-                IR_t *rv = (nd->n_operands > 1) ? nd->operands[1] : (IR_t *)0; if (!rv || !rhs_kind_ok(rv) || rv->op == IR_OP_COUNT) return 0;
-            }
-            if (nd->op == IR_OP_COUNT) {
-                IR_t *lv = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0; IR_t *rv = nd->n_operands > 1 ? nd->operands[1] : (IR_t *)0;
-                if (!lv || !rv || lv->op != IR_VAR || rv->op != IR_VAR || !IR_LIT(lv).sval || !IR_LIT(rv).sval) return 0;
-            }
+                { snprintf(why, whysz, "call '%s' is neither a user sub nor a known builtin", IR_LIT(nd).sval); return 0; }
             if (nd->op == IR_CALL && IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval,"__rk_bool")||!strcmp(IR_LIT(nd).sval,"__rk_try"))) {
-                if (bool_cond_emittable(nd)||bool_truthy_emittable(nd)) {} else return 0;
+                if (bool_cond_emittable(nd)||bool_truthy_emittable(nd)) {} else { snprintf(why, whysz, "%s condition shape has no native arm", IR_LIT(nd).sval); return 0; }
             }
-            if (nd->op == IR_OP_COUNT) {
-                if (IR_LIT(nd).dval != 1.0) return 0;
-                IR_graph_t *ssg = (IR_graph_t *)0;
-                IR_graph_t *bsg = (IR_graph_t *) 0;
-                if (!scan_subgraph_safe(s2, gi, g, ssg, 0) || !scan_subgraph_safe(s2, gi, g, bsg, 0)) return 0;
-                if (nd->γ.node && (nd->γ.node->op == IR_CALL || ir_is_scan_kind(nd->γ.node->op)) && !gen_scan_body_slotful(nd)) return 0;
-            }
-            {
-              if (nd->op == IR_VAR && IR_LIT(nd).sval && IR_LIT(nd).sval[0] != '&' && !is_global(IR_LIT(nd).sval) && !graph_var_assigned_or_param(s2, gi, g, IR_LIT(nd).sval)) return 0;
-              if (nd->op == IR_ASSIGN && IR_LIT(nd).sval) {
-                  int lhs_global = is_global(IR_LIT(nd).sval);
-                  if (lhs_global) {  }
-                  else if (local_assign_rhs_ok_g(g, nd)) {  }
-                  else return 0;
-              } }
+            if (nd->op == IR_VAR && IR_LIT(nd).sval && IR_LIT(nd).sval[0] != '&' && !is_global(IR_LIT(nd).sval) && !graph_var_assigned_or_param(s2, gi, g, IR_LIT(nd).sval))
+                { snprintf(why, whysz, "variable '%s' is read but never assigned and is not a parameter", IR_LIT(nd).sval); return 0; }
+            if (nd->op == IR_ASSIGN && IR_LIT(nd).sval && !is_global(IR_LIT(nd).sval) && !local_assign_rhs_ok_g(g, nd))
+                { snprintf(why, whysz, "assignment to '%s' has an rhs shape with no native arm", IR_LIT(nd).sval); return 0; }
         }
     }
+    why[0] = '\0';
     return 1;
 }
 static IR_graph_t **g_gz_visiting = NULL; static int g_gz_nvisiting = 0; static int g_gz_visiting_cap = 0;
@@ -1382,9 +1371,9 @@ int main(int argc, char **argv)
                 { extern void rt_proc_set_result_name(const char *, const char *); if (s2->proc_table[_pi].result_name) rt_proc_set_result_name(pname, s2->proc_table[_pi].result_name); }
             }
             if (is_icon || is_sno_bb || is_prolog || is_raku || is_pascal) drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
-            if (is_raku && !graph_native_emittable(s2)) {
-                fprintf(stderr, "[SMX] --compile --target=x86: mode-4 native emitter does not yet cover "
-                                "this program (a box has no MEDIUM_TEXT arm — Raku map/grep). REJECTED — native BB emission pending (no interpreter fallback).\n");
+            char smx_why[256];
+            if (is_raku && !graph_native_emittable(s2, smx_why, sizeof smx_why)) {
+                fprintf(stderr, "[SMX] --compile --target=x86: mode-4 native emitter does not yet cover this program: %s. REJECTED — native BB emission pending (no interpreter fallback).\n", smx_why);
                 /* ⛔⭐ 1, NOT 0 (hq_C verdict 2026-08-30, row smx-refusal-exits-zero). This returned 0, so "the compiler could not build this" and "the program ran and printed nothing" shared an exit code AND an empty stdout -- indistinguishable to any caller that checks either. The deciding evidence is nine lines below: the [IBB] FATAL neighbour already returns 1, so the driver ALREADY treats an inability-to-build as non-zero and this path was an inconsistency with its own neighbour rather than a considered refusal policy. ⛔ NOT rc=2: that is the GATE convention for cannot-measure; for a compiler "I cannot build this" is an ordinary build failure and 1 is the honest code. ⭐ Landed only after the exposed-consumer census hq_C required (FINDING-2026-08-30-hq_B-smx-rc0-exposed-population-is-empty-today): eight raku consumers, [SMX] seen by none -- the refusing programs are graded by corpus_suite_harness.py on OUTPUT vs a committed .ref, never on rc. ⚠️ Both sites are is_raku-gated, so today's blast radius is Raku-only; the refusal is the EMITTER's own not-covered path, so any frontend added to that predicate inherits this rc and the census must be re-run then. */
                 return 1;
             }
@@ -1811,9 +1800,9 @@ int main(int argc, char **argv)
             }
             if (is_icon || is_sno_bb || is_prolog) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
             if (is_icon || is_sno_bb || is_prolog || is_raku || is_pascal) drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
-            if (is_raku && !graph_native_emittable_mode(s2, 1)) {
-                fprintf(stderr, "[SMX] --run: mode-3 native emitter does not yet cover this program "
-                                "(a box has no MEDIUM_BINARY arm — Raku map/grep). REJECTED — native BB emission pending (no interpreter fallback).\n");
+            char smx_why[256];
+            if (is_raku && !graph_native_emittable_mode(s2, 1, smx_why, sizeof smx_why)) {
+                fprintf(stderr, "[SMX] --run: mode-3 native emitter does not yet cover this program: %s. REJECTED — native BB emission pending (no interpreter fallback).\n", smx_why);
                 /* ⛔⭐ 1, matching the MODE-4 site above -- and DELIBERATELY NOT this site's own neighbour, which calls abort(). ⭐⭐ THE RULE IS NOT PROXIMITY, IT IS THE PRINCIPLE THE NEIGHBOURS INSTANTIATE (hq_C, restating their own "match the neighbour" ruling after it was tested rather than executed): abort() is for a VIOLATED INTERNAL INVARIANT -- a state the compiler believes impossible, like "main BB graph not found" after a successful build, where no correct user action exists because the compiler is broken. A non-zero return is for an ANTICIPATED REFUSAL -- a program we knowingly do not cover yet, where the user's action is clear. ⛔⭐ AND THE SMX PATH'S OWN TEXT SETTLES WHICH IT IS: WE PRINTED A SENTENCE EXPLAINING IT IN ADVANCE. A condition you can write prose for beforehand is not an invariant violation. Executing "match the neighbour" literally here would have exited 134 and been triaged as a compiler crash -- manufacturing the exact false signal this row exists to delete, merely pointing the other way. */
                 return 1;
             }

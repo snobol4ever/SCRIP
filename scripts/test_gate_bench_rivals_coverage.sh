@@ -40,8 +40,15 @@ fi
 #              correctness unit. Counting src/+vanroy/ alongside bench/ is what produced the "102 files,
 #              28 collisions" false denominator (bench-rivals-prolog task LEDGER, seat15 2026-08-27) --
 #              it was counting the SAME kernel 2-4 times under different names, not finding new kernels.
+# ⛔ THE HARNESS'S OWN INFRASTRUCTURE IS NOT A KERNEL (seat12 measured 2026-09-01, hq_B cured: the two-number basis put
+# prelude_swipl.pl / prelude_gplc.pl / epilogue_gplc.pl at the language root on 08-30 -- the per-engine self-timing hooks and the
+# gplc halt epilogue, the very files that MAKE the basis possible -- and this enumeration counted them as three uncovered kernels:
+# total=26 missing=4 where the truth was total=23 missing=1. Same false-denominator disease the src/+vanroy/ prunes above were
+# written about, one directory level up: a prelude has no .expected, no work to time, and cannot ever be MEASURED or honestly
+# DECLARED. Pruned by NAME PREFIX, the one shape that survives a new engine's prelude being added.
 raw=()
 while IFS= read -r -d '' f; do
+    case "$(basename "$f")" in prelude_*|epilogue_*) continue;; esac
     raw+=("$(basename "$f" ".$ext")")
 done < <(find "$DIR" \( -type d \( -name src -o -name vanroy \) -prune \) -o -name "*.$ext" -print0)
 
