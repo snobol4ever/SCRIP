@@ -787,139 +787,169 @@ static const char *atom_op_text(Term *t, char *buf, size_t bufsz)
     return (const char *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* plc_atom_op_text/plc_make_atom_cell/plc_unify_into_cell : the cell-native trio behind rt_pl_atom_op_cell and rt_pl_char_type_cell below. atom_op_text (Term-based, above) STAYS -- rt_pl_lower_upper_cell (out of this
+   slice's scope) still calls it, so it cannot be deleted here; re-verify its callers before ever retiring it. plc_make_atom_cell builds DT_S, never DT_A -- pl_make_atom builds DT_A but Prolog atoms ride DT_S
+   (hq_C's trap, this file's LEDGER); the exact field-setting mirrors pl_term_to_cell_word_m's TERM_ATOM arm in pl_cell_conv.h. plc_unify_into_cell mirrors pl_unify_term_into_cell's shape (build a value, unify it)
+   without the Term round-trip. */
+static const char *plc_atom_op_text(pl_cell_t *t, char *buf, size_t bufsz)
+{
+    if (!t) return (const char *)0;
+    pl_cell_t *d = pl_deref(t);
+    if ((int)d->v == DT_A || (int)d->v == DT_S) return plc_atom_text(d);
+    if ((int)d->v == DT_I) { snprintf(buf, bufsz, "%ld", (long)d->i); return buf; }
+    if ((int)d->v == DT_R) { snprintf(buf, bufsz, "%g", d->r); return buf; }
+    return (const char *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static pl_cell_t plc_make_atom_cell(const char *name)
+{
+    int id = prolog_atom_intern(name ? name : "");
+    const char *nm = prolog_atom_name(id);
+    pl_cell_t c; c.v = DT_S; c.slen = (uint32_t)(nm ? strlen(nm) : 0); c.s = nm ? nm : ""; return c;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_unify_into_cell(pl_cell_t *dst, pl_cell_t val, pl_trail_t *trail)
+{
+    pl_cell_t tmp = val;
+    return pl_unify(dst, &tmp, trail);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_cell)
 {
     extern pl_trail_t g_pl_trail;
-    Term *t0 = a0_cell ? pl_cell_to_term((pl_cell_t *)a0_cell) : (Term *)0;
-    Term *t1 = a1_cell ? pl_cell_to_term((pl_cell_t *)a1_cell) : (Term *)0;
-    Term *t2 = a2_cell ? pl_cell_to_term((pl_cell_t *)a2_cell) : (Term *)0;
+    pl_cell_t *t0 = a0_cell ? pl_deref((pl_cell_t *)a0_cell) : (pl_cell_t *)0;
+    pl_cell_t *t1 = a1_cell ? pl_deref((pl_cell_t *)a1_cell) : (pl_cell_t *)0;
+    pl_cell_t *t2 = a2_cell ? pl_deref((pl_cell_t *)a2_cell) : (pl_cell_t *)0;
     int mark = pl_trail_mark(&g_pl_trail);
     char buf0[512], buf1[512];
     if (!strcmp(fn, "atom_length")) {
-        const char *s = atom_op_text(t0, buf0, sizeof buf0);
+        const char *s = plc_atom_op_text(t0, buf0, sizeof buf0);
         if (!s) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
-        if (!pl_unify_term_into_cell((pl_cell_t *)a1_cell, term_new_int((long)strlen(s)), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+        if (!plc_unify_into_cell((pl_cell_t *)a1_cell, pl_make_int((int64_t)strlen(s)), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
         return 1;
     }
     if (!strcmp(fn, "atom_concat")) {
-        const char *s0 = atom_op_text(t0, buf0, sizeof buf0);
-        const char *s1 = atom_op_text(t1, buf1, sizeof buf1);
+        const char *s0 = plc_atom_op_text(t0, buf0, sizeof buf0);
+        const char *s1 = plc_atom_op_text(t1, buf1, sizeof buf1);
         if (!s0 || !s1) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
         size_t l0 = strlen(s0), l1 = strlen(s1);
         char *cat = (char *)rt_ws_alloc(l0 + l1 + 1); memcpy(cat, s0, l0); memcpy(cat + l0, s1, l1); cat[l0 + l1] = '\0';
-        if (!pl_unify_term_into_cell((pl_cell_t *)a2_cell, term_new_atom(prolog_atom_intern(cat)), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+        if (!plc_unify_into_cell((pl_cell_t *)a2_cell, plc_make_atom_cell(cat), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
         return 1;
     }
     if (!strcmp(fn, "upcase_atom") || !strcmp(fn, "downcase_atom")) {
-        const char *s = atom_op_text(t0, buf0, sizeof buf0);
+        const char *s = plc_atom_op_text(t0, buf0, sizeof buf0);
         if (!s) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
         size_t n = strlen(s); char *out = (char *)rt_ws_alloc(n + 1);
         int up = (!strcmp(fn, "upcase_atom"));
         for (size_t i = 0; i < n; i++) out[i] = up ? (char)toupper((unsigned char)s[i]) : (char)tolower((unsigned char)s[i]);
         out[n] = '\0';
-        if (!pl_unify_term_into_cell((pl_cell_t *)a1_cell, term_new_atom(prolog_atom_intern(out)), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+        if (!plc_unify_into_cell((pl_cell_t *)a1_cell, plc_make_atom_cell(out), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
         return 1;
     }
     int as_codes = (!strcmp(fn, "atom_codes"));
     if (!strcmp(fn, "atom_chars") || as_codes) {
-        if (t0 && t0->tag != TERM_VAR) {
-            const char *s = atom_op_text(t0, buf0, sizeof buf0);
+        if (t0 && !pl_cell_unbound(t0)) {
+            const char *s = plc_atom_op_text(t0, buf0, sizeof buf0);
             if (!s) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
             size_t n = strlen(s);
-            Term *lst = term_new_atom(prolog_atom_intern("[]"));
+            pl_cell_t lst = plc_make_atom_cell("[]");
             for (size_t i = n; i > 0; i--) {
                 unsigned char ch = (unsigned char)s[i - 1];
-                Term *el;
-                if (as_codes) el = term_new_int((long)ch);
-                else { char cs[2] = { (char)ch, '\0' }; el = term_new_atom(prolog_atom_intern(cs)); }
-                Term **c = (Term **)rt_ws_alloc(2 * sizeof(Term *)); c[0] = el; c[1] = lst;
-                lst = term_new_compound(ATOM_DOT, 2, c);
+                pl_cell_t el;
+                if (as_codes) el = pl_make_int((int64_t)ch);
+                else { char cs[2] = { (char)ch, '\0' }; el = plc_make_atom_cell(cs); }
+                pl_cell_t *pair = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t));
+                pair[0] = el; pair[1] = lst;
+                lst = pl_make_compound(ATOM_DOT, 2, pair);
             }
-            if (!pl_unify_term_into_cell((pl_cell_t *)a1_cell, lst, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+            if (!plc_unify_into_cell((pl_cell_t *)a1_cell, lst, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
             return 1;
         }
-        Term *cur = t1;
+        pl_cell_t *cur = t1;
         char out[512]; size_t oi = 0;
-        while (cur && cur->tag == TERM_COMPOUND && cur->compound.functor == ATOM_DOT && cur->compound.arity == 2) {
-            Term *el = term_deref(cur->compound.args[0]);
+        while (cur && (int)cur->v == DT_PLREF && (int)(cur->slen >> 16) == ATOM_DOT && (int)(cur->slen & 0xFFFFu) == 2) {
+            pl_cell_t *pr = (pl_cell_t *)cur->p;
+            pl_cell_t *el = pl_deref(&pr[0]);
             if (oi >= sizeof(out) - 1) break;
-            if (as_codes) { if (!el || el->tag != TERM_INT) { pl_trail_unwind(&g_pl_trail, mark); return 0; } out[oi++] = (char)el->ival; }
-            else { if (!el || el->tag != TERM_ATOM) { pl_trail_unwind(&g_pl_trail, mark); return 0; } const char *cn = prolog_atom_name(el->atom_id); out[oi++] = cn ? cn[0] : '?'; }
-            cur = term_deref(cur->compound.args[1]);
+            if (as_codes) { if ((int)el->v != DT_I) { pl_trail_unwind(&g_pl_trail, mark); return 0; } out[oi++] = (char)el->i; }
+            else { if ((int)el->v != DT_A && (int)el->v != DT_S) { pl_trail_unwind(&g_pl_trail, mark); return 0; } const char *cn = plc_atom_text(el); out[oi++] = cn ? cn[0] : '?'; }
+            cur = pl_deref(&pr[1]);
         }
         out[oi] = '\0';
-        if (!pl_unify_term_into_cell((pl_cell_t *)a0_cell, term_new_atom(prolog_atom_intern(out)), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+        if (!plc_unify_into_cell((pl_cell_t *)a0_cell, plc_make_atom_cell(out), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
         return 1;
     }
     if (!strcmp(fn, "string_length")) {
-        const char *s = atom_op_text(t0, buf0, sizeof buf0);
+        const char *s = plc_atom_op_text(t0, buf0, sizeof buf0);
         if (!s) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
-        if (!pl_unify_term_into_cell((pl_cell_t *)a1_cell, term_new_int((long)strlen(s)), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+        if (!plc_unify_into_cell((pl_cell_t *)a1_cell, pl_make_int((int64_t)strlen(s)), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
         return 1;
     }
     if (!strcmp(fn, "string_upper") || !strcmp(fn, "string_lower")) {
-        const char *s = atom_op_text(t0, buf0, sizeof buf0);
+        const char *s = plc_atom_op_text(t0, buf0, sizeof buf0);
         if (!s) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
         size_t n = strlen(s); char *out = (char *)rt_ws_alloc(n + 1);
         int up = (!strcmp(fn, "string_upper"));
         for (size_t i = 0; i < n; i++) out[i] = up ? (char)toupper((unsigned char)s[i]) : (char)tolower((unsigned char)s[i]);
         out[n] = '\0';
-        if (!pl_unify_term_into_cell((pl_cell_t *)a1_cell, term_new_atom(prolog_atom_intern(out)), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+        if (!plc_unify_into_cell((pl_cell_t *)a1_cell, plc_make_atom_cell(out), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
         return 1;
     }
     if (!strcmp(fn, "atom_string") || !strcmp(fn, "string_to_atom")) {
-        if (t0 && t0->tag != TERM_VAR) {
-            const char *s = atom_op_text(t0, buf0, sizeof buf0);
+        if (t0 && !pl_cell_unbound(t0)) {
+            const char *s = plc_atom_op_text(t0, buf0, sizeof buf0);
             if (!s) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
-            if (!pl_unify_term_into_cell((pl_cell_t *)a1_cell, term_new_atom(prolog_atom_intern(s)), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+            if (!plc_unify_into_cell((pl_cell_t *)a1_cell, plc_make_atom_cell(s), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
             return 1;
         }
-        const char *s = atom_op_text(t1, buf1, sizeof buf1);
+        const char *s = plc_atom_op_text(t1, buf1, sizeof buf1);
         if (!s) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
-        if (!pl_unify_term_into_cell((pl_cell_t *)a0_cell, term_new_atom(prolog_atom_intern(s)), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+        if (!plc_unify_into_cell((pl_cell_t *)a0_cell, plc_make_atom_cell(s), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
         return 1;
     }
     if (!strcmp(fn, "number_string") || !strcmp(fn, "atom_number")) {
-        if (t0 && t0->tag != TERM_VAR) {
-            const char *s = atom_op_text(t0, buf0, sizeof buf0);
+        if (t0 && !pl_cell_unbound(t0)) {
+            const char *s = plc_atom_op_text(t0, buf0, sizeof buf0);
             if (!s) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
-            if (!pl_unify_term_into_cell((pl_cell_t *)a1_cell, term_new_atom(prolog_atom_intern(s)), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+            if (!plc_unify_into_cell((pl_cell_t *)a1_cell, plc_make_atom_cell(s), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
             return 1;
         }
-        const char *s = atom_op_text(t1, buf1, sizeof buf1);
+        const char *s = plc_atom_op_text(t1, buf1, sizeof buf1);
         if (!s) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
         char *end; long iv = strtol(s, &end, 10);
-        if (*end == '\0') { if (!pl_unify_term_into_cell((pl_cell_t *)a0_cell, term_new_int(iv), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; } return 1; }
+        if (*end == '\0') { if (!plc_unify_into_cell((pl_cell_t *)a0_cell, pl_make_int(iv), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; } return 1; }
         double dv = strtod(s, &end);
-        if (*end == '\0') { if (!pl_unify_term_into_cell((pl_cell_t *)a0_cell, term_new_float(dv), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; } return 1; }
+        if (*end == '\0') { if (!plc_unify_into_cell((pl_cell_t *)a0_cell, pl_make_float(dv), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; } return 1; }
         pl_trail_unwind(&g_pl_trail, mark); return 0;
     }
     if (!strcmp(fn, "string_concat")) {
-        const char *s0 = atom_op_text(t0, buf0, sizeof buf0);
-        const char *s1 = atom_op_text(t1, buf1, sizeof buf1);
+        const char *s0 = plc_atom_op_text(t0, buf0, sizeof buf0);
+        const char *s1 = plc_atom_op_text(t1, buf1, sizeof buf1);
         if (!s0 || !s1) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
         size_t l0 = strlen(s0), l1 = strlen(s1);
         char *cat = (char *)rt_ws_alloc(l0 + l1 + 1); memcpy(cat, s0, l0); memcpy(cat + l0, s1, l1); cat[l0 + l1] = '\0';
-        if (!pl_unify_term_into_cell((pl_cell_t *)a2_cell, term_new_atom(prolog_atom_intern(cat)), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+        if (!plc_unify_into_cell((pl_cell_t *)a2_cell, plc_make_atom_cell(cat), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
         return 1;
     }
     if (!strcmp(fn, "atomic_list_concat") || !strcmp(fn, "concat_atom")) {
-        const char *sep = (t1 && t1->tag == TERM_ATOM) ? prolog_atom_name(t1->atom_id) : "";
+        const char *sep = (t1 && ((int)t1->v == DT_A || (int)t1->v == DT_S)) ? plc_atom_text(t1) : "";
         void *result_cell = t2 ? a2_cell : a1_cell;
-        Term *lst = t0;
+        pl_cell_t *lst = t0;
         char *out = (char *)rt_ws_alloc(4096); size_t oi = 0;
         int first = 1;
-        while (lst && lst->tag == TERM_COMPOUND && lst->compound.arity == 2) {
-            Term *el = term_deref(lst->compound.args[0]);
+        while (lst && (int)lst->v == DT_PLREF && (int)(lst->slen & 0xFFFFu) == 2) {
+            pl_cell_t *pr = (pl_cell_t *)lst->p;
+            pl_cell_t *el = pl_deref(&pr[0]);
             if (!first && sep && sep[0]) { size_t sl = strlen(sep); if (oi + sl < 4095) { memcpy(out + oi, sep, sl); oi += sl; } }
             first = 0;
-            const char *es = atom_op_text(el, buf0, sizeof buf0);
+            const char *es = plc_atom_op_text(el, buf0, sizeof buf0);
             if (!es) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
             size_t el_len = strlen(es); if (oi + el_len < 4095) { memcpy(out + oi, es, el_len); oi += el_len; }
-            lst = term_deref(lst->compound.args[1]);
+            lst = pl_deref(&pr[1]);
         }
         out[oi] = '\0';
-        if (!pl_unify_term_into_cell((pl_cell_t *)result_cell, term_new_atom(prolog_atom_intern(out)), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+        if (!plc_unify_into_cell((pl_cell_t *)result_cell, plc_make_atom_cell(out), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
         return 1;
     }
     (void)t2;
@@ -964,9 +994,9 @@ void rt_pl_format_cell(const char *fmt, void *list_cell)
 int rt_pl_char_type_cell(void *char_cell, void *type_cell, void *val_cell)
 {
     extern pl_trail_t g_pl_trail;
-    Term *tc = char_cell ? pl_cell_to_term((pl_cell_t *)char_cell) : (Term *)0;
+    pl_cell_t *tc = char_cell ? pl_deref((pl_cell_t *)char_cell) : (pl_cell_t *)0;
     if (!tc || !type_cell) return 0;
-    char b0[256]; const char *cs = atom_op_text(tc, b0, sizeof b0);
+    char b0[256]; const char *cs = plc_atom_op_text(tc, b0, sizeof b0);
     if (!cs || !cs[0]) return 0;
     unsigned char ch = (unsigned char)cs[0];
     pl_cell_t *td = pl_deref((pl_cell_t *)type_cell);
@@ -974,16 +1004,16 @@ int rt_pl_char_type_cell(void *char_cell, void *type_cell, void *val_cell)
     if ((int)td->v == DT_PLREF && pl_arity(td) >= 1) {
         const char *ty = prolog_atom_name(plc_functor(td));
         pl_cell_t *inner = val_cell ? (pl_cell_t *)val_cell : &((pl_cell_t *)pl_compound_heap(td))[0];
-        Term *out = NULL;
+        pl_cell_t out;
         if (!ty) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
-        if (!strcmp(ty, "digit"))    { if (!isdigit(ch)) { pl_trail_unwind(&g_pl_trail, mark); return 0; } out = term_new_int((long)(ch - '0')); }
-        else if (!strcmp(ty, "to_lower")) { char c2[2] = { (char)tolower(ch), 0 }; out = term_new_atom(prolog_atom_intern(c2)); }
-        else if (!strcmp(ty, "to_upper")) { char c2[2] = { (char)toupper(ch), 0 }; out = term_new_atom(prolog_atom_intern(c2)); }
-        else if (!strcmp(ty, "upper")) { if (!isupper(ch)) { pl_trail_unwind(&g_pl_trail, mark); return 0; } char c2[2] = { (char)tolower(ch), 0 }; out = term_new_atom(prolog_atom_intern(c2)); }
-        else if (!strcmp(ty, "lower")) { if (!islower(ch)) { pl_trail_unwind(&g_pl_trail, mark); return 0; } char c2[2] = { (char)toupper(ch), 0 }; out = term_new_atom(prolog_atom_intern(c2)); }
-        else if (!strcmp(ty, "code"))  { out = term_new_int((long)ch); }
+        if (!strcmp(ty, "digit"))    { if (!isdigit(ch)) { pl_trail_unwind(&g_pl_trail, mark); return 0; } out = pl_make_int((int64_t)(ch - '0')); }
+        else if (!strcmp(ty, "to_lower")) { char c2[2] = { (char)tolower(ch), 0 }; out = plc_make_atom_cell(c2); }
+        else if (!strcmp(ty, "to_upper")) { char c2[2] = { (char)toupper(ch), 0 }; out = plc_make_atom_cell(c2); }
+        else if (!strcmp(ty, "upper")) { if (!isupper(ch)) { pl_trail_unwind(&g_pl_trail, mark); return 0; } char c2[2] = { (char)tolower(ch), 0 }; out = plc_make_atom_cell(c2); }
+        else if (!strcmp(ty, "lower")) { if (!islower(ch)) { pl_trail_unwind(&g_pl_trail, mark); return 0; } char c2[2] = { (char)toupper(ch), 0 }; out = plc_make_atom_cell(c2); }
+        else if (!strcmp(ty, "code"))  { out = pl_make_int((int64_t)ch); }
         else { pl_trail_unwind(&g_pl_trail, mark); return 0; }
-        if (!pl_unify_term_into_cell(inner, out, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+        if (!plc_unify_into_cell(inner, out, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
         return 1;
     }
     if ((int)td->v != DT_A && (int)td->v != DT_S) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
