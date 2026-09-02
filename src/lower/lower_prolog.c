@@ -1340,20 +1340,40 @@ static void pl_register_program(stage2_t * s2, const tree_t * prog) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * pl_clause_body_only(const tree_t *rc) {
+    int ar = (int) rc->v.dval; if (ar < 0) ar = 0; if (ar > rc->n) ar = rc->n;
+    if (ar >= rc->n) return pl_synth_qlit("true");
+    const tree_t *body = rc->c[rc->n - 1];
+    for (int j = rc->n - 2; j >= ar; j--) body = pl_synth_fnc2(",", rc->c[j], body);
+    return body;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* row prolog-toplevel-main-multiclause-no-fallthrough-on-backtrack: a multi-clause TT_CHOICE used to
+   resolve to ONLY choice->c[0]'s body, so a toplevel `main :- ..., fail.` / `main :- ...` idiom never
+   reached its second clause -- an ordinary BY-NAME call already backtracks across clauses correctly
+   (verified: only this inline-the-first-clause path did not), so for the arity-0 case (the toplevel
+   convention; the only case exercised here) every alternative's body is folded into one right-nested
+   disjunction, giving inline-the-body the same backtrack-across-clauses semantics a by-name call has.
+   Head-argument unification across a synthesized disjunction is a bigger change and out of scope here,
+   so a non-zero-arity choice still falls back to its first alternative only, unchanged from before. */
+static const tree_t * pl_choice_all_bodies(const tree_t *choice) {
+    if (!choice) return NULL;
+    if (choice->t == TT_CLAUSE) return pl_clause_body_only(choice);
+    if (choice->t != TT_CHOICE || choice->n < 1) return NULL;
+    int ar0 = (int) choice->c[0]->v.dval; if (ar0 < 0) ar0 = 0;
+    if (ar0 != 0) return pl_clause_body_only(choice->c[0]);
+    const tree_t *disj = pl_clause_body_only(choice->c[choice->n - 1]);
+    for (int i = choice->n - 2; i >= 0; i--) disj = pl_synth_fnc2(";", pl_clause_body_only(choice->c[i]), disj);
+    return disj;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * pl_init_resolve_body(const tree_t *gt) {
     char kb[128]; const char *k = NULL;
     if (gt && (gt->t == TT_QLIT || gt->t == TT_NAME) && gt->v.sval) { snprintf(kb, sizeof kb, "%s/0", gt->v.sval); k = kb; }
     else if (gt && gt->t == TT_FNC && gt->v.sval) { snprintf(kb, sizeof kb, "%s/%d", gt->v.sval, gt->n); k = kb; }
     if (!k) return NULL;
     const tree_t *choice = resolve_pred_table_lookup(&g_stage2.resolve_pred_table, k);
-    const tree_t *rc = NULL;
-    if (choice) { if (choice->t == TT_CLAUSE) rc = choice; else if (choice->t == TT_CHOICE && choice->n >= 1) rc = choice->c[0]; }
-    if (!rc) return NULL;
-    int ar = (int) rc->v.dval; if (ar < 0) ar = 0; if (ar > rc->n) ar = rc->n;
-    if (ar >= rc->n) return pl_synth_qlit("true");
-    const tree_t *body = rc->c[rc->n - 1];
-    for (int j = rc->n - 2; j >= ar; j--) body = pl_synth_fnc2(",", rc->c[j], body);
-    return body;
+    return choice ? pl_choice_all_bodies(choice) : NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char * pl_init_goal_name(const tree_t *gt) {
@@ -1405,9 +1425,12 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     const tree_t *clause = NULL;
     if (pl_init_ngoals_acc == 0) {
         const tree_t *choice = resolve_pred_table_lookup(&g_stage2.resolve_pred_table, "main/0");
-        if (choice) {
-            if (choice->t == TT_CLAUSE) clause = choice;
-            else if (choice->t == TT_CHOICE && choice->n >= 1) clause = choice->c[0];
+        const tree_t *auto_body = choice ? pl_choice_all_bodies(choice) : NULL;
+        if (auto_body) {
+            tree_t *cl = ast_node_new(TT_CLAUSE);
+            cl->v.sval = (char *) "$auto_main/0"; cl->v.dval = 0.0;
+            ast_push(cl, (tree_t *) auto_body);
+            clause = cl;
         }
         if (!clause) {
             /* ⭐ row prolog-directive-only-file-fatals-no-main-bb-graph, the DOMINANT arm (ceo measured ~139 of 371 master-suite entries, 37%, are this one class): a CLAUSE-ONLY file
