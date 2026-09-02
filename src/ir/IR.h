@@ -232,6 +232,14 @@ struct IR_graph_t {
     int            zframe_graph;
     int            icn_cells_graph;
     int            pl_cells_graph;
+    int            zframe_pinned_base;   /* PZ-4 clause (a) PL-ZA-1: this graph's zeta-ACTIVATION frame is anchored in a PINNED BASE REGISTER, so frame references address off the pin and survive
+        arbitrary spine motion inside the body. A REGIME predicate, spelled as a storage behaviour and never as a language (RULES.md: the emitter is past language and into platform;
+           test_gate_emit_no_lang.sh
+        bans is_<language> as an identifier). It is DELIBERATELY NARROWER than zframe_graph, which three lowerers set (lower_prolog.c, lower_raku.c, lower_pascal.c) -- keying the pin on zframe_graph
+           would
+        silently re-home Raku and Pascal frames too, the exact language-blind widening that cost 47 Icon programs at s272. Set by lower_prolog.c alone today; any other lowerer whose graphs want the
+           same
+        regime sets it for itself and is graded for itself. */
     int            runtime_fragment_graph;   /* row eval-code-end-terminates-m4 (seat06 2026-08-29, Lon-approved): set by
         runtime_eval.c's code() on the graph it just lowered for a CODE() fragment. flat_jmp_entry (set unconditionally for
         every chain-compiled graph by emit_jmp_entry_for_chain) conflated two populations that need OPPOSITE outer-exit

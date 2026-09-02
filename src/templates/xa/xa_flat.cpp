@@ -178,6 +178,18 @@ static std::string zf_display_restore(int kt) {
          + x86("mov", dr, FRQ(kt - 40));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string zf_pin_restore(int kt) {
+   /* ⭐ PZ-4 clause (e) PL-ZA-1: RESTORE THE CALLER'S BASE. ⛔ ONE FUNCTION, CALLED FROM EVERY EXIT -- never a line copied into γ and again into ω. This file already
+   records what the copy-per-exit shape costs: the α carve and the γ/ω release were two copies of one formula and they DRIFTED to 240-vs-144 (see icn_gen_host_reserve's own comment).
+   ⭐ It reads THROUGH THE PIN
+   (`mov pin, [pin + kt-8]`), not through rsp, so it is correct wherever the spine happens to be sitting at this exit -- which is the entire reason the frame got a pin. Emits nothing when the graph is
+   not
+   pinned, so Icon, Raku and Pascal zframe exits are byte-identical to before. ⛔ IT MUST FOLLOW zf_display_restore(), which still addresses [kt-40] through the pin. */
+    if (!x86_fb_pinned()) return std::string();
+    return x86("comment", "PZ-4 (e): caller base <- [kt-8], read through the pin")
+         + x86("mov", x86_fb(), RDQ(x86_fb(), kt - 8));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_zframe_prologue_str(void) {
     if (!g_emit.zframe_graph) return std::string();
     int kt = g_emit.flat_frame_bytes;
@@ -188,9 +200,13 @@ static std::string xa_flat_zframe_prologue_str(void) {
          + x86("sub", "rsp", (long)kt)
          + x86("mov", "[rsp + " + std::to_string(kt - 24) + "]", "rcx")
          + x86("mov", "[rsp + " + std::to_string(kt - 16) + "]", "rdx")
-         + (emit_jmp_pin_legacy() ? (xa_flat_zanchor_poison() ? std::string() : x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rsp"))
+         + (x86_fb_pinned()
+            ? (x86("comment", "PZ-4 clause (a) PL-ZA-1: [kt-8] STOPS BEING WRITE-ONLY. It held this frame's own base -- a self-anchor nothing ever read (s247, and both epilogue comments below said so). It now holds the CALLER'S base, and the next instruction pins ours. ⛔ THE PIN IS TAKEN AFTER THE CARVE, so the pinned base equals the α-time rsp and every re-homed ζ reference is `[pin + off]` with the SAME off the spine arm used -- a pure rebase, no parity change and NO PUSH. A `push rbp` here would shift every body byte by 8 and turn the two PL-CALL-ALIGN pads from cure into defect.")
+             + x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rbp")
+             + x86("mov", x86_fb(), "rsp"))
+            : (emit_jmp_pin_legacy() ? (xa_flat_zanchor_poison() ? std::string() : x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rsp"))
                                 + std::string("")
-                               : std::string());
+                               : std::string()));
     if (g_emit.flat_lex) {
         extern int g_flat_dc_np;
         if (g_flat_dc_np >= 0) {
@@ -383,9 +399,14 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("mov", "rsi", "rdx")
              + x86("mov", "rcx", "qword ptr [rsp# + " + std::to_string(kt - 24) + "]")
              + (pl_gamma_retain_on()
-                ? (x86("mov", "rax", "rsp")
-                 + std::string(""))
-                : (x86("add", "rsp", (long)kt)
+                ? (x86_fb_pinned()
+                   ? (x86("comment", "PZ-4 clauses (b)+(e) PL-ZA-1: hand the retained frame's TRUE base in rax -- the PIN, not rsp. ⛔ Under a pin these are no longer the same value once the body has moved the spine, and rax is what the caller's landing re-anchors off (clause (c)); handing it a stale rsp is the whole class this rung exists to close. The caller base is then reloaded THROUGH rax, because the pin is being overwritten by that same instruction.")
+                    + x86("mov", "rax", x86_fb())
+                    + x86("mov", x86_fb(), RDQ("rax", kt - 8)))
+                   : (x86("mov", "rax", "rsp")
+                    + std::string("")))
+                : (zf_pin_restore(kt)
+                 + x86("add", "rsp", (long)kt)
                  + std::string("")))
              + x86("jmp", "rcx");
     }
@@ -429,6 +450,7 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
          + x86("mov", "rsi", "rdx")
          + x86("mov", "rcx", "qword ptr [rsp# + " + std::to_string(kt - 24) + "]")
          + zf_display_restore(kt)
+         + zf_pin_restore(kt)
          + x86("add", "rsp", (long)kt)
          + std::string("")
          + x86("jmp", "rcx");
@@ -463,6 +485,7 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
     return x86("comment", "ICN-FR-2 zframe epilogue-ω: load ω wire from [kt-16]; unwind to flat base; jmp. NOTE: no caller-base restore happens here — the [kt-8] slot is WRITE-ONLY on every arm that fills it (s247)")
          + x86("mov", "rcx", "qword ptr [rsp# + " + std::to_string(kt - 16) + "]")
          + zf_display_restore(kt)
+         + zf_pin_restore(kt)
          + x86("add", "rsp", (long)kt)
          + std::string("")
          + x86("jmp", "rcx");

@@ -1514,5 +1514,12 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     pl_det_classify_all();
     { static int _zf = -1; if (_zf < 0) { const char *_e = getenv("SCRIP_PL_ZFRAME"); _zf = (_e && *_e == '0') ? 0 : 1; }
       if (_zf) for (int _gi = _pl_bb0; _gi < g_stage2.bbp.count; _gi++) if (g_stage2.bbp.table[_gi]) g_stage2.bbp.table[_gi]->zframe_graph = 1; }
+    /* PZ-4 clause (a) PL-ZA-1 (Lon 2026-09-02, in-chat: "give Prolog its activation ZETA like all the rest"): every predicate activation gets a PINNED BASE. zframe_pinned_base is a SEPARATE field
+       from
+       zframe_graph on purpose -- zframe_graph is shared with Raku and Pascal, whose frames this regime does not describe and must not move. Killswitch SCRIP_PL_ZA=0 restores the pre-pin emission
+          byte-exactly,
+       which is what makes the shared-node control arm cheap to take. */
+    { static int _za = -1; if (_za < 0) { const char *_e = getenv("SCRIP_PL_ZA"); _za = (_e && *_e == '0') ? 0 : 1; }
+      if (_za) for (int _gi = _pl_bb0; _gi < g_stage2.bbp.count; _gi++) if (g_stage2.bbp.table[_gi]) g_stage2.bbp.table[_gi]->zframe_pinned_base = 1; }
     return &g_stage2;
 }

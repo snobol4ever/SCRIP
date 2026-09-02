@@ -23,8 +23,18 @@
  * ⛔ AND ___ IS PER-GRAPH, NOT UNCONDITIONAL (FLATDISP-8, s197): pinned graphs
  * (suspended generators, pattern blobs, deep-arrival) seed mov ___,rsp; depth-
  * static determinate graphs use rsp and ___ is a free GPR. ONE selector,
- * x86_fb_pinned() == emit_rec_pin(). NEVER hardcode [___+off] or [rsp+off] in
- * RTX asm or a template — use FR(off)/FRQ(off), which resolve through x86_fb().
+ * x86_fb_pinned(). ⛔ IT IS NOT emit_rec_pin(), AND THIS LINE CLAIMED IT WAS FOR
+ * MANY SESSIONS WHILE x86_fb_pinned() WAS A `return 0` STUB — so the stated
+ * equality was false in BOTH directions and nothing observable disagreed with it
+ * (the recurring shape: a stub and a doc that agree only because neither is
+ * exercised). emit_rec_pin() is true for Icon generators, lcl_proc graphs AND
+ * every zframe graph — Raku and Pascal included — so keying the pin on it would
+ * re-home three languages' frames to grant one its activation zeta, the exact
+ * language-blind widening that cost 47 Icon programs at s272. x86_fb_pinned()
+ * answers the graph's own STORAGE REGIME (emit_zframe_pinned) and today only the
+ * Prolog activation regime sets it, per PZ-4 clause (a). NEVER hardcode
+ * [___+off] or [rsp+off] in RTX asm or a template — use FR(off)/FRQ(off), which
+ * resolve through x86_fb().
  * The five surviving pins are a SUBSET of the SysV callee-saved GP set, so
  * C-signature RTX routines inherit the guarantee; hand entries that clobber one
  * must save it. r12 being free does NOT exempt it from that rule when a pinned

@@ -475,14 +475,28 @@ inline const char * x86_jcc_invert(const char * m) { return x86_jcc_canon((uint8
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * x86_zr()         { return "rsp"; }
 inline int          x86_zr_num()     { return 4; }
-inline int x86_fb_pinned() { return 0; }
+inline int x86_fb_pinned() { return emit_zframe_pinned(); }
+   /* ⭐⭐ PZ-4 clause (a) PL-ZA-1 (Lon 2026-09-02): WAS AN UNCONDITIONAL `return 0` -- an inert stub the GOAL's "through the SHARED pin machinery" clause
+   named as its vehicle while it could only ever answer "not pinned". It now answers the graph's own ζ-ACTIVATION regime. ⛔ THIS IS THE WHOLE SWITCH: x86_fb()/x86_fb_num() derive from it,
+      x86_frame_off() drops
+   the spine-slide compensation under it, and x86_zop()/x86_zref() rebase their spine arms on it -- so the FR family and the SPINE family move together. hq_P measured at s276 why that matters:
+      generator ζ is
+   split across two addressing families that print IDENTICALLY as `qword ptr [rsp + N]`, and re-homing one leaves the frame straddling two bases with the half carrying the yielded value on the wrong
+      one. */
 static inline int x86_fb_stmt_on() { static int m = -1; if (m < 0) { const char * e = getenv("SCRIP_FB_STMT"); m = (e && *e == '0') ? 0 : 1; } return m; }
 inline int x86_fb_data() { return 0; }
 inline int x86_frame_off_rsp(int off) { return off + _.op_zdepth; }
 inline int x86_rsp_slide_known() { return 1; }
-inline int x86_frame_off(int off) { return x86_rsp_slide_known() ? off + _.op_zdepth : -1; }
-inline const char * x86_fb()         { return "rsp"; }
-inline int          x86_fb_num()     { return x86_fb_data() ? 5 : 4; }
+inline int x86_frame_off(int off) { if (x86_fb_pinned()) return off; return x86_rsp_slide_known() ? off + _.op_zdepth : -1; }
+   /* ⛔ THE PINNED ARM DROPS op_zdepth AND THAT IS THE POINT, NOT AN OMISSION: op_zdepth
+   is the compensation for how far the SPINE has slid below the frame base at this site, so `[rsp + off + zdepth]` and `[pin + off]` are THE SAME ADDRESS whenever the pin holds the α-time rsp. Keeping
+      the term
+   under a pinned base would double-count the slide. The pin is taken AFTER the α carve (rbp = rsp), which is why the rebase is plain `off` and not Icon's `off - ft`: icn_gen_zeta_ft() pins BEFORE its
+      carve. */
+inline int          x86_fb_num()     { return (x86_fb_data() || x86_fb_pinned()) ? 5 : 4; }
+inline const char * x86_fb()         { return x86_fb_num() == 5 ? "rbp" : "rsp"; }
+   /* ⛔ SPELLING DERIVED FROM THE NUMBER, NEVER WRITTEN TWICE (emit.h's ONE DECIDER law): these two were independent literals
+   -- "rsp" here and a computation there -- which is precisely the split that let TEXT and BINARY pick different base registers for one cell at s277. Now a single arm decides and both media follow. */
 inline const char * x86_fr32_prefix() { return "dword ptr [rsp$ + "; }
 inline const char * x86_fr64_prefix() { return "qword ptr [rsp$ + "; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1001,6 +1015,12 @@ inline const char * x86_zop(int off, int q, int bump) {   /* ⭐ THE FR (FRAME) 
     else if (bump && !x86_fb_data() && !_.op_stmt_dyn) { eff = x86_frame_off(off) + bump; spine = 1; }
     else { eff = off + ((x86_fb_data() || _.op_stmt_dyn) ? 0 : bump); spine = 0; }
     { int ft = icn_gen_zeta_ft(); if (ft > 0) return q ? RDQ("rbp", eff - ft) : RDD("rbp", eff - ft); }
+    if (spine && r != 2 && x86_fb_pinned()) return q ? RDQ(x86_fb(), eff) : RDD(x86_fb(), eff);
+   /* PZ-4 (a): the SPINE half of this graph's ζ, re-homed onto the same pin the FR half reaches through x86_fb().
+       ⛔ r == 2 IS DELIBERATELY EXCLUDED: that is the frame-cache window (x86_fc_hit), whose eff is measured from op_fc_base -- a live rsp-relative anchor, not the α base -- so rebasing it would be a
+          different
+       address, not the same one spelled differently. eff here is already x86_frame_off(off) + bump, and x86_frame_off() answers plain `off` under the pin, so the FR and SPINE halves agree by
+          construction. */
     if (spine) snprintf(b[i], 48, "%s ptr [rsp# + %d]", q ? "qword" : "dword", eff);
     else snprintf(b[i], 48, "%s%d]", q ? x86_fr64_prefix() : x86_fr32_prefix(), eff);
     return b[i];
@@ -1018,6 +1038,9 @@ inline const char * ZTOSD(int off) { return x86_ztos(off, 0); }
 inline const char * x86_zref(int off, int q) {   /* ⭐ THE SPINE ζ FAMILY (rsp#, XK_RSP*) -- ZRES/ZRESD/ZOPQ/ZOPD/ZLOC all bottom out here when op_xf_off/op_zread_xf say -1, which for an Icon generator graph is ALWAYS (xop_frame_member is gated on sn4_pt_opframe(), a SNOBOL4-pattern predicate no flat_gen graph enters). Rebasing HERE rather than by granting generators membership in the SNOBOL4 slot allocator is the whole point: one leaf function, no frame_slot_scan, no MATCH_BEGIN anchoring, and zero blast radius into pattern machinery. See icn_gen_zeta_ft() for why the rebase is exact. */
     static char b[16][48]; static int i; i = (i + 1) & 15;
     { int ft = icn_gen_zeta_ft(); if (ft > 0) return q ? RDQ("rbp", off - ft) : RDD("rbp", off - ft); }
+    if (x86_fb_pinned()) return q ? RDQ(x86_fb(), off) : RDD(x86_fb(), off);
+   /* PZ-4 (a): twin of the x86_zop() arm above -- SPINE-family ζ onto the pin. No op_zdepth term appears here in EITHER arm, because
+       this family's offsets were never spine-slide-compensated; under the pin `off` is measured from the α base and addresses the same byte the unpinned `[rsp# + off]` did while rsp sat at α. */
     snprintf(b[i], 48, "%s ptr [rsp# + %d]", q ? "qword" : "dword", off);
     return b[i];
 }
