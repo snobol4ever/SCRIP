@@ -37,7 +37,13 @@ STRICT=1; [ "${1:-}" = "--informational" ] && STRICT=0   # V2-5: strict by defau
 gate_floor "$(ls "$(dirname "$0")"/../src/emitter/*.c "$(dirname "$0")"/../src/emitter/*.cpp "$(dirname "$0")"/../src/templates/{bb,xa}/*.cpp "$(dirname "$0")"/../src/runtime/*.c 2>/dev/null | wc -l)" 100 "source files under src/ -- an empty tree is UNPROVEN(2), not a pass"
 
 
-SCAN_DIRS="src/runtime src/driver src/machine src/lower src/parsers src/contracts src/optimizer"
+SCAN_DIRS="src/runtime src/driver src/ir src/lower src/parsers src/optimizer"
+# ⛔ FALSE-GREEN CURE (row gates-scan-retired-directories-and-report-clean-on-trees-they-never-opened):
+# src/machine and src/contracts were merged into src/ir by the 2/3 re-grid (SCRIP d4312e86) and no longer
+# exist -- a `find`/`grep` over a missing directory returns no matches, which reads exactly like a clean
+# scan, so this gate was silently certifying an unexamined tree. Refuse rather than pass on a scan target
+# that cannot be opened, so this class can never present as green again.
+for _d in $SCAN_DIRS; do gate_require "$_d" "SCAN_DIRS entry"; done
 
 enclosing_fn() { # file line -> name of enclosing top-level function
     awk -v n="$2" 'NR<=n && /^[A-Za-z_][A-Za-z0-9_ \*]*\(/ && !/;[ \t]*$/ { f=$0 } END {
