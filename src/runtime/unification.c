@@ -956,39 +956,42 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static Term *pl_fmt_next_arg(Term **args) {
-    if (*args && (*args)->tag == TERM_COMPOUND && (*args)->compound.arity == 2) { Term *h = term_deref((*args)->compound.args[0]); *args = term_deref((*args)->compound.args[1]); return h; }
-    return (Term *)0;
+static pl_cell_t *plc_fmt_next_arg(pl_cell_t **args) {
+    pl_cell_t *a = *args ? pl_deref(*args) : (pl_cell_t *)0;
+    if (a && (int)a->v == DT_PLREF && pl_arity(a) == 2) { pl_cell_t *aa = (pl_cell_t *)pl_compound_heap(a); pl_cell_t *h = pl_deref(&aa[0]); *args = pl_deref(&aa[1]); return h; }
+    return (pl_cell_t *)0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* format/2 walks DESCR CELLS DIRECTLY (T9, Lon big-bang). It used to convert the WHOLE argument list to a heap Term tree via pl_cell_to_term_named and walk that.
+   ⭐ ONE plc_vmap IS SHARED ACROSS THE WHOLE CALL AND THAT IS LOAD-BEARING, NOT TIDINESS: the old path built its name map once for the entire list, so two ~w arguments sharing an
+   unbound variable printed the SAME _G<n>. Calling rt_pl_write_cell per argument would allocate a fresh map each time and silently renumber from _G0 on every directive -- the exact
+   trap this file warns about at plc_write. plc_write/plc_writeq are called directly (same translation unit) so the map can be threaded through. plc_out() is fh_cur_out_fp(), the same
+   stream the old pl_wr_set_fp(fd) plumbing pointed the Term printer at, so that plumbing and the cterm arena mark/release are both gone with the conversion, not relocated. */
 void rt_pl_format_cell(const char *fmt, void *list_cell)
 {
-    extern void pl_write(Term *); extern void pl_writeq(Term *); extern void pl_wr_set_fp(FILE *); extern FILE *fh_cur_out_fp(void);
     if (!fmt) return;
-    FILE *fd = fh_cur_out_fp(); pl_wr_set_fp(fd);
-    arena_mark_t cm = rt_pl_cterm_mark();
-    Term *args = list_cell ? pl_cell_to_term_named((pl_cell_t *)list_cell) : (Term *)0;
+    FILE *fd = plc_out();
+    plc_vmap vm; vm.n = 0;
+    pl_cell_t *args = (pl_cell_t *)list_cell;
     for (const char *p = fmt; *p; p++) {
         if (*p != '~') { fputc(*p, fd); continue; }
         p++;
         int have_n = 0; long nval = 0;
-        if (*p == '*') { Term *h = pl_fmt_next_arg(&args); if (h && h->tag == TERM_INT) { nval = h->ival; have_n = 1; } p++; }
+        if (*p == '*') { pl_cell_t *h = plc_fmt_next_arg(&args); if (h && pl_is_int(h)) { nval = (long)pl_int_val(h); have_n = 1; } p++; }
         else { while (*p >= '0' && *p <= '9') { nval = nval * 10 + (*p - '0'); have_n = 1; p++; } }
-        if (*p == 'w' || *p == 'a' || *p == 'p') { Term *h = pl_fmt_next_arg(&args); if (h) pl_write(h); }
-        else if (*p == 'q') { Term *h = pl_fmt_next_arg(&args); if (h) pl_writeq(h); }
-        else if (*p == 'd') { Term *h = pl_fmt_next_arg(&args); if (h && h->tag == TERM_INT) fprintf(fd, "%ld", h->ival); }
-        else if (*p == 'e') { Term *h = pl_fmt_next_arg(&args); if (h) { double d = (h->tag == TERM_INT) ? (double)h->ival : h->fval; fprintf(fd, "%e", d); } }
-        else if (*p == 'g') { Term *h = pl_fmt_next_arg(&args); if (h) { double d = (h->tag == TERM_INT) ? (double)h->ival : h->fval; fprintf(fd, "%g", d); } }
-        else if (*p == 'f') { Term *h = pl_fmt_next_arg(&args); if (h) { double d = (h->tag == TERM_INT) ? (double)h->ival : h->fval; fprintf(fd, "%.*f", have_n ? (int)nval : 6, d); } }
-        else if (*p == 'r' || *p == 'R') { Term *h = pl_fmt_next_arg(&args); int base = have_n ? (int)nval : 8; if (h && h->tag == TERM_INT && base >= 2 && base <= 36) { char buf[72]; int bi = 0; unsigned long u = (h->ival < 0) ? (unsigned long)(-h->ival) : (unsigned long)h->ival; const char *dig = (*p == 'R') ? "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ" : "0123456789abcdefghijklmnopqrstuvwxyz"; if (u == 0) buf[bi++] = '0'; while (u) { buf[bi++] = dig[u % (unsigned long)base]; u /= (unsigned long)base; } if (h->ival < 0) fputc('-', fd); while (bi) fputc(buf[--bi], fd); } }
-        else if (*p == 'c') { Term *h = pl_fmt_next_arg(&args); if (h && h->tag == TERM_INT) { int rep = have_n ? (int)nval : 1; for (int i = 0; i < rep; i++) fputc((int)h->ival, fd); } }
-        else if (*p == 's') { Term *h = pl_fmt_next_arg(&args); Term *lst = h ? term_deref(h) : (Term *)0; while (lst && lst->tag == TERM_COMPOUND && lst->compound.arity == 2) { Term *e = term_deref(lst->compound.args[0]); if (e && e->tag == TERM_INT) fputc((int)e->ival, fd); lst = term_deref(lst->compound.args[1]); } }
-        else if (*p == 'i') { pl_fmt_next_arg(&args); }
+        if (*p == 'w' || *p == 'a' || *p == 'p') { pl_cell_t *h = plc_fmt_next_arg(&args); if (h) plc_write(h, &vm); }
+        else if (*p == 'q') { pl_cell_t *h = plc_fmt_next_arg(&args); if (h) plc_writeq(h, &vm); }
+        else if (*p == 'd') { pl_cell_t *h = plc_fmt_next_arg(&args); if (h && pl_is_int(h)) fprintf(fd, "%ld", (long)pl_int_val(h)); }
+        else if (*p == 'e') { pl_cell_t *h = plc_fmt_next_arg(&args); if (h) { double d = pl_is_int(h) ? (double)pl_int_val(h) : pl_float_val(h); fprintf(fd, "%e", d); } }
+        else if (*p == 'g') { pl_cell_t *h = plc_fmt_next_arg(&args); if (h) { double d = pl_is_int(h) ? (double)pl_int_val(h) : pl_float_val(h); fprintf(fd, "%g", d); } }
+        else if (*p == 'f') { pl_cell_t *h = plc_fmt_next_arg(&args); if (h) { double d = pl_is_int(h) ? (double)pl_int_val(h) : pl_float_val(h); fprintf(fd, "%.*f", have_n ? (int)nval : 6, d); } }
+        else if (*p == 'r' || *p == 'R') { pl_cell_t *h = plc_fmt_next_arg(&args); int base = have_n ? (int)nval : 8; if (h && pl_is_int(h) && base >= 2 && base <= 36) { long iv = (long)pl_int_val(h); char buf[72]; int bi = 0; unsigned long u = (iv < 0) ? (unsigned long)(-iv) : (unsigned long)iv; const char *dig = (*p == 'R') ? "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ" : "0123456789abcdefghijklmnopqrstuvwxyz"; if (u == 0) buf[bi++] = '0'; while (u) { buf[bi++] = dig[u % (unsigned long)base]; u /= (unsigned long)base; } if (iv < 0) fputc('-', fd); while (bi) fputc(buf[--bi], fd); } }
+        else if (*p == 'c') { pl_cell_t *h = plc_fmt_next_arg(&args); if (h && pl_is_int(h)) { int rep = have_n ? (int)nval : 1; for (int i = 0; i < rep; i++) fputc((int)pl_int_val(h), fd); } }
+        else if (*p == 's') { pl_cell_t *h = plc_fmt_next_arg(&args); pl_cell_t *lst = h ? pl_deref(h) : (pl_cell_t *)0; while (lst && (int)lst->v == DT_PLREF && pl_arity(lst) == 2) { pl_cell_t *aa = (pl_cell_t *)pl_compound_heap(lst); pl_cell_t *e = pl_deref(&aa[0]); if (e && pl_is_int(e)) fputc((int)pl_int_val(e), fd); lst = pl_deref(&aa[1]); } }
+        else if (*p == 'i') { plc_fmt_next_arg(&args); }
         else if (*p == 'n' || *p == 'N') { int rep = have_n ? (int)nval : 1; for (int i = 0; i < rep; i++) fputc('\n', fd); }
         else if (*p == '~') { fputc('~', fd); }
     }
-    if (rt_pl_ctr_on()) rt_pl_cterm_release(cm);
-    pl_wr_set_fp((FILE *)0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_char_type_cell(void *char_cell, void *type_cell, void *val_cell)
