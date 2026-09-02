@@ -428,7 +428,7 @@ static void plc_writeq(pl_cell_t *c, plc_vmap *m)
     fprintf(fp, ")");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* plc_write_canonical : mirrors prolog_builtin.c's pl_write_canonical_term arm for arm. Quoting always on, NO operator syntax ever (always functor(args)), NO $VAR/$VARNAME translation, dot-pairs print as [a,b] only under the SWI dialect flag (else the recursive '.'(H,T) form), SIMPLE %.1f/%g float format like plc_writeq -- a third, distinct algorithm from both plc_writeq and plc_wt. */
+/* plc_write_canonical : mirrors prolog_builtin.c's pl_write_canonical_term arm for arm. Quoting always on, NO operator syntax ever (always functor(args)), NO $VAR/$VARNAME translation, dot-pairs ALWAYS print as [a,b] list notation -- MEASURED against the project's sole Prolog oracle (SWI): write_canonical/1 uses list notation for proper lists unconditionally, unlike display/1's raw '.'(H,T) form (a distinct, unaffected code path via plc_wt); matches plc_writeq's own unconditional list handling. SIMPLE %.1f/%g float format like plc_writeq -- a third, distinct algorithm from both plc_writeq and plc_wt. */
 static void plc_write_canonical(pl_cell_t *c, plc_vmap *m)
 {
     extern int ATOM_DOT;
@@ -450,12 +450,6 @@ static void plc_write_canonical(pl_cell_t *c, plc_vmap *m)
     const char *fn = prolog_atom_name(fnid);
     if (!fn) fn = "?";
     if (fnid == ATOM_DOT && ar == 2) {
-        extern int rt_pl_dialect_is_swi(void);
-        if (!rt_pl_dialect_is_swi()) {
-            fprintf(fp, "'.'("); plc_write_canonical(&aa[0], m);
-            fprintf(fp, ","); plc_write_canonical(&aa[1], m);
-            fprintf(fp, ")"); return;
-        }
         fprintf(fp, "[");
         plc_write_canonical(&aa[0], m);
         pl_cell_t *tail = pl_deref(&aa[1]);
