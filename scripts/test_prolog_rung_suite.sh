@@ -4,14 +4,17 @@
 # Usage: bash scripts/test_prolog_rung_suite.sh [--rung RUNG] [--mode MODE] [--scrip PATH] [--corpus PATH]
 #
 # GOAL-PROLOG-BB mandates running ALL modes on every gate run (see GOAL "Testing discipline").
-# With no --mode (or --mode all, the DEFAULT) the corpus is run in all three engine paths:
-#   interp  (Mode 2, --run)            — reference path      — HARD GATE (PASS must be >= previous).
-#   run     (Mode 3, --run)               — native/stackless    — TRACKED (REFUSED until GZ regrows it).
-#   compile (Mode 4, --compile x86)       — emit→assemble→link→exec via run_prolog_via_x86_backend.sh
-#                                                                — TRACKED (REFUSED until BB-native x86 emit returns).
-# A mode whose probe prints the Stack-Machine-eXcision banner is reported REFUSED (expected mid-Ground-Zero)
-# and its per-file loop is skipped (no point running 100+ aborts); it auto-resumes the moment the mode regrows.
-# Pass --mode interp|run|compile to run a single mode. GATE-3 source of truth for the Prolog rung ladder.
+# With no --mode (or --mode all, the DEFAULT) the corpus runs in BOTH modes (modes 1 and 2 are deleted; `run` is an alias of interp):
+#   interp  (mode 3, --run)             — HARD GATE (this script's exit status)
+#   compile (mode 4, --compile x86)     — emit→assemble→link→exec via run_prolog_via_x86_backend.sh — TRACKED
+# A mode whose probe prints the Stack-Machine-eXcision banner is reported REFUSED and its per-file loop is skipped.
+# ⛔ A PASS NEEDS stdout == .expected AND rc == 0 (hq_B 2026-09-02, row prolog-rung-suite-reds-rowed-by-class). On the post-cut tree
+# the driver REFUSES every construct above the landed ladder rung with rc=2 and EMPTY stdout, so a witness whose expected output is
+# empty (the three rung15_abolish_* files — their swipl output IS empty) graded PASS on a refusal: 3 of 3 greens were vacuous.
+# stderr is kept (ERRF) and a driver refusal names its class on the RED line, `REFUSED-LADDER rung N -- <construct>` (the text of
+# lower_prolog.c pl_refuse()), so `grep -oE 'REFUSED-LADDER rung [0-9]+' | sort | uniq -c` IS the classification by ladder rung.
+# Failed once / passed once on SCRIP c182977e: before, interp PASS=3 (all vacuous); after, PASS=0 FAIL=15 both modes with every
+# RED named and rung-classed; a scratch --corpus holding only hello world grades PASS=1 in both modes.
 #
 # SUITE-FORMAT DELEGATION (tests-consolidate-prolog, 2026-08-27): a family converted by
 # corpus_suite_harness.py loses its loose rungNN[_slug]/*.pl directory and becomes one
@@ -58,9 +61,9 @@ fi
 run_prog() {
     local mode="$1" pl="$2" tmo="$3"
     case "$mode" in
-        interp)  timeout "$tmo" "$SCRIP" --run "$pl" < /dev/null 2>/dev/null ;;
-        run)     timeout "$tmo" "$SCRIP" --run    "$pl" < /dev/null 2>/dev/null ;;
-        compile) timeout "$tmo" bash "$HERE/run_prolog_via_x86_backend.sh" "$pl" < /dev/null 2>/dev/null ;;
+        interp)  timeout "$tmo" "$SCRIP" --run "$pl" < /dev/null 2>"$ERRF" ;;
+        run)     timeout "$tmo" "$SCRIP" --run    "$pl" < /dev/null 2>"$ERRF" ;;
+        compile) timeout "$tmo" bash "$HERE/run_prolog_via_x86_backend.sh" "$pl" < /dev/null 2>"$ERRF" ;;
         *) echo "bad mode $mode" >&2; exit 1 ;;
     esac
 }
@@ -149,6 +152,9 @@ run_corpus() {
             XFAIL=$((XFAIL+1)); continue
         fi
         got=$(run_prog "$mode" "$pl" 8); rc=$?
+        # the driver's own refusal text names the first construct above the landed rung and the rung that lands it; in compile
+        # mode the backend runner echoes scrip's stderr to stdout, so both streams are read.
+        ladder=$( { printf '%s\n' "$got"; cat "$ERRF"; } | grep -m1 -oE 'prolog: .* is not on the ladder yet -- rung [0-9]+' | sed 's/^prolog: //')
         # Per-file refuse: mode-4 is now PARTIALLY live (PLG-9a hello tier emits+runs); a shape
         # the flat tier does not yet cover refuses with the [SMX] banner. Per the testing discipline
         # that is REFUSED (pending regrow), NOT a FAIL — identical to test_smoke_prolog.sh.
@@ -157,7 +163,7 @@ run_corpus() {
             REFUSED=$((REFUSED+1)); continue
         fi
         if [ "$_isref" = 1 ]; then want=$(tail -n +2 "$exp"); else want=$(cat "$exp"); fi
-        if [ "$got" = "$want" ]; then
+        if [ "$got" = "$want" ] && [ "$rc" -eq 0 ]; then
             [ "$VERBOSE" = 1 ] && echo "PASS $name"
             PASS=$((PASS+1))
         else
@@ -165,8 +171,10 @@ run_corpus() {
             # not only under VERBOSE=1 -- a count the board cannot name cannot be rowed. rc is read BEFORE
             # any `|| true`/pipefail swallowing, so a crash/timeout is distinguished from a clean-exit wrong
             # answer without changing what is graded (PASS/FAIL bucketing below is untouched).
-            if   [ "$rc" -ge 128 ]; then reason="CRASH rc=$rc (signal $((rc-128)))"
+            if   [ -n "$ladder" ];   then reason="REFUSED-LADDER rung ${ladder##*rung } -- ${ladder%% is not on the ladder yet*} (rc=$rc)"
+            elif [ "$rc" -ge 128 ]; then reason="CRASH rc=$rc (signal $((rc-128)))"
             elif [ "$rc" -eq 124 ]; then reason="TIMEOUT"
+            elif [ "$rc" -ne 0 ] && [ "$got" = "$want" ]; then reason="EXIT rc=$rc with matching stdout (a nonzero exit is never a PASS)"
             elif [ "$rc" -ne 0 ];   then reason="CRASH rc=$rc"
             else reason="output mismatch"; fi
             echo "RED $mode $name: $reason"
@@ -221,8 +229,9 @@ run_corpus() {
 }
 
 PROBE="$(mktemp /tmp/plprobe_XXXXXX.pl)"
+ERRF="$(mktemp /tmp/plerr_XXXXXX.txt)"           # stderr of the last run_prog call; a driver ladder refusal is read from here
 printf ':- initialization(main).\nmain :- write(ok), nl.\n' > "$PROBE"
-trap 'rm -f "$PROBE"' EXIT
+trap 'rm -f "$PROBE" "$ERRF"' EXIT
 
 collect_files
 # verbose per-file output only for single-mode runs; the all-modes sweep prints summaries only
