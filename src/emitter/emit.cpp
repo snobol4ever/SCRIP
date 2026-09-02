@@ -32,7 +32,6 @@ sm_emit_t g_emit;
 IR_graph_t * g_emit_cfg = (IR_graph_t *)0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::unordered_set<std::string> g_port_exit_promoting_labels;
-static int g_port_exit_promoting_labels_built = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void port_exit_prepass_build(void) {   /* PORT-EXIT VALUE CONTRACT pre-pass (row port-exit-value-contract-untagged-rax-forges-dt-fail,
      * obligation 2; Lon-granted NO-NEW-GLOBALS 2026-09-02): closes x86_port_hook's coverage from 86% (current-chain-only, via
@@ -42,12 +41,17 @@ static void port_exit_prepass_build(void) {   /* PORT-EXIT VALUE CONTRACT pre-pa
      * named defect class on this rung, so if either real formula moves, this one must move with it. flat_jmp_entry is taken as
      * unconditionally 1 per the IR.h comment on that field: every proc reaching this table goes through one of
      * emit_jmp_entry_for_proc/_for_patproc/_for_chain, all of which set it via emit_jmp_entry_arm_region. This function is pure
-     * (reads g_stage2 + graph fields only, calls only the already-exported emit_graph_has_suspend) -- no emission side effects,
-     * safe to run once, lazily, before the real chain-by-chain emission pass ever needs an answer. */
-    if (g_port_exit_promoting_labels_built) return;
-    g_port_exit_promoting_labels_built = 1;
+     * (reads g_stage2 + graph fields only, calls only the already-exported emit_graph_has_suspend) -- no emission side effects.
+     * ⛔ NO SECOND STATIC FOR "ALREADY BUILT" (ceo 2026-09-02, RULES.md:169 clarification landed mid-session: a
+     * FUNCTION-SCOPE static is 'or equivalent' under NO-NEW-GLOBALS, same as file-scope -- guards static STORAGE
+     * DURATION, not the scope keyword). `.insert()` on an already-present key is a no-op, so re-running this
+     * populate loop on every call is merely redundant, never wrong -- unlike the granted set itself, a
+     * "have I run yet" flag was never load-bearing for correctness, only for avoiding a re-scan, and this path
+     * is opt-in-diagnostic-only (SCRIP_PORT_EXIT_AUDIT), so that cost is not worth a second grant. Same reasoning
+     * killed the SCRIP_ICN_GENFRAME getenv cache below -- ceo's own words on hq_P's parallel case: "a compile-time
+     * killswitch reads its getenv() at the point of use; the cache is worth nothing a board can measure." */
     extern const char * bb_ab_sym_name(const char *);
-    static int _gfr = -1; if (_gfr < 0) { const char * e = getenv("SCRIP_ICN_GENFRAME"); _gfr = (e && *e == '1') ? 1 : 0; }
+    int _gfr = (getenv("SCRIP_ICN_GENFRAME") && *getenv("SCRIP_ICN_GENFRAME") == '1') ? 1 : 0;
     for (int i = 0; i < g_stage2.proc_count; i++) {
         ProcEntry * pe = &g_stage2.proc_table[i];
         if (!pe->name || pe->bb_idx < 0 || pe->bb_idx >= g_stage2.bbp.count) continue;
