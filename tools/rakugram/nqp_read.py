@@ -179,6 +179,10 @@ def lex_body(b):
         if c == ':' and re.match(r':\w+', b[i:]):
             m = re.match(r':\w+(\([^)]*\))?', b[i:]); emit('MOD', m.group(0)); i += m.end(); continue
         # assertion / subrule  < ... >  (brace-aware for nested <>)
+        # ASCII word boundaries `<<` / `>>` (the French « » have their own branch below): `'NaN' >>` in numish.
+        # Must be decided BEFORE the `<` assertion scan, which would otherwise open a phantom assertion on `<<`.
+        if b.startswith('<<', i): emit('WB', '«'); i += 2; continue
+        if b.startswith('>>', i): emit('WB', '»'); i += 2; continue
         if c == '<':
             # ⛔ depth-count < > but SKIP quoted strings and [ ] character classes: a `>` inside `'=>'` or
             # `'>>>>>>>'` is not a closer. Measured before this fix: 101 stray `>` tokens (33 rules refusing

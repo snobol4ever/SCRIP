@@ -90,16 +90,18 @@ def look_operand(inner):
         node = N('EMPTY') if truth else N('FAILN', 'constant false')
         for _ in range(flips): node = N('NOT', None, [node])
         return node
-    if flips:                                           # <!!rule> -- no such spelling in the grammar; refuse
-        return None
     m = re.match(r'^(before|after)\b(.*)$', t, re.S)
     if m:
         if m.group(1) == 'after':
             return None            # backwards matching is not implemented
         try:
-            return P(lex_body(m.group(2))).parse()
+            node = P(lex_body(m.group(2))).parse()
         except Exception:
             return None
+        for _ in range(flips): node = N('NOT', None, [node])     # <!!before X> == <?before X>
+        return node
+    if flips:                                           # <!!rule> -- no such spelling in the grammar; refuse
+        return None
     mk = mark_node(t)
     if mk is not None:
         return mk
