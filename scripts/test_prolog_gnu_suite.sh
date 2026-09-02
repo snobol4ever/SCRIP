@@ -11,12 +11,17 @@
 # frontend ever change, instead of silently drifting stale like a cached list would.
 #
 # THREE LIVE-DERIVED BUCKETS (never a fixed count -- see the classification loop for the exact rule):
-#   LIB      -- `./scrip --compile` reaches EXACTLY "[IBB] FATAL: mode-4 driver: main BB graph not
-#               found" (with or without recoverable internal parse-error diagnostics along the way --
-#               SCRIP's parser recovers from a malformed clause and keeps going, confirmed by hand:
-#               4 of this suite's files print "parse error: expected . at end of..." one or more
-#               times and STILL reach this exact terminal state). That message is the CORRECT,
-#               EXPECTED result for a library module with no entry point -- compile-graded PASS.
+#   LIB      -- ⚖️ RE-KEYED by hq_C ruling 2026-09-02 (row prolog-gnu-conformance-ok-fail-print-zero-
+#               bytes-both-modes): classified by a PROPERTY OF THE FILE, checked BEFORE any SCRIP
+#               invocation -- (1) it contains a GNU-Prolog-internal bootstrap-only directive
+#               ($call_c/$call_c_test/$call_c_jump/ensure_linked/built_in), or (2) it is one of two
+#               individually-named non-program drivers (Pl2Wam/all.pl, Pl2Wam/whole.pl -- see
+#               is_bootstrap_only() below for why). The ORIGINAL key was `./scrip --compile` reaching
+#               exactly "[IBB] FATAL: mode-4 driver: main BB graph not found" -- a SCRIP FAILURE
+#               SIGNAL, not a file property, so it silently re-classified when commit 3ce7a526 gave
+#               SCRIP a universal entry-point synthesis and made that signal structurally unreachable
+#               (45 LIB files fell into OK overnight with no corpus or suite change at all). The old
+#               rc==1 signal check below is left in place as a dormant fallback, not the key.
 #   OK       -- `./scrip --compile` succeeds (rc=0, the file carries its own `:- initialization(...)`
 #               directive). Run-graded, triangulated three ways: SCRIP m3 (--run), SCRIP m4
 #               (--compile, link, execute), and real `gprolog`, all invoked with ZERO command-line
@@ -49,6 +54,19 @@ RUN_TIMEOUT="${GNU_SUITE_RUN_TIMEOUT:-15}"
 GPROLOG_BIN="$(command -v gprolog || true)"
 VERBOSE="${GNU_SUITE_VERBOSE:-0}"
 
+# Named individually per the ruling (neither contains a bootstrap-only directive, so the content
+# grep below can't catch them): Pl2Wam/all.pl is a bare sequence of `:- include(...)` directives
+# concatenating the other Pl2Wam sources, with its one real `:- initialization(go).` line commented
+# out in this vendored copy; Pl2Wam/whole.pl's `:- include(bip_list).` names a file absent from this
+# vendored subset (a corpus completeness gap, tracked separately -- see handoff/ledger, not fixed here).
+BOOTSTRAP_ONLY_NAMED=("Pl2Wam/all.pl" "Pl2Wam/whole.pl")
+
+is_bootstrap_only() {  # $1 = rel path (for the named list), $2 = full path (for the content grep)
+    local rel="$1" f="$2" n
+    for n in "${BOOTSTRAP_ONLY_NAMED[@]}"; do [ "$rel" = "$n" ] && return 0; done
+    grep -qE '\$call_c|ensure_linked|built_in' "$f"
+}
+
 [ -d "$PKG" ]        || { echo "⛔ REFUSED-TO-GRADE: $PKG missing"; exit 2; }
 [ -x "$SCRIP" ]      || { echo "⛔ REFUSED-TO-GRADE: scrip not built"; exit 2; }
 [ -f "$RT_SO" ]      || { echo "⛔ REFUSED-TO-GRADE: $RT_SO missing (m4 link needs it)"; exit 2; }
@@ -71,6 +89,13 @@ for f in "${FILES[@]}"; do
     rel="${f#"$PKG"/}"
     out="$TMP/${base}.s"
     probe_log="$TMP/${base}.probe"
+
+    if is_bootstrap_only "$rel" "$f"; then
+        LIB=$((LIB+1))
+        [ "$VERBOSE" -eq 1 ] && echo "  LIB (bootstrap-only file, no SCRIP invocation) $rel"
+        continue
+    fi
+
     timeout "$CLASSIFY_TIMEOUT" "$SCRIP" --compile "$f" -o "$out" < /dev/null > "$probe_log" 2>&1
     rc=$?
 
