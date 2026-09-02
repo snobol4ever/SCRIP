@@ -56,7 +56,6 @@ tree_t *resolve_pred_table_lookup(Resolve_PredTable *pt, const char *key);
 void    resolve_pred_table_insert(Resolve_PredTable *pt, const char *key, tree_t *choice);
 tree_t *resolve_pred_table_lookup_global(const char *key);
 Resolve_PredEntry *resolve_pred_entry_lookup(const char *key);
-Term  **resolve_env_new(int n);
 Resolve_PredEntry_BB *resolve_bb_lookup(const char *name, int arity);
 int         resolve_bb_pred_count(void);
 const char *resolve_bb_pred_name_at(int idx);

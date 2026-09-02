@@ -6,7 +6,6 @@
 #include "scrip_cc.h"
 extern Trail g_resolve_trail;
 extern int g_resolve_cut_flag;
-Term **resolve_env_new(int n);
 tree_t *resolve_pred_table_lookup_global(const char *key);
 #endif
 int resolve_throw_existence_error_procedure(const char *name, int arity);

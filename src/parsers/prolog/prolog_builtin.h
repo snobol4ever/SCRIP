@@ -6,13 +6,7 @@
 void pl_write(Term *t);
 void pl_writeq(Term *t);
 void pl_write_canonical(Term *t);
-char *pl_term_to_string(Term *t);
-int pl_functor(Term *t, Term *name, Term *arity, Trail *tr);
-int pl_arg(Term *n, Term *compound, Term *arg, Trail *tr);
-int pl_univ(Term *t, Term *list, Trail *tr);
 #endif
-int  pl_is(Term *result, Term *expr, Trail *trail);
-int pl_is_float(Term *t);
 #ifndef EXPR_T_DEFINED
 struct tree_t;
 typedef struct tree_t tree_t;
