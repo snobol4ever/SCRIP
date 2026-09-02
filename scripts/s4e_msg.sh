@@ -532,9 +532,23 @@ case "$cmd" in
          # Identical behaviour (col4 -> FREE), now through the one writer, so it inherits the lock instead of racing.
          # ⭐ A RESTRICTION IS NOT SPENT BY LETTING GO OF THE LOCK -- restore it rather than freeing the row.
          # Everything else still goes to FREE, unchanged: ceo's 2026-08-28 ruling governs DISPATCH and is untouched.
-         { _rst="$(grep -m1 '^PRIOR-STATE ' "$c" 2>/dev/null | sed 's/^PRIOR-STATE //')"
-           if [ -n "$_rst" ] && s4e_restricted_to "$_rst" >/dev/null; then s4e_set_row_state "$topic" "$_rst" || true
-           else s4e_set_row_state "$topic" "FREE" || true; fi; }
+         # ⭐ unclaim-clobbers-a-park-written-around-the-claim-so-next-serves-a-superseded-row (ceo MEASURED 2026-09-02 ~14:55,
+         # cured hq_B the same day): ceo force-parked AROUND hq_B's live claim (S4E_PARK_FORCE=1 -> SUPERSEDED:folded-into-...),
+         # hq_B's unclaim then drove the column to FREE by the unconditional write below, erasing the park, and ceo's own
+         # `next` LOCKED the resurrected rank-0 superseded row as topmost work -- twice, because the second unclaim did it
+         # again. ⛔ A PARK WRITTEN AROUND A CLAIM IS NOT SPENT BY THE CLAIM'S RELEASE. The 2026-08-28 "always FREE" ruling
+         # governs DISPATCH of the CLAIM-SHAPED states only -- CLAIMED:<seat>, ASSIGNED, ASSIGNED:<seat>, FREE, empty -- and is
+         # untouched for them. Any other column value (SUPERSEDED*, BLOCKED-ON:*, PARKED-AWAITING:*, PARKED*, RETIRED,
+         # GRANT-NEEDED*, RESTRICTED:*) is a park somebody wrote deliberately around the lock: it is KEPT and the receipt
+         # names it. Gate: test_gate_s4e_unclaim_keeps_park.sh (both arms, throwaway postoffice, fail-once on a mutated copy).
+         { _rst="$(grep -m1 '^PRIOR-STATE ' "$c" 2>/dev/null | sed 's/^PRIOR-STATE //')"; _cur="$(s4e_row_state "$topic")"; _kept=""
+           case "$_cur" in
+             CLAIMED:*|ASSIGNED|ASSIGNED:*|FREE|"")
+               if [ -n "$_rst" ] && s4e_restricted_to "$_rst" >/dev/null; then s4e_set_row_state "$topic" "$_rst" || true
+               else s4e_set_row_state "$topic" "FREE" || true; fi;;
+             *) _kept="$_cur"; echo "⭐ QUEUE.tsv column KEPT as '$_cur' — a park written around this claim survives its release (only a claim-shaped column is driven to FREE)";;
+           esac
+           [ -z "$_kept" ] || why="$why (QUEUE.tsv column kept as $_kept)"; }
          b="$PO/tasks/$topic.task.md"
          # release-verbs-refuse-on-unfolded-authority-mail: MUST run before anything below touches the
          # baton's own mtime -- the guard's whole signal is "was the baton written since the mail
