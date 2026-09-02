@@ -433,8 +433,8 @@ DESCR_t EVAL_fn(DESCR_t expr) {
     if (expr.v == DT_I) return expr;
     if (expr.v == DT_R) return expr;
     if (expr.v == DT_P) {
-        if (g_eval_pat_hook) return g_eval_pat_hook(expr);
-        return expr;
+        core_runtime_error(103, "eval argument is not expression");
+        return FAILDESCR;
     }
     const char *s = VARVAL_fn(expr);
     if (!s || !*s) return NULVCL;

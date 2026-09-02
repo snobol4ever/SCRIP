@@ -7258,6 +7258,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (IS_INT_fn(av) || IS_REAL_fn(av)) { *out = av; return 1; }
         if (av.v == DT_SNUL) { *out = NULVCL; return 1; }
         if (av.v == DT_S) { extern DESCR_t EVAL_fn(DESCR_t); *out = EVAL_fn(av); return 1; }
+        if (av.v == DT_P) { core_runtime_error(103, "eval argument is not expression"); *out = FAILDESCR; return 1; }
         *out = FAILDESCR; return 1;
     }
     L_bidjmp_6581: ;
