@@ -1588,22 +1588,23 @@ static dyn_pred_row_t *dyn_pred_find(const char *name, long arity)
     return (dyn_pred_row_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void dyn_term_key(Term *t, const char **name_out, long *arity_out)
+static void dyn_term_key(pl_cell_t *c, const char **name_out, long *arity_out)
 {
-    Term *d = t ? term_deref(t) : (Term *)0;
-    if (d && d->tag == TERM_COMPOUND) { *name_out = prolog_atom_name(d->compound.functor); *arity_out = d->compound.arity; return; }
-    if (d && d->tag == TERM_ATOM) { *name_out = prolog_atom_name(d->atom_id); *arity_out = 0; return; }
+    pl_cell_t *d = c ? pl_deref(c) : (pl_cell_t *)0;
+    if (d && (int)d->v == DT_PLREF) { *name_out = prolog_atom_name((int)(d->slen >> 16)); *arity_out = (long)(d->slen & 0xFFFFu); return; }
+    if (d && (int)d->v == DT_A) { *name_out = prolog_atom_name((int)d->i); *arity_out = 0; return; }
+    if (d && d->v == DT_S) { *name_out = d->s ? d->s : ""; *arity_out = 0; return; }
     *name_out = (const char *)0; *arity_out = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_dyn_abolish_cell(void *fn_cell, void *ar_cell)
 {
-    Term *fn = pl_cell_to_term((pl_cell_t *)fn_cell);
-    Term *ar = pl_cell_to_term((pl_cell_t *)ar_cell);
-    if (!fn || fn->tag != TERM_ATOM || !ar || ar->tag != TERM_INT) return 1;
-    const char *name = prolog_atom_name(fn->atom_id);
+    pl_cell_t *fnc = pl_deref((pl_cell_t *)fn_cell);
+    pl_cell_t *arc = pl_deref((pl_cell_t *)ar_cell);
+    if (((int)fnc->v != DT_A && fnc->v != DT_S) || (int)arc->v != DT_I) return 1;
+    const char *name = ((int)fnc->v == DT_A) ? prolog_atom_name((int)fnc->i) : (fnc->s ? fnc->s : "");
     if (!name) return 1;
-    dyn_pred_row_t *row = dyn_pred_find(name, ar->ival);
+    dyn_pred_row_t *row = dyn_pred_find(name, (long)arc->i);
     if (row) { row->head = (dyn_clause_t *)0; row->tail = (dyn_clause_t *)0; }
     return 1;
 }
@@ -1611,9 +1612,8 @@ int rt_pl_dyn_abolish_cell(void *fn_cell, void *ar_cell)
 int rt_pl_dyn_retract_cell(void *head_cell)
 {
     extern pl_trail_t g_pl_trail;
-    Term *pat = pl_cell_to_term((pl_cell_t *)head_cell);
     const char *name = (const char *)0; long arity = 0;
-    dyn_term_key(pat, &name, &arity);
+    dyn_term_key((pl_cell_t *)head_cell, &name, &arity);
     if (!name) return 0;
     dyn_pred_row_t *row = dyn_pred_find(name, arity);
     if (!row) return 0;
@@ -1654,7 +1654,10 @@ int rt_pl_dyn_assertz_cell(void *clause_cell, int prepend)
         h = term_deref(cl->compound.args[0]); b = term_deref(cl->compound.args[1]);
     }
     const char *name = (const char *)0; long arity = 0;
-    dyn_term_key(h, &name, &arity);
+    pl_cell_t *clc = pl_deref((pl_cell_t *)clause_cell); pl_cell_t *hc = clc;
+    const char *clf = ((int)clc->v == DT_PLREF) ? prolog_atom_name((int)(clc->slen >> 16)) : (const char *)0;
+    if (clf && (int)(clc->slen & 0xFFFFu) == 2 && !strcmp(clf, ":-")) hc = pl_deref(&((pl_cell_t *)clc->p)[0]);
+    dyn_term_key(hc, &name, &arity);
     if (!name) return 1;
     Term *var_map[256]; int var_cap = 256, var_n = 0;
     Term *hcopy = copy_term_deep(h, var_map, &var_cap, &var_n);
@@ -1725,7 +1728,7 @@ DESCR_t rt_pl_clause_gen(DESCR_t *args, int nargs, int64_t *resume) {
         Term *bd = pl_cell_to_term((pl_cell_t *)&args[1]);
         bd = bd ? term_deref(bd) : (Term *)0;
         if (bd && bd->tag != TERM_VAR && bd->tag != TERM_ATOM && bd->tag != TERM_COMPOUND) { rt_pl_iso_throw_pi("type_error", "callable", "?", 0); return FAILDESCR; }
-        const char *name = (const char *)0; long arity = 0; dyn_term_key(hd, &name, &arity);
+        const char *name = (const char *)0; long arity = 0; dyn_term_key((pl_cell_t *)&args[0], &name, &arity);
         if (!name) return FAILDESCR;
         dyn_pred_row_t *row = dyn_pred_find(name, arity);
         if (!row) { if (rt_pl_proc_defined_static(name, arity)) rt_pl_iso_throw_permission("access", "private_procedure", name, (int)arity); return FAILDESCR; }
@@ -1750,6 +1753,8 @@ DESCR_t rt_pl_clause_gen(DESCR_t *args, int nargs, int64_t *resume) {
 typedef struct { const char *name; long arity; } pl_pi_cand_t;
 typedef struct { pl_pi_cand_t *v; int n; int i; int mark; } pl_curpred_it_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static pl_cell_t pl_atom_cell(const char *a) { const char *n = prolog_atom_name(prolog_atom_intern(a)); if (!n) n = ""; pl_cell_t c; c.v = DT_S; c.slen = (uint32_t)strlen(n); c.s = n; return c; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_current_predicate_gen(DESCR_t *args, int nargs, int64_t *resume) {
     extern pl_trail_t g_pl_trail;
     if (nargs < 1 || !resume) return FAILDESCR;
@@ -1764,9 +1769,9 @@ DESCR_t rt_pl_current_predicate_gen(DESCR_t *args, int nargs, int64_t *resume) {
     while (it->i < it->n) {
         pl_trail_unwind(&g_pl_trail, it->mark);
         pl_pi_cand_t cand = it->v[it->i++];
-        Term *kids[2]; kids[0] = term_new_atom(prolog_atom_intern(cand.name)); kids[1] = term_new_int(cand.arity);
-        Term *pi = term_new_compound(prolog_atom_intern("/"), 2, kids);
-        if (pl_unify_term_into_cell((pl_cell_t *)&args[0], pi, &g_pl_trail)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
+        pl_cell_t *kids = (pl_cell_t *)rt_ws_alloc(2 * sizeof(pl_cell_t)); kids[0] = pl_atom_cell(cand.name); kids[1] = pl_make_int(cand.arity);
+        pl_cell_t pi = pl_make_compound(prolog_atom_intern("/"), 2, kids);
+        if (pl_unify((pl_cell_t *)&args[0], &pi, &g_pl_trail)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
     }
     pl_trail_unwind(&g_pl_trail, it->mark);
     return FAILDESCR;
@@ -1780,11 +1785,10 @@ DESCR_t rt_pl_predicate_property_gen(DESCR_t *args, int nargs, int64_t *resume) 
     extern int rt_pl_proc_defined_static(const char *, long);
     if (nargs < 2 || !resume) return FAILDESCR;
     if (*resume == 0) {
-        Term *hd = pl_cell_to_term((pl_cell_t *)&args[0]);
-        hd = hd ? term_deref(hd) : (Term *)0;
-        if (!hd || hd->tag == TERM_VAR) { rt_pl_iso_throw_instantiation(); return FAILDESCR; }
-        if (hd->tag != TERM_ATOM && hd->tag != TERM_COMPOUND) { rt_pl_iso_throw_pi("type_error", "callable", "?", 0); return FAILDESCR; }
-        const char *name = (const char *)0; long arity = 0; dyn_term_key(hd, &name, &arity);
+        pl_cell_t *hdc = pl_deref((pl_cell_t *)&args[0]);
+        if (pl_cell_unbound(hdc)) { rt_pl_iso_throw_instantiation(); return FAILDESCR; }
+        if ((int)hdc->v != DT_A && hdc->v != DT_S && (int)hdc->v != DT_PLREF) { rt_pl_iso_throw_pi("type_error", "callable", "?", 0); return FAILDESCR; }
+        const char *name = (const char *)0; long arity = 0; dyn_term_key(hdc, &name, &arity);
         if (!name) return FAILDESCR;
         int is_dyn = dyn_pred_find(name, arity) != (dyn_pred_row_t *)0;
         int is_stat = rt_pl_proc_defined_static(name, arity);
@@ -1799,8 +1803,8 @@ DESCR_t rt_pl_predicate_property_gen(DESCR_t *args, int nargs, int64_t *resume) 
     while (it->i < it->n) {
         pl_trail_unwind(&g_pl_trail, it->mark);
         const char *p = it->props[it->i++];
-        Term *pt = term_new_atom(prolog_atom_intern(p));
-        if (pl_unify_term_into_cell((pl_cell_t *)&args[1], pt, &g_pl_trail)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
+        pl_cell_t pt = pl_atom_cell(p);
+        if (pl_unify((pl_cell_t *)&args[1], &pt, &g_pl_trail)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
     }
     pl_trail_unwind(&g_pl_trail, it->mark);
     return FAILDESCR;
@@ -1815,8 +1819,8 @@ DESCR_t rt_pl_current_op_gen(DESCR_t *args, int nargs, int64_t *resume) {
     extern void rt_pl_iso_throw_pi(const char *, const char *, const char *, int);
     if (nargs < 3 || !resume) return FAILDESCR;
     if (*resume == 0) {
-        Term *nm = pl_cell_to_term((pl_cell_t *)&args[2]); nm = nm ? term_deref(nm) : (Term *)0;
-        if (nm && nm->tag != TERM_VAR && nm->tag != TERM_ATOM) { rt_pl_iso_throw_pi("type_error", "atom", "?", 0); return FAILDESCR; }
+        pl_cell_t *nmc = pl_deref((pl_cell_t *)&args[2]);
+        if (!pl_cell_unbound(nmc) && (int)nmc->v != DT_A && nmc->v != DT_S) { rt_pl_iso_throw_pi("type_error", "atom", "?", 0); return FAILDESCR; }
         int cap = prolog_op_table_count(); if (cap < 0) cap = 0;
         pl_curop_it_t *it = (pl_curop_it_t *)rt_ws_alloc(sizeof *it);
         it->v = (pl_op_cand_t *)rt_ws_alloc((size_t)(cap + 1) * sizeof(pl_op_cand_t)); it->n = 0;
@@ -1828,10 +1832,10 @@ DESCR_t rt_pl_current_op_gen(DESCR_t *args, int nargs, int64_t *resume) {
     while (it->i < it->n) {
         pl_trail_unwind(&g_pl_trail, it->mark);
         pl_op_cand_t cand = it->v[it->i++];
-        Term *precT = term_new_int(cand.prec);
-        Term *typeT = term_new_atom(prolog_atom_intern(cand.type));
-        Term *nameT = term_new_atom(prolog_atom_intern(cand.name));
-        if (pl_unify_term_into_cell((pl_cell_t *)&args[0], precT, &g_pl_trail) && pl_unify_term_into_cell((pl_cell_t *)&args[1], typeT, &g_pl_trail) && pl_unify_term_into_cell((pl_cell_t *)&args[2], nameT, &g_pl_trail)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
+        pl_cell_t precT = pl_make_int(cand.prec);
+        pl_cell_t typeT = pl_atom_cell(cand.type);
+        pl_cell_t nameT = pl_atom_cell(cand.name);
+        if (pl_unify((pl_cell_t *)&args[0], &precT, &g_pl_trail) && pl_unify((pl_cell_t *)&args[1], &typeT, &g_pl_trail) && pl_unify((pl_cell_t *)&args[2], &nameT, &g_pl_trail)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
     }
     pl_trail_unwind(&g_pl_trail, it->mark);
     return FAILDESCR;
@@ -1843,21 +1847,20 @@ typedef struct { int i; int mark; } pl_flagit_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static pl_flag_ent_t *pl_flag_find(const char *nm) { if (!nm) return (pl_flag_ent_t *)0; for (int i = 0; i < g_pl_flags_n; i++) if (!strcmp(g_pl_flags[i].name, nm)) return &g_pl_flags[i]; return (pl_flag_ent_t *)0; }
 int rt_pl_dialect_is_swi(void) { pl_flag_ent_t *e = pl_flag_find("dialect"); return e && !strcmp(e->val, "swi"); }
-static Term *pl_flag_value_term(const pl_flag_ent_t *f) { if (f->is_int) return term_new_int(f->ival); return term_new_atom(prolog_atom_intern(f->val)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_set_prolog_flag(DESCR_t fd, DESCR_t vd) {
     extern void rt_pl_iso_throw_instantiation(void);
     extern void rt_pl_iso_throw_pi(const char *, const char *, const char *, int);
-    Term *ft = pl_cell_to_term((pl_cell_t *)&fd); ft = ft ? term_deref(ft) : (Term *)0;
-    if (!ft || ft->tag == TERM_VAR) { rt_pl_iso_throw_instantiation(); return 0; }
-    if (ft->tag != TERM_ATOM) { rt_pl_iso_throw_pi("type_error", "atom", "?", 0); return 0; }
-    const char *fn = prolog_atom_name(ft->atom_id); if (!fn) { rt_pl_iso_throw_pi("type_error", "atom", "?", 0); return 0; }
+    pl_cell_t *ftc = pl_deref((pl_cell_t *)&fd);
+    if (pl_cell_unbound(ftc)) { rt_pl_iso_throw_instantiation(); return 0; }
+    if ((int)ftc->v != DT_A && ftc->v != DT_S) { rt_pl_iso_throw_pi("type_error", "atom", "?", 0); return 0; }
+    const char *fn = ((int)ftc->v == DT_A) ? prolog_atom_name((int)ftc->i) : (ftc->s ? ftc->s : ""); if (!fn) { rt_pl_iso_throw_pi("type_error", "atom", "?", 0); return 0; }
     pl_flag_ent_t *e = pl_flag_find(fn); if (!e) { rt_pl_iso_throw_pi("domain_error", "prolog_flag", fn, 0); return 0; }
     if (!e->rw) { extern void rt_pl_iso_throw_permission(const char *, const char *, const char *, int); rt_pl_iso_throw_permission("modify", "flag", fn, 0); return 0; }
-    Term *vt = pl_cell_to_term((pl_cell_t *)&vd); vt = vt ? term_deref(vt) : (Term *)0;
-    if (!vt || vt->tag == TERM_VAR) { rt_pl_iso_throw_instantiation(); return 0; }
-    if (vt->tag != TERM_ATOM) { rt_pl_iso_throw_pi("type_error", "atom", "?", 0); return 0; }
-    const char *vs = prolog_atom_name(vt->atom_id); if (!vs) { rt_pl_iso_throw_pi("type_error", "atom", "?", 0); return 0; }
+    pl_cell_t *vtc = pl_deref((pl_cell_t *)&vd);
+    if (pl_cell_unbound(vtc)) { rt_pl_iso_throw_instantiation(); return 0; }
+    if ((int)vtc->v != DT_A && vtc->v != DT_S) { rt_pl_iso_throw_pi("type_error", "atom", "?", 0); return 0; }
+    const char *vs = ((int)vtc->v == DT_A) ? prolog_atom_name((int)vtc->i) : (vtc->s ? vtc->s : ""); if (!vs) { rt_pl_iso_throw_pi("type_error", "atom", "?", 0); return 0; }
     snprintf(e->val, sizeof e->val, "%s", vs); e->is_int = 0; return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1866,17 +1869,17 @@ DESCR_t rt_pl_current_prolog_flag_gen(DESCR_t *args, int nargs, int64_t *resume)
     extern void rt_pl_iso_throw_pi(const char *, const char *, const char *, int);
     if (nargs < 2 || !resume) return FAILDESCR;
     if (*resume == 0) {
-        Term *nm = pl_cell_to_term((pl_cell_t *)&args[0]); nm = nm ? term_deref(nm) : (Term *)0;
-        if (nm && nm->tag != TERM_VAR && nm->tag != TERM_ATOM) { rt_pl_iso_throw_pi("type_error", "atom", "?", 0); return FAILDESCR; }
+        pl_cell_t *nmc = pl_deref((pl_cell_t *)&args[0]);
+        if (!pl_cell_unbound(nmc) && (int)nmc->v != DT_A && nmc->v != DT_S) { rt_pl_iso_throw_pi("type_error", "atom", "?", 0); return FAILDESCR; }
         pl_flagit_t *it = (pl_flagit_t *)rt_ws_alloc(sizeof *it); it->i = 0; it->mark = pl_trail_mark(&g_pl_trail); *resume = (int64_t)(intptr_t)it;
     }
     pl_flagit_t *it = (pl_flagit_t *)(intptr_t)*resume;
     while (it->i < g_pl_flags_n) {
         pl_trail_unwind(&g_pl_trail, it->mark);
         pl_flag_ent_t *e = &g_pl_flags[it->i++];
-        Term *nameT = term_new_atom(prolog_atom_intern(e->name));
-        Term *valT = pl_flag_value_term(e);
-        if (pl_unify_term_into_cell((pl_cell_t *)&args[0], nameT, &g_pl_trail) && pl_unify_term_into_cell((pl_cell_t *)&args[1], valT, &g_pl_trail)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
+        pl_cell_t nameT = pl_atom_cell(e->name);
+        pl_cell_t valT = e->is_int ? pl_make_int((int64_t)e->ival) : pl_atom_cell(e->val);
+        if (pl_unify((pl_cell_t *)&args[0], &nameT, &g_pl_trail) && pl_unify((pl_cell_t *)&args[1], &valT, &g_pl_trail)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
     }
     pl_trail_unwind(&g_pl_trail, it->mark);
     return FAILDESCR;
@@ -1891,9 +1894,9 @@ DESCR_t rt_pl_current_stream_gen(DESCR_t *args, int nargs, int64_t *resume) {
         int idx = it->i++;
         if (!fh_get(idx)) continue;
         pl_trail_unwind(&g_pl_trail, it->mark);
-        Term *sa[1]; sa[0] = term_new_int(idx);
-        Term *st = term_new_compound(prolog_atom_intern("$stream"), 1, sa);
-        if (pl_unify_term_into_cell((pl_cell_t *)&args[0], st, &g_pl_trail)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
+        pl_cell_t *sa = (pl_cell_t *)rt_ws_alloc(sizeof(pl_cell_t)); sa[0] = pl_make_int(idx);
+        pl_cell_t st = pl_make_compound(prolog_atom_intern("$stream"), 1, sa);
+        if (pl_unify((pl_cell_t *)&args[0], &st, &g_pl_trail)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
     }
     pl_trail_unwind(&g_pl_trail, it->mark);
     return FAILDESCR;
@@ -1911,19 +1914,19 @@ DESCR_t rt_pl_stream_property_gen(DESCR_t *args, int nargs, int64_t *resume) {
         char m = fh_mode[idx]; char ty = fh_type[idx];
         while (it->pi < 8) {
             int pi = it->pi++;
-            Term *prop = (Term *)0; Term *pa[1];
-            if (pi == 0) { if (idx >= 3 && fh_name[idx]) { pa[0] = term_new_atom(prolog_atom_intern(fh_name[idx])); prop = term_new_compound(prolog_atom_intern("file_name"), 1, pa); } }
-            else if (pi == 1) { pa[0] = term_new_atom(prolog_atom_intern(m == 'r' ? "read" : (m == 'a' ? "append" : "write"))); prop = term_new_compound(prolog_atom_intern("mode"), 1, pa); }
-            else if (pi == 2) { prop = term_new_atom(prolog_atom_intern(m == 'r' ? "input" : "output")); }
-            else if (pi == 3) { pa[0] = term_new_atom(prolog_atom_intern(ty == 'b' ? "binary" : "text")); prop = term_new_compound(prolog_atom_intern("type"), 1, pa); }
-            else if (pi == 4) { if (idx >= 3) { pa[0] = term_new_atom(prolog_atom_intern("true")); prop = term_new_compound(prolog_atom_intern("reposition"), 1, pa); } }
-            else if (pi == 5) { if (idx >= 3) { pa[0] = term_new_atom(prolog_atom_intern("eof_code")); prop = term_new_compound(prolog_atom_intern("eof_action"), 1, pa); } }
-            else if (pi == 6) { if (idx >= 3) { pa[0] = term_new_atom(prolog_atom_intern("block")); prop = term_new_compound(prolog_atom_intern("buffering"), 1, pa); } }
-            else if (pi == 7) { if (idx >= 3) { FILE *fp = fh_get(idx); const char *eos = "not"; if (fp && m == 'r') { if (feof(fp)) eos = "past"; else { int cpk = getc(fp); if (cpk == EOF) eos = "at"; else ungetc(cpk, fp); } } pa[0] = term_new_atom(prolog_atom_intern(eos)); prop = term_new_compound(prolog_atom_intern("end_of_stream"), 1, pa); } }
+            pl_cell_t *prop = (pl_cell_t *)0; pl_cell_t *pa = (pl_cell_t *)rt_ws_alloc(sizeof(pl_cell_t)); pl_cell_t *pv = (pl_cell_t *)rt_ws_alloc(sizeof(pl_cell_t));
+            if (pi == 0) { if (idx >= 3 && fh_name[idx]) { pa[0] = pl_atom_cell(fh_name[idx]); *pv = pl_make_compound(prolog_atom_intern("file_name"), 1, pa); prop = pv; } }
+            else if (pi == 1) { pa[0] = pl_atom_cell(m == 'r' ? "read" : (m == 'a' ? "append" : "write")); *pv = pl_make_compound(prolog_atom_intern("mode"), 1, pa); prop = pv; }
+            else if (pi == 2) { *pv = pl_atom_cell(m == 'r' ? "input" : "output"); prop = pv; }
+            else if (pi == 3) { pa[0] = pl_atom_cell(ty == 'b' ? "binary" : "text"); *pv = pl_make_compound(prolog_atom_intern("type"), 1, pa); prop = pv; }
+            else if (pi == 4) { if (idx >= 3) { pa[0] = pl_atom_cell("true"); *pv = pl_make_compound(prolog_atom_intern("reposition"), 1, pa); prop = pv; } }
+            else if (pi == 5) { if (idx >= 3) { pa[0] = pl_atom_cell("eof_code"); *pv = pl_make_compound(prolog_atom_intern("eof_action"), 1, pa); prop = pv; } }
+            else if (pi == 6) { if (idx >= 3) { pa[0] = pl_atom_cell("block"); *pv = pl_make_compound(prolog_atom_intern("buffering"), 1, pa); prop = pv; } }
+            else if (pi == 7) { if (idx >= 3) { FILE *fp = fh_get(idx); const char *eos = "not"; if (fp && m == 'r') { if (feof(fp)) eos = "past"; else { int cpk = getc(fp); if (cpk == EOF) eos = "at"; else ungetc(cpk, fp); } } pa[0] = pl_atom_cell(eos); *pv = pl_make_compound(prolog_atom_intern("end_of_stream"), 1, pa); prop = pv; } }
             if (!prop) continue;
             pl_trail_unwind(&g_pl_trail, it->mark);
-            Term *sa[1]; sa[0] = term_new_int(idx); Term *st = term_new_compound(prolog_atom_intern("$stream"), 1, sa);
-            if (pl_unify_term_into_cell((pl_cell_t *)&args[0], st, &g_pl_trail) && pl_unify_term_into_cell((pl_cell_t *)&args[1], prop, &g_pl_trail)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
+            pl_cell_t *sa = (pl_cell_t *)rt_ws_alloc(sizeof(pl_cell_t)); sa[0] = pl_make_int(idx); pl_cell_t st = pl_make_compound(prolog_atom_intern("$stream"), 1, sa);
+            if (pl_unify((pl_cell_t *)&args[0], &st, &g_pl_trail) && pl_unify((pl_cell_t *)&args[1], prop, &g_pl_trail)) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
         }
         it->si++; it->pi = 0;
     }
