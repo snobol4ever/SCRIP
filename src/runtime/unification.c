@@ -101,7 +101,12 @@ static FILE *plc_out(void) { extern FILE *fh_cur_out_fp(void); FILE *f = fh_cur_
 /* plc_* : the CELL-NATIVE Prolog printer (slice prolog-term-descr-s1). Mirrors prolog_builtin.c's pl_write ARM FOR ARM on DESCR cells, so the heap round-trip through the parser's structure type is deleted, not relocated. Byte-identity is the bar: the var
    numbering below reproduces pl_cell_to_term_named's pl_v2t_index EXACTLY -- unbound cells print _G<n> by FIRST-ENCOUNTER order with shared vars reusing an index, and the map is per top-level call, NOT the cell's own slot.
    Using pl_disc() here instead would compile, run, and silently renumber every variable in every printed term. The map is a stack local threaded through the walk; no global is added (NO-NEW-GLOBALS). */
-typedef struct { pl_cell_t *seen[1024]; int n; } plc_vmap;
+/* ⭐ THE MAP CARRIES THE OUTPUT STREAM (T9, hq_C). The printer wrote to plc_out() -- i.e. fh_cur_out_fp() -- at every site, so it could only ever print to the CURRENT output.
+   out_write_descr() in by_name_dispatch.c takes an arbitrary redirectable FILE *dest, which is why the retired struct-tree printer had pl_wr_set_fp(): converting that call site to the cell
+   printer without this would print correct text to the WRONG STREAM under any redirection -- a silent wrong answer that exits 0. ⛔ A static FILE * here would be a NEW GLOBAL,
+   which needs Lon's explicit permission; the stream rides the vmap for the same reason the name map does, and the s1 author's NO-NEW-GLOBALS note stays true. fp is set at every
+   construction site, never left NULL, so no site can forget a sentinel and deref garbage. */
+typedef struct { pl_cell_t *seen[1024]; int n; FILE *fp; } plc_vmap;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_vindex(plc_vmap *m, pl_cell_t *d)
 {
@@ -158,7 +163,7 @@ static void plc_write(pl_cell_t *c, plc_vmap *m)
 {
     extern FILE *fh_cur_out_fp(void);
     extern int ATOM_DOT;
-    FILE *fp = plc_out();
+    FILE *fp = m->fp;
     if (!c) { fprintf(fp, "[]"); return; }
     pl_cell_t *d = pl_deref(c);
     int tg = (int)d->v;
@@ -265,9 +270,8 @@ static int plc_atom_needs_quoting(const char *name)
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void plc_wt_atom(const char *name, int quoted)
+static void plc_wt_atom(FILE *fp, const char *name, int quoted)
 {
-    FILE *fp = plc_out();
     if (!name) name = "?";
     if (quoted && plc_atom_needs_quoting(name)) { fputc('\'', fp); for (const char *q = name; *q; q++) { if (*q == '\'') fputc('\'', fp); fputc(*q, fp); } fputc('\'', fp); }
     else fprintf(fp, "%s", name);
@@ -276,13 +280,13 @@ static void plc_wt_atom(const char *name, int quoted)
 static void plc_wt(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, long max_depth, long depth, plc_vmap *m)
 {
     extern int ATOM_DOT;
-    FILE *fp = plc_out();
-    if (!c) { plc_wt_atom("[]", quoted); return; }
+    FILE *fp = m->fp;
+    if (!c) { plc_wt_atom(fp, "[]", quoted); return; }
     pl_cell_t *d = pl_deref(c);
     if (max_depth > 0 && depth >= max_depth) { fprintf(fp, "..."); return; }
     int tg = (int)d->v;
     if (pl_cell_unbound(d)) { fprintf(fp, "_G%d", plc_vindex(m, d)); return; }
-    if (tg == DT_A || tg == DT_S) { plc_wt_atom(plc_atom_text(d), quoted); return; }
+    if (tg == DT_A || tg == DT_S) { plc_wt_atom(fp, plc_atom_text(d), quoted); return; }
     if (tg == DT_I) { fprintf(fp, "%ld", (long)d->i); return; }
     if (tg == DT_R) {
         double fv = d->r; char fb[64];
@@ -337,7 +341,7 @@ static void plc_wt(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, lon
         }
         return;
     }
-    if (fn[0] == '.' && fn[1] == 0) fprintf(fp, "'.'"); else plc_wt_atom(fn, quoted);
+    if (fn[0] == '.' && fn[1] == 0) fprintf(fp, "'.'"); else plc_wt_atom(fp, fn, quoted);
     fprintf(fp, "(");
     for (int i = 0; i < ar; i++) { if (i) fprintf(fp, ","); plc_wt(&aa[i], quoted, ignore_ops, numbervars, max_depth, depth+1, m); }
     fprintf(fp, ")");
@@ -347,12 +351,12 @@ static void plc_wt(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, lon
 static void plc_writeq(pl_cell_t *c, plc_vmap *m)
 {
     extern int ATOM_DOT;
-    FILE *fp = plc_out();
+    FILE *fp = m->fp;
     if (!c) { fprintf(fp, "'[]'"); return; }
     pl_cell_t *d = pl_deref(c);
     int tg = (int)d->v;
     if (pl_cell_unbound(d)) { fprintf(fp, "_G%d", plc_vindex(m, d)); return; }
-    if (tg == DT_A || tg == DT_S) { plc_wt_atom(plc_atom_text(d), 1); return; }
+    if (tg == DT_A || tg == DT_S) { plc_wt_atom(fp, plc_atom_text(d), 1); return; }
     if (tg == DT_I) { fprintf(fp, "%ld", (long)d->i); return; }
     if (tg == DT_R) {
         double fv = d->r;
@@ -422,7 +426,7 @@ static void plc_writeq(pl_cell_t *c, plc_vmap *m)
             return;
         }
     }
-    plc_wt_atom(fn, 1);
+    plc_wt_atom(fp, fn, 1);
     fprintf(fp, "(");
     for (int i = 0; i < ar; i++) { if (i) fprintf(fp, ","); plc_writeq(&aa[i], m); }
     fprintf(fp, ")");
@@ -432,12 +436,12 @@ static void plc_writeq(pl_cell_t *c, plc_vmap *m)
 static void plc_write_canonical(pl_cell_t *c, plc_vmap *m)
 {
     extern int ATOM_DOT;
-    FILE *fp = plc_out();
+    FILE *fp = m->fp;
     if (!c) { fprintf(fp, "'[]'"); return; }
     pl_cell_t *d = pl_deref(c);
     int tg = (int)d->v;
     if (pl_cell_unbound(d)) { fprintf(fp, "_G%d", plc_vindex(m, d)); return; }
-    if (tg == DT_A || tg == DT_S) { plc_wt_atom(plc_atom_text(d), 1); return; }
+    if (tg == DT_A || tg == DT_S) { plc_wt_atom(fp, plc_atom_text(d), 1); return; }
     if (tg == DT_I) { fprintf(fp, "%ld", (long)d->i); return; }
     if (tg == DT_R) {
         double fv = d->r;
@@ -460,7 +464,7 @@ static void plc_write_canonical(pl_cell_t *c, plc_vmap *m)
         if (!plc_is_nil(tail)) { fprintf(fp, "|"); plc_write_canonical(tail, m); }
         fprintf(fp, "]"); return;
     }
-    plc_wt_atom(fn, 1);
+    plc_wt_atom(fp, fn, 1);
     fprintf(fp, "(");
     for (int i = 0; i < ar; i++) { if (i) fprintf(fp, ","); plc_write_canonical(&aa[i], m); }
     fprintf(fp, ")");
@@ -468,25 +472,33 @@ static void plc_write_canonical(pl_cell_t *c, plc_vmap *m)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_write_cell(void *cell)
 {
-    plc_vmap m; m.n = 0;
+    plc_vmap m; m.n = 0; m.fp = plc_out();
     plc_write((pl_cell_t *)cell, &m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* rt_pl_write_cell_fp: write/1 INTO A CALLER-SUPPLIED STREAM. The plain rt_pl_write_cell always targets fh_cur_out_fp(); out_write_descr() in by_name_dispatch.c is handed an
+   arbitrary redirectable FILE *dest, so it needs this. NULL fp falls back to plc_out(), making the two entry points interchangeable for every existing caller. */
+void rt_pl_write_cell_fp(void *cell, FILE *fp)
+{
+    plc_vmap m; m.n = 0; m.fp = fp ? fp : plc_out();
+    plc_write((pl_cell_t *)cell, &m);
+}
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_writeq_cell(void *cell)
 {
-    plc_vmap m; m.n = 0;
+    plc_vmap m; m.n = 0; m.fp = plc_out();
     plc_writeq((pl_cell_t *)cell, &m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_write_canonical_cell(void *cell)
 {
-    plc_vmap m; m.n = 0;
+    plc_vmap m; m.n = 0; m.fp = plc_out();
     plc_write_canonical((pl_cell_t *)cell, &m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_display_cell(void *cell)
 {
-    plc_vmap m; m.n = 0;
+    plc_vmap m; m.n = 0; m.fp = plc_out();
     plc_wt((pl_cell_t *)cell, 0, 1, 0, 0, 0, &m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -503,7 +515,7 @@ static int plc_opt_is_true(pl_cell_t *o)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_write_term_cell(void *term_cell, void *opts_cell)
 {
-    plc_vmap m; m.n = 0;
+    plc_vmap m; m.n = 0; m.fp = plc_out();
     int quoted = 0, ignore_ops = 0, numbervars = 0; long max_depth = 0;
     pl_cell_t *lst = opts_cell ? pl_deref((pl_cell_t *)opts_cell) : (pl_cell_t *)0;
     while (lst && (int)lst->v == DT_PLREF && (int)(lst->slen & 0xFFFFu) == 2) {
@@ -962,16 +974,16 @@ static pl_cell_t *plc_fmt_next_arg(pl_cell_t **args) {
     return (pl_cell_t *)0;
 }
 /*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* format/2 walks DESCR CELLS DIRECTLY (T9, Lon big-bang). It used to convert the WHOLE argument list to a heap Term tree via pl_cell_to_term_named and walk that.
+/* format/2 walks DESCR CELLS DIRECTLY (T9, Lon big-bang). It used to convert the WHOLE argument list to a heap struct-tree via pl_cell_to_term_named and walk that.
    ⭐ ONE plc_vmap IS SHARED ACROSS THE WHOLE CALL AND THAT IS LOAD-BEARING, NOT TIDINESS: the old path built its name map once for the entire list, so two ~w arguments sharing an
    unbound variable printed the SAME _G<n>. Calling rt_pl_write_cell per argument would allocate a fresh map each time and silently renumber from _G0 on every directive -- the exact
    trap this file warns about at plc_write. plc_write/plc_writeq are called directly (same translation unit) so the map can be threaded through. plc_out() is fh_cur_out_fp(), the same
-   stream the old pl_wr_set_fp(fd) plumbing pointed the Term printer at, so that plumbing and the cterm arena mark/release are both gone with the conversion, not relocated. */
+   stream the old pl_wr_set_fp(fd) plumbing pointed the retired struct-tree printer at, so that plumbing and the cterm arena mark/release are both gone with the conversion, not relocated. */
 void rt_pl_format_cell(const char *fmt, void *list_cell)
 {
     if (!fmt) return;
-    FILE *fd = plc_out();
-    plc_vmap vm; vm.n = 0;
+    plc_vmap vm; vm.n = 0; vm.fp = plc_out();
+    FILE *fd = vm.fp;
     pl_cell_t *args = (pl_cell_t *)list_cell;
     for (const char *p = fmt; *p; p++) {
         if (*p != '~') { fputc(*p, fd); continue; }

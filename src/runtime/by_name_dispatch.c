@@ -5176,7 +5176,7 @@ static void out_write_descr(FILE *dest, DESCR_t av, int use_gist) {
     if (IS_INT_fn(av))  { fprintf(dest, "%lld", (long long)av.i); return; }
     if (IS_REAL_fn(av)) { char _rb[64]; fprintf(dest, "%s", icon_real_str(av.r,_rb,sizeof _rb)); return; }
     if (IS_CSET_fn(av)) { if (av.s) fwrite(av.s, 1, strlen(av.s), dest); return; }
-    if (av.v == (DTYPE_t)DT_PLREF || av.v == (DTYPE_t)DT_PLVAR) { extern struct Term *rt_pl_cell_to_term_named(void *); extern void pl_write(struct Term *); extern void pl_wr_set_fp(FILE *); DESCR_t _pt = av; fflush(dest); arena_mark_t _cm = rt_pl_cterm_mark(); pl_wr_set_fp(dest); pl_write(rt_pl_cell_to_term_named(plw_entry(&_pt))); pl_wr_set_fp((FILE *)0); if (rt_pl_ctr_on()) rt_pl_cterm_release(_cm); return; }
+    if (av.v == (DTYPE_t)DT_PLREF || av.v == (DTYPE_t)DT_PLVAR) { extern void rt_pl_write_cell_fp(void *, FILE *); DESCR_t _pt = av; fflush(dest); rt_pl_write_cell_fp(plw_entry(&_pt), dest); return; }  /* was: rt_pl_cell_to_term_named() -> pl_write() with pl_wr_set_fp(dest) and a cterm arena mark/release. The cell printer now takes the stream, so the heap struct-tree round-trip is DELETED, not relocated. ⛔ dest is NOT always fh_cur_out_fp() -- it is whatever handle the caller is writing to -- so calling plain rt_pl_write_cell() here would have printed the right text to the wrong stream under redirection. */
     if (av.v == DT_DATA) { const char *s = rk_obj_stringify(av, use_gist); if (s) out_write_str(dest, s); return; }
     const char *s = VARVAL_fn(av); if (s) out_write_str(dest, s);
 }
