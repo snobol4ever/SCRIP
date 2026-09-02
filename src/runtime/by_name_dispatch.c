@@ -4604,7 +4604,9 @@ static plc_slv_t *plc_build_resolved(DESCR_t *d, DESCR_t **xav, int nx, int *cut
       /* ⛔ EXISTENCE IS is_registered, NOT is_generator (seat15 2026-09-01, row prolog-variable-goal-dispatch-to-user-predicate): is_generator
          is det?0:1 at registration (lower_prolog.c), a classification for STATIC call sites, orthogonal to whether the proc exists -- PLCK_PRED's
          own execution below calls det and non-det procs through the identical rt_proc_call_gen_h handle. Gating existence on is_generator here
-         silently misrouted every DETERMINISTIC user predicate reached through a variable-bound goal into the existence_error branch below. */
+         silently misrouted every DETERMINISTIC user predicate reached through a variable-bound goal into the existence_error branch below.
+         (seat16, same day, independently: also confirmed call/N with a DIRECT literal goal fails identically -- the variable is not required,
+         only determinism is -- see row prolog-var-goal-dispatch-through-catch-call-silently-fails for the 8-witness table.) */
       if (rt_proc_is_registered(pib)) { plc_slv_t *s = plc_new(PLCK_PRED, cut); s->pi = strdup(pib); s->av = argv; s->nav = n; return s; } }
     rt_pl_iso_throw_pi("existence_error", "procedure", nm, n);
     return plc_new(PLCK_FAILK, cut);
