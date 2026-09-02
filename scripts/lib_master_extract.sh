@@ -44,6 +44,28 @@
 #   fixed pair (at 5eb68cb8)  -> rc=0, 1726 entries listed
 # ⛔ Read the rc, not the tail: a wrong PATH to the harness also exits nonzero and looks identical at a
 # glance ("can't open file ..."). That mistake was made while proving this very line.
+#
+# ⛔⛔⭐ AND THE CHECK ABOVE IS NOT SUFFICIENT: read_suite AND THE BOARD BOTH GRADE THE DEFAULT ARM ONLY.
+# (hq_P found this 2026-09-01, hours after the protocol landed; verified independently by hq_C before adoption.)
+# An entry that PASSES by default and FAILS under a bypass arm can be promoted with a PERFECT default-arm
+# proof, silently push the optbypass watermark up, and turn the gate RED on the NEXT seat's push for a reason
+# that has nothing to do with their change. BOTH of the 2026-09-01 promotions did exactly that, in different
+# arms. So the same-commit proof needs a second line, and it costs seconds:
+#
+#     python3 "$S4E_HOME/SCRIP/scripts/util_census_optimizer_bypass.py" --only <entry-name>
+#
+# MEASURED on the two entries promoted that day (hq_C, independently reproducing hq_P):
+#   user_function_indirect_replace_2        default PASS · SCRIP_OPT PASS   · SCRIP_ZD non-PASS
+#   user_function_eval_arbno_replace_branch_2  default PASS · SCRIP_OPT CRASH rc=-6 · SCRIP_ZD non-PASS
+# If any bypass arm is non-PASS, SAY SO IN THE COMMIT NOTE and expect the watermark to move -- the promotion
+# is still correct, but the next seat must not have to attribute your entry's crash to their own change.
+#
+# ⚠️ DO NOT CLASSIFY A BYPASS ARM BY ITS VERDICT KIND -- IT IS BIMODAL. The SCRIP_ZD arm of
+# user_function_eval_arbno_replace_branch_2 read HANG, CRASH, CRASH on three consecutive runs here (and
+# hq_P read CRASH where hq_C first read HANG -- neither was wrong). non-PASS is stable; WHICH non-PASS is not.
+# ⛔ Corollary, hq_P's own retraction and the reason I10 is rank 0: a CARRIED MAX watermark is an upper bound
+# only under SHRINKAGE. Every entry promoted INTO the graded set brings its own bypass-arm verdict with it, so
+# under GROWTH -- the direction this corpus actually moves -- a carried max is not conservative, it is wrong.
 _ME_HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _ME_S4E="${S4E_HOME:-$(cd "$_ME_HERE/../.." && pwd)}"
 MASTER_DIR="${MASTER_DIR:-$_ME_S4E/corpus/tests/snobol4}"
