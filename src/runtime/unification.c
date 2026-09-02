@@ -496,30 +496,36 @@ void rt_pl_display_cell(void *cell)
     plc_wt((pl_cell_t *)cell, 0, 1, 0, 0, 0, &m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_opt_is_true(Term *o) { if (!o) return 0; o = term_deref(o); if (o && o->tag == TERM_COMPOUND && o->compound.arity == 1) { Term *a = term_deref(o->compound.args[0]); return a && a->tag == TERM_ATOM && !strcmp(prolog_atom_name(a->atom_id), "true"); } return 0; }
+static int plc_opt_is_true(pl_cell_t *o)
+{
+    if (!o) return 0;
+    o = pl_deref(o);
+    if ((int)o->v == DT_PLREF && (int)(o->slen & 0xFFFFu) == 1) {
+        pl_cell_t *a = pl_deref((pl_cell_t *)o->p);
+        return ((int)a->v == DT_A || (int)a->v == DT_S) && strcmp(plc_atom_text(a), "true") == 0;
+    }
+    return 0;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_write_term_cell(void *term_cell, void *opts_cell)
 {
-    extern void pl_write_term_opts(Term *, int, int, int, long); extern void pl_wr_set_fp(FILE *); extern FILE *fh_cur_out_fp(void);
-    pl_wr_set_fp(fh_cur_out_fp());
-    arena_mark_t cm = rt_pl_cterm_mark();
-    Term *t = term_cell ? pl_cell_to_term_named((pl_cell_t *)term_cell) : (Term *)0;
-    Term *lst = opts_cell ? term_deref(pl_cell_to_term((pl_cell_t *)opts_cell)) : (Term *)0;
+    plc_vmap m; m.n = 0;
     int quoted = 0, ignore_ops = 0, numbervars = 0; long max_depth = 0;
-    while (lst && lst->tag == TERM_COMPOUND && lst->compound.arity == 2) {
-        Term *o = term_deref(lst->compound.args[0]);
-        if (o && o->tag == TERM_COMPOUND && o->compound.arity == 1) {
-            const char *on = prolog_atom_name(o->compound.functor);
-            if (on && !strcmp(on, "quoted")) quoted = pl_opt_is_true(o);
-            else if (on && !strcmp(on, "ignore_ops")) ignore_ops = pl_opt_is_true(o);
-            else if (on && !strcmp(on, "numbervars")) numbervars = pl_opt_is_true(o);
-            else if (on && !strcmp(on, "max_depth")) { Term *a = term_deref(o->compound.args[0]); if (a && a->tag == TERM_INT) max_depth = a->ival; }
+    pl_cell_t *lst = opts_cell ? pl_deref((pl_cell_t *)opts_cell) : (pl_cell_t *)0;
+    while (lst && (int)lst->v == DT_PLREF && (int)(lst->slen & 0xFFFFu) == 2) {
+        pl_cell_t *pair = (pl_cell_t *)lst->p;
+        pl_cell_t *o = pl_deref(&pair[0]);
+        if ((int)o->v == DT_PLREF && (int)(o->slen & 0xFFFFu) == 1) {
+            const char *on = prolog_atom_name((int)(o->slen >> 16));
+            pl_cell_t *oa = (pl_cell_t *)o->p;
+            if (on && !strcmp(on, "quoted")) quoted = plc_opt_is_true(o);
+            else if (on && !strcmp(on, "ignore_ops")) ignore_ops = plc_opt_is_true(o);
+            else if (on && !strcmp(on, "numbervars")) numbervars = plc_opt_is_true(o);
+            else if (on && !strcmp(on, "max_depth")) { pl_cell_t *a = pl_deref(&oa[0]); if ((int)a->v == DT_I) max_depth = (long)a->i; }
         }
-        lst = term_deref(lst->compound.args[1]);
+        lst = pl_deref(&pair[1]);
     }
-    pl_write_term_opts(t, quoted, ignore_ops, numbervars, max_depth);
-    if (rt_pl_ctr_on()) rt_pl_cterm_release(cm);
-    pl_wr_set_fp((FILE *)0);
+    plc_wt((pl_cell_t *)term_cell, quoted, ignore_ops, numbervars, max_depth, 0, &m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_trail_mark(void)
