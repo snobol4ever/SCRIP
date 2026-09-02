@@ -61,6 +61,9 @@ import os
 import re
 import sys
 import csv
+import glob
+import shutil
+import argparse
 import subprocess
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -68,6 +71,7 @@ sys.path.insert(0, HERE)
 import corpus_suite_harness as h  # noqa: E402
 
 S4E = os.environ.get("S4E_HOME", os.path.dirname(os.path.dirname(HERE)))
+PO = os.environ.get("S4E_POST", "/home/resources/postoffice")   # the fleet queue, for PENDING.md row-state
 
 # -- ⭐ LANGUAGE PARAMETERISATION (hq_B 2026-08-29, ceo/Lon: masters for the other six languages).
 # ROOT/ext/columns were hardcoded to snobol4. They are now selected by --lang; `snobol4` keeps its EXACT
@@ -306,6 +310,146 @@ EXCLUDE_DIRS = {"linker", "probe_loose", "rtx_func_11"}
 COMPANION_EXTS = {".inc", ".dat", ".input", ".in", ".json"}
 
 
+# ============================================================ deferral contract: KEEP.md / PENDING.md ===
+# ⭐ Row master-suite-builder-honours-deferral-contract-and-scopes-absorption, requirement 1: the gate
+# `test_gate_suite_conversion_complete.sh` already polices a KEEP.md ("stays loose forever, on purpose")
+# and a PENDING.md `## DEFERRED` list ("converts later, when a named row lands") -- but until now this
+# builder had ZERO references to either filename, so absorbing a family the gate was protecting was not a
+# misuse, it was the ONLY way to convert anything: the gate polices what the builder cannot see. MEASURED
+# harm: a scoped run absorbed `coexpr_gc_stack_witness`, the live DONE-WHEN witness of a DIFFERENT row.
+# ⛔ The matcher below is a deliberate Python port of that gate's own bash matcher (delimited substring,
+# directory-scoped ancestor walk, config/*KEEP.md tree-wide, unique-bare-basename fallback) -- KEEP BOTH IN
+# SYNC. A second, looser matcher here would silently reopen the substring/scope bugs that gate already paid
+# to fix (root KEEP.md's bare "plunit.pl" once also declared a same-named file three directories away).
+# ⭐ A PENDING deferral blocks absorption ONLY while its row is LIVE -- mirroring the gate's own
+# pending_row_state(), a straight port (claim file says DONE -> EXPIRED; else listed in QUEUE.done.tsv ->
+# EXPIRED; else listed in QUEUE.tsv -> LIVE; else DANGLING). MEASURED WHY THIS MUST RESOLVE STATE, not just
+# "listed = blocked": tests/icon/PENDING.md defers rung36_jcon_scan/rung36_jcon_scan2 to row
+# icon-scan-env-value-residue, and that row is DONE (its claim file's last line is literally "DONE") --
+# test_gate_suite_conversion_complete.sh's own PBAD bucket already calls this "a deferral whose row has
+# landed has outlived its reason: CONVERT these now." An unconditional "still listed = still blocked" rule
+# would make that gate's own prescribed fix unreachable through this tool. EXPIRED and DANGLING (row done,
+# missing, or archived) are both stale-per-the-gate and therefore absorbable; only LIVE (and UNVERIFIABLE,
+# failing closed rather than guessing) still blocks.
+_DELIM_CACHE = {}
+def _delim_match(token, text):
+    """Delimited substring match -- identical regex shape to test_gate_suite_conversion_complete.sh's
+    KEEP.md/PENDING.md grep (leading boundary excludes ./-, trailing boundary allows them)."""
+    pat = _DELIM_CACHE.get(token)
+    if pat is None:
+        pat = re.compile(r"(?:^|[^A-Za-z0-9_./-])%s(?:[^A-Za-z0-9_-]|$)" % re.escape(token), re.MULTILINE)
+        _DELIM_CACHE[token] = pat
+    return pat.search(text) is not None
+
+
+def _ancestor_files(start_dir, root, filename):
+    """<start_dir>/filename, its parent's, ... up to and including <root>/filename -- nearest first,
+    mirroring the gate's `probe="$d"; while : ; do ... probe=$(dirname "$probe"); done` walk."""
+    found = []
+    probe = os.path.abspath(start_dir)
+    root_abs = os.path.abspath(root)
+    while True:
+        cand = os.path.join(probe, filename)
+        if os.path.isfile(cand):
+            found.append(cand)
+        if probe == root_abs:
+            break
+        parent = os.path.dirname(probe)
+        if parent == probe:
+            break
+        probe = parent
+    return found
+
+
+def _declared_in_keep(path, root, basename_counts):
+    """The KEEP.md declaring `path` (nearest ancestor first, then tree-wide config/*KEEP.md), or None."""
+    b = os.path.basename(path)
+    for kf in _ancestor_files(os.path.dirname(path), root, "KEEP.md"):
+        text = open(kf, encoding="utf-8", errors="replace").read()
+        rel = os.path.relpath(path, os.path.dirname(kf))
+        if _delim_match(rel, text) or (basename_counts.get(b, 0) == 1 and _delim_match(b, text)):
+            return kf
+    for kf in sorted(glob.glob(os.path.join(root, "config", "*KEEP.md"))):
+        text = open(kf, encoding="utf-8", errors="replace").read()
+        rel = os.path.relpath(path, root)   # a config/ KEEP.md describes files sitting flat in TREE, not itself
+        if _delim_match(rel, text) or (basename_counts.get(b, 0) == 1 and _delim_match(b, text)):
+            return kf
+    return None
+
+
+def _pending_deferred_items(text):
+    """[(row_or_None, item_line), ...] for every '- '/'* ' line under a '## DEFERRED' heading -- mirrors
+    the gate's pending_sections() awk exactly, prose anywhere else in a PENDING.md is inert by design."""
+    out, in_section, row = [], False, None
+    for line in text.splitlines():
+        if re.match(r"^##\s+DEFERRED(\s|$)", line):
+            row = re.sub(r"^##\s+DEFERRED\s*", "", line).rstrip() or None
+            in_section = True
+            continue
+        if re.match(r"^##\s", line):
+            in_section = False
+            continue
+        if in_section and re.match(r"^\s*[-*]\s", line):
+            out.append((row, line))
+    return out
+
+
+def _pending_row_of(text):
+    """The file-level `ROW:` line -- fallback for a bare `## DEFERRED` heading with no per-section row."""
+    m = re.search(r"^\s*ROW:\s*([A-Za-z0-9_.-]+)", text, re.MULTILINE)
+    return m.group(1) if m else None
+
+
+def _pending_row_state(row, po_dir):
+    """LIVE | EXPIRED | DANGLING | UNVERIFIABLE -- a direct port of the gate's own pending_row_state():
+    a claim file whose LAST line is exactly DONE, or a row listed in QUEUE.done.tsv, is EXPIRED; a row
+    listed in QUEUE.tsv (regardless of that row's own state column) is LIVE; otherwise DANGLING; the queue
+    being unreadable at all is UNVERIFIABLE. Deliberately NOT re-derived from QUEUE.tsv's state column --
+    same two-independent-copies risk the gate itself was built to avoid, just one file mirroring another."""
+    q = os.path.join(po_dir, "QUEUE.tsv")
+    if not os.access(q, os.R_OK):
+        return "UNVERIFIABLE"
+    c = os.path.join(po_dir, "claims", row + ".claim")
+    if os.path.isfile(c):
+        try:
+            if any(line.rstrip("\n") == "DONE" for line in open(c, encoding="utf-8", errors="replace")):
+                return "EXPIRED"
+        except OSError:
+            pass
+    row_pat = re.compile(r"^[0-9]+\t%s\t" % re.escape(row))
+    d = os.path.join(po_dir, "QUEUE.done.tsv")
+    if os.access(d, os.R_OK):
+        try:
+            if any(row_pat.match(line) for line in open(d, encoding="utf-8", errors="replace")):
+                return "EXPIRED"
+        except OSError:
+            pass
+    try:
+        if any(row_pat.match(line) for line in open(q, encoding="utf-8", errors="replace")):
+            return "LIVE"
+    except OSError:
+        return "UNVERIFIABLE"
+    return "DANGLING"
+
+
+def _pending_deferral(path, root, basename_counts, po_dir):
+    """(pending_file, row, state) for the nearest ancestor PENDING.md '## DEFERRED' item matching `path`
+    (no config/ tree-wide form -- the gate does not give PENDING.md one either), or None if nothing defers
+    it. `row` may be None (no per-section heading and no file-level ROW: line); treated as blocking,
+    conservatively, same as the gate's own PBAD-unnamed bucket."""
+    b = os.path.basename(path)
+    for pf in _ancestor_files(os.path.dirname(path), root, "PENDING.md"):
+        text = open(pf, encoding="utf-8", errors="replace").read()
+        rel = os.path.relpath(path, os.path.dirname(pf))
+        for row, item in _pending_deferred_items(text):
+            if _delim_match(rel, item) or (basename_counts.get(b, 0) == 1 and _delim_match(b, item)):
+                if row is None:
+                    row = _pending_row_of(text)
+                state = _pending_row_state(row, po_dir) if row else "LIVE"
+                return (pf, row, state)
+    return None
+
+
 # ⭐⭐ THE ONE ATTRIBUTE EXTRACTOR, CALLABLE OUTSIDE A BUILD (hq_B 2026-08-29, for the construct check).
 # The builder computed flags inline, so anything else wanting a construct profile had to RE-IMPLEMENT the
 # predicates. ⛔ That is the defect this exposure exists to prevent: the construct check must ask "does any
@@ -381,11 +525,50 @@ def discover_pairs(ROOT, OUTDIR, EXT):
             sno = os.path.join(dirpath, fn)
             ref = sno[:-len(EXT)] + ".ref"
             if not os.path.isfile(ref):
-                continue  # pairless loose witnesses are not board members and are untouched
+                # ⭐ .expected AS A FALLBACK REFERENCE (row master-suite-builder-honours-deferral-contract-
+                # and-scopes-absorption, on the row's own cited witnesses). rung36_jcon_scan[2].icn carry a
+                # sibling .expected, never a .ref -- the per-rung smoke convention (test_icon_ir_rung_36.sh
+                # reads "${base}.expected" the identical way main()'s "plain" absorption reads a .ref: raw
+                # expected stdout, compared verbatim) rather than the suite convention. Without this
+                # fallback these files are structurally invisible to discover_pairs regardless of the
+                # deferral contract, and the row's own verification note ("ready to convert... it is the
+                # absorb tooling that blocks it, nothing else") is only true once this gap closes too.
+                # ⛔ .ref TAKES PRIORITY WHENEVER BOTH EXIST (unaffected: 6 tests/icon files carry both,
+                # e.g. rung03_suspend_gen*, and keep absorbing exactly as before -- this fallback only ever
+                # fires for the .ref-less remainder).
+                ref_expected = sno[:-len(EXT)] + ".expected"
+                if os.path.isfile(ref_expected):
+                    ref = ref_expected
+                else:
+                    continue  # pairless loose witnesses are not board members and are untouched
             rel = os.path.relpath(sno, ROOT)
             fam = rel[:-len(EXT)].replace(os.sep, "_")
             pairs.append((fam, sno, ref, dir_companions))
-    return pairs, excluded
+    # ⛔ NEVER ABSORB A KEEPER OR A DEFERRED FILE (requirement 1 -- see the module comment above
+    # _declared_in_keep). basename_counts is computed over exactly this population -- the same "loose
+    # candidates with a matching .ref" set the gate's own uniqueness rule needs to decide whether a bare
+    # basename mention is unambiguous.
+    basename_counts = {}
+    for _fam, _sno, _ref, _dc in pairs:
+        b = os.path.basename(_sno)
+        basename_counts[b] = basename_counts.get(b, 0) + 1
+    kept_pairs = []
+    for fam, sno, ref, dir_companions in pairs:
+        kf = _declared_in_keep(sno, ROOT, basename_counts)
+        if kf:
+            excluded.append((fam, "KEEPER, declared in %s -- never absorbed (deferral contract)" % os.path.relpath(kf, ROOT)))
+            continue
+        pd = _pending_deferral(sno, ROOT, basename_counts, PO)
+        if pd:
+            pf, prow, pstate = pd
+            if pstate in ("LIVE", "UNVERIFIABLE"):
+                excluded.append((fam, "DEFERRED (row %s: %s), declared in %s -- never absorbed (deferral contract)"
+                                       % (prow or "UNNAMED", pstate, os.path.relpath(pf, ROOT))))
+                continue
+            # else EXPIRED/DANGLING: the deferral is stale -- test_gate_suite_conversion_complete.sh's own
+            # PBAD bucket already says "CONVERT these now"; falls through to absorbable below.
+        kept_pairs.append((fam, sno, ref, dir_companions))
+    return kept_pairs, excluded
 
 
 # ============================================================ master-to-master: kind split ===
@@ -512,15 +695,44 @@ def split_write(OUTDIR, EXT, lang, _CO, _CC, do_write):
     return 0
 
 
+# ⛔⭐ REAL ARGUMENT PARSING (requirement 4). The previous shape hand-walked sys.argv per flag, with no
+# catch-all: an unrecognized token -- including a plain typo -- fell through every `if`/`elif` untouched
+# and the run proceeded on defaults (`--lang snobol4`). MEASURED: `python3 util_build_master_suite.py
+# --help` REBUILT THE LIVE SNOBOL4 MASTER (2335 insertions / 2344 deletions) because "--help" matched
+# nothing and the default build ran anyway -- for this script, the universal "ask it what it does" gesture
+# was a write to shared corpus. argparse (stdlib, no new dependency) refuses rc=2 on any unrecognized
+# argument by construction, and its auto-added -h/--help prints usage and calls sys.exit(0) BEFORE a single
+# line of build logic below ever runs -- both properties for free, rather than a second hand-rolled
+# validator that could itself drift from the flags actually implemented.
+def _build_arg_parser():
+    p = argparse.ArgumentParser(
+        prog="util_build_master_suite.py",
+        description="Builds corpus/tests/<lang>/{ALL.<ext>, ALL.ref, ALL.csv} from every absorbable loose "
+                     "suite pair under corpus/tests/<lang>/, merging into any existing master (merge-never-"
+                     "replace). Never absorbs a file a KEEP.md declares a permanent keeper, or that a "
+                     "PENDING.md defers to another row -- see corpus/tests/<lang>/**/{KEEP,PENDING}.md.")
+    p.add_argument("--lang", default="snobol4", help="snobol4 (default) | icon | prolog | raku | snocone | rebus | pascal")
+    p.add_argument("--absorb-only", default=None, metavar="F1,F2,...",
+                    help="only ABSORB these families this run; every other absorbable family stays loose, "
+                         "untouched (composes freely with --delete-absorbed/--family/--only, which still "
+                         "govern deletion of whatever this run absorbs)")
+    p.add_argument("--delete-absorbed", action="store_true",
+                    help="after a successful, verified absorption, delete the now-redundant source pairs")
+    p.add_argument("--family", default=None, metavar="PREFIX", help="scope --delete-absorbed to families starting with PREFIX")
+    p.add_argument("--only", default=None, metavar="F1,F2,...", help="scope --delete-absorbed to exactly these families")
+    p.add_argument("--allow-drop-origin", default=None, metavar="O1,O2,...",
+                    help="name origin(s) whose deliberate retirement should not refuse the rebuild (surgical, never a blanket --force)")
+    p.add_argument("--split-write", action="store_true",
+                    help="master-to-master: emit ALL.* split into ONE.*/MULTI.* by entry kind; verify-only unless --write")
+    p.add_argument("--write", action="store_true", help="with --split-write, actually write the split files")
+    return p
+
+
 def main():
+    args = _build_arg_parser().parse_args()
     # ⭐ --lang selects root, extension and attribute tables. Default snobol4 keeps the previous behaviour
     # exactly, so `util_build_master_suite.py` with no arguments rebuilds a byte-identical master.
-    lang = "snobol4"
-    for i, a in enumerate(sys.argv[1:]):
-        if a == "--lang" and i + 2 <= len(sys.argv[1:]):
-            lang = sys.argv[i + 2]
-        elif a.startswith("--lang="):
-            lang = a.split("=", 1)[1]
+    lang = args.lang
     if lang not in LANG_TABLES:
         sys.stderr.write("REFUSED: no attribute table for language %r. Known: %s\n"
                          "  A master built with a fabricated column set is worse than no master -- add the\n"
@@ -539,15 +751,12 @@ def main():
     COLS, NAME_FEATURES = LANG_TABLES[lang]
     os.makedirs(OUTDIR, exist_ok=True)
     _modes_decl = read_modes_decl(ROOT)   # declared, never derived -- absent family => UNKNOWN
-    delete_absorbed = "--delete-absorbed" in sys.argv[1:]
+    delete_absorbed = args.delete_absorbed
     # ⛔ SURGICAL AND NAMED, never a blanket --force. A deliberate retirement is spelled out origin by
     # origin so it lands in the shell history and the commit that performs it, which is the floor doctrine's
     # own shape ("only an attributed retirement may lower it"). A single flag that switched the whole check
     # off would be used once in a hurry and never removed.
-    allow_drop = set()
-    for _a in sys.argv[1:]:
-        if _a.startswith("--allow-drop-origin="):
-            allow_drop |= {x for x in _a.split("=", 1)[1].split(",") if x}
+    allow_drop = {x for x in args.allow_drop_origin.split(",") if x} if args.allow_drop_origin else set()
     # ⭐ --family <prefix> / --only fam,fam SCOPE --delete-absorbed TO A SUBSET (row
     # master-builder-delete-absorbed-family-selector, ceo mint 2026-08-30, on hq_P's measurement:
     # --delete-absorbed is all-or-nothing per LANGUAGE while FLEET-16 splits one language's
@@ -556,17 +765,15 @@ def main():
     # seat's working set and nobody could safely run it). Filters the SAME-INVOCATION `verified`
     # list computed below -- never a second, independently-derived notion of "absorbed" -- so the
     # byte-equal-or-no-delete guarantee is identical to plain --delete-absorbed, just scoped.
-    family_prefix = None
-    only_families = None
-    for i, a in enumerate(sys.argv[1:]):
-        if a == "--family" and i + 2 <= len(sys.argv[1:]):
-            family_prefix = sys.argv[i + 2]
-        elif a.startswith("--family="):
-            family_prefix = a.split("=", 1)[1]
-        elif a == "--only" and i + 2 <= len(sys.argv[1:]):
-            only_families = set(sys.argv[i + 2].split(","))
-        elif a.startswith("--only="):
-            only_families = set(a.split("=", 1)[1].split(","))
+    family_prefix = args.family
+    only_families = set(args.only.split(",")) if args.only is not None else None
+    # ⭐ --absorb-only <families> SCOPES ABSORPTION ITSELF, never deletion (requirement 2). --family/--only
+    # above only ever scoped what --delete-absorbed removes -- MEASURED on tests/icon: asking (via --only,
+    # the only selector that existed) for rung36_jcon_scan,rung36_jcon_scan2 absorbed coexpr_gc_stack_witness
+    # and rung38_all instead, i.e. exactly the families that were NOT asked for, because nothing narrowed
+    # what got read into all_entries in the first place -- only what got deleted afterward. Applied as a
+    # filter on `pairs` below, right after discover_pairs, before any absorption happens.
+    absorb_only_families = set(args.absorb_only.split(",")) if args.absorb_only is not None else None
     if family_prefix and only_families:
         sys.stderr.write("REFUSED: --family and --only are alternatives, not both at once -- ambiguous which one selects.\n")
         raise SystemExit(2)
@@ -574,12 +781,27 @@ def main():
         sys.stderr.write("REFUSED: --family/--only scope what --delete-absorbed deletes -- pass --delete-absorbed too, "
                           "or drop the selector for a plain dry run (a selector with nothing to delete is a no-op that looks like a typo).\n")
         raise SystemExit(2)
-    if "--split-write" in sys.argv[1:]:
-        raise SystemExit(split_write(OUTDIR, EXT, lang, _CO, _CC, "--write" in sys.argv[1:]))
+    if args.split_write:
+        raise SystemExit(split_write(OUTDIR, EXT, lang, _CO, _CC, args.write))
     included, all_entries, per_family = [], [], {}
     absorbed_files = []    # (fam, sno, ref, mode) for post-verification deletion
     companion_copies = {}  # basename -> source path; written into OUTDIR after the merge succeeds
     pairs, excluded = discover_pairs(ROOT, OUTDIR, EXT)
+    if absorb_only_families is not None:
+        # ⛔ A SELECTOR NAMING SOMETHING THIS RUN CANNOT ABSORB REFUSES rc=2 -- never silently absorbs a
+        # different subset instead (the exact measured bug this flag exists to cure). Cross-references
+        # `excluded` for a precise reason (KEEPER/DEFERRED/companion-dependent/etc.) when one is on record.
+        _have = {fam for fam, _, _, _ in pairs}
+        _missing = sorted(absorb_only_families - _have)
+        if _missing:
+            _excl_reason = dict(excluded)
+            sys.stderr.write("REFUSED: --absorb-only names %d famil(y/ies) this run cannot absorb -- nothing written:\n" % len(_missing))
+            for m in _missing:
+                sys.stderr.write("     %s -- %s\n" % (m, _excl_reason.get(m, "no absorbable pair under this exact family name (check spelling / --lang)")))
+            raise SystemExit(2)
+        _n_before = len(pairs)
+        pairs = [p for p in pairs if p[0] in absorb_only_families]
+        print("--absorb-only %s: scoped to %d of %d absorbable pairs this run" % (",".join(sorted(absorb_only_families)), len(pairs), _n_before), file=sys.stderr)
     # ⛔⭐ MERGE, NEVER REPLACE (measured the hard way: an incremental run on a post-retirement tree rebuilt the
     # master from ONLY the new pairs and overwrote 1495 entries with 98 -- caught and restored from the index).
     # If a master already exists, its entries are the BASE: loaded with their names KEPT (names are stable
@@ -910,105 +1132,6 @@ def main():
     dup = {n for n in names if names.count(n) > 1}
     if dup:
         h.refuse("master merge name collision(s): %s" % sorted(dup)[:5])
-    out_sno = os.path.join(OUTDIR, "ALL" + EXT)   # ⭐ per-language: ALL.sno / ALL.pl / ALL.raku / ALL.sc / ALL.reb
-    out_ref = os.path.join(OUTDIR, "ALL.ref")
-    for e_i, e in enumerate(all_entries, 1):
-        e.seq = e_i
-    if lang == "snobol4":
-        h.write_suite(all_entries, out_sno, out_ref)
-        out_in = os.path.join(OUTDIR, "ALL.in")
-        out_x = os.path.join(OUTDIR, "ALL.xfail")
-        if not h.write_stdin_sidecar(all_entries, out_in, "*", "") and os.path.exists(out_in):
-            os.remove(out_in)
-        if not h.write_xfail_sidecar(all_entries, out_x, "*", "") and os.path.exists(out_x):
-            os.remove(out_x)
-        reread = h.read_suite(out_sno, out_ref, in_path=h.sidecar_in_path(out_sno), x_path=h.sidecar_xfail_path(out_sno))
-    else:
-        # ⛔⭐ THE SIDECAR WRITERS WERE SNOBOL4-ONLY TOO (ceo amendment). A dialect master got no ALL.in and no
-        # ALL.xfail, so any absorbed stdin-carrying entry lost its input and any xfail lost its marker -- both
-        # silently. The writers are already parameterised by comment leader; the dialect branch simply never
-        # called them. Re-read WITH the sidecars, or the round-trip check verifies a file the grader will not
-        # actually use.
-        h.write_block_suite(all_entries, out_sno, out_ref, _CO, _CC)
-        out_in = os.path.join(OUTDIR, "ALL.in")
-        out_x = os.path.join(OUTDIR, "ALL.xfail")
-        if not h.write_stdin_sidecar(all_entries, out_in, _CO, _CC) and os.path.exists(out_in):
-            os.remove(out_in)
-        if not h.write_xfail_sidecar(all_entries, out_x, _CO, _CC) and os.path.exists(out_x):
-            os.remove(out_x)
-        reread = h.read_block_suite(out_sno, out_ref, h.banner_re_for(_CO, _CC),
-                                    in_path=h.sidecar_in_path(out_sno), x_path=h.sidecar_xfail_path(out_sno))
-    import shutil
-    # ⭐⭐ COMPANIONS GO IN config/, NOT THE FLAT DIR (hq_P 2026-08-30, ceo routed the cure to the finder).
-    # Lon's end state is tests/<lang>/ FLAT with ALL.* plus ONE config/ folder holding runtime companions.
-    # The harness READ side already implements it -- _copy_companions searches <dir> AND <dir>/config
-    # (corpus_suite_harness.py:1105) -- but this WRITER still dropped them in OUTDIR, so the law was
-    # half-implemented and moving them by hand was undone by the next rebuild. Sixth instance this week of one
-    # half of a contract moving while the other stayed behind; the standing check (grep the other side of the
-    # pair in the same commit) is exactly what would have caught it.
-    # ⛔ MOVE semantics matter: the reader lets a name in the FLAT dir WIN over config/, so a stale top-level
-    # copy would silently shadow the config/ one. The build writes only to config/ and clears any flat twin.
-    _cfg = os.path.join(OUTDIR, "config")
-    if companion_copies:
-        os.makedirs(_cfg, exist_ok=True)
-    for cf, srcf in sorted(companion_copies.items()):
-        shutil.copy2(srcf, os.path.join(_cfg, cf))
-        _stale = os.path.join(OUTDIR, cf)
-        if os.path.isfile(_stale) and os.path.abspath(_stale) != os.path.abspath(srcf):
-            os.remove(_stale)
-    if len(reread) != len(all_entries):
-        h.refuse("re-read count %d != written %d -- NOT trusting the merge" % (len(reread), len(all_entries)))
-    with open(os.path.join(OUTDIR, "ALL.csv"), "w", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes"] + [c for c, _ in COLS])
-        for rank, (e, flags, text) in enumerate(rows, 1):
-            fam = e.origin.split("__", 1)[0]
-            w.writerow([rank, e.name, e.origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines), _modes_decl.get(fam, "UNKNOWN")] + [flags[c] for c, _ in COLS])
-    with open(os.path.join(OUTDIR, "ALL.excluded.txt"), "w") as f:
-        for fam, why in excluded:
-            f.write("%s\t%s\n" % (fam, why))
-    # ⛔⭐ SEPARATE "ALREADY PRESENT" FROM "CANNOT ABSORB" (hq_P, 2026-08-30, on the dedupe landing; the
-    # confusing case measured by hq_B on rebus). After dedupe, an idempotent no-op rebuild records every
-    # already-absorbed family as an exclusion -- so it printed "48 entries from 0 FAMILIES" with
-    # "EXCLUDED: 34", which is self-contradictory on its face and reads as a total absorption failure. The
-    # real absorption run had written EXCLUDED: 0.
-    # ⭐ THIS IS THE DOUBLING TELL POINTING THE OTHER WAY, and that makes it more expensive rather than less:
-    # a summary number moving for a benign reason. The doubling moved the REASSURING way and hid a bug; this
-    # moves the ALARMING way and will cost a seat an investigation. Sixteen of them are running this builder
-    # right now, so the two exclusion CLASSES must not share one count.
-    _already = [(f, w) for f, w in excluded if w.startswith("already in the master")]
-    _cannot  = [(f, w) for f, w in excluded if not w.startswith("already in the master")]
-    if included:
-        print("MASTER SUITE: %d entries from %d families -> %s" % (len(all_entries), len(included), OUTDIR), file=sys.stderr)
-    else:
-        print("MASTER SUITE: %d entries, NOTHING NEW ABSORBED (idempotent rebuild) -> %s" % (len(all_entries), OUTDIR), file=sys.stderr)
-    if _already:
-        print("ALREADY PRESENT (not a failure -- the same entries rebuilt): %d family(ies)" % len(_already), file=sys.stderr)
-    print("CANNOT ABSORB (loud, see ALL.excluded.txt): %d" % len(_cannot), file=sys.stderr)
-    excluded = _cannot + _already   # file keeps both, cannot-absorb first so the real problems read first
-    for fam, why in excluded:
-        print("  ⛔ %s: %s" % (fam, why), file=sys.stderr)
-    print("attribute columns: %d" % (6 + len(COLS)), file=sys.stderr)
-    # ⛔⭐ UNKNOWN MODE IS LOUD, per hq_C's FORMAT RULING (3). A recorded-but-unknown mode is only an
-    # improvement if the reader is TOLD it is unknown; a silent UNKNOWN is worse than no column at all,
-    # because the field makes the question look answered. These entries are UNPROVEN at grading time --
-    # never PASS, never FAIL -- and any consumer that grades them in a default mode reproduces the exact
-    # defect the column exists to expose.
-    _fams = sorted({e.origin.split("__", 1)[0] for e in all_entries})
-    _unk = [f for f in _fams if f not in _modes_decl]
-    _unk_entries = sum(1 for e in all_entries if e.origin.split("__", 1)[0] not in _modes_decl)
-    if _unk:
-        print("⛔ MODE UNKNOWN for %d of %d families (%d entries) -- these are UNPROVEN, not passes:"
-              % (len(_unk), len(_fams), _unk_entries), file=sys.stderr)
-        for f in _unk[:10]:
-            print("     %s" % f, file=sys.stderr)
-        if len(_unk) > 10:
-            print("     ... and %d more (the full set is the `modes` column = UNKNOWN in ALL.csv)" % (len(_unk) - 10), file=sys.stderr)
-        print("   Declare them in %s/config/MODES.tsv as `family<TAB>modes`. ⛔ Do NOT guess from the family"
-              % ROOT, file=sys.stderr)
-        print("   name: a heuristic that is right on every case you have gives no signal when it starts being wrong.", file=sys.stderr)
-    else:
-        print("mode: declared for all %d families" % len(_fams), file=sys.stderr)
     # -- BYTE-EQUAL-OR-NO-DELETE (the house law, applied to absorption): every absorbed source pair is re-read FRESH
     # from disk and compared entry-by-entry against the written master. A family that does not verify is NEVER deleted.
     # ⭐ GENERALISED PAST SNOBOL4 (seat05, 2026-08-30, on the ceo all-hands consolidation directive): this used to gate
@@ -1021,6 +1144,14 @@ def main():
     # `except Exception: ok = False`. snobol4's own "plain" (whole-file, non-suite) absorption keeps its dedicated
     # whole-file comparison unchanged -- that shape does not exist for any other language (mode is always "suite"
     # outside the snobol4 branch, see main()'s absorption loop above), so it is untouched, not generalised.
+    # ⛔⭐ COMPUTED HERE, BEFORE ANY WRITE (requirement 3, extended): this loop and the selector refusal right after
+    # it only ever READ the original source files plus in-memory `rows` -- nothing here depends on the master
+    # having been written. MEASURED why that matters: `--only <fams> --delete-absorbed` on a tree where <fams>
+    # themselves aren't absorbable (see below) still legitimately absorbs OTHER, unrelated undeclared pairs first
+    # -- a real, valid write -- and only then discovers the selector matches zero VERIFIED families and refuses.
+    # Computing the verified/selected set before the master is even staged means that refusal now precedes any
+    # write at all, so the "REFUSED, nothing written" guarantee covers the selector check too, not only the
+    # round-trip check below.
     by_origin = {}
     for e, flags, text in rows:
         by_origin[e.origin] = e
@@ -1123,6 +1254,151 @@ def main():
     if selector_label is not None and not to_delete:
         sys.stderr.write("REFUSED: %s matches zero of the %d verified families this run -- nothing to delete.\n" % (selector_label, len(verified)))
         raise SystemExit(2)
+    out_sno = os.path.join(OUTDIR, "ALL" + EXT)   # ⭐ per-language: ALL.sno / ALL.pl / ALL.raku / ALL.sc / ALL.reb
+    out_ref = os.path.join(OUTDIR, "ALL.ref")
+    out_in = os.path.join(OUTDIR, "ALL.in")
+    out_x = os.path.join(OUTDIR, "ALL.xfail")
+    out_csv = os.path.join(OUTDIR, "ALL.csv")
+    out_excl = os.path.join(OUTDIR, "ALL.excluded.txt")
+    for e_i, e in enumerate(all_entries, 1):
+        e.seq = e_i
+    # ⛔⭐ VALIDATE BEFORE IT WRITES (requirement 3). MEASURED: the previous shape wrote ALL.sno/ALL.ref (and
+    # copied companions into config/) directly to their real paths, THEN re-read the REAL files to verify the
+    # round trip -- so a failing verification had already mutated the real master (534 -> 536 entries on one
+    # observed run) and the only undo was `git checkout`. A refusal that has already mutated shared state is
+    # not a refusal.
+    # ⭐ Fix: every file this function writes lands on a PID-suffixed temp sibling first (companions under
+    # config/<name><tag>). Only after the re-read confirms the round trip do the temp files replace the real
+    # ones, via os.replace -- always same-directory-as-target here, so each replace is atomic. A validation
+    # failure, or any exception during the write/verify phase, now leaves the real tree byte-for-byte as it
+    # was when main() started; _cleanup_tmp() removes the scratch copies and the exception propagates.
+    _tag = ".tmp-%d" % os.getpid()
+    tmp_sno, tmp_ref, tmp_in, tmp_x = out_sno + _tag, out_ref + _tag, out_in + _tag, out_x + _tag
+    tmp_csv, tmp_excl = out_csv + _tag, out_excl + _tag
+    _cfg = os.path.join(OUTDIR, "config")
+    tmp_companions = {cf: os.path.join(_cfg, cf + _tag) for cf in companion_copies}
+
+    def _cleanup_tmp():
+        for p in [tmp_sno, tmp_ref, tmp_in, tmp_x, tmp_csv, tmp_excl] + list(tmp_companions.values()):
+            if os.path.exists(p):
+                os.remove(p)
+
+    try:
+        if lang == "snobol4":
+            h.write_suite(all_entries, tmp_sno, tmp_ref)
+            wrote_in = h.write_stdin_sidecar(all_entries, tmp_in, "*", "")
+            if not wrote_in and os.path.exists(tmp_in):
+                os.remove(tmp_in)
+            wrote_x = h.write_xfail_sidecar(all_entries, tmp_x, "*", "")
+            if not wrote_x and os.path.exists(tmp_x):
+                os.remove(tmp_x)
+            reread = h.read_suite(tmp_sno, tmp_ref,
+                                  in_path=(tmp_in if wrote_in else None), x_path=(tmp_x if wrote_x else None))
+        else:
+            # ⛔⭐ THE SIDECAR WRITERS WERE SNOBOL4-ONLY TOO (ceo amendment). A dialect master got no ALL.in and no
+            # ALL.xfail, so any absorbed stdin-carrying entry lost its input and any xfail lost its marker -- both
+            # silently. The writers are already parameterised by comment leader; the dialect branch simply never
+            # called them. Re-read WITH the sidecars, or the round-trip check verifies a file the grader will not
+            # actually use.
+            h.write_block_suite(all_entries, tmp_sno, tmp_ref, _CO, _CC)
+            wrote_in = h.write_stdin_sidecar(all_entries, tmp_in, _CO, _CC)
+            if not wrote_in and os.path.exists(tmp_in):
+                os.remove(tmp_in)
+            wrote_x = h.write_xfail_sidecar(all_entries, tmp_x, _CO, _CC)
+            if not wrote_x and os.path.exists(tmp_x):
+                os.remove(tmp_x)
+            reread = h.read_block_suite(tmp_sno, tmp_ref, h.banner_re_for(_CO, _CC),
+                                        in_path=(tmp_in if wrote_in else None), x_path=(tmp_x if wrote_x else None))
+        if len(reread) != len(all_entries):
+            h.refuse("re-read count %d != written %d -- NOT trusting the merge; validated in a scratch copy "
+                     "first, so the real tree was never touched" % (len(reread), len(all_entries)))
+        with open(tmp_csv, "w", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes"] + [c for c, _ in COLS])
+            for rank, (e, flags, text) in enumerate(rows, 1):
+                fam = e.origin.split("__", 1)[0]
+                w.writerow([rank, e.name, e.origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines), _modes_decl.get(fam, "UNKNOWN")] + [flags[c] for c, _ in COLS])
+        with open(tmp_excl, "w") as f:
+            for fam, why in excluded:
+                f.write("%s\t%s\n" % (fam, why))
+        if companion_copies:
+            os.makedirs(_cfg, exist_ok=True)
+            for cf, srcf in sorted(companion_copies.items()):
+                shutil.copy2(srcf, tmp_companions[cf])
+    except BaseException:
+        _cleanup_tmp()
+        raise
+    # -- VALIDATED: commit every staged file over its real path now, and only now. ---------------------------
+    os.replace(tmp_sno, out_sno)
+    os.replace(tmp_ref, out_ref)
+    if wrote_in:
+        os.replace(tmp_in, out_in)
+    elif os.path.exists(out_in):
+        os.remove(out_in)
+    if wrote_x:
+        os.replace(tmp_x, out_x)
+    elif os.path.exists(out_x):
+        os.remove(out_x)
+    os.replace(tmp_csv, out_csv)
+    os.replace(tmp_excl, out_excl)
+    # ⭐⭐ COMPANIONS GO IN config/, NOT THE FLAT DIR (hq_P 2026-08-30, ceo routed the cure to the finder).
+    # Lon's end state is tests/<lang>/ FLAT with ALL.* plus ONE config/ folder holding runtime companions.
+    # The harness READ side already implements it -- _copy_companions searches <dir> AND <dir>/config
+    # (corpus_suite_harness.py:1105) -- but this WRITER still dropped them in OUTDIR, so the law was
+    # half-implemented and moving them by hand was undone by the next rebuild. Sixth instance this week of one
+    # half of a contract moving while the other stayed behind; the standing check (grep the other side of the
+    # pair in the same commit) is exactly what would have caught it.
+    # ⛔ MOVE semantics matter: the reader lets a name in the FLAT dir WIN over config/, so a stale top-level
+    # copy would silently shadow the config/ one. The build writes only to config/ and clears any flat twin.
+    for cf, srcf in sorted(companion_copies.items()):
+        os.replace(tmp_companions[cf], os.path.join(_cfg, cf))
+        _stale = os.path.join(OUTDIR, cf)
+        if os.path.isfile(_stale) and os.path.abspath(_stale) != os.path.abspath(srcf):
+            os.remove(_stale)
+    # ⛔⭐ SEPARATE "ALREADY PRESENT" FROM "CANNOT ABSORB" (hq_P, 2026-08-30, on the dedupe landing; the
+    # confusing case measured by hq_B on rebus). After dedupe, an idempotent no-op rebuild records every
+    # already-absorbed family as an exclusion -- so it printed "48 entries from 0 FAMILIES" with
+    # "EXCLUDED: 34", which is self-contradictory on its face and reads as a total absorption failure. The
+    # real absorption run had written EXCLUDED: 0.
+    # ⭐ THIS IS THE DOUBLING TELL POINTING THE OTHER WAY, and that makes it more expensive rather than less:
+    # a summary number moving for a benign reason. The doubling moved the REASSURING way and hid a bug; this
+    # moves the ALARMING way and will cost a seat an investigation. Sixteen of them are running this builder
+    # right now, so the two exclusion CLASSES must not share one count.
+    _already = [(f, w) for f, w in excluded if w.startswith("already in the master")]
+    _cannot  = [(f, w) for f, w in excluded if not w.startswith("already in the master")]
+    if included:
+        print("MASTER SUITE: %d entries from %d families -> %s" % (len(all_entries), len(included), OUTDIR), file=sys.stderr)
+    else:
+        print("MASTER SUITE: %d entries, NOTHING NEW ABSORBED (idempotent rebuild) -> %s" % (len(all_entries), OUTDIR), file=sys.stderr)
+    if _already:
+        print("ALREADY PRESENT (not a failure -- the same entries rebuilt): %d family(ies)" % len(_already), file=sys.stderr)
+    print("CANNOT ABSORB (loud, see ALL.excluded.txt): %d" % len(_cannot), file=sys.stderr)
+    excluded = _cannot + _already   # file keeps both, cannot-absorb first so the real problems read first
+    for fam, why in excluded:
+        print("  ⛔ %s: %s" % (fam, why), file=sys.stderr)
+    print("attribute columns: %d" % (6 + len(COLS)), file=sys.stderr)
+    # ⛔⭐ UNKNOWN MODE IS LOUD, per hq_C's FORMAT RULING (3). A recorded-but-unknown mode is only an
+    # improvement if the reader is TOLD it is unknown; a silent UNKNOWN is worse than no column at all,
+    # because the field makes the question look answered. These entries are UNPROVEN at grading time --
+    # never PASS, never FAIL -- and any consumer that grades them in a default mode reproduces the exact
+    # defect the column exists to expose.
+    _fams = sorted({e.origin.split("__", 1)[0] for e in all_entries})
+    _unk = [f for f in _fams if f not in _modes_decl]
+    _unk_entries = sum(1 for e in all_entries if e.origin.split("__", 1)[0] not in _modes_decl)
+    if _unk:
+        print("⛔ MODE UNKNOWN for %d of %d families (%d entries) -- these are UNPROVEN, not passes:"
+              % (len(_unk), len(_fams), _unk_entries), file=sys.stderr)
+        for f in _unk[:10]:
+            print("     %s" % f, file=sys.stderr)
+        if len(_unk) > 10:
+            print("     ... and %d more (the full set is the `modes` column = UNKNOWN in ALL.csv)" % (len(_unk) - 10), file=sys.stderr)
+        print("   Declare them in %s/config/MODES.tsv as `family<TAB>modes`. ⛔ Do NOT guess from the family"
+              % ROOT, file=sys.stderr)
+        print("   name: a heuristic that is right on every case you have gives no signal when it starts being wrong.", file=sys.stderr)
+    else:
+        print("mode: declared for all %d families" % len(_fams), file=sys.stderr)
+    # -- BYTE-EQUAL-OR-NO-DELETE verification and the selector refusal already ran, BEFORE the write above
+    # (requirement 3, extended) -- `verified`/`unverified`/`to_delete`/`selector_label` are in scope from there.
     if selector_label is not None:
         print("VERIFIED for deletion: %d families; UNVERIFIED (kept): %d; SELECTED by %s: %d (of the %d verified -- the rest stay, verified but out of scope this run)"
               % (len(verified), len(unverified), selector_label, len(to_delete), len(verified)), file=sys.stderr)

@@ -35,7 +35,16 @@ s="$(snap)"; S4E_HOME="$T" python3 "$B" --lang icon --zzz-not-a-flag >/dev/null 
 [ $rc -eq 2 ] || { echo "FAIL B (req4): an unknown flag must REFUSE rc=2, got rc=$rc -- silently ignored, so the run proceeded with defaults"; F=1; }
 [ "$s" = "$(snap)" ] || { echo "FAIL B (req4): the unknown-flag run MUTATED a master"; F=1; }
 # --- C (req 3) -- VALIDATE BEFORE WRITE: a run that ends rc=2 is a no-op on shared state. Measured today: the master goes 534 -> 536 entries and THEN the run refuses, so a REFUSAL must be undone by hand.
-reset_icon; s="$(snap)"; S4E_HOME="$T" python3 "$B" --lang icon --only rung36_jcon_scan,rung36_jcon_scan2 --delete-absorbed >/dev/null 2>&1; rc=$?
+# ⛔ WITNESS CHANGED FROM rung36_jcon_scan,rung36_jcon_scan2 TO rung36_jcon_cxprimes (taker, same session req1/2 landed).
+# req1's own fix (PENDING.md deferral only blocks while its row is LIVE -- icon-scan-env-value-residue is DONE) plus a
+# companion fix (discover_pairs now falls back to a sibling .expected when no .ref exists, which is exactly how
+# rung36_jcon_scan[2].icn carry their reference) together make the ORIGINAL witness pair genuinely absorbable+deletable
+# -- see arm D, which now legitimately absorbs them via --absorb-only. So --only rung36_jcon_scan,rung36_jcon_scan2 no
+# longer refuses at all (rc=0, both files correctly deleted after a correct absorption): a stale premise, not a
+# regression -- re-run BEFORE this pair's fix confirms the FAIL reproduces unchanged on that commit. rung36_jcon_cxprimes
+# is deferred to icon-coexpression-support-design, which stays LIVE independent of this row, so it is a REFUSAL this
+# arm can rely on staying reproducible rather than one that expires the next time someone fixes the thing it names.
+reset_icon; s="$(snap)"; S4E_HOME="$T" python3 "$B" --lang icon --only rung36_jcon_cxprimes --delete-absorbed >/dev/null 2>&1; rc=$?
 [ "$s" = "$(snap)" ] || { echo "FAIL C (req3): the rc=$rc refusal WROTE the master first -- a refusal that has already mutated shared state is not a refusal"; F=1; }
 # --- D (req 2) -- --absorb-only scopes ABSORPTION, exactly. Today --only/--family scope only what --delete-absorbed DELETES (the script says so when it refuses), so nothing narrows what is absorbed.
 reset_icon; before="$(fams)"
