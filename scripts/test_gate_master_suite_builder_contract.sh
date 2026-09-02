@@ -1,0 +1,53 @@
+#!/bin/bash
+# test_gate_master_suite_builder_contract.sh -- the DONE-WHEN of row master-suite-builder-honours-deferral-contract-and-scopes-absorption (ladder I, rank 1).
+#
+# ⭐ WHY THIS EXISTS (ceo RULING 2026-09-02 on hq_P's FINDING ff4b0aa2). util_build_master_suite.py is the ONLY tool that converts loose corpus files into a graded master, and it disagrees
+# BY CONSTRUCTION with test_gate_suite_conversion_complete.sh, the gate that polices it: the gate ENFORCES the PENDING.md/KEEP.md deferral contract, and the builder contains ZERO references
+# to either filename. ⛔ THE GATE POLICES WHAT THE BUILDER CANNOT SEE -- so there is no supported way to convert the files the gate demands without also absorbing files deliberately deferred
+# to other seats' LIVE rows. This gate grades the four requirements the ruling named, one named FAIL line each, so a partial cure reads as a partial cure rather than as a red blob.
+#
+# ⛔⛔ IT RUNS ENTIRELY IN A SCRATCH TREE AND NEVER OPENS THE REAL MASTER FOR WRITING -- that is not caution, it is the only way this gate can exist. The defect under test is that PROBING the
+# builder WRITES to shared corpus (`--help` alone rebuilt the SNOBOL4 master: six files, 2335 insertions / 2344 deletions), so a gate that measured in place would corrupt the tree it grades,
+# once per run, on every seat. The recipe is the script's OWN documented one (util_build_master_suite.py:31): cp -r corpus/tests/<lang> into a scratch dir, point S4E_HOME at its parent.
+# ⭐ The last check re-asserts that the real corpus/tests is byte-clean, so a future refactor that breaks the sandbox is caught HERE rather than by the next seat's confusing dirty tree.
+#
+# ⛔ REFUSES rc=2 RATHER THAN GRADING A MOVING BASELINE: if corpus/tests is already dirty, "did the builder write?" has no answer, and a gate that cannot measure must not pass what it failed
+# to read. ⛔ Do NOT relax a check to make this green -- every FAIL below is reproduced from a measurement, and each names the requirement it grades.
+set -u
+R="${S4E_HOME:-/home/claude_P}"
+cd "$R/SCRIP/scripts" 2>/dev/null || { echo "⛔ REFUSED (rc=2): no $R/SCRIP/scripts -- cannot locate the builder"; exit 2; }
+B=util_build_master_suite.py
+[ -f "$B" ] || { echo "⛔ REFUSED (rc=2): $B not found -- nothing to grade"; exit 2; }
+git -C "$R/corpus" diff --quiet -- tests/ 2>/dev/null || { echo "⛔ REFUSED (rc=2): corpus/tests is dirty -- a no-op cannot be proven against a moving baseline. Commit or stash first."; exit 2; }
+T="$(mktemp -d)" || exit 2
+trap 'rm -rf "$T"' EXIT
+mkdir -p "$T/corpus/tests" && cp -r "$R/corpus/tests/icon" "$R/corpus/tests/snobol4" "$T/corpus/tests/" || { echo "⛔ REFUSED (rc=2): could not stage the scratch tree"; exit 2; }
+snap() { find "$T/corpus/tests" -name 'ALL.*' -type f -exec md5sum {} \; | sort; }
+fams() { cut -d, -f4 "$T/corpus/tests/icon/ALL.csv" 2>/dev/null | tail -n +2 | sort -u; }
+reset_icon() { rm -rf "$T/corpus/tests/icon"; cp -r "$R/corpus/tests/icon" "$T/corpus/tests/icon"; }
+F=0
+# --- A (req 4a) -- a real --help: it exits 0, documents the absorb-side selector, and writes NOTHING. Today the flag is unrecognized, silently ignored, and the run proceeds with defaults.
+s="$(snap)"; o="$(S4E_HOME="$T" python3 "$B" --help 2>&1)"; rc=$?
+{ [ $rc -eq 0 ] && printf '%s' "$o" | grep -q -- '--absorb-only'; } || { echo "FAIL A (req4): --help must exit 0 and document --absorb-only (got rc=$rc)"; F=1; }
+[ "$s" = "$(snap)" ] || { echo "FAIL A (req4): --help MUTATED a master -- for this script the universal 'ask it what it does' gesture is a WRITE TO SHARED CORPUS"; F=1; }
+# --- B (req 4b) -- an unknown flag REFUSES rc=2 and writes nothing. sys.argv is parsed by hand (:519-580, no argparse), so today an unrecognized flag falls through to --lang snobol4.
+s="$(snap)"; S4E_HOME="$T" python3 "$B" --lang icon --zzz-not-a-flag >/dev/null 2>&1; rc=$?
+[ $rc -eq 2 ] || { echo "FAIL B (req4): an unknown flag must REFUSE rc=2, got rc=$rc -- silently ignored, so the run proceeded with defaults"; F=1; }
+[ "$s" = "$(snap)" ] || { echo "FAIL B (req4): the unknown-flag run MUTATED a master"; F=1; }
+# --- C (req 3) -- VALIDATE BEFORE WRITE: a run that ends rc=2 is a no-op on shared state. Measured today: the master goes 534 -> 536 entries and THEN the run refuses, so a REFUSAL must be undone by hand.
+reset_icon; s="$(snap)"; S4E_HOME="$T" python3 "$B" --lang icon --only rung36_jcon_scan,rung36_jcon_scan2 --delete-absorbed >/dev/null 2>&1; rc=$?
+[ "$s" = "$(snap)" ] || { echo "FAIL C (req3): the rc=$rc refusal WROTE the master first -- a refusal that has already mutated shared state is not a refusal"; F=1; }
+# --- D (req 2) -- --absorb-only scopes ABSORPTION, exactly. Today --only/--family scope only what --delete-absorbed DELETES (the script says so when it refuses), so nothing narrows what is absorbed.
+reset_icon; before="$(fams)"
+S4E_HOME="$T" python3 "$B" --lang icon --absorb-only rung36_jcon_scan,rung36_jcon_scan2 >/dev/null 2>&1; rc=$?
+added="$(comm -13 <(printf '%s\n' "$before") <(fams) | tr '\n' ' ' | sed 's/ *$//')"
+[ $rc -eq 0 ] || { echo "FAIL D (req2): --absorb-only must be a supported absorb-side selector (got rc=$rc)"; F=1; }
+[ "$added" = "rung36_jcon_scan rung36_jcon_scan2" ] || { echo "FAIL D (req2): --absorb-only absorbed [$added] but was asked for [rung36_jcon_scan rung36_jcon_scan2] -- the selector does not scope ABSORPTION"; F=1; }
+# --- E (req 1) -- the builder READS the deferral contract, and never absorbs a deferred file or another row's live witness. The source check is the "READS" clause; the two greps are the behaviour.
+{ grep -q 'PENDING\.md' "$B" && grep -q 'KEEP\.md' "$B"; } || { echo "FAIL E (req1): $B references neither PENDING.md nor KEEP.md -- the gate polices a deferral contract the builder cannot see"; F=1; }
+printf '%s\n' "$added" | tr ' ' '\n' | grep -qx 'rung36_jcon_cxprimes' && { echo "FAIL E (req1): absorbed rung36_jcon_cxprimes -- PENDING.md defers it to the LIVE row icon-coexpression-support-design"; F=1; }
+printf '%s\n' "$added" | tr ' ' '\n' | grep -qx 'coexpr_gc_stack_witness' && { echo "FAIL E (req1): absorbed coexpr_gc_stack_witness -- the live DONE-WHEN witness of row coexpr-stack-leaves-the-compacting-gc-heap; absorbing it reaches into ANOTHER ROW'S ACCEPTANCE TEST"; F=1; }
+# --- the sandbox must not have leaked. A gate that grades "does it write?" by writing is its own defect.
+git -C "$R/corpus" diff --quiet -- tests/ || { echo "FAIL: THE REAL corpus/tests WAS MODIFIED -- the scratch-tree sandbox leaked, and this gate corrupted the tree it grades"; F=1; }
+[ $F -eq 0 ] && { echo "PASS: util_build_master_suite.py honours PENDING.md/KEEP.md, scopes absorption exactly (--absorb-only), validates before it writes, and refuses unknown flags rc=2"; exit 0; }
+exit 1
