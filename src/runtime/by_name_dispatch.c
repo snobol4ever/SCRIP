@@ -1496,10 +1496,23 @@ static DESCR_t dop_call_nothrow(dop_body_fn body, DESCR_t *args, int nargs) {
     extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0); extern int g_plw_floor_bypass;
     DESCR_t out = FAILDESCR;
     char *fl = g_plw_unwind_floor;
-    if (!g_plw_floor_bypass) g_plw_unwind_floor = (char *)__builtin_frame_address(0);
+    /* ⛔ FLOOR FORCED ON HERE, SCOPED TO THIS CALL ONLY (C39 prolog-master-red-class-abort-signal-6-four-entries):
+       the Prolog-wide g_plw_floor_bypass (scrip.c) leaves g_plw_unwind_floor NULL, which makes plc_dead_cstack()
+       a no-op -- pl_trail_unwind() then restores a trail entry whose .addr is a now-dead C-stack address (a
+       Prolog cell that rode a since-returned frame per the s273 zeta ruling) straight into whatever now occupies
+       that address. Measured (gdb -location watch): on rung list_directive_2 the stale .addr landed 8 bytes
+       inside THIS function's own `out` local, and the restoring write smashed the -fstack-protector canary right
+       above it, SIGABRT. bid_bake dead-check exists for exactly this; only this narrow leaf (trail_unwind /
+       unwind_nothrow, dop_call_nothrow's only two callers) re-arms it for its own duration -- dop_call() and the
+       rest of the Prolog run are untouched, so this does not inherit prolog-plw-floor-bypass-safety-unproven's
+       open general-safety question, which stays hq_P's row. */
+    int fb = g_plw_floor_bypass;
+    g_plw_floor_bypass = 0;
+    g_plw_unwind_floor = (char *)__builtin_frame_address(0);
     rt_gc_point_arr(args, nargs, (const char **)0);
     body(args, nargs, &out);
     g_plw_unwind_floor = fl;
+    g_plw_floor_bypass = fb;
     return out;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
