@@ -31,7 +31,22 @@
 # outright.  Pinning at the row's stale figures would have shipped a gate with 354 refs of slack — green
 # while the migration regressed by a factor of three.  The row's own doctrine is "pin-the-property: the
 # count only goes down", and "pins are LOWERED in the landing commit of every T slice"; this landing IS
-# such a commit, so the pins are the MEASURED census at c6190d9e.  Routed to hq_C as a FINDING.
+# such a commit, so the pins are the MEASURED census at HEAD.  Routed to hq_C as a FINDING.
+#
+# ⭐⭐ RE-PIN HISTORY — AND THE FIRST ONE HAPPENED BEFORE THIS GATE HAD EVEN LANDED, WHICH IS THE POINT.
+#   490 (bcb0ec1e, the row's mint)  ->  136 (c6190d9e, first pin)  ->  94 (d85035e5, landed pin).
+# T9 milestone 7 (8412a1ca) and its follow-up regression fix (be11af20) landed DURING the session that
+# wrote this gate.  Neither seat erred; a pin keyed on a tree that other seats are actively lowering is
+# stale on arrival BY CONSTRUCTION, exactly as test_gate_optbypass_watermark.sh records for its own pins.
+# ⛔ So do not read a stale pin here as a discipline failure, and NEVER 'fix' a TIGHTEN by pinning higher
+# than measured — re-measure with the ONE_LINER and lower it.  Slack is the only failure mode that matters
+# in a ratchet: a pin above the tree is a gate that is green while the migration walks backwards.
+#
+# ⭐ THE METHOD IS CROSS-CHECKED AGAINST THE LADDER, NOT JUST AGAINST ITSELF.  8412a1ca's own message
+# reports '136 -> 111'; this gate's method measures exactly 111 at that commit, and 94 after be11af20.
+# So the slice author and this gate count the SAME THING — worth re-checking whenever a T slice's stated
+# delta and this gate's umbrella total disagree, because that disagreement would mean the ladder and its
+# ratchet had quietly forked on the definition, and the gate would be measuring a property nobody targets.
 #
 # ⛔ UNPINNED FILE WITH ANY `Term` REF == FAIL.  Without this the ratchet is trivially dodged by moving a
 # refactor into a new file, which is exactly the motion a migration produces.  A new file is not a fresh
@@ -52,11 +67,11 @@ if [ ! -d "$SRC/parsers/prolog" ]; then
     gate_stamp
     exit 2
 fi
-# ── PINS ── measured at SCRIP c6190d9e (`grep -cw Term`, src/**, excluding *.bak).  Umbrella total 136.
+# ── PINS ── measured at SCRIP d85035e5 (`grep -cw Term`, src/**, excluding *.bak).  Umbrella total 94.
 # ⛔ EDIT ONLY DOWNWARD, and only in the same commit as the slice that earned it.
 PINS="
-56 src/runtime/unification.c
 17 src/parsers/prolog/prolog_atom.c
+14 src/runtime/unification.c
 13 src/runtime/rt_runtime.c
 11 src/runtime/builtins/resolution.h
 11 src/parsers/prolog/term.h
