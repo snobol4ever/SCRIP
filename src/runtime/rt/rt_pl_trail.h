@@ -8,7 +8,7 @@
 #define PL_TR_ENTRY_BYTES   32
 #define PL_TR_FRAME_HEADER_BYTES 64
 typedef struct { DESCR_t *cell; uint64_t pad; DESCR_t old; } pl_tr_entry_t;
-typedef struct { char *tr; char *b; } pl_tr_ctx_t;
+typedef struct pl_tr_ctx_s { char *tr; char *b; } pl_tr_ctx_t;
 void *rt_pl_tr_init(void);
 void  rt_pl_tr_refuse(const char *tr);
 void  rt_pl_tr_gc_sync(const char *tr);

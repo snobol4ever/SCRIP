@@ -296,6 +296,47 @@ static IR_t * pl_leaf(lcx_t * cx, const char * sym, const tree_t * t, int nargs,
     return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { const char * nm; int ar; const char * sym; } pl_det_leaf_t;
+static const pl_det_leaf_t pl_det_leaves[] = {
+    { "var", 1, "$var" }, { "nonvar", 1, "$nonvar" }, { "atom", 1, "$atom" }, { "number", 1, "$number" }, { "integer", 1, "$integer" }, { "float", 1, "$float" }, { "atomic", 1, "$atomic" },
+    { "compound", 1, "$compound" }, { "callable", 1, "$callable" }, { "ground", 1, "$ground" }, { "is_list", 1, "$is_list" }, { "acyclic_term", 1, "$acyclic_term" }, { "==", 2, "$atop_eq" },
+    { "\\==", 2, "$atop_ne" }, { "@<", 2, "$atop_lt" }, { "@=<", 2, "$atop_le" }, { "@>", 2, "$atop_gt" }, { "@>=", 2, "$atop_ge" }, { "compare", 3, "$compare" }, { "functor", 3, "$functor" },
+    { "arg", 3, "$arg" }, { "=..", 2, "$univ" }, { "copy_term", 2, "$copy_term" }, { "numbervars", 3, "$numbervars3" }, { "numbervars", 1, "$numbervars1" }, { "succ", 2, "$succ" },
+    { "plus", 3, "$plus" }, { "sort", 2, "$sort" }, { "msort", 2, "$msort" }, { "char_type", 2, "$char_type" }, { "term_string", 2, "$term_string" }, { "term_to_atom", 2, "$term_string" },
+    { "atom_length", 2, "$atom_length" }, { "atom_concat", 3, "$atom_concat" }, { "atom_chars", 2, "$atom_chars" }, { "atom_codes", 2, "$atom_codes" }, { "atom_number", 2, "$atom_number" },
+    { "atom_string", 2, "$atom_string" }, { "upcase_atom", 2, "$upcase_atom" }, { "downcase_atom", 2, "$downcase_atom" }, { "string_concat", 3, "$string_concat" },
+    { "string_length", 2, "$string_length" }, { "string_lower", 2, "$string_lower" }, { "string_upper", 2, "$string_upper" }, { "string_to_atom", 2, "$string_to_atom" },
+    { "number_string", 2, "$number_string" }, { "string_chars", 2, "$atom_chars" }, { "string_codes", 2, "$atom_codes" }, { "atomic_list_concat", 2, "$atomic_list_concat" },
+    { "atomic_list_concat", 3, "$atomic_list_concat" }, { "concat_atom", 2, "$concat_atom" }, { "concat_atom", 3, "$concat_atom" }, { "char_code", 2, "$char_code" },
+    { "number_codes", 2, "$number_codes" }, { "number_chars", 2, "$number_chars" }, { "name", 2, "$name" }, { "get_char", 1, "$get_char" }, { "peek_char", 1, "$peek_char" },
+    { "read", 1, "$read" },
+    { "atom_to_term", 3, "$atom_to_term" }, { "writeq", 1, "$writeq" }, { "print", 1, "$writeq" }, { "write_canonical", 1, "$write_canonical" }, { "writeln", 1, "$writeln" },
+    { "put_char", 1, "$put_char" },
+    { "halt", 0, "$halt" }, { "halt", 1, "$halt" }, { "flush_output", 0, "$flush_output" }, { "format", 1, "$format" }, { "format", 2, "$format" },
+    { 0, 0, 0 } };
+static const struct { const char * nm; int ar; } pl_stream_arity[] = {
+    { "write", 2 }, { "writeq", 2 }, { "print", 2 }, { "write_canonical", 2 }, { "nl", 1 }, { "format", 3 },
+    { "read", 2 }, { "get_char", 2 }, { "peek_char", 2 }, { "put_char", 2 }, { "tab", 2 }, { "flush_output", 1 }, { 0, 0 } };
+static const char * pl_det_leaf_sym(const char * nm, int ar) {
+    for (int i = 0; pl_det_leaves[i].nm; i++) if (pl_det_leaves[i].ar == ar && !strcmp(nm, pl_det_leaves[i].nm)) return pl_det_leaves[i].sym;
+    return NULL;
+}
+static int pl_stream_arity_of(const char * nm, int ar) { for (int i = 0; pl_stream_arity[i].nm; i++) if (pl_stream_arity[i].ar == ar && !strcmp(nm, pl_stream_arity[i].nm)) return 1; return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_leaf_lv(lcx_t * cx, const char * sym, const tree_t * t, int nargs, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = sym;
+    IR_t * prev = NULL; IR_t * first = NULL;
+    for (int i = 0; i < nargs; i++) {
+        IR_t * ae = NULL; IR_t * a = term_lval_e(cx, t->c[i], &ae); IR_t * en = ae ? ae : a;
+        if (prev) lc_γ_to(prev, en); else first = en;
+        lc_ω_to(a, ωfail);
+        prev = a; ir_operand_push(nd, a);
+    }
+    if (prev) lc_γ_to(prev, nd);
+    if (entry_out) *entry_out = first ? first : nd;
+    return nd;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_user_call(lcx_t * cx, const char * nm, const tree_t * t, int nargs, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     { char key[264]; snprintf(key, sizeof key, "%s/%d", nm, nargs);
       if (!resolve_pred_table_lookup(&g_stage2.resolve_pred_table, key)) pl_refuse("existence error for unknown procedure", key, 9); }
@@ -350,7 +391,16 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             if (entry_out) *entry_out = ea ? ea : a;
             return nd;
           } }
-        { int r = pl_rung_of(nm); if (r) pl_refuse("builtin", nm, r); }
+        if (!strcmp(nm, "tab") && t->n == 1) {
+            IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = "$tab";
+            IR_t * ve = NULL; IR_t * v = lower_arith_val(cx, t->c[0], ωfail, &ve);
+            lc_γ_to(v, nd); lc_ω_to(v, ωfail); ir_operand_push(nd, v);
+            if (entry_out) *entry_out = ve ? ve : v;
+            return nd;
+        }
+        if (pl_stream_arity_of(nm, t->n)) pl_refuse("stream builtin", nm, 9);
+        { const char * ls = pl_det_leaf_sym(nm, t->n); if (ls) return pl_leaf_lv(cx, ls, t, t->n, γnext, ωfail, entry_out); }
+        { int r = pl_rung_of(nm); if (r) pl_refuse(r == 6 ? "builtin arity not wired" : "builtin", nm, r); }
         return pl_user_call(cx, nm, t, t->n, γnext, ωfail, entry_out);
     }
     case TT_QLIT: case TT_NAME: {
@@ -359,7 +409,8 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         if (!strcmp(nm, "fail") || !strcmp(nm, "false")) return build(cx, IR_GOTO, ωfail, ωfail);
         if (!strcmp(nm, "nl")) return pl_leaf(cx, "$nl", t, 0, γnext, ωfail, entry_out);
         if (!strcmp(nm, "!")) pl_refuse("cut", "!", 4);
-        { int r = pl_rung_of(nm); if (r) pl_refuse("builtin", nm, r); }
+        { const char * ls = pl_det_leaf_sym(nm, 0); if (ls) return pl_leaf_lv(cx, ls, t, 0, γnext, ωfail, entry_out); }
+        { int r = pl_rung_of(nm); if (r) pl_refuse(r == 6 ? "builtin arity not wired" : "builtin", nm, r); }
         return pl_user_call(cx, nm, t, 0, γnext, ωfail, entry_out);
     }
     case TT_CUT: pl_refuse("cut", "!", 4); return NULL;

@@ -196,12 +196,13 @@ int rt_pl_arith_cmp_cell_val(const char *op, void *lhs_cell, long lhs_ival, void
 int rt_pl_is_cell_arith(void *lhs_cell, void *rhs_cell, const char *op, long rhs_ival);
 int rt_arith_cmp_nodes(const char *op, void *lhs_node, void *rhs_node);
 int rt_term_cmp_nodes(const char *op, void *lhs_node, void *rhs_node);
+struct pl_tr_ctx_s;
 int rt_pl_type_test_cell(void *cell_term, const char *fn);
-int rt_pl_functor_cell(void *t0_cell, void *name_cell, void *arity_cell);
-int rt_pl_arg_cell(void *n_cell, void *t_cell, void *arg_cell);
-int rt_pl_univ_cell(void *t0_cell, void *list_cell);
-int rt_pl_succ_plus_cell(long arity, void *a_cell, void *b_cell, void *c_cell);
-int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_cell);
+int rt_pl_functor_cell(void *t0_cell, void *name_cell, void *arity_cell, struct pl_tr_ctx_s *cx);
+int rt_pl_arg_cell(void *n_cell, void *t_cell, void *arg_cell, struct pl_tr_ctx_s *cx);
+int rt_pl_univ_cell(void *t0_cell, void *list_cell, struct pl_tr_ctx_s *cx);
+int rt_pl_succ_plus_cell(long arity, void *a_cell, void *b_cell, void *c_cell, struct pl_tr_ctx_s *cx);
+int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_cell, struct pl_tr_ctx_s *cx);
 long size_value(DESCR_t v, int *failed);
 #ifdef __cplusplus
 }

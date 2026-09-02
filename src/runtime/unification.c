@@ -10,7 +10,14 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include "../parsers/prolog/pl_cell.h"
+#include "rt/rt_pl_trail.h"
 #define PL_CELL_ALLOC(n) (rt_ws_alloc(n))
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_unify_into_cell(pl_cell_t *dst, pl_cell_t val);
+extern int plw_unify_cell_val(DESCR_t *, DESCR_t, pl_tr_ctx_t *); extern int plw_unify_cells_x(DESCR_t *, DESCR_t *, pl_tr_ctx_t *); extern void plw_bind_x(DESCR_t *, DESCR_t, pl_tr_ctx_t *);
+static int plc_unify_into_cell_cx(pl_cell_t *dst, pl_cell_t val, pl_tr_ctx_t *cx) { return cx ? plw_unify_cell_val(dst, val, cx) : plc_unify_into_cell(dst, val); }
+static int plc_unify_cells_cx(pl_cell_t *a, pl_cell_t *b, pl_tr_ctx_t *cx) { return cx ? plw_unify_cells_x(a, b, cx) : pl_unify(a, b); }
+static void plc_bind_cx(pl_cell_t *cell, pl_cell_t word, pl_tr_ctx_t *cx) { if (cx) plw_bind_x(pl_deref(cell), word, cx); else pl_bind(cell, word); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_unify_terms(void *l, void *r)
 {
@@ -574,7 +581,7 @@ int rt_pl_type_test_cell(void *cell_term, const char *fn)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_functor_cell(void *t0_cell, void *name_cell, void *arity_cell)
+int rt_pl_functor_cell(void *t0_cell, void *name_cell, void *arity_cell, pl_tr_ctx_t *cx)
 {
     pl_cell_t *d0 = t0_cell ? pl_deref((pl_cell_t *)t0_cell) : (pl_cell_t *)0;
     pl_cell_t *d1 = name_cell ? pl_deref((pl_cell_t *)name_cell) : (pl_cell_t *)0;
@@ -585,8 +592,8 @@ int rt_pl_functor_cell(void *t0_cell, void *name_cell, void *arity_cell)
         else if ((int)d0->v == DT_I)  { nameV = pl_make_int(d0->i); arityV = pl_make_int(0); }
         else if ((int)d0->v == DT_R)  { nameV = pl_make_float(d0->r); arityV = pl_make_int(0); }
         else { return 0; }
-        if (!pl_unify((pl_cell_t *)name_cell, &nameV) ||
-            !pl_unify((pl_cell_t *)arity_cell, &arityV)) { return 0; }
+        if (!plc_unify_cells_cx((pl_cell_t *)name_cell, &nameV, cx) ||
+            !plc_unify_cells_cx((pl_cell_t *)arity_cell, &arityV, cx)) { return 0; }
         return 1;
     }
     pl_cell_t *d2 = arity_cell ? pl_deref((pl_cell_t *)arity_cell) : (pl_cell_t *)0;
@@ -600,22 +607,22 @@ int rt_pl_functor_cell(void *t0_cell, void *name_cell, void *arity_cell)
         for (long i = 0; i < ar; i++) pl_init_var(&args[i], -1);
         built = pl_make_compound(plc_atom_id_of(d1), (int)ar, args);
     }
-    if (!pl_unify((pl_cell_t *)t0_cell, &built)) { return 0; }
+    if (!plc_unify_cells_cx((pl_cell_t *)t0_cell, &built, cx)) { return 0; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_arg_cell(void *n_cell, void *t_cell, void *arg_cell)
+int rt_pl_arg_cell(void *n_cell, void *t_cell, void *arg_cell, pl_tr_ctx_t *cx)
 {
     pl_cell_t *dN = n_cell ? pl_deref((pl_cell_t *)n_cell) : (pl_cell_t *)0;
     pl_cell_t *dT = t_cell ? pl_deref((pl_cell_t *)t_cell) : (pl_cell_t *)0;
     if (!dN || (int)dN->v != DT_I || !dT || (int)dT->v != DT_PLREF || !dT->p) { return 0; }
     long n = (long)dN->i;
     if (n < 1 || n > (long)(dT->slen & 0xFFFFu)) { return 0; }
-    if (!pl_unify((pl_cell_t *)arg_cell, &((pl_cell_t *)dT->p)[n - 1])) { return 0; }
+    if (!plc_unify_cells_cx((pl_cell_t *)arg_cell, &((pl_cell_t *)dT->p)[n - 1], cx)) { return 0; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_univ_cell(void *t0_cell, void *list_cell)
+int rt_pl_univ_cell(void *t0_cell, void *list_cell, pl_tr_ctx_t *cx)
 {
     extern int ATOM_DOT;
     pl_cell_t *d0 = t0_cell ? pl_deref((pl_cell_t *)t0_cell) : (pl_cell_t *)0;
@@ -636,7 +643,7 @@ int rt_pl_univ_cell(void *t0_cell, void *list_cell)
             c[0] = *d0; c[1] = lst;
             lst = pl_make_compound(ATOM_DOT, 2, c);
         }
-        if (!pl_unify((pl_cell_t *)list_cell, &lst)) { return 0; }
+        if (!plc_unify_cells_cx((pl_cell_t *)list_cell, &lst, cx)) { return 0; }
         return 1;
     }
     pl_cell_t *cur = list_cell ? pl_deref((pl_cell_t *)list_cell) : (pl_cell_t *)0;
@@ -656,11 +663,11 @@ int rt_pl_univ_cell(void *t0_cell, void *list_cell)
         for (int i = 1; i < ne; i++) args[i - 1] = *elems[i];
         built = pl_make_compound(plc_atom_id_of(h), ne - 1, args);
     }
-    if (!pl_unify((pl_cell_t *)t0_cell, &built)) { return 0; }
+    if (!plc_unify_cells_cx((pl_cell_t *)t0_cell, &built, cx)) { return 0; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_succ_plus_cell(long arity, void *a_cell, void *b_cell, void *c_cell)
+int rt_pl_succ_plus_cell(long arity, void *a_cell, void *b_cell, void *c_cell, pl_tr_ctx_t *cx)
 {
     pl_cell_t *da = a_cell ? pl_deref((pl_cell_t *)a_cell) : (pl_cell_t *)0;
     pl_cell_t *db = b_cell ? pl_deref((pl_cell_t *)b_cell) : (pl_cell_t *)0;
@@ -669,13 +676,13 @@ int rt_pl_succ_plus_cell(long arity, void *a_cell, void *b_cell, void *c_cell)
         if (da && (int)da->v == DT_I) {
             if (da->i < 0) return 0;
             pl_cell_t v = pl_make_int(da->i + 1);
-            if (!pl_unify((pl_cell_t *)b_cell, &v)) { return 0; }
+            if (!plc_unify_cells_cx((pl_cell_t *)b_cell, &v, cx)) { return 0; }
             return 1;
         }
         if (db && (int)db->v == DT_I) {
             if (db->i <= 0) return 0;
             pl_cell_t v = pl_make_int(db->i - 1);
-            if (!pl_unify((pl_cell_t *)a_cell, &v)) { return 0; }
+            if (!plc_unify_cells_cx((pl_cell_t *)a_cell, &v, cx)) { return 0; }
             return 1;
         }
         return 0;
@@ -683,9 +690,9 @@ int rt_pl_succ_plus_cell(long arity, void *a_cell, void *b_cell, void *c_cell)
     if (arity == 3) {
         int va = (da && (int)da->v == DT_I), vb = (db && (int)db->v == DT_I), vc = (dc && (int)dc->v == DT_I);
         int ok = 0; pl_cell_t v;
-        if (va && vb)      { v = pl_make_int(da->i + db->i); ok = pl_unify((pl_cell_t *)c_cell, &v); }
-        else if (va && vc) { v = pl_make_int(dc->i - da->i); ok = pl_unify((pl_cell_t *)b_cell, &v); }
-        else if (vb && vc) { v = pl_make_int(dc->i - db->i); ok = pl_unify((pl_cell_t *)a_cell, &v); }
+        if (va && vb)      { v = pl_make_int(da->i + db->i); ok = plc_unify_cells_cx((pl_cell_t *)c_cell, &v, cx); }
+        else if (va && vc) { v = pl_make_int(dc->i - da->i); ok = plc_unify_cells_cx((pl_cell_t *)b_cell, &v, cx); }
+        else if (vb && vc) { v = pl_make_int(dc->i - db->i); ok = plc_unify_cells_cx((pl_cell_t *)a_cell, &v, cx); }
         if (!ok) { return 0; }
         return 1;
     }
@@ -715,7 +722,7 @@ static int plc_unify_into_cell(pl_cell_t *dst, pl_cell_t val)
     return pl_unify(dst, &tmp);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_cell)
+int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_cell, pl_tr_ctx_t *cx)
 {
     pl_cell_t *t0 = a0_cell ? pl_deref((pl_cell_t *)a0_cell) : (pl_cell_t *)0;
     pl_cell_t *t1 = a1_cell ? pl_deref((pl_cell_t *)a1_cell) : (pl_cell_t *)0;
@@ -724,7 +731,7 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
     if (!strcmp(fn, "atom_length")) {
         const char *s = plc_atom_op_text(t0, buf0, sizeof buf0);
         if (!s) { return 0; }
-        if (!plc_unify_into_cell((pl_cell_t *)a1_cell, pl_make_int((int64_t)strlen(s)))) { return 0; }
+        if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, pl_make_int((int64_t)strlen(s)), cx)) { return 0; }
         return 1;
     }
     if (!strcmp(fn, "atom_concat")) {
@@ -733,7 +740,7 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
         if (!s0 || !s1) { return 0; }
         size_t l0 = strlen(s0), l1 = strlen(s1);
         char *cat = (char *)rt_ws_alloc(l0 + l1 + 1); memcpy(cat, s0, l0); memcpy(cat + l0, s1, l1); cat[l0 + l1] = '\0';
-        if (!plc_unify_into_cell((pl_cell_t *)a2_cell, plc_make_atom_cell(cat))) { return 0; }
+        if (!plc_unify_into_cell_cx((pl_cell_t *)a2_cell, plc_make_atom_cell(cat), cx)) { return 0; }
         return 1;
     }
     if (!strcmp(fn, "upcase_atom") || !strcmp(fn, "downcase_atom")) {
@@ -743,7 +750,7 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
         int up = (!strcmp(fn, "upcase_atom"));
         for (size_t i = 0; i < n; i++) out[i] = up ? (char)toupper((unsigned char)s[i]) : (char)tolower((unsigned char)s[i]);
         out[n] = '\0';
-        if (!plc_unify_into_cell((pl_cell_t *)a1_cell, plc_make_atom_cell(out))) { return 0; }
+        if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, plc_make_atom_cell(out), cx)) { return 0; }
         return 1;
     }
     int as_codes = (!strcmp(fn, "atom_codes"));
@@ -762,7 +769,7 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
                 pair[0] = el; pair[1] = lst;
                 lst = pl_make_compound(ATOM_DOT, 2, pair);
             }
-            if (!plc_unify_into_cell((pl_cell_t *)a1_cell, lst)) { return 0; }
+            if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, lst, cx)) { return 0; }
             return 1;
         }
         pl_cell_t *cur = t1;
@@ -776,13 +783,13 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
             cur = pl_deref(&pr[1]);
         }
         out[oi] = '\0';
-        if (!plc_unify_into_cell((pl_cell_t *)a0_cell, plc_make_atom_cell(out))) { return 0; }
+        if (!plc_unify_into_cell_cx((pl_cell_t *)a0_cell, plc_make_atom_cell(out), cx)) { return 0; }
         return 1;
     }
     if (!strcmp(fn, "string_length")) {
         const char *s = plc_atom_op_text(t0, buf0, sizeof buf0);
         if (!s) { return 0; }
-        if (!plc_unify_into_cell((pl_cell_t *)a1_cell, pl_make_int((int64_t)strlen(s)))) { return 0; }
+        if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, pl_make_int((int64_t)strlen(s)), cx)) { return 0; }
         return 1;
     }
     if (!strcmp(fn, "string_upper") || !strcmp(fn, "string_lower")) {
@@ -792,34 +799,34 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
         int up = (!strcmp(fn, "string_upper"));
         for (size_t i = 0; i < n; i++) out[i] = up ? (char)toupper((unsigned char)s[i]) : (char)tolower((unsigned char)s[i]);
         out[n] = '\0';
-        if (!plc_unify_into_cell((pl_cell_t *)a1_cell, plc_make_atom_cell(out))) { return 0; }
+        if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, plc_make_atom_cell(out), cx)) { return 0; }
         return 1;
     }
     if (!strcmp(fn, "atom_string") || !strcmp(fn, "string_to_atom")) {
         if (t0 && !pl_cell_unbound(t0)) {
             const char *s = plc_atom_op_text(t0, buf0, sizeof buf0);
             if (!s) { return 0; }
-            if (!plc_unify_into_cell((pl_cell_t *)a1_cell, plc_make_atom_cell(s))) { return 0; }
+            if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, plc_make_atom_cell(s), cx)) { return 0; }
             return 1;
         }
         const char *s = plc_atom_op_text(t1, buf1, sizeof buf1);
         if (!s) { return 0; }
-        if (!plc_unify_into_cell((pl_cell_t *)a0_cell, plc_make_atom_cell(s))) { return 0; }
+        if (!plc_unify_into_cell_cx((pl_cell_t *)a0_cell, plc_make_atom_cell(s), cx)) { return 0; }
         return 1;
     }
     if (!strcmp(fn, "number_string") || !strcmp(fn, "atom_number")) {
         if (t0 && !pl_cell_unbound(t0)) {
             const char *s = plc_atom_op_text(t0, buf0, sizeof buf0);
             if (!s) { return 0; }
-            if (!plc_unify_into_cell((pl_cell_t *)a1_cell, plc_make_atom_cell(s))) { return 0; }
+            if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, plc_make_atom_cell(s), cx)) { return 0; }
             return 1;
         }
         const char *s = plc_atom_op_text(t1, buf1, sizeof buf1);
         if (!s) { return 0; }
         char *end; long iv = strtol(s, &end, 10);
-        if (*end == '\0') { if (!plc_unify_into_cell((pl_cell_t *)a0_cell, pl_make_int(iv))) { return 0; } return 1; }
+        if (*end == '\0') { if (!plc_unify_into_cell_cx((pl_cell_t *)a0_cell, pl_make_int(iv), cx)) { return 0; } return 1; }
         double dv = strtod(s, &end);
-        if (*end == '\0') { if (!plc_unify_into_cell((pl_cell_t *)a0_cell, pl_make_float(dv))) { return 0; } return 1; }
+        if (*end == '\0') { if (!plc_unify_into_cell_cx((pl_cell_t *)a0_cell, pl_make_float(dv), cx)) { return 0; } return 1; }
         return 0;
     }
     if (!strcmp(fn, "string_concat")) {
@@ -828,7 +835,7 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
         if (!s0 || !s1) { return 0; }
         size_t l0 = strlen(s0), l1 = strlen(s1);
         char *cat = (char *)rt_ws_alloc(l0 + l1 + 1); memcpy(cat, s0, l0); memcpy(cat + l0, s1, l1); cat[l0 + l1] = '\0';
-        if (!plc_unify_into_cell((pl_cell_t *)a2_cell, plc_make_atom_cell(cat))) { return 0; }
+        if (!plc_unify_into_cell_cx((pl_cell_t *)a2_cell, plc_make_atom_cell(cat), cx)) { return 0; }
         return 1;
     }
     if (!strcmp(fn, "atomic_list_concat") || !strcmp(fn, "concat_atom")) {
@@ -848,7 +855,7 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
             lst = pl_deref(&pr[1]);
         }
         out[oi] = '\0';
-        if (!plc_unify_into_cell((pl_cell_t *)result_cell, plc_make_atom_cell(out))) { return 0; }
+        if (!plc_unify_into_cell_cx((pl_cell_t *)result_cell, plc_make_atom_cell(out), cx)) { return 0; }
         return 1;
     }
     (void)t2;
@@ -889,7 +896,7 @@ void rt_pl_format_cell(const char *fmt, void *list_cell)
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_char_type_cell(void *char_cell, void *type_cell, void *val_cell)
+int rt_pl_char_type_cell(void *char_cell, void *type_cell, void *val_cell, pl_tr_ctx_t *cx)
 {
     pl_cell_t *tc = char_cell ? pl_deref((pl_cell_t *)char_cell) : (pl_cell_t *)0;
     if (!tc || !type_cell) return 0;
@@ -909,7 +916,7 @@ int rt_pl_char_type_cell(void *char_cell, void *type_cell, void *val_cell)
         else if (!strcmp(ty, "lower")) { if (!islower(ch)) { return 0; } char c2[2] = { (char)toupper(ch), 0 }; out = plc_make_atom_cell(c2); }
         else if (!strcmp(ty, "code"))  { out = pl_make_int((int64_t)ch); }
         else { return 0; }
-        if (!plc_unify_into_cell(inner, out)) { return 0; }
+        if (!plc_unify_into_cell_cx(inner, out, cx)) { return 0; }
         return 1;
     }
     if ((int)td->v != DT_A && (int)td->v != DT_S) { return 0; }
@@ -933,7 +940,7 @@ int rt_pl_char_type_cell(void *char_cell, void *type_cell, void *val_cell)
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_lower_upper_cell(void *lower_cell, void *upper_cell)
+int rt_pl_lower_upper_cell(void *lower_cell, void *upper_cell, pl_tr_ctx_t *cx)
 {
     if (!lower_cell || !upper_cell) return 0;
     pl_cell_t *lo = pl_deref((pl_cell_t *)lower_cell);
@@ -945,13 +952,13 @@ int rt_pl_lower_upper_cell(void *lower_cell, void *upper_cell)
         const char *cs = plc_atom_op_text(lo, b0, sizeof b0);
         if (!cs || !cs[0] || cs[1]) return 0;
         char c2[2] = { (char)toupper((unsigned char)cs[0]), 0 };
-        if (!plc_unify_into_cell(up, plc_make_atom_cell(c2))) { return 0; }
+        if (!plc_unify_into_cell_cx(up, plc_make_atom_cell(c2), cx)) { return 0; }
         return 1;
     }
     const char *cs = plc_atom_op_text(up, b0, sizeof b0);
     if (!cs || !cs[0] || cs[1]) return 0;
     char c2[2] = { (char)tolower((unsigned char)cs[0]), 0 };
-    if (!plc_unify_into_cell(lo, plc_make_atom_cell(c2))) { return 0; }
+    if (!plc_unify_into_cell_cx(lo, plc_make_atom_cell(c2), cx)) { return 0; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1016,7 +1023,7 @@ int rt_pl_atop_cell(int op, void *a_cell, void *b_cell)
     return c != 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_compare_cell(void *order_cell, void *a_cell, void *b_cell)
+int rt_pl_compare_cell(void *order_cell, void *a_cell, void *b_cell, pl_tr_ctx_t *cx)
 {
     pl_vord_t m; m.n = 0; m.next = 0;
     rt_pl_vord_walk((pl_cell_t *)a_cell, &m);
@@ -1025,7 +1032,7 @@ int rt_pl_compare_cell(void *order_cell, void *a_cell, void *b_cell)
     const char *nm = (c < 0) ? "<" : (c > 0) ? ">" : "=";
     const char *an = prolog_atom_name(prolog_atom_intern(nm));
     pl_cell_t ord; ord.v = DT_S; ord.slen = (uint32_t)(an ? strlen(an) : 0); ord.s = an ? an : nm;
-    if (!pl_unify((pl_cell_t *)order_cell, &ord)) { return 0; }
+    if (!plc_unify_cells_cx((pl_cell_t *)order_cell, &ord, cx)) { return 0; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1064,7 +1071,7 @@ int rt_pl_subsumes_cell(void *gen_cell, void *spec_cell)
     return unified && !bound_spec;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_sort_cell(int do_msort, void *list_cell, void *result_cell)
+int rt_pl_sort_cell(int do_msort, void *list_cell, void *result_cell, pl_tr_ctx_t *cx)
 {
     pl_cell_t *elems[4096]; int n = 0;
     int dot_id = prolog_atom_intern(".");
@@ -1093,7 +1100,7 @@ int rt_pl_sort_cell(int do_msort, void *list_cell, void *result_cell)
         blk[0] = pl_make_ref(elems[out_idx[i]], (int)elems[out_idx[i]]->slen); blk[1] = result;
         result = pl_make_compound(dot_id, 2, blk);
     }
-    if (!pl_unify((pl_cell_t *)result_cell, &result)) { return 0; }
+    if (!plc_unify_cells_cx((pl_cell_t *)result_cell, &result, cx)) { return 0; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1234,36 +1241,36 @@ int rt_pl_pairs_keys_values_cell(void *pairs_cell, void *keys_cell, void *values
 }
 typedef struct { pl_cell_t *rest; int mark; } pl_baggrp_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static long pl_numbervars_walk(pl_cell_t *c, long counter, int var_id)
+static long pl_numbervars_walk(pl_cell_t *c, long counter, int var_id, pl_tr_ctx_t *cx)
 {
     pl_cell_t *d = pl_deref(c);
     if (pl_cell_unbound(d)) {
         pl_cell_t *a = (pl_cell_t *)rt_ws_alloc(sizeof(pl_cell_t));
         *a = pl_make_int(counter++);
-        pl_bind(d, pl_make_compound(var_id, 1, a));
+        plc_bind_cx(d, pl_make_compound(var_id, 1, a), cx);
         return counter;
     }
     if ((int)d->v == DT_PLREF) {
         int ar = pl_arity(d); pl_cell_t *aa = (pl_cell_t *)pl_compound_heap(d);
-        for (int i = 0; i < ar; i++) counter = pl_numbervars_walk(&aa[i], counter, var_id);
+        for (int i = 0; i < ar; i++) counter = pl_numbervars_walk(&aa[i], counter, var_id, cx);
     }
     return counter;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_numbervars_cell(void *term_cell, void *start_cell, void *end_cell) {
+int rt_pl_numbervars_cell(void *term_cell, void *start_cell, void *end_cell, pl_tr_ctx_t *cx) {
     pl_cell_t *st = pl_deref((pl_cell_t *)start_cell);
     if (!st || (int)st->v != DT_I) return 0;
     long counter = (long)st->i;
     int var_id = prolog_atom_intern("$VAR");
-    counter = pl_numbervars_walk((pl_cell_t *)term_cell, counter, var_id);
+    counter = pl_numbervars_walk((pl_cell_t *)term_cell, counter, var_id, cx);
     pl_cell_t endv = pl_make_int((int64_t)counter);
-    if (!pl_unify((pl_cell_t *)end_cell, &endv)) { return 0; }
+    if (!plc_unify_cells_cx((pl_cell_t *)end_cell, &endv, cx)) { return 0; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_numbervars1_cell(void *term_cell) {
+int rt_pl_numbervars1_cell(void *term_cell, pl_tr_ctx_t *cx) {
     int var_id = prolog_atom_intern("$VAR");
-    pl_numbervars_walk((pl_cell_t *)term_cell, 0, var_id);
+    pl_numbervars_walk((pl_cell_t *)term_cell, 0, var_id, cx);
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1441,7 +1448,7 @@ int rt_pl_acyclic_cell(void *term_cell)
     free(path); return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_term_string_cell(void *term_cell, void *str_cell)
+int rt_pl_term_string_cell(void *term_cell, void *str_cell, pl_tr_ctx_t *cx)
 {
     char *buf = (char *)0; size_t len = 0;
     FILE *ms = open_memstream(&buf, &len);
@@ -1449,7 +1456,7 @@ int rt_pl_term_string_cell(void *term_cell, void *str_cell)
     plc_vmap m; m.n = 0; m.fp = ms;
     plc_writeq((pl_cell_t *)term_cell, &m);
     if (fclose(ms) != 0) { free(buf); return 0; }
-    int ok = plc_unify_into_cell((pl_cell_t *)str_cell, plc_make_atom_cell(buf ? buf : ""));
+    int ok = plc_unify_into_cell_cx((pl_cell_t *)str_cell, plc_make_atom_cell(buf ? buf : ""), cx);
     free(buf);
     if (!ok) { return 0; }
     return 1;
@@ -1491,11 +1498,11 @@ static int pl_cell_atom_id(pl_cell_t *c)
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_copy_term_cell(void *term_cell, void *copy_cell)
+int rt_pl_copy_term_cell(void *term_cell, void *copy_cell, pl_tr_ctx_t *cx)
 {
     pl_cell_t *vaddr[256]; pl_cell_t *vnew[256]; int vn = 0;
     pl_cell_t copy = pl_cell_copy_cells((pl_cell_t *)term_cell, vaddr, vnew, &vn, 256);
-    if (!pl_unify((pl_cell_t *)copy_cell, &copy)) { return 0; }
+    if (!plc_unify_cells_cx((pl_cell_t *)copy_cell, &copy, cx)) { return 0; }
     return 1;
 }
 typedef struct { pl_cell_t *items; int n; int cap; } pl_findall_acc;
