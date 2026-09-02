@@ -52,7 +52,27 @@ while IFS= read -r -d '' f; do
     raw+=("$(basename "$f" ".$ext")")
 done < <(find "$DIR" \( -type d \( -name src -o -name vanroy \) -prune \) -o -name "*.$ext" -print0)
 
-mapfile -t kernels < <(printf '%s\n' "${raw[@]}" | sort -u)
+# ⛔⭐ THE UNIVERSE IS THE LOOP-DRIVER SET WHEN A LANGUAGE KEEPS ONE (hq_P 2026-09-02, cured on a red this gate had carried since
+# 2026-09-01). corpus/benchmarks/prolog/EXCLUDED.tsv, bench_prolog_vanroy.sh --two-number and hq_B's ruling of 2026-09-01 all say the
+# Prolog universe is the 21 vanroy/ kernels (names from vanroy/, source text from bench/); this gate counted every bench/*.pl -- 23 --
+# and REFUSED on queensn (a broken bench/-only file the legacy path auto-SKIPs) and witness_depth_nrev8 (a probe witness), the two
+# files that are in bench/ and not in the universe. seat12 had correctly removed queensn from EXCLUDED.tsv as "a declaration against a
+# kernel this file's universe does not contain" -- and the gate went red for exactly that reason, so the two authorities disagreed on the
+# denominator. ONE universe: when $DIR/vanroy/*.$ext exists, its basenames ARE the kernel set; a vanroy name with no bench/ source is an
+# orphan driver and REFUSES (a denominator naming a kernel nobody can run is a lie); bench/-only files print as INFO, never as missing
+# and never as covered. Languages without a driver dir (pascal, raku) enumerate exactly as before.
+shopt -s nullglob; drivers=("$DIR"/vanroy/*."$ext"); shopt -u nullglob
+if [ ${#drivers[@]} -gt 0 ]; then
+    universe=(); orphans=()
+    for f in "${drivers[@]}"; do k="$(basename "$f" ".$ext")"; universe+=("$k"); [ -f "$DIR/bench/$k.$ext" ] || orphans+=("$k"); done
+    if [ ${#orphans[@]} -gt 0 ]; then
+        echo "⛔ REFUSED: $lang loop drivers with no bench/ source (orphan denominator entries): ${orphans[*]}" >&2; exit 2; fi
+    extra=(); for k in "${raw[@]}"; do case " ${universe[*]} " in *" $k "*) ;; *) extra+=("$k");; esac; done
+    [ ${#extra[@]} -gt 0 ] && echo "INFO: $lang bench/-only files outside the ${#universe[@]}-kernel universe (not graded, not covered): ${extra[*]}"
+    mapfile -t kernels < <(printf '%s\n' "${universe[@]}" | sort -u)
+else
+    mapfile -t kernels < <(printf '%s\n' "${raw[@]}" | sort -u)
+fi
 total=${#kernels[@]}
 
 if [ "$total" -eq 0 ]; then
@@ -63,7 +83,8 @@ fi
 # ⛔ A same-named kernel in two subdirs (e.g. prolog bench/ vs vanroy/) would silently collide under
 # basename identity -- refuse loudly rather than trust an ambiguous denominator (denominator honesty, per
 # ARCH-BENCH-CAMPAIGN-README-TABLES.md). None observed for prolog as of this writing; guarded anyway.
-if [ "$total" -ne "${#raw[@]}" ]; then
+raw_unique=$(printf '%s\n' "${raw[@]}" | sort -u | grep -c .)
+if [ "$raw_unique" -ne "${#raw[@]}" ]; then
     echo "⛔ REFUSED: duplicate kernel basenames under $DIR across subdirectories (${#raw[@]} files, $total unique names)" >&2
     echo "   this gate identifies kernels by basename; a same-named kernel in two subdirs is ambiguous -- needs a naming convention (e.g. subdir-prefixed) before this gate can trust the denominator" >&2
     exit 2
