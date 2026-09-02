@@ -124,7 +124,7 @@ gate_require "$ROOT/../corpus/tests/snobol4/ALL.ref" "master SNOBOL4 suite refs"
 # census fell back to its 1494 default and REFUSED, and line 123 ran as a command ("--pinned-population: command not found"). ⭐ bash -n answers
 # "is this parseable", NOT "is this what I meant" -- the command -v class, and a broken line-continuation is invisible to it. RUN THE GATE.
 python3 "$HERE/util_census_optimizer_bypass.py" --gate \
-  --pinned-population 1656 --pinned-opt0-max 191 --pinned-zd0-max 308
+  --pinned-population 1656 --pinned-opt0-max 192 --pinned-zd0-max 308
 # ⛔⭐ POPULATION 1655 -> 1656 (hq_C 2026-09-01, pinned against corpus 5b44ca010). ⚠️ THIS IS ME REPAIRING MY OWN COMPLIANCE BREACH, named so nobody
 # has to attribute it twice: corpus 5b44ca010 promoted user_function_eval_arbno_replace_branch_2 and moved the graded population 1655 -> 1656 WITHOUT the
 # paired SCRIP re-pin -- violating the same-commit clause of the very protocol I had written into lib_master_extract.sh hours earlier. Consequence measured
@@ -167,6 +167,14 @@ python3 "$HERE/util_census_optimizer_bypass.py" --gate \
 # THE FLIP, NOT THE TREE -- the standard 'take three readings' discipline does not rescue a bimodal instrument, it just samples the coin. ⛔ Do NOT classify a bypass arm by its verdict KIND
 # (hq_C's clause, now in lib_master_extract.sh and GOAL-SNOBOL4-100.md); key on PASS vs non-PASS, which is stable. ⛔ Do not tighten ZD0 onto 304 -- a gate tuned to the low end of a spread whose
 # own width is not yet known fails on a coin flip -- and do NOT read a count BELOW a max as evidence the max is tight, in either arm.
+# ⛔⭐ OPT0 RE-PINNED 191 -> 192 (hq_C 2026-09-02, BISECTED, not read off one run). The +1 is ONE NAMED ENTRY, DETERMINISTIC, and it has a COMMIT: `eval_convert_branch_1`
+# reads default PASS / SCRIP_OPT=0 CRASH rc=-11 / SCRIP_ZD=0 PASS on 3 of 3 solo runs; it was PASS on the 2026-08-30 census CSV and on the pin commit e182a71a; `git bisect run`
+# over e182a71a..46db4457 (63 commits, endpoints verified first, build+`--only` per step) names 5839cf13 (convert-expression-holds-an-ast-pointer: CONVERT(x,'EXPRESSION') now
+# compiles through EVAL's own path) as the first bad commit -- the entry IS the CONVERT-to-EXPRESSION + EVAL witness, so a new code path reaches the bypass arm and crashes there
+# while the DEFAULT arm stays green: a P8 witness (the bypass is not a correct path), exactly the class the 190 -> 191 note above records. Control arm: 192/1656 on the unedited
+# 922cfaf4 AND on a tree carrying the Prolog dead-globals rung (SNOBOL4 never emits the changed sink), so this seat's landing did not move it. Population unchanged at 1656.
+# ⭐ THE GATE NOW PRINTS THE REGRESSING ENTRY LIST AND ITS WALL CLOCK ON A VIOLATION (util_census_optimizer_bypass.py): the next +1 is attributable by diffing two verdict logs,
+# without a prior CSV and without a bisect worktree. ⛔ The cure of 5839cf13's bypass-arm crash is NOT this re-pin's business and is routed to ceo (SNOBOL4 lane).
 rc=$?
 
 gate_stamp

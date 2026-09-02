@@ -285,6 +285,15 @@ def main():
             print("⛔ VIOLATION(1) [optbypass_watermark]:")
             for v in violations:
                 print(f"    - {v}")
+            if len(opt0_reg) > args.pinned_opt0_max:
+                print(f"    SCRIP_OPT=0 regressing entries ({len(opt0_reg)}, sorted -- diff against the previous run's list to name the movement):")
+                for n, kind, rc in sorted(opt0_reg):
+                    print(f"      {n} {kind} rc={rc}")
+            if len(zd0_reg) > args.pinned_zd0_max:
+                print(f"    SCRIP_ZD=0 regressing entries ({len(zd0_reg)}, sorted -- keyed PASS vs non-PASS; the kind flaps, the membership is what to diff):")
+                for n, kind, rc in sorted(zd0_reg):
+                    print(f"      {n} {kind} rc={rc}")
+            print(f"    wall clock: {time.time()-t0:.1f}s  workers={args.workers}")
             sys.exit(1)
         if args.stable_subset:
             print(f"✅ OK [optbypass_watermark]: DEFAULT 0/{len(graded)} (hard). "
@@ -295,6 +304,7 @@ def main():
             print(f"✅ OK [optbypass_watermark]: DEFAULT 0/{len(graded)} (hard). "
                   f"SCRIP_OPT=0 {len(opt0_reg)}/{len(graded)} (watermark <= {args.pinned_opt0_max}). "
                   f"SCRIP_ZD=0 {len(zd0_reg)}/{len(graded)} (watermark <= {args.pinned_zd0_max}).")
+        print(f"    wall clock: {time.time()-t0:.1f}s  workers={args.workers}")
         sys.exit(0)
 
     print("\n===== SUMMARY =====")
