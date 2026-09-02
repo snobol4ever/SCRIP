@@ -1,0 +1,36 @@
+#!/bin/bash
+# test_gate_p7_prolog_setjmp_gone.sh -- the DONE-WHEN of P7 (PROLOG REDESIGN, ARCH-PROLOG-THREE-ZETAS.md § 4; hq_P).
+#
+# ⭐ WHAT P7 DELETES, and why it is a deletion rather than a fix: Prolog failure and cut are control, and control belongs on the PORTS. Failure is β and cut is ω -- wired jumps decided at compile
+# time -- so the C machinery that implements them by unwinding the C stack has no job left. Section 4's row: the three live setjmp barriers, g_plw_unwind_floor, g_plw_floor_bypass,
+# rt_plw_floor_bypass_on, dop_call_nothrow and its two wrappers, at by_name_dispatch.c:1486-1600, 4872-4875, 4911, 5064.
+#
+# ⛔ IT GRADES BOTH HALVES, BECAUSE EITHER ALONE IS PASSABLE BY A CHANGE THAT DID NOT HAPPEN: the symbol must be gone from src/ AND absent from `nm -D out/libscrip_rt.so`. A source deletion that
+# leaves an exported symbol means something still links it; an unexported symbol still named in src/ means the deletion was cosmetic. The section 4 form is "absent from src/ AND from nm -D" for
+# exactly this reason and it is followed here literally.
+#
+# ⛔⛔ AND IT GRADES "BOARDS NOT WORSE" WITH THE INSTRUMENT THAT CAN ACTUALLY SAY SO. Deleting a stack-unwinding barrier is precisely the change that converts a caught corruption into a crash, so
+# the van Roy board is not decoration here -- it is the safety half of this row. ⛔ It is called through test_gate_vanroy_prolog_acceptance.sh, which grades REFUSE 0 **and** CRASH 0 **and** a pinned
+# CLEAN floor over worst-of-N: a bare "REFUSE 0" would be SATISFIED by these very deletions turning refusals into crashes (.github FINDING 5c7d2254). Do not swap it for a cheaper check.
+# ⭐ SEQUENCING: P7 lands AFTER PZ-4 → PZ-5 → C36 (§ 6). Before the frame exists, deleting the barrier removes the only thing catching the corruption -- the board would get worse and this gate
+# would correctly say so. A red here BEFORE the frame lands is the sequence being violated, not the cure being wrong.
+set -u
+R="${S4E_HOME:-/home/claude_P}"
+cd "$R/SCRIP" 2>/dev/null || { echo "⛔ REFUSED (rc=2): no $R/SCRIP"; exit 2; }
+SO=out/libscrip_rt.so
+[ -f "$SO" ] || { echo "⛔ REFUSED (rc=2): $SO not built -- 'symbol absent' is unfalsifiable against a library that does not exist, and an unbuilt tree would PASS the nm half for free"; exit 2; }
+[ -d src ] || { echo "⛔ REFUSED (rc=2): no src/ -- cannot grade a source deletion it cannot read"; exit 2; }
+F=0
+for s in g_plw_unwind_floor g_plw_floor_bypass rt_plw_floor_bypass_on dop_call_nothrow; do
+    n=$(grep -rw "$s" src/ 2>/dev/null | wc -l)
+    e=$(nm -D "$SO" 2>/dev/null | grep -cw "$s")
+    [ "$n" -eq 0 ] || { echo "⛔ $s: still $n reference(s) in src/"; F=1; }
+    [ "$e" -eq 0 ] || { echo "⛔ $s: still EXPORTED from $SO -- something links it"; F=1; }
+done
+# the three setjmp barriers themselves, scoped to the file section 4 names
+j=$(grep -cE '^[^*/]*\bsetjmp[[:space:]]*\(' src/runtime/by_name_dispatch.c 2>/dev/null)
+[ "$j" -eq 0 ] || { echo "⛔ by_name_dispatch.c still has $j live setjmp barrier(s) -- failure/cut must be wired jumps (β/ω), not C-stack unwinding"; F=1; }
+[ $F -eq 0 ] || { echo "GATE FAIL(1) [p7_prolog_setjmp_gone]: the P7 symbols are not gone"; exit 1; }
+echo "P7 symbols gone from src/ and from $SO. Now the safety half -- deleting a barrier must not convert a caught corruption into a crash:"
+bash scripts/test_gate_vanroy_prolog_acceptance.sh || { echo "GATE FAIL(1) [p7_prolog_setjmp_gone]: symbols gone but the van Roy board is WORSE -- the barrier was catching something the ports do not yet catch"; exit 1; }
+echo "PASS: P7 -- Prolog failure/cut is wired jumps, the setjmp barriers and plw floor are gone, and the van Roy board did not degrade"
