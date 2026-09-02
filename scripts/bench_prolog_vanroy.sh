@@ -21,21 +21,42 @@ T="${TIMEOUT:-240}"; MIN_WALL_MS="${MIN_WALL_MS:-300}"; NMAX="${NMAX:-65536}"
 # than inventing a format or a path -- RULES.md FACT RULES.
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE (rc=2): cannot source lib_oracle_flags.sh"; exit 2; }
 . "$HERE/lib_perf_fmt.sh"     2>/dev/null || { echo "⛔ REFUSED-TO-GRADE (rc=2): cannot source lib_perf_fmt.sh";     exit 2; }
-TWO_NUMBER=0; for a in "$@"; do [ "$a" = --two-number ] && TWO_NUMBER=1; done
+TWO_NUMBER=0; RULECHECK=; for a in "$@"; do [ "$a" = --two-number ] && TWO_NUMBER=1; done
+# ⭐ --measured-from <tri.tsv> : print the bucket rule's INPUT-TO-OUTPUT decision for one triangulation file and exit.
+# It exists so test_gate_vanroy_bucket_rule.sh can grade THE REAL SELECTION CODE against fixtures instead of restating
+# the awk in the test -- a gate that reimplements the rule it guards proves the two copies agree, never that either is
+# right. It is a PURE function of the TSV, so it deliberately runs BEFORE the built-binary and oracle guards below:
+# demanding a compiler and two rival engines to answer a question about a text file is how a cheap check becomes one
+# nobody runs.
+for i in $(seq $#); do [ "${!i}" = --measured-from ] && { j=$((i+1)); RULECHECK="${!j}"; }; done
 ulimit -s unlimited 2>/dev/null || ulimit -s 1048576 2>/dev/null || true
+if [ -z "$RULECHECK" ]; then
 [ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built"; exit 2; }
 [ -f "$RT/libscrip_rt.so" ] || { echo "⛔ REFUSED-TO-GRADE libscrip_rt.so not built"; exit 2; }
 [ -d "$B" ] || { echo "⛔ REFUSED-TO-GRADE bench corpus missing: $B"; exit 2; }
+fi
 # ⛔ LEGACY PATH ONLY. `command -v` is forbidden on the --two-number path (row prolog-vanroy-21-board-two-number-basis):
 # it resolves a bare name on PATH, which is the exact fallback lib_oracle_flags.sh exists to refuse. Left in place for
 # the legacy per-iteration board rather than changed under it, so this row's diff is the new path, not a silent
 # re-basing of numbers nobody re-measured.
-if [ "$TWO_NUMBER" -eq 0 ]; then
+if [ "$TWO_NUMBER" -eq 0 ] && [ -z "$RULECHECK" ]; then
 command -v gprolog >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE gprolog absent"; exit 2; }
 command -v swipl   >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE swipl absent"; exit 2; }
 fi
 mkdir -p "$V"; W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 now_ms() { echo $(( $(date +%s%N) / 1000000 )); }
+# ⛔⛔ THE BUCKET RULE'S ONE IMPLEMENTATION. Both the board and its gate call THESE -- never a second awk.
+# tn_rivals: the engines that form the comparison axis, DERIVED FROM THE DATA. ⛔ SCRIP's own mode rows (m3/m4, and
+# any future m<N>) are excluded on purpose: bench_triangulate_prolog.sh's header pins them UNPROVEN for every kernel by
+# a known compiler defect (PZ-4 -- a named var bound by a user-predicate call plus one more goal, re-entered by
+# backtracking), not by disagreement. They are the subject being measured, not the axis measuring it; gating on them
+# pins MEASURED at 0 until PZ-4 lands, and a bucket that can never fill is a broken instrument, not a strict one.
+tn_rivals() { awk -F'\t' 'NR>2 && $2!~/^m[0-9]+$/ && NF{print $2}' "$1" | sort -u; }
+# tn_measured_kernels: a kernel is MEASURED only when it carries an AGREE row for EVERY rival -- not >=1 (hq_B ruling
+# 2026-09-01). ⛔⛔ IDENTITY-KEYED ON COLUMN 6, NEVER `grep AGREE`: AGREE IS A SUBSTRING OF DISAGREE, and that one
+# substring is where this row's GOAL got "the 6 that pass" (grep says 6; the verdict column says 4 AGREE + 2 DISAGREE,
+# spanning 2 kernels). The dedupe guard makes a duplicated kernel,engine row unable to fake a full house.
+tn_measured_kernels() { awk -F'\t' -v nriv="$2" 'NR>2 && $2!~/^m[0-9]+$/ && $6=="AGREE" && !seen[$1"\t"$2]++{c[$1]++} END{for(k in c) if(c[k]==nriv) print k}' "$1" | sort -u; }
 # ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 # --two-number : THE VAN ROY 21-KERNEL BOARD ON THE TWO-NUMBER BASIS (row prolog-vanroy-21-board-two-number-basis).
 # ⛔ An EXTENSION, not a fourth harness (the row's GOAL is explicit: "extend, do not fork"). Everything above this line
@@ -108,7 +129,24 @@ two_number_board() {
   # ── MEASURED, IDENTITY-KEYED ON COLUMN 6. ⛔⛔ NEVER `grep AGREE`: AGREE IS A SUBSTRING OF DISAGREE. That one
   # substring is where this row's GOAL got "the 6 that pass" -- grep -c says 6; the verdict column says 4 AGREE +
   # 2 DISAGREE, and those 4 are kernel,engine PAIRS spanning only 2 kernels (deriv, fib).
-  local MEAS DECL; MEAS=$(awk -F'\t' '$6=="AGREE"{print $1}' "$TRI" | sort -u)
+  # ⛔⭐ AND "AGREE" IS PER KERNEL ONLY WHEN EVERY *RIVAL* ENGINE THE GRID PUBLISHES AGREES -- NOT >=1 (hq_B ruling
+  # 2026-09-01, implemented 2026-09-01 with the fixture that proves the difference: test_gate_vanroy_bucket_rule.sh).
+  # A kernel promoted on ONE rival while the other rival disagreed is a board citing its friendliest number, which is
+  # the same defect as `grep AGREE` wearing better manners.
+  # ⛔⛔ "RIVAL" IS LOAD-BEARING, AND THE LITERAL ALL-ENGINES READING IS A TRAP THAT ZEROES THIS BOARD. The grid
+  # publishes FOUR engines -- gnu swi m3 m4 -- and m3/m4 are UNPROVEN for EVERY kernel BY CONSTRUCTION, not by
+  # disagreement: bench_triangulate_prolog.sh's own header pins the cause (a named var bound by a user-predicate call
+  # plus one more goal, re-entered by backtracking, "stack smashing detected" -- GOAL-PROLOG-100.md PZ-4), and every
+  # vanroy kernel is exactly that shape, so all 21 crash at once. Gating promotion on SCRIP's own mode rows therefore
+  # makes MEASURED permanently 0 until PZ-4 lands -- a bucket that can never fill is not strictness, it is a broken
+  # instrument. SCRIP's modes are the thing being MEASURED; the rivals are the axis that decides whether the
+  # measurement is trustworthy. Self-rows stay UNPROVEN and visible, and are never allowed to veto a rival verdict.
+  # ⭐ THE RIVAL SET IS DERIVED FROM THE DATA, never a hardcoded pair, so adding a third rival tightens this
+  # automatically instead of silently keeping a two-engine rule under a three-engine grid.
+  local MEAS DECL RIVALS NRIV
+  RIVALS=$(tn_rivals "$TRI"); NRIV=$(printf '%s\n' "$RIVALS" | grep -c .)
+  [ "$NRIV" -gt 0 ] || { echo "⛔ REFUSED-TO-GRADE (rc=2): triangulation publishes no rival engine -- MEASURED has no axis"; return 2; }
+  MEAS=$(tn_measured_kernels "$TRI" "$NRIV")
   DECL=$(grep -v '^#' "$EXC" | awk -F'\t' 'NF{print $1}' | sort -u)
   echo "VAN ROY 21-KERNEL BOARD -- TWO-NUMBER BASIS"
   echo "BASIS: WORK = the kernel's own wall_us(T0)/wall_us(T1) delta, printed to user_error so stdout stays"
@@ -118,7 +156,10 @@ two_number_board() {
   echo "   1 ms sources, so a rival work_us is that many WHOLE TICKS x1000, not a us measurement. SCRIP's wall_us"
   echo "   is genuinely us-backed. A us-precise numerator over a ms-quantized denominator is stated, never hidden."
   echo "⛔ BUCKETS PARTITION, PRECEDENCE MEASURED > REFUSE > DECLARED: a crash that is UNDERSTOOD is still a crash,"
-  echo "   so a checked EXCLUDED reason never converts a red into an excuse (seat12; ask open to HQ)."
+  echo "   so a checked EXCLUDED reason never converts a red into an excuse (hq_B ruling 2026-09-01, ask CLOSED)."
+  echo "⛔ MEASURED REQUIRES EVERY RIVAL ENGINE TO AGREE, NOT ONE: rivals=[$(echo $RIVALS)] ($NRIV of them)."
+  echo "   SCRIP's own m3/m4 rows are UNPROVEN by a known compiler defect (PZ-4), not by disagreement, so they are"
+  echo "   printed by the triangulator but never gate promotion -- gating on them would pin MEASURED at 0 forever."
   echo "SHARED AXES: instrument=wall clock · RT_OPT=-O0 · mode=m3 · basis printed PER ROW (SELF|FLOOR, never mixed)"
   echo "TREE: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null) corpus=$(git -C "$S4E/corpus" rev-parse --short HEAD 2>/dev/null) triangulation=$(basename "$TRI") kernels=$NK"
   echo
@@ -133,7 +174,7 @@ two_number_board() {
     { ( cd "$W" && timeout "$TN_T" "$SCRIP" --run "$src" </dev/null >/dev/null 2>&1 ); rc=$?; } 2>/dev/null
     us_s=-; us_g=-; us_w=-
     if printf '%s\n' "$MEAS" | grep -qx "$k"; then
-      bucket=MEASURED; n_meas=$((n_meas+1)); note="AGREE row in $(basename "$TRI")"
+      bucket=MEASURED; n_meas=$((n_meas+1)); note="AGREE from all $NRIV rivals in $(basename "$TRI")"
       printf '%s\n' "$DECL" | grep -qx "$k" && note="$note ⛔STALE-DECLARED: EXCLUDED.tsv's own header orders removal"
     elif [ $rc -ne 0 ]; then
       bucket=REFUSE; n_ref=$((n_ref+1))
@@ -142,7 +183,7 @@ two_number_board() {
     elif printf '%s\n' "$DECL" | grep -qx "$k"; then
       bucket=DECLARED; n_decl=$((n_decl+1)); note="checked reason in EXCLUDED.tsv"
     else
-      bucket=REFUSE; n_ref=$((n_ref+1)); note="runs green but has no AGREE row -- UNPROVEN, not excused"
+      bucket=REFUSE; n_ref=$((n_ref+1)); note="runs green but lacks an AGREE from every rival -- UNPROVEN, not excused"
     fi
     if [ "$basis" = SELF ] && [ $rc -eq 0 ]; then
       us_s=$(tn_work_us scrip "$src"); us_g=$(tn_work_us gnu "$src"); us_w=$(tn_work_us swi "$src")
@@ -174,6 +215,14 @@ two_number_board() {
   return 0
 }
 
+if [ -n "$RULECHECK" ]; then
+  [ -f "$RULECHECK" ] || { echo "⛔ REFUSED-TO-GRADE (rc=2): no such triangulation TSV: $RULECHECK"; exit 2; }
+  _rv=$(tn_rivals "$RULECHECK"); _nrv=$(printf '%s\n' "$_rv" | grep -c .)
+  [ "$_nrv" -gt 0 ] || { echo "⛔ REFUSED-TO-GRADE (rc=2): triangulation publishes no rival engine -- MEASURED has no axis"; exit 2; }
+  echo "RIVALS($_nrv): $(echo $_rv)"
+  echo "MEASURED: $(echo $(tn_measured_kernels "$RULECHECK" "$_nrv"))"
+  exit 0
+fi
 if [ "$TWO_NUMBER" -eq 1 ]; then two_number_board; exit $?; fi
 wall_ms() { local t0 t1; t0=$(now_ms); (cd "$W" && timeout -k 5 "$T" "$@" </dev/null >/dev/null 2>&1); t1=$(now_ms); echo $((t1 - t0)); }
 med5() { local a=() i; for i in 1 2 3 4 5; do a+=( "$(wall_ms "$@")" ); done; printf '%s\n' "${a[@]}" | sort -n | sed -n 3p; }

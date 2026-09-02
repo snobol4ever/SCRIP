@@ -376,9 +376,17 @@ rival binary is missing rather than filling a column:
 
 | bucket | n | meaning |
 |---|:---:|---|
-| MEASURED | 2 | `deriv`, `fib` — a cross-verified AGREE row in `triangulation-*.tsv` |
+| MEASURED | 2 | `deriv`, `fib` — an `AGREE` verdict from **every** rival engine in `triangulation-*.tsv`, not just one |
 | DECLARED | 8 | runs green, no triangulated rate yet, carries a checked reason |
 | REFUSE | 11 | **crashes today** — `SIGSEGV` or `abort` — printed RED with its `rc`, never dropped |
+
+Promotion needs a full house: a kernel that one rival agrees with and another
+disagrees with stays out of MEASURED, because a board that cites its friendliest
+rival is not measuring, it is choosing. SCRIP's own `m3`/`m4` rows are reported by
+the triangulator but never vote on promotion — they are UNPROVEN for every kernel
+by the same crash the REFUSE column counts, and letting the subject veto its own
+measurement would pin this bucket at zero. The rule is gated by
+`scripts/test_gate_vanroy_bucket_rule.sh`.
 
 Eleven of twenty-one kernels crash before they can be timed. That number is the
 headline, not a footnote: it is the ceiling on every Prolog performance claim this
