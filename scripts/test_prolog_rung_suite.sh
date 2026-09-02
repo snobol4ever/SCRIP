@@ -148,12 +148,12 @@ run_corpus() {
             [ "$VERBOSE" = 1 ] && echo "XFAIL $name"
             XFAIL=$((XFAIL+1)); continue
         fi
-        got=$(run_prog "$mode" "$pl" 8) || true
+        got=$(run_prog "$mode" "$pl" 8); rc=$?
         # Per-file refuse: mode-4 is now PARTIALLY live (PLG-9a hello tier emits+runs); a shape
         # the flat tier does not yet cover refuses with the [SMX] banner. Per the testing discipline
         # that is REFUSED (pending regrow), NOT a FAIL — identical to test_smoke_prolog.sh.
         if printf '%s' "$got" | grep -qE "$SMX_SIG"; then
-            [ "$VERBOSE" = 1 ] && echo "REFUSED $name"
+            echo "RED $mode $name: REFUSED (Stack Machine banner)"
             REFUSED=$((REFUSED+1)); continue
         fi
         if [ "$_isref" = 1 ]; then want=$(tail -n +2 "$exp"); else want=$(cat "$exp"); fi
@@ -161,8 +161,16 @@ run_corpus() {
             [ "$VERBOSE" = 1 ] && echo "PASS $name"
             PASS=$((PASS+1))
         else
+            # ⛔ instrument laws clause 5 (anchor on identity, never position): name every red by default,
+            # not only under VERBOSE=1 -- a count the board cannot name cannot be rowed. rc is read BEFORE
+            # any `|| true`/pipefail swallowing, so a crash/timeout is distinguished from a clean-exit wrong
+            # answer without changing what is graded (PASS/FAIL bucketing below is untouched).
+            if   [ "$rc" -ge 128 ]; then reason="CRASH rc=$rc (signal $((rc-128)))"
+            elif [ "$rc" -eq 124 ]; then reason="TIMEOUT"
+            elif [ "$rc" -ne 0 ];   then reason="CRASH rc=$rc"
+            else reason="output mismatch"; fi
+            echo "RED $mode $name: $reason"
             if [ "$VERBOSE" = 1 ]; then
-                echo "FAIL $name"
                 echo "  want: $(echo "$want" | tr '\n' '|')"
                 echo "  got:  $(echo "$got"  | tr '\n' '|')"
             fi
@@ -172,13 +180,18 @@ run_corpus() {
     # suite-format families (see header note): interp/run delegate to the harness, one family at a
     # time, folding its per-entry board into these same totals. compile does NOT get this — see header.
     if [ "$mode" != compile ]; then
-        local sf sfname board spass sfail scrash shang sunproven sbad
+        local sf sfname raw board spass sfail scrash shang sunproven sbad eline etag erest ename edetail
         for sf in "${SUITE_FILES[@]}"; do
             sfname=$(basename "$sf" .pl)
-            board=$(python3 "$HERE/corpus_suite_harness.py" run "$sf" "${sf%.pl}.ref" --lang prolog --modes m3 2>&1 | grep '^SUITE_BOARD')
+            # SUITE_LIST_ALL=1 + full (unfiltered) capture: the harness already prints one line per
+            # non-PASS entry ("  TAG m3 name: detail", cmd_run's own `fails` listing) -- it was being
+            # thrown away by piping straight into `grep '^SUITE_BOARD'`. Reformat each into this
+            # script's own RED shape instead of re-deriving per-entry identity a second way.
+            raw=$(SUITE_LIST_ALL=1 python3 "$HERE/corpus_suite_harness.py" run "$sf" "${sf%.pl}.ref" --lang prolog --modes m3 2>&1)
+            board=$(printf '%s\n' "$raw" | grep '^SUITE_BOARD')
             spass=$(echo "$board" | grep -oP 'm3_pass=\K[0-9]+')
             if [ -z "$spass" ]; then
-                echo "SUITE-RUN-ERROR $sfname (harness produced no SUITE_BOARD line)" >&2
+                echo "RED $mode $sfname: SUITE-RUN-ERROR (harness produced no SUITE_BOARD line)"
                 FAIL=$((FAIL+1)); MODE_FAIL=1
                 continue
             fi
@@ -187,6 +200,14 @@ run_corpus() {
             shang=$(echo "$board" | grep -oP 'm3_hang=\K[0-9]+')
             sunproven=$(echo "$board" | grep -oP 'm3_unproven=\K[0-9]+')
             sbad=$((sfail+scrash+shang+sunproven))
+            while IFS= read -r eline; do
+                [ -n "$eline" ] || continue
+                etag="${eline%% m3 *}"; etag="${etag#  }"
+                erest="${eline#* m3 }"
+                ename="${erest%%:*}"
+                edetail="${erest#*: }"
+                echo "RED $mode $sfname/$ename: $etag ($edetail)"
+            done < <(printf '%s\n' "$raw" | grep -E '^  [A-Z]')
             [ "$VERBOSE" = 1 ] && echo "SUITE $sfname: pass=$spass bad=$sbad"
             PASS=$((PASS+spass)); FAIL=$((FAIL+sbad))
             [ "$sbad" -gt 0 ] && MODE_FAIL=1
