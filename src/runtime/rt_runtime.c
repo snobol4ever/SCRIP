@@ -68,6 +68,11 @@ typedef struct { IR_t * node; DESCR_t * items; int count; } susp_gen_cache_t;
 static susp_gen_cache_t g_susp_gen_cache[SUSP_GEN_CACHE_MAX];
 static int g_susp_gen_cache_n = 0;
 extern int rt_scan_exec(const char *subj_name, const char *subj_lit, int has_repl, const char *repl_str, void *pat_graph);
+/* ⛔ THE STRUCT-TREE CONVERTER + COMPARE CLUSTER WAS DELETED HERE (T9): rt_cmp_cell_to_term_shared, rt_pl_cell_to_term, rt_pl_cell_to_term_named, resolve_term_class,
+   resolve_term_compare and rt_term_cmp_terms. All six were reachable only from each other -- rt_term_cmp_terms had NO caller anywhere (definition plus one header declaration), and the
+   two wrappers lost their last consumer when op/3's list walk went cell-native. Their live replacements are rt_pl_cell_compare + pl_vord_t in unification.c.
+   ⛔⛔ rt_pl_cell_to_term_named IS WHERE THE prolog_atom_init GUARD USED TO LIVE, and deleting it here is only safe because that guard was re-homed into the printers first
+   (plc_atoms_ready in unification.c). Removing this file's copy BEFORE that fix would have re-broken mode-4 list printing -- the same regression, arrived at from the other side. */
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_scan_lit(const char * subj_name, const char * subj_lit, const char * pat_lit, int is_repl, const char * repl_lit) {
     const char * subj_str = ""; int subj_len = 0;
@@ -100,45 +105,7 @@ int rt_scan_lit(const char * subj_name, const char * subj_lit, const char * pat_
 static int bb_is_gen_node(IR_t * e);
 static void resolve_format_float(char *buf, size_t bufsz, double d);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int resolve_term_class(Term *t) {
-    switch (t->tag) {
-    case TERM_VAR: return 0;
-    case TERM_FLOAT: case TERM_INT: return 1;
-    case TERM_ATOM: return 2;
-    case TERM_COMPOUND: return 3;
-    default: return 4;
-    }
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int resolve_term_compare(Term *a, Term *b) {
-    a = a ? term_deref(a) : NULL; b = b ? term_deref(b) : NULL;
-    if (!a && !b) return 0; if (!a) return -1; if (!b) return 1;
-    int ca = resolve_term_class(a), cb = resolve_term_class(b);
-    if (ca != cb) return ca < cb ? -1 : 1;
-    switch (a->tag) {
-    case TERM_VAR: return (a==b)?0:(a<b?-1:1);
-    case TERM_INT: {
-        double x=(double)a->ival, y=(b->tag==TERM_INT)?(double)b->ival:b->fval;
-        return x<y?-1:(x>y?1:0);
-    }
-    case TERM_FLOAT: {
-        double x=a->fval, y=(b->tag==TERM_INT)?(double)b->ival:b->fval;
-        return x<y?-1:(x>y?1:0);
-    }
-    case TERM_ATOM: {
-        const char *na=prolog_atom_name(a->atom_id), *nb=prolog_atom_name(b->atom_id);
-        int c=strcmp(na?na:"",nb?nb:""); return c<0?-1:(c>0?1:0);
-    }
-    case TERM_COMPOUND: {
-        if (a->compound.arity != b->compound.arity) return a->compound.arity < b->compound.arity ? -1 : 1;
-        const char *na=prolog_atom_name(a->compound.functor), *nb=prolog_atom_name(b->compound.functor);
-        int c=strcmp(na?na:"",nb?nb:""); if (c) return c<0?-1:1;
-        for (int i=0;i<a->compound.arity;i++) { int r=resolve_term_compare(a->compound.args[i],b->compound.args[i]); if (r) return r; }
-        return 0;
-    }
-    default: return 0;
-    }
-}
 static int bb_body_has_live_choice(IR_graph_t *bbg);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_is_cell_int(void *lhs_cell, long val) {
@@ -279,57 +246,9 @@ bind:;
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static Term *rt_cmp_cell_to_term_shared(pl_cell_t *c, pl_cell_t **vaddr, Term **vterm, int *vn, int cap) {
-    while (c && (int)c->v == DT_N && c->slen == 2 && c->p && ((VCELL_t *)c->p)->cellp) c = (pl_cell_t *)((VCELL_t *)c->p)->cellp;
-    pl_cell_t *d = pl_deref(c);
-    int t = (int)d->v;
-    if (t == DT_PLVAR) {
-        for (int i = 0; i < *vn; i++) if (vaddr[i] == d) return vterm[i];
-        Term *fresh = term_new_var((int)d->slen);
-        if (*vn < cap) { vaddr[*vn] = d; vterm[*vn] = fresh; (*vn)++; }
-        return fresh;
-    }
-    if (t == DT_I) return term_new_int((long)d->i);
-    if (t == DT_A) return term_new_atom((int)d->i);
-    if (t == DT_R) return term_new_float(d->r);
-    if (t == DT_S || t == DT_SNUL) return term_new_atom(prolog_atom_intern(d->s ? d->s : ""));
-    if (t == DT_PLREF) {
-        int fn = (int)(d->slen >> 16), ar = (int)(d->slen & 0xFFFFu);
-        pl_cell_t *aa = (pl_cell_t *)d->p;
-        Term **args = (Term **)rt_ws_alloc((size_t)(ar > 0 ? ar : 1) * sizeof(Term *));
-        for (int i = 0; i < ar; i++) args[i] = rt_cmp_cell_to_term_shared(&aa[i], vaddr, vterm, vn, cap);
-        return term_new_compound(fn, ar, args);
-    }
-    return term_new_var(-1);
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-Term *rt_pl_cell_to_term(void *cell) {
-    { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); }
-    pl_cell_t *vaddr[256]; Term *vterm[256]; int vn = 0;
-    return rt_cmp_cell_to_term_shared((pl_cell_t *)cell, vaddr, vterm, &vn, 256);
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-Term *rt_pl_cell_to_term_named(void *cell) {
-    { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); }
-    return pl_cell_to_term_named((pl_cell_t *)cell);
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_term_cmp_terms(const char *op, void *t0, void *t1) {
-    if (!op) return 0;
-    pl_cell_t *vaddr[256]; Term *vterm[256]; int vn = 0;
-    arena_mark_t cm = rt_pl_cterm_mark();
-    Term *T0 = rt_cmp_cell_to_term_shared((pl_cell_t *)t0, vaddr, vterm, &vn, 256);
-    Term *T1 = rt_cmp_cell_to_term_shared((pl_cell_t *)t1, vaddr, vterm, &vn, 256);
-    int c = resolve_term_compare(T0, T1);
-    if (rt_pl_ctr_on()) rt_pl_cterm_release(cm);
-    if (strcmp(op, "==")   == 0) return (c == 0) ? 1 : 0;
-    if (strcmp(op, "\\==") == 0) return (c != 0) ? 1 : 0;
-    if (strcmp(op, "@<")   == 0) return (c <  0) ? 1 : 0;
-    if (strcmp(op, "@>")   == 0) return (c >  0) ? 1 : 0;
-    if (strcmp(op, "@=<")  == 0) return (c <= 0) ? 1 : 0;
-    if (strcmp(op, "@>=")  == 0) return (c >= 0) ? 1 : 0;
-    return 0;
-}
 static long g_pl_yield_seq = 1;
 typedef struct { Term **callee_env; Term **saved_env; int trail_mark; int nslots;
                  bb_node_state_t *act; void *cp_floor; int disj_hint; } PlCallSt;

@@ -1869,15 +1869,24 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (!strcmp(fn, "$op") && nargs == 3) {
         extern DESCR_t rt_pl_deref_val(DESCR_t);
         extern int prolog_op_table_add(const char *, int, const char *);
-        extern Term *rt_pl_cell_to_term(void *);
         DESCR_t pv = rt_pl_deref_val(args[0]); DESCR_t tv = rt_pl_deref_val(args[1]);
         if (pv.v != DT_I) { rt_pl_iso_throw_instantiation(); *out = FAILDESCR; return 1; }
         const char *tystr = pl_atom_str(tv); if (!tystr || !tystr[0]) { rt_pl_iso_throw_instantiation(); *out = FAILDESCR; return 1; }
         int prec = (int)pv.i; int added = 0;
         DESCR_t nv = rt_pl_deref_val(args[2]); const char *single = pl_atom_str(nv);
         if (single && single[0] && strcmp(single, "[]") != 0) { added = prolog_op_table_add(single, prec, tystr); }
-        else { DESCR_t tmp = args[2]; Term *lt = rt_pl_cell_to_term(&tmp); lt = lt ? term_deref(lt) : (Term *)0; int guard = 0;
-            while (lt && lt->tag == TERM_COMPOUND && lt->compound.arity == 2 && guard++ < 4096) { Term *hd = term_deref(lt->compound.args[0]); if (hd && hd->tag == TERM_ATOM) { extern const char *prolog_atom_name(int); const char *hn = prolog_atom_name(hd->atom_id); if (hn && prolog_op_table_add(hn, prec, tystr)) added = 1; } lt = term_deref(lt->compound.args[1]); } }
+        /* op/3 with a LIST of names, CELL-NATIVE (T9). It used to convert the whole list to a heap struct-tree via rt_pl_cell_to_term and walk that; this was the LAST consumer of
+           that wrapper family, so rt_runtime.c's rt_pl_cell_to_term / rt_pl_cell_to_term_named / rt_cmp_cell_to_term_shared go with it. A Prolog list is DT_PLREF '.'/2 with its two
+           arguments in the compound heap; an atom element may ride DT_A or DT_S, so pl_atom_str is used rather than testing one tag. The 4096 guard against a cyclic list is kept. */
+        else { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init();
+            DESCR_t tmp = args[2]; pl_cell_t *lt = pl_deref((pl_cell_t *)&tmp); int guard = 0;
+            while (lt && (int)lt->v == DT_PLREF && (int)(lt->slen >> 16) == ATOM_DOT && (int)(lt->slen & 0xFFFFu) == 2 && guard++ < 4096) {
+                pl_cell_t *aa = (pl_cell_t *)lt->p;
+                pl_cell_t *hd = pl_deref(&aa[0]);
+                const char *hn = hd ? pl_atom_str(*(DESCR_t *)hd) : (const char *)0;
+                if (hn && hn[0] && prolog_op_table_add(hn, prec, tystr)) added = 1;
+                lt = pl_deref(&aa[1]);
+            } }
         if (!added) { rt_pl_iso_throw_pi("domain_error", "operator_specifier", tystr, 0); *out = FAILDESCR; return 1; }
         DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
     }
