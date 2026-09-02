@@ -298,7 +298,12 @@ static IR_t * lower_ite(lcx_t * cx, const tree_t * C, const tree_t * T, const tr
     IR_t * tn = thread1(cx, T, γnext, F, &te);
     IR_t * en = E ? thread1(cx, E, γnext, F, &ee) : NULL;
     IR_t * cω = E ? (ee ? ee : en) : F;
-    IR_t * cn = thread1(cx, C, (te ? te : tn), cω, &ce);
+    // A thrown exception reaches the condition's ω edge exactly like an ordinary failure (row
+    // prolog-exceptions-uncaught-propagation) -- this guard is the only thing between "condition failed,
+    // try the else branch" and "condition threw, unwind past the else branch too", so it sits ON the edge,
+    // never folded into cω itself: pending -> ωfail (skip else); not pending -> cω (else, unchanged).
+    IR_t * G = build(cx, IR_CALL_PROLOG, cω, ωfail); IR_LIT(G).sval = "$no_throw_or_fail";
+    IR_t * cn = thread1(cx, C, (te ? te : tn), G, &ce);
     if (entry_out) *entry_out = ce ? ce : cn;
     cx->beta = NULL;
     cx->ite_funnel = F;

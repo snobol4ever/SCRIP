@@ -195,6 +195,7 @@ int pl_builtin_is_known(const char *name)
     if (!name || !name[0]) return 0;
     if (!strcmp(name, "$unify") || !strcmp(name, "$unify_lst") || !strcmp(name, "$ix_g") || !strcmp(name, "$mkc") || !strcmp(name, "$trail_mark") || !strcmp(name, "$trail_unwind")) return 1;
     if (!strcmp(name, "$throw") || !strcmp(name, "$catch_check") || !strcmp(name, "$unwind_nothrow") || !strcmp(name, "$existence_error")) return 1;
+    if (!strcmp(name, "$no_throw_or_fail")) return 1;
     if (!strncmp(name, "$is_", 4) || !strncmp(name, "$cmp_", 5) || !strncmp(name, "$ax_", 4)) return 1;
     if (!strcmp(name, "$succ") || !strcmp(name, "$plus")) return 1;
     if (!strcmp(name, "$atom_length") || !strcmp(name, "$upcase_atom") || !strcmp(name, "$downcase_atom") || !strcmp(name, "$atom_concat") || !strcmp(name, "$atom_chars") || !strcmp(name, "$atom_codes") || !strcmp(name, "$string_chars") || !strcmp(name, "$string_codes") || !strcmp(name, "$name")) return 1;
@@ -2682,6 +2683,16 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         DESCR_t t1 = args[1];
         if (rt_pl_throw_match((void *)plw_det_cell(&t1))) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR;
         return 1;
+    }
+    // lower_ite's throw-guard (row prolog-exceptions-uncaught-propagation): a condition that THROWS reaches
+    // this exact ω edge identically to a condition that FAILS -- lower_ite wires both the same way at compile
+    // time, and nothing downstream distinguishes them without this check. Inserted between the condition and
+    // the else-branch entry: pending -> fail (skip the else branch, keep unwinding to lower_ite's own ωfail,
+    // same as catch/3's own nearest-enclosing-catch search); not pending -> succeed (proceed into else, unchanged).
+    if (!strcmp(fn, "$no_throw_or_fail") && nargs == 0) {
+        extern int rt_pl_throw_pending(void);
+        if (rt_pl_throw_pending()) { *out = FAILDESCR; return 1; }
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
     }
     if (!strcmp(fn, "__multi_call") && nargs >= 1) {
         const char *base = VARVAL_fn(args[0]); if (!base) { *out = FAILDESCR; return 1; }
