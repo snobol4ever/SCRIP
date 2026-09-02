@@ -2,7 +2,8 @@
 # test_gate_pl_port_trace.sh -- BX-0 THE PORT-TRACE INSTRUMENT (ARCH-PROLOG-BYRD-BOX-TRANSLATION.md § D / § E rung 1; hq_P 2026-09-02).
 # SCRIP_PL_TRACE=1 makes x86_port_hook emit one runtime call per Byrd port (Call=α def, Redo=β def, Exit=γ jmp, Fail=ω jmp) that
 # prints "(N) D Port: box [-> target]" to stderr; =2 counts hits per box and prints the four-port table at exit; =3 both.
-# Graded population: every probe_plz origin of corpus/tests/prolog/ALL.pl (the PZ-0 witnesses), both modes. Per witness:
+# Graded population: every origin of the FAMILIES list (default `probe_plz ladder`: the PZ-0 witnesses and the construct-ladder
+# witnesses of ARCH-PROLOG-BYRD-BOX-TRANSLATION.md § E, hq_B 2026-09-02) of corpus/tests/prolog/ALL.pl, both modes. Per witness:
 #   (1) KILLSWITCH BOTH WAYS: the mode-4 .s with no env and with SCRIP_PL_TRACE=0 are byte-identical; with =1 it differs.
 #   (2) NO PERTURBATION: stdout and rc are identical with and without the trace, m3 and m4.
 #   (3) THE TRACE MATCHES ITS REF line for line after normalisation: depth column dropped (the brief's clause), n<k>_ node numbers
@@ -28,8 +29,8 @@ gate_require "$MASTER_DIR/ALL.pl" "Prolog master suite"
 gate_require "$MASTER_DIR/ALL.csv" "Prolog master suite index"
 [ "$CUT" = 1 ] || gate_require "$REF" "trace refs (run with --cut to create them)"
 . "$HERE/lib_master_extract.sh" || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot source lib_master_extract.sh"; exit 2; }
-origins=$(master_origins_of_family probe_plz) || origins=""
-[ -n "$origins" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: no probe_plz origins in $MASTER_DIR/ALL.csv -- the witnesses moved; re-point, never skip"; gate_stamp; exit 2; }
+FAMILIES="${FAMILIES:-probe_plz ladder}"; origins=""
+for fam in $FAMILIES; do o=$(master_origins_of_family "$fam") || o=""; [ -n "$o" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: no $fam origins in $MASTER_DIR/ALL.csv -- the witnesses moved; re-point, never skip"; gate_stamp; exit 2; }; origins="$origins $o"; done
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 norm() { grep -E '^\([0-9]+\) [0-9]+ (Call|Exit|Redo|Fail|Exception): ' "$1" | sed -E 's/^(\([0-9]+\)) [0-9]+ /\1 /; s/\bn[0-9]+_//g; s/\$2F/\//g; s/ r15=0x[0-9a-f]+$//'; }
 m4build() { [ -s "$1" ] && as --64 -o "$1.o" "$1" 2>/dev/null && gcc -no-pie -o "$2" "$1.o" "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>/dev/null; }
