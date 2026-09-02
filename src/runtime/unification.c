@@ -1202,31 +1202,35 @@ int rt_pl_subsumes_cell(void *gen_cell, void *spec_cell)
 int rt_pl_sort_cell(int do_msort, void *list_cell, void *result_cell)
 {
     extern pl_trail_t g_pl_trail;
-    Term *lst = pl_cell_to_term((pl_cell_t *)list_cell);
-    Term *elems[4096]; int n = 0;
+    pl_cell_t *elems[4096]; int n = 0;
     int dot_id = prolog_atom_intern(".");
-    Term *cur = lst;
-    while (cur && cur->tag == TERM_COMPOUND && cur->compound.functor == dot_id && cur->compound.arity == 2 && n < 4096) {
-        elems[n++] = term_deref(cur->compound.args[0]);
-        cur = term_deref(cur->compound.args[1]);
+    pl_cell_t *cur = pl_deref((pl_cell_t *)list_cell);
+    while (cur && (int)cur->v == DT_PLREF && (int)(cur->slen >> 16) == dot_id && (int)(cur->slen & 0xFFFFu) == 2 && n < 4096) {
+        pl_cell_t *aa = (pl_cell_t *)cur->p;
+        elems[n++] = &aa[0];
+        cur = pl_deref(&aa[1]);
     }
+    pl_vord_t vm; vm.n = 0; vm.next = 0;
+    for (int i = 0; i < n; i++) rt_pl_vord_walk(elems[i], &vm);
     for (int i = 1; i < n; i++) {
-        Term *key = elems[i]; int j = i - 1;
-        while (j >= 0 && rt_pl_term_compare(elems[j], key) > 0) { elems[j + 1] = elems[j]; j--; }
+        pl_cell_t *key = elems[i]; int j = i - 1;
+        while (j >= 0 && rt_pl_cell_compare(elems[j], key, &vm) > 0) { elems[j + 1] = elems[j]; j--; }
         elems[j + 1] = key;
     }
     int m = 0; int out_idx[4096];
     for (int i = 0; i < n; i++) {
-        if (!do_msort && m > 0 && rt_pl_term_compare(elems[out_idx[m - 1]], elems[i]) == 0) continue;
+        if (!do_msort && m > 0 && rt_pl_cell_compare(elems[out_idx[m - 1]], elems[i], &vm) == 0) continue;
         out_idx[m++] = i;
     }
-    Term *result = term_new_atom(prolog_atom_intern("[]"));
+    pl_cell_t nil; { const char *nm = prolog_atom_name(prolog_atom_intern("[]")); nil.v = DT_S; nil.slen = (uint32_t)(nm ? strlen(nm) : 0); nil.s = nm ? nm : "[]"; }
+    pl_cell_t result = nil;
     for (int i = m - 1; i >= 0; i--) {
-        Term *pair[2]; pair[0] = elems[out_idx[i]]; pair[1] = result;
-        result = term_new_compound(prolog_atom_intern("."), 2, pair);
+        pl_cell_t *blk = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t));
+        blk[0] = pl_make_ref(elems[out_idx[i]], (int)elems[out_idx[i]]->slen); blk[1] = result;
+        result = pl_make_compound(dot_id, 2, blk);
     }
     int mark = pl_trail_mark(&g_pl_trail);
-    if (!pl_unify_term_into_cell((pl_cell_t *)result_cell, result, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    if (!pl_unify((pl_cell_t *)result_cell, &result, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
