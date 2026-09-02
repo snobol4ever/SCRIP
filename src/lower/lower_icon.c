@@ -148,6 +148,7 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
     int gb = name && ((nargs >= 2 && nargs <= 4 && (!strcmp(name, "find") || !strcmp(name, "upto")))
                    || (nargs == 1 && (!strcmp(name, "find") || !strcmp(name, "upto") || !strcmp(name, "bal"))));
     int is_cursor_mover = name && (!strcmp(name, "tab") || !strcmp(name, "move"));
+    int fill_scan_defaults = gb && nargs == 1 && cx->scan_sp == 0 && (!strcmp(name, "find") || !strcmp(name, "upto"));
     IR_t * call = build(cx, icn_proc_is_generator(name) ? IR_PROC_GEN : (gb ? IR_CALL_BUILTIN_GEN : IR_CALL), γ, ω); IR_LIT(call).sval = (char *) name;
     if (res) *res = call;
     int chains = name && (!strcmp(name, "write") || !strcmp(name, "writes"));
@@ -155,11 +156,17 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
     IR_t * prev = NULL; IR_t * entry = call; IR_t * aω = ω; IR_t * last_ar = NULL;
     for (int k = 0; k < nargs; k++) {
         const tree_t * a = t->c[argbase + k]; IR_t * ar = NULL;
-        IR_t * ae = lower(cx, a, (k == nargs - 1) ? call : NULL, aω, &ar); aω = cx->beta;
+        IR_t * ae = lower(cx, a, (k == nargs - 1 && !fill_scan_defaults) ? call : NULL, aω, &ar); aω = cx->beta;
         if (k == 0) entry = ae;
         if (prev) lc_γ_to(prev, ae);
         prev = ar;
         if (ar) { ir_operand_push(call, ar); last_ar = ar; }
+    }
+    if (fill_scan_defaults) {
+        IR_t * ks = build(cx, IR_KW_ICON, NULL, aω); IR_LIT(ks).sval = (char *) "&subject";
+        IR_t * kp = build(cx, IR_KW_ICON, NULL, aω); IR_LIT(kp).sval = (char *) "&pos";
+        if (prev) lc_γ_to(prev, ks); else entry = ks;
+        lc_γ_to(ks, kp); ir_operand_push(call, ks); ir_operand_push(call, kp); prev = kp; last_ar = kp;
     }
     if ((icn_proc_is_generator(name) || gb || is_cursor_mover) && last_ar) lc_γ_to(last_ar, call);
     const tree_t * la = (nargs > 0) ? t->c[argbase + nargs - 1] : NULL;
