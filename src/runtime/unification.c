@@ -1129,13 +1129,15 @@ int rt_pl_atop_cell(int op, void *a_cell, void *b_cell)
 int rt_pl_compare_cell(void *order_cell, void *a_cell, void *b_cell)
 {
     extern pl_trail_t g_pl_trail;
-    pl_cell_t *vaddr[256]; Term *vterm[256]; int vn = 0;
-    Term *ta = pl_cell_copy_walk((pl_cell_t *)a_cell, vaddr, vterm, &vn, 256);
-    Term *tb = pl_cell_copy_walk((pl_cell_t *)b_cell, vaddr, vterm, &vn, 256);
-    int c = rt_pl_term_compare(ta, tb);
+    pl_vord_t m; m.n = 0; m.next = 0;
+    rt_pl_vord_walk((pl_cell_t *)a_cell, &m);
+    rt_pl_vord_walk((pl_cell_t *)b_cell, &m);
+    int c = rt_pl_cell_compare((pl_cell_t *)a_cell, (pl_cell_t *)b_cell, &m);
     const char *nm = (c < 0) ? "<" : (c > 0) ? ">" : "=";
+    const char *an = prolog_atom_name(prolog_atom_intern(nm));   /* DT_S, not pl_make_atom's DT_A -- Prolog atoms ride DT_S (pl_cell_conv.h:70-71) */
+    pl_cell_t ord; ord.v = DT_S; ord.slen = (uint32_t)(an ? strlen(an) : 0); ord.s = an ? an : nm;
     int mark = pl_trail_mark(&g_pl_trail);
-    if (!pl_unify_term_into_cell((pl_cell_t *)order_cell, term_new_atom(prolog_atom_intern(nm)), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    if (!pl_unify((pl_cell_t *)order_cell, &ord, &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
