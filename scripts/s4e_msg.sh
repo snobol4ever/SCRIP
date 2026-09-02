@@ -629,6 +629,15 @@ case "$cmd" in
                  s4e_release_guard_note "$topic" park "$ME"
              fi
              rm -f "$c"; echo "  (cleared my own holding claim — the state column carries this now, not a lock)"
+             # ⛔ park-does-not-write-last-row-so-banner-misattributes-the-session (seat07 2026-09-01, cured hq_B same day).
+             # s4e_mark_row was called from exactly two closing verbs, unclaim and done; park ALSO closes a row (it just
+             # cleared the claim above) but was minted later and never joined that enumeration, so a session that ended
+             # by parking got a Stop banner attributing it to whatever row this seat last RELEASED or DONE'd -- days old,
+             # cumulative commit count and all. Measured live by seat07 (pass 39) and reproducible: park as the last act,
+             # then banner. ⭐ THE CLASS, in seat07's words, is that "a cure that enumerates its closing verbs silently
+             # reopens every time a new closing verb is minted" -- so if you add a verb that removes a claim file, it
+             # must call s4e_mark_row too, and the durable shape is one s4e_close_claim writer that does both.
+             s4e_mark_row "$topic" PARKED
          fi
          # ⭐ picker-dependency-and-boomerang-blindness CURE 3 — A GOVERNANCE GATE IS NOT LIFTED BY `park FREE`.
          # An ordinary park is routing and anyone may lift it. A GRANT-NEEDED/PARKED-LON-HOLD row waits on a
@@ -1087,6 +1096,22 @@ TASKEOF
          [ -n "$_gw" ] && { echo "   ⭐ NOT empty of WORK — these rows are GOVERNANCE-GATED, waiting on a grant, not on a seat:"; printf '%s\n' "$_gw"; echo "   Chase the grant (route via your HQ to ceo), do not re-park these to FREE."; }
          exit 1;;
   banner) # ⛔ FACTS ONLY -- NO PREDICTIONS (Lon 2026-08-22: "Why are you trying to predict the future. Quit saying
+         # ⛔ FIRST THING IN THIS CASE, BEFORE ANY EXIT: the first placement was after the verdict line, which always `exit`s
+         # (:1308), so the block was unreachable -- proven by deleting a hook and running banner: it did NOT come back. Falsify,
+         # do not assume; a block that reads as coverage and cannot fire is the defect it was written to cure.
+         # ⛔⭐ THE COMMIT-MSG HOOK IS (RE)INSTALLED FROM HERE TOO (seat04 2026-09-01; census hq_B same day). The installer rode
+         # s4e_inbox_hook.sh, which fires on UserPromptSubmit -- and a census of every root's .claude/settings.json found
+         # 16 of 19 wire ONLY Stop (all sixteen fleet seats; only the three HQs have UserPromptSubmit). So the row's claim
+         # "rejected in every clone" was true in three roots and silently false in sixteen, and nothing on either end could
+         # tell: the seat sees no install line (correct, nothing ran) and the HQ sees a landed row and a green gate. Stop is
+         # the one event every root demonstrably has -- it is what prints this banner -- so coverage no longer depends on
+         # which events a seat happened to wire. Same guard as the inbox hook: quiet, and never allowed to break the banner.
+         # ($HERE is NOT a variable of this script -- the first draft of this block used it, tested false forever, and
+         #  was caught by the verify line `grep -c HERE=` reading 0: the same silent class one paragraph up.)
+         _ih="$(dirname "${BASH_SOURCE[0]}")/install_commit_msg_hook.sh"
+         if [ -x "$_ih" ]; then
+           _h="$(bash "$_ih" --quiet 2>/dev/null || true)"; [ -n "$_h" ] && printf '%s\n' "$_h"
+         fi
          # in the banner what you will do. You do not know the future."). Every line below is a measured fact about
          # state as it stands. What a later session does is not knowable here: HQ can re-rank the queue, and THE LOOP
          # reads the inbox before the queue. Two laws still hold: the verdict is COMPUTED, never typed, and it turns

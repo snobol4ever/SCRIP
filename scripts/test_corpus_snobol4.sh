@@ -188,7 +188,13 @@ fi
 # (measured-nothing, never a verdict), m4 compile/link skip -> SKIP4. XFAIL entries are graded separately
 # by the harness (a pre-existing red never inflates FAIL); XPASS is echoed loudly -- a cured bug whose
 # marker nobody promoted is actionable in the opposite direction.
-HARNESS="$HERE/corpus_suite_harness.py"
+# ⭐ HARNESS honours an environment override (ladder I rung I9, hq_B 2026-09-01): the row's DONE-WHEN injects a fake harness that
+# prints a cause line and exits 1, to prove the refusal below CARRIES the harness's stderr. The default is unchanged; the override is
+# a test hook, and a test that cannot inject its instrument cannot prove the fail direction.
+HARNESS="${HARNESS:-$HERE/corpus_suite_harness.py}"
+# the real harness carries a shebang but no executable bit and is run through python3, unchanged; an INJECTED harness that is
+# executable is run directly, so a fail-direction proof can substitute any program for it (the I9 DONE-WHEN injects a bash script).
+run_harness() { if [ -x "$HARNESS" ]; then "$HARNESS" "$@"; else python3 "$HARNESS" "$@"; fi; }
 MASTER_SNO="$CORPUS/tests/snobol4/ALL.sno"
 MASTER_REF="$CORPUS/tests/snobol4/ALL.ref"
 MASTER_ENTRY_FLOOR="${MASTER_ENTRY_FLOOR:-1576}"   # FLOOR, not a pinned total (RULES.md): growth needs no re-pin; only an attributed retirement may lower it, in the commit that shrinks the master
@@ -202,10 +208,19 @@ if [ ! -f "$MASTER_SNO" ] || [ ! -f "$MASTER_REF" ]; then
     echo "   remaining loose blocks' smaller total as the board."
     exit 2
 fi
-board=$(python3 "$HARNESS" run "$MASTER_SNO" "$MASTER_REF" --modes m3,m4 2>/dev/null | grep '^SUITE_BOARD ')
+# ⛔ THE HARNESS'S STDERR IS KEPT, NOT DISCARDED (hq_B 2026-09-01). This line read `2>/dev/null`, so when the master run
+# produced no SUITE_BOARD line the refusal below could only say THAT it happened -- the cause (a refuse() message, a
+# traceback, a linker error, a kill) was gone. Measured live: a board that refused after 7.7 minutes under fleet load
+# 18-24 with nothing to read but "no SUITE_BOARD line", while the same harness run by hand with stderr kept was clean.
+# A refusal that cannot name its cause sends the reader to re-run the instrument by hand -- so the runner keeps the
+# stderr in a temp file and prints its tail on refusal. Same class as the [SMX] refusal cured the same day.
+_herr="$(mktemp)"; board=$(run_harness run "$MASTER_SNO" "$MASTER_REF" --modes m3,m4 2>"$_herr" | grep '^SUITE_BOARD ')
 if [ -z "$board" ]; then
-    echo "⛔ GATE REFUSES: harness produced no SUITE_BOARD line for the master suite"; exit 2
+    echo "⛔ GATE REFUSES: harness produced no SUITE_BOARD line for the master suite"
+    echo "   harness stderr, last lines (the cause lives here, never in the line above):"
+    grep -vE '^\s*$' "$_herr" | tail -8 | sed 's/^/     | /'; rm -f "$_herr"; exit 2
 fi
+rm -f "$_herr"
 field() { echo "$board" | grep -oE "$1=[0-9]+" | cut -d= -f2; }
 mt=$(field total)
 m3p=$(field m3_pass); m3f=$(field m3_fail); m3c=$(field m3_crash); m3h=$(field m3_hang); m3u=$(field m3_unproven); m3x=$(field m3_xfail); m3xp=$(field m3_xpass)

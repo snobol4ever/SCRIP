@@ -15,7 +15,9 @@
 # language's own existing, authoritative floor/smoke gate script and parses its OWN printed verdict
 # line with a NAMED per-language pattern -- a pattern miss is UNPROVEN, never a guess; (3) stamps every
 # run with real, checkable per-repo commit hashes (+DIRTY), same discipline as lib_gate.sh's gate_stamp,
-# so a reader can `git checkout` exactly what produced a given grid.
+# so a reader can `git checkout` exactly what produced a given grid; (4) runs each language's MASTER BOARD -- the harness's own
+# `run` on corpus/tests/<lang>/ALL.<ext> + ALL.ref, both modes -- and parses its one SUITE_BOARD line, so all seven languages carry
+# the SAME instrument in the same column (ceo 2026-09-01 -> hq_B; Lon's #1-priority Prolog number is that column's crash count).
 import csv, os, re, subprocess, sys, time
 
 S4E = os.environ.get("S4E_HOME") or os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
@@ -69,6 +71,51 @@ GATES = {
         "pattern": re.compile(r"PASS=(\d+) FAIL=(\d+)"),
         "format": lambda m, out: "PASS=%s FAIL=%s" % (m.group(1), m.group(2))},
 }
+
+
+# ⭐ THE MASTER BOARD, ONE INSTRUMENT FOR ALL SEVEN (ceo 2026-09-01 -> hq_B: "the display should carry the same instrument for
+# all seven -- a smoke on one row and a master board on another is two axes in one grid"). The instrument is the harness's own
+# `run` on the language's ALL.<ext> + ALL.ref master, both modes -- exactly what test_corpus_snobol4.sh wraps for SNOBOL4 and what
+# ceo quoted for Prolog (total=371 · m3 pass=218 fail=5 crash=139 · m4 pass=218 fail=5 crash=7 skip=132 at 8eac17da). This file
+# still grades nothing itself: it invokes the harness unmodified and parses its ONE printed SUITE_BOARD line; a pattern miss is
+# UNPROVEN, never a guess. Counts are reported PER MODE and never summed (an XPASS in one mode can be a SKIP in the other).
+# ⛔ The smoke/floor column stays: the two columns answer different questions (floor = must-never-regress bar, master = the whole
+# suite's state), and Lon's #1-priority number for Prolog is the master's crash count, which no smoke carries.
+MASTER_TIMEOUT = int(os.environ.get("SCORE_MASTER_TIMEOUT", "900"))
+MASTERS = {  # lang -> (extension of the master program file, --lang value for the harness; "" = snobol4, the harness default)
+    "snobol4": (".sno", ""), "icon": (".icn", "icon"), "prolog": (".pl", "prolog"), "raku": (".raku", "raku"),
+    "pascal": (".pas", "pascal"), "snocone": (".sc", "snocone"), "rebus": (".reb", "rebus"),
+}
+_SUITE_BOARD_RE = re.compile(r"SUITE_BOARD family=\S+ total=(\d+)(.*)$", re.M)
+_MODE_RE = re.compile(r"(m[34])_pass=(\d+) \1_fail=(\d+) \1_crash=(\d+) \1_hang=(\d+) \1_unproven=(\d+) \1_skip=(\d+) \1_xfail=(\d+) \1_xpass=(\d+)")
+
+
+def run_master(lang):
+    ext, harness_lang = MASTERS.get(lang, (None, None))
+    if ext is None:
+        return "UNPROVEN(2): no master instrument wired in this generator for %r" % lang
+    prog = os.path.join(CORPUS_ROOT, "tests", lang, "ALL" + ext); ref = os.path.join(CORPUS_ROOT, "tests", lang, "ALL.ref")
+    if not (os.path.isfile(prog) and os.path.isfile(ref)):
+        return "MASTER PENDING (no ALL%s + ALL.ref under corpus/tests/%s)" % (ext, lang)
+    cmd = ["python3", os.path.join("scripts", "corpus_suite_harness.py"), "run", prog, ref, "--modes", "m3,m4"] + (["--lang", harness_lang] if harness_lang else [])
+    try:
+        p = subprocess.run(cmd, cwd=SCRIP_ROOT, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=MASTER_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        return "UNPROVEN(2): master run timed out after %ss -- unmeasured, not a verdict" % MASTER_TIMEOUT
+    out = (p.stdout or "") + "\n" + (p.stderr or "")
+    m = _SUITE_BOARD_RE.search(out)
+    if not m:
+        tail = " ".join((p.stderr or p.stdout or "").strip().split("\n")[-1:])[:160]
+        return "UNPROVEN(%d): no SUITE_BOARD line from the harness%s" % (p.returncode, (" -- " + tail) if tail else "")
+    cols = ["total=%s" % m.group(1)]
+    for mm in _MODE_RE.finditer(m.group(2)):
+        mode, ps, fl, cr, hg, un, sk, xf, xp = mm.groups()
+        bits = ["%s pass=%s fail=%s crash=%s" % (mode, ps, fl, cr)]
+        for k, v in (("hang", hg), ("unproven", un), ("skip", sk), ("xfail", xf), ("xpass", xp)):
+            if v != "0":
+                bits.append("%s=%s" % (k, v))
+        cols.append(" ".join(bits))
+    return " · ".join(cols) + " (PER MODE, never summed)"
 
 
 def repo_stamp(path):
@@ -126,12 +173,13 @@ def run_gate(lang, fake_missing=False):
 
 
 def build_grid(langs):
-    lines = ["| Language | Master suite (`ALL.csv`) | Floor/smoke gate |", "|---|---|---|"]
+    lines = ["| Language | Master suite (`ALL.csv`) | Floor/smoke gate | Master board (`ALL.<ext>` via `corpus_suite_harness.py run`, m3 · m4) |", "|---|---|---|---|"]
     for lang in langs:
         mi = master_info(lang)
         master_col = "MASTER PENDING" if mi is None else ("%d entries" % mi["entries"]) + (", %d xfail" % mi["xfail"] if mi["xfail"] else "")
         gate_col = run_gate(lang)
-        lines.append("| %s | %s | %s |" % (lang, master_col, gate_col))
+        board_col = run_master(lang)
+        lines.append("| %s | %s | %s | %s |" % (lang, master_col, gate_col, board_col))
     stamp = "tree: SCRIP=%s corpus=%s .github=%s  generated %s" % (
         repo_stamp(SCRIP_ROOT), repo_stamp(CORPUS_ROOT), repo_stamp(GITHUB_ROOT),
         time.strftime("%Y-%m-%dT%H:%MZ", time.gmtime()))
