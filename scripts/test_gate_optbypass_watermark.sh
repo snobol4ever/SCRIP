@@ -124,7 +124,16 @@ gate_require "$ROOT/../corpus/tests/snobol4/ALL.ref" "master SNOBOL4 suite refs"
 # census fell back to its 1494 default and REFUSED, and line 123 ran as a command ("--pinned-population: command not found"). ⭐ bash -n answers
 # "is this parseable", NOT "is this what I meant" -- the command -v class, and a broken line-continuation is invisible to it. RUN THE GATE.
 python3 "$HERE/util_census_optimizer_bypass.py" --gate \
-  --pinned-population 1655 --pinned-opt0-max 190 --pinned-zd0-max 308
+  --pinned-population 1656 --pinned-opt0-max 190 --pinned-zd0-max 308
+# ⛔⭐ POPULATION 1655 -> 1656 (hq_C 2026-09-01, pinned against corpus 5b44ca010). ⚠️ THIS IS ME REPAIRING MY OWN COMPLIANCE BREACH, named so nobody
+# has to attribute it twice: corpus 5b44ca010 promoted user_function_eval_arbno_replace_branch_2 and moved the graded population 1655 -> 1656 WITHOUT the
+# paired SCRIP re-pin -- violating the same-commit clause of the very protocol I had written into lib_master_extract.sh hours earlier. Consequence measured
+# by seat04 on an unrelated row: every seat's `make test` REFUSED (rc=2) box-wide, and the refusal named my promotion nowhere, so seat04 spent a full
+# re-verification cycle proving the failure was not theirs. ⭐ ONLY THE POPULATION MOVES HERE. It is an exact count MEASURED by read_suite (1726 entries -
+# 70 XFAIL-marked = 1656), never typed and carrying no variance, so it needs no multi-run ratification. The opt0/zd0 MAX pins above are statistical bounds
+# over NONDETERMINISTIC units and are hq_P's lane under this gate's own header -- I have deliberately left them at 190/308 rather than tune two things at once.
+# ⛔ EXPECT THE NEXT REFUSAL TO BE opt0, NOT population: hq_P measured 191/1656 against the pinned 190 and has that re-pin in flight with the witness named.
+# That is a different fact with a different owner; do not fold the two into one "the gate is red" story.
 # ⚠️ INTERIM RE-PIN (hq_P 2026-09-01), pinned against corpus 5eb68cb87 -- a number's tree is part of its label. The graded population MOVES with every XFAIL-marker promotion, and it is
 # MEASURED by corpus_suite_harness.read_suite, never typed: 1646 at corpus 9b657e350, 1654 at ad1fdaa71, then UNREADABLE at 2d75933ec, then 1655 at 5eb68cb87 (1726 entries, 1655 graded).
 # ⛔ THE UNREADABLE ENTRY IS NOT A GAP IN THE RECORD -- IT IS THE POINT. 2d75933ec half-applied a promotion (dropped from ALL.sno + ALL.xfail, ALL.ref's seq-1678 banner still XFAIL), so
