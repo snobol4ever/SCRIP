@@ -52,7 +52,12 @@ gate_stamp() {
     printf '    tree:'
     for _r in SCRIP corpus .github; do
         _p="$_root/$_r"
-        [ -d "$_p/.git" ] || continue
+        # ⛔ -e NOT -d: in a git WORKTREE `.git` is a FILE, not a directory, so `-d` skipped every repo and the
+        # stamp printed a bare `tree:` with NOTHING after it — the exact unactionable verdict this helper
+        # exists to prevent, and it fired precisely where fail-once proofs are required to run (rungs say
+        # "prove it in a scratch worktree").  Measured hq_B 2026-09-02 proving I5.  `git -C` is worktree-native,
+        # so widening the test is all that was ever needed; a real repo dir still matches -e unchanged.
+        [ -e "$_p/.git" ] || continue
         _h="$(git -C "$_p" rev-parse --short HEAD 2>/dev/null)"
         if [ -z "$_h" ]; then printf ' %s=unknown' "$_r"; continue; fi
         if [ -n "$(git -C "$_p" status --porcelain 2>/dev/null)" ]; then _dirty="-DIRTY"; else _dirty=""; fi
