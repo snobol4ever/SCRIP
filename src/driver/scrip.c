@@ -1352,12 +1352,13 @@ int main(int argc, char **argv)
               if (n_uop > 0) { emit_textf("  .section .rodata\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; char eb[512]; int ei = 0; for (const char *s = onm ? onm : ""; *s && ei < 508; s++) { if (*s == '\\' || *s == '"') eb[ei++] = '\\'; eb[ei++] = *s; } eb[ei] = 0; emit_textf("  .Lopn%d: .string \"%s\"\n  .Lopt%d: .string \"%s\"\n", k, eb, k, oty ? oty : "xfx"); }
                 emit_textf("  .section .text\n  .intel_syntax noprefix\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; emit_textf("  lea rdi, [rip + .Lopn%d]\n  mov esi, %d\n  lea rdx, [rip + .Lopt%d]\n  call prolog_op_table_add@PLT\n", k, opr, k); } } }
             if (bbg->nparams >= 1) emit_textf("  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  call rt_main_args_stage@PLT\n");
-            emit_textf("  mov r12, qword ptr [0x70000000]\n");
+            int _pinned_root = (bbg->zframe_pinned_base && bbg->root_graph) ? 1 : 0;
+            if (!_pinned_root) emit_textf("  mov r12, qword ptr [0x70000000]\n");
             if (is_prolog && bbg->zframe_graph && !bbg->icn_cells_graph) emit_textf("  call rt_gcheap_warmup@PLT\n");
             { extern unsigned char g_rtcc_on; if (g_rtcc_on) emit_textf("  call rtcc_load_all@PLT\n"); }
             emit_textf("  xor esi, esi\n");
             if (bbg->zframe_graph && !bbg->icn_cells_graph) {
-                emit_textf("  xor r14d, r14d\n");
+                if (!_pinned_root) emit_textf("  xor r14d, r14d\n");
                 emit_textf("  lea rcx, [rip + .Lmain_zf_γ]\n");
                 emit_textf("  lea rdx, [rip + .Lmain_zf_ω]\n");
                 emit_textf("  jmp main_\xce\xb1\n");

@@ -139,26 +139,60 @@ static IR_t * term_lval_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out) {
     if (t && t->t == TT_VAR) { IR_t * nd = build(cx, IR_VAR_REF, NULL, cx->tω); IR_LIT(nd).sval = pl_var_name((int) t->v.ival); return nd; }
     return term_e(cx, t, entry_out);
 }
-static const char * g_pl_rung6_builtins[] = { "<", "<=", "=..", "=:=", "=<", "==", "=\\=", ">", ">=", "@<", "@=<", "@>", "@>=", "\\==", "acyclic_term", "arg", "atom", "atom_chars", "atom_codes",
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * pl_param_name(int i) {
+    static char * cache[64]; static char buf[16];
+    if (i >= 0 && i < 64) { if (!cache[i]) { snprintf(buf, sizeof buf, "A%d", i); cache[i] = strdup(buf); } return cache[i]; }
+    snprintf(buf, sizeof buf, "A%d", i); return strdup(buf);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int max_var_slot(const tree_t * t, int mx) {
+    if (!t) return mx;
+    if (t->t == TT_VAR && (int) t->v.ival > mx) mx = (int) t->v.ival;
+    for (int i = 0; i < t->n; i++) mx = max_var_slot(t->c[i], mx);
+    return mx;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_same_functor(const tree_t * a, const tree_t * b) {
+    return a && b && a->t == TT_FNC && b->t == TT_FNC && a->n == b->n && a->n > 0 && a->v.sval && b->v.sval && !strcmp(a->v.sval, b->v.sval);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * unify_pair(lcx_t * cx, const tree_t * lt, const tree_t * rt, IR_t * γ, IR_t * ω, IR_t ** entry_out) {
+    if (pl_same_functor(lt, rt)) {
+        IR_t * next = γ; IR_t * first_entry = γ; IR_t * head = NULL;
+        for (int i = lt->n - 1; i >= 0; i--) { IR_t * e = NULL; IR_t * u = unify_pair(cx, lt->c[i], rt->c[i], next, ω, &e); next = e ? e : u; head = u; if (i == 0) first_entry = next; }
+        if (entry_out) *entry_out = first_entry;
+        return head;
+    }
+    IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "$unify";
+    IR_t * e0 = NULL; IR_t * e1 = NULL;
+    IR_t * a0 = term_lval_e(cx, lt, &e0); IR_t * a1 = term_lval_e(cx, rt, &e1);
+    lc_γ_to(a0, e1 ? e1 : a1); lc_ω_to(a0, ω);
+    lc_γ_to(a1, nd); lc_ω_to(a1, ω);
+    ir_operand_push(nd, a0); ir_operand_push(nd, a1);
+    if (entry_out) *entry_out = e0 ? e0 : a0;
+    return nd;
+}
+static const char * pl_rung6_builtins[] = { "<", "<=", "=..", "=:=", "=<", "==", "=\\=", ">", ">=", "@<", "@=<", "@>", "@>=", "\\==", "acyclic_term", "arg", "atom", "atom_chars", "atom_codes",
     "atom_concat", "atom_length", "atom_number", "atom_string", "atomic", "atomic_list_concat", "callable", "char_type", "compound", "concat_atom", "copy_term", "downcase_atom", "float", "format",
     "functor", "ground", "integer", "is", "is_list", "msort", "name", "nonvar", "number", "number_chars", "number_codes", "number_string", "numbervars", "plus", "print", "sort", "string_chars",
     "string_codes", "string_concat", "string_length", "string_lower", "string_to_atom", "string_upper", "succ", "tab", "term_string", "term_to_atom", "upcase_atom", "var", "write_canonical",
     "writeln", "writeq", "put_char", "halt", "flush_output", "read", "read_term", "get_char", "peek_char", "nl", "write", NULL };
-static const char * g_pl_rung7_builtins[] = { "between", "repeat", "clause", "retract", "sub_atom", "for", "current_op", "current_predicate", "predicate_property",
+static const char * pl_rung7_builtins[] = { "between", "repeat", "clause", "retract", "sub_atom", "for", "current_op", "current_predicate", "predicate_property",
     "current_prolog_flag", "current_stream", "stream_property", NULL };
-static const char * g_pl_rung8_builtins[] = { "findall", "bagof", "setof", "aggregate_all", "forall", NULL };
-static const char * g_pl_rung9_builtins[] = { "catch", "throw", NULL };
-static const char * g_pl_rung10_builtins[] = { "call", "assert", "asserta", "assertz", "retractall", "abolish", "dynamic", "nb_setval", "nb_getval", "b_setval", "b_getval", "phrase",
+static const char * pl_rung8_builtins[] = { "findall", "bagof", "setof", "aggregate_all", "forall", NULL };
+static const char * pl_rung9_builtins[] = { "catch", "throw", NULL };
+static const char * pl_rung10_builtins[] = { "call", "assert", "asserta", "assertz", "retractall", "abolish", "dynamic", "nb_setval", "nb_getval", "b_setval", "b_getval", "phrase",
     "with_output_to", "setup_call_cleanup", "use_module", "ensure_loaded", "module", "set_prolog_flag", NULL };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_name_in(const char * nm, const char * const * lst) { if (!nm) return 0; for (int i = 0; lst[i]; i++) if (!strcmp(nm, lst[i])) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_rung_of(const char * nm) {
-    if (pl_name_in(nm, g_pl_rung10_builtins)) return 10;
-    if (pl_name_in(nm, g_pl_rung9_builtins)) return 9;
-    if (pl_name_in(nm, g_pl_rung8_builtins)) return 8;
-    if (pl_name_in(nm, g_pl_rung7_builtins)) return 7;
-    if (pl_name_in(nm, g_pl_rung6_builtins)) return 6;
+    if (pl_name_in(nm, pl_rung10_builtins)) return 10;
+    if (pl_name_in(nm, pl_rung9_builtins)) return 9;
+    if (pl_name_in(nm, pl_rung8_builtins)) return 8;
+    if (pl_name_in(nm, pl_rung7_builtins)) return 7;
+    if (pl_name_in(nm, pl_rung6_builtins)) return 6;
     return 0;
 }
 static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out);
@@ -239,7 +273,8 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             pl_refuse(ite ? "if-then-else" : "disjunction", ite ? "->" : ";", ite ? 5 : 3); }
         if (!strcmp(nm, "->")) pl_refuse("if-then", "->", 5);
         if (!strcmp(nm, "\\+") || !strcmp(nm, "not") || !strcmp(nm, "once") || !strcmp(nm, "ignore")) pl_refuse("control construct", nm, 5);
-        if (!strcmp(nm, "=") || !strcmp(nm, "\\=")) pl_refuse("unification", nm, 1);
+        if (!strcmp(nm, "=") && t->n == 2) { IR_t * e = NULL; IR_t * nd = unify_pair(cx, t->c[0], t->c[1], γnext, ωfail, &e); if (entry_out) *entry_out = e ? e : nd; return nd; }
+        if (!strcmp(nm, "\\=")) pl_refuse("control construct", nm, 5);
         { int r = pl_rung_of(nm); if (r) pl_refuse("builtin", nm, r); }
         return pl_user_call(cx, nm, t, t->n, γnext, ωfail, entry_out);
     }
@@ -253,7 +288,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         return pl_user_call(cx, nm, t, 0, γnext, ωfail, entry_out);
     }
     case TT_CUT: pl_refuse("cut", "!", 4); return NULL;
-    case TT_UNIFY: pl_refuse("unification", "=", 1); return NULL;
+    case TT_UNIFY: { IR_t * e = NULL; IR_t * nd = unify_pair(cx, t->c[0], t->c[1], γnext, ωfail, &e); if (entry_out) *entry_out = e ? e : nd; return nd; }
     case TT_IF: pl_refuse("if-then-else", "->", 5); return NULL;
     case TT_PROGRAM: return pl_lower_conj(cx, (const tree_t * const *) t->c, t->n, γnext, ωfail, entry_out);
     case TT_VAR: pl_refuse("variable goal", "call/1", 10); return NULL;
@@ -274,6 +309,17 @@ static int pl_new_proc(const char * name, int nparams, int bb_idx) {
     return pi;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_graph_stamp(IR_graph_t * g, int arity, int maxlocal) {
+    g->body_root = NULL;
+    g->nparams = arity;
+    if (arity > 0) { g->pnames = (const char **) calloc((size_t) arity, sizeof(const char *)); for (int i = 0; i < arity; i++) g->pnames[i] = pl_param_name(i); }
+    if (maxlocal >= 0) { g->nlocals = maxlocal + 1; g->lnames = (const char **) calloc((size_t)(maxlocal + 1), sizeof(const char *)); for (int k = 0; k <= maxlocal; k++) g->lnames[k] = pl_var_name(k); }
+    g->nslots = arity + (maxlocal + 1) + 8;
+    g->zframe_graph = 1;
+    g->zframe_pinned_base = 1;
+    g->deterministic = 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_graph_t * pl_body_graph(const tree_t * const * gl, int ng) {
     IR_graph_t * g = IR_alloc(1024);
     lcx_t cx; cx.g = g; cx.tω = NULL;
@@ -281,13 +327,31 @@ static IR_graph_t * pl_body_graph(const tree_t * const * gl, int ng) {
     IR_t * fail    = build(&cx, IR_FAIL, NULL, NULL);
     IR_t * entry = NULL;
     IR_t * first = pl_lower_conj(&cx, gl, ng, succeed, fail, &entry);
+    int maxlocal = -1; for (int i = 0; i < ng; i++) maxlocal = max_var_slot(gl[i], maxlocal);
     g->entry = entry ? entry : (first ? first : succeed);
-    g->body_root = NULL;
-    g->nslots = 8;
-    g->nlocals = 0;
-    g->zframe_graph = 1;
-    g->zframe_pinned_base = 1;
-    g->deterministic = 1;
+    pl_graph_stamp(g, 0, maxlocal);
+    return g;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_graph_t * pl_clause_graph(const tree_t * cl, int arity) {
+    IR_graph_t * g = IR_alloc(1024);
+    lcx_t cx; cx.g = g; cx.tω = NULL;
+    IR_t * succeed = build(&cx, IR_SUCCEED, NULL, NULL);
+    IR_t * fail    = build(&cx, IR_FAIL, NULL, NULL);
+    IR_t * bentry = NULL;
+    IR_t * first = pl_lower_conj(&cx, (const tree_t * const *)(cl->c + arity), cl->n - arity, succeed, fail, &bentry);
+    IR_t * next = bentry ? bentry : (first ? first : succeed);
+    for (int i = arity - 1; i >= 0; i--) {
+        IR_t * u = build(&cx, IR_CALL, next, fail); IR_LIT(u).sval = "$unify";
+        IR_t * lhs = build(&cx, IR_VAR_REF, NULL, NULL); IR_LIT(lhs).sval = pl_param_name(i);
+        IR_t * he = NULL; IR_t * rhs = term_lval_e(&cx, cl->c[i], &he);
+        lc_γ_to(lhs, he ? he : rhs); lc_ω_to(lhs, fail);
+        lc_γ_to(rhs, u); lc_ω_to(rhs, fail);
+        ir_operand_push(u, lhs); ir_operand_push(u, rhs);
+        next = lhs;
+    }
+    g->entry = next;
+    pl_graph_stamp(g, arity, max_var_slot(cl, -1));
     return g;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -296,9 +360,7 @@ static int lower_pl_pred_graph(const char * key, const tree_t * ch) {
     if (ch->t == TT_CHOICE) { if (ch->n != 1) pl_refuse("multi-clause predicate", key, 2); cl = ch->c[0]; }
     if (!cl || cl->t != TT_CLAUSE) return -1;
     int arity = (int) cl->v.dval; if (arity < 0) arity = 0; if (arity > cl->n) arity = cl->n;
-    if (arity > 0) pl_refuse("predicate with head arguments", key, 1);
-    IR_graph_t * g = pl_body_graph((const tree_t * const *)(cl->c + arity), cl->n - arity);
-    g->nparams = 0;
+    IR_graph_t * g = pl_clause_graph(cl, arity);
     return bb_program_add(&g_stage2.bbp, g);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

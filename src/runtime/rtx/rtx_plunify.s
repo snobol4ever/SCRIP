@@ -1,46 +1,71 @@
 #include "rtx_abi.inc"
 RTX_GATE_DEF(plunify)
-#define D_LO               0
-#define D_HI               8
-#define D_SIZE            16
-#define FR_ARGS           16
-RTX_FUNC(rt_pl_dop_unify)
-    cmp     esi, 2
-    jne     .Lpu_fail_bare
-    sub     rsp, 24
-    mov     qword ptr [rsp + FR_ARGS], rdi
-    mov     rax, qword ptr [rip + g_gc_pending@GOTPCREL]
-    cmp     dword ptr [rax], 0
-    jne     .Lpu_gc
-.Lpu_gc_done:
-    mov     rax, qword ptr [rsp + FR_ARGS]
-    mov     rdi, qword ptr [rax + D_LO]
-    mov     rsi, qword ptr [rax + D_HI]
-    mov     rdx, qword ptr [rax + D_SIZE + D_LO]
-    mov     rcx, qword ptr [rax + D_SIZE + D_HI]
-    call    plw_unify_vals
-    test    eax, eax
-    je      .Lpu_fail
-    mov     rax, qword ptr [rsp + FR_ARGS]
-    mov     rdi, qword ptr [rax + D_LO]
-    mov     rsi, qword ptr [rax + D_HI]
-    call    rt_pl_deref_val
-    jmp     .Lpu_restore
-.Lpu_fail:
-    mov     eax, DT_FAIL | (MOD_OP_RT_PL_DOP_UNIFY << 8)
-    xor     edx, edx
-.Lpu_restore:
-    add     rsp, 24
+#define CTX_TR            0
+#define CTX_B             8
+#define CTX_FRAME        24
+RTX_FUNC(rt_pl_quad_seed)
+    sub     rsp, 8
+    mov     r14, rdi
+    xor     r13d, r13d
+    xor     r15d, r15d
+    call    rt_pl_tr_init
+    mov     r12, rax
+    add     rsp, 8
     ret
-.Lpu_gc:
-    mov     rdi, qword ptr [rsp + FR_ARGS]
-    mov     esi, 2
-    xor     edx, edx
-    call    rt_gc_point_arr
-    jmp     .Lpu_gc_done
-.Lpu_fail_bare:
+RTX_ENDF(rt_pl_quad_seed)
+RTX_FUNC(rt_pl_dop_unify)
+    sub     rsp, CTX_FRAME
+    mov     qword ptr [rsp + CTX_TR], r12
+    mov     qword ptr [rsp + CTX_B], r13
+    mov     rdx, rsp
+    call    rt_pl_dop_unify_c
+    mov     r12, qword ptr [rsp + CTX_TR]
+    add     rsp, CTX_FRAME
+    cmp     al, DT_FAIL
+    jne     .Lpu_ret
     mov     eax, DT_FAIL | (MOD_OP_RT_PL_DOP_UNIFY << 8)
     xor     edx, edx
+.Lpu_ret:
     ret
 RTX_ENDF(rt_pl_dop_unify)
+RTX_FUNC(rt_pl_dop_unify_ci)
+    sub     rsp, CTX_FRAME
+    mov     qword ptr [rsp + CTX_TR], r12
+    mov     qword ptr [rsp + CTX_B], r13
+    mov     rdx, rsp
+    call    rt_pl_dop_unify_ci_c
+    mov     r12, qword ptr [rsp + CTX_TR]
+    add     rsp, CTX_FRAME
+    ret
+RTX_ENDF(rt_pl_dop_unify_ci)
+RTX_FUNC(rt_pl_dop_unify_cs)
+    sub     rsp, CTX_FRAME
+    mov     qword ptr [rsp + CTX_TR], r12
+    mov     qword ptr [rsp + CTX_B], r13
+    mov     rdx, rsp
+    call    rt_pl_dop_unify_cs_c
+    mov     r12, qword ptr [rsp + CTX_TR]
+    add     rsp, CTX_FRAME
+    ret
+RTX_ENDF(rt_pl_dop_unify_cs)
+RTX_FUNC(rt_pl_dop_mkc)
+    sub     rsp, CTX_FRAME
+    mov     qword ptr [rsp + CTX_TR], r12
+    mov     qword ptr [rsp + CTX_B], r13
+    mov     rdx, rsp
+    call    rt_pl_dop_mkc_c
+    mov     r12, qword ptr [rsp + CTX_TR]
+    add     rsp, CTX_FRAME
+    ret
+RTX_ENDF(rt_pl_dop_mkc)
+RTX_FUNC(rt_pl_dop_is_v)
+    sub     rsp, CTX_FRAME
+    mov     qword ptr [rsp + CTX_TR], r12
+    mov     qword ptr [rsp + CTX_B], r13
+    mov     rdx, rsp
+    call    rt_pl_dop_is_v_c
+    mov     r12, qword ptr [rsp + CTX_TR]
+    add     rsp, CTX_FRAME
+    ret
+RTX_ENDF(rt_pl_dop_is_v)
 .section .note.GNU-stack,"",@progbits
