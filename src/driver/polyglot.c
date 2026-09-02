@@ -14,7 +14,6 @@
 #include "lower.h"
 #include "SM.h"
 int g_fi8_gen_init_count = 0;
-int g_fi8_pl_init_count  = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void polyglot_init(stage2_t *s2, const tree_t *prog)
 {
@@ -27,7 +26,6 @@ void polyglot_init(stage2_t *s2, const tree_t *prog)
     memset(frame_stack, 0, sizeof frame_stack);
     scan_subj = ""; scan_pos = 1; scan_depth = 0;
     g_root = NULL;
-    g_fi8_pl_init_count++;
     prolog_atom_init();
     memset(&s2->resolve_pred_table, 0, sizeof s2->resolve_pred_table);
     g_resolve_cut_flag = 0;

@@ -390,14 +390,6 @@ static int graph_native_emittable_mode(stage2_t *s2, int for_run, char *why, siz
 static IR_graph_t **g_gz_visiting = NULL; static int g_gz_nvisiting = 0; static int g_gz_visiting_cap = 0;
 static IR_graph_t **g_gz_det_visiting = NULL; static int g_gz_det_nvisiting = 0; static int g_gz_det_visiting_cap = 0;
 static int g_gz_no_struct_ptr = 0;
-extern int resolve_bb_pred_count(void);
-extern const char *resolve_bb_pred_name_at(int idx);
-extern int resolve_bb_pred_arity_at(int idx);
-extern IR_t *resolve_bb_entry_node(const char *name, int arity);
-extern IR_graph_t *resolve_bb_graph_at(int idx);
-extern int resolve_bb_pred_count(void);
-extern const char *resolve_bb_pred_name_at(int idx);
-extern int resolve_bb_pred_arity_at(int idx);
 static int    g_prog_argc = 0;
 static char **g_prog_argv = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

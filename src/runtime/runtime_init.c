@@ -6,8 +6,6 @@
 #include "../parsers/prolog/prolog_atom.h"
 #include <stdio.h>
 #include <stdlib.h>
-static int     g_halt_rc  = 0;
-static int     g_halt_set = 0;
 __attribute__((visibility("hidden"))) unsigned long g_zdp_anchor_rsp = 0UL;
 __attribute__((visibility("hidden"))) unsigned long g_zdp_anchor_rbp = 0UL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

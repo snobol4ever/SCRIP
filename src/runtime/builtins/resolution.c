@@ -47,42 +47,7 @@ void rt_value_trail_tidy_dead_below(int mark, void *upper) {
 }
 pl_area_t     g_pl_env_area       = { (char *)0, (char *)0, (char *)0, 0 };
 int           g_resolve_active   = 0;
-Resolve_PredEntry_BB g_resolve_bb_table[RESOLVE_BB_TABLE_MAX];
-int             g_resolve_bb_count = 0;
 typedef struct { IR_graph_t *cfg; int first; } resolve_dcg_state_t;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-Resolve_PredEntry_BB *resolve_bb_lookup(const char *name, int arity) {
-    if (!name) return NULL;
-    for (int i = 0; i < g_resolve_bb_count; i++)
-        if (g_resolve_bb_table[i].arity == arity && g_resolve_bb_table[i].name && strcmp(g_resolve_bb_table[i].name, name) == 0)
-            return &g_resolve_bb_table[i];
-    return NULL;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int resolve_bb_pred_count(void) { return g_resolve_bb_count; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char *resolve_bb_pred_name_at(int idx) {
-    if (idx < 0 || idx >= g_resolve_bb_count) return NULL;
-    return bb_graph_of_pred(&g_resolve_bb_table[idx]) ? g_resolve_bb_table[idx].name : NULL;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int resolve_bb_pred_arity_at(int idx) {
-    if (idx < 0 || idx >= g_resolve_bb_count) return 0;
-    return g_resolve_bb_table[idx].arity;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-Resolve_PredEntry_BB *resolve_bb_register(const char *name, int arity, int bb_idx) {
-    if (!name) return NULL;
-    Resolve_PredEntry_BB *existing = resolve_bb_lookup(name, arity);
-    if (existing) { existing->bb_idx = bb_idx; return existing; }
-    if (g_resolve_bb_count >= RESOLVE_BB_TABLE_MAX) return NULL;
-    Resolve_PredEntry_BB *e = &g_resolve_bb_table[g_resolve_bb_count++];
-    e->name = strdup(name);
-    e->arity = arity;
-    e->bb_idx = bb_idx;
-    e->lower_sc.n = 0;
-    return e;
-}
 #define RESOLVE_PRED_TABLE_SIZE RESOLVE_PRED_TABLE_SIZE_FWD
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 unsigned resolve_pred_hash(const char *s) {

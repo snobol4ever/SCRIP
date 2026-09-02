@@ -189,7 +189,6 @@ void resolve_call_block_label(char *dst, size_t dsz, const char *name, int arity
 void sub_label(char *dst, size_t dsz, const char *name);
 void resolve_choice_clause_label(char *dst, size_t dsz, int id, int ci, const char *suffix);
 int resolve_emit_callee_block_body(const char *name, int arity, bb_label_t *bγ, bb_label_t *bω, bb_label_t *bβ);
-extern IR_t *resolve_bb_entry_node(const char *name, int arity);
 int  bb_kind_is_driver_owned(int t);
 void bb_prepare_capture_arbno(IR_t *nd, int imm);
 void bb_emit_limit_init(int limit_slot_off);

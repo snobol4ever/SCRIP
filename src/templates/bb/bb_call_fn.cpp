@@ -24,7 +24,6 @@ extern "C" char g_pl_trail[];
 extern "C" char g_hp_fr[];
 extern "C" uint32_t g_plw_dot_sl;
 extern "C" int g_plw_cellws_on;
-extern "C" int g_zeta_mode;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string sink_deref(const char * reg, int lh, int ld, int ln2) {
     return x86_deflabel_id(lh)
@@ -359,10 +358,6 @@ static std::string sink_trail_mark_str(int argbase, uint64_t ufp, const char * u
     s += x86("mov", "eax", "dword ptr [r12 + 0]");
     s += x86("test", "eax", "eax");
     s += x86_jcc_id("jne", 100);
-    s += x86("lea", "r12", "[rip + __]", (uint64_t)(uintptr_t)&g_zeta_mode, "g_zeta_mode");
-    s += x86("mov", "eax", "dword ptr [r12 + 0]");
-    s += x86("cmp", "eax", (long)2);
-    s += x86_jcc_id("je", 100);
     s += x86("lea", "r12", "[rip + __]", (uint64_t)(uintptr_t)g_pl_trail, "g_pl_trail");
     s += x86("mov", "eax", "dword ptr [r12 + 32]");
     s += x86("movsxd", "rdx", "eax");

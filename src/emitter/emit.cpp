@@ -3626,9 +3626,6 @@ void gva_collect_icon_globals(void) {
     extern const char *global_names[]; extern int global_count;
     for (int i = 0; i < global_count; i++) if (global_names[i] && strncmp(global_names[i], "PATV$", 5) != 0) (void)gva_collect_var(global_names[i]);
 }
-#define PL_CATCH_MAX 64
-static IR_t *g_pl_catch_nodes[PL_CATCH_MAX];
-static int   g_pl_catch_n = 0;
 static std::string g_text_acc;
 static FILE * g_emit_sink = NULL;
 static long   g_emit_text_count = 0;

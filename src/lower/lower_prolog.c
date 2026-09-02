@@ -4,6 +4,28 @@
 #include <stdint.h>
 #include "lower.h"
 #include "emit.h"
+#define PL_BB_TABLE_MAX 256
+typedef struct { const char * name; int arity; int bb_idx; } pl_bb_ent_t;
+static pl_bb_ent_t * pl_bb_tab = NULL;
+static int           pl_bb_n   = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static pl_bb_ent_t * pl_bb_lookup(const char * name, int arity) {
+    if (!name || !pl_bb_tab) return NULL;
+    for (int i = 0; i < pl_bb_n; i++) if (pl_bb_tab[i].arity == arity && pl_bb_tab[i].name && strcmp(pl_bb_tab[i].name, name) == 0) return &pl_bb_tab[i];
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static pl_bb_ent_t * pl_bb_register(const char * name, int arity, int bb_idx) {
+    if (!name) return NULL;
+    pl_bb_ent_t * existing = pl_bb_lookup(name, arity);
+    if (existing) { existing->bb_idx = bb_idx; return existing; }
+    if (pl_bb_n >= PL_BB_TABLE_MAX) return NULL;
+    if (!pl_bb_tab) { pl_bb_tab = (pl_bb_ent_t *)calloc(PL_BB_TABLE_MAX, sizeof *pl_bb_tab); if (!pl_bb_tab) return NULL; }
+    pl_bb_ent_t * e = &pl_bb_tab[pl_bb_n++];
+    e->name = strdup(name); e->arity = arity; e->bb_idx = bb_idx;
+    return e;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { IR_graph_t * g; IR_t * tω; IR_t * beta; IR_t * cut_ω; IR_t * ite_funnel; } lcx_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void γ_to(IR_t * nd, IR_t * t) { lc_γ_to(nd, t); }
@@ -965,7 +987,7 @@ static int lower_pl_dyniter_graph(const char *name, int arity) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_ensure_gen_builtin_pred(const char *gen_sval, const char *pred_nm, int nparams) {
-    { char key[64]; snprintf(key, sizeof key, "%s/%d", pred_nm, nparams); if (resolve_bb_lookup(key, nparams)) return;
+    { char key[64]; snprintf(key, sizeof key, "%s/%d", pred_nm, nparams); if (pl_bb_lookup(key, nparams)) return;
       extern tree_t *resolve_pred_table_lookup(Resolve_PredTable *pt, const char *key);
       if (resolve_pred_table_lookup(&g_stage2.resolve_pred_table, key)) return; }
     IR_graph_t * g = IR_alloc(64);
@@ -990,7 +1012,7 @@ static void pl_ensure_gen_builtin_pred(const char *gen_sval, const char *pred_nm
     int bb_idx = bb_program_add(&g_stage2.bbp, g);
     if (bb_idx < 0) return;
     { char key[64]; snprintf(key, sizeof key, "%s/%d", pred_nm, nparams);
-      resolve_bb_register(strdup(key), nparams, bb_idx);
+      pl_bb_register(strdup(key), nparams, bb_idx);
       int pi = stage2_proc_grow(&g_stage2);
       g_stage2.proc_table[pi].name         = strdup(key);
       g_stage2.proc_table[pi].proc         = NULL;
@@ -1073,7 +1095,7 @@ static void lower_pl_register_all_preds(void) {
             const tree_t *ch = pe->choice;
             const char *slash = key ? strrchr(key, '/') : NULL;
             int ar = slash ? atoi(slash + 1) : 0;
-            if (resolve_bb_lookup(key, ar)) continue;
+            if (pl_bb_lookup(key, ar)) continue;
             int dyn = 0;
             { char nm[200]; int kl = slash ? (int)(slash - key) : (int)strlen(key); if (kl > 199) kl = 199; memcpy(nm, key, kl); nm[kl] = 0; dyn = pl_dyn_is_marked(nm, ar); }
             int bb_idx = -1; int det = 0;
@@ -1086,7 +1108,7 @@ static void lower_pl_register_all_preds(void) {
                 bb_idx = lower_pl_pred_graph_new(ch, ar, strcmp(key, "main/0") != 0 && !det);
             }
             if (bb_idx >= 0) {
-                resolve_bb_register(key, ar, bb_idx);
+                pl_bb_register(key, ar, bb_idx);
                 {
                     int pi = stage2_proc_grow(&g_stage2);
                     g_stage2.proc_table[pi].name         = (strcmp(key, "main/0") == 0) ? strdup("main") : strdup(key);
@@ -1108,10 +1130,10 @@ static void lower_pl_register_dyn_only_preds(void) {
         const char * nm = g_stage2.pl_dyn_name[i]; int ar = g_stage2.pl_dyn_arity[i];
         if (!nm) continue;
         char key[200]; snprintf(key, sizeof key, "%s/%d", nm, ar);
-        if (resolve_bb_lookup(key, ar)) continue;
+        if (pl_bb_lookup(key, ar)) continue;
         int bb_idx = lower_pl_dyniter_graph(nm, ar);
         if (bb_idx < 0) continue;
-        resolve_bb_register(strdup(key), ar, bb_idx);
+        pl_bb_register(strdup(key), ar, bb_idx);
         int pi = stage2_proc_grow(&g_stage2);
         g_stage2.proc_table[pi].name         = strdup(key);
         g_stage2.proc_table[pi].proc         = NULL;
@@ -1287,7 +1309,7 @@ static void pl_ll_maybe_lift(tree_t *fa) {
     free(remap);
     int bb_idx = lower_pl_pred_graph_new(cl, nhead, 1);
     if (bb_idx < 0) return;
-    resolve_bb_register(key, nhead, bb_idx);
+    pl_bb_register(key, nhead, bb_idx);
     { int pi = stage2_proc_grow(&g_stage2);
       g_stage2.proc_table[pi].name         = strdup(key);
       g_stage2.proc_table[pi].proc         = NULL;
@@ -1435,7 +1457,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     if (clause) {
         int bb_idx = lower_pl_clause_graph(clause);
         if (bb_idx >= 0) {
-            if (pl_init_ngoals_acc > 0 && !resolve_bb_lookup("main/0", 0)) resolve_bb_register("main/0", 0, bb_idx);
+            if (pl_init_ngoals_acc > 0 && !pl_bb_lookup("main/0", 0)) pl_bb_register("main/0", 0, bb_idx);
             if (pl_init_main_pi < 0) {
                 pl_init_main_pi = stage2_proc_grow(&g_stage2);
                 g_stage2.proc_table[pl_init_main_pi].name     = "main";

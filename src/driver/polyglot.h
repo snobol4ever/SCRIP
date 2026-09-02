@@ -6,7 +6,6 @@
 #include "driver/driver.h"
 #include "stage2.h"
 extern int g_fi8_gen_init_count;
-extern int g_fi8_pl_init_count;
 void     polyglot_init   (stage2_t *s2, const tree_t *prog);
 int      polyglot_module_open  (stage2_t *s2, const tree_t *s);
 void     polyglot_module_extend(stage2_t *s2, int mod_idx, const tree_t *s);
