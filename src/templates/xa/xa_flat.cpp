@@ -190,6 +190,15 @@ static std::string zf_pin_restore(int kt) {
          + x86("mov", x86_fb(), RDQ(x86_fb(), kt - 8));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string zf_release(int kt) {   /* ⭐ PZ-4 PL-ZA-2, THE EXACT RELEASE. Unpinned graphs release with `add rsp,kt`, which is only right if the spine is sitting exactly at alpha when the exit is reached
+   -- hq_P measured 34 rsp moves in one Prolog body (adc17766), so that is an assumption, not an invariant. A pinned graph does not need it: `lea rsp,[pin+kt]` lands rsp on the caller's spine
+   wherever this body left its own. ⛔ IT MUST RUN BEFORE zf_pin_restore() -- it reads the pin, and the restore overwrites it. ⛔ ONE helper for gamma AND omega; two copies of a release formula
+   are how the 240-vs-144 drift in this file happened. Unpinned graphs are byte-identical to before. */
+    if (!x86_fb_pinned()) return x86("add", "rsp", (long)kt);
+    return x86("comment", "PZ-4 PL-ZA-2: exact release off the pin, not off wherever rsp happens to be")
+         + x86("lea", "rsp", RDQ(x86_fb(), kt));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_zframe_prologue_str(void) {
     if (!g_emit.zframe_graph) return std::string();
     int kt = g_emit.flat_frame_bytes;
@@ -405,8 +414,8 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
                     + x86("mov", x86_fb(), RDQ("rax", kt - 8)))
                    : (x86("mov", "rax", "rsp")
                     + std::string("")))
-                : (zf_pin_restore(kt)
-                 + x86("add", "rsp", (long)kt)
+                : (zf_release(kt)
+                 + zf_pin_restore(kt)
                  + std::string("")))
              + x86("jmp", "rcx");
     }
@@ -450,8 +459,8 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
          + x86("mov", "rsi", "rdx")
          + x86("mov", "rcx", "qword ptr [rsp# + " + std::to_string(kt - 24) + "]")
          + zf_display_restore(kt)
+         + zf_release(kt)
          + zf_pin_restore(kt)
-         + x86("add", "rsp", (long)kt)
          + std::string("")
          + x86("jmp", "rcx");
 }
@@ -485,8 +494,8 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
     return x86("comment", "ICN-FR-2 zframe epilogue-ω: load ω wire from [kt-16]; unwind to flat base; jmp. NOTE: no caller-base restore happens here — the [kt-8] slot is WRITE-ONLY on every arm that fills it (s247)")
          + x86("mov", "rcx", "qword ptr [rsp# + " + std::to_string(kt - 16) + "]")
          + zf_display_restore(kt)
+         + zf_release(kt)
          + zf_pin_restore(kt)
-         + x86("add", "rsp", (long)kt)
          + std::string("")
          + x86("jmp", "rcx");
 }
