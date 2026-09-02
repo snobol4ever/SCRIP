@@ -23,6 +23,14 @@ static long bid_bake_of(const char * fn) { if (!bid_bake_on() || !fn) return -1L
 DESCR_t rt_pl_dop_unify(DESCR_t *, int); DESCR_t rt_pl_dop_mkc(DESCR_t *, int); DESCR_t dop_write(DESCR_t *, int); DESCR_t dop_nl(DESCR_t *, int); DESCR_t rt_pl_dop_is_v(DESCR_t *, int);
 DESCR_t rt_pl_dop_ax_add(DESCR_t *, int); DESCR_t rt_pl_dop_ax_sub(DESCR_t *, int); DESCR_t rt_pl_dop_ax_mul(DESCR_t *, int); DESCR_t rt_pl_dop_ax_div(DESCR_t *, int); DESCR_t rt_pl_dop_ax_idiv(DESCR_t *, int); DESCR_t rt_pl_dop_ax_mod(DESCR_t *, int);
 DESCR_t rt_pl_dop_cmp_lt(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_gt(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_le(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_ge(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_eq(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_ne(DESCR_t *, int);
+DESCR_t rt_pl_dop_ax_rem(DESCR_t *, int); DESCR_t rt_pl_dop_ax_fpow(DESCR_t *, int); DESCR_t rt_pl_dop_ax_pow(DESCR_t *, int); DESCR_t rt_pl_dop_ax_min(DESCR_t *, int);
+DESCR_t rt_pl_dop_ax_max(DESCR_t *, int); DESCR_t rt_pl_dop_ax_gcd(DESCR_t *, int); DESCR_t rt_pl_dop_ax_xor(DESCR_t *, int); DESCR_t rt_pl_dop_ax_shr(DESCR_t *, int);
+DESCR_t rt_pl_dop_ax_shl(DESCR_t *, int); DESCR_t rt_pl_dop_ax_band(DESCR_t *, int); DESCR_t rt_pl_dop_ax_bor(DESCR_t *, int); DESCR_t rt_pl_dop_ax_neg(DESCR_t *, int);
+DESCR_t rt_pl_dop_ax_pos(DESCR_t *, int); DESCR_t rt_pl_dop_ax_abs(DESCR_t *, int); DESCR_t rt_pl_dop_ax_sign(DESCR_t *, int); DESCR_t rt_pl_dop_ax_trunc(DESCR_t *, int);
+DESCR_t rt_pl_dop_ax_intg(DESCR_t *, int); DESCR_t rt_pl_dop_ax_flt(DESCR_t *, int); DESCR_t rt_pl_dop_ax_floor(DESCR_t *, int); DESCR_t rt_pl_dop_ax_ceil(DESCR_t *, int);
+DESCR_t rt_pl_dop_ax_round(DESCR_t *, int); DESCR_t rt_pl_dop_ax_sqrt(DESCR_t *, int); DESCR_t rt_pl_dop_ax_msb(DESCR_t *, int); DESCR_t rt_pl_dop_ax_bnot(DESCR_t *, int);
+DESCR_t rt_pl_dop_ax_sin(DESCR_t *, int); DESCR_t rt_pl_dop_ax_cos(DESCR_t *, int); DESCR_t rt_pl_dop_ax_atan(DESCR_t *, int); DESCR_t rt_pl_dop_ax_log(DESCR_t *, int);
+DESCR_t rt_pl_dop_ax_exp(DESCR_t *, int); DESCR_t rt_pl_dop_ax_fip(DESCR_t *, int); DESCR_t rt_pl_dop_ax_ffp(DESCR_t *, int); DESCR_t rt_pl_dop_ax_pi(DESCR_t *, int);
 int64_t rt_gvar_get_int(const char * name);
 extern int g_gva_active;
 int gva_index_of(const char * name);
@@ -272,6 +280,17 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$ax_div", 2, "rt_pl_dop_ax_div", rt_pl_dop_ax_div }, { "$ax_idiv", 2, "rt_pl_dop_ax_idiv", rt_pl_dop_ax_idiv }, { "$ax_mod", 2, "rt_pl_dop_ax_mod", rt_pl_dop_ax_mod },
         { "$cmp_lt", 2, "rt_pl_dop_cmp_lt", rt_pl_dop_cmp_lt }, { "$cmp_gt", 2, "rt_pl_dop_cmp_gt", rt_pl_dop_cmp_gt }, { "$cmp_le", 2, "rt_pl_dop_cmp_le", rt_pl_dop_cmp_le },
         { "$cmp_ge", 2, "rt_pl_dop_cmp_ge", rt_pl_dop_cmp_ge }, { "$cmp_eq", 2, "rt_pl_dop_cmp_eq", rt_pl_dop_cmp_eq }, { "$cmp_ne", 2, "rt_pl_dop_cmp_ne", rt_pl_dop_cmp_ne },
+        { "$ax_rem", 2, "rt_pl_dop_ax_rem", rt_pl_dop_ax_rem }, { "$ax_fpow", 2, "rt_pl_dop_ax_fpow", rt_pl_dop_ax_fpow }, { "$ax_pow", 2, "rt_pl_dop_ax_pow", rt_pl_dop_ax_pow },
+        { "$ax_min", 2, "rt_pl_dop_ax_min", rt_pl_dop_ax_min }, { "$ax_max", 2, "rt_pl_dop_ax_max", rt_pl_dop_ax_max }, { "$ax_gcd", 2, "rt_pl_dop_ax_gcd", rt_pl_dop_ax_gcd },
+        { "$ax_xor", 2, "rt_pl_dop_ax_xor", rt_pl_dop_ax_xor }, { "$ax_shr", 2, "rt_pl_dop_ax_shr", rt_pl_dop_ax_shr }, { "$ax_shl", 2, "rt_pl_dop_ax_shl", rt_pl_dop_ax_shl },
+        { "$ax_band", 2, "rt_pl_dop_ax_band", rt_pl_dop_ax_band }, { "$ax_bor", 2, "rt_pl_dop_ax_bor", rt_pl_dop_ax_bor }, { "$ax_neg", 1, "rt_pl_dop_ax_neg", rt_pl_dop_ax_neg },
+        { "$ax_pos", 1, "rt_pl_dop_ax_pos", rt_pl_dop_ax_pos }, { "$ax_abs", 1, "rt_pl_dop_ax_abs", rt_pl_dop_ax_abs }, { "$ax_sign", 1, "rt_pl_dop_ax_sign", rt_pl_dop_ax_sign },
+        { "$ax_trunc", 1, "rt_pl_dop_ax_trunc", rt_pl_dop_ax_trunc }, { "$ax_intg", 1, "rt_pl_dop_ax_intg", rt_pl_dop_ax_intg }, { "$ax_flt", 1, "rt_pl_dop_ax_flt", rt_pl_dop_ax_flt },
+        { "$ax_floor", 1, "rt_pl_dop_ax_floor", rt_pl_dop_ax_floor }, { "$ax_ceil", 1, "rt_pl_dop_ax_ceil", rt_pl_dop_ax_ceil }, { "$ax_round", 1, "rt_pl_dop_ax_round", rt_pl_dop_ax_round },
+        { "$ax_sqrt", 1, "rt_pl_dop_ax_sqrt", rt_pl_dop_ax_sqrt }, { "$ax_msb", 1, "rt_pl_dop_ax_msb", rt_pl_dop_ax_msb }, { "$ax_bnot", 1, "rt_pl_dop_ax_bnot", rt_pl_dop_ax_bnot },
+        { "$ax_sin", 1, "rt_pl_dop_ax_sin", rt_pl_dop_ax_sin }, { "$ax_cos", 1, "rt_pl_dop_ax_cos", rt_pl_dop_ax_cos }, { "$ax_atan", 1, "rt_pl_dop_ax_atan", rt_pl_dop_ax_atan },
+        { "$ax_log", 1, "rt_pl_dop_ax_log", rt_pl_dop_ax_log }, { "$ax_exp", 1, "rt_pl_dop_ax_exp", rt_pl_dop_ax_exp }, { "$ax_fip", 1, "rt_pl_dop_ax_fip", rt_pl_dop_ax_fip },
+        { "$ax_ffp", 1, "rt_pl_dop_ax_ffp", rt_pl_dop_ax_ffp }, { "$ax_pi", 0, "rt_pl_dop_ax_pi", rt_pl_dop_ax_pi },
         { 0, 0, 0, 0 } };
     for (int i = 0; t[i].nm; i++) if (!strcmp(fn, t[i].nm) && (t[i].ar < 0 ? narg >= 1 : narg == t[i].ar)) {
         const char * nd = getenv("SCRIP_NO_DOP"); if (nd && nd[0] == '1') return (void *)0;

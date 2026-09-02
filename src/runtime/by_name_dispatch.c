@@ -910,7 +910,7 @@ static DESCR_t pl_arith2(const char *op, DESCR_t a, DESCR_t b) {
     extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int);
     int ai = (a.v == DT_I), bi = (b.v == DT_I);
     if (ai && bi && !strcmp(op, "idiv")) { if (b.i == 0) return FAILDESCR; return INTVAL(a.i / b.i); }
-    if (ai && bi && !strcmp(op, "div"))  { if (b.i == 0) return FAILDESCR; return REALVAL((double)a.i / (double)b.i); }
+    if (ai && bi && !strcmp(op, "div"))  { if (b.i == 0) return FAILDESCR; if (a.i % b.i == 0) return INTVAL(a.i / b.i); return REALVAL((double)a.i / (double)b.i); }
     if (ai && bi && !strcmp(op, "mod"))  { if (b.i == 0) return FAILDESCR; long long m = a.i % b.i; if (m && ((m < 0) != (b.i < 0))) m += b.i; return INTVAL(m); }
     return rt_num_arith(a, b, pl_is_op_code(op));
 }
@@ -1157,7 +1157,7 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out) {
     int bi = (b.v == DT_I), brl = (b.v == DT_R);
     if (!bi && !brl) { pl_iso_evaluable(b); *out = FAILDESCR; return 1; }
     double bd = brl ? b.r : (double)b.i;
-    if (!strcmp(op, "fpow")) { *out = REALVAL(pow(ad, bd)); return 1; }
+    if (!strcmp(op, "fpow") || !strcmp(op, "pow")) { if (ai && bi && b.i >= 0) { long long r = 1, bs = a.i, e = b.i; int ovf = 0; while (e) { if (e & 1) ovf |= __builtin_mul_overflow(r, bs, &r); e >>= 1; if (e) ovf |= __builtin_mul_overflow(bs, bs, &bs); } if (!ovf) { *out = INTVAL(r); return 1; } } *out = REALVAL(pow(ad, bd)); return 1; }
     if (!strcmp(op, "min")) { *out = (ai && bi) ? INTVAL(a.i < b.i ? a.i : b.i) : REALVAL(ad < bd ? ad : bd); return 1; }
     if (!strcmp(op, "max")) { *out = (ai && bi) ? INTVAL(a.i > b.i ? a.i : b.i) : REALVAL(ad > bd ? ad : bd); return 1; }
     if (!strcmp(op, "gcd")) { if (!ai || !bi) { *out = FAILDESCR; return 1; } long long x = a.i < 0 ? -a.i : a.i, y = b.i < 0 ? -b.i : b.i; while (y) { long long t2 = x % y; x = y; y = t2; } *out = INTVAL(x); return 1; }
@@ -1303,6 +1303,14 @@ DESCR_t rt_pl_dop_ax_mul(DESCR_t *args, int nargs) {
 DESCR_t rt_pl_dop_ax_div(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_ax_div, args, nargs) : FAILDESCR; }
 DESCR_t rt_pl_dop_ax_idiv(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_ax_idiv, args, nargs) : FAILDESCR; }
 DESCR_t rt_pl_dop_ax_mod(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_ax_mod, args, nargs) : FAILDESCR; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define PL_AX_LEAF(nm, op, ar) static int dop_ax_##nm(DESCR_t *a, int n, DESCR_t *o) { return dop_ax(op, a, n, o); } DESCR_t rt_pl_dop_ax_##nm(DESCR_t *args, int nargs) { return nargs == ar ? dop_call(dop_ax_##nm, args, nargs) : FAILDESCR; }
+PL_AX_LEAF(rem, "rem", 2) PL_AX_LEAF(fpow, "fpow", 2) PL_AX_LEAF(pow, "pow", 2) PL_AX_LEAF(min, "min", 2) PL_AX_LEAF(max, "max", 2) PL_AX_LEAF(gcd, "gcd", 2) PL_AX_LEAF(xor, "xor", 2)
+PL_AX_LEAF(shr, "shr", 2) PL_AX_LEAF(shl, "shl", 2) PL_AX_LEAF(band, "band", 2) PL_AX_LEAF(bor, "bor", 2)
+PL_AX_LEAF(neg, "neg", 1) PL_AX_LEAF(pos, "pos", 1) PL_AX_LEAF(abs, "abs", 1) PL_AX_LEAF(sign, "sign", 1) PL_AX_LEAF(trunc, "trunc", 1) PL_AX_LEAF(intg, "intg", 1) PL_AX_LEAF(flt, "flt", 1)
+PL_AX_LEAF(floor, "floor", 1) PL_AX_LEAF(ceil, "ceil", 1) PL_AX_LEAF(round, "round", 1) PL_AX_LEAF(sqrt, "sqrt", 1) PL_AX_LEAF(msb, "msb", 1) PL_AX_LEAF(bnot, "bnot", 1) PL_AX_LEAF(sin, "sin", 1)
+PL_AX_LEAF(cos, "cos", 1) PL_AX_LEAF(atan, "atan", 1) PL_AX_LEAF(log, "log", 1) PL_AX_LEAF(exp, "exp", 1) PL_AX_LEAF(fip, "fip", 1) PL_AX_LEAF(ffp, "ffp", 1)
+PL_AX_LEAF(pi, "pi", 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t dop_cmp_fast(DESCR_t *args, int rel, dop_body_fn slow) {
     DESCR_t a = rt_pl_deref_val(args[0]), b = rt_pl_deref_val(args[1]);
