@@ -598,6 +598,10 @@ static int plc_atom_id_of(pl_cell_t *d)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_is_atomlike(pl_cell_t *d) { return (int)d->v == DT_A || (int)d->v == DT_S; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* Every atom this slice hands to a caller (functor/3 Name; univ's =.. functor element) must be DT_S -- pl_make_atom's DT_A type-checks and links fine but SIGSEGVs in write/1's out_write_descr,
+   via c_VARVAL_fn, which never learned DT_A (FINDING-2026-09-01-seat10-prolog-atoms-ride-dt-s-not-dt-a). Matches pl_term_to_cell_word (pl_cell_conv.h:70); twin of pl_atom_cell/pl_nil_cell below. */
+static pl_cell_t plc_atom_id_cell(int id) { const char *n = prolog_atom_name(id); pl_cell_t c; c.v = DT_S; c.slen = (uint32_t)(n ? strlen(n) : 0); c.s = n ? n : ""; return c; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_cell_is_ground(pl_cell_t *c)
 {
     pl_cell_t *d = c ? pl_deref(c) : (pl_cell_t *)0;
@@ -654,8 +658,8 @@ int rt_pl_functor_cell(void *t0_cell, void *name_cell, void *arity_cell)
     int mark = pl_trail_mark(&g_pl_trail);
     if (d0 && !pl_cell_unbound(d0)) {
         pl_cell_t nameV, arityV;
-        if ((int)d0->v == DT_PLREF)   { nameV = pl_make_atom((int)(d0->slen >> 16)); arityV = pl_make_int((int64_t)(d0->slen & 0xFFFFu)); }
-        else if (plc_is_atomlike(d0)) { nameV = pl_make_atom(plc_atom_id_of(d0)); arityV = pl_make_int(0); }
+        if ((int)d0->v == DT_PLREF)   { nameV = plc_atom_id_cell((int)(d0->slen >> 16)); arityV = pl_make_int((int64_t)(d0->slen & 0xFFFFu)); }
+        else if (plc_is_atomlike(d0)) { nameV = plc_atom_id_cell(plc_atom_id_of(d0)); arityV = pl_make_int(0); }
         else if ((int)d0->v == DT_I)  { nameV = pl_make_int(d0->i); arityV = pl_make_int(0); }
         else if ((int)d0->v == DT_R)  { nameV = pl_make_float(d0->r); arityV = pl_make_int(0); }
         else { pl_trail_unwind(&g_pl_trail, mark); return 0; }
@@ -667,7 +671,7 @@ int rt_pl_functor_cell(void *t0_cell, void *name_cell, void *arity_cell)
     if (!d2 || (int)d2->v != DT_I) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     long ar = (long)d2->i;
     pl_cell_t built;
-    if (ar == 0) { built = d1 ? *d1 : pl_make_atom(prolog_atom_intern("[]")); }
+    if (ar == 0) { built = d1 ? *d1 : plc_atom_id_cell(prolog_atom_intern("[]")); }
     else {
         if (!d1 || !plc_is_atomlike(d1)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
         extern int g_pl_functor_slot_ctr;
@@ -699,7 +703,7 @@ int rt_pl_univ_cell(void *t0_cell, void *list_cell)
     pl_cell_t *d0 = t0_cell ? pl_deref((pl_cell_t *)t0_cell) : (pl_cell_t *)0;
     int mark = pl_trail_mark(&g_pl_trail);
     if (d0 && !pl_cell_unbound(d0)) {
-        pl_cell_t lst = pl_make_atom(prolog_atom_intern("[]"));
+        pl_cell_t lst = plc_atom_id_cell(prolog_atom_intern("[]"));
         if ((int)d0->v == DT_PLREF) {
             int ar = (int)(d0->slen & 0xFFFFu); pl_cell_t *aa = (pl_cell_t *)d0->p;
             for (int i = ar - 1; i >= 0; i--) {
@@ -708,7 +712,7 @@ int rt_pl_univ_cell(void *t0_cell, void *list_cell)
                 lst = pl_make_compound(ATOM_DOT, 2, c);
             }
             pl_cell_t *c = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t));
-            c[0] = pl_make_atom((int)(d0->slen >> 16)); c[1] = lst;
+            c[0] = plc_atom_id_cell((int)(d0->slen >> 16)); c[1] = lst;
             lst = pl_make_compound(ATOM_DOT, 2, c);
         } else {
             pl_cell_t *c = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t));
