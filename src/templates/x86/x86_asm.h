@@ -317,8 +317,11 @@ static inline bool x86_rtcc_noclob_on(void) { const char * e = getenv("SCRIP_RTC
 static inline unsigned x86_rtcc_veneer_mask(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_RTCC_VENEER"); v = (e && *e) ? (int)strtoul(e, 0, 0) : (int)RTCC_C_ALL; } return (unsigned)v; }
 static inline int x86_rtcc_veneer_on(void) { return x86_rtcc_veneer_mask() != 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int gva_count(void);
+static inline unsigned x86_rtcc_live_mask(void) { unsigned m = x86_rtcc_veneer_mask(); return (RTCC_GLOBAL_R9_GVA && gva_count() == 0) ? (m & ~RTCC_C_R9) : m; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline unsigned x86_rtcc_clob_raw(const char * sym);
-static inline unsigned x86_rtcc_clob(const char * sym) { return x86_rtcc_clob_raw(sym) & x86_rtcc_veneer_mask(); }
+static inline unsigned x86_rtcc_clob(const char * sym) { return x86_rtcc_clob_raw(sym) & x86_rtcc_live_mask(); }
 static inline unsigned x86_rtcc_clob_raw(const char * sym) {
     if (!sym) return RTCC_C_ALL;
     static const struct { const char * n; unsigned m; } LEAF[] = {
@@ -1635,12 +1638,12 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         return std::string();
     }
     if (!strcmp(mnem, "rtcc_wb")) {
-        unsigned vm = x86_rtcc_veneer_mask(); if (!vm) return std::string();
+        unsigned vm = x86_rtcc_live_mask(); if (!vm) return std::string();
         uint64_t block = (uint64_t)(uintptr_t)rtccb;
         return MEDIUM_BINARY ? x86_Lrec(x86_rtcc_wb_bin(block, RTCC_C_ALL & vm)) : x86_rtcc_wb_text(RTCC_C_ALL & vm);
     }
     if (!strcmp(mnem, "rtcc_rl")) {
-        unsigned vm = x86_rtcc_veneer_mask(); if (!vm) return std::string();
+        unsigned vm = x86_rtcc_live_mask(); if (!vm) return std::string();
         uint64_t block = (uint64_t)(uintptr_t)rtccb;
         return MEDIUM_BINARY ? x86_Lrec(x86_rtcc_rl_bin(block, RTCC_C_ALL & vm)) : x86_rtcc_rl_text(RTCC_C_ALL & vm);
     }
