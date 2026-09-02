@@ -1691,7 +1691,11 @@ def cmd_run(args):
                        f"{m}_hang={c['HANG']} {m}_unproven={c['UNPROVEN']} {m}_skip={c['SKIP']} "
                        f"{m}_xfail={c['XFAIL']} {m}_xpass={c['XPASS']}")
     print("SUITE_BOARD " + " ".join(fields))
-    for name, m, v in fails[:40]:
+    # ⛔ the 40-line sample is a SUMMARY, not a listing: the 5 FAIL / 8 XPASS / 10 HANG entries of a 371-entry
+    # board never appeared in it, so nothing could be rowed from names. SUITE_LIST_ALL=1 lists every non-PASS
+    # entry (opt-in; the default output is unchanged).
+    import os as _os
+    for name, m, v in (fails if _os.environ.get('SUITE_LIST_ALL') else fails[:40]):
         tag = "XPASS(marker stale, promote it)" if v.kind == "PASS" else v.kind
         print(f"  {tag} {m} {name}: {v.detail}", file=sys.stderr)
     sys.exit(0 if not fails else 1)
