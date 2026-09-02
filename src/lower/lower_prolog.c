@@ -970,7 +970,9 @@ static int lower_pl_dyniter_graph(const char *name, int arity) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_ensure_gen_builtin_pred(const char *gen_sval, const char *pred_nm, int nparams) {
-    { char key[64]; snprintf(key, sizeof key, "%s/%d", pred_nm, nparams); if (resolve_bb_lookup(key, nparams)) return; }
+    { char key[64]; snprintf(key, sizeof key, "%s/%d", pred_nm, nparams); if (resolve_bb_lookup(key, nparams)) return;
+      extern tree_t *resolve_pred_table_lookup(Resolve_PredTable *pt, const char *key);
+      if (resolve_pred_table_lookup(&g_stage2.resolve_pred_table, key)) return; }
     IR_graph_t * g = IR_alloc(64);
     if (!g) return;
     pl_cells_stamp(g);
