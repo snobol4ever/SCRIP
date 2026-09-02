@@ -46,7 +46,7 @@ WORK="$(mktemp -d "${TMPDIR:-/tmp}/pevc.XXXXXX")"; trap 'rm -rf "$WORK"' EXIT
 ASM=(); BUILT=0
 for f in "${PROGS[@]}"; do
     b="$(basename "$f" | tr './' '__')"
-    if timeout 60s "$ROOT/scrip" --compile "$f" < /dev/null > "$WORK/$b.s" 2>/dev/null && [ -s "$WORK/$b.s" ]; then
+    if SCRIP_PORT_EXIT_AUDIT=1 timeout 60s "$ROOT/scrip" --compile "$f" < /dev/null > "$WORK/$b.s" 2>"$WORK/$b.audit" && [ -s "$WORK/$b.s" ]; then
         ASM+=("$WORK/$b.s"); BUILT=$((BUILT+1))
     else
         echo "   ⚠ could not compile, excluded from the verdict: $f"
@@ -97,6 +97,32 @@ for f in r:
     if len(bad)>6: print("        ... and %d more" % (len(bad)-6))
 PY
 
+# ⭐⭐ TWO INDEPENDENT INSTRUMENTS MUST AGREE, AND BOTH ARE PRINTED FROM THIS ONE COMMAND (RULES.md
+# INSTRUMENT LAWS thirteenth batch: an invariant that lives in the gap between two sites is held by
+# neither; a probe that prints both sides turns a future divergence into a run instead of a re-derivation).
+#   SIDE A -- the EMITTER's own view: x86_port_hook fires [PORT-EXIT-PROMOTION] under SCRIP_PORT_EXIT_AUDIT=1
+#             at the one chokepoint every port transfer passes, when the target IS the chain's own γ label.
+#   SIDE B -- the post-hoc TEXT scan above, which finds procedure exits by their `mov rdi, rax` promotion.
+# They are derived from completely different evidence, so agreement is real cross-validation and a
+# DISAGREEMENT IS ITSELF A FINDING -- it means one of the two has drifted from what the compiler does.
+# ⛔⭐ IT IS A SUBSET CHECK, NOT AN EQUALITY, AND THAT ASYMMETRY IS MEASURED RATHER THAN ASSUMED.
+# The emitter side is KNOWN INCOMPLETE: `g_emit.flat_lcl_proc` is true for most callable chains but not
+# all. Measured 2026-09-01 over this witness set -- emitter 31 vs TEXT 36, the whole gap inside fbench.pas
+# (`transitxsurface_γ` 4 + `initialise_γ` 1), two procedures whose γ exits DO marshal rax:rdx but whose
+# chains do not carry that flag. Gating on EQUALITY against a known-incomplete instrument would print
+# UNPROVEN forever, which is a refusal that has stopped meaning anything.
+# ⭐ SO THE DIRECTION IS WHAT MATTERS: the emitter seeing a promotion-site transfer the TEXT scan MISSED is
+# a real divergence and refuses (the TEXT scan would have a blind spot in the dangerous direction).
+# The reverse is the characterized shortfall above and is reported as coverage, not as a verdict.
+AUD=$(cat "$WORK"/*.audit 2>/dev/null | grep -c 'PORT-EXIT-PROMOTION' || true)
+printf '   cross-check: emitter chokepoint %s / TEXT scan %s promotion-site transfer(s) -- emitter coverage %s%%\n' \
+       "$AUD" "$XFERS" "$([ "${XFERS:-0}" -gt 0 ] 2>/dev/null && echo $(( AUD * 100 / XFERS )) || echo '?')"
+if [ "${AUD:-0}" -gt "${XFERS:-0}" ] 2>/dev/null; then
+    echo "GATE UNPROVEN(2) [$GATE_NAME]: the EMITTER sees $AUD promotion-site transfers but the TEXT scan"
+    echo "    found only $XFERS. That is the dangerous direction -- the TEXT scan is missing promotion sites"
+    echo "    the compiler itself reports. Reconcile before trusting the contract verdict below."
+    gate_stamp; exit 2
+fi
 # ⛔ the cannot-measure floor: zero exits examined is NOT a clean tree, it is a broken instrument.
 gate_floor "$EXITS" 1 "rax-forwarding procedure exits"
 gate_verdict "$VIOL" "port exits reached with an unnormalized value in rax (forgeable DT_FAIL)"
