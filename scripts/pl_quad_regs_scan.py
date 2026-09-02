@@ -1,0 +1,190 @@
+#!/usr/bin/env python3
+# pl_quad_regs_scan.py -- the analysis half of test_gate_pl_quad_regs.sh, THE QUAD GATE (hq_P 2026-09-02; row
+# prolog-quad-gate-no-r12-r15-write-outside-tr-b-root-ball; ARCH-PROLOG-BYRD-BOX-TRANSLATION.md § E instrument lane).
+#
+# THE CONTRACT BEING CHECKED (Lon's grant, ARCH-PROLOG-BYRD-BOX-TRANSLATION.md top table): in a Prolog graph
+#   r12 = TR   the trail (Prolog's C.A.S.)      r13 = B    the youngest live choice frame
+#   r14 = ROOT the ζ-STANDING record            r15 = the ball in flight, or 0
+# are LIVE FOR THE WHOLE RUN.  Any instruction that writes one of them outside the helpers that own the role (the ROOT
+# seeds, the B landings/cut restore, the TR unwind/bump, the BALL set/clear) silently corrupts engine state -- the
+# rung-2.0 scratch class (`bb_call_fn.cpp lea r12,[rip+...]`) that the cut deleted and this instrument keeps deleted.
+#
+# WHAT IT DOES.  For each emitted mode-4 .s (Intel syntax, as SCRIP --compile writes it): every instruction whose
+# destination is r12..r15 under ANY width alias (r13, r13d, r13w, r13b, r13l) is a WRITE.  Each write is attributed to
+# its SITE -- the driver block (`main:` up to the root graph's α), the root graph's seed (that α up to `<root>_α_body:`),
+# or the enclosing box `nN_<kind>` and port segment (α/β/γ/ω) / function -- and matched against ENROLLED, the explicit
+# per-register shape table below.  A write that matches no enrolled shape is a VIOLATION.  Then the runtime asm the
+# program can reach is scanned the same way: every `call`/`jmp` target the .s names that is defined by RTX_FUNC in
+# --rtx-dir, closed transitively over the rtx tree's own calls/jmps; a write inside a reachable routine is a violation
+# unless the routine is a TR helper by name, or the write is bracketed by that routine's own push/pop of the register
+# (a preserved scratch use is invisible to the caller and is printed as such, never as clean-by-omission).
+#
+# FAIL-CLOSED ON WHAT IT DOES NOT KNOW: an instruction it cannot classify whose FIRST operand is a quad register is
+# reported as a write with shape `?<mnemonic>` -- which no table entry matches, so the unknown is loud, never silent.
+#
+# WHAT IT CANNOT SEE (an instrument's blind spots are part of its result): mode-4 TEXT only (MODES MAY DIVERGE: this
+# verdict names its mode and does not bind mode 3); C runtime code is NOT scanned -- r12..r15 are callee-saved under
+# SysV, so every C service preserves them for free (ARCH rule (1)); indirect `call rax`/`jmp rax` targets are not
+# followed; a polyglot boundary (.scrip entering SNOBOL4/Icon) is out of population.
+#
+# ENROLLING A NEW WRITER (the ONE legitimate way this gate goes green again after a rung adds a B/TR/BALL writer):
+# add ONE line to ENROLLED naming the register, the site condition and the exact shape, citing the ARCH section that
+# rules it.  Never widen a shape to "any write in box kind X" -- that re-admits the scratch class by the back door.
+#
+# usage: pl_quad_regs_scan.py [--rtx-dir DIR] [--rtx-scan-all] [--tr-helper-rx RX] file.s ...
+#   --tr-helper-rx RX (or env QUAD_HELPER_RX): the rtx ROUTINE names that ARE the TR helper -- a whole asm routine whose job is
+#   to write the trail is the helper by definition, so for rtx the unit of enrolment is the routine NAME; for emitted code it is
+#   never a name, always a (site, register, shape) row of ENROLLED.
+# exit: 0 clean · 1 violations · 2 could not measure (no readable input).  One line per write, then a summary line
+# `quad-scan: files=N writes=W enrolled=E violations=V rtx-defined=D rtx-reachable=R rtx-writes=X rtx-violations=Y`.
+import re, sys, os, glob
+QUAD  = {'r12': 'TR', 'r13': 'B', 'r14': 'ROOT', 'r15': 'BALL'}
+ALIAS = re.compile(r'^r(1[2-5])(?:d|w|b|l)?$')
+LBL   = re.compile(r'^([A-Za-z_.$][\w.$αβγω]*):\s*(.*)$')
+BOXTY = re.compile(r'^\s*\.type\s+(n\d+)_([\w$]+?)_bx\s*,\s*@function')
+PORT  = re.compile(r'^(n\d+)_([\w$]+?)_([αβγω])(?:_|$)')
+RTXF  = re.compile(r'^\s*RTX_FUNC\((\w+)\)')
+RTXE  = re.compile(r'^\s*RTX_ENDF\((\w+)\)')
+XFER  = re.compile(r'^(?:call|jmp)\s+\**([A-Za-z_][\w.$]*)(?:@\w+)?$')
+MEMFR = re.compile(r'^(?:qword\s+ptr\s+)?\[\s*(rbp|rsp|r13)\s*(?:[+-]\s*\d+)?\s*\]$')
+R12B  = re.compile(r'^\[\s*r12\s*[+-]\s*\d+\s*\]$')
+READ_FIRST = {'cmp', 'test', 'push', 'bt', 'jmp', 'call', 'ret', 'mul', 'div', 'idiv', 'ud2', 'int3', 'nop', 'endbr64'}
+PREFIX = {'rep', 'repe', 'repz', 'repne', 'repnz', 'lock', 'notrack', 'bnd'}
+def canon(tok):
+    m = ALIAS.match(tok.strip().lower()); return 'r' + m.group(1) if m else None
+def statements(raw):
+    s = raw.strip()
+    if not s or s.startswith('.') or s.startswith('#'): return []
+    s = s.split('#', 1)[0]
+    return [t.strip() for t in s.split(';') if t.strip()]
+def parse_insn(st):
+    toks = st.split(None, 1); mn = toks[0].lower()
+    if mn in PREFIX and len(toks) > 1: return parse_insn(toks[1])
+    ops = [o.strip() for o in toks[1].split(',')] if len(toks) > 1 else []
+    return mn, ops
+def writes_of(mn, ops):
+    if not ops or mn in READ_FIRST: return []
+    if mn == 'imul' and len(ops) == 1: return []
+    out = []; d = canon(ops[0])
+    if d: out.append(d)
+    if mn == 'xchg' and len(ops) > 1:
+        d2 = canon(ops[1]); d2 and out.append(d2)
+    return out
+KNOWN = {'mov', 'movabs', 'lea', 'movsx', 'movsxd', 'movzx', 'add', 'sub', 'adc', 'sbb', 'and', 'or', 'xor', 'shl', 'shr', 'sar', 'rol', 'ror',
+         'imul', 'inc', 'dec', 'neg', 'not', 'pop', 'xchg', 'bsf', 'bsr', 'popcnt', 'lzcnt', 'tzcnt', 'cmpxchg', 'btc', 'btr', 'bts'} \
+        | {'cmov' + c for c in 'e ne z nz a ae b be g ge l le s ns o no p np c nc'.split()} | {'set' + c for c in 'e ne z nz a ae b be g ge l le s ns o no p np c nc'.split()}
+def norm(mn, ops): return mn + (' ' + ', '.join(re.sub(r'\s+', ' ', o) for o in ops) if ops else '')
+def enrolled(site, reg, mn, ops, kind, seg):
+    both = len(ops) == 2 and canon(ops[0]) == reg and canon(ops[1]) == reg
+    if mn not in KNOWN: return None
+    if site == 'driver': return 'ROOT/driver-seed'
+    if site == 'rootseed':
+        if reg == 'r13' and mn == 'xor' and both: return 'ROOT/seed B=0 (ARCH § A.1)'
+        if reg == 'r15' and mn == 'xor' and both: return 'ROOT/seed ball=0 (ARCH § A.1)'
+        if reg == 'r14' and ((mn == 'lea' and len(ops) == 2 and MEMFR.match(ops[1])) or (mn == 'mov' and len(ops) == 2 and ops[1] in ('rsp', 'rbp'))): return 'ROOT/seed r14=H (ARCH § A.1)'
+        return None
+    if len(ops) == 2:
+        if reg == 'r13' and mn == 'mov' and (ops[1] == 'rbp' or MEMFR.match(ops[1])): return 'B/landing-or-cut restore (ARCH § A.1)'
+        if reg == 'r12' and mn == 'mov' and MEMFR.match(ops[1]): return 'TR/unwind-to-mark (ARCH § A.1 F.TRMARK)'
+        if reg == 'r12' and mn in ('add', 'sub') and ops[1].isdigit(): return 'TR/bump (ARCH top table)'
+        if reg == 'r12' and mn == 'lea' and R12B.match(ops[1]): return 'TR/bump (ARCH top table)'
+        if reg == 'r15' and kind and 'catch' in kind and seg == 'β' and mn == 'xor' and both: return 'BALL/catch-clear (ARCH § B.10)'
+        if reg == 'r15' and kind and 'throw' in kind and mn == 'mov': return 'BALL/throw-set (ARCH § B.10)'
+    return None
+def scan_program(path):
+    try: lines = open(path, encoding='utf-8', errors='replace').read().split('\n')
+    except OSError as e: return None
+    site = 'graph'; kind = None; seg = None; driver_on = False; root = None; rootseed_on = False; func = '?'
+    targets = set(); rows = []; last_driver_jmp = None
+    for ln, raw in enumerate(lines, 1):
+        rest = raw
+        m = LBL.match(raw.lstrip())
+        if m:
+            lab, rest = m.group(1), m.group(2)
+            if lab == 'main': driver_on = True; site = 'driver'; func = 'main'; kind = None; seg = None
+            elif root and lab == root + '_α': rootseed_on = True; driver_on = False; site = 'rootseed'; func = lab
+            elif rootseed_on and (lab == root + '_α_body' or PORT.match(lab) or lab.startswith('FN__')): rootseed_on = False; site = 'graph'
+            pm = PORT.match(lab)
+            if pm: kind = pm.group(2); seg = pm.group(3); site = 'box' if site not in ('driver', 'rootseed') else site
+            elif lab.startswith('FN__'): func = lab; kind = None; seg = None; site = 'graph' if site not in ('driver', 'rootseed') else site
+        bm = BOXTY.match(raw)
+        if bm: kind = bm.group(2); seg = None
+        for st in statements(rest):
+            mn, ops = parse_insn(st)
+            xm = XFER.match(norm(mn, ops))
+            if xm:
+                t = xm.group(1).split('@')[0]
+                if not t.startswith('.L'): targets.add(t)
+                if driver_on and mn == 'jmp' and not t.startswith('.L'): last_driver_jmp = t
+            if driver_on and mn == 'jmp' and last_driver_jmp and last_driver_jmp.endswith('_α'):
+                root = last_driver_jmp[:-2]; driver_on = False; site = 'driver-done'
+            for reg in writes_of(mn, ops):
+                if reg not in QUAD: continue
+                shape = norm(mn, ops) if mn in KNOWN else '?' + norm(mn, ops)
+                where = site if site != 'driver-done' else 'graph'
+                cls = enrolled(where, reg, mn, ops, kind, seg)
+                loc = f'{where}' + (f' {func}' if where in ('driver', 'rootseed') else (f' box={kind}_{seg or "?"}' if kind else f' fn={func}'))
+                rows.append((cls is None, f'{os.path.basename(path)}:{ln}', reg, loc, shape, cls))
+    return rows, targets
+def scan_rtx(rtx_dir):
+    funcs = {}
+    for f in sorted(glob.glob(os.path.join(rtx_dir, 'rtx_*.s')) + glob.glob(os.path.join(rtx_dir, 'rtx_*.S'))):
+        cur = None
+        for ln, raw in enumerate(open(f, encoding='utf-8', errors='replace').read().split('\n'), 1):
+            fm = RTXF.match(raw)
+            if fm: cur = fm.group(1); funcs[cur] = {'file': os.path.basename(f), 'calls': set(), 'writes': [], 'push': {}, 'pop': {}}; continue
+            if RTXE.match(raw): cur = None; continue
+            if cur is None: continue
+            for st in statements(raw):
+                mn, ops = parse_insn(st)
+                xm = XFER.match(norm(mn, ops))
+                if xm and not xm.group(1).startswith('.L'): funcs[cur]['calls'].add(xm.group(1).split('@')[0])
+                if mn == 'push' and ops and canon(ops[0]): funcs[cur]['push'][canon(ops[0])] = funcs[cur]['push'].get(canon(ops[0]), 0) + 1
+                if mn == 'pop' and ops and canon(ops[0]): funcs[cur]['pop'][canon(ops[0])] = funcs[cur]['pop'].get(canon(ops[0]), 0) + 1
+                for reg in writes_of(mn, ops):
+                    if reg in QUAD: funcs[cur]['writes'].append((ln, reg, mn, norm(mn, ops) if mn in KNOWN else '?' + norm(mn, ops)))
+    return funcs
+TR_HELPER = re.compile(os.environ.get('QUAD_HELPER_RX') or r'^(?:rt|rtx)_pl_(?:trail|tr)_\w+$')  # rtx ROUTINE names that ARE the TR helper; env QUAD_HELPER_RX overrides (the rung-1 brief's name)
+def main(argv):
+    global TR_HELPER
+    rtx_dir = None; scan_all = False; files = []
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a == '--rtx-dir': rtx_dir = argv[i + 1]; i += 2; continue
+        if a == '--rtx-scan-all': scan_all = True; i += 1; continue
+        if a == '--tr-helper-rx': TR_HELPER = re.compile(argv[i + 1]); i += 2; continue
+        files.append(a); i += 1
+    if not files: print('quad-scan: REFUSE(2) no input .s files'); return 2
+    nfiles = 0; writes = 0; enr = 0; viol = 0; alltargets = set()
+    for p in files:
+        r = scan_program(p)
+        if r is None: print(f'quad-scan: cannot read {p}'); continue
+        rows, targets = r; nfiles += 1; alltargets |= targets
+        for bad, loc, reg, site, shape, cls in rows:
+            writes += 1
+            if bad: viol += 1; print(f'VIOLATION  {loc:<44} {reg}({QUAD[reg]})  {site:<40} {shape}')
+            else: enr += 1; print(f'ok         {loc:<44} {reg}({QUAD[reg]})  {site:<40} {shape}   [{cls}]')
+    if nfiles == 0: print('quad-scan: REFUSE(2) no readable input .s files'); return 2
+    rdef = rreach = rwr = rviol = 0
+    if rtx_dir:
+        funcs = scan_rtx(rtx_dir); rdef = len(funcs)
+        if rdef == 0: print(f'quad-scan: REFUSE(2) no RTX_FUNC routines found under {rtx_dir}'); return 2
+        reach = set(t for t in alltargets if t in funcs) if not scan_all else set(funcs)
+        todo = list(reach)
+        while todo:
+            f = todo.pop()
+            for c in funcs[f]['calls']:
+                if c in funcs and c not in reach: reach.add(c); todo.append(c)
+        rreach = len(reach)
+        for f in sorted(reach):
+            fn = funcs[f]
+            for ln, reg, mn, shape in fn['writes']:
+                rwr += 1; loc = f"{fn['file']}:{ln}"
+                if TR_HELPER.match(f): print(f'ok         {loc:<44} {reg}({QUAD[reg]})  rtx={f:<34} {shape}   [TR/helper by name]')
+                elif fn['push'].get(reg, 0) and fn['pop'].get(reg, 0): print(f'ok         {loc:<44} {reg}({QUAD[reg]})  rtx={f:<34} {shape}   [preserved: push/pop bracket in the routine]')
+                else: rviol += 1; print(f'VIOLATION  {loc:<44} {reg}({QUAD[reg]})  rtx={f:<34} {shape}')
+        print(f'rtx reachable from the population: ' + (', '.join(sorted(reach)) if reach else '(none)'))
+    print(f'quad-scan: files={nfiles} writes={writes} enrolled={enr} violations={viol} rtx-defined={rdef} rtx-reachable={rreach} rtx-writes={rwr} rtx-violations={rviol}')
+    return 1 if (viol or rviol) else 0
+if __name__ == '__main__': sys.exit(main(sys.argv[1:]))

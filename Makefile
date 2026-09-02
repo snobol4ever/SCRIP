@@ -107,6 +107,7 @@ test: scrip  # ⭐ WAS THE FALSE-GREEN TRAP (cured hq_P s268): `test`, `test-ir`
 	bash scripts/test_gate_template_medium_invisible.sh
 	bash scripts/test_gate_corpus_coverage_classified.sh
 	bash scripts/test_gate_optbypass_watermark.sh
+	bash scripts/test_gate_pl_quad_regs.sh   # ~45s (166 Prolog compiles, most refusing during the rebuild): THE QUAD GATE -- no r12-r15 write reachable from a Prolog graph outside the TR/B/ROOT/BALL enrolment, mode-4 TEXT + reachable rtx (hq_P 2026-09-02, ARCH-PROLOG-BYRD-BOX-TRANSLATION.md § E instrument lane). Last in the recipe so every cheaper gate reports first.
 
 pristine-all:  # wipe EVERY cached configuration, not just this one (the pre-s258 behaviour)
 	# Same race, same cure, same bounded BUILD_LOCK as `pristine` above -- see its comment block for why
