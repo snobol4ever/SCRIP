@@ -17,6 +17,33 @@
 # reader (line vs block) from the file SUFFIX, so the shell side only needed a suffix knob, not a
 # second code path. Default stays ".sno" so all 21 existing SNOBOL4 callers are byte-identical;
 # icon callers set MASTER_EXT=.icn (and MASTER_DIR=$S4E/corpus/tests/icon) before sourcing/calling.
+# ⛔⛔⭐ INTERIM PROMOTION PROTOCOL -- READ THIS BEFORE YOU PROMOTE OR RETIRE AN XFAIL MARKER
+# (ceo ruling 2026-09-01, routed here by hq_C; INTERIM until row `optbypass-pin-stable-subset` lands.)
+#
+# A marker lives in THREE places and a promotion that touches fewer than all three TEARS THE SUITE FOR
+# EVERY SEAT ON THE BOX: (1) the banner in ALL.sno, (2) the SAME banner in ALL.ref, (3) the reason line
+# in ALL.xfail. read_suite compares the .sno and .ref banners and RAISES on a mismatch, so a half-applied
+# promotion does not degrade -- it makes the master suite UNREADABLE. Measured 2026-09-01: corpus
+# 2d75933ec dropped ' XFAIL' from ALL.sno and ALL.xfail but not ALL.ref, and every SNOBOL4 board, census
+# and optbypass count on the box refused for ~40 minutes until 5eb68cb8 restored the pair.
+#
+#   THE RULE: a marker promotion is proven by running read_suite (or the board) ON THE RESULT, in the
+#   SAME COMMIT -- never by the extract alone. A promotion that moves the graded population re-pins the
+#   optbypass watermark in the same commit, or it is not pushed.
+#
+# ⭐ THE CHECK COSTS 0.046 s, SO THERE IS NO BUDGET EXCUSE FOR SKIPPING IT (hq_C, measured; the 400-650 s
+# board is what people were actually skipping). `list` runs the same read_suite the board does:
+#
+#     python3 "$S4E_HOME/SCRIP/scripts/corpus_suite_harness.py" list \
+#             "$S4E_HOME/corpus/tests/snobol4/ALL.sno" "$S4E_HOME/corpus/tests/snobol4/ALL.ref"
+#
+# PROVEN BOTH DIRECTIONS on the real tear (hq_C 2026-09-01, not asserted -- run):
+#   torn pair  (at 2d75933ec) -> rc=1, "ValueError: family.ref banner mismatch at seq 1678:
+#                                       sno='... 1678 user_function_indirect_replace_2'
+#                                       ref='... 1678 user_function_indirect_replace_2 XFAIL'"
+#   fixed pair (at 5eb68cb8)  -> rc=0, 1726 entries listed
+# ⛔ Read the rc, not the tail: a wrong PATH to the harness also exits nonzero and looks identical at a
+# glance ("can't open file ..."). That mistake was made while proving this very line.
 _ME_HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _ME_S4E="${S4E_HOME:-$(cd "$_ME_HERE/../.." && pwd)}"
 MASTER_DIR="${MASTER_DIR:-$_ME_S4E/corpus/tests/snobol4}"

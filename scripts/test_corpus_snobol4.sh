@@ -228,16 +228,27 @@ run_harness run "$MASTER_SNO" "$MASTER_REF" --modes m3,m4 > "$_hout" 2> "$_herr"
 board=$(grep '^SUITE_BOARD ' "$_hout")
 if [ -z "$board" ]; then
     echo "⛔ GATE REFUSES: harness produced no SUITE_BOARD line for the master suite"
+    # ⭐⭐ THE REFUSAL CARRIES ONE MACHINE-READABLE LINE, NOT ONLY PROSE (hq_C 2026-09-01, same row). The prose
+    # below is for a human reading a log; a gate, a sweep or a DONE-WHEN that wants to know "was this refusal a
+    # kill or a real red" must not have to parse English. ⛔ MEASURED, and the reason this line exists: the row's
+    # own DONE-WHEN greps this file for `killed-by|cause=|signal=` and matched NOTHING, because the prose spells
+    # it "CAUSE:" and "KILLED by SIG..." -- the cure was fully landed and correct and the gate still read as
+    # not-done. A criterion written against an IMAGINED wording grades spelling, never behaviour (RULES.md
+    # § TRANSCRIPTION IS WHERE PROVENANCE DIES). The contract is now: cause= is one of killed-by-signal |
+    # harness-exited-nonzero | harness-printed-no-board; signal= is a SIGNAME or none; rc= is the raw status.
     if [ "$harness_rc" -gt 128 ]; then
         sig=$((harness_rc - 128)); signame="$(kill -l "$sig" 2>/dev/null || echo "$sig")"
+        echo "   REFUSAL cause=killed-by-signal signal=SIG${signame} rc=${harness_rc}"
         echo "   CAUSE: the harness was KILLED by SIG${signame} (rc=$harness_rc). It did not fail -- it was killed."
         echo "   ⭐ THIS IS NOT YOUR TREE AND NOT A RED BOARD. RE-RUN IT. Do not diagnose the compiler from this."
         [ "$sig" -eq 15 ] && echo "   SIGTERM has a known external source on this box: a box-wide 'pkill -f corpus_suite_harness.py' kills"
         [ "$sig" -eq 15 ] && echo "   EVERY seat's board, not just the caller's (hq_P disclosure 2026-09-01 ~18:28 CDT, 19 processes killed)."
         [ "$sig" -eq 9 ]  && echo "   SIGKILL is usually the OOM killer or systemd-oomd: check 'journalctl --since -10min | grep -i oom'."
     elif [ "$harness_rc" -ne 0 ]; then
+        echo "   REFUSAL cause=harness-exited-nonzero signal=none rc=${harness_rc}"
         echo "   CAUSE: the harness EXITED $harness_rc without boarding -- unlike a kill, this IS your tree or the harness."
     else
+        echo "   REFUSAL cause=harness-printed-no-board signal=none rc=0"
         echo "   CAUSE: the harness exited 0 but printed no SUITE_BOARD line -- a defect in the harness itself."
     fi
     if [ -s "$_herr" ]; then
