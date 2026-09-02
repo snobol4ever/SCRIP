@@ -137,7 +137,7 @@ static void n2_xgraph_probe(const stage2_t *s2) { if (!s2 || !getenv("SCRIP_N2_X
    ⛔⭐ THE ORIGINAL CLAIM HERE -- "the two calls agree ... a pre-pass value is never stale, only ever superseded by an identical one" -- WAS TRUE WHEN
    WRITTEN AND WENT FALSE UNDER A CURE LANDED ELSEWHERE (hq_B 2026-08-30, SCRIP 3fe34608): that commit gave the per-emission side a zframe arm
    (fp=0, because xa_flat_zframe_prologue_str carves EXACTLY flat_frame_bytes) while this pre-pass kept registering the Icon-shaped (np+nl)*16 for
-   every is_generator proc -- and lower_prolog.c:1463 marks EVERY Prolog graph zframe_graph, so every Prolog predicate was registered here too.
+   every is_generator proc -- and lower_prolog.c:1514 marks EVERY Prolog graph zframe_graph, so every Prolog predicate was registered here too.
    MEASURED on fact/2 (np=2 nl=4): pre-pass ft=1328 vs per-emission ft=1232 vs the callee's own `sub rsp, 1232` -- over by exactly 96 == (np+nl)*16.
    The disagreement is WINDOW-DEPENDENT, which is the hazard: a host emitted AFTER its callee reads the corrected 1232, a host emitted BEFORE it (the
    forward reference this pre-pass exists to serve) reads 1328. The zframe arm below restores the agreement the paragraph asserts.
@@ -148,7 +148,7 @@ static void n2_xgraph_probe(const stage2_t *s2) { if (!s2 || !getenv("SCRIP_N2_X
    ⛔ THE _zfA KEY IS LOAD-BEARING AND IS NOT A TUNING KNOB: it mirrors emit.cpp:3639 term for term, and the key is the α-SELECTION STATE
    (zframe_graph && !icn_cells_graph), never the bare zframe_graph field -- a graph carrying BOTH flags takes an icn_cells α that DOES add
    (np+nl)*16 back, so keying on the field alone would register a frame SILENTLY TOO SMALL, the exact silent-overflow direction ceo refused
-   worst-case reservation to avoid. Icon graphs never set zframe_graph at all (lower_prolog.c:1463, lower_raku.c:1141, lower_pascal.c:790 are
+   worst-case reservation to avoid. Icon graphs never set zframe_graph at all (lower_prolog.c:1514, lower_raku.c:1141, lower_pascal.c:790 are
    the only three writers), so this arm cannot reach an Icon proc -- measured, not assumed: Icon watermark unmoved, emitted .s byte-identical
    Only is_generator procs are registered -- the sole population icn_gen_host_reserve() ever queries by name -- leaving pz[]'s 512-slot table
    headroom untouched for the rest. ⭐ INERT ON THE UNARMED PATH BY CONSTRUCTION, NOT BY A GATE: pz[] registration already runs unconditionally today
