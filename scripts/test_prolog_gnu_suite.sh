@@ -123,7 +123,18 @@ for f in "${FILES[@]}"; do
         # initialization has already executed) + an explicit banner-strip, reused verbatim rather than
         # re-derived, since it is already battle-tested.
         gp_raw=$(timeout "$RUN_TIMEOUT" "$GPROLOG_BIN" --consult-file "$f" --query-goal halt < /dev/null 2>/dev/null)
-        gp_out=$(printf '%s\n' "$gp_raw" | grep -vE '^GNU Prolog|^Compiled |^By Daniel|^Copyright|^compiling |compiled, |^\| \?-|^error:|^warning:|cannot be redefined')
+        # ⛔⭐ THE OLD `^error:`/`^warning:` ANCHORS NEVER MATCHED A REAL GPROLOG LINE (row
+        # prolog-gnu-suite-ciaolib-use-module-warning): gprolog's own compile-time diagnostics are
+        # prefixed `<path>:<line>[-<line>]: warning: ...` / `<path>:<line>[-<line>]: fatal error: ...`
+        # -- never bare `warning:`/`error:` at column 0 -- so EVERY file where gprolog warns (an
+        # unrecognized directive, e.g. `use_module/1`) or hard-fails to compile (e.g. `use_module/2`
+        # with a non-atom module term, or a bootstrap-only `$call_c`/`$call_c_test` builtin) leaked
+        # gprolog's own tooling chatter into gp_out as if it were program output. Measured: 41 of 62
+        # files in this suite were OK_FAIL for exactly this reason (m3=m4=0B, gprolog non-zero), all
+        # of it gprolog's own diagnostic text, not a real SCRIP divergence -- see the FINDING for the
+        # full board before/after. Matched by line-number prefix instead of line start; the trailing
+        # summary line gets its own literal match since it carries no line number.
+        gp_out=$(printf '%s\n' "$gp_raw" | grep -vE '^GNU Prolog|^Compiled |^By Daniel|^Copyright|^compiling |compiled, |^\| \?-|^error:|^warning:|cannot be redefined|:[0-9]+(-[0-9]+)?: *(fatal error|error|warning):|^compilation failed$')
 
         if [ "$m3_out" = "$m4_out" ] && [ "$m4_out" = "$gp_out" ]; then
             OK_PASS=$((OK_PASS+1))
