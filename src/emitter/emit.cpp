@@ -2662,13 +2662,32 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                  if (_cd && rl > 0 && badi >= 0) { IR_t * _bn = nodes[badi]; int _bop = (int)_bn->op; int _is_call = (_bop == (int)IR_CALL || (_bop != (int)IR_CALL_VALUE && ir_is_call_kind((IR_e)_bop))); const char * _callee = (_is_call && IR_LIT(_bn).sval) ? IR_LIT(_bn).sval : (const char *)0; fprintf(stderr, "[CALL-DIAG] REFUSE blocker op=%s(%d) callee=%s rl=%d badi=%d narg=%d\n", bb_op_name(_bn->op), _bop, _callee ? _callee : "-", rl, badi, _is_call ? (int)_bn->n_operands : -1); } } }
     }
     }
-    if (_zvd) { for (int i = 0; i < n; i++) { if (!zon[i] || !zvd_ok[i]) continue; int K = zd_k(nodes[i]); int gback = -1, oback = -1;
+    /* ⭐ NORMALIZE ARRIVALS (row calling-convention-depth-tracked, hq_P 2026-09-01; design (c), hq_C+hq_P): this final pass re-derives an armed node's exit-edge pops AFTER both planning
+       passes, so the edge lands at its target's PLANNED entry depth. Until now it ran only for the zvd_ok test node that seeded an omega-head run; every OTHER edge into that run kept
+       the pass-0 pop computed while the target was still unarmed (pop-to-base-0). MEASURED on sieve.pas: i=38 omega -> i=69 arrived at depth 0, the run planned 352, the back-edge
+       popped 384 for both arrivals, rsp rose +352 per outer iteration until SEGV ([ZD-DEPTH] WALL i=69, preds 34-38). SCRIP_ZD_NORMALIZE=0 is the killswitch (old zvd_ok-only scope);
+       zd_depth_census below is the instrument -- cross-run walls must read 0 after this pass. */
+    /* ⛔ READ AT THE POINT OF USE, NOT CACHED IN A STATIC (ceo ruling 2026-09-01 on RULES.md:169, hq_P's own ask as the receipt): a function-scope mutable static is state with static
+       storage duration -- the clause's "or equivalent" -- so it needs a NO-NEW-GLOBALS grant exactly as a file-scope cell does, and the enforcement grep naming only file-scope is a HOLE,
+       not an exemption. These two were caches for the killswitches below; the cache bought nothing measurable (zd_plan runs per graph at COMPILE time and getenv walks a few dozen entries)
+       and the FAIL-direction proof of both flags is unchanged. ⚠️ The five siblings on the declaration line above (_zd _dg _zoh _zbe _zvd) are ungranted in the same way -- row
+       census-function-scope-mutable-statics-under-src (hq_P mint, ceo instruction) sweeps them; do NOT add a sixth here. */
+    const char * _zne = getenv("SCRIP_ZD_NORMALIZE"); const int _zn = !(_zne && *_zne == '0');
+    const char * _znie = getenv("SCRIP_ZD_NORMALIZE_INRUN"); const int _zni = !(_znie && *_znie == '0');
+    if (_zvd) { for (int i = 0; i < n; i++) { if (!zon[i] || !(zvd_ok[i] || _zn)) continue; int K = zd_k(nodes[i]); int gback = -1, oback = -1;
         if (_zbe && zgt[i]) { for (int tk = 0; tk < n; tk++) if (nodes[tk] == zgt[i] && zon[tk]) { gback = tk; break; } }
         if (_zbe && zot[i]) { for (int tk = 0; tk < n; tk++) if (nodes[tk] == zot[i] && zon[tk]) { oback = tk; break; } }
         int _gbpre = (gback >= 0) ? (zout[gback] - zd_k(nodes[gback])) : 0;
         int _obpre = (oback >= 0) ? (zout[oback] - zd_k(nodes[oback])) : 0;
-        if (!zgin[i]) zgpop[i] = (gback >= 0) ? (zout[i] - _gbpre) : (((zmatch[i] >= 0 && (nodes[i]->op == IR_STATEMENT_END || nodes[i]->op == IR_STATEMENT)) ? zmatch[i] + emit_match_begin_stfh_k() : zout[i]));
+        /* normalize to the target's entry depth ONLY when that depth is > 0 (a mid-run or omega-head target). At a base-level head (_gbpre == 0) the pass-time formula stands, zmatch case
+           included: a STATEMENT_END after a pattern match pops zdh_match+stfh_k, the match frame releases the rest. MEASURED on roman.sno: letting gback win there popped 48 and 64
+           where zmatch said 16 and 32 (the two STATEMENT_END gammas into the next statement) -- core dump in both media. That was the whole regression of the first cut of this pass. */
+        if (!zgin[i]) zgpop[i] = (gback >= 0 && _gbpre > 0) ? (zout[i] - _gbpre) : (((zmatch[i] >= 0 && (nodes[i]->op == IR_STATEMENT_END || nodes[i]->op == IR_STATEMENT)) ? zmatch[i] + emit_match_begin_stfh_k() : zout[i]));
         if (!zoin[i]) zwpop[i] = (oback >= 0) ? ((zout[i] - K) - _obpre) : (zout[i] - K);
+        /* in-run FORWARD omega skip landing on alpha (the conditional-skip shape; bubble.pas i=89 omega -> i=110, same run, rpos 18 -> 39): the skip arm arrived at its own exit depth
+           (256) while the target's planned entry was 544, and the run's fixed back-edge pop (512) then over-popped by 288 = seat09's measured +0x120. Backward edges (backtracking)
+           and beta resumes are deliberately NOT touched -- their protocols expect what they get today. SCRIP_ZD_NORMALIZE_INRUN=0 is this arm's killswitch. */
+        else if (_zni && oback >= 0 && claim[oback] == claim[i] && rpos[oback] > rpos[i] && !port_sz_beta(nodes[i]->ω.sz)) zwpop[i] = (zout[i] - K) - _obpre;
         if (_dg) fprintf(stderr, "[ZD-FINAL] i=%d %s K=%d zout=%d gpop=%d wpop=%d gback=%d oback=%d\n", i, bb_op_name(nodes[i]->op), K, zout[i], zgpop[i], zwpop[i], gback, oback); } }
     { if (zd_map_on()) { fprintf(stderr, "[ZD-MAP] PLAN -- same i= indices as GRAPH above\n");
         for (int i = 0; i < n; i++) fprintf(stderr, "[ZD-MAP] i=%-3d %-22s claim=%-3d rpos=%-3d zon=%d zout=%-4d gpop=%-5d wpop=%-5d arm=%d\n",

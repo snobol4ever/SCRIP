@@ -74,6 +74,10 @@ static inline int plc_dead_cstack(const void *p) {
     return (char *)p < g_plw_unwind_floor + 16;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* OBSERVATION, not an invariant (hq_C ruling + hq_P narrowing, row calling-convention-depth-tracked, SCRIP 48d320de): the refusal below tests mark < 0 ONLY. mark > top is deliberately NOT
+   refused -- it MEASURED as a no-op here (the loop is `while (t->top > mark)`), and queens_8 PASSES while making four such calls, (mark,top) = (45,42) (67,34) (59,34) (51,34); refusing
+   that arm aborts a working program. mark < 0 appeared in NO passing run and at the fatal moment of every crasher probed (sendmore mark=-76336 top=73; tak mark=-220658952 via
+   dop_unwind_nothrow). The asymmetry is measured, not an oversight; a symmetric 0 <= mark <= top check was scored against the passing set and rejected on queens_8. */
 static inline void pl_trail_unwind(pl_trail_t *t, int mark) {
     if (mark < 0) { fprintf(stderr, "SCRIP FATAL: pl_trail_unwind refuses corrupt trail mark %d (top=%d, caller=%p): its PRODUCER handed over garbage.\n", mark, t->top, __builtin_return_address(0));
                     fprintf(stderr, "SCRIP FATAL: unwinding it would index ents[-1] and write 16 bytes past the trail array. TRIPWIRE, not a cure.\n");
