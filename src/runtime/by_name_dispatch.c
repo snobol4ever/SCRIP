@@ -4601,7 +4601,11 @@ static plc_slv_t *plc_build_resolved(DESCR_t *d, DESCR_t **xav, int nx, int *cut
     { const char *dt = rt_pl_det_builtin_target(nm, n);
       if (dt) { plc_slv_t *s = plc_new(PLCK_DET, cut); s->op = 'd'; s->det = dt; s->av = argv; s->nav = n; return s; } }
     { char pib[224]; if (n == 0 && !strcmp(nm, "main")) snprintf(pib, sizeof pib, "main"); else snprintf(pib, sizeof pib, "%s/%d", nm, n);
-      if (rt_proc_is_generator(pib)) { plc_slv_t *s = plc_new(PLCK_PRED, cut); s->pi = strdup(pib); s->av = argv; s->nav = n; return s; } }
+      /* ⛔ EXISTENCE IS is_registered, NOT is_generator (seat15 2026-09-01, row prolog-variable-goal-dispatch-to-user-predicate): is_generator
+         is det?0:1 at registration (lower_prolog.c), a classification for STATIC call sites, orthogonal to whether the proc exists -- PLCK_PRED's
+         own execution below calls det and non-det procs through the identical rt_proc_call_gen_h handle. Gating existence on is_generator here
+         silently misrouted every DETERMINISTIC user predicate reached through a variable-bound goal into the existence_error branch below. */
+      if (rt_proc_is_registered(pib)) { plc_slv_t *s = plc_new(PLCK_PRED, cut); s->pi = strdup(pib); s->av = argv; s->nav = n; return s; } }
     rt_pl_iso_throw_pi("existence_error", "procedure", nm, n);
     return plc_new(PLCK_FAILK, cut);
 }
