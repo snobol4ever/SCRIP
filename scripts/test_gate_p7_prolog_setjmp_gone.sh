@@ -21,7 +21,10 @@ SO=out/libscrip_rt.so
 [ -f "$SO" ] || { echo "⛔ REFUSED (rc=2): $SO not built -- 'symbol absent' is unfalsifiable against a library that does not exist, and an unbuilt tree would PASS the nm half for free"; exit 2; }
 [ -d src ] || { echo "⛔ REFUSED (rc=2): no src/ -- cannot grade a source deletion it cannot read"; exit 2; }
 F=0
-for s in g_plw_unwind_floor g_plw_floor_bypass rt_plw_floor_bypass_on dop_call_nothrow; do
+# the symbol set, measured hq_P 2026-09-02 (SCRIP fa12d7cb): section 4 names "dop_call_nothrow and its two wrappers" -- the wrappers are rt_pl_dop_trail_unwind (:1598) and
+# rt_pl_dop_unwind_nothrow (:1599), "dop_call_nothrow's only two callers" per by_name_dispatch.c:1514; dop_unwind_nothrow (:1405) is the body behind the second and is reached by the
+# "$unwind_nothrow" by-name arm (:2727). Those two rt_pl_dop_* wrappers are P7's, not P6's, so P6's "22 wrappers" reads 20 once this lands.
+for s in g_plw_unwind_floor g_plw_floor_bypass rt_plw_floor_bypass_on dop_call_nothrow dop_unwind_nothrow rt_pl_dop_trail_unwind rt_pl_dop_unwind_nothrow; do
     n=$(grep -rw "$s" src/ 2>/dev/null | wc -l)
     e=$(nm -D "$SO" 2>/dev/null | grep -cw "$s")
     [ "$n" -eq 0 ] || { echo "⛔ $s: still $n reference(s) in src/"; F=1; }
@@ -30,6 +33,8 @@ done
 # the three setjmp barriers themselves, scoped to the file section 4 names
 j=$(grep -cE '^[^*/]*\bsetjmp[[:space:]]*\(' src/runtime/by_name_dispatch.c 2>/dev/null)
 [ "$j" -eq 0 ] || { echo "⛔ by_name_dispatch.c still has $j live setjmp barrier(s) -- failure/cut must be wired jumps (β/ω), not C-stack unwinding"; F=1; }
+u=$(grep -cF '"$unwind_nothrow"' src/runtime/by_name_dispatch.c 2>/dev/null)
+[ "$u" -eq 0 ] || { echo "⛔ the \$unwind_nothrow by-name arm is still dispatched ($u site(s)) -- the nothrow body it reaches is a P7 deletion"; F=1; }
 [ $F -eq 0 ] || { echo "GATE FAIL(1) [p7_prolog_setjmp_gone]: the P7 symbols are not gone"; exit 1; }
 echo "P7 symbols gone from src/ and from $SO. Now the safety half -- deleting a barrier must not convert a caught corruption into a crash:"
 bash scripts/test_gate_vanroy_prolog_acceptance.sh || { echo "GATE FAIL(1) [p7_prolog_setjmp_gone]: symbols gone but the van Roy board is WORSE -- the barrier was catching something the ports do not yet catch"; exit 1; }
