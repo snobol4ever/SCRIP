@@ -263,7 +263,7 @@ static int plc_atom_needs_quoting(const char *name)
     if (name[0] == '{' && strcmp(name, "{}") == 0) return 0;
     if (isupper((unsigned char)name[0]) || name[0] == '_') return 1;
     int all_graphic = 1;
-    static const char *graphic = "#&*+-./:<=>?@\\^~";
+    static const char *const graphic = "#&*+-./:<=>?@\\^~";
     for (const char *q = name; *q; q++) if (!strchr(graphic, *q)) { all_graphic = 0; break; }
     if (all_graphic) return 0;
     if (islower((unsigned char)name[0])) { for (const char *q = name+1; *q; q++) if (!isalnum((unsigned char)*q) && *q != '_') return 1; return 0; }

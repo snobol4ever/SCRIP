@@ -2468,7 +2468,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
         scan_pos = (int)((val.v==DT_I) ? val.i : (int64_t)to_real(val)); return val;
     }
     if (g_kw_ctx) {
-        static const char *known_kw[] = {
+        static const char *const known_kw[] = {
             "STLIMIT","ANCHOR","TRIM","FULLSCAN","CASE","MAXLNGTH",
             "FTRACE","ERRLIMIT","CODE","FNCLEVEL","RTNTYPE",
             "ALPHABET","UCASE","LCASE","DIGITS","PI","PARM",

@@ -55,7 +55,7 @@ int icn_builtin_is_generator(const char *name)
 int icn_builtin_is_known(const char *name)
 {
     if (!name || !name[0]) return 0;
-    static const char *icn_known[] = {
+    static const char *const icn_known[] = {
         "integer", "real", "string", "numeric", "char", "cset", "abs", "ord",
         "iand", "ior", "ixor", "ishift", "icom", "proc",
         "sqrt", "sin", "cos", "tan", "atan", "log", "exp",
@@ -266,7 +266,7 @@ int rt_builtin_is_known(const char *name)
     if (rt_proc_is_registered(name)) return 0;
     if (builtin_is_generator(name))  return 0;
     if (!strncmp(name, "__rk_test_", 10)) return 1;
-    static const char *known[] = {
+    static const char *const known[] = {
         "write", "writes", "stop",
         "integer", "real", "string", "numeric", "char", "chr", "ord", "cset",
         "type", "image", "proc", "args", "copy",
@@ -5143,7 +5143,7 @@ DESCR_t proc_as_value(const char *name) {
             return pv;
         }
     }
-    static const char *builtins[] = {
+    static const char *const builtins[] = {
         "__pas_writeln","__pas_write","__pas_chr","__pas_chrlit","__pas_enum_name","__pas_read_i","__pas_read_c","__pas_readln","__pas_eof","__pas_eoln","__pas_trunc","__pas_abs","__pas_sin",
         "__pas_read_i_f","__pas_read_c_f","__pas_readln_f","__pas_eof_f","__pas_eoln_f","__pas_getbufch","__pas_getbufch_f",
         "__pas_ca_pack","__pas_ca_unpack",
@@ -6049,8 +6049,8 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (icn_builtin_is_known(pname) || rt_builtin_is_known(pname)) {
             DESCR_t bv; bv.v = DT_E; bv.slen = 0xFFFFFFFEu; bv.s = rt_ws_strdup(pname); *out = bv; return 1;
         }
-        { static const char *op2[] = { "+","-","*","/","%","^","||","|||","++","--","**","<","<=",">",">=","=","~=","<<","<<=",">>",">>=","==","~==","===","~===", 0 };
-          static const char *op1[] = { "+","-","*","/","\\","=","?","~","!","@","^", 0 };
+        { static const char *const op2[] = { "+","-","*","/","%","^","||","|||","++","--","**","<","<=",">",">=","=","~=","<<","<<=",">>",">>=","==","~==","===","~===", 0 };
+          static const char *const op1[] = { "+","-","*","/","\\","=","?","~","!","@","^", 0 };
           const char **tbl = (arity == 2 || arity == 3) ? op2 : (arity == 1 || arity < 0) ? op1 : 0;
           if (tbl) for (int oi = 0; tbl[oi]; oi++) if (!strcmp(tbl[oi], pname)) { DESCR_t bv; bv.v = DT_E; bv.slen = 0xFFFFFFFEu; bv.s = rt_ws_strdup(pname); *out = bv; return 1; } }
         *out = FAILDESCR; return 1;
@@ -6168,8 +6168,8 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     }
     L_bidjmp_5537: ;
     if ((_bid == BID_map) && nargs >= 1 && nargs <= 3) {
-        static const char *UCASE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        static const char *LCASE = "abcdefghijklmnopqrstuvwxyz";
+        static const char *const UCASE = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        static const char *const LCASE = "abcdefghijklmnopqrstuvwxyz";
         const char *s=VARVAL_fn(args[0]); if(!s)s="";
         const char *from = UCASE, *to = LCASE;
         if (nargs >= 2) {

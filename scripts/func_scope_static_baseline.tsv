@@ -9,14 +9,14 @@
 # A file with NO row here has an implicit ceiling of 0.
 # file	ceiling
 aggregates.c	1
-by_name_dispatch.c	27
-core/core.c	9
-keywords.c	12
+by_name_dispatch.c	20
+core/core.c	8
+keywords.c	10
 pattern_match.c	12
 rt/bbprof.c	1
 rt/gc_heap.c	8
 rt/portcount.c	2
-rt/rt.c	11
+rt/rt.c	10
 rt/rt_arena.c	2
 rt/zeta_alloc.c	5
 rtx/rtx_str_test.c	2
@@ -24,4 +24,3 @@ rtx/rtx_varval_test.c	3
 runtime_eval.c	5
 runtime_init.c	6
 string_ops.c	1
-unification.c	1

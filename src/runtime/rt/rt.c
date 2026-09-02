@@ -1195,7 +1195,7 @@ static inline __attribute__((always_inline)) int rt_call_fastpath_ok(void) { ret
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_name_side_effecting(const char *nm)
 {
-    static const char *S[] = { "TERMINAL", "ALPHABET", "STCOUNT", "STNO", 0 };
+    static const char *const S[] = { "TERMINAL", "ALPHABET", "STCOUNT", "STNO", 0 };
     if (is_protected_pat_name(nm)) return 1;
     for (int i = 0; S[i]; i++) if (strcmp(nm, S[i]) == 0) return 1;
     return 0;

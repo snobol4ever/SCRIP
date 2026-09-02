@@ -255,7 +255,7 @@ void rt_kw_publish_error(int code, const char *msg) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_kw_set_rtntype(int which) {
-    static const char *names[3] = { "RETURN", "FRETURN", "NRETURN" };
+    static const char *const names[3] = { "RETURN", "FRETURN", "NRETURN" };
     const char *s = (which >= 0 && which <= 2) ? names[which] : "";
     size_t n = strlen(s); if (n > sizeof(kw_rtntype) - 1) n = sizeof(kw_rtntype) - 1;
     memcpy(kw_rtntype, s, n); kw_rtntype[n] = '\0';
@@ -486,7 +486,7 @@ DESCR_t rt_keyword_gen(const char *sval, long idx) {
     if (!sval) return FAILDESCR;
     const char *kw = sval[0] == '&' ? sval + 1 : sval;
     if (!strcmp(kw,"features")) {
-        static const char *feats[] = { "UNIX", "Java", "ASCII", "co-expressions", "dynamic loading", "environment variables", "large integers", "pipes", "system function", "graphics" };
+        static const char *const feats[] = { "UNIX", "Java", "ASCII", "co-expressions", "dynamic loading", "environment variables", "large integers", "pipes", "system function", "graphics" };
         int n = (int)(sizeof(feats) / sizeof(feats[0]));
         if (idx < 0 || idx >= n) return FAILDESCR;
         return STRVAL(feats[idx]);
