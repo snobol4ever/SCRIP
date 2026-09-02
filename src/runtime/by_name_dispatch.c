@@ -118,7 +118,11 @@ _Static_assert(offsetof(pl_trail_t, area) == 0 && offsetof(pl_area_t, base) == 0
 _Static_assert(offsetof(DESCR_t, v) == 0 && offsetof(DESCR_t, i) == 8 && sizeof(((pl_trail_t *)0)->top) == 4, "PL-SINK-8: $trail_mark's inline result build ({DT_I,0,(long long)top} as rax=q0, rdx=movsxd top) bakes DESCR v@0 / payload@8 and a 32-bit signed trail top — update bb_call_fn.cpp sink_trail_mark_str together");
 uint32_t g_plw_dot_sl = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void plw_bind(DESCR_t *cell, DESCR_t word) { pl_trail_push(&g_pl_trail, cell); *cell = word; }
+static void plw_bind(DESCR_t *cell, DESCR_t word) {
+    char probe; char *floor_ = &probe;
+    if ((char *)cell <= floor_) { DESCR_t *j = (DESCR_t *)rt_plj_alloc(sizeof(DESCR_t)); *j = word; word.v = (DTYPE_t)DT_PLVAR; word.slen = 0; word.p = (void *)j; }
+    pl_trail_push(&g_pl_trail, cell); *cell = word;
+}
 static int plw_vvb_on(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_NO_VVB"); p = (e && e[0] == '1') ? 0 : 1; } return p; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plw_unify_cells(DESCR_t *a, DESCR_t *b) {

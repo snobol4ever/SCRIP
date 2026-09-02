@@ -87,6 +87,8 @@ static inline void pl_trail_unwind(pl_trail_t *t, int mark) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline void pl_bind(pl_cell_t *cell, pl_cell_t word, pl_trail_t *trail) {
     pl_cell_t *v = pl_deref(cell);
+    char probe; char *floor_ = &probe;
+    if ((char *)v <= floor_) { extern void *rt_ws_alloc(size_t); pl_cell_t *j = (pl_cell_t *)rt_ws_alloc(sizeof(pl_cell_t)); *j = word; word.v = (DTYPE_t)DT_PLVAR; word.slen = 0; word.p = (void *)j; }
     pl_trail_push(trail, v);
     *v = word;
 }
