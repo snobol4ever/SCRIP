@@ -15,6 +15,9 @@ typedef struct {
 #define ICN_LOOP_STK_MAX 64
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_is_local(const icx_t * cx, const char * nm) { if (!nm) return 0; for (int i = 0; i < cx->nln; i++) if (cx->ln[i] && !strcmp(cx->ln[i], nm)) return 1; return 0; }
+static int icn_kw_assignable(const char * kw) { const char * id = (kw && kw[0] == '&') ? kw + 1 : kw; return id && (!strcmp(id, "subject") || !strcmp(id, "pos") || !strcmp(id, "random") || !strcmp(id, "trace") || !strcmp(id, "error") || !strcmp(id, "dump")); }
+static const char * icn_variable_lit(const icx_t * cx, const tree_t * t) { if (!t || t->t != TT_FNC || t->n != 2 || !t->c[0] || !t->c[1]) return NULL; const tree_t * f = t->c[0]; if (f->t != TT_VAR || !f->v.sval || strcmp(f->v.sval, "variable") || icn_is_local(cx, "variable")) return NULL; const tree_t * g = t->c[1]; return (g->t == TT_QLIT && g->v.sval && g->v.sval[0]) ? g->v.sval : NULL; }
+static tree_t * icn_variable_lit_tree(const char * nm) { tree_t * v = ast_node_new(nm[0] == '&' ? TT_KEYWORD : TT_VAR); v->v.sval = (char *) nm; return v; }
 static int icn_gen_wiring(const IR_t * t) {
     if (!t) return 0;
     if (ir_is_generator_kind(t->op)) return 1;
@@ -110,6 +113,7 @@ static IR_t * lower_until(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
 static IR_t * lower_repeat(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * lower_not(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * lower_alt(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
+static IR_t * lower_alt_lv(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var_res);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * icn_arg_lower(void * vcx, const tree_t * a, IR_t * F) {
     icx_t * cx = (icx_t *) vcx; IR_t * sps = cx->psucc; IR_t * spf = cx->pfail;
@@ -228,6 +232,8 @@ static IR_t * lower_idx_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_lvalue_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var_res) {
     if (!t) return NULL;
+    if (t->t == TT_ALTERNATE && t->n >= 1) return lower_alt_lv(cx, t, ω, var_res);
+    if (t->t == TT_FNC && t->n == 2 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "variable") && !icn_is_local(cx, "variable")) { fprintf(stderr, "icon: REFUSE: variable(expr) with a computed name is not an assignable variable in SCRIP yet (a literal name is) -- line %d\n", t->line); exit(2); }
     if (t->t == TT_VAR && t->v.sval && t->v.sval[0] != '&') {
         IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = t->v.sval; *var_res = vr; return vr;
     }
@@ -421,6 +427,9 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_LIT(nd).sval = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval;
         IR_t * br = NULL; IR_t * ea = lower(cx, t->c[0], nd, ω, &br); ir_operand_push(nd, br); *res = nd; return ea; }
     case TT_FNC: { const tree_t * fn = (t->n > 0) ? t->c[0] : NULL;
+        { const char * vn = icn_variable_lit(cx, t);
+          if (vn && vn[0] == '&') { if (!icn_kw_assignable(vn)) { IR_t * f = build(cx, IR_FAIL, γ, ω); *res = f; return f; } return lc_key(cx, t, vn, γ, ω, res); }
+          if (vn && icn_is_local(cx, vn)) return lower(cx, icn_variable_lit_tree(vn), γ, ω, res); }
         if (!fn || (fn->t == TT_VAR && fn->v.sval && fn->v.sval[0] != '&' && !icn_is_local(cx, fn->v.sval))) {
             const char * nm = (fn && fn->t == TT_VAR) ? fn->v.sval : "?";
             return lower_call(cx, nm, t, 1, t->n - 1, γ, ω, res);
@@ -462,6 +471,9 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_MAKELIST: case TT_VLIST: return lower_make_list(cx, t, γ, ω, res);
     case TT_ASSIGN: {
         const tree_t * lhs = t->c[0]; const tree_t * rhs = t->c[1];
+        { const char * vn = icn_variable_lit(cx, lhs);
+          if (vn) { if (vn[0] == '&' && !icn_kw_assignable(vn)) { IR_t * f = build(cx, IR_FAIL, γ, ω); *res = f; return f; }
+                    tree_t * as = ast_node_new(TT_ASSIGN); ast_push(as, icn_variable_lit_tree(vn)); ast_push(as, (tree_t *) rhs); return lower(cx, as, γ, ω, res); } }
         if (lhs && (lhs->t == TT_VAR || lhs->t == TT_KEYWORD) && lhs->v.sval && lhs->v.sval[0] == '&') {
             IR_t * ka = build(cx, IR_KW_ASSIGN, γ, ω); IR_LIT(ka).sval = lhs->v.sval;
             IR_t * vr = NULL; IR_t * entry = lower(cx, rhs, ka, ω, &vr); ir_operand_push(ka, vr); *res = ka; return entry; }
@@ -980,7 +992,7 @@ static IR_t * icn_dj_α_entry(IR_graph_t * g, IR_t * dj) {
     return dj;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * lower_alt(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
+static IR_t * lower_alt_impl(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res, int lval) {
     int n = t->n; if (n < 1) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     IR_graph_t * g = cx->g;
     IR_t * dj = lc_build(g, IR_DISJUNCTION, NULL, NULL);
@@ -989,7 +1001,8 @@ static IR_t * lower_alt(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t
     for (int j = 0; j < n && j < 64; j++) {
         int before = g->n;
         IR_t * ar = NULL; cx->beta = dj;
-        IR_t * ej = lower(cx, t->c[j], dj, dj, &ar);
+        IR_t * ej = lval ? lower_lvalue_var(cx, t->c[j], dj, &ar) : lower(cx, t->c[j], dj, dj, &ar);
+        if (lval && ar) lc_γ_to(ar, dj);
         IR_t * ab = cx->beta;
         int ab_in_arm = 0; if (ab && ab != dj) for (int k = before; k < g->n; k++) if (g->all[k] == ab) { ab_in_arm = 1; break; }
         IR_t * rj = ab_in_arm ? ab : dj;
@@ -1008,6 +1021,10 @@ static IR_t * lower_alt(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t
     cx->beta = dj; *res = dj;
     return icn_dj_α_entry(g, dj);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * lower_alt(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) { return lower_alt_impl(cx, t, γ, ω, res, 0); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * lower_alt_lv(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var_res) { return lower_alt_impl(cx, t, NULL, ω, var_res, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_if(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     const tree_t * C = (t->n > 0) ? t->c[0] : NULL; const tree_t * TH = (t->n > 1) ? t->c[1] : NULL; const tree_t * EL = (t->n > 2) ? t->c[2] : NULL;
