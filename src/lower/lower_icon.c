@@ -772,6 +772,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         cx->beta = ω;
         IR_t * sr = NULL; IR_t * s_entry = lower(cx, t->c[0], enter, ω, &sr);
         ir_operand_push(enter, sr);
+        if (sr && sr->op == IR_SCAN && IR_LIT(sr).dval != 3.0) IR_LIT(sr).dval = 4.0;   /* icon-scan-env-value-residue 5a-residue: sr is the SUBJECT's own scan-leave (a chained `(A?B)?C`) — its bank[depth] slot is about to be reused by THIS scan's own enter/leave-around-calls (same depth, sequential not concurrent), clobbering A's pending resume before A is ever asked for its next value. sb=4 marks A's leave to resume by re-entering its OWN known subject (op_sc, mirroring sb=2's op_sa) instead of trusting the shared bank. Skipped if a suspend already claimed sb=3 (rarer, and that leave's β is accepted-dead anyway). */
         IR_t * subj_beta = cx->beta;
         if (subj_beta && subj_beta != ω) { γ_to(leave_fail, subj_beta); ω_to(leave_fail, subj_beta); }
         int body_resumes = (bv && icn_gen_wiring(bv)) || (body_beta && body_beta != ω && body_beta != fail_tramp && body_beta != succ_tramp);

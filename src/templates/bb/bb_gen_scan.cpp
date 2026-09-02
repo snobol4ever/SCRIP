@@ -59,7 +59,15 @@ std::string bb_gen_scan() {
                  + x86("mov", "rdi", "r14")
                  + x86("call", "rt_scan_sync_out", (uint64_t)(uintptr_t)(void *)rt_scan_sync_out)
                  + x86_jmp_tgt(X86T_TGT0))
-             + IF(_.lbl_t0_p != 0 && _.op_sb != 2,
+             + IF(_.lbl_t0_p != 0 && _.op_sb == 4,   /* icon-scan-env-value-residue 5a-residue: re-derive THIS scan's own (ptr,len) from its own known subject slot (op_sc) rather than the shared depth-indexed bank, which a chained outer scan entered at this same depth has since overwritten with ITS OWN data */
+                   x86("mov", "rdi", FRQ(_.op_sc))
+                 + x86("mov", "rsi", FRQ(_.op_sc + 8))
+                 + x86("call", "rt_scan_enter", (uint64_t)(uintptr_t)(void *)rt_scan_enter)
+                 + x86("mov", "r13", "rax")
+                 + x86("mov", "r15", "rdx")
+                 + x86("mov", "r14", (long)0)
+                 + x86_jmp_tgt(X86T_TGT0))
+             + IF(_.lbl_t0_p != 0 && _.op_sb != 2 && _.op_sb != 4,
                    x86("call", "rt_scan_reenter", (uint64_t)(uintptr_t)(void *)rt_scan_reenter)
                  + x86("mov", "r13", "rax")
                  + x86("mov", "r15", "rdx")
