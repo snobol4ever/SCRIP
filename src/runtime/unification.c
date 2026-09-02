@@ -1082,7 +1082,6 @@ int rt_pl_lower_upper_cell(void *lower_cell, void *upper_cell)
 /* ⛔ THE STRUCT-TREE STANDARD-ORDER COMPARE WAS DELETED HERE (T9): rt_pl_term_class + rt_pl_term_compare. Its cell-native replacement is rt_pl_cell_compare below, which already
    reproduced its variable semantics deliberately -- see that function's own note on WHY an index map and not a pointer comparison. The last caller went when rt_pl_bag_group_gen
    was converted; nothing outside this file ever called either. */
-static Term *pl_cell_copy_walk(pl_cell_t *c, pl_cell_t **vaddr, Term **vterm, int *vn, int cap);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /* Cell-native standard order of terms (slice s2). WHY AN INDEX MAP AND NOT A POINTER TEST: pl_cell_copy_walk minted one fresh heap node per distinct unbound cell from rt_pl_cterm_alloc, a strict bump
    arena, so rt_pl_term_compare's `a < b` on TERM_VAR ordered variables by FIRST-ENCOUNTER position over (all of a, then all of b) -- never by the address of the variable cell itself. pl_vord_t
@@ -1719,36 +1718,16 @@ static Term *copy_term_deep(Term *t, Term **var_map, int *var_cap, int *var_n)
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static Term *pl_cell_copy_walk(pl_cell_t *c, pl_cell_t **vaddr, Term **vterm, int *vn, int cap)
-{
-    pl_cell_t *d = pl_deref(c);
-    int t = (int)d->v;
-    if (pl_cell_unbound(d)) {
-        extern int g_pl_copy_slot_mode; extern int g_pl_copy_slot_ctr;
-        for (int i = 0; i < *vn; i++) if (vaddr[i] == d) return vterm[i];
-        Term *fresh = term_new_var(g_pl_copy_slot_mode ? g_pl_copy_slot_ctr++ : -1);
-        if (*vn < cap) { vaddr[*vn] = d; vterm[*vn] = fresh; (*vn)++; }
-        return fresh;
-    }
-    if (t == DT_I) return term_new_int((long)d->i);
-    if (t == DT_A) return term_new_atom((int)d->i);
-    if (t == DT_S) { extern int prolog_atom_intern(const char *); return term_new_atom(prolog_atom_intern(d->s ? d->s : "")); }
-    if (t == DT_R) return term_new_float(d->r);
-    if (t == DT_PLREF) {
-        int fn = (int)(d->slen >> 16), ar = (int)(d->slen & 0xFFFFu);
-        pl_cell_t *aa = (pl_cell_t *)d->p;
-        Term **args = (Term **)rt_ws_alloc((size_t)(ar > 0 ? ar : 1) * sizeof(Term *));
-        for (int i = 0; i < ar; i++) args[i] = pl_cell_copy_walk(&aa[i], vaddr, vterm, vn, cap);
-        return term_new_compound(fn, ar, args);
-    }
-    return term_new_var(-1);
-}
 /* CELL-NATIVE deep copy -- the DESCR twin of copy_term_deep/pl_cell_copy_walk, which build heap Terms.
  * Structure never lives on the heap (GOAL-PROLOG-100 top block): a compound copy is a fresh cell array,
  * an atom/int/float/string copies BY VALUE, and only unbound vars need fresh storage. Slot numbering is
  * shared with pl_cell_copy_walk (same counter, same recursion order) so copy_term's printed variable
- * names are unchanged. ⛔ pl_cell_copy_walk is NOT deleted: 7 functions in OTHER slices still consume its
- * Term return (rt_pl_atop_cell, rt_pl_compare_cell, the rt_pl_dyn_* family, rt_pl_throw_set). */
+ * names are unchanged.
+ * ⛔⭐ THE NOTE THAT USED TO SIT HERE SAID pl_cell_copy_walk "is NOT deleted: 7 functions in OTHER slices still consume its struct-tree return (rt_pl_atop_cell, rt_pl_compare_cell,
+ * the rt_pl_dyn_* family, rt_pl_throw_set)". RE-MEASURED UNDER T9 AND IT HAD GONE STALE: all seven were converted by later slices, and the walker had ZERO external callers -- a
+ * forward declaration, its own definition and one self-recursion. DELETED. ⭐ This is the SECOND such note retired today (the first was the struct-tree atom_op_text twin): a comment
+ * saying "X stays because Y needs it" becomes false SILENTLY the moment Y is converted, and nothing re-checks it. Both named their own retirement condition, which is what made them
+ * cheap to retire -- a bare "do not delete" would have survived indefinitely. Write the CONDITION, not the prohibition. */
 static pl_cell_t pl_cell_copy_cells(pl_cell_t *c, pl_cell_t **vaddr, pl_cell_t **vnew, int *vn, int cap)
 {
     extern int g_pl_copy_slot_mode; extern int g_pl_copy_slot_ctr;
