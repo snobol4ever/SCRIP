@@ -86,6 +86,12 @@ ME="$(s4e_canon "$ME")"
 # glob (alphabetical) file order whenever a seat holds more than one claim.
 qrow()  { grep -P "^[0-9]+\t\Q$1\E\t" "$PO/QUEUE.tsv" 2>/dev/null | head -1; }
 qrank() { local row; row="$(qrow "$1")"; [ -n "$row" ] && printf '%s' "$row" | cut -f1 || echo 999999; }
+# ⭐ next-tiebreak-by-mint-time-not-file-order (hq_C finding, ceo mint 2026-09-01): a topic's mint
+# timestamp, read from its own task file's "minted via `mint` by ..., <ISO-8601>" LINKS line (the
+# same line `mint` itself writes). Empty when the file or the line is absent -- PASS 3's sort then
+# treats "unknown mint time" as OLDEST within its rank tier (a real timestamp always outranks no
+# timestamp), never as a crash or a special case.
+s4e_mint_ts() { grep -m1 'minted via `mint`' "$PO/tasks/$1.task.md" 2>/dev/null | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z' | head -1; }
 # ⭐ picker-skips-blocked-rows (ceo, 2026-08-28) -- SHARED BY next()'s PASS 3. Is the topic named by a
 # BLOCKED-ON:/PARKED-AWAITING: state DONE? `done` only ever APPENDS the DONE marker (never deletes a
 # claim) and `park` only ever clears a LIVE non-done claim, so claims/*.claim is the durable record;
@@ -1026,7 +1032,12 @@ TASKEOF
              t="$(basename "$c" .claim)"; printf '%s\t%s\n' "$(qrank "$t")" "$t"
            done | sort -t$'\t' -s -k1,1n)
          [ -f "$q" ] || { echo "no QUEUE.tsv — ask hq"; exit 1; }
-         # PASS 3 -- free rows, RANK-SORTED numerically, -s so file order still breaks ties inside one rank.
+         # PASS 3 -- free rows, RANK-SORTED numerically; ties inside one rank now tie-break by MINT TIME,
+         # newest first (next-tiebreak-by-mint-time-not-file-order, hq_C finding, ceo mint 2026-09-01) --
+         # was file order (QUEUE.tsv line position, an accident of mint sequence, not a priority signal:
+         # measured, eight freshly-minted rank-1 fleet slices sat unclaimed 40+ minutes behind 15 older
+         # rank-1 rows). A topic with no readable mint timestamp sorts as OLDEST in its tier (s4e_mint_ts),
+         # never specially -- so this degrades to the old behaviour only in the absence of data, not by design.
          while IFS=$'\t' read -r rank topic brief step; do
            case "$rank" in ''|\#*) continue;; esac
            # ⛔ s265 — THE STATE COLUMN IS LOAD-BEARING NOW. It was decorative (94 of 94 rows FREE, nothing read it),
@@ -1088,7 +1099,7 @@ TASKEOF
            if "$0" claim "$topic" >/dev/null 2>&1; then
              echo "RUNNING" >> "$PO/claims/$topic.claim"
              serve "$topic" "LOCKED" "(rank $rank)"; exit 0; fi
-         done < <(grep -P '^[0-9]+\t' "$q" | sort -t$'\t' -s -k1,1n)
+         done < <(grep -P '^[0-9]+\t' "$q" | while IFS=$'\t' read -r rk tp br st; do printf '%s\t%s\t%s\t%s\t%s\n' "$rk" "$(s4e_mint_ts "$tp")" "$tp" "$br" "$st"; done | sort -t$'\t' -s -k1,1n -k2,2r | cut -f1,3-)
          # ⭐ CURE 3, second half — WHEN NOTHING IS SERVABLE, SAY WHAT GOVERNANCE IS HOLDING. A bare "queue
          # empty" sent seats to ask HQ for work while rows sat waiting on a grant nobody had chased.
          _gw="$(awk -F'\t' '/^[0-9]+\t/ && ($4 ~ /^GRANT-NEEDED/ || $4 ~ /^PARKED-LON-HOLD/) {printf "     rank %s  %s  [%s]\n",$1,$2,$4}' "$q" 2>/dev/null)"
