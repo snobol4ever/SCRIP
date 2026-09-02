@@ -95,7 +95,10 @@ fi
 # NF>=ncol filter and get misread as a fake kernel named "CHECK"; a hardcoded NR>N is equally fragile
 # against either script's header growing by a line).
 parse() { awk -v ncol="$1" '/^-{5,}/{started=1;next} started&&NF==0{started=0} started&&NF>=ncol{print}' ; }
-dehuman() { awk -v v="$1" 'BEGIN{ if (v=="NA"||v=="-"||v=="") {print ""; exit} print v+0 }'; }
+# ⛔ A NON-NUMBER IS EMPTY, NEVER 0 (hq_P 2026-09-02): angle 1 prints SKIP for a kernel that failed its correctness gate, and `v+0`
+# turned that into a rate of 0 that then printed as a `0 0 n/a` FACT-RULE row -- a zero in a summary is an assertion (RULES.md
+# THE INSTRUMENT LAWS, eighth batch §3). Only a numeric cell is a number.
+dehuman() { awk -v v="$1" 'BEGIN{ if (v !~ /^[0-9]+(\.[0-9]+)?([eE][-+]?[0-9]+)?$/) {print ""; exit} print v+0 }'; }
 
 declare -A A1 A2 KSEEN
 while read -r k g s m3 m4 rest; do

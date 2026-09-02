@@ -24,6 +24,7 @@ set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
 B="${BENCH_DIR:-$S4E/corpus/benchmarks/prolog/bench}"
+PRO="${PROLOG_DIR:-$S4E/corpus/benchmarks/prolog}"
 T="${TIMEOUT:-30}"; BUDGET_MS="${TIME_BUDGET_MS:-500}"; NMAX="${NMAX:-65536}"
 KERNELS="${KERNELS:-}"   # optional allowlist, same convention as bench_prolog_fixed_iter.sh
 [ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built"; exit 2; }
@@ -31,8 +32,21 @@ KERNELS="${KERNELS:-}"   # optional allowlist, same convention as bench_prolog_f
 [ -d "$B" ] || { echo "⛔ REFUSED-TO-GRADE bench corpus missing: $B"; exit 2; }
 command -v gprolog >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE gprolog absent"; exit 2; }
 command -v swipl   >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE swipl absent"; exit 2; }
+# ⛔ THE RIVAL PRELUDES ARE PART OF THE RIVAL INVOCATION, NOT AN OPTION (hq_P 2026-09-02, row prolog-instruments-and-baseline-standup).
+# Ten of the 21 van Roy kernels are self-timed on the two-number basis and call wall_us/1 + wall_ms/1 -- SCRIP builtins that are
+# UNDEFINED on gprolog/swipl unless prelude_gplc.pl / prelude_swipl.pl is consulted first. MEASURED before this line existed: every
+# bracketed kernel failed the rival single-shot correctness gate with existence_error(wall_us/1), so its whole row read SKIP and the
+# triangulation TSV published UNPROVEN for gnu AND swi -- an instrument defect printed in the vocabulary of a kernel finding (the
+# 2026-09-02 "12 cells UNPROVEN in 6 s" null). bench_prolog_vanroy.sh --two-number already consults the preludes; this arm now runs
+# the IDENTICAL rival invocation so the three angles and the two-number board grade one program. Missing prelude => REFUSE, never a
+# plausible SKIP: a rival that cannot load its clock is not a rival that disagreed.
+[ -f "$PRO/prelude_gplc.pl" ] && [ -f "$PRO/prelude_swipl.pl" ] || { echo "⛔ REFUSED-TO-GRADE rival preludes missing under $PRO (prelude_gplc.pl / prelude_swipl.pl)"; exit 2; }
+. "$HERE/lib_prolog_bench.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE (rc=2): cannot source lib_prolog_bench.sh -- the ONE loop-output check"; exit 2; }
 WRAP="$ROOT/tools/bench_rusage"
 [ -x "$WRAP" ] || gcc -O2 -o "$WRAP" "$ROOT/tools/bench_rusage.c" || { echo "⛔ REFUSED: bench_rusage failed to build" >&2; exit 2; }
+# ⛔ timeout -k 5 EVERYWHERE (hq_P 2026-09-02, measured): swipl ignores timeout's SIGTERM -- angle 2 sat 648 s on vanroy/queens.pl
+# under `timeout 60` with the whole triangulation behind it. A bound that the bounded process can decline is not a bound; -k makes
+# the kill unconditional five seconds after the deadline, and the run then reads CRASH(signal 9), never a rate (the exit= gate).
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 ulimit -s unlimited 2>/dev/null || ulimit -s 1048576 2>/dev/null || true
 
@@ -42,15 +56,15 @@ mkwrap() { printf 'main :- l__(%d).\nl__(N__) :- between(1, N__, _), bench__main
 
 # one bench_rusage-wrapped run at N iterations; echoes "cpu_us" or "- REASON" -- exit= is the ONLY signal trusted
 run1() {
-  local eng="$1" pl="$2" out rl xc user sys
+  local eng="$1" pl="$2" n="${3:-}" exp="${4:-}" out rl xc user sys r
   case "$eng" in
-    gnu) out=$("$WRAP" timeout "$T" gprolog --consult-file "$pl" --query-goal halt >/dev/null 2>"$W/e.$$") ;;
-    swi) out=$("$WRAP" timeout "$T" swipl -q -g halt "$pl" >/dev/null 2>"$W/e.$$") ;;
-    m3)  out=$("$WRAP" timeout "$T" "$SCRIP" --run "$pl" >/dev/null 2>"$W/e.$$") ;;
+    gnu) out=$("$WRAP" timeout -k 5 "$T" gprolog --consult-file "$PRO/prelude_gplc.pl" --consult-file "$pl" --query-goal halt >"$W/o.$$" 2>"$W/e.$$") ;;
+    swi) out=$("$WRAP" timeout -k 5 "$T" swipl -q -g halt "$PRO/prelude_swipl.pl" "$pl" >"$W/o.$$" 2>"$W/e.$$") ;;
+    m3)  out=$("$WRAP" timeout -k 5 "$T" "$SCRIP" --run "$pl" >"$W/o.$$" 2>"$W/e.$$") ;;
     m4)  local s="$W/$$.s" b="$W/$$.bin"
-         if ! (cd "$W" && timeout "$T" "$SCRIP" --compile --target=x86 "$pl" </dev/null >"$s" 2>/dev/null) || [ ! -s "$s" ]; then echo "- BUILD-ERR"; return; fi
+         if ! (cd "$W" && timeout -k 5 "$T" "$SCRIP" --compile --target=x86 "$pl" </dev/null >"$s" 2>/dev/null) || [ ! -s "$s" ]; then echo "- BUILD-ERR"; return; fi
          if ! (as --64 -o "$W/$$.o" "$s" 2>/dev/null && gcc -no-pie -o "$b" "$W/$$.o" "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>/dev/null); then echo "- LINKFAIL"; return; fi
-         out=$("$WRAP" timeout "$T" "$b" >/dev/null 2>"$W/e.$$") ;;
+         out=$("$WRAP" timeout -k 5 "$T" "$b" >"$W/o.$$" 2>"$W/e.$$") ;;
   esac
   rl=$(grep '^BENCH_RUSAGE:' "$W/e.$$" 2>/dev/null | tail -1)
   [ -n "$rl" ] || { echo "- DNF"; return; }
@@ -58,6 +72,7 @@ run1() {
   case "$xc" in ''|*[!0-9]*) echo "- CRASH(exit=${xc:-?})"; return ;; esac
   [ "$xc" -ge 128 ] && { echo "- CRASH(signal $((xc-128)))"; return; }
   [ "$xc" -ne 0 ] && { echo "- NONZERO($xc)"; return; }
+  r=$(loop_check "$eng" "$W/o.$$" "$n" "$exp") || { echo "- $r"; return; }
   user=$(echo "$rl" | grep -oE 'user_us=[0-9]+' | cut -d= -f2); sys=$(echo "$rl" | grep -oE 'sys_us=[0-9]+' | cut -d= -f2)
   echo "$(( ${user:-0} + ${sys:-0} ))"
 }
@@ -66,7 +81,7 @@ search() {
   local eng="$1" src="$2" N=1 cpu
   while :; do
     mkwrap "$src" "$N" "$W/s.pl"
-    cpu=$(run1 "$eng" "$W/s.pl")
+    cpu=$(run1 "$eng" "$W/s.pl" "$N" "${src%.pl}.expected")
     case "$cpu" in
       -\ *) echo "$N $cpu"; return ;;   # first failure at this N -- report it, caller decides
     esac
@@ -89,10 +104,9 @@ for pl in "$B"/*.pl; do
   [ -f "$exp" ] || continue
   if [ -n "$KERNELS" ]; then case " $KERNELS " in *" $k "*) ;; *) continue ;; esac; fi
   want=$(cat "$exp")
-  go=$(cd "$W" && timeout 15 gprolog --consult-file "$pl" --query-goal halt 2>/dev/null </dev/null \
-       | grep -vE '^GNU Prolog|^Compiled |^By Daniel|^Copyright|^compiling |compiled, |^\| \?-|^error:|^warning:|cannot be redefined')
-  so=$(cd "$W" && timeout 15 swipl -q -g halt "$pl" 2>/dev/null </dev/null | head -200)
-  m3o=$(cd "$W" && timeout 15 "$SCRIP" --run "$pl" </dev/null 2>/dev/null | head -200)
+  go=$(cd "$W" && timeout -k 5 15 gprolog --consult-file "$PRO/prelude_gplc.pl" --consult-file "$pl" --query-goal halt 2>/dev/null </dev/null | gnu_filter)
+  so=$(cd "$W" && timeout -k 5 15 swipl -q -g halt "$PRO/prelude_swipl.pl" "$pl" 2>/dev/null </dev/null | head -200)
+  m3o=$(cd "$W" && timeout -k 5 15 "$SCRIP" --run "$pl" </dev/null 2>/dev/null | head -200)
   if [ "$go" != "$want" ] || [ "$so" != "$want" ] || [ "$m3o" != "$want" ]; then
     printf "%-14s %14s %14s %14s %14s  %s\n" "$k" SKIP SKIP SKIP SKIP "correctness-fail(single-shot)"; tot_skip=$((tot_skip+1)); continue
   fi

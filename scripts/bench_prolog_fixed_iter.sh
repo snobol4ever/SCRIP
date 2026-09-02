@@ -25,6 +25,8 @@ set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
 V="${VANROY_DIR:-$S4E/corpus/benchmarks/prolog/vanroy}"
+B="${BENCH_DIR:-$S4E/corpus/benchmarks/prolog/bench}"
+PRO="${PROLOG_DIR:-$S4E/corpus/benchmarks/prolog}"
 T="${TIMEOUT:-60}"
 # KERNELS, if set, restricts the run to this space-separated allowlist (basenames, no .pl) instead of
 # every *.pl under $V. Needed because $V can carry STALE wrappers for kernels that no longer pass angle
@@ -38,8 +40,21 @@ KERNELS="${KERNELS:-}"
 [ -d "$V" ] || { echo "⛔ REFUSED-TO-GRADE vanroy corpus missing: $V (run bench_prolog_vanroy.sh first to populate it)"; exit 2; }
 command -v gprolog >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE gprolog absent"; exit 2; }
 command -v swipl   >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE swipl absent"; exit 2; }
+# ⛔ THE RIVAL PRELUDES ARE PART OF THE RIVAL INVOCATION, NOT AN OPTION (hq_P 2026-09-02, row prolog-instruments-and-baseline-standup).
+# Ten of the 21 van Roy kernels are self-timed on the two-number basis and call wall_us/1 + wall_ms/1 -- SCRIP builtins that are
+# UNDEFINED on gprolog/swipl unless prelude_gplc.pl / prelude_swipl.pl is consulted first. MEASURED before this line existed: every
+# bracketed kernel failed the rival single-shot correctness gate with existence_error(wall_us/1), so its whole row read SKIP and the
+# triangulation TSV published UNPROVEN for gnu AND swi -- an instrument defect printed in the vocabulary of a kernel finding (the
+# 2026-09-02 "12 cells UNPROVEN in 6 s" null). bench_prolog_vanroy.sh --two-number already consults the preludes; this arm now runs
+# the IDENTICAL rival invocation so the three angles and the two-number board grade one program. Missing prelude => REFUSE, never a
+# plausible SKIP: a rival that cannot load its clock is not a rival that disagreed.
+[ -f "$PRO/prelude_gplc.pl" ] && [ -f "$PRO/prelude_swipl.pl" ] || { echo "⛔ REFUSED-TO-GRADE rival preludes missing under $PRO (prelude_gplc.pl / prelude_swipl.pl)"; exit 2; }
+. "$HERE/lib_prolog_bench.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE (rc=2): cannot source lib_prolog_bench.sh -- the ONE loop-output check"; exit 2; }
 WRAP="$ROOT/tools/bench_rusage"
 [ -x "$WRAP" ] || gcc -O2 -o "$WRAP" "$ROOT/tools/bench_rusage.c" || { echo "⛔ REFUSED: bench_rusage failed to build" >&2; exit 2; }
+# ⛔ timeout -k 5 EVERYWHERE (hq_P 2026-09-02, measured): swipl ignores timeout's SIGTERM -- angle 2 sat 648 s on vanroy/queens.pl
+# under `timeout 60` with the whole triangulation behind it. A bound that the bounded process can decline is not a bound; -k makes
+# the kill unconditional five seconds after the deadline, and the run then reads CRASH(signal 9), never a rate (the exit= gate).
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 ulimit -s unlimited 2>/dev/null || ulimit -s 1048576 2>/dev/null || true
 
@@ -48,17 +63,17 @@ rate() { awk -v n="$1" -v us="$2" 'BEGIN{ if (us+0>0) printf "%.4f", n/(us/1e6);
 
 # one bench_rusage-wrapped run; echoes "cpu_us nivcsw" or "- -" + reason on crash/DNF/missing rusage line
 run1() {
-  local eng="$1" pl="$2" out rl user sys nivcsw
+  local eng="$1" pl="$2" n="${3:-}" exp="${4:-}" out rl user sys nivcsw r
   case "$eng" in
-    gnu) out=$("$WRAP" timeout "$T" gprolog --consult-file "$pl" --query-goal halt >/dev/null 2>"$W/e.$$") ;;
-    swi) out=$("$WRAP" timeout "$T" swipl -q -g halt "$pl" >/dev/null 2>"$W/e.$$") ;;
-    m3)  out=$("$WRAP" timeout "$T" "$SCRIP" --run "$pl" >/dev/null 2>"$W/e.$$") ;;
+    gnu) out=$("$WRAP" timeout -k 5 "$T" gprolog --consult-file "$PRO/prelude_gplc.pl" --consult-file "$pl" --query-goal halt >"$W/o.$$" 2>"$W/e.$$") ;;
+    swi) out=$("$WRAP" timeout -k 5 "$T" swipl -q -g halt "$PRO/prelude_swipl.pl" "$pl" >"$W/o.$$" 2>"$W/e.$$") ;;
+    m3)  out=$("$WRAP" timeout -k 5 "$T" "$SCRIP" --run "$pl" >"$W/o.$$" 2>"$W/e.$$") ;;
     m4)  local s="$W/$$.s" b="$W/$$.bin"
-         if ! (cd "$W" && timeout "$T" "$SCRIP" --compile --target=x86 "$pl" </dev/null >"$s" 2>/dev/null) || [ ! -s "$s" ]; then
+         if ! (cd "$W" && timeout -k 5 "$T" "$SCRIP" --compile --target=x86 "$pl" </dev/null >"$s" 2>/dev/null) || [ ! -s "$s" ]; then
            echo "- - BUILD-ERR"; return; fi
          if ! (as --64 -o "$W/$$.o" "$s" 2>/dev/null && gcc -no-pie -o "$b" "$W/$$.o" "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>/dev/null); then
            echo "- - LINKFAIL"; return; fi
-         out=$("$WRAP" timeout "$T" "$b" >/dev/null 2>"$W/e.$$") ;;
+         out=$("$WRAP" timeout -k 5 "$T" "$b" >"$W/o.$$" 2>"$W/e.$$") ;;
   esac
   rl=$(grep '^BENCH_RUSAGE:' "$W/e.$$" 2>/dev/null | tail -1)
   if [ -z "$rl" ]; then echo "- - DNF"; return; fi
@@ -73,6 +88,7 @@ run1() {
   case "$xc" in ''|*[!0-9]*) echo "- - CRASH(exit=${xc:-?})"; return ;; esac
   [ "$xc" -ge 128 ] && { echo "- - CRASH(signal $((xc-128)))"; return; }
   [ "$xc" -ne 0 ] && { echo "- - NONZERO($xc)"; return; }
+  r=$(loop_check "$eng" "$W/o.$$" "$n" "$exp") || { echo "- - $r"; return; }
   user=$(echo "$rl" | grep -oE 'user_us=[0-9]+' | cut -d= -f2); sys=$(echo "$rl" | grep -oE 'sys_us=[0-9]+' | cut -d= -f2)
   nivcsw=$(echo "$rl" | grep -oE 'nivcsw=[0-9]+' | cut -d= -f2)
   echo "$(( ${user:-0} + ${sys:-0} )) ${nivcsw:-0}"
@@ -92,7 +108,7 @@ for pl in "$V"/*.pl; do
   if [ -z "$N" ]; then printf "%-14s %10s   MISSING l__(N) IN COMMITTED FILE -- regenerate via bench_prolog_vanroy.sh\n" "$k" "-"; tot_bad=$((tot_bad+1)); continue; fi
   ckstat=ok; declare -A RATE=()
   for eng in gnu swi m3 m4; do
-    res=$(run1 "$eng" "$pl"); cpu=$(awk '{print $1}' <<<"$res")
+    res=$(run1 "$eng" "$pl" "$N" "$B/$k.expected"); cpu=$(awk '{print $1}' <<<"$res")
     if [ "$cpu" = "-" ]; then RATE[$eng]="NA"; reason=$(cut -d' ' -f3- <<<"$res"); [ "$ckstat" = ok ] && ckstat="$eng:$reason"
     else RATE[$eng]=$(rate "$N" "$cpu"); fi
   done
