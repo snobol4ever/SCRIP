@@ -410,26 +410,52 @@ test suite, run whole (`scripts/raku_roast_scoreboard.sh`, 986 in-tier 6.c files
 frontend today accepts a deliberate working subset of Raku; idiomatic spec-test Raku
 is overwhelmingly outside it, and the parse-fail column is the roadmap.
 
-**Benchmarks.** First grid, measured 2026-08-30 on the vendored kernel set
-(`corpus/benchmarks/raku/`, 18 kernels with Rakudo-produced references; whole-program
-wall clock, best of 3, both arms' output byte-verified first; SCRIP mode-4 binary vs
-`raku` — Rakudo 2026.05):
+**Benchmarks.** Re-measured 2026-09-02 on the two-number basis (RULES.md § THE
+TWO-NUMBER BENCHMARK BASIS), same basis change that corrected the Prolog grid below:
+WORK is each kernel's own `wall_us()` bracket (stderr, byte-comparable stdout
+unaffected); OVERHEAD is external elapsed − WORK, its own number, never mixed into a
+WORK column. `scripts/bench_triangulate_raku.sh`, REPS=3 best-of, every rep
+byte-verified against `.ref`; SCRIP `--run` (m3) and `--compile` (m4) vs Rakudo
+2026.05. Multiple = Rakudo `work_us` / SCRIP `work_us` (axis named once: above 1.00x
+SCRIP is faster):
 
-| kernel | SCRIP | Rakudo | × |
-|---|---:|---:|:---:|
-| string-escape | 3.6 ms | 201 ms | **55.9x** |
-| send-more-money-loops | 0.18 s | 1.64 s | **9.24x** |
-| point_class_add1 | 10.4 s | 4.25 s | 0.41x |
-| point_class_add | 12.1 s | 1.63 s | 0.14x |
+| kernel | SCRIP m3 | SCRIP m4 | Rakudo | × (m3) | × (m4) |
+|---|---:|---:|---:|:---:|:---:|
+| string-escape | 61 µs | 75 µs | 1.52 ms | **24.9x** | **20.2x** |
+| send-more-money-loops | 178 ms | 180 ms | 1.11 s | **6.23x** | **6.16x** |
+| point_class_add | 11.4 s | 11.2 s | 1.06 s | 0.093x | 0.095x |
+| point_class_add1 | 22.0 s | 16.4 s | 4.04 s | 0.184x | 0.247x |
 
-This grid is whole-program totals and awaits re-measurement on the two-number basis
-that just corrected the Prolog grid below — at string-escape's size Rakudo's column
-is mostly interpreter startup, so treat that multiple as a startup story, not an
-engine one; the three seconds-scale kernels measure the engines. The split reads clean: loop-and-
-integer work crushes, object/method-heavy work is behind. The other 14 kernels are
-not yet timed — each blocker is a named, diagnosed defect (a map/grep code-path gap
-covering four of them, array parameters passed by copy instead of aliased, rational-
-number semantics, five parser constructs, one crash) and the grid grows as they land.
+OVERHEAD (best rep, startup+teardown only): SCRIP m3 ~6–96 ms, m4 ~3–70 ms, Rakudo
+~237–300 ms — Rakudo's process-launch constant the totals basis used to charge to
+the engine on every kernel regardless of size, most visible on `string-escape` where
+it was ~99% of the old 201 ms total.
+
+**The reading:** same split the totals grid already showed, restated on work rather
+than process time — loop/integer work (`string-escape`, `send-more-money-loops`)
+crushes; object/method-heavy work (`point_class_add`, `point_class_add1`) is behind.
+Magnitudes moved once startup stopped being charged to either side (e.g.
+`string-escape` 55.9x → 24.9x): both numbers were always real, they measured
+different things.
+
+⛔ **Cross-proof status: not yet MEASURED, by design.** `bench_triangulate_raku.sh`
+now also runs angle 1 (`test_bench_raku_timed.sh`, live fixed-time search) and angle
+2 (`bench_raku_fixed_iter.sh`, a committed fixed-N from `fixed-iter-n.tsv`) and
+requires their rates to AGREE (flat 10%, UNBAKED — same unbaked tolerance the Prolog
+triangulator uses) before `test_gate_bench_rivals_coverage.sh` will count a kernel
+MEASURED. First run: every cell reads DISAGREE, spread 10–36% — neither angle
+repeats internally (unlike angle 3's REPS=3 best-of), so a single live-search sample
+against a single fixed-N sample is exactly this noisy on a shared, loaded box. The
+WORK numbers above are angle 3's own byte-verified, best-of-3 measurements and are
+citable on that basis; they are not yet cross-proven the way the Prolog board's
+`MEASURED` bucket requires. Baking a real per-kernel noise floor (mirroring the
+SNOBOL4 triangulator's `NOISE-FLOOR.tsv`) is the next step, not a retry with a looser
+number picked to pass.
+
+The other 13 kernels are not yet timed — each blocker is a named, diagnosed defect (a
+map/grep code-path gap covering four of them, array parameters passed by copy instead
+of aliased, rational-number semantics, five parser constructs, one crash) and the grid
+grows as they land; see `corpus/benchmarks/raku/README.md`.
 
 ### Pascal
 
