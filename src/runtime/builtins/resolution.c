@@ -7,7 +7,6 @@
 #include "../../parsers/prolog/term.h"
 #include "../../parsers/prolog/prolog_runtime.h"
 #include "../../parsers/prolog/prolog_atom.h"
-#include "../../parsers/prolog/prolog_builtin.h"
 extern void rt_trail_unwind(int mark);
 #include "gen_value.h"
 #include <stdio.h>

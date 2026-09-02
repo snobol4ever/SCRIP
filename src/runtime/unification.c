@@ -1671,23 +1671,22 @@ int rt_pl_acyclic_cell(void *term_cell)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_term_string_cell(void *term_cell, void *str_cell)
 {
+    /* ⭐ THIS USED TO HIJACK THE PROCESS'S STDOUT TO READ ITS OWN OUTPUT. The struct-tree printer could only write to a stream, so term_to_atom captured it by opening a pipe,
+       dup2-ing it over STDOUT_FILENO, printing, restoring the real fd, and read()ing 4096 bytes back. That is gone: since T9 milestone 3 the cell printer carries its FILE* in
+       the vmap, so it prints straight into an open_memstream buffer. ⛔ THE OLD ROUTE WAS NOT MERELY UGLY, IT WAS LOSSY AND GLOBAL -- it TRUNCATED at 4095 bytes with no error,
+       and while it was in effect every other write to STDOUT in the process went into the pipe too. Nothing here touches a shared fd any more. plc_make_atom_cell interns the
+       text and points the cell at the atom table's own copy, so the temporary buffer is freed safely. */
     extern pl_trail_t g_pl_trail;
-    extern void pl_writeq(Term *);
     int mark = pl_trail_mark(&g_pl_trail);
-    Term *t = pl_cell_to_term((pl_cell_t *)term_cell);
-    int pipefd[2];
-    if (pipe(pipefd) != 0) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
-    int saved_fd = dup(STDOUT_FILENO);
-    if (saved_fd < 0) { close(pipefd[0]); close(pipefd[1]); pl_trail_unwind(&g_pl_trail, mark); return 0; }
-    dup2(pipefd[1], STDOUT_FILENO); close(pipefd[1]);
-    pl_writeq(t);
-    fflush(stdout);
-    dup2(saved_fd, STDOUT_FILENO); close(saved_fd);
-    char buf[4096]; ssize_t n = read(pipefd[0], buf, sizeof buf - 1); close(pipefd[0]);
-    if (n < 0) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
-    buf[n] = '\0';
-    int atom_id = prolog_atom_intern(buf);
-    if (!pl_unify_term_into_cell((pl_cell_t *)str_cell, term_new_atom(atom_id), &g_pl_trail)) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    char *buf = (char *)0; size_t len = 0;
+    FILE *ms = open_memstream(&buf, &len);
+    if (!ms) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    plc_vmap m; m.n = 0; m.fp = ms;
+    plc_writeq((pl_cell_t *)term_cell, &m);
+    if (fclose(ms) != 0) { free(buf); pl_trail_unwind(&g_pl_trail, mark); return 0; }
+    int ok = plc_unify_into_cell((pl_cell_t *)str_cell, plc_make_atom_cell(buf ? buf : ""), &g_pl_trail);
+    free(buf);
+    if (!ok) { pl_trail_unwind(&g_pl_trail, mark); return 0; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -13,7 +13,6 @@
 #include "parsers/prolog/prolog_runtime.h"
 #include "parsers/prolog/prolog_atom.h"
 #include "parsers/raku/re.h"
-#include "parsers/prolog/prolog_builtin.h"
 #include "parsers/icon/icon_driver.h"
 #include "parsers/raku/raku_driver.h"
 #include "parsers/rebus/rebus_lower.h"
