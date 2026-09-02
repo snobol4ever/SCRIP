@@ -1732,6 +1732,21 @@ def cmd_extract(args):
     # correct .ref against the oracle -- destructive work on a good file. Prefer the block reader and keep the
     # one-line reader as the fallback, and if BOTH fail report BOTH errors rather than the last one, so the
     # next reader is never handed a single cause for a two-cause signal.
+    if getattr(args, "origin", ""):
+        _csv = Path(args.sno).with_name("ALL.csv")
+        if not _csv.is_file():
+            refuse(f"--origin needs the master index beside the suite ({_csv}) and it is not there -- extract by name, or point at the master")
+        import csv as _csvmod
+        _hits = [r["entry"] for r in _csvmod.DictReader(open(_csv, encoding="utf-8")) if r.get("origin") == args.origin]
+        if not _hits:
+            _fam = args.origin.split("__", 1)[0]
+            _near = sorted({r["origin"] for r in _csvmod.DictReader(open(_csv, encoding="utf-8")) if r.get("origin", "").startswith(_fam + "__")})[:8]
+            refuse(f"no entry with origin {args.origin!r} in {_csv}" + (f" (same family has: {', '.join(_near)}{'...' if len(_near) == 8 else ''})" if _near else " (no origin of that family at all)"))
+        if args.name and args.name != _hits[0]:
+            refuse(f"--origin {args.origin} resolves to entry {_hits[0]!r} but the positional name says {args.name!r}; give one or the other")
+        args.name = _hits[0]
+    if not args.name:
+        refuse("extract needs the entry NAME (positional) or --origin <origin>")
     _ext = Path(args.sno).suffix
     _copen, _cclose = "*", ""
     for _lc in LANG_CONFIGS.values():
@@ -1898,8 +1913,9 @@ def main():
     e = sub.add_parser("extract", help="materialize ONE suite entry back into a standalone .sno (+ optional .ref/.in/.xfail) file")
     e.add_argument("sno")
     e.add_argument("ref")
-    e.add_argument("name")
+    e.add_argument("name", nargs="?", default="", help="the entry's CURRENT name (the builder renames entries: directive_82); or give --origin instead")
     e.add_argument("out_sno")
+    e.add_argument("--origin", default="", help="resolve the entry by its ORIGIN (the durable provenance key, e.g. ladder__rung00_hello) through the ALL.csv beside the master; REFUSES if the CSV or the origin is absent (hq_C ask 2026-09-02, rung 0)")
     e.add_argument("--out-ref", default="", dest="out_ref")
     e.add_argument("--out-in", default="", dest="out_in", help="required if the entry carries stdin -- REFUSES rather than silently materializing a stdin-bearing entry without it")
     e.add_argument("--out-xfail", default="", dest="out_xfail", help="optional: write the entry's xfail reason here if it has one (documentation only, never affects grading)")
