@@ -4,6 +4,7 @@
 #include "ir_index.h"
 #include "templates/x86/x86_asm.h"
 #include "templates/bb/bb_templates.h"
+#include <unordered_set>
 #endif
 #ifdef __cplusplus
 extern "C" {
@@ -29,6 +30,44 @@ int             g_use_sm_macros = 0;
 int             g_use_bb_macros = 0;
 sm_emit_t g_emit;
 IR_graph_t * g_emit_cfg = (IR_graph_t *)0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::unordered_set<std::string> g_port_exit_promoting_labels;
+static int g_port_exit_promoting_labels_built = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void port_exit_prepass_build(void) {   /* PORT-EXIT VALUE CONTRACT pre-pass (row port-exit-value-contract-untagged-rax-forges-dt-fail,
+     * obligation 2; Lon-granted NO-NEW-GLOBALS 2026-09-02): closes x86_port_hook's coverage from 86% (current-chain-only, via
+     * g_emit.flat_lbl_γ) to every named proc in the compilation, so a jump into ANOTHER chain's promoting γ (e.g. fbench.pas
+     * calling across procedures) is recognized too. Every condition below is copied VERBATIM from the real formula it mirrors
+     * (emit_chain's flat_lcl_proc derivation ~3627 below, xa_flat_class_zf() in xa_flat.cpp:258) -- one-formula-two-copies is a
+     * named defect class on this rung, so if either real formula moves, this one must move with it. flat_jmp_entry is taken as
+     * unconditionally 1 per the IR.h comment on that field: every proc reaching this table goes through one of
+     * emit_jmp_entry_for_proc/_for_patproc/_for_chain, all of which set it via emit_jmp_entry_arm_region. This function is pure
+     * (reads g_stage2 + graph fields only, calls only the already-exported emit_graph_has_suspend) -- no emission side effects,
+     * safe to run once, lazily, before the real chain-by-chain emission pass ever needs an answer. */
+    if (g_port_exit_promoting_labels_built) return;
+    g_port_exit_promoting_labels_built = 1;
+    extern const char * bb_ab_sym_name(const char *);
+    static int _gfr = -1; if (_gfr < 0) { const char * e = getenv("SCRIP_ICN_GENFRAME"); _gfr = (e && *e == '1') ? 1 : 0; }
+    for (int i = 0; i < g_stage2.proc_count; i++) {
+        ProcEntry * pe = &g_stage2.proc_table[i];
+        if (!pe->name || pe->bb_idx < 0 || pe->bb_idx >= g_stage2.bbp.count) continue;
+        IR_graph_t * g = g_stage2.bbp.table[pe->bb_idx];
+        if (!g) continue;
+        int flat_pat = (strncmp(pe->name, "PAT$", 4) == 0) ? 1 : 0;
+        int flat_gen = (pe->is_generator && emit_graph_has_suspend(g)) ? 1 : 0;
+        int gen_ok = (!flat_gen) || (_gfr && g->icn_cells_graph);
+        int flat_lcl_proc = (!flat_pat && gen_ok && ((g->nparams > 0 || g->nlocals > 0) || g->icn_cells_graph)) ? 1 : 0;
+        int zframe_graph_flag = (g->zframe_graph && !g->icn_cells_graph) ? 1 : 0;
+        if (!(zframe_graph_flag || (g->icn_cells_graph && flat_lcl_proc))) continue;
+        g_port_exit_promoting_labels.insert(std::string(bb_ab_sym_name(pe->name)) + "_γ");
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int emit_port_exit_label_promotes(const char * label) {
+    if (!label) return 0;
+    port_exit_prepass_build();
+    return g_port_exit_promoting_labels.count(label) ? 1 : 0;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 FILE *emit_outf(void) { return bb_emit_out ? bb_emit_out : stdout; }
 #include <string.h>
