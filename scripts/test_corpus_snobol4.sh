@@ -212,15 +212,43 @@ fi
 # produced no SUITE_BOARD line the refusal below could only say THAT it happened -- the cause (a refuse() message, a
 # traceback, a linker error, a kill) was gone. Measured live: a board that refused after 7.7 minutes under fleet load
 # 18-24 with nothing to read but "no SUITE_BOARD line", while the same harness run by hand with stderr kept was clean.
-# A refusal that cannot name its cause sends the reader to re-run the instrument by hand -- so the runner keeps the
-# stderr in a temp file and prints its tail on refusal. Same class as the [SMX] refusal cured the same day.
-_herr="$(mktemp)"; board=$(run_harness run "$MASTER_SNO" "$MASTER_REF" --modes m3,m4 2>"$_herr" | grep '^SUITE_BOARD ')
+# ⭐⭐ AND THE EXIT STATUS IS KEPT TOO, WHICH IS THE HALF STDERR CANNOT COVER (seat03 2026-09-01, row
+# master-suite-board-refuses-under-fleet-load-..., converged with hq_B's fix above on the same file the same day).
+# MEASURED: a SIGTERM'd harness exits **143** and writes **ZERO bytes of stderr** -- Python's default disposition
+# terminates without a traceback -- so for the kill case, which is the one this row exists for, keeping stderr alone
+# prints an empty tail and still cannot name the cause. `board=$(run_harness ... | grep ...)` also threw the status
+# away, because $? is grep's. Three parties read the same bare refusal three different ways on 2026-09-01 (hq_P "my
+# binary", hq_C "something kills by name", seat03 "a 600s wrapper timed it out") and all three were guessing.
+# ⛔ ALSO READ FROM SOURCE, because it decides which cure this row may take: the harness CANNOT kill "its own
+# workers" -- it has none (no multiprocessing/concurrent.futures/threads) and imports no signal module, no os.kill,
+# no alarm, no atexit. Its only kill is subprocess.run(timeout=) on a CHILD, which yields a HANG verdict and still
+# boards. A missing board therefore means the harness PROCESS died: an external event.
+_hout="$(mktemp)"; _herr="$(mktemp)"
+run_harness run "$MASTER_SNO" "$MASTER_REF" --modes m3,m4 > "$_hout" 2> "$_herr"; harness_rc=$?
+board=$(grep '^SUITE_BOARD ' "$_hout")
 if [ -z "$board" ]; then
     echo "⛔ GATE REFUSES: harness produced no SUITE_BOARD line for the master suite"
-    echo "   harness stderr, last lines (the cause lives here, never in the line above):"
-    grep -vE '^\s*$' "$_herr" | tail -8 | sed 's/^/     | /'; rm -f "$_herr"; exit 2
+    if [ "$harness_rc" -gt 128 ]; then
+        sig=$((harness_rc - 128)); signame="$(kill -l "$sig" 2>/dev/null || echo "$sig")"
+        echo "   CAUSE: the harness was KILLED by SIG${signame} (rc=$harness_rc). It did not fail -- it was killed."
+        echo "   ⭐ THIS IS NOT YOUR TREE AND NOT A RED BOARD. RE-RUN IT. Do not diagnose the compiler from this."
+        [ "$sig" -eq 15 ] && echo "   SIGTERM has a known external source on this box: a box-wide 'pkill -f corpus_suite_harness.py' kills"
+        [ "$sig" -eq 15 ] && echo "   EVERY seat's board, not just the caller's (hq_P disclosure 2026-09-01 ~18:28 CDT, 19 processes killed)."
+        [ "$sig" -eq 9 ]  && echo "   SIGKILL is usually the OOM killer or systemd-oomd: check 'journalctl --since -10min | grep -i oom'."
+    elif [ "$harness_rc" -ne 0 ]; then
+        echo "   CAUSE: the harness EXITED $harness_rc without boarding -- unlike a kill, this IS your tree or the harness."
+    else
+        echo "   CAUSE: the harness exited 0 but printed no SUITE_BOARD line -- a defect in the harness itself."
+    fi
+    if [ -s "$_herr" ]; then
+        echo "   harness stderr, last lines (the cause lives here, never in the line above):"
+        grep -vE '^\s*$' "$_herr" | tail -8 | sed 's/^/     | /'
+    else
+        echo "   (harness stderr was EMPTY -- expected for a signal death, which writes nothing.)"
+    fi
+    rm -f "$_hout" "$_herr"; exit 2
 fi
-rm -f "$_herr"
+rm -f "$_hout" "$_herr"
 field() { echo "$board" | grep -oE "$1=[0-9]+" | cut -d= -f2; }
 mt=$(field total)
 m3p=$(field m3_pass); m3f=$(field m3_fail); m3c=$(field m3_crash); m3h=$(field m3_hang); m3u=$(field m3_unproven); m3x=$(field m3_xfail); m3xp=$(field m3_xpass)
