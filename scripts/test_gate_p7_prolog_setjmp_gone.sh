@@ -31,8 +31,15 @@ for s in g_plw_unwind_floor g_plw_floor_bypass rt_plw_floor_bypass_on dop_call_n
     [ "$e" -eq 0 ] || { echo "⛔ $s: still EXPORTED from $SO -- something links it"; F=1; }
 done
 # the three setjmp barriers themselves, scoped to the file section 4 names
-j=$(grep -cE '^[^*/]*\bsetjmp[[:space:]]*\(' src/runtime/by_name_dispatch.c 2>/dev/null)
-[ "$j" -eq 0 ] || { echo "⛔ by_name_dispatch.c still has $j live setjmp barrier(s) -- failure/cut must be wired jumps (β/ω), not C-stack unwinding"; F=1; }
+# ⛔⭐ ONLY dop_call's BARRIER IS PROLOG'S -- MEASURED hq_P 2026-09-02, correcting section 4's "three live setjmp barriers", which overcounts by two. rt_call_arr_bl's setjmp is SNOBOL4/Icon
+# &ERROR-to-failure trapping (emitted from bb_call_fn.cpp:510/596, referenced from lower_snobol4.c; history 12dc1714 + aadd86c4 "GOAL-ICON-BB drive FAILs 14->9") -- only its two g_plw_unwind_floor
+# lines are Prolog's. c_rt_jct_relop's veneer rt_jct_relop is called from bb_binop_relop*.cpp / bb_to*.cpp -- Icon/SNOBOL4 boxes; lower_prolog.c has ZERO relop/to references, so Prolog never
+# reaches it. Both are SHARED NODES; deleting either is a shared-node change graded on the SNOBOL4 board and the Icon watermark for no Prolog gain. So this gate demands setjmp gone from
+# dop_call's BODY, never from the whole file -- a whole-file count would order the deletion of two other languages' error trapping under a Prolog row.
+# ⭐ And dop_call's barrier is DEAD for Prolog by construction: core_runtime_error longjmps only when g_error != 0, and g_error has zero references on the Prolog path (it exit(1)s instead).
+j=$(awk '/^static DESCR_t dop_call\(/{f=1} f&&/^}/{exit} f' src/runtime/by_name_dispatch.c 2>/dev/null | grep -cE '^[^*/]*\bsetjmp[[:space:]]*\(')
+d=$(grep -cE '^static DESCR_t dop_call\(' src/runtime/by_name_dispatch.c 2>/dev/null)
+if [ "$d" -gt 0 ] && [ "$j" -ne 0 ]; then echo "⛔ dop_call still carries a setjmp barrier ($j) -- Prolog failure must be β, a wired jump, not C-stack unwinding (dop_call may also simply be gone: it exists only to wrap the barrier)"; F=1; fi
 u=$(grep -cF '"$unwind_nothrow"' src/runtime/by_name_dispatch.c 2>/dev/null)
 [ "$u" -eq 0 ] || { echo "⛔ the \$unwind_nothrow by-name arm is still dispatched ($u site(s)) -- the nothrow body it reaches is a P7 deletion"; F=1; }
 [ $F -eq 0 ] || { echo "GATE FAIL(1) [p7_prolog_setjmp_gone]: the P7 symbols are not gone"; exit 1; }
