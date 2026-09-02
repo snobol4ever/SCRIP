@@ -367,6 +367,33 @@ grid's conclusion and names the real lever. Twelve further kernels are not timed
 because SCRIP's output does not yet match the reference — a wrong answer is never
 timed.
 
+**Coverage: the full 21-kernel board, nothing dropped.** The grid above times the ten
+kernels that carry a self-timing bracket. The remaining eleven are not absent — they
+are *red*, and a benchmark page that shows only what passes is the failure mode this
+project measures against. `scripts/bench_prolog_vanroy.sh --two-number` prints all
+**21 vanroy kernels**, each in exactly one bucket, and refuses (`rc=2`) if either
+rival binary is missing rather than filling a column:
+
+| bucket | n | meaning |
+|---|:---:|---|
+| MEASURED | 2 | `deriv`, `fib` — a cross-verified AGREE row in `triangulation-*.tsv` |
+| DECLARED | 8 | runs green, no triangulated rate yet, carries a checked reason |
+| REFUSE | 11 | **crashes today** — `SIGSEGV` or `abort` — printed RED with its `rc`, never dropped |
+
+Eleven of twenty-one kernels crash before they can be timed. That number is the
+headline, not a footnote: it is the ceiling on every Prolog performance claim this
+page can make, and it is why the buckets are published beside the speeds.
+
+⛔ **The board publishes buckets, not new multiples, and the control arm is why.** Run
+twice back-to-back on one binary, all 21 bucket assignments reproduced **identically**
+— but the single-run multiples moved by −2.8% on `fib` (≈12 ms of work) and −27.7% on
+`deriv` (under 1 ms), the spread widening as the kernel shrinks toward the rivals' 1 ms
+quantization. Under fleet load a single-run multiple on a sub-millisecond kernel is a
+scouting datum, not a grid, so the speeds above remain the best-of-5 numbers and the
+board contributes coverage. Basis is printed per row (`SELF` for the ten bracketed
+kernels, `FLOOR` for the rest) and the two are never mixed in one column.
+
+
 ### Raku
 
 **Coverage** (third-party): graded against **Roast**, Raku's official specification

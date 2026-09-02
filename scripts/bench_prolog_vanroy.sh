@@ -15,14 +15,166 @@ SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
 B="${BENCH_DIR:-$S4E/corpus/benchmarks/prolog/bench}"
 V="${VANROY_DIR:-$S4E/corpus/benchmarks/prolog/vanroy}"
 T="${TIMEOUT:-240}"; MIN_WALL_MS="${MIN_WALL_MS:-300}"; NMAX="${NMAX:-65536}"
+# ⭐ THE TWO AUTHORITIES, SOURCED NOT REIMPLEMENTED: lib_oracle_flags.sh owns WHICH BINARY IS THE RIVAL
+# (swipl_bin/gprolog_bin, loud rc=2 refusal when absent) and lib_perf_fmt.sh owns HOW A MULTIPLE IS PRINTED
+# (perf_mult/perf_row, reference/ours, RED below 1.00x). ⛔ A harness that cannot load them REFUSES rather
+# than inventing a format or a path -- RULES.md FACT RULES.
+. "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE (rc=2): cannot source lib_oracle_flags.sh"; exit 2; }
+. "$HERE/lib_perf_fmt.sh"     2>/dev/null || { echo "⛔ REFUSED-TO-GRADE (rc=2): cannot source lib_perf_fmt.sh";     exit 2; }
+TWO_NUMBER=0; for a in "$@"; do [ "$a" = --two-number ] && TWO_NUMBER=1; done
 ulimit -s unlimited 2>/dev/null || ulimit -s 1048576 2>/dev/null || true
 [ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built"; exit 2; }
 [ -f "$RT/libscrip_rt.so" ] || { echo "⛔ REFUSED-TO-GRADE libscrip_rt.so not built"; exit 2; }
 [ -d "$B" ] || { echo "⛔ REFUSED-TO-GRADE bench corpus missing: $B"; exit 2; }
+# ⛔ LEGACY PATH ONLY. `command -v` is forbidden on the --two-number path (row prolog-vanroy-21-board-two-number-basis):
+# it resolves a bare name on PATH, which is the exact fallback lib_oracle_flags.sh exists to refuse. Left in place for
+# the legacy per-iteration board rather than changed under it, so this row's diff is the new path, not a silent
+# re-basing of numbers nobody re-measured.
+if [ "$TWO_NUMBER" -eq 0 ]; then
 command -v gprolog >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE gprolog absent"; exit 2; }
 command -v swipl   >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE swipl absent"; exit 2; }
+fi
 mkdir -p "$V"; W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 now_ms() { echo $(( $(date +%s%N) / 1000000 )); }
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+# --two-number : THE VAN ROY 21-KERNEL BOARD ON THE TWO-NUMBER BASIS (row prolog-vanroy-21-board-two-number-basis).
+# ⛔ An EXTENSION, not a fourth harness (the row's GOAL is explicit: "extend, do not fork"). Everything above this line
+# is the legacy per-iteration path and is untouched: it still runs whenever --two-number is absent.
+# BASIS: RULES.md § THE TWO-NUMBER BENCHMARK BASIS (Lon 2026-08-30) -- WORK is the program's own bracketed
+# wall_us/wall_ms delta printed to user_error; OVERHEAD is (external total - WORK) and is its own number, never a
+# WORK column. Multiples are reference/ours through lib_perf_fmt.sh, the one authority for printing a multiple.
+# ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+tn_work_us() {   # tn_work_us <engine> <src> -> work_us, or "-" when the kernel did not report one
+  local eng="$1" src="$2" out=""
+  case "$eng" in
+    scrip) out=$( (cd "$W" && timeout "$TN_T" "$SCRIP" --run "$src" </dev/null 2>&1 >/dev/null) ) ;;
+    gnu)   out=$( (cd "$W" && timeout "$TN_T" "$TN_GP" --consult-file "$TN_PRO/prelude_gplc.pl" --consult-file "$src" --query-goal halt </dev/null 2>&1 >/dev/null) ) ;;
+    swi)   out=$( (cd "$W" && timeout "$TN_T" "$TN_SW" -g true "$TN_PRO/prelude_swipl.pl" "$src" </dev/null 2>&1 >/dev/null) ) ;;
+  esac
+  local v; v=$(printf '%s\n' "$out" | sed -n 's/.*work_us=\([0-9][0-9]*\).*/\1/p' | head -1)
+  # ⛔⭐ A RIVAL READING OF 0 IS NOT A MEASUREMENT, IT IS "BELOW THE FLOOR" -- AND THE FIRST RUN OF THIS BOARD
+  # PRINTED IT AS 0, WHICH perf_mult THEN TURNED INTO "0.000x" FOR deriv-vs-gprolog: a fabricated multiple that
+  # reads exactly like a measured one. gprolog real_time/1 and swipl statistics(walltime) are 1 ms sources, so any
+  # sub-millisecond kernel yields a 0-TICK DELTA. The preludes already warned ("Reporting a 1 ms floor honestly
+  # costs less than defending a multiple built on three ticks") and the board printed the zero anyway. Sentinel it,
+  # and let the caller refuse to build a ratio on it -- a number that cannot be measured must say so, never resolve
+  # to a plausible value (RULES.md THE INSTRUMENT LAWS).
+  case "$eng" in gnu|swi) [ "${v:-0}" -eq 0 ] 2>/dev/null && { printf '%s' "<1ms"; return; } ;; esac
+  [ -n "$v" ] && printf '%s' "$v" || printf '%s' -
+}
+# ⛔ THE ONE GATE BETWEEN A SUB-FLOOR READING AND A PUBLISHED MULTIPLE. Never call perf_row directly on a rival
+# number that may be "<1ms": a multiple over a 0-tick denominator is arithmetic, not evidence.
+tn_angle() {
+  local k="$1" rival="$2" ref="$3" ours="$4"
+  case "$ref" in
+    -)     printf '  %-34s %14s %14s   %s\n' "$k -- vs $rival (WORK)" "n/a" "$ours" "UNPROVEN (rival produced no work bracket)" ;;
+    "<1ms") printf '  %-34s %14s %14s   %s\n' "$k -- vs $rival (WORK)" "<1ms" "$ours" "⛔ NO MULTIPLE: rival is under its 1 ms floor -- 0 ticks is not a measurement" ;;
+    *)     perf_row "$k -- vs $rival (WORK)" "$ref" "$ours" ;;
+  esac
+}
+tn_total_ms() { local t0 t1; t0=$(now_ms); ( "$@" </dev/null >/dev/null 2>&1 ); t1=$(now_ms); echo $((t1-t0)); }
+# ⛔ OVERHEAD IS MEASURED ON THE SAME KERNEL AS THE WORK IT IS SUBTRACTED FROM, never on a different program:
+# (external total) - (that run's own reported work). Mixing a floor from an empty program into a self-timed row is
+# exactly what RULES.md's basis ruling forbids -- empty-program subtraction is the marked INTERIM, not the basis.
+tn_overhead_line() {
+  local label="$1" eng="$2" src="$3" tot w
+  case "$eng" in
+    scrip) tot=$(tn_total_ms "$SCRIP" --run "$src") ;;
+    gnu)   tot=$(tn_total_ms "$TN_GP" --consult-file "$TN_PRO/prelude_gplc.pl" --consult-file "$src" --query-goal halt) ;;
+    swi)   tot=$(tn_total_ms "$TN_SW" -g true "$TN_PRO/prelude_swipl.pl" "$src") ;;
+  esac
+  w=$(tn_work_us "$eng" "$src")
+  if [ "$w" = - ]; then printf '  %-10s total=%sms work=n/a  overhead=UNPROVEN (kernel reported no work bracket)\n' "$label" "$tot"
+  else awk -v l="$label" -v t="$tot" -v u="$w" 'BEGIN{ printf "  %-10s total=%dms  work=%.1fms  overhead=%.1fms (startup+teardown)\n", l, t, u/1000, t-(u/1000) }'; fi
+}
+two_number_board() {
+  # ── oracles BY ACCESSOR ONLY. ⛔ The legacy path above uses `command -v`; the GOAL forbids it here, and the reason
+  # is in the accessor's own message: a rival measured with the binary absent is not slow, it is ABSENT, and a column
+  # filled anyway is a false number. Missing rival => rc=2 REFUSAL, never a plausible all-fail grid.
+  TN_GP="$(gprolog_bin)" || { echo "⛔ REFUSED-TO-GRADE (rc=2): gprolog rival absent"; return 2; }
+  TN_SW="$(swipl_bin)"   || { echo "⛔ REFUSED-TO-GRADE (rc=2): swipl rival absent";   return 2; }
+  [ -x "$SCRIP" ]             || { echo "⛔ REFUSED-TO-GRADE (rc=2): scrip not built";        return 2; }
+  [ -f "$RT/libscrip_rt.so" ] || { echo "⛔ REFUSED-TO-GRADE (rc=2): libscrip_rt.so missing"; return 2; }
+  TN_PRO="$S4E/corpus/benchmarks/prolog"; TN_BENCH="$TN_PRO/bench"; TN_T="${TN_T:-25}"
+  local TRI EXC; TRI="$(ls -1t "$TN_PRO"/triangulation-*.tsv 2>/dev/null | head -1)"; EXC="$TN_PRO/EXCLUDED.tsv"
+  [ -d "$V" ]   || { echo "⛔ REFUSED-TO-GRADE (rc=2): vanroy kernel dir missing: $V"; return 2; }
+  [ -n "$TRI" ] || { echo "⛔ REFUSED-TO-GRADE (rc=2): no triangulation-*.tsv -- MEASURED has no source"; return 2; }
+  [ -f "$EXC" ] || { echo "⛔ REFUSED-TO-GRADE (rc=2): EXCLUDED.tsv missing -- DECLARED has no source"; return 2; }
+  # ── THE UNIVERSE IS vanroy/ (21); THE SOURCES ARE bench/ (23). Measured 2026-09-01: 0 of 21 vanroy files carry a
+  # wall_ms bracket and 10 of 23 bench files do -- vanroy/*.pl are mkwrap OUTPUTS the legacy path regenerates, not
+  # kernels. So names come from vanroy, source text from bench. ⛔ Do not let the two directories blur.
+  local KERNELS NK; KERNELS=$(ls -1 "$V"/*.pl 2>/dev/null | xargs -n1 basename | sed 's/\.pl$//' | sort)
+  NK=$(printf '%s\n' "$KERNELS" | grep -c .)
+  # ── MEASURED, IDENTITY-KEYED ON COLUMN 6. ⛔⛔ NEVER `grep AGREE`: AGREE IS A SUBSTRING OF DISAGREE. That one
+  # substring is where this row's GOAL got "the 6 that pass" -- grep -c says 6; the verdict column says 4 AGREE +
+  # 2 DISAGREE, and those 4 are kernel,engine PAIRS spanning only 2 kernels (deriv, fib).
+  local MEAS DECL; MEAS=$(awk -F'\t' '$6=="AGREE"{print $1}' "$TRI" | sort -u)
+  DECL=$(grep -v '^#' "$EXC" | awk -F'\t' 'NF{print $1}' | sort -u)
+  echo "VAN ROY 21-KERNEL BOARD -- TWO-NUMBER BASIS"
+  echo "BASIS: WORK = the kernel's own wall_us(T0)/wall_us(T1) delta, printed to user_error so stdout stays"
+  echo "       byte-comparable and every .expected still verifies. OVERHEAD = external total - WORK, per engine."
+  echo "       Multiples are reference/ours via lib_perf_fmt.sh (RED below 1.00x, GREEN at or above). One axis."
+  echo "⛔ PRECISION IS NOT UNIFORM AND IS NOT PAPERED OVER: gprolog real_time and swipl statistics(walltime) are"
+  echo "   1 ms sources, so a rival work_us is that many WHOLE TICKS x1000, not a us measurement. SCRIP's wall_us"
+  echo "   is genuinely us-backed. A us-precise numerator over a ms-quantized denominator is stated, never hidden."
+  echo "⛔ BUCKETS PARTITION, PRECEDENCE MEASURED > REFUSE > DECLARED: a crash that is UNDERSTOOD is still a crash,"
+  echo "   so a checked EXCLUDED reason never converts a red into an excuse (seat12; ask open to HQ)."
+  echo "SHARED AXES: instrument=wall clock · RT_OPT=-O0 · mode=m3 · basis printed PER ROW (SELF|FLOOR, never mixed)"
+  echo "TREE: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null) corpus=$(git -C "$S4E/corpus" rev-parse --short HEAD 2>/dev/null) triangulation=$(basename "$TRI") kernels=$NK"
+  echo
+  printf '%-9s %-13s %-6s %11s %11s %11s   %s\n' BUCKET KERNEL BASIS SCRIP_us GNU_us SWI_us NOTE
+  local k src bucket basis note rc us_s us_g us_w n_meas=0 n_decl=0 n_ref=0 n_rows=0
+  for k in $KERNELS; do
+    src="$TN_BENCH/$k.pl"; [ -f "$src" ] || src="$V/$k.pl"
+    if grep -q 'wall_us' "$src" 2>/dev/null; then basis=SELF; else basis=FLOOR; fi
+    # ⛔ `2>/dev/null` on the subshell does NOT silence this: the "Segmentation fault"/"Aborted" line is printed by
+    # THIS shell's job reporting about the dead child, not by the child. Wrapping the compound is what suppresses it
+    # -- measured on the first run, where 11 crash notices interleaved with the rows and broke the grid's alignment.
+    { ( cd "$W" && timeout "$TN_T" "$SCRIP" --run "$src" </dev/null >/dev/null 2>&1 ); rc=$?; } 2>/dev/null
+    us_s=-; us_g=-; us_w=-
+    if printf '%s\n' "$MEAS" | grep -qx "$k"; then
+      bucket=MEASURED; n_meas=$((n_meas+1)); note="AGREE row in $(basename "$TRI")"
+      printf '%s\n' "$DECL" | grep -qx "$k" && note="$note ⛔STALE-DECLARED: EXCLUDED.tsv's own header orders removal"
+    elif [ $rc -ne 0 ]; then
+      bucket=REFUSE; n_ref=$((n_ref+1))
+      case $rc in 139) note="SIGSEGV rc=139 -- printed RED, never dropped" ;; 124) note="TIMEOUT rc=124 at ${TN_T}s" ;; *) note="rc=$rc" ;; esac
+      printf '%s\n' "$DECL" | grep -qx "$k" && note="$note (checked EXCLUDED reason exists; still REFUSE)"
+    elif printf '%s\n' "$DECL" | grep -qx "$k"; then
+      bucket=DECLARED; n_decl=$((n_decl+1)); note="checked reason in EXCLUDED.tsv"
+    else
+      bucket=REFUSE; n_ref=$((n_ref+1)); note="runs green but has no AGREE row -- UNPROVEN, not excused"
+    fi
+    if [ "$basis" = SELF ] && [ $rc -eq 0 ]; then
+      us_s=$(tn_work_us scrip "$src"); us_g=$(tn_work_us gnu "$src"); us_w=$(tn_work_us swi "$src")
+    fi
+    printf '%-9s %-13s %-6s %11s %11s %11s   %s\n' "$bucket" "$k" "$basis" "$us_s" "$us_g" "$us_w" "$note"
+    n_rows=$((n_rows+1))
+  done
+  echo
+  echo "ROWS: $n_rows (MEASURED=$n_meas DECLARED=$n_decl REFUSE=$n_ref) -- every kernel printed, none dropped."
+  echo "⛔ BASIS COVERAGE: $(printf '%s\n' "$KERNELS" | while read -r k; do [ -f "$TN_BENCH/$k.pl" ] && grep -ql 'wall_us' "$TN_BENCH/$k.pl" 2>/dev/null && echo x; done | grep -c x) of $NK kernels carry the two-number bracket (SELF);"
+  echo "   the rest are FLOOR and have NO self-timed WORK. RULES.md permits empty-program subtraction as a MARKED"
+  echo "   INTERIM only -- so their WORK columns print '-' rather than a floor-derived number silently mixed in."
+  echo
+  echo "ANGLES 1+2 -- x vs each rival on WORK (axis named once: reference/ours; above 1.00x SCRIP is ahead):"
+  for k in $(printf '%s\n' "$MEAS"); do
+    src="$TN_BENCH/$k.pl"; [ -f "$src" ] || continue
+    us_s=$(tn_work_us scrip "$src"); us_g=$(tn_work_us gnu "$src"); us_w=$(tn_work_us swi "$src")
+    [ "$us_s" = - ] && continue
+    tn_angle "$k" gprolog "$us_g" "$us_s"; tn_angle "$k" swipl "$us_w" "$us_s"
+  done
+  echo
+  echo "ANGLE 3 -- OVERHEAD, one line per engine (startup+teardown only, never mixed into a WORK column):"
+  local ov_src="$TN_BENCH/fib.pl"; [ -f "$ov_src" ] || ov_src="$(ls -1 "$TN_BENCH"/*.pl | head -1)"
+  echo "  (witness: $(basename "$ov_src") -- overhead is per-ENGINE and near-constant, so one kernel states it)"
+  tn_overhead_line "SCRIP m3" scrip "$ov_src"; tn_overhead_line "gprolog" gnu "$ov_src"; tn_overhead_line "swipl" swi "$ov_src"
+  echo
+  echo "CONTROL ARM: re-run on the same binary; every bucket assignment and every multiple must reproduce within the"
+  echo "             spread recorded in the row's LEDGER. ⛔ An unstated spread is not a control arm."
+  return 0
+}
+
+if [ "$TWO_NUMBER" -eq 1 ]; then two_number_board; exit $?; fi
 wall_ms() { local t0 t1; t0=$(now_ms); (cd "$W" && timeout -k 5 "$T" "$@" </dev/null >/dev/null 2>&1); t1=$(now_ms); echo $((t1 - t0)); }
 med5() { local a=() i; for i in 1 2 3 4 5; do a+=( "$(wall_ms "$@")" ); done; printf '%s\n' "${a[@]}" | sort -n | sed -n 3p; }
 mkwrap() { # $1=src $2=N $3=out — FAILURE-DRIVEN loop: backtracking reclaims the
