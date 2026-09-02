@@ -1222,9 +1222,7 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
         return code(s);
     }
     if (strcasecmp(type, "EXPRESSION") == 0) {
-        const char *s = VARVAL_fn(val);
-        if (!s || !*s) return FAILDESCR;
-        return compile_to_expression(s);
+        return CONVE_fn(val);
     }
     if (strcasecmp(type, "NAME") == 0) {
         const char *s = VARVAL_fn(val);

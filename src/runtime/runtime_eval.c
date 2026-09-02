@@ -435,7 +435,12 @@ DESCR_t EXPVAL_fn(DESCR_t expr_d)
             eval_chain_fn fn = (eval_chain_fn)expr_d.ptr;
             if (!fn) return FAILDESCR;
             DESCR_t saved = NV_GET_fn(EVAL_TMP);
-            rt_chain_enter(fn);
+            NV_SET_fn(EVAL_TMP, FAILDESCR);   /* row convert-expression-holds-an-ast-pointer: a FAILing compiled
+                expr (e.g. GE(1,2)) never assigns EVAL_TMP at all -- priming it to FAILDESCR first (never a value
+                a real SNOBOL4 expression can assign) is what lets the post-run read tell "failed" from "stale". */
+            eval_chain_enter_only(fn);   /* row convert-expression-holds-an-ast-pointer: eval_build_chain's fragments
+                return via `ret` (rt_chain_enter_v's stack convention), not the tail-jmp/rdx convention plain
+                rt_chain_enter provides -- matches eval_string_transient's own default entry of the same builder. */
             DESCR_t result = NV_GET_fn(EVAL_TMP);
             NV_SET_fn(EVAL_TMP, saved);
             return result;

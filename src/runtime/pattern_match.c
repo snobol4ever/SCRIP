@@ -586,18 +586,6 @@ DESCR_t sort_fn(DESCR_t arr) {
     return result;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t compile_to_expression(const char *src) {
-    if (!src || !*src) return FAILDESCR;
-    tree_t *tree = parse_expr_pat_from_str(src);
-    if (!tree) return FAILDESCR;
-    DESCR_t d;
-    d.v    = DT_E;
-    d.slen = 0;
-    d.s    = NULL;
-    d.ptr  = tree;
-    return d;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rsort_fn(DESCR_t arr) {
     DESCR_t sorted = sort_fn(arr);
     if (sorted.v != DT_A || !sorted.arr) return sorted;
