@@ -267,6 +267,11 @@ def leading_literal(node, sym):
             if n.k == 'SEQ': continue
         if n.k == 'LIT': return str(n.v) if n.v else None
         if n.k == 'CALL' and n.v == 'sym' and sym: return sym
+        if n.k == 'CCLASS':
+            # a leading character class is a declarative prefix too: peek one codepoint against the class
+            r = nqp_cc.parse_cclass(n.v)
+            if r and r[0] == nqp_cc.CC_IN: return ('CC', r[1])
+            return None
         if n.k == 'CAP' and n.kids: n = n.kids[0]; continue
         return None
 
@@ -343,7 +348,10 @@ def emit_all(path, out_c, provided=(), grammar='Perl6::Grammar'):
             # (or its :sym<> literal via <sym>), skipping zero-width nodes; a candidate with no static prefix
             # is always entered, exactly as in NQP.
             pre = leading_literal(P(lex_body(d['body'])).parse(), d['sym'])
-            guard = f'rk_lit_peek(c, {Emit().cstr(pre)}) && ' if pre else ''
+            if isinstance(pre, tuple):
+                guard = f'rk_cc(c, 2, {cc_table(pre[1])}, {len(pre[1])}) && '      # zero-width class peek
+            else:
+                guard = f'rk_lit_peek(c, {Emit().cstr(pre)}) && ' if pre else ''
             e.w(1, f'c->pos = save; if ({guard}{fn}(c) && c->pos > best) best = c->pos;')
         e.w(1, 'if (best < 0) { c->pos = save; return 0; }')
         e.w(1, 'c->pos = best; return 1;')

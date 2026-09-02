@@ -338,6 +338,10 @@ class P:
         t0 = t.split('=', 1)[1].strip() if re.match(r'^[A-Za-z_][\w-]*\s*=', t) else t
         mk = mark_node(t0) or lang_node(t0)
         if mk is not None: return mk
+        # `<sym=[Ss]>`: a named capture of a CHARACTER CLASS (quote:sym<s>, quote:sym<m>, …) -- the alias names
+        # the capture, the class does the matching. Resolved as the class; the capture name is not modelled.
+        if re.match(r'^[.+?!\-]?\[', t0):
+            return N('CCLASS', t0)
         am = re.match(r'([^(]*)\((.*)\)\s*$', t, re.S)
         if am: t = am.group(1)
         cm = re.match(r'([^:\s]+(?:::[^:\s]+)*)\s*:\s.*$', t, re.S)
@@ -436,7 +440,8 @@ SELFTEST_LANG = [
     ("LANG('MAIN', 'EXPR')",                       ('CALL', 'EXPR')),
     ("LANG('Regex', 'nibbler')",                   None),        # another grammar: refuses by name
 ]
-SELFTEST_ALIAS = [("statementlist=.FOREIGN_LANG($*MAIN, 'statementlist', 1)", ('CALL', 'statementlist'))]
+SELFTEST_ALIAS = [("statementlist=.FOREIGN_LANG($*MAIN, 'statementlist', 1)", ('CALL', 'statementlist')),
+                  ("sym=[Ss]", ('CCLASS', '[Ss]'))]
 SELFTEST_MARK = [
     ("?MARKED('endstmt')", ('MARK', ('test', 'endstmt'))),
     ("?MARKER('endstmt')", ('MARK', ('set', 'endstmt'))),
