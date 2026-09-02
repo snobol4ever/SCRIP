@@ -611,11 +611,6 @@ DESCR_t rsort_fn(DESCR_t arr) {
     return sorted;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t eval_ast_pat(tree_t *e) {
-    (void)e;
-    fprintf(stderr, "[B0b] BOMB eval_ast_pat: AST-walk evaluator deleted; runtime pattern eval needs DT_P builders (B-ladder)\n");
-    abort();
-}
 #define RT_CAS_ISLAND_BYTES ((size_t)8u << 20)
 #define RT_CAS_DFX_MAX      (1 << 14)
 #define RT_CAS_DCF_MAX      (1 << 14)

@@ -351,7 +351,6 @@ RT_PIC_SRCS := \
     $(SRC)/driver/driver_hooks.c \
     $(SRC)/driver/driver_data.c \
     $(SRC)/driver/driver_call.c \
-    $(SRC)/driver/driver_ast_stubs.c \
     $(SRC)/driver/scrip_sm.c \
     $(SRC)/driver/stmt_ast.c \
     $(SRC)/driver/polyglot.c \
