@@ -33,7 +33,9 @@ OBJ     ?= /tmp/si_objs$(subst /,-,$(ROOT))
 # instead of racing the first one's rm -rf (seat08 measured 3+ concurrent pristines wiping objdir+out/ for
 # 6+ minutes). This is a DIFFERENT lock from lib_build_governor.sh's fleet-wide governor.lock -- that one
 # serializes builds against benchmarks ACROSS seats; this one serializes builds against each other WITHIN
-# one checkout, which the shared governor's -s (shared) build mode deliberately does not do.
+# one checkout, which the shared governor's -s (shared) build mode deliberately does not do. The wait on
+# THIS lock is bounded by scripts/lib_pristine_lock.sh (build-governor-holds-pristine-while-box-idles) --
+# see the `pristine` target's own comment for why.
 BUILD_LOCK ?= /tmp/si_pristine_lock$(subst /,-,$(ROOT))
 CC      := gcc
 CXX     := g++
@@ -76,17 +78,22 @@ pristine:  # THE gate-law incantation (HQ-27 PRISTINE-BUILD-BEFORE-VERDICT), now
 	# binary in place, so a build that failed part-way left a stale, plausible ./scrip that every later
 	# test would silently grade instead of failing loudly. Measured 2026-08-22: mid-rebuild the tree held a
 	# 20:06 -O0 binary while an -O2 build was still running. That is the "non-empty is not alive" class.
-	# ⛔ PER-ROOT FLOCK, EXCLUSIVE, BLOCKING (make-pristine-per-root-flock-second-builder-waits): a second
-	# `make pristine` in this same root now WAITS here instead of racing this rm -rf, then runs its own
-	# full wipe+rebuild once the first is done. S4E_NO_BUILD_LOCK=1 bypasses the lock -- control-arm /
-	# measurement use ONLY (same shape as SCRIP_OPT=0: an emergency escape hatch nothing may depend on),
+	# ⛔ PER-ROOT FLOCK, EXCLUSIVE, BOUNDED (make-pristine-per-root-flock-second-builder-waits; bound added
+	# by build-governor-holds-pristine-while-box-idles): a second `make pristine` in this same root now
+	# WAITS here instead of racing this rm -rf, then runs its own full wipe+rebuild once the first is done.
+	# ⭐ THE WAIT IS BOUNDED, NOT SILENT (scripts/lib_pristine_lock.sh, S4E_PRISTINE_LOCK_TIMEOUT, default
+	# 1200s): a bare `flock` here previously waited FOREVER with zero output, indistinguishable from a
+	# stuck build until it self-cleared -- hq_P measured a ~9.5h overnight loss to exactly that. Past the
+	# bound it REFUSES (rc=99) naming the current holder instead of hanging; raise the bound for a
+	# genuinely slower box, don't remove it. S4E_NO_BUILD_LOCK=1 bypasses the lock entirely -- control-arm
+	# / measurement use ONLY (same shape as SCRIP_OPT=0: an emergency escape hatch nothing may depend on),
 	# never for a real gate verdict.
 	@if [ -n "$${S4E_NO_BUILD_LOCK:-}" ]; then \
 		echo "⚠ S4E_NO_BUILD_LOCK set -- running pristine UNLOCKED (measurement/control-arm only)"; \
 		rm -rf $(OBJ) $(RT_OBJDIR) $(RT_SO) $(ROOT)/out/libscrip_rt.so $(RT_A) $(ROOT)/out/libscrip_rt.a $(ROOT)/scrip; \
 		$(MAKE) all; \
 	else \
-		flock $(BUILD_LOCK) -c '\
+		bash scripts/lib_pristine_lock.sh $(BUILD_LOCK) -- sh -c '\
 			rm -rf $(OBJ) $(RT_OBJDIR) $(RT_SO) $(ROOT)/out/libscrip_rt.so $(RT_A) $(ROOT)/out/libscrip_rt.a $(ROOT)/scrip && \
 			$(MAKE) all \
 		'; \
@@ -102,13 +109,15 @@ test: scrip  # ⭐ WAS THE FALSE-GREEN TRAP (cured hq_P s268): `test`, `test-ir`
 	bash scripts/test_gate_optbypass_watermark.sh
 
 pristine-all:  # wipe EVERY cached configuration, not just this one (the pre-s258 behaviour)
-	# Same race, same cure, same BUILD_LOCK as `pristine` above (make-pristine-per-root-flock-second-builder-waits).
+	# Same race, same cure, same bounded BUILD_LOCK as `pristine` above -- see its comment block for why
+	# the wait is bounded, not silent (make-pristine-per-root-flock-second-builder-waits;
+	# build-governor-holds-pristine-while-box-idles).
 	@if [ -n "$${S4E_NO_BUILD_LOCK:-}" ]; then \
 		echo "⚠ S4E_NO_BUILD_LOCK set -- running pristine-all UNLOCKED (measurement/control-arm only)"; \
 		rm -rf $(OBJ) $(ROOT)/out $(ROOT)/scrip; \
 		$(MAKE) all; \
 	else \
-		flock $(BUILD_LOCK) -c '\
+		bash scripts/lib_pristine_lock.sh $(BUILD_LOCK) -- sh -c '\
 			rm -rf $(OBJ) $(ROOT)/out $(ROOT)/scrip && \
 			$(MAKE) all \
 		'; \
