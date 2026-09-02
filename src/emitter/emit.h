@@ -434,6 +434,8 @@ typedef struct {
     struct bb_label_t *          flat_succ_p;
     struct bb_label_t *          flat_fail_p;
     struct bb_label_t *          flat_β_p;
+    struct bb_label_t *          flat_alt1_p;
+    struct bb_label_t *          flat_altdet_p;
     struct bb_label_t *          flat_main_body_p;
     struct bb_label_t *          flat_main_ω_p;
     struct bb_label_t *          flat_dc_body_p;

@@ -189,6 +189,7 @@ static std::string zf_release(int kt) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void rt_pl_quad_seed(void *);
+extern "C" void rt_pl_choice_open(void *);
 static std::string xa_flat_zframe_prologue_str(void) {
     if (!g_emit.zframe_graph) return std::string();
     int kt = g_emit.flat_frame_bytes;
@@ -196,6 +197,7 @@ static std::string xa_flat_zframe_prologue_str(void) {
     int np = g_emit_cfg ? g_emit_cfg->nparams : 0;
     int nl = g_emit_cfg ? g_emit_cfg->nlocals : 0;
     uint64_t _seed_fp; { void (*_f)(void *) = rt_pl_quad_seed; _seed_fp = (uint64_t)(uintptr_t)(void *)_f; }
+    uint64_t _open_fp; { void (*_f)(void *) = rt_pl_choice_open; _open_fp = (uint64_t)(uintptr_t)(void *)_f; }
     std::string s = x86("comment", "ICN-FR-2 zframe prologue: sub rsp,kt + wire header [kt-24]=γ [kt-16]=ω [kt-8]=caller____ + pin ___=rsp")
          + x86("sub", "rsp", (long)kt)
          + x86("mov", "[rsp + " + std::to_string(kt - 24) + "]", "rcx")
@@ -208,7 +210,13 @@ static std::string xa_flat_zframe_prologue_str(void) {
              + x86("mov", RDQ("rsp", kt - 40), "r13")
              + x86("mov", RDQ("rsp", kt - 48), 0L)
              + x86("mov", RDQ("rsp", kt - 56), 0L)
-             + x86("mov", RDQ("rsp", kt - 64), "r12"))
+             + x86("mov", RDQ("rsp", kt - 64), "r12")
+             + IF(g_emit_cfg && g_emit_cfg->n_alts > 1 && g_emit.flat_alt1_p,
+                   x86("comment", "PL CHOICE OPEN (rung 2, ARCH sec B.3): more than one candidate clause, so this activation IS the youngest choice. F.CUR at [H+8] is seeded with the address of alternative 1 -- Jcon ir_MoveLabel with the temporary promoted into the frame, so the clause step needs no table and no index compare -- and B is set to H through a NAMED rtx helper, never an emitted write of r13.")
+                 + x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)g_emit.flat_alt1_p)
+                 + x86("mov", RDQ("rsp", kt - 56), "rax")
+                 + x86("lea", "rdi", RDQ("rsp", kt - 64))
+                 + x86("call_bare", "rt_pl_choice_open", _open_fp)))
             : (emit_jmp_pin_legacy() ? (xa_flat_zanchor_poison() ? std::string() : x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rsp"))
                                 + std::string("")
                                : std::string()));
@@ -409,6 +417,25 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("pop", "rcx")
              + x86("add", "rsp", 8L)
              + x86("jmp", "rcx");
+    if (x86_fb_pinned() && g_emit.flat_β_p && g_emit.flat_altdet_p) {
+        int _plretain = !(g_emit_cfg && g_emit_cfg->root_graph);
+        return x86("comment", "PL epilogue-γ (rung 2, ARCH sec A.1 + sec B.3 + PZ-4 clause (f)): γ hands r13 through untouched. If r13 still equals F.B0 at [H+24] this activation left no live choice -- release exactly off the pin and hand rax = 0. Otherwise a choice younger than this frame is LIVE and carved BELOW us, so releasing would let the caller carve straight over a live choice point: KEEP the frame, hand rax = our own base as the caller re-entry token and rdx = our graph β as its resume address, and restore only the caller pin; the caller landing reads rax to decide whether to pop its wire pair. THE ROOT GRAPH NEVER RETAINS -- it is entered from the driver, whose wires call exit, so no landing exists to consume the token. ⛔ Every read here is through the PIN, never through rsp: the ICN-FR-2 arm below spells its own wire [rsp# + kt-24], which equals the pin only while nothing is retained -- under γ-retain rsp sits below a live callee frame and that spelling loads garbage into the wire register.")
+             + x86("mov", "rdi", "rax")
+             + x86("mov", "rsi", "rdx")
+             + x86("mov", "rcx", RDQ(x86_fb(), kt - 24))
+             + IF(_plretain,
+                   x86("mov", "rax", RDQ(x86_fb(), kt - 40))
+                 + x86("cmp", "r13", "rax")
+                 + x86("je", "extlbl", (uint64_t)(uintptr_t)g_emit.flat_altdet_p)
+                 + x86("lea", "rdx", "extlbl", (uint64_t)(uintptr_t)g_emit.flat_β_p)
+                 + x86("mov", "rax", x86_fb())
+                 + zf_pin_restore(kt)
+                 + x86("jmp", "rcx")
+                 + x86_def_ext(g_emit.flat_altdet_p))
+             + x86("xor", "eax", "eax")
+             + zf_release(kt)
+             + zf_pin_restore(kt)
+             + x86("jmp", "rcx"); }
     return x86("comment", "ICN-FR-2 zframe epilogue-γ: marshal result rax:rdx→rdi:rsi; load γ wire from [kt-24]; unwind; jmp. NOTE: no caller-base restore happens here — the [kt-8] slot is WRITE-ONLY on every arm that fills it (s247)")
          + x86("mov", "rdi", "rax")
          + x86("mov", "rsi", "rdx")
@@ -445,6 +472,13 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
              + x86("add", "rsp", (long)kt)
              + x86("add", "rsp", 8L)
              + x86("pop", "rcx")
+             + x86("jmp", "rcx");
+    if (x86_fb_pinned())
+        return x86("comment", "PL epilogue-ω (rung 2, ARCH sec A.1): conceding kills every choice this activation opened, so B reverts to F.B0 at [H+24] on the wire and the frame is released exactly off the pin. This is the one r13 write in emitted code and it is the enrolled B-restore shape, not a scratch use.")
+             + x86("mov", "rcx", RDQ(x86_fb(), kt - 16))
+             + x86("mov", "r13", RDQ(x86_fb(), kt - 40))
+             + zf_release(kt)
+             + zf_pin_restore(kt)
              + x86("jmp", "rcx");
     return x86("comment", "ICN-FR-2 zframe epilogue-ω: load ω wire from [kt-16]; unwind to flat base; jmp. NOTE: no caller-base restore happens here — the [kt-8] slot is WRITE-ONLY on every arm that fills it (s247)")
          + x86("mov", "rcx", "qword ptr [rsp# + " + std::to_string(kt - 16) + "]")

@@ -2683,6 +2683,7 @@ static void flat_beta_used_scan(IR_t **nodes, int n, unsigned char *used) {
 extern "C" int xa_flat_class_c_pred(void);
 extern "C" void xa_flat_chain_prologue(const char * fname);
 extern "C" void xa_flat_chain_epilogue(void);
+extern "C" void rt_pl_tr_unwind(void *);
 extern "C" void xa_flat_chain_epilogue_sig(int is_gamma, const char * fname);
 extern int g_rt_fragment_emit;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2701,6 +2702,16 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     emit_label_initf(&lbl_ω,       "%s_ω",      fam);
     emit_label_initf(&lbl_β,       "%s_β",       fam);
     emit_label_initf(&lbl_res,     "%s_res",     fam);
+    bb_label_t * alt_tr[64]; bb_label_t * ret_tr[64]; bb_label_t * pl_step_lbl = (bb_label_t *)0; int n_alt = 0;
+    g_emit.flat_alt1_p = (bb_label_t *)0; g_emit.flat_altdet_p = (bb_label_t *)0;
+    if (g_emit_cfg && g_emit_cfg->n_alts > 0) {
+        n_alt = g_emit_cfg->n_alts > 64 ? 64 : g_emit_cfg->n_alts;
+        for (int _ak = 0; _ak < n_alt; _ak++) alt_tr[_ak] = emit_label_alloc("%s_alt%d", fam, _ak);
+        for (int _ak = 0; _ak < n_alt; _ak++) ret_tr[_ak] = emit_label_alloc("%s_ret%d", fam, _ak);
+        pl_step_lbl = emit_label_alloc("%s_step", fam);
+        g_emit.flat_altdet_p = emit_label_alloc("%s_altdet", fam);
+        if (n_alt > 1) g_emit.flat_alt1_p = alt_tr[1];
+    }
     int bare = g_emit.flat_bare_chain;
     if (strncmp(prefix, "proc_LBL__", 10) == 0) emit_label_initf(&lbl_α, "%s", prefix + 5);
     else if (strncmp(prefix, "proc_", 5) == 0 && !bare) {
@@ -2769,6 +2780,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     int _stmt_seed = 0; if (g_emit_cfg && entry_is_own_graph_root) for (int _ss = 0; _ss < g_emit_cfg->n; _ss++) { IR_t * _sn = g_emit_cfg->all[_ss]; if (_sn && _sn->op == IR_STATEMENT_BEGIN) { _stmt_seed = 1; break; } }
     if (_stmt_seed) { if (qt < Q_MAX) queue[qt++] = entry; RPO_DRAIN(); RPO_FLUSH(); for (int _ss = 0; _ss < g_emit_cfg->n; _ss++) { IR_t * _sb = g_emit_cfg->all[_ss]; if (!_sb || _sb->op != IR_STATEMENT_BEGIN || RPO_VISITED(_sb)) continue; if (qt < Q_MAX) { queue[qt++] = _sb; RPO_DRAIN(); RPO_FLUSH(); } } }
     else { RPO_PUSH(entry); RPO_DRAIN(); RPO_FLUSH(); }
+    if (g_emit_cfg && g_emit_cfg->n_alts > 1 && g_emit_cfg->alt_entry)
+        for (int _ak = 1; _ak < g_emit_cfg->n_alts; _ak++) { IR_t * _ae = g_emit_cfg->alt_entry[_ak]; if (_ae && !RPO_VISITED(_ae)) { RPO_PUSH(_ae); RPO_DRAIN(); RPO_FLUSH(); } }
     { extern int zls_g_group_count(const IR_graph_t *); extern const IR_t * zls_g_group_anchor(const IR_graph_t *, int);
       if (g_emit_cfg && entry_is_own_graph_root && !_stmt_seed) { int _gc = zls_g_group_count(g_emit_cfg); for (int _k = 0; _k < _gc; _k++) { const IR_t * _a = zls_g_group_anchor(g_emit_cfg, _k); if (_a && !emit_chain_entry_already_emitted(_a)) { RPO_PUSH(_a); RPO_DRAIN(); RPO_FLUSH(); } } } }
     { if (g_emit_cfg && entry_is_own_graph_root) { int _refd[4] = {0, 0, 0, 0};
@@ -3222,6 +3235,9 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                   for (int _zj = 0; _zj < _no && _zj < 6; _zj++) { if (_cap && _zj == 0) continue;
                   IR_t * _p = nodes[i]->operands[_zj]; for (int _k = 0; _k < n; _k++) if (nodes[_k] == _p) { int _xh = 0; for (int _zm = i - 1; _zm > _k; _zm--) { if (zd_arm[i] >= 0 && _zm == zd_arm[i]) { _xh += 32; continue; }    if (nodes[_zm]->op == IR_MATCH_DEFER) { _xh += 16; continue; }    if (nodes[_zm]->op != IR_MATCH_BEGIN) continue; extern int fc_head_fp(const IR_t *); extern int fc_tail_head(const IR_t *); extern int emit_match_rbp(void); if (emit_match_rbp()) { extern int sn4_xh_frame_extra(void); extern int emit_match_begin_frame_extra(const IR_t *); _xh += 64 + (sn4_xh_frame_extra() ? emit_match_begin_frame_extra(nodes[_zm]) : 0); }    else if ((fc_head_fp(nodes[_zm]) >= 0 || fc_tail_head(nodes[_zm]))) _xh += 32; } g_zd_read[_zj] = zd_out[i] - zd_out[_k] + _xh;       g_zd_kind[_zj] = (int)ir_norm_call_kind(_p->op); break; } } } }
               { if (zd_on[i] && nodes[i]->op == IR_MATCH_REPLACE) { g_zd_read[2] = -1; g_zd_kind[2] = -1; IR_t * _mb2 = (IR_t *)0; int _jh2 = -1; for (int _zj = i - 1; _zj >= 0; _zj--) { if (nodes[_zj]->op == IR_MATCH_BEGIN) { _mb2 = nodes[_zj]; _jh2 = _zj; break; } } IR_t * _sp = (_mb2 && _mb2->n_operands > 0) ? _mb2->operands[0] : (IR_t *)0; if (_sp && _jh2 >= 0) { for (int _js = _jh2 - 1; _js >= 0; _js--) if (nodes[_js] == _sp) { if (zd_on[_js]) { g_zd_read[2] = g_zd_zunder + (zd_out[_jh2] - zd_out[_js]); g_zd_kind[2] = (int)_sp->op; } if (getenv("SCRIP_ZPAT_DIAG")) fprintf(stderr, "[SUBJ2] jh=%d js=%d zout_jh=%d zout_js=%d zon_js=%d staged=%d\n", _jh2, _js, zd_out[_jh2], zd_out[_js], zd_on[_js], g_zd_read[2]); break; } } } }
+          if (g_emit_cfg && n_alt > 0 && emit_zframe_pinned()) {
+              if (otgt && otgt == g_emit_cfg->alt_fail && pl_step_lbl) node_ω = pl_step_lbl;
+              if (!g_emit_cfg->root_graph) for (int _ak = 0; _ak < n_alt; _ak++) if (gtgt && gtgt == g_emit_cfg->alt_ret[_ak] && g_emit_cfg->alt_redo[_ak]) { node_γ = ret_tr[_ak]; break; } }
           if (nodes[i]->op == IR_MATCH_BEGIN) { g_emit.lbl_t0 = na_f[i] ? na_f[i]->name : NULL; g_emit.lbl_t0_p = na_f[i]; g_emit.lbl_t0o_p = na_fo[i]; }
           emit_drive(nodes[i], lbls[i], node_γ, node_ω, betas[i]);
           if (_zw5_saved_omega) node_ω = _zw5_saved_omega;
@@ -3234,6 +3250,45 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     g_emit.op_beta_dead = 0;
     g_emit.op_wpop = 0;
     if (n == 0) emit_jmp_label(flat_empty_body_fail ? &lbl_ω : &lbl_γ, JMP_JMP);
+    auto pl_alt_target = [&](int ak) -> bb_label_t * {
+        IR_t * _e = g_emit_cfg->alt_entry[ak];
+        { int _sg = 0; while (_e && _e->op == IR_SUCCEED && _e->γ.node && _sg++ < 4096) _e = _e->γ.node; }
+        if (_e) for (int _k = 0; _k < n; _k++) if (nodes[_k] == _e) return lbls[_k];
+        if (_e && _e->op == IR_SUCCEED) return g_emit_cfg->alt_redo[ak] ? ret_tr[ak] : &lbl_γ;
+        return &lbl_ω; };
+    if (g_emit_cfg && n_alt > 0 && emit_zframe_pinned()) {
+        int _kt0 = g_emit.flat_frame_bytes; int _np0 = g_emit_cfg->nparams; int _nl0 = g_emit_cfg->nlocals;
+        uint64_t _uwfp; { void (*_f)(void *) = rt_pl_tr_unwind; _uwfp = (uint64_t)(uintptr_t)(void *)_f; }
+        for (int _ak = 0; _ak < n_alt; _ak++) {
+            IR_t * _rd = g_emit_cfg->alt_redo[_ak]; bb_label_t * _rb = (bb_label_t *)0;
+            if (!_rd || g_emit_cfg->root_graph) continue;
+            for (int _k = 0; _k < n; _k++) if (nodes[_k] == _rd) { _rb = betas[_k]; break; }
+            if (!_rb) continue;
+            emit_sep_rule('-'); emit_label_define_bb(ret_tr[_ak]);
+            bb_emit_x86(x86("comment", "PL CLAUSE SUCCESS (rung 2, ARCH sec B.3): this clause is about to hand control to the graph gamma, so it banks the beta of its youngest resumable sub-goal into F.RES at [H+16]. A redo from the caller then re-enters THAT goal rather than stepping the clause; the graph beta zeroes F.RES as it consumes it, so a clause that succeeds again re-banks it here and one that runs out leaves it zero.")
+                      + x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)_rb)
+                      + x86("mov", RDQ("rbp", _kt0 - 48), "rax"));
+            emit_jmp_label(&lbl_γ, JMP_JMP);
+        }
+        emit_sep_rule('-'); emit_label_define_bb(pl_step_lbl);
+        bb_emit_x86(x86("comment", "PL CLAUSE STEP (rung 2, ARCH sec B.3): every clause of this predicate fails into here. Undo this activation own trail suffix back to F.TRMARK at [H+0] through the named rtx helper -- the only writer of r12 on this path -- re-seed the clause locals unbound (they are younger than this choice, so the log never recorded them: the LCL-SEED rep stosb precedent), drop any stale F.RES, then follow F.CUR at [H+8], which holds the ADDRESS of the next alternative and reads 0 when the clauses are exhausted.")
+                  + x86("mov", "rdi", RDQ("rbp", _kt0 - 64))
+                  + x86("call", "rt_pl_tr_unwind", _uwfp)
+                  + x86("mov", RDQ("rbp", _kt0 - 48), 0L)
+                  + IF(_nl0 > 0, x86("lea", "rdi", RDQ("rbp", 16 + _np0 * 16)) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)(_nl0 * 16)) + x86("rep_stosb"))
+                  + x86("mov", "rax", RDQ("rbp", _kt0 - 56))
+                  + x86("test", "rax", "rax"));
+        emit_jmp_label(&lbl_ω, JMP_JE);
+        bb_emit_x86(x86_jmp_reg("rax"));
+        for (int _ak = 1; _ak < n_alt; _ak++) {
+            int _kt = g_emit.flat_frame_bytes;
+            emit_sep_rule('-'); emit_label_define_bb(alt_tr[_ak]);
+            bb_emit_x86(x86("comment", "PL ALTERNATIVE TRAMPOLINE (rung 2, Jcon ir_MoveLabel): advance F.CUR to the NEXT alternative, or zero it on the last one so the step concedes, then enter this clause head unification.")
+                      + (_ak + 1 < n_alt ? x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)alt_tr[_ak + 1]) : x86("xor", "eax", "eax"))
+                      + x86("mov", RDQ("rbp", _kt - 56), "rax"));
+            emit_jmp_label(pl_alt_target(_ak), JMP_JMP);
+        }
+    }
     if (g_emit.flat_jmp_entry) {
         if (!bare) {
         emit_sep_rule('-'); emit_label_define_bb(&lbl_res);
@@ -3257,7 +3312,19 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     }
     if (!bare && !_top_hoist) {
     emit_sep_rule('-'); emit_label_define_bb(&lbl_β);
-    {
+    if (g_emit_cfg && g_emit_cfg->n_alts > 0 && emit_zframe_pinned()) {
+        int _kt = g_emit.flat_frame_bytes;
+        bb_label_t * _step = pl_step_lbl;
+        bb_label_t * _resume = emit_label_alloc("%s_βres", fam);
+        bb_emit_x86(x86("comment", "PL graph beta (rung 2, ARCH sec B.3 + sec A.1 review C9): the predicate box redo port. A ball in flight is never a redo, so it concedes first. Otherwise consume F.RES at [H+16] -- zeroing it as it is read, so a clause that fails after being redone falls through -- and jump the banked youngest sub-goal beta; with nothing retained, step the clause.")
+                  + x86("test", "r15", "r15"));
+        emit_jmp_label(&lbl_ω, JMP_JNE);
+        bb_emit_x86(x86("mov", "rax", RDQ("rbp", _kt - 48)) + x86("mov", RDQ("rbp", _kt - 48), 0L) + x86("test", "rax", "rax"));
+        emit_jmp_label(_resume, JMP_JNE);
+        emit_jmp_label(_step ? _step : &lbl_ω, JMP_JMP);
+        emit_label_define_bb(_resume);
+        bb_emit_x86(x86_jmp_reg("rax"));
+    } else {
         bb_label_t *resume_tgt = &lbl_ω;
         for (int i = 0; i < n; i++) if (nodes[i]->op == IR_SUSPEND) { resume_tgt = betas[i]; break; }
         if (g_emit_cfg && g_emit_cfg->body_root)

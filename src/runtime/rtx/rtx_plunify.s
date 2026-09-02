@@ -13,6 +13,19 @@ RTX_FUNC(rt_pl_quad_seed)
     add     rsp, 8
     ret
 RTX_ENDF(rt_pl_quad_seed)
+RTX_FUNC(rt_pl_tr_unwind)
+    sub     rsp, 8
+    mov     rsi, rdi
+    mov     rdi, r12
+    call    rt_pl_tr_unwind_sync
+    mov     r12, rax
+    add     rsp, 8
+    ret
+RTX_ENDF(rt_pl_tr_unwind)
+RTX_FUNC(rt_pl_choice_open)
+    mov     r13, rdi
+    ret
+RTX_ENDF(rt_pl_choice_open)
 RTX_FUNC(rt_pl_dop_unify)
     sub     rsp, CTX_FRAME
     mov     qword ptr [rsp + CTX_TR], r12

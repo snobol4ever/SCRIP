@@ -26,3 +26,9 @@ char *rt_pl_tr_unwind_to(char *tr, char *mark) {
     while (tr > mark) { tr -= PL_TR_ENTRY_BYTES; { pl_tr_entry_t *e = (pl_tr_entry_t *)tr; *e->cell = e->old; } }
     return tr;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+char *rt_pl_tr_unwind_sync(char *tr, char *mark) {
+    tr = rt_pl_tr_unwind_to(tr, mark);
+    rt_pl_tr_gc_sync(tr);
+    return tr;
+}

@@ -224,6 +224,11 @@ struct IR_graph_t {
     IR_t        ** dentry_entry;
     const char  ** dentry_name;
     int            n_dentry;
+    IR_t        ** alt_entry;
+    IR_t        ** alt_ret;
+    IR_t        ** alt_redo;
+    IR_t         * alt_fail;
+    int            n_alts;
     #define AG_RING 16
     DESCR_t        ring[AG_RING];
     int            ring_head;

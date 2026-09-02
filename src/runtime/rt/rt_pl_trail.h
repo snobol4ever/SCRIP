@@ -13,6 +13,7 @@ void *rt_pl_tr_init(void);
 void  rt_pl_tr_refuse(const char *tr);
 void  rt_pl_tr_gc_sync(const char *tr);
 char *rt_pl_tr_unwind_to(char *tr, char *mark);
+char *rt_pl_tr_unwind_sync(char *tr, char *mark);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline char *pl_tr_base_of(const char *tr) { return (char *)((uintptr_t)tr & ~(PL_TR_ARENA_BYTES - 1)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
