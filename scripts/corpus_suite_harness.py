@@ -1654,6 +1654,17 @@ def cmd_run(args):
         modes = (args.modes or "m3,m4").split(",")
         entries = read_suite(args.sno, args.ref, in_path=sidecar_in_path(args.sno),
                              x_path=sidecar_xfail_path(args.sno), w_path=sidecar_wantrc_path(args.sno))
+    shard_tag = ""
+    if getattr(args, "shard", ""):
+        _m = re.fullmatch(r"(\d+)/(\d+)", args.shard.strip())
+        if not _m or int(_m.group(2)) < 1 or not (1 <= int(_m.group(1)) <= int(_m.group(2))):
+            refuse(f"--shard wants k/N with 1 <= k <= N, got {args.shard!r}")
+        _k, _n = int(_m.group(1)), int(_m.group(2))
+        _all = len(entries)
+        entries = [e for i, e in enumerate(entries) if i % _n == _k - 1]
+        if not entries:
+            refuse(f"--shard {args.shard} selects zero of the {_all} entries -- N exceeds the suite; a shard that grades nothing is not a board")
+        shard_tag = f"shard={_k}/{_n}"
     counts = {m: {"PASS": 0, "FAIL": 0, "CRASH": 0, "HANG": 0, "UNPROVEN": 0, "SKIP": 0, "XFAIL": 0, "XPASS": 0} for m in modes}
     tmp_root = Path(tempfile.mkdtemp(prefix="csh_run_"))
     fails = []
@@ -1684,7 +1695,7 @@ def cmd_run(args):
         shutil.rmtree(tmp_root, ignore_errors=True)
 
     family = Path(args.sno).stem
-    fields = [f"family={family}", f"total={len(entries)}"]
+    fields = [f"family={family}"] + ([shard_tag] if shard_tag else []) + [f"total={len(entries)}"]
     for m in modes:
         c = counts[m]
         fields.append(f"{m}_pass={c['PASS']} {m}_fail={c['FAIL']} {m}_crash={c['CRASH']} "
@@ -1881,6 +1892,7 @@ def main():
     r.add_argument("ref")
     r.add_argument("--modes", default="", help="default: m3,m4 (or LANG_CONFIGS[lang]['modes'] if --lang given)")
     r.add_argument("--lang", default="", choices=[""] + sorted(LANG_CONFIGS), help="read/grade as a LANG_CONFIGS dialect instead of the default SNOBOL4 suite format")
+    r.add_argument("--shard", default="", help="k/N: grade only every N-th entry starting at the k-th (1-based, interleaved), so the N shards partition the suite exactly once and their boards SUM to the monolithic board; the SUITE_BOARD line carries shard=k/N and total=<this shard's entries> (row corpus-runner-master-suite-exceeds-single-call-cap, hq_B 2026-09-02)")
     r.set_defaults(func=cmd_run)
 
     e = sub.add_parser("extract", help="materialize ONE suite entry back into a standalone .sno (+ optional .ref/.in/.xfail) file")

@@ -37,6 +37,49 @@ CORPUS="$S4E/corpus"
 # ⚠️ If you want to change what the FAMILIES get, export it or set it per-call (see the TIMEOUT=30 below).
 # Changing the value here moves only the loose/hardcoded programs.
 TIMEOUT="${TIMEOUT:-120}"
+# ⭐ SHARDED / RESUMABLE ARM (row corpus-runner-master-suite-exceeds-single-call-cap, hq_B 2026-09-02). The master block
+# is one 1700+-entry harness run (~220s here alone, ~7.7 min under fleet load), so a caller under a single-call cap got a
+# REFUSAL (rc=2, "no SUITE_BOARD line") instead of a verdict -- honest, but a blocking gate nobody can run in one call is a
+# gate nobody runs. Now: `--shard k/N` grades ONLY the master's k-th interleaved N-th of the entries (the harness's own
+# --shard, so every entry lands in exactly one shard) and writes its SUITE_BOARD to a CHECKPOINT stamped with the scrip
+# binary's and the master pair's md5 -- then exits WITHOUT a verdict ("verdict at --combine"). `--combine N` reads the N
+# checkpoints, REFUSES rc=2 if any is missing or was cut on a different binary/master (stale by construction, never summed),
+# SUMS every count into one synthesized board line, and then runs everything else (demo arms, floors, GATE line) exactly
+# as the monolithic run does. PROVEN byte-equal once: monolithic summary == --shard 1/3, 2/3, 3/3 + --combine 3 (ledger).
+# Checkpoints live under $SCRIP_BOARD_CKPT (default /tmp/si_board_shards<seat-root-with-dashes>, per checkout like the objdir).
+SHARD=""; COMBINE=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --shard=*)   SHARD="${1#--shard=}";;
+        --shard)     shift; SHARD="${1:-}";;
+        --combine=*) COMBINE="${1#--combine=}";;
+        --combine)   shift; COMBINE="${1:-}";;
+        -h|--help)   sed -n '/^# ⭐ SHARDED/,/^SHARD=""/p' "$0" | grep '^#' | sed 's/^# \{0,1\}//'; exit 0;;
+        *) echo "⛔ REFUSED: unknown argument '$1' (accepted: --shard k/N | --combine N | --help)"; exit 2;;
+    esac; shift
+done
+case "$SHARD" in ""|[0-9]*/[0-9]*) :;; *) echo "⛔ REFUSED: --shard wants k/N, got '$SHARD'"; exit 2;; esac
+case "$COMBINE" in ""|[1-9]*) :;; *) echo "⛔ REFUSED: --combine wants N (a count), got '$COMBINE'"; exit 2;; esac
+[ -n "$SHARD" ] && [ -n "$COMBINE" ] && { echo "⛔ REFUSED: --shard and --combine are two different calls, not one"; exit 2; }
+CKPT="${SCRIP_BOARD_CKPT:-/tmp/si_board_shards$(printf '%s' "$S4E" | tr / -)}"
+board_stamp() { printf 'stamp scrip=%s master=%s-%s\n' "$(md5sum < "$SCRIP" | cut -c1-12)" "$(md5sum < "$MASTER_SNO" | cut -c1-12)" "$(md5sum < "$MASTER_REF" | cut -c1-12)"; }
+board_checkpoint_write() {   # <k/N> <board line>
+    local f="$CKPT/master.${1%/*}-of-${1#*/}.board"; mkdir -p "$CKPT" || { echo "⛔ REFUSED: cannot create checkpoint dir $CKPT"; exit 2; }
+    { board_stamp; printf '%s\n' "$2"; } > "$f"
+    echo "SHARD $1 boarded -> $f"; echo "   $2"; echo "   no verdict here: run the other shards, then '$0 --combine ${1#*/}' for the GATE line"
+}
+board_combine() {   # <N> -> prints ONE synthesized SUITE_BOARD line on stdout; refusals on stderr, rc 2
+    local n="$1" k f want="$(board_stamp)" got line; declare -A sum; local -a keys=()
+    for k in $(seq 1 "$n"); do
+        f="$CKPT/master.$k-of-$n.board"
+        [ -f "$f" ] || { echo "⛔ GATE REFUSES: checkpoint for shard $k/$n missing at $f -- run '$0 --shard $k/$n' first; a partial sum is not a board" >&2; return 2; }
+        got="$(sed -n 1p "$f")"; [ "$got" = "$want" ] || { echo "⛔ GATE REFUSES: checkpoint $k/$n was cut on a different tree ($got vs now $want) -- stale by construction, re-run that shard" >&2; return 2; }
+        line="$(grep -m1 '^SUITE_BOARD ' "$f")"; [ -n "$line" ] || { echo "⛔ GATE REFUSES: checkpoint $k/$n carries no SUITE_BOARD line" >&2; return 2; }
+        echo "$line" | grep -q " shard=$k/$n " || { echo "⛔ GATE REFUSES: checkpoint $k/$n's board is tagged '$(echo "$line" | grep -oE 'shard=[0-9/]+')', not shard=$k/$n" >&2; return 2; }
+        for kv in $(echo "$line" | grep -oE '[a-z0-9_]+=[0-9]+'); do key="${kv%%=*}"; [ -n "${sum[$key]+x}" ] || keys+=("$key"); sum[$key]=$(( ${sum[$key]:-0} + ${kv#*=} )); done
+    done
+    printf 'SUITE_BOARD family=ALL combined=%s' "$n"; for key in "${keys[@]}"; do printf ' %s=%s' "$key" "${sum[$key]}"; done; printf '\n'
+}
 TMOUT3=0; TMOUT4=0; TMOUT_LIST=""
 INC="${INC:-$CORPUS/include}"
 BEAUTY="${BEAUTY:-$CORPUS/tests/snobol4/beauty_suite}"
@@ -224,8 +267,13 @@ fi
 # no alarm, no atexit. Its only kill is subprocess.run(timeout=) on a CHILD, which yields a HANG verdict and still
 # boards. A missing board therefore means the harness PROCESS died: an external event.
 _hout="$(mktemp)"; _herr="$(mktemp)"
-run_harness run "$MASTER_SNO" "$MASTER_REF" --modes m3,m4 > "$_hout" 2> "$_herr"; harness_rc=$?
-board=$(grep '^SUITE_BOARD ' "$_hout")
+if [ -n "$COMBINE" ]; then
+    board=$(board_combine "$COMBINE") || { rm -f "$_hout" "$_herr"; exit 2; }; harness_rc=0
+    echo "master: COMBINED from $COMBINE shard checkpoints under $CKPT (each stamped with this binary and master)"
+else
+    run_harness run "$MASTER_SNO" "$MASTER_REF" --modes m3,m4 ${SHARD:+--shard "$SHARD"} > "$_hout" 2> "$_herr"; harness_rc=$?
+    board=$(grep '^SUITE_BOARD ' "$_hout")
+fi
 if [ -z "$board" ]; then
     echo "⛔ GATE REFUSES: harness produced no SUITE_BOARD line for the master suite"
     # ⭐⭐ THE REFUSAL CARRIES ONE MACHINE-READABLE LINE, NOT ONLY PROSE (hq_C 2026-09-01, same row). The prose
@@ -260,6 +308,7 @@ if [ -z "$board" ]; then
     rm -f "$_hout" "$_herr"; exit 2
 fi
 rm -f "$_hout" "$_herr"
+if [ -n "$SHARD" ]; then board_checkpoint_write "$SHARD" "$board"; exit 0; fi
 field() { echo "$board" | grep -oE "$1=[0-9]+" | cut -d= -f2; }
 mt=$(field total)
 m3p=$(field m3_pass); m3f=$(field m3_fail); m3c=$(field m3_crash); m3h=$(field m3_hang); m3u=$(field m3_unproven); m3x=$(field m3_xfail); m3xp=$(field m3_xpass)
