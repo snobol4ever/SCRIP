@@ -1865,8 +1865,32 @@ def cmd_list(args):
     """Print every entry name in a suite, one per line, in file order. For consumers that need to
     enumerate a suite's members -- a board denominator, a tool that materializes every entry into a
     scratch directory -- without re-deriving the suite grammar a second time (same rationale as
-    cmd_extract, ONE AUTHORITY: read_suite())."""
-    entries = read_suite(args.sno, args.ref)
+    cmd_extract, ONE AUTHORITY: read_suite()).
+
+    ⛔⭐ --lang ADDED 2026-09-02 (hq_P, on hq_B's report from the rung-6 witness landing). THIS SUBCOMMAND
+    COULD NOT READ ANY NON-SNOBOL4 MASTER AT ALL. read_suite() hardcodes SNOBOL4's `*` banner marker, so a
+    Prolog master (`%` comments) parsed as thousands of one-line entries and died on the UNMODIFIED committed
+    ALL.pl/ALL.ref with `family.ref is shorter than family.sno at seq NNNN` -- cmd_run has taken --lang and
+    dispatched to read_block_suite() since 2026-08-29, and cmd_list was simply never given the same dispatch.
+    ⛔⭐ THE ERROR MESSAGE WAS THE EXPENSIVE HALF: it names the REF FILE as short, so it reads as a corpus
+    defect. hq_B hit it while promoting the rung-6 witnesses and had to go and re-check the committed baseline
+    to establish that their own edit had not broken it. A WRONG-READER FAULT THAT ACCUSES THE DATA COSTS THE
+    NEXT READER A BISECTION THEY DID NOT NEED. Hence the explicit suffix refusal below: it names the reader,
+    the suffix and the exact flag to pass, and it fires BEFORE the grammar can produce a misleading message.
+    ⭐ AND IT MADE A DOCUMENTED PROCEDURE UNFOLLOWABLE: lib_master_extract.sh's INTERIM PROMOTION PROTOCOL
+    tells a promoter to prove the promotion with `list`, which for .pl could not be done at all."""
+    if args.lang:
+        cfg = LANG_CONFIGS[args.lang]
+        entries = read_block_suite(args.sno, args.ref, banner_re_for(cfg["comment_open"], cfg["comment_close"]))
+    else:
+        suffix = Path(args.sno).suffix
+        if suffix and suffix != ".sno":
+            owner = [k for k, c in LANG_CONFIGS.items() if c["ext"] == suffix]
+            hint = f" -- pass --lang {owner[0]}" if owner else " -- no LANG_CONFIGS dialect claims that suffix"
+            refuse(f"list: {args.sno} has suffix {suffix!r}, but with no --lang this reads the SNOBOL4 suite grammar "
+                   f"(`*` banners){hint}. Refusing rather than parsing every line as a one-line entry and then blaming "
+                   f"the .ref file for being short -- the fault would be the READER, not the data.")
+        entries = read_suite(args.sno, args.ref)
     for e in entries:
         print(e.name)
 
@@ -1933,6 +1957,7 @@ def main():
     l = sub.add_parser("list", help="print every entry name in a suite, one per line, in file order")
     l.add_argument("sno")
     l.add_argument("ref")
+    l.add_argument("--lang", default="", choices=[""] + sorted(LANG_CONFIGS), help="read as a LANG_CONFIGS dialect instead of the default SNOBOL4 suite format (a non-.sno suffix without this REFUSES rather than misreading)")
     l.set_defaults(func=cmd_list)
 
     args = ap.parse_args()
