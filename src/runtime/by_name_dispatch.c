@@ -241,6 +241,7 @@ int pl_builtin_is_known(const char *name)
     if (!strcmp(name, "$bag_prep_b") || !strcmp(name, "$bag_prep_s") || !strcmp(name, "$keysort") || !strcmp(name, "$bag_group")) return 1;
     if (!strcmp(name, "$group_pairs_by_key") || !strcmp(name, "$pairs_keys_values")) return 1;
     if (!strcmp(name, "$dyn_assertz") || !strcmp(name, "$dyn_asserta") || !strcmp(name, "$retract") || !strcmp(name, "$abolish") || !strcmp(name, "$dyn_iter") || !strcmp(name, "$call")) return 1;
+    if (!strcmp(name, "$clausable")) return 1;
     if (!strcmp(name, "$clause") || !strcmp(name, "$current_predicate") || !strcmp(name, "$predicate_property")) return 1;
     if (!strcmp(name, "$current_op")) return 1;
     if (!strcmp(name, "$current_prolog_flag")) return 1;
@@ -2693,6 +2694,14 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         int ok = rt_pl_dyn_retract_cell((void *)plw_det_cell(&t0));
         if (ok) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; } else *out = FAILDESCR; return 1;
     }
+    if (!strcmp(fn, "$clausable") && nargs == 1) {
+        /* rung prolog-swi-test-term-undefined-function: SWI's '$clausable'/1 declares that a predicate's
+           clauses stay introspectable via clause/2 despite whatever internal optimization SWI would
+           otherwise apply to it. SCRIP never hides clauses from clause/2 that way, so the declaration
+           has nothing to opt into here -- a pure no-op that always succeeds is the correct semantics,
+           not a stand-in for unimplemented behavior. */
+        DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; *out = r; return 1;
+    }
     if (!strcmp(fn, "$abolish") && nargs == 2) {
         extern int rt_pl_dyn_abolish_cell(void *, void *);
         DESCR_t t0 = args[0], t1 = args[1];
@@ -4523,6 +4532,7 @@ const char *rt_pl_det_builtin_target(const char *nm, int ar) {
         { "$wot_begin", 0, "$wot_begin" }, { "$wot_end", 1, "$wot_end" }, { "$wot_abort", 0, "$wot_abort" },
         { "nb_setval", 2, "$nb_setval" }, { "nb_getval", 2, "$nb_getval" },
         { "assertz", 1, "$dyn_assertz" }, { "assert", 1, "$dyn_assertz" }, { "asserta", 1, "$dyn_asserta" }, { "retract", 1, "$retract" },
+        { "$clausable", 1, "$clausable" },
         { "compare", 3, "$compare" }, { "@<", 2, "$atop_lt" }, { "@=<", 2, "$atop_le" }, { "@>", 2, "$atop_gt" }, { "@>=", 2, "$atop_ge" },
         { "throw", 1, "$throw" },
         { "atom_to_term", 3, "$atom_to_term" }, { "char_code", 2, "$char_code" }, { "number_chars", 2, "$number_chars" }, { "number_codes", 2, "$number_codes" },
