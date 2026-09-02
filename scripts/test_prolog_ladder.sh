@@ -2,6 +2,8 @@
 # test_prolog_ladder.sh -- THE CONSTRUCT-LADDER RUNNER, the landing gate of every Prolog rung of the rebuild
 # (RULES.md § THE PROLOG REBUILD GATE clause 4; ARCH-PROLOG-BYRD-BOX-TRANSLATION.md § E; minted by hq_B 2026-09-02).
 #   --to N     grade rungs 0..N CUMULATIVELY (default: every rung the master carries)
+#   --only N   grade rung N ALONE -- the rung under construction, while the rungs below it are still red (ceo 2026-09-02: land rung 6 on --only 6
+#              while --to 6 waits for rungs 2-5). Mutually exclusive with --to: a request that names both selectors REFUSES rc=2 rather than guessing.
 #   --list     print the witnesses per rung and exit 0 without grading
 # POPULATION: every origin `ladder__rungNN_<slug>` of corpus/tests/prolog/ALL.csv with NN <= N, materialized OUT of the master
 # by origin through lib_master_extract.sh (MASTER_DIR=corpus/tests/prolog, MASTER_EXT=.pl) -- keyed on the CSV `origin`
@@ -24,17 +26,22 @@ set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"; T="${TIMEOUT:-20}"
 MASTER_DIR="$S4E/corpus/tests/prolog"; MASTER_EXT=.pl; export MASTER_DIR MASTER_EXT
-TO=""; LIST=0
+TO=""; ONLY=""; LIST=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --to) shift; TO="${1:-}";;
     --to=*) TO="${1#--to=}";;
+    --only) shift; ONLY="${1:-}";;
+    --only=*) ONLY="${1#--only=}";;
     --list) LIST=1;;
     -h|--help) sed -n '2,20p' "$0"; exit 0;;
-    *) echo "REFUSE (rc=2): unknown argument '$1' (usage: $0 [--to N] [--list])"; exit 2;;
+    *) echo "REFUSE (rc=2): unknown argument '$1' (usage: $0 [--to N | --only N] [--list])"; exit 2;;
   esac; shift
 done
 case "$TO" in ""|*[!0-9]*) [ -z "$TO" ] || { echo "REFUSE (rc=2): --to wants a rung number, got '$TO'"; exit 2; };; esac
+case "$ONLY" in ""|*[!0-9]*) [ -z "$ONLY" ] || { echo "REFUSE (rc=2): --only wants a rung number, got '$ONLY'"; exit 2; };; esac
+[ -z "$TO" ] || [ -z "$ONLY" ] || { echo "REFUSE (rc=2): --to $TO and --only $ONLY name two different populations (cumulative 0..N vs rung N alone) -- pass one, never both"; exit 2; }
+if [ -n "$ONLY" ]; then SEL="--only $ONLY"; else SEL="--to ${TO:-max}"; fi
 refuse() { echo "REFUSE (rc=2): $*"; exit 2; }
 [ -x "$SCRIP" ] || refuse "scrip binary not built at $SCRIP"
 [ -f "$RT/libscrip_rt.so" ] || refuse "runtime library missing at $RT/libscrip_rt.so"
@@ -45,11 +52,11 @@ all_origins=$(master_origins_of_family ladder 2>/dev/null) || all_origins=""
 declare -a origins=()
 for o in $(printf '%s\n' $all_origins | sort); do
   r=$(printf '%s' "$o" | sed -nE 's/^ladder__rung([0-9]+)_.*$/\1/p'); [ -n "$r" ] || continue
-  r=$((10#$r)); [ -z "$TO" ] || [ "$r" -le "$TO" ] || continue
+  r=$((10#$r)); if [ -n "$ONLY" ]; then [ "$r" -eq "$ONLY" ] || continue; else [ -z "$TO" ] || [ "$r" -le "$TO" ] || continue; fi
   origins+=("$r $o")
 done
-[ "${#origins[@]}" -gt 0 ] || refuse "zero ladder__rungNN_* origins at or below --to ${TO:-max} in $MASTER_DIR/ALL.csv (family present, rung filter empty)"
-if [ "$LIST" = 1 ]; then printf '%s\n' "${origins[@]}" | sort -n | awk '{printf "rung %2d  %s\n", $1, $2}'; echo "witnesses=${#origins[@]} (--to ${TO:-max})"; exit 0; fi
+[ "${#origins[@]}" -gt 0 ] || refuse "zero ladder__rungNN_* origins selected by $SEL in $MASTER_DIR/ALL.csv (family present, rung filter empty) -- a rung with no witness is UNMEASURED, never a pass"
+if [ "$LIST" = 1 ]; then printf '%s\n' "${origins[@]}" | sort -n | awk '{printf "rung %2d  %s\n", $1, $2}'; echo "witnesses=${#origins[@]} ($SEL)"; exit 0; fi
 wantrc() { local n="$1"; [ -f "$MASTER_DIR/ALL.wantrc" ] || { echo 0; return; }; local v; v=$(awk -F'\t' -v n="$n" '$1==n{print $2; exit}' "$MASTER_DIR/ALL.wantrc"); printf '%s\n' "${v:-0}"; }
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 n=0; pass=0; fail=0; declare -A rp rf
@@ -70,7 +77,7 @@ for pair in $(printf '%s\n' "${origins[@]}" | sort -n | tr ' ' ':'); do
   printf 'rung %2d  %-44s m3=%-12s m4=%-12s (%s, want rc=%s)\n' "$r" "$o" "$v3" "$v4" "$name" "$want"
 done
 for r in $(printf '%s\n' "${!rp[@]}" "${!rf[@]}" | sort -nu); do printf 'rung %2d summary: PASS=%d FAIL=%d (witness x mode)\n' "$r" "${rp[$r]:-0}" "${rf[$r]:-0}"; done
-echo "LADDER --to ${TO:-max}: witnesses=$n modes=2 (m3 --run, m4 --compile+as+gcc) graded=$((n*2)) PASS=$pass FAIL=$fail  tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo ?)$(git -C "$ROOT" status --short 2>/dev/null | grep -q . && echo -DIRTY) corpus=$(git -C "$S4E/corpus" rev-parse --short HEAD 2>/dev/null || echo ?)$(git -C "$S4E/corpus" status --short 2>/dev/null | grep -q . && echo -DIRTY)"
+echo "LADDER $SEL: witnesses=$n modes=2 (m3 --run, m4 --compile+as+gcc) graded=$((n*2)) PASS=$pass FAIL=$fail  tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo ?)$(git -C "$ROOT" status --short 2>/dev/null | grep -q . && echo -DIRTY) corpus=$(git -C "$S4E/corpus" rev-parse --short HEAD 2>/dev/null || echo ?)$(git -C "$S4E/corpus" status --short 2>/dev/null | grep -q . && echo -DIRTY)"
 [ "$n" -gt 0 ] || refuse "graded ZERO witnesses -- cannot measure, not a pass"
-[ "$fail" -eq 0 ] && { echo "✅ LADDER OK: rungs 0..${TO:-max} PASS $pass/$((n*2))"; exit 0; }
+[ "$fail" -eq 0 ] && { if [ -n "$ONLY" ]; then echo "✅ LADDER OK: rung $ONLY alone PASS $pass/$((n*2))"; else echo "✅ LADDER OK: rungs 0..${TO:-max} PASS $pass/$((n*2))"; fi; exit 0; }
 echo "⛔ LADDER RED: $fail of $((n*2)) witness x mode gradings FAIL"; exit 1
