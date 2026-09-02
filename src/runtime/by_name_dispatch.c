@@ -4532,6 +4532,17 @@ static DESCR_t *plc_cell_persist(DESCR_t *v, DESCR_t *arr, int narr) {
     return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/* ⭐ perf-prolog-dop-direct (P6): dop_ax/dop_cmp (this file, :1327/:1415) already take the bare suffix
+   rt_pl_ax_suffix()/rt_pl_cmp_suffix() return -- script_try_call_builtin_by_name's "$ax_"/"$cmp_" checks
+   (:1753/:1762) exist only to strip a prefix these three call sites build for the sole purpose of having it
+   stripped back off, paying a snprintf plus ~20 dead strcmp/strncmp in between. Calling dop_ax/dop_cmp
+   directly is behavior-identical (same functions, same args, same always-returns-1/*out=FAILDESCR
+   convention) and skips both. No rt_dtax_gen gating needed: OPSYN/DEFINE (SNOBOL4-only) cannot redefine
+   these Prolog-internal targets, unlike the STEP3 bid-keyed names. ⛔ NO NEW GLOBAL: killswitch reuses the
+   pre-existing dtax_off()/SCRIP_DTAX_OFF (memoized static, :5426) rather than adding one -- same
+   name-independent-fast-path spirit as STEP3/perf-dispatch-fastpath-name-indirect, deliberately overloaded
+   rather than minting a second flag. */
+static int dtax_off(void);
 static int plc_eval(DESCR_t *c, DESCR_t *out) {
     extern const char *prolog_atom_name(int);
     DESCR_t *d = plw_cell_deref(c);
@@ -4540,8 +4551,9 @@ static int plc_eval(DESCR_t *c, DESCR_t *out) {
     if ((int)d->v == DT_A) {
         const char *nm = prolog_atom_name((int)d->i); const char *sf = nm ? rt_pl_ax_suffix(nm, 0) : (const char *)0;
         if (!sf) { plc_iso_evaluable(*d); return 0; }
-        char nb[24]; snprintf(nb, sizeof nb, "$ax_%s", sf);
-        DESCR_t o; if (!script_try_call_builtin_by_name(nb, (DESCR_t *)0, 0, &o) || o.v == DT_FAIL) return 0;
+        DESCR_t o;
+        if (dtax_off()) { char nb[24]; snprintf(nb, sizeof nb, "$ax_%s", sf); if (!script_try_call_builtin_by_name(nb, (DESCR_t *)0, 0, &o) || o.v == DT_FAIL) return 0; }
+        else { if (!dop_ax(sf, (DESCR_t *)0, 0, &o) || o.v == DT_FAIL) return 0; }
         *out = o; return 1;
     }
     if ((int)d->v == DT_PLREF) {
@@ -4550,8 +4562,9 @@ static int plc_eval(DESCR_t *c, DESCR_t *out) {
         if (!sf) { plc_iso_evaluable(*d); return 0; }
         DESCR_t in[2]; DESCR_t *hh = (DESCR_t *)d->p;
         for (int i = 0; i < ar; i++) if (!plc_eval(&hh[i], &in[i])) return 0;
-        char nb[24]; snprintf(nb, sizeof nb, "$ax_%s", sf);
-        DESCR_t o; if (!script_try_call_builtin_by_name(nb, in, ar, &o) || o.v == DT_FAIL) return 0;
+        DESCR_t o;
+        if (dtax_off()) { char nb[24]; snprintf(nb, sizeof nb, "$ax_%s", sf); if (!script_try_call_builtin_by_name(nb, in, ar, &o) || o.v == DT_FAIL) return 0; }
+        else { if (!dop_ax(sf, in, ar, &o) || o.v == DT_FAIL) return 0; }
         *out = o; return 1;
     }
     return 0;
@@ -4562,8 +4575,10 @@ static int plc_det_exec(plc_slv_t *s) {
     case 'u': return plw_unify_cells(s->av[0], s->av[1]);
     case 'n': { int m = pl_trail_mark(&g_pl_trail); int r = plw_unify_cells(s->av[0], s->av[1]); pl_trail_unwind(&g_pl_trail, m); plw_zh_kill_to(m); return !r; }
     case 'i': { DESCR_t v; if (!plc_eval(s->av[1], &v)) return 0; DESCR_t *tv = (DESCR_t *)rt_ws_alloc(sizeof(DESCR_t)); *tv = v; return plw_unify_cells(s->av[0], tv); }
-    case 'c': { DESCR_t a2, b2, o; if (!plc_eval(s->av[0], &a2) || !plc_eval(s->av[1], &b2)) return 0; char nb[24]; snprintf(nb, sizeof nb, "$cmp_%s", s->det); DESCR_t in[2]; in[0] = a2; in[1] = b2;
-                if (!script_try_call_builtin_by_name(nb, in, 2, &o)) return 0; return o.v != DT_FAIL; }
+    case 'c': { DESCR_t a2, b2, o; if (!plc_eval(s->av[0], &a2) || !plc_eval(s->av[1], &b2)) return 0; DESCR_t in[2]; in[0] = a2; in[1] = b2;
+                if (dtax_off()) { char nb[24]; snprintf(nb, sizeof nb, "$cmp_%s", s->det); if (!script_try_call_builtin_by_name(nb, in, 2, &o)) return 0; }
+                else { if (!dop_cmp(s->det, in, 2, &o)) return 0; }
+                return o.v != DT_FAIL; }
     case 'l': { extern FILE *fh_cur_out_fp(void); fputc('\n', fh_cur_out_fp()); return 1; }
     case 'W': { extern FILE *fh_cur_out_fp(void); DESCR_t rv; rv.v = (DTYPE_t)DT_PLVAR; rv.slen = 0; rv.p = (void *)s->av[0]; DESCR_t o; script_try_call_builtin_by_name("$write", &rv, 1, &o); fputc('\n', fh_cur_out_fp()); return 1; }
     case 'd': { DESCR_t in[16]; int n = s->nav > 16 ? 16 : s->nav;
