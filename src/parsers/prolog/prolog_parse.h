@@ -16,6 +16,7 @@ struct PlClause {
     char    **var_names;
     Term    **var_terms;
     int       nvar;
+    int       is_dcg;
 };
 typedef struct {
     PlClause *head;

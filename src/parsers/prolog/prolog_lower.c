@@ -14,50 +14,7 @@ static int pred_key_eq(PredKey a, PredKey b) {
     return a.functor == b.functor && a.arity == b.arity;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static PredKey key_of_head(Term *head) {
-    PredKey k = {-1, 0};
-    if (!head) return k;
-    head = term_deref(head);
-    if (!head) return k;
-    if (head->tag == TERM_ATOM) {
-        k.functor = head->atom_id;
-        k.arity   = 0;
-    } else if (head->tag == TERM_COMPOUND) {
-        k.functor = head->compound.functor;
-        k.arity   = head->compound.arity;
-    }
-    return k;
-}
-static tree_t *lower_term(Term *t);
-static tree_t *lower_clause(PlClause *cl, PredKey key);
 static void pl_clause_assign_dense_slots(tree_t *ec, int arity);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void assign_clause_anon_slots(PlClause *cl) {
-    if (!cl) return;
-    Term *hd = cl->head ? term_deref(cl->head) : NULL;
-    int reserved = (hd && hd->tag == TERM_COMPOUND) ? hd->compound.arity : 0;
-    int next_slot = reserved;
-    for (int _vi = 0; _vi < cl->nvar; _vi++) {
-        Term *v = cl->var_terms[_vi];
-        if (v && v->tag == TERM_VAR && v->saved_slot < 0)
-            v->saved_slot = next_slot++;
-    }
-    Term *stk[512]; int top = 0;
-    #define PA_PUSH(t_) do { Term *_p = term_deref(t_); \
-        if (_p && top < 512) stk[top++] = _p; } while(0)
-    int next_anon = next_slot;
-    #define PA_WALK_ASSIGN(root_) do { top = 0; PA_PUSH(root_); \
-        while (top > 0) { Term *_c = stk[--top]; if (!_c) continue; \
-            if (_c->tag == TERM_VAR && _c->saved_slot < 0) \
-                _c->saved_slot = next_anon++; \
-            if (_c->tag == TERM_COMPOUND) \
-                for (int _i = 0; _i < _c->compound.arity; _i++) \
-                    PA_PUSH(_c->compound.args[_i]); } } while(0)
-    if (cl->head) PA_WALK_ASSIGN(cl->head);
-    for (int i = 0; i < cl->nbody; i++) if (cl->body[i]) PA_WALK_ASSIGN(cl->body[i]);
-    #undef PA_PUSH
-    #undef PA_WALK_ASSIGN
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char *pred_str(int functor, int arity) {
     const char *fn = prolog_atom_name(functor);
@@ -65,175 +22,6 @@ static char *pred_str(int functor, int arity) {
     char buf[256];
     snprintf(buf, sizeof buf, "%s/%d", fn, arity);
     return strdup(buf);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t *lower_term(Term *t) {
-    t = term_deref(t);
-    if (!t) {
-        tree_t *e = ast_node_new(TT_QLIT);
-        e->v.sval = strdup("[]");
-        return e;
-    }
-    switch (t->tag) {
-        case TERM_ATOM: {
-            if (t->atom_id == ATOM_CUT) return ast_node_new(TT_CUT);
-            tree_t *e = ast_node_new(TT_FNC);
-            const char *nm = prolog_atom_name(t->atom_id);
-            e->v.sval = strdup(nm ? nm : "");
-            return e;
-        }
-        case TERM_INT: {
-            tree_t *e = ast_node_new(TT_ILIT);
-            e->v.ival = t->ival;
-            return e;
-        }
-        case TERM_FLOAT: {
-            tree_t *e = ast_node_new(TT_FLIT);
-            e->v.dval = t->fval;
-            return e;
-        }
-        case TERM_VAR: {
-            tree_t *e = ast_node_new(TT_VAR);
-            int slot = t->saved_slot;
-            char buf[32];
-            if (slot < 0) {
-                snprintf(buf, sizeof buf, "_anon%p", (void *)t);
-            } else {
-                snprintf(buf, sizeof buf, "_V%d", slot);
-            }
-            e->v.sval = strdup(buf);
-            return e;
-        }
-        case TERM_COMPOUND: {
-            const char *fn = prolog_atom_name(t->compound.functor);
-            if (!fn) fn = "?";
-            int arity = t->compound.arity;
-            int eq_id = prolog_atom_intern("=");
-            if (t->compound.functor == eq_id && arity == 2) {
-                tree_t *e = ast_node_new(TT_UNIFY);
-                expr_add_child(e, lower_term(t->compound.args[0]));
-                expr_add_child(e, lower_term(t->compound.args[1]));
-                return e;
-            }
-            struct { const char *name; tree_e kind; } arith[] = {
-                { "+", TT_ADD }, { "-", TT_SUB }, { "*", TT_MUL },
-                { "/", TT_DIV }, { "//", TT_DIV }, { NULL, 0 }
-            };
-            if (arity == 2) {
-                for (int i = 0; arith[i].name; i++) {
-                    if (strcmp(fn, arith[i].name) == 0) {
-                        tree_t *e = ast_node_new(arith[i].kind);
-                        expr_add_child(e, lower_term(t->compound.args[0]));
-                        expr_add_child(e, lower_term(t->compound.args[1]));
-                        return e;
-                    }
-                }
-            }
-            int comma_id = prolog_atom_intern(",");
-            if (t->compound.functor == comma_id && arity == 2) {
-                tree_t *e = ast_node_new(TT_FNC);
-                e->v.sval = strdup(",");
-                Term *cur = t;
-                while (cur && cur->tag == TERM_COMPOUND &&
-                       cur->compound.functor == comma_id &&
-                       cur->compound.arity == 2) {
-                    expr_add_child(e, lower_term(cur->compound.args[0]));
-                    cur = term_deref(cur->compound.args[1]);
-                }
-                if (cur) expr_add_child(e, lower_term(cur));
-                return e;
-            }
-            int semi_id = prolog_atom_intern(";");
-            if (t->compound.functor == semi_id && arity == 2) {
-                tree_t *e = ast_node_new(TT_FNC);
-                e->v.sval = strdup(";");
-                Term *cur = t;
-                while (cur && cur->tag == TERM_COMPOUND &&
-                       cur->compound.functor == semi_id &&
-                       cur->compound.arity == 2) {
-                    expr_add_child(e, lower_term(cur->compound.args[0]));
-                    cur = term_deref(cur->compound.args[1]);
-                }
-                if (cur) expr_add_child(e, lower_term(cur));
-                return e;
-            }
-            int arrow_id = prolog_atom_intern("->");
-            if (t->compound.functor == arrow_id && arity == 2) {
-                tree_t *e = ast_node_new(TT_FNC);
-                e->v.sval = strdup("->");
-                expr_add_child(e, lower_term(t->compound.args[0]));
-                Term *then_part = term_deref(t->compound.args[1]);
-                while (then_part && then_part->tag == TERM_COMPOUND &&
-                       then_part->compound.functor == comma_id &&
-                       then_part->compound.arity == 2) {
-                    expr_add_child(e, lower_term(then_part->compound.args[0]));
-                    then_part = term_deref(then_part->compound.args[1]);
-                }
-                if (then_part) expr_add_child(e, lower_term(then_part));
-                return e;
-            }
-            tree_t *e = ast_node_new(TT_FNC);
-            e->v.sval = strdup(fn);
-            for (int i = 0; i < arity; i++)
-                expr_add_child(e, lower_term(t->compound.args[i]));
-            return e;
-        }
-        case TERM_REF:
-            return lower_term(t->ref);
-        default: {
-            tree_t *e = ast_node_new(TT_QLIT);
-            e->v.sval = strdup("?");
-            return e;
-        }
-    }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t *lower_clause(PlClause *cl, PredKey key) {
-    tree_t *ec = ast_node_new(TT_CLAUSE);
-    ec->v.sval = pred_str(key.functor, key.arity);
-    int next_slot = 0;
-    for (int _vi = 0; _vi < cl->nvar; _vi++) {
-        Term *v = cl->var_terms[_vi];
-        if (v && v->tag == TERM_VAR && v->saved_slot < 0)
-            v->saved_slot = next_slot++;
-    }
-    #define TERM_STACK_MAX 512
-    Term *stk[TERM_STACK_MAX];
-    int  stk_top = 0;
-    #define PUSH_TERM(t_) do { \
-        Term *_pt = term_deref(t_); \
-        if (_pt && stk_top < TERM_STACK_MAX) stk[stk_top++] = _pt; \
-    } while(0)
-    int next_anon = next_slot;
-    #define ASSIGN_ANON(root_) do { \
-        stk_top = 0; \
-        PUSH_TERM(root_); \
-        while (stk_top > 0) { \
-            Term *_cur = stk[--stk_top]; \
-            if (!_cur) continue; \
-            if (_cur->tag == TERM_VAR && _cur->saved_slot < 0) \
-                _cur->saved_slot = next_anon++; \
-            if (_cur->tag == TERM_COMPOUND) \
-                for (int _ai = 0; _ai < _cur->compound.arity; _ai++) \
-                    PUSH_TERM(_cur->compound.args[_ai]); \
-        } \
-    } while(0)
-    if (cl->head) ASSIGN_ANON(cl->head);
-    for (int i = 0; i < cl->nbody; i++)
-        if (cl->body[i]) ASSIGN_ANON(cl->body[i]);
-    int n_vars = next_anon;
-    (void) n_vars;
-    ec->v.dval = (double)key.arity;
-    if (cl->head) {
-        Term *h = term_deref(cl->head);
-        if (h && h->tag == TERM_COMPOUND)
-            for (int i = 0; i < h->compound.arity; i++)
-                expr_add_child(ec, lower_term(h->compound.args[i]));
-    }
-    for (int i = 0; i < cl->nbody; i++)
-        expr_add_child(ec, lower_term(cl->body[i]));
-    pl_clause_assign_dense_slots(ec, key.arity);
-    return ec;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_flatten_conj(tree_t *t, tree_t *prog) {
@@ -425,9 +213,9 @@ static void pb_expand_goal(tree_t *t) {
     if (t->t == TT_PROGRAM || t->t == TT_IF) for (int i = 0; i < t->n; i++) pb_expand_goal(t->c[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t *lower_clause_from_tree(tree_t *tr, PredKey key) {
+static tree_t *lower_clause_from_tree(tree_t *tr, PredKey key, int skip_rewrite) {
     TRSlotMap sm; trslot_reset(&sm);
-    if (tr->n > 1) pb_expand_goal(tr->c[1]);
+    if (!skip_rewrite && tr->n > 1) pb_expand_goal(tr->c[1]);
     {
         tree_t *hd = (tr->n > 0) ? tr->c[0] : NULL;
         if (hd && hd->t == TT_FNC) {
@@ -461,8 +249,9 @@ static tree_t *lower_clause_from_tree(tree_t *tr, PredKey key) {
         body_prog = ast_node_new(TT_PROGRAM);
         if (raw_body) pl_flatten_conj(raw_body, body_prog);
     }
-    for (int i = 0; i < body_prog->n; i++)
-        body_prog->c[i] = pl_rewrite_control(body_prog->c[i]);
+    if (!skip_rewrite)
+        for (int i = 0; i < body_prog->n; i++)
+            body_prog->c[i] = pl_rewrite_control(body_prog->c[i]);
     for (int i = 0; i < body_prog->n; i++)
         expr_add_child(ec, body_prog->c[i]);
     return ec;
@@ -532,7 +321,7 @@ static void pld_mark_scan(tree_t *t, int mark_assertz) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 CODE_t *prolog_lower(PlProgram *pl_prog) {
-    for (PlClause *mcl = pl_prog->head; mcl; mcl = mcl->next) if (mcl->tr) pld_mark_scan(mcl->tr, mcl->head != NULL);
+    for (PlClause *mcl = pl_prog->head; mcl; mcl = mcl->next) if (mcl->tr) pld_mark_scan(mcl->tr, 0);
     CODE_t *prog = calloc(1, sizeof(CODE_t));
     tree_t *pld_seed[256]; int pld_seed_n = 0;
     #define PL_MAX_CLAUSES 2048
@@ -542,8 +331,7 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
         int ci = 0;
         for (PlClause *cl = pl_prog->head; cl && ci < PL_MAX_CLAUSES; cl = cl->next, ci++) {
             plunit_suite[ci][0] = '\0';
-            int is_directive = (!cl->head && cl->tr && cl->tr->n > 0 && cl->tr->c[0] && cl->tr->c[0]->t == TT_NUL);
-            int is_dcg       = (cl->head != NULL && cl->tr == NULL);
+            int is_directive = (cl->tr && cl->tr->n > 0 && cl->tr->c[0] && cl->tr->c[0]->t == TT_NUL);
             int is_rule      = (cl->tr != NULL && cl->tr->n > 0 && cl->tr->c[0] && cl->tr->c[0]->t != TT_NUL);
             if (is_directive) {
                 tree_t *bp = cl->tr->c[1];
@@ -565,7 +353,7 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
                             cur_suite[0] = '\0';
                         }
                 }
-            } else if ((is_rule || is_dcg) && cur_suite[0]) {
+            } else if (is_rule && cur_suite[0]) {
                 strncpy(plunit_suite[ci], cur_suite, 63);
             }
         }
@@ -576,17 +364,10 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
     int      nkeys = 0;
     int      clause_idx = 0;
     for (PlClause *cl = pl_prog->head; cl; cl = cl->next, clause_idx++) {
-        int is_dcg  = (cl->head != NULL && cl->tr == NULL);
         int is_rule = (cl->tr != NULL && cl->tr->n > 0 &&
                        cl->tr->c[0] && cl->tr->c[0]->t != TT_NUL);
-        if (!is_rule && !is_dcg) continue;
-        PredKey k;
-        if (cl->tr) {
-            tree_t *tr_head = cl->tr->c[0];
-            k = key_of_head_tree(tr_head);
-        } else {
-            k = key_of_head(cl->head);
-        }
+        if (!is_rule) continue;
+        PredKey k = key_of_head_tree(cl->tr->c[0]);
         if (k.functor < 0) continue;
         if (clause_idx < PL_MAX_CLAUSES && plunit_suite[clause_idx][0] != '\0') {
             const char *fn = prolog_atom_name(k.functor);
@@ -648,43 +429,10 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
                             found = nkeys++;
                         }
                         if (found >= 0) {
-                            tree_t *ec = lower_clause_from_tree(syn, pk2);
+                            tree_t *ec = lower_clause_from_tree(syn, pk2, 0);
                             expr_add_child(choices[found], ec);
                         }
                     }
-                } else if (cl->head) {
-                    assign_clause_anon_slots(cl);
-                    Term *hd = term_deref(cl->head);
-                    Term *name_term = (hd && hd->tag == TERM_COMPOUND) ? term_deref(hd->compound.args[0]) : hd;
-                    Term *opts_term = (k.arity == 2 && hd && hd->tag == TERM_COMPOUND) ? term_deref(hd->compound.args[1]) : NULL;
-                    Term *goal_term = NULL;
-                    if (cl->nbody == 0) {
-                        goal_term = term_new_atom(prolog_atom_intern("true"));
-                    } else if (cl->nbody == 1) {
-                        goal_term = cl->body[0];
-                    } else {
-                        int comma_id = prolog_atom_intern(",");
-                        goal_term = cl->body[cl->nbody - 1];
-                        for (int bi = cl->nbody - 2; bi >= 0; bi--) {
-                            Term *a2[2] = { cl->body[bi], goal_term };
-                            goal_term = term_new_compound(comma_id, 2, a2);
-                        }
-                    }
-                    int suite_id   = prolog_atom_intern(plunit_suite[clause_idx]);
-                    int pjtest_id  = prolog_atom_intern("pj_test");
-                    int assertz_id = prolog_atom_intern("assertz");
-                    Term *opts_arg = opts_term ? opts_term : term_new_atom(prolog_atom_intern("[]"));
-                    Term *pjargs[4] = { term_new_atom(suite_id), name_term, opts_arg, goal_term };
-                    Term *pjtest    = term_new_compound(pjtest_id, 4, pjargs);
-                    Term *azargs[1] = { pjtest };
-                    Term *azterm    = term_new_compound(assertz_id, 1, azargs);
-                    STMT_t *rs = stmt_new();
-                    rs->subject = lower_term(azterm);
-                    rs->lineno  = cl->lineno;
-                    if (!prog->head) prog->head = rs;
-                    else             prog->tail->next = rs;
-                    prog->tail = rs;
-                    prog->nstmts++;
                 }
             }
         }
@@ -701,8 +449,7 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
             choices[nkeys]->v.sval = pred_str(k.functor, k.arity);
             found = nkeys++;
         }
-        tree_t *ec = cl->tr ? lower_clause_from_tree(cl->tr, k)
-                            : lower_clause(cl, k);
+        tree_t *ec = lower_clause_from_tree(cl->tr, k, cl->is_dcg);
         expr_add_child(choices[found], ec);
     }
     for (PlClause *cl = pl_prog->head; cl; cl = cl->next) {
@@ -750,7 +497,7 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
                         found = nkeys++;
                     }
                     if (found >= 0) {
-                        tree_t *ec = lower_clause_from_tree(syn, ak);
+                        tree_t *ec = lower_clause_from_tree(syn, ak, 0);
                         if (prepend) {
                             expr_add_child(choices[found], ec);
                             for (int j = choices[found]->n - 1; j > 0; j--)
@@ -793,7 +540,7 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
                     keys[nkeys] = hk;
                     choices[nkeys] = ast_node_new(TT_CHOICE);
                     choices[nkeys]->v.sval = pred_str(hk.functor, hk.arity);
-                    tree_t *ec = lower_clause_from_tree(syn, hk);
+                    tree_t *ec = lower_clause_from_tree(syn, hk, 0);
                     expr_add_child(choices[nkeys], ec);
                     nkeys++;
                     tree_t *init_arg = ast_node_new(TT_QLIT);
