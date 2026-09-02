@@ -1901,7 +1901,7 @@ int rt_pl_nb_getval_cell(void *key_cell, void *val_cell)
     return rt_pl_nb_getval_ptr((void *)val, val_cell);
 }
 typedef struct dyn_clause { Term *head; Term *body; struct dyn_clause *next; } dyn_clause_t;
-typedef struct { const char *name; long arity; dyn_clause_t *head; dyn_clause_t *tail; } dyn_pred_row_t;
+typedef struct { const char *name; long arity; dyn_clause_t *head; dyn_clause_t *tail; int abolished; } dyn_pred_row_t;
 static dyn_pred_row_t *g_pl_dyn_pred_table = (dyn_pred_row_t *)0;
 static long            g_pl_dyn_pred_n     = 0;
 static long            g_pl_dyn_pred_cap   = 0;
@@ -1929,7 +1929,10 @@ int rt_pl_dyn_abolish_cell(void *fn_cell, void *ar_cell)
     const char *name = ((int)fnc->v == DT_A) ? prolog_atom_name((int)fnc->i) : (fnc->s ? fnc->s : "");
     if (!name) return 1;
     dyn_pred_row_t *row = dyn_pred_find(name, (long)arc->i);
-    if (row) { row->head = (dyn_clause_t *)0; row->tail = (dyn_clause_t *)0; }
+    // abolish/1 (ISO 8.4.4) reverts the predicate to NOT DEFINED, unlike retractall/1 which leaves it
+    // defined-with-zero-clauses -- the `abolished` flag is what lets rt_pl_dyn_iter_gen tell the two
+    // apart and throw existence_error only for the abolished case (FINDING-2026-08-29-seat06).
+    if (row) { row->head = (dyn_clause_t *)0; row->tail = (dyn_clause_t *)0; row->abolished = 1; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1965,7 +1968,7 @@ static dyn_pred_row_t *dyn_pred_intern(const char *name, long arity)
         g_pl_dyn_pred_table = (dyn_pred_row_t *)realloc(g_pl_dyn_pred_table, (size_t)g_pl_dyn_pred_cap * sizeof(dyn_pred_row_t));
     }
     r = &g_pl_dyn_pred_table[g_pl_dyn_pred_n++];
-    r->name = name; r->arity = arity; r->head = (dyn_clause_t *)0; r->tail = (dyn_clause_t *)0;
+    r->name = name; r->arity = arity; r->head = (dyn_clause_t *)0; r->tail = (dyn_clause_t *)0; r->abolished = 0;
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1987,6 +1990,7 @@ int rt_pl_dyn_assertz_cell(void *clause_cell, int prepend)
     Term *hcopy = copy_term_deep(h, var_map, &var_cap, &var_n);
     Term *bcopy = b ? copy_term_deep(b, var_map, &var_cap, &var_n) : (Term *)0;
     dyn_pred_row_t *row = dyn_pred_intern(name, arity);
+    row->abolished = 0;
     dyn_clause_t *node = (dyn_clause_t *)rt_ws_alloc(sizeof *node);
     node->head = hcopy ? hcopy : h; node->body = bcopy; node->next = (dyn_clause_t *)0;
     if (prepend) { node->next = row->head; row->head = node; if (!row->tail) row->tail = node; }
@@ -2012,6 +2016,11 @@ DESCR_t rt_pl_dyn_iter_gen(DESCR_t *args, int nargs, int64_t *resume)
     if (*resume == 0) {
         const char *nm = (args[0].v == DT_S) ? args[0].s : ((int)args[0].v == DT_A) ? prolog_atom_name((int)args[0].i) : (const char *)0;
         dyn_pred_row_t *row = nm ? dyn_pred_find(nm, arity) : (dyn_pred_row_t *)0;
+        // A row surviving abolish/1 with `abolished` set is a genuinely undefined procedure (never
+        // re-asserted since) -- ISO 8.4.4 says calling it is an existence_error, not a silent fail;
+        // a row that is merely empty (declared dynamic, or retractall'd) is not, and keeps falling
+        // through to the zero-clause loop below, unchanged.
+        if (row && row->abolished) { extern void rt_pl_iso_throw_pi(const char *, const char *, const char *, int); rt_pl_iso_throw_pi("existence_error", "procedure", nm, (int)arity); return FAILDESCR; }
         pl_dyn_it_t *it = (pl_dyn_it_t *)rt_ws_alloc(sizeof *it);
         it->cur = row ? row->head : (dyn_clause_t *)0;
         it->mark = pl_trail_mark(&g_pl_trail);
