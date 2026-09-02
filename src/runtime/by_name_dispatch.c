@@ -75,6 +75,7 @@ int icn_builtin_is_known(const char *name)
     return 0;
 }
 #include "../parsers/prolog/pl_cell.h"
+#include "rt/rt_pl_trail.h"
 static inline __attribute__((always_inline)) int plw_unbound_tag(const DESCR_t *c) { return c->v == DT_SNUL || c->v == DT_FAIL || (c->v == (DTYPE_t)DT_PLVAR && c->p == (void *)c); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t *plw_cell_deref_slow(DESCR_t *c) {
@@ -94,14 +95,15 @@ static inline __attribute__((always_inline)) DESCR_t *plw_cell_deref(DESCR_t *c)
 }
 extern void *rt_plj_alloc(size_t);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void plw_bind(DESCR_t *cell, DESCR_t word) {
+static void plw_bind(DESCR_t *cell, DESCR_t word, pl_tr_ctx_t *cx) {
     char probe; char *floor_ = &probe;
+    if (pl_tr_needs_log(cx, cell, floor_)) pl_tr_push(cx, cell);
     if ((char *)cell <= floor_) { DESCR_t *j = (DESCR_t *)rt_plj_alloc(sizeof(DESCR_t)); *j = word; word.v = (DTYPE_t)DT_PLVAR; word.slen = 0; word.p = (void *)j; }
     *cell = word;
 }
 static int plw_vvb_on(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_NO_VVB"); p = (e && e[0] == '1') ? 0 : 1; } return p; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int plw_unify_cells(DESCR_t *a, DESCR_t *b) {
+static int plw_unify_cells(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) {
     DESCR_t *A = plw_cell_deref(a), *B = plw_cell_deref(b);
     if (A == B) return 1;
     int av = plw_unbound_tag(A), bv = plw_unbound_tag(B);
@@ -110,17 +112,17 @@ static int plw_unify_cells(DESCR_t *a, DESCR_t *b) {
         if (plw_vvb_on() && (char *)A > floor_ && (char *)B > floor_) {
             DESCR_t *lo = A < B ? A : B; DESCR_t *hi = A < B ? B : A;
             DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)hi;
-            if (hi->v != (DTYPE_t)DT_PLVAR || hi->p != (void *)hi) { DESCR_t u; u.v = (DTYPE_t)DT_PLVAR; u.slen = 0; u.p = (void *)hi; plw_bind(hi, u); }
-            plw_bind(lo, r); return 1;
+            if (hi->v != (DTYPE_t)DT_PLVAR || hi->p != (void *)hi) { DESCR_t u; u.v = (DTYPE_t)DT_PLVAR; u.slen = 0; u.p = (void *)hi; plw_bind(hi, u, cx); }
+            plw_bind(lo, r, cx); return 1;
         }
-        { DESCR_t *j = (DESCR_t *)rt_plj_alloc(sizeof(DESCR_t)); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; plw_bind(A, r); plw_bind(B, r); return 1; } }
-    if (av) { plw_bind(A, *B); return 1; }
-    if (bv) { plw_bind(B, *A); return 1; }
+        { DESCR_t *j = (DESCR_t *)rt_plj_alloc(sizeof(DESCR_t)); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; plw_bind(A, r, cx); plw_bind(B, r, cx); return 1; } }
+    if (av) { plw_bind(A, *B, cx); return 1; }
+    if (bv) { plw_bind(B, *A, cx); return 1; }
     if (A->v == (DTYPE_t)DT_PLREF && B->v == (DTYPE_t)DT_PLREF) {
         if (A->slen != B->slen) return 0;
         int ar = (int)(A->slen & 0xFFFFu);
         DESCR_t *aa = (DESCR_t *)A->p, *bb = (DESCR_t *)B->p;
-        for (int i = 0; i < ar; i++) if (!plw_unify_cells(&aa[i], &bb[i])) return 0;
+        for (int i = 0; i < ar; i++) if (!plw_unify_cells(&aa[i], &bb[i], cx)) return 0;
         return 1;
     }
     if (A->v == (DTYPE_t)DT_PLREF || B->v == (DTYPE_t)DT_PLREF) return 0;
@@ -134,9 +136,9 @@ static inline __attribute__((always_inline)) DESCR_t *plw_entry(DESCR_t *tmp) {
     return tmp;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-__attribute__((visibility("hidden"))) int plw_unify_vals(DESCR_t va, DESCR_t vb) {
+__attribute__((visibility("hidden"))) int plw_unify_vals(DESCR_t va, DESCR_t vb, pl_tr_ctx_t *cx) {
     DESCR_t ta = va, tb = vb;
-    return plw_unify_cells(plw_entry(&ta), plw_entry(&tb));
+    return plw_unify_cells(plw_entry(&ta), plw_entry(&tb), cx);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t *plw_det_cell(DESCR_t *tmp) {
@@ -1168,7 +1170,7 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out) {
     { DESCR_t r = pl_arith2(op, a, b); if (r.v == DT_FAIL) { *out = FAILDESCR; return 1; } *out = r; return 1; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t *plw_mkc_kids(DESCR_t *srcs, int ar) {
+static DESCR_t *plw_mkc_kids(DESCR_t *srcs, int ar, pl_tr_ctx_t *cx) {
     DESCR_t *kids = (DESCR_t *)rt_plj_alloc((size_t)(ar > 0 ? ar : 1) * sizeof(DESCR_t));
     for (int i = 0; i < ar; i++) {
         DESCR_t t = srcs[i];
@@ -1176,28 +1178,19 @@ static DESCR_t *plw_mkc_kids(DESCR_t *srcs, int ar) {
         if (plw_unbound_tag(F)) {
             kids[i].v = (DTYPE_t)DT_PLVAR; kids[i].slen = 0; kids[i].p = (void *)&kids[i];
             DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)&kids[i];
-            plw_bind(F, r);
+            plw_bind(F, r, cx);
         } else kids[i] = *F;
     }
     return kids;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int dop_mkc(DESCR_t *args, int nargs, DESCR_t *out) {
+static DESCR_t plw_mkc_build(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
     const char *fname = VARVAL_fn(args[0]); if (!fname) fname = "?";
     int ar = nargs - 1;
     extern int prolog_atom_intern(const char *);
-    DESCR_t *kids = plw_mkc_kids(args + 1, ar);
+    DESCR_t *kids = plw_mkc_kids(args + 1, ar, cx);
     DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (((uint32_t)prolog_atom_intern(fname)) << 16) | ((uint32_t)ar & 0xFFFFu); c.p = (void *)kids;
-    *out = c; return 1;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int dop_is_v(DESCR_t *args, int nargs, DESCR_t *out) {
-    (void)nargs;
-    extern DESCR_t rt_pl_deref_val(DESCR_t);
-    DESCR_t v = rt_pl_deref_val(args[1]);
-    if (v.v != DT_I && v.v != DT_R) { pl_iso_evaluable(v); *out = FAILDESCR; return 1; }
-    if (plw_unify_vals(args[0], v)) { *out = v; return 1; }
-    *out = FAILDESCR; return 1;
+    return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int dop_cmp(const char *op, DESCR_t *args, int nargs, DESCR_t *out) {
@@ -1207,11 +1200,6 @@ static int dop_cmp(const char *op, DESCR_t *args, int nargs, DESCR_t *out) {
     *out = FAILDESCR; return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int dop_unify(DESCR_t *args, int nargs, DESCR_t *out) {
-    (void)nargs;
-    if (plw_unify_vals(args[0], args[1])) { *out = rt_pl_deref_val(args[0]); return 1; }
-    *out = FAILDESCR; return 1;
-}
 typedef int (*dop_body_fn)(DESCR_t *, int, DESCR_t *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t dop_call(dop_body_fn body, DESCR_t *args, int nargs) {
@@ -1235,47 +1223,63 @@ static int dop_cmp_ge(DESCR_t *a, int n, DESCR_t *o) { return dop_cmp("ge", a, n
 static int dop_cmp_eq(DESCR_t *a, int n, DESCR_t *o) { return dop_cmp("eq", a, n, o); }
 static int dop_cmp_ne(DESCR_t *a, int n, DESCR_t *o) { return dop_cmp("ne", a, n, o); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t c_rt_pl_dop_unify(DESCR_t *args, int nargs) {
-    (void)args; (void)nargs;
-    { extern void rt_bomb(const char *); rt_bomb("c_rt_pl_dop_unify: DELETED (s196 Lon one-to-maintain) — rt_pl_dop_unify in rtx_plunify.s is the sole spelling (zero bails, gate removed)"); }
-    return FAILDESCR;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dop_unify_ci(DESCR_t *args, long long imm) {
-    extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
-    DESCR_t out;
-    rt_gc_point_arr(args, 1, (const char **)0);
-    { DESCR_t t = args[0]; DESCR_t *c = plw_cell_deref(plw_entry(&t));
-      if (plw_unbound_tag(c)) { DESCR_t w; w.v = DT_I; w.slen = 0; w.i = imm; plw_bind(c, w); out = w; }
-      else if (c->v == DT_I && !c->slen) out = (c->i == imm) ? *c : FAILDESCR;
-      else if (c->v == (DTYPE_t)DT_PLREF) out = FAILDESCR;
-      else { DESCR_t w; w.v = DT_I; w.slen = 0; w.i = imm; out = plw_unify_vals(args[0], w) ? rt_pl_deref_val(args[0]) : FAILDESCR; } }
-    return out;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dop_unify_cs(DESCR_t *args, const char *cs) {
-    extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
-    DESCR_t out;
-    rt_gc_point_arr(args, 1, (const char **)0);
-    { DESCR_t t = args[0]; DESCR_t *c = plw_cell_deref(plw_entry(&t));
-      if (plw_unbound_tag(c)) { DESCR_t w; w.v = DT_S; w.slen = cs ? (uint32_t)__builtin_strlen(cs) : 0u; w.s = cs; plw_bind(c, w); out = w; }
-      else if (c->v == (DTYPE_t)DT_PLREF) out = FAILDESCR;
-      else { DESCR_t w; w.v = DT_S; w.slen = cs ? (uint32_t)__builtin_strlen(cs) : 0u; w.s = cs; out = plw_unify_vals(args[0], w) ? rt_pl_deref_val(args[0]) : FAILDESCR; } }
-    return out;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dop_mkc(DESCR_t *args, int nargs) { return nargs >= 1 ? dop_call(dop_mkc, args, nargs) : FAILDESCR; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dop_is_v(DESCR_t *args, int nargs) {
+DESCR_t rt_pl_dop_unify_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
     extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     if (nargs != 2) return FAILDESCR;
-    { DESCR_t v = rt_pl_deref_val(args[1]);
-      if (v.v == DT_I || v.v == DT_R) {
-          DESCR_t out;
-                rt_gc_point_arr(args, 2, (const char **)0);
-          out = plw_unify_vals(args[0], v) ? v : FAILDESCR;
-                return out; }
-      return dop_call(dop_is_v, args, nargs); }
+    rt_pl_tr_gc_sync(cx->tr);
+    rt_gc_point_arr(args, 2, (const char **)0);
+    { char *tr0 = cx->tr; DESCR_t out;
+      if (plw_unify_vals(args[0], args[1], cx)) out = rt_pl_deref_val(args[0]);
+      else { cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0); out = FAILDESCR; }
+      rt_pl_tr_gc_sync(cx->tr); return out; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_unify_ci_c(DESCR_t *args, long long imm, pl_tr_ctx_t *cx) {
+    extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
+    DESCR_t out;
+    rt_pl_tr_gc_sync(cx->tr);
+    rt_gc_point_arr(args, 1, (const char **)0);
+    { char *tr0 = cx->tr; DESCR_t t = args[0]; DESCR_t *c = plw_cell_deref(plw_entry(&t));
+      if (plw_unbound_tag(c)) { DESCR_t w; w.v = DT_I; w.slen = 0; w.i = imm; plw_bind(c, w, cx); out = w; }
+      else if (c->v == DT_I && !c->slen) out = (c->i == imm) ? *c : FAILDESCR;
+      else if (c->v == (DTYPE_t)DT_PLREF) out = FAILDESCR;
+      else { DESCR_t w; w.v = DT_I; w.slen = 0; w.i = imm; out = plw_unify_vals(args[0], w, cx) ? rt_pl_deref_val(args[0]) : FAILDESCR; }
+      if (out.v == DT_FAIL) cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0); }
+    rt_pl_tr_gc_sync(cx->tr);
+    return out;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_unify_cs_c(DESCR_t *args, const char *cs, pl_tr_ctx_t *cx) {
+    extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
+    DESCR_t out;
+    rt_pl_tr_gc_sync(cx->tr);
+    rt_gc_point_arr(args, 1, (const char **)0);
+    { char *tr0 = cx->tr; DESCR_t t = args[0]; DESCR_t *c = plw_cell_deref(plw_entry(&t));
+      if (plw_unbound_tag(c)) { DESCR_t w; w.v = DT_S; w.slen = cs ? (uint32_t)__builtin_strlen(cs) : 0u; w.s = cs; plw_bind(c, w, cx); out = w; }
+      else if (c->v == (DTYPE_t)DT_PLREF) out = FAILDESCR;
+      else { DESCR_t w; w.v = DT_S; w.slen = cs ? (uint32_t)__builtin_strlen(cs) : 0u; w.s = cs; out = plw_unify_vals(args[0], w, cx) ? rt_pl_deref_val(args[0]) : FAILDESCR; }
+      if (out.v == DT_FAIL) cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0); }
+    rt_pl_tr_gc_sync(cx->tr);
+    return out;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_mkc_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
+    extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
+    if (nargs < 1) return FAILDESCR;
+    rt_pl_tr_gc_sync(cx->tr);
+    rt_gc_point_arr(args, nargs, (const char **)0);
+    { DESCR_t out = plw_mkc_build(args, nargs, cx); rt_pl_tr_gc_sync(cx->tr); return out; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_is_v_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
+    extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
+    if (nargs != 2) return FAILDESCR;
+    rt_pl_tr_gc_sync(cx->tr);
+    rt_gc_point_arr(args, 2, (const char **)0);
+    { DESCR_t v = rt_pl_deref_val(args[1]); DESCR_t out;
+      if (v.v != DT_I && v.v != DT_R) { pl_iso_evaluable(v); out = FAILDESCR; }
+      else { char *tr0 = cx->tr; out = plw_unify_vals(args[0], v, cx) ? v : FAILDESCR; if (out.v == DT_FAIL) cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0); }
+      rt_pl_tr_gc_sync(cx->tr); return out; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_ax_add(DESCR_t *args, int nargs) {

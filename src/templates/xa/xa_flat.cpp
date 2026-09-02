@@ -188,12 +188,14 @@ static std::string zf_release(int kt) {
          + x86("lea", "rsp", RDQ(x86_fb(), kt));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" void rt_pl_quad_seed(void *);
 static std::string xa_flat_zframe_prologue_str(void) {
     if (!g_emit.zframe_graph) return std::string();
     int kt = g_emit.flat_frame_bytes;
     if (kt < 48 || (kt & 15)) { fprintf(stderr, "FATAL xa_flat_zframe_prologue: kt=%d (must be 16-mult >= 48)\n", kt); abort(); }
     int np = g_emit_cfg ? g_emit_cfg->nparams : 0;
     int nl = g_emit_cfg ? g_emit_cfg->nlocals : 0;
+    uint64_t _seed_fp; { void (*_f)(void *) = rt_pl_quad_seed; _seed_fp = (uint64_t)(uintptr_t)(void *)_f; }
     std::string s = x86("comment", "ICN-FR-2 zframe prologue: sub rsp,kt + wire header [kt-24]=γ [kt-16]=ω [kt-8]=caller____ + pin ___=rsp")
          + x86("sub", "rsp", (long)kt)
          + x86("mov", "[rsp + " + std::to_string(kt - 24) + "]", "rcx")
@@ -202,11 +204,11 @@ static std::string xa_flat_zframe_prologue_str(void) {
             ? (x86("comment", "PZ-4 clause (a) PL-ZA-1: [kt-8] STOPS BEING WRITE-ONLY. It held this frame's own base -- a self-anchor nothing ever read (s247, and both epilogue comments below said so). It now holds the CALLER'S base, and the next instruction pins ours. ⛔ THE PIN IS TAKEN AFTER THE CARVE, so the pinned base equals the α-time rsp and every re-homed ζ reference is `[pin + off]` with the SAME off the spine arm used -- a pure rebase, no parity change and NO PUSH. A `push rbp` here would shift every body byte by 8 and turn the two PL-CALL-ALIGN pads from cure into defect.")
              + x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rbp")
              + x86("mov", x86_fb(), "rsp")
-             + IF(g_emit_cfg && g_emit_cfg->root_graph, x86("xor", "r13d", "r13d") + x86("xor", "r15d", "r15d") + x86("lea", "r14", RDQ("rsp", kt - 64)))
+             + IF(g_emit_cfg && g_emit_cfg->root_graph, x86("lea", "rdi", RDQ("rsp", kt - 64)) + x86("call_bare", "rt_pl_quad_seed", _seed_fp))
              + x86("mov", RDQ("rsp", kt - 40), "r13")
              + x86("mov", RDQ("rsp", kt - 48), 0L)
              + x86("mov", RDQ("rsp", kt - 56), 0L)
-             + x86("mov", RDQ("rsp", kt - 64), 0L))
+             + x86("mov", RDQ("rsp", kt - 64), "r12"))
             : (emit_jmp_pin_legacy() ? (xa_flat_zanchor_poison() ? std::string() : x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rsp"))
                                 + std::string("")
                                : std::string()));

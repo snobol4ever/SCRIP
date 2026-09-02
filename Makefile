@@ -161,6 +161,7 @@ RT_PIC_SRCS := \
     $(RT)/rtx/rtx_init.c \
     $(RT)/rtx/rtcc_init.c \
     $(RT)/rt/rt_slab.c \
+    $(RT)/rt/rt_pl_trail.c \
     $(RT)/rt/rt_arena.c \
     $(RT)/rt/rt.c \
     $(RT)/rt/zeta_alloc.c \

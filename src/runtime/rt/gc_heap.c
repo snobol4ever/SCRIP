@@ -484,6 +484,11 @@ void rt_gc_root_range_add(const char *lo, const char *hi)
     g_gc_rrng[g_gc_rrng_n].lo = lo; g_gc_rrng[g_gc_rrng_n].hi = hi; g_gc_rrng_n++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_gc_root_range_add_topword(const char *lo)
+{
+    rt_gc_root_range_add(lo, (const char *)0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_root_range_add_seamsafe(const char *lo, const char *hi)
 {
     rt_gc_root_range_add(lo, hi); g_gc_rrng_ss++;
@@ -625,7 +630,7 @@ static long gc_collect_ex(int cons_stack)
       if (cons_stack == 0 && !pz) cons_stack = 1; }
     g_gc_hn = 0; if (g_gc_hs) memset(g_gc_hs, 0, (size_t)g_gc_hcap * sizeof(void *));
     g_gc_nslot = 0; g_gc_interior = 0;
-    if (!pz) { for (long i = 0; i < g_gc_rrng_n; i++) if (g_gc_rrng[i].lo < g_gc_rrng[i].hi) gc_zeta_frame(g_gc_rrng[i].lo, g_gc_rrng[i].hi);
+    if (!pz) { for (long i = 0; i < g_gc_rrng_n; i++) { const char *rhi = g_gc_rrng[i].hi ? g_gc_rrng[i].hi : *(const char * const *)g_gc_rrng[i].lo; if (g_gc_rrng[i].lo < rhi) gc_zeta_frame(g_gc_rrng[i].lo, rhi); }
       if (g_wsi_base && g_wsi_ws > g_wsi_base) gc_zeta_frame(g_wsi_base, g_wsi_ws); }
     rt_gc_ws_roots();
     { static int blanket = -1; if (blanket < 0) { const char *e = getenv("SCRIP_GC_STATICS_BLANKET"); blanket = (e && *e && *e != '0') ? 1 : 0; }

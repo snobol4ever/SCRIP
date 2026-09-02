@@ -144,7 +144,7 @@ def scan_rtx(rtx_dir):
                 for reg in writes_of(mn, ops):
                     if reg in QUAD: funcs[cur]['writes'].append((ln, reg, mn, norm(mn, ops) if mn in KNOWN else '?' + norm(mn, ops)))
     return funcs
-TR_HELPER = re.compile(os.environ.get('QUAD_HELPER_RX') or r'^(?:rt|rtx)_pl_(?:trail|tr)_\w+$')  # rtx ROUTINE names that ARE the TR helper; env QUAD_HELPER_RX overrides (the rung-1 brief's name)
+TR_HELPER = re.compile(os.environ.get('QUAD_HELPER_RX') or r'^(?:rt_pl_quad_seed|rt_pl_dop_unify(?:_ci|_cs)?|rt_pl_dop_mkc|rt_pl_dop_is_v)$')  # THE ONE ALLOW-LIST, exact names (rung 1, hq_C): rt_pl_quad_seed seeds r12 TR / r13 B / r14 ROOT / r15 BALL from the root graph's pinned prologue; the four binder gates of rtx_plunify.s park {r12,r13} in a ctx for their C bodies and reload r12 on return. A rung that adds a writer adds its exact name here; env QUAD_HELPER_RX overrides for a measurement
 def main(argv):
     global TR_HELPER
     rtx_dir = None; scan_all = False; files = []
