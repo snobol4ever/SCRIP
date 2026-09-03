@@ -181,7 +181,7 @@ static const char * pl_rung6_builtins[] = { "=..", "==", "@<", "@=<", "@>", "@>=
     "writeln", "writeq", "put_char", "halt", "flush_output", "read", "read_term", "get_char", "peek_char", "nl", "write", NULL };
 static const char * pl_rung7_builtins[] = { "between", "repeat", "clause", "retract", "sub_atom", "for", "current_op", "current_predicate", "predicate_property",
     "current_prolog_flag", "current_stream", "stream_property", NULL };
-static const char * pl_rung8_builtins[] = { "findall", "bagof", "setof", "aggregate_all", "forall", NULL };
+static const char * pl_rung8_builtins[] = { "findall", "bagof", "setof", "aggregate_all", NULL };
 static const char * pl_rung9_builtins[] = { "catch", "throw", NULL };
 static const char * pl_rung10_builtins[] = { "call", "assert", "asserta", "assertz", "retractall", "abolish", "dynamic", "nb_setval", "nb_getval", "b_setval", "b_getval", "phrase",
     "with_output_to", "setup_call_cleanup", "use_module", "ensure_loaded", "module", "set_prolog_flag", NULL };
@@ -299,7 +299,7 @@ static IR_t * pl_lower_conj(lcx_t * cx, const tree_t * const * gl, int ng, IR_t 
         if (gn[i] && gn[i]->op == IR_GOTO) { if (last_res_beta) lc_γ_to_β(gn[i], last_res); else lc_γ_to(gn[i], last_res); }
         else if (last_res_beta) lc_ω_to_β(gn[i], last_res);
         else lc_ω_to(gn[i], last_res);
-        if (gn[i] && (gn[i]->op == IR_CALL_PROC_STAGED || gn[i]->op == IR_DISJUNCTION || ir_is_generator_kind(gn[i]->op))) { last_res = gn[i]; last_res_beta = 1; }
+        if (gn[i] && (gn[i]->op == IR_CALL_PROC_STAGED || gn[i]->op == IR_DISJUNCTION || gn[i]->op == IR_INDIRECT_GOTO || ir_is_generator_kind(gn[i]->op))) { last_res = gn[i]; last_res_beta = 1; }
     }
     if (redo_out) *redo_out = last_res_beta ? last_res : NULL;
     if (entry_out) *entry_out = (ng > 0) ? en[0] : γtail;
@@ -355,6 +355,50 @@ static IR_t * pl_lower_disj(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * 
     IR_LIT(dj).ival = (long) nb;
     if (entry_out) *entry_out = dj;
     return dj;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_mark_into(lcx_t * cx, int before, IR_t * tgt, const char * gsz, const char * osz) {
+    for (int k = before; k < cx->g->n; k++) {
+        IR_t * x = cx->g->all[k];
+        if (!x) continue;
+        if (gsz && x->γ.node == tgt) { memcpy(x->γ.sz, gsz, strlen(gsz) + 1); }
+        if (osz && x->ω.node == tgt) { memcpy(x->ω.sz, osz, strlen(osz) + 1); }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * pl_atom_goal(const char * nm) {
+    tree_t * n = ast_node_new(TT_QLIT); n->v.sval = (char *) nm; return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_lower_ite(lcx_t * cx, const tree_t * C, const tree_t * T, const tree_t * E, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    IR_t * ig = build(cx, IR_INDIRECT_GOTO, γnext, ωfail);
+    IR_t * mark = build(cx, IR_BOUND, NULL, ig);
+    IR_t * unmk_c = build(cx, IR_UNMARK, ig, ig); ir_operand_push(unmk_c, mark);
+    IR_t * unmk_f = build(cx, IR_UNMARK, ig, ig); ir_operand_push(unmk_f, mark);
+    IR_t * arm_entry[2] = { NULL, NULL };
+    const tree_t * arms[2]; int nb = 0;
+    arms[nb++] = T; if (E) arms[nb++] = E;
+    for (int j = 0; j < nb; j++) {
+        IR_t * ml = build(cx, IR_MOVE_LABEL, NULL, ωfail);
+        int before = cx->g->n;
+        lc_vec av; lc_vec_init(&av, (int) sizeof(const tree_t *));
+        collect_conj(arms[j], &av);
+        IR_t * ae = NULL; IR_t * redo = NULL;
+        IR_t * first = pl_lower_conj(cx, (const tree_t * const *) av.data, av.n, ml, unmk_c, &ae, &redo);
+        ir_operand_push(ml, redo ? redo : ig);
+        ir_operand_push(ml, ig);
+        IR_LIT(ml).ival = redo ? 1 : 0;
+        arm_entry[j] = ae ? ae : (first ? first : ml);
+    }
+    { int before = cx->g->n;
+      lc_vec cv; lc_vec_init(&cv, (int) sizeof(const tree_t *));
+      collect_conj(C, &cv);
+      IR_t * ce = NULL;
+      lc_γ_to(unmk_f, (nb > 1) ? arm_entry[1] : ig);
+      IR_t * cfirst = pl_lower_conj(cx, (const tree_t * const *) cv.data, cv.n, arm_entry[0], unmk_f, &ce, NULL);
+      lc_γ_to(mark, ce ? ce : (cfirst ? cfirst : arm_entry[0]));
+      if (entry_out) *entry_out = mark; }
+    return ig;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_leaf(lcx_t * cx, const char * sym, const tree_t * t, int nargs, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
@@ -442,12 +486,20 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             return pl_lower_conj(cx, (const tree_t * const *) glv.data, glv.n, γnext, ωfail, entry_out, NULL);
         }
         if (!strcmp(nm, "write") && t->n == 1) return pl_leaf(cx, "$write", t, 1, γnext, ωfail, entry_out);
-        if (!strcmp(nm, ";") || !strcmp(nm, "|")) { if (pl_is_ite(t)) pl_refuse("if-then-else", "->", 5);
+        if (!strcmp(nm, ";") || !strcmp(nm, "|")) { if (pl_is_ite(t)) return pl_lower_ite(cx, t->c[0]->c[0], t->c[0]->c[1], t->c[1], γnext, ωfail, entry_out);
             return pl_lower_disj(cx, t, γnext, ωfail, entry_out); }
-        if (!strcmp(nm, "->")) pl_refuse("if-then", "->", 5);
-        if (!strcmp(nm, "\\+") || !strcmp(nm, "not") || !strcmp(nm, "once") || !strcmp(nm, "ignore")) pl_refuse("control construct", nm, 5);
+        if (!strcmp(nm, "->") && t->n == 2) return pl_lower_ite(cx, t->c[0], t->c[1], NULL, γnext, ωfail, entry_out);
+        if ((!strcmp(nm, "\\+") || !strcmp(nm, "not")) && t->n == 1) return pl_lower_ite(cx, t->c[0], pl_atom_goal("fail"), pl_atom_goal("true"), γnext, ωfail, entry_out);
+        if (!strcmp(nm, "once") && t->n == 1) return pl_lower_ite(cx, t->c[0], pl_atom_goal("true"), pl_atom_goal("fail"), γnext, ωfail, entry_out);
+        if (!strcmp(nm, "ignore") && t->n == 1) return pl_lower_ite(cx, t->c[0], pl_atom_goal("true"), pl_atom_goal("true"), γnext, ωfail, entry_out);
+        if (!strcmp(nm, "forall") && t->n == 2) {
+            tree_t * inner = ast_node_new(TT_FNC); inner->v.sval = (char *) "\\+"; ast_push(inner, (tree_t *) t->c[1]);
+            tree_t * conj = ast_node_new(TT_FNC); conj->v.sval = (char *) ","; ast_push(conj, (tree_t *) t->c[0]); ast_push(conj, inner);
+            return pl_lower_ite(cx, conj, pl_atom_goal("fail"), pl_atom_goal("true"), γnext, ωfail, entry_out); }
         if (!strcmp(nm, "=") && t->n == 2) { IR_t * e = NULL; IR_t * nd = unify_pair(cx, t->c[0], t->c[1], γnext, ωfail, &e); if (entry_out) *entry_out = e ? e : nd; return nd; }
-        if (!strcmp(nm, "\\=")) pl_refuse("control construct", nm, 5);
+        if (!strcmp(nm, "\\=") && t->n == 2) {
+            tree_t * u = ast_node_new(TT_UNIFY); ast_push(u, (tree_t *) t->c[0]); ast_push(u, (tree_t *) t->c[1]);
+            return pl_lower_ite(cx, u, pl_atom_goal("fail"), pl_atom_goal("true"), γnext, ωfail, entry_out); }
         if (!strcmp(nm, "is") && t->n == 2) {
             IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = "$is_v";
             IR_t * xe = NULL; IR_t * xl = term_lval_e(cx, t->c[0], &xe);
@@ -541,7 +593,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
     }
     case TT_CUT: return build(cx, IR_CUT, γnext, cx->cutω);
     case TT_UNIFY: { IR_t * e = NULL; IR_t * nd = unify_pair(cx, t->c[0], t->c[1], γnext, ωfail, &e); if (entry_out) *entry_out = e ? e : nd; return nd; }
-    case TT_IF: pl_refuse("if-then-else", "->", 5); return NULL;
+    case TT_IF: return pl_lower_ite(cx, t->c[0], (t->n > 1) ? t->c[1] : NULL, (t->n > 2) ? t->c[2] : NULL, γnext, ωfail, entry_out);
     case TT_PROGRAM: return pl_lower_conj(cx, (const tree_t * const *) t->c, t->n, γnext, ωfail, entry_out, NULL);
     case TT_VAR: pl_refuse("variable goal", "call/1", 10); return NULL;
     default: return build(cx, IR_SUCCEED, γnext, ωfail);
@@ -668,6 +720,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     pl_register_program(&g_stage2, prog);
     enum { PL_INIT_GOALS_MAX = 256 };
     const tree_t * init_goals[PL_INIT_GOALS_MAX]; int ninit = 0;
+    const tree_t * dir_goals[PL_INIT_GOALS_MAX]; int ndir = 0;
     for (int i = 0; i < prog->n; i++) {
         const tree_t *s = prog->c[i];
         if (!s || s->t != TT_STMT) continue;
@@ -684,8 +737,13 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
         if (subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "set_prolog_flag") && subj->n == 2) {
             if (pl_flag_directive_is_default(subj)) continue;
             pl_refuse("directive set_prolog_flag", subj->c[0] && subj->c[0]->v.sval ? subj->c[0]->v.sval : "?", 10); }
-        pl_refuse("directive goal", (subj->v.sval ? subj->v.sval : "?"), 5);
+        { tree_t * ig = ast_node_new(TT_FNC); ig->v.sval = (char *) "ignore"; ast_push(ig, (tree_t *) subj);
+          if (ndir < PL_INIT_GOALS_MAX) dir_goals[ndir++] = ig; continue; }
     }
+    { const tree_t * all_goals[PL_INIT_GOALS_MAX * 2]; int nall = 0;
+      for (int i = 0; i < ndir && nall < PL_INIT_GOALS_MAX * 2; i++) all_goals[nall++] = dir_goals[i];
+      for (int i = 0; i < ninit && nall < PL_INIT_GOALS_MAX * 2; i++) all_goals[nall++] = init_goals[i];
+      ninit = nall; for (int i = 0; i < nall; i++) init_goals[i < PL_INIT_GOALS_MAX ? i : PL_INIT_GOALS_MAX - 1] = all_goals[i]; }
     IR_graph_t * top = pl_body_graph(init_goals, ninit);
     top->root_graph = 1;
     int top_idx = bb_program_add(&g_stage2.bbp, top);

@@ -168,6 +168,10 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
     case IR_STATEMENT_END:
     case IR_STATEMENT:
         return 0;
+    case IR_INDIRECT_GOTO:
+        zls_field(scope_id, off, 8, ZK_PTR_CODE, 0, "gate.stored resume target (Proebsting ifstmt.gate: IR_MOVE_LABEL writes it at each arm's success, the box alpha jumps through it). Granted at rung 5 -- bb_indirect_goto and bb_move_label had ALWAYS addressed [op_off+16], which is this field, while the kind fell through to default and was granted only its 16-byte result, so the gate write landed 8 bytes past the grant. Harmless with ONE such box live and a core dump with two, because the second box's region began where the first's gate was still being written", nd);
+        zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "gate.pad (unused)", nd);
+        return 1;
     case IR_DISJUNCTION:
         if (nd->op == IR_DISJUNCTION && nd->n_operands > 0) { zls_field(scope_id, off, 8, ZK_RAW, 0, "disj.alt_i live-alternative index (+16 from box base; nary self-state, MOVE_LABEL-ERAD: α=0, φ-glue ++, β dispatches; value DESCR = the box result slot at [base], option-B per-arm copy in σ-glue) (+24 pad)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "disj.pad (unused)", nd); return 1; }
         zls_field(scope_id, off, 8, ZK_PTR_CODE, 0, "gate.stored resume target", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "gate.pad (unused)", nd); return 1;
