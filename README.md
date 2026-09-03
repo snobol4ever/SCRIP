@@ -162,6 +162,7 @@ that produced it. Summary, measured 2026-08-30:
 | Language | Third-party suite | mode 3 | mode 4 |
 |---|---|---|---|
 | SNOBOL4 | snoflake fixtures (180; CSNOBOL4 home dialect — see the controls) | PASS=77 FAIL=96 | PASS=77 FAIL=47 (50 skipped at the link step) |
+| SNOBOL4 | Budne CSNOBOL4 suite (118 gradable `.ref` pairs; home-dialect oracle csnobol4, not sbl) | PASS=53 FAIL=24 REJECT=40 CRASH=0 HANG=1 | PASS=53 FAIL=24 REJECT=41 CRASH=0 HANG=0 |
 | Icon | Arizona Icon v9.5 `tests/general` (89 gradable) | PASS=39 FAIL=50 | PASS=40 FAIL=49 |
 | Icon | JCON test suite (81 gradable) | PASS=41 FAIL=25 CRASH=13 HANG=2 | PASS=39 FAIL=32 CRASH=8 HANG=2 |
 | Prolog | SWI-Prolog plunit suite (114) | PASS=92 FAIL=22 (80%) | — |
@@ -180,8 +181,25 @@ project, written in CSNOBOL4's home dialect — runs four arms side by side
 PASS=77 FAIL=47 (50 skipped at the link step), with the two oracle arms as controls — **SPITBOL
 itself passes only 107/173 of it** (dialect distance, not defect count) and CSNOBOL4,
 its home implementation, 168/5. Read SCRIP's number against the SPITBOL control, not
-against 180. Phil Budne's CSNOBOL4 test suite (120 reference pairs) is also vendored;
-its board is not yet published. And `beauty.sno`, the SNOBOL4 pretty-printer written in
+against 180.
+
+Phil Budne's **CSNOBOL4 test suite** — 124 vendored programs, 118 with a gradable `.ref`
+— is graded against its own oracle, not SPITBOL: `sbl -bf` false-reds on 30 of these
+programs on CSNOBOL4-only extensions SPITBOL never claims (ORD, `&DUMP`, `popen`, ...;
+RULES.md FACT RULE s261). `scripts/test_snobol4_csnobol4_suite.sh` (2026-09-03): mode 3
+PASS=53 FAIL=24 REJECT=40 CRASH/HANG=1 · mode 4 PASS=53 FAIL≈23-24 REJECT=41 CRASH/HANG=1,
+denominator 118 (`nqueens.sno` is the one CRASH/HANG entry in both modes — already
+documented as flaky SIG11/TIMEOUT across repeated runs, RULES.md ASM-DIFF-FIRST section;
+not re-measured to one fixed number here for the same reason that section gives). A live-csnobol4 triangulation arm (PASS=84 FAIL=34 of 118) also
+runs alongside as a tiebreak/regeneration check: of the 34 where live csnobol4 disagrees
+with the vendored `.ref` too, most are the already-documented missing-`-INCLUDE`-target
+class (a corpus gap, not a SCRIP defect). Read every red by name before citing this
+number — see FINDING-2026-08-27-seat06-csnobol4_suite-triage-eight-classes-three-are-not-scrip-bugs.md
+for the per-class read (confirmed SCRIP defects: `&DUMP` is a no-op, content after `END`
+breaks re-scanning, `-INCLUDE` argument trailing-space handling, a mode-4-only `SETEXIT`
+link failure; same dialect-distance caveat as snoflake above for the rest).
+
+And `beauty.sno`, the SNOBOL4 pretty-printer written in
 SNOBOL4, reproduces itself byte-for-byte in both modes — one program, individually
 checkable.
 

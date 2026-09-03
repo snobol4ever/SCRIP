@@ -254,3 +254,29 @@ fpc_bin() {
     fi
     printf '%s\n' "$c"
 }
+# ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# ⭐ CSNOBOL4 ORACLE ACCESSOR (row snobol4-csnobol4-suite-graded).  Phil Budne's CSNOBOL4 is the vendored
+# csnobol4_suite's OWN home-dialect oracle -- `sbl -bf` is NOT a substitute for grading it: 30 of the suite's
+# 120 programs go false-red under sbl -bf (RULES.md FACT RULE s261), because the suite exercises CSNOBOL4-only
+# extensions (ORD, &DUMP, popen, ...) that SPITBOL/SCRIP never claim to implement. Built via
+# build_csnobol4_oracle.sh from snobol4ever/csnobol4 (`make -f Makefile2 xsnobol4`, copied to `snobol4`).
+# ⛔ SHARED ONLY, same law as x64/icon-master/jcon-master above (Lon s261: no per-root clone, no symlink,
+# refuse loudly rather than silently reward a stray local copy). ⚠️ build_csnobol4_oracle.sh's own path math
+# (`$ROOT/csnobol4`, two levels above scripts/) still targets a PER-ROOT location, not this shared one -- that
+# script predates the shared-oracle convention and is stale in the same way old sbl/icon docs were; running it
+# as-is would create exactly the per-root divergence hazard this file's other accessors were built to prevent.
+# Flagged, not fixed here (out of scope for this row) -- the shared binary already exists and this accessor
+# only ever reads it.
+# ⛔ NOT ON PATH -- never hand-assemble this path in a caller.
+# ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+csnobol4_bin() {
+    local c="/home/resources/csnobol4/snobol4"
+    if [ ! -x "$c" ]; then
+        printf "⛔ THE CSNOBOL4 ORACLE IS MISSING: %s\n" "$c" >&2
+        printf "   Restore/build the SHARED tree at /home/resources/csnobol4 (see build_csnobol4_oracle.sh for\n" >&2
+        printf "   the build recipe -- but build INTO the shared root, never a per-root clone; Lon s261).\n" >&2
+        printf "   Do not hand-assemble a path or fall back to a bare 'snobol4'/'csnobol4' on PATH.\n" >&2
+        return 1
+    fi
+    printf '%s\n' "$c"
+}
