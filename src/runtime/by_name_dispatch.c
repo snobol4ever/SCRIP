@@ -4258,6 +4258,14 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         else                                 r = atan(d);
         DESCR_t rv; rv.v = DT_R; rv.r = r; *out = rv; return 1;
     }
+    if ((_bid == BID___pas_round) && nargs == 1) {
+        double d = IS_REAL_fn(args[0]) ? args[0].r : (double)(IS_INT_fn(args[0]) ? args[0].i : 0);
+        *out = INTVAL((long long)round(d)); return 1;
+    }
+    if ((_bid == BID___pas_halt) && (nargs == 0 || nargs == 1)) {
+        fflush(NULL);
+        exit(nargs == 1 ? (int)(IS_INT_fn(args[0]) ? args[0].i : 0) : 0);
+    }
     L_bidjmp_5171: ;
     if ((_bid == BID___pas_writeln) || (_bid == BID___pas_write)) {
         int nl = (fn[6] == 'w' && fn[7] == 'r' && fn[8] == 'i' && fn[9] == 't' && fn[10] == 'e' && fn[11] == 'l');
