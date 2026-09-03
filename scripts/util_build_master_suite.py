@@ -722,6 +722,10 @@ def _build_arg_parser():
     p.add_argument("--only", default=None, metavar="F1,F2,...", help="scope --delete-absorbed to exactly these families")
     p.add_argument("--allow-drop-origin", default=None, metavar="O1,O2,...",
                     help="name origin(s) whose deliberate retirement should not refuse the rebuild (surgical, never a blanket --force)")
+    p.add_argument("--resort", action="store_true",
+                   help="re-sort the EXISTING master into the builder's own order (xfail, feature count, line count, name) and rewrite "
+                        "ALL.<ext>/ALL.ref/ALL.csv. Absorbs nothing; permutes entries and changes nothing else, verified before it commits. "
+                        "A promotion must run this in the same commit or `rank <= N` stops selecting the greenest N.")
     p.add_argument("--reindex", action="store_true",
                    help="CSV-ONLY: recompute every ALL.csv column from the EXISTING ALL.<ext>/ALL.ref pair and write ONLY ALL.csv. "
                         "Absorbs nothing and reorders nothing -- rank is the entry's position in the master as it already stands. "
@@ -732,6 +736,121 @@ def _build_arg_parser():
     p.add_argument("--write", action="store_true", help="with --split-write, actually write the split files")
     return p
 
+
+
+def master_sort_key(entry, flags):
+    """THE ONE AUTHORITY for the master's order (Lon's level ruling: a level is a PREFIX of the list, so
+    `rank <= N` must select the greenest N). Green before xfail, then fewer features, then shorter, then name.
+
+    ⛔ EXTRACTED FROM main()'s inline lambda 2026-09-03 so the ORDER GATE can import it instead of re-typing
+    it. A guard that keeps its own copy of the rule drifts from the thing it guards and then both are wrong
+    together -- this project has already paid for that twice (util_oracle_flag_sweep.sh, test_gate_argnote_sweep.sh).
+    """
+    return (int(bool(entry.xfail)), sum(flags.values()), len(entry.sno_lines), entry.name)
+
+
+def resort_master(OUTDIR, EXT, lang, h, _CO, _CC, COLS, modes_decl, loose_families, acknowledged):
+    """Re-sort the master already on disk into the builder's own order and rewrite ALL.<ext>/ALL.ref/ALL.csv.
+
+    WHY (ceo ruling 2026-09-03 on hq_B's routed question): Lon's level law says a level is a PREFIX of the
+    master, so `rank <= N` must select the greenest N. A PROMOTION CHANGES AN ENTRY'S SORT KEY -- flipping
+    xfail moves it out of the xfail block -- so a promotion that rewrites only the three marker locations
+    leaves the file sorted under the old key and the law quietly stops being true. Nothing looks wrong: the
+    suite and its index still agree with each other and every marker gate is green.
+
+    ⛔ THE CHURN IS THE POINT AND IT IS LARGE BY CONSTRUCTION. Re-sorting moves whole entry BLOCKS, so a
+    commit that changes NO program text can rewrite most of the file. The commit must say so and prove
+    content-invariance (same entry set, same per-entry bytes, order only) rather than leave a reviewer to
+    infer it from a diff that looks like a rewrite.
+    """
+    out_sno = os.path.join(OUTDIR, "ALL" + EXT); out_ref = os.path.join(OUTDIR, "ALL.ref")
+    out_in = os.path.join(OUTDIR, "ALL.in"); out_x = os.path.join(OUTDIR, "ALL.xfail")
+    out_csv = os.path.join(OUTDIR, "ALL.csv")
+    for _p in (out_sno, out_ref):
+        if not os.path.isfile(_p):
+            sys.stderr.write("REFUSED: --resort needs an existing master; %s is missing.\n" % _p); return 2
+    unacknowledged = sorted(loose_families - acknowledged)
+    if unacknowledged:
+        sys.stderr.write("REFUSED: --resort found %d loose absorbable famil(y/ies); absorbing and re-sorting in one\n"
+                         "   step would make an ordering change indistinguishable from an absorption in the diff:\n" % len(unacknowledged))
+        for f in unacknowledged:
+            sys.stderr.write("     %s\n" % f)
+        sys.stderr.write("   Absorb them first, or name them with --absorb-only to proceed with the resort alone.\n")
+        return 2
+    if lang == "snobol4":
+        entries = h.read_suite(out_sno, out_ref, in_path=h.sidecar_in_path(out_sno), x_path=h.sidecar_xfail_path(out_sno))
+    else:
+        entries = h.read_block_suite(out_sno, out_ref, h.banner_re_for(_CO, _CC),
+                                     in_path=h.sidecar_in_path(out_sno), x_path=h.sidecar_xfail_path(out_sno))
+    if not entries:
+        sys.stderr.write("REFUSED: --resort read 0 entries -- refusing to rewrite a master it could not read.\n"); return 2
+    before = [e.name for e in entries]
+    flags_of = {e.name: {c: fn2("\n".join(e.sno_lines)) for c, fn2 in COLS} for e in entries}
+    ordered = sorted(entries, key=lambda e: master_sort_key(e, flags_of[e.name]))
+    after = [e.name for e in ordered]
+    if before == after:
+        print("--resort: %d entries already in the builder's order -- nothing written." % len(entries), file=sys.stderr)
+        return 0
+    if sorted(before) != sorted(after):
+        sys.stderr.write("REFUSED: the sort changed the ENTRY SET (%d -> %d unique) -- that is not a reorder.\n"
+                         % (len(set(before)), len(set(after)))); return 2
+    csv_origin = {}
+    if os.path.isfile(out_csv):
+        for row in csv.DictReader(open(out_csv)):
+            csv_origin[row["entry"]] = row.get("origin", "")
+    _tag = ".tmp-%d" % os.getpid()
+    tmp_sno, tmp_ref, tmp_in, tmp_x, tmp_csv = out_sno + _tag, out_ref + _tag, out_in + _tag, out_x + _tag, out_csv + _tag
+    def _cleanup():
+        for q in (tmp_sno, tmp_ref, tmp_in, tmp_x, tmp_csv):
+            if os.path.exists(q):
+                os.remove(q)
+    try:
+        for i, e in enumerate(ordered, 1):
+            e.seq = i
+        if lang == "snobol4":
+            h.write_suite(ordered, tmp_sno, tmp_ref)
+            wrote_in = h.write_stdin_sidecar(ordered, tmp_in, "*", "")
+            wrote_x = h.write_xfail_sidecar(ordered, tmp_x, "*", "")
+            reread = h.read_suite(tmp_sno, tmp_ref, in_path=(tmp_in if wrote_in else None), x_path=(tmp_x if wrote_x else None))
+        else:
+            h.write_block_suite(ordered, tmp_sno, tmp_ref, _CO, _CC)
+            wrote_in = h.write_stdin_sidecar(ordered, tmp_in, _CO, _CC)
+            wrote_x = h.write_xfail_sidecar(ordered, tmp_x, _CO, _CC)
+            reread = h.read_block_suite(tmp_sno, tmp_ref, h.banner_re_for(_CO, _CC),
+                                        in_path=(tmp_in if wrote_in else None), x_path=(tmp_x if wrote_x else None))
+        # ⛔ CONTENT-INVARIANCE, CHECKED BEFORE ANYTHING REAL IS TOUCHED: a resort may permute entries and may
+        # change NOTHING else. Same names, and the same body bytes under each name.
+        if [x.name for x in reread] != after:
+            sys.stderr.write("REFUSED: re-read order does not match the intended order -- not committing.\n"); _cleanup(); return 2
+        body_before = {e.name: "\n".join(e.sno_lines) for e in entries}
+        body_after = {e.name: "\n".join(e.sno_lines) for e in reread}
+        if body_before != body_after:
+            _bad = [n for n in body_before if body_before[n] != body_after.get(n)]
+            sys.stderr.write("REFUSED: %d entr(y/ies) changed CONTENT during a reorder (first: %s) -- not committing.\n"
+                             % (len(_bad), _bad[0] if _bad else "?")); _cleanup(); return 2
+        with open(tmp_csv, "w", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes"] + [c for c, _ in COLS])
+            for rank, e in enumerate(ordered, 1):
+                origin = csv_origin.get(e.name) or ("master__%s" % e.name)
+                fam = origin.split("__", 1)[0]
+                w.writerow([rank, e.name, origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines),
+                            modes_decl.get(fam, "UNKNOWN")] + [flags_of[e.name][c] for c, _ in COLS])
+    except BaseException:
+        _cleanup(); raise
+    os.replace(tmp_sno, out_sno); os.replace(tmp_ref, out_ref); os.replace(tmp_csv, out_csv)
+    if wrote_in:
+        os.replace(tmp_in, out_in)
+    elif os.path.exists(out_in):
+        os.remove(out_in)
+    if wrote_x:
+        os.replace(tmp_x, out_x)
+    elif os.path.exists(out_x):
+        os.remove(out_x)
+    moved = sum(1 for a, b in zip(before, after) if a != b)
+    print("--resort: %d entries re-sorted into the builder's order (%d changed position); content invariant, order only."
+          % (len(ordered), moved), file=sys.stderr)
+    return 0
 
 def reindex_csv_only(OUTDIR, EXT, lang, h, _CO, _CC, COLS, modes_decl, loose_families, acknowledged):
     """Recompute ALL.csv from the master pair already on disk. Writes ONE file and reorders nothing.
@@ -858,6 +977,12 @@ def main():
     absorbed_files = []    # (fam, sno, ref, mode) for post-verification deletion
     companion_copies = {}  # basename -> source path; written into OUTDIR after the merge succeeds
     pairs, excluded = discover_pairs(ROOT, OUTDIR, EXT)
+    if args.resort:
+        for _flag, _val in (("--delete-absorbed", delete_absorbed), ("--family", family_prefix), ("--only", only_families), ("--split-write", args.split_write), ("--reindex", args.reindex)):
+            if _val:
+                sys.stderr.write("REFUSED: %s cannot be combined with --resort.\n" % _flag); raise SystemExit(2)
+        raise SystemExit(resort_master(OUTDIR, EXT, lang, h, _CO, _CC, COLS, _modes_decl,
+                                       {fam for fam, _, _, _ in pairs}, absorb_only_families or set()))
     if args.reindex:
         # ⛔ --reindex is a TERMINAL mode: it never reaches the absorb machinery below, so --absorb-only here
         # can only ACKNOWLEDGE a loose pair, never absorb one. Refusing to combine it with the delete/scope
@@ -1207,7 +1332,7 @@ def main():
     # last level all 1200+ being the full regression.") -- the list is ORDERED simple-green-first so a level is a PREFIX of it:
     # green before xfail (a smoke set must be expected-green), fewer features before more, shorter before longer. The CSV's
     # `rank` column is the position; a runner takes level N by taking rank <= N.
-    order = sorted(range(len(rows)), key=lambda i: (int(bool(rows[i][0].xfail)), sum(rows[i][1].values()), len(rows[i][0].sno_lines), rows[i][0].name))
+    order = sorted(range(len(rows)), key=lambda i: master_sort_key(rows[i][0], rows[i][1]))
     all_entries = [rows[i][0] for i in order]
     rows = [rows[i] for i in order]
     names = [e.name for e in all_entries]
