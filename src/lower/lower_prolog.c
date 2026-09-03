@@ -60,7 +60,7 @@ int pl_dyn_is_marked(const char *name, int arity) {
     for (int i = 0; i < g_stage2.pl_dyn_n; i++) if (g_stage2.pl_dyn_name[i] && !strcmp(g_stage2.pl_dyn_name[i], name) && g_stage2.pl_dyn_arity[i] == arity) return 1;
     return 0;
 }
-typedef struct { IR_graph_t * g; IR_t * tω; } lcx_t;
+typedef struct { IR_graph_t * g; IR_t * tω; IR_t * cutω; } lcx_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * build(lcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) { return lc_build(cx->g, op, γ, ω); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -295,6 +295,7 @@ static IR_t * pl_lower_conj(lcx_t * cx, const tree_t * const * gl, int ng, IR_t 
     }
     IR_t * last_res = ωbase; int last_res_beta = 0;
     for (int i = 0; i < ng; i++) {
+        if (gn[i] && gn[i]->op == IR_CUT) { lc_ω_to(gn[i], cx->cutω); last_res = cx->cutω; last_res_beta = 0; continue; }
         if (gn[i] && gn[i]->op == IR_GOTO) { if (last_res_beta) lc_γ_to_β(gn[i], last_res); else lc_γ_to(gn[i], last_res); }
         else if (last_res_beta) lc_ω_to_β(gn[i], last_res);
         else lc_ω_to(gn[i], last_res);
@@ -347,8 +348,10 @@ static IR_t * pl_lower_disj(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * 
             if (x->γ.node == dj) { if (x->op == IR_GOTO && x->ω.node == dj) memcpy(x->γ.sz, "φ", 3); else memcpy(x->γ.sz, "σ", 3); x->γ.sz[3] = 0; }
             if (x->ω.node == dj) { memcpy(x->ω.sz, "φ", 3); x->ω.sz[3] = 0; }
         }
+        int cut_in_branch = 0;
+        for (int k = before; k < cx->g->n; k++) if (cx->g->all[k] && cx->g->all[k]->op == IR_CUT) { cut_in_branch = 1; break; }
         ir_operand_push(dj, pl_disj_entry(cx, bentry ? bentry : (first ? first : dj), dj));
-        ir_operand_push(dj, redo ? redo : dj);
+        ir_operand_push(dj, cut_in_branch ? cx->cutω : (redo ? redo : dj));
     }
     for (int j = 0; j < nb; j++) ir_operand_push(dj, NULL);
     IR_LIT(dj).ival = (long) nb;
@@ -553,12 +556,12 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         if (!strcmp(nm, "true")) return build(cx, IR_SUCCEED, γnext, ωfail);
         if (!strcmp(nm, "fail") || !strcmp(nm, "false")) return build(cx, IR_GOTO, ωfail, ωfail);
         if (!strcmp(nm, "nl")) return pl_leaf(cx, "$nl", t, 0, γnext, ωfail, entry_out);
-        if (!strcmp(nm, "!")) pl_refuse("cut", "!", 4);
+        if (!strcmp(nm, "!")) return build(cx, IR_CUT, γnext, cx->cutω);
         { const char * ls = pl_det_leaf_sym(nm, 0); if (ls) return pl_leaf_lv(cx, ls, t, 0, γnext, ωfail, entry_out); }
         { int r = pl_rung_of(nm); if (r) pl_refuse(r == 6 ? "builtin arity not wired" : "builtin", nm, r); }
         return pl_user_call(cx, nm, t, 0, γnext, ωfail, entry_out);
     }
-    case TT_CUT: pl_refuse("cut", "!", 4); return NULL;
+    case TT_CUT: return build(cx, IR_CUT, γnext, cx->cutω);
     case TT_UNIFY: { IR_t * e = NULL; IR_t * nd = unify_pair(cx, t->c[0], t->c[1], γnext, ωfail, &e); if (entry_out) *entry_out = e ? e : nd; return nd; }
     case TT_IF: pl_refuse("if-then-else", "->", 5); return NULL;
     case TT_PROGRAM: return pl_lower_conj(cx, (const tree_t * const *) t->c, t->n, γnext, ωfail, entry_out, NULL);
@@ -602,10 +605,11 @@ static void pl_alt_alloc(IR_graph_t * g, int nc) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_graph_t * pl_body_graph(const tree_t * const * gl, int ng) {
     IR_graph_t * g = IR_alloc(4096);
-    lcx_t cx; cx.g = g; cx.tω = NULL;
+    lcx_t cx; cx.g = g; cx.tω = NULL; cx.cutω = NULL;
     IR_t * succeed = build(&cx, IR_SUCCEED, NULL, NULL);
     IR_t * fail    = build(&cx, IR_FAIL, NULL, NULL);
     IR_t * step    = build(&cx, IR_FAIL, NULL, NULL);
+    cx.cutω = fail;
     IR_t * entry = NULL; IR_t * redo = NULL;
     IR_t * first = pl_lower_conj(&cx, gl, ng, succeed, step, &entry, &redo);
     int maxlocal = -1; for (int i = 0; i < ng; i++) maxlocal = max_var_slot(gl[i], maxlocal);
@@ -621,8 +625,9 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
     int nc = (ch->t == TT_CHOICE) ? ch->n : 1;
     if (nc < 1) nc = 1;
     IR_graph_t * g = IR_alloc(1024 + 1024 * nc);
-    lcx_t cx; cx.g = g; cx.tω = NULL;
+    lcx_t cx; cx.g = g; cx.tω = NULL; cx.cutω = NULL;
     IR_t * step = build(&cx, IR_FAIL, NULL, NULL);
+    cx.cutω = build(&cx, IR_FAIL, NULL, NULL);
     pl_alt_alloc(g, nc);
     g->alt_fail = step;
     int arity = -1; int maxlocal = -1;

@@ -1387,6 +1387,19 @@ static bb_label_t * fc_seq_sigma_tgt(IR_t **nodes, int n, int k, int src, bb_lab
     return dflt;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string pl_step_reseed_locals(void) {
+    std::string r;
+    if (!g_emit_cfg || !g_emit_cfg->lnames) return r;
+    for (int i = 0; i < g_emit_cfg->nlocals; i++) {
+        const char * nm = g_emit_cfg->lnames[i];
+        if (!nm) continue;
+        int off = ir_varslot_of(g_emit_cfg, nm);
+        if (off < 0) continue;
+        r += x86("mov", RDQ("rbp", off), 0L) + x86("mov", RDQ("rbp", off + 8), 0L);
+    }
+    return r;
+}
 static bb_label_t * fc_seq_phi_tgt(IR_t **nodes, int n, int k, int src, bb_label_t **betas, bb_label_t *dflt) {
     int el = fc_seq_elem_of(nodes, n, k, src);
     if (el <= 0) return dflt;
@@ -3099,6 +3112,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         g_emit.op_omega_is_death = (!omega_resolved && !(otgt && otgt->op == IR_SUCCEED)) ? 1 : 0;
         if (g_emit_cfg && n_alt > 0 && emit_zframe_pinned()) {
               if (otgt && otgt == g_emit_cfg->alt_fail && pl_step_lbl) node_ω = pl_step_lbl;
+              if (gtgt && gtgt == g_emit_cfg->alt_fail && pl_step_lbl) node_γ = pl_step_lbl;
               if (!g_emit_cfg->root_graph) for (int _ak = 0; _ak < n_alt; _ak++) if (gtgt && gtgt == g_emit_cfg->alt_ret[_ak] && g_emit_cfg->alt_redo[_ak]) { node_γ = ret_tr[_ak]; break; } }
         if (getenv("SCRIP_OMEGA_DIAG")) fprintf(stderr, "[OMEGA-DIAG] i=%d node_op=%s omega_resolved=%d otgt_op=%s op_omega_is_death=%d\n", i, bb_op_name(nodes[i]->op), omega_resolved, otgt ? bb_op_name(otgt->op) : "NULL", g_emit.op_omega_is_death);
         for (int r = 0; r < n; r++) if (nodes[r]->op == IR_REPALT && nodes[r]->n_operands > 0 && nodes[r]->operands[0] == nodes[i]) { node_γ = ra_y[r]; node_ω = ra_t[r]; break; }
@@ -3240,6 +3254,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
               { if (zd_on[i] && nodes[i]->op == IR_MATCH_REPLACE) { g_zd_read[2] = -1; g_zd_kind[2] = -1; IR_t * _mb2 = (IR_t *)0; int _jh2 = -1; for (int _zj = i - 1; _zj >= 0; _zj--) { if (nodes[_zj]->op == IR_MATCH_BEGIN) { _mb2 = nodes[_zj]; _jh2 = _zj; break; } } IR_t * _sp = (_mb2 && _mb2->n_operands > 0) ? _mb2->operands[0] : (IR_t *)0; if (_sp && _jh2 >= 0) { for (int _js = _jh2 - 1; _js >= 0; _js--) if (nodes[_js] == _sp) { if (zd_on[_js]) { g_zd_read[2] = g_zd_zunder + (zd_out[_jh2] - zd_out[_js]); g_zd_kind[2] = (int)_sp->op; } if (getenv("SCRIP_ZPAT_DIAG")) fprintf(stderr, "[SUBJ2] jh=%d js=%d zout_jh=%d zout_js=%d zon_js=%d staged=%d\n", _jh2, _js, zd_out[_jh2], zd_out[_js], zd_on[_js], g_zd_read[2]); break; } } } }
           if (g_emit_cfg && n_alt > 0 && emit_zframe_pinned()) {
               if (otgt && otgt == g_emit_cfg->alt_fail && pl_step_lbl) node_ω = pl_step_lbl;
+              if (gtgt && gtgt == g_emit_cfg->alt_fail && pl_step_lbl) node_γ = pl_step_lbl;
               if (!g_emit_cfg->root_graph) for (int _ak = 0; _ak < n_alt; _ak++) if (gtgt && gtgt == g_emit_cfg->alt_ret[_ak] && g_emit_cfg->alt_redo[_ak]) { node_γ = ret_tr[_ak]; break; } }
           if (nodes[i]->op == IR_MATCH_BEGIN) { g_emit.lbl_t0 = na_f[i] ? na_f[i]->name : NULL; g_emit.lbl_t0_p = na_f[i]; g_emit.lbl_t0o_p = na_fo[i]; }
           emit_drive(nodes[i], lbls[i], node_γ, node_ω, betas[i]);
@@ -3278,7 +3293,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                   + x86("mov", "rdi", RDQ("rbp", _kt0 - 64))
                   + x86("call", "rt_pl_tr_unwind", _uwfp)
                   + x86("mov", RDQ("rbp", _kt0 - 48), 0L)
-                  + IF(_nl0 > 0, x86("lea", "rdi", RDQ("rbp", 16 + _np0 * 16)) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)(_nl0 * 16)) + x86("rep_stosb"))
+                  + pl_step_reseed_locals()
                   + x86("mov", "rax", RDQ("rbp", _kt0 - 56))
                   + x86("test", "rax", "rax"));
         emit_jmp_label(&lbl_ω, JMP_JE);

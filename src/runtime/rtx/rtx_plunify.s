@@ -26,6 +26,10 @@ RTX_FUNC(rt_pl_choice_open)
     mov     r13, rdi
     ret
 RTX_ENDF(rt_pl_choice_open)
+RTX_FUNC(rt_pl_cut_barrier)
+    mov     r13, qword ptr [rdi + 24]
+    ret
+RTX_ENDF(rt_pl_cut_barrier)
 RTX_FUNC(rt_pl_disj_open)
     mov     qword ptr [rdi + 32], rsi
     test    r13, r13
