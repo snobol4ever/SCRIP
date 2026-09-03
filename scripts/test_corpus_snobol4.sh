@@ -494,6 +494,21 @@ if [ "$MISSING" -gt 0 ]; then
     echo "   FAIL=0 over a shrunken denominator is not green."
     exit 2
 fi
+# ⛔⭐⭐ THE ONE LEADERBOARD, AND THIS IS THE HIGHEST-TRAFFIC BOARD WE HAVE -- it sits inside `make test`,
+# so every seat runs it constantly, which makes its SCORE.md row both the most worth keeping live and the
+# only one whose write could disturb twenty other roots. RULED by ceo CEO-174 (2026-09-03) on hq_T's ask:
+# wire it, with this line naming itself out loud so the resulting .github change is never a haunting, AND
+# write the row ONLY when the measured tree is clean and committed. That condition lives in the helper, is
+# COMPUTED from the tree and cannot be chosen -- a dirty-tree number is a scouting datum, printed here and
+# deliberately not landed, because it names a tree nobody else can check out. The clean run IS the landing
+# run, so the row rides the landing's own .github-last push and no seat meets an unexplained dirty .github.
+# ⛔ Placed ABOVE the FAIL exit: a red board is still a measurement, and a leaderboard that records only
+# green runs is a trophy cabinet showing each suite's best remembered day rather than its state.
+_sn4_board="m3 PASS=$PASS3 FAIL=$FAIL3 · m4 PASS=$PASS4 FAIL=$FAIL4 SKIP=$SKIP4 MISSING=0 (\`test_corpus_snobol4.sh\`)"
+echo "ONE LEADERBOARD: recording this board into .github/SCORE.md (test_corpus_snobol4.sh; skipped with a notice if the tree is dirty)"
+python3 "$HERE/util_score_row.py" write --lang snobol4 --column board --modes m3,m4 \
+    --measurer "${S4E_SEAT:-unknown-seat}" --text "$_sn4_board" \
+    || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 if [ "$FAIL4" -gt 0 ]; then echo "⛔ GATE FAIL: mode-4 FAIL=$FAIL4 (mode-3 FAIL=$FAIL3, informational)"; exit 1; fi
 echo "✅ GATE OK: m3 PASS=$PASS3 FAIL=$FAIL3 · m4 PASS=$PASS4 FAIL=$FAIL4 SKIP=$SKIP4 · MISSING=0"
 exit 0

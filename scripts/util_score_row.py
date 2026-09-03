@@ -111,6 +111,20 @@ def table_shape_error(cells):
     return None
 
 
+def tree_is_dirty():
+    # ⛔⭐ A DIRTY-TREE NUMBER DESCRIBES NO CHECKABLE TREE, SO IT IS NOT A LEADERBOARD ROW (ceo CEO-174,
+    # policy for every suite that ever sits inside `make test`). It is a SCOUTING DATUM: real, useful to
+    # the person who ran it, and unverifiable by anyone else -- the row would name a hash whose working
+    # tree nobody else can reconstruct, which is the unfalsifiable-row defect SCORE.md's own text spends
+    # three paragraphs on, merely wearing a real hash as a disguise.
+    # ⭐ THE CONDITION IS COMPUTED FROM THE TREE, NEVER CHOSEN. There is deliberately no --force and no env
+    # override: an opt-out would make the highest-traffic board the one exception to the FACT RULE, and the
+    # exception would be taken by whoever was in the biggest hurry. The clean run IS the landing run, and
+    # its SCORE.md change rides the landing's own .github-last push -- so no other seat ever meets an
+    # unexplained dirty .github mid-work, which was the whole objection this answers.
+    return [r for r in REPOS if git(r, "status", "--porcelain")]
+
+
 def find_table(lines):
     # Locate the standardized-display grid by its header, and PROVE its shape rather than assuming it.
     # ⛔ EVERY '| Language |' header is a CANDIDATE, not just the first.  SCORE.md carries more than one
@@ -199,6 +213,17 @@ def cmd_write(a):
             "is prose, and the FACT RULE asks for the runner's own board line" % text)
     if "\n" in text:
         die("--text spans lines; a markdown table row is one line")
+    # The clean-tree condition guards the REAL leaderboard only. selftest writes to a scratch copy, whose
+    # whole purpose is to be written while the working tree is mid-change; applying it there would make the
+    # gate fail for every seat who ran it during a landing, i.e. exactly when it matters.
+    if os.path.abspath(SCORE_MD) == os.path.abspath(os.path.join(S4E, ".github", "SCORE.md")):
+        dirty = tree_is_dirty()
+        if dirty:
+            print("⚠ SCORE.md ROW SKIPPED — %s %s uncommitted; this run measured a tree nobody else can check out."
+                  % (", ".join(dirty), "has" if len(dirty) == 1 else "have"))
+            print("  The number above stands as a scouting datum. Commit the tree and re-run to land the row"
+                  "  (ceo CEO-174: a dirty-tree number describes no checkable tree).")
+            return 0
     lines = open(SCORE_MD, encoding="utf-8").read().split("\n")
     hdr, rows = find_table(lines)
     if a.lang not in rows:
