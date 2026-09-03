@@ -5,16 +5,23 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
+typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs_needle_t;
+ScanSubjRegs_needle_t rt_scan_needle(uint64_t lo, uint64_t hi);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_scan_find() {
     x86_begin();
     return (_.op_off >= 0 && !_.op_name1 && _.op_sa >= 0) ?
-           x86("comment", "IR_SCAN_FIND (var needle) [fstranl.r find: generate positions where needle@slot matches; cursor off+16, len off+24; beta resumes]")
+           x86("comment", "IR_SCAN_FIND (var needle) [fstranl.r find: generate positions where needle@slot matches; cursor off+16, len off+24; beta resumes; rt_scan_needle coerces (int/real->string) before use, mirroring bb_scan_match.cpp -- FINDING-2026-09-03-seat02-icon-jcon-suite-census-and-level-cure.md class fix]")
              + x86_alpha()
              + x86("mov",     FRQ(_.op_off + 16), "r14")
-             + x86("mov",     "rdi", FRQ(_.op_sa + 8))
+             + x86("mov",     "rdi", FRQ(_.op_sa))
+             + x86("mov",     "rsi", FRQ(_.op_sa + 8))
+             + x86("sub",     "rsp", (long)8)
+             + x86("call",    "rt_scan_needle", (uint64_t)(uintptr_t)(void*)rt_scan_needle)
+             + x86("add",     "rsp", (long)8)
+             + x86("mov",     "rdi", "rax")
              + x86("sub",     "rsp", (long)8)
              + x86("call",    "strlen", (uint64_t)(uintptr_t)(void*)(size_t (*)(const char *))strlen)
              + x86("add",     "rsp", (long)8)
@@ -26,9 +33,15 @@ std::string bb_scan_find() {
              + x86("sub",     "rcx", "rdx")
              + x86("cmp",     "rax", "rcx")
              + x86_omega("jg")
-             + x86("mov",     "rdi", FRQ(_.op_sa + 8))
+             + x86("mov",     "rdi", FRQ(_.op_sa))
+             + x86("mov",     "rsi", FRQ(_.op_sa + 8))
+             + x86("sub",     "rsp", (long)8)
+             + x86("call",    "rt_scan_needle", (uint64_t)(uintptr_t)(void*)rt_scan_needle)
+             + x86("add",     "rsp", (long)8)
+             + x86("mov",     "rdi", "rax")
+             + x86("mov",     "rcx", FRQ(_.op_off + 16))
              + x86("mov",     "rsi", "r13")
-             + x86("add",     "rsi", "rax")
+             + x86("add",     "rsi", "rcx")
              + x86("sub",     "rsp", (long)8)
              + x86("call",    "memcmp", (uint64_t)(uintptr_t)(void*)(int (*)(const void *, const void *, size_t))memcmp)
              + x86("add",     "rsp", (long)8)
