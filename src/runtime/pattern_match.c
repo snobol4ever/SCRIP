@@ -350,8 +350,6 @@ static int subscript_set_body(DESCR_t arr, DESCR_t idx, DESCR_t val) {
 int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val) { int ok = subscript_set_body(arr, idx, val); if (ok && g_monitor_bin) mon_emit_value_bin("<lval>", val); return ok; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t subscript_get2_ext(DESCR_t arr, DESCR_t i, DESCR_t end) {
-    long ii = (long)to_int(i), ee = (long)to_int(end);
-    if (((-ii) ^ (-ee)) < 0) return FAILDESCR;
     return subscript_get2(arr, i, end);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
