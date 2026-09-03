@@ -260,8 +260,95 @@ s4e_servable_blocker() {   # <blocked-topic> -> prints the topic to serve INSTEA
     done
     return 1
 }
+# ⛔⭐ ONE PROCESS PER IDENTITY (ceo RULING 2026-09-03, row bus-refuses-a-second-live-process-under-one-seat-identity).
+# MEASURED by seat11, routed by hq_B 16:40: /home/claude11 held TWO live claude processes at once -- an interactive
+# session and a scheduled routine (`claude --name Fleet #11 --model claude-sonnet-5 --effort max`, per
+# .claude/scheduled_tasks.lock). LAW 6 above derives identity from the ROOT PATH, so BOTH are seat11 to the bus:
+# one $ME, one claim namespace, one inbox. The routine left SCRIP dirty mid-edit while the session closed a row.
+# ⛔⛔ AND THE RACE IS SILENT FROM BOTH SIDES, WHICH IS THE WHOLE DEFECT -- a claim HIDES its row from the other
+# picker, so neither process can see the other and each reads a coherent, entirely wrong world. This is the
+# 'non-empty is not alive' false-signal class the DRAINED and phantom-mailbox blocks above already convict,
+# arriving one level down: not a stale FILE, a second live WRITER nobody declared.
+# ⭐ THE RULE: one process per identity. A scheduled or cron routine never runs in a seat root -- it runs as its
+# own identity in its own root, or not at all. The bus ENFORCES that here rather than trusting it.
+# ⛔ IDENTITY IS THE PAIR (pid, starttime), NEVER THE PID ALONE. Linux recycles pids; a bare-pid lock eventually
+# names a DIFFERENT live process and refuses a seat that is alone in its root -- a guard manufacturing the very
+# false signal it exists to remove. /proc/<pid>/stat field 22 is that process's start time and is stable for its
+# whole life, so the pair is unforgeable. ⛔ The comm field can contain BOTH spaces and parens, so it is parsed
+# after the LAST ')', never by a positional split of the whole line.
+s4e_proc_start() { local _s; _s="$(cat "/proc/$1/stat" 2>/dev/null)" || return 1; [ -n "$_s" ] || return 1
+    printf '%s' "${_s##*') '}" | awk '{print $20}'; }
+s4e_pid_live() { [ -n "${1:-}" ] && [ -n "${2:-}" ] && [ -d "/proc/$1" ] || return 1
+    local _s; _s="$(s4e_proc_start "$1")" || return 1; [ -n "$_s" ] && [ "$_s" = "$2" ]; }
+# ⛔ RELEASES ONLY OUR OWN LOCK. An unconditional rm would let a crashed verb's cleanup delete the lock of the
+# process that legitimately took it next -- worse than never locking, because it fails in the direction of
+# pretending the identity is free.
+s4e_pid_release() { local _f="$PO/$ME/.pid" _p _t
+    [ -f "$_f" ] || return 0; read -r _p _t _ < "$_f" 2>/dev/null || true
+    [ "${_p:-}" = "$$" ] && rm -f "$_f"; return 0; }
+s4e_pid_arm() { trap 's4e_pid_release' EXIT; trap 's4e_pid_release; exit 130' INT; trap 's4e_pid_release; exit 143' TERM HUP; }
+s4e_pid_acquire() {
+    local _f="$PO/$ME/.pid" _mine _hs _hp _ht _p _t _at _c _tries=0
+    _mine="$(s4e_proc_start $$)" || _mine=""
+    [ -n "$_mine" ] || { printf '⚠ one-process-per-identity guard INERT: /proc/%s/stat is unreadable, so process identity cannot be MEASURED. Proceeding UNGUARDED.\n' "$$" >&2; return 0; }
+    # ⭐ A NESTED SELF-INVOCATION IS NOT A SECOND PROCESS. This script calls itself EIGHT times ("$0" banner /
+    # claim / park / send, plus one `exec "$0" send`): a lock that could not tell a descendant from a stranger
+    # would deadlock the bus against ITSELF on the very first `board`. The holder exports its (pid,starttime);
+    # a descendant sees a LIVE holder for its own seat and passes straight through, taking nothing, releasing
+    # nothing -- the parent's trap owns the lock for the whole tree.
+    # ⛔ THE `exec` CASE IS THE SUBTLE ONE: exec REPLACES THE IMAGE BUT KEEPS THE PID *AND* THE STARTTIME, so the
+    # new image IS the holder rather than a child -- and exec threw the release trap away with the old image.
+    # It must RE-ARM or the lock leaks. Distinguished by pid == $$; a recycled pid cannot reach here, its
+    # starttime differs. ⛔ A stale S4E_PID_LOCK inherited from a dead run simply fails the liveness test and
+    # falls through to a normal acquire -- it can never wedge a fresh process.
+    if [ -n "${S4E_PID_LOCK:-}" ]; then
+      IFS=: read -r _hs _hp _ht <<< "$S4E_PID_LOCK"
+      if [ "${_hs:-}" = "$ME" ] && s4e_pid_live "${_hp:-}" "${_ht:-}"; then
+        [ "${_hp:-}" = "$$" ] && s4e_pid_arm; return 0; fi
+    fi
+    # ⛔ AN UNWRITABLE MAILBOX MAKES THE GUARD INERT, NOT FATAL. Refusing here would turn one broken permission
+    # into a TOTAL bus outage for that seat, including read-only `check` -- the guard becoming a worse defect
+    # than the one it polices. Every verb that actually writes still fails on its own write, loudly.
+    if [ ! -w "$PO/$ME" ]; then
+      printf '⚠ one-process-per-identity guard INERT: %s is not writable, so the lock cannot be taken. Proceeding UNGUARDED.\n' "$PO/$ME" >&2; return 0; fi
+    while :; do
+      # ⭐ noclobber makes this redirect O_CREAT|O_EXCL -- atomic on every POSIX filesystem, the same guarantee
+      # `mint`'s mkdir lock and `claim`'s `ln` lean on. Two verbs racing here: exactly one creates the file.
+      if ( set -o noclobber; printf '%s %s %s %s\n' "$$" "$_mine" "$(date -u +%FT%TZ)" "${cmd:-?}" > "$_f" ) 2>/dev/null; then
+        export S4E_PID_LOCK="$ME:$$:$_mine"; s4e_pid_arm; return 0; fi
+      _p=""; _t=""; _at=""; _c=""
+      [ -f "$_f" ] && { read -r _p _t _at _c < "$_f" 2>/dev/null || true; }
+      if s4e_pid_live "${_p:-}" "${_t:-}"; then
+        printf '\n⛔⛔⛔ REFUSED: ANOTHER LIVE PROCESS ALREADY HOLDS THE IDENTITY %s ⛔⛔⛔\n' "$ME" >&2
+        printf '    INCUMBENT  pid %s  -- running `%s`, lock taken %s\n' "$_p" "${_c:-?}" "${_at:-?}" >&2
+        printf '    THIS ONE   pid %s  -- running `%s`\n' "$$" "${cmd:-?}" >&2
+        printf '    lock file: %s\n' "$_f" >&2
+        printf '\n    WHY THIS IS REFUSED RATHER THAN QUEUED: identity is derived from the ROOT PATH (LAW 6), so both\n' >&2
+        printf '    processes in %s are "%s" to the bus -- ONE $ME, ONE claim namespace, ONE inbox. A claim HIDES its\n' "$S4E" "$ME" >&2
+        printf '    row from the other picker, so the two would race SILENTLY and each would read a coherent, wrong world.\n' >&2
+        printf '\n    ONE PROCESS PER IDENTITY (ceo 2026-09-03). A scheduled or cron routine NEVER runs in a seat root:\n' >&2
+        printf '    it runs as its own identity in its own root, or not at all. If a routine is the incumbent here, stop\n' >&2
+        printf '    it (check %s/.claude/scheduled_tasks.lock) rather than working around this refusal.\n' "$S4E" >&2
+        printf '    If pid %s is a verb of YOURS that is legitimately still running (a long `done` DONE-WHEN holds the\n' "$_p" >&2
+        printf '    lock for its whole run), wait for it. The lock self-clears the moment that process is gone.\n\n' >&2
+        exit 2; fi
+      # stale (holder dead, or a torn/empty file) -> self-clear and retry, bounded. Never loops forever.
+      _tries=$((_tries+1))
+      if [ "$_tries" -gt 3 ]; then
+        printf '\n⛔ REFUSED (rc=2, COULD NOT MEASURE): %s exists, names no live process, and could not be cleared after %s attempts.\n' "$_f" "$_tries" >&2
+        printf '    This is not a verdict about a second process -- it is the guard saying it cannot tell. Inspect the file by hand.\n\n' >&2
+        exit 2; fi
+      rm -f "$_f" 2>/dev/null || true
+    done
+}
 cmd="${1:-check}"
-case "$cmd" in mailbox|"") ;; *) s4e_assert_box "$ME" identity;; esac
+# ⛔ THE LOCK IS TAKEN IN THE SAME CASE ARM AS THE IDENTITY ASSERTION, DELIBERATELY: the set of verbs that have
+# an identity is exactly the set that can hold one, so the two can never drift apart into a verb that asserts a
+# box but takes no lock. `mailbox` is excluded from both -- it is how a NEW identity is created, and it cannot
+# lock a mailbox that does not exist yet. ⛔ `check` and `clear` ARE locked, unlike the unread-mail banner below:
+# THE LOOP step 1 is `check`, and a `check` that quietly succeeds beside a second live writer is precisely the
+# silent-race reading this row exists to abolish. The refusal IS the diagnostic that surfaces the second process.
+case "$cmd" in mailbox|"") ;; *) s4e_assert_box "$ME" identity; s4e_pid_acquire;; esac
 # ⛔ ORPHANED .msg.* ARE SWEPT ON EVERY RUN (LAW 6, second half). `send` writes the message to a mktemp
 # $PO/.msg.XXXXXX and then mv's it into the destination inbox; when that mv failed the temp file just SAT there
 # -- one rotted 46 hours at the postoffice root, a seat-to-seat brief neither end ever knew was lost. A message
@@ -1041,7 +1128,12 @@ case "$cmd" in
          lock="$PO/.mint.lock"; got=0
          for _i in $(seq 1 50); do mkdir "$lock" 2>/dev/null && { got=1; break; }; sleep 0.1; done
          [ "$got" = 1 ] || { echo "⛔ REFUSED: could not acquire the mint lock ($lock) after 5s — another mint is stuck or crashed holding it. Investigate before removing it by hand; do not rm -rf blindly." >&2; exit 3; }
-         trap 'rmdir "$lock" 2>/dev/null' EXIT
+         # ⛔ COMPOSED WITH THE IDENTITY LOCK, NOT LAYERED OVER IT. A bare `trap ... EXIT` here CLOBBERS the
+         # one-process-per-identity release armed at startup, and the `trap - EXIT` below then removes it
+         # outright -- so every successful `mint` would leak its own .pid. (Self-healing on the next verb via
+         # the liveness check, but a lock file naming a dead process is exactly the stale evidence this row
+         # exists to stop manufacturing.) Both handlers run, in order, from one trap.
+         trap 'rmdir "$lock" 2>/dev/null; s4e_pid_release' EXIT
          if s4e_mint_dup; then echo "⛔ REFUSED: '$topic' was minted by someone else in the race just now — no torn row written, nothing lost." >&2; exit 1; fi
          # Baton BEFORE the queue row, deliberately: a crash between the two writes then leaves an orphan
          # task file (inert — nobody's picker ever finds a file next() never points at) rather than a live
@@ -1059,7 +1151,7 @@ Distill a real first step from the GOAL above (and a real DONE-WHEN — see the 
 - [$ME·$(date -u +%F)] Minted via \`s4e_msg.sh mint\`.
 TASKEOF
          printf '%s\t%s\tunassigned\tFREE\n' "$rank" "$topic" >> "$q"
-         rmdir "$lock" 2>/dev/null; trap - EXIT
+         rmdir "$lock" 2>/dev/null; trap 's4e_pid_release' EXIT
          echo "minted $topic (rank $rank, owner unassigned, state FREE) -> $b";;
   next)  q="$PO/QUEUE.tsv"; mkdir -p "$PO/claims"
          s4e_mode_line
