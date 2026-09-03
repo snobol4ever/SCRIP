@@ -125,6 +125,9 @@ static tree_t *rk_typed_def_param(const char *type, const char *def, const char 
     char buf[160]; snprintf(buf, sizeof buf, "%s%s", type, def);
     return rk_typed_param(intern(buf), name);
 }
+static tree_t *rk_byref_param(const char *name) {
+    tree_t *p = var_node(name); expr_add_child(p, leaf_sval(TT_QLIT, "@")); return p;
+}
 static tree_t *make_seq(ExprList *stmts) {
     tree_t *seq = ast_node_new(TT_SEQ_EXPR);
     if (stmts) {
@@ -459,7 +462,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token OP_DIVIS
 %token OP_REP_X OP_REP_XX
 %token OP_POW
-%type <node> stmt expr atom range_expr cmp_expr tern_expr jct_expr dor_expr add_expr closure
+%type <node> stmt expr atom range_expr cmp_expr or_expr and_expr tern_expr jct_expr dor_expr add_expr closure
 %type <node> mul_expr unary_expr pow_expr postfix_expr call_expr block
 %type <node> repl_expr addsub_expr divis_expr
 %type <node> if_stmt while_stmt for_stmt sub_decl given_stmt sub_body method_body elsif_tail scalar_methcall
@@ -1414,8 +1417,8 @@ param_list
     : VAR_SCALAR             { $$=exprlist_append(exprlist_new(),var_node($1)); }
     | VAR_SCALAR TESTOP IDENT { free($2); free($3); $$=exprlist_append(exprlist_new(),var_node($1)); }
     | param_list ',' VAR_SCALAR TESTOP IDENT { free($4); free($5); $$=exprlist_append($1,var_node($3)); }
-    | VAR_ARRAY               { $$=exprlist_append(exprlist_new(),var_node($1)); }
-    | param_list ',' VAR_ARRAY { $$=exprlist_append($1,var_node($3)); }
+    | VAR_ARRAY               { $$=exprlist_append(exprlist_new(),rk_byref_param($1)); }
+    | param_list ',' VAR_ARRAY { $$=exprlist_append($1,rk_byref_param($3)); }
     | IDENT VAR_SCALAR       { $$=exprlist_append(exprlist_new(),rk_typed_param($1,$2)); free($1); }
     | IDENT OP_COLON_D VAR_SCALAR { $$=exprlist_append(exprlist_new(),rk_typed_def_param($1,":D",$3)); free($1); }
     | IDENT OP_COLON_U VAR_SCALAR { $$=exprlist_append(exprlist_new(),rk_typed_def_param($1,":U",$3)); free($1); }
@@ -1543,14 +1546,20 @@ expr
     | tern_expr            { $$=$1; }
     ;
 tern_expr
-    : cmp_expr OP_TERNARY1 tern_expr OP_TERNARY2 tern_expr
+    : or_expr OP_TERNARY1 tern_expr OP_TERNARY2 tern_expr
         { tree_t *c = ast_node_new(TT_TERNARY); ast_push(c, $1); ast_push(c, $3); ast_push(c, $5); $$ = c; }
-    | cmp_expr             { $$=$1; }
+    | or_expr              { $$=$1; }
+    ;
+or_expr
+    : or_expr OP_OR  and_expr  { $$=expr_binary(TT_ALT,$1,$3); }
+    | and_expr                 { $$=$1; }
+    ;
+and_expr
+    : and_expr OP_AND cmp_expr { $$=expr_binary(TT_SEQ,$1,$3); }
+    | cmp_expr                 { $$=$1; }
     ;
 cmp_expr
-    : cmp_expr OP_AND divis_expr  { $$=expr_binary(TT_SEQ,$1,$3); }
-    | cmp_expr OP_OR  divis_expr  { $$=expr_binary(TT_ALT,$1,$3); }
-    | cmp_expr OP_EQ  divis_expr  { $$=rk_chain_cmp($1,TT_EQ,$3); }
+    : cmp_expr OP_EQ  divis_expr  { $$=rk_chain_cmp($1,TT_EQ,$3); }
     | cmp_expr OP_NE  divis_expr  { $$=rk_chain_cmp($1,TT_NE,$3); }
     | cmp_expr '<'    divis_expr  { $$=rk_chain_cmp($1,TT_LT,$3); }
     | cmp_expr '>'    divis_expr  { $$=rk_chain_cmp($1,TT_GT,$3); }

@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include "lower.h"
-typedef struct { IR_graph_t * g; IR_t * try_catch; IR_t * loop_exit; IR_t * loop_next; } rcx_t;
+typedef struct { IR_graph_t * g; IR_t * try_catch; IR_t * loop_exit; IR_t * loop_next; const tree_t * cur_proc; uint64_t cur_byref_mask; int cur_nparams; } rcx_t;
 #define RK_GRAM_MAX 64
 static const char * g_rk_gram_names[RK_GRAM_MAX];
 static int          g_rk_gram_n = 0;
@@ -20,6 +20,31 @@ static int rk_is_class_name(const char * nm) { if (!nm) return 0; for (int i = 0
 static int rk_is_modeled_type(const char * ty) {
     if (!ty) return 0; static const char * k[] = { "Int", "Num", "Rat", "Str", "Numeric", "Real", "Cool", "Bool", 0 }; for (int i = 0; k[i]; i++) if (!strcmp(ty, k[i])) return 1;
     return rk_is_class_name(ty);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static uint64_t rk_param_byref_mask(const tree_t * proc, int nparams) {
+    uint64_t brm = 0; if (!proc) return 0;
+    for (int k = 0; k < nparams && k < 64 && (1 + k) < proc->n; k++) {
+        const tree_t * pv = proc->c[1 + k];
+        if (pv && pv->n > 0 && pv->c[0] && pv->c[0]->t == TT_QLIT && pv->c[0]->v.sval && !strcmp(pv->c[0]->v.sval, "@")) brm |= (1ULL << k);
+    }
+    return brm;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_name_is_byref(rcx_t * cx, const char * name) {
+    if (!cx || !cx->cur_proc || !cx->cur_byref_mask || !name) return 0;
+    for (int k = 0; k < cx->cur_nparams && k < 64 && (1 + k) < cx->cur_proc->n; k++) {
+        if (!((cx->cur_byref_mask >> k) & 1ULL)) continue;
+        const tree_t * pv = cx->cur_proc->c[1 + k];
+        if (pv && pv->v.sval && !strcmp(pv->v.sval, name)) return 1;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static uint64_t rk_callee_byref_mask(const char * nm) {
+    if (!nm) return 0;
+    for (int i = 0; i < g_stage2.proc_count; i++) if (g_stage2.proc_table[i].name && !strcmp(g_stage2.proc_table[i].name, nm)) return g_stage2.proc_table[i].byref_mask;
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * stmt_subj(const tree_t * s) { return lc_stmt_subj(s); }
@@ -103,8 +128,19 @@ static IR_t * lower_rblock(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω) {
 static IR_t * lower_rcall(rcx_t * cx, const tree_t * t, const char * nm, int from, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = nm;
     int nargs = t->n - from; IR_t * prev = NULL; IR_t * entry = nd;
+    uint64_t brm = rk_callee_byref_mask(nm);
     for (int k = 0; k < nargs; k++) {
-        IR_t * ar = NULL; IR_t * ae = lower_rv(cx, t->c[from + k], (k == nargs - 1) ? nd : NULL, ω, &ar);
+        const tree_t * argt = t->c[from + k];
+        IR_t * ar = NULL; IR_t * ae;
+        if (((brm >> k) & 1ULL) && argt && argt->t == TT_VAR && argt->v.sval && !rk_name_is_byref(cx, argt->v.sval)) {
+            IR_t * vr = build(cx, IR_VAR_REF, (k == nargs - 1) ? nd : NULL, ω); IR_LIT(vr).sval = argt->v.sval;
+            ae = vr; ar = vr;
+        } else if (((brm >> k) & 1ULL) && argt && argt->t == TT_VAR && argt->v.sval) {
+            IR_t * vr = build(cx, IR_VAR, (k == nargs - 1) ? nd : NULL, ω); IR_LIT(vr).sval = argt->v.sval;
+            ae = vr; ar = vr;
+        } else {
+            ae = lower_rv(cx, argt, (k == nargs - 1) ? nd : NULL, ω, &ar);
+        }
         if (k == 0) entry = ae;
         if (prev && ae) lc_γ_to(prev, ae);
         prev = ar;
@@ -222,7 +258,13 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     case TT_VAR: {
         if (rk_is_grammar_name(t->v.sval) || rk_is_class_name(t->v.sval)) {
             IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd;
-        } IR_t * nd = build(cx, IR_VAR, γ, ω);
+        }
+        if (rk_name_is_byref(cx, t->v.sval)) {
+            IR_t * dr = build(cx, IR_DEREF, γ, ω);
+            IR_t * v = build(cx, IR_VAR, dr, ω); IR_LIT(v).sval = t->v.sval;
+            ir_operand_push(dr, v); *res = dr; return v;
+        }
+        IR_t * nd = build(cx, IR_VAR, γ, ω);
         IR_LIT(nd).sval = t->v.sval; *res = nd; return nd;
     }
     case TT_ASSIGN: if (t->n > 1 && t->c[0] && (t->c[0]->t == TT_FIELD || t->c[0]->t == TT_TWIGIL_FIELD)) {
@@ -252,7 +294,15 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (rr) ir_operand_push(nd, rr); *res = nd; return e; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_ARR_SET: if (t->n > 2 && t->c[0] && t->c[0]->t == TT_VAR) {
-        IR_t * as = build(cx, IR_ASSIGN, γ, ω); IR_LIT(as).sval = t->c[0]->v.sval;
+        const char * vn = t->c[0]->v.sval;
+        if (rk_name_is_byref(cx, vn)) {
+            IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
+            IR_t * vr = build(cx, IR_VAR, NULL, ω); IR_LIT(vr).sval = vn;
+            IR_t * r2 = NULL; IR_t * e = lower_rcall(cx, t, "arr_set_pure", 0, asn, ω, &r2);
+            γ_to(vr, e ? e : asn);
+            ir_operand_push(asn, vr); if (r2) ir_operand_push(asn, r2);
+            *res = asn; return vr; }
+        IR_t * as = build(cx, IR_ASSIGN, γ, ω); IR_LIT(as).sval = vn;
         IR_t * r2 = NULL; IR_t * e = lower_rcall(cx, t, "arr_set_pure", 0, as, ω, &r2); if (r2) ir_operand_push(as, r2); *res = as; return e; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_USE_DECL: { IR_t * nd = build(cx, IR_SUCCEED, γ, ω); *res = nd; return nd; }
@@ -549,6 +599,7 @@ static void rk_register_proc(const tree_t * proc, const char * name, int nparams
     g_stage2.proc_table[pi].entry_pc = -1;
     g_stage2.proc_table[pi].bb_idx   = -1;
     g_stage2.proc_table[pi].nparams  = nparams;
+    g_stage2.proc_table[pi].byref_mask = rk_param_byref_mask(proc, nparams);
     { const tree_t * lp = (proc && nparams > 0 && nparams < proc->n) ? proc->c[nparams] : (const tree_t *)0;
       if (lp && lp->n > 0 && lp->c[0] && lp->c[0]->t == TT_QLIT && lp->c[0]->v.sval && !strcmp(lp->c[0]->v.sval, "*@")) {
           g_stage2.proc_table[pi].is_variadic = 1; g_stage2.proc_table[pi].rest_kind = 1; }
@@ -766,6 +817,9 @@ static const char * rk_prologue_target(const tree_t * s) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
     IR_graph_t * g = IR_alloc(8192); rcx_t cx; cx.g = g; cx.try_catch = NULL; cx.loop_exit = NULL; cx.loop_next = NULL;
+    cx.cur_proc = pd; cx.cur_byref_mask = 0; cx.cur_nparams = 0;
+    for (int _pbi = 0; pd && _pbi < g_stage2.proc_count; _pbi++) if (g_stage2.proc_table[_pbi].proc == pd) {
+        cx.cur_byref_mask = g_stage2.proc_table[_pbi].byref_mask; cx.cur_nparams = g_stage2.proc_table[_pbi].nparams; break; }
     IR_t * succ = IR_node_alloc(g, IR_SUCCEED); IR_t * fail = IR_node_alloc(g, IR_FAIL);
     IR_t * sentry = succ; IR_t * entry = succ;
     int is_multi = (pd && pd->n > 0 && pd->c[0] && pd->c[0]->v.sval) && strchr(pd->c[0]->v.sval, '$');
