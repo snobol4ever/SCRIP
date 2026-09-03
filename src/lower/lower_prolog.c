@@ -196,6 +196,30 @@ static int pl_rung_of(const char * nm) {
     return 0;
 }
 static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out);
+static int pl_tree_is_nil(const tree_t * t) {
+    if (!t) return 0;
+    if (t->t == TT_MAKELIST) return t->n == 0;
+    return (t->t == TT_QLIT || t->t == TT_NAME) && t->v.sval && !strcmp(t->v.sval, "[]");
+}
+static const char * pl_decl_directives[] = { "multifile", "discontiguous", "ensure_loaded", "use_module", "module", "meta_predicate", "dynamic", NULL };
+static void pl_decl_dynamic_record(stage2_t * s2, tree_t * spec, tree_t * marker) {
+    if (!spec) return;
+    if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, ",") && spec->n == 2) { pl_decl_dynamic_record(s2, spec->c[0], marker); pl_decl_dynamic_record(s2, spec->c[1], marker); return; }
+    if (spec->t == TT_MAKELIST) { for (int i = 0; i < spec->n; i++) pl_decl_dynamic_record(s2, spec->c[i], marker); return; }
+    if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, "/") && spec->n == 2 && spec->c[0] && (spec->c[0]->t == TT_QLIT || spec->c[0]->t == TT_NAME)
+        && spec->c[0]->v.sval && spec->c[1] && spec->c[1]->t == TT_ILIT) {
+        char key[264]; snprintf(key, sizeof key, "%s/%d", spec->c[0]->v.sval, (int) spec->c[1]->v.ival);
+        if (!resolve_pred_table_lookup(&s2->resolve_pred_table, key)) resolve_pred_table_insert(&s2->resolve_pred_table, strdup(key), marker);
+        return;
+    }
+    pl_refuse("dynamic declaration shape", spec->v.sval ? spec->v.sval : "?", 10);
+}
+static int pl_flag_directive_is_default(const tree_t * subj) {
+    const tree_t * f = subj->c[0]; const tree_t * v = subj->c[1];
+    if (!f || !v || !(f->t == TT_QLIT || f->t == TT_NAME) || !(v->t == TT_QLIT || v->t == TT_NAME) || !f->v.sval || !v->v.sval) return 0;
+    if (!strcmp(f->v.sval, "double_quotes")) return !strcmp(v->v.sval, "atom") || !strcmp(v->v.sval, "string");
+    return 0;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * pl_cmp_op_suffix(const char * s) {
     if (!s) return NULL;
@@ -360,15 +384,15 @@ static const pl_det_leaf_t pl_det_leaves[] = {
     { "atom_to_term", 3, "$atom_to_term" }, { "writeq", 1, "$writeq" }, { "print", 1, "$writeq" }, { "write_canonical", 1, "$write_canonical" }, { "writeln", 1, "$writeln" },
     { "put_char", 1, "$put_char" },
     { "halt", 0, "$halt" }, { "halt", 1, "$halt" }, { "flush_output", 0, "$flush_output" }, { "format", 1, "$format" }, { "format", 2, "$format" },
+    { "write", 2, "$write_s" }, { "writeq", 2, "$writeq_s" }, { "print", 2, "$writeq_s" }, { "write_canonical", 2, "$write_canonical_s" }, { "writeln", 2, "$writeln_s" }, { "nl", 1, "$nl_s" },
+    { "put_char", 2, "$put_char_s" }, { "flush_output", 1, "$flush_output_s" }, { "format", 3, "$format3" }, { "read", 2, "$read_s" }, { "get_char", 2, "$get_char_s" }, { "peek_char", 2, "$peek_char_s" },
+    { "open", 3, "$open" }, { "open", 4, "$open4" }, { "close", 1, "$close" }, { "close", 2, "$close" }, { "current_output", 1, "$current_output" }, { "current_input", 1, "$current_input" },
+    { "set_output", 1, "$set_output" }, { "set_input", 1, "$set_input" }, { "keysort", 2, "$keysort" }, { "op", 3, "$op" },
     { 0, 0, 0 } };
-static const struct { const char * nm; int ar; } pl_stream_arity[] = {
-    { "write", 2 }, { "writeq", 2 }, { "print", 2 }, { "write_canonical", 2 }, { "nl", 1 }, { "format", 3 },
-    { "read", 2 }, { "get_char", 2 }, { "peek_char", 2 }, { "put_char", 2 }, { "tab", 2 }, { "flush_output", 1 }, { 0, 0 } };
 static const char * pl_det_leaf_sym(const char * nm, int ar) {
     for (int i = 0; pl_det_leaves[i].nm; i++) if (pl_det_leaves[i].ar == ar && !strcmp(nm, pl_det_leaves[i].nm)) return pl_det_leaves[i].sym;
     return NULL;
 }
-static int pl_stream_arity_of(const char * nm, int ar) { for (int i = 0; pl_stream_arity[i].nm; i++) if (pl_stream_arity[i].ar == ar && !strcmp(nm, pl_stream_arity[i].nm)) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_leaf_lv(lcx_t * cx, const char * sym, const tree_t * t, int nargs, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = sym;
@@ -386,7 +410,9 @@ static IR_t * pl_leaf_lv(lcx_t * cx, const char * sym, const tree_t * t, int nar
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_user_call(lcx_t * cx, const char * nm, const tree_t * t, int nargs, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     { char key[264]; snprintf(key, sizeof key, "%s/%d", nm, nargs);
-      if (!resolve_pred_table_lookup(&g_stage2.resolve_pred_table, key)) pl_refuse("existence error for unknown procedure", key, 9); }
+      const tree_t * ch = resolve_pred_table_lookup(&g_stage2.resolve_pred_table, key);
+      if (!ch) pl_refuse("existence error for unknown procedure", key, 9);
+      if (ch->t == TT_FNC) { IR_t * nd = build(cx, IR_GOTO, ωfail, ωfail); if (entry_out) *entry_out = nd; return nd; } }
     IR_t * nd = build(cx, IR_CALL_PROC_STAGED, γnext, ωfail); IR_LIT(nd).sval = pl_pi_name(nm, nargs);
     IR_t * prev = NULL; IR_t * first = NULL;
     for (int i = 0; i < nargs; i++) {
@@ -445,7 +471,16 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             if (entry_out) *entry_out = ve ? ve : v;
             return nd;
         }
-        if (pl_stream_arity_of(nm, t->n)) pl_refuse("stream builtin", nm, 9);
+        if (!strcmp(nm, "tab") && t->n == 2) {
+            IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = "$tab_s";
+            IR_t * se = NULL; IR_t * sv = term_lval_e(cx, t->c[0], &se);
+            IR_t * ve = NULL; IR_t * v = lower_arith_val(cx, t->c[1], ωfail, &ve);
+            lc_γ_to(sv, ve ? ve : v); lc_ω_to(sv, ωfail); lc_γ_to(v, nd); lc_ω_to(v, ωfail);
+            ir_operand_push(nd, sv); ir_operand_push(nd, v);
+            if (entry_out) *entry_out = se ? se : sv;
+            return nd;
+        }
+        if (!strcmp(nm, "read_term") && t->n == 2 && pl_tree_is_nil(t->c[1])) return pl_leaf_lv(cx, "$read", t, 1, γnext, ωfail, entry_out);
         { const char * ls = pl_det_leaf_sym(nm, t->n); if (ls) return pl_leaf_lv(cx, ls, t, t->n, γnext, ωfail, entry_out); }
         { int r = pl_rung_of(nm); if (r) pl_refuse(r == 6 ? "builtin arity not wired" : "builtin", nm, r); }
         return pl_user_call(cx, nm, t, t->n, γnext, ωfail, entry_out);
@@ -596,7 +631,14 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             const tree_t *gt = subj->c[0];
             if (gt && ((gt->t == TT_QLIT || gt->t == TT_NAME || gt->t == TT_FNC) && gt->v.sval)) { if (ninit < PL_INIT_GOALS_MAX) init_goals[ninit++] = gt; continue; }
         }
-        pl_refuse("directive", (subj->v.sval ? subj->v.sval : "?"), 10);
+        if (subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "dynamic") && subj->n >= 1) {
+            for (int k = 0; k < subj->n; k++) pl_decl_dynamic_record(&g_stage2, subj->c[k], (tree_t *) subj); continue; }
+        if (subj->t == TT_FNC && subj->v.sval && pl_name_in(subj->v.sval, pl_decl_directives)) continue;
+        if (subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "op") && subj->n == 3) { if (ninit < PL_INIT_GOALS_MAX) init_goals[ninit++] = subj; continue; }
+        if (subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "set_prolog_flag") && subj->n == 2) {
+            if (pl_flag_directive_is_default(subj)) continue;
+            pl_refuse("directive set_prolog_flag", subj->c[0] && subj->c[0]->v.sval ? subj->c[0]->v.sval : "?", 10); }
+        pl_refuse("directive goal", (subj->v.sval ? subj->v.sval : "?"), 5);
     }
     tree_t * main_goal = NULL;
     if (ninit == 0 && resolve_pred_table_lookup(&g_stage2.resolve_pred_table, "main/0")) { main_goal = ast_node_new(TT_QLIT); main_goal->v.sval = (char *) "main"; init_goals[ninit++] = main_goal; }

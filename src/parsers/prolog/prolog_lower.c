@@ -511,12 +511,6 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
             int callable_with_args =
                   (strcmp(gn,"begin_tests")==0   && (ga==1||ga==2))
                || (strcmp(gn,"end_tests")==0     && ga==1)
-               || (strcmp(gn,"dynamic")==0       && (ga==1||ga==2))
-               || (strcmp(gn,"use_module")==0    && (ga==1||ga==2))
-               || (strcmp(gn,"module")==0        && (ga==1||ga==2))
-               || (strcmp(gn,"ensure_loaded")==0 && ga==1)
-               || (strcmp(gn,"discontiguous")==0 && (ga==1||ga==2))
-               || (strcmp(gn,"meta_predicate")==0 && ga==1)
                || (strcmp(gn,"nb_setval")==0     && ga==2);
             if (callable_with_args) {
                 static int pj_dir_seq = 0;

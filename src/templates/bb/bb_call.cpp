@@ -39,6 +39,10 @@ DESCR_t dop_pl_atop_lt(DESCR_t *, int); DESCR_t dop_pl_atop_le(DESCR_t *, int); 
 DESCR_t dop_pl_atop_eq(DESCR_t *, int); DESCR_t dop_pl_atop_ne(DESCR_t *, int); DESCR_t dop_pl_writeq(DESCR_t *, int); DESCR_t dop_pl_write_canonical(DESCR_t *, int);
 DESCR_t dop_pl_writeln(DESCR_t *, int); DESCR_t dop_pl_tab(DESCR_t *, int); DESCR_t dop_pl_put_char(DESCR_t *, int); DESCR_t dop_pl_halt(DESCR_t *, int);
 DESCR_t dop_pl_flush_output(DESCR_t *, int); DESCR_t dop_pl_format(DESCR_t *, int);
+DESCR_t dop_pl_write_s(DESCR_t *, int); DESCR_t dop_pl_writeq_s(DESCR_t *, int); DESCR_t dop_pl_write_canonical_s(DESCR_t *, int); DESCR_t dop_pl_writeln_s(DESCR_t *, int); DESCR_t dop_pl_nl_s(DESCR_t *, int);
+DESCR_t dop_pl_tab_s(DESCR_t *, int); DESCR_t dop_pl_put_char_s(DESCR_t *, int); DESCR_t dop_pl_flush_output_s(DESCR_t *, int); DESCR_t dop_pl_set_output(DESCR_t *, int); DESCR_t dop_pl_set_input(DESCR_t *, int);
+DESCR_t dop_pl_close(DESCR_t *, int); DESCR_t rt_pl_dop_read_s(DESCR_t *, int); DESCR_t rt_pl_dop_get_char_s(DESCR_t *, int); DESCR_t rt_pl_dop_peek_char_s(DESCR_t *, int); DESCR_t rt_pl_dop_current_output(DESCR_t *, int);
+DESCR_t rt_pl_dop_current_input(DESCR_t *, int); DESCR_t rt_pl_dop_open(DESCR_t *, int); DESCR_t rt_pl_dop_open4(DESCR_t *, int); DESCR_t rt_pl_dop_keysort(DESCR_t *, int); DESCR_t rt_pl_dop_format3(DESCR_t *, int); DESCR_t dop_pl_op(DESCR_t *, int);
 DESCR_t rt_pl_dop_ax_rem(DESCR_t *, int); DESCR_t rt_pl_dop_ax_fpow(DESCR_t *, int); DESCR_t rt_pl_dop_ax_pow(DESCR_t *, int); DESCR_t rt_pl_dop_ax_min(DESCR_t *, int);
 DESCR_t rt_pl_dop_ax_max(DESCR_t *, int); DESCR_t rt_pl_dop_ax_gcd(DESCR_t *, int); DESCR_t rt_pl_dop_ax_xor(DESCR_t *, int); DESCR_t rt_pl_dop_ax_shr(DESCR_t *, int);
 DESCR_t rt_pl_dop_ax_shl(DESCR_t *, int); DESCR_t rt_pl_dop_ax_band(DESCR_t *, int); DESCR_t rt_pl_dop_ax_bor(DESCR_t *, int); DESCR_t rt_pl_dop_ax_neg(DESCR_t *, int);
@@ -321,6 +325,12 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$writeq", 1, "dop_pl_writeq", dop_pl_writeq }, { "$write_canonical", 1, "dop_pl_write_canonical", dop_pl_write_canonical }, { "$writeln", 1, "dop_pl_writeln", dop_pl_writeln },
         { "$tab", 1, "dop_pl_tab", dop_pl_tab }, { "$put_char", 1, "dop_pl_put_char", dop_pl_put_char }, { "$halt", 0, "dop_pl_halt", dop_pl_halt }, { "$halt", 1, "dop_pl_halt", dop_pl_halt },
         { "$flush_output", 0, "dop_pl_flush_output", dop_pl_flush_output }, { "$format", 1, "dop_pl_format", dop_pl_format }, { "$format", 2, "dop_pl_format", dop_pl_format },
+        { "$write_s", 2, "dop_pl_write_s", dop_pl_write_s }, { "$writeq_s", 2, "dop_pl_writeq_s", dop_pl_writeq_s }, { "$write_canonical_s", 2, "dop_pl_write_canonical_s", dop_pl_write_canonical_s },
+        { "$writeln_s", 2, "dop_pl_writeln_s", dop_pl_writeln_s }, { "$nl_s", 1, "dop_pl_nl_s", dop_pl_nl_s }, { "$tab_s", 2, "dop_pl_tab_s", dop_pl_tab_s }, { "$put_char_s", 2, "dop_pl_put_char_s", dop_pl_put_char_s },
+        { "$flush_output_s", 1, "dop_pl_flush_output_s", dop_pl_flush_output_s }, { "$set_output", 1, "dop_pl_set_output", dop_pl_set_output }, { "$set_input", 1, "dop_pl_set_input", dop_pl_set_input },
+        { "$close", 1, "dop_pl_close", dop_pl_close }, { "$close", 2, "dop_pl_close", dop_pl_close }, { "$read_s", 2, "rt_pl_dop_read_s", rt_pl_dop_read_s }, { "$get_char_s", 2, "rt_pl_dop_get_char_s", rt_pl_dop_get_char_s },
+        { "$peek_char_s", 2, "rt_pl_dop_peek_char_s", rt_pl_dop_peek_char_s }, { "$current_output", 1, "rt_pl_dop_current_output", rt_pl_dop_current_output }, { "$current_input", 1, "rt_pl_dop_current_input", rt_pl_dop_current_input },
+        { "$open", 3, "rt_pl_dop_open", rt_pl_dop_open }, { "$open4", 4, "rt_pl_dop_open4", rt_pl_dop_open4 }, { "$keysort", 2, "rt_pl_dop_keysort", rt_pl_dop_keysort }, { "$format3", 3, "rt_pl_dop_format3", rt_pl_dop_format3 }, { "$op", 3, "dop_pl_op", dop_pl_op },
         { "$ax_rem", 2, "rt_pl_dop_ax_rem", rt_pl_dop_ax_rem }, { "$ax_fpow", 2, "rt_pl_dop_ax_fpow", rt_pl_dop_ax_fpow }, { "$ax_pow", 2, "rt_pl_dop_ax_pow", rt_pl_dop_ax_pow },
         { "$ax_min", 2, "rt_pl_dop_ax_min", rt_pl_dop_ax_min }, { "$ax_max", 2, "rt_pl_dop_ax_max", rt_pl_dop_ax_max }, { "$ax_gcd", 2, "rt_pl_dop_ax_gcd", rt_pl_dop_ax_gcd },
         { "$ax_xor", 2, "rt_pl_dop_ax_xor", rt_pl_dop_ax_xor }, { "$ax_shr", 2, "rt_pl_dop_ax_shr", rt_pl_dop_ax_shr }, { "$ax_shl", 2, "rt_pl_dop_ax_shl", rt_pl_dop_ax_shl },

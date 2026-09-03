@@ -112,6 +112,19 @@ static const char *plc_atom_text(pl_cell_t *d)
     return n ? n : "?";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_user_op(const char *fn, int ar, int *prec, int *ra)
+{
+    extern int prolog_op_user_count(void); extern int prolog_op_user_get(int, const char **, int *, const char **);
+    int n = prolog_op_user_count();
+    for (int i = 0; i < n; i++) {
+        const char *nm = 0; const char *ty = 0; int pr = 0;
+        if (!prolog_op_user_get(i, &nm, &pr, &ty) || !nm || !ty || strcmp(nm, fn)) continue;
+        if (ar == 2 && (!strcmp(ty, "xfx") || !strcmp(ty, "xfy") || !strcmp(ty, "yfx"))) { *prec = pr; *ra = !strcmp(ty, "xfy"); return 1; }
+        if (ar == 1 && (!strcmp(ty, "fy") || !strcmp(ty, "fx"))) { *prec = pr; *ra = 0; return 1; }
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_op_prec(const char *name, int arity)
 {
     struct { const char *n; int a; int p; } tbl[] = {
@@ -128,6 +141,7 @@ static int plc_op_prec(const char *name, int arity)
         {NULL,0,0}
     };
     for (int i = 0; tbl[i].n; i++) if (tbl[i].a == arity && strcmp(tbl[i].n, name) == 0) return tbl[i].p;
+    { int p, r; if (plc_user_op(name, arity, &p, &r)) return p; }
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -209,12 +223,14 @@ static void plc_write(pl_cell_t *c, plc_vmap *m)
         {"-",1,200,0},{"\\+",1,900,0},{"not",1,900,0},
         {NULL,0,0,0}
     };
-    for (int i = 0; ops[i].name; i++) {
-        if (strcmp(fn, ops[i].name) == 0 && ar == ops[i].arity) {
-            if (ops[i].arity == 2) {
-                int lp = plc_operand_prec(&aa[0]), rp = plc_operand_prec(&aa[1]), my_prec = ops[i].prec;
-                int lneed = (lp > my_prec) || (lp == my_prec && ops[i].right_assoc);
-                int rneed = (rp > my_prec) || (rp == my_prec && !ops[i].right_assoc);
+    int op_prec = -1, op_ra = 0;
+    for (int i = 0; ops[i].name; i++) if (strcmp(fn, ops[i].name) == 0 && ar == ops[i].arity) { op_prec = ops[i].prec; op_ra = ops[i].right_assoc; break; }
+    if (op_prec < 0) plc_user_op(fn, ar, &op_prec, &op_ra);
+    if (op_prec >= 0) {
+            if (ar == 2) {
+                int lp = plc_operand_prec(&aa[0]), rp = plc_operand_prec(&aa[1]), my_prec = op_prec;
+                int lneed = (lp > my_prec) || (lp == my_prec && op_ra);
+                int rneed = (rp > my_prec) || (rp == my_prec && !op_ra);
                 if (lneed) fprintf(fp, "(");
                 plc_write(&aa[0], m);
                 if (lneed) fprintf(fp, ")");
@@ -224,15 +240,14 @@ static void plc_write(pl_cell_t *c, plc_vmap *m)
                 if (rneed) fprintf(fp, ")");
             } else {
                 int ap = plc_operand_prec(&aa[0]);
-                int aneed = (ap >= ops[i].prec);
+                int aneed = (ap >= op_prec);
                 if (isalpha((unsigned char)fn[0])) fprintf(fp, "%s ", fn); else fprintf(fp, "%s", fn);
                 if (aneed) fprintf(fp, "(");
                 plc_write(&aa[0], m);
                 if (aneed) fprintf(fp, ")");
             }
             return;
-        }
-    }
+            }
     fprintf(fp, "%s(", fn);
     for (int i = 0; i < ar; i++) { if (i) fprintf(fp, ","); plc_write(&aa[i], m); }
     fprintf(fp, ")");
@@ -307,22 +322,25 @@ static void plc_wt(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, lon
         {"*",2,400,0},{"/",2,400,0},{"//",2,400,0},{"mod",2,400,0},{"rem",2,400,0},{"<<",2,400,0},{">>",2,400,0},
         {"**",2,200,1},{"^",2,200,1},{"-",1,200,0},{"\\+",1,900,0},{"not",1,900,0},{NULL,0,0,0}
     };
-    if (!ignore_ops) for (int i = 0; ops[i].name; i++) if (strcmp(fn, ops[i].name) == 0 && ar == ops[i].arity) {
-        if (ops[i].arity == 2) {
-            int lp = plc_operand_prec(&aa[0]), rp = plc_operand_prec(&aa[1]), my = ops[i].prec;
-            if ((lp > my) || (lp == my && ops[i].right_assoc)) { fprintf(fp, "("); plc_wt(&aa[0], quoted, ignore_ops, numbervars, max_depth, depth+1, m); fprintf(fp, ")"); }
+    int op_prec = -1, op_ra = 0;
+    if (!ignore_ops) { for (int i = 0; ops[i].name; i++) if (strcmp(fn, ops[i].name) == 0 && ar == ops[i].arity) { op_prec = ops[i].prec; op_ra = ops[i].right_assoc; break; }
+        if (op_prec < 0) plc_user_op(fn, ar, &op_prec, &op_ra); }
+    if (op_prec >= 0) {
+        if (ar == 2) {
+            int lp = plc_operand_prec(&aa[0]), rp = plc_operand_prec(&aa[1]), my = op_prec;
+            if ((lp > my) || (lp == my && op_ra)) { fprintf(fp, "("); plc_wt(&aa[0], quoted, ignore_ops, numbervars, max_depth, depth+1, m); fprintf(fp, ")"); }
             else plc_wt(&aa[0], quoted, ignore_ops, numbervars, max_depth, depth+1, m);
             if (isalpha((unsigned char)fn[0])) fprintf(fp, " %s ", fn); else fprintf(fp, "%s", fn);
-            if ((rp > my) || (rp == my && !ops[i].right_assoc)) { fprintf(fp, "("); plc_wt(&aa[1], quoted, ignore_ops, numbervars, max_depth, depth+1, m); fprintf(fp, ")"); }
+            if ((rp > my) || (rp == my && !op_ra)) { fprintf(fp, "("); plc_wt(&aa[1], quoted, ignore_ops, numbervars, max_depth, depth+1, m); fprintf(fp, ")"); }
             else plc_wt(&aa[1], quoted, ignore_ops, numbervars, max_depth, depth+1, m);
         } else {
             int ap = plc_operand_prec(&aa[0]);
             if (isalpha((unsigned char)fn[0])) fprintf(fp, "%s ", fn); else fprintf(fp, "%s", fn);
-            if (ap >= ops[i].prec) { fprintf(fp, "("); plc_wt(&aa[0], quoted, ignore_ops, numbervars, max_depth, depth+1, m); fprintf(fp, ")"); }
+            if (ap >= op_prec) { fprintf(fp, "("); plc_wt(&aa[0], quoted, ignore_ops, numbervars, max_depth, depth+1, m); fprintf(fp, ")"); }
             else plc_wt(&aa[0], quoted, ignore_ops, numbervars, max_depth, depth+1, m);
         }
         return;
-    }
+        }
     if (fn[0] == '.' && fn[1] == 0) fprintf(fp, "'.'"); else plc_wt_atom(fp, fn, quoted);
     fprintf(fp, "(");
     for (int i = 0; i < ar; i++) { if (i) fprintf(fp, ","); plc_wt(&aa[i], quoted, ignore_ops, numbervars, max_depth, depth+1, m); }
@@ -383,12 +401,14 @@ static void plc_writeq(pl_cell_t *c, plc_vmap *m)
         {"**",2,200,1},{"^",2,200,1},{"-",1,200,0},{"\\+",1,900,0},{"not",1,900,0},
         {NULL,0,0,0}
     };
-    for (int i = 0; ops[i].name; i++) {
-        if (strcmp(fn, ops[i].name) == 0 && ar == ops[i].arity) {
-            if (ops[i].arity == 2) {
-                int lp = plc_operand_prec(&aa[0]), rp = plc_operand_prec(&aa[1]), my_prec = ops[i].prec;
-                int lneed = (lp > my_prec) || (lp == my_prec && ops[i].right_assoc);
-                int rneed = (rp > my_prec) || (rp == my_prec && !ops[i].right_assoc);
+    int op_prec = -1, op_ra = 0;
+    for (int i = 0; ops[i].name; i++) if (strcmp(fn, ops[i].name) == 0 && ar == ops[i].arity) { op_prec = ops[i].prec; op_ra = ops[i].right_assoc; break; }
+    if (op_prec < 0) plc_user_op(fn, ar, &op_prec, &op_ra);
+    if (op_prec >= 0) {
+            if (ar == 2) {
+                int lp = plc_operand_prec(&aa[0]), rp = plc_operand_prec(&aa[1]), my_prec = op_prec;
+                int lneed = (lp > my_prec) || (lp == my_prec && op_ra);
+                int rneed = (rp > my_prec) || (rp == my_prec && !op_ra);
                 if (lneed) fprintf(fp, "(");
                 plc_writeq(&aa[0], m);
                 if (lneed) fprintf(fp, ")");
@@ -398,15 +418,14 @@ static void plc_writeq(pl_cell_t *c, plc_vmap *m)
                 if (rneed) fprintf(fp, ")");
             } else {
                 int ap = plc_operand_prec(&aa[0]);
-                int aneed = (ap >= ops[i].prec);
+                int aneed = (ap >= op_prec);
                 if (isalpha((unsigned char)fn[0])) fprintf(fp, "%s ", fn); else fprintf(fp, "%s", fn);
                 if (aneed) fprintf(fp, "(");
                 plc_writeq(&aa[0], m);
                 if (aneed) fprintf(fp, ")");
             }
             return;
-        }
-    }
+            }
     plc_wt_atom(fp, fn, 1);
     fprintf(fp, "(");
     for (int i = 0; i < ar; i++) { if (i) fprintf(fp, ","); plc_writeq(&aa[i], m); }
@@ -1162,7 +1181,7 @@ int rt_pl_bag_prep_cell(int is_setof, void *list_cell, void *result_cell)
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_keysort_cell(void *list_cell, void *result_cell)
+int rt_pl_keysort_cell(void *list_cell, void *result_cell, pl_tr_ctx_t *cx)
 {
     int dot_id = prolog_atom_intern("."); int dash_id = prolog_atom_intern("-");
     pl_cell_t *elems[4096];
@@ -1182,7 +1201,7 @@ int rt_pl_keysort_cell(void *list_cell, void *result_cell)
         blk[0] = pl_make_ref(elems[i], (int)elems[i]->slen); blk[1] = result;
         result = pl_make_compound(dot_id, 2, blk);
     }
-    if (!pl_unify((pl_cell_t *)result_cell, &result)) { return 0; }
+    if (!plc_unify_cells_cx((pl_cell_t *)result_cell, &result, cx)) { return 0; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
