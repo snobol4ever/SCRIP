@@ -480,6 +480,38 @@ static IR_t * pl_user_call(lcx_t * cx, const char * nm, const tree_t * t, int na
     return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * pl_nil_term(void) { return ast_node_new(TT_MAKELIST); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_meta_call_dyn(lcx_t * cx, const tree_t * g, const tree_t * const * extra, int nextra, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    IR_t * nd = build(cx, IR_CALL_VALUE, γnext, ωfail); IR_LIT(nd).sval = "goal";
+    IR_t * ge = NULL; IR_t * gv = term_e(cx, g, &ge); lc_ω_to(gv, ωfail);
+    ir_operand_push(nd, gv);
+    IR_t * prev = gv; IR_t * first = ge ? ge : gv;
+    for (int i = 0; i < nextra; i++) {
+        IR_t * ae = NULL; IR_t * a = term_lval_e(cx, extra[i], &ae);
+        lc_γ_to(prev, ae ? ae : a); lc_ω_to(a, ωfail);
+        prev = a; ir_operand_push(nd, a);
+    }
+    lc_γ_to(prev, nd);
+    if (entry_out) *entry_out = first;
+    return nd;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_tree_is_callable(const tree_t * g) {
+    if (!g) return 0;
+    switch (g->t) { case TT_FNC: case TT_QLIT: case TT_NAME: case TT_CUT: case TT_UNIFY: case TT_IF: case TT_PROGRAM: return 1; default: return 0; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * pl_meta_goal(const tree_t * g, const tree_t * const * extra, int nextra) {
+    if (!g) return NULL;
+    if (nextra <= 0) return pl_tree_is_callable(g) ? g : NULL;
+    if (g->t != TT_FNC && g->t != TT_NAME && g->t != TT_QLIT) return NULL;
+    tree_t * e = ast_node_new(TT_FNC); e->v.sval = g->v.sval; e->line = g->line;
+    for (int i = 0; i < g->n; i++) ast_push(e, g->c[i]);
+    for (int i = 0; i < nextra; i++) ast_push(e, (tree_t *) extra[i]);
+    return e;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     if (entry_out) *entry_out = NULL;
     if (!t) return build(cx, IR_SUCCEED, γnext, ωfail);
@@ -502,6 +534,18 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             tree_t * inner = ast_node_new(TT_FNC); inner->v.sval = (char *) "\\+"; ast_push(inner, (tree_t *) t->c[1]);
             tree_t * conj = ast_node_new(TT_FNC); conj->v.sval = (char *) ","; ast_push(conj, (tree_t *) t->c[0]); ast_push(conj, inner);
             return pl_lower_ite(cx, conj, pl_atom_goal("fail"), pl_atom_goal("true"), γnext, ωfail, entry_out); }
+        if ((!strcmp(nm, "call") && t->n >= 1) || (!strcmp(nm, "phrase") && (t->n == 2 || t->n == 3))) {
+            const tree_t * xs[2]; const tree_t * const * extra; int nextra;
+            if (!strcmp(nm, "phrase")) { xs[0] = t->c[1]; xs[1] = (t->n == 3) ? t->c[2] : pl_nil_term(); extra = xs; nextra = 2; }
+            else { extra = (const tree_t * const *) &t->c[1]; nextra = t->n - 1; }
+            if (t->c[0] && t->c[0]->t == TT_VAR) return pl_meta_call_dyn(cx, t->c[0], extra, nextra, γnext, ωfail, entry_out);
+            const tree_t * ext = pl_meta_goal(t->c[0], extra, nextra);
+            if (!ext) pl_refuse("meta-call whose goal is not a callable term known at compile time --", nm, 10);
+            IR_t * saveω = cx->cutω; cx->cutω = ωfail;
+            IR_t * r = goal(cx, ext, γnext, ωfail, entry_out);
+            cx->cutω = saveω;
+            return r;
+        }
         if (!strcmp(nm, "=") && t->n == 2) { IR_t * e = NULL; IR_t * nd = unify_pair(cx, t->c[0], t->c[1], γnext, ωfail, &e); if (entry_out) *entry_out = e ? e : nd; return nd; }
         if (!strcmp(nm, "\\=") && t->n == 2) {
             tree_t * u = ast_node_new(TT_UNIFY); ast_push(u, (tree_t *) t->c[0]); ast_push(u, (tree_t *) t->c[1]);
@@ -628,7 +672,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
     case TT_UNIFY: { IR_t * e = NULL; IR_t * nd = unify_pair(cx, t->c[0], t->c[1], γnext, ωfail, &e); if (entry_out) *entry_out = e ? e : nd; return nd; }
     case TT_IF: return pl_lower_ite(cx, t->c[0], (t->n > 1) ? t->c[1] : NULL, (t->n > 2) ? t->c[2] : NULL, γnext, ωfail, entry_out);
     case TT_PROGRAM: return pl_lower_conj(cx, (const tree_t * const *) t->c, t->n, γnext, ωfail, entry_out, NULL);
-    case TT_VAR: pl_refuse("variable goal", "call/1", 10); return NULL;
+    case TT_VAR: return pl_meta_call_dyn(cx, t, NULL, 0, γnext, ωfail, entry_out);
     default: return build(cx, IR_SUCCEED, γnext, ωfail);
     }
 }

@@ -876,6 +876,50 @@ void *rt_call_apply_spine_prep(DESCR_t callee, DESCR_t lv) {
     return rt_call_value_spine_prep(callee, buf, n);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rt_pl_goal_key(DESCR_t goal, int extra, char *out, size_t cap, DESCR_t **args_out, int *ar_out) {
+    extern DESCR_t rt_pl_deref_val(DESCR_t); extern const char *prolog_atom_name(int);
+    DESCR_t v = rt_pl_deref_val(goal);
+    const char *nm = (const char *)0; int ar = 0; DESCR_t *kids = (DESCR_t *)0;
+    if ((int)v.v == DT_PLREF) { nm = prolog_atom_name((int)(v.slen >> 16)); ar = (int)(v.slen & 0xFFFFu); kids = (DESCR_t *)v.p; }
+    else if ((int)v.v == (int)DT_A) nm = prolog_atom_name((int)v.i);
+    else if ((int)v.v == (int)DT_S) nm = v.s;
+    if (!nm || extra < 0) return 0;
+    snprintf(out, cap, "%s/%d", nm, ar + extra);
+    *args_out = kids; *ar_out = ar;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rt_pl_goal_stage(DESCR_t *kids, int ar, DESCR_t *argv, int n) {
+    extern DESCR_t g_call_args[];
+    enum { CALL_ARGS_MAX = 64 };
+    int k = 0;
+    for (int i = 0; i < ar && k < CALL_ARGS_MAX; i++) g_call_args[k++] = kids[i];
+    for (int i = 0; i < n && k < CALL_ARGS_MAX; i++) g_call_args[k++] = argv[i];
+    for (int i = k; i < CALL_ARGS_MAX; i++) { DESCR_t z; memset(&z, 0, sizeof z); g_call_args[i] = z; }
+    return k;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_pl_goal_spine_prep(DESCR_t goal, DESCR_t *argv, int n) {
+    extern int rt_proc_jmp_entry(const char *name); extern void *rt_proc_fn(const char *name); extern long rt_proc_call_open(const char *name, int nargs);
+    char key[288]; DESCR_t *kids = (DESCR_t *)0; int ar = 0;
+    if (!rt_pl_goal_key(goal, n, key, sizeof key, &kids, &ar)) return (void *)0;
+    if (!rt_proc_is_registered(key) || !rt_proc_jmp_entry(key) || !rt_proc_is_generator(key)) return (void *)0;
+    { extern int rt_proc_gen_region_ft(const char *); if (rt_proc_gen_region_ft(key) > 0) return (void *)0; }
+    rt_pl_goal_stage(kids, ar, argv, n);
+    if (!rt_proc_call_open(key, ar + n)) return (void *)0;
+    return rt_proc_fn(key);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_goal_gen_h(DESCR_t goal, DESCR_t *argv, int n, void **hslot) {
+    extern DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **act_slot);
+    char key[288]; DESCR_t *kids = (DESCR_t *)0; int ar = 0;
+    if (hslot) *hslot = (void *)0;
+    if (!rt_pl_goal_key(goal, n, key, sizeof key, &kids, &ar)) { rt_pl_iso_throw_pi("type_error", "callable", "?", 0); return FAILDESCR; }
+    if (!rt_proc_is_registered(key)) { rt_pl_iso_throw_existence_key(key); return FAILDESCR; }
+    rt_pl_goal_stage(kids, ar, argv, n);
+    return rt_proc_call_gen_h(key, ar + n, hslot);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_value_resume_h(void **hslot) {
     extern DESCR_t rt_proc_resume_frame_h(void **hslot);
     if (!hslot || !*hslot) return FAILDESCR;

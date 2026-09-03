@@ -12,6 +12,8 @@ extern DESCR_t rt_call_apply_gen_h(DESCR_t callee, DESCR_t lv, void **hslot);
 extern DESCR_t rt_call_value_resume_h(void **hslot);
 extern void *rt_call_value_spine_prep(DESCR_t callee, DESCR_t *argv, int n);
 extern void *rt_call_apply_spine_prep(DESCR_t callee, DESCR_t lv);
+extern void *rt_pl_goal_spine_prep(DESCR_t goal, DESCR_t *argv, int n);
+extern DESCR_t rt_pl_goal_gen_h(DESCR_t goal, DESCR_t *argv, int n, void **hslot);
 DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
 DESCR_t rt_proc_call_epilogue_ω(void);
 DESCR_t rt_gen_spine_pass_γ(DESCR_t v);
@@ -21,6 +23,7 @@ void rt_gen_spine_resume_enter(void);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static bool cv_is_apply() { return _.op_sval && strcmp(_.op_sval, "apply") == 0 && _.op_arg_slot_n == 1; }
+static bool cv_is_goal() { return _.op_sval && strcmp(_.op_sval, "goal") == 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_value() {
     x86_begin();
@@ -32,6 +35,7 @@ std::string bb_call_value() {
     int H = _.op_off + 16 + n * 16;
     uint64_t vprep_fp; { void *(*fp)(DESCR_t, DESCR_t *, int) = rt_call_value_spine_prep; vprep_fp = (uint64_t)(uintptr_t)(void *)fp; }
     uint64_t aprep_fp; { void *(*fp)(DESCR_t, DESCR_t) = rt_call_apply_spine_prep; aprep_fp = (uint64_t)(uintptr_t)(void *)fp; }
+    uint64_t gprep_fp; { void *(*fp)(DESCR_t, DESCR_t *, int) = rt_pl_goal_spine_prep; gprep_fp = (uint64_t)(uintptr_t)(void *)fp; }
     uint64_t epig_fp;  { DESCR_t (*fp)(DESCR_t) = rt_proc_call_epilogue_γ; epig_fp = (uint64_t)(uintptr_t)(void *)fp; }
     uint64_t epiw_fp;  { DESCR_t (*fp)(void) = rt_proc_call_epilogue_ω; epiw_fp = (uint64_t)(uintptr_t)(void *)fp; }
     uint64_t pasg_fp;  { DESCR_t (*fp)(DESCR_t) = rt_gen_spine_pass_γ; pasg_fp = (uint64_t)(uintptr_t)(void *)fp; }
@@ -57,7 +61,7 @@ std::string bb_call_value() {
             + x86("call",  "rt_call_apply_spine_prep", aprep_fp)
             : x86("lea",   "rdx", FRQ(_.op_off + 16))
             + x86("mov32", "ecx", (long)n)
-            + x86("call",  "rt_call_value_spine_prep", vprep_fp))
+            + (cv_is_goal() ? x86("call", "rt_pl_goal_spine_prep", gprep_fp) : x86("call", "rt_call_value_spine_prep", vprep_fp)))
        + IF(n2_align, x86("add", "rsp", 8L))
        + x86("test",  "rax", "rax")
        + x86("je",    L(7))
@@ -98,7 +102,7 @@ std::string bb_call_value() {
             : x86("lea",   "rdx", FRQ(_.op_off + 16))
             + x86("mov32", "ecx", (long)n)
             + x86("lea",   "r8",  FRQ(H))
-            + x86("call",  "rt_call_value_gen_h", (uint64_t)(uintptr_t)(void *)rt_call_value_gen_h))
+            + (cv_is_goal() ? x86("call", "rt_pl_goal_gen_h", (uint64_t)(uintptr_t)(void *)rt_pl_goal_gen_h) : x86("call", "rt_call_value_gen_h", (uint64_t)(uintptr_t)(void *)rt_call_value_gen_h)))
        + IF(n2_align, x86("add", "rsp", 8L))
        + x86("def", L(2))
        + x86_anchor_leave()
@@ -109,6 +113,7 @@ std::string bb_call_value() {
        + x86_omega("je")
        + x86_gamma()
        + x86_beta()
+       + IF(cv_is_goal(), x86_bomb("meta-call re-drive: a goal term resolved at run time entered through this box, and its callee obeys the PL retained-frame/graph-beta protocol (ARCH-PROLOG-BYRD-BOX-TRANSLATION.md sec B.3, rung 2), not the Icon flat-generator spine this box resumes with. MEASURED hq_P 2026-09-03 on the rung-10a witnesses: the ENTRY is shareable and correct (first solution right), the RE-DRIVE is not -- both Icon drivers wreck the callee frame (spine arm: jmp to 0; coroutine window rt_proc_call_gen_h: same). Refusing loudly here rather than emitting the resume that segfaults. The cure is rung 10a's remaining half: a PL-protocol call box whose callee name and arity come from slots rather than from op_sval, sharing bb_call_proc_staged's bcps_pl() gamma/beta wiring"))
        + x86("mov",  "rax", FRQ(H))
        + x86("cmp",  "rax", 1L)
        + x86("jne",  L(8))
