@@ -33,6 +33,7 @@ int     zls_g_resume_by_name(const char *name);
 int  rt_proc_is_generator(const char *name);
 int rt_define_tiny_ok(const char *, int);
 int rt_define_returns_by_frame(const char *);
+int rt_pl_tail_args_safe(int nargs, void *frame_lo, void *frame_hi);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bcps_wire_pair_consumed(const char *fname) {
     static int _wpf = -1; if (_wpf < 0) { const char *e = getenv("SCRIP_WIRE_PAIR_FRAME"); _wpf = (e && *e == (char)48) ? 0 : 1; }
@@ -674,6 +675,8 @@ static std::string bcps_spine_gen_arm() {
     int   gi_dyn = _.op_sval && rt_proc_dyn_scope(_.op_sval);
     long  gi_idx = (!gi_off && !gi_dyn && _.op_sval) ? (long)rt_proc_index_of(_.op_sval) : -1L;
     uint64_t gidet_fp; { void * (*fp)(long, int) = rt_proc_call_open_det; gidet_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    uint64_t tailsafe_fp; { int (*fp)(int, void *, void *) = rt_pl_tail_args_safe; tailsafe_fp = (uint64_t)(uintptr_t)(void*)fp; }
+    int pl_lco_armed = bcps_pl() && _.node && _.node->seal == 1 && !(g_emit_cfg && g_emit_cfg->root_graph);
     if (getenv("SEAT01_N2_STEP3_DBG")) { int _dbgbase = -1; int _dbgoff = icn_gen_host_reserve_offset(0, _.node, &_dbgbase); fprintf(stderr, "[N2-STEP3-DBG] node=%p callee=%s host_flat_lcl_proc=%d off=%d base=%d\n", (void*)_.node, _.op_sval ? _.op_sval : "?", g_emit.flat_lcl_proc, _dbgoff, _dbgbase); }
     int n2_base = -1, n2_off = -1, n2_res = 0, n2_fb = -1;
     if (icn_gen_regime()) { n2_off = icn_gen_host_reserve_offset(0, _.node, &n2_base); n2_res = icn_gen_host_reserve(0); if (_.op_sval) emit_patzeta_frame_reserve(_.op_sval, &n2_fb); }
@@ -715,6 +718,33 @@ static std::string bcps_spine_gen_arm() {
          + IF(icn_gen_regime(), x86("comment", "N-2 STEP 3 REGION HAND-OFF (ceo s283): push the callee's region slice address as the third word above the wire pair -- it lands at [entry rsp+16] where the new alpha reads it. Depth arithmetic: pad+L7 = 16 bytes are already down since the carve, so the slice [carve + base + off] is [rsp + base + off + 16] HERE; this constant is verifiable in the .s and breaks loudly (bomb'd alpha reads garbage) if a push is ever added between L7 and this point. Alignment: one extra 8B word flips nothing that matters -- the ABI-sensitive calls (open_det above, args_install inside the callee) keep their old mod-16 classes because the callee no longer subs its ft (alpha carves nothing).")
               + x86("comment", "N-2 TRANSITIVE (seat06 2026-08-29): a FLAT_GEN caller has no stack carve to be RSP-relative INTO -- its own storage is RBP-relative (rbp=H, item 1 rebase + STEP 3 region-resident alpha), fixed regardless of the pad/L7 pushes just above, so no +16 depth-tracking applies the way it does for a flat_lcl_proc caller's RSP-relative slice.")
               + (g_emit.flat_gen ? x86("lea", "rcx", RDQ("rbp", n2_base + n2_off)) : x86("lea", "rcx", RDQ("rsp", n2_base + n2_off + 16))) + x86("push", "rcx"))
+         + IF(pl_lco_armed,
+              x86("comment", "RUNG 11 LCO (ARCH sec B.18): this call is the syntactically last goal of its clause body (lower_prolog.c pl_lower_conj's tail marker), gated at compile time to a non-root graph -- the ROOT graph's own frame seeds r14/ROOT (rt_pl_quad_seed reads H off the root's OWN [rsp+kt-64], xa_flat.cpp), live for the rest of the run, so popping IT via LCO would dangle the one register every later ζ-STANDING access depends on (caught empirically: the driver's own call into main/0 armed before this guard existed). Runtime admission test, all three legs required: no live choice of MY OWN (r13==F.B0, the same test the altdet frame-release already uses) AND nothing retained below me (rsp==rbp, no callee frame carved deeper than mine) AND every staged argument is provably safe to outlive my frame (rt_pl_tail_args_safe -- BY CONSTRUCTION, an argument that carries no pointer can never reference the dying frame; sec B.18's escape hazard). Any leg failing falls straight through, unchanged, to the ordinary call below -- this is a pure additive fast path, never a replacement for it.")
+            + x86("sub", "rsp", 8L)
+            + x86("push", "rax")
+            + x86("mov32", "edi", (long)_.op_ival)
+            + x86("mov", "rsi", "rbp")
+            + x86("lea", "rdx", RDQ("rbp", g_emit.flat_frame_bytes))
+            + x86("call", "rt_pl_tail_args_safe", tailsafe_fp)
+            + x86("mov", "r10d", "eax")
+            + x86("pop", "rax")
+            + x86("add", "rsp", 8L)
+            + x86("test", "r10", "r10")
+            + x86("je", L(99))
+            + x86("mov", "r10", RDQ("rbp", g_emit.flat_frame_bytes - 40))
+            + x86("cmp", "r13", "r10")
+            + x86("jne", L(99))
+            + x86("comment", "rsp==rbp-16, not rsp==rbp: the PL-CALL-ALIGN pad+L7 push just above (unconditional at every call_proc_staged site, MEASURED empirically off a live witness) is this call site's OWN transient bookkeeping, not a retained callee frame.")
+            + x86("lea", "r10", RDQ("rsp", 16))
+            + x86("cmp", "r10", "rbp")
+            + x86("jne", L(99))
+            + x86("comment", "LCO FAST PATH: forward THIS activation's OWN inherited wires (loaded once at MY OWN entry, never touched since) instead of a fresh local landing, so my caller and my callee interact as if I was never here -- the caller's own gamma-landing banks F.RES with the CALLEE's beta on redo, exactly as sec B.18 (iii) intends. Then release my frame with the SAME pop the altdet epilogue already uses (xa_flat.cpp) and jump the callee directly.")
+            + x86("mov", "rcx", RDQ("rbp", g_emit.flat_frame_bytes - 24))
+            + x86("mov", "rdx", RDQ("rbp", g_emit.flat_frame_bytes - 16))
+            + x86("lea", "rsp", RDQ("rbp", g_emit.flat_frame_bytes))
+            + x86("mov", "rbp", RDQ("rbp", g_emit.flat_frame_bytes - 8))
+            + x86_jmp_reg("rax")
+            + x86("def", L(99)))
          + bcps_wire_cross_gen(3, 4)
          + x86("def", L(3))
          + (bcps_pl()

@@ -717,6 +717,22 @@ void rt_arg_stage(int idx, DESCR_t v)
     rt_gc_point(&v, (const char **)0);
     if (idx >= 0 && idx < CALL_ARGS_MAX) g_call_args[idx] = v;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_tail_args_safe(int nargs, void *frame_lo, void *frame_hi)
+{
+    extern DESCR_t rt_deref(DESCR_t d);
+    int r = 1;
+    if (nargs <= 0) r = 1;
+    else if (nargs > CALL_ARGS_MAX) r = 0;
+    else for (int i = 0; i < nargs; i++) {
+        DESCR_t v = g_call_args[i];
+        for (int hop = 0; hop < 4 && v.v == DT_N; hop++) v = rt_deref(v);
+        if (v.v == DT_SNUL || v.v == DT_I || v.v == DT_R) { g_call_args[i] = v; continue; }
+        void *p = v.ptr;
+        if (p && p >= frame_lo && p < frame_hi) { r = 0; break; }
+    }
+    return r;
+}
 DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_frame_bind_args(char *fb, rt_proc_t *p, int nargs)

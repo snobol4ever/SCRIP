@@ -3322,7 +3322,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             emit_sep_rule('-'); emit_label_define_bb(alt_tr[_ak]);
             bb_emit_x86(x86("comment", "PL ALTERNATIVE TRAMPOLINE (rung 2, Jcon ir_MoveLabel): advance F.CUR to the NEXT alternative, or zero it on the last one so the step concedes, then enter this clause head unification.")
                       + (_ak + 1 < n_alt ? x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)alt_tr[_ak + 1]) : x86("xor", "eax", "eax"))
-                      + x86("mov", RDQ("rbp", _kt - 56), "rax"));
+                      + x86("mov", RDQ("rbp", _kt - 56), "rax")
+                      + IF(_ak + 1 >= n_alt,
+                           x86("comment", "RUNG 11 WAM TRUST_ME (ARCH sec B.18): this is the LAST candidate clause, so this activation offers no further alternative of its own -- drop the choice by restoring B := F.B0, the same B/landing-or-cut-restore shape epilogue-omega already uses (xa_flat.cpp), so a caller-side redo can never re-enter a clause step that has nothing left to try. Without this, F.B == F.B0 never becomes true for a multi-clause activation once its last clause is entered, and neither the existing altdet frame-release nor RUNG 11's LCO admission test can ever fire (FINDING 1, hq_P 2026-09-03).")
+                         + x86("mov", "r13", RDQ("rbp", _kt - 40))));
             emit_jmp_label(pl_alt_target(_ak), JMP_JMP);
         }
     }
