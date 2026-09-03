@@ -75,6 +75,7 @@ if [ -z "$ME" ]; then case "$S4E" in
     /home/claude_C)         ME=hq_C;;
     /home/claude_P)         ME=hq_P;;
     /home/claude_B)         ME=hq_B;;
+    /home/claude_T)         ME=hq_T;;
     /home/claude[0-9][0-9]) ME="seat${S4E#/home/claude}";;
     /home/claude[1-9])      ME="seat0${S4E#/home/claude}";;
     *)                      ME="$(basename "$S4E")";; esac; fi
@@ -276,7 +277,7 @@ s4e_sweep_orphans() { for _o in "$PO"/.msg.*; do [ -f "$_o" ] || continue
 s4e_root() { case "$1" in ceo|hq) echo /home/claude;; hq_C) echo /home/claude_C;; hq_P) echo /home/claude_P;; hq_B) echo /home/claude_B;;
     seat0[1-9]|seat1[0-6]) echo "/home/claude${1#seat}";; *) echo "";; esac; }
 s4e_hqboxes() { for _h in hq hq_C hq_P hq_B ceo; do [ -d "$PO/$_h/inbox" ] && echo "$_h"; done; }
-s4e_is_hq() { case "$1" in hq|hq_C|hq_P|hq_B|ceo) return 0;; *) return 1;; esac; }
+s4e_is_hq() { case "$1" in hq|hq_C|hq_P|hq_B|hq_T|ceo) return 0;; *) return 1;; esac; }
 # ⛔ DECORATED NO-OP EVASION, COMPANION FIX to `done`'s own no-op blocklist below (row
 # `donewhen-decorated-noop-evasion`; the gate `test_gate_baton_donewhen_runnable.sh` carries the identical
 # fix and the full rationale). Strips a trailing shell comment the way bash itself would -- quote-aware: a
