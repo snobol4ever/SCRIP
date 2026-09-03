@@ -112,7 +112,6 @@ static void icn_zf_main_call(void *fn, void *mf, void *wire_γ, void *wire_ω) {
         : "memory", "rsi", "r8", "r9", "r10", "r11"
     );
 }
-extern DESCR_t      eval_expr(const char *src);
 extern const char *Σ;
 extern int         Ω;
 extern int         Δ;

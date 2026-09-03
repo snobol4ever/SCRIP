@@ -50,7 +50,6 @@ FILE *fh_cur_out_fp(void){ fh_cur_ensure(); FILE *fp=fh_get(fh_cur_out); return 
 FILE *fh_cur_in_fp(void){ fh_cur_ensure(); FILE *fp=fh_get(fh_cur_in); return fp?fp:stdin; }
 int fh_capture_begin(char **bufp, size_t *szp, int *saved_out){ fh_cur_ensure(); FILE *ms=open_memstream(bufp,szp); if(!ms) return -1; int idx=fh_alloc(ms); if(idx<0){ fclose(ms); return -1; } *saved_out=fh_current_output(); fh_set_output(idx); return idx; }
 void fh_capture_end(int idx, int saved_out){ fh_cur_ensure(); FILE *ms=fh_get(idx); if(ms){ fflush(ms); fclose(ms); } fh_free(idx); fh_set_output(saved_out); }
-extern DESCR_t      eval_expr(const char *src);
 extern const char *Σ;
 extern int         Ω;
 extern int         Δ;

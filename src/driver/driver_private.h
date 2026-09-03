@@ -26,7 +26,6 @@ extern void ir_print_node_nl(const tree_t *e, FILE *f);
 #include "bb_build.h"
 extern DESCR_t pat_at_cursor(const char *varname);
 #include "runtime/builtins/gen_runtime.h"
-extern DESCR_t      eval_expr(const char *src);
 extern const char *Σ;
 extern int         Ω;
 extern int         Δ;

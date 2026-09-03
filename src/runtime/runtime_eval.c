@@ -288,14 +288,14 @@ DESCR_t eval_string_transient(const char *s) {
     return result;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t eval_node(tree_t *e)
+static DESCR_t eval_node(tree_t *e)
 {
     (void)e;
     fprintf(stderr, "[B0b] BOMB eval_node: AST-walk evaluator deleted; nothing interprets tree_t at runtime\n");
     abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t eval_expr(const char *src)
+static DESCR_t eval_expr(const char *src)
 {
     if (!src || !*src) return NULVCL;
     tree_t *tree = parse_expr_pat_from_str(src);
