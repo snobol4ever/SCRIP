@@ -1665,11 +1665,55 @@ def cmd_run(args):
         if not entries:
             refuse(f"--shard {args.shard} selects zero of the {_all} entries -- N exceeds the suite; a shard that grades nothing is not a board")
         shard_tag = f"shard={_k}/{_n}"
+    # ⛔⭐ HONOUR THE modes COLUMN (row board-icon-master-runs-the-ast-graded-parser-fixtures, ceo mint 2026-09-03).
+    # MEASURED cause: 153 of the icon master's 534 entries are parser-ladder fixtures whose .ref is a --dump-ast
+    # DUMP, and this runner graded them by RUNNING them. Their reds were inevitable and meant nothing, and the
+    # printed 398/534 was not a count of anything -- it mixed two populations graded against two different kinds
+    # of expected output. Splitting them is not a presentation choice: a denominator that spans two grading
+    # regimes cannot be read at all.
+    entry_modes = {}
+    if getattr(args, "by_modes_column", False):
+        csv_path = Path(args.sno).parent / "ALL.csv"
+        if not csv_path.is_file():
+            refuse(f"--by-modes-column needs the suite's sibling index; {csv_path} is missing -- a column that is not there cannot be honoured")
+        import csv as _csv
+        with open(csv_path, newline="") as _f:
+            for _row in _csv.DictReader(_f):
+                if "modes" not in _row:
+                    refuse(f"{csv_path} has no `modes` column -- nothing to honour")
+                entry_modes[_row["entry"]] = (_row.get("modes") or "").strip()
+        _uncovered = [e.name for e in entries if e.name not in entry_modes]
+        if _uncovered:
+            refuse(f"--by-modes-column: {len(_uncovered)} entr(y/ies) are absent from {csv_path.name} "
+                   f"(first: {_uncovered[0]}) -- grading them by a default while calling it 'the modes column' is the defect this flag exists to remove")
+    def _modes_for(e):
+        # ⭐ UNKNOWN is a DEFAULT, never a declaration, and it is COUNTED separately below so it can never be
+        # mistaken for one. The alternative -- refusing on UNKNOWN -- would block the honest board on 17 icon
+        # entries whose families simply have no MODES.tsv line yet; the alternative to THAT, silently folding
+        # them into the run population with no trace, is how a default becomes an unexamined fact.
+        declared = entry_modes.get(e.name, "")
+        return ["ast"] if declared == "ast" else modes
+    ast_entries = [e for e in entries if _modes_for(e) == ["ast"]] if entry_modes else []
+    run_entries = [e for e in entries if _modes_for(e) != ["ast"]] if entry_modes else entries
+    unknown_defaulted = sum(1 for e in run_entries if entry_modes.get(e.name, "") == "UNKNOWN") if entry_modes else 0
     counts = {m: {"PASS": 0, "FAIL": 0, "CRASH": 0, "HANG": 0, "UNPROVEN": 0, "SKIP": 0, "XFAIL": 0, "XPASS": 0} for m in modes}
+    ast_counts = {"ast": {"PASS": 0, "FAIL": 0, "CRASH": 0, "HANG": 0, "UNPROVEN": 0, "SKIP": 0, "XFAIL": 0, "XPASS": 0}}
     tmp_root = Path(tempfile.mkdtemp(prefix="csh_run_"))
     fails = []
     try:
-        for e in entries:
+        for e in ast_entries:
+            verdicts = run_suite_entry(paths, e, tmp_root, ["ast"], ext=ext, companion_dir=Path(args.sno).parent)
+            kind = verdicts["ast"].kind
+            if e.xfail:
+                if kind == "PASS":
+                    ast_counts["ast"]["XPASS"] += 1; fails.append((e.name, "ast", verdicts["ast"]))
+                else:
+                    ast_counts["ast"]["XFAIL"] += 1
+            else:
+                ast_counts["ast"][kind] += 1
+                if kind != "PASS":
+                    fails.append((e.name, "ast", verdicts["ast"]))
+        for e in run_entries:
             verdicts = run_suite_entry(paths, e, tmp_root, modes, ext=ext, companion_dir=Path(args.sno).parent)
             for m in modes:
                 kind = verdicts[m].kind
@@ -1695,7 +1739,18 @@ def cmd_run(args):
         shutil.rmtree(tmp_root, ignore_errors=True)
 
     family = Path(args.sno).stem
-    fields = [f"family={family}"] + ([shard_tag] if shard_tag else []) + [f"total={len(entries)}"]
+    if entry_modes:
+        # ⛔ TWO POPULATIONS, TWO DENOMINATORS, PRINTED SEPARATELY AND NEVER SUMMED. The ast board's total is
+        # the ast population, not the suite; likewise the run board. A caller that wants "the suite" adds them
+        # deliberately and can see what it is adding.
+        a = ast_counts["ast"]
+        print(f"SUITE_BOARD_AST family={family} " + (f"{shard_tag} " if shard_tag else "") +
+              f"total={len(ast_entries)} ast_pass={a['PASS']} ast_fail={a['FAIL']} ast_crash={a['CRASH']} "
+              f"ast_hang={a['HANG']} ast_unproven={a['UNPROVEN']} ast_skip={a['SKIP']} "
+              f"ast_xfail={a['XFAIL']} ast_xpass={a['XPASS']}")
+        print(f"MODES_COLUMN ast_graded={len(ast_entries)}/{len(entries)} run_graded={len(run_entries)}/{len(entries)} "
+              f"unknown_defaulted_to_run={unknown_defaulted}")
+    fields = [f"family={family}"] + ([shard_tag] if shard_tag else []) + [f"total={len(run_entries) if entry_modes else len(entries)}"]
     for m in modes:
         c = counts[m]
         fields.append(f"{m}_pass={c['PASS']} {m}_fail={c['FAIL']} {m}_crash={c['CRASH']} "
@@ -1931,6 +1986,11 @@ def main():
     r.add_argument("ref")
     r.add_argument("--modes", default="", help="default: m3,m4 (or LANG_CONFIGS[lang]['modes'] if --lang given)")
     r.add_argument("--lang", default="", choices=[""] + sorted(LANG_CONFIGS), help="read/grade as a LANG_CONFIGS dialect instead of the default SNOBOL4 suite format")
+    r.add_argument("--by-modes-column", action="store_true",
+                   help="grade each entry by the `modes` column of the suite's sibling ALL.csv instead of grading every entry the same way: "
+                        "modes=ast entries are graded by `scrip --dump-ast` diffed as text, everything else by --modes (default m3,m4). "
+                        "Prints the two populations as SEPARATE boards with their OWN denominators. REFUSES rc=2 if the CSV is missing or "
+                        "does not cover every entry -- a column that cannot be read is not a column that can be honoured.")
     r.add_argument("--shard", default="", help="k/N: grade only every N-th entry starting at the k-th (1-based, interleaved), so the N shards partition the suite exactly once and their boards SUM to the monolithic board; the SUITE_BOARD line carries shard=k/N and total=<this shard's entries> (row corpus-runner-master-suite-exceeds-single-call-cap, hq_B 2026-09-02)")
     r.set_defaults(func=cmd_run)
 
