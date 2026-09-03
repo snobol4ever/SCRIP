@@ -25,7 +25,13 @@ mk_po() {
   : > "$PO/BOARD.md"; : > "$PO/QUEUE.done.tsv"; printf "TRIO\n" > "$PO/MODE"
   { printf '# gate fixture queue\n'; printf '0\tt-target\tunassigned\tFREE\n'; printf '5\tt-b1\tunassigned\tFREE\n'; printf '5\tt-b2\tunassigned\tFREE\n'; printf '0\tt-target-b\tunassigned\tFREE\n'; } > "$PO/QUEUE.tsv"
   local t; for t in t-target t-b1 t-b2 t-target-b; do
-    printf '# TASK %s\nGOAL: gate fixture.\nDONE-WHEN: test -f %s/tasks/%s.task.md\nLINKS: none\n## NEXT\n(none)\n## LEDGER\n' "$t" "$PO" "$t" > "$PO/tasks/$t.task.md"; done
+  # ⛔ THE FIXTURE CRITERION MUST BE **RED**, and it used to be `test -f <the baton itself>` -- always
+  # true. Since 2026-09-03 the picker RUNS a row's DONE-WHEN before serving it (row next-and-assign-
+  # re-run-a-rows-done-when-before-serving-it), so a fixture row whose criterion already passes is
+  # closed at dispatch instead of served, and this gate could never see the routing it exists to test.
+  # ⭐ The old fixture was ALWAYS semantically wrong -- a FREE row means "work not done" -- and nothing
+  # noticed because nothing ever ran it. $PO/landed/<topic> is never created, so the row reads as real work.
+    printf '# TASK %s\nGOAL: gate fixture.\nDONE-WHEN: test -f %s/landed/%s\nLINKS: none\n## NEXT\n(none)\n## LEDGER\n' "$t" "$PO" "$t" > "$PO/tasks/$t.task.md"; done
 }
 run() { local seat="$1"; shift; S4E_POST="$PO" S4E_SEAT="$seat" S4E_NO_BANNER=1 bash "$@" >"$W/out" 2>&1; }
 col() { grep -P "^[0-9]+\t\Q$1\E\t" "$PO/QUEUE.tsv" | head -1 | cut -f4; }

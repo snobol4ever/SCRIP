@@ -430,6 +430,103 @@ s4e_strip_donewhen_comment() {
         print out
     }'
 }
+# ⛔⭐ RUN A ROW'S DONE-WHEN AT DISPATCH, BEFORE HANDING IT TO ANYONE (ceo ruling 2026-09-03 adopting seat09's
+# suggestion; row next-and-assign-re-run-a-rows-done-when-before-serving-it). MEASURED by seat09
+# (FINDING-2026-09-03-seat09-pascal-relop-array-field-row-was-already-cured-five-days-before-dispatch.md):
+# pascal-relop-into-array-and-field-lvalues-loses-value sat FREE for FIVE DAYS describing a bug that a sibling
+# row (pascal-restore-prezeta, ff1df778) had already cured, and its DONE-WHEN grepped an exact "N pass / 0 fail"
+# string that corpus growth had made permanently unpassable. ⭐ THE DEFECT IS NOT THE DEAD ROW, IT IS THAT THE
+# QUEUE HAD THE ANSWER THE WHOLE TIME AND NOBODY ASKED IT: the criterion that would have closed the row was
+# sitting in the baton, one command away, through five days and every picker pass over it.
+# THE THREE-WAY SPLIT (the ruling, verbatim in substance): green closes the row DONE with a ledger line
+# "already satisfied at dispatch" and serves the next; a REFUSE (rc=2) or timeout serves the row WITH A WARNING;
+# only RED serves it silently. ⛔ Red is the ONLY silent outcome, because red is the only one that means
+# "there is real work here" -- the other two mean the queue does not know, and a picker that hides what it does
+# not know is how a five-day-dead row reads as live work.
+# ⛔⭐ THE TIMEOUT IS SHORT AND THAT IS THE POINT. `done`'s budget is 3600s because a close must be allowed to
+# run `make test`; a DISPATCH probe must not stall the picker for twenty minutes to answer a question it asked
+# on spec. A criterion too slow to probe is NOT a failure of the row -- it times out, which is rc=2, which
+# serves the row with a warning. The safe direction is always SERVE.
+s4e_dispatch_timeout() { printf '%s' "${S4E_DISPATCH_PROBE_TIMEOUT:-120}"; }
+# ⛔ MIRRORS `done`'s vacuity blocklist and is NOT the authority for it -- `done` is (:898 and :916-922). Used
+# only by `assign`, which cannot delegate to `done` (that verb requires the claim to be the RUNNER's, and assign
+# writes ANOTHER seat's). `next` never calls this: it probes by invoking `done` itself, so its judgement is the
+# real one by construction. ⛔ Two copies of one rule DO drift -- this file convicts that everywhere -- so the
+# gate asserts the two agree over a table of criteria rather than trusting the comment.
+s4e_donewhen_is_noop() {   # $1 = raw DONE-WHEN text; rc 0 = certifies nothing
+    local dw="${1:-}" nc nrm first
+    case "$(printf '%s' "$dw" | tr -d '[:space:]')" in true|:|exit0|/bin/true|/usr/bin/true|""|"#"*) return 0;; esac
+    nc="$(printf '%s' "$dw" | s4e_strip_donewhen_comment)"
+    nrm="$(printf '%s' "$nc" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//; s/[[:space:]]+/ /g')"
+    printf '%s' "$nrm" | grep -qE '[;|&`]|\$\(' && return 1
+    case "$nrm" in ""|"exit 0"|exit0) return 0;; esac
+    first="$(printf '%s' "$nrm" | awk '{for(i=1;i<=NF;i++){if($i !~ /^[A-Za-z_][A-Za-z0-9_]*=/){print $i; exit}}}')"
+    case "$first" in true|:|/bin/true|/usr/bin/true|echo) return 0;; esac
+    return 1; }
+# READ-ONLY probe: never closes, never claims, never writes. rc 0 green / 1 red / 2 could-not-measure.
+# Sets $_dp_why (one line, why) and $_dp_out (the criterion's own output, which is the thing a reader needs --
+# the mute-gate lesson from `done`: "DONE-WHEN exited 2" alone points nowhere).
+s4e_dispatch_probe() {
+    local t="$1" b="$PO/tasks/$1.task.md" dw to rc; _dp_why=""; _dp_out=""
+    [ -f "$b" ] || { _dp_why="no task baton at $b"; return 2; }
+    dw="$(sed -n 's/^DONE-WHEN:[[:space:]]*//p' "$b" | head -1)"
+    [ -n "$dw" ] || { _dp_why="the baton has no DONE-WHEN: line"; return 2; }
+    case "$dw" in '`'*'`') dw="${dw#\`}"; dw="${dw%\`}";; esac
+    case "$dw" in *⛔*) _dp_why="the DONE-WHEN is still the mint placeholder, not a command"; return 2;; esac
+    s4e_donewhen_is_noop "$dw" && { _dp_why="the DONE-WHEN certifies nothing (a decorated shell no-op)"; return 2; }
+    to="$(s4e_dispatch_timeout)"
+    # ⛔ S4E_HOME EXPORTED, exactly as `done` does it: 11 live rows write `cd "$S4E_HOME/SCRIP" && ...` and
+    # without the export that expands to the empty string and runs `cd /SCRIP`. A probe whose verdict depended
+    # on the caller's environment would be worse than no probe -- it would close rows on some seats and not others.
+    _dp_out="$(S4E_HOME="$S4E" timeout "$to" bash -c "$dw" 2>&1)"; rc=$?
+    case "$rc" in 124|137) _dp_why="did not finish within ${to}s (probe budget, not the row's fault)"; return 2;; esac
+    [ "$rc" = 0 ] && { _dp_why="exited 0"; return 0; }
+    _dp_why="exited $rc"; return 1; }
+# ⛔⭐ THE DISPATCH GATE, CALLED FROM EVERY PATH IN PASS 3 THAT SERVES A ROW -- rc 0 = serve it, 1 = it was
+# closed, take the next one. ⛔ IT IS A FUNCTION BECAUSE PASS 3 SERVES FROM **TWO** PLACES AND THE FIRST DRAFT
+# OF THIS CURE ONLY WIRED ONE: the ordinary claim-and-serve at the bottom, and the DEPENDENCY INVERSION
+# promotion that serves a blocked row's blocker at the blocked row's rank. MEASURED, and it is why this is not
+# inline: with only the ordinary path wired, test_gate_s4e_unclaim_keeps_park.sh still passed -- because the
+# row it asserts on reaches the seat through the PROMOTION path, which sailed past the probe untouched. A gate
+# passing for a reason unrelated to the change is exactly how a half-wired cure reads as a whole one.
+# ⭐ THIS IS THE `park`/s4e_mark_row LESSON AGAIN, WRITTEN DOWN ONE FILE LATER: "a cure that enumerates its
+# closing verbs silently reopens every time a new closing verb is minted." Same shape, serving side. If you add
+# a third way to hand a row to a seat, it calls THIS -- do not copy the block.
+s4e_dispatch_gate() {   # $1 = topic (already claimed by us), $2 = rank, for the message only
+    local _dgt="$1" _dgr="$2" _dpb
+    # ⛔⭐ DISPATCH PROBE (see s4e_dispatch_probe above for the measured cause). PROBED AFTER THE CLAIM,
+    # DELIBERATELY: the claim is what makes the answer ours to act on. Probing first would let two seats
+    # race the same probe and both close the same row, and closing a row we do not hold is the eviction
+    # `park` already refuses to do. ⭐ AND BECAUSE THE CLAIM IS NOW OURS, THE PROBE IS `done` ITSELF --
+    # not a reimplementation of it. That buys every guard `done` already carries, for free and without a
+    # second copy to drift: the vacuity blocklist, the markdown-backtick strip, the no-baton refusal, the
+    # ROWD-manifest guard that stops a close from redding `make test` fleet-wide, the S4E_HOME export,
+    # and the claim/column mirroring. A close performed here is byte-for-byte a close performed by hand.
+    _dp_out="$(S4E_NO_BANNER=1 S4E_DONE_TIMEOUT="$(s4e_dispatch_timeout)" "$0" done "$_dgt" 2>&1)"; _dp_rc=$?
+    if [ "${S4E_NO_DISPATCH_PROBE:-0}" = "1" ]; then _dp_rc=1; _dp_out=""; fi
+    case "$_dp_rc" in
+      0) # GREEN -- the row was already satisfied. `done` has closed it; record WHY in the baton and move on.
+         _dpb="$PO/tasks/$_dgt.task.md"
+         [ -f "$_dpb" ] && printf '\n- [%s·%s] **ALREADY SATISFIED AT DISPATCH** — the picker ran this row'"'"'s own DONE-WHEN before serving it and it exited 0, so the row was closed rather than handed to a seat. Nobody worked it; if that is wrong, the DONE-WHEN is wrong (it is passing on a tree where the work is not done) and THAT is the finding. Probe budget %ss; tree %s.\n' "$(date -u +%Y-%m-%dT%H:%MZ)" "$ME" "$(s4e_dispatch_timeout)" "$S4E" >> "$_dpb"
+         printf '✅ ALREADY SATISFIED AT DISPATCH — rank-%s %s was NOT served: its own DONE-WHEN exits 0 on this tree.\n' "$_dgr" "$_dgt"
+         printf '   Closed DONE (via `done`, so every close guard applied) and a ledger line says why. Looking for the next row...\n'
+         printf '   ⛔ If you believe this row is real work, the DONE-WHEN is the defect -- it passes where the work is not done.\n'
+         # ⛔ return 1, NOT continue. `continue` inside a function does reach the caller's loop in bash, which
+         # is exactly why it is wrong here: it would work by accident from PASS 3 and silently do nothing (or
+         # worse) from any future caller that is not inside a loop. The caller spells the control flow.
+         return 1;;
+      2) # COULD NOT MEASURE -- serve it, but never silently.
+         printf '⚠ DISPATCH PROBE COULD NOT MEASURE %s -- serving it anyway, unverified.\n' "$_dgt" >&2
+         printf '%s\n' "$_dp_out" | grep -m2 -E '⛔|REFUSED|did NOT FINISH' | sed 's/^/   | /' >&2
+         printf '   Probe budget was %ss (S4E_DISPATCH_PROBE_TIMEOUT). A criterion too slow to PROBE is not a failing row.\n' "$(s4e_dispatch_timeout)" >&2;;
+      *) # RED is the only silent outcome: it is the only one that means there is real work here.
+         # ⭐ Except when `done` refused rather than measured -- it exits 1 for a vacuous criterion too,
+         # so rc alone cannot tell "no work needed" from "this row can never be closed". Say so.
+         if printf '%s' "$_dp_out" | grep -q 'REFUSED'; then
+           printf '⚠ %s has a DONE-WHEN that can never pass -- serving the row, but it cannot be CLOSED until that is fixed.\n' "$_dgt" >&2
+           printf '%s\n' "$_dp_out" | grep -m1 'REFUSED' | sed 's/^/   | /' >&2; fi;;
+    esac
+    return 0; }
 # age in whole minutes of the oldest .msg in a mailbox; empty when the box is clear.
 s4e_oldest_min() { _old=""; for _f in "$PO/$1/inbox"/*.msg; do [ -f "$_f" ] || continue
     _m=$(( ( $(date +%s) - $(stat -c %Y "$_f" 2>/dev/null || echo 0) ) / 60 ))
@@ -1089,6 +1186,36 @@ case "$cmd" in
            if grep -q '^DONE$' "$c"; then echo "⛔ REFUSED: '$topic' is already DONE (held by $own). Sweep it to QUEUE.done.tsv — do NOT re-dispatch landed work." >&2; exit 1; fi
            if [ "$own" = "$seat" ]; then echo "already assigned: $topic -> $seat"; exit 0; fi
            echo "⛔ REFUSED: '$topic' is held by $own, not $seat. Release that claim first (that is a deliberate act, not a retry)." >&2; exit 1; fi
+         # ⛔⭐ DISPATCH PROBE, ASSIGN SIDE (same ruling as next's; see s4e_dispatch_probe above). An HQ dispatching
+         # a row that is already satisfied is the seat09 five-day case with a person in the loop instead of a picker.
+         # ⛔ THIS SIDE PROBES AND REFUSES; IT DOES NOT CLOSE. Two reasons, and both are about not overreaching:
+         # (1) the ruling says the criterion runs "on the seat's own tree", and an HQ's tree is NOT the seat's -- a
+         # green here proves the row is satisfied HERE, which is strong evidence and not the same statement; and
+         # (2) `assign` cannot delegate to `done` the way next does (done requires the claim to be the RUNNER's, and
+         # assign writes ANOTHER seat's), so closing from here would mean a SECOND copy of the close path, and the
+         # close is the one thing in this file that must never exist twice. Refusing the dispatch already prevents
+         # the whole measured defect: no seat is handed dead work. The HQ then closes it deliberately, or learns
+         # that the DONE-WHEN is passing where the work is not done -- which is the more interesting finding anyway.
+         if [ "${S4E_NO_DISPATCH_PROBE:-0}" != "1" ]; then
+           # ⛔ rc CAPTURED IMMEDIATELY, never read as `$?` from inside an elif -- this file's own banner comment
+           # convicts exactly that ("read its verdict line, not a pipeline's $?"), and a probe whose two failure
+           # modes silently collapsed into one would serve back the ambiguity it exists to remove.
+           s4e_dispatch_probe "$topic"; _dprc=$?
+           if [ "$_dprc" = 0 ]; then
+             printf '\n⛔ REFUSED: %s IS ALREADY SATISFIED — do not dispatch it.\n' "$topic" >&2
+             printf '   Its own DONE-WHEN exits 0 on THIS tree (%s), so %s would be handed work that is already done.\n' "$S4E" "$seat" >&2
+             printf '   That is the five-day dead row this check exists to stop (seat09, FINDING-2026-09-03).\n' >&2
+             printf '   ⛔ NOT CLOSED FOR YOU: this is the HQ tree, not %s'"'"'s, and a close is a deliberate act. Either\n' "$seat" >&2
+             printf '     close it here    : bash %s claim %s && bash %s done %s\n' "$0" "$topic" "$0" "$topic" >&2
+             printf '     or fix the row   : if this row IS real work, its DONE-WHEN is the defect -- it passes where\n' >&2
+             printf '                        the work is not done, which is exactly how seat09'"'"'s row died. Fix the\n' >&2
+             printf '                        criterion in the baton first, then assign.\n' >&2
+             printf '   To dispatch anyway, deliberately: S4E_NO_DISPATCH_PROBE=1 bash %s assign %s %s\n\n' "$0" "$seat" "$topic" >&2
+             exit 1
+           elif [ "$_dprc" = 2 ]; then
+             printf '⚠ DISPATCH PROBE COULD NOT MEASURE %s -- assigning anyway, unverified: %s\n' "$topic" "${_dp_why:-?}" >&2
+           fi
+         fi
          t="$(mktemp "$PO/claims/.c.XXXXXX")"; { echo "$seat"; echo "ASSIGNED-BY $ME $(date -u +%FT%TZ)"; } > "$t"
          if ln "$t" "$c" 2>/dev/null; then rm -f "$t"; else rm -f "$t"; echo "⛔ RACE LOST: $(head -1 "$c" 2>/dev/null) owns '$topic'" >&2; exit 1; fi
          # ⭐ picker-dependency-and-boomerang-blindness CURE 2: an HQ assignment is the loudest possible "another
@@ -1300,6 +1427,10 @@ TASKEOF
                # row at rank N is itself the proof that its blocker deserves rank N: serve the BLOCKER, here.
                elif promo="$(s4e_servable_blocker "$topic")" && [ -n "$promo" ] && "$0" claim "$promo" >/dev/null 2>&1; then
                  echo "RUNNING" >> "$PO/claims/$promo.claim"
+                 # ⛔ THE PROMOTED BLOCKER IS A SERVED ROW LIKE ANY OTHER, so it is probed like any other. A
+                 # blocker that is already satisfied is the WORST row to hand out unprobed: it is blocking
+                 # something else, so closing it here also un-blocks the row that named it.
+                 s4e_dispatch_gate "$promo" "$rank" || continue
                  printf '⭐ DEPENDENCY INVERSION — rank-%s %s is BLOCKED-ON %s, which is un-DONE, unclaimed and FREE.\n' "$rank" "$topic" "$blk"
                  printf '   Rank is a human guess at priority; a dependency is a fact, and a fact outranks a guess.\n'
                  printf '   You are being served THE BLOCKER at the blocked row'"'"'s own rank position.\n'
@@ -1347,6 +1478,8 @@ TASKEOF
              continue; fi
            if "$0" claim "$topic" >/dev/null 2>&1; then
              echo "RUNNING" >> "$PO/claims/$topic.claim"
+             # ⛔⭐ ONE CALL, TWO SERVE PATHS -- see s4e_dispatch_gate. Never inline this again.
+             s4e_dispatch_gate "$topic" "$rank" || continue
              s4e_report_owned_skips
              serve "$topic" "LOCKED" "(rank $rank)"; exit 0; fi
          done < <(grep -P '^[0-9]+\t' "$q" | while IFS=$'\t' read -r rk tp br st; do printf '%s\t%s\t%s\t%s\t%s\n' "$rk" "$(s4e_mint_ts "$tp")" "$tp" "$br" "$st"; done | sort -t$'\t' -s -k1,1n -k2,2r | cut -f1,3-)
