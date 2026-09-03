@@ -2987,6 +2987,19 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             ef_b1(0xBA); bb_emit_u32((uint32_t)nl);
             { uint64_t _fn = (uint64_t)(uintptr_t)(void *)(_use_zframe_install ? rt_icn_zframe_args_install : rt_lcl_proc_args_install); ef_b2(0x48, 0xB8); bb_emit_u64(_fn); ef_b2(0xFF, 0xD0); }
         }
+        if (_iws && _use_zframe_install && !(g_emit_cfg && g_emit_cfg->root_graph)) {
+            extern int * const rt_k_level_p;
+            extern int64_t kw_fnclevel;
+            bb_emit_x86(x86("comment", "&level ENTRY-SIDE (row icon-rung-ladder-absorption): increment rt_k_level/kw_fnclevel on this class's own entry, mirroring bb_define_activate's enter_env pair verbatim (bb_define.cpp:94-101). Twin of the exit-side decrement already landed in xa_flat_zframe_epilogue_{γ,ω}_str() (SCRIP 41730a7f) -- same gate (icn_wire_stack_on()/_iws && icn_cells_graph/_use_zframe_install), so entry and exit always fire together. Built entirely via the x86() DSL (unlike the raw sub-rsp/call-install sequence just above), so TEXT and BINARY stay identical by construction -- no hand-verified raw bytes needed. Placed after args-install so it never disturbs the rdi/esi/edx marshaling above; rax/rcx are dead here (nothing downstream reads them -- the body proper starts at lbl_α_body, whose incoming state is the freshly-carved frame, not these registers). ⛔ root_graph EXCLUDED: rt_k_level's own static initializer (rt.c:392) is 1, already counting the root graph's (Icon main's) own implicit level -- this class's entry runs for main exactly like any other flat_lcl_proc callee, so without this guard main double-counts itself (measured: minimal repro read 2 3 2 instead of 1 2 1, a constant +1 skew from main's own spurious self-increment). The already-landed exit-side decrement is NOT symmetrically guarded (main's own return still decrements past 1 today) -- left alone deliberately: nothing reads &level after main returns so it is not an observable defect, and that code has already regressed once from an unrelated register-clobber (FINDING-2026-08-30-seat01-icon-level-half-cure...) so it is not reopened here without a witness that needs it.")
+                     + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
+                     + x86("mov", "rax", RDQ("rax", 0))
+                     + x86("add", RDD("rax", 0), (long)1)
+                     + x86("mov", "ecx", RDD("rax", 0))
+                     + x86("movsxd", "rcx", "ecx")
+                     + x86("sub", "rcx", (long)1)
+                     + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel")
+                     + x86("mov", RDQ("rax", 0), "rcx"));
+        }
     }
     if (!bare) emit_label_define_bb(&lbl_α_body);
     if (lbl_α_orig_p && xa_flat_class_c_pred() && !g_rt_fragment_emit) emit_label_define_bb(lbl_α_orig_p);
