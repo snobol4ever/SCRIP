@@ -40,9 +40,14 @@
 # as stdin, and run the head as the program.
 #
 # ⛔ ALL arms run with cwd in a scratch dir, never in the corpus tree — an OUTPUT unit-I/O association can
-# create files named by its argument in the cwd (SPITBOL/CSNOBOL4 dialect), which would dirty the vendored
-# suite directory. The whole suite is symlinked into the scratch run dir first so a same-directory
-# `-INCLUDE "sibling.sno"` (e.g. line.sno -> line2.sno) still resolves cwd-relatively.
+# create OR OVERWRITE files named by its argument in the cwd (SPITBOL/CSNOBOL4 dialect). The whole suite is
+# COPIED (never symlinked) into the scratch run dir first: a same-directory `-INCLUDE "sibling.sno"` (e.g.
+# line.sno -> line2.sno) still resolves cwd-relatively, but a write-target fixture (e.g. openo.tst, a
+# pre-committed empty companion file openo.sno's file-I/O test writes into) lands on the scratch copy, never
+# the tracked original. ⭐ MEASURED, THE HARD WAY (seat12, same session): the first cut of this script used
+# symlinks here, and running it wrote real content into two tracked corpus fixtures (openo.tst, test.bin)
+# through the symlink — reverted, cured to a copy before this landed. Never symlink a suite directory a
+# program under test might open for writing.
 #
 # ⛔ A missing suite, compiler, RT, or the csnobol4 oracle REFUSES with rc=2 — never a silent skip-as-success.
 # Exit: 0 iff FAIL+REJECT+CRASH+HANG == 0 in BOTH modes over the printed denominator.
@@ -81,7 +86,7 @@ PY
 
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 RUN="$W/run"; mkdir -p "$RUN"
-ln -s "$SUITE"/* "$RUN"/ 2>/dev/null || true
+cp -rp "$SUITE"/. "$RUN"/ 2>/dev/null || true
 SCRIP_HASH="$(git -C "$SD" rev-parse --short HEAD 2>/dev/null || echo '?')"
 CORP_HASH="$(git -C "$ROOT/corpus" rev-parse --short HEAD 2>/dev/null || echo '?')"
 
