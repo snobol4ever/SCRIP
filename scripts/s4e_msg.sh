@@ -1052,6 +1052,15 @@ TASKEOF
          # measured, eight freshly-minted rank-1 fleet slices sat unclaimed 40+ minutes behind 15 older
          # rank-1 rows). A topic with no readable mint timestamp sorts as OLDEST in its tier (s4e_mint_ts),
          # never specially -- so this degrades to the old behaviour only in the absence of data, not by design.
+         _owned_skipped=0; _owned_first=""
+         # ⛔ ONE line, not one per row: 18 of 178 FREE rows carry a named owner today, so per-row skip lines would
+         # bury the serve they precede. But it is never SILENT -- a skip nobody can see is indistinguishable from
+         # the row not existing, which is the failure this whole picker keeps being fixed for.
+         s4e_report_owned_skips() {
+           [ "${_owned_skipped:-0}" -gt 0 ] || return 0
+           printf '↩ skipped %d free row(s) owned by another seat (topmost: %s).\n' "$_owned_skipped" "$_owned_first"
+           printf '   The owner column constrains the pick (ceo 2026-09-03). To take one anyway: s4e_msg.sh claim <topic>.\n'
+           printf '   To move ownership properly, an HQ or the ceo runs: s4e_msg.sh assign <topic> <seat>.\n'; }
          while IFS=$'\t' read -r rank topic brief step; do
            case "$rank" in ''|\#*) continue;; esac
            # ⛔ s265 — THE STATE COLUMN IS LOAD-BEARING NOW. It was decorative (94 of 94 rows FREE, nothing read it),
@@ -1098,8 +1107,25 @@ TASKEOF
            # ⭐ RESTRICTED:<x> IS SERVABLE, BUT ONLY TO x. Unlike ASSIGNED (which hides a row from everyone, its owner
            # included, so the owner must reach for `claim`), a restriction names who MAY work it -- so the picker can and
            # should hand it to that seat. Everyone else falls through to the generic skip below, as before.
+           # ⭐⭐ THE OWNER COLUMN CONSTRAINS THE PICK (ceo ruling 2026-09-03, on hq_B's measured case).
+           # MEASURED: `next` served hq_B the rank-0 row port-exit-value-contract-untagged-rax-forges-dt-fail
+           # whose owner column read hq_P. The picker ordered by rank and read only the STATE column, so
+           # ownership was advisory AT THE MOMENT OF THE PICK -- a rank-0 row tagged to a seat in flight went to
+           # whoever typed `next` first. That is fine when the owner is idle and wrong when they are working it,
+           # and the picker cannot tell the difference, so it must not guess.
+           # ⛔ THE COST OF GUESSING IS ASYMMETRIC AND THAT IS WHY THE DEFAULT IS SKIP: a wrongly-served row makes
+           # TWO seats hold one piece of work (and a claim HIDES the row from its owner's own picker, so the owner
+           # is locked out silently); a wrongly-skipped row costs one `claim` typed on purpose.
+           # ⭐ `assign` remains the HQ/ceo verb that MOVES ownership, and `claim <topic>` is the deliberate
+           # override -- neither is touched here. Only the automatic pick is constrained.
            case "$step" in
-             FREE|'') : ;;
+             FREE|'')
+               case "$brief" in
+                 ''|unassigned|"$ME") : ;;
+                 *) _owned_skipped=$((_owned_skipped+1))
+                    [ -n "$_owned_first" ] || _owned_first="rank $rank  $topic  (owner $brief)"
+                    continue;;
+               esac ;;
              RESTRICTED:*) [ "$(s4e_restricted_to "$step")" = "$ME" ] || continue ;;
              *) continue;;
            esac
@@ -1112,11 +1138,13 @@ TASKEOF
              continue; fi
            if "$0" claim "$topic" >/dev/null 2>&1; then
              echo "RUNNING" >> "$PO/claims/$topic.claim"
+             s4e_report_owned_skips
              serve "$topic" "LOCKED" "(rank $rank)"; exit 0; fi
          done < <(grep -P '^[0-9]+\t' "$q" | while IFS=$'\t' read -r rk tp br st; do printf '%s\t%s\t%s\t%s\t%s\n' "$rk" "$(s4e_mint_ts "$tp")" "$tp" "$br" "$st"; done | sort -t$'\t' -s -k1,1n -k2,2r | cut -f1,3-)
          # ⭐ CURE 3, second half — WHEN NOTHING IS SERVABLE, SAY WHAT GOVERNANCE IS HOLDING. A bare "queue
          # empty" sent seats to ask HQ for work while rows sat waiting on a grant nobody had chased.
          _gw="$(awk -F'\t' '/^[0-9]+\t/ && ($4 ~ /^GRANT-NEEDED/ || $4 ~ /^PARKED-LON-HOLD/) {printf "     rank %s  %s  [%s]\n",$1,$2,$4}' "$q" 2>/dev/null)"
+         s4e_report_owned_skips
          echo "QUEUE EMPTY — every row claimed. Ask hq: s4e_msg.sh ask work 'queue empty'"
          [ -n "$_gw" ] && { echo "   ⭐ NOT empty of WORK — these rows are GOVERNANCE-GATED, waiting on a grant, not on a seat:"; printf '%s\n' "$_gw"; echo "   Chase the grant (route via your HQ to ceo), do not re-park these to FREE."; }
          exit 1;;
