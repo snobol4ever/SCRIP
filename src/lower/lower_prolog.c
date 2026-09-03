@@ -708,7 +708,6 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             pl_refuse("directive set_prolog_flag", subj->c[0] && subj->c[0]->v.sval ? subj->c[0]->v.sval : "?", 10); }
         pl_refuse("directive goal", (subj->v.sval ? subj->v.sval : "?"), 5);
     }
-    /* NO SYNTHETIC main: SCRIP runs exactly what `swipl -q -g halt` runs -- directives in file order, then the initialization goals -- and synthesizes nothing. A defined-but-undeclared main/0 is DATA, not an entry point; a program that wants main says so with `:- initialization(main).` (ceo ruling 2026-09-02 19:55, CEO-152, on hq_C's measurement). The deleted `ninit == 0 && main/0 exists` fallback made SCRIP PRINT where the oracle is SILENT for every directive-less program in the corpus, agreeing with it on rc and disagreeing on output -- so the pinned refs recorded SCRIP's own behaviour and could never grade it. Gate: test_gate_pl_no_synthetic_main.sh. */
     IR_graph_t * top = pl_body_graph(init_goals, ninit);
     top->root_graph = 1;
     int top_idx = bb_program_add(&g_stage2.bbp, top);
