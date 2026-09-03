@@ -79,7 +79,21 @@ echo "=== Icon MASTER board — corpus/tests/icon/ALL.icn ==="
 # pipeline aborted the script after printing only its header — a board that dies silently on the very
 # condition it exists to report. The refusal arms below are what distinguish "could not measure" from
 # "measured a red suite"; the exit status of the harness never does.
-_raw=$(timeout 1800 python3 "$HARNESS" run "$MASTER_ICN" "$MASTER_REF" --lang icon --modes m3,m4 --by-modes-column 2>/dev/null || true)
+# ⛔⭐⭐ STDERR IS CAPTURED, NOT DISCARDED -- IT IS WHERE THE FAILURE NAMES LIVE. This line read
+# `2>/dev/null` and therefore threw away the only per-entry information the run produces: the harness
+# DOES print `FAIL <mode> <entry>: <why>` rows in --by-modes-column mode, on stderr, and this board was
+# deleting them before anyone could read them. hq_C measured the consequence from the other end
+# (2026-09-03): the icon row accumulated THREE readings of one board in one day -- 377/381, 378/381, and
+# a pinned floor of 379, on three different trees -- and none of them could be reconciled against the
+# others, because a board that says "two of these regressed" without saying WHICH two produces numbers
+# that can only ever be compared, never diffed. Their diagnosis was that the harness lacks a verbose
+# flag in this mode; measured here, the harness was printing the rows all along and the BOARD was
+# dropping them, which is a cheaper fix and a different file.
+# ⛔ Kept in a SEPARATE stream, deliberately: folding stderr into $_raw would put arbitrary diagnostic
+# text through the `grep '^SUITE_BOARD '` parses below, and a board that mis-parses its own verdict to
+# gain a fail list has traded the number for the names rather than getting both.
+_errf=$(mktemp); trap 'rm -f "$_errf"' EXIT
+_raw=$(timeout 1800 python3 "$HARNESS" run "$MASTER_ICN" "$MASTER_REF" --lang icon --modes m3,m4 --by-modes-column 2>"$_errf" || true)
 board=$(printf '%s\n' "$_raw" | grep '^SUITE_BOARD ' | tail -1 || true)
 astboard=$(printf '%s\n' "$_raw" | grep '^SUITE_BOARD_AST ' | tail -1 || true)
 split=$(printf '%s\n' "$_raw" | grep '^MODES_COLUMN ' | tail -1 || true)
@@ -115,6 +129,16 @@ echo "run-graded population: $mt entries (the ast fixtures are NOT in these two 
 echo "mode-3 (--run):     PASS=$m3p FAIL=$m3f CRASH=$m3c HANG=$m3h UNPROVEN=$m3u XFAIL=$m3x XPASS=$m3xp   / $mt"
 echo "mode-4 (--compile): PASS=$m4p FAIL=$m4f CRASH=$m4c HANG=$m4h UNPROVEN=$m4u SKIP=$m4s XFAIL=$m4x XPASS=$m4xp   / $mt"
 echo "rerun a single mode: python3 $HARNESS run $MASTER_ICN $MASTER_REF --lang icon --modes m3   (per-entry attributes: ALL.csv)"
+# ⭐ THE NAMES, so two runs of this board can be DIFFED and not merely compared. Capped, because the
+# point is to make a regression identifiable, not to paste a census into a terminal -- and the cap says
+# so out loud rather than truncating silently, which would be a smaller version of the same defect.
+_nfail=$(grep -cE '^[[:space:]]*(FAIL|CRASH|HANG|XPASS|UNPROVEN) ' "$_errf" 2>/dev/null || echo 0)
+if [ "${_nfail:-0}" -gt 0 ]; then
+    echo ""
+    echo "--- the $_nfail non-PASS entries by name (showing up to 40; stderr of the run above) ---"
+    grep -E '^[[:space:]]*(FAIL|CRASH|HANG|XPASS|UNPROVEN) ' "$_errf" | head -40
+    [ "$_nfail" -gt 40 ] && echo "    ... and $((_nfail - 40)) more (rerun and keep stderr to see them all)"
+fi
 
 RED=0
 # ⛔ THE DENOMINATOR CHECK IS THE POINT OF THIS BOARD — a shrink is the silent-orphan class itself.
@@ -140,12 +164,26 @@ fi
 # ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05). Records what this script just
 # measured into .github/SCORE.md; runs nothing itself. Non-fatal: a bookkeeping failure must never
 # turn a real measurement into a red board.
+# ⭐ THE CELL CARRIES THE NAMES, not just the count. A leaderboard cell reading "2 below the floor" makes
+# the next reader re-run a 20-minute board to find out WHICH two; the names make the row diffable against
+# the next run, which is the whole complaint that row icon-master-board-is-two-below-watermark-and-the-
+# board-never-names-the-failures was raised about. Capped at six so a genuinely broken board does not
+# paste a census into a markdown table, and the overflow is stated rather than silently dropped.
+_named=""
+if [ "${_nfail:-0}" -gt 0 ]; then
+    _names=$(grep -E '^[[:space:]]*(FAIL|CRASH|HANG|XPASS|UNPROVEN) ' "$_errf" \
+             | sed -E 's/^[[:space:]]*([A-Z]+) [a-z0-9]+ ([^:]+):.*/\1 \2/' | sort -u | head -6 | paste -sd'; ' -)
+    _named=" — reds by name: $_names"
+    _uniq=$(grep -E '^[[:space:]]*(FAIL|CRASH|HANG|XPASS|UNPROVEN) ' "$_errf" \
+            | sed -E 's/^[[:space:]]*[A-Z]+ [a-z0-9]+ ([^:]+):.*/\1/' | sort -u | wc -l)
+    [ "${_uniq:-0}" -gt 6 ] && _named="$_named (and $((_uniq - 6)) more entries)"
+fi
 # ⛔ PLACED ABOVE THE RED EXIT ON PURPOSE. A red board is still a MEASUREMENT, and the FACT RULE says
 # ANY run -- recording only green boards would make the leaderboard a trophy cabinet, showing each
 # suite's best remembered day rather than its state, which is the exact opposite of what it is for.
 python3 "$HERE/util_score_row.py" write --lang icon --column board --modes m3,m4 \
     --measurer "${S4E_SEAT:-unknown-seat}" \
-    --text "$([ "$RED" -ne 0 ] && echo "⛔ RED — ")run-graded m3 $m3p/$mt · m4 $m4p/$mt · ast-graded $ap/$at (entries=$graded, floors m3 $M3_PASS_FLOOR / m4 $M4_PASS_FLOOR / ast $AST_PASS_FLOOR, \`board_icon_master.sh\`)" \
+    --text "$([ "$RED" -ne 0 ] && echo "⛔ RED — ")run-graded m3 $m3p/$mt · m4 $m4p/$mt · ast-graded $ap/$at (entries=$graded, floors m3 $M3_PASS_FLOOR / m4 $M4_PASS_FLOOR / ast $AST_PASS_FLOOR, \`board_icon_master.sh\`)$_named" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 if [ "$RED" -ne 0 ]; then echo "⛔ ICON MASTER BOARD RED"; exit 1; fi
 echo "✅ ICON MASTER BOARD OK: entries=$graded at/above floor $ENTRY_FLOOR · run-graded m3 PASS=$m3p m4 PASS=$m4p / $mt · ast-graded PASS=$ap/$at (watermarks held)"

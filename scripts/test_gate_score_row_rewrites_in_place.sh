@@ -17,6 +17,18 @@
 # markdown table. Each must exit 2. A helper that guesses is worse than no helper, because the row it
 # guesses carries a tree stamp that makes it look measured.
 #
+# ⭐⭐ THE PROPERTY PAID OFF UNDER REAL CONTENTION ON DAY ONE, and this is hq_C's report of it
+# (2026-09-03), kept here because it is evidence rather than argument. They ran a write for snobol4
+# and icon; between the write and the push, another session rewrote BOTH rows, and the rebase gave a
+# genuine content conflict on SCORE.md. Their words: "because it rewrites ONE cell in place with
+# provenance instead of regenerating the file, the conflict was two lines wide and readable, and I
+# could tell in one glance which half of each row was newer. An append-style board would have left me
+# two plausible rows and no way to choose." They kept the other session's snobol4 row (its entries
+# column was genuinely newer) and their own icon row (378 on a descendant supersedes 377 on an
+# ancestor) -- a merge, never a force. ⛔ So rewrite-in-place is not merely tidier than appending: it
+# is what makes a concurrent conflict DECIDABLE by a human in one glance. That is the property this
+# gate exists to keep, and the reason it is worth an arm rather than a comment.
+#
 # ⛔ IT GRADES A SCRATCH COPY, NEVER THE REAL BOARD. The helper's own `selftest` subcommand copies
 # SCORE.md to a tempdir and writes there; this gate asserts that too (the real .github working tree
 # must be no dirtier after the run than before), because a gate that edits the artifact it grades is
