@@ -53,7 +53,7 @@ static void rk_mark_array_name(const char *bare) {
     for (int i = 0; i < rk_array_names_n; i++) if (!strcmp(rk_array_names[i], bare)) return;
     if (rk_array_names_n < RK_ARRNAME_MAX) rk_array_names[rk_array_names_n++] = intern(bare);
 }
-static int rk_is_array_name(const char *bare) {
+int rk_is_array_name(const char *bare) {
     if (!bare) return 0;
     for (int i = 0; i < rk_array_names_n; i++) if (!strcmp(rk_array_names[i], bare)) return 1;
     return 0;
@@ -1877,13 +1877,13 @@ atom
     | '[' expr ',' arg_list ']'
         { tree_t *call=make_call("__rk_arr_lit"); expr_add_child(call,$2);
           ExprList *a=$4; if(a){ for(int i=0;i<a->count;i++) expr_add_child(call,a->items[i]); exprlist_free(a); } $$=call; }
-    | DOLLAR_LBRACKET ']'  { $$=make_call("__rk_arr_lit"); }
+    | DOLLAR_LBRACKET ']'  { $$=make_call("__rk_arr_lit_item"); }
     | DOLLAR_LBRACKET expr ']'
-        { tree_t *call=make_call("__rk_arr_lit"); expr_add_child(call,$2); $$=call; }
+        { tree_t *call=make_call("__rk_arr_lit_item"); expr_add_child(call,$2); $$=call; }
     | DOLLAR_LBRACKET expr ',' ']'
-        { tree_t *call=make_call("__rk_arr_lit"); expr_add_child(call,$2); $$=call; }
+        { tree_t *call=make_call("__rk_arr_lit_item"); expr_add_child(call,$2); $$=call; }
     | DOLLAR_LBRACKET expr ',' arg_list ']'
-        { tree_t *call=make_call("__rk_arr_lit"); expr_add_child(call,$2);
+        { tree_t *call=make_call("__rk_arr_lit_item"); expr_add_child(call,$2);
           ExprList *a=$4; if(a){ for(int i=0;i<a->count;i++) expr_add_child(call,a->items[i]); exprlist_free(a); } $$=call; }
     | '(' ')'         { $$=make_call("__rk_arr"); }
     | '(' expr ')'    { $$=$2; }

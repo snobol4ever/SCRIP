@@ -176,7 +176,7 @@ int rt_builtin_is_known(const char *name)
         "[]",
         "__apply__",
         "MAKELIST",
-        "__rk_arr", "__rk_arr_lit", "arr_get", "arr_set_pure", "arr_init", "arr_last", "array_sort", "arr_make",
+        "__rk_arr", "__rk_arr_lit", "__rk_arr_lit_item", "arr_get", "arr_set_pure", "arr_init", "arr_last", "array_sort", "arr_make",
         "__rk_arr_xx", "__rk_arr_at", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first",
         "__rk_arr_keys", "__rk_arr_values", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
@@ -2041,6 +2041,16 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if ((!strcmp(fn, "__rk_arr") || !strcmp(fn, "__rk_arr_lit")) && nargs >= 0) {
         extern DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs);
         *out = rt_make_flat_agg(args, nargs); return 1;
+    }
+    if (!strcmp(fn, "__rk_arr_lit_item") && nargs >= 0) {
+        extern DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs);
+        DESCR_t inner = rt_make_flat_agg(args, nargs);
+        const char *cur = VARVAL_fn(inner); if (!cur) cur = "";
+        size_t n = strlen(cur); char *buf = rt_ws_alloc(n + 3); size_t p = 0;
+        buf[p++] = '[';
+        for (size_t i = 0; i < n; i++) buf[p++] = (cur[i] == SOH) ? ' ' : cur[i];
+        buf[p++] = ']'; buf[p] = '\0';
+        *out = STRVAL(buf); return 1;
     }
     if (!strcmp(fn, "__rk_materialize") && nargs == 1) {
         DESCR_t *a = 0; int n = 0;

@@ -323,7 +323,7 @@ sub main() {
 }
 EOF
 
-raku "say_list" "1 2 3" << 'EOF'
+raku "say_list" "[1 2 3]" << 'EOF'
 sub main() {
     my @a = (1, 2, 3);
     say(@a);
@@ -1842,13 +1842,13 @@ raku "xrep_numeric_left" "77" << 'EOF'
 say 7 x 2;
 EOF
 
-raku "xxrep_array_str" "x x x" << 'EOF'
+raku "xxrep_array_str" "[x x x]" << 'EOF'
 my @a = "x" xx 3; say @a;
 EOF
 raku "xxrep_array_elems" "3" << 'EOF'
 my @a = "ab" xx 3; say @a.elems;
 EOF
-raku "xxrep_zeros" "0 0 0 0 0" << 'EOF'
+raku "xxrep_zeros" "[0 0 0 0 0]" << 'EOF'
 my @b = 0 xx 5; say @b;
 EOF
 raku "xxrep_var_count" "4" << 'EOF'
@@ -3771,7 +3771,7 @@ raku "xrep_still_works_after_key_fix" "1xxx2" << 'EOF'
 say 1 ~ "x" x 3 ~ 2;
 EOF
 
-raku "xxrep_still_works_after_key_fix" "x x x" << 'EOF'
+raku "xxrep_still_works_after_key_fix" "[x x x]" << 'EOF'
 my @a = "x" xx 3; say @a;
 EOF
 
@@ -3800,7 +3800,7 @@ sub f($a, *@r) { say $a ~ "|" ~ @r.elems; }
 f(1,2,3);
 EOF
 
-raku "slurpy_rest_values" "2 3" << 'EOF'
+raku "slurpy_rest_values" "[2 3]" << 'EOF'
 sub f($a, *@r) { say @r; }
 f(1,2,3);
 EOF
@@ -3847,7 +3847,7 @@ sub f(*@r) { my $o = ""; for @r -> $x { $o = $o ~ $x ~ " "; } say $o.trim; }
 f("a","b");
 EOF
 
-raku "slurpy_strings_flat" "x y z" << 'EOF'
+raku "slurpy_strings_flat" "[x y z]" << 'EOF'
 sub f(*@r) { say @r; }
 f("x","y","z");
 EOF
@@ -3860,7 +3860,7 @@ raku "slurpy_multiply_array_elems_unregressed" "18" << 'EOF'
 my $x = 6; my @a = (1,2,3); say $x * @a.elems;
 EOF
 
-raku "slurpy_array_literal_unregressed" "1 2 3" << 'EOF'
+raku "slurpy_array_literal_unregressed" "[1 2 3]" << 'EOF'
 my @a = (1,2,3); say @a;
 EOF
 
@@ -3879,7 +3879,7 @@ sub f($a, **@r) { say @r.elems; }
 f(1);
 EOF
 
-raku "slurpy_lol_rest_values" "2 3" << 'EOF'
+raku "slurpy_lol_rest_values" "[2 3]" << 'EOF'
 sub f($a, **@r) { say @r; }
 f(1,2,3);
 EOF

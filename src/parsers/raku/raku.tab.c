@@ -121,7 +121,7 @@ static void rk_mark_array_name(const char *bare) {
     for (int i = 0; i < rk_array_names_n; i++) if (!strcmp(rk_array_names[i], bare)) return;
     if (rk_array_names_n < RK_ARRNAME_MAX) rk_array_names[rk_array_names_n++] = intern(bare);
 }
-static int rk_is_array_name(const char *bare) {
+int rk_is_array_name(const char *bare) {
     if (!bare) return 0;
     for (int i = 0; i < rk_array_names_n; i++) if (!strcmp(rk_array_names[i], bare)) return 1;
     return 0;
@@ -6547,25 +6547,25 @@ yyreduce:
 
   case 471: /* atom: DOLLAR_LBRACKET ']'  */
 #line 1880 "raku.y"
-                           { (yyval.node)=make_call("__rk_arr_lit"); }
+                           { (yyval.node)=make_call("__rk_arr_lit_item"); }
 #line 6552 "raku.tab.c"
     break;
 
   case 472: /* atom: DOLLAR_LBRACKET expr ']'  */
 #line 1882 "raku.y"
-        { tree_t *call=make_call("__rk_arr_lit"); expr_add_child(call,(yyvsp[-1].node)); (yyval.node)=call; }
+        { tree_t *call=make_call("__rk_arr_lit_item"); expr_add_child(call,(yyvsp[-1].node)); (yyval.node)=call; }
 #line 6558 "raku.tab.c"
     break;
 
   case 473: /* atom: DOLLAR_LBRACKET expr ',' ']'  */
 #line 1884 "raku.y"
-        { tree_t *call=make_call("__rk_arr_lit"); expr_add_child(call,(yyvsp[-2].node)); (yyval.node)=call; }
+        { tree_t *call=make_call("__rk_arr_lit_item"); expr_add_child(call,(yyvsp[-2].node)); (yyval.node)=call; }
 #line 6564 "raku.tab.c"
     break;
 
   case 474: /* atom: DOLLAR_LBRACKET expr ',' arg_list ']'  */
 #line 1886 "raku.y"
-        { tree_t *call=make_call("__rk_arr_lit"); expr_add_child(call,(yyvsp[-3].node));
+        { tree_t *call=make_call("__rk_arr_lit_item"); expr_add_child(call,(yyvsp[-3].node));
           ExprList *a=(yyvsp[-1].list); if(a){ for(int i=0;i<a->count;i++) expr_add_child(call,a->items[i]); exprlist_free(a); } (yyval.node)=call; }
 #line 6571 "raku.tab.c"
     break;
