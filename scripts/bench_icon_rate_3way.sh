@@ -21,9 +21,12 @@
 # emitted .s, against 2 in every other concat benchmark), and the folded constant still has the
 # right length.  Audit the emitted asm for the operation under test before trusting any row.
 #
-# ⛔ RT_OPT: build SCRIP with -O2 before running (O0-DEV-O2-BENCH).  Measuring the -O0 development
-# build against optimized oracles understates SCRIP by ~2x on every runtime-heavy benchmark; that
-# error was made and caught during this harness's own bring-up.
+# ⛔ RT_OPT: -O0, always -- there is no -O2 arm to build.  Lon's s262 FACT RULE (RULES.md § NO -O2
+# BUILDS) makes -O0 the arm for development AND benchmarks AND demos: an -O2 figure grades gcc's
+# optimizer over a C runtime being deleted in favour of register-aware ASM.  This header used to
+# instruct the opposite (O0-DEV-O2-BENCH) and that instruction is RETIRED -- following it now voids
+# the run.  Label every row RT_OPT=-O0; against optimized oracles that understatement is real, known,
+# and accepted, never corrected for by rebuilding.
 #
 # Usage: [REPS=3] [WARM=500] [BUD=1500] bash scripts/bench_icon_rate_3way.sh
 # Oracles: icont_bin()/iconx_bin() (shared /home/resources/icon-master/bin) and refs/jcon-master/bin/{jcont,jcon}.

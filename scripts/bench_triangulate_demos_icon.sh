@@ -35,8 +35,9 @@
 # ⭐ Some demos answer on stderr (jlink); the oracle picks the stream once, as in test_demo_icon_jcon.sh.
 #
 # ⛔ RT_OPT IS -O0 AND THERE IS NO -O2 ARM (Lon s262 FACT RULE; Makefile:34). Its sibling
-# bench_icon_rate_3way.sh still tells you to "build SCRIP with -O2 before running" -- that instruction
-# is VOID and is not repeated here.
+# bench_icon_rate_3way.sh carried the VOID instruction "build SCRIP with -O2 before running" until
+# 2026-09-03 (ceo CEO-173); that header is now retired and this cross-reference is kept only so the
+# next reader knows the sibling was fixed, not that it still needs fixing.
 #
 # EXIT: 0 = every measured row AGREE. 1 = at least one DISAGREE/VOID/UNPROVEN (grid still printed).
 #       2 = REFUSED (scrip unbuilt, icont/iconx missing, bench_rusage stale, demo corpus gone).
