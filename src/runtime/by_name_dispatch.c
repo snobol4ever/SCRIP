@@ -144,6 +144,12 @@ __attribute__((visibility("hidden"))) int plw_unify_cells_x(DESCR_t *a, DESCR_t 
 __attribute__((visibility("hidden"))) int plw_unify_cell_val(DESCR_t *dst, DESCR_t val, pl_tr_ctx_t *cx) { DESCR_t tmp = val; return plw_unify_cells(dst, plw_entry(&tmp), cx); }
 __attribute__((visibility("hidden"))) void plw_bind_x(DESCR_t *cell, DESCR_t word, pl_tr_ctx_t *cx) { plw_bind(cell, word, cx); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_catch_handle_c(DESCR_t *a, int n, void *ball, pl_tr_ctx_t *cx)
+{
+    if (!a || n < 1 || !ball) return 0;
+    return plw_unify_cells(plw_entry(&a[0]), (DESCR_t *)ball, cx) ? 1 : 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t *plw_det_cell(DESCR_t *tmp) {
     { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); }
     DESCR_t *c = plw_cell_deref(plw_entry(tmp));

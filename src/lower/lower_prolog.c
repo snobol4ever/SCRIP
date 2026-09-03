@@ -182,7 +182,7 @@ static const char * pl_rung6_builtins[] = { "=..", "==", "@<", "@=<", "@>", "@>=
 static const char * pl_rung7_builtins[] = { "between", "repeat", "clause", "retract", "sub_atom", "for", "current_op", "current_predicate", "predicate_property",
     "current_prolog_flag", "current_stream", "stream_property", NULL };
 static const char * pl_rung8_builtins[] = { "findall", "bagof", "setof", "aggregate_all", NULL };
-static const char * pl_rung9_builtins[] = { "catch", NULL };
+static const char * pl_rung9_builtins[] = { NULL };
 static const char * pl_rung10_builtins[] = { "call", "assert", "asserta", "assertz", "retractall", "abolish", "dynamic", "nb_setval", "nb_getval", "b_setval", "b_getval", "phrase",
     "with_output_to", "setup_call_cleanup", "use_module", "ensure_loaded", "module", "set_prolog_flag", NULL };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -407,6 +407,28 @@ static IR_t * pl_lower_ite(lcx_t * cx, const tree_t * C, const tree_t * T, const
     return ig;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_leaf_lv(lcx_t * cx, const char * sym, const tree_t * t, int nargs, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out);
+static IR_t * pl_lower_catch(lcx_t * cx, const tree_t * G, const tree_t * C, const tree_t * R, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    IR_t * mark = build(cx, IR_BOUND, NULL, ωfail);
+    IR_t * unmk = build(cx, IR_UNMARK, NULL, ωfail); ir_operand_push(unmk, mark);
+    tree_t * ct = ast_node_new(TT_FNC); ct->v.sval = (char *) "$catch_handle"; ast_push(ct, (tree_t *) C);
+    IR_t * he = NULL;
+    IR_t * hc = pl_leaf_lv(cx, "$catch_handle", ct, 1, NULL, ωfail, &he);
+    lc_γ_to(unmk, he ? he : hc);
+    { lc_vec rv; lc_vec_init(&rv, (int) sizeof(const tree_t *));
+      collect_conj(R, &rv);
+      IR_t * re = NULL;
+      IR_t * rfirst = pl_lower_conj(cx, (const tree_t * const *) rv.data, rv.n, γnext, ωfail, &re, NULL);
+      lc_γ_to(hc, re ? re : (rfirst ? rfirst : γnext)); }
+    { lc_vec gv; lc_vec_init(&gv, (int) sizeof(const tree_t *));
+      collect_conj(G, &gv);
+      IR_t * ge = NULL;
+      IR_t * gfirst = pl_lower_conj(cx, (const tree_t * const *) gv.data, gv.n, γnext, unmk, &ge, NULL);
+      lc_γ_to(mark, ge ? ge : (gfirst ? gfirst : unmk)); }
+    if (entry_out) *entry_out = mark;
+    return hc;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_leaf(lcx_t * cx, const char * sym, const tree_t * t, int nargs, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = sym;
     IR_t * prev = NULL; IR_t * first = NULL;
@@ -549,6 +571,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             return r;
         }
         if (!strcmp(nm, "throw") && t->n == 1) return pl_leaf(cx, "$throw", t, 1, ωfail, ωfail, entry_out);
+        if (!strcmp(nm, "catch") && t->n == 3) return pl_lower_catch(cx, t->c[0], t->c[1], t->c[2], γnext, ωfail, entry_out);
         if (!strcmp(nm, "=") && t->n == 2) { IR_t * e = NULL; IR_t * nd = unify_pair(cx, t->c[0], t->c[1], γnext, ωfail, &e); if (entry_out) *entry_out = e ? e : nd; return nd; }
         if (!strcmp(nm, "\\=") && t->n == 2) {
             tree_t * u = ast_node_new(TT_UNIFY); ast_push(u, (tree_t *) t->c[0]); ast_push(u, (tree_t *) t->c[1]);

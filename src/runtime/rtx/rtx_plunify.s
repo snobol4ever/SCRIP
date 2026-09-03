@@ -48,6 +48,28 @@ RTX_FUNC(rt_pl_exist_raise)
     xor     edx, edx
     ret
 RTX_ENDF(rt_pl_exist_raise)
+RTX_FUNC(rt_pl_catch_handle)
+    test    r15, r15
+    jz      .Lch_fail
+    sub     rsp, CTX_FRAME
+    mov     qword ptr [rsp + CTX_TR], r12
+    mov     qword ptr [rsp + CTX_B], r13
+    mov     rdx, r15
+    mov     rcx, rsp
+    call    rt_pl_catch_handle_c
+    mov     r12, qword ptr [rsp + CTX_TR]
+    add     rsp, CTX_FRAME
+    test    eax, eax
+    jz      .Lch_fail
+    xor     r15d, r15d
+    mov     eax, DT_I
+    mov     edx, 1
+    ret
+.Lch_fail:
+    mov     eax, DT_FAIL | (MOD_OP_RT_PL_CATCH_HANDLE << 8)
+    xor     edx, edx
+    ret
+RTX_ENDF(rt_pl_catch_handle)
 RTX_FUNC(rt_pl_ball_take)
     mov     rax, r15
     xor     r15d, r15d

@@ -82,4 +82,5 @@
 #define MOD_OP_RT_MATCH_REPLACE        142   /* rtx_match.s   rt_match_replace       */
 #define MOD_OP_RT_PL_THROW_RAISE       143   /* rtx_plunify.s rt_pl_throw_raise      */
 #define MOD_OP_RT_PL_EXIST_RAISE       144   /* rtx_plunify.s rt_pl_exist_raise      */
+#define MOD_OP_RT_PL_CATCH_HANDLE      145   /* rtx_plunify.s rt_pl_catch_handle     */
 #endif
