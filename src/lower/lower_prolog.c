@@ -818,17 +818,18 @@ static void pl_register_program(stage2_t * s2, const tree_t * prog) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pl_dir_number_vars(tree_t * t, const char ** names, int * n) {
+enum { PL_DIR_VARS_MAX = 1024 };
+static void pl_dir_number_vars(tree_t * t, const char ** names, int * n, int scope0) {
     if (!t) return;
     if (t->t == TT_VAR) {
         const char * nm = t->v.sval;
         int slot = *n;
-        if (nm && strcmp(nm, "_") != 0) { for (int i = 0; i < *n; i++) if (names[i] && !strcmp(names[i], nm)) { slot = i; break; } }
-        if (slot == *n && *n < 64) { names[*n] = nm; (*n)++; }
+        if (nm && strcmp(nm, "_") != 0) { for (int i = scope0; i < *n; i++) if (names[i] && !strcmp(names[i], nm)) { slot = i; break; } }
+        if (slot == *n && *n < PL_DIR_VARS_MAX) { names[*n] = nm; (*n)++; }
         t->v.ival = slot;
         return;
     }
-    for (int i = 0; i < t->n; i++) pl_dir_number_vars(t->c[i], names, n);
+    for (int i = 0; i < t->n; i++) pl_dir_number_vars(t->c[i], names, n, scope0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t *lower_pl_stage2(const tree_t *prog) {
@@ -837,6 +838,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     enum { PL_INIT_GOALS_MAX = 256 };
     const tree_t * init_goals[PL_INIT_GOALS_MAX]; int ninit = 0;
     const tree_t * dir_goals[PL_INIT_GOALS_MAX]; int ndir = 0;
+    const char * dvn[PL_DIR_VARS_MAX]; int dvc = 0;
     for (int i = 0; i < prog->n; i++) {
         const tree_t *s = prog->c[i];
         if (!s || s->t != TT_STMT) continue;
@@ -853,7 +855,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
         if (subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "set_prolog_flag") && subj->n == 2) {
             if (pl_flag_directive_is_default(subj)) continue;
             pl_refuse("directive set_prolog_flag", subj->c[0] && subj->c[0]->v.sval ? subj->c[0]->v.sval : "?", 10); }
-        { const char * dvn[64]; int dvc = 0; pl_dir_number_vars((tree_t *) subj, dvn, &dvc);
+        { int dv_scope0 = dvc; pl_dir_number_vars((tree_t *) subj, dvn, &dvc, dv_scope0);
           tree_t * ig = ast_node_new(TT_FNC); ig->v.sval = (char *) "ignore"; ast_push(ig, (tree_t *) subj);
           if (ndir < PL_INIT_GOALS_MAX) dir_goals[ndir++] = ig; continue; }
     }
