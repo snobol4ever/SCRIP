@@ -5144,7 +5144,8 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     L_bidjmp_5894: ;
     if ((_bid == BID_runerr) && nargs >= 1) { long long _ec = IS_INT_fn(args[0]) ? (long long)args[0].i : 500; fprintf(stderr, "Run-time error %lld\n", _ec); if (nargs >= 2) { DESCR_t _im = FAILDESCR; if (try_call_builtin_by_name("image", args + 1, 1, &_im) && !IS_FAIL_fn(_im)) { const char *_is = VARVAL_fn(_im); fprintf(stderr, "offending value: %s\n", _is ? _is : ""); } } exit(1); }
     L_bidjmp_5895: ;
-    if ((_bid == BID_stop)) { for (int _si = 0; _si < nargs; _si++) { DESCR_t _a = args[_si]; if (IS_INT_fn(_a)) fprintf(stderr, "%lld", (long long)_a.i); else if (IS_REAL_fn(_a)) { char _rb[64]; real_str(_a.r, _rb, sizeof _rb); fprintf(stderr, "%s", _rb); } else { const char *_s = VARVAL_fn(_a); if (_s) fprintf(stderr, "%s", _s); } } if (nargs) fprintf(stderr, "\n"); exit(0); }
+    if ((_bid == BID_stop)) { for (int _si = 0; _si < nargs; _si++) { DESCR_t _a = args[_si]; if (IS_INT_fn(_a)) fprintf(stderr, "%lld", (long long)_a.i); else if (IS_REAL_fn(_a)) { char _rb[64]; real_str(_a.r, _rb, sizeof _rb); fprintf(stderr, "%s", _rb); } else { const char *_s = VARVAL_fn(_a); if (_s) fprintf(stderr, "%s", _s); } } if (nargs) fprintf(stderr, "\n"); exit(1); }
+    if ((_bid == BID_exit)) { long long _st = (nargs >= 1 && IS_INT_fn(args[0])) ? (long long)args[0].i : 0; exit((int)_st); }
     extern const char *scan_subj;
     extern int         scan_pos;
     extern int         scan_depth;
