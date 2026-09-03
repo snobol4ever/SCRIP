@@ -1,103 +1,25 @@
 #!/usr/bin/env bash
-# test_raku_ir_full_suite.sh — Full Raku rung ladder sweep (RK-27)
-#
-# Runs all RK-1 through RK-26 tests under --run, --run, and --run.
-# Reports per-rung PASS/FAIL for each mode. Final gate: FAIL=0 in all modes.
-#
-# Gate: PASS=22 FAIL=0 per mode, all three modes.
-#
-# AUTHORS: LCherryholmes · Claude Sonnet 4.6   DATE: 2026-04-15
-
+# scripts/test_raku_ir_full_suite.sh — Raku master-suite AST-parity sweep via corpus_suite_harness.py.
+# Re-pointed off the retired test/raku rung tree (row test-raku-ir-full-suite-skips-rc-0-when-its-population-
+# directory-is-absent): the old TRACK-4 population never existed under the one-flat-suite corpus reorg, so this
+# always printed "SKIP ... rc=0" -- a never-ran reading as green (GOAL-CEO.md CEO-20, FINDING-2026-08-30-hq_B).
+# Population is now the master pair corpus/tests/raku/ALL.raku + ALL.ref, graded in "ast" mode
+# (LANG_CONFIGS["raku"]["modes"]). An absent population REFUSES rc=2 -- it is never silently skipped.
 set -euo pipefail
-
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO="$(cd "$HERE/.." && pwd)"
-SCRIP="${SCRIP:-$REPO/scrip}"
-TESTDIR="$REPO/test/raku"
+S4E="${S4E_HOME:-$(cd "$HERE/../.." && pwd)}"
+SNO="$S4E/corpus/tests/raku/ALL.raku"
+REF="$S4E/corpus/tests/raku/ALL.ref"
 
-if [ ! -x "$SCRIP" ]; then
-    echo "SKIP  scrip binary not found at $SCRIP" >&2
-    exit 0
-fi
-if [ ! -d "$TESTDIR" ]; then
-    echo "SKIP  test/raku dir not found at $TESTDIR" >&2
-    exit 0
+if [ ! -f "$SNO" ] || [ ! -f "$REF" ]; then
+    echo "⛔ REFUSING (rc=2): raku master suite population absent -- expected $SNO + $REF" >&2
+    exit 2
 fi
 
-IR_PASS=0; IR_FAIL=0
-SM_PASS=0; SM_FAIL=0
-JIT_PASS=0; JIT_FAIL=0
-TOTAL_FAIL=0
-
-run_mode() {
-    local mode="$1" raku="$2"
-    local exp="${raku%.raku}.expected"
-    [ -f "$exp" ] || { echo "  SKIP $(basename "$raku" .raku) (no .expected)"; return 1; }
-    local got want
-    got=$(timeout 8 "$SCRIP" "$mode" "$raku" </dev/null 2>/dev/null) || true
-    want=$(cat "$exp")
-    if [ "$got" = "$want" ]; then
-        echo "  PASS $(basename "$raku" .raku)"
-        return 0
-    else
-        echo "  FAIL $(basename "$raku" .raku)"
-        echo "    want: $(echo "$want" | head -3 | tr '\n' '|')"
-        echo "    got:  $(echo "$got"  | head -3 | tr '\n' '|')"
-        return 1
-    fi
-}
-
-echo "=== Raku full suite — --run ==="
-for raku in "$TESTDIR"/*.raku; do
-    [ -f "$raku" ] || continue
-    if run_mode --run "$raku"; then
-        IR_PASS=$((IR_PASS+1))
-    else
-        IR_FAIL=$((IR_FAIL+1))
-    fi
-done
-echo ""
-echo "  --run:  PASS=$IR_PASS FAIL=$IR_FAIL"
-
-echo ""
-echo "=== Raku full suite — --run ==="
-for raku in "$TESTDIR"/*.raku; do
-    [ -f "$raku" ] || continue
-    if run_mode --run "$raku"; then
-        SM_PASS=$((SM_PASS+1))
-    else
-        SM_FAIL=$((SM_FAIL+1))
-    fi
-done
-echo ""
-echo "  --run:  PASS=$SM_PASS FAIL=$SM_FAIL"
-
-echo ""
-echo "=== Raku full suite — --run ==="
-for raku in "$TESTDIR"/*.raku; do
-    [ -f "$raku" ] || continue
-    if run_mode --run "$raku"; then
-        JIT_PASS=$((JIT_PASS+1))
-    else
-        JIT_FAIL=$((JIT_FAIL+1))
-    fi
-done
-echo ""
-echo "  --run: PASS=$JIT_PASS FAIL=$JIT_FAIL"
-
-echo ""
-echo "=== Summary ==="
-echo "  --run:  PASS=$IR_PASS FAIL=$IR_FAIL"
-echo "  --run:  PASS=$SM_PASS FAIL=$SM_FAIL"
-echo "  --run: PASS=$JIT_PASS FAIL=$JIT_FAIL"
-
-TOTAL_FAIL=$((IR_FAIL + SM_FAIL + JIT_FAIL))
-if [ "$TOTAL_FAIL" -eq 0 ]; then
-    echo ""
-    echo "ALL PASS — PASS=$IR_PASS per mode, all three modes."
-    exit 0
-else
-    echo ""
-    echo "FAIL — $TOTAL_FAIL failures across all modes."
-    exit 1
-fi
+if out=$(python3 "$HERE/corpus_suite_harness.py" run "$SNO" "$REF" --lang raku 2>&1); then rc=0; else rc=$?; fi
+echo "$out"
+board=$(printf '%s\n' "$out" | grep '^SUITE_BOARD ' || true)
+pass=$(printf '%s\n' "$board" | grep -oE 'ast_pass=[0-9]+' | head -1 | cut -d= -f2 || true)
+fail=$(printf '%s\n' "$board" | grep -oE 'ast_fail=[0-9]+' | head -1 | cut -d= -f2 || true)
+echo "PASS=${pass:-0} FAIL=${fail:-0}"
+exit "$rc"

@@ -176,7 +176,7 @@ int rt_builtin_is_known(const char *name)
         "[]",
         "__apply__",
         "MAKELIST",
-        "__rk_arr", "__rk_arr_lit", "__rk_arr_lit_item", "arr_get", "arr_set_pure", "arr_init", "arr_last", "array_sort", "arr_make",
+        "__rk_arr", "__rk_arr_lit", "__rk_arr_lit_item", "arr_get", "arr_set_pure", "arr_init", "arr_last", "array_sort", "array_reverse", "arr_make",
         "__rk_arr_xx", "__rk_arr_at", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first",
         "__rk_arr_keys", "__rk_arr_values", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
@@ -2652,6 +2652,37 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             strcat(o, elems[i]);
         }
         *out = STRVAL(o); return 1;
+    }
+    if (!strcmp(fn, "array_reverse") && nargs == 1) {
+        if (args[0].v == DT_A && args[0].arr) {
+            ARBLK_t *b = (ARBLK_t *) args[0].arr; int n = b->hi - b->lo + 1; if (n < 0) n = 0;
+            ARBLK_t *r = (ARBLK_t *) rt_ws_alloc_tag(sizeof(ARBLK_t), HB_ARR);
+            r->id = rt_agg_serial_list(); r->lo = b->lo; r->hi = b->hi; r->ndim = 1; r->lo2 = 0; r->hi2 = 0; r->proto_bare = 0;
+            r->data = (DESCR_t *) rt_ws_alloc(sizeof(DESCR_t) * (size_t) (n ? n : 1));
+            for (int i = 0; i < n; i++) r->data[i] = b->data[n - 1 - i];
+            DESCR_t d; d.v = DT_A; d.slen = 0; d.arr = r; *out = d; return 1;
+        }
+        const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
+        if (strchr(cur, SOH)) {
+            int cnt = 1; for (const char *p = cur; *p; p++) if (*p == SOH) cnt++;
+            char **elems = rt_ws_alloc((size_t)cnt * sizeof(char*));
+            int idx = 0; const char *seg = cur;
+            do {
+                const char *nx = strchr(seg, SOH);
+                size_t elen = nx ? (size_t)(nx - seg) : strlen(seg);
+                char *el = rt_ws_alloc(elen + 1); memcpy(el, seg, elen); el[elen] = '\0';
+                elems[idx++] = el;
+                seg = nx ? nx + 1 : NULL;
+            } while (seg && idx < cnt);
+            size_t total = 0; for (int i = 0; i < cnt; i++) total += strlen(elems[i]) + 1;
+            char *o = rt_ws_alloc(total + 1); o[0] = '\0';
+            for (int i = 0; i < cnt; i++) {
+                if (i) { size_t ol = strlen(o); o[ol] = SOH; o[ol+1] = '\0'; }
+                strcat(o, elems[cnt - 1 - i]);
+            }
+            *out = STRVAL(o); return 1;
+        }
+        *out = REVERS_fn(args[0]); return 1;
     }
     if ((!strcmp(fn, "die") || !strcmp(fn, "script_die")) && nargs >= 1) {
         const char *m = VARVAL_fn(args[0]); if (!m) m = "Died";
