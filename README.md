@@ -323,13 +323,62 @@ the full language surface. Runners: `scripts/test_icon_arizona_suite.sh`,
 `scripts/test_icon_jcon_suite.sh` — each prints its own totals and names every
 non-PASS.
 
-**Self-host:** SCRIP compiles the 17-module JCON translator — a production Icon
-compiler, `jtran`, written in Icon — into one native x86-64 binary (656K lines of
-generated assembly), and that binary starts and drives its full
-`preproc → yylex → parse → ast2ir → bc_File` pipeline. Class-file output is blocked
-on three remaining gaps in co-expression support — argument capture at `create`,
-global state across co-expressions, and per-activation storage for recursive
-generators (the last already in progress). When the first lands, classes flow.
+**Major demo — the JCON compiler, written in Icon.** JCON (Proebsting & Townsend,
+Arizona) is a production Icon-to-JVM compiler, itself written in Icon: 9,953 lines
+across 16 hand-written modules plus 2 that JCON generates with its own Icon programs.
+It is the largest real-world Icon program in the corpus, and it is a demo rather than
+a test because it exercises the whole front end at once.
+
+The demo entries live in `corpus/demos/icon/jcon/`. Each is a thin file of `link`
+directives resolved by SCRIP's own `icn_resolve_links`, naming exactly the modules
+that real JCON program is built from — not a concatenated command line, which
+silently merges JCON's four separate `procedure main`s into one program. The gate
+builds its own `icont` oracle from the same sources every run:
+
+| demo | what it is | m3 | m4 | vs oracle |
+|---|---|:---:|:---:|---|
+| `interfacegen` | JCON's Java-interface table generator (415 lines out) | ✅ | ✅ | byte-identical |
+| `jlink` | `jlink`, JCON's 2-module class linker | ✅ | ✅ | byte-identical |
+| `oplexgen` | JCON's operator-lexer generator (611 lines out) | ⚠ | ⚠ | same 611 lines, different order |
+| `jtran` | the full 17-module translator | ⛔ | ⛔ | does not build |
+
+`oplexgen` walks `key(t)` to emit its decision tree; SCRIP's table-key order differs
+from the oracle's, so the same 611 lines come out in a different order (`sort` of the
+two outputs is byte-identical, and m3 ≡ m4 exactly). Icon does not specify `key()`
+order, so the generated source stays valid either way.
+
+`jtran` does not currently build in either mode — the compiler itself stops. Both
+sites are in `lexer.icn`, on the shape `EXPR ? { while COND do … suspend … }`: the
+scan's resume path lands on the loop **condition**'s β port, and a non-resumable
+condition (a literal or plain variable) emits only an α entry. `while f()` — a
+resumable condition — compiles and links fine. Minimal witness, two lines:
+
+```icon
+procedure g(); "" ? { while 1 do suspend 1 }; end
+procedure main(); write(g()); end
+```
+
+Gate: `scripts/test_demo_icon_jcon.sh` (refuses `rc=2` rather than skipping; a
+declared known-difference that starts passing is reported `XPASS` and fails, so a cure
+cannot land silently).
+
+**Demo benchmarks.** Three-angle triangulation, `scripts/bench_triangulate_demos_icon.sh`.
+⛔ **Basis: one iteration = one whole program run**, so every number is a TOTAL carrying
+process startup (and, for m3, the compile). These are not kernel slopes and must never
+share a column with the kernel grid above. Angles 1 (fixed time) and 2 (fixed
+iterations) agreed within 4% on every row; two independent runs, 2026-09-03, `RT_OPT=-O0`:
+
+| demo | m3 vs `iconx` | m4 vs `iconx` |
+|---|:---:|:---:|
+| `interfacegen` | 0.19–0.21x | **1.28–1.40x** |
+| `jlink` | 0.03x | 0.77x |
+
+Ranges are the spread across the two runs, not error bars. m3 compiles at run time, so
+its total includes the compile; m4 is a prebuilt binary. ⛔ No work-basis multiple is
+published: these programs run in 4–5 ms against a 2–4 ms process startup, so
+total-minus-overhead is dominated by its own error bars — the harness detects that and
+refuses the work number rather than printing one. `oplexgen` and `jtran` get timings
+but **no multiple**, because their output does not match the oracle.
 
 ### Prolog
 
