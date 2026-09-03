@@ -93,6 +93,16 @@ DEMO="${DEMO:-$CORPUS/demos/snobol4}"
 # a caller can tell 'I could not measure' from 'I measured and it is broken'. Silence could say neither.
 if [ ! -x "$SCRIP" ]; then echo "⛔ REFUSED TO GRADE: scrip not built at $SCRIP" >&2; exit 2; fi
 if [ ! -d "$CORPUS" ]; then echo "⛔ REFUSED TO GRADE: corpus not found at $CORPUS" >&2; exit 2; fi
+# ⛔⭐ A BOARD THAT CANNOT SAY WHAT IT GRADED MUST REFUSE, NOT LABEL (FINDING-2026-08-30-hq_C-the-snobol4-board-
+# grades-whatever-scrip-exists-and-labels-that-verdict-with-git-head.md). This script never builds -- it grades
+# whichever $SCRIP happens to be sitting in the tree and stamps the report with git HEAD, so a green board was
+# not evidence about the SHA it named: a pristine build of the exact commit a board called clean SIGSEGV'd two
+# counted entries. gate_require_fresh refuses rc=2 (UNPROVEN, never a silent pass) before grading anything.
+if ! . "$HERE/lib_gate.sh" 2>/dev/null || ! command -v gate_require_fresh >/dev/null 2>&1; then
+    echo "⛔ REFUSED TO GRADE: lib_gate.sh unavailable or missing gate_require_fresh -- cannot verify binary freshness" >&2
+    exit 2
+fi
+gate_require_fresh "$HERE/.." src "$SCRIP" "$RT_DIR/libscrip_rt.so"
 # ⛔⛔ REFUSE ON A MISSING SUBTREE -- DO NOT SILENTLY DISCOVER FEWER PROGRAMS (hq_C s271). This board read
 # "PASS=342 FAIL=0" for a whole session because $DEMO pointed at a path that did not exist: every visible signal
 # said green while 22 programs had left the denominator. A clean numerator over a shrunken denominator is the most

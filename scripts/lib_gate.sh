@@ -109,6 +109,44 @@ gate_require_exec() {
         exit 2
     fi
 }
+# gate_require_fresh <repo-root> <src-subdir> <binary> [<binary2> ...] -- refuse rc=2 (UNPROVEN) when any
+# binary is older than the newest git-tracked file under <src-subdir>, or older than HEAD's own commit time.
+#
+# THE DEFECT THIS EXISTS TO KILL (FINDING-2026-08-30-hq_C-the-snobol4-board-grades-whatever-scrip-exists-and-
+# labels-that-verdict-with-git-head.md): a board that never builds grades whatever binary happens to be sitting
+# in the tree, then stamps the report with a `tree: SCRIP=<sha>` line read from git -- so the SHA is not
+# evidence about the artifact that was graded. A pristine build of the exact commit one such board called clean
+# SIGSEGV'd two counted entries. A board that cannot establish what it graded must refuse, never label.
+gate_require_fresh() {
+    local _root="$1" _srcdir="$2"; shift 2
+    local _f _t _newest_t=0 _newest_f="" _head_t _bin _bin_t _stale=0 _why=""
+    while IFS= read -r _f; do
+        [ -e "$_root/$_f" ] || continue
+        _t="$(stat -c %Y "$_root/$_f" 2>/dev/null)" || continue
+        if [ "$_t" -gt "$_newest_t" ] 2>/dev/null; then _newest_t="$_t"; _newest_f="$_f"; fi
+    done < <(git -C "$_root" ls-files -- "$_srcdir" 2>/dev/null)
+    _head_t="$(git -C "$_root" log -1 --format=%ct 2>/dev/null)"; _head_t="${_head_t:-0}"
+    for _bin in "$@"; do
+        [ -e "$_bin" ] || continue
+        _bin_t="$(stat -c %Y "$_bin" 2>/dev/null)" || continue
+        if [ "$_newest_t" -gt 0 ] && [ "$_bin_t" -lt "$_newest_t" ] 2>/dev/null; then
+            _stale=1; _why="$_bin is older than tracked source $_srcdir/$_newest_f"; break
+        fi
+        if [ "$_head_t" -gt 0 ] && [ "$_bin_t" -lt "$_head_t" ] 2>/dev/null; then
+            _stale=1; _why="$_bin is older than HEAD's own commit"; break
+        fi
+    done
+    if [ "$_stale" = 1 ]; then
+        echo "GATE UNPROVEN(2) [${GATE_NAME:-gate}]: ⛔ REFUSES rc=2: binary older than the tree it names -- make scrip, then re-run"
+        echo "    $_why"
+        for _bin in "$@"; do
+            [ -e "$_bin" ] && echo "    $_bin: mtime $(date -u -d "@$(stat -c %Y "$_bin")" +%Y-%m-%dT%H:%MZ 2>/dev/null)"
+        done
+        echo "    newest tracked $_srcdir file: ${_newest_f:-none} ($([ "$_newest_t" -gt 0 ] && date -u -d "@$_newest_t" +%Y-%m-%dT%H:%MZ 2>/dev/null || echo n/a))   HEAD commit: $([ "$_head_t" -gt 0 ] && date -u -d "@$_head_t" +%Y-%m-%dT%H:%MZ 2>/dev/null || echo unknown)"
+        gate_stamp
+        exit 2
+    fi
+}
 # gate_floor <examined-count> <minimum> <what-was-counted> -- the empty-glob / empty-dir / zero-files class.
 gate_floor() {
     GATE_EXAMINED="$1"

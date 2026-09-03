@@ -5,9 +5,13 @@
 # Gate: both modes HARD (this capability is a Lon directive, 2026-07-04).
 # AUTHORS: Lon Jones Cherryholmes · Jeffrey Cooper M.D. · Claude Fable 5  DATE: 2026-07-04
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+S4E="${S4E_HOME:-$(cd "$HERE/../.." && pwd)}"   # worktree trap: a hardcoded ../../corpus ignored S4E_HOME, so a scratch
+                                                 # worktree (SCRIP checked out elsewhere, corpus/.github NOT its siblings)
+                                                 # silently graded against whatever ../../corpus happened to resolve to
+                                                 # -- a false regression, not a real one, for anyone bisecting there.
 SCRIP="${HERE}/../scrip"
 OUTDIR="${HERE}/../out"
-TESTD="${HERE}/../../corpus/tests/scrip_test"   # re-pointed: SCRIP/test moved to corpus (repo-boundary ruling)
+TESTD="$S4E/corpus/tests/scrip_test"   # re-pointed: SCRIP/test moved to corpus (repo-boundary ruling)
 P3=0; F3=0; P4=0; F4=0
 EXPECTED=$'TRI: mainline alive\nTRI: DOUBLE(21) = 42'
 
