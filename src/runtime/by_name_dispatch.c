@@ -1477,15 +1477,6 @@ PL_CX_LEAF_HEAD(plus, 3) ok = rt_pl_succ_plus_cell(3, &args[0], &args[1], &args[
 PL_CX_LEAF_HEAD(sort, 2) ok = rt_pl_sort_cell(0, &args[0], &args[1], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(msort, 2) ok = rt_pl_sort_cell(1, &args[0], &args[1], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(char_type, 2) ok = rt_pl_char_type_cell(&args[0], &args[1], (void *)0, cx); PL_CX_LEAF_TAIL
-/* ⭐ RUNG 7 -- sub_atom/5 AS ONE INTEGER GENERATOR (ARCH sec B.13, sec E row 7). The construct looks like it needs a bespoke
-   two-level generator (Before, then Length), but the whole (Before,Length) space LINEARISES: block B holds the n-B+1 lengths
-   0..n-B, so pair k is decoded from a single index and the entire builtin rides the SAME shared bb_to box between/3 uses.
-   ⛔ THE MODES ARE NOT ENUMERATED AND MUST NOT BE. sub_atom/5 has many instantiation patterns (Sub bound, Length bound, all
-   unbound, ...); this generates EVERY pair once and lets unification filter, so a bound argument is a test and an unbound one
-   is an output, with no per-mode code path to get wrong or to fall through. That is slower than a mode-specialised search and
-   it is CORRECT FOR ALL MODES, which is the trade rung 7 wants; a mode dispatcher is an optimisation for a later rung.
-   ⛔ A PARTIAL UNIFY IS UNDONE HERE, not left for the generator's mark: the four unifies are one atomic act, so a pair that
-   matches on Before but fails on Sub must leave nothing behind -- the same tr0 discipline rt_pl_dop_is_v_c uses. */
 static long pl_sub_atom_count(DESCR_t a) {
     char sb[8192]; DESCR_t av = rt_pl_deref_val(a);
     if (av.v != DT_S) return -1;
@@ -1496,7 +1487,6 @@ DESCR_t rt_pl_dop_sub_atom_n(DESCR_t *args, int nargs) {
     pl_atoms_ready();
     { long n = pl_sub_atom_count(args[0]);
       if (n < 0) return FAILDESCR;
-      /* pairs are (B,L) with 0<=B<=n and 0<=L<=n-B, so (n+1)(n+2)/2 of them; bb_to's limit is INCLUSIVE, hence -1. */
       return INTVAL((n + 1) * (n + 2) / 2 - 1); }
 }
 static int rt_pl_sub_atom_at_cell(DESCR_t *args, pl_tr_ctx_t *cx) {

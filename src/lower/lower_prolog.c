@@ -299,8 +299,6 @@ static IR_t * pl_lower_conj(lcx_t * cx, const tree_t * const * gl, int ng, IR_t 
         if (gn[i] && gn[i]->op == IR_GOTO) { if (last_res_beta) lc_γ_to_β(gn[i], last_res); else lc_γ_to(gn[i], last_res); }
         else if (last_res_beta) lc_ω_to_β(gn[i], last_res);
         else lc_ω_to(gn[i], last_res);
-        /* ⭐ RUNG 7: a GENERATOR is resumable exactly as a clause choice is -- ir_is_generator_kind() is the shared predicate (ir_query.c), so adding between/3 did not
-           need a new case here and neither will the rest of sec B.13. A goal to the RIGHT of a generator wires its ω to the generator's β, which IS the redo edge. */
         if (gn[i] && (gn[i]->op == IR_CALL_PROC_STAGED || gn[i]->op == IR_DISJUNCTION || ir_is_generator_kind(gn[i]->op))) { last_res = gn[i]; last_res_beta = 1; }
     }
     if (redo_out) *redo_out = last_res_beta ? last_res : NULL;
@@ -487,12 +485,6 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             return nd;
         }
         if (!strcmp(nm, "sub_atom") && t->n == 5) {
-            /* RUNG 7 -- THE SECOND GENERATOR, ON THE SAME SHARED BOX (ARCH sec B.13). sub_atom/5 reads like it needs a nested
-               (Before, then Length) generator, but the pair space LINEARISES -- block B holds lengths 0..n-B -- so one IR_TO over
-               0..count-1 drives it and the `$sub_atom_at` sink decodes pair k and unifies all four outputs. Every instantiation
-               mode falls out of unification: a bound argument filters, an unbound one is written. ⛔ No mode dispatch anywhere,
-               deliberately -- see the sink's comment; a per-mode search is a later rung's optimisation, not rung 7's contract.
-               The wiring is between/3's exactly: lvalues on the spine first, generator, then the sink whose ω is the generator's β. */
             IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = "$sub_atom_at";
             IR_t * to = build(cx, IR_TO, nd, ωfail); IR_LIT(to).sval = (char *) "ag";
             IR_t * ae = NULL; IR_t * av = term_e(cx, t->c[0], &ae);
@@ -518,25 +510,11 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             return to;
         }
         if (!strcmp(nm, "between") && t->n == 3) {
-            /* RUNG 7 -- THE FIRST NONDETERMINISTIC BUILTIN, AND IT RIDES ICON'S BOX (ARCH sec B.13 (ii)/(iii), sec E rung 7; Lon 2026-09-02 "Keep in mind to share BB's with Icon
-               and SNOBOL4. No need to create a new BB that does exactly what one already does."). `between(L,H,X)` IS Proebsting's `to(E1,E2)` with a unification hung off its
-               success port: IR_TO already owns the cursor in the frame (Proebsting's `to.I`) and already has the β chunk that yields the next value, so the generator half of
-               this rung is a box we ALREADY SHIP for `i to j` -- no new template, no by-name generator route. The per-value bind reuses the SAME `$is_v` sink `is/2` uses,
-               because "unify this lvalue with this integer value" is exactly what is/2 does; that also gives `between(1,3,2)` its test-mode semantics for free (a bound X
-               that does not match simply fails the unify).
-               ⛔ THE ω WIRING IS THE WHOLE CONSTRUCT, so read it before changing it: the unify's ω goes to the GENERATOR'S β, not to ωfail -- a failed bind must ask the
-               generator for its NEXT value, never abandon the goal. The generator's OWN ω (exhausted, cursor past H) is left for pl_lower_conj to wire leftward, which is
-               what makes `between(1,3,X), fail` walk 1,2,3 and only then backtrack out. The node RETURNED is the IR_TO, not the unify: the goal's resumable identity is the
-               generator, and pl_lower_conj keys redo off the returned node's op. */
             IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = "$is_v";
             IR_t * to = build(cx, IR_TO, nd, ωfail); IR_LIT(to).sval = (char *) "ag";
             IR_t * loe = NULL; IR_t * lo = lower_arith_val(cx, t->c[0], ωfail, &loe);
             IR_t * hie = NULL; IR_t * hi = lower_arith_val(cx, t->c[1], ωfail, &hie);
             IR_t * xe = NULL; IR_t * xl = term_lval_e(cx, t->c[2], &xe);
-            /* ⛔ THE LVALUE IS EVALUATED FIRST AND IS ON THE SPINE, exactly as is/2 orders it (lvalue -> value -> sink). Ordering it last leaves the VAR_REF ORPHANED --
-               nothing jumps to it, its slot is never populated, and `$is_v` then binds through a stale cell: `between(1,3,X), write(X)` printed THREE EMPTY LINES,
-               the right NUMBER of solutions with no value in any of them. The generator half was correct the whole time; only the bind was writing nowhere.
-               ⭐ A LITERAL THIRD ARGUMENT HID IT COMPLETELY -- `between(1,3,2)` printed `yes` -- so the test-mode witness is NOT evidence that the bind path works. */
             lc_γ_to(xl, loe ? loe : lo); lc_ω_to(xl, ωfail);
             lc_γ_to(lo, hie ? hie : hi); lc_ω_to(lo, ωfail);
             lc_γ_to(hi, to); lc_ω_to(hi, ωfail);
