@@ -68,8 +68,26 @@ s4e_assert_box() { [ -d "$PO/$1/inbox" ] && return 0
 # $S4E_HQ -> the mailbox's own HQ file -> legacy hq while it still exists -> REFUSE and say so.
 s4e_hq() { if [ -n "${S4E_HQ:-}" ]; then echo "$S4E_HQ"
     elif [ -s "$PO/$ME/HQ" ]; then head -1 "$PO/$ME/HQ"
-    elif [ -d "$PO/hq/inbox" ]; then echo hq
     else echo ""; fi; }
+# ⛔⭐ A DRAINED MAILBOX REFUSES DELIVERY -- IT DOES NOT ACCEPT MAIL NOBODY WILL READ.
+# A box with a DRAINED file has no reader. Sending there SUCCEEDS at every level this script can see --
+# the mv works, the file is non-empty, `sent` prints -- and the message is simply never read by anyone.
+# MEASURED 2026-09-03: the ceo found FOUR messages rotting in hq/inbox, including a LON OVERRIDE from
+# seat07 unread for eight hours and a cured row whose owner could not close it. ⭐ This is the
+# 'non-empty is not alive' false-signal class landing on the bus itself, and it is why the legacy `hq`
+# fallback is gone from s4e_hq() above: with every seat carrying an HQ file, that fallback could only
+# ever route mail to the one identity guaranteed not to read it.
+# ⛔ The rule is DATA, not a hardcoded name: any box may be drained by writing $PO/<box>/DRAINED, and
+# the refusal prints that file so the reason travels with the refusal instead of living in this script.
+s4e_assert_not_drained() { [ -f "$PO/$1/DRAINED" ] || return 0
+    printf '\n⛔⛔⛔ REFUSED: %s IS A DRAINED MAILBOX -- NOTHING WAS SENT ⛔⛔⛔\n' "$1" >&2
+    sed 's/^/    /' "$PO/$1/DRAINED" >&2
+    _t="$(s4e_hq)"
+    if [ -n "$_t" ]; then printf '\n    YOUR HQ is %s, from the HQ file %s.\n' "$_t" "$PO/$ME/HQ" >&2
+        printf '    Send it there:  %s send %s <topic> --stdin <<'"'"'MSG'"'"'\n' "$0" "$_t" >&2
+        printf '    or let the bus resolve it for you:  %s ask <topic> --stdin <<'"'"'MSG'"'"'\n' "$0" >&2
+    else printf '\n    ⛔ AND %s HAS NO HQ FILE (%s) -- an HQ must write one: echo <hq> > %s\n' "$ME" "$PO/$ME/HQ" "$PO/$ME/HQ" >&2; fi
+    printf '\n' >&2; exit 2; }
 if [ -z "$ME" ]; then case "$S4E" in
     /home/claude)           ME=ceo;;
     /home/claude_C)         ME=hq_C;;
@@ -394,7 +412,7 @@ esac
 # every seat is refused work while the commit that would fix them does not yet exist on origin.
 S4E_PROTO=5
 case "$cmd" in
-  send)  to="$(s4e_canon "${2:?to}")"; topic="${3:?topic}"; shift 3; s4e_assert_box "$to" destination
+  send)  to="$(s4e_canon "${2:?to}")"; topic="${3:?topic}"; shift 3; s4e_assert_box "$to" destination; s4e_assert_not_drained "$to"
          # ⛔ THE TOPIC BECOMES A FILENAME, SO IT IS VALIDATED BEFORE IT BECOMES A PATH (s191, seat1).  MEASURED, not hypothetical:
          # calling `send seat8 "<a whole message containing SCRIP/scripts/...>"` made the topic carry slashes, the mv failed with
          # "No such file or directory" -- AND THE SCRIPT PRINTED `sent` ANYWAY.  A seat-to-seat message that is silently dropped
