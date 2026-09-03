@@ -676,6 +676,19 @@ static int lower_pascal_body(const tree_t *prog, const tree_t *proc) {
     return bb_program_add(&g_stage2.bbp, ng);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * pas_l3_ancestor_name(const tree_t * pd, int level) {
+    if (level <= 3) return NULL;
+    const tree_t * cur = pd;
+    for (int h = 0; h < level - 3 && cur; h++) {
+        const tree_t * next = NULL;
+        for (int i = 0; i < g_pas_proc_list.n; i++) if (PAS_PROC(i) == cur) { next = PAS_PARENT(i); break; }
+        cur = next;
+    }
+    if (!cur) return NULL;
+    for (int i = 0; i < g_stage2.proc_count; i++) if (g_stage2.proc_table[i].proc == cur) return g_stage2.proc_table[i].name;
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pascal_register_program(stage2_t * s2, const tree_t * prog) {
     extern int polyglot_module_open(stage2_t * s2, const tree_t * s);
     extern void polyglot_module_extend(stage2_t * s2, int mod_idx, const tree_t * s);
@@ -743,6 +756,7 @@ stage2_t *lower_pascal_stage2(const tree_t *prog) {
         if (bb_idx >= 0) {
             g_stage2.proc_table[pi].bb_idx = bb_idx;
             g_stage2.bbp.table[bb_idx]->decl_level = (g_stage2.proc_table[pi].name && strcmp(g_stage2.proc_table[pi].name, "main") == 0) ? 0 : proc_decl_level(proc);
+            g_stage2.bbp.table[bb_idx]->l3_ancestor_name = pas_l3_ancestor_name(proc, g_stage2.bbp.table[bb_idx]->decl_level);
             g_stage2.proc_table[pi].proc_entry_node = g_stage2.bbp.table[bb_idx]->entry;
             const tree_t *plist = (proc->n >= 2) ? proc->c[1] : NULL;
             g_stage2.proc_table[pi].nparams = plist ? plist->n : 0;

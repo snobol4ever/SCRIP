@@ -1,5 +1,6 @@
 #include <string>
 #include <cstdlib>
+#include <cstdio>
 #include "emit.h"
 #include "x86_asm.h"
 #include "pin_va.h"
@@ -160,7 +161,7 @@ static int xa_flat_zanchor_poison(void) { static int on = -1; if (on < 0) { cons
 static int zf_display_level(void) {
     if (!g_emit_cfg || g_emit_cfg->icn_cells_graph) return 0;
     int dl = g_emit_cfg->decl_level;
-    return (dl >= 1 && dl <= 3) ? dl : 0;
+    return (dl >= 1) ? dl : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zf_pas_nest_graph(void) {
@@ -168,12 +169,25 @@ static int zf_pas_nest_graph(void) {
     return g_emit_cfg->decl_level >= 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" { int stage2_owner_varslot(const char *, const char *); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zf_display_mem_off(int dl) {
+    if (!g_emit_cfg || !g_emit_cfg->l3_ancestor_name) return -1;
+    char nm[32]; snprintf(nm, sizeof nm, "__pas_display_%d", dl);
+    return stage2_owner_varslot(g_emit_cfg->l3_ancestor_name, nm);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string zf_display_restore(int kt) {
     int dl = zf_display_level();
     if (!dl) return std::string();
-    const char * dr = dl == 1 ? "r13" : dl == 2 ? "r14" : "r15";
-    return x86("comment", "PAS-DISPLAY-1: restore caller display[L] from [kt-40]")
-         + x86("mov", dr, FRQ(kt - 40));
+    if (dl <= 3) { const char * dr = dl == 1 ? "r13" : dl == 2 ? "r14" : "r15";
+        return x86("comment", "PAS-DISPLAY-1: restore caller display[L] from [kt-40]")
+             + x86("mov", dr, FRQ(kt - 40)); }
+    int off = zf_display_mem_off(dl);
+    if (off < 0) return x86_bomb("PAS-DISPLAY-N: level>3 ancestor slot unresolved (restore)");
+    return x86("comment", "PAS-DISPLAY-N: restore [r15+off] from [kt-40] (saved caller value)")
+         + x86("mov", "rax", FRQ(kt - 40))
+         + x86("mov", RDQ("r15", off), "rax");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string zf_pin_restore(int kt) {
@@ -270,10 +284,17 @@ static std::string xa_flat_zframe_prologue_str(void) {
         }
     }
     { int _dl = zf_display_level();
-      if (_dl) { const char * _dr = _dl == 1 ? "r13" : _dl == 2 ? "r14" : "r15";
+      if (_dl && _dl <= 3) { const char * _dr = _dl == 1 ? "r13" : _dl == 2 ? "r14" : "r15";
           s += x86("comment", "PAS-DISPLAY-1: save caller display[L] into [kt-40]; display[L] = this frame")
              + x86("mov", FRQ(kt - 40), _dr)
-             + x86("mov", _dr, "rsp"); } }
+             + x86("mov", _dr, "rsp"); }
+      else if (_dl > 3) { int _off = zf_display_mem_off(_dl);
+          if (_off < 0) { s += x86_bomb("PAS-DISPLAY-N: level>3 ancestor slot unresolved (save)"); }
+          else { s += x86("comment", "PAS-DISPLAY-N: save [r15+off] into [kt-40]; [r15+off] = this frame")
+                    + x86("mov", "rax", RDQ("r15", _off))
+                    + x86("mov", FRQ(kt - 40), "rax")
+                    + x86("mov", "rax", "rsp")
+                    + x86("mov", RDQ("r15", _off), "rax"); } } }
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

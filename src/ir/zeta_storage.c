@@ -338,6 +338,12 @@ static int fc_vtree_scan(const IR_graph_t * g, const IR_t * nd, const IR_t ** po
         && fc_vtree_scan(g, nd->operands[0], post, pn, cap, depth + 1) && fc_vtree_scan(g, nd->operands[1], post, pn, cap, depth + 1) && *pn < cap) { post[(*pn)++] = nd; return 1; }
     return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * zls_pas_display_name(int lvl) {
+    static char names[13][24]; static int init = 0;
+    if (!init) { for (int i = 0; i < 13; i++) snprintf(names[i], sizeof names[i], "__pas_display_%d", i + 4); init = 1; }
+    return (lvl >= 4 && lvl <= 16) ? names[lvl - 4] : (const char *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_build(IR_graph_t * g) {
     if (!g) return;
     { int f = 1; for (int i = 0; i < g->n && f; i++) { IR_t * x = g->all[i]; if (!x) continue; if (x->op == IR_GOTO_DEFERRED || x->op == IR_INDIRECT_GOTO || x->op == IR_MATCH_BEGIN || x->op == IR_MATCH_DEFER) f = 0; else if ((x->op == IR_DEFINE && ir_define_sr_citizen(x))) { long long v = IR_LIT(x).ival; if (v == 1 || v == 2) f = 0; } else if ((x->op == IR_CALL_BUILTIN || x->op == IR_CALL_SNOBOL4 || x->op == IR_CALL) && IR_LIT(x).sval && (!strcmp(IR_LIT(x).sval, "EVAL") || !strcmp(IR_LIT(x).sval, "CODE"))) f = 0; } g_fcc_gfence = f; }
@@ -481,6 +487,15 @@ void zls_build(IR_graph_t * g) {
         zv[zv_n++] = (zls_vslot_t){ vn, base + k * 16 }; r->n_vslots++;
         zls_field(root, base + k * 16, 16, ZK_DESCR, 0, "local", (const IR_t *)0);
         k++;
+    }
+    if (g->zframe_graph && !g->icn_cells_graph && g->decl_level == 3) {
+        for (int _pdl = 4; _pdl <= 16; _pdl++) {
+            const char * nm = zls_pas_display_name(_pdl);
+            if (zv_n >= ZLS_MAX_VSLOTS) { fprintf(stderr, "zls: vslot table overflow (%d)\n", ZLS_MAX_VSLOTS); abort(); }
+            zv[zv_n++] = (zls_vslot_t){ nm, base + k * 16 }; r->n_vslots++;
+            zls_field(root, base + k * 16, 16, ZK_DESCR, 0, "pas-display-spill", (const IR_t *)0);
+            k++;
+        }
     }
     r->nslots = k;
     r->region = base + k * 16;

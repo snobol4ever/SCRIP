@@ -214,6 +214,7 @@ struct IR_graph_t {
     int            resume_slot;
     int            resumable_callable;
     int            decl_level;
+    const char   * l3_ancestor_name;
     int            deterministic;
     int            zeta_mark_slot;
     IR_t         * body_root;

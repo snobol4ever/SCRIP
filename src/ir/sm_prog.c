@@ -72,3 +72,14 @@ int stage2_owner_varslot(const char * proc, const char * var) {
     }
     return -1;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char * stage2_owner_l3_ancestor(const char * proc) {
+    if (!proc) return (const char *)0;
+    for (int i = 0; i < g_stage2.proc_count; i++) {
+        if (!g_stage2.proc_table[i].name || strcmp(g_stage2.proc_table[i].name, proc)) continue;
+        int b = g_stage2.proc_table[i].bb_idx;
+        if (b < 0 || b >= g_stage2.bbp.count || !g_stage2.bbp.table[b]) return (const char *)0;
+        return g_stage2.bbp.table[b]->l3_ancestor_name;
+    }
+    return (const char *)0;
+}
