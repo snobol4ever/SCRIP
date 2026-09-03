@@ -389,7 +389,7 @@ long        g_subject_dbg_len  = -1;
 typedef struct { DESCR_t slot[RT_FRAME_SLOT_MAX]; int nslots; } rt_frame_t;
 static rt_frame_t g_rt_frames[RT_FRAME_STACK_MAX];
 static int        g_rt_frame_depth = 0;
-__attribute__((visibility("hidden"))) int rt_k_level = 0;
+__attribute__((visibility("hidden"))) int rt_k_level = 1;
 int * const rt_k_level_p = &rt_k_level;
 #define PROC_FRAME_QWORDS 512
 #define CALL_ARGS_MAX     64
