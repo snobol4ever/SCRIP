@@ -115,6 +115,7 @@ RTX_FUNC(rt_subscript_var)
     jl      .Lsub_fail
     cmp     eax, r11d
     jg      .Lsub_fail
+    mov     [rsp + 48], eax
     dec     eax
     mov     [rsp + 40], eax
     xor     edi, edi
@@ -132,7 +133,8 @@ RTX_FUNC(rt_subscript_var)
     mov     [rax + VCELL_KEY_D + 8], r9
     mov     qword ptr [rax + VCELL_SV], DT_FAIL | (MOD_OP_RT_SUBSCRIPT_VAR << 8)
     mov     qword ptr [rax + VCELL_SV + 8], 0
-    mov     qword ptr [rax + VCELL_POS], 0
+    movsxd  rcx, dword ptr [rsp + 48]
+    mov     [rax + VCELL_POS], rcx
     mov     qword ptr [rax + VCELL_LEN], 0
     add     rsp, 88
     mov     rdx, rax

@@ -5596,6 +5596,16 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (IS_NAMETRAP_fn(a) && a.p) {
             VCELL_t *vc = (VCELL_t *)a.p;
             if (vc->key && *vc->key) { *out = STRVAL(rt_ws_strdup_c(vc->key)); return 1; }
+            if (vc->tbl) {
+                DESCR_t kn; int r2 = try_call_builtin_by_name("image", &vc->key_d, 1, &kn);
+                const char *key = (r2 && kn.v == DT_S && kn.s) ? kn.s : "";
+                char sb[192]; snprintf(sb, sizeof sb, "T[%s]", key);
+                *out = STRVAL(rt_ws_strdup_c(sb)); return 1;
+            }
+            if (vc->cellp && vc->pos > 0) {
+                char sb[64]; snprintf(sb, sizeof sb, "L[%ld]", (long)vc->pos);
+                *out = STRVAL(rt_ws_strdup_c(sb)); return 1;
+            }
             if (vc->sv.v == DT_N && (vc->sv.slen == 0 || vc->sv.slen == 2) && vc->len > 0) {
                 DESCR_t bn; int r1 = try_call_builtin_by_name("name", &vc->sv, 1, &bn);
                 const char *base = (r1 && bn.v == DT_S && bn.s) ? bn.s : "";

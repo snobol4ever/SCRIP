@@ -1266,7 +1266,7 @@ DESCR_t c_rt_subscript_var(DESCR_t base, DESCR_t idx) {
             int i = (int)to_int(idx);
             if (i < 0) i = n + i + 1;
             if (!elems || i < 1 || i > n) return FAILDESCR;
-            VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = &elems[i - 1]; vc->tbl = 0; vc->key = 0; vc->key_d = idx; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+            VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = &elems[i - 1]; vc->tbl = 0; vc->key = 0; vc->key_d = idx; vc->sv = FAILDESCR; vc->pos = i; vc->len = 0;
             return NAMETRAP(vc);
         }
         return subscript_get(base, idx);
