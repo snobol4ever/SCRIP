@@ -66,6 +66,48 @@ REAL_CORPUS="${CORPUS:-$S4E/corpus}"
 SKIP_PRISTINE=0
 [ "${1:-}" = "--skip-pristine" ] && SKIP_PRISTINE=1
 
+# ⛔⭐⭐ STALE-BINARY PREFLIGHT — REFUSE rc=2, NEVER PRINT AN OWED COUNT FROM A BINARY THAT PREDATES src/.
+# This script dry-run-regenerates with THE BINARY IN THE TREE. Under --skip-pristine (which is how
+# handoff_status.sh always calls it, deliberately -- row `stop-hook-pristine`: a pristine build here was
+# wiping live ./scrip out from under seats) the only previous check was `-x`, so a binary that merely
+# EXISTS was trusted. A stale one manufactures phantom debt that reads exactly like a lying gate.
+# ⭐ MEASURED, hq_B 2026-09-02: `OWED -- 26 item(s)` at rung-6 HEAD with a ./scrip built 17:32, 17 minutes
+# before rung 6 landed at 17:49; 0 owed after `make pristine`. The .s.REFUSED marker text embeds
+# "rung N lands it", so a pre-rung-6 binary genuinely owes different markers -- the count was TRUE about
+# that binary and FALSE about origin, and nothing in the output said which question it had answered.
+# ⛔ The header comment in handoff_status.sh reasoned "can degrade to a REFUSAL, never to a false CLEAN".
+# That is right about CLEAN and was never the exposure: it degrades to a false OWED, which BLOCKS a handoff.
+# ⭐ WHY max(newest src/ COMMIT time, newest src/ FILE mtime) AND NOT THE COMMIT TIME ALONE (which the row
+# specified): a commit's %ct is when it was AUTHORED, not when it reached this tree. Pull a 17:49 commit at
+# 20:00 with a binary built at 19:00 and the commit half says fresh while the binary is a pull behind.
+# `git checkout` stamps NOW onto every file it updates, so the file half catches exactly that case. Taking
+# the max is a strict superset of the specified rule -- it fires everywhere the row asked and in one place
+# the row's mechanism could not see. HQ-27 is the law; this makes the instrument state it rather than assume it.
+assert_binary_current() {
+  local bin="$1" newest=0 ct=0 ft=0 bt src_desc
+  [ -x "$bin" ] || { echo "⛔ REFUSED-TO-GRADE (rc=2): scrip not built: $bin"; echo "   cure: cd $ROOT && make pristine"; exit 2; }
+  bt="$(stat -Lc %Y "$bin" 2>/dev/null || echo 0)"
+  if [ -d "$ROOT/src" ]; then
+    ct="$(git -C "$ROOT" log -1 --format=%ct -- src/ 2>/dev/null || echo 0)"; [ -n "$ct" ] || ct=0
+    ft="$(find "$ROOT/src" -type f -printf '%T@
+' 2>/dev/null | sort -rn | head -1 | cut -d. -f1)"; [ -n "$ft" ] || ft=0
+  fi
+  newest="$ct"; [ "$ft" -gt "$newest" ] 2>/dev/null && newest="$ft"
+  [ "$newest" -gt 0 ] 2>/dev/null || { echo "  build-currency: UNKNOWN (no src/ timestamps readable) — proceeding"; return 0; }
+  if [ "$bt" -lt "$newest" ] 2>/dev/null; then
+    src_desc="newest src/ change"; [ "$ct" -ge "$ft" ] 2>/dev/null && src_desc="newest commit touching src/"
+    echo "⛔ REFUSED-TO-GRADE (rc=2): THE BINARY PREDATES src/ — this run could only report drift belonging to a stale build, not to origin."
+    echo "   $bin  built $(date -d "@$bt" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "@$bt")   [mtime $bt]"
+    echo "   $src_desc          $(date -d "@$newest" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "@$newest")   [$newest]"
+    echo "   cure: cd $ROOT && make pristine     (HQ-27 PRISTINE-BUILD-BEFORE-VERDICT)"
+    echo "   NOT an owed count: a stale binary owes different artifacts than origin does, and an OWED number here would block a handoff on a debt that does not exist."
+    echo "VERDICT: REFUSED — stale binary, no drift verdict was possible."
+    exit 2
+  fi
+  echo "  build-currency OK: $bin [$bt] is at or after the newest src/ change [$newest]"
+}
+[ "$SKIP_PRISTINE" -eq 1 ] && assert_binary_current "$SCRIP_BIN"
+
 [ -d "$REAL_CORPUS/.git" ] || { echo "FATAL: corpus repo not found at $REAL_CORPUS"; exit 2; }
 
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/verify_s_owed.XXXXXX")" || { echo "FATAL: mktemp failed"; exit 2; }
