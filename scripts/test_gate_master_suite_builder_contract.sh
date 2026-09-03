@@ -48,11 +48,30 @@ s="$(snap)"; S4E_HOME="$T" python3 "$B" --lang icon --zzz-not-a-flag >/dev/null 
 reset_icon; s="$(snap)"; S4E_HOME="$T" python3 "$B" --lang icon --only rung36_jcon_cxprimes --delete-absorbed >/dev/null 2>&1; rc=$?
 [ "$s" = "$(snap)" ] || { echo "FAIL C (req3): the rc=$rc refusal WROTE the master first -- a refusal that has already mutated shared state is not a refusal"; F=1; }
 # --- D (req 2) -- --absorb-only scopes ABSORPTION, exactly. Today --only/--family scope only what --delete-absorbed DELETES (the script says so when it refuses), so nothing narrows what is absorbed.
+# ⛔⭐⭐ THE WITNESS IS DISCOVERED AT RUNTIME, NEVER HARDCODED -- and that is the whole point of this rewrite (hq_T 2026-09-03, row reopened by ceo audit CEO-172).
+# THIS ARM WENT STALE AND READ AS A BUILDER REGRESSION. It named rung36_jcon_scan,rung36_jcon_scan2 literally; corpus 2bb735c7 (2026-09-02 09:25) converted
+# both into rung36_all entries 41/42, so they stopped being loose absorbable pairs, so the builder's rc=2 became the CORRECT answer -- and an arm asserting
+# rc=0 then accused a correct tool of being broken. The reopen even named two builder commits to bisect; neither was implicated, and a bisect would have
+# found nothing. ⛔ THIS IS THE SECOND TIME FOR THIS GATE: arm C above carries the same scar and was fixed the same way, by swapping in another hardcoded
+# name. Swapping again would only reset the timer. ⭐ THE REAL DEFECT IS A GATE THAT HARDCODES WITNESS NAMES WHILE POLICING A TOOL WHOSE JOB IS TO CONVERT
+# THOSE WITNESSES OUT OF EXISTENCE -- its own subject destroys its fixtures, so any literal name here has an expiry date nobody records.
+# The cure asks the BUILDER what is absorbable rather than asserting it: an unscoped run absorbs the full absorbable set (the builder's own notion, not a
+# reimplementation of it here -- a gate that recomputed "absorbable" would be agreeing with itself instead of policing), then a scoped run must absorb
+# EXACTLY the one family we name out of that set. Immune to corpus churn by construction.
 reset_icon; before="$(fams)"
-S4E_HOME="$T" python3 "$B" --lang icon --absorb-only rung36_jcon_scan,rung36_jcon_scan2 >/dev/null 2>&1; rc=$?
-added="$(comm -13 <(printf '%s\n' "$before") <(fams) | tr '\n' ' ' | sed 's/ *$//')"
-[ $rc -eq 0 ] || { echo "FAIL D (req2): --absorb-only must be a supported absorb-side selector (got rc=$rc)"; F=1; }
-[ "$added" = "rung36_jcon_scan rung36_jcon_scan2" ] || { echo "FAIL D (req2): --absorb-only absorbed [$added] but was asked for [rung36_jcon_scan rung36_jcon_scan2] -- the selector does not scope ABSORPTION"; F=1; }
+S4E_HOME="$T" python3 "$B" --lang icon >/dev/null 2>&1
+absorbable="$(comm -13 <(printf '%s\n' "$before") <(fams))"
+# ⛔ ZERO absorbable pairs = THIS ARM CANNOT MEASURE. It must REFUSE, never pass: "the selector scoped correctly" is unprovable when there is nothing to scope.
+if [ -z "$absorbable" ]; then
+  echo "UNPROVEN D (req2): no loose absorbable pair exists in tests/icon, so --absorb-only cannot be exercised -- this arm REFUSES rather than passing on an empty population"; F=1
+else
+  pick="$(printf '%s\n' "$absorbable" | head -1)"
+  reset_icon; before="$(fams)"
+  S4E_HOME="$T" python3 "$B" --lang icon --absorb-only "$pick" >/dev/null 2>&1; rc=$?
+  added="$(comm -13 <(printf '%s\n' "$before") <(fams) | tr '\n' ' ' | sed 's/ *$//')"
+  [ $rc -eq 0 ] || { echo "FAIL D (req2): --absorb-only must be a supported absorb-side selector (got rc=$rc, asking for the discovered-absorbable family '$pick')"; F=1; }
+  [ "$added" = "$pick" ] || { echo "FAIL D (req2): --absorb-only absorbed [$added] but was asked for [$pick] -- the selector does not scope ABSORPTION"; F=1; }
+fi
 # --- E (req 1) -- the builder READS the deferral contract, and never absorbs a deferred file or another row's live witness. The source check is the "READS" clause; the two greps are the behaviour.
 { grep -q 'PENDING\.md' "$B" && grep -q 'KEEP\.md' "$B"; } || { echo "FAIL E (req1): $B references neither PENDING.md nor KEEP.md -- the gate polices a deferral contract the builder cannot see"; F=1; }
 printf '%s\n' "$added" | tr ' ' '\n' | grep -qx 'rung36_jcon_cxprimes' && { echo "FAIL E (req1): absorbed rung36_jcon_cxprimes -- PENDING.md defers it to the LIVE row icon-coexpression-support-design"; F=1; }
