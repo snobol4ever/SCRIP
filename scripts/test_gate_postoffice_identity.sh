@@ -44,7 +44,17 @@ newpo
 out="$(run claude01 check)"
 printf '%s' "$out" | grep -q '^\[seat01\]' && ok "identity claude01 canonicalises to seat01" || no "identity claude01 canonicalises to seat01" "${out:0:70}"
 # 5. /home/claude resolves to ceo, not the retiring hq (Lon s257 topology ruling).
-out="$(S4E_POST="$T/po" S4E_HOME=/home/claude bash "$S" check 2>&1)"
+# ⛔ `env -u S4E_SEAT` IS LOAD-BEARING, NOT TIDINESS. This is the ONE check here that derives identity from
+# the ROOT PATH rather than being handed one, so an ambient exported S4E_SEAT silently overrides the very
+# mapping it exists to test. Every other invocation goes through run()/rc(), which set S4E_SEAT explicitly
+# and are immune. MEASURED 2026-09-03: green with the variable unset, green with S4E_HOME exported alone,
+# and RED ("FAIL /home/claude resolves to ceo", identity read back as hq_B) the moment S4E_SEAT is exported
+# -- which is exactly the environment `done` runs a DONE-WHEN in, and this gate is a component of
+# test_gate_dispatch_bus_failure_modes, now an arm of `make test` for all sixteen seats. A seat whose shell
+# exports its own identity would have gotten a red make test for a reason having nothing to do with its work.
+# ⭐ This is the defect s4e_msg.sh's own `done` comment names: a verdict that depends on the grader's
+# environment is not a verdict, and it is invisible from both sides -- it passed 5/5 for me at rest.
+out="$(env -u S4E_SEAT S4E_POST="$T/po" S4E_HOME=/home/claude bash "$S" check 2>&1)"
 printf '%s' "$out" | grep -q '^\[ceo\]' && ok "/home/claude resolves to ceo" || no "/home/claude resolves to ceo" "${out:0:70}"
 # 6. mailbox creation exists but is DELIBERATE, never a side effect.
 r=$(rc hq_P mailbox seat99); [ "$r" -eq 0 ] && [ -d "$T/po/seat99/inbox" ] && ok "explicit 'mailbox' subcommand creates one" || no "explicit 'mailbox' subcommand" "rc=$r"
