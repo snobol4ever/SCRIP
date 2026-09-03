@@ -207,3 +207,34 @@ gate_verdict() {
     gate_stamp
     exit 0
 }
+# gate_score_row <lang> <column> <text> [modes] -- THE ONE LINE A BASH RUNNER ADDS to satisfy the
+# ONE-LEADERBOARD FACT RULE (Lon 2026-09-03 ~16:05: "any run of a test suite by any session will update
+# the ONE LEADERBOARD").  Delegates to scripts/util_score_row.py, which is the single implementation --
+# this is a call shape, not a second copy, and must never grow logic of its own.  Measurer defaults to
+# $S4E_SEAT because a row nobody signed is a claim with nobody behind it.
+#
+# ⛔ IT IS DELIBERATELY NON-FATAL TO THE GATE THAT CALLS IT, AND THAT IS NOT A LOOPHOLE.  A runner's job
+# is to grade its suite; if the leaderboard write fails (dirty .github, a renamed column, a read-only
+# checkout) the MEASUREMENT is still valid and must still be printed.  Turning a bookkeeping failure
+# into a red board would make runners stop calling this, which is how the duty dies.  So it WARNS
+# loudly and names the un-recorded row -- the operator then records it by hand, exactly as the FACT
+# RULE's interim clause already requires.  What it must never do is fail SILENTLY, so there is no path
+# here that returns 0 without either writing the row or printing why it did not.
+gate_score_row() {
+    local _lang="$1" _col="$2" _text="$3" _modes="${4:-}" _py _out _rc
+    _py="$(dirname "${BASH_SOURCE[0]}")/util_score_row.py"
+    if [ ! -f "$_py" ]; then
+        echo "⚠ SCORE.md NOT UPDATED [$GATE_NAME]: no util_score_row.py at $_py -- record $_lang/$_col by hand: $_text"
+        return 0
+    fi
+    _out="$(python3 "$_py" write --lang "$_lang" --column "$_col" --text "$_text" \
+            --measurer "${S4E_SEAT:-unknown-seat}" ${_modes:+--modes "$_modes"} 2>&1)"; _rc=$?
+    if [ "$_rc" -ne 0 ]; then
+        echo "⚠ SCORE.md NOT UPDATED [$GATE_NAME] (rc=$_rc) -- the measurement below stands, the leaderboard row does not:"
+        echo "$_out" | sed 's/^/    /'
+        echo "    record it by hand: $_lang / $_col = $_text"
+        return 0
+    fi
+    echo "$_out" | sed 's/^/    /'
+    return 0
+}

@@ -143,6 +143,32 @@ else
   fi
 fi
 echo "------------------------------------------------------------"
+echo "THE ONE LEADERBOARD (.github/SCORE.md) — row staleness — WARN-ONLY, does not affect the verdict below"
+# ⛔⭐ WARN-ONLY ON PURPOSE, AND THE REASON IS THE SAME ONE THE .s BLOCK LEARNED ABOVE. A stale SCORE.md row is
+# not a defect of the session that happens to be handing off -- it is usually a defect of some OTHER session
+# that measured a suite and did not rewrite its row. Blocking this seat's handoff on that would punish the
+# wrong session and, within a week, get this check `|| true`-d out of the file. What it CAN honestly do is
+# make the debt visible at the one moment somebody is looking at the state of the world.
+# ⛔ It runs `check`, which reads git and the markdown ONLY -- it runs no suite and builds nothing, so unlike
+# the .s verifier above it cannot destroy a live build (the haunting documented at length in that block).
+# ⭐ rc=1 means "rows ARE stale" -- a real answer, printed. rc>=2 means it could not measure, which is its own
+# state and says so; neither is allowed to read as CLEAN.
+_score_helper="$SELF_DIR/util_score_row.py"
+if [ ! -f "$_score_helper" ]; then
+  echo "  ⛔ $_score_helper missing — leaderboard staleness UNVERIFIED this run."
+else
+  _score_out="$(python3 "$_score_helper" check 2>&1)"; _score_rc=$?
+  if [ "$_score_rc" -eq 0 ]; then
+    echo "  CLEAN — every row measured within 25 commits of origin/main."
+  elif [ "$_score_rc" -eq 1 ]; then
+    printf '%s\n' "$_score_out" | grep -E 'STALE|UNPINNED|UNKNOWN|^worst=' | sed 's/^/  /'
+    echo "  ⚠ WARN — re-measure the stale suite(s) and rewrite the row: python3 scripts/util_score_row.py write --lang <lang> --column board --measurer \"\$S4E_SEAT\" --text '<board line>'"
+  else
+    echo "  ⛔ UNVERIFIED — the staleness check REFUSED (rc=$_score_rc, cannot measure). Not blocking, but this run proves nothing about the leaderboard."
+    printf '%s\n' "$_score_out" | sed 's/^/  /'
+  fi
+fi
+echo "------------------------------------------------------------"
 if [ "$blocked" -ne 0 ]; then
   echo "CHAT SESSION WAITING — not done:"; printf '  - %s\n' "${reasons[@]}"
   [ "$unknown" -ne 0 ] && { echo "  (also UNKNOWN, see below — fix the known blockers first, they are certain; the unknown repo(s) still need a look)"; printf '  - %s\n' "${unknown_reasons[@]}"; }

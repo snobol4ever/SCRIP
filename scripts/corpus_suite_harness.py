@@ -1686,6 +1686,33 @@ def cmd_run(args):
         if _uncovered:
             refuse(f"--by-modes-column: {len(_uncovered)} entr(y/ies) are absent from {csv_path.name} "
                    f"(first: {_uncovered[0]}) -- grading them by a default while calling it 'the modes column' is the defect this flag exists to remove")
+        # ⛔⭐ AND THE RUN POPULATION MUST NOT ITSELF BE `ast`, OR THE SPLIT COLLAPSES SILENTLY INTO ONE
+        # BUCKET AND PRINTS A FULL, PLAUSIBLE, ENTIRELY FALSE BOARD.  _modes_for() below reads "ast if the
+        # column says ast, else `modes`" -- correct on its face, and a trap when `modes` is ITSELF ["ast"],
+        # which is exactly what --lang raku/rebus/prolog/snocone give you (LANG_CONFIGS default modes="ast")
+        # when the caller omits --modes.  Every entry then satisfies "== ['ast']", ast_graded reads N/N, and
+        # every run-graded entry is diffed against `--dump-ast` output it was never meant to match.
+        #
+        # MEASURED, NOT REASONED (hq_T 2026-09-03, on the Raku master): `run --lang raku --by-modes-column`
+        # reported ast_graded=139/139 and ast_fail=42 -- and the suite declares exactly 42 entries as
+        # "m3,m4".  All 42 "failures" were the wrong instrument, not a wrong answer.  Adding --modes m3,m4
+        # to the same command on the same tree returned the true board: ast 97 entries 83 pass / 14 xfail /
+        # FAIL=0, run 42 entries 41/42 both modes.  Nothing about the false board looked false: it had a
+        # denominator, a fail list and a stamp, and it disagreed with SCORE.md's stale cell in the direction
+        # a reader would have believed (a suite that had "gotten worse").
+        #
+        # ⛔ IT REFUSES RATHER THAN PICKING m3,m4 FOR YOU.  Guessing the run modes would make this flag
+        # succeed by inventing the one input the caller failed to state -- the same class of defect one
+        # comment up.  The two existing callers (board_icon_master.sh, test_gate_icon_board_honours_modes_
+        # column.sh) both already pass --modes explicitly and are untouched by this.
+        if modes == ["ast"] and not args.modes:
+            _declared = sorted({v for v in entry_modes.values() if v and v not in ("ast", "UNKNOWN")})
+            if _declared:
+                refuse(f"--by-modes-column cannot be honoured: {csv_path.name} declares {len(_declared)} non-ast "
+                       f"modes value(s) ({', '.join(_declared)}) but the run population's own modes resolved to "
+                       f"'ast' (from --lang {args.lang}'s default), so BOTH populations would be graded by "
+                       f"--dump-ast and every run-graded entry would fail against a ref it was never meant to "
+                       f"match. Pass the run modes explicitly, e.g. --modes {_declared[0]}")
     def _modes_for(e):
         # ⭐ UNKNOWN is a DEFAULT, never a declaration, and it is COUNTED separately below so it can never be
         # mistaken for one. The alternative -- refusing on UNKNOWN -- would block the honest board on 17 icon
