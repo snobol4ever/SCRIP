@@ -722,11 +722,82 @@ def _build_arg_parser():
     p.add_argument("--only", default=None, metavar="F1,F2,...", help="scope --delete-absorbed to exactly these families")
     p.add_argument("--allow-drop-origin", default=None, metavar="O1,O2,...",
                     help="name origin(s) whose deliberate retirement should not refuse the rebuild (surgical, never a blanket --force)")
+    p.add_argument("--reindex", action="store_true",
+                   help="CSV-ONLY: recompute every ALL.csv column from the EXISTING ALL.<ext>/ALL.ref pair and write ONLY ALL.csv. "
+                        "Absorbs nothing and reorders nothing -- rank is the entry's position in the master as it already stands. "
+                        "REFUSES rc=2 if any loose absorbable pair is present, unless --absorb-only names it (under --reindex that "
+                        "flag ACKNOWLEDGES a pair, it never absorbs it).")
     p.add_argument("--split-write", action="store_true",
                     help="master-to-master: emit ALL.* split into ONE.*/MULTI.* by entry kind; verify-only unless --write")
     p.add_argument("--write", action="store_true", help="with --split-write, actually write the split files")
     return p
 
+
+def reindex_csv_only(OUTDIR, EXT, lang, h, _CO, _CC, COLS, modes_decl, loose_families, acknowledged):
+    """Recompute ALL.csv from the master pair already on disk. Writes ONE file and reorders nothing.
+
+    WHY THIS EXISTS (row master-builder-needs-a-csv-only-reindex-path, hq_B 2026-09-02): a promotion that
+    changes program text -- 55 `:- initialization(main).` additions, an xfail flip -- makes ALL.csv's derived
+    columns stale, and the only rebuild path ALSO ABSORBED whatever happened to be loose that day (404 -> 408
+    on the prolog tree). So the choice was hand-edit the index or take an unrelated absorption as a side
+    effect of a re-index. Both are wrong for the same reason: the index is supposed to be a pure function of
+    the suite, and neither route lets you SAY that.
+
+    ⛔ IT DOES NOT REORDER, and that is a deliberate limit, not an oversight. The full builder sorts by
+    (xfail, feature count, line count, name) so `rank` doubles as the level-ordering law -- green before
+    xfail. Flipping an xfail therefore changes an entry's sort key, so a promotion arguably OWES a re-sort.
+    Re-sorting here would churn ALL.pl and ALL.ref on every index rebuild and would break this row's own
+    oracle (a correct hand-edited CSV must reproduce byte-identically). Rank is the entry's POSITION in the
+    master as it stands; keeping the file and the index agreeing with each other is this function's whole
+    job. Whether a promotion should re-sort the master is a corpus-policy question, routed, not decided here.
+    """
+    out_csv = os.path.join(OUTDIR, "ALL.csv")
+    master_sno = os.path.join(OUTDIR, "ALL" + EXT)
+    master_ref = os.path.join(OUTDIR, "ALL.ref")
+    for _p in (master_sno, master_ref):
+        if not os.path.isfile(_p):
+            sys.stderr.write("REFUSED: --reindex needs an existing master; %s is missing -- there is nothing to index.\n" % _p)
+            return 2
+    unacknowledged = sorted(loose_families - acknowledged)
+    if unacknowledged:
+        sys.stderr.write("REFUSED: --reindex found %d loose absorbable famil(y/ies) under this tree -- nothing written:\n" % len(unacknowledged))
+        for f in unacknowledged:
+            sys.stderr.write("     %s\n" % f)
+        sys.stderr.write("   Re-indexing a tree with unabsorbed sources produces an index that is current for the master and\n"
+                         "   silent about the rest, which reads as 'everything is accounted for'. Absorb them with a normal\n"
+                         "   run, or name them with --absorb-only to say you know they are there and still want CSV-only.\n")
+        return 2
+    if lang == "snobol4":
+        entries = h.read_suite(master_sno, master_ref, in_path=h.sidecar_in_path(master_sno), x_path=h.sidecar_xfail_path(master_sno))
+    else:
+        entries = h.read_block_suite(master_sno, master_ref, h.banner_re_for(_CO, _CC),
+                                     in_path=h.sidecar_in_path(master_sno), x_path=h.sidecar_xfail_path(master_sno))
+    if not entries:
+        sys.stderr.write("REFUSED: --reindex read 0 entries from %s -- refusing to write an empty index over a real one.\n" % master_sno)
+        return 2
+    csv_origin = {}
+    if os.path.isfile(out_csv):
+        for row in csv.DictReader(open(out_csv)):
+            csv_origin[row["entry"]] = row.get("origin", "")
+    tmp_csv = out_csv + ".tmp-%d" % os.getpid()
+    try:
+        with open(tmp_csv, "w", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes"] + [c for c, _ in COLS])
+            for rank, e in enumerate(entries, 1):
+                text = "\n".join(e.sno_lines)
+                flags = {c: fn(text) for c, fn in COLS}
+                origin = csv_origin.get(e.name) or ("master__%s" % e.name)
+                fam = origin.split("__", 1)[0]
+                w.writerow([rank, e.name, origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines),
+                            modes_decl.get(fam, "UNKNOWN")] + [flags[c] for c, _ in COLS])
+    except BaseException:
+        if os.path.exists(tmp_csv):
+            os.remove(tmp_csv)
+        raise
+    os.replace(tmp_csv, out_csv)
+    print("--reindex: %d entries indexed from %s -- ALL.csv rewritten, nothing else touched." % (len(entries), os.path.basename(master_sno)), file=sys.stderr)
+    return 0
 
 def main():
     args = _build_arg_parser().parse_args()
@@ -787,6 +858,17 @@ def main():
     absorbed_files = []    # (fam, sno, ref, mode) for post-verification deletion
     companion_copies = {}  # basename -> source path; written into OUTDIR after the merge succeeds
     pairs, excluded = discover_pairs(ROOT, OUTDIR, EXT)
+    if args.reindex:
+        # ⛔ --reindex is a TERMINAL mode: it never reaches the absorb machinery below, so --absorb-only here
+        # can only ACKNOWLEDGE a loose pair, never absorb one. Refusing to combine it with the delete/scope
+        # selectors is deliberate -- those all describe absorption, and a flag that silently means nothing is
+        # how a caller ends up believing a run did something it never attempted.
+        for _flag, _val in (("--delete-absorbed", delete_absorbed), ("--family", family_prefix), ("--only", only_families), ("--split-write", args.split_write)):
+            if _val:
+                sys.stderr.write("REFUSED: %s describes ABSORPTION and --reindex absorbs nothing -- drop one.\n" % _flag)
+                raise SystemExit(2)
+        raise SystemExit(reindex_csv_only(OUTDIR, EXT, lang, h, _CO, _CC, COLS, _modes_decl,
+                                          {fam for fam, _, _, _ in pairs}, absorb_only_families or set()))
     if absorb_only_families is not None:
         # ⛔ A SELECTOR NAMING SOMETHING THIS RUN CANNOT ABSORB REFUSES rc=2 -- never silently absorbs a
         # different subset instead (the exact measured bug this flag exists to cure). Cross-references
