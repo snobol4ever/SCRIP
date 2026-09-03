@@ -77,25 +77,30 @@ SKIP_PRISTINE=0
 # that binary and FALSE about origin, and nothing in the output said which question it had answered.
 # ⛔ The header comment in handoff_status.sh reasoned "can degrade to a REFUSAL, never to a false CLEAN".
 # That is right about CLEAN and was never the exposure: it degrades to a false OWED, which BLOCKS a handoff.
-# ⭐ WHY max(newest src/ COMMIT time, newest src/ FILE mtime) AND NOT THE COMMIT TIME ALONE (which the row
-# specified): a commit's %ct is when it was AUTHORED, not when it reached this tree. Pull a 17:49 commit at
-# 20:00 with a binary built at 19:00 and the commit half says fresh while the binary is a pull behind.
-# `git checkout` stamps NOW onto every file it updates, so the file half catches exactly that case. Taking
-# the max is a strict superset of the specified rule -- it fires everywhere the row asked and in one place
-# the row's mechanism could not see. HQ-27 is the law; this makes the instrument state it rather than assume it.
+# ⛔⭐ THE REFERENCE IS THE NEWEST FILE MTIME UNDER src/, AND DELIBERATELY *NOT* THE NEWEST COMMIT TOUCHING src/
+# -- which is what the row specified and what this function shipped with for exactly one commit (92d300f0).
+# A commit's %ct is when it was AUTHORED, and COMMITTING SOURCE YOU HAVE ALREADY BUILT MOVES IT PAST YOUR BINARY
+# WITHOUT CHANGING A BYTE OF SOURCE. That is the ordinary order of work -- build, test, commit -- so the commit
+# half declared a CORRECT binary stale for everybody who follows it. MEASURED here 2026-09-02, minutes after it
+# landed: scrip built 20:06:35, newest src FILE 19:58:46 (binary genuinely current), newest src COMMIT 20:19:47,
+# verdict REFUSED. ⭐ A false REFUSAL is far cheaper than the false OWED this function exists to stop -- it warns
+# instead of blocking -- but it still costs a pointless rebuild and, worse, teaches seats to shrug at the check.
+# ⭐ The file half loses nothing the commit half had: `git checkout` stamps NOW onto every file it updates, so a
+# pull-after-build -- the case the commit half was reaching for -- moves the FILE mtimes too. HQ-27 is the law;
+# this states it without crying wolf on the commit that follows a good build.
+# ⛔ Caught by test_gate_s_artifacts_verifier_stale_binary_refuses.sh, which asserts the refusal PRINTS the src/
+# timestamp it compared against: the gate went red the moment the printed number stopped being the file mtime.
+# That is the whole reason the refusal quotes its own reference instead of just naming a verdict.
 assert_binary_current() {
-  local bin="$1" newest=0 ct=0 ft=0 bt src_desc
+  local bin="$1" newest=0 bt src_desc
   [ -x "$bin" ] || { echo "⛔ REFUSED-TO-GRADE (rc=2): scrip not built: $bin"; echo "   cure: cd $ROOT && make pristine"; exit 2; }
   bt="$(stat -Lc %Y "$bin" 2>/dev/null || echo 0)"
   if [ -d "$ROOT/src" ]; then
-    ct="$(git -C "$ROOT" log -1 --format=%ct -- src/ 2>/dev/null || echo 0)"; [ -n "$ct" ] || ct=0
-    ft="$(find "$ROOT/src" -type f -printf '%T@
-' 2>/dev/null | sort -rn | head -1 | cut -d. -f1)"; [ -n "$ft" ] || ft=0
+    newest="$(find "$ROOT/src" -type f -printf '%T@\n' 2>/dev/null | sort -rn | head -1 | cut -d. -f1)"; [ -n "$newest" ] || newest=0
   fi
-  newest="$ct"; [ "$ft" -gt "$newest" ] 2>/dev/null && newest="$ft"
   [ "$newest" -gt 0 ] 2>/dev/null || { echo "  build-currency: UNKNOWN (no src/ timestamps readable) — proceeding"; return 0; }
   if [ "$bt" -lt "$newest" ] 2>/dev/null; then
-    src_desc="newest src/ change"; [ "$ct" -ge "$ft" ] 2>/dev/null && src_desc="newest commit touching src/"
+    src_desc="newest src/ file change"
     echo "⛔ REFUSED-TO-GRADE (rc=2): THE BINARY PREDATES src/ — this run could only report drift belonging to a stale build, not to origin."
     echo "   $bin  built $(date -d "@$bt" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "@$bt")   [mtime $bt]"
     echo "   $src_desc          $(date -d "@$newest" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "@$newest")   [$newest]"
