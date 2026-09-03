@@ -2023,13 +2023,29 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "__pas_rewrite") && nargs == 1) {
         extern int fh_alloc(FILE *);
-        const char *nm = VARVAL_fn(args[0]); if (!nm || !nm[0]) { *out = FAILDESCR; return 1; }
-        FILE *fp = fopen(nm, "w"); if (!fp) { *out = FAILDESCR; return 1; }
+        if (IS_FH_fn(args[0])) {
+            FILE *ofp = fh_get((int)args[0].i);
+            if (ofp) { rewind(ofp); if (ftruncate(fileno(ofp), 0) == 0) { *out = args[0]; return 1; } }
+        }
+        const char *nm = VARVAL_fn(args[0]);
+        FILE *fp;
+        if (nm && nm[0]) {
+            fp = fopen(nm, "w");
+        } else {
+            char tmpl[] = "/tmp/scrip_pas_XXXXXX";
+            int fd = mkstemp(tmpl);
+            fp = (fd >= 0) ? fdopen(fd, "w+") : (FILE *)0;
+        }
+        if (!fp) { *out = FAILDESCR; return 1; }
         int idx = fh_alloc(fp); if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; }
         *out = FHVAL(idx); return 1;
     }
     if (!strcmp(fn, "__pas_reset") && nargs == 1) {
         extern int fh_alloc(FILE *);
+        if (IS_FH_fn(args[0])) {
+            FILE *ofp = fh_get((int)args[0].i);
+            if (ofp) { rewind(ofp); *out = args[0]; return 1; }
+        }
         const char *nm = VARVAL_fn(args[0]); if (!nm || !nm[0]) { *out = FAILDESCR; return 1; }
         FILE *fp = fopen(nm, "r"); if (!fp) { *out = FAILDESCR; return 1; }
         int idx = fh_alloc(fp); if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; }
