@@ -5,7 +5,13 @@
 #   at a newline boundary, if last_token is an ENDER and next_token is a BEGINNER, insert ";".
 # The b/e flags below are transcribed 1:1 from oplexgen.icn init_lex_tables() (jcon-master, Proebsting).
 # Usage: semicolonize_icon.py < in.icn > out.icn   |   semicolonize_icon.py in.icn [out.icn]
-import sys, re
+#        semicolonize_icon.py --check FILE...   |   semicolonize_icon.py --check DIR
+#          idempotence check, not a second detector: a file is "complete" iff running semicolonize()
+#          on it is a no-op. Prints every file semicolonize() would still change and exits 1 if any
+#          do (0 if none) -- the real measure for "does this tree still need `;` inserted somewhere",
+#          replacing a bare `grep -rL ";"` (vacuously true for any legitimately-`;`-free file, e.g. a
+#          link/$define-only manifest).
+import sys, re, os
 DIRECTIVE = re.compile(r"^\s*\$(define|undef|include|ifdef|ifndef|else|endif|line|error)\b")
 # preprocessor directives run in a SEPARATE pass in real Icon, before the statement lexer ever sees
 # them (same as C's #define/#include) -- invisible to Beginner/Ender tracking, never a boundary side.
@@ -116,7 +122,27 @@ def code_end(line):                              # index just past last code cha
             i = min(j+1, n); last = i; continue
         i += 1; last = i
     return last
+def _check(paths):
+    files = []
+    for p in paths:
+        if os.path.isdir(p):
+            for root, _, names in os.walk(p):
+                files.extend(os.path.join(root, n) for n in names if n.endswith(".icn"))
+        else:
+            files.append(p)
+    files.sort()
+    incomplete = []
+    for f in files:
+        src = open(f, encoding="utf-8", errors="replace").read()
+        if semicolonize(src) != src:
+            incomplete.append(f)
+    for f in incomplete:
+        print(f, file=sys.stderr)
+    print(f"total={len(files)} incomplete={len(incomplete)}")
+    return 1 if incomplete else 0
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "--check":
+        sys.exit(_check(sys.argv[2:]) if len(sys.argv) > 2 else _check(["."]))
     data = open(sys.argv[1]).read() if len(sys.argv) > 1 else sys.stdin.read()
     res = semicolonize(data)
     (open(sys.argv[2], "w") if len(sys.argv) > 2 else sys.stdout).write(res)
