@@ -6,6 +6,9 @@
 #   s4e_msg.sh done <topic>               ⭐ VERIFIES the task baton's DONE-WHEN and REFUSES if it fails
 #                                         (LAW 1: done is COMPUTED, never declared). Override, loudly and
 #                                         recorded: S4E_DONE_OVERRIDE="why". Claims persist as done-markers.
+#                                         Budget: S4E_DONE_TIMEOUT=<seconds>, default 3600. A criterion that
+#                                         does not finish REFUSES rc=2 (could not measure) -- distinct from
+#                                         rc=1 (measured, red). Raising the budget never weakens the check.
 #   s4e_msg.sh ask <topic> "text"         question box: sends to hq as q-<topic>
 #   s4e_msg.sh send <to> <topic> "text"   s4e_msg.sh check   s4e_msg.sh clear
 #   s4e_msg.sh claim <topic>              s4e_msg.sh board [my new status text]
@@ -829,22 +832,53 @@ case "$cmd" in
                   # vacuity probe above: that one must run starved in an empty dir, and handing it a real root is
                   # precisely what would let a vacuous criterion find something to pass on. (Moot today -- the probe
                   # skips anything containing '$' -- but the reason it stays that way belongs written down.)
-                  if ( cd "$S4E" && S4E_HOME="$S4E" S4E_SEAT="$ME" timeout "${S4E_DONE_TIMEOUT:-900}" bash -c "$dw" ) >"$_dwlog" 2>&1; then
+                  # ⛔⭐ THE DEFAULT IS 3600s, AND A TIMEOUT IS A REFUSAL RATHER THAN A RED (hq_B 2026-09-03, row
+                  # s4e-done-timeout-default-below-make-test-under-fleet-load, dispatched rank 0 because it blocked
+                  # EVERY seat's close). The default was 900s while `make test` measures ~1100s on this box under
+                  # twelve seats -- so every DONE-WHEN containing `make test` (every rung baton, most instrument rows)
+                  # died at the default for a reason having NOTHING to do with the work, and said "NOT DONE -- exited
+                  # 124", which reads as a red gate and sends the seat off to debug work that was already finished.
+                  # ⭐ A timeout tuned to a job's MEASURED duration is not a tight bound, it is a FLAKY one: it belongs
+                  # an order of magnitude above the measurement, never beside it -- the same rule the corpus runners
+                  # learned when `timeout 30s` SIGTERMed a fully green board and the green board read as a hang.
+                  # ⛔ AND THE TWO ANSWERS MAY NOT SHARE AN EXIT CODE. `timeout` exits 124 for a criterion that NEVER
+                  # FINISHED -- "I could not measure" -- which the old arm folded into the same rc=1 as "I measured
+                  # and it is red". That is precisely the fail-OPEN shape already cured in the vacuity probe twenty
+                  # lines above, inside this very command: an instrument that cannot measure REFUSES rc=2, it does
+                  # not report a verdict it never took. Now a caller scripting around `done` can tell them apart.
+                  # ⭐ AND THE INSTRUMENT QUOTES ITS REFERENCE (RULES batch 14): every outcome prints the budget it ran
+                  # under AND the wall-clock it used, so "did it just need more time?" is answered by the receipt
+                  # instead of re-run and guessed at.
+                  _dwto="${S4E_DONE_TIMEOUT:-3600}"; _dwt0="$(date +%s)"
+                  ( cd "$S4E" && S4E_HOME="$S4E" S4E_SEAT="$ME" timeout "$_dwto" bash -c "$dw" ) >"$_dwlog" 2>&1; rc=$?
+                  _dwel="$(( $(date +%s) - _dwt0 ))"
+                  if [ "$rc" -eq 0 ]; then
                     rm -f "$_dwlog"
-                    printf '  ✅ DONE-WHEN exited 0 — completion is COMPUTED, not claimed.\n'
+                    printf '  ✅ DONE-WHEN exited 0 in %ss (timeout %ss) — completion is COMPUTED, not claimed.\n' "$_dwel" "$_dwto"
                   else
-                    rc=$?
-                    printf '\n⛔⛔⛔ NOT DONE — the task DONE-WHEN exited %s. The claim is UNCHANGED and the row stays open.\n' "$rc" >&2
+                    if [ "$rc" -eq 124 ]; then
+                      printf '\n⛔ REFUSED (rc=2): the DONE-WHEN did NOT FINISH within %ss (elapsed %ss), so `done` COULD NOT MEASURE it.\n' "$_dwto" "$_dwel" >&2
+                      printf '    This is NOT a red criterion, NOT a pass and NOT a skip. The claim is UNCHANGED and the row stays open.\n' >&2
+                    else
+                      printf '\n⛔⛔⛔ NOT DONE — the task DONE-WHEN exited %s after %ss (timeout %ss). The claim is UNCHANGED and the row stays open.\n' "$rc" "$_dwel" "$_dwto" >&2
+                    fi
                     printf '    command : %s\n' "$dw" >&2
                     printf '    task    : %s\n' "$tf" >&2
                     if [ -s "$_dwlog" ]; then
                       printf '    ⭐ WHAT THE CRITERION ITSELF SAID (last 20 lines) -- read this BEFORE hypothesising:\n' >&2
                       sed -e 's/^/    | /' "$_dwlog" | tail -20 >&2
-                    else
+                    elif [ "$rc" -ne 124 ]; then
                       printf '    ⚠ the criterion produced NO output at all -- that is itself a clue: a silent non-zero is\n' >&2
                       printf '      usually a test that never ran (missing file, bad path, rc=127) rather than one that failed.\n' >&2
                     fi
                     rm -f "$_dwlog"
+                    if [ "$rc" -eq 124 ]; then
+                      printf '    Give it a real budget for THIS close:  S4E_DONE_TIMEOUT=<seconds> s4e_msg.sh done %s\n' "$topic" >&2
+                      printf '    ⭐ Giving a check enough wall-clock is NOT weakening it -- raising the budget is always allowed;\n' >&2
+                      printf '      editing the criterion to finish sooner is the false-green trap. A criterion that hangs FOREVER\n' >&2
+                      printf '      is a finding about the criterion: say so in the LEDGER and fix the criterion, never the clock.\n\n' >&2
+                      exit 2
+                    fi
                     printf '    If the DONE-WHEN itself is WRONG, that is a real finding: fix it in the task file and say so\n' >&2
                     printf '    in the LEDGER, or re-run with S4E_DONE_OVERRIDE="why" which records the reason in the claim.\n' >&2
                     printf '    ⛔ Do NOT weaken a DONE-WHEN to make it pass -- that is the false-green trap this gate exists to stop.\n\n' >&2
