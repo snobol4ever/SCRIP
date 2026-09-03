@@ -1919,8 +1919,8 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         int sc = cnt ? drive_value_slot(cnt) : -1;
         if (sa < 0 || sc < 0) { drive_unowned(nd); break; }
         g_emit.op_sa = sa; g_emit.op_sc = sc;
-        g_emit.lbl_t0   = g_limit_gen_beta ? g_limit_gen_beta->name : (lbl_β ? lbl_β->name : NULL);
-        g_emit.lbl_t0_p = g_limit_gen_beta ? g_limit_gen_beta : lbl_β;
+        g_emit.lbl_t0   = g_limit_gen_beta ? g_limit_gen_beta->name : (lbl_ω ? lbl_ω->name : NULL);
+        g_emit.lbl_t0_p = g_limit_gen_beta ? g_limit_gen_beta : lbl_ω;
         g_emit.op_off = drive_value_slot(nd);
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -3189,7 +3189,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         }
         if (nodes[i]->op == IR_LIMIT) {
             IR_t *gen = nodes[i]->n_operands > 0 ? nodes[i]->operands[0] : NULL;
-            if (gen) for (int k = 0; k < n; k++) if (nodes[k] == gen) { g_limit_gen_beta = betas[k]; break; }
+            if (gen && ir_is_generator_kind(gen->op)) for (int k = 0; k < n; k++) if (nodes[k] == gen) { g_limit_gen_beta = betas[k]; break; }
         }
         if (nodes[i]->op == IR_SCAN) {
             IR_t *bv = nodes[i]->n_operands > 1 ? nodes[i]->operands[1] : NULL;
