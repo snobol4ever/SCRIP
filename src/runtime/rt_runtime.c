@@ -36,7 +36,6 @@ typedef struct { char name[64]; int nfields; char fields[64][64]; } DatType;
 extern DatType *dat_register(const char *spec);
 extern DatType *dat_find_type(const char *name);
 extern DESCR_t    dat_construct(DatType *t, DESCR_t *args, int nargs);
-extern int exec_stmt(const char *subj_name, DESCR_t *subj_var, DESCR_t pat, DESCR_t *repl, int has_repl);
 #include "bb_box.h"
 DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail);
 static DESCR_t g_ir_return_val;

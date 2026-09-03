@@ -63,8 +63,6 @@ __asm__(".globl rt_outer_call_delta0\n.type rt_outer_call_delta0, @function\n"
 #include <string.h>
 #include <math.h>
 extern void    core_lib_init(void);
-extern int     exec_stmt(const char *subj_name, DESCR_t *subj_var,
-                         DESCR_t pat, DESCR_t *repl, int has_repl);
 extern DESCR_t NV_GET_fn(const char *name);
 extern DESCR_t NV_SET_fn(const char *name, DESCR_t val);
 extern DESCR_t *NV_PTR_fn(const char *name);

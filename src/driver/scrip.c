@@ -113,11 +113,6 @@ static void icn_zf_main_call(void *fn, void *mf, void *wire_γ, void *wire_ω) {
     );
 }
 extern DESCR_t      eval_expr(const char *src);
-extern int exec_stmt(const char *subj_name,
-                          DESCR_t    *subj_var,
-                          DESCR_t     pat,
-                          DESCR_t    *repl,
-                          int         has_repl);
 extern const char *Σ;
 extern int         Ω;
 extern int         Δ;
@@ -1095,10 +1090,6 @@ int main(int argc, char **argv)
     {
         extern void core_set_label_exists_hook(int (*fn)(const char *));
         core_set_label_exists_hook(_label_exists_fn);
-    }
-    {
-        extern DESCR_t (*g_eval_pat_hook)(DESCR_t pat);
-        g_eval_pat_hook = _eval_pat_impl_fn;
     }
     {
         extern DESCR_t (*g_eval_str_hook)(const char *s);

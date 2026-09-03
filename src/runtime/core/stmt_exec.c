@@ -19,14 +19,3 @@ int         Σlen = 0;
 void bin_audit_print(void)
 {
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int exec_stmt(const char  *subj_name,
-                  DESCR_t     *subj_var,
-                  DESCR_t      pat,
-                  DESCR_t     *repl,
-                  int          has_repl)
-{
-    (void)subj_name; (void)subj_var; (void)pat; (void)repl; (void)has_repl;
-    fprintf(stderr, "[B0] BOMB exec_stmt: legacy executor deleted (B0); DT_P match lands at B3 (B-ladder, GOAL-SNOBOL4-BB)\n");
-    abort();
-}

@@ -6,13 +6,6 @@ DESCR_t _eval_str_impl_fn(const char *s) {
     return eval_string_transient(s);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t _eval_pat_impl_fn(DESCR_t pat) {
-    extern int exec_stmt(const char *, DESCR_t *, DESCR_t, DESCR_t *, int);
-    DESCR_t subj = STRVAL("");
-    int ok = exec_stmt("", &subj, pat, NULL, 0);
-    return ok ? NULVCL : FAILDESCR;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int _label_exists_fn(const char *name) {
     return label_lookup(name) != NULL;
 }

@@ -26,5 +26,4 @@ DESCR_t _builtin_print  (DESCR_t *args, int nargs);
 DESCR_t _usercall_hook  (const char *name, DESCR_t *args, int nargs);
 int     _label_exists_fn(const char *name);
 DESCR_t _eval_str_impl_fn(const char *s);
-DESCR_t _eval_pat_impl_fn(DESCR_t pat);
 #endif

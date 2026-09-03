@@ -339,7 +339,6 @@ DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val);
 int NV_CONST_ASSIGNED_fn(const char *name);
 DESCR_t *gva_register(const char **names, DESCR_t *cells, int n);
 const char *NV_name_from_ptr(const DESCR_t *ptr);
-extern DESCR_t (*g_eval_pat_hook)(DESCR_t pat);
 extern DESCR_t (*g_eval_str_hook)(const char *s);
 DESCR_t *array_ptr(ARBLK_t *a, int i);
 extern DESCR_t (*g_user_call_hook)(const char *name, DESCR_t *args, int nargs);

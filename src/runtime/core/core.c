@@ -2795,7 +2795,6 @@ void register_fn_alias(const char *newname, const char *oldname) {
     _func_buckets[hn] = fe;
 }
 DESCR_t (*g_user_call_hook)(const char *name, DESCR_t *args, int nargs) = NULL;
-DESCR_t (*g_eval_pat_hook)(DESCR_t pat) = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t APPLY_fn(const char *name, DESCR_t *args, int nargs) {
     _func_init();

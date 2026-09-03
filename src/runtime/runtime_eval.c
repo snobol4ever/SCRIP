@@ -9,11 +9,6 @@
 #include "../parsers/snobol4/scrip_cc.h"
 #include "IR.h"
 #include "stage2.h"
-extern int exec_stmt(const char  *subj_name,
-                          DESCR_t     *subj_var,
-                          DESCR_t      pat,
-                          DESCR_t     *repl,
-                          int          has_repl);
 extern const char *Σ;
 extern int         Ω;
 extern int         Δ;

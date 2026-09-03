@@ -907,7 +907,6 @@ void rt_at_cursor(const char *varname, int cur_delta)
     DESCR_t pos = { .v = DT_I, .i = (int64_t)cur_delta };
     NV_SET_fn(varname, pos);
 }
-extern int exec_stmt(const char *sname, DESCR_t *sv, DESCR_t pat, DESCR_t *repl, int has_repl);
 extern const char *Σ;
 extern int Σlen;
 typedef struct { DESCR_t val; int failed; int dtx_used; } rt_dfx_t;
