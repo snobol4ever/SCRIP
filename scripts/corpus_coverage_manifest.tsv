@@ -40,7 +40,7 @@ SUBTREE	demos/snobol4	GATED	test_corpus_snobol4.sh
 SUBTREE	library	GATED	test_corpus_snobol4.sh
 SUBTREE	demos/snocone	GATED	test_crosscheck_snocone.sh
 SUBTREE	packages/icon	GATED	test_gate_icn_scan.sh
-SUBTREE	benchmarks/pascal	ROWD	pascal-m4-registered-dispatch-segv
+SUBTREE	benchmarks/pascal	GATED	test_gate_pascal_m3.sh
 SUBTREE	benchmarks/raku	ROWD	bench-rivals-raku-pascal
 SUBTREE	demos/prolog	GATED	test_lower_byte_identical.sh
 SUBTREE	demos/icon	GATED	test_lower_byte_identical.sh
