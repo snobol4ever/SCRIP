@@ -100,23 +100,42 @@ def rt_opt():
     return "RT_OPT=unreadable"
 
 
-def find_table(lines):
-    # Locate the standardized-display grid by its header, and PROVE its shape rather than assuming it.
-    hdr = None
-    for i, l in enumerate(lines):
-        if l.startswith("| Language |"):
-            hdr = i
-            break
-    if hdr is None:
-        die("no '| Language |' grid header in %s -- the standardized display is gone or renamed" % SCORE_MD)
-    cells = [c.strip() for c in lines[hdr].strip().strip("|").split("|")]
+def table_shape_error(cells):
+    # Return why this header is NOT the standardized display, or None if it IS.  Split out of
+    # find_table so the same proof can be applied to EVERY candidate header rather than only the first.
     if len(cells) != PROV_COL + 1:
-        die("grid header has %d columns, this helper knows %d (%s) -- the display changed shape; fix this table, do not write into the wrong cell"
-            % (len(cells), PROV_COL + 1, ", ".join(COLUMNS)))
+        return "has %d columns, this helper knows %d (%s)" % (len(cells), PROV_COL + 1, ", ".join(COLUMNS))
     for key, (idx, expect) in COLUMNS.items():
         if not cells[idx].startswith(expect):
-            die("column %d is %r, expected it to start with %r (--column %s) -- refusing to write into a renamed column"
-                % (idx, cells[idx], expect, key))
+            return "column %d is %r, expected it to start with %r (--column %s)" % (idx, cells[idx], expect, key)
+    return None
+
+
+def find_table(lines):
+    # Locate the standardized-display grid by its header, and PROVE its shape rather than assuming it.
+    # ⛔ EVERY '| Language |' header is a CANDIDATE, not just the first.  SCORE.md carries more than one
+    # such grid (ceo CEO-174 added the September-10 M/L/V grid ABOVE this one on 2026-09-03), and binding
+    # to the first match made this helper refuse rc=2 for EVERY language and EVERY column -- i.e. the one
+    # mechanism the ONE LEADERBOARD fact rule tells every runner to call was dead for the whole fleet,
+    # while the grid it was meant to protect sat directly below it.  Shape is the identity here, never
+    # position: we take the first header that PROVES it is the standardized display, and if none does we
+    # report what each candidate was instead, so the refusal names the real problem.
+    candidates = [i for i, l in enumerate(lines) if l.startswith("| Language |")]
+    if not candidates:
+        die("no '| Language |' grid header in %s -- the standardized display is gone or renamed" % SCORE_MD)
+    why = []
+    hdr = None
+    for i in candidates:
+        cells = [c.strip() for c in lines[i].strip().strip("|").split("|")]
+        err = table_shape_error(cells)
+        if err is None:
+            hdr = i
+            break
+        why.append("line %d %s" % (i + 1, err))
+    if hdr is None:
+        die("no '| Language |' grid in %s is the standardized display -- refusing to write into the wrong cell. Candidates: %s"
+            % (SCORE_MD, "; ".join(why)))
+    cells = [c.strip() for c in lines[hdr].strip().strip("|").split("|")]
     rows = {}
     for i in range(hdr + 2, len(lines)):
         if not lines[i].startswith("|"):
@@ -304,11 +323,18 @@ def cmd_selftest(a):
             print("SELFTEST FAIL: line count moved %d -> %d; a row-write must rewrite IN PLACE, never append" % (n0, n1)); ok = False
         else:
             print("SELFTEST: two writes to one cell left the line count unchanged -- rewrite-in-place holds")
-        row = [l for l in body.split("\n") if l.startswith("| rebus |")]
-        clauses = len(re.findall(r"(?:^|; )board:", row[0])) if row else 0
-        if len(row) != 1 or "1/48" in body or body.count("2/48") != 2 or clauses != 1:
-            print("SELFTEST FAIL: the second write did not replace the first -- %d rebus rows, %d board: clauses, "
-                  "first-write text %s" % (len(row), clauses, "SURVIVES" if "1/48" in body else "gone")); ok = False
+        # ⛔ LOOK ONLY INSIDE THE TABLE find_table BOUND, never across the whole file by row name: SCORE.md
+        # carries more than one '| Language |' grid (ceo CEO-174's September-10 M/L/V grid), so every
+        # language name appears more than once and a file-wide scan asserts on the wrong row -- the same
+        # position-over-shape defect that made find_table itself refuse for the whole fleet.
+        _hdr, _rows = find_table(body.split("\n"))
+        row = [_rows["rebus"][1]] if "rebus" in _rows else []
+        cell = row[0][3] if row else ""
+        prov = row[0][PROV_COL] if row else ""
+        clauses = len(re.findall(r"(?:^|; )board:", prov))
+        if len(row) != 1 or "1/48" in cell or cell.count("2/48") != 2 or clauses != 1:
+            print("SELFTEST FAIL: the second write did not replace the first -- %d rebus rows in the bound grid, "
+                  "%d board: clauses, first-write text %s" % (len(row), clauses, "SURVIVES" if "1/48" in cell else "gone")); ok = False
         else:
             print("SELFTEST: the second write replaced the first cell and its provenance clause, not appended beside it")
         for label, kw in (("unknown language", dict(lang="klingon", column="board", text="1/1", measurer="s")),
