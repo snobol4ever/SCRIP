@@ -439,10 +439,10 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + zf_release(kt)
              + zf_pin_restore(kt)
              + x86("jmp", "rcx"); }
-    return x86("comment", "ICN-FR-2 zframe epilogue-γ: marshal result rax:rdx→rdi:rsi; load γ wire from [kt-24]; unwind; jmp. NOTE: no caller-base restore happens here — the [kt-8] slot is WRITE-ONLY on every arm that fills it (s247)")
+    return x86("comment", "ICN-FR-2 zframe epilogue-γ: marshal result rax:rdx→rdi:rsi; load γ wire from [kt-24] THROUGH THE PIN (never bare rsp -- x86_fb() is rbp for a zframe_graph=1 pinned caller, rsp otherwise, matching the PL arm's identical read at :429 and the class-wide ONE-SPELLING rule); unwind; jmp. NOTE: no caller-base restore happens here — the [kt-8] slot is WRITE-ONLY on every arm that fills it (s247)")
          + x86("mov", "rdi", "rax")
          + x86("mov", "rsi", "rdx")
-         + x86("mov", "rcx", "qword ptr [rsp# + " + std::to_string(kt - 24) + "]")
+         + x86("mov", "rcx", RDQ(x86_fb(), kt - 24))
          + zf_display_restore(kt)
          + zf_release(kt)
          + zf_pin_restore(kt)
