@@ -27,26 +27,40 @@ sandbox() { # $1 = dir ; builds a postoffice whose FILE ORDER DISAGREES WITH RAN
   # as not-FREE and P1 failed "QUEUE EMPTY" even against an unmodified script — reproduced against git
   # HEAD before this fix, so it is not a side effect of any other change, just a gate nobody re-ran since
   # s265 landed (LAW 0 species 3, a blind instrument caught by trying to actually rely on its verdict).
+  # ⛔ FOUND STALE A SECOND TIME (postoffice-gates-red-on-origin, 2026-09-03) — SAME SANDBOX, NEXT COLUMN ALONG.
+  # The note above cured the 4th column when V2-2 repointed it to state. The 3rd column is read as `brief` and
+  # USED as the owner, and `THE OWNER COLUMN CONSTRAINS THE PICK` (ceo 2026-09-03) made it load-bearing too:
+  # anything that is not '', `unassigned` or the running seat is now skipped as another seat's row. "brief-N"
+  # is none of those, so every row here read as owned-by-someone-else and NOTHING was ever locked.
+  # ⭐ THE REASON THIS SURVIVED A RED RUN: the skip banner names the topmost skipped row and its owner, so
+  # `case "$out" in *"THE-RANK-ZERO-ROW"*` and *"brief-0"* both MATCHED THE REFUSAL. 18/19 green with P1
+  # measuring nothing. Only the third check, naming a row the banner does not mention, told the truth.
+  # The assertions below are now anchored on "LOCKED <topic>" for exactly this reason -- a substring that a
+  # refusal can also contain is not an assertion, it is a coincidence.
+  echo 'FLEET-16' > "$P/MODE"          # s266: MODE IS COMPUTED, NEVER ASSUMED -- absent makes every next() print a ⛔ banner
   { printf '# sandbox queue — file order is DELIBERATELY the inverse of rank order\n'
-    printf '9\tlast-in-rank-first-in-file\tbrief-9\tFREE\n'
-    printf '5\tmiddle-row\tbrief-5\tFREE\n'
-    printf '0\tTHE-RANK-ZERO-ROW\tbrief-0\tFREE\n'
+    printf '9\tlast-in-rank-first-in-file\tunassigned\tFREE\n'
+    printf '5\tmiddle-row\tunassigned\tFREE\n'
+    printf '0\tTHE-RANK-ZERO-ROW\tunassigned\tFREE\n'
     printf '\n'
-    printf '3\tanother-row\tbrief-3\tFREE\n'; } > "$P/QUEUE.tsv"; }
+    printf '3\tanother-row\tunassigned\tFREE\n'; } > "$P/QUEUE.tsv"; }
 run() { local P="$1" seat="$2"; shift 2; S4E_POST="$P" S4E_SEAT="$seat" S4E_NO_BANNER=1 bash "$MSG" "$@" 2>&1; }
 
 echo "== P1  rank-sorted picker =="
 P=$(mktemp -d); sandbox "$P"
 out="$(run "$P" seatAA next)"
 if [ "$SELF" = 1 ]; then out="LOCKED last-in-rank-first-in-file (rank 9)"; fi   # inject the v1 file-order picker
-case "$out" in *"THE-RANK-ZERO-ROW"*) ok "next serves rank 0 before file-order-topmost rank 9";;
-  *) no "next serves rank 0 first" "LOCKED THE-RANK-ZERO-ROW" "$(echo "$out" | head -1)";; esac
-case "$out" in *"brief-0"*) ok "the brief printed belongs to the row that was locked";;
-  *) no "brief matches locked row" "brief-0" "$(echo "$out" | head -2 | tr '\n' ' ')";; esac
+case "$out" in *"LOCKED THE-RANK-ZERO-ROW"*) ok "next serves rank 0 before file-order-topmost rank 9";;
+  *) no "next serves rank 0 first" "LOCKED THE-RANK-ZERO-ROW" "$(echo "$out" | grep -m1 -E 'LOCKED|skipped|EMPTY')";; esac
+# ⭐ the metadata printed must belong to the row that was LOCKED, not to a neighbouring row -- the column
+# -misalignment class. Rank is the field that is distinct per row here (every owner must read `unassigned`
+# to be pickable at all), so topic-and-rank in ONE anchored string is what carries that property now.
+case "$out" in *"LOCKED THE-RANK-ZERO-ROW (rank 0)"*) ok "the rank printed belongs to the row that was locked";;
+  *) no "printed metadata matches locked row" "LOCKED THE-RANK-ZERO-ROW (rank 0)" "$(echo "$out" | grep -m1 -E 'LOCKED|skipped|EMPTY')";; esac
 # and the SECOND pick must be the next rank up, not file order again
 out2="$(run "$P" seatBB next)"
-case "$out2" in *"another-row"*) ok "second pick is rank 3 (next-lowest), not file order";;
-  *) no "second pick is rank 3" "LOCKED another-row" "$(echo "$out2" | head -1)";; esac
+case "$out2" in *"LOCKED another-row"*) ok "second pick is rank 3 (next-lowest), not file order";;
+  *) no "second pick is rank 3" "LOCKED another-row" "$(echo "$out2" | grep -m1 -E 'LOCKED|skipped|EMPTY')";; esac
 rm -rf "$P"
 
 echo "== P2  assignment is the lock =="

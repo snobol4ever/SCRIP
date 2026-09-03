@@ -95,6 +95,21 @@ case "$out" in *"row aa-high-rank"*) ok "banner given an explicit topic (as done
   *) no "banner pref-topic override" "row aa-high-rank" "$(echo "$out" | tail -3 | tr '\n' ' ')";; esac
 
 echo "-- E: end-to-end -- done's OWN auto-fired banner (not a manual simulation) attributes correctly --"
+# ⛔ FOUND STALE (postoffice-gates-red-on-origin, 2026-09-03): this step used to close zz-low-rank with NO
+# baton on disk. That worked when the fixture was written and has been REFUSED rc=2 since the HOLE-A cure of
+# 2026-08-28 -- "a row with no baton has no computable DONE-WHEN, so its completion cannot be verified, so it
+# cannot be closed". The refusal is the tool being RIGHT; only D minted a baton, and E inherited none.
+# ⭐ Note what the stale fixture would have cost if cured the other way: relaxing `done` to close a batonless
+# row to make this gate green would have re-opened LAW 1 across all sixteen seats to spare one fixture.
+# The banner-attribution property E actually measures is untouched by minting the baton E always needed.
+cat > "$T/po/tasks/zz-low-rank.task.md" <<EOF
+# TASK zz-low-rank · owner: hq_C · state: FREE
+GOAL: g
+DONE-WHEN: test -f $T/flag-zz
+## NEXT
+n
+EOF
+touch "$T/flag-zz"
 out="$(S4E_POST="$T/po" S4E_HOME="$T/root" S4E_SEAT=seatAA bash "$MSG" done zz-low-rank 2>&1)"   # no S4E_NO_BANNER: let done fire its real banner call
 [ "$SELF" = 1 ] && out="· row aa-high-rank"
 case "$out" in *"row zz-low-rank"*) ok "done's own auto-fired banner (no manual passthrough) attributes to the row it just closed";;

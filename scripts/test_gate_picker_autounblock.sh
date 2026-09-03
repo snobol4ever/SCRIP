@@ -29,7 +29,12 @@ no(){ fail=$((fail+1)); printf '  FAIL %s\n     expected: %s\n     actual  : %s\
 
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 run() { local seat="$1"; shift; S4E_POST="$T/po" S4E_HOME="$T/root" S4E_SEAT="$seat" S4E_NO_BANNER=1 bash "$MSG" "$@" 2>&1; }
-newpo() { rm -rf "$T/po"; mkdir -p "$T/po"/{claims,tasks,seatAA/inbox,seatBB/inbox}; : > "$T/po/QUEUE.done.tsv"; }
+newpo() { rm -rf "$T/po"; mkdir -p "$T/po"/{claims,tasks,seatAA/inbox,seatBB/inbox}; : > "$T/po/QUEUE.done.tsv"
+  # ⛔ s266 MODE IS COMPUTED, NEVER ASSUMED: a postoffice with no MODE file makes every next() print a ⛔ error
+  # banner. It did not change the verdicts below, but a fixture that trips a law on every run is a fixture nobody
+  # can read a failure out of -- the real cause hid behind this banner for a whole session. A scratch postoffice
+  # is a POSTOFFICE: give it the file the law requires.
+  echo 'FLEET-16' > "$T/po/MODE"; }
 mkroot() { rm -rf "$T/root"; mkdir -p "$T/root/SCRIP/scripts"
   printf '%s\n' '#!/bin/sh' 'echo HANDOFF COMPLETE' 'exit 0' > "$T/root/SCRIP/scripts/handoff_status.sh"
   chmod +x "$T/root/SCRIP/scripts/handoff_status.sh"; }
@@ -45,7 +50,7 @@ EOF
 
 echo "== U1  a BLOCKED-ON row stays unpickable, in isolation, while its blocker is open =="
 newpo
-printf '0\tblocker-x\tb\tFREE\n1\tblocked-x\tb\tBLOCKED-ON:blocker-x\n' > "$T/po/QUEUE.tsv"
+printf '0\tblocker-x\tunassigned\tFREE\n1\tblocked-x\tunassigned\tBLOCKED-ON:blocker-x\n' > "$T/po/QUEUE.tsv"
 task blocker-x; task blocked-x
 out1="$(run seatAA next)"                      # claims blocker-x (rank 0, the only FREE row)
 case "$out1" in *"LOCKED blocker-x"*) ok "first next() takes the only actually-free row (blocker-x)";;
@@ -61,15 +66,25 @@ if [ "$SELF" = 1 ]; then out3="QUEUE EMPTY — every row claimed. Ask hq: s4e_ms
 case "$out3" in *"LOCKED blocked-x"*) ok "U2: resolved blocker unsticks the row on the very next dispatch";;
   *) no "U2: blocked-x becomes pickable once blocker-x is DONE" "LOCKED blocked-x (rank 1)" "$(echo "$out3" | head -1)";; esac
 
-echo "== U3  serving it self-heals the QUEUE.tsv state column back to FREE =="
+echo "== U3  the stale block is GONE from the state column, replaced by the claim that was just served =="
+# ⛔ THIS ASSERTION USED TO READ [ "$st" = "FREE" ] AND PASSED FOR THE WRONG REASON. While the owner column
+# below was stale (see newpo), U2's row was parked FREE and then SKIPPED, so nothing ever claimed it and the
+# column sat at the intermediate FREE the park had written. The moment the fixture was cured and the row was
+# actually SERVED, FREE became the wrong answer: a served row is CLAIMED. The self-heal is real either way --
+# what U3 must witness is that the stale BLOCKED-ON spelling is gone AND that the column agrees with the claim
+# (s265: a column that disagrees with the claim is the whole defect this file exists to catch), never the one
+# transient value that only a skipped row leaves behind.
 st="$(awk -F'\t' '$2=="blocked-x"{print $4}' "$T/po/QUEUE.tsv")"
 if [ "$SELF" = 1 ]; then st="BLOCKED-ON:blocker-x"; fi   # inject the pre-fix answer: state column never rewritten
-[ "$st" = "FREE" ] && ok "U3: QUEUE.tsv row for blocked-x now reads FREE, not a stale BLOCKED-ON" \
-  || no "U3: state column self-heals" "FREE" "$st"
+case "$st" in
+  BLOCKED-ON:*|PARKED-AWAITING:*) no "U3: state column self-heals" "CLAIMED:seatAA (block cleared)" "$st";;
+  CLAIMED:seatAA) ok "U3: QUEUE.tsv row for blocked-x now reads CLAIMED:seatAA — stale BLOCKED-ON gone, column agrees with the claim";;
+  *) no "U3: served row's column must agree with its claim" "CLAIMED:seatAA" "$st";;
+esac
 
 echo "== U4  PARKED-AWAITING:<topic> (the pre-existing spelling) gets the identical cure =="
 newpo
-printf '0\tblocker-y\tb\tFREE\n1\tblocked-y\tb\tPARKED-AWAITING:blocker-y\n' > "$T/po/QUEUE.tsv"
+printf '0\tblocker-y\tunassigned\tFREE\n1\tblocked-y\tunassigned\tPARKED-AWAITING:blocker-y\n' > "$T/po/QUEUE.tsv"
 task blocker-y; task blocked-y
 run seatAA next >/dev/null                     # claims blocker-y
 touch "$T/flag-blocker-y"; run seatAA done blocker-y >/dev/null
@@ -80,8 +95,8 @@ case "$out4" in *"LOCKED blocked-y"*) ok "U4: PARKED-AWAITING unsticks exactly l
 
 echo "== U5  a blocker resolved ONLY via QUEUE.done.tsv (no live claim file) still unblocks =="
 newpo
-printf '1\tblocked-z\tb\tBLOCKED-ON:blocker-z\n' > "$T/po/QUEUE.tsv"     # blocker-z has NO row here at all -- fully swept
-printf '0\tblocker-z\tb\tFREE\n' > "$T/po/QUEUE.done.tsv"                # ...but IS recorded landed in the memory file
+printf '1\tblocked-z\tunassigned\tBLOCKED-ON:blocker-z\n' > "$T/po/QUEUE.tsv"     # blocker-z has NO row here at all -- fully swept
+printf '0\tblocker-z\tunassigned\tFREE\n' > "$T/po/QUEUE.done.tsv"                # ...but IS recorded landed in the memory file
 task blocked-z
 out5="$(run seatAA next)"
 if [ "$SELF" = 1 ]; then out5="QUEUE EMPTY — every row claimed. Ask hq: s4e_msg.sh ask work 'queue empty'"; fi

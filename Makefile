@@ -57,7 +57,7 @@ JASMIN       := $(ROOT)/miscellaneous/jasmin.jar
 SCRIP_CC_BIN := $(ROOT)/scrip
 
 .PHONY: all scrip setup hooks pristine pristine-all buildinfo FORCE \
-        test \
+        test test-postoffice \
         native codegen-emit-test \
         monitor-ipc \
         libscrip_rt libscrip_rt_static \
@@ -99,8 +99,21 @@ pristine:  # THE gate-law incantation (HQ-27 PRISTINE-BUILD-BEFORE-VERDICT), now
 		'; \
 	fi
 
+test-postoffice:  # ⭐ THE HERMETIC POSTOFFICE GATES, WIRED 2026-09-03 (hq_B, ceo ruling on row `postoffice-gates-red-on-origin-because-no-s4e-gate-is-in-make-test`). ⛔ WHY THIS TARGET EXISTS: three of these gates were RED ON ORIGIN and nobody knew, because NO s4e_* gate was in any runner -- a gate in no runner is not measuring, the same false-green shape `test` itself was cured of at s268. Each red was a stale FIXTURE, never a broken tool: the picker grew an owner-column constraint and a baton requirement, and the fixtures kept asserting against the older contract. ⭐ HERMETIC IS THE MEMBERSHIP TEST, AND IT IS MEASURED, NOT ASSUMED: every gate below builds its own scratch postoffice under mktemp, and the set was verified to leave /home/resources/postoffice byte-identical (QUEUE.tsv, QUEUE.done.tsv, claims/, tasks/) across a full run -- a gate that mutated live fleet state would be unrunnable here at any speed. The gates that read the LIVE postoffice (baton_donewhen_runnable{,_live}, baton_next_blocks, baton_one_next_block, baton_state_header_single_record, queue_is_an_index, s4e_release_verbs_mark_last_row) are deliberately OUT: they grade rows sixteen seats are editing right now, so they red on a dirty fleet BY DESIGN -- exactly the reason test_gate_preflight_complete.sh is out too (ceo, same ruling). Keep this target seconds-cheap; anything needing a build or a live read does not belong in it.
+	bash scripts/test_gate_s4e_picker_v2.sh
+	bash scripts/test_gate_s4e_next_honours_owner.sh
+	bash scripts/test_gate_s4e_next_tiebreak_by_mint_time.sh
+	bash scripts/test_gate_s4e_unclaim_keeps_park.sh
+	bash scripts/test_gate_s4e_done_timeout_is_a_refusal.sh
+	bash scripts/test_gate_picker_autounblock.sh
+	bash scripts/test_gate_dispatch_claim_single_authority.sh
+	bash scripts/test_gate_dispatch_gc_safepoint_inline.sh
+	bash scripts/test_gate_dispatch_bus_failure_modes.sh
+	@echo "  ✅ test-postoffice: 9 hermetic s4e_* gates green"
+
 test: scrip  # ⭐ WAS THE FALSE-GREEN TRAP (cured hq_P s268): `test`, `test-ir` and `test-all` were named in .PHONY with NO RECIPE ANYWHERE, so each exited 0 having run NOTHING ("Nothing to be done for 'test'") while reading as a full green suite. `test-ir` and `test-all` are DELETED rather than wired — nothing behind them ever existed. This target now runs THE blocking set named in CLAUDE.md and fails loudly on the first red. ⛔ Gate VERDICTS still require `make pristine` first (HQ-27); this target only builds what is missing.
 	python3 scripts/strip_comments.py --check   # ~0.8s MEASURED (0.79/0.83/0.80 over three runs, 384 files), the cheapest arm here and the only one needing no build at all, so a style red fails in under a second instead of after a 6-minute board. ⭐ WIRED 2026-09-03 (hq_P, row strip-comments-check-is-not-in-make-test-so-src-style-goes-red-on-origin, minted by hq_C): RULES.md § C style -- src/ carries ZERO comments but the sanctioned 200-char /*---*/ and /*===*/ separators -- was enforced ONLY by a clause each Prolog rung's DONE-WHEN opted into BY HAND. A seat that omitted it pushed a RED gate to origin while `make test` still said green for everyone, and the redness stayed invisible until some LATER seat's DONE-WHEN ran on the merged tree. ⛔ TWICE IN ONE EVENING, hq_B's 92d300f07 and hq_P's own 84e02570, NEITHER SEAT AT FAULT in any way a reviewer would catch: a long explanatory comment is the NATURAL way to make a deletion or a shared-box change legible, and this codebase has deliberately closed that door and routed the explanation to the FINDING. A rule people must REMEMBER to copy into their own acceptance test is a hope, not a mechanism -- the same false-green shape this very target was cured of at s268.
+	$(MAKE) --no-print-directory test-postoffice   # ~13s MEASURED, no build needed: the hermetic s4e_* gates. SECOND arm by ceo ruling 2026-09-03 (row postoffice-gates-red-on-origin-because-no-s4e-gate-is-in-make-test) -- every seat's next/done/assign rides on this one tool, so a red in it is a red for all sixteen seats at once, and it belongs beside strip_comments as a cheap arm that fails in seconds rather than after a 6-minute board.
 	bash scripts/test_gate_capture_stdin_and_red_exit.sh   # ~15s, mktemp-only: first because a cheap self-contained gate belongs before a 6-minute board (ceo grant 2026-08-30; move it if the order should be authored elsewhere)
 	bash scripts/test_gate_term_wordref_ratchet.sh   # ~0.13s, pure source census (no build needed): per-file `Term` word-ref RATCHET for the T-slice cell migration. Cheap+self-contained so it sits beside the stdin gate, ahead of the boards (same ceo grant 2026-08-30). Pins are LOWERED in the landing commit of each T slice; see the file header for the re-pin one-liner.
 	bash scripts/test_corpus_snobol4.sh
