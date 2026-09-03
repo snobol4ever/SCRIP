@@ -17,11 +17,14 @@
 #                   NOT the holder -- it must self-clear. A pid-only lock refuses a seat that is alone in its root,
 #                   i.e. the guard manufacturing the exact false signal it exists to remove.
 #   (5) TORN        an empty/garbled lock file never wedges the bus.
+#   (7) MARKER     an inherited S4E_PID_LOCK naming a live process that is NOT the lock holder must NOT wave a
+#                   genuine second writer through -- the descendant marker is not a skeleton key.
 #   (6) NESTED      ⛔ THE SELF-DEADLOCK ARM. s4e_msg.sh calls ITSELF eight times -- `ask` EXECS into `send` (same
 #                   pid, same starttime, trap thrown away by exec), `board`/`done` spawn a `banner` child, `mint`
 #                   installs its OWN EXIT trap and then clears it. Every one must succeed AND leave no lock behind.
 # FAIL-ONCE (INSTRUMENT LAWS): two mutated copies, each removing one half of the cure --
-#   M1 drops the s4e_pid_acquire call  -> arm (1) must go red.   M2 makes liveness pid-only -> arm (4) must go red.
+#   M1 drops the s4e_pid_acquire call -> arm (1) red.  M2 makes liveness pid-only -> arm (4) red.
+#   M3 trusts the descendant marker without checking it against the lock file -> arm (7) red.
 # EXIT 0 all six arms hold on the live script AND both mutants go red; 1 otherwise; 2 REFUSED (fixture unbuildable).
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; MSG="$HERE/s4e_msg.sh"
@@ -49,16 +52,33 @@ mk_po() {
   printf '# TASK t-hold\nGOAL: gate fixture.\nDONE-WHEN: sleep 6 && test -f "$S4E_HOME/po/QUEUE.tsv"\nLINKS: none\n## NEXT\ngo\n## LEDGER\n' > "$PO/tasks/t-hold.task.md"
   printf '# TASK t-spare\nGOAL: gate fixture.\nDONE-WHEN: test -f %s/QUEUE.tsv\nLINKS: none\n## NEXT\ngo\n## LEDGER\n' "$PO" > "$PO/tasks/t-spare.task.md"
 }
-run() { S4E_HOME="$W" S4E_POST="$PO" S4E_SEAT="$ME" S4E_NO_BANNER=1 bash "$@" >"$W/out" 2>&1; }
+# ⛔⭐ env -u S4E_PID_LOCK ON EVERY FIXTURE INVOCATION. This gate manufactures INDEPENDENT processes; the cure
+# deliberately waves a DESCENDANT through (s4e_msg.sh calls itself eight times and would otherwise deadlock
+# against its own banner child), and it recognises one by an EXPORTED marker. So if this gate is itself run
+# from inside an s4e verb -- which is exactly what `done` does when it verifies this row's DONE-WHEN -- the
+# marker leaks in and every "independent" fixture process is taken for a descendant.
+# ⛔ MEASURED, AND IT IS THE WHOLE REASON THIS LINE EXISTS: the gate passed standalone and went RED under
+# `done`, from an environment variable, on an unchanged tree. A verdict that depends on who invoked the
+# grader is not a verdict -- the identical defect s4e_msg.sh already convicts in its own S4E_HOME comment.
+FIX() { env -u S4E_PID_LOCK S4E_HOME="$W" S4E_POST="$PO" S4E_SEAT="$ME" "$@"; }
+run() { FIX S4E_NO_BANNER=1 bash "$@" >"$W/out" 2>&1; }
 nolock() { [ ! -f "$PO/$ME/.pid" ]; }
 arm() {   # arm <label> <script> -> 0 iff all six contracts hold on <script>
   local lbl="$1" s="$2" ok=1 rc bgpid inc out
   mk_po || return 2
   run "$s" claim t-hold || { echo "  [$lbl] fixture: claim t-hold failed: $(tail -1 "$W/out")"; return 2; }
   # ---- (1) CONCURRENT: a real background `done` holds the identity while `check` runs against it -------------
-  S4E_HOME="$W" S4E_POST="$PO" S4E_SEAT="$ME" S4E_NO_BANNER=1 bash "$s" done t-hold >"$W/bg.out" 2>&1 & bgpid=$!
+  # ⛔ EXPLICIT `exec`, and NOT the FIX function, so $! names the process that actually holds the lock.
+  # Backgrounding a shell FUNCTION forks a subshell that then forks again for `env`, so $! named a pid two
+  # short of the real holder and the arm failed while the cure was working perfectly -- the fixture lying
+  # about which process it launched. The lock file is cross-checked against $! below, so a future fork layer
+  # cannot quietly reintroduce this.
+  { exec env -u S4E_PID_LOCK S4E_HOME="$W" S4E_POST="$PO" S4E_SEAT="$ME" S4E_NO_BANNER=1 bash "$s" done t-hold; } >"$W/bg.out" 2>&1 & bgpid=$!
   local i=0; while [ $i -lt 40 ] && ! kill -0 "$bgpid" 2>/dev/null; do i=$((i+1)); sleep 0.1; done
   sleep 1.5
+  local holder=""; [ -f "$PO/$ME/.pid" ] && read -r holder _ < "$PO/$ME/.pid"
+  [ "${holder:-}" = "$bgpid" ] || echo "  [$lbl] (1) NOTE: lock file names pid ${holder:-none}, background job is $bgpid -- fixture drift, the assertion below grades the lock file"
+  [ -n "${holder:-}" ] && bgpid="$holder"
   run "$s" check; rc=$?; out="$(cat "$W/out")"
   if [ "$rc" != 2 ]; then echo "  [$lbl] (1) a second CONCURRENT verb returned rc=$rc, want rc=2 REFUSED -- two live processes shared one identity"; ok=0
   else
@@ -89,11 +109,11 @@ arm() {   # arm <label> <script> -> 0 iff all six contracts hold on <script>
   run "$s" check || { echo "  [$lbl] (5) an empty lock file wedged the bus: $(grep -m1 REFUSED "$W/out")"; ok=0; }
   # ---- (6) NESTED self-invocation: exec, banner child, mint's own EXIT trap ----------------------------------
   rm -f "$PO/$ME/.pid"
-  S4E_HOME="$W" S4E_POST="$PO" S4E_SEAT="$ME" bash "$s" ask t-hold "nested exec probe" >"$W/out" 2>&1 \
+  FIX bash "$s" ask t-hold "nested exec probe" >"$W/out" 2>&1 \
     || { echo "  [$lbl] (6) ask (which EXECS into send) failed: $(tail -1 "$W/out")"; ok=0; }
   grep -q 'ANOTHER LIVE PROCESS' "$W/out" && { echo "  [$lbl] (6) ask DEADLOCKED against its own exec'd image"; ok=0; }
   nolock || { echo "  [$lbl] (6) exec leaked the lock (exec throws the release trap away with the old image)"; ok=0; rm -f "$PO/$ME/.pid"; }
-  S4E_HOME="$W" S4E_POST="$PO" S4E_SEAT="$ME" bash "$s" board "nested banner probe" >"$W/out" 2>&1 \
+  FIX bash "$s" board "nested banner probe" >"$W/out" 2>&1 \
     || { echo "  [$lbl] (6) board (which spawns a banner child) failed: $(tail -1 "$W/out")"; ok=0; }
   grep -q 'ANOTHER LIVE PROCESS' "$W/out" && { echo "  [$lbl] (6) board DEADLOCKED against its own banner child"; ok=0; }
   nolock || { echo "  [$lbl] (6) board leaked the lock"; ok=0; rm -f "$PO/$ME/.pid"; }
@@ -102,6 +122,19 @@ arm() {   # arm <label> <script> -> 0 iff all six contracts hold on <script>
   nolock || { echo "  [$lbl] (6) mint leaked the lock -- its own EXIT trap clobbered the release"; ok=0; rm -f "$PO/$ME/.pid"; }
   run "$s" next || { echo "  [$lbl] (6) next failed: $(tail -1 "$W/out")"; ok=0; }
   nolock || { echo "  [$lbl] (6) next leaked the lock"; ok=0; rm -f "$PO/$ME/.pid"; }
+  # ---- (7) INHERITED MARKER: naming a live process is not enough -- it must BE the one in the lock file ------
+  # ⛔ The descendant pass-through reads an EXPORTED variable, i.e. attacker-free but stale-prone input. Here a
+  # verb arrives carrying a marker for a LIVE process that is NOT the lock holder, while a genuine second
+  # writer holds the identity. It must still REFUSE. Without the file-agreement check, an inherited marker is
+  # a skeleton key that silently disables the whole guard for every process below it.
+  rm -f "$PO/$ME/.pid"; sleep 30 & local other=$!
+  local ostart; ostart="$(pstart "$other")"
+  printf '%s %s 2026-09-03T00:00:00Z done\n' "$other" "$ostart" > "$PO/$ME/.pid"
+  sleep 30 & local bystander=$!; local bstart; bstart="$(pstart "$bystander")"
+  FIX S4E_NO_BANNER=1 S4E_PID_LOCK="$ME:$bystander:$bstart" bash "$s" check >"$W/out" 2>&1; rc=$?
+  kill "$other" "$bystander" 2>/dev/null; wait "$other" 2>/dev/null; wait "$bystander" 2>/dev/null
+  [ "$rc" = 2 ] || { echo "  [$lbl] (7) an inherited S4E_PID_LOCK naming a live NON-holder waved the verb past a real second writer (rc=$rc) -- the marker is a skeleton key"; ok=0; }
+  rm -f "$PO/$ME/.pid"
   [ "$ok" = 1 ]
 }
 echo "s4e one process per identity (scratch postoffice under $W)"
@@ -120,7 +153,7 @@ awk -v a="$M1_FROM" -v b="$M1_TO" '$0==a{print b; n++; next} {print} END{exit !n
 grep -qF "$M1_TO" "$W/m1.sh" && ! grep -qF "$M1_FROM" "$W/m1.sh" \
   || { echo "⛔ REFUSED: M1 did not produce an uncured call site"; exit 2; }
 if arm M1-no-acquire "$W/m1.sh" >"$W/m1.log" 2>&1; then echo "  [FAIL-ONCE M1] ⛔ GREEN with the acquire call removed -- the gate cannot detect an unguarded bus"; m1=0
-else echo "  [FAIL-ONCE M1] red as required, no acquire: $(grep -m1 '(1)' "$W/m1.log" | sed 's/^ *//' | cut -c1-104)"; m1=1; fi
+else echo "  [FAIL-ONCE M1] red as required, no acquire: $(grep -m1 '(1) a second CONCURRENT' "$W/m1.log" | sed 's/^ *//' | cut -c1-104)"; m1=1; fi
 # ---- FAIL-ONCE M2: liveness ignores the starttime (a pid-only lock) -------------------------------------------
 M2_TO='s4e_pid_live() { [ -n "${1:-}" ] && [ -d "/proc/$1" ]; }'
 # ⛔ s4e_pid_live spans TWO lines in the cure, so the mutant replaces the first and SKIPS THE SECOND
@@ -134,6 +167,15 @@ grep -q 's4e_proc_start "\$1"' "$W/m2.sh" && { echo "⛔ REFUSED: M2 left the st
 bash -n "$W/m2.sh" 2>/dev/null || { echo "⛔ REFUSED: the M2 mutant does not parse -- fixture, not verdict"; exit 2; }
 if arm M2-pid-only "$W/m2.sh" >"$W/m2.log" 2>&1; then echo "  [FAIL-ONCE M2] ⛔ GREEN with liveness reduced to the bare pid -- the gate cannot detect the recycled-pid false refusal"; m2=0
 else echo "  [FAIL-ONCE M2] red as required, pid-only liveness: $(grep -m1 '(4)' "$W/m2.log" | sed 's/^ *//' | cut -c1-104)"; m2=1; fi
-if [ "$pass" = 1 ] && [ "$m1" = 1 ] && [ "$m2" = 1 ]; then
+# ---- FAIL-ONCE M3: the descendant marker is trusted without agreeing with the lock file ----------------------
+M3_FROM='        if [ "${_p:-}" = "${_hp:-}" ] && [ "${_t:-}" = "${_ht:-}" ]; then'
+M3_TO='        if true; then'
+awk -v a="$M3_FROM" -v b="$M3_TO" '$0==a{print b; n++; next} {print} END{exit !n}' "$MSG" > "$W/m3.sh" \
+  || { echo "⛔ REFUSED: the marker/file agreement check is not where M3 expects it -- the mutation would be a no-op"; exit 2; }
+grep -qF "$M3_TO" "$W/m3.sh" || { echo "⛔ REFUSED: M3 did not produce the trust-the-marker mutant"; exit 2; }
+bash -n "$W/m3.sh" 2>/dev/null || { echo "⛔ REFUSED: the M3 mutant does not parse -- fixture, not verdict"; exit 2; }
+if arm M3-trust-marker "$W/m3.sh" >"$W/m3.log" 2>&1; then echo "  [FAIL-ONCE M3] ⛔ GREEN with the marker trusted blindly -- the gate cannot detect the skeleton-key hole"; m3=0
+else echo "  [FAIL-ONCE M3] red as required, marker trusted blindly: $(grep -m1 '(7)' "$W/m3.log" | sed 's/^ *//' | cut -c1-104)"; m3=1; fi
+if [ "$pass" = 1 ] && [ "$m1" = 1 ] && [ "$m2" = 1 ] && [ "$m3" = 1 ]; then
   echo "✅ GATE OK: the bus refuses a second live process under one seat identity, names both pids, and never refuses a seat that is alone in its root."; exit 0; fi
-echo "⛔ GATE FAILED (pass=$pass m1-red=$m1 m2-red=$m2)"; exit 1
+echo "⛔ GATE FAILED (pass=$pass m1-red=$m1 m2-red=$m2 m3-red=$m3)"; exit 1

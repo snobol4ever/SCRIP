@@ -301,10 +301,20 @@ s4e_pid_acquire() {
     # It must RE-ARM or the lock leaks. Distinguished by pid == $$; a recycled pid cannot reach here, its
     # starttime differs. ⛔ A stale S4E_PID_LOCK inherited from a dead run simply fails the liveness test and
     # falls through to a normal acquire -- it can never wedge a fresh process.
+    # ⛔ AND THE MARKER MUST AGREE WITH THE LOCK FILE, NOT MERELY NAME A LIVE PROCESS. S4E_PID_LOCK is inherited
+    # environment: a stale one from an earlier run, or one leaking in from an unrelated s4e process that happens
+    # to be an ancestor, would otherwise wave a genuine second writer straight through. A real descendant's
+    # holder is BY CONSTRUCTION the process that wrote $PO/<seat>/.pid, so requiring the pair to match the file
+    # costs a descendant nothing and closes the hole. MEASURED: without this the gate for this very row passed
+    # standalone and FAILED under `done`, because `done` had exported the marker into it -- a verdict that
+    # depended on the caller's environment, which is no verdict at all.
     if [ -n "${S4E_PID_LOCK:-}" ]; then
       IFS=: read -r _hs _hp _ht <<< "$S4E_PID_LOCK"
-      if [ "${_hs:-}" = "$ME" ] && s4e_pid_live "${_hp:-}" "${_ht:-}"; then
-        [ "${_hp:-}" = "$$" ] && s4e_pid_arm; return 0; fi
+      if [ "${_hs:-}" = "$ME" ] && s4e_pid_live "${_hp:-}" "${_ht:-}" && [ -f "$_f" ]; then
+        read -r _p _t _ < "$_f" 2>/dev/null || true
+        if [ "${_p:-}" = "${_hp:-}" ] && [ "${_t:-}" = "${_ht:-}" ]; then
+          [ "${_hp:-}" = "$$" ] && s4e_pid_arm; return 0; fi
+      fi
     fi
     # ⛔ AN UNWRITABLE MAILBOX MAKES THE GUARD INERT, NOT FATAL. Refusing here would turn one broken permission
     # into a TOTAL bus outage for that seat, including read-only `check` -- the guard becoming a worse defect
