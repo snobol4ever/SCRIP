@@ -12,14 +12,28 @@
 #       A ref block may be a PREFIX (banner carries total= and prefix=): the first prefix lines are compared AND the total line
 #       count must match, so a runaway witness is pinned whole without storing its 60k lines.
 #   (4) ANSWER column, informational: stdout vs the entry's .ref -- the master suite owns answers, this gate owns traces.
+# SELECTORS over the ladder family (mutually exclusive; a request naming BOTH REFUSES rc=2 rather than guessing):
+#   --to N     grade/cut rungs 0..N CUMULATIVELY.
+#   --only N   grade/cut rung N ALONE -- the rung under construction, while the rungs BELOW it are still red. Added hq_P
+#              2026-09-02 at ceo's request, in the shape of test_prolog_ladder.sh's --only: the rung-6 trace cut could not
+#              be taken because --to 6 REFUSES rc=2 on ladder__rung02_choice_redo ('produced ZERO trace lines') while rungs
+#              2-5 are unlanded and still refuse at compile. ⭐ THE INSTRUMENT MUST BE ABLE TO ADDRESS THE RUNG BEING BUILT:
+#              a cumulative-only gate makes every rung hostage to the reds beneath it, which is precisely backwards for a
+#              ladder that lands one rung at a time.
 # --cut rewrites corpus/tests/prolog/ALL.trace from the live traces (the ONE way the ref changes; never hand-edit it).
+# ⭐ --cut UNDER A SELECTOR IS A MERGE, NEVER A TRUNCATION: the blocks of the graded origins are re-cut and every OTHER
+#   block in the ref is kept verbatim, so cutting rung 6 alone cannot silently drop rungs 0-1's refs.
 # EXIT: 0 every witness matches in both modes; 1 a mismatch, a killswitch or perturbation failure; 2 REFUSED (cannot measure).
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"; cd "$ROOT"
 . "$HERE/lib_gate.sh"
-TO=""; ARGS=(); while [ $# -gt 0 ]; do case "$1" in --to) TO="${2:-}"; shift 2;; --to=*) TO="${1#--to=}"; shift;; *) ARGS+=("$1"); shift;; esac; done; set -- "${ARGS[@]}"
+TO=""; ONLY=""; ARGS=(); while [ $# -gt 0 ]; do case "$1" in --to) TO="${2:-}"; shift 2;; --to=*) TO="${1#--to=}"; shift;; --only) ONLY="${2:-}"; shift 2;; --only=*) ONLY="${1#--only=}"; shift;; *) ARGS+=("$1"); shift;; esac; done; set -- "${ARGS[@]}"
 case "$TO" in ""|*[!0-9]*) [ -z "$TO" ] || { echo "GATE UNPROVEN(2) [test_gate_pl_port_trace]: --to wants a rung number, got '$TO'"; exit 2; };; esac
+case "$ONLY" in ""|*[!0-9]*) [ -z "$ONLY" ] || { echo "GATE UNPROVEN(2) [test_gate_pl_port_trace]: --only wants a rung number, got '$ONLY'"; exit 2; };; esac
+# ⛔ TWO SELECTORS NAME TWO DIFFERENT POPULATIONS (cumulative 0..N vs rung N alone) -- REFUSE, never silently prefer one.
+[ -z "$TO" ] || [ -z "$ONLY" ] || { echo "GATE UNPROVEN(2) [test_gate_pl_port_trace]: --to $TO and --only $ONLY name two different populations (cumulative 0..N vs rung N alone) -- pass one, never both"; exit 2; }
+if [ -n "$ONLY" ]; then SELDESC="at rung $ONLY alone"; SELTAG="--only $ONLY"; elif [ -n "$TO" ]; then SELDESC="at or below rung $TO"; SELTAG="--to $TO"; else SELDESC=""; SELTAG="all families"; fi
 CUT=0; for a in "$@"; do [ "$a" = --cut ] && CUT=1; done
 gate_parse_args "$@"
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
@@ -31,10 +45,12 @@ gate_require "$MASTER_DIR/ALL.pl" "Prolog master suite"
 gate_require "$MASTER_DIR/ALL.csv" "Prolog master suite index"
 [ "$CUT" = 1 ] || gate_require "$REF" "trace refs (run with --cut to create them)"
 . "$HERE/lib_master_extract.sh" || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot source lib_master_extract.sh"; exit 2; }
-FAMILIES="${FAMILIES:-probe_plz ladder}"; [ -z "$TO" ] || FAMILIES="${FAMILIES_TO:-ladder}"; origins=""
+FAMILIES="${FAMILIES:-probe_plz ladder}"; [ -z "$TO$ONLY" ] || FAMILIES="${FAMILIES_TO:-ladder}"; origins=""
 for fam in $FAMILIES; do o=$(master_origins_of_family "$fam") || o=""; [ -n "$o" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: no $fam origins in $MASTER_DIR/ALL.csv -- the witnesses moved; re-point, never skip"; gate_stamp; exit 2; }; origins="$origins $o"; done
-if [ -n "$TO" ]; then kept=""; for o in $origins; do nn=$(printf '%s\n' "$o" | sed -nE 's/^ladder__rung0*([0-9]+)_.*/\1/p'); [ -n "$nn" ] && [ "$nn" -le "$TO" ] && kept="$kept $o"; done; origins="$kept"
-  [ -n "${origins// /}" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: no ladder origins at or below rung $TO in $MASTER_DIR/ALL.csv"; gate_stamp; exit 2; }; fi
+if [ -n "$TO$ONLY" ]; then kept=""; for o in $origins; do nn=$(printf '%s\n' "$o" | sed -nE 's/^ladder__rung0*([0-9]+)_.*/\1/p'); [ -n "$nn" ] || continue
+    if [ -n "$ONLY" ]; then [ "$nn" -eq "$ONLY" ] && kept="$kept $o"; else [ "$nn" -le "$TO" ] && kept="$kept $o"; fi; done; origins="$kept"
+  # ⛔ AN EMPTY SELECTION IS UNMEASURED, NEVER A PASS -- a rung with no witness must refuse exactly as the ladder runner does.
+  [ -n "${origins// /}" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: no ladder origins $SELDESC in $MASTER_DIR/ALL.csv"; gate_stamp; exit 2; }; fi
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 norm() { grep -E '^\([0-9]+\) [0-9]+ (Call|Exit|Redo|Fail|Exception): ' "$1" | sed -E 's/^(\([0-9]+\)) [0-9]+ /\1 /; s/\bn[0-9]+_//g; s/\$2F/\//g; s/ r15=0x[0-9a-f]+$//'; }
 m4build() { [ -s "$1" ] && as --64 -o "$1.o" "$1" 2>/dev/null && gcc -no-pie -o "$2" "$1.o" "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>/dev/null; }
@@ -79,11 +95,11 @@ for o in $origins; do
 done
 printf '%s\n' "${lines[@]}"
 if [ "$CUT" = 1 ]; then
-  if [ -n "$TO" ] && [ -f "$REF" ]; then
+  if [ -n "$TO$ONLY" ] && [ -f "$REF" ]; then
     printf '%s\n' $origins > "$W/graded.txt"
     awk -v gl="$W/graded.txt" 'BEGIN{while ((getline l < gl) > 0) g[l]=1} /^%---- /{keep = !($2 in g)} keep' "$REF" > "$W/kept.trace"
-    cat "$W/kept.trace" "$W/ALL.trace" > "$REF"; echo "refs CUT (merged, rungs 0..$TO re-cut, other blocks kept) -> $REF ($(grep -c '^%---- ' "$REF") blocks, prefix cap $PREFIX_CAP)"
+    cat "$W/kept.trace" "$W/ALL.trace" > "$REF"; echo "refs CUT (merged, $SELTAG re-cut, other blocks kept) -> $REF ($(grep -c '^%---- ' "$REF") blocks, prefix cap $PREFIX_CAP)"
   else cp "$W/ALL.trace" "$REF"; echo "refs CUT -> $REF ($(grep -c '^%---- ' "$REF") blocks, prefix cap $PREFIX_CAP)"; fi
 fi
-echo "witnesses=$n modes=2 (m3 --run, m4 --compile+as+gcc) . answer ok=$ans_ok red=$ans_red (informational: the master suite grades answers) . normalisation: depth dropped, n<k>_ stripped, \$2F->/, r15= dropped"
+echo "witnesses=$n ($SELTAG) modes=2 (m3 --run, m4 --compile+as+gcc) . answer ok=$ans_ok red=$ans_red (informational: the master suite grades answers) . normalisation: depth dropped, n<k>_ stripped, \$2F->/, r15= dropped"
 GATE_EXAMINED=$((n*2)); gate_verdict "$bad" "failed checks across killswitch/perturbation/trace"
