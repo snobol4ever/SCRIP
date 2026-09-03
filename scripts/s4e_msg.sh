@@ -1012,6 +1012,19 @@ TASKEOF
                                                   NF>1&&NF<4{print "brief: " $3; print "first: " $4}'
            [ -f "$PO/tasks/$st.task.md" ] || printf '⛔ NO BATON at %s/tasks/%s.task.md — under V2-2 every live row must have one. Tell your HQ; do not invent the work.\n' "$PO" "$st"; }
          # PASS 1 -- rows an HQ ASSIGNED to me that I have not started. These outrank anything I picked for myself.
+         # ⭐⭐ TIE-BREAK MATCHES PASS 3: rank, THEN mint time (newest first; a topic with no readable mint
+         # timestamp sorts last). MEASURED 2026-09-03 on seat11's FLEET-12 dispatch: their three assigned rows
+         # were rank 2, 2 and 3, and PASS 1 sorted by RANK ALONE -- so the two rank-2 rows tied and the stable
+         # sort fell back to the claims/*.claim GLOB ORDER, i.e. alphabetical. seat11 was served
+         # raku-array-params-pass-by-copy where the dispatch had named raku-silent-wrong-answers first.
+         # ⛔ TWO PASSES WITH TWO TIE-BREAKS, AND ONLY ONE OF THEM WAS EVER CHOSEN: PASS 3 fixed exactly this
+         # for free rows (its own note: eight freshly-minted rank-1 slices sat 40+ minutes behind 15 older
+         # ones) and the fix was simply never applied to assigned rows. Alphabetical order is not a priority
+         # signal, it is an artifact of naming -- the same class as the file-order picking V2-1 removed.
+         # ⭐ The deeper point, which the ceo took as the ruling for seat11: AN ORDER STATED IN PROSE ACROSS
+         # EQUAL RANKS IS INVISIBLE TO THE PICKER. Rank is the only ordering the tool can see. This makes the
+         # tie DETERMINISTIC and documented; it does not make prose orderable, and it should not be read as
+         # doing so -- an intended order still has to be encoded as rank.
          # ⭐ RANK-SORTED even among MY OWN claims (fix-dispatch-bus-two-failure-modes, s266, seat07's
          # q-s4e-msg-banner-attribution-undercount): this used to be a bare glob loop, so a seat holding TWO
          # assigned-not-yet-running claims was served whichever topic sorted first ALPHABETICALLY, not the
@@ -1027,8 +1040,8 @@ TASKEOF
              grep -q '^DONE$' "$c" && continue
              grep -q '^ASSIGNED-BY ' "$c" || continue
              grep -q '^RUNNING$' "$c" && continue
-             t="$(basename "$c" .claim)"; printf '%s\t%s\n' "$(qrank "$t")" "$t"
-           done | sort -t$'\t' -s -k1,1n)
+             t="$(basename "$c" .claim)"; printf '%s\t%s\t%s\n' "$(qrank "$t")" "$(s4e_mint_ts "$t")" "$t"
+           done | sort -t$'\t' -s -k1,1n -k2,2r | cut -f1,3-)
          # PASS 2 -- my own unfinished work, same rank-sort fix, same reason.
          while IFS=$'\t' read -r _rk t; do
            [ -n "${t:-}" ] || continue

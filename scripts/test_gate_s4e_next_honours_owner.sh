@@ -68,6 +68,20 @@ rm -f "$W/claims/"*.claim
 printf 'hq_B\nASSIGNED-BY ceo\n' > "$W/claims/dispatched_to_me.claim"
 out="$(run_next hq_B)"
 grep -q 'dispatched_to_me' <<<"$out" && ck ok "(f) HQ DISPATCH still works: an ASSIGNED:hq_B row is served even past a rank-0 row owned by another seat" || ck no "(f) an ASSIGNED:<me> row must still be served -- the owner rule must not break dispatch"
+rm -f "$W/claims/"*.claim
+# ⛔ (g) PASS 1's TIE-BREAK. Two ASSIGNED rows at the SAME rank whose ALPHABETICAL order inverts their MINT
+# order: "aaa_older_row" was minted first, "zzz_newer_row" second. PASS 1 used to sort by rank alone, so the
+# stable sort fell back to the claims/*.claim glob order -- alphabetical -- and served aaa. PASS 3 has broken
+# ties by mint time (newest first) since its own fix; this asserts PASS 1 now does the same.
+# ⭐ The fixture is built so the two orderings DISAGREE. A fixture where alphabetical and mint order happen to
+# coincide would pass against either behaviour and prove nothing -- the whole content of this arm is the
+# disagreement.
+: > "$W/QUEUE.tsv"; mk 2 aaa_older_row unassigned ASSIGNED:hq_B; mk 2 zzz_newer_row unassigned ASSIGNED:hq_B
+printf '# TASK aaa_older_row\nLINKS: minted via `mint` by ceo, 2026-09-01T10:00:00Z\nDONE-WHEN: true\n## NEXT\nfixture\n' > "$W/tasks/aaa_older_row.task.md"
+printf '# TASK zzz_newer_row\nLINKS: minted via `mint` by ceo, 2026-09-03T10:00:00Z\nDONE-WHEN: true\n## NEXT\nfixture\n' > "$W/tasks/zzz_newer_row.task.md"
+for t in aaa_older_row zzz_newer_row; do printf 'hq_B\nASSIGNED-BY ceo\n' > "$W/claims/$t.claim"; done
+out="$(run_next hq_B)"
+grep -q 'zzz_newer_row' <<<"$out" && ck ok "(g) PASS 1 tie-break is rank THEN mint time: the newer-minted row wins over the alphabetically-first one" || ck no "(g) PASS 1 served the alphabetically-first row -- the tie-break is still glob order, not mint time"
 echo "------------------------------------------------------------"
 [ "$fails" -ne 0 ] && { echo "⛔ GATE FAIL: $fails of $checks check(s) failed"; exit 1; }
 echo "✅ GATE PASS: $checks/$checks checks"; exit 0
