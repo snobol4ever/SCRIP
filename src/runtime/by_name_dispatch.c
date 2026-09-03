@@ -3615,13 +3615,15 @@ static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op) {
         return junction_collapse(scalar, jct, tt_op, numeric) ? 1 : 0;
     }
     if (num_rel) { DESCR_t L, R;
-        if (relop_num_coerce(lhs, &L) && relop_num_coerce(rhs, &R)) {
+        int _relop_lok = relop_num_coerce(lhs, &L);
+        if (_relop_lok && relop_num_coerce(rhs, &R)) {
             if (IS_REAL_fn(L) || IS_REAL_fn(R)) { double a = to_real(L), b = to_real(R);
                 switch (op) { case BINOP_EQ: return a==b; case BINOP_NE: return a!=b; case BINOP_LT: return a<b;
                               case BINOP_LE: return a<=b; case BINOP_GT: return a>b;  case BINOP_GE: return a>=b; } return 0; }
             int64_t a = L.i, b = R.i;
             switch (op) { case BINOP_EQ: return a==b; case BINOP_NE: return a!=b; case BINOP_LT: return a<b;
-                          case BINOP_LE: return a<=b; case BINOP_GT: return a>b;  case BINOP_GE: return a>=b; } return 0; } }
+                          case BINOP_LE: return a<=b; case BINOP_GT: return a>b;  case BINOP_GE: return a>=b; } return 0; }
+        core_icn_error(102, _relop_lok ? rhs : lhs); return 0; }
     if (num_rel && (IS_REAL_fn(lhs) || IS_REAL_fn(rhs)) && (IS_INT_fn(lhs) || IS_REAL_fn(lhs)) && (IS_INT_fn(rhs) || IS_REAL_fn(rhs))) {
         double a = to_real(lhs), b = to_real(rhs);
         switch (op) { case BINOP_EQ: return a==b; case BINOP_NE: return a!=b; case BINOP_LT: return a<b;
