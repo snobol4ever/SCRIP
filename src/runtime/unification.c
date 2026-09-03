@@ -833,7 +833,7 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
         if (!plc_unify_into_cell_cx((pl_cell_t *)a0_cell, plc_make_atom_cell(s), cx)) { return 0; }
         return 1;
     }
-    if (!strcmp(fn, "number_string") || !strcmp(fn, "atom_number")) {
+    if (!strcmp(fn, "number_string")) {
         if (t0 && !pl_cell_unbound(t0)) {
             const char *s = plc_atom_op_text(t0, buf0, sizeof buf0);
             if (!s) { return 0; }
@@ -847,6 +847,21 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
         double dv = strtod(s, &end);
         if (*end == '\0') { if (!plc_unify_into_cell_cx((pl_cell_t *)a0_cell, pl_make_float(dv), cx)) { return 0; } return 1; }
         return 0;
+    }
+    if (!strcmp(fn, "atom_number")) {
+        if (t0 && !pl_cell_unbound(t0)) {
+            const char *s = plc_atom_op_text(t0, buf0, sizeof buf0);
+            if (!s) { return 0; }
+            char *end; long iv = strtol(s, &end, 10);
+            if (*end == '\0') { if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, pl_make_int(iv), cx)) { return 0; } return 1; }
+            double dv = strtod(s, &end);
+            if (*end == '\0') { if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, pl_make_float(dv), cx)) { return 0; } return 1; }
+            return 0;
+        }
+        const char *s = plc_atom_op_text(t1, buf1, sizeof buf1);
+        if (!s) { return 0; }
+        if (!plc_unify_into_cell_cx((pl_cell_t *)a0_cell, plc_make_atom_cell(s), cx)) { return 0; }
+        return 1;
     }
     if (!strcmp(fn, "string_concat")) {
         const char *s0 = plc_atom_op_text(t0, buf0, sizeof buf0);
