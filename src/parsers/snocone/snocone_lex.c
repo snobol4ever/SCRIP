@@ -299,6 +299,7 @@ S_OP_POUND:
     if (had_ws && last_value)                                      {  EMIT(T_CONCAT);                 }
                                                                    {  ADV(1);                                              goto LX_UN_POUND;  }
 S_OP_PERCENT:
+    if (PEEK(1) == '=' )                                           {  ADV(2);                                              goto LX_PERCENT_ASSIGN; }
     if (had_ws && last_value && is_rws_at(p, 1))                   {  ADV(1);                                              goto LX_PERCENT;   }
     if (had_ws && last_value)                                      {  EMIT(T_CONCAT);                 }
                                                                    {  ADV(1);                                              goto LX_UN_PERCENT;}
@@ -351,6 +352,7 @@ LX_MINUS_ASSIGN:  EMIT(T_MINUS_ASSIGN);
 LX_STAR_ASSIGN:   EMIT(T_STAR_ASSIGN);
 LX_SLASH_ASSIGN:  EMIT(T_SLASH_ASSIGN);
 LX_CARET_ASSIGN:  EMIT(T_CARET_ASSIGN);
+LX_PERCENT_ASSIGN: EMIT(T_PERCENT_ASSIGN);
 LX_UN_PLUS:       EMIT(T_1PLUS);
 LX_UN_MINUS:      EMIT(T_1MINUS);
 LX_UN_STAR:       EMIT(T_1STAR);

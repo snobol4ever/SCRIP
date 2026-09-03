@@ -122,55 +122,56 @@ typedef struct ScParseState {
     T_STAR_ASSIGN = 288,           /* T_STAR_ASSIGN  */
     T_SLASH_ASSIGN = 289,          /* T_SLASH_ASSIGN  */
     T_CARET_ASSIGN = 290,          /* T_CARET_ASSIGN  */
-    T_2QUEST = 291,                /* T_2QUEST  */
-    T_2PIPE = 292,                 /* T_2PIPE  */
-    T_CONCAT = 293,                /* T_CONCAT  */
-    T_LPAREN = 294,                /* T_LPAREN  */
-    T_RPAREN = 295,                /* T_RPAREN  */
-    T_SEMICOLON = 296,             /* T_SEMICOLON  */
-    T_COMMA = 297,                 /* T_COMMA  */
-    T_LBRACK = 298,                /* T_LBRACK  */
-    T_RBRACK = 299,                /* T_RBRACK  */
-    T_2DOLLAR = 300,               /* T_2DOLLAR  */
-    T_2DOT = 301,                  /* T_2DOT  */
-    T_2AMP = 302,                  /* T_2AMP  */
-    T_2AT = 303,                   /* T_2AT  */
-    T_2POUND = 304,                /* T_2POUND  */
-    T_2PERCENT = 305,              /* T_2PERCENT  */
-    T_2TILDE = 306,                /* T_2TILDE  */
-    T_1STAR = 307,                 /* T_1STAR  */
-    T_1SLASH = 308,                /* T_1SLASH  */
-    T_1PERCENT = 309,              /* T_1PERCENT  */
-    T_1AT = 310,                   /* T_1AT  */
-    T_1TILDE = 311,                /* T_1TILDE  */
-    T_1DOLLAR = 312,               /* T_1DOLLAR  */
-    T_1DOT = 313,                  /* T_1DOT  */
-    T_1POUND = 314,                /* T_1POUND  */
-    T_1PIPE = 315,                 /* T_1PIPE  */
-    T_1EQUAL = 316,                /* T_1EQUAL  */
-    T_1QUEST = 317,                /* T_1QUEST  */
-    T_1AMP = 318,                  /* T_1AMP  */
-    T_1BANG = 319,                 /* T_1BANG  */
-    T_COLON = 320,                 /* T_COLON  */
-    T_DO = 321,                    /* T_DO  */
-    T_FOR = 322,                   /* T_FOR  */
-    T_SWITCH = 323,                /* T_SWITCH  */
-    T_CASE = 324,                  /* T_CASE  */
-    T_DEFAULT = 325,               /* T_DEFAULT  */
-    T_BREAK = 326,                 /* T_BREAK  */
-    T_CONTINUE = 327,              /* T_CONTINUE  */
-    T_GOTO = 328,                  /* T_GOTO  */
-    T_DEFINE = 329,                /* T_DEFINE  */
-    T_RETURN = 330,                /* T_RETURN  */
-    T_FRETURN = 331,               /* T_FRETURN  */
-    T_NRETURN = 332,               /* T_NRETURN  */
-    T_STRUCT = 333,                /* T_STRUCT  */
-    T_UNKNOWN = 334,               /* T_UNKNOWN  */
-    T_LBRACE = 335,                /* T_LBRACE  */
-    T_RBRACE = 336,                /* T_RBRACE  */
-    T_IF = 337,                    /* T_IF  */
-    T_ELSE = 338,                  /* T_ELSE  */
-    T_WHILE = 339                  /* T_WHILE  */
+    T_PERCENT_ASSIGN = 291,        /* T_PERCENT_ASSIGN  */
+    T_2QUEST = 292,                /* T_2QUEST  */
+    T_2PIPE = 293,                 /* T_2PIPE  */
+    T_CONCAT = 294,                /* T_CONCAT  */
+    T_LPAREN = 295,                /* T_LPAREN  */
+    T_RPAREN = 296,                /* T_RPAREN  */
+    T_SEMICOLON = 297,             /* T_SEMICOLON  */
+    T_COMMA = 298,                 /* T_COMMA  */
+    T_LBRACK = 299,                /* T_LBRACK  */
+    T_RBRACK = 300,                /* T_RBRACK  */
+    T_2DOLLAR = 301,               /* T_2DOLLAR  */
+    T_2DOT = 302,                  /* T_2DOT  */
+    T_2AMP = 303,                  /* T_2AMP  */
+    T_2AT = 304,                   /* T_2AT  */
+    T_2POUND = 305,                /* T_2POUND  */
+    T_2PERCENT = 306,              /* T_2PERCENT  */
+    T_2TILDE = 307,                /* T_2TILDE  */
+    T_1STAR = 308,                 /* T_1STAR  */
+    T_1SLASH = 309,                /* T_1SLASH  */
+    T_1PERCENT = 310,              /* T_1PERCENT  */
+    T_1AT = 311,                   /* T_1AT  */
+    T_1TILDE = 312,                /* T_1TILDE  */
+    T_1DOLLAR = 313,               /* T_1DOLLAR  */
+    T_1DOT = 314,                  /* T_1DOT  */
+    T_1POUND = 315,                /* T_1POUND  */
+    T_1PIPE = 316,                 /* T_1PIPE  */
+    T_1EQUAL = 317,                /* T_1EQUAL  */
+    T_1QUEST = 318,                /* T_1QUEST  */
+    T_1AMP = 319,                  /* T_1AMP  */
+    T_1BANG = 320,                 /* T_1BANG  */
+    T_COLON = 321,                 /* T_COLON  */
+    T_DO = 322,                    /* T_DO  */
+    T_FOR = 323,                   /* T_FOR  */
+    T_SWITCH = 324,                /* T_SWITCH  */
+    T_CASE = 325,                  /* T_CASE  */
+    T_DEFAULT = 326,               /* T_DEFAULT  */
+    T_BREAK = 327,                 /* T_BREAK  */
+    T_CONTINUE = 328,              /* T_CONTINUE  */
+    T_GOTO = 329,                  /* T_GOTO  */
+    T_DEFINE = 330,                /* T_DEFINE  */
+    T_RETURN = 331,                /* T_RETURN  */
+    T_FRETURN = 332,               /* T_FRETURN  */
+    T_NRETURN = 333,               /* T_NRETURN  */
+    T_STRUCT = 334,                /* T_STRUCT  */
+    T_UNKNOWN = 335,               /* T_UNKNOWN  */
+    T_LBRACE = 336,                /* T_LBRACE  */
+    T_RBRACE = 337,                /* T_RBRACE  */
+    T_IF = 338,                    /* T_IF  */
+    T_ELSE = 339,                  /* T_ELSE  */
+    T_WHILE = 340                  /* T_WHILE  */
   };
   typedef enum sc_tokentype sc_token_kind_t;
 #endif
@@ -193,7 +194,7 @@ union SC_STYPE
     struct SwitchHead *switchhead;
     STMT_t           *stmt_ptr;
 
-#line 197 "snocone_parse.tab.h"
+#line 198 "snocone_parse.tab.h"
 
 };
 typedef union SC_STYPE SC_STYPE;

@@ -691,6 +691,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             case TK_AUGMINUS: code = 1;  break;
             case TK_AUGSTAR:  code = 2;  break;
             case TK_AUGSLASH: code = 3;  break;
+            case TK_AUGMOD:   code = 4;  break;
             case TK_AUGPOW:   code = 18; break;
             default: sno_fatal("TT_AUGOP operator outside the landed subset", NULL); code = 0;
         }
