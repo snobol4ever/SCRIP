@@ -6,6 +6,12 @@
 # The b/e flags below are transcribed 1:1 from oplexgen.icn init_lex_tables() (jcon-master, Proebsting).
 # Usage: semicolonize_icon.py < in.icn > out.icn   |   semicolonize_icon.py in.icn [out.icn]
 import sys, re
+DIRECTIVE = re.compile(r"^\s*\$(define|undef|include|ifdef|ifndef|else|endif|line|error)\b")
+# preprocessor directives run in a SEPARATE pass in real Icon, before the statement lexer ever sees
+# them (same as C's #define/#include) -- invisible to Beginner/Ender tracking, never a boundary side.
+# Bug this fixes: bare "$" is a real op-table token (oplexgen.icn), so without this a directive line's
+# leading "$" read as a Beginner and wrongly closed the PRECEDING statement/declaration with ";" --
+# e.g. `link graphics` immediately before a `$define` line (ipl/gprocs/button.icn:99).
 RESERVED = {  # word: flags   (oplexgen.icn "Reserved Words")
  "break":"be","by":"","case":"b","create":"b","default":"b","do":"","else":"","end":"b","every":"b",
  "fail":"be","global":"","if":"b","initial":"b","invocable":"","link":"","local":"b","next":"be",
@@ -70,6 +76,8 @@ def semicolonize(src):
                     if t.startswith("\x00OPEN"): open_q = t[-1]; break
                     last_flags = f
             continue
+        if DIRECTIVE.match(line):                # preprocessor directive: boundary persists, like a
+            out.append(raw); continue            # blank/comment-only line -- see DIRECTIVE comment above
         toks = list(tokens(line))
         if toks and toks[-1][0].startswith("\x00OPEN"):
             open_q = toks[-1][0][-1]; toks = toks[:-1]
@@ -88,6 +96,12 @@ def semicolonize(src):
         out.append(raw)
     return "\n".join(out) + "\n"
 def code_end(line):                              # index just past last code char (None if no code)
+    if DIRECTIVE.match(line): return None        # a directive line is not attachable code either --
+                                                  # same reasoning as the DIRECTIVE check above: without
+                                                  # this, the backward search for where to attach ";"
+                                                  # could land ON a directive line (e.g. "$endif" gaining
+                                                  # a trailing ";", which $else/$endif reject as an
+                                                  # extraneous argument -- ipl/procs/io.icn:678 et al)
     i, n, last = 0, len(line), None
     while i < n:
         c = line[i]

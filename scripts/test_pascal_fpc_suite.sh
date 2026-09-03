@@ -29,6 +29,9 @@ VERBOSE="${FPC_SUITE_VERBOSE:-0}"
 
 TMP="$(mktemp -d /tmp/fpc_suite_XXXXXX)"
 trap 'rm -rf "$TMP"' EXIT
+cd "$TMP"   # master harness convention (test_gate_em_beauty_subsystems_mode4.sh): graded programs run
+            # against a scratch cwd, never the invoker's -- some vendored fpc tests (tisobuf1/tisoread)
+            # write scratch files relative to cwd and were leaking them into the caller's directory
 
 mapfile -t PAIRS < <(cd "$SUITE" && ls *.pas 2>/dev/null | sed 's/\.pas$//' | sort)
 TOTAL=${#PAIRS[@]}
