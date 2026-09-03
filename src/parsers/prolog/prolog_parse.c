@@ -497,6 +497,19 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
         case TK_CUT: {
             return ast_node_new(TT_CUT);
         }
+        case TK_NECK: {
+            Token pkn = lexer_peek(&p->lx);
+            if (prefix_arg_starts(pkn)) {
+                tree_t *arg = pt_term(p, ts, 1199);
+                tree_t *fnc = ast_node_new(TT_FNC);
+                fnc->v.sval = strdup(":-");
+                if (arg) ast_push(fnc, arg);
+                return fnc;
+            }
+            tree_t *n = ast_node_new(TT_QLIT);
+            n->v.sval = strdup(":-");
+            return n;
+        }
         case TK_LPAREN: {
             int saved = p->in_args;
             p->in_args = 0;
@@ -521,17 +534,17 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
                 if (rp.kind == TK_RPAREN) lexer_next(&p->lx);
                 return fnc;
             }
-            return NULL;
+            { tree_t *n = ast_node_new(TT_QLIT); n->v.sval = strdup(opname); return n; }
         }
         case TK_OP: {
-            if (strcmp(tk.text, "\\+") == 0 || strcmp(tk.text, "not") == 0) {
+            if ((strcmp(tk.text, "\\+") == 0 || strcmp(tk.text, "not") == 0) && prefix_arg_starts(lexer_peek(&p->lx))) {
                 tree_t *arg = pt_term(p, ts, 900);
                 tree_t *fnc = ast_node_new(TT_FNC);
                 fnc->v.sval = strdup(tk.text);
                 if (arg) ast_push(fnc, arg);
                 return fnc;
             }
-            if (strcmp(tk.text, "\\") == 0) {
+            if (strcmp(tk.text, "\\") == 0 && prefix_arg_starts(lexer_peek(&p->lx))) {
                 tree_t *arg = pt_term(p, ts, 200);
                 tree_t *fnc = ast_node_new(TT_FNC);
                 fnc->v.sval = strdup("\\");

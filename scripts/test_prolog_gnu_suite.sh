@@ -79,8 +79,9 @@ mapfile -t FILES < <(find "$PKG" -name "*.pl" | sort)
 TOTAL=${#FILES[@]}
 [ "$TOTAL" -gt 0 ] || { echo "⛔ REFUSED-TO-GRADE: zero .pl files found under $PKG"; exit 2; }
 
-LIB=0; OK_TOTAL=0; OK_PASS=0; OK_FAIL=0; REJECT=0; UNEXPECTED=0
+LIB=0; OK_TOTAL=0; OK_PASS=0; OK_FAIL=0; REJECT=0; UNEXPECTED=0; LADDER=0
 UNEXPECTED_NAMES=(); REJECT_NAMES=(); OK_FAIL_NAMES=()
+declare -A LADDER_RUNG_COUNT LADDER_RUNG_NAMES
 
 echo "=== GNU Prolog vendored suite ($TOTAL files, $PKG) ==="
 
@@ -151,6 +152,18 @@ for f in "${FILES[@]}"; do
         continue
     fi
 
+    # rc == 2 with the ladder-refusal shape (lower_prolog.c pl_refuse()): a construct not yet built on
+    # the construct ladder. COUNTED by rung, never cured here -- a fleet seat never touches a rung
+    # (RULES.md sec THE PROLOG REBUILD GATE; ARCH-PROLOG-BYRD-BOX-TRANSLATION.md sec E).
+    rung="$(grep -oP 'is not on the ladder yet -- rung \K[0-9]+' "$probe_log" | head -1)"
+    if [ "$rc" -eq 2 ] && [ -n "$rung" ]; then
+        LADDER=$((LADDER+1))
+        LADDER_RUNG_COUNT[$rung]=$(( ${LADDER_RUNG_COUNT[$rung]:-0} + 1 ))
+        LADDER_RUNG_NAMES[$rung]="${LADDER_RUNG_NAMES[$rung]:-}${LADDER_RUNG_NAMES[$rung]:+ }$rel"
+        [ "$VERBOSE" -eq 1 ] && echo "  LADDER (rung $rung not built yet) $rel"
+        continue
+    fi
+
     # rc == 1 (or any other non-timeout, non-zero code): must be exactly the LIB signal to count as LIB
     if grep -q "\[IBB\] FATAL: mode-4 driver: main BB graph not found" "$probe_log"; then
         LIB=$((LIB+1))
@@ -166,6 +179,12 @@ echo ""
 echo "-- REJECT (known hang-after-parse-error class, misc-single-witness-parser-crashes -- documented, not graded): $REJECT --"
 for n in "${REJECT_NAMES[@]:-}"; do [ -n "$n" ] && echo "   $n"; done
 
+echo ""
+echo "-- LADDER (construct not yet on the ladder -- COUNTED by rung, never cured by a fleet seat; RULES.md sec THE PROLOG REBUILD GATE): $LADDER --"
+for rung in $(printf '%s\n' "${!LADDER_RUNG_COUNT[@]}" | sort -n); do
+    echo "   rung $rung: ${LADDER_RUNG_COUNT[$rung]} --${LADDER_RUNG_NAMES[$rung]}"
+done
+
 if [ "$UNEXPECTED" -gt 0 ]; then
     echo ""
     echo "-- UNEXPECTED (genuinely new failure shape, not LIB/OK/REJECT -- needs investigation): $UNEXPECTED --"
@@ -173,7 +192,7 @@ if [ "$UNEXPECTED" -gt 0 ]; then
 fi
 
 echo ""
-echo "GNU_SUITE_BOARD total=$TOTAL lib=$LIB ok=$OK_TOTAL ok_pass=$OK_PASS ok_fail=$OK_FAIL reject=$REJECT unexpected=$UNEXPECTED"
+echo "GNU_SUITE_BOARD total=$TOTAL lib=$LIB ok=$OK_TOTAL ok_pass=$OK_PASS/$OK_TOTAL ok_fail=$OK_FAIL reject=$REJECT ladder=$LADDER unexpected=$UNEXPECTED"
 
-[ "$((LIB + OK_TOTAL + REJECT + UNEXPECTED))" -eq "$TOTAL" ] || { echo "⛔ BUCKET COUNTS DON'T SUM TO TOTAL -- instrument bug, refusing to trust the board"; exit 2; }
+[ "$((LIB + OK_TOTAL + REJECT + LADDER + UNEXPECTED))" -eq "$TOTAL" ] || { echo "⛔ BUCKET COUNTS DON'T SUM TO TOTAL -- instrument bug, refusing to trust the board"; exit 2; }
 [ "$OK_FAIL" -eq 0 ] && [ "$UNEXPECTED" -eq 0 ]
