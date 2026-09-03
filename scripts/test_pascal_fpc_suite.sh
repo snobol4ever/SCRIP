@@ -48,7 +48,7 @@ for name in "${PAIRS[@]}"; do
     fi
     exp="$(cat "$ref")"
 
-    m3out=$(timeout "$RUN_TIMEOUT" "$SCRIP" --run "$pas" < "$inp" 2>/dev/null)
+    m3out=$(cd "$TMP" && timeout "$RUN_TIMEOUT" "$SCRIP" --run "$pas" < "$inp" 2>/dev/null)
     if [ "$m3out" = "$exp" ]; then
         M3_PASS=$((M3_PASS+1))
     else
@@ -59,7 +59,7 @@ for name in "${PAIRS[@]}"; do
     m4bin="$TMP/${name}.bin"; m4s="$TMP/${name}.s"
     if timeout "$RUN_TIMEOUT" "$SCRIP" --compile "$pas" -o "$m4s" < /dev/null 2>/dev/null \
         && gcc -no-pie "$m4s" -L "${HERE}/../out" -lscrip_rt -Wl,-rpath,"${HERE}/../out" -o "$m4bin" 2>/dev/null; then
-        m4out=$(timeout "$RUN_TIMEOUT" "$m4bin" < "$inp" 2>/dev/null)
+        m4out=$(cd "$TMP" && timeout "$RUN_TIMEOUT" "$m4bin" < "$inp" 2>/dev/null)
         if [ "$m4out" = "$exp" ]; then
             M4_PASS=$((M4_PASS+1))
         else
