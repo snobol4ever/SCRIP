@@ -26,6 +26,17 @@ RTX_FUNC(rt_pl_choice_open)
     mov     r13, rdi
     ret
 RTX_ENDF(rt_pl_choice_open)
+RTX_FUNC(rt_pl_disj_open)
+    mov     qword ptr [rdi + 32], rsi
+    test    r13, r13
+    jz      .Ldo_take
+    cmp     r13, rdi
+    jb      .Ldo_done
+.Ldo_take:
+    mov     r13, rdi
+.Ldo_done:
+    ret
+RTX_ENDF(rt_pl_disj_open)
 RTX_FUNC(rt_pl_dop_unify)
     sub     rsp, CTX_FRAME
     mov     qword ptr [rsp + CTX_TR], r12

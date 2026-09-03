@@ -7,6 +7,7 @@
 #define PL_TR_HEADER_BYTES  32
 #define PL_TR_ENTRY_BYTES   32
 #define PL_TR_FRAME_HEADER_BYTES 64
+#define PL_TR_FRAME_HI_OFF 32
 typedef struct { DESCR_t *cell; uint64_t pad; DESCR_t old; } pl_tr_entry_t;
 typedef struct pl_tr_ctx_s { char *tr; char *b; } pl_tr_ctx_t;
 void *rt_pl_tr_init(void);
@@ -20,7 +21,7 @@ static inline char *pl_tr_base_of(const char *tr) { return (char *)((uintptr_t)t
 static inline int pl_tr_needs_log(const pl_tr_ctx_t *cx, const DESCR_t *cell, const char *floor_) {
     if (!cx || !cx->b) return 0;
     if ((const char *)cell <= floor_) return 1;
-    return (const char *)cell >= cx->b + PL_TR_FRAME_HEADER_BYTES;
+    return (const char *)cell >= *(const char * const *)(cx->b + PL_TR_FRAME_HI_OFF);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline void pl_tr_push(pl_tr_ctx_t *cx, DESCR_t *cell) {

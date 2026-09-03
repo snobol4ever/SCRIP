@@ -35,6 +35,11 @@ extern void core_lib_init(void);
 static DESCR_t nametrap(DESCR_t *cell) { DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_N; d.slen = 1; d.p = (void *)cell; return d; }
 static DESCR_t ival(long long i) { DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_I; d.i = i; return d; }
 static DESCR_t sval(const char *s) { DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_S; d.slen = (uint32_t)strlen(s); d.s = (char *)s; return d; }
+static char hdr_older[64], hdr_young[64];
+/* RUNG 3: B no longer implies its own threshold. A binder logs a cell at or above F.HI, the WORD at [B+32] that the
+   pinned prologue seeds to the frame top and a disjunction lowers while a branch is untried -- so a synthetic B here
+   must carry a synthetic header, exactly as a real frame does. */
+static char *synth_b(char *hdr, void *hi) { memset(hdr, 0, 64); *(char **)(hdr + PL_TR_FRAME_HI_OFF) = (char *)hi; return hdr; }
 static int fails = 0;
 #define CHECK(c, msg) do { if (c) printf("  ok   %s\n", msg); else { printf("  FAIL %s\n", msg); fails++; } } while (0)
 int main(void) {
@@ -47,7 +52,7 @@ int main(void) {
       CHECK(r.v == DT_I && r.i == 5 && cells[0].v == DT_I && cells[0].i == 5, "B=0: unify binds the stack cell");
       CHECK(cx.tr == tr0, "B=0: nothing is logged (no choice)"); }
     memset(cells, 0, sizeof cells);
-    cx.b = (char *)cells - PL_TR_FRAME_HEADER_BYTES;
+    cx.b = synth_b(hdr_older, (char *)cells);
     { DESCR_t a[2]; a[0] = nametrap(&cells[1]); a[1] = sval("bound"); char *before = cx.tr; DESCR_t r = rt_pl_dop_unify_c(a, 2, &cx);
       CHECK(r.v == DT_S && cells[1].v == DT_S, "B set, cell older than B: unify binds");
       CHECK(cx.tr == before + PL_TR_ENTRY_BYTES, "B set, cell older than B: exactly one entry logged");
@@ -55,8 +60,13 @@ int main(void) {
       CHECK(*(char **)pl_tr_base_of(cx.tr) == cx.tr, "the arena top word tracks the live top for the GC");
       cx.tr = rt_pl_tr_unwind_to(cx.tr, before);
       CHECK(cx.tr == before && cells[1].v == DT_SNUL, "unwind restores the cell to unbound and pops the entry"); }
-    { DESCR_t young; memset(&young, 0, sizeof young); cx.b = (char *)&young + 16; DESCR_t a[2]; a[0] = nametrap(&young); a[1] = ival(9); char *before = cx.tr; rt_pl_dop_unify_c(a, 2, &cx);
-      CHECK(young.v == DT_I && cx.tr == before, "a cell younger than the youngest choice is bound but NOT logged"); cx.b = (char *)cells - PL_TR_FRAME_HEADER_BYTES; }
+    { DESCR_t young; memset(&young, 0, sizeof young); cx.b = synth_b(hdr_young, (char *)&young + 16); DESCR_t a[2]; a[0] = nametrap(&young); a[1] = ival(9); char *before = cx.tr; rt_pl_dop_unify_c(a, 2, &cx);
+      CHECK(young.v == DT_I && cx.tr == before, "a cell younger than the youngest choice is bound but NOT logged");
+      memset(&young, 0, sizeof young); *(char **)(hdr_young + PL_TR_FRAME_HI_OFF) = (char *)&young;
+      { DESCR_t b2[2]; b2[0] = nametrap(&young); b2[1] = ival(9); char *bf2 = cx.tr; rt_pl_dop_unify_c(b2, 2, &cx);
+        CHECK(young.v == DT_I && cx.tr == bf2 + PL_TR_ENTRY_BYTES, "rung 3: the SAME cell IS logged once F.HI at [B+32] is lowered onto it (a disjunction opening a choice inside the frame)");
+        cx.tr = rt_pl_tr_unwind_to(cx.tr, bf2); }
+      cx.b = synth_b(hdr_older, (char *)cells); }
     { DESCR_t m1[3]; m1[0] = sval("f"); m1[1] = nametrap(&cells[2]); m1[2] = ival(1); DESCR_t t1 = rt_pl_dop_mkc_c(m1, 3, &cx);
       DESCR_t m2[3]; m2[0] = sval("f"); m2[1] = ival(2); m2[2] = ival(3); DESCR_t t2 = rt_pl_dop_mkc_c(m2, 3, &cx);
       char *before = cx.tr; DESCR_t a[2]; a[0] = t1; a[1] = t2; DESCR_t r = rt_pl_dop_unify_c(a, 2, &cx);

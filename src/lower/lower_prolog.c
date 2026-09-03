@@ -273,13 +273,60 @@ static IR_t * pl_lower_conj(lcx_t * cx, const tree_t * const * gl, int ng, IR_t 
         if (gn[i] && gn[i]->op == IR_GOTO) { if (last_res_beta) lc_γ_to_β(gn[i], last_res); else lc_γ_to(gn[i], last_res); }
         else if (last_res_beta) lc_ω_to_β(gn[i], last_res);
         else lc_ω_to(gn[i], last_res);
-        if (gn[i] && gn[i]->op == IR_CALL_PROC_STAGED) { last_res = gn[i]; last_res_beta = 1; }
+        if (gn[i] && (gn[i]->op == IR_CALL_PROC_STAGED || gn[i]->op == IR_DISJUNCTION)) { last_res = gn[i]; last_res_beta = 1; }
     }
     if (redo_out) *redo_out = last_res_beta ? last_res : NULL;
     if (entry_out) *entry_out = (ng > 0) ? en[0] : γtail;
     IR_t * first = (ng > 0) ? gn[0] : NULL;
     free(gn); free(en);
     return first;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_is_ite(const tree_t * t) { return t && t->t == TT_FNC && t->v.sval && (!strcmp(t->v.sval, ";") || !strcmp(t->v.sval, "|")) && t->n == 2 && t->c[0] && t->c[0]->t == TT_FNC && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "->"); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_is_disj(const tree_t * t) { return t && t->t == TT_FNC && t->v.sval && (!strcmp(t->v.sval, ";") || !strcmp(t->v.sval, "|")) && t->n == 2 && !pl_is_ite(t); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void collect_disj(const tree_t * t, lc_vec * out) {
+    if (pl_is_disj(t)) { collect_disj(t->c[0], out); collect_disj(t->c[1], out); return; }
+    lc_vec_push(out, &t);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_disj_entry(lcx_t * cx, IR_t * e, IR_t * dj) {
+    int guard = 0;
+    while (e && e->op == IR_SUCCEED && e->γ.node && e->γ.node != dj && guard++ < 4096) e = e->γ.node;
+    if (e && e->op != IR_SUCCEED) return e;
+    { IR_t * g = build(cx, IR_GOTO, dj, dj);
+      memcpy(g->γ.sz, "σ", 3); g->γ.sz[3] = 0;
+      memcpy(g->ω.sz, "φ", 3); g->ω.sz[3] = 0;
+      return g; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_lower_disj(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    lc_vec bv; lc_vec_init(&bv, (int) sizeof(const tree_t *));
+    collect_disj(t, &bv);
+    const tree_t * const * br = (const tree_t * const *) bv.data;
+    int nb = bv.n;
+    if (nb > 32) pl_refuse("disjunction wider than 32 branches", ";", 3);
+    IR_t * dj = build(cx, IR_DISJUNCTION, γnext, ωfail);
+    for (int j = 0; j < nb; j++) {
+        int before = cx->g->n;
+        lc_vec glv; lc_vec_init(&glv, (int) sizeof(const tree_t *));
+        collect_conj(br[j], &glv);
+        IR_t * bentry = NULL; IR_t * redo = NULL;
+        IR_t * first = pl_lower_conj(cx, (const tree_t * const *) glv.data, glv.n, dj, dj, &bentry, &redo);
+        for (int k = before; k < cx->g->n; k++) {
+            IR_t * x = cx->g->all[k];
+            if (!x) continue;
+            if (x->γ.node == dj) { if (x->op == IR_GOTO && x->ω.node == dj) memcpy(x->γ.sz, "φ", 3); else memcpy(x->γ.sz, "σ", 3); x->γ.sz[3] = 0; }
+            if (x->ω.node == dj) { memcpy(x->ω.sz, "φ", 3); x->ω.sz[3] = 0; }
+        }
+        ir_operand_push(dj, pl_disj_entry(cx, bentry ? bentry : (first ? first : dj), dj));
+        ir_operand_push(dj, redo ? redo : dj);
+    }
+    for (int j = 0; j < nb; j++) ir_operand_push(dj, NULL);
+    IR_LIT(dj).ival = (long) nb;
+    if (entry_out) *entry_out = dj;
+    return dj;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_leaf(lcx_t * cx, const char * sym, const tree_t * t, int nargs, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
@@ -365,8 +412,8 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             return pl_lower_conj(cx, (const tree_t * const *) glv.data, glv.n, γnext, ωfail, entry_out, NULL);
         }
         if (!strcmp(nm, "write") && t->n == 1) return pl_leaf(cx, "$write", t, 1, γnext, ωfail, entry_out);
-        if (!strcmp(nm, ";") || !strcmp(nm, "|")) { int ite = (t->n == 2 && t->c[0] && t->c[0]->t == TT_FNC && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "->"));
-            pl_refuse(ite ? "if-then-else" : "disjunction", ite ? "->" : ";", ite ? 5 : 3); }
+        if (!strcmp(nm, ";") || !strcmp(nm, "|")) { if (pl_is_ite(t)) pl_refuse("if-then-else", "->", 5);
+            return pl_lower_disj(cx, t, γnext, ωfail, entry_out); }
         if (!strcmp(nm, "->")) pl_refuse("if-then", "->", 5);
         if (!strcmp(nm, "\\+") || !strcmp(nm, "not") || !strcmp(nm, "once") || !strcmp(nm, "ignore")) pl_refuse("control construct", nm, 5);
         if (!strcmp(nm, "=") && t->n == 2) { IR_t * e = NULL; IR_t * nd = unify_pair(cx, t->c[0], t->c[1], γnext, ωfail, &e); if (entry_out) *entry_out = e ? e : nd; return nd; }
