@@ -26,7 +26,7 @@ reset_sbx() {
 
 # --- CASE 1: equal rank, newer mint time wins over older, over no-timestamp-at-all ---
 reset_sbx
-printf '1\told_row\tbrief\tFREE\n1\tnew_row\tbrief\tFREE\n1\tno_ts_row\tbrief\tFREE\n' > "$SBX/QUEUE.tsv"
+printf '1\told_row\tunassigned\tFREE\n1\tnew_row\tunassigned\tFREE\n1\tno_ts_row\tunassigned\tFREE\n' > "$SBX/QUEUE.tsv"
 mk_task old_row   "2026-08-20T10:00:00Z"
 mk_task new_row   "2026-09-01T22:59:57Z"
 mk_task no_ts_row ""
@@ -35,7 +35,7 @@ echo "$out" | grep -q "LOCKED new_row" || fail "CASE 1 (newer wins at equal rank
 
 # --- CASE 2: rank still dominates -- an OLDER row at a LOWER rank number beats a NEWER row at a higher rank ---
 reset_sbx
-printf '1\tnewer_but_rank1\tbrief\tFREE\n0\tolder_but_rank0\tbrief\tFREE\n' > "$SBX/QUEUE.tsv"
+printf '1\tnewer_but_rank1\tunassigned\tFREE\n0\tolder_but_rank0\tunassigned\tFREE\n' > "$SBX/QUEUE.tsv"
 mk_task newer_but_rank1 "2026-09-01T23:59:59Z"
 mk_task older_but_rank0 "2026-01-01T00:00:00Z"
 out="$(S4E_POST="$SBX" S4E_SEAT=gate_tester $S4E_MSG next 2>&1)"
@@ -43,7 +43,7 @@ echo "$out" | grep -q "LOCKED older_but_rank0" || fail "CASE 2 (rank dominates t
 
 # --- CASE 3: reversing file order in QUEUE.tsv does not change the verdict (proves it's not file order) ---
 reset_sbx
-printf '1\tnew_row\tbrief\tFREE\n1\told_row\tbrief\tFREE\n' > "$SBX/QUEUE.tsv"
+printf '1\tnew_row\tunassigned\tFREE\n1\told_row\tunassigned\tFREE\n' > "$SBX/QUEUE.tsv"
 mk_task old_row "2026-08-20T10:00:00Z"
 mk_task new_row "2026-09-01T22:59:57Z"
 out="$(S4E_POST="$SBX" S4E_SEAT=gate_tester $S4E_MSG next 2>&1)"
