@@ -94,6 +94,7 @@ RTX_FUNC(rt_pl_dop_is_v)
 RTX_ENDF(rt_pl_dop_is_v)
 #define PL_CTX_LEAF(nm) RTX_FUNC(rt_pl_dop_##nm); sub rsp, CTX_FRAME; mov qword ptr [rsp + CTX_TR], r12; mov qword ptr [rsp + CTX_B], r13; mov rdx, rsp; \
     call rt_pl_dop_##nm##_c; mov r12, qword ptr [rsp + CTX_TR]; add rsp, CTX_FRAME; ret; RTX_ENDF(rt_pl_dop_##nm)
+PL_CTX_LEAF(sub_atom_at)
 PL_CTX_LEAF(compare)
 PL_CTX_LEAF(functor)
 PL_CTX_LEAF(arg)

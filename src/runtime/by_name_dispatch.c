@@ -1477,6 +1477,44 @@ PL_CX_LEAF_HEAD(plus, 3) ok = rt_pl_succ_plus_cell(3, &args[0], &args[1], &args[
 PL_CX_LEAF_HEAD(sort, 2) ok = rt_pl_sort_cell(0, &args[0], &args[1], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(msort, 2) ok = rt_pl_sort_cell(1, &args[0], &args[1], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(char_type, 2) ok = rt_pl_char_type_cell(&args[0], &args[1], (void *)0, cx); PL_CX_LEAF_TAIL
+/* ⭐ RUNG 7 -- sub_atom/5 AS ONE INTEGER GENERATOR (ARCH sec B.13, sec E row 7). The construct looks like it needs a bespoke
+   two-level generator (Before, then Length), but the whole (Before,Length) space LINEARISES: block B holds the n-B+1 lengths
+   0..n-B, so pair k is decoded from a single index and the entire builtin rides the SAME shared bb_to box between/3 uses.
+   ⛔ THE MODES ARE NOT ENUMERATED AND MUST NOT BE. sub_atom/5 has many instantiation patterns (Sub bound, Length bound, all
+   unbound, ...); this generates EVERY pair once and lets unification filter, so a bound argument is a test and an unbound one
+   is an output, with no per-mode code path to get wrong or to fall through. That is slower than a mode-specialised search and
+   it is CORRECT FOR ALL MODES, which is the trade rung 7 wants; a mode dispatcher is an optimisation for a later rung.
+   ⛔ A PARTIAL UNIFY IS UNDONE HERE, not left for the generator's mark: the four unifies are one atomic act, so a pair that
+   matches on Before but fails on Sub must leave nothing behind -- the same tr0 discipline rt_pl_dop_is_v_c uses. */
+static long pl_sub_atom_count(DESCR_t a) {
+    char sb[8192]; DESCR_t av = rt_pl_deref_val(a);
+    if (av.v != DT_S) return -1;
+    { const char *s = to_cstring(av, sb, sizeof sb); if (!s) return -1; return (long)strlen(s); }
+}
+DESCR_t rt_pl_dop_sub_atom_n(DESCR_t *args, int nargs) {
+    if (nargs != 1) return FAILDESCR;
+    pl_atoms_ready();
+    { long n = pl_sub_atom_count(args[0]);
+      if (n < 0) return FAILDESCR;
+      /* pairs are (B,L) with 0<=B<=n and 0<=L<=n-B, so (n+1)(n+2)/2 of them; bb_to's limit is INCLUSIVE, hence -1. */
+      return INTVAL((n + 1) * (n + 2) / 2 - 1); }
+}
+static int rt_pl_sub_atom_at_cell(DESCR_t *args, pl_tr_ctx_t *cx) {
+    char sb[8192]; DESCR_t av = rt_pl_deref_val(args[0]); DESCR_t iv = rt_pl_deref_val(args[1]);
+    if (av.v != DT_S || iv.v != DT_I) return 0;
+    { const char *s = to_cstring(av, sb, sizeof sb);
+      long n = s ? (long)strlen(s) : -1, idx = (long)iv.i, b = 0, l, a;
+      if (!s || n < 0 || idx < 0) return 0;
+      while (b <= n) { long w = n - b + 1; if (idx < w) break; idx -= w; b++; }
+      if (b > n) return 0;
+      l = idx; a = n - b - l;
+      { char *tr0 = cx->tr;
+        int ok = plw_unify_vals(args[2], INTVAL(b), cx) && plw_unify_vals(args[3], INTVAL(l), cx)
+              && plw_unify_vals(args[4], INTVAL(a), cx) && plw_unify_vals(args[5], pl_mk_atom_dup(s + b, (size_t)l), cx);
+        if (!ok) cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0);
+        return ok; } }
+}
+PL_CX_LEAF_HEAD(sub_atom_at, 6) ok = rt_pl_sub_atom_at_cell(args, cx); PL_CX_LEAF_TAIL
 #define PL_ATOM_OP_LEAF(nm, ar) PL_CX_LEAF_HEAD(nm, ar) ok = rt_pl_atom_op_cell(#nm, &args[0], ar > 1 ? (void *)&args[1] : (void *)0, ar > 2 ? (void *)&args[2] : (void *)0, cx); PL_CX_LEAF_TAIL
 PL_ATOM_OP_LEAF(atom_length, 2) PL_ATOM_OP_LEAF(atom_concat, 3) PL_ATOM_OP_LEAF(atom_chars, 2) PL_ATOM_OP_LEAF(atom_codes, 2) PL_ATOM_OP_LEAF(atom_number, 2) PL_ATOM_OP_LEAF(atom_string, 2)
 PL_ATOM_OP_LEAF(upcase_atom, 2) PL_ATOM_OP_LEAF(downcase_atom, 2) PL_ATOM_OP_LEAF(string_concat, 3) PL_ATOM_OP_LEAF(string_length, 2) PL_ATOM_OP_LEAF(string_lower, 2) PL_ATOM_OP_LEAF(string_upper, 2)

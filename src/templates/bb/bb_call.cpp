@@ -26,6 +26,7 @@ DESCR_t rt_pl_dop_cmp_lt(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_gt(DESCR_t *, in
 DESCR_t rt_pl_dop_compare(DESCR_t *, int); DESCR_t rt_pl_dop_functor(DESCR_t *, int); DESCR_t rt_pl_dop_arg(DESCR_t *, int); DESCR_t rt_pl_dop_univ(DESCR_t *, int);
 DESCR_t rt_pl_dop_copy_term(DESCR_t *, int); DESCR_t rt_pl_dop_numbervars3(DESCR_t *, int); DESCR_t rt_pl_dop_numbervars1(DESCR_t *, int); DESCR_t rt_pl_dop_succ(DESCR_t *, int);
 DESCR_t rt_pl_dop_plus(DESCR_t *, int); DESCR_t rt_pl_dop_sort(DESCR_t *, int); DESCR_t rt_pl_dop_msort(DESCR_t *, int); DESCR_t rt_pl_dop_char_type(DESCR_t *, int);
+DESCR_t rt_pl_dop_sub_atom_n(DESCR_t *, int); DESCR_t rt_pl_dop_sub_atom_at(DESCR_t *, int);
 DESCR_t rt_pl_dop_term_string(DESCR_t *, int); DESCR_t rt_pl_dop_atom_length(DESCR_t *, int); DESCR_t rt_pl_dop_atom_concat(DESCR_t *, int); DESCR_t rt_pl_dop_atom_chars(DESCR_t *, int);
 DESCR_t rt_pl_dop_atom_codes(DESCR_t *, int); DESCR_t rt_pl_dop_atom_number(DESCR_t *, int); DESCR_t rt_pl_dop_atom_string(DESCR_t *, int); DESCR_t rt_pl_dop_upcase_atom(DESCR_t *, int);
 DESCR_t rt_pl_dop_downcase_atom(DESCR_t *, int); DESCR_t rt_pl_dop_string_concat(DESCR_t *, int); DESCR_t rt_pl_dop_string_length(DESCR_t *, int); DESCR_t rt_pl_dop_string_lower(DESCR_t *, int);
@@ -304,6 +305,7 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$univ", 2, "rt_pl_dop_univ", rt_pl_dop_univ }, { "$copy_term", 2, "rt_pl_dop_copy_term", rt_pl_dop_copy_term }, { "$numbervars3", 3, "rt_pl_dop_numbervars3", rt_pl_dop_numbervars3 },
         { "$numbervars1", 1, "rt_pl_dop_numbervars1", rt_pl_dop_numbervars1 }, { "$succ", 2, "rt_pl_dop_succ", rt_pl_dop_succ }, { "$plus", 3, "rt_pl_dop_plus", rt_pl_dop_plus },
         { "$sort", 2, "rt_pl_dop_sort", rt_pl_dop_sort }, { "$msort", 2, "rt_pl_dop_msort", rt_pl_dop_msort }, { "$char_type", 2, "rt_pl_dop_char_type", rt_pl_dop_char_type },
+        { "$sub_atom_n", 1, "rt_pl_dop_sub_atom_n", rt_pl_dop_sub_atom_n }, { "$sub_atom_at", 6, "rt_pl_dop_sub_atom_at", rt_pl_dop_sub_atom_at },
         { "$term_string", 2, "rt_pl_dop_term_string", rt_pl_dop_term_string }, { "$atom_length", 2, "rt_pl_dop_atom_length", rt_pl_dop_atom_length },
         { "$atom_concat", 3, "rt_pl_dop_atom_concat", rt_pl_dop_atom_concat }, { "$atom_chars", 2, "rt_pl_dop_atom_chars", rt_pl_dop_atom_chars },
         { "$atom_codes", 2, "rt_pl_dop_atom_codes", rt_pl_dop_atom_codes }, { "$atom_number", 2, "rt_pl_dop_atom_number", rt_pl_dop_atom_number },
