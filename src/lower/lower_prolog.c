@@ -590,12 +590,16 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             lc_γ_to(rl, acc);
             return nd;
         }
-        if (!strcmp(nm, "between") && t->n == 3) {
+        if ((!strcmp(nm, "between") || !strcmp(nm, "for")) && t->n == 3) {
+            int forarg = !strcmp(nm, "for");
+            const tree_t * lo_t = forarg ? t->c[1] : t->c[0];
+            const tree_t * hi_t = forarg ? t->c[2] : t->c[1];
+            const tree_t * vr_t = forarg ? t->c[0] : t->c[2];
             IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = "$is_v";
             IR_t * to = build(cx, IR_TO, nd, ωfail); IR_LIT(to).sval = (char *) "ag";
-            IR_t * loe = NULL; IR_t * lo = lower_arith_val(cx, t->c[0], ωfail, &loe);
-            IR_t * hie = NULL; IR_t * hi = lower_arith_val(cx, t->c[1], ωfail, &hie);
-            IR_t * xe = NULL; IR_t * xl = term_lval_e(cx, t->c[2], &xe);
+            IR_t * loe = NULL; IR_t * lo = lower_arith_val(cx, lo_t, ωfail, &loe);
+            IR_t * hie = NULL; IR_t * hi = lower_arith_val(cx, hi_t, ωfail, &hie);
+            IR_t * xe = NULL; IR_t * xl = term_lval_e(cx, vr_t, &xe);
             lc_γ_to(xl, loe ? loe : lo); lc_ω_to(xl, ωfail);
             lc_γ_to(lo, hie ? hie : hi); lc_ω_to(lo, ωfail);
             lc_γ_to(hi, to); lc_ω_to(hi, ωfail);
