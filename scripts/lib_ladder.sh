@@ -15,6 +15,12 @@
 #   --only N   grade rung N ALONE -- the rung under construction, while the rungs below it are still red.
 #              Mutually exclusive with --to: a request naming both REFUSES rc=2 rather than guessing.
 #   --list     print the witnesses per rung and exit 0 without grading
+# ⛔⭐ THE DEFAULT (NO SELECTOR) GRADES UNBUILT RUNGS TOO, so it reads WORSE than the ladder's frontier and is
+# not the number to quote for 'how far is the ladder'. Measured 2026-09-03 on Prolog: the unselected run is 33
+# witnesses / 66 gradings because ALL.csv already carries rung 10-12 witnesses for rungs nobody has built,
+# while `--to 9` -- the actual frontier -- is 28 / 56. Two sessions compared those two numbers and briefly
+# suspected the runner of miscounting (hq_T/hq_C, same day). ⭐ `--to N` is the ONLY honest way to ask how far
+# the ladder reaches; the bare default answers a different question -- 'everything the master mentions'.
 # POPULATION: every origin `ladder__rungNN_<slug>` of corpus/tests/<suite>/ALL.csv with NN <= N, materialized
 # OUT of the master by origin through lib_master_extract.sh -- keyed on the CSV `origin` column, never on the
 # entry name or a filename glob.
