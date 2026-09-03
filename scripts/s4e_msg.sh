@@ -120,6 +120,23 @@ s4e_blocker_done() {
     grep -qP "^[0-9]+\t\Q$b\E\t" "$PO/QUEUE.done.tsv" 2>/dev/null
 }
 
+# ⭐ s4e-park-adds-a-blocker-and-refuses-an-unresolvable-topic — a state may now be a '+'-joined SET of
+# blockers (BLOCKED-ON:B1+B2), each an independently-plausible reason recorded by a separate park rather
+# than one overwriting the other. This answers "which one, if any, is done" so the self-heal (and the
+# DOES-NOT-CLEAR check, which needs the SPECIFIC blocker) can treat "any member resolves" as sound self-clear.
+s4e_first_resolved_blocker() {   # <possibly '+'-joined blockers> -> prints the first resolved one, rc 1 if none
+    local blk="${1:-}" b save_IFS
+    [ -n "$blk" ] || return 1
+    save_IFS="$IFS"; IFS='+'
+    for b in $blk; do
+        IFS="$save_IFS"
+        if s4e_blocker_done "$b"; then printf '%s' "$b"; return 0; fi
+        IFS='+'
+    done
+    IFS="$save_IFS"
+    return 1
+}
+
 # ⭐ s4e-done-does-not-clear-annotation (ceo 2026-08-29, hq_B's "your call" ask). SELF-CLEAR (above) earns
 # its keep and stays; this is the ESCAPE HATCH for the case it measurably got wrong: hq_B found
 # `snocone-parser-fixture-ast-drift-ruling` self-clear a dependent while its OWN ledger and the blocker's
@@ -633,6 +650,29 @@ case "$cmd" in
                exit 2
              fi ;;
          esac
+         # ⭐ s4e-park-adds-a-blocker-and-refuses-an-unresolvable-topic — A RE-PARK ADDS A BLOCKER, IT DOES NOT
+         # REPLACE ONE. seat11's correct park (BLOCKED-ON:calling-convention-depth-tracked, the row that actually
+         # cured it) was overwritten twice by later re-parks recording a DIFFERENT hypothesis, so when the true
+         # blocker landed DONE nothing was left naming it and the row could not self-clear — eight seats released
+         # it unworked. If this row is ALREADY BLOCKED-ON:/PARKED-AWAITING: something and the new state is ALSO
+         # one of those, merge the new blocker into the existing '+'-joined set (deduped) instead of overwriting
+         # it — the row then self-clears the moment ANY recorded blocker resolves (next()'s PASS 3), which is
+         # sound: each '+' member is a real, independently-plausible reason, and one of them being true is
+         # enough to re-open dispatch, exactly the case a wrong re-park used to erase.
+         case "$st" in
+           BLOCKED-ON:*|PARKED-AWAITING:*)
+             _cur_st="$(s4e_row_state "$topic")"
+             case "$_cur_st" in
+               BLOCKED-ON:*|PARKED-AWAITING:*)
+                 _old="${_cur_st#*:}"; _new="${st#*:}"
+                 _dup=0; _save_IFS="$IFS"; IFS='+'
+                 for _b in $_old; do [ "$_b" = "$_new" ] && _dup=1; done
+                 IFS="$_save_IFS"
+                 if [ "$_dup" = 0 ]; then st="BLOCKED-ON:${_old}+${_new}"; else st="BLOCKED-ON:${_old}"; fi
+                 echo "  (additive park: was $_cur_st, now $st)"
+                 ;;
+             esac ;;
+         esac
          # ⛔ s266 — PARK MUST NOT DESTROY ANOTHER SEAT'S RUNNING CLAIM. hq_C parked rung-E5-suspend-cache as
          # SUPERSEDED while seat13 was mid-flight on it; the rm below deleted their claim, so their computed `done`
          # said "not your claim" AFTER the fix was already landed and pushed. A park is a routing verdict on a ROW;
@@ -1125,13 +1165,14 @@ TASKEOF
            case "$step" in
              BLOCKED-ON:*|PARKED-AWAITING:*)
                blk="${step#*:}"
-               if s4e_blocker_done "$blk" && s4e_does_not_clear "$blk" "$topic"; then
+               resolved_blk="$(s4e_first_resolved_blocker "$blk")"
+               if [ -n "$resolved_blk" ] && s4e_does_not_clear "$resolved_blk" "$topic"; then
                  # ⭐ s4e-done-does-not-clear-annotation: the blocker IS done, but named THIS topic as an
                  # exception -- honour it instead of the ordinary self-clear. Print the annotation itself,
                  # not just a verdict, per the row's own DONE-WHEN ("prints the annotation text").
-                 printf '⛔ %s reached DONE but its state explicitly excludes %s from self-clear (DOES-NOT-CLEAR) — staying %s.\n' "$blk" "$topic" "$step" >&2
-                 printf '   %s state: %s\n' "$blk" "$(s4e_row_state "$blk")" >&2
-               elif s4e_blocker_done "$blk" && "$0" park "$topic" FREE >/dev/null 2>&1; then step=FREE
+                 printf '⛔ %s reached DONE but its state explicitly excludes %s from self-clear (DOES-NOT-CLEAR) — staying %s.\n' "$resolved_blk" "$topic" "$step" >&2
+                 printf '   %s state: %s\n' "$resolved_blk" "$(s4e_row_state "$resolved_blk")" >&2
+               elif [ -n "$resolved_blk" ] && "$0" park "$topic" FREE >/dev/null 2>&1; then step=FREE
                # ⭐ CURE 1 — DEPENDENCY INVERSION (picker-dependency-and-boomerang-blindness). The blocker is
                # un-DONE, so the old code skipped this row and walked on down the rank order — which is how a
                # blocker RANKED BELOW the umbrella it blocks got served after the work it blocks. Reaching this
