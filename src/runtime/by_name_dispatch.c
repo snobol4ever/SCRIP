@@ -1505,6 +1505,41 @@ static int rt_pl_sub_atom_at_cell(DESCR_t *args, pl_tr_ctx_t *cx) {
         return ok; } }
 }
 PL_CX_LEAF_HEAD(sub_atom_at, 6) ok = rt_pl_sub_atom_at_cell(args, cx); PL_CX_LEAF_TAIL
+DESCR_t rt_pl_dop_findall_new(DESCR_t *args, int nargs) {
+    (void)args;
+    if (nargs != 0) return FAILDESCR;
+    pl_atoms_ready();
+    { extern void *rt_pl_findall_begin(void); void *a = rt_pl_findall_begin();
+      if (!a) return FAILDESCR;
+      return INTVAL((int64_t)(intptr_t)a); }
+}
+DESCR_t rt_pl_dop_findall_add(DESCR_t *args, int nargs) {
+    if (nargs != 2) return FAILDESCR;
+    { extern void rt_pl_findall_collect(void *, void *);
+      DESCR_t h = rt_pl_deref_val(args[0]);
+      if (h.v != DT_I) return FAILDESCR;
+      rt_pl_findall_collect((void *)(intptr_t)h.i, (void *)&args[1]);
+      return pl_ok(); }
+}
+static int rt_pl_all_solutions_cell(DESCR_t *args, pl_tr_ctx_t *cx, int mode) {
+    extern int rt_pl_findall_count(void *);
+    extern void rt_pl_findall_item(void *, int, void *);
+    extern int rt_pl_sort_cell(int, void *, void *, pl_tr_ctx_t *);
+    DESCR_t h = rt_pl_deref_val(args[0]);
+    if (h.v != DT_I) return 0;
+    { void *acc = (void *)(intptr_t)h.i; int n = rt_pl_findall_count(acc); int i;
+      DESCR_t *el; DESCR_t lst;
+      if (mode != 0 && n == 0) return 0;
+      el = (DESCR_t *)rt_ws_alloc((size_t)(n > 0 ? n : 1) * sizeof(DESCR_t));
+      if (!el) return 0;
+      for (i = 0; i < n; i++) rt_pl_findall_item(acc, i, (void *)&el[i]);
+      lst = pl_list_from_arr(el, n);
+      if (mode == 2) return rt_pl_sort_cell(0, (void *)&lst, (void *)&args[1], cx);
+      return plw_unify_vals(args[1], lst, cx); }
+}
+PL_CX_LEAF_HEAD(findall_result, 2) ok = rt_pl_all_solutions_cell(args, cx, 0); PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(bagof_result, 2)   ok = rt_pl_all_solutions_cell(args, cx, 1); PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(setof_result, 2)   ok = rt_pl_all_solutions_cell(args, cx, 2); PL_CX_LEAF_TAIL
 #define PL_ATOM_OP_LEAF(nm, ar) PL_CX_LEAF_HEAD(nm, ar) ok = rt_pl_atom_op_cell(#nm, &args[0], ar > 1 ? (void *)&args[1] : (void *)0, ar > 2 ? (void *)&args[2] : (void *)0, cx); PL_CX_LEAF_TAIL
 PL_ATOM_OP_LEAF(atom_length, 2) PL_ATOM_OP_LEAF(atom_concat, 3) PL_ATOM_OP_LEAF(atom_chars, 2) PL_ATOM_OP_LEAF(atom_codes, 2) PL_ATOM_OP_LEAF(atom_number, 2) PL_ATOM_OP_LEAF(atom_string, 2)
 PL_ATOM_OP_LEAF(upcase_atom, 2) PL_ATOM_OP_LEAF(downcase_atom, 2) PL_ATOM_OP_LEAF(string_concat, 3) PL_ATOM_OP_LEAF(string_length, 2) PL_ATOM_OP_LEAF(string_lower, 2) PL_ATOM_OP_LEAF(string_upper, 2)

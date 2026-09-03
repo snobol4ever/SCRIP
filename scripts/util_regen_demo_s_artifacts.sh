@@ -43,7 +43,7 @@ emit_one() {   # $1 = source path RELATIVE TO $DEMO (cwd), $2 = committed .s pat
     if grep -q 'is not on the ladder yet' "$TMPD/cerr.txt"; then
         rm -f "$dst"
         printf 'REFUSED by the construct ladder -- no codegen until its rung lands (%s)\n' \
-               "$(grep -oE '[a-zA-Z0-9 ,!_/-]*is not on the ladder yet -- rung [0-9]+ lands it' "$TMPD/cerr.txt" | head -1 | cut -c1-110)" > "$dst.REFUSED"
+               "$(sed -nE 's/^scrip: [a-z0-9_]+: (.*is not on the ladder yet -- rung [0-9]+ lands it).*/\1/p' "$TMPD/cerr.txt" | head -1 | cut -c1-110)" > "$dst.REFUSED"
         echo "  REFUSED $label -> $(basename "$dst").REFUSED"; return 0
     fi
     if [ "$rc" -ne 0 ]; then echo "  SKIP  $label — --compile failed rc=$rc (committed .s untouched)"; return 0; fi

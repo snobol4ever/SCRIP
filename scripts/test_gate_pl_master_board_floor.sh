@@ -19,7 +19,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 S4E="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}"
 SCRIP="${SCRIP:-$ROOT/scrip}"; P="${PL_SUITE_DIR:-$S4E/corpus/tests/prolog}"
-PIN_M3="${PIN_M3:-213}"; PIN_M4="${PIN_M4:-213}"; SHARDS="${SHARDS:-16}"
+PIN_M3="${PIN_M3:-230}"; PIN_M4="${PIN_M4:-230}"; SHARDS="${SHARDS:-16}"
 refuse(){ echo "⛔ REFUSED-TO-GRADE: $*"; exit 2; }
 [ -x "$SCRIP" ] || refuse "scrip not built at $SCRIP"
 [ -f "$P/ALL.pl" ] && [ -f "$P/ALL.ref" ] || refuse "master suite not found at $P"

@@ -308,6 +308,12 @@ static IR_t * pl_lower_conj(lcx_t * cx, const tree_t * const * gl, int ng, IR_t 
     return first;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_tree_has_caret(const tree_t * t) {
+    if (!t) return 0;
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "^")) return 1;
+    for (int i = 0; i < t->n; i++) if (pl_tree_has_caret(t->c[i])) return 1;
+    return 0;
+}
 static int pl_is_ite(const tree_t * t) { return t && t->t == TT_FNC && t->v.sval && (!strcmp(t->v.sval, ";") || !strcmp(t->v.sval, "|")) && t->n == 2 && t->c[0] && t->c[0]->t == TT_FNC && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "->"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_is_disj(const tree_t * t) { return t && t->t == TT_FNC && t->v.sval && (!strcmp(t->v.sval, ";") || !strcmp(t->v.sval, "|")) && t->n == 2 && !pl_is_ite(t); }
@@ -560,6 +566,29 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             lc_ω_to_β(nd, to);
             if (entry_out) *entry_out = be ? be : bl;
             return to;
+        }
+        if ((!strcmp(nm, "findall") || !strcmp(nm, "bagof") || !strcmp(nm, "setof")) && t->n == 3) {
+            const char * fin = !strcmp(nm, "findall") ? "$findall_result" : (!strcmp(nm, "bagof") ? "$bagof_result" : "$setof_result");
+            if (pl_tree_has_caret(t->c[1])) pl_refuse("bagof/setof free-variable grouping (^)", nm, 8);
+            IR_t * nd  = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = (char *) fin;
+            IR_t * acc = build(cx, IR_CALL, NULL, ωfail);  IR_LIT(acc).sval = "$findall_new";
+            IR_t * add = build(cx, IR_CALL, NULL, ωfail);  IR_LIT(add).sval = "$findall_add";
+            IR_t * gentry = NULL; IR_t * gredo = NULL;
+            lc_vec glv; lc_vec_init(&glv, (int) sizeof(const tree_t *));
+            collect_conj(t->c[1], &glv);
+            IR_t * te = NULL; IR_t * tv = term_e(cx, t->c[0], &te);
+            IR_t * first = pl_lower_conj(cx, (const tree_t * const *) glv.data, glv.n, te ? te : tv, nd, &gentry, &gredo);
+            lc_γ_to(acc, gentry ? gentry : (first ? first : nd));
+            lc_γ_to(tv, add); lc_ω_to(tv, nd);
+            ir_operand_push(add, acc); ir_operand_push(add, tv);
+            if (gredo) lc_γ_to_β(add, gredo); else lc_γ_to(add, nd);
+            lc_ω_to(add, nd);
+            IR_t * re = NULL; IR_t * rl = term_lval_e(cx, t->c[2], &re);
+            lc_γ_to(rl, nd); lc_ω_to(rl, ωfail);
+            ir_operand_push(nd, acc); ir_operand_push(nd, rl);
+            if (entry_out) *entry_out = re ? re : rl;
+            lc_γ_to(rl, acc);
+            return nd;
         }
         if (!strcmp(nm, "between") && t->n == 3) {
             IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = "$is_v";
