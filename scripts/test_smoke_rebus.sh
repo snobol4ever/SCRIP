@@ -43,4 +43,14 @@ function main()
 end
 EOF
 
-echo ""; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]
+echo ""; echo "PASS=$PASS FAIL=$FAIL"
+# ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05: "any run of a test suite by any
+# session will update the ONE LEADERBOARD"). This records the board line printed just above into
+# .github/SCORE.md -- it RUNS NOTHING, it only writes down what this script already measured.
+# ⛔ NON-FATAL BY DESIGN: a bookkeeping failure must never turn a real measurement into a red board,
+# because a gate that goes red for a reason unrelated to the code is a gate people route around. It
+# warns and names the unrecorded row instead; it has no silent path.
+python3 "$HERE/util_score_row.py" write --lang rebus --column floor --modes m3 \
+    --measurer "${S4E_SEAT:-unknown-seat}" --text "smoke PASS=$PASS FAIL=$FAIL (\`test_smoke_rebus.sh\`)" \
+    || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
+[ "$FAIL" -eq 0 ]

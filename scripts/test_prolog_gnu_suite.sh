@@ -193,6 +193,16 @@ fi
 
 echo ""
 echo "GNU_SUITE_BOARD total=$TOTAL lib=$LIB ok=$OK_TOTAL ok_pass=$OK_PASS/$OK_TOTAL ok_fail=$OK_FAIL reject=$REJECT ladder=$LADDER unexpected=$UNEXPECTED"
+# ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05: "any run of a test suite by any
+# session will update the ONE LEADERBOARD"). This records the board line printed just above into
+# .github/SCORE.md -- it RUNS NOTHING, it only writes down what this script already measured.
+# ⛔ NON-FATAL BY DESIGN: a bookkeeping failure must never turn a real measurement into a red board,
+# because a gate that goes red for a reason unrelated to the code is a gate people route around. It
+# warns and names the unrecorded row instead; it has no silent path.
+python3 "$HERE/util_score_row.py" write --lang prolog --column vendor --suite GNU \
+    --measurer "${S4E_SEAT:-unknown-seat}" --text "ok_pass=$OK_PASS/$OK_TOTAL ok_fail=$OK_FAIL reject=$REJECT ladder=$LADDER unexpected=$UNEXPECTED lib=$LIB of total=$TOTAL (\`test_prolog_gnu_suite.sh\`)" \
+    || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
+
 
 [ "$((LIB + OK_TOTAL + REJECT + LADDER + UNEXPECTED))" -eq "$TOTAL" ] || { echo "⛔ BUCKET COUNTS DON'T SUM TO TOTAL -- instrument bug, refusing to trust the board"; exit 2; }
 [ "$OK_FAIL" -eq 0 ] && [ "$UNEXPECTED" -eq 0 ]

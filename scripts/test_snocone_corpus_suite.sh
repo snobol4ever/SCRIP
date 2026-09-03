@@ -48,4 +48,21 @@ fi
 out=$(python3 "$HERE/corpus_suite_harness.py" run "$W/corpus.sc" "$W/corpus.ref" --lang snocone --modes m3,m4 2>&1)
 rc=$?
 echo "$out"
+_board="$(printf '%s\n' "$out" | grep -m1 '^SUITE_BOARD' || true)"
+# Pull the three fields a reader of the leaderboard actually needs. Pasting the whole SUITE_BOARD line
+# into a table cell is honest but unreadable -- fifteen mostly-zero fields hide the two that matter.
+_tot="$(printf '%s' "$_board" | sed -n 's/.*total=\([0-9]*\).*/\1/p')"
+_p3="$(printf '%s' "$_board" | sed -n 's/.*m3_pass=\([0-9]*\).*/\1/p')"
+_p4="$(printf '%s' "$_board" | sed -n 's/.*m4_pass=\([0-9]*\).*/\1/p')"
+_f3="$(printf '%s' "$_board" | sed -n 's/.*m3_fail=\([0-9]*\).*/\1/p')"
+_f4="$(printf '%s' "$_board" | sed -n 's/.*m4_fail=\([0-9]*\).*/\1/p')"
+# ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05: "any run of a test suite by any
+# session will update the ONE LEADERBOARD"). This records the board line printed just above into
+# .github/SCORE.md -- it RUNS NOTHING, it only writes down what this script already measured.
+# ⛔ NON-FATAL BY DESIGN: a bookkeeping failure must never turn a real measurement into a red board,
+# because a gate that goes red for a reason unrelated to the code is a gate people route around. It
+# warns and names the unrecorded row instead; it has no silent path.
+python3 "$HERE/util_score_row.py" write --lang snocone --column floor --modes m3,m4 \
+    --measurer "${S4E_SEAT:-unknown-seat}" --text "corpus suite m3 ${_p3:-?}/${_tot:-?} · m4 ${_p4:-?}/${_tot:-?} (fail ${_f3:-?}/${_f4:-?}, \`test_snocone_corpus_suite.sh\`)" \
+    || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 [ "$rc" -eq 0 ]

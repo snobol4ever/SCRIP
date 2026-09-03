@@ -89,5 +89,15 @@ fi
 
 echo ""
 echo "FPC_SUITE_BOARD total=$TOTAL m3_pass=$M3_PASS m3_fail=$M3_FAIL m4_pass=$M4_PASS m4_fail=$M4_FAIL reject=$REJECT"
+# ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05: "any run of a test suite by any
+# session will update the ONE LEADERBOARD"). This records the board line printed just above into
+# .github/SCORE.md -- it RUNS NOTHING, it only writes down what this script already measured.
+# ⛔ NON-FATAL BY DESIGN: a bookkeeping failure must never turn a real measurement into a red board,
+# because a gate that goes red for a reason unrelated to the code is a gate people route around. It
+# warns and names the unrecorded row instead; it has no silent path.
+python3 "$HERE/util_score_row.py" write --lang pascal --column vendor --suite fpc --modes m3,m4 \
+    --measurer "${S4E_SEAT:-unknown-seat}" --text "m3 $M3_PASS/$TOTAL · m4 $M4_PASS/$TOTAL (m3_fail=$M3_FAIL m4_fail=$M4_FAIL reject=$REJECT, \`test_pascal_fpc_suite.sh\`)" \
+    || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
+
 
 [ "$M3_FAIL" -eq 0 ] && [ "$M4_FAIL" -eq 0 ] && [ "$REJECT" -eq 0 ]

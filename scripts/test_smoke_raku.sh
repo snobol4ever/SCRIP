@@ -3996,4 +3996,13 @@ echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4 REFUSED=$X4  / $N   (done bar: PASS
 # COMPLETION BAR (interp deleted 2026-06-15 — two native modes only): ZERO silent m3/m4 FAIL — every native
 # mode is either PASS or a LOUD [SMX] REFUSE (no abort, no miscompile, no oracle fallback). A rung is promoted
 # only when BOTH m3 and m4 are accounted for together. Floors retained as a backstop ratchet.
+# ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05: "any run of a test suite by any
+# session will update the ONE LEADERBOARD"). This records the board line printed just above into
+# .github/SCORE.md -- it RUNS NOTHING, it only writes down what this script already measured.
+# ⛔ NON-FATAL BY DESIGN: a bookkeeping failure must never turn a real measurement into a red board,
+# because a gate that goes red for a reason unrelated to the code is a gate people route around. It
+# warns and names the unrecorded row instead; it has no silent path.
+python3 "$HERE/util_score_row.py" write --lang raku --column floor --modes m3,m4 \
+    --measurer "${S4E_SEAT:-unknown-seat}" --text "smoke m3 $P3/$N · m4 $P4/$N (FAIL $F3/$F4, REFUSED $X3/$X4, \`test_smoke_raku.sh\`)" \
+    || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 [ "$F3" -eq 0 ] && [ "$F4" -eq 0 ] && [ "$P3" -ge "$MODE3_MIN" ] && [ "$P4" -ge "$MODE4_MIN" ]

@@ -137,5 +137,15 @@ if [ "$((m3p+m4p))" -gt "$((M3_PASS_FLOOR+M4_PASS_FLOOR))" ]; then
 fi
 [ "$((m3xp+m4xp))" -gt 0 ] && echo "⭐ XPASS>0: a bug got FIXED and its XFAIL marker was never promoted — as actionable as a failure, in the opposite direction."
 
+# ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05). Records what this script just
+# measured into .github/SCORE.md; runs nothing itself. Non-fatal: a bookkeeping failure must never
+# turn a real measurement into a red board.
+# ⛔ PLACED ABOVE THE RED EXIT ON PURPOSE. A red board is still a MEASUREMENT, and the FACT RULE says
+# ANY run -- recording only green boards would make the leaderboard a trophy cabinet, showing each
+# suite's best remembered day rather than its state, which is the exact opposite of what it is for.
+python3 "$HERE/util_score_row.py" write --lang icon --column board --modes m3,m4 \
+    --measurer "${S4E_SEAT:-unknown-seat}" \
+    --text "$([ "$RED" -ne 0 ] && echo "⛔ RED — ")run-graded m3 $m3p/$mt · m4 $m4p/$mt · ast-graded $ap/$at (entries=$graded, floors m3 $M3_PASS_FLOOR / m4 $M4_PASS_FLOOR / ast $AST_PASS_FLOOR, \`board_icon_master.sh\`)" \
+    || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 if [ "$RED" -ne 0 ]; then echo "⛔ ICON MASTER BOARD RED"; exit 1; fi
 echo "✅ ICON MASTER BOARD OK: entries=$graded at/above floor $ENTRY_FLOOR · run-graded m3 PASS=$m3p m4 PASS=$m4p / $mt · ast-graded PASS=$ap/$at (watermarks held)"

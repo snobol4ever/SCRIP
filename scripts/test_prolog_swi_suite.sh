@@ -98,6 +98,10 @@ run_one_mode() {
 
     echo ""
     echo "Suite totals: PASS=$PASS FAIL=$FAIL TOTAL=$TOTAL  mode=$mode"
+    # ⭐ PASS/FAIL/TOTAL are `local` to this function, so they do not exist by the time the script ends.
+    # Accumulate the board across modes into a global here rather than making the totals global, which
+    # would let a later mode silently overwrite an earlier one and report the last mode as "the suite".
+    SWI_BOARD="${SWI_BOARD:+$SWI_BOARD · }$mode $PASS/$TOTAL (FAIL=$FAIL)"
     [ "$TOTAL" -gt 0 ] || { echo "⛔ REFUSED-TO-GRADE: no test files found"; exit 2; }
     local pct=$((PASS * 100 / TOTAL))
     echo "Coverage: ${pct}%  (gate: >=80%)"
@@ -113,4 +117,10 @@ else
     run_one_mode "--compile" || OVERALL_RC=1
 fi
 
+# ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05). Records what this script just
+# measured into .github/SCORE.md; runs nothing itself. Non-fatal: a bookkeeping failure must never
+# turn a real measurement into a red board.
+python3 "$HERE/util_score_row.py" write --lang prolog --column vendor --suite SWI \
+    --measurer "${S4E_SEAT:-unknown-seat}" --text "${SWI_BOARD:-no mode ran} (\`test_prolog_swi_suite.sh\`)" \
+    || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 exit "$OVERALL_RC"

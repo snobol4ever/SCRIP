@@ -127,6 +127,31 @@ def find_table(lines):
     return hdr, rows
 
 
+def merge_clause(existing, key, value):
+    # ⛔⭐ ONE CELL, SEVERAL MEASUREMENTS, AND NO RUNNER MAY CLOBBER ITS SIBLINGS. The `Vendor / package
+    # suites` cell holds MORE THAN ONE suite per language -- Icon carries Arizona AND JCON, Prolog carries
+    # SWI AND GNU -- so a runner that wrote the whole cell would delete the other suite's number every time
+    # it ran, and the two would take turns erasing each other with nobody ever seeing a wrong value sit
+    # still long enough to be questioned. Keyed clauses make each runner the author of ITS OWN clause and
+    # nothing else. Same mechanism the provenance column uses, which is why it is one function.
+    clauses = [c.strip() for c in existing.split(";") if c.strip()] if existing and existing != "—" else []
+    new = "%s: %s" % (key, value)
+    for i, c in enumerate(clauses):
+        # ⛔⭐ MATCH `Key: text` OR `Key text` -- the colon is NOT guaranteed, and assuming it costs a TWIN.
+        # Measured live while wiring this (hq_T 2026-09-03): the icon vendor cell already read
+        # "Arizona 40/89 · 41/89; JCON 43/81 · 41/81" -- keyed by NAME but with no colon, written by hand
+        # months before this helper existed. A colon-only regex missed them, appended "Arizona: 40/89 ..."
+        # beside the original, and produced exactly the stale-twin shape the gate on this file exists to
+        # prevent -- in the one function whose whole job is to prevent it. A legacy format nobody wrote
+        # down is still the format; the migration has to meet it where it is, not where the new code wishes
+        # it were. The trailing (?=\s|$) keeps `Arizona` from matching a clause about `ArizonaExtended`.
+        if re.match(r"^%s\s*(?::|(?=\s|$))" % re.escape(key), c):
+            clauses[i] = new
+            return "; ".join(clauses)
+    clauses.append(new)
+    return "; ".join(clauses)
+
+
 def merge_prov(existing, column, stamp):
     # One `<column>: <stamp>` clause per measured column, ';'-joined.  Rewrite ours IN PLACE (never
     # append beside a stale twin -- that is the defect the FACT RULE names by name), keep everyone
@@ -165,8 +190,14 @@ def cmd_write(a):
     if a.modes:
         stamp = "%s · modes %s" % (stamp, a.modes)
     before = cells[idx]
-    cells[idx] = text
-    cells[PROV_COL] = merge_prov(cells[PROV_COL], a.column, stamp)
+    # --suite names ONE measurement inside a cell that holds several. Without it the cell is replaced
+    # wholesale, which is right for `board`/`entries` (one suite, one number) and wrong for `vendor`.
+    # ⭐ The provenance clause is keyed by the SUITE name when there is one, not "column/suite" -- because
+    # the cell already uses bare suite names (`Arizona:`, `JCON:`, `STRICT:`, `smoke:`) and a new key shape
+    # would sit beside the old clause instead of replacing it. Match the file's convention, don't impose one.
+    key = a.suite or a.column
+    cells[idx] = merge_clause(before, a.suite, text) if a.suite else text
+    cells[PROV_COL] = merge_prov(cells[PROV_COL], key, stamp)
     newline = "| " + " | ".join(cells) + " |"
     if a.dry_run:
         print("WOULD REWRITE %s line %d" % (SCORE_MD, i + 1))
@@ -265,7 +296,7 @@ def cmd_selftest(a):
         for run in (1, 2):
             a2 = A(); a2.lang = "rebus"; a2.column = "board"; a2.measurer = "selftest"
             a2.text = "master: m3 %d/48 · m4 %d/48 (selftest, not a measurement)" % (run, run)
-            a2.modes = "m3,m4"; a2.dry_run = False
+            a2.modes = "m3,m4"; a2.dry_run = False; a2.suite = ""
             cmd_write(a2)
         n1 = len(open(SCORE_MD, encoding="utf-8").read().split("\n"))
         body = open(SCORE_MD, encoding="utf-8").read()
@@ -285,7 +316,7 @@ def cmd_selftest(a):
                           ("no digit", dict(lang="rebus", column="board", text="looks fine", measurer="s")),
                           ("no measurer", dict(lang="rebus", column="board", text="1/1", measurer="")),
                           ("pipe injection", dict(lang="rebus", column="board", text="1/1 | evil", measurer="s"))):
-            a3 = A(); a3.modes = ""; a3.dry_run = False
+            a3 = A(); a3.modes = ""; a3.dry_run = False; a3.suite = ""
             for k, v in kw.items(): setattr(a3, k, v)
             try:
                 cmd_write(a3)
@@ -311,6 +342,8 @@ def main():
     w.add_argument("--text", required=True, help="the runner's OWN printed board line, verbatim where possible")
     w.add_argument("--measurer", required=True, help="seat/HQ identity that ran it")
     w.add_argument("--modes", default="", help="e.g. m3,m4")
+    w.add_argument("--suite", default="", help="name ONE measurement inside a shared cell (e.g. Arizona, JCON, SWI, GNU, fpc); "
+                                               "without it the whole cell is replaced, which is wrong for the vendor column")
     w.add_argument("--dry-run", action="store_true")
     w.set_defaults(fn=cmd_write)
     c = sub.add_parser("check", help="report every row's staleness against origin/main")

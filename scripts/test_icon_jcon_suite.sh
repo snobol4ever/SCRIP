@@ -136,3 +136,13 @@ esac
 total="${m3_TOTAL:-${m4_TOTAL:-0}}"
 m3p="${m3_PASS:-}"; m4p="${m4_PASS:-}"
 echo "JCON_SUITE_BOARD total=$total m3_pass=${m3p:-n/a} m4_pass=${m4p:-n/a}"
+# ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05: "any run of a test suite by any
+# session will update the ONE LEADERBOARD"). This records the board line printed just above into
+# .github/SCORE.md -- it RUNS NOTHING, it only writes down what this script already measured.
+# ⛔ NON-FATAL BY DESIGN: a bookkeeping failure must never turn a real measurement into a red board,
+# because a gate that goes red for a reason unrelated to the code is a gate people route around. It
+# warns and names the unrecorded row instead; it has no silent path.
+python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite JCON --modes m3,m4 \
+    --measurer "${S4E_SEAT:-unknown-seat}" --text "m3 ${m3p:-n/a}/$total · m4 ${m4p:-n/a}/$total (\`test_icon_jcon_suite.sh\`)" \
+    || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
+
