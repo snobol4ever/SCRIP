@@ -2307,11 +2307,22 @@ static inline __attribute__((always_inline)) NV_t *_var_find_cached(const char *
 static int _nv_kwsplit(void) { static int _k = -1; if (_k < 0) { const char *e = getenv("SCRIP_KWSPACE_SPLIT"); _k = (e && *e == '0') ? 0 : 1; } return _k; }
 static int _nv_ordinary(const NV_t *e) { return !(e->is_const && _nv_kwsplit()); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t _var_assoc_set(const char *key, DESCR_t val) {
+    NV_t *e = _var_bucket_find(key);
+    if (e) { e->val = val; return val; }
+    unsigned h = _var_hash(key);
+    e = rt_ws_alloc(sizeof(NV_t));
+    e->name = rt_ws_strdup(key); e->val = val; e->cell = (DESCR_t *)0; e->is_gva = 0; e->is_const = 0;
+    e->next = _var_buckets[h]; _var_buckets[h] = e; g_nv_memo_gen++;
+    return val;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t NV_GET_fn(const char *name) {
     _var_init();
     if (!name) return NULVCL;
     if (!g_call_fastpath_off && name[0] != '&' && (name[0] != 'I' || strcmp(name, "INPUT") != 0)) { NV_t *e = _var_find_cached(name); if (e) return e->is_gva ? *e->cell : e->val; }
     if (strcmp(name, "INPUT") == 0) return input_read();
+    if (strcmp(name, "OUTPUT") == 0) { NV_t *e = _var_bucket_find("_OUTPUT"); return e ? (e->is_gva ? *e->cell : e->val) : NULVCL; }
     _io_chan_setup();
     int ch = _io_chan_find_by_var(name);
     if (ch >= 0 && !_io_chan[ch].is_output && _io_chan[ch].fp) {
@@ -2367,7 +2378,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
         fprintf(_io_chan[ch].fp, "%s\n", s ? s : "");
         return val;
     }
-    if (strcmp(name, "OUTPUT") == 0) { output_val(val); return val; }
+    if (strcmp(name, "OUTPUT") == 0) { output_val(val); _var_assoc_set("_OUTPUT", val); return val; }
     if (strcmp(name, "TERMINAL") == 0) {
         const char *s = IS_STR(val) ? rt_cstr_d(val) : "";
         fprintf(stderr, "%s\n", s);
