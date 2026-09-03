@@ -31,13 +31,36 @@ gate_require_exec "$ROOT/scrip" "the scrip compiler (make -j4 scrip)"
 gate_require "$SCAN" "the scan half of this gate"
 
 CORP="$(cd "$ROOT/../corpus" 2>/dev/null && pwd || true)"
-if [ -n "${SCRIP_PEVC_PROGRAMS:-}" ]; then read -r -a PROGS <<< "$SCRIP_PEVC_PROGRAMS"
+# ⛔⭐⭐ AN UNRESOLVABLE *NAMED* WITNESS REFUSES rc=2 -- IT DOES NOT SILENTLY SHRINK THE POPULATION (ceo ruling 2026-09-02,
+# GOAL-CEO CEO-151; found by hq_P while curing the demo regen).  This roster used to name `demos/prolog/family.pl`, which has
+# not existed since 924bd8bd0 renamed corpus/demo -> corpus/demos (the file is and was `family_prolog.pl`).  The gather was
+# `[ -f ... ] && PROGS+=(...)`, so the missing name was DROPPED WITHOUT A WORD and the gate went green over FIVE witnesses
+# while reading -- to anyone looking at the roster -- as if it had covered six.  ⛔ NOT A FALSE GREEN: A QUIETLY NARROWED ONE,
+# which is worse, because a false green is disbelieved the moment anyone checks and a narrowed one survives every check.
+# ⭐ THE LAW (RULES.md § THE INSTRUMENT LAWS, measured vs never ran): a NAMED witness that does not resolve is a measurement
+# that NEVER RAN, and an instrument may not report the absence of evidence as evidence of absence.  The old `${#PROGS[@]} -eq 0`
+# refusal below only fired when ALL SIX vanished -- it guarded the empty case and left every partial case wide open.
+# ⛔ THE DISTINCTION THIS KEEPS: a NAMED witness that will not COMPILE is still excluded-with-a-warning further down, because
+# that is a measurement that ran and came back negative.  Unresolvable is not the same as uncompilable, and only the first is
+# a refusal: the gate cannot tell the difference between a witness deliberately retired and one lost to a rename, so it stops.
+MISSING=()
+if [ -n "${SCRIP_PEVC_PROGRAMS:-}" ]; then
+    read -r -a NAMED <<< "$SCRIP_PEVC_PROGRAMS"; NAMED_SRC="SCRIP_PEVC_PROGRAMS"; PROGS=()
+    for p in "${NAMED[@]}"; do if [ -f "$p" ]; then PROGS+=("$p"); else MISSING+=("$p"); fi; done
 else
-    PROGS=()
+    NAMED_SRC="this gate's default roster"; PROGS=()
     for p in benchmarks/pascal/quick.pas benchmarks/pascal/queens.pas benchmarks/pascal/perm.pas \
-             benchmarks/pascal/fbench.pas demos/prolog/family.pl benchmarks/icon/tgrlink.icn; do
-        [ -n "$CORP" ] && [ -f "$CORP/$p" ] && PROGS+=("$CORP/$p")
+             benchmarks/pascal/fbench.pas demos/prolog/family_prolog.pl benchmarks/icon/tgrlink.icn; do
+        if [ -n "$CORP" ] && [ -f "$CORP/$p" ]; then PROGS+=("$CORP/$p"); else MISSING+=("$p"); fi
     done
+fi
+if [ "${#MISSING[@]}" -ne 0 ]; then
+    echo "GATE UNPROVEN(2) [$GATE_NAME]: ${#MISSING[@]} of $(( ${#MISSING[@]} + ${#PROGS[@]} )) named witness(es) in $NAMED_SRC do not resolve (corpus at '${CORP:-?}'):"
+    printf '      ⛔ %s\n' "${MISSING[@]}"
+    echo "    This is NOT a pass and NOT a smaller board. A NAMED witness that does not resolve is a measurement that NEVER RAN;"
+    echo "    certifying the ${#PROGS[@]} that did resolve would report less coverage than the roster claims, silently."
+    echo "    Cure: re-point the name (a rename), or delete it from the roster (a retirement) -- both are edits someone must make."
+    gate_stamp; exit 2
 fi
 [ "${#PROGS[@]}" -eq 0 ] && { echo "GATE UNPROVEN(2) [$GATE_NAME]: no witness programs found (corpus at '${CORP:-?}')";
                               echo "    This is NOT a pass. The gate compiled nothing, so it certifies nothing."; gate_stamp; exit 2; }
