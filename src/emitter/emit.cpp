@@ -2951,12 +2951,26 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
               _lseed = x86("comment", "LCL-SEED: NULVCL the named-local vslot suffix [___+lo, ___+rg) so lexical locals read unbound, not stack residue")
                      + x86("mov", "rdi", "rsp") + x86("add", "rdi", (long)_lo) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)(_rg - _lo)) + x86("rep_stosb"); }
         static int _iws = -1; if (_iws < 0) { const char * _e = getenv("SCRIP_ICN_WIRE_STACK"); _iws = (_e && *_e == (char)48) ? 0 : 1; }
+        std::string _level_incr;
+        if (_use_zframe_install && _iws) {
+            extern int * const rt_k_level_p; extern int64_t kw_fnclevel;
+            _level_incr = x86("comment", "&level ENTRY-side increment (row icon-rung-ladder-absorption): mirrors bb_define_activate's enter_env pair verbatim (bb_define.cpp:94-101) so every ICN-FR-2/wire-stack activation increments rt_k_level on entry, balancing xa_flat_zframe_epilogue_{gamma,omega}_str's already-landed exit-side decrement -- see FINDING-2026-08-30-seat01-icon-level-exact-fix-sites-located-implementation-ready.md sec 2. rax/rcx are free here: not yet loaded with np/nl/the args_install target.")
+                        + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
+                        + x86("mov", "rax", RDQ("rax", 0))
+                        + x86("add", RDD("rax", 0), (long)1)
+                        + x86("mov", "ecx", RDD("rax", 0))
+                        + x86("movsxd", "rcx", "ecx")
+                        + x86("sub", "rcx", (long)1)
+                        + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel")
+                        + x86("mov", RDQ("rax", 0), "rcx");
+        }
         if (g_is_text) {
             char _lp[512]; int _lz = 0;
             _lz += _iws ? snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "sub rsp, %d\n", frame_total)
                         : snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "sub rsp, %d\nmov qword ptr [rsp + %d], rcx\nmov qword ptr [rsp + %d], rdx\n", frame_total, frame_total - 24, frame_total - 16);
             emit_text_n(_lp, strlen(_lp));
             if (!_lseed.empty()) bb_emit_x86(_lseed);
+            if (!_level_incr.empty()) bb_emit_x86(_level_incr);
             _lz = 0; _lz += snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "mov rdi, rsp\nmov esi, %d\nmov edx, %d\ncall %s@PLT\n", np, nl, _use_zframe_install ? "rt_icn_zframe_args_install" : "rt_lcl_proc_args_install");
             emit_text_n(_lp, strlen(_lp));
         } else {
@@ -2967,6 +2981,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             { static int _hd = -1; if (_hd < 0) { const char * _e = getenv("SCRIP_ICN_HDR_DEAD"); _hd = (_e && *_e == '1') ? 1 : 0; } if (_hd) { int _d = frame_total - 8; ef_b2(0x48, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x6C, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0xAC, 0x24); bb_emit_u32((uint32_t)_d); } } }
             }
             if (!_lseed.empty()) bb_emit_x86(_lseed);
+            if (!_level_incr.empty()) bb_emit_x86(_level_incr);
             ef_b3(0x48, 0x89, 0xE7);
             ef_b1(0xBE); bb_emit_u32((uint32_t)np);
             ef_b1(0xBA); bb_emit_u32((uint32_t)nl);
