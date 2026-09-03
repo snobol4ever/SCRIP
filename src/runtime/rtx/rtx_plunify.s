@@ -30,6 +30,29 @@ RTX_FUNC(rt_pl_cut_barrier)
     mov     r13, qword ptr [rdi + 24]
     ret
 RTX_ENDF(rt_pl_cut_barrier)
+RTX_FUNC(rt_pl_throw_raise)
+    sub     rsp, 8
+    call    rt_pl_ball_make
+    mov     r15, rax
+    add     rsp, 8
+    mov     eax, DT_FAIL | (MOD_OP_RT_PL_THROW_RAISE << 8)
+    xor     edx, edx
+    ret
+RTX_ENDF(rt_pl_throw_raise)
+RTX_FUNC(rt_pl_exist_raise)
+    sub     rsp, 8
+    call    rt_pl_ball_existence
+    mov     r15, rax
+    add     rsp, 8
+    mov     eax, DT_FAIL | (MOD_OP_RT_PL_EXIST_RAISE << 8)
+    xor     edx, edx
+    ret
+RTX_ENDF(rt_pl_exist_raise)
+RTX_FUNC(rt_pl_ball_take)
+    mov     rax, r15
+    xor     r15d, r15d
+    ret
+RTX_ENDF(rt_pl_ball_take)
 RTX_FUNC(rt_pl_disj_open)
     mov     qword ptr [rdi + 32], rsi
     test    r13, r13

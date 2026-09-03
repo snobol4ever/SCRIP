@@ -182,7 +182,7 @@ static const char * pl_rung6_builtins[] = { "=..", "==", "@<", "@=<", "@>", "@>=
 static const char * pl_rung7_builtins[] = { "between", "repeat", "clause", "retract", "sub_atom", "for", "current_op", "current_predicate", "predicate_property",
     "current_prolog_flag", "current_stream", "stream_property", NULL };
 static const char * pl_rung8_builtins[] = { "findall", "bagof", "setof", "aggregate_all", NULL };
-static const char * pl_rung9_builtins[] = { "catch", "throw", NULL };
+static const char * pl_rung9_builtins[] = { "catch", NULL };
 static const char * pl_rung10_builtins[] = { "call", "assert", "asserta", "assertz", "retractall", "abolish", "dynamic", "nb_setval", "nb_getval", "b_setval", "b_getval", "phrase",
     "with_output_to", "setup_call_cleanup", "use_module", "ensure_loaded", "module", "set_prolog_flag", NULL };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -379,8 +379,8 @@ static const tree_t * pl_atom_goal(const char * nm) {
 static IR_t * pl_lower_ite(lcx_t * cx, const tree_t * C, const tree_t * T, const tree_t * E, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     IR_t * ig = build(cx, IR_INDIRECT_GOTO, γnext, ωfail);
     IR_t * mark = build(cx, IR_BOUND, NULL, ig);
-    IR_t * unmk_c = build(cx, IR_UNMARK, ig, ig); ir_operand_push(unmk_c, mark);
-    IR_t * unmk_f = build(cx, IR_UNMARK, ig, ig); ir_operand_push(unmk_f, mark);
+    IR_t * unmk_c = build(cx, IR_UNMARK, ig, ωfail); ir_operand_push(unmk_c, mark); IR_LIT(unmk_c).ival = 1;
+    IR_t * unmk_f = build(cx, IR_UNMARK, ig, ωfail); ir_operand_push(unmk_f, mark); IR_LIT(unmk_f).ival = 1;
     IR_t * arm_entry[2] = { NULL, NULL };
     const tree_t * arms[2]; int nb = 0;
     arms[nb++] = T; if (E) arms[nb++] = E;
@@ -465,7 +465,9 @@ static IR_t * pl_leaf_lv(lcx_t * cx, const char * sym, const tree_t * t, int nar
 static IR_t * pl_user_call(lcx_t * cx, const char * nm, const tree_t * t, int nargs, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     { char key[264]; snprintf(key, sizeof key, "%s/%d", nm, nargs);
       const tree_t * ch = resolve_pred_table_lookup(&g_stage2.resolve_pred_table, key);
-      if (!ch) pl_refuse("existence error for unknown procedure", key, 9);
+      if (!ch) { tree_t * kt = ast_node_new(TT_QLIT); kt->v.sval = strdup(key);
+                 tree_t * ct = ast_node_new(TT_FNC); ct->v.sval = (char *) "$existence_error"; ast_push(ct, kt);
+                 return pl_leaf(cx, "$existence_error", ct, 1, ωfail, ωfail, entry_out); }
       if (ch->t == TT_FNC) { IR_t * nd = build(cx, IR_GOTO, ωfail, ωfail); if (entry_out) *entry_out = nd; return nd; } }
     IR_t * nd = build(cx, IR_CALL_PROC_STAGED, γnext, ωfail); IR_LIT(nd).sval = pl_pi_name(nm, nargs);
     IR_t * prev = NULL; IR_t * first = NULL;
@@ -546,6 +548,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             cx->cutω = saveω;
             return r;
         }
+        if (!strcmp(nm, "throw") && t->n == 1) return pl_leaf(cx, "$throw", t, 1, ωfail, ωfail, entry_out);
         if (!strcmp(nm, "=") && t->n == 2) { IR_t * e = NULL; IR_t * nd = unify_pair(cx, t->c[0], t->c[1], γnext, ωfail, &e); if (entry_out) *entry_out = e ? e : nd; return nd; }
         if (!strcmp(nm, "\\=") && t->n == 2) {
             tree_t * u = ast_node_new(TT_UNIFY); ast_push(u, (tree_t *) t->c[0]); ast_push(u, (tree_t *) t->c[1]);

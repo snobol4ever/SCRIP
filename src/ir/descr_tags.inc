@@ -80,4 +80,6 @@
 #define MOD_OP_RT_STR_CONCAT_D         140   /* rtx_str.s     str_concat_d           */
 #define MOD_OP_RT_COERCE_NUM2_D        141   /* rtx_icnnum.s  rt_coerce_num2_d       */
 #define MOD_OP_RT_MATCH_REPLACE        142   /* rtx_match.s   rt_match_replace       */
+#define MOD_OP_RT_PL_THROW_RAISE       143   /* rtx_plunify.s rt_pl_throw_raise      */
+#define MOD_OP_RT_PL_EXIST_RAISE       144   /* rtx_plunify.s rt_pl_exist_raise      */
 #endif

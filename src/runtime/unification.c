@@ -1523,6 +1523,58 @@ pl_cell_t rt_pl_cell_snapshot(void *cell)
     pl_cell_t *vaddr[256]; pl_cell_t *vnew[256]; int vn = 0;
     return pl_cell_copy_cells((pl_cell_t *)cell, vaddr, vnew, &vn, 256);
 }
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_pl_ball_make(DESCR_t *a, int n)
+{
+    if (!a || n < 1) return (void *)0;
+    pl_cell_t *b = (pl_cell_t *)PL_CELL_ALLOC(sizeof(pl_cell_t));
+    if (!b) return (void *)0;
+    *b = rt_pl_cell_snapshot(&a[0]);
+    return (void *)b;
+}
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *pl_ball_key_str(DESCR_t d)
+{
+    if ((int)d.v == DT_A) return prolog_atom_name((int)d.i);
+    if ((int)d.v == DT_S || (int)d.v == DT_N) return d.s;
+    return (const char *)0;
+}
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_pl_ball_existence(DESCR_t *a, int n)
+{
+    const char *key = (a && n > 0) ? pl_ball_key_str(a[0]) : (const char *)0;
+    char nm[200]; int ar = 0;
+    const char *sl = key ? strrchr(key, '/') : (const char *)0;
+    if (sl) { size_t kl = (size_t)(sl - key); if (kl > sizeof nm - 1) kl = sizeof nm - 1; memcpy(nm, key, kl); nm[kl] = 0; ar = atoi(sl + 1); }
+    else { snprintf(nm, sizeof nm, "%s", key ? key : "?"); }
+    pl_cell_t pi[2]; pi[0] = pl_make_atom(prolog_atom_intern(nm)); pi[1] = pl_make_int(ar);
+    pl_cell_t *pic = (pl_cell_t *)rt_pl_compound_cell("/", 2, (void *)pi);
+    if (!pic) return (void *)0;
+    pl_cell_t ee[2]; ee[0] = pl_make_atom(prolog_atom_intern("procedure")); ee[1] = *pic;
+    pl_cell_t *eec = (pl_cell_t *)rt_pl_compound_cell("existence_error", 2, (void *)ee);
+    if (!eec) return (void *)0;
+    pl_cell_t er[2]; er[0] = *eec; er[1] = *pic;
+    return rt_pl_compound_cell("error", 2, (void *)er);
+}
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_root_omega(void)
+{
+    extern void *rt_pl_ball_take(void);
+    void *ball = rt_pl_ball_take();
+    if (!ball) exit(1);
+    rt_pl_ball_report(ball);
+    exit(0);
+}
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_ball_report(void *ball)
+{
+    extern void rt_pl_write_cell_fp(void *, FILE *);
+    fflush(stdout);
+    fprintf(stderr, "Warning: goal raised exception: ");
+    if (ball) rt_pl_write_cell_fp(ball, stderr); else fprintf(stderr, "unknown");
+    fprintf(stderr, "\n");
+    fflush(stderr);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_cell_atom_id(pl_cell_t *c)
 {

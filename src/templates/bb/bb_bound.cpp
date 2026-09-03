@@ -22,7 +22,11 @@ std::string bb_bound() {
                + x86("call_bare", "rt_pl_disj_open", fp2)
                + x86_gamma() + x86_beta_trampoline()
              : x86("comment", "IR_UNMARK pinned arm (rung 5): undo to the paired IR_BOUND's mark before leaving. Same named rtx helper the rung-2 clause step, the rung-3 disjunction step and the rung-7 generator step use -- the only writer of r12 on this path.")
-               + x86_alpha() + x86("mov", "rdi", FRQ(_.op_off)) + x86("call_bare", "rt_pl_tr_unwind", fp) + x86_gamma() + x86_beta_trampoline();
+               + x86_alpha() + x86("mov", "rdi", FRQ(_.op_off)) + x86("call_bare", "rt_pl_tr_unwind", fp)
+               + IF(_.op_ival == 1,
+                     x86("comment", "AND THE C9 BALL GUARD (rung 9, ARCH sec A.1 review C9 + sec B.7): this unmark is a CONDITION-FAILURE landing, and a ball in flight is not a failure -- without the test, `( throw(oops) -> yes ; no )` undoes the trail and then runs the ELSE arm, which is an if-then-else SWALLOWING an exception (measured: it printed no/after). The lowerer sets the flag only on the landings that can be reached with a ball, so this costs an Icon or SNOBOL4 unmark nothing: they never carry it.")
+                   + x86("test", "r15", "r15") + x86_omega("jne"))
+               + x86_gamma() + x86_beta_trampoline();
     }
     if (_.op_zres) {
         if (_.op_sb == 1)

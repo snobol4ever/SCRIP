@@ -20,7 +20,7 @@ extern "C" {
 }
 static int bid_bake_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BID_BAKE"); v = (e && *e == '0') ? 0 : 1; } return v; }
 static long bid_bake_of(const char * fn) { if (!bid_bake_on() || !fn) return -1L; size_t n = strlen(fn); if (n > 0xFFFFu) return -1L; return (long)(((unsigned long)n << 16) | (unsigned long)(unsigned)bid_of(fn, (unsigned)n)); }
-DESCR_t rt_pl_dop_unify(DESCR_t *, int); DESCR_t rt_pl_dop_mkc(DESCR_t *, int); DESCR_t dop_write(DESCR_t *, int); DESCR_t dop_nl(DESCR_t *, int); DESCR_t rt_pl_dop_is_v(DESCR_t *, int);
+DESCR_t rt_pl_throw_raise(DESCR_t *, int); DESCR_t rt_pl_exist_raise(DESCR_t *, int); DESCR_t rt_pl_dop_unify(DESCR_t *, int); DESCR_t rt_pl_dop_mkc(DESCR_t *, int); DESCR_t dop_write(DESCR_t *, int); DESCR_t dop_nl(DESCR_t *, int); DESCR_t rt_pl_dop_is_v(DESCR_t *, int);
 DESCR_t rt_pl_dop_ax_add(DESCR_t *, int); DESCR_t rt_pl_dop_ax_sub(DESCR_t *, int); DESCR_t rt_pl_dop_ax_mul(DESCR_t *, int); DESCR_t rt_pl_dop_ax_div(DESCR_t *, int); DESCR_t rt_pl_dop_ax_idiv(DESCR_t *, int); DESCR_t rt_pl_dop_ax_mod(DESCR_t *, int);
 DESCR_t rt_pl_dop_cmp_lt(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_gt(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_le(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_ge(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_eq(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_ne(DESCR_t *, int);
 DESCR_t rt_pl_dop_compare(DESCR_t *, int); DESCR_t rt_pl_dop_functor(DESCR_t *, int); DESCR_t rt_pl_dop_arg(DESCR_t *, int); DESCR_t rt_pl_dop_univ(DESCR_t *, int);
@@ -297,6 +297,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
 void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
     static const struct { const char * nm; int ar; const char * sy; DESCR_t (*fp)(DESCR_t *, int); } t[] = {
         { "$unify", 2, "rt_pl_dop_unify", rt_pl_dop_unify }, { "$mkc", -1, "rt_pl_dop_mkc", rt_pl_dop_mkc },
+        { "$throw", 1, "rt_pl_throw_raise", rt_pl_throw_raise }, { "$existence_error", 1, "rt_pl_exist_raise", rt_pl_exist_raise },
         { "$write", 1, "dop_write", dop_write }, { "$nl", 0, "dop_nl", dop_nl }, { "$is_v", 2, "rt_pl_dop_is_v", rt_pl_dop_is_v },
         { "$ax_add", 2, "rt_pl_dop_ax_add", rt_pl_dop_ax_add }, { "$ax_sub", 2, "rt_pl_dop_ax_sub", rt_pl_dop_ax_sub }, { "$ax_mul", 2, "rt_pl_dop_ax_mul", rt_pl_dop_ax_mul },
         { "$ax_div", 2, "rt_pl_dop_ax_div", rt_pl_dop_ax_div }, { "$ax_idiv", 2, "rt_pl_dop_ax_idiv", rt_pl_dop_ax_idiv }, { "$ax_mod", 2, "rt_pl_dop_ax_mod", rt_pl_dop_ax_mod },

@@ -97,6 +97,7 @@ static void n2_fb_prepass_register(const stage2_t *s2) { if (!s2) return;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_zf_exit_γ(void) { exit(0); }
 static void icn_zf_exit_ω(void) { exit(1); }
+
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_zf_main_call(void *fn, void *mf, void *wire_γ, void *wire_ω) {
     __asm__ volatile(
@@ -1353,7 +1354,8 @@ int main(int argc, char **argv)
                 emit_textf("  lea rdx, [rip + .Lmain_zf_ω]\n");
                 emit_textf("  jmp main_\xce\xb1\n");
                 emit_textf(".Lmain_zf_γ:\n  xor edi, edi\n  call exit@PLT\n");
-                emit_textf(".Lmain_zf_ω:\n  mov edi, 1\n  call exit@PLT\n");
+                if (_pinned_root) emit_textf(".Lmain_zf_ω:\n  call rt_pl_root_omega@PLT\n");
+                else emit_textf(".Lmain_zf_ω:\n  mov edi, 1\n  call exit@PLT\n");
             } else {
             emit_textf("  xor r14d, r14d\n");
             emit_textf("  jmp main_\xce\xb1\n");
@@ -1744,13 +1746,15 @@ int main(int argc, char **argv)
                 abort();
             }
             int _nparams = bbg->nparams, _zframe_graph = bbg->zframe_graph, _icn_cells_graph = bbg->icn_cells_graph;
+            int _zframe_pinned_root = (bbg->zframe_pinned_base && bbg->root_graph) ? 1 : 0;
             ir_delete_all(s2);
             void *mf = NULL;
             if (_nparams >= 1) { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); }
             { extern void bbprof_start(void); bbprof_start(); }
             { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }
             if (_zframe_graph && !_icn_cells_graph) {
-                icn_zf_main_call((void *)fn, mf, (void *)icn_zf_exit_γ, (void *)icn_zf_exit_ω);
+                { extern void rt_pl_root_omega(void);
+                  icn_zf_main_call((void *)fn, mf, (void *)icn_zf_exit_γ, _zframe_pinned_root ? (void *)rt_pl_root_omega : (void *)icn_zf_exit_ω); }
             } else
             { extern void rt_outer_call(bb_box_fn, void *, long);  { extern void rtcc_load_all(void); extern unsigned char g_rtcc_on; if (g_rtcc_on) rtcc_load_all(); }    { extern void rt_outer_call_delta0(bb_box_fn, void *, long); if (is_icon) rt_outer_call_delta0(fn, mf, 0); else rt_outer_call(fn, mf, 0); } }
             goto run_done;
