@@ -18,9 +18,10 @@ std::string bb_keyword_icon() {
     return _.op_zres
          ? (!strcmp(kw, "subject")
             ? (g_scan_regs_live
-               ? x86("comment", "KEYWORD_subject_reg->ZRES (ZK-2)")
+               ? x86("comment", "KEYWORD_subject_reg->ZRES (ZK-2): word0 is {v:1,mod_op:1,src_node:2,slen:4} packed (descr.h) -- a bare `mov ZRES(0),DT_S` zeroes slen along with it (row icon-scan-subj-cglobal-retirement's *&subject-in-scan-is-0 sibling), so the tag and the live length (r15) land in the same word as two dword stores instead of one clobbering qword one.")
                + x86_alpha()
-               + x86("mov", ZRES(0), (long)DT_S)
+               + x86("mov", ZRESD(0), (long)DT_S)
+               + x86("mov", ZRESD(4), "r15d")
                + x86("note", ZRESN())
                + x86("mov",  ZRES(8), "r13")
                + x86_gamma() + x86_beta_trampoline()
@@ -50,9 +51,10 @@ std::string bb_keyword_icon() {
           : x86_alpha() + x86_bomb("bb_keyword_icon: unhandled keyword in ZD arm"))
          : (!strcmp(kw, "subject")
             ? (g_scan_regs_live
-               ? x86("comment", "KEYWORD_subject_reg")
+               ? x86("comment", "KEYWORD_subject_reg: same word0 packing fix as the ZRES arm above -- v/slen share one qword, so this needs a dword pair, not a single clobbering qword store of the bare tag.")
                + x86_alpha()
-               + x86("mov", FRQ(_.op_off),     (long)DT_S)
+               + x86("mov", FR(_.op_off),      (long)DT_S)
+               + x86("mov", FR(_.op_off + 4),  "r15d")
                + x86("mov", FRQ(_.op_off + 8), "r13")
                + x86_gamma() + x86_beta() + x86_omega()
                : x86("comment", "KEYWORD_subject_call")

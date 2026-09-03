@@ -48,8 +48,15 @@ ENTRY_FLOOR="${ICON_MASTER_ENTRY_FLOOR:-534}"
 # (corpus 53477317) gave those fixtures correct dumps, which match RUN output even less, so the old board fell
 # 398 -> 377. An instrument that gets worse as its subject improves is not miscalibrated, it is measuring
 # something else.
-M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-377}"
-M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-377}"
+# RE-PINNED 377 -> 379 (row icon-level-keyword-not-tracked, this same commit): &level's entry-side increment
+# was landing but its &level READ (keywords.c) still returned the raw un-adjusted counter (kw_fnclevel's own
+# "-1" convention never applied to Icon's "level" keyword string), and *&subject's word0 was a bare `mov`
+# of the DT_S tag that clobbered slen along with it whenever built from the in-scan r13/r15 fast path
+# (bb_keyword_icon.cpp) -- both cured this commit, procedure_alt_fail_replace_1 and procedure_scan_write_1
+# move FAIL -> PASS in both modes; procedure_every_alt_replace_4 still shows &progname mismatch, which is
+# the consolidation rename itself (correct compiler behavior), not a defect -- see the FINDING.
+M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-379}"
+M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-379}"
 AST_PASS_FLOOR="${ICON_MASTER_AST_PASS_FLOOR:-153}"
 
 # ⛔ A BOARD THAT CANNOT MEASURE REFUSES rc=2 — never skip-as-success (RULES.md). Each arm below names
