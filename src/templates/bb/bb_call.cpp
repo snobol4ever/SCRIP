@@ -38,7 +38,7 @@ DESCR_t rt_pl_dop_downcase_atom(DESCR_t *, int); DESCR_t rt_pl_dop_string_concat
 DESCR_t rt_pl_dop_string_upper(DESCR_t *, int); DESCR_t rt_pl_dop_string_to_atom(DESCR_t *, int); DESCR_t rt_pl_dop_number_string(DESCR_t *, int);
 DESCR_t rt_pl_dop_atomic_list_concat(DESCR_t *, int); DESCR_t rt_pl_dop_concat_atom(DESCR_t *, int); DESCR_t rt_pl_dop_char_code(DESCR_t *, int); DESCR_t rt_pl_dop_number_codes(DESCR_t *, int);
 DESCR_t rt_pl_dop_number_chars(DESCR_t *, int); DESCR_t rt_pl_dop_name(DESCR_t *, int); DESCR_t rt_pl_dop_get_char(DESCR_t *, int); DESCR_t rt_pl_dop_peek_char(DESCR_t *, int);
-DESCR_t rt_pl_dop_read(DESCR_t *, int); DESCR_t rt_pl_dop_atom_to_term(DESCR_t *, int); DESCR_t dop_pl_var(DESCR_t *, int); DESCR_t dop_pl_nonvar(DESCR_t *, int); DESCR_t dop_pl_atom(DESCR_t *, int); DESCR_t dop_pl_number(DESCR_t *, int);
+DESCR_t rt_pl_dop_read(DESCR_t *, int); DESCR_t rt_pl_dop_atom_to_term(DESCR_t *, int); DESCR_t rt_pl_dop_read_term_from_atom(DESCR_t *, int); DESCR_t rt_pl_dop_read_term_from_chars(DESCR_t *, int); DESCR_t rt_pl_dop_read_term_from_codes(DESCR_t *, int); DESCR_t dop_pl_var(DESCR_t *, int); DESCR_t dop_pl_nonvar(DESCR_t *, int); DESCR_t dop_pl_atom(DESCR_t *, int); DESCR_t dop_pl_number(DESCR_t *, int);
 DESCR_t dop_pl_integer(DESCR_t *, int); DESCR_t dop_pl_float(DESCR_t *, int); DESCR_t dop_pl_atomic(DESCR_t *, int); DESCR_t dop_pl_compound(DESCR_t *, int);
 DESCR_t dop_pl_callable(DESCR_t *, int); DESCR_t dop_pl_ground(DESCR_t *, int); DESCR_t dop_pl_is_list(DESCR_t *, int); DESCR_t dop_pl_acyclic_term(DESCR_t *, int);
 DESCR_t dop_pl_atop_lt(DESCR_t *, int); DESCR_t dop_pl_atop_le(DESCR_t *, int); DESCR_t dop_pl_atop_gt(DESCR_t *, int); DESCR_t dop_pl_atop_ge(DESCR_t *, int);
@@ -333,7 +333,9 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$concat_atom", 3, "rt_pl_dop_concat_atom", rt_pl_dop_concat_atom }, { "$char_code", 2, "rt_pl_dop_char_code", rt_pl_dop_char_code },
         { "$number_codes", 2, "rt_pl_dop_number_codes", rt_pl_dop_number_codes }, { "$number_chars", 2, "rt_pl_dop_number_chars", rt_pl_dop_number_chars },
         { "$name", 2, "rt_pl_dop_name", rt_pl_dop_name }, { "$get_char", 1, "rt_pl_dop_get_char", rt_pl_dop_get_char }, { "$peek_char", 1, "rt_pl_dop_peek_char", rt_pl_dop_peek_char },
-        { "$read", 1, "rt_pl_dop_read", rt_pl_dop_read }, { "$atom_to_term", 3, "rt_pl_dop_atom_to_term", rt_pl_dop_atom_to_term }, { "$var", 1, "dop_pl_var", dop_pl_var }, { "$nonvar", 1, "dop_pl_nonvar", dop_pl_nonvar }, { "$atom", 1, "dop_pl_atom", dop_pl_atom },
+        { "$read", 1, "rt_pl_dop_read", rt_pl_dop_read }, { "$atom_to_term", 3, "rt_pl_dop_atom_to_term", rt_pl_dop_atom_to_term },
+        { "$read_term_from_atom", 3, "rt_pl_dop_read_term_from_atom", rt_pl_dop_read_term_from_atom }, { "$read_term_from_chars", 3, "rt_pl_dop_read_term_from_chars", rt_pl_dop_read_term_from_chars }, { "$read_term_from_codes", 3, "rt_pl_dop_read_term_from_codes", rt_pl_dop_read_term_from_codes },
+        { "$var", 1, "dop_pl_var", dop_pl_var }, { "$nonvar", 1, "dop_pl_nonvar", dop_pl_nonvar }, { "$atom", 1, "dop_pl_atom", dop_pl_atom },
         { "$number", 1, "dop_pl_number", dop_pl_number }, { "$integer", 1, "dop_pl_integer", dop_pl_integer }, { "$float", 1, "dop_pl_float", dop_pl_float },
         { "$atomic", 1, "dop_pl_atomic", dop_pl_atomic }, { "$compound", 1, "dop_pl_compound", dop_pl_compound }, { "$callable", 1, "dop_pl_callable", dop_pl_callable },
         { "$ground", 1, "dop_pl_ground", dop_pl_ground }, { "$is_list", 1, "dop_pl_is_list", dop_pl_is_list }, { "$acyclic_term", 1, "dop_pl_acyclic_term", dop_pl_acyclic_term },

@@ -1632,7 +1632,7 @@ PL_CX_LEAF_HEAD(get_char, 1) { extern FILE *fh_cur_in_fp(void); int c = fgetc(fh
 PL_CX_LEAF_HEAD(peek_char, 1) { extern FILE *fh_cur_in_fp(void); int c = fgetc(fh_cur_in_fp());
     if (c == EOF) ok = plw_unify_vals(args[0], pl_mk_atom("end_of_file"), cx);else { ungetc(c, fh_cur_in_fp());char c2[2] = { (char)c, 0 };
     ok = plw_unify_vals(args[0], pl_mk_atom_dup(c2, 1), cx); } } PL_CX_LEAF_TAIL
-typedef struct { const char *nm[256]; DESCR_t v[256]; int n; } pl_vtab_t;
+typedef struct { const char *nm[256]; DESCR_t v[256]; int cnt[256]; int n; } pl_vtab_t;
 static DESCR_t pl_tree_cell(const tree_t *t, pl_vtab_t *vt) {
     extern int prolog_atom_intern(const char *); extern DESCR_t rt_pl_fresh_var_ref(void);
     if (!t) return pl_mk_atom("?");
@@ -1641,9 +1641,9 @@ static DESCR_t pl_tree_cell(const tree_t *t, pl_vtab_t *vt) {
     case TT_FLIT: return REALVAL(t->v.dval);
     case TT_QLIT: case TT_NAME: return pl_mk_atom_dup(t->v.sval ? t->v.sval : "?", strlen(t->v.sval ? t->v.sval : "?"));
     case TT_VAR: { const char *nm = t->v.sval; if (!nm || nm[0] == '_') return rt_pl_fresh_var_ref();
-        for (int i = 0; i < vt->n; i++) if (!strcmp(vt->nm[i], nm)) return vt->v[i];
+        for (int i = 0; i < vt->n; i++) if (!strcmp(vt->nm[i], nm)) { vt->cnt[i]++; return vt->v[i]; }
         if (vt->n >= 256) return rt_pl_fresh_var_ref();
-        vt->nm[vt->n] = nm; vt->v[vt->n] = rt_pl_fresh_var_ref(); return vt->v[vt->n++]; }
+        vt->nm[vt->n] = nm; vt->v[vt->n] = rt_pl_fresh_var_ref(); vt->cnt[vt->n] = 1; return vt->v[vt->n++]; }
     case TT_CUT: return pl_mk_atom("!");
     case TT_MAKELIST: { int bar = (t->v.ival == 1 && t->n > 0); DESCR_t acc = bar ? pl_tree_cell(t->c[t->n - 1], vt) : pl_nil();
         for (int i = (bar ? t->n - 2 : t->n - 1); i >= 0; i--) acc = pl_cons(pl_tree_cell(t->c[i], vt), acc); return acc; }
@@ -1690,6 +1690,22 @@ PL_CX_LEAF_HEAD(atom_to_term, 3) { char b[65536]; const char *txt; DESCR_t t; pl
         for (int i = 0; i < vt.n; i++) { DESCR_t *kids = (DESCR_t *)rt_plj_alloc(2 * sizeof(DESCR_t)); kids[0] = pl_mk_atom_dup(vt.nm[i], strlen(vt.nm[i])); kids[1] = vt.v[i];
             { DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (((uint32_t)prolog_atom_intern("=")) << 16) | 2u; c.p = (void *)kids; el[n++] = c; } }
         ok = plw_unify_vals(args[1], t, cx) && plw_unify_vals(args[2], pl_list_from_arr(el, n), cx); } } PL_CX_LEAF_TAIL
+static int pl_read_term_options_cell(DESCR_t opts, pl_vtab_t *vt, pl_tr_ctx_t *cx) { extern int prolog_atom_intern(const char *);
+    DESCR_t o = rt_pl_deref_val(opts);
+    while (pl_is_cons(o)) { DESCR_t *kids = (DESCR_t *)o.p; DESCR_t opt = rt_pl_deref_val(kids[0]);
+        if (opt.v == (DTYPE_t)DT_PLREF && (opt.slen & 0xFFFFu) == 1) { DESCR_t *oa = (DESCR_t *)opt.p; int fid = (int)(opt.slen >> 16);
+            int is_vars = fid == prolog_atom_intern("variables"), is_vn = fid == prolog_atom_intern("variable_names"), is_sing = fid == prolog_atom_intern("singletons");
+            if (is_vars || is_vn || is_sing) { DESCR_t el[256]; int n = 0;
+                for (int i = 0; i < vt->n; i++) { if (is_sing && vt->cnt[i] != 1) continue;
+                    if (is_vars) { el[n++] = vt->v[i]; continue; }
+                    { DESCR_t *k2 = (DESCR_t *)rt_plj_alloc(2 * sizeof(DESCR_t)); k2[0] = pl_mk_atom_dup(vt->nm[i], strlen(vt->nm[i])); k2[1] = vt->v[i];
+                      DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (((uint32_t)prolog_atom_intern("=")) << 16) | 2u; c.p = (void *)k2; el[n++] = c; } }
+                if (!plw_unify_vals(oa[0], pl_list_from_arr(el, n), cx)) return 0; } }
+        o = rt_pl_deref_val(kids[1]); }
+    return 1; }
+#define PL_READ_TERM_LEAF(nm) PL_CX_LEAF_HEAD(nm, 3) { char b[65536]; DESCR_t t; pl_vtab_t vt; \
+    ok = pl_list_text(args[0], b, sizeof b) && pl_parse_term_text(b, &t, &vt, (PlProgram **)0) && plw_unify_vals(args[1], t, cx) && pl_read_term_options_cell(args[2], &vt, cx); } PL_CX_LEAF_TAIL
+PL_READ_TERM_LEAF(read_term_from_atom) PL_READ_TERM_LEAF(read_term_from_chars) PL_READ_TERM_LEAF(read_term_from_codes)
 #define PL_IN_LEAF(nm, ar) PL_CX_LEAF_HEAD(nm##_s, ar) { extern int fh_current_input(void); extern void fh_set_input(int); int idx = pl_stream_idx(args[0], 0); ok = 0; \
     if (idx >= 0) { int sv = fh_current_input(); fh_set_input(idx); DESCR_t r = rt_pl_dop_##nm##_c(args + 1, ar - 1, cx); fh_set_input(sv); \
         ok = (r.v == (DTYPE_t)DT_I); } } PL_CX_LEAF_TAIL
