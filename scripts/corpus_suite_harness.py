@@ -1722,6 +1722,41 @@ def cmd_run(args):
                        f"'ast' (from --lang {args.lang}'s default), so BOTH populations would be graded by "
                        f"--dump-ast and every run-graded entry would fail against a ref it was never meant to "
                        f"match. Pass the run modes explicitly, e.g. --modes {_declared[0]}")
+    else:
+        # ⛔⭐⭐ THE MIRROR TRAP, AND THE ONE WITH THREE INDEPENDENT WITNESSES IN A SINGLE DAY. The block
+        # above guards `--by-modes-column` WITHOUT `--modes`. This guards `--modes` WITHOUT
+        # `--by-modes-column`: the suite declares `modes=ast` entries whose .ref is a --dump-ast DUMP, the
+        # caller asks for m3,m4, and every one of those entries is EXECUTED and diffed against an AST
+        # dump it was never meant to match. The reds are inevitable and mean nothing.
+        # MEASURED THREE TIMES, 2026-09-03/04, by three seats who did not know of each other:
+        #   Pascal   (seat11) -- 5 of the "eleven reds" were parser__* modes=ast entries, force-graded
+        #   Snocone  (seat12) -- the 175/273 false board; the real one is 7 of 206
+        #   Raku     (hq_T)   -- the 42-ast_fail false board, the mirror direction of the same root
+        # ⭐ Three suite-level fixes were proposed for what is ONE harness defect. The tell that it was
+        # one defect and not three: the same shape appeared in languages whose only shared component is
+        # this file. A defect that reproduces across independent lanes is in the thing they share.
+        # ⛔ REFUSES, and does not silently pick --by-modes-column for the caller: honouring a column the
+        # caller did not ask to honour would change which oracle grades an entry, which is exactly the
+        # decision that must never be made implicitly. Scoped to entries ACTUALLY IN THIS RUN, so a shard
+        # or family filter that excludes every ast entry is unaffected and never refuses.
+        _csvp = Path(args.sno).parent / "ALL.csv"
+        if _csvp.is_file() and modes and [m for m in modes if m != "ast"]:
+            import csv as _csv3
+            _decl = {}
+            try:
+                with open(_csvp, newline="") as _f3:
+                    for _row in _csv3.DictReader(_f3):
+                        if "modes" in _row:
+                            _decl[_row.get("entry")] = (_row.get("modes") or "").strip()
+            except OSError:
+                _decl = {}
+            _forced = [e.name for e in entries if _decl.get(e.name) == "ast"]
+            if _forced:
+                refuse(f"{_csvp.name} declares {len(_forced)} entr(y/ies) as modes=ast (first: {_forced[0]}), "
+                       f"whose .ref is a --dump-ast dump, but this run was asked for --modes {','.join(modes)} "
+                       f"WITHOUT --by-modes-column -- so those entries would be EXECUTED and diffed against an "
+                       f"AST dump they were never meant to match, manufacturing reds that mean nothing. "
+                       f"Pass --by-modes-column so each entry is graded by the modes it declares.")
     def _modes_for(e):
         # ⭐ UNKNOWN is a DEFAULT, never a declaration, and it is COUNTED separately below so it can never be
         # mistaken for one. The alternative -- refusing on UNKNOWN -- would block the honest board on 17 icon
