@@ -100,7 +100,7 @@ unlabeled_stmt
            | expr2 T_2QUEST opt_pattern opt_repl T_GOTO_F goto_label_expr T_GOTO_S goto_label_expr T_STMT_END { sno4_stmt_commit_go(yyparse_param,((Token){NULL,0,0,0}),expr_binary(TT_SCAN,$1,$3),NULL,($4!=NULL),$4,NULL,$8,$6); }
            ;
 opt_subject: expr14 T_CONCAT expr2                                                                 { $$=expr_binary(TT_SCAN,$1,$3); }
-           | expr14                                                                                 { $$=$1; }
+           | expr5                                                                                  { $$=$1; }
            |                                                                           { $$=NULL; }
            ;
 opt_pattern: expr3                                                                                 { $$=$1; }
