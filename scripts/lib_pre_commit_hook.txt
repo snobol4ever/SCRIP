@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# pre-commit — refuse a STAGED src/ file that carries a comment, at the moment it is being committed.
+#
+# ⛔⭐⭐ WHY THIS EXISTS, AND WHY DOCUMENTATION WAS NOT ENOUGH. src/ carries a repo-wide zero-comment
+# invariant (RULES.md § C style: one form only, the 200-char separator) and `strip_comments.py --check` is
+# the FIRST arm of `make test`. Three seats in three lanes broke it in one week — hq_B 92d300f07, hq_P
+# 84e02570, hq_T 589b0c78a — and `make test`'s own comment already documents the first two by name, with
+# the note "TWICE IN ONE EVENING, NEITHER SEAT AT FAULT in any way a reviewer would catch". A fourth
+# recurrence was a matter of time.
+#
+# ⭐ THE REASON IT KEEPS HAPPENING IS STRUCTURAL, and hq_C put it best while curing the third: a long
+# explanatory comment is the NATURAL and conscientious way to make a subtle shared-node change legible to
+# the next reader, and this codebase has deliberately closed that door. THE BETTER A SEAT EXPLAINS ITSELF
+# IN PLACE, THE REDDER THE BUILD. A rule that punishes the most careful instinct will keep catching the
+# most careful people, forever, until something makes the door visible AT THE MOMENT IT IS WALKED THROUGH.
+# More documentation is what already failed three times; this is the hook shape instead.
+#
+# ⛔ IT GRADES ONLY THE STAGED FILES, never the tree. A whole-tree check here would refuse an innocent
+# commit because a file the author never opened is dirty — which is how a guard earns a reputation for
+# being in the way and gets bypassed with --no-verify. It convicts the commit in front of it and nobody else.
+#
+# ⛔ IT SOURCES strip_comments.py RATHER THAN REIMPLEMENTING THE RULE. A second definition of "what counts
+# as a comment here" would drift from the one `make test` enforces, and the drift would be silent in
+# exactly the direction that lets a violation through.
+set -u
+root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+staged="$(git diff --cached --name-only --diff-filter=ACM -- 'src/*' 2>/dev/null)"
+[ -n "$staged" ] || exit 0
+# Repos without a src/ tree (corpus, .github) never reach here; SCRIP finds its own scripts/, and a sibling
+# checkout finds SCRIP next door — the same D-17 PORTABLE-HOME derivation every other script uses.
+sc=""
+for cand in "$root/scripts" "$root/../SCRIP/scripts" "${S4E_HOME:-}/SCRIP/scripts"; do
+    [ -n "$cand" ] && [ -f "$cand/strip_comments.py" ] && { sc="$cand"; break; }
+done
+[ -n "$sc" ] || exit 0
+out="$(cd "$root" && python3 "$sc/strip_comments.py" --check-files $staged 2>&1)"; rc=$?
+[ "$rc" -eq 0 ] && exit 0
+echo "⛔ COMMIT REJECTED — a staged src/ file carries a comment or a blank line." >&2
+echo "$out" | sed 's/^/   /' >&2
+cat >&2 <<'MSG'
+
+   src/ has a repo-wide ZERO-COMMENT invariant (RULES.md § C style: the only permitted form is the
+   200-char /*----*/ separator between functions). `strip_comments.py --check` is the FIRST arm of
+   `make test`, so a comment here turns arm one RED for EVERY seat on the box, on a file they never
+   touched — three seats in three lanes did exactly that in one week.
+
+   ⭐ YOUR EXPLANATION IS PROBABLY WORTH KEEPING. It is just in the wrong medium: a source comment is
+   found only by whoever opens that one file, while a FINDING is greppable from anywhere. Move the
+   prose to .github/FINDING-<date>-<seat>-<claim>.md and cite it from the commit message.
+
+   FIX: python3 scripts/strip_comments.py --apply     (then re-stage and commit)
+   Only if you are certain the rule should not apply here: git commit --no-verify
+MSG
+exit 1

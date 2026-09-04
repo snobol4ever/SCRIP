@@ -193,6 +193,25 @@ def clean_blank_runs(text):
 
 def main():
     mode = sys.argv[1] if len(sys.argv) > 1 else "--dry-run"
+    # ⛔⭐ `--check-files <paths...>` GRADES ONLY WHAT WAS HANDED TO IT, so a pre-commit hook can convict the
+    # commit in front of it and NOBODY ELSE. The whole-tree --check is the right thing inside `make test` and
+    # the wrong thing at commit time: it would refuse an innocent commit because a file the author never
+    # opened is dirty, which is how a guard earns a reputation for being in the way and gets bypassed.
+    # ⭐ It exists so the hook can SOURCE this authority instead of reimplementing the rule. A second
+    # implementation of "what counts as a comment here" would drift from this one, and the drift would be
+    # silent in exactly the direction that lets a violation through.
+    if mode == "--check-files":
+        files = [f for f in sys.argv[2:] if f.endswith(EXTS) and not GENERATED.search(f) and os.path.isfile(f)]
+        bad = []
+        for p in files:
+            with open(p, "r", errors="surrogateescape") as f:
+                src = f.read()
+            if clean_blank_runs(strip_file(p, src)) != src:
+                bad.append(p)
+        for p in bad:
+            sys.stderr.write("  %s\n" % p)
+        print("checked %d staged src file(s), %d carrying a comment or a blank line" % (len(files), len(bad)))
+        return 1 if bad else 0
     files = []
     for root, _, names in os.walk(SRC_ROOT):
         for nm in names:
@@ -228,4 +247,7 @@ def main():
     print("mode                             : %s" % mode)
 
 if __name__ == "__main__":
-    main()
+    # ⛔ PROPAGATE THE EXIT CODE. `main()` bare discards it, so --check-files printed the offending file and
+    # then exited 0 -- a guard that names the violation and lets it through, which is worse than no guard
+    # because the output looks like it worked. Measured on the first run of the new mode.
+    raise SystemExit(main() or 0)
