@@ -839,7 +839,7 @@ extern "C" int emit_port_exit_label_promotes(const char * label);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define N2_SELFREC_SLOTS 64
 inline int icn_genframe2_selfrec() {
-    static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ICN_N2_SELFREC"); v = (e && *e == '1') ? 1 : 0; } return v;
+    static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ICN_N2_SELFREC"); v = (e && *e == '0') ? 0 : 1; } return v;
 }
 inline int icn_gen_is_selfrec(const char * name) {
     if (!name || !name[0] || !rt_proc_is_registered(name) || !rt_proc_is_generator(name)) return 0;
