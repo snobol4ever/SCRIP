@@ -2078,6 +2078,11 @@ void core_runtime_error(int code, const char *msg) {
           rt_kw_publish_error(code, msg);
           rt_goto_transfer(lbl);
           exit(0);
+      }
+      if (kw_errlimit != 0) {
+          if (kw_errlimit > 0) kw_errlimit--;
+          rt_kw_publish_error(code, msg);
+          return;
       } }
     { extern long g_stno;
       fprintf(stderr, "\n** Error %d in statement %d\n   %s\n",
