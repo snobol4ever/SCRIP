@@ -1733,3 +1733,90 @@ static pl_cell_t pl_cell_copy_persist(pl_cell_t *c, pl_cell_t **vaddr, pl_cell_t
     }
     return *d;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define PL_DB_CELL0   24
+#define PL_DB_CELLS_MAX 64
+typedef struct { pl_cell_t cl; int erased; } pl_db_slot_t;
+typedef struct { pl_db_slot_t *s; int n; int cap; } pl_db_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void * rt_pl_db_get(void *root, int64_t k)
+{
+    extern void *rt_plj_alloc(size_t);
+    if (!root || k < 0 || k >= PL_DB_CELLS_MAX) return (void *)0;
+    { pl_db_t **cell = (pl_db_t **)((char *)root - PL_DB_CELL0 - 8 * (size_t)k);
+      if (!*cell) {
+          pl_db_t *d = (pl_db_t *)rt_plj_alloc(sizeof *d);
+          if (!d) return (void *)0;
+          d->cap = 8; d->n = 0; d->s = (pl_db_slot_t *)rt_plj_alloc((size_t)d->cap * sizeof(pl_db_slot_t));
+          if (!d->s) { d->cap = 0; }
+          *cell = d;
+      }
+      return (void *)*cell; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_assert(void *db_v, void *clause_term, int prepend)
+{
+    extern void *rt_plj_alloc(size_t);
+    extern int prolog_atom_intern(const char *);
+    pl_db_t *db = (pl_db_t *)db_v;
+    if (!db || !clause_term) return 0;
+    if (db->n >= db->cap) {
+        int nc = db->cap > 0 ? db->cap * 2 : 8;
+        pl_db_slot_t *ns = (pl_db_slot_t *)rt_plj_alloc((size_t)nc * sizeof(pl_db_slot_t));
+        if (!ns) return 0;
+        for (int i = 0; i < db->n; i++) ns[i] = db->s[i];
+        db->s = ns; db->cap = nc;
+    }
+    { pl_cell_t *t = pl_deref((pl_cell_t *)clause_term);
+      pl_cell_t kids[2]; pl_cell_t pair; pl_cell_t *va[256]; pl_cell_t *vn2[256]; int vn = 0;
+      if ((int)t->v == DT_PLREF && pl_arity(t) == 2 && plc_functor(t) == prolog_atom_intern(":-")) { pl_cell_t *aa = (pl_cell_t *)t->p; kids[0] = aa[0]; kids[1] = aa[1]; }
+      else { kids[0] = *t; kids[1] = pl_make_atom(prolog_atom_intern("true")); }
+      pair = pl_make_compound(prolog_atom_intern(":-"), 2, (void *)kids);
+      { pl_cell_t stored = pl_cell_copy_persist(&pair, va, vn2, &vn, 256);
+        if (prepend) { for (int i = db->n; i > 0; i--) db->s[i] = db->s[i - 1]; db->s[0].cl = stored; db->s[0].erased = 0; }
+        else { db->s[db->n].cl = stored; db->s[db->n].erased = 0; }
+        db->n++; }
+      return 1; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_count(void *db_v) { pl_db_t *db = (pl_db_t *)db_v; return db ? db->n : 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_clause_at(void *db_v, int i, void *out_pair)
+{
+    pl_db_t *db = (pl_db_t *)db_v;
+    if (!db || !out_pair || i < 0 || i >= db->n || db->s[i].erased) return 0;
+    { pl_cell_t *va[256]; pl_cell_t *vn2[256]; int vn = 0;
+      *(pl_cell_t *)out_pair = pl_cell_copy_cells(&db->s[i].cl, va, vn2, &vn, 256);
+      return 1; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_erase(void *db_v, int i)
+{
+    pl_db_t *db = (pl_db_t *)db_v;
+    if (!db || i < 0 || i >= db->n || db->s[i].erased) return 0;
+    db->s[i].erased = 1;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_abolish(void *db_v)
+{
+    pl_db_t *db = (pl_db_t *)db_v;
+    if (!db) return 0;
+    for (int i = 0; i < db->n; i++) db->s[i].erased = 1;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_match_erase(void *db_v, void *goal_term)
+{
+    pl_db_t *db = (pl_db_t *)db_v;
+    int hit = 0;
+    if (!db || !goal_term) return 0;
+    for (int i = 0; i < db->n; i++) {
+        if (db->s[i].erased) continue;
+        { pl_cell_t *va[256]; pl_cell_t *vn2[256]; int vn = 0; pl_cell_t pair = pl_cell_copy_cells(&db->s[i].cl, va, vn2, &vn, 256);
+          int vn3 = 0; pl_cell_t *va3[256]; pl_cell_t *vn4[256]; pl_cell_t g = pl_cell_copy_cells((pl_cell_t *)goal_term, va3, vn4, &vn3, 256);
+          pl_cell_t *h = (pl_cell_t *)pl_deref(&pair)->p;
+          if (h && pl_unify(&h[0], &g)) { db->s[i].erased = 1; hit++; } }
+    }
+    return hit;
+}

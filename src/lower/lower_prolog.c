@@ -487,7 +487,138 @@ static IR_t * pl_leaf_lv(lcx_t * cx, const char * sym, const tree_t * t, int nar
     return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_dyn_index(const char * name, int arity) {
+    if (!name) return -1;
+    for (int i = 0; i < g_stage2.pl_dyn_n; i++) if (g_stage2.pl_dyn_name[i] && !strcmp(g_stage2.pl_dyn_name[i], name) && g_stage2.pl_dyn_arity[i] == arity) return i;
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_dyn_index_or_add(const char * name, int arity) {
+    int k = pl_dyn_index(name, arity);
+    if (k >= 0) return k;
+    pl_dyn_mark(strdup(name), arity);
+    return pl_dyn_index(name, arity);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_db_leaf1(lcx_t * cx, const char * sym, int k, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = (char *) sym;
+    IR_t * kn = build(cx, IR_LIT_INTEGER, NULL, ωfail); IR_LIT(kn).ival = k;
+    lc_γ_to(kn, nd); lc_ω_to(kn, ωfail);
+    ir_operand_push(nd, kn);
+    if (entry_out) *entry_out = kn;
+    return nd;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_db_owned(const char * nm, int ar) {
+    if (pl_dyn_index(nm, ar) < 0) return 0;
+    { char key[264]; snprintf(key, sizeof key, "%s/%d", nm, ar);
+      const tree_t * ch = resolve_pred_table_lookup(&g_stage2.resolve_pred_table, key);
+      if (ch && ch->t == TT_CHOICE && ch->n > 0) return 0;
+      return 1; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * pl_head_key(const tree_t * a, int * ar_out) {
+    const tree_t * h = a;
+    if (!h) return NULL;
+    if (h->t == TT_FNC && h->v.sval && !strcmp(h->v.sval, ":-") && h->n == 2) h = h->c[0];
+    if (!h) return NULL;
+    if (h->t == TT_FNC && h->v.sval) { if (ar_out) *ar_out = h->n; return h->v.sval; }
+    if ((h->t == TT_QLIT || h->t == TT_NAME) && h->v.sval) { if (ar_out) *ar_out = 0; return h->v.sval; }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * pl_spec_key(const tree_t * s, int * ar_out) {
+    if (!s || s->t != TT_FNC || !s->v.sval || strcmp(s->v.sval, "/") || s->n != 2) return NULL;
+    if (!s->c[0] || !(s->c[0]->t == TT_QLIT || s->c[0]->t == TT_NAME) || !s->c[0]->v.sval) return NULL;
+    if (!s->c[1] || s->c[1]->t != TT_ILIT) return NULL;
+    if (ar_out) *ar_out = (int) s->c[1]->v.ival;
+    return s->c[0]->v.sval;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { IR_t * entry; IR_t * to; IR_t * at; } pl_db_gen_t;
+static pl_db_gen_t pl_db_gen(lcx_t * cx, int k, IR_t * after, IR_t * ωfail) {
+    pl_db_gen_t r;
+    IR_t * at  = build(cx, IR_CALL, after, ωfail); IR_LIT(at).sval = "$db_at";
+    IR_t * k3  = build(cx, IR_LIT_INTEGER, NULL, ωfail); IR_LIT(k3).ival = k;
+    IR_t * to  = build(cx, IR_TO, k3, ωfail); IR_LIT(to).sval = (char *) "ag";
+    IR_t * lo  = build(cx, IR_LIT_INTEGER, NULL, ωfail); IR_LIT(lo).ival = 0;
+    IR_t * k2  = build(cx, IR_LIT_INTEGER, NULL, ωfail); IR_LIT(k2).ival = k;
+    IR_t * cnt = build(cx, IR_CALL, to, ωfail); IR_LIT(cnt).sval = "$db_n";
+    lc_γ_to(lo, k2); lc_ω_to(lo, ωfail);
+    lc_γ_to(k2, cnt); lc_ω_to(k2, ωfail);
+    lc_γ_to(k3, at); lc_ω_to(k3, ωfail);
+    ir_operand_push(cnt, k2);
+    ir_operand_push(to, lo); ir_operand_push(to, cnt);
+    ir_operand_push(at, k3); ir_operand_push(at, to);
+    lc_ω_to_β(at, to);
+    r.entry = lo; r.to = to; r.at = at;
+    return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_db_leaf2(lcx_t * cx, const char * sym, int k, const tree_t * arg, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = (char *) sym;
+    IR_t * kn = build(cx, IR_LIT_INTEGER, NULL, ωfail); IR_LIT(kn).ival = k;
+    IR_t * te = NULL; IR_t * tv = term_e(cx, arg, &te);
+    lc_γ_to(kn, te ? te : tv); lc_ω_to(kn, ωfail);
+    lc_γ_to(tv, nd); lc_ω_to(tv, ωfail);
+    ir_operand_push(nd, kn); ir_operand_push(nd, tv);
+    if (entry_out) *entry_out = kn;
+    return nd;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_db_call(lcx_t * cx, const tree_t * t, int k, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    IR_t * u  = build(cx, IR_CALL, γnext, ωfail); IR_LIT(u).sval = "$unify";
+    IR_t * hf = build(cx, IR_CALL, u, ωfail); IR_LIT(hf).sval = "$db_head_fact";
+    pl_db_gen_t g = pl_db_gen(cx, k, hf, ωfail);
+    IR_t * ge = NULL; IR_t * gv = term_e(cx, t, &ge);
+    lc_γ_to(gv, g.entry); lc_ω_to(gv, ωfail);
+    ir_operand_push(hf, g.at);
+    ir_operand_push(u, gv); ir_operand_push(u, hf);
+    lc_ω_to_β(u, g.to);
+    if (entry_out) *entry_out = ge ? ge : gv;
+    return g.to;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_db_retract(lcx_t * cx, const tree_t * arg, int k, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    IR_t * er = build(cx, IR_CALL, γnext, ωfail); IR_LIT(er).sval = "$db_erase";
+    IR_t * k4 = build(cx, IR_LIT_INTEGER, NULL, ωfail); IR_LIT(k4).ival = k;
+    IR_t * u  = build(cx, IR_CALL, k4, ωfail); IR_LIT(u).sval = "$unify";
+    IR_t * hf = build(cx, IR_CALL, u, ωfail); IR_LIT(hf).sval = "$db_head_fact";
+    pl_db_gen_t g = pl_db_gen(cx, k, hf, ωfail);
+    IR_t * ge = NULL; IR_t * gv = term_e(cx, arg, &ge);
+    lc_γ_to(gv, g.entry); lc_ω_to(gv, ωfail);
+    lc_γ_to(k4, er); lc_ω_to(k4, ωfail);
+    ir_operand_push(hf, g.at);
+    ir_operand_push(u, gv); ir_operand_push(u, hf);
+    ir_operand_push(er, k4); ir_operand_push(er, g.to);
+    lc_ω_to_β(u, g.to);
+    if (entry_out) *entry_out = ge ? ge : gv;
+    return g.to;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_db_clause(lcx_t * cx, const tree_t * ht, const tree_t * bt, int k, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    IR_t * ub = build(cx, IR_CALL, γnext, ωfail); IR_LIT(ub).sval = "$unify";
+    IR_t * bd = build(cx, IR_CALL, NULL, ωfail); IR_LIT(bd).sval = "$db_body";
+    IR_t * bl = NULL; IR_t * ble = NULL;
+    IR_t * uh = build(cx, IR_CALL, NULL, ωfail); IR_LIT(uh).sval = "$unify";
+    IR_t * hd = build(cx, IR_CALL, uh, ωfail); IR_LIT(hd).sval = "$db_head";
+    pl_db_gen_t g = pl_db_gen(cx, k, hd, ωfail);
+    IR_t * he = NULL; IR_t * hv = term_e(cx, ht, &he);
+    bl = term_lval_e(cx, bt, &ble);
+    lc_γ_to(hv, g.entry); lc_ω_to(hv, ωfail);
+    lc_γ_to(uh, ble ? ble : bl); lc_ω_to_β(uh, g.to);
+    lc_γ_to(bl, bd); lc_ω_to(bl, ωfail);
+    lc_γ_to(bd, ub); lc_ω_to(bd, ωfail);
+    ir_operand_push(hd, g.at); ir_operand_push(bd, g.at);
+    ir_operand_push(uh, hv); ir_operand_push(uh, hd);
+    ir_operand_push(ub, bl); ir_operand_push(ub, bd);
+    lc_ω_to_β(ub, g.to);
+    if (entry_out) *entry_out = he ? he : hv;
+    return g.to;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_user_call(lcx_t * cx, const char * nm, const tree_t * t, int nargs, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    if (pl_db_owned(nm, nargs)) return pl_db_call(cx, t, pl_dyn_index(nm, nargs), γnext, ωfail, entry_out);
     { char key[264]; snprintf(key, sizeof key, "%s/%d", nm, nargs);
       const tree_t * ch = resolve_pred_table_lookup(&g_stage2.resolve_pred_table, key);
       if (!ch) { tree_t * kt = ast_node_new(TT_QLIT); kt->v.sval = strdup(key);
@@ -683,6 +814,32 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             return to;
         }
         if (!strcmp(nm, "read_term") && t->n == 2 && pl_tree_is_nil(t->c[1])) return pl_leaf_lv(cx, "$read", t, 1, γnext, ωfail, entry_out);
+        if ((!strcmp(nm, "assertz") || !strcmp(nm, "assert") || !strcmp(nm, "asserta")) && t->n == 1) {
+            int ar = 0; const char * pn = pl_head_key(t->c[0], &ar);
+            if (!pn) pl_refuse("assert of a clause whose head is not a callable term known at compile time --", nm, 10);
+            if (!pl_db_owned(pn, ar)) pl_refuse("assert on a predicate that ALSO has clauses in the file -- rung 10b seeds a file-defined predicate into the database as its follow-up; today the two would disagree silently --", pn, 10);
+            return pl_db_leaf2(cx, !strcmp(nm, "asserta") ? "$db_asserta" : "$db_assertz", pl_dyn_index_or_add(pn, ar), t->c[0], γnext, ωfail, entry_out); }
+        if (!strcmp(nm, "retract") && t->n == 1) {
+            int ar = 0; const char * pn = pl_head_key(t->c[0], &ar);
+            if (!pn) pl_refuse("retract of a clause whose head is not a callable term known at compile time --", nm, 10);
+            if (!pl_db_owned(pn, ar)) pl_refuse("retract on a predicate that has clauses in the file (they are wired boxes, not database rows) --", pn, 10);
+            return pl_db_retract(cx, t->c[0], pl_dyn_index_or_add(pn, ar), γnext, ωfail, entry_out); }
+        if (!strcmp(nm, "retractall") && t->n == 1) {
+            int ar = 0; const char * pn = pl_head_key(t->c[0], &ar);
+            if (!pn) pl_refuse("retractall whose argument is not a callable term known at compile time --", nm, 10);
+            if (!pl_db_owned(pn, ar)) pl_refuse("retractall on a predicate that has clauses in the file --", pn, 10);
+            return pl_db_leaf2(cx, "$db_retractall", pl_dyn_index_or_add(pn, ar), t->c[0], γnext, ωfail, entry_out); }
+        if (!strcmp(nm, "abolish") && t->n == 1) {
+            int ar = 0; const char * pn = pl_spec_key(t->c[0], &ar);
+            if (!pn) pl_refuse("abolish whose argument is not a Name/Arity known at compile time --", nm, 10);
+            if (!pl_db_owned(pn, ar)) pl_refuse("abolish on a predicate that has clauses in the file --", pn, 10);
+            return pl_db_leaf1(cx, "$db_abolish", pl_dyn_index_or_add(pn, ar), γnext, ωfail, entry_out); }
+        if (!strcmp(nm, "clause") && t->n == 2) {
+            int ar = 0; const char * pn = pl_head_key(t->c[0], &ar);
+            if (!pn) pl_refuse("clause/2 whose head is not a callable term known at compile time --", nm, 7);
+            if (!pl_db_owned(pn, ar)) pl_refuse("clause/2 on a predicate that has clauses in the file (reflecting a wired box needs the proc table, rung 10b follow-up) --", pn, 7);
+            return pl_db_clause(cx, t->c[0], t->c[1], pl_dyn_index_or_add(pn, ar), γnext, ωfail, entry_out); }
+        if (!strcmp(nm, "dynamic") && t->n >= 1) return build(cx, IR_SUCCEED, γnext, ωfail);
         { const char * ls = pl_det_leaf_sym(nm, t->n); if (ls) return pl_leaf_lv(cx, ls, t, t->n, γnext, ωfail, entry_out); }
         { int r = pl_rung_of(nm); if (r) pl_refuse(r == 6 ? "builtin arity not wired" : "builtin", nm, r); }
         return pl_user_call(cx, nm, t, t->n, γnext, ωfail, entry_out);
@@ -885,5 +1042,6 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
         }
     }
     for (int _gi = _pl_bb0; _gi < g_stage2.bbp.count; _gi++) if (g_stage2.bbp.table[_gi]) { g_stage2.bbp.table[_gi]->zframe_graph = 1; g_stage2.bbp.table[_gi]->zframe_pinned_base = 1; }
+    top->standing_cells = g_stage2.pl_dyn_n;
     return &g_stage2;
 }

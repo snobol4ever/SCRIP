@@ -320,7 +320,7 @@ static void pld_mark_scan(tree_t *t, int mark_assertz) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 CODE_t *prolog_lower(PlProgram *pl_prog) {
-    for (PlClause *mcl = pl_prog->head; mcl; mcl = mcl->next) if (mcl->tr) pld_mark_scan(mcl->tr, 0);
+    for (PlClause *mcl = pl_prog->head; mcl; mcl = mcl->next) if (mcl->tr) { int _isdir = (mcl->tr->n > 0 && mcl->tr->c[0] && mcl->tr->c[0]->t == TT_NUL); pld_mark_scan(mcl->tr, !_isdir); }
     CODE_t *prog = calloc(1, sizeof(CODE_t));
     tree_t *pld_seed[256]; int pld_seed_n = 0;
     #define PL_MAX_CLAUSES 2048
@@ -480,7 +480,8 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
                 PredKey ak = key_of_head_tree(a_head);
                 if (ak.functor >= 0) {
                     const char *aknm = prolog_atom_name(ak.functor);
-                    if (aknm && pl_dyn_is_marked(aknm, ak.arity) && pld_seed_n < 256) pld_seed[pld_seed_n++] = tr_dup(goal_tr);
+                    if (aknm && pl_dyn_is_marked(aknm, ak.arity)) { (void) pld_seed; (void) pld_seed_n; }
+                    else {
                     int found = -1;
                     for (int i = 0; i < nkeys; i++)
                         if (pred_key_eq(keys[i], ak)) { found = i; break; }
@@ -501,6 +502,7 @@ CODE_t *prolog_lower(PlProgram *pl_prog) {
                             expr_add_child(choices[found], ec);
                         }
                         is_assert = 1;
+                    }
                     }
                 }
             }

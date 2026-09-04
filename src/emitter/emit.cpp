@@ -3557,7 +3557,7 @@ static int emit_jmp_entry_arm_region(IR_graph_t *g) {
     g_emit.flat_layout_unknown = 0;
     if (rg <= 0) { rg = 4096; so = -1; g_emit.flat_layout_unknown = 1; }
     { extern int g_flat_frame_floor; if (g_flat_frame_floor > 0 && rg < g_flat_frame_floor) { rg = g_flat_frame_floor; so = -1; g_emit.flat_layout_unknown = 1; } }
-    g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = (((g_emit_cfg && g_emit_cfg->zframe_pinned_base && g_emit_cfg->zframe_graph && !g_emit_cfg->icn_cells_graph) ? 80 : 48) + (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) + 15) & ~15;
+    g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = (((g_emit_cfg && g_emit_cfg->zframe_pinned_base && g_emit_cfg->zframe_graph && !g_emit_cfg->icn_cells_graph) ? 80 : 48) + (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) + (g_emit_cfg ? 8 * g_emit_cfg->standing_cells : 0) + 15) & ~15;
     g_emit.flat_seed_off = (so >= 16 && so <= rg) ? so : 0;
     return 1;
 }
@@ -3669,7 +3669,7 @@ bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
         g_emit.flat_lcl_proc = (!g_emit.flat_pat && _gen_ok && g_emit_cfg && ((g_emit.flat_jmp_entry && (g_emit_cfg->nparams > 0 || g_emit_cfg->nlocals > 0)) || g_emit_cfg->icn_cells_graph)) ? 1 : 0; }
       g_emit.zframe_graph = (g_emit_cfg && g_emit_cfg->zframe_graph && !g_emit_cfg->icn_cells_graph) ? 1 : 0;
       g_emit.zframe_pinned_base = (g_emit_cfg && g_emit_cfg->zframe_pinned_base && !g_emit_cfg->icn_cells_graph) ? 1 : 0;
-      if ((g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->icn_cells_graph)) && g_emit.flat_frame_bytes == 0) { g_emit.flat_frame_bytes = ((g_emit.zframe_pinned_base ? 80 : 48) + (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) + 15) & ~15; }
+      if ((g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->icn_cells_graph)) && g_emit.flat_frame_bytes == 0) { g_emit.flat_frame_bytes = ((g_emit.zframe_pinned_base ? 80 : 48) + (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) + (g_emit_cfg ? 8 * g_emit_cfg->standing_cells : 0) + 15) & ~15; }
       int _c2g; { static int _c2 = -1; if (_c2 < 0) { const char * e = getenv("SCRIP_CALL2BB"); _c2 = (e && *e == '1') ? 1 : 0; } _c2g = _c2; }
       int _stfj = (_stf && _c2g && g_emit.flat_jmp_entry && !g_emit.flat_pat && !g_emit.flat_gen && !g_emit.flat_deep_arrival && !g_gen_proc_active && !(g_emit_cfg && g_emit_cfg->resumable_callable) && g_flat_frame_floor > 0) ? 1 : 0;
       int _pat_ok = (!g_emit.flat_pat) ? 1 : 0;

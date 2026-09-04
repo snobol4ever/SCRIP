@@ -6081,3 +6081,83 @@ DESCR_t sno_array_from_proto(const char *proto, DESCR_t init) {
     DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_A; d.slen = 0; d.arr = a;
     return d;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern void * rt_pl_db_get(void *, int64_t);
+extern int rt_pl_db_assert(void *, void *, int);
+extern int rt_pl_db_count(void *);
+extern int rt_pl_db_clause_at(void *, int, void *);
+extern int rt_pl_db_erase(void *, int);
+extern int rt_pl_db_abolish(void *);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void * pl_db_cell_of(DESCR_t *args, void *root) { DESCR_t k = rt_pl_deref_val(args[0]); if (k.v != DT_I) return (void *)0; return rt_pl_db_get(root, k.i); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_db_assertz_c(DESCR_t *args, int nargs, void *root) {
+    if (nargs != 2) return FAILDESCR;
+    pl_atoms_ready();
+    { void *db = pl_db_cell_of(args, root); if (!db) return FAILDESCR;
+      return rt_pl_db_assert(db, (void *)&args[1], 0) ? pl_ok() : FAILDESCR; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_db_asserta_c(DESCR_t *args, int nargs, void *root) {
+    if (nargs != 2) return FAILDESCR;
+    pl_atoms_ready();
+    { void *db = pl_db_cell_of(args, root); if (!db) return FAILDESCR;
+      return rt_pl_db_assert(db, (void *)&args[1], 1) ? pl_ok() : FAILDESCR; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_db_n_c(DESCR_t *args, int nargs, void *root) {
+    if (nargs != 1) return FAILDESCR;
+    pl_atoms_ready();
+    { void *db = pl_db_cell_of(args, root); if (!db) return INTVAL(-1);
+      return INTVAL((int64_t)rt_pl_db_count(db) - 1); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_db_at_c(DESCR_t *args, int nargs, void *root) {
+    if (nargs != 2) return FAILDESCR;
+    pl_atoms_ready();
+    { void *db = pl_db_cell_of(args, root); DESCR_t iv = rt_pl_deref_val(args[1]); DESCR_t out;
+      if (!db || iv.v != DT_I) return FAILDESCR;
+      if (!rt_pl_db_clause_at(db, (int)iv.i, (void *)&out)) return FAILDESCR;
+      return out; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_db_erase_c(DESCR_t *args, int nargs, void *root) {
+    if (nargs != 2) return FAILDESCR;
+    { void *db = pl_db_cell_of(args, root); DESCR_t iv = rt_pl_deref_val(args[1]);
+      if (!db || iv.v != DT_I) return FAILDESCR;
+      return rt_pl_db_erase(db, (int)iv.i) ? pl_ok() : FAILDESCR; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_db_abolish_c(DESCR_t *args, int nargs, void *root) {
+    if (nargs != 1) return FAILDESCR;
+    { void *db = pl_db_cell_of(args, root); if (!db) return pl_ok();
+      return rt_pl_db_abolish(db) ? pl_ok() : FAILDESCR; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_db_pair_parts(DESCR_t *p, DESCR_t *h, DESCR_t *b) {
+    DESCR_t *d = (DESCR_t *)pl_deref((pl_cell_t *)p);
+    if ((int)d->v != DT_PLREF || pl_arity((pl_cell_t *)d) != 2) return 0;
+    { DESCR_t *aa = (DESCR_t *)d->p; if (h) *h = aa[0]; if (b) *b = aa[1]; return 1; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_db_head(DESCR_t *args, int nargs) { DESCR_t h; if (nargs != 1 || !pl_db_pair_parts(&args[0], &h, (DESCR_t *)0)) return FAILDESCR; return h; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_db_body(DESCR_t *args, int nargs) { DESCR_t b; if (nargs != 1 || !pl_db_pair_parts(&args[0], (DESCR_t *)0, &b)) return FAILDESCR; return b; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_db_head_fact(DESCR_t *args, int nargs) {
+    DESCR_t h, b;
+    extern const char *prolog_atom_name(int);
+    if (nargs != 1 || !pl_db_pair_parts(&args[0], &h, &b)) return FAILDESCR;
+    { DESCR_t *d = (DESCR_t *)pl_deref((pl_cell_t *)&b); const char *nm = ((int)d->v == DT_A) ? prolog_atom_name((int)d->i) : (((int)d->v == DT_S) ? d->s : (const char *)0);
+      if (!nm || strcmp(nm, "true") != 0) { fflush(stdout); fprintf(stderr, "scrip: prolog: calling an asserted clause with a body is not on the ladder yet -- rung 10a lands it (the runtime goal compiler, ARCH-PROLOG-BYRD-BOX-TRANSLATION.md sec B.9); rung 10b stores it and clause/2 reports it\n"); exit(2); }
+      return h; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern int rt_pl_db_match_erase(void *, void *);
+DESCR_t rt_pl_dop_db_retractall_c(DESCR_t *args, int nargs, void *root) {
+    if (nargs != 2) return FAILDESCR;
+    pl_atoms_ready();
+    { void *db = pl_db_cell_of(args, root); if (!db) return pl_ok();
+      rt_pl_db_match_erase(db, (void *)&args[1]);
+      return pl_ok(); }
+}

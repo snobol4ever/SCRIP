@@ -204,6 +204,12 @@ static std::string zf_release(int kt) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void rt_pl_quad_seed(void *);
 extern "C" void rt_pl_choice_open(void *);
+static std::string pl_standing_cells_zero(int kt, int n) {
+    std::string s;
+    for (int k = 0; k < n; k++) s += x86("mov", RDQ("rsp", kt - 64 - 24 - 8 * k), 0L);
+    return s;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_zframe_prologue_str(void) {
     if (!g_emit.zframe_graph) return std::string();
     int kt = g_emit.flat_frame_bytes;
@@ -221,6 +227,11 @@ static std::string xa_flat_zframe_prologue_str(void) {
              + x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rbp")
              + x86("mov", x86_fb(), "rsp")
              + IF(g_emit_cfg && g_emit_cfg->root_graph, x86("lea", "rdi", RDQ("rsp", kt - 64)) + x86("call_bare", "rt_pl_quad_seed", _seed_fp))
+             + IF(g_emit_cfg && g_emit_cfg->root_graph && g_emit_cfg->standing_cells > 0,
+                   x86("comment", "RUNG 10b ζ-STANDING CELLS (ARCH sec B.15, sec C ruling): one named root cell per dynamic predicate, carved INSIDE this root frame just under the header block (emit.cpp added 8*n to the "
+                                  "region) and reached from any depth as [r14 - 24 - 8k] -- never a global, never one table of all of them in one slot. ⛔ ZEROED HERE BECAUSE A CARVE IS NOT AN INITIALISATION: the bytes "
+                                  "are whatever the C stack left, and the runtime reads a NULL cell as \"this predicate has no store yet\" -- an unzeroed cell is a garbage pointer the first assertz would follow.")
+                 + pl_standing_cells_zero(kt, g_emit_cfg->standing_cells))
              + x86("comment", "F.HI at [H+32] (rung 3, ARCH sec A.1): the LOG THRESHOLD -- a binder holding only B logs a cell at or above [B+32] and skips one below it. Seeded here to this frame's TOP, which is byte-for-byte the rule rung 1 computed as B+64; it is a WORD rather than a constant offset because a choice opened INSIDE an activation (a disjunction, sec B.5) protects less than the whole frame and lowers it.")
              + x86("lea", "rax", RDQ("rsp", kt))
              + x86("mov", RDQ("rsp", kt - 32), "rax")

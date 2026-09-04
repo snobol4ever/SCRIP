@@ -238,6 +238,7 @@ struct IR_graph_t {
     int            icn_cells_graph;
     int            zframe_pinned_base;
     int            root_graph;
+    int            standing_cells;
     int            runtime_fragment_graph;
     int            is_variadic;
     int            rest_kind;
