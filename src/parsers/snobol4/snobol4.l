@@ -53,7 +53,7 @@ DIGIT   [0-9]
 ALPHA   [A-Za-z\x80-\xFF]
 IDCONT  [A-Za-z0-9_.\x80-\xFF]
 ALNUM   [A-Za-z0-9_]
-EXP     [eE][+-]?{DIGIT}+
+EXP     [eEdD][+-]?{DIGIT}+
 WS      [ \t]
 CONT    \n[+.][ \t]*
 W       ({WS}|{CONT})+
@@ -229,7 +229,7 @@ G       ({WS}|{CONT})*
 <BODY>{ALPHA}{IDCONT}*/"("  { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); return T_FUNCTION; }
 <BODY>{ALPHA}{IDCONT}*      { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); return strcmp(strbuf,"END")==0?T_END:T_IDENT; }
 <BODY>{DIGIT}+"."{DIGIT}*{EXP}? |
-<BODY>{DIGIT}+{EXP}         { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); return T_REAL; }
+<BODY>{DIGIT}+{EXP}         { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); for (char *_e = strbuf; *_e; _e++) if (*_e == 'd' || *_e == 'D') *_e = 'e'; return T_REAL; }
 <BODY>{DIGIT}+                { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); return T_INT;  }
 <BODY>\'                       { strpos=0; BEGIN(STR1); }
 <BODY>\"                       { strpos=0; BEGIN(STR2); }
