@@ -16,6 +16,12 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
+# ⛔⭐ STALE-BINARY PREFLIGHT (row harness-and-ladder-runner-refuse-on-a-stale-binary-like-the-artifact-regen-
+# does, ceo -> hq_T 2026-09-04). This runner had NO binary preflight at all -- not even an existence check --
+# so `make`-less it would have graded a nonexistent binary into a full, plausible, entirely false all-FAIL
+# board. The shim covers both: missing REFUSES, stale REFUSES, each rc=2 with the cure printed. NO LOGIC HERE:
+# util_require_fresh.sh sources gate_require_fresh from lib_gate.sh, the ONE authority (hq_B 4c7253e99).
+"$HERE/util_require_fresh.sh" --gate test_csnobol4_budne_suite "$SCRIP" "${RT_DIR:-$HERE/../out}/libscrip_rt.so" || exit 2
 CORPUS="$S4E/corpus"
 TIMEOUT="${TIMEOUT:-15}"
 SUITE="$CORPUS/packages/snobol4/csnobol4_suite"

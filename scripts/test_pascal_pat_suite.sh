@@ -24,6 +24,13 @@ SCRIP="$HERE/../scrip"
 refuse() { echo "⛔ REFUSED(2) [$GATE_NAME]: $*" >&2; exit 2; }
 [ -d "$SUITE" ] || refuse "no vendored suite at $SUITE -- a suite that is absent is not a suite that is failing"
 [ -x "$SCRIP" ] || refuse "no scrip binary at $SCRIP -- run make first; a missing binary prints a full, plausible, entirely false all-FAIL board"
+# ⛔⭐ STALE-BINARY PREFLIGHT (row harness-and-ladder-runner-refuse-on-a-stale-binary-like-the-artifact-regen-
+# does, ceo -> hq_T 2026-09-04). The line above proves a binary EXISTS; this one proves it is the binary this
+# tree describes. ceo's witness, twice on 2026-09-04: a 10:57 binary graded at 14:03 read RED, then GREEN after
+# an incremental make -- a vendor board is exactly where that is least visible, because a plausible all-FAIL
+# table is this class's normal output. NO LOGIC HERE: util_require_fresh.sh sources gate_require_fresh from
+# lib_gate.sh, the ONE authority (hq_B 4c7253e99) -- never a second copy of the staleness rule.
+"$HERE/util_require_fresh.sh" --gate test_pascal_pat_suite "$SCRIP" "${RT_DIR:-$HERE/../out}/libscrip_rt.so" || exit 2
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 declare -A P F C
 for m in m3 m4; do P[$m]=0; F[$m]=0; C[$m]=0; done

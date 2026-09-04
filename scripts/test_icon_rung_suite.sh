@@ -66,6 +66,11 @@ if [ ! -x "$SCRIP" ]; then
     echo "⛔ REFUSED TO GRADE: no scrip binary at $SCRIP — run scripts/build_scrip.sh" >&2
     exit 2
 fi
+# ⛔⭐ STALE-BINARY PREFLIGHT (row harness-and-ladder-runner-refuse-on-a-stale-binary-like-the-artifact-regen-
+# does, ceo -> hq_T 2026-09-04). Existence is not currency: a binary that IS there can still predate the tree
+# whose SHA the board stamps on the verdict. NO LOGIC HERE -- util_require_fresh.sh sources gate_require_fresh
+# from lib_gate.sh, the ONE authority (hq_B 4c7253e99), never a second copy.
+"$HERE/util_require_fresh.sh" --gate test_icon_rung_suite "$SCRIP" "${RT_DIR:-$HERE/../out}/libscrip_rt.so" || exit 2
 if [ ! -d "$CORPUS" ]; then
     echo "⛔ REFUSED TO GRADE: no corpus at $CORPUS" >&2
     echo "   clone snobol4ever/corpus to $S4E/corpus to run this suite" >&2

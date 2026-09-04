@@ -144,6 +144,50 @@ def refuse(msg):
 def check_scrip(paths):
     if not (paths["scrip_bin"].is_file() and os.access(paths["scrip_bin"], os.X_OK)):
         refuse(f"scrip is not built/executable at {paths['scrip_bin']}")
+    require_fresh(paths)
+
+
+def require_fresh(paths):
+    """⛔ REFUSE rc=2 when the binary about to be graded predates the tree it will be labelled with.
+
+    ⭐ THIS FUNCTION DELIBERATELY CONTAINS NO STALENESS LOGIC. It shells out to
+    scripts/util_require_fresh.sh, which sources gate_require_fresh() from lib_gate.sh -- the SAME
+    function every bash runner calls (hq_B, SCRIP 4c7253e99). Row harness-and-ladder-runner-refuse-on-
+    a-stale-binary-like-the-artifact-regen-does (ceo -> hq_T 2026-09-04).
+
+    ⛔ WHY IT IS NOT A PYTHON REIMPLEMENTATION, WHICH WOULD HAVE BEEN SHORTER AND IS THE WHOLE POINT OF
+    THE ROW: this exact idea already existed TWICE in bash (gate_require_fresh and lib_build_currency's
+    assert_binary_current). ceo cured a wrong staleness basis in one of them (3d12ca54 -- "IT IS NOT A
+    SUPERSET, IT IS WRONG"); the cure never reached the other, so the identical defect regenerated and
+    was cured a second time nine days later. A third copy -- in a second LANGUAGE, where no grep for the
+    bash symbol would ever find it -- is how that class survives its own cure a third time. The cost of a
+    copy is never the duplicated lines; it is that fixing one copy makes everybody believe the class is
+    dead.
+
+    THE WITNESS (ceo, 2026-09-04): two false-red audits in one day -- a fetched-not-merged clone at 12:23,
+    and a 10:57 binary at 14:03 that read RED and then GREEN after an incremental make. Nothing the board
+    printed could distinguish "the tree is broken" from "you are grading last morning's binary".
+
+    ⛔ SCOPE NOTE -- the .so is checked for STALENESS but a MISSING .so is left alone on purpose. This
+    harness already has documented behaviour for that case (run_m4 -> Verdict("SKIP", "libscrip_rt.so not
+    built")), and turning another instrument's SKIP into a REFUSE is a different row's ruling, not this
+    one's. A stale .so, though, is squarely this class and the dangerous half of it: an older runtime
+    still exports what source deleted, so m4 grades a program nobody is shipping."""
+    shim = paths["scrip_root"] / "scripts" / "util_require_fresh.sh"
+    if not shim.is_file():
+        print(f"⛔ REFUSED-TO-GRADE rc=2: {shim} missing -- cannot establish that the binary about to be "
+              f"graded is current (the ONE stale-binary authority, never reimplemented here)", file=sys.stderr)
+        sys.exit(2)
+    arts = [str(paths["scrip_bin"])]
+    so = paths["rt_dir"] / "libscrip_rt.so"
+    if so.is_file():
+        arts.append(str(so))
+    r = subprocess.run(["bash", str(shim), "--gate", "corpus_suite_harness"] + arts,
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        sys.stderr.write(r.stdout)
+        sys.stderr.write(r.stderr)
+        sys.exit(2)
 
 
 def resolve_oracle_bin(paths, lang=""):

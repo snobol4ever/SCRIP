@@ -17,6 +17,13 @@ set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"; SD="$HERE/.."; ROOT="$(cd "$SD/.." && pwd)"
 SCRIP="$SD/scrip"
 [ -x "$SCRIP" ] || { echo "⛔ REFUSE(rc=2): no scrip binary at $SCRIP -- build first (make)"; exit 2; }
+# ⛔⭐ STALE-BINARY PREFLIGHT (row harness-and-ladder-runner-refuse-on-a-stale-binary-like-the-artifact-regen-
+# does, ceo -> hq_T 2026-09-04). The line above proves a binary EXISTS; this one proves it is the binary this
+# tree describes. ceo's witness, twice on 2026-09-04: a 10:57 binary graded at 14:03 read RED, then GREEN after
+# an incremental make -- a vendor board is exactly where that is least visible, because a plausible all-FAIL
+# table is this class's normal output. NO LOGIC HERE: util_require_fresh.sh sources gate_require_fresh from
+# lib_gate.sh, the ONE authority (hq_B 4c7253e99) -- never a second copy of the staleness rule.
+"$HERE/util_require_fresh.sh" --gate test_snobol4_gimpel_suite "$SCRIP" "${RT_DIR:-$HERE/../out}/libscrip_rt.so" || exit 2
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 bash "$HERE/scorecard_snobol4.sh" run --suites gimpel --out "$W" > "$W/run.log" 2>&1
 rc=$?

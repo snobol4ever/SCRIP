@@ -71,6 +71,13 @@ is_bootstrap_only() {  # $1 = rel path (for the named list), $2 = full path (for
 
 [ -d "$PKG" ]        || { echo "⛔ REFUSED-TO-GRADE: $PKG missing"; exit 2; }
 [ -x "$SCRIP" ]      || { echo "⛔ REFUSED-TO-GRADE: scrip not built"; exit 2; }
+# ⛔⭐ STALE-BINARY PREFLIGHT (row harness-and-ladder-runner-refuse-on-a-stale-binary-like-the-artifact-regen-
+# does, ceo -> hq_T 2026-09-04). The line above proves a binary EXISTS; this one proves it is the binary this
+# tree describes. ceo's witness, twice on 2026-09-04: a 10:57 binary graded at 14:03 read RED, then GREEN after
+# an incremental make -- a vendor board is exactly where that is least visible, because a plausible all-FAIL
+# table is this class's normal output. NO LOGIC HERE: util_require_fresh.sh sources gate_require_fresh from
+# lib_gate.sh, the ONE authority (hq_B 4c7253e99) -- never a second copy of the staleness rule.
+"$HERE/util_require_fresh.sh" --gate test_prolog_gnu_suite "$SCRIP" "${RT_DIR:-$HERE/../out}/libscrip_rt.so" || exit 2
 [ -f "$RT_SO" ]      || { echo "⛔ REFUSED-TO-GRADE: $RT_SO missing (m4 link needs it)"; exit 2; }
 [ -n "$GPROLOG_BIN" ] || { echo "⛔ REFUSED-TO-GRADE: gprolog not on PATH"; exit 2; }
 

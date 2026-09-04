@@ -33,7 +33,17 @@ TIMEOUT="${TIMEOUT:-180}"   # ⛔ was 60 (row dead-suite-path-consumer-sweep): o
 # confirmed number. STRESS=1 may still FAIL(rc=124) under this budget for these two witnesses -- if so,
 # that is this same non-bug, unconfirmed only in its exact duration, not a new defect. Widen further (or
 # split GC_STRESS=1 into its own longer-budget arm) only after an actual measured completion time.
-if [ ! -x "$SCRIP" ]; then echo "SKIP scrip not built"; exit 0; fi
+# ⛔ WAS `exit 0` ("SKIP scrip not built") until 2026-09-04 -- a test that could not measure reported
+# SUCCESS to every caller reading $?, which is the precise false-green lib_gate.sh was written to kill
+# (RULES.md: a test that cannot measure REFUSES rc=2, never skip-as-success). Found by the census arm of
+# test_gate_runners_refuse_on_a_stale_binary.sh while wiring the staleness preflight -- same class, one
+# step earlier: this one could not even say whether a binary EXISTED.
+if [ ! -x "$SCRIP" ]; then echo "⛔ REFUSED-TO-GRADE rc=2: scrip not built at $SCRIP" >&2; exit 2; fi
+# ⛔⭐ STALE-BINARY PREFLIGHT (row harness-and-ladder-runner-refuse-on-a-stale-binary-like-the-artifact-regen-
+# does, ceo -> hq_T 2026-09-04). Existence is not currency: a binary that IS there can still predate the tree
+# whose SHA the board will stamp on the verdict. NO LOGIC HERE -- util_require_fresh.sh sources
+# gate_require_fresh from lib_gate.sh, the ONE authority (hq_B 4c7253e99), never a second copy.
+"$HERE/util_require_fresh.sh" --gate test_gc_stress_suite "$SCRIP" "${RT_DIR:-$HERE/../out}/libscrip_rt.so" || exit 2
 WORKDIR=$(mktemp -d)
 trap 'rm -rf "$WORKDIR"' EXIT
 # ⛔ GCDIR IS EXTRACTED, NOT A FIXED TREE (row dead-suite-path-consumer-sweep): corpus/crosscheck/gc/ is

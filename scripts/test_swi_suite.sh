@@ -8,7 +8,11 @@
 # The probe_root_dir contains one subdir per source file (as emitted by swi_extract_tests.py).
 set -u
 ROOT="${1:-corpus/tests/prolog/swi}"
-SCRIP="${SCRIP:-./scrip}"
+# ⛔ THE DEFAULT WAS `./scrip` -- CWD-RELATIVE, so this runner graded whatever happened to be in the
+# caller's working directory, or nothing at all, and it had no existence check to notice either way
+# (cured 2026-09-04 with the staleness preflight below; every sibling runner already derives it from
+# the script's own location, which is the only basis that does not move when the caller moves).
+SCRIP="${SCRIP:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/scrip}"
 GPROLOG="${GPROLOG:-gprolog}"
 MODES="${MODES:-run,compile,gprolog}"
 TIMEOUT="${TIMEOUT:-8}"
@@ -17,6 +21,11 @@ have_gprolog=0
 command -v "$GPROLOG" >/dev/null 2>&1 && have_gprolog=1
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# ⛔⭐ STALE-BINARY PREFLIGHT (row harness-and-ladder-runner-refuse-on-a-stale-binary-like-the-artifact-regen-
+# does, ceo -> hq_T 2026-09-04). Existence is not currency: a binary that IS there can still predate the tree
+# whose SHA the board stamps on the verdict. NO LOGIC HERE -- util_require_fresh.sh sources gate_require_fresh
+# from lib_gate.sh, the ONE authority (hq_B 4c7253e99), never a second copy.
+"$HERE/util_require_fresh.sh" --gate test_swi_suite "$SCRIP" "${RT_DIR:-$HERE/../out}/libscrip_rt.so" || exit 2
 clean() { grep -E '^(ok|fail)$' | head -1; }   # probes print exactly ok|fail; strip banners/warnings
 run_scrip() {  # $1=mode(run/compile) $2=file  -> ok|fail
     case "$1" in

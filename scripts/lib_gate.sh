@@ -131,20 +131,42 @@ gate_require_fresh() {
         _t="$(stat -c %Y "$_root/$_f" 2>/dev/null)" || continue
         if [ "$_t" -gt "$_newest_t" ] 2>/dev/null; then _newest_t="$_t"; _newest_f="$_f"; fi
     done < <(git -C "$_root" ls-files -- "$_srcdir" Makefile 2>/dev/null)
+    # ⭐ THE PROBE (ceo's DONE-WHEN contract for row harness-and-ladder-runner-refuse-on-a-stale-binary-like-the-artifact-
+    # regen-does, hq_T 2026-09-04): SCRIP_STALE_PROBE_SRC names ONE extra candidate for "newest source". It exists so a
+    # fail-once proof can run against a SCRATCH file instead of touching a tracked src/ file in the real tree -- a proof
+    # that edits the tree it grades is how a green gate and a dirty checkout coexist. It can only make the verdict
+    # STRICTER (a probe older than the real newest source changes nothing), so it cannot smuggle a stale binary past the
+    # guard; the deliberate-stale-run switch is SCRIP_ALLOW_STALE below, and that one is loud by construction.
+    if [ -n "${SCRIP_STALE_PROBE_SRC:-}" ] && [ -e "$SCRIP_STALE_PROBE_SRC" ]; then
+        _t="$(stat -c %Y "$SCRIP_STALE_PROBE_SRC" 2>/dev/null)" || _t=0
+        if [ "$_t" -gt "$_newest_t" ] 2>/dev/null; then _newest_t="$_t"; _newest_f="$SCRIP_STALE_PROBE_SRC (SCRIP_STALE_PROBE_SRC probe)"; fi
+    fi
     for _bin in "$@"; do
         [ -e "$_bin" ] || continue
         _bin_t="$(stat -c %Y "$_bin" 2>/dev/null)" || continue
         if [ "$_newest_t" -gt 0 ] && [ "$_bin_t" -lt "$_newest_t" ] 2>/dev/null; then
-            _stale=1; _why="$_bin is older than tracked source $_srcdir/$_newest_f"; break
+            _stale=1; _why="$_bin is older than tracked source $_newest_f"; break
         fi
     done
+    if [ "$_stale" = 1 ] && [ "${SCRIP_ALLOW_STALE:-}" = 1 ]; then
+        # ⛔⭐ THE DELIBERATE STALE RUN -- LOUD AND RECORDED, NEVER SILENT (ceo's brief, same row). LOUD: the banner goes to
+        # BOTH streams, so it lands in whatever a reader captured. RECORDED: gate_score_row refuses to write THE ONE
+        # LEADERBOARD while SCRIP_ALLOW_STALE=1 is set -- a board row stamps a tree hash, and a number measured on a binary
+        # older than that tree is a lie wearing a provenance clause. The verdict may be quoted only WITH this banner; it is
+        # never the tree's score. ⛔ A MISSING artifact is not overridable (util_require_fresh.sh refuses before reaching
+        # here): stale is "an older program ran", missing is "nothing ran", and only the first can be a deliberate choice.
+        _msg="⚠️⚠️ STALE-BINARY OVERRIDE [${GATE_NAME:-gate}]: SCRIP_ALLOW_STALE=1 -- grading a binary OLDER than the tree it will be labelled with ($_why). This verdict describes a program that no longer exists: quote it WITH this line, never as the tree's score; SCORE.md will NOT be written from this run."
+        echo "$_msg"; echo "$_msg" >&2
+        gate_stamp
+        return 0
+    fi
     if [ "$_stale" = 1 ]; then
         echo "GATE UNPROVEN(2) [${GATE_NAME:-gate}]: ⛔ REFUSES rc=2: binary older than the tree it names -- make scrip, then re-run"
         echo "    $_why"
         for _bin in "$@"; do
             [ -e "$_bin" ] && echo "    $_bin: mtime $(date -u -d "@$(stat -c %Y "$_bin")" +%Y-%m-%dT%H:%MZ 2>/dev/null)"
         done
-        echo "    newest tracked $_srcdir/Makefile file: ${_newest_f:-none} ($([ "$_newest_t" -gt 0 ] && date -u -d "@$_newest_t" +%Y-%m-%dT%H:%MZ 2>/dev/null || echo n/a))"
+        echo "    newest tracked file under $_srcdir/ or Makefile: ${_newest_f:-none} ($([ "$_newest_t" -gt 0 ] && date -u -d "@$_newest_t" +%Y-%m-%dT%H:%MZ 2>/dev/null || echo n/a))"
         gate_stamp
         exit 2
     fi
@@ -245,6 +267,16 @@ s4e_seat_name() {
 # here that returns 0 without either writing the row or printing why it did not.
 gate_score_row() {
     local _lang="$1" _col="$2" _text="$3" _modes="${4:-}" _py _out _rc
+    # ⛔ A DELIBERATE STALE RUN NEVER REACHES THE LEADERBOARD (row harness-and-ladder-runner-refuse-on-a-stale-binary-like-
+    # the-artifact-regen-does, hq_T 2026-09-04): SCRIP_ALLOW_STALE=1 is the operator's own declaration that this run's
+    # binary currency was NOT enforced, and a SCORE.md row stamps the tree's hash on whatever number it carries. Checked on
+    # the operator's env rather than on a flag from gate_require_fresh because every runner reaches that function through
+    # util_require_fresh.sh, a subprocess, whose exports never come back -- and because the declaration, not the outcome,
+    # is what makes the row untrustworthy: a run that MIGHT have graded an old binary is not evidence about the tree either.
+    if [ "${SCRIP_ALLOW_STALE:-}" = 1 ]; then
+        echo "⚠ SCORE.md NOT UPDATED [$GATE_NAME]: stale-binary override in effect (SCRIP_ALLOW_STALE=1) -- a leaderboard row stamps a tree hash, and this run's binary was not held to that tree. The measurement stands as a deliberate stale run only: $_lang / $_col = $_text"
+        return 0
+    fi
     _py="$(dirname "${BASH_SOURCE[0]}")/util_score_row.py"
     if [ ! -f "$_py" ]; then
         echo "⚠ SCORE.md NOT UPDATED [$GATE_NAME]: no util_score_row.py at $_py -- record $_lang/$_col by hand: $_text"

@@ -79,6 +79,18 @@ ladder_main() {
   done
   [ "${#origins[@]}" -gt 0 ] || refuse "zero ladder__rungNN_* origins selected by $SEL in $MASTER_DIR/ALL.csv (family present, rung filter empty) -- a rung with no witness is UNMEASURED, never a pass"
   if [ "$LIST" = 1 ]; then printf '%s\n' "${origins[@]}" | sort -n | awk '{printf "rung %2d  %s\n", $1, $2}'; echo "witnesses=${#origins[@]} ($SEL)"; exit 0; fi
+  # ⛔⭐ STALE-BINARY PREFLIGHT -- placed HERE, after --list's early exit, on purpose (row harness-and-
+  # ladder-runner-refuse-on-a-stale-binary-like-the-artifact-regen-does, ceo -> hq_T 2026-09-04).
+  # ⛔ THE WITNESS IS THE CEO'S OWN TWO FALSE-RED AUDITS ON 2026-09-04: a 10:57 binary read RED at 14:03
+  # and GREEN after an incremental make -- so the ladder's verdict was a statement about a program nobody
+  # was shipping, and NOTHING in the printed board contradicted it. The board even stamps `tree: SCRIP=<sha>`,
+  # which makes it WORSE than unlabelled: the SHA is read from git and is not evidence about the binary that
+  # actually ran (FINDING-2026-08-30-hq_C-the-snobol4-board-grades-whatever-scrip-exists-and-labels-that-
+  # verdict-with-git-head.md). test_corpus_snobol4.sh has refused on this since 4c7253e99; the ladders --
+  # the instrument the seven-language standard makes every language's frontier gate -- did not.
+  # ⭐ NOT BEFORE `--list`: listing witnesses is not grading them, and a refusal there would demand a rebuild
+  # to answer a question the binary is not consulted for. The refusal belongs where the verdict is minted.
+  "$HERE/util_require_fresh.sh" --gate "${LADDER_SUITE}-ladder" "$SCRIP" "$RT/libscrip_rt.so" || exit 2
   wantrc() { local n="$1"; [ -f "$MASTER_DIR/ALL.wantrc" ] || { echo 0; return; }; local v; v=$(awk -F'\t' -v n="$n" '$1==n{print $2; exit}' "$MASTER_DIR/ALL.wantrc"); printf '%s\n' "${v:-0}"; }
   local W; W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
   local n=0 pass=0 fail=0 pair src ref name want r3 r4 v3 v4; local -A rp rf

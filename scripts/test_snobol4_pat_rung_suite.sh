@@ -8,8 +8,18 @@ RT_DIR="${RT_DIR:-$HERE/../out}"
 PATDIR="$HERE/../../corpus/tests/scrip_test/snobol4/patterns"
 TIMEOUT="${TIMEOUT:-10}"
 
-if [ ! -x "$SCRIP" ]; then echo "SKIP scrip not built at $SCRIP"; exit 0; fi
-if [ ! -d "$PATDIR" ]; then echo "SKIP pattern dir not found at $PATDIR"; exit 0; fi
+# ⛔ WAS `exit 0` ("SKIP scrip not built") until 2026-09-04 -- see test_gc_stress_suite.sh for the same
+# cure and cause: reporting SUCCESS from a run that graded nothing (RULES.md, never skip-as-success).
+if [ ! -x "$SCRIP" ]; then echo "⛔ REFUSED-TO-GRADE rc=2: scrip not built at $SCRIP" >&2; exit 2; fi
+# ⛔⭐ STALE-BINARY PREFLIGHT (row harness-and-ladder-runner-refuse-on-a-stale-binary-like-the-artifact-regen-
+# does, ceo -> hq_T 2026-09-04). Existence is not currency: a binary that IS there can still predate the tree
+# whose SHA the board will stamp on the verdict. NO LOGIC HERE -- util_require_fresh.sh sources
+# gate_require_fresh from lib_gate.sh, the ONE authority (hq_B 4c7253e99), never a second copy.
+"$HERE/util_require_fresh.sh" --gate test_snobol4_pat_rung_suite "$SCRIP" "${RT_DIR:-$HERE/../out}/libscrip_rt.so" || exit 2
+# ⛔ SAME CURE, SECOND ARM: an absent corpus subtree is UNMEASURED, not clean. Found by ARM 11 of
+# test_gate_runners_refuse_on_a_stale_binary.sh once that arm was made behavioural instead of textual --
+# the text form was matching this file's own cure COMMENT and missing the live defect one line above it.
+if [ ! -d "$PATDIR" ]; then echo "⛔ REFUSED-TO-GRADE rc=2: pattern dir not found at $PATDIR" >&2; exit 2; fi
 
 WORKDIR="$(mktemp -d)"
 trap 'rm -rf "$WORKDIR"' EXIT
