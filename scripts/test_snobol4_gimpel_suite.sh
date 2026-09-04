@@ -85,7 +85,17 @@ SCORED=$((TOTAL-UNSCR))
 # PASS. The same suite run solo, same binary, same minute, read total=144 scored=126. A board that reports
 # "no failures" because it graded nothing is the false green the registry was built to prevent, arriving
 # through the one path the registry cannot see: its own caller's arithmetic.
-[ "$TOTAL" -gt 0 ] || { echo "⛔ REFUSE(rc=2): results.tsv is EMPTY (total=0) -- scorecard_snobol4.sh exited rc=$rc and graded nothing, so there is no denominator and no verdict. This is NOT a pass. Commonest cause: another board was live and the concurrent-board registry declined (run this suite solo). run.log:"; cat "$W/run.log"; exit 2; }
+# ⛔⭐ TWO HQs CURED THE total=0 DEFECT INDEPENDENTLY, WITHIN ONE HOUR, IN THIS FILE -- hq_T (7b18a3c52, hit via
+# the vendored-dir overlay row) and hq_C (cfde5756f, hit by running gimpel concurrently with the master board).
+# Both cures were right and the merge left the tree carrying BOTH, one above and one here. Consolidated into
+# the single early refusal above, which fires before the counters and prints the scorecard's own log.
+# ⭐ THE COINCIDENCE IS THE LESSON, not the duplication: this is the one-cure-many-copies class running FORWARD
+# for once -- the same defect, found twice the same hour by two people who never spoke, because a concurrent
+# board makes it reproducible on demand. A defect that two independent lanes hit in an hour was never rare; it
+# was only invisible, and it will be there again in the next wrapper nobody has run two of yet.
+# ⛔ THIS ARM IS hq_C's AND IT IS NOT A DUPLICATE: total=0 is "nothing was graded"; scored=0 is "every entry was
+# graded and the ORACLE failed on all of them" -- a different fact, about a different component, with a
+# different cure. Keeping only the first would have re-opened half the hole.
 [ "$SCORED" -gt 0 ] || { echo "⛔ REFUSE(rc=2): every one of the $TOTAL entries is ORACLE_FAIL (scored=0) -- the oracle, not SCRIP, is what this run measured. Preflight the oracle before trusting any verdict."; exit 2; }
 echo "GIMPEL_BOARD total=$TOTAL scored=$SCORED unscr=$UNSCR m3_pass=$M3P m3_fail=$M3F m4_pass=$M4P m4_fail=$M4F -- SCRIP $SCRIP_HASH corpus $CORP_HASH RT_OPT=-O0 oracle=sbl-bf (via scorecard_snobol4.sh --suites gimpel)"
 awk -F'\t' '$3=="ORACLE_FAIL"{printf "  UNSCR  %s  %s\n", $2, $7}' "$TSV"

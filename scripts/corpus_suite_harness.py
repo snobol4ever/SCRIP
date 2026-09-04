@@ -76,10 +76,13 @@ be a perfect SNOBOL4/SPITBOL grammar -- a wrong guess just falls back to the alw
 block shape instead of silently producing a bad conversion.
 """
 import argparse
+import hashlib
 import os
 import re
 import subprocess
 import sys
+import shutil
+import time
 import tempfile
 from pathlib import Path
 
@@ -1322,8 +1325,21 @@ def cmd_capture_oracle_refs(args):
         refuse(f"no {ext} files found under {family_dir}")
 
     green, red = [], []
+    # ⛔⭐ A SCRIP-RULED PIN IS NOT THE ORACLE'S TO OVERWRITE (row/ask hq_C -> hq_T 2026-09-04). `pin-ref`
+    # records, in ALL.refpins.tsv beside the master, every entry whose ref disagrees with the oracle ON A
+    # STATED RULING -- the witness being Lon's lambda-deferred-target sugar, which SPITBOL fails and always
+    # will. Without this consultation `--force` would faithfully restore the oracle's answer and silently undo
+    # a decision nobody remembers making; the refusal is what turns the ledger from documentation into a
+    # mechanism. ⭐ It refuses rather than skipping quietly, because "I left this alone" and "I never looked"
+    # are the same output otherwise.
+    _pins = read_refpins(getattr(args, "family_dir", "") and Path(args.family_dir) / "ALL.sno" or "")
     for i, src in enumerate(srcs, 1):
         ref_path = src.with_suffix(".ref")
+        if src.stem in _pins:
+            refuse(f"{src.stem} carries a SCRIP-RULED ref pin ({_pins[src.stem]['ruling']!r}, "
+                   f"{_pins[src.stem]['measurer']} {_pins[src.stem]['date']}) -- capturing the oracle's answer "
+                   f"here would undo that ruling. Re-rule it with `pin-ref` if it is wrong, or exclude this "
+                   f"stem from the capture.")
         if ref_path.is_file() and not args.force:
             print(f"[{i}/{len(srcs)}] {src.stem}: SKIP (already has a .ref)", file=sys.stderr)
             continue
@@ -1925,6 +1941,139 @@ def cmd_run(args):
     sys.exit(0 if not fails else 1)
 
 
+def refpins_path(src_path):
+    """The pin ledger beside a master pair: ALL.refpins.tsv for ALL.sno."""
+    return Path(src_path).parent / (Path(src_path).stem + ".refpins.tsv")
+
+
+def read_refpins(src_path):
+    """{entry: {"sha": ..., "ruling": ..., "measurer": ..., "date": ...}} -- {} when there is no ledger."""
+    p = refpins_path(src_path)
+    out = {}
+    if not p.is_file():
+        return out
+    for raw in p.read_text().splitlines():
+        if not raw.strip() or raw.startswith("#"):
+            continue
+        f = raw.split("\t")
+        if len(f) >= 5:
+            out[f[0]] = {"sha": f[1], "measurer": f[2], "date": f[3], "ruling": f[4]}
+    return out
+
+
+def cmd_pin_ref(args):
+    """⛔⭐ RE-ANCHOR ONE ENTRY'S REF TO SCRIP'S OWN RULED OUTPUT, WITH PROVENANCE AND A LEDGER.
+
+    THE GAP THIS FILLS (hq_C -> hq_T, 2026-09-04, blocking the SNOBOL4 master control arm): an entry whose
+    correct answer is a SCRIP RULING rather than the oracle's answer had NO supported way to be re-anchored.
+    The witness is `p = LEN(1) . *(n = n + 1)` (entry user_function_len_defer_branch_6): Lon ruled the
+    lambda-deferred-target sugar in, SCRIP now prints `before / after n=1 dummy=[]`, SPITBOL fails the
+    construct and always will -- so `capture-oracle-refs` would faithfully re-record the OLD answer, which is
+    exactly what seat08 warned must never be run on that row. The master's loose source pair no longer exists
+    (one-flat-suite), so there was no upstream to fix either: the only remaining option was hand-editing a
+    generated 1753-entry file, which hq_C correctly refused to do.
+
+    ⛔ THE PIN IS NOT THE POINT -- THE LEDGER IS. Any tool can overwrite a ref. What makes this safe is that
+    every pin is recorded in ALL.refpins.tsv with the entry, a sha256 of the exact pinned text, who ruled it,
+    when, and WHY; and capture-oracle-refs consults that ledger and REFUSES to touch a pinned entry rather
+    than silently restoring the oracle's answer. A ref that disagrees with the oracle ON PURPOSE and a ref
+    that disagrees BY ACCIDENT look identical in the file -- the ledger is the only thing that tells them
+    apart, and without it the next oracle capture quietly undoes a ruling nobody remembers.
+
+    ⛔ --ruling IS MANDATORY AND IS NOT DECORATION. A pin with no stated authority is indistinguishable from
+    a ref cut while the compiler was broken, which is the precise failure this project spends its gates on.
+    ⛔ THE PINNED TEXT COMES FROM A RUN, NEVER FROM TYPING: --from-scrip runs the entry through the mode the
+    caller names and pins what actually came out. Text typed by hand is a claim about behaviour; output from
+    a run is evidence of it.
+    ⭐ Everything except the one entry's ref block is rewritten BYTE-IDENTICALLY -- the writer is the same
+    write_block_suite the builder uses, fed the same entries, so the pin cannot smuggle in a reindex."""
+    paths = resolve_paths()
+    src_path, ref_path = Path(args.sno), Path(args.ref)
+    for label, p_ in (("suite", src_path), ("ref", ref_path)):
+        if not p_.is_file():
+            refuse(f"{label} file does not exist: {p_}")
+    if not args.ruling.strip():
+        refuse("--ruling is mandatory: a pinned ref with no stated authority cannot be told from a ref cut "
+               "while the compiler was broken")
+    # ⛔ THE READER IS CHOSEN THE WAY `run` CHOOSES IT, never assumed. The SNOBOL4 master is MIXED -- one-line
+    # entries and banner blocks in one file -- and read_block_suite dies on its very first line. Getting this
+    # wrong is not a crash you can ignore: a pin is a rewrite of the whole pair, so a reader that mis-parses
+    # would rewrite 1753 entries into whatever it thought it read.
+    cfg = LANG_CONFIGS[args.lang] if args.lang else None
+    if cfg:
+        co, cc = cfg["comment_open"], cfg["comment_close"]
+        entries = read_block_suite(src_path, ref_path, banner_re_for(co, cc), in_path=sidecar_in_path(src_path),
+                                   x_path=sidecar_xfail_path(src_path), w_path=sidecar_wantrc_path(src_path))
+    else:
+        co, cc = "*", ""
+        entries = read_suite(src_path, ref_path, in_path=sidecar_in_path(src_path),
+                             x_path=sidecar_xfail_path(src_path), w_path=sidecar_wantrc_path(src_path))
+    hit = [e for e in entries if e.name == args.entry]
+    if not hit:
+        refuse(f"no entry named {args.entry!r} in {src_path} ({len(entries)} entries) -- `list` prints them")
+    e = hit[0]
+    # ⭐ Entry.ref is a STRING for a one-line entry and a LIST for a block -- normalise for the diff, and put
+    # the entry's own shape back before writing, or a one-line entry would be rewritten as a list of chars.
+    old_ref = e.ref.split("\n") if isinstance(e.ref, str) else list(e.ref)
+    check_scrip(paths)
+    tmp = Path(tempfile.mkdtemp(prefix="pin_ref."))
+    try:
+        ext = cfg["ext"] if cfg else ".sno"
+        one = tmp / (args.entry + ext)
+        one.write_text("\n".join(e.sno_lines) + "\n")
+        stdin_text = e.stdin
+        if args.mode == "m3":
+            v = run_m3(paths, one, "\n".join(old_ref), stdin_text=stdin_text, want_rc=e.want_rc)
+        else:
+            v = run_m4(paths, one, "\n".join(old_ref), tmp, stdin_text=stdin_text, want_rc=e.want_rc)
+        if v.kind in ("CRASH", "HANG", "UNPROVEN", "SKIP"):
+            refuse(f"{args.mode} on {args.entry} came back {v.kind} ({v.detail}) -- a pin records what the "
+                   f"compiler DOES, and a run that crashed or could not be made says nothing about that")
+        # ⭐ Verdict.text is a METHOD here, not a property -- and the whole file calls it as one. Reading the
+        # class as if it were a dataclass is how `v.text.split` became "'function' object has no attribute".
+        _txt = v.text().rstrip("\n")
+        new_ref = _txt.split("\n") if _txt else [""]
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    if new_ref == old_ref:
+        print(f"⭐ NO CHANGE: {args.entry}'s ref already matches {args.mode} output -- nothing pinned, nothing written.")
+        return
+    print(f"--- {args.entry}: ref BEFORE ({len(old_ref)} line(s))")
+    for l in old_ref[:20]:
+        print("    - " + l)
+    print(f"--- {args.entry}: ref AFTER, from a live {args.mode} run ({len(new_ref)} line(s))")
+    for l in new_ref[:20]:
+        print("    + " + l)
+    if not args.apply:
+        print("\nDRY RUN -- nothing written. Re-run with --apply to pin it and record the ledger line.")
+        return
+    e.ref = "\n".join(new_ref) if isinstance(e.ref, str) else new_ref
+    if cfg:
+        write_block_suite(entries, src_path, ref_path, co, cc,
+                          out_in=sidecar_in_path(src_path), out_x=sidecar_xfail_path(src_path))
+    else:
+        write_suite(entries, src_path, ref_path, out_in=sidecar_in_path(src_path))
+    led = refpins_path(src_path)
+    sha = hashlib.sha256(("\n".join(new_ref) + "\n").encode()).hexdigest()[:16]
+    rows = read_refpins(src_path)
+    rows[args.entry] = {"sha": sha, "measurer": args.measurer or os.environ.get("S4E_SEAT", "unknown"),
+                        "date": time.strftime("%Y-%m-%dT%H:%MZ", time.gmtime()), "ruling": args.ruling.strip()}
+    with open(led, "w") as f:
+        f.write("# SCRIP-RULED REF PINS for this master. ⛔ An entry listed here has a ref that DISAGREES WITH THE\n"
+                "# ORACLE ON PURPOSE, on a stated ruling -- capture-oracle-refs REFUSES to touch these, because\n"
+                "# restoring the oracle's answer would silently undo a decision nobody remembers making.\n"
+                "# ⛔ A pin is evidence only while its sha matches: if the ref has been edited since, the pin no\n"
+                "# longer describes the file and the entry must be re-ruled, not re-blessed.\n"
+                "# entry\tsha256-16\tmeasurer\tdate\truling\n")
+        for k in sorted(rows):
+            r = rows[k]
+            f.write(f"{k}\t{r['sha']}\t{r['measurer']}\t{r['date']}\t{r['ruling']}\n")
+    print(f"\n✅ PINNED {args.entry} from a live {args.mode} run · ledger {led.name} now carries {len(rows)} pin(s)")
+    print(f"   sha256/16 {sha} · ruling: {args.ruling.strip()}")
+    print("   ⛔ Commit the master pair AND the ledger together -- a pin whose ledger line is unpushed is a ref "
+          "that disagrees with the oracle for no recorded reason.")
+
+
 def cmd_extract(args):
     """Materialize ONE suite entry back into a standalone .sno (+ optional .ref) file. For consumers that
     need per-witness standalone access a shared suite file cannot give them directly -- e.g. a gate script
@@ -2171,6 +2320,15 @@ def main():
     ef.add_argument("out_sno")
     ef.add_argument("out_ref")
     ef.set_defaults(func=cmd_extract_family)
+
+    pr = sub.add_parser("pin-ref", help="re-anchor ONE entry's ref to SCRIP's own ruled output, with a mandatory ruling and a provenance ledger that capture-oracle-refs then refuses to overwrite")
+    pr.add_argument("sno"); pr.add_argument("ref"); pr.add_argument("entry")
+    pr.add_argument("--ruling", required=True, help="WHY this entry's answer is SCRIP's to decide and not the oracle's (mandatory: an unexplained pin cannot be told from a ref cut while the compiler was broken)")
+    pr.add_argument("--mode", default="m3", choices=["m3", "m4"], help="which mode's live output to pin (default m3)")
+    pr.add_argument("--measurer", default="", help="who ruled it (defaults to $S4E_SEAT)")
+    pr.add_argument("--lang", default="", choices=[""] + sorted(LANG_CONFIGS))
+    pr.add_argument("--apply", action="store_true", help="write it (without this the diff is printed and nothing changes)")
+    pr.set_defaults(func=cmd_pin_ref)
 
     l = sub.add_parser("list", help="print every entry name in a suite, one per line, in file order")
     l.add_argument("sno")
