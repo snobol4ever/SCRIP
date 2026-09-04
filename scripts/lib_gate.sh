@@ -110,7 +110,13 @@ gate_require_exec() {
     fi
 }
 # gate_require_fresh <repo-root> <src-subdir> <binary> [<binary2> ...] -- refuse rc=2 (UNPROVEN) when any
-# binary is older than the newest git-tracked file under <src-subdir>, or older than HEAD's own commit time.
+# binary is older than the newest git-TRACKED FILE under <src-subdir> or Makefile. Never HEAD's commit time --
+# a commit's %ct is when it was AUTHORED, and the ordinary order of work (build, grade, THEN commit) moves HEAD
+# past a binary that is genuinely current without changing a byte of source (row stale-binary-refusal-compares-
+# against-the-head-commit-time-not-the-newest-tracked-source, hq_B/ceo 2026-09-04, this function's own SIBLING
+# defect: lib_build_currency.sh's assert_binary_current dropped the identical commit-time half in 3d12ca54 --
+# "Fixes c9b9e144, which shipped max(newest src/ commit %ct, newest src/ file mtime). The commit half ... IS
+# WRONG" -- but this second, unrelated copy of the same idea was never unified onto that fix and kept it).
 #
 # THE DEFECT THIS EXISTS TO KILL (FINDING-2026-08-30-hq_C-the-snobol4-board-grades-whatever-scrip-exists-and-
 # labels-that-verdict-with-git-head.md): a board that never builds grades whatever binary happens to be sitting
@@ -119,21 +125,17 @@ gate_require_exec() {
 # SIGSEGV'd two counted entries. A board that cannot establish what it graded must refuse, never label.
 gate_require_fresh() {
     local _root="$1" _srcdir="$2"; shift 2
-    local _f _t _newest_t=0 _newest_f="" _head_t _bin _bin_t _stale=0 _why=""
+    local _f _t _newest_t=0 _newest_f="" _bin _bin_t _stale=0 _why=""
     while IFS= read -r _f; do
         [ -e "$_root/$_f" ] || continue
         _t="$(stat -c %Y "$_root/$_f" 2>/dev/null)" || continue
         if [ "$_t" -gt "$_newest_t" ] 2>/dev/null; then _newest_t="$_t"; _newest_f="$_f"; fi
-    done < <(git -C "$_root" ls-files -- "$_srcdir" 2>/dev/null)
-    _head_t="$(git -C "$_root" log -1 --format=%ct 2>/dev/null)"; _head_t="${_head_t:-0}"
+    done < <(git -C "$_root" ls-files -- "$_srcdir" Makefile 2>/dev/null)
     for _bin in "$@"; do
         [ -e "$_bin" ] || continue
         _bin_t="$(stat -c %Y "$_bin" 2>/dev/null)" || continue
         if [ "$_newest_t" -gt 0 ] && [ "$_bin_t" -lt "$_newest_t" ] 2>/dev/null; then
             _stale=1; _why="$_bin is older than tracked source $_srcdir/$_newest_f"; break
-        fi
-        if [ "$_head_t" -gt 0 ] && [ "$_bin_t" -lt "$_head_t" ] 2>/dev/null; then
-            _stale=1; _why="$_bin is older than HEAD's own commit"; break
         fi
     done
     if [ "$_stale" = 1 ]; then
@@ -142,7 +144,7 @@ gate_require_fresh() {
         for _bin in "$@"; do
             [ -e "$_bin" ] && echo "    $_bin: mtime $(date -u -d "@$(stat -c %Y "$_bin")" +%Y-%m-%dT%H:%MZ 2>/dev/null)"
         done
-        echo "    newest tracked $_srcdir file: ${_newest_f:-none} ($([ "$_newest_t" -gt 0 ] && date -u -d "@$_newest_t" +%Y-%m-%dT%H:%MZ 2>/dev/null || echo n/a))   HEAD commit: $([ "$_head_t" -gt 0 ] && date -u -d "@$_head_t" +%Y-%m-%dT%H:%MZ 2>/dev/null || echo unknown)"
+        echo "    newest tracked $_srcdir/Makefile file: ${_newest_f:-none} ($([ "$_newest_t" -gt 0 ] && date -u -d "@$_newest_t" +%Y-%m-%dT%H:%MZ 2>/dev/null || echo n/a))"
         gate_stamp
         exit 2
     fi
