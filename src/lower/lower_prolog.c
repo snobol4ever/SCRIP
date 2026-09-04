@@ -575,6 +575,7 @@ static const char * pl_spec_key(const tree_t * s, int * ar_out) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_db_leaf2(lcx_t * cx, const char * sym, int k, const tree_t * arg, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = (char *) sym;
     IR_t * kn = build(cx, IR_LIT_INTEGER, NULL, ωfail); IR_LIT(kn).ival = k;
@@ -590,12 +591,13 @@ static IR_t * pl_db_leaf2(lcx_t * cx, const char * sym, int k, const tree_t * ar
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_user_call(lcx_t * cx, const char * nm, const tree_t * t, int nargs, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    int pl_db_live = pl_db_owned(nm, nargs);
     { char key[264]; snprintf(key, sizeof key, "%s/%d", nm, nargs);
-      const tree_t * ch = resolve_pred_table_lookup(&g_stage2.resolve_pred_table, key);
-      if (!ch) { tree_t * kt = ast_node_new(TT_QLIT); kt->v.sval = strdup(key);
+      const tree_t * ch = pl_db_live ? (const tree_t *) 0 : resolve_pred_table_lookup(&g_stage2.resolve_pred_table, key);
+      if (!ch && !pl_db_live) { tree_t * kt = ast_node_new(TT_QLIT); kt->v.sval = strdup(key);
                  tree_t * ct = ast_node_new(TT_FNC); ct->v.sval = (char *) "$existence_error"; ast_push(ct, kt);
                  return pl_leaf(cx, "$existence_error", ct, 1, ωfail, ωfail, entry_out); }
-      if (ch->t == TT_FNC) { IR_t * nd = build(cx, IR_GOTO, ωfail, ωfail); if (entry_out) *entry_out = nd; return nd; } }
+      if (ch && ch->t == TT_FNC) { IR_t * nd = build(cx, IR_GOTO, ωfail, ωfail); if (entry_out) *entry_out = nd; return nd; } }
     IR_t * nd = build(cx, IR_CALL_PROC_STAGED, γnext, ωfail); IR_LIT(nd).sval = pl_pi_name(nm, nargs);
     IR_t * prev = NULL; IR_t * first = NULL;
     for (int i = 0; i < nargs; i++) {
@@ -944,6 +946,59 @@ static int lower_pl_pred_graph(const char * key, const tree_t * ch) {
       return bb_program_add(&g_stage2.bbp, g); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void * pl_runtime_define_pred(const char * key, const tree_t * choice, int arity) {
+    extern IR_graph_t * g_emit_cfg; extern int g_frame_active; extern int g_rt_fragment_emit; extern int g_gen_proc_active;
+    extern int emit_jmp_entry_for_proc(const char *, int, int, IR_graph_t *); extern void emit_jmp_entry_clear(void);
+    extern void zls_graph_name(const IR_graph_t *, const char *);
+    extern void rt_proc_set_fn(const char *, bb_box_fn); extern void rt_proc_set_frame_bytes(const char *, int);
+    extern void rt_proc_set_dyn_scope(const char *, int); extern void emit_patzeta_register(const char *, int, int, int);
+    extern void rt_proc_set_generator(const char *, int); extern void rt_proc_set_jmpentry(const char *, int); extern void rt_proc_set_zstatic(const char *, int);
+    extern void bb_ab_seal_entry_cells(const char *, void *, int);
+    extern int g_last_flat_frame_bytes; extern int g_last_flat_fp; extern int g_last_flat_uniform; extern int g_last_flat_zstatic;
+    int idx; IR_graph_t * g; bb_box_fn fn; IR_graph_t * cfg_sv; int fa; int rfe_sv; int gpa_sv;
+    if (!key || !choice) return (void *)0;
+    { extern void bb_pool_init(void); bb_pool_init(); }
+    idx = lower_pl_pred_graph(key, choice);
+    if (idx < 0) return (void *)0;
+    g = g_stage2.bbp.table[idx];
+    if (!g) return (void *)0;
+    g->zframe_graph = 1; g->zframe_pinned_base = 1;
+    { extern void zls_forget_graph_nodes(const IR_graph_t *); zls_forget_graph_nodes(g); }
+    { extern void ir_drive_slot_assign(IR_graph_t *); ir_drive_slot_assign(g); }
+    cfg_sv = g_emit_cfg; g_emit_cfg = g;
+    fa = g_frame_active; g_frame_active = 1;
+    rfe_sv = g_rt_fragment_emit; g_rt_fragment_emit = 1;
+    rt_proc_set_generator(key, 1); rt_proc_set_jmpentry(key, 1); rt_proc_set_dyn_scope(key, 0);
+    gpa_sv = g_gen_proc_active; g_gen_proc_active = 1;
+    { extern int g_flat_frame_floor; extern int zls_g_region(const IR_graph_t *); g_flat_frame_floor = 0;
+      if (g->entry && ((g->entry->op == IR_DEFINE && IR_LIT(g->entry).ival == 3) || g->entry->op == IR_GOTO_DEFERRED)) {
+          for (int _mi = 0; _mi < g_stage2.proc_count; _mi++) if (g_stage2.proc_table[_mi].name && !strcmp(g_stage2.proc_table[_mi].name, "main")) {
+              int _mx = g_stage2.proc_table[_mi].bb_idx; if (_mx >= 0 && _mx < g_stage2.bbp.count && g_stage2.bbp.table[_mx]) g_flat_frame_floor = zls_g_region(g_stage2.bbp.table[_mx]); break; }
+          if (g_flat_frame_floor <= 0) g_flat_frame_floor = zls_g_region(g); } }
+    emit_jmp_entry_for_proc(key, 0, 1, g);
+    { extern int g_flat_dc_np; extern int rt_pl_dc_ok(const char *, int); g_flat_dc_np = rt_pl_dc_ok(key, g->nparams) ? g->nparams : -1; }
+    zls_graph_name(g, key);
+    { char pfx[300]; snprintf(pfx, sizeof pfx, "proc_%s", key);
+      if (getenv("SCRIP_PL_RTASM")) { extern int zls_g_region(const IR_graph_t *); extern int zls_off(const IR_t *); int _mx = -1; for (int _i = 0; _i < g->n; _i++) if (g->all[_i]) { int _o = zls_off(g->all[_i]); if (_o > _mx) _mx = _o; }
+        fprintf(stderr, "[RTASM] %s: nodes=%d nparams=%d zls_region=%d max_granted_cell=%d %s\n", key, g->n, g->nparams, zls_g_region(g), _mx, (_mx >= 0 && _mx + 16 > zls_g_region(g)) ? "*** CELL OUTSIDE REGION ***" : "(in region)");
+        { extern int zls_scope_of(const IR_t *); extern int zls_g_first_scope(const IR_graph_t *); int _rs = zls_g_first_scope(g);
+          for (int _i = 0; _i < g->n; _i++) if (g->all[_i]) { int _o = zls_off(g->all[_i]); int _sc = zls_scope_of(g->all[_i]); if (_o < 0) continue;
+            fprintf(stderr, "[RTASM]   node[%d] op=%d off=%d scope=%d root_scope=%d %s\n", _i, (int)g->all[_i]->op, _o, _sc, _rs, (_sc >= 0 && _sc != _rs) ? "*** STALE ENTRY FROM ANOTHER GRAPH ***" : ""); } }
+        fprintf(stderr, "[RTASM] ---- runtime fragment for %s ----\n", key); emit_chain(g->entry, stderr, pfx); fprintf(stderr, "[RTASM] ---- end %s ----\n", key); }
+      fn = emit_chain(g->entry, (FILE *)0, pfx); }
+    emit_jmp_entry_clear();
+    g_gen_proc_active = gpa_sv;
+    g_rt_fragment_emit = rfe_sv; g_frame_active = fa; g_emit_cfg = cfg_sv;
+    if (!fn) return (void *)0;
+    rt_proc_set_frame_bytes(key, g_last_flat_frame_bytes);
+    rt_proc_set_fn(key, fn);
+    bb_ab_seal_entry_cells(key, (void *)fn, 1);
+    rt_proc_set_zstatic(key, g_last_flat_zstatic);
+    emit_patzeta_register(key, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform);
+    { extern long g_last_dc_off; extern void rt_proc_set_dcfn(const char *, void *); rt_proc_set_dcfn(key, (g_last_dc_off >= 0) ? (void *)((char *)fn + g_last_dc_off) : (void *)0); }
+    return (void *)fn;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_register_program(stage2_t * s2, const tree_t * prog) {
     extern int polyglot_module_open(stage2_t * s2, const tree_t * s);
     extern void polyglot_module_extend(stage2_t * s2, int mod_idx, const tree_t * s);
@@ -1022,6 +1077,26 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             pl_bb_register(pe->key, ar, bb_idx);
             pl_new_proc(pe->key, ar, bb_idx);
         }
+    }
+    for (int di = 0; di < g_stage2.pl_dyn_n; di++) {
+        const char * dn = g_stage2.pl_dyn_name[di]; int da = g_stage2.pl_dyn_arity[di];
+        if (!dn) continue;
+        { char key[264]; snprintf(key, sizeof key, "%s/%d", dn, da);
+          if (pl_bb_lookup(key, da)) continue;
+          { extern tree_t * pl_runtime_clause_tree(tree_t *);
+            tree_t * hd; tree_t * raw; tree_t * cl; tree_t * ch;
+            if (da > 0) { hd = ast_node_new(TT_FNC); hd->v.sval = strdup(dn);
+                          for (int i = 0; i < da; i++) { tree_t * v = ast_node_new(TT_VAR); v->v.sval = (char *) "_"; ast_push(hd, v); } }
+            else { hd = ast_node_new(TT_QLIT); hd->v.sval = strdup(dn); }
+            { tree_t * fb = ast_node_new(TT_QLIT); fb->v.sval = (char *) "fail";
+              raw = ast_node_new(TT_FNC); raw->v.sval = (char *) ":-"; ast_push(raw, hd); ast_push(raw, fb); }
+            cl = pl_runtime_clause_tree(raw);
+            if (!cl) continue;
+            ch = ast_node_new(TT_CHOICE); ch->v.sval = strdup(key); ast_push(ch, cl);
+            { int bb_idx = lower_pl_pred_graph(key, ch);
+              if (bb_idx < 0) continue;
+              pl_bb_register(key, da, bb_idx);
+              pl_new_proc(key, da, bb_idx); } } }
     }
     for (int _gi = _pl_bb0; _gi < g_stage2.bbp.count; _gi++) if (g_stage2.bbp.table[_gi]) { g_stage2.bbp.table[_gi]->zframe_graph = 1; g_stage2.bbp.table[_gi]->zframe_pinned_base = 1; }
     top->standing_cells = g_stage2.pl_dyn_n;
