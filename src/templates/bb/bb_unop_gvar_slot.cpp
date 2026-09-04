@@ -20,7 +20,7 @@ std::string bb_unop_gvar_slot() {
                           + IF(_.bb_lk == (int)IR_VAR && _.op_name1 != 0, x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t) _.op_name1, _.op_parts_lbl[0]))
                           + IF(_.bb_lk == (int)IR_VAR && _.op_name1 != 0, x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *) rt_gvar_get_int))
                           + IF(!(_.bb_lk == (int)IR_LIT_INTEGER) && !(_.bb_lk == (int)IR_VAR && _.op_name1 != 0),
-                            x86("mov", "rax", FRQ(_.op_sa + ((_.bb_lk == (int)IR_CALL || _.bb_lk == (int)IR_OP_COUNT || _.bb_lk == (int)IR_OP_COUNT) ? 8 : 0))))
+                            x86("mov", "rax", FRQ(_.op_sa + ((_.bb_lk == (int)IR_CALL || _.bb_lk == (int)IR_EXCISED || _.bb_lk == (int)IR_EXCISED) ? 8 : 0))))
                           + IF(_.op_ival == TT_MNS, x86("neg", "rax"))
                           + x86("mov", FRQ(_.op_off), "rax")
                           + x86_gamma()

@@ -52,7 +52,7 @@ std::string bb_binop_gvar_arith_slot() {
                           + IF(_.bb_lk == (int)IR_VAR && _.op_name1 != 0, x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t) _.op_name1, _.op_parts_lbl[0]))
                           + IF(_.bb_lk == (int)IR_VAR && _.op_name1 != 0, x86("call", "rt_gvar_get_int", (uint64_t)(uintptr_t)(void *) rt_gvar_get_int))
                           + IF(!(_.bb_lk == (int)IR_LIT_INTEGER) && !(_.bb_lk == (int)IR_VAR && _.op_name1 != 0),
-                            x86("mov", "rax", FRQ(_.op_sa + ((_.bb_lk == (int)IR_CALL || _.bb_lk == (int)IR_OP_COUNT || _.bb_lk == (int)IR_OP_COUNT) ? 8 : 0))))
+                            x86("mov", "rax", FRQ(_.op_sa + ((_.bb_lk == (int)IR_CALL || _.bb_lk == (int)IR_EXCISED || _.bb_lk == (int)IR_EXCISED) ? 8 : 0))))
                           + IF(_.bb_rk == (int)IR_LIT_INTEGER, x86("mov", "rcx", (long)_.bb_ri))
                           + IF(_.bb_rk == (int)IR_VAR && _.op_name2 != 0, x86("mov", FRQ(_.op_off), "rax"))
                           + IF(_.bb_rk == (int)IR_VAR && _.op_name2 != 0, x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t) _.op_name2, _.op_parts_lbl[1]))
@@ -60,7 +60,7 @@ std::string bb_binop_gvar_arith_slot() {
                           + IF(_.bb_rk == (int)IR_VAR && _.op_name2 != 0, x86("mov", "rcx", "rax"))
                           + IF(_.bb_rk == (int)IR_VAR && _.op_name2 != 0, x86("mov", "rax", FRQ(_.op_off)))
                           + IF(!(_.bb_rk == (int)IR_LIT_INTEGER) && !(_.bb_rk == (int)IR_VAR && _.op_name2 != 0),
-                            x86("mov", "rcx", FRQ(_.op_sb + ((_.bb_rk == (int)IR_CALL || _.bb_rk == (int)IR_OP_COUNT || _.bb_rk == (int)IR_OP_COUNT) ? 8 : 0))))
+                            x86("mov", "rcx", FRQ(_.op_sb + ((_.bb_rk == (int)IR_CALL || _.bb_rk == (int)IR_EXCISED || _.bb_rk == (int)IR_EXCISED) ? 8 : 0))))
                           + IF(_.op_ival == BINOP_ADD, x86("add",  "rax", "rcx"))
                           + IF(_.op_ival == BINOP_SUB, x86("sub",  "rax", "rcx"))
                           + IF(_.op_ival == BINOP_MUL, x86("imul", "rax", "rcx"))

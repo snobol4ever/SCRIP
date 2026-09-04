@@ -47,6 +47,7 @@ typedef enum {
     IR_DIFFER,
     IR_DISJUNCTION,
     IR_DTP_ASSIGN,
+    IR_EXCISED,
     IR_FAIL,
     IR_FIELD_GET,
     IR_FIELD_VAR,
