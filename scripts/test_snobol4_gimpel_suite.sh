@@ -25,11 +25,49 @@ SCRIP="$SD/scrip"
 # lib_gate.sh, the ONE authority (hq_B 4c7253e99) -- never a second copy of the staleness rule.
 "$HERE/util_require_fresh.sh" --gate test_snobol4_gimpel_suite "$SCRIP" "${RT_DIR:-$HERE/../out}/libscrip_rt.so" || exit 2
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
-bash "$HERE/scorecard_snobol4.sh" run --suites gimpel --out "$W" > "$W/run.log" 2>&1
+# ⛔⭐ THE VENDORED FIXTURES ARE READ-ONLY, SO THE RUN HAPPENS ON A COPY (row snobol4-gimpel-runner-writes-
+# asmtemp-into-the-vendored-dir-and-blocks-its-own-score-write, ceo -> hq_T on hq_C's opening gimpel
+# measurement; the Icon Arizona precedent is c96cb087d, same class, same day).
+# ⛔ THE SIDE EFFECT DISABLED THE VERY WRITE THIS RUN EXISTS TO PRODUCE: ASM_driver.sno opens its own work file
+# ASMTEMP, the scorecard runs each program in the program's OWN directory (deliberately -- argv is the bare
+# basename so a diagnostic echoing its own name stays comparable to a frozen .ref), so ASMTEMP landed in
+# corpus/packages/snobol4/gimpel/ and left the tree DIRTY -- whereupon util_score_row.py correctly refused the
+# leaderboard row, because a number measured on a dirty tree describes no tree anyone can check out. A grader
+# that writes into what it grades is the same defect as a gate that edits the artifact it measures.
+# ⭐ WHY AN OVERLAY RATHER THAN A cwd CHANGE: the scorecard's per-program cwd is load-bearing (above), and this
+# runner does not own that instrument -- it is the shared SNOBOL4 board every suite goes through. Copying the
+# 1.8M package and pointing CORPUS at an overlay leaves that contract untouched: reads resolve exactly as
+# before (`include` is symlinked back to the real tree, and the suite's own lib spec is SELFDIR:include), and
+# every write lands on the copy, which dies with the trap above.
+CORPUS_REAL="${CORPUS:-$ROOT/corpus}"
+mkdir -p "$W/corpus/packages/snobol4"
+cp -a "$CORPUS_REAL/packages/snobol4/gimpel" "$W/corpus/packages/snobol4/gimpel" || {
+    echo "⛔ REFUSE(rc=2): could not copy the gimpel package to a scratch overlay -- refusing to grade in the vendored dir"; exit 2; }
+for d in "$CORPUS_REAL"/*/; do
+    b="$(basename "$d")"; [ "$b" = packages ] && continue
+    ln -s "$d" "$W/corpus/$b" 2>/dev/null || true
+done
+CORPUS="$W/corpus" bash "$HERE/scorecard_snobol4.sh" run --suites gimpel --out "$W" > "$W/run.log" 2>&1
 rc=$?
 TSV="$W/results.tsv"
 [ -f "$TSV" ] || { echo "⛔ REFUSE(rc=2): scorecard_snobol4.sh produced no results.tsv (rc=$rc) -- run.log:"; cat "$W/run.log"; exit 2; }
 TOTAL=$(awk -F'\t' 'END{print NR}' "$TSV")
+# ⛔⭐ A RUN THAT GRADED NOTHING IS UNMEASURED, NEVER A BOARD OF ZEROS (found 2026-09-04 while curing the
+# vendored-dir write, hq_T). scorecard_snobol4.sh TRUNCATES results.tsv before it does anything else, so any
+# refusal AFTER that point -- and the common one is its own board-contention guard, "another SNOBOL4 board is
+# already running on this box", which is a REFUSAL and not a failure -- leaves an EMPTY results.tsv behind.
+# This runner then printed `GIMPEL_BOARD total=0 scored=0 ... m3_fail=0 m4_fail=0` and, because the final
+# verdict is `[ "$M3F" = 0 ] && [ "$M4F" = 0 ]`, EXITED 0. A perfect green board over an empty population, on a
+# run that never started. ⛔ That is the absent-oracle false-green in its purest form: zero failures because
+# zero programs, indistinguishable in the exit code from 144 passes.
+if [ "$TOTAL" -eq 0 ]; then
+    echo "⛔ REFUSE(rc=2): the gimpel run graded ZERO programs -- results.tsv is empty, so this is UNMEASURED, not clean."
+    echo "   scorecard_snobol4.sh exited rc=$rc; its own log follows (the usual cause is the board-contention"
+    echo "   guard: another SNOBOL4 board is running on this box, which is a refusal to measure under contention,"
+    echo "   not a failure -- wait for it and re-run):"
+    sed 's/^/     /' "$W/run.log"
+    exit 2
+fi
 UNSCR=$(awk -F'\t' '$3=="ORACLE_FAIL"' "$TSV" | wc -l)
 M3P=$(awk -F'\t' '$3!="ORACLE_FAIL" && $3=="PASS"' "$TSV" | wc -l)
 M3F=$(awk -F'\t' '$3!="ORACLE_FAIL" && $3!="PASS"' "$TSV" | wc -l)

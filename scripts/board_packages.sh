@@ -59,6 +59,7 @@ runner_for() {  # $1 = "<lang>/<name>" -> echoes the grading script's basename, 
     prolog/gnu_prolog)       echo test_prolog_gnu_suite.sh ;;
     prolog/swi_tests)        echo test_prolog_swi_suite.sh ;;
     snobol4/csnobol4_suite)  echo test_snobol4_csnobol4_suite.sh ;;
+    snobol4/spitbol_testpgms) echo test_snobol4_spitbol_testpgms_suite.sh ;;
     snobol4/snoflake_suite)  echo test_snoflake_suite.sh ;;
     *) : ;;
   esac
