@@ -181,11 +181,11 @@ static const char * pl_rung6_builtins[] = { "=..", "==", "@<", "@=<", "@>", "@>=
     "functor", "ground", "integer", "is_list", "msort", "name", "nonvar", "number", "number_chars", "number_codes", "number_string", "numbervars", "plus", "print", "sort", "string_chars",
     "string_codes", "string_concat", "string_length", "string_lower", "string_to_atom", "string_upper", "succ", "tab", "term_string", "term_to_atom", "upcase_atom", "var", "write_canonical",
     "writeln", "writeq", "put_char", "halt", "flush_output", "read", "read_term", "get_char", "peek_char", "nl", "write", NULL };
-static const char * pl_rung7_builtins[] = { "between", "repeat", "clause", "retract", "sub_atom", "for", "current_op", "current_predicate", "predicate_property",
+static const char * pl_rung7_builtins[] = { "between", "repeat", "clause", "sub_atom", "for", "current_op", "current_predicate", "predicate_property",
     "current_prolog_flag", "current_stream", "stream_property", NULL };
 static const char * pl_rung8_builtins[] = { "findall", "bagof", "setof", "aggregate_all", NULL };
 static const char * pl_rung9_builtins[] = { NULL };
-static const char * pl_rung10_builtins[] = { "call", "assert", "asserta", "assertz", "retractall", "abolish", "dynamic", "nb_setval", "nb_getval", "b_setval", "b_getval", "phrase",
+static const char * pl_rung10_builtins[] = { "call", "assert", "asserta", "assertz", "retract", "retractall", "abolish", "dynamic", "nb_setval", "nb_getval", "b_setval", "b_getval", "phrase",
     "with_output_to", "setup_call_cleanup", "use_module", "ensure_loaded", "module", "set_prolog_flag", NULL };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_name_in(const char * nm, const char * const * lst) { if (!nm) return 0; for (int i = 0; lst[i]; i++) if (!strcmp(nm, lst[i])) return 1; return 0; }
@@ -812,7 +812,25 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             int ar = 0; const char * pn = pl_head_key(t->c[0], &ar);
             if (!pn) pl_refuse("retract of a clause whose head is not a callable term known at compile time --", nm, 10);
             if (!pl_db_owned(pn, ar)) pl_refuse("retract on a predicate that has clauses in the file (they are wired boxes, not database rows) --", pn, 10);
-            pl_refuse("retract/1 on a dynamic predicate -- the clause-list INTERPRETER that served it is DELETED (Lon 2026-09-03: the clauses are compiled to Byrd boxes, assert adds code and retract removes it); the compiled-clause path lands it --", pn, 10); }
+            { int k = pl_dyn_index_or_add(pn, ar);
+              IR_t * ok = build(cx, IR_CALL, γnext, ωfail); IR_LIT(ok).sval = "$db_try_erase";
+              IR_t * to = build(cx, IR_TO, ok, ωfail); IR_LIT(to).sval = (char *) "ag";
+              IR_t * kn = build(cx, IR_LIT_INTEGER, NULL, ωfail); IR_LIT(kn).ival = k;
+              IR_t * lo = build(cx, IR_LIT_INTEGER, NULL, ωfail); IR_LIT(lo).ival = 0;
+              IR_t * kn2 = build(cx, IR_LIT_INTEGER, NULL, ωfail); IR_LIT(kn2).ival = k;
+              IR_t * hi = build(cx, IR_CALL, NULL, ωfail); IR_LIT(hi).sval = "$db_nslots";
+              IR_t * ge = NULL; IR_t * gv = term_e(cx, t->c[0], &ge);
+              ir_operand_push(hi, kn2);
+              lc_γ_to(kn, lo); lc_ω_to(kn, ωfail);
+              lc_γ_to(lo, kn2); lc_ω_to(lo, ωfail);
+              lc_γ_to(kn2, hi); lc_ω_to(kn2, ωfail);
+              lc_γ_to(hi, ge ? ge : gv); lc_ω_to(hi, ωfail);
+              lc_γ_to(gv, to); lc_ω_to(gv, ωfail);
+              ir_operand_push(to, lo); ir_operand_push(to, hi);
+              ir_operand_push(ok, kn); ir_operand_push(ok, to); ir_operand_push(ok, gv);
+              lc_ω_to_β(ok, to);
+              if (entry_out) *entry_out = kn;
+              return to; } }
         if (!strcmp(nm, "retractall") && t->n == 1) {
             int ar = 0; const char * pn = pl_head_key(t->c[0], &ar);
             if (!pn) pl_refuse("retractall whose argument is not a callable term known at compile time --", nm, 10);
