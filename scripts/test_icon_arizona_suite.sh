@@ -18,12 +18,19 @@
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 sibling root
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HERE/lib_flag_gate.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_flag_gate.sh unloadable" >&2; exit 2; }
 SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_SO="$HERE/../out/libscrip_rt.so"
 CORPUS="$S4E/corpus"
 SUITE="$CORPUS/packages/icon/arizona_tests/general"
 TIMEOUT="${TIMEOUT:-8}"
-VERBOSE=0; [ "${1:-}" = "-v" ] && VERBOSE=1
+VERBOSE=0
+if [ $# -gt 0 ]; then
+  case "$1" in
+    -v) VERBOSE=1 ;;
+    *) flaggate_reject "$1" "-v" ;;
+  esac
+fi
 
 # ⛔ A MISSING PREREQUISITE IS A REFUSAL (rc=2), NEVER A GREEN EXIT (RULES.md FACT RULE).
 if [ ! -d "$SUITE" ]; then

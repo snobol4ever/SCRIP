@@ -14,6 +14,7 @@
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HERE/lib_flag_gate.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE: lib_flag_gate.sh unloadable"; exit 2; }
 SCRIP="${HERE}/../scrip"
 RT="${HERE}/../out"
 CORPUS=$S4E/corpus/tests/prolog
@@ -34,7 +35,7 @@ while [[ $# -gt 0 ]]; do
         --file)     ONLY_FILE="$2"; shift 2 ;;
         --mode)     MODE="$2"; shift 2 ;;
         --run|--compile) MODE="$1"; shift ;;
-        *) echo "Unknown arg: $1"; exit 1 ;;
+        *) flaggate_reject "$1" "--verbose --file --mode --run --compile" ;;
     esac
 done
 

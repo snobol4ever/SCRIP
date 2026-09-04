@@ -24,6 +24,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HERE/lib_flag_gate.sh" 2>/dev/null || { echo "⛔ REFUSED TO GRADE: lib_flag_gate.sh unloadable" >&2; exit 2; }
 ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"
 RT_SO="${RT_SO:-$ROOT/out/libscrip_rt.so}"
@@ -37,7 +38,7 @@ while [[ $# -gt 0 ]]; do
         --scrip)  SCRIP="$2";  shift 2 ;;
         --corpus) CORPUS="$2"; shift 2 ;;
         --timeout) TIMEOUT="$2"; shift 2 ;;
-        *) echo "Usage: $0 [--mode all|m3|m4] [--scrip PATH] [--corpus PATH] [--timeout N]" >&2; exit 1 ;;
+        *) flaggate_reject "$1" "--mode --scrip --corpus --timeout" ;;
     esac
 done
 
