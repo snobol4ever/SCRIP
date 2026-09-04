@@ -7,9 +7,11 @@ static unsigned  _tbl_nbuck_for(int init);
 static struct _TBBUCK_t **_tbl_vec_new(unsigned nb);
 static long g_agg_list_ser = 1;
 static long g_agg_table_ser = 1;
+static long g_agg_set_ser = 1;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_agg_serial_list(void) { return g_agg_list_ser++; }
 long rt_agg_serial_table(void) { return g_agg_table_ser++; }
+long rt_agg_serial_set(void) { return g_agg_set_ser++; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ARBLK_t *array_new(int lo, int hi) {
     ARBLK_t *a = rt_ws_alloc_tag(sizeof(ARBLK_t), HB_ARR);
@@ -320,19 +322,19 @@ static void set_copy_all(TBBLK_t *dst, TBBLK_t *src) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 TBBLK_t *set_union(TBBLK_t *x, TBBLK_t *y) {
-    TBBLK_t *r = table_new(); r->is_set = 1;
+    TBBLK_t *r = table_new(); r->is_set = 1; r->id = rt_agg_serial_set();
     set_copy_all(r, x); set_copy_all(r, y);
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 TBBLK_t *set_diff(TBBLK_t *x, TBBLK_t *y) {
-    TBBLK_t *r = table_new(); r->is_set = 1;
+    TBBLK_t *r = table_new(); r->is_set = 1; r->id = rt_agg_serial_set();
     TBPAIR_t *e; if (x) TBL_FOREACH(x, e) if (!table_has_d(y, e->key_descr)) table_set_descr_d(r, e->key_descr, e->key_descr);
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 TBBLK_t *set_inter(TBBLK_t *x, TBBLK_t *y) {
-    TBBLK_t *r = table_new(); r->is_set = 1;
+    TBBLK_t *r = table_new(); r->is_set = 1; r->id = rt_agg_serial_set();
     TBPAIR_t *e; if (x) TBL_FOREACH(x, e) if (table_has_d(y, e->key_descr)) table_set_descr_d(r, e->key_descr, e->key_descr);
     return r;
 }

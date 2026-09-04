@@ -4686,13 +4686,14 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             snprintf(buf,256,"%lld",(long long)av.i); *out = STRVAL(buf); return 1;
         }
         if (IS_REAL_fn(av))      { icon_real_str(av.r,buf,128); *out = STRVAL(buf); return 1; }
-        if (av.v==DT_T)          { snprintf(buf,128,"%s(%d)",(av.tbl && av.tbl->is_set) ? "set" : "table",av.tbl?av.tbl->size:0); *out = STRVAL(buf); return 1; }
+        if (av.v==DT_T)          { snprintf(buf,128,"%s_%ld(%d)", (av.tbl && av.tbl->is_set) ? "set" : "table", av.tbl?av.tbl->id:0, av.tbl?av.tbl->size:0); *out = STRVAL(buf); return 1; }
         if (av.v==DT_DATA && av.u) {
             const char *tname = av.u->type ? av.u->type->name : "record";
             if (strcmp(tname,"list")==0) {
                 int cnt = (av.u->type && av.u->type->nfields>=2 && av.u->fields)
                           ? (int)av.u->fields[1].i : 0;
-                snprintf(buf,128,"list(%d)",cnt); *out = STRVAL(buf); return 1;
+                long id = rt_record_image_id(av.u);
+                snprintf(buf,128,"list_%ld(%d)",id,cnt); *out = STRVAL(buf); return 1;
             }
             { int nf = (av.u->type ? av.u->type->nfields : 0); long id = rt_record_image_id(av.u); snprintf(buf,256,"record %s_%ld(%d)",tname,id,nf); *out = STRVAL(buf); return 1; }
         }
@@ -4737,7 +4738,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
                 case '\t': outs[o++]='\\'; outs[o++]='t';  break;
                 case '\r': outs[o++]='\\'; outs[o++]='r';  break;
                 default:
-                    if (c < 0x20 || c == 0x7f) {
+                    if (c < 0x20 || c >= 0x7f) {
                         o += snprintf(outs+o, 5, "\\x%02x", c);
                     } else {
                         outs[o++] = (char)c;
@@ -5563,9 +5564,13 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             for (int _k = 0; _k < n; _k++) { flat[2*_k] = ent[_k]->key_descr; flat[2*_k+1] = ent[_k]->val; }
             *out = rt_make_list(flat, 2*n); return 1;
         }
+        DESCR_t outer = rt_make_list(NULL, 0);
         DESCR_t *pairs = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t));
         for (int _k = 0; _k < n; _k++) { DESCR_t pv[2] = { ent[_k]->key_descr, ent[_k]->val }; pairs[_k] = rt_make_list(pv, 2); }
-        *out = rt_make_list(pairs, n); return 1;
+        FIELD_SET_fn(outer, "frame_elems", (DESCR_t){.v=DT_DATA,.ptr=pairs});
+        FIELD_SET_fn(outer, "frame_size", INTVAL(n));
+        FIELD_SET_fn(outer, "frame_cap", INTVAL(n));
+        *out = outer; return 1;
     }
     if (((_bid == BID_sort)&&(nargs==1||nargs==2))||((_bid == BID_sortf)&&nargs==2)) {
         DESCR_t ld = args[0];
@@ -5574,18 +5579,15 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (!(tag.v==DT_S && tag.s && strcmp(tag.s,"list")==0)) return 0;
         DESCR_t ea=FIELD_GET_fn(ld,"frame_elems");
         int n=(int)FIELD_GET_fn(ld,"frame_size").i;
-        if (n<=0) { *out=ld; return 1; }
+        extern DESCR_t rt_make_list(DESCR_t *args, int nargs);
+        if (n<=0) { *out=rt_make_list(NULL,0); return 1; }
         DESCR_t *arr=(ea.v==DT_DATA)?(DESCR_t*)ea.ptr:NULL;
-        if(!arr) { *out=ld; return 1; }
+        if(!arr) { *out=rt_make_list(NULL,0); return 1; }
         DESCR_t *sorted=rt_ws_alloc(n*sizeof(DESCR_t));
         memcpy(sorted,arr,n*sizeof(DESCR_t));
         int field_idx=((_bid == BID_sortf)&&nargs==2)?(int)to_int(args[1])-1:-1;
         { DESCR_t *_tmp = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t)); sort_msort_descr(sorted, _tmp, n, field_idx); }
-        DESCR_t res=ld;
-        FIELD_SET_fn(res,"frame_elems",(DESCR_t){.v=DT_DATA,.ptr=sorted});
-        FIELD_SET_fn(res,"frame_size",INTVAL(n));
-        FIELD_SET_fn(res,"frame_cap",INTVAL(n));
-        *out=res; return 1;
+        *out=rt_make_list(sorted,n); return 1;
     }
     L_bidjmp_6322: ;
     if ((_bid == BID_FIELD_GET) && nargs == 2) {
@@ -5701,6 +5703,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     if ((_bid == BID_set) && nargs <= 1) {
         TBBLK_t *tbl = table_new();
         tbl->is_set = 1;
+        tbl->id = rt_agg_serial_set();
         if (nargs == 1 && args[0].v == DT_DATA) {
             DESCR_t tag = FIELD_GET_fn(args[0], "gen_type");
             if (tag.v == DT_S && tag.s && strcmp(tag.s,"list")==0) {

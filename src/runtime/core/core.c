@@ -2179,6 +2179,7 @@ void DEFDAT_fn(const char *spec) {
     if (!paren) return;
     *paren = '\0';
     char *name = s;
+    if (_udef_lookup(name)) return;
     char *fields_str = paren + 1;
     char *close = strchr(fields_str, ')');
     if (close) *close = '\0';

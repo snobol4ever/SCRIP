@@ -97,6 +97,7 @@ typedef struct _ARBLK_t {
 } ARBLK_t;
 long rt_agg_serial_list(void);
 long rt_agg_serial_table(void);
+long rt_agg_serial_set(void);
 ARBLK_t *array_new(int lo, int hi);
 ARBLK_t *array_new2d(int lo1, int hi1, int lo2, int hi2);
 DESCR_t    array_get(ARBLK_t *a, int i);
