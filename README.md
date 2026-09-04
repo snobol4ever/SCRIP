@@ -423,10 +423,17 @@ are worth, not as three-digit precision. m3 compiles at run time, so its total i
 the compile; m4 is a prebuilt binary. The way OFF this basis is a real `wall_ms` clock
 hook inside the demo, not a wider tolerance.
 
-⛔ **`jtran` and `oplexgen` get timings but NO multiple, because their answers are
-wrong** — `jtran` produces EMPTY output in both m3 and m4 where `iconx` produces a
-digest, and `oplexgen` diverges from the oracle in both modes. A wrong answer is never
-a fast answer. Both are Icon correctness defects in hq_B's lane, not benchmark gaps.
+⛔ **`jtran` and `oplexgen` get timings but NO multiple — for two different reasons,
+and only one of them is a wrong answer.** `jtran` produces EMPTY output in both m3 and
+m4 where `iconx` produces a digest: a real defect (the `[GENHOST] … RESERVES NOTHING`
+class, `jtran.knowndiff`), and a demonstration that the earlier link cure was
+necessary-not-sufficient — it now runs, rc=0, and still emits nothing. `oplexgen`, by
+contrast, is **not wrong**: it emits **611 lines, the same 611 the oracle emits — `sort`
+of the two outputs is byte-identical, and m3 == m4 exactly**. Only the ORDER differs,
+because the demo walks `every i := key(t.t)` and Icon does not specify `key(table)`
+order. It VOIDs here solely because this harness compares an order-sensitive digest.
+Deciding it — match the oracle's order, or rule the order unspecified and compare this
+demo order-insensitively so it can publish a multiple — is a named row in hq_B's lane.
 
 ### Prolog
 
