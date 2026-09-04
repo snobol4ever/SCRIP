@@ -34,7 +34,9 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 S4E="$(cd "$ROOT/.." && pwd)"
 RT="$ROOT/out"
-SCRIP="$ROOT/scrip"
+# ⭐ FAIL-ONCE HOOK (instrument law batch 1, ceo audit 2026-09-04): the ONLY override this gate honours. Point it at a
+# deliberately wrong-coded stub and the gate must go RED (DIVERGENT>0, rc=1) -- proven and recorded in the FINDING.
+SCRIP="${SCAN_ARGTYPE_SCRIP:-$ROOT/scrip}"
 T="${TIMEOUT:-20}"
 refuse() { echo "⛔ GATE REFUSE(2) [icn-scan-argtype]: $*"; exit 2; }
 . "$HERE/lib_oracle_flags.sh" || refuse "cannot source lib_oracle_flags.sh"

@@ -145,8 +145,11 @@ echo "rerun a single mode: python3 $HARNESS run $MASTER_ICN $MASTER_REF --lang i
 # so out loud rather than truncating silently, which would be a smaller version of the same defect.
 # ⛔ `grep -c` PRINTS "0" *AND* EXITS 1 on no match, so `|| echo 0` printed a SECOND zero and every green board printed
 # "[: 0\n0: integer expression expected" twice and carried on (measured 2026-09-04, hq_B; rc stayed 0, so nothing caught it).
-# Drop the fallback; default the empty case.
-_nfail=$(grep -cE '^[[:space:]]*(FAIL|CRASH|HANG|XPASS|UNPROVEN) ' "$_errf" 2>/dev/null); _nfail=${_nfail:-0}
+# ⛔ AND THE FIRST CURE (08c96e2b9, drop the fallback) KILLED EVERY GREEN BOARD: this script runs under `set -e`, and
+# `grep -c` exits 1 on zero matches, so the bare assignment aborted the board silently right after the "rerun a
+# single mode" line -- measured by the strip row's `done` 20 minutes later. `|| true` keeps grep's own "0" and its
+# failing status out of set -e; the empty-case default stays for a missing file.
+_nfail=$(grep -cE '^[[:space:]]*(FAIL|CRASH|HANG|XPASS|UNPROVEN) ' "$_errf" 2>/dev/null || true); _nfail=${_nfail:-0}
 if [ "${_nfail:-0}" -gt 0 ]; then
     echo ""
     echo "--- the $_nfail non-PASS entries by name (showing up to 40; stderr of the run above) ---"

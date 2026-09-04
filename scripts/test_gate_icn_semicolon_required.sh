@@ -65,7 +65,9 @@ if [ "$mint" -ne 1 ]; then echo "  LOCK 2 BREACH: TK_SEMICOL is minted from some
 # header (or after end) is removed. These fixtures are inline heredocs, so no corpus-wide sweep will
 # ever reach them -- seat02 flagged that during the brace work and it stays true for the strip.
 if [ ! -x "$SCRIP" ]; then
-  echo "  LOCK 3 SKIP: scrip binary not built at $SCRIP (build then re-run for the behavioral lock)."
+  # ⛔ A GATE THAT CANNOT MEASURE REFUSES rc=2 -- never skip-as-success (RULES.md). Until 2026-09-04 this arm printed
+  # SKIP and left fail=0, so an unbuilt tree read "PASS: All locks hold" on two of three locks (hq_B, strip-row audit).
+  echo "  ⛔ LOCK 3 REFUSE(2): scrip binary not built at $SCRIP -- the behavioral lock cannot be measured (run make)."; exit 2
 else
   tmpd="$(mktemp -d /tmp/icn_semi_XXXXXX)"
   # newline-only: two bare statements separated by a newline — MUST be a parse error
