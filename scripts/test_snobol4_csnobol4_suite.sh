@@ -171,7 +171,7 @@ echo "csnobol4 (home dialect, triangulation, informational): PASS=$CSN_PASS FAIL
 # this one and snoflake_suite's own runner were the two missing it (board-packages-into-make-test-
 # reported-then-blocking, seat13 2026-09-03).
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite CSNOBOL4 --modes m3,m4 \
-    --measurer "${S4E_SEAT:-unknown-seat}" \
+    --measurer "${S4E_SEAT:-}" \
     --text "total=$TOTAL m3 PASS=$M3_PASS FAIL=$M3_FAIL REJECT=$M3_REJECT CRASH=$M3_CRASH HANG=$M3_HANG · m4 PASS=$M4_PASS FAIL=$M4_FAIL REJECT=$M4_REJECT CRASH=$M4_CRASH HANG=$M4_HANG (\`test_snobol4_csnobol4_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 

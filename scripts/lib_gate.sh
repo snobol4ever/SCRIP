@@ -228,7 +228,7 @@ gate_score_row() {
         return 0
     fi
     _out="$(python3 "$_py" write --lang "$_lang" --column "$_col" --text "$_text" \
-            --measurer "${S4E_SEAT:-unknown-seat}" ${_modes:+--modes "$_modes"} 2>&1)"; _rc=$?
+            --measurer "${S4E_SEAT:-}" ${_modes:+--modes "$_modes"} 2>&1)"; _rc=$?
     if [ "$_rc" -ne 0 ]; then
         echo "⚠ SCORE.md NOT UPDATED [$GATE_NAME] (rc=$_rc) -- the measurement below stands, the leaderboard row does not:"
         echo "$_out" | sed 's/^/    /'

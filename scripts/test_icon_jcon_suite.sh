@@ -143,6 +143,6 @@ echo "JCON_SUITE_BOARD total=$total m3_pass=${m3p:-n/a} m4_pass=${m4p:-n/a}"
 # because a gate that goes red for a reason unrelated to the code is a gate people route around. It
 # warns and names the unrecorded row instead; it has no silent path.
 python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite JCON --modes m3,m4 \
-    --measurer "${S4E_SEAT:-unknown-seat}" --text "m3 ${m3p:-n/a}/$total · m4 ${m4p:-n/a}/$total (\`test_icon_jcon_suite.sh\`)" \
+    --measurer "${S4E_SEAT:-}" --text "m3 ${m3p:-n/a}/$total · m4 ${m4p:-n/a}/$total (\`test_icon_jcon_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 

@@ -121,6 +121,6 @@ fi
 # measured into .github/SCORE.md; runs nothing itself. Non-fatal: a bookkeeping failure must never
 # turn a real measurement into a red board.
 python3 "$HERE/util_score_row.py" write --lang prolog --column vendor --suite SWI \
-    --measurer "${S4E_SEAT:-unknown-seat}" --text "${SWI_BOARD:-no mode ran} (\`test_prolog_swi_suite.sh\`)" \
+    --measurer "${S4E_SEAT:-}" --text "${SWI_BOARD:-no mode ran} (\`test_prolog_swi_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 exit "$OVERALL_RC"

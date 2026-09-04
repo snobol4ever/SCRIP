@@ -202,9 +202,36 @@ def merge_prov(existing, column, stamp):
     return "; ".join(clauses)
 
 
+# ⛔⭐ "unknown-seat" DEFEATED THE MEASURER GUARD BELOW BY BEING NON-EMPTY. Every runner spelled its default
+# `${S4E_SEAT:-}`, so a board run from a plain shell (no hook exporting S4E_SEAT) satisfied the
+# "an unattributed row is a claim with nobody behind it" check with a string carrying exactly zero attribution
+# -- measured live on this root's own snobol4 board row, 2026-09-03 22:45. ⭐ The identity was never unknown:
+# it is a FACT ON DISK, the same root-path map `s4e_msg.sh:91-99` reads, so the cure is to DERIVE it rather
+# than to refuse harder. Refusal is kept for the case the map cannot answer -- an unrecognised root.
+_PLACEHOLDER_MEASURERS = ("unknown-seat", "unknown", "unknown-hq", "-", "?")
+def derive_measurer():
+    root = os.path.abspath(S4E).rstrip("/")
+    fixed = {"/home/claude": "ceo", "/home/claude_C": "hq_C", "/home/claude_P": "hq_P",
+             "/home/claude_B": "hq_B", "/home/claude_T": "hq_T"}
+    if root in fixed:
+        return fixed[root]
+    m = re.match(r"^/home/claude([0-9]{1,2})$", root)
+    if m:
+        return "seat%02d" % int(m.group(1))
+    return ""
+
+
 def cmd_write(a):
-    if not a.measurer:
-        die("--measurer is required: an unattributed row is a claim with nobody behind it")
+    if not a.measurer or a.measurer.strip().lower() in _PLACEHOLDER_MEASURERS:
+        stale = a.measurer
+        a.measurer = os.environ.get("S4E_SEAT", "").strip() or derive_measurer()
+        if not a.measurer:
+            die("--measurer is required: an unattributed row is a claim with nobody behind it "
+                "(got %r, and the root %r is not in the seat map, so it could not be derived)" % (stale, S4E))
+        if stale:
+            print("⚠ measurer %r is a placeholder, not an identity -- derived %r from the root %s instead "
+                  "(the caller should pass ${S4E_SEAT:-} and let this helper resolve it)."
+                  % (stale, a.measurer, S4E))
     if a.column not in COLUMNS:
         die("unknown --column %r. Known: %s" % (a.column, ", ".join(sorted(COLUMNS))))
     text = a.text.strip()
@@ -377,7 +404,6 @@ def cmd_selftest(a):
         for label, kw in (("unknown language", dict(lang="klingon", column="board", text="1/1", measurer="s")),
                           ("unknown column", dict(lang="rebus", column="nosuch", text="1/1", measurer="s")),
                           ("no digit", dict(lang="rebus", column="board", text="looks fine", measurer="s")),
-                          ("no measurer", dict(lang="rebus", column="board", text="1/1", measurer="")),
                           ("pipe injection", dict(lang="rebus", column="board", text="1/1 | evil", measurer="s")),
                           ("semicolon injection", dict(lang="rebus", column="board", text="1/1; evil", measurer="s"))):
             a3 = A(); a3.modes = ""; a3.dry_run = False; a3.suite = ""
@@ -390,6 +416,43 @@ def cmd_selftest(a):
                     print("SELFTEST: %s correctly REFUSED rc=2" % label)
                 else:
                     print("SELFTEST FAIL: %s exited %s, expected 2" % (label, e.code)); ok = False
+        # ⭐ THE MEASURER CONTRACT HAS TWO ARMS AND BOTH ARE TESTED. An absent or placeholder measurer on a
+        # KNOWN root is DERIVED (the identity is a fact on disk, not a guess); on an UNKNOWN root there is
+        # nothing to derive from and it still REFUSES. The old selftest asserted only the refusal, so it went
+        # red the moment derivation landed -- correctly: it was pinning the behaviour that was being replaced.
+        global S4E
+        _real_s4e = S4E
+        _saved_seat = os.environ.pop("S4E_SEAT", None)
+        try:
+            for label, root, want in (("absent measurer, known root", "/home/claude_T", "hq_T"),
+                                      ("placeholder measurer, known root", "/home/claude_T", "hq_T"),
+                                      ("absent measurer, numbered seat root", "/home/claude7", "seat07")):
+                S4E = root
+                a4 = A(); a4.modes = ""; a4.dry_run = False; a4.suite = ""
+                a4.lang = "rebus"; a4.column = "board"; a4.text = "1/1"
+                a4.measurer = "unknown-seat" if "placeholder" in label else ""
+                try:
+                    cmd_write(a4)
+                    if a4.measurer == want:
+                        print("SELFTEST: %s correctly DERIVED %r" % (label, want))
+                    else:
+                        print("SELFTEST FAIL: %s derived %r, wanted %r" % (label, a4.measurer, want)); ok = False
+                except SystemExit as e:
+                    print("SELFTEST FAIL: %s refused (rc=%s) instead of deriving %r" % (label, e.code, want)); ok = False
+            S4E = "/tmp/not-a-seat-root"
+            a5 = A(); a5.modes = ""; a5.dry_run = False; a5.suite = ""
+            a5.lang = "rebus"; a5.column = "board"; a5.text = "1/1"; a5.measurer = "unknown-seat"
+            try:
+                cmd_write(a5)
+                print("SELFTEST FAIL: placeholder measurer on an UNKNOWN root did not refuse"); ok = False
+            except SystemExit as e:
+                if e.code == 2:
+                    print("SELFTEST: placeholder measurer on an UNKNOWN root correctly REFUSED rc=2")
+                else:
+                    print("SELFTEST FAIL: unknown-root refusal exited %s, expected 2" % e.code); ok = False
+        finally:
+            S4E = _real_s4e
+            if _saved_seat is not None: os.environ["S4E_SEAT"] = _saved_seat
     finally:
         SCORE_MD = real
         shutil.rmtree(d, ignore_errors=True)

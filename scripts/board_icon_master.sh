@@ -192,7 +192,7 @@ fi
 # ANY run -- recording only green boards would make the leaderboard a trophy cabinet, showing each
 # suite's best remembered day rather than its state, which is the exact opposite of what it is for.
 python3 "$HERE/util_score_row.py" write --lang icon --column board --modes m3,m4 \
-    --measurer "${S4E_SEAT:-unknown-seat}" \
+    --measurer "${S4E_SEAT:-}" \
     --text "$([ "$RED" -ne 0 ] && echo "⛔ RED — ")run-graded m3 $m3p/$mt · m4 $m4p/$mt · ast-graded $ap/$at (entries=$graded, floors m3 $M3_PASS_FLOOR / m4 $M4_PASS_FLOOR / ast $AST_PASS_FLOOR, \`board_icon_master.sh\`)$_named" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 # ⭐ THE PROGRESS LINE, after the rewrite.  This runner writes its row DIRECTLY rather than through

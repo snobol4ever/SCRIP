@@ -65,7 +65,11 @@ if [ "$rc" -ne 0 ]; then
 fi
 for want in "rewrite-in-place holds" "not appended beside it" "unknown language correctly REFUSED" \
             "unknown column correctly REFUSED" "no digit correctly REFUSED" \
-            "no measurer correctly REFUSED" "pipe injection correctly REFUSED"; do
+            "pipe injection correctly REFUSED" \
+            "absent measurer, known root correctly DERIVED" \
+            "placeholder measurer, known root correctly DERIVED" \
+            "absent measurer, numbered seat root correctly DERIVED" \
+            "placeholder measurer on an UNKNOWN root correctly REFUSED"; do
     examined=$((examined + 1))
     case "$out" in
         *"$want"*) ;;
