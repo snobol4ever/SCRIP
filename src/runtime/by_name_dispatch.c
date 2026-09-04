@@ -76,7 +76,9 @@ int icn_builtin_is_known(const char *name)
 }
 #include "../parsers/prolog/pl_cell.h"
 #include "rt/rt_pl_trail.h"
-static inline __attribute__((always_inline)) int plw_unbound_tag(const DESCR_t *c) { return c->v == DT_SNUL || c->v == DT_FAIL || (c->v == (DTYPE_t)DT_PLVAR && c->p == (void *)c); }
+static inline __attribute__((always_inline)) int plw_n_self(const DESCR_t *c) { return c->v == DT_N && c->slen == 1 && c->p == (void *)c; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline __attribute__((always_inline)) int plw_unbound_tag(const DESCR_t *c) { return c->v == DT_SNUL || c->v == DT_FAIL || (c->v == (DTYPE_t)DT_PLVAR && c->p == (void *)c) || plw_n_self(c); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t *plw_cell_deref_slow(DESCR_t *c) {
     DESCR_t *prev = (DESCR_t *)0;
