@@ -217,7 +217,15 @@ the kernel is listed as unverified rather than published. Output is byte-verifie
 against SPITBOL before any arm is timed.
 
 **SNOBOL4 kernels × vs SPITBOL x64** (work rate; cross-verified 2026-08-31, six of
-nineteen kernels passed the agreement gate on a shared machine — the rest below):
+nineteen kernels passed the agreement gate on a shared machine — the rest below).
+Triangulator: `scripts/bench_triangulate_snobol4.sh` (angle 1 `test_bench_snobol4_timed.sh`,
+angle 2 `bench_snobol4_fixed_iter.sh`, angle 3 disk telemetry via `tools/bench_rusage`);
+re-run 2026-09-04 under a 16-seat-fleet load and only 2 of 19 kernels agreed (arith_loop,
+eval_fixed — both republished below unchanged from the already-AGREEing 2026-08-31 run,
+since the two dates' numbers match within noise), confirming this basis is genuinely
+load-sensitive rather than re-measuring for its own sake; see hq_P's live-load ruling
+this session (RULES.md § THE TWO-NUMBER BENCHMARK BASIS) for why a quiet re-run, not a
+loaded one, is what would move this table:
 
 | kernel | m3 | m4 |
 |---|:---:|:---:|
@@ -250,7 +258,8 @@ runtime services they call out to — still trail (claws5 0.734x, json 0.422x). 
 compiled part wins; the called-out part loses, which is why optimization targets the
 runtime services, not the code generation.
 
-**SNOBOL4 demos × vs SPITBOL** (2026-08-28, whole-program wall-clock totals, best of
+**SNOBOL4 demos × vs SPITBOL** (`scripts/bench_triangulate_demos_snobol4.sh`, 2026-08-28,
+whole-program wall-clock totals, best of
 3 — a different basis, not comparable to the instruction-count grids above. Every arm's output is
 byte-verified against its reference on all three engines before timing. Each demo has
 three arms: the full program, its `-match` grammar-only core, and `-match-fence` with
@@ -395,10 +404,13 @@ BENCHMARK BASIS): each kernel self-times its **work** and reports it to `stderr`
 `stdout` stays byte-comparable and every arm's output is verified against the
 reference before it is timed at all. Startup/finish **overhead** is reported
 separately instead of being folded into the number. Best of 5. An independent
-cross-check of these numbers (the same kernel timed two more ways: fixed time
+cross-check of these numbers (`scripts/bench_triangulate_prolog.sh`, the same kernel timed two more ways: fixed time
 counting iterations, and fixed iterations measuring time, the two rates required to
 agree) currently covers the SWI and GNU columns only: SCRIP's arms hit a known crash
-in repeated re-entry that is being fixed, and until they run, these SCRIP numbers
+in repeated re-entry that is being fixed (still true 2026-09-04 — the triangulator's
+own header documents m3 crashing on all 21 van Roy kernels in repeated-call form, a
+different program shape than the single-call kernels timed above), and until they
+run, these SCRIP numbers
 stand as single-run measurements verified by output, not yet by triangulation.
 
 ⛔ **This grid replaces an earlier one that read the other way, and the correction is
@@ -537,7 +549,29 @@ semantic gaps, not per-mode flakiness. The oracle everywhere is `fpc -Miso`: eve
 reference output is produced by fpc, never by SCRIP's own output (with a per-file
 exception list where fpc itself cannot run a program).
 
-**Benchmarks.** The `fpc` rivals grid is not yet measured.
+**Benchmarks.** First measurement, 2026-09-04, `scripts/bench_triangulate_pascal.sh`
+(angle 1 `test_bench_pascal_timed.sh`, angle 2 `bench_pascal_fixed_iter.sh`, angle 3 disk
+telemetry) on the 7 reps-capable classic Pascal kernels (`uplevel2`/`uplevel3`/`fbench`/`whet`
+are named in `corpus/benchmarks/pascal/EXCLUDED.tsv` with their reasons — a fixed workload,
+a compile-time SIGSEGV, and no committed reference, respectively — never silently dropped).
+⛔ **Taken under a loaded 16-seat fleet** (RULES.md § THE TWO-NUMBER BENCHMARK BASIS); of 7
+kernels, 4 fully passed all three angles' agreement gate and are published, 3 (`bubble`,
+`intmm`, `perm`) had at least one angle disagree and are withheld rather than averaged past:
+
+| kernel | × vs fpc (m3) | × vs fpc (m4) |
+|---|:---:|:---:|
+| queens | 0.99x | **1.07x** |
+| quick | 0.96x | **1.04x** |
+| sieve | 0.98x | 0.91x |
+| towers | 0.96x | 0.96x |
+
+Oracle: `fpc -O2` at its released default (the rival at the speed the public actually runs,
+not artificially handicapped) vs SCRIP `RT_OPT=-O0` (no `-O2` builds, ever — RULES.md § NO
+-O2 BUILDS). Reading: essentially at parity with fpc's own optimizing compiler on four
+classic kernels under real load-noise — a notable result for an `-O0` compiler against an
+`-O2` rival, not yet strong enough to call ahead or behind given the withheld three and the
+load this run carried. A quiet re-run is the natural next step, not required for this basis
+to be citable (the agreement gate is what makes a loaded run trustworthy in the first place).
 
 ### Snocone
 
@@ -547,9 +581,26 @@ suite. Its programs lower into the same engine as SNOBOL4 and are graded through
 SPITBOL oracle; the paper's own examples are the closest thing to vendor tests and
 are in the corpus.
 
-**Benchmarks.** No separate grid — Snocone compiles into the SNOBOL4 engine, so the
-SPITBOL grids above are its speed story; a Snocone kernel set would re-measure the
-same boxes.
+**Benchmarks.** **× vs SPITBOL** — the SNOBOL4 twin (Snocone shares SNOBOL4's engine, so a
+hand-translated equivalent program, `corpus/benchmarks/snobol4/{fib_recur,arith_loop,
+string_concat_twin}.sno`, is the fair rival — README's own framing above, restated: this
+does re-measure the same engine, on purpose, to check Snocone's frontend adds no
+overhead). First grid, 2026-09-04, `scripts/bench_triangulate_snocone.sh`: callgrind Ir
+(contention-immune — taken under a loaded 16-seat fleet, RULES.md § THE TWO-NUMBER
+BENCHMARK BASIS), SCRIP mode-4 vs the CLEAN SPITBOL benchmark oracle
+(`sbl_clean_bin()`, never `x64/bin/sbl`), both verified output-identical before timing:
+
+| kernel | what it does | × vs SPITBOL (m4) |
+|---|---|:---:|
+| fib_recur | naive recursive `fib(24)` | **1.75x** |
+| arith_loop | 300,000-iteration accumulator | **1.96x** |
+| string_concat | 4,000× `&&` concatenation | **1.42x** |
+
+Ahead of SPITBOL on all three — consistent with the SNOBOL4 engine's own kernel grid
+above (op_dispatch, string_concat, fibonacci all **>1.4x**), which is exactly what "no
+separate grid needed, same engine" predicts. Basis: callgrind Ir only (angles 1/2 are
+not yet run for Snocone — a future pass extending `bench_snobol4_fixed_iter.sh`'s
+approach to Snocone source would triangulate these the same way the SNOBOL4 grid is).
 
 ### Rebus
 
@@ -557,7 +608,25 @@ same boxes.
 borrow a suite from. Its programs are graded through the SNOBOL4 oracle path
 (SPITBOL x64) by construction.
 
-**Benchmarks.** None yet — the smallest frontend, benchmarked as it grows.
+**Benchmarks.** First kernel set, 2026-09-04 (`corpus/benchmarks/rebus/`, 3 kernels —
+Rebus had none before this row). ⛔ **No external rival implementation exists** (Rebus,
+unlike Snocone, has no engine-sharing twin and no independent production
+implementation — see Coverage above) — `scripts/bench_triangulate_rebus.sh` reports
+SCRIP's own callgrind Ir per kernel rather than fabricate a "× vs" ratio with nothing on
+the other side of it (RULES.md § THE INSTRUMENT LAWS: a comparison that cannot show
+what it is commensurable with is not one):
+
+| kernel | what it does | m3 Ir (compile+run) | m4 Ir (run only) |
+|---|---|---:|---:|
+| fib_recur | naive recursive `fib(24)` | 61.0M | 48.4M |
+| arith_loop | 300,000-iteration accumulator | 60.7M | 50.9M |
+| string_concat | 4,000× `\|\|` concatenation | 16.7M | 6.9M |
+
+m3's count is a whole-process total including SCRIP's own in-process compile-to-slab
+step (same caveat as the Icon demo grid above), so it is never read as "m3 is slower
+than m4 at running" — only m4 is pure execution. Grows into a real triangulated grid
+once Rebus gets a rival worth measuring against, or its own fixed-time/fixed-iteration
+angle scripts.
 
 Every number above comes from a named script grading against a third-party suite or
 oracle — run it yourself and it prints its own totals.
