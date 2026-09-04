@@ -76,6 +76,17 @@ M4F=$(awk -F'\t' '$3!="ORACLE_FAIL" && $4!="PASS"' "$TSV" | wc -l)
 SCRIP_HASH="$(git -C "$SD" rev-parse --short HEAD 2>/dev/null || echo '?')"
 CORP_HASH="$(git -C "$ROOT/corpus" rev-parse --short HEAD 2>/dev/null || echo '?')"
 SCORED=$((TOTAL-UNSCR))
+# ⛔⭐ A ZERO DENOMINATOR IS A REFUSAL, NEVER A STEADY STATE (RULES.md, the denominator law) -- AND THIS SCRIPT
+# USED TO PRINT IT AS A GREEN BOARD. The verdict below is `[ "$M3F" = 0 ] && [ "$M4F" = 0 ]`, which is
+# VACUOUSLY TRUE over an empty results.tsv: `GIMPEL_BOARD total=0 ... m3_fail=0 m4_fail=0` and rc=0. MEASURED
+# 2026-09-04 by hq_C: running this suite CONCURRENTLY with test_corpus_snobol4.sh produced exactly that --
+# scorecard_snobol4.sh's own concurrent-board registry (sc_peers, the thing that exists to refuse a contended
+# measurement) declined to grade, left an empty results.tsv, and this wrapper turned that refusal into a
+# PASS. The same suite run solo, same binary, same minute, read total=144 scored=126. A board that reports
+# "no failures" because it graded nothing is the false green the registry was built to prevent, arriving
+# through the one path the registry cannot see: its own caller's arithmetic.
+[ "$TOTAL" -gt 0 ] || { echo "⛔ REFUSE(rc=2): results.tsv is EMPTY (total=0) -- scorecard_snobol4.sh exited rc=$rc and graded nothing, so there is no denominator and no verdict. This is NOT a pass. Commonest cause: another board was live and the concurrent-board registry declined (run this suite solo). run.log:"; cat "$W/run.log"; exit 2; }
+[ "$SCORED" -gt 0 ] || { echo "⛔ REFUSE(rc=2): every one of the $TOTAL entries is ORACLE_FAIL (scored=0) -- the oracle, not SCRIP, is what this run measured. Preflight the oracle before trusting any verdict."; exit 2; }
 echo "GIMPEL_BOARD total=$TOTAL scored=$SCORED unscr=$UNSCR m3_pass=$M3P m3_fail=$M3F m4_pass=$M4P m4_fail=$M4F -- SCRIP $SCRIP_HASH corpus $CORP_HASH RT_OPT=-O0 oracle=sbl-bf (via scorecard_snobol4.sh --suites gimpel)"
 awk -F'\t' '$3=="ORACLE_FAIL"{printf "  UNSCR  %s  %s\n", $2, $7}' "$TSV"
 awk -F'\t' '$3!="ORACLE_FAIL" && ($3!="PASS" || $4!="PASS"){printf "  RED    %s  m3=%s m4=%s%s\n", $2, $3, $4, ($7!="" ? "  "$7 : "")}' "$TSV"
