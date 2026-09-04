@@ -36,7 +36,8 @@ echo "=== gate: util_verify_s_artifacts_owed.sh refuses on a stale binary (newes
 
 echo "--- (a) STALE binary -> REFUSE rc=2, and NO owed count ---"
 stale="$WORK/scrip_stale"; : > "$stale"; chmod +x "$stale"; touch -d '2020-01-01 00:00:00' "$stale"
-out="$(SCRIP="$stale" run_sut)"; rc=$?
+so_ok="$WORK/rt_ok.so"; : > "$so_ok"; touch "$so_ok"   # pinned fresh: this arm must prove the BINARY refused, not the runtime
+out="$(SCRIP="$stale" SCRIP_RT="$so_ok" run_sut)"; rc=$?
 [ "$rc" -eq 2 ] && ck ok "stale binary exits rc=2 (got $rc)" || ck no "stale binary must exit rc=2, got $rc"
 grep -q 'REFUSED-TO-GRADE' <<<"$out" && ck ok "stale run says REFUSED-TO-GRADE" || ck no "stale run must say REFUSED-TO-GRADE"
 grep -qi 'PREDATES src/' <<<"$out" && ck ok "refusal names the cause (binary predates src/)" || ck no "refusal must name the cause"
@@ -48,13 +49,46 @@ grep -qE 'VERDICT: (CLEAN|OWED)' <<<"$out" && ck no "⛔ stale run reached a CLE
 
 echo "--- (b) FRESH binary -> preflight PASSES and the run proceeds ---"
 fresh="$WORK/scrip_fresh"; : > "$fresh"; chmod +x "$fresh"; touch "$fresh"
-out="$(SCRIP="$fresh" run_sut)"; rc=$?
+# ⛔ THIS ARM MUST PIN THE .so TOO, AND UNTIL THE .so PREFLIGHT EXISTED IT DID NOT HAVE TO. It pinned a fresh
+# BINARY and let the runtime come from the LIVE TREE -- which was stale on the very tree that added the .so
+# check, so this arm went red for a reason it does not test. ⭐ A test arm that leaves a variable it is not
+# testing bound to the live tree is FLAKY BY CONSTRUCTION; it passed for years only because nothing looked at
+# that variable. Pin every input the subject reads, not just the one under test.
+so_fresh="$WORK/rt_fresh.so"; : > "$so_fresh"; touch "$so_fresh"
+out="$(SCRIP="$fresh" SCRIP_RT="$so_fresh" run_sut)"; rc=$?
 grep -q 'build-currency OK' <<<"$out" && ck ok "fresh binary passes the preflight" || ck no "fresh binary must pass the preflight (else the check refuses unconditionally)"
 grep -qi 'PREDATES src/' <<<"$out" && ck no "⛔ fresh binary was wrongly called stale" || ck ok "fresh binary is not called stale"
 grep -q 'corpus repo not found' <<<"$out" && ck ok "run proceeded past the preflight to the next check" || ck no "run must proceed past the preflight (expected the corpus check to be reached)"
 
+echo "--- (d) STALE out/libscrip_rt.so -> REFUSE rc=2 (row stale-binary-preflight-also-covers-out-libscrip-rt-so) ---"
+# ⛔ THE .so IS THE ARTIFACT EVERY `nm -D` VERDICT ACTUALLY READS, and the preflight never looked at it. It lags
+# src/ exactly as ./scrip can: a 13:37 .so against a 14:16 src reported `exec_stmt` as STILL EXPORTED after the
+# source deletion. ⭐ The dangerous direction is the FALSE GREEN -- a stale OLDER .so still exports what source
+# removed and cannot show what source added -- so a clean symbol surface proves nothing about origin.
+# The binary is held FRESH in these arms on purpose: it proves the .so is refused ON ITS OWN, not as a
+# side-effect of the older binary check that already existed.
+so_stale="$WORK/rt_stale.so"; : > "$so_stale"; touch -d '2020-01-01 00:00:00' "$so_stale"
+out="$(SCRIP="$fresh" SCRIP_RT="$so_stale" run_sut)"; rc=$?
+[ "$rc" -eq 2 ] && ck ok "stale .so exits rc=2 (got $rc)" || ck no "stale .so must exit rc=2, got $rc"
+grep -q 'libscrip_rt' <<<"$out" && ck ok "refusal NAMES out/libscrip_rt.so" || ck no "refusal must name libscrip_rt.so — an instrument quotes its reference"
+grep -qi 'PREDATES src/' <<<"$out" && ck ok ".so refusal names the cause" || ck no ".so refusal must name the cause"
+grep -q '2020-01-01' <<<"$out" && ck ok ".so refusal prints the artifact timestamp" || ck no ".so refusal must print the artifact timestamp"
+grep -q "\[$newest_src\]" <<<"$out" && ck ok ".so refusal prints the src/ timestamp it compared against" || ck no ".so refusal must print the src/ timestamp"
+grep -qE '^S-ARTIFACTS-OWED-TOTAL' <<<"$out" && ck no "⛔ stale .so run printed an owed total" || ck ok "stale .so run prints NO owed total"
+grep -qE 'VERDICT: (CLEAN|OWED)' <<<"$out" && ck no "⛔ stale .so run reached a CLEAN/OWED verdict" || ck ok "stale .so run reaches no CLEAN/OWED verdict"
+
+echo "--- (e) FRESH .so -> preflight passes and the run proceeds ---"
+out="$(SCRIP="$fresh" SCRIP_RT="$so_fresh" run_sut)"; rc=$?
+grep -qi 'PREDATES src/' <<<"$out" && ck no "⛔ fresh .so was wrongly called stale" || ck ok "fresh .so is not called stale"
+grep -q 'corpus repo not found' <<<"$out" && ck ok "run proceeded past BOTH preflights" || ck no "run must proceed past both preflights"
+
+echo "--- (f) ABSENT .so -> REFUSE rc=2 and say so (never a silent pass) ---"
+out="$(SCRIP="$fresh" SCRIP_RT="$WORK/no_such_rt.so" run_sut)"; rc=$?
+[ "$rc" -eq 2 ] && ck ok "absent .so exits rc=2 (got $rc)" || ck no "absent .so must exit rc=2, got $rc"
+grep -qi 'not built' <<<"$out" && ck ok "absent .so says 'not built'" || ck no "absent .so must say 'not built'"
+
 echo "--- (c) ABSENT binary -> still REFUSE rc=2 (pre-existing contract kept) ---"
-out="$(SCRIP="$WORK/no_such_scrip" run_sut)"; rc=$?
+out="$(SCRIP="$WORK/no_such_scrip" SCRIP_RT="$so_ok" run_sut)"; rc=$?
 [ "$rc" -eq 2 ] && ck ok "absent binary exits rc=2 (got $rc)" || ck no "absent binary must exit rc=2, got $rc"
 grep -qi 'not built' <<<"$out" && ck ok "absent binary says 'not built'" || ck no "absent binary must say 'not built'"
 

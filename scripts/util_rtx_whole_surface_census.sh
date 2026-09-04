@@ -26,6 +26,11 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CORPUS="${1:-$S4E/corpus/benchmarks/snobol4}"
 OUT="${2:-/tmp/whole_surface_census.tsv}"
 SO="$ROOT/out/libscrip_rt.so"
+# ⛔ THE .so MUST BE CURRENT OR THIS VERDICT IS ABOUT A BUILD NOBODY SHIPS (row stale-binary-preflight-also-
+# covers-out-libscrip_rt-so). A stale OLDER .so still exports what src/ deleted and cannot show what src/
+# added, so a clean nm surface here is a FALSE GREEN. Shared authority -- sourced, never copied.
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_build_currency.sh"
+assert_so_current "$SO" "$ROOT" || exit 2
 [ -f "$SO" ] || { echo "FATAL: $SO missing — run make libscrip_rt first"; exit 1; }
 [ -x "$ROOT/scrip" ] || { echo "FATAL: $ROOT/scrip missing"; exit 1; }
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT

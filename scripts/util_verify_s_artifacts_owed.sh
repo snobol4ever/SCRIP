@@ -62,6 +62,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP_BIN="${SCRIP:-$ROOT/scrip}"
+SCRIP_RT="${SCRIP_RT:-$ROOT/out/libscrip_rt.so}"   # overridable so the gate can drive the .so arm on a fixture, never the live build
 REAL_CORPUS="${CORPUS:-$S4E/corpus}"
 SKIP_PRISTINE=0
 [ "${1:-}" = "--skip-pristine" ] && SKIP_PRISTINE=1
@@ -91,27 +92,19 @@ SKIP_PRISTINE=0
 # ⛔ Caught by test_gate_s_artifacts_verifier_stale_binary_refuses.sh, which asserts the refusal PRINTS the src/
 # timestamp it compared against: the gate went red the moment the printed number stopped being the file mtime.
 # That is the whole reason the refusal quotes its own reference instead of just naming a verdict.
-assert_binary_current() {
-  local bin="$1" newest=0 bt src_desc
-  [ -x "$bin" ] || { echo "⛔ REFUSED-TO-GRADE (rc=2): scrip not built: $bin"; echo "   cure: cd $ROOT && make pristine"; exit 2; }
-  bt="$(stat -Lc %Y "$bin" 2>/dev/null || echo 0)"
-  if [ -d "$ROOT/src" ]; then
-    newest="$(find "$ROOT/src" -type f -printf '%T@\n' 2>/dev/null | sort -rn | head -1 | cut -d. -f1)"; [ -n "$newest" ] || newest=0
-  fi
-  [ "$newest" -gt 0 ] 2>/dev/null || { echo "  build-currency: UNKNOWN (no src/ timestamps readable) — proceeding"; return 0; }
-  if [ "$bt" -lt "$newest" ] 2>/dev/null; then
-    src_desc="newest src/ file change"
-    echo "⛔ REFUSED-TO-GRADE (rc=2): THE BINARY PREDATES src/ — this run could only report drift belonging to a stale build, not to origin."
-    echo "   $bin  built $(date -d "@$bt" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "@$bt")   [mtime $bt]"
-    echo "   $src_desc          $(date -d "@$newest" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "@$newest")   [$newest]"
-    echo "   cure: cd $ROOT && make pristine     (HQ-27 PRISTINE-BUILD-BEFORE-VERDICT)"
-    echo "   NOT an owed count: a stale binary owes different artifacts than origin does, and an OWED number here would block a handoff on a debt that does not exist."
-    echo "VERDICT: REFUSED — stale binary, no drift verdict was possible."
-    exit 2
-  fi
-  echo "  build-currency OK: $bin [$bt] is at or after the newest src/ change [$newest]"
-}
-[ "$SKIP_PRISTINE" -eq 1 ] && assert_binary_current "$SCRIP_BIN"
+# ⛔ THE LOCAL COPY OF assert_binary_current IS GONE -- it now lives in lib_build_currency.sh beside
+# assert_so_current, because SEVEN nm-grading scripts need the same question answered about the RUNTIME and a
+# second copy is how one caller keeps the old rule after the rule changes (CLAUDE.md: shared authorities are
+# sourced, never reimplemented). The lib RETURNS 2 where this file used to `exit 2`, so the exit stays here,
+# at the call site, where a reader can see it.
+. "$HERE/lib_build_currency.sh"
+if [ "$SKIP_PRISTINE" -eq 1 ]; then
+  assert_binary_current "$SCRIP_BIN" "$ROOT" || exit 2
+  # ⛔ AND THE RUNTIME, which this preflight never checked (row stale-binary-preflight-also-covers-out-libscrip-rt-so):
+  # out/libscrip_rt.so lags src/ exactly as ./scrip can, and a 13:37 .so against a 14:16 src read `exec_stmt` as
+  # STILL EXPORTED after its deletion. The .so is what every `nm -D` verdict in the tree actually reads.
+  assert_so_current "$SCRIP_RT" "$ROOT" || exit 2
+fi
 
 [ -d "$REAL_CORPUS/.git" ] || { echo "FATAL: corpus repo not found at $REAL_CORPUS"; exit 2; }
 

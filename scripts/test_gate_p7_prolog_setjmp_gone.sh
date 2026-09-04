@@ -21,6 +21,11 @@ cd "$R/SCRIP" 2>/dev/null || { echo "⛔ REFUSED (rc=2): no $R/SCRIP"; exit 2; }
 SO=out/libscrip_rt.so
 [ -f "$SO" ] || { echo "⛔ REFUSED (rc=2): $SO not built -- 'symbol absent' is unfalsifiable against a library that does not exist, and an unbuilt tree would PASS the nm half for free"; exit 2; }
 [ -d src ] || { echo "⛔ REFUSED (rc=2): no src/ -- cannot grade a source deletion it cannot read"; exit 2; }
+# ⛔ THE .so MUST BE CURRENT OR THIS VERDICT IS ABOUT A BUILD NOBODY SHIPS (row stale-binary-preflight-also-
+# covers-out-libscrip_rt-so). A stale OLDER .so still exports what src/ deleted and cannot show what src/
+# added, so a clean nm surface here is a FALSE GREEN. Shared authority -- sourced, never copied.
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_build_currency.sh"
+assert_so_current "$SO" "$R/SCRIP" || exit 2
 F=0
 # the symbol set, measured hq_P 2026-09-02 (SCRIP fa12d7cb): section 4 names "dop_call_nothrow and its two wrappers" -- the wrappers are rt_pl_dop_trail_unwind (:1598) and
 # rt_pl_dop_unwind_nothrow (:1599), "dop_call_nothrow's only two callers" per by_name_dispatch.c:1514; dop_unwind_nothrow (:1405) is the body behind the second and is reached by the

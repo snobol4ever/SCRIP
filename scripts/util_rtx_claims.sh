@@ -88,6 +88,11 @@ sort -u "$TMP/asm_syms" -o "$TMP/asm_syms"
 # it needs no prefix rule and no allowlist, and it cannot rot.
 : > "$TMP/c_syms"
 SO="$SCRIP_ROOT/out/libscrip_rt.so"
+# ⛔ THE .so MUST BE CURRENT OR THIS VERDICT IS ABOUT A BUILD NOBODY SHIPS (row stale-binary-preflight-also-
+# covers-out-libscrip_rt-so). A stale OLDER .so still exports what src/ deleted and cannot show what src/
+# added, so a clean nm surface here is a FALSE GREEN. Shared authority -- sourced, never copied.
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_build_currency.sh"
+assert_so_current "$SO" "$SCRIP_ROOT" || exit 2
 if [ -f "$SO" ]; then
   nm -D --defined-only "$SO" 2>/dev/null | awk '{print $3}' >> "$TMP/c_syms"
   nm    --defined-only "$SO" 2>/dev/null | awk '{print $3}' >> "$TMP/c_syms"

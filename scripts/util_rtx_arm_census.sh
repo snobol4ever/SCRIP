@@ -41,6 +41,11 @@
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SO="$ROOT/out/libscrip_rt.so"
+# ⛔ THE .so MUST BE CURRENT OR THIS VERDICT IS ABOUT A BUILD NOBODY SHIPS (row stale-binary-preflight-also-
+# covers-out-libscrip_rt-so). A stale OLDER .so still exports what src/ deleted and cannot show what src/
+# added, so a clean nm surface here is a FALSE GREEN. Shared authority -- sourced, never copied.
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_build_currency.sh"
+assert_so_current "$SO" "$ROOT" || exit 2
 RT_DIR="$ROOT/out"
 PROG="${1:?usage: util_rtx_arm_census.sh <prog.sno> [m3|m4|both]}"
 MODE="${2:-m3}"
