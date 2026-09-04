@@ -7,6 +7,7 @@ extern "C" {
 #include "descr.h"
 typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs_needle_t;
 ScanSubjRegs_needle_t rt_scan_needle(uint64_t lo, uint64_t hi);
+void core_icn_argtype_check(uint64_t lo, uint64_t hi, uint64_t code);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -15,6 +16,12 @@ std::string bb_scan_match() {
     return (_.op_off >= 0 && !_.op_name1 && _.op_sa >= 0) ?
            x86("comment", "IR_SCAN_MATCH (var needle) [fstranl.r match: rt_scan_needle coerces (int/real->string) -> {ptr,len}; fail unless Delta-delta>=len && memcmp==0; result {DT_I, delta+1+len}]")
              + x86_alpha()
+             + x86("mov",     "rdi", FRQ(_.op_sa))
+             + x86("mov",     "rsi", FRQ(_.op_sa + 8))
+             + x86("mov",     "edx", (long)103)
+             + x86("sub",     "rsp", (long)8)
+             + x86("call",    "core_icn_argtype_check", (uint64_t)(uintptr_t)(void*)core_icn_argtype_check)
+             + x86("add",     "rsp", (long)8)
              + x86("mov",     "rdi", FRQ(_.op_sa))
              + x86("mov",     "rsi", FRQ(_.op_sa + 8))
              + x86("push",    "r12")

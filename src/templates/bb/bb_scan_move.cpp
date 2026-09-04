@@ -5,6 +5,7 @@ extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
 DESCR_t rt_substr(const char *sigma, int64_t a, int64_t b);
+int64_t core_icn_to_int_check(uint64_t lo, uint64_t hi);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -13,7 +14,11 @@ std::string bb_scan_move() {
     if (!(_.op_off >= 0)) return x86_alpha() + x86_bomb("bb_scan_move: no result slot (op_off)");
     return x86("comment", "IR_SCAN_MOVE [fscan.r move: j=&pos+i; fail unless 1<=j<=Delta+1; result substr; data-backtrack restores r14 on beta]")
          + x86_alpha()
-         + IF(_.op_sa >= 0, x86("mov", "rax", FRQ(_.op_sa + 8)))
+         + IF(_.op_sa >= 0, x86("mov", "rdi", FRQ(_.op_sa)))
+         + IF(_.op_sa >= 0, x86("mov", "rsi", FRQ(_.op_sa + 8)))
+         + IF(_.op_sa >= 0, x86("sub", "rsp", (long)8))
+         + IF(_.op_sa >= 0, x86("call", "core_icn_to_int_check", (uint64_t)(uintptr_t)(void*)core_icn_to_int_check))
+         + IF(_.op_sa >= 0, x86("add", "rsp", (long)8))
          + IF(_.op_sa <  0, x86("mov", "rax", (long)_.op_sb))
          + x86("add",     "rax", "r14")
          + x86("add",     "rax", (long)1)
