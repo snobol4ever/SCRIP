@@ -216,30 +216,54 @@ times its own work). Where the two clocks disagree — as they do under machine 
 the kernel is listed as unverified rather than published. Output is byte-verified
 against SPITBOL before any arm is timed.
 
-**SNOBOL4 kernels × vs SPITBOL x64** (work rate; cross-verified 2026-08-31, six of
-nineteen kernels passed the agreement gate on a shared machine — the rest below).
-Triangulator: `scripts/bench_triangulate_snobol4.sh` (angle 1 `test_bench_snobol4_timed.sh`,
-angle 2 `bench_snobol4_fixed_iter.sh`, angle 3 disk telemetry via `tools/bench_rusage`);
-re-run 2026-09-04 under a 16-seat-fleet load and only 2 of 19 kernels agreed (arith_loop,
-eval_fixed — both republished below unchanged from the already-AGREEing 2026-08-31 run,
-since the two dates' numbers match within noise), confirming this basis is genuinely
-load-sensitive rather than re-measuring for its own sake; see hq_P's live-load ruling
-this session (RULES.md § THE TWO-NUMBER BENCHMARK BASIS) for why a quiet re-run, not a
-loaded one, is what would move this table:
+**SNOBOL4 kernels × vs SPITBOL** — the two-number basis (RULES.md § THE TWO-NUMBER
+BENCHMARK BASIS). Triangulator: `scripts/bench_triangulate_snobol4.sh` (angle 1
+`test_bench_snobol4_timed.sh` fixed TIME, angle 2 `bench_snobol4_fixed_iter.sh` fixed
+ITERATIONS, angle 3 disk telemetry via `tools/bench_rusage`).
+*Measured 2026-09-04 on SCRIP `380cc4162` / corpus `201d9e021`, **RT_OPT=-O0**, modes
+m3 and m4, oracle `spitbol-bench-oracle/sbl -bf` (the clean benchmark oracle, never the
+monitor-hooked correctness one).* A kernel is published only when angle 1 and angle 2
+AGREE on **both** the SPITBOL arm and the SCRIP arm; 12 of 19 kernels qualified.
+
+**WORK** is the per-iteration rate: these kernels expose a `*BENCH kernel=` entry the
+harness loops, so the published multiple is a SLOPE and process startup is divided away
+by construction — it is not subtracted, so the CEO-173 subtraction-noise refusal cannot
+arise here. **OVERHEAD** is therefore a separate per-engine constant, measured once on
+an empty program (best of 15, `tools/bench_rusage`): **SPITBOL 741 µs · SCRIP m3
+3827 µs · m4 2162 µs**. Multiple = SCRIP rate / SPITBOL rate (axis named once; above
+1.00x SCRIP is faster):
 
 | kernel | m3 | m4 |
 |---|:---:|:---:|
-| op_dispatch | **3.40x** | **3.74x** |
-| string_concat | **2.89x** | **3.27x** |
-| fibonacci | **1.74x** | **1.56x** |
-| pattern_bt | **1.44x** | **1.63x** |
-| eval_fixed | 0.88x | 0.98x |
-| table_variety | 0.62x | 0.66x |
+| var_access | **3.66x** | **4.08x** |
+| arith_loop | **3.42x** | **3.85x** |
+| op_dispatch | — | **3.12x** |
+| fibonacci | **1.76x** | — |
+| func_call | **1.74x** | — |
+| pattern_bt | **1.52x** | **1.48x** |
+| eval_fixed | **1.00x** | **1.02x** |
+| string_pattern | 0.874x | — |
+| table_variety | 0.663x | — |
+| indirect_dispatch | 0.638x | 0.667x |
+| string_manip | 0.568x | 0.559x |
+| mixed_workload | 0.323x | 0.318x |
 
-The other thirteen kernels measured but did not pass the two-clock agreement gate on
-that run (concurrent load on the build machine; their unverified readings ranged
-0.30x–3.72x) and are withheld until a quiet re-run agrees — a disagreement is
-reported, never averaged away.
+A dash is an arm whose two clocks disagreed on this run; a disagreement is reported,
+never averaged away. The seven withheld kernels are withheld for that reason alone.
+⭐ This run supersedes the 2026-08-31 table, which published six kernels: the earlier
+re-run under a 16-seat fleet load agreed on only two, and this one — taken at load
+~2.8 on 16 cores — agreed on twelve, confirming that table was load-limited rather
+than engine-limited.
+
+**Instruction-count cross-check** (`scripts/bench_ir_slope.sh`, same tree, callgrind Ir
+regression `Ir(n) = OVERHEAD + n·WORK` fitted at n/2n/4n, linearity-checked): 16 of 19
+kernels fit linearly and are contention-immune, so they cover kernels the wall clock
+could not publish. ⛔ **It is a cross-check, not a substitute, and the two instruments
+genuinely disagree**: `op_dispatch` is **3.12x** on the clock but **1.78x** on
+instructions retired, and `pattern_bt` **1.48x** against **0.771x**. Both are correct —
+SCRIP executes *more* instructions than SPITBOL on those kernels but retires them
+faster (better ILP and locality). Ir counts instructions, not cycles; the headline
+multiples above are the timed ones, because time is what the basis is defined in.
 
 **SNOBOL4 real-program workloads × vs SPITBOL** (callgrind instruction counts, fixed
 work, startup excluded — SCRIP mode 4, 2026-08-23):
@@ -582,25 +606,32 @@ SPITBOL oracle; the paper's own examples are the closest thing to vendor tests a
 are in the corpus.
 
 **Benchmarks.** **× vs SPITBOL** — the SNOBOL4 twin (Snocone shares SNOBOL4's engine, so a
-hand-translated equivalent program, `corpus/benchmarks/snobol4/{fib_recur,arith_loop,
-string_concat_twin}.sno`, is the fair rival — README's own framing above, restated: this
-does re-measure the same engine, on purpose, to check Snocone's frontend adds no
-overhead). First grid, 2026-09-04, `scripts/bench_triangulate_snocone.sh`: callgrind Ir
-(contention-immune — taken under a loaded 16-seat fleet, RULES.md § THE TWO-NUMBER
-BENCHMARK BASIS), SCRIP mode-4 vs the CLEAN SPITBOL benchmark oracle
-(`sbl_clean_bin()`, never `x64/bin/sbl`), both verified output-identical before timing:
+hand-translated equivalent program, `corpus/benchmarks/snobol4/{fib_recur,arith_loop_twin,
+string_concat_twin}.sno`, is the fair rival). Boards: `scripts/bench_triangulate_snocone.sh`
+(totals) and `scripts/bench_two_number_ir.sh snocone` (the two-number split below).
+*Measured 2026-09-04 on SCRIP `380cc4162` / corpus `201d9e021`, **RT_OPT=-O0**, mode m4 vs
+the CLEAN SPITBOL benchmark oracle `sbl_clean_bin() -bf` (never `x64/bin/sbl`), outputs
+verified identical before measuring.*
 
-| kernel | what it does | × vs SPITBOL (m4) |
-|---|---|:---:|
-| fib_recur | naive recursive `fib(24)` | **1.75x** |
-| arith_loop | 300,000-iteration accumulator | **1.96x** |
-| string_concat | 4,000× `&&` concatenation | **1.42x** |
+⛔ **Basis: callgrind Ir — instructions retired, not time, and ONE angle.** Snocone has no
+fixed-time or fixed-iteration harness yet, so these are not triangulated the way the SNOBOL4
+grid above is; they are published as a labelled single-angle board, not as a timed multiple.
+**WORK** = total Ir − **OVERHEAD**, where OVERHEAD is this engine's empty-program Ir measured
+on the same run (the marked interim of RULES.md § THE TWO-NUMBER BENCHMARK BASIS):
+**SCRIP m4 2,794,452 Ir · SPITBOL 208,782 Ir**. Multiple = SPITBOL WORK / SCRIP WORK:
 
-Ahead of SPITBOL on all three — consistent with the SNOBOL4 engine's own kernel grid
-above (op_dispatch, string_concat, fibonacci all **>1.4x**), which is exactly what "no
-separate grid needed, same engine" predicts. Basis: callgrind Ir only (angles 1/2 are
-not yet run for Snocone — a future pass extending `bench_snobol4_fixed_iter.sh`'s
-approach to Snocone source would triangulate these the same way the SNOBOL4 grid is).
+| kernel | what it does | SCRIP m4 WORK | SPITBOL WORK | × vs SPITBOL |
+|---|---|---:|---:|:---:|
+| fib_recur | naive recursive `fib(24)` | 24,131,699 | 47,007,649 | **1.95x** |
+| arith_loop | 300,000-iteration accumulator | 36,628,696 | 77,206,594 | **2.11x** |
+| string_concat | 4,000× `&&` concatenation | 3,776,098 | 9,123,253 | **2.42x** |
+
+⭐ **Separating startup moved every row, and `string_concat` most of all — 1.42x on totals to
+2.42x on work.** SCRIP's process startup is ~13x SPITBOL's in instructions (2.79M vs 0.21M),
+so on the shortest kernel it was 42.5% of the whole reading and was being charged to the
+engine. It stays under the CEO-173 50%-of-either-arm bar, so the WORK multiple stands rather
+than falling back to the labelled total; that startup is itself a real, separately reported
+cost, not a number to hide.
 
 ### Rebus
 
@@ -616,17 +647,31 @@ SCRIP's own callgrind Ir per kernel rather than fabricate a "× vs" ratio with n
 the other side of it (RULES.md § THE INSTRUMENT LAWS: a comparison that cannot show
 what it is commensurable with is not one):
 
-| kernel | what it does | m3 Ir (compile+run) | m4 Ir (run only) |
-|---|---|---:|---:|
-| fib_recur | naive recursive `fib(24)` | 61.0M | 48.4M |
-| arith_loop | 300,000-iteration accumulator | 60.7M | 50.9M |
-| string_concat | 4,000× `\|\|` concatenation | 16.7M | 6.9M |
+*Measured 2026-09-04 on SCRIP `380cc4162` / corpus `201d9e021`, **RT_OPT=-O0**, boards
+`scripts/bench_triangulate_rebus.sh` (totals) and `scripts/bench_two_number_ir.sh rebus`
+(the two-number split). **Basis: callgrind Ir — instructions retired, not time, and ONE
+angle**; Rebus has no fixed-time or fixed-iteration harness yet, so this is a labelled
+single-angle board, not a timed multiple.* **WORK** = total Ir − **OVERHEAD**, the latter
+being SCRIP's own empty-program Ir measured on the same run: **m3 5,054,692 · m4
+2,825,462 Ir**.
+
+| kernel | what it does | m3 total Ir | m4 total Ir | m4 WORK |
+|---|---|---:|---:|---:|
+| fib_recur | naive recursive `fib(24)` | 60,984,184 | 48,388,021 | 45,562,559 |
+| arith_loop | 300,000-iteration accumulator | 60,662,248 | 50,847,257 | 48,021,795 |
+| string_concat | 4,000× `\|\|` concatenation | 16,726,309 | 6,870,587 | 4,045,125 |
+
+⛔ **There is no × column and that is deliberate**, not an omission: Rebus has no
+independent implementation anywhere, so there is nothing to be commensurable with, and a
+fabricated ratio would be exactly the class RULES.md § THE INSTRUMENT LAWS warns against.
+The WORK column is still worth having on its own — it is the number a future rival, or
+SCRIP's own next release, gets compared against.
 
 m3's count is a whole-process total including SCRIP's own in-process compile-to-slab
 step (same caveat as the Icon demo grid above), so it is never read as "m3 is slower
-than m4 at running" — only m4 is pure execution. Grows into a real triangulated grid
-once Rebus gets a rival worth measuring against, or its own fixed-time/fixed-iteration
-angle scripts.
+than m4 at running" — only m4 is pure execution. On `string_concat`, OVERHEAD is 41% of
+the m4 reading, which is why the WORK column exists at all: the totals column understates
+the engine on every short kernel.
 
 Every number above comes from a named script grading against a third-party suite or
 oracle — run it yourself and it prints its own totals.
