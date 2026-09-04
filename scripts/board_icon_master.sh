@@ -55,8 +55,18 @@ ENTRY_FLOOR="${ICON_MASTER_ENTRY_FLOOR:-534}"
 # (bb_keyword_icon.cpp) -- both cured this commit, procedure_alt_fail_replace_1 and procedure_scan_write_1
 # move FAIL -> PASS in both modes; procedure_every_alt_replace_4 still shows &progname mismatch, which is
 # the consolidation rename itself (correct compiler behavior), not a defect -- see the FINDING.
-M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-379}"
-M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-379}"
+# ⭐ 380/381 (seat03, icon-master-six-run-graded-reds-cured, re-verified 2026-09-03): the master's last
+# open "red" among the original six -- procedure_record_limit_replace_1 and procedure_record_every_replace_2
+# -- were never compiler defects: both need companion fixture files (prepro.dat / fncs1.dat, staged from
+# corpus/tests/icon/config/ by _copy_companions) that a bare `extract`+direct-invoke repro never supplies,
+# so they read FAIL only when tested outside run_suite_entry's own methodology; under it (this board) both
+# already PASS. The sixth, procedure_scan_while_1, is genuinely XFAIL (probe_witness__witness_icn_options_
+# dash_branch): main(args) needs real argv, scrip's driver already supports `-- program-args` (usage line,
+# src/driver/scrip.c), but corpus_suite_harness.py's suite format carries stdin/want-rc sidecars and NO
+# argv sidecar at all -- run_suite_entry() never threads one through. Not a scan/while bug; a harness-format
+# gap, asked to hq_B (row-icon-master-six-run-graded-reds-cured). 379 -> 380 is the whole reachable gap.
+M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-380}"
+M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-380}"
 AST_PASS_FLOOR="${ICON_MASTER_AST_PASS_FLOOR:-153}"
 
 # ⛔ A BOARD THAT CANNOT MEASURE REFUSES rc=2 — never skip-as-success (RULES.md). Each arm below names
