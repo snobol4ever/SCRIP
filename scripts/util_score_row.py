@@ -598,6 +598,30 @@ def cmd_selftest(a):
                 print("SELFTEST: %s" % label)
             else:
                 print("SELFTEST FAIL: %s -- read %s, wanted %s (from %r)" % (label, got, want, txt)); ok = False
+        # ⛔⭐ THE STALE MARK READS THE PROVENANCE LABEL, NOT PROSE. Arm 1 is the exact live defect Lon
+        # named: an M cell measured TODAY that still printed `?` because its own commentary cites an older
+        # date. Arm 4 is the opposite guard -- keying on the label must not make the cell's own explicit
+        # word unsayable, or a human could never mark a cell stale by hand.
+        _t = datetime.date.today()
+        _today, _yday = _t.strftime("%Y-%m-%d"), (_t - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+        _grid = [""] * (max(i for i, _n in GRID_COLUMNS.values()) + 1)
+        def _prog(mcell, prov):
+            g = list(_grid); g[GRID_COLUMNS["M"][0]] = mcell; g[GRID_COLUMNS["V"][0]] = ""
+            return language_progress("snobol4", g, prov)
+        for label, mcell, prov, want in (
+                ("an old date in PROSE does not stale a cell whose label is TODAY",
+                 "m3 10/10 (seat08, 2026-09-03, FINDING-...-09-03-...md)", "board: SCRIP `a` %s CDT hq_T" % _today, ""),
+                ("a label older than today DOES stale it",
+                 "m3 10/10", "board: SCRIP `a` %s CDT hq_T" % _yday, "?"),
+                ("NO board clause reads STALE -- an undatable number is not a fresh one",
+                 "m3 10/10", "entries: SCRIP `a` %s CDT hq_T" % _today, "?"),
+                ("the cell's own word STALE still wins over a fresh label",
+                 "m3 10/10 STALE", "board: SCRIP `a` %s CDT hq_T" % _today, "?")):
+            _pct, mark, _P, _T, _w = _prog(mcell, prov)
+            if mark == want:
+                print("SELFTEST: %s" % label)
+            else:
+                print("SELFTEST FAIL: %s -- mark %r, wanted %r (%s)" % (label, mark, want, "; ".join(_w))); ok = False
     finally:
         SCORE_MD = real
         shutil.rmtree(d, ignore_errors=True)
@@ -784,7 +808,7 @@ def ladder_score(lang):
     return (built, declared) if declared else None
 
 
-def language_progress(lang, cells):
+def language_progress(lang, cells, prov=""):
     if lang in PROGRESS_LADDER_SCORED:
         ls = ladder_score(lang)
         if ls is None:
@@ -811,18 +835,37 @@ def language_progress(lang, cells):
         if name in vcell and any(k in vcell for k in PROGRESS_NO_MARKERS):
             T += n
             work.append("V %s 0/%d (estimated: named, no number)" % (name, n))
-    # STALE by the cell's own word, or by a month-day label older than today.
+    # ⛔⭐⭐ STALENESS KEYS ON THE PROVENANCE LABEL, NEVER ON A DATE FOUND IN PROSE (Lon 2026-09-04, in-chat
+    # to ceo: "So I see those cells are unverified. Why are they not verified? Get that fixed."). The old
+    # rule scanned the M cell's PROSE for any `MM-DD` and marked the language stale if any of them was older
+    # than today. Measured on the live board the hour this was written: snobol4's M cell was measured TODAY
+    # at 12:07 and still printed `sno 91%?`, because the cell's own commentary says "seat08, 2026-09-03" --
+    # a true sentence about history that the freshness check read as the age of the measurement.
+    # ⭐ THE GENERAL SHAPE: a cell that EXPLAINS ITSELF WELL accumulates dates, so the better-documented a
+    # cell got the staler it looked, and the only way to clear the mark was to delete the history. A
+    # freshness rule that punishes provenance prose is pointed exactly backwards.
+    # ⛔ THE LABEL IS THE DISPLAY ROW'S OWN `board:` CLAUSE -- machine-written by cmd_write, one canonical
+    # ISO stamp, and the mirror of this very M cell (GRID_MIRROR board->M). No label means the age is
+    # UNKNOWN, which reads STALE and NAMES ITSELF rather than passing quietly: an undatable number is not a
+    # fresh one. The cell's own explicit word STALE still wins outright.
     mcell = cells[GRID_COLUMNS["M"][0]]
     stale = "STALE" in mcell
+    if stale:
+        work.append("M reads STALE by the cell's own word")
+    label = ""
     if not stale:
-        today = datetime.date.today()
-        for mm, dd in re.findall(r"\b(\d{2})-(\d{2})\b", re.sub(r"`[^`]*`", "", mcell)):
-            try:
-                d = datetime.date(today.year, int(mm), int(dd))
-            except ValueError:
-                continue
-            if (today - d).days >= 1:
-                stale = True
+        mm = re.search(r"(?:^|;)\s*board\s*:([^;]*)", prov or "")
+        dm = re.search(r"(\d{4})-(\d{2})-(\d{2})", mm.group(1)) if mm else None
+        if dm:
+            label = dm.group(0)
+            d = datetime.date(int(dm.group(1)), int(dm.group(2)), int(dm.group(3)))
+            age = (datetime.date.today() - d).days
+            stale = age >= 1
+            work.append("M label board: %s (%s)" % (label, "today" if age <= 0 else "%d day(s) old -- STALE" % age))
+        else:
+            stale = True
+            work.append("M has NO `board:` provenance clause on the display row -- age UNKNOWN, which is "
+                        "not the same as fresh, so it reads STALE until a runner writes one")
     # ⭐ FLOOR, NEVER ROUND. A completion indicator that rounds shows 100% at 99.6%, which is the one
     # number on this line anybody will act on. Floor reaches 100% only when the work is actually done.
     if unreadable:
@@ -943,12 +986,17 @@ def cmd_agree(a):
 def cmd_progress(a):
     lines = open(SCORE_MD, encoding="utf-8").read().split("\n")
     _hdr, rows = find_grid(lines)
+    # ⭐ The freshness label lives on the STANDARDIZED DISPLAY row, not in the grid: the grid has no
+    # provenance column, and the display's `board:` clause is the machine-written mirror of the grid's M
+    # cell. Bound by shape via find_table, like every other reader of this file.
+    _dh, disp = find_table(lines)
+    provs = {l: c[PROV_COL] for l, (_i, c) in disp.items()}
     missing = [l for l, _ in PROGRESS_LANGS if l not in rows]
     if missing:
         die("the September-10 grid has no row for %s -- refusing to publish a progress line over a partial grid" % ", ".join(missing))
     cells_out, bars, tp, tt, missing = [], [], 0, 0, []
     for lang, short in PROGRESS_LANGS:
-        pct, mark, P, T, work = language_progress(lang, rows[lang])
+        pct, mark, P, T, work = language_progress(lang, rows[lang], provs.get(lang, ""))
         if pct is None:
             # ⛔ NOT SCORED, and deliberately not folded into ALL either: a language whose cell we cannot
             # read must not quietly improve or worsen the headline it is missing from.
@@ -977,7 +1025,7 @@ def cmd_progress(a):
           % (" | ".join(cells_out), allcell, gh, time.strftime("%Y-%m-%d %H:%M %Z")))
     print("  " + "  ".join(bars))
     if a.verbose:
-        print("  ALL %d%% = %d/%d over the M and V printed denominators; ? = the M cell reads STALE or carries a label older than today." % (allpct, tp, tt))
+        print("  ALL %d%% = %d/%d over the M and V printed denominators; ? = the M cell reads STALE, or its `board:` provenance label is older than today, or it has no label at all (age unknown)." % (allpct, tp, tt))
         for lang, short in PROGRESS_LANGS:
             c = rows[lang]
             print("  %-8s L: %s" % (lang, c[GRID_COLUMNS["L"][0]][:110]))
