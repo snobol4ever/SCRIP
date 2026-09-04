@@ -146,6 +146,48 @@ S4E_POST="$W" S4E_SEAT=ceo bash "$SUT" assign seat07 topic-preowned-for-assign >
 grep -qP '^0\ttopic-preowned-for-assign\thq_P\t' "$W/QUEUE.tsv" && ck ok "(l) assign leaves an already-set col3 (hq_P) untouched even though the assignee's own lane is hq_B" \
   || ck no "(l) assign must never overwrite an existing owner cell -- QUEUE.tsv row: $(grep topic-preowned-for-assign "$W/QUEUE.tsv")"
 
+# (m) A CROSS-LANE RESUME IS ANNOUNCED. ceo's witness, 2026-09-03 22:55 CDT: seat07 held
+# raku-roast-100-percent-compile (lane hq_T) while its own lane's rank-0 SC4 snocone census sat FREE. The
+# claim carried no ASSIGNED-BY, so no HQ dispatched it across lanes -- and (c)'s own control arm shows PASS 3
+# would have skipped that row on its owner cell anyway. It was PASS 2, which resumes an unfinished claim with
+# NO lane check at all. ⛔ THE CLAIM WAS IN-LANE WHEN IT WAS TAKEN: seat07's HQ file was rewritten hq_T -> hq_P
+# ten minutes earlier, so the LANE MOVED UNDER A HELD CLAIM and nothing ever re-asked the question.
+# ⛔ RESUMING IS STILL CORRECT -- an auto-release would strand in-flight work and a cross-lane hold is often
+# deliberate. What must never happen again is doing it SILENTLY, indistinguishably from an in-lane serve.
+reset_q
+mk 0 icon-own-lane-waiting     hq_B FREE
+mk 0 snobol4-held-cross-lane   hq_P CLAIMED:seat07
+printf 'seat07\n' > "$W/claims/snobol4-held-cross-lane.claim"
+out="$(run_next seat07)"
+grep -qE '^RESUME .*snobol4-held-cross-lane' <<<"$out" && ck ok "(m1) an in-flight cross-lane claim is STILL RESUMED -- the notice must not strand held work" \
+  || ck no "(m1) PASS 2 must keep resuming a held claim; only the silence was the defect -- got: $(grep -E '^RESUME|^LOCKED|QUEUE EMPTY' <<<"$out")"
+grep -qi 'cross-lane hold' <<<"$out" && ck ok "(m2) the cross-lane resume SAYS SO -- a serve indistinguishable from an in-lane one is how this went unseen" \
+  || ck no "(m2) resuming a row outside the seat's lane must be announced in its own printout"
+grep -q 'icon-own-lane-waiting' <<<"$out" && ck ok "(m3) the notice names the own-lane row that was waiting (the ceo read this by hand off two claims)" \
+  || ck no "(m3) the notice must name what is waiting in the seat's own lane, or it is a complaint with no next step"
+# (m4) A NOTICE THAT CAN BLOCK IS A NOTICE THAT GETS WORKED AROUND -- the serve still succeeds.
+rc=0; S4E_POST="$W" S4E_SEAT=seat07 S4E_RELEASE_COOLDOWN=0 bash "$SUT" next >/dev/null 2>&1 || rc=$?
+[ "$rc" -eq 0 ] && ck ok "(m4) the cross-lane notice does not change the exit status (rc=0) -- it informs, it never refuses" \
+  || ck no "(m4) the notice must not turn a successful resume into a failure -- rc=$rc"
+# (n) THE CONTROL ARM: the same held claim, in the seat's OWN lane, stays silent. Without this, a notice
+# printed unconditionally would pass (m2) while telling every seat its own work is out of lane.
+reset_q
+mk 0 icon-held-in-lane hq_B CLAIMED:seat07
+printf 'seat07\n' > "$W/claims/icon-held-in-lane.claim"
+out="$(run_next seat07)"
+{ grep -qE '^RESUME .*icon-held-in-lane' <<<"$out" && ! grep -qi 'cross-lane hold' <<<"$out"; } \
+  && ck ok "(n) an IN-LANE resume prints no cross-lane notice -- the warning is about the mismatch, not about resuming" \
+  || ck no "(n) resuming a row in the seat's own lane must stay silent -- got: $(grep -iE '^RESUME|cross-lane' <<<"$out")"
+# (o) A SEAT WITH NO READABLE HQ FILE DEGRADES TO SILENT, same as (h): an undetermined lane is UNDETERMINED,
+# never a fifth lane to be warned about. A missing HQ file must not scream on every resume.
+reset_q
+mk 0 snobol4-held-by-lane-blind hq_P CLAIMED:seat99_no_hq_file
+printf 'seat99_no_hq_file\n' > "$W/claims/snobol4-held-by-lane-blind.claim"
+out="$(run_next seat99_no_hq_file)"
+{ grep -qE '^RESUME .*snobol4-held-by-lane-blind' <<<"$out" && ! grep -qi 'cross-lane hold' <<<"$out"; } \
+  && ck ok "(o) a seat whose lane is undeterminable resumes silently -- a stale HQ file degrades, it does not nag" \
+  || ck no "(o) an undetermined lane must not produce a cross-lane notice -- got: $(grep -iE '^RESUME|cross-lane' <<<"$out")"
+
 echo "------------------------------------------------------------"
 [ "$fails" -ne 0 ] && { echo "⛔ GATE FAIL: $fails of $checks check(s) failed"; exit 1; }
 echo "✅ GATE PASS: $checks/$checks checks"; exit 0

@@ -1448,6 +1448,50 @@ TASKEOF
            printf '%s\n' "$srow" | awk -F'\t' 'NF>3{print "owner: " $3 "   state: " $4}
                                                   NF>1&&NF<4{print "brief: " $3; print "first: " $4}'
            [ -f "$PO/tasks/$st.task.md" ] || printf '⛔ NO BATON at %s/tasks/%s.task.md — under V2-2 every live row must have one. Tell your HQ; do not invent the work.\n' "$PO" "$st"; }
+         # ⭐⭐ THE LANE FILTER LIVED ONLY IN PASS 3, AND A RE-SEATING WALKS STRAIGHT PAST IT (hq_B, ceo witness
+         # 2026-09-03 22:55 CDT). MEASURED: seat07 held raku-roast-100-percent-compile (lane hq_T) while its own
+         # lane's rank-0 SC4 snocone census sat FREE. The claim carried NO `ASSIGNED-BY` line, so no HQ dispatched
+         # it across lanes; and the CONTROL ARM proves the free-row picker did not either -- with the claim removed,
+         # PASS 3 skips that row unconditionally on its owner cell (`↩ skipped 4 free row(s) owned by another seat`).
+         # What served it was PASS 2, which resumes ANY unfinished claim of mine with no lane check and no owner-cell
+         # check at all. ⛔ A SEAT'S LANE IS MUTABLE AND ITS CLAIM IS NOT: seat07's HQ file was rewritten hq_T -> hq_P
+         # at 22:45:05, ten minutes before the release, so a claim that was PERFECTLY IN-LANE when it was taken became
+         # cross-lane while it was held. Nothing re-asks the question after a serve, so `next` re-served it every turn.
+         # ⛔ THE CURE IS A NOTICE, NEVER AN AUTO-RELEASE. Dropping an in-flight claim to chase a lane would strand
+         # real work, and a cross-lane hold is often DELIBERATE -- an HQ may assign across lanes on purpose (PASS 1
+         # rows carry ASSIGNED-BY and are attributable already). So this says the mismatch out loud and names the
+         # own-lane row that is waiting, and a human decides: keep working, or `unclaim` and let the owner have it.
+         # ⭐ Same doctrine PASS 3 already runs on -- "a silent skip is indistinguishable from the row not existing",
+         # and its cross-lane fallback is labelled rather than left to be reconstructed from the queue later. A serve
+         # that cannot be told from an in-lane one is exactly how this went unseen until the ceo read two claims side
+         # by side. ⛔ It NEVER refuses and never changes the exit status: a notice that can block is a notice that
+         # gets worked around. Lane-undetermined topics and a seat with no readable HQ file stay silent (empty lane
+         # is UNDETERMINED, never a fifth lane), so a missing HQ file degrades to today's behaviour, as everywhere else.
+         # ⛔ THE TWO ARRIVAL PATHS ARE NOT THE SAME EVENT AND MUST NOT READ THE SAME. A PASS-1 row was DISPATCHED
+         # across lanes by a named HQ (its claim carries ASSIGNED-BY): deliberate, attributable, and the notice only
+         # makes it visible. A PASS-2 row is one the seat is holding, where the lane may have moved underneath it and
+         # NOBODY decided anything -- that is the defect. Printing the PASS-2 explanation over a PASS-1 serve would
+         # accuse an HQ of a slip it did not commit, which is the same class of false attribution as an unlabelled
+         # cross-lane serve: a printout that describes a different event than the one that happened.
+         s4e_cross_lane_notice() { local _t="$1" _via="$2" _tl _wait
+           [ -n "${_my_lane:-}" ] || return 0
+           _tl="$(s4e_topic_lane "$_t")"; [ -n "$_tl" ] || return 0; [ "$_tl" != "$_my_lane" ] || return 0
+           printf '⛔ CROSS-LANE HOLD — %s is %s'"'"'s lane; your lane is %s (%s/%s/HQ).\n' "$_t" "$_tl" "$_my_lane" "$PO" "$ME"
+           case "$_via" in
+             assigned) printf '   An HQ DISPATCHED this to you across lanes on purpose -- the claim names who, above. Nothing is\n'
+                       printf '   wrong here; you are told because a cross-lane serve must be legible in its own printout.\n';;
+             *)        printf '   You are being served it because it is YOUR CLAIM, not because it is your work: the resume pass\n'
+                       printf '   never re-asks the lane question, and a RE-SEATING CHANGES YOUR LANE UNDER A HELD CLAIM.\n';;
+           esac
+           _wait="$(awk -F'\t' -v me="$ME" -v lane="$_my_lane" '/^[0-9]+\t/ && ($4=="FREE"||$4=="") && ($3==lane||$3==me) {printf "%s\trank %s  %s  (owner %s)\n",$1,$1,$2,$3}' "$q" 2>/dev/null | sort -t$'\t' -s -k1,1n | head -1 | cut -f2-)"
+           if [ -n "$_wait" ]; then printf '   ⭐ WAITING IN YOUR OWN LANE:  %s\n' "$_wait"
+             printf '      An HQ-OWNED row is never auto-served to a seat (the owner-cell skip fires before the lane filter),\n'
+             printf '      so it needs a deliberate dispatch: an HQ or the ceo runs  s4e_msg.sh assign <topic> %s\n' "$ME"; fi
+           printf '   KEEP WORKING IT if that was the intent -- this is a NOTICE, NOT A REFUSAL, and the exit status is\n'
+           printf '   unchanged. Otherwise put it back for its owner:  s4e_msg.sh unclaim %s\n' "$_t"; }
+         # ⭐ HOISTED: the lane is needed by PASS 1 and PASS 2 as well as PASS 3 now, so it is computed ONCE here
+         # rather than re-derived per pass -- two readings of one seat's HQ file could disagree mid-run otherwise.
+         _my_lane="$(s4e_my_lane)"
          # PASS 1 -- rows an HQ ASSIGNED to me that I have not started. These outrank anything I picked for myself.
          # ⭐⭐ TIE-BREAK MATCHES PASS 3: rank, THEN mint time (newest first; a topic with no readable mint
          # timestamp sorts last). MEASURED 2026-09-03 on seat11's FLEET-12 dispatch: their three assigned rows
@@ -1471,6 +1515,7 @@ TASKEOF
          while IFS=$'\t' read -r _rk t; do
            [ -n "${t:-}" ] || continue
            c="$PO/claims/$t.claim"; echo "RUNNING" >> "$c"
+           s4e_cross_lane_notice "$t" assigned
            serve "$t" "ASSIGNED->RUNNING" "(dispatched by $(grep -m1 '^ASSIGNED-BY ' "$c" | cut -d' ' -f2))"; exit 0
          done < <(for c in "$PO"/claims/*.claim; do [ -f "$c" ] || continue
              [ "$(head -1 "$c")" = "$ME" ] || continue
@@ -1489,6 +1534,7 @@ TASKEOF
            if [ -z "$row" ]; then
              echo "⛔ $q IS MISSING OR HAS NO ROWS — cannot tell a renamed row from an unreadable queue, so RESUMING $t rather than unpinning you. Ask hq before trusting any next(1) verdict."; fi
            grep -q '^RUNNING$' "$c" || echo "RUNNING" >> "$c"
+           s4e_cross_lane_notice "$t" resume
            serve "$t" "RESUME" "(yours, unfinished — s4e_msg.sh done $t when the handoff clause is met)"; exit 0
          done < <(for c in "$PO"/claims/*.claim; do [ -f "$c" ] || continue
              [ "$(head -1 "$c")" = "$ME" ] || continue
@@ -1630,7 +1676,6 @@ TASKEOF
          # the own-lane pass tries the WHOLE rank-sorted queue before giving up, not just rank<=1 -- a
          # strict rank<=1-only trigger would send a seat cross-lane while its own rank-2 work still sat
          # unclaimed.
-         _my_lane="$(s4e_my_lane)"
          if [ -n "$_my_lane" ]; then _lane_filter=own-lane; s4e_pass3_scan; fi
          _lane_filter=any-lane; s4e_pass3_scan
          # ⭐ CURE 3, second half — WHEN NOTHING IS SERVABLE, SAY WHAT GOVERNANCE IS HOLDING. A bare "queue
