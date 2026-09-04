@@ -21,6 +21,31 @@
 # language.  (Same shape as row `suite-table-one-authority`, where the refusal is the load-bearing half.)
 sbl_lang_flags() { echo "-bf"; }
 
+# ⭐⭐ THE ONE AUTHORITY for DIVERTING SPITBOL'S LISTING OUT OF THE COMPARED STREAM (hq_B 2026-09-04, ceo
+# CEO-251 on the snoflake grading ruling).  MEASURED on snoflake: `sbl -bf` printed `macro spitbol version
+# 4.0f`, an `x86-64 <date>` line, page headers and a full statement listing on 56 of 180 fixtures.  NOT from
+# our flags -- `-b` already suppresses the signon -- but from `-LIST` control lines INSIDE the fixtures, which
+# no command-line flag can pre-empt.  Any harness that compares SCRIP's output against the oracle's byte-for-
+# byte fails those on SPITBOL's own furniture rather than on semantics; with this flag the count went 56 -> 0.
+# Errors STILL arrive on stdout with it set, so an "errors included" comparison is unaffected -- verified.
+# ⛔⛔ IT FAILS OPEN, AND THAT IS THE WHOLE REASON THIS IS A FUNCTION AND NOT A STRING.  SPITBOL APPENDS `.lst`
+# to the name, so `-o=/dev/null` becomes `/dev/null.lst`, which it cannot open -- whereupon it prints
+# `-o file open error.` and DUMPS THE LISTING TO STDOUT ANYWAY.  The caller then compares against a stream that
+# silently regained the furniture this flag exists to remove, and nothing in the exit code says so.  A caller
+# that grades on the oracle's stdout MUST treat `-o file open error.` in the output as a REFUSAL (rc=2), never
+# as a fixture result.  Pass a directory you have already created and can write.
+# ⛔ DELIBERATELY NOT FOLDED INTO sbl_lang_flags: that returns the SEMANTICS flags every caller takes verbatim,
+# and this one needs a PATH.  Baking a relative name in would drop a `.lst` file into whatever cwd each caller
+# happens to run in -- including corpus directories, where it could collide with a fixture's own companions.
+sbl_listing_sink_flag() {
+    local d="${1:-}"
+    if [ -z "$d" ] || [ ! -d "$d" ] || [ ! -w "$d" ]; then
+        printf "⛔ sbl_listing_sink_flag: need an existing writable directory (got '%s') -- SPITBOL fails OPEN on -o= and dumps its listing to stdout\n" "$d" >&2
+        return 3
+    fi
+    printf -- '-o=%s/spitbol_listing' "$d"
+}
+
 # ⭐ THE ONE AUTHORITY for the SPITBOL oracle's BINARY (s row `clean-oracle-build`).  Lon's FACT RULE
 # (2026-08-22, in-chat): "For benchmarking we should use only the official SPITBOL from the x64 repo at
 # the SPITBOL GitHub."  The repo's checked-in `x64/bin/sbl` is INSTRUMENTED -- it carries a monitor IPC
