@@ -97,3 +97,7 @@ test-results/scorecard-*/list.*
 test-results/scorecard-*/noise.log
 test-results/
 /tmp3
+
+# arizona-suite-scratch-io: checkc.icn/fncs1.icn open a relative-path scratch file for real;
+# test_icon_arizona_suite.sh never isolates each run's cwd, so it lands here every run.
+/foo.baz
