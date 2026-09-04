@@ -50,8 +50,18 @@ for d in $DIRS; do
     b="$(basename "${sno%.sno}")"; ref="${sno%.sno}.ref"; in="$(ref_stdin "$sno")"
     tot=$((tot+1))
     orc="$W/$b.orc"
-    if ! timeout "$T" "$SBL" $(sbl_lang_flags) -s16m "$sno" >"$orc" 2>"$W/$b.orcerr" <"$in"; then
-      printf '%-26s ⛔ ORACLE-FAIL rc=%s  %s\n' "$b" "$?" "$(head -1 "$W/$b.orcerr")"; orfail=$((orfail+1)); ORF="$ORF $b"; continue
+    # ⛔ CAPTURE THE STATUS, THEN TEST IT -- never read `$?` inside `if ! cmd; then`, where it is the status of the
+    # NEGATION and not of the command (RULES/CLAUDE.md: `$?` after a pipeline or a compound answers a narrower
+    # question than you think you asked). MEASURED 2026-09-04 with a synthetic oracle that prints output and then
+    # SIGSEGVs: this arm correctly REFUSED to mint all 23 refs, and printed `ORACLE-FAIL rc=0` for every one of
+    # them -- a refusal whose own diagnostic said the oracle had succeeded. ⭐ The REFUSAL was never wrong; only
+    # the sentence explaining it was, which is the shape that survives review indefinitely because the behaviour
+    # under it is correct (row every-ref-cutting-path-refuses-when-the-oracle-dies-mid-cut, ceo -> hq_T, on
+    # seat07's finding that `sbl -bf` SIGSEGVs on ~half its ERROR 212 runs while still printing a diagnostic).
+    timeout "$T" "$SBL" $(sbl_lang_flags) -s16m "$sno" >"$orc" 2>"$W/$b.orcerr" <"$in"; orc_rc=$?
+    if [ "$orc_rc" -ne 0 ]; then
+      orc_why="rc=$orc_rc"; [ "$orc_rc" -ge 128 ] && orc_why="KILLED BY SIGNAL $((orc_rc-128)) (rc=$orc_rc) -- output is TRUNCATED, never a ref"
+      printf '%-26s ⛔ ORACLE-FAIL %s  %s\n' "$b" "$orc_why" "$(head -1 "$W/$b.orcerr")"; orfail=$((orfail+1)); ORF="$ORF $b"; continue
     fi
     if [ "$WRITE" = 1 ]; then cp "$orc" "$ref"; minted=$((minted+1)); fi
     [ -f "$ref" ] || { printf '%-26s ⛔ NO .ref (run --write to mint)\n' "$b"; continue; }
