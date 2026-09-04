@@ -13,8 +13,8 @@ strict=1   # V2-5 (gate honesty): STRICT IS THE DEFAULT.  grep proved nothing in
 [ "${1:-}" = "--informational" ] && strict=0
 [ "$strict" = "0" ] && echo "⛔ --informational: verdict NOT enforced."
 # ⭐ V2-5 COVERAGE FLOOR (gate honesty): examining NOTHING must never read the same as examining everything.
-. "$(dirname "$0")/lib_gate.sh"
-gate_floor "$(ls "$(dirname "$0")"/../src/emitter/*.c "$(dirname "$0")"/../src/emitter/*.cpp "$(dirname "$0")"/../src/templates/{bb,xa}/*.cpp "$(dirname "$0")"/../src/runtime/*.c 2>/dev/null | wc -l)" 100 "source files under src/ -- an empty tree is UNPROVEN(2), not a pass"
+. "$HERE/lib_gate.sh"
+gate_floor "$(ls "$HERE"/../src/emitter/*.c "$HERE"/../src/emitter/*.cpp "$HERE"/../src/templates/{bb,xa}/*.cpp "$HERE"/../src/runtime/*.c 2>/dev/null | wc -l)" 100 "source files under src/ -- an empty tree is UNPROVEN(2), not a pass"
 
 strip() { perl -0777 -pe 's{/\*.*?\*/}{}gs; s{//[^\n]*}{}g' "$1"; }
 total_direct=0
