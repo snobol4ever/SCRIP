@@ -449,6 +449,10 @@ void rebus_compile(const char *src, const char *filename, tree_t **out_ast) {
     }
     tree_t *rp = rebus_parse(f, filename);
     fclose(f);
+    if (rebus_nerrors > 0) {
+        fprintf(stderr, "rebus_compile: %d parse error(s) in %s -- no code generated\n", rebus_nerrors, filename);
+        return;
+    }
     if (!rp) {
         fprintf(stderr, "rebus_compile: parse error in %s\n", filename);
         return;
