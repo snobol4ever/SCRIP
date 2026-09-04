@@ -34,8 +34,16 @@ has none; 2 REFUSED -- cannot measure (no census, no header, nothing graded).
 import sys, os, re, csv, argparse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-S4E = os.environ.get("S4E_HOME") or os.path.dirname(HERE)
-CORPUS = os.path.join(os.path.dirname(S4E), "corpus")
+# ⛔⭐ S4E_HOME IS THE ROOT (/home/claude_T), NOT THE SCRIP DIRECTORY, AND GETTING THAT BACKWARDS IS INVISIBLE
+# FROM AN INTERACTIVE SHELL. This first read `dirname(HERE)` (= SCRIP) and then took dirname AGAIN for corpus.
+# With S4E_HOME UNSET both hops happen and the path is right, which is every run I made by hand. With
+# S4E_HOME SET -- which is exactly what this row's own DONE-WHEN does -- the first hop is skipped, corpus
+# resolves to /home/corpus, and ALL SEVEN languages report REFUSED "no census". ⭐ The bug therefore appeared
+# only under the criterion, never under the author, and the DONE-WHEN caught it: a green shell run and a red
+# gate disagreeing is the gate doing its job, not noise to route around. Convention copied from
+# util_score_row.py:38 and lib_gate.sh:51 rather than re-derived -- they are the authority on this variable.
+S4E = os.environ.get("S4E_HOME") or os.path.abspath(os.path.join(HERE, "..", ".."))
+CORPUS = os.path.join(S4E, "corpus")
 LANGS = ["snobol4", "icon", "prolog", "raku", "pascal", "snocone", "rebus"]
 EXT = {"snobol4": ".sno", "icon": ".icn", "prolog": ".pl", "raku": ".raku",
        "pascal": ".pas", "snocone": ".sc", "rebus": ".reb"}
