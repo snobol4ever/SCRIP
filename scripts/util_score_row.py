@@ -591,6 +591,57 @@ def language_progress(lang, cells):
     return pct, ("?" if stale else ""), P, T, work
 
 
+# ⛔⭐ COLUMN SEMANTICS -- THE CLASS NO READABILITY CHECK REACHES (ceo ruling 2026-09-03 22:39, after hq_T
+# published `reb 100%`). That number came from a census written into the M column by a "|"-split off-by-one:
+# the cell was PERFECTLY READABLE and completely wrong, because "22/22" is a well-formed population in a cell
+# that is allowed to contain one. No parse rule reaches that -- only knowing what the COLUMN MEANS does.
+# So: every runner a cell cites must be of that column's KIND.
+# ⛔ ORDER MATTERS AND IS MEASURED, NOT GUESSED: `test_prolog_rung_suite.sh` ends in `_suite.sh` and is a
+# LADDER runner, so the ladder patterns must be tried BEFORE the vendor ones or the L column's own runner
+# would be convicted of being a vendor suite.
+COLUMN_KINDS = {
+    "L": [r"_ladder\.sh$", r"rung_suite\.sh$", r"LADDER\.tsv$"],
+    "V": [r"_suite\.sh$", r"^scorecard_", r"roast_scoreboard", r"_packages?\.sh$"],
+    "M": [r"corpus_suite_harness\.py$", r"^board_.*_master\.sh$", r"^test_corpus_.*\.sh$", r"^test_gate_pascal_m[34].*"],
+}
+KIND_ORDER = ("L", "V", "M")
+
+
+def citation_kind(cite):
+    base = cite.split("/")[-1]
+    for k in KIND_ORDER:
+        for pat in COLUMN_KINDS[k]:
+            if re.search(pat, base) or re.search(pat, cite):
+                return k
+    return None
+
+
+def cmd_columns(a):
+    lines = open(SCORE_MD, encoding="utf-8").read().split("\n")
+    _hdr, rows = find_grid(lines)
+    bad = []
+    checked = 0
+    for lang in sorted(rows):
+        for key in ("M", "L", "V"):
+            cell = rows[lang][GRID_COLUMNS[key][0]]
+            cites = sorted(set(re.findall(r"[A-Za-z0-9_./-]+\.(?:sh|py|tsv)", cell)))
+            for c in cites:
+                checked += 1
+                k = citation_kind(c)
+                if k is None:
+                    continue          # an unrecognised tool is not evidence of a wrong column
+                if k != key:
+                    bad.append("%s %s cell cites %s, which is a %s-column runner" % (lang, key, c, k))
+    if bad:
+        print("⛔ GATE RED [score_column_semantics]: %d citation(s) in the wrong column" % len(bad))
+        for b in bad:
+            print("    " + b)
+        print("    ⭐ A cell in the wrong column is READABLE AND WRONG -- the one shape no parse check catches.")
+        return 1
+    print("GATE PASS(0) [score_column_semantics]: %d runner citation(s) all match their column's kind (M master · L ladder · V vendor)" % checked)
+    return 0
+
+
 def cmd_progress(a):
     lines = open(SCORE_MD, encoding="utf-8").read().split("\n")
     _hdr, rows = find_grid(lines)
@@ -656,6 +707,8 @@ def main():
     g = sub.add_parser("progress", help="print the ONE progress line from the September-10 grid; runs no suite")
     g.add_argument("--verbose", action="store_true", help="show the per-language workings, plus the L and B cells the one-liner omits")
     g.set_defaults(fn=cmd_progress)
+    k = sub.add_parser("columns", help="assert every runner a grid cell cites is of that column's kind")
+    k.set_defaults(fn=cmd_columns)
     s = sub.add_parser("selftest", help="prove rewrite-in-place and every refusal path, on a scratch copy")
     s.set_defaults(fn=cmd_selftest)
     a = p.parse_args()
