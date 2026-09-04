@@ -642,6 +642,64 @@ def cmd_columns(a):
     return 0
 
 
+# ⛔⭐ THE TWO TABLES MUST AGREE BY VALUE (ceo approval, 2026-09-03). SCORE.md holds the September-10 grid
+# AND the standardized display, and `write` updates only the display -- so every grid cell goes stale the
+# moment a runner records a measurement, and NOTHING SAYS SO. Measured four times in one sitting: the raku
+# M cell read 41/42 after 42/42 was pushed; the raku V cell had no roast number while the display had one;
+# the prolog V cell had no INRIA number while the display had one; each needed a hand edit to find.
+# ⛔ IT COMPARES VALUES, NEVER DATES. Same-day staleness is invisible to a freshness check by construction:
+# the raku cell carried TODAY'S date and a superseded number, because the date was written by an earlier
+# measurement that really was today. A timestamp cannot separate "true and current" from "true this morning".
+GRID_MIRROR = {"board": "M", "vendor": "V"}
+
+
+def cmd_agree(a):
+    lines = open(SCORE_MD, encoding="utf-8").read().split("\n")
+    _gh, grid = find_grid(lines)
+    _dh, disp = find_table(lines)
+    bad, warn = [], []
+    checked = 0
+    for lang in sorted(grid):
+        if lang not in disp:
+            continue
+        _i, dcells = disp[lang]
+        for col, gkey in GRID_MIRROR.items():
+            dfr, _w = cell_fractions(dcells[COLUMNS[col][0]])
+            gfr, _w2 = cell_fractions(grid[lang][GRID_COLUMNS[gkey][0]])
+            if dfr is None or gfr is None:
+                continue          # an unreadable cell is the readability gate's business, not this one
+            checked += 1
+            # Compare the populations both tables actually name. A denominator present in ONE table only is
+            # the staleness this gate exists for; a denominator in both must carry the same pass count.
+            for t in sorted(set(dfr) & set(gfr)):
+                if dfr[t] != gfr[t]:
+                    bad.append("%s: display %s says %d/%d, grid %s says %d/%d" % (lang, col, dfr[t], t, gkey, gfr[t], t))
+            only_d = sorted(set(dfr) - set(gfr))
+            only_g = sorted(set(gfr) - set(dfr))
+            for t in only_d:
+                warn.append("%s: display %s carries a %d-population (%d/%d) the grid %s cell does not" % (lang, col, t, dfr[t], t, gkey))
+            for t in only_g:
+                warn.append("%s: grid %s carries a %d-population (%d/%d) the display %s cell does not" % (lang, gkey, t, gfr[t], t, col))
+    # ⛔⭐ TWO SIGNAL STRENGTHS, AND CONFLATING THEM WOULD MAKE THE GATE USELESS. A SAME-DENOMINATOR
+    # CONFLICT (both tables name a 81-population, one says 39 and the other 41) is unambiguous: exactly one
+    # of them is wrong and a reader cannot tell which. A population present in only ONE table is weaker --
+    # it is usually the dual-write gap, but the two tables legitimately summarise at different grains, so
+    # convicting on it would red the board for a design choice. Hard conflicts FAIL; one-sided populations
+    # are reported as the staleness debt they are.
+    for w in warn:
+        print("  ⚠ STALE " + w)
+    if warn:
+        print("  ⭐ Each of those is the dual-write gap: `write` updates the standardized display and not the grid, so a measurement lands in one table and the other keeps yesterday's.")
+    if bad:
+        print("⛔ GATE RED [score_tables_agree]: %d SAME-DENOMINATOR disagreement(s) -- one of the two tables is wrong and a reader cannot tell which" % len(bad))
+        for b in bad:
+            print("    " + b)
+        print("    ⭐ Compared by VALUE, never by date: same-day staleness (a true date beside a superseded number) is invisible to any freshness check.")
+        return 1
+    print("GATE PASS(0) [score_tables_agree]: %d mirrored cell pair(s), 0 same-denominator conflicts, %d one-sided population(s) reported above" % (checked, len(warn)))
+    return 0
+
+
 def cmd_progress(a):
     lines = open(SCORE_MD, encoding="utf-8").read().split("\n")
     _hdr, rows = find_grid(lines)
@@ -707,6 +765,8 @@ def main():
     g = sub.add_parser("progress", help="print the ONE progress line from the September-10 grid; runs no suite")
     g.add_argument("--verbose", action="store_true", help="show the per-language workings, plus the L and B cells the one-liner omits")
     g.set_defaults(fn=cmd_progress)
+    g2 = sub.add_parser("agree", help="assert the September-10 grid and the standardized display agree BY VALUE")
+    g2.set_defaults(fn=cmd_agree)
     k = sub.add_parser("columns", help="assert every runner a grid cell cites is of that column's kind")
     k.set_defaults(fn=cmd_columns)
     s = sub.add_parser("selftest", help="prove rewrite-in-place and every refusal path, on a scratch copy")
