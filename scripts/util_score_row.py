@@ -155,13 +155,34 @@ def find_table(lines):
             % (SCORE_MD, "; ".join(why)))
     cells = [c.strip() for c in lines[hdr].strip().strip("|").split("|")]
     rows = {}
+    skipped = {}
     for i in range(hdr + 2, len(lines)):
         if not lines[i].startswith("|"):
             break
         c = [x.strip() for x in lines[i].strip().strip("|").split("|")]
         if len(c) == PROV_COL + 1:
             rows[c[0]] = (i, c)
-    return hdr, rows
+        elif c and c[0]:
+            # ⛔⭐⭐ A ROW OF THE WRONG WIDTH IS *SKIPPED*, NEVER *ABSENT*, AND COLLAPSING THAT DISTINCTION IS
+            # THE WHOLE DEFECT. This loop used to have no `else` at all: a mis-shaped row was dropped on the
+            # floor in silence, and every reader below then described a table it could not see all of. The
+            # cost, measured live (seat07 → hq_P, 2026-09-04): a hand edit appended a cross-confirmation note
+            # to the snobol4 row as a SEVENTH cell (dc87ee1c), and that one stray `|` deleted snobol4 from
+            # every reader of this table at once -- `write` refused for the entire fleet with "no row for
+            # language 'snobol4'", `check` quietly stopped reporting its staleness, and `agree` went on
+            # printing GATE PASS over 11 mirrored pairs that held not one of snobol4's cells.
+            # ⭐ THE SHAPE WORTH REMEMBERING IS THE MESSAGE, NOT THE MISSING `else`. "No row for language
+            # 'snobol4'. Rows present: icon, pascal, ..." is well-formed, confident, and points AWAY from the
+            # defect sitting one line above it -- so seat07 read it exactly as written and went looking for a
+            # missing entry in an internal registry that does not exist. An instrument that answers a
+            # NARROWER question than the one it is thought to answer (here: "is it in my dict?" read as "does
+            # it have a row?") is this project's recurring bug, the same shape as `command -v` for an oracle.
+            # The header already PROVES its shape via table_shape_error; a row is owed the same courtesy.
+            skipped[c[0]] = (i, len(c))
+            sys.stderr.write("⚠ SCORE.md line %d: row %r has %d columns, this table has %d -- SKIPPED, so every "
+                             "reading below OMITS it. It is malformed, not absent: fix that row's '|' count.\n"
+                             % (i + 1, c[0], len(c), PROV_COL + 1))
+    return hdr, rows, skipped
 
 
 def merge_clause(existing, key, value):
@@ -303,7 +324,14 @@ def cmd_write(a):
                   "  (ceo CEO-174: a dirty-tree number describes no checkable tree).")
             return 0
     lines = open(SCORE_MD, encoding="utf-8").read().split("\n")
-    hdr, rows = find_table(lines)
+    hdr, rows, skipped = find_table(lines)
+    if a.lang in skipped:
+        _ln, _n = skipped[a.lang]
+        die("row %r EXISTS at %s line %d but carries %d columns where this table has %d, so it was SKIPPED -- "
+            "it is MALFORMED, NOT ABSENT. Repair that row's '|' count and re-run; nothing about this language "
+            "or this helper's registry is at fault. (Every other reader omits it too, and the other two do so "
+            "SILENTLY: `check` drops its staleness and `agree` mirrors none of its cells.)"
+            % (a.lang, SCORE_MD, _ln + 1, _n, PROV_COL + 1))
     if a.lang not in rows:
         die("no row for language %r in the grid. Rows present: %s" % (a.lang, ", ".join(sorted(rows))))
     i, cells = rows[a.lang]
@@ -464,7 +492,7 @@ def cmd_check(a):
     # WORLD has moved past the tree it was measured on, and a seat's own unpushed commits are not the
     # world.  A hash origin has never heard of is its own state (UNKNOWN), never silently zero.
     lines = open(SCORE_MD, encoding="utf-8").read().split("\n")
-    hdr, rows = find_table(lines)
+    hdr, rows, _skipped = find_table(lines)
     # ⛔ --no-fetch EXISTS SO THIS CAN SIT IN A TEST LOOP, AND IT DOWNGRADES THE CLAIM, NOT JUST THE COST.
     # Without a fetch, "behind origin/main" means behind the origin/main THIS CHECKOUT LAST HEARD ABOUT,
     # which understates staleness by however long since the last fetch. That is fine for a gate proving the
@@ -523,7 +551,7 @@ def cmd_selftest(a):
         # to today's live board text is exactly the kind of incidental fragility this file exists to avoid
         # elsewhere. Seeding it here keeps that claim provably independent of the day it happens to run.
         _seed_lines = open(SCORE_MD, encoding="utf-8").read().split("\n")
-        _sh, _sr = find_table(_seed_lines)
+        _sh, _sr, _ = find_table(_seed_lines)
         _sri, _src = _sr["rebus"]
         _src[COLUMNS["board"][0]] = "—"
         _seed_lines[_sri] = "| " + " | ".join(_src) + " |"
@@ -545,7 +573,7 @@ def cmd_selftest(a):
         # carries more than one '| Language |' grid (ceo CEO-174's September-10 M/L/V grid), so every
         # language name appears more than once and a file-wide scan asserts on the wrong row -- the same
         # position-over-shape defect that made find_table itself refuse for the whole fleet.
-        _hdr, _rows = find_table(body.split("\n"))
+        _hdr, _rows, _ = find_table(body.split("\n"))
         row = [_rows["rebus"][1]] if "rebus" in _rows else []
         cell = row[0][3] if row else ""
         prov = row[0][PROV_COL] if row else ""
@@ -600,7 +628,7 @@ def cmd_selftest(a):
         # Integration: seed the scratch board directly (bypassing cmd_write, so the seed itself cannot be
         # refused), then prove cmd_write refuses the lossy overwrite and allows the lossless one.
         _lines = open(SCORE_MD, encoding="utf-8").read().split("\n")
-        _h2, _r2 = find_table(_lines)
+        _h2, _r2, _ = find_table(_lines)
         _ri, _rc = _r2["rebus"]
         _fidx = COLUMNS["floor"][0]
         _rc[_fidx] = real_before
@@ -636,7 +664,7 @@ def cmd_selftest(a):
         # cell_prose_loss) refuse to clobber, which is not what THIS block is testing. "—" is the file's
         # own empty-cell sentinel, so cell_prose_loss treats it as nothing-to-lose by construction.
         _reset_lines = open(SCORE_MD, encoding="utf-8").read().split("\n")
-        _rh, _rr = find_table(_reset_lines)
+        _rh, _rr, _ = find_table(_reset_lines)
         _rri, _rrc = _rr["rebus"]
         _rrc[COLUMNS["board"][0]] = "—"
         _reset_lines[_rri] = "| " + " | ".join(_rrc) + " |"
@@ -1150,9 +1178,15 @@ GRID_STAMP_RE = r"⟨measured (\d{4})-(\d{2})-(\d{2}) · [^⟩]*⟩"
 def cmd_agree(a):
     lines = open(SCORE_MD, encoding="utf-8").read().split("\n")
     _gh, grid = find_grid(lines)
-    _dh, disp = find_table(lines)
+    _dh, disp, dskip = find_table(lines)
     bad, warn = [], []
     checked = 0
+    # ⛔⭐ A LANGUAGE THIS GATE CANNOT READ IS A MEASUREMENT IT DID NOT MAKE, AND SAYING PASS OVER IT IS THE
+    # VACUOUS-GATE CLASS. `if lang not in disp: continue` treated an unreadable display row as nothing to do,
+    # so a malformed snobol4 row (see find_table) had this gate printing "GATE PASS(0) ... 11 mirrored cell
+    # pair(s)" while blind to the project's LARGEST language -- a green that proved the absence of evidence,
+    # not evidence of absence. A gate that cannot measure REFUSES; it never skips-as-success.
+    unread = sorted(l for l in grid if l in dskip)
     for lang in sorted(grid):
         if lang not in disp:
             continue
@@ -1184,6 +1218,13 @@ def cmd_agree(a):
         print("  ⚠ STALE " + w)
     if warn:
         print("  ⭐ Each of those is the dual-write gap: `write` updates the standardized display and not the grid, so a measurement lands in one table and the other keeps yesterday's.")
+    if unread:
+        print("⛔ GATE RED [score_tables_agree]: %d language(s) in the grid have a MALFORMED display row and were "
+              "not compared at all -- this gate cannot claim agreement over a table it could only partly read" % len(unread))
+        for l in unread:
+            _ln, _n = dskip[l]
+            print("    %s: display row at line %d has %d columns, the table has %d" % (l, _ln + 1, _n, PROV_COL + 1))
+        return 1
     if bad:
         print("⛔ GATE RED [score_tables_agree]: %d SAME-DENOMINATOR disagreement(s) -- one of the two tables is wrong and a reader cannot tell which" % len(bad))
         for b in bad:
@@ -1200,7 +1241,7 @@ def cmd_progress(a):
     # ⭐ The freshness label lives on the STANDARDIZED DISPLAY row, not in the grid: the grid has no
     # provenance column, and the display's `board:` clause is the machine-written mirror of the grid's M
     # cell. Bound by shape via find_table, like every other reader of this file.
-    _dh, disp = find_table(lines)
+    _dh, disp, _ = find_table(lines)
     provs = {l: c[PROV_COL] for l, (_i, c) in disp.items()}
     missing = [l for l, _ in PROGRESS_LANGS if l not in rows]
     if missing:

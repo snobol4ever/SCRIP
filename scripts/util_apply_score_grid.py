@@ -68,7 +68,18 @@ def load_grid(text):
 def apply_grid(score_md, grid_text, stamp, dry_run=False):
     _usr.SCORE_MD = score_md
     lines = open(score_md, encoding="utf-8").read().split("\n")
-    hdr_i, disp = _usr.find_table(lines)          # ⭐ BY SHAPE. Never `index('| Language |')` -- see (1).
+    hdr_i, disp, disp_skip = _usr.find_table(lines)   # ⭐ BY SHAPE. Never `index('| Language |')` -- see (1).
+    # ⛔⭐ THIS SCRIPT SPLICES BY POSITION, SO A ROW IT COULD NOT READ IS THE ONE THING IT MUST NOT WALK PAST.
+    # find_table skips any row whose column count is not the table's, and a skipped row is INVISIBLE here --
+    # the merge would simply not carry that language and would report success, which is how a measurement
+    # goes missing quietly. Refuse instead: a malformed row is a one-line repair, a silently unmerged
+    # language is a wrong board nobody can see.
+    if disp_skip:
+        _usr.die("refusing to splice into a table with %d malformed row(s) -- %s. Repair the '|' count first; "
+                 "splicing by position into a table that could only be PARTLY read is how a language silently "
+                 "stops being merged." % (len(disp_skip),
+                 ", ".join("%s at line %d has %d columns, the table has %d"
+                           % (l, i + 1, n, _usr.PROV_COL + 1) for l, (i, n) in sorted(disp_skip.items()))))
     disp_hdr = [c.strip() for c in lines[hdr_i].strip().strip("|").split("|")]
     g_hdr, g_rows = load_grid(grid_text)
     # Map generated column -> display column BY NAME, and say out loud which generated columns are not
@@ -164,7 +175,7 @@ def selftest():
         shutil.copy(real, tmp)
         before = open(tmp, encoding="utf-8").read().split("\n")
         _usr.SCORE_MD = tmp
-        hdr_i, disp = _usr.find_table(before)
+        hdr_i, disp, _ = _usr.find_table(before)
         dhdr = [c.strip() for c in before[hdr_i].strip().strip("|").split("|")]
         # A deliberately NARROW grid (Language + Master board only), in the generator's own spacing.
         lang = sorted(disp)[0]
@@ -217,7 +228,7 @@ def selftest():
         # the other's gate.
         _seed = "SELFTEST-BOARD-VALUE. Re-confirmed by a human on a later tree: still true, unrelated run."
         _sl = open(tmp, encoding="utf-8").read().split("\n")
-        _sh2, _sd2 = _usr.find_table(_sl)
+        _sh2, _sd2, _ = _usr.find_table(_sl)
         _sl[_sd2[lang][0]] = "| " + " | ".join(
             [(_seed if i == bi else c) for i, c in enumerate(
                 [x.strip() for x in _sl[_sd2[lang][0]].strip().strip("|").split("|")])]) + " |"
@@ -226,7 +237,7 @@ def selftest():
                  "|---|---|\n| %s | SELFTEST-BOARD-VALUE |\n" % lang)
         rc2 = apply_grid(tmp, grid2, "SELFTEST-STAMP-2")
         _cl = open(tmp, encoding="utf-8").read().split("\n")
-        _ch2, _cd2 = _usr.find_table(_cl)
+        _ch2, _cd2, _ = _usr.find_table(_cl)
         _cc = [x.strip() for x in _cl[_cd2[lang][0]].strip().strip("|").split("|")]
         if rc2 != 1:
             print("SELFTEST FAIL: apply_grid returned %r merging over hand-written prose, wanted 1" % rc2); ok = False
