@@ -1737,7 +1737,7 @@ static pl_cell_t pl_cell_copy_persist(pl_cell_t *c, pl_cell_t **vaddr, pl_cell_t
 #define PL_DB_CELL0   24
 #define PL_DB_CELLS_MAX 64
 typedef struct { pl_cell_t cl; int erased; } pl_db_slot_t;
-typedef struct { pl_db_slot_t *s; int n; int cap; } pl_db_t;
+typedef struct { pl_db_slot_t *s; int n; int cap; int killed; } pl_db_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void * rt_pl_db_get(void *root, int64_t k)
 {
@@ -1747,7 +1747,7 @@ void * rt_pl_db_get(void *root, int64_t k)
       if (!*cell) {
           pl_db_t *d = (pl_db_t *)rt_plj_alloc(sizeof *d);
           if (!d) return (void *)0;
-          d->cap = 8; d->n = 0; d->s = (pl_db_slot_t *)rt_plj_alloc((size_t)d->cap * sizeof(pl_db_slot_t));
+          d->cap = 8; d->n = 0; d->killed = 0; d->s = (pl_db_slot_t *)rt_plj_alloc((size_t)d->cap * sizeof(pl_db_slot_t));
           if (!d->s) { d->cap = 0; }
           *cell = d;
       }
@@ -1760,6 +1760,7 @@ int rt_pl_db_assert(void *db_v, void *clause_term, int prepend)
     extern int prolog_atom_intern(const char *);
     pl_db_t *db = (pl_db_t *)db_v;
     if (!db || !clause_term) return 0;
+    db->killed = 0;
     if (db->n >= db->cap) {
         int nc = db->cap > 0 ? db->cap * 2 : 8;
         pl_db_slot_t *ns = (pl_db_slot_t *)rt_plj_alloc((size_t)nc * sizeof(pl_db_slot_t));
@@ -1803,6 +1804,7 @@ int rt_pl_db_abolish(void *db_v)
     pl_db_t *db = (pl_db_t *)db_v;
     if (!db) return 0;
     for (int i = 0; i < db->n; i++) db->s[i].erased = 1;
+    db->killed = 1;
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1820,3 +1822,5 @@ int rt_pl_db_match_erase(void *db_v, void *goal_term)
     }
     return hit;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_killed(void *db_v) { pl_db_t *db = (pl_db_t *)db_v; return db ? db->killed : 0; }

@@ -566,12 +566,18 @@ static IR_t * pl_db_leaf2(lcx_t * cx, const char * sym, int k, const tree_t * ar
     return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * pl_db_call(lcx_t * cx, const tree_t * t, int k, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+static IR_t * pl_db_call(lcx_t * cx, const char * nm, int nargs, const tree_t * t, int k, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     IR_t * u  = build(cx, IR_CALL, γnext, ωfail); IR_LIT(u).sval = "$unify";
     IR_t * hf = build(cx, IR_CALL, u, ωfail); IR_LIT(hf).sval = "$db_head_fact";
     pl_db_gen_t g = pl_db_gen(cx, k, hf, ωfail);
+    IR_t * al = build(cx, IR_CALL, g.entry, ωfail); IR_LIT(al).sval = "$db_alive";
+    IR_t * ak = build(cx, IR_LIT_INTEGER, NULL, ωfail); IR_LIT(ak).ival = k;
+    IR_t * pi = build(cx, IR_LIT_STRING, NULL, ωfail); IR_LIT(pi).sval = pl_pi_name(nm, nargs);
+    lc_γ_to(ak, pi); lc_ω_to(ak, ωfail);
+    lc_γ_to(pi, al); lc_ω_to(pi, ωfail);
+    ir_operand_push(al, ak); ir_operand_push(al, pi);
     IR_t * ge = NULL; IR_t * gv = term_e(cx, t, &ge);
-    lc_γ_to(gv, g.entry); lc_ω_to(gv, ωfail);
+    lc_γ_to(gv, ak); lc_ω_to(gv, ωfail);
     ir_operand_push(hf, g.at);
     ir_operand_push(u, gv); ir_operand_push(u, hf);
     lc_ω_to_β(u, g.to);
@@ -618,7 +624,7 @@ static IR_t * pl_db_clause(lcx_t * cx, const tree_t * ht, const tree_t * bt, int
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_user_call(lcx_t * cx, const char * nm, const tree_t * t, int nargs, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
-    if (pl_db_owned(nm, nargs)) return pl_db_call(cx, t, pl_dyn_index(nm, nargs), γnext, ωfail, entry_out);
+    if (pl_db_owned(nm, nargs)) return pl_db_call(cx, nm, nargs, t, pl_dyn_index(nm, nargs), γnext, ωfail, entry_out);
     { char key[264]; snprintf(key, sizeof key, "%s/%d", nm, nargs);
       const tree_t * ch = resolve_pred_table_lookup(&g_stage2.resolve_pred_table, key);
       if (!ch) { tree_t * kt = ast_node_new(TT_QLIT); kt->v.sval = strdup(key);

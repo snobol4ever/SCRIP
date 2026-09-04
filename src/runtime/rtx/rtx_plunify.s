@@ -201,4 +201,20 @@ PL_ROOT_LEAF(db_at)
 PL_ROOT_LEAF(db_erase)
 PL_ROOT_LEAF(db_abolish)
 PL_ROOT_LEAF(db_retractall)
+RTX_FUNC(rt_pl_dop_db_alive)
+    sub     rsp, 8
+    mov     rdx, r14
+    call    rt_pl_dop_db_alive_c
+    add     rsp, 8
+    test    rax, rax
+    jz      .Lda_ok
+    mov     r15, rax
+    mov     eax, DT_FAIL | (MOD_OP_RT_PL_DB_ALIVE << 8)
+    xor     edx, edx
+    ret
+.Lda_ok:
+    mov     eax, DT_I
+    mov     edx, 1
+    ret
+RTX_ENDF(rt_pl_dop_db_alive)
 .section .note.GNU-stack,"",@progbits

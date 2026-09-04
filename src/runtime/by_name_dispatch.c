@@ -127,6 +127,12 @@ static int plw_unify_cells(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) {
     }
     if (A->v == (DTYPE_t)DT_PLREF || B->v == (DTYPE_t)DT_PLREF) return 0;
     if (A->v == DT_I && B->v == DT_I && !A->slen && !B->slen) return A->i == B->i;
+    if (((int)A->v == DT_S || (int)A->v == DT_A) && ((int)B->v == DT_S || (int)B->v == DT_A)) {
+        extern const char *prolog_atom_name(int);
+        const char *x = ((int)A->v == DT_S) ? (A->s ? A->s : "") : prolog_atom_name((int)A->i);
+        const char *y = ((int)B->v == DT_S) ? (B->s ? B->s : "") : prolog_atom_name((int)B->i);
+        return x && y && strcmp(x, y) == 0;
+    }
     { extern int rt_descr_equal(DESCR_t, DESCR_t); return rt_descr_equal(*A, *B); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -6170,4 +6176,14 @@ DESCR_t rt_pl_dop_db_retractall_c(DESCR_t *args, int nargs, void *root) {
     { void *db = pl_db_cell_of(args, root); if (!db) return pl_ok();
       rt_pl_db_match_erase(db, (void *)&args[1]);
       return pl_ok(); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern int rt_pl_db_killed(void *);
+void * rt_pl_dop_db_alive_c(DESCR_t *args, int nargs, void *root) {
+    extern void *rt_pl_ball_existence(DESCR_t *, int);
+    if (nargs != 2) return (void *)0;
+    pl_atoms_ready();
+    { void *db = pl_db_cell_of(args, root);
+      if (!db || !rt_pl_db_killed(db)) return (void *)0;
+      return rt_pl_ball_existence(&args[1], 1); }
 }
