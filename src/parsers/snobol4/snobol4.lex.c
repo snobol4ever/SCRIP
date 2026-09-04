@@ -717,6 +717,15 @@ extern void stmt_src_mark_include_range(int start_line, int end_line);
 static int incl_start_stack[MAX_INCL_NEST];
 static int incl_stack_depth = 0;
 int snobol4_incl_depth(void) { return incl_stack_depth; }
+#define MAX_INCL_ONCE 512
+static char *incl_once[MAX_INCL_ONCE];
+static int   incl_once_n = 0;
+static int sno_include_once_seen(const char *rpath) {
+    char rp[4096]; const char *key = realpath(rpath, rp) ? rp : rpath;
+    for (int i = 0; i < incl_once_n; i++) if (!strcmp(incl_once[i], key)) return 1;
+    if (incl_once_n < MAX_INCL_ONCE) incl_once[incl_once_n++] = strdup(key);
+    return 0;
+}
 static Token mktok(int k, const char *sv, long iv, double dv) {
     Token t; t.kind=k; t.sval=sv; t.ival=iv; t.dval=dv; t.lineno=lineno;
     return t;
@@ -1079,10 +1088,13 @@ YY_RULE_SETUP
         if(!inc){char p[4096];for(int i=0;i<n_inc&&!inc;i++){snprintf(p,sizeof p,"%s/%s",inc_dirs[i],iname);if((inc=fopen(p,"r")))snprintf(rpath,sizeof rpath,"%s",p);}}
         if(!inc)sno_error(lineno,"cannot open include '%s'",iname);
         else {
+            if(sno_include_once_seen(rpath)){fclose(inc);}
+            else {
             char *sl=strrchr(rpath,'/');
             if(sl){char *d=strndup(rpath,(size_t)(sl-rpath));sno_add_include_dir(d);}
             yypush_buffer_state(yy_create_buffer(inc,YY_BUF_SIZE,yyscanner),yyscanner);
             if (incl_stack_depth < MAX_INCL_NEST) incl_start_stack[incl_stack_depth++] = lineno;
+            }
         }
     }
 }
@@ -1104,10 +1116,13 @@ YY_RULE_SETUP
         if(!inc){char p[4096];for(int i=0;i<n_inc&&!inc;i++){snprintf(p,sizeof p,"%s/%s",inc_dirs[i],iname);if((inc=fopen(p,"r")))snprintf(rpath,sizeof rpath,"%s",p);}}
         if(!inc)sno_error(lineno,"cannot open include '%s'",iname);
         else {
+            if(sno_include_once_seen(rpath)){fclose(inc);}
+            else {
             char *sl=strrchr(rpath,'/');
             if(sl){char *d=strndup(rpath,(size_t)(sl-rpath));sno_add_include_dir(d);}
             yypush_buffer_state(yy_create_buffer(inc,YY_BUF_SIZE,yyscanner),yyscanner);
             if (incl_stack_depth < MAX_INCL_NEST) incl_start_stack[incl_stack_depth++] = lineno;
+            }
         }
     }
 }
