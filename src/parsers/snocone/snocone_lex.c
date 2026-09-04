@@ -67,6 +67,7 @@ static const KwEntry KW_TABLE[] = {
     { "goto",     T_GOTO     },
     { "procedure", T_DEFINE },
     { "function",   T_DEFINE },
+    { "procedure",  T_DEFINE },
     { "return",   T_RETURN   },
     { "freturn",  T_FRETURN  },
     { "nreturn",  T_NRETURN  },
