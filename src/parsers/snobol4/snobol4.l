@@ -61,6 +61,7 @@ G       ({WS}|{CONT})*
         char iname[4096]; int fi=(int)(q2-q1-1);
         if(fi>=(int)sizeof iname)fi=(int)sizeof iname-1;
         memcpy(iname,q1+1,fi);iname[fi]='\0';
+        while(fi>0 && (iname[fi-1]==' '||iname[fi-1]=='\t')) iname[--fi]='\0';
         char rpath[4096]; rpath[0]='\0';
         FILE *inc=fopen(iname,"r");
         if(inc){snprintf(rpath,sizeof rpath,"%s",iname);}
@@ -81,6 +82,7 @@ G       ({WS}|{CONT})*
         char iname[4096]; int fi=(int)(q2-q1-1);
         if(fi>=(int)sizeof iname)fi=(int)sizeof iname-1;
         memcpy(iname,q1+1,fi);iname[fi]='\0';
+        while(fi>0 && (iname[fi-1]==' '||iname[fi-1]=='\t')) iname[--fi]='\0';
         char rpath[4096]; rpath[0]='\0';
         FILE *inc=fopen(iname,"r");
         if(inc){snprintf(rpath,sizeof rpath,"%s",iname);}
