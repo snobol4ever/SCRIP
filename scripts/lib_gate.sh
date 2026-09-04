@@ -209,6 +209,27 @@ gate_verdict() {
     gate_stamp
     exit 0
 }
+# s4e_seat_name -- THE ONE SEAT IDENTITY, for any runner that needs to name itself outside a SCORE.md
+# stamp (a banner, a receipt filename, a log line).  Echoes the name, rc=0; on an unrecognised root it
+# echoes NOTHING and returns 2, so a caller cannot silently bake a guess into an artifact.
+#
+# ⛔ IT IS A CALL SHAPE, NOT A SECOND COPY -- the same rule gate_score_row lives under.  The root->seat map
+# is already carried in three hand-synced places (s4e_msg.sh, s4e_inbox_hook.sh, util_score_row.py's
+# derive_measurer); spelling a fourth in bash is how the fourth one drifts.  So this delegates to the helper
+# and must never grow a `case "$root" in` of its own.  test_gate_seat_identity_one_map.sh pins the copies.
+#
+# ⛔ NOT NEEDED FOR --measurer.  Runners pass `--measurer "${S4E_SEAT:-}"` and the helper resolves an empty
+# one itself; that path is already single-sourced and needs no call-site change.  Use this only where bash
+# genuinely needs the string.
+s4e_seat_name() {
+    local _py _out _rc
+    _py="$(dirname "${BASH_SOURCE[0]}")/util_score_row.py"
+    [ -f "$_py" ] || return 2
+    _out="$(python3 "$_py" seat-name 2>/dev/null)"; _rc=$?
+    [ "$_rc" -eq 0 ] && [ -n "$_out" ] || return 2
+    printf '%s\n' "$_out"
+    return 0
+}
 # gate_score_row <lang> <column> <text> [modes] -- THE ONE LINE A BASH RUNNER ADDS to satisfy the
 # ONE-LEADERBOARD FACT RULE (Lon 2026-09-03 ~16:05: "any run of a test suite by any session will update
 # the ONE LEADERBOARD").  Delegates to scripts/util_score_row.py, which is the single implementation --

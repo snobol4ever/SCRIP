@@ -1272,6 +1272,28 @@ def cmd_progress(a):
     return 0
 
 
+# ⭐ THE ONE SEAT-IDENTITY ACCESSOR, EXPOSED (row `vendor-runners-stamp-unknown-seat-into-the-leaderboard-
+# when-s4e-seat-is-unset`, hq_T 2026-09-04).  The GOAL asked for `s4e_seat_name()` so every runner stamping
+# SCORE.md resolves its identity ONE way.  It is exposed HERE rather than reimplemented in bash for the reason
+# the map was wrong in the first place: the root->seat map already existed in three hand-synced copies
+# (s4e_msg.sh, s4e_inbox_hook.sh, derive_measurer() below), and a fourth copy spelled in shell would be one
+# more thing to keep in step.  `lib_gate.sh`'s s4e_seat_name() delegates here -- a call shape, not a second
+# copy, exactly as gate_score_row does.
+#
+# ⛔ IT REFUSES RATHER THAN INVENTS.  An unrecognised root exits 2 with the root named.  This is the ONE place
+# the leaderboard deliberately diverges from the postoffice bus: the bus falls back to basename($S4E) because
+# a seat with no name cannot be mailed, while a BOARD ROW signed by a guessed identity is exactly the
+# unattributed claim this whole row exists to kill.  The divergence is pinned by
+# test_gate_seat_identity_one_map.sh so that "fixing" it has to be deliberate.
+def cmd_seat_name(a):
+    who = os.environ.get("S4E_SEAT", "").strip() or derive_measurer()
+    if not who:
+        die("no seat identity: S4E_SEAT is unset and the root %r is not in the seat map, so it could not be "
+            "derived. Pass S4E_SEAT=<name> or run from a known root." % S4E)
+    print(who)
+    return 0
+
+
 def main():
     p = argparse.ArgumentParser(description="Rewrite one SCORE.md row from numbers a runner already measured. Runs no suite.")
     sub = p.add_subparsers(dest="cmd")
@@ -1298,11 +1320,13 @@ def main():
     k.set_defaults(fn=cmd_columns)
     s = sub.add_parser("selftest", help="prove rewrite-in-place and every refusal path, on a scratch copy")
     s.set_defaults(fn=cmd_selftest)
+    n = sub.add_parser("seat-name", help="print THE ONE seat identity derived from the root path; runs no suite")
+    n.set_defaults(fn=cmd_seat_name)
     a = p.parse_args()
     if not getattr(a, "fn", None):
         p.print_help()
         return 2
-    if not os.path.exists(SCORE_MD):
+    if a.cmd != "seat-name" and not os.path.exists(SCORE_MD):
         die("no leaderboard at %s (S4E_HOME=%s)" % (SCORE_MD, S4E))
     return a.fn(a)
 

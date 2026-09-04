@@ -178,7 +178,7 @@ else
     echo "  CLEAN — every row measured within 25 commits of origin/main."
   elif [ "$_score_rc" -eq 1 ]; then
     printf '%s\n' "$_score_out" | grep -E 'STALE|UNPINNED|UNKNOWN|^worst=' | sed 's/^/  /'
-    echo "  ⚠ WARN — re-measure the stale suite(s) and rewrite the row: python3 scripts/util_score_row.py write --lang <lang> --column board --measurer \"\$S4E_SEAT\" --text '<board line>'"
+    echo "  ⚠ WARN — re-measure the stale suite(s) and rewrite the row: python3 scripts/util_score_row.py write --lang <lang> --column board --measurer \"\${S4E_SEAT:-}\" --text '<board line>'"
   else
     echo "  ⛔ UNVERIFIED — the staleness check REFUSED (rc=$_score_rc, cannot measure). Not blocking, but this run proves nothing about the leaderboard."
     printf '%s\n' "$_score_out" | sed 's/^/  /'
