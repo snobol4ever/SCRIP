@@ -35,9 +35,19 @@ for root, dirs, files in os.walk(C):
         lang = EXT[ext]
         if A.lang and lang != A.lang: continue
         path = os.path.normpath(os.path.join(rel, f)); top = path.split(os.sep)[0]; base = f[:-len(ext) - 1]
+        # ⛔⭐ THE ACCOUNTING KEY THE BUILDER ACTUALLY WRITES IS THE FAMILY NAME, NOT THE BASENAME (hq_B 2026-09-04,
+        # row icon-every-non-package-source-...). util_build_master_suite.py names an excluded source by its FAMILY --
+        # the path under corpus/tests/<lang>/ with os.sep -> '_' and the extension dropped (discover_pairs: `fam =
+        # rel[:-len(EXT)].replace(os.sep, "_")`) -- so a fixture at tests/icon/parser/alt_arith.icn is written as
+        # `parser_alt_arith`. This census matched only basename / filename / corpus-relative path, none of which is that
+        # string for ANY source in a subdirectory, so every properly-excluded subdirectory source read as OWED.
+        # MEASURED at the fix: icon 219 -> 62 owed, and all 157 of the difference already carried a reason line the
+        # builder wrote. ⭐ A top-level source was invisible to this bug because there family == basename, which is
+        # exactly why it survived: the population that disproved it was the one the instrument never sampled.
+        fam = os.path.splitext(path[len(os.path.join('tests', lang)) + 1:])[0].replace(os.sep, '_') if path.startswith(os.path.join('tests', lang) + os.sep) else ''
         if f.startswith('ALL.'): kind = 'container'
         elif top in ('include', 'library'): kind = 'module'
-        elif base in excluded[lang] or path in excluded[lang] or f in excluded[lang]: kind = 'accounted (excluded with a reason)'
+        elif base in excluded[lang] or path in excluded[lang] or f in excluded[lang] or (fam and fam in excluded[lang]): kind = 'accounted (excluded with a reason)'
         elif any(os.path.exists(os.path.join(root, base + s)) for s in ('.ref', '.expected', '.std')): kind = 'loose pair (has ref)'; owed[lang].append(path)
         elif re.search(r'(^|/)(parser|coverage)/', path) or re.match(r'parser_|probe_|coverage_', f): kind = 'fixture'; owed[lang].append(path)
         else: kind = 'loose source (no ref)'; owed[lang].append(path)
