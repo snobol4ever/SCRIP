@@ -726,10 +726,13 @@ int rt_pl_tail_args_safe(int nargs, void *frame_lo, void *frame_hi)
     else if (nargs > CALL_ARGS_MAX) r = 0;
     else for (int i = 0; i < nargs; i++) {
         DESCR_t v = g_call_args[i];
-        for (int hop = 0; hop < 4 && v.v == DT_N; hop++) v = rt_deref(v);
+        DESCR_t chain[5]; int nch = 0;
+        chain[nch++] = v;
+        for (int hop = 0; hop < 4 && v.v == DT_N; hop++) { v = rt_deref(v); if (nch < 5) chain[nch++] = v; }
         if (v.v == DT_SNUL || v.v == DT_I || v.v == DT_R) { g_call_args[i] = v; continue; }
-        void *p = v.ptr;
-        if (p && p >= frame_lo && p < frame_hi) { r = 0; break; }
+        int unsafe = 0;
+        for (int k = 0; k < nch; k++) { void *cp = chain[k].ptr; if (cp && cp >= frame_lo && cp < frame_hi) { unsafe = 1; break; } }
+        if (unsafe) { r = 0; break; }
     }
     return r;
 }
