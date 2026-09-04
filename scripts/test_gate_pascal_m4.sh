@@ -62,20 +62,29 @@ done
 
 MASTER_PASS=0; MASTER_FAIL=0; MASTER_EXAMINED=0
 if [ -f "$MASTER_SRC" ] && [ -f "$MASTER_REF" ]; then
-    board=$(timeout 180s python3 "$HARNESS" run "$MASTER_SRC" "$MASTER_REF" --lang pascal --modes m4 2>/dev/null)
+    # ⭐ --by-modes-column (seat11, row pascal-master-eleven-reds-cured, 2026-09-04): ALL.csv marks the 5
+    # `parser__*` entries `modes=ast` (graded by --dump-ast diff, never executed) — invoking plain `--modes m4`
+    # silently ran them as m4 anyway and misreported all 5 as output-mismatch FAILs. Same bug class already hit
+    # Raku once (SCORE.md's raku row: a modes-blind invocation collapsed run-graded entries into the ast bucket).
+    board=$(timeout 180s python3 "$HARNESS" run "$MASTER_SRC" "$MASTER_REF" --lang pascal --by-modes-column --modes m4 2>/dev/null)
     p=$(grep -oP '(?<=m4_pass=)\d+' <<<"$board"); f=$(grep -oP '(?<=m4_fail=)\d+' <<<"$board")
     crash=$(grep -oP '(?<=m4_crash=)\d+' <<<"$board"); hang=$(grep -oP '(?<=m4_hang=)\d+' <<<"$board")
     unproven=$(grep -oP '(?<=m4_unproven=)\d+' <<<"$board")
-    total=$(grep -oP '(?<=total=)\d+' <<<"$board")
+    total=$(grep '^SUITE_BOARD ' <<<"$board" | grep -oP '(?<=total=)\d+')
+    ast_p=$(grep -oP '(?<=ast_pass=)\d+' <<<"$board"); ast_f=$(grep -oP '(?<=ast_fail=)\d+' <<<"$board")
+    ast_crash=$(grep -oP '(?<=ast_crash=)\d+' <<<"$board"); ast_hang=$(grep -oP '(?<=ast_hang=)\d+' <<<"$board")
+    ast_unproven=$(grep -oP '(?<=ast_unproven=)\d+' <<<"$board")
+    ast_total=$(grep '^SUITE_BOARD_AST ' <<<"$board" | grep -oP '(?<=total=)\d+')
     if [ -z "$p" ]; then
         echo -e "master:ALL\tHARNESS_UNPROVEN\t" >> "$RESULTS"
         FAIL=$((FAIL+1))
     else
-        MASTER_EXAMINED=${total:-0}
-        bad=$((f + crash + hang + unproven))
-        echo -e "master:ALL\tPASS=$p FAIL=$f CRASH=$crash HANG=$hang UNPROVEN=$unproven\t" >> "$RESULTS"
-        PASS=$((PASS+p)); FAIL=$((FAIL+bad))
-        MASTER_PASS=$p; MASTER_FAIL=$bad
+        ast_bad=$(( ${ast_f:-0} + ${ast_crash:-0} + ${ast_hang:-0} + ${ast_unproven:-0} ))
+        MASTER_EXAMINED=$(( ${total:-0} + ${ast_total:-0} ))
+        bad=$((f + crash + hang + unproven + ast_bad))
+        echo -e "master:ALL\tPASS=$p FAIL=$f CRASH=$crash HANG=$hang UNPROVEN=$unproven AST_PASS=${ast_p:-0} AST_FAIL=${ast_f:-0}\t" >> "$RESULTS"
+        PASS=$((PASS+p+${ast_p:-0})); FAIL=$((FAIL+bad))
+        MASTER_PASS=$((p+${ast_p:-0})); MASTER_FAIL=$bad
     fi
 else
     echo -e "master:ALL\tMISSING\t" >> "$RESULTS"
