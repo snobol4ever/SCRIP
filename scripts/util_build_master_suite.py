@@ -734,6 +734,37 @@ def _build_arg_parser():
     p.add_argument("--split-write", action="store_true",
                     help="master-to-master: emit ALL.* split into ONE.*/MULTI.* by entry kind; verify-only unless --write")
     p.add_argument("--write", action="store_true", help="with --split-write, actually write the split files")
+    # -- THE BUILDER EXTENSION (task master-builder-absorbs-demos-benchmarks-programs-and-loose-pairs-
+    # additively, Lon 2026-09-04): absorb corpus/demos/<lang> and corpus/benchmarks/<lang> into the SAME
+    # master ADDITIVELY -- unlike every mode above, the source file and any committed .s artifact are
+    # NEVER deleted or moved. See additive_absorb()'s own docstring for the full contract.
+    p.add_argument("--additive", action="store_true",
+                    help="absorb corpus/demos/<lang>/ and corpus/benchmarks/<lang>/ into ALL.<ext>/ALL.ref/ALL.csv "
+                         "ADDITIVELY (see --from): sources and any committed .s artifacts are never touched or "
+                         "deleted, unlike --delete-absorbed which is the ordinary loose-pair path's own verb. Each "
+                         "candidate runs a small, sub-second, deterministic recipe; a pre-existing loose .ref is "
+                         "RE-CONFIRMED against a fresh oracle run (never trusted blindly), else one is cut fresh "
+                         "from the language's oracle through lib_oracle_flags.sh and cross-checked against scrip "
+                         "m3 AND m4 -- the same three-way agreement cmd_capture_oracle_refs already uses, reused "
+                         "rather than re-invented. A sibling <stem>.ast-only marker absorbs a parser-only fixture "
+                         "via --dump-ast instead, as a modes=ast entry (never sent to the oracle). Anything that "
+                         "cannot run with output -- module, non-deterministic (oracle/m3/m4 disagree), or over "
+                         "budget -- is named in ALL.excluded.txt with a reason, never silently dropped.")
+    p.add_argument("--from", dest="from_cats", default="demos,benchmarks", metavar="CAT1,CAT2,...",
+                    help="with --additive: which source trees to absorb from this run -- demos, benchmarks, "
+                         "programs (comma list; default demos,benchmarks). `programs` is a real category name "
+                         "but corpus/programs/ absorbs NOTHING yet: Lon 2026-09-04 excluded it from the "
+                         "unabsorbed census (util_unabsorbed_census.py, verbatim 'Go ahead and exclude programs/* "
+                         "folders'), and this builder honours the same ruling by recording it in ALL.excluded.txt "
+                         "rather than walking it -- naming it here is truthful, not silently ignored.")
+    p.add_argument("--recipe-timeout", type=float, default=3.0, metavar="SECONDS",
+                    help="with --additive: per-entry wall-clock budget for the oracle/m3/m4 recipe run; a program "
+                         "still running past this is 'over budget' and excluded, never absorbed on a truncated result")
+    p.add_argument("--selftest", action="store_true",
+                    help="prove the --additive machinery end-to-end on an isolated scratch tree this process "
+                         "builds itself (one demo, one benchmark reading its recipe off stdin, one parser-only "
+                         "--dump-ast fixture, one non-terminating program) -- the real corpus and the real ALL.* "
+                         "master are never opened. Prints SELFTEST PASS/FAIL as its last line.")
     return p
 
 
@@ -918,8 +949,356 @@ def reindex_csv_only(OUTDIR, EXT, lang, h, _CO, _CC, COLS, modes_decl, loose_fam
     print("--reindex: %d entries indexed from %s -- ALL.csv rewritten, nothing else touched." % (len(entries), os.path.basename(master_sno)), file=sys.stderr)
     return 0
 
+
+# ============================================================ additive: demos/benchmarks (THE BUILDER EXTENSION) ===
+# Row master-builder-absorbs-demos-benchmarks-programs-and-loose-pairs-additively (Lon 2026-09-04, verbatim in
+# substance: "For every source from every language that we've generated or that existed in corpus which is not
+# part of any third-party package, if you can get it to run and it has output then add that to the test suite
+# list... keep the packages in their existing form and get them working and generate REF files and also add
+# those to our test suites.")
+#
+# ⛔ THE ONE THING THAT MAKES THIS A DIFFERENT MODE, NOT A FLAG ON THE EXISTING ONE: nothing under corpus/demos/
+# or corpus/benchmarks/ is ever deleted or moved. Those trees are read IN PLACE by other rows (the *_s_artifacts
+# regen scripts, the benchmark/triangulation harnesses, DEMO-SCALE.tsv) -- "additive" is a safety property here,
+# not a style choice, so this mode has no --delete-absorbed twin and never will.
+#
+# ⛔ corpus/programs/ IS NAMED (see --from) BUT NEVER WALKED. util_unabsorbed_census.py excludes it from its own
+# OWED count as of 2026-09-04 ("Go ahead and exclude programs/* folders" -- Lon, the 2026-08-27 parser-only
+# ruling on that tree stands); this builder honours the identical ruling rather than absorbing a tree the
+# project's own census no longer treats as an obligation.
+#
+# ⭐ ORACLE REUSE, NOT REINVENTION: cmd_capture_oracle_refs (corpus_suite_harness.py) is this project's one
+# existing "mint a ref from a live oracle" procedure, with a list of hard-won edge cases (the empty-agreement
+# guard, bare-basename argv, the stdin-feed-changes-nothing control). _additive_classify_and_run below reuses
+# resolve_oracle_bin/run_oracle/run_m3/run_m4 exactly as that function does; the only genuinely new things are
+# per-FILE dispatch instead of per-family-glob, and a recipe expressed as stdin only (see its own docstring for
+# why argv-extra recipes are deliberately out of scope here).
+ADDITIVE_ORACLE_LANGS = {"snobol4", "prolog", "icon"}   # resolve_oracle_bin's own known set (its own refuse())
+
+
+def _additive_walk(src_dir, ext):
+    """Every <ext> file under src_dir (recursive, sorted), excluding the master itself and dotfiles. No pair
+    discovery (unlike discover_pairs): a demo/benchmark is one program, not a suite family, and its companions
+    (.ref, .input/.in/.recipe.in, .ast-only) are looked up by exact stem in the classifier, never walked as
+    candidates in their own right."""
+    if not os.path.isdir(src_dir):
+        return []
+    out = []
+    for dirpath, _dn, filenames in os.walk(src_dir):
+        for fn in filenames:
+            if fn.endswith(ext) and not fn.startswith("ALL") and not fn.startswith("."):
+                out.append(os.path.join(dirpath, fn))
+    return sorted(out)
+
+
+def _additive_stdin_for(stem):
+    """Declared recipe stdin, nearest-convention-first: a demo's own pre-existing .input/.in (the real
+    convention already in use -- corpus/demos/snobol4/claws5/claws5.input) wins over a purpose-built
+    .recipe.in, so absorption re-uses whatever stdin a demo already runs with rather than inventing a
+    second, competing convention. Returns None (i.e. /dev/null) if neither exists -- the correct default
+    for the common no-input demo/benchmark, and safe: /dev/null is immediate EOF, never a hang."""
+    for suffix in (".input", ".in", ".recipe.in"):
+        cand = stem + suffix
+        if os.path.isfile(cand):
+            return open(cand, encoding="utf-8", errors="replace").read(), cand
+    return None, None
+
+
+def _additive_classify_and_run(path, ext, oracle_bin, flags, paths, timeout):
+    """-> ("ast", name, body_lines, ast_text) | ("run", name, body_lines, ref_text) | ("exclude", name, reason)
+
+    A pre-existing loose .ref beside `path` is RE-CONFIRMED against a fresh oracle run (requirement 2: "confirm
+    an existing loose .ref against the oracle before keeping it") -- never trusted just because it is present;
+    a mismatch excludes rather than silently keeping stale committed text. Absent a .ref, one is cut fresh, with
+    the identical three-way agreement (oracle + scrip m3 + scrip m4) cmd_capture_oracle_refs already requires,
+    including its empty-agreement guard -- a vacuous ref is worse than none."""
+    from pathlib import Path as _P
+    name = os.path.splitext(os.path.basename(path))[0]
+    stem = path[: -len(ext)]
+    try:
+        body_lines = open(path, encoding="utf-8", errors="replace").read().splitlines()
+    except OSError as e:
+        return ("exclude", name, "unreadable: %s" % e)
+    if not body_lines:
+        return ("exclude", name, "empty source")
+    if os.path.basename(os.path.dirname(path)) in ("include", "library"):
+        return ("exclude", name, "module (include/ or library/ dir -- no runnable top level, never absorbed alone)")
+
+    if os.path.isfile(stem + ".ast-only"):
+        # parser-only fixture (requirement 3): absorbed via --dump-ast, never executed, never sent to the oracle.
+        v = h.run_ast(paths, _P(path), "", timeout=timeout)
+        if v.kind in ("HANG", "UNPROVEN", "CRASH"):
+            return ("exclude", name, "parser-only fixture (declared %s.ast-only) but --dump-ast %s"
+                                       % (os.path.basename(stem), v.kind))
+        return ("ast", name, body_lines, v.text())
+
+    stdin_text, stdin_src = _additive_stdin_for(stem)
+    ora_text, ora_rc, ora_kind = h.run_oracle(oracle_bin, flags, _P(path), timeout, stdin_text=stdin_text)
+    if ora_kind == "HANG":
+        return ("exclude", name, "over budget (oracle exceeded %.1fs)" % timeout)
+    if ora_kind != "RAN":
+        return ("exclude", name, "oracle itself %s" % ora_kind)
+    if not ora_text.strip():
+        return ("exclude", name, "oracle produced EMPTY output -- a vacuous ref is worse than none (same guard as cmd_capture_oracle_refs)")
+
+    existing_ref = stem + ".ref"
+    if os.path.isfile(existing_ref):
+        committed = open(existing_ref, encoding="utf-8", errors="replace").read().rstrip("\n")
+        if committed != ora_text:
+            return ("exclude", name, "committed .ref disagrees with a fresh oracle run -- re-confirm by hand "
+                                       "(stale ref, drifted oracle, or a scale/flag this recipe does not supply)")
+
+    v3 = h.run_m3(paths, _P(path), ora_text, timeout=timeout, stdin_text=stdin_text)
+    with __import__("tempfile").TemporaryDirectory() as td:
+        v4 = h.run_m4(paths, _P(path), ora_text, _P(td), timeout=timeout, stdin_text=stdin_text)
+    if v3.kind == "HANG" or v4.kind == "HANG":
+        return ("exclude", name, "over budget (m3/m4 exceeded %.1fs)" % timeout)
+    agree3 = v3.kind == "PASS" and v3.returncode == ora_rc
+    agree4 = v4.kind == "PASS" and v4.returncode == ora_rc
+    if not (agree3 and agree4):
+        return ("exclude", name, "non-deterministic or diverges from the oracle -- m3=%s m4=%s vs oracle rc=%s"
+                                   % (v3.kind, v4.kind, ora_rc))
+    return ("run", name, body_lines, ora_text)
+
+
+def _additive_next_name(base, taken):
+    if base not in taken:
+        return base
+    i = 2
+    while ("%s_%d" % (base, i)) in taken:
+        i += 1
+    return "%s_%d" % (base, i)
+
+
+def _additive_write_sidecar_merge(path, new_lines):
+    """Merge {key: value} into a TAB-separated sidecar (MODES.tsv, ALL.excluded.txt), keyed on column 1 --
+    new/changed keys win, everything else already on disk survives. Never a blind overwrite: a second
+    --additive run (a different --lang, a different --from) must not erase the first run's lines."""
+    existing = {}
+    if os.path.isfile(path):
+        for line in open(path, encoding="utf-8", errors="replace"):
+            line = line.rstrip("\n")
+            if not line or "\t" not in line:
+                continue
+            k, v = line.split("\t", 1)
+            existing[k] = v
+    existing.update(new_lines)
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        for k in sorted(existing):
+            f.write("%s\t%s\n" % (k, existing[k]))
+
+
+def additive_absorb(lang, categories, root, timeout, write, cols):
+    """Run THE BUILDER EXTENSION for one language: absorb corpus/demos/<lang> and corpus/benchmarks/<lang>
+    additively into corpus/tests/<lang>/ALL.*. Returns (absorbed, excluded_rows, programs_named) where
+    absorbed is [(name, cat, kind, body_lines, ref_or_ast_text), ...] and excluded_rows is [(name, cat,
+    reason), ...]. write=False computes and reports without touching disk (used by nothing today, kept
+    because every other mode in this file offers the same dry-run shape for free). A write verifies the
+    round trip in a temp sibling BEFORE any os.replace, same discipline as resort_master/reindex_csv_only."""
+    if lang not in LANG_TABLES:
+        h.refuse("--additive --lang %r has no attribute table -- see LANG_TABLES" % lang)
+    if lang not in ADDITIVE_ORACLE_LANGS:
+        h.refuse("--additive --lang %r: no oracle wired in resolve_oracle_bin yet (only %s) -- prove-on-one-"
+                 "then-widen means widening THAT function first, never skipping the oracle cut"
+                 % (lang, ", ".join(sorted(ADDITIVE_ORACLE_LANGS))))
+    EXT = LANG_EXT[lang]
+    OUTDIR = os.path.join(root, "corpus", "tests", lang)
+    os.makedirs(OUTDIR, exist_ok=True)
+    _CO = h.LANG_CONFIGS[lang]["comment_open"] if lang in h.LANG_CONFIGS else "*"
+    _CC = h.LANG_CONFIGS[lang].get("comment_close", "") if lang in h.LANG_CONFIGS else ""
+    paths = h.resolve_paths()
+    if str(paths["corpus"]) != os.path.join(root, "corpus"):
+        paths = dict(paths)
+        paths["corpus"] = __import__("pathlib").Path(root) / "corpus"   # scratch-tree override for --selftest
+    h.check_scrip(paths)
+    oracle_bin, flags = h.resolve_oracle_bin(paths, lang)
+
+    excluded_rows, absorbed, programs_named = [], [], False
+    for cat in categories:
+        if cat == "programs":
+            programs_named = True
+            excluded_rows.append(("*", "programs", "corpus/programs/ out of scope this run (Lon 2026-09-04 "
+                                                     "excluded it from util_unabsorbed_census.py's OWED count; "
+                                                     "this builder honours the same ruling) -- named, not walked"))
+            continue
+        if cat not in ("demos", "benchmarks"):
+            h.refuse("--from names an unknown category %r (known: demos, benchmarks, programs)" % cat)
+        src_dir = os.path.join(root, "corpus", cat, lang)
+        for path in _additive_walk(src_dir, EXT):
+            result = _additive_classify_and_run(path, EXT, oracle_bin, flags, paths, timeout)
+            if result[0] == "exclude":
+                _kind, name, reason = result
+                excluded_rows.append((name, cat, reason))
+            else:
+                kind, name, body_lines, ref_or_ast = result
+                absorbed.append((name, cat, kind, body_lines, ref_or_ast))
+
+    if not write:
+        return absorbed, excluded_rows, programs_named
+
+    master_sno = os.path.join(OUTDIR, "ALL" + EXT)
+    master_ref = os.path.join(OUTDIR, "ALL.ref")
+    master_csv = os.path.join(OUTDIR, "ALL.csv")
+    base_entries, csv_row_by_name = [], {}
+    if os.path.isfile(master_sno) and os.path.isfile(master_ref):
+        if lang == "snobol4":
+            base_entries = h.read_suite(master_sno, master_ref, in_path=h.sidecar_in_path(master_sno), x_path=h.sidecar_xfail_path(master_sno))
+        else:
+            base_entries = h.read_block_suite(master_sno, master_ref, h.banner_re_for(_CO, _CC),
+                                              in_path=h.sidecar_in_path(master_sno), x_path=h.sidecar_xfail_path(master_sno))
+    if os.path.isfile(master_csv):
+        for row in csv.DictReader(open(master_csv)):
+            csv_row_by_name[row["entry"]] = row
+    taken_names = {e.name for e in base_entries}
+    base_origins = {(csv_row_by_name.get(e.name) or {}).get("origin") or ("master__%s" % e.name) for e in base_entries}
+
+    new_entries, modes_for_origin = [], {}
+    for name, cat, kind, body_lines, ref_or_ast in absorbed:
+        singular = cat[:-1] if cat.endswith("s") else cat
+        fam = "%s_%s_%s" % (singular, lang, name)      # one family per additive entry -- see discover_pairs's
+        origin = "%s__%s" % (fam, name)                 # own "plain" mode for the identical per-file convention
+        if origin in base_origins:
+            excluded_rows.append((name, cat, "already in the master (origin %s) -- not re-appended" % origin))
+            continue
+        entry_name = _additive_next_name("%s_%s" % (singular, name), taken_names)
+        taken_names.add(entry_name)
+        e = h.Entry("block", 0, entry_name, list(body_lines), ref_or_ast.splitlines(), xfail=False)
+        e.origin = origin
+        e.src_mode = "additive"
+        new_entries.append(e)
+        modes_for_origin[origin] = "ast" if kind == "ast" else "m3,m4"
+
+    if not new_entries:
+        print("--additive %s --from %s: 0 new entries (%d candidate(s) checked, %d excluded) -- nothing written."
+              % (lang, ",".join(categories), len(absorbed) + len(excluded_rows), len(excluded_rows)), file=sys.stderr)
+        _additive_write_sidecar_merge(os.path.join(OUTDIR, "ALL.excluded.txt"),
+                                       {("%s[%s]" % (n, c)): r for n, c, r in excluded_rows})
+        return absorbed, excluded_rows, programs_named
+
+    all_entries = base_entries + new_entries
+    for i, e in enumerate(all_entries, 1):
+        e.seq = i
+    _tag = ".tmp-additive-%d" % os.getpid()
+    tmp_sno, tmp_ref, tmp_csv = master_sno + _tag, master_ref + _tag, master_csv + _tag
+    try:
+        if lang == "snobol4":
+            h.write_suite(all_entries, tmp_sno, tmp_ref)
+            reread = h.read_suite(tmp_sno, tmp_ref)
+        else:
+            h.write_block_suite(all_entries, tmp_sno, tmp_ref, _CO, _CC)
+            reread = h.read_block_suite(tmp_sno, tmp_ref, h.banner_re_for(_CO, _CC))
+        if {r.name for r in reread} != {e.name for e in all_entries} or len(reread) != len(all_entries):
+            sys.stderr.write("REFUSED: additive write did not round-trip (name set or count changed) -- nothing committed.\n")
+            raise SystemExit(2)
+        with open(tmp_csv, "w", newline="") as f:
+            w = csv.writer(f, lineterminator="\n")
+            w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes"] + [c for c, _ in cols])
+            for rank, e in enumerate(all_entries, 1):
+                text = "\n".join(e.sno_lines)
+                flags_e = {c: fn(text) for c, fn in cols}
+                old_row = csv_row_by_name.get(e.name) or {}
+                origin = getattr(e, "origin", None) or old_row.get("origin") or ("master__%s" % e.name)
+                fam = origin.split("__", 1)[0]
+                modes = modes_for_origin.get(origin) or old_row.get("modes") or "UNKNOWN"
+                w.writerow([rank, e.name, origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines), modes]
+                           + [flags_e[c] for c, _ in cols])
+    except BaseException:
+        for q in (tmp_sno, tmp_ref, tmp_csv):
+            if os.path.exists(q):
+                os.remove(q)
+        raise
+    os.replace(tmp_sno, master_sno)
+    os.replace(tmp_ref, master_ref)
+    os.replace(tmp_csv, master_csv)
+    cfg_dir = os.path.join(OUTDIR, "config")
+    modes_path = os.path.join(cfg_dir, "MODES.tsv") if os.path.isdir(cfg_dir) else os.path.join(OUTDIR, "MODES.tsv")
+    _additive_write_sidecar_merge(modes_path, modes_for_origin)
+    _additive_write_sidecar_merge(os.path.join(OUTDIR, "ALL.excluded.txt"),
+                                   {("%s[%s]" % (n, c)): r for n, c, r in excluded_rows})
+    print("--additive %s --from %s: %d new entries absorbed (%d candidate(s) checked, %d excluded) -- "
+          "ALL%s/ALL.ref/ALL.csv/%s updated." % (lang, ",".join(categories), len(new_entries),
+          len(absorbed) + len(excluded_rows), len(excluded_rows), EXT, os.path.basename(modes_path)), file=sys.stderr)
+    return absorbed, excluded_rows, programs_named
+
+
+def run_additive_selftest(timeout):
+    """--selftest: prove --additive end-to-end on a throwaway scratch tree this process builds itself and
+    deletes when done. Never opens the real corpus. All four fixtures are snobol4 -- the default --lang and
+    one of the three languages resolve_oracle_bin actually wires an oracle for, so this proves the real
+    oracle-cut path, never a mock:
+      - demo_hello        no stdin, deterministic OUTPUT -- the common case.
+      - bench_count       reads one value via INPUT; a .input sidecar supplies a small deterministic count
+                          -- proves the stdin-recipe path (and the pre-existing .input convention, reused
+                          from corpus/demos/snobol4/claws5/claws5.input rather than invented fresh).
+      - parser_fixture_x  a sibling .ast-only marker -- absorbed via --dump-ast, never executed -- proves
+                          requirement 3 (modes=ast).
+      - hangs_forever     an unconditional backward branch that computes but never prints -- proves the
+                          over-budget/HANG exclusion never absorbs a program that cannot finish, and never
+                          blocks the run past its own timeout doing so.
+    Fail-once, per the task's own GOAL line: any one of these four missing its expected outcome is SELFTEST
+    FAIL. The deferral contract (KEEP.md/PENDING.md) is discover_pairs's own already-proven machinery
+    (requirement 1's row) and is deliberately not re-proven here -- this selftest is scoped to what THIS row
+    adds, not a re-proof of code that predates it.
+    """
+    import shutil as _shutil
+    import tempfile as _tempfile
+    scratch = _tempfile.mkdtemp(prefix="additive_selftest_")
+    try:
+        demos = os.path.join(scratch, "corpus", "demos", "snobol4")
+        benches = os.path.join(scratch, "corpus", "benchmarks", "snobol4")
+        os.makedirs(demos)
+        os.makedirs(benches)
+        os.makedirs(os.path.join(scratch, "corpus", "tests", "snobol4"))
+        with open(os.path.join(demos, "demo_hello.sno"), "w") as f:
+            f.write("      OUTPUT = \"HELLO FROM DEMO\"\nEND\n")
+        with open(os.path.join(benches, "bench_count.sno"), "w") as f:
+            f.write("      N = INPUT\n      OUTPUT = \"COUNT \" N\nEND\n")
+        with open(os.path.join(benches, "bench_count.input"), "w") as f:
+            f.write("5\n")
+        with open(os.path.join(demos, "parser_fixture_x.sno"), "w") as f:
+            f.write("      X = 1\nEND\n")
+        open(os.path.join(demos, "parser_fixture_x.ast-only"), "w").close()
+        with open(os.path.join(demos, "hangs_forever.sno"), "w") as f:
+            f.write("LOOP      X = X + 1        :(LOOP)\nEND\n")
+
+        cols, _names = LANG_TABLES["snobol4"]
+        absorbed, excluded_rows, _named = additive_absorb("snobol4", ["demos", "benchmarks"], scratch,
+                                                           min(timeout, 2.0), True, cols)
+        absorbed_names = {a[0] for a in absorbed}
+        excluded_names = {e[0] for e in excluded_rows}
+
+        master_csv = os.path.join(scratch, "corpus", "tests", "snobol4", "ALL.csv")
+        ast_modes_ok = False
+        if os.path.isfile(master_csv):
+            for row in csv.DictReader(open(master_csv)):
+                if row.get("origin", "").split("__")[-1] == "parser_fixture_x" and row.get("modes") == "ast":
+                    ast_modes_ok = True
+
+        checks = [
+            ("demo (no stdin) absorbed",                        "demo_hello" in absorbed_names),
+            ("benchmark (stdin recipe via .input) absorbed",     "bench_count" in absorbed_names),
+            ("parser-only fixture absorbed as modes=ast",        "parser_fixture_x" in absorbed_names and ast_modes_ok),
+            ("non-terminating program excluded, never absorbed", "hangs_forever" in excluded_names and "hangs_forever" not in absorbed_names),
+        ]
+        for label, ok in checks:
+            print("  %s %s" % ("PASS" if ok else "FAIL", label), file=sys.stderr)
+        failed = [label for label, ok in checks if not ok]
+        if failed:
+            print("SELFTEST FAIL: %s" % "; ".join(failed), file=sys.stderr)
+            return 1
+        print("SELFTEST PASS: %d/%d checks" % (len(checks), len(checks)), file=sys.stderr)
+        return 0
+    finally:
+        _shutil.rmtree(scratch, ignore_errors=True)
+
+
 def main():
     args = _build_arg_parser().parse_args()
+    if args.selftest:
+        # ⭐ Checked before ANY --lang-dependent setup below: the selftest hardcodes snobol4 fixtures on its
+        # own throwaway tree regardless of what --lang was passed, so it must not be blockable by unrelated
+        # validation (a bad --lang, a missing real corpus tree) that has nothing to do with what it proves.
+        raise SystemExit(run_additive_selftest(args.recipe_timeout))
     # ⭐ --lang selects root, extension and attribute tables. Default snobol4 keeps the previous behaviour
     # exactly, so `util_build_master_suite.py` with no arguments rebuilds a byte-identical master.
     lang = args.lang
@@ -973,6 +1352,16 @@ def main():
         raise SystemExit(2)
     if args.split_write:
         raise SystemExit(split_write(OUTDIR, EXT, lang, _CO, _CC, args.write))
+    if args.additive:
+        for _flag, _val in (("--delete-absorbed", delete_absorbed), ("--family", family_prefix),
+                             ("--only", only_families), ("--absorb-only", absorb_only_families),
+                             ("--resort", args.resort), ("--reindex", args.reindex), ("--split-write", args.split_write)):
+            if _val:
+                sys.stderr.write("REFUSED: --additive is its own terminal mode (ADDITIVE, never DELETE/SCOPE/REORDER) -- drop %s.\n" % _flag)
+                raise SystemExit(2)
+        cats = [c.strip() for c in args.from_cats.split(",") if c.strip()]
+        additive_absorb(lang, cats, S4E, args.recipe_timeout, True, COLS)
+        raise SystemExit(0)
     included, all_entries, per_family = [], [], {}
     absorbed_files = []    # (fam, sno, ref, mode) for post-verification deletion
     companion_copies = {}  # basename -> source path; written into OUTDIR after the merge succeeds
