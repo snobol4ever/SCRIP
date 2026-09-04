@@ -259,7 +259,7 @@ static int is_graphic(char c) {
     return c == '+' || c == '-' || c == '*' || c == '/' || c == '\\' ||
            c == '^' || c == '<' || c == '>' || c == '=' || c == '~' ||
            c == '?' || c == '@' || c == '#' || c == '&' || c == ':' ||
-           c == '.' || c == '!';
+           c == '.';
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static Token scan_graphic(Lexer *lx) {
@@ -318,7 +318,7 @@ Token lexer_next(Lexer *lx) {
         case '{': return make_tok(TK_LBRACE,   strdup("{"), line);
         case '}': return make_tok(TK_RBRACE,   strdup("}"), line);
         case '.':
-            if (cur(lx) == '\0' || isspace((unsigned char)cur(lx)))
+            if (cur(lx) == '\0' || isspace((unsigned char)cur(lx)) || cur(lx) == '%')
                 return make_tok(TK_DOT, strdup("."), line);
             lx->pos--;
             return scan_graphic(lx);

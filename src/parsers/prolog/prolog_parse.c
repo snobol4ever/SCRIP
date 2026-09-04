@@ -170,6 +170,12 @@ static void register_op_one(int prec, const char *type, tree_t *namenode) {
 static void register_op_directive(tree_t *goal) {
     if (!goal || goal->t != TT_FNC || !goal->v.sval) return;
     if (strcmp(goal->v.sval, ",") == 0 && goal->n == 2) { register_op_directive(goal->c[0]); register_op_directive(goal->c[1]); return; }
+    if (strcmp(goal->v.sval, "module") == 0 && goal->n == 2) {
+        tree_t *exports = goal->c[1];
+        if (exports && exports->t == TT_MAKELIST)
+            for (int i = 0; i < exports->n; i++) register_op_directive(exports->c[i]);
+        return;
+    }
     if (strcmp(goal->v.sval, "op") != 0 || goal->n != 3) return;
     tree_t *pn = goal->c[0], *tn = goal->c[1], *nn = goal->c[2];
     if (!pn || pn->t != TT_ILIT || !tn || tn->t != TT_QLIT || !tn->v.sval) return;
