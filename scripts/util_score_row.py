@@ -453,6 +453,24 @@ def cmd_selftest(a):
         finally:
             S4E = _real_s4e
             if _saved_seat is not None: os.environ["S4E_SEAT"] = _saved_seat
+        # ⛔⭐ A FRACTION LABELLED BY A TRAILING FAILURE WORD IS NOT A PASS FRACTION -- and the two arms that
+        # matter pull in OPPOSITE directions, which is why both are pinned. Under-drop and `924/986
+        # PARSE-FAIL` convicts raku of a conflict with the grid's correct `4/986`; over-drop and icon's real
+        # `153/153, FAIL=0` vanishes from the board. Nothing separates them but the comma and the `=`.
+        for label, txt, want in (
+                ("trailing PARSE-FAIL is not a pass fraction", "still 924/986 PARSE-FAIL, byte-identical", {}),
+                ("a pass fraction survives beside a fail fraction of the SAME denominator",
+                 "roast 4/986 pass · 924/986 PARSE-FAIL", {986: 4}),
+                ("`FAIL=0` right after a fraction is a labelled count, NOT that fraction's name",
+                 "m3 43/89 FAIL=0", {89: 43}),
+                ("a comma before FAIL means it labels the clause, not the number",
+                 "run-graded 563/569 both modes + ast 153/153, FAIL=0", {569: 563, 153: 153}),
+                ("a bare trailing `fail` still drops", "jcon 38/81 fail", {})):
+            got, _w = cell_fractions(txt)
+            if got == want:
+                print("SELFTEST: %s" % label)
+            else:
+                print("SELFTEST FAIL: %s -- read %s, wanted %s (from %r)" % (label, got, want, txt)); ok = False
     finally:
         SCORE_MD = real
         shutil.rmtree(d, ignore_errors=True)
@@ -476,6 +494,18 @@ PROGRESS_LANGS = [("snobol4", "sno"), ("snocone", "sc"), ("icon", "icn"), ("prol
 # (snocone M), `the earlier 144/149` (pascal M). Kept as data so a reader can check the rule against the
 # open file, which is the brief's "no hidden weights".
 PROGRESS_DROP = ("smoke", "corpus suite", "the earlier", "readings", "was ", "strict rung suite", "supersedes")
+# ⛔⭐ A FRACTION LABELLED BY WHAT FOLLOWS IT COUNTS FAILURES, NOT PASSES. `924/986 PARSE-FAIL` is the raku
+# roast task row's own idiom, and every reader of this parser called it a pass fraction: the agree gate
+# convicted raku of a same-denominator conflict against the grid's `4/986` PASS, and both numbers were
+# right all along (pass 4 + fail 9 + parse_fail 924 + no_tap 7 + crash 1 = 945, +41 missing = 986). ONE of
+# the two tables is wrong is this gate's whole contract, so a false positive there is worse than a miss --
+# it sends a reader to reconcile two correct cells. PROGRESS_DROP only ever looked at the 20 chars BEFORE a
+# fraction; a label can sit on either side of the number it names.
+# ⛔ THE `=` GUARD IS THE WHOLE DIFFICULTY, not an edge case: `ast 153/153, FAIL=0` is a PASS fraction
+# followed by the word FAIL, and a naive suffix match drops icon's real number. Two things separate them --
+# the marker must follow with NOTHING but whitespace between (a comma means it labels the clause, not the
+# fraction), and `FAIL=`/`fail=` is a labelled count that is already read, never this fraction's name.
+PROGRESS_FAIL_SUFFIX = ("parse-fail", "fail", "reject", "crash", "no-tap", "xfail", "red", "missing")
 # Suites with NO runner or NO number: 0 pass over their file count, so unmeasured coverage reads as
 # MISSING rather than as ABSENT. Denominators are the brief's own. Applied only when the cell BOTH names
 # the suite and carries a no-number marker, so a suite that later gets a real number stops being estimated.
@@ -549,6 +579,15 @@ def cell_fractions(raw):
         if hit:
             dropped.add(t)
             work.append("drop %d/%d (%r)" % (ps, t, hit[0]))
+            consumed.append((m.start(), m.end()))
+            continue
+        # ⭐ Drops THIS FRACTION ONLY, never the denominator -- unlike a leading PROGRESS_DROP marker, a
+        # trailing label names exactly one number, and the same population may carry a real pass fraction
+        # elsewhere in the cell that must survive. If nothing else names the denominator it simply leaves
+        # this table, and the gate reports it as the one-sided population it honestly is.
+        suf = re.match(r"\s+(%s)\b(?!\s*=)" % "|".join(PROGRESS_FAIL_SUFFIX), s[m.end():], re.I)
+        if suf:
+            work.append("drop %d/%d (labelled %r -- a FAILURE count, not a pass fraction)" % (ps, t, suf.group(1)))
             consumed.append((m.start(), m.end()))
             continue
         groups.setdefault(t, []).append(ps)
