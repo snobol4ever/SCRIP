@@ -350,7 +350,16 @@ static int subscript_set_body(DESCR_t arr, DESCR_t idx, DESCR_t val) {
 int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val) { int ok = subscript_set_body(arr, idx, val); if (ok && g_monitor_bin) mon_emit_value_bin("<lval>", val); return ok; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t subscript_get2_ext(DESCR_t arr, DESCR_t i, DESCR_t end) {
-    return subscript_get2(arr, i, end);
+    DESCR_t *elems; int n; int len;
+    if (arr.v == DT_DATA && rt_list_view(arr, &elems, &n)) len = n;
+    else if (arr.v == DT_S || arr.v == DT_SNUL) { const char *s = arr.s ? arr.s : ""; len = IS_CSET_fn(arr) ? kw_cset_len(s) : -1;
+        if (len < 0) len = (arr.slen && arr.slen != 0xFFFFFFFFu) ? (int)arr.slen : (int)strlen(s); }
+    else return subscript_get2(arr, i, end);
+    long raw_i = (long)to_int(i), delta = (long)to_int(end) - raw_i;
+    if (raw_i < -len || raw_i > len + 1) return FAILDESCR;
+    long a = (raw_i <= 0) ? len + raw_i + 1 : raw_i, b = a + delta;
+    if (b < 1 || b > len + 1) return FAILDESCR;
+    return subscript_get2(arr, INTVAL(a), INTVAL(b));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) {
