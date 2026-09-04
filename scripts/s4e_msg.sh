@@ -1721,6 +1721,13 @@ TASKEOF
          # which events a seat happened to wire. Same guard as the inbox hook: quiet, and never allowed to break the banner.
          # ($HERE is NOT a variable of this script -- the first draft of this block used it, tested false forever, and
          #  was caught by the verify line `grep -c HERE=` reading 0: the same silent class one paragraph up.)
+         # ⭐⭐ THE SCORE LINE FIRST (Lon 2026-09-04 17:5x: "Ensure the banner is showing the score by each seat at every turn."):
+         # measured from seat07's transcript the same hour -- 4 banners, 2 score lines: the line printed LAST, after ~9 s of
+         # slower work, where a Stop-hook timeout or a truncated display loses it, and its refusal went to /dev/null. So it
+         # prints HERE, 0.18 s, before anything slow, and a refusal prints VISIBLY. Never the verdict: this is a pipeline.
+         if [ -n "${S4E_PROGRESS_PROBE_BROKEN:-}" ]; then _ph="/nonexistent-s4e-home"; else _ph="$S4E"; fi
+         S4E_HOME="$_ph" python3 "$(dirname "${BASH_SOURCE[0]}")/util_score_row.py" progress 2>/dev/null | grep -m1 '^PROGRESS 09-10 |' \
+           || printf 'PROGRESS: UNREADABLE -- util_score_row.py progress printed no score line under %s (SCORE.md missing or its grid unreadable); the verdict below is unaffected\n' "$_ph"
          _ih="$(dirname "${BASH_SOURCE[0]}")/install_commit_msg_hook.sh"
          if [ -x "$_ih" ]; then
            _h="$(bash "$_ih" --quiet 2>/dev/null || true)"; [ -n "$_h" ] && printf '%s\n' "$_h"
@@ -1920,7 +1927,7 @@ TASKEOF
          # refusal here (a renamed grid column, a missing language row) must be VISIBLE and must not change
          # that verdict. Hence `|| true` and stderr kept -- a progress line that could turn a green handoff red
          # would be a reporting tool with veto power over the thing it reports on.
-         S4E_HOME="$S4E" python3 "$(dirname "${BASH_SOURCE[0]}")/util_score_row.py" progress 2>/dev/null || true
+         S4E_HOME="$S4E" python3 "$(dirname "${BASH_SOURCE[0]}")/util_score_row.py" progress 2>&1 || printf 'PROGRESS: UNREADABLE at the foot of the banner -- see the score line at its head\n'
          printf '\n'
          # ⛔⛔ THE BANNER WAS FIRING AND NOBODY COULD SEE IT (Lon 2026-08-22 s256: "The FLEET workers are not showing
          # a banner at the end. claude08 just sat silent like an idiot").  MEASURED, from seat08's OWN transcript --
