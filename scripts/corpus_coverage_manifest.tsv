@@ -54,6 +54,7 @@ SUBTREE	demos/icon	GATED	test_lower_byte_identical.sh
 # the new location; no new line needed.
 SUBTREE	demos/scrip	ROWD	scrip-demo-harness-unwired
 SUBTREE	benchmarks/snocone	ROWD	snocone-demo-trailing-comma-locals-parse-gap
+SUBTREE	benchmarks/rebus	ROWD	rebus-benchmark-set-before-its-grid
 # tests/scrip_test is TRANSIENT STAGING, not a stable corpus location: SCRIP/test was moved here wholesale
 # (2026-08-29, "11a36c87", repo-boundary ruling, 594 files) and the ceo all-hands-consolidation broadcast the
 # same day split its per-language drain across seats (seat03=icon, hq_B+seat05=prolog, seat06=raku,
@@ -69,4 +70,4 @@ SUBTREE	benchmarks/snocone	ROWD	snocone-demo-trailing-comma-locals-parse-gap
 # not replaced.
 EXCLUDE	tests/scrip_test	EXCLUDED	transient per-language absorption staging (see comment above) -- not primary corpus, drains to zero, never gets its own harness because every real destination already has one
 EXCLUDE	archive	EXCLUDED	archived bisection scratch and retired probes, provenance in corpus/archive/*/README -- not gradeable, not test material; archived rather than deleted so a regressed cure can bisect against them
-EXCLUDE	packages/pascal	EXCLUDED	third-party Pascal-P4 reference compiler (pcom.pas/pint.pas/ppp.pas + grammar), ETH Zurich 1976, Free Pascal/Delphi port by Christophe Staiesse 2013; provenance in packages/pascal/README.md -- imported upstream, never converted/graded
+EXCLUDE	packages/pascal	EXCLUDED	third-party upstream Pascal, imported never converted: (a) the Pascal-P4 reference compiler (pcom.pas/pint.pas/ppp.pas + grammar), ETH Zurich 1976, Free Pascal/Delphi port by Christophe Staiesse 2013, provenance in packages/pascal/README.md; (b) packages/pascal/pat -- the ISO 7185 validation suite (Pascal-P5 1.4.x, 1713 files, hq_T 2026-09-03), which IS graded, but by its own runner test_pascal_pat_suite.sh against the standard rather than by a corpus harness, and whose .cmp/.ecp files are deliberately NOT a portable oracle (see its README)
