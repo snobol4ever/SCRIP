@@ -4686,7 +4686,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             snprintf(buf,256,"%lld",(long long)av.i); *out = STRVAL(buf); return 1;
         }
         if (IS_REAL_fn(av))      { icon_real_str(av.r,buf,128); *out = STRVAL(buf); return 1; }
-        if (av.v==DT_T)          { snprintf(buf,128,"table(%d)",av.tbl?av.tbl->size:0); *out = STRVAL(buf); return 1; }
+        if (av.v==DT_T)          { snprintf(buf,128,"%s(%d)",(av.tbl && av.tbl->is_set) ? "set" : "table",av.tbl?av.tbl->size:0); *out = STRVAL(buf); return 1; }
         if (av.v==DT_DATA && av.u) {
             const char *tname = av.u->type ? av.u->type->name : "record";
             if (strcmp(tname,"list")==0) {
