@@ -1905,6 +1905,9 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         g_pas_heap_ctr++; DESCR_t *c = pas_heap_cell(g_pas_heap_ctr, 1);
         if (c) *c = STRVAL(seg); *out = INTVAL(g_pas_heap_ctr); return 1;
     }
+    if (!strcmp(fn, "__pas_dispose") && nargs == 1) {
+        *out = NULVCL; return 1;
+    }
     if (!strcmp(fn, "__pas_alpha_str") && nargs == 2) {
         const char *sa = VARVAL_fn(args[0]); if (!sa) sa = "";
         long lo = IS_INT_fn(args[1]) ? (long)args[1].i : 0; if (lo < 0) lo = 0;

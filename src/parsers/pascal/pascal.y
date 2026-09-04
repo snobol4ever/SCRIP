@@ -171,6 +171,9 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         else ast_push(alloc, leaf_s(TT_VAR, "__pas_alloc"));
         return mk_assign(pv, alloc);
     }
+    if (name && !strcmp(name, "dispose") && args && args->count >= 1) {
+        return mk_fnc1("__pas_dispose", args->items[0]);
+    }
     tree_t *e = ast_node_new(TT_FNC);
     int _wstart = 0; tree_t *_wstream = NULL;
     if (is_pas_io(map_io(name)) && args && args->count >= 2) {
