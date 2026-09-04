@@ -145,4 +145,15 @@ echo "mode-4 (--compile): PASS=$P4 FAIL=$F4 SKIP(cc)=$S4  NSTD $N4P/$((N4P+N4F))
 [ -n "$FL4" ] && echo "FAIL-M4:$FL4"
 [ -n "$FLS" ] && echo "FAIL-SBL:$FLS"
 [ -n "$FLC" ] && echo "FAIL-CSN:$FLC"
+
+# ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05). Records what this script just
+# measured into .github/SCORE.md; runs nothing itself. Non-fatal: a bookkeeping failure must never
+# turn a real measurement into a red board. Matches the other package suites (Arizona/JCON/fpc/GNU/SWI);
+# this one and csnobol4_suite's own runner were the two missing it (board-packages-into-make-test-
+# reported-then-blocking, seat13 2026-09-03).
+python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite Snoflake --modes m3,m4 \
+    --measurer "${S4E_SEAT:-unknown-seat}" \
+    --text "mode-3 PASS=$P3 FAIL=$F3 NSTD $N3P/$((N3P+N3F)) · mode-4 PASS=$P4 FAIL=$F4 SKIP(cc)=$S4 NSTD $N4P/$((N4P+N4F)) (\`test_snoflake_suite.sh\`)" \
+    || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
+
 [ "$F3" = 0 ] && [ "$F4" = 0 ] && [ "$S4" = 0 ]

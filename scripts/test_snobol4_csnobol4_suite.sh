@@ -164,5 +164,16 @@ echo "csnobol4 (home dialect, triangulation, informational): PASS=$CSN_PASS FAIL
 [ -n "$RED3" ] && echo "RED-M3:$RED3"
 [ -n "$RED4" ] && echo "RED-M4:$RED4"
 [ "$REGEN" -gt 0 ] && echo "REGEN-CANDIDATE ($REGEN, SCRIP m3 disagrees with .ref but so does live csnobol4 — .ref pin may be stale):$REGEN_LIST"
+
+# ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05). Records what this script just
+# measured into .github/SCORE.md; runs nothing itself. Non-fatal: a bookkeeping failure must never
+# turn a real measurement into a red board. Matches the other package suites (Arizona/JCON/fpc/GNU/SWI);
+# this one and snoflake_suite's own runner were the two missing it (board-packages-into-make-test-
+# reported-then-blocking, seat13 2026-09-03).
+python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite CSNOBOL4 --modes m3,m4 \
+    --measurer "${S4E_SEAT:-unknown-seat}" \
+    --text "total=$TOTAL m3 PASS=$M3_PASS FAIL=$M3_FAIL REJECT=$M3_REJECT CRASH=$M3_CRASH HANG=$M3_HANG · m4 PASS=$M4_PASS FAIL=$M4_FAIL REJECT=$M4_REJECT CRASH=$M4_CRASH HANG=$M4_HANG (\`test_snobol4_csnobol4_suite.sh\`)" \
+    || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
+
 [ "$M3_FAIL" = 0 ] && [ "$M3_REJECT" = 0 ] && [ "$M3_CRASH" = 0 ] && [ "$M3_HANG" = 0 ] && \
 [ "$M4_FAIL" = 0 ] && [ "$M4_REJECT" = 0 ] && [ "$M4_CRASH" = 0 ] && [ "$M4_HANG" = 0 ]
