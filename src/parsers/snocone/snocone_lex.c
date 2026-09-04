@@ -289,6 +289,7 @@ S_OP_DOT:
     if (had_ws && last_value)                                      {  EMIT(T_CONCAT);                 }
                                                                    {  ADV(1);                                              goto LX_UN_DOT;    }
 S_OP_AMP:
+    if (PEEK(1) == '&' )                                           {  ADV(2);                                              EMIT(T_CONCAT);    }
     if (had_ws && last_value && is_rws_at(p, 1))                   {  ADV(1);                                              goto LX_AMP;       }
     if (had_ws && last_value)                                      {  EMIT(T_CONCAT);                 }
                                                                    {  ADV(1);                                              goto LX_UN_AMP;    }
