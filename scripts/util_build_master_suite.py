@@ -1233,7 +1233,16 @@ def main():
                     excluded.append((fam, "dialect read refused: %s" % str(e)[:140]))
                     continue
         for e in entries:
-            e.origin = "%s__%s" % (fam, e.name)
+            # ⛔ A BANNERLESS SINGLE-ENTRY FILE HAS e.name == fam (both are the file's own stem, see the
+            # "plain" branch above): the naive "fam__name" formula then degenerates to "fam__fam", a
+            # self-doubled origin carrying zero extra information (measured: this exact bug was already
+            # silently baked into pre-existing entries, e.g. the committed
+            # "smoke__role_attr_on_consumer__smoke__role_attr_on_consumer" origin -- found 2026-09-04,
+            # row raku-ladder-every-feature-in-isolation-with-variations, seat12 round 6, while absorbing
+            # 5 new bannerless rung13 witnesses and seeing every one of their origins doubled the same way).
+            # A multi-entry banner-block family still needs "fam__name" to disambiguate WHICH entry within
+            # the family, so only the degenerate equal case collapses to the bare name.
+            e.origin = fam if e.name == fam else "%s__%s" % (fam, e.name)
             e.src_mode = mode
         _dup = [e.origin for e in entries if e.origin in base_origins]
         if _dup:
