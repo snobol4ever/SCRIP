@@ -753,6 +753,13 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         { extern void fc_vdj_register(const IR_t *); fc_vdj_register(dj); }
         if (res) *res = dj; return dj;
     }
+    case TT_INTERROGATE: {
+        if (t->n < 1 || !t->c[0]) sno_fatal("? interrogation with no operand", NULL);
+        IR_t * nul = lc_build(cx->g, IR_LIT_STRING, γ, ω); IR_LIT(nul).sval = (char *) "";
+        IR_t * entry = sx_lower(cx, t->c[0], nul, ω, NULL);
+        if (res) *res = nul;
+        return entry;
+    }
     default: {
         char buf[64]; snprintf(buf, sizeof buf, "tree kind %d", (int) t->t);
         sno_fatal("expression form not in the landed subset", buf);
