@@ -127,8 +127,19 @@ def slugs(cell):
 def witness_for(origins, rung, form, pair=False):
     # ladder__<rung>_<anything>_<form>, or ..._with_<lower> for a pair. The construct segment is deliberately
     # not pinned: the four live censuses spell it four ways and the FORM is the thing being proved present.
+    # ⛔ FIXED 2026-09-04 (seat12, row raku-ladder-every-feature-in-isolation-with-variations): the mandatory
+    # UNDERSCORE after the rung number must not itself be optional-with-\b, but the OLD pattern's
+    # `(?:_|\b).*_<form>$` required a SECOND underscore before the form no matter what -- so a construct
+    # bundled into ITS OWN name with no separate form suffix (ladder__rung00_hello, form "hello"; Prolog's
+    # ladder__rung01_fact_rule, form "fact_rule") could never match, since after consuming the one real "_"
+    # there was nothing left for the required "_<form>" to consume. \b never rescues this: "_" counts as a
+    # word character in \w, so digit-to-"_" is not a boundary either -- the alternation's \b branch was
+    # already dead weight, not a working fallback. Verified false-negative on both this row's and prolog's
+    # real censuses before this fix (see this row's LEDGER). The mandatory "_" still anchors the rung
+    # boundary (unchanged: prevents rung1 matching inside rung10/11/.../19's origins); what changed is that
+    # everything between that "_" and the form is now OPTIONAL (`(?:.*_)?`), not required.
     rn = re.sub(r"^rung0*", "", rung, flags=re.I) or "0"
-    pat = re.compile(r"^ladder__rung0*%s(?:_|\b).*_%s%s$"
+    pat = re.compile(r"^ladder__rung0*%s_(?:.*_)?%s%s$"
                      % (re.escape(rn), "with_" if pair else "", re.escape(form)), re.I)
     return sorted(o for o in origins if pat.match(o))
 

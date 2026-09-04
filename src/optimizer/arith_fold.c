@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
+_Static_assert(1, "GOAL-OPTIMIZER.md:40: parked out of the build, references GZ#5-amputated IR_ARITH/IR_ATOM/IR_LOGICVAR; re-seat only if those opcodes return");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int gz_arith_const_eval(const IR_t *nd, long *out) {
     if (!nd) return 0;
