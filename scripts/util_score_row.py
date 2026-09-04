@@ -34,6 +34,7 @@
 import argparse
 import datetime
 import difflib
+import importlib.util
 import os, re, subprocess, sys, time
 
 S4E = os.environ.get("S4E_HOME") or os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
@@ -765,8 +766,10 @@ PROGRESS_FAIL_SUFFIX = ("parse-fail", "fail", "reject", "crash", "no-tap", "xfai
 # Suites with NO runner or NO number: 0 pass over their file count, so unmeasured coverage reads as
 # MISSING rather than as ABSENT. Denominators are the brief's own. Applied only when the cell BOTH names
 # the suite and carries a no-number marker, so a suite that later gets a real number stops being estimated.
-PROGRESS_ESTIMATED = {"snobol4": [("gimpel", 289), ("snoflake", 180), ("aisnobol", 8), ("dotnet", 14)],
-                      "icon": [("ipl", 851)]}
+# ⛔ ipl IS COMPILE-GRADED AND IS DELIBERATELY ABSENT: it compiles 437 of 851 and RUN-grades zero, because
+# upstream ships no `.std` oracle output. A suite that never checks an answer cannot sit in a correctness
+# denominator -- it is named in the cell and counted nowhere (ceo ruling, Lon's industry-standard basis).
+PROGRESS_ESTIMATED = {"snobol4": [("gimpel", 289), ("snoflake", 180), ("aisnobol", 8), ("dotnet", 14)]}
 PROGRESS_NO_MARKERS = ("NO NUMBER", "NO RUNNER", "UNGRADED", "NOT VENDORED")
 # ⛔⭐ TWO LANGUAGES ARE SCORED BY THEIR LADDER, NOT BY THEIR MASTER (Lon 2026-09-03 20:45 via ceo): Snocone
 # and Rebus have NO public conformance suite, so "the manual/report censused into LADDER.tsv IS the standard
@@ -913,13 +916,49 @@ def ladder_score(lang):
     return (built, declared) if declared else None
 
 
+def forms_score(lang):
+    # (witnessed, declared) straight from util_ladder_forms_check -- ONE definition of L for the whole org, so
+    # the ruling that an oracle-observed census cannot be credited applies here without being restated.
+    try:
+        sp = importlib.util.spec_from_file_location("_lfc", os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                                                        "util_ladder_forms_check.py"))
+        m = importlib.util.module_from_spec(sp)
+        sp.loader.exec_module(m)
+        m.CORPUS = os.path.join(S4E, "corpus")
+        st, d, w, miss = m.check_lang(lang, "isolation", verbose=False)
+        # ⛔⭐ A PARTIALLY-ENUMERATED STANDARD HAS NO SCORE, exactly as an unwritten one has none. Measured
+        # here the moment L entered the percent: rebus declares FORMS for 2 rungs of 12, both fully
+        # witnessed, so L read 13/13 and the language printed **100%** on Lon's own line. The ten rungs
+        # nobody has enumerated are simply not in the denominator, so the less of the book you have read the
+        # better you score -- the vacuity hole, arriving in the headline number rather than in the checker.
+        # So an incomplete census returns None and the language reads MISSING with its reason, which is the
+        # file's existing doctrine for a census that does not exist at all: 0% would be a claim we have not
+        # earned either, and 100% is very much one.
+        if st in ("NOT-IN-SCHEMA", "REFUSED"):
+            return None
+        if any("FORMS cell is empty" in x for x in miss):
+            return "incomplete"
+        return (w, d) if d else None
+    except Exception as e:
+        # ⛔ NEVER SWALLOW THIS. A bare `return None` reads downstream as "this language has no census" --
+        # a real and expected state -- so an import bug wore the costume of a legitimate answer and printed
+        # `L NO census` for all seven at once while looking entirely plausible. Measured: it did exactly that.
+        sys.stderr.write("WARN util_score_row.forms_score(%s): %s: %s\n" % (lang, type(e).__name__, e))
+        return None
+
+
 def language_progress(lang, cells, prov=""):
-    if lang in PROGRESS_LADDER_SCORED:
-        ls = ladder_score(lang)
-        if ls is None:
-            return None, "", 0, 0, ["LADDER-SCORED language with NO config/LADDER.tsv census -- no standard written down, so no score (never 0%)"]
-        b, d = ls
-        return (100 * b) // d, "", b, d, ["ladder %d/%d rungs BUILT of DECLARED (this language is scored by its ladder, not its master)" % (b, d)]
+    # ⛔⭐⭐ THE PERCENT IS THE INDUSTRY STANDARD ONLY -- V AND L -- NEVER OUR OWN MASTER (ceo ruling on Lon's
+    # "Is Icon really at 90%? I do not believe it", 2026-09-04). The old basis averaged M (our own master, and
+    # our own AST fixtures) with V, and for icon 730 of a 901 denominator was OUR OWN suite, so the two public
+    # conformance suites -- which read 48% and 47% -- barely moved the number. Under Lon's ruling that 100%
+    # means the industry standard, a percent that is mostly our own tests is measuring the wrong thing, and it
+    # was measuring it flatteringly.
+    # ⛔ A COMPILE-GRADED SUITE IS NAMED, NEVER COUNTED: icon's ipl compiles 437 of 851 and RUN-grades zero of
+    # them because upstream ships no oracle output, so it says nothing about correctness and cannot sit in a
+    # correctness denominator.
+    # M and the AST fixtures are still computed and PRINTED, beside the percent and labelled ours -- dropping
+    # them would lose real information; the ruling is about what the headline NUMBER is allowed to contain.
     # pass/total over the M and V cells; xfail is never a pass because the grid prints it BESIDE the
     # fraction, never inside it, so an xfail is already excluded by reading the fraction.
     P = T = 0
@@ -936,16 +975,36 @@ def language_progress(lang, cells, prov=""):
     # So BOTH now come from the standardized display, which is the table runners actually write and the
     # only one carrying provenance. The grid stays the human-facing summary; the agree gate is what keeps
     # the two honest about each other.
+    ours_P = ours_T = 0
     for key in ("M", "V"):
         idx = GRID_COLUMNS[key][0]
         got, w = cell_fractions(cells[idx])
         work += ["%s %s" % (key, x) for x in w]
         if got is None:
-            unreadable = True
+            if key == "V":
+                unreadable = True
             continue
         for t in sorted(got):
-            P += got[t]
-            T += t
+            if key == "V":
+                P += got[t]
+                T += t
+            else:
+                ours_P += got[t]
+                ours_T += t
+    fs = forms_score(lang)
+    if fs == "incomplete":
+        work.append("L census is INCOMPLETE -- some rungs have no FORMS enumerated, so the standard is only "
+                    "partly written down and this language HAS NO SCORE (100% over the rungs someone got to "
+                    "is not a score, it is a smaller book)")
+        return None, "", P, T, work
+    if fs is not None:
+        P += fs[0]
+        T += fs[1]
+        work.append("L forms %d/%d witnessed of DECLARED-FROM-THE-REFERENCE" % fs)
+    else:
+        work.append("L NO usable census -- the ladder contributes nothing and the language cannot reach 100%")
+    if ours_T:
+        work.append("ours(M) %d/%d -- PRINTED, never inside the percent" % (ours_P, ours_T))
     vcell = cells[GRID_COLUMNS["V"][0]]
     for name, n in PROGRESS_ESTIMATED.get(lang, []):
         if name in vcell and any(k in vcell for k in PROGRESS_NO_MARKERS):
@@ -1125,7 +1184,19 @@ def cmd_progress(a):
             cells_out.append("%s MISSING" % short)
             bars.append("%s %s" % (short, "?" * 10))
             if a.verbose:
-                sys.stdout.write("  %-8s MISSING   (cell unreadable)  %s\n" % (lang, " · ".join(work)))
+                # ⛔ NAME THE ACTUAL REASON. "cell unreadable" was the only MISSING reason when the percent
+                # came from M+V; now a language can be MISSING because its CENSUS IS INCOMPLETE, which is a
+                # different fact with a different owner and a different fix. One label for two causes sends
+                # the reader to the wrong file.
+                why = "cell unreadable"
+                for x in work:
+                    if "census is INCOMPLETE" in x:
+                        why = "census incomplete -- not all rungs enumerated"
+                        break
+                    if "NO usable census" in x:
+                        why = "no usable census"
+                        break
+                sys.stdout.write("  %-8s MISSING   (%s)  %s\n" % (lang, why, " · ".join(work)))
             continue
         tp += P
         tt += T
@@ -1146,7 +1217,13 @@ def cmd_progress(a):
     # BETTER -- exactly what fail-closed exists to prevent, arriving through the aggregate instead of
     # through the cell. ALL claims to be the whole program over all seven; it cannot be computed from
     # six, and a "?" is far too quiet for a twelve-point move.
-    allcell = "ALL MISSING (%s unreadable)" % ",".join(missing) if missing else "ALL %d%%" % allpct
+    allcell = "ALL MISSING (%s not scored)" % ",".join(missing) if missing else "ALL %d%%" % allpct
+    # ⛔ THE LINE PRINTS ITS OWN BASIS (ceo ruling). The percent changed meaning today -- it used to average
+    # our own master with the public suites -- and a number whose basis moved without saying so is how the
+    # 90% got quoted to Lon in the first place.
+    print("PROGRESS 09-10 [basis: V public conformance suites RUN-graded + L forms witnessed of forms "
+          "DECLARED-FROM-THE-REFERENCE; our own master and AST fixtures are printed under --verbose but are "
+          "NOT in the percent; a compile-graded suite is named and not counted]")
     print("PROGRESS 09-10 | %s | %s | tree %s %s"
           % (" | ".join(cells_out), allcell, gh, time.strftime("%Y-%m-%d %H:%M %Z")))
     print("  " + "  ".join(bars))
