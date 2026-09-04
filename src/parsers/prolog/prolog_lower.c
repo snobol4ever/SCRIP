@@ -319,6 +319,19 @@ static void pld_mark_scan(tree_t *t, int mark_assertz) {
     for (int i = 0; i < t->n; i++) pld_mark_scan(t->c[i], mark_assertz);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+tree_t *pl_runtime_clause_tree(tree_t *raw) {
+    tree_t *syn; tree_t *head; tree_t *body = (tree_t *)0; PredKey k;
+    if (!raw) return (tree_t *)0;
+    head = raw;
+    if (raw->t == TT_FNC && raw->v.sval && !strcmp(raw->v.sval, ":-") && raw->n == 2) { head = raw->c[0]; body = raw->c[1]; }
+    k = key_of_head_tree(head);
+    if (k.functor < 0) return (tree_t *)0;
+    syn = ast_node_new(TT_CLAUSE);
+    expr_add_child(syn, head);
+    if (body) expr_add_child(syn, body);
+    return lower_clause_from_tree(syn, k, 0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 CODE_t *prolog_lower(PlProgram *pl_prog) {
     for (PlClause *mcl = pl_prog->head; mcl; mcl = mcl->next) if (mcl->tr) { int _isdir = (mcl->tr->n > 0 && mcl->tr->c[0] && mcl->tr->c[0]->t == TT_NUL); pld_mark_scan(mcl->tr, !_isdir); }
     CODE_t *prog = calloc(1, sizeof(CODE_t));

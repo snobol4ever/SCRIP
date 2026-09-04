@@ -6143,19 +6143,18 @@ extern int rt_pl_db_abolish(void *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void * pl_db_cell_of(DESCR_t *args, void *root) { DESCR_t k = rt_pl_deref_val(args[0]); if (k.v != DT_I) return (void *)0; return rt_pl_db_get(root, k.i); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dop_db_assertz_c(DESCR_t *args, int nargs, void *root) {
-    if (nargs != 2) return FAILDESCR;
-    pl_atoms_ready();
-    { void *db = pl_db_cell_of(args, root); if (!db) return FAILDESCR;
-      return rt_pl_db_assert(db, (void *)&args[1], 0) ? pl_ok() : FAILDESCR; }
-}
+extern int rt_pl_db_recompile(void *, const char *, int);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dop_db_asserta_c(DESCR_t *args, int nargs, void *root) {
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t pl_db_add(DESCR_t *args, int nargs, void *root, int prepend) {
     if (nargs != 2) return FAILDESCR;
     pl_atoms_ready();
     { void *db = pl_db_cell_of(args, root); if (!db) return FAILDESCR;
-      return rt_pl_db_assert(db, (void *)&args[1], 1) ? pl_ok() : FAILDESCR; }
+      return rt_pl_db_assert(db, (void *)&args[1], prepend) ? pl_ok() : FAILDESCR; }
 }
+DESCR_t rt_pl_dop_db_assertz_c(DESCR_t *args, int nargs, void *root) { return pl_db_add(args, nargs, root, 0); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_db_asserta_c(DESCR_t *args, int nargs, void *root) { return pl_db_add(args, nargs, root, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_db_erase_c(DESCR_t *args, int nargs, void *root) {
     if (nargs != 2) return FAILDESCR;
@@ -6209,3 +6208,50 @@ void * rt_pl_dop_ax_zguard_c(DESCR_t *args, int nargs) {
       if (d.v == DT_R && d.r == 0.0) return rt_pl_ball_eval_error("zero_divisor", op, 2);
       return (void *)0; }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { void *addr[256]; char *nm[256]; int n; } pl_ctv_t;
+static tree_t * pl_cell_tree(DESCR_t *c, pl_ctv_t *vt) {
+    extern const char *prolog_atom_name(int);
+    DESCR_t *d = (DESCR_t *)pl_deref((pl_cell_t *)c);
+    if (pl_cell_unbound(d)) {
+        for (int i = 0; i < vt->n; i++) if (vt->addr[i] == (void *)d) { tree_t *v = ast_node_new(TT_VAR); v->v.sval = vt->nm[i]; return v; }
+        { char b[24]; tree_t *v = ast_node_new(TT_VAR); snprintf(b, sizeof b, "_A%d", vt->n); 
+          if (vt->n < 256) { vt->addr[vt->n] = (void *)d; vt->nm[vt->n] = rt_ws_strdup_c(b); v->v.sval = vt->nm[vt->n]; vt->n++; } else v->v.sval = rt_ws_strdup_c(b);
+          return v; }
+    }
+    if ((int)d->v == DT_I) { tree_t *t = ast_node_new(TT_ILIT); t->v.ival = d->i; return t; }
+    if ((int)d->v == DT_R) { tree_t *t = ast_node_new(TT_FLIT); t->v.dval = d->r; return t; }
+    if ((int)d->v == DT_A) { tree_t *t = ast_node_new(TT_QLIT); t->v.sval = rt_ws_strdup_c(prolog_atom_name((int)d->i)); return t; }
+    if ((int)d->v == DT_S || (int)d->v == DT_SNUL) { tree_t *t = ast_node_new(TT_QLIT); t->v.sval = rt_ws_strdup_c(d->s ? d->s : ""); return t; }
+    if ((int)d->v == DT_PLREF) {
+        int fn = plc_functor((pl_cell_t *)d), ar = pl_arity((pl_cell_t *)d);
+        const char *nm = prolog_atom_name(fn); DESCR_t *aa = (DESCR_t *)d->p;
+        if (nm && !strcmp(nm, ".") && ar == 2) {
+            tree_t *lst = ast_node_new(TT_MAKELIST); DESCR_t *cur = d; int guard = 0;
+            while (guard++ < 100000) {
+                DESCR_t *cd = (DESCR_t *)pl_deref((pl_cell_t *)cur);
+                if ((int)cd->v == DT_PLREF && pl_arity((pl_cell_t *)cd) == 2 && plc_functor((pl_cell_t *)cd) == fn) {
+                    DESCR_t *kk = (DESCR_t *)cd->p; ast_push(lst, pl_cell_tree(&kk[0], vt)); cur = &kk[1]; continue; }
+                { const char *tn = ((int)cd->v == DT_A) ? prolog_atom_name((int)cd->i) : (((int)cd->v == DT_S) ? cd->s : (const char *)0);
+                  if (tn && !strcmp(tn, "[]")) { lst->v.ival = 0; return lst; }
+                  ast_push(lst, pl_cell_tree(cur, vt)); lst->v.ival = 1; return lst; }
+            }
+            return lst;
+        }
+        { tree_t *t = ast_node_new(TT_FNC); t->v.sval = rt_ws_strdup_c(nm ? nm : "?");
+          for (int i = 0; i < ar; i++) ast_push(t, pl_cell_tree(&aa[i], vt));
+          return t; }
+    }
+    { tree_t *t = ast_node_new(TT_QLIT); t->v.sval = rt_ws_strdup_c("?"); return t; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+tree_t * rt_pl_clause_tree(void *clause_cell) {
+    pl_ctv_t vt; vt.n = 0;
+    return pl_cell_tree((DESCR_t *)clause_cell, &vt);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void * rt_pl_choice_new(const char *key) { tree_t *c = ast_node_new(TT_CHOICE); c->v.sval = rt_ws_strdup_c(key ? key : "?"); return (void *)c; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_choice_add(void *choice, void *clause_tree) { if (choice && clause_tree) ast_push((tree_t *)choice, (tree_t *)clause_tree); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_choice_n(void *choice) { return choice ? ((tree_t *)choice)->n : 0; }
