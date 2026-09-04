@@ -520,7 +520,6 @@ int bb_slot_get(IR_t *nd);
 #include "IR.h"
 #include "../rt/rt.h"
 #include "bb_build.h"
-#include "../optimizer/arith_fold.h"
 #include "../optimizer/gva_collect.h"
 #include "../optimizer/proc_collect.h"
 #include "../optimizer/ir_query.h"
