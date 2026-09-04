@@ -2035,6 +2035,40 @@ def cmd_pin_ref(args):
         new_ref = _txt.split("\n") if _txt else [""]
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+    # ⛔⛔⭐ THE ORACLE IS ASKED, ALWAYS, AND ITS ANSWER IS RECORDED -- BECAUSE THE FIRST USE OF THIS VERB
+    # BLESSED A REGRESSION (hq_T, 2026-09-04, reverted in corpus 33e747c2c). The pin was applied on a REPORTED
+    # premise -- "SPITBOL fails this construct too, so it can never be graded against an oracle-captured ref"
+    # -- and the premise was false: `sbl -bf` runs that program cleanly, rc=0, and prints exactly what the ref
+    # already held. The ref was oracle-valid, SCRIP diverged from it, and the pin turned a CORRECT red gate
+    # green by rewriting the expectation to match the compiler. That is the ICN4 false green in mirror image.
+    # ⭐ THE CURE IS NOT "BE MORE CAREFUL", IT IS TO MAKE THE PREMISE A MEASUREMENT. "The oracle cannot grade
+    # this" is a claim about a program, and this tool can settle it in one run, so it does -- and it records
+    # the oracle's own answer in the ledger, so a later reader can check the ruling instead of trusting it.
+    # ⛔ A CLEAN ORACLE ANSWER THAT DISAGREES WITH THE PIN REFUSES. Overriding needs --oracle-disagrees-and-i-
+    # mean-it, which exists so the override is a sentence someone had to type, not a flag they might miss.
+    ora_line, ora_rc, ora_kind, ora_text = "not consulted", None, "", ""
+    if not args.lang:
+        # resolve_oracle_bin returns (binary, flags) -- the ONE authority, never re-derived here.
+        _ob, _of = resolve_oracle_bin(paths, args.lang)
+        if _ob:
+            _t2 = Path(tempfile.mkdtemp(prefix="pin_oracle."))
+            try:
+                one2 = _t2 / (args.entry + ".sno")
+                one2.write_text("\n".join(e.sno_lines) + "\n")
+                ora_text, ora_rc, ora_kind = run_oracle(_ob, _of, one2, paths["timeout"], stdin_text=e.stdin)
+            finally:
+                shutil.rmtree(_t2, ignore_errors=True)
+            ora_line = f"{ora_kind} rc={ora_rc}"
+            print(f"--- the ORACLE's own answer for {args.entry}: {ora_line}")
+            for l in (ora_text.split("\n") if ora_text else [])[:20]:
+                print("    o " + l)
+            if ora_kind == "RAN" and ora_rc == 0:
+                _ol = ora_text.split("\n") if ora_text else [""]
+                if _ol != new_ref and not args.oracle_disagrees_and_i_mean_it:
+                    refuse(f"the oracle RAN {args.entry} cleanly (rc=0) and its answer differs from what you are "
+                           f"about to pin -- so this entry CAN be oracle-graded, and pinning SCRIP's output over "
+                           f"it would turn a correct red into a green. If the oracle is genuinely wrong here, say "
+                           f"so with --oracle-disagrees-and-i-mean-it and the ledger will record BOTH answers.")
     if new_ref == old_ref:
         print(f"⭐ NO CHANGE: {args.entry}'s ref already matches {args.mode} output -- nothing pinned, nothing written.")
         return
@@ -2057,7 +2091,8 @@ def cmd_pin_ref(args):
     sha = hashlib.sha256(("\n".join(new_ref) + "\n").encode()).hexdigest()[:16]
     rows = read_refpins(src_path)
     rows[args.entry] = {"sha": sha, "measurer": args.measurer or os.environ.get("S4E_SEAT", "unknown"),
-                        "date": time.strftime("%Y-%m-%dT%H:%MZ", time.gmtime()), "ruling": args.ruling.strip()}
+                        "date": time.strftime("%Y-%m-%dT%H:%MZ", time.gmtime()),
+                        "ruling": args.ruling.strip() + f"  [ORACLE AT PIN TIME: {ora_line}]"}
     with open(led, "w") as f:
         f.write("# SCRIP-RULED REF PINS for this master. ⛔ An entry listed here has a ref that DISAGREES WITH THE\n"
                 "# ORACLE ON PURPOSE, on a stated ruling -- capture-oracle-refs REFUSES to touch these, because\n"
@@ -2327,6 +2362,7 @@ def main():
     pr.add_argument("--mode", default="m3", choices=["m3", "m4"], help="which mode's live output to pin (default m3)")
     pr.add_argument("--measurer", default="", help="who ruled it (defaults to $S4E_SEAT)")
     pr.add_argument("--lang", default="", choices=[""] + sorted(LANG_CONFIGS))
+    pr.add_argument("--oracle-disagrees-and-i-mean-it", action="store_true", help="pin even though the oracle RAN this entry cleanly and gave a different answer -- the ledger records both. Spelled out in full because the first use of this verb blessed a regression on an unmeasured claim that the oracle could not grade the entry")
     pr.add_argument("--apply", action="store_true", help="write it (without this the diff is printed and nothing changes)")
     pr.set_defaults(func=cmd_pin_ref)
 
