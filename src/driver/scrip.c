@@ -1329,9 +1329,9 @@ int main(int argc, char **argv)
             emit_textf("  .globl main\n");
             emit_textf("main:\n");
             emit_textf("  sub rsp, 65544\n");
+            { const char * hr = getenv("SCRIP_M4_HEADROOM"); if (hr && *hr) { long hb = atol(hr); if (hb > 0) { hb = (hb + 15) & ~15L; emit_textf("  sub rsp, %ld\n", hb); } } }
             emit_textf("  push rdi\n");
             emit_textf("  push rsi\n");
-            { const char * hr = getenv("SCRIP_M4_HEADROOM"); if (hr && *hr) { long hb = atol(hr); if (hb > 0) { hb = (hb + 15) & ~15L; emit_textf("  sub rsp, %ld\n", hb); } } }
             emit_textf("  call core_lib_init@PLT\n");
             if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
             if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
@@ -1508,8 +1508,9 @@ int main(int argc, char **argv)
             }
             int n_gva = gva_count();
             int n_proc_slot = proc_slot_count();
-            emit_textf("  .globl main\nmain:\n  sub rsp, 65544\n  push rdi\n  push rsi\n");
+            emit_textf("  .globl main\nmain:\n  sub rsp, 65544\n");
             { const char * hr = getenv("SCRIP_M4_HEADROOM"); if (hr && *hr) { long hb = atol(hr); if (hb > 0) { hb = (hb + 15) & ~15L; emit_textf("  sub rsp, %ld\n", hb); } } }
+            emit_textf("  push rdi\n  push rsi\n");
             if (n_procs > 0) emit_textf("  call main_init\n");
             else emit_textf("  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
             if (n_proc_slot > 0) emit_textf("  lea rdi, [rip + __proc]\n  lea rsi, [rip + __proc_names]\n  mov edx, %d\n  call rt_proc_table_fill@PLT\n", n_proc_slot);
