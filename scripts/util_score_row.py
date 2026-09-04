@@ -401,7 +401,7 @@ PROGRESS_LANGS = [("snobol4", "sno"), ("snocone", "sc"), ("icon", "icn"), ("prol
 # every live cell, not guessed -- `smoke 724/724` (raku M), `smoke 4/4` (rebus M), `corpus suite 10/10`
 # (snocone M), `the earlier 144/149` (pascal M). Kept as data so a reader can check the rule against the
 # open file, which is the brief's "no hidden weights".
-PROGRESS_DROP = ("smoke", "corpus suite", "the earlier", "readings", "was ")
+PROGRESS_DROP = ("smoke", "corpus suite", "the earlier", "readings", "was ", "strict rung suite", "supersedes")
 # Suites with NO runner or NO number: 0 pass over their file count, so unmeasured coverage reads as
 # MISSING rather than as ABSENT. Denominators are the brief's own. Applied only when the cell BOTH names
 # the suite and carries a no-number marker, so a suite that later gets a real number stops being estimated.
@@ -439,16 +439,11 @@ def find_grid(lines):
 def cell_fractions(raw):
     # Return ({denominator: pass}, workings), or (None, workings) when the cell carries a population this
     # parser cannot read -- see the fail-closed contract in language_progress.
-    # ⛔⭐ THE HARNESS SHAPE IS READ FIRST, AND IT IS READ BEFORE PARENTHESES ARE STRIPPED. Measured, not
-    # foreseen (ceo 2026-09-03 20:20, on seat12's rewritten snocone cell): `ast 67/67 · run(206) m3 176
-    # pass/7 fail · m4 176 pass/1 fail` printed `sc 100%`. The run population's TOTAL lives inside
-    # `run(206)`, which the parenthesis strip deleted, and its PASS is written `176 pass/7 fail` -- prose,
-    # not a fraction -- so the whole 206-entry population was invisible and 67/67 became the entire cell.
-    # A headline that rounds an unreadable cell UP to 100% is the false-green class, in the one number the
-    # September-10 program is about. This is the shape corpus_suite_harness prints for EVERY language with
-    # an ast population (raku, snocone, icon), so it is the common case, not an exotic one.
+    # ⛔⭐ THE HARNESS SHAPE IS READ FIRST, AND BEFORE PARENTHESES ARE STRIPPED. Measured (ceo, on seat12's
+    # snocone cell): `ast 67/67 · run(206) m3 176 pass/7 fail` printed `sc 100%`, because the run population's
+    # TOTAL lives inside `run(206)` that the provenance strip deleted and its PASS is prose, not a fraction.
     s = re.sub(r"`[^`]*`", "", raw)
-    groups, dropped, work, logged = {}, set(), [], set()
+    groups, dropped, work, logged, consumed = {}, set(), [], set(), []
     m = re.search(r"\brun\((\d+)\)", s)
     if m:
         total = int(m.group(1))
@@ -462,6 +457,10 @@ def cell_fractions(raw):
         s = s[:m.start()] + " " + s[m.end():]
         s = re.sub(r"\bm[34]\s+\d+\s+pass(?:\s*/\s*\d+\s+\w+)*", " ", s)
     s = re.sub(r"\([^()]*\)", "", s)
+    # ⭐ GROUP BY DENOMINATOR, KEEP MIN(PASS): collapses an m3/m4 twin into ONE population (the grid's own
+    # "PER MODE, never summed") and, where the modes disagree, keeps the WORSE -- the both-modes bar.
+    # ⛔ A drop marker drops the whole DENOMINATOR, not the one fraction (measured on snocone, whose
+    # `corpus suite 10/10 · 10/10` carries the marker before the FIRST twin only).
     for m in re.finditer(r"(?<![\d/])(\d+)\s*/\s*(\d+)(?![\d/])", s):
         t, ps = int(m.group(2)), int(m.group(1))
         ctx = s[max(0, m.start() - 20):m.start()].lower()
@@ -469,14 +468,42 @@ def cell_fractions(raw):
         if hit:
             dropped.add(t)
             work.append("drop %d/%d (%r)" % (ps, t, hit[0]))
+            consumed.append((m.start(), m.end()))
             continue
         groups.setdefault(t, []).append(ps)
-        s = s[:m.start()] + " " * (m.end() - m.start()) + s[m.end():]
-    # ⛔ FAIL CLOSED. Anything left that still looks like a population we did not consume makes this cell
-    # UNREADABLE, and an unreadable cell must never be scored -- not as 100%, not as 0%, not silently
-    # dropped. The whole defect above was a narrow reader meeting a shape it did not know and reporting a
-    # confident number about the part it happened to understand.
-    leftover = re.findall(r"\d+\s+pass\b|\brun\(", s)
+        consumed.append((m.start(), m.end()))
+    # ⛔ BLANK EVERY CONSUMED FRACTION OUT OF THE PROBE TEXT. Without this the leftover check re-reads the
+    # TAIL of a fraction it already counted -- snobol4's "csnobol4_suite 52/118 PASS" leaves "118 PASS"
+    # behind, which looks exactly like an unconsumed population and made the whole language read MISSING
+    # while its number had in fact been read correctly. A fail-closed guard that fires on its own successful
+    # work is worse than no guard: it is unfalsifiable noise, and the first response to it is to switch it off.
+    _b = list(s)
+    for _lo, _hi in consumed:
+        for _i in range(_lo, _hi):
+            _b[_i] = " "
+    s = "".join(_b)
+    # ⛔⭐ FAIL CLOSED -- but on the text MINUS every dropped clause. Two measured lessons compose here.
+    # (1) An unconsumed population marker means the cell is UNREADABLE and must not be scored: not 100%, not
+    #     0%, not silently dropped. (2) A cell often quotes a SECONDARY suite for context -- icon's M carries
+    #     "STRICT rung suite 266 PASS · 4 FAIL · ... of 298", which is ladder work that must not count toward
+    #     M. Checking leftovers on the RAW text made icon (and with it ALL) read MISSING because of a clause
+    #     that was never supposed to be counted. So the clause is excised FOR THE CHECK ONLY -- excising it
+    #     for the COUNT as well silently re-admitted snocone's floor and prolog's superseded 271/270, because
+    #     removing the marker text also removed the evidence that those fractions were droppable.
+    probe = s
+    for d in PROGRESS_DROP:
+        while True:
+            mm = re.search(re.escape(d), probe, re.I)
+            if not mm:
+                break
+            lo = max((probe.rfind(c, 0, mm.start()) for c in ("·", ";", "—")), default=-1)
+            hi = min([x for x in (probe.find(c, mm.end()) for c in ("·", ";", "—")) if x != -1] or [len(probe)])
+            probe = probe[:lo + 1] + " " + probe[hi:]
+    # ⛔ key=value PAIRS ARE NOT A LOOSE POPULATION. `in_tier=986 pass=4` reads as "986 pass" to a naive
+    # scan, so a cell written in the harness's OWN board idiom -- the most machine-readable form there is --
+    # tripped the guard. The lookbehind rejects a digit run that belongs to `key=986`, and `pass=` is
+    # excluded outright: an `=` means the number is already labelled and already read.
+    leftover = re.findall(r"(?<![=\w])\d+\s+pass\b(?!\s*=)|\bpass\s+\d+|\brun\(|\bdenominator\s+\d+", probe, re.I)
     if leftover:
         work.append("UNREADABLE: %d unconsumed population marker(s): %s" % (len(leftover), ", ".join(sorted(set(leftover)))))
         return None, work
@@ -562,8 +589,15 @@ def cmd_progress(a):
             sys.stdout.write("  %-8s %3d%%%-1s  %5d/%-5d  %s\n" % (lang, pct, mark, P, T, " · ".join(work)))
     gh = git(".github", "rev-parse", "--short", "HEAD") or "unknown"
     allpct = (100 * tp) // tt if tt else 0
-    print("PROGRESS 09-10 | %s | ALL %d%%%s | tree %s %s"
-          % (" | ".join(cells_out), allpct, "?" if missing else "", gh, time.strftime("%Y-%m-%d %H:%M %Z")))
+    # ⛔⭐ ALL IS MISSING WHEN ANY LANGUAGE IS MISSING, AND THAT IS NOT PEDANTRY -- IT IS THE SAME
+    # ROUNDING-UP DEFECT ONE LEVEL UP. Measured: when icon's cell became unreadable, dropping its
+    # 1555-entry denominator moved ALL from 73% to 85%. So an UNREADABLE CELL MADE THE HEADLINE LOOK
+    # BETTER -- exactly what fail-closed exists to prevent, arriving through the aggregate instead of
+    # through the cell. ALL claims to be the whole program over all seven; it cannot be computed from
+    # six, and a "?" is far too quiet for a twelve-point move.
+    allcell = "ALL MISSING (%s unreadable)" % ",".join(missing) if missing else "ALL %d%%" % allpct
+    print("PROGRESS 09-10 | %s | %s | tree %s %s"
+          % (" | ".join(cells_out), allcell, gh, time.strftime("%Y-%m-%d %H:%M %Z")))
     print("  " + "  ".join(bars))
     if a.verbose:
         print("  ALL %d%% = %d/%d over the M and V printed denominators; ? = the M cell reads STALE or carries a label older than today." % (allpct, tp, tt))
