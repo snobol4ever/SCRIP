@@ -124,9 +124,26 @@ for t, c in sorted(claims.items()):
     if c['done'] or not re.match(r'^seat\d\d$', h) or t in rung_rows: continue
     if any_free_rung: viol('V2 OFF-LADDER SEAT', '%s holds %s (no rung) while a rung is FREE — finish within the sitting or park, then `next`' % (h, t))
 # V4 off-ladder FREE rows at rung ranks
+# ⛔⭐ PACKAGE-CLASS ROWS ARE EXEMPT (RULES.md § FACT RULES THE PACKAGE-CLASS RULE, ceo CEO-230 2026-09-04 16:18, on Lon 13:20:
+# the percentage IS the V column). A class row minted from a vendored-package census -- topic shape <lang>-<package>-class-<slug>
+# (icon-arizona-class-…, pascal-fpc-class-…, prolog-inria-class-…) -- is LADDER-RANK WORK by law, so rank 1 is where it belongs
+# and a V4 line naming one is noise: the 16:14 walk printed 18 such lines beside the real inversions, and a report that is
+# two-thirds noise is a report nobody reads (see V6's census ruling above). ⛔ EXEMPT BY SHAPE, NOT BY A LIST OF PACKAGE
+# NAMES: a list is a census that drifts the day a new suite is vendored, and drifts SILENTLY -- the new package's class rows
+# would be flagged again and read as genuine inversions by whoever had stopped seeing the old ones. The shape is what the
+# law defines: a recognised language prefix, exactly ONE package token, then `-class-`. `prolog-master-red-class-…` (two
+# tokens) is a master-board red class, not a package class, and stays a candidate. ⭐ EXEMPTED ROWS ARE COUNTED ON ONE
+# LINE, so the exemption is visible rather than silent -- a filter that removes lines with no trace is indistinguishable
+# from a bug that lost them (row ladder-walk-v4-exempts-package-class-rows, hq_T; gate test_gate_ladder_walk_v4_exempts_
+# package_class_rows.sh proves both halves: a package class row is silent, a genuine off-ladder rank-1 row is still flagged).
+PKG_CLASS_RE = re.compile(r'^(?:%s)-[a-z0-9]+-class-' % '|'.join(sorted(LANG_PREFIX)))
+_pkg_class_exempt = []
 for t, q in sorted(queue.items(), key=lambda kv: (kv[1]['rank'], kv[0])):
     if t in rung_rows or q['state'] not in ('FREE', ''): continue
-    if q['rank'] <= 1 and not is_done(t) and t not in claims: viol('V4 RANK INVERSION', 'off-ladder FREE row %s at rank %d — the picker serves it before rungs at that rank' % (t, q['rank']))
+    if q['rank'] <= 1 and not is_done(t) and t not in claims:
+        if PKG_CLASS_RE.match(t): _pkg_class_exempt.append(t); continue
+        viol('V4 RANK INVERSION', 'off-ladder FREE row %s at rank %d — the picker serves it before rungs at that rank' % (t, q['rank']))
+if _pkg_class_exempt: print('V4 EXEMPT (package-class rule): %d FREE <lang>-<package>-class-* row(s) at rank 0/1 -- ladder-rank by law, not inversions' % len(_pkg_class_exempt))
 # V6 orphans — any row of any recognized language (not just Prolog) sitting on no ladder: no table entry, no LADDER:<tok> LINKS tag, no NON-LADDER exemption
 # ⛔ ONE CENSUS LINE PER LANE, NOT ONE PER ROW (ceo 2026-09-03 22:33). Widening V6 from Prolog to all seven
 # languages took it from 2 lines to 95, and the ceo reads this every tick on an 8% budget: 95 lines is not a
