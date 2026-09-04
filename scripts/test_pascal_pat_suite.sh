@@ -46,11 +46,22 @@ for f in "$SUITE"/iso7185prt*.pas; do
         # form: a runner that executes its subjects in the repo root has made the repo part of the experiment.
         if [ "$m" = m3 ]; then ( cd "$TMP" && exec timeout 2s "$SCRIP" "$f" </dev/null >"$TMP/o" 2>&1 ); rc=$?
         else                   ( cd "$TMP" && exec timeout 8s "$SCRIP" --compile -o /dev/null "$f" </dev/null >"$TMP/o" 2>&1 ); rc=$?; fi
-        if [ "$rc" -eq 124 ]; then F[$m]=$((F[$m]+1)); NAMED="$NAMED $b:$m:ACCEPTED-AND-RAN"
-        elif [ "$rc" -gt 124 ]; then C[$m]=$((C[$m]+1)); NAMED="$NAMED $b:$m:CRASH(rc=$rc)"
-        elif [ "$rc" -ne 0 ] && [ -s "$TMP/o" ]; then P[$m]=$((P[$m]+1))
-        elif [ "$rc" -ne 0 ]; then F[$m]=$((F[$m]+1)); NAMED="$NAMED $b:$m:REJECTED-SILENTLY"
-        else F[$m]=$((F[$m]+1)); NAMED="$NAMED $b:$m:ACCEPTED"; fi
+        # ⛔⭐ THE VERDICT IS STABLE; ONLY THE DIAGNOSIS VARIES (ceo ruling 2026-09-03, after their audit read
+        # m3 296/129 where mine read 303/123 on the same tree). THE VERDICT is binary and load-independent:
+        # a rejection test PASSES only when scrip REFUSES it with a diagnostic, and everything else -- ran to
+        # completion, ran until the bound, crashed -- is the same FAIL, because none of them is a refusal.
+        # The crash/timeout split is then a LABELLED DIAGNOSIS counted alongside, never inside, the verdict.
+        # Before this, a program that SIGABRTs on an idle box hit the 2s bound under load ~20 instead, and
+        # moved between the crash and fail columns run to run: two HQs reading the same tree got different
+        # boards and had to reconcile numbers that never disagreed about anything that mattered.
+        if [ "$rc" -ne 0 ] && [ "$rc" -lt 124 ] && [ -s "$TMP/o" ]; then P[$m]=$((P[$m]+1))
+        else
+            F[$m]=$((F[$m]+1))
+            if   [ "$rc" -eq 124 ]; then C[$m]=$((C[$m]+1)); NAMED="$NAMED $b:$m:FAIL/diag=accepted-and-ran-to-bound"
+            elif [ "$rc" -gt 124 ]; then C[$m]=$((C[$m]+1)); NAMED="$NAMED $b:$m:FAIL/diag=crash(rc=$rc)"
+            elif [ "$rc" -ne 0 ];   then NAMED="$NAMED $b:$m:FAIL/diag=rejected-silently-no-diagnostic"
+            else                         NAMED="$NAMED $b:$m:FAIL/diag=accepted"; fi
+        fi
     done
 done
 # ---- acceptance population, oracle = fpc -Miso ----------------------------------------------------------------------
@@ -81,7 +92,8 @@ for f in "$SUITE"/iso7185pat*.pas; do
 done
 # ⛔ A RUNNER THAT GRADED NOTHING MUST NEVER PRINT THE SUCCESS SHAPE (the seven-point standard, point 3).
 [ "$TOTAL" -gt 0 ] || refuse "graded ZERO programs over $SUITE -- refusing to print a board with no denominator"
-echo "PAT_SUITE_BOARD total=$TOTAL m3_pass=${P[m3]} m3_fail=${F[m3]} m3_crash=${C[m3]} m4_pass=${P[m4]} m4_fail=${F[m4]} m4_crash=${C[m4]}"
+echo "PAT_SUITE_BOARD total=$TOTAL m3_pass=${P[m3]} m3_fail=${F[m3]} m4_pass=${P[m4]} m4_fail=${F[m4]}"
+echo "  diagnosis (counted INSIDE fail, never beside it): m3 crash-or-ran-to-bound=${C[m3]} · m4 crash-or-ran-to-bound=${C[m4]} — the verdict is REFUSED-WITH-A-DIAGNOSTIC or not, which does not vary with machine load; this split does"
 [ -n "${PAT_NAME_REDS:-}" ] && { echo "  reds:"; for x in $NAMED; do echo "    $x"; done | head -40; }
 if . "$HERE/lib_gate.sh" 2>/dev/null && command -v gate_stamp >/dev/null 2>&1; then gate_stamp; fi
 python3 "$HERE/util_score_row.py" write --lang pascal --column vendor --suite PAT --modes m3,m4 \
