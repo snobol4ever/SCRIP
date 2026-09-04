@@ -60,13 +60,14 @@ ENTRY_FLOOR="${ICON_MASTER_ENTRY_FLOOR:-534}"
 # -- were never compiler defects: both need companion fixture files (prepro.dat / fncs1.dat, staged from
 # corpus/tests/icon/config/ by _copy_companions) that a bare `extract`+direct-invoke repro never supplies,
 # so they read FAIL only when tested outside run_suite_entry's own methodology; under it (this board) both
-# already PASS. The sixth, procedure_scan_while_1, is genuinely XFAIL (probe_witness__witness_icn_options_
-# dash_branch): main(args) needs real argv, scrip's driver already supports `-- program-args` (usage line,
-# src/driver/scrip.c), but corpus_suite_harness.py's suite format carries stdin/want-rc sidecars and NO
-# argv sidecar at all -- run_suite_entry() never threads one through. Not a scan/while bug; a harness-format
-# gap, asked to hq_B (row-icon-master-six-run-graded-reds-cured). 379 -> 380 is the whole reachable gap.
-M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-380}"
-M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-380}"
+# already PASS. The sixth, procedure_scan_while_1, WAS the master's one XFAIL (probe_witness__witness_icn_options_
+# dash_branch): main(args) needed real argv, and corpus_suite_harness.py's suite format carries stdin/want-rc
+# sidecars and NO argv sidecar. ⛔ RETIRED 2026-09-04 (hq_B, corpus 1520d35d1) under THERE IS NO XFAIL: the test
+# was faulty FOR THIS HARNESS, so the test was fixed -- opt2(["-x"]) over a literal list, ref re-cut from icont,
+# marker dropped, ALL.xfail deleted -- and the master reads XFAIL=0 with 596/596 both modes. A real argv-through-
+# the-harness witness is still owed once the argv sidecar lands (hq_T's harness row); this comment is not it.
+M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-596}"
+M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-596}"
 AST_PASS_FLOOR="${ICON_MASTER_AST_PASS_FLOOR:-153}"
 
 # ⛔ A BOARD THAT CANNOT MEASURE REFUSES rc=2 — never skip-as-success (RULES.md). Each arm below names
@@ -142,7 +143,9 @@ echo "rerun a single mode: python3 $HARNESS run $MASTER_ICN $MASTER_REF --lang i
 # ⭐ THE NAMES, so two runs of this board can be DIFFED and not merely compared. Capped, because the
 # point is to make a regression identifiable, not to paste a census into a terminal -- and the cap says
 # so out loud rather than truncating silently, which would be a smaller version of the same defect.
-_nfail=$(grep -cE '^[[:space:]]*(FAIL|CRASH|HANG|XPASS|UNPROVEN) ' "$_errf" 2>/dev/null || echo 0)
+# ⛔ `grep -c` PRINTS "0" *AND* EXITS 1 on no match, so `|| echo 0` printed a SECOND zero and every green board died
+# on "[: 0\n0: integer expression expected" twice (measured 2026-09-04, hq_B). Drop the fallback; default the empty case.
+_nfail=$(grep -cE '^[[:space:]]*(FAIL|CRASH|HANG|XPASS|UNPROVEN) ' "$_errf" 2>/dev/null); _nfail=${_nfail:-0}
 if [ "${_nfail:-0}" -gt 0 ]; then
     echo ""
     echo "--- the $_nfail non-PASS entries by name (showing up to 40; stderr of the run above) ---"
