@@ -154,7 +154,7 @@ static void lower_tree_stmt(RebLow *L, tree_t *s) {
         STMT_t *st = blank_stmt();
         st->subject = lower_tree_expr(L, s->c[0]);
         st->pattern = lower_tree_expr(L, s->c[1]);
-        if (s->n >= 3) st->replacement = lower_tree_expr(L, s->c[2]);
+        if (s->n >= 3) { st->replacement = lower_tree_expr(L, s->c[2]); st->has_eq = 1; }
         emit(L, st);
         break;
     }
