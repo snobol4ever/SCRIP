@@ -1907,7 +1907,7 @@ int rt_pl_db_killed(void *db_v) { pl_db_t *db = (pl_db_t *)db_v; return db ? db-
 /*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_nslots(void *db_v) { pl_db_t *db = (pl_db_t *)db_v; return db ? db->n : 0; }
 /*------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_db_try_erase(void *db_v, int i, void *goal_term)
+int rt_pl_db_try_erase(void *db_v, int i, void *goal_term, pl_tr_ctx_t *cx)
 {
     pl_db_t *db = (pl_db_t *)db_v;
     if (!db || !goal_term || i < 0 || i >= db->n || db->s[i].erased) return 0;
@@ -1916,7 +1916,7 @@ int rt_pl_db_try_erase(void *db_v, int i, void *goal_term)
       pl_cell_t *h = (pl_cell_t *)pl_deref(&pair)->p;
       if (!h || !pl_unify(&h[0], &g)) return 0; }
     { pl_cell_t *hl = (pl_cell_t *)pl_deref(&db->s[i].cl)->p;
-      if (!hl || !pl_unify(&hl[0], (pl_cell_t *)goal_term)) return 0; }
+      if (!hl || !plc_unify_cells_cx(&hl[0], (pl_cell_t *)goal_term, cx)) return 0; }
     db->s[i].erased = 1;
     { char key[264]; int ar = 0; extern int rt_pl_db_head_key(void *, char *, size_t, int *); extern int rt_pl_db_recompile(void *, const char *, int);
       if (rt_pl_db_head_key((void *)&db->s[i].cl, key, sizeof key, &ar)) rt_pl_db_recompile(db_v, key, ar); }

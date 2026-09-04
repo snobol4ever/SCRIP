@@ -203,7 +203,17 @@ PL_ROOT_LEAF(db_erase)
 PL_ROOT_LEAF(db_abolish)
 PL_ROOT_LEAF(db_retractall)
 PL_ROOT_LEAF(db_nslots)
-PL_ROOT_LEAF(db_try_erase)
+RTX_FUNC(rt_pl_dop_db_try_erase)
+    sub     rsp, CTX_FRAME
+    mov     qword ptr [rsp + CTX_TR], r12
+    mov     qword ptr [rsp + CTX_B], r13
+    mov     rdx, rsp
+    mov     rcx, r14
+    call    rt_pl_dop_db_try_erase_c
+    mov     r12, qword ptr [rsp + CTX_TR]
+    add     rsp, CTX_FRAME
+    ret
+RTX_ENDF(rt_pl_dop_db_try_erase)
 RTX_FUNC(rt_pl_dop_ax_zguard)
     sub     rsp, 8
     call    rt_pl_dop_ax_zguard_c
