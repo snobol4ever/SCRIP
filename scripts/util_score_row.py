@@ -771,15 +771,41 @@ PROGRESS_FAIL_SUFFIX = ("parse-fail", "fail", "reject", "crash", "no-tap", "xfai
 # ⛔ ipl IS COMPILE-GRADED AND IS DELIBERATELY ABSENT: it compiles 437 of 851 and RUN-grades zero, because
 # upstream ships no `.std` oracle output. A suite that never checks an answer cannot sit in a correctness
 # denominator -- it is named in the cell and counted nowhere (ceo ruling, Lon's industry-standard basis).
-PROGRESS_ESTIMATED = {"snobol4": [("gimpel", 289), ("snoflake", 180), ("aisnobol", 8), ("dotnet", 14)]}
-PROGRESS_NO_MARKERS = ("NO NUMBER", "NO RUNNER", "UNGRADED", "NOT VENDORED")
-# ⛔⭐ TWO LANGUAGES ARE SCORED BY THEIR LADDER, NOT BY THEIR MASTER (Lon 2026-09-03 20:45 via ceo): Snocone
-# and Rebus have NO public conformance suite, so "the manual/report censused into LADDER.tsv IS the standard
-# and the ladder green to its top IS the score". Their percent is BUILT RUNGS over DECLARED RUNGS, read from
-# the census file itself -- the master board is an instrument for them and must not be the headline.
-# ⛔ NO CENSUS => MISSING, never a number: a language whose standard has not been written down has no score,
-# and 0% would be a claim we have not earned either.
-PROGRESS_NO_PUBLIC_SUITE = ("snocone", "rebus")   # Lon 2026-09-04: only the packages of industry-standard tests count; no public suite -> no percentage, never 100%
+PROGRESS_ESTIMATED = {"snobol4": [("snoflake", 180)]}
+# ⛔⭐⭐ ONLY A SHIPPED TEST SUITE COUNTS (Lon 2026-09-04, in-chat to ceo: "Ensure items in that list actually have test
+# suites."): the V cell may name every vendored package, but the percent reads ONLY the clauses naming a package that
+# ships its own tests or expected results -- csnobol4_suite (Budne's suite, 125 .ref verbatim), snoflake (180 @expect),
+# arizona (Icon's tests/general, .std), jcon_tests (.std), swi_tests (SWI's src/Tests, plunit), INRIA (ISO 13211-1),
+# fpc_tests (FPC's test programs), PAT (ISO 7185 validation suite, .cmp/.ecp), roast (Raku spec tests, TAP).
+# NAMED, NEVER COUNTED: gimpel (a book's modules behind 144 drivers WE wrote), aisnobol and dotnet (program collections),
+# ipl (a program library, no tests), gnu_prolog (GNU Prolog's compiler/library source, no tests).
+PROGRESS_COUNTED = {
+    "snobol4": [("csnobol4", r"csnobol4", (118, 124, 125)), ("snoflake", r"[Ss]noflake", (180,))],
+    "icon": [("arizona", r"[Aa]rizona", (89, 124)), ("jcon", r"[Jj][Cc][Oo][Nn]", (81, 91))],
+    "prolog": [("swi", r"[Ss][Ww][Ii]", (114, 249)), ("INRIA", r"INRIA|inria|ISO 13211", (445,))],
+    "pascal": [("fpc", r"fpc", (181,)), ("PAT", r"\bPAT\b|validation suite|ISO 7185", (427, 429))],
+    "raku": [("roast", r"roast", (986, 1464))],
+}
+def counted_fractions(lang, vcell):
+    """{denominator: pass} for the COUNTED suites only, each read as the first fraction over one of the suite's own
+    known populations within 160 chars after the suite's name -- anchored on the denominator, so a stray '126/124' in
+    prose ('the grid's 126/124 was the stale side') can never be read as a suite. Returns (got, work)."""
+    got, work = {}, []
+    for name, rx, dens in PROGRESS_COUNTED.get(lang, []):
+        best = None
+        for m in re.finditer(rx, vcell):
+            seg = vcell[m.end():m.end() + 160]
+            for f in re.finditer(r"(\d+)\s*/\s*(\d+)", seg):
+                pnum, den = int(f.group(1)), int(f.group(2))
+                if den in dens and pnum <= den:
+                    best = (pnum, den) if best is None else (min(best[0], pnum), den) if den == best[1] else best
+                    break
+        if best is None:
+            work.append("V %s: named but no fraction over its own population %s -- unnumbered, not counted" % (name, "/".join(str(d) for d in dens)))
+            continue
+        got[best[1]] = best[0]
+        work.append("V %s %d/%d" % (name, best[0], best[1]))
+    return got, work
 
 
 def find_grid(lines):
@@ -978,8 +1004,8 @@ def language_progress(lang, cells, prov=""):
     # the two honest about each other.
     for key in ("V",):
         idx = GRID_COLUMNS[key][0]
-        got, w = cell_fractions(cells[idx])
-        work += ["%s %s" % (key, x) for x in w]
+        got, w = counted_fractions(lang, cells[idx])
+        work += w
         if got is None:
             unreadable = True
             continue
