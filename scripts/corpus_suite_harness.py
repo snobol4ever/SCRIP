@@ -1564,7 +1564,16 @@ def cmd_convert_blocks(args):
                 print(f"[{seq}/{len(pairs)}] {name}: FAIL (original not green)", file=sys.stderr)
                 continue
             body = src.read_text().splitlines()
-            ref_body = expected_text.rstrip("\n").splitlines()
+            # ⛔⭐ NOT .rstrip("\n").splitlines() (row icon-construct-ladder-from-rung-0, seat01): rstrip("\n")
+            # deletes EVERY trailing newline, not just the file-ending one, so an entry whose real expected
+            # output ends in a genuine blank line (e.g. Icon `write(&subject)` after &subject reverts to "")
+            # silently loses it here even though orig_green above was computed against the FULL expected_text
+            # and validated correctly -- a green witness materializes into the suite with a truncated .ref.
+            # Caught on rung05_scan_scan_nested: real oracle output "second\n\n", this line wrote "second\n".
+            # splitlines() alone (no rstrip) is the correct one-trailing-newline-is-not-a-line convention:
+            # "second\n\n".splitlines() == ["second", ""] (blank line preserved), "x\n".splitlines() == ["x"]
+            # (no phantom blank), matching body's own convention two lines above.
+            ref_body = expected_text.splitlines()
             entries.append(Entry("block", len(entries) + 1, name, body, ref_body, stdin=stdin_text, xfail=want_xfail))
             print(f"[{seq}/{len(pairs)}] {name}: OK{' XFAIL' if want_xfail else ''}{' (stdin)' if stdin_text is not None else ''}", file=sys.stderr)
     finally:
