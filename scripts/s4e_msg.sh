@@ -506,6 +506,23 @@ s4e_donewhen_is_noop() {   # $1 = raw DONE-WHEN text; rc 0 = certifies nothing
     first="$(printf '%s' "$nrm" | awk '{for(i=1;i<=NF;i++){if($i !~ /^[A-Za-z_][A-Za-z0-9_]*=/){print $i; exit}}}')"
     case "$first" in true|:|/bin/true|/usr/bin/true|echo) return 0;; esac
     return 1; }
+# ⛔⭐ S4E-GUARD-COMPILER-ABSENT -- A CRITERION THAT DRIVES AN UNBUILT COMPILER CANNOT BE MEASURED, SO IT IS
+# REFUSED (rc=2), NEVER GRADED RED (rc=1). hq_P -> hq_B 2026-09-04, measured on pascal-m4-site1-forloop-backedge-
+# 64byte-excess: ~88 batons carry seat05's 09-01 template whose compile step reads
+#     timeout 300s SCRIP/scrip --compile ... || { echo "... compile failed"; exit 1; }
+# so a MISSING or not-yet-built ./scrip reports rc=1 -- "there is real work here", which the dispatch probe serves
+# SILENTLY -- instead of rc=2 -- "I could not measure", which it serves WITH a warning. The ceo root's binary was
+# timestamped 21 minutes AFTER the assign that read that row red. ⭐ THE CURE IS ONE GUARD AT THE TWO RUNNER SITES,
+# NOT A SWEEP OF 88 BATONS: a criterion is TEXT, and the property "this text drives the compiler" is readable from
+# the text. Sweeping the batons would fix the ones that exist today and none of the ones written tomorrow.
+# Returns 0 (and sets $_gca_why) when the criterion names the compiler AND that binary is absent.
+s4e_donewhen_needs_compiler() {   # $1 = raw DONE-WHEN text
+    local dw="${1:-}" b; _gca_why=""
+    printf '%s' "$dw" | grep -qE '(^|[^A-Za-z0-9_./-])(\./)?(SCRIP/)?scrip([[:space:]]|$)' || return 1
+    b="$S4E/SCRIP/scrip"
+    [ -x "$b" ] && return 1
+    _gca_why="the criterion drives the compiler and $b is not built (run make) -- a missing binary is COULD-NOT-MEASURE, never a red row"
+    return 0; }
 # READ-ONLY probe: never closes, never claims, never writes. rc 0 green / 1 red / 2 could-not-measure.
 # Sets $_dp_why (one line, why) and $_dp_out (the criterion's own output, which is the thing a reader needs --
 # the mute-gate lesson from `done`: "DONE-WHEN exited 2" alone points nowhere).
@@ -517,6 +534,7 @@ s4e_dispatch_probe() {
     case "$dw" in '`'*'`') dw="${dw#\`}"; dw="${dw%\`}";; esac
     case "$dw" in *⛔*) _dp_why="the DONE-WHEN is still the mint placeholder, not a command"; return 2;; esac
     s4e_donewhen_is_noop "$dw" && { _dp_why="the DONE-WHEN certifies nothing (a decorated shell no-op)"; return 2; }
+    s4e_donewhen_needs_compiler "$dw" && { _dp_why="$_gca_why"; return 2; }   # S4E-GUARD-COMPILER-ABSENT
     to="$(s4e_dispatch_timeout)"
     # ⛔ S4E_HOME EXPORTED, exactly as `done` does it: 11 live rows write `cd "$S4E_HOME/SCRIP" && ...` and
     # without the export that expands to the empty string and runs `cd /SCRIP`. A probe whose verdict depended
@@ -1170,6 +1188,11 @@ case "$cmd" in
                   # ⭐ AND THE INSTRUMENT QUOTES ITS REFERENCE (RULES batch 14): every outcome prints the budget it ran
                   # under AND the wall-clock it used, so "did it just need more time?" is answered by the receipt
                   # instead of re-run and guessed at.
+                  # S4E-GUARD-COMPILER-ABSENT -- ahead of the run, because there is nothing to learn from running it.
+                  if s4e_donewhen_needs_compiler "$dw"; then
+                    printf '  ⛔⛔ REFUSED (rc=2) — NOT MEASURED, so NOT a verdict: %s\n' "$_gca_why" >&2
+                    printf '     The claim and the QUEUE column are UNCHANGED. Build, then re-run `done`.\n' >&2
+                    exit 2; fi
                   _dwto="${S4E_DONE_TIMEOUT:-3600}"; _dwt0="$(date +%s)"
                   ( cd "$S4E" && S4E_HOME="$S4E" S4E_SEAT="$ME" timeout "$_dwto" bash -c "$dw" ) >"$_dwlog" 2>&1; rc=$?
                   _dwel="$(( $(date +%s) - _dwt0 ))"
