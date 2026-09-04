@@ -257,6 +257,26 @@ static const char *to_cstring(DESCR_t v, char *scratch, size_t scap) {
     const char *s = VARVAL_fn(v); return s ? s : "";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icon_radix_int(const char *s, long long *out) {
+    const char *p = s; while (*p == ' ' || *p == '\t') p++;
+    int neg = 0; if (*p == '+') p++; else if (*p == '-') { neg = 1; p++; }
+    int base = 0; const char *bstart = p;
+    while (*p >= '0' && *p <= '9') { base = base * 10 + (*p - '0'); p++; }
+    if (!(p > bstart && (*p == 'r' || *p == 'R') && base >= 2 && base <= 36)) return 0;
+    p++; const char *dstart = p; long long v = 0;
+    while (*p) {
+        int d = -1;
+        if (*p >= '0' && *p <= '9') d = *p - '0';
+        else if (*p >= 'a' && *p <= 'z') d = *p - 'a' + 10;
+        else if (*p >= 'A' && *p <= 'Z') d = *p - 'A' + 10;
+        if (d < 0 || d >= base) break;
+        v = v * base + d; p++;
+    }
+    while (*p == ' ' || *p == '\t') p++;
+    if (!(p > dstart && *p == '\0')) return 0;
+    *out = neg ? -v : v; return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t elem_to_descr(const char *s, size_t slen) {
     char *buf = rt_ws_alloc(slen + 1);
     memcpy(buf, s, slen); buf[slen] = '\0';
@@ -4526,27 +4546,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (IS_INT_fn(av))  { *out = av; return 1; }
         if (IS_REAL_fn(av)) { *out = INTVAL((long long)av.r); return 1; }
         const char *s = VARVAL_fn(av); if (!s) { *out = FAILDESCR; return 1; }
-        {
-            const char *p = s;
-            while (*p == ' ' || *p == '\t') p++;
-            int neg = 0; if (*p == '+') p++; else if (*p == '-') { neg = 1; p++; }
-            int base = 0; const char *bstart = p;
-            while (*p >= '0' && *p <= '9') { base = base * 10 + (*p - '0'); p++; }
-            if (p > bstart && (*p == 'r' || *p == 'R') && base >= 2 && base <= 36) {
-                p++; const char *dstart = p; long long v = 0;
-                while (*p) {
-                    int d = -1;
-                    if (*p >= '0' && *p <= '9') d = *p - '0';
-                    else if (*p >= 'a' && *p <= 'z') d = *p - 'a' + 10;
-                    else if (*p >= 'A' && *p <= 'Z') d = *p - 'A' + 10;
-                    if (d < 0 || d >= base) break;
-                    v = v * base + d;
-                    p++;
-                }
-                while (*p == ' ' || *p == '\t') p++;
-                if (p > dstart && *p == '\0') { *out = INTVAL(neg ? -v : v); return 1; }
-            }
-        }
+        { long long rv; if (icon_radix_int(s, &rv)) { *out = INTVAL(rv); return 1; } }
         char *end; long long iv = strtoll(s, &end, 10);
         if (end != s && (*end=='\0'||*end==' ')) { *out = INTVAL(iv); return 1; }
         double rv = strtod(s, &end);
@@ -4608,7 +4608,8 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     }
     if (((_bid == BID_char) || (_bid == BID_chr)) && nargs == 1) {
         DESCR_t av = args[0];
-        int n = (int)(IS_INT_fn(av) ? av.i : (long long)strtol(VARVAL_fn(av)?VARVAL_fn(av):"0",NULL,10));
+        const char *raw = VARVAL_fn(av); long long rv;
+        int n = (int)(IS_INT_fn(av) ? av.i : (raw && icon_radix_int(raw, &rv)) ? rv : (long long)strtol(raw?raw:"0",NULL,10));
         char *buf = rt_ws_alloc(2); buf[0]=(char)(n&0xFF); buf[1]='\0';
         *out = BSTRVAL(buf, 1); return 1;
     }
@@ -4772,7 +4773,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (IS_STR_fn(av) && av.s) {
         }
         const char *s=VARVAL_fn(av); if (!s) s = "";
-        int sl = (int)strlen(s);
+        int sl = (av.slen && av.slen != 0xFFFFFFFFu) ? (int)av.slen : (int)strlen(s);
         char *outs = rt_ws_alloc(sl*4 + 3);
         int o = 0;
         outs[o++] = '"';
