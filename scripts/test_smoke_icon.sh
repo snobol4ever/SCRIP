@@ -151,6 +151,20 @@ procedure main()
 end
 EOF
 
+# seq(i,j) with j != 1 (2026-09-04): lower_seq() computed the constant step then bailed with
+# `if (by != 1) return NULL`, falling through to generic dispatch -> "Undefined function or
+# operation" for ANY 2-arg seq() call, not just non-constant steps (icon-jcon-suite misc.icn's
+# `seq(,4)`/`seq(10,20)` aborted the whole program mid-run). Fix routes by!=1 through IR_TO_BY
+# (already used by `i to j by k`) instead of bailing. 3+7+11=21 pins start AND step both landing.
+icon "seq_with_step" "21" << 'EOF'
+procedure main()
+  local total;
+  total := 0;
+  every total +:= seq(3,4) \ 3;
+  write(total);
+end
+EOF
+
 echo ""
 echo "mode-3 (--run):      PASS=$P3 FAIL=$F3  / $N   (HARD: zero FAIL — primary native mode)"
 echo "mode-4 (--compile):  PASS=$P4 FAIL=$F4  / $N   (HARD: zero FAIL; floor MODE4_MIN=$MODE4_MIN)"
