@@ -105,7 +105,7 @@ echo "  diagnosis (counted INSIDE fail, never beside it): m3 crash-or-ran-to-bou
 if . "$HERE/lib_gate.sh" 2>/dev/null && command -v gate_stamp >/dev/null 2>&1; then gate_stamp; fi
 python3 "$HERE/util_score_row.py" write --lang pascal --column vendor --suite PAT --modes m3,m4 \
     --measurer "${S4E_SEAT:-}" \
-    --text "ISO 7185 validation suite (Pascal-P5 1.4.x, vendored corpus/packages/pascal/pat): $TOTAL programs — m3 ${P[m3]}/$TOTAL · m4 ${P[m4]}/$TOTAL (${C[m3]}/${C[m4]} crash). 427 are REJECTION tests graded on whether scrip refuses them; \`test_pascal_pat_suite.sh\`" \
+    --text "ISO 7185 validation suite (Pascal-P5 1.4.x, vendored corpus/packages/pascal/pat): $TOTAL programs — m3 ${P[m3]}/$TOTAL · m4 ${P[m4]}/$TOTAL (${C[m3]}/${C[m4]} crash). 427 are REJECTION tests graded on whether scrip refuses them, per \`test_pascal_pat_suite.sh\`" \
     2>&1 | sed 's/^/    /'
 python3 "$HERE/util_score_row.py" progress 2>/dev/null || true
 exit 0
