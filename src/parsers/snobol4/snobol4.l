@@ -25,6 +25,7 @@ static char  strbuf[65536];
 static int   strpos;
 static int   gt_depth;
 static int   gt_angle;
+static int   gt_have_operand;
 int snobol4_get_stmt_lineno(void) { return g_stmt_lineno; }
 extern void stmt_src_mark_include_range(int start_line, int end_line);
 #define MAX_INCL_NEST 64
@@ -180,7 +181,7 @@ G       ({WS}|{CONT})*
 <BODY>{W}\n            { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
 <BODY>";"              { gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
 <BODY>{W}";"           { gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
-<BODY>{G}":"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_depth=0; gt_angle=0; BEGIN(GT); }
+<BODY>{G}":"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_depth=0; gt_angle=0; gt_have_operand=0; BEGIN(GT); }
 <BODY>&{ALPHA}{ALNUM}* { strbuf[0]='\0'; strncat(strbuf,yytext+1,sizeof(strbuf)-1); return T_KEYWORD; }
 <BODY>{W}  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_CONCAT; }
 <BODY>{W}"**"{W}  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2CARET;  }
@@ -273,17 +274,28 @@ G       ({WS}|{CONT})*
     sno_error(lineno,"unterminated string"); lineno++; BEGIN(BODY);
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-<GT>[ \t]+              { if (gt_depth > 0) return T_CONCAT; }
+ /* ⛔⭐ row snobol4-goto-field-whitespace-inside-parens-is-a-parse-error: a goto field's whitespace is
+    ONLY a concat operator BETWEEN two goto_atoms (grammar: goto_expr T_CONCAT goto_atom) -- it must
+    never fire immediately after the opening paren (nothing to concat yet: gt_have_operand catches this)
+    or immediately before the closing one (nothing left to concat WITH: the trailing-context rule below,
+    which must be listed first so flex prefers it over the general whitespace rule on an equal-length
+    match, catches that side). Before this fix 'S( LBL )' tokenized as LPAREN CONCAT IDENT CONCAT RPAREN
+    -- two CONCATs with no goto_atom on one side -- which matches no production and is a syntax error
+    with or without indirection in play; 'S($('LBL.' OP))' (WANG.sno's real shape) already worked because
+    its one legitimate space sits strictly between two atoms. */
+<GT>[ \t]+/[)>;\n]      { }
+<GT>[ \t]+              { if (gt_depth > 0 && gt_have_operand) return T_CONCAT; }
 <GT>[Ss]/"("            { return T_GOTO_S; }
 <GT>[Ss]/"<"            { return T_GOTO_S; }
 <GT>[Ff]/"("            { return T_GOTO_F; }
 <GT>[Ff]/"<"            { return T_GOTO_F; }
-<GT>"("                 { gt_depth++; return T_GOTO_LPAREN; }
-<GT>")"                 { if (gt_depth > 0) gt_depth--; return T_GOTO_RPAREN; }
-<GT>"<"{G}              { if (gt_depth > 0) { yyless(1); gt_depth++; return T_GOTO_LPAREN; } for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_angle=1; BEGIN(BODY); return T_GOTO_LANGLE; }
-<GT>">"                 { if (gt_depth > 0) gt_depth--; return T_GOTO_RPAREN; }
+<GT>"("                 { gt_depth++; gt_have_operand=0; return T_GOTO_LPAREN; }
+<GT>")"                 { if (gt_depth > 0) gt_depth--; gt_have_operand=1; return T_GOTO_RPAREN; }
+<GT>"<"{G}              { if (gt_depth > 0) { yyless(1); gt_depth++; gt_have_operand=0; return T_GOTO_LPAREN; } for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_angle=1; BEGIN(BODY); return T_GOTO_LANGLE; }
+<GT>">"                 { if (gt_depth > 0) gt_depth--; gt_have_operand=1; return T_GOTO_RPAREN; }
 <GT>"$"                 { return T_1DOLLAR; }
 <GT>[A-Za-z][A-Za-z0-9_.]* {
+    gt_have_operand=1;
     strbuf[0]='\0'; strncat(strbuf, yytext, sizeof(strbuf)-1);
     return T_IDENT;
 }
@@ -293,6 +305,7 @@ G       ({WS}|{CONT})*
     if (len < 0) len = 0;
     if (len >= (int)sizeof(strbuf)) len = sizeof(strbuf)-1;
     memcpy(strbuf, yytext+1, len); strbuf[len]='\0';
+    gt_have_operand=1;
     return T_STR;
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
