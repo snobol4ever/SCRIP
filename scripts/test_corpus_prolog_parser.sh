@@ -6,7 +6,6 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 
 TIMEOUT=${TIMEOUT:-10}
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # ⛔ FIXED (row prolog-parser-corpus-vacuous-gate-422-files, 2026-08-27): both bugs the task diagnosed, confirmed
 # by direct check before fixing, not guessed. (1) EXTENSION: the two tool files were never named .pro anywhere in
@@ -22,7 +21,6 @@ RECOG_SRC="$S4E/corpus/demos/prolog/prolog_recognizer.pl"
 DIRS=("$@")
 if [ ${#DIRS[@]} -eq 0 ]; then
   DIRS=(
-    "$REPO_ROOT/test/parser/prolog"
     $S4E/corpus/tests/prolog
   )
 fi

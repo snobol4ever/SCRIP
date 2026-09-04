@@ -25,8 +25,8 @@ if [ ! -x "$SCRIP" ]; then
     exit 0
 fi
 if [ ! -d "$TESTDIR" ]; then
-    echo "SKIP test/raku dir not found at $TESTDIR" >&2
-    exit 0
+    echo "⛔ REFUSING (rc=2): $TESTDIR not found -- test/raku is retired, this script cannot measure" >&2
+    exit 2
 fi
 
 PASS=0; FAIL=0
