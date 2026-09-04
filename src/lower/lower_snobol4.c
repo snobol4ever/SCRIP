@@ -111,6 +111,27 @@ static const char * sno_expr_collect_wn(const tree_t * expr) {
     return nm;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * sno_expr_collect_void(const tree_t * expr) {
+    if (!expr) sno_fatal("unevaluated-expression operator (*) with no operand", NULL);
+    for (int i = 0; i < g_sno_nexpr; i++) if (g_sno_exprs[i].salt == g_sno_expr_salt && !strncmp(g_sno_exprs[i].name, "EXPRVOID$", 9) && sno_expr_eq(g_sno_exprs[i].expr, expr)) return g_sno_exprs[i].name;
+    if (g_sno_nexpr >= SNO_EXPR_MAX) sno_fatal("too many unevaluated expressions (*) in one program", NULL);
+    char buf[40]; if (g_sno_expr_salt) snprintf(buf, sizeof buf, "EXPRVOID$%dF%d", g_sno_nexpr, g_sno_expr_salt); else snprintf(buf, sizeof buf, "EXPRVOID$%d", g_sno_nexpr);
+    g_sno_exprs[g_sno_nexpr].name = lp_strdup(buf);
+    g_sno_exprs[g_sno_nexpr].expr = expr;
+    g_sno_exprs[g_sno_nexpr].salt = g_sno_expr_salt;
+    g_sno_exprs[g_sno_nexpr].want_name = 0;
+    return g_sno_exprs[g_sno_nexpr++].name;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_lambda_class(tree_e tt) {
+    switch (tt) {
+    case TT_ASSIGN: case TT_ADD: case TT_SUB: case TT_MUL: case TT_DIV: case TT_MOD: case TT_POW: case TT_SEQ: case TT_CAT:
+        return 1;
+    default:
+        return 0;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_binop_code(tree_e tt) {
     switch (tt) {
     case TT_ADD: return 0; case TT_SUB: return 1; case TT_MUL: return 2; case TT_DIV: return 3; case TT_POW: return 18; case TT_SEQ: return 11; case TT_CAT: return 11;
@@ -1597,6 +1618,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         const char * vn = (t->n > 1) ? sno_capt_name(t->c[1]) : NULL;
         if (vn) sno_reg_var(vn);
         if (!vn && t->n > 1 && t->c[1] && t->c[1]->t == TT_DEFER) { const tree_t * di = (t->c[1]->n > 0) ? t->c[1]->c[0] : NULL; if (sno_cap_name_strict() && di && di->t == TT_VAR && di->v.sval && di->v.sval[0]) { vn = lp_strdup(di->v.sval); sno_reg_var(vn); }
+        if (!vn && di && sno_lambda_class(di->t)) { char pb[56]; snprintf(pb, sizeof pb, "*%s", sno_expr_collect_void(di)); vn = lp_strdup(pb); }
         if (!vn) { const char * bn = (di && di->t == TT_FNC && di->v.sval && di->n == 0) ? di->v.sval : (di && di->t == TT_INDIRECT && di->n > 0 && di->c[0]) ? sno_expr_collect_nm(di) : (di && di->t == TT_FNC && di->n > 0) ? sno_expr_collect_wn(di) : sno_expr_collect(di); char pb[56]; snprintf(pb, sizeof pb, "*%s", bn); vn = lp_strdup(pb); } }
         if (!vn || !(t->n > 0 && t->c[0])) sno_fatal("conditional capture target is not a simple variable (SN4-PAT-2 subset)", NULL);
         IR_t * nd = lc_build(g, IR_MATCH_ASSIGN_COND, succ, NULL);
@@ -1620,8 +1642,21 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
     case TT_CAPT_IMMED_ASGN: {
         const char * vn = (t->n > 1) ? sno_capt_name(t->c[1]) : NULL;
         if (vn) sno_reg_var(vn);
+        const tree_t * lam_di = NULL;
         if (!vn && t->n > 1 && t->c[1] && t->c[1]->t == TT_DEFER) { const tree_t * di = (t->c[1]->n > 0) ? t->c[1]->c[0] : NULL; if (sno_cap_name_strict() && di && di->t == TT_VAR && di->v.sval && di->v.sval[0]) { vn = lp_strdup(di->v.sval); sno_reg_var(vn); }
-        if (!vn) { const char * bn = (di && di->t == TT_FNC && di->v.sval && di->n == 0) ? di->v.sval : (di && di->t == TT_INDIRECT && di->n > 0 && di->c[0]) ? sno_expr_collect_nm(di) : (di && di->t == TT_FNC && di->n > 0) ? sno_expr_collect_wn(di) : sno_expr_collect(di); char pb[56]; snprintf(pb, sizeof pb, "*%s", bn); vn = lp_strdup(pb); } }
+        if (!vn && di && sno_lambda_class(di->t)) { lam_di = di; }
+        if (!vn && !lam_di) { const char * bn = (di && di->t == TT_FNC && di->v.sval && di->n == 0) ? di->v.sval : (di && di->t == TT_INDIRECT && di->n > 0 && di->c[0]) ? sno_expr_collect_nm(di) : (di && di->t == TT_FNC && di->n > 0) ? sno_expr_collect_wn(di) : sno_expr_collect(di); char pb[56]; snprintf(pb, sizeof pb, "*%s", bn); vn = lp_strdup(pb); } }
+        if (lam_di) {
+            if (!(t->n > 0 && t->c[0])) sno_fatal("immediate capture target is not a simple variable (SN4-PAT-2 subset)", NULL);
+            IR_t * box = lc_build(g, IR_MATCH_LAMBDA, succ, NULL);
+            IR_LIT(box).ival = 0;
+            IR_t * val = NULL; IR_t * ent = sx_lower(cx, lam_di, NULL, fail, &val);
+            lc_γ_to(val, box);
+            IR_t * itail = NULL;
+            IR_t * pe = sno_capt_body(cx, t->c[0], ent ? ent : box, fail, &itail);
+            sno_ω_to(box, itail);
+            return pe;
+        }
         if (!vn || !(t->n > 0 && t->c[0])) sno_fatal("immediate capture target is not a simple variable (SN4-PAT-2 subset)", NULL);
         IR_t * nd = lc_build(g, IR_MATCH_ASSIGN_IMM, succ, NULL);
         IR_LIT(nd).sval = (char *) vn;
