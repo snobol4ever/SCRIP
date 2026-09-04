@@ -78,6 +78,7 @@ static const OpEntry BIN_OPS[] = {
     { "**",    200, ASSOC_RIGHT },
     { "^",     200, ASSOC_RIGHT },
     { ":",     200, ASSOC_RIGHT },
+    { "as",    700, ASSOC_NONE  },
     { NULL,    0,   ASSOC_NONE  }
 };
 static OpEntry *g_uinfix = NULL;
@@ -469,6 +470,10 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
                 strcmp(tk.text, "meta_predicate") == 0 ||
                 strcmp(tk.text, "use_module") == 0 ||
                 strcmp(tk.text, "ensure_loaded") == 0 ||
+                strcmp(tk.text, "table") == 0 ||
+                strcmp(tk.text, "thread_local") == 0 ||
+                strcmp(tk.text, "public") == 0 ||
+                strcmp(tk.text, "record") == 0 ||
                 strcmp(tk.text, "mode") == 0) {
                 if (pk.kind == TK_ATOM || pk.kind == TK_VAR || pk.kind == TK_INT ||
                     pk.kind == TK_FLOAT || pk.kind == TK_LPAREN || pk.kind == TK_LBRACKET ||
