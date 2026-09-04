@@ -97,24 +97,12 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
     if (name && !strcmp(name, "pred") && args && args->count >= 1) return bin(TT_SUB, args->items[0], ilit(1));
     if (name && !strcmp(name, "succ") && args && args->count >= 1) return bin(TT_ADD, args->items[0], ilit(1));
     if (name && (!strcmp(name, "inc") || !strcmp(name, "dec")) && args && args->count >= 1) {
-        // ⛔ argument_list (see `argument:` below) interleaves EVERY expression with a phantom
-        // ilit(-1) "format code" companion (the same slot write/writeln's own width syntax fills) --
-        // real arguments sit at EVEN indices (0, 2, ...), never args->items[1].
         tree_t *v = args->items[0];
         tree_t *delta = (args->count >= 3) ? args->items[2] : ilit(1);
         tree_e op = !strcmp(name, "inc") ? TT_ADD : TT_SUB;
         return mk_assign(v, bin(op, pas_tree_clone(v), delta));
     }
     if (name && (!strcmp(name, "low") || !strcmp(name, "high")) && args && args->count >= 1) {
-        // ⛔ ARRAY ONLY, NARROW AND HONEST: g_pas_arrays[] tracks only a normalized 0-based `high`
-        // (element count - 1), never a true declared low bound -- every array here is internally
-        // 0-based regardless of its Pascal-declared range, so `low` is always 0 and `high` is the
-        // tracked value. Correct for a 0-based declaration (array[0..N]); a non-zero-based
-        // declaration (array[5..10]) would need a real low-bound field this struct does not carry --
-        // out of scope here, and this clause does not claim to handle it (falls through to the
-        // existing "undefined function" refusal below, same as low()/high() on a string, which also
-        // is not handled here). No regression risk: nothing could call low()/high() successfully
-        // before this clause existed.
         tree_t *v = args->items[0];
         long long hi;
         if (v && v->t == TT_VAR && v->v.sval && pas_array_high_get(v->v.sval, &hi)) {

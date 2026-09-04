@@ -125,15 +125,6 @@ const char *real_str(double r, char *buf, int bufsz) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *icon_real_str(double r, char *buf, int bufsz) {
-    /* Arizona Icon's default real-conversion, re-derived empirically against /home/resources/icon-master's
-     * icont/iconx (never assume -- see corpus/tests/icon/icon_real_scan_coercion_exponent_threshold.icn and
-     * task prolog-rung... no, icon-jcon-class-real-str-icon-real-str-divergence's ledger for the probe battery):
-     * ALWAYS 10 significant digits (fixed precision, not a shortest-round-trip search -- %.9e lets the C
-     * library's own correctly-rounding formatter absorb a rounding carry into E, e.g. 9999999999.6 -> "1e+10",
-     * exponent bumped by the carry), trailing zeros stripped (min 1 digit kept), fixed notation for
-     * -4 <= E <= 9 else exponential, exponent ALWAYS signed and zero-padded to >=2 digits (%+03d), and NO
-     * decimal point at all in exponential notation when exactly one significant digit survives stripping
-     * (oracle prints "1e+10", never "1.0e+10"). isnan/isinf/true-zero unchanged (already oracle-correct). */
     if (isnan(r)) { snprintf(buf, (size_t)bufsz, "%s", "nan"); return buf; }
     if (isinf(r)) { snprintf(buf, (size_t)bufsz, "%s", r < 0 ? "-inf" : "inf"); return buf; }
     int neg = (r < 0.0); double ar = fabs(r);
