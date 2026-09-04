@@ -6206,3 +6206,15 @@ void * rt_pl_dop_db_alive_c(DESCR_t *args, int nargs, void *root) {
       if (!db || !rt_pl_db_killed(db)) return (void *)0;
       return rt_pl_ball_existence(&args[1], 1); }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void * rt_pl_dop_ax_zguard_c(DESCR_t *args, int nargs) {
+    extern void *rt_pl_ball_eval_error(const char *, const char *, int);
+    char ob[64]; const char *op = "is";
+    if (nargs != 2) return (void *)0;
+    pl_atoms_ready();
+    if (pl_cell_text(args[1], ob, sizeof ob, &op) && op && op[0]) { } else { op = "is"; }
+    { DESCR_t d = rt_pl_deref_val(args[0]);
+      if (d.v == DT_I && d.i == 0) return rt_pl_ball_eval_error("zero_divisor", op, 2);
+      if (d.v == DT_R && d.r == 0.0) return rt_pl_ball_eval_error("zero_divisor", op, 2);
+      return (void *)0; }
+}

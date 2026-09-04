@@ -1557,6 +1557,23 @@ void *rt_pl_ball_existence(DESCR_t *a, int n)
     return rt_pl_compound_cell("error", 2, (void *)er);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_pl_ball_eval_error(const char *kind, const char *op, int arity)
+{
+    extern DESCR_t rt_pl_fresh_var_ref(void);
+    pl_cell_t ee[1]; pl_cell_t *eec; pl_cell_t pi[2]; pl_cell_t *pic; pl_cell_t ct[2]; pl_cell_t *ctc; pl_cell_t er[2];
+    ee[0] = pl_make_atom(prolog_atom_intern(kind ? kind : "zero_divisor"));
+    eec = (pl_cell_t *)rt_pl_compound_cell("evaluation_error", 1, (void *)ee);
+    if (!eec) return (void *)0;
+    pi[0] = pl_make_atom(prolog_atom_intern(op ? op : "is")); pi[1] = pl_make_int(arity);
+    pic = (pl_cell_t *)rt_pl_compound_cell("/", 2, (void *)pi);
+    if (!pic) return (void *)0;
+    ct[0] = *pic; ct[1] = rt_pl_fresh_var_ref();
+    ctc = (pl_cell_t *)rt_pl_compound_cell("context", 2, (void *)ct);
+    if (!ctc) return (void *)0;
+    er[0] = *eec; er[1] = *ctc;
+    return rt_pl_compound_cell("error", 2, (void *)er);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_root_omega(void)
 {
     extern void *rt_pl_ball_take(void);

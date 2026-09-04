@@ -84,4 +84,5 @@
 #define MOD_OP_RT_PL_EXIST_RAISE       144   /* rtx_plunify.s rt_pl_exist_raise      */
 #define MOD_OP_RT_PL_CATCH_HANDLE      145   /* rtx_plunify.s rt_pl_catch_handle     */
 #define MOD_OP_RT_PL_DB_ALIVE          146   /* rtx_plunify.s rt_pl_dop_db_alive     */
+#define MOD_OP_RT_PL_AX_ZGUARD         147   /* rtx_plunify.s rt_pl_dop_ax_zguard    */
 #endif

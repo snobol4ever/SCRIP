@@ -254,6 +254,11 @@ static const char * pl_ax_suffix(const char * s, int ar) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_ax_divides(const char * sfx) {
+    if (!sfx) return 0;
+    return !strcmp(sfx, "div") || !strcmp(sfx, "idiv") || !strcmp(sfx, "mod") || !strcmp(sfx, "rem");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_arith_val(lcx_t * cx, const tree_t * t, IR_t * ωfail, IR_t ** entry_out) {
     if (t && (t->t == TT_QLIT || t->t == TT_NAME) && t->v.sval && pl_ax_suffix(t->v.sval, 0)) {
         char nb[24]; snprintf(nb, sizeof nb, "$ax_%s", pl_ax_suffix(t->v.sval, 0));
@@ -264,12 +269,20 @@ static IR_t * lower_arith_val(lcx_t * cx, const tree_t * t, IR_t * ωfail, IR_t 
     if (t && t->t == TT_FNC && t->v.sval && (t->n == 1 || t->n == 2) && pl_ax_suffix(t->v.sval, t->n)) {
         char nb[24]; snprintf(nb, sizeof nb, "$ax_%s", pl_ax_suffix(t->v.sval, t->n));
         IR_t * nd = build(cx, IR_CALL, NULL, ωfail); IR_LIT(nd).sval = strdup(nb);
-        IR_t * prev = NULL; IR_t * first = NULL;
+        IR_t * prev = NULL; IR_t * first = NULL; IR_t * dvsr = NULL;
         for (int i = 0; i < t->n; i++) {
             IR_t * ke = NULL; IR_t * k = lower_arith_val(cx, t->c[i], ωfail, &ke); IR_t * en = ke ? ke : k;
             if (prev) lc_γ_to(prev, en); else first = en;
             lc_ω_to(k, ωfail);
             prev = k; ir_operand_push(nd, k);
+            if (i == 1) dvsr = k;
+        }
+        if (dvsr && t->n == 2 && pl_ax_divides(pl_ax_suffix(t->v.sval, 2))) {
+            IR_t * zg = build(cx, IR_CALL, nd, ωfail); IR_LIT(zg).sval = "$ax_zguard";
+            IR_t * opn = build(cx, IR_LIT_STRING, zg, ωfail); IR_LIT(opn).sval = strdup(t->v.sval);
+            ir_operand_push(zg, dvsr); ir_operand_push(zg, opn);
+            if (prev) lc_γ_to(prev, opn);
+            prev = zg;
         }
         if (prev) lc_γ_to(prev, nd);
         if (entry_out) *entry_out = first ? first : nd;
