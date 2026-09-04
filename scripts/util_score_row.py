@@ -697,7 +697,9 @@ def cmd_selftest(a):
         _today, _yday = _t.strftime("%Y-%m-%d"), (_t - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
         _grid = [""] * (max(i for i, _n in GRID_COLUMNS.values()) + 1)
         def _prog(mcell, prov):
-            g = list(_grid); g[GRID_COLUMNS["M"][0]] = mcell; g[GRID_COLUMNS["V"][0]] = ""
+            # the scratch text goes in the V cell: since Lon 2026-09-04 the percent and its freshness are read
+            # from V (the industry-standard packages), and M is printed beside as ours, never counted
+            g = list(_grid); g[GRID_COLUMNS["V"][0]] = mcell; g[GRID_COLUMNS["M"][0]] = ""
             return language_progress("snobol4", g, prov)
         _st = lambda day: GRID_STAMP % (day, "hq_T")
         for label, mcell, prov, want in (
@@ -777,7 +779,7 @@ PROGRESS_NO_MARKERS = ("NO NUMBER", "NO RUNNER", "UNGRADED", "NOT VENDORED")
 # the census file itself -- the master board is an instrument for them and must not be the headline.
 # ⛔ NO CENSUS => MISSING, never a number: a language whose standard has not been written down has no score,
 # and 0% would be a claim we have not earned either.
-PROGRESS_LADDER_SCORED = ("snocone", "rebus")
+PROGRESS_NO_PUBLIC_SUITE = ("snocone", "rebus")   # Lon 2026-09-04: only the packages of industry-standard tests count; no public suite -> no percentage, never 100%
 
 
 def find_grid(lines):
@@ -948,18 +950,17 @@ def forms_score(lang):
 
 
 def language_progress(lang, cells, prov=""):
-    # ⛔⭐⭐ THE PERCENT IS THE INDUSTRY STANDARD ONLY -- V AND L -- NEVER OUR OWN MASTER (ceo ruling on Lon's
-    # "Is Icon really at 90%? I do not believe it", 2026-09-04). The old basis averaged M (our own master, and
-    # our own AST fixtures) with V, and for icon 730 of a 901 denominator was OUR OWN suite, so the two public
-    # conformance suites -- which read 48% and 47% -- barely moved the number. Under Lon's ruling that 100%
-    # means the industry standard, a percent that is mostly our own tests is measuring the wrong thing, and it
-    # was measuring it flatteringly.
-    # ⛔ A COMPILE-GRADED SUITE IS NAMED, NEVER COUNTED: icon's ipl compiles 437 of 851 and RUN-grades zero of
-    # them because upstream ships no oracle output, so it says nothing about correctness and cannot sit in a
-    # correctness denominator.
-    # M and the AST fixtures are still computed and PRINTED, beside the percent and labelled ours -- dropping
-    # them would lose real information; the ruling is about what the headline NUMBER is allowed to contain.
-    # pass/total over the M and V cells; xfail is never a pass because the grid prints it BESIDE the
+    # ⛔⭐⭐ THE PERCENT IS THE INDUSTRY STANDARD, NEVER OUR OWN TESTS (Lon 2026-09-04, in-chat to ceo, verbatim:
+    # "do not consider our stupid tests as part of the percentage; only the packages of industry standard ones
+    # count for a percentage. Fix that reporting now." -- after "Is Icon really at 90%? I do not believe it.":
+    # icon's 90% was 811/901 with 730 of the denominator our own master and AST fixtures, the two public suites at
+    # 48% and 47% barely moving it). Basis from here: the V column ONLY -- the vendored industry-standard packages
+    # graded by their own oracle. M and AST are printed beside as "ours" and never counted. A language with no
+    # public suite (snocone, rebus) prints no-public-suite and is excluded from ALL by design, never scored 100%
+    # from its own ladder.
+    if lang in PROGRESS_NO_PUBLIC_SUITE:
+        return "NOSUITE", "", 0, 0, ["no public industry-standard suite exists for this language -- not scored, not in ALL (Lon 2026-09-04); its ladder to the reference's top is reported in L, not as a percent"]
+    # pass/total over the V cells only; xfail is never a pass because the grid prints it BESIDE the
     # fraction, never inside it, so an xfail is already excluded by reading the fraction.
     P = T = 0
     work = []
@@ -975,37 +976,27 @@ def language_progress(lang, cells, prov=""):
     # So BOTH now come from the standardized display, which is the table runners actually write and the
     # only one carrying provenance. The grid stays the human-facing summary; the agree gate is what keeps
     # the two honest about each other.
-    ours_P = ours_T = 0
-    for key in ("M", "V"):
+    for key in ("V",):
         idx = GRID_COLUMNS[key][0]
         got, w = cell_fractions(cells[idx])
         work += ["%s %s" % (key, x) for x in w]
         if got is None:
-            if key == "V":
-                unreadable = True
+            unreadable = True
             continue
         for t in sorted(got):
-            if key == "V":
-                P += got[t]
-                T += t
-            else:
-                ours_P += got[t]
-                ours_T += t
+            P += got[t]
+            T += t
+    # the ladder (L) is OURS too: reported beside the percent, never inside it (Lon 2026-09-04: only the packages count)
     fs = forms_score(lang)
     if fs == "incomplete":
-        work.append("L census is INCOMPLETE -- some rungs have no FORMS enumerated, so the standard is only "
-                    "partly written down and this language HAS NO SCORE (100% over the rungs someone got to "
-                    "is not a score, it is a smaller book)")
-        return None, "", P, T, work
-    if fs is not None:
-        P += fs[0]
-        T += fs[1]
-        work.append("L forms %d/%d witnessed of DECLARED-FROM-THE-REFERENCE" % fs)
+        work.append("L census INCOMPLETE (some rungs have no FORMS) -- reported, not in the percent")
+    elif fs is not None:
+        work.append("L forms %d/%d witnessed of DECLARED-FROM-THE-REFERENCE -- reported, not in the percent" % fs)
     else:
-        work.append("L NO usable census -- the ladder contributes nothing and the language cannot reach 100%")
-    if ours_T:
-        work.append("ours(M) %d/%d -- PRINTED, never inside the percent" % (ours_P, ours_T))
+        work.append("L no usable census -- reported, not in the percent")
     vcell = cells[GRID_COLUMNS["V"][0]]
+    _mg, _mw = cell_fractions(cells[GRID_COLUMNS["M"][0]])
+    work += ["ours(not counted) M %s" % x for x in _mw]
     for name, n in PROGRESS_ESTIMATED.get(lang, []):
         if name in vcell and any(k in vcell for k in PROGRESS_NO_MARKERS):
             T += n
@@ -1023,10 +1014,11 @@ def language_progress(lang, cells, prov=""):
     # ISO stamp, and the mirror of this very M cell (GRID_MIRROR board->M). No label means the age is
     # UNKNOWN, which reads STALE and NAMES ITSELF rather than passing quietly: an undatable number is not a
     # fresh one. The cell's own explicit word STALE still wins outright.
-    mcell = cells[GRID_COLUMNS["M"][0]]
+    # staleness keys on the V cell -- the cell the percent is read from -- by its own ⟨measured …⟩ stamp.
+    mcell = vcell
     stale = "STALE" in mcell
     if stale:
-        work.append("M reads STALE by the cell's own word")
+        work.append("V reads STALE by the cell's own word")
     label = ""
     if not stale:
         dm = re.search(GRID_STAMP_RE, mcell)
@@ -1035,10 +1027,10 @@ def language_progress(lang, cells, prov=""):
             d = datetime.date(int(dm.group(1)), int(dm.group(2)), int(dm.group(3)))
             age = (datetime.date.today() - d).days
             stale = age >= 1
-            work.append("M stamp %s (%s)" % (label, "today" if age <= 0 else "%d day(s) old -- STALE" % age))
+            work.append("V stamp %s (%s)" % (label, "today" if age <= 0 else "%d day(s) old -- STALE" % age))
         else:
             stale = True
-            work.append("M carries NO canonical ⟨measured …⟩ stamp -- age UNKNOWN, which is not the same as "
+            work.append("V carries NO canonical ⟨measured …⟩ stamp -- age UNKNOWN, which is not the same as "
                         "fresh, so it reads STALE until a runner's write stamps this very cell")
     # ⭐ FLOOR, NEVER ROUND. A completion indicator that rounds shows 100% at 99.6%, which is the one
     # number on this line anybody will act on. Floor reaches 100% only when the work is actually done.
@@ -1177,6 +1169,12 @@ def cmd_progress(a):
     cells_out, bars, tp, tt, missing = [], [], 0, 0, []
     for lang, short in PROGRESS_LANGS:
         pct, mark, P, T, work = language_progress(lang, rows[lang], provs.get(lang, ""))
+        if pct == "NOSUITE":
+            cells_out.append("%s no-public-suite" % short)
+            bars.append("%s %s" % (short, "-" * 10))
+            if a.verbose:
+                sys.stdout.write("  %-8s no-public-suite  %s\n" % (lang, " · ".join(work)))
+            continue
         if pct is None:
             # ⛔ NOT SCORED, and deliberately not folded into ALL either: a language whose cell we cannot
             # read must not quietly improve or worsen the headline it is missing from.
@@ -1217,18 +1215,17 @@ def cmd_progress(a):
     # BETTER -- exactly what fail-closed exists to prevent, arriving through the aggregate instead of
     # through the cell. ALL claims to be the whole program over all seven; it cannot be computed from
     # six, and a "?" is far too quiet for a twelve-point move.
-    allcell = "ALL MISSING (%s not scored)" % ",".join(missing) if missing else "ALL %d%%" % allpct
-    # ⛔ THE LINE PRINTS ITS OWN BASIS (ceo ruling). The percent changed meaning today -- it used to average
-    # our own master with the public suites -- and a number whose basis moved without saying so is how the
-    # 90% got quoted to Lon in the first place.
-    print("PROGRESS 09-10 [basis: V public conformance suites RUN-graded + L forms witnessed of forms "
-          "DECLARED-FROM-THE-REFERENCE; our own master and AST fixtures are printed under --verbose but are "
-          "NOT in the percent; a compile-graded suite is named and not counted]")
+    scored = [sh for l, sh in PROGRESS_LANGS if l not in PROGRESS_NO_PUBLIC_SUITE]
+    allcell = "ALL MISSING (%s unreadable)" % ",".join(missing) if missing else "ALL %d%% (%d with a public suite)" % (allpct, len(scored))
+    # ⛔ THE LINE PRINTS ITS OWN BASIS (ceo ruling; hq_T's header kept, wording per Lon): the percent changed meaning today.
+    print("PROGRESS 09-10 [basis: V = the vendored industry-standard packages, RUN-graded by their own oracle, ONLY; "
+          "our own master, AST fixtures and ladders are printed under --verbose as ours and are NOT in the percent; "
+          "a compile-graded suite is named and not counted; no public suite = no percent]")
     print("PROGRESS 09-10 | %s | %s | tree %s %s"
           % (" | ".join(cells_out), allcell, gh, time.strftime("%Y-%m-%d %H:%M %Z")))
     print("  " + "  ".join(bars))
     if a.verbose:
-        print("  ALL %d%% = %d/%d over the M and V printed denominators; ? = the M cell reads STALE, or its own ⟨measured …⟩ stamp is older than today, or it carries no stamp at all (age unknown)." % (allpct, tp, tt))
+        print("  ALL %d%% = %d/%d over the V (industry-standard package) denominators ONLY -- our master and AST fixtures are printed as ours and never counted (Lon 2026-09-04); ? = the V cell reads STALE, or its own ⟨measured …⟩ stamp is older than today, or it carries no stamp at all (age unknown)." % (allpct, tp, tt))
         for lang, short in PROGRESS_LANGS:
             c = rows[lang]
             print("  %-8s L: %s" % (lang, c[GRID_COLUMNS["L"][0]][:110]))
