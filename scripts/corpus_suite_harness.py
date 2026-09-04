@@ -268,6 +268,24 @@ def run_oracle(oracle_bin, flags, sno_path, timeout, stdin_text=None):
     sno_path = Path(sno_path)
     argv = [oracle_bin] + flags.split() + [sno_path.name]
     kind, out, _err, rc = _run_raw(argv, timeout, cwd=str(sno_path.parent), stdin_text=stdin_text)
+    # ⛔⭐ AN ORACLE KILLED BY A SIGNAL IS A CRASH, NOT A RUN -- and until 2026-09-04 this returned "RAN" for one
+    # (row every-ref-cutting-path-refuses-when-the-oracle-dies-mid-cut, ceo -> hq_T, on seat07's finding that
+    # `sbl -bf` SIGSEGVs on about half its ERROR 212 runs WHILE PRINTING the diagnostic). _run_raw's "RAN" means
+    # only "the process was launched and did not time out"; the signal shows up as a NEGATIVE returncode, which
+    # cmd_capture_oracle_refs -- whose whole guard is `if ora_kind != "RAN"` -- never looked at. So the one
+    # command in this file that mints ground truth from a live oracle would have written a TRUNCATED ref, and a
+    # truncated ref is the worst artifact here: a plausible-looking pin that grades every future run against a
+    # lie, indistinguishable downstream from a good one.
+    # ⛔⛔ THE DEFECT SURVIVED A SOURCE-LEVEL CENSUS THAT DECLARED THIS PATH SAFE, done by hq_T hours earlier and
+    # written into the row's own GOAL. Reading the code proved "_run_raw returns CRASH on a signal" -- which is
+    # true of classify(), a DIFFERENT function, and not of this one. It was found only when the gate ran the
+    # thing with a synthetic oracle that prints output and then segfaults. ⭐ A census of what code SAYS is not a
+    # measurement of what it DOES, and the two disagree exactly where it matters most.
+    # ⭐ Fixed HERE rather than in cmd_capture_oracle_refs, because util_build_package_suite.py caught this only
+    # by independently re-deriving the same test (`ora_rc < 0`) at its own call site -- two copies of one rule,
+    # one of which was missing. Callers now inherit the classification from the single reader.
+    if kind == "RAN" and rc is not None and rc < 0:
+        kind = "CRASH"
     return out.decode("utf-8", "replace").rstrip("\n"), rc, kind
 
 
