@@ -42,6 +42,13 @@ for c in glob.glob(os.path.join(PO, 'claims', '*.claim')):
     claims[t] = {'holder': body[0].strip(), 'done': any(l.strip() == 'DONE' for l in body)}
 tasks = {os.path.basename(p)[:-8] for p in glob.glob(os.path.join(PO, 'tasks', '*.task.md'))}
 def is_done(t): return t in done_rows or (t in claims and claims[t]['done'])
+# ---- the seven language tables: six map 1:1 to a MASTER-PLAN ladder id; PL has none of its own (Prolog is split T/C/P) so it is the union of those three
+LANG_LADDERS = {'SNO': {'SNO'}, 'SC': {'SC'}, 'ICN': {'ICN'}, 'PAS': {'PAS'}, 'RAKU': {'RAKU'}, 'REB': {'REB'}, 'PL': {'T', 'C', 'P'}}
+LANG_PREFIX = {'sno': 'SNO', 'snobol4': 'SNO', 'sc': 'SC', 'snocone': 'SC', 'icn': 'ICN', 'icon': 'ICN', 'pas': 'PAS', 'pascal': 'PAS', 'raku': 'RAKU', 'reb': 'REB', 'rebus': 'REB', 'pl': 'PL', 'prolog': 'PL'}
+LANG_PREFIX_RE = re.compile(r'^([A-Za-z0-9]+)[-_]')
+def row_lang(t):
+    m = LANG_PREFIX_RE.match(t)
+    return LANG_PREFIX.get(m.group(1).lower()) if m else None
 # ---- plan parse
 ladders = []; cur = None; in_table = False
 for raw in plan:
@@ -56,6 +63,19 @@ for raw in plan:
 ladders = [l for l in ladders if l['rungs']]
 if not ladders: refuse('no "### LADDER <ID> — <name>" section with a | rung | row | table found in %s' % a.plan)
 rung_rows = {r['row'] for l in ladders for r in l['rungs'] if not r['row'].startswith('TO-MINT')}
+ladder_by_id = {l['id']: l for l in ladders}
+# ---- LADDER:<tok> LINKS tokens: a row counts as on-ladder if its task file's LINKS line (or anywhere in it) names a ladder id, even when the
+# markdown table never lists it by name (this is how Prolog rows attach to T/C/P without a per-row table entry for every one of them)
+LADDER_TOK_RE = re.compile(r'\bLADDER:([A-Za-z0-9]+)')
+links_ladders = {}
+non_ladder = set()
+for t in tasks:
+    try: body = open(os.path.join(PO, 'tasks', t + '.task.md'), encoding='utf-8', errors='replace').read()
+    except OSError: continue
+    ids = set(LADDER_TOK_RE.findall(body))
+    if ids: links_ladders[t] = ids
+    if 'NON-LADDER' in body: non_ladder.add(t)
+def on_ladder(t): return t in rung_rows or t in links_ladders
 V = []
 def viol(code, text): V.append('%s %s' % (code, text))
 any_free_rung = False
@@ -83,6 +103,20 @@ for l in ladders:
         lines.append('  %-5s %-64s %s' % (r['rung'], t[:64], st))
     print('LADDER %s — %s: rungs=%d done=%d claimed=%d free=%d blocked=%d to-mint=%d missing=%d' % (l['id'], l['name'], len(l['rungs']), counts['DONE'], counts['CLAIMED'], counts['FREE'], counts['BLOCKED'], counts['TO-MINT'], counts['MISSING']))
     if not a.quiet: print('\n'.join(lines))
+# per-language rollup — the 7-way view I22 asks for; PL aggregates ladders T/C/P since Prolog has no single table of its own
+for L in ('SNO', 'SC', 'ICN', 'PAS', 'RAKU', 'REB', 'PL'):
+    ids = LANG_LADDERS[L]
+    members = {r['row'] for lid in ids if lid in ladder_by_id for r in ladder_by_id[lid]['rungs'] if not r['row'].startswith('TO-MINT')}
+    members |= {t for t, tok in links_ladders.items() if tok & ids}
+    d = c = f = b = m = 0
+    for t in members:
+        if is_done(t): d += 1
+        elif t in claims: c += 1
+        elif t in queue:
+            if queue[t]['state'] in ('FREE', ''): f += 1
+            else: b += 1
+        else: m += 1
+    print('LADDER-TABLE %s members=%d done=%d claimed=%d free=%d blocked=%d missing=%d' % (L, len(members), d, c, f, b, m))
 # V2 off-ladder seats
 for t, c in sorted(claims.items()):
     h = c['holder']
@@ -92,9 +126,11 @@ for t, c in sorted(claims.items()):
 for t, q in sorted(queue.items(), key=lambda kv: (kv[1]['rank'], kv[0])):
     if t in rung_rows or q['state'] not in ('FREE', ''): continue
     if q['rank'] <= 1 and not is_done(t) and t not in claims: viol('V4 RANK INVERSION', 'off-ladder FREE row %s at rank %d — the picker serves it before rungs at that rank' % (t, q['rank']))
-# V6 orphans
+# V6 orphans — any row of any recognized language (not just Prolog) sitting on no ladder: no table entry, no LADDER:<tok> LINKS tag, no NON-LADDER exemption
 for t, q in sorted(queue.items()):
-    if 'prolog' in t and t not in rung_rows and q['state'] in ('FREE', '') and not is_done(t) and t not in claims: viol('V6 ORPHAN', '%s is a FREE Prolog row on no ladder (rank %d) — hq_C/hq_P place it on a rung or retire it' % (t, q['rank']))
+    L = row_lang(t)
+    if L and q['state'] in ('FREE', '') and not is_done(t) and t not in claims and t not in non_ladder and not on_ladder(t):
+        viol('V6 ORPHAN', '%s is a FREE %s row on no ladder (rank %d) — its owning HQ places it on a rung, tags LINKS: LADDER:<id>, or marks NON-LADDER' % (t, L, q['rank']))
 print('VIOLATIONS: %d' % len(V))
 for v in V: print('  ' + v)
 sys.exit(1 if V else 0)
