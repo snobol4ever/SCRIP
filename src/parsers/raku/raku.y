@@ -70,10 +70,14 @@ static void rk_mark_arrlit_scalar(const char *bare, const tree_t *rhs) {
     if (rk_is_arrlit_scalar(bare) || rk_arrlit_scalars_n >= RK_ARRNAME_MAX) return;
     rk_arrlit_scalars[rk_arrlit_scalars_n++] = intern(bare);
 }
+static const char *rk_var_ident(const char *s) {
+    if (s && (s[0] == '@' || s[0] == '%')) return s;
+    return strip_sigil(s);
+}
 static tree_t *var_node(const char *name) {
-    const char *bare = strip_sigil(name);
-    if (name && name[0] == '@') rk_mark_array_name(bare);
-    return leaf_sval(TT_VAR, bare);
+    const char *id = rk_var_ident(name);
+    if (name && name[0] == '@') rk_mark_array_name(id);
+    return leaf_sval(TT_VAR, id);
 }
 static const char *testop_rt(const char *s) {
     if (!s) return "__rk_test_ok";
@@ -351,8 +355,7 @@ static tree_t *lower_interp_str(const char *s) {
             if (litpos>0) { litbuf[litpos]='\0';
                 tree_t *lit=leaf_sval(TT_QLIT,litbuf);
                 result=result?expr_binary(TT_CAT,result,lit):lit; litpos=0; }
-            i++;
-            char vname[256]; int vlen=0;
+            char vname[256]; int vlen=0; vname[vlen++]=s[i]; i++;
             while (i<len&&(s[i]=='_'||(s[i]>='A'&&s[i]<='Z')||(s[i]>='a'&&s[i]<='z')||(s[i]>='0'&&s[i]<='9')))
                 { if(vlen<255) vname[vlen++]=s[i]; i++; }
             vname[vlen]='\0';
