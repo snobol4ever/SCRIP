@@ -23,7 +23,7 @@ int  pascal_get_lineno(void) { return pascal_yylineno; }
 %option prefix="pascal_yy"
 %option yylineno
 %option caseless
-%x COMMENT BRACE
+%x COMMENT BRACE IFDEF_HDR IFDEF_BODY IFDEF_END
 DIGIT    [0-9]
 ALPHA    [A-Za-z_]
 ALNUM    [A-Za-z0-9_]
@@ -33,6 +33,16 @@ ALNUM    [A-Za-z0-9_]
 <COMMENT>"*)"           { BEGIN INITIAL; }
 <COMMENT>.              { }
 <COMMENT>\n             { }
+"{$ifdef"               { BEGIN IFDEF_HDR; }
+<IFDEF_HDR>"}"          { BEGIN IFDEF_BODY; }
+<IFDEF_HDR>.            { }
+<IFDEF_HDR>\n           { }
+<IFDEF_BODY>"{$endif"   { BEGIN IFDEF_END; }
+<IFDEF_BODY>.           { }
+<IFDEF_BODY>\n          { }
+<IFDEF_END>"}"          { BEGIN INITIAL; }
+<IFDEF_END>.            { }
+<IFDEF_END>\n           { }
 "{"                     { BEGIN BRACE; }
 <BRACE>"}"              { BEGIN INITIAL; }
 <BRACE>.                { }
