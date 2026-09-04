@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # jcon_selfhost_build.sh -- bootstrap the full SCRIP JCON self-host toolchain from a fresh container.
-# Builds: scrip (-O0), libscrip_rt.so (-O0 for feature work / -O2 for perf), the 17-module SCRIP-jtran,
+# Builds: scrip (-O0), libscrip_rt.so (-O0 -- ALWAYS; see below), the 17-module SCRIP-jtran,
 # the 2-module SCRIP-jlink, and the JCON Java runtime jcon.zip. All artifacts land in $JT (default /home/claude/jt).
-# Feature work uses -O0 (RULES: -O2 only for performance work); pass PERF=1 for the -O2 runtime build.
-# Usage: bash scripts/jcon_selfhost_build.sh            # feature build (-O0 runtime)
-#        PERF=1 bash scripts/jcon_selfhost_build.sh     # perf build (-O2 runtime)
+# RT_OPT IS -O0 AND THERE ARE NO -O2 BUILDS, EVER (Lon s262 FACT RULE, RULES.md sec FACT RULES; Makefile:34).
+# The PERF=1 arm that once built this runtime at -O2 was DELETED 2026-09-03 -- it was a live executable
+# contradiction of that rule, and it survived because test_gate_digest_matches_rules.sh polices the per-root
+# digests, not scripts/. The replacement guard is scripts/test_gate_no_o2_arm_in_scripts.sh.
+# Usage: bash scripts/jcon_selfhost_build.sh            # the only build (-O0 runtime)
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/resources)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 set -euo pipefail
@@ -17,8 +19,7 @@ JT=${JT:-$S4A/jt}
 RT="$SCRIP/out"
 JCOMPILER="$CORPUS/icon/jcon-compiler"
 SEMI="$SCRIP/tools/semicolonize_icon.py"
-if [ "${PERF:-0}" = "1" ]; then RTOPT='-O2 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer';
-else RTOPT='-O0 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer'; fi
+RTOPT='-O0 -g -fno-strict-aliasing -fwrapv -fno-omit-frame-pointer'
 
 echo "== [1/7] link repos to expected paths + refs =="
 ln -sfn "$SCRIP" $S4E/SCRIP; ln -sfn "$CORPUS" $S4E/corpus
