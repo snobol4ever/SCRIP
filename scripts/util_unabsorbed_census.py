@@ -1,0 +1,55 @@
+#!/usr/bin/env python3
+# util_unabsorbed_census.py -- WHICH OF OUR OWN SOURCES ARE NOT YET IN THE ONE-LINER / MULTI-LINER MASTER (ceo, 2026-09-04,
+# on Lon's order: "For every source from every language that we've generated or that existed in corpus which is not
+# part of any third-party package, if you can get it to run and it has output then add that to the test suite list.
+# I.e. All our testing should be ONE-LINER and MULTI-LINER Python test suite. Oh yeah, CEO, have you ensured that all
+# test sources have been moved into the ONE-LINER and MULTI-LINER?").
+#   python3 scripts/util_unabsorbed_census.py [--lang L] [--list]
+# Walks corpus/ minus packages/ (third-party is the package instrument's business). Every source by extension is one of:
+# container (ALL.<ext>), module (include/, library/ -- no main, never absorbed alone), accounted (named in
+# tests/<lang>/ALL.excluded.txt with a reason), loose pair (has a .ref/.expected/.std beside it), fixture
+# (parser/coverage trees or parser_/probe_/coverage_ names), loose source with no ref. Prints the population per tree
+# and language; rc=0 when no unaccounted runnable source remains for the languages asked, rc=1 naming what is owed,
+# rc=2 when corpus/ cannot be read. A DONE-WHEN reads its rc, never a pinned count.
+import argparse, collections, csv, os, re, sys
+S4E = os.environ.get('S4E_HOME') or os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+C = os.path.join(S4E, 'corpus')
+EXT = {'sno': 'snobol4', 'sc': 'snocone', 'icn': 'icon', 'pl': 'prolog', 'reb': 'rebus', 'raku': 'raku', 'pas': 'pascal'}
+ap = argparse.ArgumentParser(); ap.add_argument('--lang', default=''); ap.add_argument('--list', action='store_true'); A = ap.parse_args()
+if not os.path.isdir(os.path.join(C, 'tests')): print('REFUSE(2): no corpus/tests under %s' % C); sys.exit(2)
+excluded = collections.defaultdict(set)
+for lang in set(EXT.values()):
+    p = os.path.join(C, 'tests', lang, 'ALL.excluded.txt')
+    if os.path.exists(p):
+        for line in open(p, errors='replace'):
+            line = line.strip()
+            if line and not line.startswith('#'): excluded[lang].add(line.split()[0])
+rows = collections.defaultdict(collections.Counter); owed = collections.defaultdict(list)
+for root, dirs, files in os.walk(C):
+    rel = os.path.relpath(root, C)
+    if rel.startswith('packages') or '/.git' in root or rel.startswith('.git'): continue
+    for f in files:
+        ext = f.rsplit('.', 1)[-1] if '.' in f else ''
+        if ext not in EXT: continue
+        lang = EXT[ext]
+        if A.lang and lang != A.lang: continue
+        path = os.path.normpath(os.path.join(rel, f)); top = path.split(os.sep)[0]; base = f[:-len(ext) - 1]
+        if f.startswith('ALL.'): kind = 'container'
+        elif top in ('include', 'library'): kind = 'module'
+        elif base in excluded[lang] or path in excluded[lang] or f in excluded[lang]: kind = 'accounted (excluded with a reason)'
+        elif any(os.path.exists(os.path.join(root, base + s)) for s in ('.ref', '.expected', '.std')): kind = 'loose pair (has ref)'; owed[lang].append(path)
+        elif re.search(r'(^|/)(parser|coverage)/', path) or re.match(r'parser_|probe_|coverage_', f): kind = 'fixture'; owed[lang].append(path)
+        else: kind = 'loose source (no ref)'; owed[lang].append(path)
+        rows[(top, lang)][kind] += 1
+print('%-12s %-8s %9s %6s %10s %10s %8s %12s' % ('tree', 'lang', 'container', 'module', 'accounted', 'loose-pair', 'fixture', 'loose-noref'))
+tot = collections.Counter()
+for (top, lang), c in sorted(rows.items()):
+    print('%-12s %-8s %9d %6d %10d %10d %8d %12d' % (top, lang, c['container'], c['module'], c['accounted (excluded with a reason)'], c['loose pair (has ref)'], c['fixture'], c['loose source (no ref)']))
+    for k, v in c.items(): tot[k] += v
+n = sum(len(v) for v in owed.values())
+print('UNABSORBED_CENSUS%s: containers=%d modules=%d accounted=%d OWED=%d (loose pairs %d, fixtures %d, loose no-ref %d) -- an owed source is absorbed into its master with an oracle-cut ref, or named in ALL.excluded.txt with the reason it cannot run with output' % (' lang=' + A.lang if A.lang else '', tot['container'], tot['module'], tot['accounted (excluded with a reason)'], n, tot['loose pair (has ref)'], tot['fixture'], tot['loose source (no ref)']))
+for lang in sorted(owed): print('  %-8s owed %d' % (lang, len(owed[lang])))
+if A.list:
+    for lang in sorted(owed):
+        for p in sorted(owed[lang]): print('    ' + p)
+sys.exit(1 if n else 0)
