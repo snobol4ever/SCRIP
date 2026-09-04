@@ -1292,6 +1292,33 @@ TASKEOF
          echo "minted $topic (rank $rank, owner unassigned, state FREE) -> $b";;
   next)  q="$PO/QUEUE.tsv"; mkdir -p "$PO/claims"
          s4e_mode_line
+         # ⛔⭐ MODE GATES DISPATCH -- IT IS NOT DECORATION (row next-refuses-to-dispatch-to-an-hq-seat-when-mode-
+         # line-1-is-ceo; hq_C measured 2026-09-03 18:51). `next` printed "MODE: CEO" and dispatched in the SAME
+         # PRINTOUT: it served and LOCKED prolog-bagof-setof-...-rung-8b to hq_C at a moment when no HQ was standing.
+         # ⛔ The damage is not the wasted turn, it is the LOCK: a claimed row leaves the picker, so a stood-down
+         # identity holding a claim HIDES THAT ROW FROM THE WHOLE FLEET -- and it arrives by a route nobody watches.
+         # `fleet` is the health view for a seat that STALLS; it has nothing to say about one that was never meant to
+         # be running at all. Reading a value only to PRINT it is the same class as the board that computed its
+         # failure names and sent them to /dev/null: the information was produced and then not used.
+         # ⛔ THE ceo IS NEVER REFUSED. s4e_is_hq() deliberately counts ceo as an HQ (it is an AUTHORITY test, used by
+         # unclaim's force path), but under MODE CEO the ceo is precisely who works the rows. So this guard matches on
+         # the IDENTITY SHAPE and must NOT be rewritten to call that predicate -- they answer different questions.
+         # ⛔ AN ABSENT OR EMPTY MODE DOES NOT REFUSE HERE: s4e_mode_line above already says so loudly, and every
+         # existing s4e gate fixture omits the file. Turning that into a refusal is a different row, not a free extra.
+         _mode="$(head -1 "$PO/MODE" 2>/dev/null | tr -d '[:space:]')"
+         _refuse_dispatch() {
+             printf '⛔ REFUSING TO DISPATCH (rc=2): you are %s, %s, and MODE line 1 is %s.\n' "$ME" "$1" "$_mode" >&2
+             printf '   Authority: %s/MODE (first line). %s\n' "$PO" "$2" >&2
+             printf '   A claim taken by a stood-down identity HIDES that row from the whole fleet -- which is why this\n' >&2
+             printf '   is a REFUSAL and not a warning. If the mode is wrong, ask ceo to publish the real one.\n' >&2
+             exit 2; }
+         case "$ME" in
+           ceo) : ;;
+           hq|hq_?) case "$_mode" in
+                      CEO) _refuse_dispatch "an HQ" "Under CEO no HQ is standing -- the ceo works the rows itself.";; esac;;
+           seat*)   case "$_mode" in
+                      CEO|DUO|DUET|TRIO|QUARTET) _refuse_dispatch "a fleet seat" "There is NO FLEET in $_mode -- only the ceo and the HQs work rows. (DUO is the pre-rename spelling of DUET and is refused too.)";; esac;;
+         esac
          # ⛔⭐ s265 — A STALE CLONE SILENTLY REVERTS TO PRE-V2 DISPATCH, AND THAT IS NOW A REFUSAL, NOT A WARNING.
          # Measured the same day by TWO seats: seat09's clone was 79 commits behind and seat13's was 2, so both ran
          # v1's flat file-order picker — no rank sort, no assign-awareness. seat09 locked a rank-1 row while its own
