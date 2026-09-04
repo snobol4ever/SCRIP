@@ -208,13 +208,13 @@ WS       [ \t\r]
 "$!"            { raku_yylval.sval = strdup("$!"); return VAR_SCALAR; }
 "@*"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_ARRAY; }
 "%*"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_HASH; }
-"$"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_SCALAR; }
+"$"{ALPHA}{ALNUM}*("-"{ALPHA}{ALNUM}*)*  { raku_yylval.sval = strdup(yytext); return VAR_SCALAR; }
 "**@"{ALPHA}{ALNUM}* { raku_yylval.sval = strdup(yytext+2); return SLURPY_LOL; }
 "*@"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return SLURPY_POS; }
 "*%"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return SLURPY_NAMED; }
 "@"{ALPHA}{ALNUM}*"[*]"  { char *s = strdup(yytext); s[yyleng - 3] = '\0'; raku_yylval.sval = s; return ARR_ALL_SLICE; }
-"@"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_ARRAY; }
-"%"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext); return VAR_HASH; }
+"@"{ALPHA}{ALNUM}*("-"{ALPHA}{ALNUM}*)*  { raku_yylval.sval = strdup(yytext); return VAR_ARRAY; }
+"%"{ALPHA}{ALNUM}*("-"{ALPHA}{ALNUM}*)*  { raku_yylval.sval = strdup(yytext); return VAR_HASH; }
 "\\"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return VAR_SCALAR; }
 {ALPHA}{ALNUM}*("::"{ALPHA}{ALNUM}*)+ { raku_yylval.sval = strdup(yytext); return QIDENT; }
 {ALPHA}{ALNUM}*("-"{ALPHA}{ALNUM}*)* { raku_yylval.sval = strdup(yytext); return IDENT; }
