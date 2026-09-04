@@ -137,7 +137,7 @@ static tree_t *parse_primary(IcnParser *p) {
             return seq;
         }
         if (check(p, TK_COMMA)) {
-            tree_t *seq = ast_node_new(TT_SEQ_EXPR);
+            tree_t *seq = ast_node_new(TT_CONJ);
             push_child(seq, first);
             while (check(p, TK_COMMA)) {
                 advance(p);
