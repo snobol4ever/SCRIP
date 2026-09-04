@@ -225,7 +225,7 @@ def build(pkg_dir, lang, out_prefix="ALL"):
     table_lang = lang or "snobol4"
     cols, _ = m.LANG_TABLES[table_lang]
     with open(out_csv, "w", newline="") as f:
-        w = csv.writer(f)
+        w = csv.writer(f, lineterminator="\n")
         w.writerow(["rank", "entry", "origin", "package", "n_lines", "stdin", "want_rc"] + [c for c, _fn in cols])
         for e in entries:
             joined = "\n".join(e.sno_lines)
