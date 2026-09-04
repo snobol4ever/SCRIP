@@ -384,7 +384,34 @@ def cmd_write(a):
             gpure = len(gchunks) <= 1 and re.search(r"\d+\s*/\s*\d+|PASS=|FAIL=|\bpass\b", gbare or "", re.I)
             glost = [] if gpure else cell_prose_loss(gbare, gnew)
             gnew = (gnew + " " + GRID_STAMP % (time.strftime("%Y-%m-%d"), a.measurer or derive_measurer() or "unknown")).strip()
-            if gbare == gnew:
+            # ⛔⭐⭐ THE TWO COLUMNS HAVE DIFFERENT CONTRACTS AND A VERBATIM COPY BETWEEN THEM PUBLISHES A
+            # WRONG PERCENTAGE. Measured by hq_P as the first customer of the dual-write, on the live board:
+            # the DISPLAY board column wants "the runner's OWN printed board line", and `test_corpus_snobol4.sh`
+            # prints `m3 PASS=1698 FAIL=0 · m4 PASS=1698 FAIL=0 SKIP=0 MISSING=0` -- which contains NO N/M
+            # fraction. The GRID M column is PARSED for one. So the copy left a fractionless grid cell,
+            # cell_fractions returned nothing for M, and the progress line silently fell back to the V column
+            # alone: snobol4 read **55%** instead of 91% -- confidently wrong by 36 points, on the exact line
+            # the ceo reads to answer Lon, and NOT marked `?`.
+            # ⭐ PASCAL HID IT, which is the part worth keeping: pascal's board line happens to be phrased
+            # `166/166 · 5/5 · 161/161`, so its fraction survived the copy and pascal stayed correct the whole
+            # time. One language passing and one failing off the same code path for no reason but PROSE STYLE
+            # -- which is exactly why it read as a snobol4 problem rather than as a dual-write problem, and why
+            # checking one language would have cleared it.
+            # ⛔ DERIVING A FRACTION IS THE OBVIOUS FIX AND IT IS WORSE THAN THE BUG. `PASS=1698 FAIL=0` does
+            # not carry the population: the real denominator is 1736 (xfail and friends live outside the
+            # pass/fail split), so pass/(pass+fail) would publish 1698/1698 = 100%. A silent 100% is far more
+            # dangerous than a silent 55%. So this REFUSES the grid half and says what to do, the same shape
+            # as the prose guard: wrong is worse than missing on this line.
+            if not cell_fractions(gnew)[0]:
+                gnote = ("  ⚠ grid %s NOT updated -- this board line carries NO `N/M` fraction, and the grid %s "
+                         "column is PARSED for one. Writing it would leave a cell that reads as ZERO for this "
+                         "population and publish a confidently wrong percentage rather than a `?`.\n"
+                         "      text: %s\n"
+                         "      Give the board line a fraction (e.g. `m3 1698/1736 FAIL=0`) so ONE text "
+                         "satisfies both columns, then re-run. Do NOT let this helper derive pass/(pass+fail) "
+                         "-- that denominator is not the population and would publish 100%%."
+                         % (gkey, gkey, gnew[:200]))
+            elif gbare == gnew:
                 gnote = "  grid %s: already agrees, nothing to write" % gkey
             elif not gpure:
                 glost = glost or [gbefore]
@@ -686,6 +713,20 @@ def cmd_selftest(a):
                 print("SELFTEST: %s" % label)
             else:
                 print("SELFTEST FAIL: %s -- mark %r, wanted %r (%s)" % (label, mark, want, "; ".join(_w))); ok = False
+        # ⛔⭐ THE GRID M COLUMN IS PARSED FOR A FRACTION AND THE DISPLAY COLUMN IS NOT -- a verbatim copy
+        # between them published snobol4 at 55%% instead of 91%% (hq_P, as the dual-write's first customer).
+        # Both directions pinned: the PASS=N board line -- which is the NATURAL way to print a board -- must
+        # never reach the grid, and the fraction form must still land, or the guard would make the whole
+        # dual-write inert while looking careful.
+        for label, txt, want_frac in (
+                ("a PASS=N board line carries no fraction the grid column can parse",
+                 "m3 PASS=1698 FAIL=0 · m4 PASS=1698 FAIL=0 SKIP=0 MISSING=0", False),
+                ("a board line WITH a fraction is grid-writable", "m3 1698/1736 FAIL=0 · m4 1698/1736", True)):
+            got = bool(cell_fractions(txt)[0])
+            if got == want_frac:
+                print("SELFTEST: %s" % label)
+            else:
+                print("SELFTEST FAIL: %s -- fraction=%s, wanted %s" % (label, got, want_frac)); ok = False
     finally:
         SCORE_MD = real
         shutil.rmtree(d, ignore_errors=True)
