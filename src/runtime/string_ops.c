@@ -125,31 +125,40 @@ const char *real_str(double r, char *buf, int bufsz) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *icon_real_str(double r, char *buf, int bufsz) {
+    /* Arizona Icon's default real-conversion, re-derived empirically against /home/resources/icon-master's
+     * icont/iconx (never assume -- see corpus/tests/icon/icon_real_scan_coercion_exponent_threshold.icn and
+     * task prolog-rung... no, icon-jcon-class-real-str-icon-real-str-divergence's ledger for the probe battery):
+     * ALWAYS 10 significant digits (fixed precision, not a shortest-round-trip search -- %.9e lets the C
+     * library's own correctly-rounding formatter absorb a rounding carry into E, e.g. 9999999999.6 -> "1e+10",
+     * exponent bumped by the carry), trailing zeros stripped (min 1 digit kept), fixed notation for
+     * -4 <= E <= 9 else exponential, exponent ALWAYS signed and zero-padded to >=2 digits (%+03d), and NO
+     * decimal point at all in exponential notation when exactly one significant digit survives stripping
+     * (oracle prints "1e+10", never "1.0e+10"). isnan/isinf/true-zero unchanged (already oracle-correct). */
     if (isnan(r)) { snprintf(buf, (size_t)bufsz, "%s", "nan"); return buf; }
     if (isinf(r)) { snprintf(buf, (size_t)bufsz, "%s", r < 0 ? "-inf" : "inf"); return buf; }
     int neg = (r < 0.0); double ar = fabs(r);
     if (ar == 0.0) { snprintf(buf, (size_t)bufsz, "%s", neg ? "-0.0" : "0.0"); return buf; }
     char sci[64];
-    for (int prec = 0; prec <= 17; prec++) { snprintf(sci, sizeof sci, "%.*e", prec, ar); if (strtod(sci, (char **)0) == ar) break; }
+    snprintf(sci, sizeof sci, "%.9e", ar);
     char digits[40]; int nd = 0; int E = 0; const char *p = sci;
     if (*p >= '0' && *p <= '9') digits[nd++] = *p++;
     if (*p == '.') { p++; while (*p >= '0' && *p <= '9' && nd < (int)sizeof digits - 1) digits[nd++] = *p++; }
     if (*p == 'e' || *p == 'E') { p++; E = (int)strtol(p, (char **)0, 10); }
     while (nd > 1 && digits[nd - 1] == '0') nd--;
     digits[nd] = '\0';
-    char out[96]; int o = 0;
+    char out[64]; int o = 0;
     if (neg) out[o++] = '-';
-    if (E >= -3 && E <= 6) {
+    if (E >= -4 && E <= 9) {
         if (E >= 0) {
             int intdigits = E + 1;
             if (nd <= intdigits) { for (int i = 0; i < nd; i++) out[o++] = digits[i]; for (int i = nd; i < intdigits; i++) out[o++] = '0'; out[o++] = '.'; out[o++] = '0'; }
             else { for (int i = 0; i < intdigits; i++) out[o++] = digits[i]; out[o++] = '.'; for (int i = intdigits; i < nd; i++) out[o++] = digits[i]; }
         } else { out[o++] = '0'; out[o++] = '.'; for (int i = 0; i < -E - 1; i++) out[o++] = '0'; for (int i = 0; i < nd; i++) out[o++] = digits[i]; }
     } else {
-        out[o++] = digits[0]; out[o++] = '.';
-        if (nd > 1) { for (int i = 1; i < nd; i++) out[o++] = digits[i]; } else out[o++] = '0';
+        out[o++] = digits[0];
+        if (nd > 1) { out[o++] = '.'; for (int i = 1; i < nd; i++) out[o++] = digits[i]; }
         out[o++] = 'e';
-        o += snprintf(out + o, sizeof out - (size_t)o, "%d", E);
+        o += snprintf(out + o, sizeof out - (size_t)o, "%+03d", E);
     }
     out[o] = '\0';
     snprintf(buf, (size_t)bufsz, "%s", out);

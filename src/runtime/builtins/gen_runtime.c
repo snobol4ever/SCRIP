@@ -51,7 +51,11 @@ unsigned long rt_scan_state_size(void) { return (unsigned long)sizeof(ScanState)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi) {
     uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
-    if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str(sv);
+    /* Icon `?` scan entry ONLY -- confirmed empirically (rt_match_enter, a separately-named function,
+     * is what SNOBOL4 pattern matching calls instead; zero rt_scan_enter refs in a compiled SNOBOL4
+     * program). Real subjects must format per Icon's OWN real-conversion, not SNOBOL4's SPITBOL-style
+     * full-precision one -- row icon-jcon-class-real-str-icon-real-str-divergence. */
+    if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str_fracdigit(sv);
     scan_depth++;
     if (scan_saved_depth > scan_depth - 1) scan_saved_depth = scan_depth - 1;
     rt_gc_point(&sv, (const char **)0);
@@ -68,7 +72,7 @@ ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ScanSubjRegs rt_scan_needle(uint64_t lo, uint64_t hi) {
     uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
-    if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str(sv);
+    if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str_fracdigit(sv);
     const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
     if (!s) s = "";
     uint64_t L = (sv.v == DT_S && sv.slen && s == sv.s) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
@@ -213,7 +217,7 @@ DESCR_t rt_rev_swap_undo(long lkind, DESCR_t *lp, long rkind, DESCR_t *rp, DESCR
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ScanSubjRegs rt_keyword_subject_set(uint64_t lo, uint64_t hi) {
     uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
-    if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str(sv);
+    if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str_fracdigit(sv);
     if (!(IS_STR_fn(sv) || IS_NULL_fn(sv))) { ScanSubjRegs r; r.ptr = 0; r.len = 0; return r; }
     const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
     if (!s) s = "";
