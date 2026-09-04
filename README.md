@@ -220,7 +220,7 @@ against SPITBOL before any arm is timed.
 BENCHMARK BASIS). Triangulator: `scripts/bench_triangulate_snobol4.sh` (angle 1
 `test_bench_snobol4_timed.sh` fixed TIME, angle 2 `bench_snobol4_fixed_iter.sh` fixed
 ITERATIONS, angle 3 disk telemetry via `tools/bench_rusage`).
-*Measured 2026-09-04 on SCRIP `380cc4162` / corpus `201d9e021`, **RT_OPT=-O0**, modes
+*Measured 2026-09-04 on SCRIP 380cc4162 / corpus `201d9e021`, **RT_OPT=-O0**, modes
 m3 and m4, oracle `spitbol-bench-oracle/sbl -bf` (the clean benchmark oracle, never the
 monitor-hooked correctness one).* A kernel is published only when angle 1 and angle 2
 AGREE on **both** the SPITBOL arm and the SCRIP arm; 12 of 19 kernels qualified.
@@ -609,7 +609,7 @@ are in the corpus.
 hand-translated equivalent program, `corpus/benchmarks/snobol4/{fib_recur,arith_loop_twin,
 string_concat_twin}.sno`, is the fair rival). Boards: `scripts/bench_triangulate_snocone.sh`
 (totals) and `scripts/bench_two_number_ir.sh snocone` (the two-number split below).
-*Measured 2026-09-04 on SCRIP `380cc4162` / corpus `201d9e021`, **RT_OPT=-O0**, mode m4 vs
+*Measured 2026-09-04 on SCRIP 380cc4162 / corpus `201d9e021`, **RT_OPT=-O0**, mode m4 vs
 the CLEAN SPITBOL benchmark oracle `sbl_clean_bin() -bf` (never `x64/bin/sbl`), outputs
 verified identical before measuring.*
 
@@ -647,7 +647,7 @@ SCRIP's own callgrind Ir per kernel rather than fabricate a "× vs" ratio with n
 the other side of it (RULES.md § THE INSTRUMENT LAWS: a comparison that cannot show
 what it is commensurable with is not one):
 
-*Measured 2026-09-04 on SCRIP `380cc4162` / corpus `201d9e021`, **RT_OPT=-O0**, boards
+*Measured 2026-09-04 on SCRIP 380cc4162 / corpus `201d9e021`, **RT_OPT=-O0**, boards
 `scripts/bench_triangulate_rebus.sh` (totals) and `scripts/bench_two_number_ir.sh rebus`
 (the two-number split). **Basis: callgrind Ir — instructions retired, not time, and ONE
 angle**; Rebus has no fixed-time or fixed-iteration harness yet, so this is a labelled
