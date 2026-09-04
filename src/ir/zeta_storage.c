@@ -749,6 +749,15 @@ int zls_node_bytes(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); if (!
 int zls_scope_of(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); return e ? e->scope_id : -1; }
 int zls_g_nslots(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->nslots : -1; }
 int zls_g_region(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->region : -1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void zls_forget_graph_nodes(const IR_graph_t * g) {
+    if (!g) return;
+    for (int i = 0; i < ze_n; i++) { if (!ze[i].nd) continue;
+        for (int k = 0; k < g->n; k++) if (g->all[k] == ze[i].nd) { ze[i].nd = (const IR_t *)0; break; } }
+    zx_n = 0;
+    for (int i = 0; i < ze_n; i++) if (ze[i].nd) zx[zx_n++] = &ze[i];
+    qsort(zx, zx_n, sizeof(zls_entry_t *), zx_cmp);
+}
 int zls_g_resume(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->resume_off : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zls_g_resume_by_name(const char *name) {
@@ -908,3 +917,4 @@ void zop_audit_report(void) {
     { int k; const char * nm[16] = {"-","isle","cell","isle+cell","rsp","isle+___","cell+___","isle+cell+___","rsp","isle+rsp","cell+rsp","isle+cell+rsp","___+rsp","+","cell+___+rsp","all"};
       for (k = 0; k < 16; k++) if (zop_hist[k]) fprintf(stderr, "[ZOP]   %-18s %ld\n", nm[k], zop_hist[k]); }
 }
+int zls_g_first_scope(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->first_scope : -1; }

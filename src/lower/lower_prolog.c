@@ -927,6 +927,7 @@ void * pl_runtime_define_pred(const char * key, const tree_t * choice, int arity
     g = g_stage2.bbp.table[idx];
     if (!g) return (void *)0;
     g->zframe_graph = 1; g->zframe_pinned_base = 1;
+    { extern void zls_forget_graph_nodes(const IR_graph_t *); zls_forget_graph_nodes(g); }
     { extern void ir_drive_slot_assign(IR_graph_t *); ir_drive_slot_assign(g); }
     cfg_sv = g_emit_cfg; g_emit_cfg = g;
     fa = g_frame_active; g_frame_active = 1;
@@ -942,7 +943,12 @@ void * pl_runtime_define_pred(const char * key, const tree_t * choice, int arity
     { extern int g_flat_dc_np; extern int rt_pl_dc_ok(const char *, int); g_flat_dc_np = rt_pl_dc_ok(key, g->nparams) ? g->nparams : -1; }
     zls_graph_name(g, key);
     { char pfx[300]; snprintf(pfx, sizeof pfx, "proc_%s", key);
-      if (getenv("SCRIP_PL_RTASM")) { fprintf(stderr, "[RTASM] ---- runtime fragment for %s ----\n", key); emit_chain(g->entry, stderr, pfx); fprintf(stderr, "[RTASM] ---- end %s ----\n", key); }
+      if (getenv("SCRIP_PL_RTASM")) { extern int zls_g_region(const IR_graph_t *); extern int zls_off(const IR_t *); int _mx = -1; for (int _i = 0; _i < g->n; _i++) if (g->all[_i]) { int _o = zls_off(g->all[_i]); if (_o > _mx) _mx = _o; }
+        fprintf(stderr, "[RTASM] %s: nodes=%d nparams=%d zls_region=%d max_granted_cell=%d %s\n", key, g->n, g->nparams, zls_g_region(g), _mx, (_mx >= 0 && _mx + 16 > zls_g_region(g)) ? "*** CELL OUTSIDE REGION ***" : "(in region)");
+        { extern int zls_scope_of(const IR_t *); extern int zls_g_first_scope(const IR_graph_t *); int _rs = zls_g_first_scope(g);
+          for (int _i = 0; _i < g->n; _i++) if (g->all[_i]) { int _o = zls_off(g->all[_i]); int _sc = zls_scope_of(g->all[_i]); if (_o < 0) continue;
+            fprintf(stderr, "[RTASM]   node[%d] op=%d off=%d scope=%d root_scope=%d %s\n", _i, (int)g->all[_i]->op, _o, _sc, _rs, (_sc >= 0 && _sc != _rs) ? "*** STALE ENTRY FROM ANOTHER GRAPH ***" : ""); } }
+        fprintf(stderr, "[RTASM] ---- runtime fragment for %s ----\n", key); emit_chain(g->entry, stderr, pfx); fprintf(stderr, "[RTASM] ---- end %s ----\n", key); }
       fn = emit_chain(g->entry, (FILE *)0, pfx); }
     emit_jmp_entry_clear();
     g_gen_proc_active = gpa_sv;

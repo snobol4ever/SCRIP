@@ -6215,7 +6215,7 @@ static tree_t * pl_cell_tree(DESCR_t *c, pl_ctv_t *vt) {
     DESCR_t *d = (DESCR_t *)pl_deref((pl_cell_t *)c);
     if (pl_cell_unbound(d)) {
         for (int i = 0; i < vt->n; i++) if (vt->addr[i] == (void *)d) { tree_t *v = ast_node_new(TT_VAR); v->v.sval = vt->nm[i]; return v; }
-        { char b[24]; tree_t *v = ast_node_new(TT_VAR); snprintf(b, sizeof b, "_A%d", vt->n); 
+        { char b[24]; tree_t *v = ast_node_new(TT_VAR); snprintf(b, sizeof b, "_A%d", vt->n);
           if (vt->n < 256) { vt->addr[vt->n] = (void *)d; vt->nm[vt->n] = rt_ws_strdup_c(b); v->v.sval = vt->nm[vt->n]; vt->n++; } else v->v.sval = rt_ws_strdup_c(b);
           return v; }
     }
