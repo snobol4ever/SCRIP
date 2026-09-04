@@ -210,6 +210,16 @@ def cmd_write(a):
     text = a.text.strip()
     if "|" in text or "|" in a.measurer:
         die("a '|' in the cell text would silently split the markdown row into the wrong columns -- rephrase it")
+    # ⛔ ';' IS merge_clause's OWN DELIMITER (and merge_prov's), so text carrying one gets silently
+    # torn apart the NEXT time anyone writes into a shared clause cell -- measured live landing the
+    # IPL row: a --text with two internal ';'s left two orphaned clause fragments (neither started
+    # with the --suite key, so neither matched, so neither got replaced or removed) sitting beside
+    # the real clause on the very next write. Same shape as the '|'/markdown-column check above, one
+    # delimiter over; refuse it before it can happen to the next runner. Use '·' (the project's own
+    # convention throughout SCORE.md) or ',' instead.
+    if ";" in text:
+        die("a ';' in the cell text is merge_clause's own clause delimiter and will silently fragment "
+            "on the next write to this cell -- use '·' or ',' instead")
     if not re.search(r"\d", text):
         die("--text carries no digit (%r). A leaderboard cell states a measurement; a cell with no number "
             "is prose, and the FACT RULE asks for the runner's own board line" % text)
@@ -368,7 +378,8 @@ def cmd_selftest(a):
                           ("unknown column", dict(lang="rebus", column="nosuch", text="1/1", measurer="s")),
                           ("no digit", dict(lang="rebus", column="board", text="looks fine", measurer="s")),
                           ("no measurer", dict(lang="rebus", column="board", text="1/1", measurer="")),
-                          ("pipe injection", dict(lang="rebus", column="board", text="1/1 | evil", measurer="s"))):
+                          ("pipe injection", dict(lang="rebus", column="board", text="1/1 | evil", measurer="s")),
+                          ("semicolon injection", dict(lang="rebus", column="board", text="1/1; evil", measurer="s"))):
             a3 = A(); a3.modes = ""; a3.dry_run = False; a3.suite = ""
             for k, v in kw.items(): setattr(a3, k, v)
             try:

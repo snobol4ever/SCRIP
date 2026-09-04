@@ -162,7 +162,7 @@ echo "IPL_SUITE_BOARD total=$TOTAL compile_graded=$COMPILE_GRADED compile_pass=$
 # (util_score_row.py cell_fractions()) as if it were verified-correct output. key=value only.
 python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite IPL \
     --measurer "${S4E_SEAT:-unknown-seat}" \
-    --text "IPL runner landed: compile_pass=$COMPILE_PASS compile_fail=$COMPILE_FAIL (linkgap=$LINKGAP parseerr=$PARSEERR timeout=$TIMEOUT_N other=$OTHER) of total=$TOTAL; nomain_ok=$NOMAIN_OK of nomain_total=$NOMAIN_TOTAL, hasmain_total=$HASMAIN_TOTAL; run_graded=0 (upstream IPL ships no .std oracle) -- no verified-correctness population yet, compile-graded-only (\`test_icon_ipl_suite.sh\`)" \
+    --text "compile_pass=$COMPILE_PASS compile_fail=$COMPILE_FAIL (linkgap=$LINKGAP parseerr=$PARSEERR timeout=$TIMEOUT_N other=$OTHER) of total=$TOTAL · nomain_ok=$NOMAIN_OK of nomain_total=$NOMAIN_TOTAL, hasmain_total=$HASMAIN_TOTAL · run_graded=0 (upstream IPL ships no .std oracle) -- no verified-correctness population yet, compile-graded-only (\`test_icon_ipl_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
 [ "$((COMPILE_PASS + COMPILE_FAIL))" -eq "$TOTAL" ] || { echo "⛔ BUCKET COUNTS DON'T SUM TO TOTAL -- instrument bug, refusing to trust the board"; exit 2; }
