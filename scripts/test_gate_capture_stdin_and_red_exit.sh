@@ -117,10 +117,18 @@ case "$board" in
 esac
 mv "$C/ALL.in.hidden" "$C/ALL.in"
 
-# ------------------------------------------------------- (5) the no-oracle refusal stays rc=3
+# ------------------------------------------------------- (5) the no-oracle refusal is a REFUSAL, and it is rc=2
+# ⛔ RE-POINTED FROM 3 TO 2 on 2026-09-04 (hq_T, row harness-refusal-exit-code-unified-on-rc-2, ceo CEO-233): the
+# harness carried its own local refusal code while lib_gate.sh and every bash gate use 2, and once the stale-binary
+# preflight landed inside that same harness -- correctly refusing with 2 -- one tool spoke two refusal codes and no
+# caller could ask "did it refuse?" without knowing which refusal it hit. ⭐ THE PROPERTY THIS ARM DEFENDS DID NOT
+# CHANGE and is the whole reason it exists: "no oracle wired" must not read as "some stems were RED". That is a
+# statement about rc=1, which has not moved; only the refusal's NUMBER moved, onto the one the fleet already tests
+# for. An arm that pinned the number instead of the property would have to be edited on every such unification --
+# so it now says WHY 2 is not 1, rather than merely that it is 3.
 out="$(python3 "$HARNESS" capture-oracle-refs "$F" --lang rebus 2>&1)"; rc=$?
-[ "$rc" = 3 ] && ok "unwired --lang still refuses with rc=3 (distinct from a RED rc=1)" \
-              || bad "unwired --lang exited $rc, want 3 -- 'no oracle' must not read as 'some stems were red'"
+[ "$rc" = 2 ] && ok "unwired --lang refuses with rc=2, the one refusal code (still distinct from a RED rc=1)" \
+              || bad "unwired --lang exited $rc, want 2 -- 'no oracle' is COULD NOT MEASURE, never 'some stems were red' (rc=1)"
 
 echo
 if [ "$fail" = 0 ]; then echo "✅ GATE OK: capture feeds stdin, proves the feed, refuses what it cannot feed, and never exits 0 on RED."; exit 0; fi
