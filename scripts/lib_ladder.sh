@@ -87,12 +87,18 @@ ladder_main() {
     master_extract_origin "$o" "$src" "$ref" >/dev/null 2>&1 || refuse "cannot extract $o from the master suite (lib_master_extract.sh)"
     name=$(master_entry_for_origin "$o") || refuse "no entry name for origin $o"
     want=$(wantrc "$name"); n=$((n+1))
-    r3=$( ( timeout "$T" "$SCRIP" --run "$src" </dev/null >"$W/$o.m3.out" 2>/dev/null; echo $? ) 2>/dev/null )
+    # ⛔⭐ STDIN (row icon-construct-ladder-from-rung-0, seat01): master_extract_origin already writes
+    # $W/$o.in via master_extract_name's --out-in whenever the origin has one (lib_master_extract.sh) --
+    # this loop just never looked for it and fed /dev/null unconditionally, so no ladder witness in ANY
+    # language could ever legitimately read() stdin. Purely additive: no .in present -> /dev/null, byte
+    # for byte the prior behavior.
+    local stdin_src="$W/$o.in"; [ -f "$stdin_src" ] || stdin_src=/dev/null
+    r3=$( ( timeout "$T" "$SCRIP" --run "$src" <"$stdin_src" >"$W/$o.m3.out" 2>/dev/null; echo $? ) 2>/dev/null )
     if [ "$r3" = "$want" ] && cmp -s "$W/$o.m3.out" "$ref"; then v3=PASS; pass=$((pass+1)); rp[$r]=$(( ${rp[$r]:-0} + 1 )); else v3="FAIL(rc=$r3)"; fail=$((fail+1)); rf[$r]=$(( ${rf[$r]:-0} + 1 )); fi
     v4=NOBUILD
     if (cd "$W" && timeout "$T" "$SCRIP" --compile -o "$o.s" "$src" </dev/null >/dev/null 2>&1) && [ -s "$W/$o.s" ] \
        && as --64 -o "$W/$o.o" "$W/$o.s" 2>/dev/null && gcc -no-pie -o "$W/$o.bin" "$W/$o.o" "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>/dev/null; then
-      r4=$( ( timeout "$T" "$W/$o.bin" </dev/null >"$W/$o.m4.out" 2>/dev/null; echo $? ) 2>/dev/null )
+      r4=$( ( timeout "$T" "$W/$o.bin" <"$stdin_src" >"$W/$o.m4.out" 2>/dev/null; echo $? ) 2>/dev/null )
       if [ "$r4" = "$want" ] && cmp -s "$W/$o.m4.out" "$ref"; then v4=PASS; else v4="FAIL(rc=$r4)"; fi
     fi
     if [ "$v4" = PASS ]; then pass=$((pass+1)); rp[$r]=$(( ${rp[$r]:-0} + 1 )); else fail=$((fail+1)); rf[$r]=$(( ${rf[$r]:-0} + 1 )); fi
