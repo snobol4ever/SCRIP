@@ -367,7 +367,10 @@ def cmd_write(a):
             gi = GRID_COLUMNS[gkey][0]
             grow = growsg[a.lang]
             gbefore = grow[gi]
-            gnew = merge_clause(gbefore, a.suite, text) if a.suite else text
+            # Strip any prior stamp before comparing, or the marker this write appended last time would
+            # itself read as prose the next write is about to lose.
+            gbare = re.sub(r"\s*" + GRID_STAMP_RE + r"\s*$", "", gbefore).strip()
+            gnew = merge_clause(gbare, a.suite, text) if a.suite else text
             # ⛔⭐ cell_prose_loss ALONE IS THE WRONG GATE HERE AND MEASURING IT SAID SO. It answers "does
             # `new` still contain everything `before` said", so the OLD MEASUREMENT -- which this write
             # exists to supersede -- always reads as a lost sentence. Run against the live board it blocked
@@ -377,10 +380,11 @@ def cmd_write(a):
             # check: a grid cell that is ONE sentence carrying a measurement is a pure mirror of the display
             # number, with no human commentary to lose. The moment a cell has a second sentence, a person
             # wrote it, and a runner does not get to decide whether it survives its number.
-            gchunks = [c for c in re.split(r'(?<=[.!?])\s+(?=[A-Z0-9⚠⛔⭐✅])', gbefore) if c.strip()]
-            gpure = len(gchunks) <= 1 and re.search(r"\d+\s*/\s*\d+|PASS=|FAIL=|\bpass\b", gbefore or "", re.I)
-            glost = [] if gpure else cell_prose_loss(gbefore, gnew)
-            if gbefore == gnew:
+            gchunks = [c for c in re.split(r'(?<=[.!?])\s+(?=[A-Z0-9⚠⛔⭐✅])', gbare) if c.strip()]
+            gpure = len(gchunks) <= 1 and re.search(r"\d+\s*/\s*\d+|PASS=|FAIL=|\bpass\b", gbare or "", re.I)
+            glost = [] if gpure else cell_prose_loss(gbare, gnew)
+            gnew = (gnew + " " + GRID_STAMP % (time.strftime("%Y-%m-%d"), a.measurer or derive_measurer() or "unknown")).strip()
+            if gbare == gnew:
                 gnote = "  grid %s: already agrees, nothing to write" % gkey
             elif not gpure:
                 glost = glost or [gbefore]
@@ -667,15 +671,16 @@ def cmd_selftest(a):
         def _prog(mcell, prov):
             g = list(_grid); g[GRID_COLUMNS["M"][0]] = mcell; g[GRID_COLUMNS["V"][0]] = ""
             return language_progress("snobol4", g, prov)
+        _st = lambda day: GRID_STAMP % (day, "hq_T")
         for label, mcell, prov, want in (
-                ("an old date in PROSE does not stale a cell whose label is TODAY",
-                 "m3 10/10 (seat08, 2026-09-03, FINDING-...-09-03-...md)", "board: SCRIP `a` %s CDT hq_T" % _today, ""),
-                ("a label older than today DOES stale it",
-                 "m3 10/10", "board: SCRIP `a` %s CDT hq_T" % _yday, "?"),
-                ("NO board clause reads STALE -- an undatable number is not a fresh one",
-                 "m3 10/10", "entries: SCRIP `a` %s CDT hq_T" % _today, "?"),
-                ("the cell's own word STALE still wins over a fresh label",
-                 "m3 10/10 STALE", "board: SCRIP `a` %s CDT hq_T" % _today, "?")):
+                ("an old date in PROSE does not stale a cell stamped TODAY",
+                 "m3 10/10 (seat08, 2026-09-03, FINDING-...-09-03-...md) " + _st(_today), "", ""),
+                ("a stamp older than today DOES stale it", "m3 10/10 " + _st(_yday), "", "?"),
+                ("NO stamp reads STALE -- an undatable number is not a fresh one", "m3 10/10", "", "?"),
+                ("the cell's own word STALE still wins over a fresh stamp",
+                 "m3 10/10 STALE " + _st(_today), "", "?"),
+                ("the stamp itself is never read as a population",
+                 "m3 10/10 " + _st(_today), "", "")):
             _pct, mark, _P, _T, _w = _prog(mcell, prov)
             if mark == want:
                 print("SELFTEST: %s" % label)
@@ -879,6 +884,17 @@ def language_progress(lang, cells, prov=""):
     P = T = 0
     work = []
     unreadable = False
+    # ⛔⭐⭐ VALUE AND LABEL COME FROM THE SAME TABLE OR THE LINE IS A LIE ABOUT ITSELF (ceo audit of
+    # 3fbee86c5, and the catch is exact). Keying staleness on the display's `board:` clause while still
+    # reading the NUMBER from the September-10 grid paired one table's value with the other table's
+    # freshness -- snobol4's grid said 1689/1736 labelled 09-03 while the display said 1698/1736 today, so
+    # the line published the OLD number wearing the NEW number's timestamp. ⭐ That is the same
+    # value-from-one-run stamp-from-another defect I had named in my own SCORE merge receipt an hour
+    # earlier and then committed myself, one table over: knowing a failure shape is not the same as
+    # recognising it, and the recognition came from someone else re-reading my landing.
+    # So BOTH now come from the standardized display, which is the table runners actually write and the
+    # only one carrying provenance. The grid stays the human-facing summary; the agree gate is what keeps
+    # the two honest about each other.
     for key in ("M", "V"):
         idx = GRID_COLUMNS[key][0]
         got, w = cell_fractions(cells[idx])
@@ -913,18 +929,17 @@ def language_progress(lang, cells, prov=""):
         work.append("M reads STALE by the cell's own word")
     label = ""
     if not stale:
-        mm = re.search(r"(?:^|;)\s*board\s*:([^;]*)", prov or "")
-        dm = re.search(r"(\d{4})-(\d{2})-(\d{2})", mm.group(1)) if mm else None
+        dm = re.search(GRID_STAMP_RE, mcell)
         if dm:
             label = dm.group(0)
             d = datetime.date(int(dm.group(1)), int(dm.group(2)), int(dm.group(3)))
             age = (datetime.date.today() - d).days
             stale = age >= 1
-            work.append("M label board: %s (%s)" % (label, "today" if age <= 0 else "%d day(s) old -- STALE" % age))
+            work.append("M stamp %s (%s)" % (label, "today" if age <= 0 else "%d day(s) old -- STALE" % age))
         else:
             stale = True
-            work.append("M has NO `board:` provenance clause on the display row -- age UNKNOWN, which is "
-                        "not the same as fresh, so it reads STALE until a runner writes one")
+            work.append("M carries NO canonical ⟨measured …⟩ stamp -- age UNKNOWN, which is not the same as "
+                        "fresh, so it reads STALE until a runner's write stamps this very cell")
     # ⭐ FLOOR, NEVER ROUND. A completion indicator that rounds shows 100% at 99.6%, which is the one
     # number on this line anybody will act on. Floor reaches 100% only when the work is actually done.
     if unreadable:
@@ -993,6 +1008,12 @@ def cmd_columns(a):
 # the raku cell carried TODAY'S date and a superseded number, because the date was written by an earlier
 # measurement that really was today. A timestamp cannot separate "true and current" from "true this morning".
 GRID_MIRROR = {"board": "M", "vendor": "V"}
+# ⛔⭐ THE GRID CELL CARRIES ITS OWN MACHINE-WRITTEN DATE, so the progress line reads VALUE and LABEL from the
+# SAME table. Reading the value from the grid and the freshness from the display row published the OLD number
+# wearing the NEW number's timestamp (ceo audit of 3fbee86c5; snobol4 grid 1689/1736 labelled with the display's
+# today). The marker is appended by cmd_write's grid half, contains no `N/M`, so no fraction reader ever sees it.
+GRID_STAMP = "⟨measured %s · %s⟩"
+GRID_STAMP_RE = r"⟨measured (\d{4})-(\d{2})-(\d{2}) · [^⟩]*⟩"
 
 
 def cmd_agree(a):
@@ -1070,7 +1091,12 @@ def cmd_progress(a):
         cells_out.append("%s %d%%%s" % (short, pct, mark))
         bars.append("%s %s" % (short, "█" * (pct // 10) + "░" * (10 - pct // 10)))
         if a.verbose:
-            sys.stdout.write("  %-8s %3d%%%-1s  %5d/%-5d  %s\n" % (lang, pct, mark, P, T, " · ".join(work)))
+            # ⛔ BOTH ARE `grid` BY CONSTRUCTION, and this line is printed rather than assumed because the
+            # audit that caught the split read a claim, not the code: value from GRID_COLUMNS M/V, label
+            # from that same cell's own ⟨measured …⟩ stamp. If these two words ever differ, the line is
+            # pairing one table's number with another's freshness again.
+            sys.stdout.write("  %-8s %3d%%%-1s  %5d/%-5d  value-from=grid label-from=grid  %s\n"
+                             % (lang, pct, mark, P, T, " · ".join(work)))
     gh = git(".github", "rev-parse", "--short", "HEAD") or "unknown"
     allpct = (100 * tp) // tt if tt else 0
     # ⛔⭐ ALL IS MISSING WHEN ANY LANGUAGE IS MISSING, AND THAT IS NOT PEDANTRY -- IT IS THE SAME
@@ -1084,7 +1110,7 @@ def cmd_progress(a):
           % (" | ".join(cells_out), allcell, gh, time.strftime("%Y-%m-%d %H:%M %Z")))
     print("  " + "  ".join(bars))
     if a.verbose:
-        print("  ALL %d%% = %d/%d over the M and V printed denominators; ? = the M cell reads STALE, or its `board:` provenance label is older than today, or it has no label at all (age unknown)." % (allpct, tp, tt))
+        print("  ALL %d%% = %d/%d over the M and V printed denominators; ? = the M cell reads STALE, or its own ⟨measured …⟩ stamp is older than today, or it carries no stamp at all (age unknown)." % (allpct, tp, tt))
         for lang, short in PROGRESS_LANGS:
             c = rows[lang]
             print("  %-8s L: %s" % (lang, c[GRID_COLUMNS["L"][0]][:110]))
