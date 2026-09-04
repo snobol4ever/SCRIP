@@ -393,6 +393,43 @@ s4e_root() { case "$1" in ceo|hq) echo /home/claude;; hq_C) echo /home/claude_C;
     seat0[1-9]|seat1[0-6]) echo "/home/claude${1#seat}";; *) echo "";; esac; }
 s4e_hqboxes() { for _h in hq hq_C hq_P hq_B ceo; do [ -d "$PO/$_h/inbox" ] && echo "$_h"; done; }
 s4e_is_hq() { case "$1" in hq|hq_C|hq_P|hq_B|hq_T|ceo) return 0;; *) return 1;; esac; }
+# ⭐⭐ THE LANE — topic->HQ and identity->HQ, so `next` can restrict dispatch without inventing a second
+# copy of MASTER-PLAN's THE LANES table (row next-serves-a-seat-only-rows-in-its-hqs-lane-and-no-row-
+# carries-a-blank-owner-cell). Topic lane: the owner cell (QUEUE.tsv field 3) wins when it already names
+# one of the four HQs — an explicit, already-made decision beats a guess; otherwise derived from the
+# topic's LANGUAGE prefix, the same split THE LANES table uses. A topic naming no language (a postoffice/
+# tooling/meta row — this very row is one) returns empty: UNDETERMINED, never defaulted, because guessing
+# wrong here would starve or misroute a lane the mapping cannot see. Callers must treat empty as
+# lane-neutral (servable from any lane), not as a fifth lane of its own.
+s4e_topic_lane() {
+    local _t="$1" _owner
+    _owner="$(qrow "$_t" | cut -f3)"
+    case "$_owner" in hq_C|hq_B|hq_P|hq_T) printf '%s' "$_owner"; return 0;; esac
+    case "$_t" in
+      prolog-*)                      printf 'hq_C';;
+      icon-*)                        printf 'hq_B';;
+      snobol4-*|snocone-*|pascal-*)  printf 'hq_P';;
+      raku-*|rebus-*)                printf 'hq_T';;
+    esac
+}
+# Identity lane: ceo is never restricted — checked by the CALLER against the identity SHAPE, the same
+# precedent the MODE guard above already set (⛔ NOT s4e_is_hq(), which counts ceo as an HQ and would
+# wrongly lane-restrict the one identity THE LANES table does not partition). An HQ's lane is itself. A
+# seat's lane is read from ITS OWN postoffice HQ file — the same file `ask`'s routing already treats as
+# authoritative — not a second hardcoded seat-number table that can drift from MASTER-PLAN while nobody
+# is watching, the way seat07's own HQ file (checked 2026-09-04) still read hq_C after the 16-seat cut
+# moved it to hq_T. An unreadable or unrecognized HQ file returns empty: UNDETERMINED, never restricted,
+# so a stale or missing HQ file degrades to today's lane-blind behaviour rather than locking a seat out
+# of every row in the queue.
+s4e_my_lane() {
+    case "$ME" in
+      hq_C|hq_B|hq_P|hq_T) printf '%s' "$ME"; return 0;;
+      seat*) local _f="$PO/$ME/HQ" _l
+             [ -f "$_f" ] || return 0
+             _l="$(head -1 "$_f" | tr -d '[:space:]')"
+             case "$_l" in hq_C|hq_B|hq_P|hq_T) printf '%s' "$_l";; esac ;;
+    esac
+}
 # ⛔ DECORATED NO-OP EVASION, COMPANION FIX to `done`'s own no-op blocklist below (row
 # `donewhen-decorated-noop-evasion`; the gate `test_gate_baton_donewhen_runnable.sh` carries the identical
 # fix and the full rationale). Strips a trailing shell comment the way bash itself would -- quote-aware: a
@@ -575,6 +612,31 @@ s4e_set_row_state() {   # <topic> <state>  -- no-op (rc 1) when the topic has no
   if awk -F'\t' -v OFS='\t' -v t="$_t" -v s="$_s" '$2==t&&NF>3{$4=s} {print}' "$_q" > "$_tmp"; then cat "$_tmp" > "$_q" || _rc=1; else _rc=1; fi
   rm -f "$_tmp"; rmdir "$_lk" 2>/dev/null
   return $_rc
+}
+# ⭐⭐ NO BLANK OWNER CELL, THE OTHER HALF (row next-serves-a-seat-only-rows-in-its-hqs-lane-and-no-row-
+# carries-a-blank-owner-cell). Column 3 stays the UMBRELLA-HQ/lane, never the working seat's own name --
+# see the "COLUMN 3 IS DELIBERATELY NOT TOUCHED" note at claim's own acquisition site, which documents col3
+# hq_B + claim seat12 as a MEANINGFUL pair (umbrella-HQ + working-seat), not drift to be cleaned. So this
+# ONLY FILLS AN EMPTY CELL — never overwrites an existing value, deliberate or not; an already-set col3
+# stays "a question routed to hq_P/ceo", exactly as that note already ruled. Writes the ASSIGNEE's OWN lane
+# (its postoffice HQ file, or itself if the assignee IS an HQ) — never the assignee's bare name, which would
+# be the exact drift the existing note warns against.
+s4e_backfill_owner_lane() {
+  local _t="$1" _seat="$2" _q="$PO/QUEUE.tsv" _row _cur _lane
+  _row="$(qrow "$_t")"; [ -n "$_row" ] || return 1
+  _cur="$(printf '%s' "$_row" | cut -f3)"
+  case "$_cur" in ''|unassigned) : ;; *) return 0;; esac   # already set -- not this function's decision to change
+  case "$_seat" in
+    hq_C|hq_B|hq_P|hq_T) _lane="$_seat" ;;
+    seat*) [ -f "$PO/$_seat/HQ" ] && _lane="$(head -1 "$PO/$_seat/HQ" | tr -d '[:space:]')" ;;
+  esac
+  case "${_lane:-}" in hq_C|hq_B|hq_P|hq_T) : ;; *) return 1;; esac   # undeterminable -- leave blank rather than guess
+  local _lk="$PO/.mint.lock" _got=0 _i _tmp
+  for _i in $(seq 1 20); do mkdir "$_lk" 2>/dev/null && { _got=1; break; }; sleep 0.1; done
+  [ "$_got" = 1 ] || return 1
+  _tmp="$(mktemp)"
+  awk -F'\t' -v OFS='\t' -v t="$_t" -v o="$_lane" '$2==t&&NF>3&&($3==""||$3=="unassigned"){$3=o} {print}' "$_q" > "$_tmp" && cat "$_tmp" > "$_q"
+  rm -f "$_tmp"; rmdir "$_lk" 2>/dev/null
 }
 s4e_mark_row() { mkdir -p "$PO/$ME"; printf '%s\n%s %s\n' "$1" "$2" "$(date -u +%Y-%m-%dT%H:%MZ)" > "$PO/$ME/.last-row"; }
 s4e_sweep_orphans
@@ -1227,6 +1289,7 @@ case "$cmd" in
          # already cover -- an explicit call, not a missed one. ASSIGNED:<seat> is the spelling two live rows already
          # carry by hand; this makes it written. Col3 untouched here too, for the reason given at `claim`.
          s4e_set_row_state "$topic" "ASSIGNED:$seat" || true
+         s4e_backfill_owner_lane "$topic" "$seat" || true   # fills col3 ONLY if blank -- see the function's own note
          # THE DOORBELL CARRIES NO CONTENT (ARCH-FLEET-CEO: "the mail never carries content that isn't also in a file").
          # A seat that never reads this message still resumes correctly, because the claim + task file are authoritative.
          if S4E_NO_BANNER=1 "$0" send "$seat" "task-$topic" "ASSIGNED: $topic. Run: bash SCRIP/scripts/s4e_msg.sh next — it serves this row FIRST, ahead of anything you picked yourself. The task file is authoritative; this message is only the doorbell." >/dev/null 2>&1
@@ -1245,11 +1308,30 @@ case "$cmd" in
   mint)  topic="${2:?topic}"; shift 2
          rank=2
          if [ -n "${1:-}" ]; then case "$1" in *[!0-9]*|'') :;; *) rank="$1"; shift;; esac; fi
+         # ⭐⭐ NO BLANK OWNER CELL, HALF 2 OF 2 (row next-serves-a-seat-only-rows-in-its-hqs-lane-and-no-
+         # row-carries-a-blank-owner-cell) — a mint used to write field 3 as the literal string "unassigned"
+         # UNCONDITIONALLY, which is exactly how this row's own baton was born with no lane a lane-blind
+         # `next` could read. `--owner hq_X` is sniffed here, BEFORE the goal text is collected, the same
+         # way rank already is, so `mint <topic> [rank] [--owner hq_X] "GOAL text"` never breaks a caller
+         # who omits it: for a topic whose language prefix THE LANES table maps (prolog-/icon-/snobol4-/
+         # snocone-/pascal-/raku-/rebus-*), s4e_topic_lane derives the owner for free and no flag is ever
+         # needed — this is every mint this fleet has actually issued so far. Only a topic naming no
+         # language (a postoffice/tooling/meta row, this fix's own first victim) needs the flag; asking for
+         # it there, once, is cheaper than another blank cell nobody catches until a seat wanders into it.
+         owner=""
+         if [ "${1:-}" = "--owner" ]; then owner="${2:?--owner needs an hq_C|hq_B|hq_P|hq_T argument}"; shift 2
+           case "$owner" in hq_C|hq_B|hq_P|hq_T) : ;; *) echo "⛔ REFUSED: --owner must be one of hq_C hq_B hq_P hq_T, not '$owner'." >&2; exit 2;; esac; fi
          if [ "${1:-}" = "--stdin" ] || [ "${1:-}" = "-" ]; then goal="$(cat)"; else goal="$*"; fi
          # ⛔ THE TOPIC BECOMES A FILENAME TWICE OVER (a QUEUE.tsv row AND tasks/<topic>.task.md) — same guard
          # as send (s191), checked before either write, not after.
          case "$topic" in ""|*/*|*$'\n'*) echo "⛔ REFUSED: topic must be a short filename-safe slug (no / and no newline). Usage: $0 mint <topic> [rank] \"GOAL text\"" >&2; exit 2;; esac
          [ -n "$goal" ] || { echo "⛔ REFUSED: empty GOAL text. Usage: $0 mint <topic> [rank] \"GOAL text\" (or --stdin)" >&2; exit 2; }
+         [ -n "$owner" ] || owner="$(s4e_topic_lane "$topic")"
+         if [ -z "$owner" ]; then
+           printf '⛔ REFUSED: cannot derive an owner lane for "%s" -- its name matches no language THE LANES table maps\n' "$topic" >&2
+           printf '   (prolog- icon- snobol4- snocone- pascal- raku- rebus-*). Supply one: mint %s %s --owner hq_X "GOAL"\n' "$topic" "$rank" >&2
+           printf '   (hq_C correctness/Prolog · hq_B beautify/Icon+public face+postoffice tooling · hq_P speed/SNOBOL4+Snocone+Pascal+benchmarks · hq_T test suites/Raku+Rebus+the standard)\n' >&2
+           exit 2; fi
          q="$PO/QUEUE.tsv"; d="$PO/QUEUE.done.tsv"; b="$PO/tasks/$topic.task.md"; mkdir -p "$PO/tasks"
          s4e_mint_dup() { grep -qP "^[0-9]+\t\Q$topic\E\t" "$q" 2>/dev/null && return 0
                            [ -f "$d" ] && grep -qP "^[0-9]+\t\Q$topic\E\t" "$d" 2>/dev/null && return 0
@@ -1287,9 +1369,9 @@ Distill a real first step from the GOAL above (and a real DONE-WHEN — see the 
 ## LEDGER
 - [$ME·$(date -u +%F)] Minted via \`s4e_msg.sh mint\`.
 TASKEOF
-         printf '%s\t%s\tunassigned\tFREE\n' "$rank" "$topic" >> "$q"
+         printf '%s\t%s\t%s\tFREE\n' "$rank" "$topic" "$owner" >> "$q"
          rmdir "$lock" 2>/dev/null; trap 's4e_pid_release' EXIT
-         echo "minted $topic (rank $rank, owner unassigned, state FREE) -> $b";;
+         echo "minted $topic (rank $rank, owner $owner, state FREE) -> $b";;
   next)  q="$PO/QUEUE.tsv"; mkdir -p "$PO/claims"
          s4e_mode_line
          # ⛔⭐ MODE GATES DISPATCH -- IT IS NOT DECORATION (row next-refuses-to-dispatch-to-an-hq-seat-when-mode-
@@ -1423,6 +1505,7 @@ TASKEOF
            printf '↩ skipped %d free row(s) owned by another seat (topmost: %s).\n' "$_owned_skipped" "$_owned_first"
            printf '   The owner column constrains the pick (ceo 2026-09-03). To take one anyway: s4e_msg.sh claim <topic>.\n'
            printf '   To move ownership properly, an HQ or the ceo runs: s4e_msg.sh assign <topic> <seat>.\n'; }
+         s4e_pass3_scan() {
          while IFS=$'\t' read -r rank topic brief step; do
            case "$rank" in ''|\#*) continue;; esac
            # ⛔ s265 — THE STATE COLUMN IS LOAD-BEARING NOW. It was decorative (94 of 94 rows FREE, nothing read it),
@@ -1485,10 +1568,12 @@ TASKEOF
            # is locked out silently); a wrongly-skipped row costs one `claim` typed on purpose.
            # ⭐ `assign` remains the HQ/ceo verb that MOVES ownership, and `claim <topic>` is the deliberate
            # override -- neither is touched here. Only the automatic pick is constrained.
+           _serve_reason="rank $rank"
            case "$step" in
              FREE|'')
                case "$brief" in
-                 ''|unassigned|"$ME") : ;;
+                 ''|unassigned) : ;;
+                 "$ME") _serve_reason="rank $rank, your OWNER CELL" ;;
                  *) _owned_skipped=$((_owned_skipped+1))
                     [ -n "$_owned_first" ] || _owned_first="rank $rank  $topic  (owner $brief)"
                     continue;;
@@ -1496,6 +1581,22 @@ TASKEOF
              RESTRICTED:*) [ "$(s4e_restricted_to "$step")" = "$ME" ] || continue ;;
              *) continue;;
            esac
+           # ⭐⭐ THE LANE FILTER — see s4e_topic_lane/s4e_my_lane above. An explicit OWNER-CELL match
+           # (this row is tagged to me by name) always wins regardless of lane; a lane-undetermined topic
+           # (s4e_topic_lane returns empty) is lane-neutral and never filtered by either pass. own-lane
+           # pass: skip a row whose determined lane is not mine. any-lane pass (reached only when the
+           # own-lane pass fell through the WHOLE sorted queue without serving anything): never skip on
+           # lane, but relabel the reason so a cross-lane serve is visible in its own printout rather than
+           # reconstructed later from the queue (GOAL's own requirement).
+           if [ -n "${_my_lane:-}" ] && [ "$_serve_reason" != "rank $rank, your OWNER CELL" ]; then
+             _tl="$(s4e_topic_lane "$topic")"
+             if [ "$_lane_filter" = own-lane ]; then
+               if [ -n "$_tl" ] && [ "$_tl" != "$_my_lane" ]; then continue; fi
+               [ -n "$_tl" ] && _serve_reason="rank $rank, your OWN LANE ($_tl)"
+             elif [ -n "$_tl" ] && [ "$_tl" != "$_my_lane" ]; then
+               _serve_reason="rank $rank, CROSS-LANE FALLBACK (your lane $_my_lane had nothing servable; this row is $_tl's)"
+             fi
+           fi
            [ -f "$PO/claims/$topic.claim" ] && continue
            # ⭐ CURE 2 — RELEASE BOOMERANG. Do not hand a seat back the row it just put down; say so out loud,
            # because a silent skip here is indistinguishable from the row not existing.
@@ -1508,8 +1609,24 @@ TASKEOF
              # ⛔⭐ ONE CALL, TWO SERVE PATHS -- see s4e_dispatch_gate. Never inline this again.
              s4e_dispatch_gate "$topic" "$rank" || continue
              s4e_report_owned_skips
-             serve "$topic" "LOCKED" "(rank $rank)"; exit 0; fi
+             serve "$topic" "LOCKED" "($_serve_reason)"; exit 0; fi
          done < <(grep -P '^[0-9]+\t' "$q" | while IFS=$'\t' read -r rk tp br st; do printf '%s\t%s\t%s\t%s\t%s\n' "$rk" "$(s4e_mint_ts "$tp")" "$tp" "$br" "$st"; done | sort -t$'\t' -s -k1,1n -k2,2r | cut -f1,3-)
+         return 1
+         }
+         # ⭐⭐ TWO PASSES, ONE BODY — s4e_pass3_scan is called once per lane-filter mode so the own-lane
+         # attempt and the cross-lane fallback can never disagree about what "servable" means (every other
+         # skip rule -- blocked-on, grant-wait, restricted, claimed, boomeranged -- runs identically in
+         # both calls; only the lane check inside toggles). A seat/HQ with no determinable lane
+         # (s4e_my_lane empty: ceo, an unrecognized identity, or a seat whose HQ file is missing/stale)
+         # never enters the own-lane pass at all -- lane-blind, exactly today's behaviour, is the safe
+         # degradation for anything the lane mapping cannot see. GOAL's own fallback requirement ("a lane
+         # guard that starves a seat whose lane is done is worse than the wandering it prevents") is why
+         # the own-lane pass tries the WHOLE rank-sorted queue before giving up, not just rank<=1 -- a
+         # strict rank<=1-only trigger would send a seat cross-lane while its own rank-2 work still sat
+         # unclaimed.
+         _my_lane="$(s4e_my_lane)"
+         if [ -n "$_my_lane" ]; then _lane_filter=own-lane; s4e_pass3_scan; fi
+         _lane_filter=any-lane; s4e_pass3_scan
          # ⭐ CURE 3, second half — WHEN NOTHING IS SERVABLE, SAY WHAT GOVERNANCE IS HOLDING. A bare "queue
          # empty" sent seats to ask HQ for work while rows sat waiting on a grant nobody had chased.
          _gw="$(awk -F'\t' '/^[0-9]+\t/ && ($4 ~ /^GRANT-NEEDED/ || $4 ~ /^PARKED-LON-HOLD/) {printf "     rank %s  %s  [%s]\n",$1,$2,$4}' "$q" 2>/dev/null)"
