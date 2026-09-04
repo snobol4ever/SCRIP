@@ -8,7 +8,8 @@ below. This is the instrument that says whether a language's ladder actually has
 row -- every per-language ladder DONE-WHEN refuses rc=2 until it can call this.
 
 THE CENSUS SCHEMA (ceo, this row): RUNG CONSTRUCT REFERENCE FORMS PAIRS WITNESS_ORIGIN STATUS NOTE, in
-corpus/tests/<lang>/config/LADDER.tsv. FORMS and PAIRS are ';'-separated slugs. A form's witness is any origin
+corpus/tests/<lang>/config/LADDER.tsv. FORMS and PAIRS are slugs separated by '|', ';' or ',' -- the live
+censuses use '|' and the ratified schema line names only the columns. A form's witness is any origin
 in that language's ALL.csv matching ladder__<rung>_*_<form>; a pair's is ladder__<rung>_*_with_<lower>.
 
 ⛔⭐ IT BINDS COLUMNS BY NAME, NEVER BY POSITION, AND THE FOUR LIVE CENSUSES ARE WHY. Measured 2026-09-04 before
@@ -105,7 +106,14 @@ def origins_of(lang):
 
 
 def slugs(cell):
-    return [s.strip() for s in re.split(r"[;,]", cell or "") if s.strip()]
+    # ⛔⭐ `|` IS THE LIVE SEPARATOR AND SPLITTING ONLY ON `;,` PRODUCED A PLAUSIBLE WRONG ANSWER. Measured on
+    # the first census written to the amended schema (prolog, hq_C corpus e351e9a4c): forms are pipe-joined
+    # (`collect_all|empty_result|template_is_compound|...`), so this returned ONE form whose name was the whole
+    # joined string, reported it as missing, and printed "36 declared slot(s) have no witness" -- a number that
+    # is wrong in BOTH directions at once (36 rungs' worth of forms collapsed to 36 slots) while looking
+    # exactly like a real measurement. ⭐ The schema line ceo ratified names the COLUMNS, not the separator;
+    # accepting all three is the only reading that cannot be wrong about a census someone else writes.
+    return [s.strip() for s in re.split(r"[;,|]", cell or "") if s.strip()]
 
 
 def witness_for(origins, rung, form, pair=False):
@@ -209,6 +217,13 @@ def selftest():
         mk("fff", HDR + "rung01\tarith\tsec2\tadd\thello\t-\tBUILT\t\n", ["ladder__rung01_arith_add"])
         cases.append(("a missing PAIR is invisible under --phase isolation", "fff", "isolation", "OK"))
         cases.append(("the same missing PAIR is caught under --phase all", "fff", "all", "MISSING"))
+        # 7. pipe-separated forms -- the live prolog spelling; splitting only on ;, made one form of the lot
+        mk("ggg", HDR + "rung00\thello\tsec1\tbare|quoted|nl\t\t-\tBUILT\t\n",
+           ["ladder__rung00_hello_bare", "ladder__rung00_hello_quoted", "ladder__rung00_hello_nl"])
+        cases.append(("PIPE-separated forms split into one form each", "ggg", "isolation", "OK"))
+        mk("hhh", HDR + "rung00\thello\tsec1\tbare|quoted|nl\t\t-\tBUILT\t\n",
+           ["ladder__rung00_hello_bare", "ladder__rung00_hello_quoted"])
+        cases.append(("a missing form inside a PIPE list is caught individually", "hhh", "isolation", "MISSING"))
         for label, lang, phase, want in cases:
             got, _d, _w, _m = check_lang(lang, phase, verbose=False)
             if got == want:
