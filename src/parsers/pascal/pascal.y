@@ -57,6 +57,7 @@ static const char *pas_enumnames_by_idx(int i);
 static const char *pas_ptrexpr_target(tree_t *e);
 static const char *pas_with_sel_rtype(tree_t *sel);
 static int pas_rectype_nf(const char *rn);
+static int pas_array_high_get(const char *name, long long *out);
 static tree_t *mk_assign(tree_t *sel, tree_t *rhs);
 static tree_t *mk_chr_wrap(tree_t *e);
 static int pas_is_charexpr(tree_t *e);
@@ -103,6 +104,22 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         tree_t *delta = (args->count >= 3) ? args->items[2] : ilit(1);
         tree_e op = !strcmp(name, "inc") ? TT_ADD : TT_SUB;
         return mk_assign(v, bin(op, pas_tree_clone(v), delta));
+    }
+    if (name && (!strcmp(name, "low") || !strcmp(name, "high")) && args && args->count >= 1) {
+        // ⛔ ARRAY ONLY, NARROW AND HONEST: g_pas_arrays[] tracks only a normalized 0-based `high`
+        // (element count - 1), never a true declared low bound -- every array here is internally
+        // 0-based regardless of its Pascal-declared range, so `low` is always 0 and `high` is the
+        // tracked value. Correct for a 0-based declaration (array[0..N]); a non-zero-based
+        // declaration (array[5..10]) would need a real low-bound field this struct does not carry --
+        // out of scope here, and this clause does not claim to handle it (falls through to the
+        // existing "undefined function" refusal below, same as low()/high() on a string, which also
+        // is not handled here). No regression risk: nothing could call low()/high() successfully
+        // before this clause existed.
+        tree_t *v = args->items[0];
+        long long hi;
+        if (v && v->t == TT_VAR && v->v.sval && pas_array_high_get(v->v.sval, &hi)) {
+            return ilit(!strcmp(name, "low") ? 0 : hi);
+        }
     }
     if (name && !strcmp(name, "trunc") && args && args->count >= 1) return mk_fnc1("__pas_trunc", args->items[0]);
     if (name && !strcmp(name, "round") && args && args->count >= 1) return mk_fnc1("__pas_round", args->items[0]);
