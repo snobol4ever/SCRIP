@@ -178,12 +178,36 @@ static Token scan_number(Lexer *lx) {
         t.ival = (long)(unsigned long long)strtoull(buf+2, NULL, radix);
         return t;
     }
-    while (isdigit((unsigned char)cur(lx)))
-        buf_push(&buf, &len, &cap, advance(lx));
+    while (isdigit((unsigned char)cur(lx)) || cur(lx) == '_') {
+        if (cur(lx) != '_') buf_push(&buf, &len, &cap, advance(lx));
+        else advance(lx);
+    }
     while (cur(lx) == ' ' && isdigit((unsigned char)peek1(lx))) {
         advance(lx);
-        while (isdigit((unsigned char)cur(lx)))
-            buf_push(&buf, &len, &cap, advance(lx));
+        while (isdigit((unsigned char)cur(lx)) || cur(lx) == '_') {
+            if (cur(lx) != '_') buf_push(&buf, &len, &cap, advance(lx));
+            else advance(lx);
+        }
+    }
+    if (cur(lx) == '\'' && buf && len > 0) {
+        long radix = strtol(buf, NULL, 10);
+        char pd = peek1(lx);
+        int pdv = isdigit((unsigned char)pd) ? (pd - '0') : (isalpha((unsigned char)pd) ? (tolower((unsigned char)pd) - 'a' + 10) : -1);
+        if (radix >= 2 && radix <= 36 && pdv >= 0 && pdv < radix) {
+            advance(lx);
+            char *dbuf = NULL; int dlen = 0, dcap = 0;
+            while (isalnum((unsigned char)cur(lx))) {
+                char dc = cur(lx);
+                int v = isdigit((unsigned char)dc) ? (dc - '0') : (tolower((unsigned char)dc) - 'a' + 10);
+                if (v < 0 || v >= radix) break;
+                buf_push(&dbuf, &dlen, &dcap, advance(lx));
+            }
+            if (!dbuf) dbuf = strdup("0");
+            free(buf);
+            Token t = make_tok(TK_INT, dbuf, line);
+            t.ival = (long)(unsigned long long)strtoull(dbuf, NULL, (int)radix);
+            return t;
+        }
     }
     if (cur(lx) == '.' && isdigit((unsigned char)peek1(lx))) {
         is_float = 1;
