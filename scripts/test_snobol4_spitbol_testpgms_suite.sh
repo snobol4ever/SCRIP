@@ -49,7 +49,15 @@ for p in $progs; do
     (cd "$W" && timeout "$T" "$SBL" $FLAGS "$p.spt" < "$W/testpgms.in" > "$ora" 2>/dev/null); orc=$?
     if [ "$orc" -ne 0 ]; then
         UNSCR=$((UNSCR+1))
-        why="rc=$orc"; [ "$orc" -ge 128 ] && why="KILLED BY SIGNAL $((orc-128))"
+        # ⛔ NAME A SIGNAL ONLY WHEN 128+n IS A PLAUSIBLE SIGNAL NUMBER. A program may legitimately EXIT with a
+        # code above 128, and this oracle does: measured on test2 in consecutive runs of this very runner --
+        # rc=139 (a real SIGSEGV) once, rc=231 the next, which would decode to "signal 103" and there is no
+        # signal 103. That is SPITBOL's own error exit, and calling it a signal would put a fabricated fact in
+        # a board line. ⭐ The nondeterminism is itself the ceo's witness holding up ("sbl -bf SIGSEGVs on about
+        # HALF its ERROR 212 runs"): the same program, the same input, two different failure modes -- which is
+        # exactly why the run STATUS decides here and the output bytes never do.
+        why="exited rc=$orc"
+        if [ "$orc" -ge 129 ] && [ "$orc" -le 192 ]; then why="KILLED BY SIGNAL $((orc-128)) (rc=$orc)"; fi
         [ "$orc" -eq 124 ] && why="TIMED OUT after ${T}s"
         UNSCR_LINES="$UNSCR_LINES  UNSCORED  $p  oracle $why after $(grep -c . "$ora" 2>/dev/null || echo 0) line(s) -- truncated output is not ground truth, no ref cut
 "
