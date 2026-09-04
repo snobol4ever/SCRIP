@@ -143,8 +143,9 @@ echo "rerun a single mode: python3 $HARNESS run $MASTER_ICN $MASTER_REF --lang i
 # ⭐ THE NAMES, so two runs of this board can be DIFFED and not merely compared. Capped, because the
 # point is to make a regression identifiable, not to paste a census into a terminal -- and the cap says
 # so out loud rather than truncating silently, which would be a smaller version of the same defect.
-# ⛔ `grep -c` PRINTS "0" *AND* EXITS 1 on no match, so `|| echo 0` printed a SECOND zero and every green board died
-# on "[: 0\n0: integer expression expected" twice (measured 2026-09-04, hq_B). Drop the fallback; default the empty case.
+# ⛔ `grep -c` PRINTS "0" *AND* EXITS 1 on no match, so `|| echo 0` printed a SECOND zero and every green board printed
+# "[: 0\n0: integer expression expected" twice and carried on (measured 2026-09-04, hq_B; rc stayed 0, so nothing caught it).
+# Drop the fallback; default the empty case.
 _nfail=$(grep -cE '^[[:space:]]*(FAIL|CRASH|HANG|XPASS|UNPROVEN) ' "$_errf" 2>/dev/null); _nfail=${_nfail:-0}
 if [ "${_nfail:-0}" -gt 0 ]; then
     echo ""
