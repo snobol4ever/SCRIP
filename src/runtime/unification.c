@@ -1771,6 +1771,42 @@ void * rt_pl_db_get(void *root, int64_t k)
       return (void *)*cell; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_recompile(void *db_v, const char *key, int arity)
+{
+    extern void * rt_pl_clause_tree(void *);
+    extern void * pl_runtime_clause_tree(void *);
+    extern void * pl_runtime_define_pred(const char *, const void *, int);
+    extern void * rt_pl_choice_new(const char *);
+    extern void rt_pl_choice_add(void *, void *);
+    extern int rt_pl_choice_n(void *);
+    pl_db_t *db = (pl_db_t *)db_v;
+    void *ch;
+    if (!db || !key) return 0;
+    ch = rt_pl_choice_new(key);
+    for (int i = 0; i < db->n; i++) {
+        if (db->s[i].erased) continue;
+        { void *raw = rt_pl_clause_tree((void *)&db->s[i].cl); void *cl = raw ? pl_runtime_clause_tree(raw) : (void *)0;
+          if (cl) rt_pl_choice_add(ch, cl); }
+    }
+    if (rt_pl_choice_n(ch) < 1) return 1;
+    return pl_runtime_define_pred(key, ch, arity) ? 1 : 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_head_key(void *pair_cell, char *out, size_t n, int *ar)
+{
+    extern const char *prolog_atom_name(int);
+    pl_cell_t *p = pl_deref((pl_cell_t *)pair_cell);
+    if ((int)p->v != DT_PLREF || pl_arity(p) != 2) return 0;
+    { pl_cell_t *h = pl_deref(&((pl_cell_t *)p->p)[0]); const char *nm;
+      if ((int)h->v == DT_PLREF) { nm = prolog_atom_name(plc_functor(h)); *ar = pl_arity(h); }
+      else if ((int)h->v == DT_A) { nm = prolog_atom_name((int)h->i); *ar = 0; }
+      else if ((int)h->v == DT_S) { nm = h->s; *ar = 0; }
+      else return 0;
+      if (!nm) return 0;
+      snprintf(out, n, "%s/%d", nm, *ar);
+      return 1; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_assert(void *db_v, void *clause_term, int prepend)
 {
     extern void *rt_plj_alloc(size_t);
@@ -1794,6 +1830,8 @@ int rt_pl_db_assert(void *db_v, void *clause_term, int prepend)
         if (prepend) { for (int i = db->n; i > 0; i--) db->s[i] = db->s[i - 1]; db->s[0].cl = stored; db->s[0].erased = 0; }
         else { db->s[db->n].cl = stored; db->s[db->n].erased = 0; }
         db->n++; }
+      { char key[264]; int ar = 0;
+        if (rt_pl_db_head_key((void *)&db->s[prepend ? 0 : db->n - 1].cl, key, sizeof key, &ar)) rt_pl_db_recompile(db_v, key, ar); }
       return 1; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
