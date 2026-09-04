@@ -437,17 +437,31 @@ def find_grid(lines):
 
 
 def cell_fractions(raw):
-    # Return {denominator: pass} for the real scores in one cell, plus the workings for --verbose.
-    # Backtick spans (commands, hashes) and parenthesised asides are stripped first -- they carry digits
-    # that are not scores. Then: GROUP BY DENOMINATOR AND KEEP THE MINIMUM PASS. That single rule does two
-    # jobs at once -- it collapses an m3/m4 twin pair into ONE population (the grid's own "PER MODE, never
-    # summed"), and where the modes DISAGREE it keeps the worse one, which is the both-modes bar every gate
-    # in this repo already grades on. ⛔ A drop marker drops the whole DENOMINATOR, not the one fraction:
-    # measured on snocone, whose `corpus suite 10/10 · 10/10` put the marker before the FIRST twin only, so
-    # a per-fraction drop let the second one through and re-added a floor to the master's score.
+    # Return ({denominator: pass}, workings), or (None, workings) when the cell carries a population this
+    # parser cannot read -- see the fail-closed contract in language_progress.
+    # ⛔⭐ THE HARNESS SHAPE IS READ FIRST, AND IT IS READ BEFORE PARENTHESES ARE STRIPPED. Measured, not
+    # foreseen (ceo 2026-09-03 20:20, on seat12's rewritten snocone cell): `ast 67/67 · run(206) m3 176
+    # pass/7 fail · m4 176 pass/1 fail` printed `sc 100%`. The run population's TOTAL lives inside
+    # `run(206)`, which the parenthesis strip deleted, and its PASS is written `176 pass/7 fail` -- prose,
+    # not a fraction -- so the whole 206-entry population was invisible and 67/67 became the entire cell.
+    # A headline that rounds an unreadable cell UP to 100% is the false-green class, in the one number the
+    # September-10 program is about. This is the shape corpus_suite_harness prints for EVERY language with
+    # an ast population (raku, snocone, icon), so it is the common case, not an exotic one.
     s = re.sub(r"`[^`]*`", "", raw)
+    groups, dropped, work, logged = {}, set(), [], set()
+    m = re.search(r"\brun\((\d+)\)", s)
+    if m:
+        total = int(m.group(1))
+        passes = [int(x) for x in re.findall(r"\bm[34]\s+(\d+)\s+pass\b", s)]
+        if not passes:
+            work.append("run(%d) present but no 'mN <n> pass' to pair with it -- UNREADABLE" % total)
+            return None, work
+        groups.setdefault(total, []).append(min(passes))
+        logged.add(total)
+        work.append("run %d/%d (from %s, worse mode)" % (min(passes), total, ",".join(str(x) for x in passes)))
+        s = s[:m.start()] + " " + s[m.end():]
+        s = re.sub(r"\bm[34]\s+\d+\s+pass(?:\s*/\s*\d+\s+\w+)*", " ", s)
     s = re.sub(r"\([^()]*\)", "", s)
-    groups, dropped, work = {}, set(), []
     for m in re.finditer(r"(?<![\d/])(\d+)\s*/\s*(\d+)(?![\d/])", s):
         t, ps = int(m.group(2)), int(m.group(1))
         ctx = s[max(0, m.start() - 20):m.start()].lower()
@@ -457,12 +471,23 @@ def cell_fractions(raw):
             work.append("drop %d/%d (%r)" % (ps, t, hit[0]))
             continue
         groups.setdefault(t, []).append(ps)
+        s = s[:m.start()] + " " * (m.end() - m.start()) + s[m.end():]
+    # ⛔ FAIL CLOSED. Anything left that still looks like a population we did not consume makes this cell
+    # UNREADABLE, and an unreadable cell must never be scored -- not as 100%, not as 0%, not silently
+    # dropped. The whole defect above was a narrow reader meeting a shape it did not know and reporting a
+    # confident number about the part it happened to understand.
+    leftover = re.findall(r"\d+\s+pass\b|\brun\(", s)
+    if leftover:
+        work.append("UNREADABLE: %d unconsumed population marker(s): %s" % (len(leftover), ", ".join(sorted(set(leftover)))))
+        return None, work
     out = {}
     for t, ps in groups.items():
         if t in dropped:
             work.append("drop %s/%d (denominator dropped)" % ("/".join(str(x) for x in ps), t))
             continue
         out[t] = min(ps)
+        if t in logged:
+            continue
         if len(ps) > 1:
             work.append("%d/%d (from %s, worse mode)" % (out[t], t, ",".join(str(x) for x in ps)))
         else:
@@ -475,13 +500,17 @@ def language_progress(lang, cells):
     # fraction, never inside it, so an xfail is already excluded by reading the fraction.
     P = T = 0
     work = []
+    unreadable = False
     for key in ("M", "V"):
         idx = GRID_COLUMNS[key][0]
         got, w = cell_fractions(cells[idx])
+        work += ["%s %s" % (key, x) for x in w]
+        if got is None:
+            unreadable = True
+            continue
         for t in sorted(got):
             P += got[t]
             T += t
-        work += ["%s %s" % (key, x) for x in w]
     vcell = cells[GRID_COLUMNS["V"][0]]
     for name, n in PROGRESS_ESTIMATED.get(lang, []):
         if name in vcell and any(k in vcell for k in PROGRESS_NO_MARKERS):
@@ -501,6 +530,8 @@ def language_progress(lang, cells):
                 stale = True
     # ⭐ FLOOR, NEVER ROUND. A completion indicator that rounds shows 100% at 99.6%, which is the one
     # number on this line anybody will act on. Floor reaches 100% only when the work is actually done.
+    if unreadable:
+        return None, "", P, T, work
     pct = (100 * P) // T if T else 0
     return pct, ("?" if stale else ""), P, T, work
 
@@ -511,9 +542,18 @@ def cmd_progress(a):
     missing = [l for l, _ in PROGRESS_LANGS if l not in rows]
     if missing:
         die("the September-10 grid has no row for %s -- refusing to publish a progress line over a partial grid" % ", ".join(missing))
-    cells_out, bars, tp, tt = [], [], 0, 0
+    cells_out, bars, tp, tt, missing = [], [], 0, 0, []
     for lang, short in PROGRESS_LANGS:
         pct, mark, P, T, work = language_progress(lang, rows[lang])
+        if pct is None:
+            # ⛔ NOT SCORED, and deliberately not folded into ALL either: a language whose cell we cannot
+            # read must not quietly improve or worsen the headline it is missing from.
+            missing.append(short)
+            cells_out.append("%s MISSING" % short)
+            bars.append("%s %s" % (short, "?" * 10))
+            if a.verbose:
+                sys.stdout.write("  %-8s MISSING   (cell unreadable)  %s\n" % (lang, " · ".join(work)))
+            continue
         tp += P
         tt += T
         cells_out.append("%s %d%%%s" % (short, pct, mark))
@@ -522,8 +562,8 @@ def cmd_progress(a):
             sys.stdout.write("  %-8s %3d%%%-1s  %5d/%-5d  %s\n" % (lang, pct, mark, P, T, " · ".join(work)))
     gh = git(".github", "rev-parse", "--short", "HEAD") or "unknown"
     allpct = (100 * tp) // tt if tt else 0
-    print("PROGRESS 09-10 | %s | ALL %d%% | tree %s %s"
-          % (" | ".join(cells_out), allpct, gh, time.strftime("%Y-%m-%d %H:%M %Z")))
+    print("PROGRESS 09-10 | %s | ALL %d%%%s | tree %s %s"
+          % (" | ".join(cells_out), allpct, "?" if missing else "", gh, time.strftime("%Y-%m-%d %H:%M %Z")))
     print("  " + "  ".join(bars))
     if a.verbose:
         print("  ALL %d%% = %d/%d over the M and V printed denominators; ? = the M cell reads STALE or carries a label older than today." % (allpct, tp, tt))
