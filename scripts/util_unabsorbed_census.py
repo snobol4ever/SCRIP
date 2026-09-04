@@ -5,7 +5,8 @@
 # I.e. All our testing should be ONE-LINER and MULTI-LINER Python test suite. Oh yeah, CEO, have you ensured that all
 # test sources have been moved into the ONE-LINER and MULTI-LINER?").
 #   python3 scripts/util_unabsorbed_census.py [--lang L] [--list]
-# Walks corpus/ minus packages/ (third-party is the package instrument's business). Every source by extension is one of:
+# Walks corpus/ minus packages/ (third-party is the package instrument's business) and minus programs/ (Lon 2026-09-04:
+# "Go ahead and exclude programs/* folders." -- the 2026-08-27 parser-only ruling on corpus/programs stands). Every source by extension is one of:
 # container (ALL.<ext>), module (include/, library/ -- no main, never absorbed alone), accounted (named in
 # tests/<lang>/ALL.excluded.txt with a reason), loose pair (has a .ref/.expected/.std beside it), fixture
 # (parser/coverage trees or parser_/probe_/coverage_ names), loose source with no ref. Prints the population per tree
@@ -27,7 +28,7 @@ for lang in set(EXT.values()):
 rows = collections.defaultdict(collections.Counter); owed = collections.defaultdict(list)
 for root, dirs, files in os.walk(C):
     rel = os.path.relpath(root, C)
-    if rel.startswith('packages') or '/.git' in root or rel.startswith('.git'): continue
+    if rel.startswith('packages') or rel.startswith('programs') or '/.git' in root or rel.startswith('.git'): continue   # programs/* excluded on Lon's word 2026-09-04 ("Go ahead and exclude programs/* folders."): the 08-27 parser-only ruling on that tree stands
     for f in files:
         ext = f.rsplit('.', 1)[-1] if '.' in f else ''
         if ext not in EXT: continue
