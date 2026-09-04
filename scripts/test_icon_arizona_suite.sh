@@ -1,14 +1,24 @@
 #!/usr/bin/env bash
 # test_icon_arizona_suite.sh — grade SCRIP m3 (--run) + m4 (--compile+link) against the vendored
-# official Arizona Icon test suite (corpus/packages/icon/arizona_tests/general, upstream 9.5).
+# official Arizona Icon test suite (corpus/packages/icon/arizona_tests, upstream 9.5).
 #
 # GROUND TRUTH FOR THE CONTRACT: upstream's own general/Test-icon — compile NAME.icn, feed NAME.dat
 # as stdin if present else /dev/null, capture stdout+stderr combined, diff against NAME.std. This
 # script reproduces that exactly for SCRIP's two native execution modes instead of icont/iconx.
 #
-# THREE OUTCOMES, NEVER CONFLATED (SCRIP Icon requires an explicit ';' between bare statements and
-# does zero newline processing — RULES.md FACT RULE, test_gate_icn_semicolon_required.sh — so these
-# unmodified upstream standard-Icon-dialect programs are expected to hit this in large numbers):
+# ⛔ POPULATION LAW (Lon, ruled 2026-09-04, routed via hq_B): the counted population is every .icn
+# this package SHIPS across ALL its subdirectories, not merely the subset that happens to carry a
+# .std oracle reference today. A shipped program with no .std is UNGRADED (counts as ZERO of the
+# population, never PASS) until it is brought into the graded set -- it may NEVER be silently
+# excluded from the denominator (RULES.md THE INSTRUMENT LAWS: "names beside every count"; the
+# earlier form of this script hardcoded "of 99 vendored" in its own banner -- itself wrong and a
+# textbook instance of the defect this law now forbids). SHIPPED/GRADED/GAP are computed fresh every
+# run, never hand-maintained, and the GAP is named, not merely counted.
+#
+# THREE OUTCOMES OVER THE GRADED SET, NEVER CONFLATED (SCRIP Icon requires an explicit ';' between
+# bare statements and does zero newline processing — RULES.md FACT RULE,
+# test_gate_icn_semicolon_required.sh — so these unmodified upstream standard-Icon-dialect programs
+# are expected to hit this in large numbers):
 #   PASS   — parses, runs, output byte-identical to .std.
 #   REJECT — fails to *parse* at all ("parse error" from SCRIP, always on stderr). Named per-file,
 #            counted separately, never silently folded into FAIL.
@@ -22,7 +32,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_SO="$HERE/../out/libscrip_rt.so"
 CORPUS="$S4E/corpus"
-SUITE="$CORPUS/packages/icon/arizona_tests/general"
+PKG="$CORPUS/packages/icon/arizona_tests"
+SUITE_SUBDIRS="general special"   # ⛔ every subdirectory the package ships; add a new one here, not to a private list elsewhere
 TIMEOUT="${TIMEOUT:-8}"
 VERBOSE=0
 if [ $# -gt 0 ]; then
@@ -33,9 +44,9 @@ if [ $# -gt 0 ]; then
 fi
 
 # ⛔ A MISSING PREREQUISITE IS A REFUSAL (rc=2), NEVER A GREEN EXIT (RULES.md FACT RULE).
-if [ ! -d "$SUITE" ]; then
-  echo "⛔ GATE REFUSES: corpus subtree missing: $SUITE" >&2
-  echo "   vendor /home/resources/icon-master/tests/general into it first." >&2
+if [ ! -d "$PKG" ]; then
+  echo "⛔ GATE REFUSES: corpus subtree missing: $PKG" >&2
+  echo "   vendor /home/resources/icon-master/tests/{general,special} into it first." >&2
   exit 2
 fi
 if [ ! -x "$SCRIP" ]; then
@@ -43,18 +54,36 @@ if [ ! -x "$SCRIP" ]; then
   exit 2
 fi
 
+# ── SHIPPED: every .icn under every subdirectory this package ships, computed fresh, never hand-pinned.
+SHIPPED=0
+SHIPPED_NAMES=""
+for sub in $SUITE_SUBDIRS; do
+  d="$PKG/$sub"
+  [ -d "$d" ] || continue
+  for icn in "$d"/*.icn; do
+    [ -f "$icn" ] || continue
+    SHIPPED=$((SHIPPED+1))
+    SHIPPED_NAMES="$SHIPPED_NAMES $sub/$(basename "$icn" .icn)"
+  done
+done
+
 TOTAL=0
+GRADED_NAMES=""
 M3_PASS=0; M3_REJECT=0; M3_FAIL=0
 M4_PASS=0; M4_REJECT=0; M4_FAIL=0
 M3_REJECT_NAMES=""; M3_FAIL_NAMES=""
 M4_REJECT_NAMES=""; M4_FAIL_NAMES=""
 
+for sub in $SUITE_SUBDIRS; do
+SUITE="$PKG/$sub"
+[ -d "$SUITE" ] || continue
 for std in "$SUITE"/*.std; do
   [ -f "$std" ] || continue
   name=$(basename "$std" .std)
   icn="$SUITE/$name.icn"
   [ -f "$icn" ] || continue
   TOTAL=$((TOTAL+1))
+  GRADED_NAMES="$GRADED_NAMES $sub/$name"
   exp=$(cat "$std")
   dat="$SUITE/$name.dat"
   stdin_file="/dev/null"
@@ -92,15 +121,30 @@ for std in "$SUITE"/*.std; do
   fi
   rm -f "$s4" "$bin4"
 done
+done
 
-echo "=== Arizona Icon suite (upstream 9.5, general/, $TOTAL gradable of 99 vendored) ==="
-echo "mode-3 (--run):      PASS=$M3_PASS REJECT=$M3_REJECT FAIL=$M3_FAIL  / $TOTAL"
-echo "mode-4 (--compile):  PASS=$M4_PASS REJECT=$M4_REJECT FAIL=$M4_FAIL  / $TOTAL"
+# ── GAP: shipped minus graded, by set difference on the "$sub/$name" identity -- named, never a bare count.
+GAP=$((SHIPPED-TOTAL))
+UNGRADED_NAMES=""
+for n in $SHIPPED_NAMES; do
+  case " $GRADED_NAMES " in
+    *" $n "*) ;;
+    *) UNGRADED_NAMES="$UNGRADED_NAMES $n" ;;
+  esac
+done
+
+echo "=== Arizona Icon suite (upstream 9.5, ${SUITE_SUBDIRS// //}/) — shipped=$SHIPPED graded=$TOTAL gap=$GAP ==="
+echo "mode-3 (--run):      PASS=$M3_PASS REJECT=$M3_REJECT FAIL=$M3_FAIL  / $TOTAL graded"
+echo "mode-4 (--compile):  PASS=$M4_PASS REJECT=$M4_REJECT FAIL=$M4_FAIL  / $TOTAL graded"
 [ -n "$M3_FAIL_NAMES" ] && echo "m3 FAIL:$M3_FAIL_NAMES"
 [ -n "$M4_FAIL_NAMES" ] && echo "m4 FAIL:$M4_FAIL_NAMES"
 echo "m3 REJECT ($M3_REJECT):$M3_REJECT_NAMES"
 echo "m4 REJECT ($M4_REJECT):$M4_REJECT_NAMES"
-echo "ARIZONA_SUITE_BOARD total=$TOTAL m3_pass=$M3_PASS m3_reject=$M3_REJECT m3_fail=$M3_FAIL m4_pass=$M4_PASS m4_reject=$M4_REJECT m4_fail=$M4_FAIL"
+# ⛔ UNGRADED IS NOT A FAIL AND NOT A PASS -- it is "never run against the oracle", a third state this
+# board must never fold into either count (RULES.md: "measured and clean" vs "never ran" may not share
+# an output). Counted as ZERO of the population per Lon's ruling until each is individually resolved.
+echo "UNGRADED ($GAP, of $SHIPPED shipped, zero of population until graded):$UNGRADED_NAMES"
+echo "ARIZONA_SUITE_BOARD shipped=$SHIPPED graded=$TOTAL gap=$GAP m3_pass=$M3_PASS m3_reject=$M3_REJECT m3_fail=$M3_FAIL m4_pass=$M4_PASS m4_reject=$M4_REJECT m4_fail=$M4_FAIL"
 # ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05: "any run of a test suite by any
 # session will update the ONE LEADERBOARD"). This records the board line printed just above into
 # .github/SCORE.md -- it RUNS NOTHING, it only writes down what this script already measured.
@@ -108,6 +152,6 @@ echo "ARIZONA_SUITE_BOARD total=$TOTAL m3_pass=$M3_PASS m3_reject=$M3_REJECT m3_
 # because a gate that goes red for a reason unrelated to the code is a gate people route around. It
 # warns and names the unrecorded row instead; it has no silent path.
 python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite Arizona --modes m3,m4 \
-    --measurer "${S4E_SEAT:-}" --text "m3 $M3_PASS/$TOTAL · m4 $M4_PASS/$TOTAL (m3_fail=$M3_FAIL m4_fail=$M4_FAIL, reject $M3_REJECT/$M4_REJECT, \`test_icon_arizona_suite.sh\`)" \
+    --measurer "${S4E_SEAT:-}" --text "m3 $M3_PASS/$SHIPPED · m4 $M4_PASS/$SHIPPED (of $SHIPPED shipped, $TOTAL graded, $GAP ungraded, m3_fail=$M3_FAIL m4_fail=$M4_FAIL, reject $M3_REJECT/$M4_REJECT, \`test_icon_arizona_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
