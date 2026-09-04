@@ -396,22 +396,37 @@ declared known-difference that starts passing is reported `XPASS` and fails, so 
 cannot land silently).
 
 **Demo benchmarks.** Three-angle triangulation, `scripts/bench_triangulate_demos_icon.sh`.
+*Measured 2026-09-04 on SCRIP e560edb92 / corpus b7c674a17, RT_OPT=-O0, modes m3 and m4 vs
+Arizona `iconx` (Icon v9.5.25a), every rep answer-checked against the oracle's digest.*
+
 ⛔ **Basis: one iteration = one whole program run**, so every number is a TOTAL carrying
 process startup (and, for m3, the compile). These are not kernel slopes and must never
 share a column with the kernel grid above. Angles 1 (fixed time) and 2 (fixed
-iterations) agreed within 4% on every row; two independent runs, 2026-09-03, `RT_OPT=-O0`:
+iterations) AGREE on every row below.
 
-| demo | m3 vs `iconx` | m4 vs `iconx` |
+⛔ **The WORK multiple is REFUSED on all four rows, and the refusal is the finding.**
+OVERHEAD measured on an empty program this run: **iconx 3.88 ms · m3 3.69 ms · m4
+2.18 ms** — against whole-demo totals of 4.8–8.2 ms. Startup is >=50% of the reading on
+at least one arm everywhere, so `total − OVERHEAD` would be a difference of two similar
+numbers dominated by its own error bars (CEO-173). The harness prints the labelled
+TOTAL-basis multiple instead — never the WORK number with a quiet asterisk:
+
+| demo | m3 vs `iconx` (TOTAL) | m4 vs `iconx` (TOTAL) |
 |---|:---:|:---:|
-| `interfacegen` | 0.19–0.21x | **1.28–1.40x** |
-| `jlink` | 0.03x | 0.77x |
+| `interfacegen` | 0.158x | **1.537x** |
+| `jlink` | 0.021x | 0.660x |
 
-Ranges are the spread across the two runs, not error bars. m3 compiles at run time, so
-its total includes the compile; m4 is a prebuilt binary. ⛔ No work-basis multiple is
-published: these programs run in 4–5 ms against a 2–4 ms process startup, so
-total-minus-overhead is dominated by its own error bars — the harness detects that and
-refuses the work number rather than printing one. `oplexgen` and `jtran` get timings
-but **no multiple**, because their output does not match the oracle.
+⚠️ These are single-run totals on 5–8 ms programs and they move: an immediately
+preceding run of the same script put `interfacegen` m4 at 1.292x and `jlink` m4 at
+0.772x. Read them as the ~±20% band that whole-program totals on millisecond programs
+are worth, not as three-digit precision. m3 compiles at run time, so its total includes
+the compile; m4 is a prebuilt binary. The way OFF this basis is a real `wall_ms` clock
+hook inside the demo, not a wider tolerance.
+
+⛔ **`jtran` and `oplexgen` get timings but NO multiple, because their answers are
+wrong** — `jtran` produces EMPTY output in both m3 and m4 where `iconx` produces a
+digest, and `oplexgen` diverges from the oracle in both modes. A wrong answer is never
+a fast answer. Both are Icon correctness defects in hq_B's lane, not benchmark gaps.
 
 ### Prolog
 
@@ -517,47 +532,38 @@ test suite, run whole (`scripts/raku_roast_scoreboard.sh`, 986 in-tier 6.c files
 frontend today accepts a deliberate working subset of Raku; idiomatic spec-test Raku
 is overwhelmingly outside it, and the parse-fail column is the roadmap.
 
-**Benchmarks.** Re-measured 2026-09-02 on the two-number basis (RULES.md § THE
-TWO-NUMBER BENCHMARK BASIS), same basis change that corrected the Prolog grid below:
-WORK is each kernel's own `wall_us()` bracket (stderr, byte-comparable stdout
-unaffected); OVERHEAD is external elapsed − WORK, its own number, never mixed into a
-WORK column. `scripts/bench_triangulate_raku.sh`, REPS=3 best-of, every rep
-byte-verified against `.ref`; SCRIP `--run` (m3) and `--compile` (m4) vs Rakudo
-2026.05. Multiple = Rakudo `work_us` / SCRIP `work_us` (axis named once: above 1.00x
-SCRIP is faster):
+**Benchmarks.** Re-measured 2026-09-04 on the two-number basis (RULES.md § THE
+TWO-NUMBER BENCHMARK BASIS) with `scripts/bench_triangulate_raku.sh`.
+*Measured 2026-09-04 on SCRIP e560edb92 / corpus b7c674a17, RT_OPT=-O0, modes m3 and m4
+vs Rakudo 2026.05, REPS=3 best-of, every rep byte-verified against `.ref` before timing.*
 
-| kernel | SCRIP m3 | SCRIP m4 | Rakudo | × (m3) | × (m4) |
-|---|---:|---:|---:|:---:|:---:|
-| string-escape | 61 µs | 75 µs | 1.52 ms | **24.9x** | **20.2x** |
-| send-more-money-loops | 178 ms | 180 ms | 1.11 s | **6.23x** | **6.16x** |
-| point_class_add | 11.4 s | 11.2 s | 1.06 s | 0.093x | 0.095x |
-| point_class_add1 | 22.0 s | 16.4 s | 4.04 s | 0.184x | 0.247x |
+**WORK** is each kernel's own `wall_us()` bracket (written to stderr, so stdout stays
+byte-comparable); **OVERHEAD** is external elapsed − WORK, reported as its own number and
+never mixed into a WORK column. Multiple = Rakudo WORK / SCRIP WORK (axis named once:
+above 1.00x SCRIP is faster). All three angles run; the cross-proof column is angle 1
+(live fixed-time search) against angle 2 (committed fixed N):
 
-OVERHEAD (best rep, startup+teardown only): SCRIP m3 ~6–96 ms, m4 ~3–70 ms, Rakudo
-~237–300 ms — Rakudo's process-launch constant the totals basis used to charge to
-the engine on every kernel regardless of size, most visible on `string-escape` where
-it was ~99% of the old 201 ms total.
+| kernel | SCRIP m3 WORK | SCRIP m4 WORK | Rakudo WORK | × (m3) | × (m4) | cross-proof |
+|---|---:|---:|---:|:---:|:---:|:---|
+| string-escape | 65 µs | 71 µs | 1820 µs | **28.0x** | **25.6x** | m3/m4 AGREE, Rakudo DISAGREE |
+| point_class_add1 | 10.19 s | 8.93 s | 5.70 s | 0.559x | 0.638x | ✅ all three AGREE |
+| point_class_add | 9.57 s | 8.07 s | 1.19 s | 0.125x | 0.148x | m3/m4 AGREE, Rakudo DISAGREE |
+| send-more-money-loops | 175 ms | 185 ms | — | — | — | Rakudo arm unverified |
 
-**The reading:** same split the totals grid already showed, restated on work rather
-than process time — loop/integer work (`string-escape`, `send-more-money-loops`)
-crushes; object/method-heavy work (`point_class_add`, `point_class_add1`) is behind.
-Magnitudes moved once startup stopped being charged to either side (e.g.
-`string-escape` 55.9x → 24.9x): both numbers were always real, they measured
-different things.
+⭐ **Only `point_class_add1` is cross-proven on all three arms this run** and is the one
+row citable without qualification. The others' SCRIP arms agree with themselves while
+the Rakudo arm's two clocks do not — Rakudo's own run-to-run spread, not SCRIP's. A
+disagreement is reported, never averaged away.
 
-⛔ **Cross-proof status: not yet MEASURED, by design.** `bench_triangulate_raku.sh`
-now also runs angle 1 (`test_bench_raku_timed.sh`, live fixed-time search) and angle
-2 (`bench_raku_fixed_iter.sh`, a committed fixed-N from `fixed-iter-n.tsv`) and
-requires their rates to AGREE (flat 10%, UNBAKED — same unbaked tolerance the Prolog
-triangulator uses) before `test_gate_bench_rivals_coverage.sh` will count a kernel
-MEASURED. First run: every cell reads DISAGREE, spread 10–36% — neither angle
-repeats internally (unlike angle 3's REPS=3 best-of), so a single live-search sample
-against a single fixed-N sample is exactly this noisy on a shared, loaded box. The
-WORK numbers above are angle 3's own byte-verified, best-of-3 measurements and are
-citable on that basis; they are not yet cross-proven the way the Prolog board's
-`MEASURED` bucket requires. Baking a real per-kernel noise floor (mirroring the
-SNOBOL4 triangulator's `NOISE-FLOOR.tsv`) is the next step, not a retry with a looser
-number picked to pass.
+OVERHEAD (best rep, startup+teardown only): **Rakudo 286–342 ms · SCRIP m3 6.6–90 ms ·
+m4 3.4–92 ms**. Rakudo's process-launch constant is what the old totals basis charged to
+the engine on every kernel regardless of size — most visible on `string-escape`, whose
+whole WORK is 1820 µs against 286 ms of Rakudo startup, i.e. startup was ~99% of the old
+total. That is the entire reason this grid is on the WORK basis.
+
+**The reading:** loop and integer work crushes (`string-escape` 25–28x); object and
+method-heavy work is well behind (`point_class_add` 0.125x/0.148x). Both were always
+true — the totals basis simply could not show which was which.
 
 The other 13 kernels are not yet timed — each blocker is a named, diagnosed defect (a
 map/grep code-path gap covering four of them, array parameters passed by copy instead
