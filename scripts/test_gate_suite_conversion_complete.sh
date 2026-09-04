@@ -190,7 +190,29 @@ gate_reachable() {   # <abs-path> -> rc 0 if some runner reaches it
     _reldir="${_dir#"$S4E"/corpus/}"
     grep -rlF --include='*.sh' --include='*.py' -e "$_base" -e "$_rel" "$S4E/SCRIP/scripts" 2>/dev/null \
       | grep -v 'test_gate_suite_conversion_complete\.sh' | grep -q . && return 0
-    grep -rlF --include='*.sh' --include='*.py' -e "$_reldir/" "$S4E/SCRIP/scripts" 2>/dev/null \
+    # ⛔⭐ A PER-FILE RUNNER THAT STRIPS THE EXTENSION IS STILL A RUNNER (seat13 2026-09-04, found while proving
+    # the fix below actually holds a positive control: fixing arms 2/3 turned rung36_jcon_{genqueen,proto,
+    # recogn,var}.icn DARK, but test_icon_ir_rung_36.sh runs each of them explicitly -- `run rung36_jcon_
+    # genqueen`, no `.icn` -- so the exact-basename check above never saw it. Delimited (not a bare substring,
+    # so "rung36_jcon_scan" does not also match "rung36_jcon_scan2") the same way KEEP.md/PENDING.md entries
+    # already are below.
+    _stem="${_base%.*}"
+    grep -rlE --include='*.sh' --include='*.py' -e "(^|[^A-Za-z0-9_])${_stem}([^A-Za-z0-9_]|\$)" "$S4E/SCRIP/scripts" 2>/dev/null \
+      | grep -v 'test_gate_suite_conversion_complete\.sh' | grep -q . && return 0
+    # ⛔⭐ ARM 2 WAS A BARE MENTION OF THE OWN DIRECTORY, NOT A REFERENCE THAT COULD REACH THE FILE (seat02
+    # measured: a synthetic file named by nobody still cleared, on all seven trees; isolated to this arm, not
+    # the ancestor+find arm below). Ten scripts name "tests/icon/" in prose, a KEEP.md/PENDING.md cross-
+    # reference, or an unrelated path prefix -- none of that is a runner. Require the directory to be followed
+    # by an actual glob wildcard, i.e. a pattern that would match files in it -- nothing weaker. Deliberately
+    # NOT reusing the ancestor arm's bare "co-occurring find" heuristic here: checked against this tree, that
+    # heuristic also fires on the English word "find" in a comment/echo and on a `find` scoped to unrelated
+    # filenames, which would have re-opened the same false-clear this row exists to close.
+    # ⛔ THE WILDCARD ALONE IS STILL AMBIGUOUS: `*/corpus/tests/icon/*)` in update_icon_bench_asm.sh is a shell
+    # `case` PATTERN testing whether some OTHER path falls under this directory (it's the script's REFUSAL
+    # guard for exactly this tree, not a runner) -- textually indistinguishable from a directory glob unless
+    # the extension is required too. A real file-enumerating glob names the language extension it wants;
+    # a case-arm path guard does not. Require both.
+    grep -rlF --include='*.sh' --include='*.py' -e "$_reldir/*${EXT#\*}" "$S4E/SCRIP/scripts" 2>/dev/null \
       | grep -v 'test_gate_suite_conversion_complete\.sh' | grep -q . && return 0
     # ⛔⭐⭐ AN ANCESTOR + A RECURSIVE SWEEP REACHES THIS FILE, AND THE CHECK ABOVE CANNOT SEE IT. Measured
     # 2026-08-30 (hq_B): tests/prolog/coverage/coverage_net_gaps.pl was reported DARK -- "declared against a
@@ -210,10 +232,18 @@ gate_reachable() {   # <abs-path> -> rc 0 if some runner reaches it
     # that particular `find` is rooted at that particular ancestor, nor that its -name filter matches this
     # file. Reachability is only truly answerable by asking the runners what they ran. This narrows a
     # measured false positive; it does not make the question sound.
+    # ⛔⭐ MEASURED 2026-09-04 (seat13, same baton): the walk stopped short of "corpus" but not of "tests" --
+    # one node shallower, and just as tree-wide. Bare "tests" co-occurs with a find-shaped token in 66 scripts
+    # across ALL SEVEN languages (confirmed live: e.g. test_gate_argnote_sweep.sh's `find "$CORPUS" ... -name
+    # '*.sno'`, SNOBOL4-only and unrelated to an Icon file), so ANY file directly under ANY tests/<lang>/ tree
+    # cleared via this arm alone, independent of arm 2 above -- the row's own SCOPE note ruled this arm out;
+    # this measurement supersedes that call (recorded in the LEDGER, not silently). Excluded on the same
+    # footing as "corpus": "tests/<lang>" (one level deeper) stays a checkable ancestor, unchanged.
     local _anc="$_reldir"
-    while [ -n "$_anc" ] && [ "$_anc" != "." ] && [ "$_anc" != "corpus" ]; do
+    while [ -n "$_anc" ] && [ "$_anc" != "." ] && [ "$_anc" != "corpus" ] && [ "$_anc" != "tests" ]; do
         _anc="$(dirname "$_anc")"
         [ "$_anc" = "." ] && break
+        [ "$_anc" = "tests" ] && break
         while IFS= read -r _cand; do
             [ -n "$_cand" ] || continue
             grep -qE '(^|[^[:alnum:]_])find[[:space:]]' "$_cand" 2>/dev/null && return 0

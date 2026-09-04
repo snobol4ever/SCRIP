@@ -80,8 +80,12 @@
 # this table is seeded with the rules that DO, not a mechanical one-per-bullet transcription.
 #
 # ROOTS: override via DIGEST_GATE_ROOTS (space-separated list of CLAUDE.md paths) for testing against
-# scratch files instead of the real fleet -- never point the real invocation anywhere but the 19 real
-# roots.
+# scratch files instead of the real fleet -- never point the real invocation anywhere but the 21 real
+# roots. claude_B and claude_T were ABSENT until 2026-09-04 (hq_B, ceo ruling ruling-digest-gate-roots):
+# both roots were opened after this list was written, so the two HQs whose lanes are HYGIENE and TESTS
+# were the two whose digests no gate read, and the gate was green about the other nineteen the whole
+# time -- the same narrow-instrument shape those digests document for `command -v` and for `$?` after a
+# pipe. A hard-coded population does not announce what it left out.
 #
 # Exit codes per lib_gate.sh: 0 CLEAN / 1 VIOLATION / 2 UNPROVEN (a root unreadable -- never silently
 # skipped, per this row's own NEXT step 1).
@@ -98,7 +102,8 @@ else
            /home/claude05/CLAUDE.md /home/claude06/CLAUDE.md /home/claude07/CLAUDE.md /home/claude08/CLAUDE.md \
            /home/claude09/CLAUDE.md /home/claude10/CLAUDE.md /home/claude11/CLAUDE.md /home/claude12/CLAUDE.md \
            /home/claude13/CLAUDE.md /home/claude14/CLAUDE.md /home/claude15/CLAUDE.md /home/claude16/CLAUDE.md \
-           /home/claude_C/CLAUDE.md /home/claude_P/CLAUDE.md /home/claude/CLAUDE.md)
+           /home/claude_C/CLAUDE.md /home/claude_P/CLAUDE.md /home/claude_B/CLAUDE.md /home/claude_T/CLAUDE.md \
+           /home/claude/CLAUDE.md)
 fi
 
 VIOLATIONS=0
