@@ -456,6 +456,7 @@ static int pas_is_setexpr(tree_t *e) { if (!e) return 0;
         return !strcmp(f, "__pas_set") || !strcmp(f, "__pas_setuni") || !strcmp(f, "__pas_setint") || !strcmp(f, "__pas_setdif"); }
     return 0; }
 static tree_t *mk_set_bin(const char *name, tree_t *a, tree_t *b) { tree_t *e = ast_node_new(TT_FNC); ast_push(e, leaf_s(TT_VAR, name)); ast_push(e, a); ast_push(e, b); return e; }
+static tree_t *pas_rdiv(tree_t *a, tree_t *b) { return bin(TT_DIV, bin(TT_MUL, a, flit(1.0)), b); }
 static tree_t *pas_arith_or_set(tree_e ak, const char *setfn, tree_t *a, tree_t *b) { return (pas_is_setexpr(a) || pas_is_setexpr(b)) ? mk_set_bin(setfn, a, b) : bin(ak, a, b); }
 static tree_t *g_pas_nrec_marks[512]; static int g_pas_nrec_nmarks = 0;
 static void pas_nrec_mark_add(tree_t *e) { if (g_pas_nrec_nmarks < 512 && e) g_pas_nrec_marks[g_pas_nrec_nmarks++] = e; }
@@ -904,7 +905,7 @@ simple_expression:
 term:
     factor { $$ = $1; }
     | term MUL factor { $$ = pas_arith_or_set(TT_MUL, "__pas_setint", $1, $3); }
-    | term RDIV factor { $$ = bin(TT_DIV, $1, $3); }
+    | term RDIV factor { $$ = pas_rdiv($1, $3); }
     | term IDIV factor { $$ = bin(TT_DIV, $1, $3); }
     | term IMOD factor { $$ = bin(TT_MOD, $1, $3); }
     | term ANDOP factor { $$ = bin(TT_MUL, $1, $3); }
