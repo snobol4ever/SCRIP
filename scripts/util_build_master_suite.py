@@ -1192,10 +1192,32 @@ def main():
                                                    os.path.join(_cfgdir, _base + ".in"))):
                     excluded.append((fam, "stdin sidecar (.in/.input) -- stays as files until the stdin-sections format extension lands"))
                     continue
-                mode = "plain"   # ⚠️ auto-XFAIL-by-source-verdict is NOT applied on this path yet, so a
-                                 # pre-existing red absorbs as a visible FAIL rather than a silent XFAIL --
-                                 # the loud direction, and a named follow-up rather than a silent difference.
-                entries = [h.Entry("block", 1, os.path.basename(sno)[:-len(EXT)], _slines, _rlines)]
+                mode = "plain"
+                # ⭐ AUTO-XFAIL BY SOURCE VERDICT, EXTENDED PAST SNOBOL4 (the "named follow-up" this comment used
+                # to ask for -- row raku-smoke-724-inline-probes-absorbed-into-the-master-with-rakudo-refs, seat15
+                # 2026-09-03). Mirrors the snobol4 "plain" path above exactly: a bannerless single-program pair
+                # that does not reproduce its own ref under scrip is a DOCUMENTED red, not a silent one -- xfail
+                # marks it so it never inflates a caller's FAIL count, and a future XPASS is what polices the
+                # marker once the underlying divergence is cured. ⛔ ONLY when this family's grading mode is
+                # KNOWN (declared in MODES.tsv, as fam or as its CSV-family prefix): guessing ast vs m3/m4 here
+                # would silently mis-grade the verdict itself, which is worse than the old no-xfail gap this
+                # replaces. Undeclared falls back to the PRIOR behaviour (xfail left False) rather than guess.
+                _csv_fam = fam.split("__", 1)[0] if "__" in fam else fam
+                _declared = (_modes_decl.get(fam) or _modes_decl.get(_csv_fam) or "").strip()
+                _run_modes = [m.strip() for m in _declared.split(",") if m.strip()] if _declared and _declared != "UNKNOWN" else []
+                _xfail = False
+                if _run_modes:
+                    import tempfile as _tf
+                    _paths = h.resolve_paths()
+                    _tmp = _tf.mkdtemp(prefix="mstr_")
+                    try:
+                        from pathlib import Path as _P
+                        _v = h.run_all_modes(_paths, _P(sno), open(ref, encoding="utf-8", errors="replace").read(), _P(_tmp), _run_modes)
+                        _xfail = not all(x.kind == "PASS" for x in _v.values())
+                    finally:
+                        import shutil as _sh
+                        _sh.rmtree(_tmp, ignore_errors=True)
+                entries = [h.Entry("block", 1, os.path.basename(sno)[:-len(EXT)], _slines, _rlines, xfail=_xfail)]
             else:
                 # ⛔⭐ READ THE SIDECARS, exactly as the snobol4 path does. This call passed no in_path/x_path,
                 # so a dialect SUITE pair's stdin and xfail sidecars were silently DROPPED -- the entries
