@@ -230,11 +230,19 @@ void rt_kw_set_rtntype_role(int role) {
     rt_kw_set_rtntype(role == 2 ? 1 : (rt_g_ret_by_name ? 2 : 0));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int kwb_numeric_text(const char *s) {
+    if (!s) return 0;
+    char *end = (char *)0; (void)strtod(s, &end);
+    const char *p = (end && end != s) ? (const char *)end : s;
+    while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r' || *p == '\f' || *p == '\v') p++;
+    return *p == '\0';
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int kwb_write_ent(KWB_ENT_t *e, DESCR_t v) {
     if (!e) return 0;
     if (e->kind == KWB_STR && !strcmp(e->name, "ERRTEXT")) { const char *s = VARVAL_fn(v); g_sno_errtext = rt_ws_strdup_c(s ? s : ""); return 1; }
     int is_num = IS_INT(v) || IS_REAL(v);
-    if (!is_num) { const char *s = VARVAL_fn(v); char *end = (char *)0; if (s && *s) { (void)strtol(s, &end, 10); is_num = (end && *end == '\0'); } }
+    if (!is_num) is_num = kwb_numeric_text(VARVAL_fn(v));
     if (!is_num) return kwb_error(208, "keyword value assigned is not integer") ? 1 : -1;
     int64_t iv = IS_INT(v) ? v.i : (int64_t)to_real(v);
     if (strcmp(e->name, "STLIMIT") && (iv < 0 || iv > 16777216 || (!strcmp(e->name, "PROFILE") && iv > 2))) return kwb_error(210, "keyword value assigned is negative or too large") ? 1 : -1;
