@@ -1759,6 +1759,11 @@ DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs) {
     return STRVAL(buf);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long pas_ord_of(DESCR_t v) { if (IS_INT_fn(v)) return (long)v.i; if (IS_STR_fn(v)) { const char *s = VARVAL_fn(v); return (s && s[0]) ? (long)(unsigned char)s[0] : -1L; } return -1L; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define PAS_SET_BYTES 32
+static void pas_set_bits(DESCR_t v, unsigned char out[PAS_SET_BYTES]) { memset(out, 0, PAS_SET_BYTES); if (IS_STR_fn(v) && v.slen == PAS_SET_BYTES && v.s) { memcpy(out, v.s, PAS_SET_BYTES); return; } if (IS_INT_fn(v)) { long iv = v.i; for (int b = 0; b < 64; b++) if ((iv >> b) & 1L) out[b / 8] |= (unsigned char)(1u << (b % 8)); } }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) {
     if (!strcmp(fn, "where") && nargs == 1) {
         extern void  fh_ensure_init(void);
@@ -2076,26 +2081,37 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = NULVCL; return 1;
     }
     if (!strcmp(fn, "__pas_in") && nargs == 2) {
-        long e = IS_INT_fn(args[0]) ? args[0].i : -1;
-        long s = IS_INT_fn(args[1]) ? args[1].i : 0;
-        *out = INTVAL((e >= 0 && e < 64 && ((s >> e) & 1L)) ? 1 : 0); return 1;
+        long e = pas_ord_of(args[0]);
+        unsigned char bits[PAS_SET_BYTES]; pas_set_bits(args[1], bits);
+        int hit = (e >= 0 && e < PAS_SET_BYTES * 8) ? ((bits[e / 8] >> (e % 8)) & 1) : 0;
+        *out = INTVAL(hit ? 1 : 0); return 1;
     }
     if (!strcmp(fn, "__pas_set")) {
-        long s = 0;
-        for (int k = 0; k < nargs; k++) { long e = IS_INT_fn(args[k]) ? args[k].i : -1; if (e >= 0 && e < 64) s |= (1L << e); }
-        *out = INTVAL(s); return 1;
+        unsigned char *buf = (unsigned char *)rt_ws_alloc(PAS_SET_BYTES); memset(buf, 0, PAS_SET_BYTES);
+        for (int k = 0; k < nargs; k++) { long e = pas_ord_of(args[k]); if (e >= 0 && e < PAS_SET_BYTES * 8) buf[e / 8] |= (unsigned char)(1u << (e % 8)); }
+        *out = BSTRVAL((char *)buf, PAS_SET_BYTES); return 1;
     }
     if (nargs == 2 && (!strcmp(fn, "__pas_setuni") || !strcmp(fn, "__pas_setint") || !strcmp(fn, "__pas_setdif")
-                    || !strcmp(fn, "__pas_subset") || !strcmp(fn, "__pas_super"))) {
-        long a = IS_INT_fn(args[0]) ? args[0].i : 0;
-        long b = IS_INT_fn(args[1]) ? args[1].i : 0;
-        long r;
-        if      (!strcmp(fn, "__pas_setuni")) r = a | b;
-        else if (!strcmp(fn, "__pas_setint")) r = a & b;
-        else if (!strcmp(fn, "__pas_setdif")) r = a & ~b;
-        else if (!strcmp(fn, "__pas_subset")) r = ((a & ~b) == 0) ? 1 : 0;
-        else                                  r = ((b & ~a) == 0) ? 1 : 0;
-        *out = INTVAL(r); return 1;
+                    || !strcmp(fn, "__pas_subset") || !strcmp(fn, "__pas_super")
+                    || !strcmp(fn, "__pas_seteq") || !strcmp(fn, "__pas_setne"))) {
+        unsigned char a[PAS_SET_BYTES], b[PAS_SET_BYTES]; pas_set_bits(args[0], a); pas_set_bits(args[1], b);
+        if (!strcmp(fn, "__pas_subset") || !strcmp(fn, "__pas_super")) {
+            const unsigned char *x = !strcmp(fn, "__pas_subset") ? a : b;
+            const unsigned char *y = !strcmp(fn, "__pas_subset") ? b : a;
+            int ok = 1; for (int i = 0; i < PAS_SET_BYTES; i++) if (x[i] & (unsigned char)~y[i]) { ok = 0; break; }
+            *out = INTVAL(ok); return 1;
+        }
+        if (!strcmp(fn, "__pas_seteq") || !strcmp(fn, "__pas_setne")) {
+            int eq = memcmp(a, b, PAS_SET_BYTES) == 0;
+            *out = INTVAL((!strcmp(fn, "__pas_seteq") ? eq : !eq) ? 1 : 0); return 1;
+        }
+        unsigned char *r = (unsigned char *)rt_ws_alloc(PAS_SET_BYTES);
+        for (int i = 0; i < PAS_SET_BYTES; i++) {
+            if      (!strcmp(fn, "__pas_setuni")) r[i] = a[i] | b[i];
+            else if (!strcmp(fn, "__pas_setint")) r[i] = a[i] & b[i];
+            else                                  r[i] = a[i] & (unsigned char)~b[i];
+        }
+        *out = BSTRVAL((char *)r, PAS_SET_BYTES); return 1;
     }
     if (nargs >= 1 && (!strcmp(fn, "__rk_jct_any") || !strcmp(fn, "__rk_jct_all")
                     || !strcmp(fn, "__rk_jct_one") || !strcmp(fn, "__rk_jct_none"))) {

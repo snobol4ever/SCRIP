@@ -876,8 +876,8 @@ expression:
     | expression LEOP simple_expression { $$ = pas_rel_or_set(TT_LE, "__pas_subset", $1, $3); }
     | expression GTOP simple_expression { $$ = pas_rel(TT_GT, $1, $3); }
     | expression GEOP simple_expression { $$ = pas_rel_or_set(TT_GE, "__pas_super", $1, $3); }
-    | expression NEOP simple_expression { $$ = pas_rel(TT_NE, $1, $3); }
-    | expression EQOP simple_expression { $$ = pas_rel(TT_EQ, $1, $3); }
+    | expression NEOP simple_expression { $$ = pas_rel_or_set(TT_NE, "__pas_setne", $1, $3); }
+    | expression EQOP simple_expression { $$ = pas_rel_or_set(TT_EQ, "__pas_seteq", $1, $3); }
     ;
 simple_expression:
     term { $$ = $1; }

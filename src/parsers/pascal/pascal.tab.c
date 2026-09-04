@@ -2670,13 +2670,13 @@ yyreduce:
 
   case 133: /* expression: expression NEOP simple_expression  */
 #line 879 "pascal.y"
-                                        { (yyval.node) = pas_rel(TT_NE, (yyvsp[-2].node), (yyvsp[0].node)); }
+                                        { (yyval.node) = pas_rel_or_set(TT_NE, "__pas_setne", (yyvsp[-2].node), (yyvsp[0].node)); }
 #line 2675 "pascal.tab.c"
     break;
 
   case 134: /* expression: expression EQOP simple_expression  */
 #line 880 "pascal.y"
-                                        { (yyval.node) = pas_rel(TT_EQ, (yyvsp[-2].node), (yyvsp[0].node)); }
+                                        { (yyval.node) = pas_rel_or_set(TT_EQ, "__pas_seteq", (yyvsp[-2].node), (yyvsp[0].node)); }
 #line 2681 "pascal.tab.c"
     break;
 
