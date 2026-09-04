@@ -60,6 +60,14 @@ fi
 # table is this class's normal output. NO LOGIC HERE: util_require_fresh.sh sources gate_require_fresh from
 # lib_gate.sh, the ONE authority (hq_B 4c7253e99) -- never a second copy of the staleness rule.
 "$HERE/util_require_fresh.sh" --gate test_icon_arizona_suite "$SCRIP" "${RT_DIR:-$HERE/../out}/libscrip_rt.so" || exit 2
+# ⛔ EVERY PROGRAM RUNS IN A SCRATCH CWD, NEVER THE CALLER'S (seat02 -> hq_T 2026-09-04): general/fncs1.icn and
+# general/checkc.icn both `open("foo.baz","w")`, so any run whose cwd was the package dir left an untracked foo.baz in
+# corpus/packages/icon/arizona_tests/general/ -- and that litter blocked a seat's SCORE.md landing on util_score_row's
+# dirty-tree refusal. A grader that writes into the tree it grades is the same defect as a gate that edits the artifact
+# it measures. Everything a program READS is reached by absolute path ($SUITE, $stdin_file, $SCRIP are all absolute), so
+# nothing it reads moves; only what it WRITES lands here, and dies with the trap.
+RUNDIR="$(mktemp -d "${TMPDIR:-/tmp}/ariz_run.XXXXXX")" || { echo "⛔ GATE REFUSES: mktemp failed" >&2; exit 2; }
+trap 'rm -rf "$RUNDIR"' EXIT
 
 # ── SHIPPED: every .icn under every subdirectory this package ships, computed fresh, never hand-pinned.
 SHIPPED=0
@@ -97,7 +105,7 @@ for std in "$SUITE"/*.std; do
   [ -f "$dat" ] && stdin_file="$dat"
 
   # ── mode 3: --run ──────────────────────────────────────────────────────────────────────────────
-  m3out=$(timeout "$TIMEOUT" "$SCRIP" --run "$icn" < "$stdin_file" 2>&1)
+  m3out=$(cd "$RUNDIR" && timeout "$TIMEOUT" "$SCRIP" --run "$icn" < "$stdin_file" 2>&1)
   if printf '%s' "$m3out" | grep -q 'parse error'; then
     M3_REJECT=$((M3_REJECT+1)); M3_REJECT_NAMES="$M3_REJECT_NAMES $name"
     [ "$VERBOSE" = 1 ] && echo "  [m3 REJECT] $name"
@@ -110,11 +118,11 @@ for std in "$SUITE"/*.std; do
 
   # ── mode 4: --compile (asm to stdout) -> assemble+link libscrip_rt.so -> run ─────────────────────
   s4=$(mktemp /tmp/ariz_XXXXXX.s); bin4=$(mktemp /tmp/ariz_XXXXXX.bin); rm -f "$bin4"
-  m4diag=$(timeout "$TIMEOUT" "$SCRIP" --compile "$icn" 2>&1 >"$s4" </dev/null)
+  m4diag=$(cd "$RUNDIR" && timeout "$TIMEOUT" "$SCRIP" --compile "$icn" 2>&1 >"$s4" </dev/null)
   m4out=""
   if [ -s "$s4" ] && [ -f "$RT_SO" ]; then
     if gcc -no-pie "$s4" -L"$HERE/../out" -lscrip_rt -Wl,-rpath,"$HERE/../out" -o "$bin4" 2>/dev/null; then
-      m4out=$(timeout "$TIMEOUT" "$bin4" < "$stdin_file" 2>&1)
+      m4out=$(cd "$RUNDIR" && timeout "$TIMEOUT" "$bin4" < "$stdin_file" 2>&1)
     fi
   fi
   if printf '%s\n%s\n%s' "$m4diag" "$m4out" "$(cat "$s4" 2>/dev/null)" | grep -q 'parse error'; then
