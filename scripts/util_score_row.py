@@ -771,7 +771,7 @@ PROGRESS_FAIL_SUFFIX = ("parse-fail", "fail", "reject", "crash", "no-tap", "xfai
 # ⛔ ipl IS COMPILE-GRADED AND IS DELIBERATELY ABSENT: it compiles 437 of 851 and RUN-grades zero, because
 # upstream ships no `.std` oracle output. A suite that never checks an answer cannot sit in a correctness
 # denominator -- it is named in the cell and counted nowhere (ceo ruling, Lon's industry-standard basis).
-PROGRESS_ESTIMATED = {"snobol4": [("snoflake", 180)]}
+PROGRESS_ESTIMATED = {}   # superseded by counted_fractions: every listed package counts, ungraded ones as zero
 # ⛔⭐⭐ ONLY A SHIPPED TEST SUITE COUNTS (Lon 2026-09-04, in-chat to ceo: "Ensure items in that list actually have test
 # suites."): the V cell may name every vendored package, but the percent reads ONLY the clauses naming a package that
 # ships its own tests or expected results -- csnobol4_suite (Budne's suite, 125 .ref verbatim), snoflake (180 @expect),
@@ -779,29 +779,42 @@ PROGRESS_ESTIMATED = {"snobol4": [("snoflake", 180)]}
 # fpc_tests (FPC's test programs), PAT (ISO 7185 validation suite, .cmp/.ecp), roast (Raku spec tests, TAP).
 # NAMED, NEVER COUNTED: gimpel (a book's modules behind 144 drivers WE wrote), aisnobol and dotnet (program collections),
 # ipl (a program library, no tests), gnu_prolog (GNU Prolog's compiler/library source, no tests).
+PROGRESS_NO_PUBLIC_SUITE = ("snocone", "rebus")   # no shipped package at all: no percentage, never 100% from our own ladder
+# ⛔⭐⭐ EVERY SHIPPED PACKAGE IS A TEST SUITE (Lon 2026-09-04, in-chat to ceo, verbatim: "If GNU Prolog ships with Prolog
+# source; that is the test suite I am talking about. You make the programs run, you measure the output, make a REF
+# file, and place it into a ONE-LINER or a MULTI-LINER Python test harness."). So every vendored package counts over
+# its SHIPPED POPULATION: a package not yet run-graded counts as 0 of its population (it is on the list, it pulls the
+# percent down until its programs run against the oracle), never as absent. The percent is the V column only; our own
+# master, AST fixtures and ladders are printed as ours and never counted.
 PROGRESS_COUNTED = {
-    "snobol4": [("csnobol4", r"csnobol4", (118, 124, 125)), ("snoflake", r"[Ss]noflake", (180,))],
-    "icon": [("arizona", r"[Aa]rizona", (89, 124)), ("jcon", r"[Jj][Cc][Oo][Nn]", (81, 91))],
-    "prolog": [("swi", r"[Ss][Ww][Ii]", (114, 249)), ("INRIA", r"INRIA|inria|ISO 13211", (445,))],
+    "snobol4": [("csnobol4", r"csnobol4", (118, 124, 125)), ("snoflake", r"[Ss]noflake", (180,)), ("gimpel", r"gimpel", (126, 144, 289)), ("aisnobol", r"aisnobol", (2, 8)), ("dotnet", r"dotnet", (5, 14))],
+    "icon": [("arizona", r"[Aa]rizona", (89, 124)), ("jcon", r"[Jj][Cc][Oo][Nn]", (81, 91)), ("ipl", r"\bipl\b", (851,))],
+    "prolog": [("swi", r"[Ss][Ww][Ii]", (114, 249)), ("INRIA", r"INRIA|inria|ISO 13211", (445,)), ("gnu", r"[Gg][Nn][Uu]", (62, 91))],
     "pascal": [("fpc", r"fpc", (181,)), ("PAT", r"\bPAT\b|validation suite|ISO 7185", (427, 429))],
     "raku": [("roast", r"roast", (986, 1464))],
 }
 def counted_fractions(lang, vcell):
-    """{denominator: pass} for the COUNTED suites only, each read as the first fraction over one of the suite's own
-    known populations within 160 chars after the suite's name -- anchored on the denominator, so a stray '126/124' in
-    prose ('the grid's 126/124 was the stale side') can never be read as a suite. Returns (got, work)."""
+    """{denominator: pass} over EVERY listed package: the first RUN-graded fraction over one of the package's own
+    known populations within 160 chars after its name (denominator-anchored, so prose like "the grid's 126/124" can
+    never be read as a suite); a package with no such fraction counts as 0 of its shipped population. Returns
+    (got, work)."""
     got, work = {}, []
     for name, rx, dens in PROGRESS_COUNTED.get(lang, []):
         best = None
         for m in re.finditer(rx, vcell):
             seg = vcell[m.end():m.end() + 160]
+            if re.search(r"compile[- ]graded|COMPILE-graded|compile-only", seg[:60]):
+                continue
             for f in re.finditer(r"(\d+)\s*/\s*(\d+)", seg):
                 pnum, den = int(f.group(1)), int(f.group(2))
                 if den in dens and pnum <= den:
-                    best = (pnum, den) if best is None else (min(best[0], pnum), den) if den == best[1] else best
+                    best = (pnum, den)
                     break
+            if best:
+                break
         if best is None:
-            work.append("V %s: named but no fraction over its own population %s -- unnumbered, not counted" % (name, "/".join(str(d) for d in dens)))
+            got[dens[-1]] = got.get(dens[-1], 0)
+            work.append("V %s 0/%d -- on the list, NOT YET RUN-GRADED (counts as zero until its programs run against the oracle)" % (name, dens[-1]))
             continue
         got[best[1]] = best[0]
         work.append("V %s %d/%d" % (name, best[0], best[1]))
