@@ -79,10 +79,18 @@ match_assign() {
 resolve_one() {
   # $1 = raw default string (may contain $VAR / ${VAR} refs, and may be a space-separated LIST) --
   # prints the fully-substituted result after up to 6 passes (enough for any realistic chain here).
+  # ⛔ KEYS MUST BE TRIED LONGEST-NAME-FIRST (seat14 2026-09-04, row dead-suite-path-consumer-sweep):
+  # bash's `${val//\$k/...}` is an unanchored literal substring replace, so a SHORT name that is a
+  # PREFIX of a longer one in the same file (e.g. `B=".../corpus/benchmarks/snobol4"` vs `BASE_N`)
+  # gets spliced into the middle of the longer reference before the longer key's own turn comes —
+  # `$BASE_N` became `$B` + literal `ASE_N`, resolving to a garbled path that "does not exist" for a
+  # variable (`n1`) that was never a corpus path at all. Two SAME-length names can never collide this
+  # way (a strict prefix match requires the shorter string), so sorting once by length descending is
+  # a complete fix, not a heuristic. Found live on `bench_ir_slope.sh`'s `n1`/`B` pair.
   local val="$1" pass k
   for pass in 1 2 3 4 5 6; do
     val="${val//\$\{S4E\}/$S4E}"; val="${val//\$S4E/$S4E}"
-    for k in "${!fvals[@]}"; do
+    for k in "${SORTED_KEYS[@]}"; do
       val="${val//\$\{$k\}/${fvals[$k]}}"
       val="${val//\$$k/${fvals[$k]}}"
     done
@@ -100,6 +108,10 @@ for f in "${files[@]}"; do
     case "$line" in \#*) continue;; esac
     match_assign "$line" && fvals["$MA_NAME"]="$MA_RAW"
   done < "$f"
+  # Longest-name-first order for resolve_one's substitution loop -- see resolve_one's own comment.
+  SORTED_KEYS=()
+  while IFS= read -r k; do SORTED_KEYS+=("$k"); done < <(
+    for k in "${!fvals[@]}"; do printf '%d %s\n' "${#k}" "$k"; done | sort -rn -k1,1 | cut -d' ' -f2-)
   # Pass 2: re-walk the same lines, this time CHECKING each path-shaped token against disk, using
   # the (now-complete) fvals map built above so forward chains within one file resolve too.
   while IFS= read -r line; do
