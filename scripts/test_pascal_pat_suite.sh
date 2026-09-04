@@ -38,8 +38,14 @@ for f in "$SUITE"/iso7185prt*.pas; do
         # AGREED TO RUN, which is already the FAIL this test is looking for. Measured, not assumed: the first cut of
         # this runner used 8s and `rc>=124 => CRASH`, and the m3 arm then EXECUTED all 143 wrongly-accepted programs
         # for 8s each -- a >19-minute runner that also mislabelled its own headline defect as a crash.
-        if [ "$m" = m3 ]; then timeout 2s "$SCRIP" "$f" </dev/null >"$TMP/o" 2>&1; rc=$?
-        else                   timeout 8s "$SCRIP" --compile -o /dev/null "$f" </dev/null >"$TMP/o" 2>&1; rc=$?; fi
+        # ⛔⭐ RUN IN A SCRATCH CWD, NEVER IN THE WORKING TREE. A rejection test that scrip WRONGLY ACCEPTS is
+        # then EXECUTED -- and these are ISO 7185 programs that do file I/O, so their side effects land wherever
+        # the runner happens to stand. MEASURED: this left an empty file named `0` in SCRIP/ on every run, which
+        # made the tree dirty, which made util_score_row.py correctly REFUSE to write the leaderboard row --
+        # so the suite's own debris silently blocked the FACT RULE the suite exists to satisfy. ⭐ The general
+        # form: a runner that executes its subjects in the repo root has made the repo part of the experiment.
+        if [ "$m" = m3 ]; then ( cd "$TMP" && exec timeout 2s "$SCRIP" "$f" </dev/null >"$TMP/o" 2>&1 ); rc=$?
+        else                   ( cd "$TMP" && exec timeout 8s "$SCRIP" --compile -o /dev/null "$f" </dev/null >"$TMP/o" 2>&1 ); rc=$?; fi
         if [ "$rc" -eq 124 ]; then F[$m]=$((F[$m]+1)); NAMED="$NAMED $b:$m:ACCEPTED-AND-RAN"
         elif [ "$rc" -gt 124 ]; then C[$m]=$((C[$m]+1)); NAMED="$NAMED $b:$m:CRASH(rc=$rc)"
         elif [ "$rc" -ne 0 ] && [ -s "$TMP/o" ]; then P[$m]=$((P[$m]+1))
