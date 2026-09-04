@@ -18,13 +18,26 @@
 #
 # External CPU time via tools/bench_rusage, same instrument angle 3 (disk telemetry) and the SNOBOL4/
 # Prolog triangulators both use -- never engine self-timing.
+#
+# ⭐ SLOPE CURE (row readme-perf-grids-three-angles-all-seven, hq_P FINDING-2026-09-04-hq_P-pascal-angle-
+# bias-is-a-per-run-fixed-cost-inside-the-program-not-process-startup.md): SCALE.tsv's committed N used
+# to be the SOLE measurement point (rate=N/cpu), which leaves the kernel's large per-run fixed cost in
+# the denominator -- same defect as angle 1's old single-point rate, same cure. SCALE.tsv's committed N
+# is now read as the TOP of a doubling triple (N/4, N/2, N): WORK is the us/rep SLOPE fitted from the
+# (N/2,N) segment, cross-checked against the independent (N/4,N/2) segment, mirroring
+# test_bench_pascal_timed.sh's search() and bench_ir_slope.sh's Ir(n)=OVERHEAD+n*WORK regression exactly.
+# ⛔ quick's scrip_reps=12 SITS AT the m3/m4 crash cap (pascal-quick-m3-recursive-reps-cliff-13) -- N/4
+# alone would still leave 4*(N/4)=N=12 as the top point, safely at (not past) the cap, but the SAME cap
+# must gate the BASE derivation below for any future kernel/cap combination, not just quick's.
+# ⛔ WORK is COST-basis (lower is faster), the OPPOSITE convention from the old rate (reps/s, bigger=
+# faster) this replaces -- perf_mult callers downstream must pass (rival, ours), never (ours, rival).
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
 B="${BENCH_DIR:-$S4E/corpus/benchmarks/pascal}"
 SCALE="${SCALE_TSV:-$B/SCALE.tsv}"
-T="${TIMEOUT:-60}"
+T="${TIMEOUT:-60}"; LIN_TOL="${LIN_TOL:-10}"; NMAX="${NMAX:-200000}"
 KERNELS="${KERNELS:-}"   # optional allowlist, space-separated basenames -- same convention as the Prolog scripts
 [ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built"; exit 2; }
 [ -f "$RT/libscrip_rt.so" ] || { echo "⛔ REFUSED-TO-GRADE libscrip_rt.so not built"; exit 2; }
@@ -42,7 +55,36 @@ fpc_build() {
   "$FPC" -O2 -o"$out" "$W/fpc_$k.pas" >"$W/fpc_$k.buildlog" 2>&1 || return 1
   printf '%s\n' "$out"
 }
-rate() { awk -v n="$1" -v us="$2" 'BEGIN{ if (us+0>0) printf "%.4f", n/(us/1e6); else print "NA" }'; }
+# kernel_crash_cap: a REAL reps ceiling past which a kernel/engine crashes, or empty if none is known --
+# identical copy of test_bench_pascal_timed.sh's function (see that file's header for why this is kept
+# distinct from any NMAX-style search ceiling: only quick:m3/m4 has a genuine crash boundary, and a
+# generic "cap" would wrongly shrink bases like fpc's that have no crash risk at all).
+kernel_crash_cap() { case "$1:$2" in quick:m3|quick:m4) echo 12;; *) echo "";; esac; }
+# pick_spacing / slope3: identical copies of test_bench_pascal_timed.sh's functions (see that file's
+# header for the full derivation and the live measurement that picked x4/x16 over x2/x4) -- kept as exact
+# copies so the two angles cannot silently drift onto different formulas for the same quantity.
+pick_spacing() { local cap="$1"; if [ -z "$cap" ] || [ $((cap/16)) -ge 3 ]; then echo "4 16"; else echo "2 4"; fi; }
+slope3() {
+  awk -v a="$1" -v b="$2" -v c="$3" -v na="$4" -v nb="$5" -v nc="$6" -v tol="${7:-10}" 'BEGIN{
+    s1=(b-a)/(nb-na); s2=(c-b)/(nc-nb)
+    if (s1<=0 || s2<=0) { printf "0 0 NONLINEAR"; exit }
+    d=(s1>s2 ? (s1-s2)/s2 : (s2-s1)/s1)*100
+    printf "%.4f %.4f %s", s2, a-na*s1, (d<=tol ? "ok" : "NONLINEAR")
+  }'
+}
+# run1_min: minimum of several run1 trials -- same noise-cancelling rationale as
+# test_bench_pascal_timed.sh's run1_min (measured live this session: ~25% spread between back-to-back
+# trials at identical reps, on a box carrying FLEET-16's load). Trials=5 matches hq_P's best-of-5.
+# Identical to that file's copy.
+run1_min() {
+  local eng="$1" k="$2" reps="$3" trials="${4:-5}" i v best=""
+  for ((i=0;i<trials;i++)); do
+    v=$(run1 "$eng" "$k" "$reps")
+    case "$v" in -\ *) echo "$v"; return ;; esac
+    [ -z "$best" ] || [ "$v" -lt "$best" ] && best="$v"
+  done
+  echo "$best"
+}
 
 # one bench_rusage-wrapped run feeding reps via stdin; echoes "cpu_us" or "- REASON"
 run1() {
@@ -68,25 +110,50 @@ run1() {
   echo "$(( ${user:-0} + ${sys:-0} ))"
 }
 
-echo "FIXED-ITERATION PASCAL BENCHMARKS -- angle 2: reps fixed per kernel (committed in SCALE.tsv), external cpu time measured"
-echo "engines: fpc m3 m4   SCALE: $SCALE   external instrument: tools/bench_rusage (user+sys cpu time)"
+# base_for k eng committed -> "n1 mult1 mult2": SCALE.tsv's committed reps IS n1 (the smallest of the
+# triple) whenever that is safe -- matching hq_P's own FINDING exactly (bubble scrip_reps=5 used AS n1,
+# giving the triple 5/20/80 that measured 3.08% agreement) -- shrunk only when a real crash cap forbids
+# it (quick: committed=cap=12, so even the narrow x4 top would crash; shrink to cap/mult2 instead).
+base_for() {
+  local k="$1" eng="$2" committed="$3" ccap mult1 mult2 n1
+  ccap="$(kernel_crash_cap "$k" "$eng")"
+  read -r mult1 mult2 <<<"$(pick_spacing "$ccap")"
+  if [ -z "$ccap" ] || [ $((committed*mult2)) -le "$ccap" ]; then n1="$committed"
+  else n1=$((ccap/mult2)); [ "$n1" -lt 1 ] && n1=1; fi
+  echo "$n1 $mult1 $mult2"
+}
+
+echo "FIXED-ITERATION PASCAL BENCHMARKS -- angle 2: reps fixed per kernel (committed in SCALE.tsv, now read"
+echo "as n1, the BASE of a x1/x4/x16 triple -- narrowed to x1/x2/x4 only when quick's crash cap forces it);"
+echo "WORK is the us/rep SLOPE fit across the triple (COST basis, lower=faster; see the SLOPE CURE header"
+echo "note), cross-checked for linearity like angle 1's search()."
+echo "engines: fpc m3 m4   SCALE: $SCALE (base columns shown = n1)   LIN_TOL=$LIN_TOL%   external instrument: tools/bench_rusage (user+sys cpu time)"
 echo
-printf "%-10s %10s %10s %14s %14s %14s  %s\n" BENCHMARK N_fpc N_scrip fpc/s m3/s m4/s check
+printf "%-10s %10s %10s %14s %14s %14s  %s\n" BENCHMARK base_fpc base_scrip fpc-us/rep m3-us/rep m4-us/rep check
 printf "%-10s %10s %10s %14s %14s %14s  %s\n" "----------" "----------" "----------" "--------------" "--------------" "--------------" "-----"
 tot_ok=0; tot_bad=0
 while IFS=$'\t' read -r k nf ns; do
   [[ "$k" == \#* || -z "$k" ]] && continue
   if [ -n "$KERNELS" ]; then case " $KERNELS " in *" $k "*) ;; *) continue ;; esac; fi
   [ -f "$B/$k.pas" ] || { printf "%-10s %10s %10s   MISSING kernel: %s\n" "$k" "$nf" "$ns" "$B/$k.pas"; tot_bad=$((tot_bad+1)); continue; }
-  ckstat=ok; declare -A RATE=()
+  ckstat=ok; declare -A RATE=(); base_fpc=""; base_scrip=""
   for eng in fpc m3 m4; do
     n="$ns"; [ "$eng" = fpc ] && n="$nf"
-    res=$(run1 "$eng" "$k" "$n"); cpu=$(awk '{print $1}' <<<"$res")
-    if [ "$cpu" = "-" ]; then RATE[$eng]="NA"; reason=$(cut -d' ' -f3- <<<"$res"); [ "$ckstat" = ok ] && ckstat="$eng:$reason"
-    else RATE[$eng]=$(rate "$n" "$cpu"); fi
+    read -r n1 mult1 mult2 <<<"$(base_for "$k" "$eng" "$n")"
+    n2=$((n1*mult1)); n3=$((n1*mult2))
+    [ "$eng" = fpc ] && base_fpc="$n1" || base_scrip="$n1"
+    c1=$(awk '{print $1}' <<<"$(run1_min "$eng" "$k" "$n1")")
+    if [ "$c1" = "-" ]; then RATE[$eng]="NA"; [ "$ckstat" = ok ] && ckstat="$eng:DNF/CRASH@n1=$n1"; continue; fi
+    c2=$(awk '{print $1}' <<<"$(run1_min "$eng" "$k" "$n2")")
+    if [ "$c2" = "-" ]; then RATE[$eng]="NA"; [ "$ckstat" = ok ] && ckstat="$eng:DNF/CRASH@n2=$n2"; continue; fi
+    c3=$(awk '{print $1}' <<<"$(run1_min "$eng" "$k" "$n3")")
+    if [ "$c3" = "-" ]; then RATE[$eng]="NA"; [ "$ckstat" = ok ] && ckstat="$eng:DNF/CRASH@n3=$n3"; continue; fi
+    read -r work _ovh lin <<<"$(slope3 "$c1" "$c2" "$c3" "$n1" "$n2" "$n3" "$LIN_TOL")"
+    if [ "$lin" != ok ]; then RATE[$eng]="NA"; [ "$ckstat" = ok ] && ckstat="$eng:NONLINEAR(n1=$n1,n2=$n2,n3=$n3)"; continue; fi
+    RATE[$eng]="$work"
   done
   [ "$ckstat" = ok ] && tot_ok=$((tot_ok+1)) || tot_bad=$((tot_bad+1))
-  printf "%-10s %10s %10s %14s %14s %14s  %s\n" "$k" "$nf" "$ns" "${RATE[fpc]}" "${RATE[m3]}" "${RATE[m4]}" "$ckstat"
+  printf "%-10s %10s %10s %14s %14s %14s  %s\n" "$k" "$base_fpc" "$base_scrip" "${RATE[fpc]}" "${RATE[m3]}" "${RATE[m4]}" "$ckstat"
   unset RATE
 done < "$SCALE"
 echo

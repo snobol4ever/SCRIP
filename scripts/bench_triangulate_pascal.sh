@@ -32,6 +32,8 @@ TS="$(date -u +%Y%m%dT%H%M%SZ)"
 OUT_TSV="${OUT_TSV:-$PDIR/triangulation-$TS.tsv}"
 
 echo "PASCAL THREE-ANGLE TRIANGULATION -- angle 1 (fixed time) vs angle 2 (fixed reps) vs disk telemetry"
+echo "both angles now report WORK (us/rep, COST basis -- lower is faster) via a 3-point slope fit, not the"
+echo "old single-point rate=reps/cpu (SLOPE CURE, see test_bench_pascal_timed.sh / bench_pascal_fixed_iter.sh headers)"
 echo "tolerance: flat TOL_PCT=$TOL% (UNBAKED -- no NOISE-FLOOR.tsv for pascal yet)"
 echo
 
@@ -86,11 +88,16 @@ for k in $kernels; do
 done
 
 echo
-echo "-- FACT-RULE grid: m3 vs fpc, m4 vs fpc (angle 1 numbers; rate metric, axis named once here, RT_OPT=-O0 SCRIP / fpc -O2 released default) --"
+echo "-- FACT-RULE grid: m3 vs fpc, m4 vs fpc (angle 1 numbers; WORK metric, us/rep COST basis, axis named once here, RT_OPT=-O0 SCRIP / fpc -O2 released default) --"
+# ⛔ perf_row/perf_mult (lib_perf_fmt.sh) take (LABEL, REF, OURS) and are documented as COST inputs
+# (lower=better; multiple=ref/ours). fpc is the reference, m3/m4 are ours -- REF FIRST, OURS SECOND. The
+# pre-slope code here fed RATE values (reps/s, bigger=better) with the args the OTHER way round (ours in
+# the ref slot), which happened to cancel out for that inverted convention; now that angle 1 reports WORK
+# (a genuine cost), that swap would silently invert every published multiple if left in place.
 for k in $kernels; do
   rf=$(dehuman "${A1["$k:fpc"]:-}"); r3=$(dehuman "${A1["$k:m3"]:-}"); r4=$(dehuman "${A1["$k:m4"]:-}")
-  [ -n "$rf" ] && [ -n "$r3" ] && perf_row "$k  m3 vs fpc" "$r3" "$rf"
-  [ -n "$rf" ] && [ -n "$r4" ] && perf_row "$k  m4 vs fpc" "$r4" "$rf"
+  [ -n "$rf" ] && [ -n "$r3" ] && perf_row "$k  m3 vs fpc" "$rf" "$r3"
+  [ -n "$rf" ] && [ -n "$r4" ] && perf_row "$k  m4 vs fpc" "$rf" "$r4"
 done
 [ -z "$kernels" ] && echo "  (no kernel had both angle-1 and angle-2 numeric rates for any SCRIP engine this run)"
 
