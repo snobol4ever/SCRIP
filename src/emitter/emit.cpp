@@ -2506,7 +2506,7 @@ static int zd_k(IR_t * nd) { int op = (int)nd->op; if (op == IR_MATCH_ARBNO) ret
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zd_map_on(void) { static int _m = -1; if (_m < 0) { const char * e = getenv("SCRIP_ZD_MAP"); _m = (e && *e == '1') ? 1 : 0; } return _m; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int zd_omega_test_kind(IR_e op) { static int _tf = -1; if (_tf < 0) { const char * e = getenv("SCRIP_ZD_TESTFAM"); _tf = (e && *e == '0') ? 0 : 1; } return (op == IR_CMP_TEST || (_tf && op == IR_BINOP_TEST)) ? 1 : 0; }
+static int zd_omega_test_kind(IR_e op) { static int _tf = -1; if (_tf < 0) { const char * e = getenv("SCRIP_ZD_TESTFAM"); _tf = (e && *e == '0') ? 0 : 1; } return (op == IR_CMP_TEST || op == IR_IDENT || op == IR_DIFFER || (_tf && op == IR_BINOP_TEST)) ? 1 : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zd_omega_head(IR_t **nodes, int n, IR_t *t) { for (int k = 0; k < n; k++) if (zd_omega_test_kind(nodes[k]->op) && zd_chase(nodes[k]->ω.node) == t) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2620,7 +2620,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                 {
                 if (!gin) zgpop[i] = (gback >= 0) ? (_wzdepth - _gbpre) : (((zdh_match >= 0 && (nodes[i]->op == IR_STATEMENT_END || nodes[i]->op == IR_STATEMENT)) ? zdh_match + emit_match_begin_stfh_k() : _wzdepth) + (int)kc);
                 if (!oin) zwpop[i] = (oback >= 0) ? ((_wzdepth - K) - _obpre) : (_wzdepth - K + (int)kc); } }
-                if (_dg) fprintf(stderr, "[ZD] h=%d r=%d i=%d %s K=%d zout=%d gpop=%d wpop=%d\n", hi, r, i, bb_op_name(nodes[i]->op), K, zout[i], zgpop[i], zwpop[i]);
+                if (_dg) fprintf(stderr, "[ZD] h=%d r=%d i=%d %s K=%d zout=%d gpop=%d wpop=%d gin=%d oin=%d gback=%d oback=%d\n", hi, r, i, bb_op_name(nodes[i]->op), K, zout[i], zgpop[i], zwpop[i], gin, oin, gback, oback);
             }
         }
         else {
