@@ -166,6 +166,23 @@ def check_lang(lang, phase, path=None, verbose=True):
         return "NOT-IN-SCHEMA", 0, 0, []
     declared = witnessed = 0
     missing = []
+    # ⛔⭐⭐ A CENSUS ENUMERATED FROM THE IMPLEMENTATION CANNOT NAME A GAP (ceo ruling on Lon's "Is Icon really
+    # at 90%? I do not believe it", 2026-09-04; the class hq_C first named for Prolog). If the FORMS were read
+    # off what the compiler already does, every form has a witness BY CONSTRUCTION and the row reads 199/199
+    # while proving nothing about the language standard. Measured on the live tree the hour this landed: icon
+    # is 46 of 46 rows `oracle-observed`, ZERO from-standard, while prolog/raku/pascal/snocone/rebus cite a
+    # standard on every row -- so this is one census, not a general rot.
+    # ⭐ WHOEVER WROTE THE ICON CENSUS LABELLED IT HONESTLY. The cells say `oracle-observed:` in their own
+    # words; nothing was hidden. The defect is that the CHECKER credited them anyway, which is the instrument's
+    # fault and not the author's -- an honest label nobody reads is the same as no label.
+    # A row like that is NOT-FROM-THE-STANDARD: its forms still count in the DENOMINATOR (they are declared)
+    # but are never credited as witnessed, so the language reads what it has actually earned against the book.
+    not_std, notstd_forms = [], []
+    if "REFERENCE" in cmap:
+        for r in rows:
+            ref = (r.get("REFERENCE") or "").strip()
+            if not ref or re.match(r"(?i)\s*(oracle-observed|implementation-observed|observed)\b", ref):
+                not_std.append(r.get("RUNG", "?"))
     # ⛔⭐ A RUNG WITH AN EMPTY FORMS CELL IS OWED, NOT ZERO. Found by converting the first census by hand:
     # a file that declares forms for rung00 and leaves the other ten blank counted only what it declared,
     # witnessed all of it, and read OK -- so a census could go green having enumerated one rung out of
@@ -174,9 +191,13 @@ def check_lang(lang, phase, path=None, verbose=True):
     undeclared = [r.get("RUNG", "?") for r in rows if not slugs(r.get("FORMS", ""))]
     for r in rows:
         rung = r.get("RUNG", "")
+        rung_not_std = rung in not_std
         for form in slugs(r.get("FORMS", "")):
             declared += 1
-            if witness_for(origins, rung, form):
+            if rung_not_std:
+                notstd_forms.append("%s/%s form %s -- REFERENCE is not the standard, so this form is OWED "
+                                    "however many witnesses it has" % (lang, rung, form))
+            elif witness_for(origins, rung, form):
                 witnessed += 1
             else:
                 missing.append("%s/%s form %s" % (lang, rung, form))
@@ -197,12 +218,21 @@ def check_lang(lang, phase, path=None, verbose=True):
     # first. Reporting them as one number ("13/13 witnessed (10 without a witness)") reads as a
     # contradiction and hides which of the two jobs is owed.
     nowit = len(missing)
+    # ⛔ THREE DISTINCT SHORTFALLS, THREE DISTINCT JOBS, so they are never summed into one number: a declared
+    # form with NO WITNESS needs a witness minted; a rung with an EMPTY FORMS cell needs the reference read;
+    # a form whose REFERENCE IS NOT THE STANDARD needs the census RE-DERIVED from the book. Reporting icon's
+    # as "199 declared forms with NO witness" was actively false -- they all have witnesses, and saying so
+    # would send someone to mint 199 witnesses that already exist.
+    missing += notstd_forms
     if undeclared:
         missing += ["%s/%s FORMS cell is empty -- no form enumerated from the reference" % (lang, r) for r in undeclared]
     if verbose:
         short = []
         if nowit:
             short.append("%d declared form(s) with NO witness" % nowit)
+        if notstd_forms:
+            short.append("%d form(s) NOT-FROM-THE-STANDARD (REFERENCE is oracle-observed) -- census must be "
+                         "re-derived from the book, the witnesses exist" % len(notstd_forms))
         if undeclared:
             short.append("%d rung(s) with NO forms declared" % len(undeclared))
         print("  %-8s %-8s %d/%d declared %s witnessed%s" % (
@@ -265,6 +295,14 @@ def selftest():
         mk("iii", HDR + "rung00\thello\tsec1\tbare\t\t-\tBUILT\t\nrung01\tarith\tsec2\t\t\t-\tBUILT\t\n",
            ["ladder__rung00_hello_bare"])
         cases.append(("a rung with an EMPTY forms cell is owed, not silently zero", "iii", "isolation", "MISSING"))
+        # 9. a census enumerated from the IMPLEMENTATION cannot name a gap -- witnesses present, still owed
+        mk("jjj", HDR + "rung00\thello\toracle-observed: what the compiler already prints\tbare|quoted\t\t-\tBUILT\t\n",
+           ["ladder__rung00_hello_bare", "ladder__rung00_hello_quoted"])
+        cases.append(("an oracle-observed REFERENCE is OWED even with every witness present",
+                      "jjj", "isolation", "MISSING"))
+        mk("kkk", HDR + "rung00\thello\tISO 1234 sec 5.1\tbare|quoted\t\t-\tBUILT\t\n",
+           ["ladder__rung00_hello_bare", "ladder__rung00_hello_quoted"])
+        cases.append(("the SAME rows with a real standard citation read OK", "kkk", "isolation", "OK"))
         for label, lang, phase, want in cases:
             got, _d, _w, _m = check_lang(lang, phase, verbose=False)
             if got == want:
