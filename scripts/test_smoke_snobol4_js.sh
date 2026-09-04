@@ -1,97 +1,17 @@
-#!/bin/bash
-# test_smoke_snobol4_js.sh — Smoke tests for SNOBOL4 → JavaScript emitter
-# Usage: bash scripts/test_smoke_snobol4_js.sh
-# Gate: 7/7 PASS (all smoke programs execute correctly via JS)
-S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
-
-set -e
-
-SCRIP=${SCRIP:-$S4E/SCRIP/scrip}
-CORPUS=${CORPUS:-$S4E/corpus}
-SMOKE_DIR="$CORPUS/tests/snobol4/smoke"
-TEMP_DIR=${TEMP_DIR:-/tmp/sno_js_tests}
-
-if [ ! -d "$SMOKE_DIR" ]; then
-    echo "ERROR: smoke test directory not found: $SMOKE_DIR"
-    exit 1
-fi
-
-if [ ! -x "$SCRIP" ]; then
-    echo "ERROR: scrip executable not found: $SCRIP"
-    exit 1
-fi
-
-mkdir -p "$TEMP_DIR"
-
-# List of 7 smoke tests (from GOAL-SN4-JS-EMIT)
-TESTS=(
-    "hello.sno"
-    "null.sno"
-    "empty_string.sno"
-    "multi.sno"
-    "expr_parser.sno"
-    "beauty_compiled.sno"
-    # Note: original lists 7 tests; actual count may vary
-)
-
-PASS=0
-FAIL=0
-
-echo "Running SNOBOL4 smoke tests via JavaScript emission..."
-echo ""
-
-for test_file in "$SMOKE_DIR"/*.sno; do
-    test_name=$(basename "$test_file")
-    base_name="${test_name%.sno}"
-    js_file="$TEMP_DIR/${base_name}.js"
-    out_file="$TEMP_DIR/${base_name}.out"
-    ref_file="${test_file%.sno}.ref"
-
-    echo -n "Test $test_name ... "
-
-    # Step 1: Emit JS
-    if ! "$SCRIP" --target=js "$test_file" > "$js_file" 2>/dev/null; then
-        echo "FAIL (emit error)"
-        FAIL=$((FAIL + 1))
-        continue
-    fi
-
-    # Step 2: Execute JS with node (need to fix require path)
-    # Replace relative require with absolute path to sno_runtime.js
-    RT_PATH="$SCRIP/../miscellaneous/runtimes/js/sno_runtime.js"
-    if [ ! -f "$RT_PATH" ]; then
-        RT_PATH="$S4E/SCRIP/miscellaneous/runtimes/js/sno_runtime.js"
-    fi
-    
-    if ! node "$js_file" 2>/dev/null; then
-        echo "FAIL (execution error)"
-        FAIL=$((FAIL + 1))
-        continue
-    fi
-
-    # Step 3: Compare to oracle (if reference exists)
-    if [ -f "$ref_file" ]; then
-        if diff -q "$out_file" "$ref_file" > /dev/null 2>&1; then
-            echo "PASS"
-            PASS=$((PASS + 1))
-        else
-            echo "FAIL (output mismatch)"
-            FAIL=$((FAIL + 1))
-        fi
-    else
-        # No oracle yet — just verify it runs without error
-        echo "PASS (emit + exec OK, no oracle)"
-        PASS=$((PASS + 1))
-    fi
-done
-
-echo ""
-echo "Results: $PASS PASS, $FAIL FAIL"
-
-if [ $FAIL -eq 0 ]; then
-    echo "Gate: All smoke tests passed ✅"
-    exit 0
-else
-    echo "Gate: Some tests failed ❌"
-    exit 1
-fi
+#!/usr/bin/env bash
+# test_smoke_snobol4_js.sh — ⛔ REFUSES rc=2. THE SUBJECT IS GONE, NOT THE FIXTURES.
+# Row dead-suite-path-consumer-sweep (hq_C 2026-09-04). This script used to smoke the SNOBOL4→JavaScript
+# emitter over corpus/tests/snobol4/smoke/. BOTH halves of it are gone, and only one of them was visible:
+#   1. THE PATH: corpus/tests/snobol4/smoke/ went away with the one-flat-suite ruling. The master carries
+#      exactly ONE smoke-named origin (`smoke_null__smoke_null`), so there is no population to repoint at.
+#   2. ⛔ THE BACKEND: `--target=js` is REMOVED FROM THE DRIVER. Measured 2026-09-04 on SCRIP cb60deb7f:
+#      `./scrip --target=js x.sno` prints "[SMX] --target=js removed (Stack-Machine codegen removed)." rc=1
+#      (src/driver/scrip.c — every --target other than x86 is refused there). x86 is the only live backend;
+#      jvm/js/net/wasm are the PLANNED roadmap (Lon 2026-08-28), stubbed, not built.
+# ⭐ WHY THIS REFUSES INSTEAD OF BEING REPOINTED: repointing a path would have produced a runnable script that
+# grades a backend the driver rejects — a green-or-red verdict about nothing. And it exited 1 before, which
+# reads as A FAILING TEST rather than AN ABSENT ONE (RULES.md § an instrument must distinguish "measured and
+# clean" from "never ran"; a test that cannot measure REFUSES rc=2). Anyone reviving the JS backend should
+# restore this script from git history alongside it — `git log --follow -- scripts/test_smoke_snobol4_js.sh`.
+echo "⛔ REFUSE(2): the SNOBOL4→JavaScript smoke cannot measure — the driver removed --target=js (Stack-Machine codegen removed, src/driver/scrip.c), and corpus/tests/snobol4/smoke/ no longer exists. Not a failing test: an absent one. x86 is the only live backend." >&2
+exit 2
