@@ -107,6 +107,28 @@ ladder_main() {
   for r in $(printf '%s\n' "${!rp[@]}" "${!rf[@]}" | sort -nu); do printf 'rung %2d summary: PASS=%d FAIL=%d (witness x mode)\n' "$r" "${rp[$r]:-0}" "${rf[$r]:-0}"; done
   echo "LADDER $SEL: witnesses=$n modes=2 (m3 --run, m4 --compile+as+gcc) graded=$((n*2)) PASS=$pass FAIL=$fail  tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo ?)$(git -C "$ROOT" status --short 2>/dev/null | grep -q . && echo -DIRTY) corpus=$(git -C "$S4E/corpus" rev-parse --short HEAD 2>/dev/null || echo ?)$(git -C "$S4E/corpus" status --short 2>/dev/null | grep -q . && echo -DIRTY)"
   [ "$n" -gt 0 ] || refuse "graded ZERO witnesses -- cannot measure, not a pass"
+  # ⛔⭐ A RUNG DECLARED IN LADDER.tsv AND NOT BUILT IS RED, NOT ABSENT. The population comes from ALL.csv's
+  # `ladder__rungNN_*` origins, so a rung nobody has written simply is not in it -- and `--to <top>` then
+  # grades the rungs that HAPPEN to exist and prints the success shape over the gaps. MEASURED, on Rebus,
+  # against this row's own DONE-WHEN: with rungs 0-5 built and 6-11 declared, `--to 11` printed
+  # "✅ LADDER OK: rungs 0..11 PASS 22/22" and rc=0. The DONE-WHEN would have CLOSED THE ROW with six of
+  # twelve constructs never implemented. ⭐ This is the missing-denominator defect wearing a ladder's
+  # clothes: the runner reported PASS over the population it could see, and the population was the answer.
+  # LADDER.tsv is the DECLARED census (its last line is the top); when it exists, every rung it declares at
+  # or below the requested ceiling must have at least one witness, or this REFUSES rc=2 and names them.
+  _ltsv="$MASTER_DIR/config/LADDER.tsv"
+  if [ -f "$_ltsv" ]; then
+      _ceiling="${ONLY:-${TO:-9999}}"
+      _undeclared=""
+      while read -r _r _rest; do
+          case "$_r" in rung[0-9]*) ;; *) continue;; esac
+          _num=$(printf '%s' "$_r" | sed 's/^rung0*//'); [ -n "$_num" ] || _num=0
+          [ "$_num" -le "$_ceiling" ] 2>/dev/null || continue
+          if [ -n "$ONLY" ] && [ "$_num" -ne "$ONLY" ]; then continue; fi
+          printf '%s\n' "${origins[@]}" | awk '{print $1}' | grep -qx "$_num" || _undeclared="$_undeclared $_r"
+      done < "$_ltsv"
+      [ -z "$_undeclared" ] || refuse "LADDER.tsv declares rung(s)$_undeclared at or below $_ceiling with NO witness in $MASTER_DIR/ALL.csv -- a declared rung that is not built is RED, not absent; grading only what exists would print the success shape over the gap"
+  fi
   [ "$fail" -eq 0 ] && { if [ -n "$ONLY" ]; then echo "✅ LADDER OK: rung $ONLY alone PASS $pass/$((n*2))"; else echo "✅ LADDER OK: rungs 0..${TO:-max} PASS $pass/$((n*2))"; fi; exit 0; }
   echo "⛔ LADDER RED: $fail of $((n*2)) witness x mode gradings FAIL"; exit 1
 }
