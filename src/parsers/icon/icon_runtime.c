@@ -6,8 +6,9 @@ static int  icn_sp = 0;
 long icn_retval = 0;
 int  icn_failed = 0;
 static char subscript_buf[2];
+extern void rt_icn_cset_register(const char *ptr, int len);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char *cset_union(const char *a, int alen, const char *b, int blen) {
+const char *cset_union(const char *a, int alen, const char *b, int blen, int *outlen) {
     if (!a) a = ""; if (!b) b = "";
     if (str_arena_pos + 256 > 65536) str_arena_pos = 0;
     char *out = icn_str_arena + str_arena_pos;
@@ -20,10 +21,11 @@ const char *cset_union(const char *a, int alen, const char *b, int blen) {
     }
     out[n] = '\0';
     str_arena_pos += n + 1;
+    if (outlen) *outlen = n;
     return out;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char *cset_diff(const char *a, int alen, const char *b, int blen) {
+const char *cset_diff(const char *a, int alen, const char *b, int blen, int *outlen) {
     if (!a) a = ""; if (!b) b = "";
     if (str_arena_pos + 256 > 65536) str_arena_pos = 0;
     char *out = icn_str_arena + str_arena_pos;
@@ -35,10 +37,11 @@ const char *cset_diff(const char *a, int alen, const char *b, int blen) {
     }
     out[n] = '\0';
     str_arena_pos += n + 1;
+    if (outlen) *outlen = n;
     return out;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char *cset_inter(const char *a, int alen, const char *b, int blen) {
+const char *cset_inter(const char *a, int alen, const char *b, int blen, int *outlen) {
     if (!a) a = ""; if (!b) b = "";
     if (str_arena_pos + 256 > 65536) str_arena_pos = 0;
     char *out = icn_str_arena + str_arena_pos;
@@ -48,13 +51,14 @@ const char *cset_inter(const char *a, int alen, const char *b, int blen) {
     }
     out[n] = '\0';
     str_arena_pos += n + 1;
+    if (outlen) *outlen = n;
     return out;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char *cset_canonical(const char *cs) {
-    if (!cs || !*cs) return "";
+const char *cset_canonical(const char *cs, int len) {
+    if (!cs || len <= 0) return "";
     unsigned char present[256] = {0};
-    for (const unsigned char *p = (const unsigned char *)cs; *p; p++) present[*p] = 1;
+    for (int i = 0; i < len; i++) present[(unsigned char)cs[i]] = 1;
     int n = 0;
     for (int c = 0; c < 256; c++) if (present[c]) n++;
     if (str_arena_pos + n + 1 > 65536) str_arena_pos = 0;
@@ -63,6 +67,7 @@ const char *cset_canonical(const char *cs) {
     for (int c = 0; c < 256; c++) if (present[c]) out[bi++] = (char)c;
     out[bi] = '\0';
     str_arena_pos += bi + 1;
+    rt_icn_cset_register(out, bi);
     return out;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

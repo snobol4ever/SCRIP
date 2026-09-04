@@ -92,9 +92,9 @@ void      init_save_frame(void);
 const char *real_str(double r, char *buf, int bufsz);
 int descr_identical(DESCR_t a, DESCR_t b);
 const char *cset_complement(const char *cs);
-const char *cset_union(const char *a, int alen, const char *b, int blen);
-const char *cset_diff(const char *a, int alen, const char *b, int blen);
-const char *cset_inter(const char *a, int alen, const char *b, int blen);
-const char *cset_canonical(const char *cs);
+const char *cset_union(const char *a, int alen, const char *b, int blen, int *outlen);
+const char *cset_diff(const char *a, int alen, const char *b, int blen, int *outlen);
+const char *cset_inter(const char *a, int alen, const char *b, int blen, int *outlen);
+const char *cset_canonical(const char *cs, int len);
 #include "../keywords.h"
 #endif

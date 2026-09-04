@@ -3763,7 +3763,7 @@ DESCR_t c_rt_str_coerce(DESCR_t d) {
     const char *cp; int cl; if (!cset_resolve(d, &cp, &cl) || cl < 0) return d;
     char *b = rt_ws_alloc((size_t)cl + 1); memcpy(b, cp, (size_t)cl); b[cl] = 0;
     for (int i = 1; i < cl; i++) { char t = b[i]; int j = i - 1; while (j >= 0 && (unsigned char)b[j] > (unsigned char)t) { b[j+1] = b[j]; j--; } b[j+1] = t; }
-    return STRVAL(b);
+    return BSTRVAL(b, cl);
 }
 static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3932,7 +3932,7 @@ const char *rk_obj_stringify(DESCR_t d, int use_gist) {
 static void out_write_descr(FILE *dest, DESCR_t av, int use_gist) {
     if (IS_INT_fn(av))  { fprintf(dest, "%lld", (long long)av.i); return; }
     if (IS_REAL_fn(av)) { char _rb[64]; fprintf(dest, "%s", icon_real_str(av.r,_rb,sizeof _rb)); return; }
-    if (IS_CSET_fn(av)) { if (av.s) fwrite(av.s, 1, strlen(av.s), dest); return; }
+    if (IS_CSET_fn(av)) { if (av.s) { int _kl = kw_cset_len(av.s); fwrite(av.s, 1, (_kl >= 0) ? (size_t)_kl : strlen(av.s), dest); } return; }
     if (av.v == (DTYPE_t)DT_PLREF || av.v == (DTYPE_t)DT_PLVAR) { extern void rt_pl_write_cell_fp(void *, FILE *); DESCR_t _pt = av; fflush(dest); rt_pl_write_cell_fp(plw_entry(&_pt), dest); return; }
     if (av.v == DT_DATA) { const char *s = rk_obj_stringify(av, use_gist); if (s) out_write_str(dest, s); return; }
     const char *s = VARVAL_fn(av); if (s) out_write_str(dest, s);
@@ -4642,11 +4642,11 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         DESCR_t av = args[0];
         if (IS_CSET_fn(av)) { *out = av; return 1; }
         char _cbuf[64];
-        const char *raw;
-        if (IS_INT_fn(av))       { snprintf(_cbuf,sizeof _cbuf,"%lld",(long long)av.i); raw=_cbuf; }
-        else if (IS_REAL_fn(av)) { icon_real_str(av.r,_cbuf,sizeof _cbuf); raw=_cbuf; }
-        else { raw = VARVAL_fn(av); if (!raw) raw = ""; }
-        *out = CSETVAL(cset_canonical(raw)); return 1;
+        const char *raw; int rawlen;
+        if (IS_INT_fn(av))       { snprintf(_cbuf,sizeof _cbuf,"%lld",(long long)av.i); raw=_cbuf; rawlen=(int)strlen(_cbuf); }
+        else if (IS_REAL_fn(av)) { icon_real_str(av.r,_cbuf,sizeof _cbuf); raw=_cbuf; rawlen=(int)strlen(_cbuf); }
+        else { raw = VARVAL_fn(av); if (!raw) raw = ""; rawlen=(int)descr_slen(av); }
+        *out = CSETVAL(cset_canonical(raw, rawlen)); return 1;
     }
     L_bidjmp_5330: ;
     if ((_bid == BID_ord) && nargs == 1) {
@@ -4780,7 +4780,8 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             const char *cs = av.s ? av.s : "";
             const char *kname = kw_cset_name(cs);
             if (kname) { *out = STRVAL(kname); return 1; }
-            int cslen = (int)strlen(cs);
+            int _kl = kw_cset_len(cs);
+            int cslen = (_kl >= 0) ? _kl : (int)strlen(cs);
             char *outs = rt_ws_alloc(cslen * 4 + 3);
             int o = 0;
             outs[o++] = '\'';
@@ -6113,9 +6114,10 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             else                    { ra=VARVAL_fn(r); if(!ra) ra=""; }
             int lalen = IS_CSET_fn(l) ? kw_cset_len(la) : -1; if (lalen < 0) lalen = (int)strlen(la);
             int ralen = IS_CSET_fn(r) ? kw_cset_len(ra) : -1; if (ralen < 0) ralen = (int)strlen(ra);
-            if (fn[0]=='+') *out=CSETVAL(cset_canonical(cset_union(la,lalen,ra,ralen)));
-            else if (fn[1]=='-') *out=CSETVAL(cset_canonical(cset_diff(la,lalen,ra,ralen)));
-            else *out=CSETVAL(cset_canonical(cset_inter(la,lalen,ra,ralen)));
+            int outlen; const char *ur;
+            if (fn[0]=='+') { ur=cset_union(la,lalen,ra,ralen,&outlen); *out=CSETVAL(cset_canonical(ur, outlen)); }
+            else if (fn[1]=='-') { ur=cset_diff(la,lalen,ra,ralen,&outlen); *out=CSETVAL(cset_canonical(ur, outlen)); }
+            else { ur=cset_inter(la,lalen,ra,ralen,&outlen); *out=CSETVAL(cset_canonical(ur, outlen)); }
             return 1;
         }
     }

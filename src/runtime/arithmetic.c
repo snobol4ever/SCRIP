@@ -282,9 +282,10 @@ static DESCR_t rt_num_arith_impl(DESCR_t a, DESCR_t b, int op) {
             extern int kw_cset_len(const char *);
             int aslen = IS_CSET_fn(a) ? kw_cset_len(as) : -1; if (aslen < 0) aslen = (int)strlen(as);
             int bslen = IS_CSET_fn(b) ? kw_cset_len(bs) : -1; if (bslen < 0) bslen = (int)strlen(bs);
-            if (op == BINOP_CUNION) return CSETVAL(cset_canonical(cset_union(as, aslen, bs, bslen)));
-            if (op == BINOP_CDIFF)  return CSETVAL(cset_canonical(cset_diff(as, aslen, bs, bslen)));
-            return CSETVAL(cset_canonical(cset_inter(as, aslen, bs, bslen)));
+            int outlen; const char *ur;
+            if (op == BINOP_CUNION) { ur = cset_union(as, aslen, bs, bslen, &outlen); return CSETVAL(cset_canonical(ur, outlen)); }
+            if (op == BINOP_CDIFF)  { ur = cset_diff(as, aslen, bs, bslen, &outlen); return CSETVAL(cset_canonical(ur, outlen)); }
+            ur = cset_inter(as, aslen, bs, bslen, &outlen); return CSETVAL(cset_canonical(ur, outlen));
         }
         default: return anyf ? REALVAL(ld + rd) : INTVAL(li + ri);
     }
@@ -302,7 +303,7 @@ DESCR_t rt_cset_compl(DESCR_t a) {
     int rawlen = IS_CSET_fn(a) ? kw_cset_len(raw) : -1; if (rawlen < 0) rawlen = (int)strlen(raw);
     unsigned char in[256] = {0}; for (int _i = 0; _i < rawlen; _i++) in[(unsigned char)raw[_i]] = 1;
     char *outs = rt_str_alloc(255); int n = 0; for (int c = 1; c < 256; c++) if (!in[c]) outs[n++] = (char)c; outs[n] = 0;
-    return CSETVAL(cset_canonical(outs));
+    return CSETVAL(cset_canonical(outs, n));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_num_neg(DESCR_t a) {

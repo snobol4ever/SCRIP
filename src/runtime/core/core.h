@@ -8,9 +8,10 @@
 #include "descr.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) uint32_t descr_cstrlen(const char *s_) { return s_ ? (uint32_t)__builtin_strlen(s_) : 0u; }
+int kw_cset_len(const char *ptr);
 static inline size_t descr_slen(DESCR_t d) {
     if (d.v == DT_S) {
-        if (d.slen == 0xFFFFFFFFu) return d.s ? __builtin_strlen(d.s) : 0;
+        if (d.slen == 0xFFFFFFFFu) { if (!d.s) return 0; int kl = kw_cset_len(d.s); return kl >= 0 ? (size_t)kl : __builtin_strlen(d.s); }
         return (size_t)d.slen;
     }
     return 0;

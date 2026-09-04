@@ -5,7 +5,7 @@
 #include "rtx/rtcc.h"
 #include <time.h>
 #include <unistd.h>
-const char  *cset_canonical(const char *cs);
+const char  *cset_canonical(const char *cs, int len);
 extern const char  *scan_subj;
 extern int           scan_pos;
 extern unsigned long bb_rnd_seed;
@@ -43,7 +43,7 @@ static DESCR_t make_kw_cset(const char *chars, const char *kw_name) {
     for (int i = 0; i < g_kw_cset_count; i++)
         if (g_kw_cset_names[i].name && !strcmp(g_kw_cset_names[i].name, kw_name))
             return CSETVAL(g_kw_cset_names[i].ptr);
-    const char *arena = cset_canonical(chars);
+    const char *arena = cset_canonical(chars, (int)strlen(chars));
     char *stable = rt_ws_strdup(arena);
     int clen = (int)strlen(stable);
     kw_cset_grow();
@@ -80,7 +80,7 @@ static void kw_cset_prime(void) {
 void rt_icn_cset_register(const char *ptr, int len) {
     if (!ptr) return;
     kw_cset_prime();
-    for (int i = 0; i < g_kw_cset_count; i++) if (g_kw_cset_names[i].ptr == ptr) return;
+    for (int i = 0; i < g_kw_cset_count; i++) if (g_kw_cset_names[i].ptr == ptr) { g_kw_cset_names[i].len = len; return; }
     kw_cset_grow();
     g_kw_cset_names[g_kw_cset_count].ptr  = ptr;
     g_kw_cset_names[g_kw_cset_count].name = NULL;
