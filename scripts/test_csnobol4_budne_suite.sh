@@ -52,7 +52,7 @@ T_M2=0; T_M3=0; T0_ALL=$SECONDS
 
 
 SKIP_LIST="bench breakline genc k ndbm sleep time line2"
-STDIN_TESTS="atn crlf longrec rewind1 sudoku trim0 trim1 uneval2"
+STDIN_TESTS="atn crlf longrec rewind1 sudoku trim0 trim1 uneval2 factor len repl tab words words1"
 
 is_excluded() {
     local name="$1"

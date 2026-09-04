@@ -62,7 +62,7 @@ SCRIP="$SD/scrip"; RT_DIR="$SD/out"; TIMEOUT="${TIMEOUT:-8}"
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_oracle_flags.sh unloadable"; exit 2; }
 CSN="$(csnobol4_bin)" || exit 2
 
-STDIN_TESTS="atn crlf longrec rewind1 sudoku trim0 trim1 uneval2"
+STDIN_TESTS="atn crlf longrec rewind1 sudoku trim0 trim1 uneval2 factor len repl tab words words1"
 is_stdin_test() { local n="$1" s; for s in $STDIN_TESTS; do [ "$n" = "$s" ] && return 0; done; return 1; }
 DUMP_TESTS="a dump diag1 diag2"; TRACE_TESTS="ftrace spit trace1 trace2"
 normalize() { # $1=name $2=text -> echoes text, masked per tests.in's dump/trace convention for that name
