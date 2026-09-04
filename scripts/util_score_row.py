@@ -408,6 +408,13 @@ PROGRESS_DROP = ("smoke", "corpus suite", "the earlier", "readings", "was ", "st
 PROGRESS_ESTIMATED = {"snobol4": [("gimpel", 289), ("snoflake", 180), ("aisnobol", 8), ("dotnet", 14)],
                       "icon": [("ipl", 851)]}
 PROGRESS_NO_MARKERS = ("NO NUMBER", "NO RUNNER", "UNGRADED", "NOT VENDORED")
+# ⛔⭐ TWO LANGUAGES ARE SCORED BY THEIR LADDER, NOT BY THEIR MASTER (Lon 2026-09-03 20:45 via ceo): Snocone
+# and Rebus have NO public conformance suite, so "the manual/report censused into LADDER.tsv IS the standard
+# and the ladder green to its top IS the score". Their percent is BUILT RUNGS over DECLARED RUNGS, read from
+# the census file itself -- the master board is an instrument for them and must not be the headline.
+# ⛔ NO CENSUS => MISSING, never a number: a language whose standard has not been written down has no score,
+# and 0% would be a claim we have not earned either.
+PROGRESS_LADDER_SCORED = ("snocone", "rebus")
 
 
 def find_grid(lines):
@@ -522,7 +529,28 @@ def cell_fractions(raw):
     return out, work
 
 
+def ladder_score(lang):
+    # (built, declared) from corpus/tests/<lang>/config/LADDER.tsv, or None when there is no census.
+    path = os.path.join(S4E, "corpus", "tests", lang, "config", "LADDER.tsv")
+    if not os.path.isfile(path):
+        return None
+    built = declared = 0
+    for line in open(path, encoding="utf-8", errors="replace"):
+        if not re.match(r"^rung\d+", line):
+            continue
+        declared += 1
+        if re.search(r"\bBUILT\b", line):
+            built += 1
+    return (built, declared) if declared else None
+
+
 def language_progress(lang, cells):
+    if lang in PROGRESS_LADDER_SCORED:
+        ls = ladder_score(lang)
+        if ls is None:
+            return None, "", 0, 0, ["LADDER-SCORED language with NO config/LADDER.tsv census -- no standard written down, so no score (never 0%)"]
+        b, d = ls
+        return (100 * b) // d, "", b, d, ["ladder %d/%d rungs BUILT of DECLARED (this language is scored by its ladder, not its master)" % (b, d)]
     # pass/total over the M and V cells; xfail is never a pass because the grid prints it BESIDE the
     # fraction, never inside it, so an xfail is already excluded by reading the fraction.
     P = T = 0
