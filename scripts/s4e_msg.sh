@@ -389,7 +389,13 @@ s4e_sweep_orphans() { for _o in "$PO"/.msg.*; do [ -f "$_o" ] || continue
 # ⭐ ONE mailbox->root map and ONE HQ-set, used by BOTH `fleet` and `banner` so the two views can never
 # disagree about who exists. A mailbox with no root is not an error -- `hq` is exactly that today: retiring,
 # still holding a 29-message backlog that must stay VISIBLE until it is drained.
-s4e_root() { case "$1" in ceo|hq) echo /home/claude;; hq_C) echo /home/claude_C;; hq_P) echo /home/claude_P;; hq_B) echo /home/claude_B;;
+# ⛔⭐ THIS IS THE REVERSE OF THE IDENTITY MAP AT :92-97 AND THE TWO MUST AGREE. hq_T WAS MISSING HERE while the
+# forward map had it, so `fleet` could not resolve hq_T's root and printed it as "0 STALLED (no root, retiring)"
+# with a FAILURE banner WHILE hq_T WAS LANDING ROWS BY THE HOUR (ceo measured 2026-09-03 22:36). A health view
+# that INVENTS a dead seat is worse than one that reports nothing: the ceo acts on it. The forward map gained
+# hq_T when the fourth HQ opened; this one did not, because nothing checks that two hand-written tables of the
+# same fact still agree -- the same class as the per-root digests drifting from RULES.md.
+s4e_root() { case "$1" in ceo|hq) echo /home/claude;; hq_C) echo /home/claude_C;; hq_P) echo /home/claude_P;; hq_B) echo /home/claude_B;; hq_T) echo /home/claude_T;;
     seat0[1-9]|seat1[0-6]) echo "/home/claude${1#seat}";; *) echo "";; esac; }
 s4e_hqboxes() { for _h in hq hq_C hq_P hq_B ceo; do [ -d "$PO/$_h/inbox" ] && echo "$_h"; done; }
 s4e_is_hq() { case "$1" in hq|hq_C|hq_P|hq_B|hq_T|ceo) return 0;; *) return 1;; esac; }

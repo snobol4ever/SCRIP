@@ -16,6 +16,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument('--plan', default=os.environ.get('S4E_HOME', '/home/claude') + '/.github/MASTER-PLAN.md')
 ap.add_argument('--po', default='/home/resources/postoffice')
 ap.add_argument('--quiet', action='store_true', help='print only the ladder summary lines and violations')
+ap.add_argument('--v6-rows', action='store_true', help='print V6 orphans one row per line instead of one census line per lane (95 lines on the 2026-09-03 queue; the census is the default so the report stays readable)')
 a = ap.parse_args()
 def refuse(msg): print('⛔ REFUSE(2): ' + msg); sys.exit(2)
 try: plan = open(a.plan, encoding='utf-8').read().split('\n')
@@ -127,10 +128,25 @@ for t, q in sorted(queue.items(), key=lambda kv: (kv[1]['rank'], kv[0])):
     if t in rung_rows or q['state'] not in ('FREE', ''): continue
     if q['rank'] <= 1 and not is_done(t) and t not in claims: viol('V4 RANK INVERSION', 'off-ladder FREE row %s at rank %d — the picker serves it before rungs at that rank' % (t, q['rank']))
 # V6 orphans — any row of any recognized language (not just Prolog) sitting on no ladder: no table entry, no LADDER:<tok> LINKS tag, no NON-LADDER exemption
+# ⛔ ONE CENSUS LINE PER LANE, NOT ONE PER ROW (ceo 2026-09-03 22:33). Widening V6 from Prolog to all seven
+# languages took it from 2 lines to 95, and the ceo reads this every tick on an 8% budget: 95 lines is not a
+# violation report, it is a haystack, and the reliable response to a haystack is to stop reading it. ⭐ The
+# count is the actionable part; the names are triage. So each lane gets ONE line carrying the TOTAL (nothing is
+# hidden) plus its three highest-ranked names, and --v6-rows still prints every row for whoever is working the
+# lane. A report nobody reads measures nothing, which is the same failure as a gate nobody runs.
+_orphans = {}
 for t, q in sorted(queue.items()):
     L = row_lang(t)
     if L and q['state'] in ('FREE', '') and not is_done(t) and t not in claims and t not in non_ladder and not on_ladder(t):
-        viol('V6 ORPHAN', '%s is a FREE %s row on no ladder (rank %d) — its owning HQ places it on a rung, tags LINKS: LADDER:<id>, or marks NON-LADDER' % (t, L, q['rank']))
+        _orphans.setdefault(L, []).append((q['rank'], t))
+for L in sorted(_orphans, key=lambda k: (-len(_orphans[k]), k)):
+    rows = sorted(_orphans[L])
+    if a.v6_rows:
+        for r, t in rows:
+            viol('V6 ORPHAN', '%s is a FREE %s row on no ladder (rank %d) — its owning HQ places it on a rung, tags LINKS: LADDER:<id>, or marks NON-LADDER' % (t, L, r))
+    else:
+        top = ', '.join('%s (rank %d)' % (t, r) for r, t in rows[:3])
+        viol('V6 ORPHAN CENSUS', '%-8s %3d FREE off-ladder row(s) — highest-ranked: %s%s' % (L, len(rows), top, '' if len(rows) <= 3 else ' … +%d more (--v6-rows for all)' % (len(rows) - 3)))
 print('VIOLATIONS: %d' % len(V))
 for v in V: print('  ' + v)
 sys.exit(1 if V else 0)
