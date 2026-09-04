@@ -248,7 +248,7 @@ def cmd_write(a):
     if a.dry_run:
         print("WOULD REWRITE %s line %d" % (SCORE_MD, i + 1))
         print("  was: %s" % before)
-        print("  now: %s" % text)
+        print("  now: %s" % cells[idx])
         print("  prov: %s" % cells[PROV_COL])
         return 0
     lines[i] = newline
@@ -256,7 +256,7 @@ def cmd_write(a):
     open(SCORE_MD, "w", encoding="utf-8").write("\n".join(lines))
     print("SCORE.md: %s/%s rewritten in place (line %d)" % (a.lang, a.column, i + 1))
     print("  was: %s" % before)
-    print("  now: %s" % text)
+    print("  now: %s" % cells[idx])
     print("  prov: %s: %s" % (a.column, stamp))
     print("⛔ NOT DONE UNTIL PUSHED: commit .github/SCORE.md with the landing that carried this measurement.")
     return 0
