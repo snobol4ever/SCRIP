@@ -1694,7 +1694,16 @@ TASKEOF
          # disappears exactly when it matters is a blind instrument (LAW 0, species 3).
          [ -z "${row1:-}" ]   || line="$line · row ${row1}"
          [ -z "$staleage" ]   || line="$line · mail ${inbx}/${staleage}m"
-         printf '\n%s\n  %s\n%s\n\n' "$b" "$line" "$b"
+         printf '\n%s\n  %s\n%s\n' "$b" "$line" "$b"
+         # ⭐ THE PROGRESS LINE, LAST (Lon 2026-09-03 ~20:15: "each of the 7 main runners display a score of
+         # percentage in a banner ... just to see a progress indicator of any kind"). It READS .github/SCORE.md
+         # and runs no suite -- ~60ms, no network, no build -- so a Stop hook can afford it on every response.
+         # ⛔ NEVER LET IT BREAK THE BANNER: the banner's exit status is the seat's computed verdict, so a
+         # refusal here (a renamed grid column, a missing language row) must be VISIBLE and must not change
+         # that verdict. Hence `|| true` and stderr kept -- a progress line that could turn a green handoff red
+         # would be a reporting tool with veto power over the thing it reports on.
+         S4E_HOME="$S4E" python3 "$(dirname "${BASH_SOURCE[0]}")/util_score_row.py" progress 2>/dev/null || true
+         printf '\n'
          # ⛔⛔ THE BANNER WAS FIRING AND NOBODY COULD SEE IT (Lon 2026-08-22 s256: "The FLEET workers are not showing
          # a banner at the end. claude08 just sat silent like an idiot").  MEASURED, from seat08's OWN transcript --
          # two stop_hook_summary records, 3867ms and 4166ms, "hookErrors": [], "hasOutput": true.  The hook fires and

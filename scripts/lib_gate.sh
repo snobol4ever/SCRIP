@@ -236,5 +236,20 @@ gate_score_row() {
         return 0
     fi
     echo "$_out" | sed 's/^/    /'
+    gate_progress_line
+    return 0
+}
+
+# gate_progress_line -- print THE ONE PROGRESS LINE after a row rewrite (Lon 2026-09-03 ~20:15: "each of
+# the 7 main runners display a score of percentage in a banner ... just to see a progress indicator of any
+# kind").  Lives HERE, beside gate_score_row, for the same reason gate_score_row does: this is the single
+# shared write path, so wiring the progress line into it reaches every runner that records a row without
+# putting a seventh copy of the same three lines into seven runners.  ⛔ NON-FATAL, like its neighbour --
+# a reporting line must never be able to turn a measured board red.
+gate_progress_line() {
+    local _py
+    _py="$(dirname "${BASH_SOURCE[0]}")/util_score_row.py"
+    [ -f "$_py" ] || return 0
+    python3 "$_py" progress 2>/dev/null || true
     return 0
 }

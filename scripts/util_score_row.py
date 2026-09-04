@@ -31,7 +31,9 @@
 # written.  A single "Tree - clock - by" string for the whole row would therefore be false for at
 # least two of its cells, and falsely PRECISE, which is worse than vague.  So the last cell holds one
 # `<column>: <stamp>` clause per measured column, and rewriting a column rewrites ONLY its own clause.
-import argparse, os, re, subprocess, sys, time
+import argparse
+import datetime
+import os, re, subprocess, sys, time
 
 S4E = os.environ.get("S4E_HOME") or os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 SCORE_MD = os.path.join(S4E, ".github", "SCORE.md")
@@ -384,6 +386,154 @@ def cmd_selftest(a):
     return 0 if ok else 1
 
 
+# ============================ THE PROGRESS LINE (Lon 2026-09-03 ~20:15) ============================
+# ⛔⭐ THIS READS THE SEPTEMBER-10 GRID, WHICH IS THE **OTHER** TABLE IN SCORE.md. find_table() above binds
+# the standardized display (6 columns); this binds the M/L/V/B grid (7 columns) that sits ABOVE it. Both
+# headers read `| Language |`, which is exactly the collision that made find_table refuse fleet-wide, so
+# this one proves its shape by COLUMN NAME too and refuses naming every candidate. Shape is the identity.
+GRID_COLUMNS = {"M": (1, "M ·"), "L": (2, "L ·"), "V": (3, "V ·"), "B": (4, "B ·")}
+GRID_NCOLS = 7
+# Short names and print order, fixed by the brief.
+PROGRESS_LANGS = [("snobol4", "sno"), ("snocone", "sc"), ("icon", "icn"), ("prolog", "pl"),
+                  ("raku", "raku"), ("pascal", "pas"), ("rebus", "reb")]
+# ⭐ A fraction whose LEFT CONTEXT carries one of these is not this cell's score: a floor/smoke gate, a
+# secondary suite quoted for context, or a number the cell itself says it SUPERSEDES. Measured against
+# every live cell, not guessed -- `smoke 724/724` (raku M), `smoke 4/4` (rebus M), `corpus suite 10/10`
+# (snocone M), `the earlier 144/149` (pascal M). Kept as data so a reader can check the rule against the
+# open file, which is the brief's "no hidden weights".
+PROGRESS_DROP = ("smoke", "corpus suite", "the earlier", "readings", "was ")
+# Suites with NO runner or NO number: 0 pass over their file count, so unmeasured coverage reads as
+# MISSING rather than as ABSENT. Denominators are the brief's own. Applied only when the cell BOTH names
+# the suite and carries a no-number marker, so a suite that later gets a real number stops being estimated.
+PROGRESS_ESTIMATED = {"snobol4": [("gimpel", 289), ("snoflake", 180), ("aisnobol", 8), ("dotnet", 14)],
+                      "icon": [("ipl", 851)]}
+PROGRESS_NO_MARKERS = ("NO NUMBER", "NO RUNNER", "UNGRADED", "NOT VENDORED")
+
+
+def find_grid(lines):
+    # Same candidate-and-prove discipline as find_table, against the September-10 grid's own column names.
+    candidates = [i for i, l in enumerate(lines) if l.startswith("| Language |")]
+    if not candidates:
+        die("no '| Language |' header in %s -- the September-10 grid is gone or renamed" % SCORE_MD)
+    why = []
+    for i in candidates:
+        cells = [c.strip() for c in lines[i].strip().strip("|").split("|")]
+        if len(cells) != GRID_NCOLS:
+            why.append("line %d has %d columns, the grid has %d" % (i + 1, len(cells), GRID_NCOLS))
+            continue
+        bad = [k for k, (idx, pre) in GRID_COLUMNS.items() if not cells[idx].startswith(pre)]
+        if bad:
+            why.append("line %d column(s) %s do not start with their %s prefix" % (i + 1, ",".join(sorted(bad)), "M·/L·/V·/B·"))
+            continue
+        rows = {}
+        for j in range(i + 2, len(lines)):
+            if not lines[j].startswith("|"):
+                break
+            c = [x.strip() for x in lines[j].strip().strip("|").split("|")]
+            if len(c) == GRID_NCOLS:
+                rows[c[0]] = c
+        return i, rows
+    die("no '| Language |' table in %s is the September-10 grid. Candidates: %s" % (SCORE_MD, "; ".join(why)))
+
+
+def cell_fractions(raw):
+    # Return {denominator: pass} for the real scores in one cell, plus the workings for --verbose.
+    # Backtick spans (commands, hashes) and parenthesised asides are stripped first -- they carry digits
+    # that are not scores. Then: GROUP BY DENOMINATOR AND KEEP THE MINIMUM PASS. That single rule does two
+    # jobs at once -- it collapses an m3/m4 twin pair into ONE population (the grid's own "PER MODE, never
+    # summed"), and where the modes DISAGREE it keeps the worse one, which is the both-modes bar every gate
+    # in this repo already grades on. ⛔ A drop marker drops the whole DENOMINATOR, not the one fraction:
+    # measured on snocone, whose `corpus suite 10/10 · 10/10` put the marker before the FIRST twin only, so
+    # a per-fraction drop let the second one through and re-added a floor to the master's score.
+    s = re.sub(r"`[^`]*`", "", raw)
+    s = re.sub(r"\([^()]*\)", "", s)
+    groups, dropped, work = {}, set(), []
+    for m in re.finditer(r"(?<![\d/])(\d+)\s*/\s*(\d+)(?![\d/])", s):
+        t, ps = int(m.group(2)), int(m.group(1))
+        ctx = s[max(0, m.start() - 20):m.start()].lower()
+        hit = [d for d in PROGRESS_DROP if d in ctx]
+        if hit:
+            dropped.add(t)
+            work.append("drop %d/%d (%r)" % (ps, t, hit[0]))
+            continue
+        groups.setdefault(t, []).append(ps)
+    out = {}
+    for t, ps in groups.items():
+        if t in dropped:
+            work.append("drop %s/%d (denominator dropped)" % ("/".join(str(x) for x in ps), t))
+            continue
+        out[t] = min(ps)
+        if len(ps) > 1:
+            work.append("%d/%d (from %s, worse mode)" % (out[t], t, ",".join(str(x) for x in ps)))
+        else:
+            work.append("%d/%d" % (out[t], t))
+    return out, work
+
+
+def language_progress(lang, cells):
+    # pass/total over the M and V cells; xfail is never a pass because the grid prints it BESIDE the
+    # fraction, never inside it, so an xfail is already excluded by reading the fraction.
+    P = T = 0
+    work = []
+    for key in ("M", "V"):
+        idx = GRID_COLUMNS[key][0]
+        got, w = cell_fractions(cells[idx])
+        for t in sorted(got):
+            P += got[t]
+            T += t
+        work += ["%s %s" % (key, x) for x in w]
+    vcell = cells[GRID_COLUMNS["V"][0]]
+    for name, n in PROGRESS_ESTIMATED.get(lang, []):
+        if name in vcell and any(k in vcell for k in PROGRESS_NO_MARKERS):
+            T += n
+            work.append("V %s 0/%d (estimated: named, no number)" % (name, n))
+    # STALE by the cell's own word, or by a month-day label older than today.
+    mcell = cells[GRID_COLUMNS["M"][0]]
+    stale = "STALE" in mcell
+    if not stale:
+        today = datetime.date.today()
+        for mm, dd in re.findall(r"\b(\d{2})-(\d{2})\b", re.sub(r"`[^`]*`", "", mcell)):
+            try:
+                d = datetime.date(today.year, int(mm), int(dd))
+            except ValueError:
+                continue
+            if (today - d).days >= 1:
+                stale = True
+    # ⭐ FLOOR, NEVER ROUND. A completion indicator that rounds shows 100% at 99.6%, which is the one
+    # number on this line anybody will act on. Floor reaches 100% only when the work is actually done.
+    pct = (100 * P) // T if T else 0
+    return pct, ("?" if stale else ""), P, T, work
+
+
+def cmd_progress(a):
+    lines = open(SCORE_MD, encoding="utf-8").read().split("\n")
+    _hdr, rows = find_grid(lines)
+    missing = [l for l, _ in PROGRESS_LANGS if l not in rows]
+    if missing:
+        die("the September-10 grid has no row for %s -- refusing to publish a progress line over a partial grid" % ", ".join(missing))
+    cells_out, bars, tp, tt = [], [], 0, 0
+    for lang, short in PROGRESS_LANGS:
+        pct, mark, P, T, work = language_progress(lang, rows[lang])
+        tp += P
+        tt += T
+        cells_out.append("%s %d%%%s" % (short, pct, mark))
+        bars.append("%s %s" % (short, "█" * (pct // 10) + "░" * (10 - pct // 10)))
+        if a.verbose:
+            sys.stdout.write("  %-8s %3d%%%-1s  %5d/%-5d  %s\n" % (lang, pct, mark, P, T, " · ".join(work)))
+    gh = git(".github", "rev-parse", "--short", "HEAD") or "unknown"
+    allpct = (100 * tp) // tt if tt else 0
+    print("PROGRESS 09-10 | %s | ALL %d%% | tree %s %s"
+          % (" | ".join(cells_out), allpct, gh, time.strftime("%Y-%m-%d %H:%M %Z")))
+    print("  " + "  ".join(bars))
+    if a.verbose:
+        print("  ALL %d%% = %d/%d over the M and V printed denominators; ? = the M cell reads STALE or carries a label older than today." % (allpct, tp, tt))
+        for lang, short in PROGRESS_LANGS:
+            c = rows[lang]
+            print("  %-8s L: %s" % (lang, c[GRID_COLUMNS["L"][0]][:110]))
+            print("  %-8s B: %s" % (lang, c[GRID_COLUMNS["B"][0]][:110]))
+    return 0
+
+
 def main():
     p = argparse.ArgumentParser(description="Rewrite one SCORE.md row from numbers a runner already measured. Runs no suite.")
     sub = p.add_subparsers(dest="cmd")
@@ -401,6 +551,9 @@ def main():
     c.add_argument("--threshold", type=int, default=STALE_WARN_COMMITS)
     c.add_argument("--no-fetch", action="store_true", help="do not contact origin; grade against the last-known origin/main (for test loops)")
     c.set_defaults(fn=cmd_check)
+    g = sub.add_parser("progress", help="print the ONE progress line from the September-10 grid; runs no suite")
+    g.add_argument("--verbose", action="store_true", help="show the per-language workings, plus the L and B cells the one-liner omits")
+    g.set_defaults(fn=cmd_progress)
     s = sub.add_parser("selftest", help="prove rewrite-in-place and every refusal path, on a scratch copy")
     s.set_defaults(fn=cmd_selftest)
     a = p.parse_args()

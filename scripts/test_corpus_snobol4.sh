@@ -509,6 +509,9 @@ echo "ONE LEADERBOARD: recording this board into .github/SCORE.md (test_corpus_s
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column board --modes m3,m4 \
     --measurer "${S4E_SEAT:-unknown-seat}" --text "$_sn4_board" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
+# ⭐ THE PROGRESS LINE, after the rewrite (see board_icon_master.sh for the same call and why it is here
+# rather than only in lib_gate.sh: this runner writes its row directly, bypassing gate_score_row).
+python3 "$HERE/util_score_row.py" progress 2>/dev/null || true
 if [ "$FAIL4" -gt 0 ]; then echo "⛔ GATE FAIL: mode-4 FAIL=$FAIL4 (mode-3 FAIL=$FAIL3, informational)"; exit 1; fi
 echo "✅ GATE OK: m3 PASS=$PASS3 FAIL=$FAIL3 · m4 PASS=$PASS4 FAIL=$FAIL4 SKIP=$SKIP4 · MISSING=0"
 exit 0

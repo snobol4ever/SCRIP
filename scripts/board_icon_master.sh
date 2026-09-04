@@ -185,5 +185,10 @@ python3 "$HERE/util_score_row.py" write --lang icon --column board --modes m3,m4
     --measurer "${S4E_SEAT:-unknown-seat}" \
     --text "$([ "$RED" -ne 0 ] && echo "⛔ RED — ")run-graded m3 $m3p/$mt · m4 $m4p/$mt · ast-graded $ap/$at (entries=$graded, floors m3 $M3_PASS_FLOOR / m4 $M4_PASS_FLOOR / ast $AST_PASS_FLOOR, \`board_icon_master.sh\`)$_named" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
+# ⭐ THE PROGRESS LINE, after the rewrite.  This runner writes its row DIRECTLY rather than through
+# lib_gate.sh's gate_score_row, so it needs the call the shared path already carries -- same one line,
+# not a second implementation (both ends run `util_score_row.py progress`, which reads SCORE.md and
+# runs no suite).  Non-fatal by construction: it must not be able to change this board's verdict.
+python3 "$HERE/util_score_row.py" progress 2>/dev/null || true
 if [ "$RED" -ne 0 ]; then echo "⛔ ICON MASTER BOARD RED"; exit 1; fi
 echo "✅ ICON MASTER BOARD OK: entries=$graded at/above floor $ENTRY_FLOOR · run-graded m3 PASS=$m3p m4 PASS=$m4p / $mt · ast-graded PASS=$ap/$at (watermarks held)"
