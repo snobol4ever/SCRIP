@@ -1574,6 +1574,40 @@ void *rt_pl_ball_eval_error(const char *kind, const char *op, int arity)
     return rt_pl_compound_cell("error", 2, (void *)er);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_pl_ball_kind2(const char *kind, const char *arg0_atom, DESCR_t culprit)
+{
+    extern DESCR_t rt_pl_fresh_var_ref(void);
+    pl_cell_t fe[2]; pl_cell_t *fec; pl_cell_t er[2];
+    fe[0] = pl_make_atom(prolog_atom_intern(arg0_atom ? arg0_atom : "term"));
+    fe[1] = rt_pl_cell_snapshot(&culprit);
+    fec = (pl_cell_t *)rt_pl_compound_cell(kind, 2, (void *)fe);
+    if (!fec) return (void *)0;
+    er[0] = *fec; er[1] = rt_pl_fresh_var_ref();
+    return rt_pl_compound_cell("error", 2, (void *)er);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_pl_ball_instantiation(void)
+{
+    extern DESCR_t rt_pl_fresh_var_ref(void);
+    pl_cell_t er[2];
+    er[0].v = DT_S; er[0].slen = (uint32_t)strlen("instantiation_error"); er[0].s = "instantiation_error";
+    er[1] = rt_pl_fresh_var_ref();
+    return rt_pl_compound_cell("error", 2, (void *)er);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_pl_ball_permission3(const char *op, const char *type, DESCR_t culprit)
+{
+    extern DESCR_t rt_pl_fresh_var_ref(void);
+    pl_cell_t pe[3]; pl_cell_t *pec; pl_cell_t er[2];
+    pe[0] = pl_make_atom(prolog_atom_intern(op ? op : "access"));
+    pe[1] = pl_make_atom(prolog_atom_intern(type ? type : "stream"));
+    pe[2] = rt_pl_cell_snapshot(&culprit);
+    pec = (pl_cell_t *)rt_pl_compound_cell("permission_error", 3, (void *)pe);
+    if (!pec) return (void *)0;
+    er[0] = *pec; er[1] = rt_pl_fresh_var_ref();
+    return rt_pl_compound_cell("error", 2, (void *)er);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_root_omega(void)
 {
     extern void *rt_pl_ball_take(void);

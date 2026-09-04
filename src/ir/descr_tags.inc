@@ -85,4 +85,8 @@
 #define MOD_OP_RT_PL_CATCH_HANDLE      145   /* rtx_plunify.s rt_pl_catch_handle     */
 #define MOD_OP_RT_PL_DB_ALIVE          146   /* rtx_plunify.s rt_pl_dop_db_alive     */
 #define MOD_OP_RT_PL_AX_ZGUARD         147   /* rtx_plunify.s rt_pl_dop_ax_zguard    */
+#define MOD_OP_RT_PL_CHAR_GUARD        148   /* rtx_plunify.s rt_pl_dop_char_guard   */
+#define MOD_OP_RT_PL_BETWEEN_GUARD     149   /* rtx_plunify.s rt_pl_dop_between_guard */
+#define MOD_OP_RT_PL_STREAM_GUARD      150   /* rtx_plunify.s rt_pl_dop_stream_guard */
+#define MOD_OP_RT_PL_CURSTREAM_GUARD   151   /* rtx_plunify.s rt_pl_dop_curstream_guard */
 #endif

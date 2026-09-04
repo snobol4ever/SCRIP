@@ -6209,3 +6209,68 @@ void * rt_pl_dop_ax_zguard_c(DESCR_t *args, int nargs) {
       if (d.v == DT_R && d.r == 0.0) return rt_pl_ball_eval_error("zero_divisor", op, 2);
       return (void *)0; }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_iso_unbound(DESCR_t d) { return d.v == (DTYPE_t)DT_PLVAR || d.v == DT_SNUL || d.v == DT_FAIL; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void * rt_pl_dop_char_guard_c(DESCR_t *args, int nargs) {
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    extern void *rt_pl_ball_instantiation(void);
+    char b[64]; const char *s;
+    if (nargs != 1) return (void *)0;
+    pl_atoms_ready();
+    { DESCR_t v = rt_pl_deref_val(args[0]);
+      if (pl_iso_unbound(v)) return rt_pl_ball_instantiation();
+      if (pl_cell_text(args[0], b, sizeof b, &s) && s && s[0] && !s[1]) return (void *)0;
+      return rt_pl_ball_kind2("type_error", "character", v); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void * rt_pl_dop_between_guard_c(DESCR_t *args, int nargs) {
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    extern void *rt_pl_ball_instantiation(void);
+    if (nargs != 3) return (void *)0;
+    pl_atoms_ready();
+    { DESCR_t lo = rt_pl_deref_val(args[0]); DESCR_t hi = rt_pl_deref_val(args[1]); DESCR_t xv = rt_pl_deref_val(args[2]);
+      if (pl_iso_unbound(lo)) return rt_pl_ball_instantiation();
+      if (lo.v != DT_I) return rt_pl_ball_kind2("type_error", "integer", lo);
+      if (pl_iso_unbound(hi)) return rt_pl_ball_instantiation();
+      if (hi.v != DT_I) return rt_pl_ball_kind2("type_error", "integer", hi);
+      if (!pl_iso_unbound(xv) && xv.v != DT_I) return rt_pl_ball_kind2("type_error", "integer", xv);
+      return (void *)0; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void * rt_pl_dop_stream_guard_c(DESCR_t *args, int nargs) {
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    extern void *rt_pl_ball_instantiation(void);
+    extern void *rt_pl_ball_permission3(const char *, const char *, DESCR_t);
+    extern FILE *fh_get(int);
+    char db[64]; const char *dop = "output";
+    if (nargs != 2) return (void *)0;
+    pl_atoms_ready();
+    if (pl_cell_text(args[1], db, sizeof db, &dop) && dop && dop[0]) { } else { dop = "output"; }
+    { int out = !strcmp(dop, "output");
+      DESCR_t d = rt_pl_deref_val(args[0]);
+      if (pl_iso_unbound(d)) return rt_pl_ball_instantiation();
+      { const char *nm = pl_atom_str(d);
+        if (nm) {
+            if (!strcmp(nm, "user_input"))  return out ? rt_pl_ball_permission3("output", "stream", d) : (void *)0;
+            if (!strcmp(nm, "user_output")) return out ? (void *)0 : rt_pl_ball_permission3("input", "stream", d);
+            if (!strcmp(nm, "user_error"))  return out ? (void *)0 : rt_pl_ball_permission3("input", "stream", d);
+            return rt_pl_ball_kind2("existence_error", "stream", d);
+        } }
+      if (d.v == (DTYPE_t)DT_PLREF && (int)(d.slen >> 16) == prolog_atom_intern("$stream") && (d.slen & 0xFFFFu) == 1) {
+          DESCR_t a = rt_pl_deref_val(((DESCR_t *)d.p)[0]);
+          if (a.v == DT_I && fh_get((int)a.i)) return (void *)0;
+          return rt_pl_ball_kind2("existence_error", "stream", d);
+      }
+      return rt_pl_ball_kind2("domain_error", "stream_or_alias", d); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void * rt_pl_dop_curstream_guard_c(DESCR_t *args, int nargs) {
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    if (nargs != 1) return (void *)0;
+    pl_atoms_ready();
+    { DESCR_t d = rt_pl_deref_val(args[0]);
+      if (pl_iso_unbound(d)) return (void *)0;
+      if (d.v == (DTYPE_t)DT_PLREF && (int)(d.slen >> 16) == prolog_atom_intern("$stream") && (d.slen & 0xFFFFu) == 1) return (void *)0;
+      return rt_pl_ball_kind2("domain_error", "stream", d); }
+}

@@ -233,4 +233,64 @@ RTX_FUNC(rt_pl_dop_db_alive)
     mov     edx, 1
     ret
 RTX_ENDF(rt_pl_dop_db_alive)
+RTX_FUNC(rt_pl_dop_char_guard)
+    sub     rsp, 8
+    call    rt_pl_dop_char_guard_c
+    add     rsp, 8
+    test    rax, rax
+    jz      .Lcg_ok
+    mov     r15, rax
+    mov     eax, DT_FAIL | (MOD_OP_RT_PL_CHAR_GUARD << 8)
+    xor     edx, edx
+    ret
+.Lcg_ok:
+    mov     eax, DT_I
+    mov     edx, 1
+    ret
+RTX_ENDF(rt_pl_dop_char_guard)
+RTX_FUNC(rt_pl_dop_between_guard)
+    sub     rsp, 8
+    call    rt_pl_dop_between_guard_c
+    add     rsp, 8
+    test    rax, rax
+    jz      .Lbg_ok
+    mov     r15, rax
+    mov     eax, DT_FAIL | (MOD_OP_RT_PL_BETWEEN_GUARD << 8)
+    xor     edx, edx
+    ret
+.Lbg_ok:
+    mov     eax, DT_I
+    mov     edx, 1
+    ret
+RTX_ENDF(rt_pl_dop_between_guard)
+RTX_FUNC(rt_pl_dop_stream_guard)
+    sub     rsp, 8
+    call    rt_pl_dop_stream_guard_c
+    add     rsp, 8
+    test    rax, rax
+    jz      .Lsg_ok
+    mov     r15, rax
+    mov     eax, DT_FAIL | (MOD_OP_RT_PL_STREAM_GUARD << 8)
+    xor     edx, edx
+    ret
+.Lsg_ok:
+    mov     eax, DT_I
+    mov     edx, 1
+    ret
+RTX_ENDF(rt_pl_dop_stream_guard)
+RTX_FUNC(rt_pl_dop_curstream_guard)
+    sub     rsp, 8
+    call    rt_pl_dop_curstream_guard_c
+    add     rsp, 8
+    test    rax, rax
+    jz      .Lcsg_ok
+    mov     r15, rax
+    mov     eax, DT_FAIL | (MOD_OP_RT_PL_CURSTREAM_GUARD << 8)
+    xor     edx, edx
+    ret
+.Lcsg_ok:
+    mov     eax, DT_I
+    mov     edx, 1
+    ret
+RTX_ENDF(rt_pl_dop_curstream_guard)
 .section .note.GNU-stack,"",@progbits

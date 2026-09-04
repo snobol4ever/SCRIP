@@ -501,6 +501,31 @@ static IR_t * pl_leaf_lv(lcx_t * cx, const char * sym, const tree_t * t, int nar
     return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_leaf_guarded1(lcx_t * cx, const char * sym, const char * guard_sym, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = sym;
+    IR_t * ve = NULL; IR_t * v = term_lval_e(cx, t->c[0], &ve);
+    lc_ω_to(v, ωfail);
+    IR_t * chk = build(cx, IR_CALL, nd, ωfail); IR_LIT(chk).sval = guard_sym;
+    ir_operand_push(chk, v);
+    ir_operand_push(nd, v);
+    lc_γ_to(v, chk);
+    if (entry_out) *entry_out = ve ? ve : v;
+    return nd;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_leaf_guarded1_dir(lcx_t * cx, const char * sym, const char * guard_sym, const char * dir, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = sym;
+    IR_t * ve = NULL; IR_t * v = term_lval_e(cx, t->c[0], &ve);
+    lc_ω_to(v, ωfail);
+    IR_t * chk = build(cx, IR_CALL, nd, ωfail); IR_LIT(chk).sval = guard_sym;
+    IR_t * dl = build(cx, IR_LIT_STRING, chk, ωfail); IR_LIT(dl).sval = dir;
+    ir_operand_push(chk, v); ir_operand_push(chk, dl);
+    ir_operand_push(nd, v);
+    lc_γ_to(v, dl);
+    if (entry_out) *entry_out = ve ? ve : v;
+    return nd;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_dyn_index(const char * name, int arity) {
     if (!name) return -1;
     for (int i = 0; i < g_stage2.pl_dyn_n; i++) if (g_stage2.pl_dyn_name[i] && !strcmp(g_stage2.pl_dyn_name[i], name) && g_stage2.pl_dyn_arity[i] == arity) return i;
@@ -752,13 +777,24 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             IR_t * xe = NULL; IR_t * xl = term_lval_e(cx, vr_t, &xe);
             lc_γ_to(xl, loe ? loe : lo); lc_ω_to(xl, ωfail);
             lc_γ_to(lo, hie ? hie : hi); lc_ω_to(lo, ωfail);
-            lc_γ_to(hi, to); lc_ω_to(hi, ωfail);
+            if (!forarg) {
+                IR_t * chk = build(cx, IR_CALL, to, ωfail); IR_LIT(chk).sval = "$pl_between_guard";
+                ir_operand_push(chk, lo); ir_operand_push(chk, hi); ir_operand_push(chk, xl);
+                lc_γ_to(hi, chk); lc_ω_to(hi, ωfail);
+            } else {
+                lc_γ_to(hi, to); lc_ω_to(hi, ωfail);
+            }
             ir_operand_push(to, lo); ir_operand_push(to, hi);
             ir_operand_push(nd, xl); ir_operand_push(nd, to);
             lc_ω_to_β(nd, to);
             if (entry_out) *entry_out = xe ? xe : xl;
             return to;
         }
+        if (!strcmp(nm, "put_char") && t->n == 1) return pl_leaf_guarded1(cx, "$put_char", "$pl_char_guard", t, γnext, ωfail, entry_out);
+        if (!strcmp(nm, "current_output") && t->n == 1) return pl_leaf_guarded1(cx, "$current_output", "$pl_curstream_guard", t, γnext, ωfail, entry_out);
+        if (!strcmp(nm, "current_input") && t->n == 1) return pl_leaf_guarded1(cx, "$current_input", "$pl_curstream_guard", t, γnext, ωfail, entry_out);
+        if (!strcmp(nm, "set_output") && t->n == 1) return pl_leaf_guarded1_dir(cx, "$set_output", "$pl_stream_guard", "output", t, γnext, ωfail, entry_out);
+        if (!strcmp(nm, "set_input") && t->n == 1) return pl_leaf_guarded1_dir(cx, "$set_input", "$pl_stream_guard", "input", t, γnext, ωfail, entry_out);
         if (!strcmp(nm, "read_term") && t->n == 2 && pl_tree_is_nil(t->c[1])) return pl_leaf_lv(cx, "$read", t, 1, γnext, ωfail, entry_out);
         if ((!strcmp(nm, "assertz") || !strcmp(nm, "assert") || !strcmp(nm, "asserta")) && t->n == 1) {
             int ar = 0; const char * pn = pl_head_key(t->c[0], &ar);
