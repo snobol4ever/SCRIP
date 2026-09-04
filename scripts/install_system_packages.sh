@@ -11,8 +11,22 @@ PKGS="build-essential libgmp-dev m4 nasm wabt bison flex gawk"
 # gdb Recommends libc-dbg, which breakpoint/register/backtrace work does NOT need, and which is the exact
 # package that 404s against a stale index. See the apt-get update note below.
 DBG_PKGS="gdb"
+# bison/flex on this box are a durable ~/.local install (extracted from their .deb, never dpkg -i'd --
+# see .github/FINDING-2026-08-30-hq_C-bison-on-path-could-not-generate-and-every-parser-regen-silently-did-nothing.md),
+# so dpkg -s never sees them and this script would apt-get install them, then abort, on every run (no
+# root, no passwordless sudo). Prove capability instead of trusting dpkg's blind spot -- same rule the
+# gdb liveness check below already applies to itself.
+TOOLING_OK=""
+if command -v bison >/dev/null 2>&1 && command -v flex >/dev/null 2>&1; then
+    tmp="$(mktemp -d)"
+    if printf '%%%%\nu: ;\n' > "$tmp/g.y" && env -u BISON_PKGDATADIR bison -d -o "$tmp/g.c" "$tmp/g.y" >/dev/null 2>&1 && [ -f "$tmp/g.c" ]; then
+        TOOLING_OK="bison flex"
+    fi
+    rm -rf "$tmp"
+fi
 MISSING=""
 for p in $PKGS $DBG_PKGS; do
+    case " $TOOLING_OK " in *" $p "*) continue ;; esac
     dpkg -s "$p" &>/dev/null || MISSING="$MISSING $p"
 done
 if [ -n "$MISSING" ]; then
