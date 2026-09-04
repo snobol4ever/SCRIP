@@ -155,6 +155,12 @@ def check_lang(lang, phase, path=None, verbose=True):
         return "NOT-IN-SCHEMA", 0, 0, []
     declared = witnessed = 0
     missing = []
+    # ⛔⭐ A RUNG WITH AN EMPTY FORMS CELL IS OWED, NOT ZERO. Found by converting the first census by hand:
+    # a file that declares forms for rung00 and leaves the other ten blank counted only what it declared,
+    # witnessed all of it, and read OK -- so a census could go green having enumerated one rung out of
+    # twelve. That is the vacuity guard's own hole, one level down from the NOT-IN-SCHEMA case: the top
+    # level asks "does this file use the schema", and it never asked "does every rung actually use it".
+    undeclared = [r.get("RUNG", "?") for r in rows if not slugs(r.get("FORMS", ""))]
     for r in rows:
         rung = r.get("RUNG", "")
         for form in slugs(r.get("FORMS", "")):
@@ -175,11 +181,23 @@ def check_lang(lang, phase, path=None, verbose=True):
             print("  %-8s REFUSED  FORMS column present but EMPTY on every rung -- nothing to grade, and "
                   "'zero declared, zero missing' must never read as green" % lang)
         return "REFUSED", 0, 0, []
+    # ⛔ THE TWO SHORTFALLS ARE COUNTED SEPARATELY BECAUSE THEY ARE DIFFERENT WORK. A declared form with no
+    # witness needs a witness minted; a rung with an empty FORMS cell needs somebody to READ THE REFERENCE
+    # first. Reporting them as one number ("13/13 witnessed (10 without a witness)") reads as a
+    # contradiction and hides which of the two jobs is owed.
+    nowit = len(missing)
+    if undeclared:
+        missing += ["%s/%s FORMS cell is empty -- no form enumerated from the reference" % (lang, r) for r in undeclared]
     if verbose:
+        short = []
+        if nowit:
+            short.append("%d declared form(s) with NO witness" % nowit)
+        if undeclared:
+            short.append("%d rung(s) with NO forms declared" % len(undeclared))
         print("  %-8s %-8s %d/%d declared %s witnessed%s" % (
             lang, "OK" if not missing else "MISSING", witnessed, declared,
             "form" + ("s" if declared != 1 else "") + ("+pairs" if phase == "all" and has_pairs else ""),
-            "" if not missing else "  (%d without a witness)" % len(missing)))
+            "" if not short else "  -- " + "; ".join(short)))
     return ("OK" if not missing else "MISSING"), declared, witnessed, missing
 
 
@@ -232,6 +250,10 @@ def selftest():
         mk("hhh", HDR + "rung00\thello\tsec1\tbare|quoted|nl\t\t-\tBUILT\t\n",
            ["ladder__rung00_hello_bare", "ladder__rung00_hello_quoted"])
         cases.append(("a missing form inside a PIPE list is caught individually", "hhh", "isolation", "MISSING"))
+        # 8. a census that enumerates ONE rung and leaves the rest blank must not read OK
+        mk("iii", HDR + "rung00\thello\tsec1\tbare\t\t-\tBUILT\t\nrung01\tarith\tsec2\t\t\t-\tBUILT\t\n",
+           ["ladder__rung00_hello_bare"])
+        cases.append(("a rung with an EMPTY forms cell is owed, not silently zero", "iii", "isolation", "MISSING"))
         for label, lang, phase, want in cases:
             got, _d, _w, _m = check_lang(lang, phase, verbose=False)
             if got == want:

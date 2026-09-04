@@ -281,20 +281,46 @@ EOF
 echo "  probes: PASS=$PP FAIL=$PF"
 
 echo "--- (c) corpus IR_GEN_SCAN bucket (ratchet floors m2>=$SCAN_M2_MIN m3>=$SCAN_M3_MIN m4>=$SCAN_M4_MIN) ---"
+# ⛔ DISCOVERY RE-SOURCED (row icn-scan-var-buckets-find-a-fraction-of-their-floor-and-the-jcon-family-fails,
+# 2026-09-04). The old `find $CORPUS -name '*.icn'` + --dump-bb-sniff walk measured a fraction of its own
+# floor (N=3 of a required 26) because TWO migrations shrank it, one after the other: the 2026-08-24 corpus
+# re-grid moved jcon-ref/jcon-compiler/ipl out of tests/icon into corpus/packages/icon (this row's original
+# diagnosis), and the later MASTER-SUITE flattening absorbed most of the remaining loose scan-touching
+# programs into tests/icon/ALL.icn. Repointing CORPUS at packages/icon is A DEAD END, verified, not assumed:
+# those three trees carry ZERO .expected files (grep -c across all three = 0), so widening the walk there
+# admits nothing. The honest current population lives in ALL.csv's own `scan` feature column; source it via
+# lib_master_extract.sh (CLAUDE.md MASTER SUITES: "the ONE way" to materialize a witness) instead of
+# re-deriving the filter with a second --dump-bb sniff per file. The loose KEEPER/DEFERRED files under
+# tests/icon (rung36_jcon_cxprimes/_genqueen/_recogn/_proto/_var, ...) are DELIBERATELY excluded from
+# ALL.csv by the suite's own absorption policy (tests/icon/ALL.excluded.txt) because each already has its
+# own LIVE row (icon-coexpression-support-design, icn-recogn-genqueen-suspend-shape,
+# icon-v9gen-augmented-assign-and-unary-refresh-plus-two-emitter-gaps) — this bucket is not the place to
+# re-litigate them under a different name; it grades the population the rest of the project already trusts.
+BUCKET_TMP="$(mktemp -d)"; trap 'rm -rf "$BUCKET_TMP"' EXIT
+MASTER_DIR="$CORPUS" MASTER_EXT=.icn
+. "$HERE/lib_master_extract.sh"
 C2P=0; C2F=0; C3P=0; C3F=0; C3E=0; C4P=0; C4F=0; C4E=0; CN=0
-while IFS= read -r f; do
-    dump=$(timeout 30 "$SCRIP" --dump-bb "$f" 2>/dev/null </dev/null) || true
-    [ -f "${f%%.icn}.expected" ] || continue   # no oracle, no verdict (s247, N-0)
-    [ -f "${f%%.icn}.xfail" ] && continue   # XFAIL law: the same marker test test_icon_all_rungs.sh uses (s247, N-0)
-    case "$dump" in *GEN_SCAN*|*'"kind":"SCAN'*) ;; *) continue ;; esac
+while IFS= read -r origin; do
+    [ -n "$origin" ] || continue
+    safe="$(printf '%s' "$origin" | tr -c 'A-Za-z0-9_' '_')"
+    out="$BUCKET_TMP/$safe.icn"; ref="$BUCKET_TMP/$safe.expected"
+    master_extract_origin "$origin" "$out" "$ref" || { echo "  FAIL: could not extract $origin (master_extract_origin refused)"; C3F=$((C3F+1)); continue; }
+    [ -f "${out%.icn}.in" ] && cp "${out%.icn}.in" "${out%.icn}.stdin"   # run3 looks for .stdin, extract writes .in
     CN=$((CN+1))
-    exp=$(cat "${f%.icn}.expected" 2>/dev/null || true)
-    run3 "$f" 30
+    exp=$(cat "$ref" 2>/dev/null || true)
+    run3 "$out" 30
     if [ "$A2" = "$exp" ]; then r2=PASS; C2P=$((C2P+1)); else r2=FAIL; C2F=$((C2F+1)); fi
     if [ "$SMX3" = 1 ]; then r3=REFUSED; C3E=$((C3E+1)); elif [ "$A3" = "$exp" ]; then r3=PASS; C3P=$((C3P+1)); else r3=FAIL; C3F=$((C3F+1)); fi
     if [ "$SMX4" = 1 ]; then r4=REFUSED; C4E=$((C4E+1)); elif [ "$A4" = "$exp" ]; then r4=PASS; C4P=$((C4P+1)); else r4=FAIL; C4F=$((C4F+1)); fi
-    printf "  %-44s m2=%-4s m3=%-7s m4=%s\n" "$(basename "$f" .icn)" "$r2" "$r3" "$r4"
-done < <(find "$CORPUS" -name '*.icn' | sort)
+    printf "  %-44s m2=%-4s m3=%-7s m4=%s\n" "$origin" "$r2" "$r3" "$r4"
+done < <(python3 - "$CORPUS/ALL.csv" scan <<'PY'
+import csv, sys
+path, col = sys.argv[1], sys.argv[2]
+for r in csv.DictReader(open(path)):
+    if r.get(col, "0") not in ("", "0") and r.get("modes", "") == "m3,m4" and r.get("xfail", "0") in ("", "0"):
+        print(r["origin"])
+PY
+)
 echo "  bucket: N=$CN | m2 PASS=$C2P FAIL=$C2F | m3 PASS=$C3P FAIL=$C3F REFUSED=$C3E | m4 PASS=$C4P FAIL=$C4F REFUSED=$C4E"
 [ "$C2P" -ge "$SCAN_M2_MIN" ] || { echo "  FLOOR FAIL m2 $C2P < $SCAN_M2_MIN"; BAD=1; }
 [ "$C3P" -ge "$SCAN_M3_MIN" ] || { echo "  FLOOR FAIL m3 $C3P < $SCAN_M3_MIN"; BAD=1; }
