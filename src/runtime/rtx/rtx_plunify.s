@@ -202,6 +202,8 @@ PL_ROOT_LEAF(db_asserta)
 PL_ROOT_LEAF(db_erase)
 PL_ROOT_LEAF(db_abolish)
 PL_ROOT_LEAF(db_retractall)
+PL_ROOT_LEAF(db_nslots)
+PL_ROOT_LEAF(db_try_erase)
 RTX_FUNC(rt_pl_dop_ax_zguard)
     sub     rsp, 8
     call    rt_pl_dop_ax_zguard_c
