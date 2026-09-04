@@ -504,7 +504,7 @@ fi
 # run, so the row rides the landing's own .github-last push and no seat meets an unexplained dirty .github.
 # ⛔ Placed ABOVE the FAIL exit: a red board is still a measurement, and a leaderboard that records only
 # green runs is a trophy cabinet showing each suite's best remembered day rather than its state.
-_sn4_board="m3 PASS=$PASS3 FAIL=$FAIL3 · m4 PASS=$PASS4 FAIL=$FAIL4 SKIP=$SKIP4 MISSING=0 (\`test_corpus_snobol4.sh\`)"
+_sn4_board="m3 $PASS3/$TOTAL FAIL=$FAIL3 · m4 $PASS4/$TOTAL FAIL=$FAIL4 SKIP=$SKIP4 MISSING=0 (\`test_corpus_snobol4.sh\`)"
 echo "ONE LEADERBOARD: recording this board into .github/SCORE.md (test_corpus_snobol4.sh; skipped with a notice if the tree is dirty)"
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column board --modes m3,m4 \
     --measurer "${S4E_SEAT:-}" --text "$_sn4_board" \
