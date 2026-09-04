@@ -137,8 +137,19 @@ def _which(name):
 
 
 def refuse(msg):
+    """⛔ ONE REFUSAL CODE, AND IT IS rc=2 (ceo CEO-233, row harness-refusal-exit-code-unified-on-rc-2, 2026-09-04).
+
+    ⛔ THIS EXITED 3 FOR MONTHS, by this file's own local convention, while every bash gate and lib_gate.sh's
+    three-code ladder said a refusal is rc=2 -- 0 measured-and-clean · 1 measured-and-red · 2 COULD NOT MEASURE.
+    The divergence became untenable when the stale-binary preflight landed here (row harness-and-ladder-runner-
+    refuse-on-a-stale-binary-...): it follows the law and exits 2, so ONE tool carried TWO refusal codes and a
+    caller could not ask "did it refuse?" without knowing WHICH refusal it hit. ⭐ The old convention was not
+    silly -- it wanted to distinguish "could not measure" from a red board -- but rc=1 already carries the red
+    board, so the third code bought nothing the law did not already give, and cost the one question every caller
+    actually asks. A local convention that disagrees with a fleet law is a trap even when its reasoning is sound,
+    because the reasoning lives here and the callers live everywhere."""
     print(f"⛔ REFUSING: {msg}", file=sys.stderr)
-    sys.exit(3)
+    sys.exit(2)
 
 
 def check_scrip(paths):
@@ -1402,9 +1413,11 @@ def cmd_capture_oracle_refs(args):
     # rc=0 and marches on, and `capture-oracle-refs D && convert D ...` then converts a family whose refusals
     # it never learned about. The two audiences do not read the same channel, so the channel BOTH read -- the
     # exit code -- is the one that has to carry the verdict.
-    # rc=1 -- ran fine, some stems are RED and were left untouched. rc=3 (refuse()) stays what it has always
-    # been: could not measure AT ALL. Distinct on purpose; a caller can tell "no refs for these" from
-    # "the oracle/tree is not usable".
+    # rc=1 -- ran fine, some stems are RED and were left untouched. rc=2 (refuse()) is could-not-measure-AT-ALL,
+    # ⛔ UNIFIED FROM rc=3 on 2026-09-04 (ceo CEO-233, row harness-refusal-exit-code-unified-on-rc-2) onto the
+    # fleet's one refusal code -- see refuse()'s own docstring. The distinction this comment was defending is
+    # intact: rc=1 still means "measured, some stems red", rc=2 now means "could not measure", and they are still
+    # different codes. Only the NUMBER moved, onto the one every bash caller and lib_gate.sh already test for.
     sys.exit(1 if red else 0)
 
 
@@ -1695,6 +1708,18 @@ def cmd_convert_blocks(args):
 def cmd_run(args):
     paths = resolve_paths()
     check_scrip(paths)
+    # ⛔⭐ A SUITE FILE THAT IS NOT THERE IS A REFUSAL, NEVER A CRASH (row harness-refusal-exit-code-unified-on-
+    # rc-2, hq_T 2026-09-04, found by that row's OWN gate while it was being written). Until now a missing
+    # ALL.<ext> or ALL.ref reached Path.read_text() and died with a FileNotFoundError TRACEBACK, which Python
+    # exits **1** for -- and rc=1 in this harness means "ran fine, some entries are RED". So the one case where
+    # nothing whatsoever was graded returned the code for a measured red board, to a caller that cannot tell
+    # them apart. That is the exact shape this row was minted to remove, one layer below where it was looking.
+    # ⛔ CHECKED HERE, BEFORE ANY READER: read_suite/read_block_suite each open BOTH files at different depths,
+    # so a guard inside either one would have to be written twice and would still miss the sidecars' own reads.
+    for _label, _p in (("suite", args.sno), ("ref", args.ref)):
+        if not Path(_p).is_file():
+            refuse(f"{_label} file does not exist: {_p} -- nothing was graded, and a run that graded nothing is "
+                   f"UNMEASURED, never a red board (check the path, or build the master first)")
     if args.lang:
         cfg = LANG_CONFIGS[args.lang]
         ext = cfg["ext"]
