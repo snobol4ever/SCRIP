@@ -4506,7 +4506,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
                 const char *_ps = VARVAL_fn(av);
                 if (_ps) {
                     if (w == -2) { fprintf(_dest, "%c", (int)(unsigned char)_ps[0]); }
-                    else if (w >= 0) { fprintf(_dest, "%*s", w, _ps); }
+                    else if (w >= 0) { fprintf(_dest, "%*.*s", w, w, _ps); }
                     else { fputs(_ps, _dest); }
                 }
             }
