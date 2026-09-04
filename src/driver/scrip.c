@@ -134,9 +134,9 @@ static int keyword_supported(const char *kw) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scan_safe_kind(IR_e t) {
     return t == IR_SUCCEED || t == IR_FAIL ||
-           t == IR_LIT_INTEGER || t == IR_LIT_STRING || t == IR_LIT_REAL || t == IR_OP_COUNT ||
-           t == IR_VAR || t == IR_KW_ICON || t == IR_KW_SNOBOL4 || t == IR_OP_COUNT || t == IR_CALL || ir_is_scan_kind(t) || t == IR_BINOP
-        || t == IR_OP_COUNT || t == IR_CONJUNCTION || t == IR_ASSIGN || t == IR_OP_COUNT || t == IR_OP_COUNT || t == IR_OP_COUNT;
+           t == IR_LIT_INTEGER || t == IR_LIT_STRING || t == IR_LIT_REAL || t == IR_EXCISED ||
+           t == IR_VAR || t == IR_KW_ICON || t == IR_KW_SNOBOL4 || t == IR_EXCISED || t == IR_CALL || ir_is_scan_kind(t) || t == IR_BINOP
+        || t == IR_EXCISED || t == IR_CONJUNCTION || t == IR_ASSIGN || t == IR_EXCISED || t == IR_EXCISED || t == IR_EXCISED;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sg_var_assigned(IR_graph_t *sg, const char *name) {
@@ -222,7 +222,7 @@ static int scan_subgraph_safe(stage2_t *s2, int gi, IR_graph_t *g, IR_graph_t *s
             else if (!(!strcmp(IR_LIT(nd).sval, "write") || !strcmp(IR_LIT(nd).sval, "writes"))) return 0;
         }
         if (nd->op == IR_BINOP) { int64_t bc = IR_LIT(nd).ival; int is_rel = (bc >= BINOP_LT && bc <= BINOP_NE) || (bc >= BINOP_SLT && bc <= BINOP_SNE) || bc == BINOP_EQV || bc == BINOP_NEQV; if (!binop_is_concat((long)bc) && !is_rel) return 0; }
-        if (nd->op == IR_OP_COUNT) {
+        if (nd->op == IR_EXCISED) {
             IR_graph_t *ssg = (IR_graph_t *)0;
             IR_graph_t *bsg = (IR_graph_t *) 0;
             if (!scan_subgraph_safe(s2, gi, g, ssg, depth + 1) || !scan_subgraph_safe(s2, gi, g, bsg, depth + 1)) return 0;
@@ -235,7 +235,7 @@ static int graph_native_emittable_mode(stage2_t *s2, int for_run, char *why, siz
 static int graph_native_emittable(stage2_t *s2, char *why, size_t whysz) { return graph_native_emittable_mode(s2, 0, why, whysz); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int gen_scan_body_slotful(IR_t *r) {
-    if (!r || r->op != IR_OP_COUNT || IR_LIT(r).dval != 1.0) return 0;
+    if (!r || r->op != IR_EXCISED || IR_LIT(r).dval != 1.0) return 0;
     IR_graph_t *bsg = (IR_graph_t *) 0;
     IR_t *bt = bsg ? bsg->entry : (IR_t *)0;
     int gd = 0;
@@ -251,7 +251,7 @@ static int gen_scan_body_slotful(IR_t *r) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rhs_kind_ok(IR_t *r) {
     if (!r) return 0;
-    if (r->op == IR_LIT_INTEGER || r->op == IR_LIT_STRING || r->op == IR_OP_COUNT || r->op == IR_LIT_REAL) return 1;
+    if (r->op == IR_LIT_INTEGER || r->op == IR_LIT_STRING || r->op == IR_EXCISED || r->op == IR_LIT_REAL) return 1;
     if (r->op == IR_VAR && IR_LIT(r).sval && IR_LIT(r).sval[0] != '&') return 1;
     if (r->op == IR_VAR && IR_LIT(r).sval && !strcmp(IR_LIT(r).sval, "&null")) return 1;
     if (r->op == IR_BINOP_RELOP_VAL) return 1;
@@ -263,8 +263,8 @@ static int rhs_kind_ok(IR_t *r) {
     if (r->op == IR_CALL && IR_LIT(r).dval == 1.0) return 1;
     { extern void *dat_find_type(const char *name); if (r->op == IR_CALL && IR_LIT(r).dval == 3.0 && IR_LIT(r).sval && dat_find_type(IR_LIT(r).sval)) return 1; }
     { extern int rt_builtin_is_known(const char *name); const char *bn = IR_LIT(r).sval; if (r->op == IR_CALL && IR_LIT(r).dval == 3.0 && bn && rt_builtin_is_known(bn)) return 1; }
-    if (r->op == IR_OP_COUNT) return 1;
-    if (r->op == IR_TO || r->op == IR_TO_BY || r->op == IR_PROC_GEN || r->op == IR_OP_COUNT) return 1;
+    if (r->op == IR_EXCISED) return 1;
+    if (r->op == IR_TO || r->op == IR_TO_BY || r->op == IR_PROC_GEN || r->op == IR_EXCISED) return 1;
     if (r->op == IR_MAKE_LIST) return 1;
     if (r->op == IR_CONJUNCTION) { IR_t *lv = (r->n_operands > 0) ? r->operands[0] : (IR_t *)0; return lv ? rhs_kind_ok(lv) : 0; }
     {
@@ -273,12 +273,12 @@ static int rhs_kind_ok(IR_t *r) {
             IR_t *rv = (r->n_operands > 0) ? r->operands[0] : (IR_t *)0; return rv ? rhs_kind_ok(rv) : 0;
         }
     }
-    if (r->op == IR_OP_COUNT) return 1;
-    if (r->op == IR_OP_COUNT) return 1;
+    if (r->op == IR_EXCISED) return 1;
+    if (r->op == IR_EXCISED) return 1;
     if (r->op == IR_CALL && IR_LIT(r).dval == 2.0 && !(IR_LIT(r).sval && (!strcmp(IR_LIT(r).sval,"__rk_bool")||!strcmp(IR_LIT(r).sval,"__rk_try")))) return 1;
-    if (r->op == IR_OP_COUNT) { int64_t u = IR_LIT(r).ival; if (u == TT_MNS || u == TT_PLS || u == TT_SIZE || u == TT_NONNULL || u == TT_NULL || u == TT_NOT) return 1; }
-    if (r->op == IR_OP_COUNT || r->op == IR_OP_COUNT || r->op == IR_OP_COUNT || r->op == IR_OP_COUNT || r->op == IR_OP_COUNT) return 1;
-    if (r->op == IR_OP_COUNT) return gen_scan_body_slotful(r);
+    if (r->op == IR_EXCISED) { int64_t u = IR_LIT(r).ival; if (u == TT_MNS || u == TT_PLS || u == TT_SIZE || u == TT_NONNULL || u == TT_NULL || u == TT_NOT) return 1; }
+    if (r->op == IR_EXCISED || r->op == IR_EXCISED || r->op == IR_EXCISED || r->op == IR_EXCISED || r->op == IR_EXCISED) return 1;
+    if (r->op == IR_EXCISED) return gen_scan_body_slotful(r);
     return 0;
 }
 static int graph_has_binop(const IR_graph_t *g);
@@ -303,7 +303,7 @@ static int is_jct_call(IR_t *r) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int jct_marshallable(IR_t *r) {
     if (!r) return 0;
-    if (r->op == IR_LIT_INTEGER || r->op == IR_LIT_STRING || r->op == IR_LIT_REAL || r->op == IR_OP_COUNT) return 1;
+    if (r->op == IR_LIT_INTEGER || r->op == IR_LIT_STRING || r->op == IR_LIT_REAL || r->op == IR_EXCISED) return 1;
     if (r->op == IR_VAR && IR_LIT(r).sval && IR_LIT(r).sval[0] != '&') return 1;
     if (r->op == IR_CALL && (IR_LIT(r).dval == 2.0 || IR_LIT(r).dval == 3.0 || IR_LIT(r).dval == 5.0)) return 1;
     return 0;
@@ -364,8 +364,8 @@ static int graph_native_emittable_mode(stage2_t *s2, int for_run, char *why, siz
         for (int ni = 0; ni < g->n; ni++) {
             IR_t *nd = g->all[ni];
             if (!nd) continue;
-            if (nd->op == IR_OP_COUNT)
-                { snprintf(why, whysz, "an excised node (op IR_OP_COUNT, dumped as UNKNOWN; rk_excise) has no native template%s%s", IR_LIT(nd).sval ? " -- " : "", IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); return 0; }
+            if (nd->op == IR_EXCISED)
+                { snprintf(why, whysz, "an excised node (op IR_EXCISED, dumped as IR_EXCISED; rk_excise) has no native template%s%s", IR_LIT(nd).sval ? " -- " : "", IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); return 0; }
             if (nd->op == IR_CALL && IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && strcmp(IR_LIT(nd).sval,"__rk_bool") && strcmp(IR_LIT(nd).sval,"__rk_try") && !rt_builtin_is_known(IR_LIT(nd).sval))
                 { snprintf(why, whysz, "call '%s' is neither a user sub nor a known builtin", IR_LIT(nd).sval); return 0; }
             if (nd->op == IR_CALL && IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval,"__rk_bool")||!strcmp(IR_LIT(nd).sval,"__rk_try"))) {

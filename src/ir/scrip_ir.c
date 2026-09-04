@@ -137,6 +137,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_PATTERN_CAPTURE] = "IR_PATTERN_CAPTURE",
     [IR_PATTERN_DEFER] = "IR_PATTERN_DEFER",
     [IR_DTP_ASSIGN] = "IR_DTP_ASSIGN",
+    [IR_EXCISED] = "IR_EXCISED",
 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * bb_op_name(IR_e k) {
