@@ -110,5 +110,26 @@ elif ! printf '%s' "$chk" | grep -q 'commits behind origin/main\|UNPINNED\|UNKNO
     violations=$((violations + 1))
 fi
 
+# ARM 5 — the OTHER writer of this file must MERGE, not splice. util_apply_score_grid.py regenerates whole
+# rows, so it can destroy in one run everything every `write` above recorded. ⛔ It is gated HERE, beside
+# the row-writer, on purpose: the two scripts write one file and a guarantee proved on only one of them is
+# not a guarantee about the file. Its own selftest pins that a NARROW grid leaves the unmeasured columns
+# byte-identical, and that the September-10 grid -- which is NOT the table it edits -- is never touched.
+examined=$((examined + 1))
+APPLIER="$(dirname "$HELPER")/util_apply_score_grid.py"
+if [ ! -f "$APPLIER" ]; then
+    echo "GATE FAIL: util_apply_score_grid.py is absent — the grid-merge path is ungated"
+    violations=$((violations + 1))
+else
+    asel="$(python3 "$APPLIER" --selftest 2>&1)"; arc=$?
+    if [ "$arc" -ne 0 ]; then
+        echo "GATE FAIL: util_apply_score_grid.py --selftest rc=$arc"
+        echo "$asel" | sed 's/^/    /'
+        violations=$((violations + 1))
+    else
+        echo "$asel" | sed 's/^/    /'
+    fi
+fi
+
 GATE_EXAMINED="$examined arms"
 gate_verdict "$violations" "leaderboard write-path invariants broken"
