@@ -42,8 +42,8 @@ SUBTREE	demos/snocone	GATED	test_crosscheck_snocone.sh
 SUBTREE	packages/icon	GATED	test_gate_icn_scan.sh
 SUBTREE	benchmarks/pascal	GATED	test_gate_pascal_m3.sh
 SUBTREE	benchmarks/raku	ROWD	bench-rivals-raku-pascal
-SUBTREE	demos/prolog	GATED	test_lower_byte_identical.sh
-SUBTREE	demos/icon	GATED	test_lower_byte_identical.sh
+SUBTREE	demos/prolog	GATED	test_corpus_prolog_parser.sh
+SUBTREE	demos/icon	GATED	test_demo_icon_jcon.sh
 # crosscheck/beauty RETIRED 2026-08-27: seat08's crosscheck-finish (corpus 96283343) converted its two loose
 # .sno into tests/snobol4/crosscheck/beauty.{sno,ref}. The directory survives but holds ZERO program files now --
 # only .input/.ref fixtures -- so it is no longer a live subtree. The gate caught this drift within hours of the
