@@ -1341,7 +1341,7 @@ int main(int argc, char **argv)
             { extern int prolog_op_user_count(void); extern int prolog_op_user_get(int, const char **, int *, const char **); int n_uop = prolog_op_user_count();
               if (n_uop > 0) { emit_textf("  .section .rodata\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; char eb[512]; int ei = 0; for (const char *s = onm ? onm : ""; *s && ei < 508; s++) { if (*s == '\\' || *s == '"') eb[ei++] = '\\'; eb[ei++] = *s; } eb[ei] = 0; emit_textf("  .Lopn%d: .string \"%s\"\n  .Lopt%d: .string \"%s\"\n", k, eb, k, oty ? oty : "xfx"); }
                 emit_textf("  .section .text\n  .intel_syntax noprefix\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; emit_textf("  lea rdi, [rip + .Lopn%d]\n  mov esi, %d\n  lea rdx, [rip + .Lopt%d]\n  call prolog_op_table_add@PLT\n", k, opr, k); } } }
-            if (bbg->nparams >= 1) emit_textf("  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  call rt_main_args_stage@PLT\n");
+            emit_textf("  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  call rt_main_args_stage@PLT\n");
             int _pinned_root = (bbg->zframe_pinned_base && bbg->root_graph) ? 1 : 0;
             if (!_pinned_root) emit_textf("  mov r12, qword ptr [0x70000000]\n");
             if (is_prolog && bbg->zframe_graph && !bbg->icn_cells_graph) emit_textf("  call rt_gcheap_warmup@PLT\n");
@@ -1515,7 +1515,7 @@ int main(int argc, char **argv)
             if (n_proc_slot > 0) emit_textf("  lea rdi, [rip + __proc]\n  lea rsi, [rip + __proc_names]\n  mov edx, %d\n  call rt_proc_table_fill@PLT\n", n_proc_slot);
             if (n_gva > 0) emit_textf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  call gva_register@PLT\n", n_gva, n_gva);
             { extern int g_monitor_bin; if (g_monitor_bin) emit_textf("  mov edi, dword ptr [rip + __mon_maxst]\n  call rt_mon_set_max_stno@PLT\n"); }
-            if (sbbg->nparams >= 1) emit_textf("  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  call rt_main_args_stage@PLT\n");
+            emit_textf("  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  call rt_main_args_stage@PLT\n");
             emit_textf("  mov r12, qword ptr [0x70000000]\n");
             emit_textf("  xor esi, esi\n");
             { extern unsigned char g_rtcc_on; if (g_rtcc_on) emit_textf("  call rtcc_load_all@PLT\n"); }
@@ -1749,7 +1749,7 @@ int main(int argc, char **argv)
             int _zframe_pinned_root = (bbg->zframe_pinned_base && bbg->root_graph) ? 1 : 0;
             ir_delete_all(s2);
             void *mf = NULL;
-            if (_nparams >= 1) { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); }
+            { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); }
             { extern void bbprof_start(void); bbprof_start(); }
             { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }
             if (_zframe_graph && !_icn_cells_graph) {
@@ -1848,7 +1848,7 @@ int main(int argc, char **argv)
                 ir_delete_all(s2);
                 if (fn) {
                     void *mf = NULL;
-                    if (sbbg->nparams >= 1) { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); }
+                    { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); }
                     { extern void bbprof_start(void); bbprof_start(); }
                     { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }
                     { extern void rt_outer_call(bb_box_fn, void *, long); extern void rt_outer_call_delta0(bb_box_fn, void *, long); if (is_icon) rt_outer_call_delta0(fn, mf, 0); else rt_outer_call(fn, mf, 0); }

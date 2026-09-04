@@ -3743,6 +3743,7 @@ static int g_main_args_staged = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_main_args_stage(char **v, int n) { extern DESCR_t g_call_args[]; g_main_args_descr = rt_args_list_from(v, n); g_main_args_staged = 1; if (!getenv("SCRIP_NO_MAIN_ARGS")) g_call_args[0] = g_main_args_descr; }
 DESCR_t rt_main_args_fetch(void) { if (!g_main_args_staged) rt_main_args_stage((char **)0, 0); return g_main_args_descr; }
+int rt_main_args_count(void) { DESCR_t l = rt_main_args_fetch(); if (l.v != DT_DATA) return 0; DESCR_t t = FIELD_GET_fn(l, "gen_type"); if (!(t.v == DT_S && t.s && strcmp(t.s, "list") == 0)) return 0; return (int)FIELD_GET_fn(l, "frame_size").i; }
 extern int junction_is(DESCR_t v);
 extern int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

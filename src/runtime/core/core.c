@@ -814,6 +814,21 @@ static DESCR_t _LNE_(DESCR_t *a, int n) {
     return strcmp(x, y) != 0 ? NULVCL : FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int host_cmdline_arg(int want, char *out, int outsz) {
+    FILE *f = fopen("/proc/self/cmdline", "rb"); if (!f) return -1;
+    int idx = 0, oi = 0, found = -1, c;
+    if (out && outsz > 0) out[0] = 0;
+    for (;;) {
+        c = fgetc(f); if (c == EOF) break;
+        if (c == 0) { if (want >= 0 && idx == want) { found = idx; break; } idx++; oi = 0; continue; }
+        if (want >= 0 && idx == want && out && oi < outsz - 1) { out[oi++] = (char)c; out[oi] = 0; }
+    }
+    fclose(f);
+    if (want < 0) return idx;
+    if (found < 0 && idx == want && oi > 0) found = idx;
+    return found;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _HOST_(DESCR_t *a, int n) {
     if (n < 1) return NULVCL;
     int64_t selector = to_int(a[0]);
@@ -822,7 +837,17 @@ static DESCR_t _HOST_(DESCR_t *a, int n) {
         char buf[32]; snprintf(buf, sizeof(buf), "%d", (int)getpid());
         return STRVAL(rt_ws_strdup_c(buf));
     }
-    if (selector == 3) return INTVAL(0);
+    if (selector == 2 && n >= 2) {
+        int64_t want = to_int(a[1]); char abuf[4096];
+        if (want < 0 || host_cmdline_arg((int)want, abuf, (int)sizeof(abuf)) < 0) return FAILDESCR;
+        return STRVAL(rt_ws_strdup_c(abuf));
+    }
+    if (selector == 3) {
+        extern int rt_main_args_count(void);
+        int total = host_cmdline_arg(-1, (char *)0, 0); if (total < 0) return INTVAL(0);
+        int used = rt_main_args_count(); if (used < 0) used = 0; if (used > total) used = total;
+        return INTVAL(total - used);
+    }
     if (selector == 4 && n >= 2) {
         const char *envname = VARVAL_fn(a[1]);
         if (!envname || !*envname) return NULVCL;
