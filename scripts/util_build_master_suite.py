@@ -829,7 +829,7 @@ def resort_master(OUTDIR, EXT, lang, h, _CO, _CC, COLS, modes_decl, loose_famili
             sys.stderr.write("REFUSED: %d entr(y/ies) changed CONTENT during a reorder (first: %s) -- not committing.\n"
                              % (len(_bad), _bad[0] if _bad else "?")); _cleanup(); return 2
         with open(tmp_csv, "w", newline="") as f:
-            w = csv.writer(f)
+            w = csv.writer(f, lineterminator="\n")
             w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes"] + [c for c, _ in COLS])
             for rank, e in enumerate(ordered, 1):
                 origin = csv_origin.get(e.name) or ("master__%s" % e.name)
@@ -901,7 +901,7 @@ def reindex_csv_only(OUTDIR, EXT, lang, h, _CO, _CC, COLS, modes_decl, loose_fam
     tmp_csv = out_csv + ".tmp-%d" % os.getpid()
     try:
         with open(tmp_csv, "w", newline="") as f:
-            w = csv.writer(f)
+            w = csv.writer(f, lineterminator="\n")
             w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes"] + [c for c, _ in COLS])
             for rank, e in enumerate(entries, 1):
                 text = "\n".join(e.sno_lines)
@@ -1542,7 +1542,7 @@ def main():
             h.refuse("re-read count %d != written %d -- NOT trusting the merge; validated in a scratch copy "
                      "first, so the real tree was never touched" % (len(reread), len(all_entries)))
         with open(tmp_csv, "w", newline="") as f:
-            w = csv.writer(f)
+            w = csv.writer(f, lineterminator="\n")
             w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes"] + [c for c, _ in COLS])
             for rank, (e, flags, text) in enumerate(rows, 1):
                 fam = e.origin.split("__", 1)[0]

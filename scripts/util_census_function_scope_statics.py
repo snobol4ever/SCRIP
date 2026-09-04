@@ -325,7 +325,7 @@ def main():
     if args.csv:
         import csv
         with open(args.csv, 'w', newline='') as f:
-            w = csv.writer(f)
+            w = csv.writer(f, lineterminator="\n")
             w.writerow(['file', 'line', 'name', 'verdict', 'declaration', 'static_offset'])
             for row in results:
                 w.writerow(row)

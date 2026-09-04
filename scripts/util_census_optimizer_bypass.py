@@ -212,7 +212,7 @@ def main():
 
     if args.out:
         with open(args.out, "w", newline="") as f:
-            w = csv.writer(f)
+            w = csv.writer(f, lineterminator="\n")
             w.writerow(["name", "xfail", "default_kind", "default_rc", "opt0_kind", "opt0_rc",
                         "zd0_kind", "zd0_rc", "opt0_changed", "zd0_changed"])
             for e in entries:
