@@ -1906,6 +1906,16 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         while (*pp) { char *ep = NULL; long v = strtol(pp, &ep, 10); if (ep == pp) break; if (k >= lo) o[oi++] = (char)v; k++; pp = ep; if (*pp == SOH) pp++; else break; }
         o[oi] = '\0'; *out = STRVAL(o); return 1;
     }
+    if (!strcmp(fn, "__pas_strcmp") && nargs == 2) {
+        const char *sa = VARVAL_fn(args[0]); if (!sa) sa = "";
+        const char *sb = VARVAL_fn(args[1]); if (!sb) sb = "";
+        size_t la = (args[0].v == DT_S && args[0].slen != 0xFFFFFFFFu && sa == args[0].s) ? (size_t)args[0].slen : strlen(sa);
+        size_t lb = (args[1].v == DT_S && args[1].slen != 0xFFFFFFFFu && sb == args[1].s) ? (size_t)args[1].slen : strlen(sb);
+        size_t lm = la < lb ? la : lb;
+        int c = lm ? memcmp(sa, sb, lm) : 0;
+        if (c == 0) c = (la < lb) ? -1 : (la > lb) ? 1 : 0;
+        *out = INTVAL(c < 0 ? -1 : c > 0 ? 1 : 0); return 1;
+    }
     if (!strcmp(fn, "__pas_ca_pack") && nargs >= 1) {
         const char *sa = VARVAL_fn(args[0]); if (!sa) sa = "";
         size_t sl = strlen(sa); char *o = rt_ws_alloc(sl + 1);
