@@ -5389,7 +5389,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         DESCR_t kd = (nargs >= 2) ? args[1] : NULVCL;
         char kb[64]; const char *ks = tbl_key_str(kd, kb, sizeof kb);
         if (!table_has_d(td.tbl,kd)) { *out=FAILDESCR; return 1; }
-        *out = table_get_d(td.tbl, kd); return 1;
+        *out = kd; return 1;
     }
     L_bidjmp_6140: ;
     if ((_bid == BID_key) && nargs == 1) {
