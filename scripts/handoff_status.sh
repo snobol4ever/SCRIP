@@ -37,7 +37,12 @@
 # read as any of the four above.
 set -uo pipefail
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # <ws>/SCRIP/scripts
-WS="$(dirname "$(dirname "$SELF_DIR")")"                    # <ws> (parent of the SCRIP repo)
+# ⛔ D-17 PORTABLE-HOME (CLAUDE.md Workspace map): "every script derives paths from $0 or S4E_HOME" -- this
+# script derived WS from $0 ONLY, so a caller pointing S4E_HOME at a scratch worktree (as the DONE-WHEN for
+# task handoff-artifact-check-cannot-tell-stale-local-build-from-drift does, to sandbox the stale-binary proof
+# away from the real tree) was silently ignored: WS still resolved to the real sibling root. Found proving
+# that DONE-WHEN (seat15 2026-09-04); cured to match util_verify_s_artifacts_owed.sh's existing S4E_HOME pattern.
+WS="${S4E_HOME:-$(dirname "$(dirname "$SELF_DIR")")}"       # <ws> (parent of the SCRIP repo), S4E_HOME overrides
 REPOS=("$@") ; src="given on command line"
 if [ ${#REPOS[@]} -eq 0 ]; then
   src="auto-discovered under $WS"
@@ -45,7 +50,7 @@ if [ ${#REPOS[@]} -eq 0 ]; then
   for d in "$WS"/*/; do
     d="${d%/}"; base="$(basename "$d")"
     { [ "$base" = "." ] || [ "$base" = ".." ]; } && continue
-    [ -d "$d/.git" ] || continue                              # is a git repo
+    [ -e "$d/.git" ] || continue                              # is a git repo (worktree: .git is a FILE, not a dir)
     git -C "$d" remote get-url origin >/dev/null 2>&1 || continue   # has an origin to push to
     REPOS+=("$d")
   done
@@ -132,6 +137,17 @@ else
     if [ "$s_rc" -eq 0 ]; then
       printf '%s\n' "$s_out" | grep '^S-ARTIFACTS-' | sed 's/^/  /'
       echo "  CLEAN — benchmark/demo/prolog_bench/icon_bench all current, all checks actually ran."
+    elif [ "$s_rc" -eq 2 ] && printf '%s\n' "$s_out" | grep -q 'PREDATES src/'; then
+      # ⛔ STALE-BINARY, NOT DRIFT (task handoff-artifact-check-cannot-tell-stale-local-build-from-drift, hq_C
+      # 2026-09-01 / seat15 2026-09-04): lib_build_currency.sh's preflight inside the verifier already refuses
+      # rc=2 here and never computes an owed count -- the bug was that handoff_status.sh then threw the refusal
+      # away: the generic branch below only ever prints text from a "VERDICT:" line, and a preflight refusal
+      # exits before the verifier reaches one, so the mtime/cure detail silently vanished and every rc=2 looked
+      # identical to a false OWED that just didn't happen to fire this time. This branch names the real cause.
+      rt_tag="$(readlink out/libscrip_rt.so 2>/dev/null | grep -oE 'libscrip_rt-[0-9a-f]+' | sed 's/libscrip_rt-//')"
+      echo "  ⛔ STALE-BINARY — ./scrip (or out/libscrip_rt.so) is older than the newest tracked src/ change: a stale local build, not corpus drift, so no OWED count was computed. RT_TAG: ${rt_tag:-unknown}"
+      printf '%s\n' "$s_out" | sed 's/^/  /'
+      echo "  cure: cd SCRIP && make pristine, then re-run — RULES.md:118 keeps pristine owed for exactly this refusal even though ordinary landings loosened it; an incremental 'make' is not certified equivalent here."
     elif [ "$s_rc" -eq 2 ]; then
       echo "  ⛔ UNVERIFIED — the verifier REFUSED (rc=2, cannot measure; e.g. no built ./scrip). Not blocking, but this run proves nothing about .s drift."
       printf '%s\n' "$s_out" | sed -n '/^VERDICT:/,$p' | sed 's/^/  /'
