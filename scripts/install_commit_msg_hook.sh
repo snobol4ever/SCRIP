@@ -18,6 +18,12 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 S4E="${S4E_HOME:-$(cd "$HERE/../.." && pwd)}"
 SRC="$HERE/lib_commit_msg_hook.txt"
 [ -f "$SRC" ] || { echo "install_commit_msg_hook: canonical hook missing at $SRC" >&2; exit 2; }
+# ⛔⭐ THE PRE-COMMIT HOOK RIDES THE SAME INSTALLER, deliberately. Hooks do not propagate through clone, and
+# this installer is already invoked per-prompt from scripts/s4e_inbox_hook.sh -- so a SECOND installer would
+# be a second thing to remember to wire, and the first cut of THIS one was measured installing into two of
+# three repos while printing a confident success line. One walk, both hooks, one report.
+SRC_PC="$HERE/lib_pre_commit_hook.txt"
+[ -f "$SRC_PC" ] || { echo "install_commit_msg_hook: canonical pre-commit hook missing at $SRC_PC" >&2; exit 2; }
 quiet=0; [ "${1:-}" = "--quiet" ] && quiet=1
 installed=0; current=0; failed=0
 # ⛔⭐ BOTH GLOBS, AND THIS IS NOT DEFENSIVE PADDING -- `*/` ALONE SILENTLY HIDES .github/.
@@ -31,15 +37,18 @@ for d in "$S4E"/*/ "$S4E"/.*/; do
     g="$d/.git"
     [ -d "$g" ] || continue
     hd="$g/hooks"; mkdir -p "$hd" 2>/dev/null || { failed=$((failed+1)); continue; }
-    dst="$hd/commit-msg"
-    if [ -f "$dst" ] && cmp -s "$SRC" "$dst"; then current=$((current+1)); continue; fi
-    if cp "$SRC" "$dst" 2>/dev/null && chmod +x "$dst" 2>/dev/null; then
-        installed=$((installed+1))
-        [ "$quiet" = 1 ] || echo "  installed commit-msg hook -> $(basename "${d%/}")"
-    else
-        failed=$((failed+1))
-        echo "install_commit_msg_hook: FAILED to write $dst" >&2
-    fi
+    for pair in "commit-msg:$SRC" "pre-commit:$SRC_PC"; do
+        nm="${pair%%:*}"; src="${pair#*:}"
+        dst="$hd/$nm"
+        if [ -f "$dst" ] && cmp -s "$src" "$dst"; then current=$((current+1)); continue; fi
+        if cp "$src" "$dst" 2>/dev/null && chmod +x "$dst" 2>/dev/null; then
+            installed=$((installed+1))
+            [ "$quiet" = 1 ] || echo "  installed $nm hook -> $(basename "${d%/}")"
+        else
+            failed=$((failed+1))
+            echo "install_commit_msg_hook: FAILED to write $dst" >&2
+        fi
+    done
 done
 if [ "$quiet" = 1 ]; then
     # ⭐ SILENT WHEN THERE IS NOTHING TO SAY. This runs from the per-prompt session hook, whose
