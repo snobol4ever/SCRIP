@@ -274,15 +274,6 @@ G       ({WS}|{CONT})*
     sno_error(lineno,"unterminated string"); lineno++; BEGIN(BODY);
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
- /* ⛔⭐ row snobol4-goto-field-whitespace-inside-parens-is-a-parse-error: a goto field's whitespace is
-    ONLY a concat operator BETWEEN two goto_atoms (grammar: goto_expr T_CONCAT goto_atom) -- it must
-    never fire immediately after the opening paren (nothing to concat yet: gt_have_operand catches this)
-    or immediately before the closing one (nothing left to concat WITH: the trailing-context rule below,
-    which must be listed first so flex prefers it over the general whitespace rule on an equal-length
-    match, catches that side). Before this fix 'S( LBL )' tokenized as LPAREN CONCAT IDENT CONCAT RPAREN
-    -- two CONCATs with no goto_atom on one side -- which matches no production and is a syntax error
-    with or without indirection in play; 'S($('LBL.' OP))' (WANG.sno's real shape) already worked because
-    its one legitimate space sits strictly between two atoms. */
 <GT>[ \t]+/[)>;\n]      { }
 <GT>[ \t]+              { if (gt_depth > 0 && gt_have_operand) return T_CONCAT; }
 <GT>[Ss]/"("            { return T_GOTO_S; }
