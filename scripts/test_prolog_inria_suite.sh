@@ -36,9 +36,44 @@ def expected_class(exp):
     e = exp.strip()
     if e == "success": return ("success", None)
     if e == "failure": return ("failure", None)
+    # ⛔ "impl_defined" / "system_error" are the SUITE'S OWN sentinel vocabulary, not literal functors to
+    # string-match -- inriasuite.pl:136-146 (the authors' own driver) lists system_error as a recognized
+    # error_type beside instantiation_error/type_error/...; "impl_defined" appears bare (no functor at all)
+    # in halt's two entries. impl_defined means "any conforming behavior passes" (checked at point of use,
+    # below); system_error means "must raise SOME error, exact functor unspecified" (wfun=None already
+    # skips the functor check in the ok= line below). Measured 2026-09-04, seat05: 3 entries total.
+    if e == "impl_defined": return ("impl_defined", None)
+    if e == "system_error": return ("error", None)
     if e.startswith("["):  return ("success", None)   # a substitution set implies success (weaker, see header)
     m = re.match(r"([a-z_]+)", e)
     return ("error", m.group(1) if m else None)
+def _mask_0c_lits(s):
+    # ⛔ 0'c (a character-code literal, e.g. 0'a = 97) carries a single unpaired quote that desyncs a
+    # naive quote-toggle scanner -- measured live on atom_codes/char_code. But a BLIND regex for "0'." is
+    # a false-positive trap of its own: the quoted atom '0' immediately followed by another quoted element,
+    # e.g. ...,'0']] (number_chars), contains the literal substring "0'" purely as the tail of '0' and the
+    # head of the next token, with no character-literal there at all. So this has to be found IN CONTEXT,
+    # walking quote-state properly, and only ever recognised while NOT already inside a quote. Returns
+    # (masked_string, restore_dict) -- the mask is a placeholder with no quote/bracket/comma of its own,
+    # safe to feed to the depth/comma scanners below; restore before use. Shared by parse() and
+    # parse_bindings() -- moved above parse() (2026-09-04, seat05) so the census pass can use it too.
+    out = []; ph = {}; i = 0; q = False; n = 0
+    while i < len(s):
+        ch = s[i]
+        if not q and ch == "0" and i + 1 < len(s) and s[i+1] == "'":
+            j = i + 4 if (i + 2 < len(s) and s[i+2] == "\\") else i + 3
+            j = min(j, len(s))
+            tok = s[i:j]
+            key = "\x01%d\x01" % n; n += 1
+            ph[key] = tok
+            out.append(key)
+            i = j
+            continue
+        if ch == "'":
+            q = not q
+        out.append(ch)
+        i += 1
+    return "".join(out), ph
 def parse(path):
     # ⛔⭐ ENTRIES SPAN LINES, AND ASSUMING THEY DO NOT SILENTLY SHRINKS THE DENOMINATOR. The first cut took only
     # lines that both started "[" and ended "]." and reported total=416 -- a clean, plausible board that had
@@ -63,14 +98,24 @@ def parse(path):
         if not buf and not line.startswith("["): continue
         buf = (buf + " " + line).strip() if buf else line
         if buf.count("[") > buf.count("]") or not buf.endswith("]."): continue
-        body = buf[1:-2]; buf = ""
-        depth = 0; cut = -1
+        body_raw = buf[1:-2]; buf = ""
+        # ⛔ THE SPLIT MUST MASK QUOTES TOO, NOT JUST 0'c -- the "and" family writes conjunction in its
+        # canonical functional form ','(A,B): the quoted comma atom ',' sits at depth 0, before any
+        # bracket, so an unmasked scanner cut the entry after ONE character (goal="'", exp="'(A,B),..."),
+        # taking all 5 of that family's goals to NO-CLASS. Measured 2026-09-04, seat05.
+        body, ph = _mask_0c_lits(body_raw)
+        depth = 0; cut = -1; q = False
         for i, ch in enumerate(body):
+            if ch == "'": q = not q; continue
+            if q: continue
             if ch in "([{": depth += 1
             elif ch in ")]}": depth -= 1
             elif ch == "," and depth == 0: cut = i; break
         if cut < 0: continue
-        out.append((body[:cut].strip(), body[cut+1:].strip()))
+        g, e = body[:cut].strip(), body[cut+1:].strip()
+        for key, tok in ph.items():
+            g = g.replace(key, tok); e = e.replace(key, tok)
+        out.append((g, e))
     return out
 tests = []
 for fn in sorted(os.listdir(suite)):
@@ -109,12 +154,26 @@ for _tidx, (fam, goal, exp) in enumerate(tests):
                 r = subprocess.run([b], capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp)
         except subprocess.TimeoutExpired:
             res[mode][2] += 1; named.append("%s:%s:%s:TIMEOUT" % (fam, goal[:28], mode)); continue
+        if want == "impl_defined":
+            # ran without hanging, and (for m4) built and linked -- ISO leaves the exact behavior of
+            # halt/0,1 unspecified beyond terminating, so there is nothing further to grade.
+            outcome_ok[(_tidx, mode)] = True; res[mode][0] += 1; continue
         o = r.stdout
         if   "@OK" in o: got, gfun = "success", None
         elif "@NO" in o: got, gfun = "failure", None
         elif "@ER" in o:
             got = "error"
-            mm = re.search(r"@ER\(\s*([a-z_]+)", o); gfun = mm.group(1) if mm else None
+            # ⛔ scrip wraps ISO errors as error(Subtype(...), Context) -- the standard shape (measured
+            # directly: catch(undef_pred,E,write(E)) prints error(existence_error(procedure,undef_pred/0),
+            # undef_pred/0)). Extracting only the OUTERMOST functor after "@ER(" grabs "error" every time
+            # such a wrapped error is thrown, never the subtype a wanted-functor check needs -- silently
+            # failing EVERY correctly-ISO-wrapped error this engine already raises, and any future one a
+            # src/ cure adds (an instrument that cannot see a cure is worse than no instrument -- THE
+            # INSTRUMENT LAWS). Drill into error(...) first; fall back to the bare outer functor for an
+            # unwrapped ball (e.g. a plain throw(blabla)). Measured 2026-09-04, seat05.
+            mm = re.search(r"@ER\(\s*error\(\s*([a-z_]+)", o)
+            if not mm: mm = re.search(r"@ER\(\s*([a-z_]+)", o)
+            gfun = mm.group(1) if mm else None
         else:
             res[mode][1] += 1; named.append("%s:%s:%s:NO-CLASS" % (fam, goal[:28], mode)); continue
         ok = (got == want) and (want != "error" or wfun is None or gfun == wfun)
@@ -142,32 +201,6 @@ print("BOARD_FOR_SHELL %d %d %d" % (len(tests), res["m3"][0], res["m4"][0]))
 # (the runner already commits via `->`, matching the outcome-class check above) matches ANY one of the
 # declared sets -- the suite does not mandate solution order for these, so requiring only the FIRST
 # listed alternative would be a stricter and less correct reading than the suite intends.
-def _mask_0c_lits(s):
-    # ⛔ 0'c (a character-code literal, e.g. 0'a = 97) carries a single unpaired quote that desyncs a
-    # naive quote-toggle scanner -- measured live on atom_codes/char_code. But a BLIND regex for "0'." is
-    # a false-positive trap of its own: the quoted atom '0' immediately followed by another quoted element,
-    # e.g. ...,'0']] (number_chars), contains the literal substring "0'" purely as the tail of '0' and the
-    # head of the next token, with no character-literal there at all. So this has to be found IN CONTEXT,
-    # walking quote-state properly, and only ever recognised while NOT already inside a quote. Returns
-    # (masked_string, restore_dict) -- the mask is a placeholder with no quote/bracket/comma of its own,
-    # safe to feed to the depth/comma scanners below; restore before use.
-    out = []; ph = {}; i = 0; q = False; n = 0
-    while i < len(s):
-        ch = s[i]
-        if not q and ch == "0" and i + 1 < len(s) and s[i+1] == "'":
-            j = i + 4 if (i + 2 < len(s) and s[i+2] == "\\") else i + 3
-            j = min(j, len(s))
-            tok = s[i:j]
-            key = "\x01%d\x01" % n; n += 1
-            ph[key] = tok
-            out.append(key)
-            i = j
-            continue
-        if ch == "'":
-            q = not q
-        out.append(ch)
-        i += 1
-    return "".join(out), ph
 def parse_bindings(e):
     # e is the raw expected-result text, e.g. "[[A <-- 'hello world']]" or
     # "[[T1 <-- '',T2 <-- 'hello'], [T1 <-- 'h',T2 <-- 'ello']]". Returns a list of solution-sets, each
