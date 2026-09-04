@@ -203,19 +203,54 @@ def parse_bindings(e):
                 pairs.append((var, val))
         pairs_all.append(pairs)
     return pairs_all if pairs_all else None
+def has_fresh_named_var(goal, sols):
+    # True when some solution-set's value side names a variable that appears NOWHERE else (not in the
+    # goal, not as one of this same solution-set's own bound variables) -- the suite's convention for "a
+    # new/unconstrained variable belongs here" (e.g. functor(X,foo,3), [[X <-- foo(A,B,C)]], "A, B and C
+    # are 3 new variables" per the file's own comment) -- INCLUDING a bare `_` EMBEDDED inside a compound
+    # value (e.g. findall(X+Y,(X=1),S), [[S <-- [1+_]]] -- measured: scrip's actual [1+_G0] is the correct
+    # shape, but `S == [1+_]` compares it against a brand-new anonymous variable the comparison goal just
+    # introduced, so it always mismatches regardless of correctness). A bare `_` as the WHOLE value is
+    # handled better, separately (var/1, above), and is not re-flagged here. Neither case can be reached by
+    # decomposing the term without =@=/2, which does not exist in this engine (existence_error, measured).
+    # Excess caution here only ever makes the bindings board WEAKER (falls back to the outcome-class
+    # verdict for that one entry, never claims a false pass), so a loose regex is an acceptable trade.
+    goal_vars = set(re.findall(r"\b[A-Z_][A-Za-z0-9_]*\b", goal))
+    for sol in sols:
+        sol_vars = set(v for v, _t in sol)
+        for _v, t in sol:
+            if t == "_": continue
+            for vv in re.findall(r"\b[A-Z_][A-Za-z0-9_]*\b", t):
+                if vv not in goal_vars and vv not in sol_vars:
+                    return True
+    return False
+excluded_fresh_named = []   # (fam, goal) this comparator refuses to check finer than outcome class
 bres = {"m3": [0, 0], "m4": [0, 0]}   # pass, fail -- bindings board covers ALL 445 (non-bindings entries
                                         # inherit their outcome-class verdict: there is nothing finer to check)
 bnamed = []
 for _tidx, (fam, goal, exp) in enumerate(tests):
     want, wfun = expected_class(exp)
     sols = parse_bindings(exp) if want == "success" else None
+    if sols is not None and has_fresh_named_var(goal, sols):
+        excluded_fresh_named.append("%s:%s" % (fam, goal[:40]))
+        sols = None
     for mode in ("m3", "m4"):
         if sols is None:
             # Nothing finer to check than outcome class -- inherit that verdict directly (never re-derive
             # it from the truncated `named` diagnostics, which can collide on goal[:28]).
             bres[mode][0 if outcome_ok.get((_tidx, mode), False) else 1] += 1
             continue
-        disj = " ; ".join(("(" + ",".join("%s == %s" % (v, t) for v, t in sol) + ")") if sol else "true" for sol in sols)
+        # ⛔ A BARE `_` ON THE VALUE SIDE MEANS "unconstrained here", NOT "==-identical to a fresh
+        # variable this comparison goal just introduced" -- those are never the same variable, so a plain
+        # `V == _` is a guaranteed false negative regardless of correctness (measured: 8 solution-sets
+        # across bagof/setof/findall use `_` this way, e.g. findall(X+Y,(X=1),S), [[S <-- [1+_]]]). `var/1`
+        # is the correct check. ⚠ NOT handled: a *named* fresh variable that recurs only inside one
+        # compound value (e.g. functor(X,foo,3), [[X <-- foo(A,B,C)]], "A,B,C are 3 new variables" per the
+        # suite's own comment) -- that needs structural-variant comparison (=@=/2), which does not exist in
+        # this engine (existence_error(procedure,=@=/2), checked live) and a hand-rolled per-argument
+        # decomposition is out of scope here; such cases are EXCLUDED from the bindings board below rather
+        # than reported as a false defect -- see excluded_fresh_named.
+        disj = " ; ".join(("(" + ",".join(("var(%s)" % v) if t == "_" else "%s == %s" % (v, t) for v, t in sol) + ")") if sol else "true" for sol in sols)
         with open(prog, "w") as f:
             f.write(":- catch( ( %s -> ( (%s) -> write('@BOK') ; write('@BFAIL') ) ; write('@BNO') ), E, ( write('@BER('), write(E), write(')') ) ), nl.\n"
                      % (goal, disj))
@@ -244,6 +279,10 @@ print("INRIA_SUITE_BINDINGS_BOARD total=%d m3_pass=%d m3_fail=%d m4_pass=%d m4_f
 print("  criterion: OUTCOME CLASS AND substitution bindings (== against the suite's own declared [[Var <-- Value]] sets, any ONE declared solution set accepted) -- the suite's own criterion, never weaker")
 print("  delta vs OUTCOME-CLASS-ONLY board: m3 %+d  m4 %+d  (goals that reached the right outcome while binding the wrong thing)"
       % (bres["m3"][0] - res["m3"][0], bres["m4"][0] - res["m4"][0]))
+if excluded_fresh_named:
+    print("  %d entries graded outcome-class only (declared a NAMED fresh variable inside a compound value -- e.g. \"A, B and C are 3 new variables\" -- which needs =@=/2, not present in this engine):"
+          % len(excluded_fresh_named))
+    for x in excluded_fresh_named: print("    F:" + x)
 if os.environ.get("INRIA_NAME_REDS"):
     for x in bnamed[:80]: print("    B:" + x)
 open(os.path.join(tmp, "bindings_board"), "w").write("%d %d %d" % (len(tests), bres["m3"][0], bres["m4"][0]))
