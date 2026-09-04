@@ -91,6 +91,7 @@ WS       [ \t\r]
 "class"         { return KW_CLASS; }
 "role"          { return KW_ROLE; }
 "grammar"       { return KW_GRAMMAR; }
+"module"        { return KW_MODULE; }
 "token"         { raku_expect_rebody = 1; return KW_TOKEN; }
 "rule"          { raku_expect_rebody = 1; return KW_RULE; }
 "regex"         { raku_expect_rebody = 1; return KW_REGEX; }

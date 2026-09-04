@@ -448,6 +448,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token OP_COLON_D OP_COLON_U
 %token YADA
 %token KW_GRAMMAR KW_TOKEN KW_RULE KW_REGEX
+%token KW_MODULE
 %token OP_FATARROW
 %token OP_RANGE OP_RANGE_EX
 %token OP_ARROW
@@ -469,7 +470,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %type <node> mul_expr unary_expr pow_expr postfix_expr call_expr block
 %type <node> repl_expr addsub_expr divis_expr
 %type <node> if_stmt while_stmt for_stmt sub_decl given_stmt sub_body method_body elsif_tail scalar_methcall
-%type <node> unless_stmt until_stmt repeat_stmt loop_stmt loop_incr class_decl grammar_decl role_decl
+%type <node> unless_stmt until_stmt repeat_stmt loop_stmt loop_incr class_decl grammar_decl role_decl module_decl
 %type <node> pair_list
 %type <list> scalar_list
 %type <sval> is_clauses meth_name pkg_name
@@ -792,6 +793,7 @@ stmt
     | class_decl        { $$=$1; }
     | role_decl         { $$=$1; }
     | grammar_decl      { $$=$1; }
+    | module_decl       { $$=$1; }
     ;
 if_stmt
     : KW_IF '(' expr ')' block
@@ -1140,6 +1142,21 @@ role_decl
                 exprlist_free(body);
             }
             $$ = rd;
+        }
+    ;
+module_decl
+    : KW_MODULE pkg_name '{' stmt_list '}'
+        {
+            const char *mname = intern($2); free($2);
+            ExprList *body = $4;
+            tree_t *md = ast_node_new(TT_MODULE_DECL);
+            ast_push(md, leaf_sval(TT_VAR, mname));
+            if (body) {
+                for (int i = 0; i < body->count; i++)
+                    if (body->items[i]) ast_push(md, body->items[i]);
+                exprlist_free(body);
+            }
+            $$ = md;
         }
     ;
 is_clauses

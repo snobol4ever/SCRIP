@@ -801,12 +801,28 @@ static void rk_discover_procs(const tree_t * prog) {
                 int np = (int) ch->v.ival;
                 rk_register_proc(ch, qname, np);
             }
+        } else if (d->t == TT_MODULE_DECL) {
+            for (int j = 1; j < d->n; j++) {
+                const tree_t * ch = d->c[j];
+                if (ch && ch->t == TT_STMT) { const tree_t * sub = stmt_subj(ch); if (!sub) continue; ch = sub; }
+                if (!ch || ch->t != TT_SUB_DECL) continue;
+                const char * nm = (ch->n > 0 && ch->c[0] && ch->c[0]->v.sval) ? ch->c[0]->v.sval : NULL;
+                if (!nm) continue;
+                rk_register_proc(ch, nm, (int) ch->v.ival);
+            }
         }
     }
     for (int i = 0; i < prog->n; i++) {
         const tree_t * d = prog->c[i];
         if (d && d->t == TT_STMT) { const tree_t * sub = stmt_subj(d); if (!sub) continue; d = sub; }
         if (d && d->t == TT_SUB_DECL) rk_discover_nested_subs(d);
+        else if (d && d->t == TT_MODULE_DECL) {
+            for (int j = 1; j < d->n; j++) {
+                const tree_t * ch = d->c[j];
+                if (ch && ch->t == TT_STMT) { const tree_t * sub = stmt_subj(ch); if (!sub) continue; ch = sub; }
+                if (ch && ch->t == TT_SUB_DECL) rk_discover_nested_subs(ch);
+            }
+        }
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1157,6 +1173,16 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
             if (!s) continue;
             if (s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; }
             if (s->t == TT_SUB_DECL || s->t == TT_CLASS_DECL || s->t == TT_ROLE_DECL || s->t == TT_GRAMMAR_DECL) continue;
+            if (s->t == TT_MODULE_DECL) {
+                for (int j = s->n - 1; j >= 1; j--) {
+                    const tree_t * ch = s->c[j];
+                    if (ch && ch->t == TT_STMT) { const tree_t * sub = stmt_subj(ch); if (!sub) continue; ch = sub; }
+                    if (!ch || ch->t == TT_SUB_DECL) continue;
+                    IR_t * r = NULL; IR_t * e = lower_rv(&tcx, ch, sentry, sentry, &r);
+                    if (e) { entry = e; sentry = e; }
+                }
+                continue;
+            }
             if ((s->t == TT_SEQ || s->t == TT_SEQ_EXPR || s->t == TT_PROGRAM) && s->n == 0) continue;
             IR_t * r = NULL; IR_t * e = lower_rv(&tcx, s, sentry, sentry, &r);
             if (e) { entry = e; sentry = e; }
