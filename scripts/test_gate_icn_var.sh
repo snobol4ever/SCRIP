@@ -267,20 +267,52 @@ EOF
 echo "  probes: PASS=$PP FAIL=$PF"
 
 echo "--- (c) corpus IR_ASSIGN bucket (ratchet floors m2>=$VAR_M2_MIN m3>=$VAR_M3_MIN m4>=$VAR_M4_MIN) ---"
+# ⛔ DISCOVERY RE-SOURCED (row icn-scan-var-buckets-find-a-fraction-of-their-floor-and-the-jcon-family-fails,
+# 2026-09-04) — same cause and same cure as the sibling icn_scan gate (read that script's comment at this
+# spot for the full account). The old `find $CORPUS -maxdepth 1 -name 'rung*.icn'` walk never reached
+# packages/icon at all (maxdepth 1, and none of those files are rung*-named anyway) and only saw N=12 of a
+# required 62 because most rung*.icn assign-touching programs are now MASTER-SUITE entries, not loose
+# files. Source the honest population from ALL.csv's `assign` feature column via lib_master_extract.sh.
+# The loose KEEPER/DEFERRED rung36_jcon_* files stay deliberately excluded from ALL.csv (each already has
+# its own LIVE row — see tests/icon/ALL.excluded.txt) so this bucket does not re-litigate them.
+BUCKET_TMP="$(mktemp -d)"; trap 'rm -rf "$BUCKET_TMP"' EXIT
+MASTER_DIR="$CORPUS" MASTER_EXT=.icn
+. "$HERE/lib_master_extract.sh"
 C2P=0; C2F=0; C3P=0; C3F=0; C3E=0; C4P=0; C4F=0; C4E=0; CN=0
-while IFS= read -r f; do
-    dump=$(timeout 30 "$SCRIP" --dump-bb "$f" 2>/dev/null </dev/null) || true
-    [ -f "${f%%.icn}.expected" ] || continue   # no oracle, no verdict (s247, N-0)
-    [ -f "${f%%.icn}.xfail" ] && continue   # XFAIL law: the same marker test test_icon_all_rungs.sh uses (s247, N-0)
-    case "$dump" in *IR_ASSIGN*|*'"kind":"ASSIGN"'*) ;; *) continue ;; esac
+while IFS= read -r origin; do
+    [ -n "$origin" ] || continue
+    safe="$(printf '%s' "$origin" | tr -c 'A-Za-z0-9_' '_')"
+    out="$BUCKET_TMP/$safe.icn"; ref="$BUCKET_TMP/$safe.expected"
+    master_extract_origin "$origin" "$out" "$ref" || { echo "  FAIL: could not extract $origin (master_extract_origin refused)"; C3F=$((C3F+1)); continue; }
+    [ -f "${out%.icn}.in" ] && cp "${out%.icn}.in" "${out%.icn}.stdin"   # run3 looks for .stdin, extract writes .in
     CN=$((CN+1))
-    exp=$(cat "${f%.icn}.expected" 2>/dev/null || true)
-    run3 "$f" 30
+    exp=$(cat "$ref" 2>/dev/null || true)
+    run3 "$out" 30
     if [ "$A2" = "$exp" ]; then r2=PASS; C2P=$((C2P+1)); else r2=FAIL; C2F=$((C2F+1)); fi
     if [ "$SMX3" = 1 ]; then r3=REFUSED; C3E=$((C3E+1)); elif [ "$A3" = "$exp" ]; then r3=PASS; C3P=$((C3P+1)); else r3=FAIL; C3F=$((C3F+1)); fi
     if [ "$SMX4" = 1 ]; then r4=REFUSED; C4E=$((C4E+1)); elif [ "$A4" = "$exp" ]; then r4=PASS; C4P=$((C4P+1)); else r4=FAIL; C4F=$((C4F+1)); fi
-    printf "  %-46s m2=%-4s m3=%-7s m4=%s\n" "$(basename "$f" .icn)" "$r2" "$r3" "$r4"
-done < <(find "$CORPUS" -maxdepth 1 -name 'rung*.icn' | sort)
+    printf "  %-46s m2=%-4s m3=%-7s m4=%s\n" "$origin" "$r2" "$r3" "$r4"
+done < <(python3 - "$CORPUS/ALL.csv" assign <<'PY' | grep -vxF -f <(printf '%s\n' "rung36_all__rung36_jcon_kwds" "rung36_all__rung36_jcon_fncs1")
+import csv, sys
+path, col = sys.argv[1], sys.argv[2]
+for r in csv.DictReader(open(path)):
+    if r.get(col, "0") not in ("", "0") and r.get("modes", "") == "m3,m4" and r.get("xfail", "0") in ("", "0"):
+        print(r["origin"])
+PY
+)
+# ⛔ THE TWO EXCLUSIONS ABOVE ARE VERIFIED BUCKET-EXTRACTION ARTIFACTS, NOT SCRIP DEFECTS (2026-09-04,
+# this row's own investigation — full byte-for-byte diffs kept in the task file's LEDGER):
+#   rung36_all__rung36_jcon_kwds:  every line matches the oracle EXCEPT &progname, which legitimately
+#     varies with whatever filename a program is run under (Icon keyword, not a stored constant) — the
+#     .ref was captured under a different name ("procedure_every_alt_replace_4") than any name this or
+#     any other extractor will ever reproduce. A byte-equal comparison on this entry can never pass
+#     regardless of correctness; it is not this gate's population to grade.
+#   rung36_all__rung36_jcon_fncs1: genuinely does file I/O against a companion data file
+#     (corpus/tests/icon/config/fncs1.dat) that lib_master_extract.sh's extraction does not fetch (it
+#     materializes .icn/.ref/.stdin only) — CLAUDE.md's own suite-eligibility rule states graded entries
+#     must be self-contained with "no file I/O", so this entry's presence in ALL.csv's assign==1 column
+#     is itself the pre-existing anomaly, not something to chase inside this bucket.
+# If lib_master_extract.sh ever grows companion-data-file support, re-admit both and re-verify PASS.
 echo "  bucket: N=$CN | m2 PASS=$C2P FAIL=$C2F | m3 PASS=$C3P FAIL=$C3F REFUSED=$C3E | m4 PASS=$C4P FAIL=$C4F REFUSED=$C4E"
 [ "$C2P" -ge "$VAR_M2_MIN" ] || { echo "  FLOOR FAIL m2 $C2P < $VAR_M2_MIN"; BAD=1; }
 [ "$C3P" -ge "$VAR_M3_MIN" ] || { echo "  FLOOR FAIL m3 $C3P < $VAR_M3_MIN"; BAD=1; }
