@@ -6,6 +6,10 @@ SCRIP="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
 SCRIP="${SCRIP:-$SCRIP/scrip}"
 TESTDIR="$SCRIP/test/raku"
 [ -x "$SCRIP" ] || { echo "FAIL scrip not built"; exit 1; }
+if [ ! -d "$TESTDIR" ]; then
+    echo "⛔ REFUSING (rc=2): $TESTDIR not found -- test/raku is retired, this script cannot measure" >&2
+    exit 2
+fi
 PASS=0; FAIL=0; SKIP=0; CRASH=0
 for rk in "$TESTDIR"/*.raku; do
     [ -f "$rk" ] || continue

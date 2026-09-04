@@ -11,14 +11,16 @@
 # into the record walk -- silent corruption. The icnsub equality arms simply never matched, so
 # RTX-24's list fast path was silently dead.
 #
-# LOCK 1: zero `#define DT_*` in any .S outside src/contracts/descr_tags.inc.
+# LOCK 1: zero `#define DT_*` in any .S outside src/ir/descr_tags.inc.
 # LOCK 2: every .S naming a DT_ tag must reach the single source (include rtx_abi.inc or descr_tags.inc).
 # LOCK 3: descr_tags.inc and descr.h agree on every tag both define.
-# Exit 0 = green.
+# Exit 0 = green, exit 2 = CANNOT-MEASURE (SRC/HDR missing -- not a verdict on the invariant).
 set -u
 cd "$(dirname "$0")/.." || exit 2
-SRC=src/contracts/descr_tags.inc
-HDR=src/contracts/descr.h
+SRC=src/ir/descr_tags.inc
+HDR=src/ir/descr.h
+[ -f "$SRC" ] || { echo "REFUSED (rc=2) -- single source $SRC does not exist, cannot grade LOCK 1/2/3"; exit 2; }
+[ -f "$HDR" ] || { echo "REFUSED (rc=2) -- header $HDR does not exist, cannot grade LOCK 3"; exit 2; }
 rc=0
 echo "== LOCK 1: no tag literals defined outside $SRC =="
 hits=$(grep -rnE '^[[:space:]]*#define[[:space:]]+DT_[A-Z0-9_]+' --include=*.S --include=*.inc src/ 2>/dev/null | grep -v "$SRC" || true)

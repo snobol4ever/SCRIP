@@ -89,7 +89,7 @@ def apply_grid(score_md, grid_text, stamp, dry_run=False):
     # Which display column each mapped index is, in util_score_row's own --column vocabulary, so the
     # provenance clause this writes is the same clause a runner's own `write` would have written.
     col_of_idx = {idx: key for key, (idx, _e) in _usr.COLUMNS.items()}
-    changed, skipped = [], []
+    changed, skipped, prose_at_risk = [], [], []
     for lang, gcells in sorted(g_rows.items()):
         if lang not in disp:
             skipped.append(lang)
@@ -99,6 +99,17 @@ def apply_grid(score_md, grid_text, stamp, dry_run=False):
         for gi, di in sorted(mapping.items()):
             new = gcells[gi].strip()
             if not new or new == cells[di].strip():
+                continue
+            # ⛔ SAME GUARD AS util_score_row.py:cmd_write, same reason -- a cell overwrite here is just as
+            # wholesale (`cells[di] = new`) and just as capable of silently discarding hand-written prose it
+            # never modelled (task score-md-runners-rewrite-a-cell-in-place-and-silently-discard-the-...).
+            # A merge covers many rows in one call, so ONE risky cell must not abort the rest of the batch:
+            # skip that cell only, leave it exactly as it was, and report it the same way `unmapped`/
+            # `skipped` already are -- non-fatally, but never silently.
+            lost = _usr.cell_prose_loss(cells[di], new)
+            if lost:
+                prose_at_risk.append("%s %s: %d sentence(s) would be discarded: %s"
+                                      % (lang, col_of_idx.get(di, disp_hdr[di]), len(lost), " | ".join(lost)))
                 continue
             cells[di] = new
             touched.append(col_of_idx.get(di, disp_hdr[di]))
@@ -116,16 +127,24 @@ def apply_grid(score_md, grid_text, stamp, dry_run=False):
         print("  not merged (no such column on the display): %s" % ", ".join(unmapped))
     if skipped:
         print("  not on the display, left alone: %s" % ", ".join(skipped))
+    if prose_at_risk:
+        print("⛔ NOT MERGED (would silently discard hand-written prose this generator never modelled):")
+        for p in prose_at_risk:
+            print("    " + p)
+        print("    Fold it into the generator's own text, or write that cell by hand instead -- rc=1 below"
+              " marks this run incomplete even where every other cell merged cleanly.")
     if not changed:
+        if prose_at_risk:
+            return 1
         print("merged: nothing to change -- every generated cell already matches the display")
         return 0
     if dry_run:
         print("DRY-RUN merged %d row(s): %s" % (len(changed), "; ".join(changed)))
-        return 0
+        return 1 if prose_at_risk else 0
     open(score_md, "w", encoding="utf-8").write("\n".join(lines))
     print("merged %d row(s) in place: %s" % (len(changed), "; ".join(changed)))
     print("⛔ NOT DONE UNTIL PUSHED: commit .github/SCORE.md with the landing that carried this measurement.")
-    return 0
+    return 1 if prose_at_risk else 0
 
 
 def selftest():
@@ -149,6 +168,17 @@ def selftest():
         dhdr = [c.strip() for c in before[hdr_i].strip().strip("|").split("|")]
         # A deliberately NARROW grid (Language + Master board only), in the generator's own spacing.
         lang = sorted(disp)[0]
+        # ⛔ SEED A KNOWN, PROSE-FREE CELL FIRST. The live board column for whichever language sorts first
+        # (currently icon) carries real hand-written prose, and this selftest's own claim -- "the mapped
+        # column WAS written" -- has never depended on what that cell started as, only on the merge landing.
+        # Left un-seeded, cell_prose_loss below would (correctly) skip the write and fail this proof for a
+        # reason unrelated to what it is proving. Mirrors the identical seed in util_score_row.py:selftest.
+        bi0 = _usr.COLUMNS["board"][0]
+        before[disp[lang][0]] = "| " + " | ".join(
+            [("—" if i == bi0 else c) for i, c in enumerate(
+                [x.strip() for x in before[disp[lang][0]].strip().strip("|").split("|")])]) + " |"
+        open(tmp, "w", encoding="utf-8").write("\n".join(before))
+        before = open(tmp, encoding="utf-8").read().split("\n")
         grid = ("| Language | Master board (`ALL.<ext>` via `corpus_suite_harness.py run`, m3 · m4) |\n"
                 "|---|---|\n| %s | SELFTEST-BOARD-VALUE |\n" % lang)
         apply_grid(tmp, grid, "SELFTEST-STAMP")
@@ -181,6 +211,29 @@ def selftest():
             print("SELFTEST FAIL: restamping board dropped another column's provenance clause"); ok = False
         else:
             print("SELFTEST: board provenance restamped, every other clause preserved")
+        # ⛔⭐ CELL PROSE LOSS -- this file's OWN wholesale overwrite site (`cells[di] = new`) needs proving
+        # here, not only in util_score_row.py: the two functions share no call path, only the shared
+        # `_usr.cell_prose_loss` helper, so a regression in either file's call site would go unnoticed by
+        # the other's gate.
+        _seed = "SELFTEST-BOARD-VALUE. Re-confirmed by a human on a later tree: still true, unrelated run."
+        _sl = open(tmp, encoding="utf-8").read().split("\n")
+        _sh2, _sd2 = _usr.find_table(_sl)
+        _sl[_sd2[lang][0]] = "| " + " | ".join(
+            [(_seed if i == bi else c) for i, c in enumerate(
+                [x.strip() for x in _sl[_sd2[lang][0]].strip().strip("|").split("|")])]) + " |"
+        open(tmp, "w", encoding="utf-8").write("\n".join(_sl))
+        grid2 = ("| Language | Master board (`ALL.<ext>` via `corpus_suite_harness.py run`, m3 · m4) |\n"
+                 "|---|---|\n| %s | SELFTEST-BOARD-VALUE |\n" % lang)
+        rc2 = apply_grid(tmp, grid2, "SELFTEST-STAMP-2")
+        _cl = open(tmp, encoding="utf-8").read().split("\n")
+        _ch2, _cd2 = _usr.find_table(_cl)
+        _cc = [x.strip() for x in _cl[_cd2[lang][0]].strip().strip("|").split("|")]
+        if rc2 != 1:
+            print("SELFTEST FAIL: apply_grid returned %r merging over hand-written prose, wanted 1" % rc2); ok = False
+        elif _cc[bi] != _seed:
+            print("SELFTEST FAIL: apply_grid overwrote the cell despite detecting prose loss -- got %r" % _cc[bi]); ok = False
+        else:
+            print("SELFTEST: apply_grid correctly skipped a cell that would have discarded hand-written prose (rc=1)")
         # The other table must be untouched -- this is defect (1), pinned so it cannot come back.
         heads_b = [i for i, l in enumerate(before) if l.startswith("| Language |")]
         heads_a = [i for i, l in enumerate(after) if l.startswith("| Language |")]

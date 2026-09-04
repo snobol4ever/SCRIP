@@ -6,7 +6,6 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 
 TIMEOUT=${TIMEOUT:-10}
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # shellcheck source=lib_oracle_flags.sh
 . "$SCRIPT_DIR/lib_oracle_flags.sh"                                     # icont_bin(): the ONE authority for the Icon oracle path -- it is NOT on PATH, and bare `icont` reads as "no Icon oracle exists"
@@ -30,7 +29,7 @@ TMP=$(mktemp -d)
 DIRS=("$@")
 if [ ${#DIRS[@]} -eq 0 ]; then
   DIRS=()                                                               # ⛔ only directories that EXIST -- a dead path in this list silently shrinks the denominator (find's error is swallowed by 2>/dev/null)
-  for d in "$S4E/corpus/tests/icon" "$REPO_ROOT/test/parser/icon"; do [ -d "$d" ] && DIRS+=("$d"); done
+  for d in "$S4E/corpus/tests/icon"; do [ -d "$d" ] && DIRS+=("$d"); done
   [ ${#DIRS[@]} -gt 0 ] || { echo "ERROR: no Icon corpus directory resolved -- refusing"; exit 2; }
 fi
 

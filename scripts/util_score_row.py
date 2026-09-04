@@ -33,6 +33,7 @@
 # `<column>: <stamp>` clause per measured column, and rewriting a column rewrites ONLY its own clause.
 import argparse
 import datetime
+import difflib
 import os, re, subprocess, sys, time
 
 S4E = os.environ.get("S4E_HOME") or os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
@@ -202,6 +203,43 @@ def merge_prov(existing, column, stamp):
     return "; ".join(clauses)
 
 
+def cell_prose_loss(before, new):
+    # ⛔⭐ THE DEFECT THIS GUARDS: a wholesale cell overwrite silently drops whatever hand-written prose it
+    # never modelled, WITH THE MEASURED NUMBERS UNCHANGED -- so nothing about the diff looks wrong (task
+    # score-md-runners-rewrite-a-cell-in-place-and-silently-discard-the-prose-they-never-modelled, minted
+    # off hq_B's 2026-09-03 ICN4 finding; repaired by hand in .github 46ff295c). That repair is the fixture:
+    # `before` carried "... rc=0). Re-confirmed on a newer tree and identical across two consecutive runs
+    # (before and after a rebase onto origin), as the control arm for the rung-11 LCO landing: the shared
+    # alternative-trampoline change in emit.cpp moved nothing here." and the runner's own `new` carried only
+    # the measurement up to "rc=0)." -- the whole trailing sentence had no home in the new text.
+    # ⛔ MATCHED BY CONTENT, NEVER BY POSITION OR EXACT PREFIX. The SAME repair shows why: the runner's own
+    # boilerplate drifted in punctuation between the two captures ("SKIP=0 · MISSING=0" became "SKIP=0
+    # MISSING=0"; a comma moved beside the citation backtick) with no human involved -- an exact-prefix or
+    # exact-substring check would have flagged that reformatting exactly as hard as the real sentence loss,
+    # which is how a helper like this earns a "too noisy, ignore it" reputation and stops getting listened to.
+    # So a chunk of `before` only counts as LOST when most of it cannot be found, in one contiguous run,
+    # anywhere in `new` -- reformatting leaves a chunk overwhelmingly intact; a dropped sentence leaves none
+    # of it.
+    if not before or before == "—" or before == new:
+        return []
+    chunks = [c.strip() for c in re.split(r'(?<=[.!?])\s+(?=[A-Z0-9⚠⛔⭐✅])', before) if c.strip()]
+    lost = []
+    for chunk in chunks:
+        if chunk in new:
+            continue
+        # ⛔ SUM every matching block, never just the longest one. Two independent formatting nips close
+        # together (a dropped '·', a comma that moved) fragment one legitimate reformat into three short
+        # contiguous pieces that individually clear nowhere near a single-block threshold, even though
+        # together they cover nearly all of `chunk` -- measured against the real 46ff295c drift, which
+        # carries exactly two such nips in one sentence.
+        sm = difflib.SequenceMatcher(None, new, chunk, autojunk=False)
+        matched = sum(blk.size for blk in sm.get_matching_blocks())
+        coverage = (matched / len(chunk)) if chunk else 1.0
+        if coverage < 0.6:
+            lost.append(chunk)
+    return lost
+
+
 # ⛔⭐ "unknown-seat" DEFEATED THE MEASURER GUARD BELOW BY BEING NON-EMPTY. Every runner spelled its default
 # `${S4E_SEAT:-}`, so a board run from a plain shell (no hook exporting S4E_SEAT) satisfied the
 # "an unattributed row is a claim with nobody behind it" check with a string carrying exactly zero attribution
@@ -279,6 +317,19 @@ def cmd_write(a):
     # the cell already uses bare suite names (`Arizona:`, `JCON:`, `STRICT:`, `smoke:`) and a new key shape
     # would sit beside the old clause instead of replacing it. Match the file's convention, don't impose one.
     key = a.suite or a.column
+    # ⛔ A WHOLESALE OVERWRITE MUST NOT SILENTLY DISCARD PROSE IT NEVER MODELLED (see cell_prose_loss).
+    # Scoped to the no-suite path on purpose: --suite already merges via merge_clause, touching only its
+    # own clause, and no incident has been measured against that narrower path -- guarding it too would be
+    # speculative rather than measured, so it is left for a future row if one ever is.
+    if not a.suite:
+        lost = cell_prose_loss(before, text)
+        if lost:
+            die("overwriting %s/%s would silently discard %d sentence(s) this write never modelled, "
+                "even though the measurement may be unchanged -- this is about prose, not the number:\n%s\n"
+                "Fold whatever is still true into --text and re-run, or hand-edit the cell instead (as "
+                ".github 46ff295c did) -- a runner must never drop it silently. (SCORE tooling owner "
+                "hq_T: this refuses rather than auto-preserves; see the row's QA for why.)"
+                % (a.lang, a.column, len(lost), "\n".join("  - %s" % l for l in lost)))
     cells[idx] = merge_clause(before, a.suite, text) if a.suite else text
     cells[PROV_COL] = merge_prov(cells[PROV_COL], key, stamp)
     newline = "| " + " | ".join(cells) + " |"
@@ -374,6 +425,18 @@ def cmd_selftest(a):
     try:
         SCORE_MD = os.path.join(d, "SCORE.md")
         shutil.copy(real, SCORE_MD)
+        # ⛔ SEED A KNOWN CELL BEFORE PROVING REWRITE-IN-PLACE, rather than inherit whatever prose the LIVE
+        # rebus/board cell happens to carry that day. This selftest's own claim ("rewrite-in-place holds")
+        # has never depended on the starting content -- only on two known writes landing as one cell -- but
+        # the live cell is real board prose (see cell_prose_loss below), and coupling a selftest's pass/fail
+        # to today's live board text is exactly the kind of incidental fragility this file exists to avoid
+        # elsewhere. Seeding it here keeps that claim provably independent of the day it happens to run.
+        _seed_lines = open(SCORE_MD, encoding="utf-8").read().split("\n")
+        _sh, _sr = find_table(_seed_lines)
+        _sri, _src = _sr["rebus"]
+        _src[COLUMNS["board"][0]] = "—"
+        _seed_lines[_sri] = "| " + " | ".join(_src) + " |"
+        open(SCORE_MD, "w", encoding="utf-8").write("\n".join(_seed_lines))
         n0 = len(open(SCORE_MD, encoding="utf-8").read().split("\n"))
         class A: pass
         for run in (1, 2):
@@ -416,6 +479,60 @@ def cmd_selftest(a):
                     print("SELFTEST: %s correctly REFUSED rc=2" % label)
                 else:
                     print("SELFTEST FAIL: %s exited %s, expected 2" % (label, e.code)); ok = False
+
+        # ⛔⭐ CELL PROSE LOSS -- fixture is the REAL incident, .github 46ff295c, not an invented example.
+        # `real_before` is exactly what the snobol4 board cell carried before the runner clobbered it;
+        # `reformatted_only` is the SAME sentence with the runner's own boilerplate drift the repair also
+        # shows (no human involved, must NOT refuse); `sentence_dropped` is what the runner actually wrote
+        # (the trailing sentence gone, must refuse). Both directions matter equally: a check that also
+        # catches boilerplate drift is noisy enough that nobody keeps it turned on.
+        real_before = ("m3 PASS=1689 FAIL=0 · m4 PASS=1689 FAIL=0 SKIP=0 · MISSING=0 "
+                       "(`test_corpus_snobol4.sh` inside `make test`, rc=0). Re-confirmed on a newer tree "
+                       "and identical across two consecutive runs (before and after a rebase onto origin), "
+                       "as the control arm for the rung-11 LCO landing: the shared alternative-trampoline "
+                       "change in emit.cpp moved nothing here.")
+        reformatted_only = ("m3 PASS=1689 FAIL=0 · m4 PASS=1689 FAIL=0 SKIP=0 MISSING=0 "
+                            "(`test_corpus_snobol4.sh`, inside `make test`, rc=0). Re-confirmed on a newer "
+                            "tree and identical across two consecutive runs (before and after a rebase onto "
+                            "origin), as the control arm for the rung-11 LCO landing: the shared "
+                            "alternative-trampoline change in emit.cpp moved nothing here.")
+        sentence_dropped = ("m3 PASS=1689 FAIL=0 · m4 PASS=1689 FAIL=0 SKIP=0 MISSING=0 "
+                            "(`test_corpus_snobol4.sh`, inside `make test`, rc=0).")
+        if cell_prose_loss(real_before, reformatted_only):
+            print("SELFTEST FAIL: cell_prose_loss flagged the real 46ff295c boilerplate drift as lost prose"); ok = False
+        else:
+            print("SELFTEST: cell_prose_loss did not false-positive on punctuation-only reformatting")
+        if not cell_prose_loss(real_before, sentence_dropped):
+            print("SELFTEST FAIL: cell_prose_loss missed the real dropped sentence from .github 46ff295c"); ok = False
+        else:
+            print("SELFTEST: cell_prose_loss correctly caught the real .github 46ff295c dropped sentence")
+        # Integration: seed the scratch board directly (bypassing cmd_write, so the seed itself cannot be
+        # refused), then prove cmd_write refuses the lossy overwrite and allows the lossless one.
+        _lines = open(SCORE_MD, encoding="utf-8").read().split("\n")
+        _h2, _r2 = find_table(_lines)
+        _ri, _rc = _r2["rebus"]
+        _fidx = COLUMNS["floor"][0]
+        _rc[_fidx] = real_before
+        _lines[_ri] = "| " + " | ".join(_rc) + " |"
+        open(SCORE_MD, "w", encoding="utf-8").write("\n".join(_lines))
+        a7 = A(); a7.lang = "rebus"; a7.column = "floor"; a7.measurer = "selftest"; a7.modes = ""; a7.suite = ""
+        a7.dry_run = False; a7.text = sentence_dropped
+        try:
+            cmd_write(a7)
+            print("SELFTEST FAIL: cmd_write silently applied an overwrite that drops a real sentence"); ok = False
+        except SystemExit as e:
+            if e.code == 2:
+                print("SELFTEST: cmd_write correctly REFUSED rc=2 rather than silently drop prose")
+            else:
+                print("SELFTEST FAIL: cmd_write's prose-loss refusal exited %s, expected 2" % e.code); ok = False
+        a8 = A(); a8.lang = "rebus"; a8.column = "floor"; a8.measurer = "selftest"; a8.modes = ""; a8.suite = ""
+        a8.dry_run = False; a8.text = reformatted_only
+        try:
+            cmd_write(a8)
+            print("SELFTEST: cmd_write correctly proceeded on a pure reformat (nothing to lose)")
+        except SystemExit as e:
+            print("SELFTEST FAIL: cmd_write refused a pure reformat that loses nothing (rc=%s)" % e.code); ok = False
+
         # ⭐ THE MEASURER CONTRACT HAS TWO ARMS AND BOTH ARE TESTED. An absent or placeholder measurer on a
         # KNOWN root is DERIVED (the identity is a fact on disk, not a guess); on an UNKNOWN root there is
         # nothing to derive from and it still REFUSES. The old selftest asserted only the refusal, so it went
@@ -423,6 +540,16 @@ def cmd_selftest(a):
         global S4E
         _real_s4e = S4E
         _saved_seat = os.environ.pop("S4E_SEAT", None)
+        # ⛔ RESET rebus/board TO EMPTY FIRST. By this point the rewrite-in-place proof above left it
+        # holding "master: m3 2/48 ..." -- real prior content that a3.text="1/1" would (correctly, per
+        # cell_prose_loss) refuse to clobber, which is not what THIS block is testing. "—" is the file's
+        # own empty-cell sentinel, so cell_prose_loss treats it as nothing-to-lose by construction.
+        _reset_lines = open(SCORE_MD, encoding="utf-8").read().split("\n")
+        _rh, _rr = find_table(_reset_lines)
+        _rri, _rrc = _rr["rebus"]
+        _rrc[COLUMNS["board"][0]] = "—"
+        _reset_lines[_rri] = "| " + " | ".join(_rrc) + " |"
+        open(SCORE_MD, "w", encoding="utf-8").write("\n".join(_reset_lines))
         try:
             for label, root, want in (("absent measurer, known root", "/home/claude_T", "hq_T"),
                                       ("placeholder measurer, known root", "/home/claude_T", "hq_T"),

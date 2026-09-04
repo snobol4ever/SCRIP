@@ -8,6 +8,7 @@ extern "C" {
 DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op);
 int     rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
 int64_t to_int(DESCR_t v);
+void    core_icn_by_zero_check(int64_t by);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -76,6 +77,8 @@ std::string bb_to_by() {
              + x86("call",    "to_int", (uint64_t)(uintptr_t)(void*)to_int)
              + x86("mov",     FRQ(_.op_sc),     (long)DT_I)
              + x86("mov",     FRQ(_.op_sc + 8), "rax")
+             + x86("mov",     "rdi", "rax")
+             + x86("call",    "core_icn_by_zero_check", (uint64_t)(uintptr_t)(void*)core_icn_by_zero_check)
              + x86("mov",     "rax", FRQ(_.op_sa + 8))
              + x86("mov",     FRQ(_.op_off + 16), "rax")
              + x86("def",     L(0))

@@ -13,6 +13,16 @@ static inline int icn_nxttab(int col, const int *stops, int nstops, int gap) {
     int base = stops[nstops - 1]; int beyond = col - base;
     return base + ((beyond / gap) + 1) * gap;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_cvt_chars_ok(DESCR_t d) { return d.v == DT_S || d.v == DT_I || d.v == DT_R || d.v == DT_C; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_cvt_int_ok(DESCR_t d) {
+    if (IS_INT_fn(d) || IS_REAL_fn(d)) return 1;
+    if (d.v == DT_S && d.s) { const char *p = d.s; while (*p == ' ') p++; if (*p == '+' || *p == '-') p++; int dg = 0; while (*p >= '0' && *p <= '9') { p++; dg = 1; } while (*p == ' ') p++; return dg && !*p; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_argtype_raise(int code, DESCR_t val, DESCR_t *out) { core_icn_error(code, val); *out = FAILDESCR; return 1; }
 #include "rt/rt_arena.h"
 #include "rt/gc_heap.h"
 #include "builtins/gen_value.h"
@@ -4224,6 +4234,22 @@ static void sort_msort_pairs(TBPAIR_t **a, TBPAIR_t **tmp, int n, int by_val) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) { return try_call_builtin_by_name_bl(fn, args, nargs, out, -1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_argtype_gate(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
+    if (nargs < 1 || IS_FAIL_fn(args[0])) return 0;
+    switch (bid) {
+        case BID_any: case BID_many: case BID_upto: return icn_cvt_chars_ok(args[0]) ? 0 : icn_argtype_raise(104, args[0], out);
+        case BID_find: case BID_match:             return icn_cvt_chars_ok(args[0]) ? 0 : icn_argtype_raise(103, args[0], out);
+        case BID_tab: case BID_move:               return icn_cvt_int_ok(args[0])   ? 0 : icn_argtype_raise(101, args[0], out);
+        case BID_insert: case BID_delete: case BID_member: return args[0].v == DT_T ? 0 : icn_argtype_raise(122, args[0], out);
+        case BID_key: return (args[0].v == DT_T && args[0].tbl && !args[0].tbl->is_set) ? 0 : icn_argtype_raise(124, args[0], out);
+        case BID_bal:
+            for (int i = 0; i < 3 && i < nargs; i++)
+                if (!IS_FAIL_fn(args[i]) && args[i].v != DT_SNUL && !icn_cvt_chars_ok(args[i])) return icn_argtype_raise(104, args[i], out);
+            return 0;
+        default: return 0;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, int bidlen)
 {
     if (nargs == 1 && args[0].v == DT_DATA && args[0].u && args[0].u->type) {
@@ -4307,6 +4333,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         case (8u<<8)|'S': if ((_bid == BID_SNOx24NAME) && nargs == 1) _r = bn_sno_name(args, nargs, out); else if ((_bid == BID_SNOx24NRET)) { extern int rt_g_ret_by_name; rt_g_ret_by_name = 1; *out = NULVCL; _r = 1; } break;
         default: break; }
         if (_r >= 0) return _r; } }
+    if (icn_argtype_gate(_bid, args, nargs, out)) return 1;
     if (g_bidjmp_on) switch (_bid) { case BID___rk_bool: goto L_bidjmp_5076; case BID___rk_defined: goto L_bidjmp_5087; case BID___rk_dor: goto L_bidjmp_5090; case BID___rk_bool_val: goto L_bidjmp_5093; case BID___pas_chr: goto L_bidjmp_5103; case BID___pas_chrlit: goto L_bidjmp_5109; case BID___pas_enum_name: goto L_bidjmp_5112; case BID___pas_read_i: goto L_bidjmp_5121; case BID___pas_read_c: goto L_bidjmp_5124; case BID___pas_readln: goto L_bidjmp_5127; case BID___pas_eof: goto L_bidjmp_5130; case BID___pas_eoln: goto L_bidjmp_5135; case BID___pas_getbufch: goto L_bidjmp_5149; case BID___pas_trunc: goto L_bidjmp_5152; case BID___pas_abs: goto L_bidjmp_5156; case BID___pas_writeln: goto L_bidjmp_5171; case BID___pas_write: goto L_bidjmp_5171; case BID_write: goto L_bidjmp_5209; case BID_writes: goto L_bidjmp_5209; case BID_integer: goto L_bidjmp_5232; case BID_real: goto L_bidjmp_5264; case BID_string: goto L_bidjmp_5273; case BID_numeric: goto L_bidjmp_5283; case BID_cset: goto L_bidjmp_5320; case BID_ord: goto L_bidjmp_5330; case BID_image: goto L_bidjmp_5336; case BID_args: goto L_bidjmp_5339; case BID_proc: goto L_bidjmp_5385; case BID_repl: goto L_bidjmp_5524; case BID_reverse: goto L_bidjmp_5531; case BID_map: goto L_bidjmp_5537; case BID_trim: goto L_bidjmp_5567; case BID_getenv: goto L_bidjmp_5576; case BID_collect: goto L_bidjmp_5584; case BID_left: goto L_bidjmp_5585; case BID_right: goto L_bidjmp_5613; case BID_center: goto L_bidjmp_5639; case BID_detab: goto L_bidjmp_5671; case BID_entab: goto L_bidjmp_5704; case BID_abs: goto L_bidjmp_5747; case BID_max: goto L_bidjmp_5754; case BID_min: goto L_bidjmp_5765; case BID_sqrt: goto L_bidjmp_5777; case BID_atan: goto L_bidjmp_5791; case BID_log: goto L_bidjmp_5797; case BID_dtor: goto L_bidjmp_5803; case BID_rtod: goto L_bidjmp_5804; case BID_iand: goto L_bidjmp_5805; case BID_ior: goto L_bidjmp_5806; case BID_ixor: goto L_bidjmp_5807; case BID_ishift: goto L_bidjmp_5808; case BID_icom: goto L_bidjmp_5809; case BID_copy: goto L_bidjmp_5811; case BID_list: goto L_bidjmp_5840; case BID_table: goto L_bidjmp_5864; case BID_read: goto L_bidjmp_5874; case BID_reads: goto L_bidjmp_5883; case BID_runerr: goto L_bidjmp_5894; case BID_stop: goto L_bidjmp_5895; case BID_ICN_SCAN_PUSH: goto L_bidjmp_5900; case BID_ICN_SCAN_POP: goto L_bidjmp_5912; case BID_any: goto L_bidjmp_5920; case BID_many: goto L_bidjmp_5938; case BID_upto: goto L_bidjmp_5958; case BID_tab: goto L_bidjmp_5978; case BID_move: goto L_bidjmp_5991; case BID_pos: goto L_bidjmp_6004; case BID_match: goto L_bidjmp_6012; case BID_bal: goto L_bidjmp_6033; case BID_find: goto L_bidjmp_6067; case BID_NONNULL: goto L_bidjmp_6081; case BID_ICN_CASE_EQ: goto L_bidjmp_6088; case BID_ICN_SWAP_TOP2: goto L_bidjmp_6104; case BID_ICN_NULL: goto L_bidjmp_6108; case BID_insert: goto L_bidjmp_6115; case BID_delete: goto L_bidjmp_6124; case BID_member: goto L_bidjmp_6132; case BID_key: goto L_bidjmp_6140; case BID___apply__: goto L_bidjmp_6149; case BID_push: goto L_bidjmp_6162; case BID_put: goto L_bidjmp_6182; case BID_get: goto L_bidjmp_6206; case BID_pop: goto L_bidjmp_6221; case BID_pull: goto L_bidjmp_6236; case BID_sort: goto L_bidjmp_6249; case BID_FIELD_GET: goto L_bidjmp_6322; case BID_FIELD_SET: goto L_bidjmp_6330; case BID_MAKELIST: goto L_bidjmp_6341; case BID_RECORD_REGISTER: goto L_bidjmp_6345; case BID_RECORD_MAKE: goto L_bidjmp_6351; case BID_open: goto L_bidjmp_6361; case BID_remove: goto L_bidjmp_6376; case BID_close: goto L_bidjmp_6381; case BID_IDENTICAL: goto L_bidjmp_6411; case BID_set: goto L_bidjmp_6423; case BID_ASGN: goto L_bidjmp_6439; case BID_name: goto L_bidjmp_6446; case BID_variable: goto L_bidjmp_6462; case BID_SNOx24NAME: goto L_bidjmp_6468; case BID_ARRAY: goto L_bidjmp_6469; case BID_TABLE: goto L_bidjmp_6479; case BID_ITEM: goto L_bidjmp_6484; case BID_PROTOTYPE: goto L_bidjmp_6490; case BID_CONVERT: goto L_bidjmp_6499; case BID_DATA: goto L_bidjmp_6521; case BID_SNOx24KWSET: goto L_bidjmp_6528; case BID_SNOx24STMT: goto L_bidjmp_6534; case BID_SNOx24MKEXPR: goto L_bidjmp_6540; case BID_SNOx24PBK: goto L_bidjmp_6545; case BID_SNOx24PBN: goto L_bidjmp_6546; case BID_SNOx24PB0: goto L_bidjmp_6547; case BID_SNOx24PBC: goto L_bidjmp_6548; case BID_SNOx24PCUR: goto L_bidjmp_6549; case BID_SNOx24PBALT: goto L_bidjmp_6550; case BID_SNOx24PARB: goto L_bidjmp_6551; case BID_SNOx24PFEN: goto L_bidjmp_6552; case BID_SNOx24PDEF: goto L_bidjmp_6553; case BID_SNOx24MKPAT: goto L_bidjmp_6554; case BID_OPSYN: goto L_bidjmp_6563; case BID_CODE: goto L_bidjmp_6567; case BID_EVAL: goto L_bidjmp_6572; case BID_VALUE: goto L_bidjmp_6581; case BID_SNOx24NRET: goto L_bidjmp_6587; case BID_SNOx24WANTNM: goto L_bidjmp_6588; case BID_APPLY: goto L_bidjmp_6589; default: break; }
     L_bidjmp_5076: ;
     if ((_bid == BID___rk_bool) && nargs == 1) {
