@@ -1,5 +1,6 @@
 #include "by_name_dispatch.h"
 #include <unistd.h>
+#include <sys/stat.h>
 #include <setjmp.h>
 int core_icn_error(int code, DESCR_t val);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4474,6 +4475,29 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     if ((_bid == BID___pas_halt) && (nargs == 0 || nargs == 1)) {
         fflush(NULL);
         exit(nargs == 1 ? (int)(IS_INT_fn(args[0]) ? args[0].i : 0) : 0);
+    }
+    if ((_bid == BID___pas_frac) && nargs == 1) {
+        double d = IS_REAL_fn(args[0]) ? args[0].r : (double)(IS_INT_fn(args[0]) ? args[0].i : 0);
+        DESCR_t r; r.v = DT_R; r.r = d - trunc(d); *out = r; return 1;
+    }
+    if ((_bid == BID___pas_assert) && nargs == 1) {
+        long long cond = IS_INT_fn(args[0]) ? args[0].i : (IS_REAL_fn(args[0]) ? (args[0].r != 0.0) : 0);
+        if (!cond) { fflush(NULL); fprintf(stderr, "Runtime error 227 at $0\n"); exit(227); }
+        *out = NULVCL; return 1;
+    }
+    if ((_bid == BID___pas_mkdir) && nargs == 1) {
+        char sb[256]; const char *d = to_cstring(args[0], sb, sizeof sb);
+        mkdir(d, 0777); *out = NULVCL; return 1;
+    }
+    if ((_bid == BID___pas_rmdir) && nargs == 1) {
+        char sb[256]; const char *d = to_cstring(args[0], sb, sizeof sb);
+        rmdir(d); *out = NULVCL; return 1;
+    }
+    if ((_bid == BID___pas_pos) && nargs == 2) {
+        char nb[64]; const char *needle = to_cstring(args[0], nb, sizeof nb);
+        char hb[64]; const char *hay = to_cstring(args[1], hb, sizeof hb);
+        const char *hit = (needle && needle[0]) ? strstr(hay, needle) : NULL;
+        *out = INTVAL(hit ? (long long)(hit - hay) + 1 : 0); return 1;
     }
     L_bidjmp_5171: ;
     if ((_bid == BID___pas_writeln) || (_bid == BID___pas_write)) {
