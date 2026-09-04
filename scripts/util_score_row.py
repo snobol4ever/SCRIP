@@ -340,12 +340,71 @@ def cmd_write(a):
         print("  prov: %s" % cells[PROV_COL])
         return 0
     lines[i] = newline
+    # ⛔⭐⭐ WRITE UPDATES BOTH TABLES, OR SAYS OUT LOUD THAT IT COULD NOT. Until now a runner wrote only the
+    # standardized DISPLAY row, so every board run silently staled the September-10 grid cell beside it --
+    # the dual-write gap the agree gate reports as one-sided populations (20 of them the day this landed),
+    # and the reason that gate re-reds itself no matter who reconciled it last. hq_C measured the same
+    # thing independently and named the cure: the writer must move both halves.
+    # ⛔ IT NEVER OVERWRITES PROSE TO DO IT. The grid's M and V cells carry hand-written commentary that no
+    # runner models, so the grid write is attempted ONLY when it would drop nothing (cell_prose_loss empty
+    # -- the same detector hq_B validated on the real .github 46ff295c incident). When prose IS at risk the
+    # display still lands, the grid is left alone, and the runner NAMES the cell and the sentence.
+    # ⭐ THAT REFUSAL IS THE POINT, NOT A SHORTFALL. hq_B's preserve-or-refuse question is RULED REFUSE here
+    # (see the ask on that row): the endangered prose was written ABOUT THE OLD MEASUREMENT, so carrying it
+    # forward automatically would attach an old sentence to a new number -- silently converting a true
+    # statement into a false one, which is the very failure class the prose guard exists to stop, merely
+    # relocated. A human decides whether a sentence survives its number. What changes today is that a
+    # staling grid cell stops being SILENT: before, it just drifted; now the write that stales it says so
+    # at the moment it happens, with the cell and the blocking sentence named.
+    gkey = GRID_MIRROR.get(a.column)
+    gnote = ""
+    if gkey:
+        try:
+            _gh, growsg = find_grid(lines)
+        except SystemExit:
+            growsg = {}
+        if a.lang in growsg:
+            gi = GRID_COLUMNS[gkey][0]
+            grow = growsg[a.lang]
+            gbefore = grow[gi]
+            gnew = merge_clause(gbefore, a.suite, text) if a.suite else text
+            # ⛔⭐ cell_prose_loss ALONE IS THE WRONG GATE HERE AND MEASURING IT SAID SO. It answers "does
+            # `new` still contain everything `before` said", so the OLD MEASUREMENT -- which this write
+            # exists to supersede -- always reads as a lost sentence. Run against the live board it blocked
+            # snobol4's grid cell, whose entire content is one measurement line and nothing else: the
+            # dual-write would have refused every cell on the file and been useless while looking careful.
+            # ⭐ So the auto-update is scoped to the case that is UNAMBIGUOUS rather than merely passing a
+            # check: a grid cell that is ONE sentence carrying a measurement is a pure mirror of the display
+            # number, with no human commentary to lose. The moment a cell has a second sentence, a person
+            # wrote it, and a runner does not get to decide whether it survives its number.
+            gchunks = [c for c in re.split(r'(?<=[.!?])\s+(?=[A-Z0-9⚠⛔⭐✅])', gbefore) if c.strip()]
+            gpure = len(gchunks) <= 1 and re.search(r"\d+\s*/\s*\d+|PASS=|FAIL=|\bpass\b", gbefore or "", re.I)
+            glost = [] if gpure else cell_prose_loss(gbefore, gnew)
+            if gbefore == gnew:
+                gnote = "  grid %s: already agrees, nothing to write" % gkey
+            elif not gpure:
+                glost = glost or [gbefore]
+                gnote = ("  ⚠ grid %s NOT updated -- it carries %d sentence(s) no runner models, "
+                         "so this measurement now sits in the display only and the grid cell is STALE BY THIS "
+                         "WRITE. Fold what is still true into --text, or hand-edit the grid cell:\n%s"
+                         % (gkey, len(glost), "\n".join("      - %s" % l[:160] for l in glost)))
+            else:
+                for gl, gline in enumerate(lines):
+                    if gline.startswith("| %s |" % a.lang) and gl != i:
+                        gc = [x.strip() for x in gline.strip().strip("|").split("|")]
+                        if len(gc) == GRID_NCOLS and gc[0] == a.lang:
+                            gc[gi] = gnew
+                            lines[gl] = "| " + " | ".join(gc) + " |"
+                            gnote = "  grid %s: updated in the same call (line %d)" % (gkey, gl + 1)
+                            break
     lines = mark_grid_stamp(lines)
     open(SCORE_MD, "w", encoding="utf-8").write("\n".join(lines))
     print("SCORE.md: %s/%s rewritten in place (line %d)" % (a.lang, a.column, i + 1))
     print("  was: %s" % before)
     print("  now: %s" % cells[idx])
     print("  prov: %s: %s" % (a.column, stamp))
+    if gnote:
+        print(gnote)
     print("⛔ NOT DONE UNTIL PUSHED: commit .github/SCORE.md with the landing that carried this measurement.")
     return 0
 
