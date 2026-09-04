@@ -95,6 +95,15 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
     if (name && !strcmp(name, "chr") && args && args->count >= 1) return mk_fnc1("__pas_chrlit", args->items[0]);
     if (name && !strcmp(name, "pred") && args && args->count >= 1) return bin(TT_SUB, args->items[0], ilit(1));
     if (name && !strcmp(name, "succ") && args && args->count >= 1) return bin(TT_ADD, args->items[0], ilit(1));
+    if (name && (!strcmp(name, "inc") || !strcmp(name, "dec")) && args && args->count >= 1) {
+        // ⛔ argument_list (see `argument:` below) interleaves EVERY expression with a phantom
+        // ilit(-1) "format code" companion (the same slot write/writeln's own width syntax fills) --
+        // real arguments sit at EVEN indices (0, 2, ...), never args->items[1].
+        tree_t *v = args->items[0];
+        tree_t *delta = (args->count >= 3) ? args->items[2] : ilit(1);
+        tree_e op = !strcmp(name, "inc") ? TT_ADD : TT_SUB;
+        return mk_assign(v, bin(op, pas_tree_clone(v), delta));
+    }
     if (name && !strcmp(name, "trunc") && args && args->count >= 1) return mk_fnc1("__pas_trunc", args->items[0]);
     if (name && !strcmp(name, "round") && args && args->count >= 1) return mk_fnc1("__pas_round", args->items[0]);
     if (name && !strcmp(name, "halt") && (!args || args->count == 0)) return mk_fnc0("__pas_halt");
