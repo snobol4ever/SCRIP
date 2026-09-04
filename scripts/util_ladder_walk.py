@@ -124,26 +124,70 @@ for t, c in sorted(claims.items()):
     if c['done'] or not re.match(r'^seat\d\d$', h) or t in rung_rows: continue
     if any_free_rung: viol('V2 OFF-LADDER SEAT', '%s holds %s (no rung) while a rung is FREE — finish within the sitting or park, then `next`' % (h, t))
 # V4 off-ladder FREE rows at rung ranks
-# ⛔⭐ PACKAGE-CLASS ROWS ARE EXEMPT (RULES.md § FACT RULES THE PACKAGE-CLASS RULE, ceo CEO-230 2026-09-04 16:18, on Lon 13:20:
-# the percentage IS the V column). A class row minted from a vendored-package census -- topic shape <lang>-<package>-class-<slug>
-# (icon-arizona-class-…, pascal-fpc-class-…, prolog-inria-class-…) -- is LADDER-RANK WORK by law, so rank 1 is where it belongs
-# and a V4 line naming one is noise: the 16:14 walk printed 18 such lines beside the real inversions, and a report that is
-# two-thirds noise is a report nobody reads (see V6's census ruling above). ⛔ EXEMPT BY SHAPE, NOT BY A LIST OF PACKAGE
-# NAMES: a list is a census that drifts the day a new suite is vendored, and drifts SILENTLY -- the new package's class rows
-# would be flagged again and read as genuine inversions by whoever had stopped seeing the old ones. The shape is what the
-# law defines: a recognised language prefix, exactly ONE package token, then `-class-`. `prolog-master-red-class-…` (two
-# tokens) is a master-board red class, not a package class, and stays a candidate. ⭐ EXEMPTED ROWS ARE COUNTED ON ONE
-# LINE, so the exemption is visible rather than silent -- a filter that removes lines with no trace is indistinguishable
-# from a bug that lost them (row ladder-walk-v4-exempts-package-class-rows, hq_T; gate test_gate_ladder_walk_v4_exempts_
-# package_class_rows.sh proves both halves: a package class row is silent, a genuine off-ladder rank-1 row is still flagged).
-PKG_CLASS_RE = re.compile(r'^(?:%s)-[a-z0-9]+-class-' % '|'.join(sorted(LANG_PREFIX)))
-_pkg_class_exempt = []
+# ⛔⭐ PACKAGE ROWS ARE EXEMPT FROM V4 (RULES.md § FACT RULES THE PACKAGE-CLASS RULE, ceo CEO-230/CEO-233, on Lon
+# 2026-09-04 13:20: the percentage IS the V column). A row minted from a vendored industry-standard suite -- the
+# umbrella itself, or one of the class rows censused out of it -- is LADDER-RANK WORK by law, so rank 0/1 is where
+# it belongs and a V4 line naming one is noise. The 16:14 walk printed 18 such lines; at 16:38 it was 45 of 62.
+# A report that is mostly noise is a report nobody reads (the same finding that turned V6 into a census).
+#
+# ⛔⛔ THE VOCABULARY IS CENSUSED FROM THE TREE, NEVER TYPED HERE. The first cut of this exemption matched the
+# literal token `-class-`, which covered the rows minted AFTER the rule and missed 15 minted before it
+# (icon-jcon-* x7, prolog-inria-* x3, snobol4-csnobol4-* x3, prolog-swi-tests-*, pascal-iso7185-pat-*). The
+# obvious repair -- a hand-typed list of package names -- is the one thing that must not happen: a list is a
+# census that drifts SILENTLY the day a suite is vendored, and the new package's rows would be flagged again and
+# read as genuine inversions by whoever had stopped seeing the old ones. So the tokens come from what is ON DISK:
+# every subdirectory of corpus/packages/<lang>/, plus every vendor runner named test_<lang>_<pkg>_suite.sh or
+# <lang>_<pkg>_scoreboard.sh under SCRIP/scripts (which is how `roast` is seen at all -- it is vendored outside
+# the corpus tree, at /home/resources/roast-master, so a corpus-only census would miss it). Vendor a suite, and
+# the exemption follows on its own.
+#
+# ⛔ IF THE CENSUS CANNOT BE READ THE EXEMPTION IS OFF, AND SAYS SO ON ITS OWN LINE -- never silently absent. An
+# exemption that quietly stops applying looks exactly like a queue that suddenly grew inversions.
+# ⭐ Exempted rows are COUNTED on one visible line for the same reason: a filter that removes lines with no trace
+# is indistinguishable from a bug that lost them. Gate: test_gate_ladder_walk_v4_exempts_package_class_rows.sh.
+def _package_tokens():
+    """Vendored-package name tokens, censused from disk. Returns (tokens, sources_read)."""
+    home = os.environ.get('S4E_HOME') or os.path.dirname(os.path.dirname(os.path.abspath(a.plan)))
+    toks, srcs = set(), []
+    pkg_root = os.path.join(home, 'corpus', 'packages')
+    if os.path.isdir(pkg_root):
+        srcs.append(pkg_root)
+        for lang in os.listdir(pkg_root):
+            d = os.path.join(pkg_root, lang)
+            if not os.path.isdir(d): continue
+            for name in os.listdir(d):
+                if not os.path.isdir(os.path.join(d, name)): continue
+                # jcon_tests / jcon-compiler / arizona_tests -> jcon, arizona; inriasuite -> inria
+                t = re.split(r'[-_]', name)[0].lower()
+                t = re.sub(r'(suite|tests)$', '', t) or t
+                if len(t) > 2: toks.add(t)
+    sdir = os.path.join(home, 'SCRIP', 'scripts')
+    if os.path.isdir(sdir):
+        srcs.append(sdir)
+        for f in os.listdir(sdir):
+            m = re.fullmatch(r'test_([a-z0-9]+)_([a-z0-9]+)_suite\.sh', f) or re.fullmatch(r'([a-z0-9]+)_([a-z0-9]+)_scoreboard\.sh', f)
+            if m and m.group(1).lower() in LANG_PREFIX and len(m.group(2)) > 2: toks.add(m.group(2).lower())
+    return toks, srcs
+PKG_TOKENS, PKG_SOURCES = _package_tokens()
+def is_package_row(t):
+    """True when a recognised language prefix is followed, within the next two segments, by a vendored package
+    token. TWO segments rather than one because a row may date the standard before it names the suite
+    (pascal-iso7185-pat-suite-import-and-run) or pluralise it (prolog-swi-tests-plunit-...)."""
+    if not PKG_TOKENS: return False
+    seg = t.split('-')
+    if len(seg) < 3 or seg[0].lower() not in LANG_PREFIX: return False
+    return any(x.lower() in PKG_TOKENS for x in seg[1:3])
+# V4 off-ladder FREE rows at rung ranks
+_pkg_exempt = []
 for t, q in sorted(queue.items(), key=lambda kv: (kv[1]['rank'], kv[0])):
     if t in rung_rows or q['state'] not in ('FREE', ''): continue
     if q['rank'] <= 1 and not is_done(t) and t not in claims:
-        if PKG_CLASS_RE.match(t): _pkg_class_exempt.append(t); continue
+        if is_package_row(t): _pkg_exempt.append(t); continue
         viol('V4 RANK INVERSION', 'off-ladder FREE row %s at rank %d — the picker serves it before rungs at that rank' % (t, q['rank']))
-if _pkg_class_exempt: print('V4 EXEMPT (package-class rule): %d FREE <lang>-<package>-class-* row(s) at rank 0/1 -- ladder-rank by law, not inversions' % len(_pkg_class_exempt))
+if not PKG_TOKENS:
+    print('⚠ V4 EXEMPTION OFF: no vendored-package census readable (looked under $S4E_HOME/corpus/packages and $S4E_HOME/SCRIP/scripts) -- package rows below are flagged as inversions and should not be read as new')
+elif _pkg_exempt:
+    print('V4 EXEMPT (package rule): %d FREE package row(s) at rank 0/1 -- ladder-rank by law, not inversions (%d token(s) censused from %d source(s) on disk)' % (len(_pkg_exempt), len(PKG_TOKENS), len(PKG_SOURCES)))
 # V6 orphans — any row of any recognized language (not just Prolog) sitting on no ladder: no table entry, no LADDER:<tok> LINKS tag, no NON-LADDER exemption
 # ⛔ ONE CENSUS LINE PER LANE, NOT ONE PER ROW (ceo 2026-09-03 22:33). Widening V6 from Prolog to all seven
 # languages took it from 2 lines to 95, and the ceo reads this every tick on an 8% budget: 95 lines is not a
