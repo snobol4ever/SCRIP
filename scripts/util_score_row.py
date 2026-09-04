@@ -711,7 +711,20 @@ def cmd_selftest(a):
                  "m3 43/89 FAIL=0", {89: 43}),
                 ("a comma before FAIL means it labels the clause, not the number",
                  "run-graded 563/569 both modes + ast 153/153, FAIL=0", {569: 563, 153: 153}),
-                ("a bare trailing `fail` still drops", "jcon 38/81 fail", {})):
+                ("a bare trailing `fail` still drops", "jcon 38/81 fail", {}),
+                # ⛔⭐ A SUPERSEDED READING CITED FOR PROVENANCE MUST NOT BECOME THE CELL'S VALUE, and these two
+                # arms exist because the first cure of that bug BROKE THE LIVE NUMBER instead (hq_C s295, hq_T
+                # 2026-09-04). Populations group by denominator keeping MIN(pass) -- the both-modes bar -- so a
+                # cited older figure silently REPLACED the current one for the agree gate and the percentage
+                # alike. The reported symptom was a red gate; the real defect was a WRONG VALUE that looked
+                # conservative. ⛔ And the fix must not drop the DENOMINATOR: a superseded citation names THE
+                # SAME population at an earlier time, so dropping it wholesale deletes the live measurement too
+                # (measured: icon read {153: 153}, losing 596 entirely). One fraction leaves; the population stays.
+                ("a superseded reading cited for provenance is not the cell's value",
+                 "run-graded **596/596 both modes** + ast 153/153, FAIL=0 \u2014 hq_C read **595/596** on the tree before that cure",
+                 {596: 596, 153: 153}),
+                ("...and the older `was N/M` idiom no longer deletes the live population with it",
+                 "**409/409** run-graded \u00b7 was 377/381", {409: 409})):
             got, _w = cell_fractions(txt)
             if got == want:
                 print("SELFTEST: %s" % label)
@@ -780,7 +793,12 @@ PROGRESS_LANGS = [("snobol4", "sno"), ("snocone", "sc"), ("icon", "icn"), ("prol
 # every live cell, not guessed -- `smoke 724/724` (raku M), `smoke 4/4` (rebus M), `corpus suite 10/10`
 # (snocone M), `the earlier 144/149` (pascal M). Kept as data so a reader can check the rule against the
 # open file, which is the brief's "no hidden weights".
-PROGRESS_DROP = ("smoke", "corpus suite", "the earlier", "readings", "was ", "strict rung suite", "supersedes")
+# ⛔ PROGRESS_DROP NAMES A DIFFERENT POPULATION (a smoke set, a corpus suite, the strict rung suite) -- its
+# denominator leaves the cell entirely. Supersession words that used to live here ("was ", "the earlier",
+# "readings", "supersedes") have MOVED to PROGRESS_SUPERSEDED below, because they name THE SAME population at
+# an earlier time and dropping their denominator deleted the live number with them: `**596/596** ... was
+# 595/596 before that cure` read as {} for 596, exactly the defect hq_C reported in its other wording.
+PROGRESS_DROP = ("smoke", "corpus suite", "strict rung suite")
 # ⛔⭐ A FRACTION LABELLED BY WHAT FOLLOWS IT COUNTS FAILURES, NOT PASSES. `924/986 PARSE-FAIL` is the raku
 # roast task row's own idiom, and every reader of this parser called it a pass fraction: the agree gate
 # convicted raku of a same-denominator conflict against the grid's `4/986` PASS, and both numbers were
@@ -793,6 +811,24 @@ PROGRESS_DROP = ("smoke", "corpus suite", "the earlier", "readings", "was ", "st
 # the marker must follow with NOTHING but whitespace between (a comma means it labels the clause, not the
 # fraction), and `FAIL=`/`fail=` is a labelled count that is already read, never this fraction's name.
 PROGRESS_FAIL_SUFFIX = ("parse-fail", "fail", "reject", "crash", "no-tap", "xfail", "red", "missing")
+# ⛔⭐ A SUPERSEDED READING CITED FOR PROVENANCE IS NOT THIS CELL'S VALUE -- AND IT USED TO WIN (hq_C, s295,
+# measured again by hq_T 2026-09-04 on the exact cell). Icon's grid cell read `**596/596 both modes** + ast
+# 153/153 ... hq_C read **595/596** on the tree before that cure`, and cell_fractions returned {596: 595}: the
+# fraction-grouping keeps MIN(pass) across a denominator, on purpose (the both-modes bar), so the SUPERSEDED
+# number silently replaced the current one for every consumer -- the agree gate convicted, and the percentage
+# would have published the old figure. ⛔ THE REPORTED SYMPTOM WAS A RED GATE; THE REAL DEFECT WAS A WRONG
+# VALUE, which is the more dangerous half and was invisible because it looked like a conservative reading.
+# ⭐ hq_C reported that UN-BOLDING the prose fraction fixed it. It did not -- reproduced both ways here, bold
+# is not read by this parser at all. What actually changed was the wording: `was 595/596` carries the existing
+# "was " marker, `hq_C read ... before that cure` carried none. A cure aimed at the reported mechanism would
+# have documented "never bold a superseded fraction" and left the defect exactly where it was.
+# ⛔ MARKERS ARE TESTED OVER THE WHOLE CLAUSE, ON BOTH SIDES OF THE NUMBER, not a 20-char lookbehind: this
+# board's provenance idiom puts the tell AFTER the fraction ("... on the tree before that cure"), and a clause
+# is what a reader sees as one statement. Clause bounds are the cell's own separators -- · — ; and the em dash
+# the board already uses to fence provenance off from value -- so a supersession note cannot reach back into
+# the measurement it is annotating.
+PROGRESS_SUPERSEDED = ("before that", "superseded", "supersedes", "the earlier", "earlier reading", "previously",
+                       "prior reading", "stale", "no longer", "used to read", "at the time", "was ", "readings")
 # Suites with NO runner or NO number: 0 pass over their file count, so unmeasured coverage reads as
 # MISSING rather than as ABSENT. Denominators are the brief's own. Applied only when the cell BOTH names
 # the suite and carries a no-number marker, so a suite that later gets a real number stops being estimated.
@@ -903,10 +939,24 @@ def cell_fractions(raw):
     for m in re.finditer(r"(?<![\d/])(\d+)\s*/\s*(\d+)(?![\d/])", s):
         t, ps = int(m.group(2)), int(m.group(1))
         ctx = s[max(0, m.start() - 20):m.start()].lower()
+        _cl_start = max([s.rfind(ch, 0, m.start()) for ch in ("\u00b7", "\u2014", ";")] + [-1]) + 1
+        _cl_end = min([x for x in (s.find(ch, m.end()) for ch in ("\u00b7", "\u2014", ";")) if x != -1] + [len(s)])
+        clause = s[_cl_start:_cl_end].lower()
+        # ⛔⭐ TWO DROPS THAT MUST NOT BE THE SAME DROP. A PROGRESS_DROP marker ("smoke", "corpus suite") names a
+        # DIFFERENT population, so the whole denominator leaves the cell -- correct, and measured on snocone.
+        # A PROGRESS_SUPERSEDED marker names THE SAME population at an earlier time, so dropping the
+        # denominator would delete the LIVE number with it: the first cure here did exactly that and read
+        # icon's `**596/596** ... hq_C read **595/596** before that cure` as {153: 153}, losing 596 entirely.
+        # A superseded citation drops ONE FRACTION, like a trailing failure label.
+        sup = [d for d in PROGRESS_SUPERSEDED if d in clause]
         hit = [d for d in PROGRESS_DROP if d in ctx]
         if hit:
             dropped.add(t)
             work.append("drop %d/%d (%r)" % (ps, t, hit[0]))
+            consumed.append((m.start(), m.end()))
+            continue
+        if sup:
+            work.append("drop %d/%d (superseded reading cited for provenance: %r -- the same population at an earlier time, never this cell's value)" % (ps, t, sup[0]))
             consumed.append((m.start(), m.end()))
             continue
         # ⭐ Drops THIS FRACTION ONLY, never the denominator -- unlike a leading PROGRESS_DROP marker, a
