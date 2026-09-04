@@ -1167,7 +1167,6 @@ static IR_t * lower_to(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         IR_t * mβ = cx->beta; IR_t * br = NULL; IR_t * eb = lower(cx, t->c[2], to, mβ, &br); γ_to(mr, eb); (void) eb;
         if (br && ir_is_generator_kind(to->op)) lc_γ_to(br, to);
         ir_operand_push(to, br); last_op = br;
-        if ((lr && lr->op == IR_LIT_REAL) || (mr && mr->op == IR_LIT_REAL) || (br && br->op == IR_LIT_REAL)) IR_LIT(to).sval = (char *) "ar";
     } else if (mr && ir_is_generator_kind(to->op)) lc_γ_to(mr, to);
     { IR_t * resume_op = NULL;
       if (by && last_op && ir_is_generator_kind(last_op->op)) resume_op = last_op;

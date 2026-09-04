@@ -2096,7 +2096,22 @@ long g_icn_errnumber = 0; const char *g_icn_errtext = ""; DESCR_t g_icn_errvalue
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *icn_errmsg(int n) {
     switch (n) { case 101: return "integer expected or out of range"; case 102: return "numeric expected"; case 103: return "string expected"; case 104: return "cset expected";
-                 case 106: return "procedure or integer expected"; case 107: return "record expected"; case 108: return "list expected"; case 110: return "file expected"; case 115: return "structure expected"; case 210: return "invalid tab stop"; }
+        case 105: return "file expected"; case 106: return "procedure or integer expected"; case 107: return "record expected"; case 108: return "list expected";
+        case 109: return "string or file expected"; case 110: return "string or list expected"; case 111: return "variable expected"; case 112: return "invalid type to size operation";
+        case 113: return "invalid type to random operation"; case 114: return "invalid type to subscript operation"; case 115: return "structure expected";
+        case 116: return "invalid type to element generator"; case 117: return "missing main procedure"; case 118: return "co-expression expected"; case 119: return "set expected";
+        case 120: return "two csets or two sets expected"; case 121: return "function not supported"; case 122: return "set or table expected"; case 123: return "invalid type";
+        case 124: return "table expected"; case 125: return "list, record, or set expected"; case 126: return "list or record expected"; case 131: return "external expected";
+        case 132: return "incorrect external type"; case 133: return "invalid external value"; case 134: return "malformed external value"; case 201: return "division by zero";
+        case 202: return "remaindering by zero"; case 203: return "integer overflow"; case 204: return "real overflow, underflow, or division by zero"; case 205: return "invalid value";
+        case 206: return "negative first argument to real exponentiation"; case 207: return "invalid field name"; case 208: return "second and third arguments to map of unequal length";
+        case 209: return "invalid second argument to open"; case 210: return "non-ascending arguments to detab/entab"; case 211: return "by value equal to zero";
+        case 212: return "attempt to read file not open for reading"; case 213: return "attempt to write file not open for writing"; case 214: return "input/output error";
+        case 215: return "attempt to refresh &main"; case 216: return "external function not found"; case 300: return "interrupted"; case 301: return "evaluation stack overflow";
+        case 302: return "memory violation"; case 303: return "inadequate space for evaluation stack"; case 304: return "inadequate space in qualifier list";
+        case 305: return "inadequate space for static allocation"; case 306: return "inadequate space in string region"; case 307: return "inadequate space in block region";
+        case 308: return "system stack overflow in co-expression"; case 402: return "program not compiled with debugging option"; case 500: return "program malfunction";
+        case 600: return "vidget usage error"; }
     return "run-time error";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2110,6 +2125,10 @@ int core_icn_error(int code, DESCR_t val) {
     }
     fprintf(stderr, "\nRun-time error %d\n%s\n", code, icn_errmsg(code));
     exit(1);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void core_icn_by_zero_check(int64_t by) {
+    if (by == 0) core_icn_error(211, INTVAL(by));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
