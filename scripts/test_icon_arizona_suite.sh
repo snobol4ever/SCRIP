@@ -82,6 +82,18 @@ for sub in $SUITE_SUBDIRS; do
   done
 done
 
+# ── PRE-RUN SNAPSHOT (for litter cleanup below): CWD fidelity means a graded program's relative file
+# writes (fncs1.icn's "foo.baz", io.icn's "./tmp1"/"./tmp2", etc.) now land for real in $SUITE instead of
+# silently failing elsewhere. Recorded per-subdir BEFORE grading so anything new after is unambiguously
+# this run's litter, not pre-existing content -- removed by plain `rm`, never `git clean` (no destructive
+# git verb needed or wanted for a known, self-caused, named set of new files).
+PRESNAP_FILE=$(mktemp)
+for sub in $SUITE_SUBDIRS; do
+  d="$PKG/$sub"
+  [ -d "$d" ] || continue
+  ( cd "$d" && ls -A ) | sed "s|^|$sub/|" >> "$PRESNAP_FILE"
+done
+
 TOTAL=0
 GRADED_NAMES=""
 M3_PASS=0; M3_REJECT=0; M3_FAIL=0
@@ -105,7 +117,15 @@ for std in "$SUITE"/*.std; do
   [ -f "$dat" ] && stdin_file="$dat"
 
   # ── mode 3: --run ──────────────────────────────────────────────────────────────────────────────
-  m3out=$(cd "$RUNDIR" && timeout "$TIMEOUT" "$SCRIP" --run "$icn" < "$stdin_file" 2>&1)
+  # ⛔ CWD FIDELITY (RULES.md THE INSTRUMENT LAWS): upstream's own Test-icon runs every program with the
+  # test directory AS its CWD (that's how relative opens like open("gc1.icn") and io.icn's "./tmp1"/
+  # "./tmp2" resolve in the real suite). A harness that runs from elsewhere silently fails every relative-
+  # path program with a compiler-looking error that is actually the HARNESS diverging from upstream
+  # fidelity -- not a SCRIP defect. cd into $SUITE (never $RUNDIR here: RUNDIR is an empty scratch dir,
+  # so a relative read like fncs1.icn's open("gc1.icn") would silently fail to find its sibling file --
+  # confirmed directly, see FINDING-2026-09-04-seat02-icon-arizona-population-law-cwd-fidelity-and-fresh-census.md).
+  # Litter this creates in $SUITE is swept by the PRE-RUN SNAPSHOT diff below, so fidelity costs nothing.
+  m3out=$(cd "$SUITE" && timeout "$TIMEOUT" "$SCRIP" --run "$icn" < "$stdin_file" 2>&1)
   if printf '%s' "$m3out" | grep -q 'parse error'; then
     M3_REJECT=$((M3_REJECT+1)); M3_REJECT_NAMES="$M3_REJECT_NAMES $name"
     [ "$VERBOSE" = 1 ] && echo "  [m3 REJECT] $name"
@@ -122,7 +142,7 @@ for std in "$SUITE"/*.std; do
   m4out=""
   if [ -s "$s4" ] && [ -f "$RT_SO" ]; then
     if gcc -no-pie "$s4" -L"$HERE/../out" -lscrip_rt -Wl,-rpath,"$HERE/../out" -o "$bin4" 2>/dev/null; then
-      m4out=$(cd "$RUNDIR" && timeout "$TIMEOUT" "$bin4" < "$stdin_file" 2>&1)
+      m4out=$(cd "$SUITE" && timeout "$TIMEOUT" "$bin4" < "$stdin_file" 2>&1)
     fi
   fi
   if printf '%s\n%s\n%s' "$m4diag" "$m4out" "$(cat "$s4" 2>/dev/null)" | grep -q 'parse error'; then
@@ -137,6 +157,21 @@ for std in "$SUITE"/*.std; do
   rm -f "$s4" "$bin4"
 done
 done
+
+# ⛔ CWD FIDELITY'S OWN SIDE EFFECT (found this session): see the PRE-RUN SNAPSHOT note above -- this
+# leaves real litter in a tracked corpus tree on every run, which would also trip the score-writer's own
+# dirty-tree refusal below (CEO-174) forever, not just this once. Removed by NAME against the snapshot
+# taken before grading started -- never `git clean` (that verb is repo-wide-destructive by nature; this
+# harness knows exactly which files it just caused to exist and removes only those).
+for sub in $SUITE_SUBDIRS; do
+  d="$PKG/$sub"
+  [ -d "$d" ] || continue
+  ( cd "$d" && ls -A ) | sed "s|^|$sub/|" > "${PRESNAP_FILE}.post"
+  comm -13 <(sort "$PRESNAP_FILE") <(sort "${PRESNAP_FILE}.post") | while IFS= read -r new; do
+    [ -n "$new" ] && rm -f -- "$PKG/$new"
+  done
+done
+rm -f "$PRESNAP_FILE" "${PRESNAP_FILE}.post"
 
 # ── GAP: shipped minus graded, by set difference on the "$sub/$name" identity -- named, never a bare count.
 GAP=$((SHIPPED-TOTAL))
