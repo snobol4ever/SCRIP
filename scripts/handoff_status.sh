@@ -70,6 +70,10 @@ blocked=0; unknown=0; reasons=(); unknown_reasons=()
 for r in "${REPOS[@]}"; do
   name=$(basename "$r")
   br=$(git -C "$r" rev-parse --abbrev-ref HEAD 2>/dev/null)
+  # ⭐ GRADE AGAINST THE BRANCH'S ACTUAL UPSTREAM, NOT AGAINST origin/<its own name>. A seat working on a local
+  # branch that TRACKS origin/main (the fleet's normal shape -- push with `git push origin HEAD:main`) has no
+  # origin/<branch> at all, and grading it against that phantom made a fully-pushed tree read as unfinished.
+  up=$(git -C "$r" rev-parse --abbrev-ref --symbolic-full-name "@{u}" 2>/dev/null); [ -n "$up" ] || up="origin/$br"
   dirty=$(git -C "$r" status --porcelain 2>/dev/null | wc -l)
   if ! git -C "$r" fetch --quiet origin 2>/dev/null; then
     unknown_reasons+=("$name: fetch failed — origin unreachable or no credential; push-state UNKNOWABLE from here, not assumed BLOCKED or COMPLETE")
@@ -78,13 +82,18 @@ for r in "${REPOS[@]}"; do
     continue
   fi
   lh=$(git -C "$r" rev-parse HEAD 2>/dev/null)
-  oh=$(git -C "$r" rev-parse "origin/$br" 2>/dev/null || echo MISSING)
+  # ⛔ --verify --quiet, NOT bare rev-parse: on an unresolvable ref `git rev-parse origin/foo` ECHOES ITS
+  # ARGUMENT ON STDOUT and then exits non-zero, so `$(... || echo MISSING)` yields "origin/foo\nMISSING",
+  # which is never == MISSING. The no-such-branch arm below then never fires, both merge-base probes fail on
+  # the invalid ref (fwd=0 back=0), and every seat on a local branch with no origin/<same-name> got a hard
+  # phantom "DIVERGED ... not done" whose printed remedy (pull --rebase && push) could never clear it.
+  oh=$(git -C "$r" rev-parse --verify --quiet "$up" 2>/dev/null || echo MISSING)
   st="SYNCED"
   if [ "$dirty" -ne 0 ]; then st="DIRTY"; fi
   if [ "$oh" = "MISSING" ]; then
     # origin has no such branch at all -- everything local is, by definition, unpushed.
     [ "$st" = "DIRTY" ] || st="UNPUSHED"
-    reasons+=("$name: origin has no branch '$br' — git push -u origin $br")
+    reasons+=("$name: no upstream ref '$up' — git push -u origin $br")
     blocked=1
   elif [ "$lh" != "$oh" ]; then
     fwd=0; git -C "$r" merge-base --is-ancestor "$lh" "$oh" 2>/dev/null && fwd=1
@@ -93,11 +102,11 @@ for r in "${REPOS[@]}"; do
       [ "$st" = "DIRTY" ] || st="BEHIND"   # all of OURS is on origin; nothing at risk, does not block
     elif [ "$back" -eq 1 ]; then
       [ "$st" = "DIRTY" ] || st="UNPUSHED"
-      reasons+=("$name: $(git -C "$r" rev-list --count "$oh..$lh" 2>/dev/null || echo '?') commit(s) not on origin/$br — git push")
+      reasons+=("$name: $(git -C "$r" rev-list --count "$oh..$lh" 2>/dev/null || echo '?') commit(s) not on $up — git push")
       blocked=1
     else
       [ "$st" = "DIRTY" ] || st="DIVERGED"
-      reasons+=("$name: DIVERGED from origin/$br — both sides have unique commits, a plain push will be REJECTED — git pull --rebase && git push")
+      reasons+=("$name: DIVERGED from $up — both sides have unique commits, a plain push will be REJECTED — git pull --rebase && git push")
       blocked=1
     fi
   fi
