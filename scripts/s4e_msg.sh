@@ -833,6 +833,20 @@ case "$cmd" in
          # The QUOTED heredoc delimiter is the load-bearing part: <<'MSG' disables expansion, <<MSG does not.
          if [ "${1:-}" = "--stdin" ] || [ "${1:-}" = "-" ]; then _body="$(cat)"; else _body="$*"; fi
          [ -n "$_body" ] || { echo "⛔ REFUSED: empty message body. With --stdin, check the heredoc actually delivered." >&2; exit 1; }
+         # ⛔⭐ SHAPE GUARD, NOT A DAMAGE DETECTOR (hq_T, task send-executes-backticks-in-a-message-body...,
+         # on hq_C's + hq_P's same-hour hits above). A body that ALREADY lost text to an intervening shell's
+         # command substitution arrives here with the backtick/$( already gone -- there is no residue to
+         # catch, which is exactly why the --stdin heredoc path above exists as the safe INPUT route rather
+         # than relying on a validator. This guard cannot undo that. What it CAN do: refuse every body that
+         # still carries a literal backtick or $( by the time it reaches here, unconditionally -- whether
+         # that survivor is inert (single-quoted, or a quoted heredoc) or is itself a landmine for the NEXT
+         # shell hop that re-embeds this text unquoted. FAIL-ONCE BOTH WAYS is the spec: a literal backtick
+         # or $( always refuses, an ordinary body always still sends -- no exception for --stdin, because a
+         # sender who genuinely needs literal shell-like text has no safe way to prove it arrived undamaged.
+         case "$_body" in
+           *'`'*|*'$('*) echo "⛔ REFUSED: message body contains a backtick or \$(. An intervening shell (yours, or whatever built this command) silently command-substitutes these in transit, so send cannot tell safe literal text from the surviving half of an already-mangled message -- it refuses on the SHAPE either way, with no bypass. Rewrite the body without a literal backtick or \$(. For text that must contain shell-like syntax, describe it in words instead of pasting it live." >&2
+             exit 1;;
+         esac
          t="$(mktemp "$PO/.msg.XXXXXX")"; { echo "FROM $ME TO $to RE $topic"; echo "$_body"; } > "$t"
          d="$PO/$to/inbox/$(date +%s%N)-$ME-$topic.msg"
          if mv "$t" "$d" && [ -s "$d" ]; then echo "sent -> $to/$topic"; else rm -f "$t"; echo "⛔ NOT SENT -- could not write $d. The message was DROPPED; nothing was delivered." >&2; exit 1; fi;;
