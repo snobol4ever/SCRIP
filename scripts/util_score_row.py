@@ -461,12 +461,6 @@ def cmd_write(a):
         cells[idx] = new_text
     cells[PROV_COL] = merge_prov(cells[PROV_COL], key, stamp)
     newline = "| " + " | ".join(cells) + " |"
-    if a.dry_run:
-        print("WOULD REWRITE %s line %d" % (SCORE_MD, i + 1))
-        print("  was: %s" % before)
-        print("  now: %s" % cells[idx])
-        print("  prov: %s" % cells[PROV_COL])
-        return 0
     lines[i] = newline
     # ⛔⭐⭐ WRITE UPDATES BOTH TABLES, OR SAYS OUT LOUD THAT IT COULD NOT. Until now a runner wrote only the
     # standardized DISPLAY row, so every board run silently staled the September-10 grid cell beside it --
@@ -563,6 +557,28 @@ def cmd_write(a):
                             lines[gl] = "| " + " | ".join(gc) + " |"
                             gnote = "  grid %s: updated in the same call (line %d)" % (gkey, gl + 1)
                             break
+    # ⛔⭐⭐ --dry-run PREVIEWS BOTH HALVES OR IT IS NOT A PREVIEW OF THIS COMMAND (hq_T 2026-09-05, found
+    # while measuring the ceo's minted grid-dual-write row). The early return used to sit ABOVE the entire
+    # grid block, so --dry-run showed the display rewrite and NOTHING about the grid -- not the update, and
+    # worse, not the loud REFUSALS the dual-write exists to emit (prose at risk, no N/M fraction). So the one
+    # way to ask "what will this write do?" answered for half the command and looked complete doing it, and
+    # the half it hid is exactly the half a caller cannot recover from later.
+    # ⭐ The grid block above mutates `lines` IN MEMORY only; the file is written below. So the preview is
+    # produced by running the real code path and declining to persist it, never by a second model of what it
+    # would have done -- a preview that reasons about the writer instead of running it is the next drift.
+    if a.dry_run:
+        print("WOULD REWRITE %s line %d" % (SCORE_MD, i + 1))
+        print("  was: %s" % before)
+        print("  now: %s" % cells[idx])
+        print("  prov: %s" % cells[PROV_COL])
+        if gnote:
+            print(gnote)
+        elif not gkey:
+            print("  grid: --column %s has no mirrored grid column, so this write touches the display only" % a.column)
+        else:
+            print("  ⚠ grid %s: no grid row for %s -- this write touches the display only" % (gkey, a.lang))
+        print("  (DRY RUN -- nothing written)")
+        return 0
     lines = mark_grid_stamp(lines)
     open(SCORE_MD, "w", encoding="utf-8").write("\n".join(lines))
     print("SCORE.md: %s/%s rewritten in place (line %d)" % (a.lang, a.column, i + 1))
@@ -1738,7 +1754,14 @@ def cmd_agree(a):
         _failcount = [w for w in _explained if "a FAILURE count" in w]
         _swallowed = [w for w in _explained if w not in _failcount]
         if len(_explained) < len(warn):
-            print("  ⭐ A one-sided population with no drop note above is the dual-write gap: `write` updates the standardized display and not the grid, so a measurement lands in one table and the other keeps yesterday's.")
+            # ⛔⭐ THIS SENTENCE USED TO SAY "`write` updates the display and not the grid" AND THAT HAS BEEN
+            # FALSE SINCE THE DUAL-WRITE LANDED -- `write` attempts BOTH and names its refusal. Measured cost
+            # of leaving it: the ceo read it off this gate's own output and minted a row on it (2026-09-05),
+            # and I had just re-committed the sentence unchanged while editing the lines around it. ⭐ A
+            # diagnostic is documentation with a much larger readership than the comment above the code, and
+            # nothing warns you when it ages -- a stale EXPLANATION outlives the behaviour it describes and
+            # is quoted as current by everyone downstream.
+            print("  ⭐ A one-sided population with no drop note above means the two cells were not written together: either `write` ATTEMPTED the grid half and refused it out loud at the time (prose at risk, or a board line carrying no N/M fraction), or one cell was hand-edited outside `write` and its twin kept yesterday's. `write --dry-run` now previews both halves, so you can see which before landing.")
         if _failcount:
             print("  ✅ %d of those need NO action: the other cell names that population only as a FAILURE count, which is not a pass fraction. The one-sided population is honest, not debt." % len(_failcount))
         if _swallowed:

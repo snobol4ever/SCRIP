@@ -302,5 +302,34 @@ if [ "$after6" != "$before" ]; then
     violations=$((violations + 1))
 fi
 
+# ARM 10 — ⛔⭐⭐ `--dry-run` PREVIEWS BOTH HALVES OR IT IS NOT A PREVIEW OF THIS COMMAND. `write` updates
+# the display cell AND its mirrored grid cell, or says out loud that it could not (prose at risk, or a board
+# line with no N/M fraction). The early return used to sit ABOVE that whole block, so the one way to ask
+# "what will this write do?" showed the display rewrite and nothing about the grid -- not the update, and
+# not the REFUSALS, which are the half a caller cannot recover from afterwards. Graded on a SCRATCH copy.
+# Two assertions, and the second is what keeps the first honest: the preview must NAME the grid, and it must
+# leave the file byte-identical -- a preview that previews by writing is the defect it exists to prevent.
+examined=$((examined + 1))
+S10="$(mktemp -d "${TMPDIR:-/tmp}/score_dryrun.XXXXXX")"
+mkdir -p "$S10/.github"; cp "$GH/SCORE.md" "$S10/.github/SCORE.md"
+d10_before="$(md5sum < "$S10/.github/SCORE.md")"
+d10out="$(S4E_HOME="$S10" python3 "$HELPER" write --lang icon --column vendor \
+    --text 'Arizona: m3 46/124 · m4 46/124 (`test_icon_arizona_suite.sh`)' --measurer hq_T --dry-run 2>&1)"; d10rc=$?
+d10_after="$(md5sum < "$S10/.github/SCORE.md")"
+if [ "$d10rc" -ne 0 ]; then
+    echo "GATE FAIL: write --dry-run exited $d10rc over a scratch board (want 0)"
+    printf '%s\n' "$d10out" | tail -3 | sed 's/^/    /'
+    violations=$((violations + 1))
+elif [ "$d10_before" != "$d10_after" ]; then
+    echo "GATE FAIL: write --dry-run MODIFIED the board it was only asked to preview"
+    violations=$((violations + 1))
+elif ! printf '%s' "$d10out" | grep -q 'grid V'; then
+    echo "GATE FAIL: write --dry-run previewed the display half and said NOTHING about the mirrored grid V cell --"
+    echo "    the grid write (or its refusal) is invisible until the write is already done."
+    printf '%s\n' "$d10out" | tail -3 | sed 's/^/    /'
+    violations=$((violations + 1))
+fi
+rm -rf "$S10"
+
 GATE_EXAMINED="$examined arms"
 gate_verdict "$violations" "leaderboard write-path invariants broken"
