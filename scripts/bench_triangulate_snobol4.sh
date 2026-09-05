@@ -74,6 +74,7 @@ TS="$(date -u +%Y%m%dT%H%M%SZ)"
 if [ "$CHECK_SHAPE" -eq 1 ]; then OUT_TSV="${OUT_TSV:-$(mktemp)}"; else OUT_TSV="${OUT_TSV:-$B/triangulation-$TS.tsv}"; fi
 
 echo "THREE-ANGLE TRIANGULATION -- angle 1 (fixed time) vs angle 2 (fixed iters) vs disk telemetry"
+echo "tree=SCRIP $(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo '?') corpus $(git -C "$S4E/corpus" rev-parse --short HEAD 2>/dev/null || echo '?') RT_OPT=-O0 date=$(date -u +%Y-%m-%d)"
 echo "tolerance: PER-ROW, = 3*sqrt(cv_angle1^2 + cv_angle2^2) from $([ -f "${FLOORTSV:-$B/NOISE-FLOOR.tsv}" ] && echo NOISE-FLOOR.tsv || echo '<UNBAKED -- flat floor only>'), floored at TOL_PCT=$TOL%; each row prints the tolerance it was judged against"
 [ "$CHECK_SHAPE" -eq 1 ] && echo "mode: --check-shape (kernel=$KERNEL, RUN_B=$RUN_B, OUT_TSV is scratch, not committed)"
 echo
