@@ -368,6 +368,14 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             IR_t * nv = NULL; IR_t * en = sx_lower(cx, (tgt->n > 0) ? tgt->c[0] : NULL, NULL, ω, &nv);
             es = sx_lower(cx, t->c[0], NULL, ω, &vs);
             lc_γ_to(kt, en); lc_γ_to(nv, es); nl = nv;
+        } else if (tgt && tgt->t == TT_FNC) {
+            IR_t * wl = lc_build(cx->g, IR_LIT_STRING, NULL, ω); IR_LIT(wl).sval = (char *) "";
+            IR_t * wm = lc_build(cx->g, IR_CALL, NULL, ω); IR_LIT(wm).sval = (char *) "SNO$WANTNM";
+            lc_γ_to(wl, wm); ir_operand_push(wm, wl);
+            IR_t * nv = NULL; IR_t * en = sx_lower(cx, tgt, NULL, ω, &nv);
+            lc_γ_to(wm, en);
+            es = sx_lower(cx, t->c[0], NULL, ω, &vs);
+            lc_γ_to(kt, wl); lc_γ_to(nv, es); nl = nv;
         } else {
             sno_fatal("capture target in a runtime-built pattern is not a simple variable", NULL); return NULL;
         }
