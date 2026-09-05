@@ -8,6 +8,7 @@
 # special name `output` vs `OUTPUT` p.192, and indirect reference `$('ABC')` p.182).  `scorecard_snobol4.sh`
 # adopted it; the TIMING harnesses did not, and kept `-b`.  So the correctness board and the performance board
 # were grading two DIFFERENT LANGUAGES, and `NOISE-FLOOR.tsv` was baked under the wrong one.
+# ⛔⭐ READ THE `SECOND DIVERGENCE AXIS` BLOCK NEAR sbl_clean_bin BEFORE REASONING FROM THE SENTENCE ABOUT SPITBOL'S DEFAULT FOLDING: it is MEASURED true of the x64 correctness face and MEASURED FALSE of the bench face, where folding is off whatever you pass.  `-bf` remains the mandate; the RATIONALE is per-binary (hq_P 2026-09-05).
 #
 # ⛔ THE SPLIT THIS FILE ENCODES, AND WHY IT IS NOT ONE FUNCTION.  The LANGUAGE arm (`-bf`) is universal and is
 # never a per-suite choice -- that was the whole s189 finding.  The SIZING knobs are NOT universal and are not a
@@ -151,6 +152,15 @@ sbl_correctness_bin() {
     sbl_assert_bf "$c" "the CORRECTNESS oracle (x64, instrumented)"
 }
 
+# ⛔⭐⭐ SECOND DIVERGENCE AXIS, MEASURED 2026-09-05 (hq_B discovered on the correctness face; hq_P re-measured the BENCH face here by execution).  THE TWO ORACLES DO **NOT** DIFFER ONLY IN LOAD SUPPORT -- read the block below as ONE known edge, never as THE known edge.
+# ⛔ THE BENCHMARK ORACLE CANNOT CASE-FOLD NAMES AT ALL.  The entire translator diff is three lines in asm.sbl `g_flc`: stock folds UPPER->lower, our x64 fork flipped it to lower->UPPER (fork commit e68dfeb, "SN-30g UPPERCASE canonical case").  `flc` has FOUR call sites wanting OPPOSITE directions, so each build is correct at some and broken at the others -- x64 folds NAMES correctly and refuses every TRACE type; the bench build traces correctly and its name folding is a SILENT NO-OP.
+# ⭐ MEASURED, witness `ABC = 5 ; OUTPUT = abc` (hq_P 2026-09-05, both binaries, this root):
+#     x64/bin/sbl            -b -> `5`      -bf -> ``      <- folds by default, `-f` turns it off.  s189 holds HERE.
+#     spitbol-bench-oracle   -b -> ``       -bf -> ``      <- folding is OFF WHATEVER YOU PASS.  `-f` is a NO-OP.
+# ⭐ SO THE s189 SENTENCE AT THE TOP OF THIS FILE -- "SPITBOL case-folds names by default and `-f` turns folding OFF" -- IS A PROPERTY OF x64, NOT OF "SPITBOL".  It is still the right MANDATE (see why it is dormant, next line), but it is the wrong EXPLANATION for the bench face, and a seat reasoning from it about the bench binary will reason wrongly.
+# ✅ WHY THIS IS DORMANT AND NOT A LIVE PERF DEFECT (swept by hq_P 2026-09-05, all 17 sbl_clean_bin callers): every bench caller takes the language arm from `sbl_lang_flags` VERBATIM, i.e. `-bf`, and under `-bf` BOTH binaries have folding off -- so they agree, and the NOISE-FLOOR provenance is intact ON THIS AXIS.  The two non-users are `bench_triangulate_snobol4.sh` (calls sbl_clean_bin as a PRECONDITION GUARD only, then delegates timing to two callers that do use it) and `test_gate_oracle_bf_capable.sh` (the capability gate itself).
+# ⛔ WHAT WOULD WAKE IT: any bench invocation that drops `-f`.  That is not a style slip -- it silently changes WHICH LANGUAGE the oracle is running, on one binary and not the other, so the two faces stop being comparable and nothing in the exit code says so.  `sbl_bf_capable()` above CANNOT catch this: it proves `-bf` is ACCEPTED, never that `-f` DOES ANYTHING.
+# ⛔ NOT CURED HERE, AND DELIBERATELY SO: the repair is 11 dispatch constants in the oracle's own asm.sbl (hq_B has it designed -- point the broken sites at the already-correct `ch_u*`), which is an ORACLE-SOURCE change in /home/resources, not a SCRIP change.  Full witness: .github FINDING-2026-09-05-hq_B-the-snoflake-correctness-oracle-refuses-every-trace-type-...
 # ⭐ A LIVE EDGE, PRESERVED NOT FIXED (row oracle-two-face-adoption): the clean binary above is a from-
 # source build of official upstream with exactly the two ALLOW-LISTED patches described in the block
 # above -- it carries NO LOAD/UNLOAD ABI rework, so its external-fn loader is stock upstream and its
