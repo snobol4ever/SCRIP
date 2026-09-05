@@ -3683,6 +3683,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
             if (!strcmp(fn, "*"))  { extern DESCR_t rt_call_arr(const char *, DESCR_t *, int); DESCR_t _a = a; return try_call_builtin_by_name("*", &_a, 1, &out) ? out : FAILDESCR; }
             if (!strcmp(fn, "\\")) return (a.v == DT_SNUL || a.v == 0) ? FAILDESCR : a;
             if (!strcmp(fn, "?"))  return rt_deref(rt_random_var(a));
+            if (!strcmp(fn, "/") && bidlen < 0) return (a.v == DT_SNUL || a.v == 0) ? a : FAILDESCR;
             if (!strcmp(fn, "/") || !strcmp(fn, "%") || !strcmp(fn, "#") || !strcmp(fn, "|")) {
                 extern int core_call_registered_fn(const char *, DESCR_t *, int, DESCR_t *);
                 if (core_call_registered_fn(fn, args, nargs, &out)) return out;
