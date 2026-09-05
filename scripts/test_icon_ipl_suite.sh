@@ -247,7 +247,7 @@ ipl_isolation_verify_clean "$S4E/corpus" || true
 # m3/m4 fractions are reported as fractions -- same convention test_icon_arizona_suite.sh already uses.
 python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite IPL \
     --measurer "${S4E_SEAT:-}" \
-    --text "compile_pass=$COMPILE_PASS compile_fail=$COMPILE_FAIL (linkgap=$LINKGAP parseerr=$PARSEERR timeout=$TIMEOUT_N other=$OTHER) of total=$TOTAL · nomain_ok=$NOMAIN_OK of nomain_total=$NOMAIN_TOTAL, hasmain_total=$HASMAIN_TOTAL · run m3 $M3_RUN_PASS/$RUN_GRADED m4 $M4_RUN_PASS/$RUN_GRADED (of $RUN_GRADED oracle-cut; fail m3=$M3_RUN_FAIL m4=$M4_RUN_FAIL, crash m3=$M3_RUN_CRASH m4=$M4_RUN_CRASH, hang m3=$M3_RUN_HANG m4=$M4_RUN_HANG) (\`test_icon_ipl_suite.sh\`)" \
+    --text "compile_pass=$COMPILE_PASS compile_fail=$COMPILE_FAIL (linkgap=$LINKGAP parseerr=$PARSEERR timeout=$TIMEOUT_N other=$OTHER) of total=$TOTAL · nomain_ok=$NOMAIN_OK of nomain_total=$NOMAIN_TOTAL, hasmain_total=$HASMAIN_TOTAL · run m3 $M3_RUN_PASS/$RUN_GRADED m4 $M4_RUN_PASS/$RUN_GRADED (of $RUN_GRADED oracle-cut · fail m3=$M3_RUN_FAIL m4=$M4_RUN_FAIL, crash m3=$M3_RUN_CRASH m4=$M4_RUN_CRASH, hang m3=$M3_RUN_HANG m4=$M4_RUN_HANG) (\`test_icon_ipl_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
 # ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
