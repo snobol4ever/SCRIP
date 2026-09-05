@@ -1359,6 +1359,23 @@ static DESCR_t _SETEXIT_(DESCR_t *a, int n) {
     return prev;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char *setexit_label_get(char *buf, size_t bufsz) {
+    if (!(core_setexit_on() && _setexit_label[0])) return NULL;
+    strncpy(buf, _setexit_label, bufsz - 1); buf[bufsz - 1] = '\0';
+    _setexit_label[0] = '\0';
+    return buf;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void sno_setexit_fire_on_end(void) {
+    char buf[sizeof _setexit_label];
+    const char *lbl = setexit_label_get(buf, sizeof buf);
+    if (!lbl) return;
+    extern void rt_kw_publish_error(int code, const char *msg);
+    extern void rt_goto_transfer(const char *name);
+    rt_kw_publish_error(0, "");
+    rt_goto_transfer(lbl);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _FUNCTION_(DESCR_t *a, int n) {
     if (n < 1) return FAILDESCR;
     const char *name = VARVAL_fn(a[0]);
