@@ -36,7 +36,12 @@
 #       xfail-class-setexit-errlimit-composition-2-entries -- has a RED second half ("cross-ref=0 (want 2)").
 #   (G) THE SAME SHAPE WITH A LEFTOVER MINT PLACEHOLDER beneath a real criterion -> still closes green. Untidy is
 #       not ambiguous, and 4 of the 39 are exactly that; refusing them would block real rows for a cosmetic reason.
-# EXIT 0 all four hold on the live script AND each mutant goes red; 1 otherwise; 2 REFUSED (fixture cannot be built).
+#   (H) A SECOND column-0 `DONE-WHEN:` BYTE-IDENTICAL TO THE FIRST -> still closes green. Arm F refuses because
+#       "which line is the contract" is a question about intent; identical text asks no such question, the
+#       extractor taking the first loses nothing, and no half of any bar went unrun. ⭐ MEASURED: 3 of the 10
+#       extras that survive F's placeholder filters are exactly this, and all three were being refused for a
+#       cosmetic reason -- the same mistake G exists to prevent, one shape over.
+# EXIT 0 all arms hold on the live script AND each mutant goes red; 1 otherwise; 2 REFUSED (fixture cannot be built).
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; MSG="$HERE/s4e_msg.sh"
 ROOT="$(cd "$HERE/../.." && pwd)"
@@ -49,8 +54,8 @@ PO="$W/po"; ME=hq_T; HD="$W/hd.txt"
 mk_po() {
   rm -rf "$PO" "$HD"; mkdir -p "$PO/tasks" "$PO/claims" "$PO/released" "$PO/$ME/inbox" || return 2
   : > "$PO/BOARD.md"; : > "$PO/QUEUE.done.tsv"; printf "TRIO\n" > "$PO/MODE"
-  { printf '# gate fixture queue\n'; for t in t-two t-heredoc t-unterm t-green t-prose t-two-contracts t-stale-ph; do printf '2\t%s\tunassigned\tFREE\n' "$t"; done; } > "$PO/QUEUE.tsv"
-  for t in t-two t-heredoc t-unterm t-green t-prose t-two-contracts t-stale-ph; do
+  { printf '# gate fixture queue\n'; for t in t-two t-heredoc t-unterm t-green t-prose t-two-contracts t-stale-ph t-dup-contract; do printf '2\t%s\tunassigned\tFREE\n' "$t"; done; } > "$PO/QUEUE.tsv"
+  for t in t-two t-heredoc t-unterm t-green t-prose t-two-contracts t-stale-ph t-dup-contract; do
     { printf '# TASK %s\nGOAL: gate fixture.\n' "$t"
       case "$t" in
         t-two)     printf 'DONE-WHEN: test -f "$S4E_HOME/SCRIP/scripts/s4e_msg.sh" \\\n'
@@ -66,6 +71,8 @@ mk_po() {
                    printf 'grep -q green-body %s.g\n' "$HD";;
         t-two-contracts) printf 'DONE-WHEN: test -f "$S4E_HOME/SCRIP/scripts/s4e_msg.sh"\n'
                    printf 'LINKS: none\nDONE-WHEN: test -f /no-such-file-donewhen-whole-criterion-gate\n';;
+        t-dup-contract) printf 'DONE-WHEN: test -f "$S4E_HOME/SCRIP/scripts/s4e_msg.sh"\n'
+                   printf 'LINKS: none\nDONE-WHEN: test -f "$S4E_HOME/SCRIP/scripts/s4e_msg.sh"\n';;
         t-stale-ph) printf 'DONE-WHEN: test -f "$S4E_HOME/SCRIP/scripts/s4e_msg.sh"\n'
                    printf 'LINKS: none\nDONE-WHEN: ⛔ MUST BE MADE RUNNABLE BEFORE done CAN EVER PASS — minted with no executable acceptance test\n';;
         t-prose)   printf 'DONE-WHEN: test -f "$S4E_HOME/SCRIP/scripts/s4e_msg.sh"\n'
@@ -103,13 +110,16 @@ arm() {   # arm <label> <script> -> 0 iff all four contracts hold; 2 iff the fix
   run "$s" t-stale-ph
   [ "$RC" = 0 ] || { echo "  [$lbl] (G) a real criterion under a leftover MINT PLACEHOLDER line returned $RC (want 0) -- untidy is not ambiguous"; say; ok=0; }
   closed t-stale-ph || { echo "  [$lbl] (G) ⛔ a row with only a stale placeholder beneath it stopped closing"; ok=0; }
+  run "$s" t-dup-contract
+  [ "$RC" = 0 ] || { echo "  [$lbl] (H) a second DONE-WHEN: BYTE-IDENTICAL to the first returned $RC (want 0) -- identical text asks no intent question"; say; ok=0; }
+  closed t-dup-contract || { echo "  [$lbl] (H) ⛔ a row whose duplicate line says exactly what the first says stopped closing -- refused for a cosmetic reason"; ok=0; }
   run "$s" t-prose
   [ "$RC" = 0 ] || { echo "  [$lbl] (E) a COMPLETE one-line criterion followed by prose annotation returned $RC (want 0) -- the annotation was swallowed into the command"; say; ok=0; }
   closed t-prose || { echo "  [$lbl] (E) ⛔ a correctly-closing annotated row stopped closing -- the continuation rule is eating prose"; ok=0; }
   [ "$ok" = 1 ]
 }
 echo "s4e done: the WHOLE DONE-WHEN runs, a heredoc body reaches its file, an unterminated one REFUSES (scratch postoffice under $W)"
-if arm PASS "$MSG"; then echo "  [PASS] (A) continuation runs; (B) heredoc body runs; (C) unterminated -> rc=2, row open; (D) green multi-line closes; (E) annotated one-liner unaffected; (F) two real contracts refuse; (G) a stale placeholder does not"; pass=1
+if arm PASS "$MSG"; then echo "  [PASS] (A) continuation runs; (B) heredoc body runs; (C) unterminated -> rc=2, row open; (D) green multi-line closes; (E) annotated one-liner unaffected; (F) two real contracts refuse; (G) a stale placeholder does not; (H) nor does a byte-identical duplicate"; pass=1
 else pass=$?; [ "$pass" = 2 ] && { echo "⛔ REFUSED: fixture could not be built (rc=2)"; exit 2; }; pass=0; fi
 # FAIL-ONCE, one mutant per part of the cure. M1 restores the head -1 truncation (A and B must red -- the rows
 # close on criteria that never ran). M2 removes the unterminated-heredoc refusal (C must red -- rc=0 on an unreadable
@@ -121,8 +131,13 @@ sed 's/^s4e_donewhen_multiple_contracts() {   # \$1 = baton path/s4e_donewhen_mu
 grep -q 'head -1' "$W/m1.sh" || { echo "⛔ REFUSED: could not build mutant M1 (the done-site extraction moved?)"; exit 2; }
 grep -q 'never-appears-90124' "$W/m2.sh" || { echo "⛔ REFUSED: could not build mutant M2 (the heredoc guard moved?)"; exit 2; }
 grep -q 'unused_multiple_contracts' "$W/m3.sh" || { echo "⛔ REFUSED: could not build mutant M3 (the ambiguous-contract guard moved?)"; exit 2; }
+# M4 removes ONLY the byte-identical exclusion, leaving the rest of F intact: arm H must then refuse a row that
+# asks no intent question. ⛔ It is a separate mutant from M3 on purpose -- M3 deletes the whole guard, so it can
+# never show that the narrow exclusion is load-bearing, and a cure whose own arm no mutant reds is untested.
+sed 's/txt == ENVIRON\["_DWM_FIRST"\]/txt == "no-such-first-90126"/' "$MSG" > "$W/m4.sh"
+grep -q 'no-such-first-90126' "$W/m4.sh" || { echo "⛔ REFUSED: could not build mutant M4 (the identical-duplicate exclusion moved?)"; exit 2; }
 red=1
-for m in m1 m2 m3; do
+for m in m1 m2 m3 m4; do
   if arm "FAIL-ONCE:$m" "$W/$m.sh" >"$W/fo.$m" 2>&1; then echo "  [FAIL-ONCE:$m] ⛔ STAYED GREEN with that half of the cure removed -- it cannot detect the defect it exists for"; red=0
   else echo "  [FAIL-ONCE:$m] red as required: $(grep -m1 '  \[' "$W/fo.$m" | sed 's/^ *//' | cut -c1-110)"; fi
 done

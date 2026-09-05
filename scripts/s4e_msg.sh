@@ -710,21 +710,45 @@ $(awk '
 # (hq_T 2026-09-05, found while censusing the truncation class on the ceo's seed of six suspects). The extractor
 # takes the first line by design; a baton carrying a SECOND column-0 DONE-WHEN: whose text is a real command has
 # therefore been closing on HALF ITS OWN CONTRACT, silently, with the other half sitting in the file where every
-# human reader counts it as part of the bar. ⭐ MEASURED: 39 live batons carry more than one such line; 10 of the
-# extras are real commands, not the mint placeholder; 6 of those rows are DONE. Running the never-executed halves:
-# two are green (correctly closed anyway) and snobol4-xfail-class-setexit-errlimit-composition-2-entries is RED --
-# "cross-ref=0 (want 2)" -- a row closed on the half of its criterion that passed.
+# human reader counts it as part of the bar. ⭐ MEASURED: 39 live batons carry more than one such line; 10 extras
+# survive the placeholder filters, but only THREE of those ten are genuinely a second criterion (see the
+# byte-identical and prose rulings below -- the first census said ten and that number was wrong). Running the
+# never-executed halves of the three: two are green (correctly closed anyway) and
+# snobol4-xfail-class-setexit-errlimit-composition-2-entries is RED -- "cross-ref=0 (want 2)" -- a row closed on
+# the half of its criterion that passed. That row is the ONE true false-closure this whole class ever contained.
 # ⛔ REFUSES rather than running both: which line is the contract is a question about intent, and a tool that
 # concatenates them invents a bar nobody wrote. Same call, and the same wording, as s4e_donewhen_hidden_elsewhere
 # makes for its own case. The mint placeholder and the self-refusing stub are NOT counted -- a leftover placeholder
 # under a real criterion is untidy, not ambiguous, and 4 of the 39 are exactly that.
-# Sets $_dwm_lines for the message; rc 0 iff a second REAL criterion exists.
+# ⛔⭐⭐ A BYTE-IDENTICAL SECOND LINE IS NOT A SECOND CONTRACT (hq_T 2026-09-05, ceo's baton-repair order on the
+# four open rows of this class). The refusal above rests entirely on "which line is the contract is a question
+# about intent" -- and when the two texts are IDENTICAL there is no such question: the extractor taking the first
+# loses nothing, no half of any bar went unrun, and the row was never in the false-closure hazard at all. Counting
+# it would block a closable row for a COSMETIC reason, which is the exact ground on which the mint placeholder is
+# already excluded four lines up. ⭐ MEASURED, whole postoffice, splitting the "10 real commands" this comment used
+# to claim: 3 are byte-identical duplicates (prolog-failed-initialization-goal-exits-1-where-swipl-exits-0,
+# raku-emitter-smx-coverage, dead-scrip-test-tree-three-raku-suites-report-green-on-nothing), 4 are PROSE at column
+# zero, and only 3 are genuinely a second criterion -- all three snobol4-xfail-class rows. So the hidden-bar class
+# is THREE, not ten, and exactly one of the three (setexit-errlimit) was ever red.
+# ⛔ PROSE IS DELIBERATELY *NOT* DETECTED HERE, and that is a ruling, not an omission. Two of the four prose lines
+# are an English spec full of backticks and one is a wrapped narrative sentence; every cheap discriminator I tried
+# (shell metacharacters, a leading command word) misclassified at least one of them in BOTH directions. Telling
+# prose from a command is the same intent question this function refuses to guess on, so the cure for those four is
+# a RELABEL IN THE BATON, done in the same sitting -- never a heuristic here that would eventually eat a real bar.
+# ⛔ The comparison is passed through the ENVIRONMENT, never `awk -v`: -v processes backslash escapes, and real
+# criteria carry `\\` line continuations that would silently fail to compare equal.
+# Sets $_dwm_lines for the message; rc 0 iff a second REAL, DIFFERENT criterion exists.
 s4e_donewhen_multiple_contracts() {   # $1 = baton path
     local b="$1"
+    _DWM_FIRST="$(sed -n 's/^DONE-WHEN:[[:space:]]*//p' "$b" | head -1)"; export _DWM_FIRST
     _dwm_lines="$(grep -n '^DONE-WHEN:' "$b" | sed -n '2,$p' \
         | grep -vE 'DONE-WHEN:[[:space:]]*⛔ MUST BE MADE RUNNABLE' \
         | grep -vE 'DONE-WHEN:[[:space:]]*echo "⛔[^"]*"( *>&2)?; *(false|exit [1-9][0-9]*)$' \
-        | cut -d: -f1 | tr '\n' ' ' | sed 's/ $//')"
+        | awk '{ txt = $0; sub(/^[0-9]+:DONE-WHEN:[[:space:]]*/, "", txt);
+                 if (txt == ENVIRON["_DWM_FIRST"]) next;
+                 num = $0; sub(/:.*$/, "", num); print num }' \
+        | tr '\n' ' ' | sed 's/ $//')"
+    unset _DWM_FIRST
     [ -n "$_dwm_lines" ]; }
 s4e_donewhen_incomplete() {   # $1 = criterion text; rc 0 = bash cannot finish reading it
     printf '%s' "${1:-}" | bash -n /dev/stdin 2>&1 \
