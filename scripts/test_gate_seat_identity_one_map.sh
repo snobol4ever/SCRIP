@@ -153,6 +153,17 @@ while IFS= read -r _line; do
     _norm="${_line//\\/}"
     case "$_norm" in
         *'--measurer "${S4E_SEAT:-}"'*) ;;
+        # ⛔⭐ A --dry-run CALL SITE IS EXEMPT, AND THE REASON IS THIS ARM'S OWN PURPOSE, NOT A CONVENIENCE
+        # (hq_I 2026-09-05, curing a RED that took the whole blocking set with it). ARM 5 exists to stop a row
+        # being SIGNED with a hardcoded identity -- "it is plausible, so nobody reviews it", two lines up.
+        # `--dry-run` writes no row at all: it previews and exits, so there is no signature to be stale and
+        # nothing this arm is protecting. The offender it hunts is a runner that RECORDS under a fixed name.
+        # ⭐ WHAT MADE THIS BITE: the only --dry-run call site in the tree is arm d10 of
+        # test_gate_score_row_rewrites_in_place.sh, a NEGATIVE FIXTURE whose entire job is to hand the helper a
+        # literal measurer and prove it behaves. So the gate reddened the gate that proves the helper works,
+        # and since both sit inside `make test`, one deliberate fixture stopped every HQ from landing behind a
+        # green blocking set. A grep cannot see intent; it can see that a dry run signs nothing.
+        *'--dry-run'*) ;;
         *) bad="$bad$_line"$'\n' ;;
     esac
 done < <(command grep -n -- '--measurer' "$HERE"/*.sh 2>/dev/null | command grep -v "^$HERE/$SELF:")
