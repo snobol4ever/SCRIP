@@ -61,6 +61,7 @@ import re
 import sys
 import csv
 import argparse
+import tempfile
 from pathlib import Path
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -257,7 +258,26 @@ def build(pkg_dir, lang, out_prefix="ALL"):
                 continue
         stdin_path = stdin_for(src.stem, src.parent)  # the file's OWN dir -- == pkg_dir when flat, matters once nested
         stdin_text = stdin_path.read_text() if stdin_path else None
-        ora_text, ora_rc, ora_kind = h.run_oracle(oracle_bin, flags, src, paths["timeout"], stdin_text=stdin_text)
+        # ⭐ ISOLATE THE ORACLE INVOCATION, ONE FILE PER THROWAWAY CWD (measured on
+        # corpus/packages/icon/ipl/progs/: this project's own Icon oracle driver, run_oracle()'s
+        # cwd=sno_path.parent contract landing it in a directory of `link`-directive .icn siblings, renames
+        # EVERY .icn file in that cwd to an all-uppercase name as a side effect -- byte-identical content,
+        # reproduced 3/3, confined to that one directory each time. Two failure shapes result if run in
+        # place: a LATER src in this same loop can vanish out from under its own Path (FileNotFoundError,
+        # first measured on progs/url2link.icn); and a program whose own output echoes its invocation name
+        # (progs/what: "Usage: what.icn ..." unisolated vs "Usage: WHAT.ICN ..." once the cwd has already
+        # been mutated by an earlier file in the loop) cuts a ref for a name this container never records the
+        # entry under -- SCRIP would be blamed later for disagreeing with a ref that was never really this
+        # program's own ground truth (measured: a first isolation attempt that only added a same-directory
+        # case fallback, rather than isolating, produced exactly this ref/name mismatch on 3 of 4 spot-checked
+        # absorbed entries). A one-file throwaway cwd sidesteps the mechanism rather than chasing it -- there
+        # is nothing else present for the oracle to rename, the real corpus tree is never touched at all, and
+        # it matches this package's own README's documented usage (`cp progs/hello.icn /tmp/t.icn && cd /tmp
+        # && icont -s t.icn`) rather than inventing a new invocation contract.
+        with tempfile.TemporaryDirectory(prefix="pkgsuite_oracle_") as _iso_dir:
+            _iso_src = Path(_iso_dir) / src.name
+            _iso_src.write_bytes(src.read_bytes())
+            ora_text, ora_rc, ora_kind = h.run_oracle(oracle_bin, flags, _iso_src, paths["timeout"], stdin_text=stdin_text)
         if ora_kind == "HANG":
             excluded.append((name, "oracle timed out -- non-terminating or too slow for the grading timeout"))
             print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (oracle HANG)", file=sys.stderr)
