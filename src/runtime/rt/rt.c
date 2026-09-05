@@ -1882,6 +1882,12 @@ DESCR_t c_rt_size_d(uint64_t lo, uint64_t hi)
         if (v.u->type) { DESCR_t r; r.v = DT_I; r.slen = 0; r.i = (int64_t)v.u->type->nfields; return r; }
         { DESCR_t r; r.v = DT_I; r.slen = 0; r.i = 0; return r; }
     }
+    if (v.v == DT_R) {
+        extern const char *icon_real_str(double r, char *buf, int bufsz);
+        char buf[64];
+        icon_real_str(v.r, buf, sizeof(buf));
+        DESCR_t r; r.v = DT_I; r.slen = 0; r.i = (int64_t)strlen(buf); return r;
+    }
     { const char *s = VARVAL_fn(v); long n = s ? (long)strlen(s) : 0; DESCR_t r; r.v = DT_I; r.slen = 0; r.i = (int64_t)n; return r; }
 }
 extern int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t *out);
