@@ -6,7 +6,10 @@
 # rc 0 = both modes match · rc 1 = a mode differs or fails to build · rc 2 = could not measure (no witness, no build, oracle silent).
 # ORACLE: sbl_correctness_bin first; if it refuses the witness with SPITBOL's ERROR 199 ("trace second argument is not trace type" --
 # the fork's trace-dispatch defect, hq_B 2026-09-05, CEO-280/282) the ref is cut from sbl_clean_bin instead and this is PRINTED. The
-# fallback is moot the moment hq_B's fixed oracle lands. Trace witnesses never set &CASE, so the stock binary's folding no-op cannot
+# fallback is moot since Lon swapped the oracle 2026-09-05T15:34:17Z and it NEVER applies under --expect-error: a witness that asks
+# for ERROR 199 makes the fixed oracle print the very string the fallback greps for, so the heuristic cannot tell "the fork refuses
+# every type" (the defect) from "this witness asked for a refusal" (the answer) -- it fired on trace_bogus_type.sno AFTER the swap and
+# printed a NOTE blaming a defect that was already cured (hq_P 2026-09-05). Trace witnesses never set &CASE, so the stock binary's folding no-op cannot
 # reach them. The "must print" argument is the oracle guard: an oracle that prints no trace line refuses rc=2, it never grades.
 set -u
 here=$(cd "$(dirname "$0")" && pwd); cd "$here/.." || exit 2
@@ -18,9 +21,9 @@ if [ "${1:-}" = "--expect-error" ]; then mode=error; errno="${2:?--expect-error 
 [ -x ./scrip ] && [ -f out/libscrip_rt.so ] || { echo "REFUSED rc=2: build first (make) -- no ./scrip or out/libscrip_rt.so"; exit 2; }
 O=$(sbl_correctness_bin) || { echo "REFUSED rc=2: no SPITBOL correctness oracle"; exit 2; }
 ref=$(timeout 8s "$O" -bf "$w" </dev/null 2>&1)
-if printf '%s\n' "$ref" | grep -q 'ERROR 199 -- trace second argument'; then
+if [ "$mode" != error ] && printf '%s\n' "$ref" | grep -q 'ERROR 199 -- trace second argument'; then
   O2=$(sbl_clean_bin) || { echo "REFUSED rc=2: $O refuses TRACE types (ERROR 199) and no stock oracle is present"; exit 2; }
-  echo "NOTE: $O refuses TRACE types (ERROR 199, CEO-280/282); ref cut from the stock oracle $O2 instead"
+  echo "NOTE: $O still refuses a GOOD TRACE type with ERROR 199 -- it looks like the pre-2026-09-05T15:34Z binary (fixed md5 bc694a0cc699f91d06ff7fde01732000); ref cut from the stock oracle $O2 instead. Re-run once the swapped oracle is in place; the two lineages agreed byte-for-byte on all six exact-mode trace witnesses when hq_P checked at the swap."
   O="$O2"; ref=$(timeout 8s "$O" -bf "$w" </dev/null 2>&1)
 fi
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
