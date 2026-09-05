@@ -143,6 +143,7 @@ test: scrip  # ⭐ WAS THE FALSE-GREEN TRAP (cured hq_P s268): `test`, `test-ir`
 	bash scripts/test_gate_corpus_coverage_classified.sh
 	bash scripts/test_gate_pl_quad_regs.sh   # ~45s (166 Prolog compiles, most refusing during the rebuild): THE QUAD GATE -- no r12-r15 write reachable from a Prolog graph outside the TR/B/ROOT/BALL enrolment, mode-4 TEXT + reachable rtx (hq_P 2026-09-02, ARCH-PROLOG-BYRD-BOX-TRANSLATION.md § E instrument lane). Last in the recipe so every cheaper gate reports first.
 	bash scripts/test_gate_sno_runtime_define.sh   # ~15s: runtime DEFINE (the gimpel DEXP idiom, a runtime prototype over a compiled body, a CODE() body) matches SPITBOL in both modes
+	bash scripts/test_gate_sno_deferred_replacement_keeps_its_capture_mark.sh   # ~15s: a replacement over a pattern-valued variable with a capture keeps its deferred-capture mark (both modes vs SPITBOL)
 	-bash scripts/board_packages.sh   # REPORTED, NOT BLOCKING (MASTER-PLAN I21, task board-packages-into-make-test-reported-then-blocking, D1 stage): runs every vendored package/third-party suite and prints the denominator (suites=/graded=/unproven=). The leading `-` is belt-and-suspenders -- the script's own exit code is already 0 whenever it successfully measured, red constituent suites included, per this stage's own DONE-WHEN -- so a red package suite reports here without failing `make test`; D5 turns the measured floor into a real gate.
 
 pristine-all:  # wipe EVERY cached configuration, not just this one (the pre-s258 behaviour)

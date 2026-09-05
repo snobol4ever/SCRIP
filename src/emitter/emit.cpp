@@ -2224,7 +2224,7 @@ int emit_defer_carve_rbp(void) {
     return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int emit_match_owns_startd(void) { return emit_match_begin_stfh_k_raw() > 0; }
+int emit_match_owns_startd(void) { return emit_match_rbp() || emit_match_begin_stfh_k_raw() > 0; }
 int emit_match_begin_stfh_k(void) { return emit_match_rbp() ? 0 : emit_match_begin_stfh_k_raw(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int emit_arbno_rbp(void) {

@@ -39,7 +39,7 @@ static std::string mend_bank_cursors() {
          ? x86("note", "repl_start")
          + x86("mov", "eax", RDD("rbp", -40))
          + x86("note", "repl_start")
-         + x86("mov", RDD("rbp", -48), "eax")
+         + x86("mov", RDD("rbp", -36), "eax")
          + x86("note", "repl_end")
          + x86("mov", RDQ("rbp", -56), "r14")
          : std::string());
@@ -105,7 +105,7 @@ static std::string release_pump_legacy() {
              + x86("mov", "r15", stfh() ? HKQ(3) : FRQ(_.op_off + 64)))
          + IF(emit_match_rbp() && _.op_dval != 0.0,
                x86("note", "repl_start")
-             + x86("mov", "eax", RDD("rbp", -48))
+             + x86("mov", "eax", RDD("rbp", -36))
              + x86("mov", RDD("r12", 0), "eax")
              + x86("note", "repl_end")
              + x86("mov", "rax", RDQ("rbp", -56))
@@ -184,7 +184,7 @@ static std::string release_pump_one() {
              + x86("mov", "r15", stfh() ? HKQ(3) : FRQ(_.op_off + 64)))
          + IF(emit_match_rbp() && _.op_dval != 0.0,
                x86("note", "repl_start")
-             + x86("mov", "eax", RDD("rbp", -48))
+             + x86("mov", "eax", RDD("rbp", -36))
              + x86("mov", RDD("r12", 0), "eax")
              + x86("note", "repl_end")
              + x86("mov", "rax", RDQ("rbp", -56))
