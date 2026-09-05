@@ -34,6 +34,30 @@ SCRIP="${SCRIP:-$SD/scrip}"; RT_DIR="${RT_DIR:-$SD/out}"; T="${TIMEOUT:-60}"
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority; a private fallback would grade a DIFFERENT LANGUAGE (s189: -bf is the only correct arm)"; exit 2; }
 SBL="$(sbl_correctness_bin)" || exit 2
 FLAGS="$(sbl_lang_flags)"
+# ⛔⭐⭐ CEO-281 CLAUSE (2) -- TWO PROGRAMS ARE GRADED AGAINST CSNOBOL4, AND THE CHOICE IS RULED, NOT CONVENIENT.
+# test5 and test8 are LEGAL SNOBOL4 that SPITBOL declines by I/O ENVIRONMENT rather than by semantics: sbl -bf
+# stops test5 with ERROR 116 (`INPUT(.INPUT,,72)` -- an EMPTY channel, where manual v3.7:1929 requires a valid
+# integer) and test8 with ERROR 160 (`OUTPUT('TITLE',6,'(14H1THIS IS HAND ,110A1)')` -- a third argument that is
+# a FORTRAN FORMAT, not a file name), and in BOTH cases exits 0 carrying a diagnostic instead of an answer.
+# A ref cut from that is a frozen error post-mortem carrying `memory used (bytes)` and `execution time msec` --
+# implementation-specific and nondeterministic -- so NO second implementation can ever byte-match it.
+# ⭐ THE PRECEDENT IS OUR OWN AND IS OLDER THAN THIS ROW: corpus/packages/snobol4/gimpel/ASM_driver.sno:16
+# records the identical choice for the identical reason ("This .ref comes from CSNOBOL4 (snobol4 -b), not from
+# x64/bin/sbl ... CSNOBOL4 is the other sanctioned SNOBOL4 oracle and runs it"), POKER_driver.sno:6 the same for
+# 116 and 248. VERIFIED BY EXECUTION before this arm was written (hq_P 2026-09-05): csnobol4 -b runs test5 to 50
+# lines and test8 to a full bridge deal, both rc=0, with ZERO `ERROR NNN --` banners and ZERO post-mortem lines.
+# ⛔ IT IS NOT A BLANKET SUBSTITUTE, and the NEGATIVE CONTROL is what keeps that honest: csnobol4 exits rc=1 on
+# test1, which sbl answers cleanly in 140 lines. So the set is the ruled TWO **by name** -- never "whatever sbl
+# happened to refuse", which is the count-shaped reading the ceo's own wording forbids: a class is a list a
+# census produced, never a count.
+CSN_GRADED="${SPITBOL_TESTPGMS_CSNOBOL4_SET:-test5 test8}"
+CSN=""
+for _g in $CSN_GRADED; do
+    if [ -f "$SUITE/$_g.spt" ]; then
+        CSN="$(csnobol4_bin)" || { echo "⛔ REFUSE(rc=2): $_g is graded against CSNOBOL4 by CEO-281 clause (2) and the oracle is unreachable -- grading it against sbl instead would silently re-cut the error post-mortem this ruling exists to stop"; exit 2; }
+        break
+    fi
+done
 W="$(mktemp -d "${TMPDIR:-/tmp}/spitbol_testpgms.XXXXXX")" || { echo "⛔ REFUSE(rc=2): mktemp failed"; exit 2; }
 trap 'rm -rf "$W"' EXIT
 cp -a "$SUITE"/. "$W/" || { echo "⛔ REFUSE(rc=2): could not copy the suite to a scratch cwd -- refusing to grade in the vendored dir"; exit 2; }
@@ -44,9 +68,18 @@ TOTAL=0; SCORED=0; UNSCR=0; M3P=0; M3F=0; M4P=0; M4F=0; UNSCR_LINES=""; RED_LINE
 for p in $progs; do
     TOTAL=$((TOTAL+1))
     src="$W/$p.spt"
+    # ── WHICH ORACLE GRADES THIS PROGRAM (CEO-281 clause 2). Ruled BY NAME above; never inferred here from a
+    # failure, because "the oracle refused it" is exactly the reasoning that would quietly grow this set.
+    # ⛔ $cmpt REACHES BOTH MODES BELOW, and that is not a detail: test_snobol4_csnobol4_suite.sh:139 already
+    # paid for this lesson -- "A runner that passed only the flag would grade m3 under CSNOBOL4 and m4 under
+    # SPITBOL and report the split as a mode divergence -- the wrong answer in the shape hardest to attribute."
+    case " $CSN_GRADED " in
+        *" $p "*) okind=csnobol4; obin="$CSN"; oflags="-b";     cmpt="--compat=csnobol4" ;;
+        *)        okind=sbl;      obin="$SBL"; oflags="$FLAGS"; cmpt="" ;;
+    esac
     # ── the oracle, in the scratch dir, fed the shared stdin file. Status FIRST, bytes never.
     ora="$W/$p.oracle"
-    (cd "$W" && timeout "$T" "$SBL" $FLAGS "$p.spt" < "$W/testpgms.in" > "$ora" 2>/dev/null); orc=$?
+    (cd "$W" && timeout "$T" "$obin" $oflags "$p.spt" < "$W/testpgms.in" > "$ora" 2>/dev/null); orc=$?
     if [ "$orc" -ne 0 ]; then
         UNSCR=$((UNSCR+1))
         # ⛔ NAME A SIGNAL ONLY WHEN 128+n IS A PLAUSIBLE SIGNAL NUMBER. A program may legitimately EXIT with a
@@ -85,8 +118,17 @@ for p in $progs; do
     # ⛔ THIS DOES NOT DECIDE WHAT TO DO ABOUT THE FIVE. Grading them against csnobol4 (as gimpel's
     # ASM_driver.sno already does for this class) is with the ceo as a ruling; this arm only stops calling a
     # non-answer an answer. The honest board reads WORSE (scored 3, unscored 5) and that is the point.
-    _diag="$(grep -m1 -E 'ERROR [0-9]+ --' "$ora" 2>/dev/null)"
-    _pm="$(grep -cE '^(in line|stmts executed|memory used \(bytes\)|memory left \(bytes\))' "$ora" 2>/dev/null || echo 0)"
+    # ⛔ THIS ARM IS SPITBOL-SPECIFIC AND IS NOW SCOPED TO THE sbl ORACLE. It keys on SPITBOL's own listing
+    # format (the `ERROR NNN --` banner plus its post-mortem block) and on SPITBOL's habit of reporting a FATAL
+    # error while exiting 0. CSNOBOL4 does neither: it signals by STATUS -- measured rc=1 on test1 -- so the
+    # `orc -ne 0` arm above already covers it, and running this grep over csnobol4 output would only invite a
+    # false UNSCORED the day a program legitimately PRINTS the words "ERROR 116 --" as part of its answer.
+    # ⭐ test5 is exactly that hazard: its own answer quotes SPITBOL diagnostics back as data.
+    _diag=""; _pm=0
+    if [ "$okind" = sbl ]; then
+        _diag="$(grep -m1 -E 'ERROR [0-9]+ --' "$ora" 2>/dev/null)"
+        _pm="$(grep -cE '^(in line|stmts executed|memory used \(bytes\)|memory left \(bytes\))' "$ora" 2>/dev/null || echo 0)"
+    fi
     if [ -n "$_diag" ] && [ "$_pm" -ge 2 ]; then
         UNSCR=$((UNSCR+1))
         _errno="$(printf '%s' "$_diag" | sed -n 's/.*\(ERROR [0-9]*\) --.*/\1/p')"
@@ -96,11 +138,11 @@ for p in $progs; do
     fi
     SCORED=$((SCORED+1))
     # ── mode 3 and mode 4, same scratch cwd, same stdin.
-    m3="$W/$p.m3"; (cd "$W" && timeout "$T" "$SCRIP" "$p.spt" < "$W/testpgms.in" > "$m3" 2>/dev/null); r3=$?
+    m3="$W/$p.m3"; (cd "$W" && timeout "$T" "$SCRIP" $cmpt "$p.spt" < "$W/testpgms.in" > "$m3" 2>/dev/null); r3=$?
     if cmp -s "$ora" "$m3"; then M3P=$((M3P+1)); else M3F=$((M3F+1)); RED_LINES="$RED_LINES  RED  $p m3 (rc=$r3, first diff: $(diff "$ora" "$m3" 2>/dev/null | head -2 | tr '\n' ' ' | cut -c1-100))
 "; fi
     s4="$W/$p.s"; b4="$W/$p.bin"
-    (cd "$W" && timeout "$T" "$SCRIP" --compile "$p.spt" > "$s4" 2>/dev/null) </dev/null
+    (cd "$W" && timeout "$T" "$SCRIP" $cmpt --compile "$p.spt" > "$s4" 2>/dev/null) </dev/null
     m4="$W/$p.m4"; r4=0
     if [ -s "$s4" ] && gcc -no-pie "$s4" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -o "$b4" 2>/dev/null; then
         (cd "$W" && timeout "$T" "$b4" < "$W/testpgms.in" > "$m4" 2>/dev/null); r4=$?
@@ -112,7 +154,7 @@ for p in $progs; do
 done
 SCRIP_HASH="$(git -C "$SD" rev-parse --short HEAD 2>/dev/null || echo '?')"
 CORP_HASH="$(git -C "$ROOT/corpus" rev-parse --short HEAD 2>/dev/null || echo '?')"
-echo "SPITBOL_TESTPGMS_BOARD total=$TOTAL scored=$SCORED unscored=$UNSCR m3_pass=$M3P m3_fail=$M3F m4_pass=$M4P m4_fail=$M4F -- SCRIP $SCRIP_HASH corpus $CORP_HASH RT_OPT=-O0 oracle=sbl-bf refs cut live"
+echo "SPITBOL_TESTPGMS_BOARD total=$TOTAL scored=$SCORED unscored=$UNSCR m3_pass=$M3P m3_fail=$M3F m4_pass=$M4P m4_fail=$M4F -- SCRIP $SCRIP_HASH corpus $CORP_HASH RT_OPT=-O0 oracle=sbl-bf except {$CSN_GRADED}=csnobol4-b per CEO-281 refs cut live"
 printf '%s' "$UNSCR_LINES"
 printf '%s' "$RED_LINES"
 # ⛔ ZERO SCORED IS UNMEASURED, NEVER GREEN. If the oracle ever dies on all four, every counter above reads 0
@@ -125,7 +167,7 @@ if [ -f "$HERE/lib_gate.sh" ]; then
     . "$HERE/lib_gate.sh" 2>/dev/null || true
     if command -v gate_score_row >/dev/null 2>&1; then
         GATE_NAME=test_snobol4_spitbol_testpgms_suite
-        gate_score_row snobol4 vendor "spitbol_testpgms $M3P/$SCORED m3 · $M4P/$SCORED m4 (of $TOTAL shipped, $UNSCR UNSCORED because the shared oracle SIGSEGVs on them, refs cut live, \`test_snobol4_spitbol_testpgms_suite.sh\`)" "m3,m4" || true
+        gate_score_row snobol4 vendor "spitbol_testpgms $M3P/$SCORED m3 · $M4P/$SCORED m4 (of $TOTAL shipped, $UNSCR UNSCORED -- sbl answers neither, by SIGSEGV or by a fatal listing at rc=0; test5+test8 graded vs csnobol4 -b under --compat=csnobol4 per CEO-281; refs cut live, \`test_snobol4_spitbol_testpgms_suite.sh\`)" "m3,m4" || true
     fi
 fi
 [ "$M3F" = 0 ] && [ "$M4F" = 0 ]
