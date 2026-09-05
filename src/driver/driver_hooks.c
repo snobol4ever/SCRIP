@@ -9,6 +9,16 @@ DESCR_t _eval_str_impl_fn(const char *s) {
 int _label_exists_fn(const char *name) {
     return label_lookup(name) != NULL;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_label_table_install(const char *const *names, int count) {
+    for (int i = 0; i < count; i++) {
+        int idx = stage2_label_grow(&g_stage2);
+        g_stage2.label_table[idx].name = names[i];
+        g_stage2.label_table[idx].stmt = (const tree_t *)1;
+    }
+    extern void core_set_label_exists_hook(int (*fn)(const char *));
+    core_set_label_exists_hook(_label_exists_fn);
+}
 DESCR_t _builtin_IDENT(DESCR_t *args, int nargs);
 DESCR_t _builtin_DIFFER(DESCR_t *args, int nargs);
 DESCR_t _builtin_DATA(DESCR_t *args, int nargs);

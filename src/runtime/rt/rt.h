@@ -103,6 +103,7 @@ void rt_proc_set_zstatic(const char *name, int bit);
 long rt_fn_zstatic_known(void *fn);
 int  rt_proc_frame_nslots(const char *name);
 int  rt_proc_decl_level(const char *name);
+int  rt_proc_name_exists(const char *name);
 void rt_proc_set_byref(const char *name, uint64_t mask);
 uint64_t rt_proc_byref_mask(const char *name);
 DESCR_t *rt_gvar_cell(const char *name);

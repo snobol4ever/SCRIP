@@ -25,5 +25,6 @@ DESCR_t _builtin_DATA   (DESCR_t *args, int nargs);
 DESCR_t _builtin_print  (DESCR_t *args, int nargs);
 DESCR_t _usercall_hook  (const char *name, DESCR_t *args, int nargs);
 int     _label_exists_fn(const char *name);
+void    rt_label_table_install(const char *const *names, int count);
 DESCR_t _eval_str_impl_fn(const char *s);
 #endif

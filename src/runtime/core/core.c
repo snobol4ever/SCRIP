@@ -3072,7 +3072,7 @@ int FNCEX_fn(const char *name) {
     unsigned h = _func_hash(name);
     for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next)
         if (strcmp(e->name, name) == 0) return 1;
-    return 0;
+    { extern int rt_proc_name_exists(const char *); return rt_proc_name_exists(name); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int FUNC_NPARAMS_fn(const char *fname) {
