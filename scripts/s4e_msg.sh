@@ -453,7 +453,7 @@ s4e_is_hq() { case "$1" in hq|hq_C|hq_P|hq_B|hq_T|ceo) return 0;; *) return 1;; 
 s4e_topic_lane() {
     local _t="$1" _owner
     _owner="$(qrow "$_t" | cut -f3)"
-    case "$_owner" in hq_C|hq_B|hq_P|hq_T) printf '%s' "$_owner"; return 0;; esac
+    case "$_owner" in hq_C|hq_B|hq_P|hq_T|hq_U) printf '%s' "$_owner"; return 0;; esac
     case "$_t" in
       prolog-*)                      printf 'hq_C';;
       icon-*)                        printf 'hq_B';;
@@ -472,11 +472,11 @@ s4e_topic_lane() {
 # of every row in the queue.
 s4e_my_lane() {
     case "$ME" in
-      hq_C|hq_B|hq_P|hq_T) printf '%s' "$ME"; return 0;;
+      hq_C|hq_B|hq_P|hq_T|hq_U) printf '%s' "$ME"; return 0;;
       seat*) local _f="$PO/$ME/HQ" _l
              [ -f "$_f" ] || return 0
              _l="$(head -1 "$_f" | tr -d '[:space:]')"
-             case "$_l" in hq_C|hq_B|hq_P|hq_T) printf '%s' "$_l";; esac ;;
+             case "$_l" in hq_C|hq_B|hq_P|hq_T|hq_U) printf '%s' "$_l";; esac ;;
     esac
 }
 # ⭐⭐ THE MODE LANGUAGE FREEZE -- next-dependency-promotion-walks-around-the-mode-lane-filter, item (3):
@@ -806,10 +806,10 @@ s4e_backfill_owner_lane() {
   _cur="$(printf '%s' "$_row" | cut -f3)"
   case "$_cur" in ''|unassigned) : ;; *) return 0;; esac   # already set -- not this function's decision to change
   case "$_seat" in
-    hq_C|hq_B|hq_P|hq_T) _lane="$_seat" ;;
+    hq_C|hq_B|hq_P|hq_T|hq_U) _lane="$_seat" ;;
     seat*) [ -f "$PO/$_seat/HQ" ] && _lane="$(head -1 "$PO/$_seat/HQ" | tr -d '[:space:]')" ;;
   esac
-  case "${_lane:-}" in hq_C|hq_B|hq_P|hq_T) : ;; *) return 1;; esac   # undeterminable -- leave blank rather than guess
+  case "${_lane:-}" in hq_C|hq_B|hq_P|hq_T|hq_U) : ;; *) return 1;; esac   # undeterminable -- leave blank rather than guess
   local _lk="$PO/.mint.lock" _got=0 _i _tmp
   for _i in $(seq 1 20); do mkdir "$_lk" 2>/dev/null && { _got=1; break; }; sleep 0.1; done
   [ "$_got" = 1 ] || return 1
@@ -1542,8 +1542,8 @@ case "$cmd" in
          # language (a postoffice/tooling/meta row, this fix's own first victim) needs the flag; asking for
          # it there, once, is cheaper than another blank cell nobody catches until a seat wanders into it.
          owner=""
-         if [ "${1:-}" = "--owner" ]; then owner="${2:?--owner needs an hq_C|hq_B|hq_P|hq_T argument}"; shift 2
-           case "$owner" in hq_C|hq_B|hq_P|hq_T) : ;; *) echo "⛔ REFUSED: --owner must be one of hq_C hq_B hq_P hq_T, not '$owner'." >&2; exit 2;; esac; fi
+         if [ "${1:-}" = "--owner" ]; then owner="${2:?--owner needs an hq_C|hq_B|hq_P|hq_T|hq_U argument}"; shift 2
+           case "$owner" in hq_C|hq_B|hq_P|hq_T|hq_U) : ;; *) echo "⛔ REFUSED: --owner must be one of hq_C hq_B hq_P hq_T hq_U, not '$owner'." >&2; exit 2;; esac; fi
          if [ "${1:-}" = "--stdin" ] || [ "${1:-}" = "-" ]; then goal="$(cat)"; else goal="$*"; fi
          # ⛔ THE TOPIC BECOMES A FILENAME TWICE OVER (a QUEUE.tsv row AND tasks/<topic>.task.md) — same guard
          # as send (s191), checked before either write, not after.
@@ -1622,7 +1622,7 @@ TASKEOF
            hq|hq_?) case "$_mode" in
                       CEO) _refuse_dispatch "an HQ" "Under CEO no HQ is standing -- the ceo works the rows itself.";; esac;;
            seat*)   case "$_mode" in
-                      CEO|DUO|DUET|TRIO|QUARTET) _refuse_dispatch "a fleet seat" "There is NO FLEET in $_mode -- only the ceo and the HQs work rows. (DUO is the pre-rename spelling of DUET and is refused too.)";; esac;;
+                      CEO|DUO|DUET|TRIO|QUARTET|QUINTET) _refuse_dispatch "a fleet seat" "There is NO FLEET in $_mode -- only the ceo and the HQs work rows. (DUO is the pre-rename spelling of DUET and is refused too.)";; esac;;
          esac
          # ⛔⭐ s265 — A STALE CLONE SILENTLY REVERTS TO PRE-V2 DISPATCH, AND THAT IS NOW A REFUSAL, NOT A WARNING.
          # Measured the same day by TWO seats: seat09's clone was 79 commits behind and seat13's was 2, so both ran
