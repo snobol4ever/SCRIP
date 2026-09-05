@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
-# test_icon_ipl_suite.sh -- grades corpus/packages/icon/ipl: the vendored Icon Program Library (851
-# .icn files across gprogs/procs/incl/gincl/progs/gprocs) -- a REAL upstream code library, not a test
+# test_icon_ipl_suite.sh -- grades corpus/packages/icon/ipl: the vendored Icon Program Library (every .icn
+# under gprogs/procs/incl/gincl/progs/gprocs -- COUNT IT, never quote a remembered figure:
+#   find corpus/packages/icon/ipl -name '*.icn' | wc -l
+# ⛔ This header said "851 .icn files" until 2026-09-05, when the tree held 852 and had for some time. The
+# runner itself was never wrong -- it computes the population structurally on every run and printed 852 the
+# moment it was asked -- but the stale prose was copied outward into SCORE.md, so a number no instrument
+# ever produced circulated as fact. That is RULES.md TRANSCRIPTION IS WHERE PROVENANCE DIES, committed
+# inside the very script that measures the thing correctly) -- a REAL upstream code library, not a test
 # suite: it ships ZERO .std reference outputs (confirmed: `find $PKG -iname '*.std'` -> 0 files, every
 # run re-confirms this structurally rather than assuming it). Task icon-ipl-runner-and-denominator
 # (hq_T mint, 2026-09-03): "a package suite with no runner is not a suite, it is a directory."
@@ -49,7 +55,7 @@
 #                line) so nothing new is ever silently folded into an existing bucket.
 #
 # SCORE.md: this suite is compile-graded-only (run_graded=0, honestly, because no oracle exists) --
-# per the task's own warning, its numbers are written as bare key=value pairs, NEVER as a bald N/851
+# per the task's own warning, its numbers are written as bare key=value pairs, NEVER as a bald N-over-the-population
 # fraction, so `util_score_row.py`'s cell_fractions() (which scores the ONE LEADERBOARD's overall
 # per-language % from every bare \d+/\d+ it finds) cannot mistake "compiles" for "verified correct".
 # Same convention GNU_SUITE already set: `lib=56` is a bare count, never `56/62`, for exactly this

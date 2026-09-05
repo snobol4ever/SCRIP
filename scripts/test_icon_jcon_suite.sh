@@ -146,6 +146,34 @@ run_mode() {
     eval "${mode}_TOTAL=$mode_total"
 }
 
+# ⛔⭐ POPULATION LAW (Lon, ruled 2026-09-04 via hq_B for the Arizona suite; brought to jcon by hq_I
+# 2026-09-05 on ceo ruling CEO-294 "jcon onto the arizona population shape"). THE COUNTED POPULATION IS
+# EVERY .icn THIS PACKAGE SHIPS, not merely the subset carrying a .std oracle today. A shipped program with
+# no oracle is UNGRADED -- zero of the population, never PASS -- and it may NEVER be silently dropped from
+# the denominator. SHIPPED/GRADED/GAP are computed fresh on every run, never hand-maintained, and the GAP is
+# NAMED rather than merely counted, so a reader can see exactly which programs are carrying a zero.
+# ⚠️ THIS MOVES THE PUBLISHED FRACTION AND THAT IS THE POINT, NOT A REGRESSION: jcon reported m3 45/81
+# before this landed and reports m3 45/91 after it. Identical passes, honest denominator. Anyone diffing the
+# leaderboard across this commit must read it as a denominator change, not as ten programs breaking.
+SHIPPED=0; GRADED=0; GAP_NAMES=""
+for _icn in "$CORPUS"/*.icn; do
+    [ -f "$_icn" ] || continue
+    SHIPPED=$((SHIPPED+1))
+    _b="$(basename "$_icn" .icn)"
+    if [ ! -f "${_icn%.icn}.std" ]; then GAP_NAMES="$GAP_NAMES $_b(no .std shipped upstream)"; continue; fi
+    case "$_b" in tpp) GAP_NAMES="$GAP_NAMES tpp(.std is jcon PREPROCESSOR text, not program output)"; continue;; esac
+    GRADED=$((GRADED+1))
+done
+GAP=$((SHIPPED-GRADED))
+# ⛔ REFUSE rather than grade a population the census could not read: a zero SHIPPED would make every rate
+# below vacuously perfect and print the success shape over nothing (RULES.md -- a test that cannot measure
+# REFUSES rc=2, it never skips as success).
+if [ "$SHIPPED" -eq 0 ] || [ "$GRADED" -eq 0 ]; then
+    echo "⛔ GATE REFUSES(2): censused shipped=$SHIPPED graded=$GRADED under $CORPUS -- nothing to grade" >&2
+    exit 2
+fi
+echo "=== JCON vendored suite (upstream jcon, unmodified standard Icon) — shipped=$SHIPPED graded=$GRADED gap=$GAP ==="
+
 case "$MODE" in
     all) run_mode m3; run_mode m4 ;;
     m3)  run_mode m3 ;;
@@ -155,7 +183,17 @@ esac
 
 total="${m3_TOTAL:-${m4_TOTAL:-0}}"
 m3p="${m3_PASS:-}"; m4p="${m4_PASS:-}"
-echo "JCON_SUITE_BOARD total=$total m3_pass=${m3p:-n/a} m4_pass=${m4p:-n/a}"
+# ⛔ THE CENSUS AND THE GRADING LOOP MUST AGREE ON WHAT WAS GRADED, and this is the one place that can be
+# checked rather than assumed. They apply the SAME two exclusions by two independent walks; if they ever
+# diverge, one of them is wrong about the population and every rate printed here is unsound. Refuse loudly
+# rather than publish a number whose denominator two parts of this script disagree about.
+if [ "$total" -ne "$GRADED" ]; then
+    echo "⛔ GATE REFUSES(2): census says graded=$GRADED, the grading loop graded total=$total -- the two"  >&2
+    echo "    walks disagree about the population, so neither rate is trustworthy. Reconcile before quoting." >&2
+    exit 2
+fi
+[ -n "$GAP_NAMES" ] && echo "UNGRADED ($GAP of $SHIPPED shipped, zero of the population until graded):$GAP_NAMES"
+echo "JCON_SUITE_BOARD shipped=$SHIPPED graded=$GRADED gap=$GAP total=$total m3_pass=${m3p:-n/a} m4_pass=${m4p:-n/a}"
 # ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05: "any run of a test suite by any
 # session will update the ONE LEADERBOARD"). This records the board line printed just above into
 # .github/SCORE.md -- it RUNS NOTHING, it only writes down what this script already measured.
@@ -163,6 +201,6 @@ echo "JCON_SUITE_BOARD total=$total m3_pass=${m3p:-n/a} m4_pass=${m4p:-n/a}"
 # because a gate that goes red for a reason unrelated to the code is a gate people route around. It
 # warns and names the unrecorded row instead; it has no silent path.
 python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite JCON --modes m3,m4 \
-    --measurer "${S4E_SEAT:-}" --text "m3 ${m3p:-n/a}/$total · m4 ${m4p:-n/a}/$total (\`test_icon_jcon_suite.sh\`)" \
+    --measurer "${S4E_SEAT:-}" --text "m3 ${m3p:-n/a}/$SHIPPED · m4 ${m4p:-n/a}/$SHIPPED (of $SHIPPED shipped, $GRADED graded, $GAP ungraded, \`test_icon_jcon_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
