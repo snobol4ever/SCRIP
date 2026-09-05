@@ -379,19 +379,27 @@ def cmd_write(a):
     # own clause, and no incident has been measured against that narrower path -- guarding it too would be
     # speculative rather than measured, so it is left for a future row if one ever is.
     # ⭐ MODELLED AS A SUPERSESSION, NOT A REFUSAL (see SUPERSEDE_MARKER above for the full reasoning and
-    # why this does not reopen hq_T's REFUSE ruling). `before` rides forward BYTE-FOR-BYTE, so nothing is
-    # lost by construction -- the defensive re-check below is what makes that a proof, not an assumption.
+    # why this does not reopen hq_T's REFUSE ruling). The MOST RECENT reading inside `before` rides
+    # forward BYTE-FOR-BYTE, so nothing live is lost by construction -- the defensive re-check below is
+    # what makes that a proof, not an assumption.
+    # ⛔⭐ FOLD DEPTH IS CAPPED AT ONE ARCHIVED READING (hq_T ruling on
+    # ruling-supersede-fold-approved-with-a-bound). Carrying the FULL `before` forward every time embeds
+    # an already-superseded chain again on every later fold, so the cell grows by its whole history on
+    # every landing -- measured live: the snobol4 board cell is already ~20 KB on one line. Anything past
+    # the first SUPERSEDE_MARKER in `before` was already labelled not-asserted by an earlier fold, so
+    # dropping it loses no claim anyone was still entitled to rely on.
     if a.suite:
         cells[idx] = merge_clause(before, a.suite, text)
     else:
         new_text = text
         lost = cell_prose_loss(before, text)
         if lost:
-            new_text = "%s %s %s" % (text, SUPERSEDE_MARKER, before)
-            still_lost = cell_prose_loss(before, new_text)
+            carried = before.split(SUPERSEDE_MARKER, 1)[0].rstrip()
+            new_text = "%s %s %s" % (text, SUPERSEDE_MARKER, carried)
+            still_lost = cell_prose_loss(carried, new_text)
             if still_lost:
-                die("internal error modelling %s/%s: folding the old reading forward still lost %d "
-                    "sentence(s), which should be impossible when the old text rides forward verbatim -- "
+                die("internal error modelling %s/%s: folding the kept reading forward still lost %d "
+                    "sentence(s), which should be impossible when it rides forward verbatim -- "
                     "hand-edit the cell instead of trusting this writer:\n%s"
                     % (a.lang, a.column, len(still_lost), "\n".join("  - %s" % l for l in still_lost)))
         cells[idx] = new_text
@@ -748,6 +756,37 @@ def cmd_selftest(a):
                       "supersede clause added)")
         except SystemExit as e:
             print("SELFTEST FAIL: cmd_write refused a pure reformat that loses nothing (rc=%s)" % e.code); ok = False
+
+        # ⛔⭐ FOLD DEPTH STAYS CAPPED ACROSS REPEATED FOLDS (hq_T ruling on
+        # ruling-supersede-fold-approved-with-a-bound). The a7/a8 checks above only ever fold ONCE, which
+        # cannot catch a bug that only shows up once `before` already carries a marker of its own -- three
+        # folds in a row is the minimum depth that can. Three genuinely distinct readings (no shared prose,
+        # so every write is a real loss and a real fold) prove the cell keeps exactly one archived reading
+        # no matter how many folds land on it, instead of re-embedding its whole prior self every time.
+        _seed_floor("—")
+        _fold_a = "board reading Alpha: 17 dogs jumped over lake Baldwin at dawn."
+        _fold_b = "measurement Bravo shows: 90 cars parked beside river Clifton at dusk."
+        _fold_c = "observation Charlie found: 60 birds nested inside forest Denton at noon."
+        for _reading in (_fold_a, _fold_b, _fold_c):
+            a9 = A(); a9.lang = "rebus"; a9.column = "floor"; a9.measurer = "selftest"
+            a9.modes = ""; a9.suite = ""; a9.dry_run = False; a9.text = _reading
+            cmd_write(a9)
+        _h5, _r5, _ = find_table(open(SCORE_MD, encoding="utf-8").read().split("\n"))
+        _after3 = _r5["rebus"][1][_fidx]
+        _markers = _after3.count(SUPERSEDE_MARKER)
+        if _markers != 1:
+            print("SELFTEST FAIL: three successive folds left %d SUPERSEDE_MARKER occurrence(s), wanted "
+                  "exactly 1 -- fold depth is not bounded, the cell grows by its whole history on every "
+                  "landing" % _markers); ok = False
+        elif "lake Baldwin" in _after3:
+            print("SELFTEST FAIL: the oldest, twice-superseded reading survived a bounded fold -- dropping "
+                  "it is the whole point of the bound"); ok = False
+        elif "river Clifton" not in _after3 or "forest Denton" not in _after3:
+            print("SELFTEST FAIL: the live reading or its one kept archive did not survive the bounded "
+                  "fold: %r" % _after3); ok = False
+        else:
+            print("SELFTEST: three successive folds keep exactly one archived reading -- the cell stops "
+                  "growing with fold depth instead of accumulating its whole history")
 
         # ⭐ THE MEASURER CONTRACT HAS TWO ARMS AND BOTH ARE TESTED. An absent or placeholder measurer on a
         # KNOWN root is DERIVED (the identity is a fact on disk, not a guess); on an UNKNOWN root there is
