@@ -751,7 +751,7 @@ def run_all_modes(paths, sno_path, expected_text, tmp_root, modes, stdin_text=No
 
 
 # ========================================================== suite writer ===
-def write_suite(entries, out_sno, out_ref, out_in=None):
+def write_suite(entries, out_sno, out_ref, out_in=None, lang=""):
     """Returns True iff a stdin sidecar was written (out_in given AND at least one entry carries stdin) --
     same contract and same write_stdin_sidecar() call as write_block_suite(), which had this parameter from
     the start while this SNOBOL4 twin did not: a stdin-bearing snobol4 family had nowhere to put its input,
@@ -763,9 +763,24 @@ def write_suite(entries, out_sno, out_ref, out_in=None):
     re-converting probe/eval's 21 entries wrote 21 and read back 22, with `ev_fn_beauty_shape` appearing twice, because
     alphabetical order put that one block in the MIDDLE and it absorbed the nine one-liners after it.
     ⛔ Suites written before this fix were correct only BY ACCIDENT OF ORDERING — probe/eval survived because its two
-    blocks happened to be appended last. Do not "simplify" this back into a single loop over `entries`."""
+    blocks happened to be appended last. Do not "simplify" this back into a single loop over `entries`.
+    ⛔⭐ `lang` PICKS THE BANNER'S COMMENT SYNTAX (row every-vendored-package-..., first Icon package via
+    util_build_package_suite.py) -- the hardcoded '*' below is SNOBOL4's comment char, not a suite-format
+    constant; a '*'-banner in a non-SNOBOL4 block is not a comment in that language at all (Icon's is '#'),
+    so the container stops being valid source in its own language. LANG_CONFIGS already carries the right
+    comment_open/close (make_banner_cfg/banner_re_for already existed for this, used by
+    util_build_master_suite.py -- this writer just never took a lang param to reach them). Blank/"snobol4"
+    keeps the exact prior '*' behaviour (every already-built package is lang="" and is unaffected).
+    ⛔ The round-trip self-check below MUST use the same convention it just wrote with, or it silently
+    validates against its own SNOBOL4-flavored default reader while the real bug (wrong comment char for
+    the target language) sails through undetected -- exactly how this shipped unnoticed across 4 SNOBOL4
+    packages before the first non-SNOBOL4 one (jcon_tests) hit it."""
+    lc = LANG_CONFIGS.get(lang) if lang else None
     lines = [e for e in entries if e.kind == "line"]
     blocks = [e for e in entries if e.kind != "line"]
+    if lines and lc:
+        raise ValueError(f"write_suite: lang={lang!r} produced {len(lines)} format-A 'line' entries -- "
+                          f"make_banner_cfg/read_block_suite is untested for anything but a pure-block suite")
     sno_lines, ref_lines = [], []
     for seq, e in enumerate(lines + blocks, 1):
         # ⛔ RENUMBER THE ENTRY ITSELF, not just the banner being printed. This writer reorders
@@ -779,7 +794,8 @@ def write_suite(entries, out_sno, out_ref, out_in=None):
             sno_lines.append(e.sno_lines[0])
             ref_lines.append(e.ref.replace("\n", "\\n"))
         else:
-            banner = make_banner(seq, e.name, xfail=e.xfail)
+            banner = (make_banner_cfg(seq, e.name, lc["comment_open"], lc["comment_close"], xfail=e.xfail)
+                      if lc else make_banner(seq, e.name, xfail=e.xfail))
             sno_lines.append(banner)
             sno_lines.extend(e.sno_lines)
             ref_lines.append(banner)
@@ -788,8 +804,11 @@ def write_suite(entries, out_sno, out_ref, out_in=None):
     Path(out_ref).write_text("\n".join(ref_lines) + "\n")
     # ⛔ ROUND-TRIP OR REFUSE. A writer that cannot be read back is the "lying test" class: it reports success while
     # having destroyed entries. Cheap to check, and it is the only thing standing between an ordering bug and a
-    # silently-corrupted permanent suite.
-    back = read_suite(out_sno, out_ref)
+    # silently-corrupted permanent suite. ⛔ MUST re-read with the SAME banner convention just written (lc's
+    # comment chars via read_block_suite), never the SNOBOL4-flavored read_suite() default -- otherwise this
+    # check "passes" by reading back its own wrong assumption instead of the file it actually wrote.
+    back = (read_block_suite(out_sno, out_ref, banner_re_for(lc["comment_open"], lc["comment_close"]))
+            if lc else read_suite(out_sno, out_ref))
     if len(back) != len(entries) or [e.name for e in back] != [e.name for e in lines + blocks]:
         raise ValueError(f"⛔ SUITE DID NOT ROUND-TRIP: wrote {len(entries)} entries, read back {len(back)}. "
                          f"wrote={[e.name for e in lines + blocks]!r} read={[e.name for e in back]!r}")

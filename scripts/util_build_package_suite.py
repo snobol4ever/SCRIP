@@ -227,6 +227,25 @@ def build(pkg_dir, lang, out_prefix="ALL"):
             print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (oracle died)", file=sys.stderr)
             continue
         if not ora_text.strip():
+            # ⛔⭐ AN EMPTY RUN IS NOT ALWAYS AN EMPTY PROGRAM (measured on jcon_tests, the first package
+            # with argv-consuming entries: 14 of 91 files ship a same-stem `.dat` that JCON's own
+            # `addtest` convention feeds as BOTH argv[1] AND stdin -- test_icon_jcon_suite.sh already
+            # does this correctly. This builder/h.run_oracle() has no argv-passing mechanism at all
+            # (ALL.in covers stdin only), so it invoked these with NEITHER, and several genuinely need
+            # the file to produce anything -- a harness gap, not a fact about the program. ⚠ NOT every
+            # .dat-stem file needs argv: 7 others (endetab/fncs1/io/mffsol/mindfa/others/recent)
+            # produced correct non-empty output through this exact same bare invocation and are already
+            # ABSORBED above, untouched by this branch -- so this reason is scoped to the empty-output
+            # case specifically, never a blanket "has a .dat -> exclude" rule that would demote them.
+            _dat = src.parent / f"{src.stem}.dat"
+            if _dat.is_file():
+                excluded.append((name, "oracle produced EMPTY output when run bare, but a same-stem .dat companion "
+                                            "exists -- likely needs it as argv[1] (JCON addtest convention), and this "
+                                            "builder has no argv-passing mechanism (ALL.in is stdin-only); needs an "
+                                            "ALL.args extension or grading via the package's own dedicated runner, "
+                                            "not a fact about the program's real output"))
+                print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (empty output, has .dat -- likely needs argv, harness gap)", file=sys.stderr)
+                continue
             excluded.append((name, "oracle produced EMPTY output -- refusing to mint a vacuous ref"))
             print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (empty oracle output)", file=sys.stderr)
             continue
@@ -260,7 +279,7 @@ def build(pkg_dir, lang, out_prefix="ALL"):
         h.refuse(f"{pkg_dir}: zero absorbable entries of {tot} shipped -- a container that grades nothing is not a "
                     f"container; NOT-HARNESS-SHAPED accounting written to {out_excl.name} ({tot} named, 0 absorbable)")
 
-    wrote_in = h.write_suite(entries, str(out_sno), str(out_ref), out_in=str(out_in))
+    wrote_in = h.write_suite(entries, str(out_sno), str(out_ref), out_in=str(out_in), lang=lang)
     if not wrote_in and out_in.exists():
         out_in.unlink()
 
@@ -272,21 +291,36 @@ def build(pkg_dir, lang, out_prefix="ALL"):
 
     table_lang = lang or "snobol4"
     cols, _ = m.LANG_TABLES[table_lang]
+    # ⛔⭐ THE `modes` COLUMN (row every-vendored-package-..., hq_T 2026-09-05) -- cmd_run's MIRROR TRAP
+    # guard (this same file, row board-icon-master-runs-the-ast-graded-parser-fixtures /
+    # test_gate_modes_declaration_travels.sh, landed the same day) now REFUSES to grade ANY suite whose
+    # ALL.csv lacks a `modes` column at all, run() called with or without --by-modes-column -- measured
+    # AFTER this fix's need surfaced: `run gimpel/ALL.sno gimpel/ALL.ref --modes m3,m4` (no --lang, an
+    # already-DONE, already-committed SNOBOL4 package) refuses identically. Every package this builder
+    # ever wrote (aisnobol/dotnet/csnobol4_suite/gimpel, all pre-dating that guard) is silently
+    # ungradeable until its ALL.csv is rebuilt with this column -- not an Icon-specific gap. Every entry
+    # this builder ever produces is a normal runnable program (never an ast-only fixture mixed in with
+    # run-graded ones the way the Icon MASTER suite is), so ONE constant value for the whole package is
+    # honest, not a per-entry guess: the language's own LANG_CONFIGS declaration, or "m3,m4" for
+    # blank/snobol4 (every package graded so far was always run `--modes m3,m4`, never `--lang`).
+    pkg_modes = h.LANG_CONFIGS[lang]["modes"] if lang in h.LANG_CONFIGS else "m3,m4"
+    # ⛔ MERGE NOTE (two seats found the identical bug independently the same day -- this row and task
+    # snobol4-aisnobol-csv-missing-modes-column-blocks-measurement): the other fix left `modes` PRESENT
+    # but always "" ("this builder has no ast-graded entries, so empty is the honest declaration").
+    # Traced `_modes_for()`/the MIRROR TRAP guard in corpus_suite_harness.py to settle it rather than
+    # guess: both arms test the string EXACTLY EQUALS "ast", nothing tests presence/absence of a value --
+    # "" and pkg_modes are provably equivalent to every current guard. Kept pkg_modes anyway, not to
+    # relitigate a settled call but because it is strictly more informative for zero behaviour difference
+    # (a human or future tool reading the CSV sees the real grading modes instead of a blank that looks
+    # identical to "nobody declared anything"), and it is already measured working (jcon_tests, gimpel).
     with open(out_csv, "w", newline="") as f:
         w = csv.writer(f, lineterminator="\n")
-        # ⛔ `modes` ALWAYS EMPTY, NEVER OMITTED (task snobol4-aisnobol-csv-missing-modes-column-blocks-
-        # measurement). This builder has no concept of an ast-graded entry -- every entry here is executed,
-        # never --dump-ast-diffed -- so "" is the correct declaration, not a placeholder. But the column
-        # must still be PRESENT: corpus_suite_harness.py's modes_declarations() refuses outright when a
-        # sibling ALL.csv exists with the column wholly absent, regardless of whether any entry needs it,
-        # so an absent column reads as "this suite cannot be graded" rather than "this suite declares
-        # nothing." Present-and-empty is the honest, gradable spelling of "always executed."
         w.writerow(["rank", "entry", "origin", "package", "n_lines", "stdin", "want_rc", "modes"] + [c for c, _fn in cols])
         for e in entries:
             joined = "\n".join(e.sno_lines)
             flags_row = m.attrs_for_text(joined, table_lang)
             w.writerow([e.seq, e.name, f"{pkg_dir.name}__{e.name}", pkg_dir.name, len(e.sno_lines),
-                        1 if e.stdin else 0, e.want_rc, ""] + [flags_row[c] for c, _fn in cols])
+                        1 if e.stdin else 0, e.want_rc, pkg_modes] + [flags_row[c] for c, _fn in cols])
 
     if excluded:
         out_excl.write_text("\n".join(f"{name}: {reason}" for name, reason in sorted(excluded)) + "\n")
