@@ -11,7 +11,16 @@
 # the shape that loses the body, then clears, then demands the body back.  A test that called check normally would pass
 # against the BROKEN code too -- it would prove nothing, which is the vacuous-test class this project is sweeping for.
 #
-# THREE STATES:  rc=0 the body survived  |  rc=1 it was destroyed or mangled  |  rc=2 could not measure
+# ⭐ SCENARIO 2 (added for task postoffice-clear-destroys-unread-messages, the row's own named hazard):
+# a message that arrives strictly AFTER `check` ran -- not merely unread through a truncated pipe, but
+# literally not on disk yet when check wrote .last-check -- and BEFORE `clear` runs. This exercises the
+# OTHER branch of clear's per-file test (the arm scenario 1 never reaches: not-listed-in-.last-check),
+# and additionally demands clear cannot report silent success while a message it never checked is
+# sitting there -- exit 0 with hidden mail is the same "operation reports success while destroying/
+# hiding the payload" shape this row's GOAL names as bigger than the archive itself.
+#
+# THREE STATES, now spanning both scenarios: rc=0 both bodies survived and clear never lied about it |
+# rc=1 a body was destroyed/mangled or clear reported success over hidden mail | rc=2 could not measure
 set -u
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 msg="$here/s4e_msg.sh"
@@ -36,6 +45,30 @@ if [ -z "$found" ]; then
     exit 1
 fi
 grep -qF 'header line that head -1 will show' "$found" || { echo "⛔ FAIL: archived copy is mangled -- header missing from $found"; exit 1; }
-echo "=== POSTOFFICE MESSAGE-DESTRUCTION GATE: body survived a truncated read + clear, recovered from ${found#$S4E_POST/} ==="
-echo "✅ PASS: clear ARCHIVES; a truncated read costs a lookup, not a message"
+echo "=== SCENARIO 1 (truncated read): body survived a truncated read + clear, recovered from ${found#$S4E_POST/} ==="
+
+# --- SCENARIO 2: arrival race (check already ran; clear must not destroy or silently hide what raced in) ---
+export S4E_SEAT=seat02
+mkdir -p "$S4E_POST/seat02/inbox" || { echo "⛔ REFUSE: could not build seat02 sandbox"; exit 2; }
+OLD_CANARY='CANARY-OLD-4b1e02a7-present-before-check-must-be-archived'
+NEW_CANARY='CANARY-RACED-9c6f5d3a-arrived-after-check-must-survive-untouched'
+printf 'FROM ceo TO seat02 RE old\n%s\n' "$OLD_CANARY" > "$S4E_POST/seat02/inbox/1787900000100000000-ceo-old.msg"
+bash "$msg" check >/dev/null 2>&1
+grep -qxF '1787900000100000000-ceo-old.msg' "$S4E_POST/seat02/.last-check" 2>/dev/null || { echo "⛔ REFUSE: check did not record the pre-existing message -- precondition absent, nothing measured"; exit 2; }
+# The race itself: a NEW message lands in the inbox directory after check already ran and wrote .last-check.
+printf 'FROM ceo TO seat02 RE raced\n%s\n' "$NEW_CANARY" > "$S4E_POST/seat02/inbox/1787900000200000000-ceo-raced.msg"
+out2="$(bash "$msg" clear 2>&1)"; rc2=$?
+if [ "$rc2" -eq 0 ]; then echo "⛔ FAIL: clear exited 0 with a raced, unread message still pending -- success must not be reportable while mail is hidden"; echo "$out2"; exit 1; fi
+echo "$out2" | grep -q 'KEPT UNREAD' || { echo "⛔ FAIL: clear did not loudly name the raced message as kept-unread. Output was:"; echo "$out2"; exit 1; }
+if [ ! -f "$S4E_POST/seat02/inbox/1787900000200000000-ceo-raced.msg" ]; then
+    echo "⛔ FAIL: the raced message was DESTROYED -- this is the exact defect task postoffice-clear-destroys-unread-messages was minted for"
+    exit 1
+fi
+grep -qF "$NEW_CANARY" "$S4E_POST/seat02/inbox/1787900000200000000-ceo-raced.msg" || { echo "⛔ FAIL: the raced message survived but its body is mangled"; exit 1; }
+if [ -f "$S4E_POST/seat02/inbox/1787900000100000000-ceo-old.msg" ]; then echo "⛔ FAIL: the old, checked message was never archived -- it should have left the inbox"; exit 1; fi
+found2=$(grep -rlF "$OLD_CANARY" "$S4E_POST/seat02/archive" 2>/dev/null | head -1)
+[ -n "$found2" ] || { echo "⛔ FAIL: the old, checked message was not archived"; exit 1; }
+echo "=== SCENARIO 2 (arrival race): raced message survived untouched in inbox, old message archived, clear exited non-zero and named the hold ==="
+
+echo "✅ PASS: clear ARCHIVES what it checked, PRESERVES what raced in after (never silently), and a truncated read costs a lookup, not a message"
 exit 0
