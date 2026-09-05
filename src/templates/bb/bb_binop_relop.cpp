@@ -11,6 +11,7 @@ int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
 int rt_relop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out);
 int rt_binop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out);
 DESCR_t rt_str_coerce(DESCR_t d);
+void rt_relop_val_coerce(DESCR_t a, DESCR_t b, DESCR_t *out);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -62,10 +63,12 @@ std::string bb_binop_relop() {
              + x86("call", "rt_jct_relop", (uint64_t)(uintptr_t)(void*)rt_jct_relop)
              + x86("test", "eax", "eax")
              + x86_omega("jz")
-             + x86("mov", "rax", FRQ(_.op_sb))
-             + x86("mov", FRQ(_.op_off), "rax")
-             + x86("mov", "rax", FRQ(_.op_sb + 8))
-             + x86("mov", FRQ(_.op_off + 8), "rax")
+             + x86("mov", "rdi", FRQ(_.op_sa))
+             + x86("mov", "rsi", FRQ(_.op_sa + 8))
+             + x86("mov", "rdx", FRQ(_.op_sb))
+             + x86("mov", "rcx", FRQ(_.op_sb + 8))
+             + x86("lea", "r8", FRQ(_.op_off))
+             + x86("call", "rt_relop_val_coerce", (uint64_t)(uintptr_t)(void*)rt_relop_val_coerce)
              + x86_gamma()
              + x86_beta_trampoline()
          : (_.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0

@@ -11,6 +11,7 @@ int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
 int rt_relop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out);
 int rt_binop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out);
 DESCR_t rt_str_coerce(DESCR_t d);
+void rt_relop_val_coerce(DESCR_t a, DESCR_t b, DESCR_t *out);
 }
 #include "x86_asm.h"
 std::string bb_binop_relop_val() {
@@ -42,10 +43,12 @@ std::string bb_binop_relop_val() {
              + x86("call", "rt_jct_relop", (uint64_t)(uintptr_t)(void*)rt_jct_relop)
              + x86("test", "eax", "eax")
              + x86_omega("jz")
-             + x86("mov", "rcx", ZOPQ(1, 0))
-             + x86("mov", ZRES(0), "rcx")
+             + x86("mov", "rdi", ZOPQ(0, 0))
+             + x86("mov", "rsi", ZOPQ(0, 8))
+             + x86("mov", "rdx", ZOPQ(1, 0))
              + x86("mov", "rcx", ZOPQ(1, 8))
-             + x86("mov", ZRES(8), "rcx")
+             + x86("lea", "r8", ZRES(0))
+             + x86("call", "rt_relop_val_coerce", (uint64_t)(uintptr_t)(void*)rt_relop_val_coerce)
              + x86_gamma()
              + x86_beta_trampoline();
     if (_.op_zres && _.op_node_kind == IR_BINOP_RELOP_VAL && !_.op_num_real && _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE)

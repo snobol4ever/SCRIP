@@ -61,6 +61,10 @@ int rt_relop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out) {
     *out = r; extern int rt_is_truthy(DESCR_t v); return rt_is_truthy(r) ? 2 : 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_relop_val_coerce(DESCR_t a, DESCR_t b, DESCR_t *out) {
+    *out = (IS_REAL(a) && !IS_REAL(b)) ? REALVAL(to_real(b)) : b;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t add(DESCR_t a, DESCR_t b) {
     if (IS_FAIL(a) || IS_FAIL(b)) return FAILDESCR;
     if (IS_NULL(a)) a = INTVAL(0);
