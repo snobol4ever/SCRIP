@@ -3,6 +3,7 @@
 #include "sil_macros.h"
 #include "keywords.h"
 #include "rtx/rtcc.h"
+#include <math.h>
 #include <time.h>
 #include <unistd.h>
 const char  *cset_canonical(const char *cs, int len);
@@ -232,7 +233,12 @@ void rt_kw_set_rtntype_role(int role) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int kwb_numeric_text(const char *s) {
     if (!s) return 0;
-    char *end = (char *)0; (void)strtod(s, &end);
+    const char *q = s;
+    while (*q == ' ' || *q == '\t' || *q == '\n' || *q == '\r' || *q == '\f' || *q == '\v') q++;
+    if (*q == '+' || *q == '-') q++;
+    if (q[0] == '0' && (q[1] == 'x' || q[1] == 'X')) return 0;
+    char *end = (char *)0; double d = strtod(s, &end);
+    if (end && end != s && !isfinite(d)) return 0;
     const char *p = (end && end != s) ? (const char *)end : s;
     while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r' || *p == '\f' || *p == '\v') p++;
     return *p == '\0';
