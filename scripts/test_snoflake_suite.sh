@@ -136,8 +136,21 @@ oracle_equal() { # $1=scrip output  $2=oracle output -- equal, or the SAME ERROR
     ea="$(printf '%s' "$1" | grep -oiE 'ERROR +[0-9]+' | head -1 | grep -oE '[0-9]+')"
     eb="$(printf '%s' "$2" | grep -oiE 'ERROR +[0-9]+' | head -1 | grep -oE '[0-9]+')"
     [ -n "$ea" ] && [ "$ea" = "$eb" ]; }
-compile_m4() { local sno="$1" out="$2" t; t="$(mktemp -d)"
-    SNO_LIB="$GIMPEL" "$SCRIP" --compile "$sno" > "$t/p.s" 2>/dev/null || { rm -rf "$t"; return 1; }
+compile_m4() { local sno="$1" out="$2" t rc; t="$(mktemp -d)"
+    SNO_LIB="$GIMPEL" "$SCRIP" --compile "$sno" > "$t/p.s" 2>"$t/compile.err"; rc=$?
+    if [ "$rc" -ne 0 ]; then
+        # ⭐ snoflake-sixteen-fixtures-pass-mode-3-and-fail-mode-4 (seat01 2026-09-04): a `SCRIP: ERROR N -- ...`
+        # here is a GRADED PROGRAM ANSWER, same class as run_one's m3 crash-and-print (header comment (2)
+        # above) -- not a toolchain failure. It happens at compile time only because literal top-level DEFINE
+        # is prescanned ahead of codegen (lower_snobol4.c), unlike every other SNOBOL4 runtime error, which
+        # compiles fine and only raises at execution. Recognize this ONE shape and let oracle_equal grade it
+        # by ERROR NUMBER like any other error; anything else (segfault, an unrecognized message, no
+        # diagnostic at all) is a real toolchain failure and stays SKIP(cc), rc=1.
+        CTERR="$(cat "$t/compile.err")"; rm -rf "$t"
+        printf '%s' "$CTERR" | grep -qE '^SCRIP: ERROR [0-9]+ -- ' && return 2
+        return 1
+    fi
+    CTERR=""
     gcc -c "$t/p.s" -o "$t/p.o" 2>/dev/null || { rm -rf "$t"; return 1; }
     gcc "$t/p.o" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$out" 2>/dev/null || { rm -rf "$t"; return 1; }
     rm -rf "$t"; }
@@ -164,10 +177,14 @@ for sno in "$SUITE"/*.sno; do
     if oracle_equal "$GOT" "$ORACLE_OUT"; then [ "$NSTD" = 1 ] && N3P=$((N3P+1)) || P3=$((P3+1))
         [ "$ORACLE_MEETS_EXPECT" = 0 ] && { DIA=$((DIA+1)); DIAL="$DIAL $name"; }
     else [ "$NSTD" = 1 ] && N3F=$((N3F+1)) || { F3=$((F3+1)); FL3="$FL3 $name"; }; fi
-    if compile_m4 "$sno" "$W/prog.bin"; then
+    compile_m4 "$sno" "$W/prog.bin"; m4rc=$?
+    if [ "$m4rc" -eq 0 ]; then
         run_one m4 "$sno"
         if oracle_equal "$GOT" "$ORACLE_OUT"; then [ "$NSTD" = 1 ] && N4P=$((N4P+1)) || P4=$((P4+1))
         else [ "$NSTD" = 1 ] && N4F=$((N4F+1)) || { F4=$((F4+1)); FL4="$FL4 $name"; }; fi
+    elif [ "$m4rc" -eq 2 ]; then
+        if oracle_equal "$CTERR" "$ORACLE_OUT"; then [ "$NSTD" = 1 ] && N4P=$((N4P+1)) || P4=$((P4+1))
+        else [ "$NSTD" = 1 ] && N4F=$((N4F+1)) || { F4=$((F4+1)); FL4="$FL4 $name(CTERR)"; }; fi
     else S4=$((S4+1)); FL4="$FL4 $name(CC)"; fi
     if [ -n "$CSN" ]; then
         run_one csn "$sno"
