@@ -63,22 +63,35 @@ case "$COMBINE" in ""|[1-9]*) :;; *) echo "⛔ REFUSED: --combine wants N (a cou
 [ -n "$SHARD" ] && [ -n "$COMBINE" ] && { echo "⛔ REFUSED: --shard and --combine are two different calls, not one"; exit 2; }
 CKPT="${SCRIP_BOARD_CKPT:-/tmp/si_board_shards$(printf '%s' "$S4E" | tr / -)}"
 board_stamp() { printf 'stamp scrip=%s master=%s-%s\n' "$(md5sum < "$SCRIP" | cut -c1-12)" "$(md5sum < "$MASTER_SNO" | cut -c1-12)" "$(md5sum < "$MASTER_REF" | cut -c1-12)"; }
-board_checkpoint_write() {   # <k/N> <board line>
+board_checkpoint_write() {   # <k/N> <run board line> <ast board line>
     local f="$CKPT/master.${1%/*}-of-${1#*/}.board"; mkdir -p "$CKPT" || { echo "⛔ REFUSED: cannot create checkpoint dir $CKPT"; exit 2; }
-    { board_stamp; printf '%s\n' "$2"; } > "$f"
-    echo "SHARD $1 boarded -> $f"; echo "   $2"; echo "   no verdict here: run the other shards, then '$0 --combine ${1#*/}' for the GATE line"
+    { board_stamp; printf '%s\n' "$2"; printf '%s\n' "$3"; } > "$f"
+    echo "SHARD $1 boarded -> $f"; echo "   $2"; echo "   $3"; echo "   no verdict here: run the other shards, then '$0 --combine ${1#*/}' for the GATE line"
 }
-board_combine() {   # <N> -> prints ONE synthesized SUITE_BOARD line on stdout; refusals on stderr, rc 2
-    local n="$1" k f want="$(board_stamp)" got line; declare -A sum; local -a keys=()
+# ⛔⭐ BOTH POPULATIONS OR NEITHER (hq_B 2026-09-05). The master is graded by TWO board lines since the run below
+# carries --by-modes-column: SUITE_BOARD over the run-graded entries and SUITE_BOARD_AST over the ones whose .ref is
+# a --dump-ast dump. Summing only the run line would hand --combine's caller a verdict that LOOKS whole while the ast
+# population went ungraded -- the silently-narrowed denominator this runner refuses everywhere else, reintroduced by
+# the very change that removed the loud refusal. A combined board must lose nothing the monolithic run had.
+# ⭐ `shard` is EXCLUDED from the sum: it matches the generic key pattern, so the old loop summed 1/3+2/3+3/3 and
+# printed `shard=6` on a line that grades no shard at all. Harmless to field(), and a plain lie to a human reader.
+board_combine() {   # <N> -> prints the synthesized SUITE_BOARD and SUITE_BOARD_AST lines on stdout; refusals on stderr, rc 2
+    local n="$1" k f want="$(board_stamp)" got line prefix key kv
     for k in $(seq 1 "$n"); do
         f="$CKPT/master.$k-of-$n.board"
         [ -f "$f" ] || { echo "⛔ GATE REFUSES: checkpoint for shard $k/$n missing at $f -- run '$0 --shard $k/$n' first; a partial sum is not a board" >&2; return 2; }
         got="$(sed -n 1p "$f")"; [ "$got" = "$want" ] || { echo "⛔ GATE REFUSES: checkpoint $k/$n was cut on a different tree ($got vs now $want) -- stale by construction, re-run that shard" >&2; return 2; }
-        line="$(grep -m1 '^SUITE_BOARD ' "$f")"; [ -n "$line" ] || { echo "⛔ GATE REFUSES: checkpoint $k/$n carries no SUITE_BOARD line" >&2; return 2; }
-        echo "$line" | grep -q " shard=$k/$n " || { echo "⛔ GATE REFUSES: checkpoint $k/$n's board is tagged '$(echo "$line" | grep -oE 'shard=[0-9/]+')', not shard=$k/$n" >&2; return 2; }
-        for kv in $(echo "$line" | grep -oE '[a-z0-9_]+=[0-9]+'); do key="${kv%%=*}"; [ -n "${sum[$key]+x}" ] || keys+=("$key"); sum[$key]=$(( ${sum[$key]:-0} + ${kv#*=} )); done
     done
-    printf 'SUITE_BOARD family=ALL combined=%s' "$n"; for key in "${keys[@]}"; do printf ' %s=%s' "$key" "${sum[$key]}"; done; printf '\n'
+    for prefix in SUITE_BOARD SUITE_BOARD_AST; do
+        unset sum; declare -A sum; local -a keys=()
+        for k in $(seq 1 "$n"); do
+            f="$CKPT/master.$k-of-$n.board"
+            line="$(grep -m1 "^$prefix " "$f")"; [ -n "$line" ] || { echo "⛔ GATE REFUSES: checkpoint $k/$n carries no $prefix line -- it predates the two-population board; re-run '$0 --shard $k/$n'" >&2; return 2; }
+            echo "$line" | grep -q " shard=$k/$n " || { echo "⛔ GATE REFUSES: checkpoint $k/$n's $prefix is tagged '$(echo "$line" | grep -oE 'shard=[0-9/]+')', not shard=$k/$n" >&2; return 2; }
+            for kv in $(echo "$line" | grep -oE '[a-z0-9_]+=[0-9]+' | grep -v '^shard='); do key="${kv%%=*}"; [ -n "${sum[$key]+x}" ] || keys+=("$key"); sum[$key]=$(( ${sum[$key]:-0} + ${kv#*=} )); done
+        done
+        printf '%s family=ALL combined=%s' "$prefix" "$n"; for key in "${keys[@]}"; do printf ' %s=%s' "$key" "${sum[$key]}"; done; printf '\n'
+    done
 }
 TMOUT3=0; TMOUT4=0; TMOUT_LIST=""
 INC="${INC:-$CORPUS/include}"
@@ -277,12 +290,35 @@ fi
 # no alarm, no atexit. Its only kill is subprocess.run(timeout=) on a CHILD, which yields a HANG verdict and still
 # boards. A missing board therefore means the harness PROCESS died: an external event.
 _hout="$(mktemp)"; _herr="$(mktemp)"
+# ⛔⭐⭐ --by-modes-column IS MANDATORY HERE, AND ITS ABSENCE MADE THIS RUNNER UNABLE TO MEASURE AT ALL (hq_B
+# 2026-09-05). 28 of the master's entries declare `modes=ast` in ALL.csv -- their .ref is a `--dump-ast` DUMP, not
+# program output -- and asking for `--modes m3,m4` without this flag would EXECUTE them and diff them against an AST
+# dump they were never meant to match. The harness refuses that outright (rc=2, no SUITE_BOARD line), which is the
+# right call and is exactly what it did: the SNOBOL4 master, the control arm every seat grades a landing on, produced
+# a REFUSAL rather than a verdict from the moment the parser fixtures were absorbed. ⭐ The refusal was honest and
+# loud and still cost the whole fleet its instrument -- a check that cannot be satisfied is as blocking as one that
+# lies, it just fails in the direction you can trust. board_icon_master.sh, test_gate_pascal_m{3,4}.sh and
+# test_raku_ir_full_suite.sh all pass this flag already; SNOBOL4's master was the one that never did.
 if [ -n "$COMBINE" ]; then
-    board=$(board_combine "$COMBINE") || { rm -f "$_hout" "$_herr"; exit 2; }; harness_rc=0
+    _combined=$(board_combine "$COMBINE") || { rm -f "$_hout" "$_herr"; exit 2; }; harness_rc=0
+    board=$(printf '%s\n' "$_combined" | grep '^SUITE_BOARD ')
+    ast_board=$(printf '%s\n' "$_combined" | grep '^SUITE_BOARD_AST ')
     echo "master: COMBINED from $COMBINE shard checkpoints under $CKPT (each stamped with this binary and master)"
 else
-    run_harness run "$MASTER_SNO" "$MASTER_REF" --modes m3,m4 ${SHARD:+--shard "$SHARD"} > "$_hout" 2> "$_herr"; harness_rc=$?
+    run_harness run "$MASTER_SNO" "$MASTER_REF" --modes m3,m4 --by-modes-column ${SHARD:+--shard "$SHARD"} > "$_hout" 2> "$_herr"; harness_rc=$?
     board=$(grep '^SUITE_BOARD ' "$_hout")
+    ast_board=$(grep '^SUITE_BOARD_AST ' "$_hout")
+fi
+# ⛔ AND THE SECOND BOARD IS CHECKED THE SAME WAY. With --by-modes-column the harness prints SUITE_BOARD_AST
+# UNCONDITIONALLY (total=0 if the ast population is empty), so its absence is never "no ast entries" -- it is a
+# harness that did not honour the flag, and grading on the run line alone would then be a verdict over an unknown
+# fraction of the suite. Refuse, never assume zero: a census that cannot see its population must not print 0.
+if [ -z "$ast_board" ] && [ -n "$board" ]; then
+    echo "⛔ GATE REFUSES: harness printed SUITE_BOARD but no SUITE_BOARD_AST line -- --by-modes-column was not honoured"
+    echo "   REFUSAL cause=harness-printed-no-ast-board signal=none rc=${harness_rc}"
+    echo "   CAUSE: the ast-graded entries (ALL.csv modes=ast) would go ungraded while the board still printed a total."
+    sed -n '1,40p' "$_herr" | sed 's/^/     | /'
+    rm -f "$_hout" "$_herr"; exit 2
 fi
 if [ -z "$board" ]; then
     echo "⛔ GATE REFUSES: harness produced no SUITE_BOARD line for the master suite"
@@ -318,20 +354,38 @@ if [ -z "$board" ]; then
     rm -f "$_hout" "$_herr"; exit 2
 fi
 rm -f "$_hout" "$_herr"
-if [ -n "$SHARD" ]; then board_checkpoint_write "$SHARD" "$board"; exit 0; fi
+if [ -n "$SHARD" ]; then board_checkpoint_write "$SHARD" "$board" "$ast_board"; exit 0; fi
 field() { echo "$board" | grep -oE "$1=[0-9]+" | cut -d= -f2; }
 mt=$(field total)
 m3p=$(field m3_pass); m3f=$(field m3_fail); m3c=$(field m3_crash); m3h=$(field m3_hang); m3u=$(field m3_unproven); m3x=$(field m3_xfail); m3xp=$(field m3_xpass)
 m4p=$(field m4_pass); m4f=$(field m4_fail); m4c=$(field m4_crash); m4h=$(field m4_hang); m4u=$(field m4_unproven); m4s=$(field m4_skip); m4x=$(field m4_xfail); m4xp=$(field m4_xpass)
+# ⛔⭐ THE SECOND POPULATION, GRADED HERE OR NOWHERE (hq_B 2026-09-05). The two boards are printed separately and
+# NEVER summed by the harness, deliberately -- their denominators mean different things and one number spanning both
+# could not be read. But "not summed" must not decay into "not read": grading only SUITE_BOARD would print a full,
+# plausible, entirely green verdict with the ast entries graded by nobody. That is the same silently-narrowed
+# population as a hard-coded root list or a truncated listing, and it is reached here by fixing the loud refusal.
+# ⭐ AST IS MODE-INDEPENDENT -- a `--dump-ast` diff is taken once, before either mode's codegen -- so it gets its own
+# counter and its own line rather than being folded into m3/m4, where one red would have to be double-counted to
+# stay symmetric and would then read as two defects.
+afield() { echo "$ast_board" | grep -oE "$1=[0-9]+" | cut -d= -f2; }
+astt=$(afield total); astp=$(afield ast_pass); astf=$(afield ast_fail); astc=$(afield ast_crash)
+asth=$(afield ast_hang); astu=$(afield ast_unproven); astx=$(afield ast_xfail); astxp=$(afield ast_xpass)
+ASTFAIL=$(( ${astf:-0} + ${astc:-0} ))
 PASS3=$((PASS3+m3p)); FAIL3=$((FAIL3+m3f+m3c)); TMOUT3=$((TMOUT3+m3h+m3u))
 PASS4=$((PASS4+m4p)); FAIL4=$((FAIL4+m4f+m4c)); TMOUT4=$((TMOUT4+m4h+m4u)); SKIP4=$((SKIP4+m4s))
 [ "$((m3f+m3c))" -gt 0 ] && FAILURES3="${FAILURES3}  FAIL-M3 suite:master (rerun: python3 $HARNESS run $MASTER_SNO $MASTER_REF --modes m3; per-entry attributes: ALL.csv)\n"
 [ "$((m4f+m4c))" -gt 0 ] && FAILURES4="${FAILURES4}  FAIL suite:master (rerun: python3 $HARNESS run $MASTER_SNO $MASTER_REF --modes m4; per-entry attributes: ALL.csv)\n"
 echo "master: total=$mt · m3 xfail=$m3x xpass=$m3xp · m4 xfail=$m4x xpass=$m4xp"
+echo "master-ast: total=$astt pass=$astp FAIL=$ASTFAIL (fail=${astf:-0} crash=${astc:-0} hang=${asth:-0} unproven=${astu:-0}) · xfail=$astx xpass=$astxp — graded by --dump-ast diff, once, not per mode"
+[ "$ASTFAIL" -gt 0 ] && FAILURES4="${FAILURES4}  FAIL suite:master-ast $ASTFAIL entr(y/ies) (rerun: python3 $HARNESS run $MASTER_SNO $MASTER_REF --modes m3,m4 --by-modes-column 2>&1 | grep -E '^ *(FAIL|CRASH) ast')\n"
 [ "$((m3xp+m4xp))" -gt 0 ] && echo "⭐ XPASS>0: a bug got FIXED and its XFAIL marker was never promoted -- as actionable as a failure, in the opposite direction (names: python3 $HARNESS run ... | grep XPASS)"
-if [ "$mt" -lt "$MASTER_ENTRY_FLOOR" ]; then
-    MISSING=$((MISSING+MASTER_ENTRY_FLOOR-mt))
-    MISSING_LIST="${MISSING_LIST}  master-entry-count: master total ${mt} is under the floor ${MASTER_ENTRY_FLOOR} -- entries vanished from the master, or this checkout is behind origin\n"
+# ⛔ THE FLOOR IS OVER THE WHOLE MASTER, NOT THE RUN HALF (hq_B 2026-09-05). SUITE_BOARD's `total` counts only the
+# run-graded entries once --by-modes-column is on, so flooring on `mt` alone would silently lower the bar by the size
+# of the ast population -- and a floor that shrinks when entries move between populations is not a floor.
+_mt_all=$(( mt + ${astt:-0} ))
+if [ "$_mt_all" -lt "$MASTER_ENTRY_FLOOR" ]; then
+    MISSING=$((MISSING+MASTER_ENTRY_FLOOR-_mt_all))
+    MISSING_LIST="${MISSING_LIST}  master-entry-count: master total ${_mt_all} (run ${mt} + ast ${astt:-0}) is under the floor ${MASTER_ENTRY_FLOOR} -- entries vanished from the master, or this checkout is behind origin\n"
 fi
 
 # ── Beauty library drivers: RETIRED INTO THE MASTER (one-flat-suite cutover 2026-08-29) ──
@@ -518,7 +572,10 @@ fi
 # only thing owed here is that the row carry the caveat the terminal already carries.
 _sn4_killed=""
 [ "$((TMOUT3+TMOUT4))" -gt 0 ] && _sn4_killed=" · ⛔ TIMEOUT-KILLED m3=$TMOUT3 m4=$TMOUT4 at ${TIMEOUT}s/program — NOT graded and NOT failures, so this row is measured over a SHORT denominator: re-run at a quieter moment before quoting it as the population"
-_sn4_board="m3 $PASS3/$TOTAL FAIL=$FAIL3 · m4 $PASS4/$TOTAL FAIL=$FAIL4 SKIP=$SKIP4 MISSING=0$_sn4_killed (\`test_corpus_snobol4.sh\`)"
+# ⛔ THE ROW CARRIES THE AST POPULATION TOO, for the reason the TIMEOUT-KILLED caveat above exists: the terminal
+# reader sees both boards and the leaderboard everybody quotes would have seen only one, which is the two-audiences
+# defect. Fraction form kept on both (util_score_row.py refuses a grid write without one).
+_sn4_board="m3 $PASS3/$TOTAL FAIL=$FAIL3 · m4 $PASS4/$TOTAL FAIL=$FAIL4 SKIP=$SKIP4 · ast $astp/$astt FAIL=$ASTFAIL MISSING=0$_sn4_killed (\`test_corpus_snobol4.sh\`)"
 echo "ONE LEADERBOARD: recording this board into .github/SCORE.md (test_corpus_snobol4.sh; skipped with a notice if the tree is dirty)"
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column board --modes m3,m4 \
     --measurer "${S4E_SEAT:-}" --text "$_sn4_board" \
@@ -526,6 +583,10 @@ python3 "$HERE/util_score_row.py" write --lang snobol4 --column board --modes m3
 # ⭐ THE PROGRESS LINE, after the rewrite (see board_icon_master.sh for the same call and why it is here
 # rather than only in lib_gate.sh: this runner writes its row directly, bypassing gate_score_row).
 python3 "$HERE/util_score_row.py" progress 2>/dev/null || true
-if [ "$FAIL4" -gt 0 ]; then echo "⛔ GATE FAIL: mode-4 FAIL=$FAIL4 (mode-3 FAIL=$FAIL3, informational)"; exit 1; fi
-echo "✅ GATE OK: m3 PASS=$PASS3 FAIL=$FAIL3 · m4 PASS=$PASS4 FAIL=$FAIL4 SKIP=$SKIP4 · MISSING=0"
+# ⛔ AST FAILURES BLOCK. A parser fixture whose --dump-ast diff moved is a real red in the shared front end -- it
+# reaches BOTH modes, so calling it informational the way mode-3 is would be strictly weaker than either mode's bar.
+if [ "$FAIL4" -gt 0 ] || [ "$ASTFAIL" -gt 0 ]; then
+    echo "⛔ GATE FAIL: mode-4 FAIL=$FAIL4 · ast FAIL=$ASTFAIL (mode-3 FAIL=$FAIL3, informational)"; exit 1
+fi
+echo "✅ GATE OK: m3 PASS=$PASS3 FAIL=$FAIL3 · m4 PASS=$PASS4 FAIL=$FAIL4 SKIP=$SKIP4 · ast PASS=$astp FAIL=$ASTFAIL · MISSING=0"
 exit 0
