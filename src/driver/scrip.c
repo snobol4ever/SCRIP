@@ -846,8 +846,8 @@ int main(int argc, char **argv)
         else if (strcmp(argv[argi], "--bench")         == 0) { opt_bench      = 1; argi++; }
         else if (strncmp(argv[argi], "--compat=", 9)   == 0) {
             const char *d = argv[argi] + 9;
-            if      (strcmp(d, "spitbol")  == 0) { unsetenv("SCRIP_SETEXIT_END"); }
-            else if (strcmp(d, "csnobol4") == 0) { setenv("SCRIP_SETEXIT_END", "1", 1); }
+            if      (strcmp(d, "spitbol")  == 0) { unsetenv("SCRIP_SETEXIT_END"); unsetenv("SCRIP_IO_ASSOC_LEGACY"); }
+            else if (strcmp(d, "csnobol4") == 0) { setenv("SCRIP_SETEXIT_END", "1", 1); setenv("SCRIP_IO_ASSOC_LEGACY", "1", 1); }
             else { fprintf(stderr, "scrip: --compat=%s is not a known dialect (spitbol, csnobol4)\n", d); return 2; }
             argi++; }
         else if (strcmp(argv[argi], "--monitor")       == 0) { extern int g_monitor_bin; g_monitor_bin = 1; argi++; }

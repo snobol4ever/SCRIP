@@ -1358,6 +1358,8 @@ static int core_setexit_on(void) { const char *e = getenv("SCRIP_SETEXIT"); retu
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int core_setexit_on_end(void) { const char *e = getenv("SCRIP_SETEXIT_END"); return (e && e[0] == '1') ? 1 : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int core_io_assoc_legacy(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_IO_ASSOC_LEGACY"); v = (e && e[0] == '1') ? 1 : 0; } return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _SETEXIT_(DESCR_t *a, int n) {
     DESCR_t prev = (core_setexit_on() && _setexit_label[0]) ? STRVAL(rt_ws_strdup_c(_setexit_label)) : NULVCL;
     if (n < 1 || a[0].v == DT_FAIL) {
@@ -3243,6 +3245,9 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
         _input_rlen = rlen;
         return NULVCL;
     }
+    if (!core_io_assoc_legacy() && (ch < 0 || strchr(fname, ' '))) {
+        core_runtime_error(116, "inappropriate file specification for input"); return FAILDESCR;
+    }
     FILE *f = fopen(fname, "r");
     if (!f) return FAILDESCR;
     if (ch >= 0 && ch < IO_CHAN_MAX) {
@@ -3284,6 +3289,9 @@ static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
           { const char *vn = (n >= 1) ? _io_varname(a[0]) : NULL;
             _io_chan[ch].varname = vn ? rt_ws_strdup(vn) : NULL; if (vn) g_call_fastpath_off = 1; } }
         return NULVCL;
+    }
+    if (!core_io_assoc_legacy() && (ch < 0 || strchr(fname, ' '))) {
+        core_runtime_error(160, "inappropriate file specification for output"); return FAILDESCR;
     }
     FILE *f = fopen(fname, "w");
     if (!f) return FAILDESCR;
