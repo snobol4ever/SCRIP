@@ -3689,6 +3689,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
                 core_runtime_error(29, "undefined operator referenced");
                 return FAILDESCR;
             }
+            if (!strcmp(fn, "!") && bidlen < 0) { if (IS_INT_fn(a)||IS_REAL_fn(a)) return a; const char *s=VARVAL_fn(a); if (!s||!*s) return FAILDESCR; char *c=(char *)rt_ws_alloc(2); c[0]=s[0]; c[1]='\0'; return BSTRVAL(c, 1); }
         }
         DESCR_t a = (nargs > 0) ? args[0] : NULVCL, b = (nargs > 1) ? args[1] : NULVCL;
         if (!strcmp(fn, "[]")) { extern DESCR_t rt_subscript_var(DESCR_t, DESCR_t); extern DESCR_t rt_deref(DESCR_t); DESCR_t v = rt_subscript_var(a, b); if (IS_FAIL_fn(v)) return FAILDESCR; return rt_deref(v); }
