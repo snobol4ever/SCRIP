@@ -40,6 +40,21 @@ rc=$?
 printf '%s\n' "$OUT"
 
 board="$(printf '%s\n' "$OUT" | grep '^SUITE_BOARD ')"
+if [ -z "$board" ]; then
+  # ⛔ The harness printed no SUITE_BOARD line: it refused before measuring anything (see the REFUSING
+  # line in $OUT above for why -- e.g. ALL.csv missing a `modes` column, corpus_suite_harness.py
+  # c3948a321). Computing shipped/scored/PASS/FAIL from an empty $board silently manufactures a
+  # blank-but-plausible AISNOBOL_BOARD line and, worse, persists it into SCORE.md as a real reading --
+  # measured directly 2026-09-05 (seat02): every count field came back empty and still got written to
+  # the shared leaderboard. An instrument that refused must say so, not print the pass/fail shape.
+  echo "AISNOBOL_BOARD REFUSED -- harness printed no SUITE_BOARD line, see REFUSING output above"
+  python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite aisnobol --modes m3,m4 \
+      --measurer "${S4E_SEAT:-}" \
+      --text "aisnobol: REFUSED -- corpus_suite_harness.py produced no measurement this run, see \`test_snobol4_aisnobol_suite.sh\` REFUSING output (\`test_snobol4_aisnobol_suite.sh\`)" \
+      || echo "WARNING SCORE.md NOT UPDATED -- record this row by hand (the REFUSING line above says why)"
+  [ "$rc" -eq 0 ] && rc=2
+  exit "$rc"
+fi
 field() { printf '%s\n' "$board" | grep -oE "$1=[0-9]+" | head -1 | cut -d= -f2; }
 scored="$(field total)"
 excl=0; [ -s "$SUITE/ALL.excluded.txt" ] && excl=$(grep -c . "$SUITE/ALL.excluded.txt")
