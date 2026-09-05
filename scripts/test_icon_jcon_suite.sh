@@ -15,6 +15,17 @@
 # stdin (`./prog file.dat <file.dat >file.std`) -- reproduced here exactly, not stdin-only (a jcon test
 # reading *args as well as reading stdin would silently see an empty argv otherwise).
 #
+# CWD FIX (seat02, 2026-09-05, icon-jcon-suite-39 11th pass): a jcon program may ALSO open its own .dat
+# companion by a bare relative literal (e.g. fncs1.icn's `open("fncs1.dat")`), which this script's own
+# invocation cwd never satisfied before -- FAIL was actually "file not found", not a compiler defect,
+# a pure instrument bug (confirmed: fncs1 diffs 0 lines once its cwd is right). Each test now runs from
+# its own private $WORK/<name>.rundir/ (never $CORPUS itself -- a program that WRITES a scratch file by
+# relative name, e.g. loadfunc.icn's tmp.icn/foo.baz, must never touch the tracked corpus working tree)
+# with the .dat companion copied in under its own basename; only the KNOWN .dat convention is covered,
+# not arbitrary other literal filenames a program might reference (recent.icn's `open(".")` and its own
+# `open("recent.dat")` remain unaddressed -- moot today since it dies earlier on an unrelated sortf bug,
+# see FINDING-2026-09-05-seat02-icon-jcon-suite-census-11th-pass*.md).
+#
 # NO-ORACLE SOURCES EXCLUDED, NOT GRADED AS MISSING: link1/link2/load1/load2/tpp1-5 have no .std by
 # design (dynamic-load tests meaningless for a compile-once model; template-preprocessor inputs, not
 # standalone programs -- see README.md). Globbing only *.icn with a matching *.std sidesteps them
@@ -70,10 +81,11 @@ run_one() {
     name=$(basename "$icn" .icn)
     errf="$WORK/err.txt"; : > "$errf"
     local dat="${base}.dat" IN=/dev/null extra_args=()
-    if [ -f "$dat" ]; then IN="$dat"; extra_args=(-- "$dat"); fi
+    local rundir="$WORK/$name.rundir"; mkdir -p "$rundir"
+    if [ -f "$dat" ]; then IN="$dat"; extra_args=(-- "$dat"); cp "$dat" "$rundir/$(basename "$dat")"; fi
     case "$mode" in
         m3)
-            timeout "$TIMEOUT" "$SCRIP" --run "$icn" "${extra_args[@]}" < "$IN" > "$outfile" 2>"$errf"
+            ( cd "$rundir" && timeout "$TIMEOUT" "$SCRIP" --run "$icn" "${extra_args[@]}" < "$IN" > "$outfile" 2>"$errf" )
             rc=$?
             ;;
         m4)
@@ -87,7 +99,7 @@ run_one() {
             elif ! gcc -no-pie "$o" -L"$OUTDIR" -lscrip_rt -Wl,-rpath,"$OUTDIR" -lm -o "$bin" 2>>"$errf"; then
                 : > "$outfile"; rc=1
             else
-                timeout "$TIMEOUT" "$bin" "${extra_args[@]}" < "$IN" > "$outfile" 2>"$errf"
+                ( cd "$rundir" && timeout "$TIMEOUT" "$bin" "${extra_args[@]}" < "$IN" > "$outfile" 2>"$errf" )
                 rc=$?
             fi
             ;;
