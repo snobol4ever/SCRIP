@@ -905,9 +905,18 @@ def counted_fractions(lang, vcell):
         if best is None:
             if saw:
                 unread.append(name)
-                work.append("V %s UNREADABLE -- the cell carries %s, which is not a fraction over any declared "
-                            "population %s. NOT counted and NOT called zero: write it as `<pass>/<total>` over a "
-                            "declared population, or declare the population." % (name, saw, sorted(dens)))
+                # ⛔ AN UNREADABLE PACKAGE STAYS IN THE DENOMINATOR AND CONTRIBUTES ZERO PASSES. Dropping it from
+                # BOTH sides was this cure's own first draft, and it was backwards: it RAISED every affected
+                # language's percent (icon 8% -> 48% in one edit) purely because a cell had become unreadable,
+                # while the work line called the result a "FLOOR". A floor is the CONSERVATIVE reading, and
+                # excluding the unknown is the optimistic one. ⭐ The rule that keeps the two honest: an
+                # unreadable cell must never be able to improve a score. It is a zero with a message, not an
+                # abstention -- the message is for the writer, the zero is for the reader.
+                got[dens[-1]] = got.get(dens[-1], 0)
+                work.append("V %s UNREADABLE, counted 0/%d -- the cell carries %s, which is not a fraction over any "
+                            "declared population %s. Counted ZERO (an unreadable cell must never raise a score), and "
+                            "named here so it can be fixed: write it as `<pass>/<total>` over a declared population, "
+                            "or declare the population." % (name, dens[-1], saw, sorted(dens)))
             else:
                 got[dens[-1]] = got.get(dens[-1], 0)
                 work.append("V %s 0/%d -- on the list, NOT YET RUN-GRADED (no number in its clause at all; counts "
@@ -916,8 +925,8 @@ def counted_fractions(lang, vcell):
         got[best[1]] = best[0]
         work.append("V %s %d/%d" % (name, best[0], best[1]))
     if unread:
-        work.append("⚠ %d package(s) UNREADABLE (%s) -- this language's percent is computed over the rest and is "
-                    "therefore a FLOOR, not a score." % (len(unread), ", ".join(unread)))
+        work.append("⚠ %d package(s) UNREADABLE (%s) -- each counted ZERO over its declared population, so this "
+                    "language's percent is a genuine FLOOR: fixing the cell can only raise it." % (len(unread), ", ".join(unread)))
     return got, work
 
 
