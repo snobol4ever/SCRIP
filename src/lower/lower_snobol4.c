@@ -33,7 +33,7 @@ static int g_sno_uses_stmtkw = 0;
 static int sno_kw_is_stmt(const char * s) {
     if (!s) return 0; if (s[0] == '&') s++;
     char lk[16]; size_t i = 0; for (; s[i] && i < sizeof(lk) - 1; i++) lk[i] = (s[i] >= 'A' && s[i] <= 'Z') ? (char)(s[i] - 'A' + 'a') : s[i]; lk[i] = 0;
-    return !strcmp(lk, "stno") || !strcmp(lk, "stcount") || !strcmp(lk, "lastno") || !strcmp(lk, "line") || !strcmp(lk, "lastline") || !strcmp(lk, "file") || !strcmp(lk, "lastfile") || !strcmp(lk, "stlimit");
+    return !strcmp(lk, "stno") || !strcmp(lk, "stcount") || !strcmp(lk, "lastno") || !strcmp(lk, "line") || !strcmp(lk, "lastline") || !strcmp(lk, "file") || !strcmp(lk, "lastfile") || !strcmp(lk, "stlimit") || !strcmp(lk, "dump");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_scan_stmtkw(const tree_t * t) {

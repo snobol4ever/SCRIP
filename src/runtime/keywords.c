@@ -256,10 +256,22 @@ static int kwb_write_ent(KWB_ENT_t *e, DESCR_t v) {
     if (e->prot) return kwb_error(209, "keyword in assignment is protected") ? 1 : -1;
     if (e->cell) *e->cell = iv;
     if (!strcmp(e->name, "ERRTYPE")) return kwb_error((int)iv, g_sno_errtext ? g_sno_errtext : "") ? 1 : -1;
+    if (!strcmp(e->name, "DUMP") && iv) { extern void rt_dump_atexit_arm(void); rt_dump_atexit_arm(); }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int kwb_write(const char *kw, DESCR_t v) { return kwb_write_ent(kwb_find(kw), v); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_kw_dump_values(void (*emit)(const char *name, DESCR_t v)) {
+    static const char *const names[] = {
+        "ANCHOR", "CASE", "CODE", "DUMP", "ERRLIMIT", "ERRTEXT", "ERRTYPE", "FILE", "FNCLEVEL", "FTRACE",
+        "FULLSCAN", "INPUT", "LASTFILE", "LASTLINE", "LASTNO", "LINE", "MAXLNGTH", "OUTPUT", "PROFILE",
+        "RTNTYPE", "STCOUNT", "STLIMIT", "STNO", "TRACE", "TRIM",
+    };
+    for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); i++) {
+        DESCR_t v; if (kwb_read(names[i], &v)) emit(names[i], v);
+    }
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_kw_index(const char *kw) {
     if (!kw) return -1;

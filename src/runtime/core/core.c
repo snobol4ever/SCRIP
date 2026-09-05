@@ -7,6 +7,7 @@
 #include "../rt/rt_protected.h"
 #include "../rt/gc_heap.h"
 #include "../snobol4_system_fns.h"
+#include "../keywords.h"
 extern int g_protected_pat_vars_armed;
 int g_call_fastpath_off = 0;
 #include <stdio.h>
@@ -2666,6 +2667,8 @@ static void var_dump_val(FILE *f, DESCR_t d) {
     fprintf(f, "'%s'", "");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void kw_dump_emit(const char *name, DESCR_t v) { printf("&%s = ", name); var_dump_val(stdout, v); printf("\n"); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void var_dump(void) {
     NV_t **v = (NV_t **)0; int n = 0, cap = 0;
     for (int i = 0; i < VAR_BUCKETS; i++) for (NV_t *e = _var_buckets[i]; e; e = e->next) {
@@ -2677,8 +2680,10 @@ static void var_dump(void) {
         v[n++] = e;
     }
     if (n > 1) qsort(v, (size_t)n, sizeof(NV_t *), var_dump_cmp);
-    printf("\n\ndump of natural variables\n\n");
+    printf("\n\n\ndump of natural variables\n\n");
     for (int i = 0; i < n; i++) { printf("%s = ", v[i]->name); var_dump_val(stdout, v[i]->is_gva ? *v[i]->cell : v[i]->val); printf("\n"); }
+    printf("\n\ndump of keyword values\n\n");
+    rt_kw_dump_values(kw_dump_emit);
     fflush(stdout);
     free(v);
 }
