@@ -716,6 +716,17 @@ static int cap_in_repeat_body(const IR_t * nd) {
         if ((ni >= lo && ni <= hi) || (si >= lo && si <= hi)) return 1; }
     return 0;
 }
+static int alt_branch_has_nested_alt(const IR_t * a) {
+    if (!a || a->op != IR_MATCH_ALTERNATE || !g_emit_cfg) return 0;
+    int lo = -1, hi = -1;
+    for (int j = 0; j < a->n_operands; j++) { IR_t * o = a->operands[j]; if (!o) continue;
+        for (int i = 0; i < g_emit_cfg->n; i++) if (g_emit_cfg->all[i] == o) { if (lo < 0 || i < lo) lo = i; if (i > hi) hi = i; } }
+    if (lo < 0 || hi <= lo) return 0;
+    for (int i = lo; i <= hi; i++) { IR_t * m = g_emit_cfg->all[i];
+        if (m && m != a && (m->op == IR_MATCH_ALTERNATE || m->op == IR_DISJUNCTION)) return 1; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int cap_save_cond_gap_has_alt(const IR_t * nd) {
     if (!nd || nd->n_operands < 1 || !nd->operands[0]) return 0;
     return nd->operands[0]->op == IR_MATCH_ALTERNATE;
@@ -811,7 +822,8 @@ static int frame_need_of(const IR_t * nd) {
             if (_si >= 0 && _ci >= 0 && _ext > 0) { int _lo = (_si > _ci ? _si : _ci) + 1, _hi = _ext < g_emit_cfg->n ? _ext : g_emit_cfg->n;
                 for (int _i = _lo; _i < _hi && !h; _i++) { IR_t * _m = g_emit_cfg->all[_i];
                     if (getenv("SCRIP_CAP_NEST_DIAG")) fprintf(stderr, "[CAPNEST]   scan[%d] op=%d pat_static=%d\n", _i, _m ? (int)_m->op : -1, _m ? _m->pat_static : -1);
-                    if (_m && (_m->op == IR_MATCH_ARBNO || _m->op == IR_MATCH_DEFER || _m->op == IR_MATCH_VALUE)) h = 1; } }
+                    if (_m && (_m->op == IR_MATCH_ARBNO || _m->op == IR_MATCH_DEFER || _m->op == IR_MATCH_VALUE)) h = 1;
+                    if (_m && _m->op == IR_MATCH_ALTERNATE && alt_branch_has_nested_alt(_m)) h = 1; } }
         }
         if (!h) h = cap_in_alt_arm(nd);
         if (!h) h = cap_in_repeat_body(nd);
