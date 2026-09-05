@@ -181,6 +181,7 @@ trap 'rm -rf "$TMP"; ipl_isolation_cleanup' EXIT
 M3_RUN_PASS=0; M3_RUN_FAIL=0; M3_RUN_CRASH=0; M3_RUN_HANG=0
 M4_RUN_PASS=0; M4_RUN_FAIL=0; M4_RUN_CRASH=0; M4_RUN_HANG=0
 M3_RUN_FAIL_NAMES=(); M4_RUN_FAIL_NAMES=()
+M3_RUN_CRASH_NAMES=(); M4_RUN_CRASH_NAMES=(); M3_RUN_HANG_NAMES=(); M4_RUN_HANG_NAMES=()
 
 # ⛔⛔ MAX_BYTES gates every full-content read here too, checked via `wc -c` on the FILE before any
 # slurp into a bash variable -- same discipline, same incident, as util_cut_icon_ipl_refs.sh's own
@@ -202,8 +203,8 @@ for std in "${STDFILES[@]}"; do
     ipl_isolation_run "$TMP/${base}.m3.out" "$TIMEOUT" "$SCRIP" --run "$icn"
     rc3=$?
     by3=$(wc -c < "$TMP/${base}.m3.out" 2>/dev/null || echo 0)
-    if [ "$rc3" -eq 124 ]; then M3_RUN_HANG=$((M3_RUN_HANG+1))
-    elif [ "$rc3" -ge 128 ]; then M3_RUN_CRASH=$((M3_RUN_CRASH+1))
+    if [ "$rc3" -eq 124 ]; then M3_RUN_HANG=$((M3_RUN_HANG+1)); M3_RUN_HANG_NAMES+=("$base")
+    elif [ "$rc3" -ge 128 ]; then M3_RUN_CRASH=$((M3_RUN_CRASH+1)); M3_RUN_CRASH_NAMES+=("$base(sig$((rc3-128)))")
     elif [ "$by3" -gt "$MAX_BYTES" ]; then M3_RUN_FAIL=$((M3_RUN_FAIL+1)); M3_RUN_FAIL_NAMES+=("$base(oversized:$by3)")
     elif [ "$(cat "$TMP/${base}.m3.out" 2>/dev/null)" = "$exp" ]; then M3_RUN_PASS=$((M3_RUN_PASS+1))
     else M3_RUN_FAIL=$((M3_RUN_FAIL+1)); M3_RUN_FAIL_NAMES+=("$base"); fi
@@ -216,8 +217,8 @@ for std in "${STDFILES[@]}"; do
         ipl_isolation_run "$TMP/${base}.m4.out" "$TIMEOUT" "$bin4"
         rc4=$?
         by4=$(wc -c < "$TMP/${base}.m4.out" 2>/dev/null || echo 0)
-        if [ "$rc4" -eq 124 ]; then M4_RUN_HANG=$((M4_RUN_HANG+1))
-        elif [ "$rc4" -ge 128 ]; then M4_RUN_CRASH=$((M4_RUN_CRASH+1))
+        if [ "$rc4" -eq 124 ]; then M4_RUN_HANG=$((M4_RUN_HANG+1)); M4_RUN_HANG_NAMES+=("$base")
+        elif [ "$rc4" -ge 128 ]; then M4_RUN_CRASH=$((M4_RUN_CRASH+1)); M4_RUN_CRASH_NAMES+=("$base(sig$((rc4-128)))")
         elif [ "$by4" -gt "$MAX_BYTES" ]; then M4_RUN_FAIL=$((M4_RUN_FAIL+1)); M4_RUN_FAIL_NAMES+=("$base(oversized:$by4)")
         elif [ "$(cat "$TMP/${base}.m4.out" 2>/dev/null)" = "$exp" ]; then M4_RUN_PASS=$((M4_RUN_PASS+1))
         else M4_RUN_FAIL=$((M4_RUN_FAIL+1)); M4_RUN_FAIL_NAMES+=("$base"); fi
@@ -231,8 +232,12 @@ echo ""
 echo "-- RUN tier: $RUN_GRADED progs/ programs graded against a .std cut from the real Icon oracle (util_cut_icon_ipl_refs.sh --apply) --"
 echo "mode-3 (--run):     RUN_PASS=$M3_RUN_PASS RUN_FAIL=$M3_RUN_FAIL RUN_CRASH=$M3_RUN_CRASH RUN_HANG=$M3_RUN_HANG / $RUN_GRADED"
 echo "mode-4 (--compile): RUN_PASS=$M4_RUN_PASS RUN_FAIL=$M4_RUN_FAIL RUN_CRASH=$M4_RUN_CRASH RUN_HANG=$M4_RUN_HANG / $RUN_GRADED"
-[ "$VERBOSE" -eq 1 ] && [ ${#M3_RUN_FAIL_NAMES[@]} -gt 0 ] && printf 'm3 not-pass:%s\n' "$(printf ' %s' "${M3_RUN_FAIL_NAMES[@]}")"
-[ "$VERBOSE" -eq 1 ] && [ ${#M4_RUN_FAIL_NAMES[@]} -gt 0 ] && printf 'm4 not-pass:%s\n' "$(printf ' %s' "${M4_RUN_FAIL_NAMES[@]}")"
+[ "$VERBOSE" -eq 1 ] && [ ${#M3_RUN_FAIL_NAMES[@]} -gt 0 ] && printf 'm3 RUN_FAIL:%s\n' "$(printf ' %s' "${M3_RUN_FAIL_NAMES[@]}")"
+[ "$VERBOSE" -eq 1 ] && [ ${#M4_RUN_FAIL_NAMES[@]} -gt 0 ] && printf 'm4 RUN_FAIL:%s\n' "$(printf ' %s' "${M4_RUN_FAIL_NAMES[@]}")"
+[ ${#M3_RUN_CRASH_NAMES[@]} -gt 0 ] && printf 'm3 RUN_CRASH:%s\n' "$(printf ' %s' "${M3_RUN_CRASH_NAMES[@]}")"
+[ ${#M4_RUN_CRASH_NAMES[@]} -gt 0 ] && printf 'm4 RUN_CRASH:%s\n' "$(printf ' %s' "${M4_RUN_CRASH_NAMES[@]}")"
+[ ${#M3_RUN_HANG_NAMES[@]} -gt 0 ] && printf 'm3 RUN_HANG:%s\n' "$(printf ' %s' "${M3_RUN_HANG_NAMES[@]}")"
+[ ${#M4_RUN_HANG_NAMES[@]} -gt 0 ] && printf 'm4 RUN_HANG:%s\n' "$(printf ' %s' "${M4_RUN_HANG_NAMES[@]}")"
 echo "IPL_RUN_BOARD run_graded=$RUN_GRADED m3_RUN_PASS=$M3_RUN_PASS m3_RUN_FAIL=$M3_RUN_FAIL m3_RUN_CRASH=$M3_RUN_CRASH m3_RUN_HANG=$M3_RUN_HANG m4_RUN_PASS=$M4_RUN_PASS m4_RUN_FAIL=$M4_RUN_FAIL m4_RUN_CRASH=$M4_RUN_CRASH m4_RUN_HANG=$M4_RUN_HANG"
 ipl_isolation_verify_clean "$S4E/corpus" || true
 
