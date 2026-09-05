@@ -198,15 +198,18 @@ fi
 # languages at once over debt this lane did not create and cannot honestly restamp -- which is how a gate
 # earns a `|| true` within a week. The watermarks below are a DEBT LEDGER measured 2026-09-05 on corpus
 # e2f9c2f2c: they may only ever go DOWN, and lowering one when you cure a language is part of curing it.
-# snobol4 71 is hq_B's, whose key repair was measured but is NOT on origin as of e2f9c2f2c (checked against a
-# fresh fetch) -- when it lands this drops to 0. pascal 5 and icon 3 are named in hq_B's FINDING and unowned.
+# ✅ snobol4 71 -> 0: hq_B's key repair LANDED (corpus 241579669) and the debt is discharged, so the ratchet
+# is now pinned at zero for that language and any regression reds it. pascal 5 and icon 3 remain.
+# ⛔ pascal's 5 do NOT resolve by stripping the __ suffix (measured 2026-09-05: 0 of 5 resolve that way,
+# against the 70-of-75 estimate in hq_B's FINDING) -- so pascal is real declaration work, not a rename
+# repair, and the watermark stays until someone does it.
 examined=$((examined + 1))
 orph_out="$(S4E_HOME="$S4E" python3 - <<'EOF'
 import csv, importlib.util, os, sys
 spec = importlib.util.spec_from_file_location("b", os.path.join("scripts", "util_build_master_suite.py"))
 b = importlib.util.module_from_spec(spec); spec.loader.exec_module(b)
 # The DEBT LEDGER. Lower a number when you cure its language; never raise one.
-WATERMARK = {"snobol4": 71, "pascal": 5, "icon": 3, "prolog": 0, "raku": 0, "snocone": 0, "rebus": 0}
+WATERMARK = {"snobol4": 0, "pascal": 5, "icon": 3, "prolog": 0, "raku": 0, "snocone": 0, "rebus": 0}
 tests = os.path.join(os.environ.get("S4E_HOME", ".."), "corpus", "tests")
 graded, bad = 0, 0
 print("  %-9s %8s %8s %8s %s" % ("lang", "declared", "orphaned", "cap", "undeclared entries (the UNKNOWN default's real reach)"))
