@@ -28,5 +28,6 @@ int descr_identical(DESCR_t a, DESCR_t b) {
     if (a.v == DT_R) return a.r == b.r;
     if (a.v == DT_T) return a.tbl == b.tbl;
     if (a.v == DT_DATA) return a.ptr == b.ptr;
+    if (a.v == DT_E && a.slen == 0xFFFFFFFEu && b.slen == 0xFFFFFFFEu) return a.s && b.s && strcmp(a.s, b.s) == 0;
     return memcmp(&a, &b, sizeof(DESCR_t)) == 0;
 }

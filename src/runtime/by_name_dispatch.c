@@ -3791,7 +3791,8 @@ static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op) {
     if (op == BINOP_EQV || op == BINOP_NEQV) {
         int eq = 0;
         int lcs = (lhs.v == DT_S && lhs.slen == 0xFFFFFFFFu), rcs = (rhs.v == DT_S && rhs.slen == 0xFFFFFFFFu);
-        if (lhs.v == rhs.v && lhs.i == rhs.i) eq = 1;
+        if (lhs.v == DT_E && rhs.v == DT_E && lhs.slen == 0xFFFFFFFEu && rhs.slen == 0xFFFFFFFEu) eq = (lhs.s && rhs.s && strcmp(lhs.s, rhs.s) == 0);
+        else if (lhs.v == rhs.v && lhs.i == rhs.i) eq = 1;
         else if (lcs || rcs) {
             if (lcs && rcs) { const char *ca, *cb; int la, lb; eq = cset_resolve(lhs, &ca, &la) && cset_resolve(rhs, &cb, &lb) && la == lb && memcmp(ca, cb, (size_t)la) == 0; }
         }
@@ -4749,7 +4750,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (av.v == DT_E) {
             const char *nm = procval_name(av);
             if (!nm) nm = "?";
-            snprintf(buf,256, (rt_proc_is_registered(nm) || !strcmp(nm, "main")) ? "procedure %s" : "function %s", nm);
+            snprintf(buf,256, dat_find_type(nm) ? "record constructor %s" : (rt_proc_is_registered(nm) || !strcmp(nm, "main")) ? "procedure %s" : "function %s", nm);
             *out = STRVAL(buf); return 1;
         }
         if (IS_FH_fn(av)) {
@@ -5780,8 +5781,12 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (same) {
             if      (a.v == DT_I)               same = (a.i == b.i);
             else if (a.v == DT_R)               same = (a.r == b.r);
-            else if (a.v == DT_S || a.v == DT_SNUL)
-                same = (a.s == b.s || (a.s && b.s && strcmp(a.s,b.s)==0));
+            else if (a.v == DT_S || a.v == DT_SNUL) {
+                int acs = (a.v == DT_S && a.slen == 0xFFFFFFFFu), bcs = (b.v == DT_S && b.slen == 0xFFFFFFFFu);
+                same = (acs == bcs) && (a.s == b.s || (a.s && b.s && strcmp(a.s,b.s)==0));
+            }
+            else if (a.v == DT_E && a.slen == 0xFFFFFFFEu && b.slen == 0xFFFFFFFEu)
+                same = (a.s && b.s && strcmp(a.s,b.s)==0);
             else                                same = (a.ptr == b.ptr);
         }
         *out = same ? b : FAILDESCR; return 1;
