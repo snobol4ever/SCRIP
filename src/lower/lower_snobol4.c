@@ -1503,6 +1503,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
                 if (x->γ.node == F) { if (x->op == IR_GOTO && x->ω.node == F) { memcpy(x->γ.sz, "φ", 3); } else { memcpy(x->γ.sz, "σ", 3); } x->γ.sz[3] = 0; } }
             ir_operand_push(F, pe);
             ir_operand_push(F, p_tail);
+            { extern void fc_pair_extent_register(const IR_t *, int); fc_pair_extent_register(F, g->n); }
             return F;
         }
         return (t->n > 0 && t->c[0]) ? sno_pat_node(cx, t->c[0], succ, fail) : succ;
@@ -1684,6 +1685,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
                         if (x->γ.node == F) { if (x->op == IR_GOTO && x->ω.node == F) { memcpy(x->γ.sz, "φ", 3); } else { memcpy(x->γ.sz, "σ", 3); } x->γ.sz[3] = 0; } }
                     ir_operand_push(F, pe);
                     ir_operand_push(F, p_tail);
+                    { extern void fc_pair_extent_register(const IR_t *, int); fc_pair_extent_register(F, g->n); }
                     cur_succ = F; right_tail = F; right_tail_idx = f_idx;
                 }
                 else if (inner && !sno_in_arbno) {
@@ -1701,6 +1703,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
                         if (x->γ.node == F) { if (x->op == IR_GOTO && x->ω.node == F) { memcpy(x->γ.sz, "φ", 3); } else { memcpy(x->γ.sz, "σ", 3); } x->γ.sz[3] = 0; } }
                     ir_operand_push(F, pe);
                     ir_operand_push(F, p_tail);
+                    { extern void fc_pair_extent_register(const IR_t *, int); fc_pair_extent_register(F, g->n); }
                     if (right_tail && !right_sealed) sno_resume_ω_to(g, right_tail_idx, right_tail, F);
                     cur_succ = F; right_tail = F; right_tail_idx = f_idx; right_sealed = 0;
                 }

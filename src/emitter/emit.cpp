@@ -712,6 +712,7 @@ static int cap_in_repeat_body(const IR_t * nd) {
         else if ((C->op == IR_MATCH_FENCE1 || C->op == IR_MATCH_FENCE0) && C->n_operands >= 2) { for (int k = 0; k < g_emit_cfg->n; k++) { if (g_emit_cfg->all[k] == C->operands[0]) lo = k; if (g_emit_cfg->all[k] == C->operands[1]) hi = k; } }
         else continue;
         if (lo < 0 || hi < 0) continue; if (lo > hi) { int t = lo; lo = hi; hi = t; }
+        { int fe = fc_pair_extent(C); if (fe > 0 && fe - 1 > hi) hi = fe - 1; }
         if ((ni >= lo && ni <= hi) || (si >= lo && si <= hi)) return 1; }
     return 0;
 }
