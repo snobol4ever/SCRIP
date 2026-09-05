@@ -631,6 +631,50 @@ s4e_donewhen_is_placeholder() {   # $1 = raw column-0 DONE-WHEN text (already ex
     case "$dw" in "⛔ MUST BE MADE RUNNABLE"*) return 0;; esac
     printf '%s' "$dw" | grep -qE '^echo "⛔[^"]*"( *>&2)?; *(false|exit [1-9][0-9]*)$' && return 0
     return 1; }
+# ⛔⭐⭐ THE ONE DONE-WHEN EXTRACTOR, AND IT READS THE WHOLE CRITERION (hq_T 2026-09-05, ceo rank-0 ruling on
+# seat04's row s4e-msg-donewhen-truncation-false-closes-multiline-heredoc-batons; seat04 reproduced it end to end).
+# It used to be `sed -n 's/^DONE-WHEN:...//p' "$b" | head -1` at THREE sites -- one physical line, discarding
+# everything after it. ⛔ THAT IS A FALSE-GREEN ENGINE, NOT MERELY A TRUNCATION, and the direction is what makes it
+# lethal: for the heredoc witness shape this project actively encourages ("creates its own repro at check-time
+# rather than depending on this session's /tmp scratchpad"),
+#     DONE-WHEN: cat > /tmp/w.sno <<'EOF'
+#     <program>
+#     EOF
+#     out=$(scrip /tmp/w.sno); [ "$out" = want ] || exit 1; echo PASS
+# the truncated text is `cat > /tmp/w.sno <<'EOF'` with no closing delimiter. bash WARNS ("here-document
+# delimited by end-of-file"), treats the body as empty, writes a ZERO-BYTE file, and that cat -- the only command
+# reached -- exits 0. So the whole criterion exits 0 having run NOTHING: the real check never executes, and a
+# broken tree is byte-identical in verdict to a fixed one. ⭐ MEASURED CLOSURE: snobol4-pattern-primitive-as-
+# function-argument-always-fails-in-callee closed DONE 2026-09-05T15:33Z through exactly this path, while the
+# full untruncated text exits 1 on the same tree. 185 of 1128 live batons carry a multi-line DONE-WHEN.
+# ⭐ THE CONTINUATION RULE IS THE FILE FORMAT'S OWN, not a new convention: a baton field runs to the next column-0
+# field label or `## ` section -- which is exactly how GOAL: already carries paragraphs. The terminator set is the
+# MEASURED label census of the live tasks tree, not a guess, and it is deliberately the STRUCTURAL labels only:
+# prose labels that occur inside GOAL bodies (STEP 1:, Verified:, witness:) are NOT terminators, because a
+# criterion's heredoc body is program text and must never be cut by a word that happens to end in a colon.
+# Sets $_dw_backticked=1 when it stripped a markdown backtick pair, so a caller can still announce that.
+s4e_donewhen_text() {   # $1 = baton path; prints the WHOLE criterion on stdout
+    local dw
+    _dw_backticked=""
+    dw="$(awk '
+        /^DONE-WHEN:/ && !seen { seen=1; sub(/^DONE-WHEN:[ \t]*/, ""); print; next }
+        seen && /^## / { exit }
+        seen && /^(GOAL|LINKS|RANK|DONE-WHEN|DONE-WHEN-HISTORY|SCOPE|LEDGER|OWNER|BLOCKED-ON|FINDING|MINTED BY):/ { exit }
+        seen { print }
+    ' "$1" | sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}')"
+    # ⛔ ONE matched OUTER pair only, and never a one-sided backtick: a lone ` is either real substitution or a
+    # typo, and both must fail LOUDLY rather than be silently rewritten. Normalised HERE, at the one extraction
+    # point, so the vacuity probe and the real run cannot disagree about what the criterion IS.
+    case "$dw" in '''`'''*'''`''') dw="${dw#\`}"; dw="${dw%\`}"; _dw_backticked=1;; esac
+    printf '%s' "$dw"; }
+# ⛔⭐ AND A SECOND, INDEPENDENT GUARD ON THE SAME FAILURE, because the extractor being right today is not a
+# property anyone can keep proving: bash does NOT fail on an unterminated heredoc -- `bash -n -c "cat <<'EOF'"`
+# exits 0 -- it only WARNS on stderr, which is precisely why the truncation could exit 0 for months. That warning
+# is detectable, so any criterion whose text opens a heredoc it never closes is REFUSED (rc=2, could-not-measure),
+# never graded. ⭐ This holds even if a future edit re-breaks the extractor, and it also catches a criterion an
+# author simply mis-wrote -- the two cases a runner cannot tell apart and must not guess between.
+s4e_donewhen_unterminated_heredoc() {   # $1 = criterion text; rc 0 = it opens a heredoc it never closes
+    printf '%s' "${1:-}" | bash -n /dev/stdin 2>&1 | grep -q 'here-document.*delimited by end-of-file'; }
 # ⛔⭐ HIDDEN-ELSEWHERE: is there a DIFFERENT "DONE-WHEN:"-labeled line sitting in this baton's live text
 # (GOAL/NEXT/QA), where a human but not the tool would read it as the contract? Scoped deliberately:
 # the ## LEDGER section is excluded outright (it is historical narration -- this project's own ledgers
@@ -654,9 +698,8 @@ s4e_donewhen_hidden_elsewhere() {   # $1 = baton path
 s4e_dispatch_probe() {
     local t="$1" b="$PO/tasks/$1.task.md" dw to rc; _dp_why=""; _dp_out=""
     [ -f "$b" ] || { _dp_why="no task baton at $b"; return 2; }
-    dw="$(sed -n 's/^DONE-WHEN:[[:space:]]*//p' "$b" | head -1)"
+    dw="$(s4e_donewhen_text "$b")"
     [ -n "$dw" ] || { _dp_why="the baton has no DONE-WHEN: line"; return 2; }
-    case "$dw" in '`'*'`') dw="${dw#\`}"; dw="${dw%\`}";; esac
     if s4e_donewhen_is_placeholder "$dw"; then
         if s4e_donewhen_hidden_elsewhere "$b"; then
             _dp_why="column-0 is still a placeholder AND another DONE-WHEN: line sits elsewhere in the file (${_dhe_lines//$'\n'/ | }) -- refusing to guess which is the contract, hoist or relabel it"
@@ -666,6 +709,7 @@ s4e_dispatch_probe() {
         return 2
     fi
     s4e_donewhen_is_noop "$dw" && { _dp_why="the DONE-WHEN certifies nothing (a decorated shell no-op)"; return 2; }
+    s4e_donewhen_unterminated_heredoc "$dw" && { _dp_why="the DONE-WHEN opens a heredoc it never closes -- bash would treat the body as EMPTY and exit 0 having run nothing, which is a false green, so this is COULD-NOT-MEASURE and never a verdict"; return 2; }
     s4e_donewhen_needs_compiler "$dw" && { _dp_why="$_gca_why"; return 2; }   # S4E-GUARD-COMPILER-ABSENT
     to="$(s4e_dispatch_timeout)"
     # ⛔ S4E_HOME EXPORTED, exactly as `done` does it: 11 live rows write `cd "$S4E_HOME/SCRIP" && ...` and
@@ -691,9 +735,8 @@ s4e_predispatch_placeholder_check() {   # $1 = topic; rc 0 = placeholder (refuse
     local t="$1" b="$PO/tasks/$1.task.md" dw
     _ppc_why=""
     [ -f "$b" ] || return 1
-    dw="$(sed -n 's/^DONE-WHEN:[[:space:]]*//p' "$b" | head -1)"
+    dw="$(s4e_donewhen_text "$b")"
     [ -n "$dw" ] || return 1
-    case "$dw" in '`'*'`') dw="${dw#\`}"; dw="${dw%\`}";; esac
     if s4e_donewhen_is_placeholder "$dw"; then
         _ppc_why="the DONE-WHEN is still the mint placeholder, not a command -- $b needs a real DONE-WHEN before this row can be dispatched"
         return 0
@@ -1222,7 +1265,7 @@ case "$cmd" in
               # the control plane written to forbid it. A law the tooling does not enforce is a hope.
               tf="$PO/tasks/$topic.task.md"
               if [ -f "$tf" ]; then
-                dw="$(sed -n 's/^DONE-WHEN:[[:space:]]*//p' "$tf" | head -1)"
+                dw="$(s4e_donewhen_text "$tf")"
                 # ⛔⭐⭐ A MARKDOWN-STYLED DONE-WHEN WAS BEING RUN AS COMMAND SUBSTITUTION (seat06, 2026-08-28; FINDING
                 # be4b2257). A criterion authored as `DONE-WHEN: \`bash scripts/gate.sh\`` -- backticks meant as CODE
                 # STYLING, because this line lives in a MARKDOWN file -- reaches `bash -c "$dw"` as live substitution:
@@ -1237,12 +1280,19 @@ case "$cmd" in
                 # about what the criterion IS -- two consumers reading one value, never two copies to drift.
                 # ⛔ ONE matched OUTER pair only, and never a one-sided backtick: a lone ` is either real substitution
                 # or a typo, and both must fail LOUDLY rather than be silently rewritten. Announced, never silent.
-                case "$dw" in
-                  '`'*'`') dw="${dw#\`}"; dw="${dw%\`}"
-                     printf '⚠ DONE-WHEN was wrapped in markdown backticks; stripped one matched pair before running.\n   Running: %s\n' "$dw" >&2 ;;
-                esac
+                [ -n "${_dw_backticked:-}" ] && printf '⚠ DONE-WHEN was wrapped in markdown backticks; stripped one matched pair before running.\n   Running: %s\n' "$dw" >&2
                 if [ -z "$dw" ]; then
                   echo "⛔ REFUSED: $tf has no DONE-WHEN: line. A task with no computable completion test cannot be closed." >&2; exit 1; fi
+                # ⛔⭐ REFUSE rc=2 ON AN UNTERMINATED HEREDOC -- the second, independent guard on the truncation
+                # class (see s4e_donewhen_unterminated_heredoc). A criterion bash cannot finish reading is one
+                # bash will happily run to a ZERO exit having executed nothing, so it must never reach the run.
+                if s4e_donewhen_unterminated_heredoc "$dw"; then
+                  printf '⛔ REFUSED(2): %s\n' "$tf" >&2
+                  printf '   Its DONE-WHEN opens a heredoc it never closes. bash does not fail on that -- it warns,\n' >&2
+                  printf '   treats the body as EMPTY, and exits 0 having run nothing, so closing on it would certify\n' >&2
+                  printf '   a criterion that never executed. Fix the criterion (close the delimiter, or move the\n' >&2
+                  printf '   witness into a script file) before closing this row.\n' >&2
+                  exit 2; fi
                 # ⛔⭐ HIDDEN-CRITERION GUARD (seat13, row fifty-seven-batons-are-unclosable-because-their-
                 # criterion-is-not-at-column-zero): mirrors s4e_dispatch_probe's check exactly -- two
                 # consumers of one rule, never two copies to drift. See s4e_donewhen_is_placeholder /

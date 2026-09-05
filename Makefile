@@ -108,6 +108,7 @@ test-postoffice:  # ⭐ THE HERMETIC POSTOFFICE GATES, WIRED 2026-09-03 (hq_B, c
 	bash scripts/test_gate_s4e_done_timeout_is_a_refusal.sh
 	bash scripts/test_gate_s4e_next_refuses_hq_under_ceo_mode.sh
 	bash scripts/test_gate_s4e_donewhen_refuses_when_compiler_absent.sh
+	bash scripts/test_gate_s4e_donewhen_runs_the_whole_criterion.sh   # ⭐ WIRED 2026-09-05 (hq_T, ceo rank-0 ruling on seat04's row): `done` must run the WHOLE criterion. The one extraction point was `... | head -1`, so a multi-line DONE-WHEN -- 185 of 1128 live batons -- ran only its first physical line, and for the heredoc witness shape this project encourages that line is a bare `cat <<'EOF'` opener: bash warns, treats the body as EMPTY, writes a zero-byte file and EXITS 0 having run nothing. ⛔ A false green, not a wrong answer: a broken tree and a fixed one are byte-identical in verdict, and one row is on record as having closed that way. Four arms + two mutants; sits beside the other done/DONE-WHEN gates because they share the fixture shape.
 	bash scripts/test_gate_picker_autounblock.sh
 	bash scripts/test_gate_dispatch_claim_single_authority.sh
 	bash scripts/test_gate_dispatch_gc_safepoint_inline.sh
