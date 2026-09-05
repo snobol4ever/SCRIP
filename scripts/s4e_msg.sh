@@ -2223,9 +2223,15 @@ TASKEOF
            # separates the two states for free.
            bmt=0; [ -f "$PO/tasks/$row.task.md" ] && bmt=$(stat -c %Y "$PO/tasks/$row.task.md" 2>/dev/null || echo 0)
            bage=$(( ( $(date +%s) - ${bmt:-0} ) / 60 ))
+           # ⛔⭐ THIRD DISCRIMINATOR, ADDED BY seat01 2026-09-05 (row fleet-stalled-is-one-signal-reachable-by-two-
+           # causes-and-names-only-one, minted by hq_B after seat05/seat07/seat14 all false-positived in one sitting):
+           # baton mtime alone still misses a seat whose HQ lane produces outbound messages (census/witness/ask)
+           # without rewriting its own baton in the same window. Same shape as the DONE-WHEN this row grades on:
+           # count messages naming this seat, newer than the lock.
+           msince=0; [ "$lockep" -gt 0 ] && msince=$(find "$PO" -name "*-$seat-*.msg" -newermt "@$lockep" 2>/dev/null | wc -l)
            if [ "$lockep" -eq 0 ]; then csh="-"
            elif [ "$csince" -eq 0 ] && [ "$(( $(date +%s) - lockep ))" -gt 3600 ]; then
-             if [ "${bmt:-0}" -gt 0 ] && [ "$bage" -lt 60 ]; then csh="0 baton${bage}m"; else csh="0 STALLED"; fi
+             if [ "${bmt:-0}" -gt 0 ] && [ "$bage" -lt 60 ]; then csh="0 baton${bage}m"; elif [ "${msince:-0}" -gt 0 ]; then csh="0 msgs${msince}"; else csh="0 STALLED"; fi
            else csh="$csince"; fi
            printf '  %-8s %-30.30s  %-10.10s  %-10.10s  %-20.20s  %s  %-8.8s  %s\n' "$seat" "$row" "$lockage" "$csh" "$tree" "$q" "$mail" "$bl"; done
          free=0; tot=0
@@ -2235,11 +2241,13 @@ TASKEOF
          printf '  Q = questions from that seat waiting on ANY HQ.  MAIL = unread in its inbox / age of the oldest.\n'
          printf '  ⛔ LOCK AGE = how long the CLAIM FILE has existed = when the lock was TAKEN. It is NOT a work signal:\n'
          printf '     a seat that claimed a row and stalled prints the same number as a seat mid-cure. COMMITS SINCE LOCK\n'
-         printf '     is the field that measures work (attributed to the seat or its row, across that root every repo).\n'
-         printf '     Read the pair. "0 STALLED" = locked over an hour, nothing attributed AND the baton untouched for\n'
-         printf '     an hour -- a claimed row hides itself from the picker, so that blocks the row for the WHOLE fleet\n'
-         printf '     until an HQ releases it. "0 batonNNm" = no commits BUT the baton was written NNm ago: that seat is\n'
-         printf '     WORKING, in a lane whose output is census/witness/LEDGER rather than commits. DO NOT release it.\n'
+         printf '     measures work ONLY in a committing lane (attributed to the seat or its row, across that root every\n'
+         printf '     repo) -- a census/witness lane reads 0 by design, so read it alongside baton age and outbound mail.\n'
+         printf '     "0 STALLED" = locked over an hour, nothing attributed, the baton untouched for an hour, AND zero\n'
+         printf '     messages sent since the lock -- a claimed row hides itself from the picker, so that blocks the row\n'
+         printf '     for the WHOLE fleet until an HQ releases it. "0 batonNNm" = baton written NNm ago; "0 msgsN" = N\n'
+         printf '     messages sent since lock: either means that seat is WORKING, in a lane whose output is\n'
+         printf '     census/witness/LEDGER/asks rather than commits. DO NOT release it.\n'
          printf '  Roster is the postoffice mailbox list, never a home-dir glob -- the glob could not see the HQs.\n\n';;
   sweep) # ⭐ LAW 4 — THE QUEUE IS A DISPATCH BUFFER, NOT A MEMORY. v1 reached 62% dead rows (112 of 181 DONE) because
          # nothing ever moved a landed row out, so the picker walked a graveyard and HQ re-dispatched finished work.
