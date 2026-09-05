@@ -115,6 +115,16 @@ LANG_CONFIGS = {
 }
 
 
+# ⛔⭐ `snobol4` IS AN ACCEPTED SPELLING OF THE DEFAULT, AND LEAVING IT OUT COST TWO SESSIONS. The default
+# is the empty string, so `--lang snobol4` -- the obvious thing to type, and the spelling this file itself
+# uses internally (`lang = args.lang or "snobol4"`) -- was rejected by ARGPARSE, which exits 2 with its own
+# usage text. GOAL-TEST-SUITE-CONSISTENCY.md lists that exact confusion as measured shape #1 of HOW A
+# CRITERION LIES: a caller reads rc=2 as THE TOOL refusing to measure, when the tool never ran at all.
+# Normalised to "" immediately after parsing (see main), because `if args.lang:` is load-bearing in six
+# places downstream and a truthy synonym for the default would change which reader parses the suite.
+LANG_CHOICES = [""] + sorted(LANG_CONFIGS) + ["snobol4"]
+
+
 # ============================================================ paths / env ===
 def resolve_paths():
     here = Path(__file__).resolve().parent            # SCRIP/scripts
@@ -1851,15 +1861,10 @@ def cmd_run(args):
     # regimes cannot be read at all.
     entry_modes = {}
     if getattr(args, "by_modes_column", False):
-        csv_path = Path(args.sno).parent / "ALL.csv"
-        if not csv_path.is_file():
-            refuse(f"--by-modes-column needs the suite's sibling index; {csv_path} is missing -- a column that is not there cannot be honoured")
-        import csv as _csv
-        with open(csv_path, newline="") as _f:
-            for _row in _csv.DictReader(_f):
-                if "modes" not in _row:
-                    refuse(f"{csv_path} has no `modes` column -- nothing to honour")
-                entry_modes[_row["entry"]] = (_row.get("modes") or "").strip()
+        entry_modes, csv_path = modes_declarations(args.sno)
+        if not entry_modes:
+            refuse(f"--by-modes-column needs the suite's modes declaration; neither {Path(args.sno).with_suffix('.modes').name} "
+                   f"nor a sibling ALL.csv with a `modes` column is beside {Path(args.sno).name} -- a column that is not there cannot be honoured")
         _uncovered = [e.name for e in entries if e.name not in entry_modes]
         if _uncovered:
             refuse(f"--by-modes-column: {len(_uncovered)} entr(y/ies) are absent from {csv_path.name} "
@@ -1908,20 +1913,24 @@ def cmd_run(args):
         # caller did not ask to honour would change which oracle grades an entry, which is exactly the
         # decision that must never be made implicitly. Scoped to entries ACTUALLY IN THIS RUN, so a shard
         # or family filter that excludes every ast entry is unaffected and never refuses.
-        _csvp = Path(args.sno).parent / "ALL.csv"
-        if _csvp.is_file() and modes and [m for m in modes if m != "ast"]:
-            import csv as _csv3
-            _decl = {}
-            try:
-                with open(_csvp, newline="") as _f3:
-                    for _row in _csv3.DictReader(_f3):
-                        if "modes" in _row:
-                            _decl[_row.get("entry")] = (_row.get("modes") or "").strip()
-            except OSError:
-                _decl = {}
+        # ⛔⭐⭐ AND THE EVIDENCE MUST TRAVEL WITH THE SUITE, OR THIS GUARD IS BLIND EXACTLY WHERE IT IS NEEDED.
+        # It used to read `Path(args.sno).parent / "ALL.csv"` and nothing else, so its activation depended on
+        # WHERE THE CALLER HAPPENED TO PUT THE FILE. Every runner that grades an EXTRACTED family in a
+        # tempdir -- the documented bridge, test_snocone_corpus_suite.sh's own shape -- has no ALL.csv beside
+        # it, and a guard that cannot see its subject says nothing, which is indistinguishable from a pass.
+        # MEASURED BOTH WAYS ON ONE PAIR OF COMMANDS (hq_T 2026-09-05, pascal's 5 modes=ast parser entries):
+        # graded IN PLACE, rc=2 REFUSING; the SAME entries extracted to a tempdir and graded the same way,
+        # rc=1 with a full plausible board -- total=5 m3_fail=5 m4_fail=5, five manufactured reds.
+        # ⭐ The other half of the same defect: --by-modes-column REFUSED on an extracted pair for want of
+        # that sibling csv, so on an extraction the CORRECT call was impossible and the incorrect one was
+        # silent. extract-family now carries a `.modes` sidecar the way it already carries `.in` and
+        # `.xfail`, under the law written in its own docstring: A CHECK THAT DOES NOT CARRY EVERY FIELD THE
+        # GRADER READS IS NOT A CHECK (hq_C). `modes` was the one field it did not carry.
+        _decl, _csvp = modes_declarations(args.sno)
+        if _decl and modes and [m for m in modes if m != "ast"]:
             _forced = [e.name for e in entries if _decl.get(e.name) == "ast"]
             if _forced:
-                refuse(f"{_csvp.name} declares {len(_forced)} entr(y/ies) as modes=ast (first: {_forced[0]}), "
+                refuse(f"{_csvp} declares {len(_forced)} entr(y/ies) as modes=ast (first: {_forced[0]}), "
                        f"whose .ref is a --dump-ast dump, but this run was asked for --modes {','.join(modes)} "
                        f"WITHOUT --by-modes-column -- so those entries would be EXECUTED and diffed against an "
                        f"AST dump they were never meant to match, manufacturing reds that mean nothing. "
@@ -2264,6 +2273,54 @@ def cmd_extract(args):
     refuse(f"no entry named {args.name!r} in {args.sno} (have: {', '.join(sorted(e.name for e in entries))})")
 
 
+def modes_sidecar_path(sno_path):
+    """The WRITE target for an extracted suite's modes declaration: <stem>.modes beside the pair, named the
+    same way .in and .xfail are. Kept separate from the discovery form below for the reason the extractor
+    already documents about its other sidecars -- a discovery function returns None until the file exists,
+    which is right for reading and useless for naming one to create."""
+    return str(Path(sno_path).with_suffix(".modes"))
+
+
+def modes_declarations(sno_path):
+    """{entry: declared modes} for the suite at `sno_path`, plus the name of the evidence used.
+
+    ⛔⭐ TWO SOURCES, IN THIS ORDER, AND THE ORDER IS THE POINT. A `<stem>.modes` sidecar TRAVELS with an
+    extracted family; a sibling `ALL.csv` only exists for a suite still sitting in the corpus. Reading the
+    csv alone made every guard below depend on where the caller put the file rather than on what the suite
+    declares -- see the measured pascal witness at the mirror-trap guard. Returns ({}, None) when neither is
+    present, which is an honest "no declaration was reachable" and never a guess.
+    ⛔ THE EMPTY STRING IS NOT A DECLARATION EITHER, and it is the third spelling of "nobody said": UNKNOWN
+    (loud, counted separately on every board), `` (silent -- what every corpus/packages/*/ALL.csv carries
+    today), and an absent row (which --by-modes-column refuses on). Only one of the three is loud. Kept as
+    data rather than normalised away, so a reader can see which spelling a suite used."""
+    _p = Path(modes_sidecar_path(sno_path))
+    if _p.is_file():
+        out = {}
+        for line in _p.read_text(encoding="utf-8").splitlines():
+            if not line.strip() or line.lstrip().startswith("#"):
+                continue
+            name, _, m = line.partition("\t")
+            out[name.strip()] = m.strip()
+        if out:
+            return out, _p.name
+    _csv_path = Path(sno_path).parent / "ALL.csv"
+    if _csv_path.is_file():
+        import csv as _csvm
+        out = {}
+        try:
+            with open(_csv_path, newline="") as _f:
+                rdr = _csvm.DictReader(_f)
+                if rdr.fieldnames and "modes" not in rdr.fieldnames:
+                    refuse(f"{_csv_path} has no `modes` column -- nothing to honour")
+                for _row in rdr:
+                    out[_row.get("entry")] = (_row.get("modes") or "").strip()
+        except OSError:
+            return {}, None
+        if out:
+            return out, _csv_path.name
+    return {}, None
+
+
 def cmd_extract_family(args):
     """Materialize every entry of ONE family back out as a standalone SUITE PAIR (still banner-block or
     one-line, matching the master's own format) rather than loose individual files -- the bridge for a
@@ -2322,6 +2379,19 @@ def cmd_extract_family(args):
         os.remove(out_in)
     if not write_xfail_sidecar(sel, out_x, _copen, _cclose) and os.path.exists(out_x):
         os.remove(out_x)
+    # ⛔⭐ AND THE `modes` DECLARATION TRAVELS TOO -- the field this extractor did not carry, under the law
+    # its own docstring already states: a check that does not carry every field the grader reads is not a
+    # check. Without it, `run --modes m3,m4` over an extracted family could not be guarded (the mirror-trap
+    # guard had no evidence to read) and `--by-modes-column` could not be honoured (it refused for want of a
+    # sibling ALL.csv), so the correct call was impossible and the incorrect one was silent. Written for the
+    # SELECTED entries only, because that is exactly the population this pair will be graded over.
+    with open(modes_sidecar_path(args.out_sno), "w", encoding="utf-8") as _mf:
+        _mf.write("# modes declaration carried out of %s by extract-family (family=%s). entry<TAB>modes.\n"
+                  % (Path(args.csv).name, args.family))
+        with open(args.csv, newline="") as _cf:
+            _decl_all = {r["entry"]: (r.get("modes") or "").strip() for r in _csv.DictReader(_cf)}
+        for _e in sel:
+            _mf.write("%s\t%s\n" % (_e.name, _decl_all.get(_e.name, "")))
 
 
 def cmd_list(args):
@@ -2366,7 +2436,7 @@ def main():
     o.add_argument("family_dir")
     o.add_argument("--modes", default="m3,m4")
     o.add_argument("--force", action="store_true", help="re-capture even stems that already have a .ref (default: leave them alone)")
-    o.add_argument("--lang", default="", choices=[""] + sorted(LANG_CONFIGS), help="capture against a LANG_CONFIGS dialect's own oracle instead of SPITBOL (only 'prolog' has an oracle wired as of 2026-08-29; default '' means snobol4, unchanged behavior)")
+    o.add_argument("--lang", default="", choices=LANG_CHOICES, help="capture against a LANG_CONFIGS dialect's own oracle instead of SPITBOL (only 'prolog' has an oracle wired as of 2026-08-29; default '' means snobol4, unchanged behavior)")
     o.set_defaults(func=cmd_capture_oracle_refs)
 
     c = sub.add_parser("convert", help="convert a loose-file family into suite .sno/.ref, validating byte-equal before writing")
@@ -2393,7 +2463,7 @@ def main():
     r.add_argument("sno")
     r.add_argument("ref")
     r.add_argument("--modes", default="", help="default: m3,m4 (or LANG_CONFIGS[lang]['modes'] if --lang given)")
-    r.add_argument("--lang", default="", choices=[""] + sorted(LANG_CONFIGS), help="read/grade as a LANG_CONFIGS dialect instead of the default SNOBOL4 suite format")
+    r.add_argument("--lang", default="", choices=LANG_CHOICES, help="read/grade as a LANG_CONFIGS dialect instead of the default SNOBOL4 suite format")
     r.add_argument("--by-modes-column", action="store_true",
                    help="grade each entry by the `modes` column of the suite's sibling ALL.csv instead of grading every entry the same way: "
                         "modes=ast entries are graded by `scrip --dump-ast` diffed as text, everything else by --modes (default m3,m4). "
@@ -2427,7 +2497,7 @@ def main():
     pr.add_argument("--ruling", required=True, help="WHY this entry's answer is SCRIP's to decide and not the oracle's (mandatory: an unexplained pin cannot be told from a ref cut while the compiler was broken)")
     pr.add_argument("--mode", default="m3", choices=["m3", "m4"], help="which mode's live output to pin (default m3)")
     pr.add_argument("--measurer", default="", help="who ruled it (defaults to $S4E_SEAT)")
-    pr.add_argument("--lang", default="", choices=[""] + sorted(LANG_CONFIGS))
+    pr.add_argument("--lang", default="", choices=LANG_CHOICES)
     pr.add_argument("--oracle-disagrees-and-i-mean-it", action="store_true", help="pin even though the oracle RAN this entry cleanly and gave a different answer -- the ledger records both. Spelled out in full because the first use of this verb blessed a regression on an unmeasured claim that the oracle could not grade the entry")
     pr.add_argument("--apply", action="store_true", help="write it (without this the diff is printed and nothing changes)")
     pr.set_defaults(func=cmd_pin_ref)
@@ -2435,10 +2505,12 @@ def main():
     l = sub.add_parser("list", help="print every entry name in a suite, one per line, in file order")
     l.add_argument("sno")
     l.add_argument("ref")
-    l.add_argument("--lang", default="", choices=[""] + sorted(LANG_CONFIGS), help="read as a LANG_CONFIGS dialect instead of the default SNOBOL4 suite format (a non-.sno suffix without this REFUSES rather than misreading)")
+    l.add_argument("--lang", default="", choices=LANG_CHOICES, help="read as a LANG_CONFIGS dialect instead of the default SNOBOL4 suite format (a non-.sno suffix without this REFUSES rather than misreading)")
     l.set_defaults(func=cmd_list)
 
     args = ap.parse_args()
+    if getattr(args, "lang", None) == "snobol4":
+        args.lang = ""      # the accepted synonym for the default -- see LANG_CHOICES
     args.func(args)
 
 

@@ -37,8 +37,14 @@ gate_require "$BUILDER" "the master builder"
 gate_require "$LIVE/ALL.sno" "the live snobol4 master"
 
 FAILS=0
-good() { echo "  ✓ $*"; }
-bad()  { echo "  ✗ $*"; FAILS=$((FAILS + 1)); }
+# ⛔⭐ COUNT THE ASSERTIONS, so the verdict line's denominator is the population it actually graded. This
+# gate printed "GATE PASS(0) ... (examined 0)" while the lines above it showed a dozen ✓ checks: GATE_EXAMINED
+# was never set, and gate_verdict has no way to know. A zero denominator beside a real population is the same
+# reading error as a zero denominator beside an empty one -- and the second is the vacuous green this project
+# keeps paying for, so the two must not print alike (hq_T 2026-09-05, beside the SCORE gate floors).
+CHECKS=0
+good() { echo "  ✓ $*"; CHECKS=$((CHECKS + 1)); }
+bad()  { echo "  ✗ $*"; CHECKS=$((CHECKS + 1)); FAILS=$((FAILS + 1)); }
 
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 # mkscratch: a FULLY SYNTHETIC scratch snobol4 tree (no live-tree copy -- copying the real 1726-
@@ -112,4 +118,5 @@ else bad "selfam_probe survived despite being named in --only"; fi
 if [ -f "$W/d/corpus/tests/snobol4/otherfam_probe.sno" ]; then good "otherfam_probe survives (not named)"
 else bad "⛔ otherfam_probe deleted despite not being named in --only"; fi
 
+GATE_EXAMINED="$CHECKS assertions"
 gate_verdict "$FAILS" "failed assertion(s)"
