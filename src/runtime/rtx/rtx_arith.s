@@ -25,40 +25,73 @@ RTX_FUNC(rt_cmp_d)
     test    r10b, (DT_NOTSTR_MASK & 0xFF)
     jnz     .Lcd_real
     xor     edx, edx
+    xor     r11d, r11d
     cmp     al, DT_S
     jne     .Lcd_a_fix
     mov     rdx, qword ptr [rdi + 8]
+    mov     r11d, dword ptr [rdi + 4]
 .Lcd_a_fix:
     test    rdx, rdx
-    jnz     .Lcd_b
+    jnz     .Lcd_a_len
     lea     rdx, [rip + .Lcd_empty]
-.Lcd_b:
+    xor     r11d, r11d
+.Lcd_a_len:
+    test    r11d, r11d
+    jz      .Lcd_a_scan
+    cmp     r11d, -1
+    jne     .Lcd_a_known
+    xor     r11d, r11d
+.Lcd_a_scan:
+    cmp     byte ptr [rdx + r11], 0
+    je      .Lcd_a_known
+    inc     r11
+    jmp     .Lcd_a_scan
+.Lcd_a_known:
+    mov     rdi, r11
     xor     r10d, r10d
+    xor     r11d, r11d
     cmp     cl, DT_S
     jne     .Lcd_b_fix
     mov     r10, qword ptr [rsi + 8]
+    mov     r11d, dword ptr [rsi + 4]
 .Lcd_b_fix:
     test    r10, r10
-    jnz     .Lcd_strloop
+    jnz     .Lcd_b_len
     lea     r10, [rip + .Lcd_empty]
+    xor     r11d, r11d
+.Lcd_b_len:
+    test    r11d, r11d
+    jz      .Lcd_b_scan
+    cmp     r11d, -1
+    jne     .Lcd_b_known
+    xor     r11d, r11d
+.Lcd_b_scan:
+    cmp     byte ptr [r10 + r11], 0
+    je      .Lcd_b_known
+    inc     r11
+    jmp     .Lcd_b_scan
+.Lcd_b_known:
+    mov     rsi, r11
+    cmp     r11, rdi
+    cmova   r11, rdi
 .Lcd_strloop:
+    test    r11, r11
+    jz      .Lcd_strtie
     movzx   eax, byte ptr [rdx]
     movzx   ecx, byte ptr [r10]
     cmp     al, cl
     jne     .Lcd_strdiff
-    test    al, al
-    je      .Lcd_streq
     inc     rdx
     inc     r10
+    dec     r11
     jmp     .Lcd_strloop
+.Lcd_strtie:
+    cmp     rdi, rsi
 .Lcd_strdiff:
     seta    r11b
     setb    r10b
     sub     r11b, r10b
     movsx   eax, r11b
-    ret
-.Lcd_streq:
-    xor     eax, eax
     ret
 .Lcd_real:
     cmp     al, DT_R

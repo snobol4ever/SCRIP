@@ -812,46 +812,43 @@ static DESCR_t _NAME_(DESCR_t *a, int n) {
     return STRVAL(rt_ws_strdup_c(s ? s : ""));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int lex_cmp_pair(DESCR_t a, DESCR_t b) {
+    const char *x = VARVAL_fn(a); const char *y = VARVAL_fn(b);
+    if (!x) x = ""; if (!y) y = "";
+    size_t xl = (a.v == DT_S && a.slen && a.slen != 0xFFFFFFFFu) ? (size_t)a.slen : strlen(x);
+    size_t yl = (b.v == DT_S && b.slen && b.slen != 0xFFFFFFFFu) ? (size_t)b.slen : strlen(y);
+    size_t m = xl < yl ? xl : yl; int c = m ? memcmp(x, y, m) : 0;
+    return c ? c : (xl < yl ? -1 : xl > yl ? 1 : 0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _LGT_(DESCR_t *a, int n) {
     if (n < 2) return FAILDESCR;
-    const char *x = VARVAL_fn(a[0]); const char *y = VARVAL_fn(a[1]);
-    if (!x) x = ""; if (!y) y = "";
-    return strcmp(x, y) > 0 ? NULVCL : FAILDESCR;
+    return lex_cmp_pair(a[0], a[1]) > 0 ? NULVCL : FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _LLT_(DESCR_t *a, int n) {
     if (n < 2) return FAILDESCR;
-    const char *x = VARVAL_fn(a[0]); const char *y = VARVAL_fn(a[1]);
-    if (!x) x = ""; if (!y) y = "";
-    return strcmp(x, y) < 0 ? NULVCL : FAILDESCR;
+    return lex_cmp_pair(a[0], a[1]) < 0 ? NULVCL : FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _LGE_(DESCR_t *a, int n) {
     if (n < 2) return FAILDESCR;
-    const char *x = VARVAL_fn(a[0]); const char *y = VARVAL_fn(a[1]);
-    if (!x) x = ""; if (!y) y = "";
-    return strcmp(x, y) >= 0 ? NULVCL : FAILDESCR;
+    return lex_cmp_pair(a[0], a[1]) >= 0 ? NULVCL : FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _LLE_(DESCR_t *a, int n) {
     if (n < 2) return FAILDESCR;
-    const char *x = VARVAL_fn(a[0]); const char *y = VARVAL_fn(a[1]);
-    if (!x) x = ""; if (!y) y = "";
-    return strcmp(x, y) <= 0 ? NULVCL : FAILDESCR;
+    return lex_cmp_pair(a[0], a[1]) <= 0 ? NULVCL : FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _LEQ_(DESCR_t *a, int n) {
     if (n < 2) return FAILDESCR;
-    const char *x = VARVAL_fn(a[0]); const char *y = VARVAL_fn(a[1]);
-    if (!x) x = ""; if (!y) y = "";
-    return strcmp(x, y) == 0 ? NULVCL : FAILDESCR;
+    return lex_cmp_pair(a[0], a[1]) == 0 ? NULVCL : FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _LNE_(DESCR_t *a, int n) {
     if (n < 2) return FAILDESCR;
-    const char *x = VARVAL_fn(a[0]); const char *y = VARVAL_fn(a[1]);
-    if (!x) x = ""; if (!y) y = "";
-    return strcmp(x, y) != 0 ? NULVCL : FAILDESCR;
+    return lex_cmp_pair(a[0], a[1]) != 0 ? NULVCL : FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int host_cmdline_arg(int want, char *out, int outsz) {

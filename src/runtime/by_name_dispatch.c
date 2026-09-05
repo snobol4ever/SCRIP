@@ -4040,9 +4040,7 @@ static __attribute__((noinline)) int bn_numrel(DESCR_t *args, int nargs, DESCR_t
 static __attribute__((noinline)) int bn_lexrel(DESCR_t *args, int nargs, DESCR_t *out, int op) {
     if (nargs != 2) return -1;
     if (IS_FAIL_fn(args[0]) || IS_FAIL_fn(args[1])) { *out = FAILDESCR; return 1; }
-    const char *_ls = VARVAL_fn(args[0]); if (!_ls) _ls = "";
-    const char *_rs = VARVAL_fn(args[1]); if (!_rs) _rs = "";
-    int c = strcmp(_ls, _rs);
+    int c = lex_cmp_pair(args[0], args[1]);
     int ok = op==0?(c>0):op==1?(c<0):op==2?(c>=0):op==3?(c<=0):op==4?(c==0):(c!=0);
     *out = ok ? NULVCL : FAILDESCR; return 1;
 }
