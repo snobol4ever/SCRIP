@@ -556,6 +556,15 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (L->t == TT_VAR && L->v.sval) {
             sno_reg_var(L->v.sval);
             IR_t * asn = lc_build(cx->g, IR_ASSIGN, γ, ω); IR_LIT(asn).sval = L->v.sval;
+            if (R->t == TT_SCAN && R->n == 2 && R->c[0] && R->c[1] && R->c[1]->t == TT_ASSIGN && R->c[1]->n == 2 && R->c[1]->c[0] && R->c[1]->c[1]) {
+                extern tree_t * ast_stmt_new(tree_e kind);
+                tree_t * sc = ast_stmt_new(TT_SCAN); ast_push(sc, (tree_t *) R->c[0]); ast_push(sc, (tree_t *) R->c[1]->c[0]);
+                IR_t * vr = NULL; IR_t * rd = sx_lower(cx, R->c[0], asn, ω, &vr);
+                ir_operand_push(asn, vr);
+                IR_t * e = sno_lower_match(cx, sc, (tree_t *) R->c[1]->c[1], 1, rd, ω, NULL);
+                if (res) *res = NULL;
+                return e;
+            }
             if (R->t == TT_SCAN && R->n == 2 && R->c[0] && R->c[1]) {
                 extern tree_t * ast_stmt_new(tree_e kind);
                 tree_t * capt = ast_stmt_new(TT_CAPT_COND_ASGN);
@@ -2213,6 +2222,16 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         }
         if (subj->t == TT_VAR) {
             sno_reg_var(subj->v.sval);
+            if (repl && repl->t == TT_SCAN && repl->n == 2 && repl->c[0] && repl->c[1] && repl->c[1]->t == TT_ASSIGN && repl->c[1]->n == 2 && repl->c[1]->c[0] && repl->c[1]->c[1]) {
+                extern tree_t * ast_stmt_new(tree_e kind);
+                tree_t * sc = ast_stmt_new(TT_SCAN); ast_push(sc, (tree_t *) repl->c[0]); ast_push(sc, (tree_t *) repl->c[1]->c[0]);
+                IR_t * asn = lc_build(g, IR_ASSIGN, sJ, fA); IR_LIT(asn).sval = subj->v.sval;
+                IR_t * vr = NULL; IR_t * rd = sx_lower(&cx, repl->c[0], asn, fA, &vr);
+                ir_operand_push(asn, vr);
+                IR_t * e = sno_lower_match(&cx, sc, (tree_t *) repl->c[1]->c[1], 1, rd, fA, NULL);
+                lc_γ_to(anchor[i], e);
+                continue;
+            }
             if (repl && repl->t == TT_SCAN && repl->n == 2 && repl->c[0] && repl->c[1]) {
                 extern tree_t * ast_stmt_new(tree_e kind);
                 tree_t * capt = ast_stmt_new(TT_CAPT_COND_ASGN);
