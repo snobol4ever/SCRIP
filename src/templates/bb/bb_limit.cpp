@@ -4,6 +4,7 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
+int64_t core_icn_limit_count_check(uint64_t lo, uint64_t hi);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -13,8 +14,11 @@ std::string bb_limit() {
          + IF(_.op_off >= 0 && _.op_sa >= 0 && _.op_sc >= 0 && _.lbl_t0,
              x86("comment", "IR_LIMIT")
            + x86_alpha()
+           + x86("mov",   "rdi", FRQ(_.op_sc))
+           + x86("mov",   "rsi", FRQ(_.op_sc + 8))
+           + x86("call",  "core_icn_limit_count_check", (uint64_t)(uintptr_t)(void*)core_icn_limit_count_check)
+           + x86("mov",   "rcx", "rax")
            + x86("mov",   "rax", FRQ(_.op_off + 16))
-           + x86("mov",   "rcx", FRQ(_.op_sc + 8))
            + x86("cmp",   "rax", "rcx")
            + x86_omega("jge")
            + x86("inc",   FRQ(_.op_off + 16))
