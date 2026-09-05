@@ -104,13 +104,19 @@ out="$(S4E_BOARDS="$FAKE_BOARDS" bash "$HERE/test_snobol4_gimpel_suite.sh" 2>&1)
 kill "$FAKE_PID" 2>/dev/null; wait "$FAKE_PID" 2>/dev/null
 [ "$rc" = 2 ] && ck ok "forced board contention -> gimpel wrapper rc=2 (was rc=0 before this row: M3F=M4F=0 over the truncated-empty results.tsv)" \
               || ck no "must REFUSE rc=2; got rc=$rc -- $out"
-grep -q "scored rows" <<<"$out" && grep -q "scorecard rc=3" <<<"$out" && ck ok "refusal names the SCORED population and scorecard's own contention rc" \
+# ⭐ NOT PINNED TO THIS ROW'S OWN MESSAGE TEXT: a second seat independently cured the SAME incident in
+# this SAME file concurrently with this row (commit cfde5756f, checking TOTAL==0 -- an earlier, coarser
+# check than this row's SCORED==0, which also catches the distinct all-ORACLE_FAIL case where TOTAL>0
+# but nothing was scored). Whichever check fires first is correct; asserting one exact wording would
+# make this gate red the next time a third seat improves the message again. Assert the OUTCOME: rc=2,
+# and that SOME refusal names the empty/zero population and scorecard's own non-zero exit.
+grep -qE "graded ZERO|scored rows|UNMEASURED" <<<"$out" && grep -q "rc=3" <<<"$out" && ck ok "refusal names the zero/empty population and scorecard's own contention rc" \
               || ck no "refusal must name the upstream cause -- $out"
 
 echo "--- ARM 6 (CENSUS, PRINTED DENOMINATOR, three-way): every test_*_suite.sh is WIRED, ALREADY-ADEQUATE, or a NAMED GAP ---"
 # WIRED: calls this row's shim directly, OR calls gate_floor directly (the pre-existing authority this
 # row's shim wraps), OR delegates its grading to corpus_suite_harness.py's `run` (which this row wired).
-ALREADY_ADEQUATE="test_prolog_swi_suite.sh test_snocone_hand_suite.sh"
+ALREADY_ADEQUATE="test_prolog_swi_suite.sh test_snocone_hand_suite.sh test_snobol4_spitbol_testpgms_suite.sh"
 # test_prolog_swi_suite.sh: run_one_mode() already has `[ "$TOTAL" -gt 0 ] || { REFUSED-TO-GRADE; exit 2; }`
 #   (verified by hand, predates this row) -- does not match the grep below because it never calls the
 #   shim, gate_floor, or the harness; it is a fourth, bespoke-but-correct mechanism.
@@ -118,6 +124,11 @@ ALREADY_ADEQUATE="test_prolog_swi_suite.sh test_snocone_hand_suite.sh"
 #   hardcoded literal array, not a glob/discovery result -- it cannot become silently empty at runtime
 #   the way every other wrapper in this census can; only an in-diff source edit could empty it, which
 #   code review catches, not this gate.
+# test_snobol4_spitbol_testpgms_suite.sh: landed independently, concurrently with this row (a different
+#   seat's row on the same defect class -- the dispatching message's citation of this exact filename,
+#   which did not exist when this row started, turned out to be a race rather than pure staleness). It
+#   already carries its own correct, hand-written `if [ "$SCORED" -eq 0 ]; then REFUSE rc=2; fi` --
+#   verified by hand, not wired to this row's shim, and does not need to be.
 KNOWN_GAP="test_csnobol4_budne_suite.sh test_snobol4_pat_rung_suite.sh test_icon_arizona_suite.sh test_icon_jcon_suite.sh test_pascal_pat_suite.sh test_prolog_inria_suite.sh"
 # ^ verified by hand 2026-09-04: each computes real PASS/FAIL counts and then has NO exit-code verdict
 #   at all (unconditional `exit 0`, or no `exit` after the final printf) -- a DIFFERENT defect shape
