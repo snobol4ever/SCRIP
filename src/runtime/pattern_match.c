@@ -726,15 +726,10 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
             extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
             extern int rt_g_ret_by_name;
             const int nmyield = !strncmp(e->varname + 1, "EXPRNM$", 7);
-            const int void_yield = !strncmp(e->varname + 1, "EXPRVOID$", 9);
             { int _wsv = rt_g_want_name; rt_g_want_name = 1;
             DESCR_t nm = rt_call_proc_descr(e->varname + 1, 0);
             rt_g_want_name = _wsv;
             const int by_name = rt_g_ret_by_name || nmyield; rt_g_ret_by_name = 0;
-            if (void_yield) {
-                if (IS_FAIL_fn(nm)) { if (strict) { rc = 1; break; } continue; }
-                continue;
-            }
             if (IS_FAIL_fn(nm)) { if (strict) { if (g_dcap_trace < 0) { const char *_e = getenv("SCRIP_DCAP_TRACE"); g_dcap_trace = (_e && _e[0]) ? 1 : 0; } if (g_dcap_trace) fprintf(stderr, "[DCAP] STRICT-REFUSE target=%s: call FAILED -> rc=1 (match will fail at END)\n", e->varname); rc = 1; break; } fprintf(stderr, "[DCAP] WARN deferred assignment target '%s' failed or is not invocable; conditional assignment skipped\n", e->varname); continue; }
             if (strict && !by_name) { if (g_dcap_trace < 0) { const char *_e = getenv("SCRIP_DCAP_TRACE"); g_dcap_trace = (_e && _e[0]) ? 1 : 0; } if (g_dcap_trace) fprintf(stderr, "[DCAP] STRICT-REFUSE target=%s: returned a VALUE not a NAME (by_name=0, nm.v=%d, nm.slen=%u, nm.s=%.24s) -> rc=1 (match will fail at END)\n", e->varname, (int)nm.v, nm.slen, (nm.v == DT_S && nm.s) ? nm.s : "?"); rc = 1; break; }
             if (IS_STR_fn(nm)) {
