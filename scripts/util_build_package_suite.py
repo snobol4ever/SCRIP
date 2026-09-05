@@ -149,7 +149,19 @@ def read_text_tolerant(path):
 
 
 def stdin_for(stem, pkg_dir):
-    for ext in ("stdin", "IN", "in", "input", "Input"):
+    # ⭐ `.dat` ADDED (measured on arizona_tests' README.md: "16 with a matching .dat (fed as stdin..."
+    # -- a DIFFERENT convention from jcon_tests' same-named extension, which feeds it as BOTH argv[1]
+    # AND stdin (JCON's own addtest harness; this builder has no argv mechanism, see the .dat-companion
+    # exclusion reason in build() below). Tried last, after every stdin-specific extension, so a package
+    # that ships BOTH a real `.stdin` file and an unrelated `.dat` data companion still prefers the
+    # explicit one. Safe for jcon_tests' own .dat-as-argv entries too, not just neutral: feeding the same
+    # content as stdin can only help (a program that reads it via stdin as well as/instead of argv[1] now
+    # gets real input, matching JCON's own "both at once" convention) or leave them exactly as excluded
+    # as before (still empty if the program truly needs argv[1] specifically) -- verified empirically
+    # (rebuilt jcon_tests after adding this, diffed against the already-pushed container: zero change to
+    # every absorbed entry's ref content, zero newly-absorbed, confirming none of jcon's programs read
+    # their .dat via stdin at all -- they are all genuinely argv[1]-only, not a false assumption).
+    for ext in ("stdin", "IN", "in", "input", "Input", "dat"):
         cand = pkg_dir / f"{stem}.{ext}"
         if cand.is_file():
             return cand
