@@ -1216,17 +1216,30 @@ def _additive_next_name(base, taken):
 def _additive_write_sidecar_merge(path, new_lines):
     """Merge {key: value} into a TAB-separated sidecar (MODES.tsv, ALL.excluded.txt), keyed on column 1 --
     new/changed keys win, everything else already on disk survives. Never a blind overwrite: a second
-    --additive run (a different --lang, a different --from) must not erase the first run's lines."""
-    existing = {}
+    --additive run (a different --lang, a different --from) must not erase the first run's lines.
+    ⛔⭐ THE HEADER IS DATA TOO. This used to drop every line without a TAB, which is every comment line,
+    so each --additive run silently deleted the sidecar's own governing text -- MODES.tsv's "DECLARED,
+    NEVER DERIVED" ruling and the per-line (evidence) column that ruling REQUIRES were erased by the
+    tool that the ruling governs. The file then read as 39 bare declarations with no law and no evidence,
+    and nothing in it said that anything had been removed. Comments are preserved verbatim, in place."""
+    existing, header = {}, []
     if os.path.isfile(path):
+        seen_data = False
         for line in open(path, encoding="utf-8", errors="replace"):
             line = line.rstrip("\n")
             if not line or "\t" not in line:
+                if not seen_data:
+                    header.append(line)
                 continue
+            seen_data = True
             k, v = line.split("\t", 1)
             existing[k] = v
-    existing.update(new_lines)
+    for k, v in new_lines.items():
+        if k not in existing:            # ⛔ never overwrite a hand-written declaration and its evidence
+            existing[k] = v
     with open(path, "w", encoding="utf-8", newline="\n") as f:
+        for line in header:
+            f.write("%s\n" % line)
         for k in sorted(existing):
             f.write("%s\t%s\n" % (k, existing[k]))
 
@@ -1323,7 +1336,7 @@ def additive_absorb(lang, categories, root, timeout, write, cols):
     taken_names = {e.name for e in base_entries}
     base_origins = {(csv_row_by_name.get(e.name) or {}).get("origin") or ("master__%s" % e.name) for e in base_entries}
 
-    new_entries, modes_for_origin = [], {}
+    new_entries, modes_for_origin, modes_for_family = [], {}, {}
     for name, cat, kind, body_lines, ref_or_ast, stdin_text in absorbed:
         singular = cat[:-1] if cat.endswith("s") else cat
         fam = "%s_%s_%s" % (singular, lang, name)      # one family per additive entry -- see discover_pairs's
@@ -1340,6 +1353,13 @@ def additive_absorb(lang, categories, root, timeout, write, cols):
         e.src_mode = "additive"
         new_entries.append(e)
         modes_for_origin[origin] = "ast" if kind == "ast" else "m3,m4"
+        # ⛔⭐ THE SIDECAR IS KEYED ON THE FAMILY, NEVER THE ORIGIN, AND THE CSV IS KEYED ON THE ORIGIN. Both are
+        # needed and they are NOT the same string: read_modes_decl() keys MODES.tsv on ALL.csv's `family` column
+        # while the CSV row above is looked up by `origin` (fam + "__" + name). Writing the sidecar from the
+        # origin-keyed dict gave every additively-absorbed family a declaration that matched nothing -- inert,
+        # yet indistinguishable from a real one to any reader. 37 of prolog's 39 keys were exactly this.
+        # ⭐ An orphaned key is worse than an absent one: an absent family is UNKNOWN and reports itself.
+        modes_for_family[fam] = "ast" if kind == "ast" else "m3,m4"
 
     if not new_entries:
         print("--additive %s --from %s: 0 new entries (%d candidate(s) checked, %d excluded) -- nothing written."
@@ -1404,7 +1424,7 @@ def additive_absorb(lang, categories, root, timeout, write, cols):
     os.replace(tmp_csv, master_csv)
     cfg_dir = os.path.join(OUTDIR, "config")
     modes_path = os.path.join(cfg_dir, "MODES.tsv") if os.path.isdir(cfg_dir) else os.path.join(OUTDIR, "MODES.tsv")
-    _additive_write_sidecar_merge(modes_path, modes_for_origin)
+    _additive_write_sidecar_merge(modes_path, modes_for_family)
     _additive_write_sidecar_merge(os.path.join(OUTDIR, "ALL.excluded.txt"),
                                    {("%s[%s]" % (n, c)): r for n, c, r in excluded_rows})
     print("--additive %s --from %s: %d new entries absorbed (%d candidate(s) checked, %d excluded) -- "
@@ -2294,9 +2314,30 @@ def main():
     # because the field makes the question look answered. These entries are UNPROVEN at grading time --
     # never PASS, never FAIL -- and any consumer that grades them in a default mode reproduces the exact
     # defect the column exists to expose.
-    _fams = sorted({e.origin.split("__", 1)[0] for e in all_entries})
-    _unk = [f for f in _fams if f not in _modes_decl]
-    _unk_entries = sum(1 for e in all_entries if e.origin.split("__", 1)[0] not in _modes_decl)
+    # ⛔⭐ REPORT IN THE VOCABULARY THE CONSUMER KEYS ON. This used to name `origin.split("__")[0]` -- an ORIGIN
+    # PREFIX -- while read_modes_decl() keys on ALL.csv's `family`. When the two differ, this message named a
+    # string that could never be a valid key, and a reader who did exactly as told produced an inert line. That
+    # is how prolog's MODES.tsv came to hold 37 origin-shaped keys: not carelessness, but a tool naming one
+    # vocabulary and keying on another. Families come from the CSV column itself, with the prefix kept only as
+    # the documented fallback the writer at the xfail site already honours.
+    _fam_of = {}
+    for e in all_entries:
+        _fam_of[e.origin] = getattr(e, "family", None) or e.origin.split("__", 1)[0]
+    _fams = sorted(set(_fam_of.values()))
+    def _declared_for(f):
+        return _modes_decl.get(f) or _modes_decl.get(f.split("__", 1)[0])
+    _unk = [f for f in _fams if not _declared_for(f)]
+    _unk_entries = sum(1 for e in all_entries if not _declared_for(_fam_of[e.origin]))
+    # ⭐ AN ORPHANED KEY IS UNKNOWN THAT LOOKS ANSWERED, so it is reported as loudly as an absent one.
+    _orphan = sorted(k for k in _modes_decl if k not in set(_fams) and k.split("__", 1)[0] not in set(_fams))
+    if _orphan:
+        print("⛔ %d MODES.tsv key(s) match NO family in this suite -- they declare NOTHING while reading as a"
+              % len(_orphan), file=sys.stderr)
+        print("   declaration. Column 1 is ALL.csv's `family`, not `origin`:", file=sys.stderr)
+        for k in _orphan[:10]:
+            print("     %s" % k, file=sys.stderr)
+        if len(_orphan) > 10:
+            print("     ... and %d more" % (len(_orphan) - 10), file=sys.stderr)
     if _unk:
         print("⛔ MODE UNKNOWN for %d of %d families (%d entries) -- these are UNPROVEN, not passes:"
               % (len(_unk), len(_fams), _unk_entries), file=sys.stderr)
