@@ -274,12 +274,19 @@ def build(pkg_dir, lang, out_prefix="ALL"):
     cols, _ = m.LANG_TABLES[table_lang]
     with open(out_csv, "w", newline="") as f:
         w = csv.writer(f, lineterminator="\n")
-        w.writerow(["rank", "entry", "origin", "package", "n_lines", "stdin", "want_rc"] + [c for c, _fn in cols])
+        # ⛔ `modes` ALWAYS EMPTY, NEVER OMITTED (task snobol4-aisnobol-csv-missing-modes-column-blocks-
+        # measurement). This builder has no concept of an ast-graded entry -- every entry here is executed,
+        # never --dump-ast-diffed -- so "" is the correct declaration, not a placeholder. But the column
+        # must still be PRESENT: corpus_suite_harness.py's modes_declarations() refuses outright when a
+        # sibling ALL.csv exists with the column wholly absent, regardless of whether any entry needs it,
+        # so an absent column reads as "this suite cannot be graded" rather than "this suite declares
+        # nothing." Present-and-empty is the honest, gradable spelling of "always executed."
+        w.writerow(["rank", "entry", "origin", "package", "n_lines", "stdin", "want_rc", "modes"] + [c for c, _fn in cols])
         for e in entries:
             joined = "\n".join(e.sno_lines)
             flags_row = m.attrs_for_text(joined, table_lang)
             w.writerow([e.seq, e.name, f"{pkg_dir.name}__{e.name}", pkg_dir.name, len(e.sno_lines),
-                        1 if e.stdin else 0, e.want_rc] + [flags_row[c] for c, _fn in cols])
+                        1 if e.stdin else 0, e.want_rc, ""] + [flags_row[c] for c, _fn in cols])
 
     if excluded:
         out_excl.write_text("\n".join(f"{name}: {reason}" for name, reason in sorted(excluded)) + "\n")
