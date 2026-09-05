@@ -23,6 +23,14 @@ B="${BENCH_DIR:-$S4E/corpus/benchmarks/snobol4}"
 REPS="${REPS:-3}"; T="${TIMEOUT:-60}"; ENGINES="${ENGINES:-sbl m3 m4}"
 NOHUGE="${NOHUGE:-1}"; HEAP="${HEAP:-1024}"
 OUT="${OUT:-$B/NOISE-FLOOR.tsv}"
+# hq_P 2026-09-05: this baker APPENDS its -fixed rows to a file the timed baker headed, so it must stamp its OWN
+# oracle identity -- the two blocks are independently provenanced and can be baked days apart against different
+# binaries.  Same law as the timed baker's header: an sbl row is a property of the exact binary that produced it.
+{ echo "#"
+  echo "#   FIXED-N BLOCK baked $(date -u +%Y-%m-%dT%H:%M:%SZ) by scripts/$(basename "$0")  reps=$REPS  nivcsw_flag=$NIVCSW_FLAG"
+  echo "#   MACHINE LOAD AT BAKE: nproc=$(nproc) loadavg=$(cut -d' ' -f1-3 /proc/loadavg)"
+  echo "#   ORACLE IDENTITY AT BAKE: $(sbl_oracle_fingerprint "${SBL:-}")"
+} >> "$OUT"
 WRAP="$ROOT/tools/bench_rusage"
 [ -x "$WRAP" ] || gcc -O2 -o "$WRAP" "$ROOT/tools/bench_rusage.c" || { echo "FAIL build $WRAP" >&2; exit 1; }
 NIVCSW_FLAG="${BENCH_NIVCSW_THRESHOLD:-20}"

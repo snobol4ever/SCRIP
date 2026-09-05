@@ -132,6 +132,27 @@ sbl_assert_bf() {    # $1 = binary, $2 = human label.  Prints the path on succes
 #   spitbol-bench-oracle/  <- was spitbol-clean          the minimal-patch BUILD we TIME against. ⭐ the oracle.
 #   x64/                   (shared, symlinked into all 19 roots since Lon s259) the CORRECTNESS oracle + IPC monitor.
 sbl_clean_bin() { sbl_assert_bf "/home/resources/spitbol-bench-oracle/sbl" "the CLEAN benchmark oracle"; }
+
+# ⛔⭐⭐ AN ORACLE IS A BINARY, SO A PERF BASELINE MUST NAME *WHICH* BINARY (hq_P 2026-09-05, prompted by the pending
+# g_flc repair).  `NOISE-FLOOR.tsv` records the bake timestamp, reps and MACHINE LOAD -- it warns at length that the
+# floor is a property of load and not only of the engine -- but it records NOTHING about the oracle binary itself.
+# ⛔ SO A REBUILT OR REPAIRED ORACLE SILENTLY INVALIDATES EVERY BAKED `sbl` ROW AND NOTHING DETECTS IT.  That is not
+# hypothetical: hq_B has a verified 11-constant `asm.sbl` repair built and waiting on Lon's permission to install.
+# The moment it lands, every sbl row baked before it is a number from a DIFFERENT BINARY sitting in the same column
+# as numbers from the new one -- the exact "a number's tree is part of its label" law from RULES.md § FACT RULES,
+# applied to the oracle instead of to our own tree.  ⭐ The load warning above is the PRECEDENT, not a counterexample:
+# it exists because an unrecorded hidden variable already cost a bake once.  This is the second such variable.
+# Prints: <path> md5=<hash> size=<bytes> mtime=<iso>.  Never fails a bake -- an unfingerprintable oracle records
+# UNKNOWN loudly in the provenance rather than aborting a measurement that is otherwise valid.
+sbl_oracle_fingerprint() {   # $1 = binary path (already resolved by an accessor above)
+    local b="${1:-}"
+    if [ -z "$b" ] || [ ! -x "$b" ]; then printf '%s md5=UNKNOWN size=UNKNOWN mtime=UNKNOWN\n' "${b:-<unset>}"; return 0; fi
+    local m s t
+    m="$(md5sum "$b" 2>/dev/null | cut -d' ' -f1)"; [ -n "$m" ] || m=UNKNOWN
+    s="$(stat -c %s "$b" 2>/dev/null)"; [ -n "$s" ] || s=UNKNOWN
+    t="$(stat -c %y "$b" 2>/dev/null | cut -d'.' -f1)"; [ -n "$t" ] || t=UNKNOWN
+    printf '%s md5=%s size=%s mtime=%s\n' "$b" "$m" "$s" "$t"
+}
 # ⭐ THE CORRECTNESS FACE, through the authority for the first time (hq_P s259).  Callers previously assembled
 # "$X64/bin/sbl" by hand, which is how a path becomes a trap.  Since Lon's s259 ruling ("everyone should be
 # using the shared /home/resources") every seat root's x64/ is a SYMLINK to /home/resources/x64, so the shared
