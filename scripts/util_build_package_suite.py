@@ -18,7 +18,7 @@ currently-GREEN witnesses, and withholding a ref whenever SCRIP disagrees would 
 defects this container exists to surface. The oracle's own answer is the ref, full stop; SCRIP's
 agreement or disagreement with it is what grading measures, not a precondition for measuring at all.
 
-Five ways a shipped program is excluded rather than absorbed, each named by reason in ALL.excluded.txt:
+Six ways a shipped program is excluded rather than absorbed, each named by reason in ALL.excluded.txt:
   1. a `-INCLUDE "X"` naming a file not vendored beside it (a corpus completeness gap, not gradable here)
   2. the oracle itself cannot produce ground truth: crashes (signal), hangs past the timeout, or dies
      gracefully (SPITBOL's own "ERROR nnn -- ... / in statement N" fatal-report shape, ported from
@@ -39,6 +39,14 @@ Five ways a shipped program is excluded rather than absorbed, each named by reas
      going past it and produces real-looking output from a partial run -- grading SCRIP against that
      would blame it for being the stricter, arguably more correct, of the two engines, the same
      false-disagreement class as reason 2.
+  6. the source is not valid UTF-8 (genuine 8-bit content -- measured on csnobol4_suite's 8bit2.sno, an
+     ISO-8859-1 French-language test using accented identifiers, byte 0xC9). read_text_tolerant() can
+     decode it (falls back to latin-1, which never raises), but h.write_suite()'s Path.write_text() has no
+     encoding param and re-encodes as UTF-8 -- a latin-1 chr(0xC9) round-trips out as bytes 0xC3 0x89, two
+     bytes where the vendored source had one. SCRIP is byte-oriented, so the container's copy would stop
+     being byte-identical to what the ref was cut from: the same false-disagreement shape as reasons 4/5,
+     just discovered one level down in the write path rather than the read path. Fixing write_suite itself
+     (shared machinery other suites already depend on) is out of this tool's lane; flagged to hq_T.
 Stdin: `<stem>.stdin` / `<stem>.IN` / `<stem>.in` / `<stem>.input` beside the source, tried in that order
 (vendored packages ship the exact case they shipped in -- aisnobol's are `.IN` -- so this checks case
 variants explicitly rather than relying on with_suffix()'s case-sensitive match).
@@ -122,6 +130,24 @@ def count_top_level_ends(src_text):
     return sum(1 for line in src_text.splitlines() if _END_LINE_RE.match(line))
 
 
+def read_text_tolerant(path):
+    """UTF-8 first (so a real UTF-8 BOM still decodes to U+FEFF for has_bom() to see); falls back to
+    latin-1 -- which never raises -- for genuinely non-UTF-8 8-bit source (measured on csnobol4_suite's
+    8bit2.sno: ISO-8859-1 French text using accented identifiers like Etude/francais, byte 0xC9 -- a
+    deliberate 8-bit-character test, not corruption), so the whole run no longer crashes on the first such
+    file. Returns (text, used_latin1) -- the caller EXCLUDES rather than absorbs when used_latin1 is True:
+    measured (see enctest, this session) that h.write_suite's Path.write_text() re-encodes as UTF-8 with no
+    encoding param exposed, so a latin-1 codepoint like chr(0xC9) round-trips out as the TWO bytes 0xC3 0x89
+    -- the container's copy would silently stop being byte-identical to the vendored source the ref was cut
+    from, the exact false-disagreement class BOM/multi-END are already excluded for. Fixing write_suite
+    itself is out of this tool's lane -- it is shared machinery other suites already depend on."""
+    raw = path.read_bytes()
+    try:
+        return raw.decode("utf-8"), False
+    except UnicodeDecodeError:
+        return raw.decode("latin-1"), True
+
+
 def stdin_for(stem, pkg_dir):
     for ext in ("stdin", "IN", "in", "input", "Input"):
         cand = pkg_dir / f"{stem}.{ext}"
@@ -148,55 +174,69 @@ def build(pkg_dir, lang, out_prefix="ALL"):
         h.refuse(f"no {ext} files under {pkg_dir} (direct or one level down)")
     entries, excluded = [], []
     for i, src in enumerate(srcs, 1):
-        text = src.read_text()
+        # ⭐ QUALIFY WITH PARENT DIR WHEN NESTED (measured on csnobol4_suite: aa.sno at pkg_dir root AND
+        # aa/aa.sno one level down are BOTH real, byte-identical vendored fixtures -- bare name would
+        # give both entries the identical name/origin ("aa"/"csnobol4_suite__aa"), which is exactly the
+        # kind of collision THE MASTER SUITE's CSV manifest exists to make queryable by name; a name that
+        # means two different things defeats that).
+        name = f"{src.parent.name}/{src.stem}" if src.parent != pkg_dir else src.stem
+        text, non_utf8 = read_text_tolerant(src)
+        if non_utf8:
+            excluded.append((name, "source is not valid UTF-8 (genuine 8-bit content, e.g. accented bytes) -- "
+                                        "h.write_suite's writer has no encoding param and would re-encode it as UTF-8, "
+                                        "silently changing the byte-oriented source's own byte count/content versus what "
+                                        "the ref was cut from; excluded rather than absorbed-but-wrong until write_suite "
+                                        "itself grows byte-faithful output (shared machinery, out of this tool's lane)"))
+            print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (non-UTF-8 8-bit source)", file=sys.stderr)
+            continue
         gap = find_include_gap(text, pkg_dir)
         if gap:
-            excluded.append((src.stem, f"missing corpus dependency: -INCLUDE {gap!r} not vendored anywhere in corpus"))
-            print(f"[{i}/{len(srcs)}] {src.stem}: EXCLUDED (missing -INCLUDE {gap!r})", file=sys.stderr)
+            excluded.append((name, f"missing corpus dependency: -INCLUDE {gap!r} not vendored anywhere in corpus"))
+            print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (missing -INCLUDE {gap!r})", file=sys.stderr)
             continue
         if lang in ("", "snobol4") and has_bom(text):
-            excluded.append((src.stem, "source carries a UTF-8 BOM -- confuses the oracle's label lexer (segfault, or a "
+            excluded.append((name, "source carries a UTF-8 BOM -- confuses the oracle's label lexer (segfault, or a "
                                         "compile-time-only fatal that never executes the program), so its output would be "
                                         "a lexer-confusion artifact, not the program's ground truth"))
-            print(f"[{i}/{len(srcs)}] {src.stem}: EXCLUDED (UTF-8 BOM)", file=sys.stderr)
+            print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (UTF-8 BOM)", file=sys.stderr)
             continue
         if lang in ("", "snobol4"):
             n_end = count_top_level_ends(text)
             if n_end > 1:
-                excluded.append((src.stem, f"multi-program file: {n_end} top-level END statements -- not a single valid "
+                excluded.append((name, f"multi-program file: {n_end} top-level END statements -- not a single valid "
                                             "program (SCRIP correctly refuses a duplicate 'END' label; the oracle instead "
                                             "silently continues past it, so neither engine's output is a meaningful "
                                             "single-program comparison)"))
-                print(f"[{i}/{len(srcs)}] {src.stem}: EXCLUDED (multi-program file, {n_end} END statements)", file=sys.stderr)
+                print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (multi-program file, {n_end} END statements)", file=sys.stderr)
                 continue
         stdin_path = stdin_for(src.stem, src.parent)  # the file's OWN dir -- == pkg_dir when flat, matters once nested
         stdin_text = stdin_path.read_text() if stdin_path else None
         ora_text, ora_rc, ora_kind = h.run_oracle(oracle_bin, flags, src, paths["timeout"], stdin_text=stdin_text)
         if ora_kind == "HANG":
-            excluded.append((src.stem, "oracle timed out -- non-terminating or too slow for the grading timeout"))
-            print(f"[{i}/{len(srcs)}] {src.stem}: EXCLUDED (oracle HANG)", file=sys.stderr)
+            excluded.append((name, "oracle timed out -- non-terminating or too slow for the grading timeout"))
+            print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (oracle HANG)", file=sys.stderr)
             continue
         if ora_kind == "UNPROVEN":
             h.refuse(f"oracle binary not runnable at all: {oracle_bin}")
         if ora_rc is not None and ora_rc < 0:
-            excluded.append((src.stem, f"oracle crashed (signal {-ora_rc})"))
-            print(f"[{i}/{len(srcs)}] {src.stem}: EXCLUDED (oracle crashed, signal {-ora_rc})", file=sys.stderr)
+            excluded.append((name, f"oracle crashed (signal {-ora_rc})"))
+            print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (oracle crashed, signal {-ora_rc})", file=sys.stderr)
             continue
         if sbl_died(ora_text):
-            excluded.append((src.stem, "oracle died: graceful fatal report (e.g. undefined function) -- no ground truth to grade against"))
-            print(f"[{i}/{len(srcs)}] {src.stem}: EXCLUDED (oracle died)", file=sys.stderr)
+            excluded.append((name, "oracle died: graceful fatal report (e.g. undefined function) -- no ground truth to grade against"))
+            print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (oracle died)", file=sys.stderr)
             continue
         if not ora_text.strip():
-            excluded.append((src.stem, "oracle produced EMPTY output -- refusing to mint a vacuous ref"))
-            print(f"[{i}/{len(srcs)}] {src.stem}: EXCLUDED (empty oracle output)", file=sys.stderr)
+            excluded.append((name, "oracle produced EMPTY output -- refusing to mint a vacuous ref"))
+            print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (empty oracle output)", file=sys.stderr)
             continue
         want_rc = ora_rc if ora_rc else 0
-        e = h.Entry("block", len(entries) + 1, src.stem, text.splitlines(), ora_text.split("\n"),
+        e = h.Entry("block", len(entries) + 1, name, text.splitlines(), ora_text.split("\n"),
                      stdin=stdin_text, want_rc=want_rc)
         entries.append(e)
         _fed = f" [stdin: {stdin_path.name}]" if stdin_text is not None else ""
         _rc = f" [want_rc={want_rc}]" if want_rc else ""
-        print(f"[{i}/{len(srcs)}] {src.stem}: ABSORBED{_fed}{_rc}", file=sys.stderr)
+        print(f"[{i}/{len(srcs)}] {name}: ABSORBED{_fed}{_rc}", file=sys.stderr)
 
     tot = len(srcs)
     if len(entries) + len(excluded) != tot:
