@@ -138,6 +138,7 @@ static int sno_binop_code(tree_e tt) {
     default: return -1; }
 }
 static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
+static IR_t * sx_idx_container(scx_t * cx, const tree_t * t, IR_t * ω, IR_t ** res);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sco_branch(scx_t * cx, const tree_t * pg, IR_t * γ, IR_t * ω) {
     if (!pg) return γ;
@@ -266,6 +267,33 @@ static const tree_t * sno_const_val(const char * ck);
 static IR_t * sno_arm_result(IR_t * rv) {
     if (rv) switch (rv->op) { case IR_GOTO: case IR_SUCCEED: case IR_FAIL: case IR_RETURN: case IR_SUSPEND: case IR_CORET: case IR_COFAIL: return NULL; default: break; }
     return rv;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * sx_idx_container(scx_t * cx, const tree_t * t, IR_t * ω, IR_t ** res) {
+    if (t->n < 2) sno_fatal("subscript with no index", NULL);
+    IR_t * br = NULL; IR_t * entry = sx_lower(cx, t->c[0], NULL, ω, &br);
+    IR_t * cur = br;
+    if (t->n == 3) {
+        IR_t * i1 = NULL; IR_t * e1 = sx_lower(cx, t->c[1], NULL, ω, &i1);
+        lc_γ_to(cur, e1);
+        IR_t * i2 = NULL; IR_t * e2 = sx_lower(cx, t->c[2], NULL, ω, &i2);
+        lc_γ_to(i1, e2);
+        IR_t * sub = lc_build(cx->g, IR_SUBSCRIPT, NULL, ω); IR_LIT(sub).sval = "nd2";
+        lc_γ_to(i2, sub);
+        ir_operand_push(sub, cur); ir_operand_push(sub, i1); ir_operand_push(sub, i2);
+        cur = sub;
+    } else {
+        for (int k = 1; k < t->n; k++) {
+            IR_t * ir = NULL; IR_t * ie = sx_lower(cx, t->c[k], NULL, ω, &ir);
+            lc_γ_to(cur, ie);
+            IR_t * sub = lc_build(cx->g, IR_SUBSCRIPT, NULL, ω);
+            sx_sub_container_only(sub);
+            lc_γ_to(ir, sub);
+            ir_operand_push(sub, cur); ir_operand_push(sub, ir);
+            cur = sub;
+        }
+    }
+    if (res) *res = cur; return entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
@@ -411,29 +439,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (res) *res = dr; return ve;
     }
     case TT_IDX: {
-        if (t->n < 2) sno_fatal("subscript with no index", NULL);
-        IR_t * br = NULL; IR_t * entry = sx_lower(cx, t->c[0], NULL, ω, &br);
-        IR_t * cur = br;
-        if (t->n == 3) {
-            IR_t * i1 = NULL; IR_t * e1 = sx_lower(cx, t->c[1], NULL, ω, &i1);
-            lc_γ_to(cur, e1);
-            IR_t * i2 = NULL; IR_t * e2 = sx_lower(cx, t->c[2], NULL, ω, &i2);
-            lc_γ_to(i1, e2);
-            IR_t * sub = lc_build(cx->g, IR_SUBSCRIPT, NULL, ω); IR_LIT(sub).sval = "nd2";
-            lc_γ_to(i2, sub);
-            ir_operand_push(sub, cur); ir_operand_push(sub, i1); ir_operand_push(sub, i2);
-            cur = sub;
-        } else {
-            for (int k = 1; k < t->n; k++) {
-                IR_t * ir = NULL; IR_t * ie = sx_lower(cx, t->c[k], NULL, ω, &ir);
-                lc_γ_to(cur, ie);
-                IR_t * sub = lc_build(cx->g, IR_SUBSCRIPT, NULL, ω);
-                sx_sub_container_only(sub);
-                lc_γ_to(ir, sub);
-                ir_operand_push(sub, cur); ir_operand_push(sub, ir);
-                cur = sub;
-            }
-        }
+        IR_t * cur = NULL; IR_t * entry = sx_idx_container(cx, t, ω, &cur);
         IR_t * dr = lc_build(cx->g, IR_DEREF, γ, ω);
         lc_γ_to(cur, dr);
         ir_operand_push(dr, cur);
@@ -1619,7 +1625,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         if (vn) sno_reg_var(vn);
         if (!vn && t->n > 1 && t->c[1] && t->c[1]->t == TT_DEFER) { const tree_t * di = (t->c[1]->n > 0) ? t->c[1]->c[0] : NULL; if (sno_cap_name_strict() && di && di->t == TT_VAR && di->v.sval && di->v.sval[0]) { vn = lp_strdup(di->v.sval); sno_reg_var(vn); }
         if (!vn && di && sno_lambda_class(di->t)) { char pb[56]; snprintf(pb, sizeof pb, "*%s", sno_expr_collect_void(di)); vn = lp_strdup(pb); }
-        if (!vn) { const char * bn = (di && di->t == TT_FNC && di->v.sval && di->n == 0) ? di->v.sval : (di && di->t == TT_INDIRECT && di->n > 0 && di->c[0]) ? sno_expr_collect_nm(di) : (di && di->t == TT_FNC && di->n > 0) ? sno_expr_collect_wn(di) : sno_expr_collect(di); char pb[56]; snprintf(pb, sizeof pb, "*%s", bn); vn = lp_strdup(pb); } }
+        if (!vn) { const char * bn = (di && di->t == TT_FNC && di->v.sval && di->n == 0) ? di->v.sval : ((di && di->t == TT_INDIRECT && di->n > 0 && di->c[0]) || (di && di->t == TT_IDX && di->n > 0)) ? sno_expr_collect_nm(di) : (di && di->t == TT_FNC && di->n > 0) ? sno_expr_collect_wn(di) : sno_expr_collect(di); char pb[56]; snprintf(pb, sizeof pb, "*%s", bn); vn = lp_strdup(pb); } }
         if (!vn || !(t->n > 0 && t->c[0])) sno_fatal("conditional capture target is not a simple variable (SN4-PAT-2 subset)", NULL);
         IR_t * nd = lc_build(g, IR_MATCH_ASSIGN_COND, succ, NULL);
         IR_LIT(nd).sval = (char *) vn;
@@ -1645,7 +1651,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         const tree_t * lam_di = NULL;
         if (!vn && t->n > 1 && t->c[1] && t->c[1]->t == TT_DEFER) { const tree_t * di = (t->c[1]->n > 0) ? t->c[1]->c[0] : NULL; if (sno_cap_name_strict() && di && di->t == TT_VAR && di->v.sval && di->v.sval[0]) { vn = lp_strdup(di->v.sval); sno_reg_var(vn); }
         if (!vn && di && sno_lambda_class(di->t)) { lam_di = di; }
-        if (!vn && !lam_di) { const char * bn = (di && di->t == TT_FNC && di->v.sval && di->n == 0) ? di->v.sval : (di && di->t == TT_INDIRECT && di->n > 0 && di->c[0]) ? sno_expr_collect_nm(di) : (di && di->t == TT_FNC && di->n > 0) ? sno_expr_collect_wn(di) : sno_expr_collect(di); char pb[56]; snprintf(pb, sizeof pb, "*%s", bn); vn = lp_strdup(pb); } }
+        if (!vn && !lam_di) { const char * bn = (di && di->t == TT_FNC && di->v.sval && di->n == 0) ? di->v.sval : ((di && di->t == TT_INDIRECT && di->n > 0 && di->c[0]) || (di && di->t == TT_IDX && di->n > 0)) ? sno_expr_collect_nm(di) : (di && di->t == TT_FNC && di->n > 0) ? sno_expr_collect_wn(di) : sno_expr_collect(di); char pb[56]; snprintf(pb, sizeof pb, "*%s", bn); vn = lp_strdup(pb); } }
         if (lam_di) {
             if (!(t->n > 0 && t->c[0])) sno_fatal("immediate capture target is not a simple variable (SN4-PAT-2 subset)", NULL);
             IR_t * box = lc_build(g, IR_MATCH_LAMBDA, succ, NULL);
@@ -2445,7 +2451,10 @@ void sno_expr_thunks_build(int x0) {
         IR_t * asn = lc_build(gx, IR_ASSIGN, sJ, fJ); IR_LIT(asn).sval = (char *) g_sno_exprs[xi].name;
         const tree_t * xe = g_sno_exprs[xi].expr;
         if (g_sno_exprs[xi].want_name && xe && xe->t == TT_INDIRECT && xe->n > 0 && xe->c[0] && g_sno_exprs[xi].name && !strncmp(g_sno_exprs[xi].name, "EXPRNM$", 7)) xe = xe->c[0];
-        IR_t * vr = NULL; IR_t * e = sx_lower(&ex, xe, asn, fJ, &vr);
+        IR_t * vr = NULL;
+        int xe_is_idx_wn = g_sno_exprs[xi].want_name && xe && xe->t == TT_IDX;
+        IR_t * e = xe_is_idx_wn ? sx_idx_container(&ex, xe, fJ, &vr) : sx_lower(&ex, xe, asn, fJ, &vr);
+        if (xe_is_idx_wn) lc_γ_to(vr, asn);
         ir_operand_push(asn, vr);
         if (g_sno_exprs[xi].want_name) { IR_t * wn_lit = lc_build(gx, IR_LIT_STRING, NULL, fJ); IR_LIT(wn_lit).sval = (char *) ""; IR_t * wn_call = lc_build(gx, IR_CALL, NULL, fJ); IR_LIT(wn_call).sval = (char *) "SNO$WANTNM"; lc_γ_to(wn_lit, wn_call); lc_γ_to(wn_call, e); ir_operand_push(wn_call, wn_lit); gx->entry = wn_lit; } else { gx->entry = e; }
         { IR_t * ad = lc_build(gx, IR_DEFINE, gx->entry, fJ); IR_LIT(ad).ival = 3; gx->entry = ad; }

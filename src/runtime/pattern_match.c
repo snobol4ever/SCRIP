@@ -419,6 +419,10 @@ DESCR_t EVAL_fn(DESCR_t expr) {
     if (expr.v == DT_E) {
         return EXPVAL_fn(expr);
     }
+    if (expr.v == DT_X) {
+        extern DESCR_t eval_string_transient(const char *s);
+        return eval_string_transient(expr.s ? expr.s : "");
+    }
     if (expr.v == DT_I) return expr;
     if (expr.v == DT_R) return expr;
     if (expr.v == DT_P) {
