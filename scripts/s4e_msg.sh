@@ -51,7 +51,7 @@ ME="${S4E_SEAT:-}"
 # drains; it is simply no longer any root's identity.
 s4e_canon() { case "$1" in
     claude)                    echo ceo;;
-    claude0[1-9]|claude1[0-6]) echo "seat${1#claude}";;
+    claude0[1-9]|claude1[0-9]|claude20) echo "seat${1#claude}";;
     claude[1-9])               echo "seat0${1#claude}";;
     seat[1-9])                 echo "seat0${1#seat}";;
     *)                         echo "$1";; esac; }
@@ -440,7 +440,7 @@ s4e_sweep_orphans() { for _o in "$PO"/.msg.*; do [ -f "$_o" ] || continue
 # hq_T when the fourth HQ opened; this one did not, because nothing checks that two hand-written tables of the
 # same fact still agree -- the same class as the per-root digests drifting from RULES.md.
 s4e_root() { case "$1" in ceo|hq) echo /home/claude;; hq_C) echo /home/claude_C;; hq_P) echo /home/claude_P;; hq_B) echo /home/claude_B;; hq_T) echo /home/claude_T;; hq_U) echo /home/claude_U;;
-    seat0[1-9]|seat1[0-6]) echo "/home/claude${1#seat}";; *) echo "";; esac; }
+    seat0[1-9]|seat1[0-9]|seat20) echo "/home/claude${1#seat}";; *) echo "";; esac; }
 s4e_hqboxes() { for _h in hq hq_C hq_P hq_B hq_T hq_U ceo; do [ -d "$PO/$_h/inbox" ] && echo "$_h"; done; }
 s4e_is_hq() { case "$1" in hq|hq_C|hq_P|hq_B|hq_T|hq_U|ceo) return 0;; *) return 1;; esac; }
 # ⭐⭐ THE LANE — topic->HQ and identity->HQ, so `next` can restrict dispatch without inventing a second
