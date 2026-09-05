@@ -17,6 +17,9 @@ extern int * const rt_k_level_p;
 void *rt_proc_get_fn(const char *name);
 void mon_emit_call_bin(const char *fname);
 void mon_emit_return_bin(const char *fname, DESCR_t retval);
+void rt_trace_call_hook(const char *fname);
+void rt_trace_return_hook(const char *fname, DESCR_t retval);
+extern long g_trace;
 const char *rt_define_query(const char *, int *, int *, int *, void **);
 void rt_define_site(const char *, const char *, int, int, int, void *);
 int bb_tiny_shim_ok(const char *, int);
@@ -139,6 +142,20 @@ static std::string bb_define_activate() {
       + x86("pop", "rdi") + x86("pop", "r12") + x86("pop", "r9")  + x86("pop", "r8")
       + x86("pop", "rcx") + x86("pop", "rdx") + x86("pop", "rsi") + x86("pop", "rdi")
       + x86("def", L(2))
+      + x86("note", std::string("TRACE(name,'CALL'/'FUNCTION') tap -- shared activation entry, calling-convention-agnostic"))
+      + x86_load_got("rax", "g_trace", (uint64_t)(uintptr_t)(void *)&g_trace)
+      + x86("mov",  "rax", RDQ("rax", 0))
+      + x86("cmp",  "rax", (long)0)
+      + x86("jle",  L(9))
+      + x86("push", "rdi") + x86("push", "rsi") + x86("push", "rdx") + x86("push", "rcx")
+      + x86("push", "r8")  + x86("push", "r9")  + x86("push", "r12") + x86("push", "rdi")
+      + x86_align_enter()
+      + x86_ro_load_q("rdi", 0)
+      + x86("call", "rt_trace_call_hook", (uint64_t)(uintptr_t)(void *)rt_trace_call_hook)
+      + x86_align_leave()
+      + x86("pop", "rdi") + x86("pop", "r12") + x86("pop", "r9")  + x86("pop", "r8")
+      + x86("pop", "rcx") + x86("pop", "rdx") + x86("pop", "rsi") + x86("pop", "rdi")
+      + x86("def", L(9))
       + [&]() -> std::string {
             char blbl[128];
             snprintf(blbl, sizeof blbl, "FN__%s", fname);
@@ -236,6 +253,24 @@ static std::string bb_define_activate() {
       + x86("mov", "rsi", ABSQ(RT_AB_ANCHOR))
       + x86("mov", "rax", RDQ("rsi", AB_OFF_RES0))
       + x86("mov", "rdx", RDQ("rsi", AB_OFF_RES1))
+      + x86("note", std::string("TRACE(name,'RETURN'/'FUNCTION') tap -- shared activation exit, calling-convention-agnostic"))
+      + x86("push", "rax") + x86("push", "rdx")
+      + x86_load_got("rax", "g_trace", (uint64_t)(uintptr_t)(void *)&g_trace)
+      + x86("mov",  "rax", RDQ("rax", 0))
+      + x86("cmp",  "rax", (long)0)
+      + x86("jle",  L(10))
+      + x86("push", "rdi") + x86("push", "rsi") + x86("push", "rcx")
+      + x86("push", "r8")  + x86("push", "r9")  + x86("push", "r12")
+      + x86_align_enter()
+      + x86_ro_load_q("rdi", 0)
+      + x86_rsp_load64("rsi", 56)
+      + x86_rsp_load64("rdx", 48)
+      + x86("call", "rt_trace_return_hook", (uint64_t)(uintptr_t)(void *)rt_trace_return_hook)
+      + x86_align_leave()
+      + x86("pop", "r12") + x86("pop", "r9")  + x86("pop", "r8")
+      + x86("pop", "rcx") + x86("pop", "rsi") + x86("pop", "rdi")
+      + x86("def", L(10))
+      + x86("pop", "rdx") + x86("pop", "rax")
       + x86("mov", "rcx", RDQ("rsi", AB_OFF_ANCHOR))
       + x86("mov", ABSQ(RT_AB_ANCHOR), "rcx")
       + x86("mov", "rsp", RDQ("rsi", AB_OFF_ERSP))

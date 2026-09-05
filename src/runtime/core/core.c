@@ -36,87 +36,123 @@ static void  mon_at_exit(void);
 static uint32_t intern_name_bin(const char *p, int len);
 static void  mon_send_bin(uint32_t kind, uint32_t name_id, uint8_t type,
                           const void *value, uint32_t value_len);
-#define TRACE_SET_CAP 256
-static const char *trace_set[TRACE_SET_CAP];
-static const char *trace_callback[TRACE_SET_CAP];
+#define TRACE_TAB_CAP 256
+typedef struct { char used; int kind; const char *name; const char *tag; const char *cbfn; } trace_ent_t;
+static trace_ent_t trace_tab[TRACE_TAB_CAP];
 static int trace_set_n = 0;
 static int g_comm_dbg = -1;
 static int trace_recursion_depth = 0;
+extern long g_trace;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int trace_slot_lookup(const char *name) {
-    if (!name || !*name) return -1;
-    unsigned h = 5381;
-    for (const char *p = name; *p; p++) h = h * 33 ^ (unsigned char)*p;
-    for (int i = 0; i < TRACE_SET_CAP; i++) {
-        int slot = (h + i) & (TRACE_SET_CAP - 1);
-        if (!trace_set[slot]) return -1;
-        if (strcmp(trace_set[slot], name) == 0) return slot;
-    }
+static trace_ent_t *trace_find(const char *name, int kind) {
+    if (!name || !*name) return (trace_ent_t *)0;
+    for (int i = 0; i < TRACE_TAB_CAP; i++)
+        if (trace_tab[i].used && trace_tab[i].kind == kind && strcmp(trace_tab[i].name, name) == 0) return &trace_tab[i];
+    return (trace_ent_t *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static trace_ent_t *trace_find_any(const char *name) {
+    if (!name || !*name) return (trace_ent_t *)0;
+    for (int i = 0; i < TRACE_TAB_CAP; i++)
+        if (trace_tab[i].used && strcmp(trace_tab[i].name, name) == 0) return &trace_tab[i];
+    return (trace_ent_t *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int trace_type_parse(const char *type) {
+    if (!type || !*type) return TRK_VALUE;
+    if (!strcmp(type, "A") || !strcmp(type, "ACCESS"))   return TRK_ACCESS;
+    if (!strcmp(type, "V") || !strcmp(type, "VALUE"))    return TRK_VALUE;
+    if (!strcmp(type, "K") || !strcmp(type, "KEYWORD"))  return TRK_KEYWORD;
+    if (!strcmp(type, "L") || !strcmp(type, "LABEL"))    return TRK_LABEL;
+    if (!strcmp(type, "F") || !strcmp(type, "FUNCTION")) return TRK_FUNCTION;
+    if (!strcmp(type, "C") || !strcmp(type, "CALL"))     return TRK_CALL;
+    if (!strcmp(type, "R") || !strcmp(type, "RETURN"))   return TRK_RETURN;
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void trace_register(const char *name) {
+static void trace_register(const char *name, int kind, const char *tag, const char *cbfn) {
     if (!name || !*name) return;
-    unsigned h = 5381;
-    for (const char *p = name; *p; p++) h = h * 33 ^ (unsigned char)*p;
-    for (int i = 0; i < TRACE_SET_CAP; i++) {
-        int slot = (h + i) & (TRACE_SET_CAP - 1);
-        if (!trace_set[slot]) {
-            trace_set[slot] = rt_ws_strdup(name);
-            trace_callback[slot] = NULL;
-            trace_set_n++;
-            return;
-        }
-        if (strcmp(trace_set[slot], name) == 0) return;
+    trace_ent_t *e = trace_find(name, kind);
+    if (!e) {
+        for (int i = 0; i < TRACE_TAB_CAP; i++) if (!trace_tab[i].used) { e = &trace_tab[i]; break; }
+        if (!e) return;
+        e->used = 1; e->kind = kind; e->name = rt_ws_strdup(name);
+        trace_set_n++;
+    }
+    e->tag  = (tag  && *tag)  ? rt_ws_strdup(tag)  : "";
+    e->cbfn = (cbfn && *cbfn) ? rt_ws_strdup(cbfn) : (const char *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void trace_unregister(const char *name, int kind) {
+    trace_ent_t *e = trace_find(name, kind);
+    if (!e) return;
+    e->used = 0; e->kind = 0; e->name = (const char *)0; e->tag = (const char *)0; e->cbfn = (const char *)0;
+    if (trace_set_n > 0) trace_set_n--;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int trace_registered(const char *name) { return trace_find_any(name) != (trace_ent_t *)0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int trace_is_active(const char *name) { return trace_find(name, TRK_VALUE) != (trace_ent_t *)0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void trace_spell_value(DESCR_t val, char *buf, size_t bufsz) {
+    switch (val.v) {
+        case DT_I: snprintf(buf, bufsz, "%lld", (long long)val.i); return;
+        case DT_R: snprintf(buf, bufsz, "%g", val.r); return;
+        case DT_N: snprintf(buf, bufsz, ".%s", val.s ? val.s : ""); return;
+        case DT_FAIL: buf[0] = '\0'; return;
+        case DT_S: case DT_SNUL: { const char *s = val.s ? val.s : ""; snprintf(buf, bufsz, "'%s'", s); return; }
+        default: { const char *s = VARVAL_fn(val); snprintf(buf, bufsz, "%s", s ? s : ""); return; }
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void trace_register_callback(const char *name, const char *cbfn) {
+static void trace_print_banner(const char *name, DESCR_t value, long long stno) {
+    extern int64_t kw_fnclevel;
+    char banner[13];
+    int len = snprintf(banner, sizeof banner, "****%lld", stno);
+    if (len < 0) len = 0;
+    if (len > 12) len = 12;
+    for (int i = len; i < 12; i++) banner[i] = '*';
+    banner[12] = '\0';
+    long depth = (long)kw_fnclevel;
+    if (depth < 0) depth = 0;
+    if (depth > 60) depth = 60;
+    char istr[64]; int i; for (i = 0; i < depth; i++) istr[i] = 'i'; istr[i] = '\0';
+    char vtext[512]; trace_spell_value(value, vtext, sizeof vtext);
+    fprintf(stdout, "%s %s %s = %s\n", banner, istr, name, vtext);
+    fflush(stdout);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_trace_event(int kind, const char *name, DESCR_t value, long long stno) {
     if (!name || !*name) return;
-    unsigned h = 5381;
-    for (const char *p = name; *p; p++) h = h * 33 ^ (unsigned char)*p;
-    for (int i = 0; i < TRACE_SET_CAP; i++) {
-        int slot = (h + i) & (TRACE_SET_CAP - 1);
-        if (!trace_set[slot]) {
-            trace_set[slot] = rt_ws_strdup(name);
-            trace_callback[slot] = (cbfn && *cbfn) ? rt_ws_strdup(cbfn) : NULL;
-            trace_set_n++;
-            return;
-        }
-        if (strcmp(trace_set[slot], name) == 0) {
-            trace_callback[slot] = (cbfn && *cbfn) ? rt_ws_strdup(cbfn) : NULL;
-            return;
-        }
+    if (g_trace <= 0) return;
+    if (trace_recursion_depth > 0) return;
+    trace_ent_t *e = trace_find(name, kind);
+    if (!e) return;
+    g_trace--;
+    if (e->cbfn) {
+        int64_t saved_trace = g_trace, saved_ftrace = kw_ftrace;
+        g_trace = 0; kw_ftrace = 0;
+        trace_recursion_depth++;
+        DESCR_t cbargs[2];
+        cbargs[0] = NAMEVAL(rt_ws_strdup_c(name));
+        cbargs[1] = STRVAL(rt_ws_strdup_c(e->tag ? e->tag : ""));
+        (void)APPLY_fn(e->cbfn, cbargs, 2);
+        trace_recursion_depth--;
+        g_trace = saved_trace; kw_ftrace = saved_ftrace;
+    } else {
+        trace_print_banner(name, value, stno);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void trace_unregister(const char *name) {
-    if (!name || !*name) return;
-    unsigned h = 5381;
-    for (const char *p = name; *p; p++) h = h * 33 ^ (unsigned char)*p;
-    for (int i = 0; i < TRACE_SET_CAP; i++) {
-        int slot = (h + i) & (TRACE_SET_CAP - 1);
-        if (!trace_set[slot]) return;
-        if (strcmp(trace_set[slot], name) == 0) {
-            trace_set[slot] = NULL;
-            trace_callback[slot] = NULL;
-            if (trace_set_n > 0) trace_set_n--;
-            return;
-        }
-    }
+void rt_trace_call_hook(const char *fname) {
+    extern long g_stno;
+    rt_trace_event(TRK_CALL, fname, NULVCL, g_stno);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int trace_registered(const char *name) {
-    return trace_slot_lookup(name) >= 0;
+void rt_trace_return_hook(const char *fname, DESCR_t retval) {
+    extern long g_stno;
+    rt_trace_event(TRK_RETURN, fname, retval, g_stno);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *trace_get_callback(const char *name) {
-    int slot = trace_slot_lookup(name);
-    if (slot < 0) return NULL;
-    return trace_callback[slot];
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int trace_is_active(const char *name) { return trace_registered(name); }
 int64_t kw_stcount = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void mon_send(const char *kind, const char *name, const char *value) {
@@ -456,24 +492,21 @@ void comm_var(const char *name, DESCR_t val, const char *file, long line, long l
     if (g_comm_dbg < 0) g_comm_dbg = getenv("SCRIP_DEBUG_TRACE") ? 1 : 0;
     const int dbg = g_comm_dbg;
     if (!dbg && trace_set_n == 0 && monitor_fd < 0 && kw_trace <= 0) return;
-    const char *cbfn = trace_get_callback(name);
     if (dbg)
-        fprintf(stderr, "[scrip-trace] comm_var name=%s cb=%s recur=%d\n",
-                name, cbfn ? cbfn : "(none)", trace_recursion_depth);
-    if (cbfn && trace_recursion_depth == 0) {
-        trace_recursion_depth++;
-        DESCR_t cbargs[2];
-        cbargs[0] = STRVAL(rt_ws_strdup_c(name));
-        cbargs[1] = STRVAL("");
-        (void)APPLY_fn(cbfn, cbargs, 2);
-        trace_recursion_depth--;
-        return;
-    }
-    if (!g_monitor_bin && (kw_trace > 0 || trace_registered(name))) {
-        const char *s = VARVAL_fn(val);
-        fprintf(stdout, "%s:%ld stmt %lld: %s = %s, time = %g\n",
-                file ? file : "", line, stno, name, s ? s : "", (double)rt_time_ns() / 1e9);
-        fflush(stdout);
+        fprintf(stderr, "[scrip-trace] comm_var name=%s recur=%d\n", name, trace_recursion_depth);
+    if (!g_monitor_bin) {
+        static int compat_csn = -1;
+        if (compat_csn < 0) { const char *e = getenv("SCRIP_SETEXIT_END"); compat_csn = (e && *e && *e != '0') ? 1 : 0; }
+        if (compat_csn) {
+            if (kw_trace > 0 || trace_registered(name)) {
+                const char *s = VARVAL_fn(val);
+                fprintf(stdout, "%s:%ld stmt %lld: %s = %s, time = %g\n",
+                        file ? file : "", line, stno, name, s ? s : "", (double)rt_time_ns() / 1e9);
+                fflush(stdout);
+            }
+        } else {
+            rt_trace_event(TRK_VALUE, name, val, stno);
+        }
     }
     if (monitor_fd < 0) return;
     if (!monitor_ready) return;
@@ -1437,18 +1470,15 @@ static DESCR_t _TRACE_(DESCR_t *a, int n) {
     if (!varname || !*varname) return FAILDESCR;
     if (getenv("SCRIP_DEBUG_TRACE"))
         fprintf(stderr, "[scrip-trace] _TRACE_ entry n=%d varname=%s\n", n, varname);
-    const char *type = (n >= 2) ? VARVAL_fn(a[1]) : "VALUE";
-    if (!type || !*type) type = "VALUE";
-    if (getenv("SCRIP_DEBUG_TRACE"))
-        fprintf(stderr, "[scrip-trace] _TRACE_ type=%s\n", type);
-    const char *cbfn = (n >= 4) ? VARVAL_fn(a[3]) : "";
-    if (type && (strcmp(type,"VALUE")==0 || strcmp(type,"value")==0)) {
-        if (cbfn && *cbfn) {
-            trace_register_callback(varname, cbfn);
-        } else {
-            trace_register(varname);
-        }
+    const char *type = (n >= 2) ? VARVAL_fn(a[1]) : (const char *)0;
+    int kind = trace_type_parse(type);
+    if (kind < 0) { core_runtime_error(199, "trace second argument is not trace type"); return FAILDESCR; }
+    if (kind == TRK_CALL || kind == TRK_RETURN || kind == TRK_FUNCTION) {
+        if (!rt_proc_is_defined(varname)) { core_runtime_error(198, "trace first argument is not appropriate name"); return FAILDESCR; }
     }
+    const char *tag  = (n >= 3) ? VARVAL_fn(a[2]) : (const char *)0;
+    const char *cbfn = (n >= 4) ? VARVAL_fn(a[3]) : (const char *)0;
+    trace_register(varname, kind, tag, cbfn);
     return STRVAL(rt_ws_strdup_c(varname));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1456,7 +1486,10 @@ static DESCR_t _STOPTR_(DESCR_t *a, int n) {
     if (n < 1) return FAILDESCR;
     const char *varname = VARVAL_fn(a[0]);
     if (!varname || !*varname) return FAILDESCR;
-    trace_unregister(varname);
+    const char *type = (n >= 2) ? VARVAL_fn(a[1]) : (const char *)0;
+    int kind = trace_type_parse(type);
+    if (kind < 0) { core_runtime_error(199, "trace second argument is not trace type"); return FAILDESCR; }
+    trace_unregister(varname, kind);
     return STRVAL(rt_ws_strdup_c(varname));
 }
 static DATBLK_t *_udef_lookup(const char *name);

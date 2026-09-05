@@ -548,6 +548,13 @@ static rt_proc_t *rt_proc_find_alias(const char *name)
     return (ent && strcmp(ent, name) != 0) ? rt_proc_find(ent) : (rt_proc_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_proc_is_defined(const char *name)
+{
+    rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
+    if (!p && name) p = rt_proc_find_alias(name);
+    return p != (rt_proc_t *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_jmp_entry(const char *name)
 {
     if (!name) return 0;
@@ -1290,6 +1297,7 @@ int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
       if (!rn_shadow) rt_name_save_push(&rname, &p->rcell, (DESCR_t *)0, 0, 1); }
     fbytes = (int)(((long)fbytes + 15L) & ~15L);
     if (g_monitor_bin) mon_emit_call_bin(p->name);
+    { extern long g_stno; rt_trace_event(TRK_CALL, p->name, NULVCL, g_stno); }
     rt_k_level++;
     rt_g_want_name = wn;
     return fbytes;
@@ -1328,6 +1336,7 @@ static DESCR_t rt_proc_epilogue_named(const char *name, int failed)
     DESCR_t result = failed ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(rname));
     { int base = g_name_save_top - rt_proc_save_count(p); if (base < 0) base = 0; rt_name_restore(base); }
     if (g_monitor_bin) mon_emit_return_bin(p->name, result);
+    { extern long g_stno; rt_trace_event(TRK_RETURN, p->name, result, g_stno); }
     return result;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1346,6 +1355,7 @@ long rt_proc_call_open_slim(const char *name, int np, int nargs)
     { int sh = 0; for (int k = 0; k < np; k++) if (p->pnames && p->pnames[k] && !strcmp(p->pnames[k], rname)) { sh = 1; break; }
       if (!sh) { if (p->rcell) *p->rcell = NULVCL; else NV_SET_fn(rname, NULVCL); } }
     if (g_monitor_bin) mon_emit_call_bin(p->name);
+    { extern long g_stno; rt_trace_event(TRK_CALL, p->name, NULVCL, g_stno); }
     rt_k_level++;
     return (long)(uintptr_t)(void *)p->fn;
 }
@@ -1571,6 +1581,7 @@ static int rt_proc_call_prologue_lex(rt_proc_t *p, int nargs, int wn)
             for (int i = nargs; i < fixed; i++) g_call_args[i] = NULVCL;
             DESCR_t _tail = (p->rest_kind == 2) ? rt_make_nested_agg(rest > 0 ? &g_call_args[fixed] : (DESCR_t *)0, rest) : p->rest_kind ? rt_make_flat_agg(rest > 0 ? &g_call_args[fixed] : (DESCR_t *)0, rest) : rt_make_list(rest > 0 ? &g_call_args[fixed] : (DESCR_t *)0, rest);
             g_call_args[fixed] = _tail; } } }
+    { extern long g_stno; rt_trace_event(TRK_CALL, p->name, NULVCL, g_stno); }
     rt_k_level++;
     return fbytes;
 }
