@@ -73,7 +73,7 @@ CSN="$(csnobol4_bin)" || exit 2
 
 STDIN_TESTS="atn crlf longrec rewind1 sudoku trim0 trim1 uneval2 factor len repl tab words words1"
 is_stdin_test() { local n="$1" s; for s in $STDIN_TESTS; do [ "$n" = "$s" ] && return 0; done; return 1; }
-DUMP_TESTS="a dump diag1 diag2"; TRACE_TESTS="ftrace spit trace1 trace2"
+DUMP_TESTS="a dump diag1 diag2"; TRACE_TESTS="ftrace keytrace spit trace1 trace2 trfunc t"
 normalize() { # $1=name $2=text -> echoes text, masked per tests.in's dump/trace convention for that name
     local n="$1" t="$2"
     case " $DUMP_TESTS " in *" $n "*) t="$(printf '%s' "$t" | sed -E -e 's/MAXLNGTH = [0-9]+/MAXLNGTH = xxx/' -e "/^&FILL = '/d")";; esac
@@ -85,7 +85,7 @@ split_at_end() { # $1=src -> writes $2=prog (thru END) $3=stdin-tail
     python3 - "$1" "$2" "$3" << 'PY'
 import re, sys
 lines = open(sys.argv[1], 'r', errors='replace').read().split('\n')
-idx = next((i for i, l in enumerate(lines) if re.match(r'^END\s*$', l)), None)
+idx = next((i for i, l in enumerate(lines) if re.match(r'^END\s*$', l, re.IGNORECASE)), None)
 if idx is None:
     open(sys.argv[2], 'w').write('\n'.join(lines)); open(sys.argv[3], 'w').write('')
 else:
@@ -127,12 +127,17 @@ for sno in "$SUITE"/*.sno; do
     TOTAL=$((TOTAL+1))
     exp="$(normalize "$name" "$(cat "$ref")")"
 
-    prog="$RUN/$name.sno"; inp=/dev/null
+    prog="$RUN/$name.sno"; relprog="$name.sno"; inp=/dev/null
     if is_stdin_test "$name"; then
         rm -f "$prog"; split_at_end "$sno" "$prog" "$W/stdin"; inp="$W/stdin"
     fi
 
-    got3="$(cd "$RUN" && SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" --run "$prog" < "$inp" 2>&1)"; rc3=$?
+    # ⛔ RELATIVE, NOT $prog: cwd is already $RUN below, and the vendored .ref files were cut against a
+    # bare-relative invocation (name.sno). Passing the absolute scratch path here makes every self-path-
+    # referencing program (TRACE(), error messages, &FILE) embed a throwaway tmpdir string instead of the
+    # bare name the .ref expects — a harness artifact, not a SCRIP or oracle divergence (found triaging
+    # row snobol4-csnobol4-thirty-regen-candidate-refs-stale-pin-or-real-defect, seat07 2026-09-04).
+    got3="$(cd "$RUN" && SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" --run "$relprog" < "$inp" 2>&1)"; rc3=$?
     got3="$(normalize "$name" "$got3")"
     st3="$(status_of "$got3" "$rc3" "$exp")"
     case "$st3" in
@@ -158,7 +163,7 @@ for sno in "$SUITE"/*.sno; do
         M4_REJECT=$((M4_REJECT+1)); RED4="$RED4 $name(CC)"
     fi
 
-    gotc="$(cd "$RUN" && timeout "$TIMEOUT" "$CSN" -b "$prog" < "$inp" 2>&1)"
+    gotc="$(cd "$RUN" && timeout "$TIMEOUT" "$CSN" -b "$relprog" < "$inp" 2>&1)"
     gotc="$(normalize "$name" "$gotc")"
     if [ "$gotc" = "$exp" ]; then CSN_PASS=$((CSN_PASS+1))
     else
