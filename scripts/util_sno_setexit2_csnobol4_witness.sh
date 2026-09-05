@@ -14,12 +14,12 @@ SUITE="$here/../../corpus/packages/snobol4/csnobol4_suite"
 sno="$SUITE/setexit2.sno"; ref="$SUITE/setexit2.ref"
 [ -f "$sno" ] && [ -f "$ref" ] || { echo "REFUSED rc=2: missing $sno or $ref"; exit 2; }
 [ -x ./scrip ] && [ -f out/libscrip_rt.so ] || { echo "REFUSED rc=2: build first (make) -- no ./scrip or out/libscrip_rt.so"; exit 2; }
-RT_DIR="$PWD/out"
+RT_DIR="$PWD/out"; SCRIP_BIN="$PWD/scrip"    # the binary the freshness check above actually verified -- never another root's
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 rc=0
-got3=$(cd "$SUITE" && timeout 8s /home/claude07/SCRIP/scrip --compat=csnobol4 setexit2.sno </dev/null 2>&1)
+got3=$(cd "$SUITE" && timeout 8s "$SCRIP_BIN" --compat=csnobol4 setexit2.sno </dev/null 2>&1)
 if [ "$got3" = "$(cat "$ref")" ]; then echo "PASS m3"; else echo "FAIL m3 (< ref, > scrip):"; diff <(cat "$ref") <(printf '%s\n' "$got3") | head -12; rc=1; fi
-if (cd "$SUITE" && /home/claude07/SCRIP/scrip --compile -o "$T/w.s" setexit2.sno </dev/null >/dev/null 2>"$T/cerr") \
+if (cd "$SUITE" && "$SCRIP_BIN" --compile -o "$T/w.s" setexit2.sno </dev/null >/dev/null 2>"$T/cerr") \
    && as -o "$T/w.o" "$T/w.s" 2>"$T/aerr" \
    && gcc "$T/w.o" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$T/w.bin" 2>"$T/lerr"; then
   got4=$(cd "$SUITE" && SCRIP_SETEXIT_END=1 timeout 8s "$T/w.bin" </dev/null 2>&1)
