@@ -23,6 +23,40 @@ static const tree_t * icn_stmt_subject(const tree_t * s) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void icn_link_note(char * tried, size_t triedsz, const char * cand) {
+    if (!tried || !triedsz) return;
+    size_t have = strlen(tried); size_t need = strlen(cand) + 2;
+    if (have + need >= triedsz) return;
+    if (have) { tried[have++] = ','; tried[have++] = ' '; }
+    memcpy(tried + have, cand, strlen(cand)); tried[have + strlen(cand)] = '\0';
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char * icn_link_open(const char * dir, const char * nm, char * out, size_t outsz, char * tried, size_t triedsz) {
+    if (triedsz) tried[0] = '\0';
+    snprintf(out, outsz, "%s/%s.icn", dir, nm);
+    icn_link_note(tried, triedsz, out);
+    char * src = icn_read_file(out);
+    if (src) return src;
+    const char * vars[2]; vars[0] = getenv("IPATH"); vars[1] = getenv("ICONPATH");
+    for (int v = 0; v < 2; v++) {
+        const char * p = vars[v];
+        while (p && *p) {
+            const char * colon = strchr(p, ':'); size_t seg = colon ? (size_t)(colon - p) : strlen(p);
+            if (seg > 0 && seg < 1000) {
+                char d[1024]; memcpy(d, p, seg); d[seg] = '\0';
+                snprintf(out, outsz, "%s/%s.icn", d, nm);
+                icn_link_note(tried, triedsz, out);
+                src = icn_read_file(out);
+                if (src) return src;
+            }
+            if (!colon) break;
+            p = colon + 1;
+        }
+    }
+    snprintf(out, outsz, "%s/%s.icn", dir, nm);
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_resolve_links(tree_t * prog, const char * filename) {
     if (!prog) return;
     char dir[1024]; const char * slash = strrchr(filename, '/');
@@ -40,9 +74,8 @@ static void icn_resolve_links(tree_t * prog, const char * filename) {
             if (dup) continue;
             if (nloaded >= 64) { fprintf(stderr, "icon: link: more than 64 linked files (at %s)\n", nm); exit(1); }
             loaded[nloaded++] = nm;
-            char path[1200]; snprintf(path, sizeof path, "%s/%s.icn", dir, nm);
-            char * src = icn_read_file(path);
-            if (!src) { fprintf(stderr, "icon: link: cannot open %s (linked from %s)\n", path, filename); exit(1); }
+            char path[1200]; char tried[4096]; char * src = icn_link_open(dir, nm, path, sizeof path, tried, sizeof tried);
+            if (!src) { fprintf(stderr, "icon: link: cannot open %s.icn (linked from %s); tried: %s\n", nm, filename, tried); exit(1); }
             IcnLexer lx2; icn_pp_set_source_path(path); icn_lex_init(&lx2, src);
             IcnParser p2; icn_parse_init(&p2, &lx2);
             tree_t * sub_ast = NULL;

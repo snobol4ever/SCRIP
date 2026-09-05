@@ -68,6 +68,14 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 PKG="$S4E/corpus/packages/icon/ipl"
 TIMEOUT="${IPL_SUITE_TIMEOUT:-8}"
+# ⛔⭐ THE COMPILE TIER MUST SEE THE LIBRARY'S OWN SHAPE, AND UNTIL 2026-09-05 IT DID NOT (hq_I).
+# lib_icon_ipl_isolation.sh has always exported ICONPATH for the RUN tier, but the COMPILE tier below
+# invoked scrip with no path at all, so a progs/ program linking a procs/ helper could only ever fail --
+# and it did, 354 times, which was 85% of every IPL compile failure and 41% of the whole package. The
+# resolver was single-directory-only (cured in icon_driver.c the same sitting); this is the other half,
+# and neither half does anything alone. Exported once here so both tiers agree on the search path.
+IPL_PATH="$PKG/progs:$PKG/procs:$PKG/gprocs:$PKG/incl:$PKG/gincl"
+export ICONPATH="${ICONPATH:-$IPL_PATH}"
 VERBOSE=0; [ "${1:-}" = "-v" ] && VERBOSE=1
 
 [ -d "$PKG" ]   || { echo "⛔ GATE REFUSES: corpus subtree missing: $PKG" >&2; exit 2; }
