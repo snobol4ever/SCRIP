@@ -706,6 +706,26 @@ $(awk '
 # is detectable, so any criterion whose text opens a heredoc it never closes is REFUSED (rc=2, could-not-measure),
 # never graded. ⭐ This holds even if a future edit re-breaks the extractor, and it also catches a criterion an
 # author simply mis-wrote -- the two cases a runner cannot tell apart and must not guess between.
+# ⛔⭐⭐ MORE THAN ONE COLUMN-0 `DONE-WHEN:` LINE IS AN AMBIGUOUS CONTRACT, AND ONLY THE FIRST HAS EVER RUN
+# (hq_T 2026-09-05, found while censusing the truncation class on the ceo's seed of six suspects). The extractor
+# takes the first line by design; a baton carrying a SECOND column-0 DONE-WHEN: whose text is a real command has
+# therefore been closing on HALF ITS OWN CONTRACT, silently, with the other half sitting in the file where every
+# human reader counts it as part of the bar. ⭐ MEASURED: 39 live batons carry more than one such line; 10 of the
+# extras are real commands, not the mint placeholder; 6 of those rows are DONE. Running the never-executed halves:
+# two are green (correctly closed anyway) and snobol4-xfail-class-setexit-errlimit-composition-2-entries is RED --
+# "cross-ref=0 (want 2)" -- a row closed on the half of its criterion that passed.
+# ⛔ REFUSES rather than running both: which line is the contract is a question about intent, and a tool that
+# concatenates them invents a bar nobody wrote. Same call, and the same wording, as s4e_donewhen_hidden_elsewhere
+# makes for its own case. The mint placeholder and the self-refusing stub are NOT counted -- a leftover placeholder
+# under a real criterion is untidy, not ambiguous, and 4 of the 39 are exactly that.
+# Sets $_dwm_lines for the message; rc 0 iff a second REAL criterion exists.
+s4e_donewhen_multiple_contracts() {   # $1 = baton path
+    local b="$1"
+    _dwm_lines="$(grep -n '^DONE-WHEN:' "$b" | sed -n '2,$p' \
+        | grep -vE 'DONE-WHEN:[[:space:]]*⛔ MUST BE MADE RUNNABLE' \
+        | grep -vE 'DONE-WHEN:[[:space:]]*echo "⛔[^"]*"( *>&2)?; *(false|exit [1-9][0-9]*)$' \
+        | cut -d: -f1 | tr '\n' ' ' | sed 's/ $//')"
+    [ -n "$_dwm_lines" ]; }
 s4e_donewhen_incomplete() {   # $1 = criterion text; rc 0 = bash cannot finish reading it
     printf '%s' "${1:-}" | bash -n /dev/stdin 2>&1 \
       | grep -qE 'here-document.*delimited by end-of-file|unexpected EOF while looking for matching|syntax error: unexpected end of file'; }
@@ -744,6 +764,7 @@ s4e_dispatch_probe() {
         return 2
     fi
     s4e_donewhen_is_noop "$dw" && { _dp_why="the DONE-WHEN certifies nothing (a decorated shell no-op)"; return 2; }
+    s4e_donewhen_multiple_contracts "$b" && { _dp_why="the baton carries a SECOND column-0 DONE-WHEN: (line(s) $_dwm_lines) that is a real command and has never run -- refusing to guess which line is the contract, hoist or relabel one"; return 2; }
     s4e_donewhen_unterminated_heredoc "$dw" && { _dp_why="the DONE-WHEN opens a heredoc it never closes -- bash would treat the body as EMPTY and exit 0 having run nothing, which is a false green, so this is COULD-NOT-MEASURE and never a verdict"; return 2; }
     s4e_donewhen_needs_compiler "$dw" && { _dp_why="$_gca_why"; return 2; }   # S4E-GUARD-COMPILER-ABSENT
     to="$(s4e_dispatch_timeout)"
@@ -1321,6 +1342,12 @@ case "$cmd" in
                 # ⛔⭐ REFUSE rc=2 ON AN UNTERMINATED HEREDOC -- the second, independent guard on the truncation
                 # class (see s4e_donewhen_unterminated_heredoc). A criterion bash cannot finish reading is one
                 # bash will happily run to a ZERO exit having executed nothing, so it must never reach the run.
+                if s4e_donewhen_multiple_contracts "$tf"; then
+                  printf '⛔ REFUSED(2): %s carries a SECOND column-0 DONE-WHEN: at line(s) %s.\n' "$tf" "$_dwm_lines" >&2
+                  printf '   Only the FIRST has ever been executed, so closing here would certify half the contract while\n' >&2
+                  printf '   the other half sits in the file where every human reader counts it as part of the bar.\n' >&2
+                  printf '   Hoist the real criterion to the one DONE-WHEN: line, or relabel the other.\n' >&2
+                  exit 2; fi
                 if s4e_donewhen_unterminated_heredoc "$dw"; then
                   printf '⛔ REFUSED(2): %s\n' "$tf" >&2
                   printf '   Its DONE-WHEN opens a heredoc it never closes. bash does not fail on that -- it warns,\n' >&2

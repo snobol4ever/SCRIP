@@ -29,6 +29,13 @@
 #       continuation rule ("read to the next column-0 label", which is how GOAL: carries paragraphs) would have
 #       fed their annotation to `bash -c` and broken 121 correctly-closing rows to fix one. The cure is that
 #       continuation happens ONLY while bash says the text is UNFINISHED.
+#   (F) A SECOND column-0 `DONE-WHEN:` whose text is a REAL COMMAND -> REFUSED rc=2, row NOT closed. Only the
+#       first line has ever run, so such a baton closes on HALF its own contract while the other half sits in the
+#       file where every reader counts it as part of the bar. ⭐ MEASURED on the ceo's seed: 39 live batons carry
+#       more than one, 10 extras are real commands, 6 of those rows are DONE, and one of those six -- snobol4-
+#       xfail-class-setexit-errlimit-composition-2-entries -- has a RED second half ("cross-ref=0 (want 2)").
+#   (G) THE SAME SHAPE WITH A LEFTOVER MINT PLACEHOLDER beneath a real criterion -> still closes green. Untidy is
+#       not ambiguous, and 4 of the 39 are exactly that; refusing them would block real rows for a cosmetic reason.
 # EXIT 0 all four hold on the live script AND each mutant goes red; 1 otherwise; 2 REFUSED (fixture cannot be built).
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; MSG="$HERE/s4e_msg.sh"
@@ -42,8 +49,8 @@ PO="$W/po"; ME=hq_T; HD="$W/hd.txt"
 mk_po() {
   rm -rf "$PO" "$HD"; mkdir -p "$PO/tasks" "$PO/claims" "$PO/released" "$PO/$ME/inbox" || return 2
   : > "$PO/BOARD.md"; : > "$PO/QUEUE.done.tsv"; printf "TRIO\n" > "$PO/MODE"
-  { printf '# gate fixture queue\n'; for t in t-two t-heredoc t-unterm t-green t-prose; do printf '2\t%s\tunassigned\tFREE\n' "$t"; done; } > "$PO/QUEUE.tsv"
-  for t in t-two t-heredoc t-unterm t-green t-prose; do
+  { printf '# gate fixture queue\n'; for t in t-two t-heredoc t-unterm t-green t-prose t-two-contracts t-stale-ph; do printf '2\t%s\tunassigned\tFREE\n' "$t"; done; } > "$PO/QUEUE.tsv"
+  for t in t-two t-heredoc t-unterm t-green t-prose t-two-contracts t-stale-ph; do
     { printf '# TASK %s\nGOAL: gate fixture.\n' "$t"
       case "$t" in
         t-two)     printf 'DONE-WHEN: test -f "$S4E_HOME/SCRIP/scripts/s4e_msg.sh" \\\n'
@@ -57,6 +64,10 @@ mk_po() {
         t-green)   printf "DONE-WHEN: cat > %s.g <<'GEOF'\n" "$HD"
                    printf 'green-body\nGEOF\n'
                    printf 'grep -q green-body %s.g\n' "$HD";;
+        t-two-contracts) printf 'DONE-WHEN: test -f "$S4E_HOME/SCRIP/scripts/s4e_msg.sh"\n'
+                   printf 'LINKS: none\nDONE-WHEN: test -f /no-such-file-donewhen-whole-criterion-gate\n';;
+        t-stale-ph) printf 'DONE-WHEN: test -f "$S4E_HOME/SCRIP/scripts/s4e_msg.sh"\n'
+                   printf 'LINKS: none\nDONE-WHEN: ⛔ MUST BE MADE RUNNABLE BEFORE done CAN EVER PASS — minted with no executable acceptance test\n';;
         t-prose)   printf 'DONE-WHEN: test -f "$S4E_HOME/SCRIP/scripts/s4e_msg.sh"\n'
                    printf '⛔ **DONE-WHEN REWRITTEN 2026-08-24 (seat04):** the line above used to be prose\n'
                    printf '(readable as a spec), but `done` runs it as literal `bash -c` and prose is not a command.\n';;
@@ -86,22 +97,32 @@ arm() {   # arm <label> <script> -> 0 iff all four contracts hold; 2 iff the fix
   run "$s" t-green
   [ "$RC" = 0 ] || { echo "  [$lbl] (D) a genuinely green multi-line criterion returned $RC (want 0)"; say; ok=0; }
   closed t-green || { echo "  [$lbl] (D) ⛔ a green criterion did NOT close its row -- the cure stopped closing anything"; ok=0; }
+  run "$s" t-two-contracts
+  [ "$RC" = 2 ] || { echo "  [$lbl] (F) a baton with a SECOND real DONE-WHEN: returned $RC (want 2 -- refuse, do not guess which is the contract)"; say; ok=0; }
+  closed t-two-contracts && { echo "  [$lbl] (F) ⛔ the row CLOSED on half its own contract"; ok=0; }
+  run "$s" t-stale-ph
+  [ "$RC" = 0 ] || { echo "  [$lbl] (G) a real criterion under a leftover MINT PLACEHOLDER line returned $RC (want 0) -- untidy is not ambiguous"; say; ok=0; }
+  closed t-stale-ph || { echo "  [$lbl] (G) ⛔ a row with only a stale placeholder beneath it stopped closing"; ok=0; }
   run "$s" t-prose
   [ "$RC" = 0 ] || { echo "  [$lbl] (E) a COMPLETE one-line criterion followed by prose annotation returned $RC (want 0) -- the annotation was swallowed into the command"; say; ok=0; }
   closed t-prose || { echo "  [$lbl] (E) ⛔ a correctly-closing annotated row stopped closing -- the continuation rule is eating prose"; ok=0; }
   [ "$ok" = 1 ]
 }
 echo "s4e done: the WHOLE DONE-WHEN runs, a heredoc body reaches its file, an unterminated one REFUSES (scratch postoffice under $W)"
-if arm PASS "$MSG"; then echo "  [PASS] (A) continuation runs; (B) heredoc body runs; (C) unterminated -> rc=2, row open; (D) green multi-line closes; (E) annotated one-liner unaffected"; pass=1
+if arm PASS "$MSG"; then echo "  [PASS] (A) continuation runs; (B) heredoc body runs; (C) unterminated -> rc=2, row open; (D) green multi-line closes; (E) annotated one-liner unaffected; (F) two real contracts refuse; (G) a stale placeholder does not"; pass=1
 else pass=$?; [ "$pass" = 2 ] && { echo "⛔ REFUSED: fixture could not be built (rc=2)"; exit 2; }; pass=0; fi
-# FAIL-ONCE, one mutant per half of the cure. M1 restores the head -1 truncation (A and B must red -- the rows close
-# on criteria that never ran). M2 removes the unterminated-heredoc refusal (C must red -- rc=0 on an unreadable one).
+# FAIL-ONCE, one mutant per part of the cure. M1 restores the head -1 truncation (A and B must red -- the rows
+# close on criteria that never ran). M2 removes the unterminated-heredoc refusal (C must red -- rc=0 on an unreadable
+# one). M3 removes the ambiguous-contract refusal (F must red -- a row closes on half its own contract).
 sed 's|dw="$(s4e_donewhen_text "$tf")"|dw="$(sed -n '"'"'s/^DONE-WHEN:[[:space:]]*//p'"'"' "$tf" \| head -1)"|' "$MSG" > "$W/m1.sh"
 sed 's/here-document\.\*delimited by end-of-file/a-warning-string-that-never-appears-90124/' "$MSG" > "$W/m2.sh"
+# M3 removes the ambiguous-contract refusal: arm F must then CLOSE a row on half its own contract.
+sed 's/^s4e_donewhen_multiple_contracts() {   # \$1 = baton path/s4e_donewhen_multiple_contracts() { return 1; } \nunused_multiple_contracts() {/' "$MSG" > "$W/m3.sh"
 grep -q 'head -1' "$W/m1.sh" || { echo "⛔ REFUSED: could not build mutant M1 (the done-site extraction moved?)"; exit 2; }
 grep -q 'never-appears-90124' "$W/m2.sh" || { echo "⛔ REFUSED: could not build mutant M2 (the heredoc guard moved?)"; exit 2; }
+grep -q 'unused_multiple_contracts' "$W/m3.sh" || { echo "⛔ REFUSED: could not build mutant M3 (the ambiguous-contract guard moved?)"; exit 2; }
 red=1
-for m in m1 m2; do
+for m in m1 m2 m3; do
   if arm "FAIL-ONCE:$m" "$W/$m.sh" >"$W/fo.$m" 2>&1; then echo "  [FAIL-ONCE:$m] ⛔ STAYED GREEN with that half of the cure removed -- it cannot detect the defect it exists for"; red=0
   else echo "  [FAIL-ONCE:$m] red as required: $(grep -m1 '  \[' "$W/fo.$m" | sed 's/^ *//' | cut -c1-110)"; fi
 done
