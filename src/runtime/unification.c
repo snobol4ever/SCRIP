@@ -1586,6 +1586,17 @@ void *rt_pl_ball_kind2(const char *kind, const char *arg0_atom, DESCR_t culprit)
     return rt_pl_compound_cell("error", 2, (void *)er);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_pl_ball_kind1(const char *kind, const char *arg0_atom)
+{
+    extern DESCR_t rt_pl_fresh_var_ref(void);
+    pl_cell_t fe[1]; pl_cell_t *fec; pl_cell_t er[2];
+    fe[0] = pl_make_atom(prolog_atom_intern(arg0_atom ? arg0_atom : "term"));
+    fec = (pl_cell_t *)rt_pl_compound_cell(kind, 1, (void *)fe);
+    if (!fec) return (void *)0;
+    er[0] = *fec; er[1] = rt_pl_fresh_var_ref();
+    return rt_pl_compound_cell("error", 2, (void *)er);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_ball_instantiation(void)
 {
     extern DESCR_t rt_pl_fresh_var_ref(void);

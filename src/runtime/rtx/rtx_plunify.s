@@ -248,6 +248,51 @@ RTX_FUNC(rt_pl_dop_char_guard)
     mov     edx, 1
     ret
 RTX_ENDF(rt_pl_dop_char_guard)
+RTX_FUNC(rt_pl_dop_anum_guard2)
+    sub     rsp, 8
+    call    rt_pl_dop_anum_guard2_c
+    add     rsp, 8
+    test    rax, rax
+    jz      .Lag2_ok
+    mov     r15, rax
+    mov     eax, DT_FAIL | (MOD_OP_RT_PL_ANUM_GUARD2 << 8)
+    xor     edx, edx
+    ret
+.Lag2_ok:
+    mov     eax, DT_I
+    mov     edx, 1
+    ret
+RTX_ENDF(rt_pl_dop_anum_guard2)
+RTX_FUNC(rt_pl_dop_anum_guard3)
+    sub     rsp, 8
+    call    rt_pl_dop_anum_guard3_c
+    add     rsp, 8
+    test    rax, rax
+    jz      .Lag3_ok
+    mov     r15, rax
+    mov     eax, DT_FAIL | (MOD_OP_RT_PL_ANUM_GUARD3 << 8)
+    xor     edx, edx
+    ret
+.Lag3_ok:
+    mov     eax, DT_I
+    mov     edx, 1
+    ret
+RTX_ENDF(rt_pl_dop_anum_guard3)
+RTX_FUNC(rt_pl_dop_anum_guard5)
+    sub     rsp, 8
+    call    rt_pl_dop_anum_guard5_c
+    add     rsp, 8
+    test    rax, rax
+    jz      .Lag5_ok
+    mov     r15, rax
+    mov     eax, DT_FAIL | (MOD_OP_RT_PL_ANUM_GUARD5 << 8)
+    xor     edx, edx
+    ret
+.Lag5_ok:
+    mov     eax, DT_I
+    mov     edx, 1
+    ret
+RTX_ENDF(rt_pl_dop_anum_guard5)
 RTX_FUNC(rt_pl_dop_between_guard)
     sub     rsp, 8
     call    rt_pl_dop_between_guard_c

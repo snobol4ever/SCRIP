@@ -89,4 +89,7 @@
 #define MOD_OP_RT_PL_BETWEEN_GUARD     149   /* rtx_plunify.s rt_pl_dop_between_guard */
 #define MOD_OP_RT_PL_STREAM_GUARD      150   /* rtx_plunify.s rt_pl_dop_stream_guard */
 #define MOD_OP_RT_PL_CURSTREAM_GUARD   151   /* rtx_plunify.s rt_pl_dop_curstream_guard */
+#define MOD_OP_RT_PL_ANUM_GUARD2       152   /* rtx_plunify.s rt_pl_dop_anum_guard2  */
+#define MOD_OP_RT_PL_ANUM_GUARD3       153   /* rtx_plunify.s rt_pl_dop_anum_guard3  */
+#define MOD_OP_RT_PL_ANUM_GUARD5       154   /* rtx_plunify.s rt_pl_dop_anum_guard5  */
 #endif

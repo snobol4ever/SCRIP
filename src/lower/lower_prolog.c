@@ -491,6 +491,31 @@ static const char * pl_det_leaf_sym(const char * nm, int ar) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const struct { const char * nm; int ar; const char * gsym; } pl_anum_guards[] = {
+    { "atom_length", 2, "$pl_anum_guard2" }, { "atom_chars", 2, "$pl_anum_guard2" }, { "atom_codes", 2, "$pl_anum_guard2" }, { "char_code", 2, "$pl_anum_guard2" },
+    { "number_chars", 2, "$pl_anum_guard2" }, { "number_codes", 2, "$pl_anum_guard2" }, { "atom_concat", 3, "$pl_anum_guard3" }, { 0, 0, 0 } };
+static const char * pl_anum_guard_sym(const char * nm, int ar) {
+    for (int i = 0; pl_anum_guards[i].nm; i++) if (pl_anum_guards[i].ar == ar && !strcmp(nm, pl_anum_guards[i].nm)) return pl_anum_guards[i].gsym;
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_leaf_lv_guarded(lcx_t * cx, const char * sym, const char * gsym, const char * gname, const tree_t * t, int nargs, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = sym;
+    IR_t * chk = build(cx, IR_CALL, nd, ωfail); IR_LIT(chk).sval = gsym;
+    IR_t * nl = build(cx, IR_LIT_STRING, chk, ωfail); IR_LIT(nl).sval = (char *) gname;
+    ir_operand_push(chk, nl);
+    IR_t * prev = NULL; IR_t * first = NULL;
+    for (int i = 0; i < nargs; i++) {
+        IR_t * ae = NULL; IR_t * a = term_lval_e(cx, t->c[i], &ae); IR_t * en = ae ? ae : a;
+        if (prev) lc_γ_to(prev, en); else first = en;
+        lc_ω_to(a, ωfail);
+        prev = a; ir_operand_push(nd, a); ir_operand_push(chk, a);
+    }
+    if (prev) lc_γ_to(prev, nl);
+    if (entry_out) *entry_out = first ? first : nl;
+    return nd;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_leaf_lv(lcx_t * cx, const char * sym, const tree_t * t, int nargs, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = sym;
     IR_t * prev = NULL; IR_t * first = NULL;
@@ -737,11 +762,15 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             IR_t * bl = NULL, * ll = NULL, * al = NULL, * sl = NULL; IR_t * be = NULL, * le = NULL, * ale = NULL, * se = NULL;
             bl = term_lval_e(cx, t->c[1], &be); ll = term_lval_e(cx, t->c[2], &le);
             al = term_lval_e(cx, t->c[3], &ale); sl = term_lval_e(cx, t->c[4], &se);
+            IR_t * gnl = build(cx, IR_LIT_STRING, NULL, ωfail); IR_LIT(gnl).sval = (char *) "sub_atom";
+            IR_t * gchk = build(cx, IR_CALL, lo, ωfail); IR_LIT(gchk).sval = "$pl_anum_guard5";
+            lc_γ_to(gnl, gchk); lc_ω_to(gnl, ωfail);
+            ir_operand_push(gchk, gnl); ir_operand_push(gchk, av); ir_operand_push(gchk, bl); ir_operand_push(gchk, ll); ir_operand_push(gchk, al); ir_operand_push(gchk, sl);
             lc_γ_to(bl, le ? le : ll);   lc_ω_to(bl, ωfail);
             lc_γ_to(ll, ale ? ale : al); lc_ω_to(ll, ωfail);
             lc_γ_to(al, se ? se : sl);   lc_ω_to(al, ωfail);
             lc_γ_to(sl, ae ? ae : av);   lc_ω_to(sl, ωfail);
-            lc_γ_to(av, lo); lc_ω_to(av, ωfail);
+            lc_γ_to(av, gnl); lc_ω_to(av, ωfail);
             lc_γ_to(lo, av2e ? av2e : av2); lc_ω_to(lo, ωfail);
             lc_γ_to(av2, cnt); lc_ω_to(av2, ωfail);
             ir_operand_push(cnt, av2);
@@ -832,7 +861,9 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             if (!pl_db_owned(pn, ar)) pl_refuse("clause/2 on a predicate that has clauses in the file (reflecting a wired box needs the proc table, rung 10b follow-up) --", pn, 7);
             pl_refuse("clause/2 on a dynamic predicate -- the clause-list INTERPRETER that served it is DELETED (Lon 2026-09-03: it is all code, not data); the compiled-clause path lands it --", pn, 10); }
         if (!strcmp(nm, "dynamic") && t->n >= 1) return build(cx, IR_SUCCEED, γnext, ωfail);
-        { const char * ls = pl_det_leaf_sym(nm, t->n); if (ls) return pl_leaf_lv(cx, ls, t, t->n, γnext, ωfail, entry_out); }
+        { const char * ls = pl_det_leaf_sym(nm, t->n); if (ls) { const char * gs = pl_anum_guard_sym(nm, t->n);
+            if (gs) return pl_leaf_lv_guarded(cx, ls, gs, nm, t, t->n, γnext, ωfail, entry_out);
+            return pl_leaf_lv(cx, ls, t, t->n, γnext, ωfail, entry_out); } }
         { int r = pl_rung_of(nm); if (r) pl_refuse(r == 6 ? "builtin arity not wired" : "builtin", nm, r); }
         return pl_user_call(cx, nm, t, t->n, γnext, ωfail, entry_out);
     }
