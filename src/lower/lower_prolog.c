@@ -417,7 +417,9 @@ static IR_t * pl_lower_ite(lcx_t * cx, const tree_t * C, const tree_t * T, const
       collect_conj(C, &cv);
       IR_t * ce = NULL;
       lc_γ_to(unmk_f, (nb > 1) ? arm_entry[1] : ig);
+      IR_t * saveω = cx->cutω; cx->cutω = unmk_f;
       IR_t * cfirst = pl_lower_conj(cx, (const tree_t * const *) cv.data, cv.n, arm_entry[0], unmk_f, &ce, NULL, NULL);
+      cx->cutω = saveω;
       lc_γ_to(mark, ce ? ce : (cfirst ? cfirst : arm_entry[0]));
       if (entry_out) *entry_out = mark; }
     return ig;
