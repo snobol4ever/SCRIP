@@ -17,13 +17,16 @@
 # modules/{ndbm,random,time}/test.{sno,ref} is a SEPARATE row (hq_P: excluding and re-covering in one row
 # means a reviewer cannot see which half landed) — see snobol4-csnobol4-module-replacement-coverage-ndbm-random-time.
 #
-# ⛔ PARKED_NO_REGEN below (same ruling) — breakline, k, rewind1: live csnobol4 itself disagrees with its
-# OWN historical .ref here (K-format fixed-record I/O looks broken; rewind1 SIGSEGVs on REWIND(5)), so the
-# REGEN-CANDIDATE tiebreak (below) would misfile a live-oracle regression as "our .ref might be stale."
-# ceo ruling (task ledger, snobol4-csnobol4-thirty-regen-candidate-refs-stale-pin-or-real-defect #28):
-# do NOT re-cut either .ref; grade plainly against csnobol4 and let them stay red until the oracle itself
-# is fixed. They still count as ordinary RED (RED-M3/RED-M4, FAIL/REJECT/CRASH) — PARKED only removes them
-# from the "maybe-stale-pin" bucket, it does not paper over the red. THERE IS NO XFAIL.
+# ⛔ PARKED_NO_REGEN below (same ruling) — breakline, k, rewind1, genc: live csnobol4 itself disagrees with
+# its OWN historical .ref here (K-format fixed-record I/O looks broken; rewind1 SIGSEGVs on REWIND(5); genc
+# now dies at statement 568 with "Error 24, Undefined or erroneous goto", a failure mode never seen before
+# in this row), so the REGEN-CANDIDATE tiebreak (below) would misfile a live-oracle regression as "our .ref
+# might be stale." ceo ruling (task ledger, snobol4-csnobol4-thirty-regen-candidate-refs-stale-pin-or-real-
+# defect #28) covers breakline/k/rewind1; hq_P extended it to genc (msg re-csnobol4-genc-second-gap-and-a-
+# third-mystery, 2026-09-04): do NOT re-cut any of the four .refs; grade plainly against csnobol4 and let
+# them stay red until the oracle itself is fixed. They still count as ordinary RED (RED-M3/RED-M4,
+# FAIL/REJECT/CRASH) — PARKED only removes them from the "maybe-stale-pin" bucket, it does not paper over
+# the red. THERE IS NO XFAIL.
 #
 # ⛔ THE ORACLE IS CSNOBOL4, NOT sbl — `sbl -bf` false-reds on 30 of these ~120 programs (CSNOBOL4-only
 # extensions SPITBOL never claims: ORD, &DUMP, popen, ...; RULES.md FACT RULE s261). Primary grading is
@@ -110,7 +113,7 @@ is_stdin_test() { local n="$1" s; for s in $STDIN_TESTS; do [ "$n" = "$s" ] && r
 DUMP_TESTS="a dump diag1 diag2"; TRACE_TESTS="ftrace keytrace spit trace1 trace2 trfunc t"
 EXCLUDED_TESTS="ndbm random sleep time"
 is_excluded_test() { local n="$1" s; for s in $EXCLUDED_TESTS; do [ "$n" = "$s" ] && return 0; done; return 1; }
-PARKED_NO_REGEN="breakline k rewind1"
+PARKED_NO_REGEN="breakline k rewind1 genc"
 is_parked_no_regen() { local n="$1" s; for s in $PARKED_NO_REGEN; do [ "$n" = "$s" ] && return 0; done; return 1; }
 setup_dep_for() { case "$1" in openo2) echo openo;; esac; }
 argv_for() { case "$1" in genc) echo v311.sil;; esac; }
