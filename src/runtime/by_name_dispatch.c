@@ -6024,9 +6024,9 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             const char *s=VARVAL_fn(a); *out=INTVAL(s?(long long)strlen(s):0LL); return 1;
         }
         if (fn[0]=='!' && fn[1]=='\0') {
-            if (IS_INT_fn(a)||IS_REAL_fn(a)) { *out=a; return 1; }
-            const char *s=VARVAL_fn(a);
-            if (s&&*s) { char *ch=rt_ws_alloc(2); ch[0]=s[0]; ch[1]='\0'; *out=STRVAL(ch); return 1; }
+            extern int core_call_registered_fn(const char *, DESCR_t *, int, DESCR_t *);
+            if (core_call_registered_fn(fn, args, nargs, out)) return 1;
+            core_runtime_error(29, "Undefined operator referenced");
             *out=FAILDESCR; return 1;
         }
         if (fn[0]=='/' && fn[1]=='\0') {
