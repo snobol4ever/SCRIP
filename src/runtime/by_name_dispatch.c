@@ -3681,9 +3681,14 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
             if (!strcmp(fn, "-"))  return rt_num_arith(INTVAL(0), a, BINOP_SUB);
             if (!strcmp(fn, "+"))  return rt_num_arith(INTVAL(0), a, BINOP_ADD);
             if (!strcmp(fn, "*"))  { extern DESCR_t rt_call_arr(const char *, DESCR_t *, int); DESCR_t _a = a; return try_call_builtin_by_name("*", &_a, 1, &out) ? out : FAILDESCR; }
-            if (!strcmp(fn, "/"))  return (a.v == DT_SNUL || a.v == 0) ? a : FAILDESCR;
             if (!strcmp(fn, "\\")) return (a.v == DT_SNUL || a.v == 0) ? FAILDESCR : a;
             if (!strcmp(fn, "?"))  return rt_deref(rt_random_var(a));
+            if (!strcmp(fn, "/") || !strcmp(fn, "%") || !strcmp(fn, "#") || !strcmp(fn, "|")) {
+                extern int core_call_registered_fn(const char *, DESCR_t *, int, DESCR_t *);
+                if (core_call_registered_fn(fn, args, nargs, &out)) return out;
+                core_runtime_error(29, "undefined operator referenced");
+                return FAILDESCR;
+            }
         }
         DESCR_t a = (nargs > 0) ? args[0] : NULVCL, b = (nargs > 1) ? args[1] : NULVCL;
         if (!strcmp(fn, "[]")) { extern DESCR_t rt_subscript_var(DESCR_t, DESCR_t); extern DESCR_t rt_deref(DESCR_t); DESCR_t v = rt_subscript_var(a, b); if (IS_FAIL_fn(v)) return FAILDESCR; return rt_deref(v); }
@@ -6033,7 +6038,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (fn[0]=='!' && fn[1]=='\0') {
             extern int core_call_registered_fn(const char *, DESCR_t *, int, DESCR_t *);
             if (core_call_registered_fn(fn, args, nargs, out)) return 1;
-            core_runtime_error(29, "Undefined operator referenced");
+            core_runtime_error(29, "undefined operator referenced");
             *out=FAILDESCR; return 1;
         }
         if (fn[0]=='/' && fn[1]=='\0') {
