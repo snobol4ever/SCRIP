@@ -19,7 +19,7 @@ static std::string bb_match_len_body() {
              + x86("mov", "ecx", "eax"))
          + IF(_.op_sval == NULL && _.op_sa >= 0 &&  _.op_zres, x86("note", ZOPN(0))
                                                               + x86("mov", "rcx", ZOPQ(0, 8)))
-         + IF(_.op_sval == NULL && _.op_sa >= 0 && !_.op_zres, x86("mov", "rcx", FRQ(_.op_sa + 8)))
+         + IF(_.op_sval == NULL && _.op_sa >= 0 && !_.op_zres, x86("mov", "rcx", XSAQ(8)))
          + x86("mov", "eax", "r14d")
          + IF(_.op_sval != NULL || _.op_sa >= 0, x86("add", "eax", "ecx"))
          + IF(_.op_sval == NULL && _.op_sa <  0, x86("add", "eax", (long)(int)_.op_ival))
@@ -37,7 +37,7 @@ static std::string bb_match_len_body() {
              + x86("mov", "ecx", "eax"))
          + IF(_.op_sval == NULL && _.op_sa >= 0 &&  _.op_zres, x86("note", ZOPN(0))
                                                               + x86("mov", "rcx", ZOPQ(0, 8)))
-         + IF(_.op_sval == NULL && _.op_sa >= 0 && !_.op_zres, x86("mov", "rcx", FRQ(_.op_sa + 8)))
+         + IF(_.op_sval == NULL && _.op_sa >= 0 && !_.op_zres, x86("mov", "rcx", XSAQ(8)))
          + IF(_.op_sval != NULL || _.op_sa >= 0, x86("sub", "r14d", "ecx"))
          + IF(_.op_sval == NULL && _.op_sa <  0, x86("sub", "r14d", (long)(int)_.op_ival))
          + x86_omega();
