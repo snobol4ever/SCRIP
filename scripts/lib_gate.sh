@@ -308,3 +308,61 @@ gate_progress_line() {
     python3 "$_py" progress 2>/dev/null || true
     return 0
 }
+# gate_three_way <label> <rc> <out> <extract-pattern> -- THE ABSENT-LINE PRIMITIVE (row
+# a-refusal-reported-in-the-vocabulary-of-a-red-absent-line-read-as-unparseable, seat15/hq_T 2026-09-05).
+#
+# THE DEFECT THIS EXISTS TO KILL: a consumer runs another gate/board, captures its output, and greps for
+# one summary line -- then folds the line's ABSENCE into the same vocabulary as a MEASURED result: a bare
+# `${x:-0}` that prints a false-clean board, an `${x:-UNPARSEABLE}` that reads a kill as a parse defect,
+# or a hard `fail()` that reads a kill as a code regression. All three hand the reader a sentence about
+# the CODE that is really a sentence about the MACHINE (a per-program timeout under fleet load, an outer
+# kill, a crash) -- an instrument answering a narrower question than the reader thinks they asked, and
+# never saying so. Witness: test_corpus_snobol4.sh KILLED 4 programs at its 120s bound under load 3.6 (a
+# COULD-NOT-MEASURE, which that script itself already reports honestly, rc=2) and a consumer read the
+# resulting absence as "FAIL m3=UNPARSEABLE" -- a sentence about zd_omega_head that was really a sentence
+# about the box being busy.
+#
+# THE RULE: exactly one of the sub-run's own exit code and its printed text is trustworthy at a time.
+#   rc==2   -- this codebase's OWN fixed vocabulary (see THE THREE EXIT CODES, top of this file) for "the
+#              sub-run refused, and already explained why". ALWAYS propagate as UNPROVEN, no matter what
+#              text happens to be sitting in $out -- a script that refuses can still have echoed partial
+#              numbers before its refusal, and partial numbers are not a verdict.
+#   rc==124 -- killed by an outer `timeout` wrapper. UNPROVEN: the sub-run never got to conclude.
+#   rc>128  -- killed by a signal (rc-128). UNPROVEN, same reason.
+#   else    -- the sub-run concluded under its own steam (ordinarily rc 0 or 1): look for
+#              <extract-pattern> in $out. FOUND -> print the matched line, return 0 (present -- green or
+#              red is for the CALLER to judge from the line's own fields, exactly as before this helper
+#              existed). NOT FOUND -> still UNPROVEN: a format change or a crash that produced no summary
+#              is not evidence about the code under test either.
+#
+# On UNPROVEN it prints NOTHING to stdout (so a caller that forgets to check the return code gets an
+# empty string, never a manufactured number) and writes the real cause plus the sub-run's own last lines
+# -- often an honest inner refusal already explaining itself -- to stderr, then returns 2.
+#
+# CALLER CONTRACT: check the return code before trusting the captured line, e.g.:
+#     line=$(gate_three_way "label" "$rc" "$out" 'PATTERN'); grc=$?
+#     [ "$grc" -eq 2 ] && { report_unproven ...; } || { ...use "$line"...; }
+# Treating a return of 2 as "keep going with an empty $line" reintroduces the exact defect this helper
+# exists to close.
+gate_three_way() {
+    local _label="$1" _rc="$2" _out="$3" _pat="$4" _line _cause
+    if [ "$_rc" -eq 2 ] 2>/dev/null; then
+        _cause="the sub-run REFUSED (rc=2, this codebase's own UNPROVEN code) -- not a verdict about the code under test"
+    elif [ "$_rc" -eq 124 ] 2>/dev/null; then
+        _cause="TIMED OUT (killed by an outer timeout wrapper, rc=124) -- unmeasured, not a hang/pass verdict"
+    elif [ "$_rc" -gt 128 ] 2>/dev/null; then
+        local _sig=$((_rc - 128)) _signame
+        _signame="$(kill -l "$_sig" 2>/dev/null || echo "$_sig")"
+        _cause="KILLED by SIG${_signame} (rc=$_rc) -- unmeasured, not a verdict about the code under test"
+    else
+        _line="$(printf '%s\n' "$_out" | grep -m1 -E "$_pat" 2>/dev/null)"
+        if [ -n "$_line" ]; then printf '%s\n' "$_line"; return 0; fi
+        _cause="ran to completion (rc=$_rc) but never printed a line matching the expected shape -- a format change or a crash with no summary"
+    fi
+    {
+        echo "GATE UNPROVEN(2) [${GATE_NAME:-gate}]: $_label -- $_cause"
+        echo "    what was actually seen (last 12 lines of $_label's own output):"
+        printf '%s\n' "$_out" | tail -12 | sed 's/^/    /'
+    } >&2
+    return 2
+}

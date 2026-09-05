@@ -16,6 +16,8 @@ CORPUS="${CORPUS:-$S4E/corpus}"
 FR="$CORPUS/tests/snocone/ladder/prog/fn_freturn.sc"
 NR="$CORPUS/tests/snocone/ladder/prog/fn_nreturn.sc"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+GATE_NAME=snocone-returns-codegen
+. "$SCRIP_DIR/scripts/lib_gate.sh"   # gate_three_way: absent-line-is-UNPROVEN(2), never this row's fail()
 
 fail() { echo "⛔ NOT DONE: $*" >&2; exit 1; }
 
@@ -53,8 +55,20 @@ if [ -f /tmp/sb6_scr.err ]; then
 fi
 
 # --- SNOBOL4 corpus gate: FAIL=0 SKIP=0 both modes, read fresh (CEO-s272 law: the shape, not a cached number) ---
-bash scripts/test_corpus_snobol4.sh > "$TMP/gate.out" 2>&1
-grep -qE '✅ GATE OK: m3 PASS=[0-9]+ FAIL=0 .* m4 PASS=[0-9]+ FAIL=0 SKIP=0 .* MISSING=0' "$TMP/gate.out" || fail "SNOBOL4 gate not clean: $(tail -8 "$TMP/gate.out")"
+# ⛔ An absent/killed run of this sub-gate (rc=2, e.g. programs KILLED at its per-program timeout under
+# fleet load) is UNPROVEN, not a failed DONE-WHEN for THIS row -- fail() would read a busy box as a
+# Snocone regression (row a-refusal-reported-in-the-vocabulary-of-a-red-absent-line-read-as-unparseable,
+# seat15/hq_T 2026-09-05).
+snout=$(bash scripts/test_corpus_snobol4.sh 2>&1); snrc=$?
+# rc==1 is that script's OWN "measured, mode-4 regressed" signal -- decide it directly rather than via
+# gate_three_way's pattern match, since a real rc=1 prints a DIFFERENT (sparser) "GATE FAIL:" line that
+# would otherwise look just as absent as a genuine kill; this must stay a real fail(), never UNPROVEN.
+[ "$snrc" -eq 1 ] && fail "SNOBOL4 gate not clean (measured, rc=1): $(printf '%s\n' "$snout" | tail -8)"
+snline=$(gate_three_way "test_corpus_snobol4.sh" "$snrc" "$snout" '✅ GATE OK: m3 PASS=[0-9]+ FAIL=0 .* m4 PASS=[0-9]+ FAIL=0 SKIP=0 .* MISSING=0'); sngrc=$?
+if [ "$sngrc" -eq 2 ]; then
+    echo "⚠️ UNPROVEN(2), not a fail: the SNOBOL4 corpus gate could not be measured (rc=$snrc) -- see stderr for the real cause" >&2
+    exit 2
+fi
 
 echo "✅ snocone-returns-codegen narrowed DONE-WHEN: bugs #1/#2/#3 fixed both modes, ladder past trace.sc, SNOBOL4 gate clean"
 exit 0

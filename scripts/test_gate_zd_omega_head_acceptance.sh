@@ -48,13 +48,21 @@ for f in "$PASCAL_TESTS/boolptr.pas" "$PASCAL_TESTS/boolptr.ref" "$PASCAL_TESTS/
     [ -f "$f" ] || { echo "⛔ REFUSE(2): missing witness file $f" >&2; exit 2; }
 done
 command -v setarch >/dev/null || { echo "⛔ REFUSE(2): setarch not on PATH -- needed for the spine-leak arm" >&2; exit 2; }
+. "$(dirname "$0")/lib_gate.sh"   # gate_three_way: absent-line-is-UNPROVEN, never a zd_omega_head verdict
 
 TMP=$(mktemp -d)
 trap "rm -rf $TMP" EXIT
 FAIL=0
+UNPROVEN=0
 report() { # report <name> <ok:0|1> <detail>
     if [ "$2" -eq 0 ]; then echo "✅ PASS $1 -- $3"; else echo "⛔ FAIL $1 -- $3"; FAIL=$((FAIL+1)); fi
 }
+# report_unproven <name> <detail> -- the third outcome (row a-refusal-reported-in-the-vocabulary-of-a-
+# red-absent-line-read-as-unparseable): a sub-run this arm depends on could not be measured (killed,
+# timed out, refused). That is NOT a zd_omega_head regression and must never be tallied into FAIL --
+# but it is also not a pass, so it must not be silently swallowed either. gate_three_way already put the
+# real cause on stderr; this just keeps the running total honest.
+report_unproven() { echo "🟡 UNPROVEN $1 -- $2"; UNPROVEN=$((UNPROVEN+1)); }
 
 # --- 1. STRUCTURAL: the exact known-bad per-op shape must be gone ------------------------------------------
 # ⛔⭐ REWRITTEN BY hq_C 2026-09-05. The previous clause grepped for ONE HISTORICAL BAD STRING (the
@@ -162,18 +170,35 @@ echo "--- shared-node control battery (SNOBOL4 must be FAIL=0; others must not f
 # printed as "informational" by that script's own design, confirmed 2026-08-29 -- a run here reported
 # rc=0 "GATE OK" with m3 FAIL=1, m4 FAIL=0). This row's DONE-WHEN wants BOTH modes FAIL=0, so parse both
 # counts explicitly rather than trust a exit code that is scoped to one mode only.
-out=$(bash scripts/test_corpus_snobol4.sh 2>&1)
-f3=$(printf '%s\n' "$out" | grep -oP 'm3 PASS=[0-9]+ FAIL=\K[0-9]+' | head -1)
-f4=$(printf '%s\n' "$out" | grep -oP 'm4 PASS=[0-9]+ FAIL=\K[0-9]+' | head -1)
-if [ -n "${f3:-}" ] && [ -n "${f4:-}" ] && [ "$f3" -eq 0 ] && [ "$f4" -eq 0 ]; then
-    report snobol4-blocking 0 "$(printf '%s\n' "$out" | tail -1)"
+# ⛔ AND rc==2 (the sub-gate's own honest refusal -- e.g. programs KILLED at its per-program timeout under
+# fleet load) is NOT this row's business either: an absent summary line reads UNPROVEN, never a
+# zd_omega_head regression (row a-refusal-reported-in-the-vocabulary-of-a-red-absent-line-read-as-
+# unparseable, seat15/hq_T 2026-09-05). Uses the two UNCONDITIONAL per-mode lines
+# (`mode-3 (--run): PASS=.. FAIL=..` / `mode-4 (--compile): PASS=.. FAIL=..`), printed by that script
+# before either its OK or its FAIL closing line, so genuinely both are reachable on any completed run.
+out=$(bash scripts/test_corpus_snobol4.sh 2>&1); rc=$?
+line3=$(gate_three_way "test_corpus_snobol4.sh" "$rc" "$out" '^mode-3 \(--run\):[[:space:]]+PASS=[0-9]+ FAIL=[0-9]+'); grc=$?
+if [ "$grc" -eq 2 ]; then
+    report_unproven snobol4-blocking "test_corpus_snobol4.sh could not be measured (rc=$rc) -- see stderr for the real cause; not a zd_omega_head verdict"
 else
-    report snobol4-blocking 1 "m3 FAIL=${f3:-UNPARSEABLE} m4 FAIL=${f4:-UNPARSEABLE} -- both modes must read 0 (informational-only m3 FAIL is not a pass for this row)"
+    line4=$(printf '%s\n' "$out" | grep -m1 -E '^mode-4 \(--compile\):[[:space:]]+PASS=[0-9]+ FAIL=[0-9]+')
+    f3=$(printf '%s' "$line3" | grep -oP 'FAIL=\K[0-9]+')
+    f4=$(printf '%s' "$line4" | grep -oP 'FAIL=\K[0-9]+')
+    if [ "$f3" -eq 0 ] && [ "$f4" -eq 0 ]; then
+        report snobol4-blocking 0 "$(printf '%s\n' "$out" | tail -1)"
+    else
+        report snobol4-blocking 1 "m3 FAIL=$f3 m4 FAIL=$f4 -- both modes must read 0 (informational-only m3 FAIL is not a pass for this row)"
+    fi
 fi
 
-out=$(bash scripts/test_icon_rung_suite.sh --mode interp 2>&1)
-icon_pass=$(printf '%s\n' "$out" | grep -oP '(?<=^--- Icon \(interp\): PASS=)[0-9]+' | head -1)
-if [ -n "${icon_pass:-}" ] && [ "$icon_pass" -ge 232 ]; then report icon-floor 0 "PASS=$icon_pass (>=232 standing floor)"; else report icon-floor 1 "PASS=${icon_pass:-UNPARSEABLE} (<232 floor, or the anchored summary line did not print)"; fi
+out=$(bash scripts/test_icon_rung_suite.sh --mode interp 2>&1); rc=$?
+line=$(gate_three_way "test_icon_rung_suite.sh --mode interp" "$rc" "$out" '^--- Icon \(interp\): PASS=[0-9]+'); grc=$?
+if [ "$grc" -eq 2 ]; then
+    report_unproven icon-floor "test_icon_rung_suite.sh --mode interp could not be measured (rc=$rc) -- see stderr for the real cause; not a zd_omega_head verdict"
+else
+    icon_pass=$(printf '%s' "$line" | grep -oP 'PASS=\K[0-9]+')
+    if [ "$icon_pass" -ge 232 ]; then report icon-floor 0 "PASS=$icon_pass (>=232 standing floor)"; else report icon-floor 1 "PASS=$icon_pass (<232 floor)"; fi
+fi
 
 out=$(bash scripts/test_smoke_raku.sh 2>&1)
 if printf '%s\n' "$out" | grep -qE '^mode-3 .*FAIL=0 ' && printf '%s\n' "$out" | grep -qE '^mode-4 .*FAIL=0 '; then
@@ -227,13 +252,27 @@ if [ "$rc" -eq 0 ]; then report rebus-smoke 0 "$(printf '%s\n' "$out" | tail -1)
 # together account for the standing red. Floor pattern matches icon-floor above: assert no NEW regression
 # below today's watermark, never a bar this row cannot itself clear. Re-measure before trusting the floor
 # after any polyglot-lane row lands -- do not carry it forward uncritically (FACT RULE: re-measured, not copied).
-out=$(bash scripts/test_gate_polyglot_demos.sh 2>&1)
-p3=$(printf '%s\n' "$out" | grep -oP '(?<=^m3 PASS=)[0-9]+'); p4=$(printf '%s\n' "$out" | grep -oP '(?<=^m4 PASS=)[0-9]+')
-if [ -n "${p3:-}" ] && [ -n "${p4:-}" ] && [ "$p3" -ge 7 ] && [ "$p4" -ge 3 ]; then
-    report polyglot-demos-floor 0 "m3 PASS=$p3 (>=7) m4 PASS=$p4 (>=3) -- 2026-08-29 pre-existing floor, owned by other rows"
+out=$(bash scripts/test_gate_polyglot_demos.sh 2>&1); rc=$?
+line3=$(gate_three_way "test_gate_polyglot_demos.sh" "$rc" "$out" '^m3 PASS=[0-9]+'); grc=$?
+if [ "$grc" -eq 2 ]; then
+    report_unproven polyglot-demos-floor "test_gate_polyglot_demos.sh could not be measured (rc=$rc) -- see stderr for the real cause; not a zd_omega_head verdict"
 else
-    report polyglot-demos-floor 1 "m3 PASS=${p3:-UNPARSEABLE} m4 PASS=${p4:-UNPARSEABLE} -- fell BELOW the pre-existing floor: a NEW regression, unlike the standing polyglot reds"
+    line4=$(printf '%s\n' "$out" | grep -m1 -E '^m4 PASS=[0-9]+')
+    p3=$(printf '%s' "$line3" | grep -oP 'PASS=\K[0-9]+')
+    p4=$(printf '%s' "$line4" | grep -oP 'PASS=\K[0-9]+')
+    if [ "$p3" -ge 7 ] && [ "$p4" -ge 3 ]; then
+        report polyglot-demos-floor 0 "m3 PASS=$p3 (>=7) m4 PASS=$p4 (>=3) -- 2026-08-29 pre-existing floor, owned by other rows"
+    else
+        report polyglot-demos-floor 1 "m3 PASS=$p3 m4 PASS=$p4 -- fell BELOW the pre-existing floor: a NEW regression, unlike the standing polyglot reds"
+    fi
 fi
 
+# ⛔ UNPROVEN OUTRANKS BOTH: checked-and-clean and checked-and-bad are exit 0/1 as always, but "could not
+# check" must never collapse into either (row a-refusal-reported-in-the-vocabulary-of-a-red-absent-line-
+# read-as-unparseable) -- rc=2 here is the SAME UNPROVEN vocabulary this gate's own arms just propagated.
+if [ "$UNPROVEN" -gt 0 ]; then
+    echo "=== $UNPROVEN CHECK(S) UNPROVEN, $FAIL CHECK(S) FAILED -- UNPROVEN is not a pass, and it is not this row's fault either; re-run the named sub-scripts standalone ==="
+    exit 2
+fi
 echo "=== $([ "$FAIL" -eq 0 ] && echo ALL GREEN || echo "$FAIL CHECK(S) FAILED") ==="
 [ "$FAIL" -eq 0 ]
