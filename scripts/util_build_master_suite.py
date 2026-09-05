@@ -837,6 +837,19 @@ def master_file_key(entry, flags):
     return (0 if entry.kind == "line" else 1,) + master_sort_key(entry, flags)
 
 
+def _make_resort_modes(csv_modes, modes_decl):
+    """The `modes` value a CSV rewrite writes for one entry: the DECLARATION when the entry's family is declared
+    (`modes` is a DECLARED field, never derived -- hq_C's FORMAT RULING above), otherwise the value the CSV
+    ALREADY RECORDED for that ENTRY, and only then UNKNOWN.  Every CSV writer in this file used to go straight
+    to `modes_decl.get(fam, "UNKNOWN")`, so every entry of an UNDECLARED family lost its recorded value to
+    UNKNOWN -- and the harness run-grades UNKNOWN, which turns a `--dump-ast` fixture into a program sent to the
+    oracle.  ⭐ The UNKNOWN default was designed to be LOUD ("Unknown is UNPROVEN at grading time") and it is;
+    what was silent was OVERWRITING a known value WITH it."""
+    def _f(name, fam):
+        if fam in modes_decl:
+            return modes_decl[fam]
+        return csv_modes.get(name) or "UNKNOWN"
+    return _f
 def resort_master(OUTDIR, EXT, lang, h, _CO, _CC, COLS, modes_decl, loose_families, acknowledged):
     """Re-sort the master already on disk into the builder's own order and rewrite ALL.<ext>/ALL.ref/ALL.csv.
 
@@ -883,9 +896,12 @@ def resort_master(OUTDIR, EXT, lang, h, _CO, _CC, COLS, modes_decl, loose_famili
         sys.stderr.write("REFUSED: the sort changed the ENTRY SET (%d -> %d unique) -- that is not a reorder.\n"
                          % (len(set(before)), len(set(after)))); return 2
     csv_origin = {}
+    csv_modes = {}
     if os.path.isfile(out_csv):
         for row in csv.DictReader(open(out_csv)):
             csv_origin[row["entry"]] = row.get("origin", "")
+            csv_modes[row["entry"]] = (row.get("modes") or "").strip()
+    _resort_modes = _make_resort_modes(csv_modes, modes_decl)
     _tag = ".tmp-%d" % os.getpid()
     tmp_sno, tmp_ref, tmp_in, tmp_x, tmp_csv = out_sno + _tag, out_ref + _tag, out_in + _tag, out_x + _tag, out_csv + _tag
     def _cleanup():
@@ -916,6 +932,41 @@ def resort_master(OUTDIR, EXT, lang, h, _CO, _CC, COLS, modes_decl, loose_famili
             _bad = [n for n in body_before if body_before[n] != body_after.get(n)]
             sys.stderr.write("REFUSED: %d entr(y/ies) changed CONTENT during a reorder (first: %s) -- not committing.\n"
                              % (len(_bad), _bad[0] if _bad else "?")); _cleanup(); return 2
+        # ⛔⭐⭐ `modes` IS AN INVARIANT OF A RESORT, AND IT WAS NOT ONE UNTIL 2026-09-05 (hq_T, on hq_B's
+        # measurement).  This CSV was rewritten from `modes_decl.get(fam, "UNKNOWN")`, which DERIVES the column
+        # from the family declaration and DISCARDS whatever the CSV recorded per entry, so every entry of an
+        # UNDECLARED family became UNKNOWN -- and the harness run-grades UNKNOWN, sending `--dump-ast` fixtures
+        # to the oracle as programs.  MEASURED on corpus a6e836ea6: snobol4 ast 28 -> 0 (every test_parser_*
+        # entry), which IS the master board's FAIL=26/21 against a recorded FAIL=0; pascal ast 5 -> 0 plus 40
+        # ladder rungs losing m3,m4; prolog GAINING 134 bogus `ast` on simple_assign_* run tests -- it moves in
+        # both directions, so "it only ever loses information" would have been the wrong summary too.
+        # ⭐ THE COMMIT ASSERTED CONTENT-INVARIANCE AND WAS TELLING THE TRUTH ABOUT WHAT IT CHECKED: the check
+        # above covers the entry SET and the per-entry BODY BYTES, and `modes` is in neither -- so a column the
+        # GRADER READS was rewritten inside a guard built to prove nothing was.  This file already carried the
+        # rule that would have caught it ("A round trip that does not carry every field the grader reads is not
+        # a round trip"); `modes` was the field it did not carry.  ⛔ THE GENERAL FORM, worth more than the
+        # instance: an invariance proof names the fields it compares, and every field it does not name is
+        # SILENTLY EXEMPT.  A reviewer reads "content-invariant, verified" and cannot see the gap from a diff.
+        # ⛔ REFUSE rather than repair: a resort is ORDER-ONLY, and changing what a suite is graded by is a real
+        # decision that belongs in a deliberate reindex, never as a side effect of sorting.
+        _modes_moved = []
+        for _e in ordered:
+            _o = csv_origin.get(_e.name) or ("master__%s" % _e.name)
+            _was = csv_modes.get(_e.name, "")
+            _now = _resort_modes(_e.name, _o.split("__", 1)[0])
+            if _was and _was != _now:
+                _modes_moved.append((_e.name, _was, _now))
+        if _modes_moved:
+            sys.stderr.write("REFUSED: --resort would change the `modes` column of %d entr(y/ies).  A resort is\n"
+                             "   ORDER-ONLY, and `modes` is what the harness grades by, so this is not a reorder:\n"
+                             % len(_modes_moved))
+            for _n, _a, _b in _modes_moved[:20]:
+                sys.stderr.write("     %-46s %s -> %s\n" % (_n, _a or "(none)", _b))
+            if len(_modes_moved) > 20:
+                sys.stderr.write("     ... and %d more\n" % (len(_modes_moved) - 20))
+            sys.stderr.write("   Fix tests/%s/config/MODES.tsv so the declaration agrees with the recorded column,\n"
+                             "   or change it deliberately with the reindex path -- then resort.\n" % lang)
+            _cleanup(); return 2
         with open(tmp_csv, "w", newline="") as f:
             w = csv.writer(f, lineterminator="\n")
             w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes"] + [c for c, _ in COLS])
@@ -923,7 +974,7 @@ def resort_master(OUTDIR, EXT, lang, h, _CO, _CC, COLS, modes_decl, loose_famili
                 origin = csv_origin.get(e.name) or ("master__%s" % e.name)
                 fam = origin.split("__", 1)[0]
                 w.writerow([rank, e.name, origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines),
-                            modes_decl.get(fam, "UNKNOWN")] + [flags_of[e.name][c] for c, _ in COLS])
+                            _resort_modes(e.name, fam)] + [flags_of[e.name][c] for c, _ in COLS])
     except BaseException:
         _cleanup(); raise
     os.replace(tmp_sno, out_sno); os.replace(tmp_ref, out_ref); os.replace(tmp_csv, out_csv)
@@ -983,9 +1034,12 @@ def reindex_csv_only(OUTDIR, EXT, lang, h, _CO, _CC, COLS, modes_decl, loose_fam
         sys.stderr.write("REFUSED: --reindex read 0 entries from %s -- refusing to write an empty index over a real one.\n" % master_sno)
         return 2
     csv_origin = {}
+    csv_modes = {}
     if os.path.isfile(out_csv):
         for row in csv.DictReader(open(out_csv)):
             csv_origin[row["entry"]] = row.get("origin", "")
+            csv_modes[row["entry"]] = (row.get("modes") or "").strip()
+    _resort_modes = _make_resort_modes(csv_modes, modes_decl)
     tmp_csv = out_csv + ".tmp-%d" % os.getpid()
     try:
         with open(tmp_csv, "w", newline="") as f:
@@ -997,7 +1051,7 @@ def reindex_csv_only(OUTDIR, EXT, lang, h, _CO, _CC, COLS, modes_decl, loose_fam
                 origin = csv_origin.get(e.name) or ("master__%s" % e.name)
                 fam = origin.split("__", 1)[0]
                 w.writerow([rank, e.name, origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines),
-                            modes_decl.get(fam, "UNKNOWN")] + [flags[c] for c, _ in COLS])
+                            _resort_modes(e.name, fam)] + [flags[c] for c, _ in COLS])
     except BaseException:
         if os.path.exists(tmp_csv):
             os.remove(tmp_csv)
@@ -1606,6 +1660,7 @@ def main():
                           "as the collapse-check baseline." % len(csv_origins), file=sys.stderr)
         except Exception:
             pass
+    _csv_modes = {}   # per-entry `modes` carried forward; empty when there is no master CSV yet
     if os.path.isfile(master_sno_path) and os.path.isfile(os.path.join(OUTDIR, "ALL.ref")):
         if lang == "snobol4":
             base_entries = h.read_suite(master_sno_path, os.path.join(OUTDIR, "ALL.ref"),
@@ -1617,6 +1672,7 @@ def main():
         if os.path.isfile(master_csv_path):
             for _row in csv.DictReader(open(master_csv_path)):
                 _csv_origin[_row["entry"]] = _row.get("origin", "")
+                _csv_modes[_row["entry"]] = (_row.get("modes") or "").strip()
         for e in base_entries:
             e.origin = _csv_origin.get(e.name) or ("master__%s" % e.name)
             e.src_mode = "base"
@@ -2107,12 +2163,13 @@ def main():
             h.refuse("re-read ORDER does not match the written order -- the master's physical file and its "
                      "CSV rank would silently disagree; NOT trusting the merge (validated in a scratch copy, "
                      "the real tree was never touched)")
+        _merge_modes = _make_resort_modes(_csv_modes, _modes_decl)
         with open(tmp_csv, "w", newline="") as f:
             w = csv.writer(f, lineterminator="\n")
             w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes"] + [c for c, _ in COLS])
             for rank, (e, flags, text) in enumerate(rows, 1):
                 fam = e.origin.split("__", 1)[0]
-                w.writerow([rank, e.name, e.origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines), _modes_decl.get(fam, "UNKNOWN")] + [flags[c] for c, _ in COLS])
+                w.writerow([rank, e.name, e.origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines), _merge_modes(e.name, fam)] + [flags[c] for c, _ in COLS])
         # ⛔⭐ MERGE, NEVER OVERWRITE (hq_P seat08 2026-09-04, row snobol4-every-non-package-source-...): this
         # run only ever discovers tests/<lang>/ loose-pair exclusions -- it has no opinion on additive
         # (demos/benchmarks) exclusions a DIFFERENT run of this same builder (--additive) already wrote, and a
