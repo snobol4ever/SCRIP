@@ -1296,7 +1296,29 @@ def _copy_companions(text, companion_dir, dest_dir):
     _cfg = Path(companion_dir) / "config"
     companion_dirs = [Path(companion_dir)] + ([_cfg] if _cfg.is_dir() else [])
     import shutil
-    for name in _companion_files(text):
+    # ⭐ TRANSITIVE CLOSURE, NOT ONE LEVEL (row harness-copies-companions-to-closure-not-just-the-first-
+    # level, hq_T 2026-09-05, on seat06's FINDING-2026-09-04-seat06-corpus-suite-harness-transitive-
+    # include-companions-not-copied.md): a companion this function just copied may itself -INCLUDE/open()
+    # a companion of its own -- entry includes A, A includes B -- and a single pass over the entry's own
+    # text only ever resolved A, leaving B absent from the isolated dest_dir. `queue` is a worklist seeded
+    # from the entry's own text and grown by re-scanning each newly-copied file's own text for ITS
+    # companions, to a fixed point (closure) -- a 2-level, 3-level or N-level chain all resolve the same
+    # way, not just depth-2 (picking a fixed depth would leave depth-3 to be found the same way a month
+    # later). `seen` is the cycle guard: a name is popped and dispositioned AT MOST ONCE, so a file that
+    # includes itself, or two files that include each other, terminate on the repeat name instead of
+    # spinning forever.
+    # ⛔ REFUSAL-SAFE AT EVERY LEVEL: a name that resolves to no file in companion_dirs is the same silent
+    # no-op it always was (the entry's own run surfaces the miss downstream as an ordinary missing-
+    # dependency failure) -- this loop never invents a substitute and never skips scanning a reachable
+    # level just because an earlier level's file was missing, so an unresolvable second-level include
+    # cannot manufacture a false green one level down the way a naive "stop at the first miss" would.
+    seen = set()
+    queue = list(_companion_files(text))
+    while queue:
+        name = queue.pop(0)
+        if name in seen:
+            continue
+        seen.add(name)
         # an ABSOLUTE reference is the program's own scratch path (e.g. /tmp/rung37_fh_test.txt),
         # not a companion in the family dir -- Path(dir)/absolute RETURNS the absolute path for
         # both src and dst, so the copy is file-onto-itself: SameFileError, suite dies boardless
@@ -1318,6 +1340,10 @@ def _copy_companions(text, companion_dir, dest_dir):
             if src_companion.is_file() and not (dst_companion.exists() and src_companion.samefile(dst_companion)):
                 dst_companion.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy(src_companion, dst_companion)
+                try:
+                    queue.extend(_companion_files(src_companion.read_text()))
+                except (OSError, UnicodeDecodeError):
+                    pass
                 break
 
 
