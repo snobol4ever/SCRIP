@@ -13,9 +13,29 @@
 # `reg` lines commented out: ndbm line 118 ("11/16/2005; off 10/22/2020 (moved to module)"), time line 122
 # ("12/16/2010; off 10/25/2020 (moved to module)"), sleep line 130 and random line 132 (also `#`-commented
 # in the same file; a specific disablement date is not legible for these two, unlike ndbm/time — do not
-# overclaim one). Upstream itself does not run these four; neither do we. Replacement coverage via
-# modules/{ndbm,random,time}/test.{sno,ref} is a SEPARATE row (hq_P: excluding and re-covering in one row
-# means a reviewer cannot see which half landed) — see snobol4-csnobol4-module-replacement-coverage-ndbm-random-time.
+# overclaim one). Upstream itself does not run these four; neither do we — in THIS flattened layout.
+#
+# ⭐ MODULE-REPLACEMENT COVERAGE (landed here, row snobol4-csnobol4-module-replacement-coverage-ndbm-random-time,
+# seat08 2026-09-05): Budne's own per-module self-tests — modules/{ndbm,random,time}/test.sno+test.ref and
+# modules/time/test2.sno+test2.ref (test2 is literally "formerly test/time.sno", the time/date-family test;
+# test.sno in the time module IS the sleep-family equivalent — there is no modules/sleep/ directory, SLEEP()
+# ships as part of the "time" module, confirmed by reading modules/time/time.sno's own
+# LOAD("SLEEP(REAL)", TIME_DL) line) — run from THEIR OWN directory below as MODULE_TESTS (never the flattened
+# $SUITE copy, exactly because they dlopen ./X.so relative to cwd), folded into the SAME TOTAL/RED-M3/RED-M4
+# counters as every other pair: no per-op exception list, a defect reached through an admitted family member
+# counts like any other (RULES.md). ⛔ MEASURED, NOT ASSUMED GREEN: all four are RED against SCRIP in BOTH
+# modes, for two already-out-of-scope, pre-existing reasons, never a fixture problem — the live csnobol4
+# oracle passes all four byte-exact from these same directories, confirming the fixtures and this harness's
+# plumbing, not the coverage itself, is what's new here. (1) ndbm and time/test2 hit the SAME gap: SCRIP's
+# LOAD() (src/runtime/core/core.c, _b_LOAD_stub) recognizes only its own internal "MON_"-prefixed monitor
+# hooks and FAILDESCRs everything else — there is no dlopen() anywhere in src/ (grepped clean). CSNOBOL4's
+# dynamic external-C-module loading is simply unimplemented. ndbm's own FUNCTION("DBM_OPEN"):F(END) guard
+# turns that into a graceful empty-output FAIL; time/test2 calls the LOAD'd GETTIMEOFDAY_ unconditionally and
+# gets "Error 5: undefined function or operation" (REJECT). (2) random and time/test (the sleep equivalent)
+# separately hit the PRE-EXISTING, ALREADY-DOCUMENTED lowercase-`end` dialect class named in the DIALECT
+# paragraph below (case-sensitive SCRIP vs. CSNOBOL4's case-insensitive keywords) — "missing END statement"
+# at a parse stage that never reaches LOAD at all. Fixing either gap is out of scope for a coverage-wiring
+# row; see FINDING-2026-09-05-seat08-scrip-has-no-load-dlopen-support-confirmed-via-module-coverage.md.
 #
 # ⛔ PARKED_NO_REGEN below (same ruling) — breakline, k, rewind1, genc: live csnobol4 itself disagrees with
 # its OWN historical .ref here (K-format fixed-record I/O looks broken; rewind1 SIGSEGVs on REWIND(5); genc
@@ -87,7 +107,9 @@
 # program under test might open for writing.
 #
 # ⛔ A missing suite, compiler, RT, or the csnobol4 oracle REFUSES with rc=2 — never a silent skip-as-success.
-# Exit: 0 iff FAIL+REJECT+CRASH+HANG == 0 in BOTH modes over the printed denominator.
+# Exit: 0 iff FAIL+REJECT+CRASH+HANG == 0 in BOTH modes over the printed denominator (now includes the 4
+# module/* coverage rows added below — measured RED today for reasons unrelated to this denominator, see
+# the MODULE-REPLACEMENT COVERAGE paragraph further down).
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"; SD="$HERE/.."; ROOT="$(cd "$SD/.." && pwd)"
 . "$HERE/lib_flag_gate.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_flag_gate.sh unloadable"; exit 2; }
@@ -107,12 +129,23 @@ SCRIP="$SD/scrip"; RT_DIR="$SD/out"; TIMEOUT="${TIMEOUT:-8}"
 [ -f "$RT_DIR/libscrip_rt.so" ] || { echo "⛔ REFUSE(rc=2): no $RT_DIR/libscrip_rt.so"; exit 2; }
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_oracle_flags.sh unloadable"; exit 2; }
 CSN="$(csnobol4_bin)" || exit 2
+CSN_SRC="$(dirname "$CSN")"   # module-coverage source root: the shared csnobol4 tree's own modules/ dir (see header)
 
 STDIN_TESTS="atn crlf longrec rewind1 sudoku trim0 trim1 uneval2 factor len repl tab words words1"
 is_stdin_test() { local n="$1" s; for s in $STDIN_TESTS; do [ "$n" = "$s" ] && return 0; done; return 1; }
 DUMP_TESTS="a dump diag1 diag2"; TRACE_TESTS="ftrace keytrace spit trace1 trace2 trfunc t"
 EXCLUDED_TESTS="ndbm random sleep time"
 is_excluded_test() { local n="$1" s; for s in $EXCLUDED_TESTS; do [ "$n" = "$s" ] && return 0; done; return 1; }
+# MODULE-REPLACEMENT COVERAGE for the four EXCLUDED_TESTS above — see header. name:module-subdir:sno:ref.
+MODULE_TESTS="ndbm:ndbm:test.sno:test.ref random:random:test.sno:test.ref sleep:time:test.sno:test.ref time:time:test2.sno:test2.ref"
+# Like compile_m4 below, but cwd-relative with no SNO_LIB override: these -INCLUDEs are bare same-directory
+# names (e.g. 'ndbm.sno'), resolved by running with cwd already in the test's own directory — measured
+# directly (seat08 2026-09-05) against a real invocation before wiring this in, not assumed.
+compile_m4_mod() { local dir="$1" sno="$2" out="$3" t; t="$(mktemp -d)"
+    ( cd "$dir" && "$SCRIP" --compile "$sno" > "$t/p.s" 2>/dev/null ) || { rm -rf "$t"; return 1; }
+    gcc -c "$t/p.s" -o "$t/p.o" 2>/dev/null || { rm -rf "$t"; return 1; }
+    gcc "$t/p.o" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$out" 2>/dev/null || { rm -rf "$t"; return 1; }
+    rm -rf "$t"; return 0; }
 PARKED_NO_REGEN="breakline k rewind1 genc"
 is_parked_no_regen() { local n="$1" s; for s in $PARKED_NO_REGEN; do [ "$n" = "$s" ] && return 0; done; return 1; }
 setup_dep_for() { case "$1" in openo2) echo openo;; esac; }
@@ -162,6 +195,7 @@ M4_PASS=0; M4_FAIL=0; M4_REJECT=0; M4_CRASH=0; M4_HANG=0; RED4=""
 CSN_PASS=0; CSN_FAIL=0
 REGEN=0; REGEN_LIST=""
 EXCLUDED_LIST=""
+MOD_SUMMARY=""
 
 for sno in "$SUITE"/*.sno; do
     [ -e "$sno" ] || { echo "⛔ REFUSE(rc=2): zero .sno files in $SUITE"; exit 2; }
@@ -220,6 +254,58 @@ for sno in "$SUITE"/*.sno; do
     fi
 done
 
+# ⭐ MODULE-REPLACEMENT COVERAGE LOOP — see header. Same ladder, same shared counters (TOTAL/M3_*/M4_*/
+# CSN_*/RED3/RED4) as the loop above; only a distinct "module/" name prefix marks these rows apart in the
+# RED-M3/RED-M4 listing. Own scratch copy per test, never the shared /home/resources/csnobol4 tree itself —
+# same write-safety rule as $RUN above, against a different shared resource this time (ndbm's test.sno
+# creates+deletes foo.db/foo.dir/foo.pag).
+MODROOT="$CSN_SRC/modules"
+[ -d "$MODROOT" ] || { echo "⛔ REFUSE(rc=2): module coverage source missing: $MODROOT"; exit 2; }
+for entry in $MODULE_TESTS; do
+    mname="${entry%%:*}"; rest="${entry#*:}"
+    mdir="${rest%%:*}"; rest="${rest#*:}"
+    msno="${rest%%:*}"; mref="${rest#*:}"
+    srcdir="$MODROOT/$mdir"
+    [ -f "$srcdir/$msno" ] && [ -f "$srcdir/$mref" ] || { echo "⛔ REFUSE(rc=2): module test pair missing: $srcdir/$msno + $mref"; exit 2; }
+    name="module/$mname"
+    mrun="$W/mod_$mname"; rm -rf "$mrun"; cp -rp "$srcdir" "$mrun"
+    TOTAL=$((TOTAL+1))
+    exp="$(normalize "$name" "$(cat "$srcdir/$mref")")"
+
+    got3="$(cd "$mrun" && timeout "$TIMEOUT" "$SCRIP" --run "$msno" < /dev/null 2>&1)"; rc3=$?
+    got3="$(normalize "$name" "$got3")"
+    st3="$(status_of "$got3" "$rc3" "$exp")"
+    case "$st3" in
+        PASS) M3_PASS=$((M3_PASS+1));;
+        FAIL) M3_FAIL=$((M3_FAIL+1)); RED3="$RED3 $name";;
+        REJECT) M3_REJECT=$((M3_REJECT+1)); RED3="$RED3 $name";;
+        CRASH) M3_CRASH=$((M3_CRASH+1)); RED3="$RED3 $name";;
+        HANG) M3_HANG=$((M3_HANG+1)); RED3="$RED3 $name";;
+    esac
+
+    st4disp="$st3(different-run)"
+    if compile_m4_mod "$mrun" "$msno" "$W/mod_prog.bin"; then
+        got4="$(cd "$mrun" && timeout "$TIMEOUT" "$W/mod_prog.bin" < /dev/null 2>&1)"; rc4=$?
+        got4="$(normalize "$name" "$got4")"
+        st4="$(status_of "$got4" "$rc4" "$exp")"
+        st4disp="$st4"
+        case "$st4" in
+            PASS) M4_PASS=$((M4_PASS+1));;
+            FAIL) M4_FAIL=$((M4_FAIL+1)); RED4="$RED4 $name";;
+            REJECT) M4_REJECT=$((M4_REJECT+1)); RED4="$RED4 $name";;
+            CRASH) M4_CRASH=$((M4_CRASH+1)); RED4="$RED4 $name";;
+            HANG) M4_HANG=$((M4_HANG+1)); RED4="$RED4 $name";;
+        esac
+    else
+        M4_REJECT=$((M4_REJECT+1)); RED4="$RED4 $name(CC)"; st4disp="REJECT(CC)"
+    fi
+
+    gotc="$(cd "$mrun" && timeout "$TIMEOUT" "$CSN" -b "$msno" < /dev/null 2>&1)"
+    gotc="$(normalize "$name" "$gotc")"
+    ocst=FAIL; [ "$gotc" = "$exp" ] && { CSN_PASS=$((CSN_PASS+1)); ocst=PASS; } || CSN_FAIL=$((CSN_FAIL+1))
+    MOD_SUMMARY="$MOD_SUMMARY $mname(m3=$st3,m4=$st4disp,oracle=$ocst)"
+done
+
 echo "── csnobol4_suite: $TOTAL pairs · SCRIP $SCRIP_HASH · corpus $CORP_HASH · RT_OPT -O0 · timeout ${TIMEOUT}s · oracle csnobol4 (Phil Budne, home dialect) · .ref primary, live csnobol4 = triangulation + tiebreak/regen"
 echo "CSNOBOL4_SUITE_BOARD total=$TOTAL m3_PASS=$M3_PASS m3_FAIL=$M3_FAIL m3_REJECT=$M3_REJECT m3_CRASH=$M3_CRASH m3_HANG=$M3_HANG m4_PASS=$M4_PASS m4_FAIL=$M4_FAIL m4_REJECT=$M4_REJECT m4_CRASH=$M4_CRASH m4_HANG=$M4_HANG"
 echo "csnobol4 (home dialect, triangulation, informational): PASS=$CSN_PASS FAIL=$CSN_FAIL"
@@ -227,6 +313,7 @@ echo "csnobol4 (home dialect, triangulation, informational): PASS=$CSN_PASS FAIL
 [ -n "$RED4" ] && echo "RED-M4:$RED4"
 [ "$REGEN" -gt 0 ] && echo "REGEN-CANDIDATE ($REGEN, SCRIP m3 disagrees with .ref but so does live csnobol4 — .ref pin may be stale):$REGEN_LIST"
 [ -n "$EXCLUDED_LIST" ] && echo "EXCLUDED (upstream's own tests.in retired these, see script header):$EXCLUDED_LIST"
+[ -n "$MOD_SUMMARY" ] && echo "MODULE-COVERAGE (replacement rows for the EXCLUDED four, folded into the totals above as module/*):$MOD_SUMMARY"
 
 # ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05). Records what this script just
 # measured into .github/SCORE.md; runs nothing itself. Non-fatal: a bookkeeping failure must never
