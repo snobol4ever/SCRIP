@@ -599,6 +599,42 @@ s4e_donewhen_needs_compiler() {   # $1 = raw DONE-WHEN text
     [ -x "$b" ] && return 1
     _gca_why="the criterion drives the compiler and $b is not built (run make) -- a missing binary is COULD-NOT-MEASURE, never a red row"
     return 0; }
+# ⛔⭐ IS-A-PLACEHOLDER, BY KNOWN SHAPE, NEVER BY BARE SUBSTRING (seat13, 2026-09-05, row fifty-seven-
+# batons-are-unclosable-because-their-criterion-is-not-at-column-zero). The old test was `case "$dw" in
+# *⛔*)` -- ANY occurrence of the glyph anywhere in the line -- which misread 34+ live, correct,
+# substantive DONE-WHENs as unwritten placeholders solely because their OWN defensive guard clause
+# prints a message containing ⛔, e.g. `[ -n "$S4E_HOME" ] || { echo "⛔ REFUSE(2): ..."; exit 2; };
+# <the real check>`. MEASURED (whole postoffice, 2026-09-05): the bare-substring test false-positived on
+# 34 S4E_HOME guard-clause batons plus 2 instrument/meta batons whose own DONE-WHEN must reference the
+# placeholder text as DATA to detect placeholders in OTHER files -- 36 of 56 files the old detector named
+# were never broken. Real placeholders come in exactly two shapes, both known in full: the `mint`
+# boilerplate (always starts with this exact text) and the hand-rolled self-refusing stub `echo "⛔
+# ..." >&2; false` pre-dating `mint` (6 live instances, e.g. error-code-parity, named-io-channels).
+# Neither shape can appear as a SUFFIX of a real command the way the guard clause does, so anchoring
+# beats searching.
+s4e_donewhen_is_placeholder() {   # $1 = raw column-0 DONE-WHEN text (already extracted); rc 0 = still a placeholder
+    local dw="${1:-}"
+    [ -z "$dw" ] && return 0
+    case "$dw" in "⛔ MUST BE MADE RUNNABLE"*) return 0;; esac
+    printf '%s' "$dw" | grep -qE '^echo "⛔[^"]*"( *>&2)?; *(false|exit [1-9][0-9]*)$' && return 0
+    return 1; }
+# ⛔⭐ HIDDEN-ELSEWHERE: is there a DIFFERENT "DONE-WHEN:"-labeled line sitting in this baton's live text
+# (GOAL/NEXT/QA), where a human but not the tool would read it as the contract? Scoped deliberately:
+# the ## LEDGER section is excluded outright (it is historical narration -- this project's own ledgers
+# routinely discuss "the DONE-WHEN as written" in prose, and a live contract would never legitimately
+# live there), and backtick-quoted spans are stripped before matching (a GOAL sentence that says
+# `` `sed -n 's/^DONE-WHEN:...'` `` to describe the extractor is a code REFERENCE, not a second
+# candidate -- this is what the row's OWN GOAL paragraph and its sibling row's ledger both do, and
+# both were false positives under the old whole-line scan). Sets $_dhe_lines (may be multi-line, numbered
+# within the live text) for the refusal message; rc 0 iff at least one such line survives.
+s4e_donewhen_hidden_elsewhere() {   # $1 = baton path
+    local b="$1"
+    _dhe_lines="$(awk '/^## LEDGER/{exit} {print}' "$b" \
+        | sed -E 's/`[^`]*`//g' \
+        | grep -n 'DONE-WHEN:' \
+        | grep -vE '^[0-9]+:DONE-WHEN:' \
+        | grep -vE '^[0-9]+:[[:space:]]*- ')"
+    [ -n "$_dhe_lines" ]; }
 # READ-ONLY probe: never closes, never claims, never writes. rc 0 green / 1 red / 2 could-not-measure.
 # Sets $_dp_why (one line, why) and $_dp_out (the criterion's own output, which is the thing a reader needs --
 # the mute-gate lesson from `done`: "DONE-WHEN exited 2" alone points nowhere).
@@ -608,7 +644,14 @@ s4e_dispatch_probe() {
     dw="$(sed -n 's/^DONE-WHEN:[[:space:]]*//p' "$b" | head -1)"
     [ -n "$dw" ] || { _dp_why="the baton has no DONE-WHEN: line"; return 2; }
     case "$dw" in '`'*'`') dw="${dw#\`}"; dw="${dw%\`}";; esac
-    case "$dw" in *⛔*) _dp_why="the DONE-WHEN is still the mint placeholder, not a command"; return 2;; esac
+    if s4e_donewhen_is_placeholder "$dw"; then
+        if s4e_donewhen_hidden_elsewhere "$b"; then
+            _dp_why="column-0 is still a placeholder AND another DONE-WHEN: line sits elsewhere in the file (${_dhe_lines//$'\n'/ | }) -- refusing to guess which is the contract, hoist or relabel it"
+        else
+            _dp_why="the DONE-WHEN is still the mint placeholder, not a command"
+        fi
+        return 2
+    fi
     s4e_donewhen_is_noop "$dw" && { _dp_why="the DONE-WHEN certifies nothing (a decorated shell no-op)"; return 2; }
     s4e_donewhen_needs_compiler "$dw" && { _dp_why="$_gca_why"; return 2; }   # S4E-GUARD-COMPILER-ABSENT
     to="$(s4e_dispatch_timeout)"
@@ -1149,6 +1192,20 @@ case "$cmd" in
                 esac
                 if [ -z "$dw" ]; then
                   echo "⛔ REFUSED: $tf has no DONE-WHEN: line. A task with no computable completion test cannot be closed." >&2; exit 1; fi
+                # ⛔⭐ HIDDEN-CRITERION GUARD (seat13, row fifty-seven-batons-are-unclosable-because-their-
+                # criterion-is-not-at-column-zero): mirrors s4e_dispatch_probe's check exactly -- two
+                # consumers of one rule, never two copies to drift. See s4e_donewhen_is_placeholder /
+                # s4e_donewhen_hidden_elsewhere above for the measured cause and the exact shapes.
+                if s4e_donewhen_is_placeholder "$dw" && s4e_donewhen_hidden_elsewhere "$tf"; then
+                  printf '⛔ REFUSED (rc=2): %s column-0 DONE-WHEN is still a placeholder, but another DONE-WHEN:-labeled\n' "$tf" >&2
+                  printf '   line sits elsewhere in the same file -- the tool can never see it, so this row could stay open\n' >&2
+                  printf '   forever even if that work is finished. Never guessed which one is the contract.\n' >&2
+                  printf '   column 0  : %s\n' "$dw" >&2
+                  printf '%s\n' "$_dhe_lines" | sed 's/^/   elsewhere : /' >&2
+                  printf '   Fix: hoist the real criterion to column 0 (verified by RUNNING it, never by moving text), or\n' >&2
+                  printf '   relabel the other line (e.g. "ACCEPTANCE, IN PROSE:") if it is not really a second candidate.\n' >&2
+                  exit 2
+                fi
                 # ⛔⭐ A DONE-WHEN MUST EXAMINE SOMETHING (hq_P found this by source-reading the previous version).
                 # The old code accepted ANY non-empty string and ANY exit 0 as proof, so `DONE-WHEN: true` — or `:`,
                 # or `exit 0` — closed a row having verified nothing. That is EXACTLY the vacuous-gate defect hq_P
