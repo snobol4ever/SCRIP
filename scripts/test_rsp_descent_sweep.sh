@@ -17,7 +17,9 @@ ROOT=$PWD   # include-bearing tests (-include 'lib/*.sno') resolve against the c
 OUT=${1:-/tmp/descent_sweep.txt}; : > "$OUT"
 : "${SWEEP_DIRS:=test demo}"
 : "${SWEEP_JOBS:=1}"
-: "${SWEEP_ORACLE:=$S4A/x64/bin/sbl}"
+. "$(dirname "$0")/lib_oracle_flags.sh"
+if [ -z "${SWEEP_ORACLE:-}" ]; then SWEEP_ORACLE=$(sbl_correctness_bin) || { echo "REFUSE(2): no bf-capable SPITBOL correctness oracle (sbl_correctness_bin refused)" >&2; exit 2; }; fi
+: "${SWEEP_ORACLE_FLAGS:=$(sbl_lang_flags)}"
 : "${SWEEP_CORPUS:=$S4E/corpus}"
 # s68: SWEEP_NORM + SWEEP_RUN_TO.  BOTH DEFAULT TO THE PRE-EXISTING BEHAVIOUR (norm off, 8s run) so every existing caller is byte-identical.
 # SWEEP_NORM=1 rewrites ONLY a whole line of the exact form "ms: <digits>" to "ms: <T>" on BOTH sides before comparison.  WHY IT IS NOT A CHEAT:
@@ -27,7 +29,7 @@ OUT=${1:-/tmp/descent_sweep.txt}; : > "$OUT"
 # and those stay byte-compared.  The pattern is anchored (^ms: [0-9]+$) so no result line, no numeric output, and no ms-bearing DATA can be caught.
 : "${SWEEP_NORM:=0}"
 : "${SWEEP_RUN_TO:=8}"
-export ROOT SWEEP_ORACLE SWEEP_CORPUS SWEEP_NORM SWEEP_RUN_TO
+export ROOT SWEEP_ORACLE SWEEP_ORACLE_FLAGS SWEEP_CORPUS SWEEP_NORM SWEEP_RUN_TO
 sweep_norm() { if [ "$SWEEP_NORM" = 1 ]; then sed -E 's/^ms: [0-9]+$/ms: <T>/'; else cat; fi; }
 export -f sweep_norm
 classify_one() {
@@ -35,7 +37,7 @@ classify_one() {
   case "$f" in /*) src=$f;; *) src=$ROOT/$f;; esac
   tag=$$-$(printf '%s' "$f" | md5sum | cut -c1-10)
   S=/tmp/dsw.$tag.s; X=/tmp/dsw.$tag.x; CE=/tmp/dsw.$tag.cerr; GE=/tmp/dsw.$tag.gerr; RE=/tmp/dsw.$tag.rerr
-  ORA=$(cd "$SWEEP_CORPUS" && timeout 30 "$SWEEP_ORACLE" -b "$src" </dev/null 2>/dev/null); ost=$?
+  ORA=$(cd "$SWEEP_CORPUS" && timeout 30 "$SWEEP_ORACLE" $SWEEP_ORACLE_FLAGS "$src" </dev/null 2>/dev/null); ost=$?
   ORA=$(printf '%s\n' "$ORA" | sweep_norm)
   st=
   if ! SNO_LIB="$SWEEP_CORPUS" timeout 30 "$ROOT/scrip" --compile "$src" </dev/null > $S 2>$CE; then st=COMPILE_FAIL
