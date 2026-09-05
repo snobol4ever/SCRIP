@@ -13,19 +13,15 @@
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SCRIP="$(cd "$HERE/.." && pwd)"
 . "$HERE/lib_build_flags.sh"
+. "$HERE/lib_gen_parsers.sh"
 gen_tools_ready || exit 2
 echo "OK  bison $BF_BISON_VERSION, flex $BF_FLEX_VERSION${BISON_PKGDATADIR:+ (BISON_PKGDATADIR=$BISON_PKGDATADIR)}"
 P="$SCRIP/src/parsers"
+# ⛔ THE INVOCATION TABLE MOVED TO scripts/lib_gen_parsers.sh (hq_T 2026-09-04) and this script is now one of its TWO readers -- the
+# other is test_gate_parser_generated_files_in_sync.sh, which grades the committed outputs against exactly these commands. It was one
+# table with one reader; a gate that carried its own copy would grade the tree against a second, silently drifting idea of the flags.
 gen() { echo "GEN $1/$2"; ( cd "$P/$1" && eval "$3" ); }
-gen snobol4 snobol4.tab.c       "bison -d -o snobol4.tab.c snobol4.y"
-gen snobol4 snobol4.lex.c       "flex --noline -o snobol4.lex.c snobol4.l"
-gen snocone snocone_parse.tab.c "bison -d -o snocone_parse.tab.c snocone_parse.y"
-gen rebus   rebus.tab.c         "bison -d -o rebus.tab.c rebus.y"
-gen rebus   lex.rebus.c         "flex --noline -o lex.rebus.c rebus.l"
-gen raku    raku.tab.c          "bison -d --warnings=none -Wno-yacc -o raku.tab.c raku.y"
-gen raku    raku.lex.c          "flex --noline --prefix=raku_yy -o raku.lex.c raku.l"
-gen pascal  pascal.tab.c        "bison -d -o pascal.tab.c pascal.y"
-gen pascal  pascal.lex.c        "flex --noline -o pascal.lex.c pascal.l"
+while IFS=$'\t' read -r d src out cmd; do gen "$d" "$out" "$cmd"; done < <(gen_parsers_table)
 echo "DONE -- generated files now differing from HEAD (empty = the committed outputs already match their sources):"
 git -C "$SCRIP" status --short -- src/parsers | grep -E '\.tab\.[ch]|\.lex\.c|lex\.[a-z]+\.c' | sed 's/^/   /' || true
 echo "commit .y/.l and their outputs together; prove object identity with: bash scripts/util_style200_oracle_yl.sh src/parsers/*/*.y src/parsers/*/*.l"
