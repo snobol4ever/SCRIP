@@ -1584,8 +1584,9 @@ TASKEOF
            esac
            _wait="$(awk -F'\t' -v me="$ME" -v lane="$_my_lane" '/^[0-9]+\t/ && ($4=="FREE"||$4=="") && ($3==lane||$3==me) {printf "%s\trank %s  %s  (owner %s)\n",$1,$1,$2,$3}' "$q" 2>/dev/null | sort -t$'\t' -s -k1,1n | head -1 | cut -f2-)"
            if [ -n "$_wait" ]; then printf '   ⭐ WAITING IN YOUR OWN LANE:  %s\n' "$_wait"
-             printf '      An HQ-OWNED row is never auto-served to a seat (the owner-cell skip fires before the lane filter),\n'
-             printf '      so it needs a deliberate dispatch: an HQ or the ceo runs  s4e_msg.sh assign <topic> %s\n' "$ME"; fi
+             printf '      A row owned by YOUR OWN HQ is now auto-served (cured 2026-09-04: the owner-cell skip treated an HQ\n'
+             printf '      like a rival seat and idled six seats at once). A row owned by a DIFFERENT HQ still needs a\n'
+             printf '      deliberate dispatch: that HQ or the ceo runs  s4e_msg.sh assign <topic> %s\n' "$ME"; fi
            printf '   KEEP WORKING IT if that was the intent -- this is a NOTICE, NOT A REFUSAL, and the exit status is\n'
            printf '   unchanged. Otherwise put it back for its owner:  s4e_msg.sh unclaim %s\n' "$_t"; }
          # ⭐ HOISTED: the lane is needed by PASS 1 and PASS 2 as well as PASS 3 now, so it is computed ONCE here
@@ -1725,6 +1726,25 @@ TASKEOF
                case "$brief" in
                  ''|unassigned) : ;;
                  "$ME") _serve_reason="rank $rank, your OWNER CELL" ;;
+                 # ⛔⭐ A ROW OWNED BY THE SEAT'S OWN HQ IS IN THE SEAT'S LANE AND IS SERVED (ceo, URGENT
+                 # 2026-09-04 19:52: SIX SEATS IDLE at load 0.65 with sixteen up, every lane reporting "queue
+                 # empty" while QUEUE.tsv held 7 FREE rank<=1 rows per lane). The owner-cell skip treated an HQ
+                 # exactly like a rival seat -- and under THE SNOBOL4 CUT every class row an HQ mints carries its
+                 # OWN owner cell, so the picker skipped the entire body of assigned work in every lane at once.
+                 # seat09's words, verbatim: "all in-lane FREE rows are owned by other seats or by hq_P itself".
+                 # ⛔ THE SKIP'S OWN ASYMMETRY ARGUMENT DOES NOT REACH THIS CASE, and that is the whole cure.
+                 # It reads: a wrongly-SERVED row makes two seats hold one piece of work, a wrongly-SKIPPED row
+                 # costs one `claim` typed on purpose -- so when in doubt, skip. True of a row owned by another
+                 # SEAT, which may be about to work it. NOT true of a row owned by an HQ: an HQ owner cell marks
+                 # a LANE, not work in flight, and an HQ that is actually working a row has CLAIMED it -- and a
+                 # claimed row is already hidden from every picker. So the doubt the skip exists to resolve does
+                 # not exist here, and the cost it was weighing was one-sided all along.
+                 # ⭐ THE GENERAL FORM, worth more than this line: a guard justified by a cost asymmetry must be
+                 # re-checked wherever the asymmetry stops holding. This one was written about seats and applied
+                 # to every owner cell, and it silently idled four lanes the day HQs started owning rows.
+                 # ⛔ ONLY THE SEAT'S OWN HQ. Another HQ's row stays skipped -- that is a lane boundary, and the
+                 # cure for wanting it is `claim`, which is still the deliberate override it has always been.
+                 "$(s4e_hq)") _serve_reason="rank $rank, owned by your HQ $brief (your lane)" ;;
                  *) _owned_skipped=$((_owned_skipped+1))
                     [ -n "$_owned_first" ] || _owned_first="rank $rank  $topic  (owner $brief)"
                     continue;;
@@ -1750,7 +1770,13 @@ TASKEOF
            # own-lane pass fell through the WHOLE sorted queue without serving anything): never skip on
            # lane, but relabel the reason so a cross-lane serve is visible in its own printout rather than
            # reconstructed later from the queue (GOAL's own requirement).
-           if [ -n "${_my_lane:-}" ] && [ "$_serve_reason" != "rank $rank, your OWNER CELL" ]; then
+           # ⛔ AN OWNER-CELL REASON IS NOT RELABELLED BY THE LANE PASS -- neither the seat's own cell nor its HQ's.
+           # "your OWN LANE (hq_P)" and "owned by your HQ hq_P" are both true of the same row, and the second is
+           # the one that answers the question a reader actually has when six seats were told the queue was empty:
+           # WHY did this one come through? The lane label would have hidden the very mechanism that was just
+           # cured, which is how a fix gets quietly re-broken by someone who cannot see it working.
+           if [ -n "${_my_lane:-}" ] && [ "$_serve_reason" != "rank $rank, your OWNER CELL" ] \
+              && [ "${_serve_reason#rank $rank, owned by your HQ}" = "$_serve_reason" ]; then
              _tl="$(s4e_topic_lane "$topic")"
              if [ "$_lane_filter" = own-lane ]; then
                if [ -n "$_tl" ] && [ "$_tl" != "$_my_lane" ]; then continue; fi

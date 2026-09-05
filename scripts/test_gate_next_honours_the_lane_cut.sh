@@ -120,6 +120,32 @@ grep -qE '^LOCKED.*postoffice-tooling-blocker' <<<"$out" \
   && ck ok "(g) CONTROL: a language-neutral blocker is promoted even under an active freeze" \
   || ck no "(g) CONTROL FAILED: a topic with no recognized language prefix must never be frozen out -- got: $(grep -E '^LOCKED' <<<"$out")"
 
+# --- (h)+(i)+(j): A ROW OWNED BY THE SEAT'S OWN HQ IS SERVED -------------------------------------------
+# ⛔ seat09's EXACT CASE, 2026-09-04 19:52, when SIX SEATS SAT IDLE at load 0.65 with sixteen up: a seat whose
+# HQ file says hq_P, and a FREE rank-1 row whose owner cell says hq_P. Every lane reported "queue empty" while
+# QUEUE.tsv held seven such rows per lane, because under THE SNOBOL4 CUT every class row an HQ mints carries its
+# own owner cell -- so the owner-cell skip hid the entire body of assigned work in all four lanes at once.
+# ⭐ (j) IS THE ARM THAT KEEPS THE CURE HONEST: another HQ's row must STILL be skipped. Serving those would
+# dissolve the lane boundary the cut exists to draw, and the fix for wanting one is `claim`, typed on purpose.
+set_mode 'FLEET-16'
+reset_q
+printf 'hq_P\n' > "$W/seat07/HQ"
+mk 1 snobol4-row-owned-by-my-own-hq  hq_P FREE
+out="$(run_next seat07)"
+grep -qE '^LOCKED.*snobol4-row-owned-by-my-own-hq' <<<"$out" \
+  && ck ok "(h) a FREE row owned by the seat's OWN HQ is served (seat09's case: six seats idle before this)" \
+  || ck no "(h) an own-HQ row must be served, not skipped as if a rival seat held it -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
+grep -qiE 'owned by your HQ' <<<"$out" \
+  && ck ok "(i) and the serve REASON says so, so a reader can tell it from an unowned pick" \
+  || ck no "(i) the printout must name why it was served -- got: $out"
+reset_q
+mk 1 icon-row-owned-by-another-hq  hq_B FREE
+out="$(run_next seat07)"
+! grep -qE '^LOCKED.*icon-row-owned-by-another-hq' <<<"$out" \
+  && ck ok "(j) CONTROL: a row owned by a DIFFERENT HQ is still skipped -- the lane boundary holds" \
+  || ck no "(j) CONTROL FAILED: another HQ's row must never be auto-served; that is what `claim` is for"
+printf 'hq_B\n' > "$W/seat07/HQ"
+
 echo "------------------------------------------------------------"
 [ "$fails" -ne 0 ] && { echo "⛔ GATE FAIL: $fails of $checks check(s) failed"; exit 1; }
 echo "✅ GATE PASS: $checks/$checks checks"; exit 0
