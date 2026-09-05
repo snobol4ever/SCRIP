@@ -321,12 +321,20 @@ def cmd_write(a):
     # torn apart the NEXT time anyone writes into a shared clause cell -- measured live landing the
     # IPL row: a --text with two internal ';'s left two orphaned clause fragments (neither started
     # with the --suite key, so neither matched, so neither got replaced or removed) sitting beside
-    # the real clause on the very next write. Same shape as the '|'/markdown-column check above, one
-    # delimiter over; refuse it before it can happen to the next runner. Use '·' (the project's own
-    # convention throughout SCORE.md) or ',' instead.
+    # the real clause on the very next write. ⭐ REFUSING outright used to make this PERMANENT for any
+    # cell whose only honest phrasing needs one: the snobol4 vendor cell was hand-written with
+    # semicolons months before this guard existed, so no runner could ever write that cell again --
+    # measured twice in one sitting landing spitbol_testpgms (row
+    # score-row-write-refuses-a-semicolon-forever-so-a-hand-edited-cell-can-never-be-runner-written).
+    # NORMALISE instead of refusing: a runner's ';' becomes '·' (the project's own convention already
+    # used throughout SCORE.md), which keeps the ONE property this guard exists for -- the stored cell
+    # never contains a raw ';' that isn't merge_clause's own inserted delimiter, so nothing fragments
+    # on the next write -- without ever locking a cell out of being rewritten again.
     if ";" in text:
-        die("a ';' in the cell text is merge_clause's own clause delimiter and will silently fragment "
-            "on the next write to this cell -- use '·' or ',' instead")
+        normalised = text.replace(";", "·")
+        print("⚠ ';' in --text is merge_clause's own clause delimiter -- normalised to '·' so this "
+              "write cannot fragment on the next one: %r -> %r" % (text, normalised))
+        text = normalised
     if not re.search(r"\d", text):
         die("--text carries no digit (%r). A leaderboard cell states a measurement; a cell with no number "
             "is prose, and the FACT RULE asks for the runner's own board line" % text)
@@ -620,8 +628,7 @@ def cmd_selftest(a):
         for label, kw in (("unknown language", dict(lang="klingon", column="board", text="1/1", measurer="s")),
                           ("unknown column", dict(lang="rebus", column="nosuch", text="1/1", measurer="s")),
                           ("no digit", dict(lang="rebus", column="board", text="looks fine", measurer="s")),
-                          ("pipe injection", dict(lang="rebus", column="board", text="1/1 | evil", measurer="s")),
-                          ("semicolon injection", dict(lang="rebus", column="board", text="1/1; evil", measurer="s"))):
+                          ("pipe injection", dict(lang="rebus", column="board", text="1/1 | evil", measurer="s"))):
             a3 = A(); a3.modes = ""; a3.dry_run = False; a3.suite = ""
             for k, v in kw.items(): setattr(a3, k, v)
             try:
@@ -632,6 +639,40 @@ def cmd_selftest(a):
                     print("SELFTEST: %s correctly REFUSED rc=2" % label)
                 else:
                     print("SELFTEST FAIL: %s exited %s, expected 2" % (label, e.code)); ok = False
+
+        # ⛔⭐ SEMICOLON NORMALISATION, NOT REFUSAL (row score-row-write-refuses-a-semicolon-forever-so-a-
+        # hand-edited-cell-can-never-be-runner-written): a ';' in --text must SUCCEED, by becoming '·', and
+        # the round trip must stay safe -- proven by a SECOND write that goes through merge_clause (the
+        # thing the guard actually protects) on the SAME cell and checking the first write's clause comes
+        # back intact, not split at the '·' that used to be a ';'.
+        _fh, _fr, _ = find_table(open(SCORE_MD, encoding="utf-8").read().split("\n"))
+        _fri, _frc = _fr["rebus"]
+        _frc[COLUMNS["floor"][0]] = "—"
+        _flines = open(SCORE_MD, encoding="utf-8").read().split("\n")
+        _flines[_fri] = "| " + " | ".join(_frc) + " |"
+        open(SCORE_MD, "w", encoding="utf-8").write("\n".join(_flines))
+        a4 = A(); a4.lang = "rebus"; a4.column = "floor"; a4.measurer = "selftest"
+        a4.text = "1/1; semicolon inside"; a4.modes = ""; a4.dry_run = False; a4.suite = ""
+        cmd_write(a4)
+        _hdr, _rows, _ = find_table(open(SCORE_MD, encoding="utf-8").read().split("\n"))
+        cell = _rows["rebus"][1][COLUMNS["floor"][0]] if "rebus" in _rows else ""
+        if ";" in cell:
+            print("SELFTEST FAIL: semicolon normalisation -- a raw ';' survived into the stored cell: %r" % cell); ok = False
+        elif "1/1· semicolon inside" not in cell:
+            print("SELFTEST FAIL: semicolon normalisation -- normalised text not found in cell: %r" % cell); ok = False
+        else:
+            print("SELFTEST: ';' in --text normalised to '·' and written, not refused")
+            a5 = A(); a5.lang = "rebus"; a5.column = "floor"; a5.measurer = "selftest"
+            a5.text = "2/2"; a5.modes = ""; a5.dry_run = False; a5.suite = "SomeSuite"
+            cmd_write(a5)
+            _hdr, _rows, _ = find_table(open(SCORE_MD, encoding="utf-8").read().split("\n"))
+            cell2 = _rows["rebus"][1][COLUMNS["floor"][0]] if "rebus" in _rows else ""
+            clauses2 = [c.strip() for c in cell2.split(";") if c.strip()]
+            if len(clauses2) != 2 or clauses2[0] != "1/1· semicolon inside" or not clauses2[1].startswith("SomeSuite:"):
+                print("SELFTEST FAIL: round trip -- a later --suite write fragmented or lost the earlier "
+                      "normalised clause: %r (split into %r)" % (cell2, clauses2)); ok = False
+            else:
+                print("SELFTEST: round trip holds -- a later --suite write did not fragment the earlier normalised clause")
 
         # ⛔⭐ CELL PROSE LOSS -- fixture is the REAL incident, .github 46ff295c, not an invented example.
         # `real_before` is exactly what the snobol4 board cell carried before the runner clobbered it;
