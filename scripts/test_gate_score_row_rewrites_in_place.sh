@@ -131,5 +131,84 @@ else
     fi
 fi
 
+# ARM 6 — ⛔⭐⭐ A GATE OVER THIS FILE MUST NOT GO GREEN WHEN A ROW BECOMES UNREADABLE. This is hq_B's
+# incident of 2026-09-05, replayed as a permanent arm: they pasted a minimized Icon witness carrying the
+# language's two-pipe concatenation operator into a SCORE.md cell, the row widened, and
+# test_gate_score_tables_agree.sh went from GATE RED on a real conflict to GATE PASS(0). Nothing was
+# fixed. `agree` compares mirrored cell PAIRS, a row it cannot parse yields no pairs, and a population
+# that cannot be READ scores exactly like a population with no conflicts.
+# ⭐ THE RULE, which is why this is an arm and not a comment: A GREEN THAT APPEARS WHILE YOU ARE EDITING
+# THE DATA IS A SUSPECT, NOT A REWARD. Graded on a SCRATCH COPY (never the real board), and it asserts
+# the verdict MOVES OFF PASS -- RED or REFUSE both satisfy it, because either one keeps looking.
+examined=$((examined + 1))
+SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/score_agree_blindspot.XXXXXX")"
+mkdir -p "$SCRATCH/.github"
+cp "$GH/SCORE.md" "$SCRATCH/.github/SCORE.md"
+python3 - "$SCRATCH/.github/SCORE.md" <<'EOF'
+import sys
+p = sys.argv[1]
+L = open(p, encoding="utf-8").read().split("\n")
+for i, l in enumerate(L):
+    c = [x for x in l.strip().strip("|").split("|")]
+    # the first data row of the 7-column September-10 grid, widened exactly as a pasted `||` widens it
+    if l.startswith("| ") and len(c) == 7 and not l.startswith("| Language") and not set(l) <= set("| -:"):
+        L[i] = "|" + "|".join(c[:5] + ['write("a"||"b")'] + c[5:]) + "|"
+        break
+else:
+    sys.exit("ARM 6 SETUP: no 7-column grid row to widen")
+open(p, "w", encoding="utf-8").write("\n".join(L))
+EOF
+if [ $? -ne 0 ]; then
+    echo "GATE FAIL: ARM 6 could not build its witness (no 7-column grid row found)"
+    violations=$((violations + 1))
+else
+    aout="$(S4E_HOME="$SCRATCH" python3 "$HELPER" agree 2>&1)"; arc=$?
+    if [ "$arc" -eq 0 ]; then
+        echo "GATE FAIL: agree printed a PASS over a SCORE.md whose grid row it could not parse --"
+        echo "           a population that cannot be read scored as a population with no conflicts"
+        echo "$aout" | tail -2 | sed 's/^/    /'
+        violations=$((violations + 1))
+    elif ! printf '%s' "$aout" | grep -q 'MALFORMED\|ZERO mirrored'; then
+        echo "GATE FAIL: agree moved off PASS (rc=$arc) but never named the unreadable row"
+        echo "$aout" | tail -2 | sed 's/^/    /'
+        violations=$((violations + 1))
+    fi
+fi
+
+# ARM 7 — THE POPULATION FLOOR ITSELF, which is the independent bar. Both tables can be well-formed and
+# still share no comparable cell; then `0 conflicts` is arithmetic over nothing. A gate that graded zero
+# pairs REFUSES rc=2 and never prints the success shape (RULES.md § a test that cannot measure refuses).
+# Measured pre-cure on this same witness: `GATE PASS(0) ... 0 mirrored cell pair(s), 0 same-denominator
+# conflicts` at rc=0 -- the gate printed the number zero and called it a pass.
+examined=$((examined + 1))
+python3 - "$SCRATCH/.github/SCORE.md" <<'EOF'
+import sys
+p = sys.argv[1]
+L = open(p, encoding="utf-8").read().split("\n")
+for i, l in enumerate(L):
+    c = [x for x in l.strip().strip("|").split("|")]
+    if l.startswith("| ") and len(c) == 7 and not l.startswith("| Language") and not set(l) <= set("| -:"):
+        L[i] = "|" + "|".join(c + [" x "]) + "|"
+open(p, "w", encoding="utf-8").write("\n".join(L))
+EOF
+for sub in agree columns; do
+    zout="$(S4E_HOME="$SCRATCH" python3 "$HELPER" "$sub" 2>&1)"; zrc=$?
+    if [ "$zrc" -ne 2 ]; then
+        echo "GATE FAIL: $sub graded a grid with ZERO readable rows and did not REFUSE (rc=$zrc, wanted 2)"
+        echo "$zout" | tail -2 | sed 's/^/    /'
+        violations=$((violations + 1))
+    fi
+done
+rm -rf "$SCRATCH"
+
+# ARM 8 — and the arms above must have graded the SCRATCH copy, never the board. Re-asserted here because
+# ARM 6/7 are the first arms in this gate that point the helper at a different tree via S4E_HOME.
+examined=$((examined + 1))
+after6="$(git -C "$GH" status --porcelain -- SCORE.md 2>/dev/null)"
+if [ "$after6" != "$before" ]; then
+    echo "GATE FAIL: the blind-spot arms changed the REAL .github/SCORE.md"
+    violations=$((violations + 1))
+fi
+
 GATE_EXAMINED="$examined arms"
 gate_verdict "$violations" "leaderboard write-path invariants broken"

@@ -389,9 +389,16 @@ def cmd_write(a):
     gnote = ""
     if gkey:
         try:
-            _gh, growsg = find_grid(lines)
+            _gh, growsg, gskipw = find_grid(lines)
         except SystemExit:
-            growsg = {}
+            growsg, gskipw = {}, {}
+        if a.lang in gskipw:
+            # ⛔ The grid row EXISTS and cannot be read. Saying nothing here would let a write land in the
+            # display while its grid twin quietly stops being staleness-checked -- the silence this whole
+            # patch is about. It is a note, not a refusal: the display write itself is still honest.
+            _gl, _gn = gskipw[a.lang]
+            gnote = ("\n  ⚠ the September-10 grid row for %s is MALFORMED, NOT ABSENT (line %d has %d columns, "
+                     "the grid has %d) -- its cell was NOT staleness-checked against this write" % (a.lang, _gl + 1, _gn, GRID_NCOLS))
         if a.lang in growsg:
             gi = GRID_COLUMNS[gkey][0]
             grow = growsg[a.lang]
@@ -946,13 +953,33 @@ def find_grid(lines):
             why.append("line %d column(s) %s do not start with their %s prefix" % (i + 1, ",".join(sorted(bad)), "M·/L·/V·/B·"))
             continue
         rows = {}
+        skipped = {}
         for j in range(i + 2, len(lines)):
             if not lines[j].startswith("|"):
                 break
             c = [x.strip() for x in lines[j].strip().strip("|").split("|")]
             if len(c) == GRID_NCOLS:
                 rows[c[0]] = c
-        return i, rows
+            elif c and c[0]:
+                # ⛔⭐⭐ THE TWIN OF THE SAME DEFECT, AND IT SURVIVED THE CURE OF ITS SIBLING BY ONE DAY.
+                # find_table's row loop got its `else` on 2026-09-04 (cc054250f) after one stray `|` deleted
+                # snobol4 from every reader of the DISPLAY table. This loop -- same file, same shape, same
+                # consequence -- was left with no `else`, so a malformed row in the SEPTEMBER-10 GRID still
+                # vanished in silence. Measured (hq_T 2026-09-05, reproducing hq_B's incident): pasting a
+                # minimized Icon witness carrying `||` into the icon grid row widened it 7 cells to 9, the row
+                # dropped out of `rows`, and `agree` went from GATE RED on a real same-denominator conflict to
+                # GATE PASS(0) over 10 pairs holding none of icon's. Nothing was fixed; the gate stopped
+                # looking, and it said PASS in the same breath.
+                # ⭐ THE RULE THIS PAYS FOR (hq_B, 2026-09-05, into GOAL-TEST-SUITE-CONSISTENCY.md): A GREEN
+                # THAT APPEARS WHILE YOU ARE EDITING THE DATA IS A SUSPECT, NOT A REWARD. And the fix-the-twin
+                # lesson beside it: a defect cured in one reader of a file is owed to every reader of that
+                # file in the same sitting -- the cure that stops at the function it was reported on leaves
+                # the identical hole one screen away, wearing a different table's name.
+                skipped[c[0]] = (j, len(c))
+                sys.stderr.write("⚠ SCORE.md line %d: September-10 grid row %r has %d columns, the grid has %d -- "
+                                 "SKIPPED, so every reading below OMITS it. It is malformed, not absent.\n"
+                                 % (j + 1, c[0], len(c), GRID_NCOLS))
+        return i, rows, skipped
     die("no '| Language |' table in %s is the September-10 grid. Candidates: %s" % (SCORE_MD, "; ".join(why)))
 
 
@@ -1229,7 +1256,7 @@ def citation_kind(cite):
 
 def cmd_columns(a):
     lines = open(SCORE_MD, encoding="utf-8").read().split("\n")
-    _hdr, rows = find_grid(lines)
+    _hdr, rows, gskip = find_grid(lines)
     bad = []
     checked = 0
     for lang in sorted(rows):
@@ -1243,13 +1270,25 @@ def cmd_columns(a):
                     continue          # an unrecognised tool is not evidence of a wrong column
                 if k != key:
                     bad.append("%s %s cell cites %s, which is a %s-column runner" % (lang, key, c, k))
+    # ⛔ THE SECOND GATE OVER THE SAME GRID, AND IT HAD THE SAME BLIND SPOT. A malformed row drops out of
+    # `rows`, so its citations stop being checked and this gate's PASS silently stops covering that language.
+    # Floor first (nothing read at all), then the malformed-row red, then the finding.
+    if not rows:
+        die("read ZERO rows from the September-10 grid -- a column-semantics gate over no cells is not a PASS")
+    if gskip:
+        print("⛔ GATE RED [score_column_semantics]: %d grid row(s) are MALFORMED and their citations were not "
+              "checked at all -- this gate cannot vouch for a column it could not read" % len(gskip))
+        for l in sorted(gskip):
+            _ln, _n = gskip[l]
+            print("    %s: grid row at line %d has %d columns, the grid has %d" % (l, _ln + 1, _n, GRID_NCOLS))
+        return 1
     if bad:
         print("⛔ GATE RED [score_column_semantics]: %d citation(s) in the wrong column" % len(bad))
         for b in bad:
             print("    " + b)
         print("    ⭐ A cell in the wrong column is READABLE AND WRONG -- the one shape no parse check catches.")
         return 1
-    print("GATE PASS(0) [score_column_semantics]: %d runner citation(s) all match their column's kind (M master · L ladder · V vendor)" % checked)
+    print("GATE PASS(0) [score_column_semantics]: %d runner citation(s) across %d grid row(s) all match their column's kind (M master · L ladder · V vendor)" % (checked, len(rows)))
     return 0
 
 
@@ -1272,7 +1311,7 @@ GRID_STAMP_RE = r"⟨measured (\d{4})-(\d{2})-(\d{2}) · [^⟩]*⟩"
 
 def cmd_agree(a):
     lines = open(SCORE_MD, encoding="utf-8").read().split("\n")
-    _gh, grid = find_grid(lines)
+    _gh, grid, gskip = find_grid(lines)
     _dh, disp, dskip = find_table(lines)
     bad, warn = [], []
     checked = 0
@@ -1282,6 +1321,11 @@ def cmd_agree(a):
     # pair(s)" while blind to the project's LARGEST language -- a green that proved the absence of evidence,
     # not evidence of absence. A gate that cannot measure REFUSES; it never skips-as-success.
     unread = sorted(l for l in grid if l in dskip)
+    # ⛔⭐ AND THE SAME QUESTION ASKED OF THE OTHER TABLE, which is the half that was missing. A language whose
+    # GRID row is malformed never enters `grid` at all, so the loop below cannot skip it -- it never sees it,
+    # and `checked` simply comes out smaller. That is invisible by construction: no arm fails, no language is
+    # named, and the summary line's own denominator moves without comment.
+    gunread = sorted(gskip)
     for lang in sorted(grid):
         if lang not in disp:
             continue
@@ -1313,12 +1357,30 @@ def cmd_agree(a):
         print("  ⚠ STALE " + w)
     if warn:
         print("  ⭐ Each of those is the dual-write gap: `write` updates the standardized display and not the grid, so a measurement lands in one table and the other keeps yesterday's.")
-    if unread:
-        print("⛔ GATE RED [score_tables_agree]: %d language(s) in the grid have a MALFORMED display row and were "
-              "not compared at all -- this gate cannot claim agreement over a table it could only partly read" % len(unread))
+    # ⛔⭐⭐ THE POPULATION FLOOR, AND IT IS THE ARM THAT WOULD HAVE CAUGHT hq_B's INCIDENT WITHOUT ANY OF THE
+    # ABOVE. A comparison gate whose verdict is "0 conflicts" is computing an emptiness, and `0 conflicts over
+    # 10 pairs`, `0 conflicts over 1 pair` and `0 conflicts over NOTHING` are the same arithmetic wearing the
+    # same words. Both tables can be perfectly well-formed and still share no comparable cell -- so this floor
+    # is not a corollary of the malformed-row checks, it is the independent bar: a gate that graded zero
+    # pairs REFUSES rc=2 and never prints the success shape (RULES.md § a test that cannot measure refuses).
+    if checked == 0:
+        why = ""
+        if unread or gunread:
+            why = (" -- %d malformed row(s) (%s) are why there was nothing left to compare"
+                   % (len(set(unread) | set(gunread)), ", ".join(sorted(set(unread) | set(gunread)))))
+        die("compared ZERO mirrored cell pairs across %d grid row(s) and %d display row(s)%s. A gate that "
+            "measured nothing does not get to say the two tables agree" % (len(grid), len(disp), why))
+    if unread or gunread:
+        print("⛔ GATE RED [score_tables_agree]: %d language(s) have a MALFORMED row and were not compared at all "
+              "-- this gate cannot claim agreement over a table it could only partly read" % len(set(unread) | set(gunread)))
         for l in unread:
             _ln, _n = dskip[l]
-            print("    %s: display row at line %d has %d columns, the table has %d" % (l, _ln + 1, _n, PROV_COL + 1))
+            print("    %s: DISPLAY row at line %d has %d columns, the table has %d" % (l, _ln + 1, _n, PROV_COL + 1))
+        for l in gunread:
+            _ln, _n = gskip[l]
+            print("    %s: SEPTEMBER-10 GRID row at line %d has %d columns, the grid has %d" % (l, _ln + 1, _n, GRID_NCOLS))
+        print("    ⭐ A GREEN THAT APPEARS WHILE YOU ARE EDITING THE DATA IS A SUSPECT, NOT A REWARD (hq_B, 2026-09-05):")
+        print("      breaking a row is how a population goes to zero, and a population of zero scores as a population with no conflicts.")
         return 1
     if bad:
         print("⛔ GATE RED [score_tables_agree]: %d SAME-DENOMINATOR disagreement(s) -- one of the two tables is wrong and a reader cannot tell which" % len(bad))
@@ -1332,7 +1394,7 @@ def cmd_agree(a):
 
 def cmd_progress(a):
     lines = open(SCORE_MD, encoding="utf-8").read().split("\n")
-    _hdr, rows = find_grid(lines)
+    _hdr, rows, gskip = find_grid(lines)
     # ⭐ The freshness label lives on the STANDARDIZED DISPLAY row, not in the grid: the grid has no
     # provenance column, and the display's `board:` clause is the machine-written mirror of the grid's M
     # cell. Bound by shape via find_table, like every other reader of this file.
@@ -1340,7 +1402,18 @@ def cmd_progress(a):
     provs = {l: c[PROV_COL] for l, (_i, c) in disp.items()}
     missing = [l for l, _ in PROGRESS_LANGS if l not in rows]
     if missing:
-        die("the September-10 grid has no row for %s -- refusing to publish a progress line over a partial grid" % ", ".join(missing))
+        # ⛔⭐ NAME THE DIFFERENCE BETWEEN A ROW THAT IS GONE AND A ROW THAT CANNOT BE READ. "No row for icon"
+        # sent hq_B looking for a deleted row while the row sat in the file two cells too wide (2026-09-05);
+        # the identical message sent seat07 looking for a registry that does not exist (2026-09-04). Both
+        # refusals were correct, well-formed and confident, and both pointed AWAY from the defect.
+        det = []
+        for l in missing:
+            if l in gskip:
+                _gl, _gn = gskip[l]
+                det.append("%s MALFORMED, NOT ABSENT (line %d has %d columns, the grid has %d)" % (l, _gl + 1, _gn, GRID_NCOLS))
+            else:
+                det.append("%s absent" % l)
+        die("the September-10 grid has no readable row for %s -- refusing to publish a progress line over a partial grid" % "; ".join(det))
     cells_out, bars, tp, tt, missing = [], [], 0, 0, []
     for lang, short in PROGRESS_LANGS:
         pct, mark, P, T, work = language_progress(lang, rows[lang], provs.get(lang, ""))
