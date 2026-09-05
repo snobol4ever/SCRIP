@@ -375,14 +375,16 @@ DESCR_t code(const char *src)
     { extern void bb_pool_init(void); bb_pool_init(); }
     { extern void fc_tables_reset(void); fc_tables_reset(); extern void zls_reset(void); zls_reset(); extern void bb_src_reset(void); bb_src_reset(); }
     extern tree_t *sno_parse_string_ast(const char *src, CODE_t **code_out);
-    extern IR_graph_t *sno_lower_fragment_at(const tree_t *prog, int entry_idx);
+    extern IR_graph_t *sno_lower_fragment_at(const tree_t *prog, int entry_idx, long stno_base);
     extern const char *sno_stmt_label(const tree_t *s);
     extern int g_frame_active;
+    extern long g_stno;
     extern void sno_error_quiet_begin(void); extern void sno_error_quiet_end(void); extern const char *sno_error_captured(void); extern const char *g_sno_errtext;
     sno_error_quiet_begin();
     tree_t *prog = sno_parse_string_ast(src, NULL);
     sno_error_quiet_end();
     if (!prog || prog->n == 0) { const char *cap = sno_error_captured(); if (cap) g_sno_errtext = rt_ws_strdup_c(cap); return FAILDESCR; }
+    long stno_base = g_stno;
     extern int sno_pat_count(void); extern void sno_pat_thunks_build(int p0);
     extern int sno_expr_mark(void); extern void sno_expr_thunks_build(int x0);
     int pat0 = sno_pat_count();
@@ -395,7 +397,7 @@ DESCR_t code(const char *src)
         if (!c || c->t != TT_STMT) continue;
         const char *lbl = sno_stmt_label(c);
         if (k == 0 || (lbl && lbl[0])) {
-            IR_graph_t *g = sno_lower_fragment_at(prog, k);
+            IR_graph_t *g = sno_lower_fragment_at(prog, k, stno_base);
             if (!g) return FAILDESCR;
             g->runtime_fragment_graph = 1;
             extern IR_graph_t *g_emit_cfg;
