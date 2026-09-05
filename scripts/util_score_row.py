@@ -554,33 +554,144 @@ def cmd_check(a):
         for r in REPOS:
             if git(r, "fetch", "-q", "origin") is None and git(r, "rev-parse", "HEAD") is not None:
                 print("WARN: could not fetch origin for %s -- staleness below may itself be stale" % r)
-    worst, unknown, out = 0, 0, []
+    worst, unknown, adrift, out = 0, 0, 0, []
+    # ⛔⭐⭐ GRADE THE HASH A READER ACTUALLY SEES, NOT ONLY THE ONE IN THE Tree COLUMN (hq_T 2026-09-05,
+    # off seat13's make-test refusal report).  Until now this scanned cells[PROV_COL] and nothing else, on the
+    # premise that `write` stamps every measurement there -- which it does (merge_prov, one clause per column).
+    # The premise holds for writes THROUGH THIS HELPER and silently fails for the hand-edit, and the board is
+    # full of hand-edits.  The witness that found it: snobol4's Master board CELL reads "LANE RE-MEASURE
+    # 2026-09-05 (hq_P) ... on SCRIP `f3f4870d7`", while its `board:` provenance clause still reads hq_B
+    # 2026-09-04 on `7d7ff2dc5`.  One cell, two trees, two measurers, and `check` had never once graded
+    # f3f4870d7 -- the number every human reader of that row is looking at.
+    # ⛔ THE DANGEROUS DIRECTION IS THE QUIET ONE.  Here both trees happened to be past the threshold, so the
+    # verdict survived and only the attribution was wrong.  Reverse the freshness and it inverts: a cell
+    # re-measured by hand onto today's tree reads STALE off its old stamp (a seat re-runs a suite that was
+    # already current), and -- worse -- a cell left stale beside a freshly-stamped clause reads **ok** and
+    # nobody re-runs anything.  A staleness check that cannot see the cell it is grading is the FACT RULE's
+    # own failure mode wearing the FACT RULE's clothes.
+    # ⭐ So: scan every measured cell AND the Tree column, name where each tree came from, and give the
+    # hand-edit its own state.  UNSTAMPED is not STALE and not UNKNOWN -- the tree may be perfectly current;
+    # what is broken is that no provenance clause claims it, so nobody is named for the number and the next
+    # `write` to that column will overwrite the stamp without touching the prose that disagrees with it.
+    HASH_RX = re.compile(r"SCRIP `([0-9a-f]{7,40})(?:-DIRTY)?`")
+    by_col = sorted((idx, key) for key, (idx, _label) in COLUMNS.items())
+    _dist = {}
+
+    def distance(h):
+        # commits from h to origin/main; None when origin has never heard of h.  Memoized because the same
+        # tree is routinely stamped in several columns and a rev-list per mention is pure cost.
+        if h not in _dist:
+            n = git("SCRIP", "rev-list", "--count", "%s..origin/main" % h)
+            _dist[h] = None if n is None else int(n)
+        return _dist[h]
+
+    def newest(hashes):
+        # The CURRENT claim of a cell is the newest tree it names -- fewest commits behind origin.  A measured
+        # cell is a running history (⛔ SUPERSEDED READING BELOW ... and so on down), so the trees buried in
+        # its prose are retired by construction and grading them is noise, not coverage.  Ranking by commit
+        # DISTANCE and not by position is what makes that safe: it does not care whether the newest reading
+        # was appended at the top, spliced into the middle, or introduced by a word this parser never models.
+        ranked = [(distance(h), h) for h in set(hashes)]
+        live = sorted((d, h) for d, h in ranked if d is not None)
+        return (live[0] if live else (None, sorted(h for d, h in ranked)[0] if ranked else None))
+
     for lang in sorted(rows):
         i, cells = rows[lang]
-        hashes = re.findall(r"SCRIP `([0-9a-f]{7,40})(?:-DIRTY)?`", cells[PROV_COL])
-        if not hashes:
-            out.append("  %-9s UNPINNED  (no checkable SCRIP hash in its provenance cell)" % lang)
-            unknown += 1
-            continue
-        for h in sorted(set(hashes)):
-            n = git("SCRIP", "rev-list", "--count", "%s..origin/main" % h)
-            if n is None:
-                out.append("  %-9s UNKNOWN   %s is not a commit origin knows" % (lang, h))
+        # The Tree column is ';'-joined "<key>: <stamp>" clauses (merge_prov), one per measured column plus a
+        # free-form one per vendor suite.  Split it so a stamp can be held against the very cell it stamps.
+        stamp_of, extra = {}, []
+        for clause in cells[PROV_COL].split(";"):
+            hs = HASH_RX.findall(clause)
+            if not hs:
+                continue
+            mm = re.match(r"^\s*([A-Za-z0-9_.-]+)\s*:", clause)
+            key = mm.group(1) if mm else "(unkeyed)"
+            if key in COLUMNS:
+                stamp_of.setdefault(key, hs[0])
+            else:
+                extra.append((key, hs[0]))
+        graded_any = False
+        for idx, key in by_col:
+            if idx >= len(cells):
+                continue
+            hs = HASH_RX.findall(cells[idx])
+            if not hs:
+                continue
+            graded_any = True
+            d, h = newest(hs)
+            if d is None:
+                out.append("  %-9s %-9s UNKNOWN   %s is not a commit origin knows" % (lang, key, h))
                 unknown += 1
                 continue
-            n = int(n)
-            worst = max(worst, n)
-            flag = "STALE" if n >= a.threshold else "ok   "
-            out.append("  %-9s %s %4d commits behind origin/main (measured on %s)" % (lang, flag, n, h))
+            worst = max(worst, d)
+            flag = "STALE" if d >= a.threshold else "ok   "
+            note = ""
+            # ⛔⭐⭐ THE DEFECT THIS ARM EXISTS FOR (hq_T 2026-09-05, off seat13's make-test refusal report).
+            # Until now `check` read cells[PROV_COL] and nothing else, on the premise that every measurement
+            # arrives through `write`, which stamps there.  That premise holds for writes through this helper
+            # and fails silently for the hand-edit -- and the board is full of hand-edits.  The witness:
+            # snobol4's Master board cell reads "LANE RE-MEASURE 2026-09-05 (hq_P) ... on SCRIP `f3f4870d7`",
+            # while its `board:` clause still reads hq_B 2026-09-04 on `7d7ff2dc5`.  One cell, two trees, two
+            # measurers, and the number every human reader is looking at had never once been graded.
+            # ⛔ THE DANGEROUS DIRECTION IS THE QUIET ONE.  There both trees were past the threshold, so only
+            # the attribution was wrong.  Reverse the freshness and it inverts: a cell re-measured by hand onto
+            # today's tree reads STALE off its old stamp and a seat re-runs a suite that was already current;
+            # a cell left stale beside a freshly-stamped clause reads **ok** and nobody re-runs anything.  A
+            # staleness check that cannot see the cell it grades is the FACT RULE's own failure mode wearing
+            # the FACT RULE's clothes.
+            # ⭐ Reported as its own state, never folded into STALE, because the cure is different: STALE says
+            # "re-run the suite", ADRIFT says "the number came in by hand, so the stamp names the wrong tree
+            # and the wrong measurer" -- and a row can be perfectly CURRENT and still adrift.
+            s = stamp_of.get(key)
+            if s is None:
+                note = "  ⚠ ADRIFT: no `%s:` provenance clause names this cell at all" % key
+                adrift += 1
+            elif s != h:
+                sd = distance(s)
+                if sd is None:
+                    note = "  ⚠ ADRIFT: `%s:` clause stamps %s, which origin does not know" % (key, s)
+                    adrift += 1
+                elif sd > d:
+                    note = "  ⚠ ADRIFT: `%s:` clause stamps %s (%d behind), %d commit(s) OLDER than the tree this cell claims -- hand-edited, not written through this helper" % (
+                        key, s, sd, sd - d)
+                    adrift += 1
+            out.append("  %-9s %-9s %s %4d commits behind origin/main (cell claims %s)%s" % (
+                lang, key, flag, d, h, note))
+        # Vendor-suite stamps live only in the Tree column -- they have no cell of their own, so they are
+        # graded here or nowhere.
+        for key, h in sorted(set(extra)):
+            d = distance(h)
+            if d is None:
+                out.append("  %-9s %-9s UNKNOWN   %s is not a commit origin knows" % (lang, key, h))
+                unknown += 1
+                continue
+            graded_any = True
+            worst = max(worst, d)
+            out.append("  %-9s %-9s %s %4d commits behind origin/main (Tree-column stamp %s)" % (
+                lang, key, "STALE" if d >= a.threshold else "ok   ", d, h))
+        if not graded_any:
+            out.append("  %-9s UNPINNED  (no checkable SCRIP hash in any measured cell or the Tree column)" % lang)
+            unknown += 1
     print("SCORE.md staleness (threshold %d commits):" % a.threshold)
     for l in out:
         print(l)
-    print("worst=%d unpinned/unknown=%d" % (worst, unknown))
+    print("worst=%d unpinned/unknown=%d adrift=%d" % (worst, unknown, adrift))
+    rc = 0
     if worst >= a.threshold:
         print("⚠ WARN: %d row-measurement(s) at or past the %d-commit staleness threshold -- re-measure and rewrite the row." % (
             sum(1 for l in out if "STALE" in l), a.threshold))
-        return 1
-    return 0
+        rc = 1
+    if adrift:
+        # ⭐ Reported SEPARATELY from staleness because the cure is different and the two are independent.
+        # Stale says "re-run the suite"; UNSTAMPED says "the number in that cell did not come through this
+        # helper, so its stamp names the wrong tree and the wrong measurer" -- the fix is to re-write the cell
+        # with `write --column <col>`, which is what makes the stamp and the prose agree again.  A row can be
+        # perfectly current and still adrift, which is exactly why it may not be folded into the WARN above.
+        print("⚠ WARN: %d cell(s) ADRIFT from their provenance stamp -- the cell was hand-edited, so the Tree "
+              "column names a different tree (and a different measurer) than the number a reader sees. Re-write "
+              "each with `write --column <col>` so the stamp and the prose agree again." % adrift)
+        rc = 1
+    return rc
 
 
 def cmd_selftest(a):

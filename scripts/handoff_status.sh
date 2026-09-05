@@ -186,7 +186,11 @@ else
   if [ "$_score_rc" -eq 0 ]; then
     echo "  CLEAN — every row measured within 25 commits of origin/main."
   elif [ "$_score_rc" -eq 1 ]; then
-    printf '%s\n' "$_score_out" | grep -E 'STALE|UNPINNED|UNKNOWN|^worst=' | sed 's/^/  /'
+    # ⛔ ADRIFT MUST BE IN THIS FILTER OR IT IS INVISIBLE HERE (hq_T 2026-09-05). A cell can be ADRIFT and
+    # perfectly CURRENT -- hand-edited onto today's tree, so its line reads `ok` and carries no STALE token.
+    # Filtering on STALE alone reproduced, one layer up, the exact blind spot the ADRIFT state was added to
+    # close: the one moment somebody is looking at the state of the world would not have shown it.
+    printf '%s\n' "$_score_out" | grep -E 'STALE|ADRIFT|UNPINNED|UNKNOWN|^worst=' | sed 's/^/  /'
     echo "  ⚠ WARN — re-measure the stale suite(s) and rewrite the row: python3 scripts/util_score_row.py write --lang <lang> --column board --measurer \"\${S4E_SEAT:-}\" --text '<board line>'"
   else
     echo "  ⛔ UNVERIFIED — the staleness check REFUSED (rc=$_score_rc, cannot measure). Not blocking, but this run proves nothing about the leaderboard."

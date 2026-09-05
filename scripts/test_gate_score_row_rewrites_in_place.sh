@@ -201,6 +201,98 @@ for sub in agree columns; do
 done
 rm -rf "$SCRATCH"
 
+# ARM 9 — ⛔⭐⭐ `check` MUST GRADE THE TREE THE CELL CLAIMS, NOT ONLY THE ONE IN THE Tree COLUMN.
+# The defect this replays (hq_T 2026-09-05, found off seat13's make-test refusal report): `check` read
+# cells[PROV_COL] and nothing else, on the premise that every measurement arrives through `write`, which
+# stamps there. True for writes through the helper, silently false for the hand-edit -- and the board is
+# full of hand-edits. Live witness at the time: snobol4's Master board cell read "LANE RE-MEASURE
+# 2026-09-05 (hq_P) ... on SCRIP `f3f4870d7`" while its `board:` clause still read hq_B 2026-09-04 on
+# `7d7ff2dc5`, so the number every human reader was looking at had never once been graded.
+# ⭐ THE ARM IS TWO-SIDED ON PURPOSE. A detector is only worth its line count if it also stays QUIET on the
+# agreeing case -- a one-sided arm passes just as well against a helper that shouts ADRIFT at every row.
+examined=$((examined + 1))
+S9="$(mktemp -d "${TMPDIR:-/tmp}/score_adrift.XXXXXX")"
+mkdir -p "$S9/.github"
+cp "$GH/SCORE.md" "$S9/.github/SCORE.md"
+# `check` resolves its repos under S4E_HOME and only ever READS them (rev-list), so symlinks are enough.
+ln -s "$ROOT" "$S9/SCRIP"
+ln -s "$ROOT/../corpus" "$S9/corpus"
+NEW9="$(git -C "$ROOT" rev-parse --short=9 origin/main 2>/dev/null)"
+OLD9="$(git -C "$ROOT" rev-parse --short=9 origin/main~60 2>/dev/null)"
+if [ -z "$NEW9" ] || [ -z "$OLD9" ]; then
+    echo "GATE FAIL: ARM 9 could not mint two trees to disagree with (origin/main unresolvable)"
+    violations=$((violations + 1))
+else
+    # Pass the two trees through the ENVIRONMENT and quote the heredoc: an unquoted <<PY hands bash the whole
+    # Python source, and every backtick in it runs as a command (CLAUDE.md, measured three times in one day).
+    W9="$S9/.github/SCORE.md" NEW9="$NEW9" OLD9="$OLD9" python3 - <<'EOF'
+import os, sys
+p, NEW, OLD = os.environ["W9"], os.environ["NEW9"], os.environ["OLD9"]
+L = open(p, encoding="utf-8").read().split("\n")
+h = next((i for i, l in enumerate(L) if l.startswith("| Language |") and "Tree" in l), None)
+if h is None:
+    sys.exit("ARM 9 SETUP: no display table found")
+picked = []
+for i in range(h + 2, len(L)):
+    if not L[i].startswith("| "):
+        break
+    c = L[i].strip().strip("|").split("|")
+    if len(c) != 6 or set(L[i]) <= set("| -:"):
+        continue
+    lang = c[0].strip()
+    if len(picked) == 0:
+        # WITNESS: the cell claims a tree strictly NEWER than the clause that stamps it -- the hand-edit shape.
+        c[3] = " gate-witness board reading on SCRIP `%s` corpus `deadbeef` " % NEW
+        c[5] = " board: SCRIP `%s` · corpus `deadbeef` · RT_OPT=-O0 · 2026-01-01 00:00 CDT · gate-witness " % OLD
+        picked.append(("adrift", lang))
+    elif len(picked) == 1:
+        # CONTROL: cell and clause name the SAME tree, so this row must stay silent.
+        c[3] = " gate-control board reading on SCRIP `%s` corpus `deadbeef` " % OLD
+        c[5] = " board: SCRIP `%s` · corpus `deadbeef` · RT_OPT=-O0 · 2026-01-01 00:00 CDT · gate-witness " % OLD
+        picked.append(("control", lang))
+        L[i] = "|" + "|".join(c) + "|"
+        break
+    L[i] = "|" + "|".join(c) + "|"
+if len(picked) != 2:
+    sys.exit("ARM 9 SETUP: needed two readable display rows, found %d" % len(picked))
+open(p, "w", encoding="utf-8").write("\n".join(L))
+open(os.environ["W9"] + ".langs", "w").write("%s %s\n" % (picked[0][1], picked[1][1]))
+EOF
+    if [ $? -ne 0 ]; then
+        echo "GATE FAIL: ARM 9 could not build its witness"
+        violations=$((violations + 1))
+    else
+        aw="$(awk '{print $1}' "$S9/.github/SCORE.md.langs")"
+        ac="$(awk '{print $2}' "$S9/.github/SCORE.md.langs")"
+        cout="$(S4E_HOME="$S9" python3 "$HELPER" check --no-fetch 2>&1)"; crc9=$?
+        if [ "$crc9" -ge 2 ]; then
+            echo "GATE FAIL: check REFUSED (rc=$crc9) over the ARM 9 witness"
+            violations=$((violations + 1))
+        fi
+        # (a) the graded tree is the CELL's, not the clause's
+        if ! printf '%s' "$cout" | grep -q "cell claims $NEW9"; then
+            echo "GATE FAIL: check never graded the tree the cell claims ($NEW9) -- it is reading only the Tree column,"
+            echo "           which is the whole defect this arm exists for"
+            printf '%s' "$cout" | grep "^  $aw " | sed 's/^/    /'
+            violations=$((violations + 1))
+        fi
+        # (b) and it must NAME the disagreement rather than quietly grading the newer tree
+        if ! printf '%s' "$cout" | grep "^  $aw " | grep -q 'ADRIFT'; then
+            echo "GATE FAIL: cell/clause disagreement on '$aw' was graded but never reported as ADRIFT"
+            printf '%s' "$cout" | grep "^  $aw " | sed 's/^/    /'
+            violations=$((violations + 1))
+        fi
+        # (c) THE QUIET SIDE: the agreeing row must not be flagged
+        if printf '%s' "$cout" | grep "^  $ac  *board" | grep -q 'ADRIFT'; then
+            echo "GATE FAIL: '$ac' cell and clause name the SAME tree, and check called it ADRIFT anyway --"
+            echo "           a detector that fires on the agreeing case reports nothing"
+            printf '%s' "$cout" | grep "^  $ac  *board" | sed 's/^/    /'
+            violations=$((violations + 1))
+        fi
+    fi
+fi
+rm -rf "$S9"
+
 # ARM 8 — and the arms above must have graded the SCRATCH copy, never the board. Re-asserted here because
 # ARM 6/7 are the first arms in this gate that point the helper at a different tree via S4E_HOME.
 examined=$((examined + 1))
