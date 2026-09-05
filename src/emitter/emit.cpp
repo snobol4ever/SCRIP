@@ -2294,7 +2294,8 @@ static int xop_frame_member(const IR_t * nd) {
         if (!isop) continue;
         if (alt_arm_member(c, (const IR_t *)0)) return 1;
         int haz = 0; const IR_t * t = zd_chase(nd->γ.node);
-        for (int s = 0; t && s < 256; s++) { if (t == c) { if (haz) return 1; break; } if (xop_hazard_kind((int)t->op)) haz = 1; t = zd_chase(t->γ.node); } }
+        for (int s = 0; t && s < 256; s++) { if (t == c) break; if (xop_hazard_kind((int)t->op)) haz = 1; t = zd_chase(t->γ.node); }
+        if (haz) return 1;    }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
