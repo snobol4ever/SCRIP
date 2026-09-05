@@ -5,9 +5,29 @@
 # faces where they disagree (error NUMBERING, and the CSNOBOL4-only END trap) are deliberately absent.
 # Non-vacuous by construction: SCRIP_SETEXIT=0 must turn the resume faces RED (proven at the tail).
 set -u
-H="${S4E_HOME:-/home/claude_P}"
-S="$H/SCRIP/scrip"
-[ -x "$S" ] || { echo "⛔ GATE REFUSES: no ./scrip -- make first"; exit 2; }
+# ⛔⭐ TWO PREFLIGHT DEFECTS CURED HERE 2026-09-05 (hq_P), BOTH FOUND BY ceo READING THIS GATE 5-OF-6 RED ON A TREE
+# THAT CONTAINED THE CURE. Neither was a compiler question and both produced the same symptom -- a full, plausible,
+# entirely false red board -- which is why this preamble is now the canonical one and not a hand-rolled pair of lines.
+#   (1) THE ROOT FALLBACK NAMED A SEAT. It read ${S4E_HOME:-/home/claude_P}, so with S4E_HOME unset in any OTHER
+#       root this gate reached across the box and graded hq_P's binary rather than the caller's -- a census found
+#       it was THE ONLY script of 642 in scripts/ that hardcoded a seat root, against D-17 PORTABLE-HOME's rule
+#       that every script derives its paths from $0 or S4E_HOME. It now derives from BASH_SOURCE like every sibling.
+#   (2) NO STALENESS PREFLIGHT. It graded whatever ./scrip was lying in the tree, so a binary built before the cure
+#       reds exactly 5 of these 6 faces -- every resume face plus the &ERRLIMIT one, with handler_falls_off passing
+#       because that face ALREADY worked pre-cure. That is precisely the reported signature, and it is the class
+#       FINDING-2026-08-30-hq_C-the-snobol4-board-grades-whatever-scrip-exists-and-labels-that-verdict-with-git-head.md
+#       names. ⭐ THE GALLING PART, AND THE REASON THIS COMMENT IS LONG: hq_T cured that class across every suite
+#       runner on 2026-09-04 and put the rule in lib_gate.sh as ONE copy -- and this gate was written the same day
+#       and did not inherit it. A cure that lands as a shared helper still has to be ADOPTED by each new instrument,
+#       and the newest instrument is the one least likely to know the helper exists.
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
+H="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}"
+S="$ROOT/scrip"
+[ -x "$S" ] || { echo "⛔ GATE REFUSES: no $S -- make first. A missing binary proves NOTHING about this defect."; exit 2; }
+if ! . "$HERE/lib_gate.sh" 2>/dev/null || ! command -v gate_require_fresh >/dev/null 2>&1; then
+    echo "⛔ GATE REFUSES: lib_gate.sh unavailable or missing gate_require_fresh -- cannot verify binary freshness" >&2; exit 2
+fi
+GATE_NAME=sno_setexit_resume gate_require_fresh "$ROOT" src "$S" "$ROOT/out/libscrip_rt.so"
 W="$(mktemp -d)" || exit 2
 trap 'rm -rf "$W"' EXIT
 rc=0
