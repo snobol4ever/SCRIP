@@ -858,6 +858,17 @@ static const char * procval_name(DESCR_t v) {
 extern int rt_proc_is_registered(const char *name);
 extern int rt_proc_nparams(const char *name);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { uint64_t magic; DESCR_t obj; int64_t idx; } ICN_OPGEN_t;
+#define ICN_OPGEN_MAGIC 0x1CBA46E4E52DULL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t icn_opgen_pump(ICN_OPGEN_t *g) {
+    extern int list_bang_at(DESCR_t, int64_t, DESCR_t *);
+    DESCR_t out;
+    if (!g || !list_bang_at(g->obj, g->idx, &out)) return FAILDESCR;
+    g->idx++;
+    return out;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
     if (IS_INT_fn(callee)) { long i = (long)callee.i; if (i < 0) i = n + i + 1; if (i >= 1 && i <= n) return argv[i - 1]; return FAILDESCR; }
     const char *nm = procval_name(callee);
@@ -868,6 +879,8 @@ DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
         for (int k = 0; k < n && k < 64; k++) g_call_args[k] = argv[k]; for (int k = (n < 0 ? 0 : n); k < 64; k++) g_call_args[k] = (DESCR_t){0};
         return rt_call_proc_descr(nm, n);
     }
+    if (n == 1 && !strcmp(nm, "!")) { extern int list_bang_at(DESCR_t, int64_t, DESCR_t *); DESCR_t out; return list_bang_at(argv[0], 0, &out) ? out : FAILDESCR; }
+    if (n == 1 && !strcmp(nm, "/")) return (argv[0].v == DT_SNUL || argv[0].v == 0) ? argv[0] : FAILDESCR;
     return rt_call_arr(nm, argv, n);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -881,6 +894,15 @@ DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) 
         extern DESCR_t g_call_args[]; extern DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout);
         for (int k = 0; k < n && k < 64; k++) g_call_args[k] = argv[k]; for (int k = (n < 0 ? 0 : n); k < 64; k++) g_call_args[k] = (DESCR_t){0};
         return rt_proc_call_gen_h(nm, n, hslot);
+    }
+    if (n == 1 && !strcmp(nm, "!")) {
+        ICN_OPGEN_t *g = (ICN_OPGEN_t *)calloc(1, sizeof *g);
+        if (!g) return FAILDESCR;
+        g->magic = ICN_OPGEN_MAGIC; g->obj = argv[0]; g->idx = 0;
+        DESCR_t first = icn_opgen_pump(g);
+        if (IS_FAIL_fn(first) || !hslot) { free(g); return first; }
+        *hslot = (void *)g;
+        return first;
     }
     return rt_call_value(callee, argv, n);
 }
@@ -973,6 +995,8 @@ DESCR_t rt_pl_goal_gen_h(DESCR_t goal, DESCR_t *argv, int n, void **hslot) {
 DESCR_t rt_call_value_resume_h(void **hslot) {
     extern DESCR_t rt_proc_resume_frame_h(void **hslot);
     if (!hslot || !*hslot) return FAILDESCR;
+    { ICN_OPGEN_t *g = (ICN_OPGEN_t *)*hslot;
+      if (g->magic == ICN_OPGEN_MAGIC) { DESCR_t v = icn_opgen_pump(g); if (IS_FAIL_fn(v)) { free(g); *hslot = (void *)0; } return v; } }
     return rt_proc_resume_frame_h(hslot);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3683,14 +3707,12 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
             if (!strcmp(fn, "*"))  { extern DESCR_t rt_call_arr(const char *, DESCR_t *, int); DESCR_t _a = a; return try_call_builtin_by_name("*", &_a, 1, &out) ? out : FAILDESCR; }
             if (!strcmp(fn, "\\")) return (a.v == DT_SNUL || a.v == 0) ? FAILDESCR : a;
             if (!strcmp(fn, "?"))  return rt_deref(rt_random_var(a));
-            if (!strcmp(fn, "/") && bidlen < 0) return (a.v == DT_SNUL || a.v == 0) ? a : FAILDESCR;
             if (!strcmp(fn, "/") || !strcmp(fn, "%") || !strcmp(fn, "#") || !strcmp(fn, "|")) {
                 extern int core_call_registered_fn(const char *, DESCR_t *, int, DESCR_t *);
                 if (core_call_registered_fn(fn, args, nargs, &out)) return out;
                 core_runtime_error(29, "undefined operator referenced");
                 return FAILDESCR;
             }
-            if (!strcmp(fn, "!") && bidlen < 0) { if (IS_INT_fn(a)||IS_REAL_fn(a)) return a; const char *s=VARVAL_fn(a); if (!s||!*s) return FAILDESCR; char *c=(char *)rt_ws_alloc(2); c[0]=s[0]; c[1]='\0'; return BSTRVAL(c, 1); }
         }
         DESCR_t a = (nargs > 0) ? args[0] : NULVCL, b = (nargs > 1) ? args[1] : NULVCL;
         if (!strcmp(fn, "[]")) { extern DESCR_t rt_subscript_var(DESCR_t, DESCR_t); extern DESCR_t rt_deref(DESCR_t); DESCR_t v = rt_subscript_var(a, b); if (IS_FAIL_fn(v)) return FAILDESCR; return rt_deref(v); }
