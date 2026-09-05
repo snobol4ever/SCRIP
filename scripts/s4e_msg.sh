@@ -291,6 +291,18 @@ s4e_promotion_admissible() {   # <promo-topic> <blocked-topic> <rank>
     fi
     return 0
 }
+# ⭐ SAME SHAPE AS s4e_promotion_admissible ABOVE, ONE CHECK LATER IN THE CHAIN: a promoted blocker is
+# claimed and served exactly like any ordinary row (row mint-dispatch-refuses-a-placeholder-done-when),
+# so it needs the same pre-claim placeholder refusal the ordinary path gets -- calling
+# s4e_predispatch_placeholder_check directly (defined below, safe: bash resolves calls at run time, and
+# this is only ever invoked from deep inside the `next)` case, well after every function in this file is
+# defined) rather than duplicating its text-match logic a second time.
+s4e_promotion_placeholder_ok() {   # <promo-topic> <blocked-topic> <rank>; rc 0 = ok to promote+claim, 1 = refused (printed)
+    s4e_predispatch_placeholder_check "$1" || return 0
+    printf '⛔ REFUSING TO PROMOTE %s (blocker of %s, rank %s) — %s\n' "$1" "$2" "$3" "$_ppc_why"
+    printf '   Not claimed. %s stays BLOCKED-ON %s until the blocker'"'"'s baton gets a real DONE-WHEN.\n' "$2" "$1"
+    return 1
+}
 # ⛔⭐ ONE PROCESS PER IDENTITY (ceo RULING 2026-09-03, row bus-refuses-a-second-live-process-under-one-seat-identity).
 # MEASURED by seat11, routed by hq_B 16:40: /home/claude11 held TWO live claude processes at once -- an interactive
 # session and a scheduled routine (`claude --name Fleet #11 --model claude-sonnet-5 --effort max`, per
@@ -662,6 +674,30 @@ s4e_dispatch_probe() {
     case "$rc" in 124|137) _dp_why="did not finish within ${to}s (probe budget, not the row's fault)"; return 2;; esac
     [ "$rc" = 0 ] && { _dp_why="exited 0"; return 0; }
     _dp_why="exited $rc"; return 1; }
+# ⛔⭐ STATIC, PRE-CLAIM PLACEHOLDER REFUSAL (row mint-dispatch-refuses-a-placeholder-done-when, ceo
+# CEO-286 2026-09-05): `next` and `assign` used to DISPATCH a row whose DONE-WHEN is still the mint
+# boilerplate -- s4e_dispatch_probe already answers "could not measure" (rc=2) for it, correctly, but
+# both sides then SERVED the row anyway, indistinguishable from any other rc=2 (a slow criterion, a
+# missing compiler). A row opened onto an unmeasurable criterion can never be CLOSED by any amount of
+# correct work (`done` executes the DONE-WHEN line whole, and prose is not a command), so serving it is
+# strictly worse than refusing: two rows were opened onto exactly this shape on 2026-09-05 alone.
+# ⭐ THIS CHECK IS SAFE BEFORE A CLAIM EXISTS, UNLIKE s4e_dispatch_probe: s4e_donewhen_is_placeholder is a
+# pure TEXT match on the baton (no execution), so reading it twice or before anyone holds the row changes
+# nothing about the answer -- there is no race to protect against, the way there is for actually RUNNING
+# the criterion (s4e_dispatch_gate's own comment: probed after the claim, so two seats cannot race the
+# same probe). Calling this before the claim is written is what makes "NO claim file written" possible.
+s4e_predispatch_placeholder_check() {   # $1 = topic; rc 0 = placeholder (refuse, do not claim), 1 = proceed; sets $_ppc_why
+    local t="$1" b="$PO/tasks/$1.task.md" dw
+    _ppc_why=""
+    [ -f "$b" ] || return 1
+    dw="$(sed -n 's/^DONE-WHEN:[[:space:]]*//p' "$b" | head -1)"
+    [ -n "$dw" ] || return 1
+    case "$dw" in '`'*'`') dw="${dw#\`}"; dw="${dw%\`}";; esac
+    if s4e_donewhen_is_placeholder "$dw"; then
+        _ppc_why="the DONE-WHEN is still the mint placeholder, not a command -- $b needs a real DONE-WHEN before this row can be dispatched"
+        return 0
+    fi
+    return 1; }
 # ⛔⭐ THE DISPATCH GATE, CALLED FROM EVERY PATH IN PASS 3 THAT SERVES A ROW -- rc 0 = serve it, 1 = it was
 # closed, take the next one. ⛔ IT IS A FUNCTION BECAUSE PASS 3 SERVES FROM **TWO** PLACES AND THE FIRST DRAFT
 # OF THIS CURE ONLY WIRED ONE: the ordinary claim-and-serve at the bottom, and the DEPENDENCY INVERSION
@@ -1424,6 +1460,17 @@ case "$cmd" in
            if grep -q '^DONE$' "$c"; then echo "⛔ REFUSED: '$topic' is already DONE (held by $own). Sweep it to QUEUE.done.tsv — do NOT re-dispatch landed work." >&2; exit 1; fi
            if [ "$own" = "$seat" ]; then echo "already assigned: $topic -> $seat"; exit 0; fi
            echo "⛔ REFUSED: '$topic' is held by $own, not $seat. Release that claim first (that is a deliberate act, not a retry)." >&2; exit 1; fi
+         # ⛔⭐ PRE-CLAIM PLACEHOLDER REFUSAL (row mint-dispatch-refuses-a-placeholder-done-when, ceo CEO-286
+         # 2026-09-05): STATIC and UNCONDITIONAL -- not gated behind S4E_NO_DISPATCH_PROBE the way the
+         # dynamic probe below is, because that escape hatch exists for a seat who wants to dispatch a row
+         # DESPITE an "already satisfied" reading they believe is wrong; there is no equivalent case for a
+         # placeholder, since prose can never become a command no matter who overrides what. rc=2, matching
+         # every other could-not-measure refusal in this file; no claim is written either way below this.
+         if s4e_predispatch_placeholder_check "$topic"; then
+           printf '\n⛔ REFUSED(2): %s HAS A PLACEHOLDER DONE-WHEN -- %s\n' "$topic" "$_ppc_why" >&2
+           printf '   Fix the baton'"'"'s DONE-WHEN line to a real command, then assign again. No claim written.\n' >&2
+           exit 2
+         fi
          # ⛔⭐ DISPATCH PROBE, ASSIGN SIDE (same ruling as next's; see s4e_dispatch_probe above). An HQ dispatching
          # a row that is already satisfied is the seat09 five-day case with a person in the loop instead of a picker.
          # ⛔ THIS SIDE PROBES AND REFUSES; IT DOES NOT CLOSE. Two reasons, and both are about not overreaching:
@@ -1758,7 +1805,8 @@ TASKEOF
                # un-DONE, so the old code skipped this row and walked on down the rank order — which is how a
                # blocker RANKED BELOW the umbrella it blocks got served after the work it blocks. Reaching this
                # row at rank N is itself the proof that its blocker deserves rank N: serve the BLOCKER, here.
-               elif promo="$(s4e_servable_blocker "$topic")" && [ -n "$promo" ] && s4e_promotion_admissible "$promo" "$topic" "$rank" && "$0" claim "$promo" >/dev/null 2>&1; then
+               elif promo="$(s4e_servable_blocker "$topic")" && [ -n "$promo" ] && s4e_promotion_admissible "$promo" "$topic" "$rank" \
+                    && s4e_promotion_placeholder_ok "$promo" "$topic" "$rank" && "$0" claim "$promo" >/dev/null 2>&1; then
                  echo "RUNNING" >> "$PO/claims/$promo.claim"
                  # ⛔ THE PROMOTED BLOCKER IS A SERVED ROW LIKE ANY OTHER, so it is probed like any other. A
                  # blocker that is already satisfied is the WORST row to hand out unprobed: it is blocking
@@ -1862,6 +1910,10 @@ TASKEOF
            if s4e_boomerang_hold "$topic"; then
              printf '↩ SKIP %s (rank %s) — YOU released this row less than %ss ago; not serving it back to you.\n' "$topic" "$rank" "${S4E_RELEASE_COOLDOWN:-3600}"
              printf '   It is still live for every other seat. To take it back deliberately: s4e_msg.sh claim %s\n' "$topic"
+             continue; fi
+           if s4e_predispatch_placeholder_check "$topic"; then
+             printf '⛔ REFUSING TO DISPATCH %s (rank %s) — %s\n' "$topic" "$rank" "$_ppc_why"
+             printf '   Not claimed. An HQ or the mint author fixes the baton; this row stays free for everyone else.\n'
              continue; fi
            if "$0" claim "$topic" >/dev/null 2>&1; then
              echo "RUNNING" >> "$PO/claims/$topic.claim"
