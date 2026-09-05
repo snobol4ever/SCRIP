@@ -76,9 +76,10 @@ for lang in langs:
         print("        a promotion changed a sort key without re-sorting: `rank <= N` no longer selects the greenest N")
         bad += 1
 if checked == 0:
-    print("⛔ REFUSED-TO-GRADE: no master found under %s/corpus/tests -- nothing was checked" % s4e); sys.exit(2)
+    print("⛔ REFUSED-TO-GRADE [master_order_is_the_builders_order]: no master found under %s/corpus/tests -- nothing was checked" % s4e); sys.exit(2)
 print("------------------------------------------------------------")
 if bad:
-    print("⛔ GATE FAIL: %d of %d master(s) not in the builder's order" % (bad, checked)); sys.exit(1)
-print("✅ GATE PASS: %d master(s) in the builder's order" % checked); sys.exit(0)
+    print("⛔ GATE FAIL [master_order_is_the_builders_order]: %d of %d master(s) not in the builder's order" % (bad, checked))
+    print("   CURE: python3 scripts/util_build_master_suite.py --lang <l> --resort (it REFUSES while a family is loose; pass those names to --absorb-only to acknowledge, --resort is terminal and absorbs nothing)"); sys.exit(1)
+print("✅ GATE PASS [master_order_is_the_builders_order]: %d master(s) in the builder's order" % checked); sys.exit(0)
 PY

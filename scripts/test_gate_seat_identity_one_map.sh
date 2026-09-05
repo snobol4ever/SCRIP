@@ -147,12 +147,15 @@ examined=$((examined + 1))
 # and BOTH silently graded nothing -- the backslashes were consumed by a shell layer before the regex engine
 # ever saw them, so the arm reported every runner as an offender while actually testing an impossible
 # pattern. A gate whose matcher is wrong does not go quiet; it goes loud and wrong.
-bad=""
-while IFS= read -r _line; do
-    [ -n "$_line" ] || continue
-    _norm="${_line//\\/}"
+# ⭐⭐ ONE CLASSIFIER, USED BY THE ARM *AND* BY THE ARM THAT PROVES THE ARM (hq_T 2026-09-05). Factored out
+# of the loop so the exemption below can be graded without writing a SECOND copy of the rule to grade it
+# against -- which is this gate's own founding principle applied one level in: a gate carrying its own
+# expected copy of what it checks passes while the thing it checks is wrong.
+# rc 0 = sanctioned or exempt · rc 1 = offender.
+_measurer_site_ok() {   # $1 = a raw `grep -n` line from a runner
+    local _norm="${1//\\/}"
     case "$_norm" in
-        *'--measurer "${S4E_SEAT:-}"'*) ;;
+        *'--measurer "${S4E_SEAT:-}"'*) return 0;;
         # ⛔⭐ A --dry-run CALL SITE IS EXEMPT, AND THE REASON IS THIS ARM'S OWN PURPOSE, NOT A CONVENIENCE
         # (hq_I 2026-09-05, curing a RED that took the whole blocking set with it). ARM 5 exists to stop a row
         # being SIGNED with a hardcoded identity -- "it is plausible, so nobody reviews it", two lines up.
@@ -163,14 +166,51 @@ while IFS= read -r _line; do
         # literal measurer and prove it behaves. So the gate reddened the gate that proves the helper works,
         # and since both sit inside `make test`, one deliberate fixture stopped every HQ from landing behind a
         # green blocking set. A grep cannot see intent; it can see that a dry run signs nothing.
-        *'--dry-run'*) ;;
-        *) bad="$bad$_line"$'\n' ;;
+        *'--dry-run'*) return 0;;
     esac
+    return 1; }
+bad=""
+while IFS= read -r _line; do
+    [ -n "$_line" ] || continue
+    _measurer_site_ok "$_line" || bad="$bad$_line"$'\n'
 done < <(command grep -n -- '--measurer' "$HERE"/*.sh 2>/dev/null | command grep -v "^$HERE/$SELF:")
 if [ -n "$bad" ]; then
     echo "GATE FAIL: a --measurer argument is not the one call shape \"\${S4E_SEAT:-}\" (the helper resolves an"
     echo "    empty one from the root; a literal there signs every future run with a stale name):"
     printf '%s\n' "$bad" | sed "s|$HERE/||; s/^/    /"
+    violations=$((violations + 1))
+fi
+
+# ARM 5b — ⛔⭐⭐ THE EXEMPTION MUST NOT BLIND THE ARM, AND THAT IS PINNED HERE RATHER THAN RE-VERIFIED BY
+# HAND. When the --dry-run exemption landed (hq_I, a6d794b68) it was proved correct in both directions on a
+# scratch runner and then the proof was thrown away, so the NEXT person to widen this exemption inherits no
+# instrument. An exemption is a hole cut in a gate; the arm that proves the hole is the right shape belongs
+# in the gate, permanently, next to the hole. Three synthetic sites, both directions plus the sanctioned form.
+# ⭐ THE REASON THIS CLASS EXISTS AT ALL (row gate-arms-and-their-own-fixtures-are-never-graded-against-each-
+# other): ARM 5 and the --dry-run fixture in test_gate_score_row_rewrites_in_place.sh were each GREEN when
+# they landed, a day apart, by the same owner, and were never graded against each other until a full run
+# forced it -- at which point the gate that proves the leaderboard write-path is honest became the single
+# thing reddening the blocking set for every HQ.
+# ⛔ THESE THREE PROBES ARE THEMSELVES DELIBERATE NEGATIVE INSTANCES LIVING INSIDE A GATE FILE, i.e. exactly
+# the shape that caused the incident. They are safe for ONE reason: ARM 5's scan excludes $SELF, and this is
+# the only script in the tree that greps for `--measurer` across the others (verified 2026-09-05 -- every
+# other hit CALLS it, none scans for it). ⭐ If you ever remove that self-exclusion, or teach another gate to
+# scan for this flag, these lines red it. That is not a reason to delete them; it is the reason they are
+# annotated here rather than left for someone to rediscover the expensive way.
+examined=$((examined + 1))
+if _measurer_site_ok 'scripts/x.sh:12:  python3 util_score_row.py write --lang icon --column vendor --measurer hq_B'; then
+    echo "GATE FAIL: ARM 5 no longer flags a hardcoded --measurer on a REAL write -- the --dry-run exemption"
+    echo "    has been widened until it blinds the arm it was cut into."
+    violations=$((violations + 1))
+fi
+if ! _measurer_site_ok 'scripts/x.sh:12:  python3 util_score_row.py write --lang icon --measurer hq_B --dry-run'; then
+    echo "GATE FAIL: ARM 5 flags a --dry-run REHEARSAL site, which signs no row. That is the false positive"
+    echo "    that took the whole blocking set down on 2026-09-05 -- a predicate over source text sees"
+    echo "    SPELLING, not EFFECT, and will flag the very fixtures written to prove its own rule."
+    violations=$((violations + 1))
+fi
+if ! _measurer_site_ok 'scripts/x.sh:12:  python3 util_score_row.py write --lang icon --measurer "${S4E_SEAT:-}"'; then
+    echo "GATE FAIL: ARM 5 flags the ONE sanctioned call shape -- the arm now convicts correct runners."
     violations=$((violations + 1))
 fi
 
