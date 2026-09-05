@@ -2027,13 +2027,13 @@ yyreduce:
 
   case 115: /* fnc_args: fnc_args T_COMMA expr0  */
 #line 205 "snobol4.y"
-                                                                                                 { tal_push((yyvsp[0].expr)); }
+                                                                                                 { if (tal_count()==0) tal_push(ast_node_new(TT_NUL)); tal_push((yyvsp[0].expr)); }
 #line 2032 "snobol4.tab.c"
     break;
 
   case 116: /* fnc_args: fnc_args T_COMMA  */
 #line 206 "snobol4.y"
-                                                                                                  { tal_push(ast_node_new(TT_NUL)); }
+                                                                                                  { if (tal_count()==0) tal_push(ast_node_new(TT_NUL)); tal_push(ast_node_new(TT_NUL)); }
 #line 2038 "snobol4.tab.c"
     break;
 

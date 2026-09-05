@@ -2978,7 +2978,7 @@ DESCR_t APPLY_fn(const char *name, DESCR_t *args, int nargs) {
     }
     if (getenv("SCRIP_DEBUG_APPLY"))
         fprintf(stderr, "[apply-err5] unresolved '%s' (nargs=%d)\n", name ? name : "(null)", nargs);
-    core_runtime_error(5, NULL);
+    core_runtime_error(22, "Undefined function called");
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

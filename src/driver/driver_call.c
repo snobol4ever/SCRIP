@@ -144,7 +144,7 @@ DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs)
         if (!body && !FNCEX_fn(fname) && !FNCEX_fn(ufname)) {
             if (getenv("SCRIP_DEBUG_APPLY"))
                 fprintf(stderr, "[call-err5] unresolved '%s' (ufname='%s', nargs=%d)\n", fname ? fname : "(null)", ufname ? ufname : "(null)", nargs);
-            core_runtime_error(5, NULL);
+            core_runtime_error(22, "Undefined function called");
             retval = FAILDESCR;
             goto fn_done;
         }

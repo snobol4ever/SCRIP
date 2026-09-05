@@ -202,8 +202,8 @@ expr17     : T_LPAREN expr0 T_RPAREN                                            
 vlist_args : vlist_args T_COMMA expr0                                                            { tal_push($3); }
            | expr0                                                                                 { tal_push($1); }
            ;
-fnc_args   : fnc_args T_COMMA expr0                                                              { tal_push($3); }
-           | fnc_args T_COMMA                                                                     { tal_push(ast_node_new(TT_NUL)); }
+fnc_args   : fnc_args T_COMMA expr0                                                              { if (tal_count()==0) tal_push(ast_node_new(TT_NUL)); tal_push($3); }
+           | fnc_args T_COMMA                                                                     { if (tal_count()==0) tal_push(ast_node_new(TT_NUL)); tal_push(ast_node_new(TT_NUL)); }
            | expr0                                                                                 { tal_push($1); }
            |
            ;
