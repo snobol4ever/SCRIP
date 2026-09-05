@@ -4,7 +4,7 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
-void rt_goto_transfer(const char *name);
+int rt_goto_transfer(const char *name);
 void *rt_goto_resolve(const char *name);
 extern int g_rt_fragment_emit;
 int xa_flat_class_c_pred(void);

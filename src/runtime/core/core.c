@@ -1418,7 +1418,7 @@ void sno_setexit_fire_on_end(void) {
     const char *lbl = setexit_label_get(buf, sizeof buf);
     if (!lbl) return;
     extern void rt_kw_publish_error(int code, const char *msg);
-    extern void rt_goto_transfer(const char *name);
+    extern int rt_goto_transfer(const char *name);
     extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
     rt_kw_publish_error(0, "");
     if (g_core_errjmp_n >= 64) { rt_goto_transfer(lbl); return; }
@@ -2181,7 +2181,7 @@ void core_runtime_error(int code, const char *msg) {
           rt_kw_publish_error(code, msg);
           longjmp(g_core_errjmp_stk[g_core_errjmp_n - 1], code);
       } }
-    { extern int64_t kw_errlimit; extern void rt_kw_publish_error(int code, const char *msg); extern void rt_goto_transfer(const char *name);
+    { extern int64_t kw_errlimit; extern void rt_kw_publish_error(int code, const char *msg); extern int rt_goto_transfer_checked(const char *name);
       extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
       volatile int vcode = code; const char * volatile vmsg = msg; volatile int aborting = 0;
       if (core_setexit_on() && _setexit_label[0] && kw_errlimit != 0 && g_core_errjmp_n < 64) {
@@ -2192,8 +2192,9 @@ void core_runtime_error(int code, const char *msg) {
           int my = g_core_errjmp_n; int outer = _setexit_resume; int how = setjmp(g_core_errjmp_stk[my]);
           if (how == 0) {
               g_core_errjmp_n = my + 1; _setexit_resume = my;
-              rt_goto_transfer(lbl);
+              int resolved = rt_goto_transfer_checked(lbl);
               g_core_errjmp_n = my; _setexit_resume = outer;
+              if (!resolved) return;
               exit(0);
           }
           g_core_errjmp_n = my; _setexit_resume = outer;

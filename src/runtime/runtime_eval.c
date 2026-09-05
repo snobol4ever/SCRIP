@@ -327,14 +327,14 @@ static eval_chain_fn rt_label_get_fn(const char *name) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_goto_resolve(const char *name)
+static void *rt_goto_resolve_x(const char *name, int *undef)
 {
     if (!name || !*name) return NULL;
     if (name[0] == '$') {
         DESCR_t iv = NV_GET_fn(name + 1);
         const char *inm = rt_sno_indirect_name(iv);
         if (!inm || !*inm) { fprintf(stderr, "[SNO] transfer to undefined label: $%s (indirect name is null)\n", name + 1); exit(1); }
-        return rt_goto_resolve(inm);
+        return rt_goto_resolve_x(inm, undef);
     }
     if (name[0] == '<') {
         DESCR_t cv = NV_GET_fn(name + 1);
@@ -351,9 +351,12 @@ void *rt_goto_resolve(const char *name)
         eval_chain_fn fn = (eval_chain_fn)rt_proc_get_fn(lname);
         if (fn) return (void *)fn;
     }
+    if (undef) { *undef = 1; return NULL; }
     { extern void core_runtime_error(int code, const char *msg); char eb[288]; snprintf(eb, sizeof eb, "transfer to undefined label: %s", name); core_runtime_error(38, eb); }
     return NULL;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_goto_resolve(const char *name) { return rt_goto_resolve_x(name, NULL); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_entry_resolve(const char *name, int *is_frag)
 {
@@ -363,10 +366,20 @@ void *rt_entry_resolve(const char *name, int *is_frag)
     { extern void *rt_proc_get_fn(const char *); char lname[256]; snprintf(lname, sizeof lname, "LBL__%s", name); return rt_proc_get_fn(lname); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_goto_transfer(const char *name)
+int rt_goto_transfer(const char *name)
 {
     void *fn = rt_goto_resolve(name);
+    if (fn) { rt_chain_enter((eval_chain_fn)fn); return 1; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_goto_transfer_checked(const char *name)
+{
+    int undef = 0;
+    void *fn = rt_goto_resolve_x(name, &undef);
+    if (undef) return 0;
     if (fn) rt_chain_enter((eval_chain_fn)fn);
+    return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t code(const char *src)
