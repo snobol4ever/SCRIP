@@ -862,11 +862,31 @@ def counted_fractions(lang, vcell):
     known populations within 160 chars after its name (denominator-anchored, so prose like "the grid's 126/124" can
     never be read as a suite); a package with no such fraction counts as 0 of its shipped population. Returns
     (got, work)."""
-    got, work = {}, []
+    # ⛔⭐ THE WINDOW IS THE PACKAGE'S OWN CLAUSE, NOT 160 CHARACTERS (hq_B 18:59, third instance of one shape
+    # today; ceo row score-readers-anchor-on-a-labelled-form-and-say-why-they-found-nothing). A V cell is written
+    # in `·`-separated clauses, and a writer is ENTITLED to lead with explanation -- the leaderboard doctrine asks
+    # for provenance in the cell. A fixed 160-char window turns that entitlement into a wrong number: the snoflake
+    # cell said 103/180 and the grid published `0/180 NOT YET RUN-GRADED`. Measured on the live board while
+    # writing this: ALL FIVE snobol4 packages read 0 and "not yet run-graded", every one of which HAS been run.
+    # ⛔⛔ AND "I FOUND NO FRACTION" IS NOT "IT SCORED ZERO". Those were one output, and that is the same
+    # could-not-measure-vs-measured-red collapse this project refuses everywhere else (lib_gate.sh's three exit
+    # codes; the harness's rc=2). They are now three distinct outcomes, and only the first contributes a number:
+    #   FOUND            a fraction over one of the package's KNOWN populations -> counted
+    #   UNREADABLE       digits are there but not in a countable form (a denominator nobody declared, or
+    #                    `PASS=82 FAIL=91` rather than a fraction) -> NOT counted, NOT called zero, and the cell's
+    #                    own text is quoted back so the writer can see what the reader saw
+    #   ABSENT           the package's clause carries no digits at all -> genuinely not run-graded, counts as 0
+    # ⭐ A reader that says WHY it found nothing turns a silent wrong number into a fixable message.
+    got, work, unread = {}, [], []
     for name, rx, dens in PROGRESS_COUNTED.get(lang, []):
-        best = None
+        best, saw = None, ""
         for m in re.finditer(rx, vcell):
-            seg = vcell[m.end():m.end() + 160]
+            # clause = from this package's name to the next clause separator or the next package name, whichever
+            # comes first -- so a long, honest explanation stays INSIDE the clause it belongs to, and a neighbour's
+            # number can never be borrowed across a `·`.
+            rest = vcell[m.end():]
+            ends = [x for x in (rest.find(" · "), rest.find(" — "), rest.find("; ")) if x != -1]
+            seg = rest[:min(ends)] if ends else rest
             if re.search(r"compile[- ]graded|COMPILE-graded|compile-only", seg[:60]):
                 continue
             for f in re.finditer(r"(\d+)\s*/\s*(\d+)", seg):
@@ -874,14 +894,30 @@ def counted_fractions(lang, vcell):
                 if den in dens and pnum <= den:
                     best = (pnum, den)
                     break
+                if not saw:
+                    saw = "%d/%d" % (pnum, den)
             if best:
                 break
+            if not saw:
+                mp = re.search(r"PASS\s*=\s*(\d+)", seg, re.I)
+                if mp:
+                    saw = "PASS=%s (a count, not a fraction)" % mp.group(1)
         if best is None:
-            got[dens[-1]] = got.get(dens[-1], 0)
-            work.append("V %s 0/%d -- on the list, NOT YET RUN-GRADED (counts as zero until its programs run against the oracle)" % (name, dens[-1]))
+            if saw:
+                unread.append(name)
+                work.append("V %s UNREADABLE -- the cell carries %s, which is not a fraction over any declared "
+                            "population %s. NOT counted and NOT called zero: write it as `<pass>/<total>` over a "
+                            "declared population, or declare the population." % (name, saw, sorted(dens)))
+            else:
+                got[dens[-1]] = got.get(dens[-1], 0)
+                work.append("V %s 0/%d -- on the list, NOT YET RUN-GRADED (no number in its clause at all; counts "
+                            "as zero until its programs run against the oracle)" % (name, dens[-1]))
             continue
         got[best[1]] = best[0]
         work.append("V %s %d/%d" % (name, best[0], best[1]))
+    if unread:
+        work.append("⚠ %d package(s) UNREADABLE (%s) -- this language's percent is computed over the rest and is "
+                    "therefore a FLOOR, not a score." % (len(unread), ", ".join(unread)))
     return got, work
 
 
