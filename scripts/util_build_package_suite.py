@@ -250,7 +250,15 @@ def build(pkg_dir, lang, out_prefix="ALL"):
     out_excl = pkg_dir / f"{out_prefix}.excluded.txt"
 
     if not entries:
-        h.refuse(f"{pkg_dir}: zero absorbable entries of {tot} shipped -- a container that grades nothing is not a container")
+        # ⭐ hq_T ruling 2026-09-04 (q-package-builder-zero-absorbable-policy, to seat15): refusing the
+        # container is correct -- an ALL.csv with 0 rows would read as HARNESSED with a score of zero to
+        # every downstream census -- but the honest state is OWED WITH A NAMED ACCOUNTING, not silence.
+        # Land the excluded-reasons file even though no container follows; a zero-absorbable package is
+        # NOT-HARNESS-SHAPED, and the reasons are exactly as real as they'd be beside a non-empty ALL.csv.
+        if excluded:
+            out_excl.write_text("\n".join(f"{name}: {reason}" for name, reason in sorted(excluded)) + "\n")
+        h.refuse(f"{pkg_dir}: zero absorbable entries of {tot} shipped -- a container that grades nothing is not a "
+                    f"container; NOT-HARNESS-SHAPED accounting written to {out_excl.name} ({tot} named, 0 absorbable)")
 
     wrote_in = h.write_suite(entries, str(out_sno), str(out_ref), out_in=str(out_in))
     if not wrote_in and out_in.exists():
