@@ -440,7 +440,9 @@ void rt_stmt_enter(long stno, long line) {
     g_lastline = g_line;
     g_line = line;
     g_lastfile = (g_stcount > 0) ? g_file : (const char *)0;
+    if (kw_stlimit < 0) return;
     g_stcount++;
+    if (g_stcount > kw_stlimit) kwb_error(244, "statement count exceeds value of stlimit keyword");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_keyword_gen(const char *sval, long idx) {
