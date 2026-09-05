@@ -654,27 +654,59 @@ s4e_donewhen_is_placeholder() {   # $1 = raw column-0 DONE-WHEN text (already ex
 # criterion's heredoc body is program text and must never be cut by a word that happens to end in a colon.
 # Sets $_dw_backticked=1 when it stripped a markdown backtick pair, so a caller can still announce that.
 s4e_donewhen_text() {   # $1 = baton path; prints the WHOLE criterion on stdout
-    local dw
+    local b="$1" first rest line acc
     _dw_backticked=""
-    dw="$(awk '
-        /^DONE-WHEN:/ && !seen { seen=1; sub(/^DONE-WHEN:[ \t]*/, ""); print; next }
-        seen && /^## / { exit }
-        seen && /^(GOAL|LINKS|RANK|DONE-WHEN|DONE-WHEN-HISTORY|SCOPE|LEDGER|OWNER|BLOCKED-ON|FINDING|MINTED BY):/ { exit }
-        seen { print }
-    ' "$1" | sed -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}')"
+    first="$(sed -n 's/^DONE-WHEN:[[:space:]]*//p' "$b" | head -1)"
+    [ -n "$first" ] || return 0
+    acc="$first"
+    # ⛔⭐⭐ CONTINUE ONLY WHILE THE TEXT IS INCOMPLETE SHELL, NEVER "UNTIL THE NEXT FIELD LABEL" -- and that
+    # distinction is the whole design, measured the hard way. The obvious rule (take every line to the next
+    # column-0 label, the way GOAL: carries paragraphs) is WRONG HERE and dangerous in the false-green direction
+    # it is trying to cure: the live convention puts PROSE ANNOTATION after a criterion -- "⛔ DONE-WHEN REWRITTEN
+    # 2026-08-24 (seat04): the line above used to be prose..." -- and 121 of the 122 DONE batons whose field spans
+    # lines are exactly that shape. Swallowing their annotation into `bash -c` would break rows that close
+    # correctly today, to fix one that does not.
+    # ⭐ THE DISCRIMINATOR IS MEASURED, not a heuristic about indentation or glyphs: bash tells you whether text is
+    # FINISHED. A complete line parses clean; a heredoc opener parses rc=0 WITH a "here-document ... delimited by
+    # end-of-file" warning; an unclosed quote is rc=2 "unexpected EOF while looking for matching"; and PROSE is
+    # rc=2 with a DIFFERENT error ("syntax error near unexpected token"), which must NOT pull the next line in.
+    # So: a complete first line IS the criterion, byte for byte as before, for every baton in the tree today.
+    # ⛔ RESIDUE, STATED RATHER THAN GUESSED AT: a criterion authored as two SYNTACTICALLY COMPLETE lines is
+    # indistinguishable from an annotated one in this file format, so it still runs only its first line. That is
+    # not curable by reading harder -- it needs a mint-time lint requiring one line, or an explicit continuation
+    # (a trailing \\, && or a heredoc), which is what every real multi-line criterion in the tree already uses.
+    if s4e_donewhen_incomplete "$acc"; then
+        # ⭐ MULTI-LINE MODE, ENTERED ONLY BY EVIDENCE: the first line does not finish, so the criterion is the
+        # WHOLE field block -- to the next column-0 field label or `## ` section, the baton format's own rule (it
+        # is how GOAL: already carries paragraphs). Taking the whole block matters and a "keep adding lines until
+        # it parses" loop is NOT enough: a heredoc becomes complete at its own delimiter, and seat04's measured
+        # shape puts the REAL CHECK on the lines AFTER that delimiter -- stopping at first-complete would capture
+        # the file write and drop the test, which is the original false green with two extra lines in it.
+        # ⛔ And if the block ends still unfinished, the incompleteness guard at both runner sites REFUSES rc=2
+        # rather than running it -- so a terminator that fires inside a heredoc body fails safe, never green.
+        acc="$acc
+$(awk '
+            /^DONE-WHEN:/ && !seen { seen=1; next }
+            seen && /^## / { exit }
+            seen && /^(GOAL|LINKS|RANK|DONE-WHEN|DONE-WHEN-HISTORY|SCOPE|LEDGER|OWNER|BLOCKED-ON|FINDING|MINTED BY):/ { exit }
+            seen { print }
+        ' "$b")"
+    fi
     # ⛔ ONE matched OUTER pair only, and never a one-sided backtick: a lone ` is either real substitution or a
     # typo, and both must fail LOUDLY rather than be silently rewritten. Normalised HERE, at the one extraction
     # point, so the vacuity probe and the real run cannot disagree about what the criterion IS.
-    case "$dw" in '''`'''*'''`''') dw="${dw#\`}"; dw="${dw%\`}"; _dw_backticked=1;; esac
-    printf '%s' "$dw"; }
+    case "$acc" in '''`'''*'''`''') acc="${acc#\`}"; acc="${acc%\`}"; _dw_backticked=1;; esac
+    printf '%s' "$acc"; }
 # ⛔⭐ AND A SECOND, INDEPENDENT GUARD ON THE SAME FAILURE, because the extractor being right today is not a
 # property anyone can keep proving: bash does NOT fail on an unterminated heredoc -- `bash -n -c "cat <<'EOF'"`
 # exits 0 -- it only WARNS on stderr, which is precisely why the truncation could exit 0 for months. That warning
 # is detectable, so any criterion whose text opens a heredoc it never closes is REFUSED (rc=2, could-not-measure),
 # never graded. ⭐ This holds even if a future edit re-breaks the extractor, and it also catches a criterion an
 # author simply mis-wrote -- the two cases a runner cannot tell apart and must not guess between.
-s4e_donewhen_unterminated_heredoc() {   # $1 = criterion text; rc 0 = it opens a heredoc it never closes
-    printf '%s' "${1:-}" | bash -n /dev/stdin 2>&1 | grep -q 'here-document.*delimited by end-of-file'; }
+s4e_donewhen_incomplete() {   # $1 = criterion text; rc 0 = bash cannot finish reading it
+    printf '%s' "${1:-}" | bash -n /dev/stdin 2>&1 \
+      | grep -qE 'here-document.*delimited by end-of-file|unexpected EOF while looking for matching|syntax error: unexpected end of file'; }
+s4e_donewhen_unterminated_heredoc() { s4e_donewhen_incomplete "${1:-}"; }
 # ⛔⭐ HIDDEN-ELSEWHERE: is there a DIFFERENT "DONE-WHEN:"-labeled line sitting in this baton's live text
 # (GOAL/NEXT/QA), where a human but not the tool would read it as the contract? Scoped deliberately:
 # the ## LEDGER section is excluded outright (it is historical narration -- this project's own ledgers

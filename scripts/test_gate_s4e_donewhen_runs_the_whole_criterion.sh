@@ -23,6 +23,12 @@
 #       Never rc=0 and never rc=1: bash cannot finish reading it, so nobody measured anything.
 #   (D) MULTI-LINE AND GENUINELY GREEN -> rc=0 and the row CLOSES. Without this the gate would pass on a `done`
 #       that had simply stopped closing anything, which is the cheap way to satisfy A/B/C and cure nothing.
+#   (E) ⛔ THE ARM THAT COST THE MOST TO LEARN: a COMPLETE one-line criterion followed by indented PROSE ANNOTATION
+#       -- "⛔ DONE-WHEN REWRITTEN 2026-08-24 (seat04): the line above used to be prose..." -- must still close
+#       green. 121 of the 122 DONE batons whose field spans lines are exactly that shape, so the obvious
+#       continuation rule ("read to the next column-0 label", which is how GOAL: carries paragraphs) would have
+#       fed their annotation to `bash -c` and broken 121 correctly-closing rows to fix one. The cure is that
+#       continuation happens ONLY while bash says the text is UNFINISHED.
 # EXIT 0 all four hold on the live script AND each mutant goes red; 1 otherwise; 2 REFUSED (fixture cannot be built).
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; MSG="$HERE/s4e_msg.sh"
@@ -36,20 +42,24 @@ PO="$W/po"; ME=hq_T; HD="$W/hd.txt"
 mk_po() {
   rm -rf "$PO" "$HD"; mkdir -p "$PO/tasks" "$PO/claims" "$PO/released" "$PO/$ME/inbox" || return 2
   : > "$PO/BOARD.md"; : > "$PO/QUEUE.done.tsv"; printf "TRIO\n" > "$PO/MODE"
-  { printf '# gate fixture queue\n'; for t in t-two t-heredoc t-unterm t-green; do printf '2\t%s\tunassigned\tFREE\n' "$t"; done; } > "$PO/QUEUE.tsv"
-  for t in t-two t-heredoc t-unterm t-green; do
+  { printf '# gate fixture queue\n'; for t in t-two t-heredoc t-unterm t-green t-prose; do printf '2\t%s\tunassigned\tFREE\n' "$t"; done; } > "$PO/QUEUE.tsv"
+  for t in t-two t-heredoc t-unterm t-green t-prose; do
     { printf '# TASK %s\nGOAL: gate fixture.\n' "$t"
       case "$t" in
-        t-two)     printf 'DONE-WHEN: test -f "$S4E_HOME/SCRIP/scripts/s4e_msg.sh"\n'
-                   printf 'test -f /no-such-file-donewhen-whole-criterion-gate || exit 1\n';;
+        t-two)     printf 'DONE-WHEN: test -f "$S4E_HOME/SCRIP/scripts/s4e_msg.sh" \\\n'
+                   printf '  && test -f /no-such-file-donewhen-whole-criterion-gate\n';;
         t-heredoc) printf "DONE-WHEN: cat > %s <<'HEOF'\n" "$HD"
                    printf 'hello-from-the-heredoc-body\nHEOF\n'
                    printf 'grep -q hello-from-the-heredoc-body %s || exit 3\n' "$HD"
                    printf 'test -f /no-such-file-donewhen-whole-criterion-gate || exit 1\n';;
         t-unterm)  printf "DONE-WHEN: cat > %s <<'HEOF'\n" "$W/unterm.txt"
                    printf 'a body whose delimiter never arrives\n';;
-        t-green)   printf 'DONE-WHEN: test -f "$S4E_HOME/SCRIP/scripts/s4e_msg.sh"\n'
-                   printf 'test -d "$S4E_HOME/SCRIP/scripts"\n';;
+        t-green)   printf "DONE-WHEN: cat > %s.g <<'GEOF'\n" "$HD"
+                   printf 'green-body\nGEOF\n'
+                   printf 'grep -q green-body %s.g\n' "$HD";;
+        t-prose)   printf 'DONE-WHEN: test -f "$S4E_HOME/SCRIP/scripts/s4e_msg.sh"\n'
+                   printf '⛔ **DONE-WHEN REWRITTEN 2026-08-24 (seat04):** the line above used to be prose\n'
+                   printf '(readable as a spec), but `done` runs it as literal `bash -c` and prose is not a command.\n';;
       esac
       printf 'LINKS: none\n## NEXT\n(none)\n## LEDGER\n'; } > "$PO/tasks/$t.task.md"
     S4E_POST="$PO" S4E_SEAT="$ME" S4E_HOME="$ROOT" S4E_NO_BANNER=1 bash "$MSG" claim "$t" >/dev/null 2>&1 || return 2
@@ -76,10 +86,13 @@ arm() {   # arm <label> <script> -> 0 iff all four contracts hold; 2 iff the fix
   run "$s" t-green
   [ "$RC" = 0 ] || { echo "  [$lbl] (D) a genuinely green multi-line criterion returned $RC (want 0)"; say; ok=0; }
   closed t-green || { echo "  [$lbl] (D) ⛔ a green criterion did NOT close its row -- the cure stopped closing anything"; ok=0; }
+  run "$s" t-prose
+  [ "$RC" = 0 ] || { echo "  [$lbl] (E) a COMPLETE one-line criterion followed by prose annotation returned $RC (want 0) -- the annotation was swallowed into the command"; say; ok=0; }
+  closed t-prose || { echo "  [$lbl] (E) ⛔ a correctly-closing annotated row stopped closing -- the continuation rule is eating prose"; ok=0; }
   [ "$ok" = 1 ]
 }
 echo "s4e done: the WHOLE DONE-WHEN runs, a heredoc body reaches its file, an unterminated one REFUSES (scratch postoffice under $W)"
-if arm PASS "$MSG"; then echo "  [PASS] (A) second line runs; (B) heredoc body runs; (C) unterminated -> rc=2, row open; (D) green multi-line still closes"; pass=1
+if arm PASS "$MSG"; then echo "  [PASS] (A) continuation runs; (B) heredoc body runs; (C) unterminated -> rc=2, row open; (D) green multi-line closes; (E) annotated one-liner unaffected"; pass=1
 else pass=$?; [ "$pass" = 2 ] && { echo "⛔ REFUSED: fixture could not be built (rc=2)"; exit 2; }; pass=0; fi
 # FAIL-ONCE, one mutant per half of the cure. M1 restores the head -1 truncation (A and B must red -- the rows close
 # on criteria that never ran). M2 removes the unterminated-heredoc refusal (C must red -- rc=0 on an unreadable one).
