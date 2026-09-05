@@ -5,6 +5,26 @@
 # is a graded pair; a NAME.sno with no .ref (e.g. bench.sno, a support/data file) is not a pair and is
 # skipped by construction — never a hand-curated exclusion list.
 #
+# ⛔ THE ONE NAMED EXCEPTION — EXCLUDED_TESTS below (hq_P ruling, msg re-csnobol4-thirty-final-report,
+# 2026-09-04, closing row snobol4-csnobol4-thirty-regen-candidate-refs-stale-pin-or-real-defect): ndbm,
+# random, sleep, time each `-include` a modules/X/X.sno that dlopen()s ./X.so relative to CWD
+# (lib/unix98/load.c:os_load_library) — physically unrunnable from this suite's flattened layout no matter
+# what gets vendored. Upstream's OWN test/tests.in (verified directly, not taken on faith) carries these
+# `reg` lines commented out: ndbm line 118 ("11/16/2005; off 10/22/2020 (moved to module)"), time line 122
+# ("12/16/2010; off 10/25/2020 (moved to module)"), sleep line 130 and random line 132 (also `#`-commented
+# in the same file; a specific disablement date is not legible for these two, unlike ndbm/time — do not
+# overclaim one). Upstream itself does not run these four; neither do we. Replacement coverage via
+# modules/{ndbm,random,time}/test.{sno,ref} is a SEPARATE row (hq_P: excluding and re-covering in one row
+# means a reviewer cannot see which half landed) — see snobol4-csnobol4-module-replacement-coverage-ndbm-random-time.
+#
+# ⛔ PARKED_NO_REGEN below (same ruling) — breakline, k, rewind1: live csnobol4 itself disagrees with its
+# OWN historical .ref here (K-format fixed-record I/O looks broken; rewind1 SIGSEGVs on REWIND(5)), so the
+# REGEN-CANDIDATE tiebreak (below) would misfile a live-oracle regression as "our .ref might be stale."
+# ceo ruling (task ledger, snobol4-csnobol4-thirty-regen-candidate-refs-stale-pin-or-real-defect #28):
+# do NOT re-cut either .ref; grade plainly against csnobol4 and let them stay red until the oracle itself
+# is fixed. They still count as ordinary RED (RED-M3/RED-M4, FAIL/REJECT/CRASH) — PARKED only removes them
+# from the "maybe-stale-pin" bucket, it does not paper over the red. THERE IS NO XFAIL.
+#
 # ⛔ THE ORACLE IS CSNOBOL4, NOT sbl — `sbl -bf` false-reds on 30 of these ~120 programs (CSNOBOL4-only
 # extensions SPITBOL never claims: ORD, &DUMP, popen, ...; RULES.md FACT RULE s261). Primary grading is
 # byte-exact against the vendored .ref; the live csnobol4 binary (csnobol4_bin(), lib_oracle_flags.sh) is
@@ -38,6 +58,20 @@
 # Stdin convention (Budne's own, matching test_csnobol4_budne_suite.sh's STDIN_TESTS list): these programs
 # carry their test data after their own END statement; split at the first bare "END" line, feed the tail
 # as stdin, and run the head as the program.
+#
+# ⛔ SETUP_DEP (hq_P ruling above) — openo2 reads back openo.tst, a fixture openo.sno itself writes; upstream
+# ran both sequentially in one shared dir (test/run.sh: `reg openo.sno` then `reg openo2.sno`, adjacent and
+# ordered — upstream DESIGN, not an accident). This runner's own glob order (`for sno in "$SUITE"/*.sno`,
+# locale-collated, NOT byte order) happens to visit openo2.sno BEFORE openo.sno, so without a declared setup
+# step openo2 always read the fixture in its pristine vendored-empty state — measured directly, not guessed:
+# a byte-for-byte repro outside this harness proves SCRIP's OUTPUT/INPUT association is correct as soon as
+# openo runs first. Per-test isolation (comment above, ⛔ ALL arms run with cwd in a scratch dir) stays ruled;
+# this is a one-time fixture-priming call, not a re-opening of that isolation.
+#
+# ⛔ ARGV_FOR (hq_P ruling above) — genc.sno needs `genc.sno v311.sil` (its own .ref header: "generated from
+# v311.sil"); HOST(2,N)/HOST(3) (src/runtime/core/core.c) already index the REAL process argv correctly in
+# m3, m4, and csnobol4 alike (verified directly against all three arms before wiring this in) — the runner
+# just never passed a program argv through. One name, one extra token; extend the map if another test needs it.
 #
 # ⛔ ALL arms run with cwd in a scratch dir, never in the corpus tree — an OUTPUT unit-I/O association can
 # create OR OVERWRITE files named by its argument in the cwd (SPITBOL/CSNOBOL4 dialect). The whole suite is
@@ -74,6 +108,12 @@ CSN="$(csnobol4_bin)" || exit 2
 STDIN_TESTS="atn crlf longrec rewind1 sudoku trim0 trim1 uneval2 factor len repl tab words words1"
 is_stdin_test() { local n="$1" s; for s in $STDIN_TESTS; do [ "$n" = "$s" ] && return 0; done; return 1; }
 DUMP_TESTS="a dump diag1 diag2"; TRACE_TESTS="ftrace keytrace spit trace1 trace2 trfunc t"
+EXCLUDED_TESTS="ndbm random sleep time"
+is_excluded_test() { local n="$1" s; for s in $EXCLUDED_TESTS; do [ "$n" = "$s" ] && return 0; done; return 1; }
+PARKED_NO_REGEN="breakline k rewind1"
+is_parked_no_regen() { local n="$1" s; for s in $PARKED_NO_REGEN; do [ "$n" = "$s" ] && return 0; done; return 1; }
+setup_dep_for() { case "$1" in openo2) echo openo;; esac; }
+argv_for() { case "$1" in genc) echo v311.sil;; esac; }
 normalize() { # $1=name $2=text -> echoes text, masked per tests.in's dump/trace convention for that name
     local n="$1" t="$2"
     case " $DUMP_TESTS " in *" $n "*) t="$(printf '%s' "$t" | sed -E -e 's/MAXLNGTH = [0-9]+/MAXLNGTH = xxx/' -e "/^&FILL = '/d")";; esac
@@ -118,12 +158,14 @@ M3_PASS=0; M3_FAIL=0; M3_REJECT=0; M3_CRASH=0; M3_HANG=0; RED3=""
 M4_PASS=0; M4_FAIL=0; M4_REJECT=0; M4_CRASH=0; M4_HANG=0; RED4=""
 CSN_PASS=0; CSN_FAIL=0
 REGEN=0; REGEN_LIST=""
+EXCLUDED_LIST=""
 
 for sno in "$SUITE"/*.sno; do
     [ -e "$sno" ] || { echo "⛔ REFUSE(rc=2): zero .sno files in $SUITE"; exit 2; }
     name="$(basename "$sno" .sno)"
     ref="$SUITE/$name.ref"
     [ -f "$ref" ] || continue          # not a graded pair (support file) — never hand-curated
+    if is_excluded_test "$name"; then EXCLUDED_LIST="$EXCLUDED_LIST $name"; continue; fi
     TOTAL=$((TOTAL+1))
     exp="$(normalize "$name" "$(cat "$ref")")"
 
@@ -131,13 +173,16 @@ for sno in "$SUITE"/*.sno; do
     if is_stdin_test "$name"; then
         rm -f "$prog"; split_at_end "$sno" "$prog" "$W/stdin"; inp="$W/stdin"
     fi
+    dep="$(setup_dep_for "$name")"
+    [ -n "$dep" ] && (cd "$RUN" && SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" --run "$dep.sno" > /dev/null 2>&1)
+    xargs_extra="$(argv_for "$name")"
 
     # ⛔ RELATIVE, NOT $prog: cwd is already $RUN below, and the vendored .ref files were cut against a
     # bare-relative invocation (name.sno). Passing the absolute scratch path here makes every self-path-
     # referencing program (TRACE(), error messages, &FILE) embed a throwaway tmpdir string instead of the
     # bare name the .ref expects — a harness artifact, not a SCRIP or oracle divergence (found triaging
     # row snobol4-csnobol4-thirty-regen-candidate-refs-stale-pin-or-real-defect, seat07 2026-09-04).
-    got3="$(cd "$RUN" && SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" --run "$relprog" < "$inp" 2>&1)"; rc3=$?
+    got3="$(cd "$RUN" && SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" --run "$relprog" ${xargs_extra:+-- $xargs_extra} < "$inp" 2>&1)"; rc3=$?
     got3="$(normalize "$name" "$got3")"
     st3="$(status_of "$got3" "$rc3" "$exp")"
     case "$st3" in
@@ -149,7 +194,7 @@ for sno in "$SUITE"/*.sno; do
     esac
 
     if compile_m4 "$prog" "$W/prog.bin"; then
-        got4="$(cd "$RUN" && SNO_LIB="$SUITE" timeout "$TIMEOUT" "$W/prog.bin" < "$inp" 2>&1)"; rc4=$?
+        got4="$(cd "$RUN" && SNO_LIB="$SUITE" timeout "$TIMEOUT" "$W/prog.bin" $xargs_extra < "$inp" 2>&1)"; rc4=$?
         got4="$(normalize "$name" "$got4")"
         st4="$(status_of "$got4" "$rc4" "$exp")"
         case "$st4" in
@@ -163,12 +208,12 @@ for sno in "$SUITE"/*.sno; do
         M4_REJECT=$((M4_REJECT+1)); RED4="$RED4 $name(CC)"
     fi
 
-    gotc="$(cd "$RUN" && timeout "$TIMEOUT" "$CSN" -b "$relprog" < "$inp" 2>&1)"
+    gotc="$(cd "$RUN" && timeout "$TIMEOUT" "$CSN" -b "$relprog" $xargs_extra < "$inp" 2>&1)"
     gotc="$(normalize "$name" "$gotc")"
     if [ "$gotc" = "$exp" ]; then CSN_PASS=$((CSN_PASS+1))
     else
         CSN_FAIL=$((CSN_FAIL+1))
-        [ "$st3" != PASS ] && { REGEN=$((REGEN+1)); REGEN_LIST="$REGEN_LIST $name"; }
+        [ "$st3" != PASS ] && ! is_parked_no_regen "$name" && { REGEN=$((REGEN+1)); REGEN_LIST="$REGEN_LIST $name"; }
     fi
 done
 
@@ -178,6 +223,7 @@ echo "csnobol4 (home dialect, triangulation, informational): PASS=$CSN_PASS FAIL
 [ -n "$RED3" ] && echo "RED-M3:$RED3"
 [ -n "$RED4" ] && echo "RED-M4:$RED4"
 [ "$REGEN" -gt 0 ] && echo "REGEN-CANDIDATE ($REGEN, SCRIP m3 disagrees with .ref but so does live csnobol4 — .ref pin may be stale):$REGEN_LIST"
+[ -n "$EXCLUDED_LIST" ] && echo "EXCLUDED (upstream's own tests.in retired these, see script header):$EXCLUDED_LIST"
 
 # ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05). Records what this script just
 # measured into .github/SCORE.md; runs nothing itself. Non-fatal: a bookkeeping failure must never
