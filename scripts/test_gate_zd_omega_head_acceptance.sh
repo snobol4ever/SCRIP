@@ -57,10 +57,21 @@ report() { # report <name> <ok:0|1> <detail>
 }
 
 # --- 1. STRUCTURAL: the exact known-bad per-op shape must be gone ------------------------------------------
-if grep -qE 'nodes\[k\]->op == IR_CMP_TEST && zd_chase\(nodes\[k\]->ω\.node\) == t\) return 1; return 0; \}' src/emitter/emit.cpp; then
-    report structural-zd-omega-head 1 "zd_omega_head still reads as the exact narrow IR_CMP_TEST-only filter named in FINDING-2026-08-29-hq_B; the family fix has not landed"
+# ⛔⭐ REWRITTEN BY hq_C 2026-09-05. The previous clause grepped for ONE HISTORICAL BAD STRING (the
+# IR_CMP_TEST-only spelling). Adding IR_IDENT/IR_DIFFER/IR_BINOP_TEST to the list made that grep MISS, so this
+# clause reported ✅ PASS from 2026-08-29 to 2026-09-04 while the per-op filter was still sitting there with
+# four ops in it -- a false green that survived six sessions and let seat05 re-derive the whole mechanism from
+# SNOBOL4. A structural clause that names the KNOWN-BAD form passes the moment anyone writes a DIFFERENT bad
+# form. Assert the SHAPE OF THE CURE instead: no op-identity branch anywhere in the predicate.
+predline=$(grep -h 'static int zd_omega_test_kind' src/emitter/emit.cpp)
+if [ -z "$predline" ]; then
+    report structural-zd-omega-head 1 "zd_omega_test_kind not found at all -- this clause can no longer grade the predicate; repoint the gate rather than reading its silence as a pass"
+elif printf '%s' "$predline" | grep -qE '(^|[^_[:alnum:]])op[[:space:]]*==|->op[[:space:]]*=='; then
+    report structural-zd-omega-head 1 "zd_omega_test_kind STILL ADMITS BY OP IDENTITY (RULES.md NO PER-OP FILTER) -- an op list of ANY length is the defect, not just the historical one-op spelling: $predline"
+elif ! printf '%s' "$predline" | grep -q 'ω\.node'; then
+    report structural-zd-omega-head 1 "zd_omega_test_kind no longer branches on op identity but does not consult the ω port either -- a predicate that admits everything is not the family fix: $predline"
 else
-    report structural-zd-omega-head 0 "the known-bad single-op filter string is gone from zd_omega_head"
+    report structural-zd-omega-head 0 "zd_omega_test_kind admits by STRUCTURE (ω port, no op== chain), not by op identity"
 fi
 
 # --- helpers: compile+link mirrors test_gate_pascal_m4.sh exactly (same RT, same flags) ---------------------
