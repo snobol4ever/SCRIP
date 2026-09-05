@@ -40,6 +40,16 @@ W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 # before (`include` is symlinked back to the real tree, and the suite's own lib spec is SELFDIR:include), and
 # every write lands on the copy, which dies with the trap above.
 CORPUS_REAL="${CORPUS:-$ROOT/corpus}"
+# ⛔⭐ THE OVERLAY IS NOT TRUSTED, IT IS CHECKED -- BEFORE AND AFTER, EVERY RUN (seat16, 2026-09-04 19:16 CDT:
+# witnessed ASMTEMP in the vendored dir AFTER the overlay cure landed in its clone, and could not reproduce it
+# mechanically; hq_T could not reproduce it either -- a full 144-program run with a one-second watcher armed on
+# the real directory left it clean). ⛔ TWO PEOPLE UNABLE TO REPRODUCE A WITNESSED LEAK IS NOT EVIDENCE THAT IT
+# DID NOT HAPPEN; it is evidence that argument is the wrong instrument. So the runner now measures its own side
+# effect: it fingerprints the vendored directory before grading and again after, and if a single byte differs it
+# REFUSES rc=2 naming the files. ⭐ A guard that fires ONCE with the file named is worth more than an hour of
+# reasoning about whether an overlay can leak, and it costs two `find` calls.
+_vend_fingerprint() { find "$CORPUS_REAL/packages/snobol4/gimpel" -type f -printf '%p %s %T@\n' 2>/dev/null | LC_ALL=C sort; }
+VEND_BEFORE="$(_vend_fingerprint)"
 mkdir -p "$W/corpus/packages/snobol4"
 cp -a "$CORPUS_REAL/packages/snobol4/gimpel" "$W/corpus/packages/snobol4/gimpel" || {
     echo "⛔ REFUSE(rc=2): could not copy the gimpel package to a scratch overlay -- refusing to grade in the vendored dir"; exit 2; }
@@ -97,6 +107,17 @@ SCORED=$((TOTAL-UNSCR))
 # graded and the ORACLE failed on all of them" -- a different fact, about a different component, with a
 # different cure. Keeping only the first would have re-opened half the hole.
 [ "$SCORED" -gt 0 ] || { echo "⛔ REFUSE(rc=2): every one of the $TOTAL entries is ORACLE_FAIL (scored=0) -- the oracle, not SCRIP, is what this run measured. Preflight the oracle before trusting any verdict."; exit 2; }
+VEND_AFTER="$(_vend_fingerprint)"
+if [ "$VEND_BEFORE" != "$VEND_AFTER" ]; then
+    echo "⛔ REFUSE(rc=2): THIS RUN CHANGED THE VENDORED DIRECTORY IT WAS GRADING -- the scratch overlay did not"
+    echo "   contain a write. The board below is NOT trustworthy (a grader that writes into its own fixtures may"
+    echo "   have graded a file it had already altered), and the tree is now dirty, which correctly blocks the"
+    echo "   leaderboard write. What changed:"
+    diff <(printf '%s\n' "$VEND_BEFORE") <(printf '%s\n' "$VEND_AFTER") | sed 's/^/     /' | head -20
+    echo "   Cure: remove the stray file, then report this WITH the diff above -- it is the first mechanical"
+    echo "   evidence of an escape that two people have witnessed and neither could reproduce."
+    exit 2
+fi
 echo "GIMPEL_BOARD total=$TOTAL scored=$SCORED unscr=$UNSCR m3_pass=$M3P m3_fail=$M3F m4_pass=$M4P m4_fail=$M4F -- SCRIP $SCRIP_HASH corpus $CORP_HASH RT_OPT=-O0 oracle=sbl-bf (via scorecard_snobol4.sh --suites gimpel)"
 awk -F'\t' '$3=="ORACLE_FAIL"{printf "  UNSCR  %s  %s\n", $2, $7}' "$TSV"
 awk -F'\t' '$3!="ORACLE_FAIL" && ($3!="PASS" || $4!="PASS"){printf "  RED    %s  m3=%s m4=%s%s\n", $2, $3, $4, ($7!="" ? "  "$7 : "")}' "$TSV"
