@@ -15,8 +15,10 @@ ROW): a divergence here routes to hq_P (SNOBOL4 lane owner), or to hq_U if it im
 RUNGS: exhaustive-and-hand-checkable population, one rung at a time (task file, FIRST RUNG). Rung 1 is
 length-1 and length-2 expressions over ONE operator ('+'): single decimal digits 0-9 as every length-1
 operand (10 programs), and every ordered pair combined with '+' as every length-2 expression (10*10 = 100
-programs) -- population 110, exactly, by construction. Later rungs add operators/operand kinds; they do not
-change rung 1's population, so a fixed rung's denominator never drifts under this script.
+programs) -- population 110, exactly, by construction. Rung 2 widens the length-2 operator vocabulary to
+('+', '-', '*') over the same single-digit operands: 10 (length-1, unchanged) + 10*10*3 (length-2) = 310,
+exactly. Each rung's own population is fixed at the row that adds it -- adding a later rung never changes
+an earlier one's count, so a fixed rung's denominator never drifts under this script.
 
 EXIT: 0 ran to completion (see --out-dir/report.txt and the printed SUMMARY line for pass/fail data; this
 script itself does not decide gate pass/fail -- test_gate_generator_oracle_agreement.sh does) · 2 REFUSED
@@ -37,17 +39,20 @@ TIMEOUT_S = 10
 
 
 def op_name(op):
-    return {"+": "plus"}[op]
+    return {"+": "plus", "-": "minus", "*": "times"}[op]
+
+
+RUNG_OPERATORS = {1: ("+",), 2: ("+", "-", "*")}
 
 
 def rung_population(rung):
-    if rung != 1:
-        raise ValueError(f"no such rung: {rung} (only rung 1 exists so far)")
+    if rung not in RUNG_OPERATORS:
+        raise ValueError(f"no such rung: {rung} (only rung(s) {sorted(RUNG_OPERATORS)} exist so far)")
     digits = [str(d) for d in range(10)]
     programs = []
     for a in digits:
         programs.append((f"len1_{a}", f"\tOUTPUT = {a}\nEND\n"))
-    for op in ("+",):
+    for op in RUNG_OPERATORS[rung]:
         for a in digits:
             for b in digits:
                 programs.append((f"len2_{a}_{op_name(op)}_{b}", f"\tOUTPUT = {a} {op} {b}\nEND\n"))
