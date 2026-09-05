@@ -113,7 +113,7 @@ static const char * sno_expr_collect_wn(const tree_t * expr) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_binop_code(tree_e tt) {
     switch (tt) {
-    case TT_ADD: return 0; case TT_SUB: return 1; case TT_MUL: return 2; case TT_DIV: return 3; case TT_POW: return 18; case TT_SEQ: return 11; case TT_CAT: return 11;
+    case TT_ADD: return 0; case TT_SUB: return 1; case TT_MUL: return 2; case TT_DIV: return 3; case TT_POW: return (int)BINOP_POW_PROMOTE; case TT_SEQ: return 11; case TT_CAT: return 11;
     default: return -1; }
 }
 static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
@@ -707,7 +707,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             case TK_AUGSTAR:  code = 2;  break;
             case TK_AUGSLASH: code = 3;  break;
             case TK_AUGMOD:   code = 4;  break;
-            case TK_AUGPOW:   code = 18; break;
+            case TK_AUGPOW:   code = (int)BINOP_POW_PROMOTE; break;
             default: sno_fatal("TT_AUGOP operator outside the landed subset", NULL); code = 0;
         }
         sno_reg_var(L->v.sval);

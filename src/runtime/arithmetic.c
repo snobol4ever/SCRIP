@@ -34,6 +34,7 @@ void rk_op_canon_base_c(const char *cat, const char *op, char *outbuf, int n) { 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_binop_opstr(int op) {
     switch (op) { case BINOP_ADD: return "+"; case BINOP_SUB: return "-"; case BINOP_MUL: return "*"; case BINOP_DIV: return "/"; case BINOP_MOD: return "%"; case BINOP_POW: return "**";
+                  case BINOP_POW_PROMOTE: return "**";
                   case BINOP_LT: return "<"; case BINOP_LE: return "<="; case BINOP_GT: return ">"; case BINOP_GE: return ">="; case BINOP_EQ: return "=="; case BINOP_NE: return "!=";
                   case BINOP_CONCAT: return "~"; case BINOP_SEQ: return "eq"; case BINOP_SNE: return "ne"; case BINOP_SLT: return "lt";
                   case BINOP_SLE: return "le"; case BINOP_SGT: return "gt"; case BINOP_SGE: return "ge"; default: return (const char *)0; }
@@ -195,6 +196,12 @@ static DESCR_t rt_ipow_descr(int64_t li, int64_t ri) {
     return INTVAL(0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rt_ipow_promote_descr(int64_t li, int64_t ri) {
+    if (ri >= 0) { int64_t acc = 1; for (int64_t k = 0; k < ri; k++) acc *= li; return INTVAL(acc); }
+    if (li == 0) return REALVAL(0.0);
+    return REALVAL(pow((double)li, (double)ri));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int operand_is_real_str(DESCR_t v) {
     if (!IS_STR_fn(v) || !v.s) return 0;
     const char *s = v.s; while (*s == ' ') s++; if (!*s) return 0;
@@ -244,6 +251,7 @@ RT_BINOP_ENTRY(rt_div,    BINOP_DIV,    if (b.i == 0) { core_runtime_error(2, "d
 RT_BINOP_ENTRY(rt_mod,    BINOP_MOD,    if (b.i == 0) { core_runtime_error(2, NULL); return FAILDESCR; } if (b.i != -1) return INTVAL(a.i % b.i);)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_BINOP_ENTRY(rt_pow,    BINOP_POW,    )
+RT_BINOP_ENTRY(rt_powreal, BINOP_POW_PROMOTE, )
 RT_BINOP_ENTRY(rt_cunion, BINOP_CUNION, )
 RT_BINOP_ENTRY(rt_cdiff,  BINOP_CDIFF,  )
 RT_BINOP_ENTRY(rt_cinter, BINOP_CINTER, )
@@ -263,6 +271,7 @@ static DESCR_t rt_num_arith_impl(DESCR_t a, DESCR_t b, int op) {
         case BINOP_DIV: if (anyf) return (rd == 0.0) ? FAILDESCR : REALVAL(ld / rd); if (ri == 0) return FAILDESCR; return INTVAL(li / ri);
         case BINOP_MOD: if (anyf) return (rd == 0.0) ? FAILDESCR : REALVAL(fmod(ld, rd)); if (ri == 0) return FAILDESCR; return INTVAL(li % ri);
         case BINOP_POW: return anyf ? REALVAL(pow(ld, rd)) : rt_ipow_descr(li, ri);
+        case BINOP_POW_PROMOTE: return anyf ? REALVAL(pow(ld, rd)) : rt_ipow_promote_descr(li, ri);
         case BINOP_CUNION: case BINOP_CDIFF: case BINOP_CINTER: {
             extern const char *icon_real_str(double r, char *buf, int bufsz);
             char _ab[64], _bb[64]; const char *as, *bs;

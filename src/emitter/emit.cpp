@@ -915,7 +915,7 @@ static int binop_operand_real_static(IR_graph_t *g, IR_t *o, int depth) {
 int binop_is_num_real(IR_graph_t *g, IR_t *nd) {
     if (!nd) return 0;
     int64_t op = IR_LIT(nd).ival;
-    if (op == BINOP_POW) return 1;
+    if (op == BINOP_POW || op == BINOP_POW_PROMOTE) return 1;
     int is_num = (op == BINOP_ADD || op == BINOP_SUB || op == BINOP_MUL || op == BINOP_DIV || op == BINOP_MOD || (op >= BINOP_LT && op <= BINOP_NE));
     if (!is_num) return 0;
     g_bnr_vn = 0; g_bnr_vnn = 0;

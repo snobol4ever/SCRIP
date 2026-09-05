@@ -15,6 +15,7 @@ DESCR_t rt_mul(DESCR_t a, DESCR_t b);
 DESCR_t rt_div(DESCR_t a, DESCR_t b);
 DESCR_t rt_mod(DESCR_t a, DESCR_t b);
 DESCR_t rt_pow(DESCR_t a, DESCR_t b);
+DESCR_t rt_powreal(DESCR_t a, DESCR_t b);
 DESCR_t rt_cunion(DESCR_t a, DESCR_t b);
 DESCR_t rt_cdiff(DESCR_t a, DESCR_t b);
 DESCR_t rt_cinter(DESCR_t a, DESCR_t b);
@@ -31,6 +32,7 @@ static inline void * rtop_addr(long long op) {
         case BINOP_DIV:    return (void*)rt_div;
         case BINOP_MOD:    return (void*)rt_mod;
         case BINOP_POW:    return (void*)rt_pow;
+        case BINOP_POW_PROMOTE: return (void*)rt_powreal;
         case BINOP_CUNION: return (void*)rt_cunion;
         case BINOP_CDIFF:  return (void*)rt_cdiff;
         case BINOP_CINTER: return (void*)rt_cinter;
@@ -46,6 +48,7 @@ static inline const char * rtop_name(long long op) {
         case BINOP_DIV:    return "rt_div";
         case BINOP_MOD:    return "rt_mod";
         case BINOP_POW:    return "rt_pow";
+        case BINOP_POW_PROMOTE: return "rt_powreal";
         case BINOP_CUNION: return "rt_cunion";
         case BINOP_CDIFF:  return "rt_cdiff";
         case BINOP_CINTER: return "rt_cinter";

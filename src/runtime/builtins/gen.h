@@ -14,6 +14,7 @@ typedef enum {
     BINOP_EQV, BINOP_NEQV,
     BINOP_XREP,
     BINOP_CONCAT_FRACDIGIT,
+    BINOP_POW_PROMOTE,
 } BinopKind;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int binop_is_concat(long op) { return op == BINOP_CONCAT || op == BINOP_CONCAT_FRACDIGIT; }
