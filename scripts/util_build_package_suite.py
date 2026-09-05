@@ -19,7 +19,8 @@ defects this container exists to surface. The oracle's own answer is the ref, fu
 agreement or disagreement with it is what grading measures, not a precondition for measuring at all.
 
 Six ways a shipped program is excluded rather than absorbed, each named by reason in ALL.excluded.txt:
-  1. a `-INCLUDE "X"` naming a file not vendored beside it (a corpus completeness gap, not gradable here)
+  1. a `-INCLUDE "X"` naming a file not vendored beside it, in the package dir or the source's own dir (a
+     corpus completeness gap, not gradable here -- the exclusion reason names the dirs it searched, never "anywhere")
   2. the oracle itself cannot produce ground truth: crashes (signal), hangs past the timeout, or dies
      gracefully (SPITBOL's own "ERROR nnn -- ... / in statement N" fatal-report shape, ported from
      test_snobol4_aisnobol_suite.sh's sbl_died(), already measured correct on this exact package)
@@ -108,15 +109,33 @@ def has_bom(src_text):
 _INCLUDE_RE = re.compile(r"-INCLUDE\s+['\"]([^'\"]+)['\"]")
 
 
-def find_include_gap(src_text, pkg_dir):
-    """The -INCLUDE target this source names, if it names one AND that target is not vendored beside
-    it -- else None. Mirrors test_snobol4_aisnobol_suite.sh's own check (already measured: SNOCORE.sno
-    exists nowhere in corpus or /home/resources)."""
-    mo = _INCLUDE_RE.search(src_text)
-    if not mo:
-        return None
-    inc = mo.group(1)
-    return None if (pkg_dir / inc).is_file() else inc
+def find_include_gap(src_text, pkg_dir, src_dir=None):
+    """The first -INCLUDE target this source names that resolves in NONE of the dirs searched, and the dirs that
+    were searched. -> (name_or_None, [dirs]).
+    ⛔⭐ THE RECORDED REASON USED TO OVERCLAIM, AND THE OVERCLAIM IS THE DEFECT (hq_T 2026-09-05, measured on the
+    exclusions this function itself wrote). It searched ONE directory and the caller wrote "not vendored anywhere in
+    corpus" into ALL.excluded.txt -- a sentence nobody had measured. Of the 8 exclusions on record, 3 are false by
+    that sentence's own claim: `-INCLUDE '../modules/ndbm/ndbm.sno'` and `'../modules/time/time.sno'` name files that
+    ARE vendored, as packages/snobol4/csnobol4_suite/{ndbm,time}.sno -- the vendored layout flattened the module
+    tree and the sources kept naming the original path. A reason is evidence a later reader acts on; one that states
+    a wider search than was performed sends them to look for a file they already have.
+    ⛔ AND IT READ ONLY THE FIRST -INCLUDE (`.search`, not `.findall`), so a source whose first include resolved and
+    whose second did not was absorbed and graded WITHOUT the second -- the same silent missing-dependency class this
+    tool exists to keep out of a package suite.
+    ⭐ src_dir is the SOURCE FILE'S OWN directory, which is pkg_dir only when the package is flat: build() globs
+    `*/*{ext}` too, so a nested source's companion sitting beside it was reported as a gap while being right there."""
+    dirs = list(dict.fromkeys([d for d in (src_dir, pkg_dir) if d is not None]))
+    for inc in _INCLUDE_RE.findall(src_text):
+        # ⛔⭐ THE STRIPPED FORM COUNTS AS VENDORED, AND THIS IS NOT LENIENCY (measured on csnobol4_suite/line.sno and
+        # include.sno, which the findall widening above newly caught). Both name `-INCLUDE "line2.sno "` WITH A
+        # TRAILING SPACE, beside `-INCLUDE "line2.sno"` without one -- they are csnobol4's own tests OF include-name
+        # handling, and line2.sno is vendored right there. This function answers ONE question: is the dependency in
+        # the corpus. Whether the compiler trims the name is the very thing those programs test, and their .ref
+        # records whichever answer the oracle gives -- so excluding them would drop the two entries that grade the
+        # behaviour, on the grounds that they grade it.
+        if not any((d / inc).is_file() or (d / inc.strip()).is_file() for d in dirs):
+            return inc, dirs
+    return None, dirs
 
 
 _END_LINE_RE = re.compile(r"^END(?:[ \t]|$)")
@@ -213,9 +232,12 @@ def build(pkg_dir, lang, out_prefix="ALL"):
                                         "itself grows byte-faithful output (shared machinery, out of this tool's lane)"))
             print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (non-UTF-8 8-bit source)", file=sys.stderr)
             continue
-        gap = find_include_gap(text, pkg_dir)
+        gap, gap_dirs = find_include_gap(text, pkg_dir, src.parent)
         if gap:
-            excluded.append((name, f"missing corpus dependency: -INCLUDE {gap!r} not vendored anywhere in corpus"))
+            _where = ", ".join(str(d) for d in gap_dirs)
+            excluded.append((name, f"missing corpus dependency: -INCLUDE {gap!r} resolves in none of {_where} "
+                                        f"(searched exactly those dirs -- this reason names its own search, so a file "
+                                        f"that IS vendored elsewhere under another path reads as what it is)"))
             print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (missing -INCLUDE {gap!r})", file=sys.stderr)
             continue
         if lang in ("", "snobol4") and has_bom(text):

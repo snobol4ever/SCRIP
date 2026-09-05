@@ -2223,6 +2223,50 @@ def main():
         _stale = os.path.join(OUTDIR, cf)
         if os.path.isfile(_stale) and os.path.abspath(_stale) != os.path.abspath(srcf):
             os.remove(_stale)
+    # ⛔⭐⭐ AND THEN THE CLOSURE THE ENTRIES THEMSELVES NAME, WHICH THE LOOP ABOVE STRUCTURALLY CANNOT SEE
+    # (hq_T 2026-09-05; FINDING-2026-09-05-hq_T-companions-live-outside-the-master-directory-so-26-of-31-entries-
+    # cannot-resolve-them.md, ceo routed the instrument half here). The copy above rides along with an ABSORPTION:
+    # it takes the files sitting in the absorbed family's OWN directory at the moment it is absorbed. Two whole
+    # classes escape that, and both were live in the snobol4 master:
+    #   · an entry whose companion never lived beside it -- `-INCLUDE 'global.inc'` naming corpus/include/global.inc,
+    #     the shared include tree the beauty-suite drivers were written against (their headers still say -Idemo/inc);
+    #   · EVERY entry already in the master on a rebuild that absorbs nothing -- `companion_copies` is empty then, so
+    #     a gap that exists today is never repaired by any number of future rebuilds.
+    # MEASURED: 25 companions, 26 entries graded against dependencies that were not there. ⭐ And it never announced
+    # itself -- a missing include is not a special error, the entry just fails and the diff reads as a semantic
+    # divergence in SCRIP. Two lanes reached "SCRIP is wrong" from this class in one day.
+    # ⭐ WHY HERE AND NOT IN THE GRADER: the grader's isolation -- an entry sees exactly the files the corpus put
+    # beside it -- is what makes a board reproducible. Teaching it to reach back into corpus/include/ at run time
+    # would buy the same files at the price of that property. So the closure is resolved at BUILD time against a
+    # DECLARED path (tests/<lang>/config/COMPANION_PATH) and materialized where the grader already looks.
+    # ⛔ NEVER A CORPUS-WIDE BASENAME SCAN: `VBGinTASA.dat` names three different files in this corpus and one of
+    # them is another language's (md5 48c78061 vs 98e80802). lib_companion_closure REFUSES an ambiguous basename
+    # rather than picking by walk order; here that refusal is printed and the file is left alone -- the master is
+    # already committed above, and a bookkeeping copy must never be able to undo a validated write.
+    try:
+        sys.path.insert(0, HERE)
+        import lib_companion_closure as _lcc
+        _clo = _lcc.closure(["\n".join(e.sno_lines) for e in all_entries], OUTDIR, os.path.join(S4E, "corpus"))
+        for _n, _a, _b in _clo["ambiguous"]:
+            print("⛔ COMPANION AMBIGUOUS, NOT COPIED: %s resolves to %s and %s (different content) -- declare a "
+                  "narrower dir in config/%s" % (_n, _a, _b, _lcc.PATH_DECL_BASENAME), file=sys.stderr)
+        if _clo["materializable"]:
+            os.makedirs(_cfg, exist_ok=True)
+            for _n, _src in sorted(_clo["materializable"].items()):
+                _dst = os.path.join(_cfg, _n)
+                os.makedirs(os.path.dirname(_dst) or _cfg, exist_ok=True)
+                shutil.copy2(_src, _dst)
+            print("COMPANION CLOSURE: materialized %d file(s) into %s/config -> %s"
+                  % (len(_clo["materializable"]), os.path.relpath(OUTDIR, S4E), ", ".join(sorted(_clo["materializable"]))),
+                  file=sys.stderr)
+        else:
+            print("COMPANION CLOSURE: %d name(s) named, all already reachable beside the master (%d unresolvable -- see "
+                  "util_master_companion_closure.py --lang %s for the list)"
+                  % (len(_clo["reachable"]), len(_clo["unresolvable"]), lang), file=sys.stderr)
+    except Exception as _e:   # ⛔ LOUD, NEVER FATAL: the master pair is committed above and is correct; a companion
+        # bookkeeping failure must not make a good build look like a failed one. The gate
+        # (test_gate_master_companions_resolve.sh) is what turns an unrepaired gap red.
+        print("⛔ COMPANION CLOSURE FAILED (the master itself is written and valid): %r" % (_e,), file=sys.stderr)
     # ⛔⭐ SEPARATE "ALREADY PRESENT" FROM "CANNOT ABSORB" (hq_P, 2026-08-30, on the dedupe landing; the
     # confusing case measured by hq_B on rebus). After dedupe, an idempotent no-op rebuild records every
     # already-absorbed family as an exclusion -- so it printed "48 entries from 0 FAMILIES" with
