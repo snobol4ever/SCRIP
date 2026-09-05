@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_prolog_entrypoint_ruling.sh — the executable DONE-WHEN for postoffice row
 # `prolog-scrip-auto-invokes-main-without-initialization-directive` (hq_C ruling, 2026-08-29).
 #

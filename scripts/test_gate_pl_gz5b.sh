@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_pl_gz5b.sh — PL-GZ-5b gate: ζ-TREE child frames + RECURSION on the Proebsting-pure path.
 # Each call SITE owns a child-frame pointer slot in the CALLER's frame (the seed's `&ζ->p2_ζ`);
 # `rt_enter(slot,nslots)` = reuse-or-alloc; register protocol mirrors the seed's print form

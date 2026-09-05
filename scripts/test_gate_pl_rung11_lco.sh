@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_pl_rung11_lco.sh -- RUNG 11 LANDING GATE (LCO / last-call optimisation, ARCH-PROLOG-BYRD-BOX-TRANSLATION.md
 # sec B.18; task prolog-rung-11-last-call-optimisation-lco). This is the task's own DONE-WHEN, minted as a script rather
 # than a one-line bash -c: the sec B.18 depth criterion needs two witness programs and an RSS comparison, which does not

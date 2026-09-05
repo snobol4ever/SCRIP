@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_pl_gz6b.sh — PL-GZ-6b gate: QUERY-PREFIX SOFT-DISJ (two-segment query frame). Admission
 # extends gz4's (G ; true) whole-query soft-disj to: disj at goals[0] of a LONGER query conj,
 # RESTRICTED to arm0 ending in IR_FAIL (fail-driven — arm0 never succeeds, so no arm0-success wiring

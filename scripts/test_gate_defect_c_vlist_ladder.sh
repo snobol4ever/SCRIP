@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # ⭐⭐ DEFECT-C ACCEPTANCE GATE — the vlist_select ladder, graded so a LUCKY DRAW CANNOT PASS IT.
 # Row `defect-c-zop-flat-regime-depth-compensate` (hq_P). Written hq_P 2026-08-27 s276.
 #

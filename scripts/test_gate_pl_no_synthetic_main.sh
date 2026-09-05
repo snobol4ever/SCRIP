@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_pl_no_synthetic_main.sh -- SCRIP RUNS WHAT THE ORACLE RUNS, AND SYNTHESIZES NOTHING.
 # Row prolog-directive-less-entries-run-main-but-the-oracle-does-not (ceo ruling 2026-09-02 19:55, CEO-152).
 #

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # JSON-FENCE-JSTRBODY-CAS GATE -- row fence-jstrbody-cas item 1 (FENCE after jkey/jstring's closing quote,
 # corpus/demos/snobol4/json/{json.sno,json-match-fence.sno}), graded on its own real DONE-WHEN target:
 # the full 1.7MB corpus/demos/snobol4/json/citm_catalog.json, both files, both modes, byte-identical to the

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # scripts/test_gate_em_beauty_subsystems_mode4.sh — EM-7d-prep gate:
 # every *_driver.sno in corpus/tests/snobol4/beauty_suite/, under
 #   --compile    (mode 4: emit .s, link to libscrip_rt.so, run binary)

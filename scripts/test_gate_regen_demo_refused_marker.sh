@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_regen_demo_refused_marker.sh -- THE ACCEPTANCE GATE for the demo regen's construct-ladder REFUSED arm.
 #
 # WHAT IT PROVES, hermetically, in BOTH directions on one tree (the row's DONE-WHEN):

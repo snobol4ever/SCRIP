@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # scripts/test_gate_icn_rbp_census_ratchet.sh -- ICN-FB-0 (GOAL-ICON-BB.md).
 #
 # THE ICON rbp INSTRUMENT.  Gates the ICN-FB ladder: Lon's s204 directive is that every Icon

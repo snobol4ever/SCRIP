@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_icn_zk5_gva.sh — ZK-5 GATE: globals_on_stack=0 on the cells arm
 # CHARTER: IR_VAR/IR_ASSIGN nodes with a global name must NEVER appear armed (zd_on=1)
 # on the FORTH-spine ZD regime.  Globals are process-lifetime storage (GVA/NV), not

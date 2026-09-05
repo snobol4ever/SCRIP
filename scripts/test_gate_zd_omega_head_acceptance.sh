@@ -1,4 +1,6 @@
 #!/bin/bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_zd_omega_head_acceptance.sh — acceptance gate for the row
 # zd-omega-head-per-op-filter-one-cause-behind-boolptr-boolidx-and-the-spine-leaks
 # (postoffice task: zd-omega-head-per-op-filter-one-cause-behind-boolptr-boolidx-and-the-spine-leaks.task.md)

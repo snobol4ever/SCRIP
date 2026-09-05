@@ -1,4 +1,6 @@
 #!/bin/bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_me6_reentry_hazard.sh — ME-6b gate
 #
 # Validates that SM_DEFINE_ENTRY does NOT re-push rbp when a user-function

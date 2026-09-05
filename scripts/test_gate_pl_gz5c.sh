@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_pl_gz5c.sh — PL-GZ-5c gate: MULTI-CLAUSE rule predicates (the seed's path/2) on the
 # Proebsting-pure path. Callee-level choice over rule clauses: ONE frame holds [args | per-clause
 # locals+synth | child slots]; mark at [ζ+0], 1-based cursor at [ζ+4] (the seed's ζ->i, init at α);

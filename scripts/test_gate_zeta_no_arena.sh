@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_zeta_no_arena.sh — RUNG ZS completion gate (GOAL-SNOBOL4-BB.md, Lon directive 2026-07-14 s57).
 # PASS iff ZERO arena zeta events across the set: ZLS2 pushes == 0 (main frame, ZS-1) AND
 # ZLS v1 allocs == 0 (DEFER blocks, ZS-2). Mode-3; the runtime .so is shared, so m4 rides the same sinks.

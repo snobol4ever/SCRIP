@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_scrip_polyglot_demo_icon_semicolon.sh -- DONE-WHEN for scrip-polyglot-demo-icon-semicolon-5-files.
 # The five named polyglot demos, broken by the Icon-section's newline-terminated statements
 # (SCRIP's Icon frontend requires semicolons -- same root cause class as icon-ipl-corpus-

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_pl_quad_regs.sh -- THE QUAD GATE: no r12-r15 write reachable from a Prolog graph outside the TR/B/ROOT/BALL helpers,
 # in emitted mode-4 .s and in the rtx asm it reaches (ARCH-PROLOG-BYRD-BOX-TRANSLATION.md § E instrument lane; RULES.md § THE
 # PROLOG REBUILD GATE clause 5 -- the instrument lane never touches src/; minted by hq_P 2026-09-02, row

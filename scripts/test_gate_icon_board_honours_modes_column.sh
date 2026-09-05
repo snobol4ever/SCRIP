@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_icon_board_honours_modes_column.sh -- THE BOARD GRADES EACH ENTRY THE WAY ITS modes COLUMN SAYS.
 # Row board-icon-master-runs-the-ast-graded-parser-fixtures-and-counts-their-inevitable-reds (ceo mint 2026-09-03).
 #

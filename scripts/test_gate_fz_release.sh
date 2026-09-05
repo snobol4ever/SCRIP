@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # scripts/test_gate_fz_release.sh
 # FZ (FENCE0 SELECTIVE RELEASE) GATE -- two independent locks over corpus/probe/fz.
 #   LOCK 1 (verdict): every witness, DISARMED (SCRIP_FENCE0_WHACK=0), m3 and m4, byte-equal to its

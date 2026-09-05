@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_icn_port_trace.sh -- THE ICON PORT-TRACE INSTRUMENT (GOAL-TEST-SUITE-CONSISTENCY.md item 6;
 # row icon-port-trace-gate-against-ampersand-trace, ceo mint 2026-09-03T21:09:11Z). Shape copied from
 # test_gate_pl_port_trace.sh per the task brief; two things differ on purpose, both explained below.

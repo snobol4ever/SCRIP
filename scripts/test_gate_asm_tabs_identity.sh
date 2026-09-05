@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_asm_tabs_identity.sh — TAB-COLUMN REFACTOR GATE (GOAL-RBP-EARN, Lon directive s62b).
 # The TAB record format is a REPRESENTATION change, never an OUTPUT change: the .s bytes the sink
 # writes must be IDENTICAL with SCRIP_ASM_TABS=1 (records carry TAB-delimited fields) and

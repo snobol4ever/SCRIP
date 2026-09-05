@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_port_exit_value_contract.sh — THE PORT-EXIT VALUE CONTRACT gate.
 # Row: port-exit-value-contract-untagged-rax-forges-dt-fail (hq_P-owned; class triaged by hq_C from
 # seat09's Pascal root-cause).  Built by seat02 2026-09-01 as that row's CENSUS+GATE rung.

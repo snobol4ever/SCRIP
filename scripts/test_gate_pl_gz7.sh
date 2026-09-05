@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # GATE PL-GZ-7 (ITE-commit canon, m2 oracle to paper §4.5 / SWI C_LCUT).
 # Pins the LANDED half of PL-GZ-7: the m2 oracle now commits the condition of (Cond -> Then ; Else)
 # at first success (IR_ITE marks the CP ledger at entry; IR_ITE_COMMIT on cond.γ truncates the

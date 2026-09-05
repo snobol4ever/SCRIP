@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # JSON-FENCE0 GATE -- bare FENCE0 stack-release regression (FINDING-2026-08-23-seat04-json-fence0-static-release-cant-see-past-alternation-unbounded-stack-leak.md).
 # Guards the unbounded C-stack leak cured at SCRIP a42571b7 (bare FENCE0 in blob scope restores rsp to
 # the blob activation floor at commit -- killswitch SCRIP_FENCE0_DYNAMIC, default ON). Before the fix,

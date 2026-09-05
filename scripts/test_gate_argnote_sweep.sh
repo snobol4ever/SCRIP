@@ -1,4 +1,6 @@
 #!/bin/bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_argnote_sweep.sh -- OBJ-NOTE ON-3 ARG-NOTE gate.  Compiles the SNOBOL4 corpus in mode-4 and asserts
 # the three annotation invariants the ladder names: (1) ZERO stray '#@' markers survive into a .s -- an unfolded
 # marker means the fold missed a chunk boundary; (2) ZERO notes on jump lines -- the GOTO column belongs to the

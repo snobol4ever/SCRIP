@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # BP-9 (ii) trivial-β registry gate: emits the 16-bench snobol4 corpus fresh and verifies every
 # driver-registered op's β body is exactly [add rsp,K]* jmp (analyze_jump_redundancy.py --gate).
 # Backs flat_trivial_beta (src/emitter/emit.cpp); run after any match-template or hook edit.

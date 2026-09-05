@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_pl_gz6.sh — PL-GZ-6 gate: lexical cut as PURE WIRING (the seed's firstpath/1 law). The
 # cut box body is the det four-port shape (α falls to γ; def β; jmp ω) IDENTICAL to a vacuous-success
 # unify — the ONLY difference is driver-side: gz_emit_callee wires the cut's ω to the callee fail

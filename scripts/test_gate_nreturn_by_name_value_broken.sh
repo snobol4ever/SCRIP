@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_nreturn_by_name_value_broken.sh -- computed DONE-WHEN for nreturn-by-name-value-broken.
 # RE-POINTED 2026-08-27 (seat02 session 2) per hq_C's own recommendation on this row: the original two
 # witnesses ($mk()='stored' and n07_nreturn.sno) are both malformed or misread relative to the SPITBOL

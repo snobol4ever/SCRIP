@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # ZB-VAL-8b GATE (s182, closes s181 FINDING-2026-07-26f HEADLINE 6 "THE FALLBACK IS SILENT").
 #
 # THE HAZARD: x86_fc_hit(off) returns false when a GRANTED box's flat offset falls outside its own

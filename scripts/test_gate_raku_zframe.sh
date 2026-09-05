@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_raku_zframe.sh — RK-ZC-8: Raku ζ-frame regime pin gate.
 #
 # DOCTRINE: lower_raku.c sets zframe_graph=1 on every Raku IR graph (RK-ZC-2, mirrors ICN-FR-2).

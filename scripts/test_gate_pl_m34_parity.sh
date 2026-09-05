@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_pl_m34_parity.sh — M34-3: verify m3 (--run) and m4 (--compile x86) take identical paths.
 # PASS   : both produce matching output (correct or wrong — they agree).
 # REFUSED: both abort (m3 SIGABRT rc=134, m4 link/asm/emit fails rc!=0). Not a failure.

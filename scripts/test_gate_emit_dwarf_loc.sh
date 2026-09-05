@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_emit_dwarf_loc.sh -- DONE-WHEN for task perf-per-statement-loc-emission (slice 2 of
 # perf-symbol-attribution-tooling). Per-statement DWARF .file/.loc in TEXT medium, ON BY DEFAULT.
 # ⛔ POLARITY INVERTED 2026-08-28 (hq_P): this gate previously asserted the feature was OPT-IN

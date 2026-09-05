@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_diag_regs_survive.sh — DIAG-REGS SURVIVAL GATE (row diag-regs-telemetry-can-lie).
 #
 # r10/r11 carry write-only crash telemetry (r10 = SNOBOL4 statement number, r11 = BB node id,

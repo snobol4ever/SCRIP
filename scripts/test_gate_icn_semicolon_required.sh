@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_icn_semicolon_required.sh — THE PRISON for the ICON SEMICOLON-REQUIRED FACT RULE.
 #
 # SCRIP Icon REQUIRES an explicit ';' between bare statements. The Icon front-end does NO newline

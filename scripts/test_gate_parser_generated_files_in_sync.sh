@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_parser_generated_files_in_sync.sh -- every committed bison/flex output matches a fresh regeneration from its .y/.l source.
 # hq_T 2026-09-04, row parser-sources-and-generated-files-in-sync-gate-in-make-test (minted by ceo).
 #

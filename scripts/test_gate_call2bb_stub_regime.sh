@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_call2bb_stub_regime.sh — CALL2BB slice 3a executable witness (s21x-h, SCRIP 126645fc).
 # Proves: under SCRIP_STMT_FRAME=1 + SCRIP_CALL2BB=1 a DEFINE stub blob rides the statement regime
 # (proc_DOUBLE_α carves exactly 48 = 32B wire header + slot0, no whole-graph carve), the default path

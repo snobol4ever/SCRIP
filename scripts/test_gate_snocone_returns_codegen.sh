@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_snocone_returns_codegen.sh -- computed DONE-WHEN for the snocone-returns-codegen row.
 # NARROWED 2026-08-27 per hq_C ruling `ruling-narrow-the-donewhen-keep-the-row-open` (seat02 session 7):
 # checks only bugs #1/#2/#3 (mode-3 Error 22, CLASS-C argument marshalling, `nreturn` codegen

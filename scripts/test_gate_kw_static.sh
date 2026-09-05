@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_kw_static.sh — KW-STATIC gate (GOAL-SNOBOL4-100 D-3, rungs KW-1..KW-4)
 #
 # Runs corpus/probe/kw/ in BOTH modes against the live-oracle .ref files.

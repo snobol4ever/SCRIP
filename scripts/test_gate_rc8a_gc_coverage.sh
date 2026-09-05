@@ -1,4 +1,6 @@
 #!/bin/bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_rc8a_gc_coverage.sh — RC-8a / GOAL-SN4-HOME-RBX X-1.
 # ASSERTS, at a real collection: (1) the RTCC block is RANGE-registered, not merely pinned; (2) the CAS
 # capture-pending island is walked when it is occupied. SELF-ARMING per the RBX GATES line: the CAS arm is

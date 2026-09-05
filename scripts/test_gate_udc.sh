@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # CN-4 GATE -- &USER_DECLARED_CONSTANTS (GOAL-SNOBOL4-100).
 # Proves the declaration keyword in BOTH MEDIA (m3 --run BINARY, m4 --compile+gcc TEXT) and BOTH KW killswitch arms.
 # ORACLE NOTE: every witness here is ORACLE_FAIL BY CONSTRUCTION -- stock SPITBOL answers error 251 for

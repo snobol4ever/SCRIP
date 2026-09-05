@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_end_only_program.sh -- floor-case regression gate for row end-only-program-aborts.
 #
 # THE INVARIANT: the smallest legal SNOBOL4 program -- a bare `END` statement, 4 bytes,

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_ir_tmp_slots.sh — GROUND ZERO #5 (GOAL-IR-IMMUTABLE-EMIT) B0 keystone lock.
 # Pins the JCON ir_Tmp contract that ir_tmp_slot_assign() establishes in LOWER: every value-PRODUCING
 # node carries a result slot and every control node does NOT. Checks STRUCTURE, not exact offsets.

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_icn_scan_argtype.sh -- THE INVARIANT GATE for the Icon builtin argument-type class on the
 # SCAN-NODE route: inside a scanning expression, `any many upto bal find match tab move` must RAISE the
 # oracle's own error and abort on a wrong-type argument, and must CONVERT-AND-SUCCEED on a right-type-

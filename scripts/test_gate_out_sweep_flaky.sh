@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_out_sweep_flaky.sh — NEGATIVE TEST for util_out_sweep.sh face (c), the intermittent-crash false mover.
 #   bash scripts/test_gate_out_sweep_flaky.sh          (no args; ~10s; needs ./scrip built)
 # ⛔ WHY BY INJECTION AND NOT BY THE LIVE WITNESS.  The natural witness is `141_pat_eval_double_fn_arbno` (seat1

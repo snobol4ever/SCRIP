@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # CN-13 CONST-GRAPH GATE -- the MARGINAL EMITTED-ASM COST OF ONE MORE USE SITE of a declared constant pattern.
 #
 # ⛔ WHY THIS GATE EXISTS BEFORE THE CODE DOES.  CN-13's whole claim is a COUNT IN THE EMITTED ASM ("one graph +

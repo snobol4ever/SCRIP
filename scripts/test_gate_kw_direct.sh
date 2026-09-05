@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_kw_direct.sh — KW-D gate: keyword READS are direct cell loads, not runtime calls
 # (GOAL-SNOBOL4-100 line 510, Lon verbatim: "place all the keywords as statics ... use direct references").
 #

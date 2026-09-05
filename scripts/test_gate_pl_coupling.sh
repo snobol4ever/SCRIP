@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_pl_coupling.sh — PL-GZ-1 coupling gate (GOAL-PROLOG-BB, Prolog Ground Zero rung 1).
 # Counts CONTROL-coupling call sites emitted by Prolog BB templates and in a representative emitted .s.
 # The control-symbol set is NORMATIVE per the GOAL PL-GZ-1 text:

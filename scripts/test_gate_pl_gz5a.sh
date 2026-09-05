@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_pl_gz5a.sh — PL-GZ-5a gate: user-predicate CALLS on the Proebsting-pure path — the
 # first rung of conj+recursion (PL-GZ-5). The callee entry labels reach the call box as two new
 # port fills (δ = callee α, ε = callee β) alongside γ/ω/β: the seed's call IS a port edge to

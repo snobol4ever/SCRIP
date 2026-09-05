@@ -22,7 +22,15 @@
 # 8 a vendor runner · 9 the CENSUS with a printed denominator, so a NEW grader added without the preflight is
 # caught by this gate rather than by the next false board · 10 the one-copy invariant · 11 no skip-as-success ·
 # 12 the PROBE contract (SCRIP_STALE_PROBE_SRC, the ceo's DONE-WHEN shape) · 13 the deliberate stale run is LOUD
-# (SCRIP_ALLOW_STALE=1, banner on both streams, never for a MISSING artifact) · 14 and RECORDED (no SCORE.md write).
+# (SCRIP_ALLOW_STALE=1, banner on both streams, never for a MISSING artifact) · 14 and RECORDED (no SCORE.md write)
+# · 15 a SECOND census, widened past ARM 9's suite runners to every test_gate_* THAT ITSELF EXECUTES ./scrip
+# (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_P -> ceo -> hq_T
+# 2026-09-05): hq_P's SETEXIT/ERRLIMIT resume gate was written the same day gate_require_fresh landed and did
+# not inherit it, graded whatever binary lay in the tree, and produced a plausible FULL-RED board -- ARM 9
+# would not have caught it, because a test_gate_* script is not a test_*_suite.sh runner and was never in that
+# census's glob. ARM 15 closes that gap the same way ARM 9 closed the runner one: printed denominator,
+# gates=<n> uncovered=<m>, so a NEW gate that executes ./scrip without the guard is caught here rather than by
+# the next false board.
 # EXIT: 0 all arms · 1 an arm failed · 2 REFUSED (could not measure -- a stale/unbuilt tree, or no corpus).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -179,6 +187,38 @@ else
     ck no "cannot prove arm 14: $SCORE absent"
 fi
 
+echo "--- ARM 15 (census #2, PRINTED DENOMINATOR): every test_gate_* that ITSELF EXECUTES ./scrip carries the guard ---"
+# Population: a call-shaped reference to the compiled binary -- a $SCRIP/$SCRIP_BIN-style variable actually
+# INVOKED as a command (not merely assigned, or tested with -x/-e/-f, or echoed into a message), OR an inline
+# $ROOT/scrip / $HERE/scrip invocation with no intermediate variable at all. Excludes this file itself and
+# util_require_fresh.sh -- neither one grades a program through a direct call, they orchestrate other graders.
+gates2=0; wired2=0; missing2=""
+for f in "$HERE"/test_gate_*.sh; do
+    body="$(grep -vE '^[[:space:]]*#' "$f")"
+    isg=0
+    if grep -qE '\$\{?SCRIP(_BIN)?\}?\b' <<<"$body"; then
+        while IFS= read -r ln; do
+            grep -qE '\$\{?SCRIP(_BIN)?\}?\s*=' <<<"$ln" && continue
+            grep -qE '\[\[?[[:space:]]+-[a-zA-Z][[:space:]]+"?\$\{?SCRIP(_BIN)?\}?"?' <<<"$ln" && continue
+            grep -qE '(echo|printf)[^$]*\$\{?SCRIP(_BIN)?\}?' <<<"$ln" && continue
+            grep -qE '\$\{?SCRIP(_BIN)?\}?\b' <<<"$ln" && { isg=1; break; }
+        done <<<"$body"
+    fi
+    [ "$isg" = 0 ] && grep -qE '"?\$(ROOT|HERE)"?/scrip\b' <<<"$body" && isg=1
+    [ "$isg" = 1 ] || continue
+    gates2=$((gates2+1))
+    if grep -qE 'gate_require_fresh|util_require_fresh\.sh' <<<"$body"; then
+        wired2=$((wired2+1))
+    else
+        missing2="$missing2 $(basename "$f")"
+    fi
+done
+echo "    gates=$gates2 wired=$wired2 uncovered=$((gates2-wired2))"
+[ "$gates2" -ge 50 ] && ck ok "census #2 floor: $gates2 scrip-executing test_gate_* examined" \
+                     || ck no "census #2 examined only $gates2 gate(s) -- population heuristic may have regressed"
+[ -z "$missing2" ] && ck ok "all $gates2 scrip-executing test_gate_* carry gate_require_fresh or the shim" \
+                   || ck no "gate(s) that execute ./scrip with NO freshness guard:$missing2"
+
 echo "------------------------------------------------------------"
 if [ "$fails" -ne 0 ]; then echo "⛔ GATE FAIL: $fails of $checks check(s) failed"; exit 1; fi
-echo "✅ GATE PASS: $checks/$checks checks (graders censused: $graders)"; exit 0
+echo "✅ GATE PASS: $checks/$checks checks (graders censused: $graders, gates censused: $gates2)"; exit 0

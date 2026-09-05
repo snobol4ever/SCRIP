@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # scripts/test_gate_icn_local_no_nv.sh — LVA-1 lock: Icon LOCALS stay ζ-SPINE cells (rsp-relative),
 # never the NV_* name-table hash. Only true GLOBALS (from 'global' decls) may use NV (mode-3) or the
 # GVA array on r9 (mode-4). This gate pins the already-correct split so a future change cannot

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_bb_label_no_silent_truncation.sh — THE PRISON for: A BB LABEL NAME IS NEVER SILENTLY TRUNCATED.
 #
 # THE INVARIANT: two distinct label names must never become one symbol. bb_label_t.name is a fixed

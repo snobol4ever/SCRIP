@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_polyglot_demos.sh -- DONE-WHEN for polyglot-scrip-demos-10-working.
 # Sweeps all 10 corpus/demos/scrip/demoNN/*.scrip polyglot demos in BOTH modes (m3 --run, m4
 # --compile) against their .expected files. Prints "m3 PASS=N" / "m4 PASS=N" lines (the

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_icn_global_no_nv_m3.sh — M3-ARENA-4: lock Icon mode-3 globals onto the [r9+k*16] GVA arena. (s230: base register is r9, the RC-5 claim — rbx is the heap frontier; the stale rbx grep was repaired this session, see d70fe6fc claimed-regs gate.)
 #
 # Behavioral output alone cannot catch an NV fallback (the NV path also returns the correct value), so this
