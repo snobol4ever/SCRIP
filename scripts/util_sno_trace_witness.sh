@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# util_sno_trace_witness.sh <witness.sno> "<a line the oracle must print>"   |   util_sno_trace_witness.sh <witness.sno> --expect-error NNN
+# ceo 2026-09-05 (GOAL-CEO CEO-282, Lon: "Add items to implement all the SNOBOL4 tracing"): grade ONE SNOBOL4 TRACE witness in BOTH
+# modes against SPITBOL -bf. Byte-exact (stdout+stderr merged) in the first form; in the second form the oracle and both SCRIP modes
+# must each print "ERROR NNN" (fatal listings carry a pathname and a time, so an error witness is never byte-compared).
+# rc 0 = both modes match · rc 1 = a mode differs or fails to build · rc 2 = could not measure (no witness, no build, oracle silent).
+# ORACLE: sbl_correctness_bin first; if it refuses the witness with SPITBOL's ERROR 199 ("trace second argument is not trace type" --
+# the fork's trace-dispatch defect, hq_B 2026-09-05, CEO-280/282) the ref is cut from sbl_clean_bin instead and this is PRINTED. The
+# fallback is moot the moment hq_B's fixed oracle lands. Trace witnesses never set &CASE, so the stock binary's folding no-op cannot
+# reach them. The "must print" argument is the oracle guard: an oracle that prints no trace line refuses rc=2, it never grades.
+set -u
+here=$(cd "$(dirname "$0")" && pwd); cd "$here/.." || exit 2
+. scripts/lib_oracle_flags.sh
+w="${1:?usage: $0 <witness.sno> \"<line the oracle must print>\" | --expect-error NNN}"; shift
+mode=exact; must=""; errno=""
+if [ "${1:-}" = "--expect-error" ]; then mode=error; errno="${2:?--expect-error needs a number}"; else must="${1:?a line the oracle must print}"; fi
+[ -f "$w" ] || { echo "REFUSED rc=2: no witness $w"; exit 2; }
+[ -x ./scrip ] && [ -f out/libscrip_rt.so ] || { echo "REFUSED rc=2: build first (make) -- no ./scrip or out/libscrip_rt.so"; exit 2; }
+O=$(sbl_correctness_bin) || { echo "REFUSED rc=2: no SPITBOL correctness oracle"; exit 2; }
+ref=$(timeout 8s "$O" -bf "$w" </dev/null 2>&1)
+if printf '%s\n' "$ref" | grep -q 'ERROR 199 -- trace second argument'; then
+  O2=$(sbl_clean_bin) || { echo "REFUSED rc=2: $O refuses TRACE types (ERROR 199) and no stock oracle is present"; exit 2; }
+  echo "NOTE: $O refuses TRACE types (ERROR 199, CEO-280/282); ref cut from the stock oracle $O2 instead"
+  O="$O2"; ref=$(timeout 8s "$O" -bf "$w" </dev/null 2>&1)
+fi
+T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
+m4build() { ./scrip --compile -o "$T/w.s" "$w" </dev/null >/dev/null 2>&1 && as -o "$T/w.o" "$T/w.s" 2>/dev/null && gcc -o "$T/w.bin" "$T/w.o" out/libscrip_rt.so -Wl,-rpath,"$PWD/out" 2>/dev/null; }
+rc=0
+if [ "$mode" = error ]; then
+  printf '%s\n' "$ref" | grep -q "ERROR $errno" || { echo "REFUSED rc=2: oracle $O did not print ERROR $errno on $w:"; printf '%s\n' "$ref" | head -8; exit 2; }
+  got=$(timeout 8s ./scrip "$w" </dev/null 2>&1); if printf '%s\n' "$got" | grep -q "ERROR $errno"; then echo "PASS m3 (ERROR $errno)"; else echo "FAIL m3: no ERROR $errno; got: $(printf '%s' "$got" | head -3 | tr '\n' '|')"; rc=1; fi
+  if m4build; then got=$(timeout 8s "$T/w.bin" </dev/null 2>&1); if printf '%s\n' "$got" | grep -q "ERROR $errno"; then echo "PASS m4 (ERROR $errno)"; else echo "FAIL m4: no ERROR $errno; got: $(printf '%s' "$got" | head -3 | tr '\n' '|')"; rc=1; fi
+  else echo "FAIL m4: compile/assemble/link failed"; rc=1; fi
+else
+  printf '%s\n' "$ref" | grep -qF -- "$must" || { echo "REFUSED rc=2: oracle $O did not print [$must] on $w -- re-measure before trusting this witness:"; printf '%s\n' "$ref" | head -12; exit 2; }
+  printf '%s\n' "$ref" > "$T/ref"
+  got=$(timeout 8s ./scrip "$w" </dev/null 2>&1); printf '%s\n' "$got" > "$T/m3"
+  if cmp -s "$T/ref" "$T/m3"; then echo "PASS m3"; else echo "FAIL m3 ($w vs $O -bf; < oracle, > scrip):"; diff "$T/ref" "$T/m3" | head -24; rc=1; fi
+  if m4build; then got=$(timeout 8s "$T/w.bin" </dev/null 2>&1); printf '%s\n' "$got" > "$T/m4"
+    if cmp -s "$T/ref" "$T/m4"; then echo "PASS m4"; else echo "FAIL m4 ($w vs $O -bf; < oracle, > scrip):"; diff "$T/ref" "$T/m4" | head -24; rc=1; fi
+  else echo "FAIL m4: compile/assemble/link failed"; rc=1; fi
+fi
+echo "oracle=$O tree=$(git rev-parse --short HEAD 2>/dev/null) witness=$w rc=$rc"
+exit $rc
