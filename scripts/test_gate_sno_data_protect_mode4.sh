@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_sno_data_protect_mode4.sh -- DATA() of a protected system-function name raises ERROR 248 under SCRIP
 # mode 4 (compile + link), and execution does not continue past it. Isolated as a minimal witness rather than
 # running SPITBOL testpgms test6.spt itself (test6.spt line 16 is the real-world case -- DATA('ITEM(COUNT,TOP)')
