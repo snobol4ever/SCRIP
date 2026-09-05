@@ -1685,6 +1685,13 @@ DESCR_t core_DATA_register(DESCR_t *a, int n) {
     if (n < 1) return NULVCL;
     const char *raw_spec = VARVAL_fn(a[0]);
     if (!raw_spec || !*raw_spec) return NULVCL;
+    { const char *p = strchr(raw_spec, '(');
+      if (p && p > raw_spec) {
+          char probe_name[256]; size_t plen = (size_t)(p - raw_spec);
+          if (plen >= sizeof probe_name) plen = sizeof probe_name - 1;
+          memcpy(probe_name, raw_spec, plen); probe_name[plen] = '\0';
+          if (sn4_is_system_fn(probe_name)) { extern int kwb_error(int code, const char *msg); kwb_error(248, "attempted redefinition of system function"); return FAILDESCR; }
+      } }
     char *spec = rt_ws_strdup(raw_spec);
     DEFDAT_fn(spec);
     char *s = rt_ws_strdup(spec);
@@ -2160,9 +2167,11 @@ void core_runtime_error(int code, const char *msg) {
           rt_kw_publish_error(code, msg);
           return;
       } }
-    { extern long g_stno;
-      fprintf(stderr, "\n** Error %d in statement %d\n   %s\n",
-              code, (int)g_stno, msg ? msg : ""); }
+    { extern long g_stno; extern long g_line; extern const char *g_file;
+      fprintf(stdout, "%s(%ld) : ERROR %03d -- %s\nin statement %ld\n",
+              g_file ? g_file : "", g_line, code, msg ? msg : "", g_stno);
+      fprintf(stderr, "%s(%ld) : ERROR %03d -- %s\nin statement %ld\n",
+              g_file ? g_file : "", g_line, code, msg ? msg : "", g_stno); }
     if (core_err_is_terminal(code)) exit(1);
     if (core_err_is_fatal(code))    exit(1);
     exit(1);

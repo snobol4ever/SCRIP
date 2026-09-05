@@ -2414,6 +2414,11 @@ static void sno_prescan_expr(const tree_t * t, sno_def_t * defs, int * ndefs, co
             extern void * dat_register(const char * spec); extern void * dat_find_type(const char * name);
             const char * sp = t->c[argbase]->v.sval;
             char nb[128]; int k = 0; for (; sp[k] && sp[k] != '(' && k < 127; k++) nb[k] = sp[k]; nb[k] = 0;
+            if (nb[0] && sn4_is_system_fn(nb)) {
+                extern long g_line; extern void core_runtime_error(int code, const char *msg);
+                g_line = t->line;
+                core_runtime_error(248, "attempted redefinition of system function");
+            }
             if (nb[0] && !dat_find_type(nb)) dat_register(sp);
         }
         if (name && !strcmp(name, "OPSYN") && t->n - argbase == 2) {

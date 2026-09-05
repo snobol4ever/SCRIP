@@ -2,7 +2,7 @@
 # test_gate_sno_system_fn_protection_matches_spitbol.sh -- SCRIP protects exactly the system-function names SPITBOL protects.
 # For every name SCRIP lists as a system function (src/runtime/snobol4_system_fns.h) PLUS the 18 names the 2026-09-04
 # measurement FREED (so removing a name from the list is tested, never assumed),
-# two witnesses are cut LIVE from the oracle -- DEFINE('NAME(X)') and OPSYN('NAME','SIZE') -- and SCRIP (mode 3) must give
+# three witnesses are cut LIVE from the oracle -- DEFINE('NAME(X)'), OPSYN('NAME','SIZE') and DATA('NAME(X)') -- and SCRIP (mode 3) must give
 # the same verdict: ERROR 248 or a clean run. The set is never hard-coded: the oracle is the authority each run.
 # Measured 2026-09-04 (ceo, row snobol4-gimpel-class-rc1-compilefail): SPITBOL protects 77 of SCRIP's 95 names; the 18 it
 # leaves free (ABORT ALT ARB BAL CONCAT FAIL FUNCTION LABEL LCASE NAME NUMERIC PLS REAL REM SUCCEED UCASE VALUE VDIFFER)
@@ -26,11 +26,12 @@ n=0; bad=0
 for nm in $NAMES; do
     printf "\tDEFINE('%s(X)')\n\tOUTPUT = 'ok'\nEND\n%s\t%s = X\n\t:(RETURN)\n" "$nm" "$nm" "$nm" > "$W/d.sno"
     printf "\tOPSYN('%s','SIZE')\n\tOUTPUT = 'ok'\nEND\n" "$nm" > "$W/o.sno"
-    for w in d o; do
+    printf "\tDATA('%s(X)')\n\tOUTPUT = 'ok'\nEND\n" "$nm" > "$W/t.sno"
+    for w in d o t; do
         n=$((n+1)); o="$(verdict "$O" "$W/$w.sno" -bf)"; s="$(verdict "$SCRIP" "$W/$w.sno" "")"
-        [ "$o" = "$s" ] || { bad=$((bad+1)); printf 'DIVERGE %-10s %s: oracle=%s scrip=%s\n' "$nm" "$([ $w = d ] && echo DEFINE || echo OPSYN)" "$o" "$s"; }
+        [ "$o" = "$s" ] || { bad=$((bad+1)); lbl="OPSYN"; [ "$w" = d ] && lbl="DEFINE"; [ "$w" = t ] && lbl="DATA"; printf 'DIVERGE %-10s %s: oracle=%s scrip=%s\n' "$nm" "$lbl" "$o" "$s"; }
     done
 done
 echo "SNO_SYSTEM_FN_PROTECTION names=$(echo "$NAMES" | wc -w) witnesses=$n diverge=$bad oracle=$O"
-[ $bad -eq 0 ] && { echo "✅ GATE PASS(0) [sno-system-fn-protection]: SCRIP protects exactly what SPITBOL protects, DEFINE and OPSYN"; exit 0; }
+[ $bad -eq 0 ] && { echo "✅ GATE PASS(0) [sno-system-fn-protection]: SCRIP protects exactly what SPITBOL protects, DEFINE, OPSYN and DATA"; exit 0; }
 echo "⛔ GATE FAIL(1) [sno-system-fn-protection]: $bad of $n witnesses diverge from the oracle"; exit 1
