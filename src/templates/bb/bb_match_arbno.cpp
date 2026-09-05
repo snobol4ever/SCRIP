@@ -67,6 +67,7 @@ static std::string bb_match_arbno_frameless_k() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_match_arbno_frameless() {
+    const char * bodybeta = sn4_arbno_tailbeta() ? PAIR(4) : PAIR(1);
     return x86("comment", "IR_MATCH_ARBNO_FRAMELESS (ARBNO-LON: one cell, two compares, no chain)")
          + x86_alpha()
          + x86("sub", "rsp", 16L)
@@ -78,13 +79,14 @@ static std::string bb_match_arbno_frameless() {
          + x86("def", PAIR(2))
          + x86("mov", "eax", RDD("rsp", 4))
          + x86("cmp", "r14d", "eax")
-         + x86("je",  PAIR(1))
+         + x86("comment", "NULL-BODY GUARD and the exhaust arm below both recede into the body, and a CHAIN body's beta is its LAST node's (PAIR(4)), not the body ENTRY (PAIR(1)) -- naming the entry re-runs a concatenated body from the top at the same cursor, which reproduces the same partial match forever.  The FRAME arm already selects this way; the two arms are one family and must name it the same")
+         + x86("je",  bodybeta)
          + x86("mov", RDD("rsp", 4), "r14d")
          + x86_gamma()
          + x86("def", PAIR(3)) + x86("def", PAIR(5))
          + x86("mov", "eax", RDD("rsp", 0))
          + x86("cmp", "r14d", "eax")
-         + IF(!(_.op_tail_seal && sn4_arbno_seal_omega()), x86("jne", PAIR(1)))
+         + IF(!(_.op_tail_seal && sn4_arbno_seal_omega()), x86("jne", bodybeta))
          + x86("add", "rsp", 16L)
          + x86_omega();
 }
