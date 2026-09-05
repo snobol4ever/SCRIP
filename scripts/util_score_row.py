@@ -1321,6 +1321,25 @@ def find_grid(lines):
     die("no '| Language |' table in %s is the September-10 grid. Candidates: %s" % (SCORE_MD, "; ".join(why)))
 
 
+def _clause_snip(txt, n=72):
+    # ⛔⭐ A DROP DIAGNOSTIC THAT NAMES THE MARKER BUT NOT THE CLAUSE CANNOT BE ACTED ON (hq_I -> hq_T,
+    # 2026-09-05, measured twice in ten minutes while authoring the icon grid cell). cell_fractions bounds a
+    # clause at the nearest middot / em-dash / semicolon, so a sentence like "RETIRES THREE STALE READINGS"
+    # written NEXT TO a live fraction lands in the SAME clause, the marker word STALE drops that fraction,
+    # and the gate then reports the OPPOSITE defect -- a one-sided population -- on a cell that plainly
+    # contains it. The author's only route to the real cause was to guess. The clause is already computed;
+    # it was simply never printed. ⭐ This is the general form of a diagnostic bug: naming the RULE that
+    # fired without the INPUT it fired on tells the reader what the tool believes and not why.
+    t = " ".join(str(txt).split())
+    return (t[:n] + "…") if len(t) > n else t
+def _drop_note(workings, t):
+    # The `drop <pass>/<total> (...)` working for denominator t, if this cell dropped one. Lets a caller that
+    # sees a one-sided population say WHY the other cell has no such population instead of only that it has none.
+    pre = "/%d " % t
+    for w in workings or []:
+        if w.startswith("drop ") and pre in w.split("(")[0]:
+            return w
+    return None
 def cell_fractions(raw):
     # Return ({denominator: pass}, workings), or (None, workings) when the cell carries a population this
     # parser cannot read -- see the fail-closed contract in language_progress.
@@ -1362,11 +1381,11 @@ def cell_fractions(raw):
         hit = [d for d in PROGRESS_DROP if d in ctx]
         if hit:
             dropped.add(t)
-            work.append("drop %d/%d (%r)" % (ps, t, hit[0]))
+            work.append("drop %d/%d (%r in clause: %s)" % (ps, t, hit[0], _clause_snip(clause)))
             consumed.append((m.start(), m.end()))
             continue
         if sup:
-            work.append("drop %d/%d (superseded reading cited for provenance: %r -- the same population at an earlier time, never this cell's value)" % (ps, t, sup[0]))
+            work.append("drop %d/%d (superseded reading cited for provenance: %r -- the same population at an earlier time, never this cell's value; clause: %s)" % (ps, t, sup[0], _clause_snip(clause)))
             consumed.append((m.start(), m.end()))
             continue
         # ⭐ Drops THIS FRACTION ONLY, never the denominator -- unlike a leading PROGRESS_DROP marker, a
@@ -1375,7 +1394,7 @@ def cell_fractions(raw):
         # this table, and the gate reports it as the one-sided population it honestly is.
         suf = re.match(r"\s+(%s)\b(?!\s*=)" % "|".join(PROGRESS_FAIL_SUFFIX), s[m.end():], re.I)
         if suf:
-            work.append("drop %d/%d (labelled %r -- a FAILURE count, not a pass fraction)" % (ps, t, suf.group(1)))
+            work.append("drop %d/%d (labelled %r -- a FAILURE count, not a pass fraction; clause: %s)" % (ps, t, suf.group(1), _clause_snip(clause)))
             consumed.append((m.start(), m.end()))
             continue
         groups.setdefault(t, []).append(ps)
@@ -1682,10 +1701,23 @@ def cmd_agree(a):
                     bad.append("%s: display %s says %d/%d, grid %s says %d/%d" % (lang, col, dfr[t], t, gkey, gfr[t], t))
             only_d = sorted(set(dfr) - set(gfr))
             only_g = sorted(set(gfr) - set(dfr))
+            # ⛔⭐ IF THE OTHER CELL *HAD* THIS POPULATION AND DROPPED IT, SAY SO AND NAME THE CLAUSE. A
+            # one-sided population has two very different causes that this message used to render
+            # identically: the dual-write gap (the other table never received the measurement) and a marker
+            # word in the author's own prose that swallowed a fraction the cell plainly contains. hq_I hit
+            # the second twice in ten minutes and had no way to tell them apart -- the diagnostic named a
+            # missing population, which is the OPPOSITE of what had happened. The workings already knew;
+            # they were computed into _w/_w2 and discarded one line later.
             for t in only_d:
-                warn.append("%s: display %s carries a %d-population (%d/%d) the grid %s cell does not" % (lang, col, t, dfr[t], t, gkey))
+                _n = _drop_note(_w2, t)
+                warn.append("%s: display %s carries a %d-population (%d/%d) the grid %s cell does not%s"
+                            % (lang, col, t, dfr[t], t, gkey,
+                               ("  -- and the grid cell HAS that fraction but DROPPED it: " + _n) if _n else ""))
             for t in only_g:
-                warn.append("%s: grid %s carries a %d-population (%d/%d) the display %s cell does not" % (lang, gkey, t, gfr[t], t, col))
+                _n = _drop_note(_w, t)
+                warn.append("%s: grid %s carries a %d-population (%d/%d) the display %s cell does not%s"
+                            % (lang, gkey, t, gfr[t], t, col,
+                               ("  -- and the display cell HAS that fraction but DROPPED it: " + _n) if _n else ""))
     # ⛔⭐ TWO SIGNAL STRENGTHS, AND CONFLATING THEM WOULD MAKE THE GATE USELESS. A SAME-DENOMINATOR
     # CONFLICT (both tables name a 81-population, one says 39 and the other 41) is unambiguous: exactly one
     # of them is wrong and a reader cannot tell which. A population present in only ONE table is weaker --
@@ -1695,7 +1727,22 @@ def cmd_agree(a):
     for w in warn:
         print("  ⚠ STALE " + w)
     if warn:
-        print("  ⭐ Each of those is the dual-write gap: `write` updates the standardized display and not the grid, so a measurement lands in one table and the other keeps yesterday's.")
+        # ⛔ Do NOT attribute the ones that carry a drop note to the dual-write gap -- they are the opposite
+        # case (the number IS in the other cell; a marker word in its clause swallowed it), and telling an
+        # author to go re-run a measurement they already recorded is the round trip this note exists to end.
+        # ⛔⭐ THREE CAUSES, AND THE ADVICE FOR EACH IS DIFFERENT -- so they are counted apart rather than
+        # rendered as one number. Telling an author to "fix the prose" when the other cell honestly names a
+        # FAILURE count would send them to edit a line that is already correct, which is the same wasted
+        # round trip in the other direction.
+        _explained = [w for w in warn if "DROPPED it: " in w]
+        _failcount = [w for w in _explained if "a FAILURE count" in w]
+        _swallowed = [w for w in _explained if w not in _failcount]
+        if len(_explained) < len(warn):
+            print("  ⭐ A one-sided population with no drop note above is the dual-write gap: `write` updates the standardized display and not the grid, so a measurement lands in one table and the other keeps yesterday's.")
+        if _failcount:
+            print("  ✅ %d of those need NO action: the other cell names that population only as a FAILURE count, which is not a pass fraction. The one-sided population is honest, not debt." % len(_failcount))
+        if _swallowed:
+            print("  ⛔ %d of those are NOT the dual-write gap: the other cell CONTAINS the fraction and a marker word in the quoted clause dropped it. Fix the PROSE -- spell a retired figure in words, or bound it in its own clause with `·` or `;` -- and do not re-run anything." % len(_swallowed))
     # ⛔⭐⭐ THE POPULATION FLOOR, AND IT IS THE ARM THAT WOULD HAVE CAUGHT hq_B's INCIDENT WITHOUT ANY OF THE
     # ABOVE. A comparison gate whose verdict is "0 conflicts" is computing an emptiness, and `0 conflicts over
     # 10 pairs`, `0 conflicts over 1 pair` and `0 conflicts over NOTHING` are the same arithmetic wearing the
