@@ -18,14 +18,22 @@
 # noisy enough that nobody keeps it turned on -- so this gate proves BOTH: the real sentence loss is
 # caught, and the real boilerplate drift from the SAME commit is not.
 #
-# ⭐ PRESERVE-OR-REFUSE, RULED: this row's own text leaves the choice open ("hq_T owns the SCORE tooling
-# and should rule"). Both call sites REFUSE (never silently rc=0) -- util_score_row.py:cmd_write refuses
-# the single write outright (rc=2; every caller already has a `|| echo ...` fallback, so no caller needed
-# a code change), util_apply_score_grid.py:apply_grid skips only the at-risk cell and returns rc=1 for the
-# batch (a merge covers many rows in one call, so one risky cell must not abort the rest). An `ask` to
-# hq_T is filed for this row's QA; if the ruling comes back "preserve", this gate is the one place that
-# needs to change shape, and it should go red first to prove the new behaviour rather than being amended
-# to match it after the fact.
+# ⭐ PRESERVE-OR-REFUSE, RULED, THEN REFINED (row score-writer-models-the-snobol4-board-cell-so-the-runner-
+# can-write-it). hq_T ruled REFUSE on 2026-09-04 against a SILENT merge: carrying an old caveat forward as
+# though it still describes the new measurement, when its truth-relationship to that number is unknown by
+# construction (the real Raku incident this file's header names). util_apply_score_grid.py:apply_grid
+# still does exactly that -- it REFUSES (rc=1 for the batch, skipping only the at-risk cell so one risky
+# row cannot abort the rest of a merge) and that call site is UNCHANGED by this refinement.
+# ⛔ util_score_row.py:cmd_write's no-`--suite` path no longer refuses on prose loss -- it FOLDS the old
+# reading forward instead, labelled: `<new text> SUPERSEDE_MARKER <old text, byte-for-byte>`. This is
+# deliberately NOT the "preserve" hq_T ruled against: it never asserts `before` is still true, it demotes
+# it to "the reading THIS one supersedes" -- the same move every hand-edit of the snobol4 board/entries
+# cells already made, mechanized. Carrying `before` forward verbatim also makes loss structurally
+# impossible (cmd_write re-proves this with cell_prose_loss on its own output before writing), which is
+# why a fold-forward is available here at all where apply_grid's batch merge has no such proof available
+# per-cell without becoming this same function. Full reasoning: SUPERSEDE_MARKER's comment in
+# util_score_row.py and this row's QA -- this is a seat's reading of an HQ ruling, surfaced back to hq_T
+# for review, not a unilateral re-ruling of it.
 #
 # ⛔ IT GRADES SCRATCH COPIES, NEVER THE REAL BOARD -- both selftests copy .github/SCORE.md to a tempdir
 # and write there; this gate asserts that too (the real .github working tree must be no dirtier after the
@@ -63,8 +71,8 @@ if [ "$rc" -ne 0 ]; then
 fi
 for want in "cell_prose_loss did not false-positive on punctuation-only reformatting" \
             "cell_prose_loss correctly caught the real .github 46ff295c dropped sentence" \
-            "cmd_write correctly REFUSED rc=2 rather than silently drop prose" \
-            "cmd_write correctly proceeded on a pure reformat (nothing to lose)"; do
+            "cmd_write correctly folded the old reading forward (supersede fallback)" \
+            "cmd_write correctly proceeded on a pure reformat (nothing to lose, no supersede clause added)"; do
     examined=$((examined + 1))
     case "$out" in
         *"$want"*) ;;

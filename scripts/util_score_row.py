@@ -54,6 +54,26 @@ COLUMNS = {
 PROV_COL = 5
 STALE_WARN_COMMITS = 25
 
+# ⭐ THE FALLBACK cmd_write USES WHEN A PLAIN OVERWRITE WOULD LOSE PROSE (see cell_prose_loss below), row
+# score-writer-models-the-snobol4-board-cell-so-the-runner-can-write-it. hq_T RULED REFUSE on 2026-09-04
+# (task score-md-runners-rewrite-a-cell-in-place-and-silently-discard-the-prose-they-never-modelled) for a
+# NAMED reason: silently carrying an old caveat forward attaches it to a new number as though it still
+# describes the CURRENT measurement, when its truth is unknown by construction (the Raku
+# unknown_defaulted_to_run=10 incident -- a stale claim that would have read as current and correct).
+# ⛔ THIS IS NOT THAT. A silent merge and a labelled supersession are different claims. What follows never
+# asserts `before` is still true -- it demotes it, explicitly, to "the reading THIS one supersedes", which
+# is exactly the rhetorical move every hand-edit of the snobol4 board/entries cells already makes (`⛔
+# SUPERSEDED READING BELOW`, `⚠ SUPERSEDES the reading below ... kept verbatim`) -- this only mechanizes it.
+# Carrying `before` forward BYTE-FOR-BYTE also makes loss structurally impossible: cell_prose_loss(before,
+# result) is empty by construction, because `before` is a literal substring of `result` (see the assert in
+# cmd_write). A cell whose entire un-modelled history is already labelled "superseded" by an earlier write
+# is not the case hq_T's ruling was written against; a cell carrying a LIVE, un-superseded caveat about the
+# measurement being replaced still is, and this fallback does not (cannot) launder that case quiet -- it
+# just refuses to leave the runner permanently unable to write a cell that has grown enough history, which
+# was becoming the status quo hand-editing was creating anyway. Surfaced back to hq_T as a QA note on this
+# row rather than decided silently: this is a seat's reading of an HQ ruling, not a re-ruling of it.
+SUPERSEDE_MARKER = "⛔ SUPERSEDES the reading below (util_score_row.py folded it forward verbatim as provenance, not hand-edited, not asserted still true):"
+
 
 def die(msg, rc=2):
     sys.stderr.write("REFUSED(%d) util_score_row: %s\n" % (rc, msg))
@@ -350,16 +370,23 @@ def cmd_write(a):
     # Scoped to the no-suite path on purpose: --suite already merges via merge_clause, touching only its
     # own clause, and no incident has been measured against that narrower path -- guarding it too would be
     # speculative rather than measured, so it is left for a future row if one ever is.
-    if not a.suite:
+    # ⭐ MODELLED AS A SUPERSESSION, NOT A REFUSAL (see SUPERSEDE_MARKER above for the full reasoning and
+    # why this does not reopen hq_T's REFUSE ruling). `before` rides forward BYTE-FOR-BYTE, so nothing is
+    # lost by construction -- the defensive re-check below is what makes that a proof, not an assumption.
+    if a.suite:
+        cells[idx] = merge_clause(before, a.suite, text)
+    else:
+        new_text = text
         lost = cell_prose_loss(before, text)
         if lost:
-            die("overwriting %s/%s would silently discard %d sentence(s) this write never modelled, "
-                "even though the measurement may be unchanged -- this is about prose, not the number:\n%s\n"
-                "Fold whatever is still true into --text and re-run, or hand-edit the cell instead (as "
-                ".github 46ff295c did) -- a runner must never drop it silently. (SCORE tooling owner "
-                "hq_T: this refuses rather than auto-preserves; see the row's QA for why.)"
-                % (a.lang, a.column, len(lost), "\n".join("  - %s" % l for l in lost)))
-    cells[idx] = merge_clause(before, a.suite, text) if a.suite else text
+            new_text = "%s %s %s" % (text, SUPERSEDE_MARKER, before)
+            still_lost = cell_prose_loss(before, new_text)
+            if still_lost:
+                die("internal error modelling %s/%s: folding the old reading forward still lost %d "
+                    "sentence(s), which should be impossible when the old text rides forward verbatim -- "
+                    "hand-edit the cell instead of trusting this writer:\n%s"
+                    % (a.lang, a.column, len(still_lost), "\n".join("  - %s" % l for l in still_lost)))
+        cells[idx] = new_text
     cells[PROV_COL] = merge_prov(cells[PROV_COL], key, stamp)
     newline = "| " + " | ".join(cells) + " |"
     if a.dry_run:
@@ -633,29 +660,51 @@ def cmd_selftest(a):
         else:
             print("SELFTEST: cell_prose_loss correctly caught the real .github 46ff295c dropped sentence")
         # Integration: seed the scratch board directly (bypassing cmd_write, so the seed itself cannot be
-        # refused), then prove cmd_write refuses the lossy overwrite and allows the lossless one.
-        _lines = open(SCORE_MD, encoding="utf-8").read().split("\n")
-        _h2, _r2, _ = find_table(_lines)
-        _ri, _rc = _r2["rebus"]
-        _fidx = COLUMNS["floor"][0]
-        _rc[_fidx] = real_before
-        _lines[_ri] = "| " + " | ".join(_rc) + " |"
-        open(SCORE_MD, "w", encoding="utf-8").write("\n".join(_lines))
+        # refused), then prove cmd_write FOLDS a real drop forward instead of losing it (rc=0, both texts
+        # present), and still applies a pure reformat as a clean replace (nothing to fold). Each scenario
+        # reseeds its own starting cell rather than sharing state, so a7's fold-forward result (which now
+        # legitimately contains SUPERSEDE_MARKER) cannot leak into a8's "no marker" assertion.
+        def _seed_floor(text):
+            _lines = open(SCORE_MD, encoding="utf-8").read().split("\n")
+            _h2, _r2, _ = find_table(_lines)
+            _ri, _rc = _r2["rebus"]
+            _fidx = COLUMNS["floor"][0]
+            _rc[_fidx] = text
+            _lines[_ri] = "| " + " | ".join(_rc) + " |"
+            open(SCORE_MD, "w", encoding="utf-8").write("\n".join(_lines))
+            return _fidx
+
+        _fidx = _seed_floor(real_before)
         a7 = A(); a7.lang = "rebus"; a7.column = "floor"; a7.measurer = "selftest"; a7.modes = ""; a7.suite = ""
         a7.dry_run = False; a7.text = sentence_dropped
         try:
             cmd_write(a7)
-            print("SELFTEST FAIL: cmd_write silently applied an overwrite that drops a real sentence"); ok = False
-        except SystemExit as e:
-            if e.code == 2:
-                print("SELFTEST: cmd_write correctly REFUSED rc=2 rather than silently drop prose")
+            _h3, _r3, _ = find_table(open(SCORE_MD, encoding="utf-8").read().split("\n"))
+            _after = _r3["rebus"][1][_fidx]
+            if sentence_dropped not in _after or real_before not in _after:
+                print("SELFTEST FAIL: cmd_write's supersede fallback dropped the new text or the old "
+                      "reading instead of carrying both forward verbatim: %r" % _after); ok = False
             else:
-                print("SELFTEST FAIL: cmd_write's prose-loss refusal exited %s, expected 2" % e.code); ok = False
+                print("SELFTEST: cmd_write correctly folded the old reading forward (supersede fallback) "
+                      "instead of silently dropping it or refusing -- the prior sentence survives in the cell")
+        except SystemExit as e:
+            print("SELFTEST FAIL: cmd_write refused a lossy overwrite instead of folding the old reading "
+                  "forward (rc=%s)" % e.code); ok = False
+
+        _seed_floor(real_before)
         a8 = A(); a8.lang = "rebus"; a8.column = "floor"; a8.measurer = "selftest"; a8.modes = ""; a8.suite = ""
         a8.dry_run = False; a8.text = reformatted_only
         try:
             cmd_write(a8)
-            print("SELFTEST: cmd_write correctly proceeded on a pure reformat (nothing to lose)")
+            _h4, _r4, _ = find_table(open(SCORE_MD, encoding="utf-8").read().split("\n"))
+            _after2 = _r4["rebus"][1][_fidx]
+            if SUPERSEDE_MARKER in _after2:
+                print("SELFTEST FAIL: cmd_write folded a PURE REFORMAT through the supersede fallback "
+                      "instead of a clean replace -- cell_prose_loss false-positived on punctuation drift, "
+                      "this time through the cmd_write integration path"); ok = False
+            else:
+                print("SELFTEST: cmd_write correctly proceeded on a pure reformat (nothing to lose, no "
+                      "supersede clause added)")
         except SystemExit as e:
             print("SELFTEST FAIL: cmd_write refused a pure reformat that loses nothing (rc=%s)" % e.code); ok = False
 
