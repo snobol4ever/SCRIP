@@ -811,7 +811,7 @@ static int frame_need_of(const IR_t * nd) {
             if (_si >= 0 && _ci >= 0 && _ext > 0) { int _lo = (_si > _ci ? _si : _ci) + 1, _hi = _ext < g_emit_cfg->n ? _ext : g_emit_cfg->n;
                 for (int _i = _lo; _i < _hi && !h; _i++) { IR_t * _m = g_emit_cfg->all[_i];
                     if (getenv("SCRIP_CAP_NEST_DIAG")) fprintf(stderr, "[CAPNEST]   scan[%d] op=%d pat_static=%d\n", _i, _m ? (int)_m->op : -1, _m ? _m->pat_static : -1);
-                    if (_m && (_m->op == IR_MATCH_ARBNO || (_m->op == IR_MATCH_DEFER && !_m->pat_static) || _m->op == IR_MATCH_VALUE)) h = 1; } }
+                    if (_m && (_m->op == IR_MATCH_ARBNO || _m->op == IR_MATCH_DEFER || _m->op == IR_MATCH_VALUE)) h = 1; } }
         }
         if (!h) h = cap_in_alt_arm(nd);
         if (!h) h = cap_in_repeat_body(nd);
