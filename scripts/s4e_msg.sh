@@ -2140,8 +2140,21 @@ TASKEOF
            # ⛔ A ROW LOCKED OVER AN HOUR WITH NOTHING ATTRIBUTED IS THE STATE THIS COLUMN EXISTS TO SURFACE, so it is
            # marked rather than left for the reader to compute across two fields. Under an hour it stays quiet: a
            # freshly-claimed row legitimately has no commits yet, and flagging that would train the eye to ignore it.
+           # ⛔⭐ SECOND DISCRIMINATOR, ADDED BY hq_C 2026-09-05 AFTER "0 STALLED" FIRED FALSELY ON THE SAME LIVE
+           # SEAT TWICE IN TWENTY MINUTES, from two different HQs (hq_B at 1h25m, ceo at 1h44m). seat05 was mid-cure
+           # the whole time: four substantive messages and a baton LEDGER rewritten minutes before each alarm.
+           # COMMITS SINCE LOCK cannot see the highest-value work a seat in a census/witness lane does, and under
+           # FLEET-<n> -- where seats walk/census/witness while HQs cure, and are often told NOT to touch src/ --
+           # that is the MAJORITY of seats, not an edge case. "0 commits" is reachable by "stalled" and by "doing
+           # exactly what its HQ told it to do", and this column named only the first, in red (RULES.md § A SIGNAL
+           # REACHABLE BY TWO CAUSES THAT NAMES ONLY ONE). The documented remedy for a stall is releasing the claim,
+           # so a false positive here costs a working seat its in-flight row. The baton mtime is already on disk and
+           # separates the two states for free.
+           bmt=0; [ -f "$PO/tasks/$row.task.md" ] && bmt=$(stat -c %Y "$PO/tasks/$row.task.md" 2>/dev/null || echo 0)
+           bage=$(( ( $(date +%s) - ${bmt:-0} ) / 60 ))
            if [ "$lockep" -eq 0 ]; then csh="-"
-           elif [ "$csince" -eq 0 ] && [ "$(( $(date +%s) - lockep ))" -gt 3600 ]; then csh="0 STALLED"
+           elif [ "$csince" -eq 0 ] && [ "$(( $(date +%s) - lockep ))" -gt 3600 ]; then
+             if [ "${bmt:-0}" -gt 0 ] && [ "$bage" -lt 60 ]; then csh="0 baton${bage}m"; else csh="0 STALLED"; fi
            else csh="$csince"; fi
            printf '  %-8s %-30.30s  %-10.10s  %-10.10s  %-20.20s  %s  %-8.8s  %s\n' "$seat" "$row" "$lockage" "$csh" "$tree" "$q" "$mail" "$bl"; done
          free=0; tot=0
@@ -2152,8 +2165,10 @@ TASKEOF
          printf '  ⛔ LOCK AGE = how long the CLAIM FILE has existed = when the lock was TAKEN. It is NOT a work signal:\n'
          printf '     a seat that claimed a row and stalled prints the same number as a seat mid-cure. COMMITS SINCE LOCK\n'
          printf '     is the field that measures work (attributed to the seat or its row, across that root every repo).\n'
-         printf '     Read the pair. "0 STALLED" = locked over an hour, nothing attributed -- a claimed row hides itself\n'
-         printf '     from the picker, so a stalled lock blocks that row for the WHOLE fleet until an HQ releases it.\n'
+         printf '     Read the pair. "0 STALLED" = locked over an hour, nothing attributed AND the baton untouched for\n'
+         printf '     an hour -- a claimed row hides itself from the picker, so that blocks the row for the WHOLE fleet\n'
+         printf '     until an HQ releases it. "0 batonNNm" = no commits BUT the baton was written NNm ago: that seat is\n'
+         printf '     WORKING, in a lane whose output is census/witness/LEDGER rather than commits. DO NOT release it.\n'
          printf '  Roster is the postoffice mailbox list, never a home-dir glob -- the glob could not see the HQs.\n\n';;
   sweep) # ⭐ LAW 4 — THE QUEUE IS A DISPATCH BUFFER, NOT A MEMORY. v1 reached 62% dead rows (112 of 181 DONE) because
          # nothing ever moved a landed row out, so the picker walked a graveyard and HQ re-dispatched finished work.
