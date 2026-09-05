@@ -63,6 +63,37 @@ for p in $progs; do
 "
         continue
     fi
+    # ⛔⭐⭐ AND rc=0 IS NOT "THE ORACLE ANSWERED". This guard's own header says the run STATUS decides and the
+    # byte count never does -- and it was one turn short, because SPITBOL REPORTS A FATAL ERROR AND EXITS 0.
+    # Reported by hq_P from the first live run; re-measured here on all eight programs (SCRIP c3948a321,
+    # corpus d58a796fa, oracle /home/resources/x64/bin/sbl -bf):
+    #   test1 rc=0 140 lines, no diagnostic          -> a real answer
+    #   test3 rc=0  47 lines, no diagnostic          -> a real answer
+    #   test2 rc=231 ERROR 214, NO post-mortem       -> already unscored by the rc arm above
+    #   test4 test5 test7 test8 rc=0, 18 lines       -> ERROR 116 / 248 / 160 + post-mortem
+    #   test6 rc=0, 56 lines                         -> ERROR 248 + post-mortem, output TRUNCATED mid-answer
+    # ⭐ WHY THIS IS WORSE THAN A MISCOUNT, and it is hq_P's point kept in their words: the whole reason this
+    # runner cuts its refs LIVE is that a stored ref cannot tell a cured compiler from a ref frozen while the
+    # compiler was broken. Scoring an error post-mortem reintroduces exactly that failure one level up, by
+    # minting the frozen-truncation ref FRESH on every run. It also fills the denominator hole the board line
+    # exists to expose: unscored read 1 where the honest number is 6.
+    # ⛔ BOTH MARKERS ARE REQUIRED, and the negative control is why. The post-mortem block is ERROR-PATH ONLY
+    # (test3 completes and carries none, which is why test3 legitimately passes) -- but test2 carries the
+    # diagnostic with NO post-mortem, so a diagnostic-only rule and a post-mortem-only rule each miss a real
+    # case that the other catches. Requiring both together fires on exactly the five rc=0 error-path programs
+    # and on neither of the two that answered.
+    # ⛔ THIS DOES NOT DECIDE WHAT TO DO ABOUT THE FIVE. Grading them against csnobol4 (as gimpel's
+    # ASM_driver.sno already does for this class) is with the ceo as a ruling; this arm only stops calling a
+    # non-answer an answer. The honest board reads WORSE (scored 3, unscored 5) and that is the point.
+    _diag="$(grep -m1 -E 'ERROR [0-9]+ --' "$ora" 2>/dev/null)"
+    _pm="$(grep -cE '^(in line|stmts executed|memory used \(bytes\)|memory left \(bytes\))' "$ora" 2>/dev/null || echo 0)"
+    if [ -n "$_diag" ] && [ "$_pm" -ge 2 ]; then
+        UNSCR=$((UNSCR+1))
+        _errno="$(printf '%s' "$_diag" | sed -n 's/.*\(ERROR [0-9]*\) --.*/\1/p')"
+        UNSCR_LINES="$UNSCR_LINES  UNSCORED  $p  oracle REFUSED THE PROGRAM at rc=0 -- ${_errno:-ERROR} plus a post-mortem block after $(grep -c . "$ora" 2>/dev/null || echo 0) line(s): a diagnostic is not an answer, no ref cut
+"
+        continue
+    fi
     SCORED=$((SCORED+1))
     # ── mode 3 and mode 4, same scratch cwd, same stdin.
     m3="$W/$p.m3"; (cd "$W" && timeout "$T" "$SCRIP" "$p.spt" < "$W/testpgms.in" > "$m3" 2>/dev/null); r3=$?
