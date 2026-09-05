@@ -846,6 +846,8 @@ static const char *icn_pad_str(DESCR_t d, char *buf, int bufsz) {
     return VARVAL_fn(d);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_true_len(DESCR_t d, const char *materialized) { if (d.v == DT_S) return (int)descr_slen(d); return materialized ? (int)strlen(materialized) : 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * procval_name(DESCR_t v) {
     if (v.v != DT_E) return 0;
     if (v.slen == 0xFFFFFFFEu) return v.s;
@@ -4812,6 +4814,11 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
                 case '\n': outs[o++]='\\'; outs[o++]='n';  break;
                 case '\t': outs[o++]='\\'; outs[o++]='t';  break;
                 case '\r': outs[o++]='\\'; outs[o++]='r';  break;
+                case '\b': outs[o++]='\\'; outs[o++]='b';  break;
+                case '\v': outs[o++]='\\'; outs[o++]='v';  break;
+                case '\f': outs[o++]='\\'; outs[o++]='f';  break;
+                case 0x1b: outs[o++]='\\'; outs[o++]='e';  break;
+                case 0x7f: outs[o++]='\\'; outs[o++]='d';  break;
                 default:
                     if (c < 0x20 || c >= 0x7f) {
                         o += snprintf(outs+o, 5, "\\x%02x", c);
@@ -4836,16 +4843,16 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     if ((_bid == BID_repl) && nargs == 2) {
         const char *s=VARVAL_fn(args[0]); if(!s)s="";
         int n=(int)to_int(args[1]); if(n<0)n=0;
-        int sl=(int)strlen(s); char *buf=rt_ws_alloc(sl*n+1); buf[0]='\0';
+        int sl=icn_true_len(args[0], s); char *buf=rt_ws_alloc(sl*n+1); buf[0]='\0';
         for(int i=0;i<n;i++) memcpy(buf+i*sl,s,sl); buf[sl*n]='\0';
-        *out = STRVAL(buf); return 1;
+        *out = BSTRVAL(buf, sl*n); return 1;
     }
     L_bidjmp_5531: ;
     if ((_bid == BID_reverse) && nargs == 1) {
         const char *s=VARVAL_fn(args[0]); if(!s)s="";
-        int sl=(int)strlen(s); char *buf=rt_ws_alloc(sl+1);
+        int sl=icn_true_len(args[0], s); char *buf=rt_ws_alloc(sl+1);
         for(int i=0;i<sl;i++) buf[i]=s[sl-1-i]; buf[sl]='\0';
-        *out = STRVAL(buf); return 1;
+        *out = BSTRVAL(buf, sl); return 1;
     }
     L_bidjmp_5537: ;
     if ((_bid == BID_map) && nargs >= 1 && nargs <= 3) {
@@ -4867,8 +4874,8 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
                 if (ts) to = ts;
             }
         }
-        int sl=(int)strlen(s); char *buf=rt_ws_alloc(sl+1);
-        int fl=(int)strlen(from), tl=(int)strlen(to);
+        int sl=icn_true_len(args[0], s); char *buf=rt_ws_alloc(sl+1);
+        int fl=icn_true_len(nargs >= 2 ? args[1] : NULVCL, from), tl=icn_true_len(nargs >= 3 ? args[2] : NULVCL, to);
         for (int i=0;i<sl;i++) {
             char c=s[i]; int hit=0;
             for (int j=fl-1;j>=0;j--) {
@@ -4876,17 +4883,17 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             }
             if (!hit) buf[i]=c;
         }
-        buf[sl]='\0'; *out = STRVAL(buf); return 1;
+        buf[sl]='\0'; *out = BSTRVAL(buf, sl); return 1;
     }
     L_bidjmp_5567: ;
     if ((_bid == BID_trim) && (nargs == 1 || nargs == 2)) {
         const char *s=VARVAL_fn(args[0]); if(!s)s="";
         const char *cset = " ";
         if (nargs == 2) { DESCR_t cv = args[1]; if (cv.v != DT_SNUL) { const char *cs = VARVAL_fn(cv); if (cs) cset = cs; } }
-        int sl=(int)strlen(s);
+        int sl=icn_true_len(args[0], s);
         while (sl > 0 && strchr(cset, s[sl-1])) sl--;
         char *buf=rt_ws_alloc(sl+1); memcpy(buf,s,sl); buf[sl]='\0';
-        *out = STRVAL(buf); return 1;
+        *out = BSTRVAL(buf, sl); return 1;
     }
     L_bidjmp_5576: ;
     if ((_bid == BID_getenv) && nargs == 1) {
@@ -4902,7 +4909,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     L_bidjmp_5585: ;
     if ((_bid == BID_left) && nargs >= 1) {
         char _pb[64]; const char *s=icn_pad_str(args[0],_pb,sizeof _pb); if(!s)s="";
-        int sl=(int)strlen(s);
+        int sl=icn_true_len(args[0], s);
         int n = 1;
         if (nargs >= 2) {
             DESCR_t nv = args[1];
@@ -4926,12 +4933,12 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             buf[copy + k] = fill[idx];
         }
         buf[n]='\0';
-        *out = STRVAL(buf); return 1;
+        *out = BSTRVAL(buf, n); return 1;
     }
     L_bidjmp_5613: ;
     if ((_bid == BID_right) && nargs >= 1) {
         char _pb[64]; const char *s=icn_pad_str(args[0],_pb,sizeof _pb); if(!s)s="";
-        int sl=(int)strlen(s);
+        int sl=icn_true_len(args[0], s);
         int n = 1;
         if (nargs >= 2) {
             DESCR_t nv = args[1];
@@ -4953,12 +4960,12 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         int copy = sl - srcoff; if (pad + copy > n) copy = n - pad;
         for (int i = 0; i < copy; i++) buf[pad + i] = s[srcoff + i];
         buf[n]='\0';
-        *out = STRVAL(buf); return 1;
+        *out = BSTRVAL(buf, n); return 1;
     }
     L_bidjmp_5639: ;
     if ((_bid == BID_center) && nargs >= 1) {
         char _pb[64]; const char *s=icn_pad_str(args[0],_pb,sizeof _pb); if(!s)s="";
-        int sl=(int)strlen(s);
+        int sl=icn_true_len(args[0], s);
         int n = 1;
         if (nargs >= 2) {
             DESCR_t nv = args[1];
@@ -4985,7 +4992,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             buf[lpad + copy + k] = fill[idx];
         }
         buf[n]='\0';
-        *out = STRVAL(buf); return 1;
+        *out = BSTRVAL(buf, n); return 1;
     }
     if (((_bid == BID_detab) || (_bid == BID_entab)) && nargs == 0) { core_icn_error(103, NULVCL); *out = FAILDESCR; return 1; }
     L_bidjmp_5671: ;
@@ -5007,8 +5014,8 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (nstops == 0) { stops[0] = 9; nstops = 1; }
         int gap = (nstops >= 2) ? stops[nstops-1] - stops[nstops-2] : stops[0] - 1;
         if (gap < 1) gap = 1;
-        int cap = 4096; char *buf = rt_ws_alloc(cap); int bi = 0, col = 0;
-        for (int i = 0; s[i]; i++) {
+        int cap = 4096; char *buf = rt_ws_alloc(cap); int bi = 0, col = 0; int slen0 = icn_true_len(args[0], s);
+        for (int i = 0; i < slen0; i++) {
             if (s[i] == '\t') {
                 int next = -1;
                 for (int k = 0; k < nstops; k++) if (stops[k] > col+1) { next=stops[k]; break; }
@@ -5030,7 +5037,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
                 if (isprint((unsigned char)s[i])) col++;
             }
         }
-        buf[bi]='\0'; *out=STRVAL(buf); return 1;
+        buf[bi]='\0'; *out=BSTRVAL(buf, bi); return 1;
     }
     L_bidjmp_5704: ;
     if ((_bid == BID_entab) && nargs == 0) { core_icn_error(103, NULVCL); *out = FAILDESCR; return 1; }
@@ -5052,7 +5059,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         int gap = (nstops >= 2) ? stops[nstops-1] - stops[nstops-2] : stops[0] - 1;
         if (gap < 1) gap = 1;
         int cap = 4096; char *buf = rt_ws_alloc(cap); int bi = 0, col = 1;
-        int slen = (int)strlen(s);
+        int slen = icn_true_len(args[0], s);
         for (int i = 0; i < slen; ) {
             char c = s[i];
             if (c == ' ') {
@@ -5087,7 +5094,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
                 i++;
             }
         }
-        buf[bi]='\0'; *out=STRVAL(buf); return 1;
+        buf[bi]='\0'; *out=BSTRVAL(buf, bi); return 1;
     }
     L_bidjmp_5747: ;
     if ((_bid == BID_abs) && nargs == 1) {
