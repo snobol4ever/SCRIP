@@ -77,8 +77,19 @@ ENTRY_FLOOR="${ICON_MASTER_ENTRY_FLOOR:-534}"
 # was faulty FOR THIS HARNESS, so the test was fixed -- opt2(["-x"]) over a literal list, ref re-cut from icont,
 # marker dropped, ALL.xfail deleted -- and the master reads XFAIL=0 with 596/596 both modes. A real argv-through-
 # the-harness witness is still owed once the argv sidecar lands (hq_T's harness row); this comment is not it.
-M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-596}"
-M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-596}"
+# ⭐ RE-PINNED 596 -> 607 (hq_B 2026-09-05 ~16:0x, MODE OCTET, on the ceo's order to re-pin the watermark).
+# ⛔ THE ORDER SAID 601 AND 601 IS ALREADY STALE — pinned to the MEASURED number, not the relayed one.
+# hq_P measured 601/601 both modes on SCRIP `7e190f16a`; corpus `bb5ee2b69` then minted the 8 declared-missing
+# isolation-phase witnesses, so the run-graded population is 609, not 601. Measured here on SCRIP `b812fb6d1`
+# corpus `8972babeb` RT_OPT=-O0, incremental make: entries=762 · m3 PASS=607 · m4 PASS=607 of 609.
+# Pinning 601 would have sat SIX passes BELOW the tree and silently stopped protecting them — a watermark under
+# the water is not a ratchet, and it fails in the direction nobody looks, because the board still prints OK.
+# ⛔ THE TWO REDS ARE NAMED, NOT XFAILED (RULES.md § THERE IS NO XFAIL) and are NOT a regression: both are new
+# entries (ALL.csv rows 761-762) minted by `bb5ee2b69` that have never passed —
+# ladder_rung26_pow_pow_negbase_real and ladder_rung26_pow_pow_zero_negexp. They are open Icon defects to cure,
+# which is why 607 and not 609: a floor is what today already holds, never what tomorrow owes.
+M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-607}"
+M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-607}"
 # ⛔ NO AST_PASS_FLOOR: a self-pin has no floor to regress below, only a CURRENT-run comparison of
 # ap (matched) vs at (total) -- see the AST-SHAPE note above. Removed under ast-dump-refs-are-self-
 # pins-not-oracles rather than kept-but-unused, so a reader cannot mistake its presence for gating.
