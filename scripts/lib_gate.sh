@@ -252,7 +252,7 @@ s4e_seat_name() {
     printf '%s\n' "$_out"
     return 0
 }
-# gate_score_row <lang> <column> <text> [modes] -- THE ONE LINE A BASH RUNNER ADDS to satisfy the
+# gate_score_row <lang> <column> <text> [modes] [suite] -- THE ONE LINE A BASH RUNNER ADDS to satisfy the
 # ONE-LEADERBOARD FACT RULE (Lon 2026-09-03 ~16:05: "any run of a test suite by any session will update
 # the ONE LEADERBOARD").  Delegates to scripts/util_score_row.py, which is the single implementation --
 # this is a call shape, not a second copy, and must never grow logic of its own.  Measurer defaults to
@@ -265,8 +265,17 @@ s4e_seat_name() {
 # loudly and names the un-recorded row -- the operator then records it by hand, exactly as the FACT
 # RULE's interim clause already requires.  What it must never do is fail SILENTLY, so there is no path
 # here that returns 0 without either writing the row or printing why it did not.
+# ⛔⭐ THE 5th ARGUMENT, `suite`, EXISTS BECAUSE THE WRAPPER WAS FORCING RUNNERS TO CHOOSE BETWEEN THE
+# SANCTIONED CALL SHAPE AND A CORRECT CELL (seat14, 2026-09-05, measured on icon's vendor column).  Several
+# vendor suites share ONE cell -- icon's V column carries JCON and Arizona -- and util_score_row.py's
+# --suite is what lets them coexist as two NAMED sub-measurements inside it.  This wrapper did not pass it,
+# so a runner that used the wrapper OVERWROTE its neighbour's number, and the two runners that noticed had
+# to bypass the wrapper to stay correct.  ⭐ A convenience wrapper that cannot express a distinction the
+# underlying tool has does not simplify the call -- it silently narrows what the caller can say, and the
+# caller who obeys it loses data while the caller who ignores it is right.  Pass it through; a runner
+# writing a whole cell simply omits it, exactly as before.
 gate_score_row() {
-    local _lang="$1" _col="$2" _text="$3" _modes="${4:-}" _py _out _rc
+    local _lang="$1" _col="$2" _text="$3" _modes="${4:-}" _suite="${5:-}" _py _out _rc
     # ⛔ A DELIBERATE STALE RUN NEVER REACHES THE LEADERBOARD (row harness-and-ladder-runner-refuse-on-a-stale-binary-like-
     # the-artifact-regen-does, hq_T 2026-09-04): SCRIP_ALLOW_STALE=1 is the operator's own declaration that this run's
     # binary currency was NOT enforced, and a SCORE.md row stamps the tree's hash on whatever number it carries. Checked on
@@ -283,7 +292,7 @@ gate_score_row() {
         return 0
     fi
     _out="$(python3 "$_py" write --lang "$_lang" --column "$_col" --text "$_text" \
-            --measurer "${S4E_SEAT:-}" ${_modes:+--modes "$_modes"} 2>&1)"; _rc=$?
+            --measurer "${S4E_SEAT:-}" ${_modes:+--modes "$_modes"} ${_suite:+--suite "$_suite"} 2>&1)"; _rc=$?
     if [ "$_rc" -ne 0 ]; then
         echo "⚠ SCORE.md NOT UPDATED [$GATE_NAME] (rc=$_rc) -- the measurement below stands, the leaderboard row does not:"
         echo "$_out" | sed 's/^/    /'
