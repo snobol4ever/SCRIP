@@ -172,5 +172,10 @@ python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite IPL 
     --text "compile_pass=$COMPILE_PASS compile_fail=$COMPILE_FAIL (linkgap=$LINKGAP parseerr=$PARSEERR timeout=$TIMEOUT_N other=$OTHER) of total=$TOTAL · nomain_ok=$NOMAIN_OK of nomain_total=$NOMAIN_TOTAL, hasmain_total=$HASMAIN_TOTAL · run_graded=0 (upstream IPL ships no .std oracle) -- no verified-correctness population yet, compile-graded-only (\`test_icon_ipl_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
+# ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
+# vacuously, hq_T 2026-09-04): the bucket-sum check just below PASSES vacuously at TOTAL=0 (0+0==0),
+# and OTHER=0 too when nothing was discovered -- neither line can tell "examined and clean" from
+# "examined nothing", which is exactly what this refuses before either check runs.
+"$HERE/util_require_population.sh" --gate test_icon_ipl_suite "$TOTAL" 1 "IPL source files discovered" || exit 2
 [ "$((COMPILE_PASS + COMPILE_FAIL))" -eq "$TOTAL" ] || { echo "⛔ BUCKET COUNTS DON'T SUM TO TOTAL -- instrument bug, refusing to trust the board"; exit 2; }
 [ "$OTHER" -eq 0 ]

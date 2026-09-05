@@ -116,4 +116,8 @@ echo "DOTNET_BOARD total=$TOTAL scored=$SCORED unscr=$UNSCR m3_pass=$P3 m3_fail=
 [ -n "$FLU" ] && echo "UNSCR (missing corpus dependency, not a SCRIP defect):$FLU"
 [ -n "$FL3" ] && echo "FAIL-M3 (vs live sbl -bf):$FL3"
 [ -n "$FL4" ] && echo "FAIL-M4 (vs live sbl -bf):$FL4"
+# ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
+# vacuously, hq_T 2026-09-04): F3/F4/S4 all read 0 over zero SCORED entries too (empty corpus dir,
+# every witness oracle-crashed/died) -- refuse before the vacuous-clean verdict below can be reached.
+"$HERE/util_require_population.sh" --gate test_snobol4_dotnet_suite "$SCORED" 1 "scored rows (total=$TOTAL unscr=$UNSCR)" || exit 2
 [ "$F3" = 0 ] && [ "$F4" = 0 ] && [ "$S4" = 0 ]

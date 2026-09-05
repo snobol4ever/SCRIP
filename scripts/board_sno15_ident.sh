@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# board_sno15_ident.sh — CORRECTNESS board for the FIFTEEN working-set demos (s158 scope widening).
+# board_sno15_ident.sh — CORRECTNESS board for the working-set demos (s158 scope widening). ⛔ THE
+# FILENAME SAYS 15; THE ARRAY BELOW CARRIES 14 (mechanically counted 2026-09-04, see the DEMOS= comment)
+# -- kept as-is rather than renamed, since the name is cited by board_denominators.sh and multiple
+# FINDING-*.md files; ${#DEMOS[@]} is the number of record, never this comment or the filename.
 # Generalizes test_demo_full_3way.sh (which covered only claws5 + treebank-list) to every .sno in the
 # CLAWS5 / TREEBANK / JSON / CALCULATOR families: base programs, *-match, and *-match-fence.
 # Encodes the s107 recipes verbatim: oracle temp-prepend (-CASE 0 control card + tab &TRIM = 0 — NEVER
@@ -34,12 +37,20 @@ inp_for() { case $1 in claws5*) echo "$D/CLAWS5inTASA.dat";; treebank*) echo "$D
 xf_for()  { case $1 in treebank*) echo "-s256m";; *) echo "";; esac; }
 printf '%-26s %-10s %-10s %s\n' PROGRAM M3 M4 NOTE
 printf '%.0s-' {1..66}; echo
+# ⛔ NAMED ARRAY, NOT A BARE `for nm in ...` WORD LIST (found while auditing this file for row every-
+# board-wrapper-refuses-on-a-zero-population-instead-of-passing-vacuously, hq_T 2026-09-04): the old
+# word-list form let the printed "/15" denominator below and board_denominators.sh's d_demo15() both
+# hand-type "15" citing THIS loop as their source, while the loop itself carries fourteen names
+# (mechanically counted, not eyeballed: `for nm in <the list>; do echo "$nm"; done | wc -l` = 14) --
+# a copied number that quietly went stale relative to the thing it claimed to be copied from. Sizing
+# off ${#DEMOS[@]} means it cannot happen again; see the matching correction in board_denominators.sh.
+DEMOS=(claws5 claws5-match claws5-match-fence
+       treebank treebank-match treebank-match-fence
+       json-match json-match-fence
+       calculator-1 calculator-1-match calculator-1-match-fence
+       calculator-2 calculator-2-match calculator-2-match-fence)
 nid=0; nd3=0; nd4=0; nfail=0
-for nm in claws5 claws5-match claws5-match-fence \
-          treebank treebank-match treebank-match-fence \
-          json-match json-match-fence \
-          calculator-1 calculator-1-match calculator-1-match-fence \
-          calculator-2 calculator-2-match calculator-2-match-fence; do
+for nm in "${DEMOS[@]}"; do
   src="$D/$nm.sno"; inp=$(inp_for "$nm"); xf=$(xf_for "$nm"); note=""
   [ -f "$src" ] || { printf '%-26s %-10s %-10s %s\n' "$nm" - - "NO SOURCE"; nfail=$((nfail+1)); continue; }
   # ---- oracle: temp-prepend the control card, never touch the corpus file ----
@@ -67,4 +78,4 @@ for nm in claws5 claws5-match claws5-match-fence \
   printf '%-26s %-10s %-10s %s\n' "$nm" "$m3" "$m4" "$note"
 done
 printf '%.0s-' {1..66}; echo
-echo "TRI-IDENTICAL $nid/15   m3 bad=$nd3   m4 bad=$nd4   harness-fail=$nfail"
+echo "TRI-IDENTICAL $nid/${#DEMOS[@]}   m3 bad=$nd3   m4 bad=$nd4   harness-fail=$nfail"

@@ -131,7 +131,16 @@ collect_files() {
 run_corpus() {
     local mode="$1"
     local PASS=0 FAIL=0 XFAIL=0 REFUSED=0
-    MODE_FAIL=0
+    # ⛔ MODE_FAIL's SIBLING, DELIBERATELY NOT `local` FOR THE SAME REASON (row every-board-wrapper-
+    # refuses-on-a-zero-population-instead-of-passing-vacuously, hq_T 2026-09-04): a FILE matched by
+    # collect_files but missing BOTH .expected and a usable .ref hits `[ -f "$exp" ] || continue` below
+    # with NO counter incremented at all -- unlike Icon's twin, which counts this as MISSING and sets
+    # MODE_FAIL=1. If every collected FILE lacks an oracle, PASS=FAIL=XFAIL=0, MODE_FAIL stays its
+    # initialized 0, and HARD_FAIL reads exactly like a clean board -- the collect_files-level floor
+    # this row already added cannot see this, because collect_files never asked "does it have an
+    # oracle", only "does the .pl exist". MODE_TOTAL is the caller's only way to tell "graded and
+    # clean" from "found files, graded none of them".
+    MODE_FAIL=0; MODE_TOTAL=0
     if mode_is_refused "$mode"; then
         local pend=0 f
         for f in "${FILES[@]}"; do { [ -f "${f%.pl}.expected" ] || [ -f "${f%.pl}.ref" ]; } && pend=$((pend+1)); done
@@ -231,10 +240,11 @@ run_corpus() {
             [ "$sbad" -gt 0 ] && MODE_FAIL=1
         done
     fi
+    MODE_TOTAL=$((PASS+FAIL+XFAIL+REFUSED))
     if [ "$REFUSED" -gt 0 ]; then
-        echo "--- Prolog ($mode): PASS=$PASS FAIL=$FAIL XFAIL=$XFAIL REFUSED=$REFUSED TOTAL=$((PASS+FAIL+XFAIL+REFUSED)) ---"
+        echo "--- Prolog ($mode): PASS=$PASS FAIL=$FAIL XFAIL=$XFAIL REFUSED=$REFUSED TOTAL=$MODE_TOTAL ---"
     else
-        echo "--- Prolog ($mode): PASS=$PASS FAIL=$FAIL XFAIL=$XFAIL TOTAL=$((PASS+FAIL+XFAIL)) ---"
+        echo "--- Prolog ($mode): PASS=$PASS FAIL=$FAIL XFAIL=$XFAIL TOTAL=$MODE_TOTAL ---"
     fi
 }
 
@@ -244,6 +254,12 @@ printf ':- initialization(main).\nmain :- write(ok), nl.\n' > "$PROBE"
 trap 'rm -f "$PROBE" "$ERRF"' EXIT
 
 collect_files
+# ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
+# vacuously, hq_T 2026-09-04): run_corpus() only sets MODE_FAIL on a FILE it iterates -- if
+# collect_files's globs matched nothing (a --rung typo, or a family fully consolidated into a suite
+# pair with the loose originals removed), the loop body never runs, MODE_FAIL stays its initialized 0,
+# and HARD_FAIL below reads exactly like a clean board. This is the Icon twin's identical fix.
+"$HERE/util_require_population.sh" --gate test_prolog_rung_suite "$((${#FILES[@]}+${#SUITE_FILES[@]}))" 1 "collected .pl/.ref witnesses (RUNG=${RUNG:-<all>})" || exit 2
 # verbose per-file output only for single-mode runs; the all-modes sweep prints summaries only
 VERBOSE=1; [ "$MODE" = "all" ] && VERBOSE=0
 
@@ -257,11 +273,19 @@ case "$MODE" in
         # still accepted as an explicit alias below; it is only dropped from the sweep.
         for m in interp compile; do
             run_corpus "$m"
+            # ⛔⭐ POPULATION FLOOR, ONE LEVEL DEEPER THAN collect_files (row every-board-wrapper-
+            # refuses-on-a-zero-population-instead-of-passing-vacuously, hq_T 2026-09-04): interp is
+            # the HARD GATE (see header), so its own MODE_TOTAL -- not just "did collect_files find a
+            # .pl file" -- must be non-zero before MODE_FAIL is trusted. A RUNG whose matched files
+            # ALL lack an oracle (see run_corpus's `[ -f "$exp" ] || continue`) reaches here with
+            # MODE_FAIL=0 and MODE_TOTAL=0 -- refuse before HARD_FAIL can read that as clean.
+            [ "$m" = interp ] && { "$HERE/util_require_population.sh" --gate test_prolog_rung_suite "$MODE_TOTAL" 1 "interp-mode graded rows (RUNG=${RUNG:-<all>})" || exit 2; }
             [ "$m" = interp ] && [ "$MODE_FAIL" -ne 0 ] && HARD_FAIL=1
         done
         ;;
     interp|run|compile)
         run_corpus "$MODE"
+        [ "$MODE" = interp ] && { "$HERE/util_require_population.sh" --gate test_prolog_rung_suite "$MODE_TOTAL" 1 "interp-mode graded rows (RUNG=${RUNG:-<all>})" || exit 2; }
         [ "$MODE" = interp ] && [ "$MODE_FAIL" -ne 0 ] && HARD_FAIL=1
         ;;
     *) echo "bad mode $MODE" >&2; exit 1 ;;

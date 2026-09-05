@@ -189,5 +189,9 @@ python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite C
     --text "total=$TOTAL m3 PASS=$M3_PASS FAIL=$M3_FAIL REJECT=$M3_REJECT CRASH=$M3_CRASH HANG=$M3_HANG · m4 PASS=$M4_PASS FAIL=$M4_FAIL REJECT=$M4_REJECT CRASH=$M4_CRASH HANG=$M4_HANG (\`test_snobol4_csnobol4_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
+# ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
+# vacuously, hq_T 2026-09-04): every _FAIL/_REJECT/_CRASH/_HANG bucket reads 0 over TOTAL=0 too
+# (empty pair discovery) -- refuse before the vacuous-clean verdict below can be reached.
+"$HERE/util_require_population.sh" --gate test_snobol4_csnobol4_suite "$TOTAL" 1 "pairs" || exit 2
 [ "$M3_FAIL" = 0 ] && [ "$M3_REJECT" = 0 ] && [ "$M3_CRASH" = 0 ] && [ "$M3_HANG" = 0 ] && \
 [ "$M4_FAIL" = 0 ] && [ "$M4_REJECT" = 0 ] && [ "$M4_CRASH" = 0 ] && [ "$M4_HANG" = 0 ]

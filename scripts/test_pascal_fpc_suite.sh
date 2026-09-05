@@ -109,4 +109,8 @@ python3 "$HERE/util_score_row.py" write --lang pascal --column vendor --suite fp
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
 
+# ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
+# vacuously, hq_T 2026-09-04): M3_FAIL/M4_FAIL/REJECT all read 0 over TOTAL=0 too (empty discovery) --
+# refuse before the vacuous-clean verdict below can be reached.
+"$HERE/util_require_population.sh" --gate test_pascal_fpc_suite "$TOTAL" 1 "pascal witnesses" || exit 2
 [ "$M3_FAIL" -eq 0 ] && [ "$M4_FAIL" -eq 0 ] && [ "$REJECT" -eq 0 ]

@@ -74,4 +74,8 @@ if [ "${VERBOSE:-0}" = 1 ] && [ "${#FAILS[@]}" -gt 0 ]; then
     echo "--- failures ---"
     for x in "${FAILS[@]}"; do echo "  $x"; done
 fi
+# ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
+# vacuously, hq_T 2026-09-04): tot_fail reads 0 over zero .pl files graded too (a wrong/empty $ROOT) --
+# refuse before the vacuous-clean verdict below can be reached.
+"$HERE/util_require_population.sh" --gate test_swi_suite "$((tot_pass+tot_fail))" 1 "prolog files graded under \$ROOT ($ROOT)" || exit 2
 [ "$tot_fail" = 0 ]

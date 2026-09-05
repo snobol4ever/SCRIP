@@ -155,6 +155,33 @@ def refuse(msg):
     sys.exit(2)
 
 
+def require_population(paths, count, floor, label):
+    """⛔ REFUSE rc=2 when a verdict is about to be computed over fewer than `floor` graded rows.
+
+    ⭐ THIS FUNCTION DELIBERATELY CONTAINS NO FLOOR LOGIC. It shells out to
+    scripts/util_require_population.sh, which sources gate_floor() from lib_gate.sh -- the SAME
+    function every bash suite runner calls, for the same reason require_fresh() above shells out to
+    util_require_fresh.sh rather than reimplementing staleness: a second copy of a rule is how a cured
+    defect class comes back the moment nobody is looking at the copy that got missed.
+
+    THE DEFECT: `cmd_run`'s verdict is `sys.exit(0 if not fails else 1)` -- a suite whose `entries` list
+    is empty (a malformed or emptied ALL.sno/ALL.ref pair, with no --shard involved to trip the sibling
+    check just above) never enters the grading loop, `fails` stays [], and this exits 0. A run that
+    graded nothing must never read as a run that graded everything and found it clean (row every-board-
+    wrapper-refuses-on-a-zero-population-instead-of-passing-vacuously, hq_T 2026-09-04)."""
+    shim = paths["scrip_root"] / "scripts" / "util_require_population.sh"
+    if not shim.is_file():
+        print(f"⛔ REFUSED-TO-GRADE rc=2: {shim} missing -- cannot establish that this run graded "
+              f"anything (the ONE population-floor authority, never reimplemented here)", file=sys.stderr)
+        sys.exit(2)
+    r = subprocess.run(["bash", str(shim), "--gate", "corpus_suite_harness", str(count), str(floor), label],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        sys.stderr.write(r.stdout)
+        sys.stderr.write(r.stderr)
+        sys.exit(2)
+
+
 def check_scrip(paths):
     if not (paths["scrip_bin"].is_file() and os.access(paths["scrip_bin"], os.X_OK)):
         refuse(f"scrip is not built/executable at {paths['scrip_bin']}")
@@ -1766,6 +1793,7 @@ def cmd_run(args):
         modes = (args.modes or "m3,m4").split(",")
         entries = read_suite(args.sno, args.ref, in_path=sidecar_in_path(args.sno),
                              x_path=sidecar_xfail_path(args.sno), w_path=sidecar_wantrc_path(args.sno))
+    require_population(paths, len(entries), 1, f"entries read from {args.sno} (a suite pair that names zero entries cannot be graded)")
     shard_tag = ""
     if getattr(args, "shard", ""):
         _m = re.fullmatch(r"(\d+)/(\d+)", args.shard.strip())

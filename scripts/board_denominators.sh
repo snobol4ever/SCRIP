@@ -27,7 +27,7 @@ d_crosscheck()  { awk -F, 'NR>1 && $4 ~ /^crosscheck_/' "$CORPUS/tests/snobol4/A
 # of a loose-file find, since the suite text file is no longer one file per test.
 d_probebb()     { awk -F, 'NR>1 && $4=="probe_bb_probes"' "$CORPUS/tests/snobol4/ALL.csv" 2>/dev/null | wc -l; }   # counts master entries by origin-family (zero-subfolders cutover)
 d_demo()        { find "$CORPUS/demos" -maxdepth 1 -name "*.sno" 2>/dev/null | wc -l; }
-d_demo15()      { echo 15; }  # fixed by construction (board_sno15_ident.sh's own for-loop) — see NOTE below
+d_demo15()      { echo 14; }  # ⛔ CORRECTED 2026-09-04 (hq_T, row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-vacuously): was 15, cited as "fixed by construction (board_sno15_ident.sh's own for-loop)" -- mechanically re-counted (`for nm in <the loop's list>; do echo "$nm"; done | wc -l`) and that loop carries 14 names, not 15; the filename and this function's name are the only places "15" survives now. See NOTE below
 d_bench()       { find "$CORPUS/benchmarks/snobol4" -maxdepth 1 -name "*.sno" 2>/dev/null | wc -l; }
 d_bench_xfail() { find "$CORPUS/benchmarks/snobol4" -maxdepth 1 -name "*.xfail" 2>/dev/null | wc -l; }   # COMPUTED, never typed: the count was written into the row text as "1" and would have gone stale the moment a marker was added or retired (s170)
 d_beauty_total(){ awk -F, 'NR>1 && $4 ~ /^beauty_suite_/' "$CORPUS/tests/snobol4/ALL.csv" 2>/dev/null | wc -l; }   # beauty drivers absorbed into the master (one per family)

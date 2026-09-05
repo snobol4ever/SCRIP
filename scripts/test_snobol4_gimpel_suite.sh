@@ -100,4 +100,11 @@ SCORED=$((TOTAL-UNSCR))
 echo "GIMPEL_BOARD total=$TOTAL scored=$SCORED unscr=$UNSCR m3_pass=$M3P m3_fail=$M3F m4_pass=$M4P m4_fail=$M4F -- SCRIP $SCRIP_HASH corpus $CORP_HASH RT_OPT=-O0 oracle=sbl-bf (via scorecard_snobol4.sh --suites gimpel)"
 awk -F'\t' '$3=="ORACLE_FAIL"{printf "  UNSCR  %s  %s\n", $2, $7}' "$TSV"
 awk -F'\t' '$3!="ORACLE_FAIL" && ($3!="PASS" || $4!="PASS"){printf "  RED    %s  m3=%s m4=%s%s\n", $2, $3, $4, ($7!="" ? "  "$7 : "")}' "$TSV"
+# ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
+# vacuously, hq_T 2026-09-04): WITNESSED TWICE IN ONE HOUR on this exact file -- the concurrent-board
+# registry in scorecard_snobol4.sh declined (rc=$rc, an UPSTREAM refusal), which truncates results.tsv
+# to empty and leaves it there; `-f "$TSV"` above only proves the FILE exists, not that it holds any
+# rows, so TOTAL/SCORED/M3F/M4F all read 0 and the line below used to read that as clean. NO LOGIC
+# HERE: util_require_population.sh sources gate_floor from lib_gate.sh, the ONE authority.
+"$HERE/util_require_population.sh" --gate test_snobol4_gimpel_suite "$SCORED" 1 "scored rows (total=$TOTAL unscr=$UNSCR, scorecard rc=$rc)" || exit 2
 [ "$M3F" = 0 ] && [ "$M4F" = 0 ]

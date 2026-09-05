@@ -57,6 +57,12 @@ if [ -z "${GCDIR:-}" ]; then
     . "$HERE/lib_master_extract.sh"
     master_extract_family crosscheck_gc "$GCDIR" || { echo "GATE UNPROVEN(2) [test_gc_stress_suite]: could not extract the crosscheck_gc family from the master suite"; exit 2; }
 fi
+# ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
+# vacuously, hq_T 2026-09-04): an EXPLICIT $GCDIR override skips extraction entirely, and every P/F
+# counter below reads 0 over a directory with zero .sno files -- TOTAL_FAIL=0 at line 61 was ALREADY
+# this file's own vacuous-pass floor before this row named the class; check it here, upstream of the
+# 4-stress x 2-mode sweep, so one refusal replaces eight silent all-zero rows.
+"$HERE/util_require_population.sh" --gate test_gc_stress_suite "$(ls "$GCDIR"/*.sno 2>/dev/null | wc -l)" 1 "*.sno witnesses under \$GCDIR ($GCDIR)" || exit 2
 echo "=== GC stress suite — corpus/crosscheck/gc x {plain,S25,S7,S1} x {m3,m4} ==="
 TOTAL_FAIL=0
 for sno in "$GCDIR"/*.sno; do

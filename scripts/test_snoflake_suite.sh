@@ -204,6 +204,10 @@ echo "dialect tally (NOT in the score): $DIA fixture(s) pass against SPITBOL whi
 [ -n "$FLS" ] && echo "FAIL-SBL:$FLS"
 [ -n "$FLC" ] && echo "FAIL-CSN:$FLC"
 [ -n "$DIAL" ] && echo "DIALECT:$DIAL"
+# ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
+# vacuously, hq_T 2026-09-04): P3/F3/N3P/N3F all read 0 when "$SUITE"/*.sno matches nothing (an unset
+# or wrong $SUITE) -- refuse before the vacuous-clean verdict below can be reached.
+"$HERE/util_require_population.sh" --gate test_snoflake_suite "$((P3+F3+N3P+N3F))" 1 "mode-3 gradings under \$SUITE" || exit 2
 
 # ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05). Records what this script just
 # measured into .github/SCORE.md; runs nothing itself. Non-fatal: a bookkeeping failure must never

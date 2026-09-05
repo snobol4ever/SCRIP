@@ -264,6 +264,12 @@ run_corpus() {
 }
 
 collect_files
+# ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
+# vacuously, hq_T 2026-09-04): run_corpus() only sets MODE_FAIL on a FILE it iterates -- if
+# collect_files's globs matched nothing (a --rung typo, or a family fully consolidated into a suite
+# pair with the loose originals removed and SUITE_FILES's own discriminator missing it), the loop body
+# never runs, MODE_FAIL stays its initialized 0, and HARD_FAIL below reads exactly like a clean board.
+"$HERE/util_require_population.sh" --gate test_icon_rung_suite "$((${#FILES[@]}+${#SUITE_FILES[@]}))" 1 "collected .icn/.ref witnesses (RUNG=${RUNG:-<all>})" || exit 2
 # verbose per-file output only for single-mode runs; the all-modes sweep prints summaries only
 VERBOSE=1; [ "$MODE" = "all" ] && VERBOSE=0
 

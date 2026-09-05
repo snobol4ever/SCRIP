@@ -65,4 +65,9 @@ _f4="$(printf '%s' "$_board" | sed -n 's/.*m4_fail=\([0-9]*\).*/\1/p')"
 python3 "$HERE/util_score_row.py" write --lang snocone --column floor --modes m3,m4 \
     --measurer "${S4E_SEAT:-}" --text "corpus suite m3 ${_p3:-?}/${_tot:-?} · m4 ${_p4:-?}/${_tot:-?} (fail ${_f3:-?}/${_f4:-?}, \`test_snocone_corpus_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
-[ "$rc" -eq 0 ]
+# ⛔ PRESERVE THE HARNESS'S OWN rc, DON'T COLLAPSE IT TO A BOOLEAN (adjacent to row every-board-wrapper-
+# refuses-on-a-zero-population-instead-of-passing-vacuously, hq_T 2026-09-04): corpus_suite_harness.py
+# now REFUSES rc=2 on a zero-entry family (its own population floor); `[ "$rc" -eq 0 ]` alone would
+# still report that correctly as non-PASS, but as a bare FAIL(1) indistinguishable from a real graded
+# violation. Exiting the harness's own code keeps REFUSED(2) legible as "could not measure" here too.
+exit "$rc"
