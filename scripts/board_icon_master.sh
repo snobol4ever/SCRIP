@@ -29,6 +29,16 @@
 #
 # ⭐ FLOOR, NOT A PINNED TOTAL (RULES.md § the denominator law): growth needs no re-pin; only an
 # ATTRIBUTED retirement may lower these, in the same commit that shrinks the master.
+#
+# ⛔⭐ THE AST-SHAPE COUNT IS INFORMATIONAL ONLY, NEVER A GATE (ast-dump-refs-are-self-pins-not-
+# oracles, 2026-09-05): the parser-ladder fixtures' .ref is SCRIP's own past self-dumped AST, pinned
+# against no external oracle -- no oracle emits SCRIP's AST shape, so that count can only ever answer
+# "did the shape change since it was last decided", never "is it right". This board used to let that
+# count set RED and feed a pass/fail floor on this SCORED board, which manufactures phantom defects
+# out of drift the moment someone re-decides the shape. It is still measured and printed every run
+# (Icon's parser-ladder population is NOT left ungated) but it no longer participates in this board's
+# verdict, its floor, or the leaderboard's pass/fail framing -- a mismatch here means RE-DECIDE THE
+# SHAPE AND REGENERATE the ref, never "N programs FAIL".
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -41,7 +51,8 @@ MASTER_CSV="$CORPUS/ALL.csv"
 ENTRY_FLOOR="${ICON_MASTER_ENTRY_FLOOR:-534}"
 # ⛔⭐ THE PASS FLOORS ARE OVER THE RUN-GRADED POPULATION (381), NOT THE SUITE (534), and the old 398 is VOID.
 # Until 2026-09-03 this board graded all 534 entries by RUNNING them, including the 153 parser-ladder fixtures
-# whose .ref is a `--dump-ast` dump -- so its number mixed two populations graded against two different kinds
+# whose .ref is a self-pinned AST-shape dump (SCRIP's own past output, see the AST-SHAPE note above) -- so its
+# number mixed two populations graded against two different kinds
 # of expected output and could not be read as anything. Re-pinned from the honest split measured on
 # SCRIP 4f847224 / corpus 53477317: run-graded m3/m4 PASS=377 of 381, ast-graded PASS=153 of 153.
 # ⭐ Note which way the old instrument moved when the corpus got BETTER: the ceo's re-cut of 30 stale AST pins
@@ -68,7 +79,9 @@ ENTRY_FLOOR="${ICON_MASTER_ENTRY_FLOOR:-534}"
 # the-harness witness is still owed once the argv sidecar lands (hq_T's harness row); this comment is not it.
 M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-596}"
 M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-596}"
-AST_PASS_FLOOR="${ICON_MASTER_AST_PASS_FLOOR:-153}"
+# ⛔ NO AST_PASS_FLOOR: a self-pin has no floor to regress below, only a CURRENT-run comparison of
+# ap (matched) vs at (total) -- see the AST-SHAPE note above. Removed under ast-dump-refs-are-self-
+# pins-not-oracles rather than kept-but-unused, so a reader cannot mistake its presence for gating.
 
 # ⛔ A BOARD THAT CANNOT MEASURE REFUSES rc=2 — never skip-as-success (RULES.md). Each arm below names
 # what is missing, because "cannot enumerate" and "enumerated zero" are different facts and a single
@@ -111,7 +124,7 @@ split=$(printf '%s\n' "$_raw" | grep '^MODES_COLUMN ' | tail -1 || true)
 if [ -z "$astboard" ] || [ -z "$split" ]; then
     echo "⛔ BOARD REFUSES (rc=2): the harness printed no ast board / no MODES_COLUMN split."
     echo "   This board grades BY THE MASTER'S modes COLUMN; without that split the only number available"
-    echo "   is the old one that ran 153 --dump-ast fixtures and counted their inevitable reds."
+    echo "   is the old one that ran the 153 self-pinned AST-shape fixtures and counted their inevitable reds."
     exit 2
 fi
 if [ -z "$board" ]; then
@@ -135,7 +148,7 @@ fi
 graded=$(( mt + at ))
 echo "entries=$graded  (run-graded $mt + ast-graded $at; ALL.csv rows=$CSV_ENTRIES, floor=$ENTRY_FLOOR)"
 echo "$split"
-echo "ast-graded (--dump-ast, parser-ladder fixtures): $ap/$at PASS  FAIL=$af CRASH=$ac HANG=$ah XPASS=$axp"
+echo "AST-shape drift check (self-pinned dump, parser-ladder fixtures, INFORMATIONAL -- never part of this board's verdict): $ap/$at match  DRIFTED=$af CRASH=$ac HANG=$ah XPASS=$axp"
 echo "run-graded population: $mt entries (the ast fixtures are NOT in these two lines and are never summed into them)"
 echo "mode-3 (--run):     PASS=$m3p FAIL=$m3f CRASH=$m3c HANG=$m3h UNPROVEN=$m3u XFAIL=$m3x XPASS=$m3xp   / $mt"
 echo "mode-4 (--compile): PASS=$m4p FAIL=$m4f CRASH=$m4c HANG=$m4h UNPROVEN=$m4u SKIP=$m4s XFAIL=$m4x XPASS=$m4xp   / $mt"
@@ -172,7 +185,9 @@ fi
 # 122 m3 failures are real and belong to hq_C's lane; this board's job is to notice movement.
 if [ "$m3p" -lt "$M3_PASS_FLOOR" ]; then echo "⛔ RED: m3 PASS $m3p regressed below watermark $M3_PASS_FLOOR"; RED=1; fi
 if [ "$m4p" -lt "$M4_PASS_FLOOR" ]; then echo "⛔ RED: m4 PASS $m4p regressed below watermark $M4_PASS_FLOOR"; RED=1; fi
-if [ "$ap" -lt "$AST_PASS_FLOOR" ]; then echo "⛔ RED: ast PASS $ap regressed below watermark $AST_PASS_FLOOR"; RED=1; fi
+# ⛔ NEVER RED: a self-pin has nothing to regress below (see the AST-SHAPE note above) -- reported so
+# drift is visible, but it cannot fail this board. A mismatch means RE-DECIDE THE SHAPE AND REGENERATE.
+if [ "$ap" -lt "$at" ]; then echo "⚠️  AST-shape drift: $((at-ap)) parser-ladder fixture(s) no longer match their pinned dump — re-decide the shape and regenerate (ast-dump-refs-are-self-pins-not-oracles), NOT a correctness regression"; fi
 if [ "$((m3p+m4p))" -gt "$((M3_PASS_FLOOR+M4_PASS_FLOOR))" ]; then
     echo "⭐ WATERMARK MOVED UP (m3 $m3p vs $M3_PASS_FLOOR, m4 $m4p vs $M4_PASS_FLOOR) — re-pin the floors in the commit that earned it."
 fi
@@ -200,7 +215,7 @@ fi
 # suite's best remembered day rather than its state, which is the exact opposite of what it is for.
 python3 "$HERE/util_score_row.py" write --lang icon --column board --modes m3,m4 \
     --measurer "${S4E_SEAT:-}" \
-    --text "$([ "$RED" -ne 0 ] && echo "⛔ RED — ")run-graded m3 $m3p/$mt · m4 $m4p/$mt · ast-graded $ap/$at (entries=$graded, floors m3 $M3_PASS_FLOOR / m4 $M4_PASS_FLOOR / ast $AST_PASS_FLOOR, \`board_icon_master.sh\`)$_named" \
+    --text "$([ "$RED" -ne 0 ] && echo "⛔ RED — ")run-graded m3 $m3p/$mt · m4 $m4p/$mt (entries=$graded, floors m3 $M3_PASS_FLOOR / m4 $M4_PASS_FLOOR, \`board_icon_master.sh\`) · ast-shape check $ap/$at (informational, not scored)$_named" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 # ⭐ THE PROGRESS LINE, after the rewrite.  This runner writes its row DIRECTLY rather than through
 # lib_gate.sh's gate_score_row, so it needs the call the shared path already carries -- same one line,
@@ -208,4 +223,4 @@ python3 "$HERE/util_score_row.py" write --lang icon --column board --modes m3,m4
 # runs no suite).  Non-fatal by construction: it must not be able to change this board's verdict.
 python3 "$HERE/util_score_row.py" progress 2>/dev/null || true
 if [ "$RED" -ne 0 ]; then echo "⛔ ICON MASTER BOARD RED"; exit 1; fi
-echo "✅ ICON MASTER BOARD OK: entries=$graded at/above floor $ENTRY_FLOOR · run-graded m3 PASS=$m3p m4 PASS=$m4p / $mt · ast-graded PASS=$ap/$at (watermarks held)"
+echo "✅ ICON MASTER BOARD OK: entries=$graded at/above floor $ENTRY_FLOOR · run-graded m3 PASS=$m3p m4 PASS=$m4p / $mt (watermarks held) · ast-shape check $ap/$at (informational)"

@@ -21,6 +21,13 @@
 # Gate: FAIL=0 over the printed total (do not pin a specific total here -- the fixture count
 # drifts; a probe asserts FAIL=0/SKIP=0 over its own denominator, never a copied number -- RULES.md).
 #
+# ⛔⭐ THIS IS A DRIFT-DETECTOR, NOT A CORRECTNESS ORACLE (ast-dump-refs-are-self-pins-not-oracles,
+# 2026-09-05): the .ref here is `scrip --dump-ast` output pinned against SCRIP's own PAST self, not
+# against any external oracle -- no Rebus oracle emits SCRIP's AST shape, so this can only ever
+# answer "did the shape change since it was last decided", never "is the shape right". A non-zero
+# exit means RE-DECIDE THE SHAPE ON SEMANTICS AND REGENERATE the .ref, never "N programs FAIL".
+# Never wired into a scored/watermarked board.
+#
 # Commit identity: LCherryholmes / lcherryh@yahoo.com  (RULES.md)
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME
 
@@ -47,4 +54,8 @@ fi
 out=$(python3 "$HERE/corpus_suite_harness.py" run "$W/parser.reb" "$W/parser.ref" --lang rebus 2>&1)
 rc=$?
 echo "$out"
+if [ "$rc" -ne 0 ]; then
+    echo "⛔ AST shape changed vs the pinned self-referential .ref -- RE-DECIDE THE SHAPE AND REGENERATE"
+    echo "   (ast-dump-refs-are-self-pins-not-oracles). This is drift, not a correctness verdict."
+fi
 [ "$rc" -eq 0 ]

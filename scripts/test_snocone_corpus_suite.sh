@@ -22,6 +22,12 @@
 # Gate: FAIL=0 over the printed total (do not pin a specific total here -- the fixture count
 # drifts; a probe asserts FAIL=0/SKIP=0 over its own denominator, never a copied number -- RULES.md).
 #
+# ⛔ NOT A DRIFT-DETECTOR (checked under ast-dump-refs-are-self-pins-not-oracles, 2026-09-05): unlike
+# its sibling test_snocone_parser_fixtures.sh, this family's .ref holds real program OUTPUT (m3,m4
+# execution), graded against what the interpreted program actually printed -- a genuine correctness
+# check, not a self-pinned `--dump-ast` comparison. Named here only so a reader searching for
+# DRIFT-DETECTOR finds the explicit "this one isn't" rather than silence.
+#
 # Commit identity: LCherryholmes / lcherryh@yahoo.com  (RULES.md)
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME
 
