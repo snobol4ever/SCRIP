@@ -448,13 +448,13 @@ static int mon_synth_name(const char *n) { static int keep = -1; if (keep < 0) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int comm_var_active(void) { return g_comm_dbg != 0 || trace_set_n != 0 || monitor_fd >= 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void comm_var(const char *name, DESCR_t val) {
+void comm_var(const char *name, DESCR_t val, const char *file, long line, long long stno) {
     if (!name || name[0] == '_') return;
     if (mon_synth_name(name)) return;
     if (monitor_quiet_depth > 0) return;
     if (g_comm_dbg < 0) g_comm_dbg = getenv("SCRIP_DEBUG_TRACE") ? 1 : 0;
     const int dbg = g_comm_dbg;
-    if (!dbg && trace_set_n == 0 && monitor_fd < 0) return;
+    if (!dbg && trace_set_n == 0 && monitor_fd < 0 && kw_trace <= 0) return;
     const char *cbfn = trace_get_callback(name);
     if (dbg)
         fprintf(stderr, "[scrip-trace] comm_var name=%s cb=%s recur=%d\n",
@@ -467,6 +467,12 @@ void comm_var(const char *name, DESCR_t val) {
         (void)APPLY_fn(cbfn, cbargs, 2);
         trace_recursion_depth--;
         return;
+    }
+    if (!g_monitor_bin && (kw_trace > 0 || trace_registered(name))) {
+        const char *s = VARVAL_fn(val);
+        fprintf(stdout, "%s:%ld stmt %lld: %s = %s, time = %g\n",
+                file ? file : "", line, stno, name, s ? s : "", (double)rt_time_ns() / 1e9);
+        fflush(stdout);
     }
     if (monitor_fd < 0) return;
     if (!monitor_ready) return;
@@ -2359,7 +2365,7 @@ static void _var_init(void) {
 void mon_tap_cell_store(void *cellp, DESCR_t val) {
     if (monitor_fd < 0 || !cellp) return;
     for (int h = 0; h < VAR_BUCKETS; h++) for (NV_t *e = _var_buckets[h]; e; e = e->next)
-        if ((void *)e->cell == cellp || (void *)&e->val == cellp) { if (getenv("SCRIP_TAP_DBG")) fprintf(stderr, "[TAP] cell-store name=%s ready=%d quiet=%d ktr=%lld\n", e->name, monitor_ready, monitor_quiet_depth, (long long)kw_trace); comm_var(e->name, val); return; }
+        if ((void *)e->cell == cellp || (void *)&e->val == cellp) { if (getenv("SCRIP_TAP_DBG")) fprintf(stderr, "[TAP] cell-store name=%s ready=%d quiet=%d ktr=%lld\n", e->name, monitor_ready, monitor_quiet_depth, (long long)kw_trace); comm_var(e->name, val, stmt_src_get_file(), 0, 0); return; }
     if (getenv("SCRIP_TAP_DBG")) { DESCR_t *c = (DESCR_t *)cellp; fprintf(stderr, "[TAP] cell-store UNRESOLVED cellp=%p v=%d slen=%u s=%.24s\n", cellp, (int)(c ? (int)((unsigned char)c->v) : -1), c ? c->slen : 0, (c && (c->v == 2 || c->v == 0) && c->s) ? c->s : "?"); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2458,7 +2464,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
         return val;
     }
     if (!name) return val;
-    { DESCR_t *cell = NV_CELL_IF_FASTSET_fn(name); if (cell) { *cell = val; if (g_comm_dbg != 0 || trace_set_n != 0 || monitor_fd >= 0) comm_var(name, val); return val; } }
+    { DESCR_t *cell = NV_CELL_IF_FASTSET_fn(name); if (cell) { *cell = val; if (g_comm_dbg != 0 || trace_set_n != 0 || monitor_fd >= 0) comm_var(name, val, stmt_src_get_file(), 0, 0); return val; } }
     _io_chan_setup();
     int ch = _io_chan_find_by_var(name);
     if (ch >= 0 && _io_chan[ch].is_output && _io_chan[ch].fp) {
@@ -2505,7 +2511,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
             if (e->is_const) { char eb[192]; snprintf(eb, sizeof eb, "re-assignment of a sealed &constant: %s", e->name); core_runtime_error(341, eb); return val; }
             if (e->is_gva) *e->cell = val; else e->val = val;
             if (name[0] == '&' && !_nv_kwsplit()) e->is_const = 1;
-            comm_var(name, val);
+            comm_var(name, val, stmt_src_get_file(), 0, 0);
             return val;
         }
     }
@@ -2518,14 +2524,14 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
     e->is_const = (name[0] == '&' && !_nv_kwsplit()) ? 1 : 0;
     e->next = _var_buckets[h];
     _var_buckets[h] = e; g_nv_memo_gen++;
-    comm_var(name, val);
+    comm_var(name, val, stmt_src_get_file(), 0, 0);
     return val;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int NV_EXISTS_fn(const char *name) { _var_init(); if (!name) return 0; unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && _nv_ordinary(e)) return 1; return 0; }
 int NV_CONST_ASSIGNED_fn(const char *name) { _var_init(); if (!name) return 0; unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) return 1; return 0; }
 DESCR_t NV_KW_GET_fn(const char *name) { _var_init(); if (!name) return NULVCL; if (!_nv_kwsplit()) return NV_GET_fn(name); unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) return e->is_gva ? *e->cell : e->val; return NULVCL; }
-DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val) { _var_init(); if (!name) return val; if (!_nv_kwsplit()) return NV_SET_fn(name, val); { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); } unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) { char eb[192]; snprintf(eb, sizeof eb, "re-assignment of a sealed &constant: %s", e->name); core_runtime_error(341, eb); return val; } NV_t *e = rt_ws_alloc(sizeof(NV_t)); e->name = rt_ws_strdup(name); e->val = val; e->cell = (DESCR_t *)0; e->is_gva = 0; e->is_const = 1; e->next = _var_buckets[h]; _var_buckets[h] = e; g_nv_memo_gen++; comm_var(name, val); return val; }
+DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val) { _var_init(); if (!name) return val; if (!_nv_kwsplit()) return NV_SET_fn(name, val); { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); } unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) { char eb[192]; snprintf(eb, sizeof eb, "re-assignment of a sealed &constant: %s", e->name); core_runtime_error(341, eb); return val; } NV_t *e = rt_ws_alloc(sizeof(NV_t)); e->name = rt_ws_strdup(name); e->val = val; e->cell = (DESCR_t *)0; e->is_gva = 0; e->is_const = 1; e->next = _var_buckets[h]; _var_buckets[h] = e; g_nv_memo_gen++; comm_var(name, val, stmt_src_get_file(), 0, 0); return val; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t *NV_PTR_fn(const char *name) {
     _var_init();

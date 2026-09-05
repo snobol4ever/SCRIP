@@ -1085,8 +1085,9 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
       if (g_emit.op_src) { std::string _c; const char * p = g_emit.op_src; while (*p) { const char * e2 = p; while (*e2 && *e2 != '\n') e2++; _c += x86("srccomment", std::string(p, (size_t)(e2 - p))); p = *e2 ? e2 + 1 : e2; } bb_emit_x86(_c); }
       emit_sep_rule('-'); }
     { static int _dl = -1; if (_dl < 0) _dl = emit_dwarf_loc_on();
-      int _raw = _dl ? bb_line_of(nd) : 0; int _ln = _raw < 0 ? -_raw : _raw; g_emit.op_line = _ln;
-      if (_ln > 0) { const char * _sf = stmt_src_get_file(); int _nl = stmt_src_nlines();
+      int _raw = bb_line_of(nd); int _ln = _raw < 0 ? -_raw : _raw;
+      if (_ln > 0) g_emit.op_line = _ln;
+      if (_dl && _ln > 0) { const char * _sf = stmt_src_get_file(); int _nl = stmt_src_nlines();
         if (_sf && *_sf) bb_emit_x86(x86("loc", _sf, _ln, (_raw > 0 && _nl > 0 && _ln <= _nl) ? 1 : 2)); } }
     bb_classify_node(nd);
     if (emit_floater_kind(nd) == 3) { bb_emit_x86(bb_nreturn_mark()); return 0; }

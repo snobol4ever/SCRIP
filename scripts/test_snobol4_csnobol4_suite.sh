@@ -230,7 +230,7 @@ for sno in "$SUITE"/*.sno; do
         HANG) M3_HANG=$((M3_HANG+1)); RED3="$RED3 $name";;
     esac
 
-    if compile_m4 "$prog" "$W/prog.bin"; then
+    if (cd "$RUN" && compile_m4 "$relprog" "$W/prog.bin"); then
         got4="$(cd "$RUN" && SNO_LIB="$SUITE" timeout "$TIMEOUT" "$W/prog.bin" $xargs_extra < "$inp" 2>&1)"; rc4=$?
         got4="$(normalize "$name" "$got4")"
         st4="$(status_of "$got4" "$rc4" "$exp")"

@@ -750,7 +750,7 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
                 if (cell) {
                     if (d.v == DT_S) rt_sxt_break_fast(d.s);
                     *cell = d;
-                    if (_cva) comm_var(e->varname, d);
+                    if (_cva) comm_var(e->varname, d, stmt_src_get_file(), 0, 0);
                 } else {
                     NV_SET_fn(e->varname, d);
                 }

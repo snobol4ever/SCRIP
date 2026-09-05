@@ -69,7 +69,7 @@ trace_hook:
         }
     }
     if (shadow_has(name) && name && name[0] != '&' && trace_is_active(name))
-        comm_var(name, val);
+        comm_var(name, val, stmt_src_get_file(), 0, 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_script_die_surface(const char *msg) {
