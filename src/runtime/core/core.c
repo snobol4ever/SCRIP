@@ -1363,7 +1363,7 @@ static DESCR_t _FUNCTION_(DESCR_t *a, int n) {
     if (n < 1) return FAILDESCR;
     const char *name = VARVAL_fn(a[0]);
     if (!name || !*name) return FAILDESCR;
-    return FNCEX_fn(name) ? STRVAL(rt_ws_strdup_c(name)) : FAILDESCR;
+    return FNCEX_fn(name) ? NULVCL : FAILDESCR;
 }
 static int (*_label_exists_hook)(const char *) = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1374,7 +1374,7 @@ static DESCR_t _LABEL_(DESCR_t *a, int n) {
     const char *name = VARVAL_fn(a[0]);
     if (!name || !*name) return FAILDESCR;
     if (_label_exists_hook && _label_exists_hook(name))
-        return STRVAL(rt_ws_strdup_c(name));
+        return NULVCL;
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
