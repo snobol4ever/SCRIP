@@ -1920,7 +1920,7 @@ def cmd_run(args):
                    f"nor a sibling ALL.csv with a `modes` column is beside {Path(args.sno).name} -- a column that is not there cannot be honoured")
         _uncovered = [e.name for e in entries if e.name not in entry_modes]
         if _uncovered:
-            refuse(f"--by-modes-column: {len(_uncovered)} entr(y/ies) are absent from {csv_path.name} "
+            refuse(f"--by-modes-column: {len(_uncovered)} entr(y/ies) are absent from {csv_path} "
                    f"(first: {_uncovered[0]}) -- grading them by a default while calling it 'the modes column' is the defect this flag exists to remove")
         # ⛔⭐ AND THE RUN POPULATION MUST NOT ITSELF BE `ast`, OR THE SPLIT COLLAPSES SILENTLY INTO ONE
         # BUCKET AND PRINTS A FULL, PLAUSIBLE, ENTIRELY FALSE BOARD.  _modes_for() below reads "ast if the
@@ -1944,7 +1944,7 @@ def cmd_run(args):
         if modes == ["ast"] and not args.modes:
             _declared = sorted({v for v in entry_modes.values() if v and v not in ("ast", "UNKNOWN")})
             if _declared:
-                refuse(f"--by-modes-column cannot be honoured: {csv_path.name} declares {len(_declared)} non-ast "
+                refuse(f"--by-modes-column cannot be honoured: {csv_path} declares {len(_declared)} non-ast "
                        f"modes value(s) ({', '.join(_declared)}) but the run population's own modes resolved to "
                        f"'ast' (from --lang {args.lang}'s default), so BOTH populations would be graded by "
                        f"--dump-ast and every run-graded entry would fail against a ref it was never meant to "
@@ -1998,6 +1998,21 @@ def cmd_run(args):
     ast_entries = [e for e in entries if _modes_for(e) == ["ast"]] if entry_modes else []
     run_entries = [e for e in entries if _modes_for(e) != ["ast"]] if entry_modes else entries
     unknown_defaulted = sum(1 for e in run_entries if entry_modes.get(e.name, "") == "UNKNOWN") if entry_modes else 0
+    # ⛔⭐ HONOUR THE DECLARATION PER ENTRY, WHICH IS WHAT THIS FLAG'S OWN --help PROMISES. Before this, every run
+    # entry was graded with the CALLER'S modes and the `modes` column only ever chose ast-vs-run, so a family whose
+    # runner grades m3 ONLY (19 of prolog's 28 per-rung runners do) was still EXECUTED in m4 by the master and its
+    # m4 verdicts were manufactured -- reds for a mode no runner ever claimed. A declared set is intersected with
+    # the caller's --modes (never widened past what the caller asked for); an entry whose whole declaration falls
+    # outside the request is NOT graded and is reported by name, because silently grading it in the caller's modes
+    # is precisely the substitution this flag exists to stop.
+    def _run_modes_for(e):
+        d = (entry_modes.get(e.name, "") or "").strip() if entry_modes else ""
+        if not d or d in ("UNKNOWN", "ast"):
+            return list(modes)
+        want = {x.strip() for x in d.split(",") if x.strip()}
+        return [m for m in modes if m in want]
+    mode_n = {m: 0 for m in modes}
+    declared_not_requested = []
     counts = {m: {"PASS": 0, "FAIL": 0, "CRASH": 0, "HANG": 0, "UNPROVEN": 0, "SKIP": 0, "XFAIL": 0, "XPASS": 0} for m in modes}
     ast_counts = {"ast": {"PASS": 0, "FAIL": 0, "CRASH": 0, "HANG": 0, "UNPROVEN": 0, "SKIP": 0, "XFAIL": 0, "XPASS": 0}}
     tmp_root = Path(tempfile.mkdtemp(prefix="csh_run_"))
@@ -2016,8 +2031,13 @@ def cmd_run(args):
                 if kind != "PASS":
                     fails.append((e.name, "ast", verdicts["ast"]))
         for e in run_entries:
-            verdicts = run_suite_entry(paths, e, tmp_root, modes, ext=ext, companion_dir=Path(args.sno).parent)
-            for m in modes:
+            _em = _run_modes_for(e)
+            if not _em:
+                declared_not_requested.append(e.name)
+                continue
+            verdicts = run_suite_entry(paths, e, tmp_root, _em, ext=ext, companion_dir=Path(args.sno).parent)
+            for m in _em:
+                mode_n[m] += 1
                 kind = verdicts[m].kind
                 # ⛔ An XFAIL entry (probe/passthru's law-0d witnesses: non-green at conversion time,
                 # see convert_one()) is EXPECTED to stay red -- bucketing it as XFAIL/XPASS instead of
@@ -2055,9 +2075,16 @@ def cmd_run(args):
     fields = [f"family={family}"] + ([shard_tag] if shard_tag else []) + [f"total={len(run_entries) if entry_modes else len(entries)}"]
     for m in modes:
         c = counts[m]
-        fields.append(f"{m}_pass={c['PASS']} {m}_fail={c['FAIL']} {m}_crash={c['CRASH']} "
+        # ⛔ `<m>_n` is the DENOMINATOR FOR THAT MODE and it is printed because it is no longer `total`: once each
+        # entry is graded in its own declared modes, a mode's verdicts count only the entries that declared it, and
+        # a reader dividing by `total` would understate every rate. A board that changed its arithmetic silently is
+        # the defect this whole flag exists to prevent.
+        fields.append(f"{m}_n={mode_n[m] if entry_modes else len(entries)} "
+                       f"{m}_pass={c['PASS']} {m}_fail={c['FAIL']} {m}_crash={c['CRASH']} "
                        f"{m}_hang={c['HANG']} {m}_unproven={c['UNPROVEN']} {m}_skip={c['SKIP']} "
                        f"{m}_xfail={c['XFAIL']} {m}_xpass={c['XPASS']}")
+    if entry_modes and declared_not_requested:
+        fields.append(f"declared_not_requested={len(declared_not_requested)}")
     print("SUITE_BOARD " + " ".join(fields))
     # ⛔ the 40-line sample is a SUMMARY, not a listing: the 5 FAIL / 8 XPASS / 10 HANG entries of a 371-entry
     # board never appeared in it, so nothing could be rowed from names. SUITE_LIST_ALL=1 lists every non-PASS
