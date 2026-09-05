@@ -11,9 +11,19 @@
 #                      EXACTLY the expected "no entry point" signal after real, non-trivial emission --
 #                      i.e. the file's own content parsed/lowered/emitted cleanly; it is a library
 #                      module, not a program, and that is not a defect.
-#   run-graded     -- would additionally diff execution output against a NAME.std oracle. The
-#                      population is counted structurally (files under $PKG with a same-named .std),
-#                      not hardcoded to zero, so this self-corrects the day anyone vendors references.
+#   run-graded     -- diffs execution output against a NAME.std oracle ref, both modes, independently
+#                      (RUN_PASS/RUN_FAIL/RUN_CRASH/RUN_HANG). The population is counted structurally
+#                      (progs/*.std files, cut by util_cut_icon_ipl_refs.sh from the real Icon oracle --
+#                      see that script's own header for the classification discipline: only a
+#                      deterministic, input-free, non-usage-banner clean run gets pinned), not hardcoded,
+#                      so this self-corrects the day the population changes.
+#
+# ⛔⛔ EXECUTION (both m3 --run and m4's compiled binary) GOES THROUGH lib_icon_ipl_isolation.sh, NEVER
+# a bare `cd $PKG/progs && ...`: IPL ships programs that mutate their own cwd as documented behavior
+# (progs/upper.icn, progs/lower.icn rename every file in cwd) -- see that lib's header for the corpus-
+# corruption incident this was built from. COMPILE (`--compile` emitting .s) does not execute the
+# target program's own logic, so it stays unisolated same as before; only actually RUNNING one -- as the
+# source program (m3) or as a linked binary (m4) -- carries the hazard.
 #
 # CLASSES THE REDS FALL INTO (grouped by directly-observed signal, same discipline as
 # FINDING-2026-09-03-seat01-icon-arizona-...-nine-vendoring-gaps...: group by shared signature, never
@@ -160,16 +170,84 @@ fi
 COMPILE_GRADED=$((COMPILE_PASS + COMPILE_FAIL))
 echo ""
 echo "IPL_SUITE_BOARD total=$TOTAL compile_graded=$COMPILE_GRADED compile_pass=$COMPILE_PASS compile_fail=$COMPILE_FAIL run_graded=$RUN_GRADED nomain_total=$NOMAIN_TOTAL hasmain_total=$HASMAIN_TOTAL nomain_ok=$NOMAIN_OK linkgap=$LINKGAP parseerr=$PARSEERR timeout=$TIMEOUT_N other=$OTHER"
+
+# ═══ RUN TIER -- every progs/*.icn with a NAME.std (cut by util_cut_icon_ipl_refs.sh) gets EXECUTED,
+# both modes independently, and diffed against it. See file header: execution goes through
+# lib_icon_ipl_isolation.sh, never a bare cd into $PKG/progs. ═══
+. "$HERE/lib_icon_ipl_isolation.sh"
+ipl_isolation_init "$PKG" || { echo "⛔ GATE REFUSES: could not build IPL isolation template" >&2; exit 2; }
+trap 'rm -rf "$TMP"; ipl_isolation_cleanup' EXIT
+
+M3_RUN_PASS=0; M3_RUN_FAIL=0; M3_RUN_CRASH=0; M3_RUN_HANG=0
+M4_RUN_PASS=0; M4_RUN_FAIL=0; M4_RUN_CRASH=0; M4_RUN_HANG=0
+M3_RUN_FAIL_NAMES=(); M4_RUN_FAIL_NAMES=()
+
+# ⛔⛔ MAX_BYTES gates every full-content read here too, checked via `wc -c` on the FILE before any
+# slurp into a bash variable -- same discipline, same incident, as util_cut_icon_ipl_refs.sh's own
+# MAX_BYTES (see that script's header): a timing-out process is not necessarily quiet while it waits, so
+# `out3="$(cat ...)"` run UNCONDITIONALLY before checking rc==124 can slurp gigabytes for a result about
+# to be discarded as HANG anyway. Here the risk is SCRIP's own output on a genuine bug (an infinite-
+# output loop from a miscompiled pattern), not the oracle's -- same shape, same fix. Every .std this
+# tier reads is itself already capped at ref-cutting time, so oversized ACTUAL output can never equal
+# `$exp` regardless; it is graded RUN_FAIL without ever being read into memory.
+MAX_BYTES=1048576
+
+for std in "${STDFILES[@]}"; do
+    base="$(basename "$std" .std)"
+    icn="$(dirname "$std")/$base.icn"
+    [ -f "$icn" ] || continue
+    exp="$(cat "$std")"
+
+    # -- m3 (--run): executes the Icon program's own logic directly -- isolated.
+    ipl_isolation_run "$TMP/${base}.m3.out" "$TIMEOUT" "$SCRIP" --run "$icn"
+    rc3=$?
+    by3=$(wc -c < "$TMP/${base}.m3.out" 2>/dev/null || echo 0)
+    if [ "$rc3" -eq 124 ]; then M3_RUN_HANG=$((M3_RUN_HANG+1))
+    elif [ "$rc3" -ge 128 ]; then M3_RUN_CRASH=$((M3_RUN_CRASH+1))
+    elif [ "$by3" -gt "$MAX_BYTES" ]; then M3_RUN_FAIL=$((M3_RUN_FAIL+1)); M3_RUN_FAIL_NAMES+=("$base(oversized:$by3)")
+    elif [ "$(cat "$TMP/${base}.m3.out" 2>/dev/null)" = "$exp" ]; then M3_RUN_PASS=$((M3_RUN_PASS+1))
+    else M3_RUN_FAIL=$((M3_RUN_FAIL+1)); M3_RUN_FAIL_NAMES+=("$base"); fi
+
+    # -- m4 (--compile): emitting .s does not execute the target program, so THAT step is unisolated,
+    # same as the compile tier above; only running the linked binary carries the self-mutation hazard.
+    s4="$TMP/${base}.m4.s"; bin4="$TMP/${base}.m4.bin"
+    "$SCRIP" --compile "$icn" >"$s4" 2>"$TMP/${base}.m4.diag" </dev/null
+    if [ -s "$s4" ] && gcc -no-pie "$s4" -L"$HERE/../out" -lscrip_rt -Wl,-rpath,"$HERE/../out" -o "$bin4" 2>/dev/null; then
+        ipl_isolation_run "$TMP/${base}.m4.out" "$TIMEOUT" "$bin4"
+        rc4=$?
+        by4=$(wc -c < "$TMP/${base}.m4.out" 2>/dev/null || echo 0)
+        if [ "$rc4" -eq 124 ]; then M4_RUN_HANG=$((M4_RUN_HANG+1))
+        elif [ "$rc4" -ge 128 ]; then M4_RUN_CRASH=$((M4_RUN_CRASH+1))
+        elif [ "$by4" -gt "$MAX_BYTES" ]; then M4_RUN_FAIL=$((M4_RUN_FAIL+1)); M4_RUN_FAIL_NAMES+=("$base(oversized:$by4)")
+        elif [ "$(cat "$TMP/${base}.m4.out" 2>/dev/null)" = "$exp" ]; then M4_RUN_PASS=$((M4_RUN_PASS+1))
+        else M4_RUN_FAIL=$((M4_RUN_FAIL+1)); M4_RUN_FAIL_NAMES+=("$base"); fi
+    else
+        M4_RUN_FAIL=$((M4_RUN_FAIL+1)); M4_RUN_FAIL_NAMES+=("$base(compile/link)")
+    fi
+    rm -f "$s4" "$bin4" "$TMP/${base}.m3.out" "$TMP/${base}.m4.out"
+done
+
+echo ""
+echo "-- RUN tier: $RUN_GRADED progs/ programs graded against a .std cut from the real Icon oracle (util_cut_icon_ipl_refs.sh --apply) --"
+echo "mode-3 (--run):     RUN_PASS=$M3_RUN_PASS RUN_FAIL=$M3_RUN_FAIL RUN_CRASH=$M3_RUN_CRASH RUN_HANG=$M3_RUN_HANG / $RUN_GRADED"
+echo "mode-4 (--compile): RUN_PASS=$M4_RUN_PASS RUN_FAIL=$M4_RUN_FAIL RUN_CRASH=$M4_RUN_CRASH RUN_HANG=$M4_RUN_HANG / $RUN_GRADED"
+[ "$VERBOSE" -eq 1 ] && [ ${#M3_RUN_FAIL_NAMES[@]} -gt 0 ] && printf 'm3 not-pass:%s\n' "$(printf ' %s' "${M3_RUN_FAIL_NAMES[@]}")"
+[ "$VERBOSE" -eq 1 ] && [ ${#M4_RUN_FAIL_NAMES[@]} -gt 0 ] && printf 'm4 not-pass:%s\n' "$(printf ' %s' "${M4_RUN_FAIL_NAMES[@]}")"
+echo "IPL_RUN_BOARD run_graded=$RUN_GRADED m3_RUN_PASS=$M3_RUN_PASS m3_RUN_FAIL=$M3_RUN_FAIL m3_RUN_CRASH=$M3_RUN_CRASH m3_RUN_HANG=$M3_RUN_HANG m4_RUN_PASS=$M4_RUN_PASS m4_RUN_FAIL=$M4_RUN_FAIL m4_RUN_CRASH=$M4_RUN_CRASH m4_RUN_HANG=$M4_RUN_HANG"
+ipl_isolation_verify_clean "$S4E/corpus" || true
+
 # ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05: "any run of a test suite by any
-# session will update the ONE LEADERBOARD"). This records the board line printed just above into
+# session will update the ONE LEADERBOARD"). This records the boards printed just above into
 # .github/SCORE.md -- it RUNS NOTHING, it only writes down what this script already measured.
 # ⛔ NON-FATAL BY DESIGN: a bookkeeping failure must never turn a real measurement into a red board.
-# ⛔ NO BARE N/TOTAL FRACTION -- see file header: compile-graded is not run-graded-correct, and a
-# fraction here would silently enter the ONE LEADERBOARD's automatic per-language pass-rate sum
-# (util_score_row.py cell_fractions()) as if it were verified-correct output. key=value only.
+# ⛔ NO BARE N/TOTAL FRACTION for the COMPILE tier -- see file header: compile-graded is not
+# run-graded-correct, and a fraction here would silently enter the ONE LEADERBOARD's automatic
+# per-language pass-rate sum (util_score_row.py cell_fractions()) as if it were verified-correct
+# output. The RUN tier IS a verified-correctness population (diffed against a real oracle), so ITS
+# m3/m4 fractions are reported as fractions -- same convention test_icon_arizona_suite.sh already uses.
 python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite IPL \
     --measurer "${S4E_SEAT:-}" \
-    --text "compile_pass=$COMPILE_PASS compile_fail=$COMPILE_FAIL (linkgap=$LINKGAP parseerr=$PARSEERR timeout=$TIMEOUT_N other=$OTHER) of total=$TOTAL · nomain_ok=$NOMAIN_OK of nomain_total=$NOMAIN_TOTAL, hasmain_total=$HASMAIN_TOTAL · run_graded=0 (upstream IPL ships no .std oracle) -- no verified-correctness population yet, compile-graded-only (\`test_icon_ipl_suite.sh\`)" \
+    --text "compile_pass=$COMPILE_PASS compile_fail=$COMPILE_FAIL (linkgap=$LINKGAP parseerr=$PARSEERR timeout=$TIMEOUT_N other=$OTHER) of total=$TOTAL · nomain_ok=$NOMAIN_OK of nomain_total=$NOMAIN_TOTAL, hasmain_total=$HASMAIN_TOTAL · run m3 $M3_RUN_PASS/$RUN_GRADED m4 $M4_RUN_PASS/$RUN_GRADED (of $RUN_GRADED oracle-cut; fail m3=$M3_RUN_FAIL m4=$M4_RUN_FAIL, crash m3=$M3_RUN_CRASH m4=$M4_RUN_CRASH, hang m3=$M3_RUN_HANG m4=$M4_RUN_HANG) (\`test_icon_ipl_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
 # ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
@@ -178,4 +256,10 @@ python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite IPL 
 # "examined nothing", which is exactly what this refuses before either check runs.
 "$HERE/util_require_population.sh" --gate test_icon_ipl_suite "$TOTAL" 1 "IPL source files discovered" || exit 2
 [ "$((COMPILE_PASS + COMPILE_FAIL))" -eq "$TOTAL" ] || { echo "⛔ BUCKET COUNTS DON'T SUM TO TOTAL -- instrument bug, refusing to trust the board"; exit 2; }
-[ "$OTHER" -eq 0 ]
+# ⛔ THE SCRIPT'S OWN EXIT CODE MUST AGREE WITH WHAT THE TASK'S DONE-WHEN INDEPENDENTLY RE-DERIVES FROM
+# THIS OUTPUT (RUN_PASS>0, every RUN_FAIL/RUN_CRASH/RUN_HANG==0 in both modes) -- a script that reads
+# green by rc while the DONE-WHEN reads red from the same text (or vice versa) is exactly the kind of
+# disagreement RULES.md's FACT RULE exists to prevent.
+[ "$OTHER" -eq 0 ] && [ "$RUN_GRADED" -gt 0 ] \
+    && [ "$M3_RUN_FAIL" -eq 0 ] && [ "$M3_RUN_CRASH" -eq 0 ] && [ "$M3_RUN_HANG" -eq 0 ] \
+    && [ "$M4_RUN_FAIL" -eq 0 ] && [ "$M4_RUN_CRASH" -eq 0 ] && [ "$M4_RUN_HANG" -eq 0 ]
