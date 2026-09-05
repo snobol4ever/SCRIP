@@ -728,12 +728,8 @@ static int alt_branch_has_nested_alt(const IR_t * a) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int cap_save_cond_gap_has_alt(const IR_t * nd) {
-    if (!nd) return 0;
-    if (nd->n_operands >= 1 && nd->operands[0] && nd->operands[0]->op == IR_MATCH_ALTERNATE) return 1;
-    if (!g_emit_cfg || nd->n_operands < 2 || !nd->operands[1]) return 0;
-    IR_t * cur = zd_chase(nd->operands[1]->γ.node); int guard = 0;
-    while (cur && cur != nd && guard++ <= g_emit_cfg->n) { if (cur->op == IR_MATCH_ALTERNATE) return 1; cur = zd_chase(cur->γ.node); }
-    return 0;
+    if (!nd || nd->n_operands < 1 || !nd->operands[0]) return 0;
+    return nd->operands[0]->op == IR_MATCH_ALTERNATE;
 }
 static int zd_k(IR_t * nd);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
