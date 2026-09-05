@@ -607,7 +607,11 @@ static IR_t * pl_user_call(lcx_t * cx, const char * nm, const tree_t * t, int na
         prev = a; ir_operand_push(nd, a);
     }
     if (prev) lc_γ_to(prev, nd);
-    if (entry_out) *entry_out = first ? first : nd;
+    IR_t * body_entry = first ? first : nd;
+    if (pl_db_live) { tree_t * pit = ast_node_new(TT_QLIT); pit->v.sval = (char *) pl_pi_name(nm, nargs);
+        IR_t * guard_entry = NULL; pl_db_leaf2(cx, "$db_alive", pl_dyn_index_or_add(nm, nargs), pit, body_entry, ωfail, &guard_entry);
+        if (entry_out) *entry_out = guard_entry; return nd; }
+    if (entry_out) *entry_out = body_entry;
     return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
