@@ -2252,7 +2252,10 @@ def main():
     #     the shared include tree the beauty-suite drivers were written against (their headers still say -Idemo/inc);
     #   · EVERY entry already in the master on a rebuild that absorbs nothing -- `companion_copies` is empty then, so
     #     a gap that exists today is never repaired by any number of future rebuilds.
-    # MEASURED: 25 companions, 26 entries graded against dependencies that were not there. ⭐ And it never announced
+    # ⛔ THE "25 companions, 26 entries graded against absent dependencies" FIGURE IS RETRACTED (hq_T, 2026-09-05):
+    # the harness sets SNO_LIB=<corpus>/include, where those companions live, so they resolved. What survives is the
+    # narrower true statement -- a companion reachable only via an env var is an UNDECLARED dependency of the entry --
+    # and the reason below, which never depended on the count. ⭐ And it never announced
     # itself -- a missing include is not a special error, the entry just fails and the diff reads as a semantic
     # divergence in SCRIP. Two lanes reached "SCRIP is wrong" from this class in one day.
     # ⭐ WHY HERE AND NOT IN THE GRADER: the grader's isolation -- an entry sees exactly the files the corpus put

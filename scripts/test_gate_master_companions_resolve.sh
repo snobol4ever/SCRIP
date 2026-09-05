@@ -2,10 +2,21 @@
 # scripts/test_gate_master_companions_resolve.sh -- EVERY COMPANION A MASTER ENTRY NAMES IS BESIDE THE MASTER.
 # AUTHORS: Lon Jones Cherryholmes · Claude Opus 5   DATE: 2026-09-05
 #
-# ⛔⭐⭐ THE MEASURED DEFECT (FINDING-2026-09-05-hq_T-companions-live-outside-the-master-directory-so-26-of-31-entries-
-# cannot-resolve-them.md). An entry is graded in a FRESH temp dir with exactly the files the harness copies in, and the
-# harness looks only beside the master and in its config/. 25 snobol4 companions lived in corpus/include/, in the gimpel
-# package and in two demo dirs -- so 26 entries were graded against dependencies that were not there.
+# ⛔⭐⭐ WHAT THIS GATE ACTUALLY ENFORCES, AND A RETRACTED CLAIM IT USED TO CITE AS ITS REASON. An entry is graded in a
+# FRESH temp dir with exactly the files the harness copies in, so a companion that resolves only by luck is a graded
+# dependency nobody declared. This gate resolves every named companion against the master's DECLARED search path --
+# beside the master, its config/, and what the harness puts on $SNO_LIB -- and fails when a companion exists in this
+# corpus but on none of them.
+# ⛔ THE ORIGINAL JUSTIFICATION IS WITHDRAWN BY ITS OWN AUTHOR (hq_T, 2026-09-05 ~14:15 CDT). This header used to say
+# "25 snobol4 companions lived in corpus/include/, so 26 entries were graded against dependencies that were not there",
+# citing FINDING-2026-09-05-hq_T-companions-live-outside-the-master-directory-so-26-of-31-entries-cannot-resolve-them.md.
+# THAT FINDING CARRIES A RETRACTION BANNER: the harness sets SNO_LIB=<corpus>/include on every run
+# (corpus_suite_harness.py:137 defines it, :434/:452/:495 pass it), which is exactly where those companions live, so
+# they resolved the whole time. The closure TOOL was corrected to count $SNO_LIB; this prose was not, and went on
+# telling the retracted story as fact for anyone who read the gate to understand why it exists.
+# ⭐ THE STANDING RULE THIS COST US (same day, twice): retracting a finding banners THAT file and does nothing to the
+# files citing it, so a dead claim keeps travelling inside its neighbours' headers and correction sections -- the places
+# a reader trusts most. When you retract, grep the WHOLE tree, not just .github, and fix every citing sentence.
 # ⭐ AND IT NEVER ANNOUNCED ITSELF, which is why this is a GATE and not a note. A missing include is not a special error:
 # the entry fails like any other program and its diff reads as a semantic divergence in SCRIP. Two separate lanes reached
 # "SCRIP is wrong" from this class in one day, and one of them was about to cure a compiler that was not broken.
