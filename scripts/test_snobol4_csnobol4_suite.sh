@@ -127,6 +127,20 @@ SCRIP="$SD/scrip"; RT_DIR="$SD/out"; TIMEOUT="${TIMEOUT:-8}"
 # lib_gate.sh, the ONE authority (hq_B 4c7253e99) -- never a second copy of the staleness rule.
 "$HERE/util_require_fresh.sh" --gate test_snobol4_csnobol4_suite "$SCRIP" "${RT_DIR:-$HERE/../out}/libscrip_rt.so" || exit 2
 [ -f "$RT_DIR/libscrip_rt.so" ] || { echo "⛔ REFUSE(rc=2): no $RT_DIR/libscrip_rt.so"; exit 2; }
+# ⛔⭐ THE DIALECT SWITCH (ceo RULING R1, GOAL-SNOBOL4-100 § RULINGS 2026-09-04, row snobol4-csnobol4-dialect-
+# compat-switch; spelled like Lon's Prolog precedent --compat=swi|gnu). THIS SUITE IS GRADED BY CSNOBOL4, NOT
+# SPITBOL, and its refs are CSNOBOL4's own output -- so it runs under --compat=csnobol4 while the SPITBOL-minted
+# SNOBOL4 master keeps the default. The switch ADDS CSNOBOL4-only behaviour; the default never widens.
+# TODAY'S ONE MEMBER: the SETEXIT trap also fires on NORMAL TERMINATION when &ERRLIMIT is non-zero. SPITBOL fires
+# in none of four measured shapes, CSNOBOL4 fires in both &ERRLIMIT-non-zero shapes (hq_P 2026-09-04), and
+# setexit2.sno is the entry that turns on it.
+# ⛔⭐ BOTH CARRIERS ARE REQUIRED AND THAT IS NOT BELT-AND-BRACES -- IT IS WHAT A *RUNTIME* DIALECT MEANS. The flag
+# configures the DRIVER, so it reaches mode-3 (in-process) and any hand run. A mode-4 program is a SEPARATE PROCESS
+# started later from a linked binary, and no compile-time flag can reach its runtime; the env var is what the
+# standalone binary reads. A runner that passed only the flag would grade m3 under CSNOBOL4 and m4 under SPITBOL
+# and report the split as a mode divergence -- the wrong answer in the shape hardest to attribute.
+COMPAT="--compat=csnobol4"
+export SCRIP_SETEXIT_END=1
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_oracle_flags.sh unloadable"; exit 2; }
 CSN="$(csnobol4_bin)" || exit 2
 CSN_SRC="$(dirname "$CSN")"   # module-coverage source root: the shared csnobol4 tree's own modules/ dir (see header)
@@ -142,7 +156,7 @@ MODULE_TESTS="ndbm:ndbm:test.sno:test.ref random:random:test.sno:test.ref sleep:
 # names (e.g. 'ndbm.sno'), resolved by running with cwd already in the test's own directory — measured
 # directly (seat08 2026-09-05) against a real invocation before wiring this in, not assumed.
 compile_m4_mod() { local dir="$1" sno="$2" out="$3" t; t="$(mktemp -d)"
-    ( cd "$dir" && "$SCRIP" --compile "$sno" > "$t/p.s" 2>/dev/null ) || { rm -rf "$t"; return 1; }
+    ( cd "$dir" && "$SCRIP" $COMPAT --compile "$sno" > "$t/p.s" 2>/dev/null ) || { rm -rf "$t"; return 1; }
     gcc -c "$t/p.s" -o "$t/p.o" 2>/dev/null || { rm -rf "$t"; return 1; }
     gcc "$t/p.o" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$out" 2>/dev/null || { rm -rf "$t"; return 1; }
     rm -rf "$t"; return 0; }
@@ -176,7 +190,7 @@ SCRIP_HASH="$(git -C "$SD" rev-parse --short HEAD 2>/dev/null || echo '?')"
 CORP_HASH="$(git -C "$ROOT/corpus" rev-parse --short HEAD 2>/dev/null || echo '?')"
 
 compile_m4() { local sno="$1" out="$2" t; t="$(mktemp -d)"
-    SNO_LIB="$SUITE" "$SCRIP" --compile "$sno" > "$t/p.s" 2>/dev/null || { rm -rf "$t"; return 1; }
+    SNO_LIB="$SUITE" "$SCRIP" $COMPAT --compile "$sno" > "$t/p.s" 2>/dev/null || { rm -rf "$t"; return 1; }
     gcc -c "$t/p.s" -o "$t/p.o" 2>/dev/null || { rm -rf "$t"; return 1; }
     gcc "$t/p.o" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$out" 2>/dev/null || { rm -rf "$t"; return 1; }
     rm -rf "$t"; return 0; }
@@ -211,7 +225,7 @@ for sno in "$SUITE"/*.sno; do
         rm -f "$prog"; split_at_end "$sno" "$prog" "$W/stdin"; inp="$W/stdin"
     fi
     dep="$(setup_dep_for "$name")"
-    [ -n "$dep" ] && (cd "$RUN" && SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" --run "$dep.sno" > /dev/null 2>&1)
+    [ -n "$dep" ] && (cd "$RUN" && SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" $COMPAT --run "$dep.sno" > /dev/null 2>&1)
     xargs_extra="$(argv_for "$name")"
 
     # ⛔ RELATIVE, NOT $prog: cwd is already $RUN below, and the vendored .ref files were cut against a
@@ -219,7 +233,7 @@ for sno in "$SUITE"/*.sno; do
     # referencing program (TRACE(), error messages, &FILE) embed a throwaway tmpdir string instead of the
     # bare name the .ref expects — a harness artifact, not a SCRIP or oracle divergence (found triaging
     # row snobol4-csnobol4-thirty-regen-candidate-refs-stale-pin-or-real-defect, seat07 2026-09-04).
-    got3="$(cd "$RUN" && SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" --run "$relprog" ${xargs_extra:+-- $xargs_extra} < "$inp" 2>&1)"; rc3=$?
+    got3="$(cd "$RUN" && SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" $COMPAT --run "$relprog" ${xargs_extra:+-- $xargs_extra} < "$inp" 2>&1)"; rc3=$?
     got3="$(normalize "$name" "$got3")"
     st3="$(status_of "$got3" "$rc3" "$exp")"
     case "$st3" in
@@ -272,7 +286,7 @@ for entry in $MODULE_TESTS; do
     TOTAL=$((TOTAL+1))
     exp="$(normalize "$name" "$(cat "$srcdir/$mref")")"
 
-    got3="$(cd "$mrun" && timeout "$TIMEOUT" "$SCRIP" --run "$msno" < /dev/null 2>&1)"; rc3=$?
+    got3="$(cd "$mrun" && timeout "$TIMEOUT" "$SCRIP" $COMPAT --run "$msno" < /dev/null 2>&1)"; rc3=$?
     got3="$(normalize "$name" "$got3")"
     st3="$(status_of "$got3" "$rc3" "$exp")"
     case "$st3" in

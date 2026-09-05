@@ -844,6 +844,12 @@ int main(int argc, char **argv)
         else if (strcmp(argv[argi], "--dump-zeta")     == 0) { dump_zeta      = 1; argi++; }
         else if (strcmp(argv[argi], "--transpile")     == 0) { dump_transpile = 1; argi++; }
         else if (strcmp(argv[argi], "--bench")         == 0) { opt_bench      = 1; argi++; }
+        else if (strncmp(argv[argi], "--compat=", 9)   == 0) {
+            const char *d = argv[argi] + 9;
+            if      (strcmp(d, "spitbol")  == 0) { unsetenv("SCRIP_SETEXIT_END"); }
+            else if (strcmp(d, "csnobol4") == 0) { setenv("SCRIP_SETEXIT_END", "1", 1); }
+            else { fprintf(stderr, "scrip: --compat=%s is not a known dialect (spitbol, csnobol4)\n", d); return 2; }
+            argi++; }
         else if (strcmp(argv[argi], "--monitor")       == 0) { extern int g_monitor_bin; g_monitor_bin = 1; argi++; }
         else if (strcmp(argv[argi], "--no-monitor")    == 0) { extern int g_monitor_bin; g_monitor_bin = 0; argi++; }
         else break;
@@ -887,6 +893,10 @@ int main(int argc, char **argv)
             "  --dump-zeta      print the ZB-2 zeta layout table: scope tree, typed field maps, vslots (post-optimizer)\n"
             "  --transpile      transpile AST to portable SNOBOL4 source\n"
             "  --bench          print wall-clock time after execution\n"
+            "\n"
+            "Dialect:\n"
+            "  --compat=DIALECT spitbol (default) or csnobol4; the switch ADDS CSNOBOL4-only behaviour, the default never widens\n"
+            "                   csnobol4 today: the SETEXIT trap also fires on normal termination when &ERRLIMIT is non-zero\n"
             "\n"
             "Memory options (SPITBOL-compatible; value may end in k or m, e.g. -s256m -m8m):\n"
             "  -sN              max stack space; raises RLIMIT_STACK for deep pattern backtracking (default: OS, 8m)\n"

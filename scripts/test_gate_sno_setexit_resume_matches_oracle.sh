@@ -64,6 +64,24 @@ face handler_falls_off       "HANDLER
 FELLOFF"
 face end_trap_needs_errlimit "MAIN
 FIN"
+echo "dialect switch --compat=csnobol4 (ceo RULING R1) -- the switch ADDS, the default never widens:"
+mk compat_end_trap "\t&ERRLIMIT = 10\n\tSETEXIT(.H)\n\tOUTPUT = 'MAIN'\t\t:(FIN)\nH\tOUTPUT = 'TRAP'\t\t:(END)\nFIN\tOUTPUT = 'FIN'\nEND\n"
+_def="$( cd "$W" && timeout 20s "$S" compat_end_trap.sno </dev/null 2>&1 )"
+_csn="$( cd "$W" && timeout 20s "$S" --compat=csnobol4 compat_end_trap.sno </dev/null 2>&1 )"
+_spb="$( cd "$W" && SCRIP_SETEXIT_END=1 timeout 20s "$S" --compat=spitbol compat_end_trap.sno </dev/null 2>&1 )"
+[ "$_def" = "MAIN
+FIN" ] && echo "  PASS compat_default_is_spitbol" || { echo "  FAIL compat_default_is_spitbol -- got: $(printf '%s' "$_def" | tr '\n' '|')"; rc=1; }
+[ "$_csn" = "MAIN
+FIN
+TRAP" ] && echo "  PASS compat_csnobol4_adds_end_trap" || { echo "  FAIL compat_csnobol4_adds_end_trap -- got: $(printf '%s' "$_csn" | tr '\n' '|')"; rc=1; }
+[ "$_spb" = "MAIN
+FIN" ] && echo "  PASS compat_spitbol_overrides_stray_env" || { echo "  FAIL compat_spitbol_overrides_stray_env -- got: $(printf '%s' "$_spb" | tr '\n' '|')"; rc=1; }
+( cd "$W" && timeout 20s "$S" --compat=bogus compat_end_trap.sno </dev/null >/dev/null 2>&1 ); [ "$?" = 2 ] \
+    && echo "  PASS compat_unknown_dialect_refuses_rc2" || { echo "  FAIL compat_unknown_dialect_refuses_rc2"; rc=1; }
+if [ "$_def" = "$_csn" ]; then
+    echo "⛔ GATE REFUSES: --compat=csnobol4 and the default produced IDENTICAL output -- the switch is not wired, so these arms cannot fail and are not evidence"
+    exit 2
+fi
 n=0
 for f in continue_failure_exit continue_fallthrough continue_oneshot continue_rearm; do
     a="$( cd "$W" && SCRIP_SETEXIT=0 timeout 20s "$S" "$f.sno" </dev/null 2>&1 )"
