@@ -780,11 +780,19 @@ def _build_arg_parser():
                          "budget -- is named in ALL.excluded.txt with a reason, never silently dropped.")
     p.add_argument("--from", dest="from_cats", default="demos,benchmarks", metavar="CAT1,CAT2,...",
                     help="with --additive: which source trees to absorb from this run -- demos, benchmarks, "
-                         "programs (comma list; default demos,benchmarks). `programs` is a real category name "
-                         "but corpus/programs/ absorbs NOTHING yet: Lon 2026-09-04 excluded it from the "
+                         "programs, tests (comma list; default demos,benchmarks). `programs` is a real category "
+                         "name but corpus/programs/ absorbs NOTHING yet: Lon 2026-09-04 excluded it from the "
                          "unabsorbed census (util_unabsorbed_census.py, verbatim 'Go ahead and exclude programs/* "
                          "folders'), and this builder honours the same ruling by recording it in ALL.excluded.txt "
-                         "rather than walking it -- naming it here is truthful, not silently ignored.")
+                         "rather than walking it -- naming it here is truthful, not silently ignored. `tests` "
+                         "absorbs corpus/tests/<lang>/'s OWN loose-noref/fixture sources (the ones "
+                         "util_unabsorbed_census.py calls 'fixture'/'loose no-ref') -- unlike demos/benchmarks "
+                         "this walks the master's own home directory, so it skips anything discover_pairs "
+                         "already owns (a .ref/.expected/.std sibling) or that lives under config/. "
+                         "`scrip_test`/`snocone_ladder` are the same tests-shaped walk pointed at "
+                         "corpus/tests/scrip_test/ and corpus/tests/snocone/ladder/ respectively -- fixed "
+                         "trees outside corpus/tests/<lang>/ that still carry stray runnable sources by "
+                         "extension (e.g. corpus/tests/snocone/ladder/prog/*.sno).")
     p.add_argument("--recipe-timeout", type=float, default=3.0, metavar="SECONDS",
                     help="with --additive: per-entry wall-clock budget for the oracle/m3/m4 recipe run; a program "
                          "still running past this is 'over budget' and excluded, never absorbed on a truncated result")
@@ -1002,6 +1010,9 @@ def reindex_csv_only(OUTDIR, EXT, lang, h, _CO, _CC, COLS, modes_decl, loose_fam
 # per-FILE dispatch instead of per-family-glob, and a recipe expressed as stdin only (see its own docstring for
 # why argv-extra recipes are deliberately out of scope here).
 ADDITIVE_ORACLE_LANGS = {"snobol4", "prolog", "icon"}   # resolve_oracle_bin's own known set (its own refuse())
+_EXTRA_TEST_TREES = {"scrip_test": "scrip_test", "snocone_ladder": "snocone/ladder"}   # --from categories whose
+# src_dir is a FIXED corpus/tests/<path> outside corpus/tests/<lang>/ and outside demos/benchmarks -- see the
+# --from arg's category dispatch below for why these exist.
 
 
 def _additive_walk(src_dir, ext):
@@ -1016,6 +1027,35 @@ def _additive_walk(src_dir, ext):
         for fn in filenames:
             if fn.endswith(ext) and not fn.startswith("ALL") and not fn.startswith("."):
                 out.append(os.path.join(dirpath, fn))
+    return sorted(out)
+
+
+def _additive_walk_tests(src_dir, ext):
+    """Like _additive_walk, but for the "tests" category ONLY: src_dir here IS corpus/tests/<lang>, the same
+    directory the base (non-additive) loose-pair path (discover_pairs) already owns, and the same directory
+    ALL.<ext>/ALL.ref/ALL.csv themselves live in -- so this walk must not re-offer a file that path already
+    handles or that IS the master. Skipped, in addition to _additive_walk's ALL*/dotfile exclusions: anything
+    already carrying a .ref/.expected/.std sibling (a loose pair -- discover_pairs's own job, not this one;
+    re-offering it here would classify it fresh under a DIFFERENT origin naming scheme and duplicate it into
+    the master under a second name), and anything inside a config/ directory (KEEP.md and other bookkeeping
+    live there, never source under test -- see the KEEP.md convention util_unabsorbed_census.py's own OWED
+    list does not know about: an -INCLUDE-only companion of an EXISTING master entry is not itself owed, and
+    the correct fix for that census blind spot is naming it in ALL.excluded.txt with a reason, not walking it
+    here at all -- config/ is excluded from the walk defensively, in case a future KEEP.md sibling is dropped
+    beside its family rather than under config/)."""
+    if not os.path.isdir(src_dir):
+        return []
+    out = []
+    for dirpath, _dn, filenames in os.walk(src_dir):
+        if os.path.basename(dirpath) == "config":
+            continue
+        for fn in filenames:
+            if not (fn.endswith(ext) and not fn.startswith("ALL") and not fn.startswith(".")):
+                continue
+            stem = os.path.join(dirpath, fn)[: -len(ext)]
+            if any(os.path.isfile(stem + s) for s in (".ref", ".expected", ".std")):
+                continue
+            out.append(os.path.join(dirpath, fn))
     return sorted(out)
 
 
@@ -1149,10 +1189,26 @@ def additive_absorb(lang, categories, root, timeout, write, cols):
                                                      "excluded it from util_unabsorbed_census.py's OWED count; "
                                                      "this builder honours the same ruling) -- named, not walked"))
             continue
-        if cat not in ("demos", "benchmarks"):
-            h.refuse("--from names an unknown category %r (known: demos, benchmarks, programs)" % cat)
-        src_dir = os.path.join(root, "corpus", cat, lang)
-        for path in _additive_walk(src_dir, EXT):
+        if cat not in ("demos", "benchmarks", "tests") and cat not in _EXTRA_TEST_TREES:
+            h.refuse("--from names an unknown category %r (known: demos, benchmarks, programs, tests, %s)"
+                     % (cat, ", ".join(sorted(_EXTRA_TEST_TREES))))
+        # ⭐ "tests" is the ONE category whose src_dir is the SAME directory as OUTDIR (the master's own
+        # home) -- see _additive_walk_tests's docstring for why that walk excludes what discover_pairs and
+        # the master files themselves already own. The _EXTRA_TEST_TREES categories are siblings of that same
+        # shape (a fixed tree outside corpus/<cat>/<lang>/, walked with the identical dedup-against-existing-
+        # ref rule) for stray runnable sources census found living outside both corpus/tests/<lang>/ and the
+        # demos/benchmarks trees (row snobol4-every-non-package-source-...-oracle-refs, 2026-09-05: 3 of 9
+        # remaining owed sources -- 1113_table.sno, datatype.oracle_ref.sno, lit_real.oracle_ref.sno -- run
+        # fine with real output but live under corpus/tests/scrip_test/ and corpus/tests/snocone/ladder/,
+        # which nothing else walks).
+        if cat in _EXTRA_TEST_TREES:
+            src_dir = os.path.join(root, "corpus", "tests", _EXTRA_TEST_TREES[cat])
+        elif cat == "tests":
+            src_dir = os.path.join(root, "corpus", "tests", lang)
+        else:
+            src_dir = os.path.join(root, "corpus", cat, lang)
+        walker = _additive_walk if cat in ("demos", "benchmarks") else _additive_walk_tests
+        for path in walker(src_dir, EXT):
             result = _additive_classify_and_run(path, EXT, oracle_bin, flags, paths, timeout)
             if result[0] == "exclude":
                 _kind, name, reason = result

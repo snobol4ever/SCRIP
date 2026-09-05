@@ -55,6 +55,15 @@ for lang in set(EXT.values()):
 def _additive_origin(top, lang, base):
     singular = top[:-1] if top.endswith('s') else top
     return '%s_%s_%s__%s' % (singular, lang, base, base)
+# ⭐ every util_build_master_suite.py --from category whose src_dir sits under corpus/tests/** -- i.e. every
+# category this census's own `top == 'tests'` branch below has to consider, since path-derived `top` is always
+# the literal string "tests" for anything under corpus/tests/**, never the category name the builder was
+# actually invoked with (row snobol4-every-non-package-source-...-oracle-refs, seat07 2026-09-05: `--from
+# scrip_test,snocone_ladder` absorbed real entries whose origin used THOSE category names as the singular
+# prefix -- "scrip_test_snobol4_X__X" / "snocone_ladder_snobol4_X__X" -- which the single-guess 'test' prefix
+# below could never match. Keep this list in sync with util_build_master_suite.py's own "tests" +
+# _EXTRA_TEST_TREES categories by hand; nothing enforces the two lists agreeing).
+_TESTS_ADDITIVE_CATS = ('tests', 'scrip_test', 'snocone_ladder')
 rows = collections.defaultdict(collections.Counter); owed = collections.defaultdict(list)
 for root, dirs, files in os.walk(C):
     rel = os.path.relpath(root, C)
@@ -78,7 +87,16 @@ for root, dirs, files in os.walk(C):
         if f.startswith('ALL.'): kind = 'container'
         elif top in ('include', 'library'): kind = 'module'
         elif base in excluded[lang] or path in excluded[lang] or f in excluded[lang] or (fam and fam in excluded[lang]): kind = 'accounted'
+        # ⭐ 'tests' joined this check (row snobol4-every-non-package-source-...-absorbed-into-the-master-with-
+        # oracle-refs, seat07 2026-09-05): util_build_master_suite.py's --additive --from tests absorbs
+        # corpus/tests/<lang>/'s OWN loose-noref/fixture backlog the identical way it already absorbs
+        # demos/benchmarks -- same bracketed "name[tests]" exclusion key, same "test_<lang>_<name>__<name>"
+        # origin shape (_additive_origin generalizes: 'tests'[:-1] == 'test'). Without this, every entry that
+        # path itself excludes or absorbs would read OWED forever, since the plain-name check above (line 80)
+        # never sees a bracketed key and the fixture/loose-noref fallthrough below has no bracket awareness at all.
         elif top in ('demos', 'benchmarks') and ((base, top) in additive_excluded[lang] or _additive_origin(top, lang, base) in absorbed_origins[lang]): kind = 'accounted'
+        elif top == 'tests' and (any((base, c) in additive_excluded[lang] for c in _TESTS_ADDITIVE_CATS)
+                                  or any(_additive_origin(c, lang, base) in absorbed_origins[lang] for c in _TESTS_ADDITIVE_CATS)): kind = 'accounted'
         elif any(os.path.exists(os.path.join(root, base + s)) for s in ('.ref', '.expected', '.std')): kind = 'loose pair (has ref)'; owed[lang].append(path)
         elif re.search(r'(^|/)(parser|coverage)/', path) or re.match(r'parser_|probe_|coverage_', f): kind = 'fixture'; owed[lang].append(path)
         else: kind = 'loose source (no ref)'; owed[lang].append(path)
