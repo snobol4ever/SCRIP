@@ -455,6 +455,22 @@ static int sn4_module_init_bottom(void) { static int v = -1; if (v < 0) { const 
 static int sn4_m4_alpha_seal(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_M4_ALPHA_SEAL"); v = (e && *e == '0') ? 0 : 1; } return v; }
 static int sn4_define_lbl_alias(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_DEFINE_LBL_ALIAS"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int compat_bake_on(const char * var) { const char * e = getenv(var); return (e && *e && *e != '0') ? 1 : 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void emit_compat_bake_data(void) {
+    int se = compat_bake_on("SCRIP_SETEXIT_END"), io = compat_bake_on("SCRIP_IO_ASSOC_LEGACY");
+    if (!se && !io) return;
+    emit_textf("  .section .rodata\n.LC_compat_one:\n  .asciz \"1\"\n");
+    if (se) emit_textf(".LC_compat_se:\n  .asciz \"SCRIP_SETEXIT_END\"\n");
+    if (io) emit_textf(".LC_compat_io:\n  .asciz \"SCRIP_IO_ASSOC_LEGACY\"\n");
+    emit_textf("  .text\n");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void emit_compat_bake_code(void) {
+    if (compat_bake_on("SCRIP_SETEXIT_END")) emit_textf("  lea rdi, [rip + .LC_compat_se]\n  lea rsi, [rip + .LC_compat_one]\n  mov edx, 1\n  call setenv@PLT\n");
+    if (compat_bake_on("SCRIP_IO_ASSOC_LEGACY")) emit_textf("  lea rdi, [rip + .LC_compat_io]\n  lea rsi, [rip + .LC_compat_one]\n  mov edx, 1\n  call setenv@PLT\n");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int *proc_nparams_buf, int *proc_pidx_buf, int *proc_fb_buf, int *proc_ispat_buf, int *proc_zstatic_buf, int n_procs, int n_cls_emit, int n_gram_emit, int is_raku, const char *mi_name) {
     if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0) {
         emit_textf("%s:\n", mi_name);
@@ -1338,12 +1354,14 @@ int main(int argc, char **argv)
             { extern int dat_type_count(void); n_cls_emit = dat_type_count(); }
             int n_gram_emit = 0;
             { extern int rt_grammar_count(void); n_gram_emit = rt_grammar_count(); }
+            emit_compat_bake_data();
             emit_textf("  .globl main\n");
             emit_textf("main:\n");
             emit_textf("  sub rsp, 65544\n");
             { const char * hr = getenv("SCRIP_M4_HEADROOM"); if (hr && *hr) { long hb = atol(hr); if (hb > 0) { hb = (hb + 15) & ~15L; emit_textf("  sub rsp, %ld\n", hb); } } }
             emit_textf("  push rdi\n");
             emit_textf("  push rsi\n");
+            emit_compat_bake_code();
             emit_textf("  call core_lib_init@PLT\n");
             if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
             if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
@@ -1528,9 +1546,11 @@ int main(int argc, char **argv)
             }
             int n_gva = gva_count();
             int n_proc_slot = proc_slot_count();
+            emit_compat_bake_data();
             emit_textf("  .globl main\nmain:\n  sub rsp, 65544\n");
             { const char * hr = getenv("SCRIP_M4_HEADROOM"); if (hr && *hr) { long hb = atol(hr); if (hb > 0) { hb = (hb + 15) & ~15L; emit_textf("  sub rsp, %ld\n", hb); } } }
             emit_textf("  push rdi\n  push rsi\n");
+            emit_compat_bake_code();
             if (n_procs > 0) emit_textf("  call main_init\n");
             else emit_textf("  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
             if (n_proc_slot > 0) emit_textf("  lea rdi, [rip + __proc]\n  lea rsi, [rip + __proc_names]\n  mov edx, %d\n  call rt_proc_table_fill@PLT\n", n_proc_slot);
