@@ -135,7 +135,9 @@ oracle_equal() { # $1=scrip output  $2=oracle output -- equal, or the SAME ERROR
     local ea eb
     ea="$(printf '%s' "$1" | grep -oiE 'ERROR +[0-9]+' | head -1 | grep -oE '[0-9]+')"
     eb="$(printf '%s' "$2" | grep -oiE 'ERROR +[0-9]+' | head -1 | grep -oE '[0-9]+')"
-    [ -n "$ea" ] && [ "$ea" = "$eb" ]; }
+    # ⛔ NUMERIC, NOT STRING: SPITBOL zero-pads to three digits (`ERROR 042`) and SCRIP does not
+    # (`Error 42`), so a string compare silently fails every error below 100 while looking correct.
+    [ -n "$ea" ] && [ -n "$eb" ] && [ "$((10#$ea))" = "$((10#$eb))" ]; }
 compile_m4() { local sno="$1" out="$2" t rc; t="$(mktemp -d)"
     SNO_LIB="$GIMPEL" "$SCRIP" --compile "$sno" > "$t/p.s" 2>"$t/compile.err"; rc=$?
     if [ "$rc" -ne 0 ]; then
@@ -159,7 +161,17 @@ run_one() { # $1=cmdkind $2=sno -> sets GOT RC ; input from $W/inp if HASINP
     case "$1" in
         m3)  GOT="$(cd "$RUN" && SNO_LIB="$GIMPEL" timeout "$TIMEOUT" "$SCRIP" --run "$2" < "$inp" 2>&1)"; RC=$?;;
         m4)  GOT="$(cd "$RUN" && SNO_LIB="$GIMPEL" timeout "$TIMEOUT" "$W/prog.bin" < "$inp" 2>&1)"; RC=$?;;
-        sbl) GOT="$(cd "$RUN" && timeout "$TIMEOUT" "$SBL" $SBL_FLAGS $SBL_SINK "$2" < "$inp" 2>&1)"; RC=$?;;
+        # ⛔⭐ THE ORACLE IS HANDED A SHORT NAME, NEVER THE ABSOLUTE PATH, AND IT IS A GRADING BUG IF YOU
+        # "TIDY" THIS BACK (hq_B 2026-09-04, measured). SPITBOL formats its diagnostic as
+        # `<path>(<line>) : ERROR <n> -- <text>`, wraps it at column 119 into the LISTING, and spills only
+        # the OVERFLOW onto stdout. The listing is diverted by $SBL_SINK, so with the suite's absolute path
+        # (73 chars here) the words `ERROR 199` land in the diverted listing and the compared stream
+        # receives the bare tail `t trace type`. oracle_equal then finds NO error number, and the fixture
+        # is graded FAIL on the LENGTH OF ITS OWN PATHNAME. Measured exactly: 119 characters are lost
+        # regardless of message, so a longer path leaves MORE of the tail visible, not less -- the failure
+        # gets less suspicious as it gets worse. Staging `f.sno` keeps every diagnostic under the wrap.
+        sbl) ln -sf "$2" "$RUN/f.sno"
+             GOT="$(cd "$RUN" && timeout "$TIMEOUT" "$SBL" $SBL_FLAGS $SBL_SINK f.sno < "$inp" 2>&1)"; RC=$?;;
         csn) GOT="$(cd "$RUN" && timeout "$TIMEOUT" "$CSN" "$2" < "$inp" 2>&1)"; RC=$?;;
     esac; }
 for sno in "$SUITE"/*.sno; do

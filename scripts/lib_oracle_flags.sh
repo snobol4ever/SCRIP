@@ -37,6 +37,24 @@ sbl_lang_flags() { echo "-bf"; }
 # ⛔ DELIBERATELY NOT FOLDED INTO sbl_lang_flags: that returns the SEMANTICS flags every caller takes verbatim,
 # and this one needs a PATH.  Baking a relative name in would drop a `.lst` file into whatever cwd each caller
 # happens to run in -- including corpus directories, where it could collide with a fixture's own companions.
+# ⛔⭐ THE SINK TRADES ONE LEAK FOR ANOTHER, AND THE SECOND ONE IS INVISIBLE — PASS THE ORACLE A SHORT
+# FILENAME, NEVER A LONG ABSOLUTE PATH (hq_B 2026-09-04, measured on `trace-procedure`).  SPITBOL formats
+# a diagnostic as `<path>(<line>) : ERROR <n> -- <text>`, wraps it at COLUMN 119 into the LISTING, and
+# spills only the OVERFLOW onto stdout.  Without this flag the listing IS stdout, so `ERROR <n>` is
+# visible and everything looks fine.  WITH this flag the first 119 characters are diverted into the sink,
+# so a caller passing a 73-char absolute path receives the bare tail `t trace type` on the compared
+# stream -- the error NUMBER, which is the only durable half of a SPITBOL diagnostic, is gone.  A grader
+# that falls back to comparing error numbers then finds none and returns FAIL.
+#   MEASURED, and note the direction: exactly 119 characters are lost regardless of message length, so a
+#   LONGER path leaves MORE of the tail on stdout (path 66 -> 5 chars survive; 106 -> 45).  The symptom
+#   therefore gets less alarming as the defect gets worse, which is why it read as 8 ordinary fixture
+#   failures for a whole sitting.  Every other sbl caller in scripts/ is safe TODAY only because it does
+#   not use this sink -- not because its paths are short.  Adopt this flag and you inherit the trap.
+#   ✅ THE CURE IS ONE LINE AT THE CALL SITE: stage the program under a short name in the run directory
+#   (`ln -sf "$src" "$RUN/f.sno"`) and hand the oracle `f.sno`, cwd in $RUN.  See run_one() in
+#   test_snoflake_suite.sh.  Grading by error NUMBER also needs a NUMERIC compare: SPITBOL zero-pads to
+#   three digits (`ERROR 042`) where SCRIP does not (`Error 42`), so `[ "$a" = "$b" ]` silently misses
+#   every error below 100.
 sbl_listing_sink_flag() {
     local d="${1:-}"
     if [ -z "$d" ] || [ ! -d "$d" ] || [ ! -w "$d" ]; then
