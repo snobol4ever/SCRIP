@@ -26,7 +26,11 @@
 #             2 = REFUSE -- could not find the source tree, i.e. could not measure at all.
 set -u
 
-ROOT="${1:-${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}}"
+# Self-locate rather than trust $S4E_HOME: this script's own DONE-WHEN invokes it as
+# "$S4E_HOME/SCRIP/scripts/<this file>", i.e. S4E_HOME is the SIBLING root, not the SCRIP repo root --
+# but this script always lives inside the SCRIP checkout it needs to examine, so BASH_SOURCE already
+# names the right tree regardless of which sibling root invoked it. $1 stays as an explicit override.
+ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 SRC="$ROOT/src"
 for d in runtime driver; do
     [ -d "$SRC/$d" ] || { echo "⛔ REFUSE: $SRC/$d not found -- cannot census a tree that isn't there" >&2; exit 2; }
