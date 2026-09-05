@@ -364,6 +364,7 @@ DESCR_t rsort_fn(DESCR_t arr);
 void    core_set_label_exists_hook(int (*fn)(const char *));
 const char *setexit_label_get(char *buf, size_t bufsz);
 void    sno_setexit_fire_on_end(void);
+void    sno_setexit_resume(const char *which);
 #define TABLE_VAL(tbl_) ((DESCR_t){ .v = DT_T, .tbl = (tbl_) })
 #define ARRAY_VAL(a_)   ((DESCR_t){ .v = DT_A, .arr = (a_)   })
 #endif

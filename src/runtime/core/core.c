@@ -1351,8 +1351,11 @@ static DESCR_t _CLEAR_(DESCR_t *a, int n) {
     return NULVCL;
 }
 static char _setexit_label[256];
+static int _setexit_resume = -1;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int core_setexit_on(void) { const char *e = getenv("SCRIP_SETEXIT"); return (e && e[0] == '0') ? 0 : 1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int core_setexit_on_end(void) { const char *e = getenv("SCRIP_SETEXIT_END"); return (e && e[0] == '1') ? 1 : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _SETEXIT_(DESCR_t *a, int n) {
     DESCR_t prev = (core_setexit_on() && _setexit_label[0]) ? STRVAL(rt_ws_strdup_c(_setexit_label)) : NULVCL;
@@ -1373,13 +1376,25 @@ const char *setexit_label_get(char *buf, size_t bufsz) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void sno_setexit_fire_on_end(void) {
+    extern int64_t kw_errlimit;
     char buf[sizeof _setexit_label];
+    if (kw_errlimit == 0 || !core_setexit_on_end()) return;
     const char *lbl = setexit_label_get(buf, sizeof buf);
     if (!lbl) return;
     extern void rt_kw_publish_error(int code, const char *msg);
     extern void rt_goto_transfer(const char *name);
+    extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
     rt_kw_publish_error(0, "");
-    rt_goto_transfer(lbl);
+    if (g_core_errjmp_n >= 64) { rt_goto_transfer(lbl); return; }
+    int my = g_core_errjmp_n; int outer = _setexit_resume;
+    if (setjmp(g_core_errjmp_stk[my]) == 0) { g_core_errjmp_n = my + 1; _setexit_resume = my; rt_goto_transfer(lbl); }
+    g_core_errjmp_n = my; _setexit_resume = outer;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void sno_setexit_resume(const char *which) {
+    extern jmp_buf g_core_errjmp_stk[64];
+    if (_setexit_resume >= 0) longjmp(g_core_errjmp_stk[_setexit_resume], (which && which[0] == 'A') ? 2 : 1);
+    core_runtime_error(35, NULL);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _FUNCTION_(DESCR_t *a, int n) {
@@ -2121,15 +2136,26 @@ void core_runtime_error(int code, const char *msg) {
           longjmp(g_core_errjmp_stk[g_core_errjmp_n - 1], code);
       } }
     { extern int64_t kw_errlimit; extern void rt_kw_publish_error(int code, const char *msg); extern void rt_goto_transfer(const char *name);
-      if (core_setexit_on() && _setexit_label[0] && kw_errlimit != 0) {
+      extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
+      volatile int vcode = code; const char * volatile vmsg = msg; volatile int aborting = 0;
+      if (core_setexit_on() && _setexit_label[0] && kw_errlimit != 0 && g_core_errjmp_n < 64) {
           char lbl[sizeof _setexit_label]; strncpy(lbl, _setexit_label, sizeof lbl - 1); lbl[sizeof lbl - 1] = '\0';
           _setexit_label[0] = '\0';
           if (kw_errlimit > 0) kw_errlimit--;
           rt_kw_publish_error(code, msg);
-          rt_goto_transfer(lbl);
-          exit(0);
+          int my = g_core_errjmp_n; int outer = _setexit_resume; int how = setjmp(g_core_errjmp_stk[my]);
+          if (how == 0) {
+              g_core_errjmp_n = my + 1; _setexit_resume = my;
+              rt_goto_transfer(lbl);
+              g_core_errjmp_n = my; _setexit_resume = outer;
+              exit(0);
+          }
+          g_core_errjmp_n = my; _setexit_resume = outer;
+          code = vcode; msg = vmsg;
+          if (how == 1) return;
+          aborting = 1;
       }
-      if (kw_errlimit != 0) {
+      if (!aborting && kw_errlimit != 0) {
           if (kw_errlimit > 0) kw_errlimit--;
           rt_kw_publish_error(code, msg);
           return;

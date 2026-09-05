@@ -342,7 +342,8 @@ void *rt_goto_resolve(const char *name)
         return cv.ptr;
     }
     if (!strcmp(name, "END")) return NULL;
-    if (!strcmp(name, "CONTINUE") || !strcmp(name, "SCONTINUE")) exit(0);
+    if (!strcmp(name, "CONTINUE") || !strcmp(name, "SCONTINUE") || !strcmp(name, "ABORT"))
+        { extern void sno_setexit_resume(const char *which); sno_setexit_resume(name); return NULL; }
     { eval_chain_fn fn = rt_label_get_fn(name); if (fn) return (void *)fn; }
     {
         extern void *rt_proc_get_fn(const char *);
