@@ -76,14 +76,16 @@ DESCR_t lpad_fn(DESCR_t s, DESCR_t n, DESCR_t pad) {
     int64_t width   = to_int(n);
     const char *p   = VARVAL_fn(pad);
     char padch      = (p && *p) ? p[0] : ' ';
-    int64_t slen    = (int64_t)strlen(STRVAL_fn);
-    if (width <= slen) return STRVAL(rt_str_dup(STRVAL_fn));
+    size_t slen_v   = descr_slen(s);
+    if (slen_v == 0 && STRVAL_fn && STRVAL_fn[0]) slen_v = strlen(STRVAL_fn);
+    int64_t slen    = (int64_t)slen_v;
+    if (width <= slen) { char *d = rt_str_alloc((long)slen); if (slen) memcpy(d, STRVAL_fn, (size_t)slen); d[slen] = '\0'; return BSTRVAL(d, (uint32_t)slen); }
     int64_t npad = width - slen;
     char *r = rt_str_alloc((long)width);
     memset(r, padch, (size_t)npad);
     memcpy(r + npad, STRVAL_fn, (size_t)slen);
     r[width] = '\0';
-    return STRVAL(r);
+    return BSTRVAL(r, (uint32_t)width);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rpad_fn(DESCR_t s, DESCR_t n, DESCR_t pad) {
@@ -91,13 +93,15 @@ DESCR_t rpad_fn(DESCR_t s, DESCR_t n, DESCR_t pad) {
     int64_t width   = to_int(n);
     const char *p   = VARVAL_fn(pad);
     char padch      = (p && *p) ? p[0] : ' ';
-    int64_t slen    = (int64_t)strlen(STRVAL_fn);
-    if (width <= slen) return STRVAL(rt_str_dup(STRVAL_fn));
+    size_t slen_v   = descr_slen(s);
+    if (slen_v == 0 && STRVAL_fn && STRVAL_fn[0]) slen_v = strlen(STRVAL_fn);
+    int64_t slen    = (int64_t)slen_v;
+    if (width <= slen) { char *d = rt_str_alloc((long)slen); if (slen) memcpy(d, STRVAL_fn, (size_t)slen); d[slen] = '\0'; return BSTRVAL(d, (uint32_t)slen); }
     char *r = rt_str_alloc((long)width);
     memcpy(r, STRVAL_fn, (size_t)slen);
     memset(r + slen, padch, (size_t)(width - slen));
     r[width] = '\0';
-    return STRVAL(r);
+    return BSTRVAL(r, (uint32_t)width);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t REVERS_fn(DESCR_t s) {
