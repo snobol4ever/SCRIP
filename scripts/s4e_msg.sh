@@ -95,6 +95,9 @@ if [ -z "$ME" ]; then case "$S4E" in
     /home/claude_B)         ME=hq_B;;
     /home/claude_T)         ME=hq_T;;
     /home/claude_U)         ME=hq_U;;
+    /home/claude_S)         ME=hq_S;;
+    /home/claude_I)         ME=hq_I;;
+    /home/claude_R)         ME=hq_R;;
     /home/claude[0-9][0-9]) ME="seat${S4E#/home/claude}";;
     /home/claude[1-9])      ME="seat0${S4E#/home/claude}";;
     *)                      ME="$(basename "$S4E")";; esac; fi
@@ -439,10 +442,10 @@ s4e_sweep_orphans() { for _o in "$PO"/.msg.*; do [ -f "$_o" ] || continue
 # that INVENTS a dead seat is worse than one that reports nothing: the ceo acts on it. The forward map gained
 # hq_T when the fourth HQ opened; this one did not, because nothing checks that two hand-written tables of the
 # same fact still agree -- the same class as the per-root digests drifting from RULES.md.
-s4e_root() { case "$1" in ceo|hq) echo /home/claude;; hq_C) echo /home/claude_C;; hq_P) echo /home/claude_P;; hq_B) echo /home/claude_B;; hq_T) echo /home/claude_T;; hq_U) echo /home/claude_U;;
+s4e_root() { case "$1" in ceo|hq) echo /home/claude;; hq_C) echo /home/claude_C;; hq_P) echo /home/claude_P;; hq_B) echo /home/claude_B;; hq_T) echo /home/claude_T;; hq_U) echo /home/claude_U;; hq_S) echo /home/claude_S;; hq_I) echo /home/claude_I;; hq_R) echo /home/claude_R;;
     seat0[1-9]|seat1[0-9]|seat20) echo "/home/claude${1#seat}";; *) echo "";; esac; }
-s4e_hqboxes() { for _h in hq hq_C hq_P hq_B hq_T hq_U ceo; do [ -d "$PO/$_h/inbox" ] && echo "$_h"; done; }
-s4e_is_hq() { case "$1" in hq|hq_C|hq_P|hq_B|hq_T|hq_U|ceo) return 0;; *) return 1;; esac; }
+s4e_hqboxes() { for _h in hq hq_C hq_P hq_B hq_T hq_U hq_S hq_I hq_R ceo; do [ -d "$PO/$_h/inbox" ] && echo "$_h"; done; }
+s4e_is_hq() { case "$1" in hq|hq_C|hq_P|hq_B|hq_T|hq_U|hq_S|hq_I|hq_R|ceo) return 0;; *) return 1;; esac; }
 # ⭐⭐ THE LANE — topic->HQ and identity->HQ, so `next` can restrict dispatch without inventing a second
 # copy of MASTER-PLAN's THE LANES table (row next-serves-a-seat-only-rows-in-its-hqs-lane-and-no-row-
 # carries-a-blank-owner-cell). Topic lane: the owner cell (QUEUE.tsv field 3) wins when it already names
@@ -454,7 +457,7 @@ s4e_is_hq() { case "$1" in hq|hq_C|hq_P|hq_B|hq_T|hq_U|ceo) return 0;; *) return
 s4e_topic_lane() {
     local _t="$1" _owner
     _owner="$(qrow "$_t" | cut -f3)"
-    case "$_owner" in hq_C|hq_B|hq_P|hq_T|hq_U) printf '%s' "$_owner"; return 0;; esac
+    case "$_owner" in hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R) printf '%s' "$_owner"; return 0;; esac
     case "$_t" in
       prolog-*)                      printf 'hq_C';;
       icon-*)                        printf 'hq_B';;
@@ -473,11 +476,11 @@ s4e_topic_lane() {
 # of every row in the queue.
 s4e_my_lane() {
     case "$ME" in
-      hq_C|hq_B|hq_P|hq_T|hq_U) printf '%s' "$ME"; return 0;;
+      hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R) printf '%s' "$ME"; return 0;;
       seat*) local _f="$PO/$ME/HQ" _l
              [ -f "$_f" ] || return 0
              _l="$(head -1 "$_f" | tr -d '[:space:]')"
-             case "$_l" in hq_C|hq_B|hq_P|hq_T|hq_U) printf '%s' "$_l";; esac ;;
+             case "$_l" in hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R) printf '%s' "$_l";; esac ;;
     esac
 }
 # ⭐⭐ THE MODE LANGUAGE FREEZE -- next-dependency-promotion-walks-around-the-mode-lane-filter, item (3):
@@ -882,10 +885,10 @@ s4e_backfill_owner_lane() {
   _cur="$(printf '%s' "$_row" | cut -f3)"
   case "$_cur" in ''|unassigned) : ;; *) return 0;; esac   # already set -- not this function's decision to change
   case "$_seat" in
-    hq_C|hq_B|hq_P|hq_T|hq_U) _lane="$_seat" ;;
+    hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R) _lane="$_seat" ;;
     seat*) [ -f "$PO/$_seat/HQ" ] && _lane="$(head -1 "$PO/$_seat/HQ" | tr -d '[:space:]')" ;;
   esac
-  case "${_lane:-}" in hq_C|hq_B|hq_P|hq_T|hq_U) : ;; *) return 1;; esac   # undeterminable -- leave blank rather than guess
+  case "${_lane:-}" in hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R) : ;; *) return 1;; esac   # undeterminable -- leave blank rather than guess
   local _lk="$PO/.mint.lock" _got=0 _i _tmp
   for _i in $(seq 1 20); do mkdir "$_lk" 2>/dev/null && { _got=1; break; }; sleep 0.1; done
   [ "$_got" = 1 ] || return 1
@@ -1625,8 +1628,8 @@ case "$cmd" in
          # language (a postoffice/tooling/meta row, this fix's own first victim) needs the flag; asking for
          # it there, once, is cheaper than another blank cell nobody catches until a seat wanders into it.
          owner=""
-         if [ "${1:-}" = "--owner" ]; then owner="${2:?--owner needs an hq_C|hq_B|hq_P|hq_T|hq_U argument}"; shift 2
-           case "$owner" in hq_C|hq_B|hq_P|hq_T|hq_U) : ;; *) echo "⛔ REFUSED: --owner must be one of hq_C hq_B hq_P hq_T hq_U, not '$owner'." >&2; exit 2;; esac; fi
+         if [ "${1:-}" = "--owner" ]; then owner="${2:?--owner needs an hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R argument}"; shift 2
+           case "$owner" in hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R) : ;; *) echo "⛔ REFUSED: --owner must be one of hq_C hq_B hq_P hq_T hq_U hq_S hq_I hq_R, not '$owner'." >&2; exit 2;; esac; fi
          if [ "${1:-}" = "--stdin" ] || [ "${1:-}" = "-" ]; then goal="$(cat)"; else goal="$*"; fi
          # ⛔ THE TOPIC BECOMES A FILENAME TWICE OVER (a QUEUE.tsv row AND tasks/<topic>.task.md) — same guard
          # as send (s191), checked before either write, not after.
@@ -1636,7 +1639,7 @@ case "$cmd" in
          if [ -z "$owner" ]; then
            printf '⛔ REFUSED: cannot derive an owner lane for "%s" -- its name matches no language THE LANES table maps\n' "$topic" >&2
            printf '   (prolog- icon- snobol4- snocone- pascal- raku- rebus-*). Supply one: mint %s %s --owner hq_X "GOAL"\n' "$topic" "$rank" >&2
-           printf '   (hq_C correctness/Prolog · hq_B beautify/Icon+public face+postoffice tooling · hq_P speed/SNOBOL4+Snocone+Pascal+benchmarks · hq_T test suites/Raku+Rebus+the standard · hq_U unify/shared engine+cross-language regressions)\n' >&2
+           printf '   (hq_C correctness/Prolog · hq_B beautify/Icon+public face+postoffice tooling · hq_P speed/SNOBOL4+Snocone+Pascal+benchmarks · hq_T test suites/Raku+Rebus+the standard · hq_U unify/shared engine+cross-language regressions · hq_S SNOBOL4 runtime · hq_I Icon suites · hq_R Prolog builtins)\n' >&2
            exit 2; fi
          q="$PO/QUEUE.tsv"; d="$PO/QUEUE.done.tsv"; b="$PO/tasks/$topic.task.md"; mkdir -p "$PO/tasks"
          s4e_mint_dup() { grep -qP "^[0-9]+\t\Q$topic\E\t" "$q" 2>/dev/null && return 0
@@ -1705,7 +1708,7 @@ TASKEOF
            hq|hq_?) case "$_mode" in
                       CEO) _refuse_dispatch "an HQ" "Under CEO no HQ is standing -- the ceo works the rows itself.";; esac;;
            seat*)   case "$_mode" in
-                      CEO|DUO|DUET|TRIO|QUARTET|QUINTET) _refuse_dispatch "a fleet seat" "There is NO FLEET in $_mode -- only the ceo and the HQs work rows. (DUO is the pre-rename spelling of DUET and is refused too.)";; esac;;
+                      CEO|DUO|DUET|TRIO|QUARTET|QUINTET|OCTET) _refuse_dispatch "a fleet seat" "There is NO FLEET in $_mode -- only the ceo and the HQs work rows. (DUO is the pre-rename spelling of DUET and is refused too.)";; esac;;
          esac
          # ⛔⭐ s265 — A STALE CLONE SILENTLY REVERTS TO PRE-V2 DISPATCH, AND THAT IS NOW A REFUSAL, NOT A WARNING.
          # Measured the same day by TWO seats: seat09's clone was 79 commits behind and seat13's was 2, so both ran

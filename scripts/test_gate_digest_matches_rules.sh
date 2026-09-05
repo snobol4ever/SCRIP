@@ -103,7 +103,7 @@ else
            /home/claude09/CLAUDE.md /home/claude10/CLAUDE.md /home/claude11/CLAUDE.md /home/claude12/CLAUDE.md \
            /home/claude13/CLAUDE.md /home/claude14/CLAUDE.md /home/claude15/CLAUDE.md /home/claude16/CLAUDE.md \
            /home/claude17/CLAUDE.md /home/claude18/CLAUDE.md /home/claude19/CLAUDE.md /home/claude20/CLAUDE.md \
-           /home/claude_C/CLAUDE.md /home/claude_P/CLAUDE.md /home/claude_B/CLAUDE.md /home/claude_T/CLAUDE.md /home/claude_U/CLAUDE.md \
+           /home/claude_C/CLAUDE.md /home/claude_P/CLAUDE.md /home/claude_B/CLAUDE.md /home/claude_T/CLAUDE.md /home/claude_U/CLAUDE.md /home/claude_S/CLAUDE.md /home/claude_I/CLAUDE.md /home/claude_R/CLAUDE.md \
            /home/claude/CLAUDE.md)
 fi
 
