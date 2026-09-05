@@ -144,7 +144,9 @@ ladder_main() {
   _top=$(printf '%s\n' "${!rp[@]}" "${!rf[@]}" | sort -n | tail -1)
   if [ -z "$ONLY" ]; then
     _ll=$(printf '%s' "$LADDER_LANG" | tr 'A-Z' 'a-z')
-    _cell="rungs 0..${_top} PASS $pass/$((n*2)) FAIL $fail (witnesses=$n · m3+m4 · test_${_ll}_ladder.sh --to ${TO:-max} · SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo ?) corpus=$(git -C "$S4E/corpus" rev-parse --short HEAD 2>/dev/null || echo ?) RT_OPT=-O0)"
+    _dtop=$( [ -f "$MASTER_DIR/config/LADDER.tsv" ] && grep -o '^rung[0-9]*' "$MASTER_DIR/config/LADDER.tsv" | sed 's/^rung0*//' | sort -n | tail -1 )
+    _decl=$( [ -n "$_dtop" ] && [ "$_dtop" != "$_top" ] && printf ' · declared top rung %s, rungs %s..%s NOT BUILT (RED by declaration)' "$_dtop" "$((_top+1))" "$_dtop" )
+    _cell="built rungs 0..${_top} PASS $pass/$((n*2)) FAIL $fail${_decl} (witnesses=$n · m3+m4 · test_${_ll}_ladder.sh --to ${TO:-max} · SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo ?) corpus=$(git -C "$S4E/corpus" rev-parse --short HEAD 2>/dev/null || echo ?) RT_OPT=-O0)"
     if _w=$(python3 "$ROOT/scripts/util_score_row.py" write --lang "$_ll" --column ladder --text "$_cell" --measurer "${S4E_SEAT:-}" 2>&1); then printf '%s\n' "$_w" | grep -E '^SCORE.md|ROW SKIPPED|^  now:' | cut -c1-200
     else echo "SCORE ROW: UNWRITTEN (util_score_row.py refused; the verdict below is unchanged):"; printf '%s\n' "$_w" | head -3 | cut -c1-200; fi
   fi
