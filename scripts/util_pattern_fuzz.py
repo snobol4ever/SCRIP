@@ -25,7 +25,28 @@
 # compared blindly would book them as phantom passes or phantom fails depending which way it fell.
 import argparse, os, random, re, subprocess, sys, collections
 S4E = os.environ.get('S4E_HOME') or os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-SCRIP = os.path.join(S4E, 'SCRIP', 'scrip'); SBL = os.path.join(S4E, 'x64', 'bin', 'sbl')
+SCRIP = os.path.join(S4E, 'SCRIP', 'scrip')
+# ⛔ FIXED 2026-09-05 (seat20, row fuzz-crash-class-and-port-trace-refs-over-the-three-open-languages):
+# this used to hardcode SBL = S4E/x64/bin/sbl, the exact per-root fallback lib_oracle_flags.sh's own header
+# says was DELETED on purpose (Lon s261: "Ensure that no root have x64. Everyone must share... Do not use
+# symlinks"). On a root with no such clone (every seat root as of this sweep) it refused outright; on a
+# root that happened to have a stray one it would have silently graded against a private, possibly-diverged
+# copy -- exactly the hazard that ruling exists to prevent. Route through the one shared accessor instead.
+def _sbl_correctness_bin():
+    d = os.path.dirname(os.path.abspath(__file__))
+    p = subprocess.run(['bash', '-c', 'source "%s/lib_oracle_flags.sh" && sbl_correctness_bin' % d],
+                        capture_output=True, text=True)
+    if p.returncode != 0 or not p.stdout.strip():
+        sys.stderr.write(p.stderr)
+        sys.exit("⛔ ORACLE ABSENT: sbl_correctness_bin() could not resolve the shared correctness oracle "
+                  "(see its own refusal above). Every verdict would be a plausible FALSE table.")
+    return p.stdout.strip()
+def _sbl_lang_flags():
+    d = os.path.dirname(os.path.abspath(__file__))
+    p = subprocess.run(['bash', '-c', 'source "%s/lib_oracle_flags.sh" && sbl_lang_flags' % d],
+                        capture_output=True, text=True)
+    return p.stdout.strip().split() if p.returncode == 0 and p.stdout.strip() else ['-bf']
+SBL = _sbl_correctness_bin(); SBL_FLAGS = _sbl_lang_flags()
 LITS = ["'a'", "'ab'", "'abc'", "'+'", "''"]
 CSETS = ["'ab'", "'abc'", "'+'", "' '"]
 INTS = ["0", "1", "2", "3"]
@@ -79,15 +100,18 @@ def main():
     ap.add_argument('--depth', type=int, default=4); ap.add_argument('--out', default='/tmp/patfuzz')
     ap.add_argument('--keep-green', action='store_true')
     a = ap.parse_args()
-    if not os.path.exists(SBL):
-        sys.exit("⛔ ORACLE ABSENT (%s). Every verdict would be a plausible FALSE table. Clone x64 first." % SBL)
     os.makedirs(a.out, exist_ok=True); rnd = random.Random(a.seed)
     seen = {}; tally = collections.Counter(); reds = []
     for i in range(a.n):
         src, shape = build(rnd, a.depth)
         f = os.path.join(a.out, "pf_%05d.sno" % i)
         open(f, 'w').write(src)
-        orc, oout = run(f, SBL, ['-b'])
+        # ⛔ FIXED 2026-09-05 (seat20, same row): was hardcoded ['-b'], the FOLDING arm -- CLAUDE.md's own
+        # FACT RULE (s189) is that -bf is the ONLY correct language arm to grade SCRIP against, precisely
+        # because -b case-folds names and SCRIP does not. The fuzzed pattern names (v0, v1, G0, G1...) are
+        # exactly the shape a folding mismatch could misjudge as a false DIFF/FALSE-ACCEPT that has nothing
+        # to do with a real compiler defect.
+        orc, oout = run(f, SBL, SBL_FLAGS)
         if orc != 0 or oout.strip() not in ('match', 'nomatch'):
             tally['ORACLE-BAD'] += 1
             if not a.keep_green: os.remove(f)
