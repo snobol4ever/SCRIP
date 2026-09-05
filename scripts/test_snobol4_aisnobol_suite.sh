@@ -58,7 +58,7 @@ fi
 # new. NON-FATAL BY DESIGN (matches test_icon_arizona_suite.sh's own convention): a bookkeeping failure
 # must never turn a real measurement into a red gate for a reason unrelated to the code.
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite aisnobol --modes m3,m4 \
-    --measurer "${S4E_SEAT:-}" --text "aisnobol $m3p/$shipped m3 . $m4p/$shipped m4 (of $shipped shipped, $excl excluded, m3_fail=$m3f m4_fail=$m4f, \`test_snobol4_aisnobol_suite.sh\`)" \
+    --measurer "${S4E_SEAT:-}" --text "aisnobol $m3p/$scored m3 . $m4p/$scored m4 SCORED (of $shipped shipped, $excl excluded and named) . m3 FAIL=$m3f CRASH=$m3c HANG=$m3h . m4 FAIL=$m4f CRASH=$m4c HANG=$m4h (\`test_snobol4_aisnobol_suite.sh\`)" \
     || echo "WARNING SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
 exit $rc
