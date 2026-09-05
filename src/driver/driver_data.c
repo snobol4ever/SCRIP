@@ -396,6 +396,11 @@ DESCR_t c_dat_field_get(const char *fname, DESCR_t obj) {
     }
     extern int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmargs, DESCR_t *out);
     DESCR_t r; if (obj.v != DT_DATA && rt_str_method(fname, obj, (DESCR_t *)0, 0, &r)) return r;
+    extern int rt_dat_field_of_any(const char *name);
+    if (fname && rt_dat_field_of_any(fname)) {
+        extern void core_runtime_error(int code, const char *msg);
+        core_runtime_error(41, "field function argument is wrong datatype");
+    }
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

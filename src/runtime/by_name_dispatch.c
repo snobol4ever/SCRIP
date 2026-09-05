@@ -6004,6 +6004,11 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     L_bidjmp_6581: ;
     if ((_bid == BID_VALUE) && nargs == 1) {
         extern DESCR_t NV_GET_fn(const char *); extern DESCR_t rt_deref(DESCR_t);
+        extern int rt_dat_field_of_any(const char *);
+        if (rt_dat_field_of_any("VALUE")) {
+            extern DESCR_t dat_field_get(const char *field, DESCR_t obj);
+            *out = dat_field_get("VALUE", args[0]); return 1;
+        }
         if (args[0].v == DT_N) { *out = rt_deref(args[0]); return 1; }
         const char *nm = VARVAL_fn(args[0]); if (!nm || !*nm) { *out = FAILDESCR; return 1; }
         *out = NV_GET_fn(nm); return 1;
@@ -6165,7 +6170,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
           *out = dat_construct(dt, fv, nf); return 1;
       } }
     { extern int rt_dat_field_of_any(const char *);
-      if (nargs == 1 && args[0].v == DT_DATA && rt_dat_field_of_any(fn)) {
+      if (nargs == 1 && rt_dat_field_of_any(fn)) {
           extern DESCR_t dat_field_get(const char *field, DESCR_t obj);
           *out = dat_field_get(fn, args[0]); return 1;
       } }

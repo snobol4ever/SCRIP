@@ -1560,7 +1560,10 @@ static DESCR_t _make_fget(int slot, DESCR_t obj) {
     if (slot < 0 || slot >= _facc_n) return FAILDESCR;
     int tidx = _facc_slots[slot].tidx;
     int fidx = _facc_slots[slot].fidx;
-    if (!IS_DATA(obj) || !obj.u) return FAILDESCR;
+    if (!IS_DATA(obj) || !obj.u || !obj.u->type || strcmp(obj.u->type->name, _data_types[tidx].typename) != 0) {
+        core_runtime_error(41, "field function argument is wrong datatype");
+        return FAILDESCR;
+    }
     if (fidx < 0 || fidx >= obj.u->type->nfields) return FAILDESCR;
     return obj.u->fields[fidx];
 }
