@@ -2208,8 +2208,6 @@ void core_runtime_error(int code, const char *msg) {
           return;
       } }
     { extern long g_stno; extern long g_line; extern const char *g_file;
-      fprintf(stdout, "%s(%ld) : ERROR %03d -- %s\nin statement %ld\n",
-              g_file ? g_file : "", g_line, code, msg ? msg : "", g_stno);
       fprintf(stderr, "%s(%ld) : ERROR %03d -- %s\nin statement %ld\n",
               g_file ? g_file : "", g_line, code, msg ? msg : "", g_stno); }
     if (core_err_is_terminal(code)) exit(1);
