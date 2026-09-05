@@ -61,10 +61,32 @@ if ! diff -q "$TMP/bus.map" "$TMP/hook.map" >/dev/null 2>&1; then
     violations=$((violations + 1))
 fi
 
-# ARM 2 — the bus map and the leaderboard map agree on every KNOWN root. Roots are enumerated here because
-# they are the org's roster, not a copy of the mapping logic: the gate says WHICH roots must agree, the two
-# files under test say what each one resolves to.
-ROOTS="/home/claude /home/claude_C /home/claude_P /home/claude_B /home/claude_T /home/claude1 /home/claude7 /home/claude01 /home/claude07 /home/claude16"
+# ARM 2 — the bus map and the leaderboard map agree on every KNOWN root.
+#
+# ⛔⭐ THE ROSTER IS LIFTED, NOT RETYPED — CURED BY hq_I 2026-09-05, AND THIS IS THE SAME LESSON THE HEADER
+# ALREADY TEACHES, APPLIED ONE LEVEL UP. This gate correctly refuses to retype the MAPPING ("a gate carrying
+# its own expected map would be a FOURTH copy, and would pass while the file it grades was wrong") — and then
+# hand-typed the POPULATION, which fails in exactly the way the header forbids: on 2026-09-05 Lon opened
+# /home/claude_U, _S, _I and _R, s4e_msg.sh learned all four, util_score_row.py learned none, and this gate
+# passed GREEN because its roster stopped at claude_T. Four of eight HQs could not write THE ONE LEADERBOARD
+# at all (every vendor run printed "REFUSED(2) ... root is not in the seat map" and "SCORE.md NOT UPDATED"),
+# and the instrument built to catch precisely that drift reported no violation, because a gate only grades
+# the population it is given. A hand-maintained roster is a second place a new root must be registered, and
+# the whole point of this gate is that there must be ONE.
+# So the enumerated roots now come OUT of the lifted case block itself. The header's asymmetry ruling is
+# untouched: an UNRECOGNISED root must still diverge (bus invents, board refuses) and ARM 3 still pins that.
+# The synthetic numbered seats stay spelled out — they are pattern arms, matched by [0-9] globs and named by
+# no literal label, so nothing can lift them.
+ROOTS="$(sed -n 's|^[[:space:]]*\(/home/claude[A-Za-z_]*\)).*|\1|p' "$TMP/bus.map" | tr '\n' ' ')"
+ROOTS="$ROOTS /home/claude1 /home/claude7 /home/claude01 /home/claude07 /home/claude16"
+# ⛔ REFUSE rather than grade a roster the lift could not produce: an empty literal-root list would make every
+# assertion below vacuously true and print the success shape over nothing (RULES.md — a test that cannot
+# measure REFUSES rc=2, it never skips as success).
+if [ "$(printf '%s' "$ROOTS" | tr ' ' '\n' | grep -c '^/home/claude_[A-Za-z]')" -lt 2 ]; then
+    echo "GATE UNPROVEN(2) [$GATE_NAME]: lifted fewer than two named-HQ roots out of the bus case block --"
+    echo "    the block was reshaped and this arm would grade an empty roster. Roster lift: [$ROOTS]"
+    rm -rf "$TMP"; exit 2
+fi
 graded=0
 for r in $ROOTS; do
     bus_me="$(S4E="$r" ME="" bash -c '. "$1"; printf "%s" "$ME"' _ "$TMP/bus.map" 2>/dev/null)"

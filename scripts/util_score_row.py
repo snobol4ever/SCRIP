@@ -292,7 +292,8 @@ _PLACEHOLDER_MEASURERS = ("unknown-seat", "unknown", "unknown-hq", "-", "?")
 def derive_measurer():
     root = os.path.abspath(S4E).rstrip("/")
     fixed = {"/home/claude": "ceo", "/home/claude_C": "hq_C", "/home/claude_P": "hq_P",
-             "/home/claude_B": "hq_B", "/home/claude_T": "hq_T"}
+             "/home/claude_B": "hq_B", "/home/claude_T": "hq_T", "/home/claude_U": "hq_U",
+             "/home/claude_S": "hq_S", "/home/claude_I": "hq_I", "/home/claude_R": "hq_R"}
     if root in fixed:
         return fixed[root]
     m = re.match(r"^/home/claude([0-9]{1,2})$", root)
