@@ -131,6 +131,16 @@ DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs)
         const tree_t *body = entry ? label_lookup(entry) : NULL;
         if (!body) body = label_lookup(fname);
         if (!body) body = label_lookup(ufname);
+        if (!body && entry && strcmp(entry, fname) != 0) {
+            extern int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
+            DESCR_t _bout;
+            { extern int rt_g_want_name; extern int rt_dat_field_of_any(const char *);
+              extern DESCR_t rt_field_var(const char *field, DESCR_t obj);
+              if (rt_g_want_name && nargs >= 1 && args[0].v == DT_DATA && rt_dat_field_of_any(entry)) {
+                  rt_g_want_name = 0; retval = rt_field_var(entry, args[0]); goto fn_done;
+              } }
+            if (try_call_builtin_by_name(entry, args, nargs, &_bout)) { retval = _bout; goto fn_done; }
+        }
         if (!body && !FNCEX_fn(fname) && !FNCEX_fn(ufname)) {
             if (getenv("SCRIP_DEBUG_APPLY"))
                 fprintf(stderr, "[call-err5] unresolved '%s' (ufname='%s', nargs=%d)\n", fname ? fname : "(null)", ufname ? ufname : "(null)", nargs);

@@ -319,6 +319,12 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 ir_operand_push(fv, br);
                 if (res) *res = fv; return ea;
             }
+            IR_t * wl = lc_build(cx->g, IR_LIT_STRING, NULL, ω); IR_LIT(wl).sval = (char *) "";
+            IR_t * mk = lc_build(cx->g, IR_CALL, NULL, ω); IR_LIT(mk).sval = (char *) "SNO$WANTNM";
+            lc_γ_to(wl, mk); ir_operand_push(mk, wl);
+            IR_t * cv = NULL; IR_t * e1 = sx_lower(cx, t->c[0], γ, ω, &cv);
+            lc_γ_to(mk, e1);
+            if (res) *res = cv; return wl;
         }
         sno_fatal("name operator over this form is outside the landed subset", NULL);
     }

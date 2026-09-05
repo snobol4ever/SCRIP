@@ -5997,6 +5997,11 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (!pn || !*pn) { *out = FAILDESCR; return 1; }
         extern int rt_proc_is_registered(const char *); extern DESCR_t rt_call_proc_descr(const char *, int); extern DESCR_t g_call_args[];
         if (rt_proc_is_registered(pn)) { int na = nargs - 1; if (na > 64) na = 64; for (int k = 0; k < na; k++) g_call_args[k] = args[k + 1]; *out = rt_call_proc_descr(pn, na); return 1; }
+        { extern int rt_g_want_name; extern int rt_dat_field_of_any(const char *);
+          extern DESCR_t rt_field_var(const char *field, DESCR_t obj);
+          if (rt_g_want_name && nargs >= 2 && args[1].v == DT_DATA && rt_dat_field_of_any(pn)) {
+              rt_g_want_name = 0; *out = rt_field_var(pn, args[1]); return 1;
+          } }
         return try_call_builtin_by_name(pn, args + 1, nargs - 1, out);
     }
     if (nargs == 1) {
