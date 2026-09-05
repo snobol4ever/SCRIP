@@ -112,16 +112,17 @@ extern int snobol4_debug;
     T_1PERCENT = 298,              /* T_1PERCENT  */
     T_1SLASH = 299,                /* T_1SLASH  */
     T_1POUND = 300,                /* T_1POUND  */
-    T_1EQUAL = 301,                /* T_1EQUAL  */
-    T_1PIPE = 302,                 /* T_1PIPE  */
-    T_CONCAT = 303,                /* T_CONCAT  */
-    T_COMMA = 304,                 /* T_COMMA  */
-    T_LPAREN = 305,                /* T_LPAREN  */
-    T_RPAREN = 306,                /* T_RPAREN  */
-    T_LBRACK = 307,                /* T_LBRACK  */
-    T_RBRACK = 308,                /* T_RBRACK  */
-    T_LANGLE = 309,                /* T_LANGLE  */
-    T_RANGLE = 310                 /* T_RANGLE  */
+    T_1CARET = 301,                /* T_1CARET  */
+    T_1EQUAL = 302,                /* T_1EQUAL  */
+    T_1PIPE = 303,                 /* T_1PIPE  */
+    T_CONCAT = 304,                /* T_CONCAT  */
+    T_COMMA = 305,                 /* T_COMMA  */
+    T_LPAREN = 306,                /* T_LPAREN  */
+    T_RPAREN = 307,                /* T_RPAREN  */
+    T_LBRACK = 308,                /* T_LBRACK  */
+    T_RBRACK = 309,                /* T_RBRACK  */
+    T_LANGLE = 310,                /* T_LANGLE  */
+    T_RANGLE = 311                 /* T_RANGLE  */
   };
   typedef enum snobol4_tokentype snobol4_token_kind_t;
 #endif
@@ -133,7 +134,7 @@ union SNOBOL4_STYPE
 #line 51 "snobol4.y"
  tree_t *expr; Token tok; 
 
-#line 137 "snobol4.tab.h"
+#line 138 "snobol4.tab.h"
 
 };
 typedef union SNOBOL4_STYPE SNOBOL4_STYPE;

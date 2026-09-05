@@ -1475,7 +1475,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 65:
 YY_RULE_SETUP
-{ return T_2CARET;  }
+{ return T_1CARET;  }
 	YY_BREAK
 case 66:
 YY_RULE_SETUP
@@ -1719,7 +1719,11 @@ case YY_STATE_EOF(STR2):
 case YY_STATE_EOF(SKIP):
 case YY_STATE_EOF(INCL):
 {
-    if (incl_stack_depth > 0) stmt_src_mark_include_range(incl_start_stack[--incl_stack_depth], lineno);
+    if (incl_stack_depth > 0) {
+        int _incl_start = incl_start_stack[--incl_stack_depth];
+        stmt_src_mark_include_range(_incl_start, lineno);
+        lineno = _incl_start;
+    }
     if (YY_CURRENT_BUFFER) yypop_buffer_state(yyscanner);
     if (!YY_CURRENT_BUFFER) return T_EOF;
 }

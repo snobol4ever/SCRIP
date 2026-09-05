@@ -57,7 +57,7 @@ static tree_e pat_prim_kind(const char *s) {
 %token T_2AMP T_2AT T_2POUND T_2PERCENT T_2TILDE
 %token T_1AT T_1TILDE T_1QUEST T_1AMP
 %token T_1PLUS T_1MINUS T_1STAR T_1DOLLAR T_1DOT
-%token T_1BANG T_1PERCENT T_1SLASH T_1POUND
+%token T_1BANG T_1PERCENT T_1SLASH T_1POUND T_1CARET
 %token T_1EQUAL T_1PIPE
 %token T_CONCAT T_COMMA T_LPAREN T_RPAREN T_LBRACK T_RBRACK T_LANGLE T_RANGLE
 %type <expr> expr0 expr2 expr3 expr4 expr5 expr6 expr7 expr8
@@ -176,6 +176,7 @@ expr14     : T_1AT      expr14                                                  
            | T_1POUND        expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=strdup("#"); $$=_e; }
            | T_1EQUAL        expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=strdup("="); $$=_e; }
            | T_1PIPE expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=strdup("|"); $$=_e; }
+           | T_1CARET        expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=strdup("^"); $$=_e; }
            | expr15                                                                                { $$=$1; }
            ;
 expr15     : expr15 T_LBRACK { tal_open(); tal_push($1); } idx_args T_RBRACK  { int _n=tal_count(); tree_t*_i=ast_node_new(TT_IDX); for(int _j=0;_j<_n;_j++) expr_add_child(_i,tal_child(_j)); tal_close(); $$=_i; }

@@ -234,7 +234,7 @@ G       ({WS}|{CONT})*
 <BODY>\'                       { strpos=0; BEGIN(STR1); }
 <BODY>\"                       { strpos=0; BEGIN(STR2); }
 <BODY>"**"   { return T_2CARET;  }
-<BODY>"^"    { return T_2CARET;  }
+<BODY>"^"    { return T_1CARET;  }
 <BODY>"+"    { return T_1PLUS;         }
 <BODY>"-"    { return T_1MINUS;        }
 <BODY>"*"    { return T_1STAR;     }
@@ -323,7 +323,11 @@ G       ({WS}|{CONT})*
 <SKIP>[^\n]*            { }
 <SKIP>\n                { lineno++; BEGIN(INITIAL); }
 <<EOF>>             {
-    if (incl_stack_depth > 0) stmt_src_mark_include_range(incl_start_stack[--incl_stack_depth], lineno);
+    if (incl_stack_depth > 0) {
+        int _incl_start = incl_start_stack[--incl_stack_depth];
+        stmt_src_mark_include_range(_incl_start, lineno);
+        lineno = _incl_start;
+    }
     if (YY_CURRENT_BUFFER) yypop_buffer_state(yyscanner);
     if (!YY_CURRENT_BUFFER) return T_EOF;
 }

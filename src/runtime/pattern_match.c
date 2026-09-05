@@ -455,7 +455,7 @@ DESCR_t opsyn(DESCR_t newname, DESCR_t oldname, DESCR_t type) {
         if (!is_numeric_like(type)) { kwb_error(152, "opsyn third argument is not integer"); return FAILDESCR; }
         { int64_t kind = to_int(type);
           if (kind < 0 || kind > 16777216) { kwb_error(153, "opsyn third argument is negative or too large"); return FAILDESCR; }
-          if (kind != 0 && !(nm && nm[0] && !nm[1] && strchr(kind == 1 ? "!#%/=|" : "#%&@~", nm[0]))) { kwb_error(156, "opsyn first arg is not correct operator name"); return FAILDESCR; } }
+          if (kind != 0 && !(nm && nm[0] && !nm[1] && strchr(kind == 1 ? "!#%/=|^" : "#%&@~", nm[0]))) { kwb_error(156, "opsyn first arg is not correct operator name"); return FAILDESCR; } }
     }
     if (to_int(type) == 0 && sn4_is_system_fn(nm)) { extern int kwb_error(int code, const char *msg); kwb_error(248, "attempted redefinition of system function"); return FAILDESCR; }
     if (oldname.v == DT_N) {
