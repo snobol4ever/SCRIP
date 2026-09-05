@@ -2296,6 +2296,17 @@ int sn4_pt_opframe(void) { static int v = -1; if (v < 0) { const char * e = gete
 static int xop_hazard_kind(int op) { return op == IR_MATCH_DEFER || op == IR_MATCH_ARBNO || op == IR_MATCH_VALUE; }
 static int zd_k(IR_t * nd);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int arbno_body_member(const IR_t * q) {
+    if (!q || !g_emit_cfg) return 0;
+    int qi = -1; for (int i = 0; i < g_emit_cfg->n; i++) if (g_emit_cfg->all[i] == q) { qi = i; break; }
+    if (qi < 0) return 0;
+    for (int a = 0; a < g_emit_cfg->n; a++) { IR_t * C = g_emit_cfg->all[a]; if (!C || C->op != IR_MATCH_ARBNO || C->n_operands < 3) continue;
+        int lo = -1, hi = -1; for (int k = 0; k < g_emit_cfg->n; k++) { if (g_emit_cfg->all[k] == C->operands[1]) lo = k; if (g_emit_cfg->all[k] == C->operands[2]) hi = k; }
+        if (lo < 0 || hi < 0) continue; if (lo > hi) { int t = lo; lo = hi; hi = t; }
+        if (qi >= lo && qi <= hi) return 1; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int xop_frame_member(const IR_t * nd) {
     extern int zdp_scratch_cell(const IR_t *); int blob_frame_scope(void);
     if (!nd || !sn4_pt_opframe() || !blob_frame_scope() || zdp_scratch_cell(nd) || zd_k((IR_t *)nd) != 16) return 0;
@@ -2305,8 +2316,9 @@ static int xop_frame_member(const IR_t * nd) {
         int isop = 0; for (int k = 0; k < c->n_operands; k++) if (c->operands[k] == nd) { isop = 1; break; }
         if (!isop) continue;
         if (alt_arm_member(c, (const IR_t *)0)) return 1;
-        int haz = 0; const IR_t * t = zd_chase(nd->γ.node);
-        for (int s = 0; t && s < 256; s++) { if (t == c) { if (haz) return 1; break; } if (xop_hazard_kind((int)t->op)) haz = 1; t = zd_chase(t->γ.node); } }
+        int haz = 0, reached = 0; const IR_t * t = zd_chase(nd->γ.node);
+        for (int s = 0; t && s < 256; s++) { if (t == c) { reached = 1; if (haz) return 1; break; } if (xop_hazard_kind((int)t->op)) haz = 1; t = zd_chase(t->γ.node); }
+        if (!reached && arbno_body_member(c)) return 1; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
