@@ -1193,9 +1193,19 @@ PROGRESS_SUPERSEDED = ("before that", "superseded", "supersedes", "the earlier",
 # Suites with NO runner or NO number: 0 pass over their file count, so unmeasured coverage reads as
 # MISSING rather than as ABSENT. Denominators are the brief's own. Applied only when the cell BOTH names
 # the suite and carries a no-number marker, so a suite that later gets a real number stops being estimated.
-# ⛔ ipl IS COMPILE-GRADED AND IS DELIBERATELY ABSENT: it compiles 437 of 851 and RUN-grades zero, because
-# upstream ships no `.std` oracle output. A suite that never checks an answer cannot sit in a correctness
-# denominator -- it is named in the cell and counted nowhere (ceo ruling, Lon's industry-standard basis).
+# ⛔⭐ RETIRED JUSTIFICATION, CURED 2026-09-05 (hq_I) -- IT SURVIVED HERE AS SETTLED HISTORY. This comment
+# read: "ipl IS COMPILE-GRADED AND IS DELIBERATELY ABSENT: it compiles 437 of 851 and RUN-grades zero,
+# because upstream ships no `.std` oracle output ... counted nowhere". THREE retracted facts in one
+# sentence, each still being told as the REASON the code is shaped this way:
+#   (1) "deliberately absent / counted nowhere" was retired by Lon 2026-09-04 (EVERY SHIPPED PACKAGE IS A
+#       TEST SUITE) -- stated in full TWENTY LINES BELOW THIS ONE, so the file contradicted itself, and ipl
+#       has been in PROGRESS_COUNTED ever since;
+#   (2) "437" is the pre-linkgap-cure compile figure (SCRIP `55fae9091` moved it to 544);
+#   (3) "RUN-grades zero ... upstream ships no .std" stopped being true when util_cut_icon_ipl_refs.sh cut
+#       60 oracle refs; the RUN tier exists and is the only oracle-diffed Icon vendor population we have.
+# ⭐ A retracted claim is most durable where it is doing a JOB -- explaining why an instrument is built this
+# way. Corrected prose gets read as a note and skipped; a justification gets read as the reason and trusted.
+# The population 851 in PROGRESS_COUNTED below is CORRECT and was never part of that error -- see its note.
 PROGRESS_ESTIMATED = {}   # superseded by counted_fractions: every listed package counts, ungraded ones as zero
 # ⛔⭐⭐ ONLY A SHIPPED TEST SUITE COUNTS (Lon 2026-09-04, in-chat to ceo: "Ensure items in that list actually have test
 # suites."): the V cell may name every vendored package, but the percent reads ONLY the clauses naming a package that
@@ -1213,6 +1223,14 @@ PROGRESS_NO_PUBLIC_SUITE = ("snocone", "rebus")   # no shipped package at all: n
 # master, AST fixtures and ladders are printed as ours and never counted.
 PROGRESS_COUNTED = {
     "snobol4": [("csnobol4", r"csnobol4", (118, 124, 125)), ("snoflake", r"[Ss]noflake", (180,)), ("gimpel", r"gimpel", (126, 144, 289)), ("aisnobol", r"aisnobol", (2, 8)), ("dotnet", r"dotnet", (5, 14))],
+    # ⛔ ipl IS 851 AND A BARE `find -name '*.icn'` WILL TELL YOU 852 -- DO NOT "FIX" IT TO 852. The 852nd
+    # file is ALL.icn, our OWN generated container, and hq_I corrected this number the wrong way on
+    # 2026-09-05 on exactly that evidence. 851 = ALL.csv 78 graded entries + ALL.excluded.txt 773 named
+    # exclusions; test_icon_ipl_suite.sh now excludes the container and REFUSES if that identity breaks.
+    # ⭐ Only the SHIPPED population is declared, deliberately: ipl's graded set is 60 (the oracle-cut RUN
+    # tier), and declaring it would let an honest `34/60` count as 57% of a VENDOR score whose true reading
+    # is 34/851. Leaving 60 undeclared makes that cell UNREADABLE -- which counts ZERO and tells the writer
+    # what to write instead -- so the only countable form is the POPULATION LAW form Lon ruled.
     "icon": [("arizona", r"[Aa]rizona", (89, 124)), ("jcon", r"[Jj][Cc][Oo][Nn]", (81, 91)), ("ipl", r"\bipl\b", (851,))],
     "prolog": [("swi", r"[Ss][Ww][Ii]", (114, 249)), ("INRIA", r"INRIA|inria|ISO 13211", (445,)), ("gnu", r"[Gg][Nn][Uu]", (62, 91))],
     "pascal": [("fpc", r"fpc", (181,)), ("PAT", r"\bPAT\b|validation suite|ISO 7185", (427, 429))],
