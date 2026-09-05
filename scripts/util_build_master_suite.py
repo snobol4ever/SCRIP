@@ -280,6 +280,34 @@ LANG_TABLES = {
 
 
 
+def _origin_key(fam, name):
+    """⛔⭐ THE ONE PLACE AN ORIGIN KEY IS SPELLED (row: the absorb verifier marked established families
+    UNVERIFIED; seat03 root-caused it 2026-09-04 after hitting it on rung06 AND rung07).
+
+    Absorption assigns `fam` for the degenerate case where the entry IS the family, and `fam__name`
+    otherwise. The round-trip VERIFIER reconstructed that key independently, from the loose file's
+    BASENAME -- and a file in an already-established family is named with the family prefix already on
+    it (`ladder__rung07_table.sno`), so the verifier built the DOUBLED `ladder__ladder__rung07_table`
+    and looked up a key absorption had never written. Every established family therefore came back
+    UNVERIFIED no matter how correct the absorption was.
+    ⛔ THE COST WAS NOT THE WRONG WORD ON A REPORT. `--delete-absorbed` refuses to delete an unverified
+    source, correctly -- so the safety rule held, and what broke was the operator's ability to tell a
+    real round-trip failure from this one. Two rungs in a row were landed by verifying BY HAND with
+    master_extract_origin, which is exactly the work the verifier exists to save, and a verifier that
+    cries wolf on every established family is one nobody will read on the day it is right.
+    ⭐ The cure is not a smarter reconstruction: it is that reconstruction stops. The writer and the
+    reader now call this function, so the key cannot drift between them again."""
+    name = str(name)
+    if name == fam:
+        return fam
+    # a loose file in an established family already carries the family prefix -- strip it before keying,
+    # or the key doubles. (`ladder__rung07_table` -> `rung07_table` -> `ladder__rung07_table`.)
+    pfx = "%s__" % fam
+    if name.startswith(pfx):
+        name = name[len(pfx):]
+    return "%s__%s" % (fam, name)
+
+
 def descriptive_name(text, flags):
     parts = [short for col, short in NAME_FEATURES if flags.get(col)]
     is_match = 1 if re.search(r"^\s*\S+\s+[A-Z*'\"(]", text, re.M) else 0
@@ -1683,7 +1711,7 @@ def main():
             # 5 new bannerless rung13 witnesses and seeing every one of their origins doubled the same way).
             # A multi-entry banner-block family still needs "fam__name" to disambiguate WHICH entry within
             # the family, so only the degenerate equal case collapses to the bare name.
-            e.origin = fam if e.name == fam else "%s__%s" % (fam, e.name)
+            e.origin = _origin_key(fam, e.name)
             e.src_mode = mode
         _dup = [e.origin for e in entries if e.origin in base_origins]
         if _dup:
@@ -1862,7 +1890,7 @@ def main():
                 # arb_capture_alt_replace_branch_1: WITH stdin rc=0 and 9 bytes "cat/house"; WITHOUT stdin
                 # rc=0 and ZERO bytes. IDENTICAL EXIT CODE. A stdin-starved program exits perfectly cleanly
                 # and simply produces nothing, so only comparing the FIELD detects it.
-                e = by_origin.get("%s__%s" % (fam, os.path.basename(sno)[:-len(EXT)]))
+                e = by_origin.get(_origin_key(fam, os.path.basename(sno)[:-len(EXT)]))
                 _src_in = h.sidecar_in_path(sno)
                 _want_stdin = open(_src_in).read() if (_src_in and os.path.isfile(str(_src_in))) else None
                 ok = e is not None and e.sno_lines == open(sno).read().splitlines() and \
@@ -1898,7 +1926,7 @@ def main():
                         reread = h.read_block_suite(sno, ref, _bre_v,
                                                     in_path=h.sidecar_in_path(sno), x_path=h.sidecar_xfail_path(sno))
                 for se in reread:
-                    e = by_origin.get("%s__%s" % (fam, se.name))
+                    e = by_origin.get(_origin_key(fam, se.name))
                     if e is None or e.kind != se.kind or (e.stdin or None) != (se.stdin or None):
                         ok = False
                         break
