@@ -19,12 +19,42 @@ EXT = {'sno': 'snobol4', 'sc': 'snocone', 'icn': 'icon', 'pl': 'prolog', 'reb': 
 ap = argparse.ArgumentParser(); ap.add_argument('--lang', default=''); ap.add_argument('--list', action='store_true'); A = ap.parse_args()
 if not os.path.isdir(os.path.join(C, 'tests')): print('REFUSE(2): no corpus/tests under %s' % C); sys.exit(2)
 excluded = collections.defaultdict(set)
+additive_excluded = collections.defaultdict(set)   # {lang: {(name, category), ...}} from "name[category]" keys
 for lang in set(EXT.values()):
     p = os.path.join(C, 'tests', lang, 'ALL.excluded.txt')
     if os.path.exists(p):
         for line in open(p, errors='replace'):
             line = line.strip()
-            if line and not line.startswith('#'): excluded[lang].add(line.split()[0])
+            if not line or line.startswith('#'): continue
+            key = line.split()[0]; excluded[lang].add(key)
+            # ⛔⭐ ADDITIVE (demos/benchmarks) exclusions are keyed "name[category]" (util_build_master_suite.py's
+            # additive_absorb, disambiguating e.g. a demo and a benchmark that share a basename) -- registered
+            # as a (name, category) PAIR, never a bare name: a first attempt at this fix added the bare stripped
+            # name to excluded[lang] globally, which MEASURED-WRONG immediately -- demos/snobol4/calculator/
+            # calculator-1.sno being excluded[demos] falsely "accounted for" the UNRELATED
+            # benchmarks/snobol4/demo/calculator-1.sno (same basename, never itself processed), because the two
+            # trees carry genuinely identical basenames by design (the benchmark tree mirrors the demo one at a
+            # different scale). The category qualifier is load-bearing, not decoration (hq_P seat08 2026-09-04).
+            m = re.match(r'^(.+)\[([^\[\]]+)\]$', key)
+            if m: additive_excluded[lang].add((m.group(1), m.group(2)))
+# ⛔⭐ ADDITIVE ABSORPTION (demos/benchmarks) is invisible to plain base/path/fam matching: a successfully-absorbed
+# source keeps living on disk (--additive never touches/deletes it) and is recorded ONLY as an `origin` in
+# ALL.csv, shaped "<singular>_<lang>_<base>__<base>" (additive_absorb's own convention) -- never named in
+# ALL.excluded.txt. Reconstruct that exact origin per source rather than matching bare basenames across trees:
+# demos/snobol4/roman/roman.sno and benchmarks/snobol4/roman.sno produce DIFFERENT origins
+# ("demo_snobol4_roman__roman" vs "benchmark_snobol4_roman__roman"), so a bare-basename match would wrongly
+# cross-credit one tree's absorption to the other's still-unabsorbed file of the same name.
+absorbed_origins = collections.defaultdict(set)
+for lang in set(EXT.values()):
+    p = os.path.join(C, 'tests', lang, 'ALL.csv')
+    if os.path.exists(p):
+        with open(p, newline='', errors='replace') as fh:
+            for row in csv.DictReader(fh):
+                o = row.get('origin')
+                if o: absorbed_origins[lang].add(o)
+def _additive_origin(top, lang, base):
+    singular = top[:-1] if top.endswith('s') else top
+    return '%s_%s_%s__%s' % (singular, lang, base, base)
 rows = collections.defaultdict(collections.Counter); owed = collections.defaultdict(list)
 for root, dirs, files in os.walk(C):
     rel = os.path.relpath(root, C)
@@ -47,7 +77,8 @@ for root, dirs, files in os.walk(C):
         fam = os.path.splitext(path[len(os.path.join('tests', lang)) + 1:])[0].replace(os.sep, '_') if path.startswith(os.path.join('tests', lang) + os.sep) else ''
         if f.startswith('ALL.'): kind = 'container'
         elif top in ('include', 'library'): kind = 'module'
-        elif base in excluded[lang] or path in excluded[lang] or f in excluded[lang] or (fam and fam in excluded[lang]): kind = 'accounted (excluded with a reason)'
+        elif base in excluded[lang] or path in excluded[lang] or f in excluded[lang] or (fam and fam in excluded[lang]): kind = 'accounted'
+        elif top in ('demos', 'benchmarks') and ((base, top) in additive_excluded[lang] or _additive_origin(top, lang, base) in absorbed_origins[lang]): kind = 'accounted'
         elif any(os.path.exists(os.path.join(root, base + s)) for s in ('.ref', '.expected', '.std')): kind = 'loose pair (has ref)'; owed[lang].append(path)
         elif re.search(r'(^|/)(parser|coverage)/', path) or re.match(r'parser_|probe_|coverage_', f): kind = 'fixture'; owed[lang].append(path)
         else: kind = 'loose source (no ref)'; owed[lang].append(path)
@@ -55,10 +86,10 @@ for root, dirs, files in os.walk(C):
 print('%-12s %-8s %9s %6s %10s %10s %8s %12s' % ('tree', 'lang', 'container', 'module', 'accounted', 'loose-pair', 'fixture', 'loose-noref'))
 tot = collections.Counter()
 for (top, lang), c in sorted(rows.items()):
-    print('%-12s %-8s %9d %6d %10d %10d %8d %12d' % (top, lang, c['container'], c['module'], c['accounted (excluded with a reason)'], c['loose pair (has ref)'], c['fixture'], c['loose source (no ref)']))
+    print('%-12s %-8s %9d %6d %10d %10d %8d %12d' % (top, lang, c['container'], c['module'], c['accounted'], c['loose pair (has ref)'], c['fixture'], c['loose source (no ref)']))
     for k, v in c.items(): tot[k] += v
 n = sum(len(v) for v in owed.values())
-print('UNABSORBED_CENSUS%s: containers=%d modules=%d accounted=%d OWED=%d (loose pairs %d, fixtures %d, loose no-ref %d) -- an owed source is absorbed into its master with an oracle-cut ref, or named in ALL.excluded.txt with the reason it cannot run with output' % (' lang=' + A.lang if A.lang else '', tot['container'], tot['module'], tot['accounted (excluded with a reason)'], n, tot['loose pair (has ref)'], tot['fixture'], tot['loose source (no ref)']))
+print('UNABSORBED_CENSUS%s: containers=%d modules=%d accounted=%d OWED=%d (loose pairs %d, fixtures %d, loose no-ref %d) -- an owed source is absorbed into its master with an oracle-cut ref, or named in ALL.excluded.txt with the reason it cannot run with output' % (' lang=' + A.lang if A.lang else '', tot['container'], tot['module'], tot['accounted'], n, tot['loose pair (has ref)'], tot['fixture'], tot['loose source (no ref)']))
 for lang in sorted(owed): print('  %-8s owed %d' % (lang, len(owed[lang])))
 if A.list:
     for lang in sorted(owed):

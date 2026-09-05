@@ -1232,7 +1232,19 @@ _INCLUDE_PATTERNS = [
     # companion-less in a fresh temp dir and got a DIFFERENT bug -- INPUT() on a MISSING file hangs
     # forever, where the original's genuinely-present-but-empty .dat fails cleanly -- measured, not
     # assumed). Matches either quote style; SNOBOL4 accepts both interchangeably.
-    re.compile(r'\b(?:INPUT|OUTPUT)\s*\([^)]*["\']([^"\']+)["\']'),
+    # ⛔⭐ BOTH CHARACTER CLASSES MUST EXCLUDE NEWLINE, AND THE PREFIX MUST BE NON-GREEDY (hq_P seat08
+    # 2026-09-04, row snobol4-every-non-package-source-...): the original `[^)]*["\']([^"\']+)["\']` let a
+    # SHORT quoted non-filename argument earlier in the same call -- e.g. INPUT(.INPUT, 9, '[-f0 -r4194304]')
+    # (a scale/mode-flags string, not a companion file, on a benchmark's INPUT association) -- backtrack PAST
+    # its own closing quote, since neither class excludes ')' beyond the immediate one nor '\n': with the
+    # flags string's own trailing quote reinterpreted as an OPENING quote, `[^"\']+` then happily swallowed
+    # every ')' and newline between it and the NEXT quote anywhere later in the entry (a `TERMINAL = '...'`
+    # literal, lines away), capturing hundreds of characters of source as a "companion filename" --
+    # OSError: File name too long, the whole board dies. MEASURED: benchmark_calculator-1's absorption
+    # (this row) is the first entry to combine this common INPUT(...,'flags') idiom with a later string
+    # literal in the same body; excluding '\n' bounds the match to one line (a real filename argument never
+    # spans lines) and non-greedy `*?` stops at the FIRST quote pair instead of backtracking past it.
+    re.compile(r'\b(?:INPUT|OUTPUT)\s*\([^)\n]*?["\']([^"\'\n]+)["\']'),
 ]
 
 

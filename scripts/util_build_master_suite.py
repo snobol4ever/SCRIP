@@ -1005,7 +1005,7 @@ def _additive_stdin_for(stem):
 
 
 def _additive_classify_and_run(path, ext, oracle_bin, flags, paths, timeout):
-    """-> ("ast", name, body_lines, ast_text) | ("run", name, body_lines, ref_text) | ("exclude", name, reason)
+    """-> ("ast", name, body_lines, ast_text) | ("run", name, body_lines, ref_text, stdin_text) | ("exclude", name, reason)
 
     A pre-existing loose .ref beside `path` is RE-CONFIRMED against a fresh oracle run (requirement 2: "confirm
     an existing loose .ref against the oracle before keeping it") -- never trusted just because it is present;
@@ -1058,7 +1058,7 @@ def _additive_classify_and_run(path, ext, oracle_bin, flags, paths, timeout):
     if not (agree3 and agree4):
         return ("exclude", name, "non-deterministic or diverges from the oracle -- m3=%s m4=%s vs oracle rc=%s"
                                    % (v3.kind, v4.kind, ora_rc))
-    return ("run", name, body_lines, ora_text)
+    return ("run", name, body_lines, ora_text, stdin_text)
 
 
 def _additive_next_name(base, taken):
@@ -1129,9 +1129,21 @@ def additive_absorb(lang, categories, root, timeout, write, cols):
             if result[0] == "exclude":
                 _kind, name, reason = result
                 excluded_rows.append((name, cat, reason))
+            elif result[0] == "run":
+                # ⛔⭐ CARRY stdin_text THROUGH TO THE ENTRY (hq_P seat08 2026-09-04, row
+                # snobol4-every-non-package-source-...): a candidate absorbed via a `.input` recipe was
+                # VERIFIED against that stdin (oracle+m3+m4 three-way agreement above) but the entry landed
+                # in the master with NO stdin recorded anywhere -- corpus_suite_harness.py's own grading
+                # run then fed it none (immediate EOF) and got a DIFFERENT, wrong answer. MEASURED: 4 of the
+                # 10 demos this row's first --additive run absorbed (json/porter/treebank/wordcount, every
+                # one with a .input sidecar) read PASS at absorption and FAIL when the master was re-graded
+                # -- a silent, self-contradicting green. See the write section below for the other half
+                # (ALL.in must actually be written).
+                kind, name, body_lines, ref_or_ast, stdin_text = result
+                absorbed.append((name, cat, kind, body_lines, ref_or_ast, stdin_text))
             else:
                 kind, name, body_lines, ref_or_ast = result
-                absorbed.append((name, cat, kind, body_lines, ref_or_ast))
+                absorbed.append((name, cat, kind, body_lines, ref_or_ast, None))
 
     if not write:
         return absorbed, excluded_rows, programs_named
@@ -1153,7 +1165,7 @@ def additive_absorb(lang, categories, root, timeout, write, cols):
     base_origins = {(csv_row_by_name.get(e.name) or {}).get("origin") or ("master__%s" % e.name) for e in base_entries}
 
     new_entries, modes_for_origin = [], {}
-    for name, cat, kind, body_lines, ref_or_ast in absorbed:
+    for name, cat, kind, body_lines, ref_or_ast, stdin_text in absorbed:
         singular = cat[:-1] if cat.endswith("s") else cat
         fam = "%s_%s_%s" % (singular, lang, name)      # one family per additive entry -- see discover_pairs's
         origin = "%s__%s" % (fam, name)                 # own "plain" mode for the identical per-file convention
@@ -1163,6 +1175,8 @@ def additive_absorb(lang, categories, root, timeout, write, cols):
         entry_name = _additive_next_name("%s_%s" % (singular, name), taken_names)
         taken_names.add(entry_name)
         e = h.Entry("block", 0, entry_name, list(body_lines), ref_or_ast.splitlines(), xfail=False)
+        if stdin_text:
+            e.stdin = stdin_text
         e.origin = origin
         e.src_mode = "additive"
         new_entries.append(e)
@@ -1179,16 +1193,31 @@ def additive_absorb(lang, categories, root, timeout, write, cols):
     for i, e in enumerate(all_entries, 1):
         e.seq = i
     _tag = ".tmp-additive-%d" % os.getpid()
-    tmp_sno, tmp_ref, tmp_csv = master_sno + _tag, master_ref + _tag, master_csv + _tag
+    # ⛔ sidecar_in_path() is a DISCOVERY helper for reads -- it returns None when the candidate ".in" does
+    # not exist YET, which is exactly the case the very first stdin-bearing additive entry hits. Construct
+    # the candidate path directly for writing, same as the base (non-additive) path does at its own out_in.
+    master_in = os.path.splitext(master_sno)[0] + ".in"
+    tmp_sno, tmp_ref, tmp_csv, tmp_in = master_sno + _tag, master_ref + _tag, master_csv + _tag, master_in + _tag
+    wrote_in = False
     try:
+        # ⛔⭐ out_in=tmp_in (hq_P seat08 2026-09-04): a `.input`-recipe absorption sets e.stdin above, but
+        # write_suite/write_block_suite only ever EMIT a stdin sidecar when TOLD to via out_in -- omitting it
+        # (the shape this call had before this row) silently drops every additive entry's stdin on the floor,
+        # so ALL.in never carries what the entry was actually verified against. MEASURED: 4 of this row's
+        # first 10 absorbed demos (json/porter/treebank/wordcount, every stdin-needing one) passed at
+        # absorption and failed the very next full-suite grading, fed /dev/null instead of their recipe.
         if lang == "snobol4":
-            h.write_suite(all_entries, tmp_sno, tmp_ref)
-            reread = h.read_suite(tmp_sno, tmp_ref)
+            wrote_in = h.write_suite(all_entries, tmp_sno, tmp_ref, out_in=tmp_in)
+            reread = h.read_suite(tmp_sno, tmp_ref, in_path=(tmp_in if wrote_in else None))
         else:
-            h.write_block_suite(all_entries, tmp_sno, tmp_ref, _CO, _CC)
-            reread = h.read_block_suite(tmp_sno, tmp_ref, h.banner_re_for(_CO, _CC))
+            wrote_in = h.write_block_suite(all_entries, tmp_sno, tmp_ref, _CO, _CC, out_in=tmp_in)
+            reread = h.read_block_suite(tmp_sno, tmp_ref, h.banner_re_for(_CO, _CC), in_path=(tmp_in if wrote_in else None))
         if {r.name for r in reread} != {e.name for e in all_entries} or len(reread) != len(all_entries):
             sys.stderr.write("REFUSED: additive write did not round-trip (name set or count changed) -- nothing committed.\n")
+            raise SystemExit(2)
+        if any((r.stdin or None) != (e.stdin or None) for r, e in zip(
+                sorted(reread, key=lambda x: x.name), sorted(all_entries, key=lambda x: x.name))):
+            sys.stderr.write("REFUSED: additive write did not round-trip (stdin content changed) -- nothing committed.\n")
             raise SystemExit(2)
         with open(tmp_csv, "w", newline="") as f:
             w = csv.writer(f, lineterminator="\n")
@@ -1203,12 +1232,16 @@ def additive_absorb(lang, categories, root, timeout, write, cols):
                 w.writerow([rank, e.name, origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines), modes]
                            + [flags_e[c] for c, _ in cols])
     except BaseException:
-        for q in (tmp_sno, tmp_ref, tmp_csv):
+        for q in (tmp_sno, tmp_ref, tmp_csv, tmp_in):
             if os.path.exists(q):
                 os.remove(q)
         raise
     os.replace(tmp_sno, master_sno)
     os.replace(tmp_ref, master_ref)
+    if wrote_in:
+        os.replace(tmp_in, master_in)
+    elif os.path.exists(master_in):
+        os.remove(master_in)
     os.replace(tmp_csv, master_csv)
     cfg_dir = os.path.join(OUTDIR, "config")
     modes_path = os.path.join(cfg_dir, "MODES.tsv") if os.path.isdir(cfg_dir) else os.path.join(OUTDIR, "MODES.tsv")
@@ -1274,9 +1307,28 @@ def run_additive_selftest(timeout):
                 if row.get("origin", "").split("__")[-1] == "parser_fixture_x" and row.get("modes") == "ast":
                     ast_modes_ok = True
 
+        # ⛔⭐ "ABSORBED" IS NOT "GRADES CORRECTLY" (hq_P seat08 2026-09-04): the check above only asks whether
+        # bench_count's NAME appears in the in-memory `absorbed` list from THIS call -- it never re-reads the
+        # master files a later, independent `corpus_suite_harness.py run` would actually use. That gap is
+        # exactly how 4 of this row's first 10 real absorbed demos (every one needing stdin) passed this exact
+        # selftest, landed, and then FAILED the next full-suite grading: verified against their .input recipe
+        # at absorption time, but with no stdin at all recorded anywhere a later reader could find. Close the
+        # loop for real: read back what's actually on disk, the same way a grading run would, and require the
+        # recipe to have survived.
+        master_sno = os.path.join(scratch, "corpus", "tests", "snobol4", "ALL.sno")
+        master_ref = os.path.join(scratch, "corpus", "tests", "snobol4", "ALL.ref")
+        stdin_roundtrip_ok = False
+        if os.path.isfile(master_sno) and os.path.isfile(master_ref) and os.path.isfile(master_csv):
+            reread = h.read_suite(master_sno, master_ref, in_path=h.sidecar_in_path(master_sno))
+            origin_by_name = {row["entry"]: row.get("origin", "") for row in csv.DictReader(open(master_csv))}
+            for e in reread:
+                if origin_by_name.get(e.name) == "benchmark_snobol4_bench_count__bench_count" and (e.stdin or "") == "5\n":
+                    stdin_roundtrip_ok = True
+
         checks = [
             ("demo (no stdin) absorbed",                        "demo_hello" in absorbed_names),
             ("benchmark (stdin recipe via .input) absorbed",     "bench_count" in absorbed_names),
+            ("benchmark stdin recipe SURVIVES to ALL.in (grading-time reread, not just absorption)", stdin_roundtrip_ok),
             ("parser-only fixture absorbed as modes=ast",        "parser_fixture_x" in absorbed_names and ast_modes_ok),
             ("non-terminating program excluded, never absorbed", "hangs_forever" in excluded_names and "hangs_forever" not in absorbed_names),
         ]
@@ -1945,9 +1997,25 @@ def main():
             for rank, (e, flags, text) in enumerate(rows, 1):
                 fam = e.origin.split("__", 1)[0]
                 w.writerow([rank, e.name, e.origin, fam, e.kind, int(bool(e.xfail)), len(e.sno_lines), _modes_decl.get(fam, "UNKNOWN")] + [flags[c] for c, _ in COLS])
-        with open(tmp_excl, "w") as f:
-            for fam, why in excluded:
-                f.write("%s\t%s\n" % (fam, why))
+        # ⛔⭐ MERGE, NEVER OVERWRITE (hq_P seat08 2026-09-04, row snobol4-every-non-package-source-...): this
+        # run only ever discovers tests/<lang>/ loose-pair exclusions -- it has no opinion on additive
+        # (demos/benchmarks) exclusions a DIFFERENT run of this same builder (--additive) already wrote, and a
+        # blind overwrite here silently erased every one of them the instant this path next ran. MEASURED: 24
+        # additive-mode lines (14 demos + 10 benchmarks) destroyed by one plain `--lang snobol4` run, with no
+        # warning from either run -- only util_unabsorbed_census.py's OWED count noticed, and only because it
+        # was re-checked immediately after. Same merge discipline as _additive_write_sidecar_merge, inlined
+        # here because that helper couples its read-path and write-path (this call reads the REAL out_excl but
+        # must stage to tmp_excl, same as every other file in this transaction).
+        _excl_existing = {}
+        if os.path.isfile(out_excl):
+            for _line in open(out_excl, encoding="utf-8", errors="replace"):
+                _line = _line.rstrip("\n")
+                if _line and "\t" in _line:
+                    _k, _v = _line.split("\t", 1); _excl_existing[_k] = _v
+        _excl_existing.update({fam: why for fam, why in excluded})
+        with open(tmp_excl, "w", encoding="utf-8", newline="\n") as f:
+            for fam in sorted(_excl_existing):
+                f.write("%s\t%s\n" % (fam, _excl_existing[fam]))
         if companion_copies:
             os.makedirs(_cfg, exist_ok=True)
             for cf, srcf in sorted(companion_copies.items()):
