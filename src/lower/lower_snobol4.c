@@ -598,6 +598,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 asn = lc_build(cx->g, IR_ASSIGN_VAR, γ, ω);
                 lc_γ_to(vv, asn);
                 ir_operand_push(asn, fb); ir_operand_push(asn, fi); ir_operand_push(asn, vv);
+                sx_sub_container_only(asn);
             } else {
                 lc_γ_to(vr, e2);
                 asn = lc_build(cx->g, IR_ASSIGN_VAR, γ, ω);
@@ -2274,6 +2275,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                 asn = lc_build(g, IR_ASSIGN_VAR, sJ, fA);
                 lc_γ_to(vv, asn);
                 ir_operand_push(asn, fb); ir_operand_push(asn, fi); ir_operand_push(asn, vv);
+                sx_sub_container_only(asn);
             } else {
                 lc_γ_to(vr, e2);
                 asn = lc_build(g, IR_ASSIGN_VAR, sJ, fA);

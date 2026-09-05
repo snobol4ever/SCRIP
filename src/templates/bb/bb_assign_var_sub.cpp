@@ -1,17 +1,21 @@
 #include <string>
 #include <stdint.h>
+#include <string.h>
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
 extern DESCR_t c_rt_table_assign_fast(DESCR_t base, DESCR_t idx, DESCR_t val);
 extern DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx);
+extern DESCR_t rt_subscript_var_container_only(DESCR_t base, DESCR_t idx);
 extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_assign_var_sub() {
     x86_begin();
+    const int conly = _.op_sval && !strcmp(_.op_sval, "container-only");
+    const uint64_t sub_fn = conly ? (uint64_t)(uintptr_t)(void *)rt_subscript_var_container_only : (uint64_t)(uintptr_t)(void *)rt_subscript_var;
     if (_.op_zres)
         return x86("comment", "IR_ASSIGN_VAR T[i]=v fused zd")
              + x86_alpha()
@@ -40,7 +44,7 @@ std::string bb_assign_var_sub() {
              + x86("mov", ZRES(8), "rdx")
              + x86_gamma()
              + x86("def", L(0))
-             + x86("call",    "rt_subscript_var", (uint64_t)(uintptr_t)(void *)rt_subscript_var)
+             + x86("call",    conly ? "rt_subscript_var_container_only" : "rt_subscript_var", sub_fn)
              + x86("cmp",     "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86("mov",     "rdi", "rax")
@@ -79,7 +83,7 @@ std::string bb_assign_var_sub() {
              + x86("mov",     FRQ(_.op_off + 8), "rdx")
              + x86_gamma()
              + x86("def", L(0))
-             + x86("call",    "rt_subscript_var", (uint64_t)(uintptr_t)(void *)rt_subscript_var)
+             + x86("call",    conly ? "rt_subscript_var_container_only" : "rt_subscript_var", sub_fn)
              + x86("cmp",     "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86("mov",     "rdi", "rax")
