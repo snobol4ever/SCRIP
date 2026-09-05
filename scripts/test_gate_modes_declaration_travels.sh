@@ -182,5 +182,77 @@ else
     fi
 fi
 
+# ARM E — ⛔⭐⭐ A DECLARATION THAT MATCHES NOTHING IS NOT A DECLARATION. ARMS A-D prove the declaration
+# TRAVELS with its suite; none of them proves any key in it MATCHES an entry, so a MODES.tsv can be 100%
+# orphaned and travel perfectly. Measured 2026-09-05 (hq_B's find, routed to this lane, and this arm is the
+# guard they asked for): snobol4 families were renamed X__Y -> X and MODES.tsv was never followed, so 71 of
+# its 72 keys matched NOTHING -- only `ladder` resolved -- and 459 of 460 real families fell to the UNKNOWN
+# default, which is how 28 --dump-ast fixtures came to be graded BY EXECUTION and printed a full, plausible,
+# entirely false board.
+# ⭐ THE SHAPE, which is why this is a permanent arm and not a one-time repair: `modes_decl.get(fam, DEFAULT)`
+# reports DEFAULT with identical confidence for "this family is declared DEFAULT" and "our two key sets have
+# nothing in common". A lookup's default is an invariance proof over exactly the keys that happened to match,
+# and it never says which case it is in. So the arm prints the DENOMINATOR -- declared, orphaned, and the
+# undeclared entry rate -- because a count with no denominator cannot distinguish those two either.
+# ⛔ RATCHET, NOT A BAR, AND DELIBERATELY SO. Pinning the bar at zero today would red make test on three
+# languages at once over debt this lane did not create and cannot honestly restamp -- which is how a gate
+# earns a `|| true` within a week. The watermarks below are a DEBT LEDGER measured 2026-09-05 on corpus
+# e2f9c2f2c: they may only ever go DOWN, and lowering one when you cure a language is part of curing it.
+# snobol4 71 is hq_B's, whose key repair was measured but is NOT on origin as of e2f9c2f2c (checked against a
+# fresh fetch) -- when it lands this drops to 0. pascal 5 and icon 3 are named in hq_B's FINDING and unowned.
+examined=$((examined + 1))
+orph_out="$(S4E_HOME="$S4E" python3 - <<'EOF'
+import csv, importlib.util, os, sys
+spec = importlib.util.spec_from_file_location("b", os.path.join("scripts", "util_build_master_suite.py"))
+b = importlib.util.module_from_spec(spec); spec.loader.exec_module(b)
+# The DEBT LEDGER. Lower a number when you cure its language; never raise one.
+WATERMARK = {"snobol4": 71, "pascal": 5, "icon": 3, "prolog": 0, "raku": 0, "snocone": 0, "rebus": 0}
+tests = os.path.join(os.environ.get("S4E_HOME", ".."), "corpus", "tests")
+graded, bad = 0, 0
+print("  %-9s %8s %8s %8s %s" % ("lang", "declared", "orphaned", "cap", "undeclared entries (the UNKNOWN default's real reach)"))
+for lang in sorted(WATERMARK):
+    root = os.path.join(tests, lang)
+    csv_path = os.path.join(root, "ALL.csv")
+    if not os.path.isfile(csv_path):
+        continue
+    decl = b.read_modes_decl(root)
+    fams = {}
+    with open(csv_path, encoding="utf-8") as fh:
+        for row in csv.DictReader(fh):
+            f = row.get("family") or ""
+            fams[f] = fams.get(f, 0) + 1
+    if not fams:
+        continue
+    graded += 1
+    orphaned = sorted(set(decl) - set(fams))
+    undecl_fams = sorted(set(fams) - set(decl))
+    undecl_entries = sum(fams[f] for f in undecl_fams)
+    total = sum(fams.values())
+    cap = WATERMARK[lang]
+    flag = "" if len(orphaned) <= cap else "   <-- ABOVE ITS WATERMARK"
+    print("  %-9s %8d %8d %8d %d/%d entries in %d undeclared famil(y/ies)%s" % (
+        lang, len(decl), len(orphaned), cap, undecl_entries, total, len(undecl_fams), flag))
+    if len(orphaned) > cap:
+        bad += 1
+        for f in orphaned[:5]:
+            print("      orphaned key: %s" % f)
+        if len(orphaned) > 5:
+            print("      ... and %d more" % (len(orphaned) - 5))
+if not graded:
+    sys.stderr.write("REFUSED: ARM E graded ZERO languages -- no ALL.csv found under %s\n" % tests)
+    raise SystemExit(2)
+print("GRADED=%d BAD=%d" % (graded, bad))
+EOF
+)"; orc=$?
+printf '%s\n' "$orph_out"
+if [ "$orc" -eq 2 ] || ! printf '%s' "$orph_out" | grep -q '^GRADED='; then
+    echo "GATE REFUSES: ARM E could not measure the declaration/entry key agreement (rc=$orc)"
+    exit 2
+elif [ "$(printf '%s' "$orph_out" | sed -n 's/^GRADED=[0-9]* BAD=//p')" != "0" ]; then
+    echo "GATE FAIL: a language's ORPHANED declaration count rose above its watermark -- a declared family"
+    echo "           that matches no entry silently hands every entry the UNKNOWN default instead"
+    violations=$((violations + 1))
+fi
+
 GATE_EXAMINED="$examined arms across $(wc -l < "$PLAN") language(s), $langs_with_ast declaring ast"
 gate_verdict "$violations" "suites whose modes declaration does not travel with them"
