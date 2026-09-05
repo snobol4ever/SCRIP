@@ -27,11 +27,23 @@ run4(){ ./scrip --compile -o "$W/k.s" "$W/k.sno" </dev/null >/dev/null 2>&1 || {
 mk '0x10'; og=$("$SBL" -bf "$W/k.sno" </dev/null 2>&1 || true)
 printf '%s' "$og" | grep -q 'ERROR 208' || { echo "⛔ REFUSES rc=2 (premise gone): the oracle no longer raises ERROR 208 for &ANCHOR=\"0x10\". Re-measure before trusting this gate. Oracle said: $og"; exit 2; }
 fail=0
-for v in '0x10' '0X1f' '  0x10  '; do
+# ⛔ THE SIGNED AND LEADING-SPACE FORMS ARE HERE BECAUSE hq_C FOUND THEM AFTER THIS GATE'S FIRST CUT:
+# a cure aimed only at a bare "0x10" leaves "+0x3" still accepting hex, and this gate would have PASSED it.
+# The gate's own denominator was narrower than the defect -- the same shape it exists to catch.
+for v in '0x10' '0X1f' '  0x10  ' '+0x3' '+0X2a' ' 0x10'; do
   mk "$v"
   for m in 3 4; do g=$("run$m")
     if printf '%s' "$g" | grep -qE 'anchor=[0-9]'; then echo "FAIL: m$m silently accepts hex [$v] -> $(printf '%s' "$g" | head -1)  (oracle: ERROR 208)"; fail=1; fi
   done
+done
+# ⛔ REFUSING FOR THE WRONG REASON IS NOT REFUSING. "-0x2" is already rejected today, but with
+# ERROR 210 (negative or too large) instead of the oracle's ERROR 208 (not integer) -- strtod parses the
+# hex to -2 and a LATER guard catches it. So this form was hiding behind an unrelated check, and a cure
+# that reads the current refusal as "already correct" would leave the hex path live underneath it.
+mk '-0x2'
+for m in 3 4; do g=$("run$m")
+  if ! printf '%s' "$g" | grep -qE 'Error 208|ERROR 208'; then
+    echo "FAIL: m$m refuses [-0x2] for the WRONG reason -- got $(printf '%s' "$g" | grep -oE 'Error [0-9]+' | head -1), oracle raises ERROR 208 (not integer). The hex is being parsed and then caught by the negative/too-large guard."; fail=1; fi
 done
 for pair in '3.7 3' '+3 3' '010 10' '.5 0'; do set -- $pair; mk "$1"
   for m in 3 4; do g=$("run$m" | head -1)
