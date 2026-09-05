@@ -260,6 +260,37 @@ s4e_servable_blocker() {   # <blocked-topic> -> prints the topic to serve INSTEA
     done
     return 1
 }
+# ⭐⭐ PROMOTION ADMISSIBILITY -- next-dependency-promotion-walks-around-the-mode-lane-filter. MEASURED
+# (seat01, MODE FLEET-8 ON SNOBOL4 ONLY): `next` served and LOCKED an Icon row via s4e_servable_blocker
+# above with NO lane check and NO language-freeze check at all -- the ordinary FREE-row path below applies
+# both before it ever claims a row; the dependency-inversion promotion above applied neither. Checked
+# BEFORE $promo is ever claimed (not after, the way s4e_dispatch_gate runs post-claim) so a refusal never
+# leaves an abandoned claim behind -- a refuse-then-unclaim two-step would race every other seat's own
+# `next` against the brief window the claim existed. Two hard preconditions, checked in the same order
+# and with the same semantics the ordinary path already uses for $topic, now applied to $promo too:
+# (1) the MODE language freeze, never relaxed (see s4e_language_freeze_refuses); (2) the lane cut, relaxed
+# only in the any-lane fallback pass, exactly like the ordinary path's own own-lane/any-lane split. rc 0 =
+# admissible; rc 1 = refused, and the reason is already printed -- never a silent skip, per this row's own
+# explicit requirement.
+s4e_promotion_admissible() {   # <promo-topic> <blocked-topic> <rank>
+    local _p="$1" _blocked="$2" _rank="$3" _tl
+    if s4e_language_freeze_refuses "$_p"; then
+      printf '⛔ REFUSED PROMOTION: rank-%s %s is BLOCKED-ON %s, but %s is %s and MODE freezes work to %s ONLY.\n' \
+        "$_rank" "$_blocked" "$_p" "$_p" "$(s4e_topic_language "$_p")" "$(s4e_mode_language_freeze | tr '[:lower:]' '[:upper:]')"
+      printf '   Not promoted, not served -- %s stays skipped this pass; a language freeze is never relaxed by a fallback.\n' "$_blocked"
+      return 1
+    fi
+    if [ -n "${_my_lane:-}" ]; then
+      _tl="$(s4e_topic_lane "$_p")"
+      if [ -n "$_tl" ] && [ "$_tl" != "$_my_lane" ] && [ "${_lane_filter:-own-lane}" = own-lane ]; then
+        printf '⛔ REFUSED PROMOTION: rank-%s %s is BLOCKED-ON %s, but %s is %s'"'"'s lane and yours is %s.\n' \
+          "$_rank" "$_blocked" "$_p" "$_p" "$_tl" "$_my_lane"
+        printf '   Not promoted (own-lane pass); %s stays skipped this pass -- retried cross-lane if your own lane has nothing else.\n' "$_blocked"
+        return 1
+      fi
+    fi
+    return 0
+}
 # ⛔⭐ ONE PROCESS PER IDENTITY (ceo RULING 2026-09-03, row bus-refuses-a-second-live-process-under-one-seat-identity).
 # MEASURED by seat11, routed by hq_B 16:40: /home/claude11 held TWO live claude processes at once -- an interactive
 # session and a scheduled routine (`claude --name Fleet #11 --model claude-sonnet-5 --effort max`, per
@@ -435,6 +466,51 @@ s4e_my_lane() {
              _l="$(head -1 "$_f" | tr -d '[:space:]')"
              case "$_l" in hq_C|hq_B|hq_P|hq_T) printf '%s' "$_l";; esac ;;
     esac
+}
+# ⭐⭐ THE MODE LANGUAGE FREEZE -- next-dependency-promotion-walks-around-the-mode-lane-filter, item (3):
+# "add the MODE priority cut... as an explicit precondition alongside the lane cut, since today only the
+# lane column is consulted and the freeze is enforced by seats remembering it." A Lon language freeze
+# ("SNOBOL4 ONLY", later "ICON ONLY") is state written into MODE's newest entry, in prose, in the same
+# ALL-CAPS convention every ceo mode announcement already uses for a binding clause -- parsed here rather
+# than re-typed as a magic string, so the NEXT freeze (a different language) needs no code change. Line 2
+# is the newest dated entry (line 1 is the bare mode value s4e_mode_line already reads); a freeze not
+# stated there is not active, even if an older entry once had one -- each entry restates the CURRENT rule
+# in full, never a diff against the previous line. Returns the lowercased language token, or empty when no
+# freeze is stated -- empty means NO FREEZE, not "undetermined": unlike lane derivation there is no
+# ambiguous middle state here.
+s4e_mode_language_freeze() {
+    sed -n 2p "$PO/MODE" 2>/dev/null | grep -oE 'ON [A-Z][A-Z0-9]* ONLY' | head -1 | awk '{print $2}' | tr '[:upper:]' '[:lower:]'
+}
+# Companion to s4e_topic_lane, same prefix table, different axis: LANGUAGE, not HQ. gimpel-*/snoflake-*
+# are SNOBOL4-suite families with no snobol4- prefix of their own (this session's own aisnobol/snoflake
+# census rows) -- named explicitly rather than left to fall through, the same reason s4e_topic_lane names
+# every prefix instead of defaulting one. A topic naming no language (tooling/meta, like this row itself)
+# returns empty: LANGUAGE-NEUTRAL, never frozen out, the same "empty is never a fifth category" rule
+# s4e_topic_lane documents for lane.
+s4e_topic_language() {
+    case "${1:-}" in
+      icon-*)                        printf 'icon';;
+      prolog-*)                      printf 'prolog';;
+      snobol4-*|gimpel-*|snoflake-*) printf 'snobol4';;
+      snocone-*)                     printf 'snocone';;
+      pascal-*)                      printf 'pascal';;
+      raku-*)                        printf 'raku';;
+      rebus-*)                       printf 'rebus';;
+    esac
+}
+# rc 0 ("refuses") only when a freeze IS active, the topic's language IS determined, and they DIFFER --
+# every other combination (no freeze, language-neutral topic, or topic matches the frozen language) is
+# rc 1 ("does not refuse"). Deliberately UNCONDITIONAL, no own-lane/any-lane softening the way the lane
+# cut has: Lon's freeze paused even standing HQ assignments fleet-wide (MODE 2026-09-04 17:38 CDT, "All
+# HQ's and all Fleet workers are on SNOBOL4 only"), so an automatic pick honours it the same way
+# regardless of an owner cell or a cross-lane fallback -- `claim <topic>` remains the deliberate override
+# it already is everywhere else in this file, for the rare case a seat has an actual reason to work
+# outside the freeze.
+s4e_language_freeze_refuses() {
+    local _fl _tl
+    _fl="$(s4e_mode_language_freeze)"; [ -n "$_fl" ] || return 1
+    _tl="$(s4e_topic_language "${1:-}")"; [ -n "$_tl" ] || return 1
+    [ "$_tl" != "$_fl" ]
 }
 # ⛔ DECORATED NO-OP EVASION, COMPANION FIX to `done`'s own no-op blocklist below (row
 # `donewhen-decorated-noop-evasion`; the gate `test_gate_baton_donewhen_runnable.sh` carries the identical
@@ -1610,7 +1686,7 @@ TASKEOF
                # un-DONE, so the old code skipped this row and walked on down the rank order — which is how a
                # blocker RANKED BELOW the umbrella it blocks got served after the work it blocks. Reaching this
                # row at rank N is itself the proof that its blocker deserves rank N: serve the BLOCKER, here.
-               elif promo="$(s4e_servable_blocker "$topic")" && [ -n "$promo" ] && "$0" claim "$promo" >/dev/null 2>&1; then
+               elif promo="$(s4e_servable_blocker "$topic")" && [ -n "$promo" ] && s4e_promotion_admissible "$promo" "$topic" "$rank" && "$0" claim "$promo" >/dev/null 2>&1; then
                  echo "RUNNING" >> "$PO/claims/$promo.claim"
                  # ⛔ THE PROMOTED BLOCKER IS A SERVED ROW LIKE ANY OTHER, so it is probed like any other. A
                  # blocker that is already satisfied is the WORST row to hand out unprobed: it is blocking
@@ -1656,6 +1732,17 @@ TASKEOF
              RESTRICTED:*) [ "$(s4e_restricted_to "$step")" = "$ME" ] || continue ;;
              *) continue;;
            esac
+           # ⭐⭐ THE MODE LANGUAGE FREEZE -- see s4e_language_freeze_refuses above. Checked here too, not just
+           # in the promotion path, so a FREE row that a park-sweep has not yet caught up to cannot be served
+           # by the ordinary path either -- the two checks are companions, not alternatives (item (3) of this
+           # row's own GOAL: "add the MODE priority cut... alongside the lane cut"). Unconditional: unlike the
+           # lane filter below, there is no any-lane-style fallback for a language freeze, ever.
+           if s4e_language_freeze_refuses "$topic"; then
+             printf '⛔ SKIP %s (rank %s) — MODE freezes work to %s ONLY; this topic is %s. Not served automatically.\n' \
+               "$topic" "$rank" "$(s4e_mode_language_freeze | tr '[:lower:]' '[:upper:]')" "$(s4e_topic_language "$topic")"
+             printf '   Still live for a deliberate override: s4e_msg.sh claim %s\n' "$topic"
+             continue
+           fi
            # ⭐⭐ THE LANE FILTER — see s4e_topic_lane/s4e_my_lane above. An explicit OWNER-CELL match
            # (this row is tagged to me by name) always wins regardless of lane; a lane-undetermined topic
            # (s4e_topic_lane returns empty) is lane-neutral and never filtered by either pass. own-lane
