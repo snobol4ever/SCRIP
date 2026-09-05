@@ -93,5 +93,39 @@ if [ "$n" -lt 4 ]; then
     exit 2
 fi
 echo "  killswitch SCRIP_SETEXIT=0 moves $n/4 resume faces (NON-VACUOUS)"
+# ⛔⭐ THE M4 COMPOSITION FACE (hq_P 2026-09-05, ceo CEO-286 audit). Everything above this line runs mode 3 ONLY,
+# which is exactly why the 09-04 closure of this row was green and BLIND to a mode-4 defect that printed ZERO bytes
+# at rc=0. The pair below is ONE INGREDIENT APART -- same program, same handler, the only difference being whether
+# the handler's label is ALSO a DEFINE'd function name -- so a red here names the composition, not "m4 is broken".
+# Both oracles AGREE on caught/after/fin for BOTH shapes (measured: /home/resources/x64/bin/sbl -bf and csnobol4).
+# ⛔ THIS BLOCK MUST STAY ABOVE THE CLOSING `exit $rc`: appended below it, it is dead code that reports GREEN, which
+# is the .PHONY-with-no-recipe shape inside a gate. It reported green exactly once that way before being caught.
+m4build() {
+    local n="$1" envk="${2:-}"
+    rm -f "$W/$n.s" "$W/$n.bin"
+    if [ -n "$envk" ]; then ( cd "$W" && env "$envk" timeout 30s "$S" --compile -o "$n.s" "$n.sno" </dev/null >/dev/null 2>&1 )
+    else ( cd "$W" && timeout 30s "$S" --compile -o "$n.s" "$n.sno" </dev/null >/dev/null 2>&1 ); fi || return 1
+    gcc -m64 -no-pie "$W/$n.s" -Wl,-rpath,"$ROOT/out" -L"$ROOT/out" -lscrip_rt -lm -lpthread -o "$W/$n.bin" 2>/dev/null || return 1
+    ( cd "$W" && timeout 20s "./$n.bin" </dev/null 2>&1 )
+}
+mk lblhandler_bare   "\t&ERRLIMIT = 1000\nSTART\tSETEXIT(.H)\n\tX = NOSUCHFN(1)\n\tOUTPUT = 'after'\n\t:(FIN)\nH\tOUTPUT = 'caught'\n\t:(CONTINUE)\nFIN\tOUTPUT = 'fin'\nEND\n"
+mk lblhandler_define "\t&ERRLIMIT = 1000\n\tDEFINE('H()')\t:(START)\nH\tOUTPUT = 'caught'\n\t:(CONTINUE)\nSTART\tSETEXIT(.H)\n\tX = NOSUCHFN(1)\n\tOUTPUT = 'after'\nFIN\tOUTPUT = 'fin'\nEND\n"
+_want="caught
+after
+fin"
+echo "m4 composition -- SETEXIT handler label that is ALSO a DEFINE'd name (contract agreed by SPITBOL and CSNOBOL4):"
+for _f in lblhandler_bare lblhandler_define; do
+    _m3="$(run "$_f")"
+    _m4="$(m4build "$_f")" || { echo "⛔ GATE REFUSES: m4 build of $_f failed -- a gate that cannot BUILD proves nothing about m4"; exit 2; }
+    [ "$_m3" = "$_want" ] && echo "  PASS m3 $_f" || { echo "  FAIL m3 $_f"; echo "    want: $(printf '%s' "$_want" | tr '\n' '|')"; echo "    got : $(printf '%s' "$_m3" | tr '\n' '|')"; rc=1; }
+    [ "$_m4" = "$_want" ] && echo "  PASS m4 $_f" || { echo "  FAIL m4 $_f"; echo "    want: $(printf '%s' "$_want" | tr '\n' '|')"; echo "    got : $(printf '%s' "$_m4" | tr '\n' '|')"; rc=1; }
+done
+_ks="$(m4build lblhandler_define SCRIP_DEFINE_LBL_ALIAS=0)" || { echo "⛔ GATE REFUSES: killswitch build failed -- cannot prove this face is non-vacuous"; exit 2; }
+_on="$(m4build lblhandler_define)" || { echo "⛔ GATE REFUSES: re-build failed -- cannot prove this face is non-vacuous"; exit 2; }
+if [ "$_ks" = "$_on" ]; then
+    echo "⛔ GATE REFUSES: killswitch SCRIP_DEFINE_LBL_ALIAS=0 did NOT move the m4 composition -- this face cannot fail, so it is not evidence"
+    exit 2
+fi
+echo "  killswitch SCRIP_DEFINE_LBL_ALIAS=0 moves the m4 composition (NON-VACUOUS)"
 [ "$rc" = 0 ] && echo "SETEXIT_RESUME_GATE ok" || echo "SETEXIT_RESUME_GATE red"
 exit $rc
