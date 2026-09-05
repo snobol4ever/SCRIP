@@ -301,6 +301,59 @@ def derive_measurer():
     return ""
 
 
+def write_grid_direct(a):
+    gkey = GRID_DIRECT[a.column]
+    text = a.text.strip()
+    if "|" in text or "|" in (a.measurer or ""):
+        die("a '|' in the cell text would silently split the markdown row into the wrong columns -- rephrase it")
+    if ";" in text:
+        text = text.replace(";", "·")
+    if not re.search(r"\d+\s*/\s*\d+", text):
+        die("--text for the grid %s column carries no N/M fraction (%r); the ladder cell states PASS p/t over the graded population" % (gkey, text))
+    if "\n" in text:
+        die("--text spans lines; a markdown table row is one line")
+    if os.path.abspath(SCORE_MD) == os.path.abspath(os.path.join(S4E, ".github", "SCORE.md")):
+        dirty = tree_is_dirty()
+        if dirty:
+            print("⚠ SCORE.md ROW SKIPPED — %s %s uncommitted; this run measured a tree nobody else can check out."
+                  % (", ".join(dirty), "has" if len(dirty) == 1 else "have"))
+            return 0
+    lines = open(SCORE_MD, encoding="utf-8").read().split("\n")
+    _gh, grows, gskip = find_grid(lines)
+    if a.lang in gskip:
+        _gl, _gn = gskip[a.lang]
+        die("the September-10 grid row for %r is MALFORMED, NOT ABSENT (line %d has %d columns, the grid has %d)" % (a.lang, _gl + 1, _gn, GRID_NCOLS))
+    if a.lang not in grows:
+        die("no row for language %r in the September-10 grid. Rows present: %s" % (a.lang, ", ".join(sorted(grows))))
+    gi = GRID_COLUMNS[gkey][0]
+    gbefore = grows[a.lang][gi]
+    gbare = re.sub(r"\s*" + GRID_STAMP_RE + r"\s*$", "", gbefore).strip()
+    gchunks = [c for c in re.split(r'(?<=[.!?])\s+(?=[A-Z0-9⚠⛔⭐✅])', gbare) if c.strip()]
+    if len(gchunks) > 1:
+        die("grid %s for %s carries %d sentences no runner models -- a person wrote them; fold what is still true into --text or hand-edit the cell:\n%s"
+            % (gkey, a.lang, len(gchunks), "\n".join("  - %s" % c[:160] for c in gchunks)))
+    gnew = (text + " " + GRID_STAMP % (time.strftime("%Y-%m-%d"), a.measurer or derive_measurer() or "unknown")).strip()
+    if a.dry_run:
+        print("WOULD REWRITE grid %s for %s\n  was: %s\n  now: %s" % (gkey, a.lang, gbefore, gnew))
+        return 0
+    done = False
+    for gl, gline in enumerate(lines):
+        if gline.startswith("| %s |" % a.lang):
+            gc = [x.strip() for x in gline.strip().strip("|").split("|")]
+            if len(gc) == GRID_NCOLS and gc[0] == a.lang:
+                gc[gi] = gnew
+                lines[gl] = "| " + " | ".join(gc) + " |"
+                done = True
+                print("SCORE.md: grid %s for %s rewritten in place (line %d)\n  was: %s\n  now: %s" % (gkey, a.lang, gl + 1, gbefore, gnew))
+                break
+    if not done:
+        die("internal: find_grid saw a %s row but no line matched it" % a.lang)
+    lines = mark_grid_stamp(lines)
+    open(SCORE_MD, "w", encoding="utf-8").write("\n".join(lines))
+    print("⛔ NOT DONE UNTIL PUSHED: commit .github/SCORE.md with the landing that carried this measurement.")
+    return 0
+
+
 def cmd_write(a):
     if not a.measurer or a.measurer.strip().lower() in _PLACEHOLDER_MEASURERS:
         stale = a.measurer
@@ -312,6 +365,8 @@ def cmd_write(a):
             print("⚠ measurer %r is a placeholder, not an identity -- derived %r from the root %s instead "
                   "(the caller should pass ${S4E_SEAT:-} and let this helper resolve it)."
                   % (stale, a.measurer, S4E))
+    if a.column in GRID_DIRECT:
+        return write_grid_direct(a)
     if a.column not in COLUMNS:
         die("unknown --column %r. Known: %s" % (a.column, ", ".join(sorted(COLUMNS))))
     text = a.text.strip()
@@ -744,6 +799,48 @@ def cmd_selftest(a):
                   "%d board: clauses, first-write text %s" % (len(row), clauses, "SURVIVES" if "1/48" in cell else "gone")); ok = False
         else:
             print("SELFTEST: the second write replaced the first cell and its provenance clause, not appended beside it")
+        _lines0 = open(SCORE_MD, encoding="utf-8").read().split("\n")
+        _gh0, _gr0, _ = find_grid(_lines0)
+        for _gl, _gline in enumerate(_lines0):
+            if _gline.startswith("| rebus |"):
+                _gc = [x.strip() for x in _gline.strip().strip("|").split("|")]
+                if len(_gc) == GRID_NCOLS:
+                    _gc[GRID_COLUMNS["L"][0]] = "—"; _lines0[_gl] = "| " + " | ".join(_gc) + " |"
+        open(SCORE_MD, "w", encoding="utf-8").write("\n".join(_lines0))
+        _lines0 = open(SCORE_MD, encoding="utf-8").read().split("\n")
+        for run in (1, 2):
+            a4 = A(); a4.lang = "rebus"; a4.column = "ladder"; a4.measurer = "selftest"; a4.modes = ""; a4.dry_run = False; a4.suite = ""
+            a4.text = "rungs 0..5 PASS %d/22 (selftest, not a measurement)" % run
+            try:
+                cmd_write(a4)
+            except SystemExit as e:
+                print("SELFTEST FAIL: ladder grid write %d refused rc=%s on a seeded one-sentence cell" % (run, e.code)); ok = False
+        _lines1 = open(SCORE_MD, encoding="utf-8").read().split("\n")
+        _gh1, _gr1, _ = find_grid(_lines1)
+        _lc = _gr1["rebus"][GRID_COLUMNS["L"][0]]
+        if len(_lines1) != len(_lines0) or "1/22" in _lc or _lc.count("2/22") != 1 or _lc.count("⟨measured") != 1:
+            print("SELFTEST FAIL: ladder grid write -- line count %d -> %d, cell %r" % (len(_lines0), len(_lines1), _lc[:120])); ok = False
+        else:
+            print("SELFTEST: ladder column writes the grid L cell in place; the second write replaced the first and its stamp")
+        _lp = open(SCORE_MD, encoding="utf-8").read().split("\n")
+        for _gl, _gline in enumerate(_lp):
+            if _gline.startswith("| rebus |"):
+                _gc = [x.strip() for x in _gline.strip().strip("|").split("|")]
+                if len(_gc) == GRID_NCOLS:
+                    _gc[GRID_COLUMNS["L"][0]] = "rungs 0..5 PASS 22/22. A person wrote this second sentence."; _lp[_gl] = "| " + " | ".join(_gc) + " |"
+        open(SCORE_MD, "w", encoding="utf-8").write("\n".join(_lp))
+        a6 = A(); a6.lang = "rebus"; a6.column = "ladder"; a6.measurer = "s"; a6.modes = ""; a6.dry_run = False; a6.suite = ""; a6.text = "rungs 0..5 PASS 22/22"
+        try:
+            cmd_write(a6); print("SELFTEST FAIL: ladder write over a two-sentence cell did not refuse"); ok = False
+        except SystemExit as e:
+            if e.code == 2: print("SELFTEST: ladder write over a hand-written two-sentence cell correctly REFUSED rc=2 and named it")
+            else: print("SELFTEST FAIL: ladder prose guard exited %s, expected 2" % e.code); ok = False
+        a5 = A(); a5.lang = "rebus"; a5.column = "ladder"; a5.measurer = "s"; a5.modes = ""; a5.dry_run = False; a5.suite = ""; a5.text = "rungs 0..5 all green"
+        try:
+            cmd_write(a5); print("SELFTEST FAIL: ladder write without a fraction did not refuse"); ok = False
+        except SystemExit as e:
+            if e.code == 2: print("SELFTEST: ladder write without an N/M fraction correctly REFUSED rc=2")
+            else: print("SELFTEST FAIL: ladder no-fraction exited %s, expected 2" % e.code); ok = False
         for label, kw in (("unknown language", dict(lang="klingon", column="board", text="1/1", measurer="s")),
                           ("unknown column", dict(lang="rebus", column="nosuch", text="1/1", measurer="s")),
                           ("no digit", dict(lang="rebus", column="board", text="looks fine", measurer="s")),
@@ -1541,6 +1638,7 @@ def cmd_columns(a):
 # the raku cell carried TODAY'S date and a superseded number, because the date was written by an earlier
 # measurement that really was today. A timestamp cannot separate "true and current" from "true this morning".
 GRID_MIRROR = {"board": "M", "vendor": "V"}
+GRID_DIRECT = {"ladder": "L", "bench": "B"}
 # ⛔⭐ THE GRID CELL CARRIES ITS OWN MACHINE-WRITTEN DATE, so the progress line reads VALUE and LABEL from the
 # SAME table. Reading the value from the grid and the freshness from the display row published the OLD number
 # wearing the NEW number's timestamp (ceo audit of 3fbee86c5; snobol4 grid 1689/1736 labelled with the display's
@@ -1748,7 +1846,7 @@ def main():
     sub = p.add_subparsers(dest="cmd")
     w = sub.add_parser("write", help="rewrite one language's one column, in place, with provenance")
     w.add_argument("--lang", required=True)
-    w.add_argument("--column", required=True, help="one of: " + ", ".join(sorted(COLUMNS)))
+    w.add_argument("--column", required=True, help="one of: " + ", ".join(sorted(COLUMNS)) + " (display, mirrored to the grid) or " + ", ".join(sorted(GRID_DIRECT)) + " (the September-10 grid L/B cells directly)")
     w.add_argument("--text", required=True, help="the runner's OWN printed board line, verbatim where possible")
     w.add_argument("--measurer", required=True, help="seat/HQ identity that ran it")
     w.add_argument("--modes", default="", help="e.g. m3,m4")
