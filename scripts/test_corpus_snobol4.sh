@@ -504,7 +504,21 @@ fi
 # run, so the row rides the landing's own .github-last push and no seat meets an unexplained dirty .github.
 # ⛔ Placed ABOVE the FAIL exit: a red board is still a measurement, and a leaderboard that records only
 # green runs is a trophy cabinet showing each suite's best remembered day rather than its state.
-_sn4_board="m3 $PASS3/$TOTAL FAIL=$FAIL3 · m4 $PASS4/$TOTAL FAIL=$FAIL4 SKIP=$SKIP4 MISSING=0 (\`test_corpus_snobol4.sh\`)"
+# ⛔⭐ A TIMEOUT-KILLED PROGRAM IS MISSING FROM THE DENOMINATOR AND THE ROW MUST SAY SO (hq_T ruling
+# 2026-09-04, on hq_C's measurement: 4 programs KILLED at the 120s bound under load 3.6 with sixteen seats
+# up). This board ALREADY tells the terminal reader -- "TIMEOUT-KILLED m3=N m4=N ... NOT graded, NOT
+# failures" -- and told the LEADERBOARD nothing, so the published row read as a full-population measurement
+# while N programs had never run. That is the two-audiences shape exactly: the human sees the caveat, the
+# board that everyone quotes does not.
+# ⭐ THE RULING, written down here because this is where it binds: THE BOUND DOES NOT SCALE WITH LOAD. A
+# bound that moves with the machine makes a verdict irreproducible -- the same program passes or fails
+# depending on its neighbours, and two roots could never reconcile a disagreement. And boards do NOT need a
+# quiet boundary for CORRECTNESS, because a kill is already bucketed as NOT GRADED and NOT A FAILURE. What
+# was actually wrong was a CONSUMER rendering that refusal as "FAIL m3=UNPARSEABLE" (rowed separately). The
+# only thing owed here is that the row carry the caveat the terminal already carries.
+_sn4_killed=""
+[ "$((TMOUT3+TMOUT4))" -gt 0 ] && _sn4_killed=" · ⛔ TIMEOUT-KILLED m3=$TMOUT3 m4=$TMOUT4 at ${TIMEOUT}s/program — NOT graded and NOT failures, so this row is measured over a SHORT denominator: re-run at a quieter moment before quoting it as the population"
+_sn4_board="m3 $PASS3/$TOTAL FAIL=$FAIL3 · m4 $PASS4/$TOTAL FAIL=$FAIL4 SKIP=$SKIP4 MISSING=0$_sn4_killed (\`test_corpus_snobol4.sh\`)"
 echo "ONE LEADERBOARD: recording this board into .github/SCORE.md (test_corpus_snobol4.sh; skipped with a notice if the tree is dirty)"
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column board --modes m3,m4 \
     --measurer "${S4E_SEAT:-}" --text "$_sn4_board" \
