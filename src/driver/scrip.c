@@ -893,7 +893,7 @@ int main(int argc, char **argv)
             "  -dN -iN          accepted for SPITBOL invocation compatibility (SCRIP's GC arena is not byte-sized)\n"
             "\n"
             "Frontend inferred from file extension:\n"
-            "  .sno=SNOBOL4  .icn=Icon  .pl=Prolog  .sc=Snocone  .reb=Rebus\n"
+            "  .sno/.spt=SNOBOL4  .icn=Icon  .pl=Prolog  .sc=Snocone  .reb=Rebus\n"
         );
         return 1;
     }
@@ -920,7 +920,7 @@ int main(int argc, char **argv)
         if (d && strcmp(d,".icn")==0) is_icon = 1;
         if (d && strcmp(d,".raku")==0) is_raku = 1;
         if (d && strcmp(d,".pas")==0) is_pascal = 1;
-        if (!d || strcmp(d,".sno")==0 || strcmp(d,".sc")==0 || strcmp(d,".reb")==0) saw_sno = 1;
+        if (!d || strcmp(d,".sno")==0 || strcmp(d,".sc")==0 || strcmp(d,".reb")==0 || strcmp(d,".spt")==0) saw_sno = 1;
     }
     int is_sno_bb = (saw_sno || is_scrip) && !is_pascal;
     lower_seg_t segs[64];
