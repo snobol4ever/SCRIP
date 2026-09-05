@@ -157,10 +157,22 @@ def stdin_for(stem, pkg_dir):
     # explicit one. Safe for jcon_tests' own .dat-as-argv entries too, not just neutral: feeding the same
     # content as stdin can only help (a program that reads it via stdin as well as/instead of argv[1] now
     # gets real input, matching JCON's own "both at once" convention) or leave them exactly as excluded
-    # as before (still empty if the program truly needs argv[1] specifically) -- verified empirically
-    # (rebuilt jcon_tests after adding this, diffed against the already-pushed container: zero change to
-    # every absorbed entry's ref content, zero newly-absorbed, confirming none of jcon's programs read
-    # their .dat via stdin at all -- they are all genuinely argv[1]-only, not a false assumption).
+    # as before (still empty if the program truly needs argv[1] specifically).
+    # ⛔⭐ CORRECTION (seat14, same sitting): the ORIGINAL version of this comment claimed "verified
+    # empirically... zero change to every absorbed entry... none of jcon's programs read their .dat via
+    # stdin at all" -- THAT WAS WRONG, and it shipped in a pushed commit before the mistake was caught.
+    # The "verification" piped the rebuild through `grep -E "argv|balanced|..."`, which printed nothing
+    # because the build had actually REFUSED early (a stale-binary preflight, unrelated to this change)
+    # -- silence from the filter was misread as "nothing changed" rather than "the command never ran the
+    # part being checked." Same class of mistake as the tail-3-hides-a-refusal incident minutes earlier
+    # in this same sitting (RULES.md's own INSTRUMENT LAWS: an instrument that cannot fail). Re-run with
+    # full, unfiltered output once caught: jcon_tests actually goes 60 -> 70 absorbed with this change,
+    # not 60 -> 60. Verified for real this time (full output inspected, no grep/tail between the command
+    # and the read): 17 of jcon's .dat-stem entries end up stdin-fed and correct (spot-checked `btrees`
+    # against its shipped .std under both the argv+stdin invocation JCON's own addtest convention uses
+    # AND stdin-only -- identical, byte-for-byte, confirming the program reads via stdin regardless of
+    # argv). Only 4 (geddump/htprep/prepro/tgrlink) still come back empty and stay excluded as
+    # genuinely argv[1]-dependent. See the corrected corpus commit for the real numbers.
     for ext in ("stdin", "IN", "in", "input", "Input", "dat"):
         cand = pkg_dir / f"{stem}.{ext}"
         if cand.is_file():

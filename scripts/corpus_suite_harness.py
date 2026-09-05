@@ -802,22 +802,34 @@ def write_suite(entries, out_sno, out_ref, out_in=None, lang=""):
             ref_lines.extend(e.ref)
     Path(out_sno).write_text("\n".join(sno_lines) + "\n")
     Path(out_ref).write_text("\n".join(ref_lines) + "\n")
+    # ⛔ AFTER the .sno/.ref write, and keyed by the SAME seq the banners just got (write_suite reorders
+    # lines-then-blocks and renumbers, so a sidecar written from the pre-reorder seq would banner its
+    # blocks with numbers that no longer name the same entries), and BEFORE the round-trip check below --
+    # a check that runs before the sidecar exists cannot verify the sidecar. ⛔ SAME '*'-HARDCODE BUG AS
+    # THE MAIN BANNER, ONE FUNCTION OVER: write_stdin_sidecar() already takes comment_open/close as
+    # params (it was already lang-agnostic on its own), but this call site never threaded `lc` through --
+    # only surfaced once a real Icon package needed BOTH the main banner fix AND a stdin sidecar
+    # (jcon_tests, after teaching stdin_for() about .dat: 60->70 absorbed, 17 of them stdin-fed) --
+    # `run --lang icon` failed reading ALL.in with the exact same "expected a banner, found '*...'" error.
+    wrote_in = False
+    if out_in is not None:
+        wrote_in = write_stdin_sidecar(lines + blocks, out_in,
+                                        lc["comment_open"] if lc else "*", lc["comment_close"] if lc else "")
     # ⛔ ROUND-TRIP OR REFUSE. A writer that cannot be read back is the "lying test" class: it reports success while
     # having destroyed entries. Cheap to check, and it is the only thing standing between an ordering bug and a
     # silently-corrupted permanent suite. ⛔ MUST re-read with the SAME banner convention just written (lc's
     # comment chars via read_block_suite), never the SNOBOL4-flavored read_suite() default -- otherwise this
     # check "passes" by reading back its own wrong assumption instead of the file it actually wrote.
-    back = (read_block_suite(out_sno, out_ref, banner_re_for(lc["comment_open"], lc["comment_close"]))
-            if lc else read_suite(out_sno, out_ref))
+    # ⛔ MUST ALSO PASS in_path WHEN A SIDECAR WAS WRITTEN -- "A CHECK THAT DOES NOT CARRY EVERY FIELD THE
+    # GRADER READS IS NOT A CHECK" (hq_C, on the identical principle for the .modes sidecar): a round-trip
+    # that never re-reads the .in file it just wrote cannot catch a defect in it, which is exactly how the
+    # stdin-sidecar banner bug above shipped past this same self-check undetected.
+    _in_for_check = str(out_in) if wrote_in else None
+    back = (read_block_suite(out_sno, out_ref, banner_re_for(lc["comment_open"], lc["comment_close"]), in_path=_in_for_check)
+            if lc else read_suite(out_sno, out_ref, in_path=_in_for_check))
     if len(back) != len(entries) or [e.name for e in back] != [e.name for e in lines + blocks]:
         raise ValueError(f"⛔ SUITE DID NOT ROUND-TRIP: wrote {len(entries)} entries, read back {len(back)}. "
                          f"wrote={[e.name for e in lines + blocks]!r} read={[e.name for e in back]!r}")
-    # ⛔ AFTER the round-trip check, and keyed by the SAME seq the banners just got: write_suite reorders
-    # (lines then blocks) and renumbers, so a sidecar written from the pre-reorder seq would banner its
-    # blocks with numbers that no longer name the same entries.
-    wrote_in = False
-    if out_in is not None:
-        wrote_in = write_stdin_sidecar(lines + blocks, out_in, "*", "")
     return wrote_in
 
 
@@ -1385,6 +1397,15 @@ def run_suite_entry(paths, entry, tmp_root, modes, ext=".sno", companion_dir=Non
         else:
             text = "\n".join(entry.sno_lines) + "\n"
             expected = "\n".join(entry.ref)
+        # ⛔⭐ entry.name CAN CARRY A '/' (util_build_package_suite.py qualifies a nested source as
+        # "parentdir/stem", e.g. arizona_tests' "general/args") -- the first package whose entries are
+        # actually EXECUTED through this exact function to carry one (csnobol4_suite's nested-name
+        # collision fix only touched CSV/naming, never grading, since its own nested file was excluded).
+        # Without this, cand.write_text() raises FileNotFoundError: the intermediate directory under the
+        # fresh tempdir was never created. A no-op for every flat entry name (parents=True on an
+        # already-existing Path(td) is a safe no-op), so nothing already grading through this function
+        # can regress.
+        cand.parent.mkdir(parents=True, exist_ok=True)
         cand.write_text(text)
         _copy_companions(text, companion_dir, Path(td))
         return run_all_modes(paths, cand, expected, Path(td), modes, stdin_text=entry.stdin,
