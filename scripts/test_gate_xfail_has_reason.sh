@@ -62,6 +62,30 @@ def reasons_in(path):
     if cur is not None: out[cur]='\n'.join(buf)
     return out
 langs=sorted(d for d in os.listdir(root) if os.path.isdir(os.path.join(root,d)))
+# ⛔⭐⭐ A LANE LON HAS PARKED CANNOT HOLD THIS GATE RED, AND ITS GAPS STILL GET COUNTED AND NAMED (ceo ->
+# hq_T 2026-09-05, OCTET: "THE ORDER OF WORK IS SNOBOL4, ICON AND PROLOG; Pascal, Raku, Rebus and Snocone
+# rows stay PARKED-LON-HOLD"). Blocking on a parked lane teaches the reader to ignore a red gate, which is
+# strictly worse than the gap it is reporting -- and dropping those entries would be the trophy-cabinet
+# number this gate exists to prevent. So they are REPORTED: counted, named, never silent, never blocking.
+# ⛔⭐ THE BRIEF SAID "177, ALL SNOCONE" AND THE MEASUREMENT SAYS OTHERWISE -- 182 gaps, 156 raku, 17
+# snocone, 5 snobol4, 4 rebus. Those 5 snobol4 entries sit in the FIRST lane of the order of work, so
+# reporting the whole population would have hidden live work in the active lane behind a parked-lane excuse.
+# That is the entire reason this partitions instead of demoting the gate wholesale.
+# ⛔⭐ THE ROSTER IS POLICY, NOT A MEASUREMENT, AND THERE IS NO MACHINE-READABLE AUTHORITY FOR IT: the
+# order of work lives in the MODE file's PROSE header, and CLAUDE.md's standing rule is to read MODE's first
+# line and NEVER its prose. A parser over that sentence would break on the next rewording and refuse a gate
+# that had nothing wrong with it. So the roster is an explicit parameter -- and the mitigation for the
+# hand-typed-population trap hq_I measured today (a gate that lifts its MAP correctly and then hand-types
+# its ROSTER passes green over the roots it forgot) is that this gate PRINTS THE ROSTER IT USED on every
+# run. A stale roster is then visible in the output of the thing it distorts, rather than silent. Override
+# with XFAIL_ACTIVE_LANGS when Lon's order moves.
+ACTIVE=[x.strip() for x in os.environ.get('XFAIL_ACTIVE_LANGS','snobol4,icon,prolog').split(',') if x.strip()]
+present=[l for l in ACTIVE if l in langs]
+if not present:
+    print("REFUSE(2): the active-lane roster [%s] names no language present under %s (found: %s) -- "
+          "refusing to grade an empty blocking set, which would print a pass over nothing"
+          % (','.join(ACTIVE) or '<empty>', root, ','.join(langs) or '<none>'))
+    sys.exit(2)
 total_x=0; total_gap=0; gaps=[]; orphan_notes=[]
 for lang in langs:
     d=os.path.join(root,lang)
@@ -82,13 +106,28 @@ for lang in langs:
     total_x+=len(xmap); total_gap+=lang_gap
     print(f"  {lang}: xfail={len(xmap)} reasoned={len(xmap)-lang_gap} gap={lang_gap}")
 for note in orphan_notes: print(note)
-for lang,rank,entry in gaps:
+blocking=[g for g in gaps if g[0] in ACTIVE]
+parked=[g for g in gaps if g[0] not in ACTIVE]
+print(f"  ACTIVE LANES (blocking): {','.join(ACTIVE)}  <- the roster this run used; if Lon's order of work has moved, this line is the stale thing")
+for lang,rank,entry in blocking:
     print(f"    GAP [{lang}] rank={rank} entry={entry} -- no reason (or a placeholder) in ALL.xfail")
-print(f"SUMMARY total_xfail={total_x} total_gap={total_gap}")
+if parked:
+    bylang={}
+    for lang,rank,entry in parked: bylang.setdefault(lang,[]).append(entry)
+    print(f"  REPORTED, NOT BLOCKING -- {len(parked)} gap(s) in PARKED lanes ({', '.join('%s=%d'%(k,len(v)) for k,v in sorted(bylang.items()))}).")
+    print(f"      They are real debt and are counted here so the number cannot quietly become a 100% cell; they do not red this gate while their lane is parked.")
+    for lang,rank,entry in parked:
+        print(f"    PARKED-GAP [{lang}] rank={rank} entry={entry} -- no reason (or a placeholder) in ALL.xfail")
+print(f"SUMMARY total_xfail={total_x} total_gap={total_gap} blocking_gap={len(blocking)} parked_gap={len(parked)}")
 PY
 )"
 echo "$SUMMARY" | grep -v '^SUMMARY '
-TOTAL_X="$(echo "$SUMMARY" | sed -n 's/^SUMMARY total_xfail=\([0-9]*\) total_gap=.*/\1/p')"
-TOTAL_GAP="$(echo "$SUMMARY" | sed -n 's/^SUMMARY .*total_gap=\([0-9]*\)$/\1/p')"
+# ⛔ The python half REFUSES rc=2 on an empty active roster and says so on stdout; propagate that rather
+# than falling through to a verdict computed from an unset variable (which would read as zero gaps = pass).
+case "$SUMMARY" in "REFUSE(2):"*) exit 2;; esac
+TOTAL_X="$(echo "$SUMMARY" | sed -n 's/^SUMMARY total_xfail=\([0-9]*\) .*/\1/p')"
+BLOCK_GAP="$(echo "$SUMMARY" | sed -n 's/^SUMMARY .*blocking_gap=\([0-9]*\) .*/\1/p')"
+PARKED_GAP="$(echo "$SUMMARY" | sed -n 's/^SUMMARY .*parked_gap=\([0-9]*\)$/\1/p')"
 gate_floor "${TOTAL_X:-0}" 1 "XFAIL-banner entries examined"
-gate_verdict "${TOTAL_GAP:-0}" "XFAIL entries with no real reason"
+GATE_EXAMINED="${TOTAL_X:-0} XFAIL entries, ${PARKED_GAP:-0} parked gap(s) reported not blocking"
+gate_verdict "${BLOCK_GAP:-0}" "XFAIL entries in an ACTIVE lane with no real reason"
