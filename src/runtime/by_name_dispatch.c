@@ -6255,6 +6255,26 @@ extern int rt_pl_db_abolish(void *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void * pl_db_cell_of(DESCR_t *args, void *root) { DESCR_t k = rt_pl_deref_val(args[0]); if (k.v != DT_I) return (void *)0; return rt_pl_db_get(root, k.i); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern int rt_pl_nb_set(void *, int64_t, void *);
+extern int rt_pl_nb_get_cell(void *, int64_t, void *, pl_tr_ctx_t *);
+DESCR_t rt_pl_dop_nb_setval_c(DESCR_t *args, int nargs, void *root) {
+    if (nargs != 2) return FAILDESCR;
+    pl_atoms_ready();
+    { DESCR_t k = rt_pl_deref_val(args[0]);
+      if (k.v != DT_I) return FAILDESCR;
+      return rt_pl_nb_set(root, k.i, (void *)&args[1]) ? pl_ok() : FAILDESCR; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_nb_getval_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
+    extern void rt_gc_point_arr(DESCR_t *, int, const char **);
+    if (nargs != 2) return FAILDESCR;
+    pl_atoms_ready(); rt_pl_tr_gc_sync(cx->tr); rt_gc_point_arr(args, nargs, (const char **)0);
+    { DESCR_t k = rt_pl_deref_val(args[0]); int ok;
+      if (k.v != DT_I) { rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
+      ok = rt_pl_nb_get_cell(root, k.i, (void *)&args[1], cx);
+      rt_pl_tr_gc_sync(cx->tr); return ok ? pl_ok() : FAILDESCR; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int rt_pl_db_recompile(void *, const char *, int);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

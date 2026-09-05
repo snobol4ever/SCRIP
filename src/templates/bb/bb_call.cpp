@@ -29,6 +29,7 @@ DESCR_t rt_pl_dop_plus(DESCR_t *, int); DESCR_t rt_pl_dop_sort(DESCR_t *, int); 
 DESCR_t rt_pl_dop_findall_new(DESCR_t *, int); DESCR_t rt_pl_dop_findall_add(DESCR_t *, int); DESCR_t rt_pl_dop_findall_result(DESCR_t *, int); DESCR_t rt_pl_dop_bagof_result(DESCR_t *, int); DESCR_t rt_pl_dop_setof_result(DESCR_t *, int);
 DESCR_t rt_pl_dop_sub_atom_n(DESCR_t *, int); DESCR_t rt_pl_dop_sub_atom_at(DESCR_t *, int);
 DESCR_t rt_pl_dop_db_assertz(DESCR_t *, int); DESCR_t rt_pl_dop_db_asserta(DESCR_t *, int); DESCR_t rt_pl_dop_db_erase(DESCR_t *, int); DESCR_t rt_pl_dop_db_abolish(DESCR_t *, int);
+DESCR_t rt_pl_dop_nb_setval(DESCR_t *, int); DESCR_t rt_pl_dop_nb_getval(DESCR_t *, int);
 DESCR_t rt_pl_dop_db_retractall(DESCR_t *, int);
 DESCR_t rt_pl_dop_db_alive(DESCR_t *, int);
 DESCR_t rt_pl_dop_ax_zguard(DESCR_t *, int);
@@ -322,6 +323,7 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$db_erase", 2, "rt_pl_dop_db_erase", rt_pl_dop_db_erase }, { "$db_abolish", 1, "rt_pl_dop_db_abolish", rt_pl_dop_db_abolish },
         { "$db_retractall", 2, "rt_pl_dop_db_retractall", rt_pl_dop_db_retractall },
         { "$db_alive", 2, "rt_pl_dop_db_alive", rt_pl_dop_db_alive },
+        { "$nb_setval", 2, "rt_pl_dop_nb_setval", rt_pl_dop_nb_setval }, { "$nb_getval", 2, "rt_pl_dop_nb_getval", rt_pl_dop_nb_getval },
         { "$ax_zguard", 2, "rt_pl_dop_ax_zguard", rt_pl_dop_ax_zguard },
         { "$pl_char_guard", 1, "rt_pl_dop_char_guard", rt_pl_dop_char_guard },
         { "$pl_anum_guard2", 3, "rt_pl_dop_anum_guard2", rt_pl_dop_anum_guard2 },

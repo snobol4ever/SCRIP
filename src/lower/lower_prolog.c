@@ -185,7 +185,7 @@ static const char * pl_rung7_builtins[] = { "between", "repeat", "clause", "retr
     "current_prolog_flag", "current_stream", "stream_property", NULL };
 static const char * pl_rung8_builtins[] = { "findall", "bagof", "setof", "aggregate_all", NULL };
 static const char * pl_rung9_builtins[] = { NULL };
-static const char * pl_rung10_builtins[] = { "call", "assert", "asserta", "assertz", "retractall", "abolish", "dynamic", "nb_setval", "nb_getval", "b_setval", "b_getval", "phrase",
+static const char * pl_rung10_builtins[] = { "call", "assert", "asserta", "assertz", "retractall", "abolish", "dynamic", "b_setval", "b_getval", "phrase",
     "with_output_to", "setup_call_cleanup", "use_module", "ensure_loaded", "module", "set_prolog_flag", NULL };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_name_in(const char * nm, const char * const * lst) { if (!nm) return 0; for (int i = 0; lst[i]; i++) if (!strcmp(nm, lst[i])) return 1; return 0; }
@@ -619,6 +619,22 @@ static IR_t * pl_db_leaf2(lcx_t * cx, const char * sym, int k, const tree_t * ar
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * pl_nb_key(const tree_t * t) {
+    if (!t || !(t->t == TT_QLIT || t->t == TT_NAME) || !t->v.sval) return NULL;
+    return t->v.sval;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_nb_leaf_lv(lcx_t * cx, const char * sym, int k, const tree_t * arg, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = (char *) sym;
+    IR_t * kn = build(cx, IR_LIT_INTEGER, NULL, ωfail); IR_LIT(kn).ival = k;
+    IR_t * te = NULL; IR_t * tv = term_lval_e(cx, arg, &te);
+    lc_γ_to(kn, te ? te : tv); lc_ω_to(kn, ωfail);
+    lc_γ_to(tv, nd); lc_ω_to(tv, ωfail);
+    ir_operand_push(nd, kn); ir_operand_push(nd, tv);
+    if (entry_out) *entry_out = kn;
+    return nd;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_user_call(lcx_t * cx, const char * nm, const tree_t * t, int nargs, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     int pl_db_live = pl_db_owned(nm, nargs);
     { char key[264]; snprintf(key, sizeof key, "%s/%d", nm, nargs);
@@ -855,6 +871,13 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             if (!pn) pl_refuse("abolish whose argument is not a Name/Arity known at compile time --", nm, 10);
             if (!pl_db_owned(pn, ar)) pl_refuse("abolish on a predicate that has clauses in the file --", pn, 10);
             return pl_db_leaf1(cx, "$db_abolish", pl_dyn_index_or_add(pn, ar), γnext, ωfail, entry_out); }
+        if ((!strcmp(nm, "nb_setval") || !strcmp(nm, "nb_getval")) && t->n == 2) {
+            const char * kk = pl_nb_key(t->c[0]);
+            if (!kk) pl_refuse("global-variable key that is not an atom known at compile time -- a computed key goes through the runtime compiler (ARCH sec C); there is no key map --", nm, 10);
+            { int k = pl_dyn_index_or_add(kk, -1);
+              if (k < 0) pl_refuse("global variable needs a root cell but the 64 compile-time root cells are exhausted --", kk, 10);
+              return !strcmp(nm, "nb_setval") ? pl_db_leaf2(cx, "$nb_setval", k, t->c[1], γnext, ωfail, entry_out)
+                                              : pl_nb_leaf_lv(cx, "$nb_getval", k, t->c[1], γnext, ωfail, entry_out); } }
         if (!strcmp(nm, "clause") && t->n == 2) {
             int ar = 0; const char * pn = pl_head_key(t->c[0], &ar);
             if (!pn) pl_refuse("clause/2 whose head is not a callable term known at compile time --", nm, 7);
@@ -1119,7 +1142,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     }
     for (int di = 0; di < g_stage2.pl_dyn_n; di++) {
         const char * dn = g_stage2.pl_dyn_name[di]; int da = g_stage2.pl_dyn_arity[di];
-        if (!dn) continue;
+        if (!dn || da < 0) continue;
         { char key[264]; snprintf(key, sizeof key, "%s/%d", dn, da);
           if (pl_bb_lookup(key, da)) continue;
           { extern tree_t * pl_runtime_clause_tree(tree_t *);

@@ -202,6 +202,10 @@ PL_ROOT_LEAF(db_asserta)
 PL_ROOT_LEAF(db_erase)
 PL_ROOT_LEAF(db_abolish)
 PL_ROOT_LEAF(db_retractall)
+PL_ROOT_LEAF(nb_setval)
+#define PL_ROOTCTX_LEAF(nm) RTX_FUNC(rt_pl_dop_##nm); sub rsp, CTX_FRAME; mov qword ptr [rsp + CTX_TR], r12; mov qword ptr [rsp + CTX_B], r13; mov rdx, rsp; mov rcx, r14; \
+    call rt_pl_dop_##nm##_c; mov r12, qword ptr [rsp + CTX_TR]; add rsp, CTX_FRAME; ret; RTX_ENDF(rt_pl_dop_##nm)
+PL_ROOTCTX_LEAF(nb_getval)
 RTX_FUNC(rt_pl_dop_ax_zguard)
     sub     rsp, 8
     call    rt_pl_dop_ax_zguard_c

@@ -1816,6 +1816,27 @@ void * rt_pl_db_get(void *root, int64_t k)
       return (void *)*cell; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_nb_set(void *root, int64_t k, void *val)
+{
+    extern void *rt_plj_alloc(size_t);
+    if (!root || k < 0 || k >= PL_DB_CELLS_MAX || !val) return 0;
+    { pl_cell_t **cell = (pl_cell_t **)((char *)root - PL_DB_CELL0 - 8 * (size_t)k);
+      pl_cell_t *t = pl_deref((pl_cell_t *)val);
+      pl_cell_t *va[256]; pl_cell_t *vn2[256]; int vn = 0;
+      pl_cell_t stored = pl_cell_copy_persist(t, va, vn2, &vn, 256);
+      pl_cell_t *box = (pl_cell_t *)rt_plj_alloc(sizeof *box);
+      if (!box) return 0;
+      *box = stored; *cell = box; return 1; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_nb_get_cell(void *root, int64_t k, void *out_cell, pl_tr_ctx_t *cx)
+{
+    if (!root || k < 0 || k >= PL_DB_CELLS_MAX || !out_cell) return 0;
+    { pl_cell_t *box = *(pl_cell_t **)((char *)root - PL_DB_CELL0 - 8 * (size_t)k);
+      if (!box) return 0;
+      return plc_unify_cells_cx((pl_cell_t *)out_cell, box, cx) ? 1 : 0; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_recompile(void *db_v, const char *key, int arity)
 {
     extern void * rt_pl_clause_tree(void *);
