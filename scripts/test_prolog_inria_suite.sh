@@ -25,11 +25,18 @@ refuse() { echo "⛔ REFUSED(2) [$GATE_NAME]: $*" >&2; exit 2; }
 # table is this class's normal output. NO LOGIC HERE: util_require_fresh.sh sources gate_require_fresh from
 # lib_gate.sh, the ONE authority (hq_B 4c7253e99) -- never a second copy of the staleness rule.
 "$HERE/util_require_fresh.sh" --gate test_prolog_inria_suite "$SCRIP" "${RT_DIR:-$HERE/../out}/libscrip_rt.so" || exit 2
+# ⛔⭐ SOURCED FOR gate_score_row, THE SHARED WRITER -- never a second implementation. This runner mentioned
+# lib_gate.sh in a comment for a day and never sourced it, so it printed a 445-goal conformance board and the
+# leaderboard never heard a word of it. That is the FACT RULE's own failure mode in the most expensive place
+# it can happen: a vendor number that costs ten minutes to produce and is then thrown away, so the next person
+# who wants it runs the suite again instead of reading the board.
+. "$HERE/lib_gate.sh"
 export INRIA_SUITE="$SUITE" INRIA_SCRIP="$SCRIP"
 # ⛔ THE HEREDOC DELIMITER IS QUOTED and every value crosses by ENVIRONMENT, never by interpolation. This repo has
 # measured the alternative three times in one day: an unquoted heredoc hands the shell the whole program and every
 # backtick in it runs as a command. The trap lives in the medium, not in the language you think you are writing.
-python3 - <<'PY'
+_inria_out="$(mktemp "${TMPDIR:-/tmp}/inria_board.XXXXXX")"
+python3 - <<'PY' | tee "$_inria_out"
 import os, re, subprocess, tempfile, sys
 suite = os.environ["INRIA_SUITE"]; scrip = os.environ["INRIA_SCRIP"]
 def expected_class(exp):
@@ -328,3 +335,29 @@ if os.environ.get("INRIA_NAME_REDS"):
 open(os.path.join(tmp, "bindings_board"), "w").write("%d %d %d" % (len(tests), bres["m3"][0], bres["m4"][0]))
 print("BINDINGS_BOARD_FOR_SHELL %d %d %d" % (len(tests), bres["m3"][0], bres["m4"][0]))
 PY
+
+# ⛔ PIPESTATUS[0], NEVER $? -- the pipeline above ends in `tee`, and $? after a pipeline reports the LAST
+# command's status, so a python that died would read as a clean run (CLAUDE.md, measured live on this box).
+_prc=${PIPESTATUS[0]}
+# ⭐ THE ROW CARRIES BOTH NUMBERS AND SAYS WHICH IS WHICH. The runner computes two boards: OUTCOME CLASS
+# (success/failure/error plus the error functor) and the suite's OWN criterion, which also compares the
+# declared substitution bindings. The first is strictly weaker -- this file's own header says tightening can
+# only ever move the number DOWN, and it does, by 7 goals in each mode. Publishing only the outcome-class
+# number would put a 61.8% on the leaderboard for a suite whose own criterion says 60.2%, so both go in the
+# cell with the weaker one named as the bound it is. A conformance number that overstates itself is worse
+# than no number.
+_oc="$(grep -m1 '^INRIA_SUITE_BOARD ' "$_inria_out" || true)"
+_bs="$(grep -m1 '^BINDINGS_BOARD_FOR_SHELL ' "$_inria_out" || true)"
+if [ -n "$_oc" ]; then
+    _txt="$_oc"
+    if [ -n "$_bs" ]; then
+        set -- $_bs
+        _txt="inriasuite (ISO/IEC 13211-1) $3/$2 m3 · $4/$2 m4 by the suite's OWN criterion (outcome class AND declared bindings) — $_oc is the OUTCOME-CLASS-ONLY upper bound, which ignores what a goal bound and can only move down when tightened"
+    fi
+    gate_score_row prolog vendor "$_txt" m3,m4 INRIA
+else
+    # A missing board line is not a zero -- say so rather than writing a row for a run that produced nothing.
+    echo "⚠ SCORE.md NOT UPDATED [$GATE_NAME]: the run printed no INRIA_SUITE_BOARD line, so there is no measurement to record"
+fi
+rm -f "$_inria_out"
+exit "$_prc"
