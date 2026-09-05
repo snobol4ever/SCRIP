@@ -34,10 +34,14 @@ snobol4.tab.c snobol4.tab.h: snobol4.y
 	fi
 
 # flex produces lex.yy.c by default; use -o to name directly.
+# ⛔ -L (--noline) IS NOT COSMETIC: the committed snobol4.lex.c was cut with it, so regenerating WITHOUT it
+# rewrites 127 lines of #line directives into a checked-in generated file and buries the real change in the
+# diff. Verified 2026-09-05 (hq_B, flex 2.6.4): with -L the regen is BYTE-IDENTICAL to the committed file,
+# so a .l edit shows up as exactly the lines it changed. Same for the bison rule above if it ever churns.
 snobol4.lex.c: snobol4.l snobol4.tab.h
 	@if command -v flex >/dev/null 2>&1; then \
-	    echo "flex -o snobol4.lex.c snobol4.l"; \
-	    flex -o snobol4.lex.c snobol4.l; \
+	    echo "flex -L -o snobol4.lex.c snobol4.l"; \
+	    flex -L -o snobol4.lex.c snobol4.l; \
 	else \
 	    echo "⛔ flex not installed — snobol4.lex.c is committed. Regenerate on your own machine."; \
 	    false; \
