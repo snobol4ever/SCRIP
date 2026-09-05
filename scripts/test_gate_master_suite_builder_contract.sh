@@ -25,8 +25,23 @@ trap 'rm -rf "$T"' EXIT
 mkdir -p "$T/corpus/tests" && cp -r "$R/corpus/tests/icon" "$R/corpus/tests/snobol4" "$T/corpus/tests/" || { echo "⛔ REFUSED (rc=2): could not stage the scratch tree"; exit 2; }
 snap() { find "$T/corpus/tests" -name 'ALL.*' -type f -exec md5sum {} \; | sort; }
 fams() { cut -d, -f4 "$T/corpus/tests/icon/ALL.csv" 2>/dev/null | tail -n +2 | sort -u; }
-reset_icon() { rm -rf "$T/corpus/tests/icon"; cp -r "$R/corpus/tests/icon" "$T/corpus/tests/icon"; }
+SYNTH_ABS="zz_contract_gate_synthetic_absorbable"
+reset_icon() {
+  rm -rf "$T/corpus/tests/icon"; cp -r "$R/corpus/tests/icon" "$T/corpus/tests/icon"
+  # ⛔ ARM D'S POPULATION MUST EXIST BY CONSTRUCTION (measured 2026-09-05, row three-master-builder-gates-
+  # are-red-at-head): real tests/icon has already gone empty of organic loose absorbable pairs at least
+  # twice before this (see arm D's own history above, both times read as "went stale" -- the SAME class of
+  # false signal, a THIRD time, is what actually happened here: this whole gate went red the same way).
+  # UNPROVEN is the correct verdict on an empty population -- but a check that can never be exercised because
+  # its population keeps getting absorbed out from under it is not a gate, it is a coin flip on corpus churn.
+  # A synthetic pair, planted fresh into the scratch tree on every reset, guarantees arm D always has exactly
+  # one thing to scope --absorb-only against, independent of how much of the real corpus has been absorbed.
+  printf 'procedure main()\n    write("contract gate synthetic witness")\nend\n' >"$T/corpus/tests/icon/${SYNTH_ABS}.icn"
+  printf 'contract gate synthetic witness\n' >"$T/corpus/tests/icon/${SYNTH_ABS}.ref"
+  printf '%s\tm3,m4\t# planted by this gate'"'"'s arm D on every reset, never a real fixture\n' "$SYNTH_ABS" >>"$T/corpus/tests/icon/config/MODES.tsv"
+}
 F=0
+added=""   # bound up front: arm D's UNPROVEN branch (population empty) must not leave arm E's read of $added unbound under `set -u`
 # --- A (req 4a) -- a real --help: it exits 0, documents the absorb-side selector, and writes NOTHING. Today the flag is unrecognized, silently ignored, and the run proceeds with defaults.
 s="$(snap)"; o="$(S4E_HOME="$T" python3 "$B" --help 2>&1)"; rc=$?
 { [ $rc -eq 0 ] && printf '%s' "$o" | grep -q -- '--absorb-only'; } || { echo "FAIL A (req4): --help must exit 0 and document --absorb-only (got rc=$rc)"; F=1; }

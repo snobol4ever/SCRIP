@@ -11,8 +11,13 @@
 # Measured 2026-09-03 after the seven prolog promotions of corpus 2b71e9a2: 265 of 404 entries out of order,
 # with nothing inconsistent -- ALL.pl and ALL.csv agreed with each other, every marker gate was green, and the
 # only thing wrong was that the law had quietly stopped being true.
-# ⭐ THE KEY IS IMPORTED FROM THE BUILDER (master_sort_key), NEVER RE-TYPED HERE. A guard carrying its own copy
+# ⭐ THE KEY IS IMPORTED FROM THE BUILDER (master_file_key), NEVER RE-TYPED HERE. A guard carrying its own copy
 # of the rule drifts from the thing it guards and then both are wrong together.
+# ⛔ master_file_key, NOT master_sort_key (measured 2026-09-05): write_suite() always emits every kind="line"
+# entry before every other kind (a format-(B) block ends only at the next banner or EOF, so a trailing
+# one-liner would be silently swallowed into it), so plain master_sort_key describes an order SNOBOL4's mixed
+# format-A/format-B master cannot physically store. master_file_key partitions by kind first, then applies
+# master_sort_key within each kind -- byte-identical to master_sort_key for every other (single-kind) master.
 # LANGS= overrides the masters checked (default: every corpus/tests/<lang>/ carrying an ALL.csv).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
@@ -29,8 +34,8 @@ try:
     spec.loader.exec_module(mb)
 except SystemExit:
     print("⛔ REFUSED-TO-GRADE: importing the builder exited; cannot borrow its sort key"); sys.exit(2)
-if not hasattr(mb, "master_sort_key"):
-    print("⛔ REFUSED-TO-GRADE: the builder has no master_sort_key -- this gate must not re-type the rule"); sys.exit(2)
+if not hasattr(mb, "master_file_key"):
+    print("⛔ REFUSED-TO-GRADE: the builder has no master_file_key -- this gate must not re-type the rule"); sys.exit(2)
 sys.path.insert(0, here)
 import corpus_suite_harness as h
 EXTS = {"snobol4": ".sno", "icon": ".icn", "prolog": ".pl", "raku": ".raku", "snocone": ".sc", "rebus": ".reb", "pascal": ".pas"}
@@ -58,7 +63,7 @@ for lang in langs:
         print("⛔ REFUSED-TO-GRADE: %s is not in the builder's LANG_TABLES" % lang); sys.exit(2)
     cols = mb.LANG_TABLES[lang][0]
     got = [e.name for e in entries]
-    keyed = sorted(entries, key=lambda e: mb.master_sort_key(e, {c: fn("\n".join(e.sno_lines)) for c, fn in cols}))
+    keyed = sorted(entries, key=lambda e: mb.master_file_key(e, {c: fn("\n".join(e.sno_lines)) for c, fn in cols}))
     want = [e.name for e in keyed]
     checked += 1
     if got == want:

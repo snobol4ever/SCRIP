@@ -816,6 +816,27 @@ def master_sort_key(entry, flags):
     return (int(bool(entry.xfail)), sum(flags.values()), len(entry.sno_lines), entry.name)
 
 
+def master_file_key(entry, flags):
+    """THE ORDER THE MASTER FILE CAN ACTUALLY STORE. write_suite() ALWAYS emits every kind="line"
+    entry before every other entry, unconditionally (write_suite's own docstring: a format-(B) block
+    ends only at the next banner or EOF, so a one-liner following a block would be silently swallowed
+    into it -- measured, hq_C 2026-08-28, `ev_fn_beauty_shape` duplicated). That partition is therefore
+    a hard structural fact about the file, not a policy choice, so anything that predicts or verifies
+    the master's on-disk order must predict THIS order, not master_sort_key's alone.
+
+    ⛔ MEASURED 2026-09-05: resort_master()'s own post-write round-trip check, and the order gate, both
+    compared against plain master_sort_key order and disagreed with write_suite's actual output on the
+    mixed-kind SNOBOL4 master (818 line + 1041 block entries) -- resort refused ("re-read order does
+    not match the intended order") on a master that was, by every other measure, internally consistent
+    (its committed ALL.sno physical order and ALL.csv row order already agreed with each other).
+
+    For every OTHER language's master, every entry shares one kind, so this is byte-identical to
+    master_sort_key alone -- zero behaviour change there. Still "green before xfail, fewer features,
+    shorter, then name" -- WITHIN each kind -- so `rank <= N` still selects the greenest N of a kind.
+    """
+    return (0 if entry.kind == "line" else 1,) + master_sort_key(entry, flags)
+
+
 def resort_master(OUTDIR, EXT, lang, h, _CO, _CC, COLS, modes_decl, loose_families, acknowledged):
     """Re-sort the master already on disk into the builder's own order and rewrite ALL.<ext>/ALL.ref/ALL.csv.
 
@@ -853,7 +874,7 @@ def resort_master(OUTDIR, EXT, lang, h, _CO, _CC, COLS, modes_decl, loose_famili
         sys.stderr.write("REFUSED: --resort read 0 entries -- refusing to rewrite a master it could not read.\n"); return 2
     before = [e.name for e in entries]
     flags_of = {e.name: {c: fn2("\n".join(e.sno_lines)) for c, fn2 in COLS} for e in entries}
-    ordered = sorted(entries, key=lambda e: master_sort_key(e, flags_of[e.name]))
+    ordered = sorted(entries, key=lambda e: master_file_key(e, flags_of[e.name]))
     after = [e.name for e in ordered]
     if before == after:
         print("--resort: %d entries already in the builder's order -- nothing written." % len(entries), file=sys.stderr)
@@ -1888,7 +1909,7 @@ def main():
     # last level all 1200+ being the full regression.") -- the list is ORDERED simple-green-first so a level is a PREFIX of it:
     # green before xfail (a smoke set must be expected-green), fewer features before more, shorter before longer. The CSV's
     # `rank` column is the position; a runner takes level N by taking rank <= N.
-    order = sorted(range(len(rows)), key=lambda i: master_sort_key(rows[i][0], rows[i][1]))
+    order = sorted(range(len(rows)), key=lambda i: master_file_key(rows[i][0], rows[i][1]))
     all_entries = [rows[i][0] for i in order]
     rows = [rows[i] for i in order]
     names = [e.name for e in all_entries]
@@ -2075,6 +2096,17 @@ def main():
         if len(reread) != len(all_entries):
             h.refuse("re-read count %d != written %d -- NOT trusting the merge; validated in a scratch copy "
                      "first, so the real tree was never touched" % (len(reread), len(all_entries)))
+        # ⛔ ORDER, NOT JUST COUNT (measured 2026-09-05, row three-master-builder-gates-are-red-at-head):
+        # the writer (write_suite) silently re-partitions kind="line" entries before every other kind, so
+        # `all_entries`' own order can disagree with what actually landed on disk while this check stayed
+        # silent -- exactly the "silently mis-paired ALL.sno/ALL.ref/ALL.csv" failure mode this builder
+        # exists to prevent. `all_entries` is already in master_file_key order (see `order` above), which
+        # IS the order write_suite produces, so this should always hold; a refusal here means the two have
+        # drifted apart, which the CSV's rank column (assigned from `rows` below) would otherwise get wrong.
+        if [r.name for r in reread] != [e.name for e in all_entries]:
+            h.refuse("re-read ORDER does not match the written order -- the master's physical file and its "
+                     "CSV rank would silently disagree; NOT trusting the merge (validated in a scratch copy, "
+                     "the real tree was never touched)")
         with open(tmp_csv, "w", newline="") as f:
             w = csv.writer(f, lineterminator="\n")
             w.writerow(["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes"] + [c for c, _ in COLS])
