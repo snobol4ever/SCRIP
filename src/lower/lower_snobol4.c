@@ -52,6 +52,7 @@ static void sno_scan_code_use(const tree_t * t) {
         if (!fn && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) fn = t->c[0]->v.sval;
         if (fn && !strcmp(fn, "CODE")) { g_sno_uses_code = 1; return; }
         if (fn && sno_setexit_on() && !strcmp(fn, "SETEXIT")) { g_sno_uses_code = 1; return; }
+        if (fn && !strcmp(fn, "DEFINE")) { int ab = t->v.sval ? 0 : 1; if (t->n <= ab || !t->c[ab] || t->c[ab]->t != TT_QLIT) { g_sno_uses_code = 1; return; } }
     }
     if ((t->t == TT_GOTO_U || t->t == TT_GOTO_S || t->t == TT_GOTO_F) && t->n > 0 && t->c[0]) {
         const tree_t * g0 = t->c[0];
@@ -148,6 +149,7 @@ static IR_t * sx_binop(scx_t * cx, const tree_t * t, int code, IR_t * γ, IR_t *
     ir_operand_push(op, lr); ir_operand_push(op, rr);
     if (res) *res = op; return ea;
 }
+static int sno_def_entry_absent(const tree_t * subj, int argbase);
 static const char * g_sno_predef[SNO_DEF_MAX]; static int g_sno_npredef = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_predef_note(const char * fname) { for (int k = 0; k < g_sno_npredef; k++) if (!strcmp(g_sno_predef[k], fname)) return; if (g_sno_npredef < SNO_DEF_MAX) g_sno_predef[g_sno_npredef++] = fname; }
@@ -441,8 +443,8 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 for (; sp[k] && sp[k] != '(' && sp[k] != ' ' && k < 127; k++) fnb[k] = sp[k];
                 fnb[k] = 0;
             }
-            if (fnb[0] && sno_predef_registered(fnb)) { IR_t * nd = lc_build(cx->g, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = (char *) ""; if (res) *res = nd; return nd; }
-            sno_fatal("DEFINE in this expression position is outside the landed subset (literal-prototype DEFINE in a statement subject only; pattern/replacement-field and fragment DEFINE pending)", NULL);
+            if (fnb[0] && sno_predef_registered(fnb) && !sno_def_entry_absent(t, argbase)) { IR_t * nd = lc_build(cx->g, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = (char *) ""; if (res) *res = nd; return nd; }
+            if (fnb[0] && !sno_def_entry_absent(t, argbase)) sno_fatal("DEFINE in this expression position is outside the landed subset (literal-prototype DEFINE in a statement subject only; pattern/replacement-field and fragment DEFINE pending)", NULL);
         }
         { int lex = 0; long c1 = 0, c2 = 0; int rk = sno_pred_relop(name, &lex, &c1, &c2);
           if (rk >= 0 && t->n - argbase >= 1 && t->n - argbase <= 2) return sx_pred_cmp(cx, t, argbase, lex, rk, c1, c2, γ, ω, res); }
@@ -871,6 +873,20 @@ static const char * sno_qlit_fold(const tree_t * t) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sno_parse_define(const char * spec, const char * entry_opt, sno_def_t * d);
+static int sno_def_entry_absent(const tree_t * subj, int argbase) {
+    const char * entry_opt = NULL; sno_def_t d;
+    if (!subj || subj->n <= argbase || !subj->c[argbase] || !sno_qlit_fold(subj->c[argbase])) return 0;
+    if (subj->n > argbase + 1 && subj->c[argbase + 1]) { const tree_t * ea = subj->c[argbase + 1];
+        if (ea->t == TT_QLIT && ea->v.sval) entry_opt = ea->v.sval;
+        else if (ea->t == TT_NAME && ea->n > 0 && ea->c[0] && ea->c[0]->t == TT_VAR && ea->c[0]->v.sval) entry_opt = ea->c[0]->v.sval;
+        else return 0; }
+    sno_parse_define(sno_qlit_fold(subj->c[argbase]), entry_opt, &d);
+    if (sn4_is_system_fn(d.fname)) return 1;
+    if (!g_sno_uses_code) return 0;
+    { const char * el = (d.entry && d.entry[0]) ? d.entry : d.fname; return (el && el[0] && !bb_label_landing(el)) ? 1 : 0; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * sno_stmt_define(const tree_t * s, int * out_argbase) {
     const tree_t * subj = lc_stmt_subj(s);
     if (subj && subj->t == TT_DEFINE && subj->n > 1 && subj->c[1] && subj->c[1]->t == TT_QLIT && subj->c[1]->v.sval) {
@@ -883,7 +899,7 @@ static const tree_t * sno_stmt_define(const tree_t * s, int * out_argbase) {
     if (!name || strcmp(name, "DEFINE")) return NULL;
     if (sfind(s, ":eq") || sfind_expr(s, ":pat")) sno_fatal("DEFINE with a pattern or replacement field is outside the landed subset", NULL);
     if (subj->n <= argbase || !subj->c[argbase] || !sno_qlit_fold(subj->c[argbase]))
-        sno_fatal("DEFINE with a non-literal prototype string is outside the landed subset (runtime DEFINE pending)", NULL);
+        return NULL;
     if (out_argbase) *out_argbase = argbase;
     return subj;
 }
@@ -2103,7 +2119,16 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                     { IR_t * bind = lc_build(g, IR_DEFINE, sJ, fA); IR_LIT(bind).sval = lp_strdup(d.fname);  lc_γ_to(anchor[i], bind); continue; }
                 }
             }
-            { int _argbase = 0; const tree_t * dsub = sno_stmt_define(s, &_argbase); const tree_t * pnode = (dsub && dsub->n > _argbase) ? dsub->c[_argbase] : NULL;
+            { int _argbase = 0; const tree_t * dsub = sno_stmt_define(s, &_argbase);
+              if (dsub && sno_def_entry_absent(dsub, _argbase)) {
+                  IR_t * sp = lc_build(g, IR_LIT_STRING, NULL, fA); IR_LIT(sp).sval = lp_strdup(sno_qlit_fold(dsub->c[_argbase]));
+                  IR_t * call = lc_build(g, IR_CALL, sJ, fA); IR_LIT(call).sval = (char *) "DEFINE"; ir_operand_push(call, sp);
+                  IR_t * last = sp;
+                  if (dsub->n > _argbase + 1 && dsub->c[_argbase + 1]) { const tree_t * ea = dsub->c[_argbase + 1]; const char * es = NULL;
+                      if (ea->t == TT_QLIT && ea->v.sval) es = ea->v.sval; else if (ea->t == TT_NAME && ea->n > 0 && ea->c[0] && ea->c[0]->t == TT_VAR) es = ea->c[0]->v.sval;
+                      if (es) { IR_t * ep = lc_build(g, IR_LIT_STRING, NULL, fA); IR_LIT(ep).sval = lp_strdup(es); ir_operand_push(call, ep); lc_γ_to(last, ep); last = ep; } }
+                  lc_γ_to(last, call); lc_γ_to(anchor[i], sp); continue; }
+              const tree_t * pnode = (dsub && dsub->n > _argbase) ? dsub->c[_argbase] : NULL;
               if (pnode && sno_qlit_fold(pnode)) { sno_def_t d; sno_parse_define(sno_qlit_fold(pnode), NULL, &d);
                 IR_t * bind = lc_build(g, IR_DEFINE, sJ, fA); IR_LIT(bind).sval = lp_strdup(d.fname); lc_γ_to(anchor[i], bind); continue; } }
             lc_γ_to(anchor[i], sJ); continue;
@@ -2409,6 +2434,7 @@ static void sno_prescan_expr(const tree_t * t, sno_def_t * defs, int * ndefs, co
                 else if (ea->t == TT_NAME && ea->n > 0 && ea->c[0] && ea->c[0]->t == TT_VAR && ea->c[0]->v.sval) entry_opt = ea->c[0]->v.sval;
             }
             sno_def_t d; sno_parse_define(t->c[argbase]->v.sval, entry_opt, &d);
+            if (sn4_is_system_fn(d.fname)) return;
             if (t != g_sno_prescan_top) { g_sno_expr_define_seen = 1; sno_exprdef_note(exprdef_names, n_exprdef, d.fname); }
             sno_predef_note(d.fname);
             int fo = -1;
@@ -2565,7 +2591,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
             const tree_t * pnode = (dfn->n > 1) ? dfn->c[1] : NULL;
             if (!pnode || pnode->t != TT_QLIT || !pnode->v.sval) sno_fatal("TT_DEFINE missing literal prototype string", NULL);
             sno_def_t d; sno_parse_define(pnode->v.sval, NULL, &d);
-            if (sn4_is_system_fn(d.fname)) { fprintf(stderr, "SCRIP: ERROR 248 -- attempted redefinition of system function: %s\n", d.fname); exit(1); }
+            if (sn4_is_system_fn(d.fname)) continue;
             const tree_t * body = (dfn->n > 2) ? dfn->c[2] : NULL;
             int found = -1;
             for (int k = 0; k < ndefs; k++) if (!strcmp(defs[k].fname, d.fname)) { found = k; break; }
@@ -2586,7 +2612,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
             else if (ea->t == TT_NAME && ea->n > 0 && ea->c[0] && ea->c[0]->t == TT_VAR && ea->c[0]->v.sval) entry_opt = ea->c[0]->v.sval;
         }
         sno_def_t d; sno_parse_define(sno_qlit_fold(dsub->c[argbase]), entry_opt, &d);
-        if (sn4_is_system_fn(d.fname)) { fprintf(stderr, "SCRIP: ERROR 248 -- attempted redefinition of system function: %s\n", d.fname); exit(1); }
+        if (sn4_is_system_fn(d.fname)) continue;
         int found = -1;
         for (int k = 0; k < ndefs; k++) if (!strcmp(defs[k].fname, d.fname)) { found = k; break; }
         if (found >= 0) defs[found] = d;

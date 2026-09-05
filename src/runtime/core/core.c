@@ -2855,6 +2855,13 @@ void DEFINE_fn_entry(const char *spec, FNCPTR_t fn, const char *entry_label) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char *core_define_entry_label(const char *name) {
+    if (!name || !*name) return (const char *)0;
+    _func_init();
+    { unsigned h = _func_hash(name); for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0) return e->entry_label ? e->entry_label : e->name; }
+    return (const char *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int core_call_registered_fn(const char *name, DESCR_t *args, int nargs, DESCR_t *out) {
     if (!name || !*name) return 0;
     _func_init();
@@ -2927,6 +2934,15 @@ void register_fn_alias(const char *newname, const char *oldname) {
 }
 DESCR_t (*g_user_call_hook)(const char *name, DESCR_t *args, int nargs) = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int core_apply_runtime_proc(const char *name, DESCR_t *args, int nargs, DESCR_t *out) {
+    extern int rt_proc_is_registered(const char *); extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *, int);
+    if (!rt_proc_is_registered(name)) return 0;
+    for (int k = 0; k < nargs && k < 64; k++) g_call_args[k] = args[k];
+    for (int k = (nargs < 0 ? 0 : nargs); k < 64; k++) g_call_args[k] = (DESCR_t){0};
+    *out = rt_call_proc_descr(name, nargs);
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t APPLY_fn(const char *name, DESCR_t *args, int nargs) {
     _func_init();
     if (!name) return NULVCL;
@@ -2936,10 +2952,12 @@ DESCR_t APPLY_fn(const char *name, DESCR_t *args, int nargs) {
             if (e->fn) {
                 return e->fn(args, nargs);
             }
+            { DESCR_t pr; if (core_apply_runtime_proc(name, args, nargs, &pr)) return pr; }
             if (g_user_call_hook) return g_user_call_hook(name, args, nargs);
             return NULVCL;
         }
     }
+    { DESCR_t pr; if (core_apply_runtime_proc(name, args, nargs, &pr)) return pr; }
     if (g_user_call_hook) {
         DESCR_t r = g_user_call_hook(name, args, nargs);
         if (!IS_FAIL_fn(r)) return r;
@@ -3000,11 +3018,19 @@ static DESCR_t _DEFINE_(DESCR_t *a, int n) {
     if (!proto || !*proto) return FAILDESCR;
     const char *entry = (n >= 2) ? VARVAL_fn(a[1]) : NULL;
     if (entry && !*entry) entry = NULL;
-    { FNCBLK_t *probe = _parse_define_spec(proto); if (sn4_is_system_fn(probe->name)) { extern int kwb_error(int code, const char *msg); kwb_error(248, "attempted redefinition of system function"); return FAILDESCR; } }
+    FNCBLK_t *probe = _parse_define_spec(proto);
+    if (!probe || !probe->name || !probe->name[0]) return FAILDESCR;
+    if (sn4_is_system_fn(probe->name)) { extern int kwb_error(int code, const char *msg); kwb_error(248, "attempted redefinition of system function"); return FAILDESCR; }
     if (entry)
         DEFINE_fn_entry(proto, NULL, entry);
     else
         DEFINE_fn(proto, NULL);
+    { int np = probe->nparams, nl = probe->nlocals, k; extern void *rt_ws_alloc_c(size_t); const char **pn = (const char **)rt_ws_alloc_c((size_t)(np + nl + 1) * sizeof(char *));
+      if (!pn) return FAILDESCR;
+      for (k = 0; k < np; k++) pn[k] = rt_ws_strdup(probe->params[k]);
+      for (k = 0; k < nl; k++) pn[np + k] = rt_ws_strdup(probe->locals[k]);
+      pn[np + nl] = (const char *)0;
+      { extern void rt_sno_runtime_define(const char *, const char **, int, int); rt_sno_runtime_define(rt_ws_strdup(probe->name), pn, np + nl, np); } }
     return NULVCL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

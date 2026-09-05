@@ -576,6 +576,14 @@ void rt_proc_set_nformals(const char *name, int nformals)
     if (p) p->nformals = nformals;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_sno_runtime_define(const char *name, const char **pnames, int nparams, int nformals)
+{
+    rt_proc_register(name, pnames, nparams);
+    { rt_proc_t *p = rt_proc_find(name); if (!p) return;
+      p->fn = (bb_box_fn)0; p->pnames = pnames; p->nparams = nparams; p->nformals = nformals; p->dyn_scope = 1; p->result_name = (const char *)0; p->redefined = 1; p->cells_done = 0; p->is_generator = 0; p->is_variadic = 0; }
+    { extern void *bb_ab_fn_cell_ptr(const char *); char cn[264]; snprintf(cn, sizeof cn, "alpha$%s", name); void **cell = (void **)bb_ab_fn_cell_ptr(cn); if (cell) *cell = (void *)0; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_nformals(const char *name)
 {
     rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
@@ -767,6 +775,8 @@ void   *rt_frame_prep(void *fb, long fbytes);
 void   *rt_proc_open_fn(void);
 DESCR_t rt_proc_enter(void *fn);
 DESCR_t rt_proc_enter_named(void *fn, const char *name);
+DESCR_t rt_proc_enter_frag(void *fn, const char *name);
+int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn);
 DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
 DESCR_t rt_proc_call_epilogue_ω(void);
 DESCR_t rt_proc_call_epilogue_ret(DESCR_t fret);
@@ -879,6 +889,10 @@ static int proc_open_p_on(void);
 DESCR_t rt_call_proc_descr(const char *name, int nargs)
 {
     rt_proc_t *p = rt_proc_find(name);
+    if (p && !p->fn && p->dyn_scope) { extern const char *core_define_entry_label(const char *); extern void *rt_entry_resolve(const char *, int *); int frag = 0; const char *el = core_define_entry_label(name);
+      if (el) { void *fn = rt_entry_resolve(el, &frag); if (!fn) { core_runtime_error(286, "function call to undefined entry label"); return FAILDESCR; }
+        { int wn = rt_g_want_name; rt_g_want_name = 0; (void)rt_proc_call_prologue(p, g_call_args, nargs, wn); }
+        return frag ? rt_proc_enter_frag(fn, name) : rt_proc_enter_named(fn, name); } }
     if (!p || !p->fn) {
         extern void rt_pl_iso_throw_existence_key(const char *);
         fprintf(stderr, "[GZ-10] rt_call_proc_descr: procedure '%s' has no stackless slab\n", name ? name : "(null)");
@@ -1481,6 +1495,53 @@ __asm__(
 "  popq %rdi\n"
 "  jmp rt_proc_call_epilogue_named_γ\n"
 "3:\n"
+"  popq %r15\n"
+"  popq %r14\n"
+"  popq %r13\n"
+"  popq %r12\n"
+"  popq %rbx\n"
+"  popq %rdi\n"
+"  jmp rt_proc_call_epilogue_named_ω\n"
+);
+__asm__(
+".text\n"
+".globl rt_proc_enter_frag\n"
+"rt_proc_enter_frag:\n"
+"  pushq %rsi\n"
+"  pushq %rbx\n"
+"  pushq %r12\n"
+"  pushq %r13\n"
+"  pushq %r14\n"
+"  pushq %r15\n"
+"  subq $8, %rsp\n"
+"  movq %rdi, %rax\n"
+"  leaq 7f(%rip), %rcx\n"
+"  leaq 8f(%rip), %rdx\n"
+"  movq g_rtcc_on@GOTPCREL(%rip), %r10\n"
+"  cmpb $0, (%r10)\n"
+"  je 9f\n"
+"  movq rtccb@GOTPCREL(%rip), %r10\n"
+"  movq 24(%r10), %rsi\n"
+"  movq 32(%r10), %rdi\n"
+"  movq 64(%r10), %r11\n"
+"  movq 40(%r10), %r8\n"
+"  movq 48(%r10), %r9\n"
+"  movq 56(%r10), %r10\n"
+"9:\n"
+"  pushq %rdx\n"
+"  pushq %rcx\n"
+"  jmp *%rax\n"
+"7:\n"
+"  addq $8, %rsp\n"
+"  popq %r15\n"
+"  popq %r14\n"
+"  popq %r13\n"
+"  popq %r12\n"
+"  popq %rbx\n"
+"  popq %rdi\n"
+"  jmp rt_proc_call_epilogue_named_γ\n"
+"8:\n"
+"  addq $8, %rsp\n"
 "  popq %r15\n"
 "  popq %r14\n"
 "  popq %r13\n"

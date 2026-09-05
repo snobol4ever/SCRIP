@@ -355,6 +355,14 @@ void *rt_goto_resolve(const char *name)
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_entry_resolve(const char *name, int *is_frag)
+{
+    if (is_frag) *is_frag = 0;
+    if (!name || !*name) return NULL;
+    { eval_chain_fn fn = rt_label_get_fn(name); if (fn) { if (is_frag) *is_frag = 1; return (void *)fn; } }
+    { extern void *rt_proc_get_fn(const char *); char lname[256]; snprintf(lname, sizeof lname, "LBL__%s", name); return rt_proc_get_fn(lname); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_goto_transfer(const char *name)
 {
     void *fn = rt_goto_resolve(name);

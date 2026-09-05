@@ -21,6 +21,7 @@ const char *rt_define_query(const char *, int *, int *, int *, void **);
 void rt_define_site(const char *, const char *, int, int, int, void *);
 int bb_tiny_shim_ok(const char *, int);
 }
+extern "C" { extern int g_rt_fragment_emit; int xa_flat_class_c_pred(void); }
 #include "x86_asm.h"
 #define AB_TC_REG   "r8"
 #define AB_TC_REG_D "r8d"
@@ -533,12 +534,14 @@ static std::string bb_define_sr() {
     if (role == 1 || role == 2 || role == -1 ) {
         uint64_t _rtn_fp; { void (*_f)(int) = rt_kw_set_rtntype_role; _rtn_fp = (uint64_t)(uintptr_t)(void *)_f; }
         std::string rtn_set = x86("mov", "edi", (long)role) + x86("call", "rt_kw_set_rtntype_role", _rtn_fp);
+        std::string frag_release = (g_rt_fragment_emit && xa_flat_class_c_pred()) ? x86("add", "rsp", (long)_.flat_frame_bytes) : std::string();
         if (fnrbp() == 2)
             return x86("comment", role == 1 ? "IR_DEFINE RETURN floater (s64 RSP-ONLY: pop {gamma,omega} pair at TOS — depth IS the anchor)" :
                                    role == 2 ? "IR_DEFINE FRETURN floater (s64 RSP-ONLY: skip gamma, pop omega — depth IS the anchor)" :
                                                "IR_DEFINE NRETURN floater (s64 RSP-ONLY: pop gamma — by-name result)")
                  + x86_alpha()
                  + rtn_set
+                 + frag_release
                  + (role == 2 ? x86("add", "rsp", (long)8) + x86("pop", "rcx")
                               : x86("pop", "rcx") + x86("add", "rsp", (long)8))
                  + x86("jmp", "rcx");
