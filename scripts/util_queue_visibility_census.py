@@ -11,6 +11,17 @@
 #   C!  task file with NO row in QUEUE.tsv AND none in QUEUE.done.tsv (unreachable work)
 #   E   task file with no ^DONE-WHEN: line (unclosable by construction)
 #   F   PARKED/BLOCKED row with no owner (nobody re-runs its gate)
+#   P   task file whose ^DONE-WHEN: line is still the MINT PLACEHOLDER (unclosable the same way E is, but
+#       harder to see: the line EXISTS, so E cannot catch it, and `done` executes it whole -- prose is not a
+#       command, so a seat can do the whole job correctly and still get a refusal INDISTINGUISHABLE from the
+#       one a genuinely wrong cure produces (hq_P census 2026-09-05, ceo ruling CEO-289).
+# ⛔⭐ CLASS P KEYS ON THE DONE-WHEN LINE, NEVER ON THE FILE, AND THAT IS THE WHOLE POINT OF THE ARM.  The
+# obvious census -- grep -l the placeholder text over tasks/ -- returns 112 where the true figure is 44, a
+# 2.5x OVER-REPORT, because ledger lines, handoff notes and QA answers MENTION the placeholder; hq_P found
+# two such lines they had written themselves an hour earlier recording that they had REMOVED one.  The
+# instrument counted the cure as the disease.  ⭐ It fails in the INFLATING direction, which is the more
+# persuasive one: a scary number invites action rather than scrutiny.  Same family as `command -v` for an
+# oracle -- a well-formed answer to a slightly different question.
 # Exit 0 with all classes empty; exit 1 with findings; exit 2 if the postoffice is unreadable (REFUSE,
 # never a silent green — a census that cannot read its subject has measured nothing).
 import os, sys
@@ -39,7 +50,11 @@ for f in claim_files:
 tasks = set(f[:-8] for f in task_files if f.endswith('.task.md'))
 mode = open(os.path.join(PO, "MODE")).readline().strip()
 n = int(mode.split('-')[1]) if mode.startswith('FLEET-') else 0
-active = set(f"seat{i:02d}" for i in range(1, n + 1)) | {'hq_C', 'hq_P', 'ceo'}
+# ⛔ hq_B and hq_T were MISSING from this set until 2026-09-05 (hq_T) -- a copy-forward from the TRIO era,
+# when only two HQs existed.  Harmless TODAY only because class B filters holders that start with 'seat', so
+# no HQ is ever tested against it; the moment that filter widens, every hq_B/hq_T claim reads as stood-down.
+# A latent wrong answer that is currently unreachable is still a wrong answer, and it costs one line to fix.
+active = set(f"seat{i:02d}" for i in range(1, n + 1)) | {'hq_B', 'hq_C', 'hq_P', 'hq_T', 'ceo'}
 A2 = sorted(t for t, r in rows.items() if r['state'] == 'FREE' and t in claims and claims[t]['done'])
 B  = sorted(t for t, c in claims.items() if not c['done'] and c['holder'].startswith('seat') and c['holder'] not in active)
 # ⭐ A TOMBSTONE IS NOT LOST WORK (hq_C 2026-08-27, from triaging this census's own first C! list).  A baton
@@ -62,13 +77,22 @@ def _tombstone(t):
     return t.startswith('RETIRED') or 'SUPERSEDED' in h or 'RENAMED' in h or 'RESOLVED' in h
 Cx = sorted(tasks - set(rows) - set(done_rows) - {t for t in tasks if _tombstone(t)})
 E  = sorted(t for t in tasks if not _tombstone(t) and 'DONE-WHEN:' not in open(os.path.join(tasks_dir, t + '.task.md')).read())
+PLACEHOLDER = 'MUST BE MADE RUNNABLE'
+def _donewhen_line(t):
+    try:
+        for ln in open(os.path.join(tasks_dir, t + '.task.md'), encoding='utf-8', errors='replace'):
+            if ln.startswith('DONE-WHEN:'): return ln
+    except OSError: pass
+    return ''
+P  = sorted(t for t in tasks if not _tombstone(t) and PLACEHOLDER in _donewhen_line(t))
 F  = sorted(t for t, r in rows.items() if ('PARKED' in r['state'] or r['state'] == 'BLOCKED') and r['owner'] == 'unassigned')
 findings = 0
 for name, lst, note in (("A2 FREE-behind-DONE-claim", A2, "verify each DONE, then release"),
                         ("B  claim held by stood-down seat", B, f"MODE={mode}; corroborate then beta"),
                         ("C! rowless task file", Cx, "mint a row or retire with a note"),
                         ("E  no DONE-WHEN line", E, "unclosable by construction"),
-                        ("F  parked/blocked, no owner", F, "name an owner/cadence")):
+                        ("F  parked/blocked, no owner", F, "name an owner/cadence"),
+                        ("P  DONE-WHEN is still the mint placeholder", P, "write a real criterion and prove it RED once; `done` executes this line whole")):
     if lst:
         findings += len(lst)
         print(f"{name} ({len(lst)}) — {note}:")
