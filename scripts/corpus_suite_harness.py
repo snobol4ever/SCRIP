@@ -251,9 +251,22 @@ def resolve_oracle_bin(paths, lang=""):
 
     lang="" or "snobol4" (the original, only path until 2026-08-29): sbl_correctness_bin +
     sbl_lang_flags, i.e. SPITBOL `-bf`. lang="prolog": swipl_bin() from the same lib, invoked
-    `-q -g halt` -- the exact flags every other swipl call in this repo already uses
-    (bench_prolog_vanroy.sh, test_bench_prolog_4way.sh, bench_prolog_perf.sh), not a new
-    invention. No other --lang has an oracle wired here yet; refuses rather than guessing one."""
+    `-q` alone. No other --lang has an oracle wired here yet; refuses rather than guessing one.
+
+    ⛔ WAS `-q -g halt` until 2026-09-05 (row prolog-every-non-package-source-...-with-oracle-refs,
+    seat07) -- `-g halt` runs as a -g GOAL, which fires BEFORE swipl's deferred `initialization(Goal,
+    main)` hook (that hook runs at the point the interactive top level would otherwise start, which
+    `-g halt` preempts by exiting first). Every file using the `:- initialization(main, main).` idiom
+    -- the modern, recommended SWI entry-point form, and the one every corpus/tests/scrip_test/prolog/
+    demo file uses -- therefore ran, printed nothing, and got excluded as "oracle produced EMPTY
+    output" or (worse, via the loose-pair path, which has no empty-output guard) silently merged a
+    vacuous ref. Witness: corpus/tests/scrip_test/prolog/hello.pl prints "Hello, World!" under `swipl
+    -q hello.pl` and nothing under `swipl -q -g halt hello.pl`. Bare `-q` is the documented way to run
+    a swipl script non-interactively: a registered main-goal fires and auto-halts with Goal's own
+    success/fail exit code (the OLD flags always forced exit 0, masking a failing main-goal); a file
+    with no entry point at all falls through to the toplevel, hits EOF on `/dev/null` stdin, and exits
+    0 with at most a trailing newline -- already stripped by this function's own `.rstrip("\n")`,
+    verified empirically against a no-directive witness before this change landed."""
     lib = paths["scrip_root"] / "scripts" / "lib_oracle_flags.sh"
     if not lib.is_file():
         refuse(f"lib_oracle_flags.sh missing at {lib} -- the ONE oracle-flag authority (RULES.md)")
@@ -273,7 +286,7 @@ def resolve_oracle_bin(paths, lang=""):
         bin_path = r.stdout.strip()
         if not bin_path:
             refuse(f"unexpected empty output from swipl_bin: {r.stdout!r}")
-        return bin_path, "-q -g halt"
+        return bin_path, "-q"
     if lang == "icon":
         # ⭐ THE ONE-STEP DRIVER, NOT icont/iconx (hq_P 2026-08-30). run_oracle()'s contract is a SINGLE
         # invocation -- `[bin] + flags + [name]` in the file's own directory -- and Icon is classically a
