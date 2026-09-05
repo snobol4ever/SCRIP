@@ -62,7 +62,7 @@ int pl_dyn_is_marked(const char *name, int arity) {
     for (int i = 0; i < g_stage2.pl_dyn_n; i++) if (g_stage2.pl_dyn_name[i] && !strcmp(g_stage2.pl_dyn_name[i], name) && g_stage2.pl_dyn_arity[i] == arity) return 1;
     return 0;
 }
-typedef struct { IR_graph_t * g; IR_t * tω; IR_t * cutω; } lcx_t;
+typedef struct { IR_graph_t * g; IR_t * tω; IR_t * cutω; IR_t * clause_cutω; } lcx_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * build(lcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) { return lc_build(cx->g, op, γ, ω); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -418,7 +418,9 @@ static IR_t * pl_lower_ite(lcx_t * cx, const tree_t * C, const tree_t * T, const
       IR_t * ce = NULL;
       lc_γ_to(unmk_f, (nb > 1) ? arm_entry[1] : ig);
       IR_t * saveω = cx->cutω; cx->cutω = unmk_f;
+      IR_t * savecutω = cx->cutω; cx->cutω = unmk_f;
       IR_t * cfirst = pl_lower_conj(cx, (const tree_t * const *) cv.data, cv.n, arm_entry[0], unmk_f, &ce, NULL, NULL);
+      cx->cutω = savecutω;
       cx->cutω = saveω;
       lc_γ_to(mark, ce ? ce : (cfirst ? cfirst : arm_entry[0]));
       if (entry_out) *entry_out = mark; }
@@ -839,12 +841,12 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         if (!strcmp(nm, "true")) return build(cx, IR_SUCCEED, γnext, ωfail);
         if (!strcmp(nm, "fail") || !strcmp(nm, "false")) return build(cx, IR_GOTO, ωfail, ωfail);
         if (!strcmp(nm, "nl")) return pl_leaf(cx, "$nl", t, 0, γnext, ωfail, entry_out);
-        if (!strcmp(nm, "!")) return build(cx, IR_CUT, γnext, cx->cutω);
+        if (!strcmp(nm, "!")) { IR_t * cn = build(cx, IR_CUT, γnext, cx->cutω); if (cx->cutω != cx->clause_cutω) IR_LIT(cn).ival = 1; return cn; }
         { const char * ls = pl_det_leaf_sym(nm, 0); if (ls) return pl_leaf_lv(cx, ls, t, 0, γnext, ωfail, entry_out); }
         { int r = pl_rung_of(nm); if (r) pl_refuse(r == 6 ? "builtin arity not wired" : "builtin", nm, r); }
         return pl_user_call(cx, nm, t, 0, γnext, ωfail, entry_out);
     }
-    case TT_CUT: return build(cx, IR_CUT, γnext, cx->cutω);
+    case TT_CUT: { IR_t * cn = build(cx, IR_CUT, γnext, cx->cutω); if (cx->cutω != cx->clause_cutω) IR_LIT(cn).ival = 1; return cn; }
     case TT_UNIFY: { IR_t * e = NULL; IR_t * nd = unify_pair(cx, t->c[0], t->c[1], γnext, ωfail, &e); if (entry_out) *entry_out = e ? e : nd; return nd; }
     case TT_IF: return pl_lower_ite(cx, t->c[0], (t->n > 1) ? t->c[1] : NULL, (t->n > 2) ? t->c[2] : NULL, γnext, ωfail, entry_out);
     case TT_PROGRAM: return pl_lower_conj(cx, (const tree_t * const *) t->c, t->n, γnext, ωfail, entry_out, NULL, NULL);
@@ -888,11 +890,11 @@ static void pl_alt_alloc(IR_graph_t * g, int nc) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_graph_t * pl_body_graph(const tree_t * const * gl, int ng) {
     IR_graph_t * g = IR_alloc(4096);
-    lcx_t cx; cx.g = g; cx.tω = NULL; cx.cutω = NULL;
+    lcx_t cx; cx.g = g; cx.tω = NULL; cx.cutω = NULL; cx.clause_cutω = NULL;
     IR_t * succeed = build(&cx, IR_SUCCEED, NULL, NULL);
     IR_t * fail    = build(&cx, IR_FAIL, NULL, NULL);
     IR_t * step    = build(&cx, IR_FAIL, NULL, NULL);
-    cx.cutω = fail;
+    cx.cutω = fail; cx.clause_cutω = fail;
     IR_t * entry = NULL; IR_t * redo = NULL; IR_t * tnode = NULL;
     IR_t * first = pl_lower_conj(&cx, gl, ng, succeed, step, &entry, &redo, &tnode);
     if (tnode && tnode->op == IR_CALL_PROC_STAGED) tnode->seal = PL_SEAL_TAIL;
@@ -909,9 +911,9 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
     int nc = (ch->t == TT_CHOICE) ? ch->n : 1;
     if (nc < 1) nc = 1;
     IR_graph_t * g = IR_alloc(1024 + 1024 * nc);
-    lcx_t cx; cx.g = g; cx.tω = NULL; cx.cutω = NULL;
+    lcx_t cx; cx.g = g; cx.tω = NULL; cx.cutω = NULL; cx.clause_cutω = NULL;
     IR_t * step = build(&cx, IR_FAIL, NULL, NULL);
-    cx.cutω = build(&cx, IR_FAIL, NULL, NULL);
+    cx.cutω = build(&cx, IR_FAIL, NULL, NULL); cx.clause_cutω = cx.cutω;
     pl_alt_alloc(g, nc);
     g->alt_fail = step;
     int arity = -1; int maxlocal = -1;
