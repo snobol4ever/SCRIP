@@ -94,6 +94,7 @@ if [ -z "$ME" ]; then case "$S4E" in
     /home/claude_P)         ME=hq_P;;
     /home/claude_B)         ME=hq_B;;
     /home/claude_T)         ME=hq_T;;
+    /home/claude_U)         ME=hq_U;;
     /home/claude[0-9][0-9]) ME="seat${S4E#/home/claude}";;
     /home/claude[1-9])      ME="seat0${S4E#/home/claude}";;
     *)                      ME="$(basename "$S4E")";; esac; fi
@@ -438,10 +439,10 @@ s4e_sweep_orphans() { for _o in "$PO"/.msg.*; do [ -f "$_o" ] || continue
 # that INVENTS a dead seat is worse than one that reports nothing: the ceo acts on it. The forward map gained
 # hq_T when the fourth HQ opened; this one did not, because nothing checks that two hand-written tables of the
 # same fact still agree -- the same class as the per-root digests drifting from RULES.md.
-s4e_root() { case "$1" in ceo|hq) echo /home/claude;; hq_C) echo /home/claude_C;; hq_P) echo /home/claude_P;; hq_B) echo /home/claude_B;; hq_T) echo /home/claude_T;;
+s4e_root() { case "$1" in ceo|hq) echo /home/claude;; hq_C) echo /home/claude_C;; hq_P) echo /home/claude_P;; hq_B) echo /home/claude_B;; hq_T) echo /home/claude_T;; hq_U) echo /home/claude_U;;
     seat0[1-9]|seat1[0-6]) echo "/home/claude${1#seat}";; *) echo "";; esac; }
-s4e_hqboxes() { for _h in hq hq_C hq_P hq_B ceo; do [ -d "$PO/$_h/inbox" ] && echo "$_h"; done; }
-s4e_is_hq() { case "$1" in hq|hq_C|hq_P|hq_B|hq_T|ceo) return 0;; *) return 1;; esac; }
+s4e_hqboxes() { for _h in hq hq_C hq_P hq_B hq_T hq_U ceo; do [ -d "$PO/$_h/inbox" ] && echo "$_h"; done; }
+s4e_is_hq() { case "$1" in hq|hq_C|hq_P|hq_B|hq_T|hq_U|ceo) return 0;; *) return 1;; esac; }
 # ⭐⭐ THE LANE — topic->HQ and identity->HQ, so `next` can restrict dispatch without inventing a second
 # copy of MASTER-PLAN's THE LANES table (row next-serves-a-seat-only-rows-in-its-hqs-lane-and-no-row-
 # carries-a-blank-owner-cell). Topic lane: the owner cell (QUEUE.tsv field 3) wins when it already names
@@ -1553,7 +1554,7 @@ case "$cmd" in
          if [ -z "$owner" ]; then
            printf '⛔ REFUSED: cannot derive an owner lane for "%s" -- its name matches no language THE LANES table maps\n' "$topic" >&2
            printf '   (prolog- icon- snobol4- snocone- pascal- raku- rebus-*). Supply one: mint %s %s --owner hq_X "GOAL"\n' "$topic" "$rank" >&2
-           printf '   (hq_C correctness/Prolog · hq_B beautify/Icon+public face+postoffice tooling · hq_P speed/SNOBOL4+Snocone+Pascal+benchmarks · hq_T test suites/Raku+Rebus+the standard)\n' >&2
+           printf '   (hq_C correctness/Prolog · hq_B beautify/Icon+public face+postoffice tooling · hq_P speed/SNOBOL4+Snocone+Pascal+benchmarks · hq_T test suites/Raku+Rebus+the standard · hq_U unify/shared engine+cross-language regressions)\n' >&2
            exit 2; fi
          q="$PO/QUEUE.tsv"; d="$PO/QUEUE.done.tsv"; b="$PO/tasks/$topic.task.md"; mkdir -p "$PO/tasks"
          s4e_mint_dup() { grep -qP "^[0-9]+\t\Q$topic\E\t" "$q" 2>/dev/null && return 0
