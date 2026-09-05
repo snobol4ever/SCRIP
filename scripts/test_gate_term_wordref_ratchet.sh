@@ -38,7 +38,7 @@
 #   490 (bcb0ec1e, the row's mint)  ->  136 (c6190d9e, first pin)  ->  94 (d85035e5, landed pin).
 # T9 milestone 7 (8412a1ca) and its follow-up regression fix (be11af20) landed DURING the session that
 # wrote this gate.  Neither seat erred; a pin keyed on a tree that other seats are actively lowering is
-# stale on arrival BY CONSTRUCTION, exactly as test_gate_optbypass_watermark.sh records for its own pins.
+# stale on arrival BY CONSTRUCTION -- see A CRITERION NEVER PINS A POPULATION COUNT in .github/GOAL-TEST-SUITE-CONSISTENCY.md.
 # ⛔ So do not read a stale pin here as a discipline failure, and NEVER 'fix' a TIGHTEN by pinning higher
 # than measured — re-measure with the ONE_LINER and lower it.  Slack is the only failure mode that matters
 # in a ratchet: a pin above the tree is a gate that is green while the migration walks backwards.

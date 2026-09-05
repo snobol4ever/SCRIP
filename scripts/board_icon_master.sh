@@ -19,7 +19,7 @@
 # THIS BOARD'S OWN "WATERMARK MOVED UP" ARM SAID SO on the first re-run against a moved tree, which is
 # the arm earning its keep on day one. Icon is nowhere near green on the whole set, so a
 # FAIL=0 bar here would be a gate nobody can satisfy — and hq_P's standing ruling on exactly that
-# shape (test_gate_optbypass_watermark.sh) is that such a gate gets `|| true`-d within a week, and an
+# shape (the RETIRED optbypass watermark gate; lesson kept in .github/GOAL-TEST-SUITE-CONSISTENCY.md
 # ignored gate is worse than no gate. So the verdict is a RATCHET: red only if the graded population
 # SHRINKS or the pass counts REGRESS below the pinned watermark. Curing Icon is not this board's job;
 # noticing that it moved is.

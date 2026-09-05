@@ -18,18 +18,17 @@
 # second code path. Default stays ".sno" so all 21 existing SNOBOL4 callers are byte-identical;
 # icon callers set MASTER_EXT=.icn (and MASTER_DIR=$S4E/corpus/tests/icon) before sourcing/calling.
 # ⛔⛔⭐ INTERIM PROMOTION PROTOCOL -- READ THIS BEFORE YOU PROMOTE OR RETIRE AN XFAIL MARKER
-# (ceo ruling 2026-09-01, routed here by hq_C; INTERIM until row `optbypass-pin-stable-subset` lands.)
+# (ceo ruling 2026-09-01, routed here by hq_C; the row it was INTERIM until, `optbypass-pin-stable-subset`, is RETIRED.)
 #
 # A marker lives in THREE places and a promotion that touches fewer than all three TEARS THE SUITE FOR
 # EVERY SEAT ON THE BOX: (1) the banner in ALL.sno, (2) the SAME banner in ALL.ref, (3) the reason line
 # in ALL.xfail. read_suite compares the .sno and .ref banners and RAISES on a mismatch, so a half-applied
 # promotion does not degrade -- it makes the master suite UNREADABLE. Measured 2026-09-01: corpus
 # 2d75933ec dropped ' XFAIL' from ALL.sno and ALL.xfail but not ALL.ref, and every SNOBOL4 board, census
-# and optbypass count on the box refused for ~40 minutes until 5eb68cb8 restored the pair.
+# and census on the box refused for ~40 minutes until 5eb68cb8 restored the pair.
 #
 #   THE RULE: a marker promotion is proven by running read_suite (or the board) ON THE RESULT, in the
-#   SAME COMMIT -- never by the extract alone. A promotion that moves the graded population re-pins the
-#   optbypass watermark in the same commit, or it is not pushed.
+#   SAME COMMIT -- never by the extract alone.
 #
 # ⭐ THE CHECK COSTS 0.046 s, SO THERE IS NO BUDGET EXCUSE FOR SKIPPING IT (hq_C, measured; the 400-650 s
 # board is what people were actually skipping). `list` runs the same read_suite the board does:
@@ -45,27 +44,14 @@
 # ⛔ Read the rc, not the tail: a wrong PATH to the harness also exits nonzero and looks identical at a
 # glance ("can't open file ..."). That mistake was made while proving this very line.
 #
-# ⛔⛔⭐ AND THE CHECK ABOVE IS NOT SUFFICIENT: read_suite AND THE BOARD BOTH GRADE THE DEFAULT ARM ONLY.
-# (hq_P found this 2026-09-01, hours after the protocol landed; verified independently by hq_C before adoption.)
-# An entry that PASSES by default and FAILS under a bypass arm can be promoted with a PERFECT default-arm
-# proof, silently push the optbypass watermark up, and turn the gate RED on the NEXT seat's push for a reason
-# that has nothing to do with their change. BOTH of the 2026-09-01 promotions did exactly that, in different
-# arms. So the same-commit proof needs a second line, and it costs seconds:
-#
-#     python3 "$S4E_HOME/SCRIP/scripts/util_census_optimizer_bypass.py" --only <entry-name>
-#
-# MEASURED on the two entries promoted that day (hq_C, independently reproducing hq_P):
-#   user_function_indirect_replace_2        default PASS · SCRIP_OPT PASS   · SCRIP_ZD non-PASS
-#   user_function_eval_arbno_replace_branch_2  default PASS · SCRIP_OPT CRASH rc=-6 · SCRIP_ZD non-PASS
-# If any bypass arm is non-PASS, SAY SO IN THE COMMIT NOTE and expect the watermark to move -- the promotion
-# is still correct, but the next seat must not have to attribute your entry's crash to their own change.
-#
-# ⚠️ DO NOT CLASSIFY A BYPASS ARM BY ITS VERDICT KIND -- IT IS BIMODAL. The SCRIP_ZD arm of
-# user_function_eval_arbno_replace_branch_2 read HANG, CRASH, CRASH on three consecutive runs here (and
-# hq_P read CRASH where hq_C first read HANG -- neither was wrong). non-PASS is stable; WHICH non-PASS is not.
-# ⛔ Corollary, hq_P's own retraction and the reason I10 is rank 0: a CARRIED MAX watermark is an upper bound
-# only under SHRINKAGE. Every entry promoted INTO the graded set brings its own bypass-arm verdict with it, so
-# under GROWTH -- the direction this corpus actually moves -- a carried max is not conservative, it is wrong.
+# ✅⛔ THE BYPASS-ARM SECOND CHECK IS RETIRED (hq_T 2026-09-05, ruling R4 lane). It required every promotion to also run
+# util_census_optimizer_bypass.py --only <entry> so a promoted entry could not silently push the optbypass watermark up.
+# BOTH the tool and test_gate_optbypass_watermark.sh are DELETED: their subject, SCRIP_OPT=0 / SCRIP_ZD=0, was removed by
+# Lon's ruling on 2026-09-03 (SCRIP ce199b05e, "the emergency optimizer bypass is gone, not merely retired"), so the arms
+# measured the default arm under a different name. A promotion owes the read_suite/board proof above and NOTHING ELSE.
+# ⭐ THE ONE LESSON WORTH CARRYING OUT OF IT, now in .github/GOAL-TEST-SUITE-CONSISTENCY.md: a CARRIED MAX watermark is an
+# upper bound only under SHRINKAGE. Every entry promoted INTO a graded set brings its own verdict with it, so under GROWTH
+# -- the direction this corpus actually moves -- a carried max is not conservative, it is wrong.
 _ME_HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _ME_S4E="${S4E_HOME:-$(cd "$_ME_HERE/../.." && pwd)}"
 MASTER_DIR="${MASTER_DIR:-$_ME_S4E/corpus/tests/snobol4}"

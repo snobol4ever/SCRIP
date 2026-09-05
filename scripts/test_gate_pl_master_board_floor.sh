@@ -3,7 +3,8 @@
 # board >= its pre-cure count in both modes"). Runs the master in 16 shards and sums them.
 #
 # ⛔ A FLOOR, NOT A TARGET: it fails when the board drops BELOW the pin, never for being above it. Raise the
-# pin in the landing commit that earns it, exactly like the optbypass watermark, and say what moved it.
+# pin in the landing commit that earns it, and say what moved it (never a PINNED POPULATION -- see A CRITERION NEVER PINS
+# A POPULATION COUNT in .github/GOAL-TEST-SUITE-CONSISTENCY.md, the anti-pattern that retired the optbypass watermark).
 # ⛔ PER MODE, NEVER SUMMED (the ceo's standing rule for this board): m3 and m4 are graded independently and
 # a rise in one may not pay for a fall in the other.
 # ⭐ SHARDED BECAUSE THE MASTER EXCEEDS THE SINGLE-CALL CAP (row corpus-runner-master-suite-exceeds-single-call-cap,
