@@ -147,6 +147,9 @@ if repin:
         f.write("# ⛔ A PASS HERE IS A PROMISE: this file going backwards is the gate's whole verdict. Re-pin ONLY in the\n")
         f.write("#    commit that earned the change, and let the DIFF of this file be the receipt -- it names every entry\n")
         f.write("#    that moved, which is the thing a floor could never tell you.\n")
+        f.write("# \u26d4 A FAIL PINNED HERE IS A DEFECT WITH A ROW, NEVER AN XFAIL (RULES.md: THERE IS NO XFAIL). It is\n")
+        f.write("#    recorded only so this gate can sit in `make test` without reddening the fleet on an inherited red --\n")
+        f.write("#    the moment it is cured, re-pin IN THE SAME COMMIT and let this file's diff be the receipt.\n")
         for (origin, mode) in sorted(measured):
             out, prog = measured[(origin, mode)]
             f.write("%s\t%s\t%s\t%s\n" % (origin, mode, out, prog))

@@ -875,8 +875,12 @@ static int icn_gen_host_slice(const char * cn, int * out_bytes, const char ** vi
     int fb = -1;
     if (!emit_patzeta_frame_reserve(cn, &fb) || fb <= 0) return 0;
     for (int i = 0; i < nvisited; i++) if (visited[i] == cn || !strcmp(visited[i], cn)) {
-        if (icn_genframe2_selfrec() && i == nvisited - 1) { *out_bytes = (N2_SELFREC_SLOTS - 1) * (((fb + 15) & ~15) + 48); return 1; }
-        return 0;
+        if (!icn_genframe2_selfrec()) return 0;
+        long cyc = 0;
+        for (int k = i; k < nvisited; k++) { int kfb = -1; if (!emit_patzeta_frame_reserve(visited[k], &kfb) || kfb <= 0) return 0; cyc += (long)(((kfb + 15) & ~15) + 48); }
+        if (cyc <= 0) return 0;
+        *out_bytes = (int)((long)(N2_SELFREC_SLOTS - 1) * cyc);
+        return 1;
     }
     int sub = 0;
     IR_graph_t * cg = n2_graph_by_proc_name(cn);
