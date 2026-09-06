@@ -1329,7 +1329,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
           { int bb_idx = lower_pl_pred_graph(key, ch); if (bb_idx < 0) continue;
             pl_bb_register(key, 2, bb_idx); pl_new_proc(key, 2, bb_idx); } } } }
     { extern tree_t * pl_runtime_clause_tree(tree_t *);
-      static const pl_det_leaf_t pl_meta_early[] = { { "write", 1, "$write" }, { "nl", 0, "$nl" }, { "true", 0, "$true" }, { "fail", 0, "$fail" }, { "false", 0, "$fail" }, { "throw", 1, "$throw" }, { "=", 2, "$unify" }, { 0, 0, 0 } };
+      static const pl_det_leaf_t pl_meta_early[] = { { "write", 1, "$write" }, { "nl", 0, "$nl" }, { "true", 0, "$true" }, { "fail", 0, "$fail" }, { "false", 0, "$fail" }, { "throw", 1, "$throw" }, { "=", 2, "$unify" }, { "is", 2, "$is_v" }, { ">", 2, "$cmp_gt" }, { 0, 0, 0 } };
       for (int tbl = 0; tbl < 2; tbl++)
       for (int li = 0; (tbl ? pl_meta_early[li].nm : pl_det_leaves[li].nm); li++) {
         const char * bn = tbl ? pl_meta_early[li].nm : pl_det_leaves[li].nm;
