@@ -423,7 +423,7 @@ def stdbuf_wrap(paths, argv):
     return argv
 
 
-def run_m3(paths, sno_path, expected_text, timeout=None, stdin_text=None, want_rc=0):
+def run_m3(paths, sno_path, expected_text, timeout=None, stdin_text=None, want_rc=0, prog_argv=None):
     timeout = timeout or paths["timeout"]
     # ⛔⭐ ARGV IS THE BARE NAME, NOT THE FULL PATH (row suite-harness-argv-echoes-a-mktemp-path-so-
     # diagnostic-programs-cannot-be-graded) -- a diagnostic that echoes its own argv (e.g. a SPITBOL
@@ -431,6 +431,15 @@ def run_m3(paths, sno_path, expected_text, timeout=None, stdin_text=None, want_r
     # directory, which no frozen .ref can ever match. cwd (set below) is what makes the bare name
     # still resolve to the right file.
     argv = stdbuf_wrap(paths, [str(paths["scrip_bin"]), "--run", Path(sno_path).name])
+    # ⛔⭐ THE `--` SEPARATOR IS MANDATORY AND IS WHAT MAKES THIS SAFE. The driver has NO unknown-flag
+    # diagnostic: any unrecognised argument falls through to being treated as a FILENAME, so a declared
+    # program argument spelled like a flag (`-n10`, the exact shape the first witness used) would be
+    # eaten by the driver as a second source file rather than reaching the program. Everything after
+    # `--` is the program's own argv -- verified live: `scrip p.icn -- -n10 foo` -> argc=2, both args in
+    # order. Empty/None prog_argv appends NOTHING, not a bare `--`, so every existing caller's argv is
+    # byte-identical to what it was before this parameter existed.
+    if prog_argv:
+        argv = argv + ["--"] + [str(a) for a in prog_argv]
     env = dict(os.environ, SNO_LIB=str(paths["inc"]))
     # ⛔⭐ cwd IS THE SOURCE FILE'S OWN DIRECTORY, NOT THE HARNESS'S. A corpus program's relative
     # opens (Icon `open("X")`, and any read of a data companion) resolve against the RUNNING file's
@@ -483,7 +492,7 @@ def compile_m4(paths, sno_path, out_bin, tmp_dir):
     return None
 
 
-def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=None, want_rc=0):
+def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=None, want_rc=0, prog_argv=None):
     timeout = timeout or paths["timeout"]
     if not (paths["rt_dir"] / "libscrip_rt.so").is_file():
         return Verdict("SKIP", detail="libscrip_rt.so not built")
@@ -491,13 +500,22 @@ def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=Non
     skip = compile_m4(paths, sno_path, out_bin, tmp_dir)
     if skip is not None:
         return skip
-    argv = stdbuf_wrap(paths, [str(out_bin)])
+    # ⭐ NO `--` HERE, AND THE ASYMMETRY WITH run_m3 IS THE POINT: a mode-4 binary IS the program, so
+    # its argv is the program's argv directly -- there is no driver in front of it to shield. Same
+    # declared list, two spellings, one observable result (verified: identical argc/args in m3 and m4).
+    argv = stdbuf_wrap(paths, [str(out_bin)]) + [str(a) for a in (prog_argv or [])]
     env = dict(os.environ, SNO_LIB=str(paths["inc"]))
     # Same rule as run_m3 above: the compiled binary's relative opens must resolve against the
     # SOURCE's directory, not the harness's cwd. out_bin is an absolute path, so moving cwd is safe.
     return classify(argv, timeout, expected_text, cwd=str(Path(sno_path).parent), env=env, stdin_text=stdin_text, want_rc=want_rc)
 
 
+# ⛔⭐ run_ast TAKES NO prog_argv AND MUST NOT -- NOT AN OVERSIGHT. `--dump-ast` never executes the
+# program, so declared arguments cannot change its output; accepting them would let an ast-mode family
+# declare an argv that silently grades nothing, which is the "criterion that lies" shape. A language
+# whose LANG_CONFIGS modes are "ast" (raku, rebus, prolog, snocone today) therefore cannot USE the argv
+# sidecar even though it may legally carry one -- read_argv_sidecar refuses that combination wherever the
+# modes are known (cmd_run passes them) rather than accepting a declaration it would then ignore.
 def run_ast(paths, src_path, expected_text, timeout=None, want_rc=0):
     """Grading mode for parser-ladder families: `scrip --dump-ast`, diffed as text -- same
     classify() used by run_m3/run_m4, just a different argv. No compile/link step, so it is fast
@@ -621,7 +639,7 @@ def banner_re_for(comment_open, comment_close):
 # ============================================================= conversion ===
 class Entry:
     def __init__(self, kind, seq, name, sno_lines, ref_text_or_lines, stdin=None, xfail=False,
-                 xfail_reason=None, want_rc=0):
+                 xfail_reason=None, want_rc=0, argv=None):
         self.kind = kind          # "line" or "block"
         self.seq = seq
         self.name = name
@@ -634,6 +652,10 @@ class Entry:
                                    # cmd_run buckets these as XFAIL/XPASS instead of FAIL, so a
                                    # pre-existing, documented-red witness doesn't poison a caller's
                                    # FAIL=0 gate. See corpus-suites-consolidation.task.md amendment log.
+        self.argv = argv          # list[str] passed to the entry as its program arguments, or None = none at
+                                   # all (identical to pre-sidecar behaviour). DECLARED in <family>.argv,
+                                   # never inferred -- an entry's own text cannot say what it should be RUN
+                                   # with. See sidecar_argv_path() for why discovery beats a flag.
         self.want_rc = want_rc    # int: the exit code a CORRECT run of this entry produces. 0 unless the
                                    # family declares otherwise in <family>.wantrc. DECLARED, never inferred.
         self.xfail_reason = xfail_reason  # str: WHY this entry is expected red, or None. Carried in the
@@ -749,13 +771,13 @@ def convert_one(paths, sno_path, ref_path, seq, tmp_root, modes, companion_dir=N
     return None, {"ok": False, "reason": f"NEITHER form reproduced the original's behavior: orig={orig_verdicts}"}
 
 
-def run_all_modes(paths, sno_path, expected_text, tmp_root, modes, stdin_text=None, want_rc=0):
+def run_all_modes(paths, sno_path, expected_text, tmp_root, modes, stdin_text=None, want_rc=0, prog_argv=None):
     out = {}
     if "m3" in modes:
-        out["m3"] = run_m3(paths, sno_path, expected_text, stdin_text=stdin_text, want_rc=want_rc)
+        out["m3"] = run_m3(paths, sno_path, expected_text, stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv)
     if "m4" in modes:
         with tempfile.TemporaryDirectory(dir=tmp_root) as td:
-            out["m4"] = run_m4(paths, sno_path, expected_text, Path(td), stdin_text=stdin_text, want_rc=want_rc)
+            out["m4"] = run_m4(paths, sno_path, expected_text, Path(td), stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv)
     if "ast" in modes:
         # ⛔ stdin is deliberately NOT threaded into run_ast: --dump-ast parses and never executes,
         # so an entry's stdin cannot reach it. Passing it would imply a dependence that does not exist.
@@ -1056,6 +1078,65 @@ def read_wantrc_sidecar(w_path, entries):
         raise ValueError(f"{w_path}: declarations with no matching entry: {unknown}")
 
 
+def sidecar_argv_path(src_path):
+    """The program-arguments sidecar for a suite is ALWAYS <family>.argv beside <family>.sno/.ref --
+    discovered, never passed as a flag, identical to sidecar_in_path()/sidecar_wantrc_path(). Absent ->
+    None -> every entry runs with NO arguments, byte-identical to the behaviour before this sidecar
+    existed. ⭐ Discovery rather than a flag is the same argument sidecar_wantrc_path() makes and it is
+    the load-bearing one here: boards, gates and runners pick the declaration up with ZERO changes to
+    their own argv, so a witness whose behaviour depends on its arguments cannot silently be graded
+    along its no-arguments path by a caller nobody remembered to update. ⛔⭐ THAT SILENT PATH IS THE
+    DEFECT THIS CLOSES, and it does not announce itself: an Icon witness written `n := integer(args[1])
+    | 6` runs GREEN today on the `| 6` default, so the suite reports a pass for a program whose
+    argument handling was never executed at all -- a green that documents nothing (row
+    icon-suite-format-has-no-argv-sidecar-so-argv-taking-witnesses-are-ungradable, census 2026-09-06:
+    51 such entries over 445 suites / 7317 entries)."""
+    cand = Path(src_path).with_suffix(".argv")
+    return str(cand) if cand.is_file() else None
+
+
+def read_argv_sidecar(a_path, entries, modes=None):
+    """Attach declared program arguments to entries BY NAME. Format is one `name<TAB>arg<TAB>arg...`
+    per line; blank lines and `#` comments ignored. ⭐ TAB-SEPARATED, WITH NO QUOTING LANGUAGE AT ALL:
+    an argument may contain spaces, quotes or backslashes and arrives at the program byte-for-byte, so
+    there is no shell-word-splitting layer for a declaration to be misread through -- the same reason
+    read_wantrc_sidecar parses `name<TAB>rc` rather than a free-form line.
+    ⛔ REFUSES on a declaration naming no entry -- the shape a rename or a half-finished conversion
+    produces, and the same refusal read_wantrc_sidecar/read_xfail_sidecar make for the same cause: a
+    declaration matching nothing is either a typo or a stale leftover, and both silently withdraw the
+    very guarantee the file was written to add.
+    ⛔ REFUSES on a name declared with NO arguments: no arguments is already the default, so an empty
+    declaration is either a misunderstanding of the format or a no-op a later reader will take for
+    something meaningful -- exactly the refusal read_wantrc_sidecar makes for an explicit rc=0.
+    ⛔ REFUSES when the family is graded in ast mode ONLY: `--dump-ast` never runs the program, so the
+    arguments could not possibly reach it, and a declaration that cannot be executed is a criterion
+    that lies. modes is None for callers that do not know them (pin-ref, convert), and those attach
+    without the check rather than guessing."""
+    if not a_path or not os.path.isfile(a_path):
+        return
+    if modes is not None and not ({"m3", "m4"} & set(modes)):
+        raise ValueError(f"{a_path}: this family is graded in {sorted(modes)} only, and --dump-ast never "
+                         f"RUNS the program -- declared arguments could not reach it. Either grade the "
+                         f"family in m3/m4 or delete the sidecar; do not keep a declaration nothing executes")
+    by_name = {e.name: e for e in entries}
+    unknown = []
+    for raw in open(a_path, encoding="utf-8"):
+        line = raw.rstrip("\n")
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        parts = line.split("\t")
+        name, args = parts[0].strip(), parts[1:]
+        if not args or all(a == "" for a in args):
+            raise ValueError(f"{a_path}: {name!r} declares no arguments, which is already the default -- "
+                             f"remove the line rather than restating it")
+        if name not in by_name:
+            unknown.append(name)
+            continue
+        by_name[name].argv = args
+    if unknown:
+        raise ValueError(f"{a_path}: declarations with no matching entry: {unknown}")
+
+
 def sidecar_xfail_path(src_path):
     """The reason sidecar for a suite is ALWAYS <family>.xfail beside <family>.sno/.ref --
     discovered, never passed as a flag, identical to sidecar_in_path(). Absent -> None."""
@@ -1132,7 +1213,7 @@ def _is_entry_start(line):
     return bool(ONE_LINE_TAG_RE.search(line))
 
 
-def read_suite(sno_path, ref_path, in_path=None, x_path=None, w_path=None):
+def read_suite(sno_path, ref_path, in_path=None, x_path=None, w_path=None, a_path=None, modes=None):
     """⛔ FOUND AND FIXED (corpus-suites-consolidation, gc family): a block used to be read as running to
     the NEXT banner -- correct only when the next entry is ALSO a block. A block immediately followed by
     one or more one-line entries (no banner of their own, e.g. gc.sno's 210_gc_deep_nesting -> 211/212/213
@@ -1223,10 +1304,11 @@ def read_suite(sno_path, ref_path, in_path=None, x_path=None, w_path=None):
     read_stdin_sidecar(in_path, BANNER_RE, entries)
     read_xfail_sidecar(x_path, BANNER_RE, entries)
     read_wantrc_sidecar(w_path, entries)
+    read_argv_sidecar(a_path, entries, modes)
     return entries
 
 
-def read_block_suite(src_path, ref_path, banner_re, in_path=None, x_path=None, w_path=None):
+def read_block_suite(src_path, ref_path, banner_re, in_path=None, x_path=None, w_path=None, a_path=None, modes=None):
     """read_suite() for a format-(B)-ONLY family: every entry is a banner-delimited block, so
     there is no one-line/block interleaving to detect (unlike read_suite() above, which also
     carries SNOBOL4's format-A one-line entries and BANNER_RE). Written separately rather than
@@ -1259,6 +1341,7 @@ def read_block_suite(src_path, ref_path, banner_re, in_path=None, x_path=None, w
     read_stdin_sidecar(in_path, banner_re, entries)
     read_xfail_sidecar(x_path, banner_re, entries)
     read_wantrc_sidecar(w_path, entries)
+    read_argv_sidecar(a_path, entries, modes)
     return entries
 
 
@@ -1422,7 +1505,7 @@ def run_suite_entry(paths, entry, tmp_root, modes, ext=".sno", companion_dir=Non
         cand.write_text(text)
         _copy_companions(text, companion_dir, Path(td))
         return run_all_modes(paths, cand, expected, Path(td), modes, stdin_text=entry.stdin,
-                             want_rc=getattr(entry, 'want_rc', 0))
+                             want_rc=getattr(entry, 'want_rc', 0), prog_argv=getattr(entry, 'argv', None))
 
 
 # ================================================================== CLI ===
@@ -1817,7 +1900,8 @@ def cmd_convert_blocks(args):
     # was never created, and sidecar_in_path's is_file() check correctly degrades to None (-> /dev/null),
     # same auto-discovery cmd_run's --lang path already uses (ZERO argv changes for any caller).
     reread = read_block_suite(args.out_src, args.out_ref, banner_re,
-                              in_path=sidecar_in_path(args.out_src), x_path=sidecar_xfail_path(args.out_src), w_path=sidecar_wantrc_path(args.out_src))
+                              in_path=sidecar_in_path(args.out_src), x_path=sidecar_xfail_path(args.out_src), w_path=sidecar_wantrc_path(args.out_src),
+                              a_path=sidecar_argv_path(args.out_src))
     # ⛔ MATCH BY NAME, NEVER BY POSITION -- same fix as cmd_convert, applied defensively here too
     # (format-B-only means this path is not currently exposed to write_suite's line-then-block
     # reorder, but a positional zip between two independently-built lists is the same latent class
@@ -1888,12 +1972,14 @@ def cmd_run(args):
         modes = (args.modes or cfg["modes"]).split(",")
         banner_re = banner_re_for(cfg["comment_open"], cfg["comment_close"])
         entries = read_block_suite(args.sno, args.ref, banner_re, in_path=sidecar_in_path(args.sno),
-                                   x_path=sidecar_xfail_path(args.sno), w_path=sidecar_wantrc_path(args.sno))
+                                   x_path=sidecar_xfail_path(args.sno), w_path=sidecar_wantrc_path(args.sno),
+                                   a_path=sidecar_argv_path(args.sno), modes=modes)
     else:
         ext = ".sno"
         modes = (args.modes or "m3,m4").split(",")
         entries = read_suite(args.sno, args.ref, in_path=sidecar_in_path(args.sno),
-                             x_path=sidecar_xfail_path(args.sno), w_path=sidecar_wantrc_path(args.sno))
+                             x_path=sidecar_xfail_path(args.sno), w_path=sidecar_wantrc_path(args.sno),
+                             a_path=sidecar_argv_path(args.sno), modes=modes)
     require_population(paths, len(entries), 1, f"entries read from {args.sno} (a suite pair that names zero entries cannot be graded)")
     shard_tag = ""
     if getattr(args, "shard", ""):
@@ -2158,11 +2244,13 @@ def cmd_pin_ref(args):
     if cfg:
         co, cc = cfg["comment_open"], cfg["comment_close"]
         entries = read_block_suite(src_path, ref_path, banner_re_for(co, cc), in_path=sidecar_in_path(src_path),
-                                   x_path=sidecar_xfail_path(src_path), w_path=sidecar_wantrc_path(src_path))
+                                   x_path=sidecar_xfail_path(src_path), w_path=sidecar_wantrc_path(src_path),
+                                   a_path=sidecar_argv_path(src_path))
     else:
         co, cc = "*", ""
         entries = read_suite(src_path, ref_path, in_path=sidecar_in_path(src_path),
-                             x_path=sidecar_xfail_path(src_path), w_path=sidecar_wantrc_path(src_path))
+                             x_path=sidecar_xfail_path(src_path), w_path=sidecar_wantrc_path(src_path),
+                             a_path=sidecar_argv_path(src_path))
     hit = [e for e in entries if e.name == args.entry]
     if not hit:
         refuse(f"no entry named {args.entry!r} in {src_path} ({len(entries)} entries) -- `list` prints them")
@@ -2178,9 +2266,9 @@ def cmd_pin_ref(args):
         one.write_text("\n".join(e.sno_lines) + "\n")
         stdin_text = e.stdin
         if args.mode == "m3":
-            v = run_m3(paths, one, "\n".join(old_ref), stdin_text=stdin_text, want_rc=e.want_rc)
+            v = run_m3(paths, one, "\n".join(old_ref), stdin_text=stdin_text, want_rc=e.want_rc, prog_argv=e.argv)
         else:
-            v = run_m4(paths, one, "\n".join(old_ref), tmp, stdin_text=stdin_text, want_rc=e.want_rc)
+            v = run_m4(paths, one, "\n".join(old_ref), tmp, stdin_text=stdin_text, want_rc=e.want_rc, prog_argv=e.argv)
         if v.kind in ("CRASH", "HANG", "UNPROVEN", "SKIP"):
             refuse(f"{args.mode} on {args.entry} came back {v.kind} ({v.detail}) -- a pin records what the "
                    f"compiler DOES, and a run that crashed or could not be made says nothing about that")
