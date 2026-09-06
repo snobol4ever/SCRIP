@@ -20,6 +20,7 @@ extern long rt_anchor_g __attribute__((alias("g_anchor")));
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long *rt_anchor_ptr(void) { return &g_anchor; }
 long g_maxlngth = 5000000;
+int64_t g_kw_maxint = 9223372036854775807LL;
 int  g_jcon   = 0;
 long g_stno    = 0;
 long g_stcount = 0;
@@ -154,6 +155,7 @@ static KWB_ENT_t g_kwb[] = {
     { "ERRTEXT",  KWB_STR, 0,        (int64_t *)0, 0, (const char *)0 , (const char *)0 },
     { "ALPHABET", KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 , (const char *)0 },
     { "USER_DECLARED_CONSTANTS", KWB_INT, 0, &kwb_own[7], 1, (const char *)0 , "rt_kwb_own" },
+    { "MAXINT",   KWB_INT, KWB_PROT, &g_kw_maxint,     0,          (const char *)0 , "g_kw_maxint" },
 };
 static const int g_kwb_n = (int)(sizeof g_kwb / sizeof g_kwb[0]);
 static KWB_ENT_t *g_kwb_bound = g_kwb;
@@ -265,7 +267,7 @@ static int kwb_write(const char *kw, DESCR_t v) { return kwb_write_ent(kwb_find(
 void rt_kw_dump_values(void (*emit)(const char *name, DESCR_t v)) {
     static const char *const names[] = {
         "ANCHOR", "CASE", "CODE", "DUMP", "ERRLIMIT", "ERRTEXT", "ERRTYPE", "FILE", "FNCLEVEL", "FTRACE",
-        "FULLSCAN", "INPUT", "LASTFILE", "LASTLINE", "LASTNO", "LINE", "MAXLNGTH", "OUTPUT", "PROFILE",
+        "FULLSCAN", "INPUT", "LASTFILE", "LASTLINE", "LASTNO", "LINE", "MAXINT", "MAXLNGTH", "OUTPUT", "PROFILE",
         "RTNTYPE", "STCOUNT", "STLIMIT", "STNO", "TRACE", "TRIM",
     };
     for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); i++) {
