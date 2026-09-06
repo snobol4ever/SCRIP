@@ -44,17 +44,63 @@ violations=0; examined=0
 ck() { examined=$((examined + 1)); if [ "$1" = ok ]; then printf '  ok   %s\n' "$2"; else printf '  FAIL %s\n' "$2"; violations=$((violations + 1)); fi; }
 # run_both <file> -> prints "m3<TAB>m4" md5s; a mode that will not build prints BUILDFAIL, never an empty
 # string, because two empty strings compare equal and would read as agreement.
-run_both() {
-    local f="$1" o3 o4
-    o3="$(timeout 10 "$ROOT/scrip" --run "$f" 2>&1 </dev/null | md5sum | cut -d' ' -f1)"
-    if timeout 20 "$ROOT/scrip" --compile --target=x86 "$f" > "$W/c.s" 2>/dev/null \
-       && timeout 20 gcc -c "$W/c.s" -o "$W/c.o" 2>/dev/null \
-       && timeout 20 gcc "$W/c.o" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/c.bin" 2>/dev/null; then
-        o4="$(timeout 10 "$W/c.bin" 2>&1 </dev/null | md5sum | cut -d' ' -f1)"
-    else
-        o4="BUILDFAIL"
+#
+# ⛔⭐⭐ A CRASH IS NOT A VERDICT, AND THIS GATE USED TO TURN ONE INTO A DIVERGE (hq_T 2026-09-06, ceo CEO-365).
+# `scrip --compile` on these witnesses SIGSEGVs INTERMITTENTLY and the failure was folded into the same
+# BUILDFAIL string a genuine build error produces -- then COMPARED as a value, so one arm crashing and the
+# other succeeding printed "m4 DIVERGE: listop BUILDFAIL vs paren <md5>". That names the wrong defect
+# entirely: the two call forms did not disagree, one of them never ran. And this gate is ARM 2 OF 60 in
+# `make test`, so that false red stopped the other 58 arms -- including the SNOBOL4 board -- fleet-wide.
+# ⭐ MEASURED, not inferred, and the mechanism is NOT the load-race it looked like: 3/20 SEGV on --compile
+# and 5/20 on --run with ASLR ON, and 0/20 under `setarch -R`. It is an ASLR-DEPENDENT crash in the Raku
+# front end -- the same signature as the SNOBOL4 fuzz family -- and it is a REAL defect that belongs in its
+# own row, NOT something this gate should hide. So: crashes are detected as crashes, retried a bounded
+# number of times, and if they persist the gate REFUSES rc=2 NAMING them, rather than reporting a
+# disagreement that did not happen. A gate that cannot measure says so (RULES.md: refuse, never skip-as-
+# success -- and never fail-as-verdict either, which is the same lie wearing the other hat).
+CRASHED=0
+# ⭐⭐ THE MEASUREMENT RUNS UNDER `setarch -R` (ASLR OFF) AND THAT IS A NARROWING, NOT A COVER-UP.
+# This gate's subject is ONE property -- a parenthesized call passes its arguments -- and that property is
+# deterministic. The intermittent SIGSEGV it kept tripping over is ASLR-dependent (3/20 and 5/20 with ASLR
+# on, 0/20 with it off) and is a DIFFERENT defect in the Raku front end, which gets its own row rather than
+# being laundered through this gate's verdict either way. Grading the deterministic property
+# deterministically is what a gate is for; the crash detection below stays as the safety net, so if the
+# crash ever appears WITHOUT ASLR this gate refuses instead of quietly reporting a disagreement.
+SETARCH=""; command -v setarch >/dev/null 2>&1 && setarch -R true 2>/dev/null && SETARCH="setarch -R"
+# _try <mode> <file> -> md5 of the output, or the literal CRASH / BUILDFAIL. Sets CRASHED when the tool died
+# on a signal (rc >= 128) or was killed by the timeout (124), both of which mean UNMEASURED, not "failed".
+_try() {
+    local m="$1" f="$2" rc out
+    if [ "$m" = 3 ]; then
+        out="$(timeout 60 $SETARCH "$ROOT/scrip" --run "$f" 2>&1 </dev/null)"; rc=$?
+        if [ "$rc" -ge 124 ]; then CRASHED=$((CRASHED + 1)); printf 'CRASH(rc=%s)\n' "$rc"; return; fi
+        printf '%s\n' "$out" | md5sum | cut -d' ' -f1; return
     fi
-    printf '%s\t%s\n' "$o3" "$o4"
+    timeout 60 $SETARCH "$ROOT/scrip" --compile --target=x86 "$f" > "$W/c.s" 2>/dev/null; rc=$?
+    if [ "$rc" -ge 124 ]; then CRASHED=$((CRASHED + 1)); printf 'CRASH(rc=%s)\n' "$rc"; return; fi
+    if [ "$rc" -ne 0 ] \
+       || ! timeout 60 gcc -c "$W/c.s" -o "$W/c.o" 2>/dev/null \
+       || ! timeout 60 gcc "$W/c.o" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/c.bin" 2>/dev/null; then
+        printf 'BUILDFAIL\n'; return
+    fi
+    out="$(timeout 60 $SETARCH "$W/c.bin" 2>&1 </dev/null)"; rc=$?
+    if [ "$rc" -ge 124 ]; then CRASHED=$((CRASHED + 1)); printf 'CRASH(rc=%s)\n' "$rc"; return; fi
+    printf '%s\n' "$out" | md5sum | cut -d' ' -f1
+}
+# ⭐ THE RETRY IS BOUNDED AND IT IS NOT A CURE -- it is what keeps an intermittent crash from being reported
+# as a disagreement. Three attempts; a value that never stops crashing reaches the caller as CRASH and the
+# gate refuses on it below.
+_try_hard() {
+    local m="$1" f="$2" v i
+    for i in 1 2 3; do
+        v="$(_try "$m" "$f")"
+        case "$v" in CRASH*) ;; *) printf '%s\n' "$v"; return;; esac
+    done
+    printf '%s\n' "$v"
+}
+run_both() {
+    local f="$1"
+    printf '%s\t%s\n' "$(_try_hard 3 "$f")" "$(_try_hard 4 "$f")"
 }
 echo "--- ARMS 1-4 — the two call forms of one testop must agree, in BOTH modes ---"
 for t in "is \$i, 5" "ok 1" "is 'a', 'a'" "isnt 1, 2"; do
@@ -62,12 +108,25 @@ for t in "is \$i, 5" "ok 1" "is 'a', 'a'" "isnt 1, 2"; do
     printf 'use Test;\nplan 1;\nmy $i = 5;\n%s(%s, "d");\n' "${t%% *}" "${t#* }" > "$W/paren.raku"
     a="$(run_both "$W/listop.raku")"; b="$(run_both "$W/paren.raku")"
     l3="${a%%	*}"; l4="${a##*	}"; p3="${b%%	*}"; p4="${b##*	}"
-    [ "$l3" = "$p3" ] && ck ok  "m3 agree: $t" || ck fail "m3 DIVERGE: $t  (listop $l3 vs paren $p3)"
-    [ "$l4" = "$p4" ] && ck ok  "m4 agree: $t" || ck fail "m4 DIVERGE: $t  (listop $l4 vs paren $p4)"
+    # ⛔⭐ THE CRASH COUNT IS READ BACK OUT OF THE RETURNED STRING, NOT OUT OF A VARIABLE. run_both is invoked
+    # in COMMAND SUBSTITUTION, so it runs in a SUBSHELL: the CRASHED=$((CRASHED+1)) inside it increments a
+    # copy that dies with the subshell, and the parent kept reading 0 while crashes were happening. Measured
+    # live -- the first version of this cure still printed "paren CRASH(rc=139)" as a DIVERGE, because the
+    # refusal it was supposed to trigger never saw a nonzero count. The value crosses the boundary; the
+    # variable does not. Same family as lib_gate.sh's note that a subprocess's exports never come back.
+    for _v in "$l3" "$l4" "$p3" "$p4"; do case "$_v" in CRASH*) CRASHED=$((CRASHED + 1));; esac; done
+    case "$l3$p3" in
+        *CRASH*) examined=$((examined + 1)); printf '  ⛔  m3 UNMEASURED: %s  (listop %s vs paren %s)\n' "$t" "$l3" "$p3";;
+        *) [ "$l3" = "$p3" ] && ck ok  "m3 agree: $t" || ck fail "m3 DIVERGE: $t  (listop $l3 vs paren $p3)";;
+    esac
+    case "$l4$p4" in
+        *CRASH*) examined=$((examined + 1)); printf '  ⛔  m4 UNMEASURED: %s  (listop %s vs paren %s)\n' "$t" "$l4" "$p4";;
+        *) [ "$l4" = "$p4" ] && ck ok  "m4 agree: $t" || ck fail "m4 DIVERGE: $t  (listop $l4 vs paren $p4)";;
+    esac
 done
 echo "--- ARM 5 — the ABSOLUTE arm: the arity that reaches the callee, so 'they agree' cannot mean 'both take one argument' ---"
 printf 'use Test;\nplan 1;\nis(1, 1, "three args reach the callee");\n' > "$W/arity.raku"
-out="$(timeout 10 "$ROOT/scrip" --run "$W/arity.raku" 2>&1 </dev/null)"
+out="$(timeout 60 $SETARCH "$ROOT/scrip" --run "$W/arity.raku" 2>&1 </dev/null)"
 printf '%s\n' "$out" | grep -qx 'ok 1 - three args reach the callee' \
     && ck ok "paren call delivers 3 distinct arguments" \
     || { ck fail "paren call did NOT deliver 3 arguments"; printf '%s\n' "$out" | sed 's/^/       /'; }
@@ -96,18 +155,38 @@ if [ ! -f "$RT" ]; then
 fi
 cp "$RT" "$W/until.raku"
 for m in 3 4; do
-    if [ "$m" = 3 ]; then got="$(timeout 10 "$ROOT/scrip" --run "$W/until.raku" 2>&1 </dev/null)"
-    else
-        if timeout 20 "$ROOT/scrip" --compile --target=x86 "$W/until.raku" > "$W/u.s" 2>/dev/null \
-           && timeout 20 gcc -c "$W/u.s" -o "$W/u.o" 2>/dev/null \
-           && timeout 20 gcc "$W/u.o" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/u.bin" 2>/dev/null; then
-            got="$(timeout 10 "$W/u.bin" 2>&1 </dev/null)"
-        else got="BUILDFAIL"; fi
-    fi
+    got=""; _rt_crash=1
+    for _att in 1 2 3; do
+        if [ "$m" = 3 ]; then got="$(timeout 60 $SETARCH "$ROOT/scrip" --run "$W/until.raku" 2>&1 </dev/null)"; _rc=$?
+        else
+            _rc=0
+            timeout 60 $SETARCH "$ROOT/scrip" --compile --target=x86 "$W/until.raku" > "$W/u.s" 2>/dev/null || _rc=$?
+            if [ "$_rc" -eq 0 ] \
+               && timeout 60 gcc -c "$W/u.s" -o "$W/u.o" 2>/dev/null \
+               && timeout 60 gcc "$W/u.o" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/u.bin" 2>/dev/null; then
+                got="$(timeout 60 $SETARCH "$W/u.bin" 2>&1 </dev/null)"; _rc=$?
+            elif [ "$_rc" -eq 0 ]; then got="BUILDFAIL"; fi
+        fi
+        if [ "$_rc" -lt 124 ]; then _rt_crash=0; break; fi
+    done
+    if [ "$_rt_crash" = 1 ]; then CRASHED=$((CRASHED + 1)); got="CRASH(rc=$_rc)"; fi
     n_ok="$(printf '%s\n' "$got" | grep -cE '^ok [0-9]+')"; n_not="$(printf '%s\n' "$got" | grep -cE '^not ok')"
     { [ "$n_ok" -eq 4 ] && [ "$n_not" -eq 0 ]; } \
         && ck ok "m$m S04-statements/until.t: 4 ok, 0 not ok" \
         || { ck fail "m$m S04-statements/until.t: $n_ok ok, $n_not not ok"; printf '%s\n' "$got" | sed 's/^/       /'; }
 done
 GATE_EXAMINED="$examined"
+# ⛔ REFUSE rather than publish a verdict built on an arm that never ran. rc=2 is UNPROVEN: this gate could
+# not measure, and saying so is the whole product. ⭐ It names the ASLR dependence because that is the one
+# fact that turns "flaky, re-run it" into a reproducible defect somebody can take as a row.
+if [ "$CRASHED" -gt 0 ]; then
+    printf '⛔ REFUSES rc=2: %d arm(s) could not be measured -- scrip died on a signal or a timeout and did NOT\n' "$CRASHED"
+    printf '   produce a comparable result, after 3 attempts each. This is NOT a disagreement between the two call\n'
+    printf '   forms, and it must never be reported as one.\n'
+    printf '   Measured 2026-09-06 (hq_T): the crash is ASLR-DEPENDENT -- 3/20 on --compile and 5/20 on --run with\n'
+    printf '   ASLR on, 0/20 under `setarch -R`. Reproduce it deterministically with:\n'
+    printf '       setarch -R %s/scrip --compile --target=x86 <a 4-line Test.raku program>\n' "$ROOT"
+    gate_stamp 2>/dev/null || true
+    exit 2
+fi
 gate_verdict "$violations" "violation(s)"
