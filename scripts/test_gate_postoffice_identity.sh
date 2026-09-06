@@ -61,6 +61,9 @@ printf '%s' "$out" | grep -q '^\[ceo\]' && ok "/home/claude_ceo resolves to ceo 
 mkdir -p "$T/po/cto/inbox"
 out="$(env -u S4E_SEAT S4E_POST="$T/po" S4E_HOME=/home/claude_cto bash "$S" check 2>&1)"
 printf '%s' "$out" | grep -q '^\[cto\]' && ok "/home/claude_cto resolves to cto (the CTO seat, 2026-09-06)" || no "/home/claude_cto resolves to cto" "${out:0:70}"
+mkdir -p "$T/po/coo/inbox"
+out="$(env -u S4E_SEAT S4E_POST="$T/po" S4E_HOME=/home/claude_coo bash "$S" check 2>&1)"
+printf '%s' "$out" | grep -q '^\[coo\]' && ok "/home/claude_coo resolves to coo (the COO seat, 2026-09-06)" || no "/home/claude_coo resolves to coo" "${out:0:70}"
 # 6. mailbox creation exists but is DELIBERATE, never a side effect.
 r=$(rc hq_P mailbox seat99); [ "$r" -eq 0 ] && [ -d "$T/po/seat99/inbox" ] && ok "explicit 'mailbox' subcommand creates one" || no "explicit 'mailbox' subcommand" "rc=$r"
 echo "== V2-4 orphaned .msg.* sweep =="
