@@ -848,6 +848,7 @@ int main(int argc, char **argv)
     int opt_bench          = 0;
     const char * target_name = NULL;
     const char * output_path = NULL;
+    const char *preload_path[16]; int n_preload = 0;
     int argi = 1;
     for (;;) { int before_argi = argi;
     while (argi < argc && argv[argi][0] == '-' && argv[argi][1] == '-') {
@@ -870,6 +871,12 @@ int main(int argc, char **argv)
         else if (strcmp(argv[argi], "--monitor")       == 0) { extern int g_monitor_bin; g_monitor_bin = 1; argi++; }
         else if (strcmp(argv[argi], "--no-monitor")    == 0) { extern int g_monitor_bin; g_monitor_bin = 0; argi++; }
         else break;
+    }
+    while (argi < argc && argv[argi][0] == '-' && argv[argi][1] == 'L') {
+        const char * lp = argv[argi] + 2;
+        if (*lp == '\0') { if (argi + 1 >= argc) { fprintf(stderr, "scrip: -L needs a source file\n"); return 2; } lp = argv[++argi]; }
+        if (n_preload >= (int)(sizeof preload_path / sizeof *preload_path)) { fprintf(stderr, "scrip: too many -L files (max %d)\n", (int)(sizeof preload_path / sizeof *preload_path)); return 2; }
+        preload_path[n_preload++] = lp; argi++;
     }
     while (argi < argc && argv[argi][0] == '-' && argv[argi][1] != '-' && argv[argi][1] != '\0' && strchr("sdimo", argv[argi][1])) {
         char sw = argv[argi][1]; const char *rest = argv[argi] + 2; long v;
@@ -1076,8 +1083,23 @@ int main(int argc, char **argv)
             FILE *f = fopen(input_path, "r");
             if (!f) { fprintf(stderr, "scrip: cannot open '%s'\n", input_path); return 1; }
             { extern void stmt_src_set_file(const char *); stmt_src_set_file(input_path); }
+            char * _pre_buf = (char *)0;
+            if (n_preload > 0) {
+                long _flen; size_t _plen = 0; int _k;
+                for (_k = 0; _k < n_preload; _k++) _plen += strlen(preload_path[_k]) + 16;
+                fseek(f, 0, SEEK_END); _flen = ftell(f); rewind(f);
+                if (_flen < 0) { fprintf(stderr, "scrip: cannot size '%s'\n", input_path); fclose(f); return 1; }
+                _pre_buf = (char *)malloc(_plen + (size_t)_flen + 2);
+                if (!_pre_buf) { fprintf(stderr, "scrip: out of memory\n"); fclose(f); return 1; }
+                { size_t _at = 0; for (_k = 0; _k < n_preload; _k++) _at += (size_t)snprintf(_pre_buf + _at, _plen + 2 - _at, "-INCLUDE '%s'\n", preload_path[_k]);
+                  if (fread(_pre_buf + _at, 1, (size_t)_flen, f) != (size_t)_flen) { fprintf(stderr, "scrip: short read on '%s'\n", input_path); free(_pre_buf); fclose(f); return 1; }
+                  _pre_buf[_at + (size_t)_flen] = '\0';
+                  fclose(f); f = fmemopen(_pre_buf, _at + (size_t)_flen, "r");
+                  if (!f) { fprintf(stderr, "scrip: cannot stage %d -L preload(s)\n", n_preload); free(_pre_buf); return 1; } }
+            }
             tree_t *sub_ast = sno_parse_ast(f, input_path, NULL);
             fclose(f);
+            free(_pre_buf);
             RECORD_SEG(sub_ast, lower_sno_stage2);
             MERGE_AST(sub_ast);
         }

@@ -165,6 +165,12 @@ PARKED_NO_REGEN="breakline k rewind1 genc"
 is_parked_no_regen() { local n="$1" s; for s in $PARKED_NO_REGEN; do [ "$n" = "$s" ] && return 0; done; return 1; }
 setup_dep_for() { case "$1" in openo2) echo openo;; esac; }
 argv_for() { case "$1" in genc) echo v311.sil;; esac; }
+# ⛔⭐ PRELOAD FLAGS, from upstream tests.in's OWN registration lines ("reg -Laa/aa.sno preload1.sno").
+# csnobol4 -h calls -L "load source file before user program"; scrip had no -L at all until SCRIP (this
+# landing) -- the argument fell through to the filename path and died as "cannot open '-Laa/aa.sno'", which
+# is indistinguishable from a typo. These two entries were the package's whole UNGRADED bucket, and the
+# sidecar reason said the pickup was a runner map; measured, it was a driver flag AND this map.
+preload_for() { case "$1" in preload1) echo "-Laa/aa.sno";; preload2) echo "-Laa/aa.sno -Lbb/bb.sno";; esac; }
 normalize() { # $1=name $2=text -> echoes text, masked per tests.in's dump/trace convention for that name
     local n="$1" t="$2"
     case " $DUMP_TESTS " in *" $n "*) t="$(printf '%s' "$t" | sed -E -e 's/MAXLNGTH = [0-9]+/MAXLNGTH = xxx/' -e "/^&FILL = '/d")";; esac
@@ -190,8 +196,8 @@ cp -rp "$SUITE"/. "$RUN"/ 2>/dev/null || true
 SCRIP_HASH="$(git -C "$SD" rev-parse --short HEAD 2>/dev/null || echo '?')"
 CORP_HASH="$(git -C "$ROOT/corpus" rev-parse --short HEAD 2>/dev/null || echo '?')"
 
-compile_m4() { local sno="$1" out="$2" t; t="$(mktemp -d)"
-    SNO_LIB="$SUITE" "$SCRIP" $COMPAT --compile "$sno" > "$t/p.s" 2>/dev/null || { rm -rf "$t"; return 1; }
+compile_m4() { local sno="$1" out="$2" t pre; t="$(mktemp -d)"; pre="$(preload_for "$(basename "$sno" .sno)")"
+    SNO_LIB="$SUITE" "$SCRIP" $COMPAT $pre --compile "$sno" > "$t/p.s" 2>/dev/null || { rm -rf "$t"; return 1; }
     gcc -c "$t/p.s" -o "$t/p.o" 2>/dev/null || { rm -rf "$t"; return 1; }
     gcc "$t/p.o" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$out" 2>/dev/null || { rm -rf "$t"; return 1; }
     rm -rf "$t"; return 0; }
@@ -234,13 +240,14 @@ for sno in "$SUITE"/*.sno; do
     dep="$(setup_dep_for "$name")"
     [ -n "$dep" ] && (cd "$RUN" && SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" $COMPAT --run "$dep.sno" > /dev/null 2>&1)
     xargs_extra="$(argv_for "$name")"
+    pre_extra="$(preload_for "$name")"
 
     # ⛔ RELATIVE, NOT $prog: cwd is already $RUN below, and the vendored .ref files were cut against a
     # bare-relative invocation (name.sno). Passing the absolute scratch path here makes every self-path-
     # referencing program (TRACE(), error messages, &FILE) embed a throwaway tmpdir string instead of the
     # bare name the .ref expects — a harness artifact, not a SCRIP or oracle divergence (found triaging
     # row snobol4-csnobol4-thirty-regen-candidate-refs-stale-pin-or-real-defect, seat07 2026-09-04).
-    got3="$(cd "$RUN" && SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" $COMPAT --run "$relprog" ${xargs_extra:+-- $xargs_extra} < "$inp" 2>&1)"; rc3=$?
+    got3="$(cd "$RUN" && SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" $COMPAT $pre_extra --run "$relprog" ${xargs_extra:+-- $xargs_extra} < "$inp" 2>&1)"; rc3=$?
     got3="$(normalize "$name" "$got3")"
     st3="$(status_of "$got3" "$rc3" "$exp")"
     case "$st3" in
@@ -266,7 +273,7 @@ for sno in "$SUITE"/*.sno; do
         M4_REJECT=$((M4_REJECT+1)); RED4="$RED4 $name(CC)"
     fi
 
-    gotc="$(cd "$RUN" && timeout "$TIMEOUT" "$CSN" -b "$relprog" $xargs_extra < "$inp" 2>&1)"
+    gotc="$(cd "$RUN" && timeout "$TIMEOUT" "$CSN" -b $pre_extra "$relprog" $xargs_extra < "$inp" 2>&1)"
     gotc="$(normalize "$name" "$gotc")"
     if [ "$gotc" = "$exp" ]; then CSN_PASS=$((CSN_PASS+1))
     else
