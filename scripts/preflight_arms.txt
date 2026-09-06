@@ -1,0 +1,49 @@
+# preflight_arms.txt -- THE DECLARED POPULATION of `make preflight` (hq_T's ask, 2026-09-06; hq_R wired it).
+#
+# WHY THIS FILE EXISTS RATHER THAN A GLOB. hq_T measured the alternative and it fails in BOTH directions:
+#   1. grepping for `make`/`./scrip` over the whole script convicts strip_comments.py, which needs no build --
+#      these scripts say "make test" in their PROSE constantly. 18 vs 30 answers to one question, same files.
+#   2. and the comment-stripped grep is STILL wrong the other way: it clears test_gate_pl_quad_regs.sh (~45s)
+#      and test_gate_capture_stdin_and_red_exit.sh (~15s), which reach the compiler INDIRECTLY through lib_
+#      helpers rather than naming it. A static grep cannot see one level of indirection.
+# So THE POPULATION IS DECLARED HERE BY A HUMAN and the arithmetic is the gate's -- the same split
+# lib_port_trace.sh uses, and the same one hq_T ruled for the uniqueness gate.
+#
+# MEMBERSHIP (test_gate_preflight_arms_stay_cheap.sh enforces all four, and PINS BY MEASURED DURATION):
+#   seconds-cheap (<= 0.5s each)  ·  hermetic  ·  needs NO build  ·  NOT a live postoffice read.
+# The last clause is load-bearing: the baton/queue gates read the LIVE fleet and red on a dirty one BY
+# DESIGN, which is why they are out of test-postoffice and out of here.
+# ⛔ EVERY ARM IS GREEN ON ORIGIN THE DAY IT IS ADDED. A born-red target is one nobody runs, which is the
+# whole defect this target exists to cure -- the instrument was one second and it was bolted to a full build.
+scripts/strip_comments.py --check
+scripts/test_gate_absent_line_is_unproven_not_red.sh
+scripts/test_gate_ast_declared_refs_are_ast_dumps.sh
+scripts/test_gate_ast_shaped_refs_are_declared_ast.sh
+scripts/test_gate_coexpr_stack_of_uncreated_thread.sh
+scripts/test_gate_cross_suite_ref_agreement.sh
+scripts/test_gate_done_manifest_handoff.sh
+scripts/test_gate_emit_no_ir_mutation.sh
+scripts/test_gate_emit_no_slot_alloc.sh
+scripts/test_gate_icn_no_stack.sh
+scripts/test_gate_icn_one_reg_frame.sh
+scripts/test_gate_icn_tag_single_source.sh
+scripts/test_gate_ladder_walk_v4_exempts_package_class_rows.sh
+scripts/test_gate_master_resort_preserves_modes.sh
+scripts/test_gate_no_bb_bin_t.sh
+scripts/test_gate_no_handencoded_bytes.sh
+scripts/test_gate_no_o2_arm_in_scripts.sh
+scripts/test_gate_no_vstack.sh
+scripts/test_gate_no_weak_abort_stub.sh
+scripts/test_gate_our_files_are_lf.sh
+scripts/test_gate_pl_no_value_stack.sh
+scripts/test_gate_pl_trail_mechanism.sh
+scripts/test_gate_pl_xfail_marker_consistent.sh
+scripts/test_gate_queue_census_placeholder_arm.sh
+scripts/test_gate_rtcc_callee_class.sh
+scripts/test_gate_rtcc_claimed_regs.sh
+scripts/test_gate_same_suite_ref_agreement.sh
+scripts/test_gate_score_column_semantics.sh
+scripts/test_gate_score_unreadable_package_is_marked.sh
+scripts/test_gate_sm_dead.sh
+scripts/test_gate_term_wordref_ratchet.sh
+scripts/test_gate_two_region.sh
