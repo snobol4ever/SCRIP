@@ -1137,8 +1137,16 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
         if (subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "set_prolog_flag") && subj->n == 2) {
             if (pl_flag_directive_is_default(subj)) continue;
             pl_refuse("directive set_prolog_flag", subj->c[0] && subj->c[0]->v.sval ? subj->c[0]->v.sval : "?", 10); }
-        { int dv_scope0 = dvc; pl_dir_number_vars((tree_t *) subj, dvn, &dvc, dv_scope0);
-          tree_t * ig = ast_node_new(TT_FNC); ig->v.sval = (char *) "ignore"; ast_push(ig, (tree_t *) subj);
+        { int dv_scope0 = dvc;
+          tree_t * eb = ast_node_new(TT_VAR); eb->v.sval = (char *) "$DirBall";
+          tree_t * eb2 = ast_node_new(TT_VAR); eb2->v.sval = (char *) "$DirBall";
+          tree_t * fargs = ast_node_new(TT_MAKELIST); fargs->v.ival = 0; ast_push(fargs, eb2);
+          tree_t * rep = ast_node_new(TT_FNC); rep->v.sval = (char *) "format";
+          ast_push(rep, (tree_t *) pl_atom_goal("user_error")); ast_push(rep, (tree_t *) pl_atom_goal("Warning: directive raised: ~q~n")); ast_push(rep, fargs);
+          tree_t * cat = ast_node_new(TT_FNC); cat->v.sval = (char *) "catch";
+          ast_push(cat, (tree_t *) subj); ast_push(cat, eb); ast_push(cat, rep);
+          tree_t * ig = pl_cc_fnc1("ignore", cat);
+          pl_dir_number_vars(ig, dvn, &dvc, dv_scope0);
           if (ndir < PL_INIT_GOALS_MAX) dir_goals[ndir++] = ig; continue; }
     }
     { const tree_t * all_goals[PL_INIT_GOALS_MAX * 2]; int nall = 0;
