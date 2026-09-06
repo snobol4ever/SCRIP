@@ -32,8 +32,11 @@ G = os.environ["GATE_NAME"]
 def red(msg):  print("⛔ GATE RED [%s]: %s" % (G, msg)); sys.exit(1)
 def refuse(msg): print("⛔ REFUSED(2) [%s]: %s" % (G, msg), file=sys.stderr); sys.exit(2)
 # hq_I's own witness, verbatim in shape: a package clause reporting COUNTS where a fraction is required.
-cell = ("arizona 46/124 · jcon_tests 45/91 · ipl compile_pass=544 compile_fail=307 "
-        "run m3 34/60 m4 34/60")
+# ⛔ THE FIXTURE REPORTS COUNTS AND ONLY COUNTS. It used to carry `run m3 34/60` too, and on 2026-09-05 the
+# reader learned 60 as one of ipl's declared populations -- so the fixture stopped reproducing an unreadable
+# package and this gate REFUSED rc=2 rather than passing vacuously, which is the instrument working. The cure is
+# a fixture that still exhibits the defect, never a gate relaxed until it goes green.
+cell = "arizona 46/89 · jcon_tests 45/81 · ipl compile_pass=544 compile_fail=307 nomain_ok=318"
 got, work = m.counted_fractions("icon", cell)
 if not [w for w in work if "UNREADABLE" in str(w)]:
     refuse("the fixture no longer reproduces an UNREADABLE package -- this gate can no longer measure its own "
@@ -48,7 +51,7 @@ if got.get(851) != 0:
         "never be able to RAISE a score -- measured at icon 8%% -> 48%% when this was tried" % (got.get(851),))
 # ARM 3 -- a READABLE cell must not be marked. A gate that only proves the alarm fires cannot tell an alarm
 # from a stuck bell.
-clean = "arizona 46/124 · jcon_tests 45/91 · ipl 34/851"
+clean = "arizona 46/89 · jcon_tests 45/81 · ipl 34/851"
 cgot, _cw = m.counted_fractions("icon", clean)
 if getattr(cgot, "unreadable", ()):
     red("a fully readable cell was reported as unreadable (%r) -- the marker is stuck on" % (cgot.unreadable,))

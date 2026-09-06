@@ -1837,6 +1837,12 @@ int rt_pl_nb_get_cell(void *root, int64_t k, void *out_cell, pl_tr_ctx_t *cx)
       return plc_unify_cells_cx((pl_cell_t *)out_cell, box, cx) ? 1 : 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_nb_is_set(void *root, int64_t k)
+{
+    if (!root || k < 0 || k >= PL_DB_CELLS_MAX) return 0;
+    return *(pl_cell_t **)((char *)root - PL_DB_CELL0 - 8 * (size_t)k) != (pl_cell_t *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_recompile(void *db_v, const char *key, int arity)
 {
     extern void * rt_pl_clause_tree(void *);

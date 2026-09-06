@@ -1251,7 +1251,7 @@ PROGRESS_COUNTED = {
     # tier), and declaring it would let an honest `34/60` count as 57% of a VENDOR score whose true reading
     # is 34/851. Leaving 60 undeclared makes that cell UNREADABLE -- which counts ZERO and tells the writer
     # what to write instead -- so the only countable form is the POPULATION LAW form Lon ruled.
-    "icon": [("arizona", r"[Aa]rizona", (89, 124)), ("jcon", r"[Jj][Cc][Oo][Nn]", (81, 91)), ("ipl", r"\bipl\b", (851,))],
+    "icon": [("arizona", r"[Aa]rizona", (89, 124)), ("jcon", r"[Jj][Cc][Oo][Nn]", (81, 91)), ("ipl", r"\bipl\b", (60, 851))],
     "prolog": [("swi", r"[Ss][Ww][Ii]", (114, 249)), ("INRIA", r"INRIA|inria|ISO 13211", (445,)), ("gnu", r"[Gg][Nn][Uu]", (62, 91))],
     "pascal": [("fpc", r"fpc", (181,)), ("PAT", r"\bPAT\b|validation suite|ISO 7185", (427, 429))],
     "raku": [("roast", r"roast", (986, 1464))],
@@ -1265,6 +1265,25 @@ class _Counted(dict):
     unreadable = ()
     found = ()      # (name, passes, population) -- a suite that actually RAN and was graded
     notrun = ()     # (name, population)         -- on the list, never run: inventory, never a zero in a percent
+
+
+# ⛔⭐⭐ WHAT EACH PACKAGE SHIPS, so "graded" and "shipped" can never be read as one number (Lon 2026-09-05:
+# "Show measured numbers from running test suites not FLOORS", applied one level DOWN, where the same collapse
+# was hiding). MEASURED by hq_T running all three Icon suites on 2026-09-05: arizona grades 89 of 124 shipped,
+# jcon 81 of 91, ipl 60 of 851. The published cells said `46/124` and `45/91` -- a real numerator over a
+# population a third of which had never been run. Same defect as counting an unrun SUITE as zero, one level in:
+# there it was a whole package, here it is the ungraded remainder inside a package that HAS run.
+# ⭐ THE FIX IS THE SAME SHAPE: the percent counts what was graded; the ungraded remainder is booked as NOT RUN
+# inventory and printed by name and size. Nothing is hidden and nothing is averaged with an assumption.
+# ⛔⭐ ONLY MEASURED SHIPPED COUNTS GO IN THIS TABLE. Icon's three are here because hq_T RAN all three suites on
+# 2026-09-05 and each runner PRINTS its own shipped/graded/gap on its board line (arizona shipped=124 graded=89
+# gap=35; jcon shipped=91 graded=81 gap=10; ipl total=851 run_graded=60). The other languages are deliberately
+# ABSENT: their shipped counts would be my transcription of someone else's cell, and an invented inventory number
+# is the same defect as an invented score -- it would print "N programs never graded" with authority and no
+# measurement behind it. ⭐ Each lane adds its own row here from ITS OWN runner's board line, never from prose.
+PACKAGE_SHIPPED = {
+    "icon": {"arizona": 124, "jcon": 91, "ipl": 851},
+}
 
 
 def counted_fractions(lang, vcell):
@@ -1338,6 +1357,13 @@ def counted_fractions(lang, vcell):
         got[best[1]] = best[0]
         _found.append((name, best[0], best[1]))
         work.append("V %s %d/%d" % (name, best[0], best[1]))
+        # ⛔ THE UNGRADED REMAINDER OF A PACKAGE THAT DID RUN IS STILL NOT-RUN. arizona grades 89 of 124; the
+        # other 35 have no oracle-cut ref and have never been executed against one. They are inventory, exactly
+        # like a package nobody ran at all -- counting them inside the fraction is what made `46/124` read as a
+        # measurement of 124 programs when it measured 89.
+        _ship = PACKAGE_SHIPPED.get(lang, {}).get(name, 0)
+        if _ship > best[1]:
+            _notrun.append(("%s (ungraded remainder)" % name, _ship - best[1]))
     if unread:
         work.append("⚠ %d package(s) UNREADABLE (%s) -- each counted ZERO over its declared population, so this "
                     "language's percent is a genuine FLOOR: fixing the cell can only raise it." % (len(unread), ", ".join(unread)))

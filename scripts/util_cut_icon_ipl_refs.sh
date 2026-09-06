@@ -66,11 +66,18 @@ cleanup_template() { rm -rf "$TEMPLATE"; }
 # be lost with the subshell, exactly the bug this replaced: `RC=$?` inside a `$(run_isolated ...)` call
 # never reaches the caller). Fresh scratch copy every call, destroyed before returning -- see the header
 # note on why cwd=$PROGS directly is unsafe here.
+# ⭐ NAME.dat STDIN SIDECAR (hq_I 2026-09-05): mirrors the convention test_icon_arizona_suite.sh and
+# test_icon_jcon_suite.sh already use for their own fixtures -- a program that needs input to run
+# deterministically gets a NAME.dat beside NAME.icn, fed as stdin. Absent a .dat, behavior is unchanged
+# (/dev/null, as before). test_icon_ipl_suite.sh's RUN tier looks up the SAME file -- see FACT RULE in
+# that script's header: a script and its own DONE-WHEN (and its sibling ref-cutter) must not disagree.
 run_isolated() {
-  local f="$1" outfile="$2" work rc
+  local f="$1" outfile="$2" work rc stdin_src
   work="$(mktemp -d "${TMPDIR:-/tmp}/ipl_ref_run.XXXXXX")" || return 127
   cp -r "$TEMPLATE"/. "$work"/
-  ( cd "$work/progs" && timeout "$TIMEOUT" env ICONPATH="$work/progs:$work/procs:$work/gprocs:$work/incl:$work/gincl" "$ICON" "$f" < /dev/null > "$outfile" 2>&1 )
+  stdin_src=/dev/null
+  [ -f "$PROGS/${f%.icn}.dat" ] && stdin_src="$PROGS/${f%.icn}.dat"
+  ( cd "$work/progs" && timeout "$TIMEOUT" env ICONPATH="$work/progs:$work/procs:$work/gprocs:$work/incl:$work/gincl" "$ICON" "$f" < "$stdin_src" > "$outfile" 2>&1 )
   rc=$?
   rm -rf "$work"
   return "$rc"
@@ -138,7 +145,17 @@ for f in "${FILES[@]}"; do
   # is low but nonzero is a real, non-rare false accept, not a theoretical one -- 6 of 66 is ~9%. Four
   # total agreeing runs does not make a false accept impossible, only proportionately rarer; there is no
   # bound past which it's guaranteed zero, same as util_ref_mint.sh accepts for SNOBOL4's LIVE class.
+  # ⛔⛔ RECURRENCE, same session (hq_I 2026-09-05): a plain re-run of THIS SAME SCRIPT re-minted
+  # filexref/gcomp/qt/shar/solit as LIVE a second time -- exactly the seat01 mechanism ("no
+  # same-invocation repeat-run check can see" it, FINDING-2026-09-05-seat01-icon-ipl-same-invocation-
+  # determinism-check-has-a-blind-spot.md): four runs fired back-to-back in well under a second all read
+  # the SAME &dateline/&clock second-granularity value and agree by coincidence, not by determinism.
+  # More agreeing runs alone never closes this -- they just repeat the same coincidence faster. The
+  # `sleep 1` below forces each of the 4 runs to land in a DIFFERENT wall-clock second, which a
+  # second-granularity clock dependency cannot survive; it costs at most 3s per candidate that reaches
+  # this loop (a small minority of the population), never per file overall.
   for _confirm in 1 2 3; do
+    sleep 1
     run_isolated "$f" "$OUT2"; rc2=$?
     if [ "$rc2" -eq 124 ]; then
       n_nondet=$((n_nondet+1)); printf 'NONDETERMINISTIC\t%s\t%s/124\t-\tNOT MINTED -- a confirmation run timed out where the first did not\n' "$f" "$rc1"

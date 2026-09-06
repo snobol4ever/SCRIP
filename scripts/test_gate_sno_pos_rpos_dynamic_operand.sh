@@ -58,7 +58,7 @@ m4_run() {   # $1 = source .sno (absolute), $2 = basename (no ext), writes stdou
     ( cd "$T" && timeout 10s "./$name.bin" </dev/null >"$outfile" 2>&1 )
 }
 
-red=0; examined=0
+red=0; examined=0; RED_NAMES=''; GRADED_NAMES=''
 for p in $PROGS; do
     src="$W/$p.sno"; ref="$W/$p.ref"
     if [ ! -f "$src" ] || [ ! -f "$ref" ]; then
@@ -67,7 +67,7 @@ for p in $PROGS; do
     timeout 20 "$O" -bf "$src" </dev/null >"$T/$p.oref" 2>/dev/null
     if ! cmp -s "$T/$p.oref" "$ref"; then
         echo "RED  $p: committed ref disagrees with the live oracle -- re-cut it (oracle/ref drift, not this class)"
-        red=$((red+1)); examined=$((examined+1)); continue
+        red=$((red+1)); examined=$((examined+1)); RED_NAMES="$RED_NAMES $p(ref-drift)"; GRADED_NAMES="$GRADED_NAMES $p"; continue
     fi
     is_control=0
     case "$CONTROLS" in *" $p "*) is_control=1;; esac
@@ -83,14 +83,19 @@ for p in $PROGS; do
         cmp -s "$T/$name.m4" "$ref" && ok4=$((ok4+1))
         rm -f "$fn" "$T/$name.m3" "$T/$name.m4" "$T/$name.s" "$T/$name.bin"
     done
-    examined=$((examined+1))
+    examined=$((examined+1)); GRADED_NAMES="$GRADED_NAMES $p"
     tag="witness"; [ "$is_control" = 1 ] && tag="control"
     if [ "$ok3" -eq 20 ] && [ "$ok4" -eq 20 ]; then
         echo "PASS $p [$tag]: 20/20 m3, 20/20 m4 -- matches the oracle across the filename-length sweep in both modes"
     else
         echo "RED  $p [$tag]: m3=$ok3/20 m4=$ok4/20 match the oracle across the filename-length sweep"
-        red=$((red+1))
+        red=$((red+1)); RED_NAMES="$RED_NAMES $p[$tag]"
     fi
 done
 gate_floor "$examined" 7 "witness/control programs"
-gate_verdict "$red" "program(s) diverging from the oracle under the filename-length x mode sweep"
+# ⛔ THE VERDICT LINE NAMES THE ENTRIES (ceo ruling 2026-09-05, wiring this gate into `make test` as a blocking
+# arm): a blocking red that reports only a COUNT makes the reader open the script to learn what broke, and the
+# whole reason this gate is wired red is that an unread gate reads as coverage while exercising nothing.
+echo "GRADED[$examined]:$GRADED_NAMES"
+[ "$red" -ne 0 ] && echo "RED[$red]:$RED_NAMES"
+gate_verdict "$red" "program(s) diverging from the oracle under the filename-length x mode sweep --- RED:${RED_NAMES:- none} --- GRADED:$GRADED_NAMES ---"

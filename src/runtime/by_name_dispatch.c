@@ -6275,6 +6275,17 @@ DESCR_t rt_pl_dop_nb_getval_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *r
       rt_pl_tr_gc_sync(cx->tr); return ok ? pl_ok() : FAILDESCR; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void * rt_pl_dop_nb_getval_guard_c(DESCR_t *args, int nargs, void *root) {
+    extern int rt_pl_nb_is_set(void *, int64_t);
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    if (nargs != 2) return (void *)0;
+    pl_atoms_ready();
+    { DESCR_t k = rt_pl_deref_val(args[0]);
+      if (k.v != DT_I) return (void *)0;
+      if (rt_pl_nb_is_set(root, k.i)) return (void *)0;
+      return rt_pl_ball_kind2("existence_error", "variable", args[1]); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int rt_pl_db_recompile(void *, const char *, int);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -6380,6 +6391,7 @@ static int pl_anum_list_kind(DESCR_t d) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_anum_is_text(DESCR_t d) { return pl_atom_str(d) != (const char *)0; }
 static int pl_anum_is_num(DESCR_t d) { return d.v == DT_I || d.v == DT_R; }
+static int pl_anum_is_compound(DESCR_t d) { return d.v == (DTYPE_t)DT_PLREF && (int)(d.slen & 0xFFFFu) > 0; }
 static int pl_anum_code_ok(long c) { return c >= 0 && c <= 255; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void * pl_anum_elems(DESCR_t lst, int codes) {
@@ -6467,6 +6479,22 @@ static void * pl_anum_check(const char *nm, DESCR_t *a, int n) {
         if (!pl_anum_is_text(x)) return rt_pl_ball_kind2("type_error", "atom", x);
         for (int i = 1; i <= 3; i++) { DESCR_t v = rt_pl_deref_val(a[i]); if (!pl_iso_unbound(v) && v.v != DT_I) return rt_pl_ball_kind2("type_error", "integer", v); }
         if (!pl_iso_unbound(s) && !pl_anum_is_text(s)) return rt_pl_ball_kind2("type_error", "atom", s);
+        return (void *)0; }
+    if (!strcmp(nm, "arg") && n == 3) {
+        DESCR_t k = rt_pl_deref_val(a[0]), t = rt_pl_deref_val(a[1]);
+        if (pl_iso_unbound(k) || pl_iso_unbound(t)) return rt_pl_ball_instantiation();
+        if (k.v != DT_I) return rt_pl_ball_kind2("type_error", "integer", k);
+        if (!pl_anum_is_compound(t)) return rt_pl_ball_kind2("type_error", "compound", t);
+        if ((long long)k.i < 0) return rt_pl_ball_kind2("domain_error", "not_less_than_zero", k);
+        return (void *)0; }
+    if (!strcmp(nm, "functor") && n == 3) {
+        DESCR_t t = rt_pl_deref_val(a[0]), f = rt_pl_deref_val(a[1]), r = rt_pl_deref_val(a[2]);
+        if (!pl_iso_unbound(t)) return (void *)0;
+        if (pl_iso_unbound(f) || pl_iso_unbound(r)) return rt_pl_ball_instantiation();
+        if (r.v != DT_I) return rt_pl_ball_kind2("type_error", "integer", r);
+        if (pl_anum_is_compound(f)) return rt_pl_ball_kind2("type_error", "atomic", f);
+        if ((long long)r.i < 0) return rt_pl_ball_kind2("domain_error", "not_less_than_zero", r);
+        if ((long long)r.i > 0 && !pl_anum_is_text(f)) return rt_pl_ball_kind2("type_error", "atom", f);
         return (void *)0; }
     return (void *)0;
 }
