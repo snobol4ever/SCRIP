@@ -10,6 +10,9 @@ extern "C" {
 DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op);
 int rt_binop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out);
 DESCR_t rt_add(DESCR_t a, DESCR_t b);
+DESCR_t rt_add_big(DESCR_t a, DESCR_t b);
+DESCR_t rt_sub_big(DESCR_t a, DESCR_t b);
+DESCR_t rt_mul_big(DESCR_t a, DESCR_t b);
 DESCR_t rt_sub(DESCR_t a, DESCR_t b);
 DESCR_t rt_mul(DESCR_t a, DESCR_t b);
 DESCR_t rt_div(DESCR_t a, DESCR_t b);
@@ -24,8 +27,19 @@ DESCR_t rt_cinter(DESCR_t a, DESCR_t b);
 #include <cstdlib>
 #include <cstdio>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline long long binop_base(long long op) {
+    return op == BINOP_ADD_BIG ? BINOP_ADD : op == BINOP_SUB_BIG ? BINOP_SUB : op == BINOP_MUL_BIG ? BINOP_MUL : op;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline int binop_promotes(long long op) {
+    return op == BINOP_ADD_BIG || op == BINOP_SUB_BIG || op == BINOP_MUL_BIG;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline void * rtop_addr(long long op) {
     switch (op) {
+        case BINOP_ADD_BIG: return (void*)rt_add_big;
+        case BINOP_SUB_BIG: return (void*)rt_sub_big;
+        case BINOP_MUL_BIG: return (void*)rt_mul_big;
         case BINOP_ADD:    return (void*)rt_add;
         case BINOP_SUB:    return (void*)rt_sub;
         case BINOP_MUL:    return (void*)rt_mul;
@@ -42,6 +56,9 @@ static inline void * rtop_addr(long long op) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline const char * rtop_name(long long op) {
     switch (op) {
+        case BINOP_ADD_BIG: return "rt_add_big";
+        case BINOP_SUB_BIG: return "rt_sub_big";
+        case BINOP_MUL_BIG: return "rt_mul_big";
         case BINOP_ADD:    return "rt_add";
         case BINOP_SUB:    return "rt_sub";
         case BINOP_MUL:    return "rt_mul";
@@ -60,15 +77,15 @@ static inline const char * rtop_name(long long op) {
 #define SCRIP_DEF_ARITH_FUSE 1
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define fuse_on() (SCRIP_DEF_ARITH_FUSE)
-#define fuse_op_ok() ((long long)_.op_ival == BINOP_ADD || (long long)_.op_ival == BINOP_SUB || (long long)_.op_ival == BINOP_MUL)
+#define fuse_op_ok() (binop_base((long long)_.op_ival) == BINOP_ADD || binop_base((long long)_.op_ival) == BINOP_SUB || binop_base((long long)_.op_ival) == BINOP_MUL)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define sse_op(xd, xs) x86((long long)_.op_ival == BINOP_SUB ? "subsd" : (long long)_.op_ival == BINOP_MUL ? "mulsd" : "addsd", (xd), (xs))
+#define sse_op(xd, xs) x86(binop_base((long long)_.op_ival) == BINOP_SUB ? "subsd" : binop_base((long long)_.op_ival) == BINOP_MUL ? "mulsd" : "addsd", (xd), (xs))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define i2d(xd, src, lb) x86("cvtsi2sd", (xd), (src))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define inl_ok() ( \
        !_.op_num_real && _.op_sa >= 0 && _.op_sb >= 0 && !(_.op_imm_a_ok && _.op_imm_b_ok) \
-    && ((long long)_.op_ival == BINOP_ADD || (long long)_.op_ival == BINOP_SUB || (long long)_.op_ival == BINOP_MUL) \
+    && (binop_base((long long)_.op_ival) == BINOP_ADD || binop_base((long long)_.op_ival) == BINOP_SUB || binop_base((long long)_.op_ival) == BINOP_MUL) \
 )
 #define inl2_ok() (fuse_op_ok() && _.op_sa >= 0 && _.op_sb >= 0 && !(_.op_imm_a_ok && _.op_imm_b_ok))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -92,7 +109,7 @@ std::string bb_binop_arith() {
         const int off  = getenv("SCRIP_OPT_BINIMM") && getenv("SCRIP_OPT_BINIMM")[0] == '0';
         const int both = _.op_imm_a_ok && _.op_imm_b_ok;
         const int ia = (both || off) ? 0 : _.op_imm_a_ok, ib = (both || off) ? 0 : _.op_imm_b_ok;
-        const int fold_imm = ib && !ia && ((long long)_.op_ival == BINOP_ADD || (long long)_.op_ival == BINOP_SUB);
+        const int fold_imm = ib && !ia && (binop_base((long long)_.op_ival) == BINOP_ADD || binop_base((long long)_.op_ival) == BINOP_SUB);
         return x86("comment", "IR_BINOP_ARITH zd fuse")
              + x86_alpha()
              + IF(!ia && !ib, x86("note", ZOPN(0))
@@ -119,11 +136,12 @@ std::string bb_binop_arith() {
                             + x86("mov", "rdx", ZOPQ(1, 8)))
              + IF( ia, x86("mov", "rax", (long)_.op_imm_a))
              + IF( ib && !fold_imm, x86("mov", "rdx", (long)_.op_imm_b))
-             + IF( fold_imm && (long long)_.op_ival == BINOP_ADD, x86("add", "rax", (long)_.op_imm_b))
-             + IF( fold_imm && (long long)_.op_ival == BINOP_SUB, x86("sub", "rax", (long)_.op_imm_b))
-             + IF(!fold_imm && (long long)_.op_ival == BINOP_ADD, x86("add",  "rax", "rdx"))
-             + IF(!fold_imm && (long long)_.op_ival == BINOP_SUB, x86("sub",  "rax", "rdx"))
-             + IF((long long)_.op_ival == BINOP_MUL, x86("imul", "rax", "rdx"))
+             + IF( fold_imm && binop_base((long long)_.op_ival) == BINOP_ADD, x86("add", "rax", (long)_.op_imm_b))
+             + IF( fold_imm && binop_base((long long)_.op_ival) == BINOP_SUB, x86("sub", "rax", (long)_.op_imm_b))
+             + IF(!fold_imm && binop_base((long long)_.op_ival) == BINOP_ADD, x86("add",  "rax", "rdx"))
+             + IF(!fold_imm && binop_base((long long)_.op_ival) == BINOP_SUB, x86("sub",  "rax", "rdx"))
+             + IF(binop_base((long long)_.op_ival) == BINOP_MUL, x86("imul", "rax", "rdx"))
+             + IF(binop_promotes((long long)_.op_ival), x86("jo", L(2)))
              + x86("note", ZRESN())
              + x86("mov", ZRES(0), (long)DT_I)
              + x86("note", ZRESN())
@@ -203,9 +221,10 @@ std::string bb_binop_arith() {
              + IF( _.op_imm_a_ok, x86("mov", "rax", (long)_.op_imm_a))
              + IF(!_.op_imm_b_ok, x86("mov", "rdx", FRQ(_.op_sb + 8)))
              + IF( _.op_imm_b_ok, x86("mov", "rdx", (long)_.op_imm_b))
-             + IF((long long)_.op_ival == BINOP_ADD, x86("add",  "rax", "rdx"))
-             + IF((long long)_.op_ival == BINOP_SUB, x86("sub",  "rax", "rdx"))
-             + IF((long long)_.op_ival == BINOP_MUL, x86("imul", "rax", "rdx"))
+             + IF(binop_base((long long)_.op_ival) == BINOP_ADD, x86("add",  "rax", "rdx"))
+             + IF(binop_base((long long)_.op_ival) == BINOP_SUB, x86("sub",  "rax", "rdx"))
+             + IF(binop_base((long long)_.op_ival) == BINOP_MUL, x86("imul", "rax", "rdx"))
+             + IF(binop_promotes((long long)_.op_ival), x86("jo", L(2)))
              + x86("mov", FRQ(_.op_off),     (long)DT_I)
              + x86("mov", FRQ(_.op_off + 8), "rax")
              + x86("jmp", L(7))
@@ -277,9 +296,10 @@ std::string bb_binop_arith() {
          + IF( _.op_imm_a_ok, x86("mov", "rax", (long)_.op_imm_a))
          + IF(!_.op_imm_b_ok, x86("mov", "rcx", FRQ(_.op_sb + 8)))
          + IF( _.op_imm_b_ok, x86("mov", "rcx", (long)_.op_imm_b))
-         + IF((long long)_.op_ival == BINOP_ADD, x86("add",  "rax", "rcx"))
-         + IF((long long)_.op_ival == BINOP_SUB, x86("sub",  "rax", "rcx"))
-         + IF((long long)_.op_ival == BINOP_MUL, x86("imul", "rax", "rcx"))
+         + IF(binop_base((long long)_.op_ival) == BINOP_ADD, x86("add",  "rax", "rcx"))
+         + IF(binop_base((long long)_.op_ival) == BINOP_SUB, x86("sub",  "rax", "rcx"))
+         + IF(binop_base((long long)_.op_ival) == BINOP_MUL, x86("imul", "rax", "rcx"))
+         + IF(binop_promotes((long long)_.op_ival), x86("jo", L(0)))
          + x86("mov", FRQ(_.op_off),     (long)DT_I)
          + x86("mov", FRQ(_.op_off + 8), "rax")
          + x86_gamma()

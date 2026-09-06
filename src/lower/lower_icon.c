@@ -365,10 +365,11 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         }
         { int64_t fb = 0; int fr = 0; if (icn_const_step(t, &fb, &fr) && fr) { IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); double d; memcpy(&d, &fb, 8); IR_LIT(nd).dval = d; *res = nd; return nd; } }
         int64_t bcode = lc_binop_code(t->t); if (bcode == BINOP_CONCAT) bcode = BINOP_CONCAT_FRACDIGIT;
+        int64_t bemit = (bcode == BINOP_ADD) ? (int64_t)BINOP_ADD_BIG : (bcode == BINOP_SUB) ? (int64_t)BINOP_SUB_BIG : (bcode == BINOP_MUL) ? (int64_t)BINOP_MUL_BIG : bcode;
         int is_relop = (bcode >= BINOP_LT && bcode <= BINOP_NE) || (bcode >= BINOP_SLT && bcode <= BINOP_SNE) || bcode == BINOP_EQV || bcode == BINOP_NEQV;
         int is_arith = (bcode >= BINOP_ADD && bcode <= BINOP_MOD) || bcode == BINOP_POW;
         int alit = 0, blit = 0; { int64_t fb = 0; int fr = 0; alit = icn_const_step(t->c[0], &fb, &fr); fb = 0; fr = 0; blit = icn_const_step(t->c[1], &fb, &fr); }
-        IR_t * op = build(cx, is_relop ? IR_BINOP_TEST : IR_BINOP, γ, ω); IR_LIT(op).ival = bcode;
+        IR_t * op = build(cx, is_relop ? IR_BINOP_TEST : IR_BINOP, γ, ω); IR_LIT(op).ival = is_relop ? bcode : bemit;
         IR_t * cb2 = (is_arith && !blit) ? build(cx, IR_COERCE_NUMERIC, op, ω) : NULL; if (cb2) IR_LIT(cb2).ival = 102 | COERCE_ERR_FAILURE_CONVERTIBLE;
         IR_t * ca2 = (is_arith && !alit) ? build(cx, IR_COERCE_NUMERIC, cb2 ? cb2 : op, ω) : NULL; if (ca2) IR_LIT(ca2).ival = 102 | COERCE_ERR_FAILURE_CONVERTIBLE;
         IR_t * bsucc = ca2 ? ca2 : (cb2 ? cb2 : op);
@@ -1098,7 +1099,7 @@ static int icn_const_step(const tree_t * s, int64_t * bits, int * isr) {
         if (!icn_const_step(s->c[0], &lb, &li) || !icn_const_step(s->c[1], &rb, &ri)) return 0;
         if (!li && !ri) {
             if (lb == 0 && rb <= 0) return 0;
-            if (rb >= 0) { int64_t acc = 1; for (int64_t k = 0; k < rb; k++) acc *= lb; *bits = acc; *isr = 0; return 1; }
+            if (rb >= 0) { int64_t acc = 1; for (int64_t k = 0; k < rb; k++) if (__builtin_mul_overflow(acc, lb, &acc)) return 0; *bits = acc; *isr = 0; return 1; }
             if (lb == 1)  { *bits = 1; *isr = 0; return 1; }
             if (lb == -1) { *bits = (rb & 1) ? -1 : 1; *isr = 0; return 1; }
             *bits = 0; *isr = 0; return 1;
@@ -1113,9 +1114,9 @@ static int icn_const_step(const tree_t * s, int64_t * bits, int * isr) {
         if (!icn_const_step(s->c[0], &lb, &li) || !icn_const_step(s->c[1], &rb, &ri)) return 0;
         if (!li && !ri) {
             int64_t r;
-            if (s->t == TT_ADD) r = lb + rb;
-            else if (s->t == TT_SUB) r = lb - rb;
-            else if (s->t == TT_MUL) r = lb * rb;
+            if (s->t == TT_ADD) { if (__builtin_add_overflow(lb, rb, &r)) return 0; }
+            else if (s->t == TT_SUB) { if (__builtin_sub_overflow(lb, rb, &r)) return 0; }
+            else if (s->t == TT_MUL) { if (__builtin_mul_overflow(lb, rb, &r)) return 0; }
             else if (s->t == TT_DIV) { if (rb == 0) return 0; r = lb / rb; }
             else { if (rb == 0) return 0; r = lb % rb; }
             *bits = r; *isr = 0; return 1;

@@ -410,6 +410,8 @@ inline uint8_t x86_jcc_op(const char * mnem) {
     if (!strcmp(mnem, "jae") || !strcmp(mnem, "jnc") || !strcmp(mnem, "jnb"))  return 0x83;
     if (!strcmp(mnem, "jbe") || !strcmp(mnem, "jna"))  return 0x86;
     if (!strcmp(mnem, "ja")  || !strcmp(mnem, "jnbe")) return 0x87;
+    if (!strcmp(mnem, "jo"))  return 0x80;
+    if (!strcmp(mnem, "jno")) return 0x81;
     if (!strcmp(mnem, "js"))  return 0x88;
     if (!strcmp(mnem, "jns")) return 0x89;
     if (!strcmp(mnem, "jl")  || !strcmp(mnem, "jnge")) return 0x8C;
@@ -442,6 +444,7 @@ inline std::string x86_fc_jcc_omega(const char * mnem);
 inline const char * x86_jcc_canon(uint8_t op) {
     switch (op) {
         case 0x82: return "jb";  case 0x83: return "jae";
+        case 0x80: return "jo";  case 0x81: return "jno";
         case 0x84: return "je";  case 0x85: return "jne";
         case 0x86: return "jbe"; case 0x87: return "ja";
         case 0x88: return "js";  case 0x89: return "jns";

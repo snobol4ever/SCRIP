@@ -612,6 +612,7 @@ char digits[11]   = "0123456789";
 char alphabet[257];
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int is_numeric_like(DESCR_t d) {
+    if (d.v == DT_BIG) return 1;
     if (IS_INT(d) || IS_REAL(d) || IS_NULL(d)) return 1;
     if (IS_STR(d)) {
         const char *s = rt_cstr_d(d);
@@ -2087,6 +2088,7 @@ char *c_VARVAL_fn(DESCR_t v) {
             real_str(v.r, buf, sizeof(buf));
             return rt_ws_strdup_c(buf);
         }
+        case DT_BIG: { extern char *rt_big_str(DESCR_t); return rt_big_str(v); }
         case DT_DATA:
             return v.u ? rt_ws_strdup_c(v.u->type->name) : rt_ws_strdup_c("");
         case DT_P:
@@ -2327,6 +2329,7 @@ const char *rt_cstr_materialize(DESCR_t d) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int64_t to_int_slow(DESCR_t v) {
     switch (v.v) {
+        case DT_BIG: { extern char *rt_big_str(DESCR_t); return (int64_t)strtoll(rt_big_str(v), NULL, 10); }
         case DT_I:  return v.i;
         case DT_R: return (int64_t)v.r;
         case DT_S:
@@ -2346,6 +2349,7 @@ int64_t to_int_slow(DESCR_t v) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 double to_real(DESCR_t v) {
     switch (v.v) {
+        case DT_BIG: { extern char *rt_big_str(DESCR_t); return strtod(rt_big_str(v), NULL); }
         case DT_R: return v.r;
         case DT_I:  return (double)v.i;
         case DT_S:
@@ -2366,6 +2370,7 @@ const char *datatype(DESCR_t v) {
         case DT_SNUL:    return "STRING";
         case DT_S:       return "STRING";
         case DT_I:       return "INTEGER";
+        case DT_BIG:     return "INTEGER";
         case DT_R:       return "REAL";
         case DT_DATA:    return v.u ? v.u->type->name : "DATA";
         case DT_P:       return "PATTERN";

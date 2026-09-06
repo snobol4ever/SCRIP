@@ -238,6 +238,7 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/runtime_init.c \
     $(SRC)/runtime/io_format.c \
     $(SRC)/runtime/arithmetic.c \
+    $(SRC)/runtime/bignum.c \
     $(SRC)/runtime/pattern_match.c \
     $(SRC)/runtime/keywords.c \
     $(SRC)/runtime/string_ops.c \

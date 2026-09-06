@@ -122,7 +122,9 @@ RTX_FUNC(rt_add)
     jne     .Ladd_notii
     cmp     dl, DT_I
     jne     .Ladd_notii
-    lea     rdx, [rsi + rcx]
+    mov     rdx, rsi
+    add     rdx, rcx
+    jo      .Ladd_slow
     mov     eax, DT_I | (MOD_OP_RT_ADD << 8)
     ret
 .Ladd_notii:
@@ -148,6 +150,7 @@ RTX_FUNC(rt_sub)
     jne     .Lsub_notii
     mov     rdx, rsi
     sub     rdx, rcx
+    jo      .Lsub_slow
     mov     eax, DT_I | (MOD_OP_RT_SUB << 8)
     ret
 .Lsub_notii:
@@ -173,6 +176,7 @@ RTX_FUNC(rt_mul)
     jne     .Lmul_notii
     mov     rdx, rsi
     imul    rdx, rcx
+    jo      .Lmul_slow
     mov     eax, DT_I | (MOD_OP_RT_MUL << 8)
     ret
 .Lmul_notii:

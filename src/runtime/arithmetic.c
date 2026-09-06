@@ -194,7 +194,7 @@ long rt_arith(int lk, long li, const char *ls,
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_ipow_descr(int64_t li, int64_t ri) {
     if (li == 0 && ri <= 0) { extern int core_icn_error(int code, DESCR_t val); core_icn_error(204, INTVAL(li)); return FAILDESCR; }
-    if (ri >= 0) { int64_t acc = 1; for (int64_t k = 0; k < ri; k++) acc *= li; return INTVAL(acc); }
+    if (ri >= 0) { int64_t acc = 1; for (int64_t k = 0; k < ri; k++) if (__builtin_mul_overflow(acc, li, &acc)) { extern DESCR_t rt_big_pow(DESCR_t, int64_t); return rt_big_pow(INTVAL(li), ri); } return INTVAL(acc); }
     if (li == 1) return INTVAL(1);
     if (li == -1) return INTVAL((ri & 1) ? -1 : 1);
     return INTVAL(0);
@@ -218,10 +218,11 @@ static DESCR_t rt_num_arith_impl(DESCR_t a, DESCR_t b, int op);
 DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op) {
     extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
     if (a.v == DT_I && b.v == DT_I) {
+        int64_t _z;
         switch (op) {
-            case BINOP_ADD: return INTVAL(a.i + b.i);
-            case BINOP_SUB: return INTVAL(a.i - b.i);
-            case BINOP_MUL: return INTVAL(a.i * b.i);
+            case BINOP_ADD: if (!__builtin_add_overflow(a.i, b.i, &_z)) return INTVAL(_z); break;
+            case BINOP_SUB: if (!__builtin_sub_overflow(a.i, b.i, &_z)) return INTVAL(_z); break;
+            case BINOP_MUL: if (!__builtin_mul_overflow(a.i, b.i, &_z)) return INTVAL(_z); break;
             case BINOP_DIV: if (b.i == 0) return FAILDESCR; if (b.i != -1) return INTVAL(a.i / b.i); break;
             case BINOP_MOD: if (b.i == 0) return FAILDESCR; if (b.i != -1) return INTVAL(a.i % b.i); break;
             default: break;
@@ -248,18 +249,48 @@ DESCR_t fn(DESCR_t a, DESCR_t b) { \
     g_core_errjmp_n = my; \
     return r; \
 }
-RT_BINOP_ENTRY(c_rt_add,  BINOP_ADD,    return INTVAL(a.i + b.i);)
-RT_BINOP_ENTRY(c_rt_sub,  BINOP_SUB,    return INTVAL(a.i - b.i);)
-RT_BINOP_ENTRY(c_rt_mul,  BINOP_MUL,    return INTVAL(a.i * b.i);)
+RT_BINOP_ENTRY(c_rt_add,  BINOP_ADD,    { int64_t _z; if (!__builtin_add_overflow(a.i, b.i, &_z)) return INTVAL(_z); })
+RT_BINOP_ENTRY(c_rt_sub,  BINOP_SUB,    { int64_t _z; if (!__builtin_sub_overflow(a.i, b.i, &_z)) return INTVAL(_z); })
+RT_BINOP_ENTRY(c_rt_mul,  BINOP_MUL,    { int64_t _z; if (!__builtin_mul_overflow(a.i, b.i, &_z)) return INTVAL(_z); })
 RT_BINOP_ENTRY(rt_div,    BINOP_DIV,    if (b.i == 0) { core_runtime_error(2, "division caused integer overflow"); return FAILDESCR; } if (b.i != -1) return INTVAL(a.i / b.i);)
 RT_BINOP_ENTRY(rt_mod,    BINOP_MOD,    if (b.i == 0) { core_runtime_error(2, NULL); return FAILDESCR; } if (b.i != -1) return INTVAL(a.i % b.i);)
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_add_big(DESCR_t a, DESCR_t b) { extern DESCR_t rt_big_add(DESCR_t, DESCR_t);
+    if (a.v == DT_I && b.v == DT_I) { int64_t _z; if (!__builtin_add_overflow(a.i, b.i, &_z)) return INTVAL(_z); return rt_big_add(a, b); }
+    return rt_num_arith_impl(a, b, BINOP_ADD); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_sub_big(DESCR_t a, DESCR_t b) { extern DESCR_t rt_big_sub(DESCR_t, DESCR_t);
+    if (a.v == DT_I && b.v == DT_I) { int64_t _z; if (!__builtin_sub_overflow(a.i, b.i, &_z)) return INTVAL(_z); return rt_big_sub(a, b); }
+    return rt_num_arith_impl(a, b, BINOP_SUB); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_mul_big(DESCR_t a, DESCR_t b) { extern DESCR_t rt_big_mul(DESCR_t, DESCR_t);
+    if (a.v == DT_I && b.v == DT_I) { int64_t _z; if (!__builtin_mul_overflow(a.i, b.i, &_z)) return INTVAL(_z); return rt_big_mul(a, b); }
+    return rt_num_arith_impl(a, b, BINOP_MUL); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RT_BINOP_ENTRY(rt_pow,    BINOP_POW,    )
 RT_BINOP_ENTRY(rt_powreal, BINOP_POW_PROMOTE, )
 RT_BINOP_ENTRY(rt_cunion, BINOP_CUNION, )
 RT_BINOP_ENTRY(rt_cdiff,  BINOP_CDIFF,  )
 RT_BINOP_ENTRY(rt_cinter, BINOP_CINTER, )
+static DESCR_t rt_big_arith_route(DESCR_t a, DESCR_t b, int op) {
+    extern DESCR_t rt_big_add(DESCR_t, DESCR_t); extern DESCR_t rt_big_sub(DESCR_t, DESCR_t);
+    extern DESCR_t rt_big_mul(DESCR_t, DESCR_t); extern DESCR_t rt_big_pow(DESCR_t, int64_t);
+    switch (op) {
+        case BINOP_ADD: return rt_big_add(a, b);
+        case BINOP_SUB: return rt_big_sub(a, b);
+        case BINOP_MUL: return rt_big_mul(a, b);
+        case BINOP_POW: case BINOP_POW_PROMOTE: return (b.v == DT_I && b.i >= 0) ? rt_big_pow(a, b.i) : FAILDESCR;
+        default: return FAILDESCR;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rt_big_arith_wanted(DESCR_t a, DESCR_t b, int op) {
+    if (a.v == DT_BIG || b.v == DT_BIG) return (op == BINOP_ADD || op == BINOP_SUB || op == BINOP_MUL || op == BINOP_POW || op == BINOP_POW_PROMOTE);
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_num_arith_impl(DESCR_t a, DESCR_t b, int op) {
+    if (rt_big_arith_wanted(a, b, op)) return rt_big_arith_route(a, b, op);
     int csop = (op == BINOP_CUNION || op == BINOP_CDIFF || op == BINOP_CINTER);
     if (!csop && (a.v == DT_S || a.v == DT_SNUL) && (!a.s || descr_slen(a) == 0)) a = INTVAL(0);
     if (!csop && (b.v == DT_S || b.v == DT_SNUL) && (!b.s || descr_slen(b) == 0)) b = INTVAL(0);

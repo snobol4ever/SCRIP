@@ -3821,6 +3821,7 @@ extern int junction_is(DESCR_t v);
 extern int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int relop_num_coerce(DESCR_t v, DESCR_t *out) {
+    if (v.v == DT_BIG) { *out = v; return 1; }
     if (IS_INT_fn(v) || IS_REAL_fn(v)) { *out = v; return 1; }
     const char *s = IS_STR_fn(v) ? v.s : IS_CSET_fn(v) ? v.s : (const char *)0;
     if (!s) return 0;
@@ -3888,6 +3889,9 @@ static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op) {
             if (IS_REAL_fn(L) || IS_REAL_fn(R)) { double a = to_real(L), b = to_real(R);
                 switch (op) { case BINOP_EQ: return a==b; case BINOP_NE: return a!=b; case BINOP_LT: return a<b;
                               case BINOP_LE: return a<=b; case BINOP_GT: return a>b;  case BINOP_GE: return a>=b; } return 0; }
+            if (L.v == DT_BIG || R.v == DT_BIG) { extern int rt_big_cmp(DESCR_t, DESCR_t); int c = rt_big_cmp(L, R);
+                switch (op) { case BINOP_EQ: return c==0; case BINOP_NE: return c!=0; case BINOP_LT: return c<0;
+                              case BINOP_LE: return c<=0; case BINOP_GT: return c>0;  case BINOP_GE: return c>=0; } return 0; }
             int64_t a = L.i, b = R.i;
             switch (op) { case BINOP_EQ: return a==b; case BINOP_NE: return a!=b; case BINOP_LT: return a<b;
                           case BINOP_LE: return a<=b; case BINOP_GT: return a>b;  case BINOP_GE: return a>=b; } return 0; }
@@ -4242,7 +4246,8 @@ static int bn_type_datatype(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
     const char *t;
     int declared = 0;
     (void)nargs;
-    if (IS_INT_fn(av))       t="integer";
+    if (av.v == DT_BIG)      t="integer";
+    else if (IS_INT_fn(av))  t="integer";
     else if (IS_REAL_fn(av)) t="real";
     else if (av.v==DT_T)     t=(av.tbl && av.tbl->is_set) ? "set" : "table";
     else if (av.v==DT_A)     t=(!strcmp(fn,"DATATYPE")) ? "array" : "list";
@@ -4666,6 +4671,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         DESCR_t av = args[0];
         if (IS_CSET_fn(av)) { *out = rt_str_coerce(av); return 1; }
         if (IS_STR_fn(av)) { *out = av; return 1; }
+        if (av.v == DT_BIG) { extern char *rt_big_str(DESCR_t); *out = STRVAL(rt_big_str(av)); return 1; }
         char *buf = rt_ws_alloc(64);
         if (IS_INT_fn(av))       snprintf(buf,64,"%lld",(long long)av.i);
         else if (IS_REAL_fn(av)) { icon_real_str(av.r,buf,64); }
