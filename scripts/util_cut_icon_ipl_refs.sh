@@ -101,7 +101,7 @@ fi
 TOTAL=${#FILES[@]}
 [ "$TOTAL" -gt 0 ] || { echo "⛔ GATE REFUSES: zero .icn files found under $PROGS" >&2; exit 2; }
 
-n_live=0; n_mint=0; n_empty=0; n_fail=0; n_display=0; n_timeout=0; n_suspect=0; n_undeclared=0; n_nondet=0; n_havestd=0; n_oversized=0
+n_live=0; n_mint=0; n_empty=0; n_fail=0; n_display=0; n_diagnostic=0; n_timeout=0; n_suspect=0; n_undeclared=0; n_nondet=0; n_havestd=0; n_oversized=0
 OUT1="$(mktemp "${TMPDIR:-/tmp}/ipl_ref_out1.XXXXXX")"; OUT2="$(mktemp "${TMPDIR:-/tmp}/ipl_ref_out2.XXXXXX")"
 HOLD="$(mktemp -d "${TMPDIR:-/tmp}/ipl_ref_hold.XXXXXX")"
 trap 'cleanup_template; rm -f "$OUT1" "$OUT2"; rm -rf "$HOLD"' EXIT
@@ -190,6 +190,29 @@ for f in "${FILES[@]}"; do
   # output the program does produce.
   if printf '%s' "$out1" | grep -qE ': "[^"]+": undeclared identifier, procedure '; then
     n_undeclared=$((n_undeclared+1)); printf 'UNDECLARED_IDENTIFIER\t%s\t0\t%s\tNOT MINTED -- output contains an icont link-time unresolved-identifier diagnostic, not real program behavior: %s\n' "$f" "$by1" "$(printf '%s' "$out1" | grep -m1 ': "[^"]*": undeclared identifier, procedure ')"
+    continue
+  fi
+  # ⛔⭐⭐ THE CONTENT ASSERTION -- the FIFTH property, and the one that would have caught the 27
+  # (hq_I 2026-09-06, ruled into the shared body by hq_T). Every other arm here asks whether the output
+  # AGREES WITH ITSELF: same rc, same bytes, stable across runs, stable across a minute. NONE of them
+  # ever asks what the output IS. That is satisfiable by being consistently wrong -- I minted 27 refs
+  # whose entire body was an icont diagnostic, and they cleared rc, non-empty, four-run determinism AND
+  # the minute-boundary arm, because a diagnostic is perfectly reproducible. STABILITY IS NOT CORRECTNESS.
+  #
+  # seat07's UNDECLARED_IDENTIFIER arm above is the specific cure for the specific pattern that bit us.
+  # THIS is the general form: if EVERY non-blank line of the candidate looks like the ORACLE TALKING
+  # ABOUT the program rather than the program talking, it is not a ref no matter how stable it is.
+  # The oracle's diagnostics are file-scoped and name a source position or a procedure -- "foo.icn: ...",
+  # "File foo.icn; Line 12 # ...", "Run-time error N". Real program output is not universally shaped
+  # that way, and the test is deliberately ALL-lines: a program that legitimately prints one such line
+  # among real output still mints.
+  #
+  # ⛔ IT IS A REFUSAL TO MINT, NOT A RULING ABOUT THE PROGRAM. The row says "a human decides", because
+  # the honest reading is "this candidate's body is indistinguishable from the oracle complaining" --
+  # which is a reason not to pin it, never a reason to declare the program ungradable.
+  if [ "$(printf '%s' "$out1" | grep -cvE '^[[:space:]]*$')" -gt 0 ] \
+     && [ "$(printf '%s' "$out1" | grep -vE '^[[:space:]]*$' | grep -cvE '^([^ :]+\.icn:|File [^;]+; Line [0-9]+ #|Run-time error [0-9]+)')" -eq 0 ]; then
+    n_diagnostic=$((n_diagnostic+1)); printf 'ALL_ORACLE_DIAGNOSTIC\t%s\t0\t%s\tNOT MINTED -- every non-blank line is the ORACLE talking about the program, not the program: %s\n' "$f" "$by1" "$(printf '%s' "$out1" | grep -vE '^[[:space:]]*$' | head -1)"
     continue
   fi
   if printf '%s' "$out1" | head -1 | grep -qiE '^(usage|error)[: ]'; then
@@ -299,8 +322,8 @@ if [ "${#CANDS[@]}" -gt 0 ]; then
   done
 fi
 echo "----"
-printf 'TOTALS[%s]: LIVE %d (minted %d, minute-rejected %d) · HAVE_STD %d · EMPTY %d · SUSPECT_USAGE %d · UNDECLARED_IDENTIFIER %d · NONDETERMINISTIC %d · ORACLE_FAIL %d · DISPLAY_REFUSED %d · TIMEOUT %d · OVERSIZED %d · total=%d\n' \
-  "$SUBDIR" "$n_live" "$n_mint" "$n_minute_reject" "$n_havestd" "$n_empty" "$n_suspect" "$n_undeclared" "$n_nondet" "$n_fail" "$n_display" "$n_timeout" "$n_oversized" "$TOTAL"
+printf 'TOTALS[%s]: LIVE %d (minted %d, minute-rejected %d) · HAVE_STD %d · EMPTY %d · SUSPECT_USAGE %d · UNDECLARED_IDENTIFIER %d · NONDETERMINISTIC %d · ORACLE_FAIL %d · DISPLAY_REFUSED %d · ALL_ORACLE_DIAGNOSTIC %d · TIMEOUT %d · OVERSIZED %d · total=%d\n' \
+  "$SUBDIR" "$n_live" "$n_mint" "$n_minute_reject" "$n_havestd" "$n_empty" "$n_suspect" "$n_undeclared" "$n_nondet" "$n_fail" "$n_display" "$n_diagnostic" "$n_timeout" "$n_oversized" "$TOTAL"
 [ -n "$APPLY" ] || echo "(census only -- nothing written; re-run with --apply to mint)"
 # ── belt-and-suspenders: prove the tracked tree is still exactly what HEAD says, every run, census or not.
 if git -C "$S4E/corpus" diff --quiet -- packages/icon/ipl/progs packages/icon/ipl/gprogs packages/icon/ipl/procs packages/icon/ipl/gprocs packages/icon/ipl/incl packages/icon/ipl/gincl 2>/dev/null \
