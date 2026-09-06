@@ -127,6 +127,7 @@ test_gate_sno_lex_compare_binary_safe.sh	WIRED	-	-	-
 test_gate_sno_pos_rpos_dynamic_operand.sh	WIRED	-	-	-
 test_gate_sno_runtime_define.sh	WIRED	-	-	-
 test_gate_sno_setexit_resume_matches_oracle.sh	WIRED	-	-	-
+test_gate_snobol4_xfail_markers_are_attributed.sh	WIRED	-	-	-
 test_gate_snocone_returns_codegen.sh	WIRED	-	-	-
 test_gate_suite_argv_sidecar.sh	WIRED	-	-	-
 test_gate_template_medium_invisible.sh	WIRED	-	-	-
