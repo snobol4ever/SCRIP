@@ -2444,6 +2444,14 @@ void sn4_blob_choice_scan(int * n_choice, int * leaf_ok, int * has_fence) {
     if (n_choice) *n_choice = _nc; if (leaf_ok) *leaf_ok = _lf; if (has_fence) *has_fence = _fn;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int resume_sealed_defer_on_root(IR_t ** nodes, int n, IR_t * br) {
+    for (int i = 0; i < n; i++) { IR_t * x = nodes[i];
+        if (!x || (int) x->op != IR_MATCH_DEFER || x->seal != 1) continue;
+        if (x == br) return 1;
+        if (br) for (int q = 0; q < br->n_operands; q++) if (br->operands[q] == x) return 1; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int resume_carrier_ok(const IR_t * nd, int sealed_defer) { extern int zdp_seam_tier(const IR_t *);
     if (zdp_seam_tier(nd) == 1) return 1;
     if (zdp_seam_tier(nd) == 3) { int _nc = 0, _lf = 0, _fn = 0; sn4_blob_choice_scan(&_nc, &_lf, &_fn); return (_nc == 1 && !sealed_defer && !nd->seal) ? 1 : 0; }
@@ -3435,7 +3443,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
           if (getenv("SCRIP_RESUME_WHY")) fprintf(stderr, "[RESUME-GATE] dres=%d flat_pat=%d cfg=%d body_root=%p\n", _dres, g_emit.flat_pat, g_emit_cfg ? 1 : 0, (void *)(g_emit_cfg ? g_emit_cfg->body_root : (IR_t *)0));
           if (_dres && g_emit.flat_pat && g_emit_cfg && g_emit_cfg->body_root) {
             int _f1 = 0; for (int i = 0; i < n; i++) if (nodes[i]->op == IR_MATCH_FENCE1) { _f1 = 1; break; }
-            int _sd = 0; for (int i = 0; i < n; i++) if (nodes[i]->op == IR_MATCH_DEFER && nodes[i]->seal == 1) { _sd = 1; break; }
+            int _sd = resume_sealed_defer_on_root(nodes, n, g_emit_cfg->body_root);
             int _f1r = _f1; { extern int zdp_seam_tier(const IR_t *); const char * _fre = getenv("SCRIP_FENCE_RESUME"); if (!(_fre && *_fre == '0') && g_emit_cfg->body_root && g_emit_cfg->body_root->op != IR_MATCH_FENCE1 && (zdp_seam_tier(g_emit_cfg->body_root) == 1 || zdp_seam_tier(g_emit_cfg->body_root) == 3)) _f1r = 0; }
             if (getenv("SCRIP_RESUME_WHY")) { extern int zdp_seam_tier(const IR_t *); const IR_t * _br = g_emit_cfg->body_root; int _found = 0; for (int i = 0; i < n; i++) if (nodes[i] == _br) _found = 1;
                 int _wnc = 0, _wlf = 0, _wfn = 0; sn4_blob_choice_scan(&_wnc, &_wlf, &_wfn);
