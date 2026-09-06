@@ -314,6 +314,21 @@ RTX_FUNC(rt_pl_dop_anum_guard5)
     mov     edx, 1
     ret
 RTX_ENDF(rt_pl_dop_anum_guard5)
+RTX_FUNC(rt_pl_dop_ax_eguard)
+    sub     rsp, 8
+    call    rt_pl_dop_ax_eguard_c
+    add     rsp, 8
+    test    rax, rax
+    jz      .Leg_ok
+    mov     r15, rax
+    mov     eax, DT_FAIL | (MOD_OP_RT_PL_AX_EGUARD << 8)
+    xor     edx, edx
+    ret
+.Leg_ok:
+    mov     eax, DT_I
+    mov     edx, 1
+    ret
+RTX_ENDF(rt_pl_dop_ax_eguard)
 RTX_FUNC(rt_pl_dop_between_guard)
     sub     rsp, 8
     call    rt_pl_dop_between_guard_c

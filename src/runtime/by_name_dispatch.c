@@ -6360,6 +6360,20 @@ void * rt_pl_dop_ax_zguard_c(DESCR_t *args, int nargs) {
       return (void *)0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void * rt_pl_dop_ax_eguard_c(DESCR_t *args, int nargs) {
+    extern void *rt_pl_ball_instantiation(void);
+    extern void *rt_pl_ball_evaluable(const char *, int);
+    extern const char *prolog_atom_name(int);
+    if (nargs != 1) return (void *)0;
+    { DESCR_t v = rt_pl_deref_val(args[0]);
+      if (v.v == DT_I || v.v == DT_R) return (void *)0;
+      if (v.v == (DTYPE_t)DT_PLVAR || v.v == DT_SNUL || v.v == DT_FAIL) return rt_pl_ball_instantiation();
+      if ((int)v.v == DT_A) return rt_pl_ball_evaluable(prolog_atom_name((int)v.i), 0);
+      if (v.v == DT_S) return rt_pl_ball_evaluable(v.s, 0);
+      if ((int)v.v == DT_PLREF) return rt_pl_ball_evaluable(prolog_atom_name((int)(v.slen >> 16)), (int)(v.slen & 0xFFFFu));
+      return rt_pl_ball_evaluable("?", 0); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_iso_unbound(DESCR_t d) { return d.v == (DTYPE_t)DT_PLVAR || d.v == DT_SNUL || d.v == DT_FAIL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void * rt_pl_dop_char_guard_c(DESCR_t *args, int nargs) {

@@ -93,4 +93,5 @@
 #define MOD_OP_RT_PL_ANUM_GUARD3       153   /* rtx_plunify.s rt_pl_dop_anum_guard3  */
 #define MOD_OP_RT_PL_ANUM_GUARD5       154   /* rtx_plunify.s rt_pl_dop_anum_guard5  */
 #define MOD_OP_RT_PL_NB_GETVAL_GUARD   155   /* rtx_plunify.s rt_pl_dop_nb_getval_guard */
+#define MOD_OP_RT_PL_AX_EGUARD         156   /* rtx_plunify.s rt_pl_dop_ax_eguard    */
 #endif

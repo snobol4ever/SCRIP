@@ -751,7 +751,8 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = "$is_v";
             IR_t * xe = NULL; IR_t * xl = term_lval_e(cx, t->c[0], &xe);
             IR_t * ve = NULL; IR_t * v = lower_arith_val(cx, t->c[1], ωfail, &ve);
-            lc_γ_to(xl, ve ? ve : v); lc_ω_to(xl, ωfail); lc_γ_to(v, nd); lc_ω_to(v, ωfail);
+            IR_t * eg = build(cx, IR_CALL, nd, ωfail); IR_LIT(eg).sval = "$ax_eguard"; ir_operand_push(eg, v);
+            lc_γ_to(xl, ve ? ve : v); lc_ω_to(xl, ωfail); lc_γ_to(v, eg); lc_ω_to(v, ωfail);
             ir_operand_push(nd, xl); ir_operand_push(nd, v);
             if (entry_out) *entry_out = xe ? xe : xl;
             return nd;
@@ -762,7 +763,10 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = strdup(nb);
             IR_t * ea = NULL; IR_t * eb = NULL;
             IR_t * a = lower_arith_val(cx, t->c[0], ωfail, &ea); IR_t * b = lower_arith_val(cx, t->c[1], ωfail, &eb);
-            lc_γ_to(a, eb ? eb : b); lc_ω_to(a, ωfail); lc_γ_to(b, nd); lc_ω_to(b, ωfail);
+            IR_t * ega = build(cx, IR_CALL, NULL, ωfail); IR_LIT(ega).sval = "$ax_eguard"; ir_operand_push(ega, a);
+            IR_t * egb = build(cx, IR_CALL, nd, ωfail); IR_LIT(egb).sval = "$ax_eguard"; ir_operand_push(egb, b);
+            lc_γ_to(a, ega); lc_ω_to(a, ωfail); lc_γ_to(ega, eb ? eb : b);
+            lc_γ_to(b, egb); lc_ω_to(b, ωfail);
             ir_operand_push(nd, a); ir_operand_push(nd, b);
             if (entry_out) *entry_out = ea ? ea : a;
             return nd;

@@ -33,6 +33,7 @@ DESCR_t rt_pl_dop_nb_setval(DESCR_t *, int); DESCR_t rt_pl_dop_nb_getval(DESCR_t
 DESCR_t rt_pl_dop_db_retractall(DESCR_t *, int);
 DESCR_t rt_pl_dop_db_alive(DESCR_t *, int);
 DESCR_t rt_pl_dop_ax_zguard(DESCR_t *, int);
+DESCR_t rt_pl_dop_ax_eguard(DESCR_t *, int);
 DESCR_t rt_pl_dop_anum_guard2(DESCR_t *, int); DESCR_t rt_pl_dop_anum_guard3(DESCR_t *, int); DESCR_t rt_pl_dop_anum_guard5(DESCR_t *, int);
 DESCR_t rt_pl_dop_char_guard(DESCR_t *, int); DESCR_t rt_pl_dop_between_guard(DESCR_t *, int); DESCR_t rt_pl_dop_stream_guard(DESCR_t *, int); DESCR_t rt_pl_dop_curstream_guard(DESCR_t *, int);
 DESCR_t rt_pl_dop_nb_getval_guard(DESCR_t *, int);
@@ -328,6 +329,7 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$nb_setval", 2, "rt_pl_dop_nb_setval", rt_pl_dop_nb_setval }, { "$nb_getval", 2, "rt_pl_dop_nb_getval", rt_pl_dop_nb_getval },
         { "$pl_nb_getval_guard", 2, "rt_pl_dop_nb_getval_guard", rt_pl_dop_nb_getval_guard },
         { "$ax_zguard", 2, "rt_pl_dop_ax_zguard", rt_pl_dop_ax_zguard },
+        { "$ax_eguard", 1, "rt_pl_dop_ax_eguard", rt_pl_dop_ax_eguard },
         { "$pl_char_guard", 1, "rt_pl_dop_char_guard", rt_pl_dop_char_guard },
         { "$pl_anum_guard2", 3, "rt_pl_dop_anum_guard2", rt_pl_dop_anum_guard2 },
         { "$pl_anum_guard3", 4, "rt_pl_dop_anum_guard3", rt_pl_dop_anum_guard3 },

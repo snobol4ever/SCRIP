@@ -1557,6 +1557,19 @@ void *rt_pl_ball_existence(DESCR_t *a, int n)
     return rt_pl_compound_cell("error", 2, (void *)er);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_pl_ball_evaluable(const char *name, int arity)
+{
+    extern DESCR_t rt_pl_fresh_var_ref(void);
+    pl_cell_t pi[2]; pi[0] = pl_make_atom(prolog_atom_intern(name ? name : "?")); pi[1] = pl_make_int(arity);
+    pl_cell_t *pic = (pl_cell_t *)rt_pl_compound_cell("/", 2, (void *)pi);
+    if (!pic) return (void *)0;
+    pl_cell_t fe[2]; fe[0] = pl_make_atom(prolog_atom_intern("evaluable")); fe[1] = *pic;
+    pl_cell_t *fec = (pl_cell_t *)rt_pl_compound_cell("type_error", 2, (void *)fe);
+    if (!fec) return (void *)0;
+    pl_cell_t er[2]; er[0] = *fec; er[1] = rt_pl_fresh_var_ref();
+    return rt_pl_compound_cell("error", 2, (void *)er);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_ball_eval_error(const char *kind, const char *op, int arity)
 {
     extern DESCR_t rt_pl_fresh_var_ref(void);
