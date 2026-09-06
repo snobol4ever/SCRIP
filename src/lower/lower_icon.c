@@ -1523,6 +1523,7 @@ void lower_icon_resolve_call_kinds(void) {
             if (pi >= 0 && g_stage2.proc_table[pi].is_generator) nd->op = IR_PROC_GEN;
             else if (pi >= 0) nd->op = IR_CALL_PROC_STAGED;
             else if (icn_builtin_is_generator(fn)) nd->op = IR_CALL_ICON;
+            else if (!strcmp(fn, "system")) { IR_LIT(nd).sval = "$system"; nd->op = IR_CALL_ICON; }
             else if (icn_builtin_is_known(fn)) nd->op = IR_CALL_ICON;
         }
         for (int i = 0; i < g->n; i++) {

@@ -3162,6 +3162,11 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         int idx = (int)(IS_INT_fn(args[0]) ? args[0].i : 0);
         *out = FHVAL(idx); return 1;
     }
+    if (!strcmp(fn, "$system") && nargs == 1) {
+        const char *cmd = VARVAL_fn(args[0]); if (!cmd) { *out = FAILDESCR; return 1; }
+        fflush(NULL);
+        *out = INTVAL(system(cmd)); return 1;
+    }
     if (!strcmp(fn, "open") && (nargs == 1 || nargs == 2)) {
         const char *path = VARVAL_fn(args[0]); if (!path || !*path) { *out = FAILDESCR; return 1; }
         const char *mode = "r"; char mbuf[8];
