@@ -574,7 +574,7 @@ scrip: libscrip_rt
 # buffered path exercised. NO-BUFFERS ruling removed that path; emit_io.c is now pure passthrough.
 
 # ── scrip-monitor: scrip with CSNOBOL4 4th executor linked in (IM-15b) ───────
-# Build: make scrip-monitor CSN_A=/home/claude/csnobol4/libcsnobol4.a
+# Build: make scrip-monitor CSN_A=$(ROOT)/../csnobol4/libcsnobol4.a  (CSN_INC=$(ROOT)/../csnobol4 supplies data.h; no root path is hardcoded)
 # Requires: bash scripts/build_csnobol4_archive.sh first
 CSN_A   ?= $(ROOT)/../csnobol4/libcsnobol4.a
 CSN_INC ?= $(ROOT)/../csnobol4

@@ -8,7 +8,7 @@
 #include "include/lib.h"
 #include "equ.h"
 #include "res.h"
-#include "/home/claude/csnobol4/data.h"
+#include "data.h"
 typedef struct { char *name; char *val_str; } CsnNvPair;
 typedef void (*csn_step_fn)(int stno, void *arg);
 csn_step_fn  g_csn_step_hook = NULL;

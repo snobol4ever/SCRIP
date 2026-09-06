@@ -13,7 +13,7 @@
 # ⛔ It answers "does the QUEUE agree with the PLAN"; it does NOT answer "is the seat working" (that is `s4e_msg.sh fleet`'s COMMITS column).
 import os, re, sys, glob, argparse
 ap = argparse.ArgumentParser()
-ap.add_argument('--plan', default=os.environ.get('S4E_HOME', '/home/claude') + '/.github/MASTER-PLAN.md')
+ap.add_argument('--plan', default=os.environ.get('S4E_HOME', os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))) + '/.github/MASTER-PLAN.md')
 ap.add_argument('--po', default='/home/resources/postoffice')
 ap.add_argument('--quiet', action='store_true', help='print only the ladder summary lines and violations')
 ap.add_argument('--v6-rows', action='store_true', help='print V6 orphans one row per line instead of one census line per lane (95 lines on the 2026-09-03 queue; the census is the default so the report stays readable)')
