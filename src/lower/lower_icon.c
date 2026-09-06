@@ -164,9 +164,11 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
         }
     }
     int gb = name && ((nargs >= 2 && nargs <= 4 && (!strcmp(name, "find") || !strcmp(name, "upto")))
-                   || (nargs == 1 && (!strcmp(name, "find") || !strcmp(name, "upto") || !strcmp(name, "bal"))));
+                   || (nargs == 1 && (!strcmp(name, "find") || !strcmp(name, "upto") || !strcmp(name, "bal")))
+                   || (nargs == 0 && !strcmp(name, "bal")));
     int is_cursor_mover = name && (!strcmp(name, "tab") || !strcmp(name, "move"));
     int fill_scan_defaults = gb && nargs == 1 && cx->scan_sp == 0 && (!strcmp(name, "find") || !strcmp(name, "upto"));
+    int fill_bal_cset = gb && nargs == 0 && !strcmp(name, "bal");
     IR_t * call = build(cx, icn_proc_is_generator(name) ? IR_PROC_GEN : (gb ? IR_CALL_BUILTIN_GEN : IR_CALL), γ, ω); IR_LIT(call).sval = (char *) name;
     if (res) *res = call;
     int chains = name && (!strcmp(name, "write") || !strcmp(name, "writes"));
@@ -179,6 +181,11 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
         if (prev) lc_γ_to(prev, ae);
         prev = ar;
         if (ar) { ir_operand_push(call, ar); last_ar = ar; }
+    }
+    if (fill_bal_cset) {
+        IR_t * kc = build(cx, IR_KW_ICON, NULL, aω); IR_LIT(kc).sval = (char *) "&cset";
+        if (prev) lc_γ_to(prev, kc); else entry = kc;
+        ir_operand_push(call, kc); prev = kc; last_ar = kc;
     }
     if (fill_scan_defaults) {
         IR_t * ks = build(cx, IR_KW_ICON, NULL, aω); IR_LIT(ks).sval = (char *) "&subject";

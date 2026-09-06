@@ -128,7 +128,18 @@ examined=$((examined + 1))
 # forbidden strings in order to catch them. The exemption is by exact path, never a pattern, so it
 # cannot widen to cover a real offender.
 SELF="$(basename "${BASH_SOURCE[0]}")"
-offenders="$(command grep -lE 'unknown-seat|unknown-hq' "$HERE"/*.sh 2>/dev/null | command grep -v "/$SELF\$" || true)"
+# ⛔ THIRD MEMBER OF THE SAME CATEGORY, ADDED 2026-09-06 (hq_I) BECAUSE IT WAS RED ON HEAD AND NO HQ COULD
+# LAND. test_gate_progress_append_writes_a_row.sh (hq_T, SCRIP 7a455e68d) spells the placeholder at its own
+# line 40 in a `!=` comparison -- it ASSERTS the measurer is NOT the placeholder, which is this arm's own
+# purpose written as a test. ⭐ Same collision as ARM 5 versus the deliberate --measurer negative fixture in
+# test_gate_score_row_rewrites_in_place.sh, and the general rule is hq_U's: A PREDICATE OVER SOURCE TEXT SEES
+# SPELLING, NOT EFFECT, so a gate that greps for a dangerous literal will reliably flag the tests written to
+# prove its own rule. Both were green when they landed, a day apart, and neither author could have seen it.
+# ⛔ BY EXACT PATH, never a pattern, exactly as this arm's own note requires -- and MEASURED, not pre-empted:
+# it is the one offender on disk today, not a category someone might add to. Proven not to blind the arm: a
+# scratch script carrying the literal still convicts by name with this exemption in place.
+EXEMPT="$SELF|test_gate_progress_append_writes_a_row.sh"
+offenders="$(command grep -lE 'unknown-seat|unknown-hq' "$HERE"/*.sh 2>/dev/null | command grep -vE "/($EXEMPT)\$" || true)"
 if [ -n "$offenders" ]; then
     echo "GATE FAIL: these scripts carry a placeholder identity literal, which is how 'unknown-seat' reached"
     echo "    the leaderboard the first time (it is non-empty, so it defeats an is-it-set guard):"

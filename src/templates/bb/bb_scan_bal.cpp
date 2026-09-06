@@ -72,10 +72,10 @@ std::string bb_scan_bal() {
              + x86("inc",     FRQ(_.op_off + 16))
              + x86("jmp",     L(0))
              + x86_beta()
-             + x86("inc",     FRQ(_.op_off + 16))
-             + x86("jmp",     L(0)) :
+             + x86("mov",     "rax", FRQ(_.op_off + 16))
+             + x86("jmp",     L(1)) :
            (!bal_admit()) ? x86_alpha() + x86_bomb("bb_scan_bal: unhandled (needs nonempty bracket-free literal c1 + descr flat-chain slot)") :
-           x86("comment", "IR_SCAN_BAL")
+           x86("comment", "IR_SCAN_BAL [beta re-enters at L(1), the bracket classifier, NOT at L(0): the success path exits through gamma before the (/) depth accounting runs, so resuming past that character never counts the opening bracket -- on (AB) the box yielded 1,2,3,4 where iconx yields 1,5. rax is reloaded from the cursor slot because L(1) consumes it and gamma left it clobbered]")
          + x86_alpha()
          + x86("mov",     FRQ(_.op_off + 16), "r14")
          + x86("mov",     FRQ(_.op_off + 24), (long)0)
@@ -119,8 +119,8 @@ std::string bb_scan_bal() {
          + x86("inc",     FRQ(_.op_off + 16))
          + x86("jmp",     L(0))
          + x86_beta()
-         + x86("inc",     FRQ(_.op_off + 16))
-         + x86("jmp",     L(0))
+         + x86("mov",     "rax", FRQ(_.op_off + 16))
+         + x86("jmp",     L(1))
          + x86("def",     L(4))
          + x86(".quad",   LS(4), _.op_name1)
          + x86("label",   LS(4))

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_icn_ipl_reason_is_the_oracles_own_words.sh -- hq_I 2026-09-06, CEO-326.
 #
 # THE DEFECT THIS PINS. util_cut_icon_ipl_refs.sh wrote ONE composed sentence onto every row its rc!=0
