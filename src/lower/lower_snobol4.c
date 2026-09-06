@@ -845,14 +845,20 @@ static IR_t * sno_goto_target(IR_graph_t * g, const char * nm, IR_t * exitnd) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_goto_computed_target(IR_graph_t * g, scx_t * cx, const tree_t * expr, IR_t * exitnd) {
     static int g_igt_n = 0;
+    static int _bn = -1; if (_bn < 0) { const char * e = getenv("SCRIP_GOTO_CALL_BYNAME"); _bn = (e && *e == '0') ? 0 : 1; }
+    int by_name = _bn && expr && expr->t == TT_FNC;
     char nmb[24]; snprintf(nmb, sizeof nmb, "IGT$%d", g_igt_n++);
     char * tmpn = lp_strdup(nmb); sno_reg_var(tmpn);
-    size_t ln = strlen(tmpn); char * dn = (char *) rt_ws_alloc(ln + 2); dn[0] = '$'; memcpy(dn + 1, tmpn, ln); dn[ln + 1] = 0;
+    size_t ln = strlen(tmpn); char * dn = (char *) rt_ws_alloc(ln + 2); dn[0] = by_name ? '@' : '$'; memcpy(dn + 1, tmpn, ln); dn[ln + 1] = 0;
     IR_t * gd = lc_build(g, IR_GOTO_DEFERRED, exitnd, NULL); IR_LIT(gd).sval = dn;
     IR_t * asn = lc_build(g, IR_ASSIGN, gd, gd); IR_LIT(asn).sval = tmpn;
     IR_t * vr = NULL; IR_t * ec = sx_lower(cx, expr, asn, gd, &vr);
     ir_operand_push(asn, vr);
-    return ec;
+    if (!by_name) return ec;
+    IR_t * wn_lit = lc_build(g, IR_LIT_STRING, NULL, gd); IR_LIT(wn_lit).sval = (char *) "";
+    IR_t * wn_call = lc_build(g, IR_CALL, NULL, gd); IR_LIT(wn_call).sval = (char *) "SNO$WANTNM";
+    lc_γ_to(wn_lit, wn_call); lc_γ_to(wn_call, ec); ir_operand_push(wn_call, wn_lit);
+    return wn_lit;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_goto_direct_target(IR_graph_t * g, scx_t * cx, const tree_t * expr, IR_t * exitnd) {

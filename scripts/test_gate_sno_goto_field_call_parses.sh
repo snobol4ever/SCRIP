@@ -8,12 +8,14 @@
 # what hid the real defect underneath for as long as it did.
 #
 # ⛔⭐ WHAT THIS GATE DELIBERATELY DOES NOT GRADE, AND WHY THE OMISSION IS THE POINT: it does not assert what
-# the construct DOES at run time. SCRIP is currently INVERTED against SPITBOL there -- it accepts the two
-# value-return forms the oracle raises ERROR 021 on, and refuses with ERROR 239 the NRETURN form the oracle
-# accepts. That inversion is a KNOWN, OPEN, RANK-0 row, and pinning today's runtime behaviour here would
-# convert a documented gap into a green gate that must be edited before the cure can land -- a test that
-# defends a bug. The end-state behaviour belongs in that row's own DONE-WHEN, which is written and proven
-# red. This gate pins ONLY the thing that is finished: the parser accepts the construct.
+# the construct DOES at run time. When this gate was written SCRIP was INVERTED against SPITBOL there -- it
+# accepted the two value-return forms the oracle raises ERROR 021 on, and refused with ERROR 239 the NRETURN
+# form the oracle accepts -- and pinning that behaviour here would have converted a documented gap into a
+# green gate that must be edited before the cure could land: a test that defends a bug.
+# ✅ THE INVERSION IS CURED (hq_P 2026-09-06, same row) and its end state is pinned by its OWN gate,
+# test_gate_sno_goto_field_call_is_by_name.sh -- NRETURN name is the target, a value return raises ERROR 021,
+# both modes. The split still stands on purpose: THIS gate stays parse-only, so a parser regression and a
+# semantics regression cannot present as one red. Keep the two separate.
 #
 # ⭐ THE THIRD CASE IS THE ONE NOBODY WOULD THINK TO WRITE, so it is here on purpose: a user function named
 # S or F. The lexer's <GT>[Ss]/"(" and <GT>[Ff]/"(" rules returned the success/failure goto markers at ANY
@@ -46,4 +48,4 @@ for w in zeroarg strarg multiarg fnamed snamed; do
     done
 done
 if [ "$bad" -ne 0 ]; then echo "GATE RED(1) [sno-goto-field-call-parses]: a goto-field call form no longer parses -- the construct landed 2026-09-05 and something took it back out"; exit 1; fi
-echo "GATE GREEN(0) [sno-goto-field-call-parses]: all 5 forms x 2 modes parse (run-time semantics are the open rank-0 by-name row, deliberately not graded here)"
+echo "GATE GREEN(0) [sno-goto-field-call-parses]: all 5 forms x 2 modes parse (run-time semantics are pinned separately by test_gate_sno_goto_field_call_is_by_name.sh)"

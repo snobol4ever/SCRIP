@@ -336,6 +336,14 @@ static void *rt_goto_resolve_x(const char *name, int *undef)
         if (!inm || !*inm) { fprintf(stderr, "[SNO] transfer to undefined label: $%s (indirect name is null)\n", name + 1); exit(1); }
         return rt_goto_resolve_x(inm, undef);
     }
+    if (name[0] == '@') {
+        DESCR_t iv = NV_GET_fn(name + 1);
+        extern int kwb_error(int code, const char *msg);
+        if (iv.v != DT_N) { kwb_error(21, "function called by name returned a value"); return NULL; }
+        const char *inm = rt_sno_indirect_name(iv);
+        if (!inm || !*inm) { kwb_error(21, "function called by name returned a value"); return NULL; }
+        return rt_goto_resolve_x(inm, undef);
+    }
     if (name[0] == '<') {
         DESCR_t cv = NV_GET_fn(name + 1);
         if (cv.v != DT_C || cv.slen != 3 || !cv.ptr) { fprintf(stderr, "[SNO] goto operand in direct goto is not code\n"); exit(1); }
