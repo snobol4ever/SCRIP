@@ -4067,6 +4067,7 @@ void rt_main_args_stage(char **v, int n) { if (n < 0 || !v) n = 0; g_main_args_v
 void rt_main_args_bind(void) { extern DESCR_t g_call_args[]; if (g_main_args_descr.v == DT_DATA) return; if (g_main_args_n < 0) rt_main_args_stage((char **)0, 0); g_main_args_descr = rt_args_list_from(g_main_args_v, g_main_args_n); if (!getenv("SCRIP_NO_MAIN_ARGS")) g_call_args[0] = g_main_args_descr; }
 DESCR_t rt_main_args_fetch(void) { rt_main_args_bind(); return g_main_args_descr; }
 int rt_main_args_count(void) { return g_main_args_n < 0 ? 0 : g_main_args_n; }
+const char *rt_main_arg_at(int i) { return (i >= 0 && i < g_main_args_n && g_main_args_v) ? g_main_args_v[i] : (const char *)0; }
 extern int junction_is(DESCR_t v);
 extern int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

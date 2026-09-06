@@ -870,7 +870,15 @@ static int host_cmdline_arg(int want, char *out, int outsz) {
 static DESCR_t _HOST_(DESCR_t *a, int n) {
     if (n < 1) return NULVCL;
     int64_t selector = to_int(a[0]);
-    if (selector == 0) return STRVAL(rt_ws_strdup_c(""));
+    if (selector == 0) {
+        extern int rt_main_args_count(void); extern const char *rt_main_arg_at(int);
+        int cnt = rt_main_args_count(); char jb[4096]; size_t used = 0; jb[0] = '\0';
+        for (int i = 0; i < cnt; i++) { const char *v = rt_main_arg_at(i); if (!v) continue;
+            size_t need = strlen(v) + (used ? 1 : 0); if (used + need >= sizeof jb) break;
+            if (used) jb[used++] = ' ';
+            memcpy(jb + used, v, strlen(v)); used += strlen(v); jb[used] = '\0'; }
+        return STRVAL(rt_ws_strdup_c(jb));
+    }
     if (selector == 1) {
         char buf[32]; snprintf(buf, sizeof(buf), "%d", (int)getpid());
         return STRVAL(rt_ws_strdup_c(buf));
@@ -1414,6 +1422,13 @@ static int core_setexit_on_end(void) { const char *e = getenv("SCRIP_SETEXIT_END
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int core_io_assoc_legacy(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_IO_ASSOC_LEGACY"); v = (e && e[0] == '1') ? 1 : 0; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int core_setexit_system_label(const char *s) {
+    static const char *const sys[] = { "CONTINUE", "ABORT", "RETURN", "FRETURN", "NRETURN" };
+    if (!s) return 0;
+    for (size_t i = 0; i < sizeof sys / sizeof sys[0]; i++) if (!strcmp(s, sys[i])) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _SETEXIT_(DESCR_t *a, int n) {
     DESCR_t prev = (core_setexit_on() && _setexit_label[0]) ? STRVAL(rt_ws_strdup_c(_setexit_label)) : NULVCL;
     if (n < 1 || a[0].v == DT_FAIL) {
@@ -1421,7 +1436,7 @@ static DESCR_t _SETEXIT_(DESCR_t *a, int n) {
         return prev;
     }
     const char *lbl = VARVAL_fn(a[0]);
-    if (lbl && *lbl) {
+    if (lbl && *lbl && !core_setexit_system_label(lbl)) {
         extern void *rt_entry_resolve(const char *, int *);
         int frag = 0;
         if (!rt_entry_resolve(lbl, &frag)) {
@@ -3267,11 +3282,19 @@ static void _io_parse_opts(const char *spec, long *fd, long *rlen) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static FILE *_io_chan_fp_or_std(int ch) {
+    if (ch >= 0 && ch < IO_CHAN_MAX && _io_chan[ch].fp) return _io_chan[ch].fp;
+    if (ch == 5) return stdin;
+    if (ch == 6) return stdout;
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _REWIND_(DESCR_t *a, int n) {
     if (n < 1) return NULVCL;
     _io_chan_setup();
     int ch = IS_INT(a[0]) ? (int)a[0].i : -1;
-    if (ch >= 0 && ch < IO_CHAN_MAX && _io_chan[ch].fp) { rewind(_io_chan[ch].fp); clearerr(_io_chan[ch].fp); }
+    FILE *fp = _io_chan_fp_or_std(ch);
+    if (fp) { rewind(fp); clearerr(fp); }
     return NULVCL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3341,6 +3364,7 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
         _io_chan[ch].is_popen = is_pipe;
         const char *vn = (n >= 1) ? _io_varname(a[0]) : NULL;
         _io_chan[ch].varname = vn ? rt_ws_strdup(vn) : NULL; if (vn) g_call_fastpath_off = 1;
+        if (vn && !strcmp(vn, "INPUT")) { if (_input_fp && _input_fp != stdin) { if (_input_fp_is_popen) pclose(_input_fp); else fclose(_input_fp); } _input_fp = f; _input_fp_is_popen = is_pipe; }
     } else {
         if (_input_fp && _input_fp != stdin) { if (_input_fp_is_popen) pclose(_input_fp); else fclose(_input_fp); }
         _input_fp = f;

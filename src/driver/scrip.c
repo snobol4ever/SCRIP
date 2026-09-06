@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <alloca.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -952,16 +953,16 @@ int main(int argc, char **argv)
     for (int fi = argi; fi < argc; fi++) {
         if (strcmp(argv[fi], "--") == 0) break;
         const char *d = strrchr(argv[fi], '.');
-        if (d && (strcmp(d,".pl")==0 || strcmp(d,".icn")==0 ||
-                  strcmp(d,".raku")==0 || strcmp(d,".reb")==0 ||
-                  strcmp(d,".sc")==0 || strcmp(d,".scrip")==0 || strcmp(d,".md")==0))
+        if (d && (strcasecmp(d,".pl")==0 || strcasecmp(d,".icn")==0 ||
+                  strcasecmp(d,".raku")==0 || strcasecmp(d,".reb")==0 ||
+                  strcasecmp(d,".sc")==0 || strcasecmp(d,".scrip")==0 || strcasecmp(d,".md")==0))
             has_non_sno = 1;
-        if (d && (strcmp(d,".scrip")==0 || strcmp(d,".md")==0)) is_scrip = 1;
-        if (d && strcmp(d,".pl")==0) is_prolog = 1;
-        if (d && strcmp(d,".icn")==0) is_icon = 1;
-        if (d && strcmp(d,".raku")==0) is_raku = 1;
-        if (d && strcmp(d,".pas")==0) is_pascal = 1;
-        if (!d || strcmp(d,".sno")==0 || strcmp(d,".sc")==0 || strcmp(d,".reb")==0 || strcmp(d,".spt")==0) saw_sno = 1;
+        if (d && (strcasecmp(d,".scrip")==0 || strcasecmp(d,".md")==0)) is_scrip = 1;
+        if (d && strcasecmp(d,".pl")==0) is_prolog = 1;
+        if (d && strcasecmp(d,".icn")==0) is_icon = 1;
+        if (d && strcasecmp(d,".raku")==0) is_raku = 1;
+        if (d && strcasecmp(d,".pas")==0) is_pascal = 1;
+        if (!d || strcasecmp(d,".sno")==0 || strcasecmp(d,".sc")==0 || strcasecmp(d,".reb")==0 || strcasecmp(d,".spt")==0) saw_sno = 1;
     }
     int is_sno_bb = (saw_sno || is_scrip) && !is_pascal;
     lower_seg_t segs[64];
@@ -1026,13 +1027,13 @@ int main(int argc, char **argv)
             sno_add_include_dir(".");
         }
         const char *dot = strrchr(input_path, '.');
-        int lang_snocone  = dot && strcmp(dot, ".sc")   == 0;
-        int lang_prolog   = dot && strcmp(dot, ".pl")   == 0;
-        int lang_icon     = dot && strcmp(dot, ".icn")  == 0;
-        int lang_raku     = dot && strcmp(dot, ".raku") == 0;
-        int lang_rebus    = dot && strcmp(dot, ".reb")  == 0;
-        int lang_pascal   = dot && strcmp(dot, ".pas")  == 0;
-        int lang_polyglot = dot && (strcmp(dot, ".scrip") == 0 || strcmp(dot, ".md") == 0);
+        int lang_snocone  = dot && strcasecmp(dot, ".sc")   == 0;
+        int lang_prolog   = dot && strcasecmp(dot, ".pl")   == 0;
+        int lang_icon     = dot && strcasecmp(dot, ".icn")  == 0;
+        int lang_raku     = dot && strcasecmp(dot, ".raku") == 0;
+        int lang_rebus    = dot && strcasecmp(dot, ".reb")  == 0;
+        int lang_pascal   = dot && strcasecmp(dot, ".pas")  == 0;
+        int lang_polyglot = dot && (strcasecmp(dot, ".scrip") == 0 || strcasecmp(dot, ".md") == 0);
         if (lang_polyglot) {
             g_polyglot = 1;
             FILE *f = fopen(input_path, "r");
