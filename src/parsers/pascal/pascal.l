@@ -115,5 +115,5 @@ ALNUM    [A-Za-z0-9_]
 "."                     { return PERIOD; }
 ","                     { return COMMA; }
 ":"                     { return COLON; }
-.                       { pascal_lex_error("invalid character"); }
+.                       { pascal_lex_error("invalid character"); return PASCAL_YYUNDEF; }
 %%

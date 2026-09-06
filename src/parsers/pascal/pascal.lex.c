@@ -1538,7 +1538,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 81:
 YY_RULE_SETUP
-{ pascal_lex_error("invalid character"); }
+{ pascal_lex_error("invalid character"); return PASCAL_YYUNDEF; }
 	YY_BREAK
 case 82:
 YY_RULE_SETUP
