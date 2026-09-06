@@ -218,6 +218,14 @@ static void pl_decl_dynamic_record(stage2_t * s2, tree_t * spec, tree_t * marker
     }
     pl_refuse("dynamic declaration shape", spec->v.sval ? spec->v.sval : "?", 10);
 }
+static int pl_flag_directive_is_advisory(const tree_t * subj) {
+    static const char * const advisory[] = { "optimise", "last_call_optimisation", "generate_debug_info", "agc_margin", "stack_limit", "xref", "verbose", "report_error", "autoload", NULL };
+    const tree_t * f = subj->c[0];
+    if (!f || !(f->t == TT_QLIT || f->t == TT_NAME) || !f->v.sval) return 0;
+    for (int i = 0; advisory[i]; i++) if (!strcmp(f->v.sval, advisory[i])) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_flag_directive_is_default(const tree_t * subj) {
     const tree_t * f = subj->c[0]; const tree_t * v = subj->c[1];
     if (!f || !v || !(f->t == TT_QLIT || f->t == TT_NAME) || !(v->t == TT_QLIT || v->t == TT_NAME) || !f->v.sval || !v->v.sval) return 0;
@@ -1182,7 +1190,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
         if (subj->t == TT_FNC && subj->v.sval && pl_name_in(subj->v.sval, pl_decl_directives)) continue;
         if (subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "op") && subj->n == 3) { if (ninit < PL_INIT_GOALS_MAX) init_goals[ninit++] = subj; continue; }
         if (subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "set_prolog_flag") && subj->n == 2) {
-            if (pl_flag_directive_is_default(subj)) continue;
+            if (pl_flag_directive_is_default(subj) || pl_flag_directive_is_advisory(subj)) continue;
             pl_refuse("directive set_prolog_flag", subj->c[0] && subj->c[0]->v.sval ? subj->c[0]->v.sval : "?", 10); }
         { int dv_scope0 = dvc;
           tree_t * eb = ast_node_new(TT_VAR); eb->v.sval = (char *) "$DirBall";
@@ -1240,7 +1248,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
           { int bb_idx = lower_pl_pred_graph(key, ch); if (bb_idx < 0) continue;
             pl_bb_register(key, 2, bb_idx); pl_new_proc(key, 2, bb_idx); } } } }
     { extern tree_t * pl_runtime_clause_tree(tree_t *);
-      static const pl_det_leaf_t pl_meta_early[] = { { "write", 1, "$write" }, { "nl", 0, "$nl" }, { "true", 0, "$true" }, { "fail", 0, "$fail" }, { "false", 0, "$fail" }, { 0, 0, 0 } };
+      static const pl_det_leaf_t pl_meta_early[] = { { "write", 1, "$write" }, { "nl", 0, "$nl" }, { "true", 0, "$true" }, { "fail", 0, "$fail" }, { "false", 0, "$fail" }, { "throw", 1, "$throw" }, { 0, 0, 0 } };
       for (int tbl = 0; tbl < 2; tbl++)
       for (int li = 0; (tbl ? pl_meta_early[li].nm : pl_det_leaves[li].nm); li++) {
         const char * bn = tbl ? pl_meta_early[li].nm : pl_det_leaves[li].nm;
