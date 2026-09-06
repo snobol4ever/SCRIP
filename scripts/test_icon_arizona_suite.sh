@@ -29,6 +29,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/lib_flag_gate.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_flag_gate.sh unloadable" >&2; exit 2; }
+. "$HERE/lib_inventory.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_inventory.sh unloadable" >&2; exit 2; }
 SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_SO="$HERE/../out/libscrip_rt.so"
 CORPUS="$S4E/corpus"
@@ -195,6 +196,11 @@ echo "m4 REJECT ($M4_REJECT):$M4_REJECT_NAMES"
 # an output). Counted as ZERO of the population per Lon's ruling until each is individually resolved.
 echo "UNGRADED ($GAP, of $SHIPPED shipped, zero of population until graded):$UNGRADED_NAMES"
 echo "ARIZONA_SUITE_BOARD shipped=$SHIPPED graded=$TOTAL gap=$GAP m3_pass=$M3_PASS m3_reject=$M3_REJECT m3_fail=$M3_FAIL m4_pass=$M4_PASS m4_reject=$M4_REJECT m4_fail=$M4_FAIL"
+# ⭐ THE PACKAGE LOCKDOWN inventory line, via the shared body (lib_inventory.sh) -- never a second copy
+# of the arithmetic. UNGRADABLE.tsv/UNGRADED.tsv beside $PKG (hq_I, corpus a284bcdbb) already split the
+# GAP printed above; graded_narrow=0, this suite compares full output, never by error-number-only.
+INV_PACKAGE=arizona; INV_DIR="$PKG"; INV_EXT=".icn"
+inventory_line "$TOTAL" 0 || echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2
 # ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05: "any run of a test suite by any
 # session will update the ONE LEADERBOARD"). This records the board line printed just above into
 # .github/SCORE.md -- it RUNS NOTHING, it only writes down what this script already measured.

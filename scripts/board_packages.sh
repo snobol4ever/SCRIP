@@ -73,6 +73,14 @@ unproven_reason_for() {  # $1 = "<lang>/<name>" -> why runner_for left it unmapp
 
 GRADED=0; UNPROVEN=0; RED=0
 DETAIL=()
+# ⭐ THE PACKAGE LOCKDOWN inventory aggregation (task every-package-runner-prints-shipped-graded-ungraded-
+# and-ungradable-and-the-leaderboard-carries-the-inventory, hq_T rank-0). Sums ONLY over packages whose
+# runner already prints lib_inventory.sh's own `PACKAGE_INVENTORY package=... shipped=/graded=/ungraded=/
+# ungradable=/graded_stream=/graded_narrow=` line -- a package not yet wired is named under NO_INVENTORY,
+# never folded into the aggregate as zero (that would understate shipped, not just ungraded). This board
+# never recomputes the four numbers itself (that would be a second copy of lib_inventory.sh's own
+# arithmetic); it only parses and sums what each runner already printed and validated.
+INV_SHIPPED=0; INV_GRADED=0; INV_UNGRADED=0; INV_UNGRADABLE=0; INV_PKGS=0
 for pkg in "${ALL_PKGS[@]}"; do
   runner="$(runner_for "$pkg")"
   if [ -z "$runner" ]; then
@@ -85,6 +93,18 @@ for pkg in "${ALL_PKGS[@]}"; do
   # Cosmetic preview only -- the authoritative per-suite numbers already live in each runner's own
   # SCORE.md vendor-cell write, not here; this line just saves a reader one extra terminal round trip.
   line="$(printf '%s\n' "$out" | grep -E '_BOARD |Suite totals:|^mode-4' | tail -1)"
+  inv_line="$(printf '%s\n' "$out" | grep -E '^PACKAGE_INVENTORY package=' | tail -1)"
+  if [ -n "$inv_line" ]; then
+    _s=$(printf '%s' "$inv_line" | grep -oE '(^| )shipped=[0-9]+'    | grep -oE '[0-9]+')
+    _g=$(printf '%s' "$inv_line" | grep -oE '(^| )graded=[0-9]+'     | grep -oE '[0-9]+')
+    _u=$(printf '%s' "$inv_line" | grep -oE '(^| )ungraded=[0-9]+'   | grep -oE '[0-9]+')
+    _ua=$(printf '%s' "$inv_line" | grep -oE '(^| )ungradable=[0-9]+' | grep -oE '[0-9]+')
+    INV_PKGS=$((INV_PKGS+1)); INV_SHIPPED=$((INV_SHIPPED+_s)); INV_GRADED=$((INV_GRADED+_g))
+    INV_UNGRADED=$((INV_UNGRADED+_u)); INV_UNGRADABLE=$((INV_UNGRADABLE+_ua))
+    DETAIL+=("INVENTORY $pkg ($runner) -- $inv_line")
+  else
+    DETAIL+=("NO_INVENTORY $pkg ($runner) -- runner does not yet print a PACKAGE_INVENTORY line (rc=$rc)")
+  fi
   if [ "$rc" = 124 ] || [ "$rc" = 2 ]; then
     UNPROVEN=$((UNPROVEN+1))
     extra=""; [ "$rc" = 124 ] && extra=" (this board's own ${PER_SUITE_TIMEOUT}s per-suite timeout fired)"

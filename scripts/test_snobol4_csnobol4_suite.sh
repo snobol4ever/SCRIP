@@ -142,6 +142,7 @@ SCRIP="$SD/scrip"; RT_DIR="$SD/out"; TIMEOUT="${TIMEOUT:-8}"
 COMPAT="--compat=csnobol4"
 export SCRIP_SETEXIT_END=1
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_oracle_flags.sh unloadable"; exit 2; }
+. "$HERE/lib_inventory.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_inventory.sh unloadable"; exit 2; }
 CSN="$(csnobol4_bin)" || exit 2
 CSN_SRC="$(dirname "$CSN")"   # module-coverage source root: the shared csnobol4 tree's own modules/ dir (see header)
 
@@ -328,6 +329,15 @@ echo "csnobol4 (home dialect, triangulation, informational): PASS=$CSN_PASS FAIL
 [ "$REGEN" -gt 0 ] && echo "REGEN-CANDIDATE ($REGEN, SCRIP m3 disagrees with .ref but so does live csnobol4 — .ref pin may be stale):$REGEN_LIST"
 [ -n "$EXCLUDED_LIST" ] && echo "EXCLUDED (upstream's own tests.in retired these, see script header):$EXCLUDED_LIST"
 [ -n "$MOD_SUMMARY" ] && echo "MODULE-COVERAGE (replacement rows for the EXCLUDED four, folded into the totals above as module/*):$MOD_SUMMARY"
+
+# ⭐ THE PACKAGE LOCKDOWN inventory line, via the shared body (lib_inventory.sh) -- never a second copy
+# of the arithmetic. $TOTAL already equals "pairs in $SUITE measured against the oracle": the excluded-4/
+# module-4 swap above is a same-count replacement (four $SUITE pairs physically unrunnable in this
+# flattened layout, traded 1:1 for their MODULE_TESTS equivalents from the shared csnobol4 tree), so it
+# is the right "graded" figure for a census of $SUITE itself. graded_narrow=0: grading is byte-exact
+# against .ref, never by error-number-only.
+INV_PACKAGE=csnobol4; INV_DIR="$SUITE"; INV_EXT=".sno"
+inventory_line "$TOTAL" 0 || echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2
 
 # ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05). Records what this script just
 # measured into .github/SCORE.md; runs nothing itself. Non-fatal: a bookkeeping failure must never
