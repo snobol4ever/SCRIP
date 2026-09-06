@@ -121,17 +121,41 @@ fi
 echo "GIMPEL_BOARD total=$TOTAL scored=$SCORED unscr=$UNSCR m3_pass=$M3P m3_fail=$M3F m4_pass=$M4P m4_fail=$M4F -- SCRIP $SCRIP_HASH corpus $CORP_HASH RT_OPT=-O0 oracle=sbl-bf (via scorecard_snobol4.sh --suites gimpel)"
 awk -F'\t' '$3=="ORACLE_FAIL"{printf "  UNSCR  %s  %s\n", $2, $7}' "$TSV"
 awk -F'\t' '$3!="ORACLE_FAIL" && ($3!="PASS" || $4!="PASS"){printf "  RED    %s  m3=%s m4=%s%s\n", $2, $3, $4, ($7!="" ? "  "$7 : "")}' "$TSV"
-# ⭐ THE PACKAGE LOCKDOWN (Lon 2026-09-06): TOTAL above is only the *_driver.sno rows scorecard_snobol4.sh
-# grades -- the package's real shipped population also includes the NAME.sno library modules, which are
-# categorically ungradable BY DESIGN (no END, no main program: corpus/packages/snobol4/gimpel/README.md),
-# never silently dropped from the denominator. real_shipped excludes ALL.sno, a generated container from
-# a superseded builder pass, never a program this package ships.
-real_shipped=$(find "$CORPUS_REAL/packages/snobol4/gimpel" -maxdepth 1 -name '*.sno' ! -name 'ALL.sno' | wc -l | tr -d ' ')
-libmods=$((real_shipped - TOTAL))
-ungradable=$((libmods + UNSCR))
-ungraded=$((real_shipped - SCORED - ungradable))
-echo "PACKAGE_INVENTORY shipped=$real_shipped graded=$SCORED ungradable=$ungradable ungraded=$ungraded"
-echo "  (of ungradable: $libmods are *.sno library modules never scored by design -- gimpel/README.md; $UNSCR are drivers the oracle produced no ground truth for, named UNSCR above)"
+# ⭐ THE PACKAGE LOCKDOWN (Lon 2026-09-06), through the SHARED body -- never a second copy of the arithmetic.
+#
+# ⛔⭐⭐ WHAT USED TO BE HERE COMPUTED `ungraded` AS A TAUTOLOGY, AND THE LOCKDOWN'S OWN CRITERION IS
+# `ungraded=0` (hq_P 2026-09-06, proven by substitution, FINDING-2026-09-06-hq_P-the-gimpel-inventorys-
+# ungraded-bucket-is-identically-zero-by-construction.md). The four lines were:
+#     libmods=$((real_shipped - TOTAL)) ; ungradable=$((libmods + UNSCR))
+#     ungraded=$((real_shipped - SCORED - ungradable))     # with SCORED = TOTAL - UNSCR
+# Substitute and every term cancels: real_shipped - (TOTAL-UNSCR) - (real_shipped-TOTAL) - UNSCR == 0.
+# ⛔ NOT "usually zero" and not "zero today" -- ZERO FOR EVERY POSSIBLE INPUT. Measured over eight arms
+# including a board that graded 1 driver of 144 (ungradable 163 -> 288, ungraded still 0), an oracle that
+# failed on all 144, and a shipped count that tripled overnight. The line printed `ungraded=0` for all of
+# them, which is the same string it prints when the lockdown is genuinely finished.
+# ⭐ AND THE REACHABLE HARM IS THE SECOND LINE, NOT THE FOURTH: `libmods = real_shipped - TOTAL` DEFINES
+# whatever the board did not grade as a library module. scorecard_snobol4.sh has a documented
+# concurrent-board guard that reduces TOTAL, and the only floor below is `SCORED >= 1` -- so a partial
+# board silently RECLASSIFIES real ungraded drivers as ungradable-by-design library modules, and the
+# inventory reports the lockdown met while it happened. An instrument whose sensitivity is below the
+# effect it was built to detect is not a weak test; it is a test that cannot fail.
+#
+# ⭐ THE CURE IS NOT A BETTER FORMULA HERE -- it is to stop having a formula here. lib_inventory.sh already
+# carries the sum check that refuses when the buckets do not cover `shipped`, the closed reason-code
+# vocabulary, and the arm that refuses an UNGRADABLE naming OUR OWN compiler. Wiring to it turns a silent
+# `ungraded=0` into a loud, per-entry, actionable debt naming the 163 programs in no bucket.
+# ⛔ IT WILL REFUSE UNTIL THE SIDECARS ARE AUTHORED, AND THAT IS THE POINT, NOT A REGRESSION: the refusal
+# is rc=2 on the INVENTORY only -- the board line and this gate's own verdict are untouched below.
+# The sidecars are row snobol4-gimpel-inventory-sidecars-name-the-oracles-own-reason-for-all-163 (seat02).
+. "$HERE/lib_inventory.sh"
+INV_PACKAGE=gimpel; INV_DIR="$CORPUS_REAL/packages/snobol4/gimpel"; INV_EXT=".sno"
+# graded_narrow=0, and CONFIRMED rather than assumed (ceo CEO-307 (3) asked for exactly this): this runner
+# grades through scorecard_snobol4.sh's grade(), which is `cmp -s` against the .ref pin and then against the
+# live oracle -- full stream equality, no error-number arm anywhere in the path. ⛔ THE ERROR-NUMBER ARM IS
+# THE SNOFLAKE RUNNER'S, NOT THIS ONE'S (test_snoflake_suite.sh:133 oracle_equal, deliberate and documented);
+# that is where gimpel's topological-sort scored PASS on one integer, because snoflake_suite/topological-sort.sno
+# is graded by THAT runner over gimpel/TSORT.INC. Two runners, two comparisons, one package name.
+inventory_line "$SCORED" 0
 # ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
 # vacuously, hq_T 2026-09-04): WITNESSED TWICE IN ONE HOUR on this exact file -- the concurrent-board
 # registry in scorecard_snobol4.sh declined (rc=$rc, an UPSTREAM refusal), which truncates results.tsv
