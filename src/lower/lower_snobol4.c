@@ -2244,6 +2244,22 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                 tx.pat_fail = tno; tx.pat_seal = tno;
                 sno_pat_node(&tx, repl, tok, tno);
                 IR_t * pahead = NULL; IR_t * palast = NULL; const char * pbao = getenv("SCRIP_PB_ARGORDER");
+                if (!pbao && tx.npre > 0) {
+                    IR_t * asns[64]; IR_t * cont;
+                    for (int api = tx.npre - 1; api >= 0; api--) {
+                        char abuf[48]; snprintf(abuf, sizeof abuf, tx.pre[api].snapg ? "%s$V%d" : "%s$A%d", bn, api);
+                        asns[api] = lc_build(g, IR_ASSIGN, pae, fA); IR_LIT(asns[api]).sval = lp_strdup(abuf);
+                        pae = asns[api];
+                    }
+                    cont = asns[0];
+                    for (int api = tx.npre - 1; api >= 0; api--) {
+                        IR_t * av = NULL;
+                        cont = sx_lower(&cx, tx.pre[api].arg, cont, fA, &av);
+                        ir_operand_push(asns[api], av);
+                    }
+                    pae = cont;
+                }
+                else {
                 for (int api = 0; api < tx.npre; api++) {
                     char abuf[48]; snprintf(abuf, sizeof abuf, tx.pre[api].snapg ? "%s$V%d" : "%s$A%d", bn, api);
                     IR_t * asnA = lc_build(g, IR_ASSIGN, pae, fA); IR_LIT(asnA).sval = lp_strdup(abuf);
@@ -2255,6 +2271,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                     palast = asnA;
                 }
                 if (pahead) pae = pahead;
+                }
                 if (tx.npre > 0) { IR_t * ncnt = lc_build(g, IR_LIT_STRING, mk, fA); char cb[16]; snprintf(cb, sizeof cb, "%d", tx.npre); IR_LIT(ncnt).sval = lp_strdup(cb); ir_operand_push(mk, ncnt); lc_γ_to(nl, ncnt); }
             }
             lc_γ_to(anchor[i], pae);
