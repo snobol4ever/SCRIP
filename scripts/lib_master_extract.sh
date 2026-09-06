@@ -20,15 +20,30 @@
 # ⛔⛔⭐ INTERIM PROMOTION PROTOCOL -- READ THIS BEFORE YOU PROMOTE OR RETIRE AN XFAIL MARKER
 # (ceo ruling 2026-09-01, routed here by hq_C; the row it was INTERIM until, `optbypass-pin-stable-subset`, is RETIRED.)
 #
-# A marker lives in THREE places and a promotion that touches fewer than all three TEARS THE SUITE FOR
-# EVERY SEAT ON THE BOX: (1) the banner in ALL.sno, (2) the SAME banner in ALL.ref, (3) the reason line
-# in ALL.xfail. read_suite compares the .sno and .ref banners and RAISES on a mismatch, so a half-applied
-# promotion does not degrade -- it makes the master suite UNREADABLE. Measured 2026-09-01: corpus
-# 2d75933ec dropped ' XFAIL' from ALL.sno and ALL.xfail but not ALL.ref, and every SNOBOL4 board, census
-# and census on the box refused for ~40 minutes until 5eb68cb8 restored the pair.
+# ⛔⭐ A MARKER LIVES IN **FOUR** PLACES, NOT THREE -- THIS PARAGRAPH SAID THREE UNTIL 2026-09-06 AND THAT
+# OMISSION HAS NOW COST TWO SEATS AND ONE BLOCKING RED ON ORIGIN:
+#   (1) the banner in ALL.sno
+#   (2) the SAME banner in ALL.ref
+#   (3) the reason line in ALL.xfail
+#   (4) the `xfail` COLUMN (field 6) of ALL.csv        <-- THE ONE THIS FILE USED TO OMIT
+# read_suite compares the .sno and .ref banners and RAISES on a mismatch, so a half-applied promotion of
+# (1)+(2) does not degrade -- it makes the master suite UNREADABLE. Measured 2026-09-01: corpus 2d75933ec
+# dropped ' XFAIL' from ALL.sno and ALL.xfail but not ALL.ref, and every SNOBOL4 board and census on the
+# box refused for ~40 minutes until 5eb68cb8 restored the pair.
+# ⭐ WHY (4) IS THE DANGEROUS ONE, and why following this file exactly was not enough: (1)-(3) fail LOUDLY
+# and immediately -- read_suite raises and names the torn seq. (4) fails SILENTLY in the promoting seat's
+# root and reddens `test_gate_xfail_marker_and_index_agree` (BLOCKING) for everyone else. Measured
+# 2026-09-06: hq_T promoted two markers in corpus f0262a113, ran read_suite on the result exactly as the
+# rule below demands, got rc=0 over 1882 entries, and pushed -- leaving ALL.csv at xfail=1 and the gate
+# red on origin at master=32 index=34 until hq_P landed 324c5926d. **THE PROOF THE RULE ASKED FOR WAS
+# PERFORMED AND PASSED, AND THE PROMOTION WAS STILL INCOMPLETE**, because read_suite does not read ALL.csv.
+# ⛔ A verification step that cannot see one of the places it is verifying will certify a half-done job.
 #
-#   THE RULE: a marker promotion is proven by running read_suite (or the board) ON THE RESULT, in the
-#   SAME COMMIT -- never by the extract alone.
+#   THE RULE: a marker promotion is proven by running read_suite (or the board) ON THE RESULT **and** by
+#   re-running test_gate_xfail_marker_and_index_agree.sh, in the SAME COMMIT -- never by the extract alone,
+#   and never by read_suite alone, which is blind to place (4).
+#
+
 #
 # ⭐ THE CHECK COSTS 0.046 s, SO THERE IS NO BUDGET EXCUSE FOR SKIPPING IT (hq_C, measured; the 400-650 s
 # board is what people were actually skipping). `list` runs the same read_suite the board does:
