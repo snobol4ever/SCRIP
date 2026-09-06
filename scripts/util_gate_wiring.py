@@ -343,6 +343,13 @@ def adopt(root, out=sys.stdout):
     for g in sorted(disk - seen):
         if g in reach:
             kept.append([g, "WIRED", "-", "-", "-"]); added.append(g)
+    # ⛔⭐ THE ORDER OF TWO HONEST OUTCOMES IS ITSELF A CLAIM (hq_S, 2026-09-06, measured on their own board:
+    # a drift guard placed after the leaderboard write let a drifted board publish its row and only then
+    # refuse, and a second true refusal -- contention -- sent its reader to fix the wrong thing with every
+    # sentence correct). This function WRITES and THEN refuses, which is that shape. It is safe here for a
+    # reason that must be STATED rather than merely true, because the next reader cannot see it: the write is
+    # measured reachability ONLY, and every gate in `stuck` is by definition NOT in it -- so no byte written
+    # below depends on how the refusal resolves. If that ever stops being true, the write moves after it.
     stuck = sorted(g for g in disk if g not in reach and g not in {r[0] for r in kept})
     task_n = len([r for r in kept if r[1] == "TASK"])
     new_ceiling = task_n if ceiling is None else min(ceiling, task_n)
