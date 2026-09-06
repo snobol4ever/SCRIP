@@ -274,7 +274,15 @@ fi
 runners=0; sources=0; calls=0; swallows=0; missing=""; partial=""; swallowed=""
 for r in "$HERE"/test_*_suite.sh "$HERE"/raku_roast_scoreboard.sh "$HERE"/board_packages.sh; do
     [ -f "$r" ] || continue
-    runners=$((runners+1)); b="$(basename "$r")"
+    b="$(basename "$r")"
+    # ⛔⭐ AN AGGREGATOR IS NOT AN EMITTER, and this census called one broken within minutes of landing.
+    # board_packages.sh READS other runners' lines; it sets no stanza and emits none, correctly. Judged by
+    # the emitter's checklist it read as "sources the body with an INCOMPLETE STANZA -- wired to REFUSE",
+    # which is a false accusation against the one caller doing exactly what it should. ⭐ Same shape as the
+    # defect this arm was rewritten to cure one commit earlier: a census that counts the wrong population
+    # is wrong for every member of it, and it is loudest about the members that are most correct.
+    case "$b" in board_*.sh) continue ;; esac
+    runners=$((runners+1))
     grep -q 'lib_inventory.sh' "$r" || { missing="$missing $b"; continue; }
     sources=$((sources+1))
     # a COMPLETE stanza: all three tokens plus the call. A missing INV_EXT refuses at run time, so a
@@ -288,7 +296,7 @@ for r in "$HERE"/test_*_suite.sh "$HERE"/raku_roast_scoreboard.sh "$HERE"/board_
     # into a line nobody reads, so a package can refuse on every run while the board stays quiet.
     grep -qE 'inventory_line[^|&]*(\|\||&&|2>/dev/null)' "$r" && { swallows=$((swallows+1)); swallowed="$swallowed $b"; }
 done
-echo "    package runners censused=$runners  sources=$sources  complete-stanza=$calls  unwired=$((runners-sources))"
+echo "    package runners censused=$runners  sources=$sources  complete-stanza=$calls  unwired=$((runners-sources))  [aggregators excluded: they read lines, never emit one]"
 echo "    ⚠ NOT DECIDABLE HERE: whether a runner actually EMITS a summing line. Only running it proves that (board_packages.sh)."
 [ -z "$missing" ]   || { echo "    NOT YET WIRED (the row's work list, not a verdict):"; printf '      %s\n' $missing; }
 [ -z "$partial" ]   || { echo "    ⛔ SOURCES THE BODY WITH AN INCOMPLETE STANZA -- wired to REFUSE, not to report:"; printf '      %s\n' $partial; }
