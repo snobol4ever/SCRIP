@@ -1215,6 +1215,21 @@ PROGRESS_ESTIMATED = {}   # superseded by counted_fractions: every listed packag
 # NAMED, NEVER COUNTED: gimpel (a book's modules behind 144 drivers WE wrote), aisnobol and dotnet (program collections),
 # ipl (a program library, no tests), gnu_prolog (GNU Prolog's compiler/library source, no tests).
 PROGRESS_NO_PUBLIC_SUITE = ("snocone", "rebus")   # no shipped package at all: no percentage, never 100% from our own ladder
+# ⛔⭐⭐⭐ READ THIS BEFORE THE PARAGRAPH BELOW IT -- THE ZERO-FOR-UNGRADED HALF IS SUPERSEDED (Lon 2026-09-05, in-chat,
+# verbatim: "I want to see accurate numbers for each language as a measurement. I do not know what is a FLOOR, but
+# whatever it is, it is not anything I want to see. Show measured numbers from running test suites not FLOORS. I have
+# a floor I stand on, that is the only floor I need."). The paragraph below is Lon's 2026-09-04 ruling and its FIRST
+# half still governs: every shipped package IS a test suite, and the inventory of what we owe is unchanged -- nothing
+# is dropped from the list, nothing stops being owed. What is RETIRED is its SCORING consequence: an unrun package no
+# longer contributes 0 of its population to the published percent. It is printed under NOT RUN, named and sized,
+# outside every percent.
+# ⭐ WHY THE RULING CHANGED, kept because the next reader will otherwise "restore" the zeros as a conservatism: the
+# two rulings are not in conflict about the WORK, only about the NUMBER. Counting an unrun suite as zero made icon
+# read 8% = 91/1066 with 851 of that denominator never run -- a measurement averaged with an assumption, in which the
+# assumption dominated. That is not a conservative measurement, it is an unreadable one; the honest conservatism is
+# to name what has not run, which the NOT RUN line does louder than a zero ever did.
+# ⛔ DO NOT re-add an unrun package to P/T to make a percent "safe". If that ever looks right again, read the
+# before/after in SCRIP 2b806e650 first, and test_gate_score_unreadable_package_is_marked.sh will red on it.
 # ⛔⭐⭐ EVERY SHIPPED PACKAGE IS A TEST SUITE (Lon 2026-09-04, in-chat to ceo, verbatim: "If GNU Prolog ships with Prolog
 # source; that is the test suite I am talking about. You make the programs run, you measure the output, make a REF
 # file, and place it into a ONE-LINER or a MULTI-LINER Python test harness."). So every vendored package counts over
