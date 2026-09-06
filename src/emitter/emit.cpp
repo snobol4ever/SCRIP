@@ -2222,7 +2222,9 @@ static int zd_wl_kind(IR_t * nd) {
     if (op == IR_MAKE_LIST) { static int _icnml = -1; if (_icnml < 0) { const char * e = getenv("SCRIP_ZD_ICN_ML"); _icnml = (e && *e == '0') ? 0 : 1; } return (_icnml && g_emit_cfg && g_emit_cfg->icn_cells_graph && x86_fb_pinned()) ? 1 : 0; }
     if (op == IR_RETURN) { static int _zk4r = -1; if (_zk4r < 0) { const char * e = getenv("SCRIP_ZD_RETURN"); _zk4r = (e && *e == '0') ? 0 : 1; } return (_zk4r && g_emit_cfg && g_emit_cfg->icn_cells_graph) ? 1 : 0; }
     if (op == IR_CONJUNCTION) { static int _zk2c = -1; if (_zk2c < 0) { const char * e = getenv("SCRIP_ZD_CONJ"); _zk2c = (e && *e == '0') ? 0 : 1; } return (_zk2c && g_emit_cfg && g_emit_cfg->icn_cells_graph) ? 1 : 0; }
-    if (op == IR_BINOP_TEST) { static int _zk2r = -1; if (_zk2r < 0) { const char * e = getenv("SCRIP_ZD_RELOP"); _zk2r = (e && *e == '0') ? 0 : 1; } return (_zk2r && g_emit_cfg && g_emit_cfg->icn_cells_graph) ? 1 : 0; }
+    if (op == IR_BINOP_TEST) { static int _zk2r = -1; if (_zk2r < 0) { const char * e = getenv("SCRIP_ZD_RELOP"); _zk2r = (e && *e == '0') ? 0 : 1; }
+        { long long _rv = (long long)IR_LIT(nd).ival; if (_rv < (long long)BINOP_LT || _rv > (long long)BINOP_NE) return 0; }
+        return (_zk2r && g_emit_cfg && g_emit_cfg->icn_cells_graph) ? 1 : 0; }
     if (op == IR_BOUND || op == IR_UNMARK) { return (g_emit_cfg && g_emit_cfg->icn_cells_graph) ? 1 : 0; }
     if (op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_LIT_REAL || op == IR_LIT_CHARSET || op == IR_LIT_NAME) return 1;
     { static int _tot = -1; if (_tot < 0) { const char * e = getenv("SCRIP_ZD_TOTAL"); _tot = (e && *e == '1') ? 1 : 0; }
