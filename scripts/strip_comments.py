@@ -20,6 +20,7 @@ SRC_ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 EXTS = (".c", ".h", ".cpp", ".hpp", ".y", ".l", ".s", ".S")
 GENERATED = re.compile(r"(\.lex\.c|\.tab\.c|\.tab\.h|(^|/)lex\.[^/]+\.c)$")
 SEP = re.compile(r"^\s*/\*[-=]+\*/\s*$")
+SEP_WIDTH = 200   # RULES.md: the sanctioned separator is exactly 200 chars; a short one is dirty and is NOT a comment
 
 def strip_one(text):
     """Return text with comments removed, preserving string/char literals."""
@@ -191,6 +192,28 @@ def clean_blank_runs(text):
     lines = [ln.rstrip() for ln in text.split("\n")]
     return "\n".join(ln for ln in lines if ln.strip() != "") + "\n"
 
+def why_dirty(src, stripped):
+    """Name the FIRST thing that makes a file dirty, at its line number, so the report says what to fix.
+    ⛔ The count line used to say only "a comment or a blank line". A sanctioned separator at the wrong WIDTH
+    is neither, so grepping for comments and blank lines -- which is what that message tells you to do --
+    finds nothing, twice, and the reader starts doubting the checker instead of the file (hq_T, 2026-09-06,
+    ten minutes; hq_R had just shipped exactly that defect). The classifier answers from strip_one()'s own
+    output, never from a second guess at what the rule means."""
+    a, b = src.split("\n"), stripped.split("\n")
+    for i, ln in enumerate(a):
+        if ln.strip() == "":
+            return i + 1, "blank line"
+        if i < len(b) and ln == b[i]:
+            continue
+        if SEP.match(ln):
+            return i + 1, "separator is %d chars, want %d" % (len(ln.strip()), SEP_WIDTH)
+        if ln.rstrip() != ln:
+            return i + 1, "trailing whitespace"
+        return i + 1, "comment"
+    if len(a) != len(b):
+        return len(b), "line count differs (%d -> %d)" % (len(a), len(b))
+    return 0, "differs from the stripped form"
+
 def main():
     mode = sys.argv[1] if len(sys.argv) > 1 else "--dry-run"
     # ⛔⭐ `--check-files <paths...>` GRADES ONLY WHAT WAS HANDED TO IT, so a pre-commit hook can convict the
@@ -206,11 +229,12 @@ def main():
         for p in files:
             with open(p, "r", errors="surrogateescape") as f:
                 src = f.read()
-            if clean_blank_runs(strip_file(p, src)) != src:
-                bad.append(p)
-        for p in bad:
-            sys.stderr.write("  %s\n" % p)
-        print("checked %d staged src file(s), %d carrying a comment or a blank line" % (len(files), len(bad)))
+            stripped = clean_blank_runs(strip_file(p, src))
+            if stripped != src:
+                bad.append((p, why_dirty(src, stripped)))
+        for p, (ln, why) in bad:
+            sys.stderr.write("  %s:%d  %s\n" % (p, ln, why))
+        print("checked %d staged src file(s), %d carrying a comment, a blank line or an off-width separator" % (len(files), len(bad)))
         return 1 if bad else 0
     files = []
     for root, _, names in os.walk(SRC_ROOT):
@@ -235,10 +259,15 @@ def main():
                 with open(p, "w", errors="surrogateescape") as f:
                     f.write(stripped)
     if mode == "--check":
-        dirty = [p for p in files if clean_blank_runs(strip_file(p, open(p, "r", errors="surrogateescape").read())) != open(p, "r", errors="surrogateescape").read()]
+        dirty = []
+        for p in files:
+            raw = open(p, "r", errors="surrogateescape").read()
+            stripped = clean_blank_runs(strip_file(p, raw))
+            if stripped != raw:
+                dirty.append((p, why_dirty(raw, stripped)))
         print("files scanned (generated excluded): %d" % len(files))
-        print("files still carrying a comment or a blank line: %d" % len(dirty))
-        for p in dirty[:40]: print("  " + os.path.relpath(p, SRC_ROOT))
+        print("files still carrying a comment, a blank line or an off-width separator: %d" % len(dirty))
+        for p, (ln, why) in dirty[:40]: print("  %s:%d  %s" % (os.path.relpath(p, SRC_ROOT), ln, why))
         sys.exit(1 if dirty else 0)
     print("files scanned (generated excluded): %d" % len(files))
     print("files that would change          : %d" % changed)
