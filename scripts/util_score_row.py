@@ -820,9 +820,50 @@ def cmd_write(a):
             # restatement of the same figure from a live contradiction. hq_I found the conflict only by
             # checking WHERE the text landed rather than that rc=0. Name both readings and it is one glance.
             if a.suite:
-                _gr, _tr = suite_readings(gbare, a.suite), suite_readings(text, a.suite) or re.findall(r"\d+\s*/\s*\d+", text)
+                # ⛔⭐ THE BARE-N/M FALLBACK IS DELETED, and seat02 measured why (routed by hq_P 2026-09-06).
+                # It read `suite_readings(text) or re.findall(r"\d+/\d+", text)`, so when a runner writes its
+                # clause as PASS=/FAIL= with no literal pass-over-total -- test_snoflake_suite.sh does -- the
+                # fallback matched the first bare fraction ANYWHERE in the cell. It grabbed an NSTD
+                # sub-fraction (1/7, 1/6) and raised a CONFLICT against a grid cell of 129/180 that was not
+                # stale at all: verified by hand against a fresh m3 measurement. A false alarm on a correct
+                # board is worse than silence, because the reader who checks it and finds nothing wrong stops
+                # checking. ⭐ hq_P's sentence is the rule: A FALLBACK THAT MATCHES ANY N/M ANYWHERE IN THE
+                # TEXT IS NOT A FALLBACK, IT IS A SECOND, WORSE PARSER -- and the second parser answers a
+                # different question than the first while wearing its name. No reading is NO READING: the
+                # comparison is simply not made, and the note below says so, rather than inventing one.
+                _gr, _tr = suite_readings(gbare, a.suite), suite_readings(text, a.suite)
                 _grs, _trs = {x.replace(" ", "") for x in _gr}, {x.replace(" ", "") for x in _tr}
-                if _grs and _trs and not (_grs & _trs):
+                if _grs and not _trs:
+                    gnote = ("  ⚠ grid %s NOT compared for `%s`: that line states %s, and this write's board "
+                             "line carries no pass-over-total fraction for that suite, so there is nothing to "
+                             "compare it against. This is NOT agreement -- it is one reading, unchecked.\n"
+                             "      Give the board line an N/M fraction for the suite if you want the grid "
+                             "conflict check to cover it."
+                             % (gkey, a.suite, " · ".join(sorted(_grs))))
+                # ⛔⭐ A CONFLICT REQUIRES A SHARED DENOMINATOR, and this is the rule the sibling gate already
+                # runs on: test_gate_score_tables_agree fails a SAME-DENOMINATOR disagreement ("both tables
+                # name an 81-population, one says 39 and the other 41 -- one is wrong and a reader cannot tell
+                # which") and merely REPORTS a population present on one side only, because the two lines
+                # legitimately summarise at different grains. This check had no such rule and convicted on
+                # bare set-disjointness, so ANY two readings that were not identical read as a contradiction.
+                # ⛔ seat02 measured the cost (routed by hq_P): their snoflake clause is written PASS=/FAIL=
+                # with an NSTD aside, so the readings came back 1/7 and 1/6 and were declared to CONFLICT with
+                # a grid cell of 129/180 that was not stale at all -- verified by hand against a fresh m3
+                # measurement. ⭐ AND MY FIRST CURE WAS AIMED AT THE WRONG FUNCTION: the diagnosis handed to me
+                # blamed the bare-N/M fallback below, but measuring it showed suite_readings ITSELF returns
+                # 1/7 and 1/6 -- it takes every fraction within 90 characters of the head, so a parenthetical
+                # aside reads exactly like a headline. Deleting the fallback was right on its own terms and
+                # does not fix this; narrowing that window would decide another lane's cell semantics on my
+                # judgement, and a wrong narrowing SUPPRESSES REAL CONFLICTS, which is far worse than a false
+                # alarm. The denominator rule needs no such judgement: two readings over different populations
+                # are not in disagreement, they are not comparable, and the note now says which.
+                elif _grs and _trs and not ({x.split("/")[1] for x in _grs} & {x.split("/")[1] for x in _trs}):
+                    gnote = ("  ⚠ grid %s NOT compared for `%s`: that line states %s and this write states %s, "
+                             "over DIFFERENT populations -- no shared denominator, so these are not two "
+                             "readings of one thing and disagreement cannot be inferred.\n"
+                             "      If one of them is the stale one, land the same number on both lines."
+                             % (gkey, a.suite, " · ".join(sorted(_grs)), " · ".join(sorted(_trs))))
+                elif _grs and _trs and not (_grs & _trs):
                     gnote = ("  ⛔ grid %s CONFLICTS with what you are writing for `%s`: that line states %s, "
                              "this write states %s. Both lines of SCORE.md carry this language+suite, and a "
                              "reader takes whichever they meet first.\n"
