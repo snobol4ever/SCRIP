@@ -876,8 +876,11 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             if (!kk) pl_refuse("global-variable key that is not an atom known at compile time -- a computed key goes through the runtime compiler (ARCH sec C); there is no key map --", nm, 10);
             { int k = pl_dyn_index_or_add(kk, -1);
               if (k < 0) pl_refuse("global variable needs a root cell but the 64 compile-time root cells are exhausted --", kk, 10);
-              return !strcmp(nm, "nb_setval") ? pl_db_leaf2(cx, "$nb_setval", k, t->c[1], γnext, ωfail, entry_out)
-                                              : pl_nb_leaf_lv(cx, "$nb_getval", k, t->c[1], γnext, ωfail, entry_out); } }
+              if (!strcmp(nm, "nb_setval")) return pl_db_leaf2(cx, "$nb_setval", k, t->c[1], γnext, ωfail, entry_out);
+              { IR_t * body_entry = NULL; IR_t * nd = pl_nb_leaf_lv(cx, "$nb_getval", k, t->c[1], γnext, ωfail, &body_entry);
+                tree_t * kt = ast_node_new(TT_QLIT); kt->v.sval = (char *) kk;
+                IR_t * guard_entry = NULL; pl_db_leaf2(cx, "$pl_nb_getval_guard", k, kt, body_entry, ωfail, &guard_entry);
+                if (entry_out) *entry_out = guard_entry; return nd; } } }
         if (!strcmp(nm, "clause") && t->n == 2) {
             int ar = 0; const char * pn = pl_head_key(t->c[0], &ar);
             if (!pn) pl_refuse("clause/2 whose head is not a callable term known at compile time --", nm, 7);
