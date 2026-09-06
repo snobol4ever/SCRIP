@@ -4,7 +4,7 @@
 # GOAL-CEO CEO-331; the rule is /home/resources/progress/README.md, CEO-319). Hermetic: S4E_PROGRESS_DB points every
 # arm at a scratch table under mktemp; the live table is never touched. Arms 5-7 grade a real one-entry suite, so
 # they need this tree's built binary (util_require_fresh refuses rc=2 on a stale or absent one).
-#   1  the writer appends a 12-field row whose ts_utc is the run's own clock (within 300 s of now, UTC)
+#   1  the writer appends a 13-field row whose ts_utc is the run's own clock (within 300 s of now, UTC)
 #   2  an unwritable table is a LOUD refusal, rc=2, and says NOT recorded
 #   3  S4E_PROGRESS_OFF=1 records nothing and says so
 #   4  the harness on a NON-canonical suite path (a scratch copy) records nothing
@@ -34,7 +34,7 @@ now=$(date -u +%s)
 python3 "$PY" append --class master --suite snobol4-master --lang snobol4 --program gate_probe --mode m3 --outcome FAIL >/dev/null 2>&1; rc=$?
 [ "$rc" = 0 ] && ck ok "append rc=0" || ck no "append rc=$rc"
 row=$(tail -1 "$W/db.tsv"); nf=$(printf '%s\n' "$row" | awk -F'\t' '{print NF}')
-[ "$nf" = 12 ] && ck ok "row has 12 fields" || ck no "row has $nf fields: $row"
+[ "$nf" = 13 ] && ck ok "row has 13 fields" || ck no "row has $nf fields: $row"   # 12 -> 13 on 2026-09-06 (hq_T, CEO-338): the `fingerprint` column. ⭐ THIS ARM CAUGHT THE SCHEMA CHANGE THE MOMENT IT LANDED, which is the arm doing its job -- the count is updated in the SAME commit as the column, never after, because a field-count assertion that lags its schema is a red on origin that every seat learns to step over.
 ts=$(printf '%s' "$row" | cut -f1); tse=$(date -u -d "${ts}Z" +%s 2>/dev/null || echo 0); d=$(( tse - now ))
 [ "$d" -ge -300 ] && [ "$d" -le 300 ] && ck ok "ts_utc $ts is the run's own clock (delta ${d}s)" || ck no "ts_utc $ts is not now (delta ${d}s)"
 [ "$(printf '%s' "$row" | cut -f4)" != "" ] && [ "$(printf '%s' "$row" | cut -f4)" != "unknown-seat" ] && ck ok "measurer is $(printf '%s' "$row" | cut -f4)" || ck no "measurer empty or placeholder"

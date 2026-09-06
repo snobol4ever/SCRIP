@@ -25,7 +25,7 @@ CLI:      util_progress_append.py append --class C --suite S --lang L --program 
           util_progress_append.py triangulation --lang L FILE           # bench_triangulate_* shape: kernel engine a1 a2 ratio verdict ...
 rc 0 = rows written (count printed) or S4E_PROGRESS_OFF · rc 2 = refused (unwritable table, malformed row, unreadable input)."""
 import os, sys, csv, io, time, fcntl, subprocess, re, collections
-COLUMNS = ["ts_utc", "scrip", "corpus", "measurer", "class", "suite", "lang", "program", "mode", "outcome", "secs", "note"]
+COLUMNS = ["ts_utc", "scrip", "corpus", "measurer", "class", "suite", "lang", "program", "mode", "outcome", "secs", "note", "fingerprint"]
 CLASSES = ("master", "package", "benchmark")
 OUTCOMES = ("PASS", "FAIL", "CRASH", "HANG", "SKIP", "REFUSE", "UNGRADED", "UNPROVEN", "MISSING", "REJECT", "XFAIL", "XPASS")
 DB_DEFAULT = "/home/resources/progress/results.tsv"
@@ -76,6 +76,68 @@ def context():
     return _CTX
 
 
+class ProgressGroundMoved(Exception):
+    pass
+
+
+def _bin_digest(scrip_bin=None, rt_dir=None):
+    """md5 over the DRIVER and the runtime it will load, in that order. ⛔ The driver alone is not the build:
+    scrip is ~40 KB and every template lives in out/libscrip_rt.so, so a digest of scrip alone calls two
+    different compilers the same build (measured 2026-09-05, hq_T and hq_C independently)."""
+    import hashlib
+    sb = scrip_bin or os.environ.get("SCRIP") or os.path.join(S4E, "SCRIP", "scrip")
+    rd = rt_dir or os.environ.get("RT_DIR") or os.path.join(S4E, "SCRIP", "out")
+    h = hashlib.md5()
+    ok = 0
+    for f in (sb, os.path.join(rd, "libscrip_rt.so")):
+        try:
+            with open(f, "rb") as fh:
+                h.update(fh.read())
+            ok += 1
+        except Exception:
+            return "unknown"
+    return h.hexdigest() if ok == 2 else "unknown"
+
+
+def _ground():
+    return {"scrip": _git_short(os.path.join(S4E, "SCRIP")), "corpus": _git_short(os.path.join(S4E, "corpus")), "fp": _bin_digest()}
+
+
+_PINNED = {}
+
+
+def pin_context(scrip_bin=None, rt_dir=None):
+    """Read the tree hashes and the binary digest BEFORE the first program is graded, and make context() serve
+    THOSE. ⛔ Without this, _git_short runs at APPEND time -- after a mid-run pull -- so rows name a tree the
+    programs were never graded against (seat10, 3736 rows stamped 3377cf43e, CEO-338)."""
+    g = _ground()
+    if scrip_bin or rt_dir:
+        g["fp"] = _bin_digest(scrip_bin, rt_dir)
+    _PINNED.clear()
+    _PINNED.update(g)
+    _CTX.clear()
+    context()
+    _CTX["scrip"] = g["scrip"]
+    _CTX["corpus"] = g["corpus"]
+    _CTX["fingerprint"] = g["fp"]
+    return dict(_PINNED)
+
+
+def assert_ground_unmoved():
+    """Refuse the whole append when the tree or the binary moved under the run. ⛔ APPEND NOTHING -- a refusal
+    that fires after the side effect is an annotation, not a refusal."""
+    if not _PINNED:
+        return
+    now = _ground()
+    moved = [k for k in ("scrip", "corpus", "fp") if _PINNED.get(k) != now.get(k)]
+    if moved:
+        what = ", ".join("%s %s -> %s" % (k, _PINNED.get(k), now.get(k)) for k in moved)
+        raise ProgressGroundMoved(
+            "⛔ THE GROUND MOVED UNDER THIS RUN (%s) -- appending NOTHING. The programs were graded against the "
+            "PINNED values, so a row stamped with either set would be false: the pinned one denies the move, the "
+            "current one names a tree that never graded them. Re-run on a settled tree." % what)
+
+
 def _clean(v, field):
     s = "" if v is None else str(v)
     if "\t" in s or "\n" in s or "\r" in s:
@@ -115,11 +177,12 @@ def append_rows(rows, db=None):
         print(f"progress: S4E_PROGRESS_OFF=1 -- {len(rows)} row(s) NOT recorded in {db or db_path()} (the control arm; a landing verdict never runs with it set)", file=sys.stderr)
         return 0
     path = db or db_path()
+    assert_ground_unmoved()
     ctx = context()
     ts = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())
     lines = []
     for r in rows:
-        lines.append("\t".join([ts, ctx["scrip"], ctx["corpus"], ctx["measurer"], r["class"], r["suite"], r["lang"], r["program"], r["mode"], r["outcome"], r["secs"], r["note"]]))
+        lines.append("\t".join([ts, ctx["scrip"], ctx["corpus"], ctx["measurer"], r["class"], r["suite"], r["lang"], r["program"], r["mode"], r["outcome"], r["secs"], r["note"], ctx.get("fingerprint", "")]))
     payload = "\n".join(lines) + "\n"
     try:
         d = os.path.dirname(path)

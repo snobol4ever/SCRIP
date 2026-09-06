@@ -1964,6 +1964,7 @@ def cmd_convert_blocks(args):
 
 def cmd_run(args):
     paths = resolve_paths()
+    _progress_pin(paths)
     check_scrip(paths)
     # ⛔⭐ A SUITE FILE THAT IS NOT THERE IS A REFUSAL, NEVER A CRASH (row harness-refusal-exit-code-unified-on-
     # rc-2, hq_T 2026-09-04, found by that row's OWN gate while it was being written). Until now a missing
@@ -2223,6 +2224,21 @@ def progress_suite_for(sno_path, paths):
     return None
 
 
+def _progress_pin(paths):
+    """Read the tree hashes and the scrip+libscrip_rt.so digest BEFORE the first program is graded, so the rows this
+    run appends name the ground it ACTUALLY graded. ⛔ util_progress_append.context() used to run rev-parse at APPEND
+    time: seat10's board pulled twice and rebuilt once under a 79-minute run and its 3736 rows were stamped with the
+    tree that existed when the run ENDED (CEO-338). The runner's own binary-moved refusal fired at 14:23 -- after the
+    harness had already written them."""
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import util_progress_append as _pa
+        _pa.pin_context(str(paths["scrip_bin"]), str(paths["rt_dir"]))
+    except Exception as e:
+        print(f"⛔ PROGRESS PIN FAILED ({e.__class__.__name__}: {e}) -- this run's rows cannot be proven to name the "
+              f"tree they graded, so the append will not be guarded. Fix the pin; never silence it.", file=sys.stderr)
+
+
 def _progress_record(sno_path, paths, rows):
     """Append one row per (entry, mode) graded to THE PROGRESS DATABASE through the ONE writer (util_progress_append.py).
     Loud on refusal: a board that could not be recorded is printed AND exits 2 -- progress/README.md, CEO-319."""
@@ -2235,6 +2251,9 @@ def _progress_record(sno_path, paths, rows):
     try:
         n = _pa.append_rows([{"class": cls, "suite": suite, "lang": lang, "program": name, "mode": m, "outcome": kind, "secs": secs or 0, "note": note} for name, m, kind, secs, note in rows])
     except _pa.ProgressUnwritable:
+        sys.exit(2)
+    except _pa.ProgressGroundMoved as e:
+        print(str(e), file=sys.stderr)
         sys.exit(2)
     if n:
         print(f"PROGRESS_RECORDED suite={suite} class={cls} rows={n} db={_pa.db_path()}")
