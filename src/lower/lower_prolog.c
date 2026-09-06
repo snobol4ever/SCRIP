@@ -853,7 +853,8 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             lc_vec glv; lc_vec_init(&glv, (int) sizeof(const tree_t *));
             collect_conj(t->c[1], &glv);
             IR_t * te = NULL; IR_t * tv = term_e(cx, t->c[0], &te);
-            IR_t * first = pl_lower_conj(cx, (const tree_t * const *) glv.data, glv.n, te ? te : tv, nd, &gentry, &gredo, NULL);
+            IR_t * bc = build(cx, IR_CALL, nd, ωfail); IR_LIT(bc).sval = "$ball_pending";
+            IR_t * first = pl_lower_conj(cx, (const tree_t * const *) glv.data, glv.n, te ? te : tv, bc, &gentry, &gredo, NULL);
             lc_γ_to(acc, gentry ? gentry : (first ? first : nd));
             lc_γ_to(tv, add); lc_ω_to(tv, nd);
             ir_operand_push(add, acc); ir_operand_push(add, tv);

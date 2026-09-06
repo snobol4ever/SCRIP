@@ -6598,6 +6598,8 @@ DESCR_t rt_pl_dop_db_erase_c(DESCR_t *args, int nargs, void *root) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int rt_pl_db_count(void *); extern int rt_pl_db_clause_at(void *, int, void *); extern int rt_pl_db_live_count(void *);
+DESCR_t rt_pl_dop_ball_pending_c(void *ball) { return ball ? FAILDESCR : pl_ok(); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_db_nonempty_c(DESCR_t *args, int nargs, void *root) {
     if (nargs != 1) return FAILDESCR;
     { void *db = pl_db_cell_of(args, root); return (db && rt_pl_db_live_count(db) > 0) ? pl_ok() : FAILDESCR; }
