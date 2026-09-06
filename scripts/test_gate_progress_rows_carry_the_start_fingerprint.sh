@@ -46,6 +46,15 @@ H="$HERE/corpus_suite_harness.py"; PY="$HERE/util_progress_append.py"
 [ -f "$H" ] && [ -f "$PY" ] || { echo "GATE UNPROVEN(2) [$G]: harness or writer missing under $HERE"; exit 2; }
 command -v git >/dev/null 2>&1 || { echo "GATE UNPROVEN(2) [$G]: git not on PATH"; exit 2; }
 [ -x "$ROOT/scrip" ] && [ -e "$ROOT/out/libscrip_rt.so" ] || { echo "GATE UNPROVEN(2) [$G]: this tree has no built binary to copy. Run 'make'."; exit 2; }
+# ⛔ AND THE BINARY IT COPIES MUST BE CURRENT, NOT MERELY PRESENT (hq_B 2026-09-06). Every arm below grades a COPY of
+# this tree's scrip + libscrip_rt.so, so a stale pair makes all 34 checks a verdict about a tree nobody has -- and the
+# -x/-e test above answers "does a file exist", which is the narrower question and is indistinguishable in the output.
+# ⭐ THE SHIM, NOT A COPY: every rule about what counts as stale lives in gate_require_fresh (lib_gate.sh); this is the
+# one-line calling convention over it, which is the whole point of that file existing. Added after ARM 15 of
+# test_gate_runners_refuse_on_a_stale_binary.sh named this gate as the 1 of 114 scrip-executing test_gate_* with no
+# freshness guard -- reddening `make test` for every seat on one line, the second time that has happened today.
+# ⛔ It does NOT weaken the hermetic arms: they mutate the SCRATCH copy under $W, never this tree's binary.
+"$HERE/util_require_fresh.sh" --gate "$G" "$ROOT/scrip" "$ROOT/out/libscrip_rt.so" || exit 2
 W="$(mktemp -d "${TMPDIR:-/tmp}/gate_fingerprint.XXXXXX")" || { echo "GATE UNPROVEN(2) [$G]: mktemp failed"; exit 2; }
 trap 'rm -rf "$W"' EXIT
 fails=0; checks=0
