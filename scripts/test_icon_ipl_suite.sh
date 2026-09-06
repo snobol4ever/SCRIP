@@ -242,6 +242,10 @@ for std in "${STDFILES[@]}"; do
     # must agree per this file's own FACT RULE (a script and its DONE-WHEN, or its sibling ref-cutter,
     # must not disagree).
     dat="$(dirname "$std")/$base.dat"; stdin_src=/dev/null; [ -f "$dat" ] && stdin_src="$dat"
+    # ⛔ Each entry runs with ITS OWN package subdirectory as cwd -- refs are no longer progs-only
+    # (gprogs/ carries .std files as of 2026-09-06, CEO-316). A gprogs entry run from progs/ links
+    # against the wrong directory and grades a program that never ran properly.
+    IPL_ISO_SUBDIR="$(basename "$(dirname "$std")")"; export IPL_ISO_SUBDIR
 
     # -- m3 (--run): executes the Icon program's own logic directly -- isolated.
     ipl_isolation_run "$TMP/${base}.m3.out" "$TIMEOUT" "$stdin_src" "$SCRIP" --run "$icn"

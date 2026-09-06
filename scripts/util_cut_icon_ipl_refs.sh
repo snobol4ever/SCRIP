@@ -103,7 +103,8 @@ TOTAL=${#FILES[@]}
 
 n_live=0; n_mint=0; n_empty=0; n_fail=0; n_display=0; n_timeout=0; n_suspect=0; n_nondet=0; n_havestd=0; n_oversized=0
 OUT1="$(mktemp "${TMPDIR:-/tmp}/ipl_ref_out1.XXXXXX")"; OUT2="$(mktemp "${TMPDIR:-/tmp}/ipl_ref_out2.XXXXXX")"
-trap 'cleanup_template; rm -f "$OUT1" "$OUT2"' EXIT
+HOLD="$(mktemp -d "${TMPDIR:-/tmp}/ipl_ref_hold.XXXXXX")"
+trap 'cleanup_template; rm -f "$OUT1" "$OUT2"; rm -rf "$HOLD"' EXIT
 # ⛔⛔ MAX_BYTES CAPS EVERY FULL-CONTENT READ, CHECKED ON THE FILE BEFORE EVER SLURPING IT INTO A BASH
 # VARIABLE (found this session, the hard way -- second incident, same script): under /dev/null stdin a
 # timing-out program is not necessarily QUIET while it waits -- one candidate (almost certainly
@@ -151,7 +152,12 @@ for f in "${FILES[@]}"; do
   # which is the narrower-question trap: head -1 answers "how does the output OPEN", never "what did the
   # oracle DECIDE". The first draft of this very class did exactly that and reported DISPLAY_REFUSED 0.
   if [ "$rc1" -ne 0 ] && printf '%s' "$out1" | grep -q "can't open display"; then
-    n_display=$((n_display+1)); printf 'DISPLAY_REFUSED\t%s\t%s\t-\tNOT MINTED -- oracle refuses headless: %s\n' "$f" "$rc1" "$(printf '%s' "$out1" | head -1)"
+    # ⛔ QUOTE THE LINE THAT ACTUALLY MATCHED, never head -1. The class is decided by scanning the whole
+    # output (above), so quoting line 1 in the EVIDENCE puts a benign "undeclared identifier" warning
+    # where the reader expects the refusal -- a correct ruling wearing a false justification, which is
+    # worse than a wrong ruling because it survives review. Measured on gprogs/fontpick.icn, whose
+    # evidence read '"Font": undeclared identifier' for a display ruling.
+    n_display=$((n_display+1)); printf 'DISPLAY_REFUSED\t%s\t%s\t-\tNOT MINTED -- oracle refuses headless: %s\n' "$f" "$rc1" "$(printf '%s' "$out1" | grep -m1 "can't open display")"
     continue
   fi
   if [ "$rc1" -ne 0 ]; then
@@ -204,17 +210,66 @@ for f in "${FILES[@]}"; do
       continue 2
     fi
   done
+  # ⛔⛔ HELD, NEVER MINTED HERE -- the sleep-1 confirmation loop above is STRUCTURALLY BLIND to a
+  # MINUTE-granularity clock read, and Icon's &dateline is exactly that ("Sunday, September 6, 2026
+  # 9:38 am"). MEASURED (hq_I 2026-09-06, CEO-316): filexref, gcomp, qt and shar are all STABLE across
+  # four runs 1.2s apart and ALL FOUR DIFFER across a single minute boundary. The previous fix reasoned
+  # "a second-granularity dependency cannot survive a 1s gap" and was right about seconds and silent
+  # about minutes -- more agreeing sub-minute runs never close it, they repeat the same coincidence
+  # faster, which is the SAME sentence the back-to-back fix was written against, one unit up.
+  # So every LIVE candidate is parked and re-run in a second pass AFTER the wall clock has entered a
+  # different minute. The wait is paid ONCE for the whole population, not per candidate.
+  # ⛔ STORED RAW (cp), NEVER via printf '%s' "$out1": out1 came from a command substitution, which
+  # STRIPS TRAILING NEWLINES, while the second pass's $OUT2 is the raw file WITH its trailing newline.
+  # Comparing the two with cmp can then NEVER match, and the arm rejects 100% of candidates while
+  # looking exactly like a working determinism check. Measured: the first draft of this pass reported
+  # "minute-rejected 27" out of 27 -- and its validation against four known-bad programs PASSED, because
+  # a reject-everything bug rejects the known-bad too. Compare like for like; mint the stripped form.
   n_live=$((n_live+1))
-  if [ -n "$APPLY" ]; then
-    printf '%s' "$out1" > "$std"; n_mint=$((n_mint+1)); act="MINTED"
-  else
-    act="would mint"
-  fi
-  printf 'LIVE\t%s\t0\t%s\t%s\n' "$f" "$by1" "$act"
+  cp "$OUT1" "$HOLD/$base.cand"
+  printf 'LIVE_HELD\t%s\t0\t%s\theld for the minute-crossing second pass\n' "$f" "$by1"
 done
+# ═══ SECOND PASS: the minute-crossing confirmation. ═══════════════════════════════════════════════
+# Every LIVE candidate held above is re-run ONCE, after the wall clock has entered a DIFFERENT minute
+# from the one its first run landed in. A candidate that disagrees is NONDETERMINISTIC and is never
+# minted; only a candidate that agrees across a minute boundary is minted. The wait is amortized: one
+# sleep for the whole population, not one per candidate.
+n_minute_reject=0
+shopt -s nullglob
+CANDS=("$HOLD"/*.cand)
+shopt -u nullglob
+if [ "${#CANDS[@]}" -gt 0 ]; then
+  _start_min="$(date +%M)"
+  # Sleep to just past the next minute boundary, +2s of margin. Never a bare `sleep 60`: that keeps the
+  # SAME offset within the minute and, if the first pass straddled a boundary, can land in a minute the
+  # candidate already saw. Bounded by construction -- at most 62s, and 0s is not accepted as "crossed".
+  _wait=$(( 62 - 10#$(date +%S) ))
+  [ "$_wait" -lt 2 ] && _wait=2
+  echo "-- minute-crossing second pass: ${#CANDS[@]} candidate(s), waiting ${_wait}s for the clock to leave minute $_start_min --"
+  sleep "$_wait"
+  if [ "$(date +%M)" = "$_start_min" ]; then
+    echo "⛔ GATE REFUSES: the clock did not leave minute $_start_min; the minute-crossing check did not actually happen" >&2
+    exit 2
+  fi
+  for cand in "${CANDS[@]}"; do
+    cb="$(basename "$cand" .cand)"
+    run_isolated "$cb.icn" "$OUT2"; rc2=$?
+    if [ "$rc2" -ne 0 ] || ! cmp -s "$cand" "$OUT2"; then
+      n_live=$((n_live-1)); n_nondet=$((n_nondet+1)); n_minute_reject=$((n_minute_reject+1))
+      printf 'NONDETERMINISTIC\t%s.icn\t%s\t-\tNOT MINTED -- agreed across four sub-second runs and DIFFERED across a minute boundary (clock-granularity dependence, e.g. &dateline)\n' "$cb" "$rc2"
+      continue
+    fi
+    if [ -n "$APPLY" ]; then
+      printf '%s' "$(cat "$cand")" > "$PROGS/$cb.std"; n_mint=$((n_mint+1)); act="MINTED"
+    else
+      act="would mint"
+    fi
+    printf 'LIVE\t%s.icn\t0\t%s\t%s (confirmed across a minute boundary)\n' "$cb" "$(wc -c < "$cand")" "$act"
+  done
+fi
 echo "----"
-printf 'TOTALS[%s]: LIVE %d (minted %d) · HAVE_STD %d · EMPTY %d · SUSPECT_USAGE %d · NONDETERMINISTIC %d · ORACLE_FAIL %d · DISPLAY_REFUSED %d · TIMEOUT %d · OVERSIZED %d · total=%d\n' \
-  "$SUBDIR" "$n_live" "$n_mint" "$n_havestd" "$n_empty" "$n_suspect" "$n_nondet" "$n_fail" "$n_display" "$n_timeout" "$n_oversized" "$TOTAL"
+printf 'TOTALS[%s]: LIVE %d (minted %d, minute-rejected %d) · HAVE_STD %d · EMPTY %d · SUSPECT_USAGE %d · NONDETERMINISTIC %d · ORACLE_FAIL %d · DISPLAY_REFUSED %d · TIMEOUT %d · OVERSIZED %d · total=%d\n' \
+  "$SUBDIR" "$n_live" "$n_mint" "$n_minute_reject" "$n_havestd" "$n_empty" "$n_suspect" "$n_nondet" "$n_fail" "$n_display" "$n_timeout" "$n_oversized" "$TOTAL"
 [ -n "$APPLY" ] || echo "(census only -- nothing written; re-run with --apply to mint)"
 # ── belt-and-suspenders: prove the tracked tree is still exactly what HEAD says, every run, census or not.
 if git -C "$S4E/corpus" diff --quiet -- packages/icon/ipl/progs packages/icon/ipl/gprogs packages/icon/ipl/procs packages/icon/ipl/gprocs packages/icon/ipl/incl packages/icon/ipl/gincl 2>/dev/null \

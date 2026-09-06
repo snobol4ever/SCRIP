@@ -39,18 +39,28 @@ ipl_isolation_init() {
   local pkg="$1"
   IPL_ISO_TEMPLATE="$(mktemp -d "${TMPDIR:-/tmp}/ipl_iso_template.XXXXXX")" || return 1
   local sub
-  for sub in progs procs gprocs incl gincl; do
+  for sub in progs gprogs procs gprocs incl gincl; do
     [ -d "$pkg/$sub" ] && cp -r "$pkg/$sub" "$IPL_ISO_TEMPLATE/$sub"
   done
 }
 
 ipl_isolation_cleanup() { [ -n "${IPL_ISO_TEMPLATE:-}" ] && rm -rf "$IPL_ISO_TEMPLATE"; }
 
+# ⛔⭐ THE CWD SUBDIRECTORY IS A PARAMETER, defaulting to progs/ (hq_I 2026-09-06, CEO-316). ipl refs
+# are no longer progs-only: gprogs/ now carries .std files too, and this helper hardcoded BOTH the cwd
+# and an ICONPATH with no gprogs entry. Left alone it would have run every gprogs entry from the wrong
+# directory, with its own package subdirectory missing from the link path -- and, because the caller
+# passes the .icn by its TRACKED absolute path, the self-mutation hazard this whole file exists to
+# prevent would have been live again for exactly the programs it was not covering. Set IPL_ISO_SUBDIR
+# to the entry's own subdirectory before calling; unset means progs/, which is the historical behavior
+# byte for byte.
 ipl_isolation_run() {
-  local outfile="$1" to="$2" stdin_src="$3" work rc; shift 3
+  local outfile="$1" to="$2" stdin_src="$3" work rc sub; shift 3
+  sub="${IPL_ISO_SUBDIR:-progs}"
   work="$(mktemp -d "${TMPDIR:-/tmp}/ipl_iso_run.XXXXXX")" || return 127
   cp -r "$IPL_ISO_TEMPLATE"/. "$work"/
-  ( cd "$work/progs" && timeout "$to" env ICONPATH="$work/progs:$work/procs:$work/gprocs:$work/incl:$work/gincl" "$@" < "$stdin_src" > "$outfile" 2>&1 )
+  [ -d "$work/$sub" ] || { echo "⛔ ipl_isolation_run: no such package subdirectory: $sub" >&2; rm -rf "$work"; return 127; }
+  ( cd "$work/$sub" && timeout "$to" env ICONPATH="$work/progs:$work/gprogs:$work/procs:$work/gprocs:$work/incl:$work/gincl" "$@" < "$stdin_src" > "$outfile" 2>&1 )
   rc=$?
   rm -rf "$work"
   return "$rc"
@@ -58,8 +68,8 @@ ipl_isolation_run() {
 
 ipl_isolation_verify_clean() {
   local corpus="$1"
-  if git -C "$corpus" diff --quiet -- packages/icon/ipl/progs packages/icon/ipl/procs packages/icon/ipl/gprocs packages/icon/ipl/incl packages/icon/ipl/gincl 2>/dev/null \
-     && [ -z "$(git -C "$corpus" status --porcelain -- packages/icon/ipl/progs packages/icon/ipl/procs packages/icon/ipl/gprocs packages/icon/ipl/incl packages/icon/ipl/gincl 2>/dev/null | grep -v '\.std$')" ]; then
+  if git -C "$corpus" diff --quiet -- packages/icon/ipl/progs packages/icon/ipl/gprogs packages/icon/ipl/procs packages/icon/ipl/gprocs packages/icon/ipl/incl packages/icon/ipl/gincl 2>/dev/null \
+     && [ -z "$(git -C "$corpus" status --porcelain -- packages/icon/ipl/progs packages/icon/ipl/gprogs packages/icon/ipl/procs packages/icon/ipl/gprocs packages/icon/ipl/incl packages/icon/ipl/gincl 2>/dev/null | grep -v '\.std$')" ]; then
     return 0
   fi
   echo "⛔⛔⛔ THE TRACKED IPL TREE CHANGED DURING THIS RUN (excluding new .std mints) -- isolation was breached, investigate before trusting anything above ⛔⛔⛔" >&2
