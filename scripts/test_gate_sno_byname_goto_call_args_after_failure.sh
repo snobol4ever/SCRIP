@@ -24,9 +24,20 @@
 #
 # ⛔ THE b-ARMS GRADE m3 ONLY, AND THE REASON IS A MEASUREMENT, NOT A CONVENIENCE. In m4 all four b-arms SEGV --
 # and they segv IDENTICALLY WITH THIS CURE ON AND OFF, so that crash is NOT this defect and is not this cure's
-# doing. It is a second, pre-existing defect one layer down: gdb puts the fault inside the CALLEE's own DEFINE
-# box (n1_define_bx) with a return address of 0, i.e. the NRETURN floater pair is not seated on the staged call
-# path in mode 4 (the s110/s111 arms in bb_call_proc_staged.cpp). Its row is
+# doing. It is a second, pre-existing defect one layer down. ⛔ MY FIRST READING OF IT WAS WRONG, AND THE
+# CORRECTION LIVES HERE BECAUSE THIS HEADER IS WHERE THE NEXT READER LOOKS: I minted it as an unseated NRETURN
+# floater pair, inferred from a gdb frame #1 of 0x0. hq_S REFUTED that by killswitch A/B off ONE build --
+# SCRIP_SLIM_PAIR=1 and =0 are BOTH rc=139, with the arms provably differing (90 vs 87 pushes), so the pair is
+# not reachable as the cause. The real mechanism: RCX ARRIVES AT THE CALLEE HOLDING A CODE LABEL where the call
+# signature block should be. The staged site emits NO signature block and rcx is the scratch register for the
+# pair pushes, so the DEFINE box's parameter swap reads instruction bytes as a frame offset (+0x18) and walks
+# off the map.
+#
+# ⭐ THAT REFUTATION ALSO CORRECTS ONE OF MY OWN INFERENCES, AND THIS IS THE PART WORTH THE PARAGRAPH: the
+# zero-arg c1 arm being GREEN is NOT evidence that rcx is intact. c1 enters with the same garbage in rcx and
+# never looks at it, because only a callee WITH FORMALS runs the swap loop that dereferences it. c1 remains a
+# correct control for THIS gate's want-name class; it was never a control for register state, and reading it
+# as one is how I got the mechanism wrong. Its row is
 # snobol4-m4-byname-goto-call-with-args-segvs-in-the-callee-define-box-nreturn-floater-not-seated. Grading m4
 # here would leave this gate permanently red for a defect it does not test and could never go blocking; the
 # c-arms DO grade both modes, so mode 4 is not silently unexamined -- it is examined on exactly the shapes this
@@ -72,4 +83,4 @@ for a in b1 b2 b3 b4 c1 c2; do
     done
 done
 if [ "$bad" -ne 0 ]; then echo "GATE RED(1) [sno-byname-goto-call-args-after-failure]: a by-name goto call with arguments taken from a failed statement lost its want-name"; exit 1; fi
-echo "GATE GREEN(0) [sno-byname-goto-call-args-after-failure]: by-name goto calls with literal/variable/two-arg payloads survive the slim fast path after a failed subject (m3; the m4 segv is a separate seated-floater defect with its own row), and both zero-arg and success-arm controls hold in BOTH modes"
+echo "GATE GREEN(0) [sno-byname-goto-call-args-after-failure]: by-name goto calls with literal/variable/two-arg payloads survive the slim fast path after a failed subject (m3; the m4 segv is a separate defect with its own row -- rcx carrying a code label, not the floater pair), and both zero-arg and success-arm controls hold in BOTH modes"
