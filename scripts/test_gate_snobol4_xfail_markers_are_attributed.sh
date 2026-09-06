@@ -11,9 +11,25 @@
 # ⛔ THAT IS A STATEMENT ABOUT THE MARKER'S TEXT, NOT ABOUT WHETHER ANYONE OWNS THE DEFECT -- see the
 # double-banner note below before you act on a single number from this gate.
 #
-# ⛔ REPORTED, NOT BLOCKING, ON PURPOSE: it is RED today (23 unresolvable by name). It is wired into `make test`
+# ⛔⭐ THE POPULATION IS ALL.csv's xfail COLUMN, AND v1 OF THIS GATE GOT THAT WRONG. It read ALL.xfail
+# as the population, which makes the WORST case structurally invisible: an entry marked xfail with NO
+# reason recorded at all is simply not in the file, so the gate counts a smaller, cleaner census and
+# passes over exactly the entries nobody can act on. Caught within the hour of landing v1, on corpus
+# f1e0cb251: csv=34 against reasons=32, the two extras (bal_arb_keyword_branch_1,
+# user_function_keyword_branch_3) arriving from a ladder rung with no reason text at all. ⭐ AN
+# INSTRUMENT THAT TAKES ITS DENOMINATOR FROM THE SAME FILE IT IS GRADING CANNOT SEE WHAT IS MISSING
+# FROM THAT FILE -- the denominator must come from the other side. Its sibling
+# test_gate_xfail_marker_and_index_agree.sh MEASURES this as REASONS_MISSING=2 and still exits 0.
+#
+# ⛔ REPORTED, NOT BLOCKING, ON PURPOSE: it is RED today (28 of 34 carry no usable route; the other 6 name a live row, but only in prose). It is wired into `make test`
 # with a leading `-` exactly like test_gate_no_xfail_survives.sh, and the ramp to blocking is a
 # ceo/Lon date decision, not a script author's.
+#
+# ⭐ SIX ARMS NEGATIVE-TESTED AT LANDING, because a gate that cannot fail is the trap this row is
+# about: rc=1 real tree · rc=2 missing QUEUE.tsv · rc=2 QUEUE parsing to zero rows · rc=2 missing
+# ALL.csv · rc=2 ALL.csv with no xfail column · rc=0 on a synthetic tree where all 32 reasons name a
+# live row. Re-run them with `bash scripts/util_xfail_attribution_gate_arms.sh` -- they are cheap, and
+# they are the only thing standing between this gate and the skip-as-success class it exists to expose.
 #
 # ⛔⛔ READ THE OUTPUT AS "UNRESOLVABLE BY NAME", NEVER AS "UNOWNED" -- THE AUTHOR OF THIS GATE MADE
 # EXACTLY THAT MISREADING AND WAS ONE COMMAND FROM MINTING THREE DUPLICATE ROWS INTO ANOTHER HQ'S LANE.
@@ -31,17 +47,19 @@
 set -u
 here="$(cd "$(dirname "$0")" && pwd)"; root="$(cd "$here/../.." && pwd)"
 MASTER_XFAIL="$root/corpus/tests/snobol4/ALL.xfail"
+MASTER_CSV="$root/corpus/tests/snobol4/ALL.csv"
 QUEUE="${S4E_QUEUE:-/home/resources/postoffice/QUEUE.tsv}"
 # ⛔ REFUSE rc=2 rather than skip-as-success: an instrument that cannot measure must say so. A missing
 # ALL.xfail is NOT "zero unattributed markers" -- it is a gate that graded nothing and must not print
 # the same string as one that passed.
 [ -f "$MASTER_XFAIL" ] || { echo "⛔ GATE REFUSES: no $MASTER_XFAIL -- cannot grade marker attribution"; exit 2; }
 [ -f "$QUEUE" ]        || { echo "⛔ GATE REFUSES: no QUEUE.tsv at $QUEUE -- cannot tell a live row from a dead one"; exit 2; }
+[ -f "$MASTER_CSV" ]   || { echo "⛔ GATE REFUSES: no $MASTER_CSV -- ALL.csv is the POPULATION; without it this gate can only see xfails that already have a reason, which is the blind spot it exists to close"; exit 2; }
 command -v python3 >/dev/null 2>&1 || { echo "⛔ GATE REFUSES: no python3"; exit 2; }
-python3 - "$MASTER_XFAIL" "$QUEUE" <<'PY'
-import re, sys, collections
+python3 - "$MASTER_XFAIL" "$QUEUE" "$MASTER_CSV" <<'PY'
+import re, sys, csv, collections
 BANNER = re.compile(r"^\*-+ (?P<seq>\d+) (?P<name>\S+)(?P<xfail> XFAIL)?$")
-xf, q = sys.argv[1], sys.argv[2]
+xf, q, cs = sys.argv[1], sys.argv[2], sys.argv[3]
 rows = {}
 for ln in open(q, encoding="utf-8", errors="replace"):
     if ln.startswith("#"):
@@ -62,8 +80,31 @@ for ln in open(xf, encoding="utf-8", errors="replace"):
 if not marks:
     print("⛔ GATE REFUSES: %s parsed as zero markers -- banner format moved, or the file is a stub" % xf)
     sys.exit(2)
+# ⛔⭐ THE POPULATION IS ALL.csv's xfail COLUMN, NEVER ALL.xfail. Reading the reason file as the
+# population makes the WORST case invisible: an entry marked xfail with NO reason recorded at all
+# simply is not there to be counted, so the gate reports a smaller, cleaner census and passes over
+# exactly the entries nobody can act on. Measured the hour this gate landed -- corpus f1e0cb251
+# carried csv=34 against reasons=32, the two extras (bal_arb_keyword_branch_1,
+# user_function_keyword_branch_3) arriving from a ladder rung with no reason text. Its sibling
+# test_gate_xfail_marker_and_index_agree.sh MEASURES that as REASONS_MISSING=2 and still exits 0.
+try:
+    csv_rows = list(csv.DictReader(open(cs, encoding="utf-8", errors="replace")))
+except Exception as e:
+    print("⛔ GATE REFUSES: cannot read %s (%s)" % (cs, e)); sys.exit(2)
+if not csv_rows or "xfail" not in csv_rows[0] or "entry" not in csv_rows[0]:
+    print("⛔ GATE REFUSES: %s has no xfail/entry column -- the schema moved under this gate" % cs)
+    sys.exit(2)
+population = [r["entry"] for r in csv_rows if r.get("xfail") == "1"]
+assert isinstance(rows, dict) and rows, "REFUSE: the QUEUE row map was clobbered"
+if not population:
+    print("✅ ALL.csv marks zero xfail entries -- nothing to attribute")
+    sys.exit(0)
+noreason = [e for e in population if e not in marks]
 live, closed, unminted, none = [], [], [], []
-for e, txt in marks.items():
+for e in population:
+    txt = marks.get(e)
+    if txt is None:
+        continue
     cands = set(re.findall(r"`([a-z0-9][a-z0-9-]{6,})`", txt))
     cands |= set(re.findall(r"(?:class )?row `?([a-z0-9][a-z0-9-]{6,})`?", txt))
     known = {c for c in cands if c in rows}
@@ -73,14 +114,16 @@ for e, txt in marks.items():
         unminted.append((e, sorted(cands)))
     else:
         none.append((e, []))
-print("XFAIL MARKER ATTRIBUTION (snobol4): markers=%d  live_row=%d  row_closed=%d  named_but_never_minted=%d  NO_ROW=%d"
-      % (len(marks), len(live), len(closed), len(unminted), len(none)))
-bad = closed + unminted + none
+print("XFAIL MARKER ATTRIBUTION (snobol4): population=%d (ALL.csv xfail=1)  reasons_on_file=%d  live_row=%d  row_closed=%d  named_but_never_minted=%d  NO_ROW=%d  NO_REASON_AT_ALL=%d"
+      % (len(population), len(marks), len(live), len(closed), len(unminted), len(none), len(noreason)))
+for e in noreason:
+    print("  %-24s %-46s %s" % ("NO REASON AT ALL", e, "(marked xfail in ALL.csv, absent from ALL.xfail)"))
+bad = closed + unminted + none + [(e, []) for e in noreason]
 for label, group in (("ROW CLOSED", closed), ("NAMED BUT NEVER MINTED", unminted), ("NAMES NO ROW", none)):
     for e, c in group:
         print("  %-24s %-46s %s" % (label, e, ",".join(c) if c else "-"))
 if bad:
-    print("⛔ %d of %d markers do not NAME their owning row -- unresolvable by name." % (len(bad), len(marks)))
+    print("⛔ %d of %d xfail entries carry no usable route -- unresolvable by name." % (len(bad), len(population)))
     print("   ⛔ This is NOT a count of unowned defects: six snobol4-xfail-class-* rows cover this")
     print("      population and each re-derives membership with its own grep over this prose. The join")
     print("      is prose and invisible from both ends -- that is the defect this gate reports.")
