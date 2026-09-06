@@ -621,7 +621,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t * rrt; if (t->n > 1 && t->c[1]) { IR_t * dv = NULL; rrt = lower(cx, t->c[1], eβ ? eβ : γ, eβ ? eβ : γ, &dv); }
         else rrt = eβ ? eβ : γ;
         if (cx->scan_sp > 0) {
-            IR_t * ytgt = cx->psucc ? cx->psucc : γ;
+            IR_t * ytgt = cx->psucc ? cx->psucc : γ; IR_t * rrt0 = rrt;
             IR_t * lvs[16]; int nlv = 0;
             for (int _k = cx->scan_sp - 1; _k >= 0; _k--) {
                 IR_t * lv = build(cx, IR_SCAN, NULL, NULL);
@@ -630,7 +630,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
                 if (nlv) { lc_γ_to(lvs[nlv - 1], lv); lc_ω_to(lvs[nlv - 1], lv); }
                 lvs[nlv++] = lv;
             }
-            lc_γ_to(lvs[nlv - 1], ytgt); lc_ω_to(lvs[nlv - 1], ytgt);
+            lc_γ_to(lvs[nlv - 1], ytgt); lc_ω_to(lvs[nlv - 1], rrt0);
             for (int _i = 0; _i < nlv; _i++) lvs[_i]->operands[2] = (_i > 0) ? lvs[_i - 1] : rrt;
             lc_γ_to(sn, lvs[0]);
             rrt = lvs[nlv - 1];
