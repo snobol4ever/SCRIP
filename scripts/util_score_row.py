@@ -1732,7 +1732,14 @@ PROGRESS_COUNTED = {
     # tier), and declaring it would let an honest `34/60` count as 57% of a VENDOR score whose true reading
     # is 34/851. Leaving 60 undeclared makes that cell UNREADABLE -- which counts ZERO and tells the writer
     # what to write instead -- so the only countable form is the POPULATION LAW form Lon ruled.
-    "icon": [("arizona", r"[Aa]rizona", (89, 124)), ("jcon", r"[Jj][Cc][Oo][Nn]", (81, 91)), ("ipl", r"\bipl\b", (60, 851))],
+    # ⛔ arizona GRADED WAS 89 AND IS 90 (hq_T 2026-09-06, CEO-329 audit red). The runner divides by its
+    # OWN graded count, so the moment seat12/hq_I cut one more ref the cell read `47/90`, matched NEITHER
+    # declared population, and the reader scored the whole package ZERO -- a package going BACKWARDS on the
+    # board for getting better. ⭐ THE HARDCODE IS THE DEFECT AND 90 IS ONLY TODAY'S VALUE: every ref cut
+    # moves it again. The structural cure is to read the graded count from the runner's own
+    # PACKAGE_INVENTORY line instead of declaring it here; recorded rather than done, because the audit is
+    # red now and the reader must stop scoring a graded package as ungraded today.
+    "icon": [("arizona", r"[Aa]rizona", (90, 124)), ("jcon", r"[Jj][Cc][Oo][Nn]", (81, 91)), ("ipl", r"\bipl\b", (60, 851))],
     "prolog": [("swi", r"[Ss][Ww][Ii]", (114, 249)), ("INRIA", r"INRIA|inria|ISO 13211", (445,)), ("gnu", r"[Gg][Nn][Uu]", (62, 91))],
     "pascal": [("fpc", r"fpc", (181,)), ("PAT", r"\bPAT\b|validation suite|ISO 7185", (427, 429))],
     "raku": [("roast", r"roast", (986, 1464))],
