@@ -160,4 +160,5 @@
 #define MOD_OP_RT_PL_SEE               218    /* rtx_plunify.s rt_pl_dop_see          */
 #define MOD_OP_RT_PL_CPF               219    /* rtx_plunify.s current_prolog_flag    */
 #define MOD_OP_RT_PL_SPF               220    /* rtx_plunify.s set_prolog_flag        */
+#define MOD_OP_RT_PL_GOAL_GUARD        221    /* rtx_plunify.s goal_guard             */
 #endif

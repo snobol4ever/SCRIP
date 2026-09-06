@@ -318,6 +318,23 @@ static int pl_tree_has_caret(const tree_t * t) {
     for (int i = 0; i < t->n; i++) if (pl_tree_has_caret(t->c[i])) return 1;
     return 0;
 }
+static const tree_t * pl_caret_body(const tree_t * t) {
+    int guard = 0;
+    while (t && t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "^") && t->n == 2 && guard++ < 256) t = t->c[1];
+    return t;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_tree_is_control(const tree_t * t) { return t && t->t == TT_FNC && t->v.sval && t->n == 2 && (!strcmp(t->v.sval, ",") || !strcmp(t->v.sval, ";") || !strcmp(t->v.sval, "|") || !strcmp(t->v.sval, "->")); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_tree_noncallable_goal(const tree_t * t) {
+    if (!t) return 0;
+    if (t->t == TT_ILIT || t->t == TT_FLIT) return 1;
+    if (pl_tree_is_control(t)) { for (int i = 0; i < t->n; i++) if (pl_tree_noncallable_goal(t->c[i])) return 1; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_goal_arg_wants_guard(const tree_t * t) { return t && (t->t == TT_VAR || pl_tree_noncallable_goal(t)); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_is_ite(const tree_t * t) { return t && t->t == TT_FNC && t->v.sval && (!strcmp(t->v.sval, ";") || !strcmp(t->v.sval, "|")) && t->n == 2 && t->c[0] && t->c[0]->t == TT_FNC && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "->"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_is_disj(const tree_t * t) { return t && t->t == TT_FNC && t->v.sval && (!strcmp(t->v.sval, ";") || !strcmp(t->v.sval, "|")) && t->n == 2 && !pl_is_ite(t); }
@@ -892,13 +909,15 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         }
         if ((!strcmp(nm, "findall") || !strcmp(nm, "bagof") || !strcmp(nm, "setof")) && t->n == 3) {
             const char * fin = !strcmp(nm, "findall") ? "$findall_result" : (!strcmp(nm, "bagof") ? "$bagof_result" : "$setof_result");
-            if (pl_tree_has_caret(t->c[1])) pl_refuse("bagof/setof free-variable grouping (^)", nm, 8);
+            const tree_t * gt = pl_caret_body(t->c[1]);
+            int wantg = pl_goal_arg_wants_guard(gt);
+            if (pl_tree_has_caret(t->c[1]) && !wantg) pl_refuse("bagof/setof free-variable grouping (^)", nm, 8);
             IR_t * nd  = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = (char *) fin;
             IR_t * acc = build(cx, IR_CALL, NULL, ωfail);  IR_LIT(acc).sval = "$findall_new";
             IR_t * add = build(cx, IR_CALL, NULL, ωfail);  IR_LIT(add).sval = "$findall_add";
             IR_t * gentry = NULL; IR_t * gredo = NULL;
             lc_vec glv; lc_vec_init(&glv, (int) sizeof(const tree_t *));
-            collect_conj(t->c[1], &glv);
+            collect_conj(wantg ? gt : t->c[1], &glv);
             IR_t * te = NULL; IR_t * tv = term_e(cx, t->c[0], &te);
             IR_t * bc = build(cx, IR_CALL, nd, ωfail); IR_LIT(bc).sval = "$ball_pending";
             IR_t * first = pl_lower_conj(cx, (const tree_t * const *) glv.data, glv.n, te ? te : tv, bc, &gentry, &gredo, NULL);
@@ -910,8 +929,14 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             IR_t * re = NULL; IR_t * rl = term_lval_e(cx, t->c[2], &re);
             lc_γ_to(rl, nd); lc_ω_to(rl, ωfail);
             ir_operand_push(nd, acc); ir_operand_push(nd, rl);
-            if (entry_out) *entry_out = re ? re : rl;
             lc_γ_to(rl, acc);
+            if (wantg) {
+                IR_t * ge = NULL; IR_t * gv = term_lval_e(cx, gt, &ge);
+                IR_t * gchk = build(cx, IR_CALL, re ? re : rl, ωfail); IR_LIT(gchk).sval = "$pl_goal_guard";
+                ir_operand_push(gchk, gv);
+                lc_γ_to(gv, gchk); lc_ω_to(gv, ωfail);
+                if (entry_out) *entry_out = ge ? ge : gv;
+            } else if (entry_out) *entry_out = re ? re : rl;
             return nd;
         }
         if ((!strcmp(nm, "between") || !strcmp(nm, "for")) && t->n == 3) {

@@ -6747,6 +6747,33 @@ void * rt_pl_dop_char_guard_c(DESCR_t *args, int nargs) {
       return rt_pl_ball_kind2("type_error", "character", v); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_goal_conv_scan(DESCR_t t, int depth) {
+    extern DESCR_t rt_pl_deref_val(DESCR_t); extern const char *prolog_atom_name(int);
+    DESCR_t v = rt_pl_deref_val(t);
+    if (pl_iso_unbound(v)) return 1;
+    if ((int)v.v == DT_PLREF) {
+        int ar = (int)(v.slen & 0xFFFFu); const char *fn = prolog_atom_name((int)(v.slen >> 16));
+        if (ar == 2 && fn && depth < 64 && (!strcmp(fn, ",") || !strcmp(fn, ";") || !strcmp(fn, "->") || !strcmp(fn, "|"))) {
+            DESCR_t *kids = (DESCR_t *)v.p; int a = pl_goal_conv_scan(kids[0], depth + 1);
+            if (a) return a;
+            return pl_goal_conv_scan(kids[1], depth + 1); }
+        return 0; }
+    if ((int)v.v == DT_A || v.v == DT_S) return 0;
+    return 2;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void * rt_pl_dop_goal_guard_c(DESCR_t *args, int nargs) {
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    extern void *rt_pl_ball_instantiation(void);
+    extern DESCR_t rt_pl_deref_val(DESCR_t);
+    if (nargs != 1) return (void *)0;
+    pl_atoms_ready();
+    { DESCR_t g = rt_pl_deref_val(args[0]); int k = pl_goal_conv_scan(args[0], 0);
+      if (k == 1) return rt_pl_ball_instantiation();
+      if (k == 2) return rt_pl_ball_kind2("type_error", "callable", g);
+      return (void *)0; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void * rt_pl_dop_between_guard_c(DESCR_t *args, int nargs) {
     extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
     extern void *rt_pl_ball_instantiation(void);
