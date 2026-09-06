@@ -256,6 +256,7 @@ PL_AX_VENEER(exp, EXP)
 PL_AX_VENEER(fip, FIP)
 PL_AX_VENEER(ffp, FFP)
 PL_AX_VENEER(pi, PI)
+PL_AX_VENEER(e, E)
 #define PL_CMP_LEAF(nm, NM) RTX_FUNC(rt_pl_dop_cmp_##nm); sub rsp, 24; mov qword ptr [rsp + 8], 0; lea rdx, [rsp + 8]; call rt_pl_dop_cmp_##nm##_c; mov rcx, qword ptr [rsp + 8]; add rsp, 24; \
     test rcx, rcx; jz 8f; mov r15, rcx; mov eax, DT_FAIL | (MOD_OP_RT_PL_CMP_##NM << 8); xor edx, edx; 8: ret; RTX_ENDF(rt_pl_dop_cmp_##nm)
 PL_CMP_LEAF(lt, LT)

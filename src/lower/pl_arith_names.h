@@ -20,7 +20,7 @@ static inline const char * pl_ax_suffix_of(const char * s, int ar) {
         if (!strcmp(s, "float_integer_part")) return "fip"; if (!strcmp(s, "float_fractional_part")) return "ffp";
         return (const char *)0;
     }
-    if (ar == 0) { if (!strcmp(s, "pi")) return "pi"; return (const char *)0; }
+    if (ar == 0) { if (!strcmp(s, "pi")) return "pi"; if (!strcmp(s, "e")) return "e"; return (const char *)0; }
     return (const char *)0;
 }
 #endif

@@ -1254,7 +1254,7 @@ static void *pl_ax_int_ball(DESCR_t a, DESCR_t b, int ai) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void **ball) {
     extern DESCR_t rt_pl_deref_val(DESCR_t); extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int);
-    if (nargs == 0) { if (!strcmp(op, "pi")) { *out = REALVAL(M_PI); return 1; } *out = FAILDESCR; return 1; }
+    if (nargs == 0) { if (!strcmp(op, "pi")) { *out = REALVAL(M_PI); return 1; } if (!strcmp(op, "e")) { *out = REALVAL(M_E); return 1; } *out = FAILDESCR; return 1; }
     DESCR_t a = rt_pl_deref_val(args[0]);
     if (a.v != DT_I && a.v != DT_R) { void *bl = (void *)0; DESCR_t ev; if (pl_ax_eval(a, &ev, &bl)) a = ev; else { if (bl && ball && !*ball) *ball = bl; *out = FAILDESCR; return 1; } }
     int ai = (a.v == DT_I), arl = (a.v == DT_R);
@@ -1466,7 +1466,7 @@ PL_AX_LEAF(shr, "shr", 2) PL_AX_LEAF(shl, "shl", 2) PL_AX_LEAF(band, "band", 2) 
 PL_AX_LEAF(neg, "neg", 1) PL_AX_LEAF(pos, "pos", 1) PL_AX_LEAF(abs, "abs", 1) PL_AX_LEAF(sign, "sign", 1) PL_AX_LEAF(trunc, "trunc", 1) PL_AX_LEAF(intg, "intg", 1) PL_AX_LEAF(flt, "flt", 1)
 PL_AX_LEAF(floor, "floor", 1) PL_AX_LEAF(ceil, "ceil", 1) PL_AX_LEAF(round, "round", 1) PL_AX_LEAF(sqrt, "sqrt", 1) PL_AX_LEAF(msb, "msb", 1) PL_AX_LEAF(bnot, "bnot", 1) PL_AX_LEAF(sin, "sin", 1)
 PL_AX_LEAF(cos, "cos", 1) PL_AX_LEAF(atan, "atan", 1) PL_AX_LEAF(log, "log", 1) PL_AX_LEAF(exp, "exp", 1) PL_AX_LEAF(fip, "fip", 1) PL_AX_LEAF(ffp, "ffp", 1)
-PL_AX_LEAF(pi, "pi", 0)
+PL_AX_LEAF(pi, "pi", 0) PL_AX_LEAF(e, "e", 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t dop_cmp_fast(DESCR_t *args, int rel, dop_body_fn slow, void **ball) {
     DESCR_t a = rt_pl_deref_val(args[0]), b = rt_pl_deref_val(args[1]);
