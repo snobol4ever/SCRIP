@@ -198,6 +198,45 @@ else
   fi
 fi
 echo "------------------------------------------------------------"
+echo "GATE WIRING (scripts/gate_wiring.tsv) — a gate on disk that no recipe runs — WARN-ONLY, does not affect the verdict below"
+# ⛔⭐ THE DEFECT, and it is hq_S's, measured 2026-09-06: test_gate_sno_fence_body_dynamic_operand.sh landed on
+# disk IN THE SAME PUSH as the cure it grades and was never added to the `test:` recipe, so for a day the ONE
+# instrument that could grade that cure was run by nothing. NOTHING COULD HAVE NOTICED: the gate was green when
+# run by hand, ls found it, the commit that added it looked complete, and every board was byte-identical with
+# and without the cure BY CONSTRUCTION, so no suite could miss it either. An unwired gate is indistinguishable
+# from a wired one by every check except reading the recipe.
+# ⭐ HERE RATHER THAN IN THE RECIPE, and this is hq_S's placement argument, which is the half that would not
+# have been got right alone: they found their own case while CLOSING a row, not while landing the cure. This is
+# the moment a seat asks "is there anything I owe"; a check on `make test` would fire for every seat, on
+# everybody else's debt, at every build.
+# ⛔ WARN-ONLY FOR THE SAME REASON THE LEADERBOARD BLOCK ABOVE IS. An unwired gate is usually some OTHER
+# session's, arriving here on a pull; blocking this seat's handoff on it would punish the wrong session and,
+# within a week, get this line `|| true`-d out of the file. And it is a RATCHET, never a census: measured at
+# installation, 279 gates on disk and 64 reachable, so UNWIRED IS THE NORM at four in five. A check that
+# arrived red on 215 lines would be muted on day one, and a muted check is worse than no check because it
+# looks like coverage. It fires on the TRANSITION -- a gate that LEFT the wired set, or one that just landed
+# unwired and undeclared -- and every refusal NAMES the gates and prints the cure, because "the floor moved"
+# sends its reader to diff two files by hand.
+# ⛔ It runs `make -n` only: it expands the recipe, executes nothing and builds nothing, so unlike the .s
+# verifier above it cannot destroy a live build (the haunting documented at length in that block).
+# ⭐ rc=1 means "gates moved" -- a real answer, printed and named. rc=2 means it could not measure (no make, an
+# unparseable Makefile), which is its own state and says so; neither is allowed to read as CLEAN.
+_wiring_helper="$SELF_DIR/util_gate_wiring.py"
+if [ ! -f "$_wiring_helper" ]; then
+  echo "  ⛔ $_wiring_helper missing — gate wiring UNVERIFIED this run."
+else
+  _wiring_out="$(python3 "$_wiring_helper" check 2>&1)"; _wiring_rc=$?
+  if [ "$_wiring_rc" -eq 0 ]; then
+    printf '%s\n' "$_wiring_out" | sed -n '2p;$p' | sed 's/^/  /'
+  elif [ "$_wiring_rc" -eq 1 ]; then
+    printf '%s\n' "$_wiring_out" | sed 's/^/  /'
+    echo "  ⚠ WARN — wire the gate(s) named above into the Makefile 'test:' recipe, or declare the state with a reason."
+  else
+    echo "  ⛔ UNVERIFIED — the wiring ratchet REFUSED (rc=$_wiring_rc, cannot measure). Not blocking, but this run proves nothing about gate wiring."
+    printf '%s\n' "$_wiring_out" | sed 's/^/  /'
+  fi
+fi
+echo "------------------------------------------------------------"
 if [ "$blocked" -ne 0 ]; then
   echo "CHAT SESSION WAITING — not done:"; printf '  - %s\n' "${reasons[@]}"
   [ "$unknown" -ne 0 ] && { echo "  (also UNKNOWN, see below — fix the known blockers first, they are certain; the unknown repo(s) still need a look)"; printf '  - %s\n' "${unknown_reasons[@]}"; }

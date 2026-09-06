@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# test_gate_gate_wiring_ratchet.sh — the invariant gate over scripts/util_gate_wiring.py, THE RATCHET that
+# keeps a gate from landing on disk and being run by nothing (row requested by hq_S 2026-09-06, routed by the
+# ceo as CEO-326; built by hq_T).
+#
+# WHAT IT PROTECTS. hq_S's measured case: test_gate_sno_fence_body_dynamic_operand.sh landed IN THE SAME PUSH
+# as the cure it grades and was never added to the recipe, so for a day the one instrument that could grade
+# that cure was run by nothing. ⛔ AND NOTHING COULD HAVE NOTICED — the gate was green by hand, ls found it,
+# the commit looked complete, and every board was byte-identical with and without the cure BY CONSTRUCTION, so
+# no suite could miss it either. An unwired gate is indistinguishable from a wired one by every check except
+# reading the recipe. util_gate_wiring.py is that check; this gate is what keeps IT honest.
+#
+# ⛔ IT GRADES THE INSTRUMENT ON FIXTURES, NOT THE LIVE TREE, AND THAT IS THE POINT. The live check belongs in
+# handoff_status.sh (hq_S's placement argument, and it is the half that would not have been got right alone:
+# handoff is the moment a seat asks "is there anything I owe", whereas a recipe check fires every seat's
+# `make test` for everybody else's debt). What belongs HERE is the proof that the instrument's REFUSALS still
+# fire — because the failure this whole family is about is an instrument that looks like it is measuring.
+#
+# ⭐ EVERY ARM IS A FAIL-ONCE PROOF. Each fixture is built so that exactly one refusal can fire, and the arm
+# asserts the refusal NAMES the gate it is about. A ratchet that says "the floor moved" sends its reader to
+# diff two files by hand, and the reader who has to do that is the reader who mutes the check (hq_S). The two
+# arms that carry the design are:
+#   · the COUNT-UNCHANGED REGRESSION — one WIRED name leaves and another arrives in the same edit, so the
+#     count is identical and a count-only floor is GREEN OVER A REAL REGRESSION. The name set still refuses.
+#   · REACHABILITY IS EXECUTION, NOT MENTION — a gate named only in a comment, only in an echo, or only inside
+#     a glob-census that READS the files is NOT reachable, and counting it would be the instrument lying in
+#     the comfortable direction (under-reporting debt is exactly the direction nobody would notice).
+#
+# ⛔ AND IT ASSERTS THE LIVE FILE IS SANE without grading it: the population must cover scripts/test_gate_*.sh
+# exactly once, or `check`'s SUM arm is asserting over a file that cannot be right. That is a shape check on
+# the record, not a verdict on the debt — the debt is handoff_status.sh's to report and nobody's to be blocked
+# by here.
+#
+# Usage: bash scripts/test_gate_gate_wiring_ratchet.sh    (hermetic, offline, ~0.2s)
+set -uo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$HERE/.." && pwd)"
+cd "$ROOT"
+. "$HERE/lib_gate.sh"
+GATE_NAME="gate_wiring_ratchet"
+gate_parse_args "$@"
+HELPER="$HERE/util_gate_wiring.py"
+gate_require "$HELPER" "the gate-wiring ratchet util_gate_wiring.py"
+gate_require "$HERE/gate_wiring.tsv" "the one gate population scripts/gate_wiring.tsv"
+violations=0
+examined=0
+ck() { examined=$((examined + 1)); if [ "$1" = "ok" ]; then printf '  ok   %s\n' "$2"; else printf '  FAIL %s\n' "$2"; violations=$((violations + 1)); fi; }
+
+echo "--- ARM 1 — the instrument's own selftest: 32 hermetic arms over scratch fixtures ---"
+out="$(python3 "$HELPER" selftest 2>&1)"; rc=$?
+printf '%s\n' "$out" | sed 's/^/    /'
+[ "$rc" -eq 0 ] && ck ok "selftest rc=0" || ck fail "selftest rc=$rc — a refusal path of the ratchet no longer fires"
+
+echo "--- ARM 2 — the selftest actually GRADED something (a green that examined nothing is the shape we are here about) ---"
+arms="$(printf '%s\n' "$out" | grep -cE '^  (ok|FAIL) ')"
+[ "${arms:-0}" -ge 30 ] && ck ok "selftest ran $arms arm(s), floor 30" || ck fail "selftest ran only ${arms:-0} arm(s) — below the floor of 30"
+
+echo "--- ARM 3 — every refusal class the design names is still reachable in the selftest output ---"
+for cls in "left-the-wired-set" "count-unchanged regression" "landed unwired" "wired-but-listed-TASK" \
+           "recorded-but-gone" "ruling without reason" "declare empty reason" "declare TASK over ceiling" \
+           "duplicate + unknown class" "unmeasurable is rc=2" "only the executed gate is reachable"; do
+  printf '%s\n' "$out" | grep -q -- "$cls" && ck ok "arm present: $cls" || ck fail "arm MISSING: $cls — a refusal class lost its proof"
+done
+
+echo "--- ARM 4 — the live population is a partition: every gate on disk in exactly one bucket ---"
+# ⛔ SHAPE ONLY, NEVER A VERDICT ON THE DEBT. If these disagree, `check`'s SUM arm is asserting over a record
+# that cannot be right, and its every other answer is untrustworthy — that is a broken instrument, which is
+# this gate's business. How LARGE the TASK bucket is, is not.
+disk="$(ls "$HERE"/test_gate_*.sh 2>/dev/null | wc -l)"
+listed="$(grep -cE '^test_gate_[A-Za-z0-9_]+\.sh	(WIRED|RULING|TASK)	' "$HERE/gate_wiring.tsv")"
+uniq_listed="$(grep -oE '^test_gate_[A-Za-z0-9_]+\.sh' "$HERE/gate_wiring.tsv" | sort -u | wc -l)"
+[ "$disk" -eq "$listed" ] && ck ok "population covers disk: $listed listed == $disk on disk" \
+                          || ck fail "population is NOT a partition: $listed listed vs $disk on disk"
+[ "$listed" -eq "$uniq_listed" ] && ck ok "no name listed twice ($uniq_listed distinct)" \
+                                 || ck fail "$((listed - uniq_listed)) name(s) listed twice — one file buys exactly one bucket per name, or it buys nothing"
+
+echo "--- ARM 5 — the ceiling is present and is a number (a debt with no cap is not a ratchet) ---"
+ceil="$(sed -n 's/^# TASK-CEILING: *\([0-9][0-9]*\).*/\1/p' "$HERE/gate_wiring.tsv" | head -1)"
+[ -n "$ceil" ] && ck ok "TASK-CEILING present: $ceil" || ck fail "no TASK-CEILING header — the debt has no cap"
+tasks="$(grep -cE '	TASK	' "$HERE/gate_wiring.tsv")"
+[ -n "$ceil" ] && [ "$tasks" -le "$ceil" ] && ck ok "TASK $tasks <= ceiling $ceil" \
+                                           || ck fail "TASK $tasks exceeds ceiling ${ceil:-unset} — the debt may only go DOWN"
+
+echo "--- ARM 6 — every RULING carries a reason AND a declarer (hq_S's constraint 2: an exemption nobody signed is not a ruling) ---"
+bad="$(awk -F'\t' '$2=="RULING" && ($3=="-" || $3=="" || $4=="-" || $4=="") {print $1}' "$HERE/gate_wiring.tsv")"
+[ -z "$bad" ] && ck ok "all RULING rows signed and reasoned" || { ck fail "RULING without reason/declarer:"; printf '%s\n' "$bad" | sed 's/^/       /'; }
+
+GATE_EXAMINED="$examined"
+gate_verdict "$violations" "violation(s)"
