@@ -6,6 +6,7 @@ typedef enum {
     TK_EOF = 0,
     TK_ERROR,
     TK_INT,
+    TK_BIGINT,
     TK_REAL,
     TK_STRING,
     TK_CSET,

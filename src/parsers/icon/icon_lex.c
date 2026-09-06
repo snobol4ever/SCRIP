@@ -270,8 +270,10 @@ static IcnToken scan_number(IcnLexer *lx) {
         t = make_tok(TK_REAL, line, col);
         t.val.fval = strtod(buf, NULL);
     } else {
-        t = make_tok(TK_INT, line, col);
-        t.val.ival = strtol(buf, NULL, 10);
+        errno = 0;
+        long _iv = strtol(buf, NULL, 10);
+        if (errno == ERANGE) { t = make_tok(TK_BIGINT, line, col); t.val.sval.data = strdup(buf); t.val.sval.len = strlen(buf); }
+        else { t = make_tok(TK_INT, line, col); t.val.ival = _iv; }
     }
     free(buf);
     return t;
@@ -761,6 +763,7 @@ const char *icn_tk_name(IcnTkKind kind) {
         case TK_EOF:       return "EOF";
         case TK_ERROR:     return "ERROR";
         case TK_INT:       return "INT";
+        case TK_BIGINT:    return "BIGINT";
         case TK_REAL:      return "REAL";
         case TK_STRING:    return "STRING";
         case TK_CSET:      return "CSET";

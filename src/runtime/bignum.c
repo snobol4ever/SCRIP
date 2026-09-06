@@ -128,6 +128,92 @@ DESCR_t rt_big_pow(DESCR_t x, int64_t e) {
     return rt_big_norm(acc);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int big_ucmp_nz(const BIG_t *a, const BIG_t *b) {
+    uint32_t an = a->n, bn = b->n;
+    while (an > 1 && a->limb[an - 1] == 0) an--;
+    while (bn > 1 && b->limb[bn - 1] == 0) bn--;
+    if (an != bn) return an < bn ? -1 : 1;
+    for (uint32_t i = an; i-- > 0;) if (a->limb[i] != b->limb[i]) return a->limb[i] < b->limb[i] ? -1 : 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void big_usub_into(BIG_t *a, const BIG_t *b) {
+    int64_t br = 0;
+    for (uint32_t i = 0; i < a->n; i++) {
+        int64_t t = (int64_t)a->limb[i] - br - (int64_t)(i < b->n ? b->limb[i] : 0);
+        if (t < 0) { t += ((int64_t)1 << 32); br = 1; } else br = 0;
+        a->limb[i] = (uint32_t)t;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void big_shl1_fixed(BIG_t *b) {
+    uint32_t carry = 0;
+    for (uint32_t i = 0; i < b->n; i++) { uint32_t nc = b->limb[i] >> 31; b->limb[i] = (b->limb[i] << 1) | carry; carry = nc; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int big_bit(const BIG_t *b, uint32_t k) { return (k / 32 < b->n) ? (int)((b->limb[k / 32] >> (k % 32)) & 1u) : 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void big_setbit(BIG_t *b, uint32_t k) { if (k / 32 < b->n) b->limb[k / 32] |= (1u << (k % 32)); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int big_udivmod(const BIG_t *u, const BIG_t *v, BIG_t **q_out, BIG_t **r_out) {
+    if (v->sign == 0) return 0;
+    uint32_t un = u->n ? u->n : 1;
+    BIG_t *q = big_alloc(un);     if (!q) return 0;
+    BIG_t *r = big_alloc(un + 1); if (!r) return 0;
+    for (uint32_t bit = un * 32; bit-- > 0;) {
+        big_shl1_fixed(r);
+        if (big_bit(u, bit)) r->limb[0] |= 1u;
+        if (big_ucmp_nz(r, v) >= 0) { big_usub_into(r, v); big_setbit(q, bit); }
+    }
+    big_trim(q); big_trim(r);
+    q->sign = (q->n == 1 && q->limb[0] == 0) ? 0 : 1;
+    r->sign = (r->n == 1 && r->limb[0] == 0) ? 0 : 1;
+    *q_out = q; *r_out = r; return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_big_div(DESCR_t x, DESCR_t y) {
+    BIG_t *a = big_of(x), *b = big_of(y); if (!a || !b) return FAILDESCR;
+    if (b->sign == 0) return FAILDESCR;
+    BIG_t *q = 0, *r = 0; if (!big_udivmod(a, b, &q, &r)) return FAILDESCR;
+    if (q->sign) q->sign = (a->sign == b->sign) ? 1 : -1;
+    return rt_big_norm(q);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_big_mod(DESCR_t x, DESCR_t y) {
+    BIG_t *a = big_of(x), *b = big_of(y); if (!a || !b) return FAILDESCR;
+    if (b->sign == 0) return FAILDESCR;
+    BIG_t *q = 0, *r = 0; if (!big_udivmod(a, b, &q, &r)) return FAILDESCR;
+    if (r->sign) r->sign = a->sign;
+    return rt_big_norm(r);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_big_from_str(const char *s) {
+    if (!s) return FAILDESCR;
+    while (*s == ' ' || *s == '\t') s++;
+    int neg = 0; if (*s == '+' || *s == '-') { neg = (*s == '-'); s++; }
+    if (*s < '0' || *s > '9') return FAILDESCR;
+    BIG_t *acc = big_from_i64(0); if (!acc) return FAILDESCR;
+    BIG_t *ten = big_from_i64(10); if (!ten) return FAILDESCR;
+    for (; *s >= '0' && *s <= '9'; s++) {
+        BIG_t *m = big_umul(acc, ten); if (!m) return FAILDESCR;
+        BIG_t *d = big_from_i64((int64_t)(*s - '0')); if (!d) return FAILDESCR;
+        BIG_t *t = big_uadd(m, d); if (!t) return FAILDESCR;
+        t->sign = 1; big_trim(t); acc = t;
+    }
+    while (*s == ' ' || *s == '\t') s++;
+    if (*s) return FAILDESCR;
+    if (neg && acc->sign) acc->sign = -1;
+    return rt_big_norm(acc);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_big_neg(DESCR_t d) {
+    BIG_t *b = big_of(d); if (!b) return FAILDESCR;
+    BIG_t *r = big_alloc(b->n); if (!r) return FAILDESCR;
+    for (uint32_t i = 0; i < b->n; i++) r->limb[i] = b->limb[i];
+    r->n = b->n; r->sign = -b->sign; big_trim(r);
+    return rt_big_norm(r);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 char *rt_big_str(DESCR_t d) {
     BIG_t *b = big_of(d); if (!b) return rt_ws_strdup_c("");
     if (b->sign == 0) return rt_ws_strdup_c("0");

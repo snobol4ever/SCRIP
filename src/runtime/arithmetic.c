@@ -122,6 +122,7 @@ DESCR_t POWER_fn(DESCR_t a, DESCR_t b) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t neg(DESCR_t a) {
     if (IS_FAIL(a)) return FAILDESCR;
+    if (a.v == DT_BIG) { extern DESCR_t rt_big_neg(DESCR_t); return rt_big_neg(a); }
     if (IS_INT(a))  return INTVAL(-a.i);
     if (IS_REAL(a)) return REALVAL(-a.r);
     return INTVAL(-to_int(a));
@@ -279,13 +280,15 @@ static DESCR_t rt_big_arith_route(DESCR_t a, DESCR_t b, int op) {
         case BINOP_ADD: return rt_big_add(a, b);
         case BINOP_SUB: return rt_big_sub(a, b);
         case BINOP_MUL: return rt_big_mul(a, b);
+        case BINOP_DIV: { extern DESCR_t rt_big_div(DESCR_t, DESCR_t); return rt_big_div(a, b); }
+        case BINOP_MOD: { extern DESCR_t rt_big_mod(DESCR_t, DESCR_t); return rt_big_mod(a, b); }
         case BINOP_POW: case BINOP_POW_PROMOTE: return (b.v == DT_I && b.i >= 0) ? rt_big_pow(a, b.i) : FAILDESCR;
         default: return FAILDESCR;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_big_arith_wanted(DESCR_t a, DESCR_t b, int op) {
-    if (a.v == DT_BIG || b.v == DT_BIG) return (op == BINOP_ADD || op == BINOP_SUB || op == BINOP_MUL || op == BINOP_POW || op == BINOP_POW_PROMOTE);
+    if (a.v == DT_BIG || b.v == DT_BIG) return (op == BINOP_ADD || op == BINOP_SUB || op == BINOP_MUL || op == BINOP_DIV || op == BINOP_MOD || op == BINOP_POW || op == BINOP_POW_PROMOTE);
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -357,6 +360,7 @@ DESCR_t rt_cset_compl(DESCR_t a) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_num_neg(DESCR_t a) {
+    if (a.v == DT_BIG) { extern DESCR_t rt_big_neg(DESCR_t); return rt_big_neg(a); }
     if (!is_numeric_like(a)) { core_runtime_error(1, "negation operand is not numeric"); return FAILDESCR; }
     if (IS_REAL_fn(a) || operand_is_real_str(a)) return REALVAL(-to_real(a));
     return INTVAL(-to_int(a));

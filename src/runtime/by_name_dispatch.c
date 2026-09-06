@@ -4657,6 +4657,8 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (IS_REAL_fn(av)) { *out = INTVAL((long long)av.r); return 1; }
         const char *s = VARVAL_fn(av); if (!s) { *out = FAILDESCR; return 1; }
         { long long rv; if (icon_radix_int(s, &rv)) { *out = INTVAL(rv); return 1; } }
+        { extern DESCR_t rt_big_from_str(const char *); errno = 0; char *e2; strtoll(s, &e2, 10);
+          if (e2 != s && (*e2 == 0 || *e2 == 32) && errno == ERANGE) { DESCR_t bg = rt_big_from_str(s); if (!IS_FAIL_fn(bg)) { *out = bg; return 1; } } }
         char *end; long long iv = strtoll(s, &end, 10);
         if (end != s && (*end=='\0'||*end==' ')) { *out = INTVAL(iv); return 1; }
         double rv = strtod(s, &end);

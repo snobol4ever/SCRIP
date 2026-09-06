@@ -87,6 +87,13 @@ static tree_t *parse_primary(IcnParser *p) {
         e->v.ival = t.val.ival;
         return e;
     }
+    if (t.kind == TK_BIGINT) {
+        advance(p);
+        tree_t *call = ast_node_new(TT_FNC);
+        push_child(call, e_leaf_sval(TT_VAR, "integer", -1));
+        push_child(call, e_leaf_sval(TT_QLIT, t.val.sval.data, (int)t.val.sval.len));
+        return call;
+    }
     if (t.kind == TK_REAL) {
         advance(p);
         tree_t *e = ast_node_new(TT_FLIT);
