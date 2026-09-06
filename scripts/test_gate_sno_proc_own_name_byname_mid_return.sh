@@ -27,6 +27,11 @@ GATE_NAME="$(basename "${BASH_SOURCE[0]}")"
 gate_parse_args "$@"
 O="$(sbl_correctness_bin)" || exit 2
 gate_require_exec "$ROOT/scrip" "the scrip binary"
+# ⛔ FRESHNESS IS NOT OPTIONAL: without this a gate grades whatever binary happens to be in the tree and
+# stamps its verdict with a git SHA that is not evidence about it. Omitted on the first cut of this file and
+# caught by test_gate_runners_refuse_on_a_stale_binary.sh (census arm: gates that execute ./scrip with no
+# freshness guard) before it could ever publish a false reading -- the blocking set doing exactly its job.
+gate_require_fresh "$ROOT" src "$ROOT/scrip" "$ROOT/out/libscrip_rt.so"
 T="$(mktemp -d)" || { echo "GATE UNPROVEN(2) [$GATE_NAME]: mktemp failed"; exit 2; }
 trap 'rm -rf "$T"' EXIT
 W="$T/ownname.sno"
