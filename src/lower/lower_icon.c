@@ -1164,7 +1164,7 @@ static IR_t * lower_make_list(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω
         const tree_t * a = t->c[k]; IR_t * ar = NULL;
         IR_t * ae = lower(cx, a, (k == t->n - 1) ? ml : NULL, aω, &ar); aω = cx->beta;
         if (k == 0) entry = ae;
-        if (prev) γ_to(prev, ae);
+        if (prev) lc_γ_to(prev, ae);
         prev = ar;
         if (ar) ir_operand_push(ml, ar);
     }
