@@ -111,7 +111,7 @@ done
 # sourced, never reimplemented). The lib RETURNS 2 where this file used to `exit 2`, so the exit stays here,
 # at the call site, where a reader can see it.
 . "$HERE/lib_build_currency.sh"
-if [ "$SKIP_PRISTINE" -eq 1 ]; then
+if true; then
   assert_binary_current "$SCRIP_BIN" "$ROOT" || exit 2
   # ⛔ AND THE RUNTIME, which this preflight never checked (row stale-binary-preflight-also-covers-out-libscrip-rt-so):
   # out/libscrip_rt.so lags src/ exactly as ./scrip can, and a 13:37 .so against a 14:16 src read `exec_stmt` as
@@ -125,36 +125,10 @@ WORK="$(mktemp -d "${TMPDIR:-/tmp}/verify_s_owed.XXXXXX")" || { echo "FATAL: mkt
 trap 'rm -rf "$WORK"' EXIT
 
 echo "=== util_verify_s_artifacts_owed: dry-run drift check ==="
-echo "    corpus and SCRIP SOURCES are never written (the .s comparison runs in a scratch clone)."
-echo "    THIS ROOT'S BUILD IS: $([ "$WANT_PRISTINE" -eq 1 ] && echo 'WIPED AND REBUILT (make pristine) -- ./scrip is ABSENT for minutes' || echo 'brought current with an incremental make')"
-
-if [ "$SKIP_PRISTINE" -eq 1 ]; then
-  echo "--skip-pristine given: reusing $SCRIP_BIN as-is."
-  [ -x "$SCRIP_BIN" ] || { echo "FATAL: scrip not built: $SCRIP_BIN"; exit 2; }
-elif [ "$WANT_PRISTINE" -eq 1 ]; then
-  echo "⛔⛔⛔ DESTRUCTIVE STEP STARTING IN $ROOT -- 'make pristine' WIPES out/ AND DELETES ./scrip ⛔⛔⛔"
-  echo "⛔ For the next ~10-20 minutes this root HAS NO COMPILER. Any other measurement running here will see"
-  echo "⛔ rc=127 (command not found) and will read as a catastrophic regression in whatever it was grading."
-  echo "⛔ If you are that other measurement: your run is VOID, nothing regressed, re-run it when this finishes."
-  echo "⛔ pid=$$ started $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  if ! ( cd "$ROOT" && make pristine ) > "$WORK/pristine_build.log" 2>&1; then
-    echo "FATAL: 'make pristine' failed — last 40 lines of $WORK/pristine_build.log:"
-    tail -40 "$WORK/pristine_build.log"
-    exit 2
-  fi
-  [ -x "$SCRIP_BIN" ] || { echo "FATAL: pristine build finished but $SCRIP_BIN is not executable"; exit 2; }
-  echo "  pristine build OK: $SCRIP_BIN -- this root has a compiler again"
-else
-  echo "Bringing $ROOT current with an incremental make (the pristine is NOT required for a drift verdict --"
-  echo "  Lon 2026-09-03 loosened HQ-27; a .s-currency check needs a CURRENT compiler, not a from-scratch one)..."
-  if ! ( cd "$ROOT" && make ) > "$WORK/build.log" 2>&1; then
-    echo "FATAL: 'make' failed — last 40 lines of $WORK/build.log:"
-    tail -40 "$WORK/build.log"
-    exit 2
-  fi
-  [ -x "$SCRIP_BIN" ] || { echo "FATAL: build finished but $SCRIP_BIN is not executable"; exit 2; }
-  echo "  incremental build OK: $SCRIP_BIN"
-fi
+echo "    ⛔ THIS SCRIPT BUILDS NOTHING. It never writes $ROOT -- not the sources, and not the build."
+echo "    It grades the .s artifacts with the binary ALREADY in the tree, in a scratch clone of corpus."
+[ -x "$SCRIP_BIN" ] || { echo "REFUSE(2): $SCRIP_BIN is not built. This verifier does NOT build for you -- run 'make' and re-run it."; exit 2; }
+echo "    using $SCRIP_BIN (proven current by the preflight above)"
 
 SCRATCH_CORPUS="$WORK/corpus"
 echo "Cloning corpus (local, disposable, real repo untouched) -> $SCRATCH_CORPUS ..."
