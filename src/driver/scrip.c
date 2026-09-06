@@ -1087,6 +1087,11 @@ int main(int argc, char **argv)
         }
         { extern int sno_nerrors; if (sno_nerrors > 0) { fprintf(stderr, "scrip: %d parse error(s) in '%s' -- no code generated\n", sno_nerrors, input_path); return 1; } }
     }
+    { int _w = 0; for (int _r = 0; _r < nsegs; _r++) {
+        if (_w > 0 && segs[_w-1].fn == lower_pl_stage2 && segs[_r].fn == lower_pl_stage2) {
+            tree_t *_dst = (tree_t *) segs[_w-1].prog, *_src = (tree_t *) segs[_r].prog;
+            if (_dst && _src) { for (int _k = 0; _k < _src->n; _k++) if (_src->c[_k]) ast_push(_dst, _src->c[_k]); continue; } }
+        segs[_w++] = segs[_r]; } nsegs = _w; }
     if (nsegs == 1) segs[0].prog = ast_prog;
     int has_prolog_seg = is_prolog;
     if (!has_prolog_seg) for (int _si = 0; _si < nsegs; _si++) if (segs[_si].fn == lower_pl_stage2) { has_prolog_seg = 1; break; }

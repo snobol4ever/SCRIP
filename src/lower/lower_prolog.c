@@ -578,6 +578,12 @@ static IR_t * pl_db_leaf1(lcx_t * cx, const char * sym, int k, IR_t * γnext, IR
     return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_file_defines(const char * nm, int ar) {
+    char key[264]; snprintf(key, sizeof key, "%s/%d", nm, ar);
+    const tree_t * ch = resolve_pred_table_lookup(&g_stage2.resolve_pred_table, key);
+    return (ch && ch->t == TT_CHOICE && ch->n > 0) ? 1 : 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_db_owned(const char * nm, int ar) {
     if (pl_dyn_index(nm, ar) < 0) return 0;
     { char key[264]; snprintf(key, sizeof key, "%s/%d", nm, ar);
@@ -891,7 +897,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         { const char * ls = pl_det_leaf_sym(nm, t->n); if (ls) { const char * gs = pl_anum_guard_sym(nm, t->n);
             if (gs) return pl_leaf_lv_guarded(cx, ls, gs, nm, t, t->n, γnext, ωfail, entry_out);
             return pl_leaf_lv(cx, ls, t, t->n, γnext, ωfail, entry_out); } }
-        { int r = pl_rung_of(nm); if (r) pl_refuse(r == 6 ? "builtin arity not wired" : "builtin", nm, r); }
+        { int r = pl_rung_of(nm); if (r && !pl_file_defines(nm, t->n)) pl_refuse(r == 6 ? "builtin arity not wired" : "builtin", nm, r); }
         return pl_user_call(cx, nm, t, t->n, γnext, ωfail, entry_out);
     }
     case TT_QLIT: case TT_NAME: {
@@ -901,7 +907,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         if (!strcmp(nm, "nl")) return pl_leaf(cx, "$nl", t, 0, γnext, ωfail, entry_out);
         if (!strcmp(nm, "!")) { IR_t * cn = build(cx, IR_CUT, γnext, cx->cutω); if (cx->cutω != cx->clause_cutω) IR_LIT(cn).ival = 1; return cn; }
         { const char * ls = pl_det_leaf_sym(nm, 0); if (ls) return pl_leaf_lv(cx, ls, t, 0, γnext, ωfail, entry_out); }
-        { int r = pl_rung_of(nm); if (r) pl_refuse(r == 6 ? "builtin arity not wired" : "builtin", nm, r); }
+        { int r = pl_rung_of(nm); if (r && !pl_file_defines(nm, 0)) pl_refuse(r == 6 ? "builtin arity not wired" : "builtin", nm, r); }
         return pl_user_call(cx, nm, t, 0, γnext, ωfail, entry_out);
     }
     case TT_CUT: { IR_t * cn = build(cx, IR_CUT, γnext, cx->cutω); if (cx->cutω != cx->clause_cutω) IR_LIT(cn).ival = 1; return cn; }
