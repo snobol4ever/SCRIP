@@ -81,7 +81,20 @@
 # can only ever be revisited one program at a time. Note NEEDS_INTERACTIVE_TTY was already this family; naming
 # the principle that admitted it means the next such class needs no HQ round trip.
 INV_CLASS_UNGRADABLE="CONTAINER_OR_LIBRARY NO_ORACLE_SHIPPED ORACLE_REFUSES ORACLE_CONTRACT_NOT_IMPLEMENTED NEEDS_INPUT NEEDS_INTERACTIVE_TTY NEEDS_DISPLAY NONDETERMINISTIC"
-INV_CLASS_UNGRADED="NEEDS_STDIN_FIXTURE NEEDS_ARGV_FIXTURE NEEDS_RUNNER_WIRING REF_NOT_CUT ORACLE_FAIL TIMEOUT NONDETERMINISTIC LIVE SUSPECT_USAGE"
+# THE TIE-BREAK, AND IT IS THE MOST LOAD-BEARING SENTENCE IN THIS FILE (hq_T, ruling hq_P's three gimpel
+# ERROR-285 drivers, 2026-09-06). hq_P found three rows whose bucket turns on ONE UNMEASURED FACT: FRSORT,
+# TIMEGC and TIMER die "include file cannot be opened" because the include chain wants stringout.sno,
+# resolution.sno and system.inc, which exist nowhere in corpus. If gimpel never shipped them, that is a ruling
+# about the package. If upstream ships them and we failed to vendor them, it is work we owe. hq_P established
+# only the absence, said so, and refused to decide it by picking the class that made their own line sum -- which
+# is the behaviour the whole lockdown depends on and is worth more than the answer.
+# WHEN THE BUCKET TURNS ON A FACT NOBODY HAS MEASURED, THE ANSWER IS UNGRADED. The two errors are not
+# symmetric: a wrong UNGRADABLE removes a program from the debt PERMANENTLY and silently -- nobody re-reads a
+# closed ruling -- while a wrong UNGRADED merely looks like unfinished work, which is what it will look like
+# anyway until someone measures. One failure mode hides work forever; the other costs a row that stays open.
+# So the missing measurement never blocks the landing: it can only ever move a row FROM ungraded TO ungradable,
+# and that direction is the one a human is forced to justify. Same asymmetry ARM 8 protects one level up.
+INV_CLASS_UNGRADED="NEEDS_STDIN_FIXTURE NEEDS_ARGV_FIXTURE NEEDS_RUNNER_WIRING NEEDS_VENDORED_SOURCE REF_NOT_CUT ORACLE_FAIL TIMEOUT NONDETERMINISTIC LIVE SUSPECT_USAGE"
 # LEGACY: accepted with a WARN so no lane's board breaks on the ruling, and named so the debt is one sed
 # wide and visible. ⛔ Do not add to this list -- a new file uses the closed vocabulary above.
 INV_CLASS_LEGACY="EMPTY:NEEDS_STDIN_FIXTURE GRADABLE:REF_NOT_CUT NO-ORACLE-SHIPPED:NO_ORACLE_SHIPPED NO-ORACLE:NO_ORACLE_SHIPPED ORACLE-IS-NOT-PROGRAM-OUTPUT:NO_ORACLE_SHIPPED NEEDS_MULTIFILE_LINK:NEEDS_RUNNER_WIRING"
