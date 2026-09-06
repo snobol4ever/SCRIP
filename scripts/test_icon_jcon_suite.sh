@@ -194,6 +194,17 @@ if [ "$total" -ne "$GRADED" ]; then
 fi
 [ -n "$GAP_NAMES" ] && echo "UNGRADED ($GAP of $SHIPPED shipped, zero of the population until graded):$GAP_NAMES"
 echo "JCON_SUITE_BOARD shipped=$SHIPPED graded=$GRADED gap=$GAP total=$total m3_pass=${m3p:-n/a} m4_pass=${m4p:-n/a}"
+# ⛔⭐ THE PACKAGE LOCKDOWN INVENTORY (Lon 2026-09-06: "Fix the never graded business"; instrument row
+# every-package-runner-prints-shipped-graded-ungraded-and-ungradable..., hq_T). ONE line, ONE shape, from
+# the SHARED body -- never a second copy of the arithmetic. ⭐ IT SPLITS THE `gap=` PRINTED ABOVE, and for
+# THIS package the split is the whole point: all 10 gap entries are UNGRADABLE (upstream ships no .std, and
+# tpp's .std is preprocessor text rather than program output), so jcon's ungraded is ZERO and it already
+# meets the lockdown criterion. Under a single `gap=10` that was indistinguishable from ten programs of
+# work owed -- and since every lockdown row's DONE-WHEN reads `ungraded=0`, the conflated number made a
+# criterion this package ALREADY SATISFIES look permanently out of reach.
+. "$(dirname "${BASH_SOURCE[0]}")/lib_inventory.sh"
+INV_PACKAGE=jcon; INV_DIR="$CORPUS"; INV_EXT=".icn"
+inventory_line "$GRADED" 0 || echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2
 # ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05: "any run of a test suite by any
 # session will update the ONE LEADERBOARD"). This records the board line printed just above into
 # .github/SCORE.md -- it RUNS NOTHING, it only writes down what this script already measured.
