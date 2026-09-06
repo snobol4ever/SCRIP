@@ -258,6 +258,19 @@ static std::string bb_define_activate() {
       + x86("mov", RDQ("rsi", AB_OFF_RES0), "rax")
       + x86("mov", RDQ("rsi", AB_OFF_RES1), "rdx")
       + x86("def", L(4))
+      + FOR(0, (int)nsave, [&](int k) -> std::string {
+            int gk  = (k < (int)_.op_arg_slot_n) ? _.op_arg_slot[k] : -1;
+            int ot  = ab_save_off(nsave, k);
+            int ov  = ab_save_off(nsave, k) + 8;
+            if (gk >= 0) {
+                return x86("note", gva_name(gk))
+                     + x86("mov", "rcx", RDQ("rsi", (int)0 + ot))
+                     + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)gk * 16),     "rcx")
+                     + x86("mov", "rcx", RDQ("rsi", (int)0 + ov))
+                     + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)gk * 16 + 8), "rcx");
+            }
+            return std::string();
+        })
       + x86("mov", "rcx", RDQ("rsi", AB_OFF_ANCHOR))
       + x86_load_got("rax", "g_monitor_bin", (uint64_t)(uintptr_t)(void *)&g_monitor_bin)
       + x86("mov",    "rax", RDQ("rax", 0))
@@ -299,20 +312,6 @@ static std::string bb_define_activate() {
       + x86("pop", "rsi")
       + x86("pop", "rdi")
       + x86("def", L(10))
-      + x86("note", std::string("restore each save-slot's GVA value AFTER the RETURN trace/monitor taps, not before -- a tap's own by-name lookup of the proc's result name must still see the just-set return value, not the pre-call value this loop is about to put back (defined-proc-own-name-blank-via-byname-lookup-mid-return)"))
-      + FOR(0, (int)nsave, [&](int k) -> std::string {
-            int gk  = (k < (int)_.op_arg_slot_n) ? _.op_arg_slot[k] : -1;
-            int ot  = ab_save_off(nsave, k);
-            int ov  = ab_save_off(nsave, k) + 8;
-            if (gk >= 0) {
-                return x86("note", gva_name(gk))
-                     + x86("mov", "rcx", RDQ("rsi", (int)0 + ot))
-                     + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)gk * 16),     "rcx")
-                     + x86("mov", "rcx", RDQ("rsi", (int)0 + ov))
-                     + x86("mov", ABSQ(RT_GVA_VA + (unsigned long)gk * 16 + 8), "rcx");
-            }
-            return std::string();
-        })
       + x86("pop", "rdx")
       + x86("pop", "rax")
       + x86("mov", "rcx", RDQ("rsi", AB_OFF_ANCHOR))
@@ -611,9 +610,12 @@ static std::string bb_define_sr() {
                  + x86("note", gva_name(rgx))
                  + x86("mov", "rdi", GQ(rgx, 0))
                  + x86("mov", "rsi", GQ(rgx, 8))
+                 + FRESTORE(80)
+                 + x86("mov", "rcx", SIGQ(8))
+                 + x86("add", "rsp", F4)
                  + x86("mov", "rax", "rdi")
                  + x86("mov", "rdx", "rsi")
-                 + x86("comment", "TRACE(name,'RETURN'/'FUNCTION') tap (row snobol4-trace-types-v-l-c-r-k-a-print-spitbols-banner-in-both-modes), gamma-only: rax:rdx already hold the definitive return value here. FRETURN/omega (the def_ext(lbl_o) arm below) has no analogous oracle-verified value to report and is deliberately left unaddressed -- no witness in this row exercises it. Register save list copied verbatim from bb_define_activate's own RETURN tap, r9 included for the same RTCC_GLOBAL_R9_GVA pinning reason as the CALL tap above. ⛔ FIRES BEFORE FRESTORE ON PURPOSE (row defined-proc-own-name-blank-via-byname-lookup-mid-return): FRESTORE below puts rgx's GVA slot back to its PRE-CALL value, and a registered callback's own by-name ($NAME) lookup of the proc's result name must still see the just-set return value at the instant this tap runs, not the pre-call value FRESTORE is about to restore. Moving this tap after FRESTORE reproduces the defect (verified against the row's gate).")
+                 + x86("comment", "TRACE(name,'RETURN'/'FUNCTION') tap (row snobol4-trace-types-v-l-c-r-k-a-print-spitbols-banner-in-both-modes), gamma-only: rax:rdx already hold the definitive return value here. FRETURN/omega (the def_ext(lbl_o) arm below) has no analogous oracle-verified value to report and is deliberately left unaddressed -- no witness in this row exercises it. Register save list copied verbatim from bb_define_activate's own RETURN tap, r9 included for the same RTCC_GLOBAL_R9_GVA pinning reason as the CALL tap above.")
                  + x86("push", "rax")
                  + x86("push", "rdx")
                  + x86_load_got("rax", "g_trace", (uint64_t)(uintptr_t)(void *)&g_trace)
@@ -644,9 +646,6 @@ static std::string bb_define_sr() {
                  + x86_deflabel_id(236)
                  + x86("pop", "rdx")
                  + x86("pop", "rax")
-                 + FRESTORE(80)
-                 + x86("mov", "rcx", SIGQ(8))
-                 + x86("add", "rsp", F4)
                  + x86("jmp", "rcx")
                  + x86_def_ext(lbl_o)
                  + FRESTORE(150)
