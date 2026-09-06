@@ -1586,6 +1586,7 @@ static int rt_proc_call_prologue_lex(rt_proc_t *p, int nargs, int wn)
     if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
     fbytes = (int)(((long)fbytes + 15L) & ~15L);
     if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
+    { int _np = p->nparams; if (_np > CALL_ARGS_MAX) _np = CALL_ARGS_MAX; for (int i = nargs; i < _np; i++) g_call_args[i] = NULVCL; }
     { static int _va = -1; if (_va < 0) { const char *_e = getenv("SCRIP_VARARG_TAIL"); _va = (_e && *_e == '0') ? 0 : 1; }
       if (_va && p->is_variadic && p->jmp_entry) {
         extern DESCR_t rt_make_list(DESCR_t *args, int nargs); extern DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs); extern DESCR_t rt_make_nested_agg(DESCR_t *args, int nargs);
