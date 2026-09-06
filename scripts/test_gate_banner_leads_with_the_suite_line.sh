@@ -65,6 +65,38 @@ arms=$((arms+1))
 printf '%s\n' "$OUT" | grep -q 'SUITE BANNER: UNREADABLE' \
     && fail "ARM 5: the NORMAL banner printed the UNREADABLE refusal -- ARM 3 would then pass against a wiring that always refuses"
 
+# --- ARM 6: the GRID LINES UP VERTICALLY, measured in DISPLAY COLUMNS not characters ---
+# Lon 2026-09-06: "get the suites banner to line up vertically; most likely your length counts are off due to
+# unicode." He was exactly right about the cause. Three independent ways len() lied in one 40-column cell:
+#   - a WIDE glyph is 1 char / 2 columns (U+2705 done, U+26D4 stuck, U+1F195 new, most emoji);
+#   - a VARIATION SELECTOR is 1 char / 0 columns AND makes its narrow base render wide (❄️ 🏛️ = base + U+FE0F);
+#   - a REGIONAL INDICATOR PAIR is 2 chars / one 2-column glyph (🇫🇷 = U+1F1EB U+1F1F7).
+# ⛔ THE ARROW IS WHY IT LOOKED ALMOST RIGHT: U+2192 is east_asian_width 'A' and renders NARROW, so the ETA
+# cells were the only ones whose character count matched their column count. A defect that is correct on the
+# majority of rows reads as a rendering quirk rather than a bug.
+# ⭐ THIS ARM MEASURES SEPARATOR POSITIONS, NOT CELL LENGTHS. Equal cell widths are what the buggy version
+# already believed it had; what a reader actually sees is where the │ lands.
+arms=$((arms+1))
+python3 - "$HERE/../../.github/scripts/util_suite_banner.py" <<'PYEOF' || fail "ARM 6: the suite grid does not line up vertically in display columns"
+import sys, subprocess, importlib.util
+spec = importlib.util.spec_from_file_location("b", sys.argv[1])
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+out = subprocess.run([sys.executable, sys.argv[1], "--plain"], capture_output=True, text=True).stdout
+lines = [l for l in out.split("\n") if " \u2502 " in l]
+if not lines: print("REFUSE: no grid rows to grade"); sys.exit(2)
+pos = []
+for l in lines:
+    seps = []; start = 0
+    while True:
+        i = l.find(" \u2502 ", start)
+        if i < 0: break
+        seps.append(m.dw(l[:i])); start = i + 3
+    pos.append(tuple(seps))
+if len(set(pos)) != 1:
+    print("separator display-columns differ across rows: %s" % sorted(set(pos))); sys.exit(1)
+print("grid aligned: %d rows, separators at %s display columns" % (len(lines), pos[0]))
+PYEOF
+
 if [ "$viol" -ne 0 ]; then
     echo "⛔ GATE FAIL [$GATE]: $viol of $arms arms broken"
     exit 1
