@@ -57,12 +57,20 @@ ipl_isolation_cleanup() { [ -n "${IPL_ISO_TEMPLATE:-}" ] && rm -rf "$IPL_ISO_TEM
 # prevent would have been live again for exactly the programs it was not covering. Set IPL_ISO_SUBDIR
 # to the entry's own subdirectory before calling; unset means progs/, which is the historical behavior
 # byte for byte.
+#       ⭐ NAME.fixtures/ FIXTURE-FILE SIDECAR (seat07 2026-09-06): set IPL_ISO_FIXTURES to a program's
+#       .icn path before calling and any files under NAME.fixtures/ are staged into the run directory
+#       before exec, same env-var-toggle shape as IPL_ISO_SUBDIR. Unset means no staging (unchanged
+#       historical behavior). A malformed sidecar (see ipl_fixtures_stage below) returns 125, distinct
+#       from every other sentinel this function already returns (124 timeout, 127 setup failure).
 ipl_isolation_run() {
   local outfile="$1" to="$2" stdin_src="$3" work rc sub; shift 3
   sub="${IPL_ISO_SUBDIR:-progs}"
   work="$(mktemp -d "${TMPDIR:-/tmp}/ipl_iso_run.XXXXXX")" || return 127
   cp -r "$IPL_ISO_TEMPLATE"/. "$work"/
   [ -d "$work/$sub" ] || { echo "⛔ ipl_isolation_run: no such package subdirectory: $sub" >&2; rm -rf "$work"; return 127; }
+  if [ -n "${IPL_ISO_FIXTURES:-}" ]; then
+    ipl_fixtures_stage "$IPL_ISO_FIXTURES" "$work/$sub"; [ $? -eq 2 ] && { rm -rf "$work"; return 125; }
+  fi
   ( cd "$work/$sub" && timeout "$to" env ICONPATH="$work/progs:$work/gprogs:$work/procs:$work/gprocs:$work/incl:$work/gincl" "$@" < "$stdin_src" > "$outfile" 2>&1 )
   rc=$?
   rm -rf "$work"
@@ -152,5 +160,41 @@ ipl_argv_read() {
     echo "⛔ ARGV SIDECAR REFUSES(2): $side names $base and declares no arguments -- an empty argv is what you get with no sidecar at all, so the file states nothing" >&2; return 2
   fi
   eval "$arr=(\"\${f[@]:1}\")"
+  return 0
+}
+
+# ⭐ NAME.fixtures/ FIXTURE-FILE SIDECAR (seat07 2026-09-06). NAME.dat covers stdin content and NAME.argv
+# covers argument VALUES, but several ipl programs take an argument that NAMES A REAL FILE ON DISK --
+# gediff.icn diffs two file arguments, huffstuf.icn/filecnvt.icn/iiencode.icn each read a named input file
+# directly. Neither existing sidecar can place a file into the isolated run directory, so a NAME.argv
+# naming "fixture.txt" is useless without something to put fixture.txt there. Same shape as ipl_argv_read:
+# one shared reader, called by both the cutter's own run_isolated() and the shared ipl_isolation_run()
+# above (via IPL_ISO_FIXTURES), so a program's minted ref and its later grading can never disagree about
+# which files were present when it ran.
+#
+# FORMAT -- NAME.fixtures/ directory beside NAME.icn, holding one regular file per fixture, copied into
+# the run directory verbatim BY ITS OWN FILENAME (never renamed); NAME.argv then names that same filename.
+# No manifest: the directory's own contents ARE the declaration, same as NAME.dat's bytes ARE the stdin
+# declaration with no format wrapped around them.
+#
+# ipl_fixtures_stage <icn-path> <dest-dir>
+#   0 -> zero or more fixture files staged into dest-dir (0 is normal: most programs need none)
+#   2 -> NAME.fixtures exists but is not a plain directory of regular files -- refuses loudly rather than
+#        stage a symlink or subdirectory silently, which would either escape the scratch tree or leave the
+#        program that needed it failing under the wrong reported class.
+ipl_fixtures_stage() {
+  local icn="$1" dest="$2" dir f
+  dir="${icn%.icn}.fixtures"
+  [ -e "$dir" ] || return 0
+  if [ ! -d "$dir" ] || [ -L "$dir" ]; then
+    echo "⛔ FIXTURE SIDECAR REFUSES(2): $dir exists but is not a plain directory" >&2; return 2
+  fi
+  for f in "$dir"/*; do
+    [ -e "$f" ] || continue
+    if [ ! -f "$f" ] || [ -L "$f" ]; then
+      echo "⛔ FIXTURE SIDECAR REFUSES(2): $f is not a plain regular file" >&2; return 2
+    fi
+    cp "$f" "$dest/$(basename "$f")" || return 2
+  done
   return 0
 }

@@ -273,6 +273,11 @@ for std in "${STDFILES[@]}"; do
     # (gprogs/ carries .std files as of 2026-09-06, CEO-316). A gprogs entry run from progs/ links
     # against the wrong directory and grades a program that never ran properly.
     IPL_ISO_SUBDIR="$(basename "$(dirname "$std")")"; export IPL_ISO_SUBDIR
+    # ⭐ NAME.fixtures/ FIXTURE-FILE SIDECAR (seat07 2026-09-06): staged by ipl_isolation_run itself when
+    # this is set, same convention as the cutter's own run_isolated() -- both sites call the one shared
+    # ipl_fixtures_stage reader in lib_icon_ipl_isolation.sh, so a program's minted ref and its grading
+    # here can never disagree about which files were present when it ran.
+    IPL_ISO_FIXTURES="$icn"; export IPL_ISO_FIXTURES
 
     # -- m3 (--run): executes the Icon program's own logic directly -- isolated.
     # ⛔ `--` separates SCRIP's own flags from the target program's argv; the oracle needs no separator
@@ -289,6 +294,7 @@ for std in "${STDFILES[@]}"; do
     rc3=$?
     by3=$(wc -c < "$TMP/${base}.m3.out" 2>/dev/null || echo 0)
     if [ "$rc3" -eq 124 ]; then M3_RUN_HANG=$((M3_RUN_HANG+1)); M3_RUN_HANG_NAMES+=("$base"); ipl_progress "$base" m3 HANG
+    elif [ "$rc3" -eq 125 ]; then M3_RUN_FAIL=$((M3_RUN_FAIL+1)); M3_RUN_FAIL_NAMES+=("$base(fixture-sidecar-malformed)"); ipl_progress "$base" m3 REFUSE
     elif [ "$rc3" -ge 128 ]; then M3_RUN_CRASH=$((M3_RUN_CRASH+1)); M3_RUN_CRASH_NAMES+=("$base(sig$((rc3-128)))"); ipl_progress "$base" m3 CRASH
     elif [ "$by3" -gt "$MAX_BYTES" ]; then M3_RUN_FAIL=$((M3_RUN_FAIL+1)); M3_RUN_FAIL_NAMES+=("$base(oversized:$by3)"); ipl_progress "$base" m3 FAIL
     elif [ "$(cat "$TMP/${base}.m3.out" 2>/dev/null)" = "$exp" ]; then M3_RUN_PASS=$((M3_RUN_PASS+1)); ipl_progress "$base" m3 PASS
@@ -307,6 +313,7 @@ for std in "${STDFILES[@]}"; do
         rc4=$?
         by4=$(wc -c < "$TMP/${base}.m4.out" 2>/dev/null || echo 0)
         if [ "$rc4" -eq 124 ]; then M4_RUN_HANG=$((M4_RUN_HANG+1)); M4_RUN_HANG_NAMES+=("$base"); ipl_progress "$base" m4 HANG
+        elif [ "$rc4" -eq 125 ]; then M4_RUN_FAIL=$((M4_RUN_FAIL+1)); M4_RUN_FAIL_NAMES+=("$base(fixture-sidecar-malformed)"); ipl_progress "$base" m4 REFUSE
         elif [ "$rc4" -ge 128 ]; then M4_RUN_CRASH=$((M4_RUN_CRASH+1)); M4_RUN_CRASH_NAMES+=("$base(sig$((rc4-128)))"); ipl_progress "$base" m4 CRASH
         elif [ "$by4" -gt "$MAX_BYTES" ]; then M4_RUN_FAIL=$((M4_RUN_FAIL+1)); M4_RUN_FAIL_NAMES+=("$base(oversized:$by4)"); ipl_progress "$base" m4 FAIL
         elif [ "$(cat "$TMP/${base}.m4.out" 2>/dev/null)" = "$exp" ]; then M4_RUN_PASS=$((M4_RUN_PASS+1)); ipl_progress "$base" m4 PASS

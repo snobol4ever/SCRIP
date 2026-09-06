@@ -113,6 +113,7 @@ run_isolated() {
   [ "$ac" -eq 2 ] && return 126
   work="$(mktemp -d "${TMPDIR:-/tmp}/ipl_ref_run.XXXXXX")" || return 127
   cp -r "$TEMPLATE"/. "$work"/
+  ipl_fixtures_stage "$PROGS/$f" "$work/$SUBDIR"; [ $? -eq 2 ] && { rm -rf "$work"; return 125; }
   stdin_src=/dev/null
   [ -f "$PROGS/${f%.icn}.dat" ] && stdin_src="$PROGS/${f%.icn}.dat"
   ( cd "$work/$SUBDIR" && timeout "$TIMEOUT" env ICONPATH="$work/progs:$work/gprogs:$work/procs:$work/gprocs:$work/incl:$work/gincl" "$ICON" "$f" ${argv[@]+"${argv[@]}"} < "$stdin_src" > "$outfile" 2>&1 )
@@ -127,8 +128,7 @@ run_isolated() {
 # DISPLAY_REFUSED; `.icn` vs the container in the population count; command -v vs the oracle path).
 first_diag() { printf '%s' "$1" | grep -m1 -v '^[[:space:]]*$' | cut -c1-200; }
 
-if [ "$MAINS_ONLY" -eq 1 ]; then
-  # ⛔⭐⭐ A PROGRAM ALREADY RULED UNGRADABLE IS NEVER A MINT CANDIDATE (hq_I 2026-09-06, caught the hard
+# ⛔⭐⭐ A PROGRAM ALREADY RULED UNGRADABLE IS NEVER A MINT CANDIDATE (hq_I 2026-09-06, caught the hard
 # way twice in one sitting). This script walks the directory and knows nothing about the package's own
 # rulings, so a program ruled UNGRADABLE in the sidecar can be re-minted by the very next --apply --
 # SILENTLY UN-RULING IT, with no diff to show the ruling was overturned and no human deciding to.
@@ -139,11 +139,21 @@ if [ "$MAINS_ONLY" -eq 1 ]; then
 # ⭐ THE GENERAL FORM: a census walks the TREE, while a ruling lives in a FILE BESIDE the tree, so the
 # instrument cannot see the decision unless it is made to read it. Determinism, content and stability
 # checks all pass on a program whose problem is that a ref is the wrong INSTRUMENT for it.
+# ⛔⛔ THIS WHOLE GUARD WAS DEAD ON EVERY ORDINARY RUN (seat07 2026-09-06, reproduced): both definitions
+# below sat INSIDE the `--mains-only` branch of the very next `if`, so a plain `--apply` (--mains-only
+# NOT passed, which is how every other caller in this codebase invokes this script) never defined
+# is_ruled_ungradable AT ALL. The call site further down then hit bash's own "command not found" (exit
+# 127, silently false in an `if`, no `set -e` to catch it) and treated EVERY ruled-ungradable program as
+# unruled. MEASURED: gcomp.icn minted AGAIN, this session, by the exact mechanism its own comment above
+# already named and warned about -- its output baked in the directory listing including the very
+# NAME.fixtures/ dirs this session added. Reverted (see FINDING); moved out here so the guard runs
+# unconditionally, on every invocation shape, which is what "never a mint candidate" always meant.
 UNGRADABLE_TSV="$PKG/UNGRADABLE.tsv"
 is_ruled_ungradable() {
   [ -f "$UNGRADABLE_TSV" ] || return 1
   awk -F'\t' -v want="$SUBDIR/$1" '$1==want{found=1} END{exit !found}' "$UNGRADABLE_TSV"
 }
+if [ "$MAINS_ONLY" -eq 1 ]; then
   # ⛔⭐ LEADING WHITESPACE IS LEGAL BEFORE `procedure` AND THE ANCHORED FORM SILENTLY DROPPED A PROGRAM
   # (hq_I 2026-09-06, found because one ipl UNGRADED row had no census row AT ALL). progs/literat.icn
   # declares its entry point at line 1054 as `    procedure main()`, indented; `^procedure` misses it, so
@@ -183,7 +193,7 @@ fi
 TOTAL=${#FILES[@]}
 [ "$TOTAL" -gt 0 ] || { echo "⛔ GATE REFUSES: zero .icn files found under $PROGS" >&2; exit 2; }
 
-n_live=0; n_mint=0; n_empty=0; n_fail=0; n_display=0; n_diagnostic=0; n_ruled=0; n_timeout=0; n_suspect=0; n_undeclared=0; n_argv=0; n_badside=0; n_nondet=0; n_havestd=0; n_oversized=0
+n_live=0; n_mint=0; n_empty=0; n_fail=0; n_display=0; n_diagnostic=0; n_ruled=0; n_timeout=0; n_suspect=0; n_undeclared=0; n_argv=0; n_badside=0; n_badfix=0; n_nondet=0; n_havestd=0; n_oversized=0
 OUT1="$(mktemp "${TMPDIR:-/tmp}/ipl_ref_out1.XXXXXX")"; OUT2="$(mktemp "${TMPDIR:-/tmp}/ipl_ref_out2.XXXXXX")"
 HOLD="$(mktemp -d "${TMPDIR:-/tmp}/ipl_ref_hold.XXXXXX")"
 trap 'cleanup_template; rm -f "$OUT1" "$OUT2"; rm -rf "$HOLD"' EXIT
@@ -211,6 +221,10 @@ for f in "${FILES[@]}"; do
   run_isolated "$f" "$OUT1"; rc1=$?
   if [ "$rc1" -eq 126 ]; then
     n_badside=$((n_badside+1)); printf 'ARGV_SIDECAR_MALFORMED\t%s\t126\t-\tNOT MINTED -- the NAME.argv sidecar beside this program is malformed; ipl_argv_read printed the reason above. Refused rather than run with a guessed argv.\n' "$f"
+    continue
+  fi
+  if [ "$rc1" -eq 125 ]; then
+    n_badfix=$((n_badfix+1)); printf 'FIXTURE_SIDECAR_MALFORMED\t%s\t125\t-\tNOT MINTED -- the NAME.fixtures/ sidecar beside this program is malformed; ipl_fixtures_stage printed the reason above.\n' "$f"
     continue
   fi
   if [ "$rc1" -eq 124 ]; then
@@ -313,8 +327,15 @@ for f in "${FILES[@]}"; do
   # gets corrected -- it is the untestable form of "I did not look". Every row now carries the oracle's
   # own first non-blank line, so the next reader can sort 212 rows into classes without re-running
   # anything, and a wrong reason is visibly wrong.
-  if [ "$rc1" -ne 0 ]; then
-    n_fail=$((n_fail+1)); printf 'ORACLE_FAIL\t%s\t%s\t-\tNOT MINTED -- rc=%s under this driver; the oracle said: %s\n' "$f" "$rc1" "$rc1" "$(first_diag "$out1")"
+  # ⭐ NAME.rc EXPECTED-EXIT-CODE SIDECAR (seat07 2026-09-06): a program whose CORRECT, deterministic
+  # behavior is a nonzero exit -- gediff.icn passes through the system diff's own rc, and rc=1 ("files
+  # differ") is the designed, gradeable outcome for two genuinely different fixture files, not a failure --
+  # would otherwise be permanently unmintable, since every nonzero rc not already claimed by a named class
+  # above falls straight into ORACLE_FAIL. Absent NAME.rc, exp_rc defaults to 0: byte-for-byte the same
+  # comparison as before this sidecar existed, so every program without one is completely unaffected.
+  exp_rc=0; [ -f "$PROGS/${f%.icn}.rc" ] && exp_rc="$(cat "$PROGS/${f%.icn}.rc")"
+  if [ "$rc1" -ne "$exp_rc" ]; then
+    n_fail=$((n_fail+1)); printf 'ORACLE_FAIL\t%s\t%s\t-\tNOT MINTED -- rc=%s under this driver (expected %s); the oracle said: %s\n' "$f" "$rc1" "$rc1" "$exp_rc" "$(first_diag "$out1")"
     [ "$VERBOSE" -eq 1 ] && printf '   %s\n' "$(first_diag "$out1")"
     continue
   fi
@@ -455,8 +476,9 @@ if [ "${#CANDS[@]}" -gt 0 ]; then
   fi
   for cand in "${CANDS[@]}"; do
     cb="$(basename "$cand" .cand)"
+    exp_rc=0; [ -f "$PROGS/$cb.rc" ] && exp_rc="$(cat "$PROGS/$cb.rc")"
     run_isolated "$cb.icn" "$OUT2"; rc2=$?
-    if [ "$rc2" -ne 0 ] || ! cmp -s "$cand" "$OUT2"; then
+    if [ "$rc2" -ne "$exp_rc" ] || ! cmp -s "$cand" "$OUT2"; then
       n_live=$((n_live-1)); n_nondet=$((n_nondet+1)); n_minute_reject=$((n_minute_reject+1))
       printf 'NONDETERMINISTIC\t%s.icn\t%s\t-\tNOT MINTED -- agreed across four sub-second runs and DIFFERED across a minute boundary (clock-granularity dependence, e.g. &dateline)\n' "$cb" "$rc2"
       continue
@@ -478,8 +500,8 @@ if [ "${#CANDS[@]}" -gt 0 ]; then
   done
 fi
 echo "----"
-printf 'TOTALS[%s]: LIVE %d (minted %d, minute-rejected %d) · HAVE_STD %d · EMPTY %d · SUSPECT_USAGE %d · UNDECLARED_IDENTIFIER %d · NONDETERMINISTIC %d · NEEDS_ARGV_FIXTURE %d · ARGV_SIDECAR_MALFORMED %d · ORACLE_FAIL %d · DISPLAY_REFUSED %d · ALL_ORACLE_DIAGNOSTIC %d · RULED_UNGRADABLE %d · TIMEOUT %d · OVERSIZED %d · total=%d\n' \
-  "$SUBDIR" "$n_live" "$n_mint" "$n_minute_reject" "$n_havestd" "$n_empty" "$n_suspect" "$n_undeclared" "$n_nondet" "$n_argv" "$n_badside" "$n_fail" "$n_display" "$n_diagnostic" "$n_ruled" "$n_timeout" "$n_oversized" "$TOTAL"
+printf 'TOTALS[%s]: LIVE %d (minted %d, minute-rejected %d) · HAVE_STD %d · EMPTY %d · SUSPECT_USAGE %d · UNDECLARED_IDENTIFIER %d · NONDETERMINISTIC %d · NEEDS_ARGV_FIXTURE %d · ARGV_SIDECAR_MALFORMED %d · FIXTURE_SIDECAR_MALFORMED %d · ORACLE_FAIL %d · DISPLAY_REFUSED %d · ALL_ORACLE_DIAGNOSTIC %d · RULED_UNGRADABLE %d · TIMEOUT %d · OVERSIZED %d · total=%d\n' \
+  "$SUBDIR" "$n_live" "$n_mint" "$n_minute_reject" "$n_havestd" "$n_empty" "$n_suspect" "$n_undeclared" "$n_nondet" "$n_argv" "$n_badside" "$n_badfix" "$n_fail" "$n_display" "$n_diagnostic" "$n_ruled" "$n_timeout" "$n_oversized" "$TOTAL"
 [ -n "$APPLY" ] || echo "(census only -- nothing written; re-run with --apply to mint)"
 # ── belt-and-suspenders: prove nothing in the tracked tree moved while this script ran, census or not.
 # ⛔⭐ THIS WAS A SECOND COPY OF THE CHECK, not a call to the one in lib_icon_ipl_isolation.sh -- the same
