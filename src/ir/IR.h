@@ -193,6 +193,9 @@ struct IR_t {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int ir_define_ch8_role(const IR_t * nd) { long long v = (long long)IR_LIT(nd).ival; return (v >= 1 && v <= 4) ? (int)v : 0; }
 static inline int ir_define_sr_citizen(const IR_t * nd) { return ir_define_ch8_role(nd) ? 1 : ((nd->γ.node && ir_norm_call_kind(nd->γ.node->op) == IR_CALL) ? 1 : 0); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline const char * ir_define_bind_entry(const IR_t * nd) { return (nd && nd->op == IR_DEFINE && nd->pat_static == 1 && nd->n_operands == 1 && nd->operands[0] && nd->operands[0]->op == IR_LIT_NAME) ? IR_LIT(nd->operands[0]).sval : (const char *)0; }
+static inline int ir_define_is_bind(const IR_t * nd) { return (nd && nd->op == IR_DEFINE && !ir_define_sr_citizen(nd) && (nd->n_operands == 0 || ir_define_bind_entry(nd))) ? 1 : 0; }
 typedef struct {
     const char * sval;
     int64_t      ival;

@@ -938,6 +938,22 @@ static const tree_t * sno_stmt_define(const tree_t * s, int * out_argbase) {
     return subj;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * sno_define_entry_opt(const tree_t * dsub, int argbase) {
+    if (!dsub || dsub->n <= argbase + 1 || !dsub->c[argbase + 1]) return NULL;
+    const tree_t * ea = dsub->c[argbase + 1];
+    if (ea->t == TT_QLIT && ea->v.sval) return ea->v.sval;
+    if (ea->t == TT_NAME && ea->n > 0 && ea->c[0] && ea->c[0]->t == TT_VAR && ea->c[0]->v.sval) return ea->c[0]->v.sval;
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sno_bind_attach_entry(IR_graph_t * g, IR_t * bind, const char * entry, IR_t * fail) {
+    if (!g || !bind || !entry || !entry[0]) return;
+    IR_t * en = lc_build(g, IR_LIT_NAME, bind, fail);
+    IR_LIT(en).sval = lp_strdup(entry);
+    ir_operand_push(bind, en);
+    bind->pat_static = 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_parse_define(const char * spec, const char * entry_opt, sno_def_t * d) {
     char buf[512]; int bn = 0;
     for (const char * p = spec; *p && bn < (int) sizeof buf - 1; p++) if (*p != ' ' && *p != '\t') buf[bn++] = *p;
@@ -2137,7 +2153,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                 int _argbase = 0; const tree_t * dsub = sno_stmt_define(s, &_argbase);
                 const tree_t * pnode = (dsub && dsub->n > _argbase) ? dsub->c[_argbase] : NULL;
                 if (pnode && sno_qlit_fold(pnode)) {
-                    sno_def_t d; sno_parse_define(sno_qlit_fold(pnode), NULL, &d);
+                    sno_def_t d; sno_parse_define(sno_qlit_fold(pnode), sno_define_entry_opt(dsub, _argbase), &d);
                     int nsave = 1 + d.nnames;
                     IR_t * ab = lc_build(g, IR_DEFINE, exitnd, failnd);
                     IR_LIT(ab).sval = lp_strdup(d.fname);
@@ -2146,7 +2162,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                     for (int _k = 0; _k < d.nnames; _k++) { IR_t * nm = lc_build(g, IR_LIT_STRING, ab, failnd); IR_LIT(nm).sval = lp_strdup(d.names[_k]); ir_operand_push(ab, nm); }
                     if (g->ab_n < (int)(sizeof g->ab_nodes / sizeof *g->ab_nodes)) g->ab_nodes[g->ab_n++] = ab;
                     else fprintf(stderr, "WARN AB-1: ab_nodes[] full (>32 DEFINEs in one graph); activation block for '%s' will be missing from .s\n", d.fname);
-                    { IR_t * bind = lc_build(g, IR_DEFINE, sJ, fA); IR_LIT(bind).sval = lp_strdup(d.fname);  lc_γ_to(anchor[i], bind); continue; }
+                    { IR_t * bind = lc_build(g, IR_DEFINE, sJ, fA); IR_LIT(bind).sval = lp_strdup(d.fname); sno_bind_attach_entry(g, bind, d.entry, fA); lc_γ_to(anchor[i], bind); continue; }
                 }
             }
             { int _argbase = 0; const tree_t * dsub = sno_stmt_define(s, &_argbase);
@@ -2154,13 +2170,12 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                   IR_t * sp = lc_build(g, IR_LIT_STRING, NULL, fA); IR_LIT(sp).sval = lp_strdup(sno_qlit_fold(dsub->c[_argbase]));
                   IR_t * call = lc_build(g, IR_CALL, sJ, fA); IR_LIT(call).sval = (char *) "DEFINE"; ir_operand_push(call, sp);
                   IR_t * last = sp;
-                  if (dsub->n > _argbase + 1 && dsub->c[_argbase + 1]) { const tree_t * ea = dsub->c[_argbase + 1]; const char * es = NULL;
-                      if (ea->t == TT_QLIT && ea->v.sval) es = ea->v.sval; else if (ea->t == TT_NAME && ea->n > 0 && ea->c[0] && ea->c[0]->t == TT_VAR) es = ea->c[0]->v.sval;
+                  { const char * es = sno_define_entry_opt(dsub, _argbase);
                       if (es) { IR_t * ep = lc_build(g, IR_LIT_STRING, NULL, fA); IR_LIT(ep).sval = lp_strdup(es); ir_operand_push(call, ep); lc_γ_to(last, ep); last = ep; } }
                   lc_γ_to(last, call); lc_γ_to(anchor[i], sp); continue; }
               const tree_t * pnode = (dsub && dsub->n > _argbase) ? dsub->c[_argbase] : NULL;
-              if (pnode && sno_qlit_fold(pnode)) { sno_def_t d; sno_parse_define(sno_qlit_fold(pnode), NULL, &d);
-                IR_t * bind = lc_build(g, IR_DEFINE, sJ, fA); IR_LIT(bind).sval = lp_strdup(d.fname); lc_γ_to(anchor[i], bind); continue; } }
+              if (pnode && sno_qlit_fold(pnode)) { sno_def_t d; sno_parse_define(sno_qlit_fold(pnode), sno_define_entry_opt(dsub, _argbase), &d);
+                IR_t * bind = lc_build(g, IR_DEFINE, sJ, fA); IR_LIT(bind).sval = lp_strdup(d.fname); sno_bind_attach_entry(g, bind, d.entry, fA); lc_γ_to(anchor[i], bind); continue; } }
             lc_γ_to(anchor[i], sJ); continue;
         }
         if (_pro_open && (goU || goS || goF || exU || exS || exF)) _pro_close = 1;
@@ -2593,6 +2608,31 @@ void sno_pat_thunks_build(int p0) {
     g_sno_in_patproc = sv;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sno_register_entry_label(const char * el, int main_bb_idx) {
+    if (!el || !el[0]) return;
+    IR_t * anchor = bb_label_landing(el);
+    if (!anchor) return;
+    char lname[256]; snprintf(lname, sizeof lname, "LBL__%s", el);
+    for (int q = 0; q < g_stage2.proc_count; q++) if (g_stage2.proc_table[q].name && !strcmp(g_stage2.proc_table[q].name, lname)) return;
+    int lpi = stage2_proc_grow(&g_stage2);
+    g_stage2.proc_table[lpi].name = lp_strdup(lname);
+    g_stage2.proc_table[lpi].proc = NULL;
+    g_stage2.proc_table[lpi].entry_pc = -1;
+    g_stage2.proc_table[lpi].nparams = 0;
+    g_stage2.proc_table[lpi].lower_sc.n = 0;
+    g_stage2.proc_table[lpi].is_generator = 0;
+    g_stage2.proc_table[lpi].dyn_scope = 0;
+    g_stage2.proc_table[lpi].result_name = NULL;
+    g_stage2.proc_table[lpi].proc_entry_node = anchor;
+    g_stage2.proc_table[lpi].bb_idx = main_bb_idx;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sno_entry_seen_push(const char ** seen, int * nseen, const char * el) {
+    if (!el || !el[0] || *nseen >= SNO_DEF_MAX * 2) return;
+    for (int k = 0; k < *nseen; k++) if (!strcmp(seen[k], el)) return;
+    seen[(*nseen)++] = el;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t * lower_sno_stage2(const tree_t * prog) {
     g_sno_expr_define_seen = 0; g_sno_prescan_top = NULL;
     g_sno_seal_enabled = 1;
@@ -2609,6 +2649,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
     { int k = 0; for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) st[k++] = prog->c[i]; }
     sno_fz_build_table(st, nst);
     sno_def_t defs[SNO_DEF_MAX]; int ndefs = 0; g_sno_npredef = 0;
+    const char * def_entry_all[SNO_DEF_MAX * 2]; int n_def_entry_all = 0;
     const tree_t * def_body[SNO_DEF_MAX]; for (int _k = 0; _k < SNO_DEF_MAX; _k++) def_body[_k] = NULL;
     int * is_def = (int *) calloc((size_t) nst, sizeof(int));
     const char * stmt_bind_fname[SNO_DEF_MAX]; int n_stmt_bind = 0;
@@ -2626,6 +2667,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
             const tree_t * body = (dfn->n > 2) ? dfn->c[2] : NULL;
             int found = -1;
             for (int k = 0; k < ndefs; k++) if (!strcmp(defs[k].fname, d.fname)) { found = k; break; }
+            if (!body) sno_entry_seen_push(def_entry_all, &n_def_entry_all, d.entry);
             if (found >= 0) { defs[found] = d; def_body[found] = body; }
             else if (ndefs < SNO_DEF_MAX) { def_body[ndefs] = body; defs[ndefs++] = d; }
             else sno_fatal("too many DEFINEs in one program", d.fname);
@@ -2646,6 +2688,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
         if (sn4_is_system_fn(d.fname)) continue;
         int found = -1;
         for (int k = 0; k < ndefs; k++) if (!strcmp(defs[k].fname, d.fname)) { found = k; break; }
+        sno_entry_seen_push(def_entry_all, &n_def_entry_all, d.entry);
         if (found >= 0) defs[found] = d;
         else if (ndefs < SNO_DEF_MAX) defs[ndefs++] = d;
         else sno_fatal("too many DEFINEs in one program", d.fname);
@@ -2708,28 +2751,8 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
     }
     if (!g_sno_uses_code) {
         int main_bb_idx2 = g_stage2.proc_table[pi].bb_idx;
-        for (int di = 0; di < ndefs; di++) {
-            if (def_body[di]) continue;
-            const char * el = defs[di].entry;
-            if (!el || !el[0]) continue;
-            IR_t * anchor = bb_label_landing(el);
-            if (!anchor) continue;
-            char lname[256]; snprintf(lname, sizeof lname, "LBL__%s", el);
-            int dup = 0;
-            for (int q = 0; q < g_stage2.proc_count; q++) if (g_stage2.proc_table[q].name && !strcmp(g_stage2.proc_table[q].name, lname)) { dup = 1; break; }
-            if (dup) continue;
-            int lpi = stage2_proc_grow(&g_stage2);
-            g_stage2.proc_table[lpi].name = lp_strdup(lname);
-            g_stage2.proc_table[lpi].proc = NULL;
-            g_stage2.proc_table[lpi].entry_pc = -1;
-            g_stage2.proc_table[lpi].nparams = 0;
-            g_stage2.proc_table[lpi].lower_sc.n = 0;
-            g_stage2.proc_table[lpi].is_generator = 0;
-            g_stage2.proc_table[lpi].dyn_scope = 0;
-            g_stage2.proc_table[lpi].result_name = NULL;
-            g_stage2.proc_table[lpi].proc_entry_node = anchor;
-            g_stage2.proc_table[lpi].bb_idx = main_bb_idx2;
-        }
+        for (int di = 0; di < ndefs; di++) if (!def_body[di]) sno_register_entry_label(defs[di].entry, main_bb_idx2);
+        for (int ei = 0; ei < n_def_entry_all; ei++) sno_register_entry_label(def_entry_all[ei], main_bb_idx2);
     }
     for (int di = 0; di < ndefs; di++) {
         IR_graph_t * gf;
