@@ -49,6 +49,30 @@ RTX_FUNC(rt_pl_exist_raise)
     xor     edx, edx
     ret
 RTX_ENDF(rt_pl_exist_raise)
+RTX_FUNC(rt_pl_exist_key_raise)
+    sub     rsp, 8
+    call    rt_pl_ball_existence_key
+    mov     r15, rax
+    add     rsp, 8
+    mov     eax, DT_FAIL | (MOD_OP_RT_PL_EXIST_KEY_RAISE << 8)
+    xor     edx, edx
+    ret
+RTX_ENDF(rt_pl_exist_key_raise)
+RTX_FUNC(rt_pl_goal_gen_h)
+    sub     rsp, 24
+    mov     qword ptr [rsp + 8], 0
+    lea     r9, [rsp + 8]
+    call    rt_pl_goal_gen_h_c
+    mov     rcx, qword ptr [rsp + 8]
+    add     rsp, 24
+    test    rcx, rcx
+    jz      .Lggh_ret
+    mov     r15, rcx
+    mov     eax, DT_FAIL | (MOD_OP_RT_PL_EXIST_KEY_RAISE << 8)
+    xor     edx, edx
+.Lggh_ret:
+    ret
+RTX_ENDF(rt_pl_goal_gen_h)
 RTX_FUNC(rt_pl_catch_handle)
     test    r15, r15
     jz      .Lch_fail

@@ -22,7 +22,7 @@ DESCR_t rt_proc_call_epilogue_named_ω(const char *name);
 DESCR_t rt_proc_call_epilogue_ret(DESCR_t fret);
 DESCR_t rt_faildescr(void);
 void    rt_ab_undef_fn_stub(void);
-void    rt_pl_iso_throw_existence_key(const char *key);
+void    rt_pl_iso_throw_existence_key(const char *key); DESCR_t rt_pl_exist_key_raise(const char *key);
 DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **act_slot);
 DESCR_t rt_proc_resume_frame(void *act);
 DESCR_t rt_proc_resume_frame_h(void **hslot);
@@ -233,8 +233,8 @@ static bool bcps_is_pl_pi(const char * s) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_undef_fallback(uint64_t undef_fp) {
     if (bcps_is_pl_pi(_.op_sval)) {
-        uint64_t pl_fp; { void (*fp)(const char *) = rt_pl_iso_throw_existence_key; pl_fp = (uint64_t)(uintptr_t)(void*)fp; }
-        return x86_ro_load_q("rdi", 0) + x86("call", "rt_pl_iso_throw_existence_key", pl_fp) + x86_omega();
+        uint64_t pl_fp; { DESCR_t (*fp)(const char *) = rt_pl_exist_key_raise; pl_fp = (uint64_t)(uintptr_t)(void*)fp; }
+        return x86_ro_load_q("rdi", 0) + x86("call", "rt_pl_exist_key_raise", pl_fp) + x86_omega();
     }
     return x86("call", "rt_ab_undef_fn_stub", undef_fp);
 }

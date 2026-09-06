@@ -141,4 +141,5 @@
 #define MOD_OP_RT_PL_AX_FFP           200    /* rtx_plunify.s rt_pl_dop_ax_ffp     */
 #define MOD_OP_RT_PL_AX_PI            201    /* rtx_plunify.s rt_pl_dop_ax_pi      */
 #define MOD_OP_RT_PL_AX_E             202    /* rtx_plunify.s rt_pl_dop_ax_e       */
+#define MOD_OP_RT_PL_EXIST_KEY_RAISE 203
 #endif

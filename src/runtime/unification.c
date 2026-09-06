@@ -1542,7 +1542,12 @@ static const char *pl_ball_key_str(DESCR_t d)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_ball_existence(DESCR_t *a, int n)
 {
-    const char *key = (a && n > 0) ? pl_ball_key_str(a[0]) : (const char *)0;
+    extern void *rt_pl_ball_existence_key(const char *key);
+    return rt_pl_ball_existence_key((a && n > 0) ? pl_ball_key_str(a[0]) : (const char *)0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_pl_ball_existence_key(const char *key)
+{
     char nm[200]; int ar = 0;
     const char *sl = key ? strrchr(key, '/') : (const char *)0;
     if (sl) { size_t kl = (size_t)(sl - key); if (kl > sizeof nm - 1) kl = sizeof nm - 1; memcpy(nm, key, kl); nm[kl] = 0; ar = atoi(sl + 1); }

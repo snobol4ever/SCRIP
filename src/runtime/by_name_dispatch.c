@@ -983,12 +983,18 @@ void *rt_pl_goal_spine_prep(DESCR_t goal, DESCR_t *argv, int n) {
     return rt_proc_fn(key);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_goal_gen_h(DESCR_t goal, DESCR_t *argv, int n, void **hslot) {
+DESCR_t rt_pl_goal_gen_h_c(DESCR_t goal, DESCR_t *argv, int n, void **hslot, void **ball) {
     extern DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **act_slot);
+    extern void *rt_pl_ball_existence_key(const char *key);
+    extern void *rt_pl_ball_type_pi(const char *kind, const char *what, const char *nm, int ar);
     char key[288]; DESCR_t *kids = (DESCR_t *)0; int ar = 0;
     if (hslot) *hslot = (void *)0;
-    if (!rt_pl_goal_key(goal, n, key, sizeof key, &kids, &ar)) { rt_pl_iso_throw_pi("type_error", "callable", "?", 0); return FAILDESCR; }
-    if (!rt_proc_is_registered(key)) { rt_pl_iso_throw_existence_key(key); return FAILDESCR; }
+    if (!rt_pl_goal_key(goal, n, key, sizeof key, &kids, &ar)) {
+        if (ball) { *ball = rt_pl_ball_type_pi("type_error", "callable", "?", 0); return FAILDESCR; }
+        rt_pl_iso_throw_pi("type_error", "callable", "?", 0); return FAILDESCR; }
+    if (!rt_proc_is_registered(key)) {
+        if (ball) { *ball = rt_pl_ball_existence_key(key); return FAILDESCR; }
+        rt_pl_iso_throw_existence_key(key); return FAILDESCR; }
     rt_pl_goal_stage(kids, ar, argv, n);
     return rt_proc_call_gen_h(key, ar + n, hslot);
 }
