@@ -18,7 +18,12 @@
 # still reads empty inside the body (the frame snapshot is taken but not consulted), and EXHAUSTION does
 # not hand control back to the activator -- the ping-pong witness runs all six activations and then loses
 # main's continuation. Both are named on the row with their own witnesses.
-# ⛔ REFUSES rc=2 unless all 10 runs (5 witnesses x 2 modes) are graded, and rc=2 if the oracle is absent.
+# ⭐ THE MUTUAL-CYCLE ARM IS THE ONE THAT COST THE MOST AND IT IS WHY THIS GATE HAS SIX WITNESSES: c1
+# activates c2 activates c1, so the activator chain is a CYCLE. A finished co-expression must return to a
+# LIVE activator, and the walk that finds one must be BOUNDED -- an unbounded walk over a cycle of dead
+# contexts HANGS, which is how the first version of that cure presented (the program stopped producing
+# output and never exited, where the defect it replaced merely lost the last line).
+# ⛔ REFUSES rc=2 unless all 12 runs (6 witnesses x 2 modes) are graded, and rc=2 if the oracle is absent.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"; cd "$ROOT" || exit 2
 ICONT=/home/resources/icon-master/bin/icont; ICONX=/home/resources/icon-master/bin/iconx
@@ -30,8 +35,9 @@ printf 'global g\nprocedure main()\n  g := 42;\n  c := create write(g);\n  @c;\n
 printf 'procedure main()\n  c := create write("x");\n  write(type(c));\nend\n'                                               > "$d/value_type.icn"
 printf 'procedure main()\n  c := create write("in c");\n  @c;\n  write("done");\nend\n'                                      > "$d/one_hop_control.icn"
 printf 'procedure main()\n  c := create (write("a") & write("b"));\n  @c;\n  @c;\n  write("done");\nend\n'                    > "$d/two_activations_control.icn"
+printf 'global c1, c2\nprocedure main()\n  c1 := create note(c2, "C2");\n  c2 := create note(c1, "C1");\n  @c1;\n  write("main done");\nend\nprocedure note(c, tag)\n  write("act of ", tag);\n  @c;\nend\n' > "$d/mutual_cycle.icn"
 graded=0; bad=0
-for t in chained global_in_body value_type one_hop_control two_activations_control; do
+for t in chained global_in_body value_type mutual_cycle one_hop_control two_activations_control; do
     "$ICONT" -s -o "$d/$t.ora" "$d/$t.icn" >/dev/null 2>&1 || { echo "⛔ GATE REFUSES (rc=2): icont rejected $t -- cannot measure"; exit 2; }
     want=$(timeout 20 "$ICONX" "$d/$t.ora" </dev/null 2>/dev/null); wrc=$?
     [ "$wrc" != 124 ] || { echo "⛔ GATE REFUSES (rc=2): the ORACLE timed out on $t -- cannot measure"; exit 2; }
@@ -49,6 +55,6 @@ for t in chained global_in_body value_type one_hop_control two_activations_contr
         graded=$((graded+1)); echo "  ⛔ RED m4 $t: does not compile/link"; bad=1
     fi
 done
-[ "$graded" = 10 ] || { echo "⛔ GATE REFUSES (rc=2): graded $graded of the 10 required runs"; exit 2; }
+[ "$graded" = 12 ] || { echo "⛔ GATE REFUSES (rc=2): graded $graded of the 12 required runs"; exit 2; }
 [ "$bad" = 0 ] || { echo "⛔ GATE RED [icn_coexpr_value_and_environment]: a co-expression value or its body's globals are still lost"; exit 1; }
 echo "✅ GATE OK [icn_coexpr_value_and_environment]: a co-expression is a typed value, its body sees globals, and activating one from inside another works -- BOTH modes"

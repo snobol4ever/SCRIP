@@ -89,13 +89,22 @@ void scrip_coexpr_destroy(scrip_coctx_t *ctx) {
     sem_destroy(ctx->semp);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static scrip_coctx_t g_root_ctx;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static scrip_coctx_t *scrip_co_live_activator(scrip_coctx_t *me) {
+    scrip_coctx_t *b = me ? me->activator : 0;
+    for (int hop = 0; b && b != &g_root_ctx && b->dead && hop < 64; hop++) b = b->activator;
+    if (!b || (b != &g_root_ctx && b->dead)) b = &g_root_ctx;
+    return b;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void scrip_coret(uint64_t d0, uint64_t d1, void *resume_addr) {
     if (!scrip_co_current) scrip_co_uerror("scrip_coexpr: scrip_coret with no current coexpression (RUNG 5 `@` wiring bug -- body entered without setting scrip_co_current)");
     scrip_co_current->xmit[0] = d0;
     scrip_co_current->xmit[1] = d1;
     scrip_co_current->resume_addr = resume_addr;
     scrip_coctx_t *me = scrip_co_current;
-    scrip_coctx_t *back = me->activator;
+    scrip_coctx_t *back = scrip_co_live_activator(me);
     if (!back) scrip_co_uerror("scrip_coexpr: scrip_coret with no activator (RUNG 5 `@` did not set scrip_co_current->activator before switching in)");
     scrip_co_current = back;
     scrip_coswitch(me, back, 1);
@@ -105,7 +114,7 @@ void scrip_cofail(void) {
     if (!scrip_co_current) scrip_co_uerror("scrip_coexpr: scrip_cofail with no current coexpression (RUNG 5 `@` wiring bug)");
     scrip_coctx_t *me = scrip_co_current;
     me->dead = 1;
-    scrip_coctx_t *back = me->activator;
+    scrip_coctx_t *back = scrip_co_live_activator(me);
     if (!back) scrip_co_uerror("scrip_coexpr: scrip_cofail with no activator (RUNG 5 `@` did not set the activator chain)");
     scrip_co_current = back;
     scrip_coswitch(me, back, 1);
@@ -179,7 +188,6 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7]
     ctx->gc_next = g_co_gc_head; g_co_gc_head = ctx;
     return ctx;
 }
-static scrip_coctx_t g_root_ctx;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint64_t *out2) {
     if (!target) scrip_co_uerror("scrip_coexpr: activate of NULL coexpression (operand slot held garbage -- LOWER/driver wiring bug)");
