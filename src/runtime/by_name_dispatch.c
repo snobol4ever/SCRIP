@@ -1762,6 +1762,8 @@ static DESCR_t pl_tree_cell(const tree_t *t, pl_vtab_t *vt) {
     default: return pl_mk_atom("?");
     }
 }
+static int pl_tok_is_graphic(int c) { return c && strchr("+-*/\\^<>=~:.?@#&$", c) != (char *)0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_read_term_text(char *buf, size_t n) {
     extern FILE *fh_cur_in_fp(void); FILE *in = fh_cur_in_fp();
     size_t k = 0; int c, q = 0, seen = 0;
@@ -1770,13 +1772,46 @@ static int pl_read_term_text(char *buf, size_t n) {
         if (!seen && c == '%') { while ((c = fgetc(in)) != EOF && c != '\n') ; continue; }
         seen = 1; if (k + 2 >= n) return -1; buf[k++] = (char)c;
         if (q) { if (c == q) q = 0; continue; }
+            if (c == '\'' && k >= 2 && buf[k - 2] == '0' && (k < 3 || !(isalnum((unsigned char)buf[k - 3]) || buf[k - 3] == '_'))) {
+            int d = fgetc(in); if (d == EOF) { buf[k] = 0; return 2; }
+            if (k + 2 >= n) return -1; buf[k++] = (char)d;
+            if (d == '\\') { int e2; while ((e2 = fgetc(in)) != EOF) { if (k + 2 >= n) return -1; buf[k++] = (char)e2; if (e2 == '\\' || isalpha((unsigned char)e2)) break; } }
+            else if (d == '\'') { int e2 = fgetc(in); if (e2 == '\'') { if (k + 2 >= n) return -1; buf[k++] = (char)e2; } else if (e2 != EOF) ungetc(e2, in); }
+            continue; }
         if (c == '\'' || c == '"') { q = c; continue; }
-        if (c == '.') { int d = fgetc(in); if (d != EOF) ungetc(d, in); if (d == EOF || d == ' ' || d == '\t' || d == '\n' || d == '\r' || d == '%') { buf[k] = 0; return 1; } }
+        if (c == '.' && !(k >= 2 && pl_tok_is_graphic((unsigned char)buf[k - 2]))) {
+            int d = fgetc(in); if (d != EOF) ungetc(d, in); if (d == EOF || d == ' ' || d == '\t' || d == '\n' || d == '\r' || d == '%') { buf[k] = 0; return 1; } }
     }
-    buf[k] = 0; return seen ? 1 : 0;
+    buf[k] = 0; return seen ? 2 : 0;
 }
+static int pl_text_is_unbalanced(const char *s) {
+    char st[256]; int sp = 0; size_t i;
+    for (i = 0; s[i]; i++) {
+        char c = s[i];
+        if (c == '%') { while (s[i] && s[i] != '\n') i++; if (!s[i]) break; continue; }
+        if (c == '/' && s[i + 1] == '*') { i += 2; while (s[i] && !(s[i] == '*' && s[i + 1] == '/')) i++; if (!s[i]) return 1; i++; continue; }
+        if (c == '0' && s[i + 1] == '\'' && s[i + 2] && (i == 0 || !(isalnum((unsigned char)s[i - 1]) || s[i - 1] == '_'))) {
+            i += 2;
+            if (s[i] == '\\') { i++; while (s[i] && s[i] != '\\' && !isalpha((unsigned char)s[i])) i++; if (!s[i]) return 1; }
+            else if (s[i] == '\'' && s[i + 1] == '\'') i++;
+            continue; }
+        if (c == '\'' || c == '"' || c == '`') { char q = c; i++;
+            for (;;) { if (!s[i]) return 1;
+                if (s[i] == '\\' && s[i + 1]) { i += 2; continue; }
+                if (s[i] == q) { if (s[i + 1] == q) { i += 2; continue; } break; }
+                i++; }
+            continue; }
+        if (c == '(' || c == '[' || c == '{') { if (sp >= 256) return 0; st[sp++] = c; continue; }
+        if (c == ')' || c == ']' || c == '}') { char want = c == ')' ? '(' : c == ']' ? '[' : '{';
+            if (sp == 0 || st[sp - 1] != want) return 1;
+            sp--; continue; }
+    }
+    return sp != 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_parse_term_text(const char *txt, DESCR_t *out, pl_vtab_t *vt, PlProgram **pg_out) {
     size_t L = strlen(txt); char *text = (char *)rt_ws_alloc(L + 16); size_t e;
+    if (pl_text_is_unbalanced(txt)) return 0;
     memcpy(text, "'$rd'(", 6); memcpy(text + 6, txt, L); e = 6 + L;
     while (e > 6 && (text[e - 1] == ' ' || text[e - 1] == '\n' || text[e - 1] == '\t' || text[e - 1] == '\r')) e--;
     if (e > 6 && text[e - 1] == '.') e--;
@@ -1788,8 +1823,11 @@ static int pl_parse_term_text(const char *txt, DESCR_t *out, pl_vtab_t *vt, PlPr
       vt->n = 0; *out = pl_tree_cell(tr->c[0], vt); return 1; }
 }
 PL_CX_LEAF_HEAD(read, 1) { static char text[65536]; int got = pl_read_term_text(text, sizeof text - 8); DESCR_t t; pl_vtab_t vt;
-    if (got <= 0) ok = plw_unify_vals(args[0], pl_mk_atom("end_of_file"), cx);
-    else ok = pl_parse_term_text(text, &t, &vt, (PlProgram **)0) && plw_unify_vals(args[0], t, cx); } PL_CX_LEAF_TAIL
+    extern void *rt_pl_ball_kind1(const char *, const char *);
+    if (got == 0) ok = plw_unify_vals(args[0], pl_mk_atom("end_of_file"), cx);
+    else if (got != 1) { cx->ball = rt_pl_ball_kind1("syntax_error", got < 0 ? "term_too_long" : "end_of_file"); ok = 0; }
+    else if (!pl_parse_term_text(text, &t, &vt, (PlProgram **)0)) { cx->ball = rt_pl_ball_kind1("syntax_error", "cannot_start_term"); ok = 0; }
+    else ok = plw_unify_vals(args[0], t, cx); } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(atom_to_term, 3) { char b[65536]; const char *txt; DESCR_t t; pl_vtab_t vt;
     if (pl_val_unbound(rt_pl_deref_val(args[0]))) ok = rt_pl_term_string_cell(&args[1], &args[0], cx) && plw_unify_vals(args[2], pl_nil(), cx);
     else if (!pl_cell_text(args[0], b, sizeof b, &txt) || !pl_parse_term_text(txt, &t, &vt, (PlProgram **)0)) ok = 0;
@@ -1810,8 +1848,10 @@ static int pl_read_term_options_cell(DESCR_t opts, pl_vtab_t *vt, pl_tr_ctx_t *c
                 if (!plw_unify_vals(oa[0], pl_list_from_arr(el, n), cx)) return 0; } }
         o = rt_pl_deref_val(kids[1]); }
     return 1; }
-#define PL_READ_TERM_LEAF(nm) PL_CX_LEAF_HEAD(nm, 3) { char b[65536]; DESCR_t t; pl_vtab_t vt; \
-    ok = pl_list_text(args[0], b, sizeof b) && pl_parse_term_text(b, &t, &vt, (PlProgram **)0) && plw_unify_vals(args[1], t, cx) && pl_read_term_options_cell(args[2], &vt, cx); } PL_CX_LEAF_TAIL
+#define PL_READ_TERM_LEAF(nm) PL_CX_LEAF_HEAD(nm, 3) { char b[65536]; DESCR_t t; pl_vtab_t vt; extern void *rt_pl_ball_kind1(const char *, const char *); \
+    ok = pl_list_text(args[0], b, sizeof b); \
+    if (ok && !pl_parse_term_text(b, &t, &vt, (PlProgram **)0)) { cx->ball = rt_pl_ball_kind1("syntax_error", "cannot_start_term"); ok = 0; } \
+    else if (ok) ok = plw_unify_vals(args[1], t, cx) && pl_read_term_options_cell(args[2], &vt, cx); } PL_CX_LEAF_TAIL
 PL_READ_TERM_LEAF(read_term_from_atom) PL_READ_TERM_LEAF(read_term_from_chars) PL_READ_TERM_LEAF(read_term_from_codes)
 #define PL_IN_LEAF(nm, ar) PL_CX_LEAF_HEAD(nm##_s, ar) { extern int fh_current_input(void); extern void fh_set_input(int); int idx = pl_stream_idx(args[0], 0); ok = 0; \
     if (idx >= 0) { int sv = fh_current_input(); fh_set_input(idx); DESCR_t r = rt_pl_dop_##nm##_c(args + 1, ar - 1, cx); fh_set_input(sv); \

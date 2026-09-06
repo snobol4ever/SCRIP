@@ -143,4 +143,9 @@
 #define MOD_OP_RT_PL_AX_PI            201    /* rtx_plunify.s rt_pl_dop_ax_pi      */
 #define MOD_OP_RT_PL_AX_E             202    /* rtx_plunify.s rt_pl_dop_ax_e       */
 #define MOD_OP_RT_PL_EXIST_KEY_RAISE 203
+#define MOD_OP_RT_PL_READ              204    /* rtx_plunify.s rt_pl_dop_read         */
+#define MOD_OP_RT_PL_READ_TFA          205    /* rtx_plunify.s read_term_from_atom    */
+#define MOD_OP_RT_PL_READ_TFCH         206    /* rtx_plunify.s read_term_from_chars   */
+#define MOD_OP_RT_PL_READ_TFCO         207    /* rtx_plunify.s read_term_from_codes   */
+#define MOD_OP_RT_PL_READ_S            208    /* rtx_plunify.s rt_pl_dop_read_s       */
 #endif
