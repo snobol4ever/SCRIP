@@ -1559,6 +1559,9 @@ DESCR_t dop_pl_tab(DESCR_t *args, int nargs) { extern FILE *fh_cur_out_fp(void);
     FILE *o = fh_cur_out_fp();for (long long i = 0;i < v.i;i++) fputc(' ', o);} return pl_ok(); }
 DESCR_t dop_pl_put_char(DESCR_t *args, int nargs) { extern FILE *fh_cur_out_fp(void);char b[64];const char *s;if (nargs != 1 || !pl_cell_text(args[0], b, sizeof b, &s)) return FAILDESCR;
     fputs(s, fh_cur_out_fp());return pl_ok(); }
+DESCR_t dop_pl_put_code(DESCR_t *args, int nargs) { extern FILE *fh_cur_out_fp(void); if (nargs != 1) return FAILDESCR;
+    { DESCR_t v = rt_pl_deref_val(args[0]); if (v.v != DT_I) return FAILDESCR; fputc((int)v.i, fh_cur_out_fp()); return pl_ok(); } }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t dop_pl_halt(DESCR_t *args, int nargs) { int code = 0; if (nargs == 1) { DESCR_t v = rt_pl_deref_val(args[0]); if (v.v == DT_I) code = (int)v.i; } fflush((FILE *)0); exit(code); }
 DESCR_t dop_pl_flush_output(DESCR_t *args, int nargs) { extern FILE *fh_cur_out_fp(void); (void)args; (void)nargs; fflush(fh_cur_out_fp()); return pl_ok(); }
 DESCR_t dop_pl_format(DESCR_t *args, int nargs) {
@@ -1595,6 +1598,7 @@ PL_OUT_LEAF(writeln, dop_pl_writeln)
 PL_OUT_LEAF(nl, dop_nl)
 PL_OUT_LEAF(tab, dop_pl_tab)
 PL_OUT_LEAF(put_char, dop_pl_put_char)
+PL_OUT_LEAF(put_code, dop_pl_put_code)
 PL_OUT_LEAF(flush_output, dop_pl_flush_output)
 DESCR_t dop_pl_set_output(DESCR_t *args, int nargs) { extern void fh_set_output(int); int idx;
     if (nargs != 1 || (idx = pl_stream_idx(args[0], 1)) < 0) return FAILDESCR; fh_set_output(idx); return pl_ok(); }
@@ -1618,10 +1622,16 @@ DESCR_t dop_pl_op(DESCR_t *args, int nargs) {
     return pl_ok();
 }
 static int pl_open_leaf(DESCR_t *args, pl_tr_ctx_t *cx) {
-    extern int fh_alloc(FILE *); char fb[4096], mb[64]; const char *fn, *md; FILE *fp;
+    extern int fh_alloc(FILE *); extern void *rt_pl_ball_instantiation(void); extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    char fb[4096], mb[64]; const char *fn, *md; FILE *fp; const char *fmode;
+    DESCR_t f = rt_pl_deref_val(args[0]); DESCR_t m = rt_pl_deref_val(args[1]);
+    if (pl_val_unbound(f) || pl_val_unbound(m)) { cx->ball = rt_pl_ball_instantiation(); return 0; }
+    if (f.v != (DTYPE_t)DT_S && f.v != (DTYPE_t)DT_A) { cx->ball = rt_pl_ball_kind2("domain_error", "source_sink", f); return 0; }
     if (!pl_cell_text(args[0], fb, sizeof fb, &fn) || !pl_cell_text(args[1], mb, sizeof mb, &md)) return 0;
-    fp = fopen(fn, !strcmp(md, "read") ? "r" : !strcmp(md, "write") ? "w" : !strcmp(md, "append") ? "a" : !strcmp(md, "update") ? "r+" : "");
-    if (!fp) return 0;
+    fmode = !strcmp(md, "read") ? "r" : !strcmp(md, "write") ? "w" : !strcmp(md, "append") ? "a" : !strcmp(md, "update") ? "r+" : (const char *)0;
+    if (!fmode) { cx->ball = rt_pl_ball_kind2("domain_error", "io_mode", m); return 0; }
+    fp = fopen(fn, fmode);
+    if (!fp) { cx->ball = rt_pl_ball_kind2("existence_error", "source_sink", f); return 0; }
     { int idx = fh_alloc(fp); if (idx < 0) { fclose(fp); return 0; } return plw_unify_vals(args[2], pl_mk_stream(idx), cx); }
 }
 #define PL_CX_LEAF_HEAD(nm, ar) DESCR_t rt_pl_dop_##nm##_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) { extern void rt_gc_point_arr(DESCR_t *, int, const char **);int ok; \
@@ -1739,6 +1749,42 @@ PL_CX_LEAF_HEAD(get_char, 1) { extern FILE *fh_cur_in_fp(void); int c = fgetc(fh
 PL_CX_LEAF_HEAD(peek_char, 1) { extern FILE *fh_cur_in_fp(void); int c = fgetc(fh_cur_in_fp());
     if (c == EOF) ok = plw_unify_vals(args[0], pl_mk_atom("end_of_file"), cx);else { ungetc(c, fh_cur_in_fp());char c2[2] = { (char)c, 0 };
     ok = plw_unify_vals(args[0], pl_mk_atom_dup(c2, 1), cx); } } PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(get_code, 1) { extern FILE *fh_cur_in_fp(void); int c = fgetc(fh_cur_in_fp());
+    ok = plw_unify_vals(args[0], INTVAL(c == EOF ? -1LL : (long long)c), cx); } PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(peek_code, 1) { extern FILE *fh_cur_in_fp(void); int c = fgetc(fh_cur_in_fp());
+    if (c != EOF) ungetc(c, fh_cur_in_fp());
+    ok = plw_unify_vals(args[0], INTVAL(c == EOF ? -1LL : (long long)c), cx); } PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(get_byte, 1) { extern FILE *fh_cur_in_fp(void); int c = fgetc(fh_cur_in_fp());
+    ok = plw_unify_vals(args[0], INTVAL(c == EOF ? -1LL : (long long)(unsigned char)c), cx); } PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(peek_byte, 1) { extern FILE *fh_cur_in_fp(void); int c = fgetc(fh_cur_in_fp());
+    if (c != EOF) ungetc(c, fh_cur_in_fp());
+    ok = plw_unify_vals(args[0], INTVAL(c == EOF ? -1LL : (long long)(unsigned char)c), cx); } PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(unget_char, 1) { extern FILE *fh_cur_in_fp(void); char b[64]; const char *t;
+    ok = 0; if (pl_cell_text(args[0], b, sizeof b, &t) && t && t[0]) { ungetc((unsigned char)t[0], fh_cur_in_fp()); ok = 1; } } PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(unget_code, 1) { extern FILE *fh_cur_in_fp(void); DESCR_t v = rt_pl_deref_val(args[0]);
+    ok = 0; if (v.v == (DTYPE_t)DT_I && v.i >= 0) { ungetc((int)v.i, fh_cur_in_fp()); ok = 1; } } PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(unget_byte, 1) { extern FILE *fh_cur_in_fp(void); DESCR_t v = rt_pl_deref_val(args[0]);
+    ok = 0; if (v.v == (DTYPE_t)DT_I && v.i >= 0 && v.i <= 255) { ungetc((int)v.i, fh_cur_in_fp()); ok = 1; } } PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t dop_pl_at_end_of_stream(DESCR_t *args, int nargs) { extern FILE *fh_cur_in_fp(void); int c;
+    (void)args; if (nargs != 0) return FAILDESCR; c = fgetc(fh_cur_in_fp());
+    if (c == EOF) return pl_ok(); ungetc(c, fh_cur_in_fp()); return FAILDESCR; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t dop_pl_get0(DESCR_t *args, int nargs) { (void)args; (void)nargs; return FAILDESCR; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(get_edin, 1) { extern FILE *fh_cur_in_fp(void); int c; FILE *f = fh_cur_in_fp();
+    do { c = fgetc(f); } while (c != EOF && (unsigned char)c <= ' ');
+    ok = plw_unify_vals(args[0], INTVAL(c == EOF ? -1LL : (long long)c), cx); } PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(skip, 1) { extern FILE *fh_cur_in_fp(void); DESCR_t v = rt_pl_deref_val(args[0]); FILE *f = fh_cur_in_fp(); int c;
+    ok = 0; if (v.v == (DTYPE_t)DT_I) { do { c = fgetc(f); } while (c != EOF && c != (int)v.i); ok = 1; } } PL_CX_LEAF_TAIL
 typedef struct { const char *nm[256]; DESCR_t v[256]; int cnt[256]; int n; } pl_vtab_t;
 static DESCR_t pl_tree_cell(const tree_t *t, pl_vtab_t *vt) {
     extern int prolog_atom_intern(const char *); extern DESCR_t rt_pl_fresh_var_ref(void);
@@ -1857,8 +1903,83 @@ PL_READ_TERM_LEAF(read_term_from_atom) PL_READ_TERM_LEAF(read_term_from_chars) P
     if (idx >= 0) { int sv = fh_current_input(); fh_set_input(idx); DESCR_t r = rt_pl_dop_##nm##_c(args + 1, ar - 1, cx); fh_set_input(sv); \
         ok = (r.v == (DTYPE_t)DT_I); } } PL_CX_LEAF_TAIL
 PL_IN_LEAF(read, 2)
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(put_byte, 1) { extern FILE *fh_cur_out_fp(void); extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    DESCR_t v = rt_pl_deref_val(args[0]); ok = 0;
+    if (pl_val_unbound(v)) { extern void *rt_pl_ball_instantiation(void); cx->ball = rt_pl_ball_instantiation(); }
+    else if (v.v != (DTYPE_t)DT_I) cx->ball = rt_pl_ball_kind2("type_error", "byte", v);
+    else if (v.i < 0 || v.i > 255) cx->ball = rt_pl_ball_kind2("type_error", "byte", v);
+    else { fputc((int)v.i, fh_cur_out_fp()); ok = 1; } } PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define PL_OUT_CX_LEAF(nm, ar) PL_CX_LEAF_HEAD(nm##_s, ar) { extern int fh_current_output(void); extern void fh_set_output(int); int idx = pl_stream_idx(args[0], 1); ok = 0; \
+    if (idx >= 0) { int sv = fh_current_output(); fh_set_output(idx); DESCR_t r = rt_pl_dop_##nm##_c(args + 1, ar - 1, cx); fh_set_output(sv); \
+        ok = (r.v == (DTYPE_t)DT_I); } } PL_CX_LEAF_TAIL
+PL_OUT_CX_LEAF(put_byte, 2)
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(put_char_c, 1) { extern FILE *fh_cur_out_fp(void); extern void *rt_pl_ball_instantiation(void);
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    DESCR_t v = rt_pl_deref_val(args[0]); char b[64]; const char *t; ok = 0;
+    if (pl_val_unbound(v)) cx->ball = rt_pl_ball_instantiation();
+    else if (!pl_cell_text(args[0], b, sizeof b, &t) || !t || !t[0]) cx->ball = rt_pl_ball_kind2("type_error", "character", v);
+    else { fputs(t, fh_cur_out_fp()); ok = 1; } } PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_OUT_CX_LEAF(put_char_c, 2)
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char pl_edin_out_name[256]; static char pl_edin_in_name[256];
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_edin_switch(DESCR_t *args, pl_tr_ctx_t *cx, int is_out, const char *fmode) {
+    extern int fh_alloc(FILE *); extern void fh_set_output(int); extern void fh_set_input(int);
+    extern void *rt_pl_ball_instantiation(void); extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    char fb[4096]; const char *fn; FILE *fp; int idx; DESCR_t f = rt_pl_deref_val(args[0]);
+    if (pl_val_unbound(f)) { cx->ball = rt_pl_ball_instantiation(); return 0; }
+    if (!pl_cell_text(args[0], fb, sizeof fb, &fn)) { cx->ball = rt_pl_ball_kind2("domain_error", "source_sink", f); return 0; }
+    fp = fopen(fn, fmode);
+    if (!fp) { cx->ball = rt_pl_ball_kind2("existence_error", "source_sink", f); return 0; }
+    idx = fh_alloc(fp); if (idx < 0) { fclose(fp); return 0; }
+    if (is_out) { fh_set_output(idx); snprintf(pl_edin_out_name, sizeof pl_edin_out_name, "%s", fn); }
+    else { fh_set_input(idx); snprintf(pl_edin_in_name, sizeof pl_edin_in_name, "%s", fn); }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_edin_revert(int is_out) {
+    extern FILE *fh_get(int); extern void fh_free(int); extern void fh_set_output(int); extern void fh_set_input(int);
+    extern int fh_current_output(void); extern int fh_current_input(void);
+    int cur = is_out ? fh_current_output() : fh_current_input();
+    if (cur >= 3) { FILE *fp = fh_get(cur); if (fp) fclose(fp); fh_free(cur); }
+    if (is_out) { fh_set_output(1); pl_edin_out_name[0] = 0; } else { fh_set_input(0); pl_edin_in_name[0] = 0; }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(telling, 1) { extern int fh_current_output(void);
+    ok = plw_unify_vals(args[0], (fh_current_output() == 1 || !pl_edin_out_name[0]) ? pl_mk_atom("user") : pl_mk_atom_dup(pl_edin_out_name, strlen(pl_edin_out_name)), cx); } PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(seeing, 1) { extern int fh_current_input(void);
+    ok = plw_unify_vals(args[0], (fh_current_input() == 0 || !pl_edin_in_name[0]) ? pl_mk_atom("user") : pl_mk_atom_dup(pl_edin_in_name, strlen(pl_edin_in_name)), cx); } PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(tell, 1) ok = pl_edin_switch(args, cx, 1, "w"); PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(append1, 1) ok = pl_edin_switch(args, cx, 1, "a"); PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(see, 1) ok = pl_edin_switch(args, cx, 0, "r"); PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t dop_pl_told(DESCR_t *args, int nargs) { (void)args; if (nargs != 0) return FAILDESCR; pl_edin_revert(1); return pl_ok(); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t dop_pl_seen(DESCR_t *args, int nargs) { (void)args; if (nargs != 0) return FAILDESCR; pl_edin_revert(0); return pl_ok(); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(at_end_of_stream_s, 1) { extern int fh_current_input(void); extern void fh_set_input(int);
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    int idx = pl_stream_idx(args[0], 0); ok = 0;
+    if (idx < 0) { cx->ball = rt_pl_ball_kind2("existence_error", "stream", rt_pl_deref_val(args[0])); }
+    else { int sv = fh_current_input(); fh_set_input(idx); ok = (dop_pl_at_end_of_stream((DESCR_t *)0, 0).v == (DTYPE_t)DT_I); fh_set_input(sv); } } PL_CX_LEAF_TAIL
 PL_IN_LEAF(get_char, 2)
 PL_IN_LEAF(peek_char, 2)
+PL_IN_LEAF(get_code, 2)
+PL_IN_LEAF(peek_code, 2)
+PL_IN_LEAF(get_byte, 2)
+PL_IN_LEAF(peek_byte, 2)
+PL_IN_LEAF(unget_char, 2)
+PL_IN_LEAF(unget_code, 2)
+PL_IN_LEAF(unget_byte, 2)
 PL_CX_LEAF_HEAD(current_output, 1) { extern int fh_current_output(void); ok = plw_unify_vals(args[0], pl_mk_stream(fh_current_output()), cx); } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(current_input, 1) { extern int fh_current_input(void); ok = plw_unify_vals(args[0], pl_mk_stream(fh_current_input()), cx); } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(open, 3) ok = pl_open_leaf(args, cx); PL_CX_LEAF_TAIL

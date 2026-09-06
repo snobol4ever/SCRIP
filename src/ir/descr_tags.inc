@@ -148,4 +148,14 @@
 #define MOD_OP_RT_PL_READ_TFCH         206    /* rtx_plunify.s read_term_from_chars   */
 #define MOD_OP_RT_PL_READ_TFCO         207    /* rtx_plunify.s read_term_from_codes   */
 #define MOD_OP_RT_PL_READ_S            208    /* rtx_plunify.s rt_pl_dop_read_s       */
+#define MOD_OP_RT_PL_PUT_BYTE          209    /* rtx_plunify.s rt_pl_dop_put_byte     */
+#define MOD_OP_RT_PL_PUT_BYTE_S        210    /* rtx_plunify.s rt_pl_dop_put_byte_s   */
+#define MOD_OP_RT_PL_AT_EOS_S          211    /* rtx_plunify.s at_end_of_stream_s     */
+#define MOD_OP_RT_PL_PUT_CHAR_C        212    /* rtx_plunify.s put_char_c             */
+#define MOD_OP_RT_PL_PUT_CHAR_C_S      213    /* rtx_plunify.s put_char_c_s           */
+#define MOD_OP_RT_PL_OPEN              214    /* rtx_plunify.s rt_pl_dop_open         */
+#define MOD_OP_RT_PL_OPEN4             215    /* rtx_plunify.s rt_pl_dop_open4        */
+#define MOD_OP_RT_PL_TELL              216    /* rtx_plunify.s rt_pl_dop_tell         */
+#define MOD_OP_RT_PL_APPEND1           217    /* rtx_plunify.s rt_pl_dop_append1      */
+#define MOD_OP_RT_PL_SEE               218    /* rtx_plunify.s rt_pl_dop_see          */
 #endif
