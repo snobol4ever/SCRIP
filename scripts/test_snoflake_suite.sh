@@ -55,6 +55,7 @@ SCRIP="$SD/scrip"; RT_DIR="$SD/out"; TIMEOUT="${TIMEOUT:-8s}"; ARM_SBL="${ARM_SB
 # lib_gate.sh, the ONE authority (hq_B 4c7253e99) -- never a second copy of the staleness rule.
 "$HERE/util_require_fresh.sh" --gate test_snoflake_suite "$SCRIP" "${RT_DIR:-$HERE/../out}/libscrip_rt.so" || exit 2
 [ -f "$RT_DIR/libscrip_rt.so" ] || { echo "⛔ REFUSE(rc=2): no $RT_DIR/libscrip_rt.so"; exit 2; }
+. "$HERE/lib_inventory.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_inventory.sh unloadable"; exit 2; }
 SBL=""
 if [ "$ARM_SBL" = "1" ]; then
     . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_oracle_flags.sh unloadable and ARM_SBL=1"; exit 2; }
@@ -222,10 +223,15 @@ echo "mode-4 (--compile): PASS=$P4 FAIL=$F4 SKIP(cc)=$S4  NSTD $N4P/$((N4P+N4F))
 echo "dialect tally (NOT in the score): $DIA fixture(s) pass against SPITBOL while failing their own @expect -- SPITBOL itself departs from what snoflake expects there"
 [ -n "$SBL" ] && echo "sbl -bf vs @expect (informational, the dialect measurement): PASS=$PS FAIL=$FS  NSTD $NSP/$((NSP+NSF))"
 [ -n "$CSN" ] && echo "csnobol4 (home dialect, triangulation): PASS=$PC FAIL=$FC  NSTD $NCP/$((NCP+NCF))"
-# ⭐ THE PACKAGE LOCKDOWN (Lon 2026-09-06): every fixture lands in P3/F3/N3P/N3F (the main loop has no
-# per-fixture skip path), so TOTAL is always fully graded against the oracle -- ungradable=0 by
-# construction, not by assumption; OPTS-not-honored fixtures are still graded, just caveated above.
-echo "PACKAGE_INVENTORY shipped=$TOTAL graded=$((P3+F3+N3P+N3F)) ungradable=0 ungraded=$((TOTAL-(P3+F3+N3P+N3F)))"
+# ⭐ THE PACKAGE LOCKDOWN inventory line, via the shared body (lib_inventory.sh) -- never a second copy
+# of the arithmetic. Every fixture lands in P3/F3/N3P/N3F (the main loop has no per-fixture skip path),
+# so TOTAL is always fully graded against the oracle -- ungradable=0/ungraded=0 by construction, not by
+# assumption. EN3 (error-number-only, a narrower comparison than full stream equality) is graded_narrow,
+# named per-entry in NARROW.tsv beside the package; everything else that went through full comparison
+# (SE3 stream-equal passes, F3 fails, and the NSTD-flagged N3P/N3F) is graded_stream.
+INV_PACKAGE=snoflake_suite; INV_DIR="$SUITE"; INV_EXT=".sno"
+INV_LINE="$(inventory_line "$((P3+F3+N3P+N3F-EN3))" "$EN3")"
+if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
 [ -n "$OPTS_LIST" ] && echo "OPTS not honored:$OPTS_LIST"
 [ -n "$ENL3" ] && echo "ERROR-NUMBER-ONLY (m3, ungraded-by-a-narrower-instrument, not a red and not a stream-equal pass):$ENL3"
 [ -n "$FL3" ] && echo "FAIL-M3:$FL3"
@@ -245,7 +251,7 @@ echo "PACKAGE_INVENTORY shipped=$TOTAL graded=$((P3+F3+N3P+N3F)) ungradable=0 un
 # reported-then-blocking, seat13 2026-09-03).
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite Snoflake --modes m3,m4 \
     --measurer "${S4E_SEAT:-}" \
-    --text "mode-3 PASS=$P3 FAIL=$F3 NSTD $N3P/$((N3P+N3F)) · mode-4 PASS=$P4 FAIL=$F4 SKIP(cc)=$S4 NSTD $N4P/$((N4P+N4F)) (\`test_snoflake_suite.sh\`)" \
+    --text "mode-3 PASS=$P3 FAIL=$F3 NSTD $N3P/$((N3P+N3F)) · mode-4 PASS=$P4 FAIL=$F4 SKIP(cc)=$S4 NSTD $N4P/$((N4P+N4F))${INV_LINE:+ · $INV_LINE} (\`test_snoflake_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
 [ "$F3" = 0 ] && [ "$F4" = 0 ] && [ "$S4" = 0 ]
