@@ -392,6 +392,14 @@ static const tree_t * pl_atom_goal(const char * nm) {
     tree_t * n = ast_node_new(TT_QLIT); n->v.sval = (char *) nm; return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_cc_fnc1(const char * f, tree_t * a0) { tree_t * n = ast_node_new(TT_FNC); n->v.sval = (char *) f; ast_push(n, a0); return n; }
+static tree_t * pl_cc_fnc2(const char * f, tree_t * a0, tree_t * a1) { tree_t * n = ast_node_new(TT_FNC); n->v.sval = (char *) f; ast_push(n, a0); ast_push(n, a1); return n; }
+static tree_t * pl_cc_ilit(long long v) { tree_t * n = ast_node_new(TT_ILIT); n->v.ival = v; return n; }
+static tree_t * pl_cc_ite(tree_t * c, tree_t * th, tree_t * el) { return pl_cc_fnc2(";", pl_cc_fnc2("->", c, th), el); }
+static tree_t * pl_cc_pi(const char * nm) { return pl_cc_fnc2("/", (tree_t *) pl_atom_goal(nm), pl_cc_ilit(2)); }
+static tree_t * pl_cc_throw(tree_t * formal, const char * ctx_nm) { return pl_cc_fnc1("throw", pl_cc_fnc2("error", formal, pl_cc_pi(ctx_nm))); }
+static tree_t * pl_cc_ischar(tree_t * x) { return pl_cc_fnc2(",", pl_cc_fnc1("atom", x), pl_cc_fnc2("atom_length", x, pl_cc_ilit(1))); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_lower_ite(lcx_t * cx, const tree_t * C, const tree_t * T, const tree_t * E, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     IR_t * ig = build(cx, IR_INDIRECT_GOTO, γnext, ωfail);
     IR_t * mark = build(cx, IR_BOUND, NULL, ig);
@@ -894,6 +902,28 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             if (!pl_db_owned(pn, ar)) pl_refuse("clause/2 on a predicate that has clauses in the file (reflecting a wired box needs the proc table, rung 10b follow-up) --", pn, 7);
             pl_refuse("clause/2 on a dynamic predicate -- the clause-list INTERPRETER that served it is DELETED (Lon 2026-09-03: it is all code, not data); the compiled-clause path lands it --", pn, 10); }
         if (!strcmp(nm, "dynamic") && t->n >= 1) return build(cx, IR_SUCCEED, γnext, ωfail);
+        if (!strcmp(nm, "char_conversion") && t->n == 2) {
+            (void) pl_dyn_index_or_add("$pl_cconv", 2);
+            tree_t * in = (tree_t *) t->c[0]; tree_t * out = (tree_t *) t->c[1];
+            tree_t * store = pl_cc_fnc1("asserta", pl_cc_fnc2("$pl_cconv", in, out));
+            tree_t * out_ck = pl_cc_ite(pl_cc_ischar(out), store,
+                pl_cc_throw(pl_cc_fnc2("type_error", (tree_t *) pl_atom_goal("character"), out), "char_conversion"));
+            tree_t * out_gate = pl_cc_ite(pl_cc_fnc1("var", out),
+                pl_cc_throw((tree_t *) pl_atom_goal("instantiation_error"), "char_conversion"), out_ck);
+            tree_t * in_ck = pl_cc_ite(pl_cc_ischar(in), out_gate,
+                pl_cc_throw(pl_cc_fnc2("type_error", (tree_t *) pl_atom_goal("character"), in), "char_conversion"));
+            tree_t * rewrite = pl_cc_ite(pl_cc_fnc1("var", in),
+                pl_cc_throw((tree_t *) pl_atom_goal("instantiation_error"), "char_conversion"), in_ck);
+            return goal(cx, rewrite, γnext, ωfail, entry_out); }
+        if (!strcmp(nm, "current_char_conversion") && t->n == 2) {
+            (void) pl_dyn_index_or_add("$pl_cconv", 2);
+            tree_t * in = (tree_t *) t->c[0]; tree_t * out = (tree_t *) t->c[1];
+            tree_t * lookup = pl_cc_fnc2("$pl_cconv", in, out);
+            tree_t * bound_path = pl_cc_ite(pl_cc_ischar(in),
+                pl_cc_ite(lookup, (tree_t *) pl_atom_goal("true"), pl_cc_fnc2("=", out, in)),
+                pl_cc_throw(pl_cc_fnc2("type_error", (tree_t *) pl_atom_goal("character"), in), "current_char_conversion"));
+            tree_t * rewrite = pl_cc_ite(pl_cc_fnc1("var", in), lookup, bound_path);
+            return goal(cx, rewrite, γnext, ωfail, entry_out); }
         { const char * ls = pl_det_leaf_sym(nm, t->n); if (ls) { const char * gs = pl_anum_guard_sym(nm, t->n);
             if (gs) return pl_leaf_lv_guarded(cx, ls, gs, nm, t, t->n, γnext, ωfail, entry_out);
             return pl_leaf_lv(cx, ls, t, t->n, γnext, ωfail, entry_out); } }
