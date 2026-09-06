@@ -2979,6 +2979,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     if (g_is_text) g_emit_pos += 7;
     bb_label_t lbl_stcγ, lbl_stcω;
     if (g_emit.flat_stmt_frame) { emit_label_initf(&lbl_stcγ, "%s_stγ", fam); emit_label_initf(&lbl_stcω, "%s_stω", fam); }
+    g_emit.flat_carve_total = 0;
     if (g_emit.zframe_graph) {
         { extern void xa_flat_zframe_prologue(void); xa_flat_zframe_prologue(); }
     } else if (icn_gen_regime() && g_emit.flat_gen) {
@@ -3011,6 +3012,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         int host_frame_base = frame_total;
         int host_reserve = icn_gen_host_reserve(prefix);
         if (host_reserve > 0) frame_total += host_reserve;
+        g_emit.flat_carve_total = frame_total;
         (void)host_frame_base;
         if (getenv("SCRIP_N2_OFFSET_SELFTEST")) icn_gen_host_reserve_selftest(prefix);
         extern void rt_lcl_proc_args_install(void *, int, int);

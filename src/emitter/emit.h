@@ -427,6 +427,7 @@ typedef struct {
     int                          flat_lex;
     int                          flat_gen;
     int                          frame_region;
+    int                          flat_carve_total;
     int                          flat_frame_bytes;
     int                          flat_seed_off;
     int                          flat_layout_unknown;
