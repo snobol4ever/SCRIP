@@ -661,6 +661,50 @@ static tree_t * pl_clause_target(const tree_t * c, const tree_t * body) {
       return tg; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_tree_copy(const tree_t * t) {
+    if (!t) return NULL;
+    { tree_t * c = ast_node_new(t->t); c->v = t->v; c->line = t->line;
+      for (int i = 0; i < t->n; i++) ast_push(c, pl_tree_copy(t->c[i]));
+      return c; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int g_pl_seed_var_base = 4096;
+static void pl_tree_renumber_vars(tree_t * t, long long * slots, int * n, int base) {
+    if (!t) return;
+    if (t->t == TT_VAR) {
+        int slot = -1; long long key = t->v.ival;
+        for (int i = 0; i < *n; i++) if (slots[i] == key) { slot = i; break; }
+        if (slot < 0 && *n < 256) { slots[*n] = key; slot = *n; (*n)++; }
+        t->v.ival = base + (slot < 0 ? 255 : slot);
+        return;
+    }
+    for (int i = 0; i < t->n; i++) pl_tree_renumber_vars(t->c[i], slots, n, base);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_static_clause_term(const tree_t * cl, const char * pn, int ar) {
+    tree_t * h; tree_t * bt = NULL; int nc = (cl && cl->t == TT_CLAUSE) ? cl->n : 0;
+    if (ar > 0) { h = ast_node_new(TT_FNC); h->v.sval = strdup(pn); for (int i = 0; i < ar; i++) ast_push(h, (i < nc) ? pl_tree_copy(cl->c[i]) : pl_meta_var("_")); }
+    else { h = ast_node_new(TT_QLIT); h->v.sval = strdup(pn); }
+    for (int i = nc - 1; i >= ar; i--) { tree_t * g = pl_tree_copy(cl->c[i]); if (!bt) bt = g; else { tree_t * c = ast_node_new(TT_FNC); c->v.sval = (char *) ","; ast_push(c, g); ast_push(c, bt); bt = c; } }
+    if (!bt) { bt = ast_node_new(TT_QLIT); bt->v.sval = (char *) "true"; }
+    { tree_t * tg = pl_clause_target(h, bt); long long slots[256]; int n = 0;
+      pl_tree_renumber_vars(tg, slots, &n, g_pl_seed_var_base); g_pl_seed_var_base += 256;
+      return tg; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_db_leaf_seed(lcx_t * cx, int k, int i, const tree_t * arg, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = "$db_seed_once";
+    IR_t * kn = build(cx, IR_LIT_INTEGER, NULL, ωfail); IR_LIT(kn).ival = k;
+    IR_t * in = build(cx, IR_LIT_INTEGER, NULL, ωfail); IR_LIT(in).ival = i;
+    IR_t * te = NULL; IR_t * tv = term_e(cx, arg, &te);
+    lc_γ_to(kn, in); lc_ω_to(kn, ωfail);
+    lc_γ_to(in, te ? te : tv); lc_ω_to(in, ωfail);
+    lc_γ_to(tv, nd); lc_ω_to(tv, ωfail);
+    ir_operand_push(nd, kn); ir_operand_push(nd, in); ir_operand_push(nd, tv);
+    if (entry_out) *entry_out = kn;
+    return nd;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * pl_nb_key(const tree_t * t) {
     if (!t || !(t->t == TT_QLIT || t->t == TT_NAME) || !t->v.sval) return NULL;
     return t->v.sval;
@@ -935,8 +979,16 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         if (!strcmp(nm, "clause") && t->n == 2) {
             int ar = 0; const char * pn = pl_head_key(t->c[0], &ar);
             if (!pn) pl_refuse("clause/2 whose head is not a callable term known at compile time --", nm, 10);
-            if (!pl_db_owned(pn, ar)) pl_refuse("clause/2 on a predicate that has clauses in the file (reflecting a wired box needs the proc table; row prolog-rung-10b-assert-retract-abolish-clause-the-dynamic-database follow-up) --", pn, 10);
-            return pl_db_enum(cx, pl_dyn_index_or_add(pn, ar), pl_clause_target(t->c[0], t->c[1]), 0, γnext, ωfail, entry_out); }
+            if (pl_db_owned(pn, ar)) return pl_db_enum(cx, pl_dyn_index_or_add(pn, ar), pl_clause_target(t->c[0], t->c[1]), 0, γnext, ωfail, entry_out);
+            if (!pl_file_defines(pn, ar)) { IR_t * nf = build(cx, IR_GOTO, ωfail, ωfail); if (entry_out) *entry_out = nf; return nf; }
+            { char key[264]; snprintf(key, sizeof key, "%s/%d", pn, ar);
+              const tree_t * ch = resolve_pred_table_lookup(&g_stage2.resolve_pred_table, key);
+              int k = pl_dyn_index_or_add(pn, ar);
+              if (k < 0 || !ch) pl_refuse("clause/2 on a file-defined predicate needs a root cell and the 64 compile-time root cells are exhausted --", pn, 10);
+              { IR_t * enum_entry = NULL; IR_t * to = pl_db_enum(cx, k, pl_clause_target(t->c[0], t->c[1]), 0, γnext, ωfail, &enum_entry);
+                IR_t * next = enum_entry; IR_t * first = NULL; int n = (ch->t == TT_CHOICE) ? ch->n : 1;
+                for (int i = n - 1; i >= 0; i--) { const tree_t * cl = (ch->t == TT_CHOICE) ? ch->c[i] : ch; IR_t * se = NULL; pl_db_leaf_seed(cx, k, i, pl_static_clause_term(cl, pn, ar), next, ωfail, &se); next = se; first = se; }
+                if (entry_out) *entry_out = first ? first : enum_entry; return to; } } }
         if (!strcmp(nm, "current_predicate") && t->n == 1) {
             int ar = 0; const char * pn = pl_spec_key(t->c[0], &ar);
             if (!pn) pl_refuse("current_predicate/1 argument that is not a literal Name/Arity known at compile time -- ISO 8.8.2's general backtracking-over-every-predicate mode needs a proc-table generator design, not yet built --", nm, 7);

@@ -1904,7 +1904,12 @@ int rt_pl_db_head_key(void *pair_cell, char *out, size_t n, int *ar)
       return 1; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_db_assert(void *db_v, void *clause_term, int prepend)
+static int pl_db_store(void *db_v, void *clause_term, int prepend, int recompile);
+int rt_pl_db_assert(void *db_v, void *clause_term, int prepend) { return pl_db_store(db_v, clause_term, prepend, 1); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_seed(void *db_v, void *clause_term) { return pl_db_store(db_v, clause_term, 0, 0); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_db_store(void *db_v, void *clause_term, int prepend, int recompile)
 {
     extern void *rt_plj_alloc(size_t);
     extern int prolog_atom_intern(const char *);
@@ -1927,7 +1932,7 @@ int rt_pl_db_assert(void *db_v, void *clause_term, int prepend)
         if (prepend) { for (int i = db->n; i > 0; i--) db->s[i] = db->s[i - 1]; db->s[0].cl = stored; db->s[0].erased = 0; }
         else { db->s[db->n].cl = stored; db->s[db->n].erased = 0; }
         db->n++; }
-      { char key[264]; int ar = 0;
+      if (recompile) { char key[264]; int ar = 0;
         if (rt_pl_db_head_key((void *)&db->s[prepend ? 0 : db->n - 1].cl, key, sizeof key, &ar)) rt_pl_db_recompile(db_v, key, ar); }
       return 1; }
 }
