@@ -18,7 +18,7 @@
 # among them -- the identical harm DISPLAY_REFUSED was split out of ORACLE_FAIL to prevent, recurring
 # one arm lower down the same if-chain.
 #
-# NINE ARMS. 3 and 4 run the real cutter end to end against a scratch package (S4E_HOME redirection),
+# TEN ARMS. 3 and 4 run the real cutter end to end against a scratch package (S4E_HOME redirection),
 # never a re-implementation of its predicate -- a copied classifier is a classifier that drifts.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -226,5 +226,28 @@ else
   refuse "ARM 9 cannot measure: the glue idiom produced '${_got[0]:-}' , which is neither the glued nor the separated shape this arm knows how to judge"
 fi
 
+# ── ARM 10: A PROGRAM THAT HAS A REF IS NOT WORK OWED. Measured 2026-09-06: the morning's stdin-fixture
+# batch cut three refs (blnk2tab, delta, indxcomp) and left all three rows in UNGRADED.tsv, so the package
+# advertised three finished programs as claimable work and its population identity was off by three from
+# that commit onward. ⛔ The guard for this ALREADY EXISTED -- lib_inventory.sh sums the four buckets and
+# would have REFUSED -- but the suite had not been run since, so the defect sat in the tree while the
+# instrument that convicts it was idle. ⭐ AND IT SURVIVED MY OWN CHECK: I confirmed "851 = 64 + 233 + 554"
+# using the 64 from a ledger instead of counting the .std files, which is the transcription failure this
+# package polices, committed inside the act of verifying an identity. This arm counts the files.
+overlap=""
+while IFS= read -r rel; do
+  [ -z "$rel" ] && continue
+  [ -f "$PKG/${rel%.icn}.std" ] && overlap="$overlap $rel"
+done < <(awk -F'\t' 'NF>2 && $1 !~ /^#/{print $1}' "$PKG/UNGRADED.tsv")
+if [ -n "$overlap" ]; then red "ARM 10: these ipl programs have a .std ref AND are still listed as work owed in UNGRADED.tsv:$overlap"
+else
+  g=$(find "$PKG" -name '*.std' | wc -l)
+  u=$(awk -F'\t' 'NF>2 && $1 !~ /^#/{n++} END{print n+0}' "$PKG/UNGRADED.tsv")
+  d=$(awk -F'\t' 'NF>2 && $1 !~ /^#/{n++} END{print n+0}' "$PKG/UNGRADABLE.tsv")
+  sh=$(find "$PKG" -name '*.icn' ! -name 'ALL.icn' | wc -l)
+  if [ "$((g+u+d))" -ne "$sh" ]; then red "ARM 10: buckets do not sum -- graded($g) + ungraded($u) + ungradable($d) = $((g+u+d)), shipped=$sh. ⛔ COUNTED, never quoted: graded is the .std files on disk, not a number carried from a ledger."
+  else green "ARM 10: no graded program is still listed as owed, and $g + $u + $d = $sh shipped, every count measured on disk"; fi
+fi
+
 if [ "$fails" -ne 0 ]; then echo "⛔ GATE RED: $fails arm(s) failed"; exit 1; fi
-echo "✅ GATE GREEN: 9 arms"; exit 0
+echo "✅ GATE GREEN: 10 arms"; exit 0
