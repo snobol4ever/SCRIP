@@ -26,9 +26,17 @@
 # ⛔ A .std MINTED FROM A RUN THAT ISN'T A GENUINE CLEAN EXECUTION PINS A LIE -- there are SIX ways to
 # pin one here, not one, so every progs/ file gets exactly one NAMED outcome, never a silent skip:
 #   EMPTY          -- rc=0, zero bytes of stdout. A 0-byte .std would grade "produced nothing" as correct.
-#   ORACLE_FAIL    -- rc!=0 under /dev/null stdin -- needs argv/stdin this driver doesn't supply, or a
-#                      genuine oracle-side rejection. Named, not retried with guesses.
+#   ORACLE_FAIL    -- rc!=0 under /dev/null stdin, and none of the named classes below explains it. The
+#                      row carries THE ORACLE'S OWN FIRST NON-BLANK LINE as its reason, never a sentence
+#                      this script composed -- see the arm's own note on the 212 rows that shared one
+#                      untested compound reason until 2026-09-06.
 #   TIMEOUT        -- exceeded $TIMEOUT (interactive read, or a genuinely long-running demo).
+#   UNDECLARED_IDENTIFIER -- an identifier never resolved at link time. ⛔ Checked at ANY rc, not only
+#                      rc=0: this oracle is built WITHOUT graphics (`&features` lists no graphics facility
+#                      and `open(name,"g")` fails), so gprogs/ programs reference WOpen/WAttrib/DrawLine/Fg
+#                      and friends unresolved -- some print the warning and stop (rc=0), 72 more call
+#                      through the missing name and die (error 106, offending value &null). Same cause,
+#                      two consequences, one class, told apart by the RC column.
 #   OVERSIZED      -- output exceeds $MAX_BYTES. Checked via `wc -c` on the FILE, before ever slurping
 #                      it into a bash variable (second incident this session: a timing-out program that
 #                      is NOT quiet while it waits can still print gigabytes before `timeout` kills it --
@@ -93,6 +101,12 @@ run_isolated() {
   return "$rc"
 }
 
+# first_diag <output> -> the first NON-BLANK line, truncated. ⛔ NOT `head -1`: icont's own output opens
+# with a blank line before "Run-time error N", so head -1 reports an EMPTY reason for every runtime error
+# -- the narrower-question trap this package has now paid for three times (head -1 vs the refusal in
+# DISPLAY_REFUSED; `.icn` vs the container in the population count; command -v vs the oracle path).
+first_diag() { printf '%s' "$1" | grep -m1 -v '^[[:space:]]*$' | cut -c1-200; }
+
 if [ "$MAINS_ONLY" -eq 1 ]; then
   # ⛔⭐⭐ A PROGRAM ALREADY RULED UNGRADABLE IS NEVER A MINT CANDIDATE (hq_I 2026-09-06, caught the hard
 # way twice in one sitting). This script walks the directory and knows nothing about the package's own
@@ -110,14 +124,23 @@ is_ruled_ungradable() {
   [ -f "$UNGRADABLE_TSV" ] || return 1
   awk -F'\t' -v want="$SUBDIR/$1" '$1==want{found=1} END{exit !found}' "$UNGRADABLE_TSV"
 }
-mapfile -t FILES < <(cd "$PROGS" && grep -lE '^procedure[[:space:]]+main[[:space:]]*\(' *.icn 2>/dev/null | sort)
+  # ⛔⭐ LEADING WHITESPACE IS LEGAL BEFORE `procedure` AND THE ANCHORED FORM SILENTLY DROPPED A PROGRAM
+  # (hq_I 2026-09-06, found because one ipl UNGRADED row had no census row AT ALL). progs/literat.icn
+  # declares its entry point at line 1054 as `    procedure main()`, indented; `^procedure` misses it, so
+  # this script -- whose own header promises "every progs/ file gets exactly one NAMED outcome, never a
+  # silent skip" -- emitted no row for a shipped main program, and the omission is invisible because the
+  # TOTALS line counts the population it built, not the one on disk. ⭐ A census predicate cannot report
+  # its own false negatives: everything downstream, including `total=`, is computed from the set it
+  # already decided on. Measured over all six subdirectories: exactly one file differs today, which is
+  # the point -- a one-file gap is precisely the kind that survives every eyeball on a 461-file count.
+mapfile -t FILES < <(cd "$PROGS" && grep -lE '^[[:space:]]*procedure[[:space:]]+main[[:space:]]*\(' *.icn 2>/dev/null | sort)
 else
   mapfile -t FILES < <(cd "$PROGS" && ls -1 *.icn | sort)
 fi
 TOTAL=${#FILES[@]}
 [ "$TOTAL" -gt 0 ] || { echo "⛔ GATE REFUSES: zero .icn files found under $PROGS" >&2; exit 2; }
 
-n_live=0; n_mint=0; n_empty=0; n_fail=0; n_display=0; n_diagnostic=0; n_ruled=0; n_timeout=0; n_suspect=0; n_undeclared=0; n_nondet=0; n_havestd=0; n_oversized=0
+n_live=0; n_mint=0; n_empty=0; n_fail=0; n_display=0; n_diagnostic=0; n_ruled=0; n_timeout=0; n_suspect=0; n_undeclared=0; n_argv=0; n_nondet=0; n_havestd=0; n_oversized=0
 OUT1="$(mktemp "${TMPDIR:-/tmp}/ipl_ref_out1.XXXXXX")"; OUT2="$(mktemp "${TMPDIR:-/tmp}/ipl_ref_out2.XXXXXX")"
 HOLD="$(mktemp -d "${TMPDIR:-/tmp}/ipl_ref_hold.XXXXXX")"
 trap 'cleanup_template; rm -f "$OUT1" "$OUT2"; rm -rf "$HOLD"' EXIT
@@ -176,15 +199,6 @@ for f in "${FILES[@]}"; do
     n_display=$((n_display+1)); printf 'DISPLAY_REFUSED\t%s\t%s\t-\tNOT MINTED -- oracle refuses headless: %s\n' "$f" "$rc1" "$(printf '%s' "$out1" | grep -m1 "can't open display")"
     continue
   fi
-  if [ "$rc1" -ne 0 ]; then
-    n_fail=$((n_fail+1)); printf 'ORACLE_FAIL\t%s\t%s\t-\tNOT MINTED -- needs argv/stdin this driver does not supply, or genuine rejection\n' "$f" "$rc1"
-    [ "$VERBOSE" -eq 1 ] && printf '   %s\n' "$(printf '%s' "$out1" | head -1)"
-    continue
-  fi
-  if [ "$by1" -eq 0 ]; then
-    n_empty=$((n_empty+1)); printf 'EMPTY\t%s\t0\t0\tNOT MINTED -- rc=0, zero bytes; a 0-byte .std pins "produced nothing" as correct\n' "$f"
-    continue
-  fi
   # ⛔⭐ UNDECLARED_IDENTIFIER (seat07, STEP-1B verification, 2026-09-06): the SAME icont-symlink shape
   # DISPLAY_REFUSED's own comment above names -- "the one-step `icon` driver ... prints icont's benign
   # link-time 'undeclared identifier' warnings" -- but for a DIFFERENT failure point. DISPLAY_REFUSED
@@ -204,8 +218,61 @@ for f in "${FILES[@]}"; do
   # which one actually happened. Checked over the WHOLE output, same discipline as DISPLAY_REFUSED above,
   # not just line 1 (SUSPECT_USAGE's narrower scope) -- icont can print several before or after any real
   # output the program does produce.
+  # ⛔⭐⭐ MOVED AHEAD OF THE rc!=0 ARM, AND THAT ORDERING WAS THE DEFECT (hq_I 2026-09-06, CEO-326,
+  # measured over all 212 ORACLE_FAIL rows). This arm sat BELOW `if [ "$rc1" -ne 0 ]`, so it could only
+  # ever see a run that had ALREADY SUCCEEDED -- the rc=0 half of one piece of evidence. The other half,
+  # 72 programs carrying the SAME unresolved-graphics-builtin diagnostic and then DYING on it (error 106,
+  # `&null()`, offending value &null -- a call through an identifier that resolved to nothing), fell
+  # straight through to ORACLE_FAIL and was filed as "needs argv/stdin", i.e. as WORK OWED. No argument
+  # can cure an unresolved builtin. ⭐ THE GENERAL FORM, and it is not about this script: a classifier
+  # gated on rc reads its evidence only in the rc-branch you happened to put it in -- the evidence here
+  # (a link-time diagnostic) is INDEPENDENT of rc, so gating it on rc silently halves its population.
+  # The two failure points stay distinguished by the RC COLUMN and by the action text, which is the
+  # honest split: same cause, two consequences.
   if printf '%s' "$out1" | grep -qE ': "[^"]+": undeclared identifier, procedure '; then
-    n_undeclared=$((n_undeclared+1)); printf 'UNDECLARED_IDENTIFIER\t%s\t0\t%s\tNOT MINTED -- output contains an icont link-time unresolved-identifier diagnostic, not real program behavior: %s\n' "$f" "$by1" "$(printf '%s' "$out1" | grep -m1 ': "[^"]*": undeclared identifier, procedure ')"
+    undecl_line="$(printf '%s' "$out1" | grep -m1 ': "[^"]*": undeclared identifier, procedure ')"
+    n_undeclared=$((n_undeclared+1))
+    if [ "$rc1" -ne 0 ]; then
+      printf 'UNDECLARED_IDENTIFIER\t%s\t%s\t%s\tNOT MINTED -- an identifier never resolved at link time and the run then FAILED on it (rc=%s); no argument or fixture can supply a missing builtin: %s | first run diagnostic: %s\n' "$f" "$rc1" "$by1" "$rc1" "$undecl_line" "$(first_diag "$out1")"
+    else
+      printf 'UNDECLARED_IDENTIFIER\t%s\t0\t%s\tNOT MINTED -- output contains an icont link-time unresolved-identifier diagnostic, not real program behavior: %s\n' "$f" "$by1" "$undecl_line"
+    fi
+    continue
+  fi
+  # ⛔⭐ NEEDS_ARGV_FIXTURE -- the ONE class the compound reason was right about, and it is 34 of 212.
+  # A program that exits nonzero and prints its OWN usage banner has told us, in its own words, that it
+  # refused the arguments it was given. That is a measured cause and a task a lane can pick up (supply a
+  # NAME.args sidecar and cut the ref), so it belongs in UNGRADED's vocabulary -- lib_inventory.sh already
+  # carries the word. ⛔ The predicate is DELIBERATELY WIDER than SUSPECT_USAGE's `^(usage|error)[: ]`
+  # below: that one guards a CLEAN exit, where a banner at column 1 is the only safe signal, while here
+  # the program has already failed, so `patchu: usage: patchu source diffs` and `diff: usage: diffu f1 f2`
+  # -- which the anchored form misses -- are exactly as much of a refusal as an unprefixed one.
+  # ⛔⭐ `grep -a`, AND THAT IS NOT A STYLE CHOICE. Measured while sizing this class: several ipl programs
+  # open with ANSI escapes (progs/hr, progs/literat, progs/hebcalen), so a file of their diagnostics is
+  # "ISO-8859 text, with escape sequences" and plain `grep -c` over it printed NOTHING AT ALL -- not zero,
+  # nothing -- for a pattern with 34 matches. Same family as `command -v` and `head -1`: the instrument
+  # quietly answered a narrower question than it was asked, and the empty answer read as an absence.
+  if [ "$rc1" -ne 0 ] && printf '%s' "$(first_diag "$out1")" | grep -aqi 'usage'; then
+    n_argv=$((n_argv+1)); printf 'NEEDS_ARGV_FIXTURE\t%s\t%s\t-\tNOT MINTED -- rc=%s and the program printed its own usage banner, so it refused the arguments it was given: %s\n' "$f" "$rc1" "$rc1" "$(first_diag "$out1")"
+    continue
+  fi
+  # ⛔⭐⭐ THE EVIDENCE IS THE ORACLE'S OWN FIRST WORDS, NEVER A SENTENCE WE COMPOSED (hq_I 2026-09-06,
+  # CEO-326). This arm used to write ONE reason onto every row it produced -- "needs argv/stdin this
+  # driver does not supply, or genuine rejection" -- a COMPOUND claim, both halves untested, and it
+  # reached 212 rows of ipl/UNGRADED.tsv. Measured, those 212 are: 88 that cannot run on this oracle at
+  # all (no graphics facility), 6 that want a tty, 34 that print their own usage banner, and 84 that are
+  # none of those. One sentence stood in for four different answers, and the two it names outright were
+  # right for 34 of 212. ⭐ A compound reason cannot be falsified by any single observation, so it never
+  # gets corrected -- it is the untestable form of "I did not look". Every row now carries the oracle's
+  # own first non-blank line, so the next reader can sort 212 rows into classes without re-running
+  # anything, and a wrong reason is visibly wrong.
+  if [ "$rc1" -ne 0 ]; then
+    n_fail=$((n_fail+1)); printf 'ORACLE_FAIL\t%s\t%s\t-\tNOT MINTED -- rc=%s under this driver; the oracle said: %s\n' "$f" "$rc1" "$rc1" "$(first_diag "$out1")"
+    [ "$VERBOSE" -eq 1 ] && printf '   %s\n' "$(first_diag "$out1")"
+    continue
+  fi
+  if [ "$by1" -eq 0 ]; then
+    n_empty=$((n_empty+1)); printf 'EMPTY\t%s\t0\t0\tNOT MINTED -- rc=0, zero bytes; a 0-byte .std pins "produced nothing" as correct\n' "$f"
     continue
   fi
   # ⛔⭐⭐ THE CONTENT ASSERTION -- the FIFTH property, and the one that would have caught the 27
@@ -342,8 +409,8 @@ if [ "${#CANDS[@]}" -gt 0 ]; then
   done
 fi
 echo "----"
-printf 'TOTALS[%s]: LIVE %d (minted %d, minute-rejected %d) · HAVE_STD %d · EMPTY %d · SUSPECT_USAGE %d · UNDECLARED_IDENTIFIER %d · NONDETERMINISTIC %d · ORACLE_FAIL %d · DISPLAY_REFUSED %d · ALL_ORACLE_DIAGNOSTIC %d · RULED_UNGRADABLE %d · TIMEOUT %d · OVERSIZED %d · total=%d\n' \
-  "$SUBDIR" "$n_live" "$n_mint" "$n_minute_reject" "$n_havestd" "$n_empty" "$n_suspect" "$n_undeclared" "$n_nondet" "$n_fail" "$n_display" "$n_diagnostic" "$n_ruled" "$n_timeout" "$n_oversized" "$TOTAL"
+printf 'TOTALS[%s]: LIVE %d (minted %d, minute-rejected %d) · HAVE_STD %d · EMPTY %d · SUSPECT_USAGE %d · UNDECLARED_IDENTIFIER %d · NONDETERMINISTIC %d · NEEDS_ARGV_FIXTURE %d · ORACLE_FAIL %d · DISPLAY_REFUSED %d · ALL_ORACLE_DIAGNOSTIC %d · RULED_UNGRADABLE %d · TIMEOUT %d · OVERSIZED %d · total=%d\n' \
+  "$SUBDIR" "$n_live" "$n_mint" "$n_minute_reject" "$n_havestd" "$n_empty" "$n_suspect" "$n_undeclared" "$n_nondet" "$n_argv" "$n_fail" "$n_display" "$n_diagnostic" "$n_ruled" "$n_timeout" "$n_oversized" "$TOTAL"
 [ -n "$APPLY" ] || echo "(census only -- nothing written; re-run with --apply to mint)"
 # ── belt-and-suspenders: prove the tracked tree is still exactly what HEAD says, every run, census or not.
 if git -C "$S4E/corpus" diff --quiet -- packages/icon/ipl/progs packages/icon/ipl/gprogs packages/icon/ipl/procs packages/icon/ipl/gprocs packages/icon/ipl/incl packages/icon/ipl/gincl 2>/dev/null \

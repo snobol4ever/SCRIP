@@ -1,0 +1,143 @@
+#!/usr/bin/env bash
+# test_gate_icn_ipl_reason_is_the_oracles_own_words.sh -- hq_I 2026-09-06, CEO-326.
+#
+# THE DEFECT THIS PINS. util_cut_icon_ipl_refs.sh wrote ONE composed sentence onto every row its rc!=0
+# arm produced -- "needs argv/stdin this driver does not supply, or genuine rejection" -- and that
+# sentence reached 212 rows of corpus/packages/icon/ipl/UNGRADED.tsv, the file that says WHAT IS OWED.
+# Measured against the oracle, those 212 are four different answers: 102 programs whose link closure
+# never resolved an identifier (this oracle is built WITHOUT graphics, so gprogs/ reaches WOpen,
+# WAttrib, DrawLine, DrawPoint, Fg ... unresolved) and which then died calling one; 6 that want a tty;
+# 34 that print their own usage banner; and the remainder, which are none of those. ⭐ A COMPOUND
+# REASON CANNOT BE FALSIFIED BY ANY SINGLE OBSERVATION, so it is never corrected: "argv OR stdin OR a
+# genuine rejection" is true of almost any failing program, which is exactly why it survived 212 rows.
+# It is the untestable form of "I did not look".
+#
+# ⛔ AND THE ROWS ARE NOT COSMETIC. UNGRADED.tsv is work OWED and claimable; UNGRADABLE.tsv is a ruling
+# nobody owes work on (lib_inventory.sh's own split). Filing a program that cannot run on this oracle at
+# all as "needs argv" mints a row NO LANE CAN EVER CLOSE, and buries the genuinely curable argv rows
+# among them -- the identical harm DISPLAY_REFUSED was split out of ORACLE_FAIL to prevent, recurring
+# one arm lower down the same if-chain.
+#
+# SIX ARMS. 3 and 4 run the real cutter end to end against a scratch package (S4E_HOME redirection),
+# never a re-implementation of its predicate -- a copied classifier is a classifier that drifts.
+set -uo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+S4E="${S4E_HOME:-$(cd "$HERE/../.." && pwd)}"
+. "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_oracle_flags.sh unloadable" >&2; exit 2; }
+PKG="$S4E/corpus/packages/icon/ipl"
+CUTTER="$HERE/util_cut_icon_ipl_refs.sh"
+RETIRED='needs argv/stdin this driver does not supply, or genuine rejection'
+fails=0
+refuse() { echo "⛔ GATE REFUSES (rc=2, cannot measure): $*" >&2; exit 2; }
+red()    { echo "⛔ FAIL  $*"; fails=$((fails+1)); }
+green()  { echo "✅ PASS  $*"; }
+
+[ -f "$CUTTER" ] || refuse "the cutter under test is missing: $CUTTER"
+[ -d "$PKG" ]    || refuse "the ipl package is missing: $PKG"
+ICON="$(icon_bin)"   || refuse "no Icon oracle -- lib_oracle_flags.sh could not resolve icon_bin"
+ICONT="$(icont_bin)" || refuse "no Icon oracle -- lib_oracle_flags.sh could not resolve icont_bin"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/ipl_reason_gate.XXXXXX")" || refuse "mktemp failed"
+trap 'rm -rf "$WORK"' EXIT
+
+# ── ARM 1: no ipl census row carries the retired compound sentence, in EITHER sidecar.
+hits=0
+for tsv in "$PKG/UNGRADED.tsv" "$PKG/UNGRADABLE.tsv"; do
+  [ -f "$tsv" ] || refuse "census sidecar missing: $tsv -- the lockdown requires it, so its absence is not a pass"
+  n=$(grep -cF "$RETIRED" "$tsv"); hits=$((hits+n))
+done
+if [ "$hits" -ne 0 ]; then red "ARM 1: $hits ipl census row(s) still carry the retired compound reason '$RETIRED'"
+else green "ARM 1: zero ipl census rows carry the retired compound reason"; fi
+
+# ── ARM 2: every ORACLE_FAIL row quotes the oracle. A row whose reason does not contain the oracle's own
+# words is back to a composed sentence under a different spelling, which is the defect, not a variant of it.
+n_of=$(awk -F'\t' '$2=="ORACLE_FAIL"' "$PKG/UNGRADED.tsv" | wc -l)
+if [ "$n_of" -eq 0 ]; then green "ARM 2: no ORACLE_FAIL rows to check (vacuous, and said so)"
+else
+  bad=$(awk -F'\t' '$2=="ORACLE_FAIL" && $3 !~ /the oracle said:/ {print $1}' "$PKG/UNGRADED.tsv")
+  if [ -n "$bad" ]; then red "ARM 2: $(printf '%s\n' "$bad" | wc -l) of $n_of ORACLE_FAIL rows quote no oracle diagnostic: $(printf '%s' "$bad" | tr '\n' ' ')"
+  else green "ARM 2: all $n_of ORACLE_FAIL rows carry the oracle's own words"; fi
+fi
+
+# ── The scratch package the next two arms grade. S4E_HOME redirection, so the REAL cutter walks it.
+SCRATCH="$WORK/root"; mkdir -p "$SCRATCH/corpus/packages/icon/ipl/progs"
+SP="$SCRATCH/corpus/packages/icon/ipl/progs"
+cat > "$SP/gatefix_undeclared.icn" <<'ICN'
+procedure main()
+   write("this line runs first")
+   gate_fixture_no_such_procedure()
+end
+ICN
+cat > "$SP/gatefix_plainfail.icn" <<'ICN'
+procedure main()
+   stop("gate fixture: a refusal with every identifier resolved")
+end
+ICN
+census="$WORK/census.txt"
+S4E_HOME="$SCRATCH" bash "$CUTTER" --dir progs --mains-only > "$census" 2>&1 || true
+grep -q 'gatefix_undeclared.icn' "$census" || refuse "the cutter produced no row for the scratch fixture -- it graded nothing, so neither arm below can mean anything: $(head -3 "$census" | tr '\n' ' ')"
+
+# ── ARM 3: the ORDERING cure. An unresolved identifier that the run then DIES on is UNDECLARED_IDENTIFIER,
+# not ORACLE_FAIL. This arm reads RED against the pre-cure cutter, where the check sat BELOW `if rc!=0`
+# and could therefore only ever see runs that had already succeeded -- half of one piece of evidence.
+row3="$(awk -F'\t' '$2=="gatefix_undeclared.icn"{print}' "$census")"
+cls3="$(printf '%s' "$row3" | cut -f1)"; rc3="$(printf '%s' "$row3" | cut -f3)"
+if [ "$cls3" = "UNDECLARED_IDENTIFIER" ] && [ "$rc3" != "0" ]; then
+  green "ARM 3: a link-unresolved identifier that kills the run is UNDECLARED_IDENTIFIER at rc=$rc3, not ORACLE_FAIL"
+else
+  red "ARM 3: expected UNDECLARED_IDENTIFIER with rc!=0, got class='$cls3' rc='$rc3' -- the rc!=0 arm is eating the link evidence again"
+fi
+
+# ── ARM 4: the CONTROL, and it is the load-bearing half. A run that fails with EVERY identifier resolved
+# must still be ORACLE_FAIL -- otherwise ARM 3 could be satisfied by a cutter that simply calls everything
+# UNDECLARED_IDENTIFIER. Its reason must quote the oracle, and must NOT be blank: icont opens its runtime
+# diagnostics with an empty line, so a `head -1` evidence reader reports an empty reason for every runtime
+# error, which is why first_diag skips blanks.
+row4="$(awk -F'\t' '$2=="gatefix_plainfail.icn"{print}' "$census")"
+cls4="$(printf '%s' "$row4" | cut -f1)"; act4="$(printf '%s' "$row4" | cut -f5)"
+if [ "$cls4" != "ORACLE_FAIL" ]; then
+  red "ARM 4 (control): a plain refusal with no unresolved identifier must stay ORACLE_FAIL, got '$cls4'"
+elif ! printf '%s' "$act4" | grep -q 'the oracle said: .*gate fixture'; then
+  red "ARM 4 (control): the ORACLE_FAIL reason does not quote the oracle's own refusal: '$act4'"
+else
+  green "ARM 4: a resolved-but-failing run stays ORACLE_FAIL and its reason is the oracle's own words"
+fi
+
+# ── ARM 5: THE RULING'S OWN EXPIRY. Every ORACLE_CONTRACT_NOT_IMPLEMENTED row (the 25 once spelled NEEDS_DISPLAY, plus the 109 undeclared-graphics rows) in this
+# package rests on ONE property of the oracle BINARY -- it is built without a graphics facility. That is
+# the UNGRADABLE test made executable (lib_inventory.sh: "could this ruling be overturned for the whole
+# class at once?"): rebuild or replace the oracle with a graphics build and ~102 rulings become wrong in
+# the same instant, silently, because nobody re-reads a closed ruling. So the gate asks the oracle
+# directly, every run, and REFUSES rc=2 -- never quietly passes -- the moment the answer changes.
+feat="$WORK/feat"; mkdir -p "$feat"
+cat > "$feat/feat.icn" <<'ICN'
+procedure main()
+   every write(&features)
+end
+ICN
+( cd "$feat" && "$ICONT" -s feat.icn >/dev/null 2>&1 && ./feat > "$feat/out.txt" 2>&1 )
+[ -s "$feat/out.txt" ] || refuse "could not ask the oracle for &features -- ARM 5 cannot measure, and a silent pass here would leave ~102 rulings unguarded"
+if grep -qiE 'graphics|X Windows' "$feat/out.txt"; then
+  refuse "THE ORACLE NOW HAS GRAPHICS ($(grep -iE 'graphics|X Windows' "$feat/out.txt" | tr '\n' ' ')). Every ORACLE_CONTRACT_NOT_IMPLEMENTED row in $PKG rests on its absence and must be RE-MEASURED, not re-stamped. This gate refuses rather than passing, because the rulings it guards are now unverified."
+fi
+green "ARM 5: the oracle reports no graphics facility, which is what all 134 ORACLE_CONTRACT_NOT_IMPLEMENTED rulings in this package assume"
+
+# ── ARM 6: THE CENSUS PREDICATE'S OWN FALSE NEGATIVES. util_cut_icon_ipl_refs.sh selects its --mains-only
+# population with an ANCHORED `^procedure[[:space:]]+main`, but Icon permits leading whitespace before the
+# keyword, and progs/literat.icn declares its entry point indented at line 1054. The anchored form emitted
+# NO ROW AT ALL for it -- not a named outcome, a silent skip, against that script's own written contract --
+# and nothing downstream could notice, because `total=` counts the population the predicate already chose.
+# This arm compares the two predicates over the shipped tree and names any file only the looser one finds.
+missing=""
+for sub in progs gprogs procs gprocs incl gincl; do
+  [ -d "$PKG/$sub" ] || continue
+  only="$(comm -13 <(cd "$PKG/$sub" && grep -lE '^procedure[[:space:]]+main[[:space:]]*\(' *.icn 2>/dev/null | sort) \
+                   <(cd "$PKG/$sub" && grep -lE '^[[:space:]]*procedure[[:space:]]+main[[:space:]]*\(' *.icn 2>/dev/null | sort))"
+  [ -n "$only" ] && missing="$missing $(printf '%s' "$only" | sed "s|^|$sub/|" | tr '\n' ' ')"
+done
+cut_pred="$(grep -c 'grep -lE .\^\[\[:space:\]\]\*procedure' "$CUTTER")"
+if [ "$cut_pred" -eq 0 ]; then red "ARM 6: the cutter still selects its mains population with an anchored ^procedure, which cannot see an indented entry point"
+elif [ -n "$missing" ]; then green "ARM 6: the cutter's mains predicate admits leading whitespace, and it is load-bearing --$missing would otherwise be skipped with no row"
+else green "ARM 6: the cutter's mains predicate admits leading whitespace (no file currently depends on it, and the arm says so)"; fi
+
+if [ "$fails" -ne 0 ]; then echo "⛔ GATE RED: $fails arm(s) failed"; exit 1; fi
+echo "✅ GATE GREEN: 6 arms"; exit 0
