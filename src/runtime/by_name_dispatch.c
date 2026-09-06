@@ -1568,8 +1568,23 @@ static int pl_cell_text(DESCR_t v, char *buf, size_t n, const char **out) {
 }
 static DESCR_t pl_text_list(const char *s, int codes) { DESCR_t el[4096];int n = 0;for (;*s && n < 4096;s++) { if (codes) el[n++] = INTVAL((long long)(unsigned char)*s);
     else { char c2[2] = { *s, 0 };el[n++] = pl_mk_atom_dup(c2, 1);} } return pl_list_from_arr(el, n); }
-static int pl_parse_number(const char *s, DESCR_t *out) { char *e = 0;long long iv = strtoll(s, &e, 10);if (e && e != s && !*e) { *out = INTVAL(iv);return 1;} double dv = strtod(s, &e);
-    if (e && e != s && !*e) { *out = REALVAL(dv);return 1;} return 0; }
+static int pl_parse_number_radix(const char *s, DESCR_t *out) { char *e = 0; int base = 0;
+    if (s[0] == '0' && s[1] == '\'') {
+        if (s[2] == '\'' && ((s[3] == '\'' && !s[4]) || !s[3])) { *out = INTVAL(39); return 1; }
+        if (s[2] == '\\' && s[3] && !s[4]) { int c = s[3]; c = (c == 'n') ? 10 : (c == 't') ? 9 : (c == 'r') ? 13 : (c == 'a') ? 7 : (c == 'b') ? 8 : (c == 'f') ? 12 : (c == 'v') ? 11 : (c == '0') ? 0 : (c == '\\') ? 92 : (c == '\'') ? 39 : (c == '"') ? 34 : (c == '`') ? 96 : -1;
+            if (c < 0) return 0; *out = INTVAL(c); return 1; }
+        if (s[2] && !s[3]) { *out = INTVAL((unsigned char)s[2]); return 1; }
+        return 0; }
+    if (s[0] == '0' && (s[1] == 'x' || s[1] == 'X')) base = 16; else if (s[0] == '0' && (s[1] == 'o' || s[1] == 'O')) base = 8; else if (s[0] == '0' && (s[1] == 'b' || s[1] == 'B')) base = 2;
+    if (!base) return 0;
+    { long long v = strtoll(s + 2, &e, base); if (e && e != s + 2 && !*e) { *out = INTVAL(v); return 1; } }
+    return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_parse_number(const char *s, DESCR_t *out) { char *e = 0;
+    if (s && s[0] && pl_parse_number_radix(s, out)) return 1;
+    { long long iv = strtoll(s, &e, 10);if (e && e != s && !*e) { *out = INTVAL(iv);return 1;} }
+    { double dv = strtod(s, &e);
+    if (e && e != s && !*e) { *out = REALVAL(dv);return 1;} } return 0; }
 #define PL_TYPE_LEAF(nm) DESCR_t dop_pl_##nm(DESCR_t *args, int nargs) { pl_atoms_ready(); return (nargs == 1 && rt_pl_type_test_cell(&args[0], #nm)) ? pl_ok() : FAILDESCR; }
 PL_TYPE_LEAF(var) PL_TYPE_LEAF(nonvar) PL_TYPE_LEAF(atom) PL_TYPE_LEAF(number) PL_TYPE_LEAF(integer) PL_TYPE_LEAF(float)
 PL_TYPE_LEAF(atomic) PL_TYPE_LEAF(compound) PL_TYPE_LEAF(callable) PL_TYPE_LEAF(ground) PL_TYPE_LEAF(is_list)
@@ -1762,8 +1777,9 @@ PL_CX_LEAF_HEAD(char_code, 2) { char b[64]; const char *s; DESCR_t a = rt_pl_der
     if (pl_atom_str(a) && pl_cell_text(a, b, sizeof b, &s) && s[0]) ok = plw_unify_vals(args[1], INTVAL((long long)(unsigned char)s[0]), cx);
     else if (c.v == DT_I) { char c2[2] = { (char)c.i, 0 }; ok = plw_unify_vals(args[0], pl_mk_atom_dup(c2, 1), cx); } else ok = 0; } PL_CX_LEAF_TAIL
 static int pl_number_text_leaf(DESCR_t *args, int codes, pl_tr_ctx_t *cx) { char b[4096]; const char *s; DESCR_t a = rt_pl_deref_val(args[0]);
+    { DESCR_t num; if (pl_list_text(args[1], b, sizeof b) && pl_parse_number(b, &num)) return plw_unify_vals(args[0], num, cx); }
     if (a.v == DT_I || a.v == DT_R) { pl_cell_text(a, b, sizeof b, &s); return plw_unify_vals(args[1], pl_text_list(s, codes), cx); }
-    { DESCR_t num; if (!pl_list_text(args[1], b, sizeof b) || !pl_parse_number(b, &num)) return 0; return plw_unify_vals(args[0], num, cx); } }
+    return 0; }
 PL_CX_LEAF_HEAD(number_codes, 2) ok = pl_number_text_leaf(args, 1, cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(number_chars, 2) ok = pl_number_text_leaf(args, 0, cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(name, 2) { char b[4096]; const char *s; DESCR_t a = rt_pl_deref_val(args[0]);
