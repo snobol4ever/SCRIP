@@ -16,6 +16,7 @@
 # (refuses otherwise) -- not re-checked here, this script only grades what the container already holds.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SD="$HERE/.."; ROOT="$(cd "$SD/.." && pwd)"
+. "$HERE/lib_inventory.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_inventory.sh unloadable"; exit 2; }
 SUITE="${AISNOBOL_SUITE:-$ROOT/corpus/packages/snobol4/aisnobol}"
 SCRIP="$SD/scrip"; RT_DIR="$SD/out"
 [ -x "$SCRIP" ] || { echo "⛔ REFUSE(rc=2): no scrip binary at $SCRIP -- build first (make)"; exit 2; }
@@ -71,18 +72,21 @@ fi
 # ⭐ THE PACKAGE LOCKDOWN (Lon 2026-09-06, MASTER-PLAN sec THE PACKAGE LOCKDOWN): shipped is measured
 # FRESH from the vendored dir every run, never derived from the container alone -- a file added after
 # the container was last built must show up as ungraded, not silently vanish. ALL.sno is the container
-# itself, never a shipped program.
+# itself, never a shipped program. lib_inventory.sh recomputes shipped/ungraded/ungradable itself from
+# UNGRADABLE.tsv/UNGRADED.tsv beside $SUITE -- ALL.excluded.txt above is this harness's own pre-lockdown
+# bucket (kept for the board's per-name EXCLUDED listing), no longer the inventory's source of truth.
 real_shipped=$(find "$SUITE" -maxdepth 1 -name '*.sno' ! -name 'ALL.sno' | wc -l | tr -d ' ')
-ungraded=$((real_shipped - scored - excl))
 [ "$real_shipped" != "$shipped" ] && echo "⚠ CONTAINER STALE: $SUITE ships $real_shipped .sno file(s) now, container knows $shipped -- rebuild: python3 scripts/util_build_package_suite.py ${SUITE#"$ROOT"/}"
-echo "PACKAGE_INVENTORY shipped=$real_shipped graded=$scored ungradable=$excl ungraded=$ungraded"
+INV_PACKAGE=aisnobol; INV_DIR="$SUITE"; INV_EXT=".sno"
+INV_LINE="$(inventory_line "$scored" 0)"
+if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
 
 # ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05: "any run of a test suite by any session
 # will update the ONE LEADERBOARD"). Records the board just printed into .github/SCORE.md -- runs nothing
 # new. NON-FATAL BY DESIGN (matches test_icon_arizona_suite.sh's own convention): a bookkeeping failure
 # must never turn a real measurement into a red gate for a reason unrelated to the code.
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite aisnobol --modes m3,m4 \
-    --measurer "${S4E_SEAT:-}" --text "aisnobol $m3p/$scored m3 . $m4p/$scored m4 SCORED (of $shipped shipped, $excl excluded and named) . m3 FAIL=$m3f CRASH=$m3c HANG=$m3h . m4 FAIL=$m4f CRASH=$m4c HANG=$m4h (\`test_snobol4_aisnobol_suite.sh\`)" \
+    --measurer "${S4E_SEAT:-}" --text "aisnobol $m3p/$scored m3 . $m4p/$scored m4 SCORED (of $shipped shipped, $excl excluded and named) . m3 FAIL=$m3f CRASH=$m3c HANG=$m3h . m4 FAIL=$m4f CRASH=$m4c HANG=$m4h${INV_LINE:+ . $INV_LINE} (\`test_snobol4_aisnobol_suite.sh\`)" \
     || echo "WARNING SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
 exit $rc

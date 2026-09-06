@@ -32,6 +32,7 @@ SCRIP="${SCRIP:-$SD/scrip}"; RT_DIR="${RT_DIR:-$SD/out}"; T="${TIMEOUT:-60}"
 [ -d "$SUITE" ] || { echo "⛔ REFUSE(rc=2): no suite at $SUITE"; exit 2; }
 [ -f "$SUITE/testpgms.in" ] || { echo "⛔ REFUSE(rc=2): $SUITE/testpgms.in missing -- every program reads it on stdin"; exit 2; }
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority; a private fallback would grade a DIFFERENT LANGUAGE (s189: -bf is the only correct arm)"; exit 2; }
+. "$HERE/lib_inventory.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_inventory.sh unloadable"; exit 2; }
 SBL="$(sbl_correctness_bin)" || exit 2
 FLAGS="$(sbl_lang_flags)"
 # ⛔⭐⭐ CEO-281 CLAUSE (2) -- TWO PROGRAMS ARE GRADED AGAINST CSNOBOL4, AND THE CHOICE IS RULED, NOT CONVENIENT.
@@ -157,6 +158,16 @@ CORP_HASH="$(git -C "$ROOT/corpus" rev-parse --short HEAD 2>/dev/null || echo '?
 echo "SPITBOL_TESTPGMS_BOARD total=$TOTAL scored=$SCORED unscored=$UNSCR m3_pass=$M3P m3_fail=$M3F m4_pass=$M4P m4_fail=$M4F -- SCRIP $SCRIP_HASH corpus $CORP_HASH RT_OPT=-O0 oracle=sbl-bf except {$CSN_GRADED}=csnobol4-b per CEO-281 refs cut live"
 printf '%s' "$UNSCR_LINES"
 printf '%s' "$RED_LINES"
+# ⭐ THE PACKAGE LOCKDOWN: lib_inventory.sh recomputes ungradable from UNGRADABLE.tsv beside $SUITE (a
+# static declaration of test2/test4/test6/test7's known sbl behavior) rather than trusting $UNSCR as a
+# number. test5.spt and test8.spt are graded (against csnobol4, CEO-281) and land in graded_stream via
+# SCORED -- ⛔ if a future run of sbl answers a declared-ungradable program cleanly instead, SCORED
+# changes but the static declaration does not, and inventory_line correctly REFUSES on that mismatch
+# rather than silently accepting a stale ruling (this runner's own live UNSCR check still decides each
+# run; only the WRITTEN reason for a name that stays unscored is static).
+INV_PACKAGE=spitbol_testpgms; INV_DIR="$SUITE"; INV_EXT=".spt"
+INV_LINE="$(inventory_line "$SCORED" 0)"
+if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
 # ⛔ ZERO SCORED IS UNMEASURED, NEVER GREEN. If the oracle ever dies on all four, every counter above reads 0
 # and the verdict `m3_fail=0 && m4_fail=0` would be a perfect green board over an empty population.
 if [ "$SCORED" -eq 0 ]; then
@@ -167,7 +178,7 @@ if [ -f "$HERE/lib_gate.sh" ]; then
     . "$HERE/lib_gate.sh" 2>/dev/null || true
     if command -v gate_score_row >/dev/null 2>&1; then
         GATE_NAME=test_snobol4_spitbol_testpgms_suite
-        gate_score_row snobol4 vendor "spitbol_testpgms $M3P/$SCORED m3 · $M4P/$SCORED m4 (of $TOTAL shipped, $UNSCR UNSCORED -- sbl answers neither, by SIGSEGV or by a fatal listing at rc=0; test5+test8 graded vs csnobol4 -b under --compat=csnobol4 per CEO-281; refs cut live, \`test_snobol4_spitbol_testpgms_suite.sh\`)" "m3,m4" || true
+        gate_score_row snobol4 vendor "spitbol_testpgms $M3P/$SCORED m3 · $M4P/$SCORED m4 (of $TOTAL shipped, $UNSCR UNSCORED -- sbl answers neither, by SIGSEGV or by a fatal listing at rc=0; test5+test8 graded vs csnobol4 -b under --compat=csnobol4 per CEO-281; refs cut live${INV_LINE:+ · $INV_LINE}, \`test_snobol4_spitbol_testpgms_suite.sh\`)" "m3,m4" || true
     fi
 fi
 [ "$M3F" = 0 ] && [ "$M4F" = 0 ]

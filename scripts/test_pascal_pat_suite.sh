@@ -31,6 +31,7 @@ refuse() { echo "⛔ REFUSED(2) [$GATE_NAME]: $*" >&2; exit 2; }
 # table is this class's normal output. NO LOGIC HERE: util_require_fresh.sh sources gate_require_fresh from
 # lib_gate.sh, the ONE authority (hq_B 4c7253e99) -- never a second copy of the staleness rule.
 "$HERE/util_require_fresh.sh" --gate test_pascal_pat_suite "$SCRIP" "${RT_DIR:-$HERE/../out}/libscrip_rt.so" || exit 2
+. "$HERE/lib_inventory.sh" 2>/dev/null || refuse "lib_inventory.sh unloadable"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 declare -A P F C
 for m in m3 m4; do P[$m]=0; F[$m]=0; C[$m]=0; done
@@ -115,15 +116,18 @@ echo "PAT_SUITE_BOARD total=$TOTAL m3_pass=${P[m3]} m3_fail=${F[m3]} m4_pass=${P
 # ⭐ THE PACKAGE LOCKDOWN (Lon 2026-09-06, MASTER-PLAN sec THE PACKAGE LOCKDOWN): shipped is measured
 # FRESH from the vendored dir every run (both iso7185prt* and iso7185pat* globs), never assumed from
 # TOTAL alone -- a file added to $SUITE after this script was last touched must show up as ungraded,
-# not silently vanish.
-PAT_SHIPPED=$(find "$SUITE" -maxdepth 1 -name '*.pas' | wc -l | tr -d ' ')
-echo "PACKAGE_INVENTORY shipped=$PAT_SHIPPED graded=$TOTAL ungradable=$UNGRADABLE ungraded=$((PAT_SHIPPED - TOTAL - UNGRADABLE))"
+# not silently vanish. lib_inventory.sh recomputes ungradable/ungraded itself from UNGRADABLE.tsv/
+# UNGRADED.tsv beside $SUITE (the two acceptance-population fixtures fpc -Miso cannot build this run)
+# rather than trusting this script's own $UNGRADABLE counter.
+INV_PACKAGE=pat; INV_DIR="$SUITE"; INV_EXT=".pas"
+INV_LINE="$(inventory_line "$TOTAL" 0)"
+if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
 echo "  diagnosis (counted INSIDE fail, never beside it): m3 crash-or-ran-to-bound=${C[m3]} · m4 crash-or-ran-to-bound=${C[m4]} — the verdict is REFUSED-WITH-A-DIAGNOSTIC or not, which does not vary with machine load; this split does"
 [ -n "${PAT_NAME_REDS:-}" ] && { echo "  reds:"; for x in $NAMED; do echo "    $x"; done | head -40; }
 if . "$HERE/lib_gate.sh" 2>/dev/null && command -v gate_stamp >/dev/null 2>&1; then gate_stamp; fi
 python3 "$HERE/util_score_row.py" write --lang pascal --column vendor --suite PAT --modes m3,m4 \
     --measurer "${S4E_SEAT:-}" \
-    --text "ISO 7185 validation suite (Pascal-P5 1.4.x, vendored corpus/packages/pascal/pat): $TOTAL programs — m3 ${P[m3]}/$TOTAL · m4 ${P[m4]}/$TOTAL (${C[m3]}/${C[m4]} crash). 427 are REJECTION tests graded on whether scrip refuses them, per \`test_pascal_pat_suite.sh\`" \
+    --text "ISO 7185 validation suite (Pascal-P5 1.4.x, vendored corpus/packages/pascal/pat): $TOTAL programs — m3 ${P[m3]}/$TOTAL · m4 ${P[m4]}/$TOTAL (${C[m3]}/${C[m4]} crash). 427 are REJECTION tests graded on whether scrip refuses them${INV_LINE:+ . $INV_LINE}, per \`test_pascal_pat_suite.sh\`" \
     2>&1 | sed 's/^/    /'
 python3 "$HERE/util_score_row.py" progress 2>/dev/null || true
 exit 0

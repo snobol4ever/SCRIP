@@ -57,6 +57,7 @@ SCRIP="$SD/scrip"; RT_DIR="$SD/out"; TIMEOUT="${TIMEOUT:-20s}"
 "$HERE/util_require_fresh.sh" --gate test_snobol4_dotnet_suite "$SCRIP" "${RT_DIR:-$HERE/../out}/libscrip_rt.so" || exit 2
 [ -f "$RT_DIR/libscrip_rt.so" ] || { echo "⛔ REFUSE(rc=2): no $RT_DIR/libscrip_rt.so"; exit 2; }
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_oracle_flags.sh unloadable"; exit 2; }
+. "$HERE/lib_inventory.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_inventory.sh unloadable"; exit 2; }
 SBL="$(sbl_correctness_bin)"; SBL_FLAGS="$(sbl_lang_flags)"
 [ -x "$SBL" ] || { echo "⛔ REFUSE(rc=2): oracle absent: $SBL"; exit 2; }
 sbl_assert_bf "$SBL" 2>/dev/null || { echo "⛔ REFUSE(rc=2): oracle at $SBL failed the -bf capability check"; exit 2; }
@@ -118,8 +119,12 @@ echo "DOTNET_BOARD total=$TOTAL scored=$SCORED unscr=$UNSCR m3_pass=$P3 m3_fail=
 [ -n "$FL4" ] && echo "FAIL-M4 (vs live sbl -bf):$FL4"
 # ⭐ THE PACKAGE LOCKDOWN (Lon 2026-09-06): TOTAL is a fresh per-run filesystem census (the for loop
 # above), never a cached count, so shipped can never silently lag the vendored dir. Every one of the 14
-# lands in SCORED or UNSCR (named above) -- nothing here is ever left unclassified.
-echo "PACKAGE_INVENTORY shipped=$TOTAL graded=$SCORED ungradable=$UNSCR ungraded=$((TOTAL - SCORED - UNSCR))"
+# lands in SCORED or UNSCR (named above) -- nothing here is ever left unclassified. lib_inventory.sh
+# recomputes ungradable itself from UNGRADABLE.tsv beside $SUITE (a static declaration of exactly the
+# UNSCR names above, with the oracle's own per-program reason) rather than trusting $UNSCR as a number.
+INV_PACKAGE=dotnet; INV_DIR="$SUITE"; INV_EXT=".sno"
+INV_LINE="$(inventory_line "$SCORED" 0)"
+if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
 # ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
 # vacuously, hq_T 2026-09-04): F3/F4/S4 all read 0 over zero SCORED entries too (empty corpus dir,
 # every witness oracle-crashed/died) -- refuse before the vacuous-clean verdict below can be reached.
