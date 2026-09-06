@@ -66,7 +66,11 @@ CRASHED=0
 # being laundered through this gate's verdict either way. Grading the deterministic property
 # deterministically is what a gate is for; the crash detection below stays as the safety net, so if the
 # crash ever appears WITHOUT ASLR this gate refuses instead of quietly reporting a disagreement.
-SETARCH=""; command -v setarch >/dev/null 2>&1 && setarch -R true 2>/dev/null && SETARCH="setarch -R"
+SETARCH=""   # ⭐ ASLR STAYS ON. The setarch -R narrowing this line used to carry was a workaround for the
+             # Raku top-level uninitialised-context SIGSEGV, and that defect is CURED (lower_raku.c, this same
+             # landing), so the gate keeps its teeth and grades the condition every other seat runs under
+             # (ceo CEO-367: cure the compiler, leave the gate alone). Measured: cured build 10/10 rc=0 with
+             # ASLR ON; base build 10/10 rc=2, refusing honestly instead of inventing a DIVERGE.
 # _try <mode> <file> -> md5 of the output, or the literal CRASH / BUILDFAIL. Sets CRASHED when the tool died
 # on a signal (rc >= 128) or was killed by the timeout (124), both of which mean UNMEASURED, not "failed".
 _try() {

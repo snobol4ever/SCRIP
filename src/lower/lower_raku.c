@@ -1157,6 +1157,7 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
         if (g_stage2.proc_table[pi].name && strcmp(g_stage2.proc_table[pi].name, "main") == 0) { has_main = 1; break; }
     if (!has_main) {
         IR_graph_t * tg = IR_alloc(8192); rcx_t tcx; tcx.g = tg; tcx.try_catch = NULL; tcx.loop_exit = NULL; tcx.loop_next = NULL;
+        tcx.cur_proc = NULL; tcx.cur_byref_mask = 0; tcx.cur_nparams = 0;
         IR_t * succ = IR_node_alloc(tg, IR_SUCCEED); IR_t * fail = IR_node_alloc(tg, IR_FAIL);
         IR_t * sentry = succ; IR_t * entry = succ;
         int has_rk_MAIN = 0;
