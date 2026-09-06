@@ -1989,6 +1989,18 @@ TASKEOF
          # rank-1 rows). A topic with no readable mint timestamp sorts as OLDEST in its tier (s4e_mint_ts),
          # never specially -- so this degrades to the old behaviour only in the absence of data, not by design.
          _owned_skipped=0; _owned_first=""
+         _rankcap_skipped=0; _rankcap_first=""
+         # ⛔ ONE LINE, NOT ONE PER ROW -- the same ruling as the owned-skip report below it, and my first
+         # draft got it wrong. Under THE FLEET-12 PLAN ranks 6-9 are a whole tier, so a seat with a quiet
+         # lane can meet a dozen of them in one pick; per-row refusals would bury the serve they precede.
+         # But it is never SILENT: a skip nobody can see is indistinguishable from the row not existing,
+         # which is the failure this picker keeps being fixed for. The GOAL says it in one clause --
+         # "skips FREE rows of rank >= 6 ... AND PRINTS HOW MANY IT SKIPPED".
+         s4e_report_rankcap_skips() {
+           [ "${_rankcap_skipped:-0}" -gt 0 ] || return 0
+           printf '↩ skipped %d free row(s) at rank 6+ (HQ-ONLY tier, topmost: %s).\n' "$_rankcap_skipped" "$_rankcap_first"
+           printf '   THE FLEET-12 PLAN: seats take bounded rows, rank 0-5; ranks 6-9 are HQ/cto work.\n'
+           printf '   If you believe one is yours, ask your HQ; the deliberate override is: s4e_msg.sh claim <topic>.\n'; }
          # ⛔ ONE line, not one per row: 18 of 178 FREE rows carry a named owner today, so per-row skip lines would
          # bury the serve they precede. But it is never SILENT -- a skip nobody can see is indistinguishable from
          # the row not existing, which is the failure this whole picker keeps being fixed for.
@@ -1998,6 +2010,11 @@ TASKEOF
            printf '   The owner column constrains the pick (ceo 2026-09-03). To take one anyway: s4e_msg.sh claim <topic>.\n'
            printf '   To move ownership properly, an HQ or the ceo runs: s4e_msg.sh assign <topic> <seat>.\n'; }
          s4e_pass3_scan() {
+           # ⛔ RESET PER PASS, NOT PER next() -- s4e_pass3_scan is called TWICE (own-lane, then any-lane) and a
+           # counter initialised outside it counts every skipped row once per pass. Measured: three rank-6+ rows
+           # in a scratch queue reported "skipped 6". The honest number is the LAST pass's, because that is the
+           # pass that actually gave up and produced the report the seat is reading.
+           _rankcap_skipped=0; _rankcap_first=""
          while IFS=$'\t' read -r rank topic brief step; do
            case "$rank" in ''|\#*) continue;; esac
            # ⛔ s265 — THE STATE COLUMN IS LOAD-BEARING NOW. It was decorative (94 of 94 rows FREE, nothing read it),
@@ -2107,10 +2124,17 @@ TASKEOF
            # ⭐⭐ THE FLEET-12 RANK CAP -- see s4e_rank_cap_refuses above. Sits beside the language freeze
            # because it is the same KIND of cut: unconditional, no any-lane-style fallback, and never
            # relaxed by a later pass. A seat with nothing else to do does not become entitled to HQ work.
-           if s4e_rank_cap_refuses "$rank"; then
-             printf '⛔ SKIP %s (rank %s) — ranks 6+ are HQ-ONLY under THE FLEET-12 PLAN; seats take bounded rows, rank 0-5.\n' \
-               "$topic" "$rank"
-             printf '   Not served automatically. If you believe this row is yours, ask your HQ; a deliberate override is still s4e_msg.sh claim %s\n' "$topic"
+           # ⭐ AN EXPLICIT DIRECTION OUTRANKS THE CAP -- the GOAL's own "assign still outranks", and the
+           # SAME precedent the lane filter below already sets ("an explicit OWNER-CELL match always wins
+           # regardless of lane"). A rank-6 row an HQ deliberately pointed at THIS seat by name is not the
+           # accident the cap exists to prevent; it is an authority overriding the default on purpose.
+           # ⛔ ASSIGNED needs no exemption here and must not be given one: it hides a row from the picker
+           # ENTIRELY, its owner included, so the cap can never be what withheld it -- the owner reaches for
+           # `claim`, which this refusal names and which the cap does not touch.
+           if s4e_rank_cap_refuses "$rank" \
+              && [ "$brief" != "$ME" ] && [ "$step" != "RESTRICTED:$ME" ]; then
+             _rankcap_skipped=$((_rankcap_skipped+1))
+             [ -n "$_rankcap_first" ] || _rankcap_first="rank $rank  $topic"
              continue
            fi
            # ⭐⭐ THE LANE FILTER — see s4e_topic_lane/s4e_my_lane above. An explicit OWNER-CELL match
@@ -2151,6 +2175,7 @@ TASKEOF
              # ⛔⭐ ONE CALL, TWO SERVE PATHS -- see s4e_dispatch_gate. Never inline this again.
              s4e_dispatch_gate "$topic" "$rank" || continue
              s4e_report_owned_skips
+             s4e_report_rankcap_skips
              serve "$topic" "LOCKED" "($_serve_reason)"; exit 0; fi
          done < <(grep -P '^[0-9]+\t' "$q" | while IFS=$'\t' read -r rk tp br st; do printf '%s\t%s\t%s\t%s\t%s\n' "$rk" "$(s4e_mint_ts "$tp")" "$tp" "$br" "$st"; done | sort -t$'\t' -s -k1,1n -k2,2r | cut -f1,3-)
          return 1
@@ -2172,6 +2197,7 @@ TASKEOF
          # empty" sent seats to ask HQ for work while rows sat waiting on a grant nobody had chased.
          _gw="$(awk -F'\t' '/^[0-9]+\t/ && ($4 ~ /^GRANT-NEEDED/ || $4 ~ /^PARKED-LON-HOLD/) {printf "     rank %s  %s  [%s]\n",$1,$2,$4}' "$q" 2>/dev/null)"
          s4e_report_owned_skips
+         s4e_report_rankcap_skips
          echo "QUEUE EMPTY — every row claimed. Ask hq: s4e_msg.sh ask work 'queue empty'"
          [ -n "$_gw" ] && { echo "   ⭐ NOT empty of WORK — these rows are GOVERNANCE-GATED, waiting on a grant, not on a seat:"; printf '%s\n' "$_gw"; echo "   Chase the grant (route via your HQ to ceo), do not re-park these to FREE."; }
          exit 1;;

@@ -42,7 +42,9 @@ mk_row() { # $1=rank $2=topic
         > "$SBX/tasks/$2.task.md"
 }
 pick_as() { S4E_POST="$SBX" S4E_SEAT="$1" bash "$S4E_MSG" next 2>&1 || true; }
-CAP='HQ-ONLY under THE FLEET-12 PLAN'
+# ⛔ THE REFUSAL IS A ONE-LINE SUMMARY, NOT A PER-ROW LINE (same ruling as the owned-skip report:
+# per-row refusals bury the serve they precede). So the arms match the SUMMARY text.
+CAP='at rank 6+ (HQ-ONLY tier'
 
 # ⭐ ONE ROW PER CASE, ALWAYS. My first draft put a rank-6 and a rank-5 row in one queue and asserted the
 # seat got the rank-5 one -- which it did, by SORT ORDER, without the cap ever firing. The arm passed
@@ -80,15 +82,31 @@ printf '%s' "$(pick_as ceo)" | grep -q "$CAP" && fail "ARM 5: the ceo was refuse
 reset_sbx; mk_row 7 rank_seven_row
 arms=$((arms+1)); OUT="$(pick_as seat01)"
 if printf '%s' "$OUT" | grep -q "$CAP"; then
-    printf '%s' "$OUT" | grep -q 'claim rank_seven_row' \
+    printf '%s' "$OUT" | grep -q 'claim <topic>' \
       || fail "ARM 6: the refusal does not name the deliberate override -- a seat told only NO re-runs next and gets the same NO"
 else
     fail "ARM 6: seat01 was not refused a rank-7 row at all"
 fi
 
+# ---- ARM 7: it PRINTS HOW MANY IT SKIPPED, one line, not one per row (the GOAL's own clause) ----
+reset_sbx; mk_row 6 rank_six_a; mk_row 7 rank_six_b; mk_row 8 rank_six_c
+arms=$((arms+1)); OUT="$(pick_as seat01)"
+printf '%s' "$OUT" | grep -qE 'skipped 3 free row\(s\) at rank 6\+' \
+  || fail "ARM 7: no one-line count of the rank-capped skips (GOAL: 'and prints how many it skipped')"
+[ "$(printf '%s' "$OUT" | grep -c 'HQ-ONLY tier')" -le 1 ] \
+  || fail "ARM 7b: the cap printed one line PER ROW -- that buries the serve it precedes, the same ruling the owned-skip report already made"
+
+# ---- ARM 8: an explicit direction OUTRANKS the cap (GOAL: 'assign still outranks') ----
+reset_sbx
+printf '6\trestricted_to_me\tunassigned\tRESTRICTED:seat01\n' >> "$SBX/QUEUE.tsv"
+printf '# TASK restricted_to_me\nGOAL: fixture\nDONE-WHEN: test -f /nonexistent-rankcap-fixture-marker\n' > "$SBX/tasks/restricted_to_me.task.md"
+arms=$((arms+1)); OUT="$(pick_as seat01)"
+printf '%s' "$OUT" | grep -q 'LOCKED restricted_to_me' \
+  || fail "ARM 8: a rank-6 row RESTRICTED to this seat by name was withheld -- an authority pointed it here on purpose, and assign outranks the cap"
+
 if [ "$viol" -ne 0 ]; then
     echo "⛔ GATE FAIL [$GATE]: $viol of $arms arms broken"
     exit 1
 fi
-echo "GATE PASS(0) [$GATE]: $arms arms -- seats capped at rank 5, HQs/ceo/cto uncapped and SERVED, override named"
+echo "GATE PASS(0) [$GATE]: $arms arms -- seats capped at rank 5, HQs/ceo/cto uncapped and SERVED, skips counted in ONE line, explicit direction outranks, override named"
 exit 0
