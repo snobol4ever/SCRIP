@@ -28,22 +28,38 @@ ASM_TMP=$(mktemp /tmp/pl_asm_XXXXXX.s)
 PROG_TMP=$(mktemp /tmp/pl_prog_XXXXXX)
 trap 'rm -f "$WRAP" "$ACTUAL_TMP" "$ASM_TMP" "$PROG_TMP"' EXIT
 
-VERBOSE=0; ONLY_FILE=""; MODE=""; RECUT=0; RECUT_WRITE=0
+VERBOSE=0; ONLY_FILE=""; MODE=""; RECUT=0
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --verbose)  VERBOSE=1; shift ;;
         --file)     ONLY_FILE="$2"; shift 2 ;;
         --mode)     MODE="$2"; shift 2 ;;
         --run|--compile) MODE="$1"; shift ;;
-        --recut-refs) RECUT=1; shift ;;
-        --write)      RECUT_WRITE=1; shift ;;
-        *) flaggate_reject "$1" "--verbose --file --mode --run --compile --recut-refs --write" ;;
+        --census-packages) RECUT=1; shift ;;
+        *) flaggate_reject "$1" "--verbose --file --mode --run --compile --census-packages" ;;
     esac
 done
 
 [ -d "$SWIT" ]   || { echo "⛔ REFUSED-TO-GRADE: $SWIT missing"; exit 2; }
 
-# ⛔⭐⭐ --recut-refs: CUT THE ORACLE REFS FROM REAL swipl, RUNNING ITS OWN library(plunit), WITH NO SHIM.
+# ⛔⭐⭐ --census-packages: CENSUS THE SHIPPED PLUNIT POPULATION AGAINST REAL swipl. IT WRITES NO REFS.
+# ⛔⭐ THE REF CUTTER IS scripts/util_swi_cut_refs.sh (seat12, SCRIP b08893799) AND THIS ARM IS NOT A SECOND
+# ONE. That script landed while this arm was being written, and it is BETTER at cutting on three counts, each
+# measured by reading it: it runs ONE swipl PROCESS PER (file,unit) so a SIGABRT cannot swallow a sibling
+# unit's verdict (this arm loses a whole file to one crash); it reads each verdict from plunit's OWN
+# test_summary/2 bookkeeping with the same branching plunit's report/0 uses, rather than inferring it from
+# run_tests/1 succeeding, which cannot tell a failed test from an error; and it takes its oracle from
+# lib_oracle_flags.sh swipl_bin() instead of hardcoding a path, which is the shared-authority rule this arm
+# had broken. TWO WRITERS FOR ONE ARTIFACT IS THE COLLISION CLASS (PROTOCOL 4c), so the writer here is
+# DELETED rather than kept beside it -- when the two disagree, a later seat has no way to know which cut a
+# ref, and the worse tool wins whenever it is the one that ran.
+# ⭐ WHAT THIS ARM UNIQUELY ADDS, and why it survives at all: SCOPE. util_swi_cut_refs.sh defaults to the
+# bases that ALREADY HAVE a .ref -- the 9 -- and addresses them by basename, so it cannot see the suites in
+# subdirectories. This arm walks the SHIPPED population by PATH (170 plunit suites, not 9) and prints the
+# inventory THE PACKAGE LOCKDOWN requires: every shipped program graded, or NAMED UNGRADABLE with the
+# oracle's own reason. It is a census, and a census only.
+#
+# THE FINDING THE CENSUS EXISTS TO SERVE:
 # ceo ruling 2026-09-06 ("the oracle is swipl, never our shim"), on hq_C's finding that every .ref in this
 # suite was cut by running swipl THROUGH corpus/tests/prolog/plunit.pl -- which swipl cannot load, because it
 # refuses to redefine its own set_prolog_flag/2 and current_prolog_flag/2. So the refs recorded the ORACLE
@@ -56,19 +72,29 @@ done
 # ⛔ The driver goal is INTROSPECTION ONLY -- plunit:current_unit/4, plunit:current_test/5, run_tests/1. It
 # defines nothing and redefines nothing, which is the whole difference from the shim. Atoms are built with
 # upcase_atom/2 rather than quoted, so the goal survives shell embedding without a single quote in it.
-# ⭐ DRY-RUN BY DEFAULT. The re-cut itself is hq_T/hq_R's denominator lane (ceo); hq_C supplies this arm. It
-# prints what it WOULD write and changes nothing unless --write is passed.
 # ⭐ Refs are written BESIDE their .pl (by path), not by basename into $SWIT -- which is also what the by-path
 # ruling on row prolog-swi-tests-the-two-copies-of-test-string-... asks for. The GRADING side still resolves by
 # basename (see run_one_mode); that is that row's business, not this arm's.
-recut_refs() {
+census_packages() {
     local SW=/usr/bin/swipl
     [ -x "$SW" ] || { echo "⛔ REFUSED-TO-GRADE: no swipl at $SW -- a ref can only be cut by the oracle, and there is no oracle here"; return 2; }
     local G outdir f base dir units rc n
-    G='getenv(recut_out, P), open(P, write, S), forall(plunit:current_unit(U,_,_,_), ( aggregate_all(count, plunit:current_test(U,_,_,_,_), N), ( N =:= 0 -> upcase_atom(empty, V) ; catch(( with_output_to(string(_), run_tests(U)) -> upcase_atom(pass, V) ; upcase_atom(fail, V) ), _, upcase_atom(fail, V)) ), format(S, "~w ~w~n", [V, U]) )), close(S), halt(0)'
+    # ⛔⭐⭐ THIS GOAL EMITS NO VERDICT, AND THAT IS A CORRECTION, NOT A LIMITATION. An earlier cut of this arm
+    # decided EMPTY by counting DECLARED tests (plunit:current_test/5) and then read run_tests/1 SUCCEEDING as
+    # PASS. That is wrong, and it was caught only because seat12's independent cutter disagreed on exactly one
+    # file of nine: test_bips unit bips_occurs_check_error DECLARES 7 tests, every one of them carrying
+    # condition(error_unification), which needs occurs_check==error -- and this swipl has occurs_check=false.
+    # So 7 are declared, ZERO execute, plunit itself prints "No tests to run", and the honest verdict is EMPTY.
+    # This arm said PASS. ⭐ DECLARATION IS NOT EXECUTION: the count was a proxy for the subject, it is right
+    # nearly everywhere, and being right nearly everywhere is precisely what kept it hidden -- 7 of the 9 files
+    # AGREED with the correct cutter. A disagreement of one is what exposed it.
+    # ⛔ So verdicts are util_swi_cut_refs.sh's alone (it reads plunit's OWN test_summary/2 bookkeeping, which
+    # counts what RAN). This goal reports STRUCTURE only -- the unit names a file declares -- plus, by the
+    # process's own exit status, whether the oracle can get through the file at all.
+    G='getenv(recut_out, P), open(P, write, S), forall(plunit:current_unit(U,_,_,_), ( aggregate_all(count, plunit:current_test(U,_,_,_,_), N), ( catch(with_output_to(string(_), run_tests(U)), _, true) -> true ; true ), format(S, "~w declared=~w~n", [U, N]) )), close(S), halt(0)'
     outdir=$(mktemp -d /tmp/pl_recut_XXXXXX)
     local shipped=0 graded=0 ungradable=0 lines=0 changed=0
-    echo "RECUT: oracle=$SW (its own library(plunit), no shim)   mode=$([ "$RECUT_WRITE" -eq 1 ] && echo WRITE || echo DRY-RUN)"
+    echo "CENSUS: oracle=$SW (its own library(plunit), no shim). This arm WRITES NOTHING -- scripts/util_swi_cut_refs.sh is the ref cutter."
     for f in $(find "$SWIT" -name '*.pl' | sort); do
         base=$(basename "$f" .pl); dir=$(dirname "$f")
         [ -z "$ONLY_FILE" ] || [ "$base" = "$ONLY_FILE" ] || continue
@@ -91,16 +117,19 @@ recut_refs() {
         if [ "$rc" -ne 0 ] || [ ! -s "$recut_out" ]; then
             # ⛔ NAMED UNGRADABLE WITH THE ORACLE'S REASON -- never dropped, never counted as passed.
             ungradable=$((ungradable + 1))
+            # ⛔ COUNT THE PARTIAL OUTPUT A CRASH LEFT BEHIND. Skipping it here made the loop's line total
+            # smaller than the artifacts on disk, and the cross-check below then convicted an OVERWRITE that
+            # had not happened -- a guard firing truthfully for the wrong stated reason.
+            lines=$((lines + $(wc -l < "$recut_out")))
             printf '  UNGRADABLE %-40s oracle rc=%s: %s\n' "$rel" "$rc" "$(head -1 "${recut_out%.ref}.err" 2>/dev/null | tr -d '\n' | cut -c1-90)"
             continue
         fi
         graded=$((graded + 1)); n=$(wc -l < "$recut_out"); lines=$((lines + n))
-        if [ -f "$dir/$base.ref" ] && cmp -s "$dir/$base.ref" "$recut_out"; then
-            printf '  SAME       %-40s %s line(s)\n' "$rel" "$n"
+        if [ -f "$dir/$base.ref" ]; then
+            printf '  HAS-REF    %-40s %s unit(s) declared, ref carries %s line(s)\n' "$rel" "$n" "$(wc -l < "$dir/$base.ref")"
         else
             changed=$((changed + 1))
-            printf '  RECUT      %-40s %s line(s)%s\n' "$rel" "$n" "$([ -f "$dir/$base.ref" ] && echo " (was $(wc -l < "$dir/$base.ref"))" || echo " (new)")"
-            [ "$RECUT_WRITE" -eq 0 ] || cp "$recut_out" "$dir/$base.ref"
+            printf '  NO-REF     %-40s %s unit(s) declared -- SHIPPED AND UNGRADED\n' "$rel" "$n"
         fi
     done
     # ⛔⭐ CROSS-CHECK THE LOOP COUNTER AGAINST THE ARTIFACTS ON DISK, and REFUSE if they disagree. This is the
@@ -109,19 +138,20 @@ recut_refs() {
     local disk_files disk_lines
     disk_files=$(find "$outdir" -name '*.ref' | wc -l)
     disk_lines=$(find "$outdir" -name '*.ref' -exec cat {} + 2>/dev/null | wc -l)
-    echo "RECUT inventory: shipped=$shipped graded=$graded ungradable=$ungradable changed=$changed verdict-lines=$lines"
+    echo "CENSUS inventory: shipped=$shipped loadable=$graded ungradable=$ungradable units-declared=$lines   (⛔ NO VERDICTS HERE -- util_swi_cut_refs.sh cuts those)"
     if [ "$disk_files" -ne "$((graded + ungradable))" ] || [ "$disk_lines" -ne "$lines" ]; then
-        echo "⛔ REFUSED-TO-GRADE: the loop counted graded=$graded ungradable=$ungradable over $lines line(s), but $outdir holds $disk_files ref file(s) over $disk_lines line(s)."
-        echo "   A ref was overwritten by a same-named sibling, so this census destroyed evidence it never looked at. Refusing to report a number the artifacts do not support."
+        echo "⛔ REFUSED-TO-GRADE: the census loop counted graded=$graded ungradable=$ungradable over $lines line(s), but $outdir holds $disk_files ref file(s) over $disk_lines line(s)."
+        echo "   TWO CAUSES REACH THIS MESSAGE AND IT NAMES NEITHER AS CERTAIN: (a) a ref was overwritten by a same-named sibling, so the census destroyed evidence it never looked at; (b) a file the loop skipped still left PARTIAL output on disk, so the artifacts legitimately exceed the count. Compare $outdir against the loop before concluding which."
+        echo "   Refusing either way: a number the artifacts do not support is not a measurement."
         return 2
     fi
-    echo "RECUT preview dir: $outdir"
-    [ "$RECUT_WRITE" -eq 1 ] || echo "RECUT: DRY-RUN -- nothing was written. Pass --write to land these refs (hq_T/hq_R's call, not this arm's)."
+    echo "CENSUS preview dir (not the corpus): $outdir"
+    echo "CENSUS: no refs written and no verdicts computed, by design. changed=$changed of the loadable files ship with NO .ref at all. To CUT refs use scripts/util_swi_cut_refs.sh --write (the one cutter: per-unit isolated, verdicts from plunit test_summary/2)."
     # ⭐ ungradable>0 is REPORTED, not a red: an oracle that aborts on a file is a fact about the package, and
     # this arm's job is to state it, not to grade it. The lockdown row's own criterion is where ungraded=0 binds.
     return 0
 }
-if [ "$RECUT" -eq 1 ]; then recut_refs; exit $?; fi
+if [ "$RECUT" -eq 1 ]; then census_packages; exit $?; fi
 [ -f "$PLUNIT" ] || { echo "⛔ REFUSED-TO-GRADE: $PLUNIT missing"; exit 2; }
 [ -x "$SCRIP" ]  || { echo "⛔ REFUSED-TO-GRADE: scrip not built"; exit 2; }
 # ⛔⭐ STALE-BINARY PREFLIGHT (row harness-and-ladder-runner-refuse-on-a-stale-binary-like-the-artifact-regen-
