@@ -109,6 +109,14 @@ ScanSubjRegs rt_scan_reenter(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_scan_sync_out(uint64_t delta) { scan_pos = (int)delta + 1; }
 uint64_t rt_scan_sync_in(void) { return (uint64_t)(int64_t)(scan_pos - 1); }
+uint64_t rt_scan_live_subj(void) { return (uint64_t)(uintptr_t)(scan_subj ? scan_subj : ""); }
+ScanSubjRegs rt_scan_reenter_live(uint64_t subj) {
+    const char *s = subj ? (const char *)(uintptr_t)subj : "";
+    scan_depth++;
+    scan_subj = s;
+    ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = (uint64_t)strlen(s);
+    return r;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ScanSubjRegs c_rt_match_enter(uint64_t lo, uint64_t hi) {
     extern const char *Σ; extern int Σlen;

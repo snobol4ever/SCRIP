@@ -11,6 +11,8 @@ void rt_scan_leave_ns(uint64_t outer_sigma, uint64_t outer_delta);
 void rt_scan_sync_out(uint64_t delta);
 ScanSubjRegs rt_scan_reenter(void);
 uint64_t rt_scan_sync_in(void);
+uint64_t rt_scan_live_subj(void);
+ScanSubjRegs rt_scan_reenter_live(uint64_t subj);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -36,7 +38,10 @@ std::string bb_gen_scan() {
                  + x86("mov", FRQ(_.op_ival), "rax")
                  + x86("mov", "rax", FRQ(_.op_sa + 8))
                  + x86("mov", FRQ(_.op_ival + 8), "rax"))
-             + IF(_.op_sb == 2, x86("mov", FRQ(_.op_ival), "r14"))
+             + IF(_.op_sb == 2,
+                   x86("mov", FRQ(_.op_ival), "r14")
+                 + x86("call", "rt_scan_live_subj", (uint64_t)(uintptr_t)(void *)rt_scan_live_subj)
+                 + x86("mov", FRQ(_.op_ival + 8), "rax"))
              + x86("mov", "rdi", FRQ(_.op_off))
              + x86("mov", "rsi", FRQ(_.op_off + 8))
              + (_.op_sb >= 2
@@ -50,9 +55,8 @@ std::string bb_gen_scan() {
              + IF(_.lbl_t0_p != 0 && _.op_sb == 2,
                    x86("call", "rt_scan_sync_in", (uint64_t)(uintptr_t)(void *)rt_scan_sync_in)
                  + x86("mov", FRQ(_.op_off + 8), "rax")
-                 + x86("mov", "rdi", FRQ(_.op_sa))
-                 + x86("mov", "rsi", FRQ(_.op_sa + 8))
-                 + x86("call", "rt_scan_enter", (uint64_t)(uintptr_t)(void *)rt_scan_enter)
+                 + x86("mov", "rdi", FRQ(_.op_ival + 8))
+                 + x86("call", "rt_scan_reenter_live", (uint64_t)(uintptr_t)(void *)rt_scan_reenter_live)
                  + x86("mov", "r13", "rax")
                  + x86("mov", "r15", "rdx")
                  + x86("mov", "r14", FRQ(_.op_ival))
