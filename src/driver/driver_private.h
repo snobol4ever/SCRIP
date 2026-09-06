@@ -40,6 +40,7 @@ extern int   g_kw_ctx;
 #define FH_MAX 64
 extern FILE *fh_table[FH_MAX];
 extern char *fh_name[FH_MAX];
+extern char  fh_type[FH_MAX];
 extern int   fh_init;
 void  fh_ensure_init(void);
 int   fh_alloc(FILE *fp);

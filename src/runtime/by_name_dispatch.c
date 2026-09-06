@@ -7,12 +7,12 @@
 int core_icn_error(int code, DESCR_t val);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_open_spec_is_icon(const char *spec) {
-    for (const char *p = spec; p && *p; p++) if (!strchr("aAbBcCrRwWuUtT", *p)) return 0;
+    for (const char *p = spec; p && *p; p++) if (!strchr("aAbBcCrRwWuUtTpP", *p)) return 0;
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void icn_open_cmode(const char *spec, char *out) {
-    int rd = 0, wr = 0, ap = 0, cr = 0, un = 0, n = 0;
+static void icn_open_cmode(const char *spec, char *out, int *is_pipe) {
+    int rd = 0, wr = 0, ap = 0, cr = 0, un = 0, pi = 0, n = 0;
     for (const char *p = spec; p && *p; p++) switch (*p) {
         case 'a': case 'A': wr = 1; ap = 1; break;
         case 'b': case 'B': rd = 1; wr = 1; break;
@@ -20,14 +20,16 @@ static void icn_open_cmode(const char *spec, char *out) {
         case 'r': case 'R': rd = 1; break;
         case 'w': case 'W': wr = 1; break;
         case 'u': case 'U': un = 1; break;
+        case 'p': case 'P': pi = 1; break;
         case 't': case 'T': un = 0; break;
         default: break;
     }
     if (!rd && !wr) rd = 1;
     out[n++] = cr ? 'w' : ap ? 'a' : rd ? 'r' : 'w';
     if (rd && wr) out[n++] = '+';
-    if (un) out[n++] = 'b';
+    if (un && !pi) out[n++] = 'b';
     out[n] = '\0';
+    if (is_pipe) *is_pipe = pi;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) size_t sv_len(DESCR_t arg, const char *coerced) {
@@ -3169,28 +3171,34 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "open") && (nargs == 1 || nargs == 2)) {
         const char *path = VARVAL_fn(args[0]); if (!path || !*path) { *out = FAILDESCR; return 1; }
-        const char *mode = "r"; char mbuf[8];
+        const char *mode = "r"; char mbuf[8]; int is_pipe = 0;
         if (nargs == 2) {
             const char *ms = VARVAL_fn(args[1]); if (!ms) ms = "";
-            if (icn_open_spec_is_icon(ms)) { icn_open_cmode(ms, mbuf); mode = mbuf; }
+            if (icn_open_spec_is_icon(ms)) { icn_open_cmode(ms, mbuf, &is_pipe); mode = mbuf; }
             else if (strstr(ms, ":w") || strstr(ms, "w")) mode = "w";
             else if (strstr(ms, ":a") || strstr(ms, "a")) mode = "a";
         }
         extern void fh_ensure_init(void);
         extern int fh_alloc(FILE *);
         fh_ensure_init();
-        FILE *fp = fopen(path, mode);
+        extern char fh_type[];
+        if (is_pipe && (strcmp(mode, "r") && strcmp(mode, "w"))) { *out = FAILDESCR; return 1; }
+        FILE *fp = is_pipe ? popen(path, mode) : fopen(path, mode);
         if (!fp) { *out = FAILDESCR; return 1; }
         int idx = fh_alloc(fp);
-        if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; }
+        if (idx < 0) { if (is_pipe) pclose(fp); else fclose(fp); *out = FAILDESCR; return 1; }
+        if (is_pipe) fh_type[idx] = 'p';
         *out = INTVAL(idx); return 1;
     }
     if (!strcmp(fn, "close") && nargs == 1) {
         extern FILE *fh_get(int);
         extern void  fh_free(int);
         int idx = (int)(IS_INT_fn(args[0]) ? args[0].i : 0);
+        extern char fh_type[];
         FILE *fp = fh_get(idx);
-        if (fp) { fclose(fp); fh_free(idx); }
+        int pst = -1;
+        if (fp) { if (fh_type[idx] == 'p') pst = pclose(fp); else fclose(fp); fh_type[idx] = 0; fh_free(idx); }
+        if (pst >= 0) { *out = INTVAL((pst >> 8) & 0xFF); return 1; }
         *out = INTVAL(0); return 1;
     }
     if (!strcmp(fn, "slurp") && nargs == 1) {
@@ -6054,14 +6062,17 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (!path) { *out = FAILDESCR; return 1; }
         const char *mode = (nargs == 2 && (args[1].v == DT_S||args[1].v == DT_SNUL) && args[1].s)
                            ? args[1].s : "r";
-        const char *cmode = "r"; char mbuf[8];
-        if (icn_open_spec_is_icon(mode)) { icn_open_cmode(mode, mbuf); cmode = mbuf; }
+        const char *cmode = "r"; char mbuf[8]; int is_pipe = 0;
+        if (icn_open_spec_is_icon(mode)) { icn_open_cmode(mode, mbuf, &is_pipe); cmode = mbuf; }
         else if (strstr(mode,"w")) cmode = "w";
         else if (strstr(mode,"a")) cmode = "a";
-        FILE *fp = fopen(path, cmode);
+        extern char fh_type[];
+        if (is_pipe && (strcmp(cmode, "r") && strcmp(cmode, "w"))) { *out = FAILDESCR; return 1; }
+        FILE *fp = is_pipe ? popen(path, cmode) : fopen(path, cmode);
         if (!fp) { *out = FAILDESCR; return 1; }
         int idx = fh_alloc(fp);
-        if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; }
+        if (idx < 0) { if (is_pipe) pclose(fp); else fclose(fp); *out = FAILDESCR; return 1; }
+        if (is_pipe) fh_type[idx] = 'p';
         if (idx >= 0 && idx < FH_MAX) fh_name[idx] = rt_ws_strdup(path);
         *out = FHVAL(idx); return 1;
     }
@@ -6075,8 +6086,11 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     if ((_bid == BID_close) && nargs == 1) {
         if (IS_FH_fn(args[0]) || IS_INT_fn(args[0])) {
             int idx = (int)args[0].i;
+            extern char fh_type[];
             FILE *fp = fh_get(idx);
-            if (fp && idx > 2) { fclose(fp); fh_free(idx); }
+            int pst = -1;
+            if (fp && idx > 2) { if (fh_type[idx] == 'p') pst = pclose(fp); else fclose(fp); fh_type[idx] = 0; fh_free(idx); }
+            if (pst >= 0) { *out = INTVAL((pst >> 8) & 0xFF); return 1; }
         }
         *out = args[0]; return 1;
     }
