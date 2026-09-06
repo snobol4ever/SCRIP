@@ -83,8 +83,19 @@ for f in "$SUITE"/iso7185pat*.pas; do
     # the whole suite hung on its ORACLE, not on scrip, and read as a >10-minute runner with no output. An
     # un-bounded oracle turns "the reference implementation cannot do this either" into "our runner is broken".
     rm -f "$TMP/oracle"
-    ( cd "$TMP" && timeout 60 "$FPC" -Miso -o"$TMP/oracle" "$f" >/dev/null 2>&1 )
-    [ -x "$TMP/oracle" ] || { echo "note: acceptance test $b is NOT COMPILED BY THE ORACLE (fpc -Miso) within 60s -- not graded, and explicitly NOT counted against scrip; a program the oracle cannot build grades nothing"; continue; }
+    ( cd "$TMP" && timeout 60 "$FPC" -Miso -o"$TMP/oracle" "$f" >"$TMP/oracle.err" 2>&1 ); orc=$?
+    if [ ! -x "$TMP/oracle" ]; then
+        # ⛔ rc=124 IS THE ONLY GENUINE TIMEOUT -- any other nonzero exit is the oracle REJECTING the
+        # program (a real, fast compile error), a different fact with a different consequence, and the
+        # two must not share one message (found via iso7185pat0001.pas: fpc -Miso rejects it in ~0.1s
+        # with a genuine fatal error, not a 60s stall -- the old message called every non-build a timeout).
+        if [ "$orc" -eq 124 ]; then
+            echo "note: acceptance test $b is NOT COMPILED BY THE ORACLE (fpc -Miso) within 60s -- not graded, and explicitly NOT counted against scrip; a program the oracle cannot build grades nothing"
+        else
+            echo "note: acceptance test $b is REJECTED BY THE ORACLE (fpc -Miso rc=$orc, not a timeout) -- not graded, and explicitly NOT counted against scrip: $(tail -1 "$TMP/oracle.err")"
+        fi
+        continue
+    fi
     timeout 20s "$TMP/oracle" <"$in" >"$TMP/want" 2>&1 || true
     TOTAL=$((TOTAL+1))
     for m in m3 m4; do
