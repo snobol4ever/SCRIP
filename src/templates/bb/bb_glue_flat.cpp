@@ -70,5 +70,6 @@ std::string bb_glue_pass_wires(int gid, int wid) {
 std::string bb_glue_pass_wires_blob(int gid, int wid) {
     return x86_lea_id("rcx", wid) + x86("push", "rcx")
          + x86_lea_id("rcx", gid) + x86("push", "rcx")
+         + x86_lea_id("rcx", gid) + x86_lea_id("rdx", wid)
          + x86_jmp_reg("rax");
 }
