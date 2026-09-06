@@ -405,6 +405,28 @@ for f in "${FILES[@]}"; do
     n_ruled=$((n_ruled+1)); printf 'RULED_UNGRADABLE\t%s\t0\t%s\tNOT MINTED -- already ruled UNGRADABLE in the package sidecar; a mint here would silently overturn that ruling: %s\n' "$f" "$by1" "$(awk -F'\t' -v w="$SUBDIR/$f" '$1==w{print substr($3,1,120)}' "$UNGRADABLE_TSV")"
     continue
   fi
+  # ⛔⭐⭐ A TWO-RUN CHECK CANNOT SEE A DEFECT WHOSE PERIOD IS A DAY (hq_I 2026-09-06, proven on a ref
+  # already in the tree). Every determinism arm above -- four sub-second runs plus the minute-crossing
+  # second pass -- catches variation whose period is SHORTER than the observation window. A program that
+  # prints the DATE is byte-stable across all of them and its ref is correct until midnight.
+  # ⛔ THE WITNESS IS NOT HYPOTHETICAL: progs/gftrace.std was cut on 2026-09-05 pinning
+  # `#	Date:     September 5, 2026`; run on 09-06 the ORACLE ITSELF prints September 6, so the ref had
+  # been red for every reader since midnight, and the failure presents as an ordinary RUN-tier FAIL that
+  # a seat would reasonably charge to SCRIP. And progs/daystil.icn -- whose whole job is "days until a
+  # date", i.e. a value that changes daily -- was classified LIVE, "would mint", by this very script.
+  # ⭐ THE GENERAL FORM, and it is the reusable half: A DETERMINISM CHECK CAN ONLY FALSIFY VARIATION
+  # FASTER THAN ITS OWN OBSERVATION WINDOW. Widening the window is not the cure -- nobody runs a cutter
+  # for 24 hours -- so the cure is to stop asking the RUN and ask the SOURCE, which states the dependence
+  # outright. Same family as this lane's what.icn ruling (a determinism check whose input is too small
+  # cannot fail for the reason it is asking about) and as the 200k-activation stack probe.
+  # ⛔ CLASSIFIED NONDETERMINISTIC, deliberately NOT a new class name: hq_T's ruling vocabulary is frozen,
+  # and NONDETERMINISTIC is not a euphemism here -- the output genuinely varies between runs, the period
+  # is simply longer than anyone watched. The reason names the marker so the ruling can be re-examined.
+  if _clk=$(grep -ohE '&dateline|&date|&clock|&now|&time' "$PROGS/$f" 2>/dev/null | sort -u | tr '\n' ' '); [ -n "$_clk" ]; then
+    n_nondet=$((n_nondet+1))
+    printf 'NONDETERMINISTIC\t%s\t%s\t%s\tNOT MINTED -- source reads the clock (%s) so its output has a period no run-twice check can observe; rule it in the package sidecar with the marker named, never pin it\n' "$f" "$rc1" "$by1" "${_clk% }"
+    continue
+  fi
   n_live=$((n_live+1))
   cp "$OUT1" "$HOLD/$base.cand"
   printf 'LIVE_HELD\t%s\t0\t%s\theld for the minute-crossing second pass\n' "$f" "$by1"
