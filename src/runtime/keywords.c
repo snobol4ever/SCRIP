@@ -212,6 +212,8 @@ static int kwb_read(const char *kw, DESCR_t *out) { return kwb_read_ent(kwb_find
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int kwb_error(int code, const char *msg) {
     extern void core_runtime_error(int code, const char *msg);
+    extern void core_err_compat_map(int *code, const char **msg);
+    core_err_compat_map(&code, &msg);
     KWB_ENT_t *el = kwb_find("ERRLIMIT");
     if (el && el->cell && *el->cell > 0) { *el->cell -= 1; KWB_ENT_t *et = kwb_find("ERRTYPE"); if (et && et->cell) *et->cell = code; g_sno_errtext = msg; return 0; }
     core_runtime_error(code, msg); return 1;

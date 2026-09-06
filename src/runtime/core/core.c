@@ -2217,7 +2217,24 @@ static const char *core_err_msgs[40] = {
      "Cannot CONTINUE from FATAL error",
 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int core_errnum_csnobol4(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_ERRNUM_CSNOBOL4"); v = (e && *e && *e != '0') ? 1 : 0; } return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void core_err_compat_map(int *code, const char **msg) {
+    static const struct { int spit; int csn; const char *text; } M[] = {
+        { 153, 10, "Illegal argument to primitive function" },
+        { 208,  1, "Illegal data type" },
+        { 209,  8, "Variable not present where required" },
+        { 235,  3, "Erroneous array or table reference" },
+        { 244, 22, "Limit on statement execution exceeded" },
+    };
+    if (!code || !core_errnum_csnobol4()) return;
+    for (int i = 0; i < (int)(sizeof M / sizeof *M); i++)
+        if (M[i].spit == *code) { *code = M[i].csn; if (msg) *msg = M[i].text; return; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_runtime_error(int code, const char *msg) {
+    core_err_compat_map(&code, &msg);
     if (!msg && code >= 1 && code <= 39)
         msg = core_err_msgs[code];
     { extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
