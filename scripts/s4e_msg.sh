@@ -1760,10 +1760,22 @@ case "$cmd" in
          # task file (inert — nobody's picker ever finds a file next() never points at) rather than a live
          # QUEUE.tsv row with no baton behind it, which next()'s own "⛔ NO BATON" path can only catch AFTER
          # some seat has already been served the row.
+         # ⛔⭐ A GOAL THAT ALREADY CARRIES ITS OWN DONE-WHEN MUST NOT GET THE PLACEHOLDER UNDERNEATH IT
+         # (hq_I 2026-09-06, on a row hq_B minted for them: "the baton carries TWO DONE-WHEN lines, yours and
+         # the mint placeholder underneath"). Every mint that supplies a real criterion inline -- which is what
+         # the ceo asks minters to do -- produced a baton with two DONE-WHEN lines, and the two readers of that
+         # file disagree: the extractor takes the FIRST, a human reading down the file takes the LAST and is
+         # told the row can never be closed. Split the criterion out of the goal text here, so the file has
+         # exactly one, and keep the placeholder for the mints that genuinely supply none.
+         dw_block="DONE-WHEN: ⛔ MUST BE MADE RUNNABLE BEFORE done CAN EVER PASS — minted with no executable acceptance test; replace this line with a real command (see other tasks/*.task.md for the shape) before anyone can close this row."
+         if printf '%s\n' "$goal" | grep -q '^DONE-WHEN:'; then
+             dw_block="$(printf '%s\n' "$goal" | sed -n '/^DONE-WHEN:/,$p')"
+             goal="$(printf '%s\n' "$goal" | sed '/^DONE-WHEN:/,$d')"
+         fi
          cat > "$b" <<TASKEOF
 # TASK $topic
 GOAL: $goal
-DONE-WHEN: ⛔ MUST BE MADE RUNNABLE BEFORE done CAN EVER PASS — minted with no executable acceptance test; replace this line with a real command (see other tasks/*.task.md for the shape) before anyone can close this row.
+$dw_block
 LINKS: minted via \`mint\` by $ME, $(date -u +%FT%TZ)
 ## NEXT
 Distill a real first step from the GOAL above (and a real DONE-WHEN — see the line above), then work it.
