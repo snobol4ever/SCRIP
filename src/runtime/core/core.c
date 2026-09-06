@@ -967,6 +967,14 @@ static DESCR_t _CHAR_(DESCR_t *a, int n) {
     return BCHAR_fn(a[0]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t _ORD_(DESCR_t *a, int n) {
+    if (n < 1) return FAILDESCR;
+    const char *s = VARVAL_fn(a[0]);
+    size_t len = (a[0].v == DT_S) ? descr_slen(a[0]) : (s ? strlen(s) : 0);
+    if (!s || len != 1) return FAILDESCR;
+    return INTVAL((int64_t)(unsigned char)s[0]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _DUPL_(DESCR_t *a, int n) {
     if (n < 2) return NULVCL;
     return DUPL_fn(a[0], a[1]);
@@ -1092,6 +1100,17 @@ extern DESCR_t sort_fn(DESCR_t);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _EVAL_(DESCR_t *a, int n)  { return EVAL_fn(n>0?a[0]:NULVCL); }
 static DESCR_t _CODE_(DESCR_t *a, int n)  { return code(n>0?VARVAL_fn(a[0]):""); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t _LABELCODE_(DESCR_t *a, int n) {
+    if (n < 1) return FAILDESCR;
+    const char *name = VARVAL_fn(a[0]);
+    if (!name || !*name) return FAILDESCR;
+    extern void *rt_entry_resolve(const char *, int *);
+    void *fn = rt_entry_resolve(name, (int *)0);
+    if (!fn) { char eb[288]; snprintf(eb, sizeof eb, "transfer to undefined label: %s", name); core_runtime_error(38, eb); return FAILDESCR; }
+    DESCR_t d = {0}; d.v = DT_C; d.slen = 3; d.ptr = fn;
+    return d;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _OPSYN_(DESCR_t *a, int n) {
     return opsyn(n>0?a[0]:NULVCL,n>1?a[1]:NULVCL,n>2?a[2]:NULVCL); }
@@ -1937,6 +1956,7 @@ void core_lib_init(void) {
     register_fn("LPAD",     _LPAD_,     2, 3);
     register_fn("RPAD",     _RPAD_,     2, 3);
     register_fn("CHAR",     _CHAR_,     1, 1);
+    register_fn("ORD",      _ORD_,      1, 1);
     register_fn("DUPL",        _DUPL_,     2, 2);
     register_fn("REPLACE",  _REPLACE_,  3, 3);
     register_fn("REMDR",    _REMDR_,    2, 2);
@@ -1964,6 +1984,7 @@ void core_lib_init(void) {
     register_fn("COPY",    _COPY_,    1, 1);
     register_fn("EVAL",  _EVAL_,  1, 1);
     register_fn("CODE",  _CODE_,  1, 1);
+    register_fn("LABELCODE", _LABELCODE_, 1, 1);
     register_fn("DEFINE", _DEFINE_, 1, 2);
     register_fn("FIELD",  _FIELD_,  2, 2);
     register_fn("OPSYN", _OPSYN_, 2, 3);
