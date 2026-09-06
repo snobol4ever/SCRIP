@@ -5,7 +5,10 @@
 # `procedure main`. Same discipline as util_ref_mint.sh's SNOBOL4 LIVE/DEAD_REPORT/EMPTY classes, adapted:
 # CENSUS ONLY by default (classifies, writes nothing); --apply mints a .std beside every LIVE program.
 #
-#   bash scripts/util_cut_icon_ipl_refs.sh [--apply] [-v]
+#   bash scripts/util_cut_icon_ipl_refs.sh [--apply] [-v] [--dir <subdir>] [--mains-only] [--only NAME]...
+#
+# --only NAME (repeatable, without the .icn) restricts the walk to the named entries and REFUSES rc=2 on a
+# name the walk does not contain -- the fixture-authoring loop cuts one ref, not 275.
 #
 # ⛔⛔ EVERY RUN IS SANDBOXED IN A DISPOSABLE SCRATCH COPY, NEVER THE TRACKED TREE (found this session,
 # the hard way): IPL ships several programs that MUTATE THEIR OWN CWD as their normal, documented
@@ -61,13 +64,16 @@ SUBDIR="progs"
 MAINS_ONLY=0
 TIMEOUT="${TIMEOUT:-8}"
 APPLY=""; VERBOSE=0
+declare -a ONLY=()
 while [ $# -gt 0 ]; do case "$1" in
   --apply) APPLY=1;;
   -v) VERBOSE=1;;
   --mains-only) MAINS_ONLY=1;;
   --dir) shift; [ $# -gt 0 ] || { echo "⛔ --dir needs a value" >&2; exit 2; }; SUBDIR="$1";;
   --dir=*) SUBDIR="${1#--dir=}";;
-  *) echo "usage: $0 [--apply] [-v] [--dir <subdir>] [--mains-only]" >&2; exit 2;;
+  --only) shift; [ $# -gt 0 ] || { echo "⛔ --only needs a value" >&2; exit 2; }; ONLY+=("${1%.icn}");;
+  --only=*) ONLY+=("${1#--only=}"); ONLY[-1]="${ONLY[-1]%.icn}";;
+  *) echo "usage: $0 [--apply] [-v] [--dir <subdir>] [--mains-only] [--only NAME]..." >&2; exit 2;;
 esac; shift; done
 case "$SUBDIR" in */*|""|.|..) echo "⛔ GATE REFUSES: --dir takes ONE package-relative subdirectory name, got '\''$SUBDIR'\''" >&2; exit 2;; esac
 PROGS="$PKG/$SUBDIR"
@@ -79,6 +85,10 @@ ICON="$(icon_bin)" || exit 2
 TEMPLATE="$(mktemp -d "${TMPDIR:-/tmp}/ipl_ref_template.XXXXXX")" || { echo "⛔ mktemp failed" >&2; exit 2; }
 for sub in progs gprogs procs gprocs incl gincl; do [ -d "$PKG/$sub" ] && cp -r "$PKG/$sub" "$TEMPLATE/$sub"; done
 cleanup_template() { rm -rf "$TEMPLATE"; }
+# ⛔ BEFORE the first oracle invocation: what the subtree looks like now is the only thing this run can
+# be held responsible for changing. Untracked fixtures authored earlier in the sitting are part of the
+# starting state, not evidence of a breach.
+ipl_isolation_baseline "$S4E/corpus" || echo "⚠ could not snapshot the ipl subtree; the end-of-run isolation check will fall back to a HEAD comparison and say so" >&2
 
 # run_isolated <file.icn> <outfile> -> writes captured combined output to <outfile>, returns rc via
 # the function's own exit status (NOT a global -- a global set inside a command-substitution call would
@@ -146,6 +156,29 @@ is_ruled_ungradable() {
 mapfile -t FILES < <(cd "$PROGS" && grep -lE '^[[:space:]]*procedure[[:space:]]+main[[:space:]]*\(' *.icn 2>/dev/null | sort)
 else
   mapfile -t FILES < <(cd "$PROGS" && ls -1 *.icn | sort)
+fi
+# ⛔⭐ --only NARROWS THE WALK, AND IT REFUSES A NAME IT CANNOT FIND (hq_I 2026-09-06). Authoring one
+# argv/stdin fixture needs exactly one ref cut; without this the only way to mint it is a full 275-file
+# census whose other 274 rows are re-derived from scratch every time -- minutes per fixture, and every
+# one of those runs is another chance for the re-mint hazard the is_ruled_ungradable note below records.
+# ⭐ THE REFUSAL IS THE LOAD-BEARING HALF, not the filter: a mistyped --only that silently matched
+# nothing would print the success shape over an EMPTY population, and TOTALS would read zero of zero --
+# the same "a census predicate cannot report its own false negatives" trap this script already carries a
+# note about one screen down, arriving this time through the command line instead of through a regexp.
+if [ "${#ONLY[@]}" -gt 0 ]; then
+  declare -a KEEP=() MISSING=()
+  for want in "${ONLY[@]}"; do
+    hit=""
+    for f in "${FILES[@]}"; do [ "$f" = "$want.icn" ] && { hit=1; KEEP+=("$f"); break; }; done
+    [ -n "$hit" ] || MISSING+=("$want")
+  done
+  if [ "${#MISSING[@]}" -gt 0 ]; then
+    printf '⛔ GATE REFUSES(2): --only named %s entr%s not in the walked population of %s under %s/: %s\n' \
+      "${#MISSING[@]}" "$([ "${#MISSING[@]}" -eq 1 ] && echo y || echo ies)" "${#FILES[@]}" "$SUBDIR" "${MISSING[*]}" >&2
+    printf '   (with --mains-only the population is files declaring a `procedure main`, so a library module is legitimately absent)\n' >&2
+    exit 2
+  fi
+  FILES=("${KEEP[@]}")
 fi
 TOTAL=${#FILES[@]}
 [ "$TOTAL" -gt 0 ] || { echo "⛔ GATE REFUSES: zero .icn files found under $PROGS" >&2; exit 2; }
@@ -426,10 +459,9 @@ echo "----"
 printf 'TOTALS[%s]: LIVE %d (minted %d, minute-rejected %d) · HAVE_STD %d · EMPTY %d · SUSPECT_USAGE %d · UNDECLARED_IDENTIFIER %d · NONDETERMINISTIC %d · NEEDS_ARGV_FIXTURE %d · ARGV_SIDECAR_MALFORMED %d · ORACLE_FAIL %d · DISPLAY_REFUSED %d · ALL_ORACLE_DIAGNOSTIC %d · RULED_UNGRADABLE %d · TIMEOUT %d · OVERSIZED %d · total=%d\n' \
   "$SUBDIR" "$n_live" "$n_mint" "$n_minute_reject" "$n_havestd" "$n_empty" "$n_suspect" "$n_undeclared" "$n_nondet" "$n_argv" "$n_badside" "$n_fail" "$n_display" "$n_diagnostic" "$n_ruled" "$n_timeout" "$n_oversized" "$TOTAL"
 [ -n "$APPLY" ] || echo "(census only -- nothing written; re-run with --apply to mint)"
-# ── belt-and-suspenders: prove the tracked tree is still exactly what HEAD says, every run, census or not.
-if git -C "$S4E/corpus" diff --quiet -- packages/icon/ipl/progs packages/icon/ipl/gprogs packages/icon/ipl/procs packages/icon/ipl/gprocs packages/icon/ipl/incl packages/icon/ipl/gincl 2>/dev/null \
-   && [ -z "$(git -C "$S4E/corpus" status --porcelain -- packages/icon/ipl/progs packages/icon/ipl/gprogs packages/icon/ipl/procs packages/icon/ipl/gprocs packages/icon/ipl/incl packages/icon/ipl/gincl 2>/dev/null | grep -v '\.std$')" ]; then
-  :
-else
-  echo "⛔⛔⛔ THE TRACKED IPL TREE CHANGED DURING THIS RUN (excluding new .std mints) -- isolation was breached, investigate before trusting anything above ⛔⛔⛔" >&2
-fi
+# ── belt-and-suspenders: prove nothing in the tracked tree moved while this script ran, census or not.
+# ⛔⭐ THIS WAS A SECOND COPY OF THE CHECK, not a call to the one in lib_icon_ipl_isolation.sh -- the same
+# two-bodies-drift shape this lane keeps filing (the Prolog/Raku ladder pair; the two copies of the .dat
+# convention). It was already one fix behind the moment the library's grew a baseline, and the copy is
+# what would have kept printing the false breach banner here.
+ipl_isolation_verify_clean "$S4E/corpus" || true

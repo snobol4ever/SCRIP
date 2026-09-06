@@ -226,6 +226,10 @@ echo "IPL_SUITE_BOARD total=$TOTAL compile_graded=$COMPILE_GRADED compile_pass=$
 PROGRESS_FAILED=0
 ipl_progress() { progress_append package ipl icon "$1" "$2" "$3" || PROGRESS_FAILED=$((PROGRESS_FAILED+1)); }
 ipl_isolation_init "$PKG" || { echo "⛔ GATE REFUSES: could not build IPL isolation template" >&2; exit 2; }
+# ⛔ Snapshot the subtree BEFORE any graded program runs -- ipl_isolation_verify_clean at the end reports
+# what moved SINCE HERE, not what differs from HEAD; the fixtures a sitting is authoring are untracked by
+# definition, and the old form called that a breach (hq_I 2026-09-06).
+ipl_isolation_baseline "$S4E/corpus" || echo "⚠ could not snapshot the ipl subtree; the end-of-run isolation check falls back to a HEAD comparison" >&2
 trap 'rm -rf "$TMP"; ipl_isolation_cleanup' EXIT
 
 M3_RUN_PASS=0; M3_RUN_FAIL=0; M3_RUN_CRASH=0; M3_RUN_HANG=0

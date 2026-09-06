@@ -27,11 +27,14 @@
 #       NAME.std should pass "$PKG/progs/NAME.dat" (falling back to /dev/null if absent) -- the same
 #       convention test_icon_arizona_suite.sh/test_icon_jcon_suite.sh already use, and the one
 #       util_cut_icon_ipl_refs.sh's own run_isolated() now mints refs under; see its header.
-#   ipl_isolation_verify_clean "$CORPUS_ROOT"
-#       belt-and-suspenders: confirms the tracked ipl progs/procs/gprocs/incl/gincl subtree is still
-#       exactly what HEAD says (new *.std files excepted). Prints a loud ⛔ to stderr and returns 1 if
-#       not -- call this at the end of any script that uses ipl_isolation_run, so a breach is caught by
-#       the harness itself rather than by the next `git status` a human happens to run.
+#   ipl_isolation_baseline "$CORPUS_ROOT"    # BEFORE the first program runs
+#   ipl_isolation_verify_clean "$CORPUS_ROOT"  # after the last one
+#       belt-and-suspenders: confirms nothing in the tracked ipl progs/gprogs/procs/gprocs/incl/gincl
+#       subtree CHANGED between the two calls (a newly minted untracked *.std excepted). Prints a loud ⛔
+#       to stderr, names what moved, and returns 1 if it did -- call it at the end of any script that
+#       uses ipl_isolation_run, so a breach is caught by the harness itself rather than by the next
+#       `git status` a human happens to run. Skipping the baseline call still gives a guard, comparing
+#       against HEAD, and the refusal text says that is what it did.
 # A caller's own EXIT trap must call `ipl_isolation_cleanup` (or `rm -rf "$IPL_ISO_TEMPLATE"` directly) --
 # this file does not set a trap itself, so it never silently overrides one a caller already set.
 
@@ -66,13 +69,45 @@ ipl_isolation_run() {
   return "$rc"
 }
 
+# ⛔⭐⭐ THIS ANSWERS "DID THE TREE CHANGE DURING THIS RUN", AND IT USED TO ANSWER "DOES THE TREE DIFFER
+# FROM HEAD" -- two different questions, and the second one cries BREACH at work the package asked for
+# (hq_I 2026-09-06, measured while authoring the CEO-328 argv fixtures). Ten new NAME.argv/NAME.in files
+# sat untracked in progs/ before the cutter ever started; every run then ended with the triple-⛔ banner
+# saying isolation was breached, over a run in which nothing was breached at all. ⭐ THE COST IS NOT THE
+# FALSE LINE, IT IS WHAT A FALSE LINE TEACHES: this banner exists because a first cut of the ref-cutter
+# renamed all 275 vendored sources to UPPERCASE in place, and a banner that fires on every fixture-
+# authoring sitting is one nobody reads on the sitting it is finally right. So: SNAPSHOT FIRST, COMPARE
+# AFTER. ipl_isolation_baseline records the subtree's porcelain state before any program runs; verify
+# reports only what is NEW since then, whatever its extension.
+# ⛔ WITH NO BASELINE the old HEAD comparison is kept -- a caller that never snapshotted still gets a
+# guard -- but it SAYS SO in the refusal, because "you have untracked fixtures" and "a program rewrote
+# the tree" must not print the same sentence.
+# ⭐ The exemption narrowed while it moved: it was `grep -v '\.std$'`, which exempted a .std at ANY
+# status -- including ` M` on a TRACKED ref, i.e. a pinned ref overwritten mid-run, the single most
+# damaging thing that could happen here. Only an UNTRACKED NEW .std (`?? …`, what --apply legitimately
+# mints) is exempt now; the old form leaned on the separate `git diff --quiet` arm to catch that case.
+_ipl_iso_state() {
+  git -C "$1" status --porcelain -- packages/icon/ipl/progs packages/icon/ipl/gprogs packages/icon/ipl/procs packages/icon/ipl/gprocs packages/icon/ipl/incl packages/icon/ipl/gincl 2>/dev/null | LC_ALL=C sort
+}
+ipl_isolation_baseline() {
+  IPL_ISO_BASELINE="$(mktemp "${TMPDIR:-/tmp}/ipl_iso_baseline.XXXXXX")" || return 1
+  _ipl_iso_state "$1" > "$IPL_ISO_BASELINE"
+}
 ipl_isolation_verify_clean() {
-  local corpus="$1"
-  if git -C "$corpus" diff --quiet -- packages/icon/ipl/progs packages/icon/ipl/gprogs packages/icon/ipl/procs packages/icon/ipl/gprocs packages/icon/ipl/incl packages/icon/ipl/gincl 2>/dev/null \
-     && [ -z "$(git -C "$corpus" status --porcelain -- packages/icon/ipl/progs packages/icon/ipl/gprogs packages/icon/ipl/procs packages/icon/ipl/gprocs packages/icon/ipl/incl packages/icon/ipl/gincl 2>/dev/null | grep -v '\.std$')" ]; then
-    return 0
+  local corpus="$1" now changed scope
+  now="$(mktemp "${TMPDIR:-/tmp}/ipl_iso_now.XXXXXX")" || return 1
+  _ipl_iso_state "$corpus" > "$now"
+  if [ -n "${IPL_ISO_BASELINE:-}" ] && [ -f "$IPL_ISO_BASELINE" ]; then
+    changed="$(LC_ALL=C comm -13 "$IPL_ISO_BASELINE" "$now" | grep -v '^?? .*\.std$')"
+    scope="since this run's baseline"
+  else
+    changed="$(grep -v '^?? .*\.std$' "$now")"
+    scope="against HEAD -- NO BASELINE WAS CAPTURED, so a fixture that was already untracked before this run reads as a breach here; call ipl_isolation_baseline before the first program runs to get the real answer"
   fi
-  echo "⛔⛔⛔ THE TRACKED IPL TREE CHANGED DURING THIS RUN (excluding new .std mints) -- isolation was breached, investigate before trusting anything above ⛔⛔⛔" >&2
+  rm -f "$now"
+  [ -z "$changed" ] && return 0
+  echo "⛔⛔⛔ THE TRACKED IPL TREE CHANGED DURING THIS RUN ($scope) -- isolation was breached, investigate before trusting anything above ⛔⛔⛔" >&2
+  printf '%s\n' "$changed" | head -20 >&2
   return 1
 }
 
