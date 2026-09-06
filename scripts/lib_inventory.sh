@@ -70,7 +70,17 @@
 #
 # ⭐ Spelling is UPPER_SNAKE because four of the five vocabularies already were; the dashed spellings are
 # the minority, and a mixed convention means a grep for a class silently answers over a subset.
-INV_CLASS_UNGRADABLE="CONTAINER_OR_LIBRARY NO_ORACLE_SHIPPED ORACLE_REFUSES ORACLE_CONTRACT_NOT_IMPLEMENTED NEEDS_INPUT NEEDS_INTERACTIVE_TTY NONDETERMINISTIC"
+# THE TEST FOR ADMITTING A NEW UNGRADABLE CLASS IS NOT THE ONE FOR UNGRADED (hq_T, ruling NEEDS_DISPLAY in for
+# hq_I 25 ipl gprogs whose oracle answers "cannot open display", 2026-09-06). UNGRADED classes stay coarse
+# because the test there is "can a lane pick up every row of this class as ONE task" -- work buckets, and a
+# member per situation defeats the point. But nobody owes work on an UNGRADABLE, so that test says nothing, and
+# applying it anyway is how ORACLE_REFUSES becomes a bag holding a headless box beside a genuinely broken
+# program. THE UNGRADABLE TEST IS: COULD THIS RULING BE OVERTURNED FOR THE WHOLE CLASS AT ONCE? A display is
+# exactly that -- one xvfb-run moves all 25 together -- so the class is a handle somebody can grab, which is the
+# same underlying property as the UNGRADED test wearing its other face. ORACLE_REFUSES stays for rulings that
+# can only ever be revisited one program at a time. Note NEEDS_INTERACTIVE_TTY was already this family; naming
+# the principle that admitted it means the next such class needs no HQ round trip.
+INV_CLASS_UNGRADABLE="CONTAINER_OR_LIBRARY NO_ORACLE_SHIPPED ORACLE_REFUSES ORACLE_CONTRACT_NOT_IMPLEMENTED NEEDS_INPUT NEEDS_INTERACTIVE_TTY NEEDS_DISPLAY NONDETERMINISTIC"
 INV_CLASS_UNGRADED="NEEDS_STDIN_FIXTURE NEEDS_ARGV_FIXTURE NEEDS_RUNNER_WIRING REF_NOT_CUT ORACLE_FAIL TIMEOUT NONDETERMINISTIC LIVE SUSPECT_USAGE"
 # LEGACY: accepted with a WARN so no lane's board breaks on the ruling, and named so the debt is one sed
 # wide and visible. ⛔ Do not add to this list -- a new file uses the closed vocabulary above.
