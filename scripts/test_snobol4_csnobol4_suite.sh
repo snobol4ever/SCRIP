@@ -143,6 +143,7 @@ COMPAT="--compat=csnobol4"
 export SCRIP_SETEXIT_END=1
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_oracle_flags.sh unloadable"; exit 2; }
 . "$HERE/lib_inventory.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_inventory.sh unloadable"; exit 2; }
+. "$HERE/lib_progress.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_progress.sh unloadable -- a run that leaves the progress table untouched is the same defect as one that leaves its SCORE row untouched (ceo CEO-330/331)"; exit 2; }
 CSN="$(csnobol4_bin)" || exit 2
 CSN_SRC="$(dirname "$CSN")"   # module-coverage source root: the shared csnobol4 tree's own modules/ dir (see header)
 
@@ -250,6 +251,7 @@ for sno in "$SUITE"/*.sno; do
     got3="$(cd "$RUN" && SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" $COMPAT $pre_extra --run "$relprog" ${xargs_extra:+-- $xargs_extra} < "$inp" 2>&1)"; rc3=$?
     got3="$(normalize "$name" "$got3")"
     st3="$(status_of "$got3" "$rc3" "$exp")"
+    progress_append package csnobol4 snobol4 "$name" m3 "$st3" >/dev/null 2>&1 || true
     case "$st3" in
         PASS) M3_PASS=$((M3_PASS+1));;
         FAIL) M3_FAIL=$((M3_FAIL+1)); RED3="$RED3 $name";;
@@ -262,6 +264,7 @@ for sno in "$SUITE"/*.sno; do
         got4="$(cd "$RUN" && SNO_LIB="$SUITE" timeout "$TIMEOUT" "$W/prog.bin" $xargs_extra < "$inp" 2>&1)"; rc4=$?
         got4="$(normalize "$name" "$got4")"
         st4="$(status_of "$got4" "$rc4" "$exp")"
+        progress_append package csnobol4 snobol4 "$name" m4 "$st4" >/dev/null 2>&1 || true
         case "$st4" in
             PASS) M4_PASS=$((M4_PASS+1));;
             FAIL) M4_FAIL=$((M4_FAIL+1)); RED4="$RED4 $name";;
@@ -303,6 +306,7 @@ for entry in $MODULE_TESTS; do
     got3="$(cd "$mrun" && timeout "$TIMEOUT" "$SCRIP" $COMPAT --run "$msno" < /dev/null 2>&1)"; rc3=$?
     got3="$(normalize "$name" "$got3")"
     st3="$(status_of "$got3" "$rc3" "$exp")"
+    progress_append package csnobol4 snobol4 "$name" m3 "$st3" >/dev/null 2>&1 || true
     case "$st3" in
         PASS) M3_PASS=$((M3_PASS+1));;
         FAIL) M3_FAIL=$((M3_FAIL+1)); RED3="$RED3 $name";;
@@ -316,6 +320,7 @@ for entry in $MODULE_TESTS; do
         got4="$(cd "$mrun" && timeout "$TIMEOUT" "$W/mod_prog.bin" < /dev/null 2>&1)"; rc4=$?
         got4="$(normalize "$name" "$got4")"
         st4="$(status_of "$got4" "$rc4" "$exp")"
+        progress_append package csnobol4 snobol4 "$name" m4 "$st4" >/dev/null 2>&1 || true
         st4disp="$st4"
         case "$st4" in
             PASS) M4_PASS=$((M4_PASS+1));;
