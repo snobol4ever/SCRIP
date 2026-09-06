@@ -68,6 +68,15 @@ if [ -s "$SUITE/ALL.excluded.txt" ]; then
   sed 's/^/  /' "$SUITE/ALL.excluded.txt"
 fi
 
+# ⭐ THE PACKAGE LOCKDOWN (Lon 2026-09-06, MASTER-PLAN sec THE PACKAGE LOCKDOWN): shipped is measured
+# FRESH from the vendored dir every run, never derived from the container alone -- a file added after
+# the container was last built must show up as ungraded, not silently vanish. ALL.sno is the container
+# itself, never a shipped program.
+real_shipped=$(find "$SUITE" -maxdepth 1 -name '*.sno' ! -name 'ALL.sno' | wc -l | tr -d ' ')
+ungraded=$((real_shipped - scored - excl))
+[ "$real_shipped" != "$shipped" ] && echo "⚠ CONTAINER STALE: $SUITE ships $real_shipped .sno file(s) now, container knows $shipped -- rebuild: python3 scripts/util_build_package_suite.py ${SUITE#"$ROOT"/}"
+echo "PACKAGE_INVENTORY shipped=$real_shipped graded=$scored ungradable=$excl ungraded=$ungraded"
+
 # ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05: "any run of a test suite by any session
 # will update the ONE LEADERBOARD"). Records the board just printed into .github/SCORE.md -- runs nothing
 # new. NON-FATAL BY DESIGN (matches test_icon_arizona_suite.sh's own convention): a bookkeeping failure

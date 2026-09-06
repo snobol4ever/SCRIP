@@ -121,6 +121,17 @@ fi
 echo "GIMPEL_BOARD total=$TOTAL scored=$SCORED unscr=$UNSCR m3_pass=$M3P m3_fail=$M3F m4_pass=$M4P m4_fail=$M4F -- SCRIP $SCRIP_HASH corpus $CORP_HASH RT_OPT=-O0 oracle=sbl-bf (via scorecard_snobol4.sh --suites gimpel)"
 awk -F'\t' '$3=="ORACLE_FAIL"{printf "  UNSCR  %s  %s\n", $2, $7}' "$TSV"
 awk -F'\t' '$3!="ORACLE_FAIL" && ($3!="PASS" || $4!="PASS"){printf "  RED    %s  m3=%s m4=%s%s\n", $2, $3, $4, ($7!="" ? "  "$7 : "")}' "$TSV"
+# ⭐ THE PACKAGE LOCKDOWN (Lon 2026-09-06): TOTAL above is only the *_driver.sno rows scorecard_snobol4.sh
+# grades -- the package's real shipped population also includes the NAME.sno library modules, which are
+# categorically ungradable BY DESIGN (no END, no main program: corpus/packages/snobol4/gimpel/README.md),
+# never silently dropped from the denominator. real_shipped excludes ALL.sno, a generated container from
+# a superseded builder pass, never a program this package ships.
+real_shipped=$(find "$CORPUS_REAL/packages/snobol4/gimpel" -maxdepth 1 -name '*.sno' ! -name 'ALL.sno' | wc -l | tr -d ' ')
+libmods=$((real_shipped - TOTAL))
+ungradable=$((libmods + UNSCR))
+ungraded=$((real_shipped - SCORED - ungradable))
+echo "PACKAGE_INVENTORY shipped=$real_shipped graded=$SCORED ungradable=$ungradable ungraded=$ungraded"
+echo "  (of ungradable: $libmods are *.sno library modules never scored by design -- gimpel/README.md; $UNSCR are drivers the oracle produced no ground truth for, named UNSCR above)"
 # ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
 # vacuously, hq_T 2026-09-04): WITNESSED TWICE IN ONE HOUR on this exact file -- the concurrent-board
 # registry in scorecard_snobol4.sh declined (rc=$rc, an UPSTREAM refusal), which truncates results.tsv

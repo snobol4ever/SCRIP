@@ -210,6 +210,10 @@ echo "mode-4 (--compile): PASS=$P4 FAIL=$F4 SKIP(cc)=$S4  NSTD $N4P/$((N4P+N4F))
 echo "dialect tally (NOT in the score): $DIA fixture(s) pass against SPITBOL while failing their own @expect -- SPITBOL itself departs from what snoflake expects there"
 [ -n "$SBL" ] && echo "sbl -bf vs @expect (informational, the dialect measurement): PASS=$PS FAIL=$FS  NSTD $NSP/$((NSP+NSF))"
 [ -n "$CSN" ] && echo "csnobol4 (home dialect, triangulation): PASS=$PC FAIL=$FC  NSTD $NCP/$((NCP+NCF))"
+# ⭐ THE PACKAGE LOCKDOWN (Lon 2026-09-06): every fixture lands in P3/F3/N3P/N3F (the main loop has no
+# per-fixture skip path), so TOTAL is always fully graded against the oracle -- ungradable=0 by
+# construction, not by assumption; OPTS-not-honored fixtures are still graded, just caveated above.
+echo "PACKAGE_INVENTORY shipped=$TOTAL graded=$((P3+F3+N3P+N3F)) ungradable=0 ungraded=$((TOTAL-(P3+F3+N3P+N3F)))"
 [ -n "$OPTS_LIST" ] && echo "OPTS not honored:$OPTS_LIST"
 [ -n "$FL3" ] && echo "FAIL-M3:$FL3"
 [ -n "$FL4" ] && echo "FAIL-M4:$FL4"

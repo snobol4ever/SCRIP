@@ -116,6 +116,10 @@ echo "DOTNET_BOARD total=$TOTAL scored=$SCORED unscr=$UNSCR m3_pass=$P3 m3_fail=
 [ -n "$FLU" ] && echo "UNSCR (missing corpus dependency, not a SCRIP defect):$FLU"
 [ -n "$FL3" ] && echo "FAIL-M3 (vs live sbl -bf):$FL3"
 [ -n "$FL4" ] && echo "FAIL-M4 (vs live sbl -bf):$FL4"
+# ⭐ THE PACKAGE LOCKDOWN (Lon 2026-09-06): TOTAL is a fresh per-run filesystem census (the for loop
+# above), never a cached count, so shipped can never silently lag the vendored dir. Every one of the 14
+# lands in SCORED or UNSCR (named above) -- nothing here is ever left unclassified.
+echo "PACKAGE_INVENTORY shipped=$TOTAL graded=$SCORED ungradable=$UNSCR ungraded=$((TOTAL - SCORED - UNSCR))"
 # ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
 # vacuously, hq_T 2026-09-04): F3/F4/S4 all read 0 over zero SCORED entries too (empty corpus dir,
 # every witness oracle-crashed/died) -- refuse before the vacuous-clean verdict below can be reached.
