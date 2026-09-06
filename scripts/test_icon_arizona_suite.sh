@@ -194,7 +194,7 @@ echo "m4 REJECT ($M4_REJECT):$M4_REJECT_NAMES"
 # ⛔ UNGRADED IS NOT A FAIL AND NOT A PASS -- it is "never run against the oracle", a third state this
 # board must never fold into either count (RULES.md: "measured and clean" vs "never ran" may not share
 # an output). Counted as ZERO of the population per Lon's ruling until each is individually resolved.
-echo "UNGRADED ($GAP, of $SHIPPED shipped, zero of population until graded):$UNGRADED_NAMES"
+echo "NOT GRADED ($GAP, of $SHIPPED shipped, zero of population until graded -- the PACKAGE_INVENTORY line below splits these into ungraded=owed vs ungradable=ruled):$UNGRADED_NAMES"
 echo "ARIZONA_SUITE_BOARD shipped=$SHIPPED graded=$TOTAL gap=$GAP m3_pass=$M3_PASS m3_reject=$M3_REJECT m3_fail=$M3_FAIL m4_pass=$M4_PASS m4_reject=$M4_REJECT m4_fail=$M4_FAIL"
 # ⭐ THE PACKAGE LOCKDOWN inventory line, via the shared body (lib_inventory.sh) -- never a second copy
 # of the arithmetic. UNGRADABLE.tsv/UNGRADED.tsv beside $PKG (hq_I, corpus a284bcdbb) already split the
@@ -213,6 +213,16 @@ if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (
 # attribution finds it within the reader's 200-char window; absent when inventory_line refused, so
 # a refusal never gets transcribed as if it were a measurement.
 python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite Arizona --modes m3,m4 \
-    --measurer "${S4E_SEAT:-}" --text "m3 $M3_PASS/$SHIPPED · m4 $M4_PASS/$SHIPPED (of $SHIPPED shipped, $TOTAL graded, $GAP ungraded, m3_fail=$M3_FAIL m4_fail=$M4_FAIL, reject $M3_REJECT/$M4_REJECT)${INV_LINE:+ · $INV_LINE (\`test_icon_arizona_suite.sh\`)}" \
+    # ⛔⭐ TWO THINGS THIS --text GOT WRONG UNTIL 2026-09-06 (hq_I), both of which the cell then asserted on
+# EVERY run, so neither could be cured by editing SCORE.md:
+#   1. DENOMINATOR IS $TOTAL (graded), NOT $SHIPPED. Lon ruled 2026-09-05 "Show measured numbers from
+#      running test suites not FLOORS", and the icon cell's own note records that it "read 46/124 ...
+#      until now -- a real numerator over a population a third of which had never been run". This line
+#      wrote $M3_PASS/$SHIPPED and so REINTRODUCED 47/124, undoing a correction already made by hand.
+#   2. $GAP IS NOT "ungraded". Under hq_T's ruled vocabulary UNGRADED means OWED WORK and UNGRADABLE
+#      means a RULING; $GAP is just shipped-minus-graded and today is 34 ungradable + 0 ungraded. Saying
+#      "34 ungraded" put a flat contradiction beside this cell's own "ungraded=0 ungradable=34".
+#      The neutral phrase is the honest one: the inventory clause riding alongside does the splitting.
+--measurer "${S4E_SEAT:-}" --text "m3 $M3_PASS/$TOTAL · m4 $M4_PASS/$TOTAL graded (of $SHIPPED shipped, $TOTAL graded, $GAP not graded -- the inventory clause splits ungraded=owed from ungradable=ruled, m3_fail=$M3_FAIL m4_fail=$M4_FAIL, reject $M3_REJECT/$M4_REJECT)${INV_LINE:+ · $INV_LINE (\`test_icon_arizona_suite.sh\`)}" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
