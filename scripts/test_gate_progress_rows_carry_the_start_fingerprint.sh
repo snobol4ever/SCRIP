@@ -69,6 +69,17 @@ mk_world() {
   done
   return 0
 }
+wait_grading() { # $1=world -- block until the harness has EXECUTED the scratch scrip at least once, which proves
+  # pin_context() has already run (the harness pins BEFORE the first program is graded). Replaces a blind `sleep 2`
+  # that raced a run measured at ~1821ms: a 180ms margin decided by box load, so arms 3-5 reported the BOX, not the
+  # code. Each arm's mutation must land strictly between the pin and the append; this makes that ordering certain.
+  local w="$1" i=0
+  while [ $i -lt 600 ]; do
+    pgrep -f "$w/bin/scrip" >/dev/null 2>&1 && return 0
+    i=$((i+1)); sleep 0.05
+  done
+  return 1
+}
 run_harness() { # $1=world  $2=db ; runs the harness on the scratch master, prints rc
   local w="$1" db="$2"
   S4E_HOME="$w" SCRIP="$w/bin/scrip" RT_DIR="$w/bin/out" S4E_PROGRESS_DB="$db" TIMEOUT=10 \
@@ -94,14 +105,14 @@ else
 fi
 # ---- arm 3: the binary is rewritten mid-run ----------------------------------------------------------------------
 mk_world "$W/b" >/dev/null 2>&1
-( sleep 2; printf '\0BROKEN' >> "$W/b/bin/scrip" ) &
+( wait_grading "$W/b" && printf '\0BROKEN' >> "$W/b/bin/scrip" ) &
 mut=$!
 rc3="$(run_harness "$W/b" "$W/b/db.tsv")"; wait "$mut" 2>/dev/null
 n3="$(rows_in "$W/b/db.tsv")"
 ck "$([ "$n3" = 0 ] && [ "$rc3" = 2 ] && echo ok || echo no)" "arm3 binary rewritten mid-run -> ZERO rows and rc=2 (rows=$n3 rc=$rc3)"
 # ---- arm 4: the corpus HEAD moves mid-run -------------------------------------------------------------------------
 mk_world "$W/c" >/dev/null 2>&1
-( sleep 2; cd "$W/c/corpus" && date +%s%N >> .keep && git add -A && git commit -q -m moved ) &
+( wait_grading "$W/c" && cd "$W/c/corpus" && date +%s%N >> .keep && git add -A && git commit -q -m moved ) &
 mut=$!
 rc4="$(run_harness "$W/c" "$W/c/db.tsv")"; wait "$mut" 2>/dev/null
 n4="$(rows_in "$W/c/db.tsv")"
@@ -110,7 +121,7 @@ post_c="$(git -C "$W/c/corpus" rev-parse --short HEAD)"
 ck "$([ "$n4" = 0 ] && [ "$rc4" = 2 ] && echo ok || echo no)" "arm4 corpus HEAD moved mid-run -> ZERO rows and rc=2 (rows=$n4 rc=$rc4)"
 # ---- arm 5: the SCRIP HEAD moves mid-run ---------------------------------------------------------------------------
 mk_world "$W/d" >/dev/null 2>&1
-( sleep 2; cd "$W/d/SCRIP" && date +%s%N >> .keep && git add -A && git commit -q -m moved ) &
+( wait_grading "$W/d" && cd "$W/d/SCRIP" && date +%s%N >> .keep && git add -A && git commit -q -m moved ) &
 mut=$!
 rc5="$(run_harness "$W/d" "$W/d/db.tsv")"; wait "$mut" 2>/dev/null
 n5="$(rows_in "$W/d/db.tsv")"
