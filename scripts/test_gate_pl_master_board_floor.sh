@@ -28,9 +28,22 @@ refuse(){ echo "⛔ REFUSED-TO-GRADE: $*"; exit 2; }
 [ -f "$P/ALL.pl" ] && [ -f "$P/ALL.ref" ] || refuse "master suite not found at $P"
 W="$(mktemp -d)" || refuse "mktemp failed"; trap 'rm -rf "$W"' EXIT
 for k in $(seq 1 "$SHARDS"); do
-  timeout 900 python3 "$HERE/corpus_suite_harness.py" run "$P/ALL.pl" "$P/ALL.ref" --lang prolog --modes m3,m4 --shard "$k/$SHARDS" 2>&1 | grep '^SUITE_BOARD' >> "$W/b.txt"
+  # ⛔ --by-modes-column IS REQUIRED AND ITS ABSENCE MADE THIS GATE UNGRADABLE (hq_U, 2026-09-06). The prolog
+  # master declares its grading mode per entry, and 134 entries are `ast` (measured on ALL.csv; hq_U's report
+  # said 8, the diagnosis was right and the count was not). Without the flag the harness REFUSES -- correctly,
+  # because it will not execute AST fixtures against a dump diff and manufacture reds that mean nothing -- so
+  # this gate refused rc=2 on HEAD with no codegen change anywhere near it. ⭐ SAME CLASS AS THE ICON AND
+  # PASCAL CASES: the corpus moved and the runner did not. A gate pinned to a suite whose SHAPE is declared in
+  # the suite must read that declaration, or it is grading a population that no longer exists.
+  timeout 900 python3 "$HERE/corpus_suite_harness.py" run "$P/ALL.pl" "$P/ALL.ref" --lang prolog --modes m3,m4 --by-modes-column --shard "$k/$SHARDS" 2>&1 | grep '^SUITE_BOARD' >> "$W/b.txt"
 done
-got="$(grep -c . "$W/b.txt" 2>/dev/null || echo 0)"
+# ⛔⭐ `grep -c ... || echo 0` PRINTS "0\n0" ON NO MATCH, NEVER "0" (hq_U, measured; reproduced here). grep -c
+# writes its count to stdout AND exits 1 when nothing matched, so BOTH branches fire and the substitution is a
+# two-line string. The `[ "$got" -eq ... ]` below then dies with an integer-expression error, and the refusal
+# it falls into announces "only 0 newline 0 of 16 shards". The VERDICT was still right; the NUMBER inside it
+# was not -- a refusal that cannot count is still a refusal, but it teaches its reader a wrong denominator on
+# the way out. `wc -l` cannot fail this way: no match is an empty file is 0, on one exit path.
+got="$(wc -l < "$W/b.txt" 2>/dev/null)"; got="${got:-0}"
 [ "$got" -eq "$SHARDS" ] || refuse "only $got of $SHARDS shards printed a SUITE_BOARD line -- the board was not fully measured"
 read -r tot m3 m4 <<<"$(awk '{for(i=1;i<=NF;i++){split($i,a,"=");if(a[1]=="total")t+=a[2];if(a[1]=="m3_pass")p3+=a[2];if(a[1]=="m4_pass")p4+=a[2]}} END{print t, p3, p4}' "$W/b.txt")"
 echo "=== prolog master board floor: total=$tot  m3_pass=$m3 (pin $PIN_M3)  m4_pass=$m4 (pin $PIN_M4) ==="
