@@ -398,8 +398,11 @@ static tree_t *pt_list(Parser *p, TreeScope *ts) {
             lst->v.ival = 1;
             pk = lexer_peek(&p->lx);
             if (pk.kind == TK_RBRACKET) lexer_next(&p->lx);
+            else perror_at(p, pk.line, "expected ] to close list");
         } else if (pk.kind == TK_RBRACKET) {
             lexer_next(&p->lx);
+        } else {
+            perror_at(p, pk.line, "expected , | or ] in list");
         }
         break;
     }
@@ -467,6 +470,7 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
                 pt_args(p, ts, fnc);
                 Token rp = lexer_peek(&p->lx);
                 if (rp.kind == TK_RPAREN) lexer_next(&p->lx);
+                else perror_at(p, rp.line, "expected ) to close argument list");
                 return fnc;
             }
             if (strcmp(tk.text, "dynamic") == 0 ||
@@ -528,6 +532,7 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
             p->in_args = saved;
             Token rp = lexer_peek(&p->lx);
             if (rp.kind == TK_RPAREN) lexer_next(&p->lx);
+            else perror_at(p, rp.line, "expected )");
             return inner;
         }
         case TK_LBRACKET:
@@ -543,9 +548,12 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
                 pt_args(p, ts, fnc);
                 Token rp = lexer_peek(&p->lx);
                 if (rp.kind == TK_RPAREN) lexer_next(&p->lx);
+                else perror_at(p, rp.line, "expected ) to close argument list");
                 return fnc;
             }
-            { tree_t *n = ast_node_new(TT_QLIT); n->v.sval = strdup(opname); return n; }
+            if (tk.kind == TK_SEMI) { tree_t *n = ast_node_new(TT_QLIT); n->v.sval = strdup(opname); return n; }
+            perror_at(p, tk.line, "unexpected , (a bare comma is not a term)");
+            return NULL;
         }
         case TK_OP: {
             if ((strcmp(tk.text, "\\+") == 0 || strcmp(tk.text, "not") == 0) && prefix_arg_starts(lexer_peek(&p->lx))) {
@@ -604,6 +612,7 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
                     pt_args(p, ts, fnc);
                     Token rp = lexer_peek(&p->lx);
                     if (rp.kind == TK_RPAREN) lexer_next(&p->lx);
+                    else perror_at(p, rp.line, "expected ) to close argument list");
                     return fnc;
                 }
                 const OpEntry *pre_o = find_prefix(tk.text);
@@ -629,14 +638,16 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
             }
             tree_t *inner;
             { int saved = p->in_args; p->in_args = 0; inner = pt_term(p, ts, 1200); p->in_args = saved; }
-            Token rb = lexer_next(&p->lx);
-            (void)rb;
+            Token rb = lexer_peek(&p->lx);
+            if (rb.kind == TK_RBRACE) lexer_next(&p->lx);
+            else perror_at(p, rb.line, "expected } to close term");
             tree_t *fnc = ast_node_new(TT_FNC);
             fnc->v.sval = strdup("{}");
             if (inner) ast_push(fnc, inner);
             return fnc;
         }
         default:
+            perror_at(p, tk.line, "unexpected token, expected a term");
             return NULL;
     }
 }

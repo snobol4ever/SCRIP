@@ -29,13 +29,14 @@
 # syntax_error(', or ) expected'); ISO leaves the culprit loose. Both oracles agree on the CLASS and the
 # CATCHABILITY for every witness below, and that agreement is the whole gradeable invariant.
 #
-# ⛔ RESIDUE THIS GATE DELIBERATELY DOES NOT CARRY, so nobody reads its green as "read/2 is ISO-complete". Five
-# more malformed inputs are rejected by BOTH oracles and still read back a term here, because the FRONTEND accepts
-# them and reports no error -- the reader has nothing to see, so this is not a reader cure and the witnesses would
-# be a known-red population in a blocking gate (THERE IS NO XFAIL). Row
-# prolog-frontend-accepts-malformed-terms-and-reports-no-error-so-read2-cannot-raise-syntax-error, owner hq_C:
-#     foo(a,]).  -> foo(a)     f(,).  -> f(,)      foo(a,b,). -> foo(a,b)     [a|]. -> a      1 + . -> 1
-# Add each to the W table above as an E row when that row lands; the controls here are already the right ones.
+# ⛔ RESIDUE CURED 2026-09-06 (seat09/hq_C, row prolog-frontend-accepts-malformed-terms-and-reports-no-error-so-
+# read2-cannot-raise-syntax-error). The frontend used to silently accept five malformed inputs: pt_primary's
+# default case swallowed an unexpected token with no diagnostic (and since pt_primary always consumes a token
+# before dispatching, the evidence was gone before anyone could complain), and several "consume the closing
+# delimiter if it's there" call sites had no else-branch for when it wasn't. Both are cured in prolog_parse.c;
+# the five now raise like any other malformed input and are graded as ordinary E rows in the W table below,
+# beside the controls that prove the cure did not over-raise (a bare comma is now always a syntax error, but
+# ';' unquoted, '-' as an atom, and character-code literals are untouched).
 # ⛔ atom_to_term/3 and term_to_atom/2 reach the same validator and therefore no longer return a wrong term, but
 # they FAIL where swipl RAISES -- they are not ISO 8.14 read builtins and are not wired to a ball, so they are NOT
 # graded here. Naming them: a silent failure is a strict improvement on a silent wrong answer and is still wrong.
@@ -69,6 +70,11 @@ foo bar baz	E
 foo(a,b)).	E
 foo bar baz.	E
 ).	E
+foo(a,]).	E
+f(,).	E
+foo(a,b,).	E
+[a|].	E
+1 + .	E
 foo(a,b).	T:foo(a,b)
 - .	T:-
 [].	T:[]
