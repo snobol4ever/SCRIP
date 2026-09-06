@@ -37,6 +37,21 @@ mapfile -t FILES < <(find "${DIRS[@]}" -name "*.icn" 2>/dev/null | sort)
 TOTAL=${#FILES[@]}
 P_PASS=0; P_EMPTY=0; P_CRASH=0
 R_PASS=0; R_EMPTY=0; R_CRASH=0
+R_KNOWN_EMPTY=0; R_FAIL=0; R_UNGRADED=0
+R_FAIL_DETAIL=()
+
+# row icon-recognizer-vacuous-compiland-ungraded: a recognizer result of (compiland "") is
+# GRADED, never left in an unexamined empty bucket. r_top() only matches top-level
+# procedure/global/record forms, so a source containing one of those SHOULD produce a
+# non-empty tree -- empty then means the recognizer failed on something inside it (FAIL,
+# a gap to cure elsewhere, not this row's claim). A source with none of those three forms
+# has nothing in this recognizer's scope to find, so empty is known-legitimate-empty.
+# An unreadable source can't be graded either way -- ungraded, and the script REFUSES on it
+# below rather than count it green (a skipped file that reports success is the make-test trap).
+recognizer_empty_class() {
+  [ -r "$1" ] || return 2
+  grep -qE '^[[:space:]]*(procedure|global|record)\b' "$1"
+}
 
 for f in "${FILES[@]}"; do
   OUT=$(timeout "$TIMEOUT" "$TMP/icon_parser" < "$f" 2>/dev/null); code=$?
@@ -53,6 +68,14 @@ for f in "${FILES[@]}"; do
     ((R_CRASH++))
   elif [ -z "$OUT" ] || [ "$OUT" = '(compiland "")' ]; then
     ((R_EMPTY++))
+    recognizer_empty_class "$f"; class_rc=$?
+    if [ $class_rc -eq 2 ]; then
+      ((R_UNGRADED++))
+    elif [ $class_rc -eq 0 ]; then
+      ((R_FAIL++)); R_FAIL_DETAIL+=("$f")
+    else
+      ((R_KNOWN_EMPTY++))
+    fi
   else
     ((R_PASS++))
   fi
@@ -64,6 +87,15 @@ echo "=== Icon corpus: parser + recognizer ==="
 echo "Files:          $TOTAL"
 echo "Parser:         pass=$P_PASS  empty=$P_EMPTY  crash/timeout=$P_CRASH"
 echo "Recognizer:     pass=$R_PASS  empty=$R_EMPTY  crash/timeout=$R_CRASH"
+echo "Recognizer classes:  pass=$R_PASS  known-legitimate-empty=$R_KNOWN_EMPTY  fail=$R_FAIL  ungraded=$R_UNGRADED"
+if [ "$R_FAIL" -gt 0 ]; then
+  echo "  fail = vacuous (compiland \"\") despite a top-level procedure/global/record -- recognizer gap(s), see FINDING-2026-09-06-*icon-recognizer*.md:"
+  printf '    %s\n' "${R_FAIL_DETAIL[@]}"
+fi
+if [ "$R_UNGRADED" -gt 0 ]; then
+  echo "REFUSE(2): $R_UNGRADED recognizer empty-result(s) could not be classified (source unreadable) -- refusing rather than counting them green"
+  exit 2
+fi
 
 MAX_CRASH=$(( TOTAL * 5 / 100 + 1 ))
 if [ "$P_CRASH" -gt "$MAX_CRASH" ] || [ "$R_CRASH" -gt "$MAX_CRASH" ]; then
