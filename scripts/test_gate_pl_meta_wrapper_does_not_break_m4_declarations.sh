@@ -29,6 +29,7 @@
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 RUNNER="$HERE/test_prolog_ladder.sh"
+S="$ROOT/scrip"; RT="$ROOT/out/libscrip_rt.so"
 [ -x "$RUNNER" ] || { echo "REFUSE (rc=2): no test_prolog_ladder.sh at $RUNNER"; exit 2; }
 [ -x "$ROOT/scrip" ] || { echo "REFUSE (rc=2): no built ./scrip in $ROOT -- run make first"; exit 2; }
 # ⛔ AND NOT MERELY PRESENT -- CURRENT. This gate's whole verdict is a claim about how a BUILT BINARY behaves

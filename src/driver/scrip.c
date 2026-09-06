@@ -700,20 +700,21 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                 int _rkflags = (pe->dyn_scope ? 1 : 0) | ((proc_ispat_buf[i] && proc_zstatic_buf[i]) ? 2 : 0) | (pe->is_variadic ? 4 : 0) | (pe->is_generator ? 8 : 0) | ((strncmp(proc_names_buf[i], "gram__", 6) != 0) ? 16 : 0);
                 int _rkulex = (is_raku && !pe->dyn_scope && pe->nparams > 0 && pe->lower_sc.n > 0);
                 emit_textf("  .section .rodata\n");
-                emit_textf("  .Lstartup_pname%d: .string \"%s\"\n", i, proc_names_buf[i]);
+                { extern void x86_asm_str_escape_c(const char *, char *, unsigned long); char _esc[1024]; x86_asm_str_escape_c(proc_names_buf[i], _esc, sizeof _esc);
+                  emit_textf("  .Lstartup_pname%d: .string \"%s\"\n", i, _esc); }
                 if (pe->dyn_scope) {
-                    for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) emit_textf("  .Lstartup_pp%d_%d: .string \"%s\"\n", i, k, pe->lower_sc.e[k].name ? pe->lower_sc.e[k].name : "");
+                    for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) { extern void x86_asm_str_escape_c(const char *, char *, unsigned long); char _esc[1024]; x86_asm_str_escape_c(pe->lower_sc.e[k].name ? pe->lower_sc.e[k].name : "", _esc, sizeof _esc); emit_textf("  .Lstartup_pp%d_%d: .string \"%s\"\n", i, k, _esc); }
                     emit_textf("  .align 8\n  .Lstartup_pnames%d:\n", i);
                     for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) emit_textf("  .quad .Lstartup_pp%d_%d\n", i, k);
                     emit_textf("  .quad 0\n");
                 }
                 if (_rkulex) {
-                    for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) if (pe->lower_sc.e[k].name) emit_textf("  .Lstartup_qp%d_%d: .string \"%s\"\n", i, k, pe->lower_sc.e[k].name);
+                    for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) if (pe->lower_sc.e[k].name) { extern void x86_asm_str_escape_c(const char *, char *, unsigned long); char _esc[1024]; x86_asm_str_escape_c(pe->lower_sc.e[k].name, _esc, sizeof _esc); emit_textf("  .Lstartup_qp%d_%d: .string \"%s\"\n", i, k, _esc); }
                     emit_textf("  .align 8\n  .Lstartup_qparr%d:\n", i);
                     for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) { if (pe->lower_sc.e[k].name) emit_textf("  .quad .Lstartup_qp%d_%d\n", i, k); else emit_textf("  .quad 0\n"); }
                     emit_textf("  .quad 0\n");
                 }
-                if (pe->dyn_scope && pe->result_name && strcmp(pe->result_name, pe->name)) emit_textf("  .Lstartup_prn%d: .string \"%s\"\n", i, pe->result_name);
+                if (pe->dyn_scope && pe->result_name && strcmp(pe->result_name, pe->name)) { extern void x86_asm_str_escape_c(const char *, char *, unsigned long); char _esc[1024]; x86_asm_str_escape_c(pe->result_name, _esc, sizeof _esc); emit_textf("  .Lstartup_prn%d: .string \"%s\"\n", i, _esc); }
                 emit_textf("  .align 8\n  .Lstartup_prec%d:\n", i);
                 emit_textf("  .quad .Lstartup_pname%d\n", i);
                 if (strncmp(proc_names_buf[i], "LBL__", 5) == 0) emit_textf("  .quad LBL__%s\n", asm_sym_name(proc_names_buf[i] + 5)); else emit_textf("  .quad FN__%s\n", asm_sym_name(proc_names_buf[i]));

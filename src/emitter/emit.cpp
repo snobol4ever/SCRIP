@@ -3842,3 +3842,10 @@ extern "C" void zzone_disagree(int customer, int staged, int planned) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int zzone_tier_of_cur(void) { extern int zzone_tier_of(const IR_t *); return g_emit.node ? zzone_tier_of(g_emit.node) : 2; }
 extern "C" int zzone_off_of_cur(void) { extern int zzone_off_of(const IR_t *); return g_emit.node ? zzone_off_of(g_emit.node) : -1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" void x86_asm_str_escape_c(const char * s, char * out, unsigned long outsz) {
+    if (!out || !outsz) return;
+    std::string e = x86_asm_str_escape(s ? s : "");
+    unsigned long n = (unsigned long)e.size(); if (n >= outsz) n = outsz - 1;
+    memcpy(out, e.c_str(), (size_t)n); out[n] = 0;
+}
