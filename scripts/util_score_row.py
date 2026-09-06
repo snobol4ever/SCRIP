@@ -273,6 +273,118 @@ def merge_clause(existing, key, value):
     return "; ".join(clauses)
 
 
+# ⛔⭐⭐ merge_clause ASSUMES THE CELL IS A ';'-JOINED KEYED CLAUSE LIST AND NEVER CHECKS THAT IT IS.
+# The vendor cells are PROSE: their top-level separator is '·', and the ';'s live INSIDE parentheses.
+# So every clause boundary merge_clause computes there is fictional, and a key match against a
+# fictional clause is a coin flip. Measured by hq_I 2026-09-06, caught by --dry-run and NOT written:
+# `write --lang icon --column vendor --suite Arizona` put the new number 80% of the way into the cell
+# (offset 1641 of 2052), inside the passage beginning "hq_I's 16:42 lane re-measure is SUPERSEDED by
+# this run", and left the cell's LEADING bolded figure `**arizona m3 46/89 · m4 46/89**` untouched --
+# while stamping the provenance clause current. One cell, two Arizona numbers, the stale one first,
+# both reading as this run's. ⛔ The same cell has it a second time for `IPL`, which nobody reported:
+# leading `**ipl run m3 34/60**` against an archived `IPL: compile_pass=615`. One report, two cells.
+# ⛔ AND IT IS NOT "THE MATCHER PICKED THE WRONG ONE OF TWO CANDIDATES". The live figure is
+# STRUCTURALLY INVISIBLE to it: `**arizona` opens with emphasis and is lower-case, so
+# `^Arizona\s*(?::|(?=\s|$))` fails on two counts, and the only thing in that cell it can ever match is
+# the archived `Arizona:` clause. The matcher found its sole reachable candidate and that candidate was
+# the wrong one -- hq_B's "the icon M cell had become an archive", one column over: a cell carrying its
+# own history gives a label-matcher somewhere to land that is not the load-bearing number.
+# ⭐⭐ SO THE CURE IS A REFUSAL, NOT A BETTER MATCHER, and that is the part worth keeping. Teaching the
+# regex to see `**arizona` would aim it at clause[0] -- which is `**arizona m3 46/89 · m4 46/89**
+# graded (124 shipped, 35 never graded — no oracle-cut ref, so they have never been executed against
+# one`, a fragment ending mid-sentence, because the ';' that ends it is inside parentheses. Replacing
+# that wholesale would strand "`test_icon_arizona_suite.sh`, m3_fail=43 ...) · **jcon ..." as an
+# orphan. A better matcher makes the corruption worse and quieter. Which occurrence is load-bearing is
+# a judgement about what the prose MEANS, and this helper does not get to make it (RULES.md: a test
+# that cannot measure REFUSES with rc=2 -- the same shape as every other guard in this file).
+_HEAD_NEAR = re.compile(r"\d+\s*/\s*\d+|PASS=|FAIL=|\bm[34]\b\s*[:=]?\s*\d", re.I)
+
+
+def measurement_heads(existing, key):
+    # Every place this cell STATES A MEASUREMENT for `key`: the bare word, case- and emphasis-blind so
+    # `**arizona` and `Arizona:` both count, with a fraction / PASS= / FAIL= / `m3 <n>` within the next
+    # 40 characters.
+    # ⛔ THE PROXIMITY WINDOW IS WHAT KEEPS THIS FROM BEING NOISE, and it is measured, not guessed: the
+    # same icon cell also says "the arizona/jcon pass counts agree exactly" -- a MENTION of the suite,
+    # not a reading of it -- and it is excluded because no number follows inside the window. A guard
+    # that counted every mention would refuse cells that merge perfectly well today, and a guard with
+    # false positives is one that gets switched off.
+    # ⛔ THE UNDERSCORE IN THE BOUNDARY IS LOAD-BEARING TOO: without it `test_icon_arizona_suite.sh`
+    # scores as an Arizona head (twice), and every icon vendor write refuses over a script name.
+    out = []
+    for mo in re.finditer(r"(?<![A-Za-z0-9_])" + re.escape(key) + r"(?![A-Za-z0-9_])", existing or "", re.I):
+        if _HEAD_NEAR.search((existing or "")[mo.end():mo.end() + 40]):
+            out.append(mo.start())
+    return out
+
+
+
+def suite_readings(cell, key, window=90):
+    # The fractions this cell states FOR `key`: every measurement head, then the N/M pairs within its
+    # window. Used to ask whether two lines of the board disagree about one suite, which is a different
+    # question from whether either is stale.
+    out = []
+    for off in measurement_heads(cell or "", key):
+        seg = (cell or "")[off:off + window]
+        out.extend("%s/%s" % (m2.group(1), m2.group(2)) for m2 in re.finditer(r"(\d+)\s*/\s*(\d+)", seg))
+    return out
+
+
+def clauses_with_offsets(existing):
+    # merge_clause's own view of the cell, but keeping each clause's offset so a head can be located in
+    # it. Same split, same strip, same drop-the-empties -- if this ever disagrees with merge_clause the
+    # guard is measuring a different cell than the one being written.
+    out, pos = [], 0
+    for piece in (existing or "").split(";"):
+        s = piece.strip()
+        if s:
+            off = pos + (len(piece) - len(piece.lstrip()))
+            out.append((off, off + len(s), s))
+        pos += len(piece) + 1
+    return out
+
+
+def suite_target_conflict(existing, key):
+    # ("", []) when a --suite write will land on the place this cell states its number; otherwise a
+    # named conflict and the heads that prove it. Returns heads as (offset, context) so the refusal can
+    # print the offsets -- hq_I asked for exactly that, and an offset is the one thing that makes two
+    # occurrences of one word distinguishable in a 2 KB single-line cell.
+    if not existing or existing == "—":
+        return "", []
+    heads = measurement_heads(existing, key)
+    if not heads:
+        return "", []
+    clauses = clauses_with_offsets(existing)
+    target = None
+    for n, (_s, _e, text) in enumerate(clauses):
+        if re.match(r"^%s\s*(?::|(?=\s|$))" % re.escape(key), text):
+            target = n
+            break
+
+    def ctx(h):
+        return (h, existing[max(0, h - 45):h + 75])
+
+    def clause_of(off):
+        for n, (s, e, _t) in enumerate(clauses):
+            if s <= off <= e:
+                return n
+        return -1
+    if target is None:
+        # The cell states a number for this suite and merge_clause will match NONE of it, so it appends
+        # -- planting a second reading beside the first. That is the stale twin merge_clause exists to
+        # prevent, produced by merge_clause. Silent, and it looks like a successful first write.
+        return "unreachable", [ctx(h) for h in heads]
+    outside = [h for h in heads if clause_of(h) != target]
+    if not outside:
+        # ⭐ HEADS INSIDE THE TARGETED CLAUSE ARE NOT A CONFLICT -- the rewrite replaces that whole
+        # clause, so they all go together. Measured on the live snobol4 vendor cell, which reads
+        # `aisnobol: aisnobol 0/2 m3 · 0/2 m4 SCORED`: the key twice, ten characters apart, one clause.
+        # Without this the guard would refuse a cell that merges correctly, which is the false positive
+        # that would have made this whole check worthless.
+        return "", []
+    return "multi", [ctx(h) for h in heads]
+
+
 def merge_prov(existing, column, stamp):
     # One `<column>: <stamp>` clause per measured column, ';'-joined.  Rewrite ours IN PLACE (never
     # append beside a stale twin -- that is the defect the FACT RULE names by name), keep everyone
@@ -286,6 +398,56 @@ def merge_prov(existing, column, stamp):
             return "; ".join(clauses)
     clauses.append(new)
     return "; ".join(clauses)
+
+
+def prov_duplicate_keys(prov):
+    # ⛔⭐⭐ TWO STAMPS UNDER ONE KEY, AND merge_prov CAN ONLY EVER REWRITE THE FIRST. Flagged by hq_P
+    # 2026-09-06 on the live snobol4 row, measured here: 23 provenance clauses carrying NINE duplicated
+    # keys (board, entries, Snoflake, CSNOBOL4, port-trace, cross-confirm, gimpel, aisnobol, vendor),
+    # every twin stamping an OLDER tree. handoff_status.sh reads a `vendor:` clause and cannot know it is
+    # one of two.
+    # ⛔ HOW IT GOT THERE IS THE PART THAT GENERALISES, and no script did it: a hand resolution of a
+    # concurrent landing (.github d91410c7) kept both sides by pasting the origin-side provenance in as
+    # ONE clause value, labelled "concurrent board stamp merged from origin: ...". Because ';' is this
+    # column's delimiter and the pasted value contained nine of them, that single clause SPLIT into nine
+    # top-level siblings the moment anything read the cell. The resolution looked conservative -- nothing
+    # deleted, both sides kept, one honest label -- and it was the append-twin defect the FACT RULE names,
+    # arriving one level up from the cell, through the one door no writer watches: a git merge.
+    # ⭐ SO THE CHECK IS ON THE DATA, NOT ON THE WRITER. Nothing in this file produced these clauses and no
+    # guard inside `write` could have; the only thing that can catch it is reading the cell back and
+    # noticing one key answers twice. That is why this is REPORTED by both `write` and `check` rather than
+    # refused: a refusal would block every snobol4 write until someone hand-repairs a shared board, which
+    # is precisely the hand-surgery-on-a-live-row hq_P declined to do for good reason.
+    seen, dups = {}, {}
+    for c in [x.strip() for x in (prov or "").split(";") if x.strip()]:
+        mo = re.match(r"^([^:]{1,60}?)\s*:", c)
+        if not mo:
+            continue
+        k = mo.group(1)
+        if k in seen:
+            dups.setdefault(k, [seen[k]]).append(c)
+        else:
+            seen[k] = c
+    return dups
+
+
+def prov_duplicate_note(lang, prov, indent="  "):
+    # One rendered warning, shared by `write` and `check` so the two can never drift into describing the
+    # same defect differently -- the whole reason this helper exists is that the board has ONE authority.
+    dups = prov_duplicate_keys(prov)
+    if not dups:
+        return ""
+    out = ["%s⚠ %s provenance carries %d DUPLICATED key(s) -- merge_prov rewrites only the FIRST, so the "
+           "other(s) can never be updated again and a reader (handoff_status.sh included) may take either:"
+           % (indent, lang, len(dups))]
+    for k in sorted(dups):
+        out.append("%s  `%s:` x%d" % (indent, k, len(dups[k])))
+        for c in dups[k]:
+            out.append("%s      - %s" % (indent, c[:150]))
+    out.append("%s  Keep the NEWEST stamp per key and delete the rest. ⛔ Check for a clause whose VALUE is "
+               "itself a ';'-joined provenance list (e.g. one labelled 'merged from origin') -- that is one "
+               "clause on the page and N clauses to every reader, and it is how these arrive." % indent)
+    return "\n".join(out)
 
 
 def cell_prose_loss(before, new):
@@ -500,6 +662,36 @@ def cmd_write(a):
     # the first SUPERSEDE_MARKER in `before` was already labelled not-asserted by an earlier fold, so
     # dropping it loses no claim anyone was still entitled to rely on.
     if a.suite:
+        # ⛔⭐ THE --suite WRITE MUST LAND ON THE NUMBER THE CELL LEADS WITH, OR REFUSE (see
+        # suite_target_conflict: hq_I's 2026-09-06 dry-run on icon/vendor/Arizona). A label match is not
+        # enough to say which of several readings is load-bearing once a cell carries its own history.
+        kind, heads = suite_target_conflict(before, a.suite)
+        if kind:
+            why = ("states a measurement for it in %d separate places and merge_clause would rewrite "
+                   "exactly ONE of them" % len(heads)) if kind == "multi" else (
+                   "already states a measurement for it, but in a form merge_clause cannot match (bolded, "
+                   "lower-cased, or mid-sentence) -- so it would APPEND a second reading beside the first")
+            die("--suite %r cannot be targeted in %s/%s: the cell %s, silently, leaving the other(s) in "
+                "place and stamped current by this run's provenance. That is one cell asserting two "
+                "numbers, and the one a reader sees first is not necessarily the one that moved.\n"
+                "%s\n"
+                "  The cell carries its own history, so which occurrence is load-bearing is a judgement "
+                "about what the prose MEANS -- this helper does not make it.\n"
+                "  ⭐ TO MAKE THIS CELL RUNNER-WRITABLE AGAIN, BOTH HALVES, and the second is THIS FILE'S OWN "
+                "CONVENTION, not a new one:\n"
+                "    1. give the LOAD-BEARING reading a bare `%s:` key -- a bolded or lower-cased leading "
+                "figure (`**arizona ...`) is invisible to merge_clause, which is how the archived copy came "
+                "to be the only thing it could reach;\n"
+                "    2. take the number OUT of the archived reading -- spell its numerals out (`forty-six of "
+                "one hundred twenty-four`) or move it to the detail row. SCORE.md already does this and says "
+                "why: \"NUMERALS IN THIS EXPLANATION ARE SPELLED OUT ON PURPOSE: as digits they are re-parsed "
+                "as live cells, so the explanation RECREATES the conflict it describes.\" Re-labelling the "
+                "archive (`Arizona (superseded): 46/124`) does NOT work -- the digits are still there.\n"
+                "  Then re-run. NOTHING WAS WRITTEN."
+                % (a.suite, a.lang, a.column, why,
+                   "\n".join("  head @%d of %d: ...%s..." % (off, len(before), c.replace("\n", " "))
+                              for off, c in heads),
+                   a.suite))
         cells[idx] = merge_clause(before, a.suite, text)
     else:
         new_text = text
@@ -535,6 +727,7 @@ def cmd_write(a):
     # at the moment it happens, with the cell and the blocking sentence named.
     gkey = GRID_MIRROR.get(a.column)
     gnote = ""
+    _gconflict = False
     if gkey:
         try:
             _gh, growsg, gskipw = find_grid(lines)
@@ -555,6 +748,32 @@ def cmd_write(a):
             # itself read as prose the next write is about to lose.
             gbare = re.sub(r"\s*" + GRID_STAMP_RE + r"\s*$", "", gbefore).strip()
             gnew = merge_clause(gbare, a.suite, text) if a.suite else text
+            # ⛔⭐⭐ THE SAME LANGUAGE+SUITE LIVES ON TWO LINES OF THIS FILE, AND ONLY ONE OF THEM IS BEING
+            # WRITTEN (hq_I 2026-09-06, measured: icon vendor sits at BOTH the September-10 grid and the
+            # standardized display; a hand-edit reached one, this helper targets the other, and the board
+            # asserted 47/90 on one line and 46/89 on the other -- both stamped current -- for about an
+            # hour). That is the within-cell ambiguity guard's defect one level up: BETWEEN cells rather
+            # than inside one, and invisible to a guard that only ever reads the cell it is writing.
+            # ⭐ REPORTED, NOT REFUSED, and the asymmetry is deliberate. Within a cell, the write would land
+            # in the WRONG PLACE, so refusing is the only honest answer. Here the write lands correctly and
+            # it is the OTHER line that is stale -- and that line refuses auto-update by design (it carries
+            # prose no runner models), so a refusal would lock every vendor write out of the board forever
+            # to punish a staleness this very message exists to announce.
+            # ⛔ WHAT WAS MISSING WAS NEVER THE WARNING, IT WAS THE NUMBER. The grid note already said "NOT
+            # updated"; it did not say what the grid currently CLAIMS, so a reader could not tell a stale
+            # restatement of the same figure from a live contradiction. hq_I found the conflict only by
+            # checking WHERE the text landed rather than that rc=0. Name both readings and it is one glance.
+            if a.suite:
+                _gr, _tr = suite_readings(gbare, a.suite), suite_readings(text, a.suite) or re.findall(r"\d+\s*/\s*\d+", text)
+                _grs, _trs = {x.replace(" ", "") for x in _gr}, {x.replace(" ", "") for x in _tr}
+                if _grs and _trs and not (_grs & _trs):
+                    gnote = ("  ⛔ grid %s CONFLICTS with what you are writing for `%s`: that line states %s, "
+                             "this write states %s. Both lines of SCORE.md carry this language+suite, and a "
+                             "reader takes whichever they meet first.\n"
+                             "      Land the same number on BOTH lines in this sitting -- hand-edit the grid "
+                             "cell, since it refuses auto-update by design (prose no runner models)."
+                             % (gkey, a.suite, " · ".join(sorted(_grs)), " · ".join(sorted(_trs))))
+                    _gconflict = True
             # ⛔⭐ cell_prose_loss ALONE IS THE WRONG GATE HERE AND MEASURING IT SAID SO. It answers "does
             # `new` still contain everything `before` said", so the OLD MEASUREMENT -- which this write
             # exists to supersede -- always reads as a lost sentence. Run against the live board it blocked
@@ -586,7 +805,9 @@ def cmd_write(a):
             # pass/fail split), so pass/(pass+fail) would publish 1698/1698 = 100%. A silent 100% is far more
             # dangerous than a silent 55%. So this REFUSES the grid half and says what to do, the same shape
             # as the prose guard: wrong is worse than missing on this line.
-            if not cell_fractions(gnew)[0]:
+            if _gconflict:
+                pass
+            elif not cell_fractions(gnew)[0]:
                 gnote = ("  ⚠ grid %s NOT updated -- this board line carries NO `N/M` fraction, and the grid %s "
                          "column is PARSED for one. Writing it would leave a cell that reads as ZERO for this "
                          "population and publish a confidently wrong percentage rather than a `?`.\n"
@@ -598,11 +819,24 @@ def cmd_write(a):
             elif gbare == gnew:
                 gnote = "  grid %s: already agrees, nothing to write" % gkey
             elif not gpure:
-                glost = glost or [gbefore]
+                # ⛔⭐ THE COUNT IN THIS MESSAGE USED TO BE A LIE, AND IT UNDERSTATED (hq_T 2026-09-06,
+                # off hq_I's icon/vendor report). The fallback was `glost or [gbefore]`, so whenever
+                # cell_prose_loss found nothing -- which is the NORMAL case here, since a cell that is
+                # pure commentary loses nothing to a number -- it named the WHOLE CELL as one item and
+                # printed "1 sentence(s)". The icon grid V cell carries EIGHT; snobol4's carries 26.
+                # ⭐ hq_I read "1 sentence" and reasonably asked whether the grid half was a small gap or
+                # a second defect. It is neither: it is the ruled REFUSE firing exactly as designed, on a
+                # cell that is 1.6 KB of human commentary. But a guard that reports "1" for 8 invites
+                # precisely that question, and the next reader will hand-fold one sentence and think they
+                # are done. Count what is actually there; cap the LISTING, never the count.
+                glost = glost or gchunks or [gbefore]
+                _shown = glost[:3]
+                _more = ("\n      ... and %d more (read the cell; this listing is capped, the count is not)"
+                         % (len(glost) - len(_shown))) if len(glost) > len(_shown) else ""
                 gnote = ("  ⚠ grid %s NOT updated -- it carries %d sentence(s) no runner models, "
                          "so this measurement now sits in the display only and the grid cell is STALE BY THIS "
-                         "WRITE. Fold what is still true into --text, or hand-edit the grid cell:\n%s"
-                         % (gkey, len(glost), "\n".join("      - %s" % l[:160] for l in glost)))
+                         "WRITE. Fold what is still true into --text, or hand-edit the grid cell:\n%s%s"
+                         % (gkey, len(glost), "\n".join("      - %s" % l[:160] for l in _shown), _more))
             else:
                 for gl, gline in enumerate(lines):
                     if gline.startswith("| %s |" % a.lang) and gl != i:
@@ -621,11 +855,14 @@ def cmd_write(a):
     # ⭐ The grid block above mutates `lines` IN MEMORY only; the file is written below. So the preview is
     # produced by running the real code path and declining to persist it, never by a second model of what it
     # would have done -- a preview that reasons about the writer instead of running it is the next drift.
+    _provdup = prov_duplicate_note(a.lang, cells[PROV_COL])
     if a.dry_run:
         print("WOULD REWRITE %s line %d" % (SCORE_MD, i + 1))
         print("  was: %s" % before)
         print("  now: %s" % cells[idx])
         print("  prov: %s" % cells[PROV_COL])
+        if _provdup:
+            print(_provdup)
         if gnote:
             print(gnote)
         elif not gkey:
@@ -637,6 +874,8 @@ def cmd_write(a):
     lines = mark_grid_stamp(lines)
     open(SCORE_MD, "w", encoding="utf-8").write("\n".join(lines))
     print("SCORE.md: %s/%s rewritten in place (line %d)" % (a.lang, a.column, i + 1))
+    if _provdup:
+        print(_provdup)
     print("  was: %s" % before)
     print("  now: %s" % cells[idx])
     print("  prov: %s: %s" % (a.column, stamp))
@@ -802,7 +1041,16 @@ def cmd_check(a):
     print("SCORE.md staleness (threshold %d commits):" % a.threshold)
     for l in out:
         print(l)
-    print("worst=%d unpinned/unknown=%d adrift=%d" % (worst, unknown, adrift))
+    # ⭐ Provenance twins are reported from `check` as well as from `write`, because `check` is where the
+    # question "is this board trustworthy" is actually asked. A duplicated key is not staleness and not
+    # adrift -- both of those describe ONE stamp being wrong; this one is two stamps where the reader
+    # cannot tell which answered.
+    _dupnotes = []
+    for lang in sorted(rows):
+        _n = prov_duplicate_note(lang, rows[lang][1][PROV_COL], indent="  ")
+        if _n:
+            _dupnotes.append(_n)
+    print("worst=%d unpinned/unknown=%d adrift=%d provdup=%d" % (worst, unknown, adrift, len(_dupnotes)))
     rc = 0
     if worst >= a.threshold:
         print("⚠ WARN: %d row-measurement(s) at or past the %d-commit staleness threshold -- re-measure and rewrite the row." % (
@@ -817,6 +1065,12 @@ def cmd_check(a):
         print("⚠ WARN: %d cell(s) ADRIFT from their provenance stamp -- the cell was hand-edited, so the Tree "
               "column names a different tree (and a different measurer) than the number a reader sees. Re-write "
               "each with `write --column <col>` so the stamp and the prose agree again." % adrift)
+        rc = 1
+    if _dupnotes:
+        print("⚠ WARN: %d row(s) carry DUPLICATED provenance keys -- two stamps under one name, only the "
+              "first of which any writer or reader will ever reach:" % len(_dupnotes))
+        for _n in _dupnotes:
+            print(_n)
         rc = 1
     return rc
 
@@ -961,6 +1215,95 @@ def cmd_selftest(a):
                       "normalised clause: %r (split into %r)" % (cell2, clauses2)); ok = False
             else:
                 print("SELFTEST: round trip holds -- a later --suite write did not fragment the earlier normalised clause")
+
+        # ⛔⭐ SUITE TARGETING -- FIXTURE IS THE REAL CELL, not an invented one (hq_I 2026-09-06, caught
+        # by --dry-run and never written). `hist` is the shape of the live icon vendor cell: a bolded
+        # lower-case LEADING figure and, 1.6 KB later inside a SUPERSEDED narrative, a bare `Arizona:`
+        # clause. merge_clause can only ever match the second, so the write lands on the archive and the
+        # number a reader sees first stays stale while the provenance says otherwise.
+        # ⛔ THE THREE NEGATIVE ARMS MATTER AS MUCH AS THE POSITIVE ONE. A guard that refuses cells which
+        # merge correctly is a guard someone switches off: `same_clause` is the live snobol4 cell
+        # (`aisnobol: aisnobol 0/2 m3`) where the key appears twice ten characters apart inside ONE
+        # clause -- not a conflict, because the rewrite replaces that clause whole; `mention` is the same
+        # icon cell's "the arizona/jcon pass counts agree exactly", a mention with no number after it;
+        # and `script_name` is `test_icon_arizona_suite.sh`, which without the underscore in the word
+        # boundary would refuse every icon vendor write over a filename.
+        hist = ("**arizona m3 46/89 · m4 46/89** graded (124 shipped; `test_icon_arizona_suite.sh`) "
+                "— ⛔ hq_I's re-measure is SUPERSEDED: the arizona/jcon pass counts agree exactly; "
+                "Arizona: m3 46/124 · m4 46/124 (of 124 shipped, `test_icon_arizona_suite.sh`)")
+        same_clause = "Snoflake: 130/173 m3; aisnobol: aisnobol 0/2 m3 · 0/2 m4 SCORED (of 8 shipped)"
+        _targeting_ok = True
+        _provdup_ok = True
+        for _cell, _key, _want, _why in (
+                (hist, "Arizona", "multi", "a bolded leading figure and an archived keyed clause"),
+                (same_clause, "aisnobol", "", "the key twice inside ONE clause is not a conflict"),
+                (hist, "JCON", "", "a suite the cell only MENTIONS, with no number after it, is not a head"),
+                ("**arizona m3 46/89 · m4 46/89** graded", "Arizona", "unreachable",
+                 "a head merge_clause cannot match would be APPENDED beside, not rewritten"),
+                ("Snoflake: 130/173 m3 · 130/173 m4", "Arizona", "", "a suite absent from the cell is a plain first write"),
+                ("—", "Arizona", "", "an empty cell is a plain first write")):
+            _got = suite_target_conflict(_cell, _key)[0]
+            if _got != _want:
+                print("SELFTEST FAIL: suite targeting -- key %r expected %r, got %r (%s)"
+                      % (_key, _want or "no conflict", _got or "no conflict", _why))
+                ok = False
+                _targeting_ok = False
+        if _targeting_ok:
+            print("SELFTEST: suite targeting refuses a cell that carries its own history, and does NOT "
+                  "refuse a same-clause repeat, a bare mention, a script name, or a first write")
+        # ⭐ AND THE REFUSAL MUST REACH cmd_write, not just the helper -- the defect was reported against
+        # the COMMAND. Proven end to end on the scratch copy, with rc=2 and both offsets named.
+        _th, _tr, _ = find_table(open(SCORE_MD, encoding="utf-8").read().split("\n"))
+        if "rebus" in _tr:
+            _ti, _tc = _tr["rebus"]
+            _tc[COLUMNS["vendor"][0]] = hist
+            _tl = open(SCORE_MD, encoding="utf-8").read().split("\n")
+            _tl[_ti] = "| " + " | ".join(_tc) + " |"
+            open(SCORE_MD, "w", encoding="utf-8").write("\n".join(_tl))
+            a10 = A(); a10.lang = "rebus"; a10.column = "vendor"; a10.suite = "Arizona"
+            a10.measurer = "selftest"; a10.modes = ""; a10.dry_run = False; a10.text = "arizona 47/90 m3 · 47/90 m4"
+            try:
+                cmd_write(a10)
+                print("SELFTEST FAIL: suite targeting -- cmd_write WROTE into a cell carrying two "
+                      "Arizona readings instead of refusing"); ok = False
+            except SystemExit as _e:
+                _after = find_table(open(SCORE_MD, encoding="utf-8").read().split("\n"))[1]["rebus"][1][COLUMNS["vendor"][0]]
+                if _e.code != 2:
+                    print("SELFTEST FAIL: suite targeting -- cmd_write refused with rc=%s, not 2" % _e.code); ok = False
+                elif _after != hist:
+                    print("SELFTEST FAIL: suite targeting -- REFUSED but the cell changed anyway: %r" % _after); ok = False
+                else:
+                    print("SELFTEST: cmd_write REFUSES rc=2 on an ambiguous --suite and leaves the cell byte-identical")
+
+        # ⛔⭐ PROVENANCE TWINS -- fixture is the REAL snobol4 row (hq_P 2026-09-06), not an invented one.
+        # The load-bearing arm is `wrapped`: ONE clause on the page whose VALUE is itself a ';'-joined
+        # provenance list, which is how nine twins arrived without any writer appending anything. A check
+        # that only looked for literally repeated clauses would score that cell CLEAN.
+        wrapped = ("board: SCRIP `aaa` · 2026-09-06 · hq_T; vendor: SCRIP `bbb` · 2026-09-06 · hq_P; "
+                   "concurrent board stamp merged from origin: SCRIP `ccc` · 2026-09-03 · hq_B; "
+                   "board: SCRIP `ddd` · 2026-09-05 · hq_S; vendor: SCRIP `eee` · 2026-09-05 · hq_P")
+        for _prov, _want, _why in (
+                (wrapped, ["board", "vendor"], "a wrapper clause whose value is itself a clause list"),
+                ("board: SCRIP `aaa`; entries: SCRIP `bbb`", [], "one stamp per key is the normal row"),
+                ("", [], "an empty provenance cell has no twins"),
+                ("—", [], "an unmeasured provenance cell has no twins"),
+                ("board: SCRIP `aaa`; board: SCRIP `aaa`", ["board"],
+                 "byte-identical twins still hide a stamp no writer can reach")):
+            _got = sorted(prov_duplicate_keys(_prov))
+            if _got != sorted(_want):
+                print("SELFTEST FAIL: provenance twins -- expected %r, got %r (%s)" % (sorted(_want), _got, _why))
+                ok = False
+                _provdup_ok = False
+        if _provdup_ok:
+            print("SELFTEST: provenance twins found through a wrapper clause, and a clean row stays clean")
+        # ⭐ AND THE NOTE MUST NAME BOTH STAMPS, or it cannot be acted on -- naming only the key would say
+        # "something is duplicated" and leave the reader to diff a 2 KB cell by eye.
+        _note = prov_duplicate_note("snobol4", wrapped)
+        if "`board:` x2" not in _note or "aaa" not in _note or "ddd" not in _note:
+            print("SELFTEST FAIL: provenance twins -- the note does not name both stamps: %r" % _note[:200])
+            ok = False
+        else:
+            print("SELFTEST: the provenance-twin note names the key and BOTH competing stamps")
 
         # ⛔⭐ CELL PROSE LOSS -- fixture is the REAL incident, .github 46ff295c, not an invented example.
         # `real_before` is exactly what the snobol4 board cell carried before the runner clobbered it;
