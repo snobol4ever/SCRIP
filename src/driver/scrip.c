@@ -458,12 +458,13 @@ static int sn4_define_lbl_alias(void) { static int v = -1; if (v < 0) { const ch
 static int compat_bake_on(const char * var) { const char * e = getenv(var); return (e && *e && *e != '0') ? 1 : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void emit_compat_bake_data(void) {
-    int se = compat_bake_on("SCRIP_SETEXIT_END"), io = compat_bake_on("SCRIP_IO_ASSOC_LEGACY"), rf = compat_bake_on("SCRIP_REAL_FMT_CSNOBOL4");
-    if (!se && !io && !rf) return;
+    int se = compat_bake_on("SCRIP_SETEXIT_END"), io = compat_bake_on("SCRIP_IO_ASSOC_LEGACY"), rf = compat_bake_on("SCRIP_REAL_FMT_CSNOBOL4"), ip = compat_bake_on("SCRIP_IPOW_CSNOBOL4");
+    if (!se && !io && !rf && !ip) return;
     emit_textf("  .section .rodata\n.LC_compat_one:\n  .asciz \"1\"\n");
     if (se) emit_textf(".LC_compat_se:\n  .asciz \"SCRIP_SETEXIT_END\"\n");
     if (io) emit_textf(".LC_compat_io:\n  .asciz \"SCRIP_IO_ASSOC_LEGACY\"\n");
     if (rf) emit_textf(".LC_compat_rf:\n  .asciz \"SCRIP_REAL_FMT_CSNOBOL4\"\n");
+    if (ip) emit_textf(".LC_compat_ip:\n  .asciz \"SCRIP_IPOW_CSNOBOL4\"\n");
     emit_textf("  .text\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -471,6 +472,7 @@ static void emit_compat_bake_code(void) {
     if (compat_bake_on("SCRIP_SETEXIT_END")) emit_textf("  lea rdi, [rip + .LC_compat_se]\n  lea rsi, [rip + .LC_compat_one]\n  mov edx, 1\n  call setenv@PLT\n");
     if (compat_bake_on("SCRIP_IO_ASSOC_LEGACY")) emit_textf("  lea rdi, [rip + .LC_compat_io]\n  lea rsi, [rip + .LC_compat_one]\n  mov edx, 1\n  call setenv@PLT\n");
     if (compat_bake_on("SCRIP_REAL_FMT_CSNOBOL4")) emit_textf("  lea rdi, [rip + .LC_compat_rf]\n  lea rsi, [rip + .LC_compat_one]\n  mov edx, 1\n  call setenv@PLT\n");
+    if (compat_bake_on("SCRIP_IPOW_CSNOBOL4")) emit_textf("  lea rdi, [rip + .LC_compat_ip]\n  lea rsi, [rip + .LC_compat_one]\n  mov edx, 1\n  call setenv@PLT\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int *proc_nparams_buf, int *proc_pidx_buf, int *proc_fb_buf, int *proc_ispat_buf, int *proc_zstatic_buf, int n_procs, int n_cls_emit, int n_gram_emit, int is_raku, const char *mi_name) {
@@ -868,7 +870,7 @@ int main(int argc, char **argv)
         else if (strncmp(argv[argi], "--compat=", 9)   == 0) {
             const char *d = argv[argi] + 9;
             if      (strcmp(d, "spitbol")  == 0) { unsetenv("SCRIP_SETEXIT_END"); unsetenv("SCRIP_IO_ASSOC_LEGACY"); unsetenv("SCRIP_REAL_FMT_CSNOBOL4"); }
-            else if (strcmp(d, "csnobol4") == 0) { setenv("SCRIP_SETEXIT_END", "1", 1); setenv("SCRIP_IO_ASSOC_LEGACY", "1", 1); setenv("SCRIP_REAL_FMT_CSNOBOL4", "1", 1); }
+            else if (strcmp(d, "csnobol4") == 0) { setenv("SCRIP_SETEXIT_END", "1", 1); setenv("SCRIP_IO_ASSOC_LEGACY", "1", 1); setenv("SCRIP_REAL_FMT_CSNOBOL4", "1", 1); setenv("SCRIP_IPOW_CSNOBOL4", "1", 1); }
             else { fprintf(stderr, "scrip: --compat=%s is not a known dialect (spitbol, csnobol4)\n", d); return 2; }
             argi++; }
         else if (strcmp(argv[argi], "--monitor")       == 0) { extern int g_monitor_bin; g_monitor_bin = 1; argi++; }

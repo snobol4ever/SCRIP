@@ -203,6 +203,7 @@ static DESCR_t rt_ipow_descr(int64_t li, int64_t ri) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_ipow_promote_descr(int64_t li, int64_t ri) {
     if (ri >= 0) { int64_t acc = 1; for (int64_t k = 0; k < ri; k++) acc *= li; return INTVAL(acc); }
+    { const char *e = getenv("SCRIP_IPOW_CSNOBOL4"); if (e && e[0] == '1' && li != 0) return INTVAL(0); }
     if (li == 0) return REALVAL(0.0);
     return REALVAL(pow((double)li, (double)ri));
 }
