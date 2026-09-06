@@ -1234,7 +1234,10 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
             a->data = rt_ws_alloc(n * sizeof(DESCR_t));
             int row = 0;
             TBPAIR_t *e;
-            TBL_FOREACH(tbl, e) { if (row >= n) break;
+            TBPAIR_t **ord = rt_ws_alloc((size_t)n * sizeof(TBPAIR_t *));
+            for (unsigned oi = 0; oi < tbl->ord_len && row < n; oi++) { TBPAIR_t *pe = table_find_pair_d(tbl, tbl->ord[oi]); if (pe) ord[row++] = pe; }
+            if (row < n) { TBL_FOREACH(tbl, e) { if (row >= n) break; int seen = 0; for (int q = 0; q < row; q++) if (ord[q] == e) { seen = 1; break; } if (!seen) ord[row++] = e; } }
+            for (int oi = 0; oi < row; oi++) { e = ord[oi];
                 DESCR_t kd = (e->key_descr.v != DT_SNUL)
                              ? e->key_descr
                              : STRVAL(tbl_pair_key(e));
@@ -1245,8 +1248,7 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
                 rb->data[0] = kd;
                 rb->data[1] = e->val;
                 DESCR_t rd = {0}; rd.v = DT_A; rd.arr = rb;
-                a->data[row] = rd;
-                row++;
+                a->data[oi] = rd;
             }
             return ARRAY_VAL(a);
         }

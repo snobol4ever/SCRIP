@@ -94,6 +94,7 @@ TBBLK_t *table_new(void) {
     t->init = 11;
     t->inc  = 10;
     t->is_set = 0;
+    t->ord = (DESCR_t *)0; t->ord_len = 0; t->ord_cap = 0;
     t->nbuck = _tbl_nbuck_for(t->init);
     t->buckets = _tbl_vec_new(t->nbuck);
     return t;
@@ -280,7 +281,9 @@ int table_delete_d(TBBLK_t *tbl, DESCR_t k) {
     TBBUCK_t *b = tbl->buckets[TBL_BUCKET_OF(tbl, h)];
     if (!b) return 0;
     for (unsigned i = _tbl_lower(b->ent, b->len, h); i < b->len && b->ent[i].hkey == h; i++)
-        if (_tbl_eq_d(&b->ent[i], k)) { memmove(&b->ent[i], &b->ent[i + 1], (size_t)(b->len - i - 1) * sizeof(TBPAIR_t)); b->len--; tbl->size--; return 1; }
+        if (_tbl_eq_d(&b->ent[i], k)) { memmove(&b->ent[i], &b->ent[i + 1], (size_t)(b->len - i - 1) * sizeof(TBPAIR_t)); b->len--; tbl->size--;
+            for (unsigned oi = 0; oi < tbl->ord_len; oi++) { TBPAIR_t _op; _op.key_descr = tbl->ord[oi]; if (!_tbl_eq_d(&_op, k)) continue; memmove(&tbl->ord[oi], &tbl->ord[oi + 1], (size_t)(tbl->ord_len - oi - 1) * sizeof(DESCR_t)); tbl->ord_len--; break; }
+            return 1; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -317,6 +320,8 @@ void table_set_descr_d(TBBLK_t *tbl, DESCR_t k, DESCR_t val) {
     if (i < b->len) memmove(&b->ent[i + 1], &b->ent[i], (size_t)(b->len - i) * sizeof(TBPAIR_t));
     { TBPAIR_t *n = &b->ent[i]; n->key = (char *)0; n->key_descr = k; n->val = val; n->hkey = h; }
     b->len++; tbl->size++;
+    if (tbl->ord_len == tbl->ord_cap) { unsigned nc = tbl->ord_cap ? tbl->ord_cap * 2u : 16u; DESCR_t *nv = rt_ws_alloc((size_t)nc * sizeof(DESCR_t)); if (tbl->ord) memcpy(nv, tbl->ord, (size_t)tbl->ord_len * sizeof(DESCR_t)); tbl->ord = nv; tbl->ord_cap = nc; }
+    tbl->ord[tbl->ord_len++] = k;
     if ((unsigned)tbl->size > tbl->nbuck * TBL_LOAD_MAX) _tbl_rehash(tbl);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
