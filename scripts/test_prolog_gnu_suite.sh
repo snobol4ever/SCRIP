@@ -48,6 +48,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [ -f "$HERE/lib_progress.sh" ] && . "$HERE/lib_progress.sh"   # CEO-331: a runner that grades with its OWN loop appends its own rows
 . "$HERE/lib_flag_gate.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE: lib_flag_gate.sh unloadable"; exit 2; }
+. "$HERE/lib_inventory.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE: lib_inventory.sh unloadable"; exit 2; }
 [ $# -eq 0 ] || flaggate_reject "$1" "(none -- set GNU_SUITE_VERBOSE / GNU_SUITE_CLASSIFY_TIMEOUT / GNU_SUITE_RUN_TIMEOUT via environment instead)"
 SCRIP="${HERE}/../scrip"
 RT_SO="${HERE}/../out/libscrip_rt.so"
@@ -173,14 +174,22 @@ for f in "${FILES[@]}"; do
     fi
 
     # rc == 2 with the ladder-refusal shape (lower_prolog.c pl_refuse()): a construct not yet built on
-    # the construct ladder. COUNTED by rung, never cured here -- a fleet seat never touches a rung
-    # (RULES.md sec THE PROLOG REBUILD GATE; ARCH-PROLOG-BYRD-BOX-TRANSLATION.md sec E).
+    # the construct ladder. Named and counted by rung for diagnostic visibility, and the RUNG ITSELF is
+    # never cured here -- a fleet seat never touches a rung (RULES.md sec THE PROLOG REBUILD GATE;
+    # ARCH-PROLOG-BYRD-BOX-TRANSLATION.md sec E). ⛔ BUT per lib_inventory.sh's ARM 8 ("a program the
+    # ORACLE grades and WE do not is GRADED and RED, never removed from the denominator"): gprolog can
+    # run every one of these files, so a ladder gap is OUR compiler's gap, not an oracle ruling or an
+    # owed-ref-cutting task -- excluding it from OK_TOTAL was a red moved out of the denominator one
+    # level up from the case ARM 8 was written for. It counts as an ordinary OK/FAIL entry; SCRIP's own
+    # refusal to lower the construct is itself the divergence from gprolog's real output, so there is
+    # nothing left to triangulate.
     rung="$(grep -oP 'is not on the ladder yet -- rung \K[0-9]+' "$probe_log" | head -1)"
     if [ "$rc" -eq 2 ] && [ -n "$rung" ]; then
         LADDER=$((LADDER+1))
         LADDER_RUNG_COUNT[$rung]=$(( ${LADDER_RUNG_COUNT[$rung]:-0} + 1 ))
         LADDER_RUNG_NAMES[$rung]="${LADDER_RUNG_NAMES[$rung]:-}${LADDER_RUNG_NAMES[$rung]:+ }$rel"
-        [ "$VERBOSE" -eq 1 ] && echo "  LADDER (rung $rung not built yet) $rel"
+        OK_TOTAL=$((OK_TOTAL+1)); OK_FAIL=$((OK_FAIL+1)); OK_FAIL_NAMES+=("$rel(ladder rung $rung)")
+        [ "$VERBOSE" -eq 1 ] && echo "  OK FAIL (ladder rung $rung not built yet, SCRIP cannot lower this construct) $rel"
         continue
     fi
 
@@ -200,7 +209,7 @@ echo "-- REJECT (known hang-after-parse-error class, misc-single-witness-parser-
 for n in "${REJECT_NAMES[@]:-}"; do [ -n "$n" ] && echo "   $n"; done
 
 echo ""
-echo "-- LADDER (construct not yet on the ladder -- COUNTED by rung, never cured by a fleet seat; RULES.md sec THE PROLOG REBUILD GATE): $LADDER --"
+echo "-- LADDER (construct not yet on the ladder -- a SUBSET of OK_FAIL above, named by rung for diagnostic visibility; the rung itself is never cured by a fleet seat, RULES.md sec THE PROLOG REBUILD GATE): $LADDER --"
 for rung in $(printf '%s\n' "${!LADDER_RUNG_COUNT[@]}" | sort -n); do
     echo "   rung $rung: ${LADDER_RUNG_COUNT[$rung]} --${LADDER_RUNG_NAMES[$rung]}"
 done
@@ -212,7 +221,15 @@ if [ "$UNEXPECTED" -gt 0 ]; then
 fi
 
 echo ""
-echo "GNU_SUITE_BOARD total=$TOTAL lib=$LIB ok=$OK_TOTAL ok_pass=$OK_PASS/$OK_TOTAL ok_fail=$OK_FAIL reject=$REJECT ladder=$LADDER unexpected=$UNEXPECTED"
+echo "GNU_SUITE_BOARD total=$TOTAL lib=$LIB ok=$OK_TOTAL ok_pass=$OK_PASS/$OK_TOTAL ok_fail=$OK_FAIL reject=$REJECT ladder=$LADDER(subset of ok_fail) unexpected=$UNEXPECTED"
+# ⭐ THE PACKAGE LOCKDOWN inventory line, via the shared body (lib_inventory.sh) -- never a second copy
+# of the arithmetic. LIB (bootstrap/library files, no independent behavior) is a ruling about what the
+# file IS, so it is UNGRADABLE/CONTAINER_OR_LIBRARY; REJECT (hang after parse error, a known, filed,
+# fixable defect in error recovery) is owed work, so it is UNGRADED/TIMEOUT; OK_TOTAL already includes
+# the former LADDER entries per ARM 8 above, so graded_stream is OK_TOTAL with nothing left over.
+INV_PACKAGE=gnu_prolog; INV_DIR="$PKG"; INV_EXT=".pl"
+INV_LINE="$(inventory_line "$OK_TOTAL" 0)"
+if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
 # ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05: "any run of a test suite by any
 # session will update the ONE LEADERBOARD"). This records the board line printed just above into
 # .github/SCORE.md -- it RUNS NOTHING, it only writes down what this script already measured.
@@ -220,7 +237,7 @@ echo "GNU_SUITE_BOARD total=$TOTAL lib=$LIB ok=$OK_TOTAL ok_pass=$OK_PASS/$OK_TO
 # because a gate that goes red for a reason unrelated to the code is a gate people route around. It
 # warns and names the unrecorded row instead; it has no silent path.
 python3 "$HERE/util_score_row.py" write --lang prolog --column vendor --suite GNU \
-    --measurer "${S4E_SEAT:-}" --text "ok_pass=$OK_PASS/$OK_TOTAL ok_fail=$OK_FAIL reject=$REJECT ladder=$LADDER unexpected=$UNEXPECTED lib=$LIB of total=$TOTAL (\`test_prolog_gnu_suite.sh\`)" \
+    --measurer "${S4E_SEAT:-}" --text "ok_pass=$OK_PASS/$OK_TOTAL ok_fail=$OK_FAIL reject=$REJECT ladder=$LADDER(of ok_fail) unexpected=$UNEXPECTED lib=$LIB of total=$TOTAL${INV_LINE:+ · $INV_LINE (\`test_prolog_gnu_suite.sh\`)}" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
 
@@ -228,5 +245,5 @@ python3 "$HERE/util_score_row.py" write --lang prolog --column vendor --suite GN
 # vacuously, hq_T 2026-09-04): the bucket-sum check just below PASSES vacuously at TOTAL=0 (0==0),
 # and OK_FAIL/UNEXPECTED read 0 too when nothing was discovered -- refuse first.
 "$HERE/util_require_population.sh" --gate test_prolog_gnu_suite "$TOTAL" 1 "prolog GNU source files discovered" || exit 2
-[ "$((LIB + OK_TOTAL + REJECT + LADDER + UNEXPECTED))" -eq "$TOTAL" ] || { echo "⛔ BUCKET COUNTS DON'T SUM TO TOTAL -- instrument bug, refusing to trust the board"; exit 2; }
+[ "$((LIB + OK_TOTAL + REJECT + UNEXPECTED))" -eq "$TOTAL" ] || { echo "⛔ BUCKET COUNTS DON'T SUM TO TOTAL -- instrument bug, refusing to trust the board"; exit 2; }
 [ "$OK_FAIL" -eq 0 ] && [ "$UNEXPECTED" -eq 0 ]
