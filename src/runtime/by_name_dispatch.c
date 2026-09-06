@@ -4299,7 +4299,8 @@ static int icn_argtype_gate(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
         case BID_any: case BID_many: case BID_upto: return icn_cvt_chars_ok(args[0]) ? 0 : icn_argtype_raise(104, args[0], out);
         case BID_find: case BID_match:             return icn_cvt_chars_ok(args[0]) ? 0 : icn_argtype_raise(103, args[0], out);
         case BID_tab: case BID_move:               return icn_cvt_int_ok(args[0])   ? 0 : icn_argtype_raise(101, args[0], out);
-        case BID_insert: case BID_delete: case BID_member: return args[0].v == DT_T ? 0 : icn_argtype_raise(122, args[0], out);
+        case BID_insert: case BID_member: return args[0].v == DT_T ? 0 : icn_argtype_raise(122, args[0], out);
+        case BID_delete: return (args[0].v == DT_T || IS_STR_fn(args[0])) ? 0 : icn_argtype_raise(122, args[0], out);
         case BID_key: return (args[0].v == DT_T && args[0].tbl && !args[0].tbl->is_set) ? 0 : icn_argtype_raise(124, args[0], out);
         case BID_bal:
             for (int i = 0; i < 3 && i < nargs; i++)
@@ -5490,6 +5491,11 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     L_bidjmp_6124: ;
     if ((_bid == BID_delete) && nargs >= 1) {
         DESCR_t td = args[0];
+        if (nargs == 1 && IS_STR_fn(td)) {
+            const char *path = VARVAL_fn(td);
+            if (!path || !path[0] || unlink(path) != 0) { *out = FAILDESCR; return 1; }
+            *out = NULVCL; return 1;
+        }
         if (td.v != DT_T) { *out = FAILDESCR; return 1; }
         DESCR_t kd = (nargs >= 2) ? args[1] : NULVCL;
         char kb[64]; const char *ks = tbl_key_str(kd, kb, sizeof kb);

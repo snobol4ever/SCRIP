@@ -894,16 +894,19 @@ static DESCR_t _HOST_(DESCR_t *a, int n) {
     }
     return NULVCL;
 }
-#define IO_CHAN_MAX 32
+#define IO_CHAN_MAX 128
 typedef struct {
     FILE  *fp;
     char  *varname;
     int    is_output;
+    int    is_popen;
     char  *buf;
     size_t cap;
 } io_chan_t;
 static io_chan_t _io_chan[IO_CHAN_MAX];
 static int _io_chan_init = 0;
+extern FILE *popen(const char *, const char *);
+extern int pclose(FILE *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void _io_chan_setup(void) {
     if (_io_chan_init) return;
@@ -921,11 +924,12 @@ static int _io_chan_find_by_var(const char *name) {
 static void _io_chan_close(int ch) {
     _io_chan_setup();
     if (ch < 0 || ch >= IO_CHAN_MAX) return;
-    if (_io_chan[ch].fp) { fclose(_io_chan[ch].fp); _io_chan[ch].fp = NULL; }
+    if (_io_chan[ch].fp) { if (_io_chan[ch].is_popen) pclose(_io_chan[ch].fp); else fclose(_io_chan[ch].fp); _io_chan[ch].fp = NULL; }
     if (_io_chan[ch].varname) { _io_chan[ch].varname = NULL; }
     if (_io_chan[ch].buf)  { free(_io_chan[ch].buf); _io_chan[ch].buf = NULL; }
     _io_chan[ch].cap = 0;
     _io_chan[ch].is_output = 0;
+    _io_chan[ch].is_popen = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _ENDFILE_(DESCR_t *a, int n) {
@@ -3193,6 +3197,7 @@ const char *FUNC_ENTRY_fn(const char *fname) {
     return NULL;
 }
 static FILE *_input_fp = NULL;
+static int _input_fp_is_popen = 0;
 static char *_input_buf = NULL;
 static size_t _input_cap = 0;
 static long _input_rlen = 0;
@@ -3315,20 +3320,23 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
         _input_rlen = rlen;
         return NULVCL;
     }
-    if (!core_io_assoc_legacy() && (ch < 0 || strchr(fname, ' '))) {
+    int is_pipe = (fname[0] == '|');
+    if (!is_pipe && !core_io_assoc_legacy() && (ch < 0 || strchr(fname, ' '))) {
         core_runtime_error(116, "inappropriate file specification for input"); return FAILDESCR;
     }
-    FILE *f = fopen(fname, "r");
+    FILE *f = is_pipe ? popen(fname + 1, "r") : fopen(fname, "r");
     if (!f) return FAILDESCR;
     if (ch >= 0 && ch < IO_CHAN_MAX) {
         _io_chan_close(ch);
         _io_chan[ch].fp = f;
         _io_chan[ch].is_output = 0;
+        _io_chan[ch].is_popen = is_pipe;
         const char *vn = (n >= 1) ? _io_varname(a[0]) : NULL;
         _io_chan[ch].varname = vn ? rt_ws_strdup(vn) : NULL; if (vn) g_call_fastpath_off = 1;
     } else {
-        if (_input_fp && _input_fp != stdin) fclose(_input_fp);
+        if (_input_fp && _input_fp != stdin) { if (_input_fp_is_popen) pclose(_input_fp); else fclose(_input_fp); }
         _input_fp = f;
+        _input_fp_is_popen = is_pipe;
     }
     return NULVCL;
 }
@@ -3360,19 +3368,21 @@ static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
             _io_chan[ch].varname = vn ? rt_ws_strdup(vn) : NULL; if (vn) g_call_fastpath_off = 1; } }
         return NULVCL;
     }
-    if (!core_io_assoc_legacy() && (ch < 0 || strchr(fname, ' '))) {
+    int is_pipe = (fname[0] == '|');
+    if (!is_pipe && !core_io_assoc_legacy() && (ch < 0 || strchr(fname, ' '))) {
         core_runtime_error(160, "inappropriate file specification for output"); return FAILDESCR;
     }
-    FILE *f = fopen(fname, "w");
+    FILE *f = is_pipe ? popen(fname + 1, "w") : fopen(fname, "w");
     if (!f) return FAILDESCR;
     if (ch >= 0 && ch < IO_CHAN_MAX) {
         _io_chan_close(ch);
         _io_chan[ch].fp = f;
         _io_chan[ch].is_output = 1;
+        _io_chan[ch].is_popen = is_pipe;
         const char *vn = (n >= 1) ? _io_varname(a[0]) : NULL;
         _io_chan[ch].varname = vn ? rt_ws_strdup(vn) : NULL; if (vn) g_call_fastpath_off = 1;
     } else {
-        fclose(f);
+        if (is_pipe) pclose(f); else fclose(f);
         return FAILDESCR;
     }
     return NULVCL;
