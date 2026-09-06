@@ -1595,6 +1595,7 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         if (a.kind == XK_PAIR) return x86_deflabel_pair(a.lbl);
         return std::string();
     }
+    if (!strcmp(mnem, "jmp_fn_cell")) { if (a.kind == XK_SYM && xb.tag == 2) return x86_jmp_through_fn_cell(a.sym, xb.u); return std::string(); }
     if (!strcmp(mnem, "jmp")) {
         if (a.kind == XK_PORT) return x86_jmp(a.port);
         if (a.kind == XK_ILBL) return x86_jmp_id(a.lbl);
@@ -1634,7 +1635,6 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         return std::string();
     }
     if (!strcmp(mnem, "jmp_fn")) { if (a.kind == XK_SYM && xb.tag == 2) return x86_jmp_fn_body(a.sym, xb.u); return std::string(); }
-    if (!strcmp(mnem, "jmp_fn_cell")) { if (a.kind == XK_SYM && xb.tag == 2) return x86_jmp_through_fn_cell(a.sym, xb.u); return std::string(); }
     if (!strcmp(mnem, "call_bare")) {
         if (a.kind == XK_SYM && xb.tag == 2) return x86_call_ro(a.sym, xb.u);
         if (a.kind == XK_SYM && !MEDIUM_BINARY) return x86_align_assert() + x86_rec("call") + a.sym + "\n";

@@ -1,6 +1,7 @@
 #include <string>
 #include <cstdint>
 #include <cstdio>
+#include <vector>
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
@@ -51,6 +52,14 @@ extern "C" void bb_ab_seal_alpha(const char * pname, void * alpha) {
     if (!pname || !alpha) return;
     char cell[300]; snprintf(cell, sizeof cell, "alpha$%s", pname);
     *(void **)bb_ab_fn_cell_ptr(cell) = alpha;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bb_define_body_cell_data(const std::string & lbl, const std::string & init) {
+    static std::vector<std::string> seen;
+    for (size_t i = 0; i < seen.size(); i++) if (seen[i] == lbl) return std::string();
+    seen.push_back(lbl);
+    return x86("directive", std::string(".section .data")) + x86("directive", std::string(".align 8")) + x86("directive", lbl + std::string(":"))
+         + x86("directive", std::string(".quad ") + init) + x86("directive", std::string(".section .text")) + x86("directive", std::string(".intel_syntax noprefix"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_define_activate() {
@@ -353,6 +362,11 @@ static std::string bb_define_bind() {
             + x86_scan_sync_out()
             + x86("call", "bb_ab_seal_alpha", _seal_fp)
             + x86_scan_sync_in_rr(); } }
+    { if (_.lbl_t0 && !bb_ab_cell_addr(fname) && bb_tiny_shim_ok(fname, 0)) {
+        reg = reg + x86("comment", "M4-BODY-SEAL (term 3): body_cell$<FN> <- &LBL__<this DEFINE's entry>, so a call reads the binding in force when it runs rather than a baked winner")
+            + x86("lea", "rax", std::string("[rip + __]"), (uint64_t)0, _.lbl_t0)
+            + x86("mov", "rcx", std::string("[rip@got + __]"), (uint64_t)0, (std::string("body_cell$") + std::string(bb_ab_sym_name(fname))).c_str())
+            + x86("mov", RDQ("rcx", 0), "rax"); } }
     std::string seals = x86_ro_seal_str(0, fname) + x86_ro_seal_str(1, _csv ? _csv : "");
     if (!_ab) return x86_alpha() + reg + x86_pair_loop() + seals;
     if (bb_ab_cell_addr(fname)) return x86_alpha() + reg + x86_pair_loop() + seals;
@@ -462,6 +476,7 @@ static std::string bb_define_sr() {
         std::string blb = inl5 ? std::string(en4) : (std::string("LBL__") + en4);
         const struct bb_label_t * lbl_b = emit_label_intern(lb.c_str()); const struct bb_label_t * lbl_o = emit_label_intern(lo.c_str());
         uint64_t body_cell = (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("body$") + en4).c_str());
+        std::string bcell = std::string("body_cell$") + std::string(bb_ab_sym_name(fn4));
         auto SCALE16 = [&]() { return x86("mov", "rax", "rcx") + x86("add", "rax", "rax") + x86("add", "rax", "rax") + x86("add", "rax", "rax") + x86("add", "rax", "rax"); };
         auto RESTORE4 = [&](int lid) {
             return x86_rsp_load64("rcx", (int)(16 * xt4 + 16))
@@ -591,7 +606,7 @@ static std::string bb_define_sr() {
                  + IF(fnrbp() == 2, x86("comment", "s64 RSP-ONLY WRITER (see the s58 arm's full comment — unchanged under SIG)")
                              + x86("push", "rax")
                              + x86("push", "rcx"))
-                 + x86("jmp", "[rip@cell + __]", body_cell, blb.c_str())
+                 + bb_define_body_cell_data(bcell, blb) + x86("jmp_fn_cell", bcell.c_str(), body_cell)
                  + x86_def_ext(lbl_b)
                  + x86("note", gva_name(rgx))
                  + x86("mov", "rdi", GQ(rgx, 0))
@@ -689,7 +704,7 @@ static std::string bb_define_sr() {
              + IF(fnrbp() == 2, x86("comment", "s64 RSP-ONLY WRITER (Lon challenge: zero RBP): push the 16B {gamma,omega} pair at TOS — [rsp+0]=gamma [rsp+8]=omega, body entered at P-16 (16-parity kept).  NO anchor register: the floaters find the pair by the DEPTH-INVARIANCE LAW — control transfers only at depth-neutral statement boundaries; MATCH banks its own mark in the r12 arena; the alpha-sub/omega-add pairing releases statement temporaries.  A statement shape that leaks (the s58 -16 census class) breaks the law and dies loud at the floater's jmp — under this arm the red set IS the leak census.")
                          + x86("push", "rax")
                          + x86("push", "rcx"))
-             + x86("jmp", "[rip@cell + __]", body_cell, blb.c_str())
+             + bb_define_body_cell_data(bcell, blb) + x86("jmp_fn_cell", bcell.c_str(), body_cell)
              + x86_def_ext(lbl_b)
              + x86("note", gva_name(rgx))
              + x86("mov", "rdi", GQ(rgx, 0))
