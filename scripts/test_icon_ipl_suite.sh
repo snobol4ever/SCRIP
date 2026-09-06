@@ -43,10 +43,19 @@
 # force one bucket; a genuinely new shape is reported by name, not absorbed):
 #   nomain_ok -- no `procedure main`; sole failure is the expected mode-4-driver "main BB graph not
 #                found" signal AFTER a non-trivial .s emission. Compile-graded PASS (library module).
-#   linkgap   -- "icon: link: cannot open X (linked from Y)". SCRIP's link resolver
-#                (icon_driver.c:26-45, icn_resolve_links) is SINGLE-DIRECTORY-ONLY: it looks for
-#                "<dirname of the linking file>/<name>.icn" and nowhere else, no search path, no
-#                ICONPATH/LPATH support anywhere in the tree (checked: zero hits). IPL's own
+#   linkgap   -- "icon: link: cannot open X (linked from Y)".
+#                ⛔⭐ THE PARAGRAPH THAT STOOD HERE IS RETIRED AND IT WAS THE MOST MISLEADING KIND OF
+#                STALE: it said SCRIP's resolver is SINGLE-DIRECTORY-ONLY with "no ICONPATH/LPATH support
+#                anywhere in the tree (checked: zero hits)" -- a measurement that was true when written
+#                and became false on 2026-09-05, when icn_link_open was taught to read IPATH and then
+#                ICONPATH (SCRIP 55fae9091, hq_I, with hq_B's go-ahead). That cure moved linkgap from 354
+#                of 415 compile failures to 2. ⭐ IT SURVIVED AS A JUSTIFICATION, WHICH IS WHERE A
+#                RETRACTED CLAIM LIVES LONGEST (hq_T's rule): nobody re-reads the reason a bucket exists,
+#                so the sentence explaining the gap outlived the gap by a day and was still being quoted.
+#                hq_U lost twenty minutes to its neighbour this day -- running an ipl program from progs/
+#                WITHOUT the path prints "cannot open random.icn" and reads exactly like a compiler
+#                defect, so a census taken without ICONPATH counts the link failure and never sees the
+#                real cause underneath it. Set the path the way lib_icon_ipl_isolation.sh does. IPL's own
 #                progs/procs/gprocs/incl/gincl split is upstream's NORMAL organization -- a progs/
 #                file linking a procs/ helper is the library working as designed, not a corpus defect.
 #                KNOWN, NAMED, NOT cured by this row: this task is a runner+census row (GOAL: "print
