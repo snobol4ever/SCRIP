@@ -65,7 +65,7 @@ std::string bb_call_value() {
        + IF(n2_align, x86("add", "rsp", 8L))
        + x86("test",  "rax", "rax")
        + x86("je",    L(7))
-       + bb_glue_pass_wires_blob(3, 4)
+       + bb_glue_pass_wires_blob_regs(3, 4)
        + x86("def", L(3))
        + bb_glue_wire_land()
        + x86("mov",  FRQ(H + 8), "rsp")
