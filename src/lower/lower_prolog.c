@@ -466,7 +466,7 @@ static const pl_det_leaf_t pl_det_leaves[] = {
     { "atomic_list_concat", 3, "$atomic_list_concat" }, { "concat_atom", 2, "$concat_atom" }, { "concat_atom", 3, "$concat_atom" }, { "char_code", 2, "$char_code" },
     { "number_codes", 2, "$number_codes" }, { "number_chars", 2, "$number_chars" }, { "name", 2, "$name" }, { "get_char", 1, "$get_char" }, { "peek_char", 1, "$peek_char" },
     { "get_code", 1, "$get_code" }, { "peek_code", 1, "$peek_code" }, { "get_byte", 1, "$get_byte" }, { "peek_byte", 1, "$peek_byte" },
-    { "put_code", 1, "$put_code" }, { "put_byte", 1, "$put_byte" }, { "unget_char", 1, "$unget_char" }, { "at_end_of_stream", 0, "$at_end_of_stream" }, { "telling", 1, "$telling" }, { "seeing", 1, "$seeing" }, { "tell", 1, "$tell" }, { "append", 1, "$append1" }, { "see", 1, "$see" }, { "told", 0, "$told" }, { "seen", 0, "$seen" }, { "at_end_of_stream", 1, "$at_end_of_stream_s" },
+    { "put_code", 1, "$put_code" }, { "put_byte", 1, "$put_byte" }, { "unget_char", 1, "$unget_char" }, { "at_end_of_stream", 0, "$at_end_of_stream" }, { "current_prolog_flag", 2, "$current_prolog_flag" }, { "telling", 1, "$telling" }, { "seeing", 1, "$seeing" }, { "tell", 1, "$tell" }, { "append", 1, "$append1" }, { "see", 1, "$see" }, { "told", 0, "$told" }, { "seen", 0, "$seen" }, { "at_end_of_stream", 1, "$at_end_of_stream_s" },
     { "put", 1, "$put_code" }, { "get0", 1, "$get_code" }, { "get", 1, "$get_edin" }, { "skip", 1, "$skip" }, { "unget_code", 1, "$unget_code" }, { "unget_byte", 1, "$unget_byte" },
     { "get_code", 2, "$get_code_s" }, { "peek_code", 2, "$peek_code_s" }, { "get_byte", 2, "$get_byte_s" }, { "peek_byte", 2, "$peek_byte_s" },
     { "put_code", 2, "$put_code_s" }, { "put_byte", 2, "$put_byte_s" }, { "unget_char", 2, "$unget_char_s" }, { "unget_code", 2, "$unget_code_s" }, { "unget_byte", 2, "$unget_byte_s" },
@@ -480,6 +480,11 @@ static const pl_det_leaf_t pl_det_leaves[] = {
     { "open", 3, "$open" }, { "open", 4, "$open4" }, { "close", 1, "$close" }, { "close", 2, "$close" }, { "current_output", 1, "$current_output" }, { "current_input", 1, "$current_input" },
     { "set_output", 1, "$set_output" }, { "set_input", 1, "$set_input" }, { "keysort", 2, "$keysort" }, { "op", 3, "$op" },
     { 0, 0, 0 } };
+static int pl_det_leaf_name_wired(const char * nm) {
+    for (int i = 0; pl_det_leaves[i].nm; i++) if (!strcmp(nm, pl_det_leaves[i].nm)) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * pl_det_leaf_sym(const char * nm, int ar) {
     for (int i = 0; pl_det_leaves[i].nm; i++) if (pl_det_leaves[i].ar == ar && !strcmp(nm, pl_det_leaves[i].nm)) return pl_det_leaves[i].sym;
     return NULL;
@@ -919,7 +924,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         { const char * ls = pl_det_leaf_sym(nm, t->n); if (ls) { const char * gs = pl_anum_guard_sym(nm, t->n);
             if (gs) return pl_leaf_lv_guarded(cx, ls, gs, nm, t, t->n, γnext, ωfail, entry_out);
             return pl_leaf_lv(cx, ls, t, t->n, γnext, ωfail, entry_out); } }
-        { int r = pl_rung_of(nm); if (r && !pl_file_defines(nm, t->n)) pl_refuse(r == 6 ? "builtin arity not wired" : "builtin", nm, r); }
+        { int r = pl_rung_of(nm); if (r && !pl_file_defines(nm, t->n) && !pl_det_leaf_name_wired(nm)) pl_refuse("builtin", nm, r); }
         return pl_user_call(cx, nm, t, t->n, γnext, ωfail, entry_out);
     }
     case TT_QLIT: case TT_NAME: {
@@ -929,7 +934,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         if (!strcmp(nm, "nl")) return pl_leaf(cx, "$nl", t, 0, γnext, ωfail, entry_out);
         if (!strcmp(nm, "!")) { IR_t * cn = build(cx, IR_CUT, γnext, cx->cutω); if (cx->cutω != cx->clause_cutω) IR_LIT(cn).ival = 1; return cn; }
         { const char * ls = pl_det_leaf_sym(nm, 0); if (ls) return pl_leaf_lv(cx, ls, t, 0, γnext, ωfail, entry_out); }
-        { int r = pl_rung_of(nm); if (r && !pl_file_defines(nm, 0)) pl_refuse(r == 6 ? "builtin arity not wired" : "builtin", nm, r); }
+        { int r = pl_rung_of(nm); if (r && !pl_file_defines(nm, 0) && !pl_det_leaf_name_wired(nm)) pl_refuse("builtin", nm, r); }
         return pl_user_call(cx, nm, t, 0, γnext, ωfail, entry_out);
     }
     case TT_CUT: { IR_t * cn = build(cx, IR_CUT, γnext, cx->cutω); if (cx->cutω != cx->clause_cutω) IR_LIT(cn).ival = 1; return cn; }

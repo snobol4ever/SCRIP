@@ -1950,6 +1950,22 @@ static int pl_edin_revert(int is_out) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(current_prolog_flag, 2) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    extern void *rt_pl_ball_instantiation(void);
+    char fb[128]; const char *fn; DESCR_t f = rt_pl_deref_val(args[0]); DESCR_t v; ok = 0;
+    if (pl_val_unbound(f)) { cx->ball = rt_pl_ball_instantiation(); }
+    else if (!pl_cell_text(args[0], fb, sizeof fb, &fn)) { cx->ball = rt_pl_ball_kind2("type_error", "atom", f); }
+    else if (!strcmp(fn, "bounded")) { v = pl_mk_atom("true"); ok = plw_unify_vals(args[1], v, cx); }
+    else if (!strcmp(fn, "max_integer")) { v = INTVAL(9223372036854775807LL); ok = plw_unify_vals(args[1], v, cx); }
+    else if (!strcmp(fn, "min_integer")) { v = INTVAL(-9223372036854775807LL - 1); ok = plw_unify_vals(args[1], v, cx); }
+    else if (!strcmp(fn, "integer_rounding_function")) { v = pl_mk_atom("toward_zero"); ok = plw_unify_vals(args[1], v, cx); }
+    else if (!strcmp(fn, "double_quotes")) { v = pl_mk_atom("atom"); ok = plw_unify_vals(args[1], v, cx); }
+    else if (!strcmp(fn, "unknown")) { v = pl_mk_atom("error"); ok = plw_unify_vals(args[1], v, cx); }
+    else if (!strcmp(fn, "char_conversion")) { v = pl_mk_atom("off"); ok = plw_unify_vals(args[1], v, cx); }
+    else if (!strcmp(fn, "debug")) { v = pl_mk_atom("off"); ok = plw_unify_vals(args[1], v, cx); }
+    else if (!strcmp(fn, "argv")) { ok = plw_unify_vals(args[1], pl_nil(), cx); }
+    else { cx->ball = rt_pl_ball_kind2("domain_error", "prolog_flag", f); } } PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_CX_LEAF_HEAD(telling, 1) { extern int fh_current_output(void);
     ok = plw_unify_vals(args[0], (fh_current_output() == 1 || !pl_edin_out_name[0]) ? pl_mk_atom("user") : pl_mk_atom_dup(pl_edin_out_name, strlen(pl_edin_out_name)), cx); } PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
