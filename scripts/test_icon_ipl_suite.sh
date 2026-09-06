@@ -213,6 +213,7 @@ echo "IPL_SUITE_BOARD total=$TOTAL compile_graded=$COMPILE_GRADED compile_pass=$
 # ═══ RUN TIER -- every progs/*.icn with a NAME.std (cut by util_cut_icon_ipl_refs.sh) gets EXECUTED,
 # both modes independently, and diffed against it. See file header: execution goes through
 # lib_icon_ipl_isolation.sh, never a bare cd into $PKG/progs. ═══
+. "$HERE/lib_inventory.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_inventory.sh unloadable" >&2; exit 2; }
 . "$HERE/lib_icon_ipl_isolation.sh"
 ipl_isolation_init "$PKG" || { echo "⛔ GATE REFUSES: could not build IPL isolation template" >&2; exit 2; }
 trap 'rm -rf "$TMP"; ipl_isolation_cleanup' EXIT
@@ -289,6 +290,18 @@ echo "mode-4 (--compile): RUN_PASS=$M4_RUN_PASS RUN_FAIL=$M4_RUN_FAIL RUN_CRASH=
 echo "IPL_RUN_BOARD run_graded=$RUN_GRADED m3_RUN_PASS=$M3_RUN_PASS m3_RUN_FAIL=$M3_RUN_FAIL m3_RUN_CRASH=$M3_RUN_CRASH m3_RUN_HANG=$M3_RUN_HANG m4_RUN_PASS=$M4_RUN_PASS m4_RUN_FAIL=$M4_RUN_FAIL m4_RUN_CRASH=$M4_RUN_CRASH m4_RUN_HANG=$M4_RUN_HANG"
 ipl_isolation_verify_clean "$S4E/corpus" || true
 
+# ⭐ THE PACKAGE LOCKDOWN inventory line, via the shared body (lib_inventory.sh) -- never a second copy
+# of the arithmetic (CEO-321: this row is hq_I's). ipl was the LAST Icon runner without it; arizona and
+# jcon already print one.
+# ⛔ THE GRADED POPULATION IS THE PACKAGE-WIDE .std COUNT ($RUN_GRADED, from `find "$PKG" -name '*.std'`),
+# NOT progs/ alone. gprogs/ briefly carried refs on 2026-09-06; they were wrong and were reverted, but the
+# discovery is package-wide by construction and lib_icon_ipl_isolation.sh is now subdirectory-aware
+# (IPL_ISO_SUBDIR), so a future non-progs ref grades from its own directory instead of silently from progs/.
+# ⛔ graded_narrow=0: this suite diffs FULL output against the oracle ref, never by error-number only.
+INV_PACKAGE=ipl; INV_DIR="$PKG"; INV_EXT=".icn"
+INV_LINE="$(inventory_line "$RUN_GRADED" 0)"
+if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board lines still stand; the inventory does not" >&2; fi
+
 # ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05: "any run of a test suite by any
 # session will update the ONE LEADERBOARD"). This records the boards printed just above into
 # .github/SCORE.md -- it RUNS NOTHING, it only writes down what this script already measured.
@@ -300,7 +313,7 @@ ipl_isolation_verify_clean "$S4E/corpus" || true
 # m3/m4 fractions are reported as fractions -- same convention test_icon_arizona_suite.sh already uses.
 python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite IPL \
     --measurer "${S4E_SEAT:-}" \
-    --text "compile_pass=$COMPILE_PASS compile_fail=$COMPILE_FAIL (linkgap=$LINKGAP parseerr=$PARSEERR timeout=$TIMEOUT_N other=$OTHER) of total=$TOTAL · nomain_ok=$NOMAIN_OK of nomain_total=$NOMAIN_TOTAL, hasmain_total=$HASMAIN_TOTAL · run m3 $M3_RUN_PASS/$RUN_GRADED m4 $M4_RUN_PASS/$RUN_GRADED (of $RUN_GRADED oracle-cut · fail m3=$M3_RUN_FAIL m4=$M4_RUN_FAIL, crash m3=$M3_RUN_CRASH m4=$M4_RUN_CRASH, hang m3=$M3_RUN_HANG m4=$M4_RUN_HANG) (\`test_icon_ipl_suite.sh\`)" \
+    --text "compile_pass=$COMPILE_PASS compile_fail=$COMPILE_FAIL (linkgap=$LINKGAP parseerr=$PARSEERR timeout=$TIMEOUT_N other=$OTHER) of total=$TOTAL · nomain_ok=$NOMAIN_OK of nomain_total=$NOMAIN_TOTAL, hasmain_total=$HASMAIN_TOTAL · run m3 $M3_RUN_PASS/$RUN_GRADED m4 $M4_RUN_PASS/$RUN_GRADED (of $RUN_GRADED oracle-cut · fail m3=$M3_RUN_FAIL m4=$M4_RUN_FAIL, crash m3=$M3_RUN_CRASH m4=$M4_RUN_CRASH, hang m3=$M3_RUN_HANG m4=$M4_RUN_HANG)${INV_LINE:+ · $INV_LINE} (\`test_icon_ipl_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
 # ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
