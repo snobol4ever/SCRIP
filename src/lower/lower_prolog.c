@@ -1198,6 +1198,26 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
           if (!nb) continue;
           { int bb_idx = lower_pl_pred_graph(key, ch); if (bb_idx < 0) continue;
             pl_bb_register(key, 2, bb_idx); pl_new_proc(key, 2, bb_idx); } } } }
+    { extern tree_t * pl_runtime_clause_tree(tree_t *);
+      static const pl_det_leaf_t pl_meta_early[] = { { "write", 1, "$write" }, { "nl", 0, "$nl" }, { "true", 0, "$true" }, { "fail", 0, "$fail" }, { "false", 0, "$fail" }, { 0, 0, 0 } };
+      for (int tbl = 0; tbl < 2; tbl++)
+      for (int li = 0; (tbl ? pl_meta_early[li].nm : pl_det_leaves[li].nm); li++) {
+        const char * bn = tbl ? pl_meta_early[li].nm : pl_det_leaves[li].nm;
+        int ba = tbl ? pl_meta_early[li].ar : pl_det_leaves[li].ar; char key[264];
+        if (!strcmp(bn, "halt")) continue;
+        snprintf(key, sizeof key, "%s/%d", bn, ba);
+        if (pl_bb_lookup(key, ba)) continue;
+        if (resolve_pred_table_lookup(&g_stage2.resolve_pred_table, key)) continue;
+        { tree_t * hd; tree_t * body; tree_t * raw; tree_t * cl; tree_t * ch; static const char * const an[] = { "A", "B", "C", "D", "E" };
+          if (ba > 5) continue;
+          if (ba > 0) { hd = ast_node_new(TT_FNC); hd->v.sval = strdup(bn); body = ast_node_new(TT_FNC); body->v.sval = strdup(bn);
+                        for (int k = 0; k < ba; k++) { ast_push(hd, pl_meta_var(an[k])); ast_push(body, pl_meta_var(an[k])); } }
+          else { hd = ast_node_new(TT_QLIT); hd->v.sval = strdup(bn); body = ast_node_new(TT_QLIT); body->v.sval = strdup(bn); }
+          raw = ast_node_new(TT_FNC); raw->v.sval = (char *) ":-"; ast_push(raw, hd); ast_push(raw, body);
+          cl = pl_runtime_clause_tree(raw); if (!cl) continue;
+          ch = ast_node_new(TT_CHOICE); ch->v.sval = strdup(key); ast_push(ch, cl);
+          { int bb_idx = lower_pl_pred_graph(key, ch); if (bb_idx < 0) continue;
+            pl_bb_register(key, ba, bb_idx); pl_new_proc(key, ba, bb_idx); } } } }
     for (int di = 0; di < g_stage2.pl_dyn_n; di++) {
         const char * dn = g_stage2.pl_dyn_name[di]; int da = g_stage2.pl_dyn_arity[di];
         if (!dn || da < 0) continue;

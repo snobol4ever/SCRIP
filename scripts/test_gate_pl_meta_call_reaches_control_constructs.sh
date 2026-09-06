@@ -28,6 +28,9 @@
 #       a failure message that names the wrong cause is worse than none, because it sends the next reader
 #       into the wrong subsystem.
 #   (d) CONTROL: a USER definition of the same name still wins -- synthesis must not shadow the program.
+#   (j) THE BUILTIN HALF: a plain builtin reached through a variable (write/1, atom/1, fail/0) must run. The
+#       wrapper set is seeded from lower_prolog.c's OWN pl_det_leaves[] table rather than a hand-written name
+#       list, so it cannot name a builtin with no leaf behind it and cannot go stale as the table grows.
 #   (e) The oracle is ASSERTED, never assumed: swipl runs every witness and the gate REFUSES if its answer moved.
 # ⛔ Hermetic: every program is written under mktemp; nothing in corpus/ is read or written.
 set -uo pipefail
@@ -49,13 +52,16 @@ printf "${PRE}:- initialization(main).\nmain :- X = (no->p;q), call(X), nl.\n"  
 printf "${PRE}main2 :- X = (yes,!), call(X), write(fwd), nl.\n:- initialization(main2).\n"          > "$W/cut.pl"
 printf "${PRE}main3 :- X = (yes,!), call(X), fail.\nmain3 :- write(second), nl.\n:- initialization(main3).\n" > "$W/redrive.pl"
 printf "','(_,_) :- write(mine), nl.\n:- initialization(main).\nmain :- X = (p,q), call(X).\n"    > "$W/user.pl"
+printf ":- initialization(main).\nmain :- X = write(bi), call(X), nl.\n"                             > "$W/bi_write.pl"
+printf ":- initialization(main).\nmain :- X = atom(foo), call(X), write(yes), nl.\n"                 > "$W/bi_atom.pl"
+printf ":- initialization(main).\nmain :- ( X = fail, call(X) ; write(elsepath) ), nl.\n"            > "$W/bi_fail.pl"
 fails=0; checks=0
 ck(){ checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; else printf '  FAIL  %s\n' "$2"; fails=$((fails+1)); fi; }
 oracle(){ timeout 30 "$SWIPL" -q -g true -t halt "$1" </dev/null 2>/dev/null; }
 echo "=== gate: a control construct reached through a VARIABLE goal must run (control half only) ==="
 echo "--- (e) the ORACLE premise, asserted before anything is graded ---"
 declare -A EXP
-for w in conj disj arrow ite_t ite_f cut redrive; do
+for w in conj disj arrow ite_t ite_f cut redrive bi_write bi_atom bi_fail; do
   EXP[$w]="$(oracle "$W/$w.pl")"
   [ -n "${EXP[$w]}" ] || refuse "ORACLE PREMISE MOVED: swipl printed nothing for $w.pl -- re-derive rather than grade"
 done
@@ -88,6 +94,10 @@ for m in m3 m4; do
   else ck no "$m (i) re-drive printed [$o] with no BOMB, oracle says [${EXP[redrive]}] -- a wrong answer where a loud refusal is owed"; fi
   o="$(run "$W/user.pl")"; [ "$o" = "mine" ] && ck ok "$m (d) a USER definition of the name still wins" \
     || ck no "$m (d) user-defined ,/2 printed [$o], expected mine -- synthesis must not shadow the program"
+  for w in bi_write bi_atom bi_fail; do
+    o="$(run "$W/$w.pl")"; [ "$o" = "${EXP[$w]}" ] && ck ok "$m (j) BUILTIN via a variable goal: $w -> [$o]" \
+      || ck no "$m (j) $w printed [$o], oracle says [${EXP[$w]}] -- the builtin half of the bridge"
+  done
 done
 echo "------------------------------------------------------------"
 if [ "$fails" -eq 0 ]; then echo "✅ GATE GREEN: control constructs reached through a variable goal run, commit correctly, and do not shadow the program (examined $checks checks)"; exit 0; fi
