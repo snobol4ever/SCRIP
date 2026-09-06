@@ -225,7 +225,7 @@ static inline void    tal_fnc_open(tree_e k, char *s) { g_tal_kind[g_tal_depth-1
 static inline tree_t *tal_fnc_close(void) {
     int n=tal_count(); tree_e k=g_tal_kind[g_tal_depth-1]; char *sv=g_tal_sval[g_tal_depth-1];
     tree_t *e=ast_node_new(k==TT_VAR?TT_FNC:k);
-    if (k==TT_VAR) e->v.sval=sv;
+    if (k==TT_VAR||k==TT_ARB||k==TT_BAL||k==TT_REM||k==TT_FAIL||k==TT_SUCCEED||k==TT_ABORT) e->v.sval=sv;
     for (int j=0;j<n;j++) expr_add_child(e,tal_child(j));
     tal_close(); return e;
 }

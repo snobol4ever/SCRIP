@@ -347,6 +347,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (res) *res = mk; return kt;
     }
     case TT_ARB: case TT_REM: case TT_BAL: case TT_FAIL: case TT_SUCCEED: case TT_ABORT: {
+        if (t->v.sval && sno_predef_registered(t->v.sval)) return sx_call_named(cx, t->v.sval, t, 0, γ, ω, res);
         IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(mk).sval = (char *) "SNO$PB0";
         IR_t * kt = lc_build(cx->g, IR_LIT_INTEGER, mk, ω); IR_LIT(kt).ival = (int64_t) t->t;
         ir_operand_push(mk, kt);
@@ -1037,6 +1038,7 @@ static void sno_resume_ω_to(IR_graph_t * g, int tail_idx, IR_t * nd, IR_t * t) 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_e sno_pat_eff_kind(const tree_t * t) {
     if (!t) return TT_VAR;
+    if ((t->t == TT_ARB || t->t == TT_BAL || t->t == TT_REM || t->t == TT_FAIL || t->t == TT_SUCCEED || t->t == TT_ABORT) && t->v.sval && sno_predef_registered(t->v.sval)) return TT_FNC;
     if ((t->t != TT_VAR && t->t != TT_KEYWORD) || !t->v.sval) return t->t;
     static const struct { const char * n; tree_e k; } m[] = {
         { "ABORT", TT_ABORT }, { "ARB",  TT_ARB  }, { "BAL", TT_BAL }, { "FAIL", TT_FAIL },
@@ -1845,7 +1847,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
               return entry ? entry : box; } } }
         static const struct { const char * n; tree_e k; } pm[] = { {"ANY",TT_ANY},{"NOTANY",TT_NOTANY},{"SPAN",TT_SPAN},{"BREAK",TT_BREAK},{"BREAKX",TT_BREAKX},{"LEN",TT_LEN},{"POS",TT_POS},{"RPOS",TT_RPOS},{"TAB",TT_TAB},{"RTAB",TT_RTAB},{"ARB",TT_ARB},{"ARBNO",TT_ARBNO},{"REM",TT_REM},{"FAIL",TT_FAIL},{"SUCCEED",TT_SUCCEED},{"FENCE",TT_FENCE},{"ABORT",TT_ABORT},{"BAL",TT_BAL},{NULL,TT_VAR} };
         tree_e pk = TT_VAR;
-        if (name) for (int i = 0; pm[i].n; i++) if (!strcmp(name, pm[i].n)) { pk = pm[i].k; break; }
+        if (name && !sno_predef_registered(name)) for (int i = 0; pm[i].n; i++) if (!strcmp(name, pm[i].n)) { pk = pm[i].k; break; }
         if (pk != TT_VAR) { extern tree_t * ast_stmt_new(tree_e kind); tree_t * syn = ast_stmt_new(pk); for (int k = argbase; k < t->n; k++) ast_push(syn, (tree_t *) t->c[k]); return sno_pat_node(cx, syn, succ, fail); }
         { static int _ec = -1; if (_ec < 0) { const char * e = getenv("SCRIP_PAT_EAGER_CALL"); _ec = (!e || *e != '0') ? 1 : 0; }
           if (_ec && cx->npre >= 0 && cx->npre < 64) {
