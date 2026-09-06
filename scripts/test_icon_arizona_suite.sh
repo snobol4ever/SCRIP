@@ -30,6 +30,12 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/lib_flag_gate.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_flag_gate.sh unloadable" >&2; exit 2; }
 . "$HERE/lib_inventory.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_inventory.sh unloadable" >&2; exit 2; }
+. "$HERE/lib_progress.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_progress.sh unloadable -- a run that records nothing is a defect of that run (CEO-331)" >&2; exit 2; }
+# ⛔ COUNTED, NOT SWALLOWED, AND NOT FATAL. See lib_progress.sh's header: it never hides the writer's rc and
+# the caller decides. Aborting mid-loop would let one bookkeeping failure destroy a real measurement of 90
+# programs (the reason gate_score_row is non-fatal); `|| true` would turn "never written" into silence.
+PROGRESS_FAILED=0
+arizona_progress() { progress_append package arizona icon "$1" "$2" "$3" || PROGRESS_FAILED=$((PROGRESS_FAILED+1)); }
 SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_SO="$HERE/../out/libscrip_rt.so"
 CORPUS="$S4E/corpus"
@@ -128,12 +134,12 @@ for std in "$SUITE"/*.std; do
   # Litter this creates in $SUITE is swept by the PRE-RUN SNAPSHOT diff below, so fidelity costs nothing.
   m3out=$(cd "$SUITE" && timeout "$TIMEOUT" "$SCRIP" --run "$icn" < "$stdin_file" 2>&1)
   if printf '%s' "$m3out" | grep -q 'parse error'; then
-    M3_REJECT=$((M3_REJECT+1)); M3_REJECT_NAMES="$M3_REJECT_NAMES $name"
+    M3_REJECT=$((M3_REJECT+1)); M3_REJECT_NAMES="$M3_REJECT_NAMES $name"; arizona_progress "$name" m3 REJECT
     [ "$VERBOSE" = 1 ] && echo "  [m3 REJECT] $name"
   elif [ "$m3out" = "$exp" ]; then
-    M3_PASS=$((M3_PASS+1))
+    M3_PASS=$((M3_PASS+1)); arizona_progress "$name" m3 PASS
   else
-    M3_FAIL=$((M3_FAIL+1)); M3_FAIL_NAMES="$M3_FAIL_NAMES $name"
+    M3_FAIL=$((M3_FAIL+1)); M3_FAIL_NAMES="$M3_FAIL_NAMES $name"; arizona_progress "$name" m3 FAIL
     [ "$VERBOSE" = 1 ] && echo "  [m3 FAIL] $name"
   fi
 
@@ -147,12 +153,12 @@ for std in "$SUITE"/*.std; do
     fi
   fi
   if printf '%s\n%s\n%s' "$m4diag" "$m4out" "$(cat "$s4" 2>/dev/null)" | grep -q 'parse error'; then
-    M4_REJECT=$((M4_REJECT+1)); M4_REJECT_NAMES="$M4_REJECT_NAMES $name"
+    M4_REJECT=$((M4_REJECT+1)); M4_REJECT_NAMES="$M4_REJECT_NAMES $name"; arizona_progress "$name" m4 REJECT
     [ "$VERBOSE" = 1 ] && echo "  [m4 REJECT] $name"
   elif [ "$m4out" = "$exp" ]; then
-    M4_PASS=$((M4_PASS+1))
+    M4_PASS=$((M4_PASS+1)); arizona_progress "$name" m4 PASS
   else
-    M4_FAIL=$((M4_FAIL+1)); M4_FAIL_NAMES="$M4_FAIL_NAMES $name"
+    M4_FAIL=$((M4_FAIL+1)); M4_FAIL_NAMES="$M4_FAIL_NAMES $name"; arizona_progress "$name" m4 FAIL
     [ "$VERBOSE" = 1 ] && echo "  [m4 FAIL] $name"
   fi
   rm -f "$s4" "$bin4"
@@ -202,6 +208,7 @@ echo "ARIZONA_SUITE_BOARD shipped=$SHIPPED graded=$TOTAL gap=$GAP m3_pass=$M3_PA
 INV_PACKAGE=arizona; INV_DIR="$PKG"; INV_EXT=".icn"
 INV_LINE="$(inventory_line "$TOTAL" 0)"
 if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
+[ "${PROGRESS_FAILED:-0}" -eq 0 ] || echo "⛔ PROGRESS DB: $PROGRESS_FAILED per-program appends FAILED -- this run is not fully recorded (CEO-331); the board lines stand, the table does not" >&2
 # ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05: "any run of a test suite by any
 # session will update the ONE LEADERBOARD"). This records the board line printed just above into
 # .github/SCORE.md -- it RUNS NOTHING, it only writes down what this script already measured.

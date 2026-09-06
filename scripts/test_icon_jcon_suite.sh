@@ -36,6 +36,13 @@ set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/lib_flag_gate.sh" 2>/dev/null || { echo "⛔ REFUSED TO GRADE: lib_flag_gate.sh unloadable" >&2; exit 2; }
+. "$HERE/lib_progress.sh" 2>/dev/null || { echo "⛔ REFUSED TO GRADE: lib_progress.sh unloadable -- a run that records nothing is a defect of that run (CEO-331)" >&2; exit 2; }
+# ⛔ COUNTED, NOT SWALLOWED, AND NOT FATAL EITHER. lib_progress.sh's header is explicit that it never hides
+# the writer's rc and that the caller decides. Neither `|| true` nor `|| exit` is right here: swallowing
+# turns "the table was never written" into silence, and aborting mid-loop would let one bookkeeping failure
+# destroy a real measurement of 81 programs -- the reason gate_score_row is non-fatal by design. So the
+# failures are counted and NAMED in the run's own output, which is what makes the receipt honest.
+PROGRESS_FAILED=0
 ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"
 RT_SO="${RT_SO:-$ROOT/out/libscrip_rt.so}"
@@ -124,6 +131,11 @@ run_mode() {
         outfile="$WORK/out.txt"
         kind=$(run_one "$mode" "$icn" "$std" "$outfile")
         name=$(basename "$icn" .icn)
+        # ⭐ THE PROGRESS DATABASE, ONE ROW PER PROGRAM PER MODE (CEO-331). Placed at the SINGLE point where
+        # this runner already decides a per-program verdict, so the recorded outcome and the counted one are
+        # the same value -- a second classification here would be a second opinion that drifts. $kind is
+        # already exactly the writer's vocabulary (PASS|FAIL|REJECT|CRASH|HANG), so nothing is translated.
+        progress_append package jcon icon "$name" "$mode" "$kind" || PROGRESS_FAILED=$((PROGRESS_FAILED+1))
         case "$kind" in
             PASS)   pass=$((pass+1)) ;;
             FAIL)   fail=$((fail+1)); fail_names+=("$name") ;;
@@ -132,6 +144,7 @@ run_mode() {
             HANG)   hang=$((hang+1)); hang_names+=("$name") ;;
         esac
     done
+    [ "${PROGRESS_FAILED:-0}" -eq 0 ] || echo "⛔ PROGRESS DB: $PROGRESS_FAILED per-program appends have FAILED so far in this run -- this run is not fully recorded (CEO-331); the board lines below still stand, the table does not" >&2
     local mode_total=$((pass+fail+reject+crash+hang))
     echo "--- jcon ($mode): PASS=$pass FAIL=$fail REJECT=$reject CRASH=$crash HANG=$hang TOTAL=$mode_total ---"
     [ "$reject" -gt 0 ] && echo "    REJECT (dialect gap, semicolon-required): ${reject_names[*]}"

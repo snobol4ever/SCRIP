@@ -215,6 +215,16 @@ echo "IPL_SUITE_BOARD total=$TOTAL compile_graded=$COMPILE_GRADED compile_pass=$
 # lib_icon_ipl_isolation.sh, never a bare cd into $PKG/progs. ═══
 . "$HERE/lib_inventory.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_inventory.sh unloadable" >&2; exit 2; }
 . "$HERE/lib_icon_ipl_isolation.sh"
+. "$HERE/lib_progress.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_progress.sh unloadable -- a run that records nothing is a defect of that run (CEO-331)" >&2; exit 2; }
+# ⛔ ipl DOES NOT RECORD AUTOMATICALLY, whatever the ALL.icn pair suggests. CEO-331 lists ipl among the
+# packages that "now record automatically" because they have an ALL.<ext> pair -- but this package's
+# ALL.icn/ALL.ref are consumed by NO runner (measured 2026-09-06: this script opens ALL.csv only for its
+# container identity check and grades by per-program .std; board_packages.sh's runner_for() has no
+# icon/ipl case; ALL.ref has ONE commit in its whole history, and a ref nothing regenerates is a ref
+# nothing grades). So the automatic path would record a suite nobody runs. This runner has its own loop
+# and appends from it. ⭐ A package can satisfy the STRUCTURAL condition for a mechanism and be outside it.
+PROGRESS_FAILED=0
+ipl_progress() { progress_append package ipl icon "$1" "$2" "$3" || PROGRESS_FAILED=$((PROGRESS_FAILED+1)); }
 ipl_isolation_init "$PKG" || { echo "⛔ GATE REFUSES: could not build IPL isolation template" >&2; exit 2; }
 trap 'rm -rf "$TMP"; ipl_isolation_cleanup' EXIT
 
@@ -251,8 +261,8 @@ for std in "${STDFILES[@]}"; do
     # difference against SCRIP. That is the false-FAIL shape this package already carries in arizona.
     declare -a IPLARGV=(); ipl_argv_read "$icn" IPLARGV; argv_rc=$?
     if [ "$argv_rc" -eq 2 ]; then
-        M3_RUN_FAIL=$((M3_RUN_FAIL+1)); M3_RUN_FAIL_NAMES+=("$base(argv-sidecar-malformed)")
-        M4_RUN_FAIL=$((M4_RUN_FAIL+1)); M4_RUN_FAIL_NAMES+=("$base(argv-sidecar-malformed)")
+        M3_RUN_FAIL=$((M3_RUN_FAIL+1)); M3_RUN_FAIL_NAMES+=("$base(argv-sidecar-malformed)"); ipl_progress "$base" m3 REFUSE
+        M4_RUN_FAIL=$((M4_RUN_FAIL+1)); M4_RUN_FAIL_NAMES+=("$base(argv-sidecar-malformed)"); ipl_progress "$base" m4 REFUSE
         continue
     fi
     # ⛔ Each entry runs with ITS OWN package subdirectory as cwd -- refs are no longer progs-only
@@ -274,11 +284,11 @@ for std in "${STDFILES[@]}"; do
     fi
     rc3=$?
     by3=$(wc -c < "$TMP/${base}.m3.out" 2>/dev/null || echo 0)
-    if [ "$rc3" -eq 124 ]; then M3_RUN_HANG=$((M3_RUN_HANG+1)); M3_RUN_HANG_NAMES+=("$base")
-    elif [ "$rc3" -ge 128 ]; then M3_RUN_CRASH=$((M3_RUN_CRASH+1)); M3_RUN_CRASH_NAMES+=("$base(sig$((rc3-128)))")
-    elif [ "$by3" -gt "$MAX_BYTES" ]; then M3_RUN_FAIL=$((M3_RUN_FAIL+1)); M3_RUN_FAIL_NAMES+=("$base(oversized:$by3)")
-    elif [ "$(cat "$TMP/${base}.m3.out" 2>/dev/null)" = "$exp" ]; then M3_RUN_PASS=$((M3_RUN_PASS+1))
-    else M3_RUN_FAIL=$((M3_RUN_FAIL+1)); M3_RUN_FAIL_NAMES+=("$base"); fi
+    if [ "$rc3" -eq 124 ]; then M3_RUN_HANG=$((M3_RUN_HANG+1)); M3_RUN_HANG_NAMES+=("$base"); ipl_progress "$base" m3 HANG
+    elif [ "$rc3" -ge 128 ]; then M3_RUN_CRASH=$((M3_RUN_CRASH+1)); M3_RUN_CRASH_NAMES+=("$base(sig$((rc3-128)))"); ipl_progress "$base" m3 CRASH
+    elif [ "$by3" -gt "$MAX_BYTES" ]; then M3_RUN_FAIL=$((M3_RUN_FAIL+1)); M3_RUN_FAIL_NAMES+=("$base(oversized:$by3)"); ipl_progress "$base" m3 FAIL
+    elif [ "$(cat "$TMP/${base}.m3.out" 2>/dev/null)" = "$exp" ]; then M3_RUN_PASS=$((M3_RUN_PASS+1)); ipl_progress "$base" m3 PASS
+    else M3_RUN_FAIL=$((M3_RUN_FAIL+1)); M3_RUN_FAIL_NAMES+=("$base"); ipl_progress "$base" m3 FAIL; fi
 
     # -- m4 (--compile): emitting .s does not execute the target program, so THAT step is unisolated,
     # same as the compile tier above; only running the linked binary carries the self-mutation hazard.
@@ -292,13 +302,13 @@ for std in "${STDFILES[@]}"; do
         fi
         rc4=$?
         by4=$(wc -c < "$TMP/${base}.m4.out" 2>/dev/null || echo 0)
-        if [ "$rc4" -eq 124 ]; then M4_RUN_HANG=$((M4_RUN_HANG+1)); M4_RUN_HANG_NAMES+=("$base")
-        elif [ "$rc4" -ge 128 ]; then M4_RUN_CRASH=$((M4_RUN_CRASH+1)); M4_RUN_CRASH_NAMES+=("$base(sig$((rc4-128)))")
-        elif [ "$by4" -gt "$MAX_BYTES" ]; then M4_RUN_FAIL=$((M4_RUN_FAIL+1)); M4_RUN_FAIL_NAMES+=("$base(oversized:$by4)")
-        elif [ "$(cat "$TMP/${base}.m4.out" 2>/dev/null)" = "$exp" ]; then M4_RUN_PASS=$((M4_RUN_PASS+1))
-        else M4_RUN_FAIL=$((M4_RUN_FAIL+1)); M4_RUN_FAIL_NAMES+=("$base"); fi
+        if [ "$rc4" -eq 124 ]; then M4_RUN_HANG=$((M4_RUN_HANG+1)); M4_RUN_HANG_NAMES+=("$base"); ipl_progress "$base" m4 HANG
+        elif [ "$rc4" -ge 128 ]; then M4_RUN_CRASH=$((M4_RUN_CRASH+1)); M4_RUN_CRASH_NAMES+=("$base(sig$((rc4-128)))"); ipl_progress "$base" m4 CRASH
+        elif [ "$by4" -gt "$MAX_BYTES" ]; then M4_RUN_FAIL=$((M4_RUN_FAIL+1)); M4_RUN_FAIL_NAMES+=("$base(oversized:$by4)"); ipl_progress "$base" m4 FAIL
+        elif [ "$(cat "$TMP/${base}.m4.out" 2>/dev/null)" = "$exp" ]; then M4_RUN_PASS=$((M4_RUN_PASS+1)); ipl_progress "$base" m4 PASS
+        else M4_RUN_FAIL=$((M4_RUN_FAIL+1)); M4_RUN_FAIL_NAMES+=("$base"); ipl_progress "$base" m4 FAIL; fi
     else
-        M4_RUN_FAIL=$((M4_RUN_FAIL+1)); M4_RUN_FAIL_NAMES+=("$base(compile/link)")
+        M4_RUN_FAIL=$((M4_RUN_FAIL+1)); M4_RUN_FAIL_NAMES+=("$base(compile/link)"); ipl_progress "$base" m4 FAIL
     fi
     rm -f "$s4" "$bin4" "$TMP/${base}.m3.out" "$TMP/${base}.m4.out"
 done
@@ -327,6 +337,7 @@ ipl_isolation_verify_clean "$S4E/corpus" || true
 INV_PACKAGE=ipl; INV_DIR="$PKG"; INV_EXT=".icn"
 INV_LINE="$(inventory_line "$RUN_GRADED" 0)"
 if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board lines still stand; the inventory does not" >&2; fi
+[ "${PROGRESS_FAILED:-0}" -eq 0 ] || echo "⛔ PROGRESS DB: $PROGRESS_FAILED per-program appends FAILED -- this run is not fully recorded (CEO-331); the board lines stand, the table does not" >&2
 
 # ⭐ THE CLASS SPLIT, IN THE INVENTORY LINE RATHER THAN IN PROSE (CEO-328: "Report the split's numbers
 # ... in the inventory line, not prose"). `ungraded=233` answers HOW MUCH is owed and says nothing about
