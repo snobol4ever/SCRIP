@@ -254,11 +254,8 @@ static IR_t * lower_arith_val(lcx_t * cx, const tree_t * t, IR_t * ωfail, IR_t 
             IR_t * ke = NULL; IR_t * k = lower_arith_val(cx, t->c[i], ωfail, &ke); IR_t * en = ke ? ke : k;
             if (prev) lc_γ_to(prev, en); else first = en;
             lc_ω_to(k, ωfail);
-            ir_operand_push(nd, k);
+            prev = k; ir_operand_push(nd, k);
             if (i == 1) dvsr = k;
-            IR_t * eg = build(cx, IR_CALL, NULL, ωfail); IR_LIT(eg).sval = "$ax_eguard"; ir_operand_push(eg, k);
-            lc_γ_to(k, eg);
-            prev = eg;
         }
         if (dvsr && t->n == 2 && pl_ax_divides(pl_ax_suffix(t->v.sval, 2))) {
             IR_t * zg = build(cx, IR_CALL, nd, ωfail); IR_LIT(zg).sval = "$ax_zguard";
