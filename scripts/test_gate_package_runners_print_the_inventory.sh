@@ -113,20 +113,43 @@ if [ "$rc" -ne 0 ] || ! printf '%s' "$out" | grep -q 'graded_narrow=1'; then
     echo "GATE FAIL: a correctly explained narrow bucket did not pass (rc=$rc): $out"; violations=$((violations+1))
 fi
 
-# ARM 8 — an empty shipped population REFUSES rather than printing a clean zero. A percent over zero is
+# ARM 8 — ⛔⭐⭐ UNGRADABLE MUST NAME THE ORACLE'S REASON, NEVER OURS. hq_C measured the whole failure on
+# prolog/swi_tests: EXCLUDED.md names 240 programs and 240 OF 240 give a SCRIP-side reason, zero give an
+# oracle-side one. A program excluded because our own compiler fails it is A RED MOVED OUT OF THE
+# DENOMINATOR -- the score cannot fall when we fail, because failing is what removes the entry, and the
+# lockdown criterion becomes satisfiable BY failing. ⭐ This is an arm rather than a review note because
+# every one of those 240 entries is individually honest and precisely documented: 240 true notes compose
+# into a denominator that cannot fall, so entry-level diligence is exactly what hides it.
+mkpkg 3; rm -f "$TD/p"/*.tsv
+printf 'f3.icn\tNO-OUTPUT\tscrip produces zero PASS/FAIL lines for this file today\n' > "$TD/p/UNGRADABLE.tsv"
+examined=$((examined+1))
+out="$(run_inv 2 0)"; rc=$?
+if [ "$rc" -ne 2 ] || ! printf '%s' "$out" | grep -q 'OUR OWN COMPILER'; then
+    echo "GATE FAIL: a scrip-side UNGRADABLE reason was not refused (rc=$rc): $out"; violations=$((violations+1))
+fi
+# and the control: an ORACLE-side reason for the same program is accepted, so the arm grades the REASON
+# rather than merely rejecting the bucket.
+examined=$((examined+1))
+printf 'f3.icn\tNO-ORACLE-SHIPPED\tupstream ships no expected output for this program\n' > "$TD/p/UNGRADABLE.tsv"
+out="$(run_inv 2 0)"; rc=$?
+if [ "$rc" -ne 0 ]; then
+    echo "GATE FAIL: an oracle-side UNGRADABLE reason was rejected (rc=$rc): $out"; violations=$((violations+1))
+fi
+
+# ARM 9 — an empty shipped population REFUSES rather than printing a clean zero. A percent over zero is
 # not a score, and "0 ungraded" over 0 shipped would satisfy every lockdown criterion instantly.
 rm -rf "$TD/p"; mkdir -p "$TD/p"; INV_DIR="$TD/p"
 examined=$((examined+1))
 out="$(run_inv 0 0)"; rc=$?
 [ "$rc" -eq 2 ] || { echo "GATE FAIL: an empty package was not refused (rc=$rc): $out"; violations=$((violations+1)); }
 
-# ARM 9 — a moved package REFUSES rather than reinterpreting.
+# ARM 10 — a moved package REFUSES rather than reinterpreting.
 INV_DIR="$TD/does-not-exist"
 examined=$((examined+1))
 out="$(run_inv 0 0)"; rc=$?
 [ "$rc" -eq 2 ] || { echo "GATE FAIL: a missing package dir was not refused (rc=$rc): $out"; violations=$((violations+1)); }
 
-# ARM 10 — THE CENSUS, WITH ITS DENOMINATOR PRINTED. Every package runner must reach the shared body.
+# ARM 11 — THE CENSUS, WITH ITS DENOMINATOR PRINTED. Every package runner must reach the shared body.
 # ⚠ REPORTED, NOT COUNTED, WHILE THE ROW RAMPS: the instrument landed before its callers, so naming them
 # is the work list, not a verdict. ⭐ It prints the denominator rather than a boolean for the reason the
 # stale-binary gate's census arm does: that arm caught THIS author shipping a gate with no freshness

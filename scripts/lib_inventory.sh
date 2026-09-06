@@ -109,6 +109,28 @@ inventory_line() {
     ungraded=$(printf '%s' "$ung_n"   | grep -c . || true)
     ungradable=$(printf '%s' "$ugd_n" | grep -c . || true)
 
+    # ⛔⭐⭐ AN UNGRADABLE DECLARATION MUST GIVE THE ORACLE'S REASON, NEVER OURS -- and this is the arm
+    # that stops the lockdown from being satisfiable by failing. hq_C measured it on prolog/swi_tests
+    # 2026-09-06: EXCLUDED.md names 240 programs as not graded and 240 OF 240 GIVE A SCRIP-SIDE REASON
+    # ("scrip produces zero PASS/FAIL/EMPTY lines for this file today"), ZERO give an oracle-side one.
+    # ⛔ A PROGRAM EXCLUDED BECAUSE OUR OWN COMPILER FAILS IT IS A RED MOVED OUT OF THE DENOMINATOR: the
+    # score cannot fall when we fail, because failing is what removes the entry. Against the real oracle
+    # only FIVE of 170 were genuinely ungradable, all oracle-side (swipl aborts, SIGSEGVs, times out).
+    # ⭐ AND NOTE WHY NOBODY CAUGHT IT, because it is the reason this must be a machine check rather than
+    # a review habit: every one of those 240 entries is individually honest and well documented, naming
+    # file, rung and exact error. 240 carefully-written TRUE notes compose into a denominator that cannot
+    # fall. Diligence at the entry level is exactly what makes the aggregate invisible.
+    if [ -n "$ugd_f" ]; then
+        local badreason
+        badreason="$(grep -inE '(^|[^a-z])(scrip|our compiler|m3|m4|mode-3|mode-4|rung [0-9])([^a-z]|$)' "$ugd_f" | head -3 || true)"
+        if [ -n "$badreason" ]; then
+            inventory_refuse "$ugd_f names OUR OWN COMPILER as the reason a program cannot be graded:
+$badreason
+    ⛔ UNGRADABLE is a statement about the ORACLE, never about us. A program excluded because SCRIP fails it is a RED MOVED OUT OF THE DENOMINATOR -- the score cannot fall when we fail, because failing is what removes the entry. If the oracle grades it and we do not, it is GRADED and RED. Move it, or give the oracle's own reason."
+            return 2
+        fi
+    fi
+
     # ⛔ A NAME MAY NOT BE IN BOTH FILES. "Work owed" and "ruled impossible" are contradictory claims
     # about one program, and whichever the reader saw first would decide whether the lane owes work.
     local both
