@@ -481,7 +481,7 @@ static const char * pl_det_leaf_sym(const char * nm, int ar) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const struct { const char * nm; int ar; const char * gsym; } pl_anum_guards[] = {
     { "atom_length", 2, "$pl_anum_guard2" }, { "atom_chars", 2, "$pl_anum_guard2" }, { "atom_codes", 2, "$pl_anum_guard2" }, { "char_code", 2, "$pl_anum_guard2" },
-    { "number_chars", 2, "$pl_anum_guard2" }, { "number_codes", 2, "$pl_anum_guard2" }, { "atom_concat", 3, "$pl_anum_guard3" },
+    { "number_chars", 2, "$pl_anum_guard2" }, { "number_codes", 2, "$pl_anum_guard2" }, { "number_string", 2, "$pl_anum_guard2" }, { "atom_concat", 3, "$pl_anum_guard3" },
     { "arg", 3, "$pl_anum_guard3" }, { "functor", 3, "$pl_anum_guard3" }, { 0, 0, 0 } };
 static const char * pl_anum_guard_sym(const char * nm, int ar) {
     for (int i = 0; pl_anum_guards[i].nm; i++) if (pl_anum_guards[i].ar == ar && !strcmp(nm, pl_anum_guards[i].nm)) return pl_anum_guards[i].gsym;

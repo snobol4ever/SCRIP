@@ -6515,6 +6515,11 @@ static void * pl_anum_check(const char *nm, DESCR_t *a, int n) {
         if (!pl_anum_is_text(x)) return rt_pl_ball_kind2("type_error", "atom", x);
         if (!pl_iso_unbound(l) && l.v != DT_I) return rt_pl_ball_kind2("type_error", "integer", l);
         return (void *)0; }
+    if (!strcmp(nm, "number_string") && n == 2) {
+        DESCR_t x = rt_pl_deref_val(a[0]), s = rt_pl_deref_val(a[1]);
+        if (!pl_iso_unbound(x) && !pl_anum_is_num(x)) return rt_pl_ball_kind2("type_error", "number", x);
+        if (pl_iso_unbound(x) && pl_iso_unbound(s)) return rt_pl_ball_instantiation();
+        return (void *)0; }
     if (!strcmp(nm, "atom_concat") && n == 3) {
         DESCR_t x = rt_pl_deref_val(a[0]), y = rt_pl_deref_val(a[1]), z = rt_pl_deref_val(a[2]);
         if (!pl_iso_unbound(z) && !pl_anum_is_text(z)) return rt_pl_ball_kind2("type_error", "atom", z);
