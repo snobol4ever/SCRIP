@@ -176,6 +176,12 @@ static long bcps_parse_rsp(const char * t) {
 static long bcps_sig_disp(int slot) { return bcps_parse_rsp(FRQB(slot, 0)); }
 static long bcps_zref_disp(int zoff) { return bcps_parse_rsp(x86_zref(zoff, 1)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void bcps_sig_tally(const char * arm, const char * fn, long n, int ok, const char * why, const char * opnd) {
+    static int _sd = -1; if (_sd < 0) { const char * _e = getenv("SCRIP_SIG_DIAG"); _sd = (_e && *_e == '1') ? 1 : 0; }
+    if (!_sd) return;
+    fprintf(stderr, "[SIG] arm=%s fn=%s nargs=%ld verdict=%s why=%s opnd=%s\n", arm, fn ? fn : "?", n, ok ? "SIG" : "DECLINE", why, (opnd && *opnd) ? opnd : "-");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out) {
     int np = 0, nsave = 0, res_gk = -1, scc = 0;
     if (fname && rt_proc_dyn_scope(fname) && !rt_proc_is_generator(fname) && !getenv("SCRIP_SCC_OFF") && (!g_monitor_bin || getenv("SCRIP_MON_SCC")) && g_gva_active && scc_program_ok() && rt_proc_is_registered(fname)) {
@@ -274,13 +280,15 @@ static std::string bcps_det_arm() {
                     if (!_ntz && ({ extern int g_rt_fragment_emit; !g_rt_fragment_emit || _b1cz; }) && _.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival)) {
                         std::string laz = std::string(_.op_sval) + "_\xce\xb1";
                         if (bcps_fnsig()) {
-                            long soffz[29]; int sigokz = ((long)_.op_ival <= 29);
+                            long soffz[29]; const char * whyz = "eligible"; std::string badz; int sigokz = ((long)_.op_ival <= 29); if (!sigokz) whyz = "arity-over-29";
                             for (int i = 0; sigokz && i < (int)_.op_ival; i++) {
                                 int zs = _.op_zread[i];
-                                if (x86_fc_hit(zs) || x86_fc_hit(zs + 8)) { sigokz = 0; break; }
+                                if (x86_fc_hit(zs) || x86_fc_hit(zs + 8)) { sigokz = 0; whyz = "fc-hit"; break; }
                                 long dlo = bcps_zref_disp(zs), dhi = bcps_zref_disp(zs + 8);
-                                if (dlo < 0 || dhi != dlo + 8) { sigokz = 0; break; }
+                                if (dlo < 0) { sigokz = 0; whyz = "unparsed-operand"; badz = x86_zref(zs, 1); break; }
+                                if (dhi != dlo + 8) { sigokz = 0; whyz = "hi-lo-not-adjacent"; badz = x86_zref(zs + 8, 1); break; }
                                 soffz[i] = dlo; }
+                            bcps_sig_tally("zref", _.op_sval, (long)_.op_ival, sigokz, whyz, badz.c_str());
                             if (sigokz) {
                                 std::string snmz = std::string(".L") + x86_boxkind() + "_sig" + std::to_string((long)_.x86_uid) + "z";
                                 const struct bb_label_t * sigl_z = emit_label_intern(snmz.c_str());
@@ -293,6 +301,7 @@ static std::string bcps_det_arm() {
                                 for (int i = 0; i < (int)_.op_ival; i++) sz += x86(".quad", (uint64_t)soffz[i]);
                                 return sz;
                             }
+                            return x86_bomb("bcps signature arm DECLINED and there is no safe fallthrough: the callee's role-4 SIG shim (bb_define.cpp, fnsig()) reads its formals from [rcx + 24 + 8i], but a site that cannot compute the staged offsets falls through to the SCC/open_slim convention, which puts the gamma continuation in rcx instead -- one entry, two calling conventions, chosen independently by caller and callee, and the callee dereferences whatever it is handed. MEASURED hq_S 2026-09-06, incremental make, RT_OPT=-O0, m3 and m4 agreeing: 2507 shipped programs compiled, 228 of them carry a signature site, 3639 live sites in total, DECLINES = 0. The 42 frame-arm declines that existed before bcps_parse_rsp learned x86_fr64_prefix's '$' spelling are all SIG now (ADDON/1 x18, CUT/1 x9, PR/1 x6, PR/2 x6, RET/1 x3, in aisnobol, gimpel and snoflake_suite). So this refusal has a measured hit rate of ZERO, and reaching it means a NEW operand spelling or frame shape got here: run SCRIP_SIG_DIAG=1, which prints arm/fn/nargs/why/opnd for every site and names the operand that would not parse. One theoretical false positive, unmeasured because it has zero instances today: the callee tests bb_tiny_shim_ok(fn, 0) while this site tests it at the real nargs, so a proc tiny-ok at N but not at 0 would bomb here where slim-to-slim was in fact correct. The standing cure for that shape is two entry points at the callee, not a silent decline here. [arm=zref]");
                         } else {
                         long Kbz = 16L * (long)_.op_ival + 32;
                         auto ZOPQT = [&](int i, int w) { return x86_zref(_.op_zread[i] + w + (int)Kbz, 1); };
@@ -496,13 +505,15 @@ static std::string bcps_det_arm() {
                 if (!_ntiny && ({ extern int g_rt_fragment_emit; !g_rt_fragment_emit || _b1ct; }) && _.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival)) {
                     std::string la = std::string(_.op_sval) + "_\xce\xb1";
                     if (bcps_fnsig()) {
-                        long soff[29]; int sigok = ((long)_.op_ival <= 29);
+                        long soff[29]; const char * why = "eligible"; std::string bad; int sigok = ((long)_.op_ival <= 29); if (!sigok) why = "arity-over-29";
                         for (int i = 0; sigok && i < (int)_.op_ival; i++) {
                             int slot = bcps_arg_slot(_.node, argblks, i);
-                            if (x86_fc_hit(slot) || x86_fc_hit(slot + 8)) { sigok = 0; break; }
+                            if (x86_fc_hit(slot) || x86_fc_hit(slot + 8)) { sigok = 0; why = "fc-hit"; break; }
                             long dlo = bcps_sig_disp(slot), dhi = bcps_sig_disp(slot + 8);
-                            if (dlo < 0 || dhi != dlo + 8) { sigok = 0; break; }
+                            if (dlo < 0) { sigok = 0; why = "unparsed-operand"; bad = FRQB(slot, 0); break; }
+                            if (dhi != dlo + 8) { sigok = 0; why = "hi-lo-not-adjacent"; bad = FRQB(slot + 8, 0); break; }
                             soff[i] = dlo; }
+                        bcps_sig_tally("frame", _.op_sval, (long)_.op_ival, sigok, why, bad.c_str());
                         if (sigok) {
                             std::string snm = std::string(".L") + x86_boxkind() + "_sig" + std::to_string((long)_.x86_uid);
                             const struct bb_label_t * sigl = emit_label_intern(snm.c_str());
@@ -515,6 +526,7 @@ static std::string bcps_det_arm() {
                             for (int i = 0; i < (int)_.op_ival; i++) s += x86(".quad", (uint64_t)soff[i]);
                             return s;
                         }
+                        return x86_bomb("bcps signature arm DECLINED and there is no safe fallthrough: the callee's role-4 SIG shim (bb_define.cpp, fnsig()) reads its formals from [rcx + 24 + 8i], but a site that cannot compute the staged offsets falls through to the SCC/open_slim convention, which puts the gamma continuation in rcx instead -- one entry, two calling conventions, chosen independently by caller and callee, and the callee dereferences whatever it is handed. MEASURED hq_S 2026-09-06, incremental make, RT_OPT=-O0, m3 and m4 agreeing: 2507 shipped programs compiled, 228 of them carry a signature site, 3639 live sites in total, DECLINES = 0. The 42 frame-arm declines that existed before bcps_parse_rsp learned x86_fr64_prefix's '$' spelling are all SIG now (ADDON/1 x18, CUT/1 x9, PR/1 x6, PR/2 x6, RET/1 x3, in aisnobol, gimpel and snoflake_suite). So this refusal has a measured hit rate of ZERO, and reaching it means a NEW operand spelling or frame shape got here: run SCRIP_SIG_DIAG=1, which prints arm/fn/nargs/why/opnd for every site and names the operand that would not parse. One theoretical false positive, unmeasured because it has zero instances today: the callee tests bb_tiny_shim_ok(fn, 0) while this site tests it at the real nargs, so a proc tiny-ok at N but not at 0 would bomb here where slim-to-slim was in fact correct. The standing cure for that shape is two entry points at the callee, not a silent decline here. [arm=frame]");
                     } else {
                     long Kb = 16L * (long)_.op_ival + 32;
                     return x86("sub", "rsp", Kb)
