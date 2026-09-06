@@ -733,8 +733,28 @@ static int cap_save_cond_gap_has_alt(const IR_t * nd) {
 }
 static int zd_k(IR_t * nd);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int fence_kk_gamma_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_FENCE_BODY_KK_GAMMA"); v = (e && *e == '0') ? 0 : 1; } return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int fence_body_kk_complex(int mo) {
+    return (mo == IR_MATCH_ALTERNATE || mo == IR_MATCH_ARBNO || mo == IR_MATCH_FENCE1 || mo == IR_MATCH_FENCE0 || mo == IR_MATCH_DEFER || mo == IR_MATCH_VALUE || mo == IR_CALL || mo == IR_CALL_VALUE
+            || mo == IR_DISJUNCTION || mo == IR_MATCH_ABORT) ? 1 : 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int fence_body_kk_gamma(const IR_t * nd, int * closed) {
+    *closed = 0; if (!nd->operands[0] || !nd->operands[1]) return 0;
+    IR_t * cur = zd_chase(nd->operands[0]); int guard = 0; int kk = 0;
+    while (cur && guard++ <= g_emit_cfg->n) {
+        if (cur != nd) { if (fence_body_kk_complex((int)cur->op)) return 0; kk += zd_k(cur); }
+        if (cur == nd->operands[1]) { *closed = 1; return kk; }
+        cur = zd_chase(cur->γ.node); }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int fence_body_kk(const IR_t * nd) {
     if (!nd || !g_emit_cfg || nd->op != IR_MATCH_FENCE1 || nd->n_operands < 2) return 0;
+    if (getenv("SCRIP_FKK_DIAG")) { int c2 = 0; int g2 = fence_body_kk_gamma(nd, &c2); fprintf(stderr, "[FKK] fence=%p gamma=%d closed=%d\n", (const void *)nd, g2, c2);
+        { IR_t * cur = zd_chase(nd->operands[0]); int guard = 0; while (cur && guard++ <= g_emit_cfg->n) { fprintf(stderr, "[FKK]   GAM %-24s zd_k=%d%s\n", bb_op_name((IR_e)cur->op), zd_k(cur), (cur == nd->operands[1]) ? "  <-- END" : ""); if (cur == nd->operands[1]) break; cur = zd_chase(cur->γ.node); } } }
+    if (fence_kk_gamma_on()) { int closed = 0; int gk = fence_body_kk_gamma(nd, &closed); if (closed) return gk; }
     int lo = -1, hi = -1; for (int k = 0; k < g_emit_cfg->n; k++) { if (g_emit_cfg->all[k] == nd->operands[0]) lo = k; if (g_emit_cfg->all[k] == nd->operands[1]) hi = k; }
     if (lo < 0 || hi < 0) return 0; if (lo > hi) { int t = lo; lo = hi; hi = t; }
     int kk = 0; for (int j = lo; j <= hi; j++) { IR_t * m = g_emit_cfg->all[j]; if (!m || m == nd) continue; int mo = (int)m->op;
