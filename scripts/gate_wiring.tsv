@@ -81,6 +81,7 @@ test_gate_nreturn_by_name_value_broken.sh	WIRED	-	-	-
 test_gate_our_files_are_lf.sh	WIRED	-	-	-
 test_gate_package_runners_print_the_inventory.sh	WIRED	-	-	-
 test_gate_parser_generated_files_in_sync.sh	WIRED	-	-	-
+test_gate_pattern_operand_reentry.sh	WIRED	-	-	-
 test_gate_picker_autounblock.sh	WIRED	-	-	-
 test_gate_pl_arith_iso_errors_are_catchable.sh	WIRED	-	-	-
 test_gate_pl_atom_number_iso_errors.sh	WIRED	-	-	-
@@ -98,6 +99,7 @@ test_gate_polyglot_demos.sh	WIRED	-	-	-
 test_gate_postoffice_identity.sh	WIRED	-	-	-
 test_gate_preflight_arms_stay_cheap.sh	WIRED	-	-	-
 test_gate_progress_append_writes_a_row.sh	WIRED	-	-	-
+test_gate_progress_rows_carry_the_start_fingerprint.sh	WIRED	-	-	-
 test_gate_queue_census_placeholder_arm.sh	WIRED	-	-	-
 test_gate_raku_paren_call_passes_its_arguments.sh	WIRED	-	-	-
 test_gate_ref_cutters_refuse_a_dead_oracle.sh	WIRED	-	-	-
