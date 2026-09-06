@@ -615,8 +615,14 @@ _sn4_killed=""
 # defect. Fraction form kept on both (util_score_row.py refuses a grid write without one).
 _sn4_board="m3 $PASS3/$TOTAL FAIL=$FAIL3 · m4 $PASS4/$TOTAL FAIL=$FAIL4 SKIP=$SKIP4 · ast $astp/$astt FAIL=$ASTFAIL MISSING=0$_sn4_killed (\`test_corpus_snobol4.sh\`)"
 echo "ONE LEADERBOARD: recording this board into .github/SCORE.md (test_corpus_snobol4.sh; skipped with a notice if the tree is dirty)"
+# ⛔⭐ THE SUITE ROW'S PAIR IS DECLARED, NEVER PARSED OUT OF THE LINE ABOVE (hq_T 2026-09-06, ceo CEO-363).
+# This board line carries THREE fractions -- m3, m4 and the ast fixtures -- over TWO different populations,
+# so any rule that reads a pair out of it is choosing between them silently, and the ast pair (28/28) would
+# publish as the master suite's score. The runner names its own headline pair instead: the m3 master
+# population, which is what .github/SUITES.tsv's sno-master row has always tracked. When the modes disagree
+# the SCORE.md cell above still carries both, and the FAIL counts with them.
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column board --modes m3,m4 \
-    --measurer "${S4E_SEAT:-}" --text "$_sn4_board" \
+    --measurer "${S4E_SEAT:-}" --text "$_sn4_board" --suite-pass "$PASS3" --suite-total "$TOTAL" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 # ⭐ THE PROGRESS LINE, after the rewrite (see board_icon_master.sh for the same call and why it is here
 # rather than only in lib_gate.sh: this runner writes its row directly, bypassing gate_score_row).

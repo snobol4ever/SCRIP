@@ -612,6 +612,123 @@ def write_grid_direct(a):
     return 0
 
 
+# ⭐⭐ THE SUITE-TABLE SYNC (ceo CEO-363, 2026-09-06; row
+# suite-table-row-rewritten-by-the-runner-through-util-suite-banner-set).  SCORE.md's grid and
+# .github/SUITES.tsv are TWO records of one measurement, and only SUITES.tsv feeds the banner and Lon's
+# read.  Three fixers in one hour wrote the grid cell here and left SUITES.tsv untouched (hq_I: IPL, Jcon;
+# hq_U: IcnM; hq_T: AIS), so the ceo was setting rows BY HAND off flip lines -- a second record kept by
+# discipline is a record kept by nobody.  A write that moves a V (vendor) or M (master board) cell now
+# moves the suite row in the SAME call, or REFUSES naming the row.
+# ⛔ IT NEVER GUESSES A FRACTION.  Auto-extraction fires only when the runner's own --text carries EXACTLY
+# ONE N/M; two fractions or none is a REFUSAL, not a pick, because picking the wrong one writes a wrong
+# number under a correct-looking provenance stamp -- strictly worse than the hand-editing it replaces.
+# --suite-pass/--suite-total say it outright; --suite-key names a row auto-resolution cannot reach;
+# --no-suite-sync is the labelled escape for a write that genuinely has no suite row.
+SUITES_TSV = os.path.join(S4E, ".github", "SUITES.tsv")
+SUITE_BANNER = os.path.join(S4E, ".github", "scripts", "util_suite_banner.py")
+SUITE_SYNC_ROW = "suite-table-row-rewritten-by-the-runner-through-util-suite-banner-set"
+SUITE_SYNC_COLUMNS = ("board", "vendor")
+
+
+def suite_tree_stamp():
+    """SUITES.tsv's tree column is a BARE SCRIP short hash (e68e35fd4), not tree_stamp()'s markdown pair."""
+    h = git("SCRIP", "rev-parse", "--short", "HEAD") or "unknown"
+    return h + ("-DIRTY" if git("SCRIP", "status", "--porcelain") else "")
+
+
+def suites_rows():
+    if not os.path.exists(SUITES_TSV):
+        return [], "no SUITES.tsv at %s" % SUITES_TSV
+    rows, head = [], None
+    for ln in open(SUITES_TSV, encoding="utf-8").read().split("\n"):
+        if not ln.strip() or ln.startswith("#"):
+            continue
+        f = ln.split("\t")
+        if head is None:
+            head = f
+            continue
+        rows.append(dict(zip(head, f)))
+    return rows, None
+
+
+def resolve_suite_key(lang, column, suite, explicit):
+    """Return (key, None) or (None, why-this-cannot-be-resolved).  Never a guess."""
+    if explicit:
+        return explicit, None
+    rows, err = suites_rows()
+    if err:
+        return None, err
+    if column == "board":
+        hits = [r["key"] for r in rows if r.get("lang") == lang and r["key"].endswith("-master")]
+        if len(hits) == 1:
+            return hits[0], None
+        return None, ("--column board --lang %s matches %d master rows in SUITES.tsv (%s); name it with --suite-key"
+                      % (lang, len(hits), ", ".join(hits) or "none"))
+    if not suite:
+        return None, "--column vendor writes ONE measurement inside a shared cell, so the suite row cannot be inferred -- pass --suite (or --suite-key)"
+    want = suite.strip().lower()
+    hits = [r["key"] for r in rows if r["key"].lower() == want or r.get("nick", "").lower() == want]
+    if len(hits) == 1:
+        return hits[0], None
+    return None, ("--suite %r matches %d rows in SUITES.tsv (%s); name it with --suite-key"
+                  % (suite, len(hits), ", ".join(hits) or "none"))
+
+
+def fraction_from_text(text, p_override, t_override):
+    """(pass, total, None) or (None, None, why).  EXACTLY ONE N/M or it refuses -- see the banner above."""
+    if p_override is not None and t_override is not None:
+        return str(p_override), str(t_override), None
+    if (p_override is None) != (t_override is None):
+        return None, None, "--suite-pass and --suite-total are a pair; give both or neither"
+    found = re.findall(r"(?<![\d/])(\d+)\s*/\s*(\d+)(?![\d/])", text or "")
+    # ⭐ ONE fraction, or SEVERAL THAT AGREE.  A two-mode board line ("m3 1852/1854 · m4 1852/1854") is the
+    # COMMON shape, not the exceptional one, so refusing every text with more than one fraction would make
+    # this unusable and push runners straight back to hand-editing -- the failure being cured.  But when the
+    # modes DISAGREE there is no fact of the matter about which one the suite row means, and that is exactly
+    # when a human must say: refuse and name the row.  ⛔ Never min(), never first-wins -- either would write
+    # a real number under a provenance stamp that says it was measured, which is the one outcome worse than
+    # refusing.
+    uniq = sorted(set(found))
+    if len(uniq) == 1:
+        return uniq[0][0], uniq[0][1], None
+    if not found:
+        return None, None, ("the runner's --text carries no N/M fraction, so the suite row's pass/total cannot be read "
+                            "from it -- pass --suite-pass/--suite-total")
+    return None, None, ("the runner's --text carries %d DIFFERENT N/M fractions (%s), so which one the suite row means is "
+                        "a judgement, not a reading -- pass --suite-pass/--suite-total"
+                        % (len(uniq), ", ".join("%s/%s" % u for u in uniq)))
+
+
+def suite_sync(a, tree, dry_run):
+    """Mirror this write into SUITES.tsv, or REFUSE naming the row.  Returns a note to print."""
+    if a.column not in SUITE_SYNC_COLUMNS:
+        return "  suite table: --column %s is not a V or M cell, so no suite row is owed" % a.column
+    if getattr(a, "no_suite_sync", False):
+        return "  ⚠ suite table: --no-suite-sync given -- SUITES.tsv NOT updated, and the banner will read this row STALE"
+    key, why = resolve_suite_key(a.lang, a.column, a.suite, getattr(a, "suite_key", "") or "")
+    if key is None:
+        die("this write moves a %s cell, so it owes .github/SUITES.tsv a row -- and %s.\n"
+            "        Row %s: the suite table is what the banner and Lon read; a grid cell written without it\n"
+            "        is a measurement only this file can see.  Use --suite-key / --suite-pass / --suite-total,\n"
+            "        or --no-suite-sync if this write genuinely has no suite row." % (a.column.upper(), why, SUITE_SYNC_ROW))
+    p, t, why = fraction_from_text(a.text, getattr(a, "suite_pass", None), getattr(a, "suite_total", None))
+    if p is None:
+        die("this write moves a %s cell and resolved suite row %r, but %s.\n"
+            "        Row %s." % (a.column.upper(), key, why, SUITE_SYNC_ROW))
+    if dry_run:
+        return "  suite table: WOULD set %s -> %s/%s (tree %s) via util_suite_banner.py --set" % (key, p, t, tree)
+    if not os.path.exists(SUITE_BANNER):
+        die("suite row %r is owed but %s is missing.\n        Row %s." % (key, SUITE_BANNER, SUITE_SYNC_ROW))
+    day = datetime.datetime.now().strftime("%Y-%m-%d")
+    env = dict(os.environ); env["S4E_SUITES_TSV"] = SUITES_TSV
+    r = subprocess.run([sys.executable, SUITE_BANNER, "--set", key, str(p), str(t), day, tree],
+                       capture_output=True, text=True, env=env)
+    if r.returncode != 0:
+        die("util_suite_banner.py --set %s %s %s failed rc=%d: %s\n        Row %s."
+            % (key, p, t, r.returncode, (r.stderr or r.stdout).strip()[:300], SUITE_SYNC_ROW))
+    return "  suite table: %s -> %s/%s on %s (tree %s) -- SUITES.tsv rewritten in the same call" % (key, p, t, day, tree)
+
+
 def cmd_write(a):
     if not a.measurer or a.measurer.strip().lower() in _PLACEHOLDER_MEASURERS:
         stale = a.measurer
@@ -966,6 +1083,7 @@ def cmd_write(a):
             print("  grid: --column %s has no mirrored grid column, so this write touches the display only" % a.column)
         else:
             print("  ⚠ grid %s: no grid row for %s -- this write touches the display only" % (gkey, a.lang))
+        print(suite_sync(a, suite_tree_stamp(), True))
         print("  (DRY RUN -- nothing written)")
         return 0
     lines = mark_grid_stamp(lines)
@@ -978,7 +1096,8 @@ def cmd_write(a):
     print("  prov: %s: %s" % (a.column, stamp))
     if gnote:
         print(gnote)
-    print("⛔ NOT DONE UNTIL PUSHED: commit .github/SCORE.md with the landing that carried this measurement.")
+    print(suite_sync(a, suite_tree_stamp(), False))
+    print("⛔ NOT DONE UNTIL PUSHED: commit .github/SCORE.md AND .github/SUITES.tsv with the landing that carried this measurement.")
     return 0
 
 
@@ -1176,13 +1295,21 @@ def cmd_selftest(a):
     # Proves the two things this helper must never get wrong -- that it REWRITES rather than appends,
     # and that every refusal path actually refuses -- against a scratch copy, never the real board.
     import tempfile, shutil
-    global SCORE_MD
+    # ⛔ SUITES_TSV IS REDIRECTED TOO, NOT JUST SCORE_MD.  cmd_write now mirrors a V/M write into the suite
+    # table, so a selftest that redirected only the board would have written its fake rebus numbers into the
+    # REAL .github/SUITES.tsv -- the banner Lon reads -- while printing that it grades a scratch copy.  A
+    # scratch harness that is scratch in one of its two outputs is not a scratch harness.
+    global SCORE_MD, SUITES_TSV
     real = SCORE_MD
+    real_tsv = SUITES_TSV
     ok = True
     d = tempfile.mkdtemp(prefix="score_row_selftest.")
     try:
         SCORE_MD = os.path.join(d, "SCORE.md")
         shutil.copy(real, SCORE_MD)
+        SUITES_TSV = os.path.join(d, "SUITES.tsv")
+        if os.path.exists(real_tsv):
+            shutil.copy(real_tsv, SUITES_TSV)
         # ⛔ SEED A KNOWN CELL BEFORE PROVING REWRITE-IN-PLACE, rather than inherit whatever prose the LIVE
         # rebus/board cell happens to carry that day. This selftest's own claim ("rewrite-in-place holds")
         # has never depended on the starting content -- only on two known writes landing as one cell -- but
@@ -1654,8 +1781,63 @@ def cmd_selftest(a):
                 print("SELFTEST: %s" % label)
             else:
                 print("SELFTEST FAIL: %s -- fraction=%s, wanted %s" % (label, got, want_frac)); ok = False
+        # ============ THE SUITE-TABLE SYNC (ceo CEO-363) -- the write half AND every refusal ============
+        # ⛔ THE REFUSALS ARE THE PRODUCT HERE AS MUCH AS THE WRITE IS.  This mirror exists because three
+        # fixers in one hour wrote a grid cell and left SUITES.tsv untouched; a mirror that GUESSED which
+        # fraction to copy would replace a visible omission with an invisible wrong number carrying a
+        # provenance stamp that says it was measured.  So each arm below proves a refusal refuses.
+        def _tsv_row(key):
+            for r in suites_rows()[0]:
+                if r["key"] == key:
+                    return r
+            return None
+        def _arm(label, fn, want_refuse):
+            try:
+                fn(); refused = False
+            except SystemExit:
+                refused = True
+            if refused == want_refuse:
+                print("SELFTEST: %s" % label); return True
+            print("SELFTEST FAIL: %s -- %s" % (label, "refused" if refused else "did NOT refuse")); return False
+        def _A(**kw):
+            x = A()
+            x.lang = "rebus"; x.column = "board"; x.measurer = "selftest"; x.modes = ""; x.suite = ""
+            x.dry_run = False; x.text = "m3 7/48 · m4 7/48"; x.suite_key = ""; x.suite_pass = None
+            x.suite_total = None; x.no_suite_sync = False
+            for k, v in kw.items():
+                setattr(x, k, v)
+            return x
+        _before = _tsv_row("reb-master")
+        cmd_write(_A(text="m3 7/48 · m4 7/48"))
+        _after = _tsv_row("reb-master")
+        if _after and (_after["today_pass"], _after["today_total"]) == ("7", "48"):
+            print("SELFTEST: an M-cell write SET the suite row in the same call (reb-master -> 7/48)")
+        else:
+            print("SELFTEST FAIL: an M-cell write left the suite row at %r" % (_after and (_after["today_pass"], _after["today_total"]),)); ok = False
+        if _before is not None and _after is not None and _before["tree"] == _after["tree"] and _before["today_pass"] == "7":
+            print("SELFTEST FAIL: suite row looks unchanged -- the arm above may be reading its own seed"); ok = False
+        if not _arm("a V-cell write with no --suite REFUSES rather than guessing the suite row",
+                    lambda: cmd_write(_A(column="vendor")), True): ok = False
+        if not _arm("...and names the row it owes", lambda: cmd_write(_A(column="vendor")), True): ok = False
+        if not _arm("DISAGREEING fractions REFUSE -- which mode the suite row means is a judgement",
+                    lambda: cmd_write(_A(text="m3 7/48 · m4 6/48")), True): ok = False
+        if not _arm("...and --suite-pass/--suite-total settle it",
+                    lambda: cmd_write(_A(text="m3 7/48 · m4 6/48", suite_pass=6, suite_total=48)), False): ok = False
+        if not _arm("AGREEING fractions across two modes are ONE reading, not an ambiguity",
+                    lambda: cmd_write(_A(text="m3 9/48 · m4 9/48")), False): ok = False
+        if not _arm("a text with NO fraction REFUSES", lambda: cmd_write(_A(text="m3 PASS=7 FAIL=41")), True): ok = False
+        if not _arm("--no-suite-sync is a labelled escape, not a refusal",
+                    lambda: cmd_write(_A(text="m3 PASS=7 FAIL=41", no_suite_sync=True)), False): ok = False
+        if not _arm("an unresolvable --suite REFUSES and names the row",
+                    lambda: cmd_write(_A(column="vendor", suite="no-such-suite-anywhere")), True): ok = False
+        _v = _tsv_row("reb-master")
+        if _v and _v["today_pass"] == "9":
+            print("SELFTEST: the last accepted write is the one that stands (9/48) -- rewrite-in-place holds for the suite row too")
+        else:
+            print("SELFTEST FAIL: suite row reads %r after the arms; a refusal must leave it untouched" % (_v and _v["today_pass"],)); ok = False
     finally:
         SCORE_MD = real
+        SUITES_TSV = real_tsv
         shutil.rmtree(d, ignore_errors=True)
     print("SELFTEST %s" % ("PASS" if ok else "FAIL"))
     return 0 if ok else 1
@@ -2813,6 +2995,10 @@ def main():
     w.add_argument("--modes", default="", help="e.g. m3,m4")
     w.add_argument("--suite", default="", help="name ONE measurement inside a shared cell (e.g. Arizona, JCON, SWI, GNU, fpc); "
                                                "without it the whole cell is replaced, which is wrong for the vendor column")
+    w.add_argument("--suite-key", default="", help="name the .github/SUITES.tsv row explicitly when --lang/--suite cannot resolve it")
+    w.add_argument("--suite-pass", type=int, default=None, help="pass count for the suite row (with --suite-total); required when --text carries no single N/M")
+    w.add_argument("--suite-total", type=int, default=None, help="total for the suite row (with --suite-pass)")
+    w.add_argument("--no-suite-sync", action="store_true", help="labelled escape: this V/M write genuinely has no SUITES.tsv row. The banner will read the row STALE")
     w.add_argument("--dry-run", action="store_true")
     w.set_defaults(fn=cmd_write)
     c = sub.add_parser("check", help="report every row's staleness against origin/main")
