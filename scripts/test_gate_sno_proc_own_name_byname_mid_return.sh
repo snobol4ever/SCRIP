@@ -43,20 +43,43 @@ W="$T/ownname.sno"
   printf 'START   TRACE("F","RETURN","tagR",.TF)\n'
   printf '        N = F(2)\n'
   printf 'END\n'; } > "$W"
+V="$T/retval.sno"
+# ⛔ THE SECOND WITNESS IS THE DISCRIMINATOR, AND IT IS THE REASON THIS GATE EXISTS IN THIS SHAPE.
+# The first witness grades the TARGET (the by-name mid-return read). It is satisfiable by a cure that
+# moves the return-value staging earlier and clobbers the ordinary return path on the way -- which is
+# exactly what d067ceae4 did: this gate read PASS while every DEFINE'd function returned blank, and the
+# landing was reverted fleet-wide (CEO-333). A DONE-WHEN that names one output line cannot notice what
+# the cure spent to get it. So the plain return value is graded here too, in both modes, against the
+# same oracle: a cure that buys the tagR line by breaking ordinary returns now reds its own gate.
+{ printf '        DEFINE("G(X)")                          :(GEND)\n'
+  printf 'G       G = 7                                   :(RETURN)\n'
+  printf 'GEND\n'
+  printf '        OUTPUT = G("ignored")\n'
+  printf '        OUTPUT = "tail"\n'
+  printf 'END\n'; } > "$V"
 ORA="$( cd "$T" && timeout 30s "$O" -bf ownname.sno </dev/null 2>/dev/null )"; orc=$?
 case "$ORA" in *tagR*) : ;; *) echo "GATE UNPROVEN(2) [$GATE_NAME]: oracle produced no tagR line (rc=$orc)"; exit 2;; esac
+ORB="$( cd "$T" && timeout 30s "$O" -bf retval.sno </dev/null 2>/dev/null )"; brc=$?
+case "$ORB" in *7*) : ;; *) echo "GATE UNPROVEN(2) [$GATE_NAME]: oracle produced no return value for the discriminator (rc=$brc)"; exit 2;; esac
 M3="$( cd "$T" && timeout 30s "$ROOT/scrip" ownname.sno </dev/null 2>/dev/null )"
-( cd "$T" && timeout 30s "$ROOT/scrip" --compile -o ownname.s ownname.sno </dev/null >/dev/null 2>&1 ) \
-  || { echo "GATE UNPROVEN(2) [$GATE_NAME]: mode-4 compile failed"; exit 2; }
-( cd "$T" && gcc -no-pie ownname.s -o ownname.bin -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" >/dev/null 2>&1 ) \
-  || { echo "GATE UNPROVEN(2) [$GATE_NAME]: mode-4 link failed"; exit 2; }
-M4="$( cd "$T" && timeout 30s ./ownname.bin </dev/null 2>/dev/null )"
-red=0; examined=0
-for tag in m3 m4; do
-    eval "got=\$$(echo "$tag" | tr 'a-z' 'A-Z')"
-    examined=$((examined+1))
-    if [ "$got" = "$ORA" ]; then echo "PASS $tag: [$got]"
-    else echo "RED  $tag: got [$got] oracle [$ORA]"; red=$((red+1)); fi
+B3="$( cd "$T" && timeout 30s "$ROOT/scrip" retval.sno </dev/null 2>/dev/null )"
+for src in ownname retval; do
+    ( cd "$T" && timeout 30s "$ROOT/scrip" --compile -o $src.s $src.sno </dev/null >/dev/null 2>&1 ) \
+      || { echo "GATE UNPROVEN(2) [$GATE_NAME]: mode-4 compile failed ($src)"; exit 2; }
+    ( cd "$T" && gcc -no-pie $src.s -o $src.bin -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" >/dev/null 2>&1 ) \
+      || { echo "GATE UNPROVEN(2) [$GATE_NAME]: mode-4 link failed ($src)"; exit 2; }
 done
-gate_floor "$examined" 2 "modes graded"
-gate_verdict "$red" "mode(s) where a returning proc's own name resolves blank through a by-name lookup"
+M4="$( cd "$T" && timeout 30s ./ownname.bin </dev/null 2>/dev/null )"
+B4="$( cd "$T" && timeout 30s ./retval.bin </dev/null 2>/dev/null )"
+red=0; examined=0
+grade() {
+    examined=$((examined+1))
+    if [ "$2" = "$3" ]; then echo "PASS $1: [$2]"
+    else echo "RED  $1: got [$2] oracle [$3]"; red=$((red+1)); fi
+}
+grade "m3 byname-mid-return" "$M3" "$ORA"
+grade "m4 byname-mid-return" "$M4" "$ORA"
+grade "m3 ordinary-return-value(discriminator)" "$B3" "$ORB"
+grade "m4 ordinary-return-value(discriminator)" "$B4" "$ORB"
+gate_floor "$examined" 4 "witness/mode pairs graded"
+gate_verdict "$red" "witness/mode pair(s) where a returning proc diverges from the oracle (target: own name via by-name lookup; discriminator: the ordinary return value)"
