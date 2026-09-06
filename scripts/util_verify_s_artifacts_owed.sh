@@ -52,7 +52,14 @@
 # verdict of clean when a check could not actually complete. 2 = environment error
 # (corpus repo missing, clone failed, pristine build failed) — no verdict was possible.
 #
-# Usage: util_verify_s_artifacts_owed.sh [--skip-pristine]
+# Usage: util_verify_s_artifacts_owed.sh [--pristine] [--skip-pristine]
+#   --pristine        wipe out/ and rebuild from scratch first. ⛔ DESTRUCTIVE TO THIS ROOT: ./scrip is
+#                     ABSENT for ~10-20 minutes, so any OTHER measurement running in this root during that
+#                     window dies with rc=127 and reads as a catastrophic regression in whatever it graded.
+#                     ⭐ NO LONGER THE DEFAULT (hq_T 2026-09-06, on hq_U's report): it cited HQ-27, which Lon
+#                     VOIDED as a per-landing requirement on 2026-09-03 ("It's time to loosen this pristine
+#                     build ... causes 20 minute wait times"), and a .s-currency check needs a CURRENT
+#                     compiler, not a from-scratch one. Use it for a ceo audit or a release point.
 #   --skip-pristine   reuse the already-built ./scrip as-is (fast iteration ONLY —
 #                      NEVER use for a real handoff/gate verdict; HQ-27 requires pristine).
 #   SCRIP=<path>      override the scrip binary (default $ROOT/scrip)
@@ -65,7 +72,13 @@ SCRIP_BIN="${SCRIP:-$ROOT/scrip}"
 SCRIP_RT="${SCRIP_RT:-$ROOT/out/libscrip_rt.so}"   # overridable so the gate can drive the .so arm on a fixture, never the live build
 REAL_CORPUS="${CORPUS:-$S4E/corpus}"
 SKIP_PRISTINE=0
-[ "${1:-}" = "--skip-pristine" ] && SKIP_PRISTINE=1
+WANT_PRISTINE=0
+for _a in "$@"; do
+  case "$_a" in
+    --skip-pristine) SKIP_PRISTINE=1 ;;
+    --pristine)      WANT_PRISTINE=1 ;;
+  esac
+done
 
 # ⛔⭐⭐ STALE-BINARY PREFLIGHT — REFUSE rc=2, NEVER PRINT AN OWED COUNT FROM A BINARY THAT PREDATES src/.
 # This script dry-run-regenerates with THE BINARY IN THE TREE. Under --skip-pristine (which is how
@@ -112,20 +125,35 @@ WORK="$(mktemp -d "${TMPDIR:-/tmp}/verify_s_owed.XXXXXX")" || { echo "FATAL: mkt
 trap 'rm -rf "$WORK"' EXIT
 
 echo "=== util_verify_s_artifacts_owed: dry-run drift check ==="
-echo "    (scratch clone only — the real corpus and SCRIP checkouts are never written)"
+echo "    corpus and SCRIP SOURCES are never written (the .s comparison runs in a scratch clone)."
+echo "    THIS ROOT'S BUILD IS: $([ "$WANT_PRISTINE" -eq 1 ] && echo 'WIPED AND REBUILT (make pristine) -- ./scrip is ABSENT for minutes' || echo 'brought current with an incremental make')"
 
 if [ "$SKIP_PRISTINE" -eq 1 ]; then
-  echo "--skip-pristine given: reusing $SCRIP_BIN as-is. NOT a valid gate/handoff verdict (HQ-27)."
+  echo "--skip-pristine given: reusing $SCRIP_BIN as-is."
   [ -x "$SCRIP_BIN" ] || { echo "FATAL: scrip not built: $SCRIP_BIN"; exit 2; }
-else
-  echo "Rebuilding scrip PRISTINE in $ROOT (HQ-27: required before any drift verdict)..."
+elif [ "$WANT_PRISTINE" -eq 1 ]; then
+  echo "⛔⛔⛔ DESTRUCTIVE STEP STARTING IN $ROOT -- 'make pristine' WIPES out/ AND DELETES ./scrip ⛔⛔⛔"
+  echo "⛔ For the next ~10-20 minutes this root HAS NO COMPILER. Any other measurement running here will see"
+  echo "⛔ rc=127 (command not found) and will read as a catastrophic regression in whatever it was grading."
+  echo "⛔ If you are that other measurement: your run is VOID, nothing regressed, re-run it when this finishes."
+  echo "⛔ pid=$$ started $(date -u +%Y-%m-%dT%H:%M:%SZ)"
   if ! ( cd "$ROOT" && make pristine ) > "$WORK/pristine_build.log" 2>&1; then
     echo "FATAL: 'make pristine' failed — last 40 lines of $WORK/pristine_build.log:"
     tail -40 "$WORK/pristine_build.log"
     exit 2
   fi
   [ -x "$SCRIP_BIN" ] || { echo "FATAL: pristine build finished but $SCRIP_BIN is not executable"; exit 2; }
-  echo "  pristine build OK: $SCRIP_BIN"
+  echo "  pristine build OK: $SCRIP_BIN -- this root has a compiler again"
+else
+  echo "Bringing $ROOT current with an incremental make (the pristine is NOT required for a drift verdict --"
+  echo "  Lon 2026-09-03 loosened HQ-27; a .s-currency check needs a CURRENT compiler, not a from-scratch one)..."
+  if ! ( cd "$ROOT" && make ) > "$WORK/build.log" 2>&1; then
+    echo "FATAL: 'make' failed — last 40 lines of $WORK/build.log:"
+    tail -40 "$WORK/build.log"
+    exit 2
+  fi
+  [ -x "$SCRIP_BIN" ] || { echo "FATAL: build finished but $SCRIP_BIN is not executable"; exit 2; }
+  echo "  incremental build OK: $SCRIP_BIN"
 fi
 
 SCRATCH_CORPUS="$WORK/corpus"
