@@ -117,7 +117,11 @@ static std::string bb_match_arbno_frame() {
          + x86("def", PAIR(3)) + x86("def", PAIR(5))
          + x86("mov", "eax", AFC(0))
          + x86("cmp", "r14d", "eax")
-         + IF(!sn4_defer_resume() || !_.op_arbno_body_actframe, x86("jne", sn4_arbno_tailbeta() ? PAIR(4) : PAIR(1)))
+         + IF(!sn4_defer_resume() || !_.op_arbno_body_actframe, x86("je", L(3))
+              + x86("comment", "EXHAUST-RECEDE ROLLBACK: receding drops one instance, so AFC(4) -- the END cursor of the instance being abandoned -- is stale HIGH for the shallower instance we re-enter, and the null-body guard then grades that instance against a DEEPER one's cursor, so a null shallower instance passes and ARBNO re-enters its body forever.  eax already holds AFC(0)")
+              + x86("mov", AFC(4), "eax")
+              + x86("jmp", sn4_arbno_tailbeta() ? PAIR(4) : PAIR(1))
+              + x86("def", L(3)))
          + x86_omega();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

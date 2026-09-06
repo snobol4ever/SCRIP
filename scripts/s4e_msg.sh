@@ -1651,7 +1651,13 @@ case "$cmd" in
               else echo "  (no live QUEUE.tsv row for $topic — nothing to mirror; the claim is the record)"; fi
               s4e_mark_row "$topic" DONE
               [ "${S4E_NO_BANNER:-0}" = "1" ] || "$0" banner "$topic" "${3:-}"
-         else echo "not your claim"; exit 1; fi;;
+         elif [ ! -f "$c" ]; then
+              # ⛔⭐ hq_C's bus finding (ceo CEO-362, 2026-09-06): an ASSIGNED row with NO claim file used to answer
+              # "not your claim", which names the WRONG defect -- it says somebody else holds the row when in fact
+              # NOBODY does, so the reader goes looking for the other owner instead of running `claim`. The row is
+              # then uncloseable by anyone. Two distinguishable states must not share one diagnostic.
+              printf 'no claim exists on this row -- run `claim %s` first\n' "$topic" >&2; exit 1
+         else printf 'not your claim -- %s holds it, you are %s\n' "$(head -1 "$c")" "$ME" >&2; exit 1; fi;;
   assign) # ⭐ V2-1 / LAW 2 — ASSIGNMENT IS THE LOCK (ARCH-FLEET-CEO.md). HQ writes the seat's claim ATOMICALLY on HQ's
          # side, which makes the v1 dispatch race UNREPRESENTABLE: v1 mailed a brief AND let the seat run `next`, so two
          # channels answered "what am I working on" with nothing arbitrating -- that race is what killed seat13's session
