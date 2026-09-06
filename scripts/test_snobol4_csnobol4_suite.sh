@@ -343,16 +343,20 @@ echo "csnobol4 (home dialect, triangulation, informational): PASS=$CSN_PASS FAIL
 # is the right "graded" figure for a census of $SUITE itself. graded_narrow=0: grading is byte-exact
 # against .ref, never by error-number-only.
 INV_PACKAGE=csnobol4; INV_DIR="$SUITE"; INV_EXT=".sno"
-inventory_line "$TOTAL" 0 || echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2
+INV_LINE="$(inventory_line "$TOTAL" 0)"
+if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
 
 # ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05). Records what this script just
 # measured into .github/SCORE.md; runs nothing itself. Non-fatal: a bookkeeping failure must never
 # turn a real measurement into a red board. Matches the other package suites (Arizona/JCON/fpc/GNU/SWI);
 # this one and snoflake_suite's own runner were the two missing it (board-packages-into-make-test-
 # reported-then-blocking, seat13 2026-09-03).
+# ⭐ THE INVENTORY CLAUSE RIDES IN THE CELL TOO (util_score_row.py's inventory_clauses(), CEO-316):
+# appended verbatim when non-empty, runner name immediately after so `by=`/backtick attribution
+# finds it within the reader's 200-char window; absent when inventory_line refused.
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite CSNOBOL4 --modes m3,m4 \
     --measurer "${S4E_SEAT:-}" \
-    --text "total=$TOTAL m3 PASS=$M3_PASS FAIL=$M3_FAIL REJECT=$M3_REJECT CRASH=$M3_CRASH HANG=$M3_HANG · m4 PASS=$M4_PASS FAIL=$M4_FAIL REJECT=$M4_REJECT CRASH=$M4_CRASH HANG=$M4_HANG (\`test_snobol4_csnobol4_suite.sh\`)" \
+    --text "total=$TOTAL m3 PASS=$M3_PASS FAIL=$M3_FAIL REJECT=$M3_REJECT CRASH=$M3_CRASH HANG=$M3_HANG · m4 PASS=$M4_PASS FAIL=$M4_FAIL REJECT=$M4_REJECT CRASH=$M4_CRASH HANG=$M4_HANG${INV_LINE:+ · $INV_LINE (\`test_snobol4_csnobol4_suite.sh\`)}" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
 # ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-

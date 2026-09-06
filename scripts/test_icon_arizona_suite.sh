@@ -200,14 +200,19 @@ echo "ARIZONA_SUITE_BOARD shipped=$SHIPPED graded=$TOTAL gap=$GAP m3_pass=$M3_PA
 # of the arithmetic. UNGRADABLE.tsv/UNGRADED.tsv beside $PKG (hq_I, corpus a284bcdbb) already split the
 # GAP printed above; graded_narrow=0, this suite compares full output, never by error-number-only.
 INV_PACKAGE=arizona; INV_DIR="$PKG"; INV_EXT=".icn"
-inventory_line "$TOTAL" 0 || echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2
+INV_LINE="$(inventory_line "$TOTAL" 0)"
+if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
 # ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05: "any run of a test suite by any
 # session will update the ONE LEADERBOARD"). This records the board line printed just above into
 # .github/SCORE.md -- it RUNS NOTHING, it only writes down what this script already measured.
 # ⛔ NON-FATAL BY DESIGN: a bookkeeping failure must never turn a real measurement into a red board,
 # because a gate that goes red for a reason unrelated to the code is a gate people route around. It
 # warns and names the unrecorded row instead; it has no silent path.
+# ⭐ THE INVENTORY CLAUSE RIDES IN THE CELL TOO (util_score_row.py's inventory_clauses(), CEO-316):
+# appended verbatim when non-empty, with the runner name immediately after it so `by=`/backtick
+# attribution finds it within the reader's 200-char window; absent when inventory_line refused, so
+# a refusal never gets transcribed as if it were a measurement.
 python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite Arizona --modes m3,m4 \
-    --measurer "${S4E_SEAT:-}" --text "m3 $M3_PASS/$SHIPPED · m4 $M4_PASS/$SHIPPED (of $SHIPPED shipped, $TOTAL graded, $GAP ungraded, m3_fail=$M3_FAIL m4_fail=$M4_FAIL, reject $M3_REJECT/$M4_REJECT, \`test_icon_arizona_suite.sh\`)" \
+    --measurer "${S4E_SEAT:-}" --text "m3 $M3_PASS/$SHIPPED · m4 $M4_PASS/$SHIPPED (of $SHIPPED shipped, $TOTAL graded, $GAP ungraded, m3_fail=$M3_FAIL m4_fail=$M4_FAIL, reject $M3_REJECT/$M4_REJECT)${INV_LINE:+ · $INV_LINE (\`test_icon_arizona_suite.sh\`)}" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
