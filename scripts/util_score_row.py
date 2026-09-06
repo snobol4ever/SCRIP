@@ -149,6 +149,49 @@ def tree_is_dirty():
     return [r for r in REPOS if git(r, "status", "--porcelain")]
 
 
+def tree_is_unpushed():
+    """⛔⭐ THE GUARD ABOVE TESTS DIRTINESS AND THE RULE IS ABOUT CHECKOUTABILITY, AND THOSE ARE NOT THE SAME
+    PREDICATE (hq_S, 2026-09-05, found by tripping it rather than by reading it -- measured twice on one box).
+    A CLEAN tree sitting on a LOCAL UNPUSHED COMMIT passes tree_is_dirty() perfectly and still names a tree
+    that exists nowhere but that one root: their run wrote `snobol4/board` naming 9b9acce28, a merge commit on
+    a feature branch in a single seat's checkout. The refusal sentence one line up already says the real
+    reason out loud -- "a tree nobody else can check out" -- so the fix is to make the test say what the
+    sentence says.
+
+    ⭐ THE PREDICATE IS "REACHABLE FROM ANY REMOTE BRANCH", NOT "ANCESTOR OF origin/main", and the difference
+    is the whole reason this is safe to add. hq_S's objection to the strict form is correct: a mid-work
+    measurement on a PUSHED feature branch is legitimate state, and demanding descent from main would silence
+    it. `git branch -r --contains HEAD` answers the question actually being asked -- can another seat check
+    this out -- and says yes for any pushed branch, main or not.
+
+    ⛔ IT REFUSES RATHER THAN STAMPING THE ROW PROVISIONAL, deliberately, and against the other option hq_S
+    offered. SCORE.md is read AS STATE -- that is the entire point of the FACT RULE ("so whenever we want to
+    know the state it is there not an hour away of running tests") -- and a provisional row still occupies
+    the cell, still answers "what is the score", and is still what `check` reads for staleness. A row that
+    must be disbelieved is worse than an absent one. The dirty case already chose SKIP-with-a-notice for the
+    identical reason; two treatments for one reason is how the exception gets taken by whoever is in the
+    biggest hurry.
+
+    ⭐ WHY IT MATTERED EVEN THOUGH IT SELF-CORRECTED: hq_S's false row was overwritten by their very next
+    measurement on a real pushed tree -- but by the LUCK OF THEIR RUNNING ORDER, not by design. A session
+    that had stopped one run earlier would have left the false row standing and pushed it.
+
+    Returns the repos whose HEAD no remote branch contains. A repo with no remote-tracking refs at all is
+    NOT reported: it cannot answer the question, and a check that cannot measure must not manufacture a
+    verdict -- tree_is_dirty() above is the guard that still applies there."""
+    out = []
+    for r in REPOS:
+        if git(r, "rev-parse", "--short", "HEAD") is None:
+            continue
+        remotes = git(r, "branch", "-r", "--format=%(refname)")
+        if not remotes:
+            continue
+        contains = git(r, "branch", "-r", "--contains", "HEAD")
+        if not contains:
+            out.append(r)
+    return out
+
+
 def find_table(lines):
     # Locate the standardized-display grid by its header, and PROVE its shape rather than assuming it.
     # ⛔ EVERY '| Language |' header is a CANDIDATE, not just the first.  SCORE.md carries more than one
@@ -319,6 +362,11 @@ def write_grid_direct(a):
             print("⚠ SCORE.md ROW SKIPPED — %s %s uncommitted; this run measured a tree nobody else can check out."
                   % (", ".join(dirty), "has" if len(dirty) == 1 else "have"))
             return 0
+        unpushed = tree_is_unpushed()
+        if unpushed:
+            print("⚠ SCORE.md ROW SKIPPED — %s %s on a local commit no remote branch contains; this run measured a tree nobody else can check out."
+                  % (", ".join(unpushed), "is" if len(unpushed) == 1 else "are"))
+            return 0
     lines = open(SCORE_MD, encoding="utf-8").read().split("\n")
     _gh, grows, gskip = find_grid(lines)
     if a.lang in gskip:
@@ -406,6 +454,13 @@ def cmd_write(a):
                   % (", ".join(dirty), "has" if len(dirty) == 1 else "have"))
             print("  The number above stands as a scouting datum. Commit the tree and re-run to land the row"
                   "  (ceo CEO-174: a dirty-tree number describes no checkable tree).")
+            return 0
+        unpushed = tree_is_unpushed()
+        if unpushed:
+            print("⚠ SCORE.md ROW SKIPPED — %s %s on a local commit no remote branch contains; this run measured a tree nobody else can check out."
+                  % (", ".join(unpushed), "is" if len(unpushed) == 1 else "are"))
+            print("  The number above stands as a scouting datum. Push the branch and re-run to land the row"
+                  "  (hq_S 2026-09-05: the guard tested dirtiness, but the rule is about checkoutability).")
             return 0
     lines = open(SCORE_MD, encoding="utf-8").read().split("\n")
     hdr, rows, skipped = find_table(lines)
