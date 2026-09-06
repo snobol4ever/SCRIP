@@ -8,6 +8,7 @@
 #include "../parsers/snobol4/scrip_cc.h"
 #include "bb_program.h"
 #include "ir_query.h"
+#include "pl_arith_names.h"
 #define PL_BB_TABLE_MAX 256
 typedef struct { const char * name; int arity; int bb_idx; } pl_bb_ent_t;
 static pl_bb_ent_t * pl_bb_tab = NULL;
@@ -231,28 +232,7 @@ static const char * pl_cmp_op_suffix(const char * s) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char * pl_ax_suffix(const char * s, int ar) {
-    if (!s) return NULL;
-    if (ar == 2) {
-        if (!strcmp(s, "+")) return "add"; if (!strcmp(s, "-")) return "sub"; if (!strcmp(s, "*")) return "mul";
-        if (!strcmp(s, "/")) return "div"; if (!strcmp(s, "//")) return "idiv"; if (!strcmp(s, "div")) return "idiv";
-        if (!strcmp(s, "mod")) return "mod"; if (!strcmp(s, "rem")) return "rem"; if (!strcmp(s, "**")) return "fpow"; if (!strcmp(s, "^")) return "pow";
-        if (!strcmp(s, "min")) return "min"; if (!strcmp(s, "max")) return "max"; if (!strcmp(s, "gcd")) return "gcd"; if (!strcmp(s, "xor")) return "xor";
-        if (!strcmp(s, ">>")) return "shr"; if (!strcmp(s, "<<")) return "shl"; if (!strcmp(s, "/\\")) return "band"; if (!strcmp(s, "\\/")) return "bor";
-        return NULL;
-    }
-    if (ar == 1) {
-        if (!strcmp(s, "-")) return "neg"; if (!strcmp(s, "+")) return "pos"; if (!strcmp(s, "abs")) return "abs"; if (!strcmp(s, "sign")) return "sign";
-        if (!strcmp(s, "truncate")) return "trunc"; if (!strcmp(s, "integer")) return "intg"; if (!strcmp(s, "float")) return "flt";
-        if (!strcmp(s, "floor")) return "floor"; if (!strcmp(s, "ceiling")) return "ceil"; if (!strcmp(s, "round")) return "round";
-        if (!strcmp(s, "sqrt")) return "sqrt"; if (!strcmp(s, "msb")) return "msb"; if (!strcmp(s, "\\")) return "bnot"; if (!strcmp(s, "sin")) return "sin"; if (!strcmp(s, "cos")) return "cos";
-        if (!strcmp(s, "atan")) return "atan"; if (!strcmp(s, "log")) return "log"; if (!strcmp(s, "exp")) return "exp";
-        if (!strcmp(s, "float_integer_part")) return "fip"; if (!strcmp(s, "float_fractional_part")) return "ffp";
-        return NULL;
-    }
-    if (ar == 0) { if (!strcmp(s, "pi")) return "pi"; return NULL; }
-    return NULL;
-}
+static const char * pl_ax_suffix(const char * s, int ar) { return pl_ax_suffix_of(s, ar); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_ax_divides(const char * sfx) {
     if (!sfx) return 0;
@@ -618,8 +598,6 @@ static const char * pl_spec_key(const tree_t * s, int * ar_out) {
     return s->c[0]->v.sval;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_db_leaf2(lcx_t * cx, const char * sym, int k, const tree_t * arg, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = (char *) sym;
     IR_t * kn = build(cx, IR_LIT_INTEGER, NULL, ωfail); IR_LIT(kn).ival = k;
@@ -630,9 +608,6 @@ static IR_t * pl_db_leaf2(lcx_t * cx, const char * sym, int k, const tree_t * ar
     if (entry_out) *entry_out = kn;
     return nd;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * pl_nb_key(const tree_t * t) {
     if (!t || !(t->t == TT_QLIT || t->t == TT_NAME) || !t->v.sval) return NULL;
@@ -751,8 +726,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = "$is_v";
             IR_t * xe = NULL; IR_t * xl = term_lval_e(cx, t->c[0], &xe);
             IR_t * ve = NULL; IR_t * v = lower_arith_val(cx, t->c[1], ωfail, &ve);
-            IR_t * eg = build(cx, IR_CALL, nd, ωfail); IR_LIT(eg).sval = "$ax_eguard"; ir_operand_push(eg, v);
-            lc_γ_to(xl, ve ? ve : v); lc_ω_to(xl, ωfail); lc_γ_to(v, eg); lc_ω_to(v, ωfail);
+            lc_γ_to(xl, ve ? ve : v); lc_ω_to(xl, ωfail); lc_γ_to(v, nd); lc_ω_to(v, ωfail);
             ir_operand_push(nd, xl); ir_operand_push(nd, v);
             if (entry_out) *entry_out = xe ? xe : xl;
             return nd;
@@ -763,10 +737,8 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = strdup(nb);
             IR_t * ea = NULL; IR_t * eb = NULL;
             IR_t * a = lower_arith_val(cx, t->c[0], ωfail, &ea); IR_t * b = lower_arith_val(cx, t->c[1], ωfail, &eb);
-            IR_t * ega = build(cx, IR_CALL, NULL, ωfail); IR_LIT(ega).sval = "$ax_eguard"; ir_operand_push(ega, a);
-            IR_t * egb = build(cx, IR_CALL, nd, ωfail); IR_LIT(egb).sval = "$ax_eguard"; ir_operand_push(egb, b);
-            lc_γ_to(a, ega); lc_ω_to(a, ωfail); lc_γ_to(ega, eb ? eb : b);
-            lc_γ_to(b, egb); lc_ω_to(b, ωfail);
+            lc_γ_to(a, eb ? eb : b); lc_ω_to(a, ωfail);
+            lc_γ_to(b, nd); lc_ω_to(b, ωfail);
             ir_operand_push(nd, a); ir_operand_push(nd, b);
             if (entry_out) *entry_out = ea ? ea : a;
             return nd;

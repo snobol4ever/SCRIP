@@ -1559,14 +1559,21 @@ void *rt_pl_ball_existence(DESCR_t *a, int n)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_ball_evaluable(const char *name, int arity)
 {
+    extern void *rt_pl_ball_type_pi(const char *kind, const char *what, const char *nm, int ar);
+    return rt_pl_ball_type_pi("type_error", "evaluable", name, arity);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_pl_ball_type_pi(const char *kind, const char *what, const char *nm, int ar)
+{
     extern DESCR_t rt_pl_fresh_var_ref(void);
-    pl_cell_t pi[2]; pi[0] = pl_make_atom(prolog_atom_intern(name ? name : "?")); pi[1] = pl_make_int(arity);
-    pl_cell_t *pic = (pl_cell_t *)rt_pl_compound_cell("/", 2, (void *)pi);
+    pl_cell_t pi[2]; pl_cell_t *pic; pl_cell_t te[2]; pl_cell_t *tec; pl_cell_t er[2];
+    pi[0] = pl_make_atom(prolog_atom_intern(nm ? nm : "?")); pi[1] = pl_make_int(ar);
+    pic = (pl_cell_t *)rt_pl_compound_cell("/", 2, (void *)pi);
     if (!pic) return (void *)0;
-    pl_cell_t fe[2]; fe[0] = pl_make_atom(prolog_atom_intern("evaluable")); fe[1] = *pic;
-    pl_cell_t *fec = (pl_cell_t *)rt_pl_compound_cell("type_error", 2, (void *)fe);
-    if (!fec) return (void *)0;
-    pl_cell_t er[2]; er[0] = *fec; er[1] = rt_pl_fresh_var_ref();
+    te[0] = pl_make_atom(prolog_atom_intern(what ? what : "evaluable")); te[1] = *pic;
+    tec = (pl_cell_t *)rt_pl_compound_cell(kind ? kind : "type_error", 2, (void *)te);
+    if (!tec) return (void *)0;
+    er[0] = *tec; er[1] = rt_pl_fresh_var_ref();
     return rt_pl_compound_cell("error", 2, (void *)er);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1919,8 +1926,6 @@ int rt_pl_db_assert(void *db_v, void *clause_term, int prepend)
         if (rt_pl_db_head_key((void *)&db->s[prepend ? 0 : db->n - 1].cl, key, sizeof key, &ar)) rt_pl_db_recompile(db_v, key, ar); }
       return 1; }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_erase(void *db_v, int i)
 {

@@ -2,6 +2,7 @@
 RTX_GATE_DEF(plunify)
 #define CTX_TR            0
 #define CTX_B             8
+#define CTX_BALL         16
 #define CTX_FRAME        24
 RTX_FUNC(rt_pl_quad_seed)
     sub     rsp, 8
@@ -135,10 +136,18 @@ RTX_FUNC(rt_pl_dop_is_v)
     sub     rsp, CTX_FRAME
     mov     qword ptr [rsp + CTX_TR], r12
     mov     qword ptr [rsp + CTX_B], r13
+    mov     qword ptr [rsp + CTX_BALL], 0
     mov     rdx, rsp
     call    rt_pl_dop_is_v_c
     mov     r12, qword ptr [rsp + CTX_TR]
+    mov     rcx, qword ptr [rsp + CTX_BALL]
     add     rsp, CTX_FRAME
+    test    rcx, rcx
+    jz      .Lisv_ret
+    mov     r15, rcx
+    mov     eax, DT_FAIL | (MOD_OP_RT_PL_IS_V << 8)
+    xor     edx, edx
+.Lisv_ret:
     ret
 RTX_ENDF(rt_pl_dop_is_v)
 #define PL_CTX_LEAF(nm) RTX_FUNC(rt_pl_dop_##nm); sub rsp, CTX_FRAME; mov qword ptr [rsp + CTX_TR], r12; mov qword ptr [rsp + CTX_B], r13; mov rdx, rsp; \
@@ -207,6 +216,54 @@ PL_ROOT_LEAF(nb_setval)
 #define PL_ROOTCTX_LEAF(nm) RTX_FUNC(rt_pl_dop_##nm); sub rsp, CTX_FRAME; mov qword ptr [rsp + CTX_TR], r12; mov qword ptr [rsp + CTX_B], r13; mov rdx, rsp; mov rcx, r14; \
     call rt_pl_dop_##nm##_c; mov r12, qword ptr [rsp + CTX_TR]; add rsp, CTX_FRAME; ret; RTX_ENDF(rt_pl_dop_##nm)
 PL_ROOTCTX_LEAF(nb_getval)
+#define PL_AX_VENEER(nm, NM) RTX_FUNC(rt_pl_dop_ax_##nm); sub rsp, 24; mov qword ptr [rsp + 8], 0; lea rdx, [rsp + 8]; call rt_pl_dop_ax_##nm##_c; mov rcx, qword ptr [rsp + 8]; add rsp, 24; \
+    test rcx, rcx; jz 9f; mov r15, rcx; mov eax, DT_FAIL | (MOD_OP_RT_PL_AX_##NM << 8); xor edx, edx; 9: ret; RTX_ENDF(rt_pl_dop_ax_##nm)
+PL_AX_VENEER(add, ADD)
+PL_AX_VENEER(sub, SUB)
+PL_AX_VENEER(mul, MUL)
+PL_AX_VENEER(div, DIV)
+PL_AX_VENEER(idiv, IDIV)
+PL_AX_VENEER(mod, MOD)
+PL_AX_VENEER(rem, REM)
+PL_AX_VENEER(fpow, FPOW)
+PL_AX_VENEER(pow, POW)
+PL_AX_VENEER(min, MIN)
+PL_AX_VENEER(max, MAX)
+PL_AX_VENEER(gcd, GCD)
+PL_AX_VENEER(xor, XOR)
+PL_AX_VENEER(shr, SHR)
+PL_AX_VENEER(shl, SHL)
+PL_AX_VENEER(band, BAND)
+PL_AX_VENEER(bor, BOR)
+PL_AX_VENEER(neg, NEG)
+PL_AX_VENEER(pos, POS)
+PL_AX_VENEER(abs, ABS)
+PL_AX_VENEER(sign, SIGN)
+PL_AX_VENEER(trunc, TRUNC)
+PL_AX_VENEER(intg, INTG)
+PL_AX_VENEER(flt, FLT)
+PL_AX_VENEER(floor, FLOOR)
+PL_AX_VENEER(ceil, CEIL)
+PL_AX_VENEER(round, ROUND)
+PL_AX_VENEER(sqrt, SQRT)
+PL_AX_VENEER(msb, MSB)
+PL_AX_VENEER(bnot, BNOT)
+PL_AX_VENEER(sin, SIN)
+PL_AX_VENEER(cos, COS)
+PL_AX_VENEER(atan, ATAN)
+PL_AX_VENEER(log, LOG)
+PL_AX_VENEER(exp, EXP)
+PL_AX_VENEER(fip, FIP)
+PL_AX_VENEER(ffp, FFP)
+PL_AX_VENEER(pi, PI)
+#define PL_CMP_LEAF(nm, NM) RTX_FUNC(rt_pl_dop_cmp_##nm); sub rsp, 24; mov qword ptr [rsp + 8], 0; lea rdx, [rsp + 8]; call rt_pl_dop_cmp_##nm##_c; mov rcx, qword ptr [rsp + 8]; add rsp, 24; \
+    test rcx, rcx; jz 8f; mov r15, rcx; mov eax, DT_FAIL | (MOD_OP_RT_PL_CMP_##NM << 8); xor edx, edx; 8: ret; RTX_ENDF(rt_pl_dop_cmp_##nm)
+PL_CMP_LEAF(lt, LT)
+PL_CMP_LEAF(gt, GT)
+PL_CMP_LEAF(le, LE)
+PL_CMP_LEAF(ge, GE)
+PL_CMP_LEAF(eq, EQ)
+PL_CMP_LEAF(ne, NE)
 RTX_FUNC(rt_pl_dop_ax_zguard)
     sub     rsp, 8
     call    rt_pl_dop_ax_zguard_c

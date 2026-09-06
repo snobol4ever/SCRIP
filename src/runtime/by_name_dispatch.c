@@ -3,6 +3,7 @@
 #include <sys/stat.h>
 #include <setjmp.h>
 #include "snobol4_system_fns.h"
+#include "pl_arith_names.h"
 int core_icn_error(int code, DESCR_t val);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) size_t sv_len(DESCR_t arg, const char *coerced) {
@@ -1244,12 +1245,19 @@ void rk_sprintf_core(const char *fmt, DESCR_t *args, int nargs, int from, char *
     buf[len] = 0; *outp = buf; if (outlen) *outlen = len;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out) {
+static int pl_ax_eval(DESCR_t t, DESCR_t *out, void **ball);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void *pl_ax_int_ball(DESCR_t a, DESCR_t b, int ai) {
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    return rt_pl_ball_kind2("type_error", "integer", ai ? b : a);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void **ball) {
     extern DESCR_t rt_pl_deref_val(DESCR_t); extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int);
     if (nargs == 0) { if (!strcmp(op, "pi")) { *out = REALVAL(M_PI); return 1; } *out = FAILDESCR; return 1; }
     DESCR_t a = rt_pl_deref_val(args[0]);
+    if (a.v != DT_I && a.v != DT_R) { void *bl = (void *)0; DESCR_t ev; if (pl_ax_eval(a, &ev, &bl)) a = ev; else { if (bl && ball && !*ball) *ball = bl; *out = FAILDESCR; return 1; } }
     int ai = (a.v == DT_I), arl = (a.v == DT_R);
-    if (!ai && !arl) { pl_iso_evaluable(a); *out = FAILDESCR; return 1; }
     double ad = arl ? a.r : (double)a.i;
     if (nargs == 1) {
         if (!strcmp(op, "neg"))   { *out = ai ? INTVAL(-a.i) : REALVAL(-ad); return 1; }
@@ -1270,25 +1278,42 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out) {
         if (!strcmp(op, "exp"))   { *out = REALVAL(exp(ad)); return 1; }
         if (!strcmp(op, "fip"))   { *out = REALVAL(trunc(ad)); return 1; }
         if (!strcmp(op, "ffp"))   { *out = REALVAL(ad - trunc(ad)); return 1; }
-        if (!strcmp(op, "msb"))   { if (!ai || a.i <= 0) { *out = FAILDESCR; return 1; } *out = INTVAL(63 - __builtin_clzll((unsigned long long)a.i)); return 1; }
-        if (!strcmp(op, "bnot"))  { if (!ai) { pl_iso_evaluable(a); *out = FAILDESCR; return 1; } *out = INTVAL(~a.i); return 1; }
+        if (!strcmp(op, "msb"))   { if (!ai) { if (ball && !*ball) *ball = pl_ax_int_ball(a, a, 0); *out = FAILDESCR; return 1; } if (a.i <= 0) { *out = FAILDESCR; return 1; } *out = INTVAL(63 - __builtin_clzll((unsigned long long)a.i)); return 1; }
+        if (!strcmp(op, "bnot"))  { if (!ai) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); if (ball && !*ball) *ball = rt_pl_ball_kind2("type_error", "integer", a); *out = FAILDESCR; return 1; } *out = INTVAL(~a.i); return 1; }
         *out = FAILDESCR; return 1;
     }
     DESCR_t b = rt_pl_deref_val(args[1]);
+    if (b.v != DT_I && b.v != DT_R) { void *bl = (void *)0; DESCR_t ev; if (pl_ax_eval(b, &ev, &bl)) b = ev; else { if (bl && ball && !*ball) *ball = bl; *out = FAILDESCR; return 1; } }
     int bi = (b.v == DT_I), brl = (b.v == DT_R);
-    if (!bi && !brl) { pl_iso_evaluable(b); *out = FAILDESCR; return 1; }
     double bd = brl ? b.r : (double)b.i;
     if (!strcmp(op, "fpow") || !strcmp(op, "pow")) { if (ai && bi && b.i >= 0) { long long r = 1, bs = a.i, e = b.i; int ovf = 0; while (e) { if (e & 1) ovf |= __builtin_mul_overflow(r, bs, &r); e >>= 1; if (e) ovf |= __builtin_mul_overflow(bs, bs, &bs); } if (!ovf) { *out = INTVAL(r); return 1; } } *out = REALVAL(pow(ad, bd)); return 1; }
     if (!strcmp(op, "min")) { *out = (ai && bi) ? INTVAL(a.i < b.i ? a.i : b.i) : REALVAL(ad < bd ? ad : bd); return 1; }
     if (!strcmp(op, "max")) { *out = (ai && bi) ? INTVAL(a.i > b.i ? a.i : b.i) : REALVAL(ad > bd ? ad : bd); return 1; }
-    if (!strcmp(op, "gcd")) { if (!ai || !bi) { *out = FAILDESCR; return 1; } long long x = a.i < 0 ? -a.i : a.i, y = b.i < 0 ? -b.i : b.i; while (y) { long long t2 = x % y; x = y; y = t2; } *out = INTVAL(x); return 1; }
-    if (!strcmp(op, "rem")) { if (!ai || !bi || b.i == 0) { *out = FAILDESCR; return 1; } *out = INTVAL(a.i % b.i); return 1; }
-    if (!strcmp(op, "xor")) { if (!ai || !bi) { *out = FAILDESCR; return 1; } *out = INTVAL(a.i ^ b.i); return 1; }
-    if (!strcmp(op, "shl")) { if (!ai || !bi) { *out = FAILDESCR; return 1; } *out = INTVAL(a.i << b.i); return 1; }
-    if (!strcmp(op, "shr")) { if (!ai || !bi) { *out = FAILDESCR; return 1; } *out = INTVAL(a.i >> b.i); return 1; }
-    if (!strcmp(op, "band")) { if (!ai || !bi) { *out = FAILDESCR; return 1; } *out = INTVAL(a.i & b.i); return 1; }
-    if (!strcmp(op, "bor"))  { if (!ai || !bi) { *out = FAILDESCR; return 1; } *out = INTVAL(a.i | b.i); return 1; }
+    if (!strcmp(op, "gcd")) { if (!ai || !bi) { if (ball && !*ball) *ball = pl_ax_int_ball(a, b, ai); *out = FAILDESCR; return 1; } long long x = a.i < 0 ? -a.i : a.i, y = b.i < 0 ? -b.i : b.i; while (y) { long long t2 = x % y; x = y; y = t2; } *out = INTVAL(x); return 1; }
+    if (!strcmp(op, "rem")) { if (!ai || !bi) { if (ball && !*ball) *ball = pl_ax_int_ball(a, b, ai); *out = FAILDESCR; return 1; } if (b.i == 0) { *out = FAILDESCR; return 1; } *out = INTVAL(a.i % b.i); return 1; }
+    if (!strcmp(op, "xor")) { if (!ai || !bi) { if (ball && !*ball) *ball = pl_ax_int_ball(a, b, ai); *out = FAILDESCR; return 1; } *out = INTVAL(a.i ^ b.i); return 1; }
+    if (!strcmp(op, "shl")) { if (!ai || !bi) { if (ball && !*ball) *ball = pl_ax_int_ball(a, b, ai); *out = FAILDESCR; return 1; } *out = INTVAL(a.i << b.i); return 1; }
+    if (!strcmp(op, "shr")) { if (!ai || !bi) { if (ball && !*ball) *ball = pl_ax_int_ball(a, b, ai); *out = FAILDESCR; return 1; } *out = INTVAL(a.i >> b.i); return 1; }
+    if (!strcmp(op, "band")) { if (!ai || !bi) { if (ball && !*ball) *ball = pl_ax_int_ball(a, b, ai); *out = FAILDESCR; return 1; } *out = INTVAL(a.i & b.i); return 1; }
+    if (!strcmp(op, "bor"))  { if (!ai || !bi) { if (ball && !*ball) *ball = pl_ax_int_ball(a, b, ai); *out = FAILDESCR; return 1; } *out = INTVAL(a.i | b.i); return 1; }
     { DESCR_t r = pl_arith2(op, a, b); if (r.v == DT_FAIL) { *out = FAILDESCR; return 1; } *out = r; return 1; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_ax_eval(DESCR_t t, DESCR_t *out, void **ball) {
+    extern DESCR_t rt_pl_deref_val(DESCR_t); extern const char *prolog_atom_name(int);
+    extern void *rt_pl_ball_instantiation(void); extern void *rt_pl_ball_type_pi(const char *, const char *, const char *, int);
+    DESCR_t d = rt_pl_deref_val(t);
+    if (d.v == DT_I || d.v == DT_R) { *out = d; return 1; }
+    *out = d;
+    if (d.v == (DTYPE_t)DT_PLVAR || d.v == DT_SNUL || d.v == DT_FAIL) { *ball = rt_pl_ball_instantiation(); return 0; }
+    if ((int)d.v == DT_A || d.v == DT_S) { const char *nm = pl_atom_str(d); const char *sfx = pl_ax_suffix_of(nm, 0);
+      if (sfx) { DESCR_t none = FAILDESCR; dop_ax(sfx, &none, 0, out, ball); return out->v != DT_FAIL; }
+      *ball = rt_pl_ball_type_pi("type_error", "evaluable", nm ? nm : "?", 0); return 0; }
+    if ((int)d.v == DT_PLREF) { int ar = (int)(d.slen & 0xFFFFu); const char *nm = prolog_atom_name((int)(d.slen >> 16)); const char *sfx = pl_ax_suffix_of(nm, ar); DESCR_t *kids = (DESCR_t *)d.p; DESCR_t ev[2];
+      if (!sfx || ar < 1 || ar > 2 || !kids) { *ball = rt_pl_ball_type_pi("type_error", "evaluable", nm ? nm : "?", ar); return 0; }
+      for (int k = 0; k < ar; k++) if (!pl_ax_eval(kids[k], &ev[k], ball)) { *out = ev[k]; return 0; }
+      dop_ax(sfx, ev, ar, out, ball); return out->v != DT_FAIL; }
+    *ball = rt_pl_ball_type_pi("type_error", "evaluable", "?", 0); return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t *plw_mkc_kids(DESCR_t *srcs, int ar, pl_tr_ctx_t *cx) {
@@ -1323,6 +1348,15 @@ static int dop_cmp(const char *op, DESCR_t *args, int nargs, DESCR_t *out) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef int (*dop_body_fn)(DESCR_t *, int, DESCR_t *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef int (*dop_axbody_fn)(DESCR_t *, int, DESCR_t *, void **);
+static DESCR_t dop_call_ax(dop_axbody_fn body, DESCR_t *args, int nargs, void **ball) {
+    extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
+    DESCR_t out = FAILDESCR;
+    rt_gc_point_arr(args, nargs, (const char **)0);
+    body(args, nargs, &out, ball);
+    return out;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t dop_call(dop_body_fn body, DESCR_t *args, int nargs) {
     extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     DESCR_t out = FAILDESCR;
@@ -1331,12 +1365,12 @@ static DESCR_t dop_call(dop_body_fn body, DESCR_t *args, int nargs) {
     return out;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int dop_ax_add(DESCR_t *a, int n, DESCR_t *o) { return dop_ax("add", a, n, o); }
-static int dop_ax_sub(DESCR_t *a, int n, DESCR_t *o) { return dop_ax("sub", a, n, o); }
-static int dop_ax_mul(DESCR_t *a, int n, DESCR_t *o) { return dop_ax("mul", a, n, o); }
-static int dop_ax_div(DESCR_t *a, int n, DESCR_t *o) { return dop_ax("div", a, n, o); }
-static int dop_ax_idiv(DESCR_t *a, int n, DESCR_t *o) { return dop_ax("idiv", a, n, o); }
-static int dop_ax_mod(DESCR_t *a, int n, DESCR_t *o) { return dop_ax("mod", a, n, o); }
+static int dop_ax_add(DESCR_t *a, int n, DESCR_t *o, void **bl) { return dop_ax("add", a, n, o, bl); }
+static int dop_ax_sub(DESCR_t *a, int n, DESCR_t *o, void **bl) { return dop_ax("sub", a, n, o, bl); }
+static int dop_ax_mul(DESCR_t *a, int n, DESCR_t *o, void **bl) { return dop_ax("mul", a, n, o, bl); }
+static int dop_ax_div(DESCR_t *a, int n, DESCR_t *o, void **bl) { return dop_ax("div", a, n, o, bl); }
+static int dop_ax_idiv(DESCR_t *a, int n, DESCR_t *o, void **bl) { return dop_ax("idiv", a, n, o, bl); }
+static int dop_ax_mod(DESCR_t *a, int n, DESCR_t *o, void **bl) { return dop_ax("mod", a, n, o, bl); }
 static int dop_cmp_lt(DESCR_t *a, int n, DESCR_t *o) { return dop_cmp("lt", a, n, o); }
 static int dop_cmp_gt(DESCR_t *a, int n, DESCR_t *o) { return dop_cmp("gt", a, n, o); }
 static int dop_cmp_le(DESCR_t *a, int n, DESCR_t *o) { return dop_cmp("le", a, n, o); }
@@ -1398,34 +1432,35 @@ DESCR_t rt_pl_dop_is_v_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
     rt_pl_tr_gc_sync(cx->tr);
     rt_gc_point_arr(args, 2, (const char **)0);
     { DESCR_t v = rt_pl_deref_val(args[1]); DESCR_t out;
+      if (v.v != DT_I && v.v != DT_R) { void *bl = (void *)0; DESCR_t ev; if (pl_ax_eval(v, &ev, &bl)) v = ev; else { cx->ball = bl; rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; } }
       if (v.v != DT_I && v.v != DT_R) { pl_iso_evaluable(v); out = FAILDESCR; }
       else { char *tr0 = cx->tr; out = plw_unify_vals(args[0], v, cx) ? v : FAILDESCR; if (out.v == DT_FAIL) cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0); }
       rt_pl_tr_gc_sync(cx->tr); return out; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dop_ax_add(DESCR_t *args, int nargs) {
+DESCR_t rt_pl_dop_ax_add_c(DESCR_t *args, int nargs, void **ball) {
     if (nargs == 2) { DESCR_t a = rt_pl_deref_val(args[0]), b = rt_pl_deref_val(args[1]); long long r;
       if (a.v == DT_I && b.v == DT_I && !__builtin_add_overflow(a.i, b.i, &r)) return INTVAL(r); }
-    return nargs == 2 ? dop_call(dop_ax_add, args, nargs) : FAILDESCR;
+    return nargs == 2 ? dop_call_ax(dop_ax_add, args, nargs, ball) : FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dop_ax_sub(DESCR_t *args, int nargs) {
+DESCR_t rt_pl_dop_ax_sub_c(DESCR_t *args, int nargs, void **ball) {
     if (nargs == 2) { DESCR_t a = rt_pl_deref_val(args[0]), b = rt_pl_deref_val(args[1]); long long r;
       if (a.v == DT_I && b.v == DT_I && !__builtin_sub_overflow(a.i, b.i, &r)) return INTVAL(r); }
-    return nargs == 2 ? dop_call(dop_ax_sub, args, nargs) : FAILDESCR;
+    return nargs == 2 ? dop_call_ax(dop_ax_sub, args, nargs, ball) : FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dop_ax_mul(DESCR_t *args, int nargs) {
+DESCR_t rt_pl_dop_ax_mul_c(DESCR_t *args, int nargs, void **ball) {
     if (nargs == 2) { DESCR_t a = rt_pl_deref_val(args[0]), b = rt_pl_deref_val(args[1]); long long r;
       if (a.v == DT_I && b.v == DT_I && !__builtin_mul_overflow(a.i, b.i, &r)) return INTVAL(r); }
-    return nargs == 2 ? dop_call(dop_ax_mul, args, nargs) : FAILDESCR;
+    return nargs == 2 ? dop_call_ax(dop_ax_mul, args, nargs, ball) : FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dop_ax_div(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_ax_div, args, nargs) : FAILDESCR; }
-DESCR_t rt_pl_dop_ax_idiv(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_ax_idiv, args, nargs) : FAILDESCR; }
-DESCR_t rt_pl_dop_ax_mod(DESCR_t *args, int nargs) { return nargs == 2 ? dop_call(dop_ax_mod, args, nargs) : FAILDESCR; }
+DESCR_t rt_pl_dop_ax_div_c(DESCR_t *args, int nargs, void **ball) { return nargs == 2 ? dop_call_ax(dop_ax_div, args, nargs, ball) : FAILDESCR; }
+DESCR_t rt_pl_dop_ax_idiv_c(DESCR_t *args, int nargs, void **ball) { return nargs == 2 ? dop_call_ax(dop_ax_idiv, args, nargs, ball) : FAILDESCR; }
+DESCR_t rt_pl_dop_ax_mod_c(DESCR_t *args, int nargs, void **ball) { return nargs == 2 ? dop_call_ax(dop_ax_mod, args, nargs, ball) : FAILDESCR; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define PL_AX_LEAF(nm, op, ar) static int dop_ax_##nm(DESCR_t *a, int n, DESCR_t *o) { return dop_ax(op, a, n, o); } DESCR_t rt_pl_dop_ax_##nm(DESCR_t *args, int nargs) { return nargs == ar ? dop_call(dop_ax_##nm, args, nargs) : FAILDESCR; }
+#define PL_AX_LEAF(nm, op, ar) static int dop_ax_##nm(DESCR_t *a, int n, DESCR_t *o, void **bl) { return dop_ax(op, a, n, o, bl); } DESCR_t rt_pl_dop_ax_##nm##_c(DESCR_t *args, int nargs, void **ball) { return nargs == ar ? dop_call_ax(dop_ax_##nm, args, nargs, ball) : FAILDESCR; }
 PL_AX_LEAF(rem, "rem", 2) PL_AX_LEAF(fpow, "fpow", 2) PL_AX_LEAF(pow, "pow", 2) PL_AX_LEAF(min, "min", 2) PL_AX_LEAF(max, "max", 2) PL_AX_LEAF(gcd, "gcd", 2) PL_AX_LEAF(xor, "xor", 2)
 PL_AX_LEAF(shr, "shr", 2) PL_AX_LEAF(shl, "shl", 2) PL_AX_LEAF(band, "band", 2) PL_AX_LEAF(bor, "bor", 2)
 PL_AX_LEAF(neg, "neg", 1) PL_AX_LEAF(pos, "pos", 1) PL_AX_LEAF(abs, "abs", 1) PL_AX_LEAF(sign, "sign", 1) PL_AX_LEAF(trunc, "trunc", 1) PL_AX_LEAF(intg, "intg", 1) PL_AX_LEAF(flt, "flt", 1)
@@ -1433,21 +1468,23 @@ PL_AX_LEAF(floor, "floor", 1) PL_AX_LEAF(ceil, "ceil", 1) PL_AX_LEAF(round, "rou
 PL_AX_LEAF(cos, "cos", 1) PL_AX_LEAF(atan, "atan", 1) PL_AX_LEAF(log, "log", 1) PL_AX_LEAF(exp, "exp", 1) PL_AX_LEAF(fip, "fip", 1) PL_AX_LEAF(ffp, "ffp", 1)
 PL_AX_LEAF(pi, "pi", 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t dop_cmp_fast(DESCR_t *args, int rel, dop_body_fn slow) {
+static DESCR_t dop_cmp_fast(DESCR_t *args, int rel, dop_body_fn slow, void **ball) {
     DESCR_t a = rt_pl_deref_val(args[0]), b = rt_pl_deref_val(args[1]);
     if ((a.v == DT_I || a.v == DT_R) && (b.v == DT_I || b.v == DT_R)) {
         double av = IS_REAL_fn(a) ? a.r : (double)a.i, bv = IS_REAL_fn(b) ? b.r : (double)b.i;
         int t = rel == 0 ? av < bv : rel == 1 ? av > bv : rel == 2 ? av <= bv : rel == 3 ? av >= bv : rel == 4 ? av == bv : av != bv;
         return t ? a : FAILDESCR; }
-    return dop_call(slow, args, 2);
+    { void *bl = (void *)0; DESCR_t ev[2];
+      if (!pl_ax_eval(a, &ev[0], &bl) || !pl_ax_eval(b, &ev[1], &bl)) { if (ball) *ball = bl; return FAILDESCR; }
+      return dop_call(slow, ev, 2); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dop_cmp_lt(DESCR_t *args, int nargs) { return nargs == 2 ? dop_cmp_fast(args, 0, dop_cmp_lt) : FAILDESCR; }
-DESCR_t rt_pl_dop_cmp_gt(DESCR_t *args, int nargs) { return nargs == 2 ? dop_cmp_fast(args, 1, dop_cmp_gt) : FAILDESCR; }
-DESCR_t rt_pl_dop_cmp_le(DESCR_t *args, int nargs) { return nargs == 2 ? dop_cmp_fast(args, 2, dop_cmp_le) : FAILDESCR; }
-DESCR_t rt_pl_dop_cmp_ge(DESCR_t *args, int nargs) { return nargs == 2 ? dop_cmp_fast(args, 3, dop_cmp_ge) : FAILDESCR; }
-DESCR_t rt_pl_dop_cmp_eq(DESCR_t *args, int nargs) { return nargs == 2 ? dop_cmp_fast(args, 4, dop_cmp_eq) : FAILDESCR; }
-DESCR_t rt_pl_dop_cmp_ne(DESCR_t *args, int nargs) { return nargs == 2 ? dop_cmp_fast(args, 5, dop_cmp_ne) : FAILDESCR; }
+DESCR_t rt_pl_dop_cmp_lt_c(DESCR_t *args, int nargs, void **ball) { return nargs == 2 ? dop_cmp_fast(args, 0, dop_cmp_lt, ball) : FAILDESCR; }
+DESCR_t rt_pl_dop_cmp_gt_c(DESCR_t *args, int nargs, void **ball) { return nargs == 2 ? dop_cmp_fast(args, 1, dop_cmp_gt, ball) : FAILDESCR; }
+DESCR_t rt_pl_dop_cmp_le_c(DESCR_t *args, int nargs, void **ball) { return nargs == 2 ? dop_cmp_fast(args, 2, dop_cmp_le, ball) : FAILDESCR; }
+DESCR_t rt_pl_dop_cmp_ge_c(DESCR_t *args, int nargs, void **ball) { return nargs == 2 ? dop_cmp_fast(args, 3, dop_cmp_ge, ball) : FAILDESCR; }
+DESCR_t rt_pl_dop_cmp_eq_c(DESCR_t *args, int nargs, void **ball) { return nargs == 2 ? dop_cmp_fast(args, 4, dop_cmp_eq, ball) : FAILDESCR; }
+DESCR_t rt_pl_dop_cmp_ne_c(DESCR_t *args, int nargs, void **ball) { return nargs == 2 ? dop_cmp_fast(args, 5, dop_cmp_ne, ball) : FAILDESCR; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t dop_write(DESCR_t *args, int nargs) {
     extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
@@ -6296,7 +6333,6 @@ void * rt_pl_dop_nb_getval_guard_c(DESCR_t *args, int nargs, void *root) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int rt_pl_db_recompile(void *, const char *, int);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t pl_db_add(DESCR_t *args, int nargs, void *root, int prepend) {
     if (nargs != 2) return FAILDESCR;
     pl_atoms_ready();
@@ -6325,9 +6361,6 @@ static int pl_db_pair_parts(DESCR_t *p, DESCR_t *h, DESCR_t *b) {
     if ((int)d->v != DT_PLREF || pl_arity((pl_cell_t *)d) != 2) return 0;
     { DESCR_t *aa = (DESCR_t *)d->p; if (h) *h = aa[0]; if (b) *b = aa[1]; return 1; }
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int rt_pl_db_match_erase(void *, void *);
 DESCR_t rt_pl_dop_db_retractall_c(DESCR_t *args, int nargs, void *root) {
