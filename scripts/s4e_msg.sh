@@ -2154,6 +2154,26 @@ TASKEOF
          # measured from seat07's transcript the same hour -- 4 banners, 2 score lines: the line printed LAST, after ~9 s of
          # slower work, where a Stop-hook timeout or a truncated display loses it, and its refusal went to /dev/null. So it
          # prints HERE, 0.18 s, before anything slow, and a refusal prints VISIBLY. Never the verdict: this is a pipeline.
+         # ⭐⭐ THE SUITE BANNER FIRST (Lon 2026-09-20 11:20 via ceo, THE FLEET-12 PLAN, MASTER-PLAN § THE
+         # FLEET-12 PLAN: "Banner every turn: python3 .github/scripts/util_suite_banner.py (hq_T wires it
+         # into s4e_msg.sh banner, rank 0)"). It is the SUITE view -- one line per suite, on/off the curve --
+         # and under the plan's own first rule, WORK THE SUITES NOT THE LANGUAGES, it outranks the per-language
+         # PROGRESS line below it. Both print: the language line is not retired, it is demoted.
+         # ⛔ SAME DISCIPLINE AS THE LINE BELOW, FOR THE SAME MEASURED REASON: it prints HERE, before anything
+         # slow, because a Stop-hook timeout or a truncated display loses whatever printed last (measured on
+         # seat07: 4 banners, 2 score lines). 0.02 s over three runs, so it costs nothing to put first.
+         # ⛔ AND ITS REFUSAL IS VISIBLE, NEVER /dev/null. A banner line that silently vanishes when its data
+         # file is missing is indistinguishable from a fleet with no suites -- the not-found/not-there collision
+         # this file already carries three instances of. It reads .github/SUITES.tsv relative to its OWN path,
+         # so it does not honour S4E_HOME; the probe below points at a nonexistent SCRIPT instead, which is the
+         # failure this wiring can actually have.
+         if [ -n "${S4E_SUITE_BANNER_PROBE_BROKEN:-}" ]; then _sb="/nonexistent/util_suite_banner.py"; else _sb="$S4E/.github/scripts/util_suite_banner.py"; fi
+         if [ -f "$_sb" ]; then
+           python3 "$_sb" 2>/dev/null \
+             || printf 'SUITE BANNER: UNREADABLE -- %s ran but printed no line (SUITES.tsv missing or malformed); the verdict below is unaffected\n' "$_sb"
+         else
+           printf 'SUITE BANNER: ABSENT -- %s is not on disk, so the suite view is NOT being shown this turn (pull .github); the verdict below is unaffected\n' "$_sb"
+         fi
          if [ -n "${S4E_PROGRESS_PROBE_BROKEN:-}" ]; then _ph="/nonexistent-s4e-home"; else _ph="$S4E"; fi
          S4E_HOME="$_ph" python3 "$(dirname "${BASH_SOURCE[0]}")/util_score_row.py" progress 2>/dev/null | grep -m1 '^PROGRESS 09-10 |' \
            || printf 'PROGRESS: UNREADABLE -- util_score_row.py progress printed no score line under %s (SCORE.md missing or its grid unreadable); the verdict below is unaffected\n' "$_ph"
