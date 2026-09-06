@@ -646,6 +646,8 @@ int rt_cap_poison(void) { static int v = -1; if (v < 0) { const char *e = getenv
 int rt_cap_slice_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_SLICE"); v = (e && *e == '0') ? 0 : 1; } return v; }
 typedef struct { const char *cur; const char *top; const char *subj; DESCR_t pending; } rt_dcf_t;
 __attribute__((visibility("hidden"))) rt_dcf_t *g_dcf; __attribute__((visibility("hidden"))) int g_dcf_top; __attribute__((visibility("hidden"))) int g_dcf_cap;
+extern uint32_t g_cap_gen;
+__attribute__((visibility("hidden"))) uint32_t g_cap_abort_gen;
 __attribute__((visibility("hidden"))) int g_dcap_trace = -1;
 _Static_assert(sizeof(rt_dcf_t) == 40, "rtx_match.s RTX-8 slice 8 hardcodes stride 40 for rt_dcf_t");
 _Static_assert(offsetof(rt_dcf_t, cur) == 0, "rtx_match.s RTX-8 slice 8 hardcodes cur at +0");
@@ -673,6 +675,7 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
     extern long rt_proc_call_open(const char *name, int nargs);
     extern int rt_g_want_name;
     extern int g_protected_pat_vars_armed;
+    if (g_cap_abort_gen && g_cap_abort_gen == g_cap_gen) { g_cap_abort_gen = 0; return 1; }
     if (g_dcf_top <= 0) return 0;
     rt_dcf_t *c = &g_dcf[g_dcf_top - 1];
     long rc = 0;
@@ -726,8 +729,9 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
             extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
             extern int rt_g_ret_by_name;
             const int nmyield = !strncmp(e->varname + 1, "EXPRNM$", 7);
-            { int _wsv = rt_g_want_name; rt_g_want_name = 1;
+            { int _wsv = rt_g_want_name; rt_g_want_name = 1; uint32_t _asv = g_cap_abort_gen;
             DESCR_t nm = rt_call_proc_descr(e->varname + 1, 0);
+            g_cap_abort_gen = _asv;
             rt_g_want_name = _wsv;
             const int by_name = rt_g_ret_by_name || nmyield; rt_g_ret_by_name = 0;
             if (IS_FAIL_fn(nm)) { if (strict) { if (g_dcap_trace < 0) { const char *_e = getenv("SCRIP_DCAP_TRACE"); g_dcap_trace = (_e && _e[0]) ? 1 : 0; } if (g_dcap_trace) fprintf(stderr, "[DCAP] STRICT-REFUSE target=%s: call FAILED -> rc=1 (match will fail at END)\n", e->varname); rc = 1; break; } fprintf(stderr, "[DCAP] WARN deferred assignment target '%s' failed or is not invocable; conditional assignment skipped\n", e->varname); continue; }
@@ -827,15 +831,22 @@ long c_rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_i
     char *copy = rt_str_alloc(len);
     if (copy) { if (len > 0 && base) memcpy(copy, base, (size_t)len); copy[len] = '\0'; }
     DESCR_t matched = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
+    if (g_cap_abort_gen && g_cap_abort_gen == g_cap_gen) return 0;
     if (varname[0] != '*') { rt_bomb("c_rt_cap_open: plain-name arm DELETED (s196 Lon one-to-maintain) — rt_cap_open in rtx_match.s is the sole spelling; this entry serves computed-name '*' targets only"); return 0; }
     extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
     extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
     extern int rt_g_want_name;
+    extern int rt_g_ret_by_name;
+    const int nmyield_capo = !strncmp(varname + 1, "EXPRNM$", 7);
     DESCR_t nm_capo;
-    { int _wsv2 = rt_g_want_name; rt_g_want_name = 1;
+    int by_name_capo;
+    { int _wsv2 = rt_g_want_name; rt_g_want_name = 1; uint32_t _asv = g_cap_abort_gen;
       nm_capo = rt_call_proc_descr(varname + 1, 0);
-      rt_g_want_name = _wsv2; }
+      g_cap_abort_gen = _asv;
+      rt_g_want_name = _wsv2;
+      by_name_capo = rt_g_ret_by_name || nmyield_capo; rt_g_ret_by_name = 0; }
     if (IS_FAIL_fn(nm_capo)) return rt_cap_fail_retreat() ? -1 : 0;
+    if (rt_cap_name_strict() && !by_name_capo) { g_cap_abort_gen = g_cap_gen; return 0; }
     if (IS_STR_fn(nm_capo)) { const char *ns = VARVAL_fn(nm_capo); if (ns && *ns) NV_SET_fn(ns, matched); } else rt_assign_var(nm_capo, matched);
     return 0;
 }
