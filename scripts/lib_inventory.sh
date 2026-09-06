@@ -225,6 +225,29 @@ $badreason
 
     # ⛔ A NAME MAY NOT BE IN BOTH FILES. "Work owed" and "ruled impossible" are contradictory claims
     # about one program, and whichever the reader saw first would decide whether the lane owes work.
+    # ⛔⭐ THIS DIAGNOSTIC USED TO NAME AN INNOCENT FILE (hq_S 2026-09-06, measured on csnobol4).
+    # `sort | uniq -d` over the CONCATENATION of the two files fires for a name repeated inside ONE of
+    # them exactly as readily as for a name in both -- but the message hard-coded the cross-file story.
+    # Two lanes ruled aa/aa.sno within minutes of each other and git kept both rows, so ONE file held a
+    # duplicate; the refusal reported "named in BOTH UNGRADED.tsv and UNGRADABLE.tsv" with both files
+    # open in front of the reader and no such UNGRADED row anywhere in either.
+    # ⭐ THE ARITHMETIC WAS RIGHT AND ONLY THE STORY WAS WRONG, which is the dangerous half: a refusal
+    # that stops the right run for the wrong stated reason sends its reader to audit a file that is
+    # innocent, and spends the credibility the refusal exists to have. Same family as this library's own
+    # header lesson -- an instrument answering a narrower question than the reader thinks it asked, and
+    # never saying so. So: name INTERNAL duplicates per file first, then the cross-file intersection,
+    # which only becomes unambiguous once each file is known to be internally unique.
+    local dup_ung dup_ugd
+    dup_ung="$(printf '%s\n' "$ung_n" | grep -v '^$' | sort | uniq -d)"
+    dup_ugd="$(printf '%s\n' "$ugd_n" | grep -v '^$' | sort | uniq -d)"
+    if [ -n "$dup_ung" ]; then
+        inventory_refuse "$ung_f names the same program more than once: $(printf '%s' "$dup_ung" | tr '\n' ' ')-- one UNGRADED row per program. ⛔ This is an INTERNAL duplicate in that ONE file, NOT a name in both files: two lanes ruling the same program in one sitting is how it happens, and git keeps both rows."
+        return 2
+    fi
+    if [ -n "$dup_ugd" ]; then
+        inventory_refuse "$ugd_f names the same program more than once: $(printf '%s' "$dup_ugd" | tr '\n' ' ')-- one UNGRADABLE row per program. ⛔ This is an INTERNAL duplicate in that ONE file, NOT a name in both files: two lanes ruling the same program in one sitting is how it happens, and git keeps both rows."
+        return 2
+    fi
     local both
     both="$(printf '%s\n%s\n' "$ung_n" "$ugd_n" | grep -v '^$' | sort | uniq -d)"
     [ -z "$both" ] && : || { inventory_refuse "named in BOTH UNGRADED.tsv and UNGRADABLE.tsv: $(printf '%s' "$both" | tr '\n' ' ')-- a program cannot be both work owed and ruled impossible"; return 2; }
