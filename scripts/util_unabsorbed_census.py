@@ -86,7 +86,16 @@ for root, dirs, files in os.walk(C):
         fam = os.path.splitext(path[len(os.path.join('tests', lang)) + 1:])[0].replace(os.sep, '_') if path.startswith(os.path.join('tests', lang) + os.sep) else ''
         if f.startswith('ALL.'): kind = 'container'
         elif top in ('include', 'library'): kind = 'module'
-        elif base in excluded[lang] or path in excluded[lang] or f in excluded[lang] or (fam and fam in excluded[lang]): kind = 'accounted'
+        # ⛔⭐ SAME COLLISION CLASS AS THE additive_excluded FIX ABOVE, NEVER CLOSED HERE (seat02 2026-09-06,
+        # row pascal-every-non-package-source-...-with-oracle-refs): ALL.excluded.txt's bare `name` column is
+        # only ever written meaning "this name under tests/<lang>/" (util_build_master_suite.py's own loose-pair
+        # path never walks benchmarks/demos/programs), but the plain `base`/`f` checks below applied it to EVERY
+        # tree unconditionally. MEASURED: absorbing tests/pascal/sieve.pas wrote a bare "sieve" reason into
+        # ALL.excluded.txt, which silently marked the UNRELATED benchmarks/pascal/sieve.pas 'accounted' too --
+        # same basename, different file, never itself absorbed or excluded. `fam` was already tests-scoped by
+        # construction (empty outside tests/<lang>/); `base`/`f` were not. `path in excluded[lang]` stays
+        # unscoped -- a corpus-relative path is unique by construction, so it carries no collision risk.
+        elif path in excluded[lang] or (top == 'tests' and (base in excluded[lang] or f in excluded[lang] or (fam and fam in excluded[lang]))): kind = 'accounted'
         # ⭐ 'tests' joined this check (row snobol4-every-non-package-source-...-absorbed-into-the-master-with-
         # oracle-refs, seat07 2026-09-05): util_build_master_suite.py's --additive --from tests absorbs
         # corpus/tests/<lang>/'s OWN loose-noref/fixture backlog the identical way it already absorbs

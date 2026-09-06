@@ -1084,7 +1084,7 @@ def reindex_csv_only(OUTDIR, EXT, lang, h, _CO, _CC, COLS, modes_decl, loose_fam
 # resolve_oracle_bin/run_oracle/run_m3/run_m4 exactly as that function does; the only genuinely new things are
 # per-FILE dispatch instead of per-family-glob, and a recipe expressed as stdin only (see its own docstring for
 # why argv-extra recipes are deliberately out of scope here).
-ADDITIVE_ORACLE_LANGS = {"snobol4", "prolog", "icon"}   # resolve_oracle_bin's own known set (its own refuse())
+ADDITIVE_ORACLE_LANGS = {"snobol4", "prolog", "icon", "pascal"}   # resolve_oracle_bin's own known set (its own refuse())
 _EXTRA_TEST_TREES = {"scrip_test": "scrip_test", "snocone_ladder": "snocone/ladder"}   # --from categories whose
 # src_dir is a FIXED corpus/tests/<path> outside corpus/tests/<lang>/ and outside demos/benchmarks -- see the
 # --from arg's category dispatch below for why these exist.

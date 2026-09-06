@@ -302,7 +302,18 @@ def resolve_oracle_bin(paths, lang=""):
         if not bin_path:
             refuse(f"unexpected empty output from icon_bin: {r.stdout!r}")
         return bin_path, ""   # no flags: `icon <file>` is the whole invocation
-    refuse(f"no oracle wired for --lang {lang!r} in capture-oracle-refs yet (only snobol4/prolog/icon so far)")
+    if lang == "pascal":
+        # ⭐ hq_C's ruling (2026-08-28, KEEP.md § FPC-oracle regen exceptions): `fpc -Miso` is the Pascal
+        # correctness oracle. Unlike icon, FPC has no one-step compile-and-run mode, so the "binary" handed
+        # to run_oracle() is fpc_oracle_run.sh -- a thin wrapper that compiles to a private tmpdir (never the
+        # source directory) and execs the result, matching run_oracle()'s single-process contract exactly
+        # the way icon_bin's real one-step binary does. `-Miso` is passed as this resolver's own flags, same
+        # shape as snobol4's `-bf`/prolog's `-q` -- never hand-assembled a second time at a call site.
+        wrapper = paths["scrip_root"] / "scripts" / "fpc_oracle_run.sh"
+        if not wrapper.is_file():
+            refuse(f"fpc_oracle_run.sh missing at {wrapper} -- the one-step FPC oracle driver")
+        return str(wrapper), "-Miso"
+    refuse(f"no oracle wired for --lang {lang!r} in capture-oracle-refs yet (only snobol4/prolog/icon/pascal so far)")
 
 
 def run_oracle(oracle_bin, flags, sno_path, timeout, stdin_text=None):
