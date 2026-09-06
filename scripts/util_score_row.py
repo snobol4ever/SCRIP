@@ -1243,6 +1243,8 @@ class _Counted(dict):
     a cure that reds its own graders is indistinguishable from a defect. A dict subclass keeps every existing
     read (`got.get(851)`, `for t in sorted(got)`) exactly as it was and adds the one fact the caller was missing."""
     unreadable = ()
+    found = ()      # (name, passes, population) -- a suite that actually RAN and was graded
+    notrun = ()     # (name, population)         -- on the list, never run: inventory, never a zero in a percent
 
 
 def counted_fractions(lang, vcell):
@@ -1266,6 +1268,7 @@ def counted_fractions(lang, vcell):
     #   ABSENT           the package's clause carries no digits at all -> genuinely not run-graded, counts as 0
     # ⭐ A reader that says WHY it found nothing turns a silent wrong number into a fixable message.
     got, work, unread = _Counted(), [], []
+    _found, _notrun = [], []
     for name, rx, dens in PROGRESS_COUNTED.get(lang, []):
         best, saw = None, ""
         for m in re.finditer(rx, vcell):
@@ -1301,16 +1304,19 @@ def counted_fractions(lang, vcell):
                 # unreadable cell must never be able to improve a score. It is a zero with a message, not an
                 # abstention -- the message is for the writer, the zero is for the reader.
                 got[dens[-1]] = got.get(dens[-1], 0)
+                _notrun.append((name, dens[-1]))
                 work.append("V %s UNREADABLE, counted 0/%d -- the cell carries %s, which is not a fraction over any "
                             "declared population %s. Counted ZERO (an unreadable cell must never raise a score), and "
                             "named here so it can be fixed: write it as `<pass>/<total>` over a declared population, "
                             "or declare the population." % (name, dens[-1], saw, sorted(dens)))
             else:
                 got[dens[-1]] = got.get(dens[-1], 0)
+                _notrun.append((name, dens[-1]))
                 work.append("V %s 0/%d -- on the list, NOT YET RUN-GRADED (no number in its clause at all; counts "
                             "as zero until its programs run against the oracle)" % (name, dens[-1]))
             continue
         got[best[1]] = best[0]
+        _found.append((name, best[0], best[1]))
         work.append("V %s %d/%d" % (name, best[0], best[1]))
     if unread:
         work.append("⚠ %d package(s) UNREADABLE (%s) -- each counted ZERO over its declared population, so this "
@@ -1327,6 +1333,8 @@ def counted_fractions(lang, vcell):
     # STAYS -- an unreadable cell must never raise a score, measured: dropping it moved icon 8% -> 48% in one edit
     # -- but the number it produces is a FLOOR, and a floor published as a measurement is the defect.
     got.unreadable = tuple(unread)
+    got.found = tuple(_found)
+    got.notrun = tuple(_notrun)
     return got, work
 
 
@@ -1577,7 +1585,7 @@ def language_progress(lang, cells, prov=""):
     # So BOTH now come from the standardized display, which is the table runners actually write and the
     # only one carrying provenance. The grid stays the human-facing summary; the agree gate is what keeps
     # the two honest about each other.
-    incomplete = []
+    incomplete, notrun = [], []
     for key in ("V",):
         idx = GRID_COLUMNS[key][0]
         got, w = counted_fractions(lang, cells[idx])
@@ -1585,13 +1593,25 @@ def language_progress(lang, cells, prov=""):
         if got is None:
             unreadable = True
             continue
-        # ⛔ A PER-PACKAGE READING FAILURE MARKS THE LANGUAGE. `got is None` above fires only when the WHOLE cell
-        # fails to parse, so before this line a single unreadable package published as an ordinary zero.
+        # ⛔⭐⭐ THE PUBLISHED NUMBER IS WHAT THE SUITES ACTUALLY MEASURED — LON, 2026-09-05, in-chat, verbatim:
+        # "I want to see accurate numbers for each language as a measurement. I do not know what is a FLOOR, but
+        # whatever it is, it is not anything I want to see. Show measured numbers from running test suites not
+        # FLOORS. I have a floor I stand on, that is the only floor I need."
+        # ⛔ WHAT THIS REPLACES, and why it was indefensible once stated plainly: the percent summed EVERY listed
+        # package, counting a suite that had never been run as 0 over its whole population. icon read 8% = 91/1066
+        # where 851 of that denominator was `ipl`, a suite nobody had run-graded — so "8%" was not a measurement of
+        # anything, it was a measurement AVERAGED WITH AN ASSUMPTION. snobol4 carried csnobol4 0/125 the same way,
+        # prolog carried gnu 0/91.
+        # ⭐ A NOT-RUN SUITE IS INVENTORY, NEVER A SCORE. It is still reported — named, with its population, right
+        # beside the number — because hiding it would trade one dishonesty for another. What it must never do is
+        # enter the arithmetic and come out looking like a result.
+        for _n, _p, _pop in getattr(got, "found", ()):
+            P += _p
+            T += _pop
+        for _n, _pop in getattr(got, "notrun", ()):
+            notrun.append((_n, _pop))
         if getattr(got, "unreadable", ()):
             incomplete.extend(got.unreadable)
-        for t in sorted(got):
-            P += got[t]
-            T += t
     # the ladder (L) is OURS too: reported beside the percent, never inside it (Lon 2026-09-04: only the packages count)
     fs = forms_score(lang)
     if fs == "incomplete":
@@ -1646,11 +1666,14 @@ def language_progress(lang, cells, prov=""):
     # ⛔⭐ TWO MARKERS, TWO MEANINGS, NEVER CONFLATED. `?` says the number may be OLD; `!` says the number is a
     # FLOOR because a package in it could not be read at all. A stale measurement is still a measurement; a
     # reading failure is not, and giving them one glyph would let the louder problem hide inside the quieter one.
+    if notrun:
+        work.append("NOT RUN (inventory, deliberately OUTSIDE the percent -- Lon 2026-09-05): %s"
+                    % " · ".join("%s %d programs" % (n, p) for n, p in notrun))
     if incomplete:
-        work.append("⚠ PERCENT IS A FLOOR, NOT A MEASUREMENT: %d package(s) unreadable (%s) -- each counted zero "
-                    "over its full population, so the true number is this or higher. Marked `!` on the line."
-                    % (len(incomplete), ", ".join(incomplete)))
-    return pct, (("?" if stale else "") + ("!" if incomplete else "")), P, T, work
+        work.append("⚠ CELL NOT MACHINE-READABLE: %s -- the suite may well have run, but this cell states its "
+                    "result in counts rather than `<pass>/<total>` over a declared population, so the reader "
+                    "cannot use it. Fix the cell; it is not a score of zero." % ", ".join(incomplete))
+    return pct, ("?" if stale else ""), P, T, work
 
 
 # ⛔⭐ COLUMN SEMANTICS -- THE CLASS NO READABILITY CHECK REACHES (ceo ruling 2026-09-03 22:39, after hq_T
@@ -1875,6 +1898,7 @@ def cmd_progress(a):
                 det.append("%s absent" % l)
         die("the September-10 grid has no readable row for %s -- refusing to publish a progress line over a partial grid" % "; ".join(det))
     cells_out, bars, tp, tt, missing = [], [], 0, 0, []
+    notrun_by_lang = {}
     for lang, short in PROGRESS_LANGS:
         pct, mark, P, T, work = language_progress(lang, rows[lang], provs.get(lang, ""))
         if pct == "NOSUITE":
@@ -1906,6 +1930,9 @@ def cmd_progress(a):
             continue
         tp += P
         tt += T
+        for _w in work:
+            if str(_w).startswith("NOT RUN (inventory"):
+                notrun_by_lang[lang] = str(_w).split("): ", 1)[-1]
         cells_out.append("%s %d%%%s" % (short, pct, mark))
         bars.append("%s %s" % (short, "█" * (pct // 10) + "░" * (10 - pct // 10)))
         if a.verbose:
@@ -1926,14 +1953,22 @@ def cmd_progress(a):
     scored = [sh for l, sh in PROGRESS_LANGS if l not in PROGRESS_NO_PUBLIC_SUITE]
     allcell = "ALL MISSING (%s unreadable)" % ",".join(missing) if missing else "ALL %d%% (%d with a public suite)" % (allpct, len(scored))
     # ⛔ THE LINE PRINTS ITS OWN BASIS (ceo ruling; hq_T's header kept, wording per Lon): the percent changed meaning today.
-    print("PROGRESS 09-10 [basis: V = the vendored industry-standard packages, RUN-graded by their own oracle, ONLY; "
+    print("PROGRESS 09-10 [basis: MEASURED ONLY -- every percent below is passes over the population the suites ACTUALLY RAN on (Lon 2026-09-05: \"Show measured numbers from running test suites not FLOORS\"). A suite that has not been run is NOT in the percent; it is listed under NOT RUN beneath, with its size. V = the vendored industry-standard packages, RUN-graded by their own oracle, ONLY; "
           "our own master, AST fixtures and ladders are printed under --verbose as ours and are NOT in the percent; "
           "a compile-graded suite is named and not counted; no public suite = no percent]")
     print("PROGRESS 09-10 | %s | %s | tree %s %s"
           % (" | ".join(cells_out), allcell, gh, time.strftime("%Y-%m-%d %H:%M %Z")))
     print("  " + "  ".join(bars))
+    # ⛔⭐ THE NUMBER ABOVE IS A MEASUREMENT; THIS IS THE COVERAGE BESIDE IT. Keeping them on separate lines is the
+    # whole point: folding an unrun suite into the percent as zeros is what made the old line unreadable as either
+    # one thing or the other. Named, sized, and never averaged in.
+    if notrun_by_lang:
+        print("  NOT RUN (not in any percent above -- these suites exist and have never been run-graded):")
+        for _l, _short in PROGRESS_LANGS:
+            if _l in notrun_by_lang:
+                print("    %-9s %s" % (_l, notrun_by_lang[_l]))
     if a.verbose:
-        print("  ALL %d%% = %d/%d over the V (industry-standard package) denominators ONLY -- our master and AST fixtures are printed as ours and never counted (Lon 2026-09-04); ? = the V cell reads STALE, or its own ⟨measured …⟩ stamp is older than today, or it carries no stamp at all (age unknown); ! = a package in that cell could NOT BE READ and was counted zero over its whole population, so the percent is a FLOOR and not a measurement -- run `progress --verbose` to see which package and what the reader saw." % (allpct, tp, tt))
+        print("  ALL %d%% = %d/%d MEASURED -- passes over the population the suites actually ran on. Our master, AST fixtures and ladders are printed as ours and never counted (Lon 2026-09-04); ? = the V cell reads STALE, or its own ⟨measured …⟩ stamp is older than today, or it carries no stamp at all (age unknown)." % (allpct, tp, tt))
         for lang, short in PROGRESS_LANGS:
             c = rows[lang]
             print("  %-8s L: %s" % (lang, c[GRID_COLUMNS["L"][0]][:110]))

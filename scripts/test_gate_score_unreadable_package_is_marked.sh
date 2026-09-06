@@ -52,10 +52,24 @@ clean = "arizona 46/124 · jcon_tests 45/91 · ipl 34/851"
 cgot, _cw = m.counted_fractions("icon", clean)
 if getattr(cgot, "unreadable", ()):
     red("a fully readable cell was reported as unreadable (%r) -- the marker is stuck on" % (cgot.unreadable,))
-# ARM 4 -- the published line explains the glyph it prints. A marker nobody can decode is not a marking.
+# ARM 4 -- ⛔ SUPERSEDED BY LON, 2026-09-05, mid-sitting and hours after this gate was written: "Show measured
+# numbers from running test suites not FLOORS." This arm used to require the published line to explain a `!`
+# FLOOR marker. There is no FLOOR on the published line any more -- a suite that has not run is NOT in the
+# percent at all, it is listed under NOT RUN with its size. So the arm now pins the REPLACEMENT invariant: an
+# unreadable package must be named as a CELL problem, never presented as a score of zero.
 src = open("util_score_row.py", encoding="utf-8").read()
-if "! = a package in that cell could NOT BE READ" not in src:
-    red("the progress legend does not explain the `!` marker -- a glyph with no legend is not a marking")
-print("✅ GATE PASS [%s]: an unreadable package marks its language as a FLOOR (%s), still counts zero, a clean "
-      "cell stays unmarked, and the legend explains the glyph" % (G, ", ".join(got.unreadable)))
+if "CELL NOT MACHINE-READABLE" not in src:
+    red("an unreadable cell is no longer reported as a cell problem -- it is being read as a score")
+if "FLOOR, NOT A MEASUREMENT" in src:
+    red("the retired FLOOR framing is back on the published line (Lon 2026-09-05 ruled it out)")
+# ARM 5 -- the not-run suite must stay OUT of the measured arithmetic. This is the Lon ruling itself, pinned.
+notrun_pops = [pop for _n, pop in getattr(got, "notrun", ())]
+if 851 not in notrun_pops:
+    red("the unread package is not booked as NOT RUN inventory (notrun=%r) -- if it is not inventory it is in "
+        "the percent, which is the averaged-with-an-assumption number Lon ruled out" % (notrun_pops,))
+found_pops = [pop for _n, _p, pop in getattr(got, "found", ())]
+if 851 in found_pops:
+    red("the unread package is being counted as MEASURED (found=%r)" % (found_pops,))
+print("✅ GATE PASS [%s]: unreadable package (%s) is named as a cell problem, booked as NOT RUN inventory, kept "
+      "OUT of the measured percent, and a clean cell stays unmarked" % (G, ", ".join(got.unreadable)))
 PY
