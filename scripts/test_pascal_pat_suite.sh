@@ -34,7 +34,7 @@ refuse() { echo "⛔ REFUSED(2) [$GATE_NAME]: $*" >&2; exit 2; }
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 declare -A P F C
 for m in m3 m4; do P[$m]=0; F[$m]=0; C[$m]=0; done
-TOTAL=0; NAMED=""
+TOTAL=0; NAMED=""; UNGRADABLE=0
 # ---- rejection population -------------------------------------------------------------------------------------------
 for f in "$SUITE"/iso7185prt*.pas; do
     [ -e "$f" ] || continue
@@ -94,6 +94,7 @@ for f in "$SUITE"/iso7185pat*.pas; do
         else
             echo "note: acceptance test $b is REJECTED BY THE ORACLE (fpc -Miso rc=$orc, not a timeout) -- not graded, and explicitly NOT counted against scrip: $(tail -1 "$TMP/oracle.err")"
         fi
+        UNGRADABLE=$((UNGRADABLE+1))
         continue
     fi
     timeout 20s "$TMP/oracle" <"$in" >"$TMP/want" 2>&1 || true
@@ -111,6 +112,12 @@ done
 # ⛔ A RUNNER THAT GRADED NOTHING MUST NEVER PRINT THE SUCCESS SHAPE (the seven-point standard, point 3).
 [ "$TOTAL" -gt 0 ] || refuse "graded ZERO programs over $SUITE -- refusing to print a board with no denominator"
 echo "PAT_SUITE_BOARD total=$TOTAL m3_pass=${P[m3]} m3_fail=${F[m3]} m4_pass=${P[m4]} m4_fail=${F[m4]}"
+# ⭐ THE PACKAGE LOCKDOWN (Lon 2026-09-06, MASTER-PLAN sec THE PACKAGE LOCKDOWN): shipped is measured
+# FRESH from the vendored dir every run (both iso7185prt* and iso7185pat* globs), never assumed from
+# TOTAL alone -- a file added to $SUITE after this script was last touched must show up as ungraded,
+# not silently vanish.
+PAT_SHIPPED=$(find "$SUITE" -maxdepth 1 -name '*.pas' | wc -l | tr -d ' ')
+echo "PACKAGE_INVENTORY shipped=$PAT_SHIPPED graded=$TOTAL ungradable=$UNGRADABLE ungraded=$((PAT_SHIPPED - TOTAL - UNGRADABLE))"
 echo "  diagnosis (counted INSIDE fail, never beside it): m3 crash-or-ran-to-bound=${C[m3]} · m4 crash-or-ran-to-bound=${C[m4]} — the verdict is REFUSED-WITH-A-DIAGNOSTIC or not, which does not vary with machine load; this split does"
 [ -n "${PAT_NAME_REDS:-}" ] && { echo "  reds:"; for x in $NAMED; do echo "    $x"; done | head -40; }
 if . "$HERE/lib_gate.sh" 2>/dev/null && command -v gate_stamp >/dev/null 2>&1; then gate_stamp; fi

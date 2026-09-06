@@ -98,6 +98,11 @@ fi
 
 echo ""
 echo "FPC_SUITE_BOARD total=$TOTAL m3_pass=$M3_PASS m3_fail=$M3_FAIL m4_pass=$M4_PASS m4_fail=$M4_FAIL reject=$REJECT"
+# ⭐ THE PACKAGE LOCKDOWN (Lon 2026-09-06, MASTER-PLAN sec THE PACKAGE LOCKDOWN): shipped is $TOTAL itself
+# here (the .pas discovery above IS a fresh directory listing, never a cached container), so shipped and
+# graded+ungradable can never silently diverge the way a container-based harness's can.
+FPC_GRADED=$((TOTAL - REJECT))
+echo "PACKAGE_INVENTORY shipped=$TOTAL graded=$FPC_GRADED ungradable=$REJECT ungraded=$((TOTAL - FPC_GRADED - REJECT))"
 # ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05: "any run of a test suite by any
 # session will update the ONE LEADERBOARD"). This records the board line printed just above into
 # .github/SCORE.md -- it RUNS NOTHING, it only writes down what this script already measured.
