@@ -387,6 +387,9 @@ static tree_t * pl_cc_ilit(long long v) { tree_t * n = ast_node_new(TT_ILIT); n-
 static tree_t * pl_cc_ite(tree_t * c, tree_t * th, tree_t * el) { return pl_cc_fnc2(";", pl_cc_fnc2("->", c, th), el); }
 static tree_t * pl_cc_pi(const char * nm) { return pl_cc_fnc2("/", (tree_t *) pl_atom_goal(nm), pl_cc_ilit(2)); }
 static tree_t * pl_cc_throw(tree_t * formal, const char * ctx_nm) { return pl_cc_fnc1("throw", pl_cc_fnc2("error", formal, pl_cc_pi(ctx_nm))); }
+static tree_t * pl_cc_fnc3(const char * f, tree_t * a0, tree_t * a1, tree_t * a2) { tree_t * n = ast_node_new(TT_FNC); n->v.sval = (char *) f; ast_push(n, a0); ast_push(n, a1); ast_push(n, a2); return n; }
+static tree_t * pl_cc_pi_ar(const char * nm, int ar) { return pl_cc_fnc2("/", (tree_t *) pl_atom_goal(nm), pl_cc_ilit(ar)); }
+static tree_t * pl_cc_perm_static(const char * nm, int ar) { return pl_cc_fnc1("throw", pl_cc_fnc2("error", pl_cc_fnc3("permission_error", (tree_t *) pl_atom_goal("modify"), (tree_t *) pl_atom_goal("static_procedure"), pl_cc_pi_ar(nm, ar)), pl_cc_pi_ar(nm, ar))); }
 static tree_t * pl_cc_ischar(tree_t * x) { return pl_cc_fnc2(",", pl_cc_fnc1("atom", x), pl_cc_fnc2("atom_length", x, pl_cc_ilit(1))); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_lower_ite(lcx_t * cx, const tree_t * C, const tree_t * T, const tree_t * E, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
@@ -902,22 +905,22 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         if ((!strcmp(nm, "assertz") || !strcmp(nm, "assert") || !strcmp(nm, "asserta")) && t->n == 1) {
             int ar = 0; const char * pn = pl_head_key(t->c[0], &ar);
             if (!pn) pl_refuse("assert of a clause whose head is not a callable term known at compile time --", nm, 10);
-            if (!pl_db_owned(pn, ar)) pl_refuse("assert on a predicate that ALSO has clauses in the file -- rung 10b seeds a file-defined predicate into the database as its follow-up; today the two would disagree silently --", pn, 10);
+            if (!pl_db_owned(pn, ar)) return goal(cx, pl_cc_perm_static(pn, ar), γnext, ωfail, entry_out);
             return pl_db_leaf2(cx, !strcmp(nm, "asserta") ? "$db_asserta" : "$db_assertz", pl_dyn_index_or_add(pn, ar), t->c[0], γnext, ωfail, entry_out); }
         if (!strcmp(nm, "retract") && t->n == 1) {
             int ar = 0; const char * pn = pl_head_key(t->c[0], &ar);
             if (!pn) pl_refuse("retract of a clause whose head is not a callable term known at compile time --", nm, 10);
-            if (!pl_db_owned(pn, ar)) pl_refuse("retract on a predicate that has clauses in the file (they are wired boxes, not database rows) --", pn, 10);
+            if (!pl_db_owned(pn, ar)) return goal(cx, pl_cc_perm_static(pn, ar), γnext, ωfail, entry_out);
             return pl_db_enum(cx, pl_dyn_index_or_add(pn, ar), pl_clause_target(t->c[0], NULL), 1, γnext, ωfail, entry_out); }
         if (!strcmp(nm, "retractall") && t->n == 1) {
             int ar = 0; const char * pn = pl_head_key(t->c[0], &ar);
             if (!pn) pl_refuse("retractall whose argument is not a callable term known at compile time --", nm, 10);
-            if (!pl_db_owned(pn, ar)) pl_refuse("retractall on a predicate that has clauses in the file --", pn, 10);
+            if (!pl_db_owned(pn, ar)) return goal(cx, pl_cc_perm_static(pn, ar), γnext, ωfail, entry_out);
             return pl_db_leaf2(cx, "$db_retractall", pl_dyn_index_or_add(pn, ar), t->c[0], γnext, ωfail, entry_out); }
         if (!strcmp(nm, "abolish") && t->n == 1) {
             int ar = 0; const char * pn = pl_spec_key(t->c[0], &ar);
             if (!pn) pl_refuse("abolish whose argument is not a Name/Arity known at compile time --", nm, 10);
-            if (!pl_db_owned(pn, ar)) pl_refuse("abolish on a predicate that has clauses in the file --", pn, 10);
+            if (!pl_db_owned(pn, ar)) return goal(cx, pl_cc_perm_static(pn, ar), γnext, ωfail, entry_out);
             return pl_db_leaf1(cx, "$db_abolish", pl_dyn_index_or_add(pn, ar), γnext, ωfail, entry_out); }
         if ((!strcmp(nm, "nb_setval") || !strcmp(nm, "nb_getval")) && t->n == 2) {
             const char * kk = pl_nb_key(t->c[0]);
