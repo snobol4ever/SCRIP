@@ -571,12 +571,13 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             if (!lx) lx = cx->loop_exit;
             if (!lx) { IR_t * nd = build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
             IR_t * nullv = build(cx, IR_VAR, NULL, lx); IR_LIT(nullv).sval = (char *) "&null";
-            IR_t * asn0 = build(cx, IR_ASSIGN, lx, lx); IR_LIT(asn0).sval = (char *) "__break_result";
+            IR_t * gt = build(cx, IR_GOTO, lx, lx);
+            IR_t * asn0 = build(cx, IR_ASSIGN, gt, gt); IR_LIT(asn0).sval = (char *) "__break_result";
             ir_operand_push(asn0, nullv); γ_to(nullv, asn0);
             if (cx->scan_sp > cx->loop_next_ssp) { IR_t * tgt = nullv;
                 for (int _k = cx->loop_next_ssp; _k < cx->scan_sp && _k < 16; _k++) { IR_t * lv = build(cx, IR_SCAN, NULL, NULL); icn_mark_γ_fail_conduit(lv); IR_LIT(lv).dval = 3.0; ir_operand_push(lv, cx->scan_stk_enter[_k]); lc_γ_to(lv, tgt); lc_ω_to(lv, tgt); tgt = lv; }
-                *res = tgt; return tgt; }
-            *res = nullv; return nullv;
+                *res = gt; return tgt; }
+            *res = gt; return nullv;
         } else {
             IR_t * cur_exit = cx->loop_exit;
             IR_t * exit_goto = cur_exit ? build(cx, IR_GOTO, cur_exit, cur_exit) : build(cx, IR_FAIL, γ, ω);
@@ -591,8 +592,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             cx->loop_break_beta = cx->beta;
             if (cx->scan_sp > cx->loop_next_ssp) { IR_t * tgt = en;
                 for (int _k = cx->loop_next_ssp; _k < cx->scan_sp && _k < 16; _k++) { IR_t * lv = build(cx, IR_SCAN, NULL, NULL); icn_mark_γ_fail_conduit(lv); IR_LIT(lv).dval = 3.0; ir_operand_push(lv, cx->scan_stk_enter[_k]); lc_γ_to(lv, tgt); lc_ω_to(lv, tgt); tgt = lv; }
-                *res = tgt; return tgt; }
-            *res = en; return en;
+                *res = exit_goto; return tgt; }
+            *res = exit_goto; return en;
         }
     }
     case TT_LOOP_NEXT: { IR_t * ln = cx->loop_next; IR_t * nd;
