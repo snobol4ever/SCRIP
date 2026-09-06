@@ -94,14 +94,30 @@ run_isolated() {
 }
 
 if [ "$MAINS_ONLY" -eq 1 ]; then
-  mapfile -t FILES < <(cd "$PROGS" && grep -lE '^procedure[[:space:]]+main[[:space:]]*\(' *.icn 2>/dev/null | sort)
+  # ⛔⭐⭐ A PROGRAM ALREADY RULED UNGRADABLE IS NEVER A MINT CANDIDATE (hq_I 2026-09-06, caught the hard
+# way twice in one sitting). This script walks the directory and knows nothing about the package's own
+# rulings, so a program ruled UNGRADABLE in the sidecar can be re-minted by the very next --apply --
+# SILENTLY UN-RULING IT, with no diff to show the ruling was overturned and no human deciding to.
+# MEASURED: progs/gcomp.icn is ruled UNGRADABLE because its output IS ITS OWN DIRECTORY LISTING
+# (gcomp.icn:41 reads `echo * .*` through a pipe), so a pinned ref encodes the file list of progs/ --
+# which OUR OWN ref-cutting mutates. It minted anyway, and the fresh ref contained the six fixture files
+# I had added minutes earlier. The next fixture anyone authors would have broken it.
+# ⭐ THE GENERAL FORM: a census walks the TREE, while a ruling lives in a FILE BESIDE the tree, so the
+# instrument cannot see the decision unless it is made to read it. Determinism, content and stability
+# checks all pass on a program whose problem is that a ref is the wrong INSTRUMENT for it.
+UNGRADABLE_TSV="$PKG/UNGRADABLE.tsv"
+is_ruled_ungradable() {
+  [ -f "$UNGRADABLE_TSV" ] || return 1
+  awk -F'\t' -v want="$SUBDIR/$1" '$1==want{found=1} END{exit !found}' "$UNGRADABLE_TSV"
+}
+mapfile -t FILES < <(cd "$PROGS" && grep -lE '^procedure[[:space:]]+main[[:space:]]*\(' *.icn 2>/dev/null | sort)
 else
   mapfile -t FILES < <(cd "$PROGS" && ls -1 *.icn | sort)
 fi
 TOTAL=${#FILES[@]}
 [ "$TOTAL" -gt 0 ] || { echo "⛔ GATE REFUSES: zero .icn files found under $PROGS" >&2; exit 2; }
 
-n_live=0; n_mint=0; n_empty=0; n_fail=0; n_display=0; n_diagnostic=0; n_timeout=0; n_suspect=0; n_undeclared=0; n_nondet=0; n_havestd=0; n_oversized=0
+n_live=0; n_mint=0; n_empty=0; n_fail=0; n_display=0; n_diagnostic=0; n_ruled=0; n_timeout=0; n_suspect=0; n_undeclared=0; n_nondet=0; n_havestd=0; n_oversized=0
 OUT1="$(mktemp "${TMPDIR:-/tmp}/ipl_ref_out1.XXXXXX")"; OUT2="$(mktemp "${TMPDIR:-/tmp}/ipl_ref_out2.XXXXXX")"
 HOLD="$(mktemp -d "${TMPDIR:-/tmp}/ipl_ref_hold.XXXXXX")"
 trap 'cleanup_template; rm -f "$OUT1" "$OUT2"; rm -rf "$HOLD"' EXIT
@@ -271,6 +287,10 @@ for f in "${FILES[@]}"; do
   # looking exactly like a working determinism check. Measured: the first draft of this pass reported
   # "minute-rejected 27" out of 27 -- and its validation against four known-bad programs PASSED, because
   # a reject-everything bug rejects the known-bad too. Compare like for like; mint the stripped form.
+  if is_ruled_ungradable "$f"; then
+    n_ruled=$((n_ruled+1)); printf 'RULED_UNGRADABLE\t%s\t0\t%s\tNOT MINTED -- already ruled UNGRADABLE in the package sidecar; a mint here would silently overturn that ruling: %s\n' "$f" "$by1" "$(awk -F'\t' -v w="$SUBDIR/$f" '$1==w{print substr($3,1,120)}' "$UNGRADABLE_TSV")"
+    continue
+  fi
   n_live=$((n_live+1))
   cp "$OUT1" "$HOLD/$base.cand"
   printf 'LIVE_HELD\t%s\t0\t%s\theld for the minute-crossing second pass\n' "$f" "$by1"
@@ -322,8 +342,8 @@ if [ "${#CANDS[@]}" -gt 0 ]; then
   done
 fi
 echo "----"
-printf 'TOTALS[%s]: LIVE %d (minted %d, minute-rejected %d) · HAVE_STD %d · EMPTY %d · SUSPECT_USAGE %d · UNDECLARED_IDENTIFIER %d · NONDETERMINISTIC %d · ORACLE_FAIL %d · DISPLAY_REFUSED %d · ALL_ORACLE_DIAGNOSTIC %d · TIMEOUT %d · OVERSIZED %d · total=%d\n' \
-  "$SUBDIR" "$n_live" "$n_mint" "$n_minute_reject" "$n_havestd" "$n_empty" "$n_suspect" "$n_undeclared" "$n_nondet" "$n_fail" "$n_display" "$n_diagnostic" "$n_timeout" "$n_oversized" "$TOTAL"
+printf 'TOTALS[%s]: LIVE %d (minted %d, minute-rejected %d) · HAVE_STD %d · EMPTY %d · SUSPECT_USAGE %d · UNDECLARED_IDENTIFIER %d · NONDETERMINISTIC %d · ORACLE_FAIL %d · DISPLAY_REFUSED %d · ALL_ORACLE_DIAGNOSTIC %d · RULED_UNGRADABLE %d · TIMEOUT %d · OVERSIZED %d · total=%d\n' \
+  "$SUBDIR" "$n_live" "$n_mint" "$n_minute_reject" "$n_havestd" "$n_empty" "$n_suspect" "$n_undeclared" "$n_nondet" "$n_fail" "$n_display" "$n_diagnostic" "$n_ruled" "$n_timeout" "$n_oversized" "$TOTAL"
 [ -n "$APPLY" ] || echo "(census only -- nothing written; re-run with --apply to mint)"
 # ── belt-and-suspenders: prove the tracked tree is still exactly what HEAD says, every run, census or not.
 if git -C "$S4E/corpus" diff --quiet -- packages/icon/ipl/progs packages/icon/ipl/gprogs packages/icon/ipl/procs packages/icon/ipl/gprocs packages/icon/ipl/incl packages/icon/ipl/gincl 2>/dev/null \
