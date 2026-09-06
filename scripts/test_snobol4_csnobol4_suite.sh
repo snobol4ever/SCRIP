@@ -217,6 +217,12 @@ for sno in "$SUITE"/*.sno; do
     name="$(basename "$sno" .sno)"
     ref="$SUITE/$name.ref"
     [ -f "$ref" ] || continue          # not a graded pair (support file) — never hand-curated
+    # ⛔ ALL.sno IS OUR OWN GENERATED CONCATENATION (2006 lines, every entry run together), NOT A SHIPPED
+    # VENDOR PROGRAM -- lib_inventory.sh's census already excludes ALL.<ext> fleet-wide (hq_T 2026-09-06,
+    # measured across ipl/aisnobol/csnobol4_suite/gimpel), and this loop must agree or `graded` counts one
+    # more pair than `shipped` ever offered, and the inventory can never sum. It happens to carry its own
+    # .ref (concatenated from every entry's own historical run) and was being silently graded before this.
+    [ "$name" = "ALL" ] && continue
     if is_excluded_test "$name"; then EXCLUDED_LIST="$EXCLUDED_LIST $name"; continue; fi
     TOTAL=$((TOTAL+1))
     exp="$(normalize "$name" "$(cat "$ref")")"
