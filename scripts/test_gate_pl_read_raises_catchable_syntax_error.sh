@@ -164,6 +164,28 @@ for goal, want in sibs:
             if   got == "@ER": fails += 1; rows.append((goal, mode, want, "raised syntax_error (OVER-RAISED)"))
             elif got != "@OK": fails += 1; rows.append((goal, mode, want, got))
             elif want.startswith("T:") and term != want[2:]: fails += 1; rows.append((goal, mode, want[2:], "read back %r" % term))
+# ⛔ STDERR SILENCE ON A CAUGHT SYNTAX ERROR. Both oracles print NOTHING on stderr when a syntax_error is
+# caught -- measured 2026-09-06 against swipl 9.x and gprolog 1.4.5. SCRIP printed the parser's own
+# "parse error: ..." diagnostic there, so a program that HANDLED the error still emitted output it never asked
+# for, and any suite that merges the streams or greps stderr saw a spurious line on a passing program.
+# ⭐ THE CURE MUST NOT SILENCE CONSULT: a malformed clause in a loaded file still reports loudly, which is why
+# the arm below grades the READ path only and the consult path is checked separately in ARM C.
+# ⛔ REWRITE prog FIRST: the sibling loop above overwrites it, so without this the arm silently graded a
+# read_term_from_atom program instead of the stream reader and PASSED against a binary that HAD the defect.
+with open(prog, "w") as f: f.write(SRC)
+for text in ("f(,).", "foo(a,b,).", "[a|].", "1 + .", "foo(a,b", "foo bar baz"):
+    with open(inp, "w") as f: f.write(text + "\n")
+    graded += 1
+    r = subprocess.run([scrip, prog], capture_output=True, text=True, timeout=15, stdin=subprocess.DEVNULL, cwd=tmp)
+    if r.stderr.strip():
+        fails += 1; rows.append((text, "m3", "silent stderr", "stderr=%r" % r.stderr.strip()[:60]))
+# ARM C: consult MUST still report a parse error loudly -- the quiet flag is scoped to the reader, not global.
+cons = os.path.join(tmp, "c.pl")
+with open(cons, "w") as f: f.write("good(1).\nbad(a,) :- true.\n:- write(loaded), nl.\n")
+graded += 1
+rc2 = subprocess.run([scrip, cons], capture_output=True, text=True, timeout=15, stdin=subprocess.DEVNULL, cwd=tmp)
+if "parse error" not in rc2.stderr:
+    fails += 1; rows.append(("consult bad(a,)", "m3", "loud parse error on stderr", "stderr=%r" % rc2.stderr.strip()[:60]))
 if graded == 0:
     print("⛔ REFUSED(2) [test_gate_pl_read_raises_catchable_syntax_error]: graded ZERO witnesses"); sys.exit(2)
 for text, mode, want, got in rows[:80]:

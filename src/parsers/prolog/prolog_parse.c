@@ -18,6 +18,7 @@ typedef struct {
     const char *filename;
     int         nerrors;
     int         in_args;
+    int         quiet;
     IfFrame     ifst[IF_STACK_MAX];
     int         ifst_top;
 } Parser;
@@ -28,7 +29,7 @@ static int if_currently_active(const Parser *p) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void perror_at(Parser *p, int line, const char *msg) {
-    fprintf(stderr, "%s:%d: parse error: %s\n", p->filename, line, msg);
+    if (!p->quiet) fprintf(stderr, "%s:%d: parse error: %s\n", p->filename, line, msg);
     p->nerrors++;
 }
 typedef enum { ASSOC_NONE, ASSOC_LEFT, ASSOC_RIGHT } Assoc;
@@ -1144,7 +1145,7 @@ static void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     free(pre);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-PlProgram *prolog_parse(const char *src, const char *filename) {
+PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet) {
     prolog_atom_init();
     Parser p;
     lexer_init(&p.lx, src);
@@ -1152,12 +1153,13 @@ PlProgram *prolog_parse(const char *src, const char *filename) {
     p.nerrors  = 0;
     p.ifst_top = 0;
     p.in_args  = 0;
+    p.quiet    = quiet;
     PlProgram *prog = calloc(1, sizeof(PlProgram));
     for (;;) {
         Token pk = lexer_peek(&p.lx);
         if (pk.kind == TK_EOF) break;
         if (pk.kind == TK_ERROR) {
-            fprintf(stderr, "%s:%d: lex error: %s\n",
+            if (!p.quiet) fprintf(stderr, "%s:%d: lex error: %s\n",
                     p.filename, pk.line, pk.text);
             p.nerrors++;
             lexer_next(&p.lx);
@@ -1187,3 +1189,5 @@ PlProgram *prolog_parse(const char *src, const char *filename) {
     if (!filename || strcmp(filename, "<prelude>") != 0) prolog_inject_prelude(prog, src);
     return prog;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PlProgram *prolog_parse(const char *src, const char *filename) { return prolog_parse_ex(src, filename, 0); }

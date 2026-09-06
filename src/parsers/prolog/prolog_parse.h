@@ -21,6 +21,7 @@ typedef struct {
     int       nerrors;
 } PlProgram;
 PlProgram *prolog_parse(const char *src, const char *filename);
+PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet);
 void prolog_program_free(PlProgram *prog);
 int prolog_op_table_count(void);
 int prolog_op_table_get(int idx, const char **name_out, int *prec_out, const char **type_out);

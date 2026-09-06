@@ -1886,7 +1886,7 @@ static int pl_parse_term_text(const char *txt, DESCR_t *out, pl_vtab_t *vt, PlPr
     while (e > 6 && (text[e - 1] == ' ' || text[e - 1] == '\n' || text[e - 1] == '\t' || text[e - 1] == '\r')) e--;
     if (e > 6 && text[e - 1] == '.') e--;
     text[e] = ')'; text[e + 1] = '.'; text[e + 2] = '\n'; text[e + 3] = 0;
-    { PlProgram *pg = prolog_parse(text, "user_input"); const tree_t *tr = (pg && pg->head) ? pg->head->tr : (const tree_t *)0;
+    { extern PlProgram *prolog_parse_ex(const char *, const char *, int); PlProgram *pg = prolog_parse_ex(text, "user_input", 1); const tree_t *tr = (pg && pg->head) ? pg->head->tr : (const tree_t *)0;
       if (tr && tr->t == TT_CLAUSE && tr->n >= 1) tr = tr->c[0];
       if (pg_out) *pg_out = pg;
       if (!pg || pg->nerrors || !tr || tr->t != TT_FNC || tr->n != 1) return 0;
