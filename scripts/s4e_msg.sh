@@ -2172,7 +2172,7 @@ TASKEOF
            python3 "$_sb" 2>/dev/null \
              || printf 'SUITE BANNER: UNREADABLE -- %s ran but printed no line (SUITES.tsv missing or malformed); the verdict below is unaffected\n' "$_sb"
          else
-           printf 'SUITE BANNER: ABSENT -- %s is not on disk, so the suite view is NOT being shown this turn (pull .github); the verdict below is unaffected\n' "$_sb"
+           printf 'SUITE BANNER: UNREADABLE -- ABSENT: %s is not on disk, so the suite view is NOT being shown this turn (pull .github); the verdict below is unaffected\n' "$_sb"
          fi
          if [ -n "${S4E_PROGRESS_PROBE_BROKEN:-}" ]; then _ph="/nonexistent-s4e-home"; else _ph="$S4E"; fi
          S4E_HOME="$_ph" python3 "$(dirname "${BASH_SOURCE[0]}")/util_score_row.py" progress 2>/dev/null | grep -m1 '^PROGRESS 09-10 |' \
