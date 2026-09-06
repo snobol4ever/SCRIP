@@ -1363,7 +1363,7 @@ long rt_proc_call_open_slim(const char *name, int np, int nargs)
     if (!p || !p->fn || !p->dyn_scope || p->is_generator || p->is_variadic || p->redefined || g_call_fastpath_off || p->nparams != np || nargs > (p->nformals > 0 ? p->nformals : np)) return 0;
     rt_proc_resolve_cells(p);
     const char *rname = p->result_name ? p->result_name : p->name;
-    int wn = rt_g_want_name; rt_g_want_name = 0;
+    { static int _swn = -1; if (_swn < 0) { const char *e = getenv("SCRIP_SLIM_WANTNAME"); _swn = (!e || *e != (char)48) ? 1 : 0; } if (!_swn) rt_g_want_name = 0; }
     for (int k = nargs; k < np; k++) { if (p->pcells && p->pcells[k]) *p->pcells[k] = NULVCL; else if (p->pnames && p->pnames[k]) NV_SET_fn(p->pnames[k], NULVCL); }
     { int sh = 0; for (int k = 0; k < np; k++) if (p->pnames && p->pnames[k] && !strcmp(p->pnames[k], rname)) { sh = 1; break; }
       if (!sh) { if (p->rcell) *p->rcell = NULVCL; else NV_SET_fn(rname, NULVCL); } }
