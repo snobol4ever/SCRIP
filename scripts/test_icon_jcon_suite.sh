@@ -125,6 +125,7 @@ run_mode() {
     local icn std kind outfile
     for icn in "$CORPUS"/*.icn; do
         [ -f "$icn" ] || continue
+        case "$(basename "$icn")" in ALL.*) continue ;; esac   # our own generated container is not a shipped program -- see the census loop below
         std="${icn%.icn}.std"
         [ -f "$std" ] || continue   # no-oracle source (link*/load*/tpp*) — excluded, not MISSING
         case "$(basename "$icn")" in tpp.icn) continue;; esac   # tpp.std is jcon PREPROCESSOR TEXT output, not program output (its body is deliberately-invalid Icon like `abc 11`); ungradable by execution — named exclusion, same class as the no-.std sources above
@@ -144,7 +145,7 @@ run_mode() {
             HANG)   hang=$((hang+1)); hang_names+=("$name") ;;
         esac
     done
-    [ "${PROGRESS_FAILED:-0}" -eq 0 ] || echo "⛔ PROGRESS DB: $PROGRESS_FAILED per-program appends have FAILED so far in this run -- this run is not fully recorded (CEO-331); the board lines below still stand, the table does not" >&2
+[ "${PROGRESS_FAILED:-0}" -eq 0 ] || echo "⛔ PROGRESS DB: $PROGRESS_FAILED per-program appends have FAILED so far in this run -- this run is not fully recorded (CEO-331); the board lines below still stand, the table does not" >&2
     local mode_total=$((pass+fail+reject+crash+hang))
     echo "--- jcon ($mode): PASS=$pass FAIL=$fail REJECT=$reject CRASH=$crash HANG=$hang TOTAL=$mode_total ---"
     [ "$reject" -gt 0 ] && echo "    REJECT (dialect gap, semicolon-required): ${reject_names[*]}"
@@ -171,6 +172,13 @@ run_mode() {
 SHIPPED=0; GRADED=0; GAP_NAMES=""
 for _icn in "$CORPUS"/*.icn; do
     [ -f "$_icn" ] || continue
+# ⛔⭐ OUR OWN GENERATED CONTAINER IS NOT A SHIPPED PROGRAM (hq_I 2026-09-06, pre-empted rather than
+# walked into). lib_inventory.sh already skips `ALL.*` when it counts shipped, and the ipl package paid
+# for the disagreement: a `find -name '*.icn'` counted our generated ALL.icn as a vendored program, the
+# runner said 852 where the container's own accounting said 851, and a VENDOR score carried a file we
+# wrote. CEO-331 asks for an ALL.csv on this package next, which creates exactly that container here --
+# so the census excludes it BEFORE the file exists, not after the number moves.
+case "$(basename "$_icn")" in ALL.*) continue ;; esac
     SHIPPED=$((SHIPPED+1))
     _b="$(basename "$_icn" .icn)"
     if [ ! -f "${_icn%.icn}.std" ]; then GAP_NAMES="$GAP_NAMES $_b(no .std shipped upstream)"; continue; fi
@@ -217,7 +225,18 @@ echo "JCON_SUITE_BOARD shipped=$SHIPPED graded=$GRADED gap=$GAP total=$total m3_
 # criterion this package ALREADY SATISFIES look permanently out of reach.
 . "$(dirname "${BASH_SOURCE[0]}")/lib_inventory.sh"
 INV_PACKAGE=jcon; INV_DIR="$CORPUS"; INV_EXT=".icn"
-inventory_line "$GRADED" 0 || echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2
+# ⛔ NAMED, NOT DOWNGRADED TO A ⚠ (test_gate_package_runners_print_the_inventory.sh flagged this runner by
+# name: "SWALLOWS THE REFUSAL -- rc=2 becomes a warning nobody reads"). A refusal is not a warning: rc=2
+# means the inventory COULD NOT BE MEASURED, which is a different thing from a bad number, and this project
+# keeps those three outcomes apart everywhere else (lib_gate.sh's exit codes, the harness's rc=2). It stays
+# non-fatal -- the board above IS a real measurement -- but it is printed as ⛔ and it says what is missing.
+if ! inventory_line "$GRADED" 0; then
+    echo "⛔ PACKAGE INVENTORY REFUSED (rc=2, reason above) -- the jcon board line stands, the inventory does NOT, and this run publishes no bucket counts" >&2
+fi
+# ⭐ THE CLASS SPLIT, from the shared body (hq_T ruling 2026-09-06): its own line, its own refusal, and the
+# per-class counts are asserted against the buckets inventory_line just published.
+if SPLIT_LINE="$(inventory_split_line)"; then [ -n "$SPLIT_LINE" ] && echo "$SPLIT_LINE"
+else echo "⛔ PACKAGE INVENTORY SPLIT REFUSED (rc=2, reason above) -- the classes do not sum to their own buckets, so neither reading is published" >&2; fi
 # ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05: "any run of a test suite by any
 # session will update the ONE LEADERBOARD"). This records the board line printed just above into
 # .github/SCORE.md -- it RUNS NOTHING, it only writes down what this script already measured.

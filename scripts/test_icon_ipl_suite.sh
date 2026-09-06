@@ -339,39 +339,13 @@ INV_LINE="$(inventory_line "$RUN_GRADED" 0)"
 if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board lines still stand; the inventory does not" >&2; fi
 [ "${PROGRESS_FAILED:-0}" -eq 0 ] || echo "⛔ PROGRESS DB: $PROGRESS_FAILED per-program appends FAILED -- this run is not fully recorded (CEO-331); the board lines stand, the table does not" >&2
 
-# ⭐ THE CLASS SPLIT, IN THE INVENTORY LINE RATHER THAN IN PROSE (CEO-328: "Report the split's numbers
-# ... in the inventory line, not prose"). `ungraded=233` answers HOW MUCH is owed and says nothing about
-# WHAT -- and until 2026-09-06 the whole of ipl's debt read as one undifferentiated ORACLE_FAIL bucket
-# carrying one composed sentence, 212 rows deep. A bucket a lane cannot sort is a bucket a lane cannot
-# pick up.
-# ⛔ THIS IS NOT A SECOND COPY OF THE ARITHMETIC. lib_inventory.sh remains the ONLY thing that counts the
-# four buckets; this reads ONE of them apart by its own CLASS column and then ASSERTS the parts sum to
-# the whole that the shared body already printed. Two instruments over one file that disagree publish
-# NOTHING -- the same cross-instrument identity check the ALL.icn container carries in this package,
-# added after a `find` counted our own generated file as a vendored program.
-# ⛔ NOT FOLDED INTO lib_inventory.sh, deliberately, and this is the reason a reader will want:
-# test_gate_package_runners_print_the_inventory.sh pins that line by EXACT STRING EQUALITY (`want=...`),
-# so appending a field there reds seat12's rank-0 row in hq_T's lane. Routed to them as a proposal
-# instead. A shared body is shared in both directions.
-ipl_class_split() {
-    local tsv="$1" want="$2" label="$3" parts sum
-    [ -f "$tsv" ] || { echo "⚠ $label split unavailable: $tsv missing" >&2; return 0; }
-    parts="$(awk -F'\t' 'NF>2 && $1 !~ /^#/ {c[$2]++} END{n=0; for (k in c) {printf "%s%s:%d", (n++?",":""), k, c[k]}}' "$tsv")"
-    sum=$(awk -F'\t' 'NF>2 && $1 !~ /^#/ {n++} END{print n+0}' "$tsv")
-    if [ "$sum" -ne "$want" ]; then
-        echo "⛔ INVENTORY SPLIT REFUSES(2): $tsv holds $sum rows but the shared inventory counted $label=$want. Two instruments over one package disagree, so NEITHER number is published." >&2
-        return 2
-    fi
-    printf '%s' "$parts"
-}
-UNG_SPLIT=""; UGD_SPLIT=""
-if [ -n "$INV_LINE" ]; then
-    _ung_n="$(printf '%s' "$INV_LINE" | sed -n 's/.* ungraded=\([0-9]*\).*/\1/p')"
-    _ugd_n="$(printf '%s' "$INV_LINE" | sed -n 's/.* ungradable=\([0-9]*\).*/\1/p')"
-    UNG_SPLIT="$(ipl_class_split "$PKG/UNGRADED.tsv" "${_ung_n:-0}" ungraded)" || UNG_SPLIT=""
-    UGD_SPLIT="$(ipl_class_split "$PKG/UNGRADABLE.tsv" "${_ugd_n:-0}" ungradable)" || UGD_SPLIT=""
-    [ -n "$UNG_SPLIT$UGD_SPLIT" ] && echo "PACKAGE_INVENTORY_SPLIT package=ipl ungraded_by_class=${UNG_SPLIT:-?} ungradable_by_class=${UGD_SPLIT:-?}"
-fi
+# ⭐ THE CLASS SPLIT, IN THE INVENTORY LINE RATHER THAN IN PROSE (CEO-328). It was built here first and
+# hq_T RULED it into the shared body the same day (lib_inventory.sh: inventory_split_line), so this runner
+# now CALLS it rather than carrying a second copy -- their reason is the keeper: a per-runner reading means
+# seven readings of one count and no way to say which is authoritative. The sum invariant travelled with it.
+if SPLIT_LINE="$(inventory_split_line)"; then [ -n "$SPLIT_LINE" ] && echo "$SPLIT_LINE"
+else SPLIT_LINE=""; echo "⛔ PACKAGE INVENTORY SPLIT REFUSED (rc=2, reason above) -- the classes do not sum to their own buckets, so neither reading is published" >&2; fi
+UNG_SPLIT="$(printf '%s' "$SPLIT_LINE" | sed -n 's/.*ungraded_by_class=\([^ ]*\).*/\1/p')"
 
 # ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05: "any run of a test suite by any
 # session will update the ONE LEADERBOARD"). This records the boards printed just above into

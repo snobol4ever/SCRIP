@@ -53,6 +53,35 @@ if [ "$rc" -ne 0 ] || [ "$out" != "$want" ]; then
     violations=$((violations+1))
 fi
 
+
+# ⭐ ARM 1b — THE CLASS SPLIT, AND THE INVARIANT IS WHY THE ARM EXISTS (hq_T ruling 2026-09-06, on hq_I's
+# ipl construction: the split moves into the shared body as its OWN line, and "a split that can disagree
+# with its own total is worse than no split, because it looks like detail"). Two properties, both checked
+# here: PACKAGE_INVENTORY stays EXACTLY ONE LINE and byte-identical (ARM 1 above already pins that, and
+# this arm would have caught an implementation that printed the split from inventory_line instead), and
+# the per-class counts sum to the very buckets inventory_line published.
+examined=$((examined+1))
+split_out="$(inventory_split_line 2>&1)"; split_rc=$?
+inv_only="$(run_inv 3 0)"
+if [ "$split_rc" -ne 0 ]; then
+    echo "GATE FAIL: inventory_split_line refused a package whose inventory sums (rc=$split_rc): $split_out"; violations=$((violations+1))
+elif [ "$inv_only" != "$want" ]; then
+    echo "GATE FAIL: PACKAGE_INVENTORY is no longer exactly one byte-identical line once the split exists"; violations=$((violations+1))
+else
+    _u="$(printf '%s' "$split_out" | sed -n 's/.*ungraded_by_class=\([^ ]*\).*/\1/p')"
+    _d="$(printf '%s' "$split_out" | sed -n 's/.*ungradable_by_class=\([^ ]*\).*/\1/p')"
+    _su=$(printf '%s' "$_u" | tr ',' '\n' | awk -F: '{n+=$2} END{print n+0}')
+    _sd=$(printf '%s' "$_d" | tr ',' '\n' | awk -F: '{n+=$2} END{print n+0}')
+    # the scratch package above declares exactly one UNGRADED row and one UNGRADABLE row
+    if [ "$_su" -ne 1 ] || [ "$_sd" -ne 1 ]; then
+        echo "GATE FAIL: the split's per-class counts do not sum to the buckets inventory_line published (ungraded parts=$_su want 1, ungradable parts=$_sd want 1); split line: $split_out"; violations=$((violations+1))
+    fi
+fi
+# ⚠ NOT PROVEN, and said so rather than claimed: _inv_class_hist's own rc=2 branch (the two readings of one
+# population disagreeing) cannot be reached from a well-formed sidecar, because _inv_names refuses a
+# malformed row before the histogram is ever counted. It is a defensive refusal against a future code
+# change, not a behaviour this gate demonstrates.
+
 # ARM 2 — ⭐⭐ THE LOAD-BEARING ARM. A program in NO bucket must REFUSE, and the refusal must name the
 # delta. This is the 641-of-852 case, and a gate without it would pass an inventory that loses a package.
 examined=$((examined+1))

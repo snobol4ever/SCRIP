@@ -162,6 +162,48 @@ _inv_names() {
     done < "$f"
 }
 
+# ⭐⭐ THE CLASS SPLIT -- ITS OWN LINE, NEVER A FIELD ON PACKAGE_INVENTORY (hq_T ruling 2026-09-06, on
+# hq_I's ipl construction). `ungraded=233` answers HOW MUCH is owed and nothing about WHAT: ipl's entire
+# debt read as one undifferentiated ORACLE_FAIL bucket 212 rows deep until it was split by measured cause.
+# ⭐ A BUCKET A LANE CANNOT SORT IS A BUCKET A LANE CANNOT PICK UP.
+# ⛔ SEPARATE FUNCTION, AND SEPARATE ON PURPOSE. test_gate_package_runners_print_the_inventory.sh pins
+# inventory_line's output by EXACT STRING EQUALITY and its ARM 1 comment says "exactly one line", so
+# appending here -- or printing a second line from inventory_line itself -- reds that gate. A caller opts
+# in with one more call; PACKAGE_INVENTORY stays byte-identical and no want= string changes.
+# ⛔⛔ AND THE INVARIANT IS THE LOAD-BEARING HALF (hq_T: "a split that can disagree with its own total is
+# worse than no split, because it looks like detail"). The per-class counts are read from the SAME rows
+# _inv_names already validated for inventory_line, and the parts are asserted to sum to the whole. If they
+# ever disagree, two readings of one population disagree and NEITHER is printed -- rc=2, like every other
+# could-not-measure in this project.
+#
+# inventory_split_line -- prints PACKAGE_INVENTORY_SPLIT package=<n> ungraded_by_class=... ungradable_by_class=...
+#   0 printed · 2 refused (a bucket's classes do not sum to its own row count, or a sidecar is malformed)
+_inv_class_hist() {
+    local f="$1" kind="$2" want="$3" got parts
+    [ -n "$f" ] || { printf 'none'; return 0; }
+    got=$(awk -F'\t' 'NF>2 && $1 !~ /^#/{n++} END{print n+0}' "$f")
+    if [ "$got" -ne "$want" ]; then
+        inventory_refuse "$f holds $got classified row(s) but inventory_line counted $want for $kind -- two readings of one population disagree, so neither is published"
+        return 2
+    fi
+    parts="$(awk -F'\t' 'NF>2 && $1 !~ /^#/{c[$2]++} END{n=0; for (k in c) {printf "%s%s:%d", (n++?",":""), k, c[k]}}' "$f")"
+    printf '%s' "${parts:-none}"
+}
+inventory_split_line() {
+    [ -n "${INV_PACKAGE:-}" ] || { inventory_refuse "INV_PACKAGE unset -- the split has no package to name"; return 2; }
+    [ -d "${INV_DIR:-}" ]     || { inventory_refuse "INV_DIR '${INV_DIR:-}' is not a directory"; return 2; }
+    local ung_f ugd_f ung_n ugd_n ung_c ugd_c hu hd
+    ung_f="$(_inv_tsv UNGRADED.tsv)"; ugd_f="$(_inv_tsv UNGRADABLE.tsv)"
+    ung_n="$(_inv_names "$ung_f" UNGRADED)"   || return 2
+    ugd_n="$(_inv_names "$ugd_f" UNGRADABLE)" || return 2
+    ung_c=$(printf '%s' "$ung_n" | grep -c . || true)
+    ugd_c=$(printf '%s' "$ugd_n" | grep -c . || true)
+    hu="$(_inv_class_hist "$ung_f" ungraded "$ung_c")"   || return 2
+    hd="$(_inv_class_hist "$ugd_f" ungradable "$ugd_c")" || return 2
+    echo "PACKAGE_INVENTORY_SPLIT package=$INV_PACKAGE ungraded_by_class=$hu ungradable_by_class=$hd"
+    return 0
+}
+
 inventory_line() {
     local graded_stream="${1:-0}" graded_narrow="${2:-0}"
     [ -n "${INV_PACKAGE:-}" ] || { inventory_refuse "INV_PACKAGE unset -- the stanza is incomplete"; return 2; }

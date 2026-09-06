@@ -84,6 +84,13 @@ for sub in $SUITE_SUBDIRS; do
   [ -d "$d" ] || continue
   for icn in "$d"/*.icn; do
     [ -f "$icn" ] || continue
+    # ⛔⭐ OUR OWN GENERATED CONTAINER IS NOT A SHIPPED PROGRAM (hq_I 2026-09-06, pre-empted rather than
+    # walked into). lib_inventory.sh already skips `ALL.*` when it counts shipped, and the ipl package paid
+    # for the disagreement: a `find -name '*.icn'` counted our generated ALL.icn as a vendored program, the
+    # runner said 852 where the container's own accounting said 851, and a VENDOR score carried a file we
+    # wrote. CEO-331 asks for an ALL.csv on this package next, which creates exactly that container here --
+    # so the census excludes it BEFORE the file exists, not after the number moves.
+    case "$(basename "$icn")" in ALL.*) continue ;; esac
     SHIPPED=$((SHIPPED+1))
     SHIPPED_NAMES="$SHIPPED_NAMES $sub/$(basename "$icn" .icn)"
   done
@@ -208,6 +215,8 @@ echo "ARIZONA_SUITE_BOARD shipped=$SHIPPED graded=$TOTAL gap=$GAP m3_pass=$M3_PA
 INV_PACKAGE=arizona; INV_DIR="$PKG"; INV_EXT=".icn"
 INV_LINE="$(inventory_line "$TOTAL" 0)"
 if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
+if SPLIT_LINE="$(inventory_split_line)"; then [ -n "$SPLIT_LINE" ] && echo "$SPLIT_LINE"
+else echo "⛔ PACKAGE INVENTORY SPLIT REFUSED (rc=2, reason above) -- the classes do not sum to their own buckets, so neither reading is published" >&2; fi
 [ "${PROGRESS_FAILED:-0}" -eq 0 ] || echo "⛔ PROGRESS DB: $PROGRESS_FAILED per-program appends FAILED -- this run is not fully recorded (CEO-331); the board lines stand, the table does not" >&2
 # ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05: "any run of a test suite by any
 # session will update the ONE LEADERBOARD"). This records the board line printed just above into
