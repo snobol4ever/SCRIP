@@ -26,6 +26,7 @@ typedef struct scrip_coctx_t {
     uint64_t rtcc_spill[32];
     long serial;
     jmp_buf exit_jmp;
+    size_t stk_need;
 } scrip_coctx_t;
 void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first);
 void scrip_coexpr_destroy(scrip_coctx_t *ctx);

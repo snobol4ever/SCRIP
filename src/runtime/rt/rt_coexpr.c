@@ -62,8 +62,13 @@ void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first) {
     } else {
         { extern void rt_scan_state_reset(void); rt_scan_state_reset(); }
         scrip_co_makesem(new_ctx);
-        if (pthread_create(&new_ctx->thread, &attribs, scrip_co_trampoline, new_ctx) != 0)
-            scrip_co_uerror("scrip_coexpr: pthread_create failed");
+        { pthread_attr_t *ap = &attribs; pthread_attr_t big;
+          size_t need = new_ctx->stk_need + (size_t)(2u << 20);
+          if (need > (size_t)g_coexp_stksize) { need = (need + 4095u) & ~(size_t)4095u; pthread_attr_init(&big);
+              if (pthread_attr_setstacksize(&big, need) != 0) scrip_co_uerror("scrip_coexpr: pthread_attr_setstacksize (snapshot-sized) failed"); ap = &big; }
+          if (pthread_create(&new_ctx->thread, ap, scrip_co_trampoline, new_ctx) != 0)
+              scrip_co_uerror("scrip_coexpr: pthread_create failed");
+          if (ap == &big) pthread_attr_destroy(&big); }
         { pthread_attr_t a; void *sa = 0; size_t sz = 0;
           if (pthread_getattr_np(new_ctx->thread, &a) != 0) scrip_co_uerror("scrip_coexpr: pthread_getattr_np on new thread failed");
           if (pthread_attr_getstack(&a, &sa, &sz) != 0) scrip_co_uerror("scrip_coexpr: pthread_attr_getstack on new thread failed");
@@ -177,7 +182,7 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7]
     pkg->body_entry_addr = body_entry_addr;
     pkg->r12 = regs[0]; pkg->r13 = regs[1]; pkg->r14 = regs[2];
     pkg->r15 = regs[3]; pkg->rbx = regs[4]; pkg->csav5 = regs[5]; pkg->gva = regs[6]; pkg->frame_bytes = frame_bytes;
-    ctx->frame_copy = NULL; ctx->frame_copy_sz = 0;
+    ctx->frame_copy = NULL; ctx->frame_copy_sz = 0; ctx->stk_need = (size_t)frame_bytes;
     if (frame_bytes > 0 && regs[5] != 0) {
         extern void rt_gc_root_range_add(const char *, const char *);
         void *cp = malloc((size_t)frame_bytes);
