@@ -74,7 +74,18 @@ INV_CLASS_UNGRADABLE="CONTAINER_OR_LIBRARY NO_ORACLE_SHIPPED ORACLE_REFUSES ORAC
 INV_CLASS_UNGRADED="NEEDS_STDIN_FIXTURE NEEDS_ARGV_FIXTURE NEEDS_RUNNER_WIRING REF_NOT_CUT ORACLE_FAIL TIMEOUT NONDETERMINISTIC LIVE SUSPECT_USAGE"
 # LEGACY: accepted with a WARN so no lane's board breaks on the ruling, and named so the debt is one sed
 # wide and visible. ⛔ Do not add to this list -- a new file uses the closed vocabulary above.
-INV_CLASS_LEGACY="EMPTY:NEEDS_STDIN_FIXTURE GRADABLE:REF_NOT_CUT NO-ORACLE-SHIPPED:NO_ORACLE_SHIPPED NO-ORACLE:NO_ORACLE_SHIPPED ORACLE-IS-NOT-PROGRAM-OUTPUT:NO_ORACLE_SHIPPED"
+INV_CLASS_LEGACY="EMPTY:NEEDS_STDIN_FIXTURE GRADABLE:REF_NOT_CUT NO-ORACLE-SHIPPED:NO_ORACLE_SHIPPED NO-ORACLE:NO_ORACLE_SHIPPED ORACLE-IS-NOT-PROGRAM-OUTPUT:NO_ORACLE_SHIPPED NEEDS_MULTIFILE_LINK:NEEDS_RUNNER_WIRING"
+# ⭐⭐ THE LEGACY MAP EARNED ITS KEEP WITHIN THE HOUR, AND ON A CASE THE RULING GOT WRONG, NOT AN OLD ONE.
+# hq_I cured jcon concurrently with this ruling landing and wrote NEEDS_MULTIFILE_LINK -- a good, precise
+# name for a real situation, invented in good faith minutes after the vocabulary closed. A bare "unruled
+# classes refuse" would have red-lit a lane delivering exactly the work Lon had just ordered, and the lane
+# would have been right to route around the ruling. ⭐ THE RULING STANDS AND THE FILE STILL PASSES: the
+# CLASS is the bucket a lane sorts and picks up work by, so it stays coarse (NEEDS_RUNNER_WIRING covers
+# "the runner cannot invoke it the way the package's own harness does" -- a two-file compile and a -L
+# preload are the same pickup), and the REASON column carries the specificity, where it costs nothing. A
+# vocabulary that grows a member per situation is the every-lane-invents-a-spelling problem wearing a
+# tidier hat. ⛔ So the map is not only for pre-ruling debt: it is how a closed vocabulary absorbs a
+# collision without stopping anyone, which is the only reason closing one is safe to do mid-flight.
 
 inventory_refuse() { echo "⛔ INVENTORY REFUSES(2): $*" >&2; return 2; }
 
