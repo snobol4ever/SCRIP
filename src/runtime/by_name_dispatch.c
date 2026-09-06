@@ -6,6 +6,30 @@
 #include "pl_arith_names.h"
 int core_icn_error(int code, DESCR_t val);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_open_spec_is_icon(const char *spec) {
+    for (const char *p = spec; p && *p; p++) if (!strchr("aAbBcCrRwWuUtT", *p)) return 0;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void icn_open_cmode(const char *spec, char *out) {
+    int rd = 0, wr = 0, ap = 0, cr = 0, un = 0, n = 0;
+    for (const char *p = spec; p && *p; p++) switch (*p) {
+        case 'a': case 'A': wr = 1; ap = 1; break;
+        case 'b': case 'B': rd = 1; wr = 1; break;
+        case 'c': case 'C': cr = 1; wr = 1; break;
+        case 'r': case 'R': rd = 1; break;
+        case 'w': case 'W': wr = 1; break;
+        case 'u': case 'U': un = 1; break;
+        case 't': case 'T': un = 0; break;
+        default: break;
+    }
+    if (!rd && !wr) rd = 1;
+    out[n++] = cr ? 'w' : ap ? 'a' : rd ? 'r' : 'w';
+    if (rd && wr) out[n++] = '+';
+    if (un) out[n++] = 'b';
+    out[n] = '\0';
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) size_t sv_len(DESCR_t arg, const char *coerced) {
     if (arg.v == DT_S && arg.slen != 0xFFFFFFFFu) return arg.slen ? (size_t)arg.slen : (coerced ? strlen(coerced) : 0);
     return coerced ? strlen(coerced) : 0;
@@ -3111,10 +3135,11 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "open") && (nargs == 1 || nargs == 2)) {
         const char *path = VARVAL_fn(args[0]); if (!path || !*path) { *out = FAILDESCR; return 1; }
-        const char *mode = "r";
+        const char *mode = "r"; char mbuf[8];
         if (nargs == 2) {
             const char *ms = VARVAL_fn(args[1]); if (!ms) ms = "";
-            if (strstr(ms, ":w") || strstr(ms, "w")) mode = "w";
+            if (icn_open_spec_is_icon(ms)) { icn_open_cmode(ms, mbuf); mode = mbuf; }
+            else if (strstr(ms, ":w") || strstr(ms, "w")) mode = "w";
             else if (strstr(ms, ":a") || strstr(ms, "a")) mode = "a";
         }
         extern void fh_ensure_init(void);
@@ -5995,8 +6020,9 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (!path) { *out = FAILDESCR; return 1; }
         const char *mode = (nargs == 2 && (args[1].v == DT_S||args[1].v == DT_SNUL) && args[1].s)
                            ? args[1].s : "r";
-        const char *cmode = "r";
-        if (strstr(mode,"w")) cmode = "w";
+        const char *cmode = "r"; char mbuf[8];
+        if (icn_open_spec_is_icon(mode)) { icn_open_cmode(mode, mbuf); cmode = mbuf; }
+        else if (strstr(mode,"w")) cmode = "w";
         else if (strstr(mode,"a")) cmode = "a";
         FILE *fp = fopen(path, cmode);
         if (!fp) { *out = FAILDESCR; return 1; }
