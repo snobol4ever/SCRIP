@@ -278,12 +278,41 @@ s4e_servable_blocker() {   # <blocked-topic> -> prints the topic to serve INSTEA
 # only in the any-lane fallback pass, exactly like the ordinary path's own own-lane/any-lane split. rc 0 =
 # admissible; rc 1 = refused, and the reason is already printed -- never a silent skip, per this row's own
 # explicit requirement.
+# ⛔⭐⭐ THE FLEET-12 RANK CAP -- A SEAT NEVER TAKES A ROW OF RANK 6 OR ABOVE (Lon 2026-09-06 11:20 via ceo,
+# MASTER-PLAN sec THE FLEET-12 PLAN, verbatim: "A SEAT NEVER TAKES A ROW OF RANK >= 6: park it back to FREE
+# with a one-line note and pick again"). Ranks 6-9 are HQ-ONLY -- design, shared engine, ABI, frames, bignum,
+# coexpr, DEFINE m3 -- and the CTO seat works the hardest of them by name.
+# ⛔ UNTIL THIS EXISTED THE RULE WAS ENFORCED BY NOTHING. It was law from the moment Lon said it, and every
+# `next` a seat ran could still hand them a rank-9 ABI row; the seat would then do it, correctly and
+# obediently, because the picker served it. A rule whose only enforcement is that twelve seats each remember
+# it is a hope -- the same shape as the style law each DONE-WHEN used to opt into by hand, which went red on
+# origin twice in one evening with nobody at fault.
+# ⭐ THE AUTHORITY TEST IS s4e_is_hq, WHICH DELIBERATELY COUNTS ceo AND cto. That is exactly right here and it
+# is worth saying why, because the neighbouring lane check deliberately does NOT use it: this is an authority
+# question (may this identity take HQ-ranked work), not a lane question (whose work is this). cto exists to
+# take rank >= 6, and refusing the ceo anything is never correct.
+s4e_rank_cap_refuses() {   # <rank> -- rc 0 = REFUSE this row for this identity, rc 1 = admissible
+    case "${1:-}" in ''|*[!0-9]*) return 1;; esac   # a non-numeric rank is not a cap decision; leave it to the caller
+    [ "$1" -ge 6 ] || return 1
+    s4e_is_hq "$ME" && return 1
+    return 0
+}
 s4e_promotion_admissible() {   # <promo-topic> <blocked-topic> <rank>
     local _p="$1" _blocked="$2" _rank="$3" _tl
     if s4e_language_freeze_refuses "$_p"; then
       printf '⛔ REFUSED PROMOTION: rank-%s %s is BLOCKED-ON %s, but %s is %s and MODE freezes work to %s ONLY.\n' \
         "$_rank" "$_blocked" "$_p" "$_p" "$(s4e_topic_language "$_p")" "$(s4e_mode_language_freeze | tr '[:lower:]' '[:upper:]')"
       printf '   Not promoted, not served -- %s stays skipped this pass; a language freeze is never relaxed by a fallback.\n' "$_blocked"
+      return 1
+    fi
+    # ⛔ THE RANK CAP APPLIES HERE TOO, AND THIS FUNCTION'S OWN HEADER IS THE REASON. It records that the
+    # dependency-inversion promotion once served and LOCKED a row with NO lane check and NO language freeze
+    # at all, because the ordinary path's cuts were written into the ordinary path. Adding a third cut to
+    # only one of the two paths would recreate that defect the same day it is quoted.
+    if s4e_rank_cap_refuses "$_rank"; then
+      printf '⛔ REFUSED PROMOTION: rank-%s %s is BLOCKED-ON %s, but ranks 6+ are HQ-ONLY under THE FLEET-12 PLAN and you are a seat.\n' \
+        "$_rank" "$_blocked" "$_p"
+      printf '   Not promoted, not served -- %s stays skipped this pass; ask your HQ to take %s.\n' "$_blocked" "$_p"
       return 1
     fi
     if [ -n "${_my_lane:-}" ]; then
@@ -2073,6 +2102,15 @@ TASKEOF
              printf '⛔ SKIP %s (rank %s) — MODE freezes work to %s ONLY; this topic is %s. Not served automatically.\n' \
                "$topic" "$rank" "$(s4e_mode_language_freeze | tr '[:lower:]' '[:upper:]')" "$(s4e_topic_language "$topic")"
              printf '   Still live for a deliberate override: s4e_msg.sh claim %s\n' "$topic"
+             continue
+           fi
+           # ⭐⭐ THE FLEET-12 RANK CAP -- see s4e_rank_cap_refuses above. Sits beside the language freeze
+           # because it is the same KIND of cut: unconditional, no any-lane-style fallback, and never
+           # relaxed by a later pass. A seat with nothing else to do does not become entitled to HQ work.
+           if s4e_rank_cap_refuses "$rank"; then
+             printf '⛔ SKIP %s (rank %s) — ranks 6+ are HQ-ONLY under THE FLEET-12 PLAN; seats take bounded rows, rank 0-5.\n' \
+               "$topic" "$rank"
+             printf '   Not served automatically. If you believe this row is yours, ask your HQ; a deliberate override is still s4e_msg.sh claim %s\n' "$topic"
              continue
            fi
            # ⭐⭐ THE LANE FILTER — see s4e_topic_lane/s4e_my_lane above. An explicit OWNER-CELL match
