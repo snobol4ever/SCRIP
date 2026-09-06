@@ -11,6 +11,32 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_DIR="${RT_DIR:-$HERE/../out}"
 CORPUS="$S4E/corpus"
+# ⛔⭐⭐ THE BINARY MAY NOT MOVE UNDER A RUNNING BOARD. Measured here 2026-09-06 (hq_S): a board was started and
+# an incremental `make` was run while it was still grading. The harness happened to try to exec ./scrip during
+# the relink, died with PermissionError, and REFUSED -- which is the honest outcome and the ONLY reason it was
+# noticed. Had the relink finished a second earlier, half the population would have been graded on one binary
+# and half on another, and the board would have printed A COMPLETE, PLAUSIBLE TABLE with no way for any reader
+# to tell. That is this house's own recurring shape: an instrument that cannot fail prints exactly like one
+# that passed.
+# ⛔ FINGERPRINT BOTH, AND THE SECOND IS THE ONE THAT MATTERS: ./scrip links the emitter and runtime
+# DYNAMICALLY, so it is BYTE-IDENTICAL across the two arms of any emitter or runtime change -- a scrip-only
+# check is vacuous exactly when it matters most (measured on an emit.cpp A/B, where two agents verified
+# scrip's md5 as proof the binary had not moved and the check was empty for the property in question).
+# ⭐ AND THE STRONGER MOVE, WHERE IT IS AFFORDABLE (hq_P, same day): put the change behind a killswitch and run
+# BOTH ARMS OFF ONE BUILD, env-only. That removes the hazard rather than detecting it. This guard is for the
+# case a killswitch cannot cover -- a board that takes minutes while somebody else, or your own next command,
+# rebuilds the tree underneath it.
+_sn4_bin_fp() { md5sum "$SCRIP" "$RT_DIR/libscrip_rt.so" 2>/dev/null | cut -c1-12 | tr '\n' ' '; }
+_SN4_BIN_FP0="$(_sn4_bin_fp)"
+_sn4_bin_unmoved() {   # REFUSES rc=2 if either artifact changed since this board started
+    local now; now="$(_sn4_bin_fp)"
+    [ -n "$_SN4_BIN_FP0" ] || { echo "⛔ REFUSE(rc=2): could not fingerprint ./scrip and out/libscrip_rt.so at start -- a board that cannot tell whether its binary moved must not print a verdict"; exit 2; }
+    [ "$now" = "$_SN4_BIN_FP0" ] || {
+        echo "⛔ REFUSE(rc=2): THE BINARY MOVED UNDER THIS BOARD -- start [$_SN4_BIN_FP0] end [$now]"
+        echo "   (scrip and libscrip_rt.so, md5 prefixes, in that order). Part of this population was graded on one build and part on another,"
+        echo "   so every number above describes no single tree. Re-run on a quiet tree; do NOT quote this board."
+        exit 2; }
+}
 # ⛔⭐ 10s WAS A FAIL FACTORY AT FLEET LOAD, AND THE KILL WAS INDISTINGUISHABLE FROM A WRONG ANSWER
 # (hq_C 2026-08-29, verified by hq_B). This bound is PER PROGRAM, not for the board. A program taking 2s on a
 # quiet box can exceed 10s at load 30 with ~20 concurrent boards -- and because the captures below said
@@ -583,6 +609,10 @@ python3 "$HERE/util_score_row.py" write --lang snobol4 --column board --modes m3
 # ⭐ THE PROGRESS LINE, after the rewrite (see board_icon_master.sh for the same call and why it is here
 # rather than only in lib_gate.sh: this runner writes its row directly, bypassing gate_score_row).
 python3 "$HERE/util_score_row.py" progress 2>/dev/null || true
+# ⛔ THE BINARY CHECK COMES BEFORE THE VERDICT, not after it: a board graded across a relink must REFUSE
+# rather than choose between PASS and FAIL, and it must refuse before anything downstream (the leaderboard row
+# above included) can quote it.
+_sn4_bin_unmoved
 # ⛔ AST FAILURES BLOCK. A parser fixture whose --dump-ast diff moved is a real red in the shared front end -- it
 # reaches BOTH modes, so calling it informational the way mode-3 is would be strictly weaker than either mode's bar.
 if [ "$FAIL4" -gt 0 ] || [ "$ASTFAIL" -gt 0 ]; then
