@@ -1236,6 +1236,15 @@ PROGRESS_COUNTED = {
     "pascal": [("fpc", r"fpc", (181,)), ("PAT", r"\bPAT\b|validation suite|ISO 7185", (427, 429))],
     "raku": [("roast", r"roast", (986, 1464))],
 }
+class _Counted(dict):
+    """A {denominator: pass} map that also REMEMBERS WHICH PACKAGES COULD NOT BE READ.
+    ⛔⭐ WHY AN ATTRIBUTE AND NOT A THIRD RETURN VALUE: the caller's `got, work = counted_fractions(...)` shape is
+    used by acceptance fixtures outside this file, and widening the tuple would break them into a ValueError --
+    a cure that reds its own graders is indistinguishable from a defect. A dict subclass keeps every existing
+    read (`got.get(851)`, `for t in sorted(got)`) exactly as it was and adds the one fact the caller was missing."""
+    unreadable = ()
+
+
 def counted_fractions(lang, vcell):
     """{denominator: pass} over EVERY listed package: the first RUN-graded fraction over one of the package's own
     known populations within 160 chars after its name (denominator-anchored, so prose like "the grid's 126/124" can
@@ -1256,7 +1265,7 @@ def counted_fractions(lang, vcell):
     #                    own text is quoted back so the writer can see what the reader saw
     #   ABSENT           the package's clause carries no digits at all -> genuinely not run-graded, counts as 0
     # ⭐ A reader that says WHY it found nothing turns a silent wrong number into a fixable message.
-    got, work, unread = {}, [], []
+    got, work, unread = _Counted(), [], []
     for name, rx, dens in PROGRESS_COUNTED.get(lang, []):
         best, saw = None, ""
         for m in re.finditer(rx, vcell):
@@ -1306,6 +1315,18 @@ def counted_fractions(lang, vcell):
     if unread:
         work.append("⚠ %d package(s) UNREADABLE (%s) -- each counted ZERO over its declared population, so this "
                     "language's percent is a genuine FLOOR: fixing the cell can only raise it." % (len(unread), ", ".join(unread)))
+    # ⛔⭐⭐ THE FLOOR MUST REACH THE PUBLISHED LINE, NOT ONLY THE WORKINGS (row score-a-vendor-cell-reporting-counts-
+    # not-fractions-publishes-a-reading-failure-as-a-measured-zero, minted by hq_I 2026-09-05 off their ipl fold).
+    # Everything above was already correct and already loud: the UNREADABLE line names the package and quotes the
+    # cell back. The gap was one level up -- `got` is a dict and never None, so the caller's `if got is None`
+    # raised the language-level flag ONLY when the WHOLE cell failed to parse. A per-package reading failure
+    # therefore flowed into P/T as an ordinary zero and the percent published with NO marking: icon's ipl read
+    # 0/851 while its suite had run-graded 34/60, and had done for as long as that cell reported counts.
+    # ⭐ A READING FAILURE PRESENTED AS A MEASUREMENT is the same collapse this project refuses everywhere else
+    # (lib_gate.sh's three exit codes; rc=2 versus FAIL; "I found no fraction" is not "it scored zero"). The zero
+    # STAYS -- an unreadable cell must never raise a score, measured: dropping it moved icon 8% -> 48% in one edit
+    # -- but the number it produces is a FLOOR, and a floor published as a measurement is the defect.
+    got.unreadable = tuple(unread)
     return got, work
 
 
@@ -1556,6 +1577,7 @@ def language_progress(lang, cells, prov=""):
     # So BOTH now come from the standardized display, which is the table runners actually write and the
     # only one carrying provenance. The grid stays the human-facing summary; the agree gate is what keeps
     # the two honest about each other.
+    incomplete = []
     for key in ("V",):
         idx = GRID_COLUMNS[key][0]
         got, w = counted_fractions(lang, cells[idx])
@@ -1563,6 +1585,10 @@ def language_progress(lang, cells, prov=""):
         if got is None:
             unreadable = True
             continue
+        # ⛔ A PER-PACKAGE READING FAILURE MARKS THE LANGUAGE. `got is None` above fires only when the WHOLE cell
+        # fails to parse, so before this line a single unreadable package published as an ordinary zero.
+        if getattr(got, "unreadable", ()):
+            incomplete.extend(got.unreadable)
         for t in sorted(got):
             P += got[t]
             T += t
@@ -1617,7 +1643,14 @@ def language_progress(lang, cells, prov=""):
     if unreadable:
         return None, "", P, T, work
     pct = (100 * P) // T if T else 0
-    return pct, ("?" if stale else ""), P, T, work
+    # ⛔⭐ TWO MARKERS, TWO MEANINGS, NEVER CONFLATED. `?` says the number may be OLD; `!` says the number is a
+    # FLOOR because a package in it could not be read at all. A stale measurement is still a measurement; a
+    # reading failure is not, and giving them one glyph would let the louder problem hide inside the quieter one.
+    if incomplete:
+        work.append("⚠ PERCENT IS A FLOOR, NOT A MEASUREMENT: %d package(s) unreadable (%s) -- each counted zero "
+                    "over its full population, so the true number is this or higher. Marked `!` on the line."
+                    % (len(incomplete), ", ".join(incomplete)))
+    return pct, (("?" if stale else "") + ("!" if incomplete else "")), P, T, work
 
 
 # ⛔⭐ COLUMN SEMANTICS -- THE CLASS NO READABILITY CHECK REACHES (ceo ruling 2026-09-03 22:39, after hq_T
@@ -1900,7 +1933,7 @@ def cmd_progress(a):
           % (" | ".join(cells_out), allcell, gh, time.strftime("%Y-%m-%d %H:%M %Z")))
     print("  " + "  ".join(bars))
     if a.verbose:
-        print("  ALL %d%% = %d/%d over the V (industry-standard package) denominators ONLY -- our master and AST fixtures are printed as ours and never counted (Lon 2026-09-04); ? = the V cell reads STALE, or its own ⟨measured …⟩ stamp is older than today, or it carries no stamp at all (age unknown)." % (allpct, tp, tt))
+        print("  ALL %d%% = %d/%d over the V (industry-standard package) denominators ONLY -- our master and AST fixtures are printed as ours and never counted (Lon 2026-09-04); ? = the V cell reads STALE, or its own ⟨measured …⟩ stamp is older than today, or it carries no stamp at all (age unknown); ! = a package in that cell could NOT BE READ and was counted zero over its whole population, so the percent is a FLOOR and not a measurement -- run `progress --verbose` to see which package and what the reader saw." % (allpct, tp, tt))
         for lang, short in PROGRESS_LANGS:
             c = rows[lang]
             print("  %-8s L: %s" % (lang, c[GRID_COLUMNS["L"][0]][:110]))
