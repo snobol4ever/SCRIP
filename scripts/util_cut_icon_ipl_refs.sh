@@ -48,17 +48,27 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 S4E="${S4E_HOME:-$(cd "$HERE/../.." && pwd)}"
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_oracle_flags.sh unloadable" >&2; exit 2; }
 PKG="$S4E/corpus/packages/icon/ipl"
-PROGS="$PKG/progs"
+SUBDIR="progs"
+MAINS_ONLY=0
 TIMEOUT="${TIMEOUT:-8}"
 APPLY=""; VERBOSE=0
-for a in "$@"; do case "$a" in --apply) APPLY=1;; -v) VERBOSE=1;; *) echo "usage: $0 [--apply] [-v]" >&2; exit 2;; esac; done
+while [ $# -gt 0 ]; do case "$1" in
+  --apply) APPLY=1;;
+  -v) VERBOSE=1;;
+  --mains-only) MAINS_ONLY=1;;
+  --dir) shift; [ $# -gt 0 ] || { echo "⛔ --dir needs a value" >&2; exit 2; }; SUBDIR="$1";;
+  --dir=*) SUBDIR="${1#--dir=}";;
+  *) echo "usage: $0 [--apply] [-v] [--dir <subdir>] [--mains-only]" >&2; exit 2;;
+esac; shift; done
+case "$SUBDIR" in */*|""|.|..) echo "⛔ GATE REFUSES: --dir takes ONE package-relative subdirectory name, got '\''$SUBDIR'\''" >&2; exit 2;; esac
+PROGS="$PKG/$SUBDIR"
 
 [ -d "$PROGS" ] || { echo "⛔ GATE REFUSES: corpus subtree missing: $PROGS" >&2; exit 2; }
 ICON="$(icon_bin)" || exit 2
 
 # ── ONE pristine template, copied ONCE; every invocation below gets its OWN disposable copy of it.
 TEMPLATE="$(mktemp -d "${TMPDIR:-/tmp}/ipl_ref_template.XXXXXX")" || { echo "⛔ mktemp failed" >&2; exit 2; }
-for sub in progs procs gprocs incl gincl; do [ -d "$PKG/$sub" ] && cp -r "$PKG/$sub" "$TEMPLATE/$sub"; done
+for sub in progs gprogs procs gprocs incl gincl; do [ -d "$PKG/$sub" ] && cp -r "$PKG/$sub" "$TEMPLATE/$sub"; done
 cleanup_template() { rm -rf "$TEMPLATE"; }
 
 # run_isolated <file.icn> <outfile> -> writes captured combined output to <outfile>, returns rc via
@@ -77,17 +87,21 @@ run_isolated() {
   cp -r "$TEMPLATE"/. "$work"/
   stdin_src=/dev/null
   [ -f "$PROGS/${f%.icn}.dat" ] && stdin_src="$PROGS/${f%.icn}.dat"
-  ( cd "$work/progs" && timeout "$TIMEOUT" env ICONPATH="$work/progs:$work/procs:$work/gprocs:$work/incl:$work/gincl" "$ICON" "$f" < "$stdin_src" > "$outfile" 2>&1 )
+  ( cd "$work/$SUBDIR" && timeout "$TIMEOUT" env ICONPATH="$work/progs:$work/gprogs:$work/procs:$work/gprocs:$work/incl:$work/gincl" "$ICON" "$f" < "$stdin_src" > "$outfile" 2>&1 )
   rc=$?
   rm -rf "$work"
   return "$rc"
 }
 
-mapfile -t FILES < <(cd "$PROGS" && ls -1 *.icn | sort)
+if [ "$MAINS_ONLY" -eq 1 ]; then
+  mapfile -t FILES < <(cd "$PROGS" && grep -lE '^procedure[[:space:]]+main[[:space:]]*\(' *.icn 2>/dev/null | sort)
+else
+  mapfile -t FILES < <(cd "$PROGS" && ls -1 *.icn | sort)
+fi
 TOTAL=${#FILES[@]}
 [ "$TOTAL" -gt 0 ] || { echo "⛔ GATE REFUSES: zero .icn files found under $PROGS" >&2; exit 2; }
 
-n_live=0; n_mint=0; n_empty=0; n_fail=0; n_timeout=0; n_suspect=0; n_nondet=0; n_havestd=0; n_oversized=0
+n_live=0; n_mint=0; n_empty=0; n_fail=0; n_display=0; n_timeout=0; n_suspect=0; n_nondet=0; n_havestd=0; n_oversized=0
 OUT1="$(mktemp "${TMPDIR:-/tmp}/ipl_ref_out1.XXXXXX")"; OUT2="$(mktemp "${TMPDIR:-/tmp}/ipl_ref_out2.XXXXXX")"
 trap 'cleanup_template; rm -f "$OUT1" "$OUT2"' EXIT
 # ⛔⛔ MAX_BYTES CAPS EVERY FULL-CONTENT READ, CHECKED ON THE FILE BEFORE EVER SLURPING IT INTO A BASH
@@ -122,6 +136,24 @@ for f in "${FILES[@]}"; do
     continue
   fi
   out1="$(cat "$OUT1")"
+  # ⛔⭐ DISPLAY_REFUSED IS SPLIT OUT OF ORACLE_FAIL ON PURPOSE, AND THE DISTINCTION IS THE WHOLE POINT
+  # (hq_I 2026-09-06, CEO-316, measured over gprogs/): the oracle's own binary prints "<prog>: can't open
+  # display" and exits 1 on a headless box. Folding that into ORACLE_FAIL is not a cosmetic mislabel --
+  # ORACLE_FAIL lands in UNGRADED.tsv, the file of work SOMEBODY IS OWED (supply argv, author a fixture),
+  # and 136 of gprogs' 177 mains are display-bound. Filing them as owed manufactures 136 rows NO LANE CAN
+  # EVER CLOSE, and buries the genuinely-curable argv rows among them. This is a ruling in the oracle's own
+  # words -- UNGRADABLE / ORACLE_REFUSES, nobody owes work -- which is exactly THE DENOMINATOR RULE's test:
+  # the program leaves the gradable set because THE ORACLE CANNOT ANSWER IT, not because we chose to skip it.
+  # ⛔ SCAN THE WHOLE OUTPUT, NEVER head -1 (hq_I 2026-09-06, caught by measuring instead of assuming):
+  # the one-step `icon` driver is a symlink to icont, so it prints icont's benign link-time
+  # "undeclared identifier" warnings for the graphics procs FIRST and the real refusal LAST. A head -1
+  # probe reads a warning, misses the refusal, and files all 136 display-bound gprogs as ORACLE_FAIL --
+  # which is the narrower-question trap: head -1 answers "how does the output OPEN", never "what did the
+  # oracle DECIDE". The first draft of this very class did exactly that and reported DISPLAY_REFUSED 0.
+  if [ "$rc1" -ne 0 ] && printf '%s' "$out1" | grep -q "can't open display"; then
+    n_display=$((n_display+1)); printf 'DISPLAY_REFUSED\t%s\t%s\t-\tNOT MINTED -- oracle refuses headless: %s\n' "$f" "$rc1" "$(printf '%s' "$out1" | head -1)"
+    continue
+  fi
   if [ "$rc1" -ne 0 ]; then
     n_fail=$((n_fail+1)); printf 'ORACLE_FAIL\t%s\t%s\t-\tNOT MINTED -- needs argv/stdin this driver does not supply, or genuine rejection\n' "$f" "$rc1"
     [ "$VERBOSE" -eq 1 ] && printf '   %s\n' "$(printf '%s' "$out1" | head -1)"
@@ -181,12 +213,12 @@ for f in "${FILES[@]}"; do
   printf 'LIVE\t%s\t0\t%s\t%s\n' "$f" "$by1" "$act"
 done
 echo "----"
-printf 'TOTALS: LIVE %d (minted %d) · HAVE_STD %d · EMPTY %d · SUSPECT_USAGE %d · NONDETERMINISTIC %d · ORACLE_FAIL %d · TIMEOUT %d · OVERSIZED %d · total=%d\n' \
-  "$n_live" "$n_mint" "$n_havestd" "$n_empty" "$n_suspect" "$n_nondet" "$n_fail" "$n_timeout" "$n_oversized" "$TOTAL"
+printf 'TOTALS[%s]: LIVE %d (minted %d) · HAVE_STD %d · EMPTY %d · SUSPECT_USAGE %d · NONDETERMINISTIC %d · ORACLE_FAIL %d · DISPLAY_REFUSED %d · TIMEOUT %d · OVERSIZED %d · total=%d\n' \
+  "$SUBDIR" "$n_live" "$n_mint" "$n_havestd" "$n_empty" "$n_suspect" "$n_nondet" "$n_fail" "$n_display" "$n_timeout" "$n_oversized" "$TOTAL"
 [ -n "$APPLY" ] || echo "(census only -- nothing written; re-run with --apply to mint)"
 # ── belt-and-suspenders: prove the tracked tree is still exactly what HEAD says, every run, census or not.
-if git -C "$S4E/corpus" diff --quiet -- packages/icon/ipl/progs packages/icon/ipl/procs packages/icon/ipl/gprocs packages/icon/ipl/incl packages/icon/ipl/gincl 2>/dev/null \
-   && [ -z "$(git -C "$S4E/corpus" status --porcelain -- packages/icon/ipl/progs packages/icon/ipl/procs packages/icon/ipl/gprocs packages/icon/ipl/incl packages/icon/ipl/gincl 2>/dev/null | grep -v '\.std$')" ]; then
+if git -C "$S4E/corpus" diff --quiet -- packages/icon/ipl/progs packages/icon/ipl/gprogs packages/icon/ipl/procs packages/icon/ipl/gprocs packages/icon/ipl/incl packages/icon/ipl/gincl 2>/dev/null \
+   && [ -z "$(git -C "$S4E/corpus" status --porcelain -- packages/icon/ipl/progs packages/icon/ipl/gprogs packages/icon/ipl/procs packages/icon/ipl/gprocs packages/icon/ipl/incl packages/icon/ipl/gincl 2>/dev/null | grep -v '\.std$')" ]; then
   :
 else
   echo "⛔⛔⛔ THE TRACKED IPL TREE CHANGED DURING THIS RUN (excluding new .std mints) -- isolation was breached, investigate before trusting anything above ⛔⛔⛔" >&2
