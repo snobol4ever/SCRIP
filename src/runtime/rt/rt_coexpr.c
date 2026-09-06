@@ -112,7 +112,7 @@ void scrip_cofail(void) {
 }
 typedef struct scrip_coexpr_entry_pkg_t {
     void    *body_entry_addr;
-    uint64_t r12, r13, r14, r15, rbx, csav5;
+    uint64_t r12, r13, r14, r15, rbx, csav5, gva;
 } scrip_coexpr_entry_pkg_t;
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, body_entry_addr) ==  0, "pkg layout drift: body_entry_addr");
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, r12)             ==  8, "pkg layout drift: r12");
@@ -121,6 +121,7 @@ _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, r14)             == 24, "pkg l
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, r15)             == 32, "pkg layout drift: r15");
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, rbx)             == 40, "pkg layout drift: rbx");
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, csav5)             == 48, "pkg layout drift: csav5");
+_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, gva)               == 56, "pkg layout drift: gva -- the GLOBAL-VARIABLE AREA base, r9. A co-expression body reads every global as [r9 + off], and r9 was not among the six registers this package carried, so on the body's own thread it held whatever the trampoline left there: EVERY GLOBAL READ INSIDE A CO-EXPRESSION RETURNED GARBAGE, which is also why activating a co-expression stored in a global segfaulted -- the target pointer was garbage, not the co-expression.");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void scrip_coexpr_trampoline_entry(void *arg) {
     scrip_coexpr_entry_pkg_t *pkg = (scrip_coexpr_entry_pkg_t *)arg;
@@ -131,17 +132,18 @@ void scrip_coexpr_trampoline_entry(void *arg) {
         "mov 24(%0), %%r14\n\t"
         "mov 32(%0), %%r15\n\t"
         "mov 40(%0), %%rbx\n\t"
+        "mov 56(%0), %%r9\n\t"
         "mov 48(%0), %%r11\n\t.byte 0x4c,0x89,0xdd\n\t"
         "jmp *%%rax\n\t"
         :
         : "r"(pkg)
-        : "rax", "r12", "r13", "r14", "r15", "rbx", "memory"
+        : "rax", "r12", "r13", "r14", "r15", "rbx", "r9", "memory"
     );
     fprintf(stderr, "scrip_coexpr: FATAL scrip_coexpr_trampoline_entry fell through the jmp -- bad body_entry_addr?\n");
     abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[6], uint64_t frame_bytes) {
+scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7], uint64_t frame_bytes) {
     extern long g_scrip_coexpr_live; g_scrip_coexpr_live++;
     scrip_coctx_t *ctx = (scrip_coctx_t *)malloc(sizeof(scrip_coctx_t));
     if (!ctx) scrip_co_uerror("scrip_coexpr: malloc scrip_coctx_t failed");
@@ -149,7 +151,7 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[6]
     if (!pkg) scrip_co_uerror("scrip_coexpr: malloc scrip_coexpr_entry_pkg_t failed");
     pkg->body_entry_addr = body_entry_addr;
     pkg->r12 = regs[0]; pkg->r13 = regs[1]; pkg->r14 = regs[2];
-    pkg->r15 = regs[3]; pkg->rbx = regs[4]; pkg->csav5 = regs[5];
+    pkg->r15 = regs[3]; pkg->rbx = regs[4]; pkg->csav5 = regs[5]; pkg->gva = regs[6];
     ctx->frame_copy = NULL; ctx->frame_copy_sz = 0;
     if (frame_bytes > 0 && regs[5] != 0) {
         extern void rt_gc_root_range_add(const char *, const char *);

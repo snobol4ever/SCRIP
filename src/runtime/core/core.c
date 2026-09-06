@@ -2371,6 +2371,7 @@ const char *datatype(DESCR_t v) {
         case DT_S:       return "STRING";
         case DT_I:       return "INTEGER";
         case DT_BIG:     return "INTEGER";
+        case DT_CO:      return "CO-EXPRESSION";
         case DT_R:       return "REAL";
         case DT_DATA:    return v.u ? v.u->type->name : "DATA";
         case DT_P:       return "PATTERN";

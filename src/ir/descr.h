@@ -27,6 +27,7 @@ typedef enum {
     DT_FAIL = 0x68,
     DT_DATA = 0x70,
     DT_BIG  = 0x78,
+    DT_CO   = 0x80,
 } DTYPE_t;
 #ifdef __cplusplus
 #define DESCR_SASSERT(c, m) static_assert(c, m)

@@ -47,6 +47,7 @@
 #define DT_FAIL  0x68
 #define DT_DATA  0x70
 #define DT_BIG   0x78
+#define DT_CO    0x80
 /* The NAMETRAP descriptor low word, PACKED, because hand-fusing it is how the TAG-3 renumber survived three
  * greps and still shipped a broken build: rtx_icnsub.s carried `mov rax, 0x200000009` in FOUR places -- the
  * tag was not a recognisable immediate at all, it was a nibble inside a 64-bit literal, so no reviewer and no

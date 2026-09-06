@@ -15,7 +15,7 @@ std::string bb_activate() {
          + IF(_.op_off >= 0 && _.op_sa >= 0,
                x86("comment", "IR_ACTIVATE")
              + x86_alpha()
-             + x86("mov",  "rdi", FRQ(_.op_sa))
+             + x86("mov",  "rdi", FRQ(_.op_sa + 8))
              + IF(_.op_sb >= 0,
                    x86("mov", "rsi", FRQ(_.op_sb))
                  + x86("mov", "rdx", FRQ(_.op_sb + 8)))

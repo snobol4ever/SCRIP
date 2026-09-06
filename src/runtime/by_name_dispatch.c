@@ -4252,7 +4252,8 @@ static int bn_type_datatype(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
     const char *t;
     int declared = 0;
     (void)nargs;
-    if (av.v == DT_BIG)      t="integer";
+    if (av.v == DT_CO)       t="co-expression";
+    else if (av.v == DT_BIG) t="integer";
     else if (IS_INT_fn(av))  t="integer";
     else if (IS_REAL_fn(av)) t="real";
     else if (av.v==DT_T)     t=(av.tbl && av.tbl->is_set) ? "set" : "table";
