@@ -261,14 +261,38 @@ fi
 # is the work list, not a verdict. ⭐ It prints the denominator rather than a boolean for the reason the
 # stale-binary gate's census arm does: that arm caught THIS author shipping a gate with no freshness
 # guard on the day it landed (gates=97 wired=96 uncovered=1), which a boolean could not have done.
-runners=0; wired=0; missing=""
+# ⛔⭐⭐ AND IT COUNTS WHAT IT CAN PROVE, IN THREE TIERS, BECAUSE "WIRED" WAS A CLAIM THIS GATE COULD NOT
+# SUPPORT (hq_I, 2026-09-06, and they were right). It greps for the stanza, so it counted runners that
+# COULD emit a line, not runners that DO -- and those differed for EVERY runner wired so far. jcon is the
+# worked case: it sourced the body and called it, the census said wired=1, and it could not emit a line at
+# all, because its UNGRADED.tsv was 2-column and its call SWALLOWED the refusal into a warning. A number
+# that is wrong for every member of its population is not a census, and the ceo has since made this report
+# load-bearing under Lon's order, which is the worst moment to be carrying an unprovable claim.
+# ⭐ STATIC ANALYSIS CANNOT PROVE EMISSION -- only running the runner does, and that is board_packages.sh's
+# job, not a 2-second mktemp-only gate's. So the honest move is not a cleverer grep: it is to stop printing
+# one number, print the three that ARE decidable from the source, and name the gap the gate cannot close.
+runners=0; sources=0; calls=0; swallows=0; missing=""; partial=""; swallowed=""
 for r in "$HERE"/test_*_suite.sh "$HERE"/raku_roast_scoreboard.sh "$HERE"/board_packages.sh; do
     [ -f "$r" ] || continue
-    runners=$((runners+1))
-    if grep -q 'lib_inventory.sh' "$r"; then wired=$((wired+1)); else missing="$missing $(basename "$r")"; fi
+    runners=$((runners+1)); b="$(basename "$r")"
+    grep -q 'lib_inventory.sh' "$r" || { missing="$missing $b"; continue; }
+    sources=$((sources+1))
+    # a COMPLETE stanza: all three tokens plus the call. A missing INV_EXT refuses at run time, so a
+    # runner that sources the body and sets two of three is wired to refuse, not wired to report.
+    if grep -q 'inventory_line' "$r" && grep -q 'INV_PACKAGE=' "$r" && grep -q 'INV_DIR=' "$r" && grep -q 'INV_EXT=' "$r"; then
+        calls=$((calls+1))
+    else
+        partial="$partial $b"; continue
+    fi
+    # ⛔ AND A SWALLOWED REFUSAL IS THE jcon CASE EXACTLY: `inventory_line ... || echo "warn"` turns rc=2
+    # into a line nobody reads, so a package can refuse on every run while the board stays quiet.
+    grep -qE 'inventory_line[^|&]*(\|\||&&|2>/dev/null)' "$r" && { swallows=$((swallows+1)); swallowed="$swallowed $b"; }
 done
-echo "    package runners censused=$runners wired=$wired unwired=$((runners-wired))"
-[ -z "$missing" ] || { echo "    NOT YET WIRED (the row's work list, not a verdict):"; printf '      %s\n' $missing; }
+echo "    package runners censused=$runners  sources=$sources  complete-stanza=$calls  unwired=$((runners-sources))"
+echo "    ⚠ NOT DECIDABLE HERE: whether a runner actually EMITS a summing line. Only running it proves that (board_packages.sh)."
+[ -z "$missing" ]   || { echo "    NOT YET WIRED (the row's work list, not a verdict):"; printf '      %s\n' $missing; }
+[ -z "$partial" ]   || { echo "    ⛔ SOURCES THE BODY WITH AN INCOMPLETE STANZA -- wired to REFUSE, not to report:"; printf '      %s\n' $partial; }
+[ -z "$swallowed" ] || { echo "    ⛔ SWALLOWS THE REFUSAL (rc=2 becomes a warning nobody reads -- the jcon case):"; printf '      %s\n' $swallowed; }
 
 GATE_EXAMINED="$examined arms"
 gate_verdict "$violations" "package-inventory violations"
