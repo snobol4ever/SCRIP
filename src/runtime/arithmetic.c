@@ -288,7 +288,10 @@ static DESCR_t rt_big_arith_route(DESCR_t a, DESCR_t b, int op) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_big_arith_wanted(DESCR_t a, DESCR_t b, int op) {
-    if (a.v == DT_BIG || b.v == DT_BIG) return (op == BINOP_ADD || op == BINOP_SUB || op == BINOP_MUL || op == BINOP_DIV || op == BINOP_MOD || op == BINOP_POW || op == BINOP_POW_PROMOTE);
+    if (a.v == DT_BIG || b.v == DT_BIG) {
+        if (IS_REAL_fn(a) || IS_REAL_fn(b)) return 0;
+        return (op == BINOP_ADD || op == BINOP_SUB || op == BINOP_MUL || op == BINOP_DIV || op == BINOP_MOD || op == BINOP_POW || op == BINOP_POW_PROMOTE);
+    }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

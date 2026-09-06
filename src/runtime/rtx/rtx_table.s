@@ -6,6 +6,7 @@
 #define DT_A              0x10
 #define DT_T              0x18
 #define DT_DATA           0x70
+#define DT_BIG            0x78
 #define TBPAIR_KEYD_V     8
 #define TBPAIR_KEYD_SLEN 12
 #define TBPAIR_KEYD_VAL  16
@@ -35,6 +36,8 @@ RTX_FUNC(table_find_pair_d)
     cmp     al, DT_T
     je      c_table_find_pair_d
     cmp     al, DT_DATA
+    je      c_table_find_pair_d
+    cmp     al, DT_BIG
     je      c_table_find_pair_d
 .Ltf_h_ptr:
     mov     r11, rdx

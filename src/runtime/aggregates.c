@@ -138,6 +138,7 @@ const char *tbl_key_str(DESCR_t kd, char *buf, size_t bufn) {
                         char t[24]; int n = 0; do { t[n++] = (char)('0' + (int)(u % 10ull)); u /= 10ull; } while (u); while (n) *p++ = t[--n]; *p = 0; (void)bufn; return buf; }
         case DT_R:    snprintf(buf, bufn, "\001r%.17g", kd.r); return buf;
         case DT_DATA: { if (!kd.u) return "\001d0"; snprintf(buf, bufn, "\001d%s#%ld", kd.u->type ? kd.u->type->name : "?", kd.u->id); return buf; }
+        case DT_BIG:  { extern char *rt_big_str(DESCR_t); snprintf(buf, bufn, "\001b%s", rt_big_str(kd)); return buf; }
         case DT_A:    { if (!kd.arr) return "\001l0"; if (!kd.arr->id) kd.arr->id = g_agg_list_ser++; snprintf(buf, bufn, "\001l%ld", kd.arr->id); return buf; }
         case DT_T:    { if (!kd.tbl) return "\001t0"; if (!kd.tbl->id) kd.tbl->id = g_agg_table_ser++; snprintf(buf, bufn, "\001%c%ld", kd.tbl->is_set ? 'S' : 't', kd.tbl->id); return buf; }
         default:      snprintf(buf, bufn, "\001p%p", kd.ptr); return buf;
@@ -187,6 +188,7 @@ static inline __attribute__((always_inline)) unsigned long long _tbl_h_data(cons
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) unsigned long long _tbl_h_ptr(const DESCR_t *k) { return (((unsigned long long)(uintptr_t)k->ptr >> 4) * 0xC2B2AE3D27D4EB4Full) >> 8; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline __attribute__((always_inline)) unsigned long long _tbl_h_big(const DESCR_t *k) { extern unsigned long long rt_big_hash(DESCR_t); return rt_big_hash(*k); }
 static inline __attribute__((always_inline)) unsigned long long _tbl_hval(const DESCR_t *k) {
     switch (k->v) {
         case DT_SNUL: return _tbl_h_snul(k);
@@ -196,6 +198,7 @@ static inline __attribute__((always_inline)) unsigned long long _tbl_hval(const 
         case DT_A:    return _tbl_h_arr (k);
         case DT_T:    return _tbl_h_tbl (k);
         case DT_DATA: return _tbl_h_data(k);
+        case DT_BIG:  return _tbl_h_big (k);
         default:      return _tbl_h_ptr (k);
     }
 }
@@ -226,6 +229,7 @@ static inline __attribute__((always_inline)) int _tbl_eq_d(const TBPAIR_t *e, DE
         case DT_A:    return e->key_descr.arr == k.arr;
         case DT_T:    return e->key_descr.tbl == k.tbl;
         case DT_DATA: return e->key_descr.u == k.u;
+        case DT_BIG:  { extern int rt_big_cmp(DESCR_t, DESCR_t); return rt_big_cmp(e->key_descr, k) == 0; }
         default:      return e->key_descr.ptr == k.ptr;
     }
 }

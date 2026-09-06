@@ -5007,6 +5007,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (IS_INT_fn(av)) {
             snprintf(buf,256,"%lld",(long long)av.i); *out = STRVAL(buf); return 1;
         }
+        if (av.v == DT_BIG)      { extern char *rt_big_image_str(DESCR_t); *out = STRVAL(rt_big_image_str(av)); return 1; }
         if (IS_REAL_fn(av))      { icon_real_str(av.r,buf,128); *out = STRVAL(buf); return 1; }
         if (av.v==DT_T)          { snprintf(buf,128,"%s_%ld(%d)", (av.tbl && av.tbl->is_set) ? "set" : "table", av.tbl?av.tbl->id:0, av.tbl?av.tbl->size:0); *out = STRVAL(buf); return 1; }
         if (av.v==DT_DATA && av.u) {

@@ -1,5 +1,7 @@
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
+#include <math.h>
 #include "descr.h"
 extern void *rt_ws_alloc(size_t);
 extern char *rt_ws_strdup_c(const char *);
@@ -116,6 +118,13 @@ int rt_big_cmp(DESCR_t x, DESCR_t y) {
     return (a->sign < 0) ? -c : c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+unsigned long long rt_big_hash(DESCR_t x) {
+    BIG_t *b = big_of(x); if (!b) return 0;
+    unsigned long long h = 0x9E3779B97F4A7C15ull ^ ((unsigned long long)(uint32_t)b->sign * 0xC2B2AE3D27D4EB4Full);
+    for (uint32_t i = 0; i < b->n; i++) { h ^= (unsigned long long)b->limb[i] * 0xFF51AFD7ED558CCDull; h = (h << 13) | (h >> 51); }
+    return (h ^ (h >> 31)) * 0xC4CEB9FE1A85EC53ull;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_big_pow(DESCR_t x, int64_t e) {
     if (e < 0) return FAILDESCR;
     BIG_t *base = big_of(x); if (!base) return FAILDESCR;
@@ -212,6 +221,19 @@ DESCR_t rt_big_neg(DESCR_t d) {
     for (uint32_t i = 0; i < b->n; i++) r->limb[i] = b->limb[i];
     r->n = b->n; r->sign = -b->sign; big_trim(r);
     return rt_big_norm(r);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+char *rt_big_str(DESCR_t d);
+char *rt_big_image_str(DESCR_t d) {
+    BIG_t *b = big_of(d); if (!b) return rt_ws_strdup_c("");
+    if (b->sign == 0) return rt_ws_strdup_c("0");
+    double dlen = (double)(b->n - 1) * 32.0 * 0.3010299956639812
+                + log((double)b->limb[b->n - 1]) * 0.4342944819032518 + 0.5;
+    if (dlen >= 30.0) {
+        char buf[32]; snprintf(buf, sizeof buf, "integer(~10^%ld)", (long)dlen);
+        return rt_ws_strdup_c(buf);
+    }
+    return rt_big_str(d);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 char *rt_big_str(DESCR_t d) {
