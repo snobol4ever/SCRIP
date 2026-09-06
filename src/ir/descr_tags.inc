@@ -159,4 +159,5 @@
 #define MOD_OP_RT_PL_APPEND1           217    /* rtx_plunify.s rt_pl_dop_append1      */
 #define MOD_OP_RT_PL_SEE               218    /* rtx_plunify.s rt_pl_dop_see          */
 #define MOD_OP_RT_PL_CPF               219    /* rtx_plunify.s current_prolog_flag    */
+#define MOD_OP_RT_PL_SPF               220    /* rtx_plunify.s set_prolog_flag        */
 #endif

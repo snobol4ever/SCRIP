@@ -1974,21 +1974,50 @@ static int pl_edin_revert(int is_out) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { const char *nm; char val[48]; int mod; const char *ok[6]; } pl_flag_t;
+static pl_flag_t pl_flags[] = {
+    { "bounded", "true", 0, { 0 } },
+    { "max_integer", "9223372036854775807", 0, { 0 } },
+    { "min_integer", "-9223372036854775808", 0, { 0 } },
+    { "integer_rounding_function", "toward_zero", 0, { 0 } },
+    { "max_arity", "unbounded", 0, { 0 } },
+    { "char_conversion", "off", 1, { "on", "off", 0 } },
+    { "debug", "off", 1, { "on", "off", 0 } },
+    { "unknown", "error", 1, { "error", "fail", "warning", 0 } },
+    { "double_quotes", "atom", 1, { "atom", "chars", "codes", 0 } },
+    { "argv", "[]", 0, { 0 } },
+    { 0, "", 0, { 0 } } };
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static pl_flag_t * pl_flag_find(const char *nm) {
+    for (int i = 0; pl_flags[i].nm; i++) if (!strcmp(nm, pl_flags[i].nm)) return &pl_flags[i];
+    return (pl_flag_t *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_CX_LEAF_HEAD(current_prolog_flag, 2) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
     extern void *rt_pl_ball_instantiation(void);
-    char fb[128]; const char *fn; DESCR_t f = rt_pl_deref_val(args[0]); DESCR_t v; ok = 0;
+    char fb[128]; const char *fn; DESCR_t f = rt_pl_deref_val(args[0]); pl_flag_t *fl; ok = 0;
     if (pl_val_unbound(f)) { cx->ball = rt_pl_ball_instantiation(); }
-    else if (!pl_cell_text(args[0], fb, sizeof fb, &fn)) { cx->ball = rt_pl_ball_kind2("type_error", "atom", f); }
-    else if (!strcmp(fn, "bounded")) { v = pl_mk_atom("true"); ok = plw_unify_vals(args[1], v, cx); }
-    else if (!strcmp(fn, "max_integer")) { v = INTVAL(9223372036854775807LL); ok = plw_unify_vals(args[1], v, cx); }
-    else if (!strcmp(fn, "min_integer")) { v = INTVAL(-9223372036854775807LL - 1); ok = plw_unify_vals(args[1], v, cx); }
-    else if (!strcmp(fn, "integer_rounding_function")) { v = pl_mk_atom("toward_zero"); ok = plw_unify_vals(args[1], v, cx); }
-    else if (!strcmp(fn, "double_quotes")) { v = pl_mk_atom("atom"); ok = plw_unify_vals(args[1], v, cx); }
-    else if (!strcmp(fn, "unknown")) { v = pl_mk_atom("error"); ok = plw_unify_vals(args[1], v, cx); }
-    else if (!strcmp(fn, "char_conversion")) { v = pl_mk_atom("off"); ok = plw_unify_vals(args[1], v, cx); }
-    else if (!strcmp(fn, "debug")) { v = pl_mk_atom("off"); ok = plw_unify_vals(args[1], v, cx); }
-    else if (!strcmp(fn, "argv")) { ok = plw_unify_vals(args[1], pl_nil(), cx); }
-    else { cx->ball = rt_pl_ball_kind2("domain_error", "prolog_flag", f); } } PL_CX_LEAF_TAIL
+    else if ((f.v != (DTYPE_t)DT_S && f.v != (DTYPE_t)DT_A) || !pl_cell_text(args[0], fb, sizeof fb, &fn)) { cx->ball = rt_pl_ball_kind2("type_error", "atom", f); }
+    else if (!(fl = pl_flag_find(fn))) { cx->ball = rt_pl_ball_kind2("domain_error", "prolog_flag", f); }
+    else if (!strcmp(fl->nm, "argv")) { ok = plw_unify_vals(args[1], pl_nil(), cx); }
+    else if (!strcmp(fl->nm, "max_integer")) { ok = plw_unify_vals(args[1], INTVAL(9223372036854775807LL), cx); }
+    else if (!strcmp(fl->nm, "min_integer")) { ok = plw_unify_vals(args[1], INTVAL(-9223372036854775807LL - 1), cx); }
+    else { ok = plw_unify_vals(args[1], pl_mk_atom_dup(fl->val, strlen(fl->val)), cx); } } PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(set_prolog_flag, 2) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    extern void *rt_pl_ball_instantiation(void); extern void *rt_pl_ball_permission3(const char *, const char *, DESCR_t);
+    char fb[128], vb[128]; const char *fn, *vn; DESCR_t f = rt_pl_deref_val(args[0]); DESCR_t v = rt_pl_deref_val(args[1]); pl_flag_t *fl; ok = 0;
+    if (pl_val_unbound(f) || pl_val_unbound(v)) { cx->ball = rt_pl_ball_instantiation(); }
+    else if ((f.v != (DTYPE_t)DT_S && f.v != (DTYPE_t)DT_A) || !pl_cell_text(args[0], fb, sizeof fb, &fn)) { cx->ball = rt_pl_ball_kind2("type_error", "atom", f); }
+    else if (!(fl = pl_flag_find(fn))) { cx->ball = rt_pl_ball_kind2("domain_error", "prolog_flag", f); }
+    else if (!pl_cell_text(args[1], vb, sizeof vb, &vn)) { cx->ball = rt_pl_ball_kind2("domain_error", "flag_value", v); }
+    else if (!fl->mod) { cx->ball = rt_pl_ball_permission3("modify", "flag", f); }
+    else { int good = 0; for (int i = 0; fl->ok[i]; i++) if (!strcmp(vn, fl->ok[i])) good = 1;
+        if (!good) { DESCR_t *kk = (DESCR_t *)rt_plj_alloc(2 * sizeof(DESCR_t)); extern int prolog_atom_intern(const char *);
+            kk[0] = pl_mk_atom_dup(fl->nm, strlen(fl->nm)); kk[1] = rt_pl_deref_val(args[1]);
+            { DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (((uint32_t)prolog_atom_intern("+")) << 16) | 2u; c.p = (void *)kk;
+              cx->ball = rt_pl_ball_kind2("domain_error", "flag_value", c); } }
+        else { snprintf(fl->val, sizeof fl->val, "%s", vn); ok = 1; } } } PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_CX_LEAF_HEAD(telling, 1) { extern int fh_current_output(void);
     ok = plw_unify_vals(args[0], (fh_current_output() == 1 || !pl_edin_out_name[0]) ? pl_mk_atom("user") : pl_mk_atom_dup(pl_edin_out_name, strlen(pl_edin_out_name)), cx); } PL_CX_LEAF_TAIL

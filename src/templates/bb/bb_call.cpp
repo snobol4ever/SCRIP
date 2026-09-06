@@ -58,7 +58,7 @@ DESCR_t rt_pl_dop_get_code_s(DESCR_t *, int); DESCR_t rt_pl_dop_peek_code_s(DESC
 DESCR_t rt_pl_dop_unget_code(DESCR_t *, int); DESCR_t rt_pl_dop_unget_byte(DESCR_t *, int); DESCR_t rt_pl_dop_unget_code_s(DESCR_t *, int); DESCR_t rt_pl_dop_unget_byte_s(DESCR_t *, int);
 DESCR_t dop_pl_at_end_of_stream(DESCR_t *, int); DESCR_t rt_pl_dop_at_end_of_stream_s(DESCR_t *, int); DESCR_t rt_pl_dop_get_edin(DESCR_t *, int); DESCR_t rt_pl_dop_skip(DESCR_t *, int);
 DESCR_t rt_pl_dop_put_char_c(DESCR_t *, int); DESCR_t rt_pl_dop_put_char_c_s(DESCR_t *, int);
-DESCR_t rt_pl_dop_current_prolog_flag(DESCR_t *, int); DESCR_t rt_pl_dop_telling(DESCR_t *, int); DESCR_t rt_pl_dop_seeing(DESCR_t *, int); DESCR_t rt_pl_dop_tell(DESCR_t *, int); DESCR_t rt_pl_dop_append1(DESCR_t *, int); DESCR_t rt_pl_dop_see(DESCR_t *, int);
+DESCR_t rt_pl_dop_current_prolog_flag(DESCR_t *, int); DESCR_t rt_pl_dop_set_prolog_flag(DESCR_t *, int); DESCR_t rt_pl_dop_telling(DESCR_t *, int); DESCR_t rt_pl_dop_seeing(DESCR_t *, int); DESCR_t rt_pl_dop_tell(DESCR_t *, int); DESCR_t rt_pl_dop_append1(DESCR_t *, int); DESCR_t rt_pl_dop_see(DESCR_t *, int);
 DESCR_t dop_pl_told(DESCR_t *, int); DESCR_t dop_pl_seen(DESCR_t *, int);
 DESCR_t rt_pl_dop_put_byte(DESCR_t *, int); DESCR_t rt_pl_dop_put_byte_s(DESCR_t *, int); DESCR_t dop_pl_put_code(DESCR_t *, int); DESCR_t dop_pl_put_code_s(DESCR_t *, int);
 DESCR_t rt_pl_dop_current_input(DESCR_t *, int); DESCR_t rt_pl_dop_open(DESCR_t *, int); DESCR_t rt_pl_dop_open4(DESCR_t *, int); DESCR_t rt_pl_dop_keysort(DESCR_t *, int); DESCR_t rt_pl_dop_format3(DESCR_t *, int); DESCR_t dop_pl_op(DESCR_t *, int);
@@ -361,7 +361,7 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$get_byte", 1, "rt_pl_dop_get_byte", rt_pl_dop_get_byte }, { "$peek_byte", 1, "rt_pl_dop_peek_byte", rt_pl_dop_peek_byte },
         { "$unget_char", 1, "rt_pl_dop_unget_char", rt_pl_dop_unget_char }, { "$unget_code", 1, "rt_pl_dop_unget_code", rt_pl_dop_unget_code }, { "$unget_byte", 1, "rt_pl_dop_unget_byte", rt_pl_dop_unget_byte }, { "$put_code", 1, "dop_pl_put_code", dop_pl_put_code },
         { "$put_byte", 1, "rt_pl_dop_put_byte", rt_pl_dop_put_byte },
-        { "$current_prolog_flag", 2, "rt_pl_dop_current_prolog_flag", rt_pl_dop_current_prolog_flag }, { "$telling", 1, "rt_pl_dop_telling", rt_pl_dop_telling }, { "$seeing", 1, "rt_pl_dop_seeing", rt_pl_dop_seeing },
+        { "$current_prolog_flag", 2, "rt_pl_dop_current_prolog_flag", rt_pl_dop_current_prolog_flag }, { "$set_prolog_flag", 2, "rt_pl_dop_set_prolog_flag", rt_pl_dop_set_prolog_flag }, { "$telling", 1, "rt_pl_dop_telling", rt_pl_dop_telling }, { "$seeing", 1, "rt_pl_dop_seeing", rt_pl_dop_seeing },
         { "$tell", 1, "rt_pl_dop_tell", rt_pl_dop_tell }, { "$append1", 1, "rt_pl_dop_append1", rt_pl_dop_append1 }, { "$see", 1, "rt_pl_dop_see", rt_pl_dop_see },
         { "$told", 0, "dop_pl_told", dop_pl_told }, { "$seen", 0, "dop_pl_seen", dop_pl_seen },
         { "$put_char_c", 1, "rt_pl_dop_put_char_c", rt_pl_dop_put_char_c }, { "$put_char_c_s", 2, "rt_pl_dop_put_char_c_s", rt_pl_dop_put_char_c_s },
