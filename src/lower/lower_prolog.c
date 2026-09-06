@@ -374,6 +374,7 @@ static const tree_t * pl_atom_goal(const char * nm) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * pl_cc_fnc1(const char * f, tree_t * a0) { tree_t * n = ast_node_new(TT_FNC); n->v.sval = (char *) f; ast_push(n, a0); return n; }
 static tree_t * pl_cc_fnc2(const char * f, tree_t * a0, tree_t * a1) { tree_t * n = ast_node_new(TT_FNC); n->v.sval = (char *) f; ast_push(n, a0); ast_push(n, a1); return n; }
+static tree_t * pl_meta_var(const char * nm) { tree_t * v = ast_node_new(TT_VAR); v->v.sval = (char *) nm; return v; }
 static tree_t * pl_cc_ilit(long long v) { tree_t * n = ast_node_new(TT_ILIT); n->v.ival = v; return n; }
 static tree_t * pl_cc_ite(tree_t * c, tree_t * th, tree_t * el) { return pl_cc_fnc2(";", pl_cc_fnc2("->", c, th), el); }
 static tree_t * pl_cc_pi(const char * nm) { return pl_cc_fnc2("/", (tree_t *) pl_atom_goal(nm), pl_cc_ilit(2)); }
@@ -1174,6 +1175,29 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             pl_new_proc(pe->key, ar, bb_idx);
         }
     }
+    { extern tree_t * pl_runtime_clause_tree(tree_t *);
+      static const char * const pl_meta_ctrl[] = { ",", ";", "->" };
+      for (size_t wi = 0; wi < sizeof pl_meta_ctrl / sizeof pl_meta_ctrl[0]; wi++) {
+        const char * wn = pl_meta_ctrl[wi]; char key[264]; int nclause; snprintf(key, sizeof key, "%s/2", wn);
+        if (pl_bb_lookup(key, 2)) continue;
+        if (resolve_pred_table_lookup(&g_stage2.resolve_pred_table, key)) continue;
+        nclause = !strcmp(wn, ";") ? 3 : 1;
+        { tree_t * ch = ast_node_new(TT_CHOICE); ch->v.sval = strdup(key); int nb = 0;
+          for (int bi = 0; bi < nclause; bi++) {
+            tree_t * hd = ast_node_new(TT_FNC); tree_t * body = (tree_t *) 0; tree_t * raw; tree_t * cl;
+            hd->v.sval = strdup(wn); ast_push(hd, pl_meta_var("A")); ast_push(hd, pl_meta_var("B"));
+            if (!strcmp(wn, ",")) body = pl_cc_fnc2(",", pl_cc_fnc1("call", pl_meta_var("A")), pl_cc_fnc1("call", pl_meta_var("B")));
+            else if (!strcmp(wn, "->")) body = pl_cc_fnc2(",", pl_cc_fnc2(",", pl_cc_fnc1("call", pl_meta_var("A")), (tree_t *) pl_atom_goal("!")), pl_cc_fnc1("call", pl_meta_var("B")));
+            else if (bi == 0) body = pl_cc_fnc2(",", pl_cc_fnc2("=", pl_meta_var("A"), pl_cc_fnc2("->", pl_meta_var("C"), pl_meta_var("T"))),
+                                                pl_cc_fnc2(",", (tree_t *) pl_atom_goal("!"),
+                                                           pl_cc_ite(pl_cc_fnc1("call", pl_meta_var("C")), pl_cc_fnc1("call", pl_meta_var("T")), pl_cc_fnc1("call", pl_meta_var("B")))));
+            else if (bi == 1) body = pl_cc_fnc1("call", pl_meta_var("A"));
+            else body = pl_cc_fnc1("call", pl_meta_var("B"));
+            raw = ast_node_new(TT_FNC); raw->v.sval = (char *) ":-"; ast_push(raw, hd); ast_push(raw, body);
+            cl = pl_runtime_clause_tree(raw); if (!cl) continue; ast_push(ch, cl); nb++; }
+          if (!nb) continue;
+          { int bb_idx = lower_pl_pred_graph(key, ch); if (bb_idx < 0) continue;
+            pl_bb_register(key, 2, bb_idx); pl_new_proc(key, 2, bb_idx); } } } }
     for (int di = 0; di < g_stage2.pl_dyn_n; di++) {
         const char * dn = g_stage2.pl_dyn_name[di]; int da = g_stage2.pl_dyn_arity[di];
         if (!dn || da < 0) continue;

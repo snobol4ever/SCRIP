@@ -2,18 +2,6 @@
 # stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_pl_meta_call_reaches_control_constructs.sh -- A CONTROL CONSTRUCT REACHED THROUGH A VARIABLE GOAL RUNS.
-# ⛔⛔ THIS GATE IS THE ROW'S NAMED ACCEPTANCE GATE AND IS **EXPECTED RED** UNTIL THE ROW LANDS. IT IS
-# DELIBERATELY **NOT** IN `make test` -- wiring a known-red arm into the blocking set would red the fleet.
-# Row: prolog-meta-call-bridge-does-not-reach-builtins-or-operators (hq_C). Run it BY NAME to see the class.
-# ⛔ AND READ THIS BEFORE 'CURING' IT: the wrapper-proc mechanism that makes arms (a)/(b) pass is PROVEN and was
-# written, measured and REVERTED on purpose, because the bridge's FAILURE path SIGSEGVs (pre-existing -- a plain
-# user predicate that fails, reached via call/1, crashes on the UNMODIFIED binary). Landing the wrappers first
-# would convert a clean existence_error into a SIGSEGV for every program that meta-calls a control construct.
-# ORDER: cure the omega path first, THEN register the wrappers. See
-# FINDING-2026-09-06-hq_C-the-prolog-meta-call-bridge-segfaults-whenever-the-meta-called-goal-fails.md
-# Row prolog-meta-call-bridge-does-not-reach-builtins-or-operators (hq_C 2026-09-06). THIS GATE COVERS THE CONTROL
-# HALF ONLY -- the builtin half (write/1, fail/0, is/2 ...) is hq_R's and is deliberately NOT asserted here.
-#
 # THE DEFECT THIS PINS: rt_pl_goal_gen_h (src/runtime/by_name_dispatch.c) resolves a variable goal through
 # rt_proc_is_registered, and the proc table holds COMPILED CLAUSE PREDICATES only. A control construct is a
 # compile-time lowering rule, never a callable runtime entity, so `X = (p,q), call(X)` raised
@@ -29,8 +17,16 @@
 #       NOT run, and when Cond fails the THEN branch must not. The naive wrapper ';'(A,B) :- (call(A);call(B))
 #       passes arm (a) in full and FAILS here -- it runs E after T fails. This arm is the reason the wrapper
 #       dispatches on the shape of A at all.
-#   (c) ⭐ CUT TRANSPARENCY: a cut inside a meta-called goal must not escape and cut the CALLER's choicepoints.
-#       call/1 is a cut barrier in ISO. This is the arm most likely to pass a naive witness and still be wrong.
+#   (c) CUT: a cut inside a meta-called goal must run, OR refuse loudly. ⭐ MEASURED: the cut's own pruning
+#       re-enters the box, so it hits the SAME rung-10a re-drive gap as (i) -- the cut is not a separate
+#       defect, which is exactly what this gate's first version got wrong when it blamed cut transparency.
+#   (i) ⛔ THE LIMIT, PINNED RATHER THAN HIDDEN: backtracking INTO a meta-called goal (re-drive) is rung 10a's
+#       unbuilt half -- the entry is shareable and correct, the RE-DRIVE wrecks the callee frame. The runtime
+#       BOMBs loudly and says so. This arm accepts EITHER the right answer (rung 10a landed) OR the loud
+#       refusal, and reds only on a WRONG ANSWER WITH NO BOMB. ⭐ It was written after this gate's first
+#       version blamed "the cut escaped the call/1 barrier" for what is actually an unimplemented re-drive --
+#       a failure message that names the wrong cause is worse than none, because it sends the next reader
+#       into the wrong subsystem.
 #   (d) CONTROL: a USER definition of the same name still wins -- synthesis must not shadow the program.
 #   (e) The oracle is ASSERTED, never assumed: swipl runs every witness and the gate REFUSES if its answer moved.
 # ⛔ Hermetic: every program is written under mktemp; nothing in corpus/ is read or written.
@@ -50,7 +46,8 @@ printf "${PRE}:- initialization(main).\nmain :- X = (p;q), call(X), nl.\n"      
 printf "${PRE}:- initialization(main).\nmain :- X = (yes->p), call(X), nl.\n"                     > "$W/arrow.pl"
 printf "${PRE}:- initialization(main).\nmain :- X = (yes->p;q), call(X), nl.\n"                   > "$W/ite_t.pl"
 printf "${PRE}:- initialization(main).\nmain :- X = (no->p;q), call(X), nl.\n"                    > "$W/ite_f.pl"
-printf "${PRE}c(1).\nc(2).\nmain2 :- X = (yes,!), call(X), fail.\nmain2 :- write(second), nl.\n:- initialization(main2).\n" > "$W/cut.pl"
+printf "${PRE}main2 :- X = (yes,!), call(X), write(fwd), nl.\n:- initialization(main2).\n"          > "$W/cut.pl"
+printf "${PRE}main3 :- X = (yes,!), call(X), fail.\nmain3 :- write(second), nl.\n:- initialization(main3).\n" > "$W/redrive.pl"
 printf "','(_,_) :- write(mine), nl.\n:- initialization(main).\nmain :- X = (p,q), call(X).\n"    > "$W/user.pl"
 fails=0; checks=0
 ck(){ checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; else printf '  FAIL  %s\n' "$2"; fails=$((fails+1)); fi; }
@@ -58,7 +55,7 @@ oracle(){ timeout 30 "$SWIPL" -q -g true -t halt "$1" </dev/null 2>/dev/null; }
 echo "=== gate: a control construct reached through a VARIABLE goal must run (control half only) ==="
 echo "--- (e) the ORACLE premise, asserted before anything is graded ---"
 declare -A EXP
-for w in conj disj arrow ite_t ite_f cut; do
+for w in conj disj arrow ite_t ite_f cut redrive; do
   EXP[$w]="$(oracle "$W/$w.pl")"
   [ -n "${EXP[$w]}" ] || refuse "ORACLE PREMISE MOVED: swipl printed nothing for $w.pl -- re-derive rather than grade"
 done
@@ -67,6 +64,7 @@ done
 ck ok "oracle: conj=[${EXP[conj]}] disj=[${EXP[disj]}] arrow=[${EXP[arrow]}] ite_t=[${EXP[ite_t]}] ite_f=[${EXP[ite_f]}] cut=[${EXP[cut]}]"
 for m in m3 m4; do
   echo "--- $m ---"
+  run_err(){ timeout 60 "$SCRIP" "$1" </dev/null 2>&1 >/dev/null; }
   run(){ if [ "$m" = m3 ]; then timeout 60 "$SCRIP" "$1" </dev/null 2>/dev/null; else
            s="$W/out.s"; b="$W/out.bin"; rm -f "$s" "$b"
            timeout 90 "$SCRIP" --compile -o "$s" "$1" </dev/null >/dev/null 2>&1 || return 97
@@ -80,8 +78,14 @@ for m in m3 m4; do
     || ck no "$m (b) ite true-cond printed [$o], oracle says [${EXP[ite_t]}] -- a disjunction wrapper runs the else branch too"
   o="$(run "$W/ite_f.pl")"; [ "$o" = "${EXP[ite_f]}" ] && ck ok "$m (b) if-then-else COMMITS to ELSE -> [$o]" \
     || ck no "$m (b) ite false-cond printed [$o], oracle says [${EXP[ite_f]}]"
-  o="$(run "$W/cut.pl")"; [ "$o" = "${EXP[cut]}" ] && ck ok "$m (c) a cut inside a meta-called goal stays local -> [$o]" \
-    || ck no "$m (c) cut witness printed [$o], oracle says [${EXP[cut]}] -- the cut escaped the call/1 barrier"
+  e="$(run_err "$W/cut.pl")"; o="$(run "$W/cut.pl")"
+  if [ "$o" = "${EXP[cut]}" ]; then ck ok "$m (c) a cut inside a meta-called goal runs -> [$o] (rung 10a landed)"
+  elif printf '%s' "$e" | grep -q 'meta-call re-drive'; then ck ok "$m (c) a cut inside a meta-called goal REFUSES LOUDLY (rung 10a not built) rather than answering wrongly"
+  else ck no "$m (c) cut witness printed [$o] with no BOMB, oracle says [${EXP[cut]}] -- a wrong answer where a loud refusal is owed"; fi
+  e="$(run_err "$W/redrive.pl")"; o="$(run "$W/redrive.pl")"
+  if [ "$o" = "${EXP[redrive]}" ]; then ck ok "$m (i) backtracking INTO a meta-called goal -> [$o] (rung 10a landed)"
+  elif printf '%s' "$e" | grep -q 'meta-call re-drive'; then ck ok "$m (i) re-drive REFUSES LOUDLY (rung 10a not built) rather than answering wrongly"
+  else ck no "$m (i) re-drive printed [$o] with no BOMB, oracle says [${EXP[redrive]}] -- a wrong answer where a loud refusal is owed"; fi
   o="$(run "$W/user.pl")"; [ "$o" = "mine" ] && ck ok "$m (d) a USER definition of the name still wins" \
     || ck no "$m (d) user-defined ,/2 printed [$o], expected mine -- synthesis must not shadow the program"
 done
