@@ -95,6 +95,19 @@ static const char *testop_rt(const char *s) {
     if (!strcmp(s, "flunk")) return "__rk_test_flunk";
     return "__rk_test_ok";
 }
+static tree_t *rk_testop_call(const char *name, ExprList *a) {
+    tree_t *c = leaf_sval(TT_FNC, name);
+    tree_t *n = ast_node_new(TT_VAR); n->v.sval = intern(name);
+    expr_add_child(c, n);
+    if (!a) return c;
+    if (a->count == 1 && a->items[0] && a->items[0]->t == TT_FNC && a->items[0]->v.sval && !strcmp(a->items[0]->v.sval, "__rk_arr")) {
+        tree_t *lst = a->items[0];
+        for (int i = 1; i < lst->n; i++) expr_add_child(c, lst->c[i]);
+        return c;
+    }
+    for (int i = 0; i < a->count; i++) expr_add_child(c, a->items[i]);
+    return c;
+}
 static tree_t *make_call(const char *name) {
     tree_t *e = leaf_sval(TT_FNC, name);
     tree_t *n = ast_node_new(TT_VAR); n->v.sval = intern(name);
@@ -597,11 +610,11 @@ stmt
     | TESTOP ';'
         { $$=make_call(testop_rt($1)); free($1); }
     | TESTOP '(' arg_list ')' ';'
-        { tree_t *c=make_call(testop_rt($1)); free($1); ExprList *a=$3; if(a){ for(int i=0;i<a->count;i++) expr_add_child(c,a->items[i]); exprlist_free(a); } $$=c; }
+        { ExprList *a=$3; tree_t *c=rk_testop_call(testop_rt($1), a); free($1); if(a) exprlist_free(a); $$=c; }
     | TESTOP '(' ')' ';'
         { $$=make_call(testop_rt($1)); free($1); }
     | TESTOP arg_list ';'
-        { tree_t *c=make_call(testop_rt($1)); free($1); ExprList *a=$2; if(a){ for(int i=0;i<a->count;i++) expr_add_child(c,a->items[i]); exprlist_free(a); } $$=c; }
+        { ExprList *a=$2; tree_t *c=rk_testop_call(testop_rt($1), a); free($1); if(a) exprlist_free(a); $$=c; }
     | IDENT VAR_ARRAY ';'
         { tree_t *c=make_call($1); free($1); expr_add_child(c,var_node($2)); $$=c; }
     | KW_SAY expr ';'

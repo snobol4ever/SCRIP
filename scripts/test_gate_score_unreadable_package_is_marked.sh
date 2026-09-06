@@ -51,10 +51,24 @@ if got.get(851) != 0:
         "never be able to RAISE a score -- measured at icon 8%% -> 48%% when this was tried" % (got.get(851),))
 # ARM 3 -- a READABLE cell must not be marked. A gate that only proves the alarm fires cannot tell an alarm
 # from a stuck bell.
-clean = "arizona 46/89 · jcon_tests 45/81 · ipl 34/851"
+# ⛔⭐ THIS FIXTURE'S DENOMINATORS ARE LIVE DECLARED POPULATIONS, AND THAT MAKES IT PERISHABLE IN BOTH
+# DIRECTIONS. It read `arizona 46/89` and went RED on 2026-09-06 -- not because the marker was stuck, but
+# because arizona's declared population moved 89 -> 90 (SCRIP 607b71dbb), so 89 stopped being a declared
+# denominator and the reader CORRECTLY called the cell unreadable. The gate then convicted a correct reader,
+# HEAD went red on the blocking set, and a seat in another lane was blocked on a score cell that was never
+# wrong. That is the mirror image of the note on the ARM 1/2 fixture above, where the reader LEARNED 60 and a
+# broken fixture went clean: the same drift, the opposite sign, and only one of the two directions had a guard.
+# ⛔ SO A CLEAN FIXTURE THAT NO LONGER READS CLEAN IS A REFUSAL, NEVER A RED. "My own fixture went stale" and
+# "the reader has a stuck marker" are different answers and must not share an exit code -- red here sends its
+# reader to hunt a defect in the reader, which is the most expensive possible wrong direction.
+clean = "arizona 46/90 · jcon_tests 45/81 · ipl 34/851"
 cgot, _cw = m.counted_fractions("icon", clean)
 if getattr(cgot, "unreadable", ()):
-    red("a fully readable cell was reported as unreadable (%r) -- the marker is stuck on" % (cgot.unreadable,))
+    refuse("the CLEAN fixture %r no longer reads clean (unreadable=%r) -- its denominators are live declared "
+           "populations and at least one has moved. This gate cannot tell a stuck marker from its own stale "
+           "fixture, so it refuses rather than convicting the reader. Cure: re-read the declared population "
+           "from .github/SCORE.md and update the fixture -- never relax the gate."
+           % (clean, cgot.unreadable))
 # ARM 4 -- ⛔ SUPERSEDED BY LON, 2026-09-05, mid-sitting and hours after this gate was written: "Show measured
 # numbers from running test suites not FLOORS." This arm used to require the published line to explain a `!`
 # FLOOR marker. There is no FLOOR on the published line any more -- a suite that has not run is NOT in the
