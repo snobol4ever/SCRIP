@@ -522,6 +522,18 @@ else echo "    (tree stamp unavailable — lib_gate.sh not sourced; record SCRIP
 # different facts and this board printed one word for both. ⭐ The separation is load-bearing, not the raised
 # bound: at ANY bound a contended box can cross it, so the instrument must be able to SAY it was contended
 # rather than silently convert contention into a correctness regression.
+# ⛔⭐⭐ THE BINARY CHECK RUNS HERE -- IMMEDIATELY AFTER GRADING, BEFORE EVERY CONSUMER AND EVERY OTHER REFUSAL.
+# It was originally placed just above the PASS/FAIL verdict, which was two orders too late and BOTH mistakes
+# were measured on this very script (hq_S 2026-09-06, by accident: a board ran while its own author rebuilt
+# scrip four times for an unrelated branch):
+#   (a) the leaderboard write happens BEFORE that point, so a drifted board could publish its row and only
+#       then refuse -- the row is the thing everyone quotes, so the check has to precede it;
+#   (b) the TIMEOUT-KILLED refusal below also exits first, so a board that BOTH drifted and hit the bound
+#       reported only contention and told its reader to "re-run on a quieter box" -- a true sentence about
+#       the wrong cause, which is worse than silence because it is confidently actionable in one direction.
+# ⭐ The general form, and it is this house's own: the ORDER of two honest refusals is itself a claim about
+# which one caused the other.
+_sn4_bin_unmoved
 if [ "$((TMOUT3+TMOUT4))" -gt 0 ]; then
     echo "⛔ GATE REFUSES: $((TMOUT3+TMOUT4)) program(s) KILLED at the ${TIMEOUT}s per-program bound (m3=$TMOUT3 m4=$TMOUT4) -- NOT graded:"
     printf "$TMOUT_LIST"
@@ -609,10 +621,6 @@ python3 "$HERE/util_score_row.py" write --lang snobol4 --column board --modes m3
 # ⭐ THE PROGRESS LINE, after the rewrite (see board_icon_master.sh for the same call and why it is here
 # rather than only in lib_gate.sh: this runner writes its row directly, bypassing gate_score_row).
 python3 "$HERE/util_score_row.py" progress 2>/dev/null || true
-# ⛔ THE BINARY CHECK COMES BEFORE THE VERDICT, not after it: a board graded across a relink must REFUSE
-# rather than choose between PASS and FAIL, and it must refuse before anything downstream (the leaderboard row
-# above included) can quote it.
-_sn4_bin_unmoved
 # ⛔ AST FAILURES BLOCK. A parser fixture whose --dump-ast diff moved is a real red in the shared front end -- it
 # reaches BOTH modes, so calling it informational the way mode-3 is would be strictly weaker than either mode's bar.
 if [ "$FAIL4" -gt 0 ] || [ "$ASTFAIL" -gt 0 ]; then
