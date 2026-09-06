@@ -232,6 +232,7 @@ for k in "${timed[@]}"; do
 done
 echo
 echo "TSV: $OUT_TSV"
+if [ "${CHECK_SHAPE:-0}" != 1 ]; then . "$HERE/lib_progress.sh"; progress_append_triangulation raku "$OUT_TSV" || { echo "⛔ bench_triangulate_raku: the progress database did not take this run's kernels (see above) -- a benchmark run that leaves the table untouched is a defect of the run (progress/README.md, CEO-331)"; exit 2; }; fi
 echo "TSV: $TRI_TSV (coverage-gate schema)"
 if [ "$any_disagree" -eq 1 ]; then echo "⛔ DISAGREE present in the cross-proof -- VOID: do not publish or cite those kernel/engine cells until re-measured."; fi
 if [ "$any_bad" -eq 1 ]; then echo "⛔ at least one angle-3 cell is DIFF/CRASH/VOID/BUILD-ERR -- do not publish or cite those cells."; fi

@@ -423,6 +423,7 @@ cmd_run() {
   sc_prov "$prov" load_peak "${1:-0}"; sc_prov "$prov" load_mean "${2:-0}"; sc_prov "$prov" runnable_peak "${3:-0}"
   sc_prov "$prov" peers_max "${4:-0}"; sc_prov "$prov" samples "${5:-0}"; sc_prov "$prov" peers_seen "${6:--}"
   echo "DONE $(date +%H:%M:%S)"
+  . "$HERE/lib_progress.sh"; progress_append_results_tsv auto snobol4 "$out/results.tsv" || { echo "⛔ scorecard_snobol4: the progress database did not take this run's rows (see above) -- a run that leaves the table untouched is a defect of the run (progress/README.md, CEO-331)"; exit 2; }
   cmd_report "$out"
 }
 # ---------------------------------------------------------------- report

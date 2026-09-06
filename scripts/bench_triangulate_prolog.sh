@@ -155,6 +155,7 @@ done
 
 echo
 echo "TSV: $OUT_TSV"
+if [ "${CHECK_SHAPE:-0}" != 1 ]; then . "$HERE/lib_progress.sh"; progress_append_triangulation prolog "$OUT_TSV" || { echo "⛔ bench_triangulate_prolog: the progress database did not take this run's kernels (see above) -- a benchmark run that leaves the table untouched is a defect of the run (progress/README.md, CEO-331)"; exit 2; }; fi
 if [ "$any_disagree" -eq 1 ]; then
   echo "⛔ DISAGREE present -- VOID: do not publish or cite those kernel/engine cells until re-measured."
   exit 1

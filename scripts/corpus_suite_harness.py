@@ -2114,10 +2114,12 @@ def cmd_run(args):
     ast_counts = {"ast": {"PASS": 0, "FAIL": 0, "CRASH": 0, "HANG": 0, "UNPROVEN": 0, "SKIP": 0, "XFAIL": 0, "XPASS": 0}}
     tmp_root = Path(tempfile.mkdtemp(prefix="csh_run_"))
     fails = []
+    _progress_rows = []
     try:
         for e in ast_entries:
             verdicts = run_suite_entry(paths, e, tmp_root, ["ast"], ext=ext, companion_dir=Path(args.sno).parent)
             kind = verdicts["ast"].kind
+            _progress_rows.append((e.name, "ast", kind, 0, "xfail" if e.xfail else ""))
             if e.xfail:
                 if kind == "PASS":
                     ast_counts["ast"]["XPASS"] += 1; fails.append((e.name, "ast", verdicts["ast"]))
@@ -2136,6 +2138,7 @@ def cmd_run(args):
             for m in _em:
                 mode_n[m] += 1
                 kind = verdicts[m].kind
+                _progress_rows.append((e.name, m, kind, 0, "xfail" if e.xfail else ""))
                 # ⛔ An XFAIL entry (probe/passthru's law-0d witnesses: non-green at conversion time,
                 # see convert_one()) is EXPECTED to stay red -- bucketing it as XFAIL/XPASS instead of
                 # FAIL/PASS keeps a documented, pre-existing defect from inflating a caller's FAIL count
@@ -2183,6 +2186,7 @@ def cmd_run(args):
     if entry_modes and declared_not_requested:
         fields.append(f"declared_not_requested={len(declared_not_requested)}")
     print("SUITE_BOARD " + " ".join(fields))
+    _progress_record(args.sno, paths, _progress_rows)
     # ⛔ the 40-line sample is a SUMMARY, not a listing: the 5 FAIL / 8 XPASS / 10 HANG entries of a 371-entry
     # board never appeared in it, so nothing could be rowed from names. SUITE_LIST_ALL=1 lists every non-PASS
     # entry (opt-in; the default output is unchanged).
@@ -2191,6 +2195,49 @@ def cmd_run(args):
         tag = "XPASS(marker stale, promote it)" if v.kind == "PASS" else v.kind
         print(f"  {tag} {m} {name}: {v.detail}", file=sys.stderr)
     sys.exit(0 if not fails else 1)
+
+
+PROGRESS_PACKAGE_KEYS = {"arizona_tests": "arizona", "jcon_tests": "jcon", "ipl": "ipl", "csnobol4_suite": "csnobol4", "gimpel": "gimpel",
+                         "snoflake_suite": "snoflake", "aisnobol": "aisnobol", "dotnet": "dotnet", "swi_tests": "swi", "gnu_prolog": "gnu",
+                         "inriasuite": "inria", "fpc_tests": "fpc", "pat": "pat", "spitbol_testpgms": "testpgms", "roast": "roast"}
+
+
+def progress_suite_for(sno_path, paths):
+    """(class, suite, lang) when sno_path is a CANONICAL suite -- corpus/tests/<lang>/ALL.<ext> or
+    corpus/packages/<lang>/<pkg>/ALL.<ext> under this tree's corpus root (or under any root when S4E_PROGRESS_DB
+    redirects the table, which is how the gate proves the arm) -- else None. A scratch copy of a master grades
+    exactly as before and records nothing: the live table only ever sees the real suites."""
+    p = Path(sno_path).resolve()
+    parts = p.parts
+    redirected = bool(os.environ.get("S4E_PROGRESS_DB"))
+    corpus_root = str(Path(paths["corpus"]).resolve())
+    under_corpus = str(p).startswith(corpus_root + os.sep)
+    if not (under_corpus or redirected):
+        return None
+    if p.stem != "ALL":
+        return None
+    if len(parts) >= 3 and parts[-3] == "tests":
+        return ("master", f"{parts[-2]}-master", parts[-2])
+    if len(parts) >= 4 and parts[-4] == "packages":
+        return ("package", PROGRESS_PACKAGE_KEYS.get(parts[-2], parts[-2]), parts[-3])
+    return None
+
+
+def _progress_record(sno_path, paths, rows):
+    """Append one row per (entry, mode) graded to THE PROGRESS DATABASE through the ONE writer (util_progress_append.py).
+    Loud on refusal: a board that could not be recorded is printed AND exits 2 -- progress/README.md, CEO-319."""
+    where = progress_suite_for(sno_path, paths)
+    if where is None or not rows:
+        return
+    cls, suite, lang = where
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import util_progress_append as _pa
+    try:
+        n = _pa.append_rows([{"class": cls, "suite": suite, "lang": lang, "program": name, "mode": m, "outcome": kind, "secs": secs or 0, "note": note} for name, m, kind, secs, note in rows])
+    except _pa.ProgressUnwritable:
+        sys.exit(2)
+    if n:
+        print(f"PROGRESS_RECORDED suite={suite} class={cls} rows={n} db={_pa.db_path()}")
 
 
 def refpins_path(src_path):
