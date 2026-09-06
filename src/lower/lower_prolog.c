@@ -685,6 +685,11 @@ static const tree_t * pl_meta_goal(const tree_t * g, const tree_t * const * extr
 static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     if (entry_out) *entry_out = NULL;
     if (!t) return build(cx, IR_SUCCEED, γnext, ωfail);
+    if (t->t == TT_MAKELIST && t->n > 0) {
+        tree_t * g = pl_cc_fnc1("consult", (tree_t *) t->c[0]);
+        for (int i = 1; i < t->n; i++) g = pl_cc_fnc2(",", g, pl_cc_fnc1("consult", (tree_t *) t->c[i]));
+        return goal(cx, g, γnext, ωfail, entry_out);
+    }
     switch (t->t) {
     case TT_FNC: {
         const char * nm = t->v.sval ? t->v.sval : "?";
