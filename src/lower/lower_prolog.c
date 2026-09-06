@@ -182,11 +182,11 @@ static const char * pl_rung6_builtins[] = { "=..", "==", "@<", "@=<", "@>", "@>=
     "functor", "ground", "integer", "is_list", "msort", "name", "nonvar", "number", "number_chars", "number_codes", "number_string", "numbervars", "plus", "print", "sort", "string_chars",
     "string_codes", "string_concat", "string_length", "string_lower", "string_to_atom", "string_upper", "succ", "tab", "term_string", "term_to_atom", "term_variables", "upcase_atom", "var", "write_canonical",
     "writeln", "writeq", "put_char", "halt", "flush_output", "read", "read_term", "get_char", "peek_char", "nl", "write", NULL };
-static const char * pl_rung7_builtins[] = { "between", "repeat", "clause", "retract", "sub_atom", "for", "current_op", "current_predicate", "predicate_property",
+static const char * pl_rung7_builtins[] = { "between", "repeat", "sub_atom", "for", "current_op", "current_predicate", "predicate_property",
     "current_prolog_flag", "current_stream", "stream_property", NULL };
 static const char * pl_rung8_builtins[] = { "findall", "bagof", "setof", "aggregate_all", NULL };
 static const char * pl_rung9_builtins[] = { NULL };
-static const char * pl_rung10_builtins[] = { "call", "assert", "asserta", "assertz", "retractall", "abolish", "dynamic", "b_setval", "b_getval", "phrase",
+static const char * pl_rung10_builtins[] = { "call", "assert", "asserta", "assertz", "retractall", "abolish", "clause", "retract", "dynamic", "b_setval", "b_getval", "phrase",
     "with_output_to", "setup_call_cleanup", "use_module", "ensure_loaded", "module", "set_prolog_flag", NULL };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_name_in(const char * nm, const char * const * lst) { if (!nm) return 0; for (int i = 0; lst[i]; i++) if (!strcmp(nm, lst[i])) return 1; return 0; }
@@ -620,6 +620,36 @@ static IR_t * pl_db_leaf2(lcx_t * cx, const char * sym, int k, const tree_t * ar
     return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_db_enum(lcx_t * cx, int k, const tree_t * target, int erase, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    IR_t * er = NULL;
+    if (erase) { er = build(cx, IR_CALL, γnext, ωfail); IR_LIT(er).sval = "$db_erase"; }
+    IR_t * uni = build(cx, IR_CALL, er ? er : γnext, ωfail); IR_LIT(uni).sval = "$unify";
+    IR_t * at = build(cx, IR_CALL, uni, ωfail); IR_LIT(at).sval = "$db_at";
+    IR_t * to = build(cx, IR_TO, at, ωfail); IR_LIT(to).sval = (char *) "ag";
+    IR_t * cnt = build(cx, IR_CALL, to, ωfail); IR_LIT(cnt).sval = "$db_n";
+    IR_t * lo = build(cx, IR_LIT_INTEGER, cnt, ωfail); IR_LIT(lo).ival = 0;
+    IR_t * te = NULL; IR_t * tv = term_e(cx, target, &te);
+    IR_t * kn = build(cx, IR_LIT_INTEGER, NULL, ωfail); IR_LIT(kn).ival = k;
+    lc_γ_to(kn, te ? te : tv); lc_ω_to(kn, ωfail);
+    lc_γ_to(tv, lo); lc_ω_to(tv, ωfail);
+    ir_operand_push(cnt, kn);
+    ir_operand_push(to, lo); ir_operand_push(to, cnt);
+    ir_operand_push(at, kn); ir_operand_push(at, to);
+    ir_operand_push(uni, at); ir_operand_push(uni, tv);
+    if (er) { ir_operand_push(er, kn); ir_operand_push(er, to); lc_ω_to_β(er, to); }
+    lc_ω_to_β(at, to); lc_ω_to_β(uni, to);
+    if (entry_out) *entry_out = kn;
+    return to;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_clause_target(const tree_t * c, const tree_t * body) {
+    if (!body && c && c->t == TT_FNC && c->v.sval && !strcmp(c->v.sval, ":-") && c->n == 2) return (tree_t *) c;
+    { tree_t * tg = ast_node_new(TT_FNC); tg->v.sval = (char *) ":-"; ast_push(tg, (tree_t *) c);
+      if (body) ast_push(tg, (tree_t *) body);
+      else { tree_t * tr = ast_node_new(TT_QLIT); tr->v.sval = (char *) "true"; ast_push(tg, tr); }
+      return tg; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * pl_nb_key(const tree_t * t) {
     if (!t || !(t->t == TT_QLIT || t->t == TT_NAME) || !t->v.sval) return NULL;
     return t->v.sval;
@@ -655,7 +685,8 @@ static IR_t * pl_user_call(lcx_t * cx, const char * nm, const tree_t * t, int na
     if (prev) lc_γ_to(prev, nd);
     IR_t * body_entry = first ? first : nd;
     if (pl_db_live) { tree_t * pit = ast_node_new(TT_QLIT); pit->v.sval = (char *) pl_pi_name(nm, nargs);
-        IR_t * guard_entry = NULL; pl_db_leaf2(cx, "$db_alive", pl_dyn_index_or_add(nm, nargs), pit, body_entry, ωfail, &guard_entry);
+        IR_t * ne = NULL; pl_db_leaf1(cx, "$db_nonempty", pl_dyn_index_or_add(nm, nargs), body_entry, ωfail, &ne);
+        IR_t * guard_entry = NULL; pl_db_leaf2(cx, "$db_alive", pl_dyn_index_or_add(nm, nargs), pit, ne, ωfail, &guard_entry);
         if (entry_out) *entry_out = guard_entry; return nd; }
     if (entry_out) *entry_out = body_entry;
     return nd;
@@ -868,7 +899,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             int ar = 0; const char * pn = pl_head_key(t->c[0], &ar);
             if (!pn) pl_refuse("retract of a clause whose head is not a callable term known at compile time --", nm, 10);
             if (!pl_db_owned(pn, ar)) pl_refuse("retract on a predicate that has clauses in the file (they are wired boxes, not database rows) --", pn, 10);
-            pl_refuse("retract/1 on a dynamic predicate -- the clause-list INTERPRETER that served it is DELETED (Lon 2026-09-03: the clauses are compiled to Byrd boxes, assert adds code and retract removes it); the compiled-clause path lands it --", pn, 10); }
+            return pl_db_enum(cx, pl_dyn_index_or_add(pn, ar), pl_clause_target(t->c[0], NULL), 1, γnext, ωfail, entry_out); }
         if (!strcmp(nm, "retractall") && t->n == 1) {
             int ar = 0; const char * pn = pl_head_key(t->c[0], &ar);
             if (!pn) pl_refuse("retractall whose argument is not a callable term known at compile time --", nm, 10);
@@ -891,9 +922,9 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
                 if (entry_out) *entry_out = guard_entry; return nd; } } }
         if (!strcmp(nm, "clause") && t->n == 2) {
             int ar = 0; const char * pn = pl_head_key(t->c[0], &ar);
-            if (!pn) pl_refuse("clause/2 whose head is not a callable term known at compile time --", nm, 7);
-            if (!pl_db_owned(pn, ar)) pl_refuse("clause/2 on a predicate that has clauses in the file (reflecting a wired box needs the proc table, rung 10b follow-up) --", pn, 7);
-            pl_refuse("clause/2 on a dynamic predicate -- the clause-list INTERPRETER that served it is DELETED (Lon 2026-09-03: it is all code, not data); the compiled-clause path lands it --", pn, 10); }
+            if (!pn) pl_refuse("clause/2 whose head is not a callable term known at compile time --", nm, 10);
+            if (!pl_db_owned(pn, ar)) pl_refuse("clause/2 on a predicate that has clauses in the file (reflecting a wired box needs the proc table; row prolog-rung-10b-assert-retract-abolish-clause-the-dynamic-database follow-up) --", pn, 10);
+            return pl_db_enum(cx, pl_dyn_index_or_add(pn, ar), pl_clause_target(t->c[0], t->c[1]), 0, γnext, ωfail, entry_out); }
         if (!strcmp(nm, "current_predicate") && t->n == 1) {
             int ar = 0; const char * pn = pl_spec_key(t->c[0], &ar);
             if (!pn) pl_refuse("current_predicate/1 argument that is not a literal Name/Arity known at compile time -- ISO 8.8.2's general backtracking-over-every-predicate mode needs a proc-table generator design, not yet built --", nm, 7);

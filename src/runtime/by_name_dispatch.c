@@ -6571,6 +6571,24 @@ DESCR_t rt_pl_dop_db_erase_c(DESCR_t *args, int nargs, void *root) {
       return rt_pl_db_erase(db, (int)iv.i) ? pl_ok() : FAILDESCR; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern int rt_pl_db_count(void *); extern int rt_pl_db_clause_at(void *, int, void *); extern int rt_pl_db_live_count(void *);
+DESCR_t rt_pl_dop_db_nonempty_c(DESCR_t *args, int nargs, void *root) {
+    if (nargs != 1) return FAILDESCR;
+    { void *db = pl_db_cell_of(args, root); return (db && rt_pl_db_live_count(db) > 0) ? pl_ok() : FAILDESCR; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_db_n_c(DESCR_t *args, int nargs, void *root) {
+    if (nargs != 1) return FAILDESCR;
+    { void *db = pl_db_cell_of(args, root); return INTVAL(db ? rt_pl_db_count(db) : 0); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_db_at_c(DESCR_t *args, int nargs, void *root) {
+    if (nargs != 2) return FAILDESCR;
+    { void *db = pl_db_cell_of(args, root); DESCR_t iv = rt_pl_deref_val(args[1]); DESCR_t out;
+      if (!db || iv.v != DT_I) return FAILDESCR;
+      return rt_pl_db_clause_at(db, (int)iv.i, (void *)&out) ? out : FAILDESCR; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_db_abolish_c(DESCR_t *args, int nargs, void *root) {
     if (nargs != 1) return FAILDESCR;
     { void *db = pl_db_cell_of(args, root); if (!db) return pl_ok();
