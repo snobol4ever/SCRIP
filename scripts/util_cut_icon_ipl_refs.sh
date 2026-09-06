@@ -282,8 +282,16 @@ if [ "${#CANDS[@]}" -gt 0 ]; then
       printf 'NONDETERMINISTIC\t%s.icn\t%s\t-\tNOT MINTED -- agreed across four sub-second runs and DIFFERED across a minute boundary (clock-granularity dependence, e.g. &dateline)\n' "$cb" "$rc2"
       continue
     fi
+    # ⛔⭐ MINT BY FILE COPY, NEVER `printf '%s' "$(cat ...)"` (hq_I, found reviewing seat07's
+    # UNDECLARED_IDENTIFIER fix, 2026-09-06): a command substitution STRIPS ALL TRAILING NEWLINES from
+    # what it captures. rows2blp.icn's real, deterministic, 1-byte oracle output IS a single newline --
+    # by1=1 correctly cleared the EMPTY guard (rc=0, non-empty), and the program was correctly ruled
+    # LIVE, but `$(cat "$cand")` then silently collapsed that byte to an empty string before printf ever
+    # ran, minting a 0-byte .std that pins "produced nothing" for a program that provably did not. The
+    # guard tested the INPUT to a transformation that came after it, not what the transformation actually
+    # produced. `cp` moves the exact bytes verified above with no shell string handling in between.
     if [ -n "$APPLY" ]; then
-      printf '%s' "$(cat "$cand")" > "$PROGS/$cb.std"; n_mint=$((n_mint+1)); act="MINTED"
+      cp "$cand" "$PROGS/$cb.std"; n_mint=$((n_mint+1)); act="MINTED"
     else
       act="would mint"
     fi
