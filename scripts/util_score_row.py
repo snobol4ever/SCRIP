@@ -1336,7 +1336,50 @@ class _Counted(dict):
 # ABSENT: their shipped counts would be my transcription of someone else's cell, and an invented inventory number
 # is the same defect as an invented score -- it would print "N programs never graded" with authority and no
 # measurement behind it. ⭐ Each lane adds its own row here from ITS OWN runner's board line, never from prose.
+# ⛔⭐⭐ THE CARRIAGE (CEO-316, off Lon 2026-09-06 09:31: "grade EVERY SINGLE package program from Icon and
+# Prolog, and begin fixing them one at a time. What's the hold up?"). PACKAGE_SHIPPED below is a TRANSCRIBED
+# population -- three integers typed into this file by a reader of somebody else's board, which is exactly
+# what the row `package-shipped-per-lane-printed-by-the-runner-not-transcribed` exists to end. A transcribed
+# denominator cannot go stale loudly: it goes stale silently, and every percent computed over it stays
+# plausible. Measured on the live board while wiring this: the icon V cell says arizona has "35 never
+# graded", and the runner's own inventory line says ungraded=0 ungradable=34. Neither number is 35. The cell
+# was right when it was written and nothing told it when it stopped being.
+#
+# ⭐ SO THE CELL CARRIES THE RUNNER'S OWN LINE and this reader prefers it over anything typed here:
+#   PACKAGE_INVENTORY package=<n> shipped=N graded=N ungraded=N ungradable=N [graded_stream=N graded_narrow=N]
+# ⛔ AND THE FOUR NUMBERS MUST SUM IN THE CELL TOO, not only inside lib_inventory.sh. A cell is edited by
+# hand, so a clause can be pasted stale or half-updated; a sum that held at the runner and not in the cell is
+# a transcription error wearing the instrument's clothes, which is the one disguise this whole row is about.
+_INV_CLAUSE_RX = re.compile(
+    r"PACKAGE_INVENTORY\s+package=(?P<pkg>[A-Za-z0-9_./-]+)\s+shipped=(?P<shipped>\d+)\s+graded=(?P<graded>\d+)"
+    r"\s+ungraded=(?P<ungraded>\d+)\s+ungradable=(?P<ungradable>\d+)")
+
+
+def inventory_clauses(vcell):
+    """{package: dict} for every PACKAGE_INVENTORY line a V cell carries, plus a list of complaints.
+    A clause whose buckets do not sum is REPORTED AND DROPPED -- never silently used, never silently ignored."""
+    out, bad = {}, []
+    for m in _INV_CLAUSE_RX.finditer(vcell or ""):
+        d = {k: int(m.group(k)) for k in ("shipped", "graded", "ungraded", "ungradable")}
+        pkg = m.group("pkg")
+        tot = d["graded"] + d["ungraded"] + d["ungradable"]
+        if tot != d["shipped"]:
+            bad.append("V %s INVENTORY CLAUSE DOES NOT SUM: graded(%d)+ungraded(%d)+ungradable(%d)=%d but shipped=%d. "
+                       "Dropped, not used -- a clause that sums at the runner and not in the cell was transcribed, "
+                       "and re-running the runner is the cure, never editing the digits."
+                       % (pkg, d["graded"], d["ungraded"], d["ungradable"], tot, d["shipped"]))
+            continue
+        # the runner that measured it, if the cell names one after the clause (`by=` or a backticked script)
+        rest = vcell[m.end():m.end() + 200]
+        mr = re.search(r"by=([A-Za-z0-9_./-]+)", rest) or re.search(r"`([a-z0-9_]*\.sh)`", rest)
+        d["runner"] = mr.group(1) if mr else ""
+        out[pkg] = d
+    return out, bad
+
+
 PACKAGE_SHIPPED = {
+    # ⚠ FALLBACK ONLY, AND EVERY USE OF IT IS NAMED IN THE WORK LINES. A package whose V cell carries a
+    # PACKAGE_INVENTORY clause never reaches this dict; one that does not is reported as still transcribed.
     "icon": {"arizona": 124, "jcon": 91, "ipl": 851},
 }
 
@@ -1363,7 +1406,15 @@ def counted_fractions(lang, vcell):
     # ⭐ A reader that says WHY it found nothing turns a silent wrong number into a fixable message.
     got, work, unread = _Counted(), [], []
     _found, _notrun = [], []
+    inv, inv_bad = inventory_clauses(vcell)
+    work.extend(inv_bad)
+    _transcribed = []
     for name, rx, dens in PROGRESS_COUNTED.get(lang, []):
+        # ⭐ THE RUNNER'S OWN POPULATIONS BECOME LEGAL DENOMINATORS WITHOUT A CODE EDIT. Today a lane that
+        # re-censuses a package must also edit PROGRESS_COUNTED here or its honest fraction reads UNREADABLE
+        # -- a reader that only accepts numbers it was told about in advance cannot follow a live census.
+        if name in inv:
+            dens = tuple(dict.fromkeys(tuple(dens) + (inv[name]["shipped"], inv[name]["graded"])))
         best, saw = None, ""
         for m in re.finditer(rx, vcell):
             # clause = from this package's name to the next clause separator or the next package name, whichever
@@ -1416,9 +1467,30 @@ def counted_fractions(lang, vcell):
         # other 35 have no oracle-cut ref and have never been executed against one. They are inventory, exactly
         # like a package nobody ran at all -- counting them inside the fraction is what made `46/124` read as a
         # measurement of 124 programs when it measured 89.
-        _ship = PACKAGE_SHIPPED.get(lang, {}).get(name, 0)
+        if name in inv:
+            _ship = inv[name]["shipped"]
+        else:
+            _ship = PACKAGE_SHIPPED.get(lang, {}).get(name, 0)
+            if _ship:
+                _transcribed.append(name)
         if _ship > best[1]:
             _notrun.append(("%s (ungraded remainder)" % name, _ship - best[1]))
+    # ⛔ THE REPORT THE ORDER ASKED FOR: a lane whose V cell does not carry its runner's own inventory line is
+    # NAMED, every run. It is not an error -- the runner may simply not be retrofitted yet -- but an unnamed
+    # gap is indistinguishable from a closed one, and that is the whole "never graded business".
+    _missing_inv = [n for n, _rx, _d in PROGRESS_COUNTED.get(lang, []) if n not in inv]
+    if _missing_inv:
+        work.append("⚠ %d package(s) carry NO PACKAGE_INVENTORY clause (%s) -- their shipped population is still "
+                    "TRANSCRIBED, so it cannot go stale loudly. Retrofit the runner to lib_inventory.sh and paste "
+                    "its own line into the cell." % (len(_missing_inv), ", ".join(_missing_inv)))
+    if _transcribed:
+        work.append("⚠ %d package(s) took the shipped population from PACKAGE_SHIPPED (%s), a number typed into "
+                    "util_score_row.py rather than measured by the runner that grades it."
+                    % (len(_transcribed), ", ".join(_transcribed)))
+    _no_runner = sorted(n for n, d in inv.items() if not d["runner"])
+    if _no_runner:
+        work.append("⚠ %d inventory clause(s) name no runner (%s) -- a number with no instrument beside it cannot "
+                    "be re-measured by the next reader." % (len(_no_runner), ", ".join(_no_runner)))
     if unread:
         work.append("⚠ %d package(s) UNREADABLE (%s) -- each counted ZERO over its declared population, so this "
                     "language's percent is a genuine FLOOR: fixing the cell can only raise it." % (len(unread), ", ".join(unread)))

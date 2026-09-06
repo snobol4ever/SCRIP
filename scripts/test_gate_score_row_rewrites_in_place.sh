@@ -331,5 +331,39 @@ elif ! printf '%s' "$d10out" | grep -q 'grid V'; then
 fi
 rm -rf "$S10"
 
+# ⛔⭐⭐ ARM 21-24 — THE CARRIAGE (CEO-316, off Lon 2026-09-06: "grade EVERY SINGLE package program from
+# Icon and Prolog"). A V cell's shipped population used to come from PACKAGE_SHIPPED, three integers typed
+# into util_score_row.py by a reader of somebody else's board. ⛔ A TRANSCRIBED DENOMINATOR CANNOT GO STALE
+# LOUDLY -- it goes stale silently and every percent over it stays plausible. Measured on the live board
+# while wiring this: the icon V cell says arizona has "35 never graded"; the runner's own line says
+# ungraded=0 ungradable=34. Neither is 35, the cell was right when written, and nothing told it when it
+# stopped being. The cell now carries the runner's own PACKAGE_INVENTORY line and this reader prefers it.
+examined=$((examined + 1))
+carr_out="$(python3 - <<'PYEOF' 2>&1
+import importlib.util
+spec = importlib.util.spec_from_file_location("u", "scripts/util_score_row.py")
+u = importlib.util.module_from_spec(spec); spec.loader.exec_module(u)
+cell = ("**arizona m3 46/90** graded · PACKAGE_INVENTORY package=arizona shipped=124 graded=90 ungraded=0 "
+        "ungradable=34 by=test_icon_arizona_suite.sh")
+inv, bad = u.inventory_clauses(cell)
+print("PARSE", inv.get("arizona", {}).get("shipped"), inv.get("arizona", {}).get("runner"), len(bad))
+# a clause whose buckets do not sum is DROPPED AND REPORTED -- never silently used, never silently ignored.
+inv2, bad2 = u.inventory_clauses("PACKAGE_INVENTORY package=ipl shipped=851 graded=64 ungraded=211 ungradable=390")
+print("NOSUM", len(inv2), len(bad2), "DOES NOT SUM" in (bad2[0] if bad2 else ""))
+# the runner's own populations become legal denominators without a code edit: 90 is not in PROGRESS_COUNTED.
+got, work = u.counted_fractions("icon", cell)
+print("DEN90", got.get(90))
+# and a package with no clause is NAMED, every run -- an unnamed gap is indistinguishable from a closed one.
+_g, w2 = u.counted_fractions("icon", "**arizona m3 46/124** graded")
+print("NAMED", any("NO PACKAGE_INVENTORY clause" in x for x in w2))
+PYEOF
+)"
+for want in 'PARSE 124 test_icon_arizona_suite.sh 0' 'NOSUM 0 1 True' 'DEN90 46' 'NAMED True'; do
+    examined=$((examined + 1))
+    printf '%s' "$carr_out" | grep -qxF "$want" || {
+        echo "GATE FAIL: leaderboard carriage arm '$want' not satisfied. Got:"; printf '      %s\n' "$carr_out"
+        violations=$((violations + 1)); }
+done
+
 GATE_EXAMINED="$examined arms"
 gate_verdict "$violations" "leaderboard write-path invariants broken"
