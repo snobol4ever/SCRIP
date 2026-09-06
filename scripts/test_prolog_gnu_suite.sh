@@ -46,6 +46,7 @@ set -uo pipefail   # deliberately NOT -e: a per-file compile/run failure is DATA
 
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+[ -f "$HERE/lib_progress.sh" ] && . "$HERE/lib_progress.sh"   # CEO-331: a runner that grades with its OWN loop appends its own rows
 . "$HERE/lib_flag_gate.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE: lib_flag_gate.sh unloadable"; exit 2; }
 [ $# -eq 0 ] || flaggate_reject "$1" "(none -- set GNU_SUITE_VERBOSE / GNU_SUITE_CLASSIFY_TIMEOUT / GNU_SUITE_RUN_TIMEOUT via environment instead)"
 SCRIP="${HERE}/../scrip"
@@ -146,6 +147,16 @@ for f in "${FILES[@]}"; do
         # summary line gets its own literal match since it carries no line number.
         gp_out=$(printf '%s\n' "$gp_raw" | grep -vE '^GNU Prolog|^Compiled |^By Daniel|^Copyright|^compiling |compiled, |^\| \?-|^error:|^warning:|cannot be redefined|:[0-9]+(-[0-9]+)?: *(fatal error|error|warning):|^compilation failed$')
 
+        # ⛔⭐ CEO-331: one progress row per program per mode, from a runner that grades with its OWN loop (the coverage
+        # report read gnu as MISSING, 0 of 62). ⛔ THIS SUITE'S VERDICT IS A THREE-WAY AGREEMENT m3=m4=gprolog, so a
+        # per-MODE outcome cannot be derived from it without lying about what was compared -- a mode is not graded
+        # independently here. Both rows carry the SAME agreement verdict and the note names the comparison, rather than
+        # inventing a per-mode result the runner never computed.
+        if command -v progress_append >/dev/null 2>&1; then
+            if [ "$m3_out" = "$m4_out" ] && [ "$m4_out" = "$gp_out" ]; then _gv=PASS; else _gv=FAIL; fi
+            progress_append package gnu prolog "$rel" m3 "$_gv" 0 "three-way m3=m4=gprolog" || true
+            progress_append package gnu prolog "$rel" m4 "$_gv" 0 "three-way m3=m4=gprolog" || true
+        fi
         if [ "$m3_out" = "$m4_out" ] && [ "$m4_out" = "$gp_out" ]; then
             OK_PASS=$((OK_PASS+1))
             [ "$VERBOSE" -eq 1 ] && echo "  OK PASS $rel (m3=m4=gprolog, $(printf '%s' "$m3_out" | wc -c) bytes)"

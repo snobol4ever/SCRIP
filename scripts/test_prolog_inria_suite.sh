@@ -196,6 +196,21 @@ if os.environ.get("INRIA_NAME_REDS"):
     for x in named[:60]: print("    " + x)
 open(os.path.join(tmp, "board"), "w").write("%d %d %d" % (len(tests), res["m3"][0], res["m4"][0]))
 print("BOARD_FOR_SHELL %d %d %d" % (len(tests), res["m3"][0], res["m4"][0]))
+# ⛔⭐ CEO-331: ONE ROW PER PROGRAM PER MODE INTO THE PROGRESS DATABASE. This runner grades with its OWN loop, so the
+# harness's automatic recording never sees it and util_progress_flips.py --coverage read inria as MISSING, 0 of 445.
+# ⛔ THE PROGRAM KEY IS fam#INDEX, NEVER fam:goal -- this runner's own comment two hundred lines up records that 2 goal
+# texts recur VERBATIM across distinct entries (('and',"'") five times, and set_prolog_flag), so a text key would
+# collapse them and silently shrink the denominator. outcome_ok is already keyed by index for exactly that reason.
+# ⛔ THE VERDICT RECORDED IS THE OUTCOME CLASS, and the note says so on every row: it is the finest per-ENTRY verdict
+# this runner retains (the bindings comparator below keeps counters, not per-entry results), and it is 6 goals per mode
+# LOOSER than the score this suite publishes. Labelling it is the difference between a weaker number and a wrong one.
+_prog_rows = os.path.join(tmp, "progress_rows.tsv")
+with open(_prog_rows, "w") as _pf:
+    for _i, (_fam, _goal, _exp) in enumerate(tests):
+        for _m in ("m3", "m4"):
+            _pf.write("package\tinria\tprolog\t%s#%d\t%s\t%s\t0\toutcome-class\n"
+                      % (_fam, _i, _m, "PASS" if outcome_ok.get((_i, _m), False) else "FAIL"))
+print("PROGRESS_ROWS_TSV %s" % _prog_rows)
 
 # ⛔⭐ THE BINDINGS COMPARATOR (row prolog-inria-bindings-comparator-turns-the-outcome-class-upper-bound-into-a-true-score,
 # seat05, 2026-09-04). THE ABOVE BOARD STAYS EXACTLY AS IT WAS -- not one line of it moved -- because the
@@ -370,6 +385,14 @@ _prc=${PIPESTATUS[0]}
 # number would put a 61.8% on the leaderboard for a suite whose own criterion says 60.2%, so both go in the
 # cell with the weaker one named as the bound it is. A conformance number that overstates itself is worse
 # than no number.
+# ⛔⭐ CEO-331: append the per-program rows the python side just wrote. NON-FATAL BY DESIGN, exactly like gate_score_row:
+# a bookkeeping failure must never red a conformance board, because a runner that gets red-ed by its own bookkeeping is
+# a runner people stop calling. The MISSING line in util_progress_flips.py --coverage is the receipt, not this exit code.
+if [ -f "$HERE/lib_progress.sh" ]; then
+    . "$HERE/lib_progress.sh"
+    _prows="$(grep -m1 '^PROGRESS_ROWS_TSV ' "$_inria_out" | awk '{print $2}')"
+    if [ -n "${_prows:-}" ] && [ -s "$_prows" ]; then progress_append_rows_tsv "$_prows" || echo "  (progress append failed -- board stands)"; fi
+fi
 _oc="$(grep -m1 '^INRIA_SUITE_BOARD ' "$_inria_out" || true)"
 _bs="$(grep -m1 '^BINDINGS_BOARD_FOR_SHELL ' "$_inria_out" || true)"
 if [ -n "$_oc" ]; then

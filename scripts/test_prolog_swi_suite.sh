@@ -153,6 +153,7 @@ census_packages() {
 }
 if [ "$RECUT" -eq 1 ]; then census_packages; exit $?; fi
 [ -f "$PLUNIT" ] || { echo "⛔ REFUSED-TO-GRADE: $PLUNIT missing"; exit 2; }
+[ -f "$HERE/lib_progress.sh" ] && . "$HERE/lib_progress.sh"   # CEO-331: own-loop runners append their own rows
 [ -x "$SCRIP" ]  || { echo "⛔ REFUSED-TO-GRADE: scrip not built"; exit 2; }
 # ⛔⭐ STALE-BINARY PREFLIGHT (row harness-and-ladder-runner-refuse-on-a-stale-binary-like-the-artifact-regen-
 # does, ceo -> hq_T 2026-09-04). The line above proves a binary EXISTS; this one proves it is the binary this
@@ -203,6 +204,15 @@ run_one_mode() {
         PASS=$((PASS + matched))
         FAIL=$((FAIL + suite_total - matched))
 
+        # ⛔⭐ CEO-331: one progress row per program per mode. This runner grades with its OWN loop, so nothing records
+        # it automatically and the coverage report read swi as 9 of 114 replay rows and ZERO live. The mode flag here is
+        # --run/--compile; the database column is m3/m4, so it is TRANSLATED rather than written through: a suite that
+        # spells its own modes into a shared table is how two suites become uncomparable in one column.
+        _pmode=m3; [ "$mode" = "--compile" ] && _pmode=m4
+        if command -v progress_append >/dev/null 2>&1; then
+            progress_append package swi prolog "$base" "$_pmode" \
+                "$([ "$matched" -eq "$suite_total" ] && echo PASS || echo FAIL)" 0 "match=$matched/$suite_total" || true
+        fi
         if [ "$matched" -eq "$suite_total" ]; then
             echo "  PASS $base ($suite_total suite-lines)  [$mode]"
         else
