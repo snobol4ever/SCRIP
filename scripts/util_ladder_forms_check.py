@@ -66,35 +66,44 @@ def read_census(lang, path=None):
     if not os.path.exists(p):
         return [], {}, "no census at %s" % p
     lines = []
-    for raw in open(p, encoding="utf-8"):
+    for lineno, raw in enumerate(open(p, encoding="utf-8"), start=1):
         s = raw.rstrip("\n")
         if not s.strip() or s.lstrip().startswith("#"):
             continue
-        lines.append(s)
+        lines.append((lineno, s))
     if not lines:
         return [], {}, "census %s has no data lines" % p
     # ⛔ THE HEADER IS THE ONE WHOSE FIRST FIELD IS LITERALLY `RUNG`. rebus's census opens straight into data
     # (`rung00<TAB>hello<TAB>...`), so "first line is the header" would consume a real rung as column names and
     # then report one fewer rung than exists -- an off-by-one that looks like a census, not like an error.
     hdr = None
-    for i, l in enumerate(lines):
+    for i, (lineno, l) in enumerate(lines):
         if l.split("\t")[0].strip().upper() == "RUNG":
             hdr = i
             break
     if hdr is None:
         return [], {}, ("census %s has NO HEADER LINE (no row whose first field is RUNG) -- it cannot be read "
                         "by name, and reading it by position is what this checker refuses to do" % p)
-    names = [c.strip().upper() for c in lines[hdr].split("\t")]
+    names = [c.strip().upper() for c in lines[hdr][1].split("\t")]
     missing = [c for c in REQUIRED if c not in names]
     if missing:
         return [], {}, "census %s header lacks %s (has: %s)" % (p, ", ".join(missing), ", ".join(names))
     cmap = {n: i for i, n in enumerate(names)}
     rows = []
-    for l in lines[hdr + 1:]:
+    for lineno, l in lines[hdr + 1:]:
         f = l.split("\t")
         if not f or not f[0].strip():
             continue
-        rows.append({n: (f[i].strip() if i < len(f) else "") for n, i in cmap.items()})
+        # ⛔ A ROW WITH THE WRONG FIELD COUNT REFUSES, NEVER GETS GRADED ON THE FIELDS IT HAPPENED TO HAVE.
+        # A cell holding a literal newline splits ONE logical row into several physical lines (the fragments
+        # carry too few fields); a stray extra tab carries too many. Either way, silently zero-padding or
+        # truncating answers a narrower question than the one asked and cannot say so on its own
+        # (FINDING-2026-09-06-seat08-ladder-tsv-embedded-newlines-broke-the-forms-check-for-every-row-after.md).
+        if len(f) != len(names):
+            return [], {}, ("census %s line %d has %d field(s), expected %d (header: %s) -- refusing rather "
+                            "than grading a row on the fields it happened to have"
+                            % (p, lineno, len(f), len(names), ", ".join(names)))
+        rows.append({n: f[i].strip() for n, i in cmap.items()})
     return rows, cmap, None
 
 
@@ -303,6 +312,15 @@ def selftest():
         mk("kkk", HDR + "rung00\thello\tISO 1234 sec 5.1\tbare|quoted\t\t-\tBUILT\t\n",
            ["ladder__rung00_hello_bare", "ladder__rung00_hello_quoted"])
         cases.append(("the SAME rows with a real standard citation read OK", "kkk", "isolation", "OK"))
+        # 10. a data row with the WRONG FIELD COUNT -- the embedded-literal-newline defect shape
+        # (FINDING-2026-09-06-seat08-ladder-tsv-embedded-newlines-broke-the-forms-check-for-every-row-after.md):
+        # a cell containing a literal "\n" splits ONE logical row into several physical lines, and the fragment
+        # lines carry fewer tab-separated fields than the header declares. Reading N fields out of an M-field
+        # row must REFUSE, never grade the row on the fields it happened to have.
+        mk("lll", HDR + "rung00\thello\tsec1\tbare|quoted\t\t-\tBUILT\t\nrung01\ttruncated fragment\n",
+           ["ladder__rung00_hello_bare", "ladder__rung00_hello_quoted"])
+        cases.append(("a data row with the wrong field count REFUSES instead of grading a fragment",
+                      "lll", "isolation", "REFUSED"))
         for label, lang, phase, want in cases:
             got, _d, _w, _m = check_lang(lang, phase, verbose=False)
             if got == want:

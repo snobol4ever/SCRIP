@@ -56,11 +56,13 @@ test_gate_emit_no_lang.sh	WIRED	-	-	-
 test_gate_emit_no_slot_alloc.sh	WIRED	-	-	-
 test_gate_gate_wiring_ratchet.sh	WIRED	-	-	-
 test_gate_harness_refusal_is_rc2.sh	WIRED	-	-	-
+test_gate_icn_bal_is_a_backtracking_generator.sh	WIRED	-	-	-
 test_gate_icn_no_stack.sh	WIRED	-	-	-
 test_gate_icn_one_reg_frame.sh	WIRED	-	-	-
 test_gate_icn_scan_argtype.sh	WIRED	-	-	-
 test_gate_icn_tag_single_source.sh	WIRED	-	-	-
 test_gate_kw_integer_hex_refused.sh	WIRED	-	-	-
+test_gate_ladder_forms_check_selftest.sh	WIRED	-	-	-
 test_gate_ladder_walk_v4_exempts_package_class_rows.sh	WIRED	-	-	-
 test_gate_master_builder_reindex_only.sh	WIRED	-	-	-
 test_gate_master_companions_resolve.sh	WIRED	-	-	-
@@ -88,11 +90,13 @@ test_gate_pl_multifile_initialization_runs_every_file.sh	WIRED	-	-	-
 test_gate_pl_no_value_stack.sh	WIRED	-	-	-
 test_gate_pl_quad_regs.sh	WIRED	-	-	-
 test_gate_pl_raising_directive_does_not_abort_the_load.sh	WIRED	-	-	-
+test_gate_pl_read_raises_catchable_syntax_error.sh	WIRED	-	-	-
 test_gate_pl_term_inspection_iso_errors.sh	WIRED	-	-	-
 test_gate_pl_trail_mechanism.sh	WIRED	-	-	-
 test_gate_pl_xfail_marker_consistent.sh	WIRED	-	-	-
 test_gate_polyglot_demos.sh	WIRED	-	-	-
 test_gate_postoffice_identity.sh	WIRED	-	-	-
+test_gate_preflight_arms_stay_cheap.sh	WIRED	-	-	-
 test_gate_progress_append_writes_a_row.sh	WIRED	-	-	-
 test_gate_queue_census_placeholder_arm.sh	WIRED	-	-	-
 test_gate_raku_paren_call_passes_its_arguments.sh	WIRED	-	-	-
