@@ -452,7 +452,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_FNC: { const tree_t * fn = (t->n > 0) ? t->c[0] : NULL;
         { const char * vn = icn_variable_lit(cx, t);
           if (vn) { tree_t * tg = icn_variable_lit_target(cx, vn); if (!tg) return lc_key(cx, t, "&fail", γ, ω, res); if (tg->t == TT_KEYWORD) return lc_key(cx, t, tg->v.sval, γ, ω, res); return lower(cx, tg, γ, ω, res); } }
-        if (!fn || (fn->t == TT_VAR && fn->v.sval && fn->v.sval[0] != '&' && !icn_is_local(cx, fn->v.sval))) {
+        if (!fn || (fn->t == TT_VAR && fn->v.sval && fn->v.sval[0] != '&' && !icn_is_local(cx, fn->v.sval)
+                    && !(icn_is_own_global(cx, fn->v.sval) && !icn_is_proc(fn->v.sval)))) {
             const char * nm = (fn && fn->t == TT_VAR) ? fn->v.sval : "?";
             return lower_call(cx, nm, t, 1, t->n - 1, γ, ω, res);
         }
