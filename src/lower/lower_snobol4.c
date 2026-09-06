@@ -835,6 +835,21 @@ static const tree_t * sgoto_direct(const tree_t * s, tree_e kind) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * sno_expr_const_prefix(const tree_t * t) {
+    if (!t) return NULL;
+    if (t->t == TT_QLIT) return t->v.sval ? t->v.sval : "";
+    if ((t->t == TT_CAT || t->t == TT_SEQ) && t->n >= 1) return sno_expr_const_prefix(t->c[0]);
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_goto_specials_impossible(const tree_t * expr) {
+    const char * pfx = sno_expr_const_prefix(expr);
+    if (!pfx || !*pfx) return 0;
+    static const char * sn3[3] = { "NRETURN", "FRETURN", "RETURN" };
+    for (int k = 0; k < 3; k++) { size_t lp = strlen(pfx), ls = strlen(sn3[k]), m = lp < ls ? lp : ls; if (!strncmp(pfx, sn3[k], m)) return 0; }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_goto_special_chain(IR_graph_t * g, const char * dn, IR_t * tail) {
     static int _sp = -1; if (_sp < 0) { const char * e = getenv("SCRIP_GOTO_SPECIAL_TRANSFER"); _sp = (e && *e == '0') ? 0 : 1; }
     if (!_sp || !dn || (dn[0] != '$' && dn[0] != '@')) return tail;
@@ -865,7 +880,8 @@ static IR_t * sno_goto_computed_target(IR_graph_t * g, scx_t * cx, const tree_t 
     char * tmpn = lp_strdup(nmb); sno_reg_var(tmpn);
     size_t ln = strlen(tmpn); char * dn = (char *) rt_ws_alloc(ln + 2); dn[0] = by_name ? '@' : '$'; memcpy(dn + 1, tmpn, ln); dn[ln + 1] = 0;
     IR_t * gd = lc_build(g, IR_GOTO_DEFERRED, exitnd, NULL); IR_LIT(gd).sval = dn;
-    IR_t * asn = lc_build(g, IR_ASSIGN, sno_goto_special_chain(g, dn, gd), gd); IR_LIT(asn).sval = tmpn;
+    IR_t * chain = sno_goto_specials_impossible(expr) ? gd : sno_goto_special_chain(g, dn, gd);
+    IR_t * asn = lc_build(g, IR_ASSIGN, chain, gd); IR_LIT(asn).sval = tmpn;
     IR_t * vr = NULL; IR_t * ec = sx_lower(cx, expr, asn, gd, &vr);
     ir_operand_push(asn, vr);
     if (!by_name) return ec;
