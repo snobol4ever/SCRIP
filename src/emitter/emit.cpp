@@ -1019,6 +1019,7 @@ static void emit_sep_rule(char ch) { if (emit_sep_on()) bb_emit_x86(x86("comment
 extern "C" void emit_sep_rule_c(char ch) { emit_sep_rule(ch); }
 static int zw_nid_listed(const char * e, int nid) { if (!e || !*e) return 0; const char * p = e; while (*p) { long v = strtol(p, (char **)&p, 10); if ((int)v == nid) return 1; while (*p && *p != ',') p++; if (*p) p++; } return 0; }
 static int g_zd_stage, g_zd_arm, g_zd_k, g_zd_gpop, g_zd_wpop, g_zd_wsteal, g_zd_read[6], g_zd_kind[6], g_zd_ztail, g_zd_zunder, g_zd_zpat, g_zd_zfc;
+static int g_zd_anchor[6] = { -1, -1, -1, -1, -1, -1 };
 static int g_arbk16_stmt = 0;
 static long g_zd_suspend_uclaim = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1048,6 +1049,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     g_emit.op_stmt_dyn = g_arbk16_stmt; if (nd) { if (nd->op == IR_STATEMENT_BEGIN) { g_arbk16_stmt = 0; g_emit.op_stmt_dyn = 0; } else if (nd->op == IR_STATEMENT_END || nd->op == IR_STATEMENT) g_arbk16_stmt = 0; }
     g_emit.op_zres = 0; g_emit.op_zgpop = 0; g_emit.op_wsteal = 0; g_emit.op_ztail = 0; g_emit.op_zpat = 0; g_emit.op_zfc = 0; g_emit.op_xf_off = -1; for (int _zi = 0; _zi < 6; _zi++) { g_emit.op_zread[_zi] = 0; g_emit.op_zkind[_zi] = -1; g_emit.op_zread_xf[_zi] = -1; }
     if (nd) { g_emit.op_xf_off = xop_frame_slot(nd); int _xn = zd_nops(nd); if (_xn > 6) _xn = 6; for (int _zi = 0; _zi < _xn && _zi < nd->n_operands; _zi++) g_emit.op_zread_xf[_zi] = xop_frame_slot(nd->operands[_zi]); }
+    for (int _zi = 0; _zi < 6; _zi++) if (g_emit.op_zread_xf[_zi] == -1 && g_zd_anchor[_zi] != -1) g_emit.op_zread_xf[_zi] = g_zd_anchor[_zi];
     g_emit.op_suspend_stmt_uclaim = 0;
     if (g_zd_stage) { g_emit.op_suspend_stmt_uclaim = g_zd_suspend_uclaim; g_zd_suspend_uclaim = 0;
         if (g_zd_arm) { g_emit.op_zres = 1; g_emit.op_fc_bytes = g_zd_k; g_emit.op_fc_base = -1; g_emit.op_zdepth = g_zd_k + g_zd_zunder;       for (int _zi = 0; _zi < 6; _zi++) { g_emit.op_zread[_zi] = g_zd_read[_zi]; g_emit.op_zkind[_zi] = g_zd_kind[_zi]; } g_emit.op_ztail = g_zd_ztail; g_zd_ztail = 0; g_emit.op_zpat = g_zd_zpat; g_zd_zpat = 0; g_emit.op_zfc = g_zd_zfc; g_zd_zfc = 0;    }
@@ -3306,6 +3308,12 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
               if (gtgt && gtgt == g_emit_cfg->alt_fail && pl_step_lbl) node_γ = pl_step_lbl;
               if (!g_emit_cfg->root_graph) for (int _ak = 0; _ak < n_alt; _ak++) if (gtgt && gtgt == g_emit_cfg->alt_ret[_ak] && g_emit_cfg->alt_redo[_ak]) { node_γ = ret_tr[_ak]; break; } }
           if (nodes[i]->op == IR_MATCH_BEGIN) { g_emit.lbl_t0 = na_f[i] ? na_f[i]->name : NULL; g_emit.lbl_t0_p = na_f[i]; g_emit.lbl_t0o_p = na_fo[i]; }
+          { for (int _zj = 0; _zj < 6; _zj++) g_zd_anchor[_zj] = -1;
+            if (emit_match_rbp() && ir_is_matcher_element((int)nodes[i]->op)) for (int _zj = 0; _zj < nodes[i]->n_operands && _zj < 6; _zj++) { IR_t * _pa = nodes[i]->operands[_zj]; if (!_pa || ir_is_matcher((int)_pa->op)) continue;
+                for (int _ka = 0; _ka < n; _ka++) { if (nodes[_ka] != _pa) continue; if (_ka >= i) break;
+                    int _mb1 = -1, _nmb = 0; for (int _z2 = i - 1; _z2 > _ka; _z2--) if (nodes[_z2]->op == IR_MATCH_BEGIN) { _nmb++; _mb1 = _z2; }
+                    if (_nmb == 1 && _mb1 > _ka) { int _xk = 0; for (int _z3 = _mb1 - 1; _z3 > _ka; _z3--) { if (nodes[_z3]->op == IR_MATCH_DEFER) { _xk += 16; continue; } if (nodes[_z3]->op == IR_MATCH_ALTERNATE) { _xk += alt_flat_live_bytes(nodes[_z3]); continue; } } g_zd_anchor[_zj] = 8 + (zd_out[_mb1] - zd_out[_ka]) + _xk; }
+                    break; } } }
           emit_drive(nodes[i], lbls[i], node_γ, node_ω, betas[i]);
           if (_zw5_saved_omega) node_ω = _zw5_saved_omega;
           if (_zw5_on && nodes[i]->op == IR_STATEMENT) { for (int _si = 0; _si < zw5_pool_stmts; _si++) { if (zw5_stmt_idx[_si] != i) continue; int _si_base = 0; for (int _sj = 0; _sj < _si; _sj++) _si_base += zw5_stmt_cnt[_sj]; for (int _d = 0; _d < zw5_stmt_cnt[_si]; _d++) { emit_label_define_bb(&zw5_pool[_si_base + _d]); bb_emit_x86(x86("add", "rsp", (long)zw5_stmt_depths[_si][_d]) + x86("jmp", "extlbl", (uint64_t)(uintptr_t)node_ω)); } break; } }
