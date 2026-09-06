@@ -237,9 +237,14 @@ for std in "${STDFILES[@]}"; do
     icn="$(dirname "$std")/$base.icn"
     [ -f "$icn" ] || continue
     exp="$(cat "$std")"
+    # ⭐ NAME.dat STDIN SIDECAR (hq_I 2026-09-05): same convention as arizona/jcon_tests' own .dat
+    # fixtures, and the one util_cut_icon_ipl_refs.sh mints these four new refs under -- both tiers
+    # must agree per this file's own FACT RULE (a script and its DONE-WHEN, or its sibling ref-cutter,
+    # must not disagree).
+    dat="$(dirname "$std")/$base.dat"; stdin_src=/dev/null; [ -f "$dat" ] && stdin_src="$dat"
 
     # -- m3 (--run): executes the Icon program's own logic directly -- isolated.
-    ipl_isolation_run "$TMP/${base}.m3.out" "$TIMEOUT" "$SCRIP" --run "$icn"
+    ipl_isolation_run "$TMP/${base}.m3.out" "$TIMEOUT" "$stdin_src" "$SCRIP" --run "$icn"
     rc3=$?
     by3=$(wc -c < "$TMP/${base}.m3.out" 2>/dev/null || echo 0)
     if [ "$rc3" -eq 124 ]; then M3_RUN_HANG=$((M3_RUN_HANG+1)); M3_RUN_HANG_NAMES+=("$base")
@@ -253,7 +258,7 @@ for std in "${STDFILES[@]}"; do
     s4="$TMP/${base}.m4.s"; bin4="$TMP/${base}.m4.bin"
     "$SCRIP" --compile "$icn" >"$s4" 2>"$TMP/${base}.m4.diag" </dev/null
     if [ -s "$s4" ] && gcc -no-pie "$s4" -L"$HERE/../out" -lscrip_rt -Wl,-rpath,"$HERE/../out" -o "$bin4" 2>/dev/null; then
-        ipl_isolation_run "$TMP/${base}.m4.out" "$TIMEOUT" "$bin4"
+        ipl_isolation_run "$TMP/${base}.m4.out" "$TIMEOUT" "$stdin_src" "$bin4"
         rc4=$?
         by4=$(wc -c < "$TMP/${base}.m4.out" 2>/dev/null || echo 0)
         if [ "$rc4" -eq 124 ]; then M4_RUN_HANG=$((M4_RUN_HANG+1)); M4_RUN_HANG_NAMES+=("$base")

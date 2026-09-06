@@ -16,12 +16,17 @@
 # USAGE:
 #   . lib_icon_ipl_isolation.sh
 #   ipl_isolation_init "$PKG"          # once; builds the pristine template, registers its own cleanup
-#   ipl_isolation_run "$OUTFILE" "$TIMEOUT" cmd arg...
+#   ipl_isolation_run "$OUTFILE" "$TIMEOUT" "$STDIN" cmd arg...
 #       runs `cmd arg...` with a FRESH scratch copy's progs/ as cwd, ICONPATH set to the scratch
-#       siblings (progs:procs:gprocs:incl:gincl), stdin /dev/null, under `timeout $TIMEOUT`. Combined
-#       stdout+stderr go to $OUTFILE. Returns the command's own exit status (124 = timeout). The scratch
-#       copy is destroyed before returning, pass or fail -- a self-mutating program can only ever damage
-#       a copy already bound for deletion, never the tracked tree.
+#       siblings (progs:procs:gprocs:incl:gincl), stdin from $STDIN (pass /dev/null for none -- callers
+#       decide, this lib never guesses), under `timeout $TIMEOUT`. Combined stdout+stderr go to
+#       $OUTFILE. Returns the command's own exit status (124 = timeout). The scratch copy is destroyed
+#       before returning, pass or fail -- a self-mutating program can only ever damage a copy already
+#       bound for deletion, never the tracked tree.
+#       ⭐ NAME.dat STDIN SIDECAR (hq_I 2026-09-05): callers grading a progs/NAME.icn against a
+#       NAME.std should pass "$PKG/progs/NAME.dat" (falling back to /dev/null if absent) -- the same
+#       convention test_icon_arizona_suite.sh/test_icon_jcon_suite.sh already use, and the one
+#       util_cut_icon_ipl_refs.sh's own run_isolated() now mints refs under; see its header.
 #   ipl_isolation_verify_clean "$CORPUS_ROOT"
 #       belt-and-suspenders: confirms the tracked ipl progs/procs/gprocs/incl/gincl subtree is still
 #       exactly what HEAD says (new *.std files excepted). Prints a loud ⛔ to stderr and returns 1 if
@@ -42,10 +47,10 @@ ipl_isolation_init() {
 ipl_isolation_cleanup() { [ -n "${IPL_ISO_TEMPLATE:-}" ] && rm -rf "$IPL_ISO_TEMPLATE"; }
 
 ipl_isolation_run() {
-  local outfile="$1" to="$2" work rc; shift 2
+  local outfile="$1" to="$2" stdin_src="$3" work rc; shift 3
   work="$(mktemp -d "${TMPDIR:-/tmp}/ipl_iso_run.XXXXXX")" || return 127
   cp -r "$IPL_ISO_TEMPLATE"/. "$work"/
-  ( cd "$work/progs" && timeout "$to" env ICONPATH="$work/progs:$work/procs:$work/gprocs:$work/incl:$work/gincl" "$@" < /dev/null > "$outfile" 2>&1 )
+  ( cd "$work/progs" && timeout "$to" env ICONPATH="$work/progs:$work/procs:$work/gprocs:$work/incl:$work/gincl" "$@" < "$stdin_src" > "$outfile" 2>&1 )
   rc=$?
   rm -rf "$work"
   return "$rc"
