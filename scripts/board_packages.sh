@@ -54,11 +54,17 @@ if [ "$SUITES" -eq 0 ]; then echo "⛔ BOARD REFUSES (rc=2): packages/ tree enum
 runner_for() {  # $1 = "<lang>/<name>" -> echoes the grading script's basename, or nothing if unmapped
   case "$1" in
     icon/arizona_tests)      echo test_icon_arizona_suite.sh ;;
+    icon/ipl)                echo test_icon_ipl_suite.sh ;;
     icon/jcon_tests)         echo test_icon_jcon_suite.sh ;;
     pascal/fpc_tests)        echo test_pascal_fpc_suite.sh ;;
+    pascal/pat)              echo test_pascal_pat_suite.sh ;;
     prolog/gnu_prolog)       echo test_prolog_gnu_suite.sh ;;
+    prolog/inriasuite)       echo test_prolog_inria_suite.sh ;;
     prolog/swi_tests)        echo test_prolog_swi_suite.sh ;;
+    snobol4/aisnobol)        echo test_snobol4_aisnobol_suite.sh ;;
     snobol4/csnobol4_suite)  echo test_snobol4_csnobol4_suite.sh ;;
+    snobol4/dotnet)          echo test_snobol4_dotnet_suite.sh ;;
+    snobol4/gimpel)          echo test_snobol4_gimpel_suite.sh ;;
     snobol4/spitbol_testpgms) echo test_snobol4_spitbol_testpgms_suite.sh ;;
     snobol4/snoflake_suite)  echo test_snoflake_suite.sh ;;
     *) : ;;

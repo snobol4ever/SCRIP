@@ -18,6 +18,7 @@ set -u
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/lib_flag_gate.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE: lib_flag_gate.sh unloadable"; exit 2; }
+. "$HERE/lib_inventory.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE: lib_inventory.sh unloadable"; exit 2; }
 [ $# -eq 0 ] || flaggate_reject "$1" "(none -- set FPC_SUITE_RUN_TIMEOUT / FPC_SUITE_VERBOSE via environment instead)"
 SCRIP="${HERE}/../scrip"
 RT_SO="${HERE}/../out/libscrip_rt.so"
@@ -98,11 +99,14 @@ fi
 
 echo ""
 echo "FPC_SUITE_BOARD total=$TOTAL m3_pass=$M3_PASS m3_fail=$M3_FAIL m4_pass=$M4_PASS m4_fail=$M4_FAIL reject=$REJECT"
-# ⭐ THE PACKAGE LOCKDOWN (Lon 2026-09-06, MASTER-PLAN sec THE PACKAGE LOCKDOWN): shipped is $TOTAL itself
-# here (the .pas discovery above IS a fresh directory listing, never a cached container), so shipped and
-# graded+ungradable can never silently diverge the way a container-based harness's can.
+# ⭐ THE PACKAGE LOCKDOWN inventory line, via the shared body (lib_inventory.sh) -- never a second copy
+# of the arithmetic. REJECT here is "shipped .pas with no .ref yet" -- real owed work (REF_NOT_CUT), not
+# an oracle ruling -- so a nonzero REJECT with no UNGRADED.tsv beside $SUITE correctly REFUSES below
+# rather than being silently folded into ungradable the way the old ad hoc line did.
 FPC_GRADED=$((TOTAL - REJECT))
-echo "PACKAGE_INVENTORY shipped=$TOTAL graded=$FPC_GRADED ungradable=$REJECT ungraded=$((TOTAL - FPC_GRADED - REJECT))"
+INV_PACKAGE=fpc; INV_DIR="$SUITE"; INV_EXT=".pas"
+INV_LINE="$(inventory_line "$FPC_GRADED" 0)"
+if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
 # ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05: "any run of a test suite by any
 # session will update the ONE LEADERBOARD"). This records the board line printed just above into
 # .github/SCORE.md -- it RUNS NOTHING, it only writes down what this script already measured.
@@ -110,7 +114,7 @@ echo "PACKAGE_INVENTORY shipped=$TOTAL graded=$FPC_GRADED ungradable=$REJECT ung
 # because a gate that goes red for a reason unrelated to the code is a gate people route around. It
 # warns and names the unrecorded row instead; it has no silent path.
 python3 "$HERE/util_score_row.py" write --lang pascal --column vendor --suite fpc --modes m3,m4 \
-    --measurer "${S4E_SEAT:-}" --text "m3 $M3_PASS/$TOTAL · m4 $M4_PASS/$TOTAL (m3_fail=$M3_FAIL m4_fail=$M4_FAIL reject=$REJECT, \`test_pascal_fpc_suite.sh\`)" \
+    --measurer "${S4E_SEAT:-}" --text "m3 $M3_PASS/$TOTAL · m4 $M4_PASS/$TOTAL (m3_fail=$M3_FAIL m4_fail=$M4_FAIL reject=$REJECT${INV_LINE:+ · $INV_LINE (\`test_pascal_fpc_suite.sh\`)})" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
 
