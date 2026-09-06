@@ -160,23 +160,10 @@ static std::string bcps_nret_consult(const std::string & r0, const std::string &
          + x86("def", L(29));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static long bcps_sig_disp(int slot) {
-    const char * t = FRQB(slot, 0); const char * p = strstr(t, "[rsp");
-    if (!p) return -1;
-    p += 4; if (*p == '#') p++;
-    while (*p == ' ') p++;
-    if (*p == ']') return 0;
-    if (*p != '+') return -1;
-    p++; while (*p == ' ') p++;
-    if (*p < '0' || *p > '9') return -1;
-    long v = 0; while (*p >= '0' && *p <= '9') v = v * 10 + (*p++ - '0');
-    return (*p == ']') ? v : -1;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long bcps_parse_rsp(const char * t) {
     const char * p = strstr(t, "[rsp");
     if (!p) return -1;
-    p += 4; if (*p == '#') p++;
+    p += 4; if (*p == '#' || *p == '$') p++;
     while (*p == ' ') p++;
     if (*p == ']') return 0;
     if (*p != '+') return -1;
@@ -186,6 +173,7 @@ static long bcps_parse_rsp(const char * t) {
     return (*p == ']') ? v : -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long bcps_sig_disp(int slot) { return bcps_parse_rsp(FRQB(slot, 0)); }
 static long bcps_zref_disp(int zoff) { return bcps_parse_rsp(x86_zref(zoff, 1)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out) {
