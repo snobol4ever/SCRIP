@@ -1764,7 +1764,14 @@ PROGRESS_COUNTED = {
     # total=119 in both the grid and the display twin since, superseding 118/124/125 -- kept, not
     # replaced, because older cell text still cites them for provenance and this list is "every
     # population this package has ever legitimately carried", never just the newest one.
-    "snobol4": [("csnobol4", r"csnobol4", (118, 124, 125, 119)), ("snoflake", r"[Ss]noflake", (180,)), ("gimpel", r"gimpel", (126, 144, 289)), ("aisnobol", r"aisnobol", (2, 8)), ("dotnet", r"dotnet", (5, 14))],
+    # ⛔ 120 ADDED (hq_S 2026-09-06, row flip-csnobol4-err): the runner's TOTAL moved 119 -> 120 when the
+    # four module/* replacement-coverage rows landed (seat08 2026-09-05) and its own PACKAGE_INVENTORY now
+    # prints graded=120. ⭐ THE SYMPTOM IS WHY THIS TUPLE MATTERS AND IT DOES NOT LOOK LIKE A LOOKUP MISS:
+    # an unlisted population does not warn -- csnobol4 dropped into the banner's "NOT RUN ... these suites
+    # exist and have never been run-graded" list, at its OLD size of 119, in the same minute a 120-program
+    # board of it finished and wrote 4215 rows into the progress database. A suite reading as never-run
+    # because it GREW is the failure mode to expect here, so add the new size in the landing that moves it.
+    "snobol4": [("csnobol4", r"csnobol4", (118, 124, 125, 119, 120)), ("snoflake", r"[Ss]noflake", (180,)), ("gimpel", r"gimpel", (126, 144, 289)), ("aisnobol", r"aisnobol", (2, 8)), ("dotnet", r"dotnet", (5, 14))],
     # ⛔ ipl IS 851 AND A BARE `find -name '*.icn'` WILL TELL YOU 852 -- DO NOT "FIX" IT TO 852. The 852nd
     # file is ALL.icn, our OWN generated container, and hq_I corrected this number the wrong way on
     # 2026-09-05 on exactly that evidence. 851 = ALL.csv 78 graded entries + ALL.excluded.txt 773 named
