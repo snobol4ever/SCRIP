@@ -42,6 +42,10 @@ std::string bb_coerce_numeric() {
              + x86("lea",  "rdx", ZRES(0))
              + x86("mov",  "rcx", (long)_.op_ival)
              + x86("call", "rt_coerce_num2_d", (uint64_t)(uintptr_t)(void *)rt_coerce_num2_d)
+             + IF(_.op_ival & COERCE_ERR_FAILURE_CONVERTIBLE, x86("note", ZRESN())
+             + x86("mov", "eax", ZRESD(0))
+             + x86("cmp", "al", (long)DT_FAIL)
+             + x86_omega("je"))
              + x86_gamma()
              + x86_beta_trampoline();
     return IF(_.op_sa < 0 || _.op_sb < 0 || _.op_off < 0, x86_bomb("bb_coerce_numeric: needs self slot (op_sa) + other slot (op_sb) + own value slot (op_off)"))
@@ -68,6 +72,9 @@ std::string bb_coerce_numeric() {
            + x86("lea",  "rdx", FRQ(_.op_off))
            + x86("mov",  "rcx", (long)_.op_ival)
            + x86("call", "rt_coerce_num2_d", (uint64_t)(uintptr_t)(void *)rt_coerce_num2_d)
+           + IF(_.op_ival & COERCE_ERR_FAILURE_CONVERTIBLE, x86("mov", "eax", FR(_.op_off))
+           + x86("cmp", "al", (long)DT_FAIL)
+           + x86_omega("je"))
            + x86_gamma()
            + x86_beta_trampoline());
 }

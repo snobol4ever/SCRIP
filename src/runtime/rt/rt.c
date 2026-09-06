@@ -307,11 +307,21 @@ static int rt_parse_num_d(const DESCR_t *v, int64_t *iv, double *rv, int *isreal
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rt_num_is_blank_d(const DESCR_t *v) {
+    if (v->v == DT_SNUL) return 1;
+    if ((v->v == DT_S || IS_CSET_fn(*v)) && v->s) { const char *p = rt_cstr_d(*v); while (*p == ' ') p++; return !*p; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void c_rt_coerce_num2_d(const DESCR_t *self, const DESCR_t *other, DESCR_t *out, long codes) {
     extern void core_runtime_error(int code, const char *msg);
     int ec = (int)(codes & 0xffff);
     int64_t si = 0, oi = 0; double sr = 0, orr = 0; int sreal = 0, oreal = 0;
-    if (!rt_parse_num_d(self, &si, &sr, &sreal)) { if (ec) core_runtime_error(ec, rt_coerce_errmsg(ec)); si = 0; sreal = 0; }
+    int sok = rt_parse_num_d(self, &si, &sr, &sreal);
+    if (sok && (codes & COERCE_ERR_FAILURE_CONVERTIBLE) && rt_num_is_blank_d(self)) sok = 0;
+    if (!sok) {
+        if (ec && (codes & COERCE_ERR_FAILURE_CONVERTIBLE)) { extern int core_icn_error(int code, DESCR_t val); core_icn_error(ec, *self); *out = FAILDESCR; return; }
+        if (ec) core_runtime_error(ec, rt_coerce_errmsg(ec)); si = 0; sreal = 0; }
     int ook = rt_parse_num_d(other, &oi, &orr, &oreal);
     (void)ook; (void)oi; (void)orr;
     if (sreal || oreal) { out->v = DT_R; out->slen = 0; out->r = sreal ? sr : (double)si; }
