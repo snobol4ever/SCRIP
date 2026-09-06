@@ -301,6 +301,14 @@ static IR_t * lower_lvalue_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** 
         if (clv && ir_is_generator_kind(clv->op)) lc_ω_to_β(ut, clv);
         *var_res = ut; return ce;
     }
+    if ((t->t == TT_ASSIGN || t->t == TT_SWAP || t->t == TT_AUGOP) && t->n > 1 && t->c[0]) {
+        IR_t * ir = NULL; IR_t * ie = lower(cx, t, NULL, ω, &ir);
+        if (!ie || !ir) return NULL;
+        IR_t * lv = NULL; IR_t * lve = lower_lvalue_var(cx, t->c[0], ω, &lv);
+        if (!lve || !lv) return NULL;
+        lc_γ_to(ir, lve);
+        *var_res = lv; return ie;
+    }
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
