@@ -15,6 +15,13 @@
 # witnesses are that demand: RED on clean main in both modes, GREEN with the change, emitted .s differing by 8
 # lines. ⛔ Do not delete this gate because "the boards cover it". They measurably do not.
 #
+# ⛔⭐ WHY THIS CHANGE DOES NOT ALSO WIDEN THE ARBNO EXTENT IT SITS BESIDE -- hq_U's co-sign argument, recorded
+# here because it is the one claim a zero delta CANNOT establish. choice_body_member's new extent line runs for
+# EVERY C in the loop, so on its face it widens the already-landed ARBNO half too. It cannot: NOTHING REGISTERS
+# AN ARBNO. All five fc_pair_extent_register call sites in lower_snobol4.c are three IR_MATCH_FENCE1 (1538, 1720,
+# 1738) and two capture nodes (1665, 1689), so fc_pair_extent returns -1 for an ARBNO and the widening is inert
+# there BY CONSTRUCTION. A board showing no delta cannot distinguish inert-here from inert-everywhere; this can.
+#
 # ⭐ WITNESSES vs CONTROLS. The 2 WITNESSES were each PROVEN RED on clean main. The 2 CONTROLS are green on
 # BOTH arms by design -- the ARBNO twin (already cured on main; it must not regress) and a static FENCE with no
 # dynamic operand (the change must not disturb the case it does not target). Never prune a control for being
