@@ -300,7 +300,7 @@ fi
 # ⭐ STATIC ANALYSIS CANNOT PROVE EMISSION -- only running the runner does, and that is board_packages.sh's
 # job, not a 2-second mktemp-only gate's. So the honest move is not a cleverer grep: it is to stop printing
 # one number, print the three that ARE decidable from the source, and name the gap the gate cannot close.
-runners=0; sources=0; calls=0; swallows=0; missing=""; partial=""; swallowed=""
+runners=0; sources=0; calls=0; swallows=0; missing=""; partial=""; swallowed=""; notpkg=""
 for r in "$HERE"/test_*_suite.sh "$HERE"/raku_roast_scoreboard.sh "$HERE"/board_packages.sh; do
     [ -f "$r" ] || continue
     b="$(basename "$r")"
@@ -311,6 +311,28 @@ for r in "$HERE"/test_*_suite.sh "$HERE"/raku_roast_scoreboard.sh "$HERE"/board_
     # defect this arm was rewritten to cure one commit earlier: a census that counts the wrong population
     # is wrong for every member of it, and it is loudest about the members that are most correct.
     case "$b" in board_*.sh) continue ;; esac
+    # ⛔⭐ A CONSTRUCT-LADDER/STRESS RUNNER OVER OUR OWN CORPUS IS NOT A VENDORED-PACKAGE RUNNER EITHER
+    # (seat12, 2026-09-06). This row's population is "every program a VENDORED PACKAGE SHIPS" (the task's
+    # own GOAL text, row every-package-runner-prints-...) -- a ladder/stress suite over corpus/crosscheck
+    # or a hand-built rung corpus has no vendor and nothing "shipped" to name shipped=/ungradable= against;
+    # forcing one to grow a package-inventory line is the same category error CLAUDE.md names for running
+    # an ALL.<ext> master whole ("both are artifacts of the wrong invocation, never findings"). Verified
+    # structurally, not asserted: EVERY runner wired onto lib_inventory.sh (12/12 measured this sitting)
+    # references corpus/packages/ literally; every runner that does not was individually read (not just
+    # grepped) and confirmed to be a construct-ladder/stress suite: test_gc_stress_suite.sh (corpus/
+    # crosscheck/gc/ GC torture matrix), test_icon_rung_suite.sh / test_prolog_rung_suite.sh (rung ladders,
+    # GOAL-ICON-BB/GOAL-PROLOG-BB), test_snobol4_pat_rung_suite.sh (SNOBOL4 pattern rung suite). NAMED, not
+    # silently shrunk -- see the report line below; a new runner earns inclusion by shipping a vendored
+    # package, not by matching a glob.
+    # ⛔ THE PATTERN MATCHES THE PATH SHAPE, NOT THE LITERAL STRING "corpus/packages" -- caught live:
+    # test_csnobol4_budne_suite.sh builds its path as `$CORPUS/packages/snobol4/csnobol4_suite`, so the
+    # literal substring "corpus/packages" never appears in the file and a naive grep misclassified a REAL
+    # vendored-package runner (deliberately unwired for its own, different, already-ruled reason -- a
+    # stale mode-2 (--run) duplicate of test_snobol4_csnobol4_suite.sh, modes 1/2 DELETED per CLAUDE.md,
+    # see board_packages.sh's own comment) as if no vendor shipped it at all. /packages/<name>/ matches
+    # both the literal and the variable-built form and was re-verified to still exclude all nine genuine
+    # construct-ladder/stress runners (seat12, 2026-09-06).
+    grep -qE '/packages/[a-z0-9_]+/' "$r" || { notpkg="$notpkg $b"; continue; }
     runners=$((runners+1))
     grep -q 'lib_inventory.sh' "$r" || { missing="$missing $b"; continue; }
     sources=$((sources+1))
@@ -327,6 +349,7 @@ for r in "$HERE"/test_*_suite.sh "$HERE"/raku_roast_scoreboard.sh "$HERE"/board_
 done
 echo "    package runners censused=$runners  sources=$sources  complete-stanza=$calls  unwired=$((runners-sources))  [aggregators excluded: they read lines, never emit one]"
 echo "    ⚠ NOT DECIDABLE HERE: whether a runner actually EMITS a summing line. Only running it proves that (board_packages.sh)."
+[ -z "$notpkg" ]    || { echo "    NOT A VENDORED-PACKAGE RUNNER (excluded from this population -- no /packages/<name>/ path, nothing a vendor ships, never wire):"; printf '      %s\n' $notpkg; }
 [ -z "$missing" ]   || { echo "    NOT YET WIRED (the row's work list, not a verdict):"; printf '      %s\n' $missing; }
 [ -z "$partial" ]   || { echo "    ⛔ SOURCES THE BODY WITH AN INCOMPLETE STANZA -- wired to REFUSE, not to report:"; printf '      %s\n' $partial; }
 [ -z "$swallowed" ] || { echo "    ⛔ SWALLOWS THE REFUSAL (rc=2 becomes a warning nobody reads -- the jcon case):"; printf '      %s\n' $swallowed; }
