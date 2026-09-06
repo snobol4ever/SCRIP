@@ -94,6 +94,12 @@ SCRIP_HASH="$(git -C "$SD" rev-parse --short HEAD 2>/dev/null || echo '?')"
 CORP_HASH="$(git -C "$ROOT/corpus" rev-parse --short HEAD 2>/dev/null || echo '?')"
 DIA=0; DIAL=""; ORACLE_OUT=""; ORACLE_MEETS_EXPECT=0; P3=0; F3=0; P4=0; F4=0; S4=0; PS=0; FS=0; PC=0; FC=0; N3P=0; N3F=0; N4P=0; N4F=0; NSP=0; NSF=0; NCP=0; NCF=0
 FL3=""; FL4=""; FLS=""; FLC=""; OPTS_LIST=""; TOTAL=0
+# ⭐ CENSUS (task snobol4-snoflake-pass-census-splits-stream-equality-from-error-number-only-passes,
+# hq_P 2026-09-06): splits mode-3 PASS into (a) SE3 -- scrip's stream literally equals the oracle's,
+# and (b) EN3 -- equal ONLY via oracle_equal's ERROR-NUMBER fallback (wording never matches, so this
+# is UNGRADED-BY-A-NARROWER-INSTRUMENT, not a weaker pass). SE3+EN3 == P3 by construction (every m3
+# PASS sets OE_KIND to exactly one of the two before either counter is touched).
+SE3=0; EN3=0; ENL3=""
 parse_fixture() { # $1=sno -> writes $W/exp $W/inp; echoes "match ic nstd hasinp opts"
     local match=exact ic=0 nstd=0 hasinp=0 opts=0 inblock="" line payload rest
     : > "$W/exp"; : > "$W/inp"
@@ -131,13 +137,16 @@ grade() { # $1=got $2=rc $3=match $4=ic ; expects $W/exp; returns 0 pass
     esac
 }
 oracle_equal() { # $1=scrip output  $2=oracle output -- equal, or the SAME ERROR NUMBER (wording differs by design)
-    [ "$1" = "$2" ] && return 0
+    # sets OE_KIND=exact|errnum on a 0 return; caller reads it only immediately after, before any
+    # other oracle_equal call overwrites it (script is single-threaded/sequential -- see call sites).
+    if [ "$1" = "$2" ]; then OE_KIND=exact; return 0; fi
     local ea eb
     ea="$(printf '%s' "$1" | grep -oiE 'ERROR +[0-9]+' | head -1 | grep -oE '[0-9]+')"
     eb="$(printf '%s' "$2" | grep -oiE 'ERROR +[0-9]+' | head -1 | grep -oE '[0-9]+')"
     # ⛔ NUMERIC, NOT STRING: SPITBOL zero-pads to three digits (`ERROR 042`) and SCRIP does not
     # (`Error 42`), so a string compare silently fails every error below 100 while looking correct.
-    [ -n "$ea" ] && [ -n "$eb" ] && [ "$((10#$ea))" = "$((10#$eb))" ]; }
+    if [ -n "$ea" ] && [ -n "$eb" ] && [ "$((10#$ea))" = "$((10#$eb))" ]; then OE_KIND=errnum; return 0; fi
+    return 1; }
 compile_m4() { local sno="$1" out="$2" t rc; t="$(mktemp -d)"
     SNO_LIB="$GIMPEL" "$SCRIP" --compile "$sno" > "$t/p.s" 2>"$t/compile.err"; rc=$?
     if [ "$rc" -ne 0 ]; then
@@ -187,6 +196,9 @@ for sno in "$SUITE"/*.sno; do
     else [ "$NSTD" = 1 ] && NSF=$((NSF+1)) || { FS=$((FS+1)); FLS="$FLS $name"; }; ORACLE_MEETS_EXPECT=0; fi
     run_one m3 "$sno"
     if oracle_equal "$GOT" "$ORACLE_OUT"; then [ "$NSTD" = 1 ] && N3P=$((N3P+1)) || P3=$((P3+1))
+        if [ "$NSTD" != 1 ]; then
+            if [ "$OE_KIND" = exact ]; then SE3=$((SE3+1)); else EN3=$((EN3+1)); ENL3="$ENL3 $name"; fi
+        fi
         [ "$ORACLE_MEETS_EXPECT" = 0 ] && { DIA=$((DIA+1)); DIAL="$DIAL $name"; }
     else [ "$NSTD" = 1 ] && N3F=$((N3F+1)) || { F3=$((F3+1)); FL3="$FL3 $name"; }; fi
     compile_m4 "$sno" "$W/prog.bin"; m4rc=$?
@@ -205,7 +217,7 @@ for sno in "$SUITE"/*.sno; do
     fi
 done
 echo "── snoflake_suite: $TOTAL fixtures · SCRIP $SCRIP_HASH · corpus $CORP_HASH · RT_OPT -O0 · timeout $TIMEOUT · graded vs the ORACLE sbl -bf (ceo CEO-251); @expect is informational and drives only the dialect tally"
-echo "mode-3 (--run):     PASS=$P3 FAIL=$F3  NSTD $N3P/$((N3P+N3F))"
+echo "mode-3 (--run):     PASS=$P3 FAIL=$F3  NSTD $N3P/$((N3P+N3F))  stream_equality=$SE3 error_number_only=$EN3"
 echo "mode-4 (--compile): PASS=$P4 FAIL=$F4 SKIP(cc)=$S4  NSTD $N4P/$((N4P+N4F))"
 echo "dialect tally (NOT in the score): $DIA fixture(s) pass against SPITBOL while failing their own @expect -- SPITBOL itself departs from what snoflake expects there"
 [ -n "$SBL" ] && echo "sbl -bf vs @expect (informational, the dialect measurement): PASS=$PS FAIL=$FS  NSTD $NSP/$((NSP+NSF))"
@@ -215,6 +227,7 @@ echo "dialect tally (NOT in the score): $DIA fixture(s) pass against SPITBOL whi
 # construction, not by assumption; OPTS-not-honored fixtures are still graded, just caveated above.
 echo "PACKAGE_INVENTORY shipped=$TOTAL graded=$((P3+F3+N3P+N3F)) ungradable=0 ungraded=$((TOTAL-(P3+F3+N3P+N3F)))"
 [ -n "$OPTS_LIST" ] && echo "OPTS not honored:$OPTS_LIST"
+[ -n "$ENL3" ] && echo "ERROR-NUMBER-ONLY (m3, ungraded-by-a-narrower-instrument, not a red and not a stream-equal pass):$ENL3"
 [ -n "$FL3" ] && echo "FAIL-M3:$FL3"
 [ -n "$FL4" ] && echo "FAIL-M4:$FL4"
 [ -n "$FLS" ] && echo "FAIL-SBL:$FLS"
