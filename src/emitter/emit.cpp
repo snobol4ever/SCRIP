@@ -1277,7 +1277,11 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_DEREF:                bb_emit_x86(bb_deref());          return 0;
     case IR_RANDOM:               bb_emit_x86(bb_random());         return 0;
     case IR_ASSIGN_VAR:           bb_emit_x86(nd->n_operands == 3 ? bb_assign_var_sub() : bb_assign_var());     return 0;
-    case IR_REV_ASSIGN:                bb_emit_x86(bb_rev_assign());          return 0;
+    case IR_REV_ASSIGN: {
+        if (g_emit.op_sb == -1) { IR_t * _lv = nd->n_operands > 1 ? nd->operands[1] : (IR_t *)0; const char * _vn = _lv ? IR_LIT(_lv).sval : (const char *)0;
+            g_emit.op_sval = _vn; g_emit.op_gva_k = (g_gva_active && _vn && !graph_has_local(g_emit_cfg, _vn)) ? gva_index_of(_vn) : -1;
+            bb_emit_x86(bb_rev_assign_global()); return 0; }
+        bb_emit_x86(bb_rev_assign()); return 0; }
     case IR_REV_SWAP:                  bb_emit_x86(bb_rev_swap());            return 0;
     case IR_REV_ASSIGN_VAR:            bb_emit_x86(bb_rev_assign_var()); return 0;
     case IR_SWAP:                 bb_emit_x86(bb_swap());           return 0;
@@ -1782,9 +1786,14 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         IR_t * lv = nd->n_operands > 1 ? nd->operands[1] : NULL;
         const char * vn = lv ? IR_LIT(lv).sval : NULL;
         if (!vn || nd->n_operands < 1 || !nd->operands[0]) { drive_unowned(nd); break; }
-        { int voff = bb_varslot_peek(vn);
-          if (voff == -1) { fprintf(stderr, "[TE-4] IR_REV_ASSIGN local '%s' has no LOWER-granted varslot — grant it in ir_drive_slot_assign (scrip_ir.c), never allocate in the emitter\n", vn); abort(); }
-          g_emit.op_sb = voff; }
+        { extern int is_global(const char *);
+          if (is_global(vn) && !graph_has_local(g_emit_cfg, vn)) { g_emit.op_sb = -1; g_emit.op_sval = vn; g_emit.op_gva_k = g_gva_active ? gva_index_of(vn) : -1; }
+          else { int voff = bb_varslot_peek(vn);
+            if (voff == -1) { fprintf(stderr,
+                "[TE-4] IR_REV_ASSIGN '%s': not a global (is_global checked, so not the "
+                "bb_rev_assign_global path) and no LOWER-granted varslot as a local — "
+                "grant it in ir_drive_slot_assign, never in the emitter\n", vn); abort(); }
+            g_emit.op_sb = voff; } }
         g_emit.op_off = drive_value_slot(nd);
         g_emit.op_sc  = g_emit.op_off + 16;
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;

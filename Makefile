@@ -375,6 +375,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb/bb_limit.cpp \
     $(SRC)/templates/bb/bb_section.cpp \
     $(SRC)/templates/bb/bb_rev_assign.cpp \
+    $(SRC)/templates/bb/bb_rev_assign_global.cpp \
     $(SRC)/templates/bb/bb_rev_swap.cpp \
     $(SRC)/templates/bb/bb_swap.cpp \
     $(SRC)/templates/bb/bb_swap_var.cpp \
