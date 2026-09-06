@@ -344,6 +344,53 @@ def clauses_with_offsets(existing):
     return out
 
 
+
+def head_blockers(existing, key, off):
+    # ⛔⭐ WHY merge_clause CANNOT REACH THE HEAD AT `off` -- the SPECIFIC wall, never a list of the three
+    # walls there are. hq_I needed THREE attempts to make one icon reading writable (2026-09-06), and the
+    # refusal text is why: it said the head was "bolded, lower-cased, or mid-sentence", which is accurate,
+    # enumerates the real causes, and does not say WHICH ONE IS YOURS. Each attempt fixed one wall and hit
+    # the next, and the third -- no ';' boundary -- was not in the cure steps at all.
+    # ⭐ THE ENUMERATION WAS THE DEFECT, not an incomplete enumeration. A refusal that lists what MIGHT be
+    # wrong makes the reader bisect their own cell; one that names what IS wrong is a single edit. Adding a
+    # third bullet would have made the list longer and the bisection worse.
+    reasons = []
+    clauses = clauses_with_offsets(existing)
+    holder = next(((cs, ce, ct) for cs, ce, ct in clauses if cs <= off <= ce), None)
+    if holder is None:
+        reasons.append("it is not inside any ';'-delimited clause at all")
+    else:
+        lead = existing[holder[0]:off]
+        bare = lead.strip(" *`_~")
+        if bare:
+            # ⛔ THE ONE hq_I'S THIRD ATTEMPT HIT, and the only one whose cure is STRUCTURAL rather than
+            # cosmetic: these cells separate their readings with '·', while merge_clause splits on ';'.
+            # So a correctly keyed, unbolded reading can still sit INSIDE a neighbouring clause and never
+            # be a clause head. The fix is a separator, not a spelling.
+            reasons.append("there is no ';' before it -- it sits INSIDE the clause that starts %r, because "
+                           "this cell separates readings with '·' while merge_clause splits on ';'. Put a "
+                           "';' immediately before it" % (holder[2][:40] + ("..." if len(holder[2]) > 40 else "")))
+        elif lead:
+            reasons.append("it opens with markdown emphasis (%r) -- unbold the KEY (the number may stay "
+                           "bolded)" % lead)
+    if existing[off:off + len(key)] != key:
+        reasons.append("it is spelled %r where you passed %r -- the match is case-SENSITIVE"
+                       % (existing[off:off + len(key)], key))
+    return reasons
+
+
+
+def _blockers_block(existing, key, heads):
+    # ⭐ NAME THE WALL THIS HEAD ACTUALLY HIT. Empty when nothing is diagnosable, so the generic steps below
+    # still stand on their own -- a diagnosis that guesses is worse than the enumeration it replaces.
+    out = []
+    for off, _ctx in heads:
+        rs = head_blockers(existing, key, off)
+        if rs:
+            out.append("  ⛔ head @%d cannot be targeted because %s" % (off, "; and ".join(rs)))
+    return ("%s\n" % "\n".join(out)) if out else ""
+
+
 def suite_target_conflict(existing, key):
     # ("", []) when a --suite write will land on the place this cell states its number; otherwise a
     # named conflict and the heads that prove it. Returns heads as (offset, context) so the refusal can
@@ -667,31 +714,40 @@ def cmd_write(a):
         # enough to say which of several readings is load-bearing once a cell carries its own history.
         kind, heads = suite_target_conflict(before, a.suite)
         if kind:
-            why = ("states a measurement for it in %d separate places and merge_clause would rewrite "
-                   "exactly ONE of them" % len(heads)) if kind == "multi" else (
-                   "already states a measurement for it, but in a form merge_clause cannot match (bolded, "
-                   "lower-cased, or mid-sentence) -- so it would APPEND a second reading beside the first")
+            # ⛔⭐ THE CURE TEXT IS PER-KIND, because the two kinds need OPPOSITE edits and a combined list
+            # sends half its readers the wrong way (hq_I, 2026-09-06, three attempts). `unreachable` means
+            # the ONE reading present cannot be reached -- the fix is structural, on that reading, and the
+            # blocker line above already names it exactly; telling that reader to "give it a bare key" is
+            # wrong advice when it already has one. `multi` means several readings compete -- the fix is to
+            # retire the archived one, which is a judgement about the prose.
+            head_lines = "\n".join("  head @%d of %d: ...%s..." % (off, len(before), c.replace("\n", " "))
+                                   for off, c in heads)
+            blockers = _blockers_block(before, a.suite, heads)
+            if kind == "multi":
+                what = ("states a measurement for it in %d separate places and merge_clause would rewrite "
+                        "exactly ONE of them" % len(heads))
+                cure = ("  The cell carries its own history, so which occurrence is load-bearing is a "
+                        "judgement about what the prose MEANS -- this helper does not make it.\n"
+                        "  ⭐ RETIRE THE ARCHIVED READING, and the way to do it is THIS FILE'S OWN CONVENTION, "
+                        "not a new one: take the NUMBER out of it -- spell the numerals out (`forty-six of one "
+                        "hundred twenty-four`) or move it to the detail row. SCORE.md already does this and "
+                        "says why: \"NUMERALS IN THIS EXPLANATION ARE SPELLED OUT ON PURPOSE: as digits they "
+                        "are re-parsed as live cells, so the explanation RECREATES the conflict it "
+                        "describes.\"\n"
+                        "  ⛔ Re-labelling it (`%s (superseded): 46/124`) does NOT work -- this guard sees "
+                        "DIGITS, not labels, so a relabelled archive is still a competing reading.\n" % a.suite)
+            else:
+                what = ("already states a measurement for it, in a form merge_clause cannot match -- so it "
+                        "would APPEND a second reading beside the first")
+                cure = ("  ⭐ FIX THE READING THAT IS ALREADY THERE -- do NOT add a second one, and do not "
+                        "re-key it if it is already keyed. The blocker above names the one thing standing in "
+                        "the way; there is exactly one reading here and it only has to become reachable.\n")
             die("--suite %r cannot be targeted in %s/%s: the cell %s, silently, leaving the other(s) in "
                 "place and stamped current by this run's provenance. That is one cell asserting two "
                 "numbers, and the one a reader sees first is not necessarily the one that moved.\n"
-                "%s\n"
-                "  The cell carries its own history, so which occurrence is load-bearing is a judgement "
-                "about what the prose MEANS -- this helper does not make it.\n"
-                "  ⭐ TO MAKE THIS CELL RUNNER-WRITABLE AGAIN, BOTH HALVES, and the second is THIS FILE'S OWN "
-                "CONVENTION, not a new one:\n"
-                "    1. give the LOAD-BEARING reading a bare `%s:` key -- a bolded or lower-cased leading "
-                "figure (`**arizona ...`) is invisible to merge_clause, which is how the archived copy came "
-                "to be the only thing it could reach;\n"
-                "    2. take the number OUT of the archived reading -- spell its numerals out (`forty-six of "
-                "one hundred twenty-four`) or move it to the detail row. SCORE.md already does this and says "
-                "why: \"NUMERALS IN THIS EXPLANATION ARE SPELLED OUT ON PURPOSE: as digits they are re-parsed "
-                "as live cells, so the explanation RECREATES the conflict it describes.\" Re-labelling the "
-                "archive (`Arizona (superseded): 46/124`) does NOT work -- the digits are still there.\n"
+                "%s\n%s%s"
                 "  Then re-run. NOTHING WAS WRITTEN."
-                % (a.suite, a.lang, a.column, why,
-                   "\n".join("  head @%d of %d: ...%s..." % (off, len(before), c.replace("\n", " "))
-                              for off, c in heads),
-                   a.suite))
+                % (a.suite, a.lang, a.column, what, head_lines, blockers, cure))
         cells[idx] = merge_clause(before, a.suite, text)
     else:
         new_text = text
@@ -1274,6 +1330,33 @@ def cmd_selftest(a):
                     print("SELFTEST FAIL: suite targeting -- REFUSED but the cell changed anyway: %r" % _after); ok = False
                 else:
                     print("SELFTEST: cmd_write REFUSES rc=2 on an ambiguous --suite and leaves the cell byte-identical")
+
+        # ⛔⭐ BLOCKER DIAGNOSIS -- fixtures are hq_I's THREE ATTEMPTS (2026-09-06), each of which fixed one
+        # wall and hit the next, because the refusal enumerated the three walls instead of naming theirs.
+        # The third -- no ';' boundary -- was not in the cure text at all, and is the only one whose fix is
+        # STRUCTURAL rather than cosmetic: these cells separate readings with '·' while merge_clause splits
+        # on ';', so a correctly keyed, unbolded reading can still sit inside its neighbour's clause.
+        _blk_ok = True
+        for _cell, _key, _want, _why in (
+                ("Arizona: 47/90 m3; **IPL**: run m3 34/60", "IPL", "emphasis",
+                 "attempt 2 -- the KEY is bolded, so the clause does not start with it"),
+                ("Arizona: m3 47/90 · m4 47/90 · IPL: run m3 34/60", "IPL", "no ';'",
+                 "attempt 3 -- keyed and unbolded, but '·'-separated so it is not a clause at all"),
+                ("Arizona: 47/90 m3; ipl: run m3 34/60", "IPL", "case-SENSITIVE",
+                 "the key is spelled in a different case than the caller passed"),
+                ("Arizona: 47/90 m3; IPL: run m3 34/60", "IPL", None,
+                 "a properly keyed, unbolded, ';'-separated reading has NO blocker")):
+            _offs = measurement_heads(_cell, _key)
+            _rs = " ".join(head_blockers(_cell, _key, _offs[-1])) if _offs else ""
+            if _want is None:
+                if _rs:
+                    print("SELFTEST FAIL: blockers -- expected none, got %r (%s)" % (_rs, _why)); ok = False; _blk_ok = False
+            elif _want not in _rs:
+                print("SELFTEST FAIL: blockers -- expected %r in the reason, got %r (%s)" % (_want, _rs, _why))
+                ok = False; _blk_ok = False
+        if _blk_ok:
+            print("SELFTEST: each unreachable head names ITS OWN wall -- emphasis, missing ';', or case -- "
+                  "and a clean reading names none")
 
         # ⛔⭐ PROVENANCE TWINS -- fixture is the REAL snobol4 row (hq_P 2026-09-06), not an invented one.
         # The load-bearing arm is `wrapped`: ONE clause on the page whose VALUE is itself a ';'-joined
