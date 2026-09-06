@@ -293,9 +293,9 @@ G       ({WS}|{CONT})*
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <GT>[ \t]+/[)>;\n]      { }
 <GT>[ \t]+              { if (gt_depth > 0 && gt_have_operand) return T_CONCAT; }
-<GT>[Ss]/"("            { return T_GOTO_S; }
+<GT>[Ss]/"("            { if (gt_depth > 0) { gt_have_operand=1; strbuf[0]='\0'; strncat(strbuf, yytext, sizeof(strbuf)-1); return T_IDENT; } return T_GOTO_S; }
 <GT>[Ss]/"<"            { return T_GOTO_S; }
-<GT>[Ff]/"("            { return T_GOTO_F; }
+<GT>[Ff]/"("            { if (gt_depth > 0) { gt_have_operand=1; strbuf[0]='\0'; strncat(strbuf, yytext, sizeof(strbuf)-1); return T_IDENT; } return T_GOTO_F; }
 <GT>[Ff]/"<"            { return T_GOTO_F; }
 <GT>"("                 { gt_depth++; gt_have_operand=0; return T_GOTO_LPAREN; }
 <GT>")"                 { if (gt_depth > 0) gt_depth--; gt_have_operand=1; return T_GOTO_RPAREN; }
@@ -317,6 +317,8 @@ G       ({WS}|{CONT})*
     return T_STR;
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+<GT>","                 { gt_have_operand=0; return T_COMMA; }
+<GT>{DIGIT}+            { gt_have_operand=1; strbuf[0]='\0'; strncat(strbuf, yytext, sizeof(strbuf)-1); return T_INT; }
 <GT>";"                 { gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
 <GT>\n                  { lineno++; gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
 <GT>.                   { }

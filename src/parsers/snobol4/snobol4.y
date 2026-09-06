@@ -117,6 +117,7 @@ goto_label_expr
            | T_GOTO_LPAREN T_1DOLLAR T_IDENT T_GOTO_RPAREN                                   { tree_t*e=ast_node_new(TT_QLIT);char buf[512];snprintf(buf,sizeof buf,"$%s",$3.sval);e->v.sval=strdup(buf);$$=e; }
            | T_GOTO_LPAREN T_1DOLLAR T_GOTO_LPAREN goto_expr T_GOTO_RPAREN T_GOTO_RPAREN    { $$=$4; }
            | T_GOTO_LPAREN T_1DOLLAR T_STR T_GOTO_RPAREN                                     { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=strdup($3.sval);$$=e; }
+           | T_GOTO_LPAREN T_IDENT T_GOTO_LPAREN { tree_e _k=pat_prim_kind($2.sval); tal_open(); tal_fnc_open(_k,(char*)$2.sval); } goto_fnc_args T_GOTO_RPAREN T_GOTO_RPAREN { $$=tal_fnc_close(); }
            | T_GOTO_LANGLE expr0 T_GOTO_RANGLE                                               { tree_t*e=ast_node_new(TT_GOTO_DIRECT);expr_add_child(e,$2);$$=e; }
            ;
 expr0      : expr2 T_2EQUAL expr0                                                             { $$=expr_binary(TT_ASSIGN,          $1,$3); }
@@ -208,9 +209,15 @@ fnc_args   : fnc_args T_COMMA expr0                                             
            |
            ;
 goto_atom  : T_STR    { tree_t*e=ast_node_new(TT_QLIT); e->v.sval=(char*)$1.sval; $$=e; }
+           | T_INT    { tree_t*e=ast_node_new(TT_ILIT); e->v.ival=$1.ival; $$=e; }
            | T_IDENT   { tree_t*e=ast_node_new(TT_VAR);  e->v.sval=(char*)$1.sval; $$=e; }
            | T_FUNCTION{ tree_t*e=ast_node_new(TT_VAR);  e->v.sval=(char*)$1.sval; $$=e; }
            | T_END     { tree_t*e=ast_node_new(TT_VAR);  e->v.sval=(char*)$1.sval; $$=e; }
+           ;
+goto_fnc_args : goto_fnc_args T_COMMA goto_expr                                                 { tal_push($3); }
+           | goto_fnc_args T_COMMA                                                              { tal_push(ast_node_new(TT_NUL)); }
+           | goto_expr                                                                          { tal_push($1); }
+           |                                                                                    { }
            ;
 goto_expr  : goto_atom                                                                            { $$=$1; }
            | goto_expr T_CONCAT goto_atom                                                         { tree_t*s=ast_node_new(TT_SEQ);expr_add_child(s,$1);expr_add_child(s,$3);$$=s; }
