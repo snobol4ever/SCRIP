@@ -17,6 +17,7 @@ int g_call_fastpath_off = 0;
 #include <math.h>
 #include <stdarg.h>
 #include <ctype.h>
+#include <limits.h>
 #include <fcntl.h>
 #include <inttypes.h>
 #include <unistd.h>
@@ -901,6 +902,14 @@ static DESCR_t _HOST_(DESCR_t *a, int n) {
         if (!val) return NULVCL;
         return STRVAL(rt_ws_strdup_c(val));
     }
+    if (selector == 2212) return STRVAL(rt_ws_strdup_c("/"));
+    if (selector == 2213) return STRVAL(rt_ws_strdup_c(":"));
+    if (selector == 2300) return INTVAL((int64_t)(sizeof(int64_t) * CHAR_BIT));
+    if (selector == 2301) return INTVAL((int64_t)(sizeof(double) * CHAR_BIT));
+    if (selector == 2302) return INTVAL((int64_t)(sizeof(void *) * CHAR_BIT));
+    if (selector == 2303) return INTVAL((int64_t)(sizeof(long) * CHAR_BIT));
+    if (selector == 2304) return INTVAL((int64_t)(sizeof(DESCR_t) * CHAR_BIT));
+    if (selector == 2306) return INTVAL((int64_t)CHAR_BIT);
     return NULVCL;
 }
 #define IO_CHAN_MAX 128
