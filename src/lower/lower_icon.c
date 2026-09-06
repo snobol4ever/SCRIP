@@ -1097,14 +1097,16 @@ static int icn_const_step(const tree_t * s, int64_t * bits, int * isr) {
         int64_t lb = 0, rb = 0; int li = 0, ri = 0;
         if (!icn_const_step(s->c[0], &lb, &li) || !icn_const_step(s->c[1], &rb, &ri)) return 0;
         if (!li && !ri) {
+            if (lb == 0 && rb <= 0) return 0;
             if (rb >= 0) { int64_t acc = 1; for (int64_t k = 0; k < rb; k++) acc *= lb; *bits = acc; *isr = 0; return 1; }
             if (lb == 1)  { *bits = 1; *isr = 0; return 1; }
             if (lb == -1) { *bits = (rb & 1) ? -1 : 1; *isr = 0; return 1; }
-            if (lb == 0)  return 0;
             *bits = 0; *isr = 0; return 1;
         }
         double la, ra, rv; if (li) memcpy(&la, &lb, 8); else la = (double) lb; if (ri) memcpy(&ra, &rb, 8); else ra = (double) rb;
-        rv = pow(la, ra); memcpy(bits, &rv, 8); *isr = 1; return 1;
+        if (la < 0.0 || (la == 0.0 && ra <= 0.0)) return 0;
+        rv = pow(la, ra); if (!isfinite(rv)) return 0;
+        memcpy(bits, &rv, 8); *isr = 1; return 1;
     }
     if ((s->t == TT_ADD || s->t == TT_SUB || s->t == TT_MUL || s->t == TT_DIV || s->t == TT_MOD) && s->n >= 2 && s->c[0] && s->c[1]) {
         int64_t lb = 0, rb = 0; int li = 0, ri = 0;

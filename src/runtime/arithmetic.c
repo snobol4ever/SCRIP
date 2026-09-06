@@ -193,10 +193,10 @@ long rt_arith(int lk, long li, const char *ls,
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_ipow_descr(int64_t li, int64_t ri) {
+    if (li == 0 && ri <= 0) { extern int core_icn_error(int code, DESCR_t val); core_icn_error(204, INTVAL(li)); return FAILDESCR; }
     if (ri >= 0) { int64_t acc = 1; for (int64_t k = 0; k < ri; k++) acc *= li; return INTVAL(acc); }
     if (li == 1) return INTVAL(1);
     if (li == -1) return INTVAL((ri & 1) ? -1 : 1);
-    if (li == 0) return FAILDESCR;
     return INTVAL(0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -274,7 +274,13 @@ static DESCR_t rt_num_arith_impl(DESCR_t a, DESCR_t b, int op) {
         case BINOP_MUL: return anyf ? REALVAL(ld * rd) : INTVAL(li * ri);
         case BINOP_DIV: if (anyf) return (rd == 0.0) ? FAILDESCR : REALVAL(ld / rd); if (ri == 0) return FAILDESCR; return INTVAL(li / ri);
         case BINOP_MOD: if (anyf) return (rd == 0.0) ? FAILDESCR : REALVAL(fmod(ld, rd)); if (ri == 0) return FAILDESCR; return INTVAL(li % ri);
-        case BINOP_POW: return anyf ? REALVAL(pow(ld, rd)) : rt_ipow_descr(li, ri);
+        case BINOP_POW: {
+            extern int core_icn_error(int code, DESCR_t val);
+            if (!anyf) return rt_ipow_descr(li, ri);
+            if (ld == 0.0 && rd <= 0.0) { core_icn_error(204, REALVAL(ld)); return FAILDESCR; }
+            if (ld < 0.0) { core_icn_error(206, REALVAL(ld)); return FAILDESCR; }
+            { double _rp = pow(ld, rd); if (!isfinite(_rp)) { core_icn_error(204, REALVAL(ld)); return FAILDESCR; } return REALVAL(_rp); }
+        }
         case BINOP_POW_PROMOTE: return anyf ? REALVAL(pow(ld, rd)) : rt_ipow_promote_descr(li, ri);
         case BINOP_CUNION: case BINOP_CDIFF: case BINOP_CINTER: {
             extern const char *icon_real_str(double r, char *buf, int bufsz);
