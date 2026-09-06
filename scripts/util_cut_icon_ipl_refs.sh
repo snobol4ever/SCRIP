@@ -55,6 +55,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 S4E="${S4E_HOME:-$(cd "$HERE/../.." && pwd)}"
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_oracle_flags.sh unloadable" >&2; exit 2; }
+. "$HERE/lib_icon_ipl_isolation.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_icon_ipl_isolation.sh unloadable -- the argv sidecar reader is the one authority both tiers share" >&2; exit 2; }
 PKG="$S4E/corpus/packages/icon/ipl"
 SUBDIR="progs"
 MAINS_ONLY=0
@@ -89,13 +90,22 @@ cleanup_template() { rm -rf "$TEMPLATE"; }
 # deterministically gets a NAME.dat beside NAME.icn, fed as stdin. Absent a .dat, behavior is unchanged
 # (/dev/null, as before). test_icon_ipl_suite.sh's RUN tier looks up the SAME file -- see FACT RULE in
 # that script's header: a script and its own DONE-WHEN (and its sibling ref-cutter) must not disagree.
+# ⛔⭐ BOTH SIDECARS ARE READ HERE, BY THE SHARED READER, NOT BY A SECOND COPY OF THE CONVENTION
+# (hq_I 2026-09-06, CEO-328: "one path-aware cutter that reads both sidecars ... never a fork of the
+# cutter or the grader"). The stdin lookup below is deliberately left inline because it predates the
+# reader and is one line; the argv lookup goes through ipl_argv_read in lib_icon_ipl_isolation.sh so the
+# cutter that MINTS a ref and the suite that CHECKS it cannot disagree about what the program was given.
+# ⛔ A MALFORMED SIDECAR IS FATAL TO THAT FILE, never silently ignored: running with a guessed argv
+# produces plausible output, and this script's whole job is to PIN output as ground truth.
 run_isolated() {
-  local f="$1" outfile="$2" work rc stdin_src
+  local f="$1" outfile="$2" work rc stdin_src; local -a argv=()
+  ipl_argv_read "$PROGS/$f" argv; local ac=$?
+  [ "$ac" -eq 2 ] && return 126
   work="$(mktemp -d "${TMPDIR:-/tmp}/ipl_ref_run.XXXXXX")" || return 127
   cp -r "$TEMPLATE"/. "$work"/
   stdin_src=/dev/null
   [ -f "$PROGS/${f%.icn}.dat" ] && stdin_src="$PROGS/${f%.icn}.dat"
-  ( cd "$work/$SUBDIR" && timeout "$TIMEOUT" env ICONPATH="$work/progs:$work/gprogs:$work/procs:$work/gprocs:$work/incl:$work/gincl" "$ICON" "$f" < "$stdin_src" > "$outfile" 2>&1 )
+  ( cd "$work/$SUBDIR" && timeout "$TIMEOUT" env ICONPATH="$work/progs:$work/gprogs:$work/procs:$work/gprocs:$work/incl:$work/gincl" "$ICON" "$f" ${argv[@]+"${argv[@]}"} < "$stdin_src" > "$outfile" 2>&1 )
   rc=$?
   rm -rf "$work"
   return "$rc"
@@ -140,7 +150,7 @@ fi
 TOTAL=${#FILES[@]}
 [ "$TOTAL" -gt 0 ] || { echo "⛔ GATE REFUSES: zero .icn files found under $PROGS" >&2; exit 2; }
 
-n_live=0; n_mint=0; n_empty=0; n_fail=0; n_display=0; n_diagnostic=0; n_ruled=0; n_timeout=0; n_suspect=0; n_undeclared=0; n_argv=0; n_nondet=0; n_havestd=0; n_oversized=0
+n_live=0; n_mint=0; n_empty=0; n_fail=0; n_display=0; n_diagnostic=0; n_ruled=0; n_timeout=0; n_suspect=0; n_undeclared=0; n_argv=0; n_badside=0; n_nondet=0; n_havestd=0; n_oversized=0
 OUT1="$(mktemp "${TMPDIR:-/tmp}/ipl_ref_out1.XXXXXX")"; OUT2="$(mktemp "${TMPDIR:-/tmp}/ipl_ref_out2.XXXXXX")"
 HOLD="$(mktemp -d "${TMPDIR:-/tmp}/ipl_ref_hold.XXXXXX")"
 trap 'cleanup_template; rm -f "$OUT1" "$OUT2"; rm -rf "$HOLD"' EXIT
@@ -166,6 +176,10 @@ for f in "${FILES[@]}"; do
     continue
   fi
   run_isolated "$f" "$OUT1"; rc1=$?
+  if [ "$rc1" -eq 126 ]; then
+    n_badside=$((n_badside+1)); printf 'ARGV_SIDECAR_MALFORMED\t%s\t126\t-\tNOT MINTED -- the NAME.argv sidecar beside this program is malformed; ipl_argv_read printed the reason above. Refused rather than run with a guessed argv.\n' "$f"
+    continue
+  fi
   if [ "$rc1" -eq 124 ]; then
     n_timeout=$((n_timeout+1)); printf 'TIMEOUT\t%s\t124\t-\tNOT MINTED -- exceeded %ss under /dev/null stdin\n' "$f" "$TIMEOUT"
     continue
@@ -409,8 +423,8 @@ if [ "${#CANDS[@]}" -gt 0 ]; then
   done
 fi
 echo "----"
-printf 'TOTALS[%s]: LIVE %d (minted %d, minute-rejected %d) · HAVE_STD %d · EMPTY %d · SUSPECT_USAGE %d · UNDECLARED_IDENTIFIER %d · NONDETERMINISTIC %d · NEEDS_ARGV_FIXTURE %d · ORACLE_FAIL %d · DISPLAY_REFUSED %d · ALL_ORACLE_DIAGNOSTIC %d · RULED_UNGRADABLE %d · TIMEOUT %d · OVERSIZED %d · total=%d\n' \
-  "$SUBDIR" "$n_live" "$n_mint" "$n_minute_reject" "$n_havestd" "$n_empty" "$n_suspect" "$n_undeclared" "$n_nondet" "$n_argv" "$n_fail" "$n_display" "$n_diagnostic" "$n_ruled" "$n_timeout" "$n_oversized" "$TOTAL"
+printf 'TOTALS[%s]: LIVE %d (minted %d, minute-rejected %d) · HAVE_STD %d · EMPTY %d · SUSPECT_USAGE %d · UNDECLARED_IDENTIFIER %d · NONDETERMINISTIC %d · NEEDS_ARGV_FIXTURE %d · ARGV_SIDECAR_MALFORMED %d · ORACLE_FAIL %d · DISPLAY_REFUSED %d · ALL_ORACLE_DIAGNOSTIC %d · RULED_UNGRADABLE %d · TIMEOUT %d · OVERSIZED %d · total=%d\n' \
+  "$SUBDIR" "$n_live" "$n_mint" "$n_minute_reject" "$n_havestd" "$n_empty" "$n_suspect" "$n_undeclared" "$n_nondet" "$n_argv" "$n_badside" "$n_fail" "$n_display" "$n_diagnostic" "$n_ruled" "$n_timeout" "$n_oversized" "$TOTAL"
 [ -n "$APPLY" ] || echo "(census only -- nothing written; re-run with --apply to mint)"
 # ── belt-and-suspenders: prove the tracked tree is still exactly what HEAD says, every run, census or not.
 if git -C "$S4E/corpus" diff --quiet -- packages/icon/ipl/progs packages/icon/ipl/gprogs packages/icon/ipl/procs packages/icon/ipl/gprocs packages/icon/ipl/incl packages/icon/ipl/gincl 2>/dev/null \

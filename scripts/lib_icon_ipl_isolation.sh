@@ -75,3 +75,47 @@ ipl_isolation_verify_clean() {
   echo "⛔⛔⛔ THE TRACKED IPL TREE CHANGED DURING THIS RUN (excluding new .std mints) -- isolation was breached, investigate before trusting anything above ⛔⛔⛔" >&2
   return 1
 }
+
+# ⛔⭐⭐ THE ARGV SIDECAR, AND IT LIVES HERE FOR THE SAME REASON THE CWD RULE DOES (hq_I 2026-09-06,
+# CEO-328 ruling: "one path-aware cutter that reads both sidecars ... never a fork of the cutter or the
+# grader"). ipl already honours a NAME.dat stdin sidecar, looked up INDEPENDENTLY by the ref-cutter and
+# by the suite -- two copies of one convention, which is exactly how test_prolog_ladder.sh and its Raku
+# twin silently diverged until they were diffed. This reader is the single authority for the second
+# sidecar, so a cutter that mints a ref and a grader that checks it cannot disagree about what argv the
+# program was given. ⛔ PATH-AWARE, NEVER BASENAME: ipl ships gener/morse/repeats/spokes in two
+# directories apiece, so the sidecar is resolved beside the .icn and nowhere else.
+#
+# FORMAT -- NAME.argv beside NAME.icn, ONE line: NAME<TAB>arg<TAB>arg...
+#   The leading NAME column is REDUNDANT here (the filename already carries it) and is required anyway,
+#   deliberately: it is hq_T's format for the suite-level <family>.argv byte for byte (SCRIP 44f9e17ce),
+#   so nobody moving between the two has to remember which shape they are in -- and a copied sidecar
+#   whose name column no longer matches its file is caught instead of silently arming the wrong program.
+#   ⭐ NO QUOTING LANGUAGE AT ALL, exactly as hq_T argued: an argument containing spaces arrives byte for
+#   byte because TAB is the only separator and there is no word-splitting layer to be misread through.
+#
+# ipl_argv_read <icn-path> <array-name>
+#   0 -> a sidecar was read; the named array holds the declared argv (never empty on 0)
+#   1 -> no sidecar beside that .icn; the array is emptied. NOT an error: most programs take no argv.
+#   2 -> the sidecar exists and is MALFORMED. ⛔ Refuses loudly rather than running the program with a
+#        guessed argv: a fixture that arms the wrong arguments prints plausible output and pins it.
+ipl_argv_read() {
+  local icn="$1" arr="$2" side base line n
+  eval "$arr=()"
+  side="${icn%.icn}.argv"
+  base="$(basename "$icn" .icn)"
+  [ -f "$side" ] || return 1
+  n=$(grep -cv '^[[:space:]]*\(#.*\)\?$' "$side")
+  if [ "$n" -ne 1 ]; then
+    echo "⛔ ARGV SIDECAR REFUSES(2): $side holds $n declaration lines, expected exactly 1 -- one program, one argv" >&2; return 2
+  fi
+  line="$(grep -v '^[[:space:]]*\(#.*\)\?$' "$side" | head -1)"
+  local IFS=$'\t'; local -a f=($line); unset IFS
+  if [ "${f[0]}" != "$base" ]; then
+    echo "⛔ ARGV SIDECAR REFUSES(2): $side declares '${f[0]}' but sits beside $base.icn -- a copied sidecar arming the wrong program" >&2; return 2
+  fi
+  if [ "${#f[@]}" -lt 2 ]; then
+    echo "⛔ ARGV SIDECAR REFUSES(2): $side names $base and declares no arguments -- an empty argv is what you get with no sidecar at all, so the file states nothing" >&2; return 2
+  fi
+  eval "$arr=(\"\${f[@]:1}\")"
+  return 0
+}

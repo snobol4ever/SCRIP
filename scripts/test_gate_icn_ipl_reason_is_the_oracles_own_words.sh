@@ -18,7 +18,7 @@
 # among them -- the identical harm DISPLAY_REFUSED was split out of ORACLE_FAIL to prevent, recurring
 # one arm lower down the same if-chain.
 #
-# SIX ARMS. 3 and 4 run the real cutter end to end against a scratch package (S4E_HOME redirection),
+# NINE ARMS. 3 and 4 run the real cutter end to end against a scratch package (S4E_HOME redirection),
 # never a re-implementation of its predicate -- a copied classifier is a classifier that drifts.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -139,5 +139,92 @@ if [ "$cut_pred" -eq 0 ]; then red "ARM 6: the cutter still selects its mains po
 elif [ -n "$missing" ]; then green "ARM 6: the cutter's mains predicate admits leading whitespace, and it is load-bearing --$missing would otherwise be skipped with no row"
 else green "ARM 6: the cutter's mains predicate admits leading whitespace (no file currently depends on it, and the arm says so)"; fi
 
+# ── ARM 7: THE NAME.argv SIDECAR, END TO END, AND THE ARM THAT MAKES IT MEAN ANYTHING IS THE LAST ONE.
+# CEO-328 ruled ONE path-aware cutter reading BOTH sidecars, never a fork, so the reader lives in
+# lib_icon_ipl_isolation.sh and the cutter and the suite both call it. Three execution shapes must agree
+# on the SAME declaration: the oracle takes args bare after the filename, m3 needs `--` to separate them
+# from SCRIP's own flags, m4's linked binary takes them bare. ⛔ hq_T's load-bearing arm carried over
+# verbatim: A DECLARATION THAT CHANGES NOTHING PROVES NOTHING. An Icon witness written `n := args[1] | 6`
+# passes with no argv at all -- it takes the default, prints the expected text and scores PASS -- so the
+# arm below also asserts the no-argv output DIFFERS. That green was the whole defect hq_T found.
+. "$HERE/lib_icon_ipl_isolation.sh" 2>/dev/null || refuse "lib_icon_ipl_isolation.sh unloadable -- the argv sidecar reader is the one authority both tiers share"
+AW="$WORK/argv"; mkdir -p "$AW"
+cat > "$AW/gatefix_argv.icn" <<'ICN'
+procedure main(a)
+   write("argc=", *a);
+   every write("[", !a, "]");
+end
+ICN
+printf 'gatefix_argv\tone\ttwo three\n' > "$AW/gatefix_argv.argv"
+declare -a GA=(); ipl_argv_read "$AW/gatefix_argv.icn" GA; ga_rc=$?
+if [ "$ga_rc" -ne 0 ] || [ "${#GA[@]}" -ne 2 ] || [ "${GA[1]}" != "two three" ]; then
+  red "ARM 7a: the reader did not round-trip a well-formed sidecar (rc=$ga_rc, ${#GA[@]} args, second='${GA[1]:-}') -- a TAB-separated argument containing a space must arrive byte for byte"
+else green "ARM 7a: a TAB-separated declaration round-trips, spaces inside an argument intact"
+fi
+# ⛔ THE REFUSALS ARE COUNTED, NOT ASSUMED. An arm that only ever calls red() inside a loop prints its
+# green unconditionally -- including when the loop body never ran -- which is the "witness that passes
+# while the class is open" shape this lane keeps meeting. ⭐ Found while checking THIS arm by hand, where
+# `echo "case $(printf ...) rc=$?"` reported rc=0 for three refusals that were all correctly returning 2:
+# the command substitution earlier in the SAME word runs first and clobbers `$?`. Same family as `$?`
+# after a pipeline, one layer subtler, because nothing here looks like a pipeline.
+n_refused=0; n_cases=0
+for bad in "wrongname\tx" "gatefix_argv\tx\ngatefix_argv\ty" "gatefix_argv"; do
+  n_cases=$((n_cases+1))
+  printf "$bad\n" > "$AW/gatefix_argv.argv"
+  declare -a GB=(); ipl_argv_read "$AW/gatefix_argv.icn" GB 2>/dev/null
+  brc=$?
+  if [ "$brc" -eq 2 ]; then n_refused=$((n_refused+1))
+  else red "ARM 7b: a malformed sidecar was ACCEPTED (rc=$brc) instead of refused rc=2 -- running with a guessed argv pins plausible output as ground truth"; fi
+done
+printf 'gatefix_argv\tone\ttwo three\n' > "$AW/gatefix_argv.argv"
+if [ "$n_cases" -eq 3 ] && [ "$n_refused" -eq 3 ]; then
+  green "ARM 7b: all 3 malformed shapes REFUSE rc=2 (wrong name column, two declaration lines, no arguments) -- counted, not assumed"
+else red "ARM 7b: $n_refused of $n_cases malformed shapes refused; the arm requires 3 of 3"; fi
+SCRIP_BIN="$HERE/../scrip"
+if [ ! -x "$SCRIP_BIN" ]; then
+  echo "⚠ ARM 7c SKIPPED-AS-NAMED: no ./scrip built, so the three-shape agreement cannot be measured here (this is NOT a pass)" >&2
+else
+  ( cd "$AW" && "$ICONT" -s gatefix_argv.icn >/dev/null 2>&1 && ./gatefix_argv "${GA[@]}" > oracle.out 2>&1 )
+  ( cd "$AW" && "$SCRIP_BIN" --run gatefix_argv.icn -- "${GA[@]}" > m3.out 2>&1 )
+  ( cd "$AW" && "$SCRIP_BIN" --compile gatefix_argv.icn > g.s 2>/dev/null && gcc -no-pie g.s -L"$HERE/../out" -lscrip_rt -Wl,-rpath,"$HERE/../out" -o g.bin 2>/dev/null && ./g.bin "${GA[@]}" > m4.out 2>&1 )
+  ( cd "$AW" && ./gatefix_argv > noargv.out 2>&1 )
+  if ! cmp -s "$AW/oracle.out" "$AW/m3.out" || ! cmp -s "$AW/oracle.out" "$AW/m4.out"; then
+    red "ARM 7c: the three shapes disagree on one declaration -- oracle='$(tr '\n' '|' < "$AW/oracle.out")' m3='$(tr '\n' '|' < "$AW/m3.out")' m4='$(tr '\n' '|' < "$AW/m4.out")'"
+  elif cmp -s "$AW/oracle.out" "$AW/noargv.out"; then
+    red "ARM 7c: the declaration changed NOTHING -- with and without argv the program printed the same thing, so this fixture could not detect a sidecar that is never read (hq_T's own finding)"
+  else
+    green "ARM 7c: oracle, m3 and m4 agree on the declared argv, and the declaration demonstrably changes the output"
+  fi
+fi
+
+# ── ARM 8: THE CLASS SPLIT IS A READING OF THE SHARED COUNT, NEVER A SECOND COUNT. The ipl runner prints
+# ungraded_by_class= beside lib_inventory.sh's line; if the per-class rows do not sum to the bucket the
+# shared body counted, two instruments over one package disagree and NEITHER number may be published.
+for f in UNGRADED UNGRADABLE; do
+  rows=$(awk -F'\t' 'NF>2 && $1 !~ /^#/{n++} END{print n+0}' "$PKG/$f.tsv")
+  cls=$(awk -F'\t' 'NF>2 && $1 !~ /^#/{c[$2]++} END{n=0; for(k in c) n+=c[k]; print n+0}' "$PKG/$f.tsv")
+  if [ "$rows" -ne "$cls" ]; then red "ARM 8: $f.tsv has $rows rows but $cls classified -- a row with no class is invisible to the split"; fi
+done
+green "ARM 8: every ipl census row carries a class, so the split sums to the bucket the shared body counts"
+
+# ── ARM 9: PINS WHY test_icon_ipl_suite.sh SPELLS ITS m3 CALL THE LONG WAY. `${A[@]+-- "${A[@]}"}` is the
+# idiom every reader reaches for to add a separator only when the array is non-empty, and it is WRONG:
+# the literal is glued to the first element. This arm DEMONSTRATES that (so the reason is measured, not
+# asserted) and then refuses to let the idiom back into the runner -- a future "simplification" of four
+# lines into one would pass every existing test while handing the program one argv entry instead of two.
+declare -a _g=(x "y z"); declare -a _got=(); for w in "${_g[@]+-- "${_g[@]}"}"; do _got+=("$w"); done
+if [ "${#_got[@]}" -eq 3 ] && [ "${_got[0]}" = "--" ]; then
+  red "ARM 9: the glue idiom did NOT glue on this bash -- the long form in the runner may be unnecessary here, but the arm's premise is now unverified; re-measure before simplifying anything"
+elif [ "${_got[0]}" = "-- x" ]; then
+  # ⛔ CODE LINES ONLY. The first draft of this arm matched the runner's own COMMENT explaining the trap
+  # -- a gate reading its own documentation as a violation, which is the "predicate over source text sees
+  # SPELLING, not EFFECT" rule biting the exact file written to obey it.
+  if grep -v '^[[:space:]]*#' "$HERE/test_icon_ipl_suite.sh" | grep -q '\[@\]+-- '; then
+    red "ARM 9: test_icon_ipl_suite.sh uses \${ARR[@]+-- ...}, which glues the separator onto the first argument (measured: '-- x' as ONE word)"
+  else green "ARM 9: the glue idiom is demonstrably wrong here ('-- x' arrives as one word) and the runner does not use it"; fi
+else
+  refuse "ARM 9 cannot measure: the glue idiom produced '${_got[0]:-}' , which is neither the glued nor the separated shape this arm knows how to judge"
+fi
+
 if [ "$fails" -ne 0 ]; then echo "⛔ GATE RED: $fails arm(s) failed"; exit 1; fi
-echo "✅ GATE GREEN: 6 arms"; exit 0
+echo "✅ GATE GREEN: 9 arms"; exit 0

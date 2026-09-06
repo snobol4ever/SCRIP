@@ -243,13 +243,35 @@ for std in "${STDFILES[@]}"; do
     # must agree per this file's own FACT RULE (a script and its DONE-WHEN, or its sibling ref-cutter,
     # must not disagree).
     dat="$(dirname "$std")/$base.dat"; stdin_src=/dev/null; [ -f "$dat" ] && stdin_src="$dat"
+    # ⭐ NAME.argv ARGV SIDECAR (hq_I 2026-09-06, CEO-328). Read through the SHARED reader in
+    # lib_icon_ipl_isolation.sh, never re-implemented here -- the ref-cutter mints under exactly this
+    # lookup, so a program's ref and its grading cannot disagree about the argv it was given. ⛔ A
+    # MALFORMED SIDECAR IS A GRADED FAILURE, NOT A SKIP: grading it with an empty argv would silently
+    # compare the program's no-arguments behaviour against a ref cut WITH arguments, and score the
+    # difference against SCRIP. That is the false-FAIL shape this package already carries in arizona.
+    declare -a IPLARGV=(); ipl_argv_read "$icn" IPLARGV; argv_rc=$?
+    if [ "$argv_rc" -eq 2 ]; then
+        M3_RUN_FAIL=$((M3_RUN_FAIL+1)); M3_RUN_FAIL_NAMES+=("$base(argv-sidecar-malformed)")
+        M4_RUN_FAIL=$((M4_RUN_FAIL+1)); M4_RUN_FAIL_NAMES+=("$base(argv-sidecar-malformed)")
+        continue
+    fi
     # ⛔ Each entry runs with ITS OWN package subdirectory as cwd -- refs are no longer progs-only
     # (gprogs/ carries .std files as of 2026-09-06, CEO-316). A gprogs entry run from progs/ links
     # against the wrong directory and grades a program that never ran properly.
     IPL_ISO_SUBDIR="$(basename "$(dirname "$std")")"; export IPL_ISO_SUBDIR
 
     # -- m3 (--run): executes the Icon program's own logic directly -- isolated.
-    ipl_isolation_run "$TMP/${base}.m3.out" "$TIMEOUT" "$stdin_src" "$SCRIP" --run "$icn"
+    # ⛔ `--` separates SCRIP's own flags from the target program's argv; the oracle needs no separator
+    # (`icon prog.icn a b`), and the m4 binary takes them bare. Three shapes, one declaration.
+    # ⛔ WRITTEN LONG ON PURPOSE. The clever one-liner `${IPLARGV[@]+-- "${IPLARGV[@]}"}` GLUES the
+    # literal to the first element -- measured: with (x, "y z") it yields the two words `-- x` and `y z`,
+    # so SCRIP receives "-- x" as a single argument and the program sees one argv entry, not two. It
+    # looks right, it runs, and every count downstream would have been quietly off.
+    if [ "${#IPLARGV[@]}" -gt 0 ]; then
+        ipl_isolation_run "$TMP/${base}.m3.out" "$TIMEOUT" "$stdin_src" "$SCRIP" --run "$icn" -- "${IPLARGV[@]}"
+    else
+        ipl_isolation_run "$TMP/${base}.m3.out" "$TIMEOUT" "$stdin_src" "$SCRIP" --run "$icn"
+    fi
     rc3=$?
     by3=$(wc -c < "$TMP/${base}.m3.out" 2>/dev/null || echo 0)
     if [ "$rc3" -eq 124 ]; then M3_RUN_HANG=$((M3_RUN_HANG+1)); M3_RUN_HANG_NAMES+=("$base")
@@ -263,7 +285,11 @@ for std in "${STDFILES[@]}"; do
     s4="$TMP/${base}.m4.s"; bin4="$TMP/${base}.m4.bin"
     "$SCRIP" --compile "$icn" >"$s4" 2>"$TMP/${base}.m4.diag" </dev/null
     if [ -s "$s4" ] && gcc -no-pie "$s4" -L"$HERE/../out" -lscrip_rt -Wl,-rpath,"$HERE/../out" -o "$bin4" 2>/dev/null; then
-        ipl_isolation_run "$TMP/${base}.m4.out" "$TIMEOUT" "$stdin_src" "$bin4"
+        if [ "${#IPLARGV[@]}" -gt 0 ]; then
+            ipl_isolation_run "$TMP/${base}.m4.out" "$TIMEOUT" "$stdin_src" "$bin4" "${IPLARGV[@]}"
+        else
+            ipl_isolation_run "$TMP/${base}.m4.out" "$TIMEOUT" "$stdin_src" "$bin4"
+        fi
         rc4=$?
         by4=$(wc -c < "$TMP/${base}.m4.out" 2>/dev/null || echo 0)
         if [ "$rc4" -eq 124 ]; then M4_RUN_HANG=$((M4_RUN_HANG+1)); M4_RUN_HANG_NAMES+=("$base")
@@ -302,6 +328,40 @@ INV_PACKAGE=ipl; INV_DIR="$PKG"; INV_EXT=".icn"
 INV_LINE="$(inventory_line "$RUN_GRADED" 0)"
 if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board lines still stand; the inventory does not" >&2; fi
 
+# ⭐ THE CLASS SPLIT, IN THE INVENTORY LINE RATHER THAN IN PROSE (CEO-328: "Report the split's numbers
+# ... in the inventory line, not prose"). `ungraded=233` answers HOW MUCH is owed and says nothing about
+# WHAT -- and until 2026-09-06 the whole of ipl's debt read as one undifferentiated ORACLE_FAIL bucket
+# carrying one composed sentence, 212 rows deep. A bucket a lane cannot sort is a bucket a lane cannot
+# pick up.
+# ⛔ THIS IS NOT A SECOND COPY OF THE ARITHMETIC. lib_inventory.sh remains the ONLY thing that counts the
+# four buckets; this reads ONE of them apart by its own CLASS column and then ASSERTS the parts sum to
+# the whole that the shared body already printed. Two instruments over one file that disagree publish
+# NOTHING -- the same cross-instrument identity check the ALL.icn container carries in this package,
+# added after a `find` counted our own generated file as a vendored program.
+# ⛔ NOT FOLDED INTO lib_inventory.sh, deliberately, and this is the reason a reader will want:
+# test_gate_package_runners_print_the_inventory.sh pins that line by EXACT STRING EQUALITY (`want=...`),
+# so appending a field there reds seat12's rank-0 row in hq_T's lane. Routed to them as a proposal
+# instead. A shared body is shared in both directions.
+ipl_class_split() {
+    local tsv="$1" want="$2" label="$3" parts sum
+    [ -f "$tsv" ] || { echo "⚠ $label split unavailable: $tsv missing" >&2; return 0; }
+    parts="$(awk -F'\t' 'NF>2 && $1 !~ /^#/ {c[$2]++} END{n=0; for (k in c) {printf "%s%s:%d", (n++?",":""), k, c[k]}}' "$tsv")"
+    sum=$(awk -F'\t' 'NF>2 && $1 !~ /^#/ {n++} END{print n+0}' "$tsv")
+    if [ "$sum" -ne "$want" ]; then
+        echo "⛔ INVENTORY SPLIT REFUSES(2): $tsv holds $sum rows but the shared inventory counted $label=$want. Two instruments over one package disagree, so NEITHER number is published." >&2
+        return 2
+    fi
+    printf '%s' "$parts"
+}
+UNG_SPLIT=""; UGD_SPLIT=""
+if [ -n "$INV_LINE" ]; then
+    _ung_n="$(printf '%s' "$INV_LINE" | sed -n 's/.* ungraded=\([0-9]*\).*/\1/p')"
+    _ugd_n="$(printf '%s' "$INV_LINE" | sed -n 's/.* ungradable=\([0-9]*\).*/\1/p')"
+    UNG_SPLIT="$(ipl_class_split "$PKG/UNGRADED.tsv" "${_ung_n:-0}" ungraded)" || UNG_SPLIT=""
+    UGD_SPLIT="$(ipl_class_split "$PKG/UNGRADABLE.tsv" "${_ugd_n:-0}" ungradable)" || UGD_SPLIT=""
+    [ -n "$UNG_SPLIT$UGD_SPLIT" ] && echo "PACKAGE_INVENTORY_SPLIT package=ipl ungraded_by_class=${UNG_SPLIT:-?} ungradable_by_class=${UGD_SPLIT:-?}"
+fi
+
 # ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05: "any run of a test suite by any
 # session will update the ONE LEADERBOARD"). This records the boards printed just above into
 # .github/SCORE.md -- it RUNS NOTHING, it only writes down what this script already measured.
@@ -313,7 +373,7 @@ if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (
 # m3/m4 fractions are reported as fractions -- same convention test_icon_arizona_suite.sh already uses.
 python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite IPL \
     --measurer "${S4E_SEAT:-}" \
-    --text "compile_pass=$COMPILE_PASS compile_fail=$COMPILE_FAIL (linkgap=$LINKGAP parseerr=$PARSEERR timeout=$TIMEOUT_N other=$OTHER) of total=$TOTAL · nomain_ok=$NOMAIN_OK of nomain_total=$NOMAIN_TOTAL, hasmain_total=$HASMAIN_TOTAL · run m3 $M3_RUN_PASS/$RUN_GRADED m4 $M4_RUN_PASS/$RUN_GRADED (of $RUN_GRADED oracle-cut · fail m3=$M3_RUN_FAIL m4=$M4_RUN_FAIL, crash m3=$M3_RUN_CRASH m4=$M4_RUN_CRASH, hang m3=$M3_RUN_HANG m4=$M4_RUN_HANG)${INV_LINE:+ · $INV_LINE} (\`test_icon_ipl_suite.sh\`)" \
+    --text "compile_pass=$COMPILE_PASS compile_fail=$COMPILE_FAIL (linkgap=$LINKGAP parseerr=$PARSEERR timeout=$TIMEOUT_N other=$OTHER) of total=$TOTAL · nomain_ok=$NOMAIN_OK of nomain_total=$NOMAIN_TOTAL, hasmain_total=$HASMAIN_TOTAL · run m3 $M3_RUN_PASS/$RUN_GRADED m4 $M4_RUN_PASS/$RUN_GRADED (of $RUN_GRADED oracle-cut · fail m3=$M3_RUN_FAIL m4=$M4_RUN_FAIL, crash m3=$M3_RUN_CRASH m4=$M4_RUN_CRASH, hang m3=$M3_RUN_HANG m4=$M4_RUN_HANG)${INV_LINE:+ · $INV_LINE}${UNG_SPLIT:+ · ungraded_by_class=$UNG_SPLIT} (\`test_icon_ipl_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
 # ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
