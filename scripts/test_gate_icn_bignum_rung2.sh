@@ -6,7 +6,14 @@
 # gap in a CONSUMER of the value, not in the arithmetic:
 #   image(2^100)                        SCRIP prints the string "1267" (truncated, and quoted as a
 #                                       STRING image); iconx prints integer(~10^30)
-#   string(2^100) == "1267...376"       SCRIP fails the comparison; iconx succeeds and yields the value
+#   string(2^100) == "1267...376"       ⛔ THE FIRST VERSION OF THIS ARM MEASURED SOMEONE ELSE'S DEFECT.
+#                                       Written inline it fails -- but so does `write("42" == "42")`, with no
+#                                       large integer anywhere, and so does it on a tree built from before
+#                                       any of today's changes (worktree control). Icon's string comparison
+#                                       yields nothing unless an operand is a VARIABLE; that is a separate,
+#                                       PRE-EXISTING defect with its own row and its own two-literal witness.
+#                                       The arm now binds the string to a variable first, so what it grades
+#                                       is the large integer's rendering rather than the comparison operator.
 #   T[2^100] := "big"; T[2^100]         SCRIP's lookup misses; iconx finds it -- a large integer is not
 #                                       yet hashable as a table key
 #   2^100 + 1.5                         SCRIP returns an integer; iconx returns 1.2676506e+30, because
@@ -24,7 +31,7 @@ ICONT=/home/resources/icon-master/bin/icont; ICONX=/home/resources/icon-master/b
 d=$(mktemp -d) || exit 2; trap 'rm -rf "$d"' EXIT
 w() { printf 'procedure main()\n  %s\nend\n' "$2" > "$d/$1.icn"; }
 w image_of      'write(image(2^100));'
-w string_eq     'write(string(2^100) == "1267650600228229401496703205376");'
+w string_eq     's := string(2^100); write(s == "1267650600228229401496703205376");'
 w table_key     'T := table(); T[2^100] := "big"; write(T[2^100]);'
 w mixed_real    'write(2^100 + 1.5);'
 w compare_ctl   'write(2^200 > 2^199);'
