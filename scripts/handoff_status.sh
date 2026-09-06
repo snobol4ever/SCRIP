@@ -212,8 +212,8 @@ echo "GATE WIRING (scripts/gate_wiring.tsv) — a gate on disk that no recipe ru
 # ⛔ WARN-ONLY FOR THE SAME REASON THE LEADERBOARD BLOCK ABOVE IS. An unwired gate is usually some OTHER
 # session's, arriving here on a pull; blocking this seat's handoff on it would punish the wrong session and,
 # within a week, get this line `|| true`-d out of the file. And it is a RATCHET, never a census: measured at
-# installation, 279 gates on disk and 64 reachable, so UNWIRED IS THE NORM at four in five. A check that
-# arrived red on 215 lines would be muted on day one, and a muted check is worse than no check because it
+# installation, 282 gates on disk and 92 reachable, so UNWIRED IS THE NORM at two in three. A check that
+# arrived red on 181 lines would be muted on day one, and a muted check is worse than no check because it
 # looks like coverage. It fires on the TRANSITION -- a gate that LEFT the wired set, or one that just landed
 # unwired and undeclared -- and every refusal NAMES the gates and prints the cure, because "the floor moved"
 # sends its reader to diff two files by hand.

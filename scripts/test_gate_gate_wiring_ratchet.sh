@@ -46,33 +46,41 @@ violations=0
 examined=0
 ck() { examined=$((examined + 1)); if [ "$1" = "ok" ]; then printf '  ok   %s\n' "$2"; else printf '  FAIL %s\n' "$2"; violations=$((violations + 1)); fi; }
 
-echo "--- ARM 1 — the instrument's own selftest: 32 hermetic arms over scratch fixtures ---"
+echo "--- ARM 1 — the instrument's own selftest: hermetic arms over scratch fixtures ---"
 out="$(python3 "$HELPER" selftest 2>&1)"; rc=$?
 printf '%s\n' "$out" | sed 's/^/    /'
 [ "$rc" -eq 0 ] && ck ok "selftest rc=0" || ck fail "selftest rc=$rc — a refusal path of the ratchet no longer fires"
 
 echo "--- ARM 2 — the selftest actually GRADED something (a green that examined nothing is the shape we are here about) ---"
 arms="$(printf '%s\n' "$out" | grep -cE '^  (ok|FAIL) ')"
-[ "${arms:-0}" -ge 30 ] && ck ok "selftest ran $arms arm(s), floor 30" || ck fail "selftest ran only ${arms:-0} arm(s) — below the floor of 30"
+[ "${arms:-0}" -ge 34 ] && ck ok "selftest ran $arms arm(s), floor 34" || ck fail "selftest ran only ${arms:-0} arm(s) — below the floor of 34"
 
 echo "--- ARM 3 — every refusal class the design names is still reachable in the selftest output ---"
 for cls in "left-the-wired-set" "count-unchanged regression" "landed unwired" "wired-but-listed-TASK" \
            "recorded-but-gone" "ruling without reason" "declare empty reason" "declare TASK over ceiling" \
-           "duplicate + unknown class" "unmeasurable is rc=2" "only the executed gate is reachable"; do
+           "duplicate + unknown class" "unmeasurable is rc=2" "only the executed gate is reachable" \
+           "declared-population arm is reachable" "unexpandable optional targets are named"; do
   printf '%s\n' "$out" | grep -q -- "$cls" && ck ok "arm present: $cls" || ck fail "arm MISSING: $cls — a refusal class lost its proof"
 done
 
-echo "--- ARM 4 — the live population is a partition: every gate on disk in exactly one bucket ---"
-# ⛔ SHAPE ONLY, NEVER A VERDICT ON THE DEBT. If these disagree, `check`'s SUM arm is asserting over a record
-# that cannot be right, and its every other answer is untrustworthy — that is a broken instrument, which is
-# this gate's business. How LARGE the TASK bucket is, is not.
-disk="$(ls "$HERE"/test_gate_*.sh 2>/dev/null | wc -l)"
+echo "--- ARM 4 — the record is well formed: no name in two buckets, and no line about a file that is not there ---"
+# ⛔⭐ IT GRADES THE RECORD, NEVER THE DEBT, AND THE FIRST DRAFT GOT THAT WRONG. It asserted that the population
+# COVERS scripts/test_gate_*.sh -- and within the hour a gate from another seat landed unwired, so this gate
+# went red inside `make test` for somebody else's debt. That is precisely the failure the whole design argues
+# against and would have got this line `|| true`-d out within the week. Coverage is the LIVE question and it is
+# reported WARN-ONLY by handoff_status.sh, at the moment a seat asks what it owes. What belongs here is whether
+# the instrument's own record is sane: a name in two buckets destroys the one-bucket property that is the only
+# reason this is one file, and a line about a file that is not there is a claim about nothing.
 listed="$(grep -cE '^test_gate_[A-Za-z0-9_]+\.sh	(WIRED|RULING|TASK)	' "$HERE/gate_wiring.tsv")"
 uniq_listed="$(grep -oE '^test_gate_[A-Za-z0-9_]+\.sh' "$HERE/gate_wiring.tsv" | sort -u | wc -l)"
-[ "$disk" -eq "$listed" ] && ck ok "population covers disk: $listed listed == $disk on disk" \
-                          || ck fail "population is NOT a partition: $listed listed vs $disk on disk"
 [ "$listed" -eq "$uniq_listed" ] && ck ok "no name listed twice ($uniq_listed distinct)" \
                                  || ck fail "$((listed - uniq_listed)) name(s) listed twice — one file buys exactly one bucket per name, or it buys nothing"
+malformed="$(grep -cvE '^(#|$|test_gate_[A-Za-z0-9_]+\.sh	(WIRED|RULING|TASK)	)' "$HERE/gate_wiring.tsv")"
+[ "$malformed" -eq 0 ] && ck ok "every line is a comment or a well-formed row" \
+                       || ck fail "$malformed malformed line(s) — check(1) cannot read a bucket it cannot parse"
+# REPORTED, NOT GRADED — the live debt, so a reader of this gate still sees the number without being blocked by it.
+disk="$(ls "$HERE"/test_gate_*.sh 2>/dev/null | wc -l)"
+echo "    REPORTED (not graded here — handoff_status.sh owns the live verdict): $listed listed, $disk on disk, delta $((disk - listed))"
 
 echo "--- ARM 5 — the ceiling is present and is a number (a debt with no cap is not a ratchet) ---"
 ceil="$(sed -n 's/^# TASK-CEILING: *\([0-9][0-9]*\).*/\1/p' "$HERE/gate_wiring.tsv" | head -1)"

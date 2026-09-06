@@ -22,40 +22,60 @@
 #           options are WIRE IT or RULE IT WITH A REASON.
 #
 # ⭐ THE STATE AT INSTALLATION (measured 2026-09-06, hq_T, row requested by hq_S / ceo CEO-326):
-#   279 gates on disk · 64 reachable · 8 ruled out · 207 TASK.
-#   UNWIRED IS THE NORM HERE, roughly four in five — which is why this is a RATCHET and not the census that
-#   was asked for. A check that arrives red on 207 lines is muted on day one, and a muted check is
-#   worse than no check because it looks like coverage. The 207 are a NAMED, MEASURED debt with a
-#   number that can only go down; they are NOT refused.
-# ⛔ AND THE RULING COLUMN IS NEARLY EMPTY ON PURPOSE. All 215 unwired gates were read looking for one that
-#   says in its own header that it is deliberately out of the recipe. NOT ONE DOES. The 8 below are
-#   the ceo's ruling of 2026-09-03, quoted from the Makefile's own test-postoffice header — cited, not
-#   invented. Everything else is TASK because nobody has ruled, which is the honest word for it.
-# TASK-CEILING: 207
+#   282 gates on disk · 92 reachable · 8 ruled out · 181 TASK.
+#   UNWIRED IS THE NORM HERE, roughly two in three — which is why this is a RATCHET and not the census that
+#   was asked for. A check that arrives red on 181 lines is muted on day one, and a muted check is worse than
+#   no check because it looks like coverage. The 181 are a NAMED, MEASURED debt with a number that can only
+#   go down; they are NOT refused.
+# ⛔ THE FIRST MEASUREMENT SAID 64 REACHABLE AND 207 TASK, AND IT WAS WRONG BY 22 GATES — kept here because it
+#   is the most reusable thing this file knows. `make preflight` landed the same day, reading its 31 arms from
+#   scripts/preflight_arms.txt rather than naming them in the recipe, so `make -n preflight` names NO gate
+#   while running all of them, and 22 gates that ARE run were confidently filed as run by nothing. ⭐ THE
+#   MOMENT A TARGET READS ITS POPULATION FROM A FILE, EXPANDING THE RECIPE STOPS ANSWERING THE QUESTION YOU
+#   ASKED. util_gate_wiring.py now follows that one indirection, and its selftest pins it.
+# ⛔ AND THE RULING COLUMN IS NEARLY EMPTY ON PURPOSE. Every unwired gate was read looking for one that says
+#   in its own header that it is deliberately out of the recipe. NOT ONE DOES. The 8 below are the ceo's
+#   ruling of 2026-09-03, quoted from the Makefile's own test-postoffice header — cited, not invented.
+#   Everything else is TASK because nobody has ruled, which is the honest word for it.
+# TASK-CEILING: 181
+test_gate_absent_line_is_unproven_not_red.sh	WIRED	-	-	-
 test_gate_ast_declared_refs_are_ast_dumps.sh	WIRED	-	-	-
 test_gate_ast_shaped_refs_are_declared_ast.sh	WIRED	-	-	-
 test_gate_banner_leads_with_the_suite_line.sh	WIRED	-	-	-
 test_gate_capture_stdin_and_red_exit.sh	WIRED	-	-	-
+test_gate_coexpr_stack_of_uncreated_thread.sh	WIRED	-	-	-
 test_gate_corpus_coverage_classified.sh	WIRED	-	-	-
 test_gate_cross_suite_ref_agreement.sh	WIRED	-	-	-
 test_gate_dispatch_bus_failure_modes.sh	WIRED	-	-	-
 test_gate_dispatch_claim_single_authority.sh	WIRED	-	-	-
 test_gate_dispatch_gc_safepoint_inline.sh	WIRED	-	-	-
 test_gate_dispatch_refuses_placeholder_donewhen.sh	WIRED	-	-	-
+test_gate_done_manifest_handoff.sh	WIRED	-	-	-
+test_gate_emit_no_ir_mutation.sh	WIRED	-	-	-
 test_gate_emit_no_lang.sh	WIRED	-	-	-
+test_gate_emit_no_slot_alloc.sh	WIRED	-	-	-
 test_gate_gate_wiring_ratchet.sh	WIRED	-	-	-
 test_gate_harness_refusal_is_rc2.sh	WIRED	-	-	-
+test_gate_icn_no_stack.sh	WIRED	-	-	-
+test_gate_icn_one_reg_frame.sh	WIRED	-	-	-
 test_gate_icn_scan_argtype.sh	WIRED	-	-	-
+test_gate_icn_tag_single_source.sh	WIRED	-	-	-
 test_gate_kw_integer_hex_refused.sh	WIRED	-	-	-
 test_gate_ladder_walk_v4_exempts_package_class_rows.sh	WIRED	-	-	-
 test_gate_master_builder_reindex_only.sh	WIRED	-	-	-
 test_gate_master_companions_resolve.sh	WIRED	-	-	-
 test_gate_master_order_is_the_builders_order.sh	WIRED	-	-	-
+test_gate_master_resort_preserves_modes.sh	WIRED	-	-	-
 test_gate_master_suite_builder_contract.sh	WIRED	-	-	-
 test_gate_modes_declaration_travels.sh	WIRED	-	-	-
 test_gate_next_honours_the_lane_cut.sh	WIRED	-	-	-
+test_gate_no_bb_bin_t.sh	WIRED	-	-	-
+test_gate_no_handencoded_bytes.sh	WIRED	-	-	-
 test_gate_no_o2_arm_in_scripts.sh	WIRED	-	-	-
+test_gate_no_vstack.sh	WIRED	-	-	-
+test_gate_no_weak_abort_stub.sh	WIRED	-	-	-
 test_gate_no_xfail_survives.sh	WIRED	-	-	-
+test_gate_nreturn_by_name_value_broken.sh	WIRED	-	-	-
 test_gate_our_files_are_lf.sh	WIRED	-	-	-
 test_gate_package_runners_print_the_inventory.sh	WIRED	-	-	-
 test_gate_parser_generated_files_in_sync.sh	WIRED	-	-	-
@@ -65,11 +85,19 @@ test_gate_pl_atom_number_iso_errors.sh	WIRED	-	-	-
 test_gate_pl_consult_loads_the_named_file.sh	WIRED	-	-	-
 test_gate_pl_meta_call_reaches_control_constructs.sh	WIRED	-	-	-
 test_gate_pl_multifile_initialization_runs_every_file.sh	WIRED	-	-	-
+test_gate_pl_no_value_stack.sh	WIRED	-	-	-
 test_gate_pl_quad_regs.sh	WIRED	-	-	-
 test_gate_pl_raising_directive_does_not_abort_the_load.sh	WIRED	-	-	-
 test_gate_pl_term_inspection_iso_errors.sh	WIRED	-	-	-
+test_gate_pl_trail_mechanism.sh	WIRED	-	-	-
+test_gate_pl_xfail_marker_consistent.sh	WIRED	-	-	-
+test_gate_polyglot_demos.sh	WIRED	-	-	-
 test_gate_postoffice_identity.sh	WIRED	-	-	-
+test_gate_progress_append_writes_a_row.sh	WIRED	-	-	-
+test_gate_queue_census_placeholder_arm.sh	WIRED	-	-	-
 test_gate_ref_cutters_refuse_a_dead_oracle.sh	WIRED	-	-	-
+test_gate_rtcc_callee_class.sh	WIRED	-	-	-
+test_gate_rtcc_claimed_regs.sh	WIRED	-	-	-
 test_gate_runners_refuse_on_a_stale_binary.sh	WIRED	-	-	-
 test_gate_s4e_done_timeout_is_a_refusal.sh	WIRED	-	-	-
 test_gate_s4e_donewhen_refuses_when_compiler_absent.sh	WIRED	-	-	-
@@ -84,7 +112,9 @@ test_gate_same_suite_ref_agreement.sh	WIRED	-	-	-
 test_gate_score_column_semantics.sh	WIRED	-	-	-
 test_gate_score_row_rewrites_in_place.sh	WIRED	-	-	-
 test_gate_score_tables_agree.sh	WIRED	-	-	-
+test_gate_score_unreadable_package_is_marked.sh	WIRED	-	-	-
 test_gate_seat_identity_one_map.sh	WIRED	-	-	-
+test_gate_sm_dead.sh	WIRED	-	-	-
 test_gate_sno_deferred_replacement_keeps_its_capture_mark.sh	WIRED	-	-	-
 test_gate_sno_fence_body_dynamic_operand.sh	WIRED	-	-	-
 test_gate_sno_io_assoc_channel_and_filespec.sh	WIRED	-	-	-
@@ -92,11 +122,14 @@ test_gate_sno_lex_compare_binary_safe.sh	WIRED	-	-	-
 test_gate_sno_pos_rpos_dynamic_operand.sh	WIRED	-	-	-
 test_gate_sno_runtime_define.sh	WIRED	-	-	-
 test_gate_sno_setexit_resume_matches_oracle.sh	WIRED	-	-	-
+test_gate_snocone_returns_codegen.sh	WIRED	-	-	-
 test_gate_suite_argv_sidecar.sh	WIRED	-	-	-
 test_gate_template_medium_invisible.sh	WIRED	-	-	-
 test_gate_term_wordref_ratchet.sh	WIRED	-	-	-
+test_gate_two_region.sh	WIRED	-	-	-
 test_gate_umbrella_done_whens_anchor_on_the_board_line.sh	WIRED	-	-	-
 test_gate_xfail_marker_and_index_agree.sh	WIRED	-	-	-
+test_gate_zd_omega_head_acceptance.sh	WIRED	-	-	-
 test_gate_baton_donewhen_runnable.sh	RULING	reads the LIVE postoffice: grades rows sixteen seats are editing right now, so it reds on a dirty fleet BY DESIGN (ceo ruling 2026-09-03, stated verbatim in the Makefile test-postoffice header)	ceo	2026-09-03
 test_gate_baton_donewhen_runnable_live.sh	RULING	reads the LIVE postoffice: grades rows sixteen seats are editing right now, so it reds on a dirty fleet BY DESIGN (ceo ruling 2026-09-03, stated verbatim in the Makefile test-postoffice header)	ceo	2026-09-03
 test_gate_baton_next_blocks.sh	RULING	reads the LIVE postoffice: grades rows sixteen seats are editing right now, so it reds on a dirty fleet BY DESIGN (ceo ruling 2026-09-03, stated verbatim in the Makefile test-postoffice header)	ceo	2026-09-03
@@ -105,7 +138,6 @@ test_gate_baton_state_header_single_record.sh	RULING	reads the LIVE postoffice: 
 test_gate_preflight_complete.sh	RULING	reads the LIVE postoffice: grades rows sixteen seats are editing right now, so it reds on a dirty fleet BY DESIGN (ceo ruling 2026-09-03, stated verbatim in the Makefile test-postoffice header)	ceo	2026-09-03
 test_gate_queue_is_an_index.sh	RULING	reads the LIVE postoffice: grades rows sixteen seats are editing right now, so it reds on a dirty fleet BY DESIGN (ceo ruling 2026-09-03, stated verbatim in the Makefile test-postoffice header)	ceo	2026-09-03
 test_gate_s4e_release_verbs_mark_last_row.sh	RULING	reads the LIVE postoffice: grades rows sixteen seats are editing right now, so it reds on a dirty fleet BY DESIGN (ceo ruling 2026-09-03, stated verbatim in the Makefile test-postoffice header)	ceo	2026-09-03
-test_gate_absent_line_is_unproven_not_red.sh	TASK	-	-	-
 test_gate_argnote_sweep.sh	TASK	-	-	-
 test_gate_asm_tabs_identity.sh	TASK	-	-	-
 test_gate_banner_leads_with_the_score.sh	TASK	-	-	-
@@ -120,7 +152,6 @@ test_gate_board_population_floor.sh	TASK	-	-	-
 test_gate_build_governor.sh	TASK	-	-	-
 test_gate_call2bb_stub_regime.sh	TASK	-	-	-
 test_gate_clobarm.sh	TASK	-	-	-
-test_gate_coexpr_stack_of_uncreated_thread.sh	TASK	-	-	-
 test_gate_commit_msg_hook.sh	TASK	-	-	-
 test_gate_const_graph.sh	TASK	-	-	-
 test_gate_crosscheck_family_list_autodiscovers.sh	TASK	-	-	-
@@ -129,14 +160,11 @@ test_gate_defect_c_vlist_ladder.sh	TASK	-	-	-
 test_gate_diag_regs_survive.sh	TASK	-	-	-
 test_gate_digest_matches_rules.sh	TASK	-	-	-
 test_gate_done_donewhen_backtick_normalised.sh	TASK	-	-	-
-test_gate_done_manifest_handoff.sh	TASK	-	-	-
 test_gate_ec_uni_complete.sh	TASK	-	-	-
 test_gate_em8_snocone_native_emit.sh	TASK	-	-	-
 test_gate_em_beauty_subsystems_mode4.sh	TASK	-	-	-
 test_gate_em_template_byte_identity.sh	TASK	-	-	-
 test_gate_emit_dwarf_loc.sh	TASK	-	-	-
-test_gate_emit_no_ir_mutation.sh	TASK	-	-	-
-test_gate_emit_no_slot_alloc.sh	TASK	-	-	-
 test_gate_end_only_program.sh	TASK	-	-	-
 test_gate_fb_adopt_one_predicate.sh	TASK	-	-	-
 test_gate_fb_predicate_tripwire.sh	TASK	-	-	-
@@ -159,8 +187,6 @@ test_gate_icn_global_no_nv_m3.sh	TASK	-	-	-
 test_gate_icn_ipl_reason_is_the_oracles_own_words.sh	TASK	-	-	-
 test_gate_icn_list_element_alternation_position.sh	TASK	-	-	-
 test_gate_icn_local_no_nv.sh	TASK	-	-	-
-test_gate_icn_no_stack.sh	TASK	-	-	-
-test_gate_icn_one_reg_frame.sh	TASK	-	-	-
 test_gate_icn_port_trace.sh	TASK	-	-	-
 test_gate_icn_pow_error_cases.sh	TASK	-	-	-
 test_gate_icn_rbp_census_ratchet.sh	TASK	-	-	-
@@ -170,7 +196,6 @@ test_gate_icn_scan.sh	TASK	-	-	-
 test_gate_icn_semicolon_required.sh	TASK	-	-	-
 test_gate_icn_suspend_record_stack_alignment.sh	TASK	-	-	-
 test_gate_icn_swap_operand_is_a_variable.sh	TASK	-	-	-
-test_gate_icn_tag_single_source.sh	TASK	-	-	-
 test_gate_icn_var.sh	TASK	-	-	-
 test_gate_icn_zcells_gva.sh	TASK	-	-	-
 test_gate_icn_zk5_gva.sh	TASK	-	-	-
@@ -186,25 +211,19 @@ test_gate_kw_static.sh	TASK	-	-	-
 test_gate_lower_isolation.sh	TASK	-	-	-
 test_gate_m1_self_host_fixed_point.sh	TASK	-	-	-
 test_gate_master_family_selector.sh	TASK	-	-	-
-test_gate_master_resort_preserves_modes.sh	TASK	-	-	-
 test_gate_master_shrink_refusal.sh	TASK	-	-	-
 test_gate_master_suite_deferral_and_scope.sh	TASK	-	-	-
 test_gate_me6_reentry_hazard.sh	TASK	-	-	-
 test_gate_no_asm_c_asm.sh	TASK	-	-	-
-test_gate_no_bb_bin_t.sh	TASK	-	-	-
 test_gate_no_brokered.sh	TASK	-	-	-
 test_gate_no_c_to_bb.sh	TASK	-	-	-
 test_gate_no_fossil_src_paths.sh	TASK	-	-	-
-test_gate_no_handencoded_bytes.sh	TASK	-	-	-
 test_gate_no_hidden_global_in_emitted.sh	TASK	-	-	-
 test_gate_no_lang_names.sh	TASK	-	-	-
 test_gate_no_new_function_scope_static.sh	TASK	-	-	-
 test_gate_no_pickable_standing_umbrella.sh	TASK	-	-	-
 test_gate_no_raw_asm_producers.sh	TASK	-	-	-
 test_gate_no_undefined_alpha_label.sh	TASK	-	-	-
-test_gate_no_vstack.sh	TASK	-	-	-
-test_gate_no_weak_abort_stub.sh	TASK	-	-	-
-test_gate_nreturn_by_name_value_broken.sh	TASK	-	-	-
 test_gate_nv_set_fn_ir_ratchet.sh	TASK	-	-	-
 test_gate_omega_own_k.sh	TASK	-	-	-
 test_gate_oracle_bf_capable.sh	TASK	-	-	-
@@ -228,13 +247,9 @@ test_gate_pl_m34_parity.sh	TASK	-	-	-
 test_gate_pl_master_board_floor.sh	TASK	-	-	-
 test_gate_pl_no_new_global.sh	TASK	-	-	-
 test_gate_pl_no_synthetic_main.sh	TASK	-	-	-
-test_gate_pl_no_value_stack.sh	TASK	-	-	-
 test_gate_pl_port_trace.sh	TASK	-	-	-
 test_gate_pl_port_trace_oracle_diff.sh	TASK	-	-	-
 test_gate_pl_rung11_lco.sh	TASK	-	-	-
-test_gate_pl_trail_mechanism.sh	TASK	-	-	-
-test_gate_pl_xfail_marker_consistent.sh	TASK	-	-	-
-test_gate_polyglot_demos.sh	TASK	-	-	-
 test_gate_port_exit_value_contract.sh	TASK	-	-	-
 test_gate_port_functions.sh	TASK	-	-	-
 test_gate_pristine_lock_timeout.sh	TASK	-	-	-
@@ -242,7 +257,6 @@ test_gate_probe_suite_grading_path.sh	TASK	-	-	-
 test_gate_prolog_dynamic_db_both_modes.sh	TASK	-	-	-
 test_gate_prolog_entrypoint_ruling.sh	TASK	-	-	-
 test_gate_prolog_vanroy_kernels_m3.sh	TASK	-	-	-
-test_gate_queue_census_placeholder_arm.sh	TASK	-	-	-
 test_gate_raku_port_trace.sh	TASK	-	-	-
 test_gate_raku_zframe.sh	TASK	-	-	-
 test_gate_rakugram_precedence.sh	TASK	-	-	-
@@ -253,8 +267,6 @@ test_gate_reb_port_trace.sh	TASK	-	-	-
 test_gate_regen_demo_refused_marker.sh	TASK	-	-	-
 test_gate_rt_goto_transfer_failure_is_expressible.sh	TASK	-	-	-
 test_gate_rtcc_block_coverage.sh	TASK	-	-	-
-test_gate_rtcc_callee_class.sh	TASK	-	-	-
-test_gate_rtcc_claimed_regs.sh	TASK	-	-	-
 test_gate_rtcc_noclob_injection.sh	TASK	-	-	-
 test_gate_rtx_ctor_armed.sh	TASK	-	-	-
 test_gate_rtx_inventory_live.sh	TASK	-	-	-
@@ -270,7 +282,6 @@ test_gate_s4e_park_additive_blocker.sh	TASK	-	-	-
 test_gate_s_artifacts_verifier_stale_binary_refuses.sh	TASK	-	-	-
 test_gate_sc_port_trace.sh	TASK	-	-	-
 test_gate_score_cell_no_silent_prose_loss.sh	TASK	-	-	-
-test_gate_score_unreadable_package_is_marked.sh	TASK	-	-	-
 test_gate_score_v_clause_carries_its_fraction.sh	TASK	-	-	-
 test_gate_scorecard_suite_aware.sh	TASK	-	-	-
 test_gate_scratch_is_bounded.sh	TASK	-	-	-
@@ -278,7 +289,6 @@ test_gate_scrip_demo_harness_wired.sh	TASK	-	-	-
 test_gate_scrip_polyglot_demo_icon_semicolon.sh	TASK	-	-	-
 test_gate_scrip_polyglot_demo_segfaults.sh	TASK	-	-	-
 test_gate_send_refuses_a_shell_substituted_body.sh	TASK	-	-	-
-test_gate_sm_dead.sh	TASK	-	-	-
 test_gate_sn7_beauty_self_host.sh	TASK	-	-	-
 test_gate_sno_byname_goto_call_args_after_failure.sh	TASK	-	-	-
 test_gate_sno_charset_dynamic_operand_null_alt.sh	TASK	-	-	-
@@ -295,12 +305,10 @@ test_gate_sno_port_trace_oracle_diff.sh	TASK	-	-	-
 test_gate_sno_proc_own_name_byname_mid_return.sh	TASK	-	-	-
 test_gate_sno_system_fn_protection_matches_spitbol.sh	TASK	-	-	-
 test_gate_snobol4_master_named_set_equality.sh	TASK	-	-	-
-test_gate_snocone_returns_codegen.sh	TASK	-	-	-
 test_gate_stage2_isolation.sh	TASK	-	-	-
 test_gate_stale_binary_uses_source_mtime.sh	TASK	-	-	-
 test_gate_suite_conversion_complete.sh	TASK	-	-	-
 test_gate_suite_refusal_names_stale_corpus.sh	TASK	-	-	-
-test_gate_two_region.sh	TASK	-	-	-
 test_gate_udc.sh	TASK	-	-	-
 test_gate_vanroy_bucket_rule.sh	TASK	-	-	-
 test_gate_vanroy_prolog_acceptance.sh	TASK	-	-	-
@@ -308,7 +316,6 @@ test_gate_witness_guard_no_new_conflation.sh	TASK	-	-	-
 test_gate_wreg_claim.sh	TASK	-	-	-
 test_gate_wreg_claim_binary.sh	TASK	-	-	-
 test_gate_xfail_has_reason.sh	TASK	-	-	-
-test_gate_zd_omega_head_acceptance.sh	TASK	-	-	-
 test_gate_zdp_on_null.sh	TASK	-	-	-
 test_gate_zeta_no_arena.sh	TASK	-	-	-
 test_gate_zpop_whitelist.sh	TASK	-	-	-

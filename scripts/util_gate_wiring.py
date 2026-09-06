@@ -79,21 +79,60 @@ def disk_gates(root):
     return sorted(f for f in os.listdir(d) if f.startswith("test_gate_") and f.endswith(".sh"))
 
 
-def reachable(root, targets=("test", "test-postoffice")):
-    """The transitive closure of scripts EXECUTED by the named make targets.
+def txt_names(text):
+    """Declared-population files a recipe READS. See reachable() for why this indirection is followed."""
+    out = set()
+    for line in text.splitlines():
+        line = _CMT.sub("", line)
+        out |= set(re.findall(r"[A-Za-z0-9_]+\.txt", line))
+    return out
 
-    ⛔ REFUSES rather than guessing: `make -n` is the authority on what the recipe expands to (it resolves the
-    variables a hand parse of the Makefile would have to re-implement), so a make that cannot expand is a
-    CANNOT-MEASURE, never an empty reachable set -- an empty set would read as "215 gates just left the floor".
-    Both targets are seeded even though `test` invokes `test-postoffice` today, so the day it stops doing so
-    reads as a recipe change here rather than as 16 postoffice gates silently falling into the backlog."""
-    seed = set()
-    for t in targets:
+
+REQUIRED_TARGETS = ("test",)
+OPTIONAL_TARGETS = ("test-postoffice", "preflight")
+
+
+def reachable(root, skipped=None):
+    """The transitive closure of scripts EXECUTED by the make targets that run gates.
+
+    ⛔ REFUSES rather than guessing: `make -n` is the authority on what a recipe expands to (it resolves the
+    variables a hand parse of the Makefile would have to re-implement), so a `test` target that cannot expand
+    is a CANNOT-MEASURE, never an empty reachable set -- an empty set would read as "every gate just left the
+    floor". The optional targets are SKIPPED and NAMED if they will not expand, never silently dropped: a
+    target that quietly disappears takes its gates out of the wired set, and the header has to say which
+    reading produced that, or the refusal is loud but undiagnosable.
+
+    ⛔⭐ AND IT FOLLOWS A RECIPE'S DECLARED-POPULATION FILE, which is not a refinement -- it is the difference
+    between "reachable from the recipe" and "run by something", and the first draft got it wrong by 22 gates.
+    `make preflight` landed today reading its arms from scripts/preflight_arms.txt (`grep -E '^scripts/' ...`),
+    deliberately, because a static grep over the scripts cannot classify them in either direction. So `make -n
+    preflight` names NO gate at all while running 31, and this instrument confidently called 22 of them run by
+    nothing. ⭐ THE GENERAL FORM, and it is the same one this file already warns about in the other direction:
+    the moment a target reads its population from a file, EXPANDING THE RECIPE STOPS ANSWERING THE QUESTION
+    YOU ASKED. Only *.txt files under scripts/ that a seeded recipe actually names are followed, and only
+    their `^scripts/` lines -- an over-broad rule here would quietly mark gates wired that nothing runs, which
+    is the comfortable direction and the one nobody would notice."""
+    seed, texts = set(), []
+    for t in REQUIRED_TARGETS + OPTIONAL_TARGETS:
         p = subprocess.run(["make", "-n", "--no-print-directory", t], cwd=root,
                            capture_output=True, text=True, timeout=300)
         if p.returncode != 0:
-            raise RuntimeError("`make -n %s` failed rc=%d: %s" % (t, p.returncode, (p.stderr or "").strip()[:400]))
+            if t in REQUIRED_TARGETS:
+                raise RuntimeError("`make -n %s` failed rc=%d: %s" % (t, p.returncode, (p.stderr or "").strip()[:400]))
+            if skipped is not None:
+                skipped.append(t)
+            continue
         seed |= sh_names(p.stdout)
+        texts.append(p.stdout)
+    for blob in texts:
+        for t in txt_names(blob):
+            pop = os.path.join(root, "scripts", t)
+            if not os.path.exists(pop):
+                continue
+            with open(pop, encoding="utf-8", errors="replace") as fh:
+                for line in fh:
+                    if line.startswith("scripts/"):
+                        seed |= set(_SH.findall(line))
     seen, work = set(), list(seed)
     while work:
         n = work.pop()
@@ -155,7 +194,8 @@ def analyse(root):
     """One measurement, shared by check/adopt, so the two can never disagree about the world."""
     rows, ceiling, header = load(root)
     disk = set(disk_gates(root))
-    reach = reachable(root)
+    skipped = []
+    reach = reachable(root, skipped=skipped)
     reach_gates = {g for g in disk if g in reach}
     rec = {}
     dupes = []
@@ -164,7 +204,7 @@ def analyse(root):
             dupes.append(r[0])
         rec[r[0]] = r
     return dict(rows=rows, ceiling=ceiling, header=header, disk=disk, reach=reach_gates,
-                rec=rec, dupes=sorted(set(dupes)))
+                rec=rec, dupes=sorted(set(dupes)), skipped=skipped)
 
 
 def _cure(cmd):
@@ -182,8 +222,12 @@ def check(root, out=sys.stdout):
     rows, ceiling, disk, reach, rec = a["rows"], a["ceiling"], a["disk"], a["reach"], a["rec"]
     by_cls = {c: sorted(r[0] for r in rows if r[1] == c) for c in CLASSES}
     task_n = len(by_cls["TASK"])
-    print("=== GATE WIRING RATCHET — %d gate(s) on disk · %d reachable from `make test` + `make test-postoffice` ==="
-          % (len(disk), len(reach)), file=out)
+    print("=== GATE WIRING RATCHET — %d gate(s) on disk · %d reachable from %s ==="
+          % (len(disk), len(reach), " + ".join("`make %s`" % t for t in REQUIRED_TARGETS + OPTIONAL_TARGETS
+                                               if t not in a["skipped"])), file=out)
+    if a["skipped"]:
+        print("    ⚠ target(s) that would not expand and were SKIPPED, so their gates read UNREACHABLE here: %s"
+              % ", ".join(a["skipped"]), file=out)
     print("    recorded: WIRED %d · RULING %d · TASK %d   (TASK-CEILING %s)"
           % (len(by_cls["WIRED"]), len(by_cls["RULING"]), task_n,
              "unset" if ceiling is None else ceiling), file=out)
@@ -484,6 +528,24 @@ def selftest(out=sys.stdout):
             fh.write("#!/usr/bin/env bash\nfor f in \"$HERE\"/test_gate_*.sh; do grep -q x \"$f\"; done\nexit 0\n")
         got = sorted(g for g in disk_gates(td) if g in reachable(td))
         ck("12 only the executed gate is reachable", got, ["test_gate_a.sh"])
+        # ARM 13 A DECLARED POPULATION IS PART OF THE RECIPE. `make preflight` reads its 31 arms from
+        # scripts/preflight_arms.txt, so `make -n preflight` names NO gate while running all of them -- and the
+        # first draft of this instrument therefore filed 22 genuinely-run gates as debt. Expanding a recipe
+        # stops answering the question you asked the moment a target reads its population from a file.
+        _fx(td, G, ["bash scripts/test_gate_a.sh"], None)
+        with open(os.path.join(td, "Makefile"), "a") as fh:
+            fh.write("preflight:\n\t@while read -r arm; do bash $$arm; done < <(grep -E '^scripts/' \"$(ROOT)/scripts/pop_arms.txt\")\n")
+        with open(os.path.join(td, "scripts", "pop_arms.txt"), "w") as fh:
+            fh.write("# a declared population\nscripts/test_gate_b.sh\n")
+        got = sorted(g for g in disk_gates(td) if g in reachable(td))
+        ck("13 declared-population arm is reachable", got, ["test_gate_a.sh", "test_gate_b.sh"])
+        # ARM 14 AND AN OPTIONAL TARGET THAT WILL NOT EXPAND IS NAMED, NEVER SILENTLY DROPPED: its gates leave
+        # the wired set, and a refusal that cannot say WHY they left is loud and undiagnosable.
+        with open(os.path.join(td, "Makefile"), "w") as fh:
+            fh.write("test:\n\tbash scripts/test_gate_a.sh\n")
+        skipped = []
+        reachable(td, skipped=skipped)
+        ck("14 unexpandable optional targets are named", sorted(skipped), ["preflight", "test-postoffice"])
     finally:
         shutil.rmtree(td, ignore_errors=True)
     print("--- %d arm(s) failed ---" % len(fails), file=out)
@@ -503,7 +565,12 @@ def main(argv=None):
     if ns.cmd == "adopt":
         return adopt(root)
     if ns.cmd == "reach":
-        for g in sorted(g for g in disk_gates(root) if g in reachable(root)):
+        # ⛔ HOISTED, AND IT WAS NOT AT FIRST. Written inline as the comprehension's condition, `reachable(root)`
+        # -- two `make -n` runs and a closure over scripts/ -- was re-evaluated ONCE PER GATE, 279 times, and a
+        # sub-second subcommand took ~4 minutes. It never returned a wrong answer, which is why it read as a
+        # hang rather than a bug: an O(n) call hidden in a filter is invisible at every size but the real one.
+        _reach = reachable(root)
+        for g in sorted(g for g in disk_gates(root) if g in _reach):
             print(g)
         return 0
     if ns.cmd == "declare":
