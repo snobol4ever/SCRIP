@@ -169,11 +169,19 @@ procedure main()
 end
 W
 ;;
+    icon-ipl-function-builtin-unimplemented) cat <<'W'
+procedure main()
+   local x;
+   x := function();
+   write(x);
+end
+W
+;;
     *) return 1;;
     esac
 }
 
-SLUGS="icon-arizona-class-cset-cannot-represent-nul-member icon-arizona-class-table-iteration-order-not-insertion icon-key-table-iteration-order-differs-from-arizona-oracle icon-arizona-class-swap-list-slot-record-field-fails icon-ipl-system-builtin-unimplemented-error-005 icon-ipl-open-pipe-mode-p-silently-produces-no-error-and-no-output icon-ipl-error-scoped-runerr-aborts-instead-of-failing icon-ipl-date-format-extra-space-before-single-digit-day icon-jcon-class-display-builtin-unimplemented icon-jcon-class-sort-zero-field-record-throws-undefined-function icon-jcon-class-sortf-heterogeneous-type-default-compare-throws icon-jcon-class-omitted-leading-arg-not-null-coerced-to-builtin-default icon-jcon-class-set-table-serial-numbering-diverges-from-oracle icon-jcon-class-undefined-curly-call-activates-coexpr-with-garbage-target icon-jcon-misc-coexpr-activate-corrupted-target-pointer-segv icon-jcon-chained-swap-lvalue-not-handled"
+SLUGS="icon-arizona-class-cset-cannot-represent-nul-member icon-arizona-class-table-iteration-order-not-insertion icon-key-table-iteration-order-differs-from-arizona-oracle icon-arizona-class-swap-list-slot-record-field-fails icon-ipl-system-builtin-unimplemented-error-005 icon-ipl-open-pipe-mode-p-silently-produces-no-error-and-no-output icon-ipl-error-scoped-runerr-aborts-instead-of-failing icon-ipl-date-format-extra-space-before-single-digit-day icon-jcon-class-display-builtin-unimplemented icon-jcon-class-sort-zero-field-record-throws-undefined-function icon-jcon-class-sortf-heterogeneous-type-default-compare-throws icon-jcon-class-omitted-leading-arg-not-null-coerced-to-builtin-default icon-jcon-class-set-table-serial-numbering-diverges-from-oracle icon-jcon-class-undefined-curly-call-activates-coexpr-with-garbage-target icon-jcon-misc-coexpr-activate-corrupted-target-pointer-segv icon-jcon-chained-swap-lvalue-not-handled icon-ipl-function-builtin-unimplemented"
 
 if [ "${1:-}" = "--list" ]; then for s in $SLUGS; do echo "$s"; done; exit 0; fi
 if [ $# -lt 1 ]; then echo "UNPROVEN(2): usage: util_icn_class_witness.sh <class-slug> | --list"; exit 2; fi
