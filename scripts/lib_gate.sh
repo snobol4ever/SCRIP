@@ -171,6 +171,66 @@ gate_require_fresh() {
         exit 2
     fi
 }
+# gate_bin_watch <artifact>... / gate_bin_unmoved -- THE BINARY MOVED UNDER THIS BOARD class.
+# ⛔⭐ HOISTED FROM test_corpus_snobol4.sh (hq_S 2026-09-06, who measured it and asked for it to live here
+# rather than in seven copies). THE MEASURED CASE: hq_S started an 1854-entry board and then ran an
+# incremental build while it was still grading. The harness tried to exec the binary mid-relink, died with
+# PermissionError, and refused -- WHICH IS THE ONLY REASON ANYONE NOTICED. A second either way and the board
+# would have graded half its population on one binary and half on another AND PRINTED A COMPLETE, PLAUSIBLE
+# TABLE. Every board that takes minutes has this hazard; the pre-existing board_stamp only compares ACROSS
+# shards and only fingerprints scrip.
+# ⛔ FINGERPRINT EVERY ARTIFACT THE RUN EXECUTES, AND THE .so IS THE ONE THAT MATTERS: ./scrip links the
+# emitter and runtime DYNAMICALLY, so it is BYTE-IDENTICAL across the two arms of any emitter or runtime
+# change -- a scrip-only check is vacuous exactly when it matters most. Measured on an emit.cpp A/B where two
+# agents verified scrip's md5 as proof the binary had not moved, and the check was empty for the property in
+# question. That is why this takes a LIST and the caller names the .so explicitly.
+# ⭐ AND THE STRONGER MOVE, WHERE IT IS AFFORDABLE (hq_P): put the change behind a killswitch and run BOTH
+# ARMS OFF ONE BUILD, env-only -- that REMOVES the hazard instead of detecting it. This guard is for what a
+# killswitch cannot cover: a long board while somebody else, or your own next command, rebuilds underneath it.
+# ⛔⭐ IT MUST FINGERPRINT EVERY ARTIFACT OR REPORT THAT IT COULD NOT -- a partial fingerprint is the exact
+# defect this guard exists to prevent, one level down inside the guard. Measured while hoisting (hq_T
+# 2026-09-06, ARM 3 of the extraction proof): `md5sum present missing 2>/dev/null` still prints a line for
+# the one that exists, so a non-empty result was read as "fingerprinted", the missing artifact was silently
+# unwatched, and the board ran to a verdict believing it was covered. The donor had the same shape, so this
+# would have been vacuous for out/libscrip_rt.so exactly when the .so is the artifact that matters.
+# ⭐ THE CHECK IS ARITHMETIC, NOT EMPTINESS: one output line per argument, or refuse. The extraction proof is
+# what found it -- re-proving a moved guard on its own arms rather than trusting that a copy behaves.
+_gate_bin_fp() {
+    local _out _want=$#
+    _out="$(md5sum "$@" 2>/dev/null)" || return 1
+    [ "$(printf '%s\n' "$_out" | grep -c .)" -eq "$_want" ] || return 1
+    printf '%s' "$_out" | cut -c1-12 | tr '\n' ' '
+}
+gate_bin_watch() {
+    GATE_BIN_WATCHED="$*"
+    GATE_BIN_FP0="$(_gate_bin_fp "$@")" || GATE_BIN_FP0=""
+    # ⛔ REFUSE AT WATCH TIME, not only at check time: a board that could never fingerprint its own artifacts
+    # has no baseline to compare against, and discovering that at the END means the whole run was unverifiable
+    # and already paid for.
+    [ -n "$GATE_BIN_FP0" ] || {
+        echo "⛔ REFUSE(rc=2) [${GATE_NAME:-gate}]: could not fingerprint the artifacts this run will grade on ($GATE_BIN_WATCHED)"
+        echo "   -- a board that cannot tell whether its binary moved must not print a verdict."
+        exit 2; }
+}
+gate_bin_unmoved() {
+    # ⛔ ORDER MATTERS: ask "was anything watched" BEFORE trying to fingerprint it. Measured while proving
+    # the extraction (ARM 5): with the checks the other way round, calling this with no prior gate_bin_watch
+    # ran md5sum with no arguments, failed, and refused with "an artifact can no longer be fingerprinted ()"
+    # -- the right rc for the wrong reason, naming an empty list. rc=2 either way, so nothing would have
+    # caught it but reading the message.
+    [ -n "${GATE_BIN_FP0:-}" ] || {
+        echo "⛔ REFUSE(rc=2) [${GATE_NAME:-gate}]: gate_bin_unmoved called without gate_bin_watch -- there is no baseline, so this cannot answer"
+        exit 2; }
+    local _now; _now="$(_gate_bin_fp $GATE_BIN_WATCHED)" || {
+        echo "⛔ REFUSE(rc=2) [${GATE_NAME:-gate}]: an artifact this board was watching can no longer be fingerprinted ($GATE_BIN_WATCHED)"
+        echo "   -- it was deleted or replaced mid-run, which is the moved-binary case in its loudest form."
+        exit 2; }
+    [ "$_now" = "$GATE_BIN_FP0" ] || {
+        echo "⛔ REFUSE(rc=2) [${GATE_NAME:-gate}]: THE BINARY MOVED UNDER THIS BOARD -- start [$GATE_BIN_FP0] end [$_now]"
+        echo "   ($GATE_BIN_WATCHED, md5 prefixes, in that order). Part of this population was graded on one build and part on another,"
+        echo "   so every number above describes no single tree. Re-run on a quiet tree; do NOT quote this board."
+        exit 2; }
+}
 # gate_floor <examined-count> <minimum> <what-was-counted> -- the empty-glob / empty-dir / zero-files class.
 gate_floor() {
     GATE_EXAMINED="$1"
