@@ -2586,6 +2586,10 @@ static int zd_omega_seed(IR_t **nodes, int n, IR_t *t, unsigned char *zon, int *
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zd_omega_test_idx(IR_t **nodes, int n, IR_t *t) { for (int k = 0; k < n; k++) if (zd_omega_test_kind(nodes[k]->op) && zd_chase(nodes[k]->ω.node) == t) return k; return -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zd_stmt_exit_kind(IR_e op) { return (op == IR_STATEMENT_END || op == IR_STATEMENT || op == IR_GOTO_DEFERRED) ? 1 : 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zd_exit_pop(IR_e op, int mark, int full) { return (mark >= 0 && zd_stmt_exit_kind(op)) ? mark + emit_match_begin_stfh_k() : full; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int *zwpop, int *zarm) {
     extern const char * bb_src_of(const IR_t *);
     static int _dg = -1, _zoh = -1, _zbe = -1, _zvd = -1; static const char * _zo; static const char * _zs;
@@ -2690,8 +2694,8 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                 int _gbpre = (gback >= 0) ? (zout[gback] - zd_k(nodes[gback])) : 0;
                 int _obpre = (oback >= 0) ? (zout[oback] - zd_k(nodes[oback])) : 0;
                 {
-                if (!gin) zgpop[i] = (gback >= 0) ? (_wzdepth - _gbpre) : (((zdh_match >= 0 && (nodes[i]->op == IR_STATEMENT_END || nodes[i]->op == IR_STATEMENT)) ? zdh_match + emit_match_begin_stfh_k() : _wzdepth) + (int)kc);
-                if (!oin) zwpop[i] = (oback >= 0) ? ((_wzdepth - K) - _obpre) : (_wzdepth - K + (int)kc); } }
+                if (!gin) zgpop[i] = (gback >= 0) ? (_wzdepth - _gbpre) : (zd_exit_pop(nodes[i]->op, zdh_match, _wzdepth) + (int)kc);
+                if (!oin) zwpop[i] = (oback >= 0) ? ((_wzdepth - K) - _obpre) : (((nodes[i]->op == IR_GOTO_DEFERRED) ? zd_exit_pop(nodes[i]->op, zdh_match, _wzdepth) : (_wzdepth - K)) + (int)kc); } }
                 if (_dg) fprintf(stderr, "[ZD] h=%d r=%d i=%d %s K=%d zout=%d gpop=%d wpop=%d gin=%d oin=%d gback=%d oback=%d\n", hi, r, i, bb_op_name(nodes[i]->op), K, zout[i], zgpop[i], zwpop[i], gin, oin, gback, oback);
             }
         }
@@ -2710,8 +2714,8 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
         if (_zbe && zot[i]) { for (int tk = 0; tk < n; tk++) if (nodes[tk] == zot[i] && zon[tk]) { oback = tk; break; } }
         int _gbpre = (gback >= 0) ? (zout[gback] - zd_k(nodes[gback])) : 0;
         int _obpre = (oback >= 0) ? (zout[oback] - zd_k(nodes[oback])) : 0;
-        if (!zgin[i]) zgpop[i] = (gback >= 0 && _gbpre > 0) ? (zout[i] - _gbpre) : (((zmatch[i] >= 0 && (nodes[i]->op == IR_STATEMENT_END || nodes[i]->op == IR_STATEMENT)) ? zmatch[i] + emit_match_begin_stfh_k() : zout[i]));
-        if (!zoin[i]) zwpop[i] = (oback >= 0) ? ((zout[i] - K) - _obpre) : (zout[i] - K);
+        if (!zgin[i]) zgpop[i] = (gback >= 0 && _gbpre > 0) ? (zout[i] - _gbpre) : zd_exit_pop(nodes[i]->op, zmatch[i], zout[i]);
+        if (!zoin[i]) zwpop[i] = (oback >= 0) ? ((zout[i] - K) - _obpre) : ((nodes[i]->op == IR_GOTO_DEFERRED) ? zd_exit_pop(nodes[i]->op, zmatch[i], zout[i]) : (zout[i] - K));
         else if (_zni && oback >= 0 && claim[oback] == claim[i] && rpos[oback] > rpos[i] && !port_sz_beta(nodes[i]->ω.sz)) zwpop[i] = (zout[i] - K) - _obpre;
         if (_dg) fprintf(stderr, "[ZD-FINAL] i=%d %s K=%d zout=%d gpop=%d wpop=%d gback=%d oback=%d\n", i, bb_op_name(nodes[i]->op), K, zout[i], zgpop[i], zwpop[i], gback, oback); } }
     { if (zd_map_on()) { fprintf(stderr, "[ZD-MAP] PLAN -- same i= indices as GRAPH above\n");
