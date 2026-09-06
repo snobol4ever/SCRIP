@@ -139,9 +139,9 @@ static int icn_arg_is_scan_fn(const tree_t * a) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int argbase, int nargs, IR_t * γ, IR_t * ω, IR_t ** res) {
-    if (name && !strcmp(name, "seq")) { IR_t * sq = lower_seq(cx, t, argbase, nargs, γ, ω, res); if (sq) return sq; }
+    if (name && !strcmp(name, "seq") && icn_callable_proc_index("seq") < 0) { IR_t * sq = lower_seq(cx, t, argbase, nargs, γ, ω, res); if (sq) return sq; }
     if (name && !strcmp(name, "function") && nargs == 0 && icn_callable_proc_index("function") < 0) { IR_t * fg = lower_function_gen(cx, γ, ω, res); if (fg) return fg; }
-    if (name && !strcmp(name, "key") && nargs == 1) { IR_t * kg = lower_key(cx, t, argbase, nargs, γ, ω, res); if (kg) return kg; }
+    if (name && !strcmp(name, "key") && nargs == 1 && icn_callable_proc_index("key") < 0) { IR_t * kg = lower_key(cx, t, argbase, nargs, γ, ω, res); if (kg) return kg; }
     if (name && !strcmp(name, "name") && nargs == 1) {
         const tree_t * na = t->c[argbase];
         if (na && na->t == TT_ALTERNATE && na->n >= 1) {
@@ -166,7 +166,8 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
             return ve;
         }
     }
-    int gb = name && ((nargs >= 2 && nargs <= 4 && (!strcmp(name, "find") || !strcmp(name, "upto")))
+    int gb = name && icn_callable_proc_index(name) < 0
+                  && ((nargs >= 2 && nargs <= 4 && (!strcmp(name, "find") || !strcmp(name, "upto")))
                    || (nargs == 1 && (!strcmp(name, "find") || !strcmp(name, "upto") || !strcmp(name, "bal")))
                    || (nargs == 0 && !strcmp(name, "bal")));
     int is_cursor_mover = name && (!strcmp(name, "tab") || !strcmp(name, "move"));
