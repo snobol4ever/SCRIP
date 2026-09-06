@@ -107,6 +107,8 @@ static int icn_tree_is_cursor_mover(const tree_t * a) {
 static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * lower_seq(icx_t * cx, const tree_t * t, int argbase, int nargs, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * lower_key(icx_t * cx, const tree_t * t, int argbase, int nargs, IR_t * γ, IR_t * ω, IR_t ** res);
+static IR_t * lower_function_gen(icx_t * cx, IR_t * γ, IR_t * ω, IR_t ** res);
+static int icn_callable_proc_index(const char * fn);
 static IR_t * lower_lvalue_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var_res);
 static int icn_subtree_has_suspend(const tree_t *n);
 static IR_t * lower_if(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
@@ -138,6 +140,7 @@ static int icn_arg_is_scan_fn(const tree_t * a) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int argbase, int nargs, IR_t * γ, IR_t * ω, IR_t ** res) {
     if (name && !strcmp(name, "seq")) { IR_t * sq = lower_seq(cx, t, argbase, nargs, γ, ω, res); if (sq) return sq; }
+    if (name && !strcmp(name, "function") && nargs == 0 && icn_callable_proc_index("function") < 0) { IR_t * fg = lower_function_gen(cx, γ, ω, res); if (fg) return fg; }
     if (name && !strcmp(name, "key") && nargs == 1) { IR_t * kg = lower_key(cx, t, argbase, nargs, γ, ω, res); if (kg) return kg; }
     if (name && !strcmp(name, "name") && nargs == 1) {
         const tree_t * na = t->c[argbase];
@@ -1165,6 +1168,38 @@ static IR_t * lower_key(icx_t * cx, const tree_t * t, int argbase, int nargs, IR
     ir_operand_push(kg, orr);
     lc_γ_to(orr, kg);
     cx->beta = kg; *res = kg; return ee;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *const icn_function_names[] = {
+        "abs", "acos", "any", "args", "asin", "atan", "bal", "center",
+        "char", "close", "collect", "copy", "cos", "cset", "delete", "detab",
+        "dtor", "entab", "errorclear", "exit", "exp", "find", "flush", "function",
+        "get", "getenv", "iand", "icom", "image", "insert", "integer", "ior",
+        "ishift", "ixor", "key", "left", "list", "log", "many", "map",
+        "match", "member", "move", "name", "numeric", "open", "ord", "pop",
+        "pos", "proc", "pull", "push", "put", "read", "reads", "real",
+        "remove", "repl", "reverse", "right", "rtod", "runerr", "seek", "seq",
+        "serial", "set", "sin", "sort", "sortf", "sqrt", "stop", "string",
+        "system", "tab", "table", "tan", "trim", "type", "upto", "variable",
+        "where", "write", "writes",
+        (const char *) 0
+};
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * lower_function_gen(icx_t * cx, IR_t * γ, IR_t * ω, IR_t ** res) {
+    IR_t * fg = build(cx, IR_ITERATE, γ, ω);
+    IR_t * ml = build(cx, IR_MAKE_LIST, NULL, ω);
+    IR_t * prev = NULL; IR_t * entry = NULL;
+    for (int k = 0; icn_function_names[k]; k++) {
+        IR_t * sn = build(cx, IR_LIT_STRING, icn_function_names[k + 1] ? NULL : ml, ω);
+        IR_LIT(sn).sval = (char *) icn_function_names[k];
+        if (!entry) entry = sn;
+        if (prev) lc_γ_to(prev, sn);
+        prev = sn;
+        ir_operand_push(ml, sn);
+    }
+    ir_operand_push(fg, ml);
+    lc_γ_to(ml, fg);
+    cx->beta = fg; *res = fg; return entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_make_list(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
