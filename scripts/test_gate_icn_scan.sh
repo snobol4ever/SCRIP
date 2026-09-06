@@ -3,7 +3,7 @@
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # scripts/test_gate_icn_scan.sh — ICN-SCAN-FENCE gate (GOAL-ICON-BB.md, ICN-SCAN ladder close-out).
 # Four sections per the FENCE spec:
-#   (a) all nine IR_SCAN_* kinds OFF icn_kind_native_stub (and present in src/contracts);
+#   (a) all nine IR_SCAN_* kinds OFF icn_kind_native_stub (and present in src/ir, the spine types);
 #   (b) the ladder probe sweep — every ICN-SCAN-0..13a probe, three modes, policy per documented flags:
 #         STRICT  m2==m3==m4==expected AND no [SMX] (an refuse must not masquerade as a fail-probe pass)
 #         M34     m3==m4==expected, m2 recorded informationally (the SCAN-3 pre-existing oracle pos gap)
@@ -25,7 +25,7 @@
 # been RED at every pristine HEAD since s241, which recorded the fact honestly and moved on — and every
 # reason for the red turned out to be instrument rot, not compiler defect:
 #   (i)  THE BUCKET SELECTOR NAMED A RETIRED OPCODE.  It admitted a program when `--dump-bb` output carried
-#        `GEN_SCAN`.  `IR_GEN_SCAN` NO LONGER EXISTS IN `src/contracts/` AT ALL (it survives only as a stale
+#        `GEN_SCAN`.  `IR_GEN_SCAN` NO LONGER EXISTS IN `src/ir/` AT ALL (it survives only as a stale
 #        row in `src/tools/emit_per_kind_audit.c`); the live scan boxes dump as `"kind":"SCAN"`,
 #        `"SCAN_ENTER"`, `"SCAN_TAB"`, `"SCAN_UPTO"`, `"SCAN_MATCH"`, `"SCAN_MOVE"`, `"SCAN_FIND"`.
 #        So N=0 for the whole corpus and the m2/m3/m4 floors (31/11/11) were UNREACHABLE BY CONSTRUCTION.
@@ -128,10 +128,11 @@ echo "=== ICN-SCAN-FENCE gate ==="
 echo "--- (a) icn_kind_native_stub carries ZERO IR_SCAN_* kinds ---"
 stub_hits=$(awk '/static int icn_kind_native_stub/{f=1} f{print} f&&/^\}/{exit}' "$ROOT/src/driver/scrip.c" | grep -c 'IR_SCAN_' || true)
 if [ "$stub_hits" = 0 ]; then echo "  OK   stub-list IR_SCAN_* count = 0"; else echo "  FAIL stub-list IR_SCAN_* count = $stub_hits (must be 0)"; BAD=1; fi
+[ -d "$ROOT/src/ir" ] || { echo "⛔ GATE REFUSES (rc=2): $ROOT/src/ir does not exist -- the spine-type directory moved again and this check cannot measure (it greped the retired src/contracts/ and printed a false red from 2026-08-28 until 2026-09-05)"; exit 2; }
 for k in POS ANY MATCH MANY TAB MOVE UPTO FIND BAL; do
-    grep -rq "IR_SCAN_$k" "$ROOT/src/contracts/" || { echo "  FAIL IR_SCAN_$k missing from src/contracts/"; BAD=1; }
+    grep -rq "IR_SCAN_$k" "$ROOT/src/ir/" || { echo "  FAIL IR_SCAN_$k missing from src/ir/"; BAD=1; }
 done
-echo "  OK   all nine IR_SCAN_* kinds present in src/contracts/"
+echo "  OK   all nine IR_SCAN_* kinds present in src/ir/"
 
 echo "--- (b) ladder probe sweep (three modes per probe) ---"
 probe scan_subject STRICT "hello" << 'EOF'
