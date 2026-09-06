@@ -102,9 +102,10 @@ echo "--- (a) IR_ASSIGN / IR_VAR absent from icn_kind_native_stub ---"
 stub_assign=$(awk '/static int icn_kind_native_stub/{f=1} f{print} f&&/^}/{exit}' "$ROOT/src/driver/scrip.c" | grep -c 'IR_ASSIGN\|IR_VAR\b' || true)
 if [ "$stub_assign" = 0 ]; then echo "  OK   stub-list IR_ASSIGN/IR_VAR count = 0"
 else echo "  FAIL stub-list IR_ASSIGN/IR_VAR count = $stub_assign (must be 0)"; BAD=1; fi
-grep -rq 'IR_ASSIGN' "$ROOT/src/contracts/" || { echo "  FAIL IR_ASSIGN missing from src/contracts/"; BAD=1; }
-grep -rq 'IR_VAR\b' "$ROOT/src/contracts/" || { echo "  FAIL IR_VAR missing from src/contracts/"; BAD=1; }
-echo "  OK   IR_ASSIGN and IR_VAR present in src/contracts/"
+[ -d "$ROOT/src/ir" ] || { echo "⛔ GATE REFUSES (rc=2): $ROOT/src/ir does not exist -- the spine-type directory moved again and this check cannot measure (it greped the retired src/contracts/ and printed a false red from 2026-08-28 until 2026-09-05)"; exit 2; }
+grep -rq 'IR_ASSIGN' "$ROOT/src/ir/" || { echo "  FAIL IR_ASSIGN missing from src/ir/"; BAD=1; }
+grep -rq 'IR_VAR\b' "$ROOT/src/ir/" || { echo "  FAIL IR_VAR missing from src/ir/"; BAD=1; }
+echo "  OK   IR_ASSIGN and IR_VAR present in src/ir/"
 
 echo "--- (b) ladder probe sweep (three modes per probe) ---"
 

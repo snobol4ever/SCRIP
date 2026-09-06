@@ -320,11 +320,13 @@ DESCR_t rt_cset_compl(DESCR_t a) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_num_neg(DESCR_t a) {
+    if (!is_numeric_like(a)) { core_runtime_error(1, "negation operand is not numeric"); return FAILDESCR; }
     if (IS_REAL_fn(a) || operand_is_real_str(a)) return REALVAL(-to_real(a));
     return INTVAL(-to_int(a));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_num_pos(DESCR_t a) {
+    if (!is_numeric_like(a)) { core_runtime_error(1, "affirmation operand is not numeric"); return FAILDESCR; }
     if (IS_REAL_fn(a) || operand_is_real_str(a)) return REALVAL(to_real(a));
     return INTVAL(to_int(a));
 }

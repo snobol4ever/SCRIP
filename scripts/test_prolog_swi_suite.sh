@@ -128,7 +128,21 @@ fi
 # ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05). Records what this script just
 # measured into .github/SCORE.md; runs nothing itself. Non-fatal: a bookkeeping failure must never
 # turn a real measurement into a red board.
-python3 "$HERE/util_score_row.py" write --lang prolog --column vendor --suite SWI \
-    --measurer "${S4E_SEAT:-}" --text "${SWI_BOARD:-no mode ran} (\`test_prolog_swi_suite.sh\`)" \
-    || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
+# ⛔⭐⭐ A SINGLE-FILE RUN NEVER WRITES THE SUITE CELL (seat09, 2026-09-05, measured the hard way while
+# diagnosing this suite: `--file X` unconditionally rewrote prolog/vendor with that ONE file's count as if it
+# were the whole suite. They did it NINE TIMES while bisecting and had to re-run the full suite to restore the
+# honest reading). The write is not merely premature here, it is IMPOSSIBLE to make correct: a one-file run
+# cannot produce a suite-wide number by construction, so there is no text it could write that would be true.
+# ⭐ Same shape as the refusals this repo already keeps: a run that CANNOT measure the thing must not publish a
+# number for it. The measurement still prints on the terminal -- it is the LEADERBOARD write that is skipped,
+# and the skip says so rather than passing silently, because a seat who expected a row and got none should not
+# have to infer why from an absence.
+if [ -n "${ONLY_FILE:-}" ]; then
+    echo "SCORE.md NOT UPDATED (by design): --file ${ONLY_FILE} grades ONE file and cannot produce a suite-wide"
+    echo "  number. The leaderboard cell keeps whatever the last FULL run measured. Re-run without --file to record."
+else
+    python3 "$HERE/util_score_row.py" write --lang prolog --column vendor --suite SWI \
+        --measurer "${S4E_SEAT:-}" --text "${SWI_BOARD:-no mode ran} (\`test_prolog_swi_suite.sh\`)" \
+        || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
+fi
 exit "$OVERALL_RC"

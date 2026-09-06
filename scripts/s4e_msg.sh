@@ -877,6 +877,48 @@ s4e_age_compact() { [ -n "${1:-}" ] && [ "$1" -gt 0 ] 2>/dev/null || { echo "-";
     if   [ "$_s" -lt 3600 ]; then printf '%dm\n' $(( _s / 60 ))
     elif [ "$_s" -lt 86400 ]; then printf '%dh%02dm\n' $(( _s / 3600 )) $(( (_s % 3600) / 60 ))
     else printf '%dd%02dh\n' $(( _s / 86400 )) $(( (_s % 86400) / 3600 )); fi; }
+# ⛔⭐⭐ THE JOINED LOCK TEST — ONE CENSUS, NOT TWO HALF-CENSUSES (ceo CEO-297, 2026-09-05, reconciling two
+# readings that were each wrong in OPPOSITE directions at the FLEET-12 flip). Measured: the ceo censused by the
+# claim file's STATUS line and named 52 seat locks older than the flip; `unclaim` then refused 43 of them because
+# their QUEUE rows read DONE while the claim file still said RUNNING. hq_T censused by claim status alone and read
+# zero live locks by retired seats. A RUNNING status line alone OVER-reports (a closed row whose claim was never
+# reconciled looks held) exactly as a queue column alone UNDER-reports (a receipt sitting on an open row looks free).
+# ⭐ Neither field is the lock. The JOIN is: a row is HELD iff its queue row is not DONE **and** its claim names a
+# holder with a RUNNING status. Everything else is bookkeeping, and the two shapes of bookkeeping are worth telling
+# apart because only one of them is ever worth acting on.
+#   HELD           queue not DONE + claim RUNNING   -- a real lock; hides the row from the picker for the whole fleet
+#   RECEIPT        claim DONE + queue DONE or FREE  -- the DESIGNED steady state between a close and the next sweep
+#   AWAITING-SWEEP anything else                    -- a closed row whose two files have not met yet; never a lock
+#   ORPHAN         a claim file with no queue row at all -- invisible to every census that starts from QUEUE.tsv
+# ⛔ AND THE VERDICT IS NOT THE WHOLE ANSWER, because the picker does not read it: `next` skips a row if a claim file
+# EXISTS AT ALL, DONE or not (:2044, :2159). So a RECEIPT or an AWAITING-SWEEP sitting on a queue row that is NOT
+# done hides that row from the whole fleet with NOBODY holding it -- a lock in effect with no holder to ask. That
+# state has no name in the three-way taxonomy, so the census counts it separately rather than filing it under a
+# verdict that says "not a lock" about a row nobody can reach.
+s4e_claim_verdict() { _t="${1:-}"; _c="$PO/claims/$_t.claim"
+    [ -f "$_c" ] || { echo "-"; return; }
+    if grep -q '^DONE$' "$_c"; then _cs=DONE; else _cs=RUNNING; fi
+    _qs="$(awk -F'\t' -v T="$_t" '$2==T{print $4; exit}' "$PO/QUEUE.tsv" 2>/dev/null)"
+    [ -n "$_qs" ] || { echo "ORPHAN"; return; }
+    # ⛔⭐ "NOT DONE" IS THREE STATES, NOT ONE, AND READING IT AS ONE OVER-REPORTS -- measured by this very
+    # instrument on its first run (hq_T 2026-09-05). CEO-297 says "queue row is not DONE"; the live vocabulary
+    # closes a row THREE ways -- DONE, RETIRED and SUPERSEDED -- so a `DONE*` test called two closed rows open
+    # and printed them as hidden work. That is the same shape as the half-census this instrument exists to
+    # replace, reproduced inside the replacement, which is why the closed set is spelled out here once.
+    case "$_qs" in DONE*|RETIRED*|SUPERSEDED*) _qd=1;; *) _qd=0;; esac
+    if [ "$_cs" = RUNNING ]; then [ "$_qd" -eq 1 ] && echo "AWAITING-SWEEP" || echo "HELD"
+    else case "$_qs" in DONE*|RETIRED*|SUPERSEDED*|FREE*) echo "RECEIPT";; *) echo "AWAITING-SWEEP";; esac; fi; }
+# ⭐ TRUE when a claim hides its row from the picker while nobody is holding it -- the state above that the
+# three-way verdict cannot express. Read with the verdict, never instead of it.
+s4e_claim_blocks_free_row() { _t="${1:-}"
+    [ -f "$PO/claims/$_t.claim" ] || return 1
+    [ "$(s4e_claim_verdict "$_t")" = "HELD" ] && return 1
+    _q="$(awk -F'\t' -v T="$_t" '$2==T{print $4; exit}' "$PO/QUEUE.tsv" 2>/dev/null)"
+    [ -n "$_q" ] || return 1
+    # ⛔ ONLY A ROW THE PICKER WOULD OTHERWISE SERVE COUNTS. A PARKED, BLOCKED or GRANT-NEEDED row is deliberately
+    # not served, so a claim file on it costs the fleet nothing and naming it "hidden work" trains the eye to skip
+    # this alarm. The workable set is exactly what `next` will hand out: FREE, ASSIGNED, CLAIMED.
+    case "$_q" in FREE*|ASSIGNED*|CLAIMED*) return 0;; *) return 1;; esac; }
 # ⭐ banner-attributes-wrong-row-on-unclaim (s273): a SESSION-SCOPED receipt of the last row THIS seat
 # actually closed (released or done'd), written at the moment of the transition. banner's row1 fallback
 # (bare invocation, no $pref -- Stop hook, `board`) reads this instead of rescanning ALL historical claims
@@ -2361,7 +2403,10 @@ TASKEOF
          for seat in $(s4e_boxes | sort); do
            root="$(s4e_root "$seat")"
            row="-"; lockep=0; for c in "$PO"/claims/*.claim; do [ -f "$c" ] || continue
-             if [ "$(head -1 "$c")" = "$seat" ] && ! grep -q '^DONE$' "$c"; then row="$(basename "$c" .claim)"
+             # ⛔ THE JOINED TEST, NOT THE CLAIM STATUS ALONE (CEO-297): this line used `! grep DONE`, which
+             # reports a CLOSED row whose claim was never reconciled as an open lock -- 43 of the ceo's 52 at the
+             # FLEET-12 flip. LOCK AGE and "0 STALLED" hang off this row, so the half-test alarmed on rows nobody held.
+             if [ "$(head -1 "$c")" = "$seat" ] && [ "$(s4e_claim_verdict "$(basename "$c" .claim)")" = "HELD" ]; then row="$(basename "$c" .claim)"
                # ⛔ THE CLAIM FILE'S MTIME IS THE LOCK-ACQUISITION INSTANT AND NOTHING ELSE. It is not touched by
                # work, by commits, or by the seat running anything -- only by taking (or re-taking) the lock.
                lockep=$(stat -c %Y "$c" 2>/dev/null || echo 0); break; fi; done
@@ -2427,6 +2472,31 @@ TASKEOF
          while IFS=$'\t' read -r rank topic brief step; do case "$rank" in ''|\#*) continue;; esac
            tot=$((tot+1)); [ -f "$PO/claims/$topic.claim" ] || free=$((free+1)); done < "$PO/QUEUE.tsv" 2>/dev/null
          printf '\n  queue: %s rows, %s free for the picker (a row with ANY claim file, DONE or not, is hidden)\n' "$tot" "$free"
+         # ⛔⭐⭐ THE JOINED CLAIM CENSUS -- ONE INSTRUMENT, so the next flip runs this instead of two half-censuses
+         # that disagree (ceo CEO-297, asked for by name after the FLEET-12 flip produced exactly that). Verdict logic
+         # lives in s4e_claim_verdict; this block only counts and names. It prints EVERY held row with its holder, so
+         # "who is holding what" is answerable without reading the seat table above, which shows one row per seat.
+         _hf="$(mktemp)"; _bf="$(mktemp)"; nheld=0; nrec=0; nawait=0; norph=0; nblock=0
+         for c in "$PO"/claims/*.claim; do [ -f "$c" ] || continue
+           t="$(basename "$c" .claim)"; h="$(head -1 "$c")"; v="$(s4e_claim_verdict "$t")"
+           case "$v" in
+             HELD) nheld=$((nheld+1)); printf '  %-10s %-8s %s\n' "$h" "$(s4e_age_compact "$(stat -c %Y "$c" 2>/dev/null || echo 0)")" "$t" >> "$_hf";;
+             RECEIPT) nrec=$((nrec+1));;
+             AWAITING-SWEEP) nawait=$((nawait+1));;
+             ORPHAN) norph=$((norph+1));;
+           esac
+           if s4e_claim_blocks_free_row "$t"; then nblock=$((nblock+1))
+             printf '  %-10s %-14s %s\n' "$h" "$v" "$t" >> "$_bf"; fi; done
+         printf '  CLAIM CENSUS (joined verdict, CEO-297): HELD iff the claim says RUNNING AND the queue row is OPEN --\n'
+         printf '    open = not DONE, not RETIRED, not SUPERSEDED (the vocabulary closes a row three ways, not one).\n'
+         printf '    %s HELD  ·  %s RECEIPT  ·  %s AWAITING-SWEEP  ·  %s ORPHAN\n' "$nheld" "$nrec" "$nawait" "$norph"
+         if [ "$nheld" -gt 0 ]; then printf '    HELD rows (holder / lock age / row) -- the only ones a release would free:\n'; sort "$_hf"; fi
+         if [ "$nblock" -gt 0 ]; then
+           printf '  ⛔ %s row(s) HIDDEN FROM THE PICKER WITH NOBODY HOLDING THEM -- the queue row is not DONE, so the row is\n' "$nblock"
+           printf '     open work, but a claim file exists and `next` skips ANY claimed row (:2044, :2159). No holder to ask,\n'
+           printf '     no lock to release by its owner: an HQ frees these with `unclaim <row> "<why>"`.\n'
+           sort "$_bf"; fi
+         rm -f "$_hf" "$_bf"
          printf '  Q = questions from that seat waiting on ANY HQ.  MAIL = unread in its inbox / age of the oldest.\n'
          printf '  ⛔ LOCK AGE = how long the CLAIM FILE has existed = when the lock was TAKEN. It is NOT a work signal:\n'
          printf '     a seat that claimed a row and stalled prints the same number as a seat mid-cure. COMMITS SINCE LOCK\n'
