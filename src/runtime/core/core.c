@@ -1397,6 +1397,14 @@ static DESCR_t _SETEXIT_(DESCR_t *a, int n) {
         return prev;
     }
     const char *lbl = VARVAL_fn(a[0]);
+    if (lbl && *lbl) {
+        extern void *rt_entry_resolve(const char *, int *);
+        int frag = 0;
+        if (!rt_entry_resolve(lbl, &frag)) {
+            core_runtime_error(187, "setexit argument is not label name or null");
+            return prev;
+        }
+    }
     if (lbl) strncpy(_setexit_label, lbl, sizeof(_setexit_label)-1);
     return prev;
 }
