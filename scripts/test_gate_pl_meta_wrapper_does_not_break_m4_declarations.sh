@@ -31,6 +31,14 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && p
 RUNNER="$HERE/test_prolog_ladder.sh"
 [ -x "$RUNNER" ] || { echo "REFUSE (rc=2): no test_prolog_ladder.sh at $RUNNER"; exit 2; }
 [ -x "$ROOT/scrip" ] || { echo "REFUSE (rc=2): no built ./scrip in $ROOT -- run make first"; exit 2; }
+# ⛔ AND NOT MERELY PRESENT -- CURRENT. This gate's whole verdict is a claim about how a BUILT BINARY behaves
+# in m4, so a binary older than the sources is a verdict about a tree nobody has. -x answers "does a file
+# exist", which is the narrower question, and the two are indistinguishable in the output.
+# ⭐ THE SHIM, NOT A COPY: every rule about what counts as stale lives in gate_require_fresh (lib_gate.sh);
+# util_require_fresh.sh is a calling convention over it. A fourth copy of the staleness idea is exactly what
+# that file exists to prevent (hq_B, added 2026-09-06 after ARM 15 of test_gate_runners_refuse_on_a_stale_binary.sh
+# named this gate as the 1 of 112 executing scrip with no guard, reddening make test for the whole fleet).
+"$HERE/util_require_fresh.sh" --gate "pl_meta_wrapper_does_not_break_m4_declarations" "$ROOT/scrip" "$ROOT/out/libscrip_rt.so" || exit 2
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 # WITNESS<TAB>RUNG -- the two the registration broke, each graded on the rung that owns it.
 WITNESSES="ladder__rung06_declarations_dynamic	6
