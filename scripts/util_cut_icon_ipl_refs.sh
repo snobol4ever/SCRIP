@@ -101,7 +101,7 @@ fi
 TOTAL=${#FILES[@]}
 [ "$TOTAL" -gt 0 ] || { echo "⛔ GATE REFUSES: zero .icn files found under $PROGS" >&2; exit 2; }
 
-n_live=0; n_mint=0; n_empty=0; n_fail=0; n_display=0; n_timeout=0; n_suspect=0; n_nondet=0; n_havestd=0; n_oversized=0
+n_live=0; n_mint=0; n_empty=0; n_fail=0; n_display=0; n_timeout=0; n_suspect=0; n_undeclared=0; n_nondet=0; n_havestd=0; n_oversized=0
 OUT1="$(mktemp "${TMPDIR:-/tmp}/ipl_ref_out1.XXXXXX")"; OUT2="$(mktemp "${TMPDIR:-/tmp}/ipl_ref_out2.XXXXXX")"
 HOLD="$(mktemp -d "${TMPDIR:-/tmp}/ipl_ref_hold.XXXXXX")"
 trap 'cleanup_template; rm -f "$OUT1" "$OUT2"; rm -rf "$HOLD"' EXIT
@@ -167,6 +167,29 @@ for f in "${FILES[@]}"; do
   fi
   if [ "$by1" -eq 0 ]; then
     n_empty=$((n_empty+1)); printf 'EMPTY\t%s\t0\t0\tNOT MINTED -- rc=0, zero bytes; a 0-byte .std pins "produced nothing" as correct\n' "$f"
+    continue
+  fi
+  # ⛔⭐ UNDECLARED_IDENTIFIER (seat07, STEP-1B verification, 2026-09-06): the SAME icont-symlink shape
+  # DISPLAY_REFUSED's own comment above names -- "the one-step `icon` driver ... prints icont's benign
+  # link-time 'undeclared identifier' warnings" -- but for a DIFFERENT failure point. DISPLAY_REFUSED
+  # catches a RUNTIME refusal ("can't open display") that happens to have link warnings printed before
+  # it; this catches programs where NO runtime refusal ever fires because nothing ever reaches the
+  # missing symbol at all -- the warning IS the entire output, rc=0, and it is exactly as reproducible
+  # across runs as real behavior would be, so every existing LIVE gate (rc, nonempty, determinism,
+  # usage-banner) passes on it. MEASURED against gprogs/ specifically: of the 27 files this script
+  # currently reports LIVE for that population, 26 (every one except rows2blp) are this shape, not real
+  # program output -- confirmed individually via ipl_isolation_run, not sampled. blp2grid.icn's entire
+  # "output" is 8 lines naming WriteImage/WAttrib/Pattern/Bg/Fg/DrawLine/FillRectangle as undeclared,
+  # zero bytes of anything else -- this oracle build has no graphics facility, so nearly every gprogs/
+  # program references an unresolved graphics builtin somewhere in its link closure even when the
+  # program's own logic never calls it. Same root cause as DISPLAY_REFUSED (no graphics facility), a
+  # different failure point (link-time unresolved symbol, never reaches a runtime WOpen call at all) --
+  # kept as its own class rather than folded into DISPLAY_REFUSED so the evidence stays honest about
+  # which one actually happened. Checked over the WHOLE output, same discipline as DISPLAY_REFUSED above,
+  # not just line 1 (SUSPECT_USAGE's narrower scope) -- icont can print several before or after any real
+  # output the program does produce.
+  if printf '%s' "$out1" | grep -qE ': "[^"]+": undeclared identifier, procedure '; then
+    n_undeclared=$((n_undeclared+1)); printf 'UNDECLARED_IDENTIFIER\t%s\t0\t%s\tNOT MINTED -- output contains an icont link-time unresolved-identifier diagnostic, not real program behavior: %s\n' "$f" "$by1" "$(printf '%s' "$out1" | grep -m1 ': "[^"]*": undeclared identifier, procedure ')"
     continue
   fi
   if printf '%s' "$out1" | head -1 | grep -qiE '^(usage|error)[: ]'; then
@@ -268,8 +291,8 @@ if [ "${#CANDS[@]}" -gt 0 ]; then
   done
 fi
 echo "----"
-printf 'TOTALS[%s]: LIVE %d (minted %d, minute-rejected %d) · HAVE_STD %d · EMPTY %d · SUSPECT_USAGE %d · NONDETERMINISTIC %d · ORACLE_FAIL %d · DISPLAY_REFUSED %d · TIMEOUT %d · OVERSIZED %d · total=%d\n' \
-  "$SUBDIR" "$n_live" "$n_mint" "$n_minute_reject" "$n_havestd" "$n_empty" "$n_suspect" "$n_nondet" "$n_fail" "$n_display" "$n_timeout" "$n_oversized" "$TOTAL"
+printf 'TOTALS[%s]: LIVE %d (minted %d, minute-rejected %d) · HAVE_STD %d · EMPTY %d · SUSPECT_USAGE %d · UNDECLARED_IDENTIFIER %d · NONDETERMINISTIC %d · ORACLE_FAIL %d · DISPLAY_REFUSED %d · TIMEOUT %d · OVERSIZED %d · total=%d\n' \
+  "$SUBDIR" "$n_live" "$n_mint" "$n_minute_reject" "$n_havestd" "$n_empty" "$n_suspect" "$n_undeclared" "$n_nondet" "$n_fail" "$n_display" "$n_timeout" "$n_oversized" "$TOTAL"
 [ -n "$APPLY" ] || echo "(census only -- nothing written; re-run with --apply to mint)"
 # ── belt-and-suspenders: prove the tracked tree is still exactly what HEAD says, every run, census or not.
 if git -C "$S4E/corpus" diff --quiet -- packages/icon/ipl/progs packages/icon/ipl/gprogs packages/icon/ipl/procs packages/icon/ipl/gprocs packages/icon/ipl/incl packages/icon/ipl/gincl 2>/dev/null \
