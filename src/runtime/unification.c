@@ -1562,7 +1562,7 @@ void *rt_pl_ball_evaluable(const char *name, int arity)
     extern void *rt_pl_ball_type_pi(const char *kind, const char *what, const char *nm, int ar);
     return rt_pl_ball_type_pi("type_error", "evaluable", name, arity);
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_ball_type_pi(const char *kind, const char *what, const char *nm, int ar)
 {
     extern DESCR_t rt_pl_fresh_var_ref(void);
