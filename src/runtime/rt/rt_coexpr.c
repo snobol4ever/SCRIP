@@ -37,6 +37,7 @@ static void *scrip_co_trampoline(void *arg) {
     scrip_coctx_t *self = (scrip_coctx_t *)arg;
     while (sem_wait(self->semp) < 0) if (errno != EINTR) scrip_co_uerror("scrip_coexpr: sem_wait in trampoline");
     scrip_co_current = self;
+    if (setjmp(self->exit_jmp) != 0) return NULL;
     self->entry_fn(self->entry_arg);
     fprintf(stderr, "scrip_coexpr: FATAL entry_fn returned to trampoline instead of switching away -- RUNG 3/4 bug\n");
     abort();
@@ -75,7 +76,7 @@ void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first) {
     { extern void rtcc_coexpr_save(uint64_t *); rtcc_coexpr_save(old->rtcc_spill); }
     sem_post(new_ctx->semp);
     while (sem_wait(old->semp) < 0) if (errno != EINTR) scrip_co_uerror("scrip_coexpr: sem_wait in scrip_coswitch");
-    if (!old->alive) pthread_exit(NULL);
+    if (!old->alive) longjmp(old->exit_jmp, 1);
     { extern void rtcc_coexpr_restore(const uint64_t *); rtcc_coexpr_restore(old->rtcc_spill); }
     { extern void rt_scan_state_apply(void *); rt_scan_state_apply(old->scan_state); }
 }

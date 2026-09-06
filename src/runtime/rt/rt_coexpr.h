@@ -3,6 +3,7 @@
 #define RT_COEXPR_H
 #include <pthread.h>
 #include <semaphore.h>
+#include <setjmp.h>
 #include <stdint.h>
 #ifdef __cplusplus
 extern "C" {
@@ -24,6 +25,7 @@ typedef struct scrip_coctx_t {
     void *scan_state;
     uint64_t rtcc_spill[32];
     long serial;
+    jmp_buf exit_jmp;
 } scrip_coctx_t;
 void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first);
 void scrip_coexpr_destroy(scrip_coctx_t *ctx);
