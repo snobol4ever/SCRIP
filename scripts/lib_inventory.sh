@@ -80,7 +80,27 @@
 # same underlying property as the UNGRADED test wearing its other face. ORACLE_REFUSES stays for rulings that
 # can only ever be revisited one program at a time. Note NEEDS_INTERACTIVE_TTY was already this family; naming
 # the principle that admitted it means the next such class needs no HQ round trip.
-INV_CLASS_UNGRADABLE="CONTAINER_OR_LIBRARY NO_ORACLE_SHIPPED ORACLE_REFUSES ORACLE_CONTRACT_NOT_IMPLEMENTED NEEDS_INPUT NEEDS_INTERACTIVE_TTY NEEDS_DISPLAY NONDETERMINISTIC"
+# ⭐⭐ TWO REASONS ADMITTED 2026-09-06 (hq_T ruling, asked for by hq_I off four ipl rows), AND THEY ARE THE
+# FIRST TWO WHERE THE LIMIT IS THE INSTRUMENT OR THE BOX RATHER THAN THE PROGRAM OR THE ORACLE. The test they
+# had to pass is hq_I's and it is the one to apply to a third: UNGRADABLE MEANS NOBODY OWES WORK, SO EVERY
+# REASON MUST TELL A READER SOMETHING THEY CAN ACT ON -- a name that makes a reader re-open a closed ruling has
+# NEGATIVE value.
+#   RESULT_NOT_ON_STDOUT -- the program's observable result is a WRITTEN FILE; the instrument compares combined
+#     stdout+stderr against a .std, so it can only ever pin a 0-byte ref. ⛔ This is the one reason here that is
+#     a fact about THE INSTRUMENT, which is why it is not a variant of the others: the rest are closed rulings,
+#     this one is OPEN and names a capability the harness lacks (it can neither FEED a named file nor OBSERVE
+#     one -- hq_T holds that row, paired with hq_P's declared data-file sidecar gap). Overturned for the whole
+#     class at once the day the harness can observe a named output file, which is the UNGRADABLE admission test.
+#     ⛔ DO NOT grade these on their error path instead: pinning a program's own complaint as its ground truth
+#     grades nothing the program is for and produces a GREEN cell over a program that never did its job. hq_I
+#     measured exactly that trap while cutting these three -- idxtext prints 23 bytes at rc=1 on plain text and
+#     ZERO bytes at rc=0 on the gettext-format input it is actually for.
+#   ENVIRONMENT_IDENTITY_IN_OUTPUT -- the output carries WHO OR WHERE THE RUN HAPPENED (user, host, path), so a
+#     ref cut here is valid only here. ⭐ STABLE IN TIME, VARIES IN SPACE, and that axis is kept in this
+#     documentation deliberately, because it is what stops the next reader reaching for NONDETERMINISTIC: nobody
+#     can fix this by re-running, and a run-twice check sees a byte-stable program and calls the ruling wrong.
+#     The name has to say WHERE rather than WHEN.
+INV_CLASS_UNGRADABLE="CONTAINER_OR_LIBRARY NO_ORACLE_SHIPPED ORACLE_REFUSES ORACLE_CONTRACT_NOT_IMPLEMENTED NEEDS_INPUT NEEDS_INTERACTIVE_TTY NEEDS_DISPLAY NONDETERMINISTIC RESULT_NOT_ON_STDOUT ENVIRONMENT_IDENTITY_IN_OUTPUT"
 # THE TIE-BREAK, AND IT IS THE MOST LOAD-BEARING SENTENCE IN THIS FILE (hq_T, ruling hq_P's three gimpel
 # ERROR-285 drivers, 2026-09-06). hq_P found three rows whose bucket turns on ONE UNMEASURED FACT: FRSORT,
 # TIMEGC and TIMER die "include file cannot be opened" because the include chain wants stringout.sno,
