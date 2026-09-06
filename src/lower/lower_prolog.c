@@ -179,7 +179,7 @@ static IR_t * unify_pair(lcx_t * cx, const tree_t * lt, const tree_t * rt, IR_t 
 static const char * pl_rung6_builtins[] = { "=..", "==", "@<", "@=<", "@>", "@>=", "\\==", "acyclic_term", "arg", "atom", "atom_chars", "atom_codes",
     "atom_concat", "atom_length", "atom_number", "atom_string", "atomic", "atomic_list_concat", "callable", "char_type", "compound", "concat_atom", "copy_term", "downcase_atom", "float", "format",
     "functor", "ground", "integer", "is_list", "msort", "name", "nonvar", "number", "number_chars", "number_codes", "number_string", "numbervars", "plus", "print", "sort", "string_chars",
-    "string_codes", "string_concat", "string_length", "string_lower", "string_to_atom", "string_upper", "succ", "tab", "term_string", "term_to_atom", "upcase_atom", "var", "write_canonical",
+    "string_codes", "string_concat", "string_length", "string_lower", "string_to_atom", "string_upper", "succ", "tab", "term_string", "term_to_atom", "term_variables", "upcase_atom", "var", "write_canonical",
     "writeln", "writeq", "put_char", "halt", "flush_output", "read", "read_term", "get_char", "peek_char", "nl", "write", NULL };
 static const char * pl_rung7_builtins[] = { "between", "repeat", "clause", "retract", "sub_atom", "for", "current_op", "current_predicate", "predicate_property",
     "current_prolog_flag", "current_stream", "stream_property", NULL };
@@ -476,7 +476,7 @@ static const pl_det_leaf_t pl_det_leaves[] = {
     { "var", 1, "$var" }, { "nonvar", 1, "$nonvar" }, { "atom", 1, "$atom" }, { "number", 1, "$number" }, { "integer", 1, "$integer" }, { "float", 1, "$float" }, { "atomic", 1, "$atomic" },
     { "compound", 1, "$compound" }, { "callable", 1, "$callable" }, { "ground", 1, "$ground" }, { "is_list", 1, "$is_list" }, { "acyclic_term", 1, "$acyclic_term" }, { "==", 2, "$atop_eq" },
     { "\\==", 2, "$atop_ne" }, { "@<", 2, "$atop_lt" }, { "@=<", 2, "$atop_le" }, { "@>", 2, "$atop_gt" }, { "@>=", 2, "$atop_ge" }, { "compare", 3, "$compare" }, { "functor", 3, "$functor" },
-    { "arg", 3, "$arg" }, { "=..", 2, "$univ" }, { "copy_term", 2, "$copy_term" }, { "numbervars", 3, "$numbervars3" }, { "numbervars", 1, "$numbervars1" }, { "succ", 2, "$succ" },
+    { "arg", 3, "$arg" }, { "=..", 2, "$univ" }, { "copy_term", 2, "$copy_term" }, { "term_variables", 2, "$term_variables" }, { "numbervars", 3, "$numbervars3" }, { "numbervars", 1, "$numbervars1" }, { "succ", 2, "$succ" },
     { "plus", 3, "$plus" }, { "sort", 2, "$sort" }, { "msort", 2, "$msort" }, { "char_type", 2, "$char_type" }, { "term_string", 2, "$term_string" }, { "term_to_atom", 2, "$term_string" },
     { "atom_length", 2, "$atom_length" }, { "atom_concat", 3, "$atom_concat" }, { "atom_chars", 2, "$atom_chars" }, { "atom_codes", 2, "$atom_codes" }, { "atom_number", 2, "$atom_number" },
     { "atom_string", 2, "$atom_string" }, { "upcase_atom", 2, "$upcase_atom" }, { "downcase_atom", 2, "$downcase_atom" }, { "string_concat", 3, "$string_concat" },
@@ -901,6 +901,10 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             if (!pn) pl_refuse("clause/2 whose head is not a callable term known at compile time --", nm, 7);
             if (!pl_db_owned(pn, ar)) pl_refuse("clause/2 on a predicate that has clauses in the file (reflecting a wired box needs the proc table, rung 10b follow-up) --", pn, 7);
             pl_refuse("clause/2 on a dynamic predicate -- the clause-list INTERPRETER that served it is DELETED (Lon 2026-09-03: it is all code, not data); the compiled-clause path lands it --", pn, 10); }
+        if (!strcmp(nm, "current_predicate") && t->n == 1) {
+            int ar = 0; const char * pn = pl_spec_key(t->c[0], &ar);
+            if (!pn) pl_refuse("current_predicate/1 argument that is not a literal Name/Arity known at compile time -- ISO 8.8.2's general backtracking-over-every-predicate mode needs a proc-table generator design, not yet built --", nm, 7);
+            return (pl_file_defines(pn, ar) || pl_dyn_index(pn, ar) >= 0) ? build(cx, IR_SUCCEED, γnext, ωfail) : build(cx, IR_GOTO, ωfail, ωfail); }
         if (!strcmp(nm, "dynamic") && t->n >= 1) return build(cx, IR_SUCCEED, γnext, ωfail);
         if (!strcmp(nm, "char_conversion") && t->n == 2) {
             (void) pl_dyn_index_or_add("$pl_cconv", 2);

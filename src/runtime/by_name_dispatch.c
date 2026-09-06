@@ -1473,6 +1473,7 @@ int rt_pl_compare_cell(void *, void *, void *, pl_tr_ctx_t *);int rt_pl_atop_cel
     void rt_pl_write_canonical_cell(void *);
 void rt_pl_format_cell(const char *, void *);int rt_pl_char_type_cell(void *, void *, void *, pl_tr_ctx_t *);int rt_pl_term_string_cell(void *, void *, pl_tr_ctx_t *);
     int rt_pl_copy_term_cell(void *, void *, pl_tr_ctx_t *);
+int rt_pl_term_variables_cell(void *, void *, void *, pl_tr_ctx_t *);
 int rt_pl_numbervars_cell(void *, void *, void *, pl_tr_ctx_t *); int rt_pl_numbervars1_cell(void *, pl_tr_ctx_t *); int rt_pl_sort_cell(int, void *, void *, pl_tr_ctx_t *);
 static DESCR_t pl_ok(void) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
 static void pl_atoms_ready(void) { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT <= 0) prolog_atom_init(); }
@@ -1588,6 +1589,7 @@ PL_CX_LEAF_HEAD(functor, 3) ok = rt_pl_functor_cell(&args[0], &args[1], &args[2]
 PL_CX_LEAF_HEAD(arg, 3) ok = rt_pl_arg_cell(&args[0], &args[1], &args[2], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(univ, 2) ok = rt_pl_univ_cell(&args[0], &args[1], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(copy_term, 2) ok = rt_pl_copy_term_cell(&args[0], &args[1], cx); PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(term_variables, 2) ok = rt_pl_term_variables_cell(&args[0], &args[1], (void *)0, cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(numbervars3, 3) ok = rt_pl_numbervars_cell(&args[0], &args[1], &args[2], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(numbervars1, 1) ok = rt_pl_numbervars1_cell(&args[0], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(succ, 2) ok = rt_pl_succ_plus_cell(2, &args[0], &args[1], (void *)0, cx); PL_CX_LEAF_TAIL

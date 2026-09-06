@@ -1077,7 +1077,7 @@ static void rt_pl_tv_walk(pl_cell_t *c, pl_cell_t **pool, int *pool_n, int cap) 
     if ((int)d->v == (int)DT_PLREF) { int ar = (int)(d->slen & 0xFFFFu); pl_cell_t *aa = (pl_cell_t *)d->p; for (int i = 0; i < ar; i++) rt_pl_tv_walk(&aa[i], pool, pool_n, cap); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_term_variables_cell(void *term_cell, void *vars_cell, void *tail_cell)
+int rt_pl_term_variables_cell(void *term_cell, void *vars_cell, void *tail_cell, pl_tr_ctx_t *cx)
 {
     pl_cell_t *pool[8192]; int pn = 0;
     rt_pl_tv_walk((pl_cell_t *)term_cell, pool, &pn, 8192);
@@ -1089,7 +1089,7 @@ int rt_pl_term_variables_cell(void *term_cell, void *vars_cell, void *tail_cell)
         blk[0] = pl_make_ref(pool[i], (int)pool[i]->slen); blk[1] = result;
         result = pl_make_compound(dot_id, 2, blk);
     }
-    if (!pl_unify((pl_cell_t *)vars_cell, &result)) { return 0; }
+    if (!plc_unify_cells_cx((pl_cell_t *)vars_cell, &result, cx)) { return 0; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
