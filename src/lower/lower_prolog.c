@@ -812,7 +812,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             else { extra = (const tree_t * const *) &t->c[1]; nextra = t->n - 1; }
             if (t->c[0] && t->c[0]->t == TT_VAR) return pl_meta_call_dyn(cx, t->c[0], extra, nextra, γnext, ωfail, entry_out);
             const tree_t * ext = pl_meta_goal(t->c[0], extra, nextra);
-            if (!ext) pl_refuse("meta-call whose goal is not a callable term known at compile time --", nm, 10);
+            if (!ext) return goal(cx, pl_cc_fnc1("throw", pl_cc_fnc2("error", pl_cc_fnc2("type_error", (tree_t *) pl_atom_goal("callable"), (tree_t *) t->c[0]), pl_cc_pi_ar(nm, t->n))), γnext, ωfail, entry_out);
             IR_t * saveω = cx->cutω; cx->cutω = ωfail;
             IR_t * r = goal(cx, ext, γnext, ωfail, entry_out);
             cx->cutω = saveω;
@@ -1304,7 +1304,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
           { int bb_idx = lower_pl_pred_graph(key, ch); if (bb_idx < 0) continue;
             pl_bb_register(key, 2, bb_idx); pl_new_proc(key, 2, bb_idx); } } } }
     { extern tree_t * pl_runtime_clause_tree(tree_t *);
-      static const pl_det_leaf_t pl_meta_early[] = { { "write", 1, "$write" }, { "nl", 0, "$nl" }, { "true", 0, "$true" }, { "fail", 0, "$fail" }, { "false", 0, "$fail" }, { "throw", 1, "$throw" }, { 0, 0, 0 } };
+      static const pl_det_leaf_t pl_meta_early[] = { { "write", 1, "$write" }, { "nl", 0, "$nl" }, { "true", 0, "$true" }, { "fail", 0, "$fail" }, { "false", 0, "$fail" }, { "throw", 1, "$throw" }, { "=", 2, "$unify" }, { 0, 0, 0 } };
       for (int tbl = 0; tbl < 2; tbl++)
       for (int li = 0; (tbl ? pl_meta_early[li].nm : pl_det_leaves[li].nm); li++) {
         const char * bn = tbl ? pl_meta_early[li].nm : pl_det_leaves[li].nm;
