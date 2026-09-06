@@ -16,12 +16,14 @@
 # form the oracle accepts. Curing only the NRETURN arm would leave half an inversion standing, still green
 # on any gate that asked only "does :(GOF()) reach L3". So a one-armed pass here is a RED, not a partial.
 #
-# ⛔ WHAT THIS GATE DOES NOT CLAIM: that a by-name goto target may be the special transfer RETURN. It may
-# not, yet -- `RET = .RETURN :(NRETURN)`, the published STATEF.inc/POKEV.inc idiom, resolves the NAME
-# correctly and then dies ERROR 038 "transfer to undefined label: RETURN" because the three function-return
-# landings are compile-time per-graph wirings and the by-name target is chosen at run time. That is a
-# SECOND, distinct mechanism and it has its own row. Pinning it here would make this gate red for a defect
-# it does not test.
+# ⛔ WHAT THIS GATE DOES NOT CLAIM, AND THE STATUS LINE THAT WENT STALE: that a run-time-resolved goto
+# target may name the special transfer RETURN. ⭐ IT MAY, AS OF 2026-09-06 -- this header previously read
+# "it may not, yet", and that sentence is now WRONG. `RET = .RETURN :(NRETURN)`, the published
+# STATEF.inc/POKEV.inc idiom, used to resolve the NAME correctly and then die ERROR 038 "transfer to
+# undefined label: RETURN"; it is cured (hq_P, row snobol4-a-by-name-goto-target-may-be-the-special-
+# transfer-return) and graded by its OWN gate, test_gate_sno_goto_special_transfer_target.sh. That is still
+# a SECOND, distinct mechanism and it still does not belong here -- but it is now GREEN elsewhere rather
+# than open, so do not read this gate's silence as evidence the construct is unsupported.
 #
 # EXIT: 0 both arms match SPITBOL. 1 an arm regressed. 2 UNPROVEN (no built scrip).
 set -u

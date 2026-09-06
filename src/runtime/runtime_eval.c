@@ -327,6 +327,25 @@ static eval_chain_fn rt_label_get_fn(const char *name) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rt_goto_peek_name(const char *name) {
+    if (!name || !*name) return NULL;
+    if (name[0] != '$' && name[0] != '@') return NULL;
+    DESCR_t iv = NV_GET_fn(name + 1);
+    if (name[0] == '@' && iv.v != DT_N) return NULL;
+    if (iv.v == DT_FAIL) return NULL;
+    if (iv.v != DT_N) { DESCR_t s = VARVAL_d_fn(iv); if (s.v == DT_S && s.s && descr_slen(s) > 0) return rt_cstr_d(s); return NULL; }
+    return VARVAL_fn(iv);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_sno_goto_special_is(const char *enc) {
+    if (!enc || enc[0] != '^' || !enc[1]) return 0;
+    const char *want = (enc[1] == 'R') ? "RETURN" : (enc[1] == 'F') ? "FRETURN" : (enc[1] == 'N') ? "NRETURN" : NULL;
+    if (!want) return 0;
+    const char *got = rt_goto_peek_name(enc + 2);
+    return (got && !strcmp(got, want)) ? 1 : 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void *rt_goto_resolve_x(const char *name, int *undef)
 {
     if (!name || !*name) return NULL;

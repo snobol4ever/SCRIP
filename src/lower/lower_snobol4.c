@@ -834,13 +834,26 @@ static const tree_t * sgoto_direct(const tree_t * s, tree_e kind) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * sno_goto_special_chain(IR_graph_t * g, const char * dn, IR_t * tail) {
+    static int _sp = -1; if (_sp < 0) { const char * e = getenv("SCRIP_GOTO_SPECIAL_TRANSFER"); _sp = (e && *e == '0') ? 0 : 1; }
+    if (!_sp || !dn || (dn[0] != '$' && dn[0] != '@')) return tail;
+    static const char sc[3] = { 'N', 'F', 'R' }; static const char * sn[3] = { "NRETURN", "FRETURN", "RETURN" };
+    size_t dl = strlen(dn); IR_t * head = tail;
+    for (int k = 0; k < 3; k++) {
+        IR_t * land = bb_label_landing(sn[k]); if (!land) continue;
+        char * te = (char *) rt_ws_alloc(dl + 3); te[0] = '^'; te[1] = sc[k]; memcpy(te + 2, dn, dl + 1);
+        IR_t * t = lc_build(g, IR_GOTO_DEFERRED, land, head); IR_LIT(t).sval = te; head = t;
+    }
+    return head;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_goto_target(IR_graph_t * g, const char * nm, IR_t * exitnd) {
     IR_t * l = (nm && nm[0] != '$') ? bb_label_landing(nm) : NULL;
     if (l) return l;
     if (!nm || !nm[0]) sno_fatal("goto to unknown label", "?");
     IR_t * gd = lc_build(g, IR_GOTO_DEFERRED, exitnd, NULL);
     IR_LIT(gd).sval = lp_strdup(nm);
-    return gd;
+    return sno_goto_special_chain(g, IR_LIT(gd).sval, gd);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_goto_computed_target(IR_graph_t * g, scx_t * cx, const tree_t * expr, IR_t * exitnd) {
@@ -851,7 +864,7 @@ static IR_t * sno_goto_computed_target(IR_graph_t * g, scx_t * cx, const tree_t 
     char * tmpn = lp_strdup(nmb); sno_reg_var(tmpn);
     size_t ln = strlen(tmpn); char * dn = (char *) rt_ws_alloc(ln + 2); dn[0] = by_name ? '@' : '$'; memcpy(dn + 1, tmpn, ln); dn[ln + 1] = 0;
     IR_t * gd = lc_build(g, IR_GOTO_DEFERRED, exitnd, NULL); IR_LIT(gd).sval = dn;
-    IR_t * asn = lc_build(g, IR_ASSIGN, gd, gd); IR_LIT(asn).sval = tmpn;
+    IR_t * asn = lc_build(g, IR_ASSIGN, sno_goto_special_chain(g, dn, gd), gd); IR_LIT(asn).sval = tmpn;
     IR_t * vr = NULL; IR_t * ec = sx_lower(cx, expr, asn, gd, &vr);
     ir_operand_push(asn, vr);
     if (!by_name) return ec;

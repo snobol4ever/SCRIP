@@ -6,6 +6,7 @@ extern "C" {
 #include "bb_templates.h"
 int rt_goto_transfer(const char *name);
 void *rt_goto_resolve(const char *name);
+int rt_sno_goto_special_is(const char *enc);
 extern int g_rt_fragment_emit;
 int xa_flat_class_c_pred(void);
 }
@@ -19,6 +20,18 @@ static std::string bb_goto_deferred_frame_release() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_goto_deferred() {
     x86_begin();
+    if (_.op_sval && _.op_sval[0] == '^') {
+        return x86("comment", "IR_GOTO_DEFERRED (SPECIAL-TRANSFER TEST: gamma = this graph's own RETURN/FRETURN/NRETURN landing, omega = the next test then the ordinary resolve)")
+             + x86_alpha()
+             + x86_align_enter()
+             + x86_ro_load_q("rdi", 0)
+             + x86("call", "rt_sno_goto_special_is", (uint64_t)(uintptr_t)(void *)rt_sno_goto_special_is)
+             + x86_align_leave()
+             + x86("test", "rax", "rax")
+             + x86_omega("jz")
+             + x86_gamma()
+             + x86_ro_seal_str(0, _.op_sval);
+    }
     { static int _df = -1; if (_df < 0)
         { const char * e = getenv("SCRIP_DEFINE_FOLD"); _df = (e && *e == '0') ? 0 : 1; }
     if (_df && _.op_ival == 1 && _.op_sval && _.op_sval[0] && _.op_sval[0] != '$') {
