@@ -170,6 +170,24 @@ for goal, want in sibs:
 # for, and any suite that merges the streams or greps stderr saw a spurious line on a passing program.
 # ⭐ THE CURE MUST NOT SILENCE CONSULT: a malformed clause in a loaded file still reports loudly, which is why
 # the arm below grades the READ path only and the consult path is checked separately in ARM C.
+# ⛔ CONTROL OPERATORS AT TOP LEVEL OF A READ TERM. read/1 wraps the text as '$rd'(TEXT) to parse a bare term in
+# clause position; with a single paren a TOP-LEVEL COMMA became $rd's own ARGUMENT SEPARATOR, so the wrap produced
+# $rd/2, the arity check rejected it, and `a:-b,c.` -- an ordinary clause -- raised syntax_error. Both oracles read
+# all of these. The wrap is now '$rd'((TEXT)); these witnesses pin that, and the no-comma rows are the controls
+# that would catch a cure which simply stopped checking the arity.
+with open(prog, "w") as f: f.write(SRC)
+for text, want in (("a:-b,c.", "a:-b,c"), ("b,c;d.", "b,c;d"), ("a:-b,c;d.", "a:-b,c;d"),
+                   ("a:-b,c;d->e.", "a:-b,c;d->e"), ("a:-(b,c;d).", "a:-b,c;d"),
+                   ("a:-b.", "a:-b"), ("a;b.", "a;b"), ("a->b.", "a->b"), ("f(a,b).", "f(a,b)")):
+    with open(inp, "w") as f: f.write(text + "\n")
+    graded += 1
+    r = subprocess.run([scrip, prog], capture_output=True, text=True, timeout=15, stdin=subprocess.DEVNULL, cwd=tmp)
+    o = r.stdout
+    if "@ER" in o: fails += 1; rows.append((text, "m3", want, "raised syntax_error on a term BOTH oracles read"))
+    elif "@OK(" not in o: fails += 1; rows.append((text, "m3", want, "no term"))
+    else:
+        got = o[o.find("@OK(") + 4:o.rfind(")")]
+        if got != want: fails += 1; rows.append((text, "m3", want, "read back %r" % got))
 # ⛔ REWRITE prog FIRST: the sibling loop above overwrites it, so without this the arm silently graded a
 # read_term_from_atom program instead of the stream reader and PASSED against a binary that HAD the defect.
 with open(prog, "w") as f: f.write(SRC)

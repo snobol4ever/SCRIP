@@ -1882,12 +1882,12 @@ static int pl_text_is_unbalanced(const char *s) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_parse_term_text(const char *txt, DESCR_t *out, pl_vtab_t *vt, PlProgram **pg_out) {
-    size_t L = strlen(txt); char *text = (char *)rt_ws_alloc(L + 16); size_t e;
+    size_t L = strlen(txt); char *text = (char *)rt_ws_alloc(L + 20); size_t e;
     if (pl_text_is_unbalanced(txt)) return 0;
-    memcpy(text, "'$rd'(", 6); memcpy(text + 6, txt, L); e = 6 + L;
-    while (e > 6 && (text[e - 1] == ' ' || text[e - 1] == '\n' || text[e - 1] == '\t' || text[e - 1] == '\r')) e--;
-    if (e > 6 && text[e - 1] == '.') e--;
-    text[e] = ')'; text[e + 1] = '.'; text[e + 2] = '\n'; text[e + 3] = 0;
+    memcpy(text, "'$rd'((", 7); memcpy(text + 7, txt, L); e = 7 + L;
+    while (e > 7 && (text[e - 1] == ' ' || text[e - 1] == '\n' || text[e - 1] == '\t' || text[e - 1] == '\r')) e--;
+    if (e > 7 && text[e - 1] == '.') e--;
+    text[e] = ')'; text[e + 1] = ')'; text[e + 2] = '.'; text[e + 3] = '\n'; text[e + 4] = 0;
     { extern PlProgram *prolog_parse_ex(const char *, const char *, int); PlProgram *pg = prolog_parse_ex(text, "user_input", 1); const tree_t *tr = (pg && pg->head) ? pg->head->tr : (const tree_t *)0;
       if (tr && tr->t == TT_CLAUSE && tr->n >= 1) tr = tr->c[0];
       if (pg_out) *pg_out = pg;
