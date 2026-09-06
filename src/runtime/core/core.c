@@ -2244,6 +2244,8 @@ void core_runtime_error(int code, const char *msg) {
     if (core_err_is_fatal(code))    exit(1);
     exit(1);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_kw_return_level_zero(void) { core_runtime_error(242, "function return from level zero"); abort(); }
 jmp_buf g_core_errjmp_stk[64]; int g_core_errjmp_n = 0;
 long g_icn_errnumber = 0; const char *g_icn_errtext = ""; DESCR_t g_icn_errvalue; int g_icn_err_valid = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -1393,7 +1393,9 @@ int main(int argc, char **argv)
                 else emit_textf(".Lmain_zf_ω:\n  mov edi, 1\n  call exit@PLT\n");
             } else {
             emit_textf("  xor r14d, r14d\n");
+            emit_textf("  lea rax, [rip + .Llevel_zero_return]\n  push rax\n  push rax\n");
             emit_textf("  jmp main_\xce\xb1\n");
+            emit_textf(".Llevel_zero_return:\n  call rt_kw_return_level_zero@PLT\n  ud2\n");
             }
             if (!sn4_module_init_bottom()) emit_module_init_body(s2, proc_names_buf, proc_nparams_buf, proc_pidx_buf, proc_fb_buf, proc_ispat_buf, proc_zstatic_buf, n_procs, n_cls_emit, n_gram_emit, is_raku, "main_init");
             if (n_gva_icn > 0) {
