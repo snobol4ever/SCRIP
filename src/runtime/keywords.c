@@ -2,6 +2,7 @@
 #include "core.h"
 #include "sil_macros.h"
 #include "keywords.h"
+#include "rt/rt_coexpr.h"
 #include "rtx/rtcc.h"
 #include <math.h>
 #include <time.h>
@@ -387,9 +388,9 @@ DESCR_t kw_read(const char *kw) {
     if (!strcmp(kw,"input"))   { fh_ensure_init(); return FHVAL(0); }
     if (!strcmp(kw,"output"))  { fh_ensure_init(); return FHVAL(1); }
     if (!strcmp(kw,"errout"))  { fh_ensure_init(); return FHVAL(2); }
-    if (!strcmp(kw,"current")) return STRVAL("co-expression_1(0)");
-    if (!strcmp(kw,"main"))    return STRVAL("co-expression_1(0)");
-    if (!strcmp(kw,"source"))  return STRVAL("co-expression_1(0)");
+    if (!strcmp(kw,"current")) { scrip_coctx_t *cur = scrip_co_current ? scrip_co_current : scrip_co_gc_root(); DESCR_t d = {0}; d.v = DT_CO; d.p = cur; return d; }
+    if (!strcmp(kw,"main"))    { DESCR_t d = {0}; d.v = DT_CO; d.p = scrip_co_gc_root(); return d; }
+    if (!strcmp(kw,"source"))  { scrip_coctx_t *cur = scrip_co_current ? scrip_co_current : scrip_co_gc_root(); scrip_coctx_t *src = cur->activator ? cur->activator : scrip_co_gc_root(); DESCR_t d = {0}; d.v = DT_CO; d.p = src; return d; }
     { time_t t = time(NULL); struct tm *tm = localtime(&t);
       if (!strcmp(kw,"date")) {
           char *buf = rt_ws_alloc(16);

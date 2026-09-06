@@ -5324,6 +5324,12 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
                 return 1;
             }
         }
+        if (src.v == DT_CO && src.p) {
+            extern void *scrip_coexpr_refresh(void *orig);
+            void *nc = scrip_coexpr_refresh(src.p);
+            DESCR_t d = {0}; d.v = DT_CO; d.p = nc;
+            *out = d; return 1;
+        }
         *out = src; return 1;
     }
     L_bidjmp_5840: ;
@@ -5886,6 +5892,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     if ((_bid == BID_serial) && nargs == 1) {
         if (args[0].v == DT_DATA && args[0].u) { *out = INTVAL(args[0].u->id); return 1; }
         if (args[0].v == DT_T && args[0].tbl) { *out = INTVAL(args[0].tbl->id); return 1; }
+        if (args[0].v == DT_CO && args[0].p) { extern long scrip_coexpr_serial_of(void *); *out = INTVAL(scrip_coexpr_serial_of(args[0].p)); return 1; }
         *out = FAILDESCR; return 1;
     }
     L_bidjmp_9999: ;

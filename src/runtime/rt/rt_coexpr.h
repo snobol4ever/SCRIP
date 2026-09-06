@@ -23,6 +23,7 @@ typedef struct scrip_coctx_t {
     void *frame_copy; uint64_t frame_copy_sz;
     void *scan_state;
     uint64_t rtcc_spill[32];
+    long serial;
 } scrip_coctx_t;
 void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first);
 void scrip_coexpr_destroy(scrip_coctx_t *ctx);
@@ -37,6 +38,8 @@ void scrip_co_ctx_init(scrip_coctx_t *ctx, void (*entry_fn)(void *), void *entry
 void scrip_co_gc_link(scrip_coctx_t *ctx);
 int scrip_co_main_known(pthread_t *out);
 int scrip_co_stack_of(scrip_coctx_t *ctx, char **lo, char **hi);
+scrip_coctx_t *scrip_coexpr_refresh(scrip_coctx_t *orig);
+long scrip_coexpr_serial_of(void *ctx);
 #ifdef __cplusplus
 }
 #endif

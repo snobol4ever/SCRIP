@@ -20,6 +20,7 @@ scrip_coctx_t *scrip_co_current = NULL;
 static scrip_coctx_t *g_co_gc_head = NULL;
 static pthread_t g_co_main_thr;
 static int g_co_main_set = 0;
+static long g_coexpr_serial = 1;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void scrip_co_uerror(const char *msg) {
     perror(msg);
@@ -121,7 +122,7 @@ void scrip_cofail(void) {
 }
 typedef struct scrip_coexpr_entry_pkg_t {
     void    *body_entry_addr;
-    uint64_t r12, r13, r14, r15, rbx, csav5, gva;
+    uint64_t r12, r13, r14, r15, rbx, csav5, gva, frame_bytes;
 } scrip_coexpr_entry_pkg_t;
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, body_entry_addr) ==  0, "pkg layout drift: body_entry_addr");
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, r12)             ==  8, "pkg layout drift: r12");
@@ -131,22 +132,36 @@ _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, r15)             == 32, "pkg l
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, rbx)             == 40, "pkg layout drift: rbx");
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, csav5)             == 48, "pkg layout drift: csav5");
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, gva)               == 56, "pkg layout drift: gva -- the GLOBAL-VARIABLE AREA base, r9. A co-expression body reads every global as [r9 + off], and r9 was not among the six registers this package carried, so on the body's own thread it held whatever the trampoline left there: EVERY GLOBAL READ INSIDE A CO-EXPRESSION RETURNED GARBAGE, which is also why activating a co-expression stored in a global segfaulted -- the target pointer was garbage, not the co-expression.");
+_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, frame_bytes)       == 64, "pkg layout drift: frame_bytes -- the trampoline reads it at 64(pkg) to size the frame-snapshot restore onto the body stack");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void scrip_coexpr_trampoline_entry(void *arg) {
     scrip_coexpr_entry_pkg_t *pkg = (scrip_coexpr_entry_pkg_t *)arg;
     __asm__ volatile (
-        "mov  0(%0), %%rax\n\t"
         "mov  8(%0), %%r12\n\t"
         "mov 16(%0), %%r13\n\t"
         "mov 24(%0), %%r14\n\t"
         "mov 32(%0), %%r15\n\t"
         "mov 40(%0), %%rbx\n\t"
         "mov 56(%0), %%r9\n\t"
-        "mov 48(%0), %%r11\n\t.byte 0x4c,0x89,0xdd\n\t"
+        "mov 48(%0), %%rsi\n\t"
+        "mov 64(%0), %%rcx\n\t"
+        "mov  0(%0), %%rax\n\t"
+        "test %%rcx, %%rcx\n\t"
+        "jz 2f\n\t"
+        "sub %%rcx, %%rsp\n\t"
+        "sub $256, %%rsp\n\t"
+        "and $-16, %%rsp\n\t"
+        "mov %%rsp, %%rdi\n\t"
+        "mov %%rsp, %%rbp\n\t"
+        "cld\n\t"
+        "rep movsb\n\t"
+        "jmp *%%rax\n\t"
+        "2:\n\t"
+        "mov %%rsp, %%rbp\n\t"
         "jmp *%%rax\n\t"
         :
         : "r"(pkg)
-        : "rax", "r12", "r13", "r14", "r15", "rbx", "r9", "memory"
+        : "rax", "rcx", "rsi", "rdi", "r12", "r13", "r14", "r15", "rbx", "r9", "memory"
     );
     fprintf(stderr, "scrip_coexpr: FATAL scrip_coexpr_trampoline_entry fell through the jmp -- bad body_entry_addr?\n");
     abort();
@@ -160,7 +175,7 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7]
     if (!pkg) scrip_co_uerror("scrip_coexpr: malloc scrip_coexpr_entry_pkg_t failed");
     pkg->body_entry_addr = body_entry_addr;
     pkg->r12 = regs[0]; pkg->r13 = regs[1]; pkg->r14 = regs[2];
-    pkg->r15 = regs[3]; pkg->rbx = regs[4]; pkg->csav5 = regs[5]; pkg->gva = regs[6];
+    pkg->r15 = regs[3]; pkg->rbx = regs[4]; pkg->csav5 = regs[5]; pkg->gva = regs[6]; pkg->frame_bytes = frame_bytes;
     ctx->frame_copy = NULL; ctx->frame_copy_sz = 0;
     if (frame_bytes > 0 && regs[5] != 0) {
         extern void rt_gc_root_range_add(const char *, const char *);
@@ -185,8 +200,19 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7]
     ctx->stk_hi      = 0;
     for (int i = 0; i < 6; i++) ctx->gc_spill[i] = 0;
     ctx->scan_state = NULL;
+    ctx->serial = ++g_coexpr_serial;
     ctx->gc_next = g_co_gc_head; g_co_gc_head = ctx;
     return ctx;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+scrip_coctx_t *scrip_coexpr_refresh(scrip_coctx_t *orig) {
+    if (!orig) scrip_co_uerror("scrip_coexpr: refresh of NULL coexpression");
+    scrip_coexpr_entry_pkg_t *opkg = (scrip_coexpr_entry_pkg_t *)orig->entry_arg;
+    if (!opkg) scrip_co_uerror("scrip_coexpr: refresh of a coexpression with no entry package");
+    uint64_t regs[7];
+    regs[0] = opkg->r12; regs[1] = opkg->r13; regs[2] = opkg->r14; regs[3] = opkg->r15;
+    regs[4] = opkg->rbx; regs[5] = opkg->csav5; regs[6] = opkg->gva;
+    return scrip_coexpr_create(opkg->body_entry_addr, regs, orig->frame_copy_sz);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint64_t *out2) {
@@ -224,12 +250,14 @@ void scrip_co_ctx_init(scrip_coctx_t *ctx, void (*entry_fn)(void *), void *entry
     for (int i = 0; i < 6; i++) ctx->gc_spill[i] = 0;
     ctx->frame_copy = NULL; ctx->frame_copy_sz = 0;
     ctx->scan_state = NULL;
+    ctx->serial = 0;
     ctx->gc_next = NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void scrip_co_gc_link(scrip_coctx_t *ctx) { ctx->gc_next = g_co_gc_head; g_co_gc_head = ctx; }
 scrip_coctx_t *scrip_co_gc_head(void) { return g_co_gc_head; }
-scrip_coctx_t *scrip_co_gc_root(void) { return &g_root_ctx; }
+scrip_coctx_t *scrip_co_gc_root(void) { if (g_root_ctx.serial == 0) g_root_ctx.serial = 1; return &g_root_ctx; }
+long scrip_coexpr_serial_of(void *ctx) { return ctx ? ((scrip_coctx_t *)ctx)->serial : 0; }
 int scrip_co_main_known(pthread_t *out) { if (g_co_main_set && out) *out = g_co_main_thr; return g_co_main_set; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int scrip_co_stack_of(scrip_coctx_t *ctx, char **lo, char **hi) {

@@ -322,8 +322,9 @@ static tree_t *parse_unary(IcnParser *p) {
     if (check(p, TK_PLUSPLUS))   { advance(p); return e_unary(TT_PLS,  e_unary(TT_PLS,  parse_unary(p))); }
     if (check(p, TK_MINUSMINUS)) { advance(p); return e_unary(TT_MNS,  e_unary(TT_MNS,  parse_unary(p))); }
     if (check(p, TK_STARSTAR))   { advance(p); return e_unary(TT_SIZE, e_unary(TT_SIZE, parse_unary(p))); }
-    if (check(p, TK_CARET)) { advance(p);
-        return parse_unary(p); }
+    if (check(p, TK_CARET)) { advance(p); tree_t *arg = parse_unary(p);
+        tree_t *cfn = ast_node_new(TT_FNC); push_child(cfn, e_leaf_sval(TT_VAR, "copy", -1)); push_child(cfn, arg);
+        return cfn; }
     if (check(p, TK_EQ)) { advance(p); tree_t *arg = parse_unary(p);
         tree_t *mfn = ast_node_new(TT_FNC); push_child(mfn, e_leaf_sval(TT_VAR, "match", -1)); push_child(mfn, arg);
         tree_t *tfn = ast_node_new(TT_FNC); push_child(tfn, e_leaf_sval(TT_VAR, "tab", -1)); push_child(tfn, mfn);
