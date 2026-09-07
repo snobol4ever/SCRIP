@@ -207,6 +207,7 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7]
     for (int i = 0; i < 6; i++) ctx->gc_spill[i] = 0;
     ctx->scan_state = NULL;
     ctx->serial = ++g_coexpr_serial;
+    ctx->activations = 0;
     ctx->gc_next = g_co_gc_head; g_co_gc_head = ctx;
     return ctx;
 }
@@ -258,6 +259,7 @@ void scrip_co_ctx_init(scrip_coctx_t *ctx, void (*entry_fn)(void *), void *entry
     ctx->frame_copy = NULL; ctx->frame_copy_sz = 0;
     ctx->scan_state = NULL;
     ctx->serial = 0;
+    ctx->activations = 0;
     ctx->gc_next = NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
