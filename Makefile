@@ -488,6 +488,7 @@ RT_PIC_SRCS := \
     $(SRC)/parsers/pascal/pascal.tab.c \
     $(SRC)/parsers/pascal/pascal.lex.c \
     $(SRC)/parsers/pascal/pascal_driver.c \
+    $(SRC)/parsers/pascal/pascal_sem.c \
     $(SRC)/templates/bb/bb_arith.cpp \
     $(SRC)/templates/bb/bb_binop_gvar_arith.cpp \
     $(SRC)/templates/bb/bb_binop_gvar_arith_slot.cpp \

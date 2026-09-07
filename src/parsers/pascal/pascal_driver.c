@@ -15,5 +15,7 @@ void pascal_compile(const char *src, const char *filename, tree_t **out_ast) {
         fprintf(stderr, "pascal: parse error in %s\n", filename);
         return;
     }
+    int nsem = pascal_sem_check(prog, filename);
+    if (nsem > 0) { fprintf(stderr, "pascal: %d ISO 7185 violation(s) in %s -- no code generated\n", nsem, filename); return; }
     if (out_ast) *out_ast = prog;
 }
