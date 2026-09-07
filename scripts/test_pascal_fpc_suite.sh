@@ -19,6 +19,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/lib_flag_gate.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE: lib_flag_gate.sh unloadable"; exit 2; }
 . "$HERE/lib_inventory.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE: lib_inventory.sh unloadable"; exit 2; }
+. "$HERE/lib_progress.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE: lib_progress.sh unloadable"; exit 2; }
 [ $# -eq 0 ] || flaggate_reject "$1" "(none -- set FPC_SUITE_RUN_TIMEOUT / FPC_SUITE_VERBOSE via environment instead)"
 SCRIP="${HERE}/../scrip"
 RT_SO="${HERE}/../out/libscrip_rt.so"
@@ -70,6 +71,7 @@ for name in "${PAIRS[@]}"; do
     if [ "$m3out" = "$exp" ]; then
         M3_PASS=$((M3_PASS+1))
         printf 'package\tfpc\tpascal\t%s\tm3\tPASS\t0\t\n' "$name" >>"$PROG_ROWS"
+        [ "$VERBOSE" -eq 1 ] && echo "  m3 PASS $name"
     else
         M3_FAIL=$((M3_FAIL+1)); M3_FAIL_NAMES+=("$name")
         printf 'package\tfpc\tpascal\t%s\tm3\tFAIL\t0\toutput-differs-from-ref\n' "$name" >>"$PROG_ROWS"
@@ -83,6 +85,7 @@ for name in "${PAIRS[@]}"; do
         if [ "$m4out" = "$exp" ]; then
             M4_PASS=$((M4_PASS+1))
             printf 'package\tfpc\tpascal\t%s\tm4\tPASS\t0\t\n' "$name" >>"$PROG_ROWS"
+            [ "$VERBOSE" -eq 1 ] && echo "  m4 PASS $name"
         else
             M4_FAIL=$((M4_FAIL+1)); M4_FAIL_NAMES+=("$name")
             printf 'package\tfpc\tpascal\t%s\tm4\tFAIL\t0\toutput-differs-from-ref\n' "$name" >>"$PROG_ROWS"
@@ -150,7 +153,7 @@ python3 "$HERE/util_score_row.py" write --lang pascal --column vendor --suite fp
 # of 497 pascal rows in that table every one was pascal-master -- ZERO from fpc or pat, so a Pascal PACKAGE
 # flip was invisible to the measure OCTET is run on. One bulk call, not 362. Non-fatal, never silent.
 if [ -s "$PROG_ROWS" ]; then
-    if ! python3 "$HERE/util_progress_append.py" rows-tsv "$PROG_ROWS"; then
+    if ! progress_append_rows_tsv "$PROG_ROWS"; then
         echo "⚠ PROGRESS DB NOT UPDATED -- the board above stands, its per-program rows do not (reason above)" >&2
     fi
 fi

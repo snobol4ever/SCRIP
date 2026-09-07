@@ -32,6 +32,7 @@ refuse() { echo "⛔ REFUSED(2) [$GATE_NAME]: $*" >&2; exit 2; }
 # lib_gate.sh, the ONE authority (hq_B 4c7253e99) -- never a second copy of the staleness rule.
 "$HERE/util_require_fresh.sh" --gate test_pascal_pat_suite "$SCRIP" "${RT_DIR:-$HERE/../out}/libscrip_rt.so" || exit 2
 . "$HERE/lib_inventory.sh" 2>/dev/null || refuse "lib_inventory.sh unloadable"
+. "$HERE/lib_progress.sh" 2>/dev/null || refuse "lib_progress.sh unloadable"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 declare -A P F C
 for m in m3 m4; do P[$m]=0; F[$m]=0; C[$m]=0; done
@@ -69,6 +70,7 @@ for f in "$SUITE"/iso7185prt*.pas; do
         # who counts FAIL -- the exact two-HQs-disagree defect the verdict/diagnosis split was cut to end.
         if [ "$rc" -ne 0 ] && [ "$rc" -lt 124 ] && [ -s "$TMP/o" ]; then P[$m]=$((P[$m]+1))
             printf 'package\tpat\tpascal\t%s\t%s\tPASS\t0\trefused-with-a-diagnostic\n' "$b" "$m" >>"$PROG_ROWS"
+            [ -n "${PAT_VERBOSE:-}" ] && echo "  $m PASS $b"
         else
             F[$m]=$((F[$m]+1))
             if   [ "$rc" -eq 124 ]; then C[$m]=$((C[$m]+1)); DIAG="accepted-and-ran-to-bound"
@@ -77,6 +79,7 @@ for f in "$SUITE"/iso7185prt*.pas; do
             else                         DIAG="accepted"; fi
             NAMED="$NAMED $b:$m:FAIL/diag=$DIAG"
             printf 'package\tpat\tpascal\t%s\t%s\tFAIL\t0\t%s\n' "$b" "$m" "$DIAG" >>"$PROG_ROWS"
+            [ -n "${PAT_VERBOSE:-}" ] && echo "  $m FAIL $b ($DIAG)"
         fi
     done
 done
@@ -137,7 +140,7 @@ echo "PAT_SUITE_BOARD total=$TOTAL m3_pass=${P[m3]} m3_fail=${F[m3]} m4_pass=${P
 INV_PACKAGE=pat; INV_DIR="$SUITE"; INV_EXT=".pas"
 INV_LINE="$(inventory_line "$TOTAL" 0)"
 if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
-echo "  diagnosis (counted INSIDE fail, never beside it): m3 crash-or-ran-to-bound=${C[m3]} · m4 crash-or-ran-to-bound=${C[m4]} — the verdict is REFUSED-WITH-A-DIAGNOSTIC or not, which does not vary with machine load; this split does"
+echo "  diagnosis (counted INSIDE fail, never beside it): m3 crash-or-ran-to-bound=${C[m3]} of m4 crash-or-ran-to-bound=${C[m4]} — the verdict is REFUSED-WITH-A-DIAGNOSTIC or not, which does not vary with machine load; this split does"
 # ⛔⭐ THE CAP IS A DISPLAY CHOICE AND MUST NOT BE THE ONLY LISTING. 40 keeps a board readable, but this
 # suite is THE Pascal denominator and its reds are the lane's whole work pool -- at 127 m3 reds the cap hid
 # 87 of them, so the pool could not be populated from the instrument that measures it. Default unchanged;
@@ -170,7 +173,7 @@ if . "$HERE/lib_gate.sh" 2>/dev/null && command -v gate_stamp >/dev/null 2>&1; t
 python3 "$HERE/util_score_row.py" write --lang pascal --column vendor --suite PAT --modes m3,m4 \
     --suite-pass "${P[m3]}" --suite-total "$TOTAL" \
     --measurer "${S4E_SEAT:-}" \
-    --text "ISO 7185 validation suite (Pascal-P5 1.4.x, vendored corpus/packages/pascal/pat): $TOTAL programs — m3 ${P[m3]}/$TOTAL · m4 ${P[m4]}/$TOTAL (${C[m3]}/${C[m4]} crash). 427 are REJECTION tests graded on whether scrip refuses them${INV_LINE:+ . $INV_LINE}, per \`test_pascal_pat_suite.sh\`" \
+    --text "ISO 7185 validation suite (Pascal-P5 1.4.x, vendored corpus/packages/pascal/pat): $TOTAL programs — m3 ${P[m3]}/$TOTAL · m4 ${P[m4]}/$TOTAL (crash m3 ${C[m3]}, m4 ${C[m4]}). 427 are REJECTION tests graded on whether scrip refuses them${INV_LINE:+ . $INV_LINE}, per \`test_pascal_pat_suite.sh\`" \
     2>&1 | sed 's/^/    /'
 python3 "$HERE/util_score_row.py" progress 2>/dev/null || true
 # ⛔⭐ THE FACT RULE'S OTHER HALF (CEO-319, /home/resources/progress/README.md): every suite run APPENDS its
@@ -180,7 +183,7 @@ python3 "$HERE/util_score_row.py" progress 2>/dev/null || true
 # ⛔ NON-FATAL, LOUDLY (same reasoning as the score write above): bookkeeping must never turn a real
 # measurement into a red board, and it must never fail quietly either.
 if [ -s "$PROG_ROWS" ]; then
-    if ! python3 "$HERE/util_progress_append.py" rows-tsv "$PROG_ROWS"; then
+    if ! progress_append_rows_tsv "$PROG_ROWS"; then
         echo "⚠ PROGRESS DB NOT UPDATED -- the board above stands, its per-program rows do not (reason above)" >&2
     fi
 fi
