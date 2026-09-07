@@ -27,11 +27,20 @@
 # The ball is matched by UNIFICATION inside the witness program, never by comparing written text, so a
 # write/1 formatting difference can never be mistaken for a semantic one.
 #
-# ⛔ A NAMED, DELIBERATE GAP: a non-callable or unbound goal that only a RUNTIME binding puts in goal position —
-# findall(X,(true,Y),S) with Y unbound — is still type_error(callable,?/0), not instantiation_error. The guard is
-# inserted on the goal's STATIC shape (a variable, a non-callable literal, or a control construct holding one), so
-# the deeper runtime case is out of its reach. It is graded here as a KNOWN row, printed and not counted, so the
-# gate says what it does not cover instead of implying coverage it lacks.
+# ✅⭐ THE NAMED GAP IS CLOSED AND ITS ARM IS NOW GRADED (hq_C `d4eefd1ac`, 2026-09-07). It stood here as a printed,
+# uncounted row for one evening: a non-callable or unbound goal that only a RUNTIME binding puts in goal position —
+# findall(X,(true,Y),S) with Y unbound — was still type_error(callable,?/0), because this cure inserts the guard on
+# the goal's STATIC shape and the deeper runtime case is out of that insertion's reach. hq_C's meta-call re-drive
+# resolves goals from slots at run time and therefore holds the real term at exactly the moment the lowerer cannot
+# see it, so it calls rt_pl_dop_goal_guard_c on the RESOLVED goal — the same leaf, one caller further out. The row
+# below is graded from here on, in both modes, like any other.
+# ⛔ THE GAP WAS NOT MERELY AN ANONYMOUS CULPRIT, WHICH IS WHAT THIS FILE USED TO IMPLY. Measured by hq_C: the
+# unbound case was raising a TYPE error where ISO § 7.6.2 says instantiation — a wrong CLASS wearing a right-looking
+# shape, not a lazy argument on a correct error. ⭐ A placeholder culprit is a signal to re-check the error CLASS,
+# not just the term: whoever wrote the placeholder was not distinguishing cases at that point either.
+# ⛔ THE ARM WAS DELIBERATELY NOT PROMOTED UNTIL hq_C'S COMMIT WAS ON ORIGIN. This gate is in `make test`; promoting
+# it an hour earlier would have reddened the blocking set for all nine seats in order to certify a cure that was not
+# yet pushed. A gate must describe origin, never a colleague's intentions, however certain they are.
 # Usage: bash scripts/test_gate_pl_allsol_goal_is_validated.sh [--verbose]
 set -uo pipefail
 GATE_NAME=test_gate_pl_allsol_goal_is_validated
@@ -78,7 +87,8 @@ findall(X,(true;fail),S)	S	disjunction, all callable
 findall(X,(true->true),S)	S	if-then, all callable"""
 # ARM D -- THE NAMED GAP. Printed, never counted: the guard reads the goal's STATIC shape, so a variable only a
 # runtime binding puts in goal position inside a conjunction is still the old type_error(callable,?/0).
-GAP = [("findall(X,(true,Y),S)", "instantiation_error (ISO); SCRIP still type_error(callable,?/0)")]
+RUNTIME_SHAPE = [("findall(X,(true,Y),S)", "error(instantiation_error,_)", "unbound var in goal position only at RUNTIME -- hq_C d4eefd1ac, the leaf called on the RESOLVED goal"),
+                 ("G = 1, call(G)", "error(type_error(callable,1),_)", "runtime-resolved non-callable names its REAL culprit, not ?/0")]
 tmp = tempfile.mkdtemp(); prog = os.path.join(tmp, "t.pl")
 def write_prog(goal, check):
     with open(prog, "w") as f:
@@ -131,13 +141,14 @@ if graded == 0:
     print("⛔ REFUSED(2) [test_gate_pl_allsol_goal_is_validated]: graded ZERO witnesses -- a runner that cannot measure never prints the success shape"); sys.exit(2)
 for goal, mode, want, got in rows[:80]:
     print("    %-26s %s  want %-42s got %s" % (goal[:26], mode, want[:42], got))
-for goal, note in GAP:
-    write_prog(goal, "error(instantiation_error,_)")
-    r = subprocess.run([scrip, prog], capture_output=True, text=True, timeout=15, stdin=subprocess.DEVNULL, cwd=tmp)
-    print("    KNOWN GAP (not counted): %-24s %s -> %s" % (goal, note, (r.stdout or "").strip()[:60]))
+for goal, check, why in RUNTIME_SHAPE:
+    for mode, (m, rc) in zip(("m3", "m4"), outcome(goal, check)):
+        graded += 1
+        if m != "@MATCH" or rc != 0:
+            fails += 1; rows.append((goal, mode, check, "%s rc=%s   [%s]" % (m, rc, why)))
 nr = len([l for l in RAISE.split("\n") if l.strip()]); nk = len([l for l in OK.split("\n") if l.strip()])
-print("PLALLSOL_BOARD witnesses=%d (raise=%d no-raise=%d refusal-survives=3) modes=2 graded=%d PASS=%d FAIL=%d"
-      % (nr + nk + 3, nr, nk, graded, graded - fails, fails))
+print("PLALLSOL_BOARD witnesses=%d (raise=%d no-raise=%d refusal-survives=3 runtime-shape=%d) modes=2 graded=%d PASS=%d FAIL=%d"
+      % (nr + nk + 3 + len(RUNTIME_SHAPE), nr, nk, len(RUNTIME_SHAPE), graded, graded - fails, fails))
 sys.exit(1 if fails else 0)
 PY
 _prc=${PIPESTATUS[0]}

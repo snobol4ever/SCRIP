@@ -132,6 +132,39 @@ for fn in sorted(os.listdir(suite)):
 if not tests:
     sys.stderr.write("⛔ REFUSED(2) [test_prolog_inria_suite]: parsed ZERO goals from %s -- refusing to print a board with no denominator\n" % suite)
     raise SystemExit(2)
+# ⛔⭐ OUTCOME_ERRATA (row inria-three-functor-bis-cells-graded-on-iso-through-a-named-outcome-erratum-sibling-of-
+# known-suite-errata, hq_R 2026-09-06, ceo-370; hq_T co-signs the runner change). SIBLING of KNOWN_SUITE_ERRATA
+# below, and deliberately NOT the same mechanism: that one relaxes the BINDINGS comparison to outcome-class-only
+# for a goal whose declared substitutions are mistranscribed. These three are wrong on the OUTCOME CLASS ITSELF --
+# success vs failure, failure vs success, failure vs error -- which is the axis that mechanism does not touch, so
+# registering them there would silently do nothing and read as done.
+# ⛔ THE SUITE SAYS SO IN ITS OWN WORDS AND THE PARSER THROWS THE SENTENCE AWAY. All three carry a % comment on
+# the same line contradicting the machine-readable expectation, and decomment() above strips % comments before
+# grading -- by design, since 13 files annotate subtle cases. So the suite's own correction is structurally
+# invisible to the board, and we were scored against the half its authors marked wrong.
+# ⛔ THE BAR, same as KNOWN_SUITE_ERRATA: an ISO clause AND measured oracle behaviour on the SAME witness goal,
+# cited per entry, never scrip behavior taken on faith. The vendored file is NEVER edited (its README keeps the
+# data verbatim); the fix lives here, in the open, and every entry is PRINTED on every run beside the board.
+# Lon's bar is 100% of the INDUSTRY STANDARD (ISO/IEC 13211-1), not of a transcription (ceo-370).
+OUTCOME_ERRATA = {
+    ("functor-bis", "functor(foo(a),foo,2)"): ("failure", None,
+        "ISO 13211-1 sec 8.5.1: functor(foo(a),foo,2) asks whether foo(a) has name foo and arity 2; its arity is 1, "
+        "so the goal FAILS. The suite declares success and its OWN comment on the same line reads 'Must fail'. "
+        "swipl 9.x FAILS and gprolog 1.4.5 FAILS -- both independent references agree with each other, with ISO, "
+        "and with scrip, against the vendored cell (measured hq_R 2026-09-06)."),
+    ("functor-bis", "functor([_|_],'.',2)"): ("success", None,
+        "ISO 13211-1 sec 6.3.5: the list constructor IS '.'/2, so a partial list [_|_] has name '.' and arity 2 and "
+        "the goal SUCCEEDS. The suite declares failure and its OWN comment reads 'Must succeed'. ⛔ THE ORACLES SPLIT "
+        "HERE AND THAT IS THE POINT: gprolog 1.4.5 SUCCEEDS (ISO-conformant) and swipl 9.x FAILS because modern SWI "
+        "uses '[|]' as its list functor, a documented post-ISO divergence. The vendored expectation follows the "
+        "NON-ISO reading while its own comment follows ISO, so grading against that cell PENALISES the conformance "
+        "this suite exists to measure. Graded on ISO + gprolog per ceo-370 (measured hq_R 2026-09-06)."),
+    ("functor-bis", "functor(X, foo, a)"): ("error", "type_error",
+        "ISO 13211-1 sec 8.5.1.3: functor/3 raises type_error(integer, a) when the arity argument is not an integer. "
+        "The suite declares failure and its OWN comment reads 'type_error(integer,a) expected'. swipl 9.x and "
+        "gprolog 1.4.5 BOTH raise type_error(integer,a), as does scrip (measured hq_R 2026-09-06)."),
+}
+outcome_erratum_hits = []
 res = {"m3": [0, 0, 0], "m4": [0, 0, 0]}   # pass, fail, crash
 named = []
 outcome_ok = {}   # (test index in `tests`, mode) -> bool, additive: lets the bindings comparator below
@@ -183,6 +216,9 @@ for _tidx, (fam, goal, exp) in enumerate(tests):
             gfun = mm.group(1) if mm else None
         else:
             res[mode][1] += 1; named.append("%s:%s:%s:NO-CLASS" % (fam, goal[:28], mode)); continue
+        if (fam, goal) in OUTCOME_ERRATA:
+            want, wfun, _why = OUTCOME_ERRATA[(fam, goal)]
+            if (fam, goal, mode) not in outcome_erratum_hits: outcome_erratum_hits.append((fam, goal, mode))
         ok = (got == want) and (want != "error" or wfun is None or gfun == wfun)
         outcome_ok[(_tidx, mode)] = ok
         if ok: res[mode][0] += 1
@@ -192,6 +228,10 @@ for _tidx, (fam, goal, exp) in enumerate(tests):
 print("INRIA_SUITE_BOARD total=%d m3_pass=%d m3_fail=%d m3_crash=%d m4_pass=%d m4_fail=%d m4_crash=%d"
       % (len(tests), res["m3"][0], res["m3"][1], res["m3"][2], res["m4"][0], res["m4"][1], res["m4"][2]))
 print("  criterion: OUTCOME CLASS (success/failure/error + error functor); substitution bindings NOT compared -- strictly weaker than the suite's own")
+print("  %d ISO-graded errata (vendored cell contradicts its own %% comment; graded on the ISO reading, never silently -- see OUTCOME_ERRATA):" % (len(OUTCOME_ERRATA),))
+for _k in sorted(OUTCOME_ERRATA):
+    _w, _f, _why = OUTCOME_ERRATA[_k]
+    print("    %s:%s -> graded %s%s" % (_k[0], _k[1], _w, ("/" + _f) if _f else ""))
 if os.environ.get("INRIA_NAME_REDS"):
     for x in named[:60]: print("    " + x)
 open(os.path.join(tmp, "board"), "w").write("%d %d %d" % (len(tests), res["m3"][0], res["m4"][0]))
