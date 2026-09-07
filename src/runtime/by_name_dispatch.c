@@ -1016,8 +1016,11 @@ DESCR_t rt_pl_goal_gen_h_c(DESCR_t goal, DESCR_t *argv, int n, void **hslot, voi
     char key[288]; DESCR_t *kids = (DESCR_t *)0; int ar = 0;
     if (hslot) *hslot = (void *)0;
     if (!rt_pl_goal_key(goal, n, key, sizeof key, &kids, &ar)) {
-        if (ball) { *ball = rt_pl_ball_type_pi("type_error", "callable", "?", 0); return FAILDESCR; }
-        rt_pl_iso_throw_pi("type_error", "callable", "?", 0); return FAILDESCR; }
+        extern void *rt_pl_dop_goal_guard_c(DESCR_t *args, int nargs);
+        DESCR_t gg = goal; void *gb = rt_pl_dop_goal_guard_c(&gg, 1);
+        if (ball) { *ball = gb ? gb : rt_pl_ball_type_pi("type_error", "callable", "?", 0); return FAILDESCR; }
+        { extern void rt_bomb(const char *msg); rt_bomb("rt_pl_goal_gen_h_c: the no-ball path is UNREACHABLE BY CONSTRUCTION and has no classifier. Its one caller, RTX_FUNC(rt_pl_goal_gen_h) in rtx_plunify.s, always passes a ball slot (sub rsp,24 then lea r9,[rsp+8]), so nothing has ever reached this arm and no test can grade it. It used to throw type_error(callable, ?/0) unconditionally, which is the WRONG ISO CLASS whenever the goal is unbound (7.6.2 orders instantiation_error) -- a future caller reading it would inherit that silently. Give this arm a real classifier before giving it a caller: pl_goal_conv_scan already distinguishes the two cases and is static in this file. Refusing rather than guessing a class, which is what a test that cannot measure does."); }
+        return FAILDESCR; }
     if (!rt_proc_is_registered(key)) {
         if (ball) { *ball = rt_pl_ball_existence_key(key); return FAILDESCR; }
         rt_pl_iso_throw_existence_key(key); return FAILDESCR; }
