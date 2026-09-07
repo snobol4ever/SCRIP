@@ -33,6 +33,7 @@ if [ -z "$ME" ]; then case "$S4E" in
     /home/claude_ceo)       ME=ceo;;
     /home/claude_cto)       ME=cto;;
     /home/claude_coo)       ME=coo;;
+    /home/claude_cfo)       ME=cfo;;
     /home/claude_C)         ME=hq_C;;
     /home/claude_P)         ME=hq_P;;
     /home/claude_B)         ME=hq_B;;
