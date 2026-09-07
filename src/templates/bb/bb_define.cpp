@@ -62,6 +62,28 @@ static std::string bb_define_body_cell_data(const std::string & lbl, const std::
          + x86("directive", std::string(".quad ") + init) + x86("directive", std::string(".section .text")) + x86("directive", std::string(".intel_syntax noprefix"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bb_fnclevel_enter() {
+    return x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
+         + x86("mov", "rax", RDQ("rax", 0))
+         + x86("add", RDD("rax", 0), (long)1)
+         + x86("mov", "ecx", RDD("rax", 0))
+         + x86("movsxd", "rcx", "ecx")
+         + x86("sub", "rcx", (long)1)
+         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel")
+         + x86("mov", RDQ("rax", 0), "rcx");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bb_fnclevel_leave() {
+    return x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
+         + x86("mov", "rax", RDQ("rax", 0))
+         + x86("mov", "ecx", RDD("rax", 0))
+         + x86("movsxd", "rcx", "ecx")
+         + x86("sub", "rcx", (long)1)
+         + x86("mov", RDD("rax", 0), "ecx")
+         + x86("sub", "rcx", (long)1)
+         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel")
+         + x86("mov", RDQ("rax", 0), "rcx");
+}
 static std::string bb_define_activate() {
     x86_begin();
     long   nsave    = (long)_.op_ival;
@@ -571,6 +593,10 @@ static std::string bb_define_sr() {
                             + x86("mov", GQ(gk4[i], 0), (long)DT_SNUL)
                             + x86("mov", GQ(gk4[i], 8), (long)0)
                             + x86_deflabel_id(41 + i); })
+                 + x86("comment", "&FNCLEVEL ENTRY (row conform-fnclevel-not-tracked, hq_P): rt_k_level++ and kw_fnclevel = rt_k_level-1. Placed exactly where the TRACE CALL tap below is placed and for the same reason -- after the marshal-in, so no formal is disturbed. Before this landed NO write site was emitted at all for a DEFINE'd call: an asm grep of a five-DEFINE witness found six kw_fnclevel references and all six were READS, which is why every shape read 0. ⛔ rcx IS LIVE HERE -- the tap below pushes it before its hook call -- so it is saved across the pair; rax is scratch here exactly as that tap treats it, and the push/pop is paired immediately so rsp is back before any rsp-relative offset.")
+                 + x86("push", "rcx")
+                 + bb_fnclevel_enter()
+                 + x86("pop", "rcx")
                  + x86("comment", "TRACE(name,'CALL'/'FUNCTION') tap (row snobol4-trace-types-v-l-c-r-k-a-print-spitbols-banner-in-both-modes): fires once every formal is swapped into its GVA home, mirroring where this same file's OWN bb_define_activate() CALL tap fires relative to ITS marshal-in. bb_define_activate is a SIBLING mechanism for a different (non-SIG-shim) calling convention and is confirmed unreached for a tiny-shim-eligible DEFINE'd proc (asm grep: fn_cell$ absent) -- THIS shim (role 4, fnsig()) is the one actually reached, so it needs its own tap. Register save list, g_trace gate and align calls copied verbatim from bb_define_activate's CALL tap, r9 included deliberately: RTCC_GLOBAL_R9_GVA pins r9 as the GVA table base across this whole function (see GQ() above), and a plain C hook function is free to clobber any caller-saved register unless we save/restore it ourselves.")
                  + x86_load_got("rax", "g_trace", (uint64_t)(uintptr_t)(void *)&g_trace)
                  + x86("mov", "rax", RDQ("rax", 0))
@@ -644,6 +670,10 @@ static std::string bb_define_sr() {
                  + x86("pop", "rdx")
                  + x86("pop", "rax")
                  + FRESTORE(80)
+                 + x86("comment", "&FNCLEVEL RETURN, gamma (row conform-fnclevel-not-tracked, hq_P): the value-returning exit decrements. rax is dead (FRESTORE above already used it as scratch -- see the re-stage comment below -- and the returned pair is re-derived from rdi/rsi after the frame is popped), but ⛔ rcx IS LIVE and is SAVED: SIGQ is `[rcx + d]`, NOT rsp-relative (the lambda at the top of this arm), so rcx is the signature-block BASE here, not a dead scratch. Measured, not reasoned: the first cut of this cure omitted the save and the emitted asm read `mov rax,[kw_fnclevel]; mov [rax],rcx; mov rcx,[rcx+8]` -- the base loaded from the value just written. A no-formals proc survived it and a one-formal proc SIGSEGVed on RETURN after printing the right answer, which is the shape that makes a register-liveness error look like a returning-path bug.")
+                 + x86("push", "rcx")
+                 + bb_fnclevel_leave()
+                 + x86("pop", "rcx")
                  + x86("mov", "rcx", SIGQ(8))
                  + x86("add", "rsp", F4)
                  + x86("comment", "re-stage the return value: FRESTORE above uses rax/rdx as scratch, so the pair staged for the tap is gone by here (row 521; the d067ceae4 revert was exactly this clobber)")
@@ -652,6 +682,10 @@ static std::string bb_define_sr() {
                  + x86("jmp", "rcx")
                  + x86_def_ext(lbl_o)
                  + FRESTORE(150)
+                 + x86("comment", "&FNCLEVEL RETURN, omega (row conform-fnclevel-not-tracked, hq_P): the FAILING exit decrements too. ⛔ THIS IS THE HALF THE TRACE ROW DELIBERATELY LEFT OUT, and its comment says so -- its RETURN tap is gamma-only. For a REPORTING tap that is a defensible choice; for a DEPTH COUNTER an unbalanced exit is a leak, and one FRETURN would leave every later reading of &FNCLEVEL permanently one too high. rax is dead (eax is overwritten with DT_FAIL below), and rcx is SAVED for the same reason as the gamma exit above: SIGQ is `[rcx + d]`, so rcx is the signature-block base, not scratch.")
+                 + x86("push", "rcx")
+                 + bb_fnclevel_leave()
+                 + x86("pop", "rcx")
                  + x86("mov", "rcx", SIGQ(16))
                  + x86("add", "rsp", F4)
                  + x86("mov32", "eax", (long)DT_FAIL)
