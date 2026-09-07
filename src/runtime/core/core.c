@@ -1784,7 +1784,7 @@ DESCR_t core_DATA_register(DESCR_t *a, int n) {
           char probe_name[256]; size_t plen = (size_t)(p - raw_spec);
           if (plen >= sizeof probe_name) plen = sizeof probe_name - 1;
           memcpy(probe_name, raw_spec, plen); probe_name[plen] = '\0';
-          if (sn4_is_system_fn(probe_name)) { extern int kwb_error(int code, const char *msg); kwb_error(248, "attempted redefinition of system function"); return FAILDESCR; }
+          if (sn4_sysfn_protected(probe_name)) { extern int kwb_error(int code, const char *msg); kwb_error(248, "attempted redefinition of system function"); return FAILDESCR; }
       } }
     char *spec = rt_ws_strdup(raw_spec);
     DEFDAT_fn(spec);
@@ -3161,7 +3161,7 @@ static DESCR_t _DEFINE_(DESCR_t *a, int n) {
     if (entry && !*entry) entry = NULL;
     FNCBLK_t *probe = _parse_define_spec(proto);
     if (!probe || !probe->name || !probe->name[0]) return FAILDESCR;
-    if (sn4_is_system_fn(probe->name)) { extern int kwb_error(int code, const char *msg); kwb_error(248, "attempted redefinition of system function"); return FAILDESCR; }
+    if (sn4_sysfn_protected(probe->name)) { extern int kwb_error(int code, const char *msg); kwb_error(248, "attempted redefinition of system function"); return FAILDESCR; }
     if (entry)
         DEFINE_fn_entry(proto, NULL, entry);
     else

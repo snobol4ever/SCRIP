@@ -277,6 +277,24 @@ run_one() {  # suite lib prog norm run_to
   fi
   d="$(dirname "$prog")"; n="$(basename "$prog" .sno)"; in="$(stdin_for "$prog")"
   lib="$(sc_libpath "$lib" "$d")"
+  # ⛔⭐ THE PER-PROGRAM DIALECT SIDECAR (hq_P 2026-09-06, extending ceo RULING R1's --compat=csnobol4 from a whole-suite
+  # switch to a per-FIXTURE one).  A `.ref` records what an ORACLE answered, so the dialect that minted it is a property
+  # of the FIXTURE, not of the suite: gimpel ships 13 drivers whose headers say outright "This .ref comes from CSNOBOL4,
+  # not from x64/bin/sbl", because SPITBOL REFUSES the module (DEFINE/DATA/OPSYN over a system function name is ERROR 248
+  # in sbl -bf and is accepted by csnobol4 -- measured both ways, four verbs, 2026-09-06).  Grading those against a
+  # SPITBOL-dialect SCRIP compares two dialects and calls the difference a compiler defect.  A `<program>.compat` sidecar
+  # beside the .sno names the minting dialect and NOTHING ELSE; absent, the default (spitbol) is unchanged, so this widens
+  # no existing row.  ⛔ VISIBLE AND STRUCTURAL, never a run-time skip list (this file's own law, :72): the sidecar is a
+  # committed file a reader can ls, and an unknown dialect REFUSES rather than silently grading in the default.
+  local dial cflag=""
+  if [ -f "$d/$n.compat" ]; then
+    dial="$(tr -d " \t\n\r" < "$d/$n.compat")"
+    case "$dial" in
+      spitbol|csnobol4) cflag="--compat=$dial";;
+      "") echo -e "$suite\t${prog#$CORPUS/}\tCOMPAT_REFUSED\tCOMPAT_REFUSED\t0\t0\tempty $n.compat sidecar -- name a dialect or delete the file"; return;;
+      *)  echo -e "$suite\t${prog#$CORPUS/}\tCOMPAT_REFUSED\tCOMPAT_REFUSED\t0\t0\t$n.compat names unknown dialect '$dial' (spitbol, csnobol4)"; return;;
+    esac
+  fi
   W="$(mktemp -d)"; ulimit -s unlimited 2>/dev/null
   if [ "$suite" = beauty_self ]; then in="$prog"; fi
   # ---- ground truth
@@ -298,12 +316,12 @@ run_one() {  # suite lib prog norm run_to
   }
   # ---- m3
   t0=$SECONDS
-  (cd "$d" && SNO_LIB="$lib" timeout "$rto" "$SCRIP" --run "$prog" < "$in" > "$W/m3" 2>"$W/m3e"); rc=$?
+  (cd "$d" && SNO_LIB="$lib" timeout "$rto" "$SCRIP" $cflag --run "$prog" < "$in" > "$W/m3" 2>"$W/m3e"); rc=$?
   if [ ! -s "$W/m3" ] && [ $rc -ne 0 ] && grep -q 'emit_chain.*FAILED\|unresolved forward\|bb_emit_end\|[Pp]arse error\|syntax error\|COMPILE' "$W/m3e" 2>/dev/null; then st3=COMPILE_FAIL; else st3="$(grade "$W/m3" $rc)"; fi
   t3=$((SECONDS-t0))
   # ---- m4
   t0=$SECONDS
-  if ! (cd "$d" && SNO_LIB="$lib" timeout 60 "$SCRIP" --compile "$prog" </dev/null > "$W/p.s" 2>/dev/null) || [ ! -s "$W/p.s" ]; then st4=COMPILE_FAIL
+  if ! (cd "$d" && SNO_LIB="$lib" timeout 60 "$SCRIP" $cflag --compile "$prog" </dev/null > "$W/p.s" 2>/dev/null) || [ ! -s "$W/p.s" ]; then st4=COMPILE_FAIL
   elif ! gcc -no-pie "$W/p.s" -L"$SC/out" -lscrip_rt -lm -Wl,-rpath,"$SC/out" -o "$W/p.bin" 2>/dev/null; then st4=ASM_FAIL
   else
     (cd "$d" && SNO_LIB="$lib" timeout "$rto" "$W/p.bin" < "$in" > "$W/m4" 2>/dev/null); rc=$?

@@ -933,7 +933,7 @@ static int sno_def_entry_absent(const tree_t * subj, int argbase) {
         else if (ea->t == TT_NAME && ea->n > 0 && ea->c[0] && ea->c[0]->t == TT_VAR && ea->c[0]->v.sval) entry_opt = ea->c[0]->v.sval;
         else return 0; }
     sno_parse_define(sno_qlit_fold(subj->c[argbase]), entry_opt, &d);
-    if (sn4_is_system_fn(d.fname)) return 1;
+    if (sn4_sysfn_protected(d.fname)) return 1;
     if (!g_sno_uses_code) return 0;
     { const char * el = (d.entry && d.entry[0]) ? d.entry : d.fname; return (el && el[0] && !bb_label_landing(el)) ? 1 : 0; }
 }
@@ -2515,7 +2515,7 @@ static void sno_prescan_expr(const tree_t * t, sno_def_t * defs, int * ndefs, co
                 else if (ea->t == TT_NAME && ea->n > 0 && ea->c[0] && ea->c[0]->t == TT_VAR && ea->c[0]->v.sval) entry_opt = ea->c[0]->v.sval;
             }
             sno_def_t d; sno_parse_define(t->c[argbase]->v.sval, entry_opt, &d);
-            if (sn4_is_system_fn(d.fname)) return;
+            if (sn4_sysfn_protected(d.fname)) return;
             if (t != g_sno_prescan_top) { g_sno_expr_define_seen = 1; sno_exprdef_note(exprdef_names, n_exprdef, d.fname); }
             sno_predef_note(d.fname);
             int fo = -1;
@@ -2698,7 +2698,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
             const tree_t * pnode = (dfn->n > 1) ? dfn->c[1] : NULL;
             if (!pnode || pnode->t != TT_QLIT || !pnode->v.sval) sno_fatal("TT_DEFINE missing literal prototype string", NULL);
             sno_def_t d; sno_parse_define(pnode->v.sval, NULL, &d);
-            if (sn4_is_system_fn(d.fname)) continue;
+            if (sn4_sysfn_protected(d.fname)) continue;
             const tree_t * body = (dfn->n > 2) ? dfn->c[2] : NULL;
             int found = -1;
             for (int k = 0; k < ndefs; k++) if (!strcmp(defs[k].fname, d.fname)) { found = k; break; }
@@ -2720,7 +2720,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
             else if (ea->t == TT_NAME && ea->n > 0 && ea->c[0] && ea->c[0]->t == TT_VAR && ea->c[0]->v.sval) entry_opt = ea->c[0]->v.sval;
         }
         sno_def_t d; sno_parse_define(sno_qlit_fold(dsub->c[argbase]), entry_opt, &d);
-        if (sn4_is_system_fn(d.fname)) continue;
+        if (sn4_sysfn_protected(d.fname)) continue;
         int found = -1;
         for (int k = 0; k < ndefs; k++) if (!strcmp(defs[k].fname, d.fname)) { found = k; break; }
         sno_entry_seen_push(def_entry_all, &n_def_entry_all, d.entry);
