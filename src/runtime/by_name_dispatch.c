@@ -5219,6 +5219,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (IS_FAIL_fn(av)) { *out = FAILDESCR; return 1; }
         char *buf = rt_ws_alloc(256);
         if (av.v == DT_SNUL)     { *out = STRVAL("&null"); return 1; }
+        if (av.v == DT_CO)       { extern long scrip_coexpr_serial_of(void *); extern long scrip_coexpr_activations_of(void *); snprintf(buf,128,"co-expression_%ld(%ld)", scrip_coexpr_serial_of(av.p), scrip_coexpr_activations_of(av.p)); *out = STRVAL(buf); return 1; }
         if (av.v == DT_E) {
             const char *nm = procval_name(av);
             if (!nm) nm = "?";

@@ -228,6 +228,7 @@ int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint6
     scrip_coctx_t *prev = scrip_co_current;
     int first = target->alive ? 1 : 0;
     target->activator = self;
+    target->activations++;
     target->xmit[0] = x0;
     target->xmit[1] = x1;
     scrip_co_current = target;
@@ -264,6 +265,7 @@ void scrip_co_gc_link(scrip_coctx_t *ctx) { ctx->gc_next = g_co_gc_head; g_co_gc
 scrip_coctx_t *scrip_co_gc_head(void) { return g_co_gc_head; }
 scrip_coctx_t *scrip_co_gc_root(void) { if (g_root_ctx.serial == 0) g_root_ctx.serial = 1; return &g_root_ctx; }
 long scrip_coexpr_serial_of(void *ctx) { return ctx ? ((scrip_coctx_t *)ctx)->serial : 0; }
+long scrip_coexpr_activations_of(void *ctx) { if (!ctx) return 0; if (ctx == (void *)&g_root_ctx) return ((scrip_coctx_t *)ctx)->activations + 1; return ((scrip_coctx_t *)ctx)->activations; }
 int scrip_co_main_known(pthread_t *out) { if (g_co_main_set && out) *out = g_co_main_thr; return g_co_main_set; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int scrip_co_stack_of(scrip_coctx_t *ctx, char **lo, char **hi) {

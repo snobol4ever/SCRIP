@@ -25,6 +25,7 @@ typedef struct scrip_coctx_t {
     void *scan_state;
     uint64_t rtcc_spill[32];
     long serial;
+    long activations;
     jmp_buf exit_jmp;
     size_t stk_need;
 } scrip_coctx_t;
@@ -43,6 +44,7 @@ int scrip_co_main_known(pthread_t *out);
 int scrip_co_stack_of(scrip_coctx_t *ctx, char **lo, char **hi);
 scrip_coctx_t *scrip_coexpr_refresh(scrip_coctx_t *orig);
 long scrip_coexpr_serial_of(void *ctx);
+long scrip_coexpr_activations_of(void *ctx);
 #ifdef __cplusplus
 }
 #endif
