@@ -104,8 +104,27 @@ if [ "$crc" -ge 2 ]; then
     echo "GATE FAIL: util_score_row.py check could not measure staleness (rc=$crc)"
     echo "$chk" | sed 's/^/    /'
     violations=$((violations + 1))
+elif ! printf '%s' "$chk" | grep -q 'SCORE.md staleness'; then
+    # ⛔⭐ COULD-NOT-MEASURE IS NOT MEASURED-RED, AND THIS ARM USED TO COLLAPSE THEM (hq_T 2026-09-06, on the
+    # coo's reading: FAIL(1) here once at load 22, then PASS(0) twice within five minutes, with and without
+    # their change stashed -- a load-sensitive arm, not a regression). `check` shells out to git per row; under
+    # contention it can return WITHOUT its header and without verdicts, and this arm then convicted the WRITE
+    # PATH -- which it had not tested at all -- of an invariant break. That is the exact collapse lib_gate.sh's
+    # three exit codes exist to prevent, inside the gate that polices the leaderboard's honesty.
+    # ⚠️⭐ AND THE DIAGNOSTIC BELOW USED PLAIN QUOTES BECAUSE BACKTICKS IN A DOUBLE-QUOTED echo RUN AS A COMMAND
+    # -- measured on this very line: the first cut printed "this arm never reached it.  runs one git query",
+    # having executed `check` and eaten the word out of the sentence that exists to name it. Same defect this
+    # repo has now recorded four times, and it bit inside the fix for a DIFFERENT could-not-measure defect.
+    # ⭐ THE DISCRIMINATOR IS the check header, not the verdict lines: a run that printed the header and no
+    # verdicts really did fail to grade any row (a defect), while a run that printed no header never got started
+    # (an environment). Splitting on the header tests the two different claims separately instead of guessing.
+    echo "⛔ GATE REFUSES (rc=2): util_score_row.py check returned no staleness report at all (rc=$crc)."
+    echo "   NOT a verdict on the write path -- this arm never reached it. 'check' runs one git query per row"
+    echo "   and returns degraded under load; re-run when the box is quieter. Captured output follows:"
+    echo "$chk" | sed 's/^/    /'
+    exit 2
 elif ! printf '%s' "$chk" | grep -q 'commits behind origin/main\|UNPINNED\|UNKNOWN'; then
-    echo "GATE FAIL: check printed no per-row staleness verdict at all"
+    echo "GATE FAIL: check printed its staleness report but graded no row in it"
     echo "$chk" | sed 's/^/    /'
     violations=$((violations + 1))
 fi
