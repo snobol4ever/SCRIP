@@ -264,12 +264,15 @@ static tree_t *parse_postfix(IcnParser *p) {
             advance(p);
             tree_t *call = ast_node_new(TT_FNC);
             push_child(call, n);
+            tree_t *lst = ast_node_new(TT_MAKELIST);
             if (!check(p, TK_RBRACE)) {
                 do {
-                    if (check(p, TK_COMMA) || check(p, TK_RBRACE)) push_child(call, e_leaf_sval(TT_VAR, "&null", -1));
-                    else { tree_t *arg = parse_expr(p); if (!arg) break; push_child(call, arg); }
+                    tree_t *arg = (check(p, TK_COMMA) || check(p, TK_RBRACE)) ? e_leaf_sval(TT_VAR, "&null", -1) : parse_expr(p);
+                    if (!arg) break;
+                    tree_t *cr = ast_node_new(TT_CREATE); push_child(cr, arg); push_child(lst, cr);
                 } while (match(p, TK_COMMA));
             }
+            push_child(call, lst);
             expect(p, TK_RBRACE, "brace call");
             n = call;
         } else if (check(p, TK_DOT)) {
