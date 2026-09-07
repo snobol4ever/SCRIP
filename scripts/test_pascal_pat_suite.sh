@@ -174,7 +174,9 @@ if . "$HERE/lib_gate.sh" 2>/dev/null && command -v gate_stamp >/dev/null 2>&1; t
 # both count against the row; never m3 alone, never m4 alone, never the min of two counts (which hides a
 # program red in each)."
 # ⭐ hq_V's SECOND, STANDING REASON IS ANSWERED RATHER THAN OVERRULED. m4 here has a NAMED non-determinism row
-# against it (pascal-m4-intermittent-segv-layout-sensitive: five runs, one tree, five pass counts), and a row
+# against it (pascal-m4-intermittent-segv-layout-sensitive: five runs, one tree, five pass counts -- ⚠ that
+# row is filed in QUEUE.done.tsv, FREE and unassigned, and is absent from QUEUE.tsv, while the defect is live;
+# measured 2026-09-06 22:5x and reported to the ceo and hq_V, not reopened from this lane), and a row
 # wired to a number that moves without the code moving really does manufacture phantom movement in the table
 # Lon reads, ETA column included. ceo-372 puts that where it belongs: "a mode whose count varies run to run is
 # a DEFECT ROW in that lane -- a nondeterministic compile is the xfail shape with a runner's excuse in front
