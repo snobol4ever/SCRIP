@@ -41,6 +41,7 @@ if [ -z "$ME" ]; then case "$S4E" in
     /home/claude_S)         ME=hq_S;;
     /home/claude_I)         ME=hq_I;;
     /home/claude_R)         ME=hq_R;;
+    /home/claude_V)         ME=hq_V;;
     /home/claude[0-9][0-9]) ME="seat${S4E#/home/claude}";;
     /home/claude[1-9])      ME="seat0${S4E#/home/claude}";;
     *)                      ME="$(basename "$S4E")";; esac; fi
