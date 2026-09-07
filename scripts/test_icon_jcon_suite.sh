@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # scripts/test_icon_jcon_suite.sh — grades SCRIP m3+m4 against the vendored JCON test suite
-# (corpus/packages/icon/jcon_tests/: 91 .icn, 83 with a .std oracle, 21 with a .dat companion).
+# (corpus/packages/icon/jcon_tests/: 91 .icn, 83 with a .std oracle, 21 with a .dat companion, plus link1 graded by a .ref we cut from icont/iconx with its .args).
 # Row jcon-tests-vendor-script-run. Self-contained. Run from anywhere with no env vars.
 #
 # FOUR-WAY VERDICT, not the usual PASS/FAIL/REFUSED: a jcon test is real, unmodified upstream Icon
@@ -26,10 +26,11 @@
 # `open("recent.dat")` remain unaddressed -- moot today since it dies earlier on an unrelated sortf bug,
 # see FINDING-2026-09-05-seat02-icon-jcon-suite-census-11th-pass*.md).
 #
-# NO-ORACLE SOURCES EXCLUDED, NOT GRADED AS MISSING: link1/link2/load1/load2/tpp1-5 have no .std by
-# design (dynamic-load tests meaningless for a compile-once model; template-preprocessor inputs, not
-# standalone programs -- see README.md). Globbing only *.icn with a matching *.std sidesteps them
-# without a hardcoded exclude list that would silently go stale.
+# NO-ORACLE SOURCES EXCLUDED, NOT GRADED AS MISSING: link2/load1/load2/tpp1-5 have no .std by
+# design (link targets and dynamic-load targets with no main; template-preprocessor inputs, not
+# standalone programs -- see README.md). Globbing only *.icn with a matching *.std (or a *.ref we cut
+# from the oracle -- link1, cfo 2026-09-07) sidesteps them without a hardcoded exclude list that would
+# silently go stale.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 
 set -uo pipefail
@@ -87,17 +88,31 @@ run_one() {
     local base="${icn%.icn}" name errf rc
     name=$(basename "$icn" .icn)
     errf="$WORK/err.txt"; : > "$errf"
-    local dat="${base}.dat" IN=/dev/null extra_args=()
+    local dat="${base}.dat" IN=/dev/null; local -a prog_args=()
     local rundir="$WORK/$name.rundir"; mkdir -p "$rundir"
-    if [ -f "$dat" ]; then IN="$dat"; extra_args=(-- "$dat"); cp "$dat" "$rundir/$(basename "$dat")"; fi
+    if [ -f "$dat" ]; then IN="$dat"; prog_args=("$dat"); cp "$dat" "$rundir/$(basename "$dat")"; fi
+    # ⭐ TWO MORE SIDECARS, BOTH OURS AND BOTH DECLARED, NEVER INFERRED (cfo 2026-09-07, row every-package-runner-
+    # prints-...: link1.icn was the package's one UNGRADED row, NEEDS_RUNNER_WIRING). `<name>.args` is the argv the
+    # ref was cut with (test_demo_icon_jcon.sh's own convention, words split by the shell); the modules a program
+    # `link`s are read from the program itself -- the entry IS the manifest, as that gate puts it -- and handed to
+    # scrip beside it in BOTH modes, the same two-file build icont needs (`icont link1.icn link2.icn`).
+    local args="${base}.args" m; local -a mods=()
+    if [ -f "$args" ]; then prog_args=($(cat "$args")); fi
+    # ⛔ THE `--` IS THE DRIVER'S, NOT THE PROGRAM'S (cfo 2026-09-07, measured on link1): `scrip --run f -- a b c`
+    # strips the `--` and hands the program `a b c`, but a mode-4 binary is a plain executable and saw `--` as
+    # argv[1] -- link1 printed `{{ -- }}` first, and every .dat program that reads *args (geddump, htprep,
+    # mffsol, profsum, tgrlink) was handed `--` before its data file in m4 and could only FAIL there. So the
+    # separator is added for m3 alone and the binary gets the program's own argv.
+    local -a extra_args=(); [ "${#prog_args[@]}" -eq 0 ] || extra_args=(-- "${prog_args[@]}")
+    for m in $(sed -nE 's/^[[:space:]]*link[[:space:]]+"?([A-Za-z0-9_.-]+)"?.*$/\1/p' "$icn"); do m="${m%.icn}"; [ -f "$(dirname "$icn")/$m.icn" ] && mods+=("$(dirname "$icn")/$m.icn"); done
     case "$mode" in
         m3)
-            ( cd "$rundir" && timeout "$TIMEOUT" "$SCRIP" --run "$icn" "${extra_args[@]}" < "$IN" > "$outfile" 2>"$errf" )
+            ( cd "$rundir" && timeout "$TIMEOUT" "$SCRIP" --run "$icn" ${mods[@]+"${mods[@]}"} ${extra_args[@]+"${extra_args[@]}"} < "$IN" > "$outfile" 2>"$errf" )
             rc=$?
             ;;
         m4)
             local s="$WORK/$name.s" o="$WORK/$name.o" bin="$WORK/${name}_bin"
-            if ! timeout "$TIMEOUT" "$SCRIP" --compile --target=x86 "$icn" < /dev/null > "$s" 2>"$errf"; then
+            if ! timeout "$TIMEOUT" "$SCRIP" --compile --target=x86 "$icn" ${mods[@]+"${mods[@]}"} < /dev/null > "$s" 2>"$errf"; then
                 : > "$outfile"; rc=1
             elif grep -q 'icon: parse error' "$errf"; then
                 : > "$outfile"; rc=1
@@ -106,7 +121,7 @@ run_one() {
             elif ! gcc -no-pie "$o" -L"$OUTDIR" -lscrip_rt -Wl,-rpath,"$OUTDIR" -lm -o "$bin" 2>>"$errf"; then
                 : > "$outfile"; rc=1
             else
-                ( cd "$rundir" && timeout "$TIMEOUT" "$bin" "${extra_args[@]}" < "$IN" > "$outfile" 2>"$errf" )
+                ( cd "$rundir" && timeout "$TIMEOUT" "$bin" ${prog_args[@]+"${prog_args[@]}"} < "$IN" > "$outfile" 2>"$errf" )
                 rc=$?
             fi
             ;;
@@ -127,7 +142,8 @@ run_mode() {
         [ -f "$icn" ] || continue
         case "$(basename "$icn")" in ALL.*) continue ;; esac   # our own generated container is not a shipped program -- see the census loop below
         std="${icn%.icn}.std"
-        [ -f "$std" ] || continue   # no-oracle source (link*/load*/tpp*) — excluded, not MISSING
+        [ -f "$std" ] || std="${icn%.icn}.ref"   # `.ref` is a ref WE cut from icont/iconx with `<name>.args` (README.md), for a shipped program upstream ships no .std for
+        [ -f "$std" ] || continue   # no-oracle source (link2/load*/tpp*) — excluded, not MISSING
         case "$(basename "$icn")" in tpp.icn) continue;; esac   # tpp.std is jcon PREPROCESSOR TEXT output, not program output (its body is deliberately-invalid Icon like `abc 11`); ungradable by execution — named exclusion, same class as the no-.std sources above
         outfile="$WORK/out.txt"
         kind=$(run_one "$mode" "$icn" "$std" "$outfile")
@@ -181,7 +197,7 @@ for _icn in "$CORPUS"/*.icn; do
 case "$(basename "$_icn")" in ALL.*) continue ;; esac
     SHIPPED=$((SHIPPED+1))
     _b="$(basename "$_icn" .icn)"
-    if [ ! -f "${_icn%.icn}.std" ]; then GAP_NAMES="$GAP_NAMES $_b(no .std shipped upstream)"; continue; fi
+    if [ ! -f "${_icn%.icn}.std" ] && [ ! -f "${_icn%.icn}.ref" ]; then GAP_NAMES="$GAP_NAMES $_b(no .std shipped upstream, no .ref cut by us)"; continue; fi
     case "$_b" in tpp) GAP_NAMES="$GAP_NAMES tpp(.std is jcon PREPROCESSOR text, not program output)"; continue;; esac
     GRADED=$((GRADED+1))
 done
@@ -218,7 +234,7 @@ echo "JCON_SUITE_BOARD shipped=$SHIPPED graded=$GRADED gap=$GAP total=$total m3_
 # ⛔⭐ THE PACKAGE LOCKDOWN INVENTORY (Lon 2026-09-06: "Fix the never graded business"; instrument row
 # every-package-runner-prints-shipped-graded-ungraded-and-ungradable..., hq_T). ONE line, ONE shape, from
 # the SHARED body -- never a second copy of the arithmetic. ⭐ IT SPLITS THE `gap=` PRINTED ABOVE, and for
-# THIS package the split is the whole point: all 10 gap entries are UNGRADABLE (upstream ships no .std, and
+# THIS package the split is the whole point: all 9 gap entries are UNGRADABLE (upstream ships no .std, and
 # tpp's .std is preprocessor text rather than program output), so jcon's ungraded is ZERO and it already
 # meets the lockdown criterion. Under a single `gap=10` that was indistinguishable from ten programs of
 # work owed -- and since every lockdown row's DONE-WHEN reads `ungraded=0`, the conflated number made a
