@@ -5,6 +5,8 @@ ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="$ROOT/scrip"
 refuse() { echo "GATE REFUSE(2) [icn_byname_generator_region_is_not_on_the_arena]: $*"; exit 2; }
 [ -x "$SCRIP" ] || refuse "no scrip binary at $SCRIP -- cannot measure"
+. "$HERE/lib_gate.sh"
+gate_require_fresh "$ROOT" src "$ROOT/scrip" "$ROOT/out/libscrip_rt.so"
 TD="$(mktemp -d)"; trap 'rm -rf "$TD"' EXIT
 cat > "$TD/byname.icn" <<'EOF'
 procedure gen()
