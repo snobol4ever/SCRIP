@@ -2211,7 +2211,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         if (subj && subj->t == TT_SCAN) {
             const tree_t * ptt = (subj->n > 1) ? subj->c[1] : NULL;
             if (!sno_pat_supported(ptt)) {
-                if (ptt && (ptt->t == TT_FNC || ptt->t == TT_INDIRECT || sno_is_pattern_rhs(ptt))) {
+                if (ptt) {
                     extern tree_t *ast_stmt_new(tree_e kind);
                     static int g_pattmp_n = 0;
                     char nmb[24]; snprintf(nmb, sizeof nmb, "PATTMP$%d", g_pattmp_n++);
@@ -2227,7 +2227,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                     lc_γ_to(anchor[i], ec);
                     continue;
                 }
-                sno_fatal("pattern shape outside the SN4-PAT subset (LEN, literal, ANY, NOTANY, SPAN, BREAK, BREAKX, TAB, RTAB, POS, RPOS, REM, ARB)", NULL);
+                sno_fatal("pattern match with no pattern operand", NULL);
             }
             IR_t * e = sno_lower_match(&cx, subj, has_eq ? sfind_expr(s, ":repl") : NULL, has_eq, sJ, fJ, &match_land[i]);
             lc_γ_to(anchor[i], e);
