@@ -353,7 +353,7 @@ static const tree_t * pl_caret_body(const tree_t * t) {
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_tree_is_control(const tree_t * t) { return t && t->t == TT_FNC && t->v.sval && t->n == 2 && (!strcmp(t->v.sval, ",") || !strcmp(t->v.sval, ";") || !strcmp(t->v.sval, "|") || !strcmp(t->v.sval, "->")); }
+static int pl_tree_is_control(const tree_t * t) { return t && t->t == TT_FNC && t->v.sval && t->n == 2 && (!strcmp(t->v.sval, ",") || !strcmp(t->v.sval, ";") || !strcmp(t->v.sval, "|") || !strcmp(t->v.sval, "->") || !strcmp(t->v.sval, "*->")); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_tree_noncallable_goal(const tree_t * t) {
     if (!t) return 0;
@@ -366,7 +366,11 @@ static int pl_goal_arg_wants_guard(const tree_t * t) { return t && (t->t == TT_V
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_is_ite(const tree_t * t) { return t && t->t == TT_FNC && t->v.sval && (!strcmp(t->v.sval, ";") || !strcmp(t->v.sval, "|")) && t->n == 2 && t->c[0] && t->c[0]->t == TT_FNC && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "->"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_is_disj(const tree_t * t) { return t && t->t == TT_FNC && t->v.sval && (!strcmp(t->v.sval, ";") || !strcmp(t->v.sval, "|")) && t->n == 2 && !pl_is_ite(t); }
+static int pl_is_softcut(const tree_t * t) { return t && t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "*->") && t->n == 2; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_is_scite(const tree_t * t) { return t && t->t == TT_FNC && t->v.sval && (!strcmp(t->v.sval, ";") || !strcmp(t->v.sval, "|")) && t->n == 2 && pl_is_softcut(t->c[0]); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_is_disj(const tree_t * t) { return t && t->t == TT_FNC && t->v.sval && (!strcmp(t->v.sval, ";") || !strcmp(t->v.sval, "|")) && t->n == 2 && !pl_is_ite(t) && !pl_is_scite(t); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void collect_disj(const tree_t * t, lc_vec * out) {
     if (pl_is_disj(t)) { collect_disj(t->c[0], out); collect_disj(t->c[1], out); return; }
@@ -431,6 +435,7 @@ static tree_t * pl_cc_fnc2(const char * f, tree_t * a0, tree_t * a1) { tree_t * 
 static tree_t * pl_meta_var(const char * nm) { tree_t * v = ast_node_new(TT_VAR); v->v.sval = (char *) nm; return v; }
 static tree_t * pl_cc_ilit(long long v) { tree_t * n = ast_node_new(TT_ILIT); n->v.ival = v; return n; }
 static tree_t * pl_cc_ite(tree_t * c, tree_t * th, tree_t * el) { return pl_cc_fnc2(";", pl_cc_fnc2("->", c, th), el); }
+static tree_t * pl_cc_scite(tree_t * c, tree_t * th, tree_t * el) { return pl_cc_fnc2(";", pl_cc_fnc2("*->", c, th), el); }
 static tree_t * pl_cc_pi(const char * nm) { return pl_cc_fnc2("/", (tree_t *) pl_atom_goal(nm), pl_cc_ilit(2)); }
 static tree_t * pl_cc_throw(tree_t * formal, const char * ctx_nm) { return pl_cc_fnc1("throw", pl_cc_fnc2("error", formal, pl_cc_pi(ctx_nm))); }
 static tree_t * pl_cc_fnc3(const char * f, tree_t * a0, tree_t * a1, tree_t * a2) { tree_t * n = ast_node_new(TT_FNC); n->v.sval = (char *) f; ast_push(n, a0); ast_push(n, a1); ast_push(n, a2); return n; }
@@ -470,6 +475,53 @@ static IR_t * pl_lower_ite(lcx_t * cx, const tree_t * C, const tree_t * T, const
       cx->cutω = saveω;
       lc_γ_to(mark, ce ? ce : (cfirst ? cfirst : arm_entry[0]));
       if (entry_out) *entry_out = mark; }
+    return ig;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_sc_entry(IR_t * e) { int guard = 0; while (e && e->op == IR_SUCCEED && e->γ.node && guard++ < 4096) e = e->γ.node; return e; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_lower_softcut(lcx_t * cx, const tree_t * C, const tree_t * T, const tree_t * E, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    IR_t * ig = build(cx, IR_INDIRECT_GOTO, γnext, ωfail);
+    IR_t * eg = build(cx, IR_INDIRECT_GOTO, γnext, ig);
+    IR_t * mark = build(cx, IR_BOUND, NULL, ig);
+    IR_t * unmk_f = build(cx, IR_UNMARK, NULL, ig); ir_operand_push(unmk_f, mark); IR_LIT(unmk_f).ival = 1;
+    IR_t * unmk_c = build(cx, IR_UNMARK, ig, ig); ir_operand_push(unmk_c, mark); IR_LIT(unmk_c).ival = 1;
+    lc_γ_to_β(unmk_f, eg);
+    IR_t * ml_e = build(cx, IR_MOVE_LABEL, NULL, ig);
+    IR_t * ml_c = build(cx, IR_MOVE_LABEL, NULL, ig);
+    IR_t * ml_t = build(cx, IR_MOVE_LABEL, NULL, ig);
+    IR_t * credo = NULL;
+    { lc_vec cv; lc_vec_init(&cv, (int) sizeof(const tree_t *));
+      collect_conj(C, &cv);
+      IR_t * ce = NULL;
+      IR_t * savecutω = cx->cutω; cx->cutω = unmk_f;
+      IR_t * cfirst = pl_lower_conj(cx, (const tree_t * const *) cv.data, cv.n, ml_c, unmk_f, &ce, &credo, NULL);
+      cx->cutω = savecutω;
+      lc_γ_to(ml_e, pl_sc_entry(ce ? ce : (cfirst ? cfirst : ml_c))); }
+    IR_t * tredo = NULL;
+    { lc_vec tv; lc_vec_init(&tv, (int) sizeof(const tree_t *));
+      collect_conj(T, &tv);
+      int before = cx->g->n;
+      IR_t * te = NULL;
+      IR_t * tfirst = pl_lower_conj(cx, (const tree_t * const *) tv.data, tv.n, ml_t, credo ? credo : unmk_c, &te, &tredo, NULL);
+      if (credo) pl_mark_into(cx, before, credo, NULL, "β");
+      lc_γ_to(ml_c, pl_sc_entry(te ? te : (tfirst ? tfirst : ml_t))); }
+    IR_t * ee = NULL;
+    if (E) {
+        IR_t * ml_ee = build(cx, IR_MOVE_LABEL, NULL, ig);
+        lc_vec ev; lc_vec_init(&ev, (int) sizeof(const tree_t *));
+        collect_conj(E, &ev);
+        IR_t * eredo = NULL;
+        IR_t * efirst = pl_lower_conj(cx, (const tree_t * const *) ev.data, ev.n, ml_ee, unmk_c, &ee, &eredo, NULL);
+        ir_operand_push(ml_ee, eredo ? eredo : ig); ir_operand_push(ml_ee, ig); IR_LIT(ml_ee).ival = eredo ? 1 : 0;
+        ee = pl_sc_entry(ee ? ee : (efirst ? efirst : ml_ee));
+        if (!ee) ee = ml_ee;
+    }
+    ir_operand_push(ml_e, E ? ee : eg); ir_operand_push(ml_e, eg); IR_LIT(ml_e).ival = 0;
+    ir_operand_push(ml_c, eg); ir_operand_push(ml_c, eg); IR_LIT(ml_c).ival = 0;
+    ir_operand_push(ml_t, tredo ? tredo : (credo ? credo : ig)); ir_operand_push(ml_t, ig); IR_LIT(ml_t).ival = (tredo || credo) ? 1 : 0;
+    lc_γ_to(mark, ml_e);
+    if (entry_out) *entry_out = mark;
     return ig;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -863,8 +915,10 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         }
         if (!strcmp(nm, "write") && t->n == 1) return pl_leaf(cx, "$write", t, 1, γnext, ωfail, entry_out);
         if (!strcmp(nm, ";") || !strcmp(nm, "|")) { if (pl_is_ite(t)) return pl_lower_ite(cx, t->c[0]->c[0], t->c[0]->c[1], t->c[1], γnext, ωfail, entry_out);
+            if (pl_is_scite(t)) return pl_lower_softcut(cx, t->c[0]->c[0], t->c[0]->c[1], t->c[1], γnext, ωfail, entry_out);
             return pl_lower_disj(cx, t, γnext, ωfail, entry_out); }
         if (!strcmp(nm, "->") && t->n == 2) return pl_lower_ite(cx, t->c[0], t->c[1], NULL, γnext, ωfail, entry_out);
+        if (!strcmp(nm, "*->") && t->n == 2) return pl_lower_softcut(cx, t->c[0], t->c[1], NULL, γnext, ωfail, entry_out);
         if ((!strcmp(nm, "\\+") || !strcmp(nm, "not")) && t->n == 1) return pl_lower_ite(cx, t->c[0], pl_atom_goal("fail"), pl_atom_goal("true"), γnext, ωfail, entry_out);
         if (!strcmp(nm, "once") && t->n == 1) return pl_lower_ite(cx, t->c[0], pl_atom_goal("true"), pl_atom_goal("fail"), γnext, ωfail, entry_out);
         if (!strcmp(nm, "ignore") && t->n == 1) return pl_lower_ite(cx, t->c[0], pl_atom_goal("true"), pl_atom_goal("true"), γnext, ωfail, entry_out);
@@ -1431,22 +1485,26 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
         }
     }
     { extern tree_t * pl_runtime_clause_tree(tree_t *);
-      static const char * const pl_meta_ctrl[] = { ",", ";", "->" };
+      static const char * const pl_meta_ctrl[] = { ",", ";", "->", "*->" };
       for (size_t wi = 0; wi < sizeof pl_meta_ctrl / sizeof pl_meta_ctrl[0]; wi++) {
         const char * wn = pl_meta_ctrl[wi]; char key[264]; int nclause; snprintf(key, sizeof key, "%s/2", wn);
         if (pl_bb_lookup(key, 2)) continue;
         if (resolve_pred_table_lookup(&g_stage2.resolve_pred_table, key)) continue;
-        nclause = !strcmp(wn, ";") ? 3 : 1;
+        nclause = !strcmp(wn, ";") ? 4 : 1;
         { tree_t * ch = ast_node_new(TT_CHOICE); ch->v.sval = strdup(key); int nb = 0;
           for (int bi = 0; bi < nclause; bi++) {
             tree_t * hd = ast_node_new(TT_FNC); tree_t * body = (tree_t *) 0; tree_t * raw; tree_t * cl;
             hd->v.sval = strdup(wn); ast_push(hd, pl_meta_var("A")); ast_push(hd, pl_meta_var("B"));
             if (!strcmp(wn, ",")) body = pl_cc_fnc2(",", pl_cc_fnc1("call", pl_meta_var("A")), pl_cc_fnc1("call", pl_meta_var("B")));
             else if (!strcmp(wn, "->")) body = pl_cc_fnc2(",", pl_cc_fnc2(",", pl_cc_fnc1("call", pl_meta_var("A")), (tree_t *) pl_atom_goal("!")), pl_cc_fnc1("call", pl_meta_var("B")));
+            else if (!strcmp(wn, "*->")) body = pl_cc_fnc2(",", pl_cc_fnc1("call", pl_meta_var("A")), pl_cc_fnc1("call", pl_meta_var("B")));
             else if (bi == 0) body = pl_cc_fnc2(",", pl_cc_fnc2("=", pl_meta_var("A"), pl_cc_fnc2("->", pl_meta_var("C"), pl_meta_var("T"))),
                                                 pl_cc_fnc2(",", (tree_t *) pl_atom_goal("!"),
                                                            pl_cc_ite(pl_cc_fnc1("call", pl_meta_var("C")), pl_cc_fnc1("call", pl_meta_var("T")), pl_cc_fnc1("call", pl_meta_var("B")))));
-            else if (bi == 1) body = pl_cc_fnc1("call", pl_meta_var("A"));
+            else if (bi == 1) body = pl_cc_fnc2(",", pl_cc_fnc2("=", pl_meta_var("A"), pl_cc_fnc2("*->", pl_meta_var("C"), pl_meta_var("T"))),
+                                                pl_cc_fnc2(",", (tree_t *) pl_atom_goal("!"),
+                                                           pl_cc_scite(pl_cc_fnc1("call", pl_meta_var("C")), pl_cc_fnc1("call", pl_meta_var("T")), pl_cc_fnc1("call", pl_meta_var("B")))));
+            else if (bi == 2) body = pl_cc_fnc1("call", pl_meta_var("A"));
             else body = pl_cc_fnc1("call", pl_meta_var("B"));
             raw = ast_node_new(TT_FNC); raw->v.sval = (char *) ":-"; ast_push(raw, hd); ast_push(raw, body);
             cl = pl_runtime_clause_tree(raw); if (!cl) continue; ast_push(ch, cl); nb++; }

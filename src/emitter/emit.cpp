@@ -3242,7 +3242,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             else if (rtgt->op == IR_SUCCEED) g_move_label_tgt = &lbl_γ;
             else for (int k = 0; k < n; k++) if (nodes[k] == rtgt) { g_move_label_tgt = wantb ? betas[k] : lbls[k]; break; }
         }
-        if (nodes[i]->op == IR_MOVE_LABEL && nodes[i]->n_operands > 1 && nodes[i]->operands[1]) {
+        if (nodes[i]->op == IR_MOVE_LABEL && nodes[i]->n_operands > 1 && nodes[i]->operands[1] && !nodes[i]->γ.node) {
             IR_t *igp = nodes[i]->operands[1];
             IR_t *sg = igp->γ.node;
             int sg_is_beta = port_sz_beta(igp->γ.sz);

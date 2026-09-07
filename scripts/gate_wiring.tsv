@@ -93,6 +93,7 @@ test_gate_pl_atom_concat_modes.sh	WIRED	-	-	-
 test_gate_pl_atom_number_iso_errors.sh	WIRED	-	-	-
 test_gate_pl_consult_loads_the_named_file.sh	WIRED	-	-	-
 test_gate_pl_meta_call_reaches_control_constructs.sh	WIRED	-	-	-
+test_gate_pl_meta_wrapper_does_not_break_m4_declarations.sh	WIRED	-	-	-
 test_gate_pl_multifile_initialization_runs_every_file.sh	WIRED	-	-	-
 test_gate_pl_no_value_stack.sh	WIRED	-	-	-
 test_gate_pl_number_syntax_iso.sh	WIRED	-	-	-

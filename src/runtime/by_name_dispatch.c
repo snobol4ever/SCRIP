@@ -6898,7 +6898,7 @@ static int pl_goal_conv_scan(DESCR_t t, int depth) {
     if (pl_iso_unbound(v)) return 1;
     if ((int)v.v == DT_PLREF) {
         int ar = (int)(v.slen & 0xFFFFu); const char *fn = prolog_atom_name((int)(v.slen >> 16));
-        if (ar == 2 && fn && depth < 64 && (!strcmp(fn, ",") || !strcmp(fn, ";") || !strcmp(fn, "->") || !strcmp(fn, "|"))) {
+        if (ar == 2 && fn && depth < 64 && (!strcmp(fn, ",") || !strcmp(fn, ";") || !strcmp(fn, "->") || !strcmp(fn, "*->") || !strcmp(fn, "|"))) {
             DESCR_t *kids = (DESCR_t *)v.p; int a = pl_goal_conv_scan(kids[0], depth + 1);
             if (a) return a;
             return pl_goal_conv_scan(kids[1], depth + 1); }
