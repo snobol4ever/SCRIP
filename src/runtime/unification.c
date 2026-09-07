@@ -756,7 +756,18 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
     if (!strcmp(fn, "atom_concat")) {
         const char *s0 = plc_atom_op_text(t0, buf0, sizeof buf0);
         const char *s1 = plc_atom_op_text(t1, buf1, sizeof buf1);
-        if (!s0 || !s1) { return 0; }
+        if (!s0 || !s1) {
+            char bufz[512]; const char *sz = plc_atom_op_text(t2, bufz, sizeof bufz);
+            if (!sz) { return 0; }
+            { size_t lz = strlen(sz);
+              if (s0 && !s1) { size_t la = strlen(s0);
+                  if (la > lz || memcmp(sz, s0, la)) { return 0; }
+                  return plc_unify_into_cell_cx((pl_cell_t *)a1_cell, plc_make_atom_cell(sz + la), cx) ? 1 : 0; }
+              if (!s0 && s1) { size_t lb = strlen(s1);
+                  if (lb > lz || memcmp(sz + (lz - lb), s1, lb)) { return 0; }
+                  { char *pre = (char *)rt_ws_alloc(lz - lb + 1); memcpy(pre, sz, lz - lb); pre[lz - lb] = '\0';
+                    return plc_unify_into_cell_cx((pl_cell_t *)a0_cell, plc_make_atom_cell(pre), cx) ? 1 : 0; } } }
+            return 0; }
         size_t l0 = strlen(s0), l1 = strlen(s1);
         char *cat = (char *)rt_ws_alloc(l0 + l1 + 1); memcpy(cat, s0, l0); memcpy(cat + l0, s1, l1); cat[l0 + l1] = '\0';
         if (!plc_unify_into_cell_cx((pl_cell_t *)a2_cell, plc_make_atom_cell(cat), cx)) { return 0; }
