@@ -65,6 +65,17 @@ ipl_isolation_cleanup() { [ -n "${IPL_ISO_TEMPLATE:-}" ] && rm -rf "$IPL_ISO_TEM
 ipl_isolation_run() {
   local outfile="$1" to="$2" stdin_src="$3" work rc sub; shift 3
   sub="${IPL_ISO_SUBDIR:-progs}"
+  # ⛔⭐ REFUSE ON AN UNINITIALIZED TEMPLATE, and the reason is what the omission actually does. A caller that
+  # forgets `ipl_isolation_init` leaves IPL_ISO_TEMPLATE empty, and the `cp -r "$IPL_ISO_TEMPLATE"/. "$work"/`
+  # below then expands to `cp -r /. "$work"/` -- it walks the WHOLE FILESYSTEM into the scratch directory. Measured
+  # 2026-09-06 by hq_I, who did exactly this while building a one-program repro harness: it ran for minutes
+  # copying /dev, /swap.img and every mount before it was killed. ⭐ THE SHAPE IS THE LESSON: an unset variable
+  # in a path prefix does not produce an error, it produces a DIFFERENT VALID PATH -- and for a leading path the
+  # value it silently becomes is the root of the filesystem, so the failure mode of forgetting init is unbounded
+  # work and a filled disk rather than a diagnostic. Guarded here, where the expansion happens, and NOT merely
+  # documented in the header: the header already said `ipl_isolation_init` was required, and that is precisely
+  # the instruction that failed to prevent it.
+  [ -n "${IPL_ISO_TEMPLATE:-}" ] && [ -d "${IPL_ISO_TEMPLATE:-}" ] || { echo "⛔ ipl_isolation_run REFUSES(127): IPL_ISO_TEMPLATE is unset or not a directory -- call ipl_isolation_init \"\$PKG\" first (unset would make the copy below read the filesystem root)" >&2; return 127; }
   work="$(mktemp -d "${TMPDIR:-/tmp}/ipl_iso_run.XXXXXX")" || return 127
   cp -r "$IPL_ISO_TEMPLATE"/. "$work"/
   [ -d "$work/$sub" ] || { echo "⛔ ipl_isolation_run: no such package subdirectory: $sub" >&2; rm -rf "$work"; return 127; }
