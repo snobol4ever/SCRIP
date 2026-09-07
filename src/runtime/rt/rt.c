@@ -972,7 +972,6 @@ typedef struct rt_genp_s {
     const char       *name;
     int               done;
     int               first_done;
-    void             *region;
     long              region_ft;
 } rt_genp_s;
 _Static_assert(offsetof(rt_genp_s, next) == 0 && offsetof(rt_genp_s, regs) == 8, "rt_genp_s layout drift vs rt_genp_thread_entry asm offsets");
@@ -1079,7 +1078,7 @@ void rt_genp_entry_c(rt_genp_s *g)
     for (int i = 0; i < g->nargs; i++) rt_arg_stage(i, g->args[i]);
     long fb = rt_proc_call_open(g->name, g->nargs);
     if (!fb) { g->done = 2; scrip_cofail(); }
-    if (g->region) rt_genp_spine_enter_n2(g->fn, g->region); else rt_genp_spine_enter(g->fn);
+    if (g->region_ft > 0) { long rb = ((g->region_ft + 48L) + 15L) & ~15L; char *rraw = (char *)alloca((size_t)rb + 16); char *reg = (char *)(((uintptr_t)rraw + 15u) & ~(uintptr_t)15u); memset(reg, 0, (size_t)rb); rt_genp_spine_enter_n2(g->fn, (void *)reg); } else rt_genp_spine_enter(g->fn);
     g->done = 2; scrip_cofail();
     for (;;) pause();
 }
@@ -1090,7 +1089,6 @@ static rt_genp_s *rt_genp_lookup(void *h) { for (rt_genp_s *g = g_genp_head; g; 
 static void rt_genp_destroy(rt_genp_s *g)
 {
     scrip_coexpr_destroy(&g->co);
-    if (g->region) { extern void rt_zls_release(void *); rt_zls_release(g->region); g->region = (void *)0; }
     rt_genp_s **pp = &g_genp_head; while (*pp && *pp != g) pp = &(*pp)->next; if (*pp) *pp = g->next;
     free(g);
 }
@@ -1118,7 +1116,7 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
         g->nargs = nargs; if (g->nargs > CALL_ARGS_MAX) g->nargs = CALL_ARGS_MAX; if (g->nargs < 0) g->nargs = 0;
         for (int i = 0; i < g->nargs; i++) g->args[i] = g_call_args[i];
         g->fn = (void *)p->fn; g->name = p->name; g->done = 0;
-        if (p->gen_region_ft > 0) { extern void *rt_zls_alloc(long); g->region = rt_zls_alloc((long)p->gen_region_ft + 48L); g->region_ft = (long)p->gen_region_ft; }
+        if (p->gen_region_ft > 0) g->region_ft = (long)p->gen_region_ft;
         scrip_co_ctx_init(&g->co, rt_genp_thread_entry, (void *)g);
         scrip_co_gc_link(&g->co);
         g->next = g_genp_head; g_genp_head = g;
