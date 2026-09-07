@@ -15,7 +15,7 @@
 #   4  the board prints the table's reading: SNOFLAKE_BOARD ... both_modes_stream_pass=1
 #   5  the inventory does not refuse: PACKAGE_INVENTORY ... graded_narrow=2 (NARROW.tsv names both narrow fixtures)
 #   6  the same scratch suite WITHOUT S4E_PROGRESS_DB records nothing (says NOT recorded) and writes no SCORE.md cell
-#   7  the live table is exactly as long after arm 6 as before it
+#   7  this seat's snoflake rows in the live table are exactly as many after arm 6 as before it (the table is shared and grows under other seats)
 #   8  dotnet, scratch suite + scratch table: exactly 4 rows (2 programs x 2 modes), all PASS
 #   9  dotnet prints the table's reading: DOTNET_AND both_modes_pass=2/2
 # Fail-once (2026-09-07 09:0x CDT, coo, measured): with the pre-landing runners restored from scratch copies, 7 of 9 arms red
@@ -37,6 +37,10 @@ W="$(mktemp -d "${TMPDIR:-/tmp}/gate_pkgprog.XXXXXX")" || { echo "GATE UNPROVEN(
 trap 'rm -rf "$W"' EXIT
 PASS=0; FAIL=0; red() { FAIL=$((FAIL+1)); echo "  ⛔ arm $1 RED: $2"; }; ok() { PASS=$((PASS+1)); echo "  ✅ arm $1: $2"; }
 rows() { awk -F'\t' 'NR>1 && NF>=10' "$1" 2>/dev/null | wc -l | tr -d ' '; }
+# The LIVE table is shared by every seat and grows under them mid-gate (measured inside make test 2026-09-07: +15 rows
+# from two other seats' boards in the ten seconds of arm 6), so arm 7 counts only THIS seat's snoflake rows.
+ME="$(. "$HERE/lib_progress.sh" 2>/dev/null; progress_context 2>/dev/null | grep -oE 'measurer=[^[:space:]]+' | cut -d= -f2)"; [ -n "$ME" ] || ME=unknown
+mine() { awk -F'\t' -v me="$ME" 'NR>1 && NF>=10 && $4==me && $6=="snoflake"' "$1" 2>/dev/null | wc -l | tr -d ' '; }
 outcome() { awk -F'\t' -v p="$2" -v m="$3" 'NR>1 && $8==p && $9==m {print $10}' "$1" 2>/dev/null | tail -1; }
 # --- snoflake scratch suite: one byte-equal fixture, two error-number-only fixtures, the gimpel includes, a NARROW.tsv naming exactly the two
 mkdir -p "$W/sno"; for f in indirect-real-illegal-type stlimit-nonnegative gimpel-general-purpose-macro; do
@@ -53,11 +57,11 @@ printf '%s\n' "$OUT1" | grep -qE '^SNOFLAKE_BOARD total=3 .*both_modes_stream_pa
 if printf '%s\n' "$OUT1" | grep -q 'INVENTORY REFUSES'; then red 5 "the inventory refused on the scratch suite"; else
     printf '%s\n' "$OUT1" | grep -qE '^PACKAGE_INVENTORY package=snoflake_suite .*graded_narrow=2( |$)' && ok 5 "PACKAGE_INVENTORY graded_narrow=2, no refusal" || red 5 "no PACKAGE_INVENTORY line with graded_narrow=2"; fi
 # --- the scratch suite without a scratch table must record nothing, anywhere
-before="$(rows "$LIVE_DB")"
+before="$(mine "$LIVE_DB")"
 OUT6="$(cd "$ROOT" && env -u S4E_PROGRESS_DB SNOFLAKE_SUITE="$W/sno" ARM_CSN=0 timeout 300 bash "$HERE/test_snoflake_suite.sh" 2>&1)"
-after="$(rows "$LIVE_DB")"
+after="$(mine "$LIVE_DB")"
 if printf '%s\n' "$OUT6" | grep -q 'NOT recorded' && printf '%s\n' "$OUT6" | grep -q 'SCORE.md: scratch suite'; then ok 6 "scratch suite says NOT recorded and writes no SCORE.md cell"; else red 6 "scratch suite without S4E_PROGRESS_DB did not say NOT recorded / SCORE.md not written"; fi
-[ "$before" = "$after" ] && ok 7 "live table unchanged ($before rows)" || red 7 "live table grew $before -> $after during a scratch run"
+[ "$before" = "$after" ] && ok 7 "live table unchanged for this seat's snoflake rows ($before rows, measurer $ME)" || red 7 "this seat's snoflake rows in the live table grew $before -> $after during a scratch run"
 # --- dotnet scratch suite: two programs that answer byte-equal to the oracle in both modes
 mkdir -p "$W/dot"; for f in chap8_funcs pattern_demo; do
     [ -f "$DOT/$f.sno" ] || { echo "GATE UNPROVEN(2) [$G]: program $f.sno missing from $DOT"; exit 2; }; cp "$DOT/$f.sno" "$W/dot/"; for e in IN in input; do [ -f "$DOT/$f.$e" ] && cp "$DOT/$f.$e" "$W/dot/"; done; done
