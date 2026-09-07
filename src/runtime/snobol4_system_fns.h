@@ -13,8 +13,6 @@ static int sn4_is_system_fn(const char *name) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sn4_sysfn_protected(const char *name) {
-    static int shadow = -1;
-    if (shadow < 0) { const char *e = getenv("SCRIP_SYSFN_SHADOW_CSNOBOL4"); shadow = (e && *e && *e != '0') ? 1 : 0; }
-    return shadow ? 0 : sn4_is_system_fn(name);
+    return sn4_is_system_fn(name);
 }
 #endif

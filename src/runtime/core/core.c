@@ -48,7 +48,7 @@ extern long g_trace;
 static trace_ent_t *trace_find(const char *name, int kind) {
     if (!name || !*name) return (trace_ent_t *)0;
     for (int i = 0; i < TRACE_TAB_CAP; i++)
-        if (trace_tab[i].used && trace_tab[i].kind == kind && strcmp(trace_tab[i].name, name) == 0) return &trace_tab[i];
+        if (trace_tab[i].used && strcmp(trace_tab[i].name, name) == 0 && (trace_tab[i].kind == kind || (trace_tab[i].kind == TRK_FUNCTION && (kind == TRK_CALL || kind == TRK_RETURN)))) return &trace_tab[i];
     return (trace_ent_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -106,8 +106,8 @@ static void trace_spell_value(DESCR_t val, char *buf, size_t bufsz) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void trace_print_banner(const char *name, DESCR_t value, long long stno) {
-    extern int64_t kw_fnclevel;
+static void trace_print_banner(const char *name, DESCR_t value, long long stno, int kind) {
+    extern int64_t kw_fnclevel; extern int rt_k_level; extern long g_line; extern const char *g_file;
     char banner[13];
     int len = snprintf(banner, sizeof banner, "****%lld", stno);
     if (len < 0) len = 0;
@@ -125,8 +125,9 @@ static void trace_print_banner(const char *name, DESCR_t value, long long stno) 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_trace_event(int kind, const char *name, DESCR_t value, long long stno) {
     if (!name || !*name) return;
-    if (g_trace <= 0) return;
     if (trace_recursion_depth > 0) return;
+    if ((kind == TRK_CALL || kind == TRK_RETURN) && kw_ftrace > 0) { kw_ftrace--; trace_print_banner(name, value, stno, kind); return; }
+    if (g_trace <= 0) return;
     trace_ent_t *e = trace_find(name, kind);
     if (!e) return;
     g_trace--;
@@ -141,7 +142,7 @@ void rt_trace_event(int kind, const char *name, DESCR_t value, long long stno) {
         trace_recursion_depth--;
         g_trace = saved_trace; kw_ftrace = saved_ftrace;
     } else {
-        trace_print_banner(name, value, stno);
+        trace_print_banner(name, value, stno, kind);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -496,18 +497,7 @@ void comm_var(const char *name, DESCR_t val, const char *file, long line, long l
     if (dbg)
         fprintf(stderr, "[scrip-trace] comm_var name=%s recur=%d\n", name, trace_recursion_depth);
     if (!g_monitor_bin) {
-        static int compat_csn = -1;
-        if (compat_csn < 0) { const char *e = getenv("SCRIP_SETEXIT_END"); compat_csn = (e && *e && *e != '0') ? 1 : 0; }
-        if (compat_csn) {
-            if (kw_trace > 0 || trace_registered(name)) {
-                const char *s = VARVAL_fn(val);
-                fprintf(stdout, "%s:%ld stmt %lld: %s = %s, time = %g\n",
-                        file ? file : "", line, stno, name, s ? s : "", (double)rt_time_ns() / 1e9);
-                fflush(stdout);
-            }
-        } else {
-            rt_trace_event(TRK_VALUE, name, val, stno);
-        }
+        rt_trace_event(TRK_VALUE, name, val, stno);
     }
     if (monitor_fd < 0) return;
     if (!monitor_ready) return;
@@ -1429,9 +1419,9 @@ static int _setexit_resume = -1;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int core_setexit_on(void) { const char *e = getenv("SCRIP_SETEXIT"); return (e && e[0] == '0') ? 0 : 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int core_setexit_on_end(void) { const char *e = getenv("SCRIP_SETEXIT_END"); return (e && e[0] == '1') ? 1 : 0; }
+static int core_setexit_on_end(void) { return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int core_io_assoc_legacy(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_IO_ASSOC_LEGACY"); v = (e && e[0] == '1') ? 1 : 0; } return v; }
+static int core_io_assoc_legacy(void) { return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int core_setexit_system_label(const char *s) {
     static const char *const sys[] = { "CONTINUE", "ABORT", "RETURN", "FRETURN", "NRETURN" };
@@ -2226,7 +2216,7 @@ static const char *core_err_msgs[40] = {
      "Cannot CONTINUE from FATAL error",
 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int core_errnum_csnobol4(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_ERRNUM_CSNOBOL4"); v = (e && *e && *e != '0') ? 1 : 0; } return v; }
+static int core_errnum_csnobol4(void) { return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_err_compat_map(int *code, const char **msg) {

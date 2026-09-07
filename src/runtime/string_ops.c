@@ -95,8 +95,7 @@ const char *real_str(double r, char *buf, int bufsz) {
     if (*p == 'e' || *p == 'E') { p++; E = (int)strtol(p, (char **)0, 10); }
     while (nd > 1 && digits[nd - 1] == '0') nd--;
     digits[nd] = '\0';
-    const char *csnv = getenv("SCRIP_REAL_FMT_CSNOBOL4"); int csn = (csnv && *csnv && *csnv != '0');
-    int lo = csn ? -4 : -1;
+    int lo = -1;
     char out[80]; int o = 0;
     if (neg) out[o++] = '-';
     if (E >= lo && E <= 14) {
@@ -113,14 +112,8 @@ const char *real_str(double r, char *buf, int bufsz) {
             }
         } else {
             out[o++] = '0'; out[o++] = '.';
-            if (csn) for (int i = 0; i < -E - 1; i++) out[o++] = '0';
             for (int i = 0; i < nd; i++) out[o++] = digits[i];
         }
-    } else if (csn) {
-        out[o++] = digits[0];
-        if (nd > 1) { out[o++] = '.'; for (int i = 1; i < nd; i++) out[o++] = digits[i]; }
-        out[o++] = 'e';
-        o += snprintf(out + o, sizeof out - (size_t)o, "%+03d", E);
     } else {
         out[o++] = '0'; out[o++] = '.';
         for (int i = 0; i < nd; i++) out[o++] = digits[i];

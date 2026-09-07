@@ -51,14 +51,6 @@ FLAGS="$(sbl_lang_flags)"
 # test1, which sbl answers cleanly in 140 lines. So the set is the ruled TWO **by name** -- never "whatever sbl
 # happened to refuse", which is the count-shaped reading the ceo's own wording forbids: a class is a list a
 # census produced, never a count.
-CSN_GRADED="${SPITBOL_TESTPGMS_CSNOBOL4_SET:-test5 test8}"
-CSN=""
-for _g in $CSN_GRADED; do
-    if [ -f "$SUITE/$_g.spt" ]; then
-        CSN="$(csnobol4_bin)" || { echo "⛔ REFUSE(rc=2): $_g is graded against CSNOBOL4 by CEO-281 clause (2) and the oracle is unreachable -- grading it against sbl instead would silently re-cut the error post-mortem this ruling exists to stop"; exit 2; }
-        break
-    fi
-done
 W="$(mktemp -d "${TMPDIR:-/tmp}/spitbol_testpgms.XXXXXX")" || { echo "⛔ REFUSE(rc=2): mktemp failed"; exit 2; }
 trap 'rm -rf "$W"' EXIT
 cp -a "$SUITE"/. "$W/" || { echo "⛔ REFUSE(rc=2): could not copy the suite to a scratch cwd -- refusing to grade in the vendored dir"; exit 2; }
@@ -69,15 +61,7 @@ TOTAL=0; SCORED=0; UNSCR=0; M3P=0; M3F=0; M4P=0; M4F=0; UNSCR_LINES=""; RED_LINE
 for p in $progs; do
     TOTAL=$((TOTAL+1))
     src="$W/$p.spt"
-    # ── WHICH ORACLE GRADES THIS PROGRAM (CEO-281 clause 2). Ruled BY NAME above; never inferred here from a
-    # failure, because "the oracle refused it" is exactly the reasoning that would quietly grow this set.
-    # ⛔ $cmpt REACHES BOTH MODES BELOW, and that is not a detail: test_snobol4_csnobol4_suite.sh:139 already
-    # paid for this lesson -- "A runner that passed only the flag would grade m3 under CSNOBOL4 and m4 under
-    # SPITBOL and report the split as a mode divergence -- the wrong answer in the shape hardest to attribute."
-    case " $CSN_GRADED " in
-        *" $p "*) okind=csnobol4; obin="$CSN"; oflags="-b";     cmpt="--compat=csnobol4" ;;
-        *)        okind=sbl;      obin="$SBL"; oflags="$FLAGS"; cmpt="" ;;
-    esac
+    okind=sbl; obin="$SBL"; oflags="$FLAGS"; cmpt=""
     # ── the oracle, in the scratch dir, fed the shared stdin file. Status FIRST, bytes never.
     ora="$W/$p.oracle"
     (cd "$W" && timeout "$T" "$obin" $oflags "$p.spt" < "$W/testpgms.in" > "$ora" 2>/dev/null); orc=$?

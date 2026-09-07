@@ -10,11 +10,9 @@
 #       as-filename shape, `OUTPUT('TITLE',6,'(14H1THIS IS HAND ,110A1)')`; also snoflake_suite's
 #       output-format-ignored.sno, whose own @expect was never checked against the oracle and is wrong)
 #       raises ERROR 160/116 too, independent of (1).
-# SCRIP's old acceptance matched CSNOBOL4 exactly (verified against /home/claude/csnobol4/snobol4), so
-# the cure is dialect-gated via --compat, never an outright ban: SPITBOL (default) raises; csnobol4
-# preserves the old acceptance. Both directions are proven below (TWO-PART PROOF, RULES.md): each error
-# face is shown to fail under spitbol default AND to succeed under --compat=csnobol4, live-diffed
-# against the oracle, and regression faces protect the corpus's 8 real bracketed-options-only sites
+# SCRIP raises exactly as SPITBOL does (the one oracle, Lon 2026-09-07; the --compat dialect switch is retired):
+# each error face is live-diffed against the oracle, and regression faces protect the corpus's 8 real
+# bracketed-options-only sites
 # (`INPUT(.INPUT, 9, '[-f0 -r...]')`) which must NEVER be touched by this cure.
 #
 # EXIT: 0 every face passes · 1 a face is red · 2 REFUSED (unbuilt/stale tree, oracle unreachable)
@@ -54,17 +52,6 @@ oracle_error_face() {
     if [ -n "$new_files" ]; then echo "  FAIL $name  left stray file(s) in cwd: $new_files"; rc=1; fi
 }
 
-# ── the SAME witness under --compat=csnobol4 must NOT error (TWO-PART PROOF: the switch is live) ──
-csnobol4_ok_face() {
-    local name="$1" got
-    got="$(cd "$W" && timeout 10 "$S" --compat=csnobol4 "$name.sno" </dev/null 2>&1)"
-    case "$got" in
-        *"ERROR 116"*|*"ERROR 160"*) echo "  FAIL $name  --compat=csnobol4 still raises an association error: $got"; rc=1 ;;
-        *"ok"*) echo "  PASS $name  --compat=csnobol4 preserves the old acceptance ($got)" ;;
-        *) echo "  FAIL $name  --compat=csnobol4: expected an 'ok*' witness marker, got [$got]"; rc=1 ;;
-    esac
-}
-
 # ── m4 (--compile) must agree with m3 -- BOTH-MEDIUM MANDATORY ──
 m4_error_face() {
     local name="$1" errno="$2" got
@@ -79,13 +66,12 @@ m4_error_face() {
 
 # ── regression controls: legitimate/pre-existing shapes this row must NOT touch ──
 regress_face() {
-    local name="$1" want="$2" gotS gotC
+    local name="$1" want="$2" gotS
     gotS="$(cd "$W" && timeout 10 "$S" "$name.sno" </dev/null 2>&1)"
-    gotC="$(cd "$W" && timeout 10 "$S" --compat=csnobol4 "$name.sno" </dev/null 2>&1)"
-    if [ "$gotS" = "$want" ] && [ "$gotC" = "$want" ]; then
-        echo "  PASS $name  unaffected in both dialects ($want)"
+    if [ "$gotS" = "$want" ]; then
+        echo "  PASS $name  unaffected ($want)"
     else
-        echo "  FAIL $name  spitbol=[$gotS] csnobol4=[$gotC] want=[$want]"; rc=1
+        echo "  FAIL $name  got=[$gotS] want=[$want]"; rc=1
     fi
 }
 
@@ -95,13 +81,11 @@ mk valid_plain_output       "\tOUTPUT('W',7,'io_assoc_gate_plain.tmp')\t\t:F(ERR
 mk empty_channel_empty_slot "\tINPUT(.X,,)\t\t:F(ERR)\n\tOUTPUT = 'ok-degenerate'\t\t:(END)\nERR\tOUTPUT = 'FAIL'\nEND\n"
 mk bracketed_options_only   "\tINPUT(.INPUT, 9, '[-f0 -r4194304]')\t\t:F(ERR)\n\tOUTPUT = 'ok-options-only'\t\t:(END)\nERR\tOUTPUT = 'FAIL'\nEND\n"
 
-echo "SNOBOL4 INPUT/OUTPUT association: channel + file-spec validity (SPITBOL default vs --compat=csnobol4):"
+echo "SNOBOL4 INPUT/OUTPUT association: channel + file-spec validity (SPITBOL, the one oracle):"
 oracle_error_face empty_channel_input   116
 oracle_error_face space_filename_output 160
 m4_error_face      empty_channel_input   116
 m4_error_face      space_filename_output 160
-csnobol4_ok_face   empty_channel_input
-csnobol4_ok_face   space_filename_output
 regress_face valid_plain_output       "ok-write"
 regress_face empty_channel_empty_slot "ok-degenerate"
 regress_face bracketed_options_only   "ok-options-only"

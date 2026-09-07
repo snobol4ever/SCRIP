@@ -48,14 +48,9 @@
 # FAIL/REJECT/CRASH) — PARKED only removes them from the "maybe-stale-pin" bucket, it does not paper over
 # the red. THERE IS NO XFAIL.
 #
-# ⛔ THE ORACLE IS CSNOBOL4, NOT sbl — `sbl -bf` false-reds on 30 of these ~120 programs (CSNOBOL4-only
-# extensions SPITBOL never claims: ORD, &DUMP, popen, ...; RULES.md FACT RULE s261). Primary grading is
-# byte-exact against the vendored .ref; the live csnobol4 binary (csnobol4_bin(), lib_oracle_flags.sh) is
-# run as a full third arm (informational, same shape as test_snoflake_suite.sh's triangulation arm) AND as
-# the TIEBREAK/REGENERATION authority: when SCRIP's mode-3 output disagrees with .ref, "does live csnobol4
-# ALSO disagree with .ref?" — if so the .ref pin itself is the suspect, flagged REGEN-CANDIDATE rather than
-# folded into the SCRIP fail count. Invoked with `-b` (suppress startup banner), matching Budne's own
-# test/run.sh convention (`ARGS="$IARGS -b"`).
+# ⛔ THE ORACLE IS SPITBOL (`sbl -bf`), THE ONE SNOBOL4 ORACLE (Lon 2026-09-07). The vendored .refs are re-cut from sbl;
+# programs sbl refuses (rc=1) use CSNOBOL4-only extensions outside the SPITBOL baseline and are listed by name in
+# OUTSIDE_SPITBOL_BASELINE.tsv (mirrored into UNGRADABLE.tsv as ORACLE_REFUSES) -- a list a census produced, never a count.
 #
 # ⭐ NORMALIZATION, sourced directly from Budne's own test/tests.in + test.dump.sh + test.trace.sh (the
 # suite author's OWN definition of a matching DUMP/TRACE test, not a guess): 4 `dump`-type programs
@@ -127,25 +122,15 @@ SCRIP="$SD/scrip"; RT_DIR="$SD/out"; TIMEOUT="${TIMEOUT:-8}"
 # lib_gate.sh, the ONE authority (hq_B 4c7253e99) -- never a second copy of the staleness rule.
 "$HERE/util_require_fresh.sh" --gate test_snobol4_csnobol4_suite "$SCRIP" "${RT_DIR:-$HERE/../out}/libscrip_rt.so" || exit 2
 [ -f "$RT_DIR/libscrip_rt.so" ] || { echo "⛔ REFUSE(rc=2): no $RT_DIR/libscrip_rt.so"; exit 2; }
-# ⛔⭐ THE DIALECT SWITCH (ceo RULING R1, GOAL-SNOBOL4-100 § RULINGS 2026-09-04, row snobol4-csnobol4-dialect-
-# compat-switch; spelled like Lon's Prolog precedent --compat=swi|gnu). THIS SUITE IS GRADED BY CSNOBOL4, NOT
-# SPITBOL, and its refs are CSNOBOL4's own output -- so it runs under --compat=csnobol4 while the SPITBOL-minted
-# SNOBOL4 master keeps the default. The switch ADDS CSNOBOL4-only behaviour; the default never widens.
-# TODAY'S ONE MEMBER: the SETEXIT trap also fires on NORMAL TERMINATION when &ERRLIMIT is non-zero. SPITBOL fires
-# in none of four measured shapes, CSNOBOL4 fires in both &ERRLIMIT-non-zero shapes (hq_P 2026-09-04), and
-# setexit2.sno is the entry that turns on it.
-# ⛔⭐ BOTH CARRIERS ARE REQUIRED AND THAT IS NOT BELT-AND-BRACES -- IT IS WHAT A *RUNTIME* DIALECT MEANS. The flag
-# configures the DRIVER, so it reaches mode-3 (in-process) and any hand run. A mode-4 program is a SEPARATE PROCESS
-# started later from a linked binary, and no compile-time flag can reach its runtime; the env var is what the
-# standalone binary reads. A runner that passed only the flag would grade m3 under CSNOBOL4 and m4 under SPITBOL
-# and report the split as a mode divergence -- the wrong answer in the shape hardest to attribute.
-COMPAT="--compat=csnobol4"
-export SCRIP_SETEXIT_END=1
+# THE --compat SWITCH IS RETIRED (Lon 2026-09-07): there is one dialect, SPITBOL's, and no per-suite flag.
+COMPAT=""
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_oracle_flags.sh unloadable"; exit 2; }
 . "$HERE/lib_inventory.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_inventory.sh unloadable"; exit 2; }
 . "$HERE/lib_progress.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_progress.sh unloadable -- a run that leaves the progress table untouched is the same defect as one that leaves its SCORE row untouched (ceo CEO-330/331)"; exit 2; }
-CSN="$(csnobol4_bin)" || exit 2
-CSN_SRC="$(dirname "$CSN")"   # module-coverage source root: the shared csnobol4 tree's own modules/ dir (see header)
+SBL="$(sbl_correctness_bin)" || exit 2; SBL_FLAGS="$(sbl_lang_flags)"
+RECUT="${RECUT_FROM_SPITBOL:-0}"
+OUTSIDE="$SUITE/OUTSIDE_SPITBOL_BASELINE.tsv"
+is_outside_baseline() { [ -f "$OUTSIDE" ] && awk -F"\t" -v n="$1.sno" '$1==n {f=1} END {exit f?0:1}' "$OUTSIDE"; }
 
 STDIN_TESTS="atn crlf longrec rewind1 sudoku trim0 trim1 uneval2 factor len repl tab words words1"
 is_stdin_test() { local n="$1" s; for s in $STDIN_TESTS; do [ "$n" = "$s" ] && return 0; done; return 1; }
@@ -174,6 +159,7 @@ argv_for() { case "$1" in genc) echo v311.sil;; esac; }
 preload_for() { case "$1" in preload1) echo "-Laa/aa.sno";; preload2) echo "-Laa/aa.sno -Lbb/bb.sno";; esac; }
 normalize() { # $1=name $2=text -> echoes text, masked per tests.in's dump/trace convention for that name
     local n="$1" t="$2"
+    t="$(printf '%s' "$t" | sed -E 's/^x86-64  [A-Z][a-z]{2} [A-Z][a-z]{2} +[0-9]+ [0-9:]+ [0-9]{4}$/x86-64  xxx/')"
     case " $DUMP_TESTS " in *" $n "*) t="$(printf '%s' "$t" | sed -E -e 's/MAXLNGTH = [0-9]+/MAXLNGTH = xxx/' -e "/^&FILL = '/d")";; esac
     case " $TRACE_TESTS " in *" $n "*) t="$(printf '%s' "$t" | sed -E 's/time = [0-9.eE+-]+$/time = xxx/')";; esac
     printf '%s' "$t"
@@ -217,6 +203,8 @@ M4_PASS=0; M4_FAIL=0; M4_REJECT=0; M4_CRASH=0; M4_HANG=0; RED4=""
 CSN_PASS=0; CSN_FAIL=0
 REGEN=0; REGEN_LIST=""
 EXCLUDED_LIST=""
+OUTSIDE_LIST=""; RECUT_OK=0; RECUT_OUT=0
+[ "$RECUT" != 0 ] && { : > "$OUTSIDE.tmp"; [ -f "$OUTSIDE" ] || : > "$OUTSIDE"; }
 MOD_SUMMARY=""
 
 for sno in "$SUITE"/*.sno; do
@@ -230,7 +218,8 @@ for sno in "$SUITE"/*.sno; do
     # more pair than `shipped` ever offered, and the inventory can never sum. It happens to carry its own
     # .ref (concatenated from every entry's own historical run) and was being silently graded before this.
     [ "$name" = "ALL" ] && continue
-    if is_excluded_test "$name"; then EXCLUDED_LIST="$EXCLUDED_LIST $name"; continue; fi
+    if is_excluded_test "$name"; then EXCLUDED_LIST="$EXCLUDED_LIST $name"; if [ "$RECUT" != 0 ]; then awk -F"\t" -v n="$name.sno" '$1!=n' "$OUTSIDE" > "$OUTSIDE.tmp" 2>/dev/null; mv -f "$OUTSIDE.tmp" "$OUTSIDE" 2>/dev/null; printf '%s.sno\tORACLE_REFUSES\toutside the SPITBOL baseline (Lon 2026-09-07): CSNOBOL4 LOAD() module test\n' "$name" >> "$OUTSIDE"; fi; continue; fi
+    if [ "$RECUT" = 0 ] && is_outside_baseline "$name"; then OUTSIDE_LIST="$OUTSIDE_LIST $name"; continue; fi
     TOTAL=$((TOTAL+1))
     exp="$(normalize "$name" "$(cat "$ref")")"
 
@@ -242,6 +231,12 @@ for sno in "$SUITE"/*.sno; do
     [ -n "$dep" ] && (cd "$RUN" && SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" $COMPAT --run "$dep.sno" > /dev/null 2>&1)
     xargs_extra="$(argv_for "$name")"
     pre_extra="$(preload_for "$name")"
+    if [ "$RECUT" != 0 ]; then
+        gotr="$(cd "$RUN" && timeout "$TIMEOUT" "$SBL" $SBL_FLAGS "$relprog" $xargs_extra < "$inp" 2>&1)"; rcr=$?
+        if [ "$rcr" != 1 ]; then printf '%s\n' "$gotr" > "$ref"; RECUT_OK=$((RECUT_OK+1)); awk -F"\t" -v n="$name.sno" '$1!=n' "$OUTSIDE" > "$OUTSIDE.tmp" 2>/dev/null; mv -f "$OUTSIDE.tmp" "$OUTSIDE" 2>/dev/null
+        else first="$(printf '%s' "$gotr" | head -1 | cut -c1-120)"; awk -F"\t" -v n="$name.sno" '$1!=n' "$OUTSIDE" > "$OUTSIDE.tmp" 2>/dev/null; mv -f "$OUTSIDE.tmp" "$OUTSIDE" 2>/dev/null; printf '%s.sno\tORACLE_REFUSES\toutside the SPITBOL baseline (Lon 2026-09-07): sbl -bf rc=%s: %s\n' "$name" "$rcr" "$first" >> "$OUTSIDE"; RECUT_OUT=$((RECUT_OUT+1)); fi
+        continue
+    fi
 
     # ⛔ RELATIVE, NOT $prog: cwd is already $RUN below, and the vendored .ref files were cut against a
     # bare-relative invocation (name.sno). Passing the absolute scratch path here makes every self-path-
@@ -276,7 +271,7 @@ for sno in "$SUITE"/*.sno; do
         M4_REJECT=$((M4_REJECT+1)); RED4="$RED4 $name(CC)"
     fi
 
-    gotc="$(cd "$RUN" && timeout "$TIMEOUT" "$CSN" -b $pre_extra "$relprog" $xargs_extra < "$inp" 2>&1)"
+    gotc="$(cd "$RUN" && timeout "$TIMEOUT" "$SBL" $SBL_FLAGS "$relprog" $xargs_extra < "$inp" 2>&1)"
     gotc="$(normalize "$name" "$gotc")"
     if [ "$gotc" = "$exp" ]; then CSN_PASS=$((CSN_PASS+1))
     else
@@ -285,68 +280,17 @@ for sno in "$SUITE"/*.sno; do
     fi
 done
 
-# ⭐ MODULE-REPLACEMENT COVERAGE LOOP — see header. Same ladder, same shared counters (TOTAL/M3_*/M4_*/
-# CSN_*/RED3/RED4) as the loop above; only a distinct "module/" name prefix marks these rows apart in the
-# RED-M3/RED-M4 listing. Own scratch copy per test, never the shared /home/resources/csnobol4 tree itself —
-# same write-safety rule as $RUN above, against a different shared resource this time (ndbm's test.sno
-# creates+deletes foo.db/foo.dir/foo.pag).
-MODROOT="$CSN_SRC/modules"
-[ -d "$MODROOT" ] || { echo "⛔ REFUSE(rc=2): module coverage source missing: $MODROOT"; exit 2; }
-for entry in $MODULE_TESTS; do
-    mname="${entry%%:*}"; rest="${entry#*:}"
-    mdir="${rest%%:*}"; rest="${rest#*:}"
-    msno="${rest%%:*}"; mref="${rest#*:}"
-    srcdir="$MODROOT/$mdir"
-    [ -f "$srcdir/$msno" ] && [ -f "$srcdir/$mref" ] || { echo "⛔ REFUSE(rc=2): module test pair missing: $srcdir/$msno + $mref"; exit 2; }
-    name="module/$mname"
-    mrun="$W/mod_$mname"; rm -rf "$mrun"; cp -rp "$srcdir" "$mrun"
-    TOTAL=$((TOTAL+1))
-    exp="$(normalize "$name" "$(cat "$srcdir/$mref")")"
 
-    got3="$(cd "$mrun" && timeout "$TIMEOUT" "$SCRIP" $COMPAT --run "$msno" < /dev/null 2>&1)"; rc3=$?
-    got3="$(normalize "$name" "$got3")"
-    st3="$(status_of "$got3" "$rc3" "$exp")"
-    progress_append package csnobol4 snobol4 "$name" m3 "$st3" >/dev/null 2>&1 || true
-    case "$st3" in
-        PASS) M3_PASS=$((M3_PASS+1));;
-        FAIL) M3_FAIL=$((M3_FAIL+1)); RED3="$RED3 $name";;
-        REJECT) M3_REJECT=$((M3_REJECT+1)); RED3="$RED3 $name";;
-        CRASH) M3_CRASH=$((M3_CRASH+1)); RED3="$RED3 $name";;
-        HANG) M3_HANG=$((M3_HANG+1)); RED3="$RED3 $name";;
-    esac
-
-    st4disp="$st3(different-run)"
-    if compile_m4_mod "$mrun" "$msno" "$W/mod_prog.bin"; then
-        got4="$(cd "$mrun" && timeout "$TIMEOUT" "$W/mod_prog.bin" < /dev/null 2>&1)"; rc4=$?
-        got4="$(normalize "$name" "$got4")"
-        st4="$(status_of "$got4" "$rc4" "$exp")"
-        progress_append package csnobol4 snobol4 "$name" m4 "$st4" >/dev/null 2>&1 || true
-        st4disp="$st4"
-        case "$st4" in
-            PASS) M4_PASS=$((M4_PASS+1));;
-            FAIL) M4_FAIL=$((M4_FAIL+1)); RED4="$RED4 $name";;
-            REJECT) M4_REJECT=$((M4_REJECT+1)); RED4="$RED4 $name";;
-            CRASH) M4_CRASH=$((M4_CRASH+1)); RED4="$RED4 $name";;
-            HANG) M4_HANG=$((M4_HANG+1)); RED4="$RED4 $name";;
-        esac
-    else
-        M4_REJECT=$((M4_REJECT+1)); RED4="$RED4 $name(CC)"; st4disp="REJECT(CC)"
-    fi
-
-    gotc="$(cd "$mrun" && timeout "$TIMEOUT" "$CSN" -b "$msno" < /dev/null 2>&1)"
-    gotc="$(normalize "$name" "$gotc")"
-    ocst=FAIL; [ "$gotc" = "$exp" ] && { CSN_PASS=$((CSN_PASS+1)); ocst=PASS; } || CSN_FAIL=$((CSN_FAIL+1))
-    MOD_SUMMARY="$MOD_SUMMARY $mname(m3=$st3,m4=$st4disp,oracle=$ocst)"
-done
-
-echo "── csnobol4_suite: $TOTAL pairs · SCRIP $SCRIP_HASH · corpus $CORP_HASH · RT_OPT -O0 · timeout ${TIMEOUT}s · oracle csnobol4 (Phil Budne, home dialect) · .ref primary, live csnobol4 = triangulation + tiebreak/regen"
+echo "── csnobol4_suite: $TOTAL pairs · SCRIP $SCRIP_HASH · corpus $CORP_HASH · RT_OPT -O0 · timeout ${TIMEOUT}s · oracle sbl -bf (SPITBOL; Lon 2026-09-07: the one SNOBOL4 oracle; formerly csnobol4, Phil Budne, home dialect) · .ref primary, live csnobol4 = triangulation + tiebreak/regen"
 echo "CSNOBOL4_SUITE_BOARD total=$TOTAL m3_PASS=$M3_PASS m3_FAIL=$M3_FAIL m3_REJECT=$M3_REJECT m3_CRASH=$M3_CRASH m3_HANG=$M3_HANG m4_PASS=$M4_PASS m4_FAIL=$M4_FAIL m4_REJECT=$M4_REJECT m4_CRASH=$M4_CRASH m4_HANG=$M4_HANG"
-echo "csnobol4 (home dialect, triangulation, informational): PASS=$CSN_PASS FAIL=$CSN_FAIL"
+echo "sbl -bf re-read against the refs (staleness check, informational): PASS=$CSN_PASS FAIL=$CSN_FAIL"
+[ -n "$OUTSIDE_LIST" ] && echo "OUTSIDE_SPITBOL_BASELINE ($(printf '%s' "$OUTSIDE_LIST" | wc -w), programs sbl -bf refuses, named in $OUTSIDE, out of the denominator):$OUTSIDE_LIST"
+[ "$RECUT" != 0 ] && echo "RECUT_FROM_SPITBOL: refs re-cut=$RECUT_OK outside-baseline=$RECUT_OUT"
+if [ "$RECUT" != 0 ]; then U="$SUITE/UNGRADABLE.tsv"; { [ -f "$U" ] && awk -F"\t" '$3!~/outside the SPITBOL baseline/' "$U"; cat "$OUTSIDE"; } > "$U.tmp" && mv -f "$U.tmp" "$U"; echo "UNGRADABLE.tsv: outside-the-SPITBOL-baseline rows mirrored ($(grep -c 'outside the SPITBOL baseline' "$U"))"; fi
 [ -n "$RED3" ] && echo "RED-M3:$RED3"
 [ -n "$RED4" ] && echo "RED-M4:$RED4"
-[ "$REGEN" -gt 0 ] && echo "REGEN-CANDIDATE ($REGEN, SCRIP m3 disagrees with .ref but so does live csnobol4 — .ref pin may be stale):$REGEN_LIST"
+[ "$REGEN" -gt 0 ] && echo "REGEN-CANDIDATE ($REGEN, SCRIP m3 disagrees with .ref and so does a fresh sbl -bf run — .ref pin may be stale):$REGEN_LIST"
 [ -n "$EXCLUDED_LIST" ] && echo "EXCLUDED (upstream's own tests.in retired these, see script header):$EXCLUDED_LIST"
-[ -n "$MOD_SUMMARY" ] && echo "MODULE-COVERAGE (replacement rows for the EXCLUDED four, folded into the totals above as module/*):$MOD_SUMMARY"
 
 # ⭐ THE PACKAGE LOCKDOWN inventory line, via the shared body (lib_inventory.sh) -- never a second copy
 # of the arithmetic. $TOTAL already equals "pairs in $SUITE measured against the oracle": the excluded-4/

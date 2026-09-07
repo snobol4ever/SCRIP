@@ -286,15 +286,7 @@ run_one() {  # suite lib prog norm run_to
   # beside the .sno names the minting dialect and NOTHING ELSE; absent, the default (spitbol) is unchanged, so this widens
   # no existing row.  ⛔ VISIBLE AND STRUCTURAL, never a run-time skip list (this file's own law, :72): the sidecar is a
   # committed file a reader can ls, and an unknown dialect REFUSES rather than silently grading in the default.
-  local dial cflag=""
-  if [ -f "$d/$n.compat" ]; then
-    dial="$(tr -d " \t\n\r" < "$d/$n.compat")"
-    case "$dial" in
-      spitbol|csnobol4) cflag="--compat=$dial";;
-      "") echo -e "$suite\t${prog#$CORPUS/}\tCOMPAT_REFUSED\tCOMPAT_REFUSED\t0\t0\tempty $n.compat sidecar -- name a dialect or delete the file"; return;;
-      *)  echo -e "$suite\t${prog#$CORPUS/}\tCOMPAT_REFUSED\tCOMPAT_REFUSED\t0\t0\t$n.compat names unknown dialect '$dial' (spitbol, csnobol4)"; return;;
-    esac
-  fi
+  local cflag=""
   W="$(mktemp -d)"; ulimit -s unlimited 2>/dev/null
   if [ "$suite" = beauty_self ]; then in="$prog"; fi
   # ---- ground truth
