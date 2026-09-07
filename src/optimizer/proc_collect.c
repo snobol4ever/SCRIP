@@ -58,4 +58,6 @@ void scc_taint_graph(IR_graph_t *g) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int scc_program_ok(void) { return !g_scc_taint; }
+static int g_scc_taint_inherited = 0;
+void rt_scc_taint_inherit(void) { g_scc_taint_inherited = 1; }
+int scc_program_ok(void) { return !g_scc_taint && !g_scc_taint_inherited; }
