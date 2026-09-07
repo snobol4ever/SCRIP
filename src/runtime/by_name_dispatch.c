@@ -1,4 +1,6 @@
 #include "by_name_dispatch.h"
+#define ICN_ARITY_UNKNOWN (-99)
+int icn_builtin_arity(const char *name);
 #include <unistd.h>
 #include <sys/stat.h>
 #include <setjmp.h>
@@ -114,6 +116,21 @@ int icn_builtin_is_known(const char *name)
     };
     for (int i = 0; icn_known[i]; i++) if (!strcmp(icn_known[i], name)) return 1;
     return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int icn_builtin_arity(const char *name)
+{
+    if (!name || !name[0] || name[0] < 'a' || name[0] > 'z') return ICN_ARITY_UNKNOWN;
+    static const struct { const char *nm; int np; } tbl[] = {
+        {"abs",1},{"acos",1},{"any",4},{"args",1},{"asin",1},{"atan",2},{"bal",6},{"center",3},{"char",1},{"chdir",1},{"close",1},{"collect",2},{"copy",1},{"cos",1},{"cset",1},
+        {"delay",1},{"delete",2},{"detab",-2},{"display",2},{"dtor",1},{"entab",-2},{"errorclear",0},{"exit",1},{"exp",1},{"find",4},{"flush",1},{"function",0},{"get",1},{"getch",0},
+        {"getche",0},{"getenv",1},{"iand",2},{"icom",1},{"image",1},{"insert",3},{"integer",1},{"ior",2},{"ishift",2},{"ixor",2},{"kbhit",0},{"key",1},{"left",3},{"list",2},{"loadfunc",2},
+        {"log",2},{"many",4},{"map",3},{"match",4},{"member",2},{"move",1},{"name",1},{"numeric",1},{"open",2},{"ord",1},{"pop",1},{"pos",1},{"proc",2},{"pull",1},{"push",-2},{"put",-2},
+        {"read",1},{"reads",2},{"real",1},{"remove",1},{"rename",2},{"repl",2},{"reverse",1},{"right",3},{"rtod",1},{"runerr",-2},{"seek",2},{"seq",2},{"serial",1},{"set",1},{"sin",1},
+        {"sort",2},{"sortf",2},{"sqrt",1},{"stop",-1},{"string",1},{"system",1},{"tab",1},{"table",1},{"tan",1},{"trim",2},{"type",1},{"upto",4},{"variable",1},{"where",1},{"write",-1},{"writes",-1},
+        {NULL,0}};
+    for (int i = 0; tbl[i].nm; i++) if (tbl[i].nm[0] == name[0] && !strcmp(tbl[i].nm, name)) return tbl[i].np;
+    return ICN_ARITY_UNKNOWN;
 }
 #include "../parsers/prolog/pl_cell.h"
 #include "rt/rt_pl_trail.h"
@@ -5168,7 +5185,8 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
                 {"chdir",1},{"delay",1},{"getch",0},{"getche",0},{"kbhit",0},{"loadfunc",2},
                 {NULL,0}};
             int np = rt_proc_nparams(a.s);
-            if (np < 0 && a.s) for (int _bi=0;_bt[_bi].nm;_bi++) if (!strcmp(_bt[_bi].nm,a.s)){np=_bt[_bi].np;break;}
+            int _ia = (np < 0 && a.s) ? icn_builtin_arity(a.s) : ICN_ARITY_UNKNOWN; if (_ia != ICN_ARITY_UNKNOWN) np = _ia;
+            if (np < 0 && _ia == ICN_ARITY_UNKNOWN && a.s) for (int _bi=0;_bt[_bi].nm;_bi++) if (!strcmp(_bt[_bi].nm,a.s)){np=_bt[_bi].np;break;}
             if (np < 0 && a.s && !strcmp(a.s, "main")) {
                 np = 0;
                 for (int i = 0; i < g_stage2.proc_count; i++)
@@ -6708,6 +6726,8 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
       char c0 = fn[0];
       if (c0 && !((c0 >= 'A' && c0 <= 'Z') || (c0 >= 'a' && c0 <= 'z') || c0 == '_')
           && core_call_registered_fn(fn, args, nargs, out)) return 1; }
+    { const int _ia = icn_builtin_arity(fn);
+      if (_ia >= 0 && _ia != nargs && _ia <= 8) { DESCR_t _pa[8]; for (int i = 0; i < _ia; i++) _pa[i] = (i < nargs) ? args[i] : NULVCL; return try_call_builtin_by_name_bl(fn, _pa, _ia, out, -1); } }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

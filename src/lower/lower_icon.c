@@ -3,6 +3,7 @@
 #include <math.h>
 #include "lower.h"
 extern int icn_builtin_is_known(const char *);
+extern int icn_builtin_arity(const char *);
 extern int icn_builtin_is_generator(const char *);
 int g_postfix_resume = 0;
 static int icn_const_step(const tree_t * s, int64_t * bits, int * isr);
@@ -1349,7 +1350,7 @@ static void icn_collect_implicit_locals(const tree_t * n, const char ** excl, in
         for (int k = 0; k < nexcl && !found; k++) if (excl[k] && !strcmp(excl[k], nm)) found = 1;
         for (int k = 0; k < out->n && !found; k++) if (!strcmp(LC_AT(out, const char *, k), nm)) found = 1;
         if (!found) { extern int icn_builtin_is_known(const char *); extern void * dat_find_type(const char *);
-            if (!icn_builtin_is_known(nm) && !dat_find_type(nm)) lc_vec_push(out, &nm); }
+            if (!icn_builtin_is_known(nm) && icn_builtin_arity(nm) == -99 && !dat_find_type(nm)) lc_vec_push(out, &nm); }
     }
     for (int i = 0; i < n->n; i++) icn_collect_implicit_locals(n->c[i], excl, nexcl, out);
 }
@@ -1580,7 +1581,7 @@ void lower_icon_resolve_call_kinds(void) {
             if (skip) continue;
             int isproc = 0;
             for (int pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, vn)) { isproc = 1; break; }
-            if (isproc || rt_builtin_is_known(vn) || rt_builtin_is_generator(vn) || !strcmp(vn, "push") || !strcmp(vn, "put")) nd->op = IR_PROC_VALUE;
+            if (isproc || rt_builtin_is_known(vn) || rt_builtin_is_generator(vn) || icn_builtin_arity(vn) != -99 || !strcmp(vn, "push") || !strcmp(vn, "put")) nd->op = IR_PROC_VALUE;
         }
     }
 }
