@@ -842,6 +842,13 @@ static const char * sno_expr_const_prefix(const tree_t * t) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_stmt_is_blank(const tree_t * s) {
+    if (!s) return 1;
+    if (lp_s_expr(s, ":subj") || lp_s_expr(s, ":lbl") || lp_s_expr(s, ":pat") || lp_s_expr(s, ":repl") || lp_s_expr(s, ":end")) return 0;
+    for (int k = 0; k < s->n; k++) { const tree_t * c = s->c[k]; if (c && (c->t == TT_GOTO_U || c->t == TT_GOTO_S || c->t == TT_GOTO_F || c->t == TT_GOTO_DIRECT)) return 0; }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_goto_specials_impossible(const tree_t * expr) {
     const char * pfx = sno_expr_const_prefix(expr);
     if (!pfx || !*pfx) return 0;
@@ -2428,10 +2435,11 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
             if (asgn_land[i]) { lc_γ_to(asgn_land[i], sbeg); lc_γ_tag_β(asgn_land[i]); }
         }
     }
+    { const char * _sk = getenv("SCRIP_SNO_STMTKW"); if (_sk && *_sk == '1') g_sno_uses_stmtkw = 1; }
     if (g_sno_uses_stmtkw) {
         int _stmtkw_first_hook = 1;
         for (int i = 0; i < nst; i++) {
-            if (is_def && is_def[i]) continue;
+            if (lp_s_int(st[i], ":nocount") || sno_stmt_is_blank(st[i])) continue;
             IR_t * body = anchor[i]->γ.node;
             IR_t * hook = lc_build(g, IR_CALL, body, body); IR_LIT(hook).sval = (char *) "SNO$STMT";
             IR_t * num = lc_build(g, IR_LIT_INTEGER, hook, hook); IR_LIT(num).ival = (int64_t)(i + 1) + stno_base;
@@ -2677,6 +2685,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
     g_sno_uses_stmtkw = 0;
     g_sno_uses_code = 0;
     for (int i = 0; i < prog->n; i++) if (prog->c[i]) { sno_scan_stmtkw(prog->c[i]); sno_scan_code_use(prog->c[i]); }
+    { const char * _sk = getenv("SCRIP_SNO_STMTKW"); if (g_sno_uses_stmtkw) setenv("SCRIP_SNO_STMTKW", "1", 1); else if (_sk && *_sk == '1') g_sno_uses_stmtkw = 1; }
     sno_register_program(&g_stage2, prog);
     int nst = 0;
     for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) nst++;

@@ -214,6 +214,7 @@ static eval_chain_fn eval_build_chain(const char *s)
     ast_push(st, ast_attr_int(":line", 1));
     { static int _cs = -1; if (_cs < 0) { const char * e = getenv("SCRIP_MON_CHAIN_STNO"); _cs = (e && e[0] == '1') ? 1 : 0; }
       ast_push(st, ast_attr_int(":stno", _cs ? 1 : 0)); }
+    ast_push(st, ast_attr_int(":nocount", 1));
     ast_push(st, ast_attr_expr(":subj", var));
     ast_push(st, ast_attr_leaf(":eq", ""));
     ast_push(st, ast_attr_expr(":repl", e));

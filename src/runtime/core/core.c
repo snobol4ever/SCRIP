@@ -942,7 +942,7 @@ static int _io_chan_find_by_var(const char *name) {
 static void _io_chan_close(int ch) {
     _io_chan_setup();
     if (ch < 0 || ch >= IO_CHAN_MAX) return;
-    if (_io_chan[ch].fp) { if (_io_chan[ch].is_popen) pclose(_io_chan[ch].fp); else fclose(_io_chan[ch].fp); _io_chan[ch].fp = NULL; }
+    if (_io_chan[ch].fp) { if (_io_chan[ch].fp == stdin) { } else if (_io_chan[ch].is_popen) pclose(_io_chan[ch].fp); else fclose(_io_chan[ch].fp); _io_chan[ch].fp = NULL; }
     if (_io_chan[ch].varname) { _io_chan[ch].varname = NULL; }
     if (_io_chan[ch].buf)  { free(_io_chan[ch].buf); _io_chan[ch].buf = NULL; }
     _io_chan[ch].cap = 0;
@@ -3377,6 +3377,13 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
         _input_fp = stdin;
         if (fd >= 0) { FILE *nf = fdopen(dup((int)fd), "r"); if (!nf) return FAILDESCR; _input_fp = nf; }
         _input_rlen = rlen;
+        { const char *vn = (n >= 1) ? _io_varname(a[0]) : NULL;
+          if (vn && strcmp(vn, "INPUT") != 0) {
+              int c = (ch >= 0 && ch < IO_CHAN_MAX) ? ch : 5;
+              _io_chan_close(c);
+              _io_chan[c].fp = _input_fp; _io_chan[c].is_output = 0; _io_chan[c].is_popen = 0;
+              _io_chan[c].varname = rt_ws_strdup(vn); g_call_fastpath_off = 1;
+          } }
         return NULVCL;
     }
     int is_pipe = (fname[0] == '|');

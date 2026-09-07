@@ -461,8 +461,8 @@ static int compat_bake_on(const char * var) { const char * e = getenv(var); retu
 static void emit_compat_bake_data(void) {
     int se = compat_bake_on("SCRIP_SETEXIT_END"), io = compat_bake_on("SCRIP_IO_ASSOC_LEGACY"), rf = compat_bake_on("SCRIP_REAL_FMT_CSNOBOL4");
     int ip = compat_bake_on("SCRIP_IPOW_CSNOBOL4"), en = compat_bake_on("SCRIP_ERRNUM_CSNOBOL4");
-    int sf = compat_bake_on("SCRIP_SYSFN_SHADOW_CSNOBOL4");
-    if (!se && !io && !rf && !ip && !en && !sf) return;
+    int sf = compat_bake_on("SCRIP_SYSFN_SHADOW_CSNOBOL4"), sk = compat_bake_on("SCRIP_SNO_STMTKW");
+    if (!se && !io && !rf && !ip && !en && !sf && !sk) return;
     emit_textf("  .section .rodata\n.LC_compat_one:\n  .asciz \"1\"\n");
     if (se) emit_textf(".LC_compat_se:\n  .asciz \"SCRIP_SETEXIT_END\"\n");
     if (io) emit_textf(".LC_compat_io:\n  .asciz \"SCRIP_IO_ASSOC_LEGACY\"\n");
@@ -470,6 +470,7 @@ static void emit_compat_bake_data(void) {
     if (ip) emit_textf(".LC_compat_ip:\n  .asciz \"SCRIP_IPOW_CSNOBOL4\"\n");
     if (en) emit_textf(".LC_compat_en:\n  .asciz \"SCRIP_ERRNUM_CSNOBOL4\"\n");
     if (sf) emit_textf(".LC_compat_sf:\n  .asciz \"SCRIP_SYSFN_SHADOW_CSNOBOL4\"\n");
+    if (sk) emit_textf(".LC_compat_sk:\n  .asciz \"SCRIP_SNO_STMTKW\"\n");
     emit_textf("  .text\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -480,6 +481,7 @@ static void emit_compat_bake_code(void) {
     if (compat_bake_on("SCRIP_IPOW_CSNOBOL4")) emit_textf("  lea rdi, [rip + .LC_compat_ip]\n  lea rsi, [rip + .LC_compat_one]\n  mov edx, 1\n  call setenv@PLT\n");
     if (compat_bake_on("SCRIP_ERRNUM_CSNOBOL4")) emit_textf("  lea rdi, [rip + .LC_compat_en]\n  lea rsi, [rip + .LC_compat_one]\n  mov edx, 1\n  call setenv@PLT\n");
     if (compat_bake_on("SCRIP_SYSFN_SHADOW_CSNOBOL4")) emit_textf("  lea rdi, [rip + .LC_compat_sf]\n  lea rsi, [rip + .LC_compat_one]\n  mov edx, 1\n  call setenv@PLT\n");
+    if (compat_bake_on("SCRIP_SNO_STMTKW")) emit_textf("  lea rdi, [rip + .LC_compat_sk]\n  lea rsi, [rip + .LC_compat_one]\n  mov edx, 1\n  call setenv@PLT\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int *proc_nparams_buf, int *proc_pidx_buf, int *proc_fb_buf, int *proc_ispat_buf, int *proc_zstatic_buf, int n_procs, int n_cls_emit, int n_gram_emit, int is_raku, const char *mi_name) {
