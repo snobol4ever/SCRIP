@@ -147,6 +147,14 @@ field() { echo "$board" | grep -oE "$1=[0-9]+" | cut -d= -f2; }
 mt=$(field total)
 m3p=$(field m3_pass); m3f=$(field m3_fail); m3c=$(field m3_crash); m3h=$(field m3_hang); m3u=$(field m3_unproven); m3x=$(field m3_xfail); m3xp=$(field m3_xpass)
 m4p=$(field m4_pass); m4f=$(field m4_fail); m4c=$(field m4_crash); m4h=$(field m4_hang); m4u=$(field m4_unproven); m4s=$(field m4_skip); m4x=$(field m4_xfail); m4xp=$(field m4_xpass)
+# ⛔⭐ THE AND PER PROGRAM (ceo-372, 2026-09-06): the number this board's leaderboard row states is the count of
+# entries green in EVERY mode they were graded in. It is read from the harness, never re-derived here -- m3p and
+# m4p cannot yield it, because the AND is a fact about each ENTRY and the board line has already thrown the
+# entries away. That is precisely why this row published one mode until now.
+# ⛔ REFUSE RATHER THAN READ A ZERO. An older harness prints no all_pass=, `field` returns empty, and a row
+# written over an empty string is a plausible false number -- this board's whole failure class.
+mall=$(field all_pass)
+[ -n "$mall" ] || { echo "⛔ BOARD REFUSES: SUITE_BOARD carries no all_pass= field -- this row is the AND per program (ceo-372) and cannot be assembled without it; corpus_suite_harness.py beside this script emits it."; exit 2; }
 if [ -z "$mt" ] || [ "$mt" -eq 0 ]; then
     echo "⛔ BOARD REFUSES (rc=2): the harness graded ZERO entries over a master file that exists"; exit 2
 fi
@@ -229,10 +237,15 @@ fi
 # numbers, so the two fractions collapsed to one reading; the day the modes diverge -- which is exactly the
 # day the number matters -- it would have started refusing instead. A mechanism that works because two
 # values happen to be equal is not wired, it is lucky.
+# ⛔⭐ AND THE DECLARED PAIR IS THE AND PER PROGRAM (ceo-372): the entries green in EVERY graded mode, never
+# m4 alone (what this row published until now), never m3 alone, never min(m3p,m4p). ⭐ NOTE THIS BOARD'S OWN
+# HISTORY IS THE ARGUMENT FOR IT: m3p and m4p have been EQUAL here, which reads as "both modes agree" and is
+# not the same claim at all -- equal COUNTS are consistent with two disjoint sets of reds. Only the AND can
+# tell those apart, and where the two numbers really did describe the same programs it changes nothing.
 python3 "$HERE/util_score_row.py" write --lang icon --column board --modes m3,m4 \
-    --suite-pass "$m4p" --suite-total "$mt" \
+    --suite-pass "$mall" --suite-total "$mt" \
     --measurer "${S4E_SEAT:-}" \
-    --text "$([ "$RED" -ne 0 ] && echo "⛔ RED — ")run-graded m3 $m3p/$mt · m4 $m4p/$mt (entries=$graded, floors m3 $M3_PASS_FLOOR / m4 $M4_PASS_FLOOR, \`board_icon_master.sh\`) · ast-shape check $ap/$at (informational, not scored)$_named" \
+    --text "$([ "$RED" -ne 0 ] && echo "⛔ RED — ")run-graded both-modes $mall/$mt · m3 $m3p/$mt · m4 $m4p/$mt (entries=$graded, floors m3 $M3_PASS_FLOOR / m4 $M4_PASS_FLOOR, \`board_icon_master.sh\`) · ast-shape check $ap/$at (informational, not scored)$_named" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 # ⭐ THE PROGRESS LINE, after the rewrite.  This runner writes its row DIRECTLY rather than through
 # lib_gate.sh's gate_score_row, so it needs the call the shared path already carries -- same one line,
@@ -240,4 +253,4 @@ python3 "$HERE/util_score_row.py" write --lang icon --column board --modes m3,m4
 # runs no suite).  Non-fatal by construction: it must not be able to change this board's verdict.
 python3 "$HERE/util_score_row.py" progress 2>/dev/null || true
 if [ "$RED" -ne 0 ]; then echo "⛔ ICON MASTER BOARD RED"; exit 1; fi
-echo "✅ ICON MASTER BOARD OK: entries=$graded at/above floor $ENTRY_FLOOR · run-graded m3 PASS=$m3p m4 PASS=$m4p / $mt (watermarks held) · ast-shape check $ap/$at (informational)"
+echo "✅ ICON MASTER BOARD OK: entries=$graded at/above floor $ENTRY_FLOOR · run-graded both-modes PASS=$mall/$mt (the AND, what the leaderboard row states) · m3 PASS=$m3p m4 PASS=$m4p / $mt (watermarks held) · ast-shape check $ap/$at (informational)"

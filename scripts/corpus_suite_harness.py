@@ -2110,6 +2110,14 @@ def cmd_run(args):
         want = {x.strip() for x in d.split(",") if x.strip()}
         return [m for m in modes if m in want]
     mode_n = {m: 0 for m in modes}
+    # ⛔⭐ THE AND PER PROGRAM (ceo-372, 2026-09-06): a suite row's single number states the entries green in
+    # EVERY mode they were graded in -- never one mode alone, and never min(m3_pass, m4_pass), which is not a count
+    # of anything: two entries, one red only in m3 and one red only in m4, give min()=1 while the AND is 0, so the
+    # min hides a program that is red somewhere. It is computed HERE, where one entry's verdicts are all in hand,
+    # because it CANNOT be recovered from the per-mode aggregates a board line carries -- that is the whole reason
+    # the callers could not do it themselves. `all_n` is its denominator: entries graded in at least one mode.
+    all_pass = 0
+    all_n = 0
     declared_not_requested = []
     counts = {m: {"PASS": 0, "FAIL": 0, "CRASH": 0, "HANG": 0, "UNPROVEN": 0, "SKIP": 0, "XFAIL": 0, "XPASS": 0} for m in modes}
     ast_counts = {"ast": {"PASS": 0, "FAIL": 0, "CRASH": 0, "HANG": 0, "UNPROVEN": 0, "SKIP": 0, "XFAIL": 0, "XPASS": 0}}
@@ -2157,6 +2165,11 @@ def cmd_run(args):
                     counts[m][kind] += 1
                     if kind != "PASS":
                         fails.append((e.name, m, verdicts[m]))
+            # ⛔ AN XFAIL ENTRY IS NOT GREEN. It is EXPECTED red, which is why it is kept out of every mode's
+            # PASS bucket above -- so counting it here would let the AND exceed the per-mode counts it summarises.
+            all_n += 1
+            if not e.xfail and all(verdicts[m].kind == "PASS" for m in _em):
+                all_pass += 1
     finally:
         import shutil
         shutil.rmtree(tmp_root, ignore_errors=True)
@@ -2184,6 +2197,10 @@ def cmd_run(args):
                        f"{m}_pass={c['PASS']} {m}_fail={c['FAIL']} {m}_crash={c['CRASH']} "
                        f"{m}_hang={c['HANG']} {m}_unproven={c['UNPROVEN']} {m}_skip={c['SKIP']} "
                        f"{m}_xfail={c['XFAIL']} {m}_xpass={c['XPASS']}")
+    # ⛔⭐ all_pass IS THE FIELD A SUITE ROW QUOTES (ceo-372). It sits beside the per-mode counts, never
+    # instead of them: the cell carries both so the split stays readable, and a reader who wants one mode still
+    # has it. Shards partition the entries, so these two sum across shards exactly as every other field does.
+    fields.append(f"all_pass={all_pass} all_n={all_n}")
     if entry_modes and declared_not_requested:
         fields.append(f"declared_not_requested={len(declared_not_requested)}")
     print("SUITE_BOARD " + " ".join(fields))

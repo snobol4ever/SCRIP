@@ -153,6 +153,13 @@ done
 
 PASS3=0; FAIL3=0; FAILURES3=""
 PASS4=0; FAIL4=0; SKIP4=0; FAILURES4=""
+# ⛔⭐ THE AND PER PROGRAM (ceo-372, 2026-09-06): the number this suite's leaderboard row states is the count of
+# programs green in EVERY mode they were graded in -- not m3 alone (what this row published until now), not m4
+# alone, and never min(PASS3,PASS4), which counts nothing real: one program red only in m3 and another red only
+# in m4 give min()=N-1 while the AND is N-2, so the min silently forgives a program that is red somewhere.
+# It is accumulated in run_test(), where one program's two verdicts are both in hand; it cannot be recovered
+# from PASS3/PASS4 afterwards, which is exactly why the row had to pick a mode before this.
+BOTH=0
 MISSING=0; MISSING_LIST=""
 
 WORKDIR="$(mktemp -d)"
@@ -200,6 +207,7 @@ run_test() {
     # reported the only fact it had left. A SIGTERMed program was NOT MEASURED: neither PASS nor FAIL but
     # UNPROVEN, the same three-state doctrine lib_gate.sh exists to enforce.
     local rc3=0
+    local m3ok=0   # ⭐ the m3 half of this program's AND -- a TIMEOUT or a FAIL both leave it 0, because neither is green
     if [ -n "$inp_arg" ]; then
         got3=$(SNO_LIB="$INC" timeout "$TIMEOUT" "$SCRIP" --run "$sno" < "$inp_arg" 2>/dev/null); rc3=$?
     else
@@ -209,7 +217,7 @@ run_test() {
     T_M3=$((T_M3+SECONDS-T0m3))
     if [ "$rc3" -eq 124 ]; then
         TMOUT3=$((TMOUT3+1)); TMOUT_LIST="${TMOUT_LIST}  TIMEOUT-M3 ${label} (killed at ${TIMEOUT}s -- NOT graded)\n"
-    elif [ "$got3" = "$exp" ]; then PASS3=$((PASS3+1))
+    elif [ "$got3" = "$exp" ]; then PASS3=$((PASS3+1)); m3ok=1
     else FAIL3=$((FAIL3+1)); FAILURES3="${FAILURES3}  FAIL-M3 ${label}\n"; fi
 
     # ── Mode 4: --compile → assemble → link → run ─────────────────────────
@@ -228,7 +236,7 @@ run_test() {
     T_M4=$((T_M4+SECONDS-T0m4))
     if [ "$rc4" -eq 124 ]; then
         TMOUT4=$((TMOUT4+1)); TMOUT_LIST="${TMOUT_LIST}  TIMEOUT-M4 ${label} (killed at ${TIMEOUT}s -- NOT graded)\n"
-    elif [ "$got4" = "$exp" ]; then PASS4=$((PASS4+1))
+    elif [ "$got4" = "$exp" ]; then PASS4=$((PASS4+1)); [ "$m3ok" -eq 1 ] && BOTH=$((BOTH+1))
     else FAIL4=$((FAIL4+1)); FAILURES4="${FAILURES4}  FAIL ${label}\n"; fi
 }
 
@@ -399,6 +407,16 @@ asth=$(afield ast_hang); astu=$(afield ast_unproven); astx=$(afield ast_xfail); 
 ASTFAIL=$(( ${astf:-0} + ${astc:-0} ))
 PASS3=$((PASS3+m3p)); FAIL3=$((FAIL3+m3f+m3c)); TMOUT3=$((TMOUT3+m3h+m3u))
 PASS4=$((PASS4+m4p)); FAIL4=$((FAIL4+m4f+m4c)); TMOUT4=$((TMOUT4+m4h+m4u)); SKIP4=$((SKIP4+m4s))
+# ⛔⭐ THE MASTER'S AND, FOLDED FROM THE HARNESS AND NEVER RE-DERIVED (ceo-372). m3p and m4p cannot produce it:
+# the AND is a fact about each ENTRY, and by the time a board line exists the entries are gone. corpus_suite_harness.py
+# emits all_pass for exactly this fold.
+# ⛔ REFUSE RATHER THAN FOLD A ZERO. An older harness -- or a shard checkpoint cut before this field existed --
+# prints no all_pass, `field` returns empty, and `$(( BOTH + ))` would quietly add nothing: the row would then
+# publish the loop population alone and read as a catastrophic regression that never happened. A runner that
+# cannot measure REFUSES; it does not print the success shape over a number it failed to read.
+m_all=$(field all_pass)
+[ -n "$m_all" ] || { echo "⛔ GATE REFUSES: the master SUITE_BOARD carries no all_pass= field -- this runner's row is the AND per program (ceo-372) and cannot be assembled without it. The harness beside this script emits it; a stale shard checkpoint does not (re-run the shards)."; exit 2; }
+BOTH=$((BOTH+m_all))
 [ "$((m3f+m3c))" -gt 0 ] && FAILURES3="${FAILURES3}  FAIL-M3 suite:master (rerun: python3 $HARNESS run $MASTER_SNO $MASTER_REF --modes m3; per-entry attributes: ALL.csv)\n"
 [ "$((m4f+m4c))" -gt 0 ] && FAILURES4="${FAILURES4}  FAIL suite:master (rerun: python3 $HARNESS run $MASTER_SNO $MASTER_REF --modes m4; per-entry attributes: ALL.csv)\n"
 echo "master: total=$mt · m3 xfail=$m3x xpass=$m3xp · m4 xfail=$m4x xpass=$m4xp"
@@ -494,6 +512,10 @@ T_ALL=$((SECONDS-T0_ALL))
 TOTAL=$((PASS4+FAIL4+SKIP4))
 echo "mode-3 (--run):     PASS=$PASS3 FAIL=$FAIL3"
 echo "mode-4 (--compile): PASS=$PASS4 FAIL=$FAIL4 SKIP=$SKIP4  ($TOTAL total)"
+# ⭐ THE HEADLINE, PRINTED WHERE THE HUMAN READS IT TOO -- not only into the leaderboard cell. The two-audiences
+# defect this runner already carries a TIMEOUT caveat for: the board everyone quotes and the terminal must agree.
+echo "both modes (the AND, what the leaderboard row states): PASS=$BOTH / $TOTAL"
+
 [ -n "$FAILURES3" ] && printf "$FAILURES3" | head -20
 [ -n "$FAILURES4" ] && printf "$FAILURES4" | head -40
 
@@ -613,16 +635,21 @@ _sn4_killed=""
 # ⛔ THE ROW CARRIES THE AST POPULATION TOO, for the reason the TIMEOUT-KILLED caveat above exists: the terminal
 # reader sees both boards and the leaderboard everybody quotes would have seen only one, which is the two-audiences
 # defect. Fraction form kept on both (util_score_row.py refuses a grid write without one).
-_sn4_board="m3 $PASS3/$TOTAL FAIL=$FAIL3 · m4 $PASS4/$TOTAL FAIL=$FAIL4 SKIP=$SKIP4 · ast $astp/$astt FAIL=$ASTFAIL MISSING=0$_sn4_killed (\`test_corpus_snobol4.sh\`)"
+_sn4_board="both-modes $BOTH/$TOTAL · m3 $PASS3/$TOTAL FAIL=$FAIL3 · m4 $PASS4/$TOTAL FAIL=$FAIL4 SKIP=$SKIP4 · ast $astp/$astt FAIL=$ASTFAIL MISSING=0$_sn4_killed (\`test_corpus_snobol4.sh\`)"
 echo "ONE LEADERBOARD: recording this board into .github/SCORE.md (test_corpus_snobol4.sh; skipped with a notice if the tree is dirty)"
 # ⛔⭐ THE SUITE ROW'S PAIR IS DECLARED, NEVER PARSED OUT OF THE LINE ABOVE (hq_T 2026-09-06, ceo CEO-363).
-# This board line carries THREE fractions -- m3, m4 and the ast fixtures -- over TWO different populations,
-# so any rule that reads a pair out of it is choosing between them silently, and the ast pair (28/28) would
-# publish as the master suite's score. The runner names its own headline pair instead: the m3 master
-# population, which is what .github/SUITES.tsv's sno-master row has always tracked. When the modes disagree
-# the SCORE.md cell above still carries both, and the FAIL counts with them.
+# This board line carries FOUR fractions -- the AND, m3, m4 and the ast fixtures -- over TWO different
+# populations, so any rule that reads a pair out of it is choosing between them silently, and the ast pair
+# (28/28) would publish as the master suite's score. The runner names its own headline pair instead.
+# ⛔⭐ AND THE HEADLINE PAIR IS THE AND PER PROGRAM (ceo-372, 2026-09-06, RULING on this runner's ask):
+# "a suite row states the programs that pass in EVERY graded mode -- a program red in m3 and another red in
+# m4 both count against the row; never m3 alone, never m4 alone, never the min of two counts (which hides a
+# program red in each)". This row published $PASS3 -- the m3 arm -- until now; it publishes $BOTH from here.
+# ⛔ THAT MOVEMENT IS A CRITERION CHANGE, NOT A REGRESSION, and the commit that lands it says so. Nothing got
+# worse; the row started counting what it always claimed to count. The cell keeps the per-mode counts beside
+# the number so nobody loses the split, which is the other half of the same ruling.
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column board --modes m3,m4 \
-    --measurer "${S4E_SEAT:-}" --text "$_sn4_board" --suite-pass "$PASS3" --suite-total "$TOTAL" \
+    --measurer "${S4E_SEAT:-}" --text "$_sn4_board" --suite-pass "$BOTH" --suite-total "$TOTAL" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 # ⭐ THE PROGRESS LINE, after the rewrite (see board_icon_master.sh for the same call and why it is here
 # rather than only in lib_gate.sh: this runner writes its row directly, bypassing gate_score_row).
@@ -632,5 +659,5 @@ python3 "$HERE/util_score_row.py" progress 2>/dev/null || true
 if [ "$FAIL4" -gt 0 ] || [ "$ASTFAIL" -gt 0 ]; then
     echo "⛔ GATE FAIL: mode-4 FAIL=$FAIL4 · ast FAIL=$ASTFAIL (mode-3 FAIL=$FAIL3, informational)"; exit 1
 fi
-echo "✅ GATE OK: m3 PASS=$PASS3 FAIL=$FAIL3 · m4 PASS=$PASS4 FAIL=$FAIL4 SKIP=$SKIP4 · ast PASS=$astp FAIL=$ASTFAIL · MISSING=0"
+echo "✅ GATE OK: both-modes PASS=$BOTH/$TOTAL · m3 PASS=$PASS3 FAIL=$FAIL3 · m4 PASS=$PASS4 FAIL=$FAIL4 SKIP=$SKIP4 · ast PASS=$astp FAIL=$ASTFAIL · MISSING=0"
 exit 0

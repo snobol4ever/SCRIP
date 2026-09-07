@@ -49,6 +49,11 @@ TOTAL=${#PAIRS[@]}
 [ "$TOTAL" -gt 0 ] || { echo "⛔ REFUSED-TO-GRADE: zero .pas/.ref pairs in $SUITE"; exit 2; }
 
 M3_PASS=0; M3_FAIL=0; M4_PASS=0; M4_FAIL=0; REJECT=0
+# ⛔⭐ THE AND PER PROGRAM (ceo-372, 2026-09-06): this suite's leaderboard row states the programs green in
+# EVERY graded mode -- never m4 alone (what it published until now), never m3 alone, and never
+# min(M3_PASS,M4_PASS), which is not a count of any set of programs: one program red only in m3 and another
+# red only in m4 leave min() a program too high. Accumulated per program below, where both verdicts are in hand.
+BOTH_PASS=0
 M3_FAIL_NAMES=(); M4_FAIL_NAMES=(); REJECT_NAMES=()
 PROG_ROWS="$TMP/progress.tsv"; : >"$PROG_ROWS"
 
@@ -67,9 +72,10 @@ for name in "${PAIRS[@]}"; do
     fi
     exp="$(cat "$ref")"
 
+    m3ok=0
     m3out=$(cd "$TMP" && timeout "$RUN_TIMEOUT" "$SCRIP" --run "$pas" < "$inp" 2>/dev/null)
     if [ "$m3out" = "$exp" ]; then
-        M3_PASS=$((M3_PASS+1))
+        M3_PASS=$((M3_PASS+1)); m3ok=1
         printf 'package\tfpc\tpascal\t%s\tm3\tPASS\t0\t\n' "$name" >>"$PROG_ROWS"
         [ "$VERBOSE" -eq 1 ] && echo "  m3 PASS $name"
     else
@@ -83,7 +89,7 @@ for name in "${PAIRS[@]}"; do
         && gcc -no-pie "$m4s" -L "${HERE}/../out" -lscrip_rt -Wl,-rpath,"${HERE}/../out" -o "$m4bin" 2>/dev/null; then
         m4out=$(cd "$TMP" && timeout "$RUN_TIMEOUT" "$m4bin" < "$inp" 2>/dev/null)
         if [ "$m4out" = "$exp" ]; then
-            M4_PASS=$((M4_PASS+1))
+            M4_PASS=$((M4_PASS+1)); [ "$m3ok" -eq 1 ] && BOTH_PASS=$((BOTH_PASS+1))
             printf 'package\tfpc\tpascal\t%s\tm4\tPASS\t0\t\n' "$name" >>"$PROG_ROWS"
             [ "$VERBOSE" -eq 1 ] && echo "  m4 PASS $name"
         else
@@ -111,7 +117,7 @@ if [ "$VERBOSE" -ne 1 ] && [ "$M4_FAIL" -gt 0 ]; then
 fi
 
 echo ""
-echo "FPC_SUITE_BOARD total=$TOTAL m3_pass=$M3_PASS m3_fail=$M3_FAIL m4_pass=$M4_PASS m4_fail=$M4_FAIL reject=$REJECT"
+echo "FPC_SUITE_BOARD total=$TOTAL both_pass=$BOTH_PASS m3_pass=$M3_PASS m3_fail=$M3_FAIL m4_pass=$M4_PASS m4_fail=$M4_FAIL reject=$REJECT"
 # ⭐ THE PACKAGE LOCKDOWN inventory line, via the shared body (lib_inventory.sh) -- never a second copy
 # of the arithmetic. REJECT here is "shipped .pas with no .ref yet" -- real owed work (REF_NOT_CUT), not
 # an oracle ruling -- so a nonzero REJECT with no UNGRADED.tsv beside $SUITE correctly REFUSES below
@@ -128,23 +134,27 @@ if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (
 # warns and names the unrecorded row instead; it has no silent path.
 # ⛔⭐ THE SUITE ROW'S PAIR IS DECLARED, NEVER PARSED (hq_T 2026-09-06, ceo CEO-363; the coo had to set
 # this row BY HAND after a clean run because util_score_row correctly REFUSED to guess). The --text below
-# carries TWO fractions over the same denominator (m3 and m4), and there is no fact of the matter about
-# which one a single-number suite row means -- so the writer refuses rather than picking, and the runner
-# says which it means. ⚠ THE CHOICE HERE IS THE m4 ARM, because that is what this suite's existing
-# SUITES.tsv row already carries; wiring m3 would have published a REGRESSION that never happened. That is
-# a reason, not a ruling -- it is one line to change if the ceo rules the row should track m3 or min().
-# ⛔⭐ CHANGED TO THE m3 ARM BY hq_V, 2026-09-06 20:5x, ON THAT INVITATION, BECAUSE THE PREMISE ABOVE
-# INVERTED WHILE IT WAS BEING WRITTEN: the coo set this row BY HAND to the m3 numbers hours later (.github
-# 7b24d6a1, "FPC 130/181 and PAT 300/427 unchanged in m3 (m4 116 and 286, the tracked layout-sensitive m4
-# noise)"), so the published row now carries m3 and it is the m4 wiring that would publish a REGRESSION
-# THAT NEVER HAPPENED -- FPC 130 -> 116 -- which is precisely what the line above set out to prevent. The
-# second, standing reason is that m4 is the arm this file's own header warns is run-to-run
-# non-deterministic (five runs, one tree, five pass counts), and a suite row wired to a number that moves
-# without the code moving manufactures phantom movement in the table Lon reads, ETA column included.
-# The ceo is asked to rule; either way it stays one line.
+# carries THREE fractions over the same denominator (the AND, m3 and m4), and there is no fact of the matter
+# about which one a text parse should take -- so the writer refuses rather than picking, and the runner
+# declares its headline pair.
+# ⛔⭐ THE RULING CAME, AND IT IS NEITHER ARM: ceo-372, 2026-09-06, on hq_T's ask. This row was wired to m4
+# (because SUITES.tsv carried m4), then to m3 by hq_V at 20:5x when the coo hand-set the published row to the
+# m3 numbers -- each rewiring correctly avoiding the phantom regression the other would have published, and
+# hq_V closed with "The ceo is asked to rule; either way it stays one line." This is that line. The pair is
+# THE AND PER PROGRAM: "a program red in m3 and another red in m4 both count against the row; never m3 alone,
+# never m4 alone, never the min of two counts (which hides a program red in each)."
+# ⭐ hq_V's SECOND, STANDING REASON IS ANSWERED RATHER THAN OVERRULED. m4 here really is run-to-run
+# non-deterministic (this file's header: five runs, one tree, five pass counts), and a row wired to a number
+# that moves without the code moving really does manufacture phantom movement in the table Lon reads. The
+# ceo's ruling puts that where it belongs: "a mode whose count varies run to run is a DEFECT ROW in that lane
+# -- a nondeterministic compile is the xfail shape with a runner's excuse in front of it -- never a reason to
+# publish the steadier mode." The wobble is now the Pascal lane's row (pascal-m4-intermittent-segv-layout-
+# sensitive), not a thing the leaderboard steers around by choosing an arm.
+# ⛔ THE NUMBER DROPS FROM $M3_PASS (m3, as published) TO $BOTH_PASS -- 130 to 116 of 181, measured this
+# sitting -- AND THAT IS A CRITERION CHANGE, NOT A REGRESSION. The commit landing it says so in those words.
 python3 "$HERE/util_score_row.py" write --lang pascal --column vendor --suite fpc --modes m3,m4 \
-    --suite-pass "$M3_PASS" --suite-total "$TOTAL" \
-    --measurer "${S4E_SEAT:-}" --text "m3 $M3_PASS/$TOTAL · m4 $M4_PASS/$TOTAL (m3_fail=$M3_FAIL m4_fail=$M4_FAIL reject=$REJECT${INV_LINE:+ · $INV_LINE (\`test_pascal_fpc_suite.sh\`)})" \
+    --suite-pass "$BOTH_PASS" --suite-total "$TOTAL" \
+    --measurer "${S4E_SEAT:-}" --text "both-modes $BOTH_PASS/$TOTAL · m3 $M3_PASS/$TOTAL · m4 $M4_PASS/$TOTAL (m3_fail=$M3_FAIL m4_fail=$M4_FAIL reject=$REJECT${INV_LINE:+ · $INV_LINE (\`test_pascal_fpc_suite.sh\`)})" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
 

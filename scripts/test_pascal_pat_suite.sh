@@ -38,10 +38,15 @@ declare -A P F C
 for m in m3 m4; do P[$m]=0; F[$m]=0; C[$m]=0; done
 TOTAL=0; NAMED=""; UNGRADABLE=0
 PROG_ROWS="$TMP/progress.tsv"; : >"$PROG_ROWS"
+# ⛔⭐ THE AND PER PROGRAM (ceo-372, 2026-09-06), accumulated across BOTH populations below -- the rejection
+# tests and the acceptance tests -- because both feed the one TOTAL this row is stated over. A per-program
+# accumulator is the only shape that survives two loops; a post-hoc min() of P[m3] and P[m4] would not even be
+# wrong in a detectable way, since it is not a count of any set of programs.
+BOTH=0
 # ---- rejection population -------------------------------------------------------------------------------------------
 for f in "$SUITE"/iso7185prt*.pas; do
     [ -e "$f" ] || continue
-    b="$(basename "$f" .pas)"; TOTAL=$((TOTAL+1))
+    b="$(basename "$f" .pas)"; TOTAL=$((TOTAL+1)); okboth=1
     for m in m3 m4; do
         # ⛔⭐ A TIMEOUT ON A REJECTION TEST IS "ACCEPTED", NOT "CRASHED" — and the 2s bound is a CONSEQUENCE of that,
         # not a guess. A program the front end refuses dies in ~10ms; one that reaches the timeout is one scrip
@@ -72,7 +77,7 @@ for f in "$SUITE"/iso7185prt*.pas; do
             printf 'package\tpat\tpascal\t%s\t%s\tPASS\t0\trefused-with-a-diagnostic\n' "$b" "$m" >>"$PROG_ROWS"
             [ -n "${PAT_VERBOSE:-}" ] && echo "  $m PASS $b"
         else
-            F[$m]=$((F[$m]+1))
+            F[$m]=$((F[$m]+1)); okboth=0
             if   [ "$rc" -eq 124 ]; then C[$m]=$((C[$m]+1)); DIAG="accepted-and-ran-to-bound"
             elif [ "$rc" -gt 124 ]; then C[$m]=$((C[$m]+1)); DIAG="crash(rc=$rc)"
             elif [ "$rc" -ne 0 ];   then DIAG="rejected-silently-no-diagnostic"
@@ -82,6 +87,7 @@ for f in "$SUITE"/iso7185prt*.pas; do
             [ -n "${PAT_VERBOSE:-}" ] && echo "  $m FAIL $b ($DIAG)"
         fi
     done
+    BOTH=$((BOTH+okboth))
 done
 # ---- acceptance population, oracle = fpc -Miso ----------------------------------------------------------------------
 FPC="$(command -v fpc || true)"
@@ -111,6 +117,10 @@ for f in "$SUITE"/iso7185pat*.pas; do
     fi
     timeout 20s "$TMP/oracle" <"$in" >"$TMP/want" 2>&1 || true
     TOTAL=$((TOTAL+1))
+    # ⛔⭐ THE AND PER PROGRAM (ceo-372, 2026-09-06): this suite's row states the programs green in EVERY graded
+    # mode. `okboth` starts at 1 and only ever falls to 0 -- a CRASH and a MISMATCH both clear it -- so the AND is
+    # taken from the verdicts themselves rather than reconstructed from two counts afterwards, which cannot be done.
+    okboth=1
     for m in m3 m4; do
         if [ "$m" = m3 ]; then timeout 20s "$SCRIP" "$f" <"$in" >"$TMP/got" 2>&1; rc=$?
         else timeout 20s "$SCRIP" --compile -o "$TMP/b.s" "$f" </dev/null >/dev/null 2>&1 && \
@@ -120,17 +130,18 @@ for f in "$SUITE"/iso7185pat*.pas; do
         # the crash column ALONE, so a crash left P+F one short of TOTAL and the board's own denominator
         # stopped adding up -- latent today only because both acceptance fixtures are ungradable by the
         # oracle, i.e. the arm never fires; it fires the day one of them becomes gradable.
-        if [ "$rc" -ge 124 ]; then C[$m]=$((C[$m]+1)); F[$m]=$((F[$m]+1)); NAMED="$NAMED $b:$m:CRASH(rc=$rc)"
+        if [ "$rc" -ge 124 ]; then C[$m]=$((C[$m]+1)); F[$m]=$((F[$m]+1)); NAMED="$NAMED $b:$m:CRASH(rc=$rc)"; okboth=0
             printf 'package\tpat\tpascal\t%s\t%s\tFAIL\t0\tcrash(rc=%s)\n' "$b" "$m" "$rc" >>"$PROG_ROWS"
         elif cmp -s "$TMP/want" "$TMP/got"; then P[$m]=$((P[$m]+1))
             printf 'package\tpat\tpascal\t%s\t%s\tPASS\t0\tmatches-the-oracle\n' "$b" "$m" >>"$PROG_ROWS"
-        else F[$m]=$((F[$m]+1)); NAMED="$NAMED $b:$m:MISMATCH"
+        else F[$m]=$((F[$m]+1)); NAMED="$NAMED $b:$m:MISMATCH"; okboth=0
             printf 'package\tpat\tpascal\t%s\t%s\tFAIL\t0\tmismatch-vs-oracle\n' "$b" "$m" >>"$PROG_ROWS"; fi
     done
+    BOTH=$((BOTH+okboth))
 done
 # ⛔ A RUNNER THAT GRADED NOTHING MUST NEVER PRINT THE SUCCESS SHAPE (the seven-point standard, point 3).
 [ "$TOTAL" -gt 0 ] || refuse "graded ZERO programs over $SUITE -- refusing to print a board with no denominator"
-echo "PAT_SUITE_BOARD total=$TOTAL m3_pass=${P[m3]} m3_fail=${F[m3]} m4_pass=${P[m4]} m4_fail=${F[m4]}"
+echo "PAT_SUITE_BOARD total=$TOTAL both_pass=$BOTH m3_pass=${P[m3]} m3_fail=${F[m3]} m4_pass=${P[m4]} m4_fail=${F[m4]}"
 # ⭐ THE PACKAGE LOCKDOWN (Lon 2026-09-06, MASTER-PLAN sec THE PACKAGE LOCKDOWN): shipped is measured
 # FRESH from the vendored dir every run (both iso7185prt* and iso7185pat* globs), never assumed from
 # TOTAL alone -- a file added to $SUITE after this script was last touched must show up as ungraded,
@@ -153,27 +164,30 @@ fi
 if . "$HERE/lib_gate.sh" 2>/dev/null && command -v gate_stamp >/dev/null 2>&1; then gate_stamp; fi
 # ⛔⭐ THE SUITE ROW'S PAIR IS DECLARED, NEVER PARSED (hq_T 2026-09-06, ceo CEO-363; the coo had to set
 # this row BY HAND after a clean run because util_score_row correctly REFUSED to guess). The --text below
-# carries TWO fractions over the same denominator (m3 and m4), and there is no fact of the matter about
-# which one a single-number suite row means -- so the writer refuses rather than picking, and the runner
-# says which it means. ⚠ THE CHOICE HERE IS THE m4 ARM, because that is what this suite's existing
-# SUITES.tsv row already carries; wiring m3 would have published a REGRESSION that never happened. That is
-# a reason, not a ruling -- it is one line to change if the ceo rules the row should track m3 or min().
-# ⛔⭐ CHANGED TO THE m3 ARM BY hq_V, 2026-09-06 20:5x, ON THAT INVITATION, BECAUSE THE PREMISE ABOVE
-# INVERTED WHILE IT WAS BEING WRITTEN: the coo set this row BY HAND to the m3 numbers hours later (.github
-# 7b24d6a1, "FPC 130/181 and PAT 300/427 unchanged in m3 (m4 116 and 286, the tracked layout-sensitive m4
-# noise)"), so the published row now carries m3 and it is the m4 wiring that would publish a REGRESSION
-# THAT NEVER HAPPENED -- PAT 300 -> 286 and FPC 130 -> 116 -- which is precisely what the line above set
-# out to prevent. The second, standing reason is that m4 is the arm with a NAMED non-determinism row
-# against it (pascal-m4-intermittent-segv-layout-sensitive: five runs, one tree, five pass counts), and a
-# suite row wired to a number that moves without the code moving manufactures phantom movement in the
-# table Lon reads, including its ETA column. The ceo is asked to rule; either way it stays one line.
+# carries several fractions over the same denominator -- so there is no fact of the matter about which one a
+# text parse should take, and the writer refuses rather than picking while the runner declares its pair.
+# ⛔⭐ THE RULING CAME, AND IT IS NEITHER ARM: ceo-372, 2026-09-06, on hq_T's ask. This row was wired to m4
+# (because SUITES.tsv carried m4), then to m3 by hq_V at 20:5x when the coo hand-set the published row to the
+# m3 numbers -- each rewiring correctly avoiding the phantom regression the other would have published, and
+# hq_V closed with "The ceo is asked to rule; either way it stays one line." This is that line. The pair is
+# THE AND PER PROGRAM -- the programs green in EVERY graded mode: "a program red in m3 and another red in m4
+# both count against the row; never m3 alone, never m4 alone, never the min of two counts (which hides a
+# program red in each)."
+# ⭐ hq_V's SECOND, STANDING REASON IS ANSWERED RATHER THAN OVERRULED. m4 here has a NAMED non-determinism row
+# against it (pascal-m4-intermittent-segv-layout-sensitive: five runs, one tree, five pass counts), and a row
+# wired to a number that moves without the code moving really does manufacture phantom movement in the table
+# Lon reads, ETA column included. ceo-372 puts that where it belongs: "a mode whose count varies run to run is
+# a DEFECT ROW in that lane -- a nondeterministic compile is the xfail shape with a runner's excuse in front
+# of it -- never a reason to publish the steadier mode."
+# ⛔ THE NUMBER DROPS FROM ${P[m3]} (m3, as published) TO $BOTH -- 300 to 286 of 427, measured this sitting --
+# AND THAT IS A CRITERION CHANGE, NOT A REGRESSION. The commit landing it says so in those words.
 # ⭐ AND THIS TEXT ALSO CARRIES A FRACTION-SHAPED DIAGNOSTIC -- the "(N/M crash)" counts -- which any
-# text-parsing rule would read as a THIRD distinct fraction. Declaring the pair makes the parse moot: the
+# text-parsing rule would read as one more distinct fraction. Declaring the pair makes the parse moot: the
 # overrides short-circuit it entirely, so no diagnostic that merely LOOKS like a fraction can move this row.
 python3 "$HERE/util_score_row.py" write --lang pascal --column vendor --suite PAT --modes m3,m4 \
-    --suite-pass "${P[m3]}" --suite-total "$TOTAL" \
+    --suite-pass "$BOTH" --suite-total "$TOTAL" \
     --measurer "${S4E_SEAT:-}" \
-    --text "ISO 7185 validation suite (Pascal-P5 1.4.x, vendored corpus/packages/pascal/pat): $TOTAL programs — m3 ${P[m3]}/$TOTAL · m4 ${P[m4]}/$TOTAL (crash m3 ${C[m3]}, m4 ${C[m4]}). 427 are REJECTION tests graded on whether scrip refuses them${INV_LINE:+ . $INV_LINE}, per \`test_pascal_pat_suite.sh\`" \
+    --text "ISO 7185 validation suite (Pascal-P5 1.4.x, vendored corpus/packages/pascal/pat): $TOTAL programs — both-modes $BOTH/$TOTAL · m3 ${P[m3]}/$TOTAL · m4 ${P[m4]}/$TOTAL (crash m3 ${C[m3]}, m4 ${C[m4]}). 427 are REJECTION tests graded on whether scrip refuses them${INV_LINE:+ . $INV_LINE}, per \`test_pascal_pat_suite.sh\`" \
     2>&1 | sed 's/^/    /'
 python3 "$HERE/util_score_row.py" progress 2>/dev/null || true
 # ⛔⭐ THE FACT RULE'S OTHER HALF (CEO-319, /home/resources/progress/README.md): every suite run APPENDS its
