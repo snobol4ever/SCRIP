@@ -978,6 +978,7 @@ int bb_call_write_route(IR_t *nd) {
 }
 extern "C" int icn_builtin_is_known(const char *);
 extern "C" int icn_builtin_is_generator(const char *);
+extern "C" int rt_proc_entry_pending(const char *);
 extern "C++" void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int bb_call_route_classify(IR_t * nd) {
@@ -996,7 +997,7 @@ int bb_call_route_classify(IR_t * nd) {
     if ((dv == 2.0 || dv == 3.0) && fn[0] && rt_proc_is_registered(fn) && rt_proc_is_generator(fn)) return CALL_ROUTE_PROC_STAGED;
     if ((dv == 2.0 || dv == 3.0) && fn[0] && rt_builtin_is_generator(fn)) return CALL_ROUTE_BYNAME;
     if (dv == 2.0) return CALL_ROUTE_DVAL2_BOMB;
-    if (fn[0] && rt_proc_is_registered(fn)) return CALL_ROUTE_PROC_STAGED;
+    if (fn[0] && rt_proc_is_registered(fn)) return rt_proc_entry_pending(fn) ? CALL_ROUTE_BYNAME : CALL_ROUTE_PROC_STAGED;
     if (!strcmp(fn, "__rk_bool") && dv == 0.0 && narg == 1 && a0 && bb_slot_get(a0) >= 0) return CALL_ROUTE_RK_BOOL_SLOT;
     switch (g_emit.op_write_route) {
     case 1: return CALL_ROUTE_WRITE_SLOT; case 2: case 3: return CALL_ROUTE_WRITE_BINOP;

@@ -476,6 +476,13 @@ int rt_proc_dyn_scope(const char *name)
     { int i = rt_proc_hash_lookup(name); if (i >= 0) return g_rt_gen_procs[i].dyn_scope; }
     return 0;
 }
+int rt_proc_entry_pending(const char *name)
+{
+    extern const char *core_define_entry_label(const char *);
+    if (!name) return 0;
+    { int i = rt_proc_hash_lookup(name); if (i < 0) return 0;
+      { rt_proc_t *p = &g_rt_gen_procs[i]; return (p->dyn_scope && !p->fn && !p->jmp_entry && core_define_entry_label(name)) ? 1 : 0; } }
+}
 static rt_proc_t *rt_proc_find(const char *name);
 void rt_proc_cache_clear(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
