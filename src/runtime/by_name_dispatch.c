@@ -6202,7 +6202,8 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         DESCR_t a = args[0], b = args[1];
         int same = (a.v == b.v);
         if (same) {
-            if      (a.v == DT_I)               same = (a.i == b.i);
+            if      (a.v == DT_SNUL)            same = 1;
+            else if (a.v == DT_I)               same = (a.i == b.i);
             else if (a.v == DT_R)               same = (a.r == b.r);
             else if (a.v == DT_S || a.v == DT_SNUL) {
                 int acs = (a.v == DT_S && a.slen == 0xFFFFFFFFu), bcs = (b.v == DT_S && b.slen == 0xFFFFFFFFu);
