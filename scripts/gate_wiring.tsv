@@ -134,6 +134,7 @@ test_gate_sno_deferred_replacement_keeps_its_capture_mark.sh	WIRED	-	-	-
 test_gate_sno_fence_body_dynamic_operand.sh	WIRED	-	-	-
 test_gate_sno_io_assoc_channel_and_filespec.sh	WIRED	-	-	-
 test_gate_sno_lex_compare_binary_safe.sh	WIRED	-	-	-
+test_gate_sno_pattern_position_expression.sh	WIRED	-	-	-
 test_gate_sno_pos_rpos_dynamic_operand.sh	WIRED	-	-	-
 test_gate_sno_runtime_define.sh	WIRED	-	-	-
 test_gate_sno_setexit_resume_matches_oracle.sh	WIRED	-	-	-
