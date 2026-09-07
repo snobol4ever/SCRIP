@@ -90,6 +90,7 @@ test_gate_pl_allsol_goal_is_validated.sh	WIRED	-	-	-
 test_gate_pl_arith_iso_errors_are_catchable.sh	WIRED	-	-	-
 test_gate_pl_atom_concat_modes.sh	WIRED	-	-	-
 test_gate_pl_atom_number_iso_errors.sh	WIRED	-	-	-
+test_gate_pl_bagof_setof_grouping.sh	WIRED	-	-	-
 test_gate_pl_consult_loads_the_named_file.sh	WIRED	-	-	-
 test_gate_pl_meta_call_reaches_control_constructs.sh	WIRED	-	-	-
 test_gate_pl_meta_wrapper_does_not_break_m4_declarations.sh	WIRED	-	-	-
@@ -132,10 +133,12 @@ test_gate_score_tables_agree.sh	WIRED	-	-	-
 test_gate_score_unreadable_package_is_marked.sh	WIRED	-	-	-
 test_gate_seat_identity_one_map.sh	WIRED	-	-	-
 test_gate_sm_dead.sh	WIRED	-	-	-
+test_gate_sno_deferred_goto_from_match_inside_define.sh	WIRED	-	-	-
 test_gate_sno_deferred_replacement_keeps_its_capture_mark.sh	WIRED	-	-	-
 test_gate_sno_fence_body_dynamic_operand.sh	WIRED	-	-	-
 test_gate_sno_io_assoc_channel_and_filespec.sh	WIRED	-	-	-
 test_gate_sno_lex_compare_binary_safe.sh	WIRED	-	-	-
+test_gate_sno_package_runners_append_progress_rows.sh	WIRED	-	-	-
 test_gate_sno_pattern_position_expression.sh	WIRED	-	-	-
 test_gate_sno_pos_rpos_dynamic_operand.sh	WIRED	-	-	-
 test_gate_sno_runtime_define.sh	WIRED	-	-	-

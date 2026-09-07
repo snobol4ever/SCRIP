@@ -56,6 +56,7 @@ SCRIP="$SD/scrip"; RT_DIR="$SD/out"; TIMEOUT="${TIMEOUT:-8s}"; ARM_SBL="${ARM_SB
 "$HERE/util_require_fresh.sh" --gate test_snoflake_suite "$SCRIP" "${RT_DIR:-$HERE/../out}/libscrip_rt.so" || exit 2
 [ -f "$RT_DIR/libscrip_rt.so" ] || { echo "⛔ REFUSE(rc=2): no $RT_DIR/libscrip_rt.so"; exit 2; }
 . "$HERE/lib_inventory.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_inventory.sh unloadable"; exit 2; }
+. "$HERE/lib_progress.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_progress.sh unloadable"; exit 2; }
 SBL=""
 if [ "$ARM_SBL" = "1" ]; then
     . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_oracle_flags.sh unloadable and ARM_SBL=1"; exit 2; }
@@ -91,6 +92,22 @@ GIMPEL="$SUITE/gimpel"
 # which dirties whatever tree the runner happened to be launched from. Symlinked INCs keep the
 # gimpel includes resolvable for the sbl arm, whose include search is cwd-relative.
 RUN="$W/run"; mkdir -p "$RUN"; ln -s "$GIMPEL"/*.INC "$GIMPEL"/*.IN "$RUN"/ 2>/dev/null || true
+# ⭐ THE PROGRESS DATABASE (CEO-319/331; CEO-383 ruling 2; row snobol4-snoflake-aisnobol-and-dotnet-runners-wired-onto-
+# lib-inventory-with-their-sidecars, coo 2026-09-07): ONE ROW PER FIXTURE PER MODE, on the STREAM-EQUAL basis --
+# PASS only when SCRIP's stream equals the oracle's byte for byte; an error-number-only match is UNGRADED (this
+# runner's own label for it: a narrower instrument, never a pass of the industry-standard suite); a non-matching
+# stream is HANG (rc 124) / CRASH (rc >= 128) / FAIL; SKIP when mode 4 could not compile or link; an @nonstandard
+# fixture that does not match is UNGRADED (implementation-defined output, the same reason it never counts in FAIL).
+# Rows are recorded ONLY for the canonical suite path, or when S4E_PROGRESS_DB names a scratch table (the gates'
+# hermetic arm) -- a scratch suite copy never reaches the live table (progress/README.md). The rows are collected
+# here and written ONCE at the end through lib_progress.sh, the one writer; a write failure is said aloud and never
+# turns a real measurement into a red board.
+PROG_ROWS="$W/progress.tsv"; : > "$PROG_ROWS"
+CANON_SUITE="$ROOT/corpus/packages/snobol4/snoflake_suite"
+PROG_RECORD=0; { [ "$SUITE" = "$CANON_SUITE" ] || [ -n "${S4E_PROGRESS_DB:-}" ]; } && PROG_RECORD=1
+ST3=0; ST4=0; BOTH_STREAM=0
+prog_row() { printf 'package\tsnoflake\tsnobol4\t%s\t%s\t%s\t0\t%s\n' "$1" "$2" "$3" "$4" >> "$PROG_ROWS"; }
+verdict_of() { if [ "$1" -eq 124 ]; then echo HANG; elif [ "$1" -ge 128 ]; then echo CRASH; else echo FAIL; fi; }
 SCRIP_HASH="$(git -C "$SD" rev-parse --short HEAD 2>/dev/null || echo '?')"
 CORP_HASH="$(git -C "$ROOT/corpus" rev-parse --short HEAD 2>/dev/null || echo '?')"
 DIA=0; DIAL=""; ORACLE_OUT=""; ORACLE_MEETS_EXPECT=0; P3=0; F3=0; P4=0; F4=0; S4=0; PS=0; FS=0; PC=0; FC=0; N3P=0; N3F=0; N4P=0; N4F=0; NSP=0; NSF=0; NCP=0; NCF=0
@@ -195,22 +212,35 @@ for sno in "$SUITE"/*.sno; do
         echo "   back into the compared stream. Every verdict from here would be against a re-furnished stream."; exit 2;; esac
     if grade "$ORACLE_OUT" "$RC" "$MATCH" "$IC"; then [ "$NSTD" = 1 ] && NSP=$((NSP+1)) || PS=$((PS+1)); ORACLE_MEETS_EXPECT=1
     else [ "$NSTD" = 1 ] && NSF=$((NSF+1)) || { FS=$((FS+1)); FLS="$FLS $name"; }; ORACLE_MEETS_EXPECT=0; fi
-    run_one m3 "$sno"
+    run_one m3 "$sno"; M3RC=$RC; M4RC=0; OUT3=""; NOTE3=""
     if oracle_equal "$GOT" "$ORACLE_OUT"; then [ "$NSTD" = 1 ] && N3P=$((N3P+1)) || P3=$((P3+1))
+        if [ "$OE_KIND" = exact ]; then OUT3=PASS; else OUT3=UNGRADED; NOTE3="error_number_only: same ERROR number as sbl -bf, stream differs (narrower instrument)"; fi
         if [ "$NSTD" != 1 ]; then
             if [ "$OE_KIND" = exact ]; then SE3=$((SE3+1)); else EN3=$((EN3+1)); ENL3="$ENL3 $name"; fi
         fi
         [ "$ORACLE_MEETS_EXPECT" = 0 ] && { DIA=$((DIA+1)); DIAL="$DIAL $name"; }
-    else [ "$NSTD" = 1 ] && N3F=$((N3F+1)) || { F3=$((F3+1)); FL3="$FL3 $name"; }; fi
-    compile_m4 "$sno" "$W/prog.bin"; m4rc=$?
+    else [ "$NSTD" = 1 ] && N3F=$((N3F+1)) || { F3=$((F3+1)); FL3="$FL3 $name"; }
+        OUT3="$(verdict_of "$RC")"; NOTE3="rc=$RC vs sbl -bf"; [ "$NSTD" = 1 ] && { OUT3=UNGRADED; NOTE3="@nonstandard fixture, implementation-defined output; $NOTE3"; }; fi
+    compile_m4 "$sno" "$W/prog.bin"; m4rc=$?; OUT4=""; NOTE4=""
     if [ "$m4rc" -eq 0 ]; then
-        run_one m4 "$sno"
+        run_one m4 "$sno"; M4RC=$RC
         if oracle_equal "$GOT" "$ORACLE_OUT"; then [ "$NSTD" = 1 ] && N4P=$((N4P+1)) || P4=$((P4+1))
-        else [ "$NSTD" = 1 ] && N4F=$((N4F+1)) || { F4=$((F4+1)); FL4="$FL4 $name"; }; fi
+            if [ "$OE_KIND" = exact ]; then OUT4=PASS; else OUT4=UNGRADED; NOTE4="error_number_only: same ERROR number as sbl -bf, stream differs (narrower instrument)"; fi
+        else [ "$NSTD" = 1 ] && N4F=$((N4F+1)) || { F4=$((F4+1)); FL4="$FL4 $name"; }
+            OUT4="$(verdict_of "$RC")"; NOTE4="rc=$RC vs sbl -bf"; [ "$NSTD" = 1 ] && { OUT4=UNGRADED; NOTE4="@nonstandard fixture, implementation-defined output; $NOTE4"; }; fi
     elif [ "$m4rc" -eq 2 ]; then
         if oracle_equal "$CTERR" "$ORACLE_OUT"; then [ "$NSTD" = 1 ] && N4P=$((N4P+1)) || P4=$((P4+1))
-        else [ "$NSTD" = 1 ] && N4F=$((N4F+1)) || { F4=$((F4+1)); FL4="$FL4 $name(CTERR)"; }; fi
-    else S4=$((S4+1)); FL4="$FL4 $name(CC)"; fi
+            if [ "$OE_KIND" = exact ]; then OUT4=PASS; NOTE4="compile-time diagnostic equals sbl -bf"; else OUT4=UNGRADED; NOTE4="error_number_only: compile-time diagnostic carries the oracle ERROR number, stream differs"; fi
+        else [ "$NSTD" = 1 ] && N4F=$((N4F+1)) || { F4=$((F4+1)); FL4="$FL4 $name(CTERR)"; }
+            OUT4=FAIL; NOTE4="compile-time diagnostic differs from sbl -bf"; [ "$NSTD" = 1 ] && { OUT4=UNGRADED; NOTE4="@nonstandard fixture; $NOTE4"; }; fi
+    else S4=$((S4+1)); FL4="$FL4 $name(CC)"; OUT4=SKIP; NOTE4="mode-4 compile/link failed (cc), no program answer to grade"; fi
+    # ⛔ A HANG NEVER COLLAPSES INTO PASS (the verdict ladder; measured on the dotnet runner 2026-09-07, coo): a run
+    # that hit the timeout is HANG whatever its stream says at the cut. M3RC/M4RC are the run rcs banked above.
+    [ "${M3RC:-0}" -eq 124 ] && { OUT3=HANG; NOTE3="SCRIP hit the $TIMEOUT timeout; $NOTE3"; }
+    [ "${M4RC:-0}" -eq 124 ] && { OUT4=HANG; NOTE4="SCRIP hit the $TIMEOUT timeout; $NOTE4"; }
+    [ "$OUT3" = PASS ] && ST3=$((ST3+1)); [ "$OUT4" = PASS ] && ST4=$((ST4+1))
+    [ "$OUT3" = PASS ] && [ "$OUT4" = PASS ] && BOTH_STREAM=$((BOTH_STREAM+1))
+    prog_row "$name" m3 "$OUT3" "$NOTE3"; prog_row "$name" m4 "$OUT4" "$NOTE4"
     if [ -n "$CSN" ]; then
         run_one csn "$sno"
         if grade "$GOT" "$RC" "$MATCH" "$IC"; then [ "$NSTD" = 1 ] && NCP=$((NCP+1)) || PC=$((PC+1))
@@ -220,6 +250,9 @@ done
 echo "── snoflake_suite: $TOTAL fixtures · SCRIP $SCRIP_HASH · corpus $CORP_HASH · RT_OPT -O0 · timeout $TIMEOUT · graded vs the ORACLE sbl -bf (ceo CEO-251); @expect is informational and drives only the dialect tally"
 echo "mode-3 (--run):     PASS=$P3 FAIL=$F3  NSTD $N3P/$((N3P+N3F))  stream_equality=$SE3 error_number_only=$EN3"
 echo "mode-4 (--compile): PASS=$P4 FAIL=$F4 SKIP(cc)=$S4  NSTD $N4P/$((N4P+N4F))"
+# ⭐ THE SUITE-TABLE READING (ceo-372: the AND per program; CEO-383: the stream-equal basis -- the PASS= counts above
+# fold error-number-only matches and are this runner's own label, never the table's number). Over all $TOTAL fixtures.
+echo "SNOFLAKE_BOARD total=$TOTAL m3_stream_pass=$ST3 m3_error_number_only=$EN3 m4_stream_pass=$ST4 m4_skip=$S4 both_modes_stream_pass=$BOTH_STREAM nstd=$((N3P+N3F)) -- the suite table states both_modes_stream_pass/$TOTAL"
 echo "dialect tally (NOT in the score): $DIA fixture(s) pass against SPITBOL while failing their own @expect -- SPITBOL itself departs from what snoflake expects there"
 [ -n "$SBL" ] && echo "sbl -bf vs @expect (informational, the dialect measurement): PASS=$PS FAIL=$FS  NSTD $NSP/$((NSP+NSF))"
 [ -n "$CSN" ] && echo "csnobol4 (home dialect, triangulation): PASS=$PC FAIL=$FC  NSTD $NCP/$((NCP+NCF))"
@@ -249,9 +282,15 @@ if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (
 # turn a real measurement into a red board. Matches the other package suites (Arizona/JCON/fpc/GNU/SWI);
 # this one and csnobol4_suite's own runner were the two missing it (board-packages-into-make-test-
 # reported-then-blocking, seat13 2026-09-03).
+if [ "$SUITE" != "$CANON_SUITE" ]; then echo "SCORE.md: scratch suite $SUITE -- not written (only the canonical suite records the leaderboard)"; else
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite Snoflake --modes m3,m4 \
     --measurer "${S4E_SEAT:-}" \
-    --text "mode-3 PASS=$P3 FAIL=$F3 NSTD $N3P/$((N3P+N3F)) · mode-4 PASS=$P4 FAIL=$F4 SKIP(cc)=$S4 NSTD $N4P/$((N4P+N4F))${INV_LINE:+ · $INV_LINE} (\`test_snoflake_suite.sh\`)" \
+    --text "both_modes_stream_pass=$BOTH_STREAM/$TOTAL (the table's reading, ceo-372 AND per program on the CEO-383 stream-equal basis) · mode-3 PASS=$P3 FAIL=$F3 NSTD $N3P/$((N3P+N3F)) stream_equality=$SE3 error_number_only=$EN3 · mode-4 PASS=$P4 FAIL=$F4 SKIP(cc)=$S4 NSTD $N4P/$((N4P+N4F))${INV_LINE:+ · $INV_LINE} (\`test_snoflake_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
+fi
+# ⭐ THE PROGRESS ROWS, written once (see PROG_ROWS above). Said aloud either way; never a red board.
+if [ "$PROG_RECORD" = 1 ]; then
+    progress_append_rows_tsv "$PROG_ROWS" || echo "⚠ PROGRESS ROWS NOT RECORDED (writer rc=$? above) -- a run that leaves the table untouched is a defect of that run (progress/README.md), not a red board" >&2
+else echo "progress: scratch suite $SUITE -- $(grep -c . "$PROG_ROWS") row(s) NOT recorded (only the canonical suite, or S4E_PROGRESS_DB, records)"; fi
 
 [ "$F3" = 0 ] && [ "$F4" = 0 ] && [ "$S4" = 0 ]

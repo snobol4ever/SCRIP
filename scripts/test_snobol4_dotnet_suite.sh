@@ -58,6 +58,7 @@ SCRIP="$SD/scrip"; RT_DIR="$SD/out"; TIMEOUT="${TIMEOUT:-20s}"
 [ -f "$RT_DIR/libscrip_rt.so" ] || { echo "⛔ REFUSE(rc=2): no $RT_DIR/libscrip_rt.so"; exit 2; }
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_oracle_flags.sh unloadable"; exit 2; }
 . "$HERE/lib_inventory.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_inventory.sh unloadable"; exit 2; }
+. "$HERE/lib_progress.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_progress.sh unloadable"; exit 2; }
 SBL="$(sbl_correctness_bin)"; SBL_FLAGS="$(sbl_lang_flags)"
 [ -x "$SBL" ] || { echo "⛔ REFUSE(rc=2): oracle absent: $SBL"; exit 2; }
 sbl_assert_bf "$SBL" 2>/dev/null || { echo "⛔ REFUSE(rc=2): oracle at $SBL failed the -bf capability check"; exit 2; }
@@ -83,38 +84,61 @@ compile_m4() { local sno="$1" out="$2" t; t="$(mktemp -d)"
     gcc "$t/p.o" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$out" 2>/dev/null || { rm -rf "$t"; return 1; }
     rm -rf "$t"; }
 RUN="$W/run"; mkdir -p "$RUN"
+# ⭐ THE PROGRESS DATABASE (CEO-319/331; CEO-383 ruling 2; row snobol4-snoflake-aisnobol-and-dotnet-runners-wired-onto-
+# lib-inventory-with-their-sidecars, coo 2026-09-07): one row per program per mode -- PASS on a byte-equal stream against
+# the live sbl -bf run, HANG/CRASH/FAIL by rc otherwise, SKIP when mode 4 could not compile or link, UNGRADED with the
+# reason for every UNSCR program (the oracle could not grade it). Recorded only for the canonical suite path or when
+# S4E_PROGRESS_DB names a scratch table; written once at the end through lib_progress.sh; said aloud, never a red board.
+PROG_ROWS="$W/progress.tsv"; : > "$PROG_ROWS"
+CANON_SUITE="$ROOT/corpus/packages/snobol4/dotnet"
+PROG_RECORD=0; { [ "$SUITE" = "$CANON_SUITE" ] || [ -n "${S4E_PROGRESS_DB:-}" ]; } && PROG_RECORD=1
+BOTH=0
+prog_row() { printf 'package\tdotnet\tsnobol4\t%s\t%s\t%s\t0\t%s\n' "$1" "$2" "$3" "$4" >> "$PROG_ROWS"; }
+prog_unscr() { prog_row "$1" m3 UNGRADED "$2"; prog_row "$1" m4 UNGRADED "$2"; }
+verdict_of() { if [ "$1" -eq 124 ]; then echo HANG; elif [ "$1" -ge 128 ]; then echo CRASH; else echo FAIL; fi; }
 for sno in "$SUITE"/*.sno; do
     [ -e "$sno" ] || { echo "⛔ REFUSE(rc=2): zero fixtures in $SUITE"; exit 2; }
     name="$(basename "$sno" .sno)"; TOTAL=$((TOTAL+1))
     inc="$(grep -ohE "^[[:space:]]*-INCLUDE ['\"][^'\"]+['\"]" "$sno" | sed -E "s/.*-INCLUDE ['\"]([^'\"]+)['\"]/\1/" | head -1)"
     if [ -n "$inc" ] && [ ! -f "$SUITE/$inc" ]; then
-        UNSCR=$((UNSCR+1)); FLU="$FLU $name(missing-include:$inc)"; continue
+        UNSCR=$((UNSCR+1)); FLU="$FLU $name(missing-include:$inc)"; prog_unscr "$name" "unscored: missing include $inc"; continue
     fi
     if has_bom "$sno"; then
-        UNSCR=$((UNSCR+1)); FLU="$FLU $name(oracle-cannot-parse-utf8-bom)"; continue
+        UNSCR=$((UNSCR+1)); FLU="$FLU $name(oracle-cannot-parse-utf8-bom)"; prog_unscr "$name" "unscored: oracle cannot parse the UTF-8 BOM"; continue
     fi
     ends="$(grep -cE '^END([[:space:]]|$)' "$sno")"
     if [ "$ends" -gt 1 ]; then
-        UNSCR=$((UNSCR+1)); FLU="$FLU $name(multi-program-file:$ends-END-statements)"; continue
+        UNSCR=$((UNSCR+1)); FLU="$FLU $name(multi-program-file:$ends-END-statements)"; prog_unscr "$name" "unscored: multi-program file, $ends END statements"; continue
     fi
     inp="$(stdin_of "$sno")"
     gotS="$(cd "$RUN" && timeout "$TIMEOUT" "$SBL" $SBL_FLAGS "$sno" < "$inp" 2>/dev/null)"; rcS=$?
     if [ "$rcS" -ge 128 ] || sbl_died "$gotS"; then
         UNSCR=$((UNSCR+1))
-        if [ "$rcS" -ge 128 ]; then FLU="$FLU $name(oracle-crashed:sig$((rcS-128)))"; else FLU="$FLU $name(oracle-died)"; fi
+        if [ "$rcS" -ge 128 ]; then FLU="$FLU $name(oracle-crashed:sig$((rcS-128)))"; prog_unscr "$name" "unscored: oracle crashed sig$((rcS-128))"; else FLU="$FLU $name(oracle-died)"; prog_unscr "$name" "unscored: oracle died mid-report"; fi
         continue
     fi
-    got3="$(cd "$RUN" && SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" --run "$sno" < "$inp" 2>/dev/null)"
-    if [ "$got3" = "$gotS" ]; then P3=$((P3+1)); else F3=$((F3+1)); FL3="$FL3 $name"; fi
-    if compile_m4 "$sno" "$W/prog.bin"; then
-        got4="$(cd "$RUN" && timeout "$TIMEOUT" "$W/prog.bin" < "$inp" 2>/dev/null)"
-        if [ "$got4" = "$gotS" ]; then P4=$((P4+1)); else F4=$((F4+1)); FL4="$FL4 $name"; fi
-    else S4=$((S4+1)); FL4="$FL4 $name(CC)"
+    got3="$(cd "$RUN" && SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" --run "$sno" < "$inp" 2>/dev/null)"; rc3=$?
+    if [ "$got3" = "$gotS" ]; then P3=$((P3+1)); OUT3=PASS; else F3=$((F3+1)); FL3="$FL3 $name"; OUT3="$(verdict_of "$rc3")"; fi
+    # ⛔ A HANG NEVER COLLAPSES INTO PASS (the verdict ladder): measured 2026-09-07 (coo) on code/palin/temp -- the
+    # oracle reads TERMINAL from /dev/null, sees EOF and exits rc=0 with 0 bytes in 0 s; SCRIP spins to the timeout
+    # with 0 bytes, and "0 bytes equals 0 bytes" graded it PASS. The board's P3 keeps this runner's own label; the
+    # progress row and the AND line say HANG, which is what happened.
+    [ "$rc3" -eq 124 ] && OUT3=HANG
+    rc4=""; if compile_m4 "$sno" "$W/prog.bin"; then
+        got4="$(cd "$RUN" && timeout "$TIMEOUT" "$W/prog.bin" < "$inp" 2>/dev/null)"; rc4=$?
+        if [ "$got4" = "$gotS" ]; then P4=$((P4+1)); OUT4=PASS; else F4=$((F4+1)); FL4="$FL4 $name"; OUT4="$(verdict_of "$rc4")"; fi
+        [ "$rc4" -eq 124 ] && OUT4=HANG
+    else S4=$((S4+1)); FL4="$FL4 $name(CC)"; OUT4=SKIP
     fi
+    [ "$OUT3" = PASS ] && [ "$OUT4" = PASS ] && BOTH=$((BOTH+1))
+    N3="vs live sbl -bf, rc=$rc3"; [ "$OUT3" = HANG ] && N3="SCRIP hit the ${TIMEOUT} timeout (rc=124) while the oracle exited rc=$rcS; streams equal at the cut"
+    N4="vs live sbl -bf${rc4:+, rc=$rc4}"; [ "$OUT4" = HANG ] && N4="SCRIP hit the ${TIMEOUT} timeout (rc=124) while the oracle exited rc=$rcS; streams equal at the cut"
+    prog_row "$name" m3 "$OUT3" "$N3"; prog_row "$name" m4 "$OUT4" "$N4"
 done
 SCORED=$((TOTAL-UNSCR))
 echo "DOTNET_BOARD total=$TOTAL scored=$SCORED unscr=$UNSCR m3_pass=$P3 m3_fail=$F3 m4_pass=$P4 m4_fail=$F4 m4_skip=$S4 -- SCRIP $SCRIP_HASH corpus $CORP_HASH RT_OPT=-O0 oracle=sbl-bf timeout=$TIMEOUT"
 [ -n "$FLU" ] && echo "UNSCR (missing corpus dependency, not a SCRIP defect):$FLU"
+echo "DOTNET_AND both_modes_pass=$BOTH/$SCORED -- the suite table states this reading (ceo-372: the AND per program; a timed-out run is HANG, never PASS, whatever its stream)"
 [ -n "$FL3" ] && echo "FAIL-M3 (vs live sbl -bf):$FL3"
 [ -n "$FL4" ] && echo "FAIL-M4 (vs live sbl -bf):$FL4"
 # ⭐ THE PACKAGE LOCKDOWN (Lon 2026-09-06): TOTAL is a fresh per-run filesystem census (the for loop
@@ -125,6 +149,10 @@ echo "DOTNET_BOARD total=$TOTAL scored=$SCORED unscr=$UNSCR m3_pass=$P3 m3_fail=
 INV_PACKAGE=dotnet; INV_DIR="$SUITE"; INV_EXT=".sno"
 INV_LINE="$(inventory_line "$SCORED" 0)"
 if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
+# ⭐ THE PROGRESS ROWS, written once (see PROG_ROWS above). Said aloud either way; never a red board.
+if [ "$PROG_RECORD" = 1 ]; then
+    progress_append_rows_tsv "$PROG_ROWS" || echo "⚠ PROGRESS ROWS NOT RECORDED (writer rc=$? above) -- a run that leaves the table untouched is a defect of that run (progress/README.md), not a red board" >&2
+else echo "progress: scratch suite $SUITE -- $(grep -c . "$PROG_ROWS") row(s) NOT recorded (only the canonical suite, or S4E_PROGRESS_DB, records)"; fi
 # ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
 # vacuously, hq_T 2026-09-04): F3/F4/S4 all read 0 over zero SCORED entries too (empty corpus dir,
 # every witness oracle-crashed/died) -- refuse before the vacuous-clean verdict below can be reached.
