@@ -63,6 +63,18 @@ int pl_dyn_is_marked(const char *name, int arity) {
     for (int i = 0; i < g_stage2.pl_dyn_n; i++) if (g_stage2.pl_dyn_name[i] && !strcmp(g_stage2.pl_dyn_name[i], name) && g_stage2.pl_dyn_arity[i] == arity) return 1;
     return 0;
 }
+static const char * g_pl_decl_dyn_name[64]; static int g_pl_decl_dyn_arity[64]; static int g_pl_decl_dyn_n = 0;
+static void pl_decl_dyn_mark(const char * name, int arity) {
+    if (!name) return;
+    for (int i = 0; i < g_pl_decl_dyn_n; i++) if (g_pl_decl_dyn_name[i] && !strcmp(g_pl_decl_dyn_name[i], name) && g_pl_decl_dyn_arity[i] == arity) return;
+    if (g_pl_decl_dyn_n >= 64) return;
+    g_pl_decl_dyn_name[g_pl_decl_dyn_n] = strdup(name); g_pl_decl_dyn_arity[g_pl_decl_dyn_n] = arity; g_pl_decl_dyn_n++;
+}
+static int pl_decl_dyn_is(const char * name, int arity) {
+    if (!name) return 0;
+    for (int i = 0; i < g_pl_decl_dyn_n; i++) if (g_pl_decl_dyn_name[i] && !strcmp(g_pl_decl_dyn_name[i], name) && g_pl_decl_dyn_arity[i] == arity) return 1;
+    return 0;
+}
 typedef struct { IR_graph_t * g; IR_t * tω; IR_t * cutω; IR_t * clause_cutω; } lcx_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * build(lcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) { return lc_build(cx->g, op, γ, ω); }
@@ -213,6 +225,7 @@ static void pl_decl_dynamic_record(stage2_t * s2, tree_t * spec, tree_t * marker
     if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, "/") && spec->n == 2 && spec->c[0] && (spec->c[0]->t == TT_QLIT || spec->c[0]->t == TT_NAME)
         && spec->c[0]->v.sval && spec->c[1] && spec->c[1]->t == TT_ILIT) {
         char key[264]; snprintf(key, sizeof key, "%s/%d", spec->c[0]->v.sval, (int) spec->c[1]->v.ival);
+        pl_decl_dyn_mark(spec->c[0]->v.sval, (int) spec->c[1]->v.ival);
         if (!resolve_pred_table_lookup(&s2->resolve_pred_table, key)) resolve_pred_table_insert(&s2->resolve_pred_table, strdup(key), marker);
         return;
     }
@@ -620,11 +633,22 @@ static int pl_file_defines(const char * nm, int ar) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_db_owned(const char * nm, int ar) {
+    if (pl_decl_dyn_is(nm, ar)) return 1;
     if (pl_dyn_index(nm, ar) < 0) return 0;
-    { char key[264]; snprintf(key, sizeof key, "%s/%d", nm, ar);
+    return pl_file_defines(nm, ar) ? 0 : 1;
+}
+static tree_t * pl_static_clause_term(const tree_t * cl, const char * pn, int ar);
+static IR_t * pl_db_leaf_seed(lcx_t * cx, int k, int i, const tree_t * arg, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out);
+static IR_t * pl_db_seed_file(lcx_t * cx, const char * pn, int ar, IR_t * next, IR_t * ωfail, IR_t ** entry_out) {
+    if (entry_out) *entry_out = NULL;
+    if (!pl_file_defines(pn, ar)) return next;
+    { char key[264]; snprintf(key, sizeof key, "%s/%d", pn, ar);
       const tree_t * ch = resolve_pred_table_lookup(&g_stage2.resolve_pred_table, key);
-      if (ch && ch->t == TT_CHOICE && ch->n > 0) return 0;
-      return 1; }
+      int k = pl_dyn_index_or_add(pn, ar);
+      if (k < 0 || !ch) pl_refuse("a dynamic predicate with file clauses needs a root cell and the 64 compile-time root cells are exhausted --", pn, 10);
+      { IR_t * first = NULL; int n = (ch->t == TT_CHOICE) ? ch->n : 1;
+        for (int i = n - 1; i >= 0; i--) { const tree_t * cl = (ch->t == TT_CHOICE) ? ch->c[i] : ch; IR_t * se = NULL; pl_db_leaf_seed(cx, k, i, pl_static_clause_term(cl, pn, ar), next, ωfail, &se); next = se; first = se; }
+        if (entry_out) *entry_out = first; return next; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * pl_head_key(const tree_t * a, int * ar_out) {
@@ -767,7 +791,8 @@ static IR_t * pl_user_call(lcx_t * cx, const char * nm, const tree_t * t, int na
     if (pl_db_live) { tree_t * pit = ast_node_new(TT_QLIT); pit->v.sval = (char *) pl_pi_name(nm, nargs);
         IR_t * ne = NULL; pl_db_leaf1(cx, "$db_nonempty", pl_dyn_index_or_add(nm, nargs), body_entry, ωfail, &ne);
         IR_t * guard_entry = NULL; pl_db_leaf2(cx, "$db_alive", pl_dyn_index_or_add(nm, nargs), pit, ne, ωfail, &guard_entry);
-        if (entry_out) *entry_out = guard_entry; return nd; }
+        { IR_t * se = NULL; pl_db_seed_file(cx, nm, nargs, guard_entry, ωfail, &se); if (entry_out) *entry_out = se ? se : guard_entry; }
+        return nd; }
     if (entry_out) *entry_out = body_entry;
     return nd;
 }
@@ -1012,22 +1037,26 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             int ar = 0; const char * pn = pl_head_key(t->c[0], &ar);
             if (!pn) pl_refuse("assert of a clause whose head is not a callable term known at compile time --", nm, 10);
             if (!pl_db_owned(pn, ar)) return goal(cx, pl_cc_perm_static(pn, ar), γnext, ωfail, entry_out);
-            return pl_db_leaf2(cx, !strcmp(nm, "asserta") ? "$db_asserta" : "$db_assertz", pl_dyn_index_or_add(pn, ar), t->c[0], γnext, ωfail, entry_out); }
+            { IR_t * le = NULL; IR_t * nd = pl_db_leaf2(cx, !strcmp(nm, "asserta") ? "$db_asserta" : "$db_assertz", pl_dyn_index_or_add(pn, ar), t->c[0], γnext, ωfail, &le);
+              IR_t * se = NULL; pl_db_seed_file(cx, pn, ar, le, ωfail, &se); if (entry_out) *entry_out = se ? se : le; return nd; } }
         if (!strcmp(nm, "retract") && t->n == 1) {
             int ar = 0; const char * pn = pl_head_key(t->c[0], &ar);
             if (!pn) pl_refuse("retract of a clause whose head is not a callable term known at compile time --", nm, 10);
             if (!pl_db_owned(pn, ar)) return goal(cx, pl_cc_perm_static(pn, ar), γnext, ωfail, entry_out);
-            return pl_db_enum(cx, pl_dyn_index_or_add(pn, ar), pl_clause_target(t->c[0], NULL), 1, γnext, ωfail, entry_out); }
+            { IR_t * le = NULL; IR_t * nd = pl_db_enum(cx, pl_dyn_index_or_add(pn, ar), pl_clause_target(t->c[0], NULL), 1, γnext, ωfail, &le);
+              IR_t * se = NULL; pl_db_seed_file(cx, pn, ar, le, ωfail, &se); if (entry_out) *entry_out = se ? se : le; return nd; } }
         if (!strcmp(nm, "retractall") && t->n == 1) {
             int ar = 0; const char * pn = pl_head_key(t->c[0], &ar);
             if (!pn) pl_refuse("retractall whose argument is not a callable term known at compile time --", nm, 10);
             if (!pl_db_owned(pn, ar)) return goal(cx, pl_cc_perm_static(pn, ar), γnext, ωfail, entry_out);
-            return pl_db_leaf2(cx, "$db_retractall", pl_dyn_index_or_add(pn, ar), t->c[0], γnext, ωfail, entry_out); }
+            { IR_t * le = NULL; IR_t * nd = pl_db_leaf2(cx, "$db_retractall", pl_dyn_index_or_add(pn, ar), t->c[0], γnext, ωfail, &le);
+              IR_t * se = NULL; pl_db_seed_file(cx, pn, ar, le, ωfail, &se); if (entry_out) *entry_out = se ? se : le; return nd; } }
         if (!strcmp(nm, "abolish") && t->n == 1) {
             int ar = 0; const char * pn = pl_spec_key(t->c[0], &ar);
             if (!pn) pl_refuse("abolish whose argument is not a Name/Arity known at compile time --", nm, 10);
             if (!pl_db_owned(pn, ar)) return goal(cx, pl_cc_perm_static(pn, ar), γnext, ωfail, entry_out);
-            return pl_db_leaf1(cx, "$db_abolish", pl_dyn_index_or_add(pn, ar), γnext, ωfail, entry_out); }
+            { IR_t * le = NULL; IR_t * nd = pl_db_leaf1(cx, "$db_abolish", pl_dyn_index_or_add(pn, ar), γnext, ωfail, &le);
+              IR_t * se = NULL; pl_db_seed_file(cx, pn, ar, le, ωfail, &se); if (entry_out) *entry_out = se ? se : le; return nd; } }
         if ((!strcmp(nm, "nb_setval") || !strcmp(nm, "nb_getval")) && t->n == 2) {
             const char * kk = pl_nb_key(t->c[0]);
             if (!kk) pl_refuse("global-variable key that is not an atom known at compile time -- a computed key goes through the runtime compiler (ARCH sec C); there is no key map --", nm, 10);
@@ -1041,7 +1070,8 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         if (!strcmp(nm, "clause") && t->n == 2) {
             int ar = 0; const char * pn = pl_head_key(t->c[0], &ar);
             if (!pn) pl_refuse("clause/2 whose head is not a callable term known at compile time --", nm, 10);
-            if (pl_db_owned(pn, ar)) return pl_db_enum(cx, pl_dyn_index_or_add(pn, ar), pl_clause_target(t->c[0], t->c[1]), 0, γnext, ωfail, entry_out);
+            if (pl_db_owned(pn, ar)) { IR_t * le = NULL; IR_t * nd = pl_db_enum(cx, pl_dyn_index_or_add(pn, ar), pl_clause_target(t->c[0], t->c[1]), 0, γnext, ωfail, &le);
+              IR_t * se = NULL; pl_db_seed_file(cx, pn, ar, le, ωfail, &se); if (entry_out) *entry_out = se ? se : le; return nd; }
             if (!pl_file_defines(pn, ar)) { IR_t * nf = build(cx, IR_GOTO, ωfail, ωfail); if (entry_out) *entry_out = nf; return nf; }
             { char key[264]; snprintf(key, sizeof key, "%s/%d", pn, ar);
               const tree_t * ch = resolve_pred_table_lookup(&g_stage2.resolve_pred_table, key);
@@ -1294,6 +1324,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     const tree_t * init_goals[PL_INIT_GOALS_MAX]; int ninit = 0;
     const tree_t * dir_goals[PL_INIT_GOALS_MAX]; int ndir = 0;
     const char * dvn[PL_DIR_VARS_MAX]; int dvc = 0;
+    g_pl_decl_dyn_n = 0;
     for (int i = 0; i < prog->n; i++) {
         const tree_t *s = prog->c[i];
         if (!s || s->t != TT_STMT) continue;
