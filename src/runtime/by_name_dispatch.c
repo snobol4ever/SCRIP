@@ -1,6 +1,7 @@
 #include "by_name_dispatch.h"
 #define ICN_ARITY_UNKNOWN (-99)
 int icn_builtin_arity(const char *name);
+extern int rt_icn_cset_member(const char *, int);
 #include <unistd.h>
 #include <sys/stat.h>
 #include <setjmp.h>
@@ -4324,8 +4325,8 @@ static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op) {
         return 0;
     }
     { const char *a = VARVAL_fn(lhs), *b = VARVAL_fn(rhs); if (!a) a=""; if (!b) b="";
-      size_t la = (lhs.v == DT_S && lhs.slen != 0xFFFFFFFFu && a == lhs.s) ? (size_t)lhs.slen : strlen(a);
-      size_t lb = (rhs.v == DT_S && rhs.slen != 0xFFFFFFFFu && b == rhs.s) ? (size_t)rhs.slen : strlen(b);
+      size_t la = IS_CSET_fn(lhs) ? (size_t)(kw_cset_len(a) >= 0 ? kw_cset_len(a) : (int)strlen(a)) : (lhs.v == DT_S && lhs.slen != 0xFFFFFFFFu && a == lhs.s) ? (size_t)lhs.slen : strlen(a);
+      size_t lb = IS_CSET_fn(rhs) ? (size_t)(kw_cset_len(b) >= 0 ? kw_cset_len(b) : (int)strlen(b)) : (rhs.v == DT_S && rhs.slen != 0xFFFFFFFFu && b == rhs.s) ? (size_t)rhs.slen : strlen(b);
       size_t lm = la < lb ? la : lb;
       int c = lm ? memcmp(a, b, lm) : 0;
       if (c == 0) c = (la < lb) ? -1 : (la > lb) ? 1 : 0;
@@ -4442,7 +4443,7 @@ static void out_write_descr(FILE *dest, DESCR_t av, int use_gist) {
             } else { *out=FAILDESCR; return 1; } } } while(0)
 #define _NUMREL(op) do { DESCR_t _l=args[0],_r=args[1]; _OPCOERCE(_l); _OPCOERCE(_r); \
         double _lv2=IS_REAL_fn(_l)?_l.r:(double)_l.i, _rv2=IS_REAL_fn(_r)?_r.r:(double)_r.i; \
-        *out=(_lv2 op _rv2)?_r:FAILDESCR; return 1; } while(0)
+        *out=(_lv2 op _rv2)?((IS_REAL_fn(_l)&&!IS_REAL_fn(_r))?REALVAL(_rv2):_r):FAILDESCR; return 1; } while(0)
 #define _STRREL(op) do { DESCR_t _l=args[0],_r=args[1]; \
         const char *_ls=VARVAL_fn(_l); if(!_ls)_ls=""; \
         const char *_rs=VARVAL_fn(_r); if(!_rs)_rs=""; \
@@ -5054,7 +5055,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             DESCR_t av = args[_wi];
             if (IS_FAIL_fn(av)) { *out = FAILDESCR; return 1; }
             if (av.v == DT_SNUL) continue;
-            if (dest != stdout && dest != stderr && IS_STR_fn(av)) { const char *_bs = VARVAL_fn(av); uint32_t _bn = av.slen ? av.slen : (_bs ? (uint32_t)strlen(_bs) : 0u); if (_bs && _bn) fwrite(_bs, 1, _bn, dest); continue; }
+            if (dest != stdout && dest != stderr && IS_STR_fn(av) && !IS_CSET_fn(av)) { const char *_bs = VARVAL_fn(av); uint32_t _bn = av.slen ? av.slen : (_bs ? (uint32_t)strlen(_bs) : 0u); if (_bs && _bn) fwrite(_bs, 1, _bn, dest); continue; }
             out_write_descr(dest, av, nl);
         }
         if (nl) fputc('\n', dest);
@@ -5082,8 +5083,9 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (IS_REAL_fn(av)) { *out = av; return 1; }
         if (IS_INT_fn(av))  { *out = REALVAL((double)av.i); return 1; }
         const char *s = VARVAL_fn(av); if (!s) { *out = FAILDESCR; return 1; }
-        char *end; double rv = strtod(s, &end);
-        if (end != s && (*end=='\0'||*end==' ')) { *out = REALVAL(rv); return 1; }
+        { long long rv; if (icon_radix_int(s, &rv)) { *out = REALVAL((double)rv); return 1; } }
+        char *end; errno = 0; double rv = strtod(s, &end);
+        if (end != s && (*end=='\0'||*end==' ') && !(errno == ERANGE && !isfinite(rv))) { *out = REALVAL(rv); return 1; }
         *out = FAILDESCR; return 1;
     }
     L_bidjmp_5273: ;
@@ -5754,13 +5756,13 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     }
     L_bidjmp_5874: ;
     if ((_bid == BID_read) && nargs == 0) {
-        char buf[4096];
-        if (!fgets(buf, sizeof buf, stdin)) { *out = FAILDESCR; return 1; }
-        size_t len = strlen(buf);
-        if (len > 0 && buf[len-1] == '\n') buf[--len] = '\0';
-        if (len > 0 && buf[len-1] == '\r') buf[--len] = '\0';
-        char *r = rt_ws_alloc(len + 1); memcpy(r, buf, len + 1);
-        *out = STRVAL(r); return 1;
+        char *ln = NULL; size_t cap = 0; ssize_t got = getline(&ln, &cap, stdin);
+        if (got < 0) { free(ln); *out = FAILDESCR; return 1; }
+        size_t len = (size_t)got;
+        if (len > 0 && ln[len-1] == '\n') ln[--len] = '\0';
+        if (len > 0 && ln[len-1] == '\r') ln[--len] = '\0';
+        char *r = rt_ws_alloc(len + 1); memcpy(r, ln, len + 1); free(ln);
+        DESCR_t rs; rs.v = DT_S; rs.slen = (uint32_t)len; rs.s = r; *out = rs; return 1;
     }
     L_bidjmp_5883: ;
     if ((_bid == BID_reads) && nargs == 1 && (IS_INT_fn(args[0]) || IS_REAL_fn(args[0]))) {
@@ -5807,7 +5809,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         const char *s; int i1, i2;
         if (!bn_str_anal(args, nargs, 1, &s, &i1, &i2)) { *out = FAILDESCR; return 1; }
         if (i1 >= i2) { *out = FAILDESCR; return 1; }
-        if (!strchr(cv, s[i1 - 1])) { *out = FAILDESCR; return 1; }
+        if (!rt_icn_cset_member(cv, s[i1 - 1])) { *out = FAILDESCR; return 1; }
         *out = INTVAL(i1 + 1); return 1;
     }
     L_bidjmp_5938: ;
@@ -5816,7 +5818,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         const char *s; int i1, i2;
         if (!bn_str_anal(args, nargs, 1, &s, &i1, &i2)) { *out = FAILDESCR; return 1; }
         int p = i1;
-        while (p < i2 && strchr(cv, s[p - 1])) p++;
+        while (p < i2 && rt_icn_cset_member(cv, s[p - 1])) p++;
         if (p == i1) { *out = FAILDESCR; return 1; }
         *out = INTVAL(p); return 1;
     }
@@ -5826,7 +5828,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         const char *s; int i1, i2;
         if (!bn_str_anal(args, nargs, 1, &s, &i1, &i2)) { *out = FAILDESCR; return 1; }
         int p = i1;
-        while (p < i2 && !strchr(cv, s[p - 1])) p++;
+        while (p < i2 && !rt_icn_cset_member(cv, s[p - 1])) p++;
         if (p >= i2) { *out = FAILDESCR; return 1; }
         *out = INTVAL(p); return 1;
     }
@@ -6303,12 +6305,13 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     if ((_bid == BID_read) && nargs == 1) {
         FILE *fp = (args[0].v == DT_SNUL) ? fh_get(0) : (IS_FH_fn(args[0]) || IS_INT_fn(args[0])) ? fh_get((int)args[0].i) : NULL;
         if (!fp) { *out = FAILDESCR; return 1; }
-        char buf[4096];
-        if (!fgets(buf, sizeof buf, fp)) { *out = FAILDESCR; return 1; }
-        size_t len = strlen(buf);
-        if (len > 0 && buf[len-1] == '\n') buf[--len] = '\0';
-        if (len > 0 && buf[len-1] == '\r') buf[--len] = '\0';
-        *out = STRVAL(rt_ws_strdup_c(buf)); return 1;
+        char *ln = NULL; size_t cap = 0; ssize_t got = getline(&ln, &cap, fp);
+        if (got < 0) { free(ln); *out = FAILDESCR; return 1; }
+        size_t len = (size_t)got;
+        if (len > 0 && ln[len-1] == '\n') ln[--len] = '\0';
+        if (len > 0 && ln[len-1] == '\r') ln[--len] = '\0';
+        char *r = rt_ws_alloc(len + 1); memcpy(r, ln, len + 1); free(ln);
+        DESCR_t rs; rs.v = DT_S; rs.slen = (uint32_t)len; rs.s = r; *out = rs; return 1;
     }
     if ((_bid == BID_reads) && nargs >= 1) {
         FILE *fp = (args[0].v == DT_SNUL) ? fh_get(0) : (IS_FH_fn(args[0]) || IS_INT_fn(args[0])) ? fh_get((int)args[0].i) : NULL;
@@ -6689,8 +6692,8 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             if (IS_INT_fn(r))       { snprintf(_rbuf,sizeof _rbuf,"%lld",(long long)r.i); ra=_rbuf; }
             else if (IS_REAL_fn(r)) { icon_real_str(r.r,_rbuf,sizeof _rbuf); ra=_rbuf; }
             else                    { ra=VARVAL_fn(r); if(!ra) ra=""; }
-            int lalen = IS_CSET_fn(l) ? kw_cset_len(la) : -1; if (lalen < 0) lalen = (int)strlen(la);
-            int ralen = IS_CSET_fn(r) ? kw_cset_len(ra) : -1; if (ralen < 0) ralen = (int)strlen(ra);
+            int lalen = IS_CSET_fn(l) ? kw_cset_len(la) : (l.v == DT_S && l.slen) ? (int)l.slen : -1; if (lalen < 0) lalen = (int)strlen(la);
+            int ralen = IS_CSET_fn(r) ? kw_cset_len(ra) : (r.v == DT_S && r.slen) ? (int)r.slen : -1; if (ralen < 0) ralen = (int)strlen(ra);
             int outlen; const char *ur;
             if (fn[0]=='+') { ur=cset_union(la,lalen,ra,ralen,&outlen); *out=CSETVAL(cset_canonical(ur, outlen)); }
             else if (fn[1]=='-') { ur=cset_diff(la,lalen,ra,ralen,&outlen); *out=CSETVAL(cset_canonical(ur, outlen)); }

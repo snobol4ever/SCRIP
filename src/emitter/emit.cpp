@@ -3254,7 +3254,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         }
         if (nodes[i]->op == IR_LIMIT) {
             IR_t *gen = nodes[i]->n_operands > 0 ? nodes[i]->operands[0] : NULL;
-            if (gen && ir_is_generator_kind(gen->op)) for (int k = 0; k < n; k++) if (nodes[k] == gen) { g_limit_gen_beta = betas[k]; break; }
+            IR_t *rs = nodes[i]->n_operands > 2 ? nodes[i]->operands[2] : NULL;
+            g_limit_gen_beta = NULL;
+            if (gen && ir_is_generator_kind(gen->op)) { for (int k = 0; k < n; k++) if (nodes[k] == gen) { g_limit_gen_beta = betas[k]; break; } }
+            else if (rs) for (int k = 0; k < n; k++) if (nodes[k] == rs) { g_limit_gen_beta = betas[k]; break; }
         }
         if (nodes[i]->op == IR_SCAN) {
             IR_t *bv = nodes[i]->n_operands > 1 ? nodes[i]->operands[1] : NULL;

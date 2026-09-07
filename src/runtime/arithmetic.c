@@ -316,7 +316,7 @@ static DESCR_t rt_num_arith_impl(DESCR_t a, DESCR_t b, int op) {
             extern int core_icn_error(int code, DESCR_t val);
             if (!anyf) return rt_ipow_descr(li, ri);
             if (ld == 0.0 && rd <= 0.0) { core_icn_error(204, REALVAL(ld)); return FAILDESCR; }
-            if (ld < 0.0) { core_icn_error(206, REALVAL(ld)); return FAILDESCR; }
+            if (ld < 0.0 && (rf || operand_is_real_str(b))) { core_icn_error(206, REALVAL(ld)); return FAILDESCR; }
             { double _rp = pow(ld, rd); if (!isfinite(_rp)) { core_icn_error(204, REALVAL(ld)); return FAILDESCR; } return REALVAL(_rp); }
         }
         case BINOP_POW_PROMOTE: return anyf ? REALVAL(pow(ld, rd)) : rt_ipow_promote_descr(li, ri);
@@ -359,7 +359,7 @@ DESCR_t rt_cset_compl(DESCR_t a) {
     extern int kw_cset_len(const char *);
     int rawlen = IS_CSET_fn(a) ? kw_cset_len(raw) : -1; if (rawlen < 0) rawlen = (int)strlen(raw);
     unsigned char in[256] = {0}; for (int _i = 0; _i < rawlen; _i++) in[(unsigned char)raw[_i]] = 1;
-    char *outs = rt_str_alloc(255); int n = 0; for (int c = 1; c < 256; c++) if (!in[c]) outs[n++] = (char)c; outs[n] = 0;
+    char *outs = rt_str_alloc(257); int n = 0; for (int c = 0; c < 256; c++) if (!in[c]) outs[n++] = (char)c; outs[n] = 0;
     return CSETVAL(cset_canonical(outs, n));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

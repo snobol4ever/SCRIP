@@ -836,7 +836,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         γ_to(lr, ge);
         if (lr && lr->γ.node == ge) lc_γ_to(lr, ge);
         if (er) lc_γ_to(er, lim);
-        (void)inner_beta; cx->beta = gen_beta;
+        if (gen_beta && gen_beta != ω && gen_beta != er) ir_operand_push(lim, gen_beta);
+        (void)inner_beta; cx->beta = (gen_beta && gen_beta != ω) ? lim : gen_beta;
         *res = lim; return ee; }
     case TT_LCONCAT: {
         if (t->n < 2 || !t->c[0] || !t->c[1]) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }

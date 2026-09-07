@@ -98,6 +98,9 @@ const char *kw_cset_name(const char *ptr) {
         if (g_kw_cset_names[i].ptr == ptr && g_kw_cset_names[i].name) return g_kw_cset_names[i].name;
     if (ptr) for (int i = 0; i < g_kw_cset_count; i++)
         if (g_kw_cset_names[i].ptr && g_kw_cset_names[i].ptr[0] != '\0' && g_kw_cset_names[i].name && !strcmp(g_kw_cset_names[i].ptr, ptr)) return g_kw_cset_names[i].name;
+    { int plen = kw_cset_len(ptr);
+      if (plen > 0) for (int i = 0; i < g_kw_cset_count; i++)
+        if (g_kw_cset_names[i].name && g_kw_cset_names[i].len == plen && g_kw_cset_names[i].ptr && !memcmp(g_kw_cset_names[i].ptr, ptr, (size_t)plen)) return g_kw_cset_names[i].name; }
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -494,7 +497,7 @@ DESCR_t rt_keyword_gen(const char *sval, long idx) {
         extern long rt_gc_runs_count(void); long g = rt_gc_runs_count();
         if (idx == 0) return INTVAL(g);
         if (idx == 1) return INTVAL(0);
-        if (idx == 2) return INTVAL(g);
+        if (idx == 2) return INTVAL(0);
         if (idx == 3) return INTVAL(0);
         return FAILDESCR;
     }
