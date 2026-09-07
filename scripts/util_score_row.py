@@ -1969,7 +1969,18 @@ PROGRESS_COUNTED = {
     # moves it again. The structural cure is to read the graded count from the runner's own
     # PACKAGE_INVENTORY line instead of declaring it here; recorded rather than done, because the audit is
     # red now and the reader must stop scoring a graded package as ungraded today.
-    "icon": [("arizona", r"[Aa]rizona", (90, 124)), ("jcon", r"[Jj][Cc][Oo][Nn]", (81, 91)), ("ipl", r"\bipl\b", (60, 851))],
+    # ⛔⭐ ipl's PATTERN WAS THE ONLY CASE-SENSITIVE ONE OF THE FOUR AND THAT IS WHY IT SCORED ZERO (hq_I
+    # 2026-09-06). Its neighbours spell themselves case-insensitively -- [Aa]rizona, [Jj][Cc][Oo][Nn],
+    # [Ss]noflake -- while ipl matched lowercase only, so the ONE spelling every writer actually uses for a
+    # package head, `IPL:`, was invisible to this reader. The V cell said `run m3 73/89` in plain sight and the
+    # September-10 line published `ipl 71 programs, NOT YET RUN-GRADED`: not a wrong number, a suite reported as
+    # never run while its board sat in the same sentence. ⭐ AND THE READING WAS THE STALE ONE TWICE OVER --
+    # 71 came from a SUPERSEDED PACKAGE_INVENTORY clause left in machine form further down the cell, because
+    # inventory_clauses keeps the LAST clause per package, so an archived clause does not sit beside the current
+    # one, it REPLACES it. Both are cured; the general form is the one worth keeping: A READER WHOSE PATTERN IS
+    # NARROWER THAN THE THING IT READS REPORTS ABSENCE, NEVER FAILURE, and absence is the one verdict that looks
+    # like honest work.
+    "icon": [("arizona", r"[Aa]rizona", (90, 124)), ("jcon", r"[Jj][Cc][Oo][Nn]", (81, 91)), ("ipl", r"\b[Ii][Pp][Ll]\b", (60, 851))],
     "prolog": [("swi", r"[Ss][Ww][Ii]", (114, 249)), ("INRIA", r"INRIA|inria|ISO 13211", (445,)), ("gnu", r"[Gg][Nn][Uu]", (62, 91))],
     "pascal": [("fpc", r"fpc", (181,)), ("PAT", r"\bPAT\b|validation suite|ISO 7185", (427, 429))],
     "raku": [("roast", r"roast", (986, 1464))],
