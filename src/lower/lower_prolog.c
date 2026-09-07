@@ -169,6 +169,22 @@ static int max_var_slot(const tree_t * t, int mx) {
     return mx;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_collect_vars(const tree_t * t, int * slots, int * n, int cap) {
+    if (!t || *n >= cap) return;
+    if (t->t == TT_VAR) { int sl = (int) t->v.ival; for (int i = 0; i < *n; i++) if (slots[i] == sl) return; if (*n < cap) slots[(*n)++] = sl; return; }
+    for (int i = 0; i < t->n; i++) pl_collect_vars(t->c[i], slots, n, cap);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_free_vars(const tree_t * tmpl, const tree_t * goal, int * out, int cap) {
+    int bound[256], nb = 0, gv[256], ng = 0, n = 0, guard = 0;
+    const tree_t * g = goal;
+    pl_collect_vars(tmpl, bound, &nb, 256);
+    while (g && g->t == TT_FNC && g->v.sval && !strcmp(g->v.sval, "^") && g->n == 2 && guard++ < 256) { pl_collect_vars(g->c[0], bound, &nb, 256); g = g->c[1]; }
+    pl_collect_vars(g, gv, &ng, 256);
+    for (int i = 0; i < ng && n < cap; i++) { int f = 0; for (int j = 0; j < nb; j++) if (bound[j] == gv[i]) { f = 1; break; } if (!f) out[n++] = gv[i]; }
+    return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_same_functor(const tree_t * a, const tree_t * b) {
     return a && b && a->t == TT_FNC && b->t == TT_FNC && a->n == b->n && a->n > 0 && a->v.sval && b->v.sval && !strcmp(a->v.sval, b->v.sval);
 }
@@ -973,13 +989,54 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             const char * fin = !strcmp(nm, "findall") ? "$findall_result" : (!strcmp(nm, "bagof") ? "$bagof_result" : "$setof_result");
             const tree_t * gt = pl_caret_body(t->c[1]);
             int wantg = pl_goal_arg_wants_guard(gt);
-            if (pl_tree_has_caret(t->c[1]) && !wantg) pl_refuse("bagof/setof free-variable grouping (^)", nm, 8);
+            int pl_isfind = !strcmp(nm, "findall");
+            int pl_fv[64]; int pl_nfv = pl_isfind ? 0 : pl_free_vars(t->c[0], t->c[1], pl_fv, 64);
+            if (pl_nfv > 0) {
+                const char * gat = !strcmp(nm, "bagof") ? "$bagof_group_at" : "$setof_group_at";
+                IR_t * nd  = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = (char *) gat;
+                IR_t * to  = build(cx, IR_TO, nd, ωfail); IR_LIT(to).sval = (char *) "ag";
+                IR_t * cnt = build(cx, IR_CALL, to, ωfail); IR_LIT(cnt).sval = "$bagof_group_n";
+                IR_t * lo  = build(cx, IR_LIT_INTEGER, cnt, ωfail); IR_LIT(lo).ival = 0;
+                IR_t * acc = build(cx, IR_CALL, NULL, ωfail); IR_LIT(acc).sval = "$findall_new";
+                IR_t * add = build(cx, IR_CALL, NULL, ωfail); IR_LIT(add).sval = "$findall_add";
+                IR_t * gentry = NULL; IR_t * gredo = NULL;
+                lc_vec glv2; lc_vec_init(&glv2, (int) sizeof(const tree_t *));
+                collect_conj(gt, &glv2);
+                IR_t * te2 = NULL; IR_t * tv2 = term_e(cx, t->c[0], &te2);
+                IR_t ** wk = (IR_t **) calloc((size_t) pl_nfv, sizeof(IR_t *));
+                IR_t ** we = (IR_t **) calloc((size_t) pl_nfv, sizeof(IR_t *));
+                for (int i = 0; i < pl_nfv; i++) { wk[i] = build(cx, IR_VAR, NULL, ωfail); IR_LIT(wk[i]).sval = pl_var_name(pl_fv[i]); we[i] = NULL; }
+                IR_t * wce = NULL; IR_t * wc = mkc_node(cx, "$w", pl_nfv, wk, we, &wce);
+                IR_t * pkids[2]; IR_t * pkes[2]; pkids[0] = wc; pkes[0] = wce; pkids[1] = tv2; pkes[1] = te2;
+                IR_t * pe = NULL; IR_t * pr = mkc_node(cx, "-", 2, pkids, pkes, &pe);
+                IR_t * bc2 = build(cx, IR_CALL, lo, ωfail); IR_LIT(bc2).sval = "$ball_pending";
+                IR_t * first2 = pl_lower_conj(cx, (const tree_t * const *) glv2.data, glv2.n, pe ? pe : pr, bc2, &gentry, &gredo, NULL);
+                lc_γ_to(acc, gentry ? gentry : (first2 ? first2 : lo));
+                lc_γ_to(pr, add); lc_ω_to(pr, lo);
+                ir_operand_push(add, acc); ir_operand_push(add, pr);
+                if (gredo) lc_γ_to_β(add, gredo); else lc_γ_to(add, lo);
+                lc_ω_to(add, lo);
+                IR_t ** rk = (IR_t **) calloc((size_t) pl_nfv, sizeof(IR_t *));
+                IR_t ** rke = (IR_t **) calloc((size_t) pl_nfv, sizeof(IR_t *));
+                for (int i = 0; i < pl_nfv; i++) { rk[i] = build(cx, IR_VAR_REF, NULL, ωfail); IR_LIT(rk[i]).sval = pl_var_name(pl_fv[i]); rke[i] = NULL; }
+                IR_t * wre = NULL; IR_t * wr = mkc_node(cx, "$w", pl_nfv, rk, rke, &wre);
+                IR_t * re2 = NULL; IR_t * rl2 = term_lval_e(cx, t->c[2], &re2);
+                lc_γ_to(rl2, wre ? wre : wr); lc_ω_to(rl2, ωfail);
+                lc_γ_to(wr, acc); lc_ω_to(wr, ωfail);
+                ir_operand_push(cnt, acc);
+                ir_operand_push(to, lo); ir_operand_push(to, cnt);
+                ir_operand_push(nd, acc); ir_operand_push(nd, to); ir_operand_push(nd, wr); ir_operand_push(nd, rl2);
+                lc_ω_to_β(nd, to);
+                free(wk); free(we); free(rk); free(rke);
+                if (entry_out) *entry_out = re2 ? re2 : rl2;
+                return to;
+            }
             IR_t * nd  = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = (char *) fin;
             IR_t * acc = build(cx, IR_CALL, NULL, ωfail);  IR_LIT(acc).sval = "$findall_new";
             IR_t * add = build(cx, IR_CALL, NULL, ωfail);  IR_LIT(add).sval = "$findall_add";
             IR_t * gentry = NULL; IR_t * gredo = NULL;
             lc_vec glv; lc_vec_init(&glv, (int) sizeof(const tree_t *));
-            collect_conj(wantg ? gt : t->c[1], &glv);
+            collect_conj(pl_isfind ? (wantg ? gt : t->c[1]) : gt, &glv);
             IR_t * te = NULL; IR_t * tv = term_e(cx, t->c[0], &te);
             IR_t * bc = build(cx, IR_CALL, nd, ωfail); IR_LIT(bc).sval = "$ball_pending";
             IR_t * first = pl_lower_conj(cx, (const tree_t * const *) glv.data, glv.n, te ? te : tv, bc, &gentry, &gredo, NULL);

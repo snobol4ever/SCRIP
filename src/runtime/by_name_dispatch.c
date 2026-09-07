@@ -1796,6 +1796,92 @@ static int rt_pl_all_solutions_cell(DESCR_t *args, pl_tr_ctx_t *cx, int mode) {
 PL_CX_LEAF_HEAD(findall_result, 2) ok = rt_pl_all_solutions_cell(args, cx, 0); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(bagof_result, 2)   ok = rt_pl_all_solutions_cell(args, cx, 1); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(setof_result, 2)   ok = rt_pl_all_solutions_cell(args, cx, 2); PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_pair_parts(DESCR_t it, DESCR_t *w, DESCR_t *t) {
+    DESCR_t d = rt_pl_deref_val(it);
+    if (d.v != (DTYPE_t)DT_PLREF || (int)(d.slen & 0xFFFFu) != 2) return 0;
+    { DESCR_t *aa = (DESCR_t *)d.p; *w = aa[0]; *t = aa[1]; return 1; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_bagof_groups(void *acc, DESCR_t **items_out, int **ord_out, int **gs_out, int **gi_out) {
+    extern int rt_pl_findall_count(void *); extern void rt_pl_findall_item(void *, int, void *);
+    extern int rt_pl_variant_cells(void *, void *); extern int rt_pl_atop_cell(int, void *, void *);
+    int n = rt_pl_findall_count(acc), i, j, ng = 0, k = 0;
+    DESCR_t *it; int *ord, *gs, *used, *gi;
+    if (n <= 0) return 0;
+    it = (DESCR_t *)rt_ws_alloc((size_t)n * sizeof(DESCR_t));
+    ord = (int *)rt_ws_alloc((size_t)n * sizeof(int));
+    gs = (int *)rt_ws_alloc((size_t)(n + 1) * sizeof(int));
+    used = (int *)rt_ws_alloc((size_t)n * sizeof(int));
+    gi = (int *)rt_ws_alloc((size_t)n * sizeof(int));
+    if (!it || !ord || !gs || !used || !gi) return 0;
+    for (i = 0; i < n; i++) { rt_pl_findall_item(acc, i, (void *)&it[i]); used[i] = 0; }
+    for (i = 0; i < n; i++) {
+        DESCR_t wi, ti;
+        if (used[i] || !pl_pair_parts(it[i], &wi, &ti)) continue;
+        gs[ng++] = k; ord[k++] = i; used[i] = 1;
+        for (j = i + 1; j < n; j++) {
+            DESCR_t wj, tj;
+            if (used[j] || !pl_pair_parts(it[j], &wj, &tj)) continue;
+            if (rt_pl_variant_cells((void *)&wi, (void *)&wj)) { ord[k++] = j; used[j] = 1; }
+        }
+    }
+    gs[ng] = k;
+    for (i = 0; i < ng; i++) gi[i] = i;
+    for (i = 0; i < ng; i++) {
+        int best = i;
+        for (j = i + 1; j < ng; j++) {
+            DESCR_t wb, tb, wj, tj;
+            if (!pl_pair_parts(it[ord[gs[gi[best]]]], &wb, &tb) || !pl_pair_parts(it[ord[gs[gi[j]]]], &wj, &tj)) continue;
+            if (rt_pl_atop_cell(0, (void *)&wj, (void *)&wb)) best = j;
+        }
+        if (best != i) { int tmp = gi[i]; gi[i] = gi[best]; gi[best] = tmp; }
+    }
+    *items_out = it; *ord_out = ord; *gs_out = gs; *gi_out = gi;
+    return ng;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_bagof_group_n(DESCR_t *args, int nargs) {
+    if (nargs != 1) return FAILDESCR;
+    pl_atoms_ready();
+    { DESCR_t h = rt_pl_deref_val(args[0]); DESCR_t *it; int *ord, *gs, *gi, ng;
+      if (h.v != DT_I) return FAILDESCR;
+      ng = pl_bagof_groups((void *)(intptr_t)h.i, &it, &ord, &gs, &gi);
+      if (ng <= 0) return FAILDESCR;
+      return INTVAL(ng - 1); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rt_pl_bagof_group_at_cell(DESCR_t *args, pl_tr_ctx_t *cx, int sorted) {
+    extern int rt_pl_sort_cell(int, void *, void *, pl_tr_ctx_t *);
+    DESCR_t h = rt_pl_deref_val(args[0]), iv = rt_pl_deref_val(args[1]);
+    DESCR_t *it; int *ord, *gs, *gi, ng, idx, i, cnt, g;
+    DESCR_t wrep, trep, *el, lst; char *tr0 = cx->tr; int ok;
+    if (h.v != DT_I || iv.v != DT_I) return 0;
+    ng = pl_bagof_groups((void *)(intptr_t)h.i, &it, &ord, &gs, &gi);
+    idx = (int)iv.i;
+    if (ng <= 0 || idx < 0 || idx >= ng) return 0;
+    g = gi[idx];
+    cnt = gs[g + 1] - gs[g];
+    if (cnt <= 0) return 0;
+    el = (DESCR_t *)rt_ws_alloc((size_t)cnt * sizeof(DESCR_t));
+    if (!el) return 0;
+    if (!pl_pair_parts(it[ord[gs[g]]], &wrep, &trep)) return 0;
+    ok = 1;
+    for (i = 0; i < cnt && ok; i++) {
+        DESCR_t w2, t2;
+        if (!pl_pair_parts(it[ord[gs[g] + i]], &w2, &t2)) { ok = 0; break; }
+        el[i] = t2;
+        ok = plw_unify_vals(args[2], w2, cx);
+    }
+    lst = pl_list_from_arr(el, cnt);
+    if (ok) ok = sorted ? rt_pl_sort_cell(0, (void *)&lst, (void *)&args[3], cx) : plw_unify_vals(args[3], lst, cx);
+    (void)wrep;
+    if (!ok) cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0);
+    return ok;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(bagof_group_at, 4) ok = rt_pl_bagof_group_at_cell(args, cx, 0); PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(setof_group_at, 4) ok = rt_pl_bagof_group_at_cell(args, cx, 1); PL_CX_LEAF_TAIL
 #define PL_ATOM_OP_LEAF(nm, ar) PL_CX_LEAF_HEAD(nm, ar) ok = rt_pl_atom_op_cell(#nm, &args[0], ar > 1 ? (void *)&args[1] : (void *)0, ar > 2 ? (void *)&args[2] : (void *)0, cx); PL_CX_LEAF_TAIL
 PL_ATOM_OP_LEAF(atom_length, 2) PL_ATOM_OP_LEAF(atom_concat, 3) PL_ATOM_OP_LEAF(atom_chars, 2) PL_ATOM_OP_LEAF(atom_codes, 2) PL_ATOM_OP_LEAF(atom_number, 2) PL_ATOM_OP_LEAF(atom_string, 2)
 PL_ATOM_OP_LEAF(upcase_atom, 2) PL_ATOM_OP_LEAF(downcase_atom, 2) PL_ATOM_OP_LEAF(string_concat, 3) PL_ATOM_OP_LEAF(string_length, 2) PL_ATOM_OP_LEAF(string_lower, 2) PL_ATOM_OP_LEAF(string_upper, 2)

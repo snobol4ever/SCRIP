@@ -16,10 +16,12 @@
 #       (rc=2, whole program does not build) — correct for a ^ goal we cannot yet GROUP, wrong for one ISO says
 #       must THROW. The error needs no grouping, so the guard is now decided AHEAD of that refusal.
 #
-# ⛔⭐ THE ORDERING IS THE LOAD-BEARING PART, AND IT IS ALSO THE REGRESSION RISK. Moving the guard in front of the
-# rung-8 refusal could have silently deleted the refusal for goals it legitimately covers, which would turn "this
-# program does not compile" into "this program runs and quietly returns the wrong list" — the exact trade the
-# refusal exists to prevent. ARM C is that control: a ^ goal with a REAL callable body must still refuse rc=2.
+# ⛔⭐ THE ORDERING IS THE LOAD-BEARING PART. Moving the guard in front of the then-standing rung-8 refusal
+# could have silently deleted that refusal for goals it legitimately covered, turning "this program does not
+# compile" into "this program runs and quietly returns the wrong list". ⚠️ ARM C USED TO BE THAT CONTROL (a ^ goal
+# with a callable body must still refuse rc=2) AND IS NOW CONVERTED: rung 8b landed, grouping is built, so those
+# three goals RUN and the arm asserts the ORACLE's own answers instead — strictly stronger than a refusal check.
+# The premise was retired by a landing, not violated by a regression; ARM C itself carries the full reasoning.
 #
 # ⛔ EVERY EXPECTATION IS ORACLE-CUT, from BOTH swipl 9.x and gprolog 1.4.5, measured 2026-09-06. The two agree on
 # the ball's CLASS and its CULPRIT for all six; they differ only on the context argument (swipl
@@ -129,14 +131,27 @@ for line in [l for l in OK.split("\n") if l.strip()]:
         exp = "@OK" if want == "S" else "@NO"
         if m != exp or rc != 0:
             fails += 1; rows.append((goal, mode, exp + " (must not raise)", "%s rc=%s   [%s]" % (m, rc, why)))
-# ARM C -- THE REFUSAL MUST SURVIVE. A ^ goal whose body IS callable still cannot be GROUPED, so it must still
-# refuse to compile (rc=2, rung 8). If this arm goes green by compiling, the cure ate the refusal.
-for goal in ("bagof(X,Y^(X=1;X=2),L)", "setof(X,Y^member(X,[b,a]),L)", "bagof(X,Y^foo(X,Y),L)"):
-    write_prog(goal, "error(_,_)")
+# ARM C -- WAS "THE REFUSAL MUST SURVIVE", NOW "THESE MUST RUN AND MATCH THE ORACLE". ⛔ THE ARM WAS CONVERTED, NOT
+# DELETED, AND THE REASON MATTERS. It used to assert rc=2 "rung 8" on a ^ goal whose body IS callable, because
+# grouping was NOT BUILT and a cure that ate the refusal would have turned "does not compile" into "runs and quietly
+# returns the wrong list". Rung 8b landed (hq_R, row prolog-inria-bagof-setof-free-var-identity-and-grouping-broken):
+# bagof/setof now compute free variables, collect a Witness-Template pair, group by VARIANT and backtrack over the
+# groups, so a ^ goal is no longer ungroupable -- the caret is stripped by the free-variable computation and the
+# remaining goal has nothing to group. The old expectation is therefore FALSE BY CONSTRUCTION, not violated.
+# ⭐ A gate arm whose PREMISE a landing retires must be re-pointed at the new truth, never quietly dropped: these
+# three now assert the ORACLE's own answer, which is strictly stronger than "it refuses". Cut from BOTH oracles
+# 2026-09-07 through a consulted file; scrip matches gprolog exactly on all three. swipl agrees on the two lists and
+# is not read for the third's ERROR CONTEXT argument (swipl says bagof/3, gprolog and scrip say foo/2) -- ISO leaves
+# that argument loose and this gate has never read it.
+for goal, want in (("bagof(X,Y^(X=1;X=2),L), write(L)", "[1,2]"),
+                   ("setof(X,Y^member(X,[b,a]),L), write(L)", "[a,b]"),
+                   ("catch(bagof(X,Y^foo(X,Y),L),error(existence_error(procedure,foo/2),_),write(ex))", "ex")):
     graded += 1
+    with open(prog, "w") as f: f.write(":- %s, nl.\n" % goal)
     r = subprocess.run([scrip, prog], capture_output=True, text=True, timeout=15, stdin=subprocess.DEVNULL, cwd=tmp)
-    if r.returncode != 2 or "rung 8" not in (r.stderr or ""):
-        fails += 1; rows.append((goal, "m3", "rc=2 rung-8 refusal (grouping is NOT built)", "rc=%d %r" % (r.returncode, (r.stderr or "").strip()[:60])))
+    got = (r.stdout or "").strip()
+    if r.returncode != 0 or got != want:
+        fails += 1; rows.append((goal, "m3", "%s (rung 8b landed: these RUN now)" % want, "rc=%d %r" % (r.returncode, got[:60])))
 if graded == 0:
     print("⛔ REFUSED(2) [test_gate_pl_allsol_goal_is_validated]: graded ZERO witnesses -- a runner that cannot measure never prints the success shape"); sys.exit(2)
 for goal, mode, want, got in rows[:80]:
@@ -147,7 +162,7 @@ for goal, check, why in RUNTIME_SHAPE:
         if m != "@MATCH" or rc != 0:
             fails += 1; rows.append((goal, mode, check, "%s rc=%s   [%s]" % (m, rc, why)))
 nr = len([l for l in RAISE.split("\n") if l.strip()]); nk = len([l for l in OK.split("\n") if l.strip()])
-print("PLALLSOL_BOARD witnesses=%d (raise=%d no-raise=%d refusal-survives=3 runtime-shape=%d) modes=2 graded=%d PASS=%d FAIL=%d"
+print("PLALLSOL_BOARD witnesses=%d (raise=%d no-raise=%d caret-now-runs=3 runtime-shape=%d) modes=2 graded=%d PASS=%d FAIL=%d"
       % (nr + nk + 3 + len(RUNTIME_SHAPE), nr, nk, len(RUNTIME_SHAPE), graded, graded - fails, fails))
 sys.exit(1 if fails else 0)
 PY

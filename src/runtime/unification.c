@@ -1081,6 +1081,35 @@ int rt_pl_compare_cell(void *order_cell, void *a_cell, void *b_cell, pl_tr_ctx_t
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { pl_cell_t *a[256]; pl_cell_t *b[256]; int n; } pl_vmap_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_vmap_ok(pl_vmap_t *m, pl_cell_t *x, pl_cell_t *y) {
+    for (int i = 0; i < m->n; i++) { if (m->a[i] == x) return m->b[i] == y; if (m->b[i] == y) return 0; }
+    if (m->n >= 256) return 0;
+    m->a[m->n] = x; m->b[m->n] = y; m->n++;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_variant_rec(pl_cell_t *ca, pl_cell_t *cb, pl_vmap_t *m) {
+    pl_cell_t *a = pl_deref(ca), *b = pl_deref(cb);
+    int ua = pl_cell_unbound(a), ub = pl_cell_unbound(b);
+    if (ua || ub) { if (ua != ub) return 0; return pl_vmap_ok(m, a, b); }
+    if (((int)a->v == (int)DT_PLREF) != ((int)b->v == (int)DT_PLREF)) return 0;
+    if ((int)a->v == (int)DT_PLREF) {
+        int ara = (int)(a->slen & 0xFFFFu), arb = (int)(b->slen & 0xFFFFu);
+        if (ara != arb || (int)(a->slen >> 16) != (int)(b->slen >> 16)) return 0;
+        { pl_cell_t *aa = (pl_cell_t *)a->p, *bb = (pl_cell_t *)b->p;
+          for (int i = 0; i < ara; i++) if (!pl_variant_rec(&aa[i], &bb[i], m)) return 0;
+          return 1; }
+    }
+    return rt_pl_atop_cell(4, (void *)a, (void *)b);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_variant_cells(void *a_cell, void *b_cell) {
+    pl_vmap_t m; m.n = 0;
+    return pl_variant_rec((pl_cell_t *)a_cell, (pl_cell_t *)b_cell, &m);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_pl_tv_walk(pl_cell_t *c, pl_cell_t **pool, int *pool_n, int cap) {
     if (!c) return;
     pl_cell_t *d = pl_deref(c);
