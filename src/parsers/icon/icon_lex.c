@@ -158,6 +158,10 @@ static IcnToken scan_string(IcnLexer *lx) {
                 default:   buf_push(&buf, &len, &cap, '\\');
                            buf_push(&buf, &len, &cap, esc);  break;
             }
+        } else if (c == '_' && (lex_cur(lx) == '\n' || (lex_cur(lx) == '\r' && lex_peek1(lx) == '\n'))) {
+            if (lex_cur(lx) == '\r') lex_advance(lx);
+            lex_advance(lx);
+            while (lex_cur(lx) == ' ' || lex_cur(lx) == '\t') lex_advance(lx);
         } else {
             buf_push(&buf, &len, &cap, c);
         }

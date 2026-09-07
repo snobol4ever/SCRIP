@@ -621,7 +621,7 @@ static tree_t *parse_ctrl(IcnParser *p) {
         match(p, TK_SEMICOL);
         expect(p, TK_THEN, "if/then");
         push_child(e, parse_expr(p));
-        match(p, TK_SEMICOL);
+        if (check(p, TK_SEMICOL) && p->peek.kind == TK_ELSE) advance(p);
         if (match(p, TK_ELSE)) push_child(e, parse_expr(p));
         return e;
     }
@@ -727,7 +727,7 @@ static tree_t *parse_stmt(IcnParser *p) {
         match(p, TK_SEMICOL);
         expect(p, TK_THEN, "if/then");
         push_child(e, parse_expr(p));
-        match(p, TK_SEMICOL);
+        if (check(p, TK_SEMICOL) && p->peek.kind == TK_ELSE) advance(p);
         if (match(p, TK_ELSE)) push_child(e, parse_expr(p));
         match(p, TK_SEMICOL);
         return e;
@@ -924,6 +924,7 @@ CODE_t *icn_parse_file(IcnParser *p, tree_t **out_ast) {
                 } else {
                     advance(p);
                 }
+                if (check(p, TK_COLON) && p->peek.kind == TK_INT) { advance(p); advance(p); }
                 if (!match(p, TK_COMMA)) break;
             }
             match(p, TK_SEMICOL);

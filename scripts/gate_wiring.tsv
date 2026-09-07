@@ -57,6 +57,8 @@ test_gate_emit_no_slot_alloc.sh	WIRED	-	-	-
 test_gate_gate_wiring_ratchet.sh	WIRED	-	-	-
 test_gate_harness_refusal_is_rc2.sh	WIRED	-	-	-
 test_gate_icn_bal_is_a_backtracking_generator.sh	WIRED	-	-	-
+test_gate_icn_function_builtin_names_dispatchable.sh	WIRED	-	-	-
+test_gate_icn_if_without_else_invocable_arity_and_string_continuation.sh	WIRED	-	-	-
 test_gate_icn_no_stack.sh	WIRED	-	-	-
 test_gate_icn_one_reg_frame.sh	WIRED	-	-	-
 test_gate_icn_scan_argtype.sh	WIRED	-	-	-
