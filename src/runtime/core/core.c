@@ -2577,8 +2577,9 @@ static DESCR_t _var_assoc_set(const char *key, DESCR_t val) {
 DESCR_t NV_GET_fn(const char *name) {
     _var_init();
     if (!name) return NULVCL;
-    if (!g_call_fastpath_off && name[0] != '&' && (name[0] != 'I' || strcmp(name, "INPUT") != 0)) { NV_t *e = _var_find_cached(name); if (e) return e->is_gva ? *e->cell : e->val; }
+    if (!g_call_fastpath_off && name[0] != '&' && (name[0] != 'I' || strcmp(name, "INPUT") != 0) && (name[0] != 'T' || strcmp(name, "TERMINAL") != 0)) { NV_t *e = _var_find_cached(name); if (e) return e->is_gva ? *e->cell : e->val; }
     if (strcmp(name, "INPUT") == 0) return input_read();
+    if (strcmp(name, "TERMINAL") == 0) return terminal_read();
     if (strcmp(name, "OUTPUT") == 0) { NV_t *e = _var_bucket_find("_OUTPUT"); return e ? (e->is_gva ? *e->cell : e->val) : NULVCL; }
     _io_chan_setup();
     int ch = _io_chan_find_by_var(name);
@@ -3259,6 +3260,20 @@ static char *_input_buf = NULL;
 static size_t _input_cap = 0;
 static long _input_rlen = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static FILE *_terminal_fp = NULL;
+static int _terminal_tried = 0;
+DESCR_t terminal_read(void) {
+    if (!_terminal_tried) { _terminal_tried = 1; _terminal_fp = fopen("/dev/tty", "r"); }
+    if (!_terminal_fp) return FAILDESCR;
+    static char *tbuf = NULL; static size_t tcap = 0;
+    ssize_t nread = getline(&tbuf, &tcap, _terminal_fp);
+    if (nread < 0) return FAILDESCR;
+    if (nread > 0 && tbuf[nread-1] == '\n') { tbuf[nread-1] = '\0'; nread--; }
+    if (kw_trim) {
+        while (nread > 0 && (tbuf[nread-1] == ' ' || tbuf[nread-1] == '\t')) tbuf[--nread] = '\0';
+    }
+    return STRVAL(rt_ws_strdup_c(tbuf));
+}
 DESCR_t input_read(void) {
     if (!_input_fp) _input_fp = stdin;
     if (_input_rlen > 0) {

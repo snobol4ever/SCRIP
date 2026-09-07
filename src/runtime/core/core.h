@@ -238,6 +238,7 @@ DESCR_t neg(DESCR_t a);
 DESCR_t pos(DESCR_t a);
 void   output_val(DESCR_t v);
 DESCR_t input_read(void);
+DESCR_t terminal_read(void);
 void   output_str(const char *s);
 extern int monitor_fd;
 extern int g_monitor_bin;
