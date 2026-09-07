@@ -524,9 +524,9 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             ir_operand_push(asn, lv); ir_operand_push(asn, rr);
             *res = asn; return lve;
           } }
-        IR_t * asn = build(cx, IR_ASSIGN, γ, ω); IR_t * lr = NULL, * rr = NULL;
-        IR_t * eb = lower(cx, rhs, asn, ω, &rr); IR_t * ea = lower(cx, lhs, eb, ω, &lr);
-        ir_operand_push(asn, rr); ir_operand_push(asn, lr); *res = asn; return ea;
+        if (getenv("SCRIP_ASSIGN_DIAG")) fprintf(stderr, "[ASSIGN-LV] nameless assign: lhs tree type %d, %d children, line %d\n", lhs ? (int) lhs->t : -1, lhs ? lhs->n : -1, lhs ? (int) lhs->line : -1);
+        { tree_t * call = ast_node_new(TT_FNC); tree_t * fnv = ast_node_new(TT_VAR); fnv->v.sval = (char *) "runerr"; ast_push(call, fnv); tree_t * code = ast_node_new(TT_ILIT); code->v.ival = 111; ast_push(call, code); ast_push(call, (tree_t *) lhs);
+          tree_t * seq = ast_node_new(TT_CONJ); ast_push(seq, (tree_t *) rhs); ast_push(seq, call); return lower(cx, seq, γ, ω, res); }
     }
     case TT_AUGOP: {
         const tree_t * lhs = t->c[0]; const tree_t * rhs = t->c[1]; int bc = augop_code((int) t->v.ival);
