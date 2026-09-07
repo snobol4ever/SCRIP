@@ -91,17 +91,34 @@ for f in "$SUITE"/iso7185prt*.pas; do
 done
 # ---- acceptance population, oracle = fpc -Miso ----------------------------------------------------------------------
 FPC="$(command -v fpc || true)"
+# ⭐ A DECLARED RULING IS RE-PROBED, NOT RE-PAID (cfo 2026-09-07, THE ECONOMY). iso7185pat.pas is ruled
+# ORACLE_REFUSES in UNGRADABLE.tsv: fpc 3.2.2 -Miso loops forever on `label 0` (ISO 7185 permits it; a
+# three-line program reproduces it), so it is not slow, it never finishes, and a 60s wait per board bought
+# nothing. A program the sidecar already rules gets a 10s probe instead: enough to see a fast rejection or
+# a spin, and if the oracle BUILDS it anyway the ruling is stale and the run says so loudly (the inventory
+# then over-sums and refuses, which is the right red). The sidecar is read through lib_inventory.sh's own
+# validated reader, never a second parser; the stanza below is the same one inventory_line uses later.
+INV_PACKAGE=pat; INV_DIR="$SUITE"; INV_EXT=".pas"
+RULED_UNGRADABLE="$(_inv_names "$(_inv_tsv UNGRADABLE.tsv)" UNGRADABLE 2>/dev/null || true)"
 for f in "$SUITE"/iso7185pat*.pas; do
     [ -e "$f" ] || continue
     b="$(basename "$f" .pas)"
     [ -n "$FPC" ] || { echo "note: fpc absent -- acceptance test $b not graded (its oracle is fpc -Miso); rejection population unaffected"; break; }
     in="$SUITE/$b.inp"; [ -f "$in" ] || in=/dev/null
     # ⛔⭐ THE ORACLE GETS A TIMEOUT TOO, AND THAT IS NOT DEFENSIVE PADDING -- MEASURED: `fpc -Miso` does not
-    # finish on iso7185pat.pas (123KB) inside 60s. The first cut of this runner invoked fpc with NO bound, so
+    # finish on iso7185pat.pas (123KB) inside 60s (nor 300s: it spins on `label 0`, see UNGRADABLE.tsv). The first cut of this runner invoked fpc with NO bound, so
     # the whole suite hung on its ORACLE, not on scrip, and read as a >10-minute runner with no output. An
     # un-bounded oracle turns "the reference implementation cannot do this either" into "our runner is broken".
     rm -f "$TMP/oracle"
-    ( cd "$TMP" && timeout 60 "$FPC" -Miso -o"$TMP/oracle" "$f" >"$TMP/oracle.err" 2>&1 ); orc=$?
+    ruled=0; printf '%s\n' "$RULED_UNGRADABLE" | grep -qxF "$b.pas" && ruled=1
+    bound=60; [ "$ruled" -eq 1 ] && bound=10
+    ( cd "$TMP" && timeout "$bound" "$FPC" -Miso -o"$TMP/oracle" "$f" >"$TMP/oracle.err" 2>&1 ); orc=$?
+    if [ ! -x "$TMP/oracle" ] && [ "$ruled" -eq 1 ]; then
+        echo "note: acceptance test $b is DECLARED UNGRADABLE in $SUITE/UNGRADABLE.tsv; the oracle (fpc -Miso) was re-probed at a ${bound}s bound (rc=$orc) and the ruling stands -- not graded, and explicitly NOT counted against scrip"
+        UNGRADABLE=$((UNGRADABLE+1))
+        continue
+    fi
+    [ "$ruled" -eq 1 ] && echo "⚠ RULING STALE: acceptance test $b is declared UNGRADABLE in $SUITE/UNGRADABLE.tsv but the oracle (fpc -Miso) BUILT it this run -- the oracle changed or the declaration is wrong; it is graded below and the inventory will refuse until the row moves"
     if [ ! -x "$TMP/oracle" ]; then
         # ⛔ rc=124 IS THE ONLY GENUINE TIMEOUT -- any other nonzero exit is the oracle REJECTING the
         # program (a real, fast compile error), a different fact with a different consequence, and the
@@ -148,7 +165,7 @@ echo "PAT_SUITE_BOARD total=$TOTAL both_pass=$BOTH m3_pass=${P[m3]} m3_fail=${F[
 # not silently vanish. lib_inventory.sh recomputes ungradable/ungraded itself from UNGRADABLE.tsv/
 # UNGRADED.tsv beside $SUITE (the two acceptance-population fixtures fpc -Miso cannot build this run)
 # rather than trusting this script's own $UNGRADABLE counter.
-INV_PACKAGE=pat; INV_DIR="$SUITE"; INV_EXT=".pas"
+INV_PACKAGE=pat; INV_DIR="$SUITE"; INV_EXT=".pas"   # the same stanza as above the acceptance loop, restated so the inventory reads beside its call
 INV_LINE="$(inventory_line "$TOTAL" 0)"
 if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
 echo "  diagnosis (counted INSIDE fail, never beside it): m3 crash-or-ran-to-bound=${C[m3]} of m4 crash-or-ran-to-bound=${C[m4]} — the verdict is REFUSED-WITH-A-DIAGNOSTIC or not, which does not vary with machine load; this split does"
