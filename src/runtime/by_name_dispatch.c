@@ -1722,6 +1722,45 @@ static int rt_pl_sub_atom_at_cell(DESCR_t *args, pl_tr_ctx_t *cx) {
         return ok; } }
 }
 PL_CX_LEAF_HEAD(sub_atom_at, 6) ok = rt_pl_sub_atom_at_cell(args, cx); PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long pl_atom_concat_count(DESCR_t a, DESCR_t b, DESCR_t c) {
+    char ba[8192], bb[8192], bc[8192]; const char *sa = 0, *sb = 0, *sc = 0;
+    int ha = pl_cell_text(a, ba, sizeof ba, &sa), hb = pl_cell_text(b, bb, sizeof bb, &sb);
+    if (ha && hb) return 0;
+    if (!pl_cell_text(c, bc, sizeof bc, &sc)) return -1;
+    return (long)strlen(sc);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_atom_concat_n(DESCR_t *args, int nargs) {
+    if (nargs != 3) return FAILDESCR;
+    pl_atoms_ready();
+    { long n = pl_atom_concat_count(args[0], args[1], args[2]);
+      if (n < 0) return FAILDESCR;
+      return INTVAL(n); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rt_pl_atom_concat_at_cell(DESCR_t *args, pl_tr_ctx_t *cx) {
+    char ba[8192], bb[8192], bc[8192], cb[16384]; const char *sa = 0, *sb = 0, *sc = 0;
+    DESCR_t iv = rt_pl_deref_val(args[0]); int ha, hb;
+    if (iv.v != DT_I) return 0;
+    ha = pl_cell_text(args[1], ba, sizeof ba, &sa); hb = pl_cell_text(args[2], bb, sizeof bb, &sb);
+    if (ha && hb) {
+        size_t la = strlen(sa), lb = strlen(sb);
+        if ((long)iv.i != 0 || la + lb + 1 > sizeof cb) return 0;
+        if (la) memcpy(cb, sa, la);
+        if (lb) memcpy(cb + la, sb, lb);
+        cb[la + lb] = 0;
+        return plw_unify_vals(args[3], pl_mk_atom_dup(cb, la + lb), cx);
+    }
+    if (!pl_cell_text(args[3], bc, sizeof bc, &sc)) return 0;
+    { long n = (long)strlen(sc), i = (long)iv.i; char *tr0 = cx->tr; int ok;
+      if (i < 0 || i > n) return 0;
+      ok = plw_unify_vals(args[1], pl_mk_atom_dup(sc, (size_t)i), cx) && plw_unify_vals(args[2], pl_mk_atom_dup(sc + i, (size_t)(n - i)), cx);
+      if (!ok) cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0);
+      return ok; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(atom_concat_at, 4) ok = rt_pl_atom_concat_at_cell(args, cx); PL_CX_LEAF_TAIL
 DESCR_t rt_pl_dop_findall_new(DESCR_t *args, int nargs) {
     (void)args;
     if (nargs != 0) return FAILDESCR;

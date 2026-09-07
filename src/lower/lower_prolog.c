@@ -888,6 +888,33 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             if (entry_out) *entry_out = se ? se : sv;
             return nd;
         }
+        if (!strcmp(nm, "atom_concat") && t->n == 3) {
+            IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = "$atom_concat_at";
+            IR_t * to = build(cx, IR_TO, nd, ωfail); IR_LIT(to).sval = (char *) "ag";
+            IR_t * cnt = build(cx, IR_CALL, to, ωfail); IR_LIT(cnt).sval = "$atom_concat_n";
+            IR_t * lo = build(cx, IR_LIT_INTEGER, NULL, ωfail); IR_LIT(lo).ival = 0;
+            IR_t * ale = NULL, * ble = NULL, * cle = NULL;
+            IR_t * al = term_lval_e(cx, t->c[0], &ale); IR_t * bl = term_lval_e(cx, t->c[1], &ble); IR_t * cl = term_lval_e(cx, t->c[2], &cle);
+            IR_t * a2e = NULL, * b2e = NULL, * c2e = NULL;
+            IR_t * a2 = term_lval_e(cx, t->c[0], &a2e); IR_t * b2 = term_lval_e(cx, t->c[1], &b2e); IR_t * c2 = term_lval_e(cx, t->c[2], &c2e);
+            IR_t * gnl = build(cx, IR_LIT_STRING, NULL, ωfail); IR_LIT(gnl).sval = (char *) "atom_concat";
+            IR_t * gchk = build(cx, IR_CALL, lo, ωfail); IR_LIT(gchk).sval = "$pl_anum_guard3";
+            lc_γ_to(gnl, gchk); lc_ω_to(gnl, ωfail);
+            ir_operand_push(gchk, gnl); ir_operand_push(gchk, al); ir_operand_push(gchk, bl); ir_operand_push(gchk, cl);
+            lc_γ_to(al, ble ? ble : bl); lc_ω_to(al, ωfail);
+            lc_γ_to(bl, cle ? cle : cl); lc_ω_to(bl, ωfail);
+            lc_γ_to(cl, gnl); lc_ω_to(cl, ωfail);
+            lc_γ_to(lo, a2e ? a2e : a2); lc_ω_to(lo, ωfail);
+            lc_γ_to(a2, b2e ? b2e : b2); lc_ω_to(a2, ωfail);
+            lc_γ_to(b2, c2e ? c2e : c2); lc_ω_to(b2, ωfail);
+            lc_γ_to(c2, cnt); lc_ω_to(c2, ωfail);
+            ir_operand_push(cnt, a2); ir_operand_push(cnt, b2); ir_operand_push(cnt, c2);
+            ir_operand_push(to, lo); ir_operand_push(to, cnt);
+            ir_operand_push(nd, to); ir_operand_push(nd, al); ir_operand_push(nd, bl); ir_operand_push(nd, cl);
+            lc_ω_to_β(nd, to);
+            if (entry_out) *entry_out = ale ? ale : al;
+            return to;
+        }
         if (!strcmp(nm, "sub_atom") && t->n == 5) {
             IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = "$sub_atom_at";
             IR_t * to = build(cx, IR_TO, nd, ωfail); IR_LIT(to).sval = (char *) "ag";

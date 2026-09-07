@@ -184,6 +184,7 @@ RTX_ENDF(rt_pl_dop_is_v)
     mov qword ptr [rsp + CTX_BALL], 0; mov rdx, rsp; call rt_pl_dop_##nm##_c; mov r12, qword ptr [rsp + CTX_TR]; mov rcx, qword ptr [rsp + CTX_BALL]; add rsp, CTX_FRAME; \
     test rcx, rcx; jz 99f; mov r15, rcx; mov eax, DT_FAIL | (modop << 8); xor edx, edx; 99: ret; RTX_ENDF(rt_pl_dop_##nm)
 PL_CTX_LEAF(sub_atom_at)
+PL_CTX_LEAF(atom_concat_at)
 PL_CTX_LEAF(findall_result)
 PL_CTX_LEAF(bagof_result)
 PL_CTX_LEAF(setof_result)

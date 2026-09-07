@@ -27,7 +27,7 @@ DESCR_t rt_pl_dop_compare(DESCR_t *, int); DESCR_t rt_pl_dop_functor(DESCR_t *, 
 DESCR_t rt_pl_dop_copy_term(DESCR_t *, int); DESCR_t rt_pl_dop_term_variables(DESCR_t *, int); DESCR_t rt_pl_dop_numbervars3(DESCR_t *, int); DESCR_t rt_pl_dop_numbervars1(DESCR_t *, int); DESCR_t rt_pl_dop_succ(DESCR_t *, int);
 DESCR_t rt_pl_dop_plus(DESCR_t *, int); DESCR_t rt_pl_dop_sort(DESCR_t *, int); DESCR_t rt_pl_dop_msort(DESCR_t *, int); DESCR_t rt_pl_dop_char_type(DESCR_t *, int);
 DESCR_t rt_pl_dop_findall_new(DESCR_t *, int); DESCR_t rt_pl_dop_findall_add(DESCR_t *, int); DESCR_t rt_pl_dop_findall_result(DESCR_t *, int); DESCR_t rt_pl_dop_bagof_result(DESCR_t *, int); DESCR_t rt_pl_dop_setof_result(DESCR_t *, int);
-DESCR_t rt_pl_dop_sub_atom_n(DESCR_t *, int); DESCR_t rt_pl_dop_sub_atom_at(DESCR_t *, int);
+DESCR_t rt_pl_dop_sub_atom_n(DESCR_t *, int); DESCR_t rt_pl_dop_sub_atom_at(DESCR_t *, int); DESCR_t rt_pl_dop_atom_concat_n(DESCR_t *, int); DESCR_t rt_pl_dop_atom_concat_at(DESCR_t *, int);
 DESCR_t rt_pl_dop_db_assertz(DESCR_t *, int); DESCR_t rt_pl_dop_db_asserta(DESCR_t *, int); DESCR_t rt_pl_dop_db_erase(DESCR_t *, int); DESCR_t rt_pl_dop_db_abolish(DESCR_t *, int); DESCR_t rt_pl_dop_db_n(DESCR_t *, int); DESCR_t rt_pl_dop_db_at(DESCR_t *, int); DESCR_t rt_pl_dop_db_nonempty(DESCR_t *, int); DESCR_t rt_pl_dop_ball_pending(DESCR_t *, int); DESCR_t rt_pl_dop_db_seed_once(DESCR_t *, int);
 DESCR_t rt_pl_dop_nb_setval(DESCR_t *, int); DESCR_t rt_pl_dop_nb_getval(DESCR_t *, int);
 DESCR_t rt_pl_dop_db_retractall(DESCR_t *, int);
@@ -331,6 +331,7 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$findall_result", 2, "rt_pl_dop_findall_result", rt_pl_dop_findall_result }, { "$bagof_result", 2, "rt_pl_dop_bagof_result", rt_pl_dop_bagof_result },
         { "$setof_result", 2, "rt_pl_dop_setof_result", rt_pl_dop_setof_result },
         { "$sub_atom_n", 1, "rt_pl_dop_sub_atom_n", rt_pl_dop_sub_atom_n }, { "$sub_atom_at", 6, "rt_pl_dop_sub_atom_at", rt_pl_dop_sub_atom_at },
+        { "$atom_concat_n", 3, "rt_pl_dop_atom_concat_n", rt_pl_dop_atom_concat_n }, { "$atom_concat_at", 4, "rt_pl_dop_atom_concat_at", rt_pl_dop_atom_concat_at },
         { "$db_assertz", 2, "rt_pl_dop_db_assertz", rt_pl_dop_db_assertz }, { "$db_asserta", 2, "rt_pl_dop_db_asserta", rt_pl_dop_db_asserta },
         { "$db_erase", 2, "rt_pl_dop_db_erase", rt_pl_dop_db_erase }, { "$db_abolish", 1, "rt_pl_dop_db_abolish", rt_pl_dop_db_abolish }, { "$db_n", 1, "rt_pl_dop_db_n", rt_pl_dop_db_n }, { "$db_at", 2, "rt_pl_dop_db_at", rt_pl_dop_db_at }, { "$db_nonempty", 1, "rt_pl_dop_db_nonempty", rt_pl_dop_db_nonempty }, { "$ball_pending", 0, "rt_pl_dop_ball_pending", rt_pl_dop_ball_pending }, { "$db_seed_once", 3, "rt_pl_dop_db_seed_once", rt_pl_dop_db_seed_once },
         { "$db_retractall", 2, "rt_pl_dop_db_retractall", rt_pl_dop_db_retractall },
