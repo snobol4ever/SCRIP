@@ -111,7 +111,21 @@ port_trace_main() {
   for o in $origins; do
     n=$((n+1)); src="$W/$o$PORTTRACE_EXT"; ref="$W/$o.ref"
     master_extract_origin "$o" "$src" "$ref" >/dev/null 2>&1 || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot extract $o from the master suite"; gate_stamp; exit 2; }
-    (cd "$W" && timeout "$T" "$SCRIP" --compile -o "$o.s0" "$src" </dev/null >/dev/null 2>&1); (cd "$W" && env "$PORT_TRACE_ENV=0" timeout "$T" "$SCRIP" --compile -o "$o.s0b" "$src" </dev/null >/dev/null 2>&1)
+    (cd "$W" && timeout "$T" "$SCRIP" --compile -o "$o.s0" "$src" </dev/null >/dev/null 2>"$W/$o.cc.err"); crc=$?; (cd "$W" && env "$PORT_TRACE_ENV=0" timeout "$T" "$SCRIP" --compile -o "$o.s0b" "$src" </dev/null >/dev/null 2>&1)
+    # ⛔⭐ A WITNESS THAT NEVER COMPILED HAS NOTHING TO TRACE, AND THAT IS NOT A TRACER THAT IS NOT FIRING (row
+    # port-trace-zero-lines-check-cannot-tell-a-compile-time-refusal-from-a-tracer-that-is-not-firing; seat09's
+    # find, hq_C's ruling, cfo 2026-09-07). The zero-trace-lines check below used to fold THREE causes into one
+    # message and rule out only the first ('no ports'): a broken tracer and a program the front end REFUSED
+    # (pl_refuse on an un-laddered builtin, rc=2, identical with and without the trace env) read the same, and
+    # the gate exit-2'd at the first such origin so every rung above it was wired and never ran. The compile is
+    # established FIRST: a refusal is a named RED ROW for that witness, counted in the verdict, and the walk goes
+    # on to the next origin; only a witness that compiled and ran yet traced nothing is the instrument's fault.
+    if [ "$crc" -ne 0 ] && [ ! -s "$W/$o.s0" ]; then
+      bad=$((bad+1)); ccmsg="$(grep -v '^$' "$W/$o.cc.err" | head -1 | cut -c1-140)"
+      if [ "$crc" -eq 124 ]; then lines+=("$(printf '%-40s REFUSES AT COMPILE TIME: --compile did not finish within %ss (rc=124) -- nothing was emitted, so there is nothing to trace: a red witness, not a tracer that is not firing' "$o" "$T")")
+      else lines+=("$(printf '%-40s REFUSES AT COMPILE TIME (--compile rc=%s: %s) -- nothing was emitted, so there is nothing to trace: a red witness (cure the refusal, or move it out of the graded population with a named reason), not a tracer that is not firing; neither mode is measured for it' "$o" "$crc" "${ccmsg:-no diagnostic on stderr}")"); fi
+      continue
+    fi
     (cd "$W" && env "$PORT_TRACE_ENV=1" timeout "$T" "$SCRIP" --compile -o "$o.s1" "$src" </dev/null >/dev/null 2>&1)
     ks=OK; { cmp -s "$W/$o.s0" "$W/$o.s0b" && [ -s "$W/$o.s0" ] && ! cmp -s "$W/$o.s0" "$W/$o.s1"; } || { ks=FAIL; bad=$((bad+1)); }
     timeout "$T" "$SCRIP" --run "$src" </dev/null >"$W/$o.m3.out0" 2>/dev/null; r30=$?
@@ -127,7 +141,9 @@ port_trace_main() {
     tr3=?; tr4=?
     for m in m3 m4; do
       norm "$W/$o.$m.raw" > "$W/$o.$m.norm"; total=$(wc -l < "$W/$o.$m.norm")
-      [ "$total" -gt 0 ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: $o $m: $PORT_TRACE_ENV=1 produced ZERO trace lines -- the instrument is not firing, this is not 'no ports'"; gate_stamp; exit 2; }
+      # the m4 twin of the compile-time refusal: a binary that was never built traced nothing, and pert4=NOBUILD already counted it
+      if [ "$m" = m4 ] && [ "$pert4" = NOBUILD ]; then tr4="NOBUILD"; continue; fi
+      [ "$total" -gt 0 ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: $o $m: the witness COMPILED (rc=0) and ran, yet $PORT_TRACE_ENV=1 produced ZERO trace lines -- the instrument is not firing; this is not 'no ports' and not a compile-time refusal (a refusal is a named row, never this message)"; gate_stamp; exit 2; }
       if [ "$CUT" = 1 ]; then
         p=$total; [ "$p" -gt "$PREFIX_CAP" ] && p=$PREFIX_CAP
         { echo "%---- $o $m total=$total prefix=$p"; head -n "$p" "$W/$o.$m.norm"; } >> "$W/ALL.trace"; v=CUT
