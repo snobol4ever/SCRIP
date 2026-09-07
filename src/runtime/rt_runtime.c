@@ -258,9 +258,8 @@ int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
         return 1;
     }
     if (obj.v == DT_T && obj.tbl) {
-        TBBLK_t *tbl   = obj.tbl;
-        int64_t  seen  = 0; TBPAIR_t *ep;
-        TBL_FOREACH(tbl, ep) { if (seen == idx) { *out = ep->val; return 1; } seen++; }
+        TBPAIR_t *ep;
+        if (table_icn_nth(obj.tbl, idx, &ep)) { *out = ep->val; return 1; }
         return 0;
     }
     {
@@ -278,14 +277,8 @@ int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int list_bang_key_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
     if (obj.v == DT_T && obj.tbl) {
-        TBBLK_t *tbl  = obj.tbl;
-        int64_t  seen = 0; TBPAIR_t *ep;
-        TBL_FOREACH(tbl, ep) {
-            {
-                if (seen == idx) { *out = ep->key_descr; return 1; }
-                seen++;
-            }
-        }
+        TBPAIR_t *ep;
+        if (table_icn_nth(obj.tbl, idx, &ep)) { *out = ep->key_descr; return 1; }
         return 0;
     }
     return 0;

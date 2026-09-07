@@ -124,14 +124,17 @@ typedef struct _TBBLK_t {
     long           id;
     DESCR_t       *ord;
     unsigned       ord_len, ord_cap;
+    unsigned long  icn_mask;
 } TBBLK_t;
 #define TBL_FOREACH(t_, e_)            for (unsigned _tb = 0; _tb < (t_)->nbuck; _tb++) if ((t_)->buckets[_tb]) for (unsigned _ts = 0; _ts < (t_)->buckets[_tb]->len && ((e_) = &(t_)->buckets[_tb]->ent[_ts]) != (TBPAIR_t *)0; _ts++)
 TBBLK_t *table_new(void);
+TBBLK_t *set_new(void);
 TBBLK_t *table_new_args(int init, int inc);
 DESCR_t agg_prototype(DESCR_t v);
 const char *tbl_key_str(DESCR_t kd, char *buf, size_t bufn);
 const char *tbl_pair_key(TBPAIR_t *e);
 TBPAIR_t  *table_find_pair_d(TBBLK_t *tbl, DESCR_t k);
+int        table_icn_nth(TBBLK_t *tbl, int64_t idx, TBPAIR_t **out);
 TBPAIR_t  *c_table_find_pair_d(TBBLK_t *tbl, DESCR_t k);
 DESCR_t    table_get_d(TBBLK_t *tbl, DESCR_t k);
 DESCR_t    table_get_found_d(TBBLK_t *tbl, DESCR_t k, int *found);

@@ -6303,9 +6303,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     }
     L_bidjmp_6423: ;
     if ((_bid == BID_set) && nargs <= 1) {
-        TBBLK_t *tbl = table_new();
-        tbl->is_set = 1;
-        tbl->id = rt_agg_serial_set();
+        TBBLK_t *tbl = set_new();
         if (nargs == 1 && args[0].v == DT_DATA) {
             DESCR_t tag = FIELD_GET_fn(args[0], "gen_type");
             if (tag.v == DT_S && tag.s && strcmp(tag.s,"list")==0) {

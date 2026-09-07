@@ -3,6 +3,8 @@
 #include "core.h"
 #include "sil_macros.h"
 #include <string.h>
+#include <stdint.h>
+#include <stdlib.h>
 static unsigned  _tbl_nbuck_for(int init);
 static struct _TBBUCK_t **_tbl_vec_new(unsigned nb);
 static long g_agg_list_ser = 1;
@@ -95,9 +97,16 @@ TBBLK_t *table_new(void) {
     t->inc  = 10;
     t->is_set = 0;
     t->ord = (DESCR_t *)0; t->ord_len = 0; t->ord_cap = 0;
+    t->icn_mask = 15ul;
     t->nbuck = _tbl_nbuck_for(t->init);
     t->buckets = _tbl_vec_new(t->nbuck);
     return t;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+TBBLK_t *set_new(void) {
+    TBBLK_t *r = table_new();
+    g_agg_table_ser--; r->is_set = 1; r->id = rt_agg_serial_set();
+    return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 TBBLK_t *table_new_args(int init, int inc) {
@@ -322,7 +331,46 @@ void table_set_descr_d(TBBLK_t *tbl, DESCR_t k, DESCR_t val) {
     b->len++; tbl->size++;
     if (tbl->ord_len == tbl->ord_cap) { unsigned nc = tbl->ord_cap ? tbl->ord_cap * 2u : 16u; DESCR_t *nv = rt_ws_alloc((size_t)nc * sizeof(DESCR_t)); if (tbl->ord) memcpy(nv, tbl->ord, (size_t)tbl->ord_len * sizeof(DESCR_t)); tbl->ord = nv; tbl->ord_cap = nc; }
     tbl->ord[tbl->ord_len++] = k;
+    if ((unsigned long)tbl->size > 5ul * (tbl->icn_mask + 1ul) && tbl->icn_mask < (16ul << 19) - 1ul) tbl->icn_mask = (tbl->icn_mask << 1) | 1ul;
     if ((unsigned)tbl->size > tbl->nbuck * TBL_LOAD_MAX) _tbl_rehash(tbl);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static unsigned long _icn_hash(DESCR_t k) {
+    if (k.v == DT_S) {
+        unsigned long i = 0; size_t n = descr_slen(k), j = n > 10 ? 10 : n; const unsigned char *s = (const unsigned char *)k.s;
+        while (j-- > 0) { i += *s++; i *= 37ul; }
+        return i + (unsigned long)n;
+    }
+    if (k.v == DT_I) return (13255ul * (unsigned long)k.i) >> 10;
+    if (k.v == DT_R) return (unsigned long)(k.r * 1129.27586206896558);
+    if (k.v == DT_DATA && k.u) return (13255ul * (unsigned long)k.u->id) >> 10;
+    if (k.v == DT_A && k.arr) return (13255ul * (unsigned long)k.arr->id) >> 10;
+    if (k.v == DT_T && k.tbl) return (13255ul * (unsigned long)k.tbl->id) >> 10;
+    return (unsigned long)k.v;
+}
+static void _icn_slot(unsigned long hn, unsigned long mask, unsigned long *seg, unsigned long *slot) {
+    unsigned long sn = hn & mask, sg = 0;
+    if (sn >= 16ul) { unsigned long v = sn; while (v > 1ul) { v >>= 1; sg++; } sg -= 3ul; }
+    *seg = sg; *slot = hn & ((sg ? (16ul << (sg - 1ul)) : 16ul) - 1ul);
+}
+typedef struct { TBPAIR_t *e; unsigned long seg, slot, hn; unsigned seq; } _icn_ord_t;
+static int _icn_cmp(const void *a, const void *b) {
+    const _icn_ord_t *x = (const _icn_ord_t *)a, *y = (const _icn_ord_t *)b;
+    if (x->seg != y->seg) return x->seg < y->seg ? -1 : 1;
+    if (x->slot != y->slot) return x->slot < y->slot ? -1 : 1;
+    if (x->hn != y->hn) return x->hn < y->hn ? -1 : 1;
+    return x->seq < y->seq ? -1 : (x->seq > y->seq ? 1 : 0);
+}
+int table_icn_nth(TBBLK_t *tbl, int64_t idx, TBPAIR_t **out) {
+    if (!tbl || idx < 0 || idx >= (int64_t)tbl->size) return 0;
+    _icn_ord_t *v = rt_ws_alloc((size_t)(tbl->size > 0 ? tbl->size : 1) * sizeof(_icn_ord_t)); unsigned n = 0;
+    for (unsigned oi = 0; oi < tbl->ord_len && n < (unsigned)tbl->size; oi++) {
+        TBPAIR_t *e = table_find_pair_d(tbl, tbl->ord[oi]); if (!e) continue;
+        v[n].e = e; v[n].hn = _icn_hash(e->key_descr); _icn_slot(v[n].hn, tbl->icn_mask, &v[n].seg, &v[n].slot); v[n].seq = n; n++;
+    }
+    if (idx >= (int64_t)n) return 0;
+    qsort(v, n, sizeof(_icn_ord_t), _icn_cmp);
+    *out = v[idx].e; return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void set_copy_all(TBBLK_t *dst, TBBLK_t *src) {
@@ -331,19 +379,19 @@ static void set_copy_all(TBBLK_t *dst, TBBLK_t *src) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 TBBLK_t *set_union(TBBLK_t *x, TBBLK_t *y) {
-    TBBLK_t *r = table_new(); r->is_set = 1; r->id = rt_agg_serial_set();
+    TBBLK_t *r = set_new();
     set_copy_all(r, x); set_copy_all(r, y);
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 TBBLK_t *set_diff(TBBLK_t *x, TBBLK_t *y) {
-    TBBLK_t *r = table_new(); r->is_set = 1; r->id = rt_agg_serial_set();
+    TBBLK_t *r = set_new();
     TBPAIR_t *e; if (x) TBL_FOREACH(x, e) if (!table_has_d(y, e->key_descr)) table_set_descr_d(r, e->key_descr, e->key_descr);
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 TBBLK_t *set_inter(TBBLK_t *x, TBBLK_t *y) {
-    TBBLK_t *r = table_new(); r->is_set = 1; r->id = rt_agg_serial_set();
+    TBBLK_t *r = set_new();
     TBPAIR_t *e; if (x) TBL_FOREACH(x, e) if (table_has_d(y, e->key_descr)) table_set_descr_d(r, e->key_descr, e->key_descr);
     return r;
 }
