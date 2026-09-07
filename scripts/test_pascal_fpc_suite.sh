@@ -49,6 +49,7 @@ TOTAL=${#PAIRS[@]}
 
 M3_PASS=0; M3_FAIL=0; M4_PASS=0; M4_FAIL=0; REJECT=0
 M3_FAIL_NAMES=(); M4_FAIL_NAMES=(); REJECT_NAMES=()
+PROG_ROWS="$TMP/progress.tsv"; : >"$PROG_ROWS"
 
 echo "=== FPC vendored-suite grade ($TOTAL pairs, $SUITE) ==="
 
@@ -57,6 +58,10 @@ for name in "${PAIRS[@]}"; do
     inp="$SUITE/$name.in"; [ -f "$inp" ] || inp=/dev/null
     if [ ! -f "$ref" ]; then
         REJECT=$((REJECT+1)); REJECT_NAMES+=("$name (no .ref)")
+        # ⭐ RECORDED, NOT DROPPED: a shipped .pas with no .ref is owed work (REF_NOT_CUT), and THE PACKAGE
+        # LOCKDOWN is precisely the rule that such a program must appear somewhere as ungraded rather than
+        # silently vanish from the table the census reads.
+        for m in m3 m4; do printf 'package\tfpc\tpascal\t%s\t%s\tUNGRADED\t0\tno-ref-cut\n' "$name" "$m" >>"$PROG_ROWS"; done
         continue
     fi
     exp="$(cat "$ref")"
@@ -64,8 +69,10 @@ for name in "${PAIRS[@]}"; do
     m3out=$(cd "$TMP" && timeout "$RUN_TIMEOUT" "$SCRIP" --run "$pas" < "$inp" 2>/dev/null)
     if [ "$m3out" = "$exp" ]; then
         M3_PASS=$((M3_PASS+1))
+        printf 'package\tfpc\tpascal\t%s\tm3\tPASS\t0\t\n' "$name" >>"$PROG_ROWS"
     else
         M3_FAIL=$((M3_FAIL+1)); M3_FAIL_NAMES+=("$name")
+        printf 'package\tfpc\tpascal\t%s\tm3\tFAIL\t0\toutput-differs-from-ref\n' "$name" >>"$PROG_ROWS"
         [ "$VERBOSE" -eq 1 ] && echo "  m3 FAIL $name"
     fi
 
@@ -75,12 +82,15 @@ for name in "${PAIRS[@]}"; do
         m4out=$(cd "$TMP" && timeout "$RUN_TIMEOUT" "$m4bin" < "$inp" 2>/dev/null)
         if [ "$m4out" = "$exp" ]; then
             M4_PASS=$((M4_PASS+1))
+            printf 'package\tfpc\tpascal\t%s\tm4\tPASS\t0\t\n' "$name" >>"$PROG_ROWS"
         else
             M4_FAIL=$((M4_FAIL+1)); M4_FAIL_NAMES+=("$name")
+            printf 'package\tfpc\tpascal\t%s\tm4\tFAIL\t0\toutput-differs-from-ref\n' "$name" >>"$PROG_ROWS"
             [ "$VERBOSE" -eq 1 ] && echo "  m4 FAIL $name"
         fi
     else
         M4_FAIL=$((M4_FAIL+1)); M4_FAIL_NAMES+=("$name (build/link failed)")
+        printf 'package\tfpc\tpascal\t%s\tm4\tFAIL\t0\tbuild-or-link-failed\n' "$name" >>"$PROG_ROWS"
         [ "$VERBOSE" -eq 1 ] && echo "  m4 FAIL $name (build/link failed)"
     fi
 done
@@ -120,11 +130,30 @@ if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (
 # says which it means. ⚠ THE CHOICE HERE IS THE m4 ARM, because that is what this suite's existing
 # SUITES.tsv row already carries; wiring m3 would have published a REGRESSION that never happened. That is
 # a reason, not a ruling -- it is one line to change if the ceo rules the row should track m3 or min().
+# ⛔⭐ CHANGED TO THE m3 ARM BY hq_V, 2026-09-06 20:5x, ON THAT INVITATION, BECAUSE THE PREMISE ABOVE
+# INVERTED WHILE IT WAS BEING WRITTEN: the coo set this row BY HAND to the m3 numbers hours later (.github
+# 7b24d6a1, "FPC 130/181 and PAT 300/427 unchanged in m3 (m4 116 and 286, the tracked layout-sensitive m4
+# noise)"), so the published row now carries m3 and it is the m4 wiring that would publish a REGRESSION
+# THAT NEVER HAPPENED -- FPC 130 -> 116 -- which is precisely what the line above set out to prevent. The
+# second, standing reason is that m4 is the arm this file's own header warns is run-to-run
+# non-deterministic (five runs, one tree, five pass counts), and a suite row wired to a number that moves
+# without the code moving manufactures phantom movement in the table Lon reads, ETA column included.
+# The ceo is asked to rule; either way it stays one line.
 python3 "$HERE/util_score_row.py" write --lang pascal --column vendor --suite fpc --modes m3,m4 \
-    --suite-pass "$M4_PASS" --suite-total "$TOTAL" \
+    --suite-pass "$M3_PASS" --suite-total "$TOTAL" \
     --measurer "${S4E_SEAT:-}" --text "m3 $M3_PASS/$TOTAL · m4 $M4_PASS/$TOTAL (m3_fail=$M3_FAIL m4_fail=$M4_FAIL reject=$REJECT${INV_LINE:+ · $INV_LINE (\`test_pascal_fpc_suite.sh\`)})" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
+
+# ⛔⭐ THE FACT RULE'S OTHER HALF (CEO-319, /home/resources/progress/README.md): every suite run APPENDS its
+# per-program rows in the same sitting it rewrites its cell. MEASURED by hq_V at its opening, 2026-09-06:
+# of 497 pascal rows in that table every one was pascal-master -- ZERO from fpc or pat, so a Pascal PACKAGE
+# flip was invisible to the measure OCTET is run on. One bulk call, not 362. Non-fatal, never silent.
+if [ -s "$PROG_ROWS" ]; then
+    if ! python3 "$HERE/util_progress_append.py" rows-tsv "$PROG_ROWS"; then
+        echo "⚠ PROGRESS DB NOT UPDATED -- the board above stands, its per-program rows do not (reason above)" >&2
+    fi
+fi
 
 # ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
 # vacuously, hq_T 2026-09-04): M3_FAIL/M4_FAIL/REJECT all read 0 over TOTAL=0 too (empty discovery) --

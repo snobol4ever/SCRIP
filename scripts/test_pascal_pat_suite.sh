@@ -36,6 +36,7 @@ TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 declare -A P F C
 for m in m3 m4; do P[$m]=0; F[$m]=0; C[$m]=0; done
 TOTAL=0; NAMED=""; UNGRADABLE=0
+PROG_ROWS="$TMP/progress.tsv"; : >"$PROG_ROWS"
 # ---- rejection population -------------------------------------------------------------------------------------------
 for f in "$SUITE"/iso7185prt*.pas; do
     [ -e "$f" ] || continue
@@ -62,13 +63,20 @@ for f in "$SUITE"/iso7185prt*.pas; do
         # Before this, a program that SIGABRTs on an idle box hit the 2s bound under load ~20 instead, and
         # moved between the crash and fail columns run to run: two HQs reading the same tree got different
         # boards and had to reconcile numbers that never disagreed about anything that mattered.
+        # ⛔⭐ THE PROGRESS ROW CARRIES THE VERDICT IN `outcome` AND THE DIAGNOSIS IN `note`, which is the
+        # banner above applied to the database: CRASH and HANG are real values in that table's vocabulary,
+        # and writing them here would put this suite's crash column OUTSIDE its fail column for every reader
+        # who counts FAIL -- the exact two-HQs-disagree defect the verdict/diagnosis split was cut to end.
         if [ "$rc" -ne 0 ] && [ "$rc" -lt 124 ] && [ -s "$TMP/o" ]; then P[$m]=$((P[$m]+1))
+            printf 'package\tpat\tpascal\t%s\t%s\tPASS\t0\trefused-with-a-diagnostic\n' "$b" "$m" >>"$PROG_ROWS"
         else
             F[$m]=$((F[$m]+1))
-            if   [ "$rc" -eq 124 ]; then C[$m]=$((C[$m]+1)); NAMED="$NAMED $b:$m:FAIL/diag=accepted-and-ran-to-bound"
-            elif [ "$rc" -gt 124 ]; then C[$m]=$((C[$m]+1)); NAMED="$NAMED $b:$m:FAIL/diag=crash(rc=$rc)"
-            elif [ "$rc" -ne 0 ];   then NAMED="$NAMED $b:$m:FAIL/diag=rejected-silently-no-diagnostic"
-            else                         NAMED="$NAMED $b:$m:FAIL/diag=accepted"; fi
+            if   [ "$rc" -eq 124 ]; then C[$m]=$((C[$m]+1)); DIAG="accepted-and-ran-to-bound"
+            elif [ "$rc" -gt 124 ]; then C[$m]=$((C[$m]+1)); DIAG="crash(rc=$rc)"
+            elif [ "$rc" -ne 0 ];   then DIAG="rejected-silently-no-diagnostic"
+            else                         DIAG="accepted"; fi
+            NAMED="$NAMED $b:$m:FAIL/diag=$DIAG"
+            printf 'package\tpat\tpascal\t%s\t%s\tFAIL\t0\t%s\n' "$b" "$m" "$DIAG" >>"$PROG_ROWS"
         fi
     done
 done
@@ -105,9 +113,16 @@ for f in "$SUITE"/iso7185pat*.pas; do
         else timeout 20s "$SCRIP" --compile -o "$TMP/b.s" "$f" </dev/null >/dev/null 2>&1 && \
              gcc -m64 -no-pie "$TMP/b.s" -o "$TMP/bin" -L"$HERE/../out" -lscrip_rt -Wl,-rpath,"$HERE/../out" -lm 2>/dev/null && \
              timeout 20s "$TMP/bin" <"$in" >"$TMP/got" 2>&1; rc=$?; fi
-        if [ "$rc" -ge 124 ]; then C[$m]=$((C[$m]+1)); NAMED="$NAMED $b:$m:CRASH(rc=$rc)"
+        # ⛔ A CRASHED ACCEPTANCE TEST IS A FAIL AND MUST BE COUNTED AS ONE. Before this line it incremented
+        # the crash column ALONE, so a crash left P+F one short of TOTAL and the board's own denominator
+        # stopped adding up -- latent today only because both acceptance fixtures are ungradable by the
+        # oracle, i.e. the arm never fires; it fires the day one of them becomes gradable.
+        if [ "$rc" -ge 124 ]; then C[$m]=$((C[$m]+1)); F[$m]=$((F[$m]+1)); NAMED="$NAMED $b:$m:CRASH(rc=$rc)"
+            printf 'package\tpat\tpascal\t%s\t%s\tFAIL\t0\tcrash(rc=%s)\n' "$b" "$m" "$rc" >>"$PROG_ROWS"
         elif cmp -s "$TMP/want" "$TMP/got"; then P[$m]=$((P[$m]+1))
-        else F[$m]=$((F[$m]+1)); NAMED="$NAMED $b:$m:MISMATCH"; fi
+            printf 'package\tpat\tpascal\t%s\t%s\tPASS\t0\tmatches-the-oracle\n' "$b" "$m" >>"$PROG_ROWS"
+        else F[$m]=$((F[$m]+1)); NAMED="$NAMED $b:$m:MISMATCH"
+            printf 'package\tpat\tpascal\t%s\t%s\tFAIL\t0\tmismatch-vs-oracle\n' "$b" "$m" >>"$PROG_ROWS"; fi
     done
 done
 # ⛔ A RUNNER THAT GRADED NOTHING MUST NEVER PRINT THE SUCCESS SHAPE (the seven-point standard, point 3).
@@ -123,7 +138,15 @@ INV_PACKAGE=pat; INV_DIR="$SUITE"; INV_EXT=".pas"
 INV_LINE="$(inventory_line "$TOTAL" 0)"
 if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
 echo "  diagnosis (counted INSIDE fail, never beside it): m3 crash-or-ran-to-bound=${C[m3]} · m4 crash-or-ran-to-bound=${C[m4]} — the verdict is REFUSED-WITH-A-DIAGNOSTIC or not, which does not vary with machine load; this split does"
-[ -n "${PAT_NAME_REDS:-}" ] && { echo "  reds:"; for x in $NAMED; do echo "    $x"; done | head -40; }
+# ⛔⭐ THE CAP IS A DISPLAY CHOICE AND MUST NOT BE THE ONLY LISTING. 40 keeps a board readable, but this
+# suite is THE Pascal denominator and its reds are the lane's whole work pool -- at 127 m3 reds the cap hid
+# 87 of them, so the pool could not be populated from the instrument that measures it. Default unchanged;
+# PAT_NAME_REDS_MAX=all (or a number) lifts it for the seat that is building the pool.
+if [ -n "${PAT_NAME_REDS:-}" ]; then
+    echo "  reds:"
+    if [ "${PAT_NAME_REDS_MAX:-40}" = all ]; then for x in $NAMED; do echo "    $x"; done
+    else for x in $NAMED; do echo "    $x"; done | head -"${PAT_NAME_REDS_MAX:-40}"; fi
+fi
 if . "$HERE/lib_gate.sh" 2>/dev/null && command -v gate_stamp >/dev/null 2>&1; then gate_stamp; fi
 # ⛔⭐ THE SUITE ROW'S PAIR IS DECLARED, NEVER PARSED (hq_T 2026-09-06, ceo CEO-363; the coo had to set
 # this row BY HAND after a clean run because util_score_row correctly REFUSED to guess). The --text below
@@ -132,13 +155,33 @@ if . "$HERE/lib_gate.sh" 2>/dev/null && command -v gate_stamp >/dev/null 2>&1; t
 # says which it means. ⚠ THE CHOICE HERE IS THE m4 ARM, because that is what this suite's existing
 # SUITES.tsv row already carries; wiring m3 would have published a REGRESSION that never happened. That is
 # a reason, not a ruling -- it is one line to change if the ceo rules the row should track m3 or min().
+# ⛔⭐ CHANGED TO THE m3 ARM BY hq_V, 2026-09-06 20:5x, ON THAT INVITATION, BECAUSE THE PREMISE ABOVE
+# INVERTED WHILE IT WAS BEING WRITTEN: the coo set this row BY HAND to the m3 numbers hours later (.github
+# 7b24d6a1, "FPC 130/181 and PAT 300/427 unchanged in m3 (m4 116 and 286, the tracked layout-sensitive m4
+# noise)"), so the published row now carries m3 and it is the m4 wiring that would publish a REGRESSION
+# THAT NEVER HAPPENED -- PAT 300 -> 286 and FPC 130 -> 116 -- which is precisely what the line above set
+# out to prevent. The second, standing reason is that m4 is the arm with a NAMED non-determinism row
+# against it (pascal-m4-intermittent-segv-layout-sensitive: five runs, one tree, five pass counts), and a
+# suite row wired to a number that moves without the code moving manufactures phantom movement in the
+# table Lon reads, including its ETA column. The ceo is asked to rule; either way it stays one line.
 # ⭐ AND THIS TEXT ALSO CARRIES A FRACTION-SHAPED DIAGNOSTIC -- the "(N/M crash)" counts -- which any
 # text-parsing rule would read as a THIRD distinct fraction. Declaring the pair makes the parse moot: the
 # overrides short-circuit it entirely, so no diagnostic that merely LOOKS like a fraction can move this row.
 python3 "$HERE/util_score_row.py" write --lang pascal --column vendor --suite PAT --modes m3,m4 \
-    --suite-pass "${P[m4]}" --suite-total "$TOTAL" \
+    --suite-pass "${P[m3]}" --suite-total "$TOTAL" \
     --measurer "${S4E_SEAT:-}" \
     --text "ISO 7185 validation suite (Pascal-P5 1.4.x, vendored corpus/packages/pascal/pat): $TOTAL programs — m3 ${P[m3]}/$TOTAL · m4 ${P[m4]}/$TOTAL (${C[m3]}/${C[m4]} crash). 427 are REJECTION tests graded on whether scrip refuses them${INV_LINE:+ . $INV_LINE}, per \`test_pascal_pat_suite.sh\`" \
     2>&1 | sed 's/^/    /'
 python3 "$HERE/util_score_row.py" progress 2>/dev/null || true
+# ⛔⭐ THE FACT RULE'S OTHER HALF (CEO-319, /home/resources/progress/README.md): every suite run APPENDS its
+# per-program rows in the same sitting it rewrites its cell. MEASURED by hq_V at its opening, 2026-09-06:
+# 497 pascal rows stood in that table and every one was pascal-master -- ZERO from pat or fpc, so no Pascal
+# PACKAGE flip had ever been visible to the measure OCTET is actually run on. One bulk call, not 854.
+# ⛔ NON-FATAL, LOUDLY (same reasoning as the score write above): bookkeeping must never turn a real
+# measurement into a red board, and it must never fail quietly either.
+if [ -s "$PROG_ROWS" ]; then
+    if ! python3 "$HERE/util_progress_append.py" rows-tsv "$PROG_ROWS"; then
+        echo "⚠ PROGRESS DB NOT UPDATED -- the board above stands, its per-program rows do not (reason above)" >&2
+    fi
+fi
 exit 0
