@@ -3076,14 +3076,9 @@ void register_fn_alias(const char *newname, const char *oldname) {
 }
 DESCR_t (*g_user_call_hook)(const char *name, DESCR_t *args, int nargs) = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int FNCEX_fn(const char *name); const char *FUNC_ENTRY_fn(const char *fname);
 static int core_apply_runtime_proc(const char *name, DESCR_t *args, int nargs, DESCR_t *out) {
     extern int rt_proc_is_registered(const char *); extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *, int);
-    if (!rt_proc_is_registered(name)) {
-        const char *ent = FNCEX_fn(name) ? FUNC_ENTRY_fn(name) : (const char *)0;
-        if (!ent || !strcmp(ent, name) || !rt_proc_is_registered(ent)) return 0;
-        name = ent;
-    }
+    if (!rt_proc_is_registered(name)) return 0;
     for (int k = 0; k < nargs && k < 64; k++) g_call_args[k] = args[k];
     for (int k = (nargs < 0 ? 0 : nargs); k < 64; k++) g_call_args[k] = (DESCR_t){0};
     *out = rt_call_proc_descr(name, nargs);
