@@ -71,6 +71,8 @@ static int icn_argtype_raise(int code, DESCR_t val, DESCR_t *out) { core_icn_err
 #include <time.h>
 #include <ctype.h>
 #include <math.h>
+#include <sys/select.h>
+#include <dlfcn.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_builtin_is_generator(const char *name)
 {
@@ -4351,6 +4353,7 @@ DESCR_t proc_as_value(const char *name) {
         "iand","ior","ixor","ishift","icom",
         "table","key","insert","delete","member","args","level",
         "collect","stop","exit","runerr","name","variable","seq",
+        "chdir","delay","getch","getche","kbhit","loadfunc",
         NULL
     };
     for (int i = 0; builtins[i]; i++) if (strcmp(builtins[i], name) == 0) return STRVAL(name);
@@ -5160,6 +5163,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
                 {"numeric",1},{"entab",-1},{"detab",-1},{"seq",2},
                 {"collect",2},{"display",2},{"runerr",2},{"errorclear",0},
                 {"function",0},{"serial",1},{"system",1},{"exit",1},
+                {"chdir",1},{"delay",1},{"getch",0},{"getche",0},{"kbhit",0},{"loadfunc",2},
                 {NULL,0}};
             int np = rt_proc_nparams(a.s);
             if (np < 0 && a.s) for (int _bi=0;_bt[_bi].nm;_bi++) if (!strcmp(_bt[_bi].nm,a.s)){np=_bt[_bi].np;break;}
@@ -5745,6 +5749,11 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     L_bidjmp_5895: ;
     if ((_bid == BID_stop)) { for (int _si = 0; _si < nargs; _si++) { DESCR_t _a = args[_si]; if (IS_INT_fn(_a)) fprintf(stderr, "%lld", (long long)_a.i); else if (IS_REAL_fn(_a)) { char _rb[64]; icon_real_str(_a.r, _rb, sizeof _rb); fprintf(stderr, "%s", _rb); } else { const char *_s = VARVAL_fn(_a); if (_s) fprintf(stderr, "%s", _s); } } if (nargs) fprintf(stderr, "\n"); exit(1); }
     if ((_bid == BID_exit)) { long long _st = (nargs >= 1 && IS_INT_fn(args[0])) ? (long long)args[0].i : 0; exit((int)_st); }
+    if (!strcmp(fn, "chdir") && nargs == 1) { const char *_d = VARVAL_fn(args[0]); if (!_d || chdir(_d) != 0) { *out = FAILDESCR; return 1; } *out = NULVCL; return 1; }
+    if (!strcmp(fn, "delay") && nargs >= 1) { long long _ms = IS_INT_fn(args[0]) ? (long long)args[0].i : 0; if (_ms > 0) usleep((useconds_t)(_ms * 1000)); *out = NULVCL; return 1; }
+    if (!strcmp(fn, "getch") || !strcmp(fn, "getche")) { unsigned char _c; ssize_t _n = read(0, &_c, 1); if (_n != 1) { *out = FAILDESCR; return 1; } if (fn[4] == 'e') { fputc(_c, stdout); fflush(stdout); } char *_b = rt_ws_alloc(2); _b[0] = (char)_c; _b[1] = 0; *out = STRVAL(_b); return 1; }
+    if (!strcmp(fn, "kbhit")) { fd_set _r; struct timeval _tv; FD_ZERO(&_r); FD_SET(0, &_r); _tv.tv_sec = 0; _tv.tv_usec = 0; if (select(1, &_r, 0, 0, &_tv) > 0) { *out = NULVCL; return 1; } *out = FAILDESCR; return 1; }
+    if (!strcmp(fn, "loadfunc") && nargs >= 2) { extern long g_error; const char *_l = VARVAL_fn(args[0]); void *_h = _l ? dlopen(_l, RTLD_NOW) : 0; void *_f = 0; if (_h) { const char *_fnm = VARVAL_fn(args[1]); _f = _fnm ? dlsym(_h, _fnm) : 0; } if (!_f) { if (g_error != 0) return icn_argtype_raise(216, args[1], out); core_runtime_error(216, "external function not found"); } *out = FAILDESCR; return 1; }
     extern const char *scan_subj;
     extern int         scan_pos;
     extern int         scan_depth;
