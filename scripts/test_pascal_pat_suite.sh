@@ -181,13 +181,22 @@ if . "$HERE/lib_gate.sh" 2>/dev/null && command -v gate_stamp >/dev/null 2>&1; t
 # of it -- never a reason to publish the steadier mode."
 # ⛔ THE NUMBER DROPS FROM ${P[m3]} (m3, as published) TO $BOTH -- 300 to 286 of 427, measured this sitting --
 # AND THAT IS A CRITERION CHANGE, NOT A REGRESSION. The commit landing it says so in those words.
+# ⛔⭐ THE HEADLINE FRACTION LEADS THE CLAUSE, AND THAT IS A CONSTRAINT ON THE TEXT, NOT A STYLE CHOICE
+# (hq_T 2026-09-06, convicted by test_gate_score_v_clause_carries_its_fraction.sh on this runner's own write).
+# counted_fractions() reads a package's clause from its NAME to the next ` · `, ` — ` or `; ` separator, and this
+# cell used to open `...: $TOTAL programs — both-modes ...`: the em-dash CLOSED the clause before the fraction,
+# so the reader saw digits it could not count and scored the whole PAT package ZERO on the September-10 grid --
+# 427 programs graded, published as never run. That is the recorded e71d3210 incident (INRIA, same em-dash, same
+# reader) whose cure 8b0c2dd9 was "move the fraction first"; it recurred here because the rule lived in a commit
+# message and not beside the text it constrains. ⭐ The prose is not lost -- it moved AFTER the fractions, which
+# is the whole cure: a writer is entitled to explain, and the explanation belongs downstream of the number.
 # ⭐ AND THIS TEXT ALSO CARRIES A FRACTION-SHAPED DIAGNOSTIC -- the "(N/M crash)" counts -- which any
 # text-parsing rule would read as one more distinct fraction. Declaring the pair makes the parse moot: the
 # overrides short-circuit it entirely, so no diagnostic that merely LOOKS like a fraction can move this row.
 python3 "$HERE/util_score_row.py" write --lang pascal --column vendor --suite PAT --modes m3,m4 \
     --suite-pass "$BOTH" --suite-total "$TOTAL" \
     --measurer "${S4E_SEAT:-}" \
-    --text "ISO 7185 validation suite (Pascal-P5 1.4.x, vendored corpus/packages/pascal/pat): $TOTAL programs — both-modes $BOTH/$TOTAL · m3 ${P[m3]}/$TOTAL · m4 ${P[m4]}/$TOTAL (crash m3 ${C[m3]}, m4 ${C[m4]}). 427 are REJECTION tests graded on whether scrip refuses them${INV_LINE:+ . $INV_LINE}, per \`test_pascal_pat_suite.sh\`" \
+    --text "ISO 7185 validation suite (Pascal-P5 1.4.x, vendored corpus/packages/pascal/pat): both-modes $BOTH/$TOTAL · m3 ${P[m3]}/$TOTAL · m4 ${P[m4]}/$TOTAL (crash m3 ${C[m3]}, m4 ${C[m4]}) — $TOTAL programs, of which 427 are REJECTION tests graded on whether scrip refuses them${INV_LINE:+ . $INV_LINE}, per \`test_pascal_pat_suite.sh\`" \
     2>&1 | sed 's/^/    /'
 python3 "$HERE/util_score_row.py" progress 2>/dev/null || true
 # ⛔⭐ THE FACT RULE'S OTHER HALF (CEO-319, /home/resources/progress/README.md): every suite run APPENDS its

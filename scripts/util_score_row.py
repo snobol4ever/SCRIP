@@ -2087,8 +2087,28 @@ def counted_fractions(lang, vcell):
         # ⭐ THE RUNNER'S OWN POPULATIONS BECOME LEGAL DENOMINATORS WITHOUT A CODE EDIT. Today a lane that
         # re-censuses a package must also edit PROGRESS_COUNTED here or its honest fraction reads UNREADABLE
         # -- a reader that only accepts numbers it was told about in advance cannot follow a live census.
-        if name in inv:
-            dens = tuple(dict.fromkeys(tuple(dens) + (inv[name]["shipped"], inv[name]["graded"])))
+        # ⛔⭐ AND THE JOIN WAS `name in inv`, WHICH NEVER FIRED FOR THREE OF EIGHT PACKAGES (hq_T 2026-09-06,
+        # on the coo's report). `inv` is keyed by the RUNNER's own `package=` token and `name` is this table's
+        # label, and they are not the same string: `gnu_prolog`/`gnu`, `snoflake_suite`/`snoflake`, `pat`/`PAT`.
+        # So the one mechanism built to stop a package scoring ZERO FOR GETTING BETTER was inert on exactly the
+        # packages that had moved -- gnu's live 11/11 and swi's 8/118 both read UNREADABLE and counted zero,
+        # while the hardcoded (62, 91) and (114, 249) sat here looking maintained. ⭐ THE FAILURE IS SILENT BY
+        # CONSTRUCTION: a lookup that misses reports ABSENCE, and absence is the one verdict that looks like
+        # honest work -- the same sentence this table already carries about ipl's case-sensitive pattern, which
+        # is the THIRD instance of this shape and the reason the join is now matched, not spelled.
+        # ⭐ MATCHED BY THE ENTRY'S OWN REGEX, so there is no second naming list to keep in step with this one.
+        # IGNORECASE is applied to INVENTORY KEYS ONLY -- never to the cell text, where a case-insensitive
+        # `\bPAT\b` would start matching English prose. An inventory key is a runner-emitted token, not prose.
+        # ⛔ AMBIGUITY IS REPORTED, NEVER GUESSED: two keys matching one entry means the names have collided and
+        # a silently-chosen population is exactly the invented denominator this reader refuses everywhere else.
+        _hits = [k for k in inv if re.search(rx, k, re.I)] if inv else []
+        if len(_hits) > 1:
+            work.append("V %s: %d inventory clauses match this package's pattern (%s) -- POPULATION NOT WIDENED, "
+                        "because choosing one would invent a denominator. Give the colliding packages distinct "
+                        "`package=` names in their runners." % (name, len(_hits), ", ".join(sorted(_hits))))
+        elif _hits:
+            _k = _hits[0]
+            dens = tuple(dict.fromkeys(tuple(dens) + (inv[_k]["shipped"], inv[_k]["graded"])))
         best, saw = None, ""
         for m in re.finditer(rx, vcell):
             # clause = from this package's name to the next clause separator or the next package name, whichever
