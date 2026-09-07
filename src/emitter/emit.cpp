@@ -2764,6 +2764,7 @@ static void flat_beta_used_scan(IR_t **nodes, int n, unsigned char *used) {
         int op = (int)nodes[j]->op;
         if (op == IR_MATCH_ALTERNATE || op == IR_MATCH_ARBNO || (op == IR_MATCH_FENCE1 || op == IR_MATCH_FENCE0) || op == IR_SCAN_SEQUENCE || op == IR_SCAN_ALTERNATE || op == IR_DISJUNCTION || op == IR_REPALT)
             for (int a = 0; a < nodes[j]->n_operands; a++) for (int k = 0; k < n; k++) if (nodes[k] == nodes[j]->operands[a]) used[k] = 1;
+        if (op == IR_SCAN && nodes[j]->n_operands > 2 && nodes[j]->operands[2]) for (int k = 0; k < n; k++) if (nodes[k] == nodes[j]->operands[2]) used[k] = 1;
         if (op == IR_MOVE_LABEL && nodes[j]->n_operands > 0 && nodes[j]->operands[0] && (int)IR_LIT(nodes[j]).ival)
             for (int k = 0; k < n; k++) if (nodes[k] == nodes[j]->operands[0]) used[k] = 1;
         int gib = port_sz_beta(nodes[j]->γ.sz);
@@ -3261,10 +3262,11 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             if (bv && (ir_is_generator_kind(bv->op) || bv->op == IR_SCAN_TAB || bv->op == IR_SCAN_MOVE)) for (int k = 0; k < n; k++) if (nodes[k] == bv) { g_scan_body_beta = betas[k]; break; }
             if (!g_scan_body_beta && nodes[i]->n_operands > 2) { IR_t *bb2 = nodes[i]->operands[2]; int _fk = -1;
                 for (int _hops = 0; bb2 && _fk < 0 && _hops < 8; _hops++) {
-                    for (int k = 0; k < n; k++) if (nodes[k] == bb2) { _fk = k; g_scan_body_beta = (betas[k] && flat_beta_kind_keeps(nodes[k])) ? betas[k] : lbls[k]; break; }
+                    { int _conduit = (IR_LIT(nodes[i]).dval == 3.0 || IR_LIT(nodes[i]).dval == 4.0) ? 1 : 0;
+                    for (int k = 0; k < n; k++) if (nodes[k] == bb2) { _fk = k; g_scan_body_beta = (betas[k] && (flat_beta_kind_keeps(nodes[k]) || (!_conduit && bv && bused[k]))) ? betas[k] : lbls[k]; break; } }
                     if (_fk < 0) bb2 = bb2->γ.node;
                 }
-                if (getenv("SCRIP_SCAN3_DIAG")) fprintf(stderr, "[SCAN3] i=%d found_k=%d -> t0=%s\n", i, _fk, g_scan_body_beta ? g_scan_body_beta->name : "-"); }
+                if (getenv("SCRIP_SCAN3_DIAG")) fprintf(stderr, "[SCAN3] i=%d found_k=%d dval=%g nops=%d bv=%d -> t0=%s (alpha=%s beta=%s keeps=%d used=%d)\n", i, _fk, IR_LIT(nodes[i]).dval, nodes[i]->n_operands, bv ? 1 : 0, g_scan_body_beta ? g_scan_body_beta->name : "-", (_fk >= 0 && lbls[_fk]) ? lbls[_fk]->name : "-", (_fk >= 0 && betas[_fk]) ? betas[_fk]->name : "-", _fk >= 0 ? flat_beta_kind_keeps(nodes[_fk]) : -1, _fk >= 0 ? (int)bused[_fk] : -1); }
         }
         if (nodes[i]->op == IR_GALT && nodes[i]->n_operands >= 2) {
             IR_t *arm2 = nodes[i]->operands[0]; IR_t *arm1 = nodes[i]->operands[1];
