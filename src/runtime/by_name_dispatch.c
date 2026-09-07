@@ -4498,6 +4498,7 @@ static __attribute__((noinline)) int bn_size(DESCR_t *args, int nargs, DESCR_t *
     DESCR_t v = args[0];
     if (IS_FAIL_fn(v)) { *out = FAILDESCR; return 1; }
     if (v.v == DT_T)   { *out = INTVAL(v.tbl ? v.tbl->size : 0); return 1; }
+    if (v.v == DT_CO)  { extern long scrip_coexpr_activations_of(void *); *out = INTVAL(scrip_coexpr_activations_of(v.p)); return 1; }
     if (v.v == DT_A)   { *out = INTVAL(v.arr ? (v.arr->hi - v.arr->lo + 1) : 0); return 1; }
     if (v.v == DT_DATA) {
         DESCR_t tag = FIELD_GET_fn(v,"gen_type");
@@ -5272,6 +5273,15 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             for (int i = 0; i < cslen; i++) {
                 unsigned char c = (unsigned char)cs[i];
                 if (c == '\'') { outs[o++] = '\\'; outs[o++] = '\''; }
+                else if (c == '\\') { outs[o++] = '\\'; outs[o++] = '\\'; }
+                else if (c == '\n') { outs[o++] = '\\'; outs[o++] = 'n'; }
+                else if (c == '\t') { outs[o++] = '\\'; outs[o++] = 't'; }
+                else if (c == '\r') { outs[o++] = '\\'; outs[o++] = 'r'; }
+                else if (c == '\b') { outs[o++] = '\\'; outs[o++] = 'b'; }
+                else if (c == '\v') { outs[o++] = '\\'; outs[o++] = 'v'; }
+                else if (c == '\f') { outs[o++] = '\\'; outs[o++] = 'f'; }
+                else if (c == 0x1b) { outs[o++] = '\\'; outs[o++] = 'e'; }
+                else if (c == 0x7f) { outs[o++] = '\\'; outs[o++] = 'd'; }
                 else if (c < 0x20 || c >= 0x7f) { o += snprintf(outs+o, 5, "\\x%02x", c); }
                 else outs[o++] = (char)c;
             }
@@ -5657,11 +5667,11 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     if ((_bid == BID_copy) && nargs == 1) {
         DESCR_t src = args[0];
         if (src.v == DT_T && src.tbl) {
-            TBBLK_t *nt = table_new();
+            extern TBBLK_t *set_new(void);
+            TBBLK_t *nt = src.tbl->is_set ? set_new() : table_new();
             nt->dflt = src.tbl->dflt;
             nt->init = src.tbl->init;
             nt->inc  = src.tbl->inc;
-            nt->is_set = src.tbl->is_set;
             { TBPAIR_t *p; TBL_FOREACH(src.tbl, p) table_set_descr_d(nt, p->key_descr, p->val); }
             DESCR_t d; d.v = DT_T; d.slen = 0; d.tbl = nt;
             *out = d; return 1;

@@ -229,13 +229,13 @@ int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint6
     scrip_coctx_t *prev = scrip_co_current;
     int first = target->alive ? 1 : 0;
     target->activator = self;
-    target->activations++;
     target->xmit[0] = x0;
     target->xmit[1] = x1;
     scrip_co_current = target;
     scrip_coswitch(self, target, first);
     scrip_co_current = prev;
     if (target->dead) return 0;
+    target->activations++;
     out2[0] = target->xmit[0];
     out2[1] = target->xmit[1];
     return 1;
