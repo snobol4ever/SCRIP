@@ -310,6 +310,7 @@ static int        g_lbl_cap = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_label_set_fn(const char *name, void *fn) {
     if (!name || !*name) return;
+    if (fn) { extern void *bb_ab_fn_cell_ptr(const char *); char cn[264]; snprintf(cn, sizeof cn, "body$%s", name); *(void **)bb_ab_fn_cell_ptr(cn) = fn; }
     for (int i = 0; i < g_lbl_n; i++) if (!strcmp(g_lbl_tab[i].key, name)) { g_lbl_tab[i].fn = (eval_chain_fn)fn; return; }
     if (g_lbl_n >= g_lbl_cap) {
         int ncap = g_lbl_cap ? g_lbl_cap * 2 : 16;
