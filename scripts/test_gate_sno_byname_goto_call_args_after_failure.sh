@@ -22,29 +22,43 @@
 # ⭐ EVERY TARGET HERE IS A PLAIN LABEL. That is deliberate. The special-transfer targets (RETURN/FRETURN/NRETURN)
 # are the sibling gate test_gate_sno_goto_special_transfer_target.sh.
 #
-# ⛔ THE b-ARMS GRADE m3 ONLY, AND THE REASON IS A MEASUREMENT, NOT A CONVENIENCE. In m4 all four b-arms SEGV --
-# and they segv IDENTICALLY WITH THIS CURE ON AND OFF, so that crash is NOT this defect and is not this cure's
-# doing. It is a second, pre-existing defect one layer down. ⛔ MY FIRST READING OF IT WAS WRONG, AND THE
-# CORRECTION LIVES HERE BECAUSE THIS HEADER IS WHERE THE NEXT READER LOOKS: I minted it as an unseated NRETURN
-# floater pair, inferred from a gdb frame #1 of 0x0. hq_S REFUTED that by killswitch A/B off ONE build --
-# SCRIP_SLIM_PAIR=1 and =0 are BOTH rc=139, with the arms provably differing (90 vs 87 pushes), so the pair is
-# not reachable as the cause. The real mechanism: RCX ARRIVES AT THE CALLEE HOLDING A CODE LABEL where the call
-# signature block should be. The staged site emits NO signature block and rcx is the scratch register for the
-# pair pushes, so the DEFINE box's parameter swap reads instruction bytes as a frame offset (+0x18) and walks
-# off the map.
+# ✅ THE b-ARMS GRADE BOTH MODES (widened 2026-09-06 by hq_S, 8 graded arms -> 12). They graded m3 ONLY until
+# then, and the reason was honest at the time: in m4 all four b-arms SEGV'd, identically with the want-name cure
+# ON and OFF, so that crash was a SECOND defect one layer down and grading it here would have held this gate
+# permanently red for something it does not test. That second defect is CURED ON MAIN by 6f3852fd1 ("AIS: the
+# signature arm could never fire -- bcps_sig_disp parsed a spelling FRQB never emits"): rcx reached the callee
+# holding a code label where the CALL SIGNATURE BLOCK belongs, so the DEFINE box's parameter swap read
+# instruction bytes as a frame offset (+0x18) and walked off the map.
 #
-# ⭐ THAT REFUTATION ALSO CORRECTS ONE OF MY OWN INFERENCES, AND THIS IS THE PART WORTH THE PARAGRAPH: the
-# zero-arg c1 arm being GREEN is NOT evidence that rcx is intact. c1 enters with the same garbage in rcx and
-# never looks at it, because only a callee WITH FORMALS runs the swap loop that dereferences it. c1 remains a
-# correct control for THIS gate's want-name class; it was never a control for register state, and reading it
-# as one is how I got the mechanism wrong. Its row is
-# snobol4-m4-byname-goto-call-with-args-segvs-in-the-callee-define-box-nreturn-floater-not-seated. Grading m4
-# here would leave this gate permanently red for a defect it does not test and could never go blocking; the
-# c-arms DO grade both modes, so mode 4 is not silently unexamined -- it is examined on exactly the shapes this
-# cure is responsible for.
+# ⛔ THE m4 ARMS ARE NON-VACUOUS, AND THAT IS MEASURED RATHER THAN ASSERTED -- a widened arm that was green all
+# along would pin nothing while looking like coverage. `git bisect` over the 108 commits 1d4dd575a..e68e35fd4,
+# with the b1 m4 arm as the predicate, names 6f3852fd1 as the flip: every ancestor RED (rc=139), every
+# descendant GREEN. The abandoned branch hq_S/staged-call-signature-rcx (retired as tag
+# retired/hq_S-staged-call-signature-rcx-2026-09-06) is RED on that same predicate.
 #
-# NON-VACUOUS BY CONSTRUCTION: SCRIP_SLIM_WANTNAME=0 restores the pre-cure clear, and every b-arm is RED under it
-# while both c-arms stay GREEN. Prove that before trusting a green: SCRIP_SLIM_WANTNAME=0 bash <this file>
+# ⛔ TWO EARLIER READINGS OF THE m4 HALF WERE WRONG AND ARE RECORDED HERE BECAUSE THIS HEADER IS WHERE THE NEXT
+# READER LOOKS. (1) An unseated NRETURN floater pair, inferred from a gdb frame #1 of 0x0 -- REFUTED by
+# killswitch A/B off ONE build: SCRIP_SLIM_PAIR=1 and =0 are BOTH rc=139, with the arms provably differing at 90
+# vs 87 pushes, so the pair is not reachable as the cause. (2) A MISSING signature block at the staged emitter
+# arm, cured by emitting one -- that branch turned the SEGV into `ERROR 021` and was never a cure. The arm does
+# emit a signature; bcps_sig_disp simply could not parse the '$' spelling of the frame marker, which is the
+# defect 6f3852fd1 actually fixed. Two plausible mechanisms, both consistent with the crash, both wrong.
+#
+# ⛔ THE SCRIP_SLIM_WANTNAME NON-VACUITY RECIPE THIS HEADER USED TO CARRY IS DEAD, AND SAYING SO IS THE POINT.
+# It read: "SCRIP_SLIM_WANTNAME=0 restores the pre-cure clear, and every b-arm is RED under it." Re-measured
+# 2026-09-06 on main: every arm is GREEN under it, in both modes. The killswitch still exists
+# (src/runtime/rt/rt.c, inside rt_proc_call_open_slim) -- these witnesses no longer REACH it. b1's emitted asm
+# carries ZERO `rt_proc_call_open_slim` sites and NINE `lea rcx, <sig>`, because 6f3852fd1 made the signature
+# arm fire where the slim arm used to. So the b-arms today pin the SIGNATURE arm, not the slim want-name clear.
+# ⭐ A killswitch recipe that has gone quietly unreachable is worse than no recipe: it prints exactly like proof
+# of non-vacuity while proving nothing. Whoever next needs a want-name control must mint a witness that still
+# reaches the slim arm, and check `grep -c rt_proc_call_open_slim` on its emitted asm BEFORE trusting the A/B.
+#
+# ⭐ ONE INFERENCE CORRECTED, AND IT IS THE PART WORTH THE PARAGRAPH: the zero-arg c1 arm being GREEN was NOT
+# evidence that rcx was intact. c1 entered with the same garbage in rcx and never looked at it, because only a
+# callee WITH FORMALS runs the swap loop that dereferences it. c1 remains a correct control for this gate's
+# want-name class; it was never a control for register state, and reading it as one is how the mechanism got
+# mis-minted the first time.
 #
 # EXIT: 0 all arms match SPITBOL. 1 an arm regressed. 2 UNPROVEN (no built scrip / no oracle).
 set -u
@@ -69,7 +83,7 @@ bad=0
 for a in b1 b2 b3 b4 c1 c2; do
     want="$("$ORACLE" -bf "$T/$a.sno" < /dev/null 2>&1 | sed -n '/^before$/,$p' | tr '\n' '/')"
     [ -n "$want" ] || { echo "  UNPROVEN $a -- oracle produced no graded output; refusing to grade SCRIP against nothing"; exit 2; }
-    modes="m3 m4"; case "$a" in b*) modes="m3";; esac
+    modes="m3 m4"
     for m in $modes; do
         if [ "$m" = m3 ]; then
             got="$(timeout 20s "$SCRIP" "$T/$a.sno" < /dev/null 2>&1 | tr '\n' '/')"
@@ -83,4 +97,4 @@ for a in b1 b2 b3 b4 c1 c2; do
     done
 done
 if [ "$bad" -ne 0 ]; then echo "GATE RED(1) [sno-byname-goto-call-args-after-failure]: a by-name goto call with arguments taken from a failed statement lost its want-name"; exit 1; fi
-echo "GATE GREEN(0) [sno-byname-goto-call-args-after-failure]: by-name goto calls with literal/variable/two-arg payloads survive the slim fast path after a failed subject (m3; the m4 segv is a separate defect with its own row -- rcx carrying a code label, not the floater pair), and both zero-arg and success-arm controls hold in BOTH modes"
+echo "GATE GREEN(0) [sno-byname-goto-call-args-after-failure]: by-name goto calls with literal/variable/two-arg payloads survive a by-name goto after a failed subject in BOTH modes (12 graded arms; the m4 half was the AIS signature-arm defect, cured by 6f3852fd1 and bisect-proven to flip there), and both zero-arg and success-arm controls hold in BOTH modes"
