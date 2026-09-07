@@ -1357,6 +1357,11 @@ def read_block_suite(src_path, ref_path, banner_re, in_path=None, x_path=None, w
 
 
 _INCLUDE_PATTERNS = [
+    # A QUOTED LITERAL THAT NAMES A FILE (row aisnobol-all-eight-..., cto 2026-09-07): the SPITBOL core opens its
+    # library by a name held in a variable (LOADEX...IDX. = "spitlib.idx" then INPUT(.F, 15, LOADEX...IDX.)), so no
+    # directive names it; a quoted token shaped like a file name is queued and, like every other name here, copied
+    # ONLY if it exists beside the suite -- a literal that is not a file is a silent no-op, as before.
+    re.compile(r'["\']([A-Za-z0-9_][A-Za-z0-9_.-]*\.[A-Za-z0-9]{1,4})["\']'),
     re.compile(r'\$include\s+"([^"]+)"'),   # Icon
     re.compile(r"-INCLUDE\s+'([^']+)'"),    # SNOBOL4 / Snocone
     re.compile(r'-INCLUDE\s+"([^"]+)"'),    # SNOBOL4 / Snocone, double-quote form
@@ -1515,6 +1520,11 @@ def run_suite_entry(paths, entry, tmp_root, modes, ext=".sno", companion_dir=Non
         cand.parent.mkdir(parents=True, exist_ok=True)
         cand.write_text(text)
         _copy_companions(text, companion_dir, Path(td))
+        # PROGRAM ARGUMENTS THAT NAME A COMPANION (AIS HSORT: its input file name arrives in HOST(0)): an argv token
+        # that is a file beside the suite travels with the entry the same way a named include does.
+        for _tok in (getattr(entry, 'argv', None) or []):
+            if companion_dir and _tok and '/' not in _tok and (Path(companion_dir) / _tok).is_file() and not (Path(td) / _tok).exists():
+                (Path(td) / _tok).write_bytes((Path(companion_dir) / _tok).read_bytes())
         return run_all_modes(paths, cand, expected, Path(td), modes, stdin_text=entry.stdin,
                              want_rc=getattr(entry, 'want_rc', 0), prog_argv=getattr(entry, 'argv', None))
 
