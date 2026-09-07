@@ -4143,8 +4143,9 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
             if (!strcmp(fn, "\\")) return (a.v == DT_SNUL || a.v == 0) ? FAILDESCR : a;
             if (!strcmp(fn, "?"))  return rt_deref(rt_random_var(a));
             if (!strcmp(fn, "/") || !strcmp(fn, "%") || !strcmp(fn, "#") || !strcmp(fn, "|")) {
-                extern int core_call_registered_fn(const char *, DESCR_t *, int, DESCR_t *);
+                extern int core_call_registered_fn(const char *, DESCR_t *, int, DESCR_t *); extern int FNCEX_fn(const char *);
                 if (core_call_registered_fn(fn, args, nargs, &out)) return out;
+                if (FNCEX_fn(fn)) return APPLY_fn(fn, args, nargs);
                 core_runtime_error(29, "undefined operator referenced");
                 return FAILDESCR;
             }
@@ -4158,7 +4159,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
         if (!strcmp(fn, "-")) return rt_num_arith(a, b, BINOP_SUB);
         if (!strcmp(fn, "*")) return rt_num_arith(a, b, BINOP_MUL);
         if (!strcmp(fn, "/")) return rt_num_arith(a, b, BINOP_DIV);
-        if (!strcmp(fn, "%")) return rt_num_arith(a, b, BINOP_MOD);
+        if (!strcmp(fn, "%")) { extern int FNCEX_fn(const char *); if (FNCEX_fn(fn)) return APPLY_fn(fn, args, nargs); return rt_num_arith(a, b, BINOP_MOD); }
         if (!strcmp(fn, "^")) return rt_num_arith(a, b, BINOP_POW);
         if (!strcmp(fn, "||")) { const char *x = VARVAL_fn(a), *y = VARVAL_fn(b); if (!x) x = ""; if (!y) y = ""; size_t lx = strlen(x), ly = strlen(y); char *o = rt_str_alloc((int)(lx + ly)); memcpy(o, x, lx); memcpy(o + lx, y, ly); o[lx + ly] = 0; return STRVAL(o); }
         { DESCR_t rt_str_coerce(DESCR_t); void rt_relop_val_coerce(DESCR_t, DESCR_t, DESCR_t *); int oc = -1;

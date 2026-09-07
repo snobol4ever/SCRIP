@@ -438,7 +438,9 @@ DESCR_t code(const char *src)
         if (!c || c->t != TT_STMT) continue;
         const char *lbl = sno_stmt_label(c);
         if (k == 0 || (lbl && lbl[0])) {
+            int rfl_sv = g_rt_fragment_emit; g_rt_fragment_emit = 1;
             IR_graph_t *g = sno_lower_fragment_at(prog, k, stno_base);
+            g_rt_fragment_emit = rfl_sv;
             if (!g) return FAILDESCR;
             g->runtime_fragment_graph = 1;
             extern IR_graph_t *g_emit_cfg;

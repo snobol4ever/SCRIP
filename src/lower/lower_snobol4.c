@@ -870,8 +870,15 @@ static IR_t * sno_goto_special_chain(IR_graph_t * g, const char * dn, IR_t * tai
     return head;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_label_reserved(const char * nm) {
+    static const char * rs[7] = { "RETURN", "FRETURN", "NRETURN", "END", "CONTINUE", "SCONTINUE", "ABORT" };
+    for (int k = 0; k < 7; k++) if (!strcmp(nm, rs[k])) return 1;
+    return 0;
+}
 static IR_t * sno_goto_target(IR_graph_t * g, const char * nm, IR_t * exitnd) {
+    extern int g_rt_fragment_emit;
     IR_t * l = (nm && nm[0] != '$') ? bb_label_landing(nm) : NULL;
+    if (l && g_rt_fragment_emit && !sno_label_reserved(nm)) l = NULL;
     if (l) return l;
     if (!nm || !nm[0]) sno_fatal("goto to unknown label", "?");
     IR_t * gd = lc_build(g, IR_GOTO_DEFERRED, exitnd, NULL);

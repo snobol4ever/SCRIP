@@ -942,7 +942,7 @@ static int _io_chan_find_by_var(const char *name) {
 static void _io_chan_close(int ch) {
     _io_chan_setup();
     if (ch < 0 || ch >= IO_CHAN_MAX) return;
-    if (_io_chan[ch].fp) { if (_io_chan[ch].fp == stdin) { } else if (_io_chan[ch].is_popen) pclose(_io_chan[ch].fp); else fclose(_io_chan[ch].fp); _io_chan[ch].fp = NULL; }
+    if (_io_chan[ch].fp) { if (_io_chan[ch].fp == stdin || _io_chan[ch].fp == stdout) { } else if (_io_chan[ch].is_popen) pclose(_io_chan[ch].fp); else fclose(_io_chan[ch].fp); _io_chan[ch].fp = NULL; }
     if (_io_chan[ch].varname) { _io_chan[ch].varname = NULL; }
     if (_io_chan[ch].buf)  { free(_io_chan[ch].buf); _io_chan[ch].buf = NULL; }
     _io_chan[ch].cap = 0;
@@ -3153,11 +3153,17 @@ static DESCR_t _LOCAL_(DESCR_t *a, int n) {
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *_define_cstr(DESCR_t d) {
+    const char *s = VARVAL_fn(d);
+    { extern int IS_VARREF_fn(DESCR_t); extern DESCR_t rt_deref(DESCR_t); if (IS_VARREF_fn(d)) d = rt_deref(d); }
+    if (!s || d.v != DT_S || !d.s) return s;
+    { size_t len = descr_slen(d); char *c = rt_ws_alloc(len + 1); memcpy(c, d.s, len); c[len] = 0; return c; }
+}
 static DESCR_t _DEFINE_(DESCR_t *a, int n) {
     if (n < 1) return FAILDESCR;
-    const char *proto = VARVAL_fn(a[0]);
+    const char *proto = _define_cstr(a[0]);
     if (!proto || !*proto) return FAILDESCR;
-    const char *entry = (n >= 2) ? VARVAL_fn(a[1]) : NULL;
+    const char *entry = (n >= 2) ? _define_cstr(a[1]) : NULL;
     if (entry && !*entry) entry = NULL;
     FNCBLK_t *probe = _parse_define_spec(proto);
     if (!probe || !probe->name || !probe->name[0]) return FAILDESCR;
@@ -3377,9 +3383,9 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
         _input_fp = stdin;
         if (fd >= 0) { FILE *nf = fdopen(dup((int)fd), "r"); if (!nf) return FAILDESCR; _input_fp = nf; }
         _input_rlen = rlen;
-        { const char *vn = (n >= 1) ? _io_varname(a[0]) : NULL;
+        { const char *vn = (n == 1) ? _io_varname(a[0]) : NULL;
           if (vn && strcmp(vn, "INPUT") != 0) {
-              int c = (ch >= 0 && ch < IO_CHAN_MAX) ? ch : 5;
+              int c = 5;
               _io_chan_close(c);
               _io_chan[c].fp = _input_fp; _io_chan[c].is_output = 0; _io_chan[c].is_popen = 0;
               _io_chan[c].varname = rt_ws_strdup(vn); g_call_fastpath_off = 1;
@@ -3417,6 +3423,13 @@ static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
     } else if (n >= 3) {
         fname = _io_extract_fname(VARVAL_fn(a[2]), fname_buf, sizeof(fname_buf));
     } else if (n >= 1) {
+        const char *vn = (n == 1) ? _io_varname(a[0]) : NULL;
+        if (vn && strcmp(vn, "OUTPUT") != 0) {
+            int c = 6;
+            _io_chan_close(c);
+            _io_chan[c].fp = stdout; _io_chan[c].is_output = 1; _io_chan[c].is_popen = 0;
+            _io_chan[c].varname = rt_ws_strdup(vn); g_call_fastpath_off = 1;
+        }
         return NULVCL;
     }
     int ch = (n >= 2 && IS_INT(a[1])) ? (int)a[1].i : -1;
