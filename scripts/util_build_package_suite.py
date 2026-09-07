@@ -257,6 +257,15 @@ def build(pkg_dir, lang, out_prefix="ALL"):
                 print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (multi-program file, {n_end} END statements)", file=sys.stderr)
                 continue
         stdin_path = stdin_for(src.stem, src.parent)  # the file's OWN dir -- == pkg_dir when flat, matters once nested
+        # ⭐ PROGRAM ARGUMENTS SIDECAR (row aisnobol-all-eight-..., cto 2026-09-07: HSORT reads its input file name
+        # from HOST(0), never stdin): `<stem>.argv` beside the source holds ONE line of TAB-separated arguments,
+        # the same tokens the container's ALL.argv then declares for the entry (corpus_suite_harness.py
+        # read_argv_sidecar: `name<TAB>arg<TAB>arg`). Absent -> no arguments, byte-identical to before.
+        argv_path = src.with_suffix(".argv")
+        prog_args = None
+        if argv_path.is_file():
+            _al = [ln for ln in argv_path.read_text().split("\n") if ln.strip() and not ln.lstrip().startswith("#")]
+            prog_args = _al[0].rstrip("\n").split("\t") if _al else None
         stdin_text = stdin_path.read_text() if stdin_path else None
         # ⭐ ISOLATE THE ORACLE INVOCATION, ONE FILE PER THROWAWAY CWD (measured on
         # corpus/packages/icon/ipl/progs/: this project's own Icon oracle driver, run_oracle()'s
@@ -276,8 +285,17 @@ def build(pkg_dir, lang, out_prefix="ALL"):
         # && icont -s t.icn`) rather than inventing a new invocation contract.
         with tempfile.TemporaryDirectory(prefix="pkgsuite_oracle_") as _iso_dir:
             _iso_src = Path(_iso_dir) / src.name
+            # ⭐ COMPANIONS TRAVEL WITH THE SOURCE (row aisnobol-all-eight-..., cto 2026-09-07): a program that
+            # -INCLUDEs a vendored module (SIR/TEST -> SPITCORE.sno) or opens a vendored data file by name
+            # (spitlib.spt / spitlib.idx) died in the one-file isolation and was filed "oracle died" for want of
+            # the files beside it. Every regular file of the package's own directory is copied into the
+            # throwaway cwd (a fresh copy per program, so the rename hazard the isolation exists for cannot
+            # leak back), the container's own ALL.* excepted; the source itself is written last, verbatim.
+            for _cf in src.parent.iterdir():
+                if _cf.is_file() and not _cf.name.startswith("ALL.") and _cf.name != src.name:
+                    (Path(_iso_dir) / _cf.name).write_bytes(_cf.read_bytes())
             _iso_src.write_bytes(src.read_bytes())
-            ora_text, ora_rc, ora_kind = h.run_oracle(oracle_bin, flags, _iso_src, paths["timeout"], stdin_text=stdin_text)
+            ora_text, ora_rc, ora_kind = h.run_oracle(oracle_bin, flags, _iso_src, paths["timeout"], stdin_text=stdin_text, prog_args=prog_args)
         if ora_kind == "HANG":
             excluded.append((name, "oracle timed out -- non-terminating or too slow for the grading timeout"))
             print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (oracle HANG)", file=sys.stderr)
@@ -320,6 +338,7 @@ def build(pkg_dir, lang, out_prefix="ALL"):
                      stdin=stdin_text, want_rc=want_rc)
         entries.append(e)
         _fed = f" [stdin: {stdin_path.name}]" if stdin_text is not None else ""
+        if prog_args: e.argv = list(prog_args)
         _rc = f" [want_rc={want_rc}]" if want_rc else ""
         print(f"[{i}/{len(srcs)}] {name}: ABSORBED{_fed}{_rc}", file=sys.stderr)
 
@@ -354,6 +373,12 @@ def build(pkg_dir, lang, out_prefix="ALL"):
         out_wantrc.write_text("\n".join(wr_lines) + "\n")
     elif out_wantrc.exists():
         out_wantrc.unlink()
+    out_argv = pkg_dir / f"{out_prefix}.argv"
+    av_lines = [e.name + "\t" + "\t".join(getattr(e, "argv", None) or []) for e in entries if getattr(e, "argv", None)]
+    if av_lines:
+        out_argv.write_text("\n".join(av_lines) + "\n")
+    elif out_argv.exists():
+        out_argv.unlink()
 
     table_lang = lang or "snobol4"
     cols, _ = m.LANG_TABLES[table_lang]

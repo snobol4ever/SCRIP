@@ -316,7 +316,7 @@ def resolve_oracle_bin(paths, lang=""):
     refuse(f"no oracle wired for --lang {lang!r} in capture-oracle-refs yet (only snobol4/prolog/icon/pascal so far)")
 
 
-def run_oracle(oracle_bin, flags, sno_path, timeout, stdin_text=None):
+def run_oracle(oracle_bin, flags, sno_path, timeout, stdin_text=None, prog_args=None):
     """One live oracle invocation. stdin is `/dev/null` unless the caller passes stdin_text -- the
     one caller that does is cmd_capture_oracle_refs, feeding a loose companion resolved by
     loose_stdin_companion(); every other oracle/scrip call in this file
@@ -330,7 +330,7 @@ def run_oracle(oracle_bin, flags, sno_path, timeout, stdin_text=None):
     will echo later for the SAME witness. Passing just the name, from the right cwd, is what makes
     that echoed text reproducible and comparable to a frozen .ref at all."""
     sno_path = Path(sno_path)
-    argv = [oracle_bin] + flags.split() + [sno_path.name]
+    argv = [oracle_bin] + flags.split() + [sno_path.name] + (list(prog_args) if prog_args else [])
     kind, out, _err, rc = _run_raw(argv, timeout, cwd=str(sno_path.parent), stdin_text=stdin_text)
     # ⛔⭐ AN ORACLE KILLED BY A SIGNAL IS A CRASH, NOT A RUN -- and until 2026-09-04 this returned "RAN" for one
     # (row every-ref-cutting-path-refuses-when-the-oracle-dies-mid-cut, ceo -> hq_T, on seat07's finding that
