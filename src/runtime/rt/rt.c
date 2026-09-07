@@ -912,6 +912,8 @@ static void *rt_dyn_alpha_fn_p(rt_proc_t *p, const char *name, void *fallback)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long rt_proc_call_open_p(rt_proc_t *p, int nargs);
 static int proc_open_p_on(void);
+int rt_name_save_mark(void);
+void rt_name_save_unwind(int base);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_proc_descr(const char *name, int nargs)
 {
@@ -928,6 +930,7 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
     }
     if (p->dyn_scope) { void *afn = rt_dyn_alpha_fn_p(p, name, (void *)0); if (afn) { extern DESCR_t rt_tiny_record_enter(void *fn, long nargs); int _n = nargs < CALL_ARGS_MAX ? nargs : CALL_ARGS_MAX; return rt_tiny_record_enter(afn, (long)(_n < 0 ? 0 : _n)); } }
     int _wn_gen = rt_g_want_name;
+    int _nsb = rt_name_save_mark();
     long fbytes = proc_open_p_on() ? rt_proc_call_open_p(p, nargs) : rt_proc_call_open(name, nargs);
     if (!fbytes) return FAILDESCR;
     if (!p->dyn_scope) {
@@ -938,7 +941,8 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
         return rt_proc_call_epilogue_ret(fret);
     }
     rt_g_want_name = _wn_gen;
-    return (name && strchr(name, '$')) ? rt_proc_enter((void *)p->fn) : rt_proc_enter_named((void *)p->fn, name);
+    if (name && strchr(name, '$')) { DESCR_t _r = rt_proc_enter((void *)p->fn); rt_name_save_unwind(_nsb); return _r; }
+    return rt_proc_enter_named((void *)p->fn, name);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_dyn_alpha_fn(const char *name, void *fallback)
@@ -1263,6 +1267,8 @@ void rt_name_restore(int base)
     }
     g_name_save_top = base;
 }
+int rt_name_save_mark(void) { return g_name_save_top; }
+void rt_name_save_unwind(int base) { if (base >= 0 && g_name_save_top > base) rt_name_restore(base); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void mon_emit_call_bin(const char *fname) {
     if (!g_monitor_bin || !fname) return;

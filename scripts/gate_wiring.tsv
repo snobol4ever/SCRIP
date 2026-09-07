@@ -133,6 +133,7 @@ test_gate_score_tables_agree.sh	WIRED	-	-	-
 test_gate_score_unreadable_package_is_marked.sh	WIRED	-	-	-
 test_gate_seat_identity_one_map.sh	WIRED	-	-	-
 test_gate_sm_dead.sh	WIRED	-	-	-
+test_gate_sno_deferred_capture_keeps_the_name_save_stack_balanced.sh	WIRED	-	-	-
 test_gate_sno_deferred_goto_from_match_inside_define.sh	WIRED	-	-	-
 test_gate_sno_deferred_replacement_keeps_its_capture_mark.sh	WIRED	-	-	-
 test_gate_sno_fence_body_dynamic_operand.sh	WIRED	-	-	-
