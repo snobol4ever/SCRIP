@@ -150,11 +150,16 @@ if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (
 # -- a nondeterministic compile is the xfail shape with a runner's excuse in front of it -- never a reason to
 # publish the steadier mode." The wobble is now the Pascal lane's row (pascal-m4-intermittent-segv-layout-
 # sensitive), not a thing the leaderboard steers around by choosing an arm.
-# ⚠️⛔ AND THAT ROW IS FILED DONE WHILE THE DEFECT IS LIVE -- measured 2026-09-06 22:5x, not assumed: it sits
-# in QUEUE.done.tsv, rank 1, unassigned, FREE, and it is absent from QUEUE.tsv entirely. The defect it names is
-# in tonight's board (m3 130 vs m4 116) and in this file's own header (5 runs, 5 counts, one tree). The ruling
-# needs it OPEN; reported to the ceo and hq_V rather than reopened from this lane. ⭐ Recorded here because a
-# comment that cites a row as live is a PREMISE, and an unmeasured premise is shape 4 of HOW A CRITERION LIES.
+# ✅ AND THE ROW IS LIVE -- REOPENED BY THE ceo AT 21:05 (CEO-379, .github 3879c3d3): rank 0, assignee hq_V,
+# FREE. It had been filed in QUEUE.done.tsv, unassigned, absent from QUEUE.tsv, while the defect it names was in
+# that night's board (m3 130 vs m4 116) and in this file's own header (5 runs, 5 counts, one tree) -- measured
+# 2026-09-06 22:5x and asked up rather than reopened from this lane. ⭐ THE ceo's REASON IS THE REUSABLE PART:
+# the row's DONE-WHEN graded the GATE's population and was honestly met there, while the CLASS lives on this
+# suite's population -- one member cured, the class red. A DONE-WHEN met on a narrower population than the class
+# it names closes a row that nothing has fixed (shape 2 of HOW A CRITERION LIES, from the closing side).
+# hq_V re-scopes the criterion (five suite runs on one clean tree read ONE m4 count) and proves it red once.
+# ⭐ Recorded here because a comment that cites a row as live is a PREMISE, and an unmeasured premise is
+# shape 4 -- which is why it was checked instead of cited.
 # ⛔ THE NUMBER DROPS FROM $M3_PASS (m3, as published) TO $BOTH_PASS -- 130 to 116 of 181, measured this
 # sitting -- AND THAT IS A CRITERION CHANGE, NOT A REGRESSION. The commit landing it says so in those words.
 python3 "$HERE/util_score_row.py" write --lang pascal --column vendor --suite fpc --modes m3,m4 \
