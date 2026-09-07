@@ -5066,7 +5066,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     if ((_bid == BID_integer) && nargs == 1) {
         DESCR_t av = args[0];
         if (IS_INT_fn(av))  { *out = av; return 1; }
-        if (IS_REAL_fn(av)) { *out = INTVAL((long long)av.r); return 1; }
+        if (IS_REAL_fn(av)) { if (!isfinite(av.r)) { *out = FAILDESCR; return 1; } if (fabs(av.r) >= 9223372036854775807.0) { extern DESCR_t rt_big_from_str(const char *); char _bb[400]; snprintf(_bb, sizeof _bb, "%.0f", trunc(av.r)); *out = rt_big_from_str(_bb); return 1; } *out = INTVAL((long long)av.r); return 1; }
         const char *s = VARVAL_fn(av); if (!s) { *out = FAILDESCR; return 1; }
         { long long rv; if (icon_radix_int(s, &rv)) { *out = INTVAL(rv); return 1; } }
         { extern DESCR_t rt_big_from_str(const char *); errno = 0; char *e2; strtoll(s, &e2, 10);

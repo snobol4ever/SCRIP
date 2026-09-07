@@ -224,6 +224,8 @@ DESCR_t pat_alt(DESCR_t left, DESCR_t right) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t subscript_get(DESCR_t arr, DESCR_t idx) {
+    if (IS_REAL_fn(arr)) { extern DESCR_t descr_to_str_fracdigit(DESCR_t); arr = descr_to_str_fracdigit(arr); }
+    if (arr.v == DT_BIG) { extern char *rt_big_str(DESCR_t); arr = STRVAL(rt_big_str(arr)); }
     if (arr.v == DT_A) {
         return array_get(arr.arr, (int)to_int(idx));
     }
@@ -354,6 +356,8 @@ DESCR_t subscript_get2_ext(DESCR_t arr, DESCR_t i, DESCR_t end) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) {
+    if (IS_INT_fn(arr) || IS_REAL_fn(arr)) { extern DESCR_t descr_to_str_fracdigit(DESCR_t); arr = descr_to_str_fracdigit(arr); }
+    if (arr.v == DT_BIG) { extern char *rt_big_str(DESCR_t); arr = STRVAL(rt_big_str(arr)); }
     if (arr.v == DT_A)
         return array_get2(arr.arr, (int)to_int(i), (int)to_int(j));
     if (arr.v == DT_DATA) {

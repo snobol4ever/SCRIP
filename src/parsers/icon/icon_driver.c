@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char * icn_read_file(const char * path) {
     FILE * f = fopen(path, "rb");
@@ -53,6 +54,12 @@ static char * icn_link_open(const char * dir, const char * nm, char * out, size_
             p = colon + 1;
         }
     }
+    { char exe[1024]; ssize_t el = readlink("/proc/self/exe", exe, sizeof exe - 1);
+      if (el > 0) { exe[el] = '\0'; char * sl = strrchr(exe, '/'); if (sl) { *sl = '\0';
+          snprintf(out, outsz, "%s/../corpus/packages/icon/ipl/procs/%s.icn", exe, nm);
+          icn_link_note(tried, triedsz, out);
+          src = icn_read_file(out);
+          if (src) return src; } } }
     snprintf(out, outsz, "%s/%s.icn", dir, nm);
     return NULL;
 }
