@@ -445,6 +445,14 @@ static IR_t * pl_lower_ite(lcx_t * cx, const tree_t * C, const tree_t * T, const
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_leaf_lv(lcx_t * cx, const char * sym, const tree_t * t, int nargs, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out);
+static IR_t * pl_lower_scc(lcx_t * cx, const tree_t * S, const tree_t * G, const tree_t * C, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    tree_t * ball = pl_meta_var("$SccBall");
+    tree_t * quiet = pl_cc_fnc2(",", pl_cc_fnc3("catch", pl_cc_fnc1("once", (tree_t *) C), pl_meta_var("$SccIgn"), (tree_t *) pl_atom_goal("true")), pl_cc_fnc1("throw", ball));
+    tree_t * ran = pl_cc_ite(pl_cc_fnc3("catch", (tree_t *) G, ball, quiet), pl_cc_fnc1("once", (tree_t *) C),
+                             pl_cc_fnc2(",", pl_cc_fnc1("once", (tree_t *) C), (tree_t *) pl_atom_goal("fail")));
+    return goal(cx, pl_cc_fnc2(",", pl_cc_fnc1("once", (tree_t *) S), ran), γnext, ωfail, entry_out);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_lower_catch(lcx_t * cx, const tree_t * G, const tree_t * C, const tree_t * R, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     IR_t * mark = build(cx, IR_BOUND, NULL, ωfail);
     IR_t * unmk = build(cx, IR_UNMARK, NULL, ωfail); ir_operand_push(unmk, mark);
@@ -837,6 +845,8 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         }
         if (!strcmp(nm, "throw") && t->n == 1) return pl_leaf(cx, "$throw", t, 1, ωfail, ωfail, entry_out);
         if (!strcmp(nm, "catch") && t->n == 3) return pl_lower_catch(cx, t->c[0], t->c[1], t->c[2], γnext, ωfail, entry_out);
+        if (!strcmp(nm, "setup_call_cleanup") && t->n == 3) return pl_lower_scc(cx, t->c[0], t->c[1], t->c[2], γnext, ωfail, entry_out);
+        if (!strcmp(nm, "call_cleanup") && t->n == 2 && !pl_file_defines(nm, 2)) return pl_lower_scc(cx, pl_atom_goal("true"), t->c[0], t->c[1], γnext, ωfail, entry_out);
         if (!strcmp(nm, "=") && t->n == 2) { IR_t * e = NULL; IR_t * nd = unify_pair(cx, t->c[0], t->c[1], γnext, ωfail, &e); if (entry_out) *entry_out = e ? e : nd; return nd; }
         if (!strcmp(nm, "\\=") && t->n == 2) {
             tree_t * u = ast_node_new(TT_UNIFY); ast_push(u, (tree_t *) t->c[0]); ast_push(u, (tree_t *) t->c[1]);
