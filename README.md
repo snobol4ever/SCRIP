@@ -157,20 +157,35 @@ only in third-party numbers** — each language is graded against its reference
 implementation's own published test suite, vendored unmodified. Speed is a multiple
 on the faster axis (`reference time / SCRIP time` — above 1.00x SCRIP is ahead,
 below 1.00x behind); every number carries its date, and every grid names the script
-that produced it. Summary, measured 2026-08-30:
+that produced it. Summary, measured 2026-08-30, superseded by the table below:
 
-| Language | Third-party suite | mode 3 | mode 4 |
-|---|---|---|---|
-| SNOBOL4 | snoflake fixtures (180; CSNOBOL4 home dialect — see the controls) | PASS=77 FAIL=96 | PASS=77 FAIL=47 (50 skipped at the link step) |
-| SNOBOL4 | Budne CSNOBOL4 suite (118 gradable `.ref` pairs; home-dialect oracle csnobol4, not sbl) | PASS=52 FAIL=25 REJECT=40 CRASH=1 HANG=0 | PASS=52 FAIL=24 REJECT=41 CRASH=1 HANG=0 |
-| Icon | Arizona Icon v9.5 `tests/general` (89 gradable) | PASS=39 FAIL=50 | PASS=40 FAIL=49 |
-| Icon | JCON test suite (81 gradable) | PASS=41 FAIL=25 CRASH=13 HANG=2 | PASS=39 FAIL=32 CRASH=8 HANG=2 |
-| Prolog | SWI-Prolog plunit suite (114) | PASS=92 FAIL=22 (80%) | — |
-| Prolog | GNU Prolog source tree (62 files) | 45 compile as libraries; 15 run: 6 match, 9 differ; 2 parse-fail | — |
-| Raku | Roast (official spec tests, 986 in-tier 6.c files) | PASS=3 FAIL=9 PARSE-FAIL=927 NO-TAP=4 CRASH=2 (41 missing) | — |
-| Pascal | FPC test suite (181 vendored) | PASS=119 FAIL=62 | PASS=119 FAIL=62 |
-| Snocone | none exists (see section) | — | — |
-| Rebus | none exists (see section) | — | — |
+Summary as the leaderboard (`.github/SCORE.md` § THE SUITE TABLE, machine record `SUITES.tsv`) reads on 2026-09-07 — every row is
+written by the suite's own runner in the landing that measured it, a program counts only when it passes in BOTH modes, and the
+seven language masters (our own flat suites, refs cut from each oracle) sit beside the vendored third-party suites:
+
+| Language | Suite | passing / graded (both modes, the AND per program) | tree | measured | script |
+|---|---|---|---|---|---|
+| SNOBOL4 | Gimpel | **104/127** | `3c61eaae8` | 2026-09-07 | `test_snobol4_gimpel_suite.sh` |
+| SNOBOL4 | Budne | **72/120** | `e1c74e259` | 2026-09-06 | `test_snobol4_csnobol4_suite.sh` |
+| SNOBOL4 | Flake | **99/180** | `345fea6e4` | 2026-09-07 | `test_snoflake_suite.sh` |
+| SNOBOL4 | AIS | **4/7** | `52de694e0` | 2026-09-07 | `test_snobol4_aisnobol_suite.sh` |
+| SNOBOL4 | Dotnet | **5/5** | `52de694e0` | 2026-09-07 | `test_snobol4_dotnet_suite.sh` |
+| SNOBOL4 | SnoM (master) | **1858/1858** | `ac9fe5e9f` | 2026-09-07 | `test_corpus_snobol4.sh` |
+| Icon | Zona | **54/90** | `90e0d5732` | 2026-09-07 | `test_icon_arizona_suite.sh` |
+| Icon | Jcon | **51/91** | `52de694e0` | 2026-09-07 | `test_icon_jcon_suite.sh` |
+| Icon | IPL | **75/89** | `52de694e0` | 2026-09-07 | `test_icon_ipl_suite.sh` |
+| Icon | IcnM (master) | **705/705** | `2a01165f6` | 2026-09-07 | `board_icon_master.sh` |
+| Prolog | INRIA | **396/445** | `52de694e0` | 2026-09-07 | `test_prolog_inria_suite.sh` |
+| Prolog | SWI | **8/118** | `11fbf6492` | 2026-09-06 | `test_prolog_swi_suite.sh` |
+| Prolog | GNU | **11/11** | `52de694e0` | 2026-09-07 | `test_prolog_gnu_suite.sh` |
+| Prolog | ProM (master) | **518/559** | `d6f4ead3e` | 2026-09-06 | `corpus_suite_harness.py run tests/prolog/ALL.pl` |
+| Pascal | FPC | **116/181** | `52de694e0` | 2026-09-07 | `test_pascal_fpc_suite.sh` |
+| Pascal | PAT | **292/427** | `52de694e0` | 2026-09-07 | `test_pascal_pat_suite.sh` |
+| Pascal | PasM (master) | **248/251** | `cell-09-06` | 2026-09-06 | `corpus_suite_harness.py run tests/pascal/ALL.pas` |
+| Raku | Roast | **5/986** | `a5aea2ad1` | 2026-09-06 | `raku_roast_scoreboard.sh --run` |
+| Raku | RakM (master) | **656/820** | `6433a618d` | 2026-09-06 | `corpus_suite_harness.py run tests/raku/ALL.raku` |
+| Snocone | SncM (master) | **176/206** | `cell-09-03` | 2026-09-03 | `corpus_suite_harness.py run tests/snocone/ALL.sc` |
+| Rebus | RebM (master) | **15/48** | `cell-09-03` | 2026-09-03 | `corpus_suite_harness.py run tests/rebus/ALL.reb` |
 
 ### SNOBOL4 / SPITBOL
 
