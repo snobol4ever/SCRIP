@@ -3004,6 +3004,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                   + x86("call", _use_zframe_install ? "rt_icn_zframe_args_install" : "rt_lcl_proc_args_install",
                         (uint64_t)(uintptr_t)(void *)(_use_zframe_install ? rt_icn_zframe_args_install : rt_lcl_proc_args_install)));
         if (getenv("SCRIP_N2_OFFSET_SELFTEST")) icn_gen_host_reserve_selftest(prefix);
+        icn_gen_host_layout_audit(prefix);
     } else if (g_emit.flat_lcl_proc) {
         int kt2 = g_emit.flat_frame_bytes;
         int np = g_emit_cfg ? g_emit_cfg->nparams : 0;
@@ -3015,6 +3016,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         g_emit.flat_carve_total = frame_total;
         (void)host_frame_base;
         if (getenv("SCRIP_N2_OFFSET_SELFTEST")) icn_gen_host_reserve_selftest(prefix);
+        icn_gen_host_layout_audit(prefix);
         extern void rt_lcl_proc_args_install(void *, int, int);
         extern void rt_icn_zframe_args_install(void *, int, int);
         int _use_zframe_install = (g_emit_cfg && g_emit_cfg->icn_cells_graph) ? 1 : 0;

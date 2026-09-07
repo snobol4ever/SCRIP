@@ -932,6 +932,42 @@ inline int icn_gen_host_reserve_offset(const char * prefix, const IR_t * call_no
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline int icn_gen_host_area_as_host(const char * cn, int * out_area) {
+    IR_graph_t * cg = n2_graph_by_proc_name(cn); if (!cg) { *out_area = 0; return 1; }
+    if (!emit_graph_has_suspend(cg) || cg->zframe_graph) { *out_area = 0; return 1; }
+    const char * visited[N2_RESERVE_MAX_DEPTH]; int nv = 0; visited[nv++] = cn;
+    return icn_gen_host_reserve_walk(cg, visited, nv, out_area);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline int icn_gen_host_layout_on() {
+    static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ICN_GENHOST_AUDIT"); v = (e && *e == '0') ? 0 : 1; } return v;
+}
+inline int icn_gen_host_layout_strict() {
+    static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ICN_GENHOST_LAYOUT_STRICT"); v = (e && *e == '1') ? 1 : 0; } return v;
+}
+inline int icn_gen_host_layout_audit(const char * prefix) {
+    if (!icn_gen_host_layout_on()) return 0;
+    if (!icn_gen_regime() || !g_emit_cfg) return 0;
+    const char * visited[N2_RESERVE_MAX_DEPTH]; int nv = 0;
+    if (g_emit.flat_fam && g_emit.flat_fam[0]) visited[nv++] = g_emit.flat_fam;
+    int bad = 0;
+    for (int i = 0; i < g_emit_cfg->n; i++) {
+        IR_t * hn = g_emit_cfg->all[i]; if (!hn) continue;
+        if (!ir_is_call_kind(hn->op) && hn->op != IR_CALL && hn->op != IR_PROC_GEN) continue;
+        const char * cn = IR_LIT(hn).sval;
+        if (!cn || !cn[0] || !rt_proc_is_registered(cn) || !rt_proc_is_generator(cn)) continue;
+        int slice = 0; if (!icn_gen_host_slice(cn, &slice, visited, nv)) continue;
+        int fb = -1; if (!emit_patzeta_frame_reserve(cn, &fb) || fb <= 0) continue;
+        int container = slice - (((fb + 15) & ~15) + 48);
+        int contents = 0; if (!icn_gen_host_area_as_host(cn, &contents)) continue;
+        if (container >= contents) continue;
+        bad++;
+        fprintf(stderr, "[GENHOST-LAYOUT] ⛔ host=%s callee=%s CONTAINER=%d CONTENTS=%d SHORT_BY=%d: the slice this host reserves for the callee's own callee area is smaller than the area that callee lays out for itself when it is compiled, so the callee's first generator call site addresses storage past the end of its region. The caller's walk cut the cycle early (its visited set already carries this host's ancestors); the callee's own walk did not. This is a SILENT WILD WRITE, not a stack overflow.\n", prefix ? prefix : "?", cn, container, contents, contents - container);
+    }
+    if (bad > 0 && icn_gen_host_layout_strict()) { fprintf(stderr, "[GENHOST-LAYOUT] ⛔ REFUSING (rc=2): host=%s has %d generator call site(s) whose region is smaller than the area the callee lays out for itself. SCRIP_ICN_GENHOST_LAYOUT_STRICT=1 turns this audit into a compile-time refusal; it is REPORTED-NOT-BLOCKING by default because the layout it names is already wrong on programs that pass today only by not recursing deep enough, so a refusal would red them (hq_B census 2026-09-06, all 46 Icon demo+benchmark programs: 4 fire, 3 of those are green against the icont oracle today). Cure the SIZING -- per-activation, per-path carving on the stack, ceo-372 -- and this audit reads zero, which is the arm that proves it.\n", prefix ? prefix : "?", bad); exit(2); }
+    return bad;
+}
 inline void icn_gen_host_reserve_selftest(const char * prefix) {
     if (!icn_gen_regime() || !g_emit_cfg) return;
     int total = icn_gen_host_reserve(0);
