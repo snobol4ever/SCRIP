@@ -113,7 +113,15 @@ if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (
 # ⛔ NON-FATAL BY DESIGN: a bookkeeping failure must never turn a real measurement into a red board,
 # because a gate that goes red for a reason unrelated to the code is a gate people route around. It
 # warns and names the unrecorded row instead; it has no silent path.
+# ⛔⭐ THE SUITE ROW'S PAIR IS DECLARED, NEVER PARSED (hq_T 2026-09-06, ceo CEO-363; the coo had to set
+# this row BY HAND after a clean run because util_score_row correctly REFUSED to guess). The --text below
+# carries TWO fractions over the same denominator (m3 and m4), and there is no fact of the matter about
+# which one a single-number suite row means -- so the writer refuses rather than picking, and the runner
+# says which it means. ⚠ THE CHOICE HERE IS THE m4 ARM, because that is what this suite's existing
+# SUITES.tsv row already carries; wiring m3 would have published a REGRESSION that never happened. That is
+# a reason, not a ruling -- it is one line to change if the ceo rules the row should track m3 or min().
 python3 "$HERE/util_score_row.py" write --lang pascal --column vendor --suite fpc --modes m3,m4 \
+    --suite-pass "$M4_PASS" --suite-total "$TOTAL" \
     --measurer "${S4E_SEAT:-}" --text "m3 $M3_PASS/$TOTAL · m4 $M4_PASS/$TOTAL (m3_fail=$M3_FAIL m4_fail=$M4_FAIL reject=$REJECT${INV_LINE:+ · $INV_LINE (\`test_pascal_fpc_suite.sh\`)})" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 

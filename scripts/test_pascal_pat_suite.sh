@@ -125,7 +125,18 @@ if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (
 echo "  diagnosis (counted INSIDE fail, never beside it): m3 crash-or-ran-to-bound=${C[m3]} · m4 crash-or-ran-to-bound=${C[m4]} — the verdict is REFUSED-WITH-A-DIAGNOSTIC or not, which does not vary with machine load; this split does"
 [ -n "${PAT_NAME_REDS:-}" ] && { echo "  reds:"; for x in $NAMED; do echo "    $x"; done | head -40; }
 if . "$HERE/lib_gate.sh" 2>/dev/null && command -v gate_stamp >/dev/null 2>&1; then gate_stamp; fi
+# ⛔⭐ THE SUITE ROW'S PAIR IS DECLARED, NEVER PARSED (hq_T 2026-09-06, ceo CEO-363; the coo had to set
+# this row BY HAND after a clean run because util_score_row correctly REFUSED to guess). The --text below
+# carries TWO fractions over the same denominator (m3 and m4), and there is no fact of the matter about
+# which one a single-number suite row means -- so the writer refuses rather than picking, and the runner
+# says which it means. ⚠ THE CHOICE HERE IS THE m4 ARM, because that is what this suite's existing
+# SUITES.tsv row already carries; wiring m3 would have published a REGRESSION that never happened. That is
+# a reason, not a ruling -- it is one line to change if the ceo rules the row should track m3 or min().
+# ⭐ AND THIS TEXT ALSO CARRIES A FRACTION-SHAPED DIAGNOSTIC -- the "(N/M crash)" counts -- which any
+# text-parsing rule would read as a THIRD distinct fraction. Declaring the pair makes the parse moot: the
+# overrides short-circuit it entirely, so no diagnostic that merely LOOKS like a fraction can move this row.
 python3 "$HERE/util_score_row.py" write --lang pascal --column vendor --suite PAT --modes m3,m4 \
+    --suite-pass "${P[m4]}" --suite-total "$TOTAL" \
     --measurer "${S4E_SEAT:-}" \
     --text "ISO 7185 validation suite (Pascal-P5 1.4.x, vendored corpus/packages/pascal/pat): $TOTAL programs — m3 ${P[m3]}/$TOTAL · m4 ${P[m4]}/$TOTAL (${C[m3]}/${C[m4]} crash). 427 are REJECTION tests graded on whether scrip refuses them${INV_LINE:+ . $INV_LINE}, per \`test_pascal_pat_suite.sh\`" \
     2>&1 | sed 's/^/    /'

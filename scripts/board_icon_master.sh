@@ -224,7 +224,13 @@ fi
 # ⛔ PLACED ABOVE THE RED EXIT ON PURPOSE. A red board is still a MEASUREMENT, and the FACT RULE says
 # ANY run -- recording only green boards would make the leaderboard a trophy cabinet, showing each
 # suite's best remembered day rather than its state, which is the exact opposite of what it is for.
+# ⛔⭐ DECLARE THE PAIR RATHER THAN RELY ON THE TEXT HAPPENING TO CARRY ONE FRACTION (hq_T 2026-09-06,
+# ceo CEO-363). This row auto-resolved until now only because its board line prints m3 and m4 with the SAME
+# numbers, so the two fractions collapsed to one reading; the day the modes diverge -- which is exactly the
+# day the number matters -- it would have started refusing instead. A mechanism that works because two
+# values happen to be equal is not wired, it is lucky.
 python3 "$HERE/util_score_row.py" write --lang icon --column board --modes m3,m4 \
+    --suite-pass "$m4p" --suite-total "$mt" \
     --measurer "${S4E_SEAT:-}" \
     --text "$([ "$RED" -ne 0 ] && echo "⛔ RED — ")run-graded m3 $m3p/$mt · m4 $m4p/$mt (entries=$graded, floors m3 $M3_PASS_FLOOR / m4 $M4_PASS_FLOOR, \`board_icon_master.sh\`) · ast-shape check $ap/$at (informational, not scored)$_named" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
