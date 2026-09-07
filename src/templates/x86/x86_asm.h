@@ -459,6 +459,9 @@ inline const char * x86_jcc_invert(const char * m) { return x86_jcc_canon((uint8
 inline const char * x86_zr()         { return "rsp"; }
 inline int          x86_zr_num()     { return 4; }
 inline int x86_fb_pinned() { return emit_zframe_pinned(); }
+inline int icn_host_pin_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ICN_HOST_PIN"); v = (e && *e == '0') ? 0 : 1; } return v; }
+inline int icn_host_pinned() { return (icn_host_pin_on() && g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && !g_emit.flat_gen && !g_emit.zframe_graph) ? 1 : 0; }
+inline int x86_fb_pinned_any() { return (x86_fb_pinned() || icn_host_pinned()) ? 1 : 0; }
 static inline int x86_fb_stmt_on() { static int m = -1; if (m < 0) { const char * e = getenv("SCRIP_FB_STMT"); m = (e && *e == '0') ? 0 : 1; } return m; }
 inline int x86_fb_data() { return 0; }
 inline int x86_frame_off_rsp(int off) { return off + _.op_zdepth; }

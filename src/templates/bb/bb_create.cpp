@@ -17,7 +17,7 @@ std::string bb_create() {
                          "(operand[0] not found in this chain's nodes[]? the BFS operand[0] enqueue may be missing)");
     std::string s = x86("comment", "IR_CREATE")
                    + x86_alpha();
-    static const char *contract_regs[7] = {"r12", "r13", "r14", "r15", "rbx", "rsp", "r9"};
+    const char *contract_regs[7] = {"r12", "r13", "r14", "r15", "rbx", icn_host_pinned() ? "rbp" : "rsp", "r9"};
     for (int k = 0; k < 7; k++) {
         s += x86("mov", "qword ptr [" + std::string(x86_fb()) + " + " + std::to_string(_.op_off + 16 + k * 8) + "]", contract_regs[k]);
     }

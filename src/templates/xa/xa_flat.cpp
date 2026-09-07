@@ -441,7 +441,7 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel")
              + x86("mov", RDQ("rax", 0), "rcx")
              + x86("pop", "rax")
-             + x86("add", "rsp", (long)kt)
+             + (icn_host_pinned() ? x86("lea", "rsp", RDQ("rbp", kt)) + x86("mov", "rbp", RDQ("rbp", kt - 8)) : x86("add", "rsp", (long)kt))
              + bb_glue_wire_γ();
     if (zf_pas_nest_graph())
         return x86("comment", "PAS-NEST epilogue-γ: bcps callers PUSH the wire pair and assume the callee consumes it (bcps_wire_pair_consumed=1); the [kt-24] arm left the pair seated and skewed every frame-relative caller access by 16 — the whole nest* rc=139 class. Consume: pop γ-landing, discard ω, jmp")
@@ -499,7 +499,7 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
              + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel")
              + x86("mov", RDQ("rax", 0), "rcx")
              + x86("pop", "rax")
-             + x86("add", "rsp", (long)kt)
+             + (icn_host_pinned() ? x86("lea", "rsp", RDQ("rbp", kt)) + x86("mov", "rbp", RDQ("rbp", kt - 8)) : x86("add", "rsp", (long)kt))
              + bb_glue_wire_ω();
     if (zf_pas_nest_graph())
         return x86("comment", "PAS-NEST epilogue-ω: consume the caller-pushed wire pair (discard γ-landing, jmp ω-landing) — twin of PAS-NEST epilogue-γ")

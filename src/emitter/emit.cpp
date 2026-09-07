@@ -3015,6 +3015,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (host_reserve > 0) frame_total += host_reserve;
         g_emit.flat_carve_total = frame_total;
         (void)host_frame_base;
+        std::string _pin;
+        if (icn_host_pinned()) _pin = x86("mov", RDQ("rsp", frame_total - 8), "rbp") + x86("mov", "rbp", "rsp");
         if (getenv("SCRIP_N2_OFFSET_SELFTEST")) icn_gen_host_reserve_selftest(prefix);
         icn_gen_host_layout_audit(prefix);
         extern void rt_lcl_proc_args_install(void *, int, int);
@@ -3034,7 +3036,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             _lz += _iws ? snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "sub rsp, %d\n", frame_total)
                         : snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "sub rsp, %d\nmov qword ptr [rsp + %d], rcx\nmov qword ptr [rsp + %d], rdx\n", frame_total, frame_total - 24, frame_total - 16);
             emit_text_n(_lp, strlen(_lp));
-            if (!_lseed.empty()) bb_emit_x86(_lseed);
+            if (!_pin.empty()) bb_emit_x86(_pin); if (!_lseed.empty()) bb_emit_x86(_lseed);
             _lz = 0; _lz += snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "mov rdi, rsp\nmov esi, %d\nmov edx, %d\ncall %s@PLT\n", np, nl, _use_zframe_install ? "rt_icn_zframe_args_install" : "rt_lcl_proc_args_install");
             emit_text_n(_lp, strlen(_lp));
         } else {
@@ -3044,7 +3046,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             { int _d = frame_total - 16; ef_b2(0x48, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x54, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0x94, 0x24); bb_emit_u32((uint32_t)_d); } }
             { static int _hd = -1; if (_hd < 0) { const char * _e = getenv("SCRIP_ICN_HDR_DEAD"); _hd = (_e && *_e == '1') ? 1 : 0; } if (_hd) { int _d = frame_total - 8; ef_b2(0x48, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x6C, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0xAC, 0x24); bb_emit_u32((uint32_t)_d); } } }
             }
-            if (!_lseed.empty()) bb_emit_x86(_lseed);
+            if (!_pin.empty()) bb_emit_x86(_pin); if (!_lseed.empty()) bb_emit_x86(_lseed);
             ef_b3(0x48, 0x89, 0xE7);
             ef_b1(0xBE); bb_emit_u32((uint32_t)np);
             ef_b1(0xBA); bb_emit_u32((uint32_t)nl);
