@@ -1051,12 +1051,9 @@ __asm__(
 "5:\n"
 "  cmpb $0x68, %al\n"
 "  je 6f\n"
-"  movq 24(%rdx), %rsp\n"
 "  movq %rdx, %rdi\n"
 "  call rt_genp_deliver_n2_γ\n"
-"  movq 24(%rax), %rsp\n"
-"  # RESUME RE-CREATION, RUNTIME TWIN: rebuild the body depth from the ANCHOR exactly as the compiled beta does (emit.cpp N-2 STEP 3 RESUME LANDING: mov rsp,[H+24]; sub rsp,48). This constant is ANCHOR - body_rsp and is fixed by the callee prologue's own lea, so it is 48 for every arm and was left at 40 when b49fd7a4 moved that lea -- activations 2..n re-entered one word high, off by the same word as the entry above.\n"
-"  subq $48, %rsp\n"
+"  movq 40(%rax), %rsp\n"
 "  jmpq *32(%rax)\n"
 "6:\n"
 "  call rt_genp_deliver_ω\n"
@@ -1078,7 +1075,7 @@ void rt_genp_entry_c(rt_genp_s *g)
     for (int i = 0; i < g->nargs; i++) rt_arg_stage(i, g->args[i]);
     long fb = rt_proc_call_open(g->name, g->nargs);
     if (!fb) { g->done = 2; scrip_cofail(); }
-    if (g->region_ft > 0) { long rb = ((g->region_ft + 48L) + 15L) & ~15L; char *rraw = (char *)alloca((size_t)rb + 16); char *reg = (char *)(((uintptr_t)rraw + 15u) & ~(uintptr_t)15u); memset(reg, 0, (size_t)rb); rt_genp_spine_enter_n2(g->fn, (void *)reg); } else rt_genp_spine_enter(g->fn);
+    if (g->region_ft > 0) rt_genp_spine_enter_n2(g->fn, (void *)0); else rt_genp_spine_enter(g->fn);
     g->done = 2; scrip_cofail();
     for (;;) pause();
 }

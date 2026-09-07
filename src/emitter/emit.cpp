@@ -2993,33 +2993,28 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         extern void rt_lcl_proc_args_install(void *, int, int);
         extern void rt_icn_zframe_args_install(void *, int, int);
         int _use_zframe_install = (g_emit_cfg && g_emit_cfg->icn_cells_graph) ? 1 : 0;
-        bb_emit_x86(x86("comment", "N-2 STEP 3 (ceo s283): THE GENERATOR FRAME IS REGION-RESIDENT -- alpha consumes the region pointer the call site pushed and carves NOTHING on the machine stack. Entry stack (bcps_spine_gen_arm, armed): [rsp+0]=gamma [rsp+8]=omega [rsp+16]=REGION [rsp+24]=L7 [rsp+32]=pad [rsp+40]=ABI word, caller pre-pad rsp0=[rsp+48]. The slice is [R, R+ft+48), header H=R+ft: [H+0]=saved caller rbp [H+8]=gamma [H+16]=omega [H+24]=ANCHOR(rsp0) [H+32]=resume label. rbp:=H, so item 1's [rbp+off-ft] zeta spellings land inside the region unchanged and [rbp+0/+8/+16] keep their law-0a meanings -- gamma-SUSPEND reads them in place exactly as before, but from storage that SURVIVES the caller's own calls, which is the whole cure: the old stack carve sat below the landing's restored rsp and was dead the moment the caller ran (the s275 finding). rsp is left at entry depth -- spine state dies with the call (JCON's operand-stack law), the body runs 48 bytes below rsp0 = 0 mod 16, so every call it makes enters its helper at the 8 mod 16 SysV requires -- it ran 40 below (8 mod 16) until 2026-09-06 and entered every helper misaligned, latent until a callee reached an aligned SSE store; beta re-creates rsp0-48 from the ANCHOR so every re-entry runs at first-entry parity. ⛔ NO sub rsp here: the region replaces the carve, it does not supplement it. ⛔ A call site that cannot supply a region (flat_gen host -- transitive reserve is the follow-on row -- or forward reference) BOMBS loudly at the call instead of letting this prologue read garbage at [rsp+16]; that refusal lives in bcps_spine_gen_arm, keyed on the same icn_gen_host_reserve() the carve uses.")
-                  + x86("mov", "rax", RDQ("rsp", 16))
+        int carve = ((frame_total + 15) & ~15) + 48;
+        bb_emit_x86(x86("comment", "N-3 (ceo 2026-09-07, Lon: each BB carves its own memory, nothing is pre-carved): alpha carves THIS activation's own frame on the spine below the six entry words -- [R, R+ft) cells, header H=R+ft: [H+0]=caller rbp [H+8]=gamma [H+16]=omega [H+24]=ANCHOR(rsp0) [H+32]=resume label [H+40]=spine top banked at gamma; rbp:=H, rsp:=R. Entry stack unchanged: [rsp+0]=gamma [rsp+8]=omega [rsp+16]=unused [rsp+24]=L7 [rsp+32]=pad [rsp+40]=ABI word, rsp0=[rsp+48]. The frame survives gamma (the caller continues BELOW it and beta restores rsp from [H+40]) and is popped by omega (rsp:=ANCHOR). No host walks its callees, no maximum, no depth table.")
+                  + x86("lea", "rax", RDQ("rsp", 0 - carve))
                   + x86("mov", RDQ("rax", frame_total + 0), "rbp")
                   + x86("mov", "rcx", RDQ("rsp", 0)) + x86("mov", RDQ("rax", frame_total + 8), "rcx")
                   + x86("mov", "rcx", RDQ("rsp", 8)) + x86("mov", RDQ("rax", frame_total + 16), "rcx")
                   + x86("lea", "rcx", RDQ("rsp", 48)) + x86("mov", RDQ("rax", frame_total + 24), "rcx")
-                  + IF(icn_genframe2_selfrec() && g_emit_cfg && icn_gen_is_selfrec(g_emit.flat_fam),
-                       x86("comment", "row icon-n2-recursive-generator-per-activation-storage: bank the caller-passed depth (repurposed pad slot, [entry rsp+32] -- see bb_call_proc_staged.cpp's matching push) into the free header slot H+40, so a deeper recursive call FROM this activation can read it back and bound itself.")
-                       + x86("mov", "rcx", RDQ("rsp", 32)) + x86("mov", RDQ("rax", frame_total + 40), "rcx"))
                   + x86("lea", "rbp", RDQ("rax", frame_total))
+                  + x86("mov", "rsp", "rax")
                   + x86("mov", "rdi", "rax") + x86("mov32", "esi", (long)np) + x86("mov32", "edx", (long)nl)
                   + x86("call", _use_zframe_install ? "rt_icn_zframe_args_install" : "rt_lcl_proc_args_install",
                         (uint64_t)(uintptr_t)(void *)(_use_zframe_install ? rt_icn_zframe_args_install : rt_lcl_proc_args_install)));
-        if (getenv("SCRIP_N2_OFFSET_SELFTEST")) icn_gen_host_reserve_selftest(prefix);
-        icn_gen_host_layout_audit(prefix);
     } else if (g_emit.flat_lcl_proc) {
         int kt2 = g_emit.flat_frame_bytes;
         int np = g_emit_cfg ? g_emit_cfg->nparams : 0;
         int nl = g_emit_cfg ? g_emit_cfg->nlocals : 0;
         int frame_total = kt2 + (np + nl) * 16;
         int host_frame_base = frame_total;
-        int host_reserve = icn_gen_host_reserve(prefix);
-        if (host_reserve > 0) frame_total += host_reserve;
         g_emit.flat_carve_total = frame_total;
         (void)host_frame_base;
-        if (getenv("SCRIP_N2_OFFSET_SELFTEST")) icn_gen_host_reserve_selftest(prefix);
-        icn_gen_host_layout_audit(prefix);
+        std::string _pin;
+        if (icn_host_pinned()) _pin = x86("mov", RDQ("rsp", frame_total - 8), "rbp") + x86("mov", "rbp", "rsp");
         extern void rt_lcl_proc_args_install(void *, int, int);
         extern void rt_icn_zframe_args_install(void *, int, int);
         int _use_zframe_install = (g_emit_cfg && g_emit_cfg->icn_cells_graph) ? 1 : 0;
@@ -3037,7 +3032,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             _lz += _iws ? snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "sub rsp, %d\n", frame_total)
                         : snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "sub rsp, %d\nmov qword ptr [rsp + %d], rcx\nmov qword ptr [rsp + %d], rdx\n", frame_total, frame_total - 24, frame_total - 16);
             emit_text_n(_lp, strlen(_lp));
-            if (!_lseed.empty()) bb_emit_x86(_lseed);
+            if (!_pin.empty()) bb_emit_x86(_pin); if (!_lseed.empty()) bb_emit_x86(_lseed);
             _lz = 0; _lz += snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "mov rdi, rsp\nmov esi, %d\nmov edx, %d\ncall %s@PLT\n", np, nl, _use_zframe_install ? "rt_icn_zframe_args_install" : "rt_lcl_proc_args_install");
             emit_text_n(_lp, strlen(_lp));
         } else {
@@ -3047,7 +3042,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             { int _d = frame_total - 16; ef_b2(0x48, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x54, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0x94, 0x24); bb_emit_u32((uint32_t)_d); } }
             { static int _hd = -1; if (_hd < 0) { const char * _e = getenv("SCRIP_ICN_HDR_DEAD"); _hd = (_e && *_e == '1') ? 1 : 0; } if (_hd) { int _d = frame_total - 8; ef_b2(0x48, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x6C, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0xAC, 0x24); bb_emit_u32((uint32_t)_d); } } }
             }
-            if (!_lseed.empty()) bb_emit_x86(_lseed);
+            if (!_pin.empty()) bb_emit_x86(_pin); if (!_lseed.empty()) bb_emit_x86(_lseed);
             ef_b3(0x48, 0x89, 0xE7);
             ef_b1(0xBE); bb_emit_u32((uint32_t)np);
             ef_b1(0xBA); bb_emit_u32((uint32_t)nl);
@@ -3087,17 +3082,6 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     bb_label_t **st_x   = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     bb_label_t **bxs   = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     for (int i = 0; i < n && g_flat_chain_set_n < FLAT_CHAIN_SET_MAX; i++) g_flat_chain_set[g_flat_chain_set_n++] = nodes[i];
-    if (getenv("SCRIP_GENHOST_DIAG") && g_emit_cfg) {
-        extern int rt_proc_is_generator(const char *); extern int rt_proc_is_registered(const char *);
-        for (int _hi = 0; _hi < g_emit_cfg->n; _hi++) {
-            IR_t * _hn = g_emit_cfg->all[_hi]; if (!_hn) continue;
-            if (!ir_is_call_kind(_hn->op) && _hn->op != IR_CALL && _hn->op != IR_PROC_GEN) continue;
-            { const char * _cn = IR_LIT(_hn).sval;
-              if (!_cn || !_cn[0] || !rt_proc_is_registered(_cn) || !rt_proc_is_generator(_cn)) continue;
-              { int _fb = -1; int _known = emit_patzeta_frame_reserve(_cn, &_fb);
-                fprintf(stderr, "[GENHOST] host=%s callee=%s %s reserve=%d\n", prefix ? prefix : "<anon>", _cn, _known ? "KNOWN" : "FORWARD-REF(not-yet-registered)", _known ? _fb : 0); } }
-        }
-    }
     g_suspend_resume_slot = -1;
     if (g_gen_proc_active && g_emit_cfg && g_emit_cfg->resume_slot >= 0)
         for (int _si = 0; _si < n; _si++) if (nodes[_si]->op == IR_SUSPEND) { g_suspend_resume_slot = g_emit_cfg->resume_slot; break; }
@@ -3513,6 +3497,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         bb_emit_x86(x86("comment", "N-2 STEP 3 SUSPEND (ceo s283): yielding KEEPS the frame -- and the frame is the REGION now, so nothing is pushed. The record collapses into the header: store the resume label at [H+32], hand the caller H itself as the token in rdx (the landing banks it into FRQ(act+8) and reads the yielded descriptor from [H-ft], the frame's return slot -- the value path s273 measured missing), restore the caller's rbp from [H+0], and jump gamma read from [H+8]. gamma/omega/anchor survive IN THE REGION for every later yield -- the old stack copies died the moment the caller ran, which is why suspend_multi's second yield read garbage ports.")
                   + x86("mov", "rdx", "rbp")
                   + x86_lea_ext("rax", &lbl_res) + x86("mov", RDQ("rdx", 32), "rax")
+                  + x86("mov", RDQ("rdx", 40), "rsp")
                   + x86("mov", "rcx", RDQ("rdx", 8))
                   + x86("mov", "rbp", RDQ("rdx", 0))
                   + x86("comment", "⛔ SET THE PORT TAG LAST AND NEVER OMIT IT: the caller's landing is SHARED by this port and the retiring one, and it tells them apart by al. Leaving eax alone here does not mean 'no tag' -- it means the tag is whatever the body last computed, so the landing takes the RETIRE arm at random and unwinds a frame that is still live. bb_glue_outer_gamma set DT_S for the same reason; the label lea clobbers rax, so the tag goes after it, not before.")

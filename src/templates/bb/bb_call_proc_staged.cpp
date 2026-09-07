@@ -677,10 +677,9 @@ static std::string bcps_spine_gen_arm() {
     uint64_t gidet_fp; { void * (*fp)(long, int) = rt_proc_call_open_det; gidet_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t tailsafe_fp; { int (*fp)(int, void *, void *) = rt_pl_tail_args_safe; tailsafe_fp = (uint64_t)(uintptr_t)(void*)fp; }
     int pl_lco_armed = bcps_pl() && _.node && _.node->seal == 1 && !(g_emit_cfg && g_emit_cfg->root_graph);
-    if (getenv("SEAT01_N2_STEP3_DBG")) { int _dbgbase = -1; int _dbgoff = icn_gen_host_reserve_offset(0, _.node, &_dbgbase); fprintf(stderr, "[N2-STEP3-DBG] node=%p callee=%s host_flat_lcl_proc=%d off=%d base=%d\n", (void*)_.node, _.op_sval ? _.op_sval : "?", g_emit.flat_lcl_proc, _dbgoff, _dbgbase); }
-    int n2_base = -1, n2_off = -1, n2_res = 0, n2_fb = -1;
-    if (icn_gen_regime()) { n2_off = icn_gen_host_reserve_offset(0, _.node, &n2_base); n2_res = icn_gen_host_reserve(0); if (_.op_sval) emit_patzeta_frame_reserve(_.op_sval, &n2_fb); }
-    if (icn_gen_regime() && (n2_off < 0 || n2_res <= 0 || n2_fb <= 0)) return x86_alpha() + x86_bomb("N-2 armed: generator call site has no reserved region (flat_gen host or forward reference) -- transitive reserve is the follow-on row; refusing loudly instead of emitting a wild-rbp protocol") + x86_beta() + x86_bomb("N-2 armed: beta re-entry into a refused generator call site");
+    int n2_fb = -1;
+    if (icn_gen_regime() && _.op_sval) emit_patzeta_frame_reserve(_.op_sval, &n2_fb);
+    if (icn_gen_regime() && n2_fb <= 0) return x86_alpha() + x86_bomb("N-3: generator call site cannot size the callee's result slot (the callee's frame bytes are not registered: forward reference) -- refusing loudly") + x86_beta() + x86_bomb("N-3: beta re-entry into a refused generator call site");
     int n2_ftc = (n2_fb > 0) ? ((n2_fb + 15) & ~15) : 0;
     return x86_alpha()
          + x86_scan_sync_out()
@@ -691,21 +690,7 @@ static std::string bcps_spine_gen_arm() {
         return stage_arg_inline(i, slot, stage_fp);
     })
          + IF(icn_gen_regime(), x86("sub", "rsp", 8L) + x86("note", "N-2 ABI WORD (row icon-generator-call-path-enters-every-runtime-helper-8-bytes-off-the-sysv-abi, hq_I root-caused, hq_B authored): the REGION HAND-OFF push below is a LONE 8B word and therefore PARITY-FLIPPING, so the armed call site pushed 40 bytes (pad+L7+region+wire pair) where the unarmed one pushes 32. The callee body then ran at rsp0-40 = 8 mod 16 and EVERY call it made entered a helper at 0 mod 16 -- latent until some callee reached an aligned SSE store, which is why it read as a record bug (suspend a list, nothing; suspend a RECORD and dat_construct -> rt_fire_buildplan_tweak -> snprintf -> movaps -> dead). This word is pushed FIRST, above the pad, ON PURPOSE: every documented entry offset ([rsp+0]=gamma [rsp+8]=omega [rsp+16]=REGION [rsp+24]=L7 [rsp+32]=pad) is UNCHANGED, and only the caller pre-pad rsp0 moves from [rsp+40] to [rsp+48] -- one constant in the alpha's ANCHOR lea and one in the beta re-creation. Placing it between L7 and the region instead would keep the region at +16 and silently move the pad, which is the slot the selfrec depth is read from at [entry rsp+32]."))
-         + ((icn_gen_regime() && icn_genframe2_selfrec() && _.op_sval && icn_gen_is_selfrec(_.op_sval))
-              ? x86("comment", "row icon-n2-recursive-generator-per-activation-storage: repurpose the pad slot (same 8 bytes, same rsp math as the PL-CALL-ALIGN pad below) to carry the bounded-self-recursion depth instead of leaving it uninitialized. Only reached when the CALLEE is a direct-self-recursive generator and SCRIP_ICN_N2_SELFREC=1 additionally arms it.")
-                + ((g_emit.flat_gen && g_emit.flat_fam && !strcmp(_.op_sval, g_emit.flat_fam))
-                   ? x86("comment", "I am the recursive call: read MY OWN depth from the free header slot H+40 (rbp==H for a flat_gen host), bound it against N2_SELFREC_SLOTS, refuse LOUDLY (never silently reuse/corrupt an in-use slot) rather than pass an out-of-range depth forward.")
-                     + x86("mov", "rax", RDQ("rbp", 40))
-                     + x86("add", "rax", 1L)
-                     + x86("cmp", "rax", (long)N2_SELFREC_SLOTS)
-                     + x86("jl", L(30))
-                     + x86_bomb("N-2 bounded self-recursion: depth exceeds the reserved N2_SELFREC_SLOTS table -- refusing loudly rather than silently reusing an in-use activation slot (row icon-n2-recursive-generator-per-activation-storage; N is a fixed bound sized over one measured workload, see N2_SELFREC_SLOTS' own comment before widening it)")
-                     + x86("def", L(30))
-                     + x86("push", "rax")
-                   : x86("comment", "first (non-recursive) call into a bounded-self-recursive generator: seed depth 0 -- a real zero, not a label address: x86_lea_id loads a PER-CALL-SITE LABEL'S ADDRESS, which is never small, so the very first recursive self-call's depth check (rax=seed+1, cmp rax,N2_SELFREC_SLOTS) always bombed the instant this path was ever actually reached (row icon-n2-recursive-generator-per-activation-storage, FINDING seat_fork-2026-08-30: masked until the 5th-word fix below let execution get this far at all).")
-                     + x86("mov32", "eax", 0L) + x86("push", "rax"))
-                + x86("sub", "rsp", 8L) + x86("note", "N-2 SELFREC 5TH WORD (row icon-n2-recursive-generator-per-activation-storage, FINDING seat_fork-2026-08-30): the self-rec branches above repurpose ONLY the pad slot (per their own comment) but historically omitted L7's own slot entirely, silently shrinking the callee's documented 5-word/40-byte entry stack (emit.cpp ~2887: [rsp+0]=gamma [rsp+8]=omega [rsp+16]=REGION [rsp+24]=L7 [rsp+32]=pad) to 4 words/32 bytes -- an 8-byte restore-RSP miscount (FINDING 2026-08-30-seat07) that corrupted every RSP-relative caller local after the first resume, and, once THAT was masking a second bug, fed the depth-bank read at emit.cpp:2895 one slot off too (root cause 1, seat12's genqueen garbage-depth finding -- same missing word, read from a different angle). L7's own VALUE is never consumed on this armed path (no consumer reads [rsp+24]/L7 for icn_gen_regime() calls -- L7 is a real jump-back label only on the non-N2/Prolog branch below, defined once, shared, unconditionally, later in this same function), so an anonymous reservation restores the correct BYTE COUNT without needing a label this branch never defines.")
-              : x86("sub", "rsp", 8L) + x86("note", "PL-CALL-ALIGN: pad the lone L(7) push to a 16B unit -- one bare 8B push here left rsp 8-mod-16 into rt_proc_call_open_det and the callee jmp, a real ABI violation (SIGSEGV in a later vsnprintf movaps; witness prolog-call-n-user-predicate-segfault). L(7) stays at [rsp+0]; the matching add-rsp-8 landings become 16.") + x86_lea_id("rax", 7) + x86("push", "rax"))
+         + (x86("sub", "rsp", 8L) + x86("note", "PL-CALL-ALIGN: pad the lone L(7) push to a 16B unit -- one bare 8B push here left rsp 8-mod-16 into rt_proc_call_open_det and the callee jmp, a real ABI violation (SIGSEGV in a later vsnprintf movaps; witness prolog-call-n-user-predicate-segfault). L(7) stays at [rsp+0]; the matching add-rsp-8 landings become 16.") + x86_lea_id("rax", 7) + x86("push", "rax"))
          + (gi_idx >= 0
             ? x86("mov32", "edi", (long)gi_idx)
             + x86("mov32", "esi", (long)_.op_ival)
@@ -716,9 +701,7 @@ static std::string bcps_spine_gen_arm() {
          + x86("test", "rax", "rax")
          + x86("je", L(1))
          + (gi_idx >= 0 ? std::string("") : x86_ro_load_q("rdi", 0) + x86("call", "rt_proc_fn", procfn_fp))
-         + IF(icn_gen_regime(), x86("comment", "N-2 STEP 3 REGION HAND-OFF (ceo s283): push the callee's region slice address as the third word above the wire pair -- it lands at [entry rsp+16] where the new alpha reads it. Depth arithmetic: ABI word+pad+L7 = 24 bytes are already down since the carve, so the slice [carve + base + off] is [rsp + base + off + 24] HERE; this constant is verifiable in the .s and breaks loudly (bomb'd alpha reads garbage) if a push is ever added between L7 and this point. Alignment: THIS PUSH IS THE PARITY FLIPPER and the sentence that used to stand here was wrong in the way alignment claims usually are -- it named two calls it had checked (open_det, which PRECEDES this push, and args_install) and generalised to a call subtree it could not see. The N-2 ABI WORD above restores the parity for the whole subtree.")
-              + x86("comment", "N-2 TRANSITIVE (seat06 2026-08-29): a FLAT_GEN caller has no stack carve to be RSP-relative INTO -- its own storage is RBP-relative (rbp=H, item 1 rebase + STEP 3 region-resident alpha), fixed regardless of the pad/L7 pushes just above, so no +16 depth-tracking applies the way it does for a flat_lcl_proc caller's RSP-relative slice.")
-              + (g_emit.flat_gen ? x86("lea", "rcx", RDQ("rbp", n2_base + n2_off)) : x86("lea", "rcx", RDQ("rsp", n2_base + n2_off + 24))) + x86("push", "rcx"))
+         + IF(icn_gen_regime(), x86("comment", "N-3 (ceo 2026-09-07): no region is handed over -- the callee carves its own frame below the entry words at its alpha. This word keeps the six-word entry layout ([rsp+16], unused) so the ANCHOR arithmetic rsp0=[rsp+48] and the parity stay exactly as before.") + x86("sub", "rsp", 8L))
          + IF(pl_lco_armed,
               x86("comment", "RUNG 11 LCO (ARCH sec B.18): this call is the syntactically last goal of its clause body (lower_prolog.c pl_lower_conj's tail marker), gated at compile time to a non-root graph -- the ROOT graph's own frame seeds r14/ROOT (rt_pl_quad_seed reads H off the root's OWN [rsp+kt-64], xa_flat.cpp), live for the rest of the run, so popping IT via LCO would dangle the one register every later ζ-STANDING access depends on (caught empirically: the driver's own call into main/0 armed before this guard existed). Runtime admission test, all three legs required: no live choice of MY OWN (r13==F.B0, the same test the altdet frame-release already uses) AND nothing retained below me (rsp==rbp, no callee frame carved deeper than mine) AND every staged argument is provably safe to outlive my frame (rt_pl_tail_args_safe -- BY CONSTRUCTION, an argument that carries no pointer can never reference the dying frame; sec B.18's escape hazard). Any leg failing falls straight through, unchanged, to the ordinary call below -- this is a pure additive fast path, never a replacement for it.")
             + x86("sub", "rsp", 8L)
@@ -760,10 +743,9 @@ static std::string bcps_spine_gen_arm() {
               + x86("jmp", L(2))
             : icn_gen_regime()
             ?
-              x86("comment", "N-2 STEP 3 LANDING: restore rsp from the ANCHOR in the region header ([rdx+24], = caller pre-pad rsp0), load the yielded descriptor from the frame's return slot, bank the header as the resume token at TRUE depth so beta's FRQ(act+8) read finds it.")
+              x86("comment", "N-3 gamma-LANDING (ceo 2026-09-07): rsp is LEFT where the suspended callee left it -- its frame and everything it suspended below stay live on the spine and this caller continues BELOW them (its own cells are rbp-relative, so nothing here reads through rsp). Load the yielded descriptor from the callee frame's return slot and bank the header H as the resume token.")
               + x86("cmp", "al", (long)DT_FAIL)
               + x86("je", L(8))
-              + x86("mov", "rsp", RDQ("rdx", 24))
               + x86("mov", "rdi", RDQ("rdx", 0 - n2_ftc))
               + x86("mov", "rsi", RDQ("rdx", 8 - n2_ftc))
               + x86("mov", FRQ(act + 8), "rdx")
@@ -831,10 +813,9 @@ static std::string bcps_spine_gen_arm() {
                  + x86("def", L(22))
                  + x86_omega()
                : icn_gen_regime()
-               ? x86("comment", "N-2 STEP 3 BETA (ceo s283): the banked token is the region header H, not a stack record. Re-create the generator's body rsp from the ANCHOR -- [H+24] is the caller's pre-pad rsp0 and the body ran 48 below it at first entry (ABI word+pad+L7+region+wire pair), so anchor-48 IS first-entry depth and parity, per activation, per call site -- then jump the resume label stored at [H+32] with the token in rax for the resume landing's one-instruction rbp repoint. The old form (mov rsp,[record]; jmp [rsp]) read a stack record the caller's own calls had already scribbled over.")
+               ? x86("comment", "N-3 BETA (ceo 2026-09-07): the banked token is the callee's header H. Restore rsp from [H+40], the spine top the callee banked at its gamma (its own frame plus whatever it had suspended below), and jump the resume label at [H+32] with H in rax for the resume landing's rbp repoint. Everything carved after that gamma is dead by LIFO when control comes back here.")
                  + x86("mov", "rax", FRQ(act + 8))
-                 + x86("mov", "rsp", RDQ("rax", 24))
-                 + x86("sub", "rsp", 48L)
+                 + x86("mov", "rsp", RDQ("rax", 40))
                  + x86_jmp_mem("rax", 32)
                : x86("mov", "rsp", FRQ(act + 8))
                  + x86_jmp_mem("rsp", 0))

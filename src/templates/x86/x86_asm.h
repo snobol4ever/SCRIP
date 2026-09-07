@@ -459,12 +459,15 @@ inline const char * x86_jcc_invert(const char * m) { return x86_jcc_canon((uint8
 inline const char * x86_zr()         { return "rsp"; }
 inline int          x86_zr_num()     { return 4; }
 inline int x86_fb_pinned() { return emit_zframe_pinned(); }
+inline int icn_host_pin_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ICN_HOST_PIN"); v = (e && *e == '0') ? 0 : 1; } return v; }
+inline int icn_host_pinned() { return (icn_host_pin_on() && g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && !g_emit.flat_gen && !g_emit.zframe_graph) ? 1 : 0; }
+inline int x86_fb_pinned_any() { return (x86_fb_pinned() || icn_host_pinned()) ? 1 : 0; }
 static inline int x86_fb_stmt_on() { static int m = -1; if (m < 0) { const char * e = getenv("SCRIP_FB_STMT"); m = (e && *e == '0') ? 0 : 1; } return m; }
 inline int x86_fb_data() { return 0; }
 inline int x86_frame_off_rsp(int off) { return off + _.op_zdepth; }
 inline int x86_rsp_slide_known() { return 1; }
 inline int x86_frame_off(int off) { if (x86_fb_pinned()) return off; return x86_rsp_slide_known() ? off + _.op_zdepth : -1; }
-inline int          x86_fb_num()     { return (x86_fb_data() || x86_fb_pinned()) ? 5 : 4; }
+inline int          x86_fb_num()     { return (x86_fb_data() || x86_fb_pinned_any()) ? 5 : 4; }
 inline const char * x86_fb()         { return x86_fb_num() == 5 ? "rbp" : "rsp"; }
 inline const char * x86_fr32_prefix() { return "dword ptr [rsp$ + "; }
 inline const char * x86_fr64_prefix() { return "qword ptr [rsp$ + "; }
@@ -838,154 +841,6 @@ extern "C" int rt_proc_is_generator(const char * name);
 extern "C" IR_graph_t * n2_graph_by_proc_name(const char * name);
 extern "C" int emit_graph_has_suspend(IR_graph_t * g);
 extern "C" int emit_port_exit_label_promotes(const char * label);
-#define N2_RESERVE_MAX_DEPTH 32
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define N2_SELFREC_SLOTS 64
-inline int icn_genframe2_selfrec() {
-    static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ICN_N2_SELFREC"); v = (e && *e == '0') ? 0 : 1; } return v;
-}
-inline int icn_gen_is_selfrec(const char * name) {
-    if (!name || !name[0] || !rt_proc_is_registered(name) || !rt_proc_is_generator(name)) return 0;
-    IR_graph_t * g = n2_graph_by_proc_name(name); if (!g) return 0;
-    for (int i = 0; i < g->n; i++) {
-        IR_t * hn = g->all[i]; if (!hn) continue;
-        if (!ir_is_call_kind(hn->op) && hn->op != IR_CALL && hn->op != IR_PROC_GEN) continue;
-        const char * cn = IR_LIT(hn).sval;
-        if (cn && cn[0] && !strcmp(cn, name)) return 1;
-    }
-    return 0;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int icn_gen_host_slice(const char * cn, int * out_bytes, const char ** visited, int nvisited);
-static int icn_gen_host_reserve_walk(IR_graph_t * g, const char ** visited, int nvisited, int * out_total) {
-    if (!g) { *out_total = 0; return 1; }
-    int total = 0;
-    for (int i = 0; i < g->n; i++) {
-        IR_t * hn = g->all[i]; if (!hn) continue;
-        if (!ir_is_call_kind(hn->op) && hn->op != IR_CALL && hn->op != IR_PROC_GEN) continue;
-        const char * cn = IR_LIT(hn).sval;
-        if (!cn || !cn[0] || !rt_proc_is_registered(cn) || !rt_proc_is_generator(cn)) continue;
-        int bytes = 0;
-        if (!icn_gen_host_slice(cn, &bytes, visited, nvisited)) return 0;
-        total += bytes;
-    }
-    *out_total = total; return 1;
-}
-static int icn_gen_host_slice(const char * cn, int * out_bytes, const char ** visited, int nvisited) {
-    int fb = -1;
-    if (!emit_patzeta_frame_reserve(cn, &fb) || fb <= 0) return 0;
-    for (int i = 0; i < nvisited; i++) if (visited[i] == cn || !strcmp(visited[i], cn)) {
-        if (!icn_genframe2_selfrec()) return 0;
-        long cyc = 0;
-        for (int k = i; k < nvisited; k++) { int kfb = -1; if (!emit_patzeta_frame_reserve(visited[k], &kfb) || kfb <= 0) return 0; cyc += (long)(((kfb + 15) & ~15) + 48); }
-        if (cyc <= 0) return 0;
-        *out_bytes = (int)((long)(N2_SELFREC_SLOTS - 1) * cyc);
-        return 1;
-    }
-    int sub = 0;
-    IR_graph_t * cg = n2_graph_by_proc_name(cn);
-    if (cg && emit_graph_has_suspend(cg) && !cg->zframe_graph) {
-        if (nvisited >= N2_RESERVE_MAX_DEPTH) return 0;
-        const char * nv[N2_RESERVE_MAX_DEPTH]; int k = 0;
-        for (; k < nvisited; k++) nv[k] = visited[k];
-        nv[k++] = cn;
-        if (!icn_gen_host_reserve_walk(cg, nv, k, &sub)) return 0;
-    }
-    *out_bytes = (((fb + 15) & ~15) + 48) + sub; return 1;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline int icn_gen_host_reserve(const char * prefix) {
-    if (!icn_gen_regime() || !g_emit_cfg) return 0;
-    const char * visited[N2_RESERVE_MAX_DEPTH]; int nv = 0;
-    if (g_emit.flat_fam && g_emit.flat_fam[0]) visited[nv++] = g_emit.flat_fam;
-    int total = 0;
-    if (!icn_gen_host_reserve_walk(g_emit_cfg, visited, nv, &total)) {
-        if (prefix) fprintf(stderr, "[GENHOST] ⛔ host=%s RESERVES NOTHING: a generator callee (direct or transitive) is not yet registered (forward reference) or is recursive/cyclic (unsupported -- per-activation storage is a separate design, GOAL). A partial carve would be silently too small.\n", prefix);
-        return 0;
-    }
-    return total;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline int icn_gen_host_reserved(void) {
-    if (g_emit.zframe_graph) return 0;
-    if (icn_gen_regime() && g_emit.flat_gen) return 1;
-    return g_emit.flat_lcl_proc ? 1 : 0;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline int icn_gen_host_reserve_offset(const char * prefix, const IR_t * call_node, int * base_out = 0) {
-    if (base_out) *base_out = -1;
-    if (!icn_gen_regime() || !g_emit_cfg || !call_node) return -1;
-    if (!icn_gen_host_reserved()) return -1;
-    if (base_out) *base_out = g_emit.flat_gen ? 48 : (g_emit.flat_frame_bytes + ((g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16));
-    const char * visited[N2_RESERVE_MAX_DEPTH]; int nv = 0;
-    if (g_emit.flat_fam && g_emit.flat_fam[0]) visited[nv++] = g_emit.flat_fam;
-    int off = 0;
-    for (int i = 0; i < g_emit_cfg->n; i++) {
-        IR_t * hn = g_emit_cfg->all[i]; if (!hn) continue;
-        if (!ir_is_call_kind(hn->op) && hn->op != IR_CALL && hn->op != IR_PROC_GEN) continue;
-        const char * cn = IR_LIT(hn).sval;
-        if (!cn || !cn[0] || !rt_proc_is_registered(cn) || !rt_proc_is_generator(cn)) continue;
-        if (hn == call_node) return off;
-        { int bytes = 0; if (!icn_gen_host_slice(cn, &bytes, visited, nv)) { if (prefix) fprintf(stderr, "[GENHOST-OFFSET] host=%s a forward-referenced or recursive/cyclic generator callee sits BEFORE the requested call site -- its offset cannot be trusted either.\n", prefix); return -1; }
-          off += bytes; }
-    }
-    return -1;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline int icn_gen_host_area_as_host(const char * cn, int * out_area) {
-    IR_graph_t * cg = n2_graph_by_proc_name(cn); if (!cg) { *out_area = 0; return 1; }
-    if (!emit_graph_has_suspend(cg) || cg->zframe_graph) { *out_area = 0; return 1; }
-    const char * visited[N2_RESERVE_MAX_DEPTH]; int nv = 0; visited[nv++] = cn;
-    return icn_gen_host_reserve_walk(cg, visited, nv, out_area);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline int icn_gen_host_layout_on() {
-    static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ICN_GENHOST_AUDIT"); v = (e && *e == '0') ? 0 : 1; } return v;
-}
-inline int icn_gen_host_layout_strict() {
-    static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ICN_GENHOST_LAYOUT_STRICT"); v = (e && *e == '1') ? 1 : 0; } return v;
-}
-inline int icn_gen_host_layout_audit(const char * prefix) {
-    if (!icn_gen_host_layout_on()) return 0;
-    if (!icn_gen_regime() || !g_emit_cfg) return 0;
-    const char * visited[N2_RESERVE_MAX_DEPTH]; int nv = 0;
-    if (g_emit.flat_fam && g_emit.flat_fam[0]) visited[nv++] = g_emit.flat_fam;
-    int bad = 0;
-    for (int i = 0; i < g_emit_cfg->n; i++) {
-        IR_t * hn = g_emit_cfg->all[i]; if (!hn) continue;
-        if (!ir_is_call_kind(hn->op) && hn->op != IR_CALL && hn->op != IR_PROC_GEN) continue;
-        const char * cn = IR_LIT(hn).sval;
-        if (!cn || !cn[0] || !rt_proc_is_registered(cn) || !rt_proc_is_generator(cn)) continue;
-        int slice = 0; if (!icn_gen_host_slice(cn, &slice, visited, nv)) continue;
-        int fb = -1; if (!emit_patzeta_frame_reserve(cn, &fb) || fb <= 0) continue;
-        int container = slice - (((fb + 15) & ~15) + 48);
-        int contents = 0; if (!icn_gen_host_area_as_host(cn, &contents)) continue;
-        if (container >= contents) continue;
-        bad++;
-        fprintf(stderr, "[GENHOST-LAYOUT] ⛔ host=%s callee=%s CONTAINER=%d CONTENTS=%d SHORT_BY=%d: the slice this host reserves for the callee's own callee area is smaller than the area that callee lays out for itself when it is compiled, so the callee's first generator call site addresses storage past the end of its region. The caller's walk cut the cycle early (its visited set already carries this host's ancestors); the callee's own walk did not. This is a SILENT WILD WRITE, not a stack overflow.\n", prefix ? prefix : "?", cn, container, contents, contents - container);
-    }
-    if (bad > 0 && icn_gen_host_layout_strict()) { fprintf(stderr, "[GENHOST-LAYOUT] ⛔ REFUSING (rc=2): host=%s has %d generator call site(s) whose region is smaller than the area the callee lays out for itself. SCRIP_ICN_GENHOST_LAYOUT_STRICT=1 turns this audit into a compile-time refusal; it is REPORTED-NOT-BLOCKING by default because the layout it names is already wrong on programs that pass today only by not recursing deep enough, so a refusal would red them (hq_B census 2026-09-06, all 46 Icon demo+benchmark programs: 4 fire, 3 of those are green against the icont oracle today). Cure the SIZING -- per-activation, per-path carving on the stack, ceo-372 -- and this audit reads zero, which is the arm that proves it.\n", prefix ? prefix : "?", bad); exit(2); }
-    return bad;
-}
-inline void icn_gen_host_reserve_selftest(const char * prefix) {
-    if (!icn_gen_regime() || !g_emit_cfg) return;
-    int total = icn_gen_host_reserve(0);
-    const char * visited[N2_RESERVE_MAX_DEPTH]; int nv = 0;
-    if (g_emit.flat_fam && g_emit.flat_fam[0]) visited[nv++] = g_emit.flat_fam;
-    int expect = 0, calls = 0, mismatches = 0;
-    for (int i = 0; i < g_emit_cfg->n; i++) {
-        IR_t * hn = g_emit_cfg->all[i]; if (!hn) continue;
-        if (!ir_is_call_kind(hn->op) && hn->op != IR_CALL && hn->op != IR_PROC_GEN) continue;
-        const char * cn = IR_LIT(hn).sval;
-        if (!cn || !cn[0] || !rt_proc_is_registered(cn) || !rt_proc_is_generator(cn)) continue;
-        int got = icn_gen_host_reserve_offset(0, hn);
-        calls++;
-        if (got != expect) { mismatches++; fprintf(stderr, "[GENHOST-SELFTEST] host=%s call#%d name=%s expect_off=%d got_off=%d MISMATCH\n", prefix ? prefix : "?", calls, cn, expect, got); }
-        { int bytes = 0; if (icn_gen_host_slice(cn, &bytes, visited, nv)) expect += bytes; }
-    }
-    if (calls > 0) fprintf(stderr, "[GENHOST-SELFTEST] host=%s calls=%d total=%d expect_sum=%d %s mismatches=%d\n", prefix ? prefix : "?", calls, total, expect, (expect == total) ? "AGREE" : "DISAGREE", mismatches);
-}
 inline int x86_zop_regime(int off) { if (x86_fc_hit(off)) return 2; return x86_fb_data() ? 3 : 4; }
 inline void x86_zop_note(int r) { if (r < 1 || r > 5) return; _.zop_seen |= (1 << r); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
