@@ -259,7 +259,7 @@ static int is_graphic(char c) {
     return c == '+' || c == '-' || c == '*' || c == '/' || c == '\\' ||
            c == '^' || c == '<' || c == '>' || c == '=' || c == '~' ||
            c == '?' || c == '@' || c == '#' || c == '&' || c == ':' ||
-           c == '.';
+           c == '$' || c == '.';
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static Token scan_graphic(Lexer *lx) {
@@ -325,6 +325,7 @@ Token lexer_next(Lexer *lx) {
         default:
             lx->pos--;
             if (is_graphic(cur(lx))) return scan_graphic(lx);
+            advance(lx);
             { char msg[32]; snprintf(msg,sizeof msg,"unexpected '%c'",c);
               return make_err(line, msg); }
     }

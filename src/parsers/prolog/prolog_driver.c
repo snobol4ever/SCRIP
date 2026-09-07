@@ -82,6 +82,7 @@ void prolog_compile(const char *source, const char *filename, tree_t **out_ast)
     if (out_ast) *out_ast = NULL;
     PlProgram *pl = prolog_parse(source, filename);
     if (!pl) { fprintf(stderr, "prolog_compile: parse failed for %s\n", filename); return; }
+    if (pl->nerrors > 0) { fprintf(stderr, "prolog: %d parse error(s) in %s\n", pl->nerrors, filename); if (out_ast) *out_ast = NULL; exit(1); }
     CODE_t *prog = prolog_lower(pl);
     if (out_ast && prog) { *out_ast = code_to_ast(prog); pl_splice_consults(*out_ast, filename); }
 }
