@@ -28,6 +28,7 @@ long g_stcount = 0;
 long g_lastno  = 0;
 long g_line    = 0;
 long g_lastline = 0;
+long rt_stno_stack[2 * 4096] = { 0 };
 const char *g_file = NULL;
 const char *g_lastfile = NULL;
 const char *g_sno_errtext = NULL;

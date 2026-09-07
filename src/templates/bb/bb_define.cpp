@@ -15,6 +15,9 @@ extern int rt_g_want_name;
 extern int rt_g_ret_by_name;
 void rt_kw_set_rtntype_role(int);
 extern int * const rt_k_level_p;
+extern long rt_stno_stack[];
+extern long g_stno;
+extern long g_line;
 void *rt_proc_get_fn(const char *name);
 void mon_emit_call_bin(const char *fname);
 void mon_emit_return_bin(const char *fname, DESCR_t retval);
@@ -73,6 +76,40 @@ static std::string bb_fnclevel_enter() {
          + x86("mov", RDQ("rax", 0), "rcx");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bb_stno_slot_rcx() {
+    return x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
+         + x86("mov", "rax", RDQ("rax", 0))
+         + x86("mov", "ecx", RDD("rax", 0))
+         + x86("movsxd", "rcx", "ecx")
+         + x86("and", "rcx", (long)4095)
+         + x86("add", "rcx", "rcx")
+         + x86("add", "rcx", "rcx")
+         + x86("add", "rcx", "rcx")
+         + x86("add", "rcx", "rcx")
+         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)rt_stno_stack, "rt_stno_stack")
+         + x86("add", "rcx", "rax");
+}
+static std::string bb_stno_save() {
+    return x86("comment", "&STNO SAVE (trace-trunk row, cfo): the CALLER's &STNO/&LINE go into the slot of the level just entered, so RETURN can put them back")
+         + bb_stno_slot_rcx()
+         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_stno, "g_stno")
+         + x86("mov", "rax", RDQ("rax", 0))
+         + x86("mov", RDQ("rcx", 0), "rax")
+         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line")
+         + x86("mov", "rax", RDQ("rax", 0))
+         + x86("mov", RDQ("rcx", 8), "rax");
+}
+static std::string bb_stno_restore() {
+    return x86("comment", "&STNO RESTORE: SPITBOL's &STNO is the CALLER's statement again once a function returns (measured on the trace trunk witness); rax and rcx only")
+         + bb_stno_slot_rcx()
+         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_stno, "g_stno")
+         + x86("mov", "rcx", RDQ("rcx", 0))
+         + x86("mov", RDQ("rax", 0), "rcx")
+         + bb_stno_slot_rcx()
+         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line")
+         + x86("mov", "rcx", RDQ("rcx", 8))
+         + x86("mov", RDQ("rax", 0), "rcx");
+}
 static std::string bb_fnclevel_leave() {
     return x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
          + x86("mov", "rax", RDQ("rax", 0))
@@ -134,6 +171,7 @@ static std::string bb_define_activate() {
       + x86("sub", "rcx", (long)1)
       + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel")
       + x86("mov", RDQ("rax", 0), "rcx")
+      + bb_stno_save()
       + FOR(0, (int)nsave, [&](int k) -> std::string {
             int gk  = (k < (int)_.op_arg_slot_n) ? _.op_arg_slot[k] : -1;
             int ot  = ab_save_off(nsave, k);
@@ -250,6 +288,7 @@ static std::string bb_define_activate() {
       + x86("sub", "rcx", (long)1)
       + x86("mov", RDD("rax", 0), "ecx")
       + x86("sub", "rcx", (long)1)
+      + bb_stno_restore()
       + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel")
       + x86("mov", RDQ("rax", 0), "rcx")
       + x86("mov", "rax", RDQ("rsi", AB_OFF_RES0))
@@ -596,6 +635,7 @@ static std::string bb_define_sr() {
                  + x86("comment", "&FNCLEVEL ENTRY (row conform-fnclevel-not-tracked, hq_P): rt_k_level++ and kw_fnclevel = rt_k_level-1. Placed exactly where the TRACE CALL tap below is placed and for the same reason -- after the marshal-in, so no formal is disturbed. Before this landed NO write site was emitted at all for a DEFINE'd call: an asm grep of a five-DEFINE witness found six kw_fnclevel references and all six were READS, which is why every shape read 0. ⛔ rcx IS LIVE HERE -- the tap below pushes it before its hook call -- so it is saved across the pair; rax is scratch here exactly as that tap treats it, and the push/pop is paired immediately so rsp is back before any rsp-relative offset.")
                  + x86("push", "rcx")
                  + bb_fnclevel_enter()
+                 + bb_stno_save()
                  + x86("pop", "rcx")
                  + x86("comment", "TRACE(name,'CALL'/'FUNCTION') tap (row snobol4-trace-types-v-l-c-r-k-a-print-spitbols-banner-in-both-modes): fires once every formal is swapped into its GVA home, mirroring where this same file's OWN bb_define_activate() CALL tap fires relative to ITS marshal-in. bb_define_activate is a SIBLING mechanism for a different (non-SIG-shim) calling convention and is confirmed unreached for a tiny-shim-eligible DEFINE'd proc (asm grep: fn_cell$ absent) -- THIS shim (role 4, fnsig()) is the one actually reached, so it needs its own tap. Register save list, g_trace gate and align calls copied verbatim from bb_define_activate's CALL tap, r9 included deliberately: RTCC_GLOBAL_R9_GVA pins r9 as the GVA table base across this whole function (see GQ() above), and a plain C hook function is free to clobber any caller-saved register unless we save/restore it ourselves.")
                  + x86_load_got("rax", "g_trace", (uint64_t)(uintptr_t)(void *)&g_trace)
@@ -672,6 +712,7 @@ static std::string bb_define_sr() {
                  + FRESTORE(80)
                  + x86("comment", "&FNCLEVEL RETURN, gamma (row conform-fnclevel-not-tracked, hq_P): the value-returning exit decrements. rax is dead (FRESTORE above already used it as scratch -- see the re-stage comment below -- and the returned pair is re-derived from rdi/rsi after the frame is popped), but ⛔ rcx IS LIVE and is SAVED: SIGQ is `[rcx + d]`, NOT rsp-relative (the lambda at the top of this arm), so rcx is the signature-block BASE here, not a dead scratch. Measured, not reasoned: the first cut of this cure omitted the save and the emitted asm read `mov rax,[kw_fnclevel]; mov [rax],rcx; mov rcx,[rcx+8]` -- the base loaded from the value just written. A no-formals proc survived it and a one-formal proc SIGSEGVed on RETURN after printing the right answer, which is the shape that makes a register-liveness error look like a returning-path bug.")
                  + x86("push", "rcx")
+                 + bb_stno_restore()
                  + bb_fnclevel_leave()
                  + x86("pop", "rcx")
                  + x86("mov", "rcx", SIGQ(8))
@@ -684,6 +725,7 @@ static std::string bb_define_sr() {
                  + FRESTORE(150)
                  + x86("comment", "&FNCLEVEL RETURN, omega (row conform-fnclevel-not-tracked, hq_P): the FAILING exit decrements too. ⛔ THIS IS THE HALF THE TRACE ROW DELIBERATELY LEFT OUT, and its comment says so -- its RETURN tap is gamma-only. For a REPORTING tap that is a defensible choice; for a DEPTH COUNTER an unbalanced exit is a leak, and one FRETURN would leave every later reading of &FNCLEVEL permanently one too high. rax is dead (eax is overwritten with DT_FAIL below), and rcx is SAVED for the same reason as the gamma exit above: SIGQ is `[rcx + d]`, so rcx is the signature-block base, not scratch.")
                  + x86("push", "rcx")
+                 + bb_stno_restore()
                  + bb_fnclevel_leave()
                  + x86("pop", "rcx")
                  + x86("mov", "rcx", SIGQ(16))
