@@ -112,6 +112,15 @@ SCRIP_HASH="$(git -C "$SD" rev-parse --short HEAD 2>/dev/null || echo '?')"
 CORP_HASH="$(git -C "$ROOT/corpus" rev-parse --short HEAD 2>/dev/null || echo '?')"
 DIA=0; DIAL=""; ORACLE_OUT=""; ORACLE_MEETS_EXPECT=0; P3=0; F3=0; P4=0; F4=0; S4=0; PS=0; FS=0; PC=0; FC=0; N3P=0; N3F=0; N4P=0; N4F=0; NSP=0; NSF=0; NCP=0; NCF=0
 FL3=""; FL4=""; FLS=""; FLC=""; OPTS_LIST=""; TOTAL=0
+# ⭐ THE ONE-ORACLE BASELINE (Lon 2026-09-07 "one oracle and one feature set, being SPITBOL"; RULES sec
+# Oracles FACT RULE NO COMPATIBILITY SWITCH, ceo CEO-391; ruled onto this suite by the ceo 2026-09-08
+# 17:39). A fixture sbl -bf does not answer is OUTSIDE THE BASELINE: named in the sidecar with its
+# reason, OUT OF THE DENOMINATOR, never hidden and never xfail. Same mechanism and same file name the
+# csnobol4 runner already carries (test_snobol4_csnobol4_suite.sh:132) -- the shape is copied, the list
+# is never a count: the file names every member so the ruling can be checked and overturned per class.
+# ⛔ TOTAL is incremented AFTER this skip, so the board's denominator and the suite row move together.
+OUTSIDE="$SUITE/OUTSIDE_SPITBOL_BASELINE.tsv"; OUTSIDE_LIST=""
+is_outside_baseline() { [ -f "$OUTSIDE" ] && awk -F"\t" -v n="$1.sno" '$1==n {f=1} END {exit f?0:1}' "$OUTSIDE"; }
 # ⭐ CENSUS (task snobol4-snoflake-pass-census-splits-stream-equality-from-error-number-only-passes,
 # hq_P 2026-09-06): splits mode-3 PASS into (a) SE3 -- scrip's stream literally equals the oracle's,
 # and (b) EN3 -- equal ONLY via oracle_equal's ERROR-NUMBER fallback (wording never matches, so this
@@ -203,7 +212,9 @@ run_one() { # $1=cmdkind $2=sno -> sets GOT RC ; input from $W/inp if HASINP
     esac; }
 for sno in "$SUITE"/*.sno; do
     [ -e "$sno" ] || { echo "⛔ REFUSE(rc=2): zero fixtures in $SUITE"; exit 2; }
-    name="$(basename "$sno" .sno)"; TOTAL=$((TOTAL+1))
+    name="$(basename "$sno" .sno)"
+    if is_outside_baseline "$name"; then OUTSIDE_LIST="$OUTSIDE_LIST $name"; continue; fi
+    TOTAL=$((TOTAL+1))
     read -r MATCH IC NSTD HASINP OPTS <<< "$(parse_fixture "$sno")"
     [ "$OPTS" = 1 ] && OPTS_LIST="$OPTS_LIST $name"
     run_one sbl "$sno"; ORACLE_OUT="$GOT"
@@ -257,14 +268,18 @@ echo "dialect tally (NOT in the score): $DIA fixture(s) pass against SPITBOL whi
 [ -n "$SBL" ] && echo "sbl -bf vs @expect (informational, the dialect measurement): PASS=$PS FAIL=$FS  NSTD $NSP/$((NSP+NSF))"
 [ -n "$CSN" ] && echo "csnobol4 (home dialect, triangulation): PASS=$PC FAIL=$FC  NSTD $NCP/$((NCP+NCF))"
 # ⭐ THE PACKAGE LOCKDOWN inventory line, via the shared body (lib_inventory.sh) -- never a second copy
-# of the arithmetic. Every fixture lands in P3/F3/N3P/N3F (the main loop has no per-fixture skip path),
-# so TOTAL is always fully graded against the oracle -- ungradable=0/ungraded=0 by construction, not by
-# assumption. EN3 (error-number-only, a narrower comparison than full stream equality) is graded_narrow,
+# of the arithmetic. Every fixture the loop GRADES lands in P3/F3/N3P/N3F, so TOTAL is always fully
+# graded against the oracle and ungraded=0 by construction, not by assumption. ⛔ AMENDED coo 2026-09-08:
+# the loop now HAS one per-fixture skip path -- is_outside_baseline() above -- so TOTAL is the graded
+# population and no longer the shipped one. The skipped fixtures are mirrored row-for-row into
+# UNGRADABLE.tsv as ORACLE_REFUSES, which is what keeps shipped = graded + ungradable + ungraded; if you
+# add a row to OUTSIDE_SPITBOL_BASELINE.tsv without mirroring it, this line stops summing and says so. EN3 (error-number-only, a narrower comparison than full stream equality) is graded_narrow,
 # named per-entry in NARROW.tsv beside the package; everything else that went through full comparison
 # (SE3 stream-equal passes, F3 fails, and the NSTD-flagged N3P/N3F) is graded_stream.
 INV_PACKAGE=snoflake_suite; INV_DIR="$SUITE"; INV_EXT=".sno"
 INV_LINE="$(inventory_line "$((P3+F3+N3P+N3F-EN3))" "$EN3")"
 if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
+[ -n "$OUTSIDE_LIST" ] && echo "OUTSIDE_SPITBOL_BASELINE ($(printf '%s' "$OUTSIDE_LIST" | wc -w), fixtures sbl -bf does not answer, named in $OUTSIDE, out of the denominator):$OUTSIDE_LIST"
 [ -n "$OPTS_LIST" ] && echo "OPTS not honored:$OPTS_LIST"
 [ -n "$ENL3" ] && echo "ERROR-NUMBER-ONLY (m3, ungraded-by-a-narrower-instrument, not a red and not a stream-equal pass):$ENL3"
 [ -n "$FL3" ] && echo "FAIL-M3:$FL3"
