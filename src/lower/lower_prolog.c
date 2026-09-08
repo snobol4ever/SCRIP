@@ -146,6 +146,7 @@ static IR_t * term_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out) {
         free(kids); free(kes);
         return nd;
     }
+    case TT_CUT: { IR_t * nd = build(cx, IR_LIT_STRING, NULL, cx->tω); IR_LIT(nd).sval = "!"; return nd; }
     default: { IR_t * nd = build(cx, IR_LIT_STRING, NULL, cx->tω); IR_LIT(nd).sval = "?"; return nd; }
     }
 }
@@ -1485,17 +1486,39 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
         }
     }
     { extern tree_t * pl_runtime_clause_tree(tree_t *);
+      { const char * fk = "$fc/3";
+        if (!pl_bb_lookup(fk, 3) && !resolve_pred_table_lookup(&g_stage2.resolve_pred_table, fk)) {
+          tree_t * ch = ast_node_new(TT_CHOICE); ch->v.sval = strdup(fk); int nb = 0;
+          for (int bi = 0; bi < 4; bi++) {
+            tree_t * hd = ast_node_new(TT_FNC); tree_t * body; tree_t * raw; tree_t * cl; hd->v.sval = strdup("$fc");
+            if (bi == 0) { ast_push(hd, pl_meta_var("G")); ast_push(hd, pl_meta_var("_")); ast_push(hd, pl_meta_var("_"));
+              body = pl_cc_fnc2(",", pl_cc_fnc2(",", pl_cc_fnc1("var", pl_meta_var("G")), (tree_t *) pl_atom_goal("!")), (tree_t *) pl_atom_goal("fail")); }
+            else if (bi == 1) { ast_push(hd, pl_meta_var("G")); ast_push(hd, (tree_t *) pl_atom_goal("true")); ast_push(hd, (tree_t *) pl_atom_goal("true"));
+              body = pl_cc_fnc2(",", pl_cc_fnc2("==", pl_meta_var("G"), (tree_t *) pl_atom_goal("!")), (tree_t *) pl_atom_goal("!")); }
+            else if (bi == 2) { ast_push(hd, pl_cc_fnc2(",", pl_meta_var("A"), pl_meta_var("B"))); ast_push(hd, pl_meta_var("Pre")); ast_push(hd, pl_meta_var("Post"));
+              { tree_t * s1 = pl_cc_fnc2(",", pl_cc_fnc3("$fc", pl_meta_var("A"), pl_meta_var("PA"), pl_meta_var("QA")), (tree_t *) pl_atom_goal("!"));
+                tree_t * s2 = pl_cc_fnc2(",", s1, pl_cc_fnc2("=", pl_meta_var("Pre"), pl_meta_var("PA")));
+                body = pl_cc_fnc2(",", s2, pl_cc_fnc2("=", pl_meta_var("Post"), pl_cc_fnc2(",", pl_meta_var("QA"), pl_meta_var("B")))); } }
+            else { ast_push(hd, pl_cc_fnc2(",", pl_meta_var("A"), pl_meta_var("B"))); ast_push(hd, pl_meta_var("Pre")); ast_push(hd, pl_meta_var("Post"));
+              { tree_t * s1 = pl_cc_fnc2(",", pl_cc_fnc3("$fc", pl_meta_var("B"), pl_meta_var("PB"), pl_meta_var("QB")), (tree_t *) pl_atom_goal("!"));
+                tree_t * s2 = pl_cc_fnc2(",", s1, pl_cc_fnc2("=", pl_meta_var("Pre"), pl_cc_fnc2(",", pl_meta_var("A"), pl_meta_var("PB"))));
+                body = pl_cc_fnc2(",", s2, pl_cc_fnc2("=", pl_meta_var("Post"), pl_meta_var("QB"))); } }
+            raw = ast_node_new(TT_FNC); raw->v.sval = (char *) ":-"; ast_push(raw, hd); ast_push(raw, body);
+            cl = pl_runtime_clause_tree(raw); if (!cl) continue; ast_push(ch, cl); nb++; }
+          if (nb) { int bb_idx = lower_pl_pred_graph(fk, ch); if (bb_idx >= 0) { pl_bb_register(fk, 3, bb_idx); pl_new_proc(fk, 3, bb_idx); } } } }
       static const char * const pl_meta_ctrl[] = { ",", ";", "->", "*->" };
       for (size_t wi = 0; wi < sizeof pl_meta_ctrl / sizeof pl_meta_ctrl[0]; wi++) {
         const char * wn = pl_meta_ctrl[wi]; char key[264]; int nclause; snprintf(key, sizeof key, "%s/2", wn);
         if (pl_bb_lookup(key, 2)) continue;
         if (resolve_pred_table_lookup(&g_stage2.resolve_pred_table, key)) continue;
-        nclause = !strcmp(wn, ";") ? 4 : 1;
+        nclause = !strcmp(wn, ";") ? 6 : !strcmp(wn, ",") ? 2 : 1;
         { tree_t * ch = ast_node_new(TT_CHOICE); ch->v.sval = strdup(key); int nb = 0;
           for (int bi = 0; bi < nclause; bi++) {
             tree_t * hd = ast_node_new(TT_FNC); tree_t * body = (tree_t *) 0; tree_t * raw; tree_t * cl;
             hd->v.sval = strdup(wn); ast_push(hd, pl_meta_var("A")); ast_push(hd, pl_meta_var("B"));
-            if (!strcmp(wn, ",")) body = pl_cc_fnc2(",", pl_cc_fnc1("call", pl_meta_var("A")), pl_cc_fnc1("call", pl_meta_var("B")));
+            if (!strcmp(wn, ",")) { tree_t * f1 = pl_cc_fnc3("$fc", pl_cc_fnc2(",", pl_meta_var("A"), pl_meta_var("B")), pl_meta_var("Pre"), pl_meta_var("Post"));
+              tree_t * f2 = pl_cc_fnc2(",", pl_cc_fnc2(",", f1, (tree_t *) pl_atom_goal("!")), pl_cc_fnc2(",", pl_cc_fnc1("call", pl_meta_var("Pre")), (tree_t *) pl_atom_goal("!")));
+              body = bi == 0 ? pl_cc_fnc2(",", f2, pl_cc_fnc1("call", pl_meta_var("Post"))) : pl_cc_fnc2(",", pl_cc_fnc1("call", pl_meta_var("A")), pl_cc_fnc1("call", pl_meta_var("B"))); }
             else if (!strcmp(wn, "->")) body = pl_cc_fnc2(",", pl_cc_fnc2(",", pl_cc_fnc1("call", pl_meta_var("A")), (tree_t *) pl_atom_goal("!")), pl_cc_fnc1("call", pl_meta_var("B")));
             else if (!strcmp(wn, "*->")) body = pl_cc_fnc2(",", pl_cc_fnc1("call", pl_meta_var("A")), pl_cc_fnc1("call", pl_meta_var("B")));
             else if (bi == 0) body = pl_cc_fnc2(",", pl_cc_fnc2("=", pl_meta_var("A"), pl_cc_fnc2("->", pl_meta_var("C"), pl_meta_var("T"))),
@@ -1504,7 +1527,11 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             else if (bi == 1) body = pl_cc_fnc2(",", pl_cc_fnc2("=", pl_meta_var("A"), pl_cc_fnc2("*->", pl_meta_var("C"), pl_meta_var("T"))),
                                                 pl_cc_fnc2(",", (tree_t *) pl_atom_goal("!"),
                                                            pl_cc_scite(pl_cc_fnc1("call", pl_meta_var("C")), pl_cc_fnc1("call", pl_meta_var("T")), pl_cc_fnc1("call", pl_meta_var("B")))));
-            else if (bi == 2) body = pl_cc_fnc1("call", pl_meta_var("A"));
+            else if (bi == 2) { tree_t * g1 = pl_cc_fnc2(",", pl_cc_fnc3("$fc", pl_meta_var("A"), pl_meta_var("Pre"), pl_meta_var("Post")), pl_cc_fnc1("call", pl_meta_var("Pre")));
+              body = pl_cc_fnc2(",", pl_cc_fnc2(",", g1, (tree_t *) pl_atom_goal("!")), pl_cc_fnc1("call", pl_meta_var("Post"))); }
+            else if (bi == 3) body = pl_cc_fnc1("call", pl_meta_var("A"));
+            else if (bi == 4) { tree_t * g1 = pl_cc_fnc2(",", pl_cc_fnc3("$fc", pl_meta_var("B"), pl_meta_var("Pre"), pl_meta_var("Post")), (tree_t *) pl_atom_goal("!"));
+              body = pl_cc_fnc2(",", pl_cc_fnc2(",", g1, pl_cc_fnc2(",", pl_cc_fnc1("call", pl_meta_var("Pre")), (tree_t *) pl_atom_goal("!"))), pl_cc_fnc1("call", pl_meta_var("Post"))); }
             else body = pl_cc_fnc1("call", pl_meta_var("B"));
             raw = ast_node_new(TT_FNC); raw->v.sval = (char *) ":-"; ast_push(raw, hd); ast_push(raw, body);
             cl = pl_runtime_clause_tree(raw); if (!cl) continue; ast_push(ch, cl); nb++; }
@@ -1512,7 +1539,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
           { int bb_idx = lower_pl_pred_graph(key, ch); if (bb_idx < 0) continue;
             pl_bb_register(key, 2, bb_idx); pl_new_proc(key, 2, bb_idx); } } } }
     { extern tree_t * pl_runtime_clause_tree(tree_t *);
-      static const pl_det_leaf_t pl_meta_early[] = { { "write", 1, "$write" }, { "nl", 0, "$nl" }, { "true", 0, "$true" }, { "fail", 0, "$fail" }, { "false", 0, "$fail" }, { "throw", 1, "$throw" }, { "=", 2, "$unify" }, { "is", 2, "$is_v" }, { ">", 2, "$cmp_gt" }, { 0, 0, 0 } };
+      static const pl_det_leaf_t pl_meta_early[] = { { "write", 1, "$write" }, { "nl", 0, "$nl" }, { "true", 0, "$true" }, { "!", 0, "$true" }, { "fail", 0, "$fail" }, { "false", 0, "$fail" }, { "throw", 1, "$throw" }, { "=", 2, "$unify" }, { "is", 2, "$is_v" }, { ">", 2, "$cmp_gt" }, { 0, 0, 0 } };
       for (int tbl = 0; tbl < 2; tbl++)
       for (int li = 0; (tbl ? pl_meta_early[li].nm : pl_det_leaves[li].nm); li++) {
         const char * bn = tbl ? pl_meta_early[li].nm : pl_det_leaves[li].nm;

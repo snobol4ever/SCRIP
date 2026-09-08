@@ -13,13 +13,16 @@
 #   2  a byte-equal fixture is PASS in both modes
 #   3  an error-number-only fixture is UNGRADED (never PASS) in mode 3 -- the CEO-383 basis
 #   4  the board prints the table's reading: SNOFLAKE_BOARD ... both_modes_stream_pass=1
-#   5  the inventory does not refuse: PACKAGE_INVENTORY ... graded_narrow=2 (NARROW.tsv names both narrow fixtures)
+#   5  the inventory does not refuse: PACKAGE_INVENTORY ... ungradable=2 (the two fixtures SPITBOL itself errors on are OUTSIDE THE SPITBOL BASELINE,
+#      named in the scratch OUTSIDE_SPITBOL_BASELINE.tsv and mirrored into UNGRADABLE.tsv). ⛔ THIS ARM READ graded_narrow=2 UNTIL 2026-09-08 (ceo,
+#      CEO-392): Lon ruled the score divides by the programs SPITBOL runs clean, so an error-number-only comparison is no longer a graded bucket at all --
+#      the fixture leaves the denominator instead of being graded by a narrower instrument. The arm is not weakened: it still proves the inventory sums.
 #   6  the same scratch suite WITHOUT S4E_PROGRESS_DB records nothing (says NOT recorded) and writes no SCORE.md cell
 #   7  this seat's snoflake rows in the live table are exactly as many after arm 6 as before it (the table is shared and grows under other seats)
 #   8  dotnet, scratch suite + scratch table: exactly 4 rows (2 programs x 2 modes), all PASS
 #   9  dotnet prints the table's reading: DOTNET_AND both_modes_pass=2/2
 # Fail-once (2026-09-07 09:0x CDT, coo, measured): with the pre-landing runners restored from scratch copies, 7 of 9 arms red
-# (1-4, 6, 8, 9); arm 5 stays green because the scratch NARROW.tsv already names both narrow fixtures, arm 7 by construction.
+# (1-4, 6, 8, 9); arm 5 stays green because the scratch sidecars already name both outside fixtures, arm 7 by construction.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
@@ -42,11 +45,12 @@ rows() { awk -F'\t' 'NR>1 && NF>=10' "$1" 2>/dev/null | wc -l | tr -d ' '; }
 ME="$(. "$HERE/lib_progress.sh" 2>/dev/null; progress_context 2>/dev/null | grep -oE 'measurer=[^[:space:]]+' | cut -d= -f2)"; [ -n "$ME" ] || ME=unknown
 mine() { awk -F'\t' -v me="$ME" 'NR>1 && NF>=10 && $4==me && $6=="snoflake"' "$1" 2>/dev/null | wc -l | tr -d ' '; }
 outcome() { awk -F'\t' -v p="$2" -v m="$3" 'NR>1 && $8==p && $9==m {print $10}' "$1" 2>/dev/null | tail -1; }
-# --- snoflake scratch suite: one byte-equal fixture, two error-number-only fixtures, the gimpel includes, a NARROW.tsv naming exactly the two
+# --- snoflake scratch suite: one fixture SPITBOL runs clean and SCRIP matches, two fixtures SPITBOL itself errors on (outside the baseline), the gimpel includes
 mkdir -p "$W/sno"; for f in indirect-real-illegal-type stlimit-nonnegative gimpel-general-purpose-macro; do
     [ -f "$SNO/$f.sno" ] || { echo "GATE UNPROVEN(2) [$G]: fixture $f.sno missing from $SNO"; exit 2; }; cp "$SNO/$f.sno" "$W/sno/"; done
 cp -r "$SNO/gimpel" "$W/sno/gimpel"
-printf 'gimpel-general-purpose-macro.sno\tERRNO\terror compared by number only (m3)\nstlimit-nonnegative.sno\tERRNO\terror compared by number only (m3)\n' > "$W/sno/NARROW.tsv"
+printf 'gimpel-general-purpose-macro.sno\tORACLE_REFUSES\tdoes not run in SPITBOL: ERROR 285 -- include file cannot be opened; source checked 2026-09-08 (ceo)\nstlimit-nonnegative.sno\tORACLE_REFUSES\tdoes not run in SPITBOL: ERROR 244 -- statement count exceeds value of stlimit keyword; source checked 2026-09-08 (ceo)\n' > "$W/sno/OUTSIDE_SPITBOL_BASELINE.tsv"
+cp "$W/sno/OUTSIDE_SPITBOL_BASELINE.tsv" "$W/sno/UNGRADABLE.tsv"
 OUT1="$(cd "$ROOT" && S4E_PROGRESS_DB="$W/db1.tsv" SNOFLAKE_SUITE="$W/sno" ARM_CSN=0 timeout 300 bash "$HERE/test_snoflake_suite.sh" 2>&1)"
 n="$(rows "$W/db1.tsv")"; [ "$n" = 6 ] && ok 1 "6 rows recorded in the scratch table" || red 1 "expected 6 rows in $W/db1.tsv, got $n"
 o3="$(outcome "$W/db1.tsv" indirect-real-illegal-type m3)"; o4="$(outcome "$W/db1.tsv" indirect-real-illegal-type m4)"
@@ -55,7 +59,7 @@ e3="$(outcome "$W/db1.tsv" stlimit-nonnegative m3)"; g3="$(outcome "$W/db1.tsv" 
 [ "$e3" = UNGRADED ] && [ "$g3" = UNGRADED ] && ok 3 "error-number-only fixtures UNGRADED in mode 3" || red 3 "stlimit-nonnegative m3=$e3 gimpel-general-purpose-macro m3=$g3 (want UNGRADED)"
 printf '%s\n' "$OUT1" | grep -qE '^SNOFLAKE_BOARD total=3 .*both_modes_stream_pass=1( |$)' && ok 4 "SNOFLAKE_BOARD states both_modes_stream_pass=1" || red 4 "no SNOFLAKE_BOARD line with both_modes_stream_pass=1"
 if printf '%s\n' "$OUT1" | grep -q 'INVENTORY REFUSES'; then red 5 "the inventory refused on the scratch suite"; else
-    printf '%s\n' "$OUT1" | grep -qE '^PACKAGE_INVENTORY package=snoflake_suite .*graded_narrow=2( |$)' && ok 5 "PACKAGE_INVENTORY graded_narrow=2, no refusal" || red 5 "no PACKAGE_INVENTORY line with graded_narrow=2"; fi
+    printf '%s\n' "$OUT1" | grep -qE '^PACKAGE_INVENTORY package=snoflake_suite .*ungradable=2( |$)' && ok 5 "PACKAGE_INVENTORY ungradable=2, no refusal" || red 5 "no PACKAGE_INVENTORY line with graded_narrow=2"; fi
 # --- the scratch suite without a scratch table must record nothing, anywhere
 before="$(mine "$LIVE_DB")"
 OUT6="$(cd "$ROOT" && env -u S4E_PROGRESS_DB SNOFLAKE_SUITE="$W/sno" ARM_CSN=0 timeout 300 bash "$HERE/test_snoflake_suite.sh" 2>&1)"
