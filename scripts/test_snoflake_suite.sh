@@ -106,21 +106,18 @@ PROG_ROWS="$W/progress.tsv"; : > "$PROG_ROWS"
 CANON_SUITE="$ROOT/corpus/packages/snobol4/snoflake_suite"
 PROG_RECORD=0; { [ "$SUITE" = "$CANON_SUITE" ] || [ -n "${S4E_PROGRESS_DB:-}" ]; } && PROG_RECORD=1
 ST3=0; ST4=0; BOTH_STREAM=0
+# ⭐ THE SPITBOL BASELINE (Lon 2026-09-08, in-chat to ceo: "I just asked how many programs that DO pass SPITBOL, and do NOT
+# pass SCRIP"; RULES sec Oracles, the one-oracle FACT RULE): a fixture SPITBOL itself cannot run -- its own stream carries
+# ERROR NNN -- is OUTSIDE the baseline and out of the denominator. The suite table states both_modes_pass/baseline. The
+# record of the outside set is OUTSIDE_SPITBOL_BASELINE.tsv beside the suite, mirrored by UNGRADABLE.tsv (name, ORACLE_REFUSES, the SPITBOL error and a source
+# check per program); the live set is measured every run and any drift between the two is said aloud below.
+BASE=0; BASE_BOTH=0; OUTSIDE_N=0; OUTSIDE_LIST=""; OUTSIDE_TSV="$SUITE/OUTSIDE_SPITBOL_BASELINE.tsv"; MIRROR_TSV="$SUITE/UNGRADABLE.tsv"
 prog_row() { printf 'package\tsnoflake\tsnobol4\t%s\t%s\t%s\t0\t%s\n' "$1" "$2" "$3" "$4" >> "$PROG_ROWS"; }
 verdict_of() { if [ "$1" -eq 124 ]; then echo HANG; elif [ "$1" -ge 128 ]; then echo CRASH; else echo FAIL; fi; }
 SCRIP_HASH="$(git -C "$SD" rev-parse --short HEAD 2>/dev/null || echo '?')"
 CORP_HASH="$(git -C "$ROOT/corpus" rev-parse --short HEAD 2>/dev/null || echo '?')"
 DIA=0; DIAL=""; ORACLE_OUT=""; ORACLE_MEETS_EXPECT=0; P3=0; F3=0; P4=0; F4=0; S4=0; PS=0; FS=0; PC=0; FC=0; N3P=0; N3F=0; N4P=0; N4F=0; NSP=0; NSF=0; NCP=0; NCF=0
 FL3=""; FL4=""; FLS=""; FLC=""; OPTS_LIST=""; TOTAL=0
-# ⭐ THE ONE-ORACLE BASELINE (Lon 2026-09-07 "one oracle and one feature set, being SPITBOL"; RULES sec
-# Oracles FACT RULE NO COMPATIBILITY SWITCH, ceo CEO-391; ruled onto this suite by the ceo 2026-09-08
-# 17:39). A fixture sbl -bf does not answer is OUTSIDE THE BASELINE: named in the sidecar with its
-# reason, OUT OF THE DENOMINATOR, never hidden and never xfail. Same mechanism and same file name the
-# csnobol4 runner already carries (test_snobol4_csnobol4_suite.sh:132) -- the shape is copied, the list
-# is never a count: the file names every member so the ruling can be checked and overturned per class.
-# ⛔ TOTAL is incremented AFTER this skip, so the board's denominator and the suite row move together.
-OUTSIDE="$SUITE/OUTSIDE_SPITBOL_BASELINE.tsv"; OUTSIDE_LIST=""
-is_outside_baseline() { [ -f "$OUTSIDE" ] && awk -F"\t" -v n="$1.sno" '$1==n {f=1} END {exit f?0:1}' "$OUTSIDE"; }
 # ⭐ CENSUS (task snobol4-snoflake-pass-census-splits-stream-equality-from-error-number-only-passes,
 # hq_P 2026-09-06): splits mode-3 PASS into (a) SE3 -- scrip's stream literally equals the oracle's,
 # and (b) EN3 -- equal ONLY via oracle_equal's ERROR-NUMBER fallback (wording never matches, so this
@@ -212,15 +209,15 @@ run_one() { # $1=cmdkind $2=sno -> sets GOT RC ; input from $W/inp if HASINP
     esac; }
 for sno in "$SUITE"/*.sno; do
     [ -e "$sno" ] || { echo "⛔ REFUSE(rc=2): zero fixtures in $SUITE"; exit 2; }
-    name="$(basename "$sno" .sno)"
-    if is_outside_baseline "$name"; then OUTSIDE_LIST="$OUTSIDE_LIST $name"; continue; fi
-    TOTAL=$((TOTAL+1))
+    name="$(basename "$sno" .sno)"; TOTAL=$((TOTAL+1))
     read -r MATCH IC NSTD HASINP OPTS <<< "$(parse_fixture "$sno")"
     [ "$OPTS" = 1 ] && OPTS_LIST="$OPTS_LIST $name"
     run_one sbl "$sno"; ORACLE_OUT="$GOT"
     case "$ORACLE_OUT" in *"-o file open error"*)
         echo "⛔ REFUSE(rc=2): the oracle's listing sink would not open on $name, so SPITBOL dumped its listing"
         echo "   back into the compared stream. Every verdict from here would be against a re-furnished stream."; exit 2;; esac
+    OERR="$(printf '%s' "$ORACLE_OUT" | grep -iE 'ERROR +[0-9]+' | head -1 | tr -d '\t' | cut -c1-140)"; OUTSIDE=0
+    if [ -n "$OERR" ]; then OUTSIDE=1; OUTSIDE_N=$((OUTSIDE_N+1)); OUTSIDE_LIST="${OUTSIDE_LIST}${name}\t${OERR}\n"; else BASE=$((BASE+1)); fi
     if grade "$ORACLE_OUT" "$RC" "$MATCH" "$IC"; then [ "$NSTD" = 1 ] && NSP=$((NSP+1)) || PS=$((PS+1)); ORACLE_MEETS_EXPECT=1
     else [ "$NSTD" = 1 ] && NSF=$((NSF+1)) || { FS=$((FS+1)); FLS="$FLS $name"; }; ORACLE_MEETS_EXPECT=0; fi
     run_one m3 "$sno"; M3RC=$RC; M4RC=0; OUT3=""; NOTE3=""
@@ -231,19 +228,19 @@ for sno in "$SUITE"/*.sno; do
         fi
         [ "$ORACLE_MEETS_EXPECT" = 0 ] && { DIA=$((DIA+1)); DIAL="$DIAL $name"; }
     else [ "$NSTD" = 1 ] && N3F=$((N3F+1)) || { F3=$((F3+1)); FL3="$FL3 $name"; }
-        OUT3="$(verdict_of "$RC")"; NOTE3="rc=$RC vs sbl -bf"; [ "$NSTD" = 1 ] && { OUT3=UNGRADED; NOTE3="@nonstandard fixture, implementation-defined output; $NOTE3"; }; fi
+        OUT3="$(verdict_of "$RC")"; NOTE3="rc=$RC vs sbl -bf"; [ "$NSTD" = 1 ] && { NOTE3="@nonstandard by snoflake's own header, yet SPITBOL runs it, so it is graded in the baseline; $NOTE3"; }; fi
     compile_m4 "$sno" "$W/prog.bin"; m4rc=$?; OUT4=""; NOTE4=""
     if [ "$m4rc" -eq 0 ]; then
         run_one m4 "$sno"; M4RC=$RC
         if oracle_equal "$GOT" "$ORACLE_OUT"; then [ "$NSTD" = 1 ] && N4P=$((N4P+1)) || P4=$((P4+1))
             if [ "$OE_KIND" = exact ]; then OUT4=PASS; else OUT4=UNGRADED; NOTE4="error_number_only: same ERROR number as sbl -bf, stream differs (narrower instrument)"; fi
         else [ "$NSTD" = 1 ] && N4F=$((N4F+1)) || { F4=$((F4+1)); FL4="$FL4 $name"; }
-            OUT4="$(verdict_of "$RC")"; NOTE4="rc=$RC vs sbl -bf"; [ "$NSTD" = 1 ] && { OUT4=UNGRADED; NOTE4="@nonstandard fixture, implementation-defined output; $NOTE4"; }; fi
+            OUT4="$(verdict_of "$RC")"; NOTE4="rc=$RC vs sbl -bf"; [ "$NSTD" = 1 ] && { NOTE4="@nonstandard by snoflake's own header, yet SPITBOL runs it, so it is graded in the baseline; $NOTE4"; }; fi
     elif [ "$m4rc" -eq 2 ]; then
         if oracle_equal "$CTERR" "$ORACLE_OUT"; then [ "$NSTD" = 1 ] && N4P=$((N4P+1)) || P4=$((P4+1))
             if [ "$OE_KIND" = exact ]; then OUT4=PASS; NOTE4="compile-time diagnostic equals sbl -bf"; else OUT4=UNGRADED; NOTE4="error_number_only: compile-time diagnostic carries the oracle ERROR number, stream differs"; fi
         else [ "$NSTD" = 1 ] && N4F=$((N4F+1)) || { F4=$((F4+1)); FL4="$FL4 $name(CTERR)"; }
-            OUT4=FAIL; NOTE4="compile-time diagnostic differs from sbl -bf"; [ "$NSTD" = 1 ] && { OUT4=UNGRADED; NOTE4="@nonstandard fixture; $NOTE4"; }; fi
+            OUT4=FAIL; NOTE4="compile-time diagnostic differs from sbl -bf"; [ "$NSTD" = 1 ] && { NOTE4="@nonstandard by snoflake's own header, yet SPITBOL runs it, so it is graded in the baseline; $NOTE4"; }; fi
     else S4=$((S4+1)); FL4="$FL4 $name(CC)"; OUT4=SKIP; NOTE4="mode-4 compile/link failed (cc), no program answer to grade"; fi
     # ⛔ A HANG NEVER COLLAPSES INTO PASS (the verdict ladder; measured on the dotnet runner 2026-09-07, coo): a run
     # that hit the timeout is HANG whatever its stream says at the cut. M3RC/M4RC are the run rcs banked above.
@@ -251,6 +248,8 @@ for sno in "$SUITE"/*.sno; do
     [ "${M4RC:-0}" -eq 124 ] && { OUT4=HANG; NOTE4="SCRIP hit the $TIMEOUT timeout; $NOTE4"; }
     [ "$OUT3" = PASS ] && ST3=$((ST3+1)); [ "$OUT4" = PASS ] && ST4=$((ST4+1))
     [ "$OUT3" = PASS ] && [ "$OUT4" = PASS ] && BOTH_STREAM=$((BOTH_STREAM+1))
+    if [ "$OUTSIDE" = 1 ]; then OUT3=UNGRADED; OUT4=UNGRADED; NOTE3="OUTSIDE_SPITBOL_BASELINE: SPITBOL itself does not run it -- $OERR"; NOTE4="$NOTE3"
+    elif [ "$OUT3" = PASS ] && [ "$OUT4" = PASS ]; then BASE_BOTH=$((BASE_BOTH+1)); fi
     prog_row "$name" m3 "$OUT3" "$NOTE3"; prog_row "$name" m4 "$OUT4" "$NOTE4"
     if [ -n "$CSN" ]; then
         run_one csn "$sno"
@@ -264,22 +263,29 @@ echo "mode-4 (--compile): PASS=$P4 FAIL=$F4 SKIP(cc)=$S4  NSTD $N4P/$((N4P+N4F))
 # ⭐ THE SUITE-TABLE READING (ceo-372: the AND per program; CEO-383: the stream-equal basis -- the PASS= counts above
 # fold error-number-only matches and are this runner's own label, never the table's number). Over all $TOTAL fixtures.
 echo "SNOFLAKE_BOARD total=$TOTAL m3_stream_pass=$ST3 m3_error_number_only=$EN3 m4_stream_pass=$ST4 m4_skip=$S4 both_modes_stream_pass=$BOTH_STREAM nstd=$((N3P+N3F)) -- the suite table states both_modes_stream_pass/$TOTAL"
+echo "SNOFLAKE_BASELINE baseline=$BASE both_modes_pass=$BASE_BOTH outside_spitbol_baseline=$OUTSIDE_N of $TOTAL -- THE SUITE TABLE STATES both_modes_pass/baseline (a fixture SPITBOL itself cannot run is outside the baseline and out of the denominator; Lon 2026-09-08)"
+if [ "$OUTSIDE_N" -gt 0 ]; then echo "OUTSIDE-SPITBOL-BASELINE ($OUTSIDE_N; name<TAB>SPITBOL's own error):"; printf '%b' "$OUTSIDE_LIST" | sed 's/^/OUTSIDE\t/'; fi
+if [ -f "$OUTSIDE_TSV" ]; then
+    rec="$(awk -F'\t' 'NF>2 && $1 !~ /^#/{sub(/\.sno$/,"",$1); print $1}' "$OUTSIDE_TSV" | sort)"; live="$(printf '%b' "$OUTSIDE_LIST" | cut -f1 | grep . | sort)"
+    stale="$(comm -23 <(printf '%s\n' "$rec") <(printf '%s\n' "$live") | grep . | tr '\n' ' ')"; unrec="$(comm -13 <(printf '%s\n' "$rec") <(printf '%s\n' "$live") | grep . | tr '\n' ' ')"
+    [ -n "$stale" ] && echo "⚠ OUTSIDE_SPITBOL_BASELINE.tsv STALE -- recorded as not running in SPITBOL, but SPITBOL ran it clean this run; move it back into the baseline record: $stale"
+    [ -n "$unrec" ] && echo "⚠ OUTSIDE_SPITBOL_BASELINE.tsv UNRECORDED -- SPITBOL errors on these and the record does not name them; record each with its error and a source check: $unrec"
+    [ -z "$stale$unrec" ] && echo "OUTSIDE_SPITBOL_BASELINE.tsv agrees with the measured outside set ($OUTSIDE_N)"
+    if [ -f "$MIRROR_TSV" ]; then mir="$(awk -F'\t' 'NF>2 && $1 !~ /^#/{print $1}' "$MIRROR_TSV" | sort)"; recn="$(awk -F'\t' 'NF>2 && $1 !~ /^#/{print $1}' "$OUTSIDE_TSV" | sort)"
+        [ "$mir" = "$recn" ] || echo "⚠ UNGRADABLE.tsv does not mirror OUTSIDE_SPITBOL_BASELINE.tsv row for row -- the lockdown bucket and the record have drifted; edit them together"; fi
+else echo "⚠ no OUTSIDE_SPITBOL_BASELINE.tsv beside the suite -- the outside-baseline set above is measured, not yet recorded"; fi
 echo "dialect tally (NOT in the score): $DIA fixture(s) pass against SPITBOL while failing their own @expect -- SPITBOL itself departs from what snoflake expects there"
 [ -n "$SBL" ] && echo "sbl -bf vs @expect (informational, the dialect measurement): PASS=$PS FAIL=$FS  NSTD $NSP/$((NSP+NSF))"
 [ -n "$CSN" ] && echo "csnobol4 (home dialect, triangulation): PASS=$PC FAIL=$FC  NSTD $NCP/$((NCP+NCF))"
 # ⭐ THE PACKAGE LOCKDOWN inventory line, via the shared body (lib_inventory.sh) -- never a second copy
-# of the arithmetic. Every fixture the loop GRADES lands in P3/F3/N3P/N3F, so TOTAL is always fully
-# graded against the oracle and ungraded=0 by construction, not by assumption. ⛔ AMENDED coo 2026-09-08:
-# the loop now HAS one per-fixture skip path -- is_outside_baseline() above -- so TOTAL is the graded
-# population and no longer the shipped one. The skipped fixtures are mirrored row-for-row into
-# UNGRADABLE.tsv as ORACLE_REFUSES, which is what keeps shipped = graded + ungradable + ungraded; if you
-# add a row to OUTSIDE_SPITBOL_BASELINE.tsv without mirroring it, this line stops summing and says so. EN3 (error-number-only, a narrower comparison than full stream equality) is graded_narrow,
+# of the arithmetic. Every fixture lands in P3/F3/N3P/N3F (the main loop has no per-fixture skip path),
+# so TOTAL is always fully graded against the oracle -- ungradable=0/ungraded=0 by construction, not by
+# assumption. EN3 (error-number-only, a narrower comparison than full stream equality) is graded_narrow,
 # named per-entry in NARROW.tsv beside the package; everything else that went through full comparison
 # (SE3 stream-equal passes, F3 fails, and the NSTD-flagged N3P/N3F) is graded_stream.
 INV_PACKAGE=snoflake_suite; INV_DIR="$SUITE"; INV_EXT=".sno"
-INV_LINE="$(inventory_line "$((P3+F3+N3P+N3F-EN3))" "$EN3")"
+INV_LINE="$(inventory_line "$BASE" 0)"
 if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
-[ -n "$OUTSIDE_LIST" ] && echo "OUTSIDE_SPITBOL_BASELINE ($(printf '%s' "$OUTSIDE_LIST" | wc -w), fixtures sbl -bf does not answer, named in $OUTSIDE, out of the denominator):$OUTSIDE_LIST"
 [ -n "$OPTS_LIST" ] && echo "OPTS not honored:$OPTS_LIST"
 [ -n "$ENL3" ] && echo "ERROR-NUMBER-ONLY (m3, ungraded-by-a-narrower-instrument, not a red and not a stream-equal pass):$ENL3"
 [ -n "$FL3" ] && echo "FAIL-M3:$FL3"
@@ -298,18 +304,9 @@ if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (
 # this one and csnobol4_suite's own runner were the two missing it (board-packages-into-make-test-
 # reported-then-blocking, seat13 2026-09-03).
 if [ "$SUITE" != "$CANON_SUITE" ]; then echo "SCORE.md: scratch suite $SUITE -- not written (only the canonical suite records the leaderboard)"; else
-# ⛔⭐ NAME THE SUITE FRACTION EXPLICITLY (cfo 2026-09-08, row score-row-write-rewrites-the-board-then-refuses,
-# same cure test_icon_arizona_suite.sh took in b7f48462a). WITHOUT THESE TWO FLAGS this write REFUSED every
-# time and the operator hand-set the Flake row: --text below carries FOUR distinct bare fractions
-# (both_modes_stream_pass, the two NSTD ratios), so fraction_from_text() cannot tell which one the suite row
-# means and correctly declines to guess. The table's reading is BOTH_STREAM/TOTAL -- this line's own prose
-# says so ("the table's reading, ceo-372") and SUITES.tsv's hand-set 99/180 of 2026-09-07 is that fraction.
-# A refusal is no longer misleading (rc=2 now leaves both files untouched), but it still leaves the suite row
-# to a human, which is the half the coo was carrying by hand.
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite Snoflake --modes m3,m4 \
-    --suite-pass "$BOTH_STREAM" --suite-total "$TOTAL" \
-    --measurer "${S4E_SEAT:-}" \
-    --text "both_modes_stream_pass=$BOTH_STREAM/$TOTAL (the table's reading, ceo-372 AND per program on the CEO-383 stream-equal basis) · mode-3 PASS=$P3 FAIL=$F3 NSTD $N3P/$((N3P+N3F)) stream_equality=$SE3 error_number_only=$EN3 · mode-4 PASS=$P4 FAIL=$F4 SKIP(cc)=$S4 NSTD $N4P/$((N4P+N4F))${INV_LINE:+ · $INV_LINE} (\`test_snoflake_suite.sh\`)" \
+    --measurer "${S4E_SEAT:-}" --suite-pass "$BASE_BOTH" --suite-total "$BASE" \
+    --text "baseline both_modes_pass=$BASE_BOTH/$BASE (the table's reading: fixtures SPITBOL runs clean; $OUTSIDE_N outside the SPITBOL baseline, Lon 2026-09-08) · both_modes_stream_pass=$BOTH_STREAM/$TOTAL (the runner's own label, ceo-372 AND per program on the CEO-383 stream-equal basis) · mode-3 PASS=$P3 FAIL=$F3 NSTD $N3P/$((N3P+N3F)) stream_equality=$SE3 error_number_only=$EN3 · mode-4 PASS=$P4 FAIL=$F4 SKIP(cc)=$S4 NSTD $N4P/$((N4P+N4F))${INV_LINE:+ · $INV_LINE} (\`test_snoflake_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 fi
 # ⭐ THE PROGRESS ROWS, written once (see PROG_ROWS above). Said aloud either way; never a red board.
