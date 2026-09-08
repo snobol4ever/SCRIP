@@ -376,7 +376,15 @@ UNG_SPLIT="$(printf '%s' "$SPLIT_LINE" | sed -n 's/.*ungraded_by_class=\([^ ]*\)
 # per-language pass-rate sum (util_score_row.py cell_fractions()) as if it were verified-correct
 # output. The RUN tier IS a verified-correctness population (diffed against a real oracle), so ITS
 # m3/m4 fractions are reported as fractions -- same convention test_icon_arizona_suite.sh already uses.
+# ⛔⭐ NAME THE SUITE FRACTION EXPLICITLY (cfo 2026-09-08, row score-row-write-rewrites-the-board-then-refuses,
+# same cure test_icon_arizona_suite.sh took in b7f48462a). --text below deliberately mixes bare counts with
+# fractions across THREE tiers (compile, nomain, run), so fraction_from_text() sees several distinct
+# candidates and refuses rather than guess -- which is why the IPL row was hand-set. THE RUN TIER IS THE
+# SUITE ROW, for the reason the comment block just above already gives: it is the only tier diffed against a
+# real oracle, so it is the verified-correctness population. SUITES.tsv's hand-set 75/89 of 2026-09-07 is
+# exactly M3_RUN_PASS/RUN_GRADED.
 python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite IPL \
+    --suite-pass "$M3_RUN_PASS" --suite-total "$RUN_GRADED" \
     --measurer "${S4E_SEAT:-}" \
     --text "compile_pass=$COMPILE_PASS compile_fail=$COMPILE_FAIL (linkgap=$LINKGAP parseerr=$PARSEERR timeout=$TIMEOUT_N other=$OTHER) of total=$TOTAL · nomain_ok=$NOMAIN_OK of nomain_total=$NOMAIN_TOTAL, hasmain_total=$HASMAIN_TOTAL · run m3 $M3_RUN_PASS/$RUN_GRADED m4 $M4_RUN_PASS/$RUN_GRADED (of $RUN_GRADED oracle-cut · fail m3=$M3_RUN_FAIL m4=$M4_RUN_FAIL, crash m3=$M3_RUN_CRASH m4=$M4_RUN_CRASH, hang m3=$M3_RUN_HANG m4=$M4_RUN_HANG)${INV_LINE:+ · $INV_LINE}${UNG_SPLIT:+ · ungraded_by_class=$UNG_SPLIT} (\`test_icon_ipl_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"

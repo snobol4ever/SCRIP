@@ -283,7 +283,16 @@ if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (
 # this one and csnobol4_suite's own runner were the two missing it (board-packages-into-make-test-
 # reported-then-blocking, seat13 2026-09-03).
 if [ "$SUITE" != "$CANON_SUITE" ]; then echo "SCORE.md: scratch suite $SUITE -- not written (only the canonical suite records the leaderboard)"; else
+# ⛔⭐ NAME THE SUITE FRACTION EXPLICITLY (cfo 2026-09-08, row score-row-write-rewrites-the-board-then-refuses,
+# same cure test_icon_arizona_suite.sh took in b7f48462a). WITHOUT THESE TWO FLAGS this write REFUSED every
+# time and the operator hand-set the Flake row: --text below carries FOUR distinct bare fractions
+# (both_modes_stream_pass, the two NSTD ratios), so fraction_from_text() cannot tell which one the suite row
+# means and correctly declines to guess. The table's reading is BOTH_STREAM/TOTAL -- this line's own prose
+# says so ("the table's reading, ceo-372") and SUITES.tsv's hand-set 99/180 of 2026-09-07 is that fraction.
+# A refusal is no longer misleading (rc=2 now leaves both files untouched), but it still leaves the suite row
+# to a human, which is the half the coo was carrying by hand.
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite Snoflake --modes m3,m4 \
+    --suite-pass "$BOTH_STREAM" --suite-total "$TOTAL" \
     --measurer "${S4E_SEAT:-}" \
     --text "both_modes_stream_pass=$BOTH_STREAM/$TOTAL (the table's reading, ceo-372 AND per program on the CEO-383 stream-equal basis) · mode-3 PASS=$P3 FAIL=$F3 NSTD $N3P/$((N3P+N3F)) stream_equality=$SE3 error_number_only=$EN3 · mode-4 PASS=$P4 FAIL=$F4 SKIP(cc)=$S4 NSTD $N4P/$((N4P+N4F))${INV_LINE:+ · $INV_LINE} (\`test_snoflake_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"

@@ -699,22 +699,37 @@ def fraction_from_text(text, p_override, t_override):
                         % (len(uniq), ", ".join("%s/%s" % u for u in uniq)))
 
 
-def suite_sync(a, tree, dry_run):
-    """Mirror this write into SUITES.tsv, or REFUSE naming the row.  Returns a note to print."""
+def suite_sync_decide(a):
+    """Settle EVERY suite-mirror refusal BEFORE the board is persisted.  Returns (key, p, t) or a note; dies on a refusal.
+    ⛔⭐ THE ORDER IS THE POINT (cfo 2026-09-07, ceo-assigned row score-row-write-rewrites-the-board-then-refuses).
+    cmd_write used to write SCORE.md and only then call this, so a refusal exited 2 over a board that HAD moved, and the
+    three runners that read the rc printed "SCORE.md NOT UPDATED -- record this row by hand" over a row they had just
+    written.  A refusal now leaves BOTH files byte-identical, so rc=2 means nothing was written and the runner's own
+    message is true.  cmd_selftest's byte-identity arm is the proof and fails if this is ever reordered back."""
     if a.column not in SUITE_SYNC_COLUMNS:
-        return "  suite table: --column %s is not a V or M cell, so no suite row is owed" % a.column
+        return None, None, None, "  suite table: --column %s is not a V or M cell, so no suite row is owed" % a.column
     if getattr(a, "no_suite_sync", False):
-        return "  ⚠ suite table: --no-suite-sync given -- SUITES.tsv NOT updated, and the banner will read this row STALE"
+        return None, None, None, "  ⚠ suite table: --no-suite-sync given -- SUITES.tsv NOT updated, and the banner will read this row STALE"
     key, why = resolve_suite_key(a.lang, a.column, a.suite, getattr(a, "suite_key", "") or "")
     if key is None:
         die("this write moves a %s cell, so it owes .github/SUITES.tsv a row -- and %s.\n"
             "        Row %s: the suite table is what the banner and Lon read; a grid cell written without it\n"
             "        is a measurement only this file can see.  Use --suite-key / --suite-pass / --suite-total,\n"
-            "        or --no-suite-sync if this write genuinely has no suite row." % (a.column.upper(), why, SUITE_SYNC_ROW))
+            "        or --no-suite-sync if this write genuinely has no suite row.\n"
+            "        NOTHING WAS WRITTEN: SCORE.md and SUITES.tsv are both untouched." % (a.column.upper(), why, SUITE_SYNC_ROW))
     p, t, why = fraction_from_text(a.text, getattr(a, "suite_pass", None), getattr(a, "suite_total", None))
     if p is None:
         die("this write moves a %s cell and resolved suite row %r, but %s.\n"
-            "        Row %s." % (a.column.upper(), key, why, SUITE_SYNC_ROW))
+            "        Row %s.\n"
+            "        NOTHING WAS WRITTEN: SCORE.md and SUITES.tsv are both untouched." % (a.column.upper(), key, why, SUITE_SYNC_ROW))
+    return key, p, t, None
+
+
+def suite_sync(a, tree, dry_run, decided=None):
+    """Mirror this write into SUITES.tsv.  Every refusal is already settled by suite_sync_decide."""
+    key, p, t, note = decided if decided is not None else suite_sync_decide(a)
+    if note is not None:
+        return note
     if dry_run:
         return "  suite table: WOULD set %s -> %s/%s (tree %s) via util_suite_banner.py --set" % (key, p, t, tree)
     if not os.path.exists(SUITE_BANNER):
@@ -724,8 +739,11 @@ def suite_sync(a, tree, dry_run):
     r = subprocess.run([sys.executable, SUITE_BANNER, "--set", key, str(p), str(t), day, tree],
                        capture_output=True, text=True, env=env)
     if r.returncode != 0:
-        die("util_suite_banner.py --set %s %s %s failed rc=%d: %s\n        Row %s."
-            % (key, p, t, r.returncode, (r.stderr or r.stdout).strip()[:300], SUITE_SYNC_ROW))
+        die("util_suite_banner.py --set %s %s %s failed rc=%d: %s\n        Row %s.\n"
+            "        ⛔ PARTIAL: SCORE.md WAS rewritten and SUITES.tsv was NOT -- this is the one case where the board\n"
+            "        moved and its suite row did not.  Do not re-write the cell by hand; fix the banner and re-run,\n"
+            "        or set the row with util_suite_banner.py --set %s %s %s."
+            % (key, p, t, r.returncode, (r.stderr or r.stdout).strip()[:300], SUITE_SYNC_ROW, key, p, t))
     return "  suite table: %s -> %s/%s on %s (tree %s) -- SUITES.tsv rewritten in the same call" % (key, p, t, day, tree)
 
 
@@ -1070,6 +1088,7 @@ def cmd_write(a):
     # produced by running the real code path and declining to persist it, never by a second model of what it
     # would have done -- a preview that reasons about the writer instead of running it is the next drift.
     _provdup = prov_duplicate_note(a.lang, cells[PROV_COL])
+    _decided = suite_sync_decide(a)
     if a.dry_run:
         print("WOULD REWRITE %s line %d" % (SCORE_MD, i + 1))
         print("  was: %s" % before)
@@ -1083,7 +1102,7 @@ def cmd_write(a):
             print("  grid: --column %s has no mirrored grid column, so this write touches the display only" % a.column)
         else:
             print("  ⚠ grid %s: no grid row for %s -- this write touches the display only" % (gkey, a.lang))
-        print(suite_sync(a, suite_tree_stamp(), True))
+        print(suite_sync(a, suite_tree_stamp(), True, _decided))
         print("  (DRY RUN -- nothing written)")
         return 0
     lines = mark_grid_stamp(lines)
@@ -1096,7 +1115,7 @@ def cmd_write(a):
     print("  prov: %s: %s" % (a.column, stamp))
     if gnote:
         print(gnote)
-    print(suite_sync(a, suite_tree_stamp(), False))
+    print(suite_sync(a, suite_tree_stamp(), False, _decided))
     print("⛔ NOT DONE UNTIL PUSHED: commit .github/SCORE.md AND .github/SUITES.tsv with the landing that carried this measurement.")
     return 0
 
@@ -1830,6 +1849,12 @@ def cmd_selftest(a):
                     lambda: cmd_write(_A(text="m3 PASS=7 FAIL=41", no_suite_sync=True)), False): ok = False
         if not _arm("an unresolvable --suite REFUSES and names the row",
                     lambda: cmd_write(_A(column="vendor", suite="no-such-suite-anywhere")), True): ok = False
+        _snap = open(SCORE_MD, encoding="utf-8").read()
+        _arm("a refusal in the suite mirror still refuses", lambda: cmd_write(_A(text="m3 5/48 · m4 4/48")), True)
+        if open(SCORE_MD, encoding="utf-8").read() == _snap:
+            print("SELFTEST: a REFUSED write leaves SCORE.md byte-identical -- rc=2 means NOTHING was written, so a runner reading the rc tells the truth")
+        else:
+            print("SELFTEST FAIL: a REFUSED write had already rewritten SCORE.md -- the runner that reads rc=2 prints NOT UPDATED over a row it wrote"); ok = False
         _v = _tsv_row("reb-master")
         if _v and _v["today_pass"] == "9":
             print("SELFTEST: the last accepted write is the one that stands (9/48) -- rewrite-in-place holds for the suite row too")
