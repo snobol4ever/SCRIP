@@ -80,6 +80,7 @@ static inline __attribute__((always_inline)) int IS_NAMETRAP_fn(DESCR_t v) { ret
 static inline __attribute__((always_inline)) int IS_VARREF_fn(DESCR_t v) { return v.v == DT_N && (v.slen == 2 || (v.slen == 1 && v.ptr) || (v.slen == 0 && v.s && *v.s)); }
 #define FHVAL(idx_) ((DESCR_t){ .v = DT_FH, .i = (int64_t)(idx_) })
 #define COERCE_ERR_FAILURE_CONVERTIBLE 0x1000000L
+#define COERCE_KEEP_INT 0x2000000L
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) int IS_FH_fn(DESCR_t v) { return v.v == DT_FH; }
 #endif

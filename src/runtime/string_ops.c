@@ -57,8 +57,11 @@ DESCR_t c_str_concat_d(DESCR_t a, DESCR_t b) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t str_concat_fracdigit_d(DESCR_t a, DESCR_t b) {
+    extern int rt_big_is(DESCR_t); extern char *rt_big_str(DESCR_t);
     if (IS_REAL_fn(a)) a = descr_to_str_fracdigit(a);
     if (IS_REAL_fn(b)) b = descr_to_str_fracdigit(b);
+    if (rt_big_is(a)) a = STRVAL(rt_big_str(a));
+    if (rt_big_is(b)) b = STRVAL(rt_big_str(b));
     return str_concat_d(a, b);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

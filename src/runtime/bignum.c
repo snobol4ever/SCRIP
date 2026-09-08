@@ -83,6 +83,7 @@ DESCR_t rt_big_norm(void *vb) {
     DESCR_t d; d.v = DT_BIG; d.mod_op = 0; d.src_node = 0; d.slen = b->n; d.p = (void *) b; return d;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_big_sign(DESCR_t d) { if (d.v == DT_BIG && d.p) return ((BIG_t *)d.p)->sign; return d.i < 0 ? -1 : (d.i > 0 ? 1 : 0); }
 int rt_big_is(DESCR_t d) { return d.v == DT_BIG && d.p != 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static BIG_t *big_of(DESCR_t d) { return (d.v == DT_BIG) ? (BIG_t *) d.p : big_from_i64(d.i); }
@@ -215,6 +216,53 @@ DESCR_t rt_big_from_str(const char *s) {
     return rt_big_norm(acc);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_big_from_str_base(const char *s, int base) {
+    if (!s || base < 2 || base > 36) return FAILDESCR;
+    while (*s == ' ' || *s == '\t') s++;
+    int neg = 0; if (*s == '+' || *s == '-') { neg = (*s == '-'); s++; }
+    BIG_t *acc = big_from_i64(0); if (!acc) return FAILDESCR;
+    BIG_t *bb = big_from_i64((int64_t)base); if (!bb) return FAILDESCR;
+    int nd = 0;
+    for (; *s; s++) {
+        int d = -1;
+        if (*s >= '0' && *s <= '9') d = *s - '0';
+        else if (*s >= 'a' && *s <= 'z') d = *s - 'a' + 10;
+        else if (*s >= 'A' && *s <= 'Z') d = *s - 'A' + 10;
+        if (d < 0 || d >= base) break;
+        { BIG_t *m = big_umul(acc, bb); if (!m) return FAILDESCR;
+          BIG_t *dd = big_from_i64((int64_t)d); if (!dd) return FAILDESCR;
+          BIG_t *t = big_uadd(m, dd); if (!t) return FAILDESCR;
+          t->sign = 1; big_trim(t); acc = t; nd++; }
+    }
+    while (*s == ' ' || *s == '\t') s++;
+    if (*s || !nd) return FAILDESCR;
+    if (neg && acc->sign) acc->sign = -1;
+    return rt_big_norm(acc);
+}
+static uint32_t big_tc_limb(const BIG_t *a, uint32_t i, uint32_t *borrow) {
+    uint32_t m = i < a->n ? a->limb[i] : 0u;
+    if (a->sign >= 0) return m;
+    { uint64_t v = (uint64_t)m - (uint64_t)*borrow; *borrow = (m < *borrow) ? 1u : 0u; if (i == 0) { v = (uint64_t)m - 1u; *borrow = (m == 0u) ? 1u : 0u; } return ~(uint32_t)v; }
+}
+static DESCR_t big_bitwise(DESCR_t x, DESCR_t y, int op) {
+    BIG_t *a = big_of(x), *b = big_of(y); if (!a || !b) return FAILDESCR;
+    uint32_t n = (a->n > b->n ? a->n : b->n) + 1; BIG_t *r = big_alloc(n); if (!r) return FAILDESCR;
+    uint32_t ba = 1u, bb = 1u;
+    for (uint32_t i = 0; i < n; i++) {
+        uint32_t la = big_tc_limb(a, i, &ba), lb = big_tc_limb(b, i, &bb);
+        r->limb[i] = op == 0 ? (la & lb) : op == 1 ? (la | lb) : (la ^ lb);
+    }
+    if (r->limb[n - 1] & 0x80000000u) {
+        uint32_t carry = 1u;
+        for (uint32_t i = 0; i < n; i++) { uint64_t v = (uint64_t)(~r->limb[i]) + carry; r->limb[i] = (uint32_t)v; carry = (uint32_t)(v >> 32); }
+        r->sign = -1;
+    } else r->sign = 1;
+    big_trim(r); if (r->n == 1 && r->limb[0] == 0) r->sign = 0; return rt_big_norm(r);
+}
+DESCR_t rt_big_and(DESCR_t x, DESCR_t y) { return big_bitwise(x, y, 0); }
+DESCR_t rt_big_or(DESCR_t x, DESCR_t y)  { return big_bitwise(x, y, 1); }
+DESCR_t rt_big_xor(DESCR_t x, DESCR_t y) { return big_bitwise(x, y, 2); }
 DESCR_t rt_big_neg(DESCR_t d) {
     BIG_t *b = big_of(d); if (!b) return FAILDESCR;
     BIG_t *r = big_alloc(b->n); if (!r) return FAILDESCR;

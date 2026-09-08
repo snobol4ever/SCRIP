@@ -123,13 +123,37 @@ static void trace_print_banner(const char *name, DESCR_t value, long long stno, 
     fflush(stdout);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_trace_event(int kind, const char *name, DESCR_t value, long long stno) {
+static void trace_print_icon(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value) {
+    extern const char *g_file; extern long g_line; extern int * const rt_k_level_p;
+    extern int try_call_builtin_by_name(const char *fn, DESCR_t *a, int n, DESCR_t *out);
+    fflush(stdout);
+    const char *f = g_file ? g_file : ""; size_t fl = strlen(f); if (fl > 13) f += fl - 13;
+    if (g_line > 0) fprintf(stderr, "%-13s: %4ld  ", f, g_line); else fprintf(stderr, "             :       ");
+    for (int k = *rt_k_level_p - 1; k > 0; k--) fputs("| ", stderr);
+    fputs(name, stderr);
+    if (kind == TRK_CALL) {
+        fputc('(', stderr);
+        for (int i = 0; i < nargs; i++) { DESCR_t im; DESCR_t a = args[i]; if (i) fputc(',', stderr); if (try_call_builtin_by_name("image", &a, 1, &im) && (im.v == DT_S || im.v == DT_SNUL)) fputs(VARVAL_fn(im) ? VARVAL_fn(im) : "", stderr); }
+        fputc(')', stderr);
+    } else if (IS_FAIL(value)) fputs(" failed", stderr);
+    else { DESCR_t im; DESCR_t a = value; fputs(" returned ", stderr); if (try_call_builtin_by_name("image", &a, 1, &im) && (im.v == DT_S || im.v == DT_SNUL)) fputs(VARVAL_fn(im) ? VARVAL_fn(im) : "", stderr); }
+    fputc('\n', stderr);
+    fflush(stderr);
+}
+void rt_trace_all_set(int on) {
+    if (on) { trace_register("*", TRK_CALL, "icn", (const char *)0); trace_register("*", TRK_RETURN, "icn", (const char *)0); }
+    else { trace_unregister("*", TRK_CALL); trace_unregister("*", TRK_RETURN); }
+}
+void rt_trace_event_args(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno) {
     if (!name || !*name) return;
     if (trace_recursion_depth > 0) return;
     if ((kind == TRK_CALL || kind == TRK_RETURN) && kw_ftrace > 0) { kw_ftrace--; trace_print_banner(name, value, stno, kind); return; }
-    if (g_trace <= 0) return;
+    if (g_trace == 0) return;
     trace_ent_t *e = trace_find(name, kind);
+    if (!e) e = trace_find("*", kind);
     if (!e) return;
+    if (g_trace < 0 && !(e->tag && !strcmp(e->tag, "icn"))) return;
+    if (e->tag && !strcmp(e->tag, "icn")) { g_trace--; trace_recursion_depth++; trace_print_icon(kind, name, args, nargs, value); trace_recursion_depth--; return; }
     g_trace--;
     if (e->cbfn) {
         int64_t saved_trace = g_trace, saved_ftrace = kw_ftrace;
@@ -145,12 +169,24 @@ void rt_trace_event(int kind, const char *name, DESCR_t value, long long stno) {
         trace_print_banner(name, value, stno, kind);
     }
 }
+void rt_trace_event(int kind, const char *name, DESCR_t value, long long stno) { rt_trace_event_args(kind, name, (DESCR_t *)0, 0, value, stno); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_trace_call_hook(const char *fname) {
-    extern long g_stno;
-    rt_trace_event(TRK_CALL, fname, NULVCL, g_stno);
+    extern long g_stno; extern DESCR_t g_call_args[]; extern int rt_proc_nparams(const char *name);
+    int np = fname ? rt_proc_nparams(fname) : 0; if (np < 0) np = 0; if (np > 16) np = 16;
+    rt_trace_event_args(TRK_CALL, fname, g_call_args, np, NULVCL, g_stno);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_trace_call_hook_f(const char *fname, int np, void *base) {
+    extern long g_stno;
+    DESCR_t a[16]; if (np < 0) np = 0; if (np > 16) np = 16;
+    for (int i = 0; i < np; i++) a[i] = *(DESCR_t *)((char *)base + (i + 1) * 16);
+    rt_trace_event_args(TRK_CALL, fname, a, np, NULVCL, g_stno);
+}
+void rt_trace_fail_hook(const char *fname) {
+    extern long g_stno;
+    rt_trace_event(TRK_RETURN, fname, FAILDESCR, g_stno);
+}
 void rt_trace_return_hook(const char *fname, DESCR_t retval) {
     extern long g_stno;
     rt_trace_event(TRK_RETURN, fname, retval, g_stno);

@@ -963,6 +963,7 @@ int main(int argc, char **argv)
     for (; argi < argc; argi++) {
         if (strcmp(argv[argi], "--") == 0) { argi++; g_prog_argv = &argv[argi]; g_prog_argc = argc - argi; break; }
         const char *input_path = argv[argi];
+        { extern void stmt_src_set_file(const char *); if (input_path) stmt_src_set_file(input_path); }
         {
             char rp[4096];
             const char *abs_path = realpath(input_path, rp) ? rp : input_path;
@@ -1096,6 +1097,7 @@ int main(int argc, char **argv)
     if (!has_prolog_seg) for (int _si = 0; _si < nsegs; _si++) if (segs[_si].fn == lower_pl_stage2) { has_prolog_seg = 1; break; }
     if (opt_bench) clock_gettime(CLOCK_MONOTONIC, &_t1);
     const char *input_path = argv[argc - 1];
+    { extern void stmt_src_set_file(const char *); if (input_path) stmt_src_set_file(input_path); }
     if (opt_bench) clock_gettime(CLOCK_MONOTONIC, &_t2);
     if (!ast_prog) {
         fprintf(stderr, "scrip: parse failed for '%s'\n", input_path);

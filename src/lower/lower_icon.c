@@ -11,8 +11,9 @@ static IR_t * icn_arm_result(IR_t * rv);
 typedef struct {
     IR_graph_t * g; IR_t * psucc; IR_t * pfail; const char ** pn; int npn; const char ** ln; int nln; const char ** gn; int ngn; const char * pname;
     IR_t * last_gen; IR_t * loop_exit; IR_t * loop_break_beta;     IR_t * loop_next; IR_t * beta; IR_t * conj_resumable;
-    IR_t * loop_stk_exit[64]; IR_t * loop_stk_next[64]; IR_t * loop_stk_fail[64]; IR_t * loop_fail; int loop_sp; IR_t * scan_stk_enter[16]; int scan_sp; int loop_next_ssp;
+    IR_t * loop_stk_exit[64]; IR_t * loop_stk_next[64]; IR_t * loop_stk_fail[64]; IR_t * loop_fail; int loop_sp; IR_t * scan_stk_enter[16]; int scan_sp; int loop_next_ssp; int want_lines; int end_line;
 } icx_t;
+static IR_t * icn_line_hook(icx_t * cx, int line, IR_t * next);
 #define ICN_LOOP_STK_MAX 64
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_is_local(const icx_t * cx, const char * nm) { if (!nm) return 0; for (int i = 0; i < cx->nln; i++) if (cx->ln[i] && !strcmp(cx->ln[i], nm)) return 1; return 0; }
@@ -100,7 +101,7 @@ static int is_resumable(const tree_t * t) {
 static int icn_tree_is_cursor_mover(const tree_t * a) {
     if (!a) return 0; if (a->t == TT_STMT) a = stmt_subj(a); if (!a) return 0;
     if (a->t == TT_MATCH_UNARY) return 1;
-    if (a->t == TT_REVASSIGN && a->n >= 2) return icn_tree_is_cursor_mover(a->c[1]);
+    if ((a->t == TT_REVASSIGN || a->t == TT_ASSIGN) && a->n >= 2) return icn_tree_is_cursor_mover(a->c[1]);
     if (a->t != TT_FNC) return 0;
     const char * nm = (a->n > 0 && a->c[0] && a->c[0]->t == TT_VAR) ? a->c[0]->v.sval : NULL;
     return nm && (!strcmp(nm, "tab") || !strcmp(nm, "move"));
@@ -351,7 +352,7 @@ static IR_t * lc_key(icx_t * cx, const tree_t * t, const char * kw, IR_t * γ, I
     const char * id = (kw && kw[0] == '&') ? kw + 1 : kw;
     if (id && !strcmp(id, "line")) { IR_t * nd = build(cx, IR_LIT_INTEGER, γ, ω); IR_LIT(nd).ival = (t && t->line > 0) ? t->line : 0; *res = nd; return nd; }
     if (id && !strcmp(id, "progname")) { char pb[1024]; extern void icn_pp_source_base(char *, size_t); icn_pp_source_base(pb, sizeof pb); IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = strdup(pb); *res = nd; return nd; }
-    if (id && !strcmp(id, "file")) { IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = (char *) ""; *res = nd; return nd; }
+    if (id && !strcmp(id, "file")) { extern const char * stmt_src_get_file(void); const char * sf = stmt_src_get_file(); IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = (char *) (sf ? sf : ""); *res = nd; return nd; }
     if (id) {
         const char * cs = !strcmp(id, "ucase") ? "ABCDEFGHIJKLMNOPQRSTUVWXYZ" : !strcmp(id, "lcase") ? "abcdefghijklmnopqrstuvwxyz" : !strcmp(id, "digits") ? "0123456789" : NULL;
         if (!cs && !strcmp(id, "letters")) cs = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -382,7 +383,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         int is_arith = (bcode >= BINOP_ADD && bcode <= BINOP_MOD) || bcode == BINOP_POW;
         int alit = 0, blit = 0; { int64_t fb = 0; int fr = 0; alit = icn_const_step(t->c[0], &fb, &fr); fb = 0; fr = 0; blit = icn_const_step(t->c[1], &fb, &fr); }
         IR_t * op = build(cx, is_relop ? IR_BINOP_TEST : IR_BINOP, γ, ω); IR_LIT(op).ival = is_relop ? bcode : bemit;
-        IR_t * cb2 = (is_arith && !blit) ? build(cx, IR_COERCE_NUMERIC, op, ω) : NULL; if (cb2) IR_LIT(cb2).ival = 102 | COERCE_ERR_FAILURE_CONVERTIBLE;
+        IR_t * cb2 = (is_arith && !blit) ? build(cx, IR_COERCE_NUMERIC, op, ω) : NULL; if (cb2) IR_LIT(cb2).ival = 102 | COERCE_ERR_FAILURE_CONVERTIBLE | ((bcode == BINOP_POW) ? COERCE_KEEP_INT : 0);
         IR_t * ca2 = (is_arith && !alit) ? build(cx, IR_COERCE_NUMERIC, cb2 ? cb2 : op, ω) : NULL; if (ca2) IR_LIT(ca2).ival = 102 | COERCE_ERR_FAILURE_CONVERTIBLE;
         IR_t * bsucc = ca2 ? ca2 : (cb2 ? cb2 : op);
         IR_t * lr = NULL, * rr = NULL; IR_t * ea = lower(cx, t->c[0], NULL, ω, &lr); IR_t * lβ = cx->beta; IR_t * eb = lower(cx, t->c[1], bsucc, lβ, &rr);
@@ -701,6 +702,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
                     lc_γ_to(SENT, ent[i]); lc_ω_to(SENT, ent[i]);
                     succ = SENT; failt = SENT;
                 }
+                if (cx->want_lines && t->t == TT_SEQ_EXPR && S[i]->line > 0 && succ == ent[i]) { ent[i] = icn_line_hook(cx, S[i]->line, ent[i]); succ = ent[i]; failt = ent[i]; }
             }
             if (val[k - 1]) ir_operand_push(SEQX, val[k - 1]);
             cx->conj_resumable = rb; cx->beta = last_beta; *res = SEQX; return ent[0];
@@ -1121,7 +1123,8 @@ static int icn_const_step(const tree_t * s, int64_t * bits, int * isr) {
         }
         double la, ra, rv; if (li) memcpy(&la, &lb, 8); else la = (double) lb; if (ri) memcpy(&ra, &rb, 8); else ra = (double) rb;
         if (la < 0.0 || (la == 0.0 && ra <= 0.0)) return 0;
-        rv = pow(la, ra); if (!isfinite(rv)) return 0;
+        if (!ri) { int64_t n = rb; double r = la; rv = 1.0; if (n < 0) { n = (-1) - n; r = 1.0 / r; rv = r; } while (n > 0) { if (n & 1) rv *= r; r *= r; n >>= 1; } } else rv = pow(la, ra);
+        if (!isfinite(rv)) return 0;
         memcpy(bits, &rv, 8); *isr = 1; return 1;
     }
     if ((s->t == TT_ADD || s->t == TT_SUB || s->t == TT_MUL || s->t == TT_DIV || s->t == TT_MOD) && s->n >= 2 && s->c[0] && s->c[1]) {
@@ -1265,18 +1268,34 @@ static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     cx->beta = ω; *res = NULL; return e_entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_tree_mentions_kw(const tree_t * t, const char * kw) {
+    if (!t) return 0;
+    if (t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, kw)) return 1;
+    for (int i = 0; i < t->n; i++) if (icn_tree_mentions_kw(t->c[i], kw)) return 1;
+    return 0;
+}
+static IR_t * icn_line_hook(icx_t * cx, int line, IR_t * next) {
+    extern const char * stmt_src_get_file(void);
+    IR_t * hook = build(cx, IR_CALL, next, next); IR_LIT(hook).sval = (char *) "ICN$LINE";
+    IR_t * fpn = build(cx, IR_LIT_STRING, hook, hook); { const char * sf = stmt_src_get_file(); IR_LIT(fpn).sval = (char *) (sf ? sf : ""); }
+    IR_t * lnn = build(cx, IR_LIT_INTEGER, fpn, hook); IR_LIT(lnn).ival = (int64_t) line;
+    ir_operand_push(hook, lnn); ir_operand_push(hook, fpn);
+    return lnn;
+}
 static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
     IR_graph_t * g = IR_alloc(8192); cx->g = g;
     IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED); IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
     cx->psucc = PSUCC; cx->pfail = PFAIL;
     IR_t * succ = PFAIL; IR_t * fail = PFAIL;
+    if (cx->want_lines && cx->end_line > 0) { succ = icn_line_hook(cx, cx->end_line, PFAIL); fail = succ; }
     for (int i = body->n - 1; i >= 0; i--) {
-        const tree_t * s = body->c[i]; if (s && s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; } if (!s) continue;
+        const tree_t * s = body->c[i]; int sline = s ? s->line : 0; if (s && s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; } if (!s) continue; if (sline <= 0) sline = s->line;
         IR_t * r = NULL; IR_t * entry = lower(cx, s, succ, fail, &r); if (r && r->γ.node == succ) lc_γ_to(r, succ);
         if (entry && ir_is_generator_kind(entry->op)) {
             IR_t * tramp = IR_node_alloc(g, IR_GOTO); lc_γ_to(tramp, entry); lc_ω_to(tramp, entry);
             entry = tramp;
         }
+        if (cx->want_lines && entry && sline > 0) entry = icn_line_hook(cx, sline, entry);
         succ = entry; fail = entry;
     }
     g->entry = succ;
@@ -1374,6 +1393,7 @@ IR_graph_t * lower_icon_proc(const tree_t * prog, const tree_t * pd) {
     }
     cx.ln = (const char **) lnv.data; cx.nln = lnv.n;
     { static lc_vec gnv; lc_vec_init(&gnv, (int) sizeof(const char *)); gnv.n = 0; icn_collect_own_globals(prog, &gnv); cx.gn = (const char **) gnv.data; cx.ngn = gnv.n; cx.pname = (pd && pd->v.sval) ? pd->v.sval : "anon"; }
+    cx.want_lines = icn_tree_mentions_kw(prog, "&trace"); cx.end_line = pd ? pd->slen : 0;
     if (pd && pd->n > 2 && pd->c[2]) { IR_graph_t * g = lower_proc_body(&cx, pd->c[2]); if (g) { int np = pd->n > 1 && pd->c[1] ? pd->c[1]->n : 0; g->nparams = np; g->pnames = np > 0 ? (const char **)lnv.data : NULL; g->nlocals = lnv.n - np; g->lnames = (lnv.n - np) > 0 ? (const char **)lnv.data + np : NULL; if (pd->v.sval && !strcmp(pd->v.sval, "main")) g->root_graph = 1; } return g; }
     IR_graph_t * g = IR_alloc(64); cx.g = g; IR_t * s = build(&cx, IR_SUCCEED, 0, 0); g->entry = s;
     g->icn_cells_graph = 1;

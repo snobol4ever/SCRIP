@@ -1411,6 +1411,7 @@ DESCR_t rt_random_var(DESCR_t base) {
     extern long g_random;
     DESCR_t bvar = base;
     if (IS_VARREF_fn(base)) base = rt_deref(base);
+    if (base.v == DT_R) { if (base.r != floor(base.r) || base.r >= 9223372036854775808.0 || base.r <= -9223372036854775808.0) return FAILDESCR; base = INTVAL((int64_t)base.r); bvar = base; }
     g_random = (1103515245L * g_random + 453816694L) & 0x7FFFFFFFL; double rval = 4.65661286e-10 * (double)g_random;
     if (base.v == DT_S && base.slen == 0xFFFFFFFFu) {
         const char *cp; int clen; if (!cset_resolve(base, &cp, &clen) || clen <= 0) return FAILDESCR;

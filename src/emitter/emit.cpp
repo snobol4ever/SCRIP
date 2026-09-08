@@ -2784,6 +2784,23 @@ extern "C" void rt_pl_tr_unwind(void *);
 extern "C" void xa_flat_chain_epilogue_sig(int is_gamma, const char * fname);
 extern int g_rt_fragment_emit;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string icn_trace_tap(const char * pname, int kind, int np) {
+    extern long g_trace; extern void rt_trace_call_hook_f(const char *, int, void *); extern void rt_trace_return_hook(const char *, DESCR_t); extern void rt_trace_fail_hook(const char *);
+    extern int g_flat_node_id;
+    if (!pname) return std::string();
+    std::string id = std::to_string(g_flat_node_id++);
+    std::string sk = "L24" + std::to_string(6 + kind); std::string fl = ".Licn_trace_nm" + id;
+    std::string s = x86("push", "rax") + x86("push", "rdx") + x86("push", "rbx") + x86("mov", "rbx", "rsp") + x86("and", "rsp", (long)-16)
+        + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_trace, "g_trace")
+        + x86("mov", "rax", RDQ("rax", 0)) + x86("cmp", "rax", (long)0) + x86("je", sk)
+        + x86("directive", ".section .rodata") + x86("directive", (fl + ": .string \"" + pname + "\"").c_str()) + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix")
+        + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)pname, fl.c_str());
+    if (kind == 1) s += x86("mov32", "esi", (long)np) + x86("lea", "rdx", RDQ("rbx", 24)) + x86("call", "rt_trace_call_hook_f", (uint64_t)(uintptr_t)(void *)rt_trace_call_hook_f);
+    else if (kind == 2) s += x86("mov", "rsi", RDQ("rbx", 16)) + x86("mov", "rdx", RDQ("rbx", 8)) + x86("call", "rt_trace_return_hook", (uint64_t)(uintptr_t)(void *)rt_trace_return_hook);
+    else s += x86("call", "rt_trace_fail_hook", (uint64_t)(uintptr_t)(void *)rt_trace_fail_hook);
+    s += x86("def", sk) + x86("mov", "rsp", "rbx") + x86("pop", "rbx") + x86("pop", "rdx") + x86("pop", "rax");
+    return s;
+}
 static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     bb_label_t lbl_α, lbl_α_body, lbl_γ, lbl_ω, lbl_β, lbl_res;
     bb_label_t * lbl_α_orig_p = (bb_label_t *)0;
@@ -3062,6 +3079,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                      + x86("sub", "rcx", (long)1)
                      + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel")
                      + x86("mov", RDQ("rax", 0), "rcx"));
+            bb_emit_x86(icn_trace_tap((strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix, 1, np));
         }
     }
     if (!bare) emit_label_define_bb(&lbl_α_body);
@@ -3496,7 +3514,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         int _bfb = blob_frame_bytes();
         bb_emit_x86(IF(_bfb > 0, x86("comment", "WIRE-STACK (s195) SUSPEND, off the retired wire-pair scratch registers entirely: yielding keeps the frame AND the pair, so the resume record is built by reading the banked pair through rcx -- omega pushed first, then gamma, and rcx still carries gamma into the jmp.") + x86("mov", "rcx", RDQ("rbp", -16)) + x86("push", "rbp") + x86("push", "rcx") + x86("mov", "rcx", RDQ("rbp", -8)) + x86("push", "rcx") + x86_lea_ext("rax", &lbl_res) + x86("push", "rax") + x86("mov", "rbp", RDQ("rbp", 0)) + x86_jmp_reg("rcx")) + IF(_bfb <= 0, x86("comment", "WIRE-STACK (s195) SUSPEND, FRAMELESS, off the retired wire-pair scratch registers entirely: the caller's pair still sits at [rsp+0]=gamma [rsp+8]=omega -- LIFO-preserved since entry, the same invariant the omega/FRETURN exit already depends on to release it -- so read it FRESH here instead of trusting an entry-cached scratch-register copy to survive every intervening box call unclobbered. rdx/rcx are read before rsp moves, so the padding sub below cannot shift the offsets out from under them.") + x86("mov", "rdx", RDQ("rsp", 8)) + x86("mov", "rcx", RDQ("rsp", 0)) + x86("sub", "rsp", 8L) + x86("push", "rdx") + x86("push", "rcx") + x86_lea_ext("rax", &lbl_res) + x86("push", "rax") + x86_jmp_reg("rcx")));
     }
-    else if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && !g_emit.flat_jmp_entry) { int _bk = g_emit.flat_frame_bytes;
+    else if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && !g_emit.flat_jmp_entry) { int _bk = g_emit.flat_frame_bytes; if (g_emit_cfg->root_graph) bb_emit_x86(icn_trace_tap("main", 2, 0));
         if (g_is_text) { char _seg[128]; snprintf(_seg, sizeof _seg, "and rsp, -16\nxor edi, edi\ncall exit@PLT\n"); emit_text_n(_seg, strlen(_seg)); }
         else { ef_b4(0x48, 0x83, 0xE4, 0xF0); ef_b3(0x31, 0xFF, 0x90); { uint64_t _ex = (uint64_t)(uintptr_t)(void *)exit; ef_b2(0x48, 0xB8); bb_emit_u64(_ex); ef_b2(0xFF, 0xD0); } } }
     else if (icn_gen_regime() && g_emit.flat_gen) {
@@ -3515,7 +3533,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     if (!bare && !_top_hoist) {
     emit_sep_rule('-'); emit_label_define_bb(&lbl_ω);
     if (g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && g_emit.flat_jmp_entry)) { extern void xa_flat_zframe_epilogue_ω(void); xa_flat_zframe_epilogue_ω(); }
-    else if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && !g_emit.flat_jmp_entry) { int _bk = g_emit.flat_frame_bytes;
+    else if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && !g_emit.flat_jmp_entry) { int _bk = g_emit.flat_frame_bytes; if (g_emit_cfg->root_graph) bb_emit_x86(icn_trace_tap("main", 3, 0));
         if (g_is_text) { char _seg[128]; snprintf(_seg, sizeof _seg, "and rsp, -16\nxor edi, edi\ncall exit@PLT\n"); emit_text_n(_seg, strlen(_seg)); }
         else { ef_b4(0x48, 0x83, 0xE4, 0xF0); ef_b3(0x31, 0xFF, 0x90); { uint64_t _ex = (uint64_t)(uintptr_t)(void *)exit; ef_b2(0x48, 0xB8); bb_emit_u64(_ex); ef_b2(0xFF, 0xD0); } } }
     else if (_blob_wire) { extern int sn4_blob_casmark(void); bb_emit_x86(IF(blob_frame_bytes() > 0, IF(sn4_blob_casmark(), x86("mov", "r12", RDQ("rbp", -32))) + x86("mov", "rsp", "rbp") + x86("pop", "rbp")) + x86("comment", "WIRE-STACK (s195) FRETURN FORM, REGISTER-FREE: after mov rsp,rbp;pop rbp the stack is back at entry depth, which is exactly where the caller's PUSHed pair sits -- the RETIRING exit owns the release.  ⛔ The LANDING must NOT release it: a γ-SUSPEND leaves the blob's resume record on top of the pair, so a landing-side add would eat the record instead (Lon s195: yielding is different from returning).") + x86("add", "rsp", 8L) + x86("ret")); }

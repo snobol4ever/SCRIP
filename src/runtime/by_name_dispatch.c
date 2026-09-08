@@ -319,11 +319,20 @@ static int icon_radix_int(const char *s, long long *out) {
         else if (*p >= 'a' && *p <= 'z') d = *p - 'a' + 10;
         else if (*p >= 'A' && *p <= 'Z') d = *p - 'A' + 10;
         if (d < 0 || d >= base) break;
+        if (v > (9223372036854775807LL - d) / base) return -1;
         v = v * base + d; p++;
     }
     while (*p == ' ' || *p == '\t') p++;
     if (!(p > dstart && *p == '\0')) return 0;
     *out = neg ? -v : v; return 1;
+}
+static DESCR_t icon_radix_big(const char *s) {
+    extern DESCR_t rt_big_from_str_base(const char *, int); extern DESCR_t rt_big_neg(DESCR_t);
+    const char *p = s; while (*p == ' ' || *p == '\t') p++;
+    int neg = 0; if (*p == '+') p++; else if (*p == '-') { neg = 1; p++; }
+    int base = 0; while (*p >= '0' && *p <= '9') { base = base * 10 + (*p - '0'); p++; }
+    p++;
+    { DESCR_t r = rt_big_from_str_base(p, base); if (IS_FAIL_fn(r) || !neg) return r; return rt_big_neg(r); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t elem_to_descr(const char *s, size_t slen) {
@@ -4241,6 +4250,7 @@ static int relop_num_coerce(DESCR_t v, DESCR_t *out) {
     if (IS_INT_fn(v) || IS_REAL_fn(v)) { *out = v; return 1; }
     const char *s = IS_STR_fn(v) ? v.s : IS_CSET_fn(v) ? v.s : (const char *)0;
     if (!s) return 0;
+    char nb[128]; if (IS_STR_fn(v) && v.slen != 0 && v.slen != 0xFFFFFFFFu) { if (v.slen >= sizeof nb) return 0; memcpy(nb, s, v.slen); nb[v.slen] = '\0'; s = nb; }
     const char *t = s; while (*t == ' ') t++; if (!*t) return 0;
     char *endi = 0, *endd = 0; long long iv = strtoll(t, &endi, 10); double dv = strtod(t, &endd);
     const char *e = (endd > endi) ? endd : endi; if (e == t) return 0;
@@ -5067,14 +5077,15 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         DESCR_t av = args[0];
         if (IS_INT_fn(av))  { *out = av; return 1; }
         if (IS_REAL_fn(av)) { if (!isfinite(av.r)) { *out = FAILDESCR; return 1; } if (fabs(av.r) >= 9223372036854775807.0) { extern DESCR_t rt_big_from_str(const char *); char _bb[400]; snprintf(_bb, sizeof _bb, "%.0f", trunc(av.r)); *out = rt_big_from_str(_bb); return 1; } *out = INTVAL((long long)av.r); return 1; }
+        { extern int rt_big_is(DESCR_t); if (rt_big_is(av)) { *out = av; return 1; } }
         const char *s = VARVAL_fn(av); if (!s) { *out = FAILDESCR; return 1; }
-        { long long rv; if (icon_radix_int(s, &rv)) { *out = INTVAL(rv); return 1; } }
+        { long long rv; int rr = icon_radix_int(s, &rv); if (rr > 0) { *out = INTVAL(rv); return 1; } if (rr < 0) { *out = icon_radix_big(s); return 1; } }
         { extern DESCR_t rt_big_from_str(const char *); errno = 0; char *e2; strtoll(s, &e2, 10);
           if (e2 != s && (*e2 == 0 || *e2 == 32) && errno == ERANGE) { DESCR_t bg = rt_big_from_str(s); if (!IS_FAIL_fn(bg)) { *out = bg; return 1; } } }
         char *end; long long iv = strtoll(s, &end, 10);
         if (end != s && (*end=='\0'||*end==' ')) { *out = INTVAL(iv); return 1; }
         double rv = strtod(s, &end);
-        if (end != s && (*end=='\0'||*end==' ')) { *out = INTVAL((long long)rv); return 1; }
+        if (end != s && (*end=='\0'||*end==' ')) { if (!isfinite(rv)) { *out = FAILDESCR; return 1; } if (rv >= 9223372036854775808.0 || rv < -9223372036854775808.0) { extern DESCR_t rt_big_from_str(const char *); char _rb[400]; snprintf(_rb, sizeof _rb, "%.0f", rv); *out = rt_big_from_str(_rb); return 1; } *out = INTVAL((long long)rv); return 1; }
         *out = FAILDESCR; return 1;
     }
     L_bidjmp_5264: ;
@@ -5083,9 +5094,9 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (IS_REAL_fn(av)) { *out = av; return 1; }
         if (IS_INT_fn(av))  { *out = REALVAL((double)av.i); return 1; }
         const char *s = VARVAL_fn(av); if (!s) { *out = FAILDESCR; return 1; }
-        { long long rv; if (icon_radix_int(s, &rv)) { *out = REALVAL((double)rv); return 1; } }
+        { long long rv; int rr = icon_radix_int(s, &rv); if (rr > 0) { *out = REALVAL((double)rv); return 1; } }
         char *end; errno = 0; double rv = strtod(s, &end);
-        if (end != s && (*end=='\0'||*end==' ') && !(errno == ERANGE && !isfinite(rv))) { *out = REALVAL(rv); return 1; }
+        if (end != s && (*end=='\0'||*end==' ')) { if (!isfinite(rv) || (errno == ERANGE && !isfinite(rv))) { *out = FAILDESCR; return 1; } *out = REALVAL(rv); return 1; }
         *out = FAILDESCR; return 1;
     }
     L_bidjmp_5273: ;
@@ -5129,7 +5140,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         char *end; long long iv = strtoll(s, &end, 10);
         if (end != s && (*end=='\0'||*end==' ')) { *out = INTVAL(iv); return 1; }
         double rv = strtod(s, &end);
-        if (end != s && (*end=='\0'||*end==' ')) { *out = REALVAL(rv); return 1; }
+        if (end != s && (*end=='\0'||*end==' ')) { if (!isfinite(rv)) { *out = FAILDESCR; return 1; } *out = REALVAL(rv); return 1; }
         *out = FAILDESCR; return 1;
     }
     if (((_bid == BID_char) || (_bid == BID_chr)) && nargs == 1) {
@@ -5610,9 +5621,12 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     L_bidjmp_5747: ;
     if ((_bid == BID_abs) && nargs == 1) {
         extern void rt_coerce_num2_d(const DESCR_t *self, const DESCR_t *other, DESCR_t *out, long codes);
+        extern int rt_big_is(DESCR_t); extern int rt_big_sign(DESCR_t); extern DESCR_t rt_big_neg(DESCR_t);
         DESCR_t av = args[0]; DESCR_t nv;
         rt_coerce_num2_d(&av, &av, &nv, 0);
+        if (rt_big_is(nv)) { *out = rt_big_sign(nv) < 0 ? rt_big_neg(nv) : nv; return 1; }
         if (IS_REAL_fn(nv)) { *out = REALVAL(fabs(nv.r)); return 1; }
+        if (nv.i == (-9223372036854775807LL - 1)) { *out = rt_big_neg(nv); return 1; }
         *out = INTVAL(nv.i < 0 ? -nv.i : nv.i); return 1;
     }
     L_bidjmp_5754: ;
@@ -5674,15 +5688,24 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     L_bidjmp_5804: ;
     if ((_bid == BID_rtod) && nargs >= 1) { double v=TONUM(args[0]); *out=REALVAL(v*180.0/3.14159265358979323846); return 1; }
     L_bidjmp_5805: ;
-    if ((_bid == BID_iand)  && nargs==2) { int64_t a=IS_INT_fn(args[0])?args[0].i:(int64_t)args[0].r, b=IS_INT_fn(args[1])?args[1].i:(int64_t)args[1].r; *out=INTVAL(a&b); return 1; }
+    if ((_bid == BID_iand)  && nargs==2) { extern int rt_big_is(DESCR_t); extern DESCR_t rt_big_and(DESCR_t, DESCR_t); extern DESCR_t rt_bitop_operand(DESCR_t); DESCR_t _a0 = rt_bitop_operand(args[0]), _a1 = rt_bitop_operand(args[1]); if (rt_big_is(_a0) || rt_big_is(_a1)) { *out = rt_big_and(_a0, _a1); return 1; } int64_t a=IS_INT_fn(_a0)?_a0.i:(int64_t)_a0.r, b=IS_INT_fn(_a1)?_a1.i:(int64_t)_a1.r; *out=INTVAL(a&b); return 1; }
     L_bidjmp_5806: ;
-    if ((_bid == BID_ior)   && nargs==2) { int64_t a=IS_INT_fn(args[0])?args[0].i:(int64_t)args[0].r, b=IS_INT_fn(args[1])?args[1].i:(int64_t)args[1].r; *out=INTVAL(a|b); return 1; }
+    if ((_bid == BID_ior)   && nargs==2) { extern int rt_big_is(DESCR_t); extern DESCR_t rt_big_or(DESCR_t, DESCR_t); extern DESCR_t rt_bitop_operand(DESCR_t); DESCR_t _a0 = rt_bitop_operand(args[0]), _a1 = rt_bitop_operand(args[1]); if (rt_big_is(_a0) || rt_big_is(_a1)) { *out = rt_big_or(_a0, _a1); return 1; } int64_t a=IS_INT_fn(_a0)?_a0.i:(int64_t)_a0.r, b=IS_INT_fn(_a1)?_a1.i:(int64_t)_a1.r; *out=INTVAL(a|b); return 1; }
     L_bidjmp_5807: ;
-    if ((_bid == BID_ixor)  && nargs==2) { int64_t a=IS_INT_fn(args[0])?args[0].i:(int64_t)args[0].r, b=IS_INT_fn(args[1])?args[1].i:(int64_t)args[1].r; *out=INTVAL(a^b); return 1; }
+    if ((_bid == BID_ixor)  && nargs==2) { extern int rt_big_is(DESCR_t); extern DESCR_t rt_big_xor(DESCR_t, DESCR_t); extern DESCR_t rt_bitop_operand(DESCR_t); DESCR_t _a0 = rt_bitop_operand(args[0]), _a1 = rt_bitop_operand(args[1]); if (rt_big_is(_a0) || rt_big_is(_a1)) { *out = rt_big_xor(_a0, _a1); return 1; } int64_t a=IS_INT_fn(_a0)?_a0.i:(int64_t)_a0.r, b=IS_INT_fn(_a1)?_a1.i:(int64_t)_a1.r; *out=INTVAL(a^b); return 1; }
     L_bidjmp_5808: ;
-    if ((_bid == BID_ishift)&& nargs==2) { int64_t a=IS_INT_fn(args[0])?args[0].i:(int64_t)args[0].r, b=IS_INT_fn(args[1])?args[1].i:(int64_t)args[1].r; *out=INTVAL(b>=0?a<<b:a>>(-b)); return 1; }
+    if ((_bid == BID_ishift)&& nargs==2) {
+        extern int rt_big_is(DESCR_t); extern DESCR_t rt_big_mul(DESCR_t, DESCR_t); extern DESCR_t rt_big_div(DESCR_t, DESCR_t); extern DESCR_t rt_big_pow(DESCR_t, int64_t); extern DESCR_t rt_big_sub(DESCR_t, DESCR_t);
+        extern DESCR_t rt_bitop_operand(DESCR_t); args[0] = rt_bitop_operand(args[0]); args[1] = rt_bitop_operand(args[1]); if (IS_FAIL_fn(args[0]) || IS_FAIL_fn(args[1]) || !(IS_INT_fn(args[1]))) { *out = FAILDESCR; return 1; }
+        int64_t b=args[1].i;
+        if (rt_big_is(args[0]) || (b > 0 && IS_INT_fn(args[0]) && args[0].i != 0 && (b >= 63 || (args[0].i > 0 ? (args[0].i > (9223372036854775807LL >> b)) : (args[0].i < (-9223372036854775807LL - 1) >> b))))) {
+            DESCR_t x = rt_big_is(args[0]) ? args[0] : INTVAL(args[0].i);
+            if (b >= 0) { *out = rt_big_mul(x, rt_big_pow(INTVAL(2), b)); return 1; }
+            { DESCR_t p2 = rt_big_pow(INTVAL(2), -b); DESCR_t q = rt_big_div(x, p2); extern int rt_big_sign(DESCR_t); if (rt_big_sign(x) < 0 && !IS_FAIL_fn(rt_big_sub(x, rt_big_mul(q, p2))) && rt_big_sign(rt_big_sub(x, rt_big_mul(q, p2))) != 0) q = rt_big_sub(q, INTVAL(1)); *out = q; return 1; }
+        }
+        int64_t a=IS_INT_fn(args[0])?args[0].i:(int64_t)args[0].r; *out=INTVAL(b>=0?(b>=64?0:a<<b):(-b>=64?(a<0?-1:0):a>>(-b))); return 1; }
     L_bidjmp_5809: ;
-    if ((_bid == BID_icom)  && nargs==1) { int64_t a=IS_INT_fn(args[0])?args[0].i:(int64_t)args[0].r; *out=INTVAL(~a); return 1; }
+    if ((_bid == BID_icom)  && nargs==1) { extern int rt_big_is(DESCR_t); extern DESCR_t rt_big_neg(DESCR_t); extern DESCR_t rt_big_sub(DESCR_t, DESCR_t); if (rt_big_is(args[0])) { *out = rt_big_sub(rt_big_neg(args[0]), INTVAL(1)); return 1; } int64_t a=IS_INT_fn(args[0])?args[0].i:(int64_t)args[0].r; *out=INTVAL(~a); return 1; }
 #undef TONUM
     L_bidjmp_5811: ;
     if ((_bid == BID_copy) && nargs == 1) {
@@ -6487,6 +6510,11 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         long ln = (nargs >= 2 && IS_INT(args[1])) ? (long)args[1].i : 0;
         if (nargs == 3) { extern void rt_stmt_file_init(const char *file); const char *fp = VARVAL_fn(args[2]); rt_stmt_file_init(fp ? fp : ""); }
         rt_stmt_enter(n, ln);
+        *out = NULVCL; return 1;
+    }
+    if ((_bid == BID_ICNx24LINE) && (nargs == 1 || nargs == 2)) {
+        extern long g_line; g_line = IS_INT(args[0]) ? (long)args[0].i : 0;
+        if (nargs == 2) { extern void rt_stmt_file_init(const char *file); const char *fp = VARVAL_fn(args[1]); rt_stmt_file_init(fp ? fp : ""); }
         *out = NULVCL; return 1;
     }
     L_bidjmp_6540: ;

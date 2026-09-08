@@ -54,6 +54,8 @@ RTX_GATE_DEF(icnnum)
 .Lok##SFX:
 RTX_FUNC(rt_coerce_num2_d)
     RTX_GATE(icnnum, c_rt_coerce_num2_d)
+    test ecx, 0x2000000
+    jnz c_rt_coerce_num2_d
     mov eax, dword ptr [rdi]
     cmp al, DT_I
     je .Lself_i

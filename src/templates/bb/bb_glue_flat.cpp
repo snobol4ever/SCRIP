@@ -31,8 +31,14 @@ static inline bool bb_glue_outer_needs_ret() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void sno_setexit_fire_on_end(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bb_glue_icn_root_tap(int kind) {
+    extern std::string xa_icn_trace_tap(const char * pname, int kind, int np); extern const char * xa_icn_trace_pname(void);
+    if (!(g_emit_cfg && g_emit_cfg->root_graph && g_emit_cfg->icn_cells_graph)) return std::string();
+    return xa_icn_trace_tap(xa_icn_trace_pname(), kind, 0);
+}
 std::string bb_glue_outer_γ() {
-    return IF(bb_glue_outer_whack(), bb_glue_framed_leave())
+    return bb_glue_icn_root_tap(2)
+         + IF(bb_glue_outer_whack(), bb_glue_framed_leave())
          + IF(!bb_glue_outer_needs_ret(),
               x86("call_bare", "sno_setexit_fire_on_end", (uint64_t)(uintptr_t)(void(*)(void))sno_setexit_fire_on_end)
             + x86("xor", "edi", "edi")
@@ -43,7 +49,8 @@ std::string bb_glue_outer_γ() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_outer_ω() {
-    return IF(bb_glue_outer_whack(), bb_glue_framed_leave())
+    return bb_glue_icn_root_tap(3)
+         + IF(bb_glue_outer_whack(), bb_glue_framed_leave())
          + IF(!bb_glue_outer_needs_ret(),
               x86("mov32", "edi", 1)
             + x86("call_bare", "exit", (uint64_t)(uintptr_t)(void(*)(int))exit))
@@ -55,7 +62,7 @@ std::string bb_glue_outer_ω() {
 std::string bb_glue_wire_land(void) { return std::string(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_wire_exit(int is_gamma) {
-    return x86_jmp_mem("rsp", is_gamma ? 0 : 8);
+    return bb_glue_icn_root_tap(is_gamma ? 2 : 3) + x86_jmp_mem("rsp", is_gamma ? 0 : 8);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_wire_γ() { return bb_glue_wire_exit(1); }

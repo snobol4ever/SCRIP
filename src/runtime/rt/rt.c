@@ -1,3 +1,4 @@
+#include <errno.h>
 #include "rt.h"
 #include "rt_arena.h"
 #include "rt_coexpr.h"
@@ -318,6 +319,8 @@ static int rt_num_is_blank_d(const DESCR_t *v) {
 void c_rt_coerce_num2_d(const DESCR_t *self, const DESCR_t *other, DESCR_t *out, long codes) {
     extern void core_runtime_error(int code, const char *msg);
     if (self->v == DT_BIG) { *out = *self; return; }
+    if (self->v == DT_S && self->s) { const char *p = rt_cstr_d(*self); while (*p == ' ') p++; if (*p == '+' || *p == '-') p++;
+        if (*p >= '0' && *p <= '9') { errno = 0; char *ep = NULL; strtoll(p, &ep, 10); if (errno == ERANGE && ep && ep != p) { const char *q = ep; while (*q == ' ') q++; if (!*q) { extern DESCR_t rt_big_from_str(const char *); DESCR_t bg = rt_big_from_str(rt_cstr_d(*self)); if (!IS_FAIL_fn(bg)) { *out = bg; return; } } } } }
     int ec = (int)(codes & 0xffff);
     int64_t si = 0, oi = 0; double sr = 0, orr = 0; int sreal = 0, oreal = 0;
     int sok = rt_parse_num_d(self, &si, &sr, &sreal);
@@ -327,7 +330,7 @@ void c_rt_coerce_num2_d(const DESCR_t *self, const DESCR_t *other, DESCR_t *out,
         if (ec) core_runtime_error(ec, rt_coerce_errmsg(ec)); si = 0; sreal = 0; }
     int ook = rt_parse_num_d(other, &oi, &orr, &oreal);
     (void)ook; (void)oi; (void)orr;
-    if (sreal || oreal) { out->v = DT_R; out->slen = 0; out->r = sreal ? sr : (double)si; }
+    if (sreal || (oreal && !(codes & COERCE_KEEP_INT))) { out->v = DT_R; out->slen = 0; out->r = sreal ? sr : (double)si; }
     else { out->v = DT_I; out->slen = 0; out->i = si; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1320,7 +1323,7 @@ int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
       if (!rn_shadow) rt_name_save_push(&rname, &p->rcell, (DESCR_t *)0, 0, 1); }
     fbytes = (int)(((long)fbytes + 15L) & ~15L);
     if (g_monitor_bin) mon_emit_call_bin(p->name);
-    { extern long g_stno; rt_trace_event(TRK_CALL, p->name, NULVCL, g_stno); }
+    { extern long g_stno; rt_trace_event_args(TRK_CALL, p->name, args, nargs, NULVCL, g_stno); }
     rt_k_level++;
     rt_g_want_name = wn;
     return fbytes;
@@ -1378,7 +1381,7 @@ long rt_proc_call_open_slim(const char *name, int np, int nargs)
     { int sh = 0; for (int k = 0; k < np; k++) if (p->pnames && p->pnames[k] && !strcmp(p->pnames[k], rname)) { sh = 1; break; }
       if (!sh) { if (p->rcell) *p->rcell = NULVCL; else NV_SET_fn(rname, NULVCL); } }
     if (g_monitor_bin) mon_emit_call_bin(p->name);
-    { extern long g_stno; rt_trace_event(TRK_CALL, p->name, NULVCL, g_stno); }
+    { extern long g_stno; DESCR_t _ta[16]; int _tn = nargs < 16 ? nargs : 16; for (int _k = 0; _k < _tn; _k++) _ta[_k] = (p->pcells && p->pcells[_k]) ? *p->pcells[_k] : NULVCL; rt_trace_event_args(TRK_CALL, p->name, _ta, _tn, NULVCL, g_stno); }
     rt_k_level++;
     return (long)(uintptr_t)(void *)p->fn;
 }
@@ -1605,7 +1608,7 @@ static int rt_proc_call_prologue_lex(rt_proc_t *p, int nargs, int wn)
             for (int i = nargs; i < fixed; i++) g_call_args[i] = NULVCL;
             DESCR_t _tail = (p->rest_kind == 2) ? rt_make_nested_agg(rest > 0 ? &g_call_args[fixed] : (DESCR_t *)0, rest) : p->rest_kind ? rt_make_flat_agg(rest > 0 ? &g_call_args[fixed] : (DESCR_t *)0, rest) : rt_make_list(rest > 0 ? &g_call_args[fixed] : (DESCR_t *)0, rest);
             g_call_args[fixed] = _tail; } } }
-    { extern long g_stno; rt_trace_event(TRK_CALL, p->name, NULVCL, g_stno); }
+    { extern long g_stno; rt_trace_event_args(TRK_CALL, p->name, g_call_args, nargs, NULVCL, g_stno); }
     rt_k_level++;
     return fbytes;
 }

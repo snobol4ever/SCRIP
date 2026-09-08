@@ -414,6 +414,24 @@ static std::string xa_flat_chain_epilogue_sig_str(int is_gamma, const char * fna
          + x86_jmp_reg("rcx");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string xa_icn_trace_tap(const char * pname, int kind, int np) {
+    extern long g_trace; extern void rt_trace_call_hook_f(const char *, int, void *); extern void rt_trace_return_hook(const char *, DESCR_t); extern void rt_trace_fail_hook(const char *);
+    extern int g_flat_node_id;
+    if (!pname) return std::string();
+    std::string id = std::to_string(g_flat_node_id++);
+    std::string sk = "L24" + std::to_string(6 + kind); std::string fl = ".Licn_trace_nm" + id;
+    std::string s = x86("push", "rax") + x86("push", "rdx") + x86("push", "rbx") + x86("mov", "rbx", "rsp") + x86("and", "rsp", (long)-16)
+        + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_trace, "g_trace")
+        + x86("mov", "rax", RDQ("rax", 0)) + x86("cmp", "rax", (long)0) + x86("je", sk)
+        + x86("directive", ".section .rodata") + x86("directive", (fl + ": .string \"" + pname + "\"").c_str()) + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix")
+        + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)pname, fl.c_str());
+    if (kind == 1) s += x86("mov32", "esi", (long)np) + x86("lea", "rdx", RDQ("rbx", 24)) + x86("call", "rt_trace_call_hook_f", (uint64_t)(uintptr_t)(void *)rt_trace_call_hook_f);
+    else if (kind == 2) s += x86("mov", "rsi", RDQ("rbx", 16)) + x86("mov", "rdx", RDQ("rbx", 8)) + x86("call", "rt_trace_return_hook", (uint64_t)(uintptr_t)(void *)rt_trace_return_hook);
+    else s += x86("call", "rt_trace_fail_hook", (uint64_t)(uintptr_t)(void *)rt_trace_fail_hook);
+    s += x86("def", sk) + x86("mov", "rsp", "rbx") + x86("pop", "rbx") + x86("pop", "rdx") + x86("pop", "rax");
+    return s;
+}
+const char * xa_icn_trace_pname(void) { const char * f = g_emit.flat_fam; if (!f) return (g_emit_cfg && g_emit_cfg->root_graph) ? "main" : (const char *)0; return (strncmp(f, "proc_", 5) == 0) ? f + 5 : f; }
 static std::string xa_flat_zframe_epilogue_γ_str(void) {
     if (!xa_flat_class_zf()) return std::string();
     int kt = g_emit.flat_frame_bytes; if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16;
@@ -427,6 +445,7 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
     }
     if (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc)
         return x86("comment", "N-1(b/c) ICN-FR-2 epilogue-γ: marshal result rax:rdx→rdi:rsi; unwind; NON-CONSUMING jmp through the caller-pushed gamma wire at [rsp+0] -- the caller's own landing releases the pair (bcps_wire_land), never this exit. Guarded to the Icon (icn_cells_graph) case only -- xa_flat_class_zf() also admits pure zframe_graph (Prolog/Raku/Pascal), whose callee side this rung never touched. SCRIP_ICN_WIRE_STACK=0 restores the [kt-24] header byte-exactly.")
+             + xa_icn_trace_tap(xa_icn_trace_pname(), 2, 0)
              + x86("mov", "rdi", "rax")
              + x86("mov", "rsi", "rdx")
              + x86("comment", "&level HALF-CURE (seat01, row icon-rung-ladder-absorption): decrement rt_k_level/kw_fnclevel on this class's own exit, mirroring bb_define_activate's leave_env pair verbatim (bb_define.cpp:185-193). rax is SAVED/RESTORED around this block -- confirmed via asm-diff + direct trace (fact_dcα's own success landing does `jmp r12` with NO fresh success tag, so whatever this exit leaves in AL is exactly what the caller's `cmp al,104` check reads; clobbering it with an unrelated GOT address broke every non-trivial call site, caught by the Icon rung board before landing, never assume a register is free just because no comment claims it). Entry-side increment still NOT YET LANDED -- see FINDING-2026-08-30-seat01-icon-level-exact-fix-sites-located-implementation-ready.md.")
@@ -488,6 +507,7 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
     if (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc)
         return x86("comment", "N-1(b/c) ICN-FR-2 epilogue-ω: unwind; NON-CONSUMING jmp through the caller-pushed omega wire at [rsp+8] -- the caller's own landing releases the pair. Guarded to the Icon (icn_cells_graph) case only, same reasoning as epilogue-γ. SCRIP_ICN_WIRE_STACK=0 restores the [kt-16] header byte-exactly.")
              + x86("comment", "&level HALF-CURE (seat01, row icon-rung-ladder-absorption): same decrement as epilogue-γ, twin arm -- see that comment for the full rationale, the confirmed register-preservation bug this rax save/restore fixes, and what is still owed (the entry-side increment).")
+             + xa_icn_trace_tap(xa_icn_trace_pname(), 3, 0)
              + x86("push", "rax")
              + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
              + x86("mov", "rax", RDQ("rax", 0))

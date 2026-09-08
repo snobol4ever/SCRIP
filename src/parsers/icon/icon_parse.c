@@ -698,8 +698,10 @@ static tree_t *parse_block_or_expr(IcnParser *p) {
     tree_t *seq = ast_node_new(TT_SEQ_EXPR);
     int nc = 0;
     while (!check(p, TK_RBRACE) && !check(p, TK_EOF)) {
+        int sline = p->cur.line;
         tree_t *s = parse_stmt(p);
         if (!s) break;
+        if (s->line <= 0) s->line = sline;
         push_child(seq, s);
         nc++;
     }
@@ -868,12 +870,15 @@ static tree_t *parse_proc(IcnParser *p) {
     match(p, TK_SEMICOL);
     tree_t **stmts = NULL; int nstmts = 0, scap = 0;
     while (!check(p, TK_END) && !check(p, TK_EOF) && !p->had_error) {
+        int sline = p->cur.line;
         tree_t *s = parse_stmt(p);
+        if (s && s->line <= 0) s->line = sline;
         if (s) {
             if (nstmts+1 > scap) { scap = scap ? scap*2 : 8; stmts = realloc(stmts, scap*sizeof(tree_t*)); }
             stmts[nstmts++] = s;
         }
     }
+    int end_line = p->cur.line;
     expect(p, TK_END, "end of procedure");
     const char *procname = intern_n(name_tok.val.sval.data, (int)name_tok.val.sval.len);
     tree_t *vlist = ast_node_new(TT_VLIST);
@@ -883,6 +888,7 @@ static tree_t *parse_proc(IcnParser *p) {
     for (int i = 0; i < nstmts; i++) ast_push(body, stmts[i]);
     tree_t *proc = ast_node_new(TT_PROC_DECL);
     proc->v.sval = procname;
+    proc->slen = end_line;
     ast_push(proc, e_leaf_sval(TT_VAR, procname, -1));
     ast_push(proc, vlist);
     ast_push(proc, body);

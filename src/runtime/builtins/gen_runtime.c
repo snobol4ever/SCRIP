@@ -254,7 +254,7 @@ DESCR_t rt_keyword_trace_set(DESCR_t v) { extern long g_trace;
     else if (v.v == DT_R) i = (long)v.r;
     else if (v.v == DT_S && v.s) { char *end; long t = strtol(v.s, &end, 10); if (end == v.s) return FAILDESCR; i = t; }
     else return FAILDESCR;
-    g_trace = i; return INTVAL((int64_t)i); }
+    g_trace = i; { extern void rt_trace_all_set(int on); rt_trace_all_set(i != 0); } return INTVAL((int64_t)i); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_keyword_dump_set(DESCR_t v)  { extern long g_dump;
     long i;

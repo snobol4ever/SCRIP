@@ -1,3 +1,4 @@
+#include <errno.h>
 #include "core.h"
 #include <setjmp.h>
 #include "sil_macros.h"
@@ -61,8 +62,14 @@ int rt_relop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out) {
     *out = r; extern int rt_is_truthy(DESCR_t v); return rt_is_truthy(r) ? 2 : 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t big_str_operand(DESCR_t d);
+int operand_is_real_str(DESCR_t v);
 void rt_relop_val_coerce(DESCR_t a, DESCR_t b, DESCR_t *out) {
-    *out = (IS_REAL(a) && !IS_REAL(b)) ? REALVAL(to_real(b)) : b;
+    if (IS_REAL(a) || IS_REAL(b) || operand_is_real_str(a) || operand_is_real_str(b)) { *out = REALVAL(to_real(b)); return; }
+    if (b.v == DT_BIG) { *out = b; return; }
+    { DESCR_t bs = big_str_operand(b); if (bs.v == DT_BIG) { *out = bs; return; } }
+    if (is_numeric_like(b)) { *out = INTVAL(to_int(b)); return; }
+    *out = b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t add(DESCR_t a, DESCR_t b) {
@@ -104,6 +111,12 @@ DESCR_t DIVIDE_fn(DESCR_t a, DESCR_t b) {
     return REALVAL(to_real(a) / denom);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static double rt_ripow(double r, int64_t n) {
+    double acc = 1.0;
+    if (n < 0) { n = (-1) - n; r = 1.0 / r; acc = r; }
+    while (n > 0) { if (n & 1) acc *= r; r *= r; n >>= 1; }
+    return acc;
+}
 DESCR_t POWER_fn(DESCR_t a, DESCR_t b) {
     if (IS_FAIL(a) || IS_FAIL(b)) return FAILDESCR;
     if (IS_NULL(a)) a = INTVAL(0);
@@ -115,7 +128,7 @@ DESCR_t POWER_fn(DESCR_t a, DESCR_t b) {
         for (int64_t k = 0; k < b.i; k++) acc *= a.i;
         return INTVAL(acc);
     }
-    double r = pow(to_real(a), to_real(b));
+    double r = IS_INT(b) ? rt_ripow(to_real(a), b.i) : pow(to_real(a), to_real(b));
     if (isinf(r) || isnan(r)) { core_runtime_error(2, NULL); return FAILDESCR; }
     return REALVAL(r);
 }
@@ -202,9 +215,9 @@ static DESCR_t rt_ipow_descr(int64_t li, int64_t ri) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_ipow_promote_descr(int64_t li, int64_t ri) {
-    if (ri >= 0) { int64_t acc = 1; for (int64_t k = 0; k < ri; k++) acc *= li; return INTVAL(acc); }
+    if (ri >= 0) { int64_t acc = 1; for (int64_t k = 0; k < ri; k++) { int64_t _z; if (__builtin_mul_overflow(acc, li, &_z)) { extern DESCR_t rt_big_pow(DESCR_t, int64_t); return rt_big_pow(INTVAL(li), ri); } acc = _z; } return INTVAL(acc); }
     if (li == 0) return REALVAL(0.0);
-    return REALVAL(pow((double)li, (double)ri));
+    { double _r = pow((double)li, (double)ri); if (!isfinite(_r)) { extern int core_icn_error(int code, DESCR_t val); core_icn_error(204, INTVAL(li)); return FAILDESCR; } return REALVAL(_r); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int operand_is_real_str(DESCR_t v) {
@@ -273,8 +286,18 @@ RT_BINOP_ENTRY(rt_powreal, BINOP_POW_PROMOTE, )
 RT_BINOP_ENTRY(rt_cunion, BINOP_CUNION, )
 RT_BINOP_ENTRY(rt_cdiff,  BINOP_CDIFF,  )
 RT_BINOP_ENTRY(rt_cinter, BINOP_CINTER, )
+static DESCR_t big_route_operand(DESCR_t d) {
+    if (d.v == DT_BIG || d.v == DT_I) return d;
+    if (d.v == DT_SNUL) return INTVAL(0);
+    if (d.v == DT_R) { extern DESCR_t rt_big_from_str(const char *); double t = trunc(d.r); if (t >= -9223372036854775808.0 && t < 9223372036854775808.0) return INTVAL((int64_t)t); if (t == t && t - t == 0.0) { char nb[400]; snprintf(nb, sizeof nb, "%.0f", t); return rt_big_from_str(nb); } return FAILDESCR; }
+    if (IS_STR_fn(d) && d.s) { errno = 0; char *e = 0; long long v = strtoll(d.s, &e, 10); if (e != d.s && errno != ERANGE) { while (*e == ' ') e++; if (!*e) return INTVAL(v); } { extern DESCR_t rt_big_from_str(const char *); DESCR_t bg = rt_big_from_str(d.s); if (!IS_FAIL_fn(bg)) return bg; } }
+    return d;
+}
+DESCR_t rt_bitop_operand(DESCR_t d) { return big_route_operand(d); }
 static DESCR_t rt_big_arith_route(DESCR_t a, DESCR_t b, int op) {
     extern DESCR_t rt_big_add(DESCR_t, DESCR_t); extern DESCR_t rt_big_sub(DESCR_t, DESCR_t);
+    a = big_route_operand(a); b = big_route_operand(b);
+    if (a.v != DT_BIG && a.v != DT_I) return FAILDESCR; if (b.v != DT_BIG && b.v != DT_I) return FAILDESCR;
     extern DESCR_t rt_big_mul(DESCR_t, DESCR_t); extern DESCR_t rt_big_pow(DESCR_t, int64_t);
     switch (op) {
         case BINOP_ADD: return rt_big_add(a, b);
@@ -287,6 +310,12 @@ static DESCR_t rt_big_arith_route(DESCR_t a, DESCR_t b, int op) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t big_str_operand(DESCR_t d) {
+    if (!IS_STR_fn(d) || !d.s) return d;
+    { const char *s = d.s; while (*s == ' ') s++; if (*s == '+' || *s == '-') s++; if (*s < '0' || *s > '9') return d; }
+    { errno = 0; char *e = 0; strtoll(d.s, &e, 10); if (errno != ERANGE) return d; while (*e == ' ') e++; if (*e) return d; }
+    { extern DESCR_t rt_big_from_str(const char *); DESCR_t bg = rt_big_from_str(d.s); return IS_FAIL_fn(bg) ? d : bg; }
+}
 static int rt_big_arith_wanted(DESCR_t a, DESCR_t b, int op) {
     if (a.v == DT_BIG || b.v == DT_BIG) {
         if (IS_REAL_fn(a) || IS_REAL_fn(b)) return 0;
@@ -296,6 +325,7 @@ static int rt_big_arith_wanted(DESCR_t a, DESCR_t b, int op) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_num_arith_impl(DESCR_t a, DESCR_t b, int op) {
+    a = big_str_operand(a); b = big_str_operand(b);
     if (rt_big_arith_wanted(a, b, op)) return rt_big_arith_route(a, b, op);
     int csop = (op == BINOP_CUNION || op == BINOP_CDIFF || op == BINOP_CINTER);
     if (!csop && (a.v == DT_S || a.v == DT_SNUL) && (!a.s || descr_slen(a) == 0)) a = INTVAL(0);
@@ -306,19 +336,19 @@ static DESCR_t rt_num_arith_impl(DESCR_t a, DESCR_t b, int op) {
     double ld = csop ? 0.0 : to_real(a), rd = csop ? 0.0 : to_real(b);
     int64_t li = csop ? 0 : to_int(a), ri = csop ? 0 : to_int(b);
     switch (op) {
-        case BINOP_ADD: return anyf ? REALVAL(ld + rd) : INTVAL(li + ri);
-        case BINOP_SUB: return anyf ? REALVAL(ld - rd) : INTVAL(li - ri);
-        case BINOP_MUL: return anyf ? REALVAL(ld * rd) : INTVAL(li * ri);
-        case BINOP_DIV: if (anyf) return (rd == 0.0) ? FAILDESCR : REALVAL(ld / rd); if (ri == 0) return FAILDESCR; return INTVAL(li / ri);
+        case BINOP_ADD: if (anyf) { double _r = ld + rd; if (!isfinite(_r) && isfinite(ld) && isfinite(rd)) { extern int core_icn_error(int code, DESCR_t val); core_icn_error(204, REALVAL(ld)); return FAILDESCR; } return REALVAL(_r); } { int64_t _z; if (__builtin_add_overflow(li, ri, &_z)) { extern DESCR_t rt_big_add(DESCR_t, DESCR_t); return rt_big_add(INTVAL(li), INTVAL(ri)); } return INTVAL(_z); }
+        case BINOP_SUB: if (anyf) { double _r = ld - rd; if (!isfinite(_r) && isfinite(ld) && isfinite(rd)) { extern int core_icn_error(int code, DESCR_t val); core_icn_error(204, REALVAL(ld)); return FAILDESCR; } return REALVAL(_r); } { int64_t _z; if (__builtin_sub_overflow(li, ri, &_z)) { extern DESCR_t rt_big_sub(DESCR_t, DESCR_t); return rt_big_sub(INTVAL(li), INTVAL(ri)); } return INTVAL(_z); }
+        case BINOP_MUL: if (anyf) { double _r = ld * rd; if (!isfinite(_r) && isfinite(ld) && isfinite(rd)) { extern int core_icn_error(int code, DESCR_t val); core_icn_error(204, REALVAL(ld)); return FAILDESCR; } return REALVAL(_r); } { int64_t _z; if (__builtin_mul_overflow(li, ri, &_z)) { extern DESCR_t rt_big_mul(DESCR_t, DESCR_t); return rt_big_mul(INTVAL(li), INTVAL(ri)); } return INTVAL(_z); }
+        case BINOP_DIV: if (anyf) { if (rd == 0.0) return FAILDESCR; { double _r = ld / rd; if (!isfinite(_r) && isfinite(ld) && isfinite(rd)) { extern int core_icn_error(int code, DESCR_t val); core_icn_error(204, REALVAL(ld)); return FAILDESCR; } return REALVAL(_r); } } if (ri == 0) return FAILDESCR; return INTVAL(li / ri);
         case BINOP_MOD: if (anyf) return (rd == 0.0) ? FAILDESCR : REALVAL(fmod(ld, rd)); if (ri == 0) return FAILDESCR; return INTVAL(li % ri);
         case BINOP_POW: {
             extern int core_icn_error(int code, DESCR_t val);
             if (!anyf) return rt_ipow_descr(li, ri);
             if (ld == 0.0 && rd <= 0.0) { core_icn_error(204, REALVAL(ld)); return FAILDESCR; }
             if (ld < 0.0 && (rf || operand_is_real_str(b))) { core_icn_error(206, REALVAL(ld)); return FAILDESCR; }
-            { double _rp = pow(ld, rd); if (!isfinite(_rp)) { core_icn_error(204, REALVAL(ld)); return FAILDESCR; } return REALVAL(_rp); }
+            { double _rp = (!rf && !operand_is_real_str(b)) ? rt_ripow(ld, ri) : pow(ld, rd); if (!isfinite(_rp)) { core_icn_error(204, REALVAL(ld)); return FAILDESCR; } return REALVAL(_rp); }
         }
-        case BINOP_POW_PROMOTE: return anyf ? REALVAL(pow(ld, rd)) : rt_ipow_promote_descr(li, ri);
+        case BINOP_POW_PROMOTE: return anyf ? REALVAL((!rf && !operand_is_real_str(b)) ? rt_ripow(ld, ri) : pow(ld, rd)) : rt_ipow_promote_descr(li, ri);
         case BINOP_CUNION: case BINOP_CDIFF: case BINOP_CINTER: {
             extern const char *icon_real_str(double r, char *buf, int bufsz);
             char _ab[64], _bb[64]; const char *as, *bs;
@@ -370,6 +400,8 @@ DESCR_t rt_num_neg(DESCR_t a) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_num_pos(DESCR_t a) {
+    if (a.v == DT_BIG) return a;
+    { DESCR_t bs = big_str_operand(a); if (bs.v == DT_BIG) return bs; }
     if (!is_numeric_like(a)) { core_runtime_error(1, "affirmation operand is not numeric"); return FAILDESCR; }
     if (IS_REAL_fn(a) || operand_is_real_str(a)) return REALVAL(to_real(a));
     return INTVAL(to_int(a));

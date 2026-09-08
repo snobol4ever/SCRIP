@@ -242,13 +242,19 @@ static IcnToken scan_number(IcnLexer *lx) {
         while (isalnum((unsigned char)lex_cur(lx)))
             buf_push(&buf, &len, &cap, lex_advance(lx));
         if (!buf) buf = strdup("0");
-        unsigned long long val = 0;
+        unsigned long long val = 0; int big = 0;
         for (int i = 0; i < len; i++) {
             char c = buf[i];
             int d = isdigit((unsigned char)c) ? c - '0'
                   : islower((unsigned char)c) ? c - 'a' + 10
                   : c - 'A' + 10;
+            if (val > (9223372036854775807ULL - (unsigned)d) / (unsigned)radix) big = 1;
             val = val * (unsigned)radix + (unsigned)d;
+        }
+        if (big) {
+            size_t bl = strlen(buf); char *txt = (char *)malloc(bl + 16); snprintf(txt, bl + 16, "%dr%s", radix, buf); free(buf);
+            IcnToken t = make_tok(TK_BIGINT, line, col); t.val.sval.data = txt; t.val.sval.len = strlen(txt);
+            return t;
         }
         free(buf);
         IcnToken t = make_tok(TK_INT, line, col);
