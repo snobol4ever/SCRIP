@@ -33,12 +33,13 @@ static int g_sno_uses_stmtkw = 0;
 static int sno_kw_is_stmt(const char * s) {
     if (!s) return 0; if (s[0] == '&') s++;
     char lk[16]; size_t i = 0; for (; s[i] && i < sizeof(lk) - 1; i++) lk[i] = (s[i] >= 'A' && s[i] <= 'Z') ? (char)(s[i] - 'A' + 'a') : s[i]; lk[i] = 0;
-    return !strcmp(lk, "stno") || !strcmp(lk, "stcount") || !strcmp(lk, "lastno") || !strcmp(lk, "line") || !strcmp(lk, "lastline") || !strcmp(lk, "file") || !strcmp(lk, "lastfile") || !strcmp(lk, "stlimit") || !strcmp(lk, "dump");
+    return !strcmp(lk, "stno") || !strcmp(lk, "stcount") || !strcmp(lk, "lastno") || !strcmp(lk, "line") || !strcmp(lk, "lastline") || !strcmp(lk, "file") || !strcmp(lk, "lastfile") || !strcmp(lk, "stlimit") || !strcmp(lk, "dump") || !strcmp(lk, "trace") || !strcmp(lk, "ftrace");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_scan_stmtkw(const tree_t * t) {
     if (!t || g_sno_uses_stmtkw) return;
     if (t->t == TT_KEYWORD && sno_kw_is_stmt(t->v.sval)) { g_sno_uses_stmtkw = 1; return; }
+    if (t->t == TT_FNC) { const char * fn = t->v.sval; if (!fn && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) fn = t->c[0]->v.sval; if (fn && !strcmp(fn, "TRACE")) { g_sno_uses_stmtkw = 1; return; } }
     for (int i = 0; i < t->n; i++) sno_scan_stmtkw(t->c[i]);
 }
 static int g_sno_uses_code = 0;

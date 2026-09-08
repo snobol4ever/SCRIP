@@ -106,7 +106,7 @@ static void trace_spell_value(DESCR_t val, char *buf, size_t bufsz) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void trace_print_banner(const char *name, DESCR_t value, long long stno, int kind) {
+static void trace_print_banner_args(const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno, int kind) {
     extern int64_t kw_fnclevel; extern int rt_k_level; extern long g_line; extern const char *g_file;
     char banner[13];
     int len = snprintf(banner, sizeof banner, "****%lld", stno);
@@ -115,13 +115,29 @@ static void trace_print_banner(const char *name, DESCR_t value, long long stno, 
     for (int i = len; i < 12; i++) banner[i] = '*';
     banner[12] = '\0';
     long depth = (long)kw_fnclevel;
+    if (kind == TRK_CALL || kind == TRK_RETURN) depth--;
     if (depth < 0) depth = 0;
     if (depth > 60) depth = 60;
     char istr[64]; int i; for (i = 0; i < depth; i++) istr[i] = 'i'; istr[i] = '\0';
-    char vtext[512]; trace_spell_value(value, vtext, sizeof vtext);
-    fprintf(stdout, "%s %s %s = %s\n", banner, istr, name, vtext);
+    char vtext[512];
+    if (kind == TRK_CALL) {
+        size_t o = 0; vtext[0] = '\0';
+        for (int k = 0; k < nargs && o + 2 < sizeof vtext; k++) {
+            if (k) vtext[o++] = ',';
+            trace_spell_value(args ? args[k] : NULVCL, vtext + o, sizeof vtext - o);
+            o += strlen(vtext + o);
+        }
+        fprintf(stdout, "%s %s %s(%s)\n", banner, istr, name, vtext);
+    } else if (kind == TRK_RETURN) {
+        if (IS_FAIL(value)) fprintf(stdout, "%s %s FRETURN %s\n", banner, istr, name);
+        else { trace_spell_value(value, vtext, sizeof vtext); fprintf(stdout, "%s %s %s %s = %s\n", banner, istr, value.v == DT_N ? "NRETURN" : "RETURN", name, vtext); }
+    } else {
+        trace_spell_value(value, vtext, sizeof vtext);
+        fprintf(stdout, "%s %s %s = %s\n", banner, istr, name, vtext);
+    }
     fflush(stdout);
 }
+static void trace_print_banner(const char *name, DESCR_t value, long long stno, int kind) { trace_print_banner_args(name, (DESCR_t *)0, 0, value, stno, kind); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void trace_print_icon(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value) {
     extern const char *g_file; extern long g_line; extern int * const rt_k_level_p;
@@ -147,7 +163,7 @@ void rt_trace_all_set(int on) {
 void rt_trace_event_args(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno) {
     if (!name || !*name) return;
     if (trace_recursion_depth > 0) return;
-    if ((kind == TRK_CALL || kind == TRK_RETURN) && kw_ftrace > 0) { kw_ftrace--; trace_print_banner(name, value, stno, kind); return; }
+    if ((kind == TRK_CALL || kind == TRK_RETURN) && kw_ftrace > 0) { kw_ftrace--; trace_print_banner_args(name, args, nargs, value, stno, kind); return; }
     if (g_trace == 0) return;
     trace_ent_t *e = trace_find(name, kind);
     if (!e) e = trace_find("*", kind);
@@ -166,15 +182,17 @@ void rt_trace_event_args(int kind, const char *name, DESCR_t *args, int nargs, D
         trace_recursion_depth--;
         g_trace = saved_trace; kw_ftrace = saved_ftrace;
     } else {
-        trace_print_banner(name, value, stno, kind);
+        trace_print_banner_args(name, args, nargs, value, stno, kind);
     }
 }
 void rt_trace_event(int kind, const char *name, DESCR_t value, long long stno) { rt_trace_event_args(kind, name, (DESCR_t *)0, 0, value, stno); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_trace_call_hook(const char *fname) {
-    extern long g_stno; extern DESCR_t g_call_args[]; extern int rt_proc_nparams(const char *name);
+    extern long g_stno; extern int rt_proc_nparams(const char *name); extern const char *rt_proc_pname(const char *name, int k); extern DESCR_t NV_GET_fn(const char *);
     int np = fname ? rt_proc_nparams(fname) : 0; if (np < 0) np = 0; if (np > 16) np = 16;
-    rt_trace_event_args(TRK_CALL, fname, g_call_args, np, NULVCL, g_stno);
+    DESCR_t a[16];
+    for (int i = 0; i < np; i++) { const char *pn = rt_proc_pname(fname, i); a[i] = pn ? NV_GET_fn(pn) : NULVCL; }
+    rt_trace_event_args(TRK_CALL, fname, a, np, NULVCL, g_stno);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_trace_call_hook_f(const char *fname, int np, void *base) {
