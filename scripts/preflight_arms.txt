@@ -27,6 +27,7 @@ scripts/test_gate_emit_no_slot_alloc.sh
 scripts/test_gate_icn_no_stack.sh
 scripts/test_gate_icn_one_reg_frame.sh
 scripts/test_gate_icn_tag_single_source.sh
+scripts/test_gate_icon_features_and_preprocessor_symbols_agree.sh
 scripts/test_gate_ladder_walk_v4_exempts_package_class_rows.sh
 scripts/test_gate_master_resort_preserves_modes.sh
 scripts/test_gate_no_bb_bin_t.sh
