@@ -139,7 +139,11 @@ for std in "$SUITE"/*.std; do
   # so a relative read like fncs1.icn's open("gc1.icn") would silently fail to find its sibling file --
   # confirmed directly, see FINDING-2026-09-04-seat02-icon-arizona-population-law-cwd-fidelity-and-fresh-census.md).
   # Litter this creates in $SUITE is swept by the PRE-RUN SNAPSHOT diff below, so fidelity costs nothing.
-  m3out=$(cd "$SUITE" && timeout "$TIMEOUT" "$SCRIP" --run "$icn" < "$stdin_file" 2>&1)
+  # ⛔ THE BARE NAME, NOT $icn: &file (and so the &trace showline column) is the source path AS GIVEN, in iconx and in
+  # SCRIP alike (measured 2026-09-08 against icont 9.5.25a: "large.icn    :", "sub/large.icn:", "ral/large.icn:" for the
+  # bare, subdir and absolute forms). The .std files were cut with the bare name from inside $SUITE; an absolute $icn
+  # here read `large` red on a compiler that matched the oracle byte for byte.
+  m3out=$(cd "$SUITE" && timeout "$TIMEOUT" "$SCRIP" --run "$name.icn" < "$stdin_file" 2>&1)
   if printf '%s' "$m3out" | grep -q 'parse error'; then
     M3_REJECT=$((M3_REJECT+1)); M3_REJECT_NAMES="$M3_REJECT_NAMES $name"; arizona_progress "$name" m3 REJECT
     [ "$VERBOSE" = 1 ] && echo "  [m3 REJECT] $name"
@@ -152,7 +156,7 @@ for std in "$SUITE"/*.std; do
 
   # ── mode 4: --compile (asm to stdout) -> assemble+link libscrip_rt.so -> run ─────────────────────
   s4=$(mktemp /tmp/ariz_XXXXXX.s); bin4=$(mktemp /tmp/ariz_XXXXXX.bin); rm -f "$bin4"
-  m4diag=$(cd "$RUNDIR" && timeout "$TIMEOUT" "$SCRIP" --compile "$icn" 2>&1 >"$s4" </dev/null)
+  m4diag=$(cd "$SUITE" && timeout "$TIMEOUT" "$SCRIP" --compile "$name.icn" 2>&1 >"$s4" </dev/null)
   m4out=""
   if [ -s "$s4" ] && [ -f "$RT_SO" ]; then
     if gcc -no-pie "$s4" -L"$HERE/../out" -lscrip_rt -Wl,-rpath,"$HERE/../out" -o "$bin4" 2>/dev/null; then
