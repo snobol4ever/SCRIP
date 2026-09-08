@@ -87,6 +87,12 @@ printf '%s\n' "$OUT" | grep -q 'SUITE BANNER: UNREADABLE' \
 # majority of rows reads as a rendering quirk rather than a bug.
 # ⭐ THIS ARM MEASURES SEPARATOR POSITIONS, NOT CELL LENGTHS. Equal cell widths are what the buggy version
 # already believed it had; what a reader actually sees is where the │ lands.
+# ⛔ A SHORT FINAL ROW IS NOT A MISALIGNMENT (ceo 2026-09-08, CEO-394): the arm compared the whole tuple of
+# separator positions and required every row to have the SAME NUMBER of them, so it went red the moment the
+# suite count stopped being a multiple of the column count -- the coo's 22nd suite row (TPgm) turned a 7x3
+# grid ragged and reddened the blocking set for every seat, with nothing misaligned on screen. Each row's
+# separators must now match the PREFIX of the widest row, which is the property a reader can actually see;
+# a real misalignment (a mis-measured glyph moving a │) still reds it, and that fail-once was re-proven.
 arms=$((arms+1))
 python3 - "$HERE/../../.github/scripts/util_suite_banner.py" <<'PYEOF' || fail "ARM 6: the suite grid does not line up vertically in display columns"
 import sys, subprocess, importlib.util
@@ -103,9 +109,13 @@ for l in lines:
         if i < 0: break
         seps.append(m.dw(l[:i])); start = i + 3
     pos.append(tuple(seps))
-if len(set(pos)) != 1:
-    print("separator display-columns differ across rows: %s" % sorted(set(pos))); sys.exit(1)
-print("grid aligned: %d rows, separators at %s display columns" % (len(lines), pos[0]))
+widest = max(pos, key=len)
+bad = [p for p in pos if p != widest[:len(p)]]
+if bad:
+    print("separator display-columns differ across rows: %s against the full row %s" % (sorted(set(bad)), (widest,))); sys.exit(1)
+short = [p for p in pos if len(p) != len(widest)]
+print("grid aligned: %d rows, separators at %s display columns%s"
+      % (len(lines), widest, (" (%d final row(s) short a cell: the suite count is not a multiple of the column count)" % len(short)) if short else ""))
 PYEOF
 
 if [ "$viol" -ne 0 ]; then
