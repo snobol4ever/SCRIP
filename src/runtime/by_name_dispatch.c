@@ -5739,6 +5739,17 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             DESCR_t d = {0}; d.v = DT_CO; d.p = nc;
             *out = d; return 1;
         }
+        if (src.v == DT_DATA && src.u && src.u->type) {
+            DATBLK_t *rt = src.u->type;
+            int nf = rt->nfields > 0 ? rt->nfields : 0;
+            DATINST_t *nu = (DATINST_t *) rt_ws_alloc_tag(sizeof(DATINST_t), HB_DINST);
+            nu->type = rt;
+            nu->id = src.u->id;
+            nu->fields = (DESCR_t *) rt_ws_alloc((size_t)(nf > 0 ? nf : 1) * sizeof(DESCR_t));
+            for (int i = 0; i < nf; i++) nu->fields[i] = src.u->fields[i];
+            DESCR_t d = {0}; d.v = DT_DATA; d.slen = 0; d.u = nu;
+            *out = d; return 1;
+        }
         *out = src; return 1;
     }
     L_bidjmp_5840: ;
