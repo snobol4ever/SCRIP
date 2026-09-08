@@ -95,14 +95,7 @@ static void skip_ws(IcnLexer *lx) {
             const char *line_start = lx->src + lx->pos;
             while (lex_cur(lx) && lex_cur(lx) != '\n')
                 lex_advance(lx);
-            size_t line_len = (size_t)((lx->src + lx->pos) - line_start);
-            if (line_len >= 10) {
-                extern int g_jcon;
-                char tmp[32]; size_t cpy = line_len < 31 ? line_len : 31;
-                memcpy(tmp, line_start, cpy); tmp[cpy] = '\0';
-                if (strstr(tmp, "SRC: JCON") || strstr(tmp, "SRC:JCON"))
-                    g_jcon = 1;
-            }
+            (void)line_start;
             continue;
         }
         if (lex_cur(lx) == '$') {
@@ -743,7 +736,7 @@ static void icn_pp_run(const char *src, char **out, int *olen, int *ocap, PpDef 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char *icn_preprocess(const char *src) {
     PpDef defs[128]; int ndefs = 0;
-    static const char *pre[] = { "_UNIX", "_JAVA", "_ASCII", "_CO_EXPRESSIONS", "_LARGE_INTEGERS", "_PIPES", "_SYSTEM_FUNCTION" };
+    static const char *pre[] = { "_UNIX", "_ASCII", "_CO_EXPRESSIONS", "_KEYBOARD_FUNCTIONS", "_LARGE_INTEGERS", "_PIPES", "_SYSTEM_FUNCTION" };
     for (int k = 0; k < 7 && ndefs < 128; k++) { defs[ndefs].name = strdup(pre[k]); defs[ndefs].val = strdup("1"); ndefs++; }
     char *out = NULL; int olen = 0, ocap = 0;
     icn_pp_run(src, &out, &olen, &ocap, defs, &ndefs, 0);

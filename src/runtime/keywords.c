@@ -22,7 +22,6 @@ extern long rt_anchor_g __attribute__((alias("g_anchor")));
 long *rt_anchor_ptr(void) { return &g_anchor; }
 long g_maxlngth = 5000000;
 int64_t g_kw_maxint = 9223372036854775807LL;
-int  g_jcon   = 0;
 long g_stno    = 0;
 long g_stcount = 0;
 long g_lastno  = 0;
@@ -476,7 +475,7 @@ DESCR_t rt_keyword_gen(const char *sval, long idx) {
     if (!sval) return FAILDESCR;
     const char *kw = sval[0] == '&' ? sval + 1 : sval;
     if (!strcmp(kw,"features")) {
-        static const char *const feats[] = { "UNIX", "Java", "ASCII", "co-expressions", "dynamic loading", "environment variables", "large integers", "pipes", "system function", "graphics" };
+        static const char *const feats[] = { "UNIX", "ASCII", "co-expressions", "environment variables", "keyboard functions", "large integers", "pipes", "system function" };
         int n = (int)(sizeof(feats) / sizeof(feats[0]));
         if (idx < 0 || idx >= n) return FAILDESCR;
         return STRVAL(feats[idx]);
@@ -486,7 +485,8 @@ DESCR_t rt_keyword_gen(const char *sval, long idx) {
         return FAILDESCR;
     }
     if (!strcmp(kw,"regions")) {
-        if (idx >= 0 && idx <= 2) return INTVAL(0);
+        if (idx == 0) return INTVAL(0);
+        if (idx == 1 || idx == 2) return INTVAL(500000);
         return FAILDESCR;
     }
     if (!strcmp(kw,"storage")) {
