@@ -56,8 +56,19 @@ printf '%s\n' "$BROKE" | grep -q 'SUITE BANNER: UNREADABLE' \
     || fail "ARM 3: with the script absent the banner did NOT print 'SUITE BANNER: UNREADABLE' -- a silently missing suite line reads as a fleet with no suites"
 
 # --- ARM 4: the computed verdict survives the absent case ---
+# ⛔⭐ ALL THREE VERDICT CLASSES COUNT, NOT TWO (cfo 2026-09-08, ceo RULED 17:39; FINDING-2026-09-08-cfo-
+# make-test-dies-at-arm-2-...). This arm matched only ✅ and ⛔ while the banner has a THIRD class, "⚠ NOTHING
+# LANDED", printed when a session produced no commit and no FINDING -- a correctly COMPUTED verdict that this
+# arm read as NO verdict. Because the arm greps the LIVE session's banner, that made `make test` RED AT ARM 2
+# OF ~65 for any seat that had not yet committed, and GREEN for the same tree the moment it did: measured both
+# ways on one tree, stash-controlled, and it was concealing a real Prolog red at arm ~57 that the pre-landing
+# run could never reach. ⛔ THE DEEPER DEFECT IS THAT THIS ARM GRADES THE SEAT RATHER THAN THE TOOL and so
+# breaks test-postoffice's own hermetic membership rule; the structural cure -- drive the banner from a session
+# state this gate CONTROLS -- is its own row (banner-gate-arm-4-reads-live-session-state-so-it-grades-the-seat-
+# not-the-tool, cfo). Until that lands, this class list must track s4e_msg.sh's verdict classes or the arm reds
+# again for the next class anyone adds.
 arms=$((arms+1))
-printf '%s\n' "$BROKE" | grep -qE '(✅|⛔) [A-Z]' \
+printf '%s\n' "$BROKE" | grep -qE '(✅|⛔|⚠) [A-Z]' \
     || fail "ARM 4: the banner printed no computed verdict while the suite script was absent -- the refusal must not take the verdict down with it"
 
 # --- ARM 5: the happy path does not print the refusal (or ARM 3 proves nothing) ---
