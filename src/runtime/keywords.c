@@ -470,6 +470,7 @@ void rt_stmt_enter(long stno, long line) {
     g_lastfile = (g_stcount > 0) ? g_file : (const char *)0;
     if (kw_stlimit < 0) return;
     g_stcount++;
+    { extern void rt_trace_keyword_write(const char *, int64_t, long long); rt_trace_keyword_write("STCOUNT", (int64_t)g_stcount, (long long)stno); }
     if (g_stcount > kw_stlimit) kwb_error(244, "statement count exceeds value of stlimit keyword");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

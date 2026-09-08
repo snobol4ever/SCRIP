@@ -106,6 +106,7 @@ static void trace_spell_value(DESCR_t val, char *buf, size_t bufsz) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long trace_depth_override = -1;
 static void trace_print_banner_args(const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno, int kind) {
     extern int64_t kw_fnclevel; extern int rt_k_level; extern long g_line; extern const char *g_file;
     char banner[13];
@@ -116,6 +117,7 @@ static void trace_print_banner_args(const char *name, DESCR_t *args, int nargs, 
     banner[12] = '\0';
     long depth = (long)kw_fnclevel;
     if (kind == TRK_CALL || kind == TRK_RETURN) depth--;
+    if (trace_depth_override >= 0) depth = trace_depth_override;
     if (depth < 0) depth = 0;
     if (depth > 60) depth = 60;
     char istr[64]; int i; for (i = 0; i < depth; i++) istr[i] = 'i'; istr[i] = '\0';
@@ -160,9 +162,41 @@ void rt_trace_all_set(int on) {
     if (on) { trace_register("*", TRK_CALL, "icn", (const char *)0); trace_register("*", TRK_RETURN, "icn", (const char *)0); }
     else { trace_unregister("*", TRK_CALL); trace_unregister("*", TRK_RETURN); }
 }
+void rt_trace_keyword_write(const char *kw, int64_t v, long long stno) {
+    if (!kw || !*kw) return;
+    if (trace_recursion_depth > 0) return;
+    trace_ent_t *e = trace_find(kw, TRK_KEYWORD);
+    if (!e) return;
+    if (g_trace == 0) return;
+    g_trace--;
+    if (e->cbfn) {
+        int64_t saved_trace = g_trace, saved_ftrace = kw_ftrace;
+        g_trace = 0; kw_ftrace = 0;
+        trace_recursion_depth++;
+        DESCR_t cbargs[2];
+        cbargs[0] = NAMEVAL(rt_ws_strdup_c(kw));
+        cbargs[1] = STRVAL(rt_ws_strdup_c(e->tag ? e->tag : ""));
+        (void)APPLY_fn(e->cbfn, cbargs, 2);
+        trace_recursion_depth--;
+        g_trace = saved_trace; kw_ftrace = saved_ftrace;
+        return;
+    }
+    trace_recursion_depth++;
+    { char nb[64]; snprintf(nb, sizeof nb, "&%s", kw);
+      trace_depth_override = !strcmp(kw, "FNCLEVEL") ? (long)v : (long)kw_fnclevel;
+      trace_print_banner_args(nb, (DESCR_t *)0, 0, INTVAL(v), stno, TRK_KEYWORD);
+      trace_depth_override = -1; }
+    trace_recursion_depth--;
+}
 void rt_trace_event_args(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno) {
     if (!name || !*name) return;
     if (trace_recursion_depth > 0) return;
+    if (kind == TRK_CALL || kind == TRK_RETURN) {
+        extern int64_t kw_fnclevel;
+        int64_t lv = (kind == TRK_CALL) ? kw_fnclevel : kw_fnclevel - 1;
+        if (lv < 0) lv = 0;
+        rt_trace_keyword_write("FNCLEVEL", lv, stno);
+    }
     if ((kind == TRK_CALL || kind == TRK_RETURN) && kw_ftrace > 0) { kw_ftrace--; trace_print_banner_args(name, args, nargs, value, stno, kind); return; }
     if (g_trace == 0) return;
     trace_ent_t *e = trace_find(name, kind);
