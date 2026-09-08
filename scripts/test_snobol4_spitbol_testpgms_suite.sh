@@ -58,6 +58,14 @@ cp -a "$SUITE"/. "$W/" || { echo "⛔ REFUSE(rc=2): could not copy the suite to 
 progs=""; for f in "$W"/test*.spt; do [ -f "$f" ] || continue; progs="$progs $(basename "$f" .spt)"; done
 [ -n "$progs" ] || { echo "⛔ REFUSE(rc=2): zero test*.spt programs found under $SUITE"; exit 2; }
 TOTAL=0; SCORED=0; UNSCR=0; M3P=0; M3F=0; M4P=0; M4F=0; UNSCR_LINES=""; RED_LINES=""
+# ⭐ THE SPITBOL BASELINE (Lon 2026-09-08, row snobol4-every-package-runner-states-its-row-over-the-spitbol-
+# baseline-measured-live; test_snoflake_suite.sh is the shape). A program SPITBOL ITSELF cannot run is OUTSIDE
+# the baseline and out of the denominator. This runner already MEASURES that set live -- it is exactly the
+# UNSCORED arms below, which key on sbl's own listing -- so nothing new is computed here; what is added is the
+# RECORD (OUTSIDE_SPITBOL_BASELINE.tsv beside the package, mirrored by UNGRADABLE.tsv) and a live cross-check
+# that says STALE or UNRECORDED aloud rather than letting a written ruling drift away from what sbl does today.
+# BOTH is the ceo-372 AND per program: the suite row states both_modes_pass over the baseline, never a per-mode count.
+BOTH=0; OUTSIDE_LIST=""; OUTSIDE_TSV="$SUITE/OUTSIDE_SPITBOL_BASELINE.tsv"; MIRROR_TSV="$SUITE/UNGRADABLE.tsv"
 for p in $progs; do
     TOTAL=$((TOTAL+1))
     src="$W/$p.spt"
@@ -77,6 +85,7 @@ for p in $progs; do
         why="exited rc=$orc"
         if [ "$orc" -ge 129 ] && [ "$orc" -le 192 ]; then why="KILLED BY SIGNAL $((orc-128)) (rc=$orc)"; fi
         [ "$orc" -eq 124 ] && why="TIMED OUT after ${T}s"
+        OUTSIDE_LIST="${OUTSIDE_LIST}${p}\t${why} (sbl -bf does not complete the program)\n"
         UNSCR_LINES="$UNSCR_LINES  UNSCORED  $p  oracle $why after $(grep -c . "$ora" 2>/dev/null || echo 0) line(s) -- truncated output is not ground truth, no ref cut
 "
         continue
@@ -117,6 +126,7 @@ for p in $progs; do
     if [ -n "$_diag" ] && [ "$_pm" -ge 2 ]; then
         UNSCR=$((UNSCR+1))
         _errno="$(printf '%s' "$_diag" | sed -n 's/.*\(ERROR [0-9]*\) --.*/\1/p')"
+        OUTSIDE_LIST="${OUTSIDE_LIST}${p}\t${_errno:-ERROR} (sbl -bf refuses the program at rc=0 with a post-mortem block)\n"
         UNSCR_LINES="$UNSCR_LINES  UNSCORED  $p  oracle REFUSED THE PROGRAM at rc=0 -- ${_errno:-ERROR} plus a post-mortem block after $(grep -c . "$ora" 2>/dev/null || echo 0) line(s): a diagnostic is not an answer, no ref cut
 "
         continue
@@ -124,7 +134,8 @@ for p in $progs; do
     SCORED=$((SCORED+1))
     # ── mode 3 and mode 4, same scratch cwd, same stdin.
     m3="$W/$p.m3"; (cd "$W" && timeout "$T" "$SCRIP" $cmpt "$p.spt" < "$W/testpgms.in" > "$m3" 2>/dev/null); r3=$?
-    if cmp -s "$ora" "$m3"; then M3P=$((M3P+1)); else M3F=$((M3F+1)); RED_LINES="$RED_LINES  RED  $p m3 (rc=$r3, first diff: $(diff "$ora" "$m3" 2>/dev/null | head -2 | tr '\n' ' ' | cut -c1-100))
+    _p3=0
+    if cmp -s "$ora" "$m3"; then M3P=$((M3P+1)); _p3=1; else M3F=$((M3F+1)); RED_LINES="$RED_LINES  RED  $p m3 (rc=$r3, first diff: $(diff "$ora" "$m3" 2>/dev/null | head -2 | tr '\n' ' ' | cut -c1-100))
 "; fi
     s4="$W/$p.s"; b4="$W/$p.bin"
     (cd "$W" && timeout "$T" "$SCRIP" $cmpt --compile "$p.spt" > "$s4" 2>/dev/null) </dev/null
@@ -134,12 +145,34 @@ for p in $progs; do
     else
         : > "$m4"; r4=125
     fi
-    if cmp -s "$ora" "$m4"; then M4P=$((M4P+1)); else M4F=$((M4F+1)); RED_LINES="$RED_LINES  RED  $p m4 (rc=$r4, first diff: $(diff "$ora" "$m4" 2>/dev/null | head -2 | tr '\n' ' ' | cut -c1-100))
+    _p4=0
+    if cmp -s "$ora" "$m4"; then M4P=$((M4P+1)); _p4=1; else M4F=$((M4F+1)); RED_LINES="$RED_LINES  RED  $p m4 (rc=$r4, first diff: $(diff "$ora" "$m4" 2>/dev/null | head -2 | tr '\n' ' ' | cut -c1-100))
 "; fi
+    # written as an if, not an && chain: this file is set -uo pipefail today, but an && chain whose last
+    # link is false returns non-zero and would abort the loop the day someone adds -e.
+    if [ "$_p3" = 1 ] && [ "$_p4" = 1 ]; then BOTH=$((BOTH+1)); fi
 done
 SCRIP_HASH="$(git -C "$SD" rev-parse --short HEAD 2>/dev/null || echo '?')"
 CORP_HASH="$(git -C "$ROOT/corpus" rev-parse --short HEAD 2>/dev/null || echo '?')"
 echo "SPITBOL_TESTPGMS_BOARD total=$TOTAL scored=$SCORED unscored=$UNSCR m3_pass=$M3P m3_fail=$M3F m4_pass=$M4P m4_fail=$M4F -- SCRIP $SCRIP_HASH corpus $CORP_HASH RT_OPT=-O0 oracle=sbl-bf (the one SNOBOL4 oracle, Lon 2026-09-07) refs cut live"
+echo "SPITBOL_TESTPGMS_BASELINE baseline=$SCORED both_modes_pass=$BOTH outside_spitbol_baseline=$UNSCR of $TOTAL -- THE SUITE TABLE STATES both_modes_pass/baseline (a program SPITBOL itself cannot run is outside the baseline and out of the denominator; Lon 2026-09-08)"
+if [ "$UNSCR" -gt 0 ]; then echo "OUTSIDE-SPITBOL-BASELINE ($UNSCR; name<TAB>SPITBOL's own refusal):"; printf '%b' "$OUTSIDE_LIST" | sed 's/^/OUTSIDE\t/'; fi
+# ⛔ THE RECORD IS CROSS-CHECKED AGAINST THE LIVE MEASURE EVERY RUN, and disagreement is said aloud rather than
+# resolved silently: a written ruling that sbl no longer agrees with is the stale-declaration failure this
+# runner's own header warns about, one level up.
+if [ -f "$OUTSIDE_TSV" ]; then
+    rec="$(awk -F'\t' 'NF>2 && $1 !~ /^#/{sub(/\.spt$/,"",$1); print $1}' "$OUTSIDE_TSV" | sort)"
+    live="$(printf '%b' "$OUTSIDE_LIST" | cut -f1 | grep . | sort)"
+    stale="$(comm -23 <(printf '%s\n' "$rec") <(printf '%s\n' "$live") | tr '\n' ' ')"
+    unrec="$(comm -13 <(printf '%s\n' "$rec") <(printf '%s\n' "$live") | tr '\n' ' ')"
+    [ -n "$stale" ] && echo "⚠ OUTSIDE_SPITBOL_BASELINE.tsv STALE -- recorded as not running in SPITBOL, but sbl -bf answered it cleanly this run; move it back into the baseline record: $stale"
+    [ -n "$unrec" ] && echo "⚠ OUTSIDE_SPITBOL_BASELINE.tsv UNRECORDED -- sbl -bf refuses these and the record does not name them; record each with its error and a source check: $unrec"
+    [ -z "$stale$unrec" ] && echo "OUTSIDE_SPITBOL_BASELINE.tsv agrees with the measured outside set ($UNSCR)"
+    if [ -f "$MIRROR_TSV" ]; then
+        mir="$(awk -F'\t' 'NF>2 && $1 !~ /^#/{print $1}' "$MIRROR_TSV" | sort)"; recn="$(awk -F'\t' 'NF>2 && $1 !~ /^#/{print $1}' "$OUTSIDE_TSV" | sort)"
+        [ "$mir" = "$recn" ] || echo "⚠ UNGRADABLE.tsv does not mirror OUTSIDE_SPITBOL_BASELINE.tsv row for row -- the lockdown bucket and the record have drifted; edit them together"
+    fi
+else echo "⚠ no OUTSIDE_SPITBOL_BASELINE.tsv beside the suite -- the outside-baseline set above is measured, not yet recorded"; fi
 printf '%s' "$UNSCR_LINES"
 printf '%s' "$RED_LINES"
 # ⭐ THE PACKAGE LOCKDOWN: lib_inventory.sh recomputes ungradable from UNGRADABLE.tsv beside $SUITE (a
@@ -162,7 +195,11 @@ if [ -f "$HERE/lib_gate.sh" ]; then
     . "$HERE/lib_gate.sh" 2>/dev/null || true
     if command -v gate_score_row >/dev/null 2>&1; then
         GATE_NAME=test_snobol4_spitbol_testpgms_suite
-        gate_score_row snobol4 vendor "spitbol_testpgms $M3P/$SCORED m3 · $M4P/$SCORED m4 (of $TOTAL shipped, $UNSCR UNSCORED -- sbl answers neither, by SIGSEGV or by a fatal listing at rc=0; sbl -bf the one oracle, Lon 2026-09-07; refs cut live${INV_LINE:+ · $INV_LINE}, \`test_snobol4_spitbol_testpgms_suite.sh\`)" "m3,m4" || true
+        # ⭐ THE FRACTION IS NAMED, NEVER INFERRED (args 6 and 7, lib_gate.sh): this --text carries several
+        # distinct N/M, so util_score_row's fraction_from_text() would correctly decline to guess and abort the
+        # whole write -- which is why this cell was hand-recorded before. The table's reading is the ceo-372 AND
+        # per program over the SPITBOL baseline: both_modes_pass/baseline.
+        gate_score_row snobol4 vendor "spitbol_testpgms baseline both_modes_pass=$BOTH/$SCORED (the table's reading: programs SPITBOL runs clean; $UNSCR outside the SPITBOL baseline, Lon 2026-09-08) · m3 $M3P/$SCORED · m4 $M4P/$SCORED (of $TOTAL shipped; sbl -bf the one oracle, Lon 2026-09-07; refs cut live)${INV_LINE:+ · $INV_LINE} (\`test_snobol4_spitbol_testpgms_suite.sh\`)" "m3,m4" testpgms "$BOTH" "$SCORED" || true
     fi
 fi
 [ "$M3F" = 0 ] && [ "$M4F" = 0 ]
