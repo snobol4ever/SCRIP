@@ -335,14 +335,7 @@ s4e_seat_name() {
 # caller who obeys it loses data while the caller who ignores it is right.  Pass it through; a runner
 # writing a whole cell simply omits it, exactly as before.
 gate_score_row() {
-    local _lang="$1" _col="$2" _text="$3" _modes="${4:-}" _suite="${5:-}" _spass="${6:-}" _stotal="${7:-}" _py _out _rc
-    # ⭐ ARGS 6 AND 7 NAME THE SUITE FRACTION EXPLICITLY (coo 2026-09-08, row
-    # snobol4-every-package-runner-states-its-row-over-the-spitbol-baseline-measured-live; the same cure the cfo landed
-    # inside individual runners for arizona/snoflake/ipl, lifted here so it is available to every caller instead of
-    # once per runner). WHY IT IS NEEDED: util_score_row's fraction_from_text() correctly REFUSES to guess when the
-    # --text carries more than one distinct N/M, which most board texts do (per-mode counts, inventory ratios), and the
-    # refusal aborts the whole write. STRICTLY ADDITIVE: both default to empty and an empty one adds no flag, so every
-    # existing 3-, 4- and 5-argument caller behaves exactly as before.
+    local _lang="$1" _col="$2" _text="$3" _modes="${4:-}" _suite="${5:-}" _py _out _rc
     # ⛔ A DELIBERATE STALE RUN NEVER REACHES THE LEADERBOARD (row harness-and-ladder-runner-refuse-on-a-stale-binary-like-
     # the-artifact-regen-does, hq_T 2026-09-04): SCRIP_ALLOW_STALE=1 is the operator's own declaration that this run's
     # binary currency was NOT enforced, and a SCORE.md row stamps the tree's hash on whatever number it carries. Checked on
@@ -359,8 +352,7 @@ gate_score_row() {
         return 0
     fi
     _out="$(python3 "$_py" write --lang "$_lang" --column "$_col" --text "$_text" \
-            --measurer "${S4E_SEAT:-}" ${_modes:+--modes "$_modes"} ${_suite:+--suite "$_suite"} \
-            ${_spass:+--suite-pass "$_spass"} ${_stotal:+--suite-total "$_stotal"} 2>&1)"; _rc=$?
+            --measurer "${S4E_SEAT:-}" ${_modes:+--modes "$_modes"} ${_suite:+--suite "$_suite"} 2>&1)"; _rc=$?
     if [ "$_rc" -ne 0 ]; then
         echo "⚠ SCORE.md NOT UPDATED [$GATE_NAME] (rc=$_rc) -- the measurement below stands, the leaderboard row does not:"
         echo "$_out" | sed 's/^/    /'
