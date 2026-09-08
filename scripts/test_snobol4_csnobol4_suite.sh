@@ -200,6 +200,7 @@ status_of() { # $1=got $2=rc $3=exp -> echoes PASS|FAIL|REJECT|CRASH|HANG
 TOTAL=0
 M3_PASS=0; M3_FAIL=0; M3_REJECT=0; M3_CRASH=0; M3_HANG=0; RED3=""
 M4_PASS=0; M4_FAIL=0; M4_REJECT=0; M4_CRASH=0; M4_HANG=0; RED4=""
+BOTH_PASS=0   # programs PASS in m3 AND m4 -- the suite table's reading (ceo-372), what util_score_row's --suite-pass names
 CSN_PASS=0; CSN_FAIL=0
 REGEN=0; REGEN_LIST=""
 EXCLUDED_LIST=""
@@ -267,6 +268,7 @@ for sno in "$SUITE"/*.sno; do
             CRASH) M4_CRASH=$((M4_CRASH+1)); RED4="$RED4 $name";;
             HANG) M4_HANG=$((M4_HANG+1)); RED4="$RED4 $name";;
         esac
+        [ "$st3" = PASS ] && [ "$st4" = PASS ] && BOTH_PASS=$((BOTH_PASS+1))
     else
         M4_REJECT=$((M4_REJECT+1)); RED4="$RED4 $name(CC)"
     fi
@@ -310,7 +312,11 @@ if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (
 # ⭐ THE INVENTORY CLAUSE RIDES IN THE CELL TOO (util_score_row.py's inventory_clauses(), CEO-316):
 # appended verbatim when non-empty, runner name immediately after so `by=`/backtick attribution
 # finds it within the reader's 200-char window; absent when inventory_line refused.
+# ⛔⭐ NAME THE SUITE FRACTION EXPLICITLY (cto 2026-09-08, the cure b2660262e gave the snoflake and ipl runners and
+# b7f48462a gave Arizona): without --suite-pass/--suite-total the writer REFUSED this row every time ("carries no N/M
+# fraction") and the Budne cell was hand-set (62/97 at 19162985f); the runner now writes its own AND-per-program count.
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite CSNOBOL4 --modes m3,m4 \
+    --suite-pass "$BOTH_PASS" --suite-total "$TOTAL" \
     --measurer "${S4E_SEAT:-}" \
     --text "total=$TOTAL m3 PASS=$M3_PASS FAIL=$M3_FAIL REJECT=$M3_REJECT CRASH=$M3_CRASH HANG=$M3_HANG · m4 PASS=$M4_PASS FAIL=$M4_FAIL REJECT=$M4_REJECT CRASH=$M4_CRASH HANG=$M4_HANG${INV_LINE:+ · $INV_LINE (\`test_snobol4_csnobol4_suite.sh\`)}" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
