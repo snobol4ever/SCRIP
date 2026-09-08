@@ -46,7 +46,7 @@ census_one() {
     local bin="$1" flags="$2" prog="$3" dir name inp out rc v note
     dir="$(dirname "$prog")"; name="$(basename "$prog")"
     inp=/dev/null; [ -f "$dir/${name%.*}.in" ] && inp="$dir/${name%.*}.in"
-    out="$(cd "$dir" && timeout "$TIMEOUT" "$bin" $flags "$name" < "$inp" 2>&1)"; rc=$?
+    out="$(cd "$dir" && timeout "$TIMEOUT" "$bin" $flags "$name" < "$inp" 2>&1 | tr -d '\000'; exit "${PIPESTATUS[0]}")"; rc=$?
     if [ $rc -eq 0 ]; then v=OK; note=""
     elif [ $rc -eq 124 ]; then v=TIMEOUT; note=""
     elif [ $rc -gt 128 ] && [ $rc -le 160 ]; then v="CRASH($((rc-128)))"; note=""
@@ -65,11 +65,22 @@ census_row() {
 }
 export -f census_one census_row
 
+SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/sno_census.XXXXXX")" || { echo "⛔ REFUSE(2): mktemp failed" >&2; exit 2; }
+trap 'rm -rf "$SCRATCH"' EXIT
 for pkg in $PKGS; do
     [ -d "$pkg" ] || { echo "⛔ REFUSE(2): no such package dir $pkg" >&2; exit 2; }
     tsv="$pkg/ORACLE_ACCEPTANCE.tsv"; tmp="$(mktemp)"
+    # ⛔ NEVER RUN IN THE CORPUS TREE: the first run (2026-09-08) left spitlib.idx, openo.tst, test.bin, ASMTEMP and two
+    # "(121A1)" files behind -- programs write beside themselves. Each package is copied whole into scratch (so -INCLUDE
+    # siblings and .in files still resolve) and every program runs in the copy; the copy dies with the trap.
+    # The copy keeps the package's corpus-relative path, with the trees a -INCLUDE reaches ('../../benchmarks/snobol4/
+    # harness.inc', library/, include/) beside it -- the master's probes resolved in the tree and not in a flat copy.
+    rel="${pkg#$CORPUS/}"; run="$SCRATCH/$rel"; rm -rf "$run"; mkdir -p "$(dirname "$run")"; cp -r "$pkg" "$run"; rm -f "$run/ORACLE_ACCEPTANCE.tsv"
+    for side in benchmarks/snobol4 library include; do
+        [ -d "$CORPUS/$side" ] && [ ! -e "$SCRATCH/$side" ] && { mkdir -p "$SCRATCH/$(dirname "$side")"; cp -r "$CORPUS/$side" "$SCRATCH/$side"; }
+    done
     # standalone programs only: *.sno / *.spt / *.SPT at depth 1; ALL.* is our own generated container, never a program
-    find "$pkg" -maxdepth 1 -type f \( -name '*.sno' -o -name '*.spt' -o -name '*.SPT' \) ! -name 'ALL.*' | sort \
+    find "$run" -maxdepth 1 -type f \( -name '*.sno' -o -name '*.spt' -o -name '*.SPT' \) ! -name 'ALL.*' | sort \
         | xargs -P "$JOBS" -I{} bash -c 'census_row "$1"' _ {} > "$tmp"
     n=$(grep -c '' "$tmp"); [ "$n" -gt 0 ] || { rm -f "$tmp"; echo "ORACLE_ACCEPTANCE package=$(basename "$pkg") n=0 (no standalone programs)"; continue; }
     { printf 'name\tsbl\tcsnobol4\tsnoflake\tsbl_note\tcsnobol4_note\tsnoflake_note\n'; sort "$tmp"; } > "$tsv"; rm -f "$tmp"
