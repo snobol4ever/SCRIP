@@ -139,7 +139,7 @@ for p in $progs; do
 done
 SCRIP_HASH="$(git -C "$SD" rev-parse --short HEAD 2>/dev/null || echo '?')"
 CORP_HASH="$(git -C "$ROOT/corpus" rev-parse --short HEAD 2>/dev/null || echo '?')"
-echo "SPITBOL_TESTPGMS_BOARD total=$TOTAL scored=$SCORED unscored=$UNSCR m3_pass=$M3P m3_fail=$M3F m4_pass=$M4P m4_fail=$M4F -- SCRIP $SCRIP_HASH corpus $CORP_HASH RT_OPT=-O0 oracle=sbl-bf except {$CSN_GRADED}=csnobol4-b per CEO-281 refs cut live"
+echo "SPITBOL_TESTPGMS_BOARD total=$TOTAL scored=$SCORED unscored=$UNSCR m3_pass=$M3P m3_fail=$M3F m4_pass=$M4P m4_fail=$M4F -- SCRIP $SCRIP_HASH corpus $CORP_HASH RT_OPT=-O0 oracle=sbl-bf (the one SNOBOL4 oracle, Lon 2026-09-07) refs cut live"
 printf '%s' "$UNSCR_LINES"
 printf '%s' "$RED_LINES"
 # ⭐ THE PACKAGE LOCKDOWN: lib_inventory.sh recomputes ungradable from UNGRADABLE.tsv beside $SUITE (a
@@ -162,7 +162,7 @@ if [ -f "$HERE/lib_gate.sh" ]; then
     . "$HERE/lib_gate.sh" 2>/dev/null || true
     if command -v gate_score_row >/dev/null 2>&1; then
         GATE_NAME=test_snobol4_spitbol_testpgms_suite
-        gate_score_row snobol4 vendor "spitbol_testpgms $M3P/$SCORED m3 · $M4P/$SCORED m4 (of $TOTAL shipped, $UNSCR UNSCORED -- sbl answers neither, by SIGSEGV or by a fatal listing at rc=0; test5+test8 graded vs csnobol4 -b under --compat=csnobol4 per CEO-281; refs cut live${INV_LINE:+ · $INV_LINE}, \`test_snobol4_spitbol_testpgms_suite.sh\`)" "m3,m4" || true
+        gate_score_row snobol4 vendor "spitbol_testpgms $M3P/$SCORED m3 · $M4P/$SCORED m4 (of $TOTAL shipped, $UNSCR UNSCORED -- sbl answers neither, by SIGSEGV or by a fatal listing at rc=0; sbl -bf the one oracle, Lon 2026-09-07; refs cut live${INV_LINE:+ · $INV_LINE}, \`test_snobol4_spitbol_testpgms_suite.sh\`)" "m3,m4" || true
     fi
 fi
 [ "$M3F" = 0 ] && [ "$M4F" = 0 ]
