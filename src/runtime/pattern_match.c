@@ -261,7 +261,7 @@ DESCR_t subscript_get(DESCR_t arr, DESCR_t idx) {
         if (arr.u && arr.u->type && arr.u->type->nfields > 0 && arr.u->fields) {
             DATBLK_t *blk = arr.u->type;
             if (IS_INT_fn(idx)) {
-                int i = (int)idx.i;
+                int i = (int)idx.i; if (i <= 0) i = blk->nfields + 1 + i;
                 if (i < 1 || i > blk->nfields) return FAILDESCR;
                 return arr.u->fields[i-1];
             }
@@ -1298,6 +1298,14 @@ DESCR_t c_rt_subscript_var(DESCR_t base, DESCR_t idx) {
             if (i < 0) i = n + i + 1;
             if (!elems || i < 1 || i > n) return FAILDESCR;
             VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = &elems[i - 1]; vc->tbl = 0; vc->key = 0; vc->key_d = idx; vc->sv = FAILDESCR; vc->pos = i; vc->len = 0;
+            return NAMETRAP(vc);
+        }
+        if (base.u && base.u->type && base.u->type->nfields > 0 && base.u->fields) {
+            DATBLK_t *blk = base.u->type; int f = -1;
+            if (IS_INT_fn(idx)) { int i = (int)idx.i; if (i <= 0) i = blk->nfields + 1 + i; if (i < 1 || i > blk->nfields) return FAILDESCR; f = i - 1; }
+            else if (idx.v == DT_S || idx.v == DT_SNUL) { const char *k = idx.s ? idx.s : ""; for (int i = 0; i < blk->nfields; i++) if (blk->fields[i] && strcmp(blk->fields[i], k) == 0) { f = i; break; } if (f < 0) return FAILDESCR; }
+            else return subscript_get(base, idx);
+            VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = &base.u->fields[f]; vc->tbl = 0; vc->key = 0; vc->key_d = idx; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
             return NAMETRAP(vc);
         }
         return subscript_get(base, idx);

@@ -728,6 +728,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             if (is_resumable(S[i]) || icn_tree_is_cursor_mover(S[i])) { lr = i; lr_cm = (!is_resumable(S[i]) && icn_tree_is_cursor_mover(S[i])); }
         }
         if (val[k - 1]) ir_operand_push(SEQX, val[k - 1]);
+        if (lr >= 0) rb = (bet[lr] && bet[lr] != ω) ? bet[lr] : val[lr];
         cx->conj_resumable = rb; cx->beta = last_beta; *res = SEQX; return ent[0];
     }
     case TT_SECTION: case TT_SECTION_PLUS: case TT_SECTION_MINUS: {
@@ -830,9 +831,10 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_LIMIT: {
         IR_t * lim = build(cx, IR_LIMIT, γ, ω);
         IR_t * lr = NULL; IR_t * ee = lower(cx, (t->n > 1) ? t->c[1] : NULL, lim, ω, &lr);
-        IR_t * inner_beta = cx->beta;
+        IR_t * inner_beta = cx->beta; cx->conj_resumable = NULL;
         IR_t * er = NULL; IR_t * ge = lower(cx, (t->n > 0) ? t->c[0] : NULL, lim, ω, &er);
         IR_t * gen_beta = cx->beta;
+        if (t->n > 0 && t->c[0] && t->c[0]->t == TT_CONJ && t->c[0]->n > 0 && !is_resumable(t->c[0]->c[t->c[0]->n - 1]) && cx->conj_resumable && cx->conj_resumable != ω) gen_beta = cx->conj_resumable;
         ir_operand_push(lim, er);
         ir_operand_push(lim, lr);
         γ_to(lr, ge);
