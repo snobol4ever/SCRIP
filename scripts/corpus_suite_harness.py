@@ -950,14 +950,35 @@ def loose_stdin_companion(src):
     step: it mints a ref that LOOKS fed and then grades that file against the wrong bytes forever.
     ⛔ NON-UTF-8 IS A REFUSAL TOO. This path feeds text; a byte sequence it cannot carry faithfully
     must stop the mint rather than be lossily re-encoded into a permanent .ref."""
-    cands = [c for c in (src.with_suffix(".stdin"), src.with_suffix(".in"), src.with_suffix(".input"))
+    # ⛔⭐ SEARCH `config/` TOO, NOT ONLY BESIDE THE SOURCE (hq_U 2026-09-08, measured). The Icon ladder
+    # keeps its inputs in a `config/` subdirectory, so this function answered "no companion" for a program
+    # that plainly has one, and the documented `no companion -> /dev/null` path minted the entry UNFED.
+    # rung36_jcon_recogn was absorbed into the Icon master that way and its .ref recorded the STARVED run
+    # (one newline, against the standalone witness's 8 lines) -- a green cell inside a 704/704 board that
+    # was grading a program which exits at EOF before reaching any `suspend`. It also hid a real by-name
+    # scanning defect underneath it for three sittings. 9 such companions are live (8 icon, 1 snobol4).
+    # ⭐ The bug was never in the caller: this finder answers "is there a companion BESIDE this file" and
+    # was read as "does this program have stdin" -- the narrower-question class, same shape as `command -v`
+    # answering "is it on PATH" when asked "does it exist". Widening the search is the whole cure: every
+    # guarantee below (one-candidate-or-refuse, UTF-8-or-refuse, banner-sniff-or-refuse) then applies to
+    # the combined set unchanged, so a stem carrying BOTH a loose and a config/ companion is AMBIGUOUS and
+    # refuses, which is the correct answer rather than a precedence rule invented here.
+    _stem = src.stem
+    _cfg = src.parent / "config"
+    cands = [c for c in (src.with_suffix(".stdin"), src.with_suffix(".in"), src.with_suffix(".input"),
+                         _cfg / (_stem + ".stdin"), _cfg / (_stem + ".in"), _cfg / (_stem + ".input"))
              if c.is_file()]
     if not cands:
         return None, None, None
     if len(cands) > 1:
-        return None, None, ("AMBIGUOUS stdin companion -- %s all exist beside %s; which one is the "
+        # ⛔ Name each candidate by its path RELATIVE TO THE SOURCE'S DIRECTORY, never by `.name` alone:
+        # since config/ joined the search, `w.stdin` and `config/w.stdin` both render as "w.stdin" and the
+        # diagnostic whose entire job is to say WHICH files collide printed the same word twice (hq_U
+        # 2026-09-08, caught by this function's own both-directions test, not in the field).
+        _rel = lambda c: str(c.relative_to(src.parent)) if src.parent in c.parents else c.name
+        return None, None, ("AMBIGUOUS stdin companion -- %s all exist for %s; which one is the "
                             "program's input cannot be decided here, keep exactly one"
-                            % (", ".join(c.name for c in cands), src.name))
+                            % (", ".join(_rel(c) for c in cands), src.name))
     try:
         text = cands[0].read_bytes().decode("utf-8")
     except UnicodeDecodeError as e:
