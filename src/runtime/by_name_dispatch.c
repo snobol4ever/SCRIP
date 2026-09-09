@@ -6553,6 +6553,10 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
                 char sb[64]; snprintf(sb, sizeof sb, "L[%ld]", (long)vc->pos);
                 *out = STRVAL(rt_ws_strdup_c(sb)); return 1;
             }
+            if (vc->cellp && vc->pos < 0 && vc->sv.u && vc->sv.u->type && vc->sv.u->type->fields && -vc->pos <= vc->sv.u->type->nfields) {
+                char sb[256]; snprintf(sb, sizeof sb, "%s.%s", vc->sv.u->type->name ? vc->sv.u->type->name : "", vc->sv.u->type->fields[-vc->pos - 1] ? vc->sv.u->type->fields[-vc->pos - 1] : "");
+                *out = STRVAL(rt_ws_strdup_c(sb)); return 1;
+            }
             if (vc->sv.v == DT_N && (vc->sv.slen == 0 || vc->sv.slen == 2) && vc->len > 0) {
                 DESCR_t bn; int r1 = try_call_builtin_by_name("name", &vc->sv, 1, &bn);
                 const char *base = (r1 && bn.v == DT_S && bn.s) ? bn.s : "";

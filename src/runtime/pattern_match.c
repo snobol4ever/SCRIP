@@ -1305,7 +1305,7 @@ DESCR_t c_rt_subscript_var(DESCR_t base, DESCR_t idx) {
             if (IS_INT_fn(idx)) { int i = (int)idx.i; if (i <= 0) i = blk->nfields + 1 + i; if (i < 1 || i > blk->nfields) return FAILDESCR; f = i - 1; }
             else if (idx.v == DT_S || idx.v == DT_SNUL) { const char *k = idx.s ? idx.s : ""; for (int i = 0; i < blk->nfields; i++) if (blk->fields[i] && strcmp(blk->fields[i], k) == 0) { f = i; break; } if (f < 0) return FAILDESCR; }
             else return subscript_get(base, idx);
-            VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = &base.u->fields[f]; vc->tbl = 0; vc->key = 0; vc->key_d = idx; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+            VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = &base.u->fields[f]; vc->tbl = 0; vc->key = 0; vc->key_d = idx; vc->sv = base; vc->pos = -(f + 1); vc->len = 0;
             return NAMETRAP(vc);
         }
         return subscript_get(base, idx);
