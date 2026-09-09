@@ -96,8 +96,17 @@ ENTRY_FLOOR="${ICON_MASTER_ENTRY_FLOOR:-534}"
 # ladder_rung26_pow_pow_negbase_real and ladder_rung26_pow_pow_zero_negexp. They are open Icon defects to cure,
 # which is why 607 and not 609: a floor is what today already holds, never what tomorrow owes.
 # ⭐ RE-PINNED 607 -> 707 (cfo 2026-09-08 22:5x CDT, MODE NONET): board_icon_master.sh on SCRIP 259fddd68 + the three absorbed cfo witnesses (corpus, --absorb-only): entries=860 · m3 PASS=707 · m4 PASS=707 of 707, both modes, load 5.
-M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-708}"
-M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-708}"
+# ⭐ RE-PINNED 707 -> 709 (hq_C 2026-09-09, CEO-445): the board asks for the re-pin in the commit that earned it. Measured on corpus af179eebd
+# (the five Jcon A-I absorptions, of which rung36_jcon_image PASSES) plus the ladder-rung absorptions other seats landed in the same window:
+# entries=879 · run-graded 726 · m3 PASS=709 · m4 PASS=709; per-entry identity 0 regressions / 0 vanished over 1557 examined.
+# ⛔ THE DENOMINATOR MOVED 707 -> 726 IN THE SAME BREATH, so the floor rising by 2 while 17 reds appeared is NOT a contradiction: growth needs
+# no re-pin (RULES.md § the denominator law) and the floor guards the PASS SET, never the fraction. Reading 709/726 as "worse than 707/707" is
+# the error this comment exists to stop -- the earlier number was over a population that HELD ITS REDS OUT, which is what CEO-445 retired.
+# ⚠ A CONCURRENT SEAT PINNED 708 IN THIS SAME MINUTE and it is superseded, not disagreed with: 708 and 709 are two honest measurements of a
+# tree that grew between them. Kept the higher because a floor is a ratchet over the pass SET; if 709 ever reds, the entry that fell is the
+# finding, not this pin.
+M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-709}"
+M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-709}"
 # ⛔ NO AST_PASS_FLOOR: a self-pin has no floor to regress below, only a CURRENT-run comparison of
 # ap (matched) vs at (total) -- see the AST-SHAPE note above. Removed under ast-dump-refs-are-self-
 # pins-not-oracles rather than kept-but-unused, so a reader cannot mistake its presence for gating.
