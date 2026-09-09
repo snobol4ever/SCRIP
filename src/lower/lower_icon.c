@@ -1243,7 +1243,7 @@ static IR_t * lower_key(icx_t * cx, const tree_t * t, int argbase, int nargs, IR
 static const char *const icn_function_names[] = {
         "abs", "acos", "any", "args", "asin", "atan", "bal", "center",
         "char", "chdir", "close", "collect", "copy", "cos", "cset", "delay", "delete", "detab",
-        "dtor", "entab", "errorclear", "exit", "exp", "find", "flush", "function",
+        "display", "dtor", "entab", "errorclear", "exit", "exp", "find", "flush", "function",
         "get", "getch", "getche", "getenv", "iand", "icom", "image", "insert", "integer", "ior",
         "ishift", "ixor", "kbhit", "key", "left", "list", "loadfunc", "log", "many", "map",
         "match", "member", "move", "name", "numeric", "open", "ord", "pop",
