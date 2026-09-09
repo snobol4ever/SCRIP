@@ -41,7 +41,15 @@ def _published_xfail(lang):
         cs=[c.strip() for c in l.strip().strip('|').split('|')]
         if len(cs)<=col: continue
         if cs[0].strip('* ').lower()!=lang: continue
-        ms=[int(m) for m in re.findall(r'xfail=(\d+)',cs[col])]
+        # ⛔⭐ ONLY THE CURRENT READING. util_score_row.py folds the PREVIOUS cell text forward behind a
+        # SUPERSEDES marker, verbatim, as provenance -- so a cell physically contains every xfail count this
+        # row has ever published. Scanning the whole cell takes the MAX over history, and this gate convicted
+        # its own freshly-published row on a number from the run before it (1870/1894 graded against an
+        # xfail=25 that a superseded clause was still carrying). ⭐ Same family as the row it was written for:
+        # two numbers in one cell describing two different measurements, and adjacency saying nothing about
+        # which. The sentinel is util_score_row.py's own (SUPERSEDE_MARKER), matched on its stable prefix.
+        cur=cs[col].split('SUPERSEDES the reading below')[0]
+        ms=[int(m) for m in re.findall(r'xfail=(\d+)',cur)]
         # the worst mode is the binding one: a count that holds for m3 and not m4 has not been checked.
         return max(ms) if ms else None
     return None
