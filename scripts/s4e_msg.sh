@@ -1854,7 +1854,7 @@ TASKEOF
                       CEO) _refuse_dispatch "an HQ" "Under CEO no HQ is standing -- the ceo works the rows itself.";;
                       EXECUTIVE) _refuse_dispatch "an HQ" "Under EXECUTIVE only the executives (ceo, cto, coo, cfo) work rows -- every HQ is stood down (Lon 2026-09-07).";; esac;;
            seat*)   case "$_mode" in
-                      CEO|EXECUTIVE|DUO|DUET|TRIO|QUARTET|QUINTET|OCTET) _refuse_dispatch "a fleet seat" "There is NO FLEET in $_mode -- only the ceo and the HQs work rows. (DUO is the pre-rename spelling of DUET and is refused too.)";; esac;;
+                      CEO|EXECUTIVE|DUO|DUET|TRIO|QUARTET|QUINTET|OCTET|NONET) _refuse_dispatch "a fleet seat" "There is NO FLEET in $_mode -- only the ceo and the HQs work rows. (DUO is the pre-rename spelling of DUET and is refused too.)";; esac;;
          esac
          # ⛔⭐ s265 — A STALE CLONE SILENTLY REVERTS TO PRE-V2 DISPATCH, AND THAT IS NOW A REFUSAL, NOT A WARNING.
          # Measured the same day by TWO seats: seat09's clone was 79 commits behind and seat13's was 2, so both ran

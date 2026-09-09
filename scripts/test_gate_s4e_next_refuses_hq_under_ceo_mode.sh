@@ -8,10 +8,14 @@
 # that row from the whole fleet, by a route nobody watches (`fleet` reports a seat that STALLS, never one that was
 # never meant to run).
 #
-# SIX ARMS against a THROWAWAY postoffice under mktemp -- never the live one. Both REFUSALS and, just as important,
+# EIGHT ARMS against a THROWAWAY postoffice under mktemp -- never the live one. Both REFUSALS and, just as important,
 # the three ALLOWS: a guard proven only by what it blocks is indistinguishable from one that blocks everything.
 #   (A) hq_B + MODE CEO      -> rc=2, names the mode AND the MODE file, and the row is NOT claimed.
 #   (B) seat01 + MODE QUARTET-> rc=2 (no fleet in QUARTET), same two names, row NOT claimed.
+#   (B2) seat01 + MODE NONET -> rc=2. NONET is the four-officers-plus-nine-HQs mode (Lon 2026-09-08 19:5x);
+#                              a mode value the fleet-seat arm does not list makes twenty seats dispatchable again.
+#   (D2) hq_B + MODE NONET   -> ALLOWED. The same value must SEAT every HQ while refusing every fleet seat, and
+#                              only a pair of arms on ONE value can show that -- a refusal list is not a roster.
 #   (C) ceo + MODE CEO       -> ALLOWED. The ceo is exactly who works under CEO; s4e_is_hq() counts ceo as an HQ
 #                              because it is an AUTHORITY test, so a guard written on that predicate would refuse
 #                              the one identity that must not be refused. This arm pins that distinction.
@@ -20,7 +24,7 @@
 #                              and s4e_mode_line already reports absence loudly. Pinned so nobody "tightens" it.
 #   (F) FAIL-ONCE: a mutant copy with the guard's `exit 2` neutered must make arm (A) dispatch again. A gate that
 #                  cannot go red proves nothing (INSTRUMENT LAWS, fifth batch).
-# EXIT 0 all six hold; 1 any arm wrong; 2 REFUSED (fixture cannot be built).
+# EXIT 0 all eight hold; 1 any arm wrong; 2 REFUSED (fixture cannot be built).
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; MSG="$HERE/s4e_msg.sh"
 ROOT="$(cd "$HERE/../.." && pwd)"
@@ -55,8 +59,10 @@ arm_allow() { # $1 seat  $2 mode  $3 label
   echo "ok  $3: dispatched and claimed (rc=$rc)"; }
 arm_refuse hq_B   CEO     "(A) hq_B under CEO"
 arm_refuse seat01 QUARTET "(B) seat01 under QUARTET"
+arm_refuse seat01 NONET   "(B2) seat01 under NONET"
 arm_allow  ceo    CEO     "(C) ceo under CEO is NEVER refused"
 arm_allow  hq_B   FLEET-16 "(D) hq_B under FLEET-16"
+arm_allow  hq_B   NONET    "(D2) hq_B under NONET -- all nine HQs stand (Lon 2026-09-08)"
 arm_allow  hq_B   NONE     "(E) hq_B with NO MODE file"
 # ⛔ THE MUTANT IS FULLY HERMETIC, AND GETTING THERE TOOK TWO TRIES. First cut put it under mktemp alone and it
 # failed to source lib_release_guard.sh (s4e_msg.sh resolves siblings from its OWN directory), so arm (F) went red
