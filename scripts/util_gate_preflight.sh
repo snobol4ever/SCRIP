@@ -169,7 +169,14 @@ for f in "${files[@]}"; do
     # ⛔ NOTHING COULD HAVE NOTICED -- it was green by hand, ls found it, the commit looked complete, and every
     # board was byte-identical with and without the cure BY CONSTRUCTION. An unwired gate is indistinguishable
     # from a wired one by every check except reading the recipe.
-    if grep -qx "$name" <<<"$REACH"; then
+    # ⛔ A util_* IS NOT A GATE AND MUST NOT BE GRADED AS ONE. Caught by running this tool on the first file
+    # written after it: util_icon_ref_provenance.sh came back RED as "landed unwired", which is a category
+    # error -- a util is reached by its CALLERS, and gate_wiring.tsv's population is scripts/test_gate_*.sh by
+    # construction. ⭐ An instrument that answers the same question of every input it is handed will be wrong
+    # about every input that is not the kind it was built for, and it will be wrong CONFIDENTLY.
+    if [ "${name#test_gate_}" = "$name" ]; then
+        say note "not a test_gate_* file -- wiring N/A (a util is reached by its callers, not by a recipe)"
+    elif grep -qx "$name" <<<"$REACH"; then
         say ok "reachable from \`make test\` / test-postoffice / preflight"
     elif [ -f "$WIRING_TSV" ] && grep -qE "^$name	(RULING|TASK)" "$WIRING_TSV"; then
         cls="$(grep -E "^$name	" "$WIRING_TSV" | cut -f2 | head -1)"
