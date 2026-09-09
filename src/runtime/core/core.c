@@ -3451,8 +3451,9 @@ static DESCR_t _REWIND_(DESCR_t *a, int n) {
     if (n < 1) return NULVCL;
     _io_chan_setup();
     int ch = IS_INT(a[0]) ? (int)a[0].i : -1;
-    FILE *fp = _io_chan_fp_or_std(ch);
-    if (fp) { rewind(fp); clearerr(fp); }
+    FILE *fp = (ch >= 0 && ch < IO_CHAN_MAX) ? _io_chan[ch].fp : (FILE *)0;
+    if (!fp) { core_runtime_error(174, "rewind file does not exist"); return FAILDESCR; }
+    rewind(fp); clearerr(fp);
     return NULVCL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
