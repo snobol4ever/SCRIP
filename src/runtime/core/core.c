@@ -2405,7 +2405,7 @@ void rt_kw_return_level_zero(void) { core_runtime_error(242, "function return fr
 jmp_buf g_core_errjmp_stk[64]; int g_core_errjmp_n = 0;
 long g_icn_errnumber = 0; const char *g_icn_errtext = ""; DESCR_t g_icn_errvalue; int g_icn_err_valid = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *icn_errmsg(int n) {
+static const char *icn_errmsg_known(int n) {
     switch (n) { case 101: return "integer expected or out of range"; case 102: return "numeric expected"; case 103: return "string expected"; case 104: return "cset expected";
         case 105: return "file expected"; case 106: return "procedure or integer expected"; case 107: return "record expected"; case 108: return "list expected";
         case 109: return "string or file expected"; case 110: return "string or list expected"; case 111: return "variable expected"; case 112: return "invalid type to size operation";
@@ -2423,14 +2423,16 @@ static const char *icn_errmsg(int n) {
         case 305: return "inadequate space for static allocation"; case 306: return "inadequate space in string region"; case 307: return "inadequate space in block region";
         case 308: return "system stack overflow in co-expression"; case 402: return "program not compiled with debugging option"; case 500: return "program malfunction";
         case 600: return "vidget usage error"; }
-    return "run-time error";
+    return (const char *)0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *icn_errmsg(int n) { const char *m = icn_errmsg_known(n); return m ? m : "run-time error"; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int core_icn_error(int code, DESCR_t val) {
     extern long g_error;
     if (g_error != 0) {
         g_error--;
-        g_icn_errnumber = code; g_icn_errtext = icn_errmsg(code); g_icn_errvalue = val; g_icn_err_valid = 1;
+        g_icn_errnumber = code; { const char *_em = icn_errmsg_known(code); g_icn_errtext = _em ? _em : ""; } g_icn_errvalue = val; g_icn_err_valid = 1;
         if (g_core_errjmp_n > 0) longjmp(g_core_errjmp_stk[g_core_errjmp_n - 1], code);
         return 1;
     }

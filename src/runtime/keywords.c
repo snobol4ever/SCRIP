@@ -348,7 +348,7 @@ DESCR_t kw_read(const char *kw) {
     }
     { extern long g_icn_errnumber; extern const char *g_icn_errtext; extern DESCR_t g_icn_errvalue; extern int g_icn_err_valid;
       if (!strcmp(kw,"errornumber")) { if (!g_icn_err_valid) return FAILDESCR; return INTVAL(g_icn_errnumber); }
-      if (!strcmp(kw,"errortext"))   { if (!g_icn_err_valid) return FAILDESCR; DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_S; d.s = rt_ws_strdup_c(g_icn_errtext ? g_icn_errtext : ""); return d; }
+      if (!strcmp(kw,"errortext"))   { if (!g_icn_err_valid) return FAILDESCR; return STRVAL(rt_ws_strdup_c(g_icn_errtext ? g_icn_errtext : "")); }
       if (!strcmp(kw,"errorvalue"))  { if (!g_icn_err_valid) return FAILDESCR; return g_icn_errvalue; }
       if (!strcmp(kw,"control"))     return FAILDESCR; }
     { extern long g_error, g_trace, g_dump, g_random;
