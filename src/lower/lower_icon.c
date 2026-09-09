@@ -527,7 +527,10 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t * prev = cr;
         ir_operand_push(nd, cr);
         for (int i = 1; i < t->n; i++) {
-            IR_t * ar = NULL; IR_t * ae = lower(cx, t->c[i], NULL, prevβ ? prevβ : ω, &ar); prevβ = cx->beta;
+            IR_t * ar = NULL; IR_t * ae = NULL;
+            if (icn_arg_stages(cx, t->c[i])) { cx->beta = prevβ ? prevβ : ω; ae = lower_lvalue_var(cx, t->c[i], prevβ ? prevβ : ω, &ar); if (ae && ar && ar->op == IR_VAR_REF && t->c[i]->t == TT_VAR) ar->pat_static = 1; }
+            if (!ae || !ar) ae = lower(cx, t->c[i], NULL, prevβ ? prevβ : ω, &ar);
+            prevβ = cx->beta;
             lc_γ_to(prev, ae); prev = ar;
             ir_operand_push(nd, ar);
         }

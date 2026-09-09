@@ -342,6 +342,7 @@ typedef struct {
     int                          op_phase;
     int                          op_binop_kind;
     int                          op_gva_k;
+    int                          op_var_named;
     int                          op_gva_k1;
     int                          op_gva_k2;
     int                          op_proc_k;

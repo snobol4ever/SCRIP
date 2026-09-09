@@ -15,6 +15,9 @@
 # already right, and the likeliest way to break this class is to defer dereference too widely and move them.
 # p15/p16 pin the generator-call chain tail (a staged argument to find() or to a user generator: IPL morse regressed
 # on 2026-09-09 when the generator call's entry link was re-pointed to the last ARGUMENT instead of the last DEREF).
+# p17-p20 pin the CALL THROUGH A VALUE (IR_CALL_VALUE, shared with Prolog): a variable argument reaches the runtime
+# dispatcher as the VARIABLE and is dereferenced there unless the callee is name(), so name() through a value answers
+# for a local, a subscript and a global, and deref timing through a value matches the direct call (CEO-464/468).
 # p14 is the ceo's CEO-456 R7 witness: arguments are passed by VALUE (a callee assigning its parameter does not
 # write the caller's variable). Expected outputs are PINNED from icont/iconx 9.5 (2026-09-09); the gate is hermetic
 # and never consults the oracle, so it cannot go green because an oracle install moved.
@@ -54,6 +57,11 @@ procedure main(); local y; y := 1; f(y); write(y); end'
 probe p15_genbuiltin '2'   'procedure main(); local c, s; c := "M"; s := "TMOT09"; write(find(c, s)); end'
 probe p16_usergen    '5|6' 'procedure g(n); suspend n to n + 1; end
 procedure main(); local i; i := 5; every write(g(i)); end'
+probe p17_valname_lcl 'x'   'procedure main(); local p, x; p := proc("name", 0); x := 5; write(p(x)); end'
+probe p18_valname_sub 'L[2]' 'procedure main(); local p, L; p := proc("name", 0); L := [1, 2]; write(p(L[2])); end'
+probe p19_valname_glb 'g'   'global g
+procedure main(); local p; g := 1; p := proc("name", 0); write(p(g)); end'
+probe p20_valcall_tim '22'  'procedure main(); local p, i; p := proc("write", 0); i := 1; p(i, (i := 2, ""), i); end'
 
 red=0; n=0
 for src in "$W"/p*.icn; do
@@ -69,5 +77,5 @@ for src in "$W"/p*.icn; do
 done
 gate_bin_unmoved
 GATE_EXAMINED="$n probes (m3+m4)"
-gate_floor "$n" 16 "probes minted"
+gate_floor "$n" 20 "probes minted"
 gate_verdict "$red" "probe(s) disagree with the pinned iconx output in at least one mode"

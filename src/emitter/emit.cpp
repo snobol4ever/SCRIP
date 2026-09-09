@@ -1143,7 +1143,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         g_emit.op_a_slot = _fr ? bb_slot_get(_fr) : -1;
         if (g_emit.op_a_slot < 0 && _fr) { int _z = nd_slot(_fr); if (_z >= 0) g_emit.op_a_slot = _z; }
         bb_emit_x86(bb_assign_frame()); } return 0;
-    case IR_VAR_REF:              { extern int is_global(const char *); const char * _rn = IR_LIT(nd).sval;
+    case IR_VAR_REF:              { extern int is_global(const char *); const char * _rn = IR_LIT(nd).sval; g_emit.op_var_named = nd->pat_static;
         if (_rn && is_global(_rn) && !graph_has_local(g_emit_cfg, _rn)) { g_emit.op_sa = -1; g_emit.op_gva_k = g_gva_active ? gva_index_of(_rn) : -1; }
         else if (_rn) { int _vo = bb_varslot_peek(_rn); g_emit.op_sa = _vo; g_emit.op_gva_k = -1; }
         bb_emit_x86(bb_var_ref()); } return 0;
@@ -1542,7 +1542,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_VAR_REF: {
-        const char *vn = IR_LIT(nd).sval;
+        const char *vn = IR_LIT(nd).sval; g_emit.op_var_named = nd->pat_static;
         if (vn && is_global(vn) && !graph_has_local(g_emit_cfg, vn)) { g_emit.op_sa = -1; g_emit.op_off = drive_value_slot(nd); g_emit.op_sval = vn; g_emit.op_gva_k = g_gva_active ? gva_index_of(vn) : -1; }
         else if (vn) { int voff = bb_varslot_peek(vn); g_emit.op_sa = voff; g_emit.op_off = drive_value_slot(nd); }
         else { g_emit.op_sa = -1; g_emit.op_off = -1; }

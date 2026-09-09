@@ -934,11 +934,17 @@ static DESCR_t icn_opgen_pump(ICN_OPGEN_t *g) {
     return out;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern DESCR_t rt_deref(DESCR_t d);
+static void icn_call_value_deref_args(const char *nm, DESCR_t *argv, int n) {
+    if (nm && !strcmp(nm, "name")) return;
+    for (int k = 0; k < n; k++) if (argv[k].v == DT_N) argv[k] = rt_deref(argv[k]);
+}
 DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
-    if (IS_INT_fn(callee)) { long i = (long)callee.i; if (i < 0) i = n + i + 1; if (i >= 1 && i <= n) return argv[i - 1]; return FAILDESCR; }
+    if (IS_INT_fn(callee)) { icn_call_value_deref_args(NULL, argv, n); long i = (long)callee.i; if (i < 0) i = n + i + 1; if (i >= 1 && i <= n) return argv[i - 1]; return FAILDESCR; }
     const char *nm = procval_name(callee);
     if (!nm && IS_STR_fn(callee) && callee.s) nm = callee.s;
     if (!nm) { core_icn_error(106, callee); return FAILDESCR; }
+    icn_call_value_deref_args(nm, argv, n);
     if (rt_proc_is_registered(nm) || !strcmp(nm, "main")) {
         extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
         for (int k = 0; k < n && k < 64; k++) g_call_args[k] = argv[k]; for (int k = (n < 0 ? 0 : n); k < 64; k++) g_call_args[k] = (DESCR_t){0};
@@ -952,10 +958,11 @@ DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) {
     if (hslot) *hslot = (void *)0;
-    if (IS_INT_fn(callee)) { long i = (long)callee.i; if (i < 0) i = n + i + 1; if (i >= 1 && i <= n) return argv[i - 1]; return FAILDESCR; }
+    if (IS_INT_fn(callee)) { icn_call_value_deref_args(NULL, argv, n); long i = (long)callee.i; if (i < 0) i = n + i + 1; if (i >= 1 && i <= n) return argv[i - 1]; return FAILDESCR; }
     const char *nm = procval_name(callee);
     if (!nm && IS_STR_fn(callee) && callee.s) nm = callee.s;
     if (!nm) { core_icn_error(106, callee); return FAILDESCR; }
+    icn_call_value_deref_args(nm, argv, n);
     if (rt_proc_is_registered(nm)) {
         extern DESCR_t g_call_args[]; extern DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout);
         for (int k = 0; k < n && k < 64; k++) g_call_args[k] = argv[k]; for (int k = (n < 0 ? 0 : n); k < 64; k++) g_call_args[k] = (DESCR_t){0};
@@ -1005,6 +1012,7 @@ void *rt_call_value_spine_prep(DESCR_t callee, DESCR_t *argv, int n) {
     extern int rt_proc_jmp_entry(const char *name); extern void *rt_proc_fn(const char *name); extern long rt_proc_call_open(const char *name, int nargs);
     const char *nm = procval_name(callee);
     if (!nm && IS_STR_fn(callee) && callee.s) nm = callee.s;
+    icn_call_value_deref_args(nm, argv, n);
     if (!nm || !rt_proc_is_registered(nm) || !rt_proc_jmp_entry(nm) || !rt_proc_is_generator(nm)) return (void *)0;
     { extern int rt_proc_gen_region_ft(const char *); if (rt_proc_gen_region_ft(nm) > 0) return (void *)0; }
     { extern DESCR_t g_call_args[]; for (int k = 0; k < n && k < 64; k++) g_call_args[k] = argv[k]; for (int k = (n < 0 ? 0 : n); k < 64; k++) g_call_args[k] = (DESCR_t){0}; }

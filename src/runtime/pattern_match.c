@@ -1502,6 +1502,10 @@ DESCR_t rt_section_var(DESCR_t base, DESCR_t i1d, DESCR_t i2d) {
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_var_ref_cell_named(DESCR_t *cellp, const char *name) {
+    VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = cellp; vc->tbl = 0; vc->key = name; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
+    return NAMETRAP(vc);
+}
 DESCR_t rt_var_ref_cell(DESCR_t *cellp) {
     VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = cellp; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
     return NAMETRAP(vc);

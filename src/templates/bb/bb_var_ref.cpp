@@ -6,6 +6,7 @@ extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
 extern DESCR_t rt_var_ref_cell(DESCR_t *cellp);
+extern DESCR_t rt_var_ref_cell_named(DESCR_t *cellp, const char *name);
 extern DESCR_t rt_pl_fresh_var_ref(void);
 }
 #include "x86_asm.h"
@@ -21,6 +22,23 @@ std::string bb_var_ref() {
              + x86("mov", FRQ(_.op_off + 8), "rdx")
              + x86_gamma()
              + x86_beta_trampoline();
+    }
+    if (_.op_var_named == 1 && _.op_sval && (_.op_sa >= 0 || _.op_gva_k >= 0)) {
+        std::string fl = std::string(".L") + x86_boxkind() + "_vrnm" + std::to_string(g_flat_node_id++);
+        std::string s = x86("comment", "IR_VAR_REF named: a value-call argument carries its identifier so name() through a value can answer -> rt_var_ref_cell_named(&cell, \"id\")")
+                      + x86_alpha()
+                      + (_.op_gva_k >= 0
+                          ? x86("note", gva_name(_.op_gva_k)) + x86("mov", "rdi", (long)(RT_GVA_VA + _.op_gva_k * 16))
+                          : x86("lea", "rdi", FRQ(_.op_sa)))
+                      + x86("directive", ".section .rodata")
+                      + x86("directive", (fl + ": .string \"" + std::string(_.op_sval) + "\"").c_str())
+                      + x86("directive", ".section .text")
+                      + x86("directive", ".intel_syntax noprefix")
+                      + x86("lea", "rsi", "[rip + __]", (uint64_t)(uintptr_t)_.op_sval, fl.c_str())
+                      + x86("call", "rt_var_ref_cell_named", (uint64_t)(uintptr_t)(void *)rt_var_ref_cell_named);
+        if (_.op_zres) s += x86("note", ZRESN()) + x86("mov", ZRES(0), "rax") + x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx");
+        else           s += x86("mov", FRQ(_.op_off), "rax") + x86("mov", FRQ(_.op_off + 8), "rdx");
+        return s + x86_gamma() + x86_beta_trampoline();
     }
     if (_.op_zres && (_.op_sa >= 0 || _.op_gva_k >= 0))
         return x86("comment", "IR_VAR_REF icn cells zd: NAMETRAP{DT_N,slen=1,&____slot} -> ZRES")
