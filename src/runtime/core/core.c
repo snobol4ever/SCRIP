@@ -1586,8 +1586,12 @@ static DESCR_t _LABEL_(DESCR_t *a, int n) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _COLLECT_(DESCR_t *a, int n) {
-    (void)a; (void)n;
-    { extern long rt_gc_collect(void); extern long rt_gcheap_free(void); rt_gc_collect(); return INTVAL((int64_t)rt_gcheap_free()); }
+    extern long rt_gc_collect(void); extern long rt_gcheap_free(void);
+    long avail;
+    rt_gc_collect();
+    avail = rt_gcheap_free();
+    if (n >= 1 && to_int(a[0]) > (int64_t)avail) return FAILDESCR;
+    return INTVAL((int64_t)avail);
 }
 static void var_dump(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

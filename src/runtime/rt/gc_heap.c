@@ -716,5 +716,5 @@ long rt_gc_collect_c(char *floor)
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long rt_gcheap_free(void) { return (long)(g_hp_end - g_hp_top); }
+long rt_gcheap_free(void) { if (!g_hp_arena) rt_gcheap_init(); return (long)(g_hp_end - g_hp_top); }
 long rt_gc_runs_count(void) { return g_gc_runs; }
