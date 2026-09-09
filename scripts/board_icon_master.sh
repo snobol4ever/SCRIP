@@ -108,8 +108,10 @@ ENTRY_FLOOR="${ICON_MASTER_ENTRY_FLOOR:-534}"
 # ⭐ RE-PINNED 708 -> 713 (cfo 2026-09-09 09:4x CDT, MODE NONET): board_icon_master.sh on the ilib cure (x <- e enters at α; case arms lowered onto their result) + hq_V's CEO-445 rungs in the denominator: entries=881 · m3 PASS=713 · m4 PASS=713 of 728, both modes, load ~5; the 13 FAIL + 2 CRASH are hq_V's rungs minted BEFORE their cures, by design.
 # ⭐ 713 SUPERSEDES 709 THE SAME WAY 709 SUPERSEDED 708 (cfo, resolving the rebase at 09:5x): two honest measurements of a tree that grew between them; the floor is a ratchet over the pass SET and takes the later, higher run.
 # ⭐ RE-PINNED 713 -> 714 (cfo 2026-09-09 09:5x CDT) on the REBASED tree: the ilib cure + f046ef00b (:=: against a static or global) measured together, entries=881 · m3 714 · m4 714 of 728; the 11 FAIL + 2 CRASH + 1 HANG are hq_V's pre-cure rungs and hq_C's three starved Jcon entries (the HANG is one of them waiting on the stdin it has no sidecar for).
-M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-714}"
-M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-714}"
+# ⭐ RE-PINNED 714 -> 718 (hq_V 2026-09-09 10:39 CDT, MODE NONET) on SCRIP `f48a3f0c7` + corpus `23638085f`, the tree this seat's own landing made: the cfo's ilib rung-4 witness absorbed as rung21 (procedure_write_269, green both modes) plus the cures other seats landed in the same window. entries=885 · run-graded 732 · m3 PASS=718 · m4 PASS=718, both modes equal. ⚠ THE DENOMINATOR GREW 728 -> 732 IN THE SAME BREATH and growth needs no re-pin: the floor is a ratchet over the PASS SET, never the fraction.
+# ⛔ TWO OF THE REMAINING 14 ARE GREEN THAT ASSERT NOTHING AND THE FLOOR CANNOT SEE IT: procedure_write_264 PASSES while five of its six oracle trace lines are absent, because lib_ladder.sh discards stderr -- FINDING-2026-09-09-hq_V-the-ladder-cannot-see-stderr-so-two-trace-rungs-grade-green-while-five-of-six-oracle-lines-are-missing.md. A watermark ratchets what is measured; it does not make an unmeasured line safe.
+M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-718}"
+M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-718}"
 # ⛔ NO AST_PASS_FLOOR: a self-pin has no floor to regress below, only a CURRENT-run comparison of
 # ap (matched) vs at (total) -- see the AST-SHAPE note above. Removed under ast-dump-refs-are-self-
 # pins-not-oracles rather than kept-but-unused, so a reader cannot mistake its presence for gating.
