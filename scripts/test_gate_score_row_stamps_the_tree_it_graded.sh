@@ -27,13 +27,20 @@ BASE="$(S4E_TREE_AT_START= stamp)"
 case "$BASE" in IMPORT-FAILED*|NO-TREE-STAMP) echo "⛔ GATE REFUSES (rc=2): $BASE -- cannot grade a stamp this build does not produce."; exit 2;; esac
 [ -n "$BASE" ]; arm $? "tree_stamp() produces a stamp with the variable unset"
 MOVED="$(S4E_TREE_AT_START='SCRIP=d15ea5e,corpus=b0a1e5e' stamp)"
-printf '%s' "$MOVED" | grep -q 'd15ea5e' && printf '%s' "$MOVED" | grep -q 'b0a1e5e'; arm $? "a declared start tree is what gets STAMPED, for every repo the row reads"
-printf '%s' "$MOVED" | grep -qi 'HEAD moved'; arm $? "and the stamp SAYS the tree moved -- the reader is told the number predates this HEAD, not just given a different hash"
+# ⛔⭐ PURE-BASH MATCHING, NO PIPELINE (hq_T 2026-09-09, FINDING .github 9142ec58). These four arms decided their verdict
+# through `printf | grep -q`, and a pipeline whose reader exits on match can kill the writer with EPIPE -- under
+# `set -o pipefail` that 141 becomes the arm's answer, so the arm REDS on a correct tree. MEASURED on the same shape
+# elsewhere: 11 false negatives in 2712 calls at box load 21, every one exit 141. ⛔ An arm that can red for a reason
+# unrelated to its subject is worse than no arm, because it sends a reader to look at provenance code that is fine --
+# and this gate's subject IS provenance, so a false red here impeaches the tree stamps every board cites.
+# `case`/`[[ ]]` matching forks nothing and cannot be interrupted.
+[[ "$MOVED" == *d15ea5e* && "$MOVED" == *b0a1e5e* ]]; arm $? "a declared start tree is what gets STAMPED, for every repo the row reads"
+shopt -s nocasematch; [[ "$MOVED" == *"HEAD moved"* ]]; _hm=$?; shopt -u nocasematch; arm $_hm "and the stamp SAYS the tree moved -- the reader is told the number predates this HEAD, not just given a different hash"
 SAME="$(S4E_TREE_AT_START= stamp)"
 [ "$SAME" = "$BASE" ]; arm $? "unset is byte-identical to the previous behaviour (no runner is broken by not knowing the variable)"
 # ⛔ AND THE START TREE MUST NOT BE ABLE TO ERASE THE DIRTY MARK: a dirty run is unpublishable whatever tree it names.
-if printf '%s' "$BASE" | grep -q -- '-DIRTY'; then
-    printf '%s' "$MOVED" | grep -q -- '-DIRTY'; arm $? "a DIRTY worktree stays marked DIRTY when a start tree is declared"
+if [[ "$BASE" == *-DIRTY* ]]; then
+    [[ "$MOVED" == *-DIRTY* ]]; arm $? "a DIRTY worktree stays marked DIRTY when a start tree is declared"
 fi
 echo "graded $N arm(s)"
 [ "$N" = 0 ] && { echo "⛔ GATE REFUSES (rc=2): graded zero arms."; exit 2; }
