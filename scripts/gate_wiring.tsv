@@ -44,6 +44,7 @@ test_gate_ast_shaped_refs_are_declared_ast.sh	WIRED	-	-	-
 test_gate_banner_leads_with_the_suite_line.sh	WIRED	-	-	-
 test_gate_capture_stdin_and_red_exit.sh	WIRED	-	-	-
 test_gate_coexpr_stack_of_uncreated_thread.sh	WIRED	-	-	-
+test_gate_collect_reports_free_storage_and_fails_when_short.sh	WIRED	-	-	-
 test_gate_corpus_coverage_classified.sh	WIRED	-	-	-
 test_gate_cross_suite_ref_agreement.sh	WIRED	-	-	-
 test_gate_dispatch_bus_failure_modes.sh	WIRED	-	-	-
@@ -75,6 +76,7 @@ test_gate_master_order_is_the_builders_order.sh	WIRED	-	-	-
 test_gate_master_resort_preserves_modes.sh	WIRED	-	-	-
 test_gate_master_suite_builder_contract.sh	WIRED	-	-	-
 test_gate_modes_declaration_travels.sh	WIRED	-	-	-
+test_gate_monitor_refuses_when_a_participant_never_starts.sh	WIRED	-	-	-
 test_gate_next_honours_the_lane_cut.sh	WIRED	-	-	-
 test_gate_no_bb_bin_t.sh	WIRED	-	-	-
 test_gate_no_handencoded_bytes.sh	WIRED	-	-	-
