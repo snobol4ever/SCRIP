@@ -1407,7 +1407,7 @@ int main(int argc, char **argv)
             }
             if (s2->label_count > 0) {
                 emit_textf("  .section .rodata\n");
-                for (int k = 0; k < s2->label_count; k++) emit_textf("  .Llbln%d: .string \"%s\"\n", k, s2->label_table[k].name);
+                for (int k = 0; k < s2->label_count; k++) { extern void x86_asm_str_escape_c(const char *, char *, unsigned long); char _esc[1024]; x86_asm_str_escape_c(s2->label_table[k].name ? s2->label_table[k].name : "", _esc, sizeof _esc); emit_textf("  .Llbln%d: .string \"%s\"\n", k, _esc); }
                 emit_textf("  .align 8\n__label_names:\n");
                 for (int k = 0; k < s2->label_count; k++) emit_textf("  .quad .Llbln%d\n", k);
                 emit_textf("  .section .text\n  .intel_syntax noprefix\n");
