@@ -6576,6 +6576,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         long n = IS_INT(args[0]) ? (long)args[0].i : 0;
         long ln = (nargs >= 2 && IS_INT(args[1])) ? (long)args[1].i : 0;
         if (nargs == 3) { extern void rt_stmt_file_init(const char *file); const char *fp = VARVAL_fn(args[2]); rt_stmt_file_init(fp ? fp : ""); }
+        if (n < 0) { *out = NULVCL; return 1; }
         rt_stmt_enter(n, ln);
         *out = NULVCL; return 1;
     }

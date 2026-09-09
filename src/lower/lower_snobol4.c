@@ -2520,6 +2520,24 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
             }
             lc_γ_to(anchor[i], num);
         }
+    } else {
+        for (int i = 0; i < nst; i++) {
+            if (lp_s_int(st[i], ":nocount") || sno_stmt_is_blank(st[i])) continue;
+            extern const char * stmt_src_get_file(void);
+            const char * _sf = stmt_src_get_file();
+            if (!_sf || !*_sf) break;
+            IR_t * body = anchor[i]->γ.node;
+            IR_t * hook = lc_build(g, IR_CALL, body, body); IR_LIT(hook).sval = (char *) "SNO$STMT";
+            IR_t * num = lc_build(g, IR_LIT_INTEGER, hook, hook); IR_LIT(num).ival = (int64_t)-1;
+            IR_t * lnn = lc_build(g, IR_LIT_INTEGER, hook, hook); IR_LIT(lnn).ival = (int64_t)0;
+            lc_γ_to(num, lnn);
+            ir_operand_push(hook, num); ir_operand_push(hook, lnn);
+            IR_t * fpn = lc_build(g, IR_LIT_STRING, hook, hook); IR_LIT(fpn).sval = (char *) _sf;
+            lc_γ_to(lnn, fpn);
+            ir_operand_push(hook, fpn);
+            lc_γ_to(anchor[i], num);
+            break;
+        }
     }
     for (int i = 0; i < nst; i++) {
         const char * ssrc = sfind_str(st[i], ":src");
