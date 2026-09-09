@@ -26,6 +26,16 @@
 # `open("recent.dat")` remain unaddressed -- moot today since it dies earlier on an unrelated sortf bug,
 # see FINDING-2026-09-05-seat02-icon-jcon-suite-census-11th-pass*.md).
 #
+# ⛔⭐ THE GRADED STREAM IS STDOUT **AND** STDERR, COMBINED, BECAUSE THAT IS THE CONTRACT THE .std FILES
+# WERE CUT UNDER (hq_P 2026-09-09, ceo CEO-445). Upstream's own harness is `prog < in > out 2>&1` and
+# test_icon_arizona_suite.sh already reproduces it (`2>&1` at its :146/:163); this runner alone diffed
+# STDOUT ONLY. Four programs write their ENTIRE output to stderr -- cxtrace, loadfunc, traceback, tracing
+# (icont's runtime error and &trace reports go there) -- so this runner compared an EMPTY stdout against a
+# full .std and called it a wrong answer, forever, with nothing able to notice: the ref was right, the
+# program was right, and the instrument was reading the wrong pipe. MEASURED before the change: all four
+# FAIL/CRASH in both modes. ⛔ The stream and the rc rule are ONE defect with two halves -- see the rc note
+# in verdict_of() -- and fixing either alone leaves all four still red, which is why they land together.
+#
 # NO-ORACLE SOURCES EXCLUDED, NOT GRADED AS MISSING: link2/load1/load2/tpp1-5 have no .std by
 # design (link targets and dynamic-load targets with no main; template-preprocessor inputs, not
 # standalone programs -- see README.md). Globbing only *.icn with a matching *.std (or a *.ref we cut
@@ -107,7 +117,7 @@ run_one() {
     for m in $(sed -nE 's/^[[:space:]]*link[[:space:]]+"?([A-Za-z0-9_.-]+)"?.*$/\1/p' "$icn"); do m="${m%.icn}"; [ -f "$(dirname "$icn")/$m.icn" ] && mods+=("$(dirname "$icn")/$m.icn"); done
     case "$mode" in
         m3)
-            ( cd "$rundir" && timeout "$TIMEOUT" "$SCRIP" --run "$icn" ${mods[@]+"${mods[@]}"} ${extra_args[@]+"${extra_args[@]}"} < "$IN" > "$outfile" 2>"$errf" )
+            ( cd "$rundir" && timeout "$TIMEOUT" "$SCRIP" --run "$icn" ${mods[@]+"${mods[@]}"} ${extra_args[@]+"${extra_args[@]}"} < "$IN" > "$outfile" 2>&1 )
             rc=$?
             ;;
         m4)
@@ -121,15 +131,24 @@ run_one() {
             elif ! gcc -no-pie "$o" -L"$OUTDIR" -lscrip_rt -Wl,-rpath,"$OUTDIR" -lm -o "$bin" 2>>"$errf"; then
                 : > "$outfile"; rc=1
             else
-                ( cd "$rundir" && timeout "$TIMEOUT" "$bin" ${prog_args[@]+"${prog_args[@]}"} < "$IN" > "$outfile" 2>"$errf" )
+                ( cd "$rundir" && timeout "$TIMEOUT" "$bin" ${prog_args[@]+"${prog_args[@]}"} < "$IN" > "$outfile" 2>&1 )
                 rc=$?
             fi
             ;;
     esac
     if [ "$rc" -eq 124 ]; then echo "HANG"; return; fi
-    if grep -q 'icon: parse error' "$errf"; then echo "REJECT"; return; fi
+    if grep -q 'icon: parse error' "$outfile" "$errf" 2>/dev/null; then echo "REJECT"; return; fi
     if [ "$rc" -ge 128 ]; then echo "CRASH"; return; fi
-    if [ "$rc" -ne 0 ]; then echo "FAIL"; return; fi
+    # ⛔⭐ A NONZERO rc IS NOT A FAILURE IN THIS SUITE, AND MAKING IT ONE HID FOUR PROGRAMS (hq_P 2026-09-09,
+    # CEO-445). Upstream's own contract -- tests/general/Test-icon, which is also what
+    # test_icon_arizona_suite.sh reproduces -- runs `prog < in > out 2>&1` and diffs out against .std. It
+    # never reads the exit status, because a jcon/Icon test that ENDS IN A RUNTIME ERROR is a legitimate
+    # test whose expected output IS the error report: traceback.icn exits 1 under icont by design, and so
+    # do errors.icn and loadfunc.icn. Blanket-failing a nonzero rc marked all three FAIL before their text
+    # was ever compared, so their refs could not be falsified in either direction -- the same shape as an
+    # xfail marker, arrived at accidentally. The two verdicts that DO turn on rc are kept above: 124 is the
+    # timeout firing (HANG) and >=128 is a signal (CRASH), neither of which upstream can express because it
+    # has no timeout and no crash bucket. Everything else is decided by the text, as upstream decides it.
     if diff -q "$outfile" "$want" >/dev/null 2>&1; then echo "PASS"; else echo "FAIL"; fi
 }
 
