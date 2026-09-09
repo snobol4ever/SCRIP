@@ -345,15 +345,19 @@ DatType *dat_find_field(const char *name, int *fidx) {
 static DESCR_t dat_alloc_fill(DatType *t, DESCR_t *args, int nargs) {
     DATINST_t *inst = rt_ws_alloc_tag(sizeof(DATINST_t), HB_DINST);
     { extern long rt_sno_dumpno_next(void); inst->dumpno = rt_sno_dumpno_next(); }
-    DATBLK_t *blk = rt_ws_alloc(sizeof(DATBLK_t));
-    blk->name    = rt_ws_strdup(t->name);
-    blk->nfields = t->nfields;
-    blk->fields  = rt_ws_alloc(t->nfields * sizeof(char *));
-    for (int i = 0; i < t->nfields; i++) blk->fields[i] = rt_ws_strdup(t->fields[i]);
-    blk->next    = NULL;
+    DATBLK_t *blk = (DATBLK_t *)t->blk;
+    if (!blk) {
+        blk = rt_ws_alloc(sizeof(DATBLK_t));
+        blk->name    = rt_ws_strdup(t->name);
+        blk->nfields = t->nfields;
+        blk->fields  = rt_ws_alloc(t->nfields * sizeof(char *));
+        for (int i = 0; i < t->nfields; i++) blk->fields[i] = rt_ws_strdup(t->fields[i]);
+        blk->next    = NULL;
+        blk->serial_next = 1;
+        t->blk = (struct _DATINST_tType *)blk;
+    }
     inst->type   = blk;
-    if (t->serial_next < 1) t->serial_next = 1;
-    inst->id     = t->serial_next++;
+    inst->id     = blk->serial_next++;
     inst->fields = rt_ws_alloc(t->nfields * sizeof(DESCR_t));
     for (int i = 0; i < t->nfields; i++) {
         inst->fields[i] = (i < nargs) ? args[i] : NULVCL;
