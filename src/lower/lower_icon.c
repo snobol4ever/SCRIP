@@ -981,13 +981,15 @@ static IR_t * lower_while(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     IR_t * W = build(cx, IR_GOTO, ω, ω); γ_to(W, ω); ω_to(W, ω);
     IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL; IR_t * slf = cx->loop_fail; cx->loop_fail = ω; IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; int slns = cx->loop_next_ssp; IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";
     cx->loop_exit = bres;
-    IR_t * cval = NULL; IR_t * centry = lower(cx, C, NULL, W, &cval);
+    if (cx->loop_sp < ICN_LOOP_STK_MAX) { cx->loop_stk_exit[cx->loop_sp] = cx->loop_exit; cx->loop_stk_next[cx->loop_sp] = NULL; cx->loop_stk_fail[cx->loop_sp] = cx->loop_fail; } cx->loop_sp++;
+    IR_t * BENT = build(cx, IR_GOTO, γ, ω);
+    IR_t * cval = NULL; IR_t * centry = lower(cx, C, BENT, W, &cval);
     IR_t * CENT = build(cx, IR_GOTO, NULL, NULL); lc_γ_to_α(CENT, centry); lc_ω_to_α(CENT, centry);
     cx->loop_next = CENT; cx->loop_next_ssp = cx->scan_sp;
-    if (cx->loop_sp < ICN_LOOP_STK_MAX) { cx->loop_stk_exit[cx->loop_sp] = cx->loop_exit; cx->loop_stk_next[cx->loop_sp] = cx->loop_next; cx->loop_stk_fail[cx->loop_sp] = cx->loop_fail; } cx->loop_sp++;
+    if (cx->loop_sp - 1 >= 0 && cx->loop_sp - 1 < ICN_LOOP_STK_MAX) cx->loop_stk_next[cx->loop_sp - 1] = CENT;
     IR_t * bval = NULL; IR_t * b_entry = lower(cx, B, CENT, CENT, &bval);
     cx->loop_sp--;
-    lc_γ_to(cval, b_entry);
+    lc_γ_to(BENT, b_entry); lc_ω_to(BENT, b_entry);
     cx->loop_exit = sle; cx->loop_next = sln; cx->loop_fail = slf; cx->loop_next_ssp = slns;
     { IR_t * lbb = cx->loop_break_beta; cx->loop_break_beta = slb; if (lbb) { cx->beta = lbb; *res = bres; return centry; } }
     *res = bres; return centry;
