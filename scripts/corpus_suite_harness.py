@@ -355,7 +355,7 @@ def run_oracle(oracle_bin, flags, sno_path, timeout, stdin_text=None, prog_args=
 
 # ==================================================================== exec ===
 class Verdict:
-    __slots__ = ("kind", "stdout", "stderr", "returncode", "detail")
+    __slots__ = ("kind", "stdout", "stderr", "returncode", "detail", "masked_lines")
 
     def __init__(self, kind, stdout=b"", stderr=b"", returncode=None, detail=""):
         self.kind = kind  # PASS FAIL CRASH HANG UNPROVEN SKIP
@@ -363,6 +363,7 @@ class Verdict:
         self.stderr = stderr
         self.returncode = returncode
         self.detail = detail
+        self.masked_lines = 0
 
     def text(self):
         return self.stdout.decode("utf-8", "replace")
@@ -397,7 +398,57 @@ def _run_raw(argv, timeout, cwd=None, env=None, stdin_text=None):
     return "RAN", r.stdout, r.stderr, r.returncode
 
 
-def classify(argv, timeout, expected_text, cwd=None, env=None, stdin_text=None, want_rc=0):
+# ============================================================ CEO-409 line masks ===
+# ⛔⭐ AN IMPLEMENTATION-DEFINED LINE IS MASKED AT THE LINE, NEVER AT THE PROGRAM (ceo CEO-409, 2026-09-08;
+# RULES.md, on the coo and hq_V reaching the same fixture from opposite directions and both refusing to move a
+# denominator alone). A fixture whose ONLY divergence is a value belonging to the IMPLEMENTATION -- a clock
+# reading, an allocator's free-space count -- is neither outside the baseline (the oracle runs it perfectly)
+# nor a permanent red (there is no defect, and it can never go green, which is a criterion that cannot say YES).
+# It stays in the denominator and is graded on every line that carries language semantics.
+#
+# ⛔ THIS IS A MACHINE FOR HIDING REDS AND IS BUILT ACCORDINGLY. Four guardrails, all mechanical here:
+#   (1) EARNED BY MEASUREMENT, never by assertion -- the mask lives in a sidecar a human wrote after showing the
+#       ORACLE'S OWN value moves between runs; this code cannot check that, so the sidecar carries the REASON
+#       and the record is auditable. A mask with an empty reason is REFUSED below rather than silently honoured.
+#   (2) NAMED BESIDE THE DATA -- `ALL.mask` sits next to `ALL.ref`, never inside a runner.
+#   (3) COUNTED AND PRINTED -- masked_lines rides on the Verdict so every board can print what it declined to
+#       grade. An invisible mask is the hiding mechanism; a printed one is a measurement.
+#   (4) NEVER THE MAJORITY -- if a mask would cover half a fixture's lines or more, that fixture is ungradable
+#       and belongs outside the baseline instead, named. Enforced as a FAIL with its own detail, not a pass.
+#
+# ⭐ THE SUBSTITUTION REPLACES, IT NEVER DELETES. A deleted line would let a MISSING line pass as a masked one --
+# the fixture that prints nothing would match the fixture that prints a clock. Line count and position are
+# preserved by rewriting the matched line to a canonical marker in BOTH streams.
+def read_mask_sidecar(ref_path):
+    """<stem>.mask beside the ref: `entry<TAB>python-regex<TAB>reason`. Missing file -> no masks, and that is
+    the overwhelmingly common case: seven masters and every package carry none today."""
+    mp = Path(str(ref_path).rsplit(".", 1)[0] + ".mask")
+    if not mp.is_file():
+        return {}
+    out = {}
+    for ln in mp.read_text(encoding="utf-8").splitlines():
+        if not ln.strip() or ln.lstrip().startswith("#"):
+            continue
+        parts = ln.split("\t")
+        if len(parts) < 3 or not parts[1].strip() or not parts[2].strip():
+            raise SystemExit("REFUSE(rc=2): %s: every mask row needs entry<TAB>regex<TAB>reason, and a reason that "
+                             "is empty is a mask nobody can audit -- got %r" % (mp, ln))
+        out.setdefault(parts[0].strip(), []).append((re.compile(parts[1]), parts[2].strip()))
+    return out
+def apply_line_mask(text, patterns):
+    """Rewrite every line matching any pattern to a canonical marker. Returns (text, masked_line_count)."""
+    if not patterns or text is None:
+        return text, 0
+    n = 0
+    lines = text.split("\n")
+    for i, ln in enumerate(lines):
+        for rx, _reason in patterns:
+            if rx.search(ln):
+                lines[i] = "<<CEO-409 MASKED IMPLEMENTATION-DEFINED LINE>>"
+                n += 1
+                break
+    return "\n".join(lines), n
+def classify(argv, timeout, expected_text, cwd=None, env=None, stdin_text=None, want_rc=0, mask=None):
     kind, out, err, rc = _run_raw(argv, timeout, cwd=cwd, env=env, stdin_text=stdin_text)
     if kind == "HANG":
         return Verdict("HANG", out, err, None, detail=f"exceeded {timeout}s")
@@ -407,6 +458,16 @@ def classify(argv, timeout, expected_text, cwd=None, env=None, stdin_text=None, 
         return Verdict("CRASH", out, err, rc, detail=f"signal {-rc}")
     got = out.decode("utf-8", "replace").rstrip("\n")
     exp = expected_text.rstrip("\n") if expected_text is not None else None
+    masked_n = 0
+    if mask:
+        exp_lines = len(exp.split("\n")) if exp is not None else 0
+        got, mg = apply_line_mask(got, mask)
+        exp, me = apply_line_mask(exp, mask)
+        masked_n = max(mg, me)
+        if exp_lines and masked_n * 2 >= exp_lines:
+            return Verdict("FAIL", out, err, rc, detail="mask covers %d of %d ref lines -- a majority-masked fixture is "
+                           "UNGRADABLE and belongs outside the baseline, named, not masked (CEO-409 guardrail 4)"
+                           % (masked_n, exp_lines))
     # ⛔⭐ A POSITIVE NONZERO rc IS NOT A PASS UNLESS IT WAS DECLARED (hq_C ruling 2026-08-30, on seat15's
     # find; corpus-suites-consolidation.task.md § VACUOUS PASS ON POSITIVE rc). Until now only a NEGATIVE rc
     # was inspected (the CRASH arm above) and a positive one fell straight through to the text compare. The
@@ -424,8 +485,12 @@ def classify(argv, timeout, expected_text, cwd=None, env=None, stdin_text=None, 
         if rc is not None and rc != want_rc:
             return Verdict("FAIL", out, err, rc,
                            detail=f"output matched but rc={rc}, expected {want_rc} (declare want_rc if this is correct)")
-        return Verdict("PASS", out, err, rc)
-    return Verdict("FAIL", out, err, rc, detail="output mismatch" if exp is not None else "no expected text")
+        v = Verdict("PASS", out, err, rc)
+        v.masked_lines = masked_n
+        return v
+    v = Verdict("FAIL", out, err, rc, detail="output mismatch" if exp is not None else "no expected text")
+    v.masked_lines = masked_n
+    return v
 
 
 def stdbuf_wrap(paths, argv):
@@ -434,7 +499,7 @@ def stdbuf_wrap(paths, argv):
     return argv
 
 
-def run_m3(paths, sno_path, expected_text, timeout=None, stdin_text=None, want_rc=0, prog_argv=None):
+def run_m3(paths, sno_path, expected_text, timeout=None, stdin_text=None, want_rc=0, prog_argv=None, mask=None):
     timeout = timeout or paths["timeout"]
     # ⛔⭐ ARGV IS THE BARE NAME, NOT THE FULL PATH (row suite-harness-argv-echoes-a-mktemp-path-so-
     # diagnostic-programs-cannot-be-graded) -- a diagnostic that echoes its own argv (e.g. a SPITBOL
@@ -462,7 +527,7 @@ def run_m3(paths, sno_path, expected_text, timeout=None, stdin_text=None, want_r
     # byte-identical to its .ref when run from its own directory in BOTH modes, FAIL in both from
     # anywhere else. Consistent for suite entries too: run_suite_entry materializes the entry into a
     # temp dir and passes THAT path, so parent is the temp dir -- exactly where it copies companions.
-    return classify(argv, timeout, expected_text, cwd=str(Path(sno_path).parent), env=env, stdin_text=stdin_text, want_rc=want_rc)
+    return classify(argv, timeout, expected_text, cwd=str(Path(sno_path).parent), env=env, stdin_text=stdin_text, want_rc=want_rc, mask=mask)
 
 
 def compile_m4(paths, sno_path, out_bin, tmp_dir):
@@ -503,7 +568,7 @@ def compile_m4(paths, sno_path, out_bin, tmp_dir):
     return None
 
 
-def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=None, want_rc=0, prog_argv=None):
+def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=None, want_rc=0, prog_argv=None, mask=None):
     timeout = timeout or paths["timeout"]
     if not (paths["rt_dir"] / "libscrip_rt.so").is_file():
         return Verdict("SKIP", detail="libscrip_rt.so not built")
@@ -518,7 +583,7 @@ def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=Non
     env = dict(os.environ, SNO_LIB=str(paths["inc"]))
     # Same rule as run_m3 above: the compiled binary's relative opens must resolve against the
     # SOURCE's directory, not the harness's cwd. out_bin is an absolute path, so moving cwd is safe.
-    return classify(argv, timeout, expected_text, cwd=str(Path(sno_path).parent), env=env, stdin_text=stdin_text, want_rc=want_rc)
+    return classify(argv, timeout, expected_text, cwd=str(Path(sno_path).parent), env=env, stdin_text=stdin_text, want_rc=want_rc, mask=mask)
 
 
 # ⛔⭐ run_ast TAKES NO prog_argv AND MUST NOT -- NOT AN OVERSIGHT. `--dump-ast` never executes the
@@ -667,6 +732,10 @@ class Entry:
                                    # all (identical to pre-sidecar behaviour). DECLARED in <family>.argv,
                                    # never inferred -- an entry's own text cannot say what it should be RUN
                                    # with. See sidecar_argv_path() for why discovery beats a flag.
+        self.mask = None          # list[(compiled regex, reason)] from <family>.mask, or None. CEO-409: a line
+                                   # whose value belongs to the IMPLEMENTATION (a clock reading, an allocator's
+                                   # free-space count) is masked AT THE LINE so the rest of the fixture keeps
+                                   # grading. DECLARED beside the data, never inferred, never in a runner.
         self.want_rc = want_rc    # int: the exit code a CORRECT run of this entry produces. 0 unless the
                                    # family declares otherwise in <family>.wantrc. DECLARED, never inferred.
         self.xfail_reason = xfail_reason  # str: WHY this entry is expected red, or None. Carried in the
@@ -782,13 +851,13 @@ def convert_one(paths, sno_path, ref_path, seq, tmp_root, modes, companion_dir=N
     return None, {"ok": False, "reason": f"NEITHER form reproduced the original's behavior: orig={orig_verdicts}"}
 
 
-def run_all_modes(paths, sno_path, expected_text, tmp_root, modes, stdin_text=None, want_rc=0, prog_argv=None):
+def run_all_modes(paths, sno_path, expected_text, tmp_root, modes, stdin_text=None, want_rc=0, prog_argv=None, mask=None):
     out = {}
     if "m3" in modes:
-        out["m3"] = run_m3(paths, sno_path, expected_text, stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv)
+        out["m3"] = run_m3(paths, sno_path, expected_text, stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask)
     if "m4" in modes:
         with tempfile.TemporaryDirectory(dir=tmp_root) as td:
-            out["m4"] = run_m4(paths, sno_path, expected_text, Path(td), stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv)
+            out["m4"] = run_m4(paths, sno_path, expected_text, Path(td), stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask)
     if "ast" in modes:
         # ⛔ stdin is deliberately NOT threaded into run_ast: --dump-ast parses and never executes,
         # so an entry's stdin cannot reach it. Passing it would imply a dependence that does not exist.
@@ -1560,7 +1629,8 @@ def run_suite_entry(paths, entry, tmp_root, modes, ext=".sno", companion_dir=Non
             if companion_dir and _tok and '/' not in _tok and (Path(companion_dir) / _tok).is_file() and not (Path(td) / _tok).exists():
                 (Path(td) / _tok).write_bytes((Path(companion_dir) / _tok).read_bytes())
         return run_all_modes(paths, cand, expected, Path(td), modes, stdin_text=entry.stdin,
-                             want_rc=getattr(entry, 'want_rc', 0), prog_argv=getattr(entry, 'argv', None))
+                             want_rc=getattr(entry, 'want_rc', 0), prog_argv=getattr(entry, 'argv', None),
+                             mask=getattr(entry, 'mask', None))
 
 
 # ================================================================== CLI ===
@@ -2036,6 +2106,20 @@ def cmd_run(args):
         entries = read_suite(args.sno, args.ref, in_path=sidecar_in_path(args.sno),
                              x_path=sidecar_xfail_path(args.sno), w_path=sidecar_wantrc_path(args.sno),
                              a_path=sidecar_argv_path(args.sno), modes=modes)
+    _masks = read_mask_sidecar(args.ref)
+    if _masks:
+        _seen = set()
+        for _e in entries:
+            if _e.name in _masks:
+                _e.mask = _masks[_e.name]
+                _seen.add(_e.name)
+        _unknown = sorted(set(_masks) - _seen)
+        if _unknown:
+            refuse("the .mask sidecar names entries this suite does not contain: %s -- a mask that matches nothing "
+                   "is a mask nobody notices has stopped applying, and CEO-409 is auditable or it is not a mask"
+                   % ", ".join(_unknown))
+        print("CEO-409 MASKS ACTIVE: %d of %d entries carry a declared implementation-defined line mask (%s)"
+              % (len(_seen), len(entries), ", ".join(sorted(_seen))))
     require_population(paths, len(entries), 1, f"entries read from {args.sno} (a suite pair that names zero entries cannot be graded)")
     shard_tag = ""
     if getattr(args, "shard", ""):
