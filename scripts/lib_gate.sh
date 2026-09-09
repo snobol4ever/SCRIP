@@ -435,3 +435,39 @@ gate_three_way() {
     } >&2
     return 2
 }
+# gate_file_executes_scrip <file> -- rc=0 when the file INVOKES the compiled binary, rc=1 when it does not.
+# gate_file_has_fresh_guard  <file> -- rc=0 when the file reaches the staleness preflight (either spelling).
+#
+# ⛔⭐ THESE TWO ARE AN EXTRACTION, NOT A NEW IDEA, AND THAT IS THE WHOLE REASON THEY ARE HERE.  The predicate
+# lived inline in ARM 15 of test_gate_runners_refuse_on_a_stale_binary.sh, where it answered the FLEET-WIDE
+# question ("has anyone landed a scrip-executing gate without the guard").  util_gate_preflight.sh asks the
+# SAME question about ONE file, before the push -- and the one thing this lane has measured over and over is
+# that the second copy is where the cure stops arriving (gate_require_fresh vs assert_binary_current: cured in
+# one, regenerated in the other, cured again nine days later).  A per-file tool that re-spelled the population
+# rule would disagree with the census on the first gate whose shape sits near the boundary, and the seat would
+# be told "clean" by one instrument and "uncovered" by the other on the same file.
+#
+# THE POPULATION RULE, unchanged from ARM 15: a call-shaped reference to the compiled binary -- a $SCRIP /
+# $SCRIP_BIN-style variable actually INVOKED as a command, not merely assigned, not tested with -x/-e/-f, not
+# echoed into a message -- OR an inline $ROOT/scrip / $HERE/scrip invocation with no intermediate variable.
+# Comments are stripped first: a gate that DESCRIBES the binary in its header is not a gate that runs it, and
+# a textual arm that cannot tell those apart reports red on files whose only sin is documentation.
+gate_file_executes_scrip() {
+    local _f="$1" _body _ln
+    [ -f "$_f" ] || return 1
+    _body="$(grep -vE '^[[:space:]]*#' "$_f")"
+    if grep -qE '\$\{?SCRIP(_BIN)?\}?\b' <<<"$_body"; then
+        while IFS= read -r _ln; do
+            grep -qE '\$\{?SCRIP(_BIN)?\}?\s*=' <<<"$_ln" && continue
+            grep -qE '\[\[?[[:space:]]+-[a-zA-Z][[:space:]]+"?\$\{?SCRIP(_BIN)?\}?"?' <<<"$_ln" && continue
+            grep -qE '(echo|printf)[^$]*\$\{?SCRIP(_BIN)?\}?' <<<"$_ln" && continue
+            grep -qE '\$\{?SCRIP(_BIN)?\}?\b' <<<"$_ln" && return 0
+        done <<<"$_body"
+    fi
+    grep -qE '"?\$(ROOT|HERE)"?/scrip\b' <<<"$_body" && return 0
+    return 1
+}
+gate_file_has_fresh_guard() {
+    [ -f "$1" ] || return 1
+    grep -vE '^[[:space:]]*#' "$1" | grep -qE 'gate_require_fresh|util_require_fresh\.sh'
+}

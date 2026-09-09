@@ -39,6 +39,11 @@ S4E="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}"
 SHIM="$HERE/util_require_fresh.sh"
 SCRIP_BIN="${SCRIP:-$ROOT/scrip}"
 MASTER="$S4E/corpus/tests/snobol4"
+# ARM 15's population rule now lives in lib_gate.sh (see the note at that arm). Source it, and REFUSE rather
+# than fall back to a local copy: a census that silently re-spelled the rule is the exact failure ARM 10 grades.
+. "$HERE/lib_gate.sh" 2>/dev/null || true
+command -v gate_file_executes_scrip >/dev/null 2>&1 || {
+    echo "⛔ REFUSED-TO-GRADE rc=2: lib_gate.sh carries no gate_file_executes_scrip -- ARM 15's population rule is unreachable"; exit 2; }
 
 [ -x "$SHIM" ] || { echo "⛔ REFUSED-TO-GRADE rc=2: shim under test missing: $SHIM"; exit 2; }
 [ -x "$SCRIP_BIN" ] || { echo "⛔ REFUSED-TO-GRADE rc=2: scrip not built at $SCRIP_BIN -- this gate needs a CURRENT tree to prove the control arm"; exit 2; }
@@ -192,26 +197,16 @@ echo "--- ARM 15 (census #2, PRINTED DENOMINATOR): every test_gate_* that ITSELF
 # INVOKED as a command (not merely assigned, or tested with -x/-e/-f, or echoed into a message), OR an inline
 # $ROOT/scrip / $HERE/scrip invocation with no intermediate variable at all. Excludes this file itself and
 # util_require_fresh.sh -- neither one grades a program through a direct call, they orchestrate other graders.
+# ⛔⭐ THE POPULATION RULE MOVED TO lib_gate.sh AND THIS ARM NOW CALLS IT (hq_T 2026-09-09, ceo CEO-441 item 7).
+# It is unchanged -- the comment above still describes it exactly -- but it is no longer spelled HERE, because
+# util_gate_preflight.sh asks the SAME question about ONE file before the push and a second spelling is how the
+# two instruments come to disagree about the same gate. That is this gate's own ARM 10 argument (a cure applied
+# to one copy strengthens everyone's belief the class is dead) applied to the gate that makes it.
 gates2=0; wired2=0; missing2=""
 for f in "$HERE"/test_gate_*.sh; do
-    body="$(grep -vE '^[[:space:]]*#' "$f")"
-    isg=0
-    if grep -qE '\$\{?SCRIP(_BIN)?\}?\b' <<<"$body"; then
-        while IFS= read -r ln; do
-            grep -qE '\$\{?SCRIP(_BIN)?\}?\s*=' <<<"$ln" && continue
-            grep -qE '\[\[?[[:space:]]+-[a-zA-Z][[:space:]]+"?\$\{?SCRIP(_BIN)?\}?"?' <<<"$ln" && continue
-            grep -qE '(echo|printf)[^$]*\$\{?SCRIP(_BIN)?\}?' <<<"$ln" && continue
-            grep -qE '\$\{?SCRIP(_BIN)?\}?\b' <<<"$ln" && { isg=1; break; }
-        done <<<"$body"
-    fi
-    [ "$isg" = 0 ] && grep -qE '"?\$(ROOT|HERE)"?/scrip\b' <<<"$body" && isg=1
-    [ "$isg" = 1 ] || continue
+    gate_file_executes_scrip "$f" || continue
     gates2=$((gates2+1))
-    if grep -qE 'gate_require_fresh|util_require_fresh\.sh' <<<"$body"; then
-        wired2=$((wired2+1))
-    else
-        missing2="$missing2 $(basename "$f")"
-    fi
+    if gate_file_has_fresh_guard "$f"; then wired2=$((wired2+1)); else missing2="$missing2 $(basename "$f")"; fi
 done
 echo "    gates=$gates2 wired=$wired2 uncovered=$((gates2-wired2))"
 [ "$gates2" -ge 50 ] && ck ok "census #2 floor: $gates2 scrip-executing test_gate_* examined" \
