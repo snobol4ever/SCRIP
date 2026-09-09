@@ -398,6 +398,26 @@ field() { echo "$board" | grep -oE "$1=[0-9]+" | cut -d= -f2; }
 mt=$(field total)
 m3p=$(field m3_pass); m3f=$(field m3_fail); m3c=$(field m3_crash); m3h=$(field m3_hang); m3u=$(field m3_unproven); m3x=$(field m3_xfail); m3xp=$(field m3_xpass)
 m4p=$(field m4_pass); m4f=$(field m4_fail); m4c=$(field m4_crash); m4h=$(field m4_hang); m4u=$(field m4_unproven); m4s=$(field m4_skip); m4x=$(field m4_xfail); m4xp=$(field m4_xpass)
+# ⛔⭐ THE XFAIL OUTCOME SPLIT (ceo CEO-432 item 2, on hq_U's census of these 26 markers): xfail says EXPECTED RED
+# and says nothing about WHICH red, so a SIGSEGV, a hang, a silently wrong answer and a mode-4 that never produced
+# a binary all read identically -- four different repairs behind one number. hq_U measured three entries here that
+# CRASH in m3 and merely answer WRONG in m4, so the single count hides a PER-MODE split as well as a per-debt one,
+# and a bimodal entry could not show without re-running the suite. Published, so it shows without one.
+xfsplit() { # $1=mode prefix -> "wrong=A crash=B hang=C unproven=D skip=E", refusing rather than folding a zero
+    local m="$1" k v out=""
+    for k in wrong crash hang unproven skip; do
+        v="$(field "${m}_xfail_${k}")"
+        [ -n "$v" ] || { echo "⛔ GATE REFUSES: the SUITE_BOARD carries no ${m}_xfail_${k}= field -- the outcome split cannot be assembled and an absent bucket is not a zero (CEO-432 item 2)." >&2; exit 2; }
+        out="${out}${out:+ }${k}=${v}"
+    done
+    printf '%s' "$out"
+}
+# ⛔ THE `|| exit 2` IS LOAD-BEARING: xfsplit runs inside a command substitution, so its own `exit 2`
+# leaves only the SUBSHELL -- the refusal would print to stderr and the run would carry on with an
+# empty split, publishing "xfail=25 ()" as though that were a reading. The assignment's status IS the
+# substitution's status, so this is where the refusal actually crosses back out.
+m3xs="$(xfsplit m3)" || exit 2
+m4xs="$(xfsplit m4)" || exit 2
 # ⛔⭐ THE SECOND POPULATION, GRADED HERE OR NOWHERE (hq_B 2026-09-05). The two boards are printed separately and
 # NEVER summed by the harness, deliberately -- their denominators mean different things and one number spanning both
 # could not be read. But "not summed" must not decay into "not read": grading only SUITE_BOARD would print a full,
@@ -433,7 +453,7 @@ m_all=$(field all_pass)
 BOTH=$((BOTH+m_all))
 [ "$((m3f+m3c))" -gt 0 ] && FAILURES3="${FAILURES3}  FAIL-M3 suite:master (rerun: python3 $HARNESS run $MASTER_SNO $MASTER_REF --modes m3; per-entry attributes: ALL.csv)\n"
 [ "$((m4f+m4c))" -gt 0 ] && FAILURES4="${FAILURES4}  FAIL suite:master (rerun: python3 $HARNESS run $MASTER_SNO $MASTER_REF --modes m4; per-entry attributes: ALL.csv)\n"
-echo "master: total=$mt · m3 xfail=$m3x xpass=$m3xp · m4 xfail=$m4x xpass=$m4xp"
+echo "master: total=$mt · m3 xfail=$m3x ($m3xs) xpass=$m3xp · m4 xfail=$m4x ($m4xs) xpass=$m4xp"
 echo "master-ast: total=$astt pass=$astp FAIL=$ASTFAIL (fail=${astf:-0} crash=${astc:-0} hang=${asth:-0} unproven=${astu:-0}) · xfail=$astx xpass=$astxp — graded by --dump-ast diff, once, not per mode"
 [ "$ASTFAIL" -gt 0 ] && FAILURES4="${FAILURES4}  FAIL suite:master-ast $ASTFAIL entr(y/ies) (rerun: python3 $HARNESS run $MASTER_SNO $MASTER_REF --modes m3,m4 --by-modes-column 2>&1 | grep -E '^ *(FAIL|CRASH) ast')\n"
 [ "$((m3xp+m4xp))" -gt 0 ] && echo "⭐ XPASS>0: a bug got FIXED and its XFAIL marker was never promoted -- as actionable as a failure, in the opposite direction (names: python3 $HARNESS run ... | grep XPASS)"
@@ -666,7 +686,7 @@ _sn4_killed=""
 # was the master's own $m_all/$mt. So the human reading the cell and the grid reading the declared pair took two
 # different numbers out of one row: the two-readers-of-one-cell shape, in the row that ruling was written about.
 # The wider figure is not dropped -- it is moved to the end and labelled as not being this row.
-_sn4_board="master both-modes $m_all/$mt · m3 $m3p/$mt FAIL=$((m3f+m3c)) xfail=$m3x xpass=$m3xp · m4 $m4p/$mt FAIL=$((m4f+m4c)) SKIP=$m4s xfail=$m4x xpass=$m4xp · ast $astp/$astt FAIL=$ASTFAIL xfail=$astx xpass=$astxp MISSING=0$_sn4_killed · runner-wide (master + loop programs, NOT this row) both-modes $BOTH/$TOTAL (\`test_corpus_snobol4.sh\`)"
+_sn4_board="master both-modes $m_all/$mt · m3 $m3p/$mt FAIL=$((m3f+m3c)) xfail=$m3x ($m3xs) xpass=$m3xp · m4 $m4p/$mt FAIL=$((m4f+m4c)) SKIP=$m4s xfail=$m4x ($m4xs) xpass=$m4xp · ast $astp/$astt FAIL=$ASTFAIL xfail=$astx xpass=$astxp MISSING=0$_sn4_killed · runner-wide (master + loop programs, NOT this row) both-modes $BOTH/$TOTAL (\`test_corpus_snobol4.sh\`)"
 # ⛔⭐ THE CELL IS NAMED sno-master AND MUST RECEIVE THE MASTER'S OWN PAIR ($m_all/$mt), NOT THE RUNNER'S WIDER ONE.
 # $BOTH/$TOTAL spans the master PLUS the loop programs, so publishing it put a master+loop number in a master cell --
 # the second half of why this row kept re-flipping. The combined figure stays on the terminal, labelled, and the

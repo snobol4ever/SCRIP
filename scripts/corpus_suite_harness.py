@@ -431,10 +431,28 @@ def read_mask_sidecar(ref_path):
             continue
         parts = ln.split("\t")
         if len(parts) < 3 or not parts[1].strip() or not parts[2].strip():
-            raise SystemExit("REFUSE(rc=2): %s: every mask row needs entry<TAB>regex<TAB>reason, and a reason that "
-                             "is empty is a mask nobody can audit -- got %r" % (mp, ln))
+            # ⛔⭐ refuse(), NOT raise SystemExit(<string>) -- THE SENTENCE SAID rc=2 AND THE PROCESS EXITED 1
+            # (hq_T 2026-09-08, found by calling this from a bash runner that keys on the code). SystemExit with a
+            # STRING argument prints it and exits ONE, so this refusal was indistinguishable from a measured RED to
+            # every caller that reads the status instead of the text -- and the status is what a gate reads.
+            # ⭐ THE GENERAL FORM: a diagnostic that NAMES its own exit code is not evidence it uses that code, and
+            # it is the most convincing possible evidence to a reader, because the number is right there. This file's
+            # refuse() is the one authority (CEO-233, one refusal code and it is 2); the local raise bypassed it.
+            refuse("%s: every mask row needs entry<TAB>regex<TAB>reason, and a reason that "
+                   "is empty is a mask nobody can audit -- got %r" % (mp, ln))
         out.setdefault(parts[0].strip(), []).append((re.compile(parts[1]), parts[2].strip()))
     return out
+def masks_for(masks, name):
+    """⛔⭐ THE ONE PLACE THE ENTRY COLUMN IS RESOLVED, so the python harness and the bash runners (through
+    util_apply_ceo409_mask.py) cannot disagree about which rows apply to an entry.  `*` in the entry column means
+    EVERY entry of the suite, which is what a suite-wide sidecar needs: the csnobol4 ALL.mask masks SPITBOL's own
+    allocator bookkeeping, a quantity no program in the suite can compute, so naming 93 programs one per row would
+    be a census that goes stale on the next program added -- and a mask that has silently stopped covering a new
+    entry is the same unauditable shape CEO-409 exists against.
+    ⛔ THE WILDCARD DOES NOT WEAKEN A GUARDRAIL. Every masked line is still counted per entry, the majority rule
+    still fails a fixture that would be mostly masked, and the reason column is still mandatory -- `*` widens WHICH
+    entries a row is offered to, never WHAT a row is allowed to hide."""
+    return list(masks.get("*", [])) + list(masks.get(name, []))
 def apply_line_mask(text, patterns):
     """Rewrite every line matching any pattern to a canonical marker. Returns (text, masked_line_count)."""
     if not patterns or text is None:
@@ -2110,10 +2128,13 @@ def cmd_run(args):
     if _masks:
         _seen = set()
         for _e in entries:
-            if _e.name in _masks:
-                _e.mask = _masks[_e.name]
+            _p = masks_for(_masks, _e.name)
+            if _p:
+                _e.mask = _p
                 _seen.add(_e.name)
-        _unknown = sorted(set(_masks) - _seen)
+        # ⛔ `*` is a name this suite always "contains" once it has any entry at all, so it must not be reported as
+        # an entry the suite does not have -- otherwise a suite-wide sidecar refuses on its own wildcard.
+        _unknown = sorted(set(_masks) - _seen - {"*"})
         if _unknown:
             refuse("the .mask sidecar names entries this suite does not contain: %s -- a mask that matches nothing "
                    "is a mask nobody notices has stopped applying, and CEO-409 is auditable or it is not a mask"
@@ -2283,8 +2304,19 @@ def cmd_run(args):
     all_pass = 0
     all_n = 0
     declared_not_requested = []
-    counts = {m: {"PASS": 0, "FAIL": 0, "CRASH": 0, "HANG": 0, "UNPROVEN": 0, "SKIP": 0, "XFAIL": 0, "XPASS": 0} for m in modes}
-    ast_counts = {"ast": {"PASS": 0, "FAIL": 0, "CRASH": 0, "HANG": 0, "UNPROVEN": 0, "SKIP": 0, "XFAIL": 0, "XPASS": 0}}
+    # ⛔⭐ THE XFAIL BUCKET IS SPLIT BY OUTCOME (ceo CEO-432 item 2, on hq_U's census: an xfail marker is a CHECK
+    # THAT CANNOT FAIL -- a SIGSEGV reads xfail, a hang reads xfail, a silently wrong answer reads xfail, and a
+    # mode-4 that produces no binary at all reads xfail). Four different repairs behind one identical count, and
+    # hq_U measured three SNOBOL4 entries that CRASH in m3 and merely answer WRONG in m4 -- so the single number
+    # hides a PER-MODE split as well as a per-debt one. XFAIL stays as the total, so every existing reader is
+    # untouched; the split rides beside it and costs one dict key per kind.
+    _XK = ("PASS", "FAIL", "CRASH", "HANG", "UNPROVEN", "SKIP")
+    def _fresh():
+        d = {k: 0 for k in _XK}; d["XFAIL"] = 0; d["XPASS"] = 0
+        d.update({"XFAIL_" + k: 0 for k in _XK})
+        return d
+    counts = {m: _fresh() for m in modes}
+    ast_counts = {"ast": _fresh()}
     tmp_root = Path(tempfile.mkdtemp(prefix="csh_run_"))
     fails = []
     _progress_rows = []
@@ -2298,6 +2330,7 @@ def cmd_run(args):
                     ast_counts["ast"]["XPASS"] += 1; fails.append((e.name, "ast", verdicts["ast"]))
                 else:
                     ast_counts["ast"]["XFAIL"] += 1
+                    ast_counts["ast"]["XFAIL_" + kind] = ast_counts["ast"].get("XFAIL_" + kind, 0) + 1
             else:
                 ast_counts["ast"][kind] += 1
                 if kind != "PASS":
@@ -2325,6 +2358,10 @@ def cmd_run(args):
                         fails.append((e.name, m, verdicts[m]))
                     else:
                         counts[m]["XFAIL"] += 1
+                        # ⛔ the OUTCOME, not merely the exemption: the marker says "expected red" and says nothing
+                        # about WHICH red, and a crash, a hang, a wrong answer and a compile refusal are four
+                        # different repairs. Bucketed by the verdict's own kind so a new kind cannot go uncounted.
+                        counts[m]["XFAIL_" + kind] = counts[m].get("XFAIL_" + kind, 0) + 1
                 else:
                     counts[m][kind] += 1
                     if kind != "PASS":
@@ -2347,7 +2384,9 @@ def cmd_run(args):
         print(f"SUITE_BOARD_AST family={family} " + (f"{shard_tag} " if shard_tag else "") +
               f"total={len(ast_entries)} ast_pass={a['PASS']} ast_fail={a['FAIL']} ast_crash={a['CRASH']} "
               f"ast_hang={a['HANG']} ast_unproven={a['UNPROVEN']} ast_skip={a['SKIP']} "
-              f"ast_xfail={a['XFAIL']} ast_xpass={a['XPASS']}")
+              f"ast_xfail={a['XFAIL']} ast_xpass={a['XPASS']} "
+              f"ast_xfail_wrong={a['XFAIL_FAIL']} ast_xfail_crash={a['XFAIL_CRASH']} "
+              f"ast_xfail_hang={a['XFAIL_HANG']} ast_xfail_unproven={a['XFAIL_UNPROVEN']} ast_xfail_skip={a['XFAIL_SKIP']}")
         print(f"MODES_COLUMN ast_graded={len(ast_entries)}/{len(entries)} run_graded={len(run_entries)}/{len(entries)} "
               f"unknown_defaulted_to_run={unknown_defaulted}")
     fields = [f"family={family}"] + ([shard_tag] if shard_tag else []) + [f"total={len(run_entries) if entry_modes else len(entries)}"]
@@ -2360,7 +2399,10 @@ def cmd_run(args):
         fields.append(f"{m}_n={mode_n[m] if entry_modes else len(entries)} "
                        f"{m}_pass={c['PASS']} {m}_fail={c['FAIL']} {m}_crash={c['CRASH']} "
                        f"{m}_hang={c['HANG']} {m}_unproven={c['UNPROVEN']} {m}_skip={c['SKIP']} "
-                       f"{m}_xfail={c['XFAIL']} {m}_xpass={c['XPASS']}")
+                       f"{m}_xfail={c['XFAIL']} {m}_xpass={c['XPASS']} "
+                       f"{m}_xfail_wrong={c['XFAIL_FAIL']} {m}_xfail_crash={c['XFAIL_CRASH']} "
+                       f"{m}_xfail_hang={c['XFAIL_HANG']} {m}_xfail_unproven={c['XFAIL_UNPROVEN']} "
+                       f"{m}_xfail_skip={c['XFAIL_SKIP']}")
     # ⛔⭐ all_pass IS THE FIELD A SUITE ROW QUOTES (ceo-372). It sits beside the per-mode counts, never
     # instead of them: the cell carries both so the split stays readable, and a reader who wants one mode still
     # has it. Shards partition the entries, so these two sum across shards exactly as every other field does.

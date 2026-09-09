@@ -166,6 +166,24 @@ m4p=$(field m4_pass); m4f=$(field m4_fail); m4c=$(field m4_crash); m4h=$(field m
 # ⛔ REFUSE RATHER THAN READ A ZERO. An older harness prints no all_pass=, `field` returns empty, and a row
 # written over an empty string is a plausible false number -- this board's whole failure class.
 mall=$(field all_pass)
+# ⛔⭐ THE XFAIL OUTCOME SPLIT (ceo CEO-432 item 2): xfail says EXPECTED RED and nothing about WHICH red, so a
+# crash, a hang, a wrong answer and a compile refusal are four different repairs wearing one count -- and an entry
+# that crashes in one mode and merely answers wrong in the other cannot show at all without a re-run.
+xfsplit() { # $1=mode prefix -> "wrong=A crash=B hang=C unproven=D skip=E"; an absent bucket is not a zero
+    local m="$1" k v out=""
+    for k in wrong crash hang unproven skip; do
+        v="$(field "${m}_xfail_${k}")"
+        [ -n "$v" ] || { echo "⛔ BOARD REFUSES: SUITE_BOARD carries no ${m}_xfail_${k}= field -- the outcome split cannot be assembled (CEO-432 item 2)." >&2; exit 2; }
+        out="${out}${out:+ }${k}=${v}"
+    done
+    printf '%s' "$out"
+}
+# ⛔ THE `|| exit 2` IS LOAD-BEARING: xfsplit runs inside a command substitution, so its own `exit 2`
+# leaves only the SUBSHELL -- the refusal would print to stderr and the run would carry on with an
+# empty split, publishing "xfail=25 ()" as though that were a reading. The assignment's status IS the
+# substitution's status, so this is where the refusal actually crosses back out.
+m3xs="$(xfsplit m3)" || exit 2
+m4xs="$(xfsplit m4)" || exit 2
 [ -n "$mall" ] || { echo "⛔ BOARD REFUSES: SUITE_BOARD carries no all_pass= field -- this row is the AND per program (ceo-372) and cannot be assembled without it; corpus_suite_harness.py beside this script emits it."; exit 2; }
 # ⛔⭐ AND THE SAME REFUSAL FOR THE xfail/xpass FIELDS, because this row now PUBLISHES them (coo 2026-09-08): a
 # headline that holds N constant while xfail and xpass trade underneath it is blind to movement inside its own
@@ -190,8 +208,8 @@ echo "entries=$graded  (run-graded $mt + ast-graded $at; ALL.csv rows=$CSV_ENTRI
 echo "$split"
 echo "AST-shape drift check (self-pinned dump, parser-ladder fixtures, INFORMATIONAL -- never part of this board's verdict): $ap/$at match  DRIFTED=$af CRASH=$ac HANG=$ah XPASS=$axp"
 echo "run-graded population: $mt entries (the ast fixtures are NOT in these two lines and are never summed into them)"
-echo "mode-3 (--run):     PASS=$m3p FAIL=$m3f CRASH=$m3c HANG=$m3h UNPROVEN=$m3u XFAIL=$m3x XPASS=$m3xp   / $mt"
-echo "mode-4 (--compile): PASS=$m4p FAIL=$m4f CRASH=$m4c HANG=$m4h UNPROVEN=$m4u SKIP=$m4s XFAIL=$m4x XPASS=$m4xp   / $mt"
+echo "mode-3 (--run):     PASS=$m3p FAIL=$m3f CRASH=$m3c HANG=$m3h UNPROVEN=$m3u XFAIL=$m3x ($m3xs) XPASS=$m3xp   / $mt"
+echo "mode-4 (--compile): PASS=$m4p FAIL=$m4f CRASH=$m4c HANG=$m4h UNPROVEN=$m4u SKIP=$m4s XFAIL=$m4x ($m4xs) XPASS=$m4xp   / $mt"
 echo "rerun a single mode: python3 $HARNESS run $MASTER_ICN $MASTER_REF --lang icon --modes m3   (per-entry attributes: ALL.csv)"
 # ⭐ THE NAMES, so two runs of this board can be DIFFED and not merely compared. Capped, because the
 # point is to make a regression identifiable, not to paste a census into a terminal -- and the cap says
@@ -266,7 +284,7 @@ fi
 python3 "$HERE/util_score_row.py" write --lang icon --column board --modes m3,m4 \
     --suite-pass "$mall" --suite-total "$mt" \
     --measurer "${S4E_SEAT:-}" \
-    --text "$([ "$RED" -ne 0 ] && echo "⛔ RED — ")run-graded both-modes $mall/$mt · m3 $m3p/$mt xfail=$m3x xpass=$m3xp · m4 $m4p/$mt xfail=$m4x xpass=$m4xp (entries=$graded, floors m3 $M3_PASS_FLOOR / m4 $M4_PASS_FLOOR, \`board_icon_master.sh\`) · ast-shape check $ap/$at xpass=$axp (informational, not scored)$_named" \
+    --text "$([ "$RED" -ne 0 ] && echo "⛔ RED — ")run-graded both-modes $mall/$mt · m3 $m3p/$mt xfail=$m3x ($m3xs) xpass=$m3xp · m4 $m4p/$mt xfail=$m4x ($m4xs) xpass=$m4xp (entries=$graded, floors m3 $M3_PASS_FLOOR / m4 $M4_PASS_FLOOR, \`board_icon_master.sh\`) · ast-shape check $ap/$at xpass=$axp (informational, not scored)$_named" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 # ⭐ THE PROGRESS LINE, after the rewrite.  This runner writes its row DIRECTLY rather than through
 # lib_gate.sh's gate_score_row, so it needs the call the shared path already carries -- same one line,

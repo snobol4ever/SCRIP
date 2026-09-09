@@ -157,11 +157,76 @@ argv_for() { case "$1" in genc) echo v311.sil;; esac; }
 # is indistinguishable from a typo. These two entries were the package's whole UNGRADED bucket, and the
 # sidecar reason said the pickup was a runner map; measured, it was a driver flag AND this map.
 preload_for() { case "$1" in preload1) echo "-Laa/aa.sno";; preload2) echo "-Laa/aa.sno -Lbb/bb.sno";; esac; }
+# ⛔⭐⭐ CEO-409 LINE MASKS ARE READ HERE, THROUGH THE HARNESS'S OWN BODY (hq_T 2026-09-08, ceo CEO-432 item 1).
+# hq_R's mask mechanism landed in corpus_suite_harness.py (0ffb087b2) and was INERT for this suite, because this
+# runner grades with its own loop and never calls the harness: a `<name>.mask` sidecar dropped beside a csnobol4
+# fixture did exactly nothing, silently, which is the worst way for a safety mechanism to be absent -- the author
+# would have seen a well-formed green board and concluded the mask was honoured.
+# ⭐ IT IS A SHIM, NOT A SECOND IMPLEMENTATION, and the reason is the REGEX DIALECT rather than tidiness. The
+# harness compiles PYTHON regexes; this file's other normalisations are sed EREs. A re-implementation in awk or sed
+# would agree on every mask anyone happened to test and diverge on the first one using \d, (?i) or a lazy
+# quantifier -- one sidecar meaning two different things depending on which runner read it. util_apply_ceo409_mask.py
+# imports read_mask_sidecar() and apply_line_mask() from the harness, so the path rule, the dialect, the marker and
+# the malformed-row refusal are all the ONE authority's.
+# ⛔ DEFAULT-OFF AND MEASURABLY SO: no `<name>.mask` beside the fixture and this is byte-identical to the path that
+# ran before it, which is every csnobol4 program today (zero sidecars in the suite).
+MASK_TOKEN='<<CEO-409 MASKED IMPLEMENTATION-DEFINED LINE>>'
+MASKED_LINES=0; MASKED_FIX=0; MASKED_LIST=""
+MASK_N=0
+# ⛔ GUARDRAIL 2, ENFORCED BEFORE ANY GRADING: a sidecar naming a program the suite does not contain REFUSES.
+# A mask that matches nothing is one nobody notices has stopped applying -- it is the stale-marker shape wearing
+# the mask mechanism's clothes, and it survives a rename in silence.
+mask_preflight() {
+    local f n; local any=0
+    for f in "$SUITE"/*.mask; do
+        [ -e "$f" ] || break
+        any=1; n="$(basename "$f" .mask)"
+        # ⛔ `ALL` is the SUITE-WIDE sidecar and names no single program by design; every other stem must name one.
+        [ "$n" = ALL ] || [ -f "$SUITE/$n.sno" ] || { echo "⛔ REFUSE(rc=2): $f names no program in this suite -- $n.sno is not in $SUITE."; echo "   CEO-409 guardrail 2: a mask that matches nothing is one nobody notices has stopped applying."; exit 2; }
+        [ -f "$SUITE/$n.ref" ] || { echo "⛔ REFUSE(rc=2): $f has no $n.ref beside it, and the sidecar path is derived from the REF -- the shim would look for a file that is not there and report no masks, which is a silent nothing rather than a refusal."; exit 2; }
+        # the sidecar's own row validation is the harness's, reached through the shim, so it cannot drift from it.
+        printf '' | python3 "$HERE/util_apply_ceo409_mask.py" "$SUITE/$n.ref" "$n" "$W/mask_n" >/dev/null || exit 2
+    done
+    [ "$any" = 1 ] && echo "CEO-409 masks: $(ls "$SUITE"/*.mask 2>/dev/null | wc -l) sidecar(s) armed and validated"
+    return 0
+}
+# ⛔⭐ THE COUNT TRAVELS IN A FILE, NOT A VARIABLE, AND THAT IS FORCED RATHER THAN CHOSEN. normalize() is called
+# as `exp="$(normalize ...)"`, so its whole body runs in a SUBSHELL: a variable it sets is gone the instant the
+# substitution closes, and so is an `exit`. Anything this layer needs to tell the grading loop -- the masked-line
+# count, and the fact that the masker itself refused -- has to cross that boundary in the filesystem.
+# ⛔⭐ WHICH SIDECAR APPLIES, AND WHY A SUITE-WIDE ONE IS THE NORMAL CASE HERE. The shim derives <stem>.mask from
+# the ref path it is handed -- the harness's own rule, not a second one -- so this function chooses WHICH family
+# file the sidecar hangs off and lets the shim do the deriving. This suite is one .sno/.ref pair PER PROGRAM, so a
+# per-program `<name>.mask` is possible; but its live sidecar is `ALL.mask`, masking SPITBOL's own allocator
+# bookkeeping, which no program in the suite can compute and every program could print. Naming 93 programs one per
+# row would be a census that goes stale the next time a program is added -- and a mask that has silently stopped
+# covering a new entry is the unauditable shape CEO-409 exists against. The `*` entry column resolves it, in the
+# harness's masks_for(), so both readers agree by construction rather than by both being written carefully.
+mask_ref_for() { # $1=name -> echoes the ref path whose stem carries the applicable sidecar, or nothing
+    [ -f "$SUITE/$1.mask" ] && { printf '%s' "$SUITE/$1.ref"; return 0; }
+    [ -f "$SUITE/ALL.mask" ] && { printf '%s' "$SUITE/ALL.ref"; return 0; }
+    return 1
+}
+mask_apply() { # $1=name $2=text -> echoes the masked text; leaves the replaced-line count (or ERR) in $W/mask_n
+    printf '0' > "$W/mask_n"
+    local mref; mref="$(mask_ref_for "$1")" || { printf '%s' "$2"; return 0; }
+    local out
+    if ! out="$(printf '%s' "$2" | python3 "$HERE/util_apply_ceo409_mask.py" "$mref" "$1" "$W/mask_n" 2>"$W/mask_err")"; then
+        printf 'ERR' > "$W/mask_n"; printf '%s' "$2"; return 0
+    fi
+    printf '%s' "$out"
+}
 normalize() { # $1=name $2=text -> echoes text, masked per tests.in's dump/trace convention for that name
     local n="$1" t="$2"
     t="$(printf '%s' "$t" | sed -E 's/^x86-64  [A-Z][a-z]{2} [A-Z][a-z]{2} +[0-9]+ [0-9:]+ [0-9]{4}$/x86-64  xxx/')"
-    case " $DUMP_TESTS " in *" $n "*) t="$(printf '%s' "$t" | sed -E -e 's/MAXLNGTH = [0-9]+/MAXLNGTH = xxx/' -e "/^&FILL = '/d")";; esac
+    # ⛔⭐ THE &FILL RULE REPLACES, IT NO LONGER DELETES (hq_T 2026-09-08, CEO-432 item 1: "replace-never-delete,
+    # guardrail 4 as the harness has it"). This line used to be `/^&FILL = '/d`, and a DELETED line lets a MISSING
+    # line pass as a masked one: the fixture that prints nothing where the oracle prints an &FILL matched, because
+    # both sides had the line removed. Rewriting to a marker preserves line count AND position, so an absent line
+    # is still an absent line. Same reasoning hq_R wrote into the harness; this runner predates it.
+    case " $DUMP_TESTS " in *" $n "*) t="$(printf '%s' "$t" | sed -E -e 's/MAXLNGTH = [0-9]+/MAXLNGTH = xxx/' -e "s/^&FILL = '.*/$MASK_TOKEN/")";; esac
     case " $TRACE_TESTS " in *" $n "*) t="$(printf '%s' "$t" | sed -E 's/time = [0-9.eE+-]+$/time = xxx/')";; esac
+    t="$(mask_apply "$n" "$t")"
     printf '%s' "$t"
 }
 
@@ -197,6 +262,7 @@ status_of() { # $1=got $2=rc $3=exp -> echoes PASS|FAIL|REJECT|CRASH|HANG
     else echo FAIL; fi
 }
 
+mask_preflight
 TOTAL=0
 M3_PASS=0; M3_FAIL=0; M3_REJECT=0; M3_CRASH=0; M3_HANG=0; RED3=""
 M4_PASS=0; M4_FAIL=0; M4_REJECT=0; M4_CRASH=0; M4_HANG=0; RED4=""
@@ -223,6 +289,24 @@ for sno in "$SUITE"/*.sno; do
     if [ "$RECUT" = 0 ] && is_outside_baseline "$name"; then OUTSIDE_LIST="$OUTSIDE_LIST $name"; continue; fi
     TOTAL=$((TOTAL+1))
     exp="$(normalize "$name" "$(cat "$ref")")"
+    _mn="$(cat "$W/mask_n" 2>/dev/null || echo 0)"
+    [ "$_mn" = ERR ] && { echo "⛔ REFUSE(rc=2): the CEO-409 masker refused on $name (its own message follows) -- a runner that cannot apply a declared mask must not grade as though there were none:"; sed 's/^/   /' "$W/mask_err" 2>/dev/null; exit 2; }
+    if [ "${_mn:-0}" -gt 0 ]; then
+        # ⛔ GUARDRAIL 4, THE HARNESS'S OWN FORM: a mask covering half a fixture's ref lines or more makes that
+        # fixture UNGRADABLE -- it belongs outside the baseline, named, not carried in the denominator behind a
+        # mask. Enforced as a hard refusal here rather than a quiet pass, because the failure mode of getting this
+        # wrong is a program that can never be red again.
+        _rl="$(printf '%s' "$exp" | grep -c '' )"
+        if [ "$_rl" -gt 0 ] && [ "$((_mn * 2))" -ge "$_rl" ]; then
+            echo "⛔ REFUSE(rc=2): $name would have $_mn of its $_rl ref lines masked."
+            echo "   CEO-409 guardrail 4 -- a majority-masked fixture is UNGRADABLE and belongs OUTSIDE the baseline,"
+            echo "   named in OUTSIDE_SPITBOL_BASELINE.tsv, not carried in the denominator behind a mask."; exit 2
+        fi
+        # ⛔ GUARDRAIL 3: counted and printed. An invisible mask is the machine for hiding reds; a printed one is
+        # a measurement, and the count rides into the leaderboard cell beside the fraction for the same reason the
+        # xpass count does -- a number nobody publishes is a number nobody can notice moving.
+        MASKED_LINES=$((MASKED_LINES + _mn)); MASKED_FIX=$((MASKED_FIX + 1)); MASKED_LIST="$MASKED_LIST $name($_mn)"
+    fi
 
     prog="$RUN/$name.sno"; relprog="$name.sno"; inp=/dev/null
     if is_stdin_test "$name"; then
@@ -286,6 +370,10 @@ done
 echo "── csnobol4_suite: $TOTAL pairs · SCRIP $SCRIP_HASH · corpus $CORP_HASH · RT_OPT -O0 · timeout ${TIMEOUT}s · oracle sbl -bf (SPITBOL; Lon 2026-09-07: the one SNOBOL4 oracle; formerly csnobol4, Phil Budne, home dialect) · .ref primary, live csnobol4 = triangulation + tiebreak/regen"
 echo "CSNOBOL4_SUITE_BOARD total=$TOTAL m3_PASS=$M3_PASS m3_FAIL=$M3_FAIL m3_REJECT=$M3_REJECT m3_CRASH=$M3_CRASH m3_HANG=$M3_HANG m4_PASS=$M4_PASS m4_FAIL=$M4_FAIL m4_REJECT=$M4_REJECT m4_CRASH=$M4_CRASH m4_HANG=$M4_HANG"
 echo "sbl -bf re-read against the refs (staleness check, informational): PASS=$CSN_PASS FAIL=$CSN_FAIL"
+# ⛔ GUARDRAIL 3 -- PRINTED WHETHER OR NOT ANY MASK EXISTS. A line that appears only when masks are in play tells
+# the reader nothing on the day one is added and everything on the day one is removed; masked_lines=0 is the
+# reading that says "this board declined to grade nothing", and it is the one worth having by default.
+echo "CEO-409 masks: masked_lines=$MASKED_LINES in $MASKED_FIX fixture(s)${MASKED_LIST:+ ·$MASKED_LIST} (excluded at the LINE; every fixture stays in the denominator)"
 [ -n "$OUTSIDE_LIST" ] && echo "OUTSIDE_SPITBOL_BASELINE ($(printf '%s' "$OUTSIDE_LIST" | wc -w), programs sbl -bf refuses, named in $OUTSIDE, out of the denominator):$OUTSIDE_LIST"
 [ "$RECUT" != 0 ] && echo "RECUT_FROM_SPITBOL: refs re-cut=$RECUT_OK outside-baseline=$RECUT_OUT"
 if [ "$RECUT" != 0 ]; then U="$SUITE/UNGRADABLE.tsv"; { [ -f "$U" ] && awk -F"\t" '$3!~/outside the SPITBOL baseline/' "$U"; cat "$OUTSIDE"; } > "$U.tmp" && mv -f "$U.tmp" "$U"; echo "UNGRADABLE.tsv: outside-the-SPITBOL-baseline rows mirrored ($(grep -c 'outside the SPITBOL baseline' "$U"))"; fi
@@ -318,7 +406,7 @@ if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite CSNOBOL4 --modes m3,m4 \
     --suite-pass "$BOTH_PASS" --suite-total "$TOTAL" \
     --measurer "${S4E_SEAT:-}" \
-    --text "total=$TOTAL m3 PASS=$M3_PASS FAIL=$M3_FAIL REJECT=$M3_REJECT CRASH=$M3_CRASH HANG=$M3_HANG · m4 PASS=$M4_PASS FAIL=$M4_FAIL REJECT=$M4_REJECT CRASH=$M4_CRASH HANG=$M4_HANG${INV_LINE:+ · $INV_LINE (\`test_snobol4_csnobol4_suite.sh\`)}" \
+    --text "total=$TOTAL m3 PASS=$M3_PASS FAIL=$M3_FAIL REJECT=$M3_REJECT CRASH=$M3_CRASH HANG=$M3_HANG · m4 PASS=$M4_PASS FAIL=$M4_FAIL REJECT=$M4_REJECT CRASH=$M4_CRASH HANG=$M4_HANG · masked_lines=$MASKED_LINES in $MASKED_FIX fixture(s) (CEO-409, excluded at the line, fixture stays in the denominator)${INV_LINE:+ · $INV_LINE (\`test_snobol4_csnobol4_suite.sh\`)}" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
 # ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-

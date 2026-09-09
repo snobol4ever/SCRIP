@@ -260,6 +260,12 @@ test: scrip  # ⭐ WAS THE FALSE-GREEN TRAP (cured hq_P s268): `test`, `test-ir`
 	# and three seats hit it in one evening). A static parse, no build, no suite: the whole class is provable by
 	# grep in under a second, and the alternative was learning it from a twenty-minute board that refused at the end.
 	bash scripts/test_gate_score_row_text_splices_are_assigned.sh   # <1s, static parse of scripts/*.sh, no build: a $${VAR:+...} spliced into a leaderboard row's --text must be assigned in that same file. $${VAR:+} is silent on an unset variable, so the clause vanishes and the writer refuses -- with nothing naming the assignment that is missing.
+	# ⭐ BLOCKING, and it is a REACHABILITY gate before it is a behaviour one. hq_R's CEO-409 mask mechanism
+	# landed in corpus_suite_harness.py and was INERT for every suite a bash runner grades with its own loop --
+	# a sidecar dropped beside a csnobol4 fixture did nothing, silently, so its author would have read a green
+	# board as the mask being honoured. An absent safety mechanism that CONFIRMS the belief it was added to test
+	# is worse than a missing one, and only a gate on the wiring can see it.
+	bash scripts/test_gate_ceo409_mask_is_read_by_the_bash_runners.sh   # <1s, no build: the bash runner reaches the mask shim, the shim is the harness's own body (python dialect, not an ERE re-implementation), masks REPLACE and never delete, and an unauditable mask refuses rc=2.
 
 pristine-all:  # wipe EVERY cached configuration, not just this one (the pre-s258 behaviour)
 	# Same race, same cure, same bounded BUILD_LOCK as `pristine` above -- see its comment block for why
