@@ -1413,9 +1413,11 @@ static void icn_statics_prepass(tree_t * body, const char * pname) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_progname_used(const tree_t * n);
 static void icn_collect_own_globals(const tree_t * prog, lc_vec * out) {
     for (int i = 0; prog && i < prog->n; i++) { const tree_t * s = prog->c[i]; if (!s) continue; if (s->t == TT_STMT) s = stmt_subj(s); if (!s) continue;
         if (s->t == TT_GLOBAL) for (int k = 0; k < s->n; k++) if (s->c[k] && s->c[k]->v.sval) lc_vec_push(out, &s->c[k]->v.sval); }
+    if (icn_progname_used(prog)) { static const char * pg = "__icn_progname"; lc_vec_push(out, &pg); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_collect_implicit_locals(const tree_t * n, const char ** excl, int nexcl, lc_vec * out) {
@@ -1431,8 +1433,37 @@ static void icn_collect_implicit_locals(const tree_t * n, const char ** excl, in
     for (int i = 0; i < n->n; i++) icn_collect_implicit_locals(n->c[i], excl, nexcl, out);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_progname_used(const tree_t * n) {
+    if (!n) return 0;
+    if ((n->t == TT_VAR || n->t == TT_KEYWORD) && n->v.sval && !strcmp(n->v.sval, "&progname")) return 1;
+    for (int i = 0; i < n->n; i++) if (icn_progname_used(n->c[i])) return 1;
+    return 0;
+}
+static void icn_rewrite_progname(tree_t * n) {
+    if (!n) return;
+    if ((n->t == TT_VAR || n->t == TT_KEYWORD) && n->v.sval && !strcmp(n->v.sval, "&progname")) { n->t = TT_VAR; n->v.sval = (char *) "__icn_progname"; }
+    for (int i = 0; i < n->n; i++) icn_rewrite_progname(n->c[i]);
+}
+static void icn_progname_as_global(const tree_t * prog, const tree_t * pd) {
+    static const tree_t * done_prog = NULL; static int used = 0;
+    if (prog != done_prog) { done_prog = prog; used = icn_progname_used(prog); if (used) global_register("__icn_progname"); }
+    if (!used || !pd || pd->n < 3 || !pd->c[2]) return;
+    tree_t * body = (tree_t *) pd->c[2];
+    icn_rewrite_progname(body);
+    if (!pd->v.sval || strcmp(pd->v.sval, "main")) return;
+    for (int i = 0; i < body->n; i++) { const tree_t * st = body->c[i]; if (st && st->t == TT_ASSIGN && st->n == 2 && st->c[0] && st->c[0]->v.sval && !strcmp(st->c[0]->v.sval, "__icn_progname") && st->c[1] && st->c[1]->t == TT_QLIT && st->line == -1) return; }
+    char pb[1024]; char pn[1032]; extern void icn_pp_source_base(char *, size_t); icn_pp_source_base(pb, sizeof pb); snprintf(pn, sizeof pn, "./%s", pb);
+    tree_t * lhs = ast_node_new(TT_VAR); lhs->v.sval = (char *) "__icn_progname";
+    tree_t * rhs = ast_node_new(TT_QLIT); rhs->v.sval = strdup(pn); rhs->slen = (int) strlen(pn);
+    tree_t * as = ast_node_new(TT_ASSIGN); ast_push(as, lhs); ast_push(as, rhs); as->line = -1;
+    ast_push(body, as);
+    for (int i = body->n - 1; i > 0; i--) body->c[i] = body->c[i - 1];
+    body->c[0] = as;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * lower_icon_proc(const tree_t * prog, const tree_t * pd) {
     lc_vec_init(&g_icn_synth_excl, (int) sizeof(const char *));
+    icn_progname_as_global(prog, pd);
     static lc_vec pnv; lc_vec_init(&pnv, (int) sizeof(const char *)); fill_pnames(prog, &pnv);
     icx_t cx; memset(&cx, 0, sizeof cx); cx.pn = (const char **) pnv.data; cx.npn = pnv.n;
     static lc_vec lnv; lc_vec_init(&lnv, (int) sizeof(const char *)); lnv.n = 0;
