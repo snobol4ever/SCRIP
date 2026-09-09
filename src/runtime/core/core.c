@@ -2894,6 +2894,7 @@ static void var_dump(void) {
     for (int i = 0; i < n; i++) { printf("%s = ", v[i]->name); var_dump_val(stdout, v[i]->is_gva ? *v[i]->cell : v[i]->val); printf("\n"); }
     printf("\n\ndump of keyword values\n\n");
     rt_kw_dump_values(kw_dump_emit);
+    printf("\n\n\n");
     fflush(stdout);
     free(v);
 }

@@ -275,7 +275,7 @@ static int kwb_write(const char *kw, DESCR_t v) { return kwb_write_ent(kwb_find(
 void rt_kw_dump_values(void (*emit)(const char *name, DESCR_t v)) {
     static const char *const names[] = {
         "ANCHOR", "CASE", "CODE", "DUMP", "ERRLIMIT", "ERRTEXT", "ERRTYPE", "FILE", "FNCLEVEL", "FTRACE",
-        "FULLSCAN", "INPUT", "LASTFILE", "LASTLINE", "LASTNO", "LINE", "MAXINT", "MAXLNGTH", "OUTPUT", "PROFILE",
+        "FULLSCAN", "INPUT", "LASTFILE", "LASTLINE", "LASTNO", "LINE", "MAXLNGTH", "OUTPUT", "PROFILE",
         "RTNTYPE", "STCOUNT", "STLIMIT", "STNO", "TRACE", "TRIM",
     };
     for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); i++) {
