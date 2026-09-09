@@ -1129,6 +1129,7 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
         g->fn = (void *)p->fn; g->name = p->name; g->done = 0;
         if (p->gen_region_ft > 0) g->region_ft = (long)p->gen_region_ft;
         scrip_co_ctx_init(&g->co, rt_genp_thread_entry, (void *)g);
+        g->co.inherit_scan = 1;
         scrip_co_gc_link(&g->co);
         g->next = g_genp_head; g_genp_head = g;
         uint64_t out2[2] = { 0, 0 };

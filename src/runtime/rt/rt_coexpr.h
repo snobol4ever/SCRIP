@@ -23,6 +23,7 @@ typedef struct scrip_coctx_t {
     struct scrip_coctx_t *gc_next; uint64_t gc_spill[6];
     void *frame_copy; uint64_t frame_copy_sz;
     void *scan_state;
+    int   inherit_scan;
     uint64_t rtcc_spill[32];
     long serial;
     long activations;

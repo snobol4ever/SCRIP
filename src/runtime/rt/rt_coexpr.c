@@ -57,10 +57,11 @@ void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first) {
             scrip_co_uerror("scrip_coexpr: pthread_attr_setstacksize failed");
         inited = 1;
     }
+    const int _inh_ctx = new_ctx && new_ctx->inherit_scan;
     { extern void *rt_scan_state_capture(void *); old->scan_state = rt_scan_state_capture(old->scan_state); }
     if (first != 0) {
     } else {
-        { extern void rt_scan_state_reset(void); rt_scan_state_reset(); }
+        { extern void rt_scan_state_reset(void); if (!_inh_ctx) rt_scan_state_reset(); }
         scrip_co_makesem(new_ctx);
         { pthread_attr_t *ap = &attribs; pthread_attr_t big;
           size_t need = new_ctx->stk_need + (size_t)(2u << 20);
@@ -83,7 +84,7 @@ void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first) {
     while (sem_wait(old->semp) < 0) if (errno != EINTR) scrip_co_uerror("scrip_coexpr: sem_wait in scrip_coswitch");
     if (!old->alive) longjmp(old->exit_jmp, 1);
     { extern void rtcc_coexpr_restore(const uint64_t *); rtcc_coexpr_restore(old->rtcc_spill); }
-    { extern void rt_scan_state_apply(void *); rt_scan_state_apply(old->scan_state); }
+    { extern void rt_scan_state_apply(void *); if (!_inh_ctx) rt_scan_state_apply(old->scan_state); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void scrip_coexpr_destroy(scrip_coctx_t *ctx) {
@@ -180,6 +181,7 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7]
     scrip_coexpr_entry_pkg_t *pkg = (scrip_coexpr_entry_pkg_t *)malloc(sizeof(scrip_coexpr_entry_pkg_t));
     if (!pkg) scrip_co_uerror("scrip_coexpr: malloc scrip_coexpr_entry_pkg_t failed");
     pkg->body_entry_addr = body_entry_addr;
+    ctx->inherit_scan = 0;
     pkg->r12 = regs[0]; pkg->r13 = regs[1]; pkg->r14 = regs[2];
     pkg->r15 = regs[3]; pkg->rbx = regs[4]; pkg->csav5 = regs[5]; pkg->gva = regs[6]; pkg->frame_bytes = frame_bytes;
     ctx->frame_copy = NULL; ctx->frame_copy_sz = 0; ctx->stk_need = (size_t)frame_bytes;
@@ -249,6 +251,7 @@ void scrip_co_ctx_init(scrip_coctx_t *ctx, void (*entry_fn)(void *), void *entry
     ctx->alive = 0;
     ctx->semp  = NULL;
     ctx->activator   = NULL;
+    ctx->inherit_scan = 0;
     ctx->resume_addr = NULL;
     ctx->dead        = 0;
     ctx->xmit[0]     = 0;
