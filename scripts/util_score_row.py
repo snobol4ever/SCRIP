@@ -80,6 +80,47 @@ def die(msg, rc=2):
     raise SystemExit(rc)
 
 
+# ⛔⭐⭐ THE ONE WRITER OF SCORE.md, AND THE INVARIANT IT EXISTS TO HOLD (hq_T 2026-09-08, on hq_C's
+# observation, with hq_V's independent occurrence as the second witness).
+# ⭐ THE OBSERVATION: a `PACKAGE_INVENTORY package=gimpel` clause was present in SCORE.md at .github
+# 932016de and absent immediately after that row closed, while every other package in the SAME CELL kept
+# its clause; hq_V saw the identical shape on snoflake and attributed it to a CONFLICT RESOLUTION. Two
+# candidate paths, one occurrence each, and hq_C explicitly declined to name a cause it could not isolate.
+# ⛔ WHY IT MATTERS MORE THAN A LOST LINE: inventory_clauses() keeps the LAST clause per package and feeds
+# the September-10 progress readers their GRADED POPULATION. So a dropped clause does NOT read as missing --
+# the package silently stops contributing a population and THE PERCENTAGE ABOVE IT STILL PRINTS, confidently.
+# Absence and correctness look identical, which is this tree's favourite failure and the reason for gates.
+# ⭐⭐ AND THE REAL FINDING IS THE SHAPE, NOT THE CLAUSE: this file had NINE independent
+# `open(SCORE_MD,"w").write(...)` sites. A FILE WITH NINE WRITERS HAS NO INVARIANT -- there was nowhere to
+# put "no package may vanish", so it was nobody's job at nine call sites at once. Routing all nine through
+# here is what makes the guarantee statable at all; the check below is only the first thing worth stating.
+# ⛔ REFUSES, NEVER REPAIRS. A dropped package means the caller built content from something that had already
+# lost it (a conflicted rebase, a hand edit), so silently re-adding the clause would republish a number
+# nobody measured -- stamped current by this run's provenance. Losing it loudly beats keeping it falsely.
+_INV_PKG_RX = re.compile(r"PACKAGE_INVENTORY\s+package=([A-Za-z0-9_./-]+)")
+
+
+def _write_score_md(lines, seeding=False):
+    """Write SCORE.md. Every writer in this file goes through here. Refuses rc=2 if the write would drop a
+    PACKAGE_INVENTORY package key the file already carried. `seeding` is for the paths that legitimately
+    build the file from nothing -- they cannot drop what was never there, and they say so explicitly."""
+    new = "\n".join(lines)
+    try:
+        old = open(SCORE_MD, encoding="utf-8").read()
+    except OSError:
+        old = ""
+    lost = sorted(set(_INV_PKG_RX.findall(old)) - set(_INV_PKG_RX.findall(new)))
+    if lost and not seeding:
+        die("this write would DROP the PACKAGE_INVENTORY clause for %s. Those clauses carry the GRADED "
+            "POPULATION the September-10 progress readers use, and a package with no clause does not read "
+            "as missing -- it silently stops contributing a population while the percentage above it still "
+            "prints. Nothing was written. The content you are writing already lost it (a conflicted rebase "
+            "of SCORE.md is the known way), so re-run the runner that measured %s and land that, rather "
+            "than re-adding digits nobody measured in this sitting."
+            % (", ".join(lost), lost[0]))
+    open(SCORE_MD, "w", encoding="utf-8").write(new)
+
+
 def git(repo, *args):
     p = os.path.join(S4E, repo)
     if not os.path.exists(os.path.join(p, ".git")):
@@ -607,7 +648,7 @@ def write_grid_direct(a):
     if not done:
         die("internal: find_grid saw a %s row but no line matched it" % a.lang)
     lines = mark_grid_stamp(lines)
-    open(SCORE_MD, "w", encoding="utf-8").write("\n".join(lines))
+    _write_score_md(lines)
     print("⛔ NOT DONE UNTIL PUSHED: commit .github/SCORE.md with the landing that carried this measurement.")
     return 0
 
@@ -1106,7 +1147,7 @@ def cmd_write(a):
         print("  (DRY RUN -- nothing written)")
         return 0
     lines = mark_grid_stamp(lines)
-    open(SCORE_MD, "w", encoding="utf-8").write("\n".join(lines))
+    _write_score_md(lines)
     print("SCORE.md: %s/%s rewritten in place (line %d)" % (a.lang, a.column, i + 1))
     if _provdup:
         print(_provdup)
@@ -1340,7 +1381,7 @@ def cmd_selftest(a):
         _sri, _src = _sr["rebus"]
         _src[COLUMNS["board"][0]] = "—"
         _seed_lines[_sri] = "| " + " | ".join(_src) + " |"
-        open(SCORE_MD, "w", encoding="utf-8").write("\n".join(_seed_lines))
+        _write_score_md(_seed_lines, seeding=True)
         n0 = len(open(SCORE_MD, encoding="utf-8").read().split("\n"))
         class A: pass
         for run in (1, 2):
@@ -1375,7 +1416,7 @@ def cmd_selftest(a):
                 _gc = [x.strip() for x in _gline.strip().strip("|").split("|")]
                 if len(_gc) == GRID_NCOLS:
                     _gc[GRID_COLUMNS["L"][0]] = "—"; _lines0[_gl] = "| " + " | ".join(_gc) + " |"
-        open(SCORE_MD, "w", encoding="utf-8").write("\n".join(_lines0))
+        _write_score_md(_lines0)
         _lines0 = open(SCORE_MD, encoding="utf-8").read().split("\n")
         for run in (1, 2):
             a4 = A(); a4.lang = "rebus"; a4.column = "ladder"; a4.measurer = "selftest"; a4.modes = ""; a4.dry_run = False; a4.suite = ""
@@ -1397,7 +1438,7 @@ def cmd_selftest(a):
                 _gc = [x.strip() for x in _gline.strip().strip("|").split("|")]
                 if len(_gc) == GRID_NCOLS:
                     _gc[GRID_COLUMNS["L"][0]] = "rungs 0..5 PASS 22/22. A person wrote this second sentence."; _lp[_gl] = "| " + " | ".join(_gc) + " |"
-        open(SCORE_MD, "w", encoding="utf-8").write("\n".join(_lp))
+        _write_score_md(_lp)
         a6 = A(); a6.lang = "rebus"; a6.column = "ladder"; a6.measurer = "s"; a6.modes = ""; a6.dry_run = False; a6.suite = ""; a6.text = "rungs 0..5 PASS 22/22"
         try:
             cmd_write(a6); print("SELFTEST FAIL: ladder write over a two-sentence cell did not refuse"); ok = False
@@ -1435,7 +1476,7 @@ def cmd_selftest(a):
         _frc[COLUMNS["floor"][0]] = "—"
         _flines = open(SCORE_MD, encoding="utf-8").read().split("\n")
         _flines[_fri] = "| " + " | ".join(_frc) + " |"
-        open(SCORE_MD, "w", encoding="utf-8").write("\n".join(_flines))
+        _write_score_md(_flines)
         a4 = A(); a4.lang = "rebus"; a4.column = "floor"; a4.measurer = "selftest"
         a4.text = "1/1; semicolon inside"; a4.modes = ""; a4.dry_run = False; a4.suite = ""
         cmd_write(a4)
@@ -1502,7 +1543,7 @@ def cmd_selftest(a):
             _tc[COLUMNS["vendor"][0]] = hist
             _tl = open(SCORE_MD, encoding="utf-8").read().split("\n")
             _tl[_ti] = "| " + " | ".join(_tc) + " |"
-            open(SCORE_MD, "w", encoding="utf-8").write("\n".join(_tl))
+            _write_score_md(_tl)
             a10 = A(); a10.lang = "rebus"; a10.column = "vendor"; a10.suite = "Arizona"
             a10.measurer = "selftest"; a10.modes = ""; a10.dry_run = False; a10.text = "arizona 47/90 m3 · 47/90 m4"
             try:
@@ -1613,7 +1654,7 @@ def cmd_selftest(a):
             _fidx = COLUMNS["floor"][0]
             _rc[_fidx] = text
             _lines[_ri] = "| " + " | ".join(_rc) + " |"
-            open(SCORE_MD, "w", encoding="utf-8").write("\n".join(_lines))
+            _write_score_md(_lines)
             return _fidx
 
         _fidx = _seed_floor(real_before)
@@ -1697,7 +1738,7 @@ def cmd_selftest(a):
         _rri, _rrc = _rr["rebus"]
         _rrc[COLUMNS["board"][0]] = "—"
         _reset_lines[_rri] = "| " + " | ".join(_rrc) + " |"
-        open(SCORE_MD, "w", encoding="utf-8").write("\n".join(_reset_lines))
+        _write_score_md(_reset_lines, seeding=True)
         try:
             for label, root, want in (("absent measurer, known root", "/home/claude_T", "hq_T"),
                                       ("placeholder measurer, known root", "/home/claude_T", "hq_T"),
