@@ -78,6 +78,8 @@ tree_t *stmt_to_ast(const STMT_t *s)
         if (s->subject && s->subject->t == TT_VAR && s->subject->v.sval)
             sa_add(node, attr_leaf(":entry", s->subject->v.sval));
         sa_add(node, attr_int(":line", s->lineno));
+        sa_add(node, attr_int(":lline", s->lline ? s->lline : s->lineno));
+        if (s->file && s->file[0]) sa_add(node, attr_leaf(":file", s->file));
         sa_add(node, attr_int(":stno", s->stno));
         return node;
     }
@@ -85,6 +87,8 @@ tree_t *stmt_to_ast(const STMT_t *s)
     if (s->label && s->label[0])
         sa_add(node, attr_leaf(":lbl",  s->label));
     sa_add(node, attr_int(":line", s->lineno));
+    sa_add(node, attr_int(":lline", s->lline ? s->lline : s->lineno));
+    if (s->file && s->file[0]) sa_add(node, attr_leaf(":file", s->file));
     sa_add(node, attr_int(":stno", s->stno));
     { char * ssrc = stmt_src_slice(s);
       if (!s->subject && !s->pattern && !s->replacement && !s->label && !s->goto_s && !s->goto_f && !s->goto_u && !s->goto_s_expr && !s->goto_f_expr && !s->goto_u_expr && !s->is_end) { free(ssrc); ssrc = strdup(""); }

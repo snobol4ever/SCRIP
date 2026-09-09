@@ -2503,22 +2503,26 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
     }
     { const char * _sk = getenv("SCRIP_SNO_STMTKW"); if (_sk && *_sk == '1') g_sno_uses_stmtkw = 1; }
     if (g_sno_uses_stmtkw) {
-        int _stmtkw_first_hook = 1;
+        const char * _stmtkw_cur_file = (const char *) 0;
         for (int i = 0; i < nst; i++) {
             if (lp_s_int(st[i], ":nocount") || sno_stmt_is_blank(st[i])) continue;
             IR_t * body = anchor[i]->γ.node;
             IR_t * hook = lc_build(g, IR_CALL, body, body); IR_LIT(hook).sval = (char *) "SNO$STMT";
             IR_t * num = lc_build(g, IR_LIT_INTEGER, hook, hook); IR_LIT(num).ival = (int64_t)(i + 1) + stno_base;
-            IR_t * lnn = lc_build(g, IR_LIT_INTEGER, hook, hook); IR_LIT(lnn).ival = (int64_t)lp_s_int(st[i], ":line");
+            int _lln = lp_s_int(st[i], ":lline"); if (!_lln) _lln = lp_s_int(st[i], ":line");
+            IR_t * lnn = lc_build(g, IR_LIT_INTEGER, hook, hook); IR_LIT(lnn).ival = (int64_t)_lln;
             lc_γ_to(num, lnn);
             ir_operand_push(hook, num); ir_operand_push(hook, lnn);
-            if (_stmtkw_first_hook) {
-                _stmtkw_first_hook = 0;
-                extern const char * stmt_src_get_file(void);
-                const char * _sf = stmt_src_get_file();
-                IR_t * fpn = lc_build(g, IR_LIT_STRING, hook, hook); IR_LIT(fpn).sval = (char *) (_sf ? _sf : "");
-                lc_γ_to(lnn, fpn);
-                ir_operand_push(hook, fpn);
+            {   extern const char * stmt_src_get_file(void);
+                const char * _sf = sfind_str(st[i], ":file");
+                if (!_sf || !*_sf) _sf = stmt_src_get_file();
+                if (!_sf) _sf = "";
+                if (!_stmtkw_cur_file || strcmp(_stmtkw_cur_file, _sf) != 0) {
+                    _stmtkw_cur_file = _sf;
+                    IR_t * fpn = lc_build(g, IR_LIT_STRING, hook, hook); IR_LIT(fpn).sval = (char *) _sf;
+                    lc_γ_to(lnn, fpn);
+                    ir_operand_push(hook, fpn);
+                }
             }
             lc_γ_to(anchor[i], num);
         }

@@ -18,7 +18,7 @@ void sno_error_quiet_begin(void) { sno_err_quiet = 1; sno_err_capture[0] = '\0';
 void sno_error_quiet_end(void) { sno_err_quiet = 0; }
 const char *sno_error_captured(void) { return sno_err_capture[0] ? sno_err_capture : NULL; }
 static int   lineno = 1;
-static int   g_stmt_lineno = 1;
+static struct { int lineno; int lline; char *fname; char *pend_fname; } g_stmt_pos = { 1, 1, (char *)0, (char *)0 };
 static int   g_nofail_mode = 0;
 int snobol4_get_nofail_mode(void) { return g_nofail_mode; }
 static int   g_case_fold = 0;
@@ -29,17 +29,41 @@ static int   strpos;
 static int   gt_depth;
 static int   gt_angle;
 static int   gt_have_operand;
-int snobol4_get_stmt_lineno(void) { return g_stmt_lineno; }
+int snobol4_get_stmt_lineno(void) { return g_stmt_pos.lineno; }
+int snobol4_get_stmt_lline(void) { return g_stmt_pos.lline; }
+const char *snobol4_get_stmt_file(void) { return g_stmt_pos.fname ? g_stmt_pos.fname : ""; }
 extern void stmt_src_mark_include_range(int start_line, int end_line);
 #define MAX_INCL_NEST 64
-static int incl_start_stack[MAX_INCL_NEST];
+typedef struct { int start_line; int line_delta; char *fname; } SNO_SRC_FRAME_t;
+static SNO_SRC_FRAME_t incl_start_stack[MAX_INCL_NEST + 1];
 static int incl_stack_depth = 0;
 int snobol4_incl_depth(void) { return incl_stack_depth; }
+extern const char *stmt_src_get_file(void);
+static const char *sno_frame_file(void) {
+    const char *n = incl_start_stack[incl_stack_depth].fname;
+    if (n) return n;
+    { const char *p = stmt_src_get_file(); return p ? p : ""; }
+}
+static int sno_frame_line(void) { return lineno + incl_start_stack[incl_stack_depth].line_delta; }
+static void sno_stmt_pos_mark(void) {
+    g_stmt_pos.lineno = lineno; g_stmt_pos.lline = sno_frame_line();
+    free(g_stmt_pos.fname);
+    g_stmt_pos.fname = g_stmt_pos.pend_fname ? g_stmt_pos.pend_fname : strdup(sno_frame_file());
+    g_stmt_pos.pend_fname = (char *)0;
+}
+static void sno_stmt_comment_latch(void) {
+    if (!g_stmt_pos.pend_fname) g_stmt_pos.pend_fname = strdup(sno_frame_file());
+}
+static void sno_frame_push(const char *name) {
+    if (incl_stack_depth >= MAX_INCL_NEST) return;
+    { SNO_SRC_FRAME_t *f = &incl_start_stack[++incl_stack_depth];
+      f->start_line = lineno; f->line_delta = 1 - lineno;
+      free(f->fname); f->fname = strdup(name ? name : ""); }
+}
 #define MAX_INCL_ONCE 512
 static char *incl_once[MAX_INCL_ONCE];
 static int   incl_once_n = 0;
-static int sno_include_once_seen(const char *rpath) {
-    char rp[4096]; const char *key = realpath(rpath, rp) ? rp : rpath;
+static int sno_include_once_seen(const char *key) {
     for (int i = 0; i < incl_once_n; i++) if (!strcmp(incl_once[i], key)) return 1;
     if (incl_once_n < MAX_INCL_ONCE) incl_once[incl_once_n++] = strdup(key);
     return 0;
@@ -63,9 +87,9 @@ W       ({WS}|{CONT})+
 G       ({WS}|{CONT})*
 %%
 <INITIAL>\n             { lineno++; return T_STMT_END; }
-<INITIAL>[*!|]          { BEGIN(SKIP); }
+<INITIAL>[*!|]          { sno_stmt_comment_latch(); BEGIN(SKIP); }
 <INITIAL>";"            { return T_STMT_END; }
-<INITIAL>[ \t]          { g_stmt_lineno = lineno; BEGIN(BODY_START); }
+<INITIAL>[ \t]          { sno_stmt_pos_mark(); BEGIN(BODY_START); }
 <INITIAL>"-"[Ii][Nn][Cc][Ll][Uu][Dd][Ee][ \t]+'[^'\n]+'[^\n]*\n  {
     char *q1 = strchr(yytext,'\''); char *q2 = strrchr(yytext,'\'');
     lineno++;
@@ -73,6 +97,7 @@ G       ({WS}|{CONT})*
         char iname[4096]; int fi=(int)(q2-q1-1);
         if(fi>=(int)sizeof iname)fi=(int)sizeof iname-1;
         memcpy(iname,q1+1,fi);iname[fi]='\0';
+        char ikey[4096]; snprintf(ikey,sizeof ikey,"%s",iname);
         while(fi>0 && (iname[fi-1]==' '||iname[fi-1]=='\t')) iname[--fi]='\0';
         char rpath[4096]; rpath[0]='\0';
         FILE *inc=fopen(iname,"r");
@@ -80,12 +105,12 @@ G       ({WS}|{CONT})*
         if(!inc){char p[4096];for(int i=0;i<n_inc&&!inc;i++){snprintf(p,sizeof p,"%s/%s",inc_dirs[i],iname);if((inc=fopen(p,"r")))snprintf(rpath,sizeof rpath,"%s",p);}}
         if(!inc)sno_error(lineno,"cannot open include '%s'",iname);
         else {
-            if(sno_include_once_seen(rpath)){fclose(inc);}
+            if(sno_include_once_seen(ikey)){fclose(inc);}
             else {
             char *sl=strrchr(rpath,'/');
             if(sl){char *d=strndup(rpath,(size_t)(sl-rpath));sno_add_include_dir(d);}
             yypush_buffer_state(yy_create_buffer(inc,YY_BUF_SIZE,yyscanner),yyscanner);
-            if (incl_stack_depth < MAX_INCL_NEST) incl_start_stack[incl_stack_depth++] = lineno;
+            sno_frame_push(iname);
             }
         }
     }
@@ -97,6 +122,7 @@ G       ({WS}|{CONT})*
         char iname[4096]; int fi=(int)(q2-q1-1);
         if(fi>=(int)sizeof iname)fi=(int)sizeof iname-1;
         memcpy(iname,q1+1,fi);iname[fi]='\0';
+        char ikey[4096]; snprintf(ikey,sizeof ikey,"%s",iname);
         while(fi>0 && (iname[fi-1]==' '||iname[fi-1]=='\t')) iname[--fi]='\0';
         char rpath[4096]; rpath[0]='\0';
         FILE *inc=fopen(iname,"r");
@@ -104,12 +130,12 @@ G       ({WS}|{CONT})*
         if(!inc){char p[4096];for(int i=0;i<n_inc&&!inc;i++){snprintf(p,sizeof p,"%s/%s",inc_dirs[i],iname);if((inc=fopen(p,"r")))snprintf(rpath,sizeof rpath,"%s",p);}}
         if(!inc)sno_error(lineno,"cannot open include '%s'",iname);
         else {
-            if(sno_include_once_seen(rpath)){fclose(inc);}
+            if(sno_include_once_seen(ikey)){fclose(inc);}
             else {
             char *sl=strrchr(rpath,'/');
             if(sl){char *d=strndup(rpath,(size_t)(sl-rpath));sno_add_include_dir(d);}
             yypush_buffer_state(yy_create_buffer(inc,YY_BUF_SIZE,yyscanner),yyscanner);
-            if (incl_stack_depth < MAX_INCL_NEST) incl_start_stack[incl_stack_depth++] = lineno;
+            sno_frame_push(iname);
             }
         }
     }
@@ -131,8 +157,22 @@ G       ({WS}|{CONT})*
             char *sl=strrchr(rpath,'/');
             if(sl){char *d=strndup(rpath,(size_t)(sl-rpath));sno_add_include_dir(d);}
             yypush_buffer_state(yy_create_buffer(inc,YY_BUF_SIZE,yyscanner),yyscanner);
-            if (incl_stack_depth < MAX_INCL_NEST) incl_start_stack[incl_stack_depth++] = lineno;
+            sno_frame_push(iname);
         }
+    }
+}
+ /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+<INITIAL>"-"[Ll][Ii][Nn][Ee]{WS}+{DIGIT}+[^\n]*\n  {
+    lineno++;
+    {
+        const char *p = yytext; SNO_SRC_FRAME_t *f = &incl_start_stack[incl_stack_depth]; long nn = 0;
+        while (*p && !(*p >= '0' && *p <= '9')) p++;
+        while (*p >= '0' && *p <= '9') nn = nn * 10 + (*p++ - '0');
+        f->line_delta = (int)(nn - lineno);
+        { const char *q1 = strchr(p,'"'), *q2 = q1 ? strchr(q1+1,'"') : (const char *)0;
+          if (!q1) { q1 = strchr(p,'\''); q2 = q1 ? strchr(q1+1,'\'') : (const char *)0; }
+          if (q1 && q2 && q2 > q1 + 1) { int nl = (int)(q2-q1-1); char *nm = malloc((size_t)nl+1);
+            if (nm) { memcpy(nm,q1+1,(size_t)nl); nm[nl]='\0'; free(f->fname); f->fname = nm; } } }
     }
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -158,7 +198,7 @@ G       ({WS}|{CONT})*
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <INITIAL>[^ \t\n*!|;+.\-] {
     strbuf[0] = yytext[0]; strpos = 1;
-    g_stmt_lineno = lineno;
+    sno_stmt_pos_mark();
     BEGIN(LABEL);
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -341,7 +381,7 @@ G       ({WS}|{CONT})*
 <SKIP>\n                { lineno++; BEGIN(INITIAL); }
 <<EOF>>             {
     if (incl_stack_depth > 0) {
-        int _incl_start = incl_start_stack[--incl_stack_depth];
+        int _incl_start = incl_start_stack[incl_stack_depth--].start_line;
         stmt_src_mark_include_range(_incl_start, lineno);
         lineno = _incl_start;
     }
@@ -403,7 +443,7 @@ Token flex_lex_next(Lex *lx) {
         case T_LABEL:
             t.sval = intern(strbuf);
             t.ival = strcmp(strbuf,"END")==0 ? 1 : 0;
-            t.lineno = g_stmt_lineno;
+            t.lineno = g_stmt_pos.lineno;
             if (t.ival) lx->_extra = SNO_END_ARMED;
             return t;
         case T_IDENT: case T_END: case T_KEYWORD:
