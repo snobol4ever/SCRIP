@@ -34,10 +34,7 @@ static void icn_link_note(char * tried, size_t triedsz, const char * cand) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char * icn_link_open(const char * dir, const char * nm, char * out, size_t outsz, char * tried, size_t triedsz) {
     if (triedsz) tried[0] = '\0';
-    snprintf(out, outsz, "%s/%s.icn", dir, nm);
-    icn_link_note(tried, triedsz, out);
-    char * src = icn_read_file(out);
-    if (src) return src;
+    char * src = NULL;
     const char * vars[2]; vars[0] = getenv("IPATH"); vars[1] = getenv("ICONPATH");
     for (int v = 0; v < 2; v++) {
         const char * p = vars[v];
@@ -60,6 +57,10 @@ static char * icn_link_open(const char * dir, const char * nm, char * out, size_
           icn_link_note(tried, triedsz, out);
           src = icn_read_file(out);
           if (src) return src; } } }
+    snprintf(out, outsz, "%s/%s.icn", dir, nm);
+    icn_link_note(tried, triedsz, out);
+    src = icn_read_file(out);
+    if (src) return src;
     snprintf(out, outsz, "%s/%s.icn", dir, nm);
     return NULL;
 }
