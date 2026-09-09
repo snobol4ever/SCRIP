@@ -2251,6 +2251,51 @@ TASKEOF
          if [ -n "${S4E_PROGRESS_PROBE_BROKEN:-}" ]; then _ph="/nonexistent-s4e-home"; else _ph="$S4E"; fi
          S4E_HOME="$_ph" python3 "$(dirname "${BASH_SOURCE[0]}")/util_score_row.py" progress 2>/dev/null | grep -m1 '^PROGRESS 09-10 |' \
            || printf 'PROGRESS: UNREADABLE -- util_score_row.py progress printed no score line under %s (SCORE.md missing or its grid unreadable); the verdict below is unaffected\n' "$_ph"
+         # ⭐⭐ THE AHEAD-OF-ORIGIN LINE (ceo -> hq_B 2026-09-08, row instruments-the-banner-reports-a-seat-that-is-ahead-
+         # of-origin-because-finished-invisible-work-is-reported-by-nothing; rank 0). ⛔ THE GAP IT CLOSES: the fleet
+         # reports a seat that STALLS and a seat that FAILS, and reported NOTHING about a seat whose work is finished,
+         # correct and simply unpushed. No red exists anywhere in that state -- handoff_status.sh rc is about the tree,
+         # `fleet` is about claims and mail, and the seat's OWN banner says ✅ SUCCESS, because being ahead of origin is
+         # not a failure of anything the banner used to ask about. MEASURED COST on 2026-09-08 alone: 45 minutes on the
+         # cto's END-statement cure with the coo explicitly waiting for it, and 20 minutes on this seat's digest-gate
+         # commit. ⭐ The arithmetic was ALREADY HERE and thrown away: the `onlyhere` loop below computes exactly this
+         # count per repo (`rev-list --count origin/$br..$br`) and sums it into a scalar that only ever answers "is it
+         # safe to /clear". A number that exists, is correct, and is summed past is the cheapest kind of blind spot.
+         # ⛔ IT MUST NEVER PRINT THE WORD FAILURE, and it never changes the verdict or rc: a seat holding an unpushed
+         # commit has done nothing wrong except not finish, and a line that scolds gets ignored, which is how the state
+         # stayed invisible. It is a DISTINCT, VISIBLE line, printed HERE with the score and the suite view -- before
+         # handoff_status.sh's minutes -- for the reason those two print here: whatever prints last is what a Stop-hook
+         # timeout or a truncated display eats (measured on seat07, 4 banners and 2 score lines).
+         # ⭐ SECOND ARM, AND IT IS THE ONE THAT CATCHES WHAT ACTUALLY COSTS TIME: the AGE of the oldest unpushed commit,
+         # in words. Ahead-1-for-thirty-seconds is a seat mid-push and needs no attention; ahead-1-for-forty-five-minutes
+         # is a cure nobody else has. A bare count cannot tell those apart and would be noise within a day.
+         # ⛔ COUNTS ARE READ LIVE FROM git, NEVER FROM CACHED STATE, and each repo is FETCHED FIRST -- an unfetched
+         # origin ref makes a pushed commit read as unpushed, which is the false-positive that would get this line muted.
+         # A fetch failure degrades to the local ref and SAYS SO rather than reporting a confident wrong number.
+         _ah_home="${S4E_AHEAD_HOME:-$S4E}"; _ah_repos=""; _ah_total=0; _ah_oldest=0; _ah_nofetch=""
+         for _ar in "$_ah_home"/*/; do
+           [ -d "$_ar/.git" ] || continue
+           _ab="$(git -C "$_ar" rev-parse --abbrev-ref HEAD 2>/dev/null)" || continue
+           [ -n "$_ab" ] || continue
+           git -C "$_ar" fetch -q origin 2>/dev/null || _ah_nofetch="$_ah_nofetch $(basename "$_ar")"
+           git -C "$_ar" rev-parse --verify -q "origin/$_ab" >/dev/null 2>&1 || continue
+           _an="$(git -C "$_ar" rev-list --count "origin/$_ab..HEAD" 2>/dev/null || echo 0)"; _an="${_an:-0}"
+           case "$_an" in ''|*[!0-9]*) _an=0;; esac
+           [ "$_an" -gt 0 ] || continue
+           _ah_total=$((_ah_total + _an))
+           _at="$(git -C "$_ar" log --format=%ct "origin/$_ab..HEAD" 2>/dev/null | tail -1)"
+           _aage=0; case "$_at" in ''|*[!0-9]*) :;; *) _aage=$(( ( $(date +%s) - _at ) / 60 ));; esac
+           [ "$_aage" -gt "$_ah_oldest" ] && _ah_oldest="$_aage"
+           _ah_repos="$_ah_repos $(basename "$_ar")+${_an}(${_aage}m)"
+         done
+         _ah_stale="${S4E_AHEAD_STALE_MIN:-10}"
+         if [ "$_ah_total" -eq 0 ]; then
+           printf 'AHEAD OF ORIGIN: none -- every repo in %s has its HEAD on origin%s\n' "$_ah_home" "${_ah_nofetch:+ (⚠ could not fetch:$_ah_nofetch -- read from the local origin ref, so a just-pushed commit may still be counted next turn)}"
+         elif [ "$_ah_oldest" -ge "$_ah_stale" ]; then
+           printf '⚠⚠ AHEAD OF ORIGIN FOR %sm --%s -- %s commit(s) exist ONLY in this clone and no other seat can see them. This is NOT a failure and does not change the verdict below; it is finished work that is invisible. Pull with rebase, RE-PROVE your gate after the rebase, push code repos first and .github last. If it is unpushed because something is red, say so in one paragraph to your HQ rather than holding it.%s\n' "$_ah_oldest" "$_ah_repos" "$_ah_total" "${_ah_nofetch:+ (⚠ could not fetch:$_ah_nofetch)}"
+         else
+           printf '⚠ AHEAD OF ORIGIN --%s -- %s commit(s) not yet on origin, oldest %sm. NOT a failure (under the %sm threshold this reads as a seat mid-push); push code repos first, .github last.%s\n' "$_ah_repos" "$_ah_total" "$_ah_oldest" "$_ah_stale" "${_ah_nofetch:+ (⚠ could not fetch:$_ah_nofetch)}"
+         fi
          _ih="$(dirname "${BASH_SOURCE[0]}")/install_commit_msg_hook.sh"
          if [ -x "$_ih" ]; then
            _h="$(bash "$_ih" --quiet 2>/dev/null || true)"; [ -n "$_h" ] && printf '%s\n' "$_h"
