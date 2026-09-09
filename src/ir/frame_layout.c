@@ -142,7 +142,7 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
     case IR_REV_ASSIGN: case IR_REV_ASSIGN_VAR:
         zls_field(scope_id, off, 16, ZK_DESCR, 0, "revasg.saved old value (beta restore; LIVE across suspension — GC must trace)", nd); return 1;
     case IR_REV_SWAP:
-        zls_field(scope_id, off, 16, ZK_DESCR, 0, "revswap.saved lhs old (beta restore; LIVE across suspension — GC must trace)", nd); zls_field(scope_id, off + 16, 16, ZK_DESCR, 0, "revswap.saved rhs old (beta restore; LIVE across suspension — GC must trace)", nd); zls_field(scope_id, off + 32, 8, ZK_RAW, 0, "revswap.delta spill (in-scan r14 round-trip)", nd); zls_field(scope_id, off + 40, 8, ZK_RAW, 0, "revswap.Delta spill (in-scan r15, read-only len)", nd); return 3;
+        zls_field(scope_id, off, 16, ZK_DESCR, 0, "revswap.saved lhs old (beta restore; LIVE across suspension — GC must trace)", nd); zls_field(scope_id, off + 16, 16, ZK_DESCR, 0, "revswap.saved rhs old (beta restore; LIVE across suspension — GC must trace)", nd); zls_field(scope_id, off + 32, 8, ZK_RAW, 0, "revswap.delta spill (in-scan r14 round-trip)", nd); zls_field(scope_id, off + 40, 8, ZK_RAW, 0, "revswap.Delta spill (in-scan r15, read-only len)", nd); zls_field(scope_id, off + 48, 8, ZK_RAW, 0, "revswap.lhs cell pointer parked across the rhs NV_PTR_fn lookup (global operand only; a raw interior pointer into the name table, never a heap object -- ZK_RAW so GC does not trace it)", nd); return 4;
     case IR_KW_ICON: case IR_KW_ICON_GEN:
         zls_field(scope_id, off, 16, ZK_RAW, 0, "kw.gen counter", nd); return 1;
     case IR_KW_SNOBOL4:

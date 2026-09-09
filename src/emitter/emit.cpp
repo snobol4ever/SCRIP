@@ -1800,8 +1800,9 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         if (!ln || !rn) { drive_unowned(nd); break; }
         g_emit.op_sval = ln; g_emit.op_name2 = rn;
         g_emit.op_sb = -1; g_emit.op_sa = -1;
-        if (ln[0] != '&') { int voff = bb_varslot_peek(ln); if (voff == -1) { fprintf(stderr, "[TE-4] IR_REV_SWAP lhs local '%s' has no LOWER-granted varslot — grant it in ir_drive_slot_assign (scrip_ir.c), never allocate in the emitter\n", ln); abort(); } g_emit.op_sb = voff; }
-        if (rn[0] != '&') { int voff = bb_varslot_peek(rn); if (voff == -1) { fprintf(stderr, "[TE-4] IR_REV_SWAP rhs local '%s' has no LOWER-granted varslot — grant it in ir_drive_slot_assign (scrip_ir.c), never allocate in the emitter\n", rn); abort(); } g_emit.op_sa = voff; }
+        { extern int is_global(const char *);
+          if (ln[0] != '&' && !(is_global(ln) && !graph_has_local(g_emit_cfg, ln))) { int voff = bb_varslot_peek(ln); if (voff == -1) { fprintf(stderr, "[TE-4] IR_REV_SWAP lhs '%s' is neither a global (is_global says no, so not the NV_PTR_fn by-name path) nor a local with a LOWER-granted varslot — grant it in ir_drive_slot_assign (scrip_ir.c), never allocate in the emitter\n", ln); abort(); } g_emit.op_sb = voff; }
+          if (rn[0] != '&' && !(is_global(rn) && !graph_has_local(g_emit_cfg, rn))) { int voff = bb_varslot_peek(rn); if (voff == -1) { fprintf(stderr, "[TE-4] IR_REV_SWAP rhs '%s' is neither a global (is_global says no, so not the NV_PTR_fn by-name path) nor a local with a LOWER-granted varslot — grant it in ir_drive_slot_assign (scrip_ir.c), never allocate in the emitter\n", rn); abort(); } g_emit.op_sa = voff; } }
         g_emit.op_off = drive_value_slot(nd);
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
