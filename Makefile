@@ -245,6 +245,15 @@ test: scrip  # ⭐ WAS THE FALSE-GREEN TRAP (cured hq_P s268): `test`, `test-ir`
 	# corrected -- which is NOT the demotion of a blocking arm (that is always wrong), it is the arrival of one.
 	# ⛔ PROMOTE BY DELETING THE '-' the moment this prints GATE OK. Do not delete the arm.
 	-bash scripts/test_gate_score_row_denominator_includes_xfails.sh   # <1s, pure parse of .github/SCORE.md, no build: a master row's declared xfails must fit inside its denominator (CEO-416). Catches the N/N shape that re-flipped SnoM on every master run.
+	# ⛔⭐ REPORTED FOR THE SAME ONE REASON AS THE ARM ABOVE, AND NO OTHER: it is red at head on a row this seat
+	# must not measure for someone else. The snobol4 half greens the moment its master runs; the icon half greens
+	# when coo's IcnM run lands, and coo asked for that run to be the FIRST published pair so it is measured rather
+	# than inferred. Racing it would put an inferred number in the row the whole ruling was written to make honest.
+	# ⭐ THE PROPERTY IT ASSERTS is not a number and cannot go stale: a master row that publishes a fraction must
+	# publish the xpass count beside it, because a fraction alone is blind to xfail and xpass TRADING underneath it
+	# -- a cured bug and a stale marker move it identically, which is to say not at all.
+	# ⛔ PROMOTE BY DELETING THE '-' the moment this prints GATE OK. Do not delete the arm.
+	-bash scripts/test_gate_master_boards_publish_xpass.sh   # <1s, pure parse of .github/SCORE.md, no build: the ruled master rows publish an xpass count beside their fraction (coo 2026-09-08), so movement inside a master's own known-red set is a READ and not a twenty-minute run.
 
 pristine-all:  # wipe EVERY cached configuration, not just this one (the pre-s258 behaviour)
 	# Same race, same cure, same bounded BUILD_LOCK as `pristine` above -- see its comment block for why

@@ -167,6 +167,15 @@ m4p=$(field m4_pass); m4f=$(field m4_fail); m4c=$(field m4_crash); m4h=$(field m
 # written over an empty string is a plausible false number -- this board's whole failure class.
 mall=$(field all_pass)
 [ -n "$mall" ] || { echo "⛔ BOARD REFUSES: SUITE_BOARD carries no all_pass= field -- this row is the AND per program (ceo-372) and cannot be assembled without it; corpus_suite_harness.py beside this script emits it."; exit 2; }
+# ⛔⭐ AND THE SAME REFUSAL FOR THE xfail/xpass FIELDS, because this row now PUBLISHES them (coo 2026-09-08): a
+# headline that holds N constant while xfail and xpass trade underneath it is blind to movement inside its own
+# known-red set -- a cured bug and a stale marker are both invisible in it, in opposite directions. `field` returns
+# the EMPTY STRING for a field the harness never emitted, and "xpass=" in a cell is not a zero; it is a reading that
+# was never taken, wearing the shape of one that was, and it would read as "no stale markers" to every consumer.
+for _f in m3_xfail:m3x m3_xpass:m3xp m4_xfail:m4x m4_xpass:m4xp; do
+    _fld="${_f%%:*}"; _var="${_f##*:}"
+    [ -n "${!_var}" ] || { echo "⛔ BOARD REFUSES: SUITE_BOARD carries no ${_fld}= field -- this row publishes the xpass count beside its fraction and cannot assemble it; corpus_suite_harness.py beside this script emits it."; exit 2; }
+done
 if [ -z "$mt" ] || [ "$mt" -eq 0 ]; then
     echo "⛔ BOARD REFUSES (rc=2): the harness graded ZERO entries over a master file that exists"; exit 2
 fi
@@ -257,7 +266,7 @@ fi
 python3 "$HERE/util_score_row.py" write --lang icon --column board --modes m3,m4 \
     --suite-pass "$mall" --suite-total "$mt" \
     --measurer "${S4E_SEAT:-}" \
-    --text "$([ "$RED" -ne 0 ] && echo "⛔ RED — ")run-graded both-modes $mall/$mt · m3 $m3p/$mt · m4 $m4p/$mt (entries=$graded, floors m3 $M3_PASS_FLOOR / m4 $M4_PASS_FLOOR, \`board_icon_master.sh\`) · ast-shape check $ap/$at (informational, not scored)$_named" \
+    --text "$([ "$RED" -ne 0 ] && echo "⛔ RED — ")run-graded both-modes $mall/$mt · m3 $m3p/$mt xfail=$m3x xpass=$m3xp · m4 $m4p/$mt xfail=$m4x xpass=$m4xp (entries=$graded, floors m3 $M3_PASS_FLOOR / m4 $M4_PASS_FLOOR, \`board_icon_master.sh\`) · ast-shape check $ap/$at xpass=$axp (informational, not scored)$_named" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 # ⭐ THE PROGRESS LINE, after the rewrite.  This runner writes its row DIRECTLY rather than through
 # lib_gate.sh's gate_score_row, so it needs the call the shared path already carries -- same one line,

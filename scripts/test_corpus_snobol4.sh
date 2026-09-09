@@ -410,6 +410,14 @@ afield() { echo "$ast_board" | grep -oE "$1=[0-9]+" | cut -d= -f2; }
 astt=$(afield total); astp=$(afield ast_pass); astf=$(afield ast_fail); astc=$(afield ast_crash)
 asth=$(afield ast_hang); astu=$(afield ast_unproven); astx=$(afield ast_xfail); astxp=$(afield ast_xpass)
 ASTFAIL=$(( ${astf:-0} + ${astc:-0} ))
+# ⛔⭐ REFUSE RATHER THAN PUBLISH AN EMPTY xfail/xpass -- SAME CAUSE AS THE all_pass REFUSAL BELOW. `field` returns
+# the EMPTY STRING for a field an older harness, or a shard checkpoint cut before that field existed, never emitted.
+# "xpass=" in a published cell is not a zero: it is a reading that was never taken, wearing the shape of one that
+# was, and it would read as "no stale markers" to every consumer of the row. A runner that cannot measure refuses.
+for _f in m3_xfail:m3x m3_xpass:m3xp m4_xfail:m4x m4_xpass:m4xp ast_xfail:astx ast_xpass:astxp; do
+    _fld="${_f%%:*}"; _var="${_f##*:}"
+    [ -n "${!_var}" ] || { echo "⛔ GATE REFUSES: the SUITE_BOARD carries no ${_fld}= field, so this row cannot publish the xpass count that makes movement inside its own known-red set visible (coo 2026-09-08). corpus_suite_harness.py beside this script emits it; a stale shard checkpoint does not (re-run the shards)."; exit 2; }
+done
 PASS3=$((PASS3+m3p)); FAIL3=$((FAIL3+m3f+m3c)); TMOUT3=$((TMOUT3+m3h+m3u))
 PASS4=$((PASS4+m4p)); FAIL4=$((FAIL4+m4f+m4c)); TMOUT4=$((TMOUT4+m4h+m4u)); SKIP4=$((SKIP4+m4s))
 XFAIL3=$((XFAIL3+${m3x:-0})); XFAIL4=$((XFAIL4+${m4x:-0}))
@@ -644,12 +652,26 @@ _sn4_killed=""
 # ⛔ THE ROW CARRIES THE AST POPULATION TOO, for the reason the TIMEOUT-KILLED caveat above exists: the terminal
 # reader sees both boards and the leaderboard everybody quotes would have seen only one, which is the two-audiences
 # defect. Fraction form kept on both (util_score_row.py refuses a grid write without one).
-_sn4_board="both-modes $BOTH/$TOTAL · m3 $PASS3/$TOTAL FAIL=$FAIL3 · m4 $PASS4/$TOTAL FAIL=$FAIL4 SKIP=$SKIP4 · ast $astp/$astt FAIL=$ASTFAIL MISSING=0$_sn4_killed (\`test_corpus_snobol4.sh\`)"
+# ⛔⭐ THE XPASS COUNT IS PUBLISHED BESIDE THE FRACTION, AND IT IS A BOARD FIX RATHER THAN A COSMETIC ONE (coo
+# 2026-09-08, ruling on hq_T's ask): a headline that holds N constant while xfail and xpass trade underneath it is
+# STRUCTURALLY BLIND TO MOVEMENT INSIDE ITS OWN KNOWN-RED SET. A seat can cure a real bug and this row cannot show
+# it; a marker can go stale and this row cannot show that either. Both are invisible for the SAME reason and in
+# OPPOSITE directions, which is why no amount of staring at the fraction distinguishes them.
+# ⭐ AND IT CONVERTS AN AMBIGUITY FROM A RUN INTO A READ: "is this master 1871/1898 with 27 live reds, or with some
+# of them already cured behind stale markers?" was previously answerable only by re-running the suite. A nonzero
+# xpass IS the stale-marker case, printed. Nobody has to reason about which of two indistinguishable shapes they
+# are looking at, and nobody has to spend a board to find out.
+# ⛔ EVERY FRACTION IN THIS CELL IS NOW OVER THE MASTER'S OWN POPULATION. The cell is named sno-master and carried
+# $BOTH/$TOTAL -- master PLUS the loop programs -- while the pair DECLARED beside it (--suite-pass/--suite-total)
+# was the master's own $m_all/$mt. So the human reading the cell and the grid reading the declared pair took two
+# different numbers out of one row: the two-readers-of-one-cell shape, in the row that ruling was written about.
+# The wider figure is not dropped -- it is moved to the end and labelled as not being this row.
+_sn4_board="master both-modes $m_all/$mt · m3 $m3p/$mt FAIL=$((m3f+m3c)) xfail=$m3x xpass=$m3xp · m4 $m4p/$mt FAIL=$((m4f+m4c)) SKIP=$m4s xfail=$m4x xpass=$m4xp · ast $astp/$astt FAIL=$ASTFAIL xfail=$astx xpass=$astxp MISSING=0$_sn4_killed · runner-wide (master + loop programs, NOT this row) both-modes $BOTH/$TOTAL (\`test_corpus_snobol4.sh\`)"
 # ⛔⭐ THE CELL IS NAMED sno-master AND MUST RECEIVE THE MASTER'S OWN PAIR ($m_all/$mt), NOT THE RUNNER'S WIDER ONE.
 # $BOTH/$TOTAL spans the master PLUS the loop programs, so publishing it put a master+loop number in a master cell --
 # the second half of why this row kept re-flipping. The combined figure stays on the terminal, labelled, and the
 # published pair is printed beside it so the board everyone quotes and the terminal cannot silently disagree.
-echo "sno-master ROW PUBLISHED: $m_all/$mt  (master only; xfail=$XFAIL4 counted in the denominator, not the numerator)"
+echo "sno-master ROW PUBLISHED: $m_all/$mt  (master only; m3 xfail=$m3x xpass=$m3xp · m4 xfail=$m4x xpass=$m4xp — xfails counted in the denominator, not the numerator; a nonzero XPASS is a stale marker and is as actionable as a failure, in the opposite direction)"
 echo "runner-wide population (master + loop, NOT the published row): $BOTH/$TOTAL"
 echo "ONE LEADERBOARD: recording this board into .github/SCORE.md (test_corpus_snobol4.sh; skipped with a notice if the tree is dirty)"
 # ⛔⭐ THE SUITE ROW'S PAIR IS DECLARED, NEVER PARSED OUT OF THE LINE ABOVE (hq_T 2026-09-06, ceo CEO-363).
