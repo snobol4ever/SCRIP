@@ -476,17 +476,21 @@ void zls_build(IR_graph_t * g) {
     for (int i = 0; i < g->n; i++) {
         IR_t * nd = g->all[i];
         if (!nd || !rb[i]) continue;
-        const char * vn = (const char *)0;
-        if (nd->op == IR_ASSIGN) vn = IR_LIT(nd).sval;
-        else if (nd->op == IR_REV_ASSIGN && nd->n_operands > 1 && nd->operands[1]) vn = IR_LIT(nd->operands[1]).sval;
-        else if (nd->op == IR_VAR || nd->op == IR_VAR_REF) vn = IR_LIT(nd).sval;
-        if (!vn || vn[0] == '&' || (is_global(vn) && !graph_has_local(g, vn))) continue;
-        int have = 0; for (int v = r->first_vslot; v < r->first_vslot + r->n_vslots; v++) if (zv[v].name && strcmp(zv[v].name, vn) == 0) { have = 1; break; }
-        if (have) continue;
-        if (zv_n >= FL_MAX_VSLOTS) { fprintf(stderr, "zls: vslot table overflow (%d)\n", FL_MAX_VSLOTS); abort(); }
-        zv[zv_n++] = (zls_vslot_t){ vn, base + k * 16 }; r->n_vslots++;
-        zls_field(root, base + k * 16, 16, ZK_DESCR, 0, "local", (const IR_t *)0);
-        k++;
+        const char * vns[2]; int nvn = 0;
+        if (nd->op == IR_ASSIGN) vns[nvn++] = IR_LIT(nd).sval;
+        else if (nd->op == IR_REV_ASSIGN && nd->n_operands > 1 && nd->operands[1]) vns[nvn++] = IR_LIT(nd->operands[1]).sval;
+        else if (nd->op == IR_REV_SWAP) { vns[nvn++] = IR_LIT(nd).sval; if (nd->n_operands > 0 && nd->operands[0]) vns[nvn++] = IR_LIT(nd->operands[0]).sval; }
+        else if (nd->op == IR_VAR || nd->op == IR_VAR_REF) vns[nvn++] = IR_LIT(nd).sval;
+        for (int q = 0; q < nvn; q++) {
+            const char * vn = vns[q];
+            if (!vn || vn[0] == '&' || (is_global(vn) && !graph_has_local(g, vn))) continue;
+            int have = 0; for (int v = r->first_vslot; v < r->first_vslot + r->n_vslots; v++) if (zv[v].name && strcmp(zv[v].name, vn) == 0) { have = 1; break; }
+            if (have) continue;
+            if (zv_n >= FL_MAX_VSLOTS) { fprintf(stderr, "zls: vslot table overflow (%d)\n", FL_MAX_VSLOTS); abort(); }
+            zv[zv_n++] = (zls_vslot_t){ vn, base + k * 16 }; r->n_vslots++;
+            zls_field(root, base + k * 16, 16, ZK_DESCR, 0, "local", (const IR_t *)0);
+            k++;
+        }
     }
     if (g->zframe_graph && !g->icn_cells_graph && g->decl_level == 3) {
         for (int _pdl = 4; _pdl <= 16; _pdl++) {
