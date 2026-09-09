@@ -788,9 +788,9 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         else if (sec_variant == 2) IR_LIT(sec).sval = "-";
         IR_t * ar = NULL; IR_t * ae = lower(cx, t->c[0], NULL, ω, &ar); IR_t * aβ = cx->beta;
         IR_t * ωa = (aβ && aβ != ω && aβ != sec) ? aβ : ω;
-        IR_t * br = NULL; IR_t * be = lower(cx, t->c[1], NULL, ωa, &br); γ_to(ar, be); IR_t * bβ = cx->beta;
+        IR_t * br = NULL; IR_t * be = lower(cx, t->c[1], NULL, ωa, &br); lc_γ_to(ar, be); IR_t * bβ = cx->beta;
         IR_t * ωb = (bβ && bβ != ωa && bβ != sec) ? bβ : ωa;
-        IR_t * cr = NULL; IR_t * ce = lower(cx, t->c[2], sec_variant ? NULL : sec, ωb, &cr); γ_to(br, ce); IR_t * cβ = cx->beta;
+        IR_t * cr = NULL; IR_t * ce = lower(cx, t->c[2], sec_variant ? NULL : sec, ωb, &cr); lc_γ_to(br, ce); IR_t * cβ = cx->beta;
         IR_t * ωc = (cβ && cβ != ωb && cβ != sec) ? cβ : ωb;
         if (sec_variant) {
             IR_t * op = build(cx, IR_BINOP, sec, ωc); IR_LIT(op).ival = (sec_variant == 1) ? BINOP_ADD : BINOP_SUB;
@@ -1302,10 +1302,10 @@ static IR_t * lower_to(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     int by = (t->t == TT_TO_BY && t->n > 2 && t->c[2]) ? 1 : 0;
     IR_t * to = build(cx, by ? IR_TO_BY : IR_TO, γ, ω); IR_LIT(to).sval = (char *) "ag:int"; cx->last_gen = to;
     IR_t * lr = NULL; IR_t * ea = lower(cx, t->c[0], NULL, ω, &lr); IR_t * lβ = cx->beta;
-    IR_t * mr = NULL; IR_t * em = lower(cx, t->c[1], by ? NULL : to, lβ, &mr); γ_to(lr, em);
+    IR_t * mr = NULL; IR_t * em = lower(cx, t->c[1], by ? NULL : to, lβ, &mr); lc_γ_to(lr, em);
     ir_operand_push(to, lr); ir_operand_push(to, mr); IR_t * last_op = mr;
     if (by) {
-        IR_t * mβ = cx->beta; IR_t * br = NULL; IR_t * eb = lower(cx, t->c[2], to, mβ, &br); γ_to(mr, eb); (void) eb;
+        IR_t * mβ = cx->beta; IR_t * br = NULL; IR_t * eb = lower(cx, t->c[2], to, mβ, &br); lc_γ_to(mr, eb); (void) eb;
         if (br && ir_is_generator_kind(to->op)) lc_γ_to(br, to);
         ir_operand_push(to, br); last_op = br;
     } else if (mr && ir_is_generator_kind(to->op)) lc_γ_to(mr, to);
