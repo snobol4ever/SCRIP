@@ -118,6 +118,31 @@ if [ "$VEND_BEFORE" != "$VEND_AFTER" ]; then
     echo "   evidence of an escape that two people have witnessed and neither could reproduce."
     exit 2
 fi
+# ⭐ THE SPITBOL BASELINE (Lon 2026-09-08, row snobol4-every-package-runner-states-its-row-over-the-spitbol-
+# baseline-measured-live; test_snoflake_suite.sh is the shape). A program the ONE ORACLE cannot answer is
+# OUTSIDE the baseline and out of the denominator. This runner ALREADY measures that set live -- it is exactly
+# the ORACLE_FAIL rows the scorecard writes, which is why SCORED is TOTAL minus UNSCR above -- so nothing new
+# is computed here. What is added is the record beside the package and a live cross-check that says STALE or
+# UNRECORDED aloud, so a written ruling cannot drift from what sbl does today.
+# ⛔ THE MIRROR CHECK IS DELIBERATELY ABSENT HERE, unlike the other three runners. Gimpel's UNGRADABLE.tsv is a
+# SUPERSET, not a mirror: it holds 163 rows -- the 146 vendored library sources that are not programs plus these
+# 17 drivers -- and shipped 290 = graded 127 + ungradable 163 already balances. Demanding a row-for-row mirror
+# here would demand double-counting. The record and the bucket are not the same set in every package.
+OUTSIDE_TSV="$CORPUS_REAL/packages/snobol4/gimpel/OUTSIDE_SPITBOL_BASELINE.tsv"
+BOTH=$(awk -F'\t' '$3!="ORACLE_FAIL" && $3=="PASS" && $4=="PASS"' "$TSV" | wc -l)
+if [ "$UNSCR" -gt 0 ]; then
+    echo "OUTSIDE-SPITBOL-BASELINE ($UNSCR; the oracle answered none of these this run):"
+    awk -F'\t' '$3=="ORACLE_FAIL"{sub(/.*\//,"",$2); printf "OUTSIDE\t%s\n", $2}' "$TSV"
+fi
+if [ -f "$OUTSIDE_TSV" ]; then
+    rec="$(awk -F'\t' 'NF>2 && $1 !~ /^#/{sub(/\.sno$/,"",$1); print $1}' "$OUTSIDE_TSV" | sort)"
+    live="$(awk -F'\t' '$3=="ORACLE_FAIL"{sub(/.*\//,"",$2); sub(/\.sno$/,"",$2); print $2}' "$TSV" | sort)"
+    stale="$(comm -23 <(printf '%s\n' "$rec") <(printf '%s\n' "$live") | tr '\n' ' ')"
+    unrec="$(comm -13 <(printf '%s\n' "$rec") <(printf '%s\n' "$live") | tr '\n' ' ')"
+    [ -n "$stale" ] && echo "⚠ OUTSIDE_SPITBOL_BASELINE.tsv STALE -- recorded as unanswerable by the oracle, but it answered this run: $stale"
+    [ -n "$unrec" ] && echo "⚠ OUTSIDE_SPITBOL_BASELINE.tsv UNRECORDED -- the oracle answers none of these and the record does not name them; record each with its error and a source check: $unrec"
+    [ -z "$stale$unrec" ] && echo "OUTSIDE_SPITBOL_BASELINE.tsv agrees with the measured outside set ($UNSCR)"
+else echo "⚠ no OUTSIDE_SPITBOL_BASELINE.tsv beside the suite -- the outside-baseline set above is measured, not yet recorded"; fi
 echo "GIMPEL_BOARD total=$TOTAL scored=$SCORED unscr=$UNSCR m3_pass=$M3P m3_fail=$M3F m4_pass=$M4P m4_fail=$M4F -- SCRIP $SCRIP_HASH corpus $CORP_HASH RT_OPT=-O0 oracle=sbl-bf (via scorecard_snobol4.sh --suites gimpel)"
 awk -F'\t' '$3=="ORACLE_FAIL"{printf "  UNSCR  %s  %s\n", $2, $7}' "$TSV"
 awk -F'\t' '$3!="ORACLE_FAIL" && ($3!="PASS" || $4!="PASS"){printf "  RED    %s  m3=%s m4=%s%s\n", $2, $3, $4, ($7!="" ? "  "$7 : "")}' "$TSV"
@@ -163,4 +188,14 @@ inventory_line "$SCORED" 0
 # rows, so TOTAL/SCORED/M3F/M4F all read 0 and the line below used to read that as clean. NO LOGIC
 # HERE: util_require_population.sh sources gate_floor from lib_gate.sh, the ONE authority.
 "$HERE/util_require_population.sh" --gate test_snobol4_gimpel_suite "$SCORED" 1 "scored rows (total=$TOTAL unscr=$UNSCR, scorecard rc=$rc)" || exit 2
+# ⭐ THE ROW, NAMING ITS OWN FRACTION (the shape test_snoflake_suite.sh uses). ⛔ BEFORE THIS THIS RUNNER WROTE
+# NO ROW AT ALL -- not a suite row and not a SCORE.md cell -- so gimpel's reading on the board had only ever been
+# set BY HAND, by the coo, from this runner's printed line. A number nobody's runner writes is a number nothing
+# re-measures. The table's reading is the ceo-372 AND per program over the SPITBOL baseline.
+if [ "$SCORED" -gt 0 ] && [ -z "${GIMPEL_SUITE:-}" ]; then
+python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite gimpel --modes m3,m4 \
+    --measurer "${S4E_SEAT:-}" --suite-pass "$BOTH" --suite-total "$SCORED" \
+    --text "gimpel baseline both_modes_pass=$BOTH/$SCORED (the table's reading: drivers SPITBOL answers · $UNSCR outside the SPITBOL baseline, named with the oracle's own error and a source check in OUTSIDE_SPITBOL_BASELINE.tsv, Lon 2026-09-08) · m3 $M3P/$SCORED · m4 $M4P/$SCORED (of $TOTAL shipped drivers · sbl -bf the one oracle)${INV_LINE:+ · $INV_LINE} (\`test_snobol4_gimpel_suite.sh\`)" \
+    || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
+fi
 [ "$M3F" = 0 ] && [ "$M4F" = 0 ]
