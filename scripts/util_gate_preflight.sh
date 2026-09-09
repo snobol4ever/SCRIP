@@ -105,7 +105,14 @@ for f in "${files[@]}"; do
     head -1 "$f" | grep -q '^#!' && say ok "carries a shebang" || say note "no shebang (the recipe says \`bash <file>\`, so this is shape only)"
     # 3 FRESHNESS
     if gate_file_executes_scrip "$f"; then
-        if gate_file_has_fresh_guard "$f"; then
+        gate_file_has_fresh_guard "$f"; _fg=$?
+        # ⛔⭐ rc=2 IS "I COULD NOT READ IT", NOT "IT HAS NO GUARD" (hq_T 2026-09-09). This tool tells an author to EDIT a
+        # file; sending them to edit one whose guard-check merely failed to complete is a false RED, and the author will
+        # add a second guard line to a file that already has one. See gate_file_has_fresh_guard's header for the measured
+        # case (three different innocent files accused across two runs of ARM 15).
+        if [ "$_fg" = 2 ]; then
+            say note "UNMEASURED: the guard check could not be established for this file -- two reads disagreed. NOT an accusation; re-run."
+        elif [ "$_fg" = 0 ]; then
             say ok "executes ./scrip AND carries the staleness preflight"
         else
             say RED "EXECUTES ./scrip WITH NO FRESHNESS GUARD -- it will grade whatever binary lies in the tree and"

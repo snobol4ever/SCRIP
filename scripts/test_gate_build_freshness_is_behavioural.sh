@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test_gate_build_behaviour_probe_catches_a_moved_binary.sh -- THE BEHAVIOUR PROBE, GATED.
+# test_gate_build_freshness_is_behavioural.sh -- THE BEHAVIOUR PROBE, GATED.
 #
 # ⛔⭐ THE CLASS (FINDING-2026-09-09-hq_P-a-completed-make-produced-a-binary-that-did-not-match-its-own-templates.md):
 # a full `make` reported "Built: scrip" after compiling 198 objects and handed back a compiler that emitted code its own
@@ -25,7 +25,7 @@
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 . "$HERE/lib_gate.sh"
-GATE_NAME="build_behaviour_probe"; export GATE_NAME
+GATE_NAME="build_freshness_is_behavioural"; export GATE_NAME
 PASS=0; FAIL=0
 ok(){ PASS=$((PASS+1)); printf '  ok   %s\n' "$1"; }
 no(){ FAIL=$((FAIL+1)); printf '  FAIL %s\n' "$1"; }
@@ -110,7 +110,28 @@ n=$(ls "$ROOT"/scripts/fixtures/build_behaviour/*.icn "$ROOT"/scripts/fixtures/b
 if [ "$n" -ge 3 ]; then ok "17 $n pinned witnesses on disk"; else no "17 only $n pinned witnesses -- the probe's sensitivity is its coverage"; fi
 if [ -f "$ROOT/scripts/fixtures/build_behaviour/README.md" ]; then ok "18 the witnesses carry their do-not-edit warning"; else no "18 no README warning beside the witnesses"; fi
 
-printf '\nbuild-behaviour probe gate: PASS=%d FAIL=%d over %d arms\n' "$PASS" "$FAIL" "$((PASS+FAIL))"
+echo "== the guard check accuses no file it did not read =="
+# ⛔⭐ THE FALSE-RED MIRROR (hq_T 2026-09-09, found while landing this row): ARM 15 of the stale-binary gate named
+# test_gate_pl_gz6b.sh as unguarded, then on a re-run named two DIFFERENT innocent files, while ten other runs of the
+# identical loop over the identical 140 files said uncovered=0. Every accused file carries the shim on its own LINE 1.
+# The mechanism was not established; what was cured is that a reading which did not happen can no longer become a
+# verdict about a file. gate_file_has_fresh_guard is now THREE-VALUED and its callers must not collapse 2 onto 1.
+g=0; gate_file_has_fresh_guard "$HERE/test_gate_pl_gz6b.sh" || g=$?
+chk "19 a file that HAS the guard reads 0" "$g" "0"
+g=0; gate_file_has_fresh_guard /etc/hostname || g=$?
+chk "20 a file that genuinely lacks it reads 1 (a real accusation is still possible)" "$g" "1"
+g=0; gate_file_has_fresh_guard "$W/no-such-file-at-all" || g=$?
+chk "21 a file that CANNOT be read reads 2 -- not 1, which would accuse it" "$g" "2"
+# ⛔ NO PIPELINE: the one structural difference between this function and its sibling that never flaked (same loop, same
+# files, same load) was a pipeline under `set -o pipefail`, where any upstream failure becomes the verdict.
+if sed -n '/^gate_file_has_fresh_guard()/,/^}/p' "$HERE/lib_gate.sh" | grep -qE '\|[[:space:]]*grep'; then
+    no "22 gate_file_has_fresh_guard grew a pipeline back -- a non-measurement can become a verdict again"
+else ok "22 gate_file_has_fresh_guard is pipeline-free"; fi
+# ⛔ AND THE CALLERS MUST NOT COLLAPSE 2 ONTO 1, or the defect simply moves one frame up.
+if grep -q 'unmeasured2' "$HERE/test_gate_runners_refuse_on_a_stale_binary.sh"; then ok "23 ARM 15 refuses on an unmeasured file rather than naming it"; else no "23 ARM 15 still treats an unreadable file as a violation"; fi
+if grep -q 'UNMEASURED' "$HERE/util_gate_preflight.sh"; then ok "24 util_gate_preflight does the same"; else no "24 util_gate_preflight still accuses on an unmeasured file"; fi
+
+printf '\nbuild-freshness-is-behavioural gate: PASS=%d FAIL=%d over %d arms\n' "$PASS" "$FAIL" "$((PASS+FAIL))"
 gate_stamp
 [ "$FAIL" = 0 ] || exit 1
 exit 0

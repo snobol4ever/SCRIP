@@ -202,13 +202,31 @@ echo "--- ARM 15 (census #2, PRINTED DENOMINATOR): every test_gate_* that ITSELF
 # util_gate_preflight.sh asks the SAME question about ONE file before the push and a second spelling is how the
 # two instruments come to disagree about the same gate. That is this gate's own ARM 10 argument (a cure applied
 # to one copy strengthens everyone's belief the class is dead) applied to the gate that makes it.
-gates2=0; wired2=0; missing2=""
+# ⛔⭐ rc=2 FROM THE GUARD CHECK IS A REFUSAL, NOT AN ACCUSATION (hq_T 2026-09-09). This arm NAMES files, and a named
+# file is read as a work item -- so a reading that did not happen must never become one. MEASURED: this arm reported
+# `uncovered=1 test_gate_pl_gz6b.sh`, then on a re-run `uncovered=2 test_gate_capture_stdin_and_red_exit.sh
+# test_gate_icn_port_trace.sh` -- three different files across two runs, every one carrying the shim on its own LINE 1,
+# while ten other runs of the identical loop over the identical 140 files said uncovered=0. The mechanism was NOT found
+# (see gate_file_has_fresh_guard's header for what was ruled out and how); what was done is to make the function
+# three-valued and to make this caller stop turning its third value into a verdict about a file.
+gates2=0; wired2=0; missing2=""; unmeasured2=""
 for f in "$HERE"/test_gate_*.sh; do
     gate_file_executes_scrip "$f" || continue
     gates2=$((gates2+1))
-    if gate_file_has_fresh_guard "$f"; then wired2=$((wired2+1)); else missing2="$missing2 $(basename "$f")"; fi
+    gate_file_has_fresh_guard "$f"; _gr=$?
+    case "$_gr" in
+        0) wired2=$((wired2+1));;
+        1) missing2="$missing2 $(basename "$f")";;
+        *) unmeasured2="$unmeasured2 $(basename "$f")";;
+    esac
 done
-echo "    gates=$gates2 wired=$wired2 uncovered=$((gates2-wired2))"
+echo "    gates=$gates2 wired=$wired2 uncovered=$((gates2-wired2))${unmeasured2:+ UNMEASURED:$unmeasured2}"
+if [ -n "$unmeasured2" ]; then
+    echo "⛔ REFUSED-TO-GRADE rc=2: the guard check could not be established for:$unmeasured2"
+    echo "    Two independent reads of the same file disagreed. This arm names files as work items, so it refuses rather"
+    echo "    than accuse one it did not measure. Re-run; if it persists, the file is the evidence."
+    exit 2
+fi
 [ "$gates2" -ge 50 ] && ck ok "census #2 floor: $gates2 scrip-executing test_gate_* examined" \
                      || ck no "census #2 examined only $gates2 gate(s) -- population heuristic may have regressed"
 [ -z "$missing2" ] && ck ok "all $gates2 scrip-executing test_gate_* carry gate_require_fresh or the shim" \

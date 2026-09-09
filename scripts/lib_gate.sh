@@ -576,7 +576,34 @@ gate_file_executes_scrip() {
     grep -qE '"?\$(ROOT|HERE)"?/scrip\b' <<<"$_body" && return 0
     return 1
 }
+# gate_file_has_fresh_guard <file> -- 0 the file calls the staleness preflight · 1 it demonstrably does not · 2 COULD NOT
+# MEASURE. ⛔⭐ THREE-VALUED ON PURPOSE, AND THE THIRD VALUE IS THE POINT (hq_T 2026-09-09): this decides whether a census
+# ACCUSES a named file of a violation, and an accusation sourced from a read that did not happen is a false RED -- the
+# mirror of the false GREEN this whole family of gates exists to kill, and worse to meet, because the reader goes and
+# edits a file that was never wrong.
+# THE MEASURED CASE: ARM 15 of test_gate_runners_refuse_on_a_stale_binary.sh reported `uncovered=1
+# test_gate_pl_gz6b.sh`, then on a re-run `uncovered=2 test_gate_capture_stdin_and_red_exit.sh
+# test_gate_icn_port_trace.sh` -- THREE DIFFERENT FILES ACROSS TWO RUNS, every one of them carrying the shim call on its
+# own LINE 1. Ten other runs of the identical loop over the identical 140 files reported uncovered=0.
+# ⛔ THE MECHANISM IS NOT ESTABLISHED and this comment does not pretend otherwise. What IS established, and is why the
+# body below changed shape: its sibling gate_file_executes_scrip -- same loop, same files, same load, but written with
+# COMMAND SUBSTITUTION and here-strings instead of a PIPELINE -- reported gates=140 in every single run including the
+# red ones, which also rules out fork failure and any population wobble. The pipeline under `set -o pipefail` was the
+# one structural difference between the function that never flaked and the function that did, so it is gone; the
+# hypothesis it would have explained (a SIGPIPE from grep -q exiting early) was MEASURED AND DISPROVED -- every
+# candidate file is under 5KB stripped, far inside the 64KB pipe buffer, so the upstream grep always completes.
+# ⭐ SO THE CURE IS NOT "I FIXED IT". It is: remove the one construct that can turn a non-measurement into a verdict,
+# and make what remains say WHICH of the three things happened, so the next occurrence names itself instead of naming
+# an innocent file. A caller that treats 2 as 1 has re-created the defect one frame up.
 gate_file_has_fresh_guard() {
-    [ -f "$1" ] || return 1
-    grep -vE '^[[:space:]]*#' "$1" | grep -qE 'gate_require_fresh|util_require_fresh\.sh'
+    local _body _rc
+    [ -f "$1" ] || return 2
+    [ -r "$1" ] || return 2
+    _body="$(grep -vE '^[[:space:]]*#' "$1")"; _rc=$?
+    [ "$_rc" -gt 1 ] && return 2
+    grep -qE 'gate_require_fresh|util_require_fresh\.sh' <<<"$_body" && return 0
+    # ⛔ CONFIRM BEFORE ACCUSING. A second independent read costs a millisecond and is the difference between "this file
+    # has no guard" and "one read said so once". They disagree -> REFUSE, never accuse.
+    grep -qE 'gate_require_fresh|util_require_fresh\.sh' "$1" && return 2
+    return 1
 }
