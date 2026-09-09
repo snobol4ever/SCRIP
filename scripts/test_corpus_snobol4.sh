@@ -309,6 +309,16 @@ HARNESS="${HARNESS:-$HERE/corpus_suite_harness.py}"
 run_harness() { if [ -x "$HARNESS" ]; then "$HARNESS" "$@"; else python3 "$HARNESS" "$@"; fi; }
 MASTER_SNO="$CORPUS/tests/snobol4/ALL.sno"
 MASTER_REF="$CORPUS/tests/snobol4/ALL.ref"
+MASTER_OUTSIDE="$CORPUS/tests/snobol4/ALL.outside.tsv"
+# ⛔⭐ THE OUTSIDE LIST IS PASSED WHEN IT EXISTS, AND THAT WIRING IS THE WHOLE POINT OF THE FILE (hq_P 2026-09-08,
+# ceo CEO-423/428). Under ONE ORACLE a program the oracle REFUSES TO RUN has no ground truth and is outside the
+# baseline by definition; the harness drops each named entry from the graded denominator and PRINTS it with the
+# oracle's own reason. ⛔ A declared outside list that no runner passes is INERT -- the exact shape the csnobol4
+# package ALL.mask documents at length ("a mask file that silently does nothing is exactly the false-green shape
+# this project keeps finding"). So the file and its wiring land together or neither lands. The harness itself
+# REFUSES a list naming an entry that is not in the suite, so a stale row cannot quietly shrink the board.
+_outside_arg=""
+[ -f "$MASTER_OUTSIDE" ] && _outside_arg="--outside $MASTER_OUTSIDE"
 MASTER_ENTRY_FLOOR="${MASTER_ENTRY_FLOOR:-1576}"   # FLOOR, not a pinned total (RULES.md): growth needs no re-pin; only an attributed retirement may lower it, in the commit that shrinks the master
 if [ ! -f "$HARNESS" ]; then
     echo "⛔ GATE REFUSES: corpus_suite_harness.py missing at $HARNESS"; exit 2
@@ -351,7 +361,7 @@ if [ -n "$COMBINE" ]; then
     ast_board=$(printf '%s\n' "$_combined" | grep '^SUITE_BOARD_AST ')
     echo "master: COMBINED from $COMBINE shard checkpoints under $CKPT (each stamped with this binary and master)"
 else
-    run_harness run "$MASTER_SNO" "$MASTER_REF" --modes m3,m4 --by-modes-column ${SHARD:+--shard "$SHARD"} > "$_hout" 2> "$_herr"; harness_rc=$?
+    run_harness run "$MASTER_SNO" "$MASTER_REF" --modes m3,m4 --by-modes-column $_outside_arg ${SHARD:+--shard "$SHARD"} > "$_hout" 2> "$_herr"; harness_rc=$?
     board=$(grep '^SUITE_BOARD ' "$_hout")
     ast_board=$(grep '^SUITE_BOARD_AST ' "$_hout")
 fi
