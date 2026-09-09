@@ -160,6 +160,11 @@ PASS4=0; FAIL4=0; SKIP4=0; FAILURES4=""
 # It is accumulated in run_test(), where one program's two verdicts are both in hand; it cannot be recovered
 # from PASS3/PASS4 afterwards, which is exactly why the row had to pick a mode before this.
 BOTH=0
+# ⛔⭐ XFAILS ARE COUNTED, NOT DROPPED (Lon's FACT RULE via ceo CEO-416: an xfail counts as a FAIL, so it belongs
+# in the DENOMINATOR and out of the numerator). Before these two accumulators existed, m3x/m4x were read from the
+# board and then given to nothing, so TOTAL summed pass+fail+skip only and every known red vanished from BOTH
+# sides at once -- the runner published N/N and re-flipped the ruled announcement row on every run, by any seat.
+XFAIL3=0; XFAIL4=0
 MISSING=0; MISSING_LIST=""
 
 WORKDIR="$(mktemp -d)"
@@ -407,6 +412,7 @@ asth=$(afield ast_hang); astu=$(afield ast_unproven); astx=$(afield ast_xfail); 
 ASTFAIL=$(( ${astf:-0} + ${astc:-0} ))
 PASS3=$((PASS3+m3p)); FAIL3=$((FAIL3+m3f+m3c)); TMOUT3=$((TMOUT3+m3h+m3u))
 PASS4=$((PASS4+m4p)); FAIL4=$((FAIL4+m4f+m4c)); TMOUT4=$((TMOUT4+m4h+m4u)); SKIP4=$((SKIP4+m4s))
+XFAIL3=$((XFAIL3+${m3x:-0})); XFAIL4=$((XFAIL4+${m4x:-0}))
 # ⛔⭐ THE MASTER'S AND, FOLDED FROM THE HARNESS AND NEVER RE-DERIVED (ceo-372). m3p and m4p cannot produce it:
 # the AND is a fact about each ENTRY, and by the time a board line exists the entries are gone. corpus_suite_harness.py
 # emits all_pass for exactly this fold.
@@ -509,7 +515,10 @@ run_test "demo_json_match_fence"         "$DEMO/json/json-match-fence.sno"      
 #   demo/expression.sno                  -- -INCLUDEs 15 files (global.sno, ShiftReduce.sno, Gen.sno, ...) absent from this checkout; won't parse
 
 T_ALL=$((SECONDS-T0_ALL))
-TOTAL=$((PASS4+FAIL4+SKIP4))
+# ⛔ THE DENOMINATOR INCLUDES THE XFAILS. Dropping them made the row read N/N -- the struck-down convention --
+# mechanically, on every run. FAIL4 stays the count of UNEXPECTED reds so the gate's FAIL=0 bar keeps its meaning;
+# a known red is not an unexpected one, but it is still not a pass and must not leave the denominator.
+TOTAL=$((PASS4+FAIL4+SKIP4+XFAIL4))
 echo "mode-3 (--run):     PASS=$PASS3 FAIL=$FAIL3"
 echo "mode-4 (--compile): PASS=$PASS4 FAIL=$FAIL4 SKIP=$SKIP4  ($TOTAL total)"
 # ⭐ THE HEADLINE, PRINTED WHERE THE HUMAN READS IT TOO -- not only into the leaderboard cell. The two-audiences
@@ -636,6 +645,12 @@ _sn4_killed=""
 # reader sees both boards and the leaderboard everybody quotes would have seen only one, which is the two-audiences
 # defect. Fraction form kept on both (util_score_row.py refuses a grid write without one).
 _sn4_board="both-modes $BOTH/$TOTAL · m3 $PASS3/$TOTAL FAIL=$FAIL3 · m4 $PASS4/$TOTAL FAIL=$FAIL4 SKIP=$SKIP4 · ast $astp/$astt FAIL=$ASTFAIL MISSING=0$_sn4_killed (\`test_corpus_snobol4.sh\`)"
+# ⛔⭐ THE CELL IS NAMED sno-master AND MUST RECEIVE THE MASTER'S OWN PAIR ($m_all/$mt), NOT THE RUNNER'S WIDER ONE.
+# $BOTH/$TOTAL spans the master PLUS the loop programs, so publishing it put a master+loop number in a master cell --
+# the second half of why this row kept re-flipping. The combined figure stays on the terminal, labelled, and the
+# published pair is printed beside it so the board everyone quotes and the terminal cannot silently disagree.
+echo "sno-master ROW PUBLISHED: $m_all/$mt  (master only; xfail=$XFAIL4 counted in the denominator, not the numerator)"
+echo "runner-wide population (master + loop, NOT the published row): $BOTH/$TOTAL"
 echo "ONE LEADERBOARD: recording this board into .github/SCORE.md (test_corpus_snobol4.sh; skipped with a notice if the tree is dirty)"
 # ⛔⭐ THE SUITE ROW'S PAIR IS DECLARED, NEVER PARSED OUT OF THE LINE ABOVE (hq_T 2026-09-06, ceo CEO-363).
 # This board line carries FOUR fractions -- the AND, m3, m4 and the ast fixtures -- over TWO different
@@ -649,7 +664,7 @@ echo "ONE LEADERBOARD: recording this board into .github/SCORE.md (test_corpus_s
 # worse; the row started counting what it always claimed to count. The cell keeps the per-mode counts beside
 # the number so nobody loses the split, which is the other half of the same ruling.
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column board --modes m3,m4 \
-    --measurer "${S4E_SEAT:-}" --text "$_sn4_board" --suite-pass "$BOTH" --suite-total "$TOTAL" \
+    --measurer "${S4E_SEAT:-}" --text "$_sn4_board" --suite-pass "$m_all" --suite-total "$mt" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 # ⭐ THE PROGRESS LINE, after the rewrite (see board_icon_master.sh for the same call and why it is here
 # rather than only in lib_gate.sh: this runner writes its row directly, bypassing gate_score_row).

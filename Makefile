@@ -237,6 +237,14 @@ test: scrip  # ⭐ WAS THE FALSE-GREEN TRAP (cured hq_P s268): `test`, `test-ir`
 	# enforcement, and the enforcement is not what was wrong -- the position was. Cheap-arms-first is the
 	# recipe's rule for FAILING FAST; it is not a licence for a cheap arm to mask an expensive one.
 	bash scripts/test_gate_master_order_is_the_builders_order.sh   # ~0.9s MEASURED, pure file parse via the builder's own master_file_key import (no build): THE COMMITTED MASTER IS SORTED THE WAY ITS BUILDER SORTS, for every language carrying an ALL.csv. ⭐ WIRED 2026-09-05 (seat06/hq_T, row three-master-builder-gates-are-red-at-head-and-none-is-in-make-test): pascal/prolog/raku/snobol4 had drifted from the level-ordering law (ceo 2026-09-03, "rank <= N must select the greenest N") since their last promotion and were resorted (util_build_master_suite.py --resort) to cure it, content-invariant. SNOBOL4 additionally needed a new master_file_key -- kind-partitioned, lines before blocks -- because plain master_sort_key names an order write_suite() cannot physically store for a mixed format-A/format-B master (a block ends only at the next banner or EOF, so a trailing one-liner is silently swallowed into it); every single-kind master is byte-identical under either key.
+	# ⛔⭐ REPORTED ON PURPOSE -- AND THE ONLY REASON IS THAT IT IS RED AT HEAD ON A ROW ITS AUTHOR DOES NOT OWN.
+	# coo asked for this as a BLOCKING red (2026-09-08) and blocking is the right end state; it is wired with a
+	# leading '-' for exactly as long as IcnM reads 704/704 while declaring 20 xfail, because promoting it today
+	# reds every seat's landing on a row under ICON WAITS that no SNOBOL4 seat may touch. ⭐ THE RULE THIS FOLLOWS:
+	# a NEW gate that is red at head through no fault of the code is wired REPORTED and promoted the day its row is
+	# corrected -- which is NOT the demotion of a blocking arm (that is always wrong), it is the arrival of one.
+	# ⛔ PROMOTE BY DELETING THE '-' the moment this prints GATE OK. Do not delete the arm.
+	-bash scripts/test_gate_score_row_denominator_includes_xfails.sh   # <1s, pure parse of .github/SCORE.md, no build: a master row's declared xfails must fit inside its denominator (CEO-416). Catches the N/N shape that re-flipped SnoM on every master run.
 
 pristine-all:  # wipe EVERY cached configuration, not just this one (the pre-s258 behaviour)
 	# Same race, same cure, same bounded BUILD_LOCK as `pristine` above -- see its comment block for why
