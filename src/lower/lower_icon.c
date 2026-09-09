@@ -366,6 +366,11 @@ static IR_t * lc_key(icx_t * cx, const tree_t * t, const char * kw, IR_t * γ, I
     *res = nd; return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_tree_is_literal(const tree_t * t) { return t && (t->t == TT_QLIT || t->t == TT_ILIT || t->t == TT_FLIT || t->t == TT_CSET); }
+static IR_t * lower_runerr_111(icx_t * cx, const tree_t * other, const tree_t * bad, IR_t * γ, IR_t * ω, IR_t ** res) {
+    tree_t * call = ast_node_new(TT_FNC); tree_t * fnv = ast_node_new(TT_VAR); fnv->v.sval = (char *) "runerr"; ast_push(call, fnv); tree_t * code = ast_node_new(TT_ILIT); code->v.ival = 111; ast_push(call, code); ast_push(call, (tree_t *) bad);
+    tree_t * seq = ast_node_new(TT_CONJ); if (other) ast_push(seq, (tree_t *) other); ast_push(seq, call); return lower(cx, seq, γ, ω, res); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * dummy = NULL; if (!res) res = &dummy;
     cx->beta = ω;
@@ -688,7 +693,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         lc_vec Sv; lc_vec_init(&Sv, (int) sizeof(const tree_t *));
         for (int i = 0; i < t->n; i++) { const tree_t * s = t->c[i]; if (s && s->t == TT_STMT) s = stmt_subj(s); if (s) lc_vec_push(&Sv, &s); }
         const tree_t ** S = (const tree_t **) Sv.data; int k = Sv.n;
-        if (k == 0) { IR_t * su = build(cx, IR_SUCCEED, γ, ω); *res = su; return su; }
+        if (k == 0) { IR_t * nv = build(cx, IR_VAR, γ, ω); IR_LIT(nv).sval = (char *) "&null"; *res = nv; return nv; }
         if (k == 1) return lower(cx, S[0], γ, ω, res);
         IR_t * SEQX = build(cx, IR_CONJUNCTION, γ, ω);
         IR_t ** val = (IR_t **) calloc((size_t) k, sizeof(IR_t *)); IR_t ** ent = (IR_t **) calloc((size_t) k, sizeof(IR_t *)); IR_t * succ = SEQX;
@@ -852,6 +857,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         *res = op; return ee; }
     case TT_SWAP: {
         const tree_t * lt = (t->n > 0) ? t->c[0] : NULL; const tree_t * rt2 = (t->n > 1) ? t->c[1] : NULL;
+        if (icn_tree_is_literal(lt)) return lower_runerr_111(cx, rt2, lt, γ, ω, res);
+        if (icn_tree_is_literal(rt2)) return lower_runerr_111(cx, lt, rt2, γ, ω, res);
         int plain_l = lt && lt->t == TT_VAR && lt->v.sval && lt->v.sval[0] != '&';
         int plain_r = rt2 && rt2->t == TT_VAR && rt2->v.sval && rt2->v.sval[0] != '&';
         int kw_l = lt && (lt->t == TT_VAR || lt->t == TT_KEYWORD) && lt->v.sval && lt->v.sval[0] == '&';
@@ -930,6 +937,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             ir_operand_push(nd, lr);
             cx->beta = nd; *res = nd; return le;
         }
+        if (icn_tree_is_literal(lhs)) return lower_runerr_111(cx, rhs, lhs, γ, ω, res);
         IR_t * nd = build(cx, IR_FAIL, γ, ω);
         IR_t * lr = NULL; lower(cx, lhs, nd, ω, &lr);
         IR_t * rr = NULL; lower(cx, rhs, nd, ω, &rr);
@@ -944,6 +952,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             ir_operand_push(nd, rc);
             cx->beta = nd; *res = nd; return nd;
         }
+        if (icn_tree_is_literal(lt)) return lower_runerr_111(cx, rt2, lt, γ, ω, res);
+        if (icn_tree_is_literal(rt2)) return lower_runerr_111(cx, lt, rt2, γ, ω, res);
         IR_t * nd = build(cx, IR_FAIL, γ, ω);
         IR_t * lr = NULL; lower(cx, lt, nd, ω, &lr);
         IR_t * rr = NULL; lower(cx, rt2, nd, ω, &rr);

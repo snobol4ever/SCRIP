@@ -22,7 +22,11 @@ RTX_GATE_DEF(icnnum)
     jmp .Lsp##SFX;                                                                                    \
 .Lspe##SFX:                                                                                           \
     cmp byte ptr [PTR], 0;                                                                            \
-    je .Lok##SFX;                                                                                     \
+    jne .Lnb##SFX;                                                                                    \
+    test ecx, 0x1000000;                                                                              \
+    jnz .Lbail;                                                                                       \
+    jmp .Lok##SFX;                                                                                    \
+.Lnb##SFX:                                                                                            \
     cmp byte ptr [PTR], 45;                                                                           \
     jne .Lplus##SFX;                                                                                  \
     mov SGN8, 1;                                                                                    \
@@ -82,6 +86,8 @@ RTX_FUNC(rt_coerce_num2_d)
     xor r9d, r9d
     jmp .Lself_done
 .Lself_snul:
+    test ecx, 0x1000000
+    jnz .Lbail
     xor r8d, r8d
     xor r9d, r9d
     jmp .Lself_done
