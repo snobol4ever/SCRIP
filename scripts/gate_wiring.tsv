@@ -67,6 +67,7 @@ test_gate_icn_function_builtin_names_dispatchable.sh	WIRED	-	-	-
 test_gate_icn_if_without_else_invocable_arity_and_string_continuation.sh	WIRED	-	-	-
 test_gate_icn_no_stack.sh	WIRED	-	-	-
 test_gate_icn_one_reg_frame.sh	WIRED	-	-	-
+test_gate_icn_range_operands_must_be_integers.sh	WIRED	-	-	-
 test_gate_icn_scan_argtype.sh	WIRED	-	-	-
 test_gate_icn_seq_null_argument_defaults.sh	WIRED	-	-	-
 test_gate_icn_string_invoked_to_by_is_a_generator.sh	WIRED	-	-	-

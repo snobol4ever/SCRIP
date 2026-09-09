@@ -517,6 +517,7 @@ typedef struct {
     int                          op_arbno_body_defer_unsafe;
     int                          op_frame_need;
     int                          op_arbno_rbp;
+    int                          op_range_int_operands;
     int                          op_frame_extra;
     int                          op_arbno_frame_off;
     int                          op_cap_frame_off;

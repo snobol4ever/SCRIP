@@ -944,7 +944,7 @@ DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
         for (int k = 0; k < n && k < 64; k++) g_call_args[k] = argv[k]; for (int k = (n < 0 ? 0 : n); k < 64; k++) g_call_args[k] = (DESCR_t){0};
         return rt_call_proc_descr(nm, n);
     }
-    if (n == 3 && !strcmp(nm, "...")) { extern int core_icn_by_zero_check(int64_t); int64_t lo = to_int(argv[0]), hi = to_int(argv[1]), st = to_int(argv[2]); core_icn_by_zero_check(st); if (st > 0 ? lo > hi : lo < hi) return FAILDESCR; return INTVAL(lo); }
+    if (n == 3 && !strcmp(nm, "...")) { extern int core_icn_by_zero_check(int64_t); extern int64_t core_icn_to_int_d(DESCR_t); int64_t lo = core_icn_to_int_d(argv[0]), hi = core_icn_to_int_d(argv[1]), st = core_icn_to_int_d(argv[2]); core_icn_by_zero_check(st); if (st > 0 ? lo > hi : lo < hi) return FAILDESCR; return INTVAL(lo); }
     if (n == 1 && !strcmp(nm, "!")) { extern int list_bang_at(DESCR_t, int64_t, DESCR_t *); DESCR_t out; return list_bang_at(argv[0], 0, &out) ? out : FAILDESCR; }
     if (n == 1 && !strcmp(nm, "/")) return (argv[0].v == DT_SNUL || argv[0].v == 0) ? argv[0] : FAILDESCR;
     return rt_call_arr(nm, argv, n);
@@ -963,7 +963,8 @@ DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) 
     }
     if (n == 3 && !strcmp(nm, "...")) {
         extern int core_icn_by_zero_check(int64_t);
-        int64_t lo = to_int(argv[0]), hi = to_int(argv[1]), st = to_int(argv[2]);
+        extern int64_t core_icn_to_int_d(DESCR_t);
+        int64_t lo = core_icn_to_int_d(argv[0]), hi = core_icn_to_int_d(argv[1]), st = core_icn_to_int_d(argv[2]);
         core_icn_by_zero_check(st);
         ICN_OPGEN_t *g = (ICN_OPGEN_t *)calloc(1, sizeof *g);
         if (!g) return FAILDESCR;
@@ -5419,7 +5420,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     L_bidjmp_5524: ;
     if ((_bid == BID_repl) && nargs == 2) {
         const char *s=VARVAL_fn(args[0]); if(!s)s="";
-        int n=(int)to_int(args[1]); if(n<0)n=0;
+        extern int64_t core_icn_to_int_d(DESCR_t); int n=(int)core_icn_to_int_d(args[1]); if(n<0){ core_icn_error(205, args[1]); n=0; }
         int sl=icn_true_len(args[0], s); char *buf=rt_ws_alloc(sl*n+1); buf[0]='\0';
         for(int i=0;i<n;i++) memcpy(buf+i*sl,s,sl); buf[sl*n]='\0';
         *out = BSTRVAL(buf, sl*n); return 1;

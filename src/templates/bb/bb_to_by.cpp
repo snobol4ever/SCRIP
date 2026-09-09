@@ -8,6 +8,7 @@ extern "C" {
 DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op);
 int     rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
 int64_t to_int(DESCR_t v);
+int64_t core_icn_to_int_check(uint64_t lo, uint64_t hi);
 int     core_icn_by_zero_check(int64_t by);
 }
 #include "x86_asm.h"
@@ -64,17 +65,17 @@ std::string bb_to_by() {
              + x86_alpha()
              + x86("mov",     "rdi", FRQ(_.op_sa))
              + x86("mov",     "rsi", FRQ(_.op_sa + 8))
-             + x86("call",    "to_int", (uint64_t)(uintptr_t)(void*)to_int)
+             + x86("call",    _.op_range_int_operands ? "core_icn_to_int_check" : "to_int", _.op_range_int_operands ? (uint64_t)(uintptr_t)(void*)core_icn_to_int_check : (uint64_t)(uintptr_t)(void*)to_int)
              + x86("mov",     FRQ(_.op_sa),     (long)DT_I)
              + x86("mov",     FRQ(_.op_sa + 8), "rax")
              + x86("mov",     "rdi", FRQ(_.op_sb))
              + x86("mov",     "rsi", FRQ(_.op_sb + 8))
-             + x86("call",    "to_int", (uint64_t)(uintptr_t)(void*)to_int)
+             + x86("call",    _.op_range_int_operands ? "core_icn_to_int_check" : "to_int", _.op_range_int_operands ? (uint64_t)(uintptr_t)(void*)core_icn_to_int_check : (uint64_t)(uintptr_t)(void*)to_int)
              + x86("mov",     FRQ(_.op_sb),     (long)DT_I)
              + x86("mov",     FRQ(_.op_sb + 8), "rax")
              + x86("mov",     "rdi", FRQ(_.op_sc))
              + x86("mov",     "rsi", FRQ(_.op_sc + 8))
-             + x86("call",    "to_int", (uint64_t)(uintptr_t)(void*)to_int)
+             + x86("call",    _.op_range_int_operands ? "core_icn_to_int_check" : "to_int", _.op_range_int_operands ? (uint64_t)(uintptr_t)(void*)core_icn_to_int_check : (uint64_t)(uintptr_t)(void*)to_int)
              + x86("mov",     FRQ(_.op_sc),     (long)DT_I)
              + x86("mov",     FRQ(_.op_sc + 8), "rax")
              + x86("mov",     "rdi", "rax")

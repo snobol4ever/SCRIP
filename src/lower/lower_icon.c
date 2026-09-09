@@ -1167,7 +1167,7 @@ static IR_t * lower_seq(icx_t * cx, const tree_t * t, int argbase, int nargs, IR
     if (icn_arg_is_null(byt)) byt = NULL;
     if (byt) { int64_t bb = 1; int isr = 0; if (!icn_const_step(byt, &bb, &isr) || isr) return NULL; by = bb; }
     int use_by = (by != 1);
-    IR_t * to = build(cx, use_by ? IR_TO_BY : IR_TO, γ, ω); IR_LIT(to).sval = (char *) "ag"; cx->last_gen = to;
+    IR_t * to = build(cx, use_by ? IR_TO_BY : IR_TO, γ, ω); IR_LIT(to).sval = (char *) "ag:int"; cx->last_gen = to;
     const tree_t * fromt = (nargs > 0) ? t->c[argbase] : NULL; IR_t * lr; IR_t * ea; IR_t * lβ;
     if (icn_arg_is_null(fromt)) fromt = NULL;
     if (fromt) { ea = lower(cx, fromt, NULL, ω, &lr); lβ = cx->beta; } else { lr = build(cx, IR_LIT_INTEGER, NULL, ω); IR_LIT(lr).ival = 1; ea = lr; lβ = ω; }
@@ -1243,7 +1243,7 @@ static IR_t * lower_make_list(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_to(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     int by = (t->t == TT_TO_BY && t->n > 2 && t->c[2]) ? 1 : 0;
-    IR_t * to = build(cx, by ? IR_TO_BY : IR_TO, γ, ω); IR_LIT(to).sval = (char *) "ag"; cx->last_gen = to;
+    IR_t * to = build(cx, by ? IR_TO_BY : IR_TO, γ, ω); IR_LIT(to).sval = (char *) "ag:int"; cx->last_gen = to;
     IR_t * lr = NULL; IR_t * ea = lower(cx, t->c[0], NULL, ω, &lr); IR_t * lβ = cx->beta;
     IR_t * mr = NULL; IR_t * em = lower(cx, t->c[1], by ? NULL : to, lβ, &mr); γ_to(lr, em);
     ir_operand_push(to, lr); ir_operand_push(to, mr); IR_t * last_op = mr;
