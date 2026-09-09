@@ -133,6 +133,8 @@ static void trace_print_banner_args(const char *name, DESCR_t *args, int nargs, 
     } else if (kind == TRK_RETURN) {
         if (IS_FAIL(value)) fprintf(stdout, "%s %s FRETURN %s\n", banner, istr, name);
         else { trace_spell_value(value, vtext, sizeof vtext); fprintf(stdout, "%s %s %s %s = %s\n", banner, istr, value.v == DT_N ? "NRETURN" : "RETURN", name, vtext); }
+    } else if (kind == TRK_LABEL) {
+        fprintf(stdout, "%s %s :(%s)\n", banner, istr, name);
     } else {
         trace_spell_value(value, vtext, sizeof vtext);
         fprintf(stdout, "%s %s %s = %s\n", banner, istr, name, vtext);
@@ -161,6 +163,30 @@ static void trace_print_icon(int kind, const char *name, DESCR_t *args, int narg
 void rt_trace_all_set(int on) {
     if (on) { trace_register("*", TRK_CALL, "icn", (const char *)0); trace_register("*", TRK_RETURN, "icn", (const char *)0); }
     else { trace_unregister("*", TRK_CALL); trace_unregister("*", TRK_RETURN); }
+}
+void rt_trace_label_hook(const char *name) {
+    extern long g_stno;
+    if (!name || !*name) return;
+    if (trace_recursion_depth > 0) return;
+    if (g_trace == 0) return;
+    trace_ent_t *e = trace_find(name, TRK_LABEL);
+    if (!e) return;
+    g_trace--;
+    if (e->cbfn) {
+        int64_t saved_trace = g_trace, saved_ftrace = kw_ftrace;
+        g_trace = 0; kw_ftrace = 0;
+        trace_recursion_depth++;
+        DESCR_t cbargs[2];
+        cbargs[0] = NAMEVAL(rt_ws_strdup_c(name));
+        cbargs[1] = STRVAL(rt_ws_strdup_c(e->tag ? e->tag : ""));
+        (void)APPLY_fn(e->cbfn, cbargs, 2);
+        trace_recursion_depth--;
+        g_trace = saved_trace; kw_ftrace = saved_ftrace;
+        return;
+    }
+    trace_recursion_depth++;
+    trace_print_banner_args(name, (DESCR_t *)0, 0, NULVCL, (long long)g_stno, TRK_LABEL);
+    trace_recursion_depth--;
 }
 void rt_trace_keyword_write(const char *kw, int64_t v, long long stno) {
     if (!kw || !*kw) return;

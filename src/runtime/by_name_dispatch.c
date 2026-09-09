@@ -6564,6 +6564,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     L_bidjmp_6534: ;
     if ((_bid == BID_SNOx24STMT) && (nargs == 1 || nargs == 2 || nargs == 3)) {
         extern void rt_stmt_enter(long stno, long line);
+        if (!IS_INT(args[0]) && nargs == 1) { extern void rt_trace_label_hook(const char *); const char *lb = VARVAL_fn(args[0]); rt_trace_label_hook(lb ? lb : ""); *out = NULVCL; return 1; }
         long n = IS_INT(args[0]) ? (long)args[0].i : 0;
         long ln = (nargs >= 2 && IS_INT(args[1])) ? (long)args[1].i : 0;
         if (nargs == 3) { extern void rt_stmt_file_init(const char *file); const char *fp = VARVAL_fn(args[2]); rt_stmt_file_init(fp ? fp : ""); }

@@ -29,6 +29,7 @@ static const char * sno_expr_collect(const tree_t * expr);
 static struct { const char * name; const tree_t * pat; int salt; } g_sno_pats[SNO_PAT_MAX];
 static int g_sno_npat = 0;
 static int g_sno_uses_stmtkw = 0;
+static int g_sno_traces_a_label = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_kw_is_stmt(const char * s) {
     if (!s) return 0; if (s[0] == '&') s++;
@@ -37,9 +38,11 @@ static int sno_kw_is_stmt(const char * s) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_scan_stmtkw(const tree_t * t) {
-    if (!t || g_sno_uses_stmtkw) return;
-    if (t->t == TT_KEYWORD && sno_kw_is_stmt(t->v.sval)) { g_sno_uses_stmtkw = 1; return; }
-    if (t->t == TT_FNC) { const char * fn = t->v.sval; if (!fn && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) fn = t->c[0]->v.sval; if (fn && (!strcmp(fn, "TRACE") || !strcmp(fn, "DUMP"))) { g_sno_uses_stmtkw = 1; return; } }
+    if (!t || (g_sno_uses_stmtkw && g_sno_traces_a_label)) return;
+    if (t->t == TT_KEYWORD && sno_kw_is_stmt(t->v.sval)) { g_sno_uses_stmtkw = 1; }
+    if (t->t == TT_FNC) { const char * fn = t->v.sval; if (!fn && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) fn = t->c[0]->v.sval; if (fn && (!strcmp(fn, "TRACE") || !strcmp(fn, "DUMP"))) { g_sno_uses_stmtkw = 1;
+            if (!strcmp(fn, "TRACE")) { int ab = t->v.sval ? 1 : 2; if (t->n > ab && t->c[ab] && t->c[ab]->t == TT_QLIT) { const char * ty = t->c[ab]->v.sval; if (ty && (!strcmp(ty, "LABEL") || !strcmp(ty, "L"))) g_sno_traces_a_label = 1; } }
+            return; } }
     for (int i = 0; i < t->n; i++) sno_scan_stmtkw(t->c[i]);
 }
 static int g_sno_uses_code = 0;
@@ -875,6 +878,14 @@ static int sno_label_reserved(const char * nm) {
     static const char * rs[7] = { "RETURN", "FRETURN", "NRETURN", "END", "CONTINUE", "SCONTINUE", "ABORT" };
     for (int k = 0; k < 7; k++) if (!strcmp(nm, rs[k])) return 1;
     return 0;
+}
+static IR_t * sno_label_trace_wrap(IR_graph_t * g, const char * nm, IR_t * land) {
+    if (!g_sno_traces_a_label || !nm || !nm[0] || !land) return land;
+    if (sno_label_reserved(nm)) return land;
+    IR_t * hook = lc_build(g, IR_CALL, land, land); IR_LIT(hook).sval = (char *) "SNO$STMT";
+    IR_t * nmn = lc_build(g, IR_LIT_STRING, hook, hook); IR_LIT(nmn).sval = lp_strdup(nm);
+    ir_operand_push(hook, nmn);
+    return nmn;
 }
 static IR_t * sno_goto_target(IR_graph_t * g, const char * nm, IR_t * exitnd) {
     extern int g_rt_fragment_emit;
@@ -2180,8 +2191,10 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
         const tree_t * dcU = sgoto_direct(s, TT_GOTO_U);
         const tree_t * dcS = sgoto_direct(s, TT_GOTO_S);
         const tree_t * dcF = sgoto_direct(s, TT_GOTO_F);
-        IR_t * sT = sno_goto_branch(g, &cx, goS, dcS, exS, exitnd); if (!sT) sT = sno_goto_branch(g, &cx, goU, dcU, exU, exitnd); if (!sT) sT = next;
-        IR_t * fT = sno_goto_branch(g, &cx, goF, dcF, exF, exitnd); if (!fT) fT = sno_goto_branch(g, &cx, goU, dcU, exU, exitnd); if (!fT) fT = next;
+        IR_t * sT = sno_goto_branch(g, &cx, goS, dcS, exS, exitnd); const char * sTnm = goS ? goS : (IR_t *)0 == sT ? (const char *)0 : goS; if (!sT) { sT = sno_goto_branch(g, &cx, goU, dcU, exU, exitnd); sTnm = goU; } if (!sT) { sT = next; sTnm = (const char *)0; }
+        IR_t * fT = sno_goto_branch(g, &cx, goF, dcF, exF, exitnd); const char * fTnm = goF; if (!fT) { fT = sno_goto_branch(g, &cx, goU, dcU, exU, exitnd); fTnm = goU; } if (!fT) { fT = next; fTnm = (const char *)0; }
+        if (sTnm) sT = sno_label_trace_wrap(g, sTnm, sT);
+        if (fTnm) fT = sno_label_trace_wrap(g, fTnm, fT);
         if (fT == next && !goF && !exF && !goU && !exU && sfind(s, ":nofail")) { IR_t *nf = lc_build(g, IR_CALL, exitnd, exitnd); IR_LIT(nf).sval = (char *)"SNO$NOFAIL"; fT = nf; }
         IR_t * stb = zw5_on() ? lc_build(g, IR_STATEMENT_END, sT, fT) : (IR_t *) NULL;
         if (stb) { const tree_t * _sa = sfind(st[i], ":stno"); if (_sa && _sa->n > 0 && _sa->c[0]) { const tree_t * _c = _sa->c[0]; IR_LIT(stb).ival = (_c->t == TT_ILIT) ? _c->v.ival : (_c->v.sval ? (int64_t)atoll(_c->v.sval) : 0); } }
