@@ -140,6 +140,25 @@ static int icn_arg_is_scan_fn(const tree_t * a) {
                   || !strcmp(nm, "many") || !strcmp(nm, "upto") || !strcmp(nm, "find") || !strcmp(nm, "bal"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * icn_record_names[512]; static int icn_record_name_count = 0;
+static void icn_note_record_name(const char * nm) { if (nm && icn_record_name_count < 512) icn_record_names[icn_record_name_count++] = nm; }
+static int icn_is_proc_or_record_name(const char * nm) {
+    if (icn_is_proc(nm)) return 1;
+    for (int ri = 0; ri < icn_record_name_count; ri++) if (!strcmp(icn_record_names[ri], nm)) return 1;
+    return 0;
+}
+static int icn_arg_stages(const icx_t * cx, const tree_t * a) {
+    if (!a) return 0;
+    if (a->t == TT_IDX || a->t == TT_FIELD) return 1;
+    if (a->t != TT_VAR || !a->v.sval || a->v.sval[0] == '&') return 0;
+    const char * nm = a->v.sval;
+    if (icn_is_proc_or_record_name(nm)) return 0;
+    if (icn_is_local(cx, nm)) return 1;
+    for (int i = 0; i < cx->npn; i++) if (cx->pn[i] && !strcmp(cx->pn[i], nm)) return 1;
+    for (int i = 0; i < cx->ngn; i++) if (cx->gn[i] && !strcmp(cx->gn[i], nm)) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int argbase, int nargs, IR_t * γ, IR_t * ω, IR_t ** res) {
     if (name && !strcmp(name, "seq") && icn_callable_proc_index("seq") < 0) { IR_t * sq = lower_seq(cx, t, argbase, nargs, γ, ω, res); if (sq) return sq; }
     if (name && !strcmp(name, "function") && nargs == 0 && icn_callable_proc_index("function") < 0) { IR_t * fg = lower_function_gen(cx, γ, ω, res); if (fg) return fg; }
@@ -180,14 +199,24 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
     int chains = name && (!strcmp(name, "write") || !strcmp(name, "writes"));
     if (!chains) { for (int k = 0; k < nargs; k++) if (is_resumable(t->c[argbase + k])) { if (is_cursor_mover && icn_arg_is_scan_fn(t->c[argbase + k])) continue; chains = 1; break; } }
     IR_t * prev = NULL; IR_t * entry = call; IR_t * aω = ω; IR_t * last_ar = NULL;
+    int nstage = 0; for (int k = 0; k < nargs; k++) if (icn_arg_stages(cx, t->c[argbase + k])) nstage++;
+    IR_t * args_r[nargs > 0 ? nargs : 1]; int staged[nargs > 0 ? nargs : 1];
     for (int k = 0; k < nargs; k++) {
-        const tree_t * a = t->c[argbase + k]; IR_t * ar = NULL;
-        IR_t * ae = lower(cx, a, (k == nargs - 1 && !fill_scan_defaults) ? call : NULL, aω, &ar); aω = cx->beta;
+        const tree_t * a = t->c[argbase + k]; IR_t * ar = NULL; IR_t * ae; staged[k] = 0;
+        if (nstage && icn_arg_stages(cx, a)) { cx->beta = aω; ae = lower_lvalue_var(cx, a, aω, &ar); if (ae && ar) staged[k] = 1; }
+        if (!staged[k]) ae = lower(cx, a, (k == nargs - 1 && !fill_scan_defaults && !nstage) ? call : NULL, aω, &ar);
+        aω = cx->beta;
         if (k == 0) entry = ae;
         if (prev) lc_γ_to(prev, ae);
-        prev = ar;
-        if (ar) { ir_operand_push(call, ar); last_ar = ar; }
+        prev = ar; args_r[k] = ar;
     }
+    for (int k = 0; k < nargs; k++) if (staged[k] && args_r[k]) {
+        IR_t * drf = build(cx, IR_DEREF, NULL, aω); ir_operand_push(drf, args_r[k]);
+        if (prev) lc_γ_to(prev, drf); else entry = drf;
+        prev = drf; args_r[k] = drf;
+    }
+    for (int k = 0; k < nargs; k++) if (args_r[k]) { ir_operand_push(call, args_r[k]); last_ar = args_r[k]; }
+    if (nstage && prev && !(icn_proc_is_generator(name) || gb || is_cursor_mover)) lc_γ_to(prev, call);
     if (fill_bal_cset) {
         IR_t * kc = build(cx, IR_KW_ICON, NULL, aω); IR_LIT(kc).sval = (char *) "&cset";
         if (prev) lc_γ_to(prev, kc); else entry = kc;
@@ -959,6 +988,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_RECORD: {
         extern void record_register(const char *spec);
         const char * rname = t->v.sval;
+        icn_note_record_name(rname);
         if (rname) {
             char spec[2048]; int pos = 0;
             pos += snprintf(spec + pos, sizeof spec - pos, "%s(", rname);
@@ -1229,14 +1259,24 @@ static IR_t * lower_make_list(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω
     IR_t * ml = build(cx, IR_MAKE_LIST, γ, ω);
     if (res) *res = ml;
     IR_t * prev = NULL; IR_t * entry = ml; IR_t * aω = ω;
+    int nstage = 0; for (int k = 0; k < t->n; k++) if (icn_arg_stages(cx, t->c[k])) nstage++;
+    IR_t * args_r[t->n > 0 ? t->n : 1]; int staged[t->n > 0 ? t->n : 1];
     for (int k = 0; k < t->n; k++) {
-        const tree_t * a = t->c[k]; IR_t * ar = NULL;
-        IR_t * ae = lower(cx, a, (k == t->n - 1) ? ml : NULL, aω, &ar); aω = cx->beta;
+        const tree_t * a = t->c[k]; IR_t * ar = NULL; IR_t * ae; staged[k] = 0;
+        if (nstage && icn_arg_stages(cx, a)) { cx->beta = aω; ae = lower_lvalue_var(cx, a, aω, &ar); if (ae && ar) staged[k] = 1; }
+        if (!staged[k]) ae = lower(cx, a, (k == t->n - 1 && !nstage) ? ml : NULL, aω, &ar);
+        aω = cx->beta;
         if (k == 0) entry = ae;
         if (prev) lc_γ_to(prev, ae);
-        prev = ar;
-        if (ar) ir_operand_push(ml, ar);
+        prev = ar; args_r[k] = ar;
     }
+    for (int k = 0; k < t->n; k++) if (staged[k] && args_r[k]) {
+        IR_t * drf = build(cx, IR_DEREF, NULL, aω); ir_operand_push(drf, args_r[k]);
+        if (prev) lc_γ_to(prev, drf); else entry = drf;
+        prev = drf; args_r[k] = drf;
+    }
+    for (int k = 0; k < t->n; k++) if (args_r[k]) ir_operand_push(ml, args_r[k]);
+    if (nstage && prev) lc_γ_to(prev, ml);
     cx->beta = g_postfix_resume ? aω : ω;
     return entry;
 }
@@ -1457,6 +1497,7 @@ static void icon_register_program(stage2_t * s2, const tree_t * prog) {
                     global_register(proc->c[_gi]->v.sval);
         }
         if (proc->t == TT_RECORD && proc->v.sval && *proc->v.sval) {
+            icn_note_record_name(proc->v.sval);
             char spec[256]; int pos = 0;
             pos += snprintf(spec+pos, sizeof(spec)-pos, "%s(", proc->v.sval);
             for (int _ri = 0; _ri < proc->n && pos < (int)sizeof(spec)-2; _ri++) {
