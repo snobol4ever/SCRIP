@@ -4211,6 +4211,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
             }
         }
         DESCR_t a = (nargs > 0) ? args[0] : NULVCL, b = (nargs > 1) ? args[1] : NULVCL;
+        if (nargs == 3 && !strcmp(fn, "[:]")) { extern DESCR_t rt_section_var(DESCR_t, DESCR_t, DESCR_t); extern DESCR_t rt_deref(DESCR_t); extern DESCR_t rt_var_ref_cell(DESCR_t *); extern void *rt_agg_alloc(int, size_t); DESCR_t sb = a; if (!IS_VARREF_fn(sb)) { DESCR_t *cell = (DESCR_t *)rt_agg_alloc(0, sizeof(DESCR_t)); if (!cell) return FAILDESCR; *cell = a; sb = rt_var_ref_cell(cell); } DESCR_t v = rt_section_var(sb, b, args[2]); if (IS_FAIL_fn(v)) return FAILDESCR; return rt_deref(v); }
         if (!strcmp(fn, "[]")) { extern DESCR_t rt_subscript_var(DESCR_t, DESCR_t); extern DESCR_t rt_deref(DESCR_t); DESCR_t v = rt_subscript_var(a, b); if (IS_FAIL_fn(v)) return FAILDESCR; return rt_deref(v); }
         if (!strcmp(fn, "++")) return rt_num_arith(a, b, BINOP_CUNION);
         if (!strcmp(fn, "--")) return rt_num_arith(a, b, BINOP_CDIFF);
@@ -5295,7 +5296,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (icn_builtin_is_known(pname) || rt_builtin_is_known(pname)) {
             DESCR_t bv; bv.v = DT_E; bv.slen = 0xFFFFFFFEu; bv.s = rt_ws_strdup(pname); *out = bv; return 1;
         }
-        { static const char *const op2[] = { "+","-","*","/","%","^","||","|||","++","--","**","<","<=",">",">=","=","~=","<<","<<=",">>",">>=","==","~==","===","~===","...", 0 };
+        { static const char *const op2[] = { "+","-","*","/","%","^","||","|||","++","--","**","<","<=",">",">=","=","~=","<<","<<=",">>",">>=","==","~==","===","~===","...","[:]", 0 };
           static const char *const op1[] = { "+","-","*","/","\\","=","?","~","!","@","^", 0 };
           const char **tbl = (arity == 2 || arity == 3) ? op2 : (arity == 1 || arity < 0) ? op1 : 0;
           if (tbl) for (int oi = 0; tbl[oi]; oi++) if (!strcmp(tbl[oi], pname)) { DESCR_t bv; bv.v = DT_E; bv.slen = 0xFFFFFFFEu; bv.s = rt_ws_strdup(pname); *out = bv; return 1; } }

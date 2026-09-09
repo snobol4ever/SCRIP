@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # test_gate_icn_string_invoked_to_by_is_a_generator.sh -- string invocation of the ternary "..." operator.
 #
-# WHY THIS EXISTS: every other Icon operator was already reachable by string invocation -- "+" "-" "*" "||"
+# WHY THIS EXISTS: TWO ternary operators were unreachable by string invocation -- "..." and "[:]" -- while every
+# other Icon operator was already reachable -- "+" "-" "*" "||"
 # "<" unary and binary, and "!" which is itself a GENERATOR -- and only "..." raised ERROR 022 Undefined
 # function called. It is the one operator whose native form is a generator box AND whose by-name arm was
 # missing, so a single-DESCR_t return could not carry it: the cure pumps it through the same ICN_OPGEN_t
@@ -31,6 +32,9 @@ mk tobystr   '"..."("1","4","1")'
 mk procdots  'proc("...",3)(2,6,2)'
 mk bang      '"!"([1,2,3])'
 mk plus      '"+"(3,4)'
+mk section   '"[:]"("abcdef", 3, 5)'
+mk sectvar   'x := "abcdef" & "[:]"(x, 2, 4)'
+mk subscript '"[]"(&lcase, 3)'
 mk native    '1 to 5 by 2'
 EXP_toby='1
 3
@@ -57,11 +61,14 @@ EXP_bang='1
 2
 3'
 EXP_plus='7'
+EXP_section='cd'
+EXP_sectvar='bc'
+EXP_subscript='c'
 EXP_native='1
 3
 5'
 GRADED=0; FAIL=0
-for w in toby toby1 tobyneg tobynone tobystr procdots bang plus native; do
+for w in toby toby1 tobyneg tobynone tobystr procdots section sectvar subscript bang plus native; do
   eval "want=\$EXP_$w"
   for m in 3 4; do
     if [ "$m" = 3 ]; then
@@ -81,7 +88,7 @@ for w in toby toby1 tobyneg tobynone tobystr procdots bang plus native; do
   done
 done
 [ "$GRADED" -eq 0 ] && refuse "graded zero witnesses"
-echo "graded=$GRADED FAIL=$FAIL (toby/toby1/tobyneg/tobynone/tobystr/procdots are the cured path, every expectation cut from icont+iconx; bang and plus are the displaced-sibling control arms; native is the operator the string form must agree with)"
+echo "graded=$GRADED FAIL=$FAIL (toby* procdots section sectvar are the cured path, every expectation cut from icont+iconx; subscript bang plus are control arms that were ALREADY green -- subscript is the sibling ternary that worked, so it proves the section arm did not break its neighbour; native is the operator the string form must agree with)"
 if [ "$FAIL" -ne 0 ]; then echo "GATE FAIL(1) [$NAME]: FAIL=$FAIL of $GRADED"; exit 1; fi
 echo "GATE PASS(0) [$NAME]: $GRADED/$GRADED"
 exit 0
