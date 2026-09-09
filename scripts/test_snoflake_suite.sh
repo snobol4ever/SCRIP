@@ -112,6 +112,15 @@ ST3=0; ST4=0; BOTH_STREAM=0
 # record of the outside set is OUTSIDE_SPITBOL_BASELINE.tsv beside the suite, mirrored by UNGRADABLE.tsv (name, ORACLE_REFUSES, the SPITBOL error and a source
 # check per program); the live set is measured every run and any drift between the two is said aloud below.
 BASE=0; BASE_BOTH=0; OUTSIDE_N=0; OUTSIDE_LIST=""; OUTSIDE_TSV="$SUITE/OUTSIDE_SPITBOL_BASELINE.tsv"; MIRROR_TSV="$SUITE/UNGRADABLE.tsv"
+# ⛔⭐ SPITBOL ALSO REFUSES WITHOUT AN ERROR NUMBER, and the numbered-only test above missed it (ceo
+# 2026-09-08, re-measured by the coo at a296d8d04): `sbl -bf` on a source whose only END is the
+# lowercase `end` prints `No END statement found in source file(s).` and EXITS 0 -- SPITBOL never runs
+# the program, so the fixture is outside the baseline exactly as a numbered refusal is, but it carries
+# no `ERROR NNN` for the classifier to key on and sat in the reds as if it were our defect.
+# ⛔ MEASURED ONLY: add a pattern here when a run has SHOWN it, never because it seems plausible --
+# every pattern here silently moves fixtures OUT of the denominator, which is the direction that
+# flatters the board. One pattern per line, each with the date and seat that measured it.
+ORACLE_REFUSAL_RE='No END statement found in source file'   # measured 2026-09-08 (ceo, coo)
 prog_row() { printf 'package\tsnoflake\tsnobol4\t%s\t%s\t%s\t0\t%s\n' "$1" "$2" "$3" "$4" >> "$PROG_ROWS"; }
 verdict_of() { if [ "$1" -eq 124 ]; then echo HANG; elif [ "$1" -ge 128 ]; then echo CRASH; else echo FAIL; fi; }
 SCRIP_HASH="$(git -C "$SD" rev-parse --short HEAD 2>/dev/null || echo '?')"
@@ -172,7 +181,10 @@ oracle_equal() { # $1=scrip output  $2=oracle output -- equal, or the SAME ERROR
     if [ -n "$ea" ] && [ -n "$eb" ] && [ "$((10#$ea))" = "$((10#$eb))" ]; then OE_KIND=errnum; return 0; fi
     return 1; }
 compile_m4() { local sno="$1" out="$2" t rc; t="$(mktemp -d)"
-    SNO_LIB="$GIMPEL" "$SCRIP" --compile "$sno" > "$t/p.s" 2>"$t/compile.err"; rc=$?
+    # Same spelling as the m3 and sbl arms (see run_one): mode 4 bakes `&FILE` at COMPILE time, so the
+    # staged short name has to be handed to `--compile`, not just to the run.
+    ln -sf "$sno" "$RUN/f.sno"
+    (cd "$RUN" && SNO_LIB="$GIMPEL" "$SCRIP" --compile f.sno) > "$t/p.s" 2>"$t/compile.err"; rc=$?
     if [ "$rc" -ne 0 ]; then
         # ⭐ snoflake-sixteen-fixtures-pass-mode-3-and-fail-mode-4 (seat01 2026-09-04): a `SCRIP: ERROR N -- ...`
         # here is a GRADED PROGRAM ANSWER, same class as run_one's m3 crash-and-print (header comment (2)
@@ -192,7 +204,15 @@ compile_m4() { local sno="$1" out="$2" t rc; t="$(mktemp -d)"
 run_one() { # $1=cmdkind $2=sno -> sets GOT RC ; input from $W/inp if HASINP
     local inp=/dev/null; [ "$HASINP" = 1 ] && inp="$W/inp"
     case "$1" in
-        m3)  GOT="$(cd "$RUN" && SNO_LIB="$GIMPEL" timeout "$TIMEOUT" "$SCRIP" --run "$2" < "$inp" 2>&1)"; RC=$?;;
+        # ⛔⭐ BOTH ENGINES GET THE SAME SPELLING `f.sno`, and it is a grading bug to hand SCRIP the
+        # suite path back (cto 2026-09-08, re-measured by the coo on a 2-line witness at a296d8d04):
+        # `&FILE`/`&LASTFILE` are the pathname AS GIVEN in SPITBOL and in SCRIP alike, so with the oracle
+        # staged on `f.sno` (below) and SCRIP on the absolute path, every fixture whose output carries
+        # either keyword could never match, whatever the compiler did. Measured: `sbl -bf f.sno` and
+        # `scrip --run f.sno` both print `FILE=f.sno`; `scrip --run <abspath>` prints the abspath.
+        # Identical class to the Arizona runner's cure (SCRIP 3bb0a210c).
+        m3)  ln -sf "$2" "$RUN/f.sno"
+             GOT="$(cd "$RUN" && SNO_LIB="$GIMPEL" timeout "$TIMEOUT" "$SCRIP" --run f.sno < "$inp" 2>&1)"; RC=$?;;
         m4)  GOT="$(cd "$RUN" && SNO_LIB="$GIMPEL" timeout "$TIMEOUT" "$W/prog.bin" < "$inp" 2>&1)"; RC=$?;;
         # ⛔⭐ THE ORACLE IS HANDED A SHORT NAME, NEVER THE ABSOLUTE PATH, AND IT IS A GRADING BUG IF YOU
         # "TIDY" THIS BACK (hq_B 2026-09-04, measured). SPITBOL formats its diagnostic as
@@ -217,6 +237,8 @@ for sno in "$SUITE"/*.sno; do
         echo "⛔ REFUSE(rc=2): the oracle's listing sink would not open on $name, so SPITBOL dumped its listing"
         echo "   back into the compared stream. Every verdict from here would be against a re-furnished stream."; exit 2;; esac
     OERR="$(printf '%s' "$ORACLE_OUT" | grep -iE 'ERROR +[0-9]+' | head -1 | tr -d '\t' | cut -c1-140)"; OUTSIDE=0
+    # a numbered refusal first, then SPITBOL's measured un-numbered ones (see ORACLE_REFUSAL_RE above)
+    [ -z "$OERR" ] && OERR="$(printf '%s' "$ORACLE_OUT" | grep -E "$ORACLE_REFUSAL_RE" | head -1 | tr -d '\t' | cut -c1-140)"
     if [ -n "$OERR" ]; then OUTSIDE=1; OUTSIDE_N=$((OUTSIDE_N+1)); OUTSIDE_LIST="${OUTSIDE_LIST}${name}\t${OERR}\n"; else BASE=$((BASE+1)); fi
     if grade "$ORACLE_OUT" "$RC" "$MATCH" "$IC"; then [ "$NSTD" = 1 ] && NSP=$((NSP+1)) || PS=$((PS+1)); ORACLE_MEETS_EXPECT=1
     else [ "$NSTD" = 1 ] && NSF=$((NSF+1)) || { FS=$((FS+1)); FLS="$FLS $name"; }; ORACLE_MEETS_EXPECT=0; fi
