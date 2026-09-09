@@ -128,7 +128,19 @@ echo "=== Icon MASTER board — corpus/tests/icon/ALL.icn ==="
 # text through the `grep '^SUITE_BOARD '` parses below, and a board that mis-parses its own verdict to
 # gain a fail list has traded the number for the names rather than getting both.
 _errf=$(mktemp); trap 'rm -f "$_errf"' EXIT
-_raw=$(timeout 1800 python3 "$HARNESS" run "$MASTER_ICN" "$MASTER_REF" --lang icon --modes m3,m4 --by-modes-column 2>"$_errf" || true)
+# ⛔⭐ THE OUTSIDE LIST RIDES ONLY IF IT EXISTS, and its absence is not an error: a suite with nothing outside
+# its baseline has no file, exactly as a package without one does. When it IS there the harness REFUSES on a
+# name it cannot find in the suite, so a stale list cannot quietly shrink the denominator (ceo ruling
+# 2026-09-08: a master entry the oracle cannot run is outside the master's baseline, recorded with the
+# oracle's own words and never masked per line).
+OUTSIDE_TSV="$CORPUS/ALL.outside.tsv"
+_outside_arg=""; [ -f "$OUTSIDE_TSV" ] && _outside_arg="--outside $OUTSIDE_TSV"
+_raw=$(timeout 1800 python3 "$HARNESS" run "$MASTER_ICN" "$MASTER_REF" --lang icon --modes m3,m4 --by-modes-column $_outside_arg 2>"$_errf" || true)
+# ⛔ THE OUTSIDE SET IS ECHOED, NEVER SWALLOWED. This board captures the harness into $_raw and prints only
+# what it greps, so without this the entries dropped from the denominator would be INVISIBLE on the very
+# board whose number they changed -- which is precisely the masking the ruling forbids. Printed before the
+# counts, so a reader sees what left the population before reading the population.
+printf '%s\n' "$_raw" | grep '^OUTSIDE_BASELINE' || true
 board=$(printf '%s\n' "$_raw" | grep '^SUITE_BOARD ' | tail -1 || true)
 astboard=$(printf '%s\n' "$_raw" | grep '^SUITE_BOARD_AST ' | tail -1 || true)
 split=$(printf '%s\n' "$_raw" | grep '^MODES_COLUMN ' | tail -1 || true)

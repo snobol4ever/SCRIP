@@ -2105,6 +2105,42 @@ def cmd_run(args):
         return ["ast"] if declared == "ast" else modes
     ast_entries = [e for e in entries if _modes_for(e) == ["ast"]] if entry_modes else []
     run_entries = [e for e in entries if _modes_for(e) != ["ast"]] if entry_modes else entries
+    # ⛔⭐ OUTSIDE THE BASELINE (ceo ruling 2026-09-08 on the cfo's find; the master half of the rule
+    # OUTSIDE_SPITBOL_BASELINE.tsv already carries for a package). A MASTER entry the language's ORACLE
+    # CANNOT RUN is outside the master's baseline exactly as a package program is: it leaves the graded
+    # denominator, it is NEVER masked per line, and the reason is recorded beside the suite with the
+    # oracle's own words. The board then reads N/N honestly instead of carrying a permanent red nobody can
+    # ever cure, and the denominator move is a CRITERION CHANGE, never a regression.
+    # ⛔ WHY THIS IS NEEDED AT ALL, WHICH IS THE ACTUAL FINDING: master refs were cut from OUR OWN OUTPUT
+    # rather than from the oracle, so a program the oracle cannot even compile came to sit in the graded
+    # set asserting another implementation's answers as Icon's. A ref that pins us is not an oracle.
+    # ⛔ THE LIST IS A RECORD, NOT A MASK: every name here is printed with its reason on every run. It is
+    # NOT re-probed against the oracle by this harness -- the master grades SCRIP against a stored ref and
+    # never invokes the oracle -- so a stale entry (one the oracle has since learned to run) is caught by a
+    # re-probe elsewhere, not here, and the record carries the date its refusal was checked.
+    outside = {}
+    _outside_path = getattr(args, "outside", "") or ""
+    if _outside_path:
+        _op = Path(_outside_path)
+        if not _op.is_file():
+            refuse(f"--outside {_outside_path}: no such file -- a declared outside list that is not there would silently grade the whole set")
+        for _ln in _op.read_text(encoding="utf-8").splitlines():
+            if not _ln.strip() or _ln.lstrip().startswith("#"):
+                continue
+            _f = _ln.split("\t")
+            if len(_f) < 3:
+                refuse(f"--outside {_outside_path}: line is not name<TAB>CLASS<TAB>reason: {_ln[:80]}")
+            outside[_f[0].strip()] = (_f[1].strip(), _f[2].strip())
+        _named = set(outside)
+        _present = {e.name for e in entries}
+        _absent = sorted(_named - _present)
+        if _absent:
+            refuse(f"--outside {_outside_path}: declares entries that are not in this suite: {_absent} -- a stale outside list silently shrinks nothing and hides that it is stale")
+        run_entries = [e for e in run_entries if e.name not in outside]
+        ast_entries = [e for e in ast_entries if e.name not in outside]
+        for _n in sorted(outside):
+            print(f"OUTSIDE_BASELINE {_n} {outside[_n][0]}: {outside[_n][1]}")
+        print(f"OUTSIDE_BASELINE_COUNT {len(outside)} entr(ies) out of the graded denominator, named above with the oracle's own reason")
     unknown_defaulted = sum(1 for e in run_entries if entry_modes.get(e.name, "") == "UNKNOWN") if entry_modes else 0
     # ⛔⭐ HONOUR THE DECLARATION PER ENTRY, WHICH IS WHAT THIS FLAG'S OWN --help PROMISES. Before this, every run
     # entry was graded with the CALLER'S modes and the `modes` column only ever chose ast-vs-run, so a family whose
@@ -2741,6 +2777,7 @@ def main():
                         "modes=ast entries are graded by `scrip --dump-ast` diffed as text, everything else by --modes (default m3,m4). "
                         "Prints the two populations as SEPARATE boards with their OWN denominators. REFUSES rc=2 if the CSV is missing or "
                         "does not cover every entry -- a column that cannot be read is not a column that can be honoured.")
+    r.add_argument("--outside", default="", help="TSV of entries OUTSIDE this suite's baseline (name<TAB>CLASS<TAB>reason), each dropped from the graded denominator and printed with its reason -- for a program the language's own oracle refuses to run")
     r.add_argument("--shard", default="", help="k/N: grade only every N-th entry starting at the k-th (1-based, interleaved), so the N shards partition the suite exactly once and their boards SUM to the monolithic board; the SUITE_BOARD line carries shard=k/N and total=<this shard's entries> (row corpus-runner-master-suite-exceeds-single-call-cap, hq_B 2026-09-02)")
     r.set_defaults(func=cmd_run)
 
