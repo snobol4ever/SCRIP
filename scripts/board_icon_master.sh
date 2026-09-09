@@ -131,8 +131,14 @@ ENTRY_FLOOR="${ICON_MASTER_ENTRY_FLOOR:-534}"
 # ⭐ RE-PINNED 739 -> 740 (hq_I 2026-09-09, CEO-468): `f ! record` spreads the record's fields as arguments, as icont does, and a
 # non-container raises 126. procedure_write_260 (ladder__rung24_records_apply_bang_spreads_the_fields) flips in both modes.
 # entries=904 · run-graded 751 · m3 PASS=740 · m4 PASS=740; per-entry identity 0 regressions / 0 vanished over 1557 examined.
-M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-740}"
-M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-740}"
+# ⭐ RE-PINNED 740 -> 742 (hq_R 2026-09-09, CEO-476): element generation over a SET concurrent with deletion no longer
+# skips every second element -- `table_icn_nth` indexed the LIVE ordered vector, so `delete` compacted it under a cursor
+# that had already advanced.  Flips procedure_write_258 and procedure_every_elemgen_replace_9; ALL NINE delete cases of
+# jcon's own gener.icn torture test read [ok] where seven of nine failed on the clean tree.
+# entries=906 · run-graded 753 · m3 PASS=742 · m4 PASS=742.  SNOBOL4 master as the shared-node control arm on the same
+# tree: both-modes PASS=1893/1917, m3 FAIL=0, m4 FAIL=0.
+M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-742}"
+M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-742}"
 # ⛔ NO AST_PASS_FLOOR: a self-pin has no floor to regress below, only a CURRENT-run comparison of
 # ap (matched) vs at (total) -- see the AST-SHAPE note above. Removed under ast-dump-refs-are-self-
 # pins-not-oracles rather than kept-but-unused, so a reader cannot mistake its presence for gating.

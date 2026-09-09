@@ -102,7 +102,8 @@ TBBLK_t *table_new(void) {
     t->init = 11;
     t->inc  = 10;
     t->is_set = 0;
-    t->ord = (DESCR_t *)0; t->ord_len = 0; t->ord_cap = 0;
+    t->ord = (DESCR_t *)0; t->ord_len = 0; t->ord_cap = 0; t->ord_dead = 0u;
+    t->gen_idx = -1; t->gen_pos = -1;
     t->icn_mask = 15ul;
     t->nbuck = _tbl_nbuck_for(t->init);
     t->buckets = _tbl_vec_new(t->nbuck);
@@ -297,7 +298,7 @@ int table_delete_d(TBBLK_t *tbl, DESCR_t k) {
     if (!b) return 0;
     for (unsigned i = _tbl_lower(b->ent, b->len, h); i < b->len && b->ent[i].hkey == h; i++)
         if (_tbl_eq_d(&b->ent[i], k)) { memmove(&b->ent[i], &b->ent[i + 1], (size_t)(b->len - i - 1) * sizeof(TBPAIR_t)); b->len--; tbl->size--;
-            for (unsigned oi = 0; oi < tbl->ord_len; oi++) { TBPAIR_t _op; _op.key_descr = tbl->ord[oi]; if (!_tbl_eq_d(&_op, k)) continue; memmove(&tbl->ord[oi], &tbl->ord[oi + 1], (size_t)(tbl->ord_len - oi - 1) * sizeof(DESCR_t)); tbl->ord_len--; break; }
+            tbl->ord_dead++;
             return 1; }
     return 0;
 }
@@ -336,7 +337,9 @@ void table_set_descr_d(TBBLK_t *tbl, DESCR_t k, DESCR_t val) {
     { TBPAIR_t *n = &b->ent[i]; n->key = (char *)0; n->key_descr = k; n->val = val; n->hkey = h; }
     b->len++; tbl->size++;
     if (tbl->ord_len == tbl->ord_cap) { unsigned nc = tbl->ord_cap ? tbl->ord_cap * 2u : 16u; DESCR_t *nv = rt_ws_alloc((size_t)nc * sizeof(DESCR_t)); if (tbl->ord) memcpy(nv, tbl->ord, (size_t)tbl->ord_len * sizeof(DESCR_t)); tbl->ord = nv; tbl->ord_cap = nc; }
+    if (tbl->ord_dead > 0u) { for (unsigned oi = 0; oi < tbl->ord_len; oi++) { TBPAIR_t _op; _op.key_descr = tbl->ord[oi]; if (!_tbl_eq_d(&_op, k)) continue; tbl->ord[oi] = k; tbl->ord_dead--; goto _ord_placed; } }
     tbl->ord[tbl->ord_len++] = k;
+_ord_placed: ;
     if ((unsigned long)tbl->size > 5ul * (tbl->icn_mask + 1ul) && tbl->icn_mask < (16ul << 19) - 1ul) tbl->icn_mask = (tbl->icn_mask << 1) | 1ul;
     if ((unsigned)tbl->size > tbl->nbuck * TBL_LOAD_MAX) _tbl_rehash(tbl);
 }
@@ -368,15 +371,20 @@ static int _icn_cmp(const void *a, const void *b) {
     return x->seq < y->seq ? -1 : (x->seq > y->seq ? 1 : 0);
 }
 int table_icn_nth(TBBLK_t *tbl, int64_t idx, TBPAIR_t **out) {
-    if (!tbl || idx < 0 || idx >= (int64_t)tbl->size) return 0;
-    _icn_ord_t *v = rt_ws_alloc((size_t)(tbl->size > 0 ? tbl->size : 1) * sizeof(_icn_ord_t)); unsigned n = 0;
-    for (unsigned oi = 0; oi < tbl->ord_len && n < (unsigned)tbl->size; oi++) {
-        TBPAIR_t *e = table_find_pair_d(tbl, tbl->ord[oi]); if (!e) continue;
-        v[n].e = e; v[n].hn = _icn_hash(e->key_descr); _icn_slot(v[n].hn, tbl->icn_mask, &v[n].seg, &v[n].slot); v[n].seq = n; n++;
+    if (!tbl || idx < 0 || tbl->ord_len == 0u) return 0;
+    _icn_ord_t *v = rt_ws_alloc((size_t)tbl->ord_len * sizeof(_icn_ord_t)); unsigned n = 0;
+    for (unsigned oi = 0; oi < tbl->ord_len; oi++) {
+        TBPAIR_t *e = table_find_pair_d(tbl, tbl->ord[oi]);
+        v[n].e = e; v[n].hn = _icn_hash(tbl->ord[oi]); _icn_slot(v[n].hn, tbl->icn_mask, &v[n].seg, &v[n].slot); v[n].seq = oi; n++;
     }
-    if (idx >= (int64_t)n) return 0;
     qsort(v, n, sizeof(_icn_ord_t), _icn_cmp);
-    *out = v[idx].e; return 1;
+    int64_t pos;
+    if (idx > 0 && tbl->gen_idx == idx - 1 && tbl->gen_pos >= 0) pos = tbl->gen_pos + 1;
+    else { int64_t live = 0; pos = (int64_t)n; for (unsigned i = 0; i < n; i++) if (v[i].e && live++ == idx) { pos = (int64_t)i; break; } }
+    while (pos < (int64_t)n && !v[pos].e) pos++;
+    if (pos >= (int64_t)n) return 0;
+    tbl->gen_idx = idx; tbl->gen_pos = pos;
+    *out = v[pos].e; return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void set_copy_all(TBBLK_t *dst, TBBLK_t *src) {
