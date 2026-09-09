@@ -53,6 +53,12 @@ extern "C" void bb_ab_seal_entry_cells(const char * pname, void * fnbase, int al
     *(void **)bb_ab_fn_cell_ptr(cell) = (void *)((char *)fnbase + off);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" void bb_ab_seal_fnbody(const char * fname, const char * entry) {
+    if (!fname || !entry) return;
+    char a[300], b[300]; snprintf(a, sizeof a, "body$%s", entry); snprintf(b, sizeof b, "fnbody$%s", fname);
+    *(void **)bb_ab_fn_cell_ptr(b) = *(void **)bb_ab_fn_cell_ptr(a);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_ab_seal_alpha(const char * pname, void * alpha) {
     if (!pname || !alpha) return;
     char cell[300]; snprintf(cell, sizeof cell, "alpha$%s", pname);
@@ -439,6 +445,11 @@ static std::string bb_define_bind() {
             + x86("lea", "rax", std::string("[rip + __]"), (uint64_t)0, _.lbl_t0)
             + x86("mov", "rcx", std::string("[rip@got + __]"), (uint64_t)0, (std::string("body_cell$") + std::string(bb_ab_sym_name(fname))).c_str())
             + x86("mov", RDQ("rcx", 0), "rax"); } }
+    { if (_.lbl_t0 && _.op_seal && bb_ab_cell_addr(fname)) { const char * _en = _.lbl_t0; if (strncmp(_en, "LBL__", 5) == 0) _en += 5;
+        uint64_t _ec = (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("body$") + _en).c_str());
+        uint64_t _fc = (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("fnbody$") + fname).c_str());
+        reg = reg + x86("comment", "M3-BODY-SEAL: fnbody$<FN> <- *body$<this DEFINE's entry>, the m3 twin of the body seal for a name bound more than once")
+            + x86("movabs", "rax", _ec) + x86("mov", "rax", RDQ("rax", 0)) + x86("movabs", "rcx", _fc) + x86("mov", RDQ("rcx", 0), "rax"); } }
     std::string seals = x86_ro_seal_str(0, fname) + x86_ro_seal_str(1, _csv ? _csv : "");
     if (!_ab) return x86_alpha() + reg + x86_pair_loop() + seals;
     if (bb_ab_cell_addr(fname)) return x86_alpha() + reg + x86_pair_loop() + seals;
@@ -547,7 +558,7 @@ static std::string bb_define_sr() {
         std::string la = std::string(fn4) + "_\xce\xb1", lb = std::string(fn4) + "_\xce\xb3", lo = std::string(fn4) + "_\xcf\x89";
         std::string blb = inl5 ? std::string(en4) : (std::string("LBL__") + en4);
         const struct bb_label_t * lbl_b = emit_label_intern(lb.c_str()); const struct bb_label_t * lbl_o = emit_label_intern(lo.c_str());
-        uint64_t body_cell = (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("body$") + en4).c_str());
+        uint64_t body_cell = (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((_.op_seal ? (std::string("fnbody$") + fn4) : (std::string("body$") + en4)).c_str());
         std::string bcell = std::string("body_cell$") + std::string(bb_ab_sym_name(fn4));
         auto SCALE16 = [&]() { return x86("mov", "rax", "rcx") + x86("add", "rax", "rax") + x86("add", "rax", "rax") + x86("add", "rax", "rax") + x86("add", "rax", "rax"); };
         auto RESTORE4 = [&](int lid) {

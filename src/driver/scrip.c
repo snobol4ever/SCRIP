@@ -454,6 +454,24 @@ static void m3_seal_entry_cells(const char *pname, void *fnbase, int alpha_face)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sn4_module_init_bottom(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_MODULE_INIT"); v = (e && *e == '0') ? 0 : 1; } return v; }
 static int sn4_m4_alpha_seal(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_M4_ALPHA_SEAL"); v = (e && *e == '0') ? 0 : 1; } return v; }
+static int sn4_define_bind_count(const IR_graph_t *g, const char *name) { int n = 0; if (!g || !name) return 0; for (int i = 0; i < g->n; i++) { const IR_t *c = g->all[i]; if (ir_define_is_bind(c) && IR_LIT(c).sval && !strcmp(IR_LIT(c).sval, name)) n++; } return n; }
+static int sn4_define_bind_is_first(const IR_graph_t *g, int i) { const IR_t *c = g->all[i]; for (int j = 0; j < i; j++) { const IR_t *p = g->all[j]; if (ir_define_is_bind(p) && IR_LIT(p).sval && !strcmp(IR_LIT(p).sval, IR_LIT(c).sval)) return 0; } return 1; }
+static void sn4_mark_multibind(IR_graph_t *bbg, stage2_t *s2) {
+    if (!bbg || !s2) return;
+    for (int i = 0; i < bbg->n; i++) { IR_t *c = bbg->all[i]; if (!ir_define_is_bind(c) || !IR_LIT(c).sval || !sn4_define_bind_is_first(bbg, i)) continue; const char *nm = IR_LIT(c).sval;
+        if (sn4_define_bind_count(bbg, nm) < 2) continue;
+        for (int q = 0; q < s2->proc_count; q++) { ProcEntry *pr = &s2->proc_table[q]; if (!pr->name || strcmp(pr->name, nm)) continue;
+            IR_graph_t *pg = (pr->bb_idx >= 0 && pr->bb_idx < s2->bbp.count) ? s2->bbp.table[pr->bb_idx] : bbg;
+            IR_t *sn = bb_proc_entry(pr); int sg = 0; while (sn && (sn->op == IR_SUCCEED || sn->op == IR_FAIL || sn->op == IR_GOTO) && sn->γ.node && sg++ < 64) sn = sn->γ.node;
+            for (int w = 0; sn && w < 4; w++) {
+                if (sn->op == IR_GOTO_DEFERRED && sn->seal == 1 && sn->n_operands == 0) { IR_t *e = IR_node_alloc(pg, IR_LIT_NAME); IR_LIT(e).sval = strdup(nm); ir_operand_push(sn, e); }
+                else if (sn->op == IR_DEFINE && ir_define_sr_citizen(sn) && IR_LIT(sn).ival == 4 && sn->n_operands == 2) { IR_t *e = IR_node_alloc(pg, IR_LIT_NAME); IR_LIT(e).sval = strdup(nm); ir_operand_push(sn, e); }
+                sn = sn->γ.node; }
+            break; } } }
+static void sn4_seal_fnbody_cells(IR_graph_t *bbg) {
+    extern void bb_ab_seal_fnbody(const char *, const char *);
+    if (!bbg) return;
+    for (int i = 0; i < bbg->n; i++) { IR_t *c = bbg->all[i]; const char *en = ir_define_bind_entry(c); if (!en || !IR_LIT(c).sval || !sn4_define_bind_is_first(bbg, i)) continue; if (sn4_define_bind_count(bbg, IR_LIT(c).sval) < 2) continue; bb_ab_seal_fnbody(IR_LIT(c).sval, en); } }
 static int sn4_define_lbl_alias(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_DEFINE_LBL_ALIAS"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int *proc_nparams_buf, int *proc_pidx_buf, int *proc_fb_buf, int *proc_ispat_buf, int *proc_zstatic_buf, int n_procs, int n_cls_emit, int n_gram_emit, int is_raku, const char *mi_name) {
@@ -1300,6 +1318,7 @@ int main(int argc, char **argv)
                 return 1;
             }
             IR_graph_t * bbg = s2->bbp.table[main_bb_idx];
+            sn4_mark_multibind(bbg, s2);
             extern bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
             g_medium = BB_MEDIUM_TEXT; FILE * _out = stdout; if (output_path) { _out = fopen(output_path, "w"); if (!_out) { perror(output_path); return 1; } } emit_set_sink(_out);
             emit_textf("  .intel_syntax noprefix\n");
@@ -1428,6 +1447,10 @@ int main(int argc, char **argv)
                   if (_bd > 0 && bbg->n_dentry == 0) { bbg->dentry_node = (IR_t **)calloc((size_t)_bd, sizeof(IR_t *)); bbg->dentry_entry = (IR_t **)calloc((size_t)_bd, sizeof(IR_t *)); bbg->dentry_name = (const char **)calloc((size_t)_bd, sizeof(char *));
                       if (bbg->dentry_node && bbg->dentry_entry && bbg->dentry_name) for (int _s = 0; _s < bbg->n; _s++) { IR_t *_c = bbg->all[_s]; if (!ir_define_is_bind(_c) || !IR_LIT(_c).sval) continue;
                           if (bbg->n_dentry >= _bd) break;
+                          { const char *_oe = (const char *)0; for (int _k = 0; _k < _c->n_operands; _k++) { IR_t *_ok = _c->operands[_k]; if (_ok && _ok->op == IR_LIT_NAME && IR_LIT(_ok).sval && IR_LIT(_ok).sval[0]) { _oe = IR_LIT(_ok).sval; break; } }
+                            IR_t *_on = (IR_t *)0; if (_oe) for (int _w = 0; _w < s2->proc_count; _w++) { ProcEntry *_lr = &s2->proc_table[_w]; if (!_lr->name || strncmp(_lr->name, "LBL__", 5) != 0 || strcmp(_lr->name + 5, _oe) || !_lr->proc_entry_node) continue;
+                                _on = _lr->proc_entry_node; int _og = 0; while (_on && (_on->op == IR_SUCCEED || _on->op == IR_FAIL || _on->op == IR_GOTO) && _on->γ.node && _og++ < 65536) _on = _on->γ.node; break; }
+                            if (_on) { bbg->dentry_node[bbg->n_dentry] = _c; bbg->dentry_entry[bbg->n_dentry] = _on; bbg->dentry_name[bbg->n_dentry] = (const char *)0; bbg->n_dentry++; continue; } }
                           for (int _q = 0; _q < s2->proc_count; _q++) { ProcEntry *_pr = &s2->proc_table[_q]; if (!_pr->name || strcmp(_pr->name, IR_LIT(_c).sval)) continue;
                               IR_t *_sn = bb_proc_entry(_pr); if (!_sn) continue; int _sg = 0; while (_sn && (_sn->op == IR_SUCCEED || _sn->op == IR_FAIL || _sn->op == IR_GOTO) && _sn->γ.node && _sg++ < 64) _sn = _sn->γ.node;
                               IR_t *_gd = (_sn && _sn->op == IR_DEFINE && ir_define_sr_citizen(_sn)) ? _sn->γ.node : _sn; if (!_gd) break;
@@ -1676,6 +1699,7 @@ int main(int argc, char **argv)
             extern int g_m4_dense_nid; extern void g_bb_alpha_seq_reset(); extern int x86_diag_regs_on_c(void);
             if (x86_diag_regs_on_c()) { g_m4_dense_nid = 1; g_bb_alpha_seq_reset(); }
             int main_bb_idx = polyglot_main_bb_idx(s2);
+            if (main_bb_idx >= 0 && main_bb_idx < s2->bbp.count && s2->bbp.table[main_bb_idx]) sn4_mark_multibind(s2->bbp.table[main_bb_idx], s2);
             rt_proc_reset();
             g_frame_active = 1;
             void *m3_gva_arena = (void *)0;
@@ -1793,7 +1817,8 @@ int main(int argc, char **argv)
                 char _ab[300]; snprintf(_ab, sizeof _ab, "LBL__%s", asm_sym_name(_ln + 5)); int _off = emit_label_lookup_offset(_ab);
                 if (_off < 0) { static int _lw = -1; if (_lw < 0) { const char * e = getenv("SCRIP_M3_UNIFY_DIAG"); _lw = (e && *e == '1') ? 1 : 0; } if (_lw) fprintf(stderr, "[M3-UNIFY] %s: body label %s not defined in main chain\n", _ln, _ab); continue; }
                 rt_proc_set_fn(_ln, (bb_box_fn)((char *)fn + _off)); if (_mfb > 0) rt_proc_set_frame_bytes(_ln, _mfb);
-                m3_seal_entry_cells(_ln + 5, (void *)fn, 0); } }
+                m3_seal_entry_cells(_ln + 5, (void *)fn, 0); }
+              sn4_seal_fnbody_cells(bbg); }
             { extern int g_flat_outer_nparams; g_flat_outer_nparams = 0; }
             g_frame_active = 0;
             if (!fn) {

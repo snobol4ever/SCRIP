@@ -23,6 +23,7 @@ SCRIP_BIN="${SCRIP_BIN:-$ROOT/scrip}"
 SBL="${SBL:-/home/resources/x64/bin/sbl}"
 [ -x "$SCRIP_BIN" ] || { echo "⛔ REFUSE(2): no scrip binary at $SCRIP_BIN -- cannot measure"; exit 2; }
 [ -x "$SBL" ]       || { echo "⛔ REFUSE(2): no SPITBOL oracle at $SBL -- cannot measure"; exit 2; }
+"$HERE/util_require_fresh.sh" --gate test_gate_define_alternate_entry "$SCRIP_BIN" "$ROOT/out/libscrip_rt.so" >/dev/null 2>&1 || { echo "⛔ REFUSE(2): this tree's binary is stale or unbuilt -- run make"; exit 2; }
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 # Three DEFINEs of ONE name with alternating entry labels.  Tabs are significant in SNOBOL4 source.
 cat > "$T/alt3.sno" <<'SNO'

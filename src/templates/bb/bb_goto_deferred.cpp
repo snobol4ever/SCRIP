@@ -35,6 +35,14 @@ std::string bb_goto_deferred() {
     { static int _df = -1; if (_df < 0)
         { const char * e = getenv("SCRIP_DEFINE_FOLD"); _df = (e && *e == '0') ? 0 : 1; }
     if (_df && _.op_ival == 1 && _.op_sval && _.op_sval[0] && _.op_sval[0] != '$') {
+        if (MEDIUM_BINARY && _.lbl_t0 && _.lbl_t0[0])
+            return x86("comment", "IR_GOTO_DEFERRED (DEFINE-FOLD through fnbody$<FN>: a name bound more than once reads the binding in force)")
+                 + x86_alpha()
+                 + bb_goto_deferred_frame_release()
+                 + x86("movabs", "rax", (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("fnbody$") + _.lbl_t0).c_str()))
+                 + x86("mov", "rax", "[rax + 0]")
+                 + x86("jmp", "rax")
+                 + x86_gamma();
         return x86("comment", "IR_GOTO_DEFERRED (DEFINE-FOLD s55 ONE-SHOT: jmp body alpha, no chain, no reserve)")
              + x86_alpha()
              + bb_goto_deferred_frame_release()
