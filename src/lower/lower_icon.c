@@ -859,8 +859,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         const tree_t * lt = (t->n > 0) ? t->c[0] : NULL; const tree_t * rt2 = (t->n > 1) ? t->c[1] : NULL;
         if (icn_tree_is_literal(lt)) return lower_runerr_111(cx, rt2, lt, γ, ω, res);
         if (icn_tree_is_literal(rt2)) return lower_runerr_111(cx, lt, rt2, γ, ω, res);
-        int plain_l = lt && lt->t == TT_VAR && lt->v.sval && lt->v.sval[0] != '&';
-        int plain_r = rt2 && rt2->t == TT_VAR && rt2->v.sval && rt2->v.sval[0] != '&';
+        int plain_l = lt && lt->t == TT_VAR && lt->v.sval && lt->v.sval[0] != '&' && icn_is_local(cx, lt->v.sval);
+        int plain_r = rt2 && rt2->t == TT_VAR && rt2->v.sval && rt2->v.sval[0] != '&' && icn_is_local(cx, rt2->v.sval);
         int kw_l = lt && (lt->t == TT_VAR || lt->t == TT_KEYWORD) && lt->v.sval && lt->v.sval[0] == '&';
         int kw_r = rt2 && (rt2->t == TT_VAR || rt2->t == TT_KEYWORD) && rt2->v.sval && rt2->v.sval[0] == '&';
         if (kw_l && kw_r) {
