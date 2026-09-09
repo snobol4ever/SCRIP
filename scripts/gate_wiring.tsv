@@ -68,6 +68,7 @@ test_gate_icn_if_without_else_invocable_arity_and_string_continuation.sh	WIRED	-
 test_gate_icn_no_stack.sh	WIRED	-	-	-
 test_gate_icn_one_reg_frame.sh	WIRED	-	-	-
 test_gate_icn_scan_argtype.sh	WIRED	-	-	-
+test_gate_icn_seq_null_argument_defaults.sh	WIRED	-	-	-
 test_gate_icn_string_invoked_to_by_is_a_generator.sh	WIRED	-	-	-
 test_gate_icn_tag_single_source.sh	WIRED	-	-	-
 test_gate_icon_features_and_preprocessor_symbols_agree.sh	WIRED	-	-	-
@@ -155,6 +156,7 @@ test_gate_sno_byname_goto_zeta_unwind_in_a_loop.sh	WIRED	-	-	-
 test_gate_sno_captured_substring_compares_by_its_own_length.sh	WIRED	-	-	-
 test_gate_sno_deferred_capture_keeps_the_name_save_stack_balanced.sh	WIRED	-	-	-
 test_gate_sno_deferred_goto_from_match_inside_define.sh	WIRED	-	-	-
+test_gate_sno_deferred_pattern_primitive_arg.sh	WIRED	-	-	-
 test_gate_sno_deferred_replacement_keeps_its_capture_mark.sh	WIRED	-	-	-
 test_gate_sno_dump_matches_spitbol.sh	WIRED	-	-	-
 test_gate_sno_fence_body_dynamic_operand.sh	WIRED	-	-	-

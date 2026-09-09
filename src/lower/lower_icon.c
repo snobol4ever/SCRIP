@@ -1160,12 +1160,16 @@ static int icn_const_step(const tree_t * s, int64_t * bits, int * isr) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_arg_is_null(const tree_t * a) { return a && (a->t == TT_VAR || a->t == TT_KEYWORD) && a->v.sval && (!strcmp(a->v.sval, "&null") || !strcmp(a->v.sval, "null")); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_seq(icx_t * cx, const tree_t * t, int argbase, int nargs, IR_t * γ, IR_t * ω, IR_t ** res) {
     int64_t by = 1; const tree_t * byt = (nargs > 1) ? t->c[argbase + 1] : NULL;
+    if (icn_arg_is_null(byt)) byt = NULL;
     if (byt) { int64_t bb = 1; int isr = 0; if (!icn_const_step(byt, &bb, &isr) || isr) return NULL; by = bb; }
     int use_by = (by != 1);
     IR_t * to = build(cx, use_by ? IR_TO_BY : IR_TO, γ, ω); IR_LIT(to).sval = (char *) "ag"; cx->last_gen = to;
     const tree_t * fromt = (nargs > 0) ? t->c[argbase] : NULL; IR_t * lr; IR_t * ea; IR_t * lβ;
+    if (icn_arg_is_null(fromt)) fromt = NULL;
     if (fromt) { ea = lower(cx, fromt, NULL, ω, &lr); lβ = cx->beta; } else { lr = build(cx, IR_LIT_INTEGER, NULL, ω); IR_LIT(lr).ival = 1; ea = lr; lβ = ω; }
     IR_t * mr = build(cx, IR_LIT_INTEGER, to, lβ); IR_LIT(mr).ival = (by > 0) ? INT64_MAX : INT64_MIN; γ_to(lr, mr);
     if (use_by) {
