@@ -4842,6 +4842,12 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     const size_t _fnlen = (bidlen >= 0) ? (size_t)((unsigned)bidlen >> 16) : strlen(fn);
     const int _bid = (bidlen >= 0) ? (int)(bidlen & 0xFFFF) : bid_of(fn, (unsigned)_fnlen);
     { extern long g_bidprof[1024]; extern int g_bidprof_on; extern void bidprof_init(void); if (g_bidprof_on < 0) bidprof_init(); if (g_bidprof_on && _bid >= 0 && _bid < 1024) g_bidprof[_bid]++; }
+    { extern int rt_g_want_name;
+      if (rt_g_want_name && nargs == 1 && args[0].v >= DT_DATA) {
+          extern const char *FUNC_ENTRY_fn(const char *); extern int rt_dat_field_of_any(const char *);
+          extern DESCR_t rt_field_var(const char *field, DESCR_t obj);
+          const char *_fe = FUNC_ENTRY_fn(fn); if (!_fe) _fe = fn;
+          if (rt_dat_field_of_any(_fe)) { rt_g_want_name = 0; *out = rt_field_var(_fe, args[0]); return 1; } } }
     dtax_ent_t *_dx = 0; int _dx_hit = 0; int _dx_skip_ctor = 0; int _dx_skip_syn = 0; unsigned _dxh = 5381u; unsigned char _dxl = 0; int _dx_bid_path = 0;
     if (!dtax_off()) { if (_bid > 0 && _bid <= 1024 && _fnlen && _fnlen < 14) { _dxl = (unsigned char)_fnlen; _dx = &g_dtax_bid[_bid]; _dx_bid_path = 1; } else { const char *_q = fn; while (*_q && _dxl < 14) { _dxh = _dxh * 131u + (unsigned char)*_q; _q++; _dxl++; } if (!(!*_q && _dxl)) _dxl = 0; else _dx = &g_dtax[_dxh & 255u]; }
       if (_dx) {
