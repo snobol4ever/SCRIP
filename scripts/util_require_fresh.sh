@@ -17,7 +17,18 @@
 # file is the answer to that pressure: Python shells out to the SAME function every bash caller runs.
 #
 # USAGE (all callers, any language):
-#     util_require_fresh.sh [--gate <name>] [<artifact> ...]
+#     util_require_fresh.sh [--gate <name>] [--no-behaviour] [<artifact> ...]
+# ⛔⭐ THE BUILD-BEHAVIOUR PROBE (gate_require_built_from) RUNS BY DEFAULT, AFTER the mtime check. IT IS A SECOND
+# QUESTION, NOT A STRONGER VERSION OF THE FIRST: the mtime check proves the binary is NEWER THAN the sources, the
+# probe proves the emitted code HAS NOT MOVED under a tree that has not moved. hq_P's 2026-09-09 build PASSED the
+# first and FAILS the second (FINDING-2026-09-09-hq_P: three builds on one commit, two different compilers, two
+# SCORE rows published from the bad one). ⭐ DEFAULT-ON HERE RATHER THAN AT 144 CALL SITES because this shim is the
+# one choke point every runner already goes through -- and because the class it catches is invisible to the caller
+# by construction, so a probe you must remember to ask for is a probe that is off exactly when it is needed.
+# MEASURED BEFORE DEFAULTING IT ON, and this is the load-bearing measurement: emission is a PURE FUNCTION OF THE
+# TREE -- a 155-object rebuild of an unchanged tree reproduced the signature byte for byte, so a green tree cannot
+# be turned red by rebuilding it. MEASURED COST +0.21s on an 0.87s preflight (1.07-1.10 vs 0.85-0.89, three runs each). --no-behaviour opts out; SCRIP_ALLOW_STALE=1 overrides
+# it loudly and stops SCORE.md being written, the same declared-override the stale check already uses.
 # With no artifacts it checks the two the whole fleet grades: $SCRIP (default <root>/scrip) and
 # $RT_DIR/libscrip_rt.so (default <root>/out) -- the .so because a stale runtime is the FALSE-GREEN half
 # of this class (row stale-binary-preflight-also-covers-out-libscrip-rt-so, DONE): a 13:37 .so against a
@@ -42,13 +53,16 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 _gate=""
+_behaviour=1
 while [ $# -gt 0 ]; do
     case "$1" in
         --gate) shift; _gate="${1:-}";;
         --gate=*) _gate="${1#--gate=}";;
+        --behaviour|--behavior) _behaviour=1;;
+        --no-behaviour|--no-behavior) _behaviour=0;;
         --) shift; break;;
         -*) echo "⛔ REFUSED-TO-GRADE rc=2: unknown flag '$1'" >&2
-            echo "   implemented flags: --gate <name>" >&2; exit 2;;
+            echo "   implemented flags: --gate <name> | --behaviour | --no-behaviour" >&2; exit 2;;
         *) break;;
     esac; shift
 done
@@ -65,3 +79,8 @@ for _a in "${ARTS[@]}"; do
     exit 2
 done
 gate_require_fresh "$ROOT" src "${ARTS[@]}"
+# ⛔ REACHED ONLY WHEN THE MTIME CHECK PASSED -- gate_require_fresh exits 2 itself on stale, so this is the
+# "and it is also the binary this tree describes" half, never a substitute for it.
+if [ "$_behaviour" = 1 ]; then
+    gate_require_built_from "$ROOT" "${SCRIP:-$ROOT/scrip}" || exit 2
+fi

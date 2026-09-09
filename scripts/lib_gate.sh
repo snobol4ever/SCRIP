@@ -171,6 +171,115 @@ gate_require_fresh() {
         exit 2
     fi
 }
+# gate_tree_signature <repo-root> -- md5 of the CONTENT of every file under src/ plus the Makefile, in a stable
+# order. Content, never mtime: the whole point of this pair of functions is that mtime is the instrument that
+# failed. Untracked files are INCLUDED deliberately -- an uncommitted new .cpp is compiled into the build like
+# any other, so a signature that only saw `git ls-files` would call a tree "the same tree" across an edit that
+# changed the compiler. ~16ms MEASURED over 411 files.
+gate_tree_signature() {
+    local _root="$1"
+    { find "$_root/src" -type f -print0 2>/dev/null | LC_ALL=C sort -z | xargs -0 md5sum 2>/dev/null; md5sum "$_root/Makefile" 2>/dev/null; } | md5sum | cut -c1-32
+}
+# gate_behaviour_signature <repo-root> <scrip-binary> -- md5 of the .s this binary EMITS for the pinned witnesses in
+# scripts/fixtures/build_behaviour/. Prints the signature on stdout; returns 1 and prints nothing if it could not
+# compile every witness (the caller turns that into rc=2 -- "I could not establish what you are about to grade").
+# ~0.10s MEASURED for all three witnesses. Emission is deterministic TWICE OVER, and the second is the load-bearing one:
+# two runs on ONE binary are byte-identical, AND a 155-object rebuild of an UNCHANGED tree reproduces the signature
+# exactly -- so emission is a pure function of the tree, and a green tree cannot be turned red merely by rebuilding it.
+gate_behaviour_signature() {
+    local _root="$1" _bin="$2" _tmp _w _rc=0 _n=0
+    [ -x "$_bin" ] || return 1
+    _tmp="$(mktemp -d 2>/dev/null)" || return 1
+    for _w in "$_root"/scripts/fixtures/build_behaviour/*.icn "$_root"/scripts/fixtures/build_behaviour/*.sno "$_root"/scripts/fixtures/build_behaviour/*.pl; do
+        [ -f "$_w" ] || continue
+        _n=$((_n+1))
+        "$_bin" --compile -o "$_tmp/$(basename "$_w").s" "$_w" </dev/null >/dev/null 2>&1 || _rc=1
+        [ -s "$_tmp/$(basename "$_w").s" ] || _rc=1
+    done
+    if [ "$_n" = 0 ] || [ "$_rc" != 0 ]; then rm -rf "$_tmp"; return 1; fi
+    ( cd "$_tmp" && LC_ALL=C ls *.s | LC_ALL=C sort | xargs cat ) | md5sum | cut -c1-32
+    rm -rf "$_tmp"
+}
+# gate_require_built_from <repo-root> [<scrip-binary>] -- ⛔⭐ THE BEHAVIOUR PROBE. THE GUARD ABOVE PROVES THE BINARY
+# IS NEWER THAN THE SOURCES; IT CANNOT PROVE THE BINARY WAS BUILT FROM THEM, AND THOSE ARE DIFFERENT CLAIMS.
+#
+# THE DEFECT THIS EXISTS TO KILL (FINDING-2026-09-09-hq_P-a-completed-make-produced-a-binary-that-did-not-match-its-
+# own-templates.md): a full `make` reported "Built: scrip" after compiling 198 objects and handed back a compiler that
+# emitted code its own template sources do not describe -- three builds on one commit produced two different compilers.
+# Every freshness check on the box PASSED throughout, and the only thing that exposed it was an unrelated source edit.
+# Two SCORE rows were published from it.
+#
+# ⛔⭐ WHY THE MTIME GUARD CANNOT SEE THIS, WHICH IS STRUCTURAL AND NOT A BUG IN IT: the two artifacts it stamps are
+# touched by the ACT OF RUNNING make, not by the build being right. `scrip`'s only prerequisite is the PHONY target
+# `libscrip_rt`, so it is relinked on EVERY make; `out/libscrip_rt.so` carries a FORCE prerequisite, so its symlink is
+# re-pointed on EVERY make; and $(RT_SO) itself relinks whenever ANY ONE of 269 objects changed. So a single stale
+# object among 269 leaves all three artifacts newer than every source in the tree. The mtime guard is satisfied by
+# make having RUN. It is structurally incapable of failing after a make that compiled anything at all.
+#
+# ⭐ WHAT THIS PROVES, STATED HONESTLY: it is a SELF-PIN, in exactly the sense CEO-395 draws for master refs and the
+# port-trace standard draws for its two shapes. It proves the emitted code HAS NOT MOVED under a tree that HAS NOT
+# MOVED. It proves nothing whatever about whether that code is RIGHT -- the oracle diffs do that. That narrow claim is
+# the one the FINDING needed and could not get: hq_P's three builds sat on ONE commit, so the tree signature was
+# constant across all three while the behaviour signature was not, and this fires on precisely that.
+#
+# THE LEDGER is out/build_behaviour.sig (gitignored, per-checkout, one line per observation:
+# <tree-sig> <behaviour-sig> <so-md5> <iso8601> <seat>). A tree seen for the first time is RECORDED and passes -- there
+# is no prior observation to contradict, and a probe that refused on first sight would refuse on every fresh clone.
+# EXIT: 0 consistent (or first observation) - 2 REFUSED (the binary moved under a static tree, or a witness would not
+# compile). ⛔ NEVER 1, for the same reason gate_require_fresh never returns 1.
+gate_require_built_from() {
+    local _root="$1" _bin="${2:-$1/scrip}" _led _ts _bs _so _prev _prevso _now
+    _led="$_root/out/build_behaviour.sig"
+    if [ ! -x "$_bin" ]; then
+        echo "GATE UNPROVEN(2) [${GATE_NAME:-gate}]: ⛔ REFUSES rc=2: no binary at $_bin -- cannot probe what a build emits when nothing was built"
+        gate_stamp; return 2
+    fi
+    _ts="$(gate_tree_signature "$_root")"
+    if ! _bs="$(gate_behaviour_signature "$_root" "$_bin")" || [ -z "$_bs" ]; then
+        echo "GATE UNPROVEN(2) [${GATE_NAME:-gate}]: ⛔ REFUSES rc=2: $_bin could not --compile the pinned build-behaviour witnesses"
+        echo "    witnesses: $_root/scripts/fixtures/build_behaviour/  -- a compiler that cannot emit for these cannot be probed, and a probe that cannot measure never prints a pass"
+        gate_stamp; return 2
+    fi
+    _so="$(md5sum "$_root/out/libscrip_rt.so" 2>/dev/null | cut -c1-12)"; _so="${_so:-none}"
+    # ⛔ A LEDGER THAT CANNOT BE READ RECORDS, IT NEVER REFUSES. This probe rides the preflight every runner calls, so a
+    # corrupt or unreadable out/build_behaviour.sig must not be able to red the whole fleet for a reason that has nothing
+    # to do with the class -- awk failing here yields an empty _prev, which is the first-observation path.
+    _prev="$(awk -v t="$_ts" '$1==t {print $2; exit}' "$_led" 2>/dev/null)"
+    if [ -n "$_prev" ] && [ "$_prev" != "$_bs" ] && [ "${SCRIP_ALLOW_STALE:-}" = 1 ]; then
+        # ⭐ THE DECLARED OVERRIDE IS THE ONE THAT ALREADY EXISTS, NOT A SECOND KNOB. SCRIP_ALLOW_STALE already means "I
+        # know this binary is not the one this tree describes, grade it anyway", and gate_score_row already refuses to
+        # write THE ONE LEADERBOARD for the rest of such a run -- which is exactly the protection a moved build needs.
+        # Minting SCRIP_ALLOW_MOVED_BUILD beside it would be a second name for one decision, and the second name is how
+        # an operator silences the half they meant to keep.
+        _msg="⚠️⚠️ MOVED-BUILD OVERRIDE [${GATE_NAME:-gate}]: SCRIP_ALLOW_STALE=1 -- this binary emits different code than an earlier build of the SAME tree ($_ts: $_prev then, $_bs now). Quote this verdict WITH this line; SCORE.md will NOT be written from this run."
+        echo "$_msg"; echo "$_msg" >&2
+        gate_stamp
+        return 0
+    fi
+    if [ -n "$_prev" ] && [ "$_prev" != "$_bs" ]; then
+        _prevso="$(awk -v t="$_ts" '$1==t {print $3" "$4" "$5; exit}' "$_led" 2>/dev/null)"
+        echo "GATE UNPROVEN(2) [${GATE_NAME:-gate}]: ⛔ REFUSES rc=2: THE BINARY MOVED UNDER A TREE THAT DID NOT -- this build was not built from this tree"
+        echo "    tree signature   $_ts   (unchanged: the same src/ and Makefile CONTENT as the earlier observation)"
+        echo "    behaviour now    $_bs   libscrip_rt.so md5 $_so"
+        echo "    behaviour before $_prev   (so-md5 / when / by: $_prevso)"
+        echo "    ⛔ One of these two builds did not come from this tree. Do NOT diagnose a source defect and do NOT publish a"
+        echo "       board from this binary -- see FINDING-2026-09-09-hq_P: a full diagnosis cycle was spent rediscovering a"
+        echo "       defect that was already cured in the checked-out tree, and two SCORE rows were published from the bad build."
+        echo "    cure: cd $_root && make pristine   (then re-run; the previous .so is kept under out/attic/ for a byte diff)"
+        gate_stamp; return 2
+    fi
+    mkdir -p "$_root/out" 2>/dev/null
+    _now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ -z "$_prev" ]; then
+        printf '%s %s %s %s %s\n' "$_ts" "$_bs" "$_so" "$_now" "${S4E_SEAT:-unknown}" >> "$_led"
+        # bounded, and pruned HERE rather than by a cron nobody runs (THE PACE RULES). One line per distinct tree.
+        if [ "$(wc -l < "$_led" 2>/dev/null || echo 0)" -gt 400 ] 2>/dev/null; then tail -n 200 "$_led" > "$_led.t" 2>/dev/null && mv -f "$_led.t" "$_led" 2>/dev/null; fi
+        echo "build-behaviour probe [${GATE_NAME:-gate}]: RECORDED tree $_ts -> behaviour $_bs (so $_so) -- first observation of this tree, nothing to contradict"
+    else
+        echo "build-behaviour probe [${GATE_NAME:-gate}]: consistent -- tree $_ts -> behaviour $_bs (so $_so)"
+    fi
+    return 0
+}
 # gate_bin_watch <artifact>... / gate_bin_unmoved -- THE BINARY MOVED UNDER THIS BOARD class.
 # ⛔⭐ HOISTED FROM test_corpus_snobol4.sh (hq_S 2026-09-06, who measured it and asked for it to live here
 # rather than in seven copies). THE MEASURED CASE: hq_S started an 1854-entry board and then ran an
