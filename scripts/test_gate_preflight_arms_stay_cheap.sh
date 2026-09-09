@@ -9,7 +9,7 @@
 set -u
 GATE_NAME=test_gate_preflight_arms_stay_cheap
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT="${S4E_HOME:-$(cd "$HERE/.." && pwd)}"
+ROOT="$(cd "$HERE/.." && pwd)"
 . "$HERE/lib_gate.sh"
 LIST="$HERE/preflight_arms.txt"
 BUDGET_S=${PREFLIGHT_ARM_BUDGET_S:-5}
