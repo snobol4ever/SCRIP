@@ -4721,8 +4721,10 @@ static long rt_record_image_id(void *inst)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bn_sno_name(DESCR_t *args, int nargs, DESCR_t *out)
 {
-    const char *sv = rt_sno_indirect_name(args[0]);
+    const char *sv;
     (void)nargs;
+    if (IS_VARREF_fn(args[0])) { *out = args[0]; return 1; }
+    sv = rt_sno_indirect_name(args[0]);
     if (!sv || !*sv) { *out = FAILDESCR; return 1; }
     { DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_N; d.slen = 0; d.s = rt_ws_strdup(sv); *out = d; return 1; }
 }
