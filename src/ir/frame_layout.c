@@ -842,8 +842,9 @@ int fc_tail_defer_susp_g(IR_graph_t * g, const IR_t * nd) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fl_derive_tier(IR_graph_t * g) {
     if (!g || !g->all) return;
-    int window = 0, callee = 0, statements = 0, resumed = 0;
+    int window = 0, callee = 0, statements = 0, resumed = 0, matchers = 0, others = 0;
     for (int i = 0; i < g->n; i++) { const IR_t * c = g->all[i]; if (!c) continue;
+        { int o = (int)c->op; if (o >= IR_MATCH && o <= IR_MATCH_VALUE) matchers++; else if (o != IR_SUCCEED && o != IR_FAIL && o != IR_GOTO && o != IR_LIT_STRING && o != IR_LIT_INTEGER && o != IR_LIT_REAL && o != IR_LIT_CHARSET && o != IR_LIT_NAME) others++; }
         switch ((int)c->op) {
             case IR_STATEMENT: case IR_STATEMENT_BEGIN: case IR_STATEMENT_END: case IR_STMT_MARK: case IR_DEFINE: case IR_GOTO_DEFERRED: case IR_CALL_SNOBOL4: case IR_KW_SNOBOL4: case IR_KW_ASSIGN_SNOBOL4: case IR_DTP_ASSIGN: statements = 1; break;
             case IR_MATCH_BEGIN: case IR_MATCH_END: case IR_MATCH_LIT: case IR_MATCH_LEN: case IR_MATCH_ANY: case IR_MATCH_NOTANY: case IR_MATCH_SPAN: case IR_MATCH_BREAK: case IR_MATCH_BREAKX: case IR_MATCH_TAB: case IR_MATCH_RTAB: case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_REM: case IR_MATCH_ARB: case IR_MATCH_BAL: case IR_MATCH_ATP: case IR_MATCH_LAMBDA: case IR_MATCH_RETRY: case IR_MATCH_REPLACE: case IR_MATCH_ASSIGN_COND: case IR_MATCH_ASSIGN_IMM: case IR_MATCH_ASSIGN_SAVE: case IR_MATCH_SPAN_VAR: statements = 1; break;
@@ -855,7 +856,7 @@ void fl_derive_tier(IR_graph_t * g) {
             case IR_MATCH_FENCE1: case IR_MATCH_FENCE0: case IR_MATCH_ABORT: case IR_MATCH_ARBNO: case IR_MATCH_CALLOUT: case IR_MATCH_VALUE: case IR_MATCH_DEFER: case IR_MATCH_ALTERNATE: window = 1; break;
             case IR_CALL: case IR_CALL_ICON: case IR_CALL_PROC_STAGED: case IR_CALL_BUILTIN: case IR_INDIRECT_GOTO: case IR_MATCH: callee = 1; break;
             default: break; } }
-    if (statements) return;
+    if (statements || (matchers > 0 && others == 0)) return;
     if (g->root_graph) { g->zframe_graph = 1; g->zframe_pinned_base = 1; return; }
     int host = (window || callee) ? 1 : 0;
     if (g->icn_cells_graph) { g->zframe_pinned_base = host; return; }
