@@ -8,6 +8,7 @@ FILE *fh_table[FH_MAX];
 char *fh_name[FH_MAX];
 char  fh_mode[FH_MAX];
 char  fh_type[FH_MAX];
+char  fh_untrans[FH_MAX];
 int   fh_init = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fh_ensure_init(void) {
@@ -16,15 +17,18 @@ void fh_ensure_init(void) {
     memset(fh_name,0,sizeof fh_name);
     memset(fh_mode,0,sizeof fh_mode);
     memset(fh_type,0,sizeof fh_type);
+    memset(fh_untrans,0,sizeof fh_untrans);
     fh_table[0]=stdin; fh_table[1]=stdout; fh_table[2]=stderr;
     fh_name[0]="&input"; fh_name[1]="&output"; fh_name[2]="&errout";
     fh_mode[0]='r'; fh_mode[1]='w'; fh_mode[2]='w'; fh_type[0]='t'; fh_type[1]='t'; fh_type[2]='t';
     fh_init=1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int fh_is_untranslated(int idx){ fh_ensure_init(); return (idx>=0 && idx<FH_MAX) ? fh_untrans[idx] : 0; }
+void fh_set_untranslated(int idx, int v){ fh_ensure_init(); if(idx>=0 && idx<FH_MAX) fh_untrans[idx]=(char)(v?1:0); }
 int fh_alloc(FILE *fp) {
     fh_ensure_init();
-    for(int i=3;i<FH_MAX;i++) if(!fh_table[i]){fh_table[i]=fp;fh_name[i]=NULL;fh_mode[i]=0;fh_type[i]='t';return i;}
+    for(int i=3;i<FH_MAX;i++) if(!fh_table[i]){fh_table[i]=fp;fh_name[i]=NULL;fh_mode[i]=0;fh_type[i]='t';fh_untrans[i]=0;return i;}
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

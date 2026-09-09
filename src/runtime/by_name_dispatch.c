@@ -14,6 +14,11 @@ static int icn_open_spec_is_icon(const char *spec) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_open_untranslated(const char *spec) {
+    int un = 0;
+    for (const char *p = spec; p && *p; p++) { if (*p == 'u' || *p == 'U') un = 1; else if (*p == 't' || *p == 'T') un = 0; }
+    return un;
+}
 static void icn_open_cmode(const char *spec, char *out, int *is_pipe) {
     int rd = 0, wr = 0, ap = 0, cr = 0, un = 0, pi = 0, n = 0;
     for (const char *p = spec; p && *p; p++) switch (*p) {
@@ -3361,6 +3366,8 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         int idx = fh_alloc(fp);
         if (idx < 0) { if (is_pipe) pclose(fp); else fclose(fp); *out = FAILDESCR; return 1; }
         if (is_pipe) fh_type[idx] = 'p';
+        { extern void fh_set_untranslated(int, int); const char *_us = (nargs == 2 && (args[1].v == DT_S || args[1].v == DT_SNUL)) ? VARVAL_fn(args[1]) : NULL;
+          fh_set_untranslated(idx, (_us && icn_open_spec_is_icon(_us)) ? icn_open_untranslated(_us) : 0); }
         *out = INTVAL(idx); return 1;
     }
     if (!strcmp(fn, "close") && nargs == 1) {
@@ -3370,7 +3377,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         extern char fh_type[];
         FILE *fp = fh_get(idx);
         int pst = -1;
-        if (fp) { if (fh_type[idx] == 'p') pst = pclose(fp); else fclose(fp); fh_type[idx] = 0; fh_free(idx); }
+        if (fp) { if (fh_type[idx] == 'p') { fflush(stdout); pst = pclose(fp); } else fclose(fp); fh_type[idx] = 0; fh_free(idx); }
         if (pst >= 0) { *out = INTVAL((pst >> 8) & 0xFF); return 1; }
         *out = INTVAL(0); return 1;
     }
@@ -4729,6 +4736,14 @@ static const char *sort_key_cstr(DESCR_t v, char *buf, int bufsz) {
     if (v.v == DT_S)    return v.s ? v.s : "";
     if (v.v == DT_SNUL) return "";
     if (v.v == DT_I)    { snprintf(buf, (size_t)bufsz, "%lld", (long long)v.i); return buf; }
+    if (IS_FH_fn(v)) {
+        int idx = (int)v.i;
+        if (idx == 0) return "&input";
+        if (idx == 1) return "&output";
+        if (idx == 2) return "&errout";
+        if (idx >= 0 && idx < FH_MAX && fh_name[idx]) { snprintf(buf, (size_t)bufsz, "file(%s)", fh_name[idx]); return buf; }
+        return "file(?)";
+    }
     { const char *s = VARVAL_fn(v); return s ? s : ""; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -6297,6 +6312,8 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         int idx = fh_alloc(fp);
         if (idx < 0) { if (is_pipe) pclose(fp); else fclose(fp); *out = FAILDESCR; return 1; }
         if (is_pipe) fh_type[idx] = 'p';
+        { extern void fh_set_untranslated(int, int); const char *_us = (nargs == 2 && (args[1].v == DT_S || args[1].v == DT_SNUL)) ? VARVAL_fn(args[1]) : NULL;
+          fh_set_untranslated(idx, (_us && icn_open_spec_is_icon(_us)) ? icn_open_untranslated(_us) : 0); }
         if (idx >= 0 && idx < FH_MAX) fh_name[idx] = rt_ws_strdup(path);
         *out = FHVAL(idx); return 1;
     }
@@ -6319,7 +6336,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             extern char fh_type[];
             FILE *fp = fh_get(idx);
             int pst = -1;
-            if (fp && idx > 2) { if (fh_type[idx] == 'p') pst = pclose(fp); else fclose(fp); fh_type[idx] = 0; fh_free(idx); }
+            if (fp && idx > 2) { if (fh_type[idx] == 'p') { fflush(stdout); pst = pclose(fp); } else fclose(fp); fh_type[idx] = 0; fh_free(idx); }
             if (pst >= 0) { *out = INTVAL((pst >> 8) & 0xFF); return 1; }
         }
         *out = args[0]; return 1;
@@ -6347,14 +6364,23 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         *out = args[0]; return 1;
     }
     if ((_bid == BID_read) && nargs == 1) {
-        FILE *fp = (args[0].v == DT_SNUL) ? fh_get(0) : (IS_FH_fn(args[0]) || IS_INT_fn(args[0])) ? fh_get((int)args[0].i) : NULL;
+        int _fi = (args[0].v == DT_SNUL) ? 0 : (IS_FH_fn(args[0]) || IS_INT_fn(args[0])) ? (int)args[0].i : -1;
+        FILE *fp = (_fi >= 0) ? fh_get(_fi) : NULL;
         if (!fp) { *out = FAILDESCR; return 1; }
-        char *ln = NULL; size_t cap = 0; ssize_t got = getline(&ln, &cap, fp);
-        if (got < 0) { free(ln); *out = FAILDESCR; return 1; }
-        size_t len = (size_t)got;
-        if (len > 0 && ln[len-1] == '\n') ln[--len] = '\0';
-        if (len > 0 && ln[len-1] == '\r') ln[--len] = '\0';
-        char *r = rt_ws_alloc(len + 1); memcpy(r, ln, len + 1); free(ln);
+        extern int fh_is_untranslated(int);
+        int _un = fh_is_untranslated(_fi);
+        size_t cap = 128, len = 0; char *ln = (char *)malloc(cap);
+        if (!ln) { *out = FAILDESCR; return 1; }
+        int c, any = 0;
+        while ((c = getc(fp)) != EOF) {
+            any = 1;
+            if (c == '\n') break;
+            if (!_un && c == '\r') { int d = getc(fp); if (d != '\n' && d != EOF) ungetc(d, fp); break; }
+            if (len + 1 >= cap) { cap *= 2; char *nb = (char *)realloc(ln, cap); if (!nb) { free(ln); *out = FAILDESCR; return 1; } ln = nb; }
+            ln[len++] = (char)c;
+        }
+        if (!any) { free(ln); *out = FAILDESCR; return 1; }
+        char *r = rt_ws_alloc(len + 1); memcpy(r, ln, len); r[len] = '\0'; free(ln);
         DESCR_t rs; rs.v = DT_S; rs.slen = (uint32_t)len; rs.s = r; *out = rs; return 1;
     }
     if ((_bid == BID_reads) && nargs >= 1) {
