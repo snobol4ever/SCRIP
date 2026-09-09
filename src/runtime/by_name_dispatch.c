@@ -1192,7 +1192,9 @@ void rt_pl_iso_throw_instantiation(void) { pl_iso_uncaught("instantiation_error%
 void rt_pl_iso_throw_pi(const char *errfn, const char *what, const char *nm, int ar) { pl_iso_uncaught("%s(%s, %s/%d)", errfn, what, nm, ar); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_iso_throw_existence_key(const char *key) {
+    extern int rt_pl_unknown_suppress(const char *);
     char nm[200]; int ar = 0;
+    if (rt_pl_unknown_suppress(key)) return;
     const char *sl = key ? strrchr(key, '/') : (const char *)0;
     if (sl) { int kl = (int)(sl - key); if (kl > 199) kl = 199; memcpy(nm, key, (size_t)kl); nm[kl] = 0; ar = atoi(sl + 1); }
     else { snprintf(nm, sizeof nm, "%s", key ? key : "?"); ar = 0; }
@@ -2171,6 +2173,13 @@ static pl_flag_t pl_flags[] = {
 static pl_flag_t * pl_flag_find(const char *nm) {
     for (int i = 0; pl_flags[i].nm; i++) if (!strcmp(nm, pl_flags[i].nm)) return &pl_flags[i];
     return (pl_flag_t *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_unknown_suppress(const char *key) {
+    pl_flag_t *fl = pl_flag_find("unknown");
+    if (!fl || !strcmp(fl->val, "error")) return 0;
+    if (!strcmp(fl->val, "warning")) { fprintf(stderr, "Warning: unknown procedure %s\n", key ? key : "?"); fflush(stderr); }
+    return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_CX_LEAF_HEAD(current_prolog_flag, 2) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);

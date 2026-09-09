@@ -1588,7 +1588,9 @@ void *rt_pl_ball_existence(DESCR_t *a, int n)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_ball_existence_key(const char *key)
 {
+    extern int rt_pl_unknown_suppress(const char *);
     char nm[200]; int ar = 0;
+    if (rt_pl_unknown_suppress(key)) return (void *)0;
     const char *sl = key ? strrchr(key, '/') : (const char *)0;
     if (sl) { size_t kl = (size_t)(sl - key); if (kl > sizeof nm - 1) kl = sizeof nm - 1; memcpy(nm, key, kl); nm[kl] = 0; ar = atoi(sl + 1); }
     else { snprintf(nm, sizeof nm, "%s", key ? key : "?"); }
