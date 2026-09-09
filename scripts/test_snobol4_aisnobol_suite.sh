@@ -63,6 +63,50 @@ shipped=$((scored + excl))
 m3p="$(field m3_pass)"; m3f="$(field m3_fail)"; m3c="$(field m3_crash)"; m3h="$(field m3_hang)"
 m4p="$(field m4_pass)"; m4f="$(field m4_fail)"; m4c="$(field m4_crash)"; m4h="$(field m4_hang)"
 
+# ⭐ THE SPITBOL BASELINE, MEASURED LIVE (Lon 2026-09-08; ceo ruling 18:49 on this seat's own ask). This runner
+# is a thin face over the harness and never ran the oracle per program, so unlike the other package runners it
+# had NO live outside set to record -- the shortcut was to declare one from ORACLE_ACCEPTANCE.tsv beside the
+# package. THE CEO REFUSED THAT and was right on the facts: a cross-check that reads the file it is checking
+# proves nothing, and that file names SPITCORE and spitlib.spt while a live pass names SPITCORE and BUILDLIB.
+# ⛔ EACH PROGRAM IS RUN WITH ITS OWN .IN AND .argv. A pass that skips them manufactures refusals: the first
+# such pass here flagged HSORT with ERROR 116 purely because it had not supplied HSORT.argv, and a manufactured
+# refusal SHRINKS THE DENOMINATOR, which is the direction that flatters us.
+# ⛔ THE ORACLE IS RESOLVED HERE, because this runner never had one: it delegates grading to the harness and
+# had no SBL/FLAGS of its own. The first cut of this block copied those names from the testpgms runner, where
+# they exist, so the oracle command expanded to nothing, every program produced no output, nothing was detected
+# as refused, and the cross-check below dutifully reported the RECORD as stale. It reported a disagreement
+# rather than a false agreement, which is the only reason the mistake was cheap -- accessors, never a
+# hand-assembled path.
+. "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_oracle_flags.sh unloadable"; exit 2; }
+_SBL="$(sbl_correctness_bin)" || exit 2; _SBLF="$(sbl_lang_flags)"
+OUTSIDE_TSV="$SUITE/OUTSIDE_SPITBOL_BASELINE.tsv"; MIRROR_TSV="$SUITE/UNGRADABLE.tsv"; OUTSIDE_LIST=""; OUTSIDE_N=0
+_ow="$(mktemp -d)"; cp -a "$SUITE"/. "$_ow/" 2>/dev/null
+for _f in "$_ow"/*.sno; do
+    _n="$(basename "$_f" .sno)"; [ "$_n" = ALL ] && continue
+    _in=/dev/null; for _e in IN in input; do [ -f "$_ow/$_n.$_e" ] && _in="$_ow/$_n.$_e"; done
+    _av=""; [ -f "$_ow/$_n.argv" ] && _av="$(cat "$_ow/$_n.argv")"
+    _o="$(cd "$_ow" && timeout 20s "$_SBL" $_SBLF "$_n.sno" $_av < "$_in" 2>&1)"; _rc=$?
+    _why=""
+    case "$_o" in *"No END statement found"*) _why="sbl -bf answers: No END statement found in source file(s)";; esac
+    if [ -z "$_why" ]; then _e1="$(printf '%s' "$_o" | grep -oiE 'ERROR +[0-9]+[^)]*' | head -1 | cut -c1-90)"; [ -n "$_e1" ] && _why="$_e1"; fi
+    [ -z "$_why" ] && [ "$_rc" -ge 128 ] && _why="killed by signal $((_rc-128))"
+    if [ -n "$_why" ]; then OUTSIDE_N=$((OUTSIDE_N+1)); OUTSIDE_LIST="${OUTSIDE_LIST}${_n}\t${_why}\n"; fi
+done
+rm -rf "$_ow"
+if [ "$OUTSIDE_N" -gt 0 ]; then echo "OUTSIDE-SPITBOL-BASELINE ($OUTSIDE_N; name<TAB>the oracle's own refusal, measured this run):"; printf '%b' "$OUTSIDE_LIST" | sed 's/^/OUTSIDE\t/'; fi
+if [ -f "$OUTSIDE_TSV" ]; then
+    rec="$(awk -F'\t' 'NF>2 && $1 !~ /^#/{sub(/\.sno$/,"",$1); print $1}' "$OUTSIDE_TSV" | sort)"
+    live="$(printf '%b' "$OUTSIDE_LIST" | cut -f1 | grep . | sort)"
+    stale="$(comm -23 <(printf '%s\n' "$rec") <(printf '%s\n' "$live") | tr '\n' ' ')"
+    unrec="$(comm -13 <(printf '%s\n' "$rec") <(printf '%s\n' "$live") | tr '\n' ' ')"
+    [ -n "$stale" ] && echo "⚠ OUTSIDE_SPITBOL_BASELINE.tsv STALE -- recorded as unrunnable by the oracle, but it answered cleanly this run: $stale"
+    [ -n "$unrec" ] && echo "⚠ OUTSIDE_SPITBOL_BASELINE.tsv UNRECORDED -- the oracle refuses these and the record does not name them; record each with its error and a source check: $unrec"
+    [ -z "$stale$unrec" ] && echo "OUTSIDE_SPITBOL_BASELINE.tsv agrees with the measured outside set ($OUTSIDE_N)"
+    if [ -f "$MIRROR_TSV" ]; then
+        mir="$(awk -F'\t' 'NF>2 && $1 !~ /^#/{print $1}' "$MIRROR_TSV" | sort)"; recn="$(awk -F'\t' 'NF>2 && $1 !~ /^#/{print $1}' "$OUTSIDE_TSV" | sort)"
+        [ "$mir" = "$recn" ] || echo "⚠ UNGRADABLE.tsv does not mirror OUTSIDE_SPITBOL_BASELINE.tsv row for row -- the lockdown bucket and the record have drifted; edit them together"
+    fi
+else echo "⚠ no OUTSIDE_SPITBOL_BASELINE.tsv beside the suite -- the outside-baseline set above is measured, not yet recorded"; fi
 echo "AISNOBOL_BOARD shipped=$shipped scored=$scored excluded=$excl m3_PASS=$m3p m3_FAIL=$m3f m3_CRASH=$m3c m3_HANG=$m3h m4_PASS=$m4p m4_FAIL=$m4f m4_CRASH=$m4c m4_HANG=$m4h"
 if [ -s "$SUITE/ALL.excluded.txt" ]; then
   echo "EXCLUDED (named, not counted as fail):"
@@ -85,7 +129,9 @@ if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (
 # will update the ONE LEADERBOARD"). Records the board just printed into .github/SCORE.md -- runs nothing
 # new. NON-FATAL BY DESIGN (matches test_icon_arizona_suite.sh's own convention): a bookkeeping failure
 # must never turn a real measurement into a red gate for a reason unrelated to the code.
+bothp="$(printf '%s\n' "$board" | grep -oE 'all_pass=[0-9]+' | head -1 | cut -d= -f2)"; bothp="${bothp:-$m3p}"
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite aisnobol --modes m3,m4 \
+    --suite-pass "$bothp" --suite-total "$scored" \
     --measurer "${S4E_SEAT:-}" --text "aisnobol $m3p/$scored m3 . $m4p/$scored m4 SCORED (of $shipped shipped, $excl excluded and named) . m3 FAIL=$m3f CRASH=$m3c HANG=$m3h . m4 FAIL=$m4f CRASH=$m4c HANG=$m4h${INV_LINE:+ . $INV_LINE} (\`test_snobol4_aisnobol_suite.sh\`)" \
     || echo "WARNING SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
