@@ -6,17 +6,22 @@
 # static table icn_function_names[]. A HAND-TYPED TABLE IS A CLAIM ABOUT A SET, and this file is the thing
 # that keeps it true: it grades the table in BOTH directions against the live Icon oracle.
 #
-# ⛔⭐ WHY THE TABLE IS 83 AND NOT THE ORACLE'S 91. It names what SCRIP ACTUALLY DISPATCHES. The 8 omitted --
-# chdir delay display getch getche kbhit loadfunc rename -- raise ERROR 022 in SCRIP today, so yielding them
-# would hand every caller a name no call can reach and no proc() can resolve: a stated fact nobody tested,
-# which is the defect class this lane keeps finding (a diagnostic naming a cause it never checked). When one
-# of the 8 is implemented, ARM 4b REDS until it is added to the table -- that is the point, not a nuisance.
-# THE 8 ARE A ROUTE, NOT A HOLE (hq_B ruling 2026-09-06, OCTET): six of them are hq_B's rung-41 entries under
-# row icon-rung41-runtime-builtins-chdir-getenv-delay-getch-loadfunc-are-undefined, so when those land this
-# gate's ARM 4b is what tells the next reader to grow the table. 83 is a MEASURED CURRENT STATE with a cure
-# queued behind it -- never a decision to be different from Icon. hq_B's general form, worth keeping: a
-# REFLECTIVE builtin must describe THIS implementation, not the reference one; copying the oracle's 91 would
-# be pinning a ref cut from a system we are not.
+# ⛔⭐ WHY THE TABLE IS ONE SHORT OF THE ORACLE'S 91. It names what SCRIP ACTUALLY DISPATCHES, never what
+# Icon has. Yielding a name no call can reach and no proc() can resolve hands every caller a stated fact
+# nobody tested -- the defect class this lane keeps finding. THE SOLE OMISSION TODAY IS "display", measured
+# 2026-09-09 by probing all 91 at the oracle's own arity: it raises ERROR 022, the other 90 dispatch.
+# ⛔⭐ THIS COMMENT WAS ITSELF THE TRAP, AND IT COST A TREE-WIDE RED. It read "the table is 83 and the 8
+# omitted are chdir delay display getch getche kbhit loadfunc rename" -- true when written, and by 09-09
+# hq_B's rung-41 had landed SEVEN of those 8, so the prose named a hole that was one name wide while
+# claiming eight. Reading it as current, hq_R closed the gap the arithmetic implied (90 yielded vs 91 on the
+# oracle) by adding "display" to icn_function_names[] at 38118d03f WITHOUT probing whether it dispatched,
+# and ARM 4a went red in all thirteen roots. ⭐ A COUNT IN PROSE BESIDE A GATE THAT MEASURES THE SAME COUNT
+# IS ALWAYS THE STALER OF THE TWO: the numbers here are dated and are a worked example, never an authority.
+# Run the gate; ARM 4a prints the live omission set by name. When display is implemented, ARM 4b REDS until
+# it is added to the table -- that is the mechanism working, not a nuisance.
+# THE OMISSION IS A ROUTE, NOT A HOLE (hq_B ruling 2026-09-06, OCTET): a REFLECTIVE builtin must describe
+# THIS implementation, not the reference one; copying the oracle's 91 would be pinning a ref cut from a
+# system we are not -- which is precisely what the 38118d03f cure did, one name at a time.
 #
 # ⛔ WHERE THIS NOTE LIVES, AND WHY IT IS NOT IN THE .c: hq_B asked for the 8 names in the cure's own comment.
 # src/ carries ZERO prose comments by law -- strip_comments.py --check reds any file holding one, and it red
