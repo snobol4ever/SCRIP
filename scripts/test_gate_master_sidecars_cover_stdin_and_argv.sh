@@ -52,7 +52,14 @@ gate_parse_args "$@"
 # 61 -> 53 at corpus 687132c48: eight snobol4 entries fed their recovered real input (crosscheck word1-4,
 # cross, triplet, fileinfo, expr_eval), refs re-cut from sbl -bf. Zero changed verdict -- SCRIP was already
 # right on all eight -- but each had been passing an EMPTY ref produced by a starved run.
-PIN_STDIN="${PIN_STDIN:-53}"
+# 53 -> 50 at SCRIP <this commit>: NO entry was fed. util_master_sidecar_census.py's Icon `reads(` pattern
+# was unanchored and matched four entries that never touch stdin -- reads(f,i) reads from FILE f, and only a
+# bare reads() defaults to the stream. All four bind their file with open() (one is NAMED ..._reads_from_
+# file). ⭐ A FLOOR IS A COUNT OF A HEURISTIC'S OUTPUT, so it moves when the heuristic gets more accurate as
+# well as when the campaign feeds an entry, and the two are NOT the same event: this commit lowered the
+# floor and cured nothing. The receipt must say which of the two it did, because a floor drop reads as
+# campaign progress and would otherwise bank four entries of work nobody performed.
+PIN_STDIN="${PIN_STDIN:-50}"
 PIN_ARGV="${PIN_ARGV:-34}"
 
 CENSUS="$HERE/util_master_sidecar_census.py"

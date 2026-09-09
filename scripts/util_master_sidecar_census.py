@@ -39,7 +39,15 @@ h = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(h)
 # the call shape. Where a language has several spellings they are all here, because a partial resolver never
 # says so -- it just answers "no" and the caller mints a starved ref (the class this whole file is about).
 STDIN_RE = {
-    "icon":    r'\bread\s*\(\s*\)|\breads\s*\(|!\s*&input\b|\bread\s*\(\s*&input',
+    # ⛔⭐ `reads(` UNANCHORED MATCHED FOUR ENTRIES THAT NEVER TOUCH STDIN, and it broke this table's own
+    # stated contract one line above it: Icon's reads(f,i) reads from FILE f, and only a bare reads() (or
+    # reads(&input)) defaults to the stream. All four witnesses bind their file with open(): ladder_rung41_
+    # rt_flush_seek_where and procedure_record_every_replace_2 (open("fncs1.dat")), ladder_rung41_rt_read_
+    # reads_from_file -- whose NAME says so -- and procedure_record_every_replace_12, where reads(f,0) is an
+    # error-provocation in a V9GEN torture entry. ⭐ An over-match here is not the harmless direction: this
+    # census is a WORK LIST, so a false positive spends a seat's sitting authoring input for a program that
+    # reads none, and it inflates the floor that the real campaign has to ratchet down through.
+    "icon":    r'\bread\s*\(\s*\)|\breads\s*\(\s*\)|\breads\s*\(\s*&input\b|!\s*&input\b|\bread\s*\(\s*&input',
     "snobol4": r'\bINPUT\b',
     "snocone": r'\bINPUT\b',
     "prolog":  r'\bread\s*\(|\bread_term\s*\(|\bget_char\s*\(|\bread_line',
@@ -48,6 +56,8 @@ STDIN_RE = {
     "rebus":   r'\bINPUT\b',
 }
 ARGV_RE = {
+    # ⛔ THE SECOND ALTERNATIVE MATCHES A DECLARATION, NOT A USE -- see inert_argv_match() below, which is
+    # what keeps `procedure main(args)` with `args` never named again from counting as argument-sensitive.
     "icon":    r'\bargs?\s*\[|\bprocedure\s+main\s*\(\s*[A-Za-z_]',
     "snobol4": r'\bHOST\s*\(\s*[24]\b',
     "snocone": r'\bHOST\s*\(\s*[24]\b',
@@ -87,6 +97,32 @@ def read_master(tests_dir, lang):
     return d, sno, entries
 
 
+def inert_argv_match(lang, text):
+    """True when the ARGV_RE hit CANNOT observe the program's arguments, so the entry owes no declaration.
+
+    ⛔⭐ ONE CASE ONLY, AND IT IS THE SAME OVER-MATCH `reads(` WAS: Icon's second alternative matches
+    `procedure main(P)` -- a PARAMETER DECLARATION. A program that declares P and never names it again
+    cannot behave differently under any arguments whatsoever, so grading it bare is not a starved run, it
+    is the only run there is. Measured on the Icon master: procedure_scan_while_1 and procedure_every_alt_20
+    declare `args` with ZERO further references.
+    ⭐ THE REFINEMENT IS DELIBERATELY NOT A REGEX. A pattern can say "this text mentions arguments"; only a
+    second pass over the entry can say "and here is where it reads them", and that is exactly the question
+    a work list must answer. Anything that DOES name the parameter -- `args[1]`, or merely `dump(args)`,
+    which images it -- stays flagged: observing the list is argument-sensitivity even without a subscript.
+    """
+    if lang != "icon":
+        return False
+    if re.search(r'\bargs?\s*\[', text, re.I):        # a subscript reads an argument; never inert
+        return False
+    m = re.search(r'\bprocedure\s+main\s*\(\s*([A-Za-z_]\w*)', text, re.I)
+    if not m:
+        return False
+    param = m.group(1)
+    # every mention of the name OTHER than the declaration itself
+    body = text[:m.start(1)] + text[m.end(1):]
+    return not re.search(r'\b%s\b' % re.escape(param), body)
+
+
 def declared_argv(d):
     """Entry names carrying a declaration in ALL.argv. Absent file -> empty set, never an error."""
     a = d / "ALL.argv"
@@ -113,7 +149,7 @@ def census(tests_dir, langs):
             examined += 1
             text = "\n".join(e.sno_lines)
             owes_in = bool(rs.search(text)) and e.stdin is None
-            owes_argv = bool(ra.search(text)) and e.name not in decl_a
+            owes_argv = bool(ra.search(text)) and not inert_argv_match(lang, text) and e.name not in decl_a
             if owes_in or owes_argv:
                 rows.append({"lang": lang, "name": e.name, "seq": e.seq, "kind": e.kind,
                              "owes_stdin": owes_in, "owes_argv": owes_argv})
