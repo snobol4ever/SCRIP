@@ -101,6 +101,17 @@ run_one() {
     local dat="${base}.dat" IN=/dev/null; local -a prog_args=()
     local rundir="$WORK/$name.rundir"; mkdir -p "$rundir"
     if [ -f "$dat" ]; then IN="$dat"; prog_args=("$dat"); cp "$dat" "$rundir/$(basename "$dat")"; fi
+    # ⛔⭐ THE PROGRAM'S OWN SOURCE TRAVELS WITH IT (hq_P 2026-09-09, ceo CEO-445). Upstream runs each test IN
+    # the package directory, where <name>.icn sits beside the program by construction; we run in a private
+    # rundir so a test that writes scratch files cannot touch the tracked tree, and that isolation silently
+    # removed a file some tests READ. io.icn pipes `sed ... io.icn` and `ls io.[ids][tca][dnt]` -- it reads
+    # its own source and lists its own companions -- so in a rundir holding only io.dat it produced 14 wrong
+    # lines that looked exactly like an I/O defect. MEASURED both ways on this tree: 14 diff lines without
+    # the source beside it, ZERO with it, same binary and same ref. ⛔ Only the entry's OWN source is copied,
+    # never the whole package: the ref for that `ls` expects to see io.dat and io.icn and NOTHING ELSE, so
+    # copying more would break the very test this fixes. The .std is deliberately NOT copied for the same
+    # reason. This is the same class the .dat line above already cures, one filename over.
+    cp "$icn" "$rundir/$(basename "$icn")" 2>/dev/null || true
     # ⭐ TWO MORE SIDECARS, BOTH OURS AND BOTH DECLARED, NEVER INFERRED (cfo 2026-09-07, row every-package-runner-
     # prints-...: link1.icn was the package's one UNGRADED row, NEEDS_RUNNER_WIRING). `<name>.args` is the argv the
     # ref was cut with (test_demo_icon_jcon.sh's own convention, words split by the shell); the modules a program
