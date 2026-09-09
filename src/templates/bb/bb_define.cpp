@@ -544,6 +544,19 @@ static std::string bb_define_sr() {
         int rgx = rg4 < 0 ? 0 : rg4;
         auto GQ = [&](int gk, int w) { return (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk, w) : ABSQ(RT_GVA_VA + (unsigned long)gk * 16 + (unsigned long)w); };
         auto R8Q = [&](long d) { return std::string("[r8 + ") + std::to_string(d) + "]"; };
+        long WNOFF = 16L * xt4 + 24;
+        auto WNSAVE = [&]() {
+            return x86("comment", "WANT-NAME NESTING (ceo-441): the caller's pending by-name request is a single global, so an inner request raised inside this body -- and cleared by whichever consumer takes it -- destroys the outer one still pending at the call site. The request therefore rides THIS activation frame: parked at entry, the global zeroed so the body starts with no inherited intent, put back at both exits so the caller's post-call consult reads its OWN request. Same protocol as bb_define_activate's AB_OFF_WN slot; rax/rdx are scratch here (rcx holds the signature block).")
+                 + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
+                 + x86("mov", "edx", RDD("rax", 0))
+                 + x86("movsxd", "rdx", "edx")
+                 + x86_rsp_store64((int)WNOFF, "rdx")
+                 + x86("mov", RDD("rax", 0), (long)0); };
+        auto WNRESTORE = [&]() {
+            return x86("comment", "WANT-NAME RESTORE (ceo-441): the parked request goes back before control leaves the frame, on the failing exit as well as the value-returning one -- an unbalanced exit would leak this activation's intent into the caller exactly the way the global did.")
+                 + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
+                 + x86_rsp_load64("rdx", (int)WNOFF)
+                 + x86("mov", RDD("rax", 0), "edx"); };
         std::string la = std::string(fn4) + "_\xce\xb1", lb = std::string(fn4) + "_\xce\xb3", lo = std::string(fn4) + "_\xcf\x89";
         std::string blb = inl5 ? std::string(en4) : (std::string("LBL__") + en4);
         const struct bb_label_t * lbl_b = emit_label_intern(lb.c_str()); const struct bb_label_t * lbl_o = emit_label_intern(lo.c_str());
@@ -614,6 +627,7 @@ static std::string bb_define_sr() {
                  + IF(!inl5, x86_alpha())
                  + x86_def_ext(emit_label_intern(la.c_str()))
                  + x86("sub", "rsp", F4)
+                 + WNSAVE()
                  + FOR(0, xt4, [&](int k) {
                        return x86("note", gva_name(gk4[nf4 + k])) + x86("mov", "rax", GQ(gk4[nf4 + k], 0)) + x86_rsp_store64(16 * k, "rax")
                             + x86("mov", "rax", GQ(gk4[nf4 + k], 8)) + x86_rsp_store64(16 * k + 8, "rax")
@@ -737,6 +751,7 @@ static std::string bb_define_sr() {
                  + bb_stno_restore()
                  + bb_fnclevel_leave()
                  + x86("pop", "rcx")
+                 + WNRESTORE()
                  + x86("mov", "rcx", SIGQ(8))
                  + x86("add", "rsp", F4)
                  + x86("comment", "re-stage the return value: FRESTORE above uses rax/rdx as scratch, so the pair staged for the tap is gone by here (row 521; the d067ceae4 revert was exactly this clobber)")
@@ -781,6 +796,7 @@ static std::string bb_define_sr() {
                  + bb_stno_restore()
                  + bb_fnclevel_leave()
                  + x86("pop", "rcx")
+                 + WNRESTORE()
                  + x86("mov", "rcx", SIGQ(16))
                  + x86("add", "rsp", F4)
                  + x86("mov32", "eax", (long)DT_FAIL)
@@ -804,6 +820,7 @@ static std::string bb_define_sr() {
              + x86_deflabel_id(2)
              + x86("sub", "rsp", T4 + 16L * nf4)
              + x86("add", "rsp", "rax")
+             + WNSAVE()
              + FOR(0, xt4, [&](int k) {
                    return x86("note", gva_name(gk4[nf4 + k])) + x86("mov", "rax", GQ(gk4[nf4 + k], 0)) + x86_rsp_store64(16 * k, "rax")
                         + x86("mov", "rax", GQ(gk4[nf4 + k], 8)) + x86_rsp_store64(16 * k + 8, "rax")
@@ -841,6 +858,7 @@ static std::string bb_define_sr() {
              + x86("mov", "rdi", GQ(rgx, 0))
              + x86("mov", "rsi", GQ(rgx, 8))
              + RESTORE4(80)
+             + WNRESTORE()
              + x86("mov32", "eax", T4 + 32 + 16L * nf4)
              + x86("cmp", "rcx", (long)nf4)
              + x86_jcc_id("jbe", 3)
@@ -854,6 +872,7 @@ static std::string bb_define_sr() {
              + x86("jmp", "rcx")
              + x86_def_ext(lbl_o)
              + RESTORE4(150)
+             + WNRESTORE()
              + x86("mov32", "eax", T4 + 32 + 16L * nf4)
              + x86("cmp", "rcx", (long)nf4)
              + x86_jcc_id("jbe", 4)
