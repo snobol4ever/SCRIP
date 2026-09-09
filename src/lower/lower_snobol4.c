@@ -1987,11 +1987,36 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
     IR_t * head = lc_build(g, IR_MATCH_BEGIN, NULL, land);
     { IR_t * sealJ = lc_build(g, IR_GOTO, head, NULL); memcpy(sealJ->γ.sz, "φ", 3); sealJ->γ.sz[3] = 0; cx->pat_seal = sealJ; }
     IR_t * splice = NULL;
+    IR_t * lv_pro = NULL; IR_t * lv_entry = NULL; const char * lv_tmp = NULL;
+    if (has_repl && svt && svt->t != TT_VAR && (svt->t == TT_IDX || svt->t == TT_INDIRECT)) {
+        char nb[64], vb[64]; snprintf(nb, sizeof nb, "SN4$RPLN%d", g->n); snprintf(vb, sizeof vb, "SN4$RPLV%d", g->n);
+        const char * nn = lp_strdup(nb); lv_tmp = lp_strdup(vb);
+        sno_reg_var(nn); sno_reg_var(lv_tmp);
+        tree_t * nmx;
+        if (svt->t == TT_IDX) { nmx = ast_node_new(TT_NAME); ast_push(nmx, (tree_t *) svt); }
+        else { nmx = (tree_t *) ((svt->n > 0) ? svt->c[0] : NULL); }
+        if (!nmx) sno_fatal("SN4-REPL slice 2: indirect replacement subject has no operand", NULL);
+        lv_pro = lc_build(g, IR_ASSIGN, NULL, fJ); IR_LIT(lv_pro).sval = (char *) nn;
+        IR_t * nv = NULL; IR_t * ne = sx_lower(cx, nmx, lv_pro, fJ, &nv);
+        ir_operand_push(lv_pro, nv);
+        lv_pro->pat_static = 0;
+        { tree_t * iv = ast_node_new(TT_VAR); iv->v.sval = (char *) nn; tree_t * ind = ast_node_new(TT_INDIRECT); ast_push(ind, iv); svt = ind; }
+        lv_entry = ne;
+    }
     if (has_repl) {
-        if (!svt || svt->t != TT_VAR) sno_fatal("SN4-REPL slice 1: replacement subject must be a plain variable (indirect/subscript lvalue splice pending)", NULL);
-        sno_reg_var(svt->v.sval);
-        splice = lc_build(g, IR_MATCH_REPLACE, sJ, NULL);
-        IR_LIT(splice).sval = svt->v.sval;
+        if (!svt || (svt->t != TT_VAR && !lv_tmp)) sno_fatal("SN4-REPL slice 1: replacement subject must be a plain variable (indirect/subscript lvalue splice pending)", NULL);
+        const char * tgt = lv_tmp ? lv_tmp : svt->v.sval;
+        sno_reg_var(tgt);
+        IR_t * wb_entry = sJ;
+        if (lv_tmp) {
+            tree_t * nv2 = ast_node_new(TT_VAR); nv2->v.sval = (char *) lv_tmp;
+            tree_t * iv2 = ast_node_new(TT_VAR); iv2->v.sval = (char *) IR_LIT(lv_pro).sval;
+            tree_t * ind2 = ast_node_new(TT_INDIRECT); ast_push(ind2, iv2);
+            tree_t * asg = ast_node_new(TT_ASSIGN); ast_push(asg, ind2); ast_push(asg, nv2);
+            IR_t * wres = NULL; wb_entry = sx_lower(cx, asg, sJ, fJ, &wres);
+        }
+        splice = lc_build(g, IR_MATCH_REPLACE, wb_entry, NULL);
+        IR_LIT(splice).sval = (char *) tgt;
         ir_operand_push(splice, head);
         IR_t * rv = NULL; IR_t * re;
         if (repl_t) re = sx_lower(cx, repl_t, splice, fJ, &rv);
@@ -2111,6 +2136,7 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
     IR_t * subj_entry = sx_lower(cx, svt, after, fJ, &subjval);
     ir_operand_push(head, subjval);
     if (splice) ir_operand_push(splice, subjval);
+    if (lv_pro) { lc_γ_to(lv_pro, subj_entry); return lv_entry; }
     return subj_entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
