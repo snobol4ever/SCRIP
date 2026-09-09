@@ -1978,7 +1978,16 @@ PROGRESS_COUNTED = {
     # exist and have never been run-graded" list, at its OLD size of 119, in the same minute a 120-program
     # board of it finished and wrote 4215 rows into the progress database. A suite reading as never-run
     # because it GREW is the failure mode to expect here, so add the new size in the landing that moves it.
-    "snobol4": [("csnobol4", r"csnobol4", (118, 124, 125, 119, 120)), ("snoflake", r"[Ss]noflake", (180,)), ("gimpel", r"gimpel", (126, 144, 289)), ("aisnobol", r"aisnobol", (2, 8)), ("dotnet", r"dotnet", (5, 14))],
+    # ⛔⭐ THE SPITBOL RE-CUT MOVED EVERY SNOBOL4 DENOMINATOR ON 2026-09-08 AND THE NEW SIZES WERE NOT ADDED
+    # HERE IN THE LANDINGS THAT MOVED THEM (coo, found on Lon's question "why does SNOBOL4 show 100%"). The
+    # comment above says to expect exactly this, and it still happened. THE SYMPTOM WAS THE WORST KIND: under
+    # Lon's one-oracle rule (CEO-391) csnobol4 went 120 -> 97 -> 93, snoflake 180 -> 126 and gimpel -> 127,
+    # so FOUR of the five packages read UNREADABLE, dropped out of the percent entirely, and left dotnet 5/5
+    # as the whole snobol4 population -- which published **sno 100%** for a language whose vendored packages
+    # actually run about 310 of 396. A percent that RISES TO 100 because its biggest members became
+    # unreadable is the false-clean shape this file exists to refuse, and it is louder than a zero.
+    # ⭐ Old sizes are KEPT, never replaced: older cell text still cites them for provenance.
+    "snobol4": [("csnobol4", r"csnobol4", (118, 124, 125, 119, 120, 97, 93)), ("snoflake", r"[Ss]noflake", (180, 126)), ("gimpel", r"gimpel", (126, 127, 144, 289)), ("aisnobol", r"aisnobol", (2, 7, 8)), ("dotnet", r"dotnet", (5, 14)), ("testpgms", r"spitbol_testpgms|testpgms", (2, 8))],
     # ⛔ ipl IS 851 AND A BARE `find -name '*.icn'` WILL TELL YOU 852 -- DO NOT "FIX" IT TO 852. The 852nd
     # file is ALL.icn, our OWN generated container, and hq_I corrected this number the wrong way on
     # 2026-09-05 on exactly that evidence. 851 = ALL.csv 78 graded entries + ALL.excluded.txt 773 named
