@@ -147,7 +147,7 @@ sbl_flags() { echo "$(sbl_lang_flags) -d512m -i64m"; }   # ⭐ LANGUAGE ARM from
 # rc!=0 with no output is a GENUINE failure here: `END` alone exits 0, while an empty file and a program with no END statement exit 1.
 # Admitting those would turn 134 correctly-UNSCR gimpel library modules into rows graded against empty output -- manufacturing 134
 # vacuous passes, which is the very defect the pin/live mutual-silence row exists to kill.  ONE DIRECTION IS A FIX, BOTH IS A LIE.
-sbl_died() { grep -qE ' : ERROR [0-9][0-9][0-9] -- ' "$1" && grep -qE '^in statement +[0-9]+$' "$1"; }
+sbl_died() { grep -aqE ' : ERROR [0-9][0-9][0-9] -- ' "$1" && grep -aqE '^in statement +[0-9]+$' "$1"; }
 # ⛔ ONE AUTHORITY FOR THE ORACLE INVOCATION (s191, row `ref-the-ungraded-suites`).  Minting a `.ref` means recording what the
 # oracle answers, and a .ref minted under a DIFFERENT cwd, lib path, stdin or flag set than the board grades with is a pin that
 # can never match -- seat5's s191 conviction, twice in one session, was exactly this: "a census is a harness; copy run_one,
