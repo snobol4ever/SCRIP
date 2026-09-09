@@ -58,6 +58,17 @@ ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"
 RT_SO="${RT_SO:-$ROOT/out/libscrip_rt.so}"
 CORPUS="${CORPUS:-$S4E/corpus/packages/icon/jcon_tests}"
+OUTSIDE="$CORPUS/OUTSIDE_ARIZONA_BASELINE.tsv"
+# ⛔⭐ THE ONE-ORACLE RULE, APPLIED TO THIS PACKAGE (ceo CEO-470 on hq_P's measurement, 2026-09-09). A program
+# ARIZONA icont cannot run has no ground truth, so it is OUT of the graded denominator and NAMED -- never
+# hidden and never counted either way. The reader is the same shape test_snobol4_csnobol4_suite.sh uses for
+# OUTSIDE_SPITBOL_BASELINE.tsv. ⛔ IT COSTS US TWO PASSES AND THAT IS THE POINT: htprep and prepro diffed
+# ZERO against .std files icont REFUSES to compile, so they were green cells resting on jcon's answers --
+# the same defect as the sixteen jcon-cut refs re-cut this morning, except these three cannot be re-cut
+# because the oracle will not run them. A false green is worth less than a smaller honest denominator.
+is_outside_baseline() { [ -f "$OUTSIDE" ] && awk -F"\t" -v n="$1" '$1==n {f=1} END {exit f?0:1}' "$OUTSIDE"; }
+outside_reason() { [ -f "$OUTSIDE" ] && awk -F"\t" -v n="$1" '$1==n {print $2; exit}' "$OUTSIDE"; }
+OUTSIDE_LIST=""
 MODE="all"
 TIMEOUT=20
 
@@ -174,6 +185,7 @@ run_mode() {
         std="${icn%.icn}.std"
         [ -f "$std" ] || std="${icn%.icn}.ref"   # `.ref` is a ref WE cut from icont/iconx with `<name>.args` (README.md), for a shipped program upstream ships no .std for
         [ -f "$std" ] || continue   # no-oracle source (link2/load*/tpp*) — excluded, not MISSING
+        is_outside_baseline "$(basename "$icn" .icn)" && continue
         case "$(basename "$icn")" in tpp.icn) continue;; esac   # tpp.std is jcon PREPROCESSOR TEXT output, not program output (its body is deliberately-invalid Icon like `abc 11`); ungradable by execution — named exclusion, same class as the no-.std sources above
         outfile="$WORK/out.txt"
         kind=$(run_one "$mode" "$icn" "$std" "$outfile")
@@ -229,6 +241,7 @@ case "$(basename "$_icn")" in ALL.*) continue ;; esac
     _b="$(basename "$_icn" .icn)"
     if [ ! -f "${_icn%.icn}.std" ] && [ ! -f "${_icn%.icn}.ref" ]; then GAP_NAMES="$GAP_NAMES $_b(no .std shipped upstream, no .ref cut by us)"; continue; fi
     case "$_b" in tpp) GAP_NAMES="$GAP_NAMES tpp(.std is jcon PREPROCESSOR text, not program output)"; continue;; esac
+    if is_outside_baseline "$_b"; then GAP_NAMES="$GAP_NAMES $_b(outside the Arizona baseline: $(outside_reason "$_b"))"; OUTSIDE_LIST="$OUTSIDE_LIST $_b"; continue; fi
     GRADED=$((GRADED+1))
 done
 GAP=$((SHIPPED-GRADED))
@@ -260,6 +273,10 @@ if [ "$total" -ne "$GRADED" ]; then
     exit 2
 fi
 [ -n "$GAP_NAMES" ] && echo "UNGRADED ($GAP of $SHIPPED shipped, zero of the population until graded):$GAP_NAMES"
+# ⛔ PRINTED WHETHER OR NOT THE LIST IS EMPTY, for the reason CEO-409 guardrail 3 gives about masks: a line
+# that appears only when something is excluded tells the reader nothing on the day one is added and
+# everything on the day one is removed. Names AND the oracle's own class ride on it so the six stay visible.
+echo "OUTSIDE_ARIZONA_BASELINE ($(printf '%s' "$OUTSIDE_LIST" | wc -w), out of the graded denominator, named in $OUTSIDE):${OUTSIDE_LIST:- none}"
 echo "JCON_SUITE_BOARD shipped=$SHIPPED graded=$GRADED gap=$GAP total=$total m3_pass=${m3p:-n/a} m4_pass=${m4p:-n/a}"
 # ⛔⭐ THE PACKAGE LOCKDOWN INVENTORY (Lon 2026-09-06: "Fix the never graded business"; instrument row
 # every-package-runner-prints-shipped-graded-ungraded-and-ungradable..., hq_T). ONE line, ONE shape, from
