@@ -114,9 +114,13 @@ ST3=0; ST4=0; BOTH_STREAM=0
 BASE=0; BASE_BOTH=0; OUTSIDE_N=0; OUTSIDE_LIST=""; OUTSIDE_TSV="$SUITE/OUTSIDE_SPITBOL_BASELINE.tsv"; MIRROR_TSV="$SUITE/UNGRADABLE.tsv"
 # ⛔⭐ SPITBOL ALSO REFUSES WITHOUT AN ERROR NUMBER, and the numbered-only test above missed it (ceo
 # 2026-09-08, re-measured by the coo at a296d8d04): `sbl -bf` on a source whose only END is the
-# lowercase `end` prints `No END statement found in source file(s).` and EXITS 0 -- SPITBOL never runs
+# lowercase `end` prints `No END statement found in source file(s).` and EXITS 1 -- SPITBOL never runs
 # the program, so the fixture is outside the baseline exactly as a numbered refusal is, but it carries
 # no `ERROR NNN` for the classifier to key on and sat in the reds as if it were our defect.
+# ⛔ THE MATCHER KEYS ON THE MESSAGE, NEVER ON THE rc, and that is deliberate: the coo first recorded
+# this refusal as rc=0 by reading `$?` at the end of a PIPELINE (`sbl ... | head`), which reports head's
+# status and not the oracle's; the ceo re-measured it as rc=1 the same evening. A matcher built on the
+# wrong rc would simply never fire. The message shape is what was actually observed on both files.
 # ⛔ MEASURED ONLY: add a pattern here when a run has SHOWN it, never because it seems plausible --
 # every pattern here silently moves fixtures OUT of the denominator, which is the direction that
 # flatters the board. One pattern per line, each with the date and seat that measured it.
