@@ -6,7 +6,6 @@
 #include "lower.h"
 #include "bb_program.h"
 #include "parsers/icon/icon_lex.h"
-#include "zeta_choices.h"
 #include "snobol4_system_fns.h"
 int rt_kw_index(const char * kw);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

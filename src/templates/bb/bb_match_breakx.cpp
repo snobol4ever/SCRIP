@@ -13,7 +13,7 @@ extern "C" long rt_sg_member(void);
 extern "C" long rt_pat_prim_str(const char *varname, const char **out_ptr, long *out_len);
 static char bx_dlb[24];
 #define CSK() ((long) strlen(_.op_sval ? _.op_sval : ""))
-#define BX_CHAINP() (_.op_sa < 0 && CSK() >= 1 && CSK() <= ZC_CSET_CHAIN_MAX)
+#define BX_CHAINP() (_.op_sa < 0 && CSK() >= 1 && CSK() <= CSET_CHAIN_MAX)
 #define BX_TABLEP() (_.op_sa < 0 && !BX_CHAINP())
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bx_memb(long f, long i) {

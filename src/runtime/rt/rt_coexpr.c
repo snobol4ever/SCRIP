@@ -10,7 +10,6 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <limits.h>
-#include "zeta_choices.h"
 #include "gc_heap.h"
 #include "rt_coexpr.h"
 static int inited = 0;

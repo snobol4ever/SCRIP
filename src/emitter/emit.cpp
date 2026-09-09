@@ -1,6 +1,5 @@
 #ifdef __cplusplus
 #include "emit.h"
-#include "zeta_choices.h"
 #include "ir_index.h"
 #include "templates/x86/x86_asm.h"
 #include "templates/bb/bb_templates.h"
@@ -1005,7 +1004,6 @@ int bb_call_route_classify(IR_t * nd) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void walk_bb_flat(IR_t *nd, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) { fprintf(stderr, "GROUND ZERO: %s not implemented (Icon-only reset)\n", "walk_bb_flat"); abort(); }
-extern "C" int zls2_geom(const IR_t *, int, int *, long *);
 extern "C" int fc_geom(const IR_t *, long *);
 extern "C" int fc_cond_fp(const IR_t *);
 extern "C" int fc_head_fp(const IR_t *);
@@ -1349,7 +1347,7 @@ extern int           gva_index_of(const char *name);
 extern int           g_gva_active;
 extern IR_graph_t *  g_emit_cfg;
 #define DRIVE_FILL(nd,a,s,f,b) do { \
-    g_emit.op_zls2_bytes = 0; g_emit.op_zls2_slot = -1; g_emit.op_zls2_ops = 0; g_emit.op_selfload = 0; \
+    g_emit.op_selfload = 0; \
     g_emit.op_fc_bytes = 0; g_emit.op_fc_base = -1; g_emit.x86_fc_synth = 240; g_emit.op_fc_fpmax = -1; g_emit.op_fc_disp = -1; g_emit.op_fc_wbytes = 0; g_emit.op_arbno_chain = 0; g_emit.op_arbno_nzq = 0; g_emit.op_tail = 0; g_emit.op_tail_fpb = 0; g_emit.op_tail_fpl = 0; g_emit.op_tail_seal = 0; g_emit.op_tail_ncap = 0; g_emit.op_arbno_dt = 0; g_emit.op_arbno_dt_susp = 0; g_emit.op_defer_leaf_susp = -1; g_emit.op_tail_dfr = 0; g_emit.op_tail_fpr_rsp = 0; g_emit.op_body_has_arbno = 0; g_emit.op_arbno_framed = 0; g_emit.op_arbno_body_k0 = 0; g_emit.op_arbno_body_kk = 0; g_emit.op_fence_body_kk = 0; g_emit.op_fence_frame_off = -1; g_emit.op_fence0_floor = 0; g_emit.op_arbno_body_defer_unsafe = 0; g_emit.op_arbno_body_actframe = 0; g_emit.op_cap_anchor = 0; g_emit.op_arbno_rbp = 0; g_emit.op_range_int_operands = 0; \
      \
     bb_label_t *_fs__=bb_label_fold((s)), *_ff__=bb_label_fold((f)); \
@@ -1369,7 +1367,7 @@ static int drive_value_slot(IR_t *nd) {
         if (slot >= 0) { bb_slot_register(nd, slot); return slot; }
     }
     if (nd && ir_node_produces_value(nd->op)) {
-                fprintf(stderr, "FATAL drive_value_slot: IR op=%d is a value-producer with no ZLS slot — ir_drive_slot_assign never granted it. "
+                fprintf(stderr, "FATAL drive_value_slot: IR op=%d is a value-producer with no frame slot — ir_drive_slot_assign never granted it. "
                         "Emit-time allocation is ERADICATED (TMP-ERADICATE); add the grant in LOWER, never patch it here. op=%d\n", (int)nd->op, (int)nd->op);
         abort();
     }

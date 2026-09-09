@@ -219,8 +219,6 @@ const char x86_argrole_blob[] =
     "cap_cell\0"
     "i\0"
     "elem_sz\0"
-    "rt_zls2_release_to\0"
-    "rt_zls_release_to\0"
     "scrip_coexpr_activate\0"
     "target\0"
     "x0\0"

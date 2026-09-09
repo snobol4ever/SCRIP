@@ -26,7 +26,7 @@ static char sp_nlb[24];
     ? x86("mov", "eax", XSAD(4)) \
     : x86("mov32", "eax", CSK()) \
 )
-#define sp_chainp() (sp_gu() && CSK() >= 1 && CSK() <= ZC_CSET_CHAIN_MAX)
+#define sp_chainp() (sp_gu() && CSK() >= 1 && CSK() <= CSET_CHAIN_MAX)
 #define sp_tablep() (sp_gu() && !sp_chainp())
 static std::string sp_memb(long u, long i) {
     return i >= CSK()

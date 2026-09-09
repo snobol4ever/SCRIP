@@ -7,8 +7,6 @@ extern "C" {
 typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs;
 ScanSubjRegs rt_match_enter(uint64_t lo, uint64_t hi);
 void rt_match_ctx_restore(uint64_t sig, uint64_t len, uint64_t capgen);
-void * rt_zls_mark(void);
-void   rt_zls_release_to(void *mark);
 extern "C" long *rt_anchor_ptr(void);
 }
 #include "x86_asm.h"
@@ -148,7 +146,7 @@ std::string bb_match_begin() {
                   + x86_zclaim(32)
                   + x86("note", "rsp_mark")
                   + x86("mov", stfh() ? HKM() : FRQ(_.op_off + 16), "rax")
-                  : x86_zls2_mark_save(stfh() ? HKM() : FRQ(_.op_off + 16)))
+                  : x86_rsp_mark_save(stfh() ? HKM() : FRQ(_.op_off + 16)))
          + x86("note", "start_δ")
          + x86("mov", stfh() ? HKD() : FR(_.op_off), (long)0)
          + x86("def", L(0))

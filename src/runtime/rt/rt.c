@@ -21,8 +21,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "zeta_alloc.h"
-#include "zeta_choices.h"
 extern const char *Σ;
 extern int Σlen;
 __asm__(".globl rt_outer_call\n.type rt_outer_call, @function\n"
@@ -1132,7 +1130,7 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
 {
     rt_proc_t *p = rt_proc_find(name);
     if (!p || !p->fn) { extern void rt_pl_iso_throw_existence_key(const char *); fprintf(stderr, "[SUSP] rt_proc_call_gen_h: generator '%s' has no stackless slab\n", name ? name : "(null)"); rt_pl_iso_throw_existence_key(name ? name : "?"); if (hout) *hout = (void *)0; return FAILDESCR; }
-    if (p->jmp_entry && p->is_generator) {
+    if (p->is_generator) {
         uint64_t cregs[5];
         __asm__ volatile("movq %%rbx,%0\n\tmovq %%r12,%1\n\tmovq %%r13,%2\n\tmovq %%r14,%3\n\tmovq %%r15,%4" : "=m"(cregs[0]), "=m"(cregs[1]), "=m"(cregs[2]), "=m"(cregs[3]), "=m"(cregs[4]));
         rt_genp_s *g = (rt_genp_s *)calloc(1, sizeof *g);
@@ -1160,33 +1158,14 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
     }
     int fbytes = (int)(PROC_FRAME_QWORDS * 8); if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
     fbytes = (int)(((long)fbytes + 15L) & ~15L);
-    long total = 16L + (long)fbytes;
-    char *base = (char *)rt_zls_alloc(total);
-    char *fb = base + 16;
-    ((void **)base)[0] = (void *)p->fn;
-    ((long *)base)[1] = total;
+    char *fb = (char *)__builtin_alloca((size_t)fbytes + 16) + 16;
+    fb = (char *)(((uintptr_t)fb + 15) & ~(uintptr_t)15);
     { DESCR_t *zf = (DESCR_t *)fb; for (int zi = 0; zi < fbytes / 16; zi++) zf[zi] = NULVCL; }
     if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
     rt_frame_bind_args(fb, p, nargs);
-    if (hout) *hout = (void *)fb;
+    if (hout) *hout = (void *)0;
     rt_k_level++; (void)p->fn((void *)fb, 0); rt_k_level--;
-    DESCR_t result = *(DESCR_t *)(fb + 0);
-    if (IS_FAIL(result)) { if (hout) *hout = (void *)0; ((void **)base)[0] = (void *)0; rt_zls_release((void *)base); }
-    return result;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_proc_resume_frame(void *frame)
-{
-    char *fb = (char *)frame;
-    if (!fb) return FAILDESCR;
-    char *base = fb - 16;
-    bb_box_fn fn = (bb_box_fn)((void **)base)[0];
-    long total = ((long *)base)[1];
-    if (!fn) return FAILDESCR;
-    rt_k_level++; (void)fn((void *)fb, 1); rt_k_level--;
-    DESCR_t result = *(DESCR_t *)(fb + 0);
-    if (IS_FAIL(result)) { (void)total; ((void **)base)[0] = (void *)0; rt_zls_release((void *)base); }
-    return result;
+    return *(DESCR_t *)(fb + 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_proc_resume_frame_h(void **hslot)
@@ -1201,9 +1180,8 @@ DESCR_t rt_proc_resume_frame_h(void **hslot)
           rt_k_level--;
           return rt_genp_triage(g, ok, out2, hslot);
       } }
-    DESCR_t result = rt_proc_resume_frame(frame);
-    if (IS_FAIL(result) && hslot) *hslot = (void *)0;
-    return result;
+    if (hslot) *hslot = (void *)0;
+    return FAILDESCR;
 }
 typedef struct { const char *name; DESCR_t *cell; DESCR_t old; } NameSaveEnt;
 #define PROC_FRAME_NEST_QWORDS 512

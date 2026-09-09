@@ -22,8 +22,8 @@ static char na_dlb[24];
          + x86("mov", "ecx", XSAD(4)) \
          : x86("lea", "r8",  "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval ? _.op_sval : ""), na_nlb) \
          + x86("mov32", "ecx", CSK()))
-#define na_chainp() (na_gu() && CSK() >= 2 && CSK() <= ZC_CSET_CHAIN_MAX)
-#define na_tablep() (na_gu() && (CSK() == 0 || CSK() > ZC_CSET_CHAIN_MAX))
+#define na_chainp() (na_gu() && CSK() >= 2 && CSK() <= CSET_CHAIN_MAX)
+#define na_tablep() (na_gu() && (CSK() == 0 || CSK() > CSET_CHAIN_MAX))
 static std::string na_memb(long i) { return i >= CSK() ? std::string() : x86("cmp", "esi", (long)(unsigned char)_.op_sval[i]) + x86_omega("je") + na_memb(i + 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_notany() {

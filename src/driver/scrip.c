@@ -120,8 +120,6 @@ extern int         Δ;
 #include "../runtime/builtins/gen_runtime.h"
 #include "driver/polyglot.h"
 #include "../tools/emit_per_kind_audit.h"
-#include "../ir/zeta_choices.h"
-#include "../runtime/rt/zeta_alloc.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scrip_symmap(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_SYMMAP"); v = e ? (atoi(e) != 0) : 0; } return v; }
 static int proc_role3_kind(const IR_graph_t *g) { if (!g || !g->entry) return 0; if (g->entry->op == IR_GOTO_DEFERRED) return 1;  const IR_t *e = (g->entry->op == IR_DEFINE && IR_LIT(g->entry).ival == 3) ? g->entry : (const IR_t *)0; return !e ? 0 : (e->γ.node && e->γ.node->op == IR_GOTO_DEFERRED) ? 1 : 2; }

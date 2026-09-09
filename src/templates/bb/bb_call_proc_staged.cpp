@@ -24,7 +24,6 @@ DESCR_t rt_faildescr(void);
 void    rt_ab_undef_fn_stub(void);
 void    rt_pl_iso_throw_existence_key(const char *key); DESCR_t rt_pl_exist_key_raise(const char *key);
 DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **act_slot);
-DESCR_t rt_proc_resume_frame(void *act);
 DESCR_t rt_proc_resume_frame_h(void **hslot);
 DESCR_t rt_gen_spine_pass_γ(DESCR_t v);
 DESCR_t rt_gen_spine_pass_ω(void);
@@ -831,7 +830,7 @@ static std::string bcps_spine_gen_arm() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_proc_staged_str(IR_t * pBB) {
     int is_gen = _.op_sval && rt_proc_is_generator(_.op_sval);
-    if (is_gen && _.op_node_kind != (int)IR_PROC_GEN && _.op_node_kind != (int)IR_CALL_PROC_STAGED) return x86_alpha() + x86_bomb("bb_call_proc_staged: generator call on an op kind without a callgen.act ZLS2 handle grant (zeta_storage.c widens only IR_PROC_GEN / IR_CALL_PROC_STAGED)");
+    if (is_gen && _.op_node_kind != (int)IR_PROC_GEN && _.op_node_kind != (int)IR_CALL_PROC_STAGED) return x86_alpha() + x86_bomb("bb_call_proc_staged: generator call on an op kind without a callgen.act RSP-carve handle grant (zeta_storage.c widens only IR_PROC_GEN / IR_CALL_PROC_STAGED)");
     if (is_gen) return bcps_spine_gen_arm();
     return bcps_det_arm();
 }

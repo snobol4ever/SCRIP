@@ -345,7 +345,6 @@ RT_PIC_SRCS := \
     $(RT)/rt/rt_pl_trail.c \
     $(RT)/rt/rt_arena.c \
     $(RT)/rt/rt.c \
-    $(RT)/rt/zeta_alloc.c \
     $(RT)/rt/gc_heap.c \
     $(RT)/rt/rt_protected.c \
     $(RT)/rt/pat_pool.c \
@@ -539,7 +538,7 @@ RT_PIC_SRCS := \
     $(SRC)/runtime/unification.c \
     $(SRC)/runtime/core/coerce.c \
     $(SRC)/ir/scrip_ir.c \
-    $(SRC)/ir/zeta_storage.c \
+    $(SRC)/ir/frame_layout.c \
     $(SRC)/ir/zeta_depth.c \
     $(SRC)/runtime/rt_runtime.c \
     $(SRC)/driver/driver_globals.c \

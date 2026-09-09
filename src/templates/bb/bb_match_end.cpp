@@ -5,7 +5,6 @@ extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
 }
-extern "C" void rt_zls_release_to(void *mark);
 extern "C" void rt_match_ctx_restore(uint64_t sig, uint64_t len, uint64_t capgen);
 extern "C" long rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj);
 extern "C" long rt_dcap_step(DESCR_t fret);

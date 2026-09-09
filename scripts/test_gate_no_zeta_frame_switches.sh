@@ -18,5 +18,14 @@ if [ "$n" -ne 0 ]; then
   printf '%s\n' "$hits" | sed "s#^$ROOT/##"
   exit 1
 fi
-echo "✅ PASS: 0 zeta frame switches under src/ (getenv SCRIP_*{RBP,FRAME,PIN,ZFRAME,CARVE}*) -- the tier is derived"
+# CEO-448 (Lon: "get rid of all that ZLS and ZETA #define's"): no ZC_/ZLS identifier, no rt_zls store symbol, no
+# zeta_choices/zeta_alloc file may exist under src/ -- the frame layout is typed per activation, never a store.
+zhits=$(grep -rnoE '\b(ZC_[A-Z0-9_]+|ZLS[A-Z0-9_]*|rt_zls2?_[a-z_]+)\b' "$ROOT/src" 2>/dev/null; ls "$ROOT/src/ir/zeta_choices.h" "$ROOT/src/runtime/rt/zeta_alloc.c" "$ROOT/src/runtime/rt/zeta_alloc.h" 2>/dev/null)
+zn=$(printf '%s' "$zhits" | grep -c . || true)
+if [ "$zn" -ne 0 ]; then
+  echo "⛔ FAIL: $zn ZC_/ZLS identifier(s) or zeta store file(s) under src/ -- the ζ stores and defines died in CEO-448:"
+  printf '%s\n' "$zhits" | sed "s#^$ROOT/##"
+  exit 1
+fi
+echo "✅ PASS: 0 zeta frame switches (getenv SCRIP_*{RBP,FRAME,PIN,ZFRAME,CARVE}*) and 0 ZC_/ZLS identifiers or zeta store files under src/ -- the tier is derived, the layout is typed"
 exit 0

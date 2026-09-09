@@ -27,7 +27,7 @@ static char bk_dlb[24];
     ? x86("mov", "eax", XSAD(4)) \
     : x86("mov32", "eax", CSK()) \
 )
-#define bk_chainp() (bk_gu() && CSK() >= 1 && CSK() <= ZC_CSET_CHAIN_MAX)
+#define bk_chainp() (bk_gu() && CSK() >= 1 && CSK() <= CSET_CHAIN_MAX)
 #define bk_tablep() (bk_gu() && !bk_chainp())
 static std::string bk_memb(long i) {
     return i >= CSK() ? std::string()

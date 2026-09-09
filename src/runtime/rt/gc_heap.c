@@ -5,10 +5,11 @@
 #include <sys/mman.h>
 #include <link.h>
 #include <time.h>
-#include "zeta_choices.h"
 #include "rt_slab.h"
 #include "rt_arena.h"
 #include "gc_heap.h"
+#define GC_HEAP_MB 512
+#define WSI_MB 1024
 #include "descr.h"
 #include "pin_va.h"
 _Static_assert(sizeof(rt_hblk_t) == 16, "rt_hblk_t must be one 16-byte title unit");
@@ -108,16 +109,16 @@ static void rt_gcheap_report(void)
 {
     if (!getenv("SCRIP_ZETA_TELEM")) return;
     long live = rt_gcheap_verify();
-    fprintf(stderr, "[ZHP] arena=%dMB blocks=%ld(alloc'd)=%ld(walked) bytes=%ld verify=OK\n", (int)ZC_HEAP_MB, g_hp_blocks, live, g_hp_arena ? (long)(g_hp_top - g_hp_arena) : 0L);
-    fprintf(stderr, "[WSI] island=%dMB blocks=%ld ws_bytes=%ld wss_bytes=%ld\n", (int)ZC_WSI_MB, g_wsi_blocks, g_wsi_base ? (long)(g_wsi_ws - g_wsi_base) : 0L, g_wsi_base ? (long)(g_wsi_end - g_wsi_wss) : 0L);
+    fprintf(stderr, "[ZHP] arena=%dMB blocks=%ld(alloc'd)=%ld(walked) bytes=%ld verify=OK\n", (int)GC_HEAP_MB, g_hp_blocks, live, g_hp_arena ? (long)(g_hp_top - g_hp_arena) : 0L);
+    fprintf(stderr, "[WSI] island=%dMB blocks=%ld ws_bytes=%ld wss_bytes=%ld\n", (int)WSI_MB, g_wsi_blocks, g_wsi_base ? (long)(g_wsi_ws - g_wsi_base) : 0L, g_wsi_base ? (long)(g_wsi_end - g_wsi_wss) : 0L);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_gcheap_init(void)
 {
-    long mb = (long)ZC_HEAP_MB;
+    long mb = (long)GC_HEAP_MB;
     { const char *e = getenv("SCRIP_HEAP_MB"); if (e && *e) { long v = atol(e); if (v >= 1 && v <= 4096) mb = v; } }
     g_hp_arena = (char *)rt_slab_region((size_t)mb << 20);
-    if (!g_hp_arena) { fprintf(stderr, "[ZHP] heap arena slab failed (%ld MB) — lower ZC_HEAP_MB\n", mb); abort(); }
+    if (!g_hp_arena) { fprintf(stderr, "[ZHP] heap arena slab failed (%ld MB) — lower GC_HEAP_MB\n", mb); abort(); }
     g_hp_top = g_hp_arena; g_hp_end = g_hp_arena + ((size_t)mb << 20);
     { const char *nh = getenv("SCRIP_NOHUGE"); if (!(nh && *nh && *nh != '0')) { uintptr_t a = ((uintptr_t)g_hp_arena + 0x1FFFFFu) & ~(uintptr_t)0x1FFFFFu, e = ((uintptr_t)g_hp_end) & ~(uintptr_t)0x1FFFFFu; if (e > a) madvise((void *)a, (size_t)(e - a), MADV_HUGEPAGE); } }
     g_hp_virgin = g_hp_arena;
@@ -194,7 +195,7 @@ void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes)
         if (g_hp_win < g_hp_wend) { rt_hblk_t *fl = (rt_hblk_t *)g_hp_win; fl->fwd = 0; fl->size = (uint32_t)(g_hp_wend - g_hp_win); fl->type = HB_FILL; fl->flags = HBF_TTL; }
         return r;
     }
-    fprintf(stderr, "[ZHP] heap exhausted (%d MB, %ld blocks) after storage regeneration — raise ZC_HEAP_MB or build with -DZC_HEAP_STRINGS=0\n", (int)ZC_HEAP_MB, g_hp_blocks);
+    fprintf(stderr, "[ZHP] heap exhausted (%d MB, %ld blocks) after storage regeneration — raise GC_HEAP_MB or build with -DZC_HEAP_STRINGS=0\n", (int)GC_HEAP_MB, g_hp_blocks);
     abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -217,9 +218,9 @@ char *rt_str_dup(const char *s)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_wsi_init(void)
 {
-    long mb = (long)ZC_WSI_MB;
+    long mb = (long)WSI_MB;
     g_wsi_base = (char *)rt_slab_region((size_t)mb << 20);
-    if (!g_wsi_base) { fprintf(stderr, "[WSI] workspace island slab failed (%ld MB) — lower ZC_WSI_MB\n", mb); abort(); }
+    if (!g_wsi_base) { fprintf(stderr, "[WSI] workspace island slab failed (%ld MB) — lower WSI_MB\n", mb); abort(); }
     g_wsi_ws = g_wsi_base; g_wsi_end = g_wsi_base + ((size_t)mb << 20); g_wsi_wss = g_wsi_end;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -227,7 +228,7 @@ static void *rt_ws_alloc_core(size_t n, uint16_t ty)
 {
     if (!g_wsi_base) rt_wsi_init();
     { uint64_t total = sizeof(rt_hblk_t) + ((((uint64_t)(n ? n : 1)) + 15u) & ~15ull);
-      if ((uint64_t)(g_wsi_wss - g_wsi_ws) < total) { fprintf(stderr, "[WSI] workspace island exhausted (%d MB, %ld blocks) — raise ZC_WSI_MB\n", (int)ZC_WSI_MB, g_wsi_blocks); abort(); }
+      if ((uint64_t)(g_wsi_wss - g_wsi_ws) < total) { fprintf(stderr, "[WSI] workspace island exhausted (%d MB, %ld blocks) — raise WSI_MB\n", (int)WSI_MB, g_wsi_blocks); abort(); }
       { rt_hblk_t *h = (rt_hblk_t *)g_wsi_ws; h->fwd = 0; h->size = (uint32_t)total; h->type = ty; h->flags = HBF_TTL; if (g_hp_fr.zfull < 0) { const char *ze = getenv("SCRIP_ZSKIP_OFF"); g_hp_fr.zfull = (ze && *ze && *ze != '0') ? 1 : 0; } if (g_hp_fr.zfull) memset((void *)(h + 1), 0, (size_t)(total - sizeof(rt_hblk_t)));
         g_wsi_ws += total; g_wsi_blocks += 1; return (void *)(h + 1); } }
 }
@@ -258,7 +259,7 @@ char *rt_ws_strdup(const char *s)
     if (rt_alloc_hist_on()) rt_alloc_hist_ra(__builtin_return_address(0), (uint16_t)HB_WSS, 0);
     if (!g_wsi_base) rt_wsi_init();
     { size_t n = strlen(s); uint64_t total = sizeof(rt_hblk_t) + (((uint64_t)(n + 1) + 15u) & ~15ull);
-      if ((uint64_t)(g_wsi_wss - g_wsi_ws) < total) { fprintf(stderr, "[WSI] workspace island exhausted (%d MB, %ld blocks) — raise ZC_WSI_MB\n", (int)ZC_WSI_MB, g_wsi_blocks); abort(); }
+      if ((uint64_t)(g_wsi_wss - g_wsi_ws) < total) { fprintf(stderr, "[WSI] workspace island exhausted (%d MB, %ld blocks) — raise WSI_MB\n", (int)WSI_MB, g_wsi_blocks); abort(); }
       { char *at = g_wsi_wss - total; rt_hblk_t *h = (rt_hblk_t *)at; h->fwd = 0; h->size = (uint32_t)total; h->type = HB_WSS; h->flags = HBF_TTL; memcpy((void *)(h + 1), s, n + 1);
         g_wsi_wss = at; g_wsi_blocks += 1; return (char *)(h + 1); } }
 }
@@ -579,12 +580,6 @@ static void gc_zeta_frame(const char *lo0, const char *hi0)
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void gc_root_zeta(void)
-{
-    extern void *rt_zls_frames_head(void); extern void *rt_zls_frame_prev(void *fb); extern long rt_zls_frame_size(void *fb);
-    void *fb = rt_zls_frames_head();
-    while (fb) { long sz = rt_zls_frame_size(fb); gc_zeta_frame((char *)fb, (char *)fb + sz); fb = rt_zls_frame_prev(fb); }
-}
 static long g_gc_cas_bytes = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_root_cas(void)
@@ -638,7 +633,6 @@ static long gc_collect_ex(int cons_stack)
         for (long i = 0; i < g_gc_nseg; i++) if (g_gc_segs[i].lo < g_gc_segs[i].hi) gc_zeta_frame(g_gc_segs[i].lo, g_gc_segs[i].hi); } }
     if (!pz) { char *chi; gc_coexpr_roots(&chi);
       if (cons_stack) { char *lo = g_gc_seam_sp ? g_gc_seam_sp : &anchor, *hi = chi ? chi : gc_stack_top(); if (lo < hi) gc_zeta_frame(lo, hi); } }
-    gc_root_zeta();
     gc_root_cas();
     { static int cov = -1; if (cov < 0) { const char *e = getenv("SCRIP_GC_COVERAGE"); cov = (e && *e && *e != '0') ? 1 : 0; }
       if (cov) fprintf(stderr, "[GC-COV] ranges=%ld cas_scanned_bytes=%ld pz=%d cons_stack=%d\n", g_gc_rrng_n, g_gc_cas_bytes, pz, cons_stack); }

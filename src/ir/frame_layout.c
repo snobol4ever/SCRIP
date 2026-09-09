@@ -1,7 +1,6 @@
 #include <string.h>
 #include <stdlib.h>
-#include "zeta_storage.h"
-#include "zeta_choices.h"
+#include "frame_layout.h"
 #include "ast.h"
 extern const char * bb_op_name(IR_e k);
 extern int is_global(const char *);
@@ -9,25 +8,25 @@ extern int rt_proc_is_registered(const char *);
 extern int rt_proc_is_generator(const char *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_callee_is_gen(const IR_t * nd) { const char * fn = IR_LIT(nd).sval; return fn && fn[0] && rt_proc_is_registered(fn) && rt_proc_is_generator(fn); }
-#define ZLS_MAX_ENTRIES 262144
-#define ZLS_FC_SYNTH    0x7F000
-#define ZLS_MAX_FIELDS  524288
-#define ZLS_MAX_SCOPES  16384
-#define ZLS_MAX_GRAPHS  16384
-#define ZLS_MAX_VSLOTS  16384
-#define ZLS_MAX_MARKS   262144
+#define FL_MAX_ENTRIES 262144
+#define FL_FC_SYNTH    0x7F000
+#define FL_MAX_FIELDS  524288
+#define FL_MAX_SCOPES  16384
+#define FL_MAX_GRAPHS  16384
+#define FL_MAX_VSLOTS  16384
+#define FL_MAX_MARKS   262144
 typedef struct { const IR_t * nd; int scope_id; int off; int loff; int live; } zls_entry_t;
 typedef struct { int scope_id; int off; int size; unsigned char kind; unsigned char audit; const char * what; const IR_t * nd; } zls_pfield_t;
 typedef struct { const char * name; int off; } zls_vslot_t;
 typedef struct { const IR_graph_t * g; const char * name; int start_n; const IR_t * anchor; } zls_mark_t;
 typedef struct { const IR_graph_t * g; const char * name; int first_scope; int n_scopes; int nslots; int region; int resume_off; int zeta_mark_off; int locals_off; int first_vslot; int n_vslots; } zls_graph_t;
-static zls_entry_t  ze[ZLS_MAX_ENTRIES];  static int ze_n = 0;
-static zls_pfield_t zf[ZLS_MAX_FIELDS];   static int zf_n = 0;
-static zls_scope_t  zs[ZLS_MAX_SCOPES];   static int zs_n = 0;
-static zls_graph_t  zg[ZLS_MAX_GRAPHS];   static int zg_n = 0;
-static zls_vslot_t  zv[ZLS_MAX_VSLOTS];   static int zv_n = 0;
-static zls_mark_t   zm[ZLS_MAX_MARKS];    static int zm_n = 0;
-static zls_entry_t * zx[ZLS_MAX_ENTRIES]; static int zx_n = 0;
+static zls_entry_t  ze[FL_MAX_ENTRIES];  static int ze_n = 0;
+static zls_pfield_t zf[FL_MAX_FIELDS];   static int zf_n = 0;
+static zls_scope_t  zs[FL_MAX_SCOPES];   static int zs_n = 0;
+static zls_graph_t  zg[FL_MAX_GRAPHS];   static int zg_n = 0;
+static zls_vslot_t  zv[FL_MAX_VSLOTS];   static int zv_n = 0;
+static zls_mark_t   zm[FL_MAX_MARKS];    static int zm_n = 0;
+static zls_entry_t * zx[FL_MAX_ENTRIES]; static int zx_n = 0;
 typedef struct { const IR_t * nd; int min_off; int span; int zq[8]; int nzq; } zls_ageom_t;
 static zls_ageom_t  za[1024];             static int za_n = 0;
 static struct { const IR_t * head; const IR_t * arbno; int i0; int ia; int b0; int b1; int r1; int fpl; int fpb; int fpr; int fpr_rsp; int span; int rspan; int opsb; int fin; int dfr; const IR_t * wsv[4]; const IR_t * wcd[4]; int nw; } fct[64];
@@ -37,13 +36,13 @@ void zls_reset(void) { ze_n = 0; zf_n = 0; zs_n = 0; zg_n = 0; zv_n = 0; zm_n = 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_group_mark(const IR_graph_t * g, const char * name) {
     if (!g || !name) return;
-    if (zm_n >= ZLS_MAX_MARKS) { fprintf(stderr, "zls: mark table overflow (%d)\n", ZLS_MAX_MARKS); abort(); }
+    if (zm_n >= FL_MAX_MARKS) { fprintf(stderr, "zls: mark table overflow (%d)\n", FL_MAX_MARKS); abort(); }
     zm[zm_n++] = (zls_mark_t){ g, name, g->n, (const IR_t *)0 };
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_group_mark_anchor(const IR_graph_t * g, const char * name, const IR_t * anchor) {
     if (!g || !name) return;
-    if (zm_n >= ZLS_MAX_MARKS) { fprintf(stderr, "zls: mark table overflow (%d)\n", ZLS_MAX_MARKS); abort(); }
+    if (zm_n >= FL_MAX_MARKS) { fprintf(stderr, "zls: mark table overflow (%d)\n", FL_MAX_MARKS); abort(); }
     zm[zm_n++] = (zls_mark_t){ g, name, g->n, anchor };
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -55,7 +54,7 @@ void zls_graph_name(const IR_graph_t * g, const char * name) {
     if (!g || !name) return;
     zls_graph_t * r = zls_g_find(g);
     if (r) { r->name = name; if (r->first_scope >= 0 && r->first_scope < zs_n) zs[r->first_scope].name = name; return; }
-    if (zg_n >= ZLS_MAX_GRAPHS) { fprintf(stderr, "zls: graph table overflow (%d)\n", ZLS_MAX_GRAPHS); abort(); }
+    if (zg_n >= FL_MAX_GRAPHS) { fprintf(stderr, "zls: graph table overflow (%d)\n", FL_MAX_GRAPHS); abort(); }
     zg[zg_n] = (zls_graph_t){ g, name, -1, 0, 0, 0, -1, -1, 0, 0, 0, -1 };
     zg_n++;
 }
@@ -69,13 +68,13 @@ static const zls_entry_t * zx_find(const IR_t * nd) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void zls_field(int scope_id, int off, int size, int kind, int audit, const char * what, const IR_t * nd) {
-    if (zf_n >= ZLS_MAX_FIELDS) { fprintf(stderr, "zls: field table overflow (%d)\n", ZLS_MAX_FIELDS); abort(); }
+    if (zf_n >= FL_MAX_FIELDS) { fprintf(stderr, "zls: field table overflow (%d)\n", FL_MAX_FIELDS); abort(); }
     zf[zf_n++] = (zls_pfield_t){ scope_id, off, size, (unsigned char)kind, (unsigned char)audit, what, nd };
 }
 static int zls_locals_shifted(IR_e op);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void zls_entry(const IR_t * nd, int scope_id, int off) {
-    if (ze_n >= ZLS_MAX_ENTRIES) { fprintf(stderr, "zls: entry table overflow (%d)\n", ZLS_MAX_ENTRIES); abort(); }
+    if (ze_n >= FL_MAX_ENTRIES) { fprintf(stderr, "zls: entry table overflow (%d)\n", FL_MAX_ENTRIES); abort(); }
     ze[ze_n] = (zls_entry_t){ nd, scope_id, off, off + (zls_locals_shifted(nd->op) ? 16 : 0), 1 };
     zx[zx_n++] = &ze[ze_n];
     ze_n++;
@@ -91,7 +90,7 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
     case IR_SCAN_ENTER:
         zls_field(scope_id, off, 8, ZK_RAW, 0, "scan.leave out3 sigma (transient reg out-area; dead at safe points)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "scan.leave out3 delta", nd); zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "scan.leave out3 Delta", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "scan.pad (unused)", nd); return 2;
     case IR_MATCH_BEGIN:
-        zls_field(scope_id, off, 4, ZK_RAW, 0, "head.cursor (ZB-FC-3d granted: the LIVE anchor lives in HEAD's self-pushed 32B rsp cell at [rsp+0] via the op_fc_wbytes window; this FLAT +0 then holds the RELEASE-stashed match START read by IR_MATCH_REPLACE -- same logical offset, window-disambiguated, so REPLACE's template is unchanged both paths)", nd); zls_field(scope_id, off + 8, 8, ZK_PTR_GC, 0, "head.zeta_mark (BB-OWNED-zeta statement-scope saved rt_zls_mark() pointer; ZB-FC-3d granted: cell-resident at [rsp+8])", nd); zls_field(scope_id, off + 16, 8, ZK_PTR_GC, 0, "head.zls2_mark (retired ALLOC-port era: saved rt_zls2_mark() cursor; released by head's own omega-choke on failure / IR_MATCH_END on success — the ZLS2 twin of head.zeta_mark, widened to a second quad because the first quad's padding is spent.  ZB-FC-3d granted: cell-resident at [rsp+16] holding the PRE-PUSH rsp, so the S10e unwind releases HEAD's cell and every suspended pattern cell in one mov)", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "head.end (SN4-REPL: end cursor stashed by IR_MATCH_END when the statement carries a replacement, read by IR_MATCH_REPLACE; ZB-FC-3d: FLAT on both paths -- post-unwind lifetime)", nd); zls_field(scope_id, off + 32, 8, ZK_RAW, 0, "head.dcap_mark (REG-6 PEND-PROMOTE: α saves live-r12 pend top = this match's MARK; ω/RELEASE truncate r12 from it — the cell [RT_DCAP_TOP] is now seed-source only, prologue-read, never written mid-match; ZK_RAW — points into the base-pinned dcap island, never GC-moved.  ZB-FC-3d: FLAT on both paths -- RELEASE's post-unwind pump reads it after the match dies)", nd); zls_field(scope_id, off + 40, 8, ZK_RAW, 0, "head.incoming____ (DEAD at REG-2 — ___ is no longer the pend cursor, nothing saves or restores here; slot left ALLOCATED v1 so op_off accounting does not ripple, reclaim is a named follow-up.  Re-tenants at REG-3 as the frame-___ era's saved-outer-___ if the wire-header [+24] route changes)", nd); zls_field(scope_id, off + 48, 8, ZK_RAW, 0, "head.sigma_save (PATCTX, Lon directive 2026-07-29: HEAD saves the OUTER match's Σ=r13 at α before rt_match_enter installs the new subject; BOTH exits restore -- head's own omega-choke on failure, release_pump's tail on success -- and re-sync the C-side Σ/Σlen mirror via rt_match_ctx_restore, so nested matches (deferred *F() evaluation, EVAL/CODE, pump-committed *VAR proc bodies that themselves match) are LIFO-sound by construction.  ZK_RAW deliberately: Σ is register-resident today and registers are GC-invisible regardless; when ZHEAP moves strings THIS slot is exactly where a suspended subject becomes a findable root -- retag interior-PTR_GC in that rung.  KNOWN BYPASS, named not hidden: pat_seal kills (ABORT, FENCE-seal) jump straight to fJ and skip the omega-choke, so they skip this restore the same way they already skip the zls unwind and CAS pop -- the ___ match-frame rung is what closes that class)", nd); zls_field(scope_id, off + 56, 8, ZK_RAW, 0, "head.delta_save (PATCTX: outer δ=r14)", nd); zls_field(scope_id, off + 64, 8, ZK_RAW, 0, "head.Delta_save (PATCTX: outer Δ=r15)", nd); zls_field(scope_id, off + 72, 8, ZK_RAW, 0, "head.capgen_save (PATCTX-2: the OUTER match g_cap_gen id, read at alpha before rt_match_enter draws a fresh id from the monotonic well; both exits restore it through rt_match_ctx_restore -- nest1 autopsy: the inner match stamp invalidated the outer SAVE bracket, pop no-opd, top returned 0, R captured [0,end).  Occupies the former pad quad, so the 5-quad grant and every downstream offset are unchanged)", nd); return 5;
+        zls_field(scope_id, off, 4, ZK_RAW, 0, "head.cursor (ZB-FC-3d granted: the LIVE anchor lives in HEAD's self-pushed 32B rsp cell at [rsp+0] via the op_fc_wbytes window; this FLAT +0 then holds the RELEASE-stashed match START read by IR_MATCH_REPLACE -- same logical offset, window-disambiguated, so REPLACE's template is unchanged both paths)", nd); zls_field(scope_id, off + 8, 8, ZK_PTR_GC, 0, "head.zeta_mark (BB-OWNED-zeta statement-scope saved the rsp mark() pointer; ZB-FC-3d granted: cell-resident at [rsp+8])", nd); zls_field(scope_id, off + 16, 8, ZK_PTR_GC, 0, "head.zls2_mark (retired ALLOC-port era: saved the rsp mark() cursor; released by head's own omega-choke on failure / IR_MATCH_END on success — the RSP-carve twin of head.zeta_mark, widened to a second quad because the first quad's padding is spent.  ZB-FC-3d granted: cell-resident at [rsp+16] holding the PRE-PUSH rsp, so the S10e unwind releases HEAD's cell and every suspended pattern cell in one mov)", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "head.end (SN4-REPL: end cursor stashed by IR_MATCH_END when the statement carries a replacement, read by IR_MATCH_REPLACE; ZB-FC-3d: FLAT on both paths -- post-unwind lifetime)", nd); zls_field(scope_id, off + 32, 8, ZK_RAW, 0, "head.dcap_mark (REG-6 PEND-PROMOTE: α saves live-r12 pend top = this match's MARK; ω/RELEASE truncate r12 from it — the cell [RT_DCAP_TOP] is now seed-source only, prologue-read, never written mid-match; ZK_RAW — points into the base-pinned dcap island, never GC-moved.  ZB-FC-3d: FLAT on both paths -- RELEASE's post-unwind pump reads it after the match dies)", nd); zls_field(scope_id, off + 40, 8, ZK_RAW, 0, "head.incoming____ (DEAD at REG-2 — ___ is no longer the pend cursor, nothing saves or restores here; slot left ALLOCATED v1 so op_off accounting does not ripple, reclaim is a named follow-up.  Re-tenants at REG-3 as the frame-___ era's saved-outer-___ if the wire-header [+24] route changes)", nd); zls_field(scope_id, off + 48, 8, ZK_RAW, 0, "head.sigma_save (PATCTX, Lon directive 2026-07-29: HEAD saves the OUTER match's Σ=r13 at α before rt_match_enter installs the new subject; BOTH exits restore -- head's own omega-choke on failure, release_pump's tail on success -- and re-sync the C-side Σ/Σlen mirror via rt_match_ctx_restore, so nested matches (deferred *F() evaluation, EVAL/CODE, pump-committed *VAR proc bodies that themselves match) are LIFO-sound by construction.  ZK_RAW deliberately: Σ is register-resident today and registers are GC-invisible regardless; when ZHEAP moves strings THIS slot is exactly where a suspended subject becomes a findable root -- retag interior-PTR_GC in that rung.  KNOWN BYPASS, named not hidden: pat_seal kills (ABORT, FENCE-seal) jump straight to fJ and skip the omega-choke, so they skip this restore the same way they already skip the zls unwind and CAS pop -- the ___ match-frame rung is what closes that class)", nd); zls_field(scope_id, off + 56, 8, ZK_RAW, 0, "head.delta_save (PATCTX: outer δ=r14)", nd); zls_field(scope_id, off + 64, 8, ZK_RAW, 0, "head.Delta_save (PATCTX: outer Δ=r15)", nd); zls_field(scope_id, off + 72, 8, ZK_RAW, 0, "head.capgen_save (PATCTX-2: the OUTER match g_cap_gen id, read at alpha before rt_match_enter draws a fresh id from the monotonic well; both exits restore it through rt_match_ctx_restore -- nest1 autopsy: the inner match stamp invalidated the outer SAVE bracket, pop no-opd, top returned 0, R captured [0,end).  Occupies the former pad quad, so the 5-quad grant and every downstream offset are unchanged)", nd); return 5;
     case IR_MATCH_SPAN:
         zls_field(scope_id, off, 16, ZK_RAW, 0, "span.cnt/cur", nd); return 1;
     case IR_MATCH_BAL:
@@ -103,7 +102,7 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
     case IR_MATCH_FENCE1:
         zls_field(scope_id, off, 8, ZK_RAW, 0, "fence.watermark (α-saved rsp; σ/φ glue restores)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "fence.pad (unused)", nd); return 1;
     case IR_MATCH_ARB:
-        zls_field(scope_id, off, 8, ZK_RAW, 0, "arb.cnt/cur (matched-length +0 4B, saved-start +4 4B)", nd); zls_field(scope_id, off + 8, 8, ZK_PTR_GC, 0, "arb.zls2 activation block ptr (save-slot-in-frame, retired ALLOC-port era: reuses this node's existing pad, same reuse precedent as IR_MATCH_BEGIN.zeta_mark; block itself is a separate ZLS2 allocation, header +0 chains the previous activation's ptr)", nd); return 1;
+        zls_field(scope_id, off, 8, ZK_RAW, 0, "arb.cnt/cur (matched-length +0 4B, saved-start +4 4B)", nd); zls_field(scope_id, off + 8, 8, ZK_PTR_GC, 0, "arb.zls2 activation block ptr (save-slot-in-frame, retired ALLOC-port era: reuses this node's existing pad, same reuse precedent as IR_MATCH_BEGIN.zeta_mark; block itself is a separate RSP-carve allocation, header +0 chains the previous activation's ptr)", nd); return 1;
     case IR_MATCH_REM:
         zls_field(scope_id, off, 16, ZK_RAW, 0, "match.cursor save", nd); return 1;
     case IR_MATCH_DEFER:
@@ -113,7 +112,7 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
     case IR_MATCH_TAB: case IR_MATCH_RTAB:
         zls_field(scope_id, off, 16, ZK_RAW, 0, "tab.cursor save (+0 4B r14d saved at α, restored at β; +4 pad)", nd); return 1;
     case IR_MATCH_ARBNO:
-        if (IR_LIT(nd).ival == 1) { zls_field(scope_id, off, 16, ZK_RAW, 0, "arbno.owner quad: entry/yield/i/cap (4x4B; SN4-NARY-ARBNO one-node form)", nd); zls_field(scope_id, off + 16, 8, ZK_PTR_GC, 0, "arbno.COLLECTION ptr (rt_zcol_push-grown per-iteration elements: 16B header {prev_view, saved_delta} + body slot window; the rsp flavor = linked frame chain + explicit count in the header — Lon ruling 2026-07-12, lands at ZB-ITER under ZLS_ARBNO_STACK)", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "arbno.saved_rsp (alpha saves rsp here; exhaust L(2) restores it)", nd); zls_field(scope_id, off + 32, 8, ZK_RAW, 0, "arbno.saved_outer____ (W-1c.2: unconditional — chain-beta always saves MATCH_BEGIN ___ into this slot before repointing ___ as element view; exhaust L(2) always restores it; view-restores at sigma/phi re-derive ___ from rsp unconditionally)", nd); return 3; }
+        if (IR_LIT(nd).ival == 1) { zls_field(scope_id, off, 16, ZK_RAW, 0, "arbno.owner quad: entry/yield/i/cap (4x4B; SN4-NARY-ARBNO one-node form)", nd); zls_field(scope_id, off + 16, 8, ZK_PTR_GC, 0, "arbno.COLLECTION ptr (rt_zcol_push-grown per-iteration elements: 16B header {prev_view, saved_delta} + body slot window; the rsp flavor = linked frame chain + explicit count in the header — Lon ruling 2026-07-12, lands at ZB-ITER under FL_ARBNO_STACK)", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "arbno.saved_rsp (alpha saves rsp here; exhaust L(2) restores it)", nd); zls_field(scope_id, off + 32, 8, ZK_RAW, 0, "arbno.saved_outer____ (W-1c.2: unconditional — chain-beta always saves MATCH_BEGIN ___ into this slot before repointing ___ as element view; exhaust L(2) always restores it; view-restores at sigma/phi re-derive ___ from rsp unconditionally)", nd); return 3; }
         return 0;
     case IR_MATCH_ASSIGN_SAVE:
         zls_field(scope_id, off, 8, ZK_PTR_GC, 0, "capture.stack ws u32[] ([0]=cap, frames from [1]; box α-push/β-pop)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "capture.stack gen(+8,4B)/sp(+12,4B)", nd); return 1;
@@ -183,14 +182,14 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
         return 1 + nd->n_operands;
     case IR_PROC_GEN: case IR_CALL_VALUE:
         for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * j, 16, ZK_DESCR, 0, "call.argv", nd);
-        zls_field(scope_id, off + 16 * nd->n_operands, 8, ZK_PTR_GC, 0, "callgen.act — GENP-SPINE s92: the spine arm's epilogue-once flag (0/1, α-zeroed); was the pthread model's ZLS2 activation handle, which legacy non-RSP configs still write via rt_proc_call_gen_h's hout", nd);
+        zls_field(scope_id, off + 16 * nd->n_operands, 8, ZK_PTR_GC, 0, "callgen.act — GENP-SPINE s92: the spine arm's epilogue-once flag (0/1, α-zeroed); was the pthread model's RSP-carve activation handle, which legacy non-RSP configs still write via rt_proc_call_gen_h's hout", nd);
         zls_field(scope_id, off + 16 * nd->n_operands + 8, 8, ZK_RAW, 0, "callgen.act pad (unused)", nd);
         return 2 + nd->n_operands;
     default:
         if (nd->op == IR_CALL || ir_is_call_kind(nd->op)) {
             for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * j, 16, ZK_DESCR, 0, "call.argv", nd);
             if (nd->op == IR_CALL_PROC_STAGED && zls_callee_is_gen(nd)) {
-                zls_field(scope_id, off + 16 * nd->n_operands, 8, ZK_PTR_GC, 0, "callgen.act — GENP-SPINE s92: the spine arm's epilogue-once flag (0/1, α-zeroed); was the pthread model's ZLS2 activation handle, which legacy non-RSP configs still write via rt_proc_call_gen_h's hout.  Offset repaired off*(1+n) → off + 16*(1+n), the emitting arms' exact formula", nd);
+                zls_field(scope_id, off + 16 * nd->n_operands, 8, ZK_PTR_GC, 0, "callgen.act — GENP-SPINE s92: the spine arm's epilogue-once flag (0/1, α-zeroed); was the pthread model's RSP-carve activation handle, which legacy non-RSP configs still write via rt_proc_call_gen_h's hout.  Offset repaired off*(1+n) → off + 16*(1+n), the emitting arms' exact formula", nd);
                 zls_field(scope_id, off + 16 * nd->n_operands + 8, 8, ZK_RAW, 0, "callgen.act pad (unused)", nd);
                 return 2 + nd->n_operands;
             }
@@ -216,7 +215,7 @@ static int zls_grant(const IR_t * nd, int scope_id, int off) {
     if (zls_is_wiring(nd->op)) return 0;
     zls_entry(nd, scope_id, off);
     zls_field(scope_id, off, 16, ZK_DESCR, 0, "result", nd);
-    if (zls_fc_cell(nd)) { ze[ze_n - 1].loff = ZLS_FC_SYNTH; return 1; }
+    if (zls_fc_cell(nd)) { ze[ze_n - 1].loff = FL_FC_SYNTH; return 1; }
     return 1 + zls_grant_locals(nd, scope_id, off + 16);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -235,7 +234,7 @@ static int zls_grant_elide(const IR_t * nd, int scope_id, int off, int live, int
         if (*scratch_off < 0) { *scratch_off = off; zls_entry(nd, scope_id, off); ze[ze_n - 1].live = 0; zls_field(scope_id, off, 16, ZK_DESCR, 0, "result (SLOT-ELIDE shared dead-result scratch — every later dead leaf in this graph aliases here)", nd); return 1; }
         zls_entry(nd, scope_id, *scratch_off); ze[ze_n - 1].live = 0; return 0;
     }
-    if (!live && zls_s4_ok(nd->op)) { zls_entry(nd, scope_id, off); ze[ze_n - 1].loff = off; ze[ze_n - 1].live = 0; if (zls_fc_cell(nd)) { ze[ze_n - 1].loff = ZLS_FC_SYNTH; return 0; } return zls_grant_locals(nd, scope_id, off); }
+    if (!live && zls_s4_ok(nd->op)) { zls_entry(nd, scope_id, off); ze[ze_n - 1].loff = off; ze[ze_n - 1].live = 0; if (zls_fc_cell(nd)) { ze[ze_n - 1].loff = FL_FC_SYNTH; return 0; } return zls_grant_locals(nd, scope_id, off); }
     int ei = ze_n; int n = zls_grant(nd, scope_id, off); if (ze_n > ei) ze[ei].live = live; return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -243,7 +242,7 @@ int zls_result_live(const IR_t * nd) { const zls_entry_t * e = nd ? zx_find(nd) 
 int zls_node_off(const IR_t * nd) { const zls_entry_t * e = nd ? zx_find(nd) : (const zls_entry_t *)0; return e ? e->off : -0x40000000; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_scope_new(int parent, int klass, const char * name) {
-    if (zs_n >= ZLS_MAX_SCOPES) { fprintf(stderr, "zls: scope table overflow (%d)\n", ZLS_MAX_SCOPES); abort(); }
+    if (zs_n >= FL_MAX_SCOPES) { fprintf(stderr, "zls: scope table overflow (%d)\n", FL_MAX_SCOPES); abort(); }
     zs[zs_n] = (zls_scope_t){ zs_n, parent, klass, name, -1, 0, 0x7fffffff, 0 };
     return zs_n++;
 }
@@ -404,14 +403,14 @@ void zls_build(IR_graph_t * g) {
     zls_graph_t * r = zls_g_find(g);
     if (r && r->first_scope >= 0) return;
     if (!r) {
-        if (zg_n >= ZLS_MAX_GRAPHS) { fprintf(stderr, "zls: graph table overflow (%d)\n", ZLS_MAX_GRAPHS); abort(); }
+        if (zg_n >= FL_MAX_GRAPHS) { fprintf(stderr, "zls: graph table overflow (%d)\n", FL_MAX_GRAPHS); abort(); }
         zg[zg_n] = (zls_graph_t){ g, (const char *)0, -1, 0, 0, 0, -1, -1, 0, 0, 0, -1 }; r = &zg[zg_n]; zg_n++;
     }
-    static char anon[ZLS_MAX_GRAPHS][8]; int gi = (int)(r - zg);
+    static char anon[FL_MAX_GRAPHS][8]; int gi = (int)(r - zg);
     if (!r->name) { snprintf(anon[gi], sizeof anon[gi], "g%d", gi); r->name = anon[gi]; }
     int root = zls_scope_new(-1, ZSC_FN, r->name);
     r->first_scope = root; r->n_scopes = 1;
-    int mfirst[ZLS_MAX_SCOPES]; int mstart[ZLS_MAX_SCOPES]; int nl = 0;
+    int mfirst[FL_MAX_SCOPES]; int mstart[FL_MAX_SCOPES]; int nl = 0;
     for (int mi = 0; mi < zm_n; mi++) {
         if (zm[mi].g != g) continue;
         int sc = zls_scope_new(root, ZSC_GROUP, zm[mi].name);
@@ -439,7 +438,7 @@ void zls_build(IR_graph_t * g) {
     int k = 0;
     r->first_vslot = zv_n;
     for (int i = 0; i < g->nparams && g->pnames; i++) if (g->pnames[i]) {
-        if (zv_n >= ZLS_MAX_VSLOTS) { fprintf(stderr, "zls: vslot table overflow (%d)\n", ZLS_MAX_VSLOTS); abort(); }
+        if (zv_n >= FL_MAX_VSLOTS) { fprintf(stderr, "zls: vslot table overflow (%d)\n", FL_MAX_VSLOTS); abort(); }
         zv[zv_n++] = (zls_vslot_t){ g->pnames[i], 16 + i * 16 }; r->n_vslots++;
         zls_field(root, 16 + i * 16, 16, ZK_DESCR, 0, "param", (const IR_t *)0);
     }
@@ -484,7 +483,7 @@ void zls_build(IR_graph_t * g) {
         if (!vn || vn[0] == '&' || (is_global(vn) && !graph_has_local(g, vn))) continue;
         int have = 0; for (int v = r->first_vslot; v < r->first_vslot + r->n_vslots; v++) if (zv[v].name && strcmp(zv[v].name, vn) == 0) { have = 1; break; }
         if (have) continue;
-        if (zv_n >= ZLS_MAX_VSLOTS) { fprintf(stderr, "zls: vslot table overflow (%d)\n", ZLS_MAX_VSLOTS); abort(); }
+        if (zv_n >= FL_MAX_VSLOTS) { fprintf(stderr, "zls: vslot table overflow (%d)\n", FL_MAX_VSLOTS); abort(); }
         zv[zv_n++] = (zls_vslot_t){ vn, base + k * 16 }; r->n_vslots++;
         zls_field(root, base + k * 16, 16, ZK_DESCR, 0, "local", (const IR_t *)0);
         k++;
@@ -492,7 +491,7 @@ void zls_build(IR_graph_t * g) {
     if (g->zframe_graph && !g->icn_cells_graph && g->decl_level == 3) {
         for (int _pdl = 4; _pdl <= 16; _pdl++) {
             const char * nm = zls_pas_display_name(_pdl);
-            if (zv_n >= ZLS_MAX_VSLOTS) { fprintf(stderr, "zls: vslot table overflow (%d)\n", ZLS_MAX_VSLOTS); abort(); }
+            if (zv_n >= FL_MAX_VSLOTS) { fprintf(stderr, "zls: vslot table overflow (%d)\n", FL_MAX_VSLOTS); abort(); }
             zv[zv_n++] = (zls_vslot_t){ nm, base + k * 16 }; r->n_vslots++;
             zls_field(root, base + k * 16, 16, ZK_DESCR, 0, "pas-display-spill", (const IR_t *)0);
             k++;
@@ -574,24 +573,6 @@ int zls_arbno_zq(const IR_t * nd, int * zq, int max) {
     for (int i = 0; i < za_n; i++) if (za[i].nd == nd) { if (za[i].nzq > 8) return 9; int n = za[i].nzq > max ? max : za[i].nzq; for (int q = 0; q < n; q++) zq[q] = za[i].zq[q]; return n; }
     return 0;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int zls2_geom(const IR_t * nd, int base_off, int * slot_off, long * k) {
-    if (!nd || base_off < 0) return 0;
-    if (nd->op == IR_MATCH_ARBNO) {
-        long ph = IR_LIT(nd).ival;
-        int ops = ph == 0 ? ZLS2_BUMP : ph == 2 ? ZLS2_RELEASE : 0;
-        if (!ops) return 0;
-        if (slot_off) *slot_off = base_off + 16;
-        if (k) *k = 32;
-        return ops;
-    }
-    return 0;
-}
-int fc_alt_fpmax(const IR_t * nd);
-int fc_save_active(const IR_t * nd);
-int fc_vlit_active(const IR_t * nd);
-int fc_vdj_active(const IR_t * nd);
-int fc_arm_member(const IR_t * nd);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zc_nofc(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_NOFC"); v = (e && e[0] == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -784,7 +765,7 @@ static const char * zk_name(int k) { return k == ZK_DESCR ? "DESCR" : k == ZK_RA
 static const char * zsc_name(int k) { return k == ZSC_FN ? "FN" : k == ZSC_GROUP ? "GROUP" : k == ZSC_ITER ? "ITER" : k == ZSC_PAT ? "PAT" : k == ZSC_COEXPR ? "COEXPR" : "?"; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_dump(FILE * fp) {
-                fprintf(fp, "; ZETA LOCAL STORAGE (ZLS layout, ZB-2) — ARENA_MB=%d\n", (int)ZC_ARENA_MB);
+                fprintf(fp, "; FRAME LAYOUT (per-activation, typed)\n");
     fprintf(fp, "; kinds: DESCR = 16B t.p pair (GC traces payload) | RAW = int/cursor/counter (GC skips) | PTR_GC = heap pointer (GC traces+fixes) | PTR_CODE = continuation (GC skips, never relocates)\n");
     fprintf(fp, "; (audit) = kind provisional pending template audit — 2026-07-05 burndown: all shipped grants template-verified, audit=0; any NEW grant lands audit=1 until verified\n");
     for (int i = 0; i < zg_n; i++) {
@@ -792,7 +773,7 @@ void zls_dump(FILE * fp) {
         if (r->first_scope < 0) continue;
         fprintf(fp, "; graph %d '%s' — slots=%d region_end=%d resume=%d vslots=%d scopes=%d\n", i, r->name ? r->name : "?", r->nslots, r->region, r->resume_off, r->n_vslots, r->n_scopes);
         for (int s = r->first_scope; s < r->first_scope + r->n_scopes; s++) {
-            if (zs[s].n_fields == 0 && zs[s].klass == ZSC_GROUP) { fprintf(fp, ";   scope %-3d %-6s %-24s parent=%-3d (no ZLS fields)\n", zs[s].id, zsc_name(zs[s].klass), zs[s].name ? zs[s].name : "?", zs[s].parent); continue; }
+            if (zs[s].n_fields == 0 && zs[s].klass == ZSC_GROUP) { fprintf(fp, ";   scope %-3d %-6s %-24s parent=%-3d (no frame fields)\n", zs[s].id, zsc_name(zs[s].klass), zs[s].name ? zs[s].name : "?", zs[s].parent); continue; }
             fprintf(fp, ";   scope %-3d %-6s %-24s parent=%-3d [%d..%d)\n", zs[s].id, zsc_name(zs[s].klass), zs[s].name ? zs[s].name : "?", zs[s].parent, zs[s].n_fields ? zs[s].lo_off : 0, zs[s].n_fields ? zs[s].hi_off : 0);
             for (int f = 0; f < zf_n; f++) if (zf[f].scope_id == s) {
                 const char * on = "-"; char onb[16];

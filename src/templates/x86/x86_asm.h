@@ -6,7 +6,6 @@
 #include <cstdlib>
 #include <cstdio>
 #include "emit.h"
-#include "zeta_choices.h"
 #include "pin_va.h"
 extern "C" {
 extern uint64_t rtccb[32];
@@ -488,7 +487,6 @@ inline std::string x86_align_assert() {
 inline std::string x86_port_canary() {
     return std::string();
 }
-extern "C" void rt_zls_release(void *);
 inline std::string x86_zeta_free_call();
 inline std::string x86_zdp_rbp_omega_at(int port);
 inline std::string x86_zdp_rbp_gamma_at(int port);
@@ -918,7 +916,7 @@ extern "C" const char * bb_kind_name(int op);
 inline const char * ZOPAN() { if (_.op_a_node_kind < 0) return ""; static char b[8][48]; static int i; i = (i + 1) & 7; const char * n = bb_kind_name(_.op_a_node_kind); snprintf(b[i], 48, "%s", n ? n : ""); return b[i]; }
 inline const char * ZRESN() { return "result"; }
 inline const char * ZOPN(int k) { if (k < 0 || k >= 6) return ""; int kk = _.op_zkind[k]; if (kk < 0 && k == 0) kk = _.op_a_node_kind; if (kk < 0) return ""; static char b[8][48]; static int i; i = (i + 1) & 7; const char * n = bb_kind_name(kk); snprintf(b[i], 48, "%s", n ? n : ""); return b[i]; }
-inline const char * HKN(int k) { static const char * n[6] = { "old____", "outer_Σ", "outer_δ", "outer_Δ", "cap_gen", "zls2_mark" }; return (k >= 0 && k < 6) ? n[k] : ""; }
+inline const char * HKN(int k) { static const char * n[6] = { "old____", "outer_Σ", "outer_δ", "outer_Δ", "cap_gen", "rsp_mark" }; return (k >= 0 && k < 6) ? n[k] : ""; }
 inline const char * RDD(const char * base, int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "dword ptr [%s + %d]", base, off); return b[i]; }
 inline const char * XSAQ(int d) { return _.op_zread_xf[0] != -1 ? RDQ("rbp", _.op_zread_xf[0] + d) : FRQ(_.op_sa + d); }
 inline const char * XSAD(int d) { return _.op_zread_xf[0] != -1 ? RDD("rbp", _.op_zread_xf[0] + d) : FR(_.op_sa + d); }
@@ -930,7 +928,7 @@ extern "C" int zzone_off_cur_for(int customer);
 extern "C" void zzone_disagree(int customer, int staged, int planned);
 enum { ZSP_SCRATCH = 0, ZSP_RAW = 1 };
 inline const char * ZREFS(int reg_off, int d, int w, int customer, int spine);
-enum { ZC_LEAF = 0, ZC_ARBNO = 1, ZC_CAPTURE = 2, ZC_FENCE = 3, ZC_CHOICE = 4 };
+enum { FL_LEAF = 0, FL_ARBNO = 1, FL_CAPTURE = 2, FL_FENCE = 3, FL_CHOICE = 4 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline int zzone_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZONE"); v = (e && *e == '1') ? 1 : 0; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -952,17 +950,17 @@ inline const char * ZREFS(int reg_off, int d, int w, int customer, int spine) {
     return (w == 8) ? FRQ(_.x86_scratch_off + d) : FR(_.x86_scratch_off + d);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline const char * ZREF(int reg_off, int d, int w) { return ZREFC(reg_off, d, w, ZC_LEAF); }
+inline const char * ZREF(int reg_off, int d, int w) { return ZREFC(reg_off, d, w, FL_LEAF); }
 inline const char * LFC(int d)  { return ZREF(_.op_leaf_frame_off, d, 4); }
 inline const char * LFCQ(int d) { return ZREF(_.op_leaf_frame_off, d, 8); }
-inline const char * AFC(int d)  { return ZREFC(_.op_arbno_frame_off, d, 4, ZC_ARBNO); }
-inline const char * AFCQ(int d) { return ZREFC(_.op_arbno_frame_off, d, 8, ZC_ARBNO); }
-inline const char * CFC(int d)  { return ZREFC(_.op_cap_frame_off, d, 4, ZC_CAPTURE); }
-inline const char * CFCQ(int d) { return ZREFC(_.op_cap_frame_off, d, 8, ZC_CAPTURE); }
-inline const char * FFC(int d)  { return ZREFC(_.op_fence_frame_off, d, 4, ZC_FENCE); }
-inline const char * FFCQ(int d) { return ZREFC(_.op_fence_frame_off, d, 8, ZC_FENCE); }
-inline const char * CROQ(int cro, int d) { return ZREFS(cro ? cro : -1, d, 8, ZC_CHOICE, ZSP_RAW); }
-inline const char * CROD(int cro, int d) { return ZREFS(cro ? cro : -1, d, 4, ZC_CHOICE, ZSP_RAW); }
+inline const char * AFC(int d)  { return ZREFC(_.op_arbno_frame_off, d, 4, FL_ARBNO); }
+inline const char * AFCQ(int d) { return ZREFC(_.op_arbno_frame_off, d, 8, FL_ARBNO); }
+inline const char * CFC(int d)  { return ZREFC(_.op_cap_frame_off, d, 4, FL_CAPTURE); }
+inline const char * CFCQ(int d) { return ZREFC(_.op_cap_frame_off, d, 8, FL_CAPTURE); }
+inline const char * FFC(int d)  { return ZREFC(_.op_fence_frame_off, d, 4, FL_FENCE); }
+inline const char * FFCQ(int d) { return ZREFC(_.op_fence_frame_off, d, 8, FL_FENCE); }
+inline const char * CROQ(int cro, int d) { return ZREFS(cro ? cro : -1, d, 8, FL_CHOICE, ZSP_RAW); }
+inline const char * CROD(int cro, int d) { return ZREFS(cro ? cro : -1, d, 4, FL_CHOICE, ZSP_RAW); }
 inline const char * LIDX(long k)  { static char b[8][24]; static int i; i = (i + 1) & 7; if (k) snprintf(b[i], 24, "[r13+rcx+%ld]", k); else snprintf(b[i], 24, "[r13+rcx]"); return b[i]; }
 inline long LITQ(long k) { uint64_t w; memcpy(&w, _.op_sval + k, 8); return (long) w; }
 inline void x86_rd32_modrm(std::string & c, int g, int b) { c += (char)(0x80 | ((g & 7) << 3) | (b & 7)); if ((b & 7) == 4) c += (char)0x24; }
@@ -1825,23 +1823,12 @@ inline bool x86_is_scan_builtin_name(const char *fn) {
         || !strcmp(fn, "bal");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_zeta_free_call() {
-    return x86_align_enter()
-         + x86("mov",  "rdi", x86_zr())
-         + x86("call", "rt_zls_release", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_zls_release)
-         + x86_align_leave();
-}
-extern "C" void *rt_zls_mark(void);
-extern "C" void  rt_zls_release_to(void *);
-extern "C" void *rt_zls2_mark(void);
-extern "C" void  rt_zls2_release_to(void *);
-extern "C" char *g_zls2_cur;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_zls2_mark_save(const char * slot) {
+inline std::string x86_rsp_mark_save(const char * slot) {
     return x86("note", HKN(5)) + x86("mov", slot, "rsp");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_zls2_release_to_rspd(int disp) {
+inline std::string x86_rsp_release_to(int disp) {
     static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rsp + %d]", disp);
     return x86_align_leave()
          + x86("mov", "rsp", b[i])
@@ -1912,19 +1899,6 @@ inline std::string x86_port_hook(int site, int port, const char * lbl) {
         fprintf(stderr, "[PORT-EXIT-PROMOTION] target=%s port=%s site=%s uid=%d\n", x86_portname(port), port == X86P_GAMMA ? "γ" : port == X86P_OMEGA ? "ω" : "?", site == X86H_JMP ? "jmp" : "jcc", _.x86_uid);
     if (site == X86H_JMP && port == X86P_OMEGA && getenv("SCRIP_ZETA_OMEGA_TRACE"))
         fprintf(stderr, "[OMEGA-TRACE] x86_uid=%d op_omega_is_death=%s\n", _.x86_uid, _.op_omega_is_death ? "TRUE-DEATH" : "internal-alias");
-    if (_.op_zls2_ops && _.op_zls2_slot >= 0) {
-        long k16 = (_.op_zls2_bytes + 15L) & ~15L;
-        if (site == X86H_DEF && port == X86P_ALPHA && (_.op_zls2_ops & ZLS2_BUMP))
-            s += x86_sub("rsp", k16)
-               + x86("mov", "rcx", FRQ(_.op_zls2_slot))
-               + x86("mov", RSP(0), "rcx")
-               + x86("mov", FRQ(_.op_zls2_slot), "rsp");
-        if (site == X86H_JMP && port == X86P_OMEGA && (_.op_zls2_ops & ZLS2_RELEASE))
-            s += x86("mov", "rax", FRQ(_.op_zls2_slot))
-               + x86("mov", "rcx", RDQ("rax", 0))
-               + x86("mov", FRQ(_.op_zls2_slot), "rcx")
-               + x86_reg_disp32_lea64("rsp", "rax", (int)k16);
-    }
     if (x86_fc_on()) {
         int zwco = _.op_fc_base < 0 && !_.op_zres;
         if (site == X86H_DEF && port == X86P_ALPHA) s += bb_glue_flat_enter();
@@ -1938,8 +1912,7 @@ inline std::string x86_port_hook(int site, int port, const char * lbl) {
     if (site == X86H_DEF && port == X86P_ALPHA) {
         static int on = -1;
         if (on < 0) { const char *e = getenv("SCRIP_RBX_FIELD_TRACE"); on = (e && *e == '1') ? 1 : 0; }
-        if (on) fprintf(stderr, "[RBX-FIELD] zls2_bytes=%ld zls2_ops=%ld fc_bytes=%ld fc_base=%ld\n",
-                         (long)_.op_zls2_bytes, (long)_.op_zls2_ops, (long)_.op_fc_bytes, (long)_.op_fc_base);
+        if (on) fprintf(stderr, "[RBX-FIELD] fc_bytes=%ld fc_base=%ld\n", (long)_.op_fc_bytes, (long)_.op_fc_base);
     }
     if (x86_diag_regs_on() && (site == X86H_DEF || site == X86H_DEF_PAIR) && (port == X86P_ALPHA || port == X86P_BETA) && !emit_diag_regs_suppress())
         s += x86("mov", "r11", (long)_.nid);

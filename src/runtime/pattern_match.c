@@ -12,7 +12,6 @@
 #include "rt/gc_heap.h"
 #include "rt/rt_arena.h"
 #include "rt/rt_protected.h"
-#include "zeta_choices.h"
 #include "snobol4_system_fns.h"
 #define STACKLESS_ABORT(fn) \
     do { fprintf(stderr, "libscrip_rt: %s called — Icon value stack removed (GROUND ZERO 3). " \

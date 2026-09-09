@@ -14,7 +14,7 @@
  *   r15  Delta  subject length/end
  *   ___  zeta frame base IN PINNED GRAPHS ONLY   rsp  zeta + C stack (ONE stack)
  * ⛔ r12 IS FREE — NOT A PIN (corrected s219; ARCH section 2 corrected it at s205
- * and this header contradicted the document for FOURTEEN sessions). ZC_FRAME_R12
+ * and this header contradicted the document for FOURTEEN sessions). the r12 frame constant
  * was DELETED outright at ZR-RSP___-1 (Lon directive 2026-07-27, SCRIP da8c2347),
  * zero #if consumers; the zeta basis set is CLOSED at RSP and ___. The old entry
  * here read "r12 conditional-assignment stack pointer (own mmap area)", which is

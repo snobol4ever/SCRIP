@@ -318,11 +318,8 @@ typedef struct {
     int                          op_sc;
     int                          op_off;
     int                          op_omega_is_death;
-    long                         op_zls2_bytes;
     int                          op_own_mark;
     int                          op_own_ci;
-    int                          op_zls2_slot;
-    int                          op_zls2_ops;
     long                         op_fc_bytes;
     int                          op_fc_base;
     long                         op_fc_fpmax;
