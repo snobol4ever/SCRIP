@@ -960,10 +960,10 @@ static int to_inner_gen_operand_k(IR_t *gi, IR_t **nodes, int n) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int bb_call_write_route(IR_t *nd) {
-    extern int g_icon_write_reassignable;
+    extern int rt_is_reassigned_builtin(const char *);
     const char *fn = IR_LIT(nd).sval; int64_t narg = IR_LIT(nd).ival; IR_t *a0 = ir_call_arg(nd, 0);
     if (!(fn && narg == 1 && a0 && !strcmp(fn, "write"))) return 0;
-    if (g_icon_write_reassignable) return 0;
+    if (rt_is_reassigned_builtin(fn)) return 0;
     { IR_t *_gt = nd->γ.node; int _gg = 0; while (_gt && _gt->op == IR_GOTO && _gg++ < 128) _gt = _gt->γ.node; IR_t *_ot = nd->ω.node; int _og = 0; while (_ot && _ot->op == IR_GOTO && _og++ < 128) _ot = _ot->γ.node; if (g_emit_cfg && g_emit_cfg->icn_cells_graph && _gt && _ot && _gt == _ot && (unsigned char)nd->ω.sz[0] == 0xce && (unsigned char)nd->ω.sz[1] == 0xb2) return 0; }
     if (bb_slot_get(a0) >= 0) return 1;
     int wintexpr = (a0->op == IR_BINOP || a0->op == IR_LIT_INTEGER || a0->op == IR_TO || a0->op == IR_TO_BY || a0->op == IR_VAR || a0->op == IR_CALL || ir_is_call_kind(a0->op));
@@ -1135,9 +1135,8 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_KW_ASSIGN_SNOBOL4: bb_emit_x86(bb_keyword_assign_snobol4()); return 0;
     case IR_VAR:                  { extern int is_global(const char *);
         const char * _vn = IR_LIT(nd).sval;
-        int _vn_reassignable_builtin = _vn && (!strcmp(_vn, "write") || !strcmp(_vn, "writes"));
         if (_vn && _vn[0] == '&') bb_emit_x86(bb_keyword_icon());
-        else if (_vn && ((is_global(_vn) && !graph_has_local(g_emit_cfg, _vn)) || _vn_reassignable_builtin)) { { long fck; if (!g_emit.op_zres && fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; } } { extern long fc_vwpop(const IR_t *); long _w = fc_vwpop(nd); if (_w > 0 && !g_emit.op_zres) g_emit.op_wpop += (int)_w; } bb_emit_x86(bb_var_global()); }
+        else if (_vn && (is_global(_vn) && !graph_has_local(g_emit_cfg, _vn))) { { long fck; if (!g_emit.op_zres && fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; } } { extern long fc_vwpop(const IR_t *); long _w = fc_vwpop(nd); if (_w > 0 && !g_emit.op_zres) g_emit.op_wpop += (int)_w; } bb_emit_x86(bb_var_global()); }
         else bb_emit_x86(bb_var()); } return 0;
     case IR_VAR_FRAME:            bb_emit_x86(bb_var_frame()); return 0;
     case IR_ASSIGN_FRAME:         { IR_t *_fr = (nd->n_operands > 1) ? nd->operands[1] : (IR_t *)0;

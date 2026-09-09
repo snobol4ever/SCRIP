@@ -1663,11 +1663,13 @@ static int icn_callable_proc_index(const char * fn) {
     }
     return -1;
 }
-int g_icon_write_reassignable = 0;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void icn_scan_write_reassignable(void) {
-    g_icon_write_reassignable = 0;
-    for (int gi = 0; gi < g_stage2.bbp.count && !g_icon_write_reassignable; gi++) {
+static void icn_register_reassigned_builtin_globals(void) {
+    extern int rt_builtin_is_known(const char *);
+    extern int rt_builtin_is_generator(const char *);
+    extern int is_global(const char *);
+    extern void global_register(const char *);
+    extern void rt_note_reassigned_builtin(const char *);
+    for (int gi = 0; gi < g_stage2.bbp.count; gi++) {
         IR_graph_t * g = g_stage2.bbp.table[gi];
         if (!g) continue;
         for (int i = 0; i < g->n; i++) {
@@ -1676,7 +1678,11 @@ static void icn_scan_write_reassignable(void) {
             const char * tgt = 0;
             if (nd->op == IR_ASSIGN) tgt = IR_LIT(nd).sval;
             else if (nd->op == IR_REV_ASSIGN && nd->n_operands > 1 && nd->operands[1]) tgt = IR_LIT(nd->operands[1]).sval;
-            if (tgt && (!strcmp(tgt, "write") || !strcmp(tgt, "writes"))) { g_icon_write_reassignable = 1; break; }
+            if (!tgt || !tgt[0] || tgt[0] == '&') continue;
+            if (graph_has_local(g, tgt) || is_global(tgt)) continue;
+            int isproc = 0;
+            for (int pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, tgt)) { isproc = 1; break; }
+            if (isproc || rt_builtin_is_known(tgt) || rt_builtin_is_generator(tgt) || icn_builtin_arity(tgt) != -99) { global_register(tgt); rt_note_reassigned_builtin(tgt); }
         }
     }
 }
@@ -1685,7 +1691,7 @@ void lower_icon_resolve_call_kinds(void) {
     extern int rt_builtin_is_generator(const char *);
     extern int rt_builtin_is_known(const char *);
     extern int is_global(const char *);
-    icn_scan_write_reassignable();
+    icn_register_reassigned_builtin_globals();
     for (int gi = 0; gi < g_stage2.bbp.count; gi++) {
         IR_graph_t * g = g_stage2.bbp.table[gi];
         if (!g || !g->icn_cells_graph) continue;

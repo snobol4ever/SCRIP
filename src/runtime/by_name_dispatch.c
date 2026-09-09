@@ -5158,7 +5158,6 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     }
     L_bidjmp_5209: ;
     if ((_bid == BID_write) || (_bid == BID_writes)) {
-        { extern int g_icon_write_reassignable; if (!g_icon_write_reassignable) {  goto L_write_body_5209; } }
         { DESCR_t _wv = NV_GET_fn(fn);
           int _is_self_default = (_wv.v == DT_E && _wv.slen == 0xFFFFFFFEu && _wv.s && !strcmp(_wv.s, fn));
           if (!_is_self_default) { *out = rt_call_value(_wv, args, nargs); return 1; } }
