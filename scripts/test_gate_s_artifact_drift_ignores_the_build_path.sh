@@ -29,10 +29,13 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 V="$HERE/util_verify_s_artifacts_owed.sh"
 [ -f "$V" ] || { echo "⛔ REFUSE(rc=2): $V missing -- cannot measure, which is never green"; exit 2; }
 grep -q '^files_with_real_drift()' "$V" || { echo "⛔ REFUSE(rc=2): $V no longer defines files_with_real_drift -- this gate is grading a function that is gone, which must never read green"; exit 2; }
+grep -q '^_s_norm_build_path()' "$V" || { echo "⛔ REFUSE(rc=2): $V no longer defines _s_norm_build_path -- the build-path rule this gate is named for is gone, and every arm below would report drift for a reason none of them names"; exit 2; }
 
 # Source ONLY the helper, never the script: running the verifier here would rebuild the world.
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
-sed -n '/^files_with_real_drift()/,/^}/p' "$V" > "$W/helper.sh"
+# ⛔ BOTH halves of the discriminator, or this gate grades a function whose normaliser is undefined and
+# every arm silently reports drift. _s_norm_build_path is where the build-path rule now LIVES.
+sed -n '/^_s_norm_build_path()/,/^}/p;/^files_with_real_drift()/,/^}/p' "$V" > "$W/helper.sh"
 . "$W/helper.sh"
 
 R="$W/repo"; mkdir -p "$R"; git -C "$R" init -q 2>/dev/null
@@ -51,7 +54,7 @@ arm() { # $1=label $2=expected(empty|a.s) $3=actual
 }
 
 echo "== test_gate_s_artifact_drift_ignores_the_build_path =="
-echo "   population: the files_with_real_drift discriminator, 4 arms over scratch git repos under mktemp (no compiler, no rebuild)"
+echo "   population: the files_with_real_drift discriminator, 7 arms over scratch git repos under mktemp (no compiler, no rebuild)"
 
 # ARM 1 — POSITION-ONLY: only the .file directive moved. NOT drift.
 mk "/tmp/verify_s_owed.XXXX/corpus/bench/a.pl" 1
@@ -77,6 +80,36 @@ mk "/tmp/verify_s_owed.YYYY/corpus/bench/a.pl" 777
 git -C "$R" commit -aqm mixed >/dev/null 2>&1; POST3="$(git -C "$R" rev-parse HEAD)"
 arm "arm 4: path moved AND an instruction moved is STILL drift (a partial discount would hide it)" "a.s" "$(files_with_real_drift "$R" "$POST2" "$POST3")"
 
-echo "-- population: $ARMS arms over 4 scratch commits, $RED red"
+
+# ⛔⭐⭐ ARMS 5-7 -- THE PATH IS NOT ONLY IN THE `.file` DIRECTIVE, AND THAT IS WHY THIS GATE EXISTED WHILE
+# THE BUG SURVIVED (hq_T on hq_P's 2026-09-09 report). Arms 1-4 all move the path inside a `.file` line, so
+# they passed against a discriminator that discounted `.file` AND NOTHING ELSE -- while this gate's own NAME
+# claims the general property. THE NAME STATED THE PROPERTY, THE CODE IMPLEMENTED ONE INSTANCE, and the
+# arms only ever exercised that instance. ⛔ MEASURED ON THE REAL CORPUS: 43 committed .s carry an absolute
+# seat root, 43 times in `.file` and ~180 more times in PROGRAM DATA -- `.Lassign_α_361_1_s: .string
+# "/home/claude_cto/corpus/benchmarks/icon/ipxref.icn"`. A .string is not a directive, so the owed check
+# reported those artifacts OWED in every root but the one that regenerated last: a PERMANENT PING-PONG
+# blocking whichever seat did not go last, on a check that is blocking since 2026-08-30.
+mks() { printf '\t.text\n\t.file\t1 "%s/b/a.icn"\n.Lassign_x_1_s:\n\t.string\t"%s/b/a.icn"\n\tmovq\t$%s, %%%%rax\n\tret\n' "$1" "$1" "$2" > "$R/a.s"; }
+mks "/home/claude_cto/corpus" 1
+git -C "$R" commit -aqm strbase >/dev/null 2>&1; SPRE="$(git -C "$R" rev-parse HEAD)"
+mks "/home/claude_P/corpus" 1
+git -C "$R" commit -aqm strpath >/dev/null 2>&1; SP1="$(git -C "$R" rev-parse HEAD)"
+arm "arm 5: a root path inside PROGRAM DATA (.string) is NOT drift -- the ping-pong case" "" "$(files_with_real_drift "$R" "$SPRE" "$SP1")"
+
+# ⛔ THE DETECTOR PROOF FOR ARM 5, and it is the arm that proves the bug was real rather than argued: the
+# OLD `.file`-only rule must STILL call arm 5's case drift. Without it, arm 5 passes over nothing.
+_old_rule="$(git -C "$R" diff -U0 "$SPRE" "$SP1" -- a.s | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' \
+            | grep -qvE '^[+-][[:space:]]*\.file[[:space:]]' && echo a.s)"
+arm "arm 6: the OLD .file-only rule DOES call arm 5 drift, so arm 5 is discriminating and the bug was real" "a.s" "$_old_rule"
+
+# ⛔⭐ ARM 7 -- THE FALSE NEGATIVE THE CURE MUST NOT TRADE FOR THE FALSE POSITIVE. Normalising both sides
+# and comparing them invites a `sort`, and a sorted compare calls a pure REORDERING of instructions clean.
+# A reordering is real drift. The sequences are compared AS SEQUENCES, and this arm is what holds that.
+printf '\t.text\n\t.file\t1 "/home/claude_P/corpus/b/a.icn"\n.Lassign_x_1_s:\n\t.string\t"/home/claude_P/corpus/b/a.icn"\n\tret\n\tmovq\t$1, %%rax\n' > "$R/a.s"
+git -C "$R" commit -aqm reorder >/dev/null 2>&1; SP2="$(git -C "$R" rev-parse HEAD)"
+arm "arm 7: a pure REORDERING at an unchanged path is STILL drift (a sorted compare would hide it)" "a.s" "$(files_with_real_drift "$R" "$SP1" "$SP2")"
+
+echo "-- population: $ARMS arms over 7 scratch commits, $RED red"
 [ "$RED" -eq 0 ] || { echo "⛔ GATE RED: $RED of $ARMS arms"; exit 1; }
 echo "✅ GATE OK: $ARMS/$ARMS arms -- .s drift is measured on content, never on the path it was built at"

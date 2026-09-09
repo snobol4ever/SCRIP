@@ -159,14 +159,45 @@ report=()
 # ⛔ IT DISCOUNTS ONLY THE `.file` DIRECTIVE AND SAYS SO OUT LOUD when it discounts anything: a
 # file whose diff carries ANY other changed line is still owed, in full. Silence about a discount
 # would be the hiding mechanism.
-files_with_real_drift() {   # $1=repo $2=pre $3=post -> paths whose diff is more than the .file directive
-    local repo="$1" pre="$2" post="$3" f
+# ⛔⭐⭐ THE BUILD PATH IS NORMALISED EVERYWHERE IT APPEARS, NOT ONLY IN THE `.file` DIRECTIVE (hq_T, on
+# hq_P's 2026-09-09 report, measured before landing). THIS FUNCTION USED TO DISCOUNT `.file` LINES AND
+# NOTHING ELSE, and the gate that tests it is named test_gate_s_artifact_drift_ignores_the_build_path.sh --
+# the NAME states the general property, the CODE implemented one instance of it. That gap is the whole bug.
+# ⛔ MEASURED ON THIS CORPUS: 43 committed .s files carry an absolute seat root, 43 times in a `.file`
+# directive (discounted) and ~180 more times inside PROGRAM DATA -- `.Lassign_α_361_1_s: .string
+# "/home/claude_cto/corpus/benchmarks/icon/ipxref.icn"`. A .string is not a directive, so it was never
+# discounted, and the consequence is a PERMANENT PING-PONG: whichever root regenerated last is clean and
+# every other root reports the same 20 artifacts OWED having changed nothing, which BLOCKS ITS HANDOFF
+# (this check is blocking since 2026-08-30). hq_P's proof is one file -- bench_icnint_loop.s changed by
+# EXACTLY ONE LINE across a regen and that line was the path.
+# ⭐ SO THE TEST IS NO LONGER "WHICH DIRECTIVES AM I WILLING TO IGNORE" -- an allow-list that is wrong the
+# moment the compiler bakes a path somewhere new, which is exactly what happened. Both sides are normalised
+# and then compared: what survives is drift, whatever line it sits on. That subsumes the `.file` case
+# instead of special-casing beside it.
+# ⛔ ORDER IS PRESERVED ON PURPOSE -- the sequences are compared as sequences, never sorted. A pure
+# REORDERING of instructions is real drift, and sorting the two sides would silently call it clean; that
+# would trade this false positive for a false negative, which is the worse of the two here.
+# ⛔ AND THIS IS A RULING ABOUT **THIS CHECK ONLY**: `owed` asks "did CODEGEN move, so must these be
+# regenerated". A path baked in by whoever ran the regen answers NO. It is NOT a claim that the emitted
+# program behaves identically -- it does not, it would print a different string -- and .s artifacts are
+# "honest current compiler output, never pinned goldens" (CLAUDE.md), so no gate may pin their bytes.
+# ⛔⭐ THE ROOT IS DEFINED AS "WHATEVER PRECEDES THE WORKSPACE MARKER", NOT AS A LIST OF SEAT NAMES. A
+# first version enumerated /home/claude_* and the scratch clone dir, and this gate's OWN arm 1 falsified it
+# within the minute: its fixture builds at /home/seat/..., which is neither. An allow-list of roots fails
+# exactly as the allow-list of directives did, one level over -- so the rule keys on `/corpus/`, which every
+# workspace path in these artifacts contains and which is what makes it a workspace path at all.
+# ⭐ The seat-root and scratch-clone patterns are KEPT for a path that carries no /corpus/ segment, so the
+# two rules cover each other rather than one replacing the other.
+_s_norm_build_path() {   # stdin -> stdout with any workspace root replaced, so two roots compare equal
+    sed -E 's|/[^"[:space:]]*/corpus/|<ROOT>/corpus/|g; s|/home/claude_[A-Za-z0-9_]+|<ROOT>|g; s|/tmp/verify_s_owed\.[A-Za-z0-9]+|<ROOT>|g'
+}
+files_with_real_drift() {   # $1=repo $2=pre $3=post -> paths whose diff survives build-path normalisation
+    local repo="$1" pre="$2" post="$3" f d minus plus
     for f in $(git -C "$repo" diff --name-only "$pre" "$post"); do
-        if git -C "$repo" diff -U0 "$pre" "$post" -- "$f" \
-             | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' \
-             | grep -qvE '^[+-][[:space:]]*\.file[[:space:]]'; then
-            printf '%s\n' "$f"
-        fi
+        d="$(git -C "$repo" diff -U0 "$pre" "$post" -- "$f" | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)')"
+        minus="$(printf '%s\n' "$d" | grep '^-' | cut -c2- | _s_norm_build_path)"
+        plus="$(printf '%s\n' "$d" | grep '^+' | cut -c2- | _s_norm_build_path)"
+        [ "$minus" = "$plus" ] || printf '%s\n' "$f"
     done
 }
 position_only_note() {      # $1=repo $2=pre $3=post $4=label -- never silent about a discount
