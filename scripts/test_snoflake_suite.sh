@@ -360,7 +360,7 @@ echo "SNOFLAKE_BOARD total=$TOTAL m3_stream_pass=$ST3 m3_error_number_only=$EN3 
 # This line is printed whether or not any mask armed -- a zero said out loud is the thing that makes a
 # non-zero legible, and it is the difference between a mask that is a measurement and a mask that hides.
 echo "MASKED_LINES total=$MASKED_LINES across $MASKED_FIX fixture(s)${MASKED_LIST:+ --$MASKED_LIST} (CEO-409: implementation-defined lines are excluded AT THE LINE, named and counted in the fixture; the fixture stays IN the denominator)"
-echo "SNOFLAKE_BASELINE baseline=$BASE both_modes_pass=$BASE_BOTH outside_spitbol_baseline=$OUTSIDE_N of $TOTAL -- THE SUITE TABLE STATES both_modes_pass/baseline (a fixture SPITBOL itself cannot run is outside the baseline and out of the denominator; Lon 2026-09-08)"
+echo "SNOFLAKE_BASELINE baseline=$BASE both_modes_pass=$BASE_BOTH masked=$MASKED_LINES outside_spitbol_baseline=$OUTSIDE_N of $TOTAL -- THE SUITE TABLE STATES both_modes_pass/baseline (a fixture SPITBOL itself cannot run is outside the baseline and out of the denominator; Lon 2026-09-08)"
 if [ "$OUTSIDE_N" -gt 0 ]; then echo "OUTSIDE-SPITBOL-BASELINE ($OUTSIDE_N; name<TAB>SPITBOL's own error):"; printf '%b' "$OUTSIDE_LIST" | sed 's/^/OUTSIDE\t/'; fi
 if [ -f "$OUTSIDE_TSV" ]; then
     rec="$(awk -F'\t' 'NF>2 && $1 !~ /^#/{sub(/\.sno$/,"",$1); print $1}' "$OUTSIDE_TSV" | sort)"; live="$(printf '%b' "$OUTSIDE_LIST" | cut -f1 | grep . | sort)"
