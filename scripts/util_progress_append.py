@@ -241,8 +241,16 @@ def rows_from_results_tsv(path, suite, lang):
                 # suite row said 27 red. THE CENSUS THIS WHOLE OPERATION RUNS ON COULD NOT SEE A SINGLE GIMPEL FAILURE.
                 # ORACLE_FAIL maps to UNGRADED, not dropped: the oracle refusing is a real outcome and belongs in the
                 # table as one, not as an absence.
+                _raw = o
                 o = {"OK": "PASS", "TIMEOUT": "HANG", "SEGV": "CRASH", "NOREF": "UNGRADED", "-": "SKIP",
                      "DIFF": "FAIL", "ORACLE_FAIL": "UNGRADED"}.get(o, "")
+                # ⛔ AND THE PATTERNED TOKENS, which are the rest of the same silence: scorecard_snobol4.sh reports a
+                # non-zero exit as RC<n> and a signal death as SIG<n>, so the tokens are RC1, SIG6, SIG11 ... -- an
+                # unbounded family no fixed map can hold. On the 2026-09-08 gimpel board these were 15 RC1 + 1 SIG6 +
+                # 1 SIG11, which with the 10 DIFF is exactly the 27 failures the board reported and the table did not
+                # hold. A CRASH is never collapsed into FAIL (the verdict ladder), so SIG maps to CRASH.
+                if not o and re.fullmatch(r"RC\d+", _raw): o = "FAIL"
+                if not o and re.fullmatch(r"SIG\d+", _raw): o = "CRASH"
                 if not o:
                     # ⛔ AND AN UNKNOWN OUTCOME IS NOW SAID ALOUD, NEVER DROPPED IN SILENCE. This function already
                     # reports a skipped SUITE aloud; dropping an unknown OUTCOME without a word is the same defect one
