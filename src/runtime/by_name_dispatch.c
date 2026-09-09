@@ -6619,10 +6619,11 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         *out = opsyn(args[0], args[1], nargs > 2 ? args[2] : NULVCL); return 1;
     }
     L_bidjmp_6567: ;
-    if ((_bid == BID_CODE) && nargs == 1) {
-        extern DESCR_t code(const char *);
+    if ((_bid == BID_CODE) && (nargs == 1 || nargs == 2)) {
+        extern DESCR_t code_at(const char *, long);
         const char *cs = VARVAL_fn(args[0]);
-        *out = cs ? code(cs) : FAILDESCR; return 1;
+        long _cb = (nargs == 2 && IS_INT(args[1])) ? (long)args[1].i : 0;
+        *out = cs ? code_at(cs, _cb) : FAILDESCR; return 1;
     }
     L_bidjmp_6572: ;
     if ((_bid == BID_EVAL) && nargs == 1) {

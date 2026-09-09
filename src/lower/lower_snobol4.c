@@ -14,7 +14,7 @@ static int sno_kw_static_slot(const char * kw) { return kw ? rt_kw_index(kw) : -
 extern void global_register(const char * name);
 extern int stage2_proc_grow(stage2_t * s2);
 typedef struct { const tree_t * arg; IR_t * prim; int str; long codes; const char * snapg; } sprearg_t;
-typedef struct { IR_graph_t * g; IR_t * loop_exit; IR_t * loop_next; const char * result_name; IR_t * pat_fail; IR_t * pat_seal; sprearg_t pre[64]; int npre; } scx_t;
+typedef struct { IR_graph_t * g; IR_t * loop_exit; IR_t * loop_next; const char * result_name; IR_t * pat_fail; IR_t * pat_seal; sprearg_t pre[64]; int npre; long prog_nstmt; } scx_t;
 #define SNO_DEF_MAX 128
 #define SNO_DEF_NAMES_MAX 64
 typedef struct { const char * fname; const char * entry; const char * result_name; const char * names[SNO_DEF_NAMES_MAX]; int nnames; int nformals; } sno_def_t;
@@ -464,6 +464,14 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             }
             if (fnb[0] && sno_predef_registered(fnb) && !sno_def_entry_absent(t, argbase)) { IR_t * nd = lc_build(cx->g, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = (char *) ""; if (res) *res = nd; return nd; }
             if (fnb[0] && !sno_def_entry_absent(t, argbase)) sno_fatal("DEFINE in this expression position is outside the landed subset (literal-prototype DEFINE in a statement subject only; pattern/replacement-field and fragment DEFINE pending)", NULL);
+        }
+        if (!strcmp(name, "CODE") && (t->n - argbase) == 1 && cx->prog_nstmt > 0) {
+            IR_t * ar = NULL; IR_t * ae = sx_lower(cx, t->c[argbase], NULL, ω, &ar);
+            IR_t * cl = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(cl).sval = (char *) "CODE";
+            IR_t * bn = lc_build(cx->g, IR_LIT_INTEGER, cl, ω); IR_LIT(bn).ival = (int64_t) cx->prog_nstmt;
+            lc_γ_to(ar, bn);
+            ir_operand_push(cl, ar); ir_operand_push(cl, bn);
+            if (res) *res = cl; return ae;
         }
         { int lex = 0; long c1 = 0, c2 = 0; int rk = sno_pred_relop(name, &lex, &c1, &c2);
           if (rk >= 0 && t->n - argbase >= 1 && t->n - argbase <= 2) return sx_pred_cmp(cx, t, argbase, lex, rk, c1, c2, γ, ω, res); }
@@ -2163,7 +2171,7 @@ static int sno_exprdef_seen(const char * const * v, int n, const char * f) { if 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, const int * is_def, const char * result_name, long stno_base, long end_line) {
     IR_graph_t * g = IR_alloc(nst * 16 + 256);
-    scx_t cx; cx.g = g; cx.loop_exit = NULL; cx.loop_next = NULL; cx.result_name = result_name; cx.pat_fail = NULL; cx.pat_seal = NULL; cx.npre = 0;
+    scx_t cx; cx.g = g; cx.loop_exit = NULL; cx.loop_next = NULL; cx.result_name = result_name; cx.pat_fail = NULL; cx.pat_seal = NULL; cx.npre = 0; cx.prog_nstmt = (long)nst + 1 + stno_base;
     IR_t * exitnd = lc_build(g, IR_SUCCEED, NULL, NULL);
     IR_t * failnd = lc_build(g, IR_FAIL, NULL, NULL);
     IR_t ** anchor = (IR_t **) calloc((size_t) nst, sizeof(IR_t *));

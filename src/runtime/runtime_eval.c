@@ -410,7 +410,9 @@ int rt_goto_transfer_checked(const char *name)
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t code(const char *src)
+DESCR_t code_at(const char *src, long base);
+DESCR_t code(const char *src) { return code_at(src, 0); }
+DESCR_t code_at(const char *src, long base)
 {
     if (!src || !*src) return FAILDESCR;
     { extern void bb_pool_init(void); bb_pool_init(); }
@@ -425,7 +427,7 @@ DESCR_t code(const char *src)
     tree_t *prog = sno_parse_string_ast(src, NULL);
     sno_error_quiet_end();
     if (!prog || prog->n == 0) { const char *cap = sno_error_captured(); if (cap) g_sno_errtext = rt_ws_strdup_c(cap); return FAILDESCR; }
-    long stno_base = g_stno;
+    long stno_base = (base > g_stno) ? base : g_stno;
     extern int sno_pat_count(void); extern void sno_pat_thunks_build(int p0);
     extern int sno_expr_mark(void); extern void sno_expr_thunks_build(int x0);
     int pat0 = sno_pat_count();
