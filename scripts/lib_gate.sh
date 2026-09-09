@@ -585,16 +585,24 @@ gate_file_executes_scrip() {
 # test_gate_pl_gz6b.sh`, then on a re-run `uncovered=2 test_gate_capture_stdin_and_red_exit.sh
 # test_gate_icn_port_trace.sh` -- THREE DIFFERENT FILES ACROSS TWO RUNS, every one of them carrying the shim call on its
 # own LINE 1. Ten other runs of the identical loop over the identical 140 files reported uncovered=0.
-# ⛔ THE MECHANISM IS NOT ESTABLISHED and this comment does not pretend otherwise. What IS established, and is why the
-# body below changed shape: its sibling gate_file_executes_scrip -- same loop, same files, same load, but written with
-# COMMAND SUBSTITUTION and here-strings instead of a PIPELINE -- reported gates=140 in every single run including the
-# red ones, which also rules out fork failure and any population wobble. The pipeline under `set -o pipefail` was the
-# one structural difference between the function that never flaked and the function that did, so it is gone; the
-# hypothesis it would have explained (a SIGPIPE from grep -q exiting early) was MEASURED AND DISPROVED -- every
-# candidate file is under 5KB stripped, far inside the 64KB pipe buffer, so the upstream grep always completes.
-# ⭐ SO THE CURE IS NOT "I FIXED IT". It is: remove the one construct that can turn a non-measurement into a verdict,
-# and make what remains say WHICH of the three things happened, so the next occurrence names itself instead of naming
-# an innocent file. A caller that treats 2 as 1 has re-created the defect one frame up.
+# ⭐⭐ THE MECHANISM, PROVEN 2026-09-09 AFTER THIS COMMENT FIRST SAID IT WAS UNFOUND: SIGPIPE, turned into a verdict by
+# `set -o pipefail`. `grep -q` exits the instant it matches -- and the guard call is the FIRST non-comment line in 93 of
+# the 144 gates -- so the kernel tears down the read end while the upstream `grep -vE` may not yet have been scheduled to
+# finish writing. That write returns EPIPE, the upstream dies 141, pipefail makes 141 the pipeline's status, and the
+# function reports "no guard". MEASURED: the old body over 2712 calls at box load 21 produced 11 false negatives, EVERY
+# ONE exit 141; this body over the same 2712 calls at the same load produced 0.
+# ⛔⭐ AND THE FIRST ANALYSIS RULED SIGPIPE OUT, WRONGLY, WHICH IS THE MORE USEFUL HALF OF THIS COMMENT. The reasoning
+# was: every candidate file is under 5KB stripped, far inside the 64KB pipe buffer, so the upstream can always complete
+# its write. That is true and irrelevant -- THE BUFFER PREVENTS BLOCKING, NOT EPIPE. Whether the upstream finishes before
+# the reader exits is a SCHEDULING race, not a capacity question, and it is a race only load can open: a tight 500-call
+# loop on a quiet box reproduced it zero times, which is exactly what made the wrong conclusion feel measured.
+# ⭐ THE LESSON, which outlives this function: an experiment that cannot reproduce a rare race is not evidence the race
+# is absent, and "I measured it" is not the same claim as "I measured it under the conditions where it happens". The
+# first analysis had the right instinct (the pipeline is the only structural difference from the sibling that never
+# flaked) and then talked itself out of it with a capacity argument about a timing bug.
+# THE COST OF THE DELAY, so nobody repeats it: THREE seats reported false work items from this -- hq_T's own ARM 15 runs,
+# the coo's make-test report, and hq_R's, which the ceo turned into a ruling (CEO-462) directing a cure to
+# test_gate_pl_gz5c.sh, a file that has carried the guard on line 3 since 2026-09-05. Four innocent files accused.
 gate_file_has_fresh_guard() {
     local _body _rc
     [ -f "$1" ] || return 2

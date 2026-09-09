@@ -94,6 +94,10 @@ ladder_main() {
   wantrc() { local n="$1"; [ -f "$MASTER_DIR/ALL.wantrc" ] || { echo 0; return; }; local v; v=$(awk -F'\t' -v n="$n" '$1==n{print $2; exit}' "$MASTER_DIR/ALL.wantrc"); printf '%s\n' "${v:-0}"; }
   local W; W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
   local n=0 pass=0 fail=0 pair src ref name want r3 r4 v3 v4; local -A rp rf
+  # ⭐ THE DEBT COUNTER IS PART OF THE CURE, NOT A DECORATION. Capturing stderr without saying how much of it nobody
+  # asserts would replace a silent false green with a silent uncompared stream -- the same defect one step quieter.
+  # This prints, on every run, how many witnesses EMIT stderr that no master block asserts. It is a work list.
+  local unasserted=0 unasserted_names="" _decl_nums=""
   for pair in $(printf '%s\n' "${origins[@]}" | sort -n | tr ' ' ':'); do
     r=${pair%%:*}; o=${pair#*:}; src="$W/$o$MASTER_EXT"; ref="$W/$o.ref"
     master_extract_origin "$o" "$src" "$ref" >/dev/null 2>&1 || refuse "cannot extract $o from the master suite (lib_master_extract.sh)"
@@ -105,19 +109,49 @@ ladder_main() {
     # language could ever legitimately read() stdin. Purely additive: no .in present -> /dev/null, byte
     # for byte the prior behavior.
     local stdin_src="$W/$o.in"; [ -f "$stdin_src" ] || stdin_src=/dev/null
-    r3=$( ( timeout "$T" "$SCRIP" --run "$src" <"$stdin_src" >"$W/$o.m3.out" 2>/dev/null; echo $? ) 2>/dev/null )
-    if [ "$r3" = "$want" ] && cmp -s "$W/$o.m3.out" "$ref"; then v3=PASS; pass=$((pass+1)); rp[$r]=$(( ${rp[$r]:-0} + 1 )); else v3="FAIL(rc=$r3)"; fail=$((fail+1)); rf[$r]=$(( ${rf[$r]:-0} + 1 )); fi
+    # ⛔⭐ STDERR IS CAPTURED, AND COMPARED ONLY WHERE THE MASTER DECLARES IT (hq_T 2026-09-09; hq_B .github 367b083e
+    # and hq_V's FINDING measured the same gap from both ends, ceo ordered the cure CEO-457 item 3).
+    # THE DEFECT: these two graded runs sent stderr to /dev/null, and Icon's &trace writes EXCLUSIVELY there
+    # (core.c trace_print_icon) -- so every trace rung in the Icon ladder was graded on stdout alone and COULD NOT FAIL
+    # for the reason it was minted. procedure_write_264 holds the one-line ref `A:end` and PASSES while the oracle
+    # prints seven lines. corpus/tests/icon/ALL.ref contains ZERO trace-shaped lines. The Arizona suite runner had this
+    # right all along (2>&1), which is why tracer.std carries all 85 trace lines -- so the PACKAGES instrument was right
+    # and the LADDER instrument was wrong, and the ladder is where rungs are minted.
+    # ⛔ WHY NOT SIMPLY 2>&1 LIKE ARIZONA, which is what the ruling first said: hq_V MEASURED that Icon writes a trace
+    # line's first column as the SOURCE FILE NAME in a fixed 13-character field truncated FROM THE LEFT, and
+    # master_extract_origin materialises a witness under its ORIGIN name (40-60 chars). A merged ref is therefore pinned
+    # to the extraction basename -- a self-pin on a harness temp filename, which is a WORSE instrument than the one it
+    # replaces and would rot the first time an origin is renamed. A separate stream has no such column.
+    # ⭐ ADDITIVE, EXACTLY LIKE THE .in SIDECAR ABOVE: no $o.err declared -> stderr is captured but NOT compared, which
+    # is byte-for-byte today's behaviour for all 886 entries. A declared block makes it an assertion. So this landing
+    # changes ZERO verdicts by construction, and every later change is a deliberate one -- which is the whole reason it
+    # is safe to land two days before the announcement.
+    local err_ref="$W/$o.err"
+    r3=$( ( timeout "$T" "$SCRIP" --run "$src" <"$stdin_src" >"$W/$o.m3.out" 2>"$W/$o.m3.err"; echo $? ) 2>/dev/null )
+    [ -s "$W/$o.m3.err" ] && [ ! -f "$err_ref" ] && unasserted=$((unasserted+1)) && unasserted_names="$unasserted_names $o"
+    if [ "$r3" = "$want" ] && cmp -s "$W/$o.m3.out" "$ref" && { [ ! -f "$err_ref" ] || cmp -s "$W/$o.m3.err" "$err_ref"; }; then v3=PASS; pass=$((pass+1)); rp[$r]=$(( ${rp[$r]:-0} + 1 )); else v3="FAIL(rc=$r3)"; fail=$((fail+1)); rf[$r]=$(( ${rf[$r]:-0} + 1 )); fi
     v4=NOBUILD
     if (cd "$W" && timeout "$T" "$SCRIP" --compile -o "$o.s" "$src" </dev/null >/dev/null 2>&1) && [ -s "$W/$o.s" ] \
        && as --64 -o "$W/$o.o" "$W/$o.s" 2>/dev/null && gcc -no-pie -o "$W/$o.bin" "$W/$o.o" "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>/dev/null; then
-      r4=$( ( timeout "$T" "$W/$o.bin" <"$stdin_src" >"$W/$o.m4.out" 2>/dev/null; echo $? ) 2>/dev/null )
-      if [ "$r4" = "$want" ] && cmp -s "$W/$o.m4.out" "$ref"; then v4=PASS; else v4="FAIL(rc=$r4)"; fi
+      r4=$( ( timeout "$T" "$W/$o.bin" <"$stdin_src" >"$W/$o.m4.out" 2>"$W/$o.m4.err"; echo $? ) 2>/dev/null )
+      if [ "$r4" = "$want" ] && cmp -s "$W/$o.m4.out" "$ref" && { [ ! -f "$err_ref" ] || cmp -s "$W/$o.m4.err" "$err_ref"; }; then v4=PASS; else v4="FAIL(rc=$r4)"; fi
     fi
     if [ "$v4" = PASS ]; then pass=$((pass+1)); rp[$r]=$(( ${rp[$r]:-0} + 1 )); else fail=$((fail+1)); rf[$r]=$(( ${rf[$r]:-0} + 1 )); fi
     printf 'rung %2d  %-44s m3=%-12s m4=%-12s (%s, want rc=%s)\n' "$r" "$o" "$v3" "$v4" "$name" "$want"
   done
   for r in $(printf '%s\n' "${!rp[@]}" "${!rf[@]}" | sort -nu); do printf 'rung %2d summary: PASS=%d FAIL=%d (witness x mode)\n' "$r" "${rp[$r]:-0}" "${rf[$r]:-0}"; done
-  echo "LADDER $SEL: witnesses=$n modes=2 (m3 --run, m4 --compile+as+gcc) graded=$((n*2)) PASS=$pass FAIL=$fail  tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo ?)$(git -C "$ROOT" status --short 2>/dev/null | grep -q . && echo -DIRTY) corpus=$(git -C "$S4E/corpus" rev-parse --short HEAD 2>/dev/null || echo ?)$(git -C "$S4E/corpus" status --short 2>/dev/null | grep -q . && echo -DIRTY)"
+  [ "$unasserted" -gt 0 ] && printf 'LADDER %s: stderr UNASSERTED on %d of %d witness(es) -- captured, not compared (no ALL.err block):%s\n' "$SEL" "$unasserted" "$n" "$(printf '%s' "$unasserted_names" | tr ' ' '\n' | head -8 | tr '\n' ' ')"
+  # ⛔⭐ `git status --short | grep -q .` WAS A PROVENANCE LIE WAITING FOR LOAD, and it is the same defect this session
+  # proved in gate_file_has_fresh_guard: `grep -q .` exits on the FIRST line, the kernel tears down the read end, and a
+  # `git status` that has not yet finished writing dies of SIGPIPE (141) -- so under `set -o pipefail` the `&&` fails and
+  # **-DIRTY silently disappears from a board stamp taken on a dirty tree.** Measured on the sibling shape: 11 false
+  # negatives in 2712 calls at box load 21, every one exit 141. A board that stamps a dirty tree as clean is worse than
+  # one that refuses, because the SHA it prints then reads as evidence about a tree nobody has. Capture, then test -- the
+  # shape gate_stamp in lib_gate.sh already uses. ⭐ This file was the ONLY one still using the pipeline form for it.
+  local _sd="" _cd=""
+  [ -n "$(git -C "$ROOT" status --short 2>/dev/null)" ] && _sd="-DIRTY"
+  [ -n "$(git -C "$S4E/corpus" status --short 2>/dev/null)" ] && _cd="-DIRTY"
+  echo "LADDER $SEL: witnesses=$n modes=2 (m3 --run, m4 --compile+as+gcc) graded=$((n*2)) PASS=$pass FAIL=$fail  tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo ?)$_sd corpus=$(git -C "$S4E/corpus" rev-parse --short HEAD 2>/dev/null || echo ?)$_cd"
   [ "$n" -gt 0 ] || refuse "graded ZERO witnesses -- cannot measure, not a pass"
   # ⛔⭐ A RUNG DECLARED IN LADDER.tsv AND NOT BUILT IS RED, NOT ABSENT. The population comes from ALL.csv's
   # `ladder__rungNN_*` origins, so a rung nobody has written simply is not in it -- and `--to <top>` then
@@ -137,7 +171,10 @@ ladder_main() {
           _num=$(printf '%s' "$_r" | sed 's/^rung0*//'); [ -n "$_num" ] || _num=0
           [ "$_num" -le "$_ceiling" ] 2>/dev/null || continue
           if [ -n "$ONLY" ] && [ "$_num" -ne "$ONLY" ]; then continue; fi
-          printf '%s\n' "${origins[@]}" | awk '{print $1}' | grep -qx "$_num" || _undeclared="$_undeclared $_r"
+          # ⛔ SAME CLASS: `| grep -qx` exits on its first match, so under load the upstream can die 141 and pipefail turns
+          # that into "rung not declared" -- a false accusation against a rung that IS declared. Capture, then test.
+          _decl_nums="$(printf '%s\n' "${origins[@]}" | awk '{print $1}')"
+          grep -qx "$_num" <<<"$_decl_nums" || _undeclared="$_undeclared $_r"
       done < "$_ltsv"
       [ -z "$_undeclared" ] || refuse "LADDER.tsv declares rung(s)$_undeclared at or below $_ceiling with NO witness in $MASTER_DIR/ALL.csv -- a declared rung that is not built is RED, not absent; grading only what exists would print the success shape over the gap"
   fi
