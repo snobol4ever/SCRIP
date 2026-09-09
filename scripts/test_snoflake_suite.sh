@@ -139,7 +139,7 @@ FL3=""; FL4=""; FLS=""; FLC=""; OPTS_LIST=""; TOTAL=0
 SE3=0; EN3=0; ENL3=""
 parse_fixture() { # $1=sno -> writes $W/exp $W/inp; echoes "match ic nstd hasinp opts"
     local match=exact ic=0 nstd=0 hasinp=0 opts=0 inblock="" line payload rest
-    : > "$W/exp"; : > "$W/inp"
+    : > "$W/exp"; : > "$W/inp"; : > "$W/masks"
     while IFS= read -r line || [ -n "$line" ]; do
         case "$line" in '*'*) ;; *) break;; esac
         if [ -n "$inblock" ]; then
@@ -157,11 +157,62 @@ parse_fixture() { # $1=sno -> writes $W/exp $W/inp; echoes "match ic nstd hasinp
             '* @expect '*)    rest="${line#\* @expect }"; rest="${rest#"${rest%%[![:space:]]*}"}"; printf '%s\n' "$rest" >> "$W/exp";;
             '* @match '*)     rest="${line#\* @match }"; rest="${rest#"${rest%%[![:space:]]*}"}"
                               case "$rest" in */i) ic=1; rest="${rest%/i}";; esac; match="$rest";;
+            # ⭐⛔ CEO-409 -- THE EXCLUSION IS AT THE LINE, NOT AT THE PROGRAM. A fixture SPITBOL runs clean
+            # and we run clean, differing only in a value that belongs to the IMPLEMENTATION rather than to
+            # the program (SPITBOL's own free-space count), is neither outside the baseline -- the oracle runs
+            # it fine -- nor a legitimate red, because a red asserts a defect and this one can never go green
+            # whatever anybody writes, which is A CRITERION THAT CANNOT SAY YES. It stays IN the denominator,
+            # graded on every line carrying language semantics, with the one implementation-defined line named,
+            # masked and COUNTED. Shape: `* @mask-line <ERE> :: <reason>`. THE REASON IS MANDATORY (guardrail 2:
+            # the mask names the line AND the reason, in the fixture beside the data, never in this runner) and
+            # a mask without one is REFUSED, not ignored -- see the arming checks at the call site for
+            # guardrails 1 and 4. Every masked line is counted and printed beside the board (guardrail 3),
+            # because an invisible mask is a machine for hiding reds and a printed one is a measurement.
+            '* @mask-line '*) rest="${line#\* @mask-line }"; rest="${rest#"${rest%%[![:space:]]*}"}"
+                              printf '%s\n' "$rest" >> "$W/masks";;
             '* @nonstandard'*) nstd=1;;
             '* @options '*)   opts=1;;
         esac
     done < "$1"
     echo "$match $ic $nstd $hasinp $opts"
+}
+# ⛔ THE GUARDRAILS ARE ENFORCED HERE, NOT TRUSTED TO THE FIXTURE AUTHOR (CEO-409). mask_arm reads
+# $W/masks, refuses rc=2 on any mask that (a) carries no reason, or (b) could ever cover an ERROR number
+# or a control-flow outcome -- guardrail 4, checked by running the pattern against probe lines rather
+# than by reading it, so a clever regex cannot talk its way past. MASK_PATS is newline-joined EREs.
+MASK_TOKEN='⟨masked: implementation-defined value, see @mask-line in the fixture⟩'
+MASKED_LINES=0; MASKED_FIX=0; MASKED_LIST=""
+mask_arm() { # $1=fixture name -> sets MASK_PATS MASK_N ; refuses rc=2 on an unearned mask
+    MASK_PATS=""; MASK_N=0
+    [ -s "$W/masks" ] || return 0
+    local raw pat why probe
+    while IFS= read -r raw; do
+        [ -n "$raw" ] || continue
+        case "$raw" in *' :: '*) ;; *)
+            echo "⛔ REFUSE(rc=2): $1 carries a @mask-line with no reason: '$raw'"
+            echo "   CEO-409 guardrail 2 -- the mask names the LINE and the REASON, in the fixture, beside the data."
+            echo "   Shape: * @mask-line <ERE> :: <why this value belongs to the implementation, and the measurement that showed it>"; exit 2;; esac
+        pat="${raw%% :: *}"; why="${raw#* :: }"
+        [ -n "$why" ] || { echo "⛔ REFUSE(rc=2): $1 has an empty reason on @mask-line '$pat' (CEO-409 guardrail 2)"; exit 2; }
+        for probe in 'ERROR 042 -- attempt to change value of protected variable' 'f.sno(9) : ERROR 248 -- attempted redefinition of system function' 'No END statement found in source file(s).'; do
+            if printf '%s\n' "$probe" | grep -qE "$pat"; then
+                echo "⛔ REFUSE(rc=2): $1's @mask-line '$pat' also covers a diagnostic the board must never hide:"
+                echo "   it matches: $probe"
+                echo "   CEO-409 guardrail 4 -- a mask may NEVER cover an ERROR number, a control-flow outcome, or any value computed from the program's own data."; exit 2
+            fi
+        done
+        MASK_PATS="${MASK_PATS}${pat}
+"; MASK_N=$((MASK_N+1))
+    done < "$W/masks"
+    return 0
+}
+mask_apply() { # $1=stream -> echoes the stream with masked lines replaced by MASK_TOKEN
+    if [ "${MASK_N:-0}" = 0 ]; then printf '%s' "$1"; return; fi
+    printf '%s' "$1" | awk -v pats="$MASK_PATS" -v tok="$MASK_TOKEN" 'BEGIN{n=split(pats,P,"\n")} {for(i=1;i<=n;i++) if(P[i]!="" && $0 ~ P[i]) {print tok; next} } {print $0}'
+}
+mask_count() { # $1=oracle stream -> echoes how many of ITS lines the arming masks cover
+    if [ "${MASK_N:-0}" = 0 ]; then echo 0; return; fi
+    printf '%s' "$1" | awk -v pats="$MASK_PATS" 'BEGIN{n=split(pats,P,"\n")} {for(i=1;i<=n;i++) if(P[i]!="" && $0 ~ P[i]) {c++; next} } END{print c+0}'
 }
 grade() { # $1=got $2=rc $3=match $4=ic ; expects $W/exp; returns 0 pass
     local got="$1" rc="$2" match="$3" ic="$4" exp; exp="$(cat "$W/exp")"
@@ -235,6 +286,7 @@ for sno in "$SUITE"/*.sno; do
     [ -e "$sno" ] || { echo "⛔ REFUSE(rc=2): zero fixtures in $SUITE"; exit 2; }
     name="$(basename "$sno" .sno)"; TOTAL=$((TOTAL+1))
     read -r MATCH IC NSTD HASINP OPTS <<< "$(parse_fixture "$sno")"
+    mask_arm "$name"
     [ "$OPTS" = 1 ] && OPTS_LIST="$OPTS_LIST $name"
     run_one sbl "$sno"; ORACLE_OUT="$GOT"
     case "$ORACLE_OUT" in *"-o file open error"*)
@@ -244,10 +296,25 @@ for sno in "$SUITE"/*.sno; do
     # a numbered refusal first, then SPITBOL's measured un-numbered ones (see ORACLE_REFUSAL_RE above)
     [ -z "$OERR" ] && OERR="$(printf '%s' "$ORACLE_OUT" | grep -E "$ORACLE_REFUSAL_RE" | head -1 | tr -d '\t' | cut -c1-140)"
     if [ -n "$OERR" ]; then OUTSIDE=1; OUTSIDE_N=$((OUTSIDE_N+1)); OUTSIDE_LIST="${OUTSIDE_LIST}${name}\t${OERR}\n"; else BASE=$((BASE+1)); fi
+    # ⛔ OERR IS READ FROM THE UNMASKED STREAM ABOVE, ON PURPOSE: the outside-baseline classification must
+    # never be able to see through a mask, and guardrail 4 already refuses a mask that could cover a
+    # diagnostic. Only the COMPARISON stream is masked, and only from here down.
+    MC=0
+    if [ "${MASK_N:-0}" != 0 ]; then
+        MC="$(mask_count "$ORACLE_OUT")"
+        OLINES="$(printf '%s' "$ORACLE_OUT" | grep -c '' 2>/dev/null || echo 0)"
+        if [ "$MC" -gt 0 ] && [ $((MC * 2)) -gt "$OLINES" ]; then
+            echo "⛔ REFUSE(rc=2): $name would have $MC of its $OLINES oracle lines masked."
+            echo "   CEO-409 guardrail 4 -- when masked lines are the MAJORITY of a fixture's output the fixture is"
+            echo "   ungradable and belongs OUTSIDE the baseline, named, not carried in the denominator behind a mask."; exit 2
+        fi
+        if [ "$MC" -gt 0 ]; then MASKED_LINES=$((MASKED_LINES+MC)); MASKED_FIX=$((MASKED_FIX+1)); MASKED_LIST="$MASKED_LIST $name($MC)"; fi
+    fi
+    ORACLE_CMP="$(mask_apply "$ORACLE_OUT")"
     if grade "$ORACLE_OUT" "$RC" "$MATCH" "$IC"; then [ "$NSTD" = 1 ] && NSP=$((NSP+1)) || PS=$((PS+1)); ORACLE_MEETS_EXPECT=1
     else [ "$NSTD" = 1 ] && NSF=$((NSF+1)) || { FS=$((FS+1)); FLS="$FLS $name"; }; ORACLE_MEETS_EXPECT=0; fi
     run_one m3 "$sno"; M3RC=$RC; M4RC=0; OUT3=""; NOTE3=""
-    if oracle_equal "$GOT" "$ORACLE_OUT"; then [ "$NSTD" = 1 ] && N3P=$((N3P+1)) || P3=$((P3+1))
+    if oracle_equal "$(mask_apply "$GOT")" "$ORACLE_CMP"; then [ "$NSTD" = 1 ] && N3P=$((N3P+1)) || P3=$((P3+1))
         if [ "$OE_KIND" = exact ]; then OUT3=PASS; else OUT3=UNGRADED; NOTE3="error_number_only: same ERROR number as sbl -bf, stream differs (narrower instrument)"; fi
         if [ "$NSTD" != 1 ]; then
             if [ "$OE_KIND" = exact ]; then SE3=$((SE3+1)); else EN3=$((EN3+1)); ENL3="$ENL3 $name"; fi
@@ -258,12 +325,12 @@ for sno in "$SUITE"/*.sno; do
     compile_m4 "$sno" "$W/prog.bin"; m4rc=$?; OUT4=""; NOTE4=""
     if [ "$m4rc" -eq 0 ]; then
         run_one m4 "$sno"; M4RC=$RC
-        if oracle_equal "$GOT" "$ORACLE_OUT"; then [ "$NSTD" = 1 ] && N4P=$((N4P+1)) || P4=$((P4+1))
+        if oracle_equal "$(mask_apply "$GOT")" "$ORACLE_CMP"; then [ "$NSTD" = 1 ] && N4P=$((N4P+1)) || P4=$((P4+1))
             if [ "$OE_KIND" = exact ]; then OUT4=PASS; else OUT4=UNGRADED; NOTE4="error_number_only: same ERROR number as sbl -bf, stream differs (narrower instrument)"; fi
         else [ "$NSTD" = 1 ] && N4F=$((N4F+1)) || { F4=$((F4+1)); FL4="$FL4 $name"; }
             OUT4="$(verdict_of "$RC")"; NOTE4="rc=$RC vs sbl -bf"; [ "$NSTD" = 1 ] && { NOTE4="@nonstandard by snoflake's own header, yet SPITBOL runs it, so it is graded in the baseline; $NOTE4"; }; fi
     elif [ "$m4rc" -eq 2 ]; then
-        if oracle_equal "$CTERR" "$ORACLE_OUT"; then [ "$NSTD" = 1 ] && N4P=$((N4P+1)) || P4=$((P4+1))
+        if oracle_equal "$(mask_apply "$CTERR")" "$ORACLE_CMP"; then [ "$NSTD" = 1 ] && N4P=$((N4P+1)) || P4=$((P4+1))
             if [ "$OE_KIND" = exact ]; then OUT4=PASS; NOTE4="compile-time diagnostic equals sbl -bf"; else OUT4=UNGRADED; NOTE4="error_number_only: compile-time diagnostic carries the oracle ERROR number, stream differs"; fi
         else [ "$NSTD" = 1 ] && N4F=$((N4F+1)) || { F4=$((F4+1)); FL4="$FL4 $name(CTERR)"; }
             OUT4=FAIL; NOTE4="compile-time diagnostic differs from sbl -bf"; [ "$NSTD" = 1 ] && { NOTE4="@nonstandard by snoflake's own header, yet SPITBOL runs it, so it is graded in the baseline; $NOTE4"; }; fi
@@ -289,6 +356,10 @@ echo "mode-4 (--compile): PASS=$P4 FAIL=$F4 SKIP(cc)=$S4  NSTD $N4P/$((N4P+N4F))
 # ⭐ THE SUITE-TABLE READING (ceo-372: the AND per program; CEO-383: the stream-equal basis -- the PASS= counts above
 # fold error-number-only matches and are this runner's own label, never the table's number). Over all $TOTAL fixtures.
 echo "SNOFLAKE_BOARD total=$TOTAL m3_stream_pass=$ST3 m3_error_number_only=$EN3 m4_stream_pass=$ST4 m4_skip=$S4 both_modes_stream_pass=$BOTH_STREAM nstd=$((N3P+N3F)) -- the suite table states both_modes_stream_pass/$TOTAL"
+# ⭐ CEO-409 guardrail 3: A SUITE REPORTING 102 OF 124 ALSO REPORTS HOW MANY LINES IT DECLINED TO GRADE.
+# This line is printed whether or not any mask armed -- a zero said out loud is the thing that makes a
+# non-zero legible, and it is the difference between a mask that is a measurement and a mask that hides.
+echo "MASKED_LINES total=$MASKED_LINES across $MASKED_FIX fixture(s)${MASKED_LIST:+ --$MASKED_LIST} (CEO-409: implementation-defined lines are excluded AT THE LINE, named and counted in the fixture; the fixture stays IN the denominator)"
 echo "SNOFLAKE_BASELINE baseline=$BASE both_modes_pass=$BASE_BOTH outside_spitbol_baseline=$OUTSIDE_N of $TOTAL -- THE SUITE TABLE STATES both_modes_pass/baseline (a fixture SPITBOL itself cannot run is outside the baseline and out of the denominator; Lon 2026-09-08)"
 if [ "$OUTSIDE_N" -gt 0 ]; then echo "OUTSIDE-SPITBOL-BASELINE ($OUTSIDE_N; name<TAB>SPITBOL's own error):"; printf '%b' "$OUTSIDE_LIST" | sed 's/^/OUTSIDE\t/'; fi
 if [ -f "$OUTSIDE_TSV" ]; then
@@ -332,7 +403,7 @@ if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (
 if [ "$SUITE" != "$CANON_SUITE" ]; then echo "SCORE.md: scratch suite $SUITE -- not written (only the canonical suite records the leaderboard)"; else
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite Snoflake --modes m3,m4 \
     --measurer "${S4E_SEAT:-}" --suite-pass "$BASE_BOTH" --suite-total "$BASE" \
-    --text "baseline both_modes_pass=$BASE_BOTH/$BASE (the table's reading: fixtures SPITBOL runs clean; $OUTSIDE_N outside the SPITBOL baseline, Lon 2026-09-08) · both_modes_stream_pass=$BOTH_STREAM/$TOTAL (the runner's own label, ceo-372 AND per program on the CEO-383 stream-equal basis) · mode-3 PASS=$P3 FAIL=$F3 NSTD $N3P/$((N3P+N3F)) stream_equality=$SE3 error_number_only=$EN3 · mode-4 PASS=$P4 FAIL=$F4 SKIP(cc)=$S4 NSTD $N4P/$((N4P+N4F))${INV_LINE:+ · $INV_LINE} (\`test_snoflake_suite.sh\`)" \
+    --text "masked_lines=$MASKED_LINES in $MASKED_FIX fixture(s) (CEO-409, excluded at the line, fixture stays in the denominator) · baseline both_modes_pass=$BASE_BOTH/$BASE (the table's reading: fixtures SPITBOL runs clean; $OUTSIDE_N outside the SPITBOL baseline, Lon 2026-09-08) · both_modes_stream_pass=$BOTH_STREAM/$TOTAL (the runner's own label, ceo-372 AND per program on the CEO-383 stream-equal basis) · mode-3 PASS=$P3 FAIL=$F3 NSTD $N3P/$((N3P+N3F)) stream_equality=$SE3 error_number_only=$EN3 · mode-4 PASS=$P4 FAIL=$F4 SKIP(cc)=$S4 NSTD $N4P/$((N4P+N4F))${INV_LINE:+ · $INV_LINE} (\`test_snoflake_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 fi
 # ⭐ THE PROGRESS ROWS, written once (see PROG_ROWS above). Said aloud either way; never a red board.
