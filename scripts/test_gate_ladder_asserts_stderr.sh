@@ -18,7 +18,8 @@
 # ⭐ THE DEBT COUNTER IS PART OF THE CURE, NOT DECORATION: capturing stderr without reporting how much of it no block
 # asserts would replace a silent false green with a silent uncompared stream -- the same defect one step quieter.
 #
-# ~1s, hermetic (pure source census plus one scratch run), no build, no corpus dependency.
+# ~1s, hermetic PURE SOURCE CENSUS -- it runs no program, needs no build and no corpus, and deliberately carries no
+# staleness preflight because there is no binary whose age could change its answer.
 # EXIT: 0 all arms · 1 an arm failed · 2 REFUSED (cannot measure).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
@@ -38,7 +39,15 @@ echo "== the graded runs capture stderr =="
 # shape, which is why this arm is written against the RUN lines rather than against the redirect count: a census tells
 # you WHERE the redirects are, and then each one must be asked WHICH STREAM IT SUPPRESSES AND FOR WHOSE BENEFIT -- a
 # graded run and a build step want opposite answers from identical syntax.
-if grep -qE '\$SCRIP" --run "\$src".*2>"\$W/\$o\.m3\.err"' <<<"$BODY"; then ok "1 the m3 graded run captures stderr to a file"; else no "1 the m3 graded run does not capture stderr -- a trace rung cannot fail for its own reason"; fi
+# ⛔⭐ `[$]SCRIP` RATHER THAN `$SCRIP`, AND IT IS NOT A TYPO. Written the obvious way, this arm's own REGEX contains the
+# literal text `$SCRIP" --run`, and gate_file_executes_scrip (ARM 15's population rule) reads that as this file INVOKING
+# the compiled binary -- so this gate got censused as a scrip-executing gate and ARM 15 red the whole blocking set for a
+# missing freshness guard it does not need, since it runs no program. `[$]` is an equivalent regex for a literal dollar
+# that the population rule does not match, so the file's text becomes TRUTHFUL to the rule instead of accidentally
+# claiming something it does not do. ⭐ Third time today a gate's own text changed a measurement about it (the others:
+# arm 10's census counting this file's comment, and arm 3/4 matching a subshell's trailing redirect) -- which is the open
+# row `gate-arms-and-their-own-fixtures-are-never-graded-against-each-other`, and the real cure lives there, not here.
+if grep -qE '[$]SCRIP" --run "[$]src".*2>"[$]W/[$]o\.m3\.err"' <<<"$BODY"; then ok "1 the m3 graded run captures stderr to a file"; else no "1 the m3 graded run does not capture stderr -- a trace rung cannot fail for its own reason"; fi
 if grep -qE '\$W/\$o\.bin".*2>"\$W/\$o\.m4\.err"' <<<"$BODY"; then ok "2 the m4 graded run captures stderr to a file"; else no "2 the m4 graded run does not capture stderr"; fi
 # ⛔ ANCHOR ON THE PROGRAM'S OWN REDIRECT, NOT ON THE LINE. Both run lines legitimately END in `) 2>/dev/null`, which
 # belongs to the SUBSHELL wrapping `echo $?` and suppresses SHELL noise, not the witness's stderr. My first spelling of
