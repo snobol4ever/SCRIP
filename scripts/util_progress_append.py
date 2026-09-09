@@ -215,6 +215,7 @@ def rows_from_results_tsv(path, suite, lang):
     suite="auto" takes column 1 through SCORECARD_SUITE_KEYS and SKIPS (aloud) rows of a suite that is not in the table."""
     out = []
     skipped = collections.Counter()
+    unknown = collections.Counter()
     for raw in io.open(path, encoding="utf-8", errors="replace"):
         raw = raw.rstrip("\n")
         if not raw or raw.startswith("#"):
@@ -232,8 +233,21 @@ def rows_from_results_tsv(path, suite, lang):
         for mode, oi, ti in (("m3", 2, 4), ("m4", 3, 5)):
             o = f[oi].strip().upper()
             if o not in OUTCOMES:
-                o = {"OK": "PASS", "TIMEOUT": "HANG", "SEGV": "CRASH", "NOREF": "UNGRADED", "-": "SKIP"}.get(o, "")
+                # ⛔⭐ DIFF ADDED, AND IT WAS SILENTLY EATING EVERY GIMPEL RED (coo 2026-09-08, found while trying to
+                # classify gimpel's failures and discovering the progress table held NONE of them). scorecard_snobol4.sh
+                # writes DIFF for an output mismatch -- which is what a correctness failure IS -- and DIFF was in
+                # neither OUTCOMES nor this map, so the `continue` below dropped it. From 2026-09-06 the gimpel boards
+                # appended PASS ROWS ONLY: 876, 2056 and 400 passes on three consecutive days and not one red, while the
+                # suite row said 27 red. THE CENSUS THIS WHOLE OPERATION RUNS ON COULD NOT SEE A SINGLE GIMPEL FAILURE.
+                # ORACLE_FAIL maps to UNGRADED, not dropped: the oracle refusing is a real outcome and belongs in the
+                # table as one, not as an absence.
+                o = {"OK": "PASS", "TIMEOUT": "HANG", "SEGV": "CRASH", "NOREF": "UNGRADED", "-": "SKIP",
+                     "DIFF": "FAIL", "ORACLE_FAIL": "UNGRADED"}.get(o, "")
                 if not o:
+                    # ⛔ AND AN UNKNOWN OUTCOME IS NOW SAID ALOUD, NEVER DROPPED IN SILENCE. This function already
+                    # reports a skipped SUITE aloud; dropping an unknown OUTCOME without a word is the same defect one
+                    # level down, and it is worse because the result looks like a clean board rather than a missing one.
+                    unknown[f[oi].strip().upper()] += 1
                     continue
             secs = f[ti] if len(f) > ti else "0"
             try:
@@ -241,6 +255,11 @@ def rows_from_results_tsv(path, suite, lang):
             except ValueError:
                 secs = 0
             out.append({"class": "package", "suite": row_suite, "lang": lang, "program": prog, "mode": mode, "outcome": o, "secs": secs, "note": (f[6] if len(f) > 6 else "")})
+    if unknown:
+        print("⛔ progress: results-tsv DROPPED rows carrying an outcome token this writer does not know: "
+              + ", ".join(f"{k}={v}" for k, v in sorted(unknown.items()))
+              + " -- these programs are ABSENT from the table, which reads as 'never measured', not as 'passed'."
+              + " Add the token to OUTCOMES or to the alias map in rows_from_results_tsv().", file=sys.stderr)
     if skipped:
         print("progress: results-tsv skipped rows of suite(s) not in the table: " + ", ".join(f"{k}={v}" for k, v in sorted(skipped.items())), file=sys.stderr)
     return out
