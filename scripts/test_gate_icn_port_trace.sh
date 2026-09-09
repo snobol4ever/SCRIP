@@ -115,12 +115,12 @@ oracle_map() {
   ' | sed '/^$/d'
 }
 oracle_trace_for() {
-  local src="$1" wd base rc=0
+  local src="$1" stdin_f="${2:-/dev/null}" wd base rc=0
   wd="$(mktemp -d)"; base="$(basename "$src" .icn)"
   awk '{print} /^[[:space:]]*procedure[[:space:]]+main[[:space:]]*\(/ && !done {print "&trace := -1"; done=1}' "$src" > "$wd/$base.icn"
   ( cd "$wd" && timeout "$T" "$ICONT" -s "$base.icn" ) >/dev/null 2>&1
   if [ -x "$wd/$base" ]; then
-    ( cd "$wd" && timeout "$T" "$ICONX" "$base" ) </dev/null >/dev/null 2>"$wd/raw.trace"
+    ( cd "$wd" && timeout "$T" "$ICONX" "$base" ) <"$stdin_f" >/dev/null 2>"$wd/raw.trace"
   else
     : > "$wd/raw.trace"; rc=1
   fi
@@ -135,6 +135,15 @@ n=0; bad=0; skip=0; ans_ok=0; ans_red=0; declare -a lines
 for o in $origins; do
   src="$W/$o.icn"; ref="$W/$o.ref"
   master_extract_origin "$o" "$src" "$ref" >/dev/null 2>&1 || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot extract $o from the master suite"; gate_stamp; exit 2; }
+  # ⛔⭐ FEED THE ENTRY ITS OWN STDIN. master_extract_name already requests --out-in unconditionally,
+  # so a stdin-bearing entry arrives here with "$W/$o.in" beside its source -- and every run below read
+  # </dev/null anyway, so rung36_jcon_recogn hit EOF on read(), exited before reaching any `suspend`, and
+  # this gate refused with "produced ZERO proc_gen lines". ⭐ THE REFUSAL WAS ALWAYS CORRECT and was
+  # misattributed three times as a gate gap (hq_U 2026-09-08): it had no run, not no ports. The file it
+  # needed was sitting in $W the whole time. A missing/empty sidecar keeps /dev/null, so every non-stdin
+  # entry is byte-identical to before. COMPILE steps below keep </dev/null on purpose -- a compile reads
+  # no stdin, and CLAUDE.md's rule is that the redirect is wrong only on a run that is actually fed.
+  IN="$W/$o.in"; [ -s "$IN" ] || IN=/dev/null
   if ! grep -qw suspend "$src"; then
     lines+=("$(printf '%-40s SKIP (no suspend -- not a proc_gen/generator witness)' "$o")"); skip=$((skip+1)); continue
   fi
@@ -142,13 +151,13 @@ for o in $origins; do
   (cd "$W" && timeout "$T" "$SCRIP" --compile -o "$o.s0" "$src" </dev/null >/dev/null 2>&1); (cd "$W" && SCRIP_PL_TRACE=0 timeout "$T" "$SCRIP" --compile -o "$o.s0b" "$src" </dev/null >/dev/null 2>&1)
   (cd "$W" && SCRIP_PL_TRACE=1 timeout "$T" "$SCRIP" --compile -o "$o.s1" "$src" </dev/null >/dev/null 2>&1)
   ks=OK; { cmp -s "$W/$o.s0" "$W/$o.s0b" && [ -s "$W/$o.s0" ] && ! cmp -s "$W/$o.s0" "$W/$o.s1"; } || { ks=FAIL; bad=$((bad+1)); }
-  timeout "$T" "$SCRIP" --run "$src" </dev/null >"$W/$o.m3.out0" 2>/dev/null; r30=$?
-  SCRIP_PL_TRACE=1 timeout "$T" "$SCRIP" --run "$src" </dev/null >"$W/$o.m3.out1" 2>"$W/$o.m3.raw"; r31=$?
+  timeout "$T" "$SCRIP" --run "$src" <"$IN" >"$W/$o.m3.out0" 2>/dev/null; r30=$?
+  SCRIP_PL_TRACE=1 timeout "$T" "$SCRIP" --run "$src" <"$IN" >"$W/$o.m3.out1" 2>"$W/$o.m3.raw"; r31=$?
   pert3=OK; { [ "$r30" = "$r31" ] && cmp -s "$W/$o.m3.out0" "$W/$o.m3.out1"; } || { pert3=FAIL; bad=$((bad+1)); }
   pert4=OK
   if m4build "$W/$o.s0" "$W/$o.bin0" && m4build "$W/$o.s1" "$W/$o.bin1"; then
-    timeout "$T" "$W/$o.bin0" </dev/null >"$W/$o.m4.out0" 2>/dev/null; r40=$?
-    SCRIP_PL_TRACE=1 timeout "$T" "$W/$o.bin1" </dev/null >"$W/$o.m4.out1" 2>"$W/$o.m4.raw"; r41=$?
+    timeout "$T" "$W/$o.bin0" <"$IN" >"$W/$o.m4.out0" 2>/dev/null; r40=$?
+    SCRIP_PL_TRACE=1 timeout "$T" "$W/$o.bin1" <"$IN" >"$W/$o.m4.out1" 2>"$W/$o.m4.raw"; r41=$?
     { [ "$r40" = "$r41" ] && cmp -s "$W/$o.m4.out0" "$W/$o.m4.out1"; } || { pert4=FAIL; bad=$((bad+1)); }
   else pert4=NOBUILD; bad=$((bad+1)); : > "$W/$o.m4.raw"; fi
   cmp -s "$W/$o.m3.out0" "$ref" && { ans=ok; ans_ok=$((ans_ok+1)); } || { ans=RED; ans_red=$((ans_red+1)); }
@@ -159,7 +168,7 @@ for o in $origins; do
     [ "$total" -gt 0 ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: $o $m: source contains 'suspend' but SCRIP_PL_TRACE=1 produced ZERO proc_gen lines -- the instrument is not firing, this is not 'no ports'"; gate_stamp; exit 2; }
   done
   if [ "$CUT" = 1 ]; then
-    oracle_trace_for "$src" > "$W/$o.oracle.norm"
+    oracle_trace_for "$src" "$IN" > "$W/$o.oracle.norm"
     otot=$(wc -l < "$W/$o.oracle.norm")
     [ "$otot" -gt 0 ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: $o: iconx produced ZERO normalised trace lines -- cannot cut a ref from nothing"; gate_stamp; exit 2; }
     p=$otot; [ "$p" -gt "$PREFIX_CAP" ] && p=$PREFIX_CAP

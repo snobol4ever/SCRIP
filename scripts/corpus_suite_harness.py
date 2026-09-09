@@ -1035,9 +1035,22 @@ def write_stdin_sidecar(entries, out_in, comment_open, comment_close):
     withio = [e for e in entries if e.stdin is not None]
     if not withio:
         return False
-    bad = [e.name for e in withio if e.kind == "line"]
-    if bad:
-        raise ValueError(f"stdin is block-entries-only; convert these to blocks first: {bad}")
+    # ⛔⭐ ONE-LINERS CARRY STDIN TOO (Lon 2026-09-08, in-chat to hq_T: "Ensure all has sister (side cars)
+    # files for the ONE-LINERS and MULTI-LINERS such that they have command-line args and an input file for
+    # each test along with the ref and source files"). This function used to raise
+    # "stdin is block-entries-only; convert these to blocks first", which put 818 SNOBOL4 one-line entries
+    # -- every one-liner in the corpus -- permanently out of reach of an input file.
+    # ⭐ THE RESTRICTION WAS WRITER-SIDE ONLY, AND NOTHING ELSE IN THE PIPELINE AGREED WITH IT. Measured
+    # both directions on a two-entry scratch suite before this line was deleted: a one-line entry
+    # ` OUTPUT = INPUT;END;* oneliner_reads_stdin` with a banner-keyed block in ALL.in grades PASS in BOTH
+    # m3 and m4 through the real runner, and FAILs both modes with the same file removed. read_stdin_sidecar
+    # attaches BY NAME and never looks at e.kind; run_suite_entry/pin-ref write e.sno_lines to a temp file
+    # and pass stdin_text=e.stdin whatever the kind. So the format, the reader and both graders already
+    # supported this -- only the writer refused, and a refusal nothing downstream needs is a capability
+    # withdrawn for no measured reason.
+    # ⭐ Keyed by name and out-of-band, which is exactly why this is safe for a one-liner: the hazard the
+    # xfail-sidecar note below records -- in-band ";* <name>" metadata being indistinguishable from program
+    # text once a one-liner is promoted to a block -- cannot arise in a file that holds no program text.
     out = []
     for e in withio:
         out.append(make_banner_cfg(e.seq, e.name, comment_open, comment_close))
