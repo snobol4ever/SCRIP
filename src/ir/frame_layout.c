@@ -846,9 +846,11 @@ void fl_derive_tier(IR_graph_t * g) {
     for (int i = 0; i < g->n; i++) { const IR_t * c = g->all[i]; if (!c) continue;
         switch ((int)c->op) {
             case IR_STATEMENT: case IR_STATEMENT_BEGIN: case IR_STATEMENT_END: case IR_STMT_MARK: statements = 1; break;
+            case IR_MATCH_BEGIN: case IR_MATCH_END: case IR_MATCH_LIT: case IR_MATCH_LEN: case IR_MATCH_ANY: case IR_MATCH_NOTANY: case IR_MATCH_SPAN: case IR_MATCH_BREAK: case IR_MATCH_BREAKX: case IR_MATCH_TAB: case IR_MATCH_RTAB: case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_REM: case IR_MATCH_ARB: case IR_MATCH_BAL: case IR_MATCH_ATP: case IR_MATCH_LAMBDA: case IR_MATCH_RETRY: case IR_MATCH_REPLACE: case IR_MATCH_ASSIGN_COND: case IR_MATCH_ASSIGN_IMM: case IR_MATCH_ASSIGN_SAVE: case IR_MATCH_SPAN_VAR: statements = 1; break;
+            case IR_PATTERN_ALT: case IR_PATTERN_CAT: case IR_PATTERN_CAPTURE: case IR_PATTERN_DEFER: window = 1; break;
             case IR_SUSPEND: case IR_PROC_GEN: case IR_CREATE: case IR_ACTIVATE: case IR_CORET: case IR_COFAIL: resumed = 1; window = 1; break;
             case IR_SCAN: case IR_SCAN_ENTER: case IR_SCAN_ALTERNATE: case IR_SCAN_SEQUENCE: case IR_SCAN_UPTO: case IR_SCAN_FIND: case IR_SCAN_MANY: case IR_SCAN_ANY: case IR_SCAN_BAL: case IR_SCAN_MATCH: case IR_SCAN_MOVE: case IR_SCAN_TAB: case IR_SCAN_POS:
-            case IR_TO: case IR_TO_BY: case IR_LIMIT: case IR_REPALT: case IR_ITERATE: case IR_DISJUNCTION: case IR_GALT: case IR_CUT: case IR_PATTERN_ALT:
+            case IR_TO: case IR_TO_BY: case IR_LIMIT: case IR_REPALT: case IR_ITERATE: case IR_DISJUNCTION: case IR_GALT: case IR_CUT:
             case IR_CALL_BUILTIN_GEN: case IR_KW_ICON_GEN: case IR_CALL_VALUE: case IR_REV_ASSIGN: case IR_REV_ASSIGN_VAR: case IR_REV_SWAP:
             case IR_MATCH_FENCE1: case IR_MATCH_FENCE0: case IR_MATCH_ABORT: case IR_MATCH_ARBNO: case IR_MATCH_CALLOUT: case IR_MATCH_VALUE: case IR_MATCH_DEFER: case IR_MATCH_ALTERNATE: window = 1; break;
             case IR_CALL: case IR_CALL_ICON: case IR_CALL_SNOBOL4: case IR_CALL_PROC_STAGED: case IR_CALL_BUILTIN: case IR_GOTO_DEFERRED: case IR_INDIRECT_GOTO: case IR_MATCH: callee = 1; break;
