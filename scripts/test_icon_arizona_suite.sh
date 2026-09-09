@@ -110,10 +110,11 @@ done
 
 TOTAL=0
 GRADED_NAMES=""
-M3_PASS=0; M3_REJECT=0; M3_FAIL=0
-M4_PASS=0; M4_REJECT=0; M4_FAIL=0
-M3_REJECT_NAMES=""; M3_FAIL_NAMES=""
-M4_REJECT_NAMES=""; M4_FAIL_NAMES=""
+M3_PASS=0; M3_REJECT=0; M3_FAIL=0; M3_CRASH=0; M3_HANG=0
+M4_PASS=0; M4_REJECT=0; M4_FAIL=0; M4_CRASH=0; M4_HANG=0
+M3_REJECT_NAMES=""; M3_FAIL_NAMES=""; M3_CRASH_NAMES=""; M3_HANG_NAMES=""
+M4_REJECT_NAMES=""; M4_FAIL_NAMES=""; M4_CRASH_NAMES=""; M4_HANG_NAMES=""
+m3rc=0; m4rc=0
 
 for sub in $SUITE_SUBDIRS; do
 SUITE="$PKG/$sub"
@@ -143,12 +144,24 @@ for std in "$SUITE"/*.std; do
   # SCRIP alike (measured 2026-09-08 against icont 9.5.25a: "large.icn    :", "sub/large.icn:", "ral/large.icn:" for the
   # bare, subdir and absolute forms). The .std files were cut with the bare name from inside $SUITE; an absolute $icn
   # here read `large` red on a compiler that matched the oracle byte for byte.
-  m3out=$(cd "$SUITE" && timeout "$TIMEOUT" "$SCRIP" --run "$name.icn" < "$stdin_file" 2>&1)
+  # ⛔⭐ THE EXIT STATUS IS CAPTURED, AND UNTIL 2026-09-09 IT WAS THROWN AWAY (hq_T, CEO-445 item 2). This
+  # runner counted PASS / REJECT / FAIL only, so a SIGSEGV and a TIMEOUT both landed in FAIL, indistinguishable
+  # from a wrong answer -- while BOTH sibling Icon runners (jcon, ipl) already split CRASH and HANG out. ⭐ The
+  # three route to different cures: a wrong answer is a semantics bug to diff against the oracle, a crash is a
+  # box or runtime fault to open under gdb, and a hang is neither. Collapsing them costs the reader the first
+  # and cheapest classification of the defect, and the board that hides it looks tidier for doing so.
+  m3out=$(cd "$SUITE" && timeout "$TIMEOUT" "$SCRIP" --run "$name.icn" < "$stdin_file" 2>&1); m3rc=$?
   if printf '%s' "$m3out" | grep -q 'parse error'; then
     M3_REJECT=$((M3_REJECT+1)); M3_REJECT_NAMES="$M3_REJECT_NAMES $name"; arizona_progress "$name" m3 REJECT
     [ "$VERBOSE" = 1 ] && echo "  [m3 REJECT] $name"
   elif [ "$m3out" = "$exp" ]; then
     M3_PASS=$((M3_PASS+1)); arizona_progress "$name" m3 PASS
+  elif [ "$m3rc" -eq 124 ]; then
+    M3_HANG=$((M3_HANG+1)); M3_HANG_NAMES="$M3_HANG_NAMES $name"; arizona_progress "$name" m3 HANG
+    [ "$VERBOSE" = 1 ] && echo "  [m3 HANG] $name"
+  elif [ "$m3rc" -ge 128 ]; then
+    M3_CRASH=$((M3_CRASH+1)); M3_CRASH_NAMES="$M3_CRASH_NAMES $name"; arizona_progress "$name" m3 CRASH
+    [ "$VERBOSE" = 1 ] && echo "  [m3 CRASH rc=$m3rc] $name"
   else
     M3_FAIL=$((M3_FAIL+1)); M3_FAIL_NAMES="$M3_FAIL_NAMES $name"; arizona_progress "$name" m3 FAIL
     [ "$VERBOSE" = 1 ] && echo "  [m3 FAIL] $name"
@@ -160,7 +173,7 @@ for std in "$SUITE"/*.std; do
   m4out=""
   if [ -s "$s4" ] && [ -f "$RT_SO" ]; then
     if gcc -no-pie "$s4" -L"$HERE/../out" -lscrip_rt -Wl,-rpath,"$HERE/../out" -o "$bin4" 2>/dev/null; then
-      m4out=$(cd "$SUITE" && timeout "$TIMEOUT" "$bin4" < "$stdin_file" 2>&1)
+      m4out=$(cd "$SUITE" && timeout "$TIMEOUT" "$bin4" < "$stdin_file" 2>&1); m4rc=$?
     fi
   fi
   if printf '%s\n%s\n%s' "$m4diag" "$m4out" "$(cat "$s4" 2>/dev/null)" | grep -q 'parse error'; then
@@ -168,6 +181,12 @@ for std in "$SUITE"/*.std; do
     [ "$VERBOSE" = 1 ] && echo "  [m4 REJECT] $name"
   elif [ "$m4out" = "$exp" ]; then
     M4_PASS=$((M4_PASS+1)); arizona_progress "$name" m4 PASS
+  elif [ "$m4rc" -eq 124 ]; then
+    M4_HANG=$((M4_HANG+1)); M4_HANG_NAMES="$M4_HANG_NAMES $name"; arizona_progress "$name" m4 HANG
+    [ "$VERBOSE" = 1 ] && echo "  [m4 HANG] $name"
+  elif [ "$m4rc" -ge 128 ]; then
+    M4_CRASH=$((M4_CRASH+1)); M4_CRASH_NAMES="$M4_CRASH_NAMES $name"; arizona_progress "$name" m4 CRASH
+    [ "$VERBOSE" = 1 ] && echo "  [m4 CRASH rc=$m4rc] $name"
   else
     M4_FAIL=$((M4_FAIL+1)); M4_FAIL_NAMES="$M4_FAIL_NAMES $name"; arizona_progress "$name" m4 FAIL
     [ "$VERBOSE" = 1 ] && echo "  [m4 FAIL] $name"
@@ -202,8 +221,15 @@ for n in $SHIPPED_NAMES; do
 done
 
 echo "=== Arizona Icon suite (upstream 9.5, ${SUITE_SUBDIRS// //}/) — shipped=$SHIPPED graded=$TOTAL gap=$GAP ==="
-echo "mode-3 (--run):      PASS=$M3_PASS REJECT=$M3_REJECT FAIL=$M3_FAIL  / $TOTAL graded"
-echo "mode-4 (--compile):  PASS=$M4_PASS REJECT=$M4_REJECT FAIL=$M4_FAIL  / $TOTAL graded"
+# ⛔ FAIL NOW MEANS WRONG ANSWER ONLY. Crashes and hangs used to be counted inside it, so m3_fail/m4_fail read
+# LOWER than before on the same tree -- that is a re-classification of a population, never a cure, and the PASS
+# counts do not move. The CRASH/HANG keys are ADDITIVE on the board line so no existing reader shifts.
+echo "mode-3 (--run):      PASS=$M3_PASS REJECT=$M3_REJECT FAIL=$M3_FAIL CRASH=$M3_CRASH HANG=$M3_HANG  / $TOTAL graded"
+echo "mode-4 (--compile):  PASS=$M4_PASS REJECT=$M4_REJECT FAIL=$M4_FAIL CRASH=$M4_CRASH HANG=$M4_HANG  / $TOTAL graded"
+[ -n "$M3_CRASH_NAMES" ] && echo "m3 CRASH:$M3_CRASH_NAMES"
+[ -n "$M3_HANG_NAMES" ] && echo "m3 HANG:$M3_HANG_NAMES"
+[ -n "$M4_CRASH_NAMES" ] && echo "m4 CRASH:$M4_CRASH_NAMES"
+[ -n "$M4_HANG_NAMES" ] && echo "m4 HANG:$M4_HANG_NAMES"
 [ -n "$M3_FAIL_NAMES" ] && echo "m3 FAIL:$M3_FAIL_NAMES"
 [ -n "$M4_FAIL_NAMES" ] && echo "m4 FAIL:$M4_FAIL_NAMES"
 echo "m3 REJECT ($M3_REJECT):$M3_REJECT_NAMES"
@@ -212,7 +238,7 @@ echo "m4 REJECT ($M4_REJECT):$M4_REJECT_NAMES"
 # board must never fold into either count (RULES.md: "measured and clean" vs "never ran" may not share
 # an output). Counted as ZERO of the population per Lon's ruling until each is individually resolved.
 echo "NOT GRADED ($GAP, of $SHIPPED shipped, zero of population until graded -- the PACKAGE_INVENTORY line below splits these into ungraded=owed vs ungradable=ruled):$UNGRADED_NAMES"
-echo "ARIZONA_SUITE_BOARD shipped=$SHIPPED graded=$TOTAL gap=$GAP m3_pass=$M3_PASS m3_reject=$M3_REJECT m3_fail=$M3_FAIL m4_pass=$M4_PASS m4_reject=$M4_REJECT m4_fail=$M4_FAIL"
+echo "ARIZONA_SUITE_BOARD shipped=$SHIPPED graded=$TOTAL gap=$GAP m3_pass=$M3_PASS m3_reject=$M3_REJECT m3_fail=$M3_FAIL m3_crash=$M3_CRASH m3_hang=$M3_HANG m4_pass=$M4_PASS m4_reject=$M4_REJECT m4_fail=$M4_FAIL m4_crash=$M4_CRASH m4_hang=$M4_HANG"
 # ⭐ THE PACKAGE LOCKDOWN inventory line, via the shared body (lib_inventory.sh) -- never a second copy
 # of the arithmetic. UNGRADABLE.tsv/UNGRADED.tsv beside $PKG (hq_I, corpus a284bcdbb) already split the
 # GAP printed above; graded_narrow=0, this suite compares full output, never by error-number-only.
