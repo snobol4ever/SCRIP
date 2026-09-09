@@ -66,6 +66,7 @@ test_gate_icn_bounded_expression_releases_suspended_frame.sh	WIRED	-	-	-
 test_gate_icn_byname_generator_call_inherits_the_scanning_environment.sh	WIRED	-	-	-
 test_gate_icn_byname_generator_region_is_not_on_the_arena.sh	WIRED	-	-	-
 test_gate_icn_function_builtin_names_dispatchable.sh	WIRED	-	-	-
+test_gate_icn_generator_exhaustion_traces_failed.sh	WIRED	-	-	-
 test_gate_icn_if_without_else_invocable_arity_and_string_continuation.sh	WIRED	-	-	-
 test_gate_icn_no_stack.sh	WIRED	-	-	-
 test_gate_icn_one_reg_frame.sh	WIRED	-	-	-
@@ -78,6 +79,7 @@ test_gate_icon_arguments_dereference_at_the_call.sh	WIRED	-	-	-
 test_gate_icon_features_and_preprocessor_symbols_agree.sh	WIRED	-	-	-
 test_gate_icon_master_per_entry_identity.sh	WIRED	-	-	-
 test_gate_kw_integer_hex_refused.sh	WIRED	-	-	-
+test_gate_ladder_asserts_stderr.sh	WIRED	-	-	-
 test_gate_ladder_forms_check_selftest.sh	WIRED	-	-	-
 test_gate_ladder_walk_v4_exempts_package_class_rows.sh	WIRED	-	-	-
 test_gate_master_boards_publish_xpass.sh	WIRED	-	-	-
