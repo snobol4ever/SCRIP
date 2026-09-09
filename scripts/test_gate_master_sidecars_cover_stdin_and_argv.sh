@@ -87,17 +87,46 @@ case "$examined" in ''|*[!0-9]*) echo "GATE UNPROVEN(2) [$GATE_NAME]: census pri
 [ "$examined" -gt 0 ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: censused ZERO entries -- an empty denominator is not a clean census"; gate_stamp; exit 2; }
 GATE_EXAMINED="$examined master entries"
 
+# ⛔⭐ THE PROBE FLOORS EXIST SO THE NAMING BELOW CAN BE FAIL-ONCE PROVEN WITHOUT TOUCHING THE CORPUS (hq_T 2026-09-09,
+# ceo CEO-468 item 3). They can only ever make the gate STRICTER: a probe value is used only when it is LOWER than the
+# pinned floor, so no operator can smuggle debt past this gate with an environment variable. Same shape and same reason
+# as SCRIP_STALE_PROBE_SRC in gate_require_fresh -- a proof that has to edit the thing it grades is how a green gate and
+# a dirty tree come to coexist.
+if [ -n "${SIDECAR_PROBE_FLOOR_STDIN:-}" ] && [ "$SIDECAR_PROBE_FLOOR_STDIN" -lt "$PIN_STDIN" ] 2>/dev/null; then PIN_STDIN="$SIDECAR_PROBE_FLOOR_STDIN"; _probed=1; fi
+if [ -n "${SIDECAR_PROBE_FLOOR_ARGV:-}" ] && [ "$SIDECAR_PROBE_FLOOR_ARGV" -lt "$PIN_ARGV" ] 2>/dev/null; then PIN_ARGV="$SIDECAR_PROBE_FLOOR_ARGV"; _probed=1; fi
+[ -n "${_probed:-}" ] && echo "⚠ PROBE FLOORS IN EFFECT (stdin=$PIN_STDIN argv=$PIN_ARGV) -- this run is STRICTER than the pinned gate and is not the tree's verdict"
 echo "SIDECAR DEBT: stdin=$n_stdin (floor $PIN_STDIN) · argv=$n_argv (floor $PIN_ARGV) · examined $examined entries in 7 masters"
+# ⛔⭐ A COUNT WITHOUT NAMES CANNOT BE TRIAGED (ceo CEO-468 item 3, after this gate red every seat's make test with two
+# numbers and no way to act on them). The census already carries the per-entry rows; it was simply summing them and
+# throwing the names away, so every seat that hit this had to re-run a separate census tool to learn WHAT to fix -- and
+# most did not, they just landed past it. ⭐ The general form: a gate that names nothing converts a work item into a
+# nuisance, and a nuisance is what a fleet learns to step over. Names are capped so a large regression cannot bury the
+# verdict line, with the exact command for the rest.
+_owed_names() {
+  printf '%s' "$out" | OWEFIELD="$1" python3 -c '
+import json,os,sys
+f=os.environ["OWEFIELD"]; d=json.load(sys.stdin)
+rows=[x for x in d["rows"] if x.get(f)]
+for x in rows[:20]: print("     %-10s %s" % (x.get("lang","?"), x.get("name","?")))
+if len(rows)>20: print("     ... and %d more" % (len(rows)-20))
+' 2>/dev/null
+}
 bad=0
 if [ "$n_stdin" -gt "$PIN_STDIN" ]; then
   echo "⛔ GREW: $n_stdin entries read stdin with no ALL.in block, above the pinned $PIN_STDIN."
   echo "   A new entry that reads stdin must ship its input in the same commit -- unfed, its ref records the"
   echo "   STARVED run and it passes forever while testing nothing (corpus 6c94504c0 is that bug, cured)."
+  echo "   THE ENTRIES THAT OWE AN ALL.in BLOCK:"
+  _owed_names owes_stdin
+  echo "   all of them: python3 scripts/util_master_sidecar_census.py"
   bad=$((bad+1))
 fi
 if [ "$n_argv" -gt "$PIN_ARGV" ]; then
   echo "⛔ GREW: $n_argv entries take program arguments with no ALL.argv declaration, above the pinned $PIN_ARGV."
   echo "   Declare them: one 'name<TAB>arg<TAB>arg' line in the master's ALL.argv (read_argv_sidecar)."
+  echo "   THE ENTRIES THAT OWE AN ALL.argv DECLARATION:"
+  _owed_names owes_argv
+  echo "   all of them: python3 scripts/util_master_sidecar_census.py"
   bad=$((bad+1))
 fi
 if [ "$n_stdin" -lt "$PIN_STDIN" ] || [ "$n_argv" -lt "$PIN_ARGV" ]; then
