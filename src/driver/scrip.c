@@ -386,9 +386,10 @@ static int g_gz_no_struct_ptr = 0;
 static int    g_prog_argc = 0;
 static char **g_prog_argv = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void drive_slots_all(stage2_t * s2) {
-    extern void ir_drive_slot_assign(IR_graph_t * g);
-    for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) ir_drive_slot_assign(s2->bbp.table[_gi]);
+static void drive_slots_all(stage2_t * s2, int entry_frame) {
+    extern void ir_drive_slot_assign(IR_graph_t * g); extern void fl_derive_tier(IR_graph_t * g);
+    int _mx = polyglot_main_bb_idx(s2);
+    for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) { IR_graph_t * _g = s2->bbp.table[_gi]; fl_derive_tier(_g); if (_gi == _mx && entry_frame && !_g->icn_cells_graph && !_g->root_graph) _g->zframe_graph = 1; ir_drive_slot_assign(_g); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long parse_mem_arg(const char *s) {
@@ -1287,7 +1288,7 @@ int main(int argc, char **argv)
                 { extern void rt_proc_set_dyn_scope(const char *, int); rt_proc_set_dyn_scope(pname, s2->proc_table[_pi].dyn_scope); }
                 { extern void rt_proc_set_result_name(const char *, const char *); if (s2->proc_table[_pi].result_name) rt_proc_set_result_name(pname, s2->proc_table[_pi].result_name); }
             }
-            if (is_icon || is_sno_bb || is_prolog || is_raku || is_pascal) drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
+            if (is_icon || is_sno_bb || is_prolog || is_raku || is_pascal) drive_slots_all(s2, is_raku); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
             char smx_why[256];
             if (is_raku && !graph_native_emittable(s2, smx_why, sizeof smx_why)) {
                 fprintf(stderr, "[SMX] --compile --target=x86: mode-4 native emitter does not yet cover this program: %s. REJECTED — native BB emission pending (no interpreter fallback).\n", smx_why);
@@ -1475,7 +1476,7 @@ int main(int argc, char **argv)
             if (!s2) { fprintf(stderr, "[SBB] mode-4: sm_preamble failed\n"); return 1; }
             ast_tree_free(ast_prog); ast_prog = NULL;
             if (is_pascal) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
-            drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
+            drive_slots_all(s2, is_raku); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
             int main_bb_idx = -1;
             for (int _pi = 0; _pi < s2->proc_count; _pi++)
                 if (s2->proc_table[_pi].name && strcmp(s2->proc_table[_pi].name, "main") == 0) { main_bb_idx = s2->proc_table[_pi].bb_idx; break; }
@@ -1714,7 +1715,7 @@ int main(int argc, char **argv)
                 { extern void rt_proc_set_result_name(const char *, const char *); if (s2->proc_table[_pi].result_name) rt_proc_set_result_name(pname, s2->proc_table[_pi].result_name); }
             }
             if (is_icon || is_sno_bb || is_prolog) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
-            if (is_icon || is_sno_bb || is_prolog || is_raku || is_pascal) drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
+            if (is_icon || is_sno_bb || is_prolog || is_raku || is_pascal) drive_slots_all(s2, is_raku); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
             char smx_why[256];
             if (is_raku && !graph_native_emittable_mode(s2, 1, smx_why, sizeof smx_why)) {
                 fprintf(stderr, "[SMX] --run: mode-3 native emitter does not yet cover this program: %s. REJECTED — native BB emission pending (no interpreter fallback).\n", smx_why);
@@ -1839,7 +1840,7 @@ int main(int argc, char **argv)
                 }
                 if (getenv("SCRIP_M3_GVA_TRACE")) fprintf(stderr, "[M3-GVA] m3 globals via pinned island: active=%d n_gva=%d\n", g_gva_active, n_gva_m3);
             }
-            drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
+            drive_slots_all(s2, is_raku); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
             g_frame_active = 1;
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;

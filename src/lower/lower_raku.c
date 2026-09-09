@@ -1200,6 +1200,5 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
         }
     }
     rk_reclassify_calls();
-    { for (int _gi = 0; _gi < g_stage2.bbp.count; _gi++) if (g_stage2.bbp.table[_gi]) g_stage2.bbp.table[_gi]->zframe_graph = 1; }
     return &g_stage2;
 }

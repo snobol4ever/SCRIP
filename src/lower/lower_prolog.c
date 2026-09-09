@@ -1266,8 +1266,7 @@ static void pl_graph_stamp(IR_graph_t * g, int arity, int maxlocal) {
         g->lnames = (const char **) calloc((size_t)(maxlocal + 1), sizeof(const char *));
         for (int k = 0; k <= maxlocal; k++) g->lnames[k] = pl_var_name(k); }
     g->nslots = arity + (maxlocal + 1) + 8;
-    g->zframe_graph = 1;
-    g->zframe_pinned_base = 1;
+    g->resumable_callable = 1;
     g->deterministic = 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1360,8 +1359,9 @@ void * pl_runtime_define_pred(const char * key, const tree_t * choice, int arity
     if (idx < 0) return (void *)0;
     g = g_stage2.bbp.table[idx];
     if (!g) return (void *)0;
-    g->zframe_graph = 1; g->zframe_pinned_base = 1;
+    g->resumable_callable = 1;
     { extern void zls_forget_graph_nodes(const IR_graph_t *); zls_forget_graph_nodes(g); }
+    { extern void fl_derive_tier(IR_graph_t *); fl_derive_tier(g); }
     { extern void ir_drive_slot_assign(IR_graph_t *); ir_drive_slot_assign(g); }
     cfg_sv = g_emit_cfg; g_emit_cfg = g;
     fa = g_frame_active; g_frame_active = 1;
@@ -1578,7 +1578,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
               pl_bb_register(key, da, bb_idx);
               pl_new_proc(key, da, bb_idx); } } }
     }
-    for (int _gi = _pl_bb0; _gi < g_stage2.bbp.count; _gi++) if (g_stage2.bbp.table[_gi]) { g_stage2.bbp.table[_gi]->zframe_graph = 1; g_stage2.bbp.table[_gi]->zframe_pinned_base = 1; }
+    for (int _gi = _pl_bb0; _gi < g_stage2.bbp.count; _gi++) if (g_stage2.bbp.table[_gi]) g_stage2.bbp.table[_gi]->resumable_callable = 1;
     top->standing_cells = g_stage2.pl_dyn_n;
     return &g_stage2;
 }

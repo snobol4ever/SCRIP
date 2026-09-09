@@ -789,8 +789,5 @@ stage2_t *lower_pascal_stage2(const tree_t *prog) {
             }
         }
     }
-    { {
-          int _mx = -1; for (int _pi = 0; _pi < g_stage2.proc_count; _pi++) if (g_stage2.proc_table[_pi].name && strcmp(g_stage2.proc_table[_pi].name, "main") == 0) { _mx = g_stage2.proc_table[_pi].bb_idx; break; }
-          for (int _gi = 0; _gi < g_stage2.bbp.count; _gi++) if (g_stage2.bbp.table[_gi] && _gi != _mx) g_stage2.bbp.table[_gi]->zframe_graph = 1; } }
     return &g_stage2;
 }
