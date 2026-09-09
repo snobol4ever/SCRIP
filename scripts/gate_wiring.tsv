@@ -78,6 +78,7 @@ test_gate_icon_arguments_dereference_at_the_call.sh	WIRED	-	-	-
 test_gate_icon_features_and_preprocessor_symbols_agree.sh	WIRED	-	-	-
 test_gate_icon_master_per_entry_identity.sh	WIRED	-	-	-
 test_gate_kw_integer_hex_refused.sh	WIRED	-	-	-
+test_gate_ladder_asserts_stderr.sh	WIRED	-	-	-
 test_gate_ladder_forms_check_selftest.sh	WIRED	-	-	-
 test_gate_ladder_walk_v4_exempts_package_class_rows.sh	WIRED	-	-	-
 test_gate_master_boards_publish_xpass.sh	WIRED	-	-	-
