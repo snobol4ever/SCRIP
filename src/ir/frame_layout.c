@@ -842,12 +842,13 @@ int fc_tail_defer_susp_g(IR_graph_t * g, const IR_t * nd) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fl_derive_tier(IR_graph_t * g) {
     if (!g || !g->all) return;
-    int window = 0, callee = 0, statements = 0;
+    int window = 0, callee = 0, statements = 0, resumed = 0;
     for (int i = 0; i < g->n; i++) { const IR_t * c = g->all[i]; if (!c) continue;
         switch ((int)c->op) {
             case IR_STATEMENT: case IR_STATEMENT_BEGIN: case IR_STATEMENT_END: case IR_STMT_MARK: statements = 1; break;
-            case IR_SUSPEND: case IR_SCAN: case IR_SCAN_ENTER: case IR_SCAN_ALTERNATE: case IR_SCAN_SEQUENCE: case IR_SCAN_UPTO: case IR_SCAN_FIND: case IR_SCAN_MANY: case IR_SCAN_ANY: case IR_SCAN_BAL: case IR_SCAN_MATCH: case IR_SCAN_MOVE: case IR_SCAN_TAB: case IR_SCAN_POS:
-            case IR_TO: case IR_TO_BY: case IR_LIMIT: case IR_REPALT: case IR_PROC_GEN: case IR_CREATE: case IR_ACTIVATE: case IR_CORET: case IR_COFAIL: case IR_ITERATE: case IR_DISJUNCTION: case IR_GALT: case IR_CUT: case IR_PATTERN_ALT:
+            case IR_SUSPEND: case IR_PROC_GEN: case IR_CREATE: case IR_ACTIVATE: case IR_CORET: case IR_COFAIL: resumed = 1; window = 1; break;
+            case IR_SCAN: case IR_SCAN_ENTER: case IR_SCAN_ALTERNATE: case IR_SCAN_SEQUENCE: case IR_SCAN_UPTO: case IR_SCAN_FIND: case IR_SCAN_MANY: case IR_SCAN_ANY: case IR_SCAN_BAL: case IR_SCAN_MATCH: case IR_SCAN_MOVE: case IR_SCAN_TAB: case IR_SCAN_POS:
+            case IR_TO: case IR_TO_BY: case IR_LIMIT: case IR_REPALT: case IR_ITERATE: case IR_DISJUNCTION: case IR_GALT: case IR_CUT: case IR_PATTERN_ALT:
             case IR_CALL_BUILTIN_GEN: case IR_KW_ICON_GEN: case IR_CALL_VALUE: case IR_REV_ASSIGN: case IR_REV_ASSIGN_VAR: case IR_REV_SWAP:
             case IR_MATCH_FENCE1: case IR_MATCH_FENCE0: case IR_MATCH_ABORT: case IR_MATCH_ARBNO: case IR_MATCH_CALLOUT: case IR_MATCH_VALUE: case IR_MATCH_DEFER: case IR_MATCH_ALTERNATE: window = 1; break;
             case IR_CALL: case IR_CALL_ICON: case IR_CALL_SNOBOL4: case IR_CALL_PROC_STAGED: case IR_CALL_BUILTIN: case IR_GOTO_DEFERRED: case IR_INDIRECT_GOTO: case IR_MATCH: callee = 1; break;
@@ -856,8 +857,7 @@ void fl_derive_tier(IR_graph_t * g) {
     if (g->root_graph) { g->zframe_graph = 1; g->zframe_pinned_base = 1; return; }
     int host = (window || callee) ? 1 : 0;
     if (g->icn_cells_graph) { g->zframe_pinned_base = host; return; }
-    int pinned = (window || g->resumable_callable) ? 1 : 0;
-    g->zframe_pinned_base = pinned; g->zframe_graph = (pinned || g->nparams + g->nlocals > 0) ? 1 : 0;
+    g->zframe_pinned_base = (resumed || g->resumable_callable) ? 1 : 0; g->zframe_graph = 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fc_tables_reset(void) { fct_n = 0; }

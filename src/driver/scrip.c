@@ -389,7 +389,7 @@ static char **g_prog_argv = NULL;
 static void drive_slots_all(stage2_t * s2, int entry_frame) {
     extern void ir_drive_slot_assign(IR_graph_t * g); extern void fl_derive_tier(IR_graph_t * g);
     int _mx = polyglot_main_bb_idx(s2);
-    for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) { IR_graph_t * _g = s2->bbp.table[_gi]; fl_derive_tier(_g); if (_gi == _mx && entry_frame && !_g->icn_cells_graph && !_g->root_graph) _g->zframe_graph = 1; ir_drive_slot_assign(_g); }
+    for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) { IR_graph_t * _g = s2->bbp.table[_gi]; fl_derive_tier(_g); if (_gi == _mx && !_g->icn_cells_graph && !_g->root_graph) _g->zframe_graph = entry_frame ? 1 : 0; ir_drive_slot_assign(_g); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long parse_mem_arg(const char *s) {
