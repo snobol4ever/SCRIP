@@ -49,7 +49,10 @@ gate_parse_args "$@"
 
 # ⛔ THE PINNED FLOORS -- measured 2026-09-08 by hq_T at corpus 6c94504c0 over 5086 entries in 7 masters.
 # Lower them in the commit that earns it; never raise them.
-PIN_STDIN="${PIN_STDIN:-61}"
+# 61 -> 53 at corpus 687132c48: eight snobol4 entries fed their recovered real input (crosscheck word1-4,
+# cross, triplet, fileinfo, expr_eval), refs re-cut from sbl -bf. Zero changed verdict -- SCRIP was already
+# right on all eight -- but each had been passing an EMPTY ref produced by a starved run.
+PIN_STDIN="${PIN_STDIN:-53}"
 PIN_ARGV="${PIN_ARGV:-34}"
 
 CENSUS="$HERE/util_master_sidecar_census.py"
