@@ -36,6 +36,10 @@
 #     `-a` stays on every match here, and hq_T landed it on the authority too (SCRIP 60d58c05b), as INSURANCE
 #     rather than a repair: it makes the answer independent of whatever grep is on PATH, at zero verdict cost.
 #     The check below therefore guards ONE thing only — that the two spellings do not drift apart.
+#     ⛔ AND QUOTE THAT WEAKER GUARANTEE, NOT THE OLD ONE (hq_T, 2026-09-08): a DRIFT guard greens whenever
+#     the two spellings AGREE, and they will keep agreeing while both are wrong in the same way.  It can tell
+#     you the predicate HAS NOT CHANGED; it can never tell you the predicate is RIGHT.  The old sentence
+#     claimed the stronger thing, and the stronger thing is what a hurried reader remembers.
 #
 # (3) ⭐ --behind: A DEAD PIN DOES NOT MERELY MISCLASSIFY, IT CONCEALS (ceo CEO-427, 2026-09-08).  Because the
 #     ref pins a transcript of SPITBOL dying, the suite never compares SCRIP's real output to anything -- it
