@@ -372,11 +372,18 @@ def main():
         # could not be lifted at all: 131 slots, 40 named, and the walker could not see the rung it stands on.
         # LADDER_LIST_ALL=1 names every slot, spelled after the harness's own SUITE_LIST_ALL=1 rather than as a
         # new flag -- --all here already means all LANGUAGES, and the two would have read as one.
-        shown = allmissing if os.environ.get("LADDER_LIST_ALL") else allmissing[:40]
+        # hq_P 2026-09-09: LADDER_LIST_ALL=0 read as TRUE here -- os.environ.get returns the STRING "0",
+        # which is truthy, so the one spelling a reader uses to turn a flag OFF turned it ON.
+        show_all = os.environ.get("LADDER_LIST_ALL", "") not in ("", "0")
+        shown = allmissing if show_all else allmissing[:40]
         for m in shown:
             print("    no witness: %s" % m)
         if len(shown) < len(allmissing):
-            print("    ... and %d more -- re-run with LADDER_LIST_ALL=1 to name every slot" % (len(allmissing) - len(shown)))
+            print("    ... and %d more -- re-run with LADDER_LIST_ALL=1 to name every slot."
+                  % (len(allmissing) - len(shown)))
+            print("    ⛔ A CALLER THAT GRADES ON THESE LINES MUST SET IT, or it counts this WINDOW and not")
+            print("       the census: a DONE-WHEN grepping `no witness:` read 20 for rungs 24-33 when the")
+            print("       true figure was 109, and its count MOVED when another seat cured a LOWER rung.")
     # ⛔ NOTHING GRADED IS A REFUSAL. Today every census is still on the old schema, so this is the expected
     # answer for a while -- and it is the honest one. A checker that printed GREEN here would have closed the
     # row it exists to open.
