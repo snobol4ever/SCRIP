@@ -1185,7 +1185,7 @@ static const char *const icn_function_names[] = {
         "ishift", "ixor", "kbhit", "key", "left", "list", "loadfunc", "log", "many", "map",
         "match", "member", "move", "name", "numeric", "open", "ord", "pop",
         "pos", "proc", "pull", "push", "put", "read", "reads", "real",
-        "remove", "repl", "reverse", "right", "rtod", "runerr", "seek", "seq",
+        "remove", "rename", "repl", "reverse", "right", "rtod", "runerr", "seek", "seq",
         "serial", "set", "sin", "sort", "sortf", "sqrt", "stop", "string",
         "system", "tab", "table", "tan", "trim", "type", "upto", "variable",
         "where", "write", "writes",
