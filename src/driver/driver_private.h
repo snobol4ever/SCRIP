@@ -113,10 +113,12 @@ typedef struct {
     char roles[8][64]; int nroles; char methods[32][64]; int nmethods; char has_build; char build_keys[16][64]; int nbuild_keys;
     char handles_meth[32][64]; char handles_fld[32][64]; int nhandles;
     long serial_next;
+    char live;
 } DatType;
 DatType *dat_register(const char *spec);
 DatType *dat_find_type(const char *name);
 DatType *dat_find_field(const char *name, int *fidx);
+void dat_set_live(const char *name, int live);
 DESCR_t    dat_construct(DatType *t, DESCR_t *args, int nargs);
 void class_inherit_multi(const char *child, const char **parents, int nparents);
 void class_compose_role(const char *child, const char *role);

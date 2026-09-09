@@ -471,6 +471,15 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
               emit_textf("  .section .text\n  .intel_syntax noprefix\n");
               emit_textf("  lea rdi, [rip + .Lclassspec%d]\n", ci);
               emit_textf("  call record_register@PLT\n");
+              { extern int dat_type_live(int);
+                if (!dat_type_live(ci)) {
+                    emit_textf("  .section .rodata\n");
+                    emit_textf("  .Lclassnm%d: .string \"%s\"\n", ci, cn);
+                    emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                    emit_textf("  lea rdi, [rip + .Lclassnm%d]\n", ci);
+                    emit_textf("  xor esi, esi\n");
+                    emit_textf("  call dat_set_live@PLT\n");
+                } }
           } }
         { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nparents(int); extern const char *dat_type_parent_at(int, int);
           int n_cls = dat_type_count();

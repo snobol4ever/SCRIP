@@ -36,6 +36,7 @@ DatType *dat_register(const char *spec) {
         if (t->nfields < SC_DAT_MAX_FIELDS - 1) t->nfields++;
         if (*p == ',') p++;
     }
+    t->live = 1;
     dat_ntypes++; rt_dtax_gen++;
     return t;
 }
@@ -293,6 +294,7 @@ int dat_roles(const char *name, const char **out, int max) {
 int dat_type_count(void) { return dat_ntypes; }
 const char *dat_type_name(int i) { return (i >= 0 && i < dat_ntypes) ? dat_types[i].name : (const char *)0; }
 int dat_type_nfields(int i) { return (i >= 0 && i < dat_ntypes) ? dat_types[i].nfields : 0; }
+int dat_type_live(int i) { return (i >= 0 && i < dat_ntypes) ? dat_types[i].live : 0; }
 int dat_type_nparents(int i) { return (i >= 0 && i < dat_ntypes) ? dat_types[i].nparents : 0; }
 const char *dat_type_parent_at(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i].nparents) ? dat_types[i].parents[j] : (const char *)0; }
 int dat_type_nroles(int i) { return (i >= 0 && i < dat_ntypes) ? dat_types[i].nroles : 0; }
@@ -324,8 +326,14 @@ int dat_attributes(const char *name, const char **out, int max) {
     return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void dat_set_live(const char *name, int live) {
+    DatType *t = dat_find_type(name);
+    if (t) t->live = (char)(live ? 1 : 0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DatType *dat_find_field(const char *name, int *fidx) {
     for (int i = 0; i < dat_ntypes; i++)
+        if (dat_types[i].live)
         for (int j = 0; j < dat_types[i].nfields; j++)
             if (strcmp(dat_types[i].fields[j], name) == 0) {
                 if (fidx) *fidx = j;
@@ -417,6 +425,7 @@ DESCR_t _builtin_DATA(DESCR_t *args, int nargs) {
     char *spec = rt_ws_strdup(raw_spec);
     DEFDAT_fn(spec);
     dat_register(spec);
+    { char nb[64]; int k = 0; for (; spec[k] && spec[k] != '(' && k < 63; k++) nb[k] = spec[k]; nb[k] = 0; if (nb[0]) dat_set_live(nb, 1); }
     extern DESCR_t core_DATA_register(DESCR_t *a, int n);
     core_DATA_register(args, nargs);
     return NULVCL;

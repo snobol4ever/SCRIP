@@ -6554,6 +6554,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         char nb[128]; int k = 0; for (; sp[k] && sp[k] != '(' && k < 127; k++) nb[k] = sp[k]; nb[k] = 0;
         if (nb[0] && sn4_sysfn_protected(nb)) { extern int kwb_error(int code, const char *msg); kwb_error(248, "attempted redefinition of system function"); *out = FAILDESCR; return 1; }
         if (!dat_find_type(nb)) dat_register(sp);
+        { extern void dat_set_live(const char *name, int live); if (nb[0]) dat_set_live(nb, 1); }
         *out = NULVCL; return 1;
     }
     L_bidjmp_6528: ;
@@ -6638,8 +6639,8 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     L_bidjmp_6581: ;
     if ((_bid == BID_VALUE) && nargs == 1) {
         extern DESCR_t NV_GET_fn(const char *); extern DESCR_t rt_deref(DESCR_t);
-        extern int rt_dat_field_of_any(const char *);
-        if (rt_dat_field_of_any("VALUE")) {
+        extern int rt_dat_field_of_any_live(const char *);
+        if (rt_dat_field_of_any_live("VALUE")) {
             extern DESCR_t dat_field_get(const char *field, DESCR_t obj);
             *out = dat_field_get("VALUE", args[0]); return 1;
         }
@@ -6803,8 +6804,8 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
           for (int i = 0; i < nf; i++) fv[i] = (i < nargs) ? args[i] : NULVCL;
           *out = dat_construct(dt, fv, nf); return 1;
       } }
-    { extern int rt_dat_field_of_any(const char *);
-      if (nargs == 1 && rt_dat_field_of_any(fn)) {
+    { extern int rt_dat_field_of_any_live(const char *);
+      if (nargs == 1 && rt_dat_field_of_any_live(fn)) {
           extern DESCR_t dat_field_get(const char *field, DESCR_t obj);
           *out = dat_field_get(fn, args[0]); return 1;
       } }
@@ -6826,6 +6827,13 @@ int rt_dat_field_of_any(const char *name) {
     extern int dat_type_count(void); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
     if (!name || !name[0]) return 0;
     for (int c = 0; c < dat_type_count(); c++) for (int f = 0; f < dat_type_nfields(c); f++) { const char *fn2 = dat_type_field(c, f); if (fn2 && !strcmp(fn2, name)) return 1; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_dat_field_of_any_live(const char *name) {
+    extern int dat_type_count(void); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int); extern int dat_type_live(int);
+    if (!name || !name[0]) return 0;
+    for (int c = 0; c < dat_type_count(); c++) { if (!dat_type_live(c)) continue; for (int f = 0; f < dat_type_nfields(c); f++) { const char *fn2 = dat_type_field(c, f); if (fn2 && !strcmp(fn2, name)) return 1; } }
     return 0;
 }
 #define RT_SYN_MAX 64

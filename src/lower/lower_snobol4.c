@@ -2556,10 +2556,10 @@ static void sno_prescan_expr(const tree_t * t, sno_def_t * defs, int * ndefs, co
         const char * name = t->v.sval; int argbase = 0;
         if (!name && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) { name = t->c[0]->v.sval; argbase = 1; }
         if (name && !strcmp(name, "DATA") && t->n > argbase && t->c[argbase] && t->c[argbase]->t == TT_QLIT && t->c[argbase]->v.sval) {
-            extern void * dat_register(const char * spec); extern void * dat_find_type(const char * name);
+            extern void * dat_register(const char * spec); extern void * dat_find_type(const char * name); extern void dat_set_live(const char * name, int live);
             const char * sp = t->c[argbase]->v.sval;
             char nb[128]; int k = 0; for (; sp[k] && sp[k] != '(' && k < 127; k++) nb[k] = sp[k]; nb[k] = 0;
-            if (nb[0] && !dat_find_type(nb)) dat_register(sp);
+            if (nb[0] && !dat_find_type(nb)) { dat_register(sp); dat_set_live(nb, 0); }
         }
         if (name && !strcmp(name, "OPSYN") && t->n - argbase == 2) {
             const char * an = sno_litname(t->c[argbase]);
