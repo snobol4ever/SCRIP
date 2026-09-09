@@ -604,6 +604,15 @@ gate_file_has_fresh_guard() {
     grep -qE 'gate_require_fresh|util_require_fresh\.sh' <<<"$_body" && return 0
     # ⛔ CONFIRM BEFORE ACCUSING. A second independent read costs a millisecond and is the difference between "this file
     # has no guard" and "one read said so once". They disagree -> REFUSE, never accuse.
-    grep -qE 'gate_require_fresh|util_require_fresh\.sh' "$1" && return 2
+    # ⛔⭐ THE CONFIRM READ MUST APPLY THE SAME RULE, NOT A LOOSER ONE. This line first read the RAW file, comments and
+    # all -- which re-measured a DIFFERENT question, so a gate that merely MENTIONS the preflight in a comment while
+    # calling it nowhere would have read 2 (could not measure) instead of 1 (violation), and ARM 15 would have refused
+    # rc=2 instead of naming a genuinely guilty file. Caught before it shipped by the coo naming two real violations
+    # (test_gate_pl_arith_iso_errors_are_catchable.sh, test_gate_sno_terminal_read_fails_without_a_tty.sh, both since
+    # cured at origin) while this function was being written. ⭐ A confirmation that asks an easier question is not a
+    # confirmation -- it is a second instrument agreeing with nothing, and it fails in the direction that hides work.
+    _body="$(grep -vE '^[[:space:]]*#' "$1")"; _rc=$?
+    [ "$_rc" -gt 1 ] && return 2
+    grep -qE 'gate_require_fresh|util_require_fresh\.sh' <<<"$_body" && return 2
     return 1
 }

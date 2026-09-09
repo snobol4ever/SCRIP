@@ -122,14 +122,21 @@ g=0; gate_file_has_fresh_guard /etc/hostname || g=$?
 chk "20 a file that genuinely lacks it reads 1 (a real accusation is still possible)" "$g" "1"
 g=0; gate_file_has_fresh_guard "$W/no-such-file-at-all" || g=$?
 chk "21 a file that CANNOT be read reads 2 -- not 1, which would accuse it" "$g" "2"
+# ⛔⭐ THE CONFIRM READ MUST ASK THE SAME QUESTION. A file that MENTIONS the preflight only in a comment calls it
+# nowhere and IS a violation; if the confirmation reads the raw file it finds the mention, disagrees with the real
+# read, and returns 2 -- turning a nameable guilty file into "could not measure". That fails in the direction that
+# HIDES WORK, which is the whole failure mode this three-valued split exists to avoid on the other side.
+printf '#!/usr/bin/env bash\n# mentions util_require_fresh.sh only in this comment\necho hi\n' > "$W/commentonly.sh"
+g=0; gate_file_has_fresh_guard "$W/commentonly.sh" || g=$?
+chk "22 a file that only MENTIONS the preflight in a comment is a VIOLATION (1), not UNMEASURED (2)" "$g" "1"
 # ⛔ NO PIPELINE: the one structural difference between this function and its sibling that never flaked (same loop, same
 # files, same load) was a pipeline under `set -o pipefail`, where any upstream failure becomes the verdict.
 if sed -n '/^gate_file_has_fresh_guard()/,/^}/p' "$HERE/lib_gate.sh" | grep -qE '\|[[:space:]]*grep'; then
-    no "22 gate_file_has_fresh_guard grew a pipeline back -- a non-measurement can become a verdict again"
-else ok "22 gate_file_has_fresh_guard is pipeline-free"; fi
+    no "23 gate_file_has_fresh_guard grew a pipeline back -- a non-measurement can become a verdict again"
+else ok "23 gate_file_has_fresh_guard is pipeline-free"; fi
 # ⛔ AND THE CALLERS MUST NOT COLLAPSE 2 ONTO 1, or the defect simply moves one frame up.
-if grep -q 'unmeasured2' "$HERE/test_gate_runners_refuse_on_a_stale_binary.sh"; then ok "23 ARM 15 refuses on an unmeasured file rather than naming it"; else no "23 ARM 15 still treats an unreadable file as a violation"; fi
-if grep -q 'UNMEASURED' "$HERE/util_gate_preflight.sh"; then ok "24 util_gate_preflight does the same"; else no "24 util_gate_preflight still accuses on an unmeasured file"; fi
+if grep -q 'unmeasured2' "$HERE/test_gate_runners_refuse_on_a_stale_binary.sh"; then ok "24 ARM 15 refuses on an unmeasured file rather than naming it"; else no "24 ARM 15 still treats an unreadable file as a violation"; fi
+if grep -q 'UNMEASURED' "$HERE/util_gate_preflight.sh"; then ok "25 util_gate_preflight does the same"; else no "25 util_gate_preflight still accuses on an unmeasured file"; fi
 
 printf '\nbuild-freshness-is-behavioural gate: PASS=%d FAIL=%d over %d arms\n' "$PASS" "$FAIL" "$((PASS+FAIL))"
 gate_stamp
