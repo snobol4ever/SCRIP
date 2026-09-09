@@ -45,6 +45,7 @@ test_gate_ast_shaped_refs_are_declared_ast.sh	WIRED	-	-	-
 test_gate_banner_leads_with_the_suite_line.sh	WIRED	-	-	-
 test_gate_banner_reports_ahead_of_origin.sh	WIRED	-	-	-
 test_gate_capture_stdin_and_red_exit.sh	WIRED	-	-	-
+test_gate_ceo409_mask_is_read_by_the_bash_runners.sh	WIRED	-	-	-
 test_gate_coexpr_stack_of_uncreated_thread.sh	WIRED	-	-	-
 test_gate_collect_reports_free_storage_and_fails_when_short.sh	WIRED	-	-	-
 test_gate_corpus_coverage_classified.sh	WIRED	-	-	-
@@ -143,6 +144,8 @@ test_gate_score_inventory_clauses_never_vanish.sh	WIRED	-	-	-
 test_gate_score_md_parses_and_github_is_marker_free.sh	WIRED	-	-	-
 test_gate_score_row_denominator_includes_xfails.sh	WIRED	-	-	-
 test_gate_score_row_rewrites_in_place.sh	WIRED	-	-	-
+test_gate_score_row_stamps_the_tree_it_graded.sh	WIRED	-	-	-
+test_gate_score_row_text_splices_are_assigned.sh	WIRED	-	-	-
 test_gate_score_tables_agree.sh	WIRED	-	-	-
 test_gate_score_unreadable_package_is_marked.sh	WIRED	-	-	-
 test_gate_seat_identity_one_map.sh	WIRED	-	-	-
@@ -152,6 +155,7 @@ test_gate_sno_captured_substring_compares_by_its_own_length.sh	WIRED	-	-	-
 test_gate_sno_deferred_capture_keeps_the_name_save_stack_balanced.sh	WIRED	-	-	-
 test_gate_sno_deferred_goto_from_match_inside_define.sh	WIRED	-	-	-
 test_gate_sno_deferred_replacement_keeps_its_capture_mark.sh	WIRED	-	-	-
+test_gate_sno_dump_matches_spitbol.sh	WIRED	-	-	-
 test_gate_sno_fence_body_dynamic_operand.sh	WIRED	-	-	-
 test_gate_sno_io_assoc_channel_and_filespec.sh	WIRED	-	-	-
 test_gate_sno_lex_compare_binary_safe.sh	WIRED	-	-	-
