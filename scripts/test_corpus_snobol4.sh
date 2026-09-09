@@ -8,6 +8,13 @@
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# ⛔⭐ RECORD THE TREE THIS RUN GRADES, AT ITS START (hq_T 2026-09-08). A board takes ten to forty minutes and its
+# SCORE.md write happens at the END; a seat who commits and pushes mid-run -- which the CEO-174 dirty-tree guard
+# actively pushes you toward, since a dirty tree skips the write entirely -- moves HEAD under a measurement that
+# already happened, and the row then names a tree carrying commits it never ran. Measured three times in one
+# sitting, twice while doing the disciplined thing. util_score_row.py stamps this instead of HEAD, and says so
+# when the two differ; unset, it behaves exactly as it always did.
+export S4E_TREE_AT_START="SCRIP=$(git -C "$HERE/.." rev-parse --short HEAD 2>/dev/null),corpus=$(git -C "$HERE/../../corpus" rev-parse --short HEAD 2>/dev/null)"
 SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_DIR="${RT_DIR:-$HERE/../out}"
 CORPUS="$S4E/corpus"

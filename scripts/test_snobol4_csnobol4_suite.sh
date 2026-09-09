@@ -245,6 +245,13 @@ PY
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 RUN="$W/run"; mkdir -p "$RUN"
 cp -rp "$SUITE"/. "$RUN"/ 2>/dev/null || true
+# ⛔⭐ RECORD THE TREE THIS RUN GRADES, AT ITS START (hq_T 2026-09-08). A board takes ten to forty minutes and its
+# SCORE.md write happens at the END; a seat who commits and pushes mid-run -- which the CEO-174 dirty-tree guard
+# actively pushes you toward, since a dirty tree skips the write entirely -- moves HEAD under a measurement that
+# already happened, and the row then names a tree carrying commits it never ran. Measured three times in one
+# sitting, twice while doing the disciplined thing. util_score_row.py stamps this instead of HEAD, and says so
+# when the two differ; unset, it behaves exactly as it always did.
+export S4E_TREE_AT_START="SCRIP=$(git -C "$SD" rev-parse --short HEAD 2>/dev/null),corpus=$(git -C "$ROOT/corpus" rev-parse --short HEAD 2>/dev/null)"
 SCRIP_HASH="$(git -C "$SD" rev-parse --short HEAD 2>/dev/null || echo '?')"
 CORP_HASH="$(git -C "$ROOT/corpus" rev-parse --short HEAD 2>/dev/null || echo '?')"
 

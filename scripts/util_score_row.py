@@ -138,6 +138,22 @@ def tree_stamp():
     # reads), rendered as markdown instead of as a gate's stdout.  `-e` not `-d` on .git, because in a
     # git WORKTREE .git is a FILE and `-d` silently skips every repo (hq_B measured that one live on
     # 2026-09-02; it printed a stamp with nothing after it).
+    # ⛔⭐⭐ THE STAMP NAMES THE TREE THE RUN GRADED, NOT HEAD AT WRITE TIME, WHENEVER THE RUNNER SAID SO
+    # (hq_T 2026-09-08, after tripping this three times in one sitting, twice while doing the disciplined thing).
+    # A board takes ten to forty minutes; this function runs at the END of it.  A seat who commits and pushes
+    # mid-run -- which is exactly what the CEO-174 dirty-tree guard pushes you toward, because a dirty tree skips
+    # the write entirely -- moves HEAD under a measurement that already happened, and the row then names a tree
+    # containing commits it never ran.  The number is real and its provenance is fiction, which is strictly worse
+    # than a number that refuses: the row is checkoutable, reproducible-looking, and wrong about what it measured.
+    # ⭐ S4E_TREE_AT_START is set by the runner at its START, as `SCRIP=<hash>,corpus=<hash>`.  Absent, this
+    # behaves exactly as before -- so no runner is broken by not knowing about it, and the ones that do know get
+    # an honest stamp.  A hash that no longer resolves is reported as given rather than silently swapped for HEAD.
+    at_start = {}
+    for kv in (os.environ.get("S4E_TREE_AT_START", "") or "").split(","):
+        if "=" in kv:
+            k, v = kv.split("=", 1)
+            if k.strip() and v.strip():
+                at_start[k.strip()] = v.strip()
     parts = []
     for r in REPOS:
         h = git(r, "rev-parse", "--short", "HEAD")
@@ -145,7 +161,12 @@ def tree_stamp():
             parts.append("%s=unknown" % r)
             continue
         dirty = "-DIRTY" if git(r, "status", "--porcelain") else ""
-        parts.append("%s `%s%s`" % (r, h, dirty))
+        start = at_start.get(r)
+        if start and not h.startswith(start) and not start.startswith(h):
+            # ⭐ BOTH FACTS, because the reader needs to know the tree moved AND that the number predates it.
+            parts.append("%s `%s%s` (graded; HEAD moved to `%s` during the run)" % (r, start, dirty, h))
+        else:
+            parts.append("%s `%s%s`" % (r, h, dirty))
     return " · ".join(parts)
 
 

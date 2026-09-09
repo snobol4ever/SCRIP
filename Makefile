@@ -271,6 +271,12 @@ test: scrip  # ⭐ WAS THE FALSE-GREEN TRAP (cured hq_P s268): `test`, `test-ir`
 	# board as the mask being honoured. An absent safety mechanism that CONFIRMS the belief it was added to test
 	# is worse than a missing one, and only a gate on the wiring can see it.
 	bash scripts/test_gate_ceo409_mask_is_read_by_the_bash_runners.sh   # <1s, no build: the bash runner reaches the mask shim, the shim is the harness's own body (python dialect, not an ERE re-implementation), masks REPLACE and never delete, and an unauditable mask refuses rc=2.
+	# ⭐ BLOCKING. The hazard it guards is one the CEO-174 dirty-tree guard actively pushes you INTO: a dirty tree
+	# skips the row write, so the way to make your row land is to commit before the board finishes -- which is the
+	# very act that moves HEAD under a measurement already taken. The safeguard and the hazard are the same gesture,
+	# which is why care does not protect against this one (measured three times in one sitting, twice while doing
+	# the disciplined thing) and a mechanism has to.
+	bash scripts/test_gate_score_row_stamps_the_tree_it_graded.sh   # <1s, no build: a leaderboard row stamps the tree its run GRADED (S4E_TREE_AT_START), says so when HEAD moved underneath it, keeps the DIRTY mark, and is byte-identical when the variable is unset.
 
 pristine-all:  # wipe EVERY cached configuration, not just this one (the pre-s258 behaviour)
 	# Same race, same cure, same bounded BUILD_LOCK as `pristine` above -- see its comment block for why
