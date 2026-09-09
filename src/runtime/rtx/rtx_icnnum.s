@@ -4,6 +4,14 @@ RTX_GATE_DEF(icnnum)
     mov PTR, qword ptr [SRC + 8];                                                                     \
     test PTR, PTR;                                                                                    \
     jz .Lbail;                                                                                        \
+    mov DIG32, dword ptr [SRC + 4];                                                                   \
+    test DIG32, DIG32;                                                                                \
+    jz .Lnul##SFX;                                                                                    \
+    cmp DIG32, -1;                                                                                    \
+    je .Lnul##SFX;                                                                                    \
+    cmp byte ptr [PTR + DIG], 0;                                                                      \
+    jne .Lbail;                                                                                       \
+.Lnul##SFX:                                                                                           \
     xor ACC32, ACC32;                                                                               \
     xor CNT32, CNT32;                                                                               \
     xor SGN32, SGN32;                                                                               \
