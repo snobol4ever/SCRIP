@@ -15,9 +15,7 @@ extern "C" long *rt_anchor_ptr(void);
 #define hfc() (_.op_fc_wbytes > 0)
 #define subjc() (_.op_subj_cell)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int hpin(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_HEAD_PIN"); v = (e && *e == '0') ? 0 : 1; } return v; }
-static int jepin(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_JEPIN"); v = (e && *e == '0') ? 0 : 1; } return v && _.flat_jmp_entry && _.flat_deep_arrival; }
-static int rpin(void) { return hpin() && ((_.flat_layout_unknown && (subjc() || _.op_zres || !_.flat_jmp_entry)) || jepin());     }
+static int rpin(void) { return ((_.flat_layout_unknown && (subjc() || _.op_zres || !_.flat_jmp_entry)) || (_.flat_jmp_entry && _.flat_deep_arrival)) ? 1 : 0; }
 static int oscap_l(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_OS_CAP"); v = (e && *e == '0') ? 0 : 1; } return v; }
 static int has_replace_l(void) { if (!g_emit_cfg) return 0; for (int _i = 0; _i < g_emit_cfg->n; _i++) { IR_t * _nd = g_emit_cfg->all[_i]; if (_nd && (_nd->op == IR_MATCH_REPLACE || _nd->op == IR_MATCH_FENCE0 || _nd->op == IR_MATCH_FENCE1 || _nd->op == IR_MATCH_ABORT || _nd->op == IR_MATCH_ARBNO)) return 1; } return 0; }
 #define stfh() (_.flat_stmt_frame || (oscap_l() && _.flat_deep_arrival && !_.flat_jmp_entry && !_.flat_lcl_proc && !_.zframe_graph && !_.flat_pat && !_.flat_gen && !has_replace_l()))
@@ -28,7 +26,7 @@ static const char * HKD() { return "dword ptr [rsp# + 0]"; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_begin() {
     x86_begin();
-    if (emit_match_rbp()) {
+    {
         return x86("comment", "IR_MATCH_BEGIN")
              + x86_alpha()
              + IF(_.op_zres, x86("note", ZOPN(0))
@@ -122,7 +120,6 @@ std::string bb_match_begin() {
                x86("note", HKN(0))
              + x86("mov", RDQ("rsp", _.op_off + 40), "rsp")
              + x86("note", "stmt_base") + std::string(""))
-         + IF(emit_match_begin_stfh_k() > 0, x86_zclaim(emit_match_begin_stfh_k()))
          + x86("note", HKN(1))
          + x86("mov", stfh() ? HKQ(1) : FRQ(_.op_off + 48), "r13")
          + x86("note", HKN(2))
@@ -179,7 +176,6 @@ std::string bb_match_begin() {
          + (hfc()
              ? x86("note", "cas_mark")
              + x86("sub", "r12", (long)24)
-             + IF(emit_arbno_rbp_unwind(), x86_arbno_rbp_unwind("r12", 8, 11, 12))
              + x86("note", "cas_rsp_mark")
              + x86("mov", "rsp", RDQ("r12", 8))
              : x86("note", "cas_mark")
@@ -188,7 +184,6 @@ std::string bb_match_begin() {
              + x86("mov", "rax", RDQ("r12", 0))
              + x86("test", "rax", "rax")
              + x86("jne", L(2))
-             + IF(emit_arbno_rbp_unwind(), x86_arbno_rbp_unwind("r12", 8, 11, 12))
              + x86("note", "cas_rsp_mark")
              + x86("mov", "rsp", RDQ("r12", 8)))
          + x86("note", HKN(1))

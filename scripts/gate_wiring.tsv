@@ -95,6 +95,7 @@ test_gate_no_ref_pins_oracle_internal_state.sh	WIRED	-	-	-
 test_gate_no_vstack.sh	WIRED	-	-	-
 test_gate_no_weak_abort_stub.sh	WIRED	-	-	-
 test_gate_no_xfail_survives.sh	WIRED	-	-	-
+test_gate_no_zeta_frame_switches.sh	WIRED	-	-	-
 test_gate_nreturn_by_name_value_broken.sh	WIRED	-	-	-
 test_gate_orphaned_witnesses_do_not_grow.sh	WIRED	-	-	-
 test_gate_our_files_are_lf.sh	WIRED	-	-	-

@@ -32,8 +32,6 @@ static inline const char * trq(int off) { static char b[8][40]; static int i; i 
 static std::string tail_zero(int lo, int hi, const char * zr64) { std::string r; for (int k = lo; k < hi; k += 8) r += x86("mov", trq(k), zr64); return r; }
 static std::string tail_cap_zero8(int base, int n, const char * zr64) { std::string r; for (int j = 0; j < n; j++) r += x86("mov", trq(base + 16 * j + 8), zr64); return r; }
 static std::string tail_cap_copy(int dst, int src, int n) { std::string r; for (int j = 0; j < n; j++) r += x86("mov", "rax", trq(src + 16 * j)) + x86("mov", trq(dst + 16 * j), "rax"); return r; }
-static int arbno_lon(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ARBNO_FRAMELESS"); v = e ? (atoi(e) != 0) : 1; } return v; }
-static int arbno_rootspine(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ARBNO_ROOTSPINE"); v = e ? (atoi(e) != 0) : 0; } return v; }
 static int arbno_fprpop(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ARBNO_FPRPOP"); v = e ? (atoi(e) != 0) : 0; } return v; }
 static inline int kkN(void) { return _.op_arbno_body_kk; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -227,7 +225,7 @@ std::string bb_match_arbno() {
          : (_.op_arbno_body_defer_unsafe || !_.op_arbno_body_k0) && _.op_arbno_frame_off != -1
              ? bb_match_arbno_frame()
          : (_.op_arbno_body_defer_unsafe || !_.op_arbno_body_k0)
-             ? x86_alpha() + x86_bomb("IR_MATCH_ARBNO: body contains a DEFER unsafe for the plain-frameless arm, and emit_match_rbp() is off -- ARBNO-FRAME slot unavailable (SCRIP_MATCH_RBP=0)")
+             ? x86_alpha() + x86_bomb("IR_MATCH_ARBNO: body contains a DEFER unsafe for the plain-frameless arm, and no ARBNO-FRAME slot was granted")
                             + x86_beta() + x86_bomb("IR_MATCH_ARBNO: unreachable beta (defer-unsafe refuse)")
                             + x86("def", PAIR(2)) + x86("def", PAIR(3)) + x86("def", PAIR(5))
              : bb_match_arbno_frameless();
@@ -318,23 +316,16 @@ static std::string bb_match_arbno_DELETED_ARMS() {
              ? x86_alpha() + x86_bomb("IR_MATCH_ARBNO: slot not granted (zls)")
          : (_.op_sa < 0 || _.op_sb <= 0)
              ? x86_alpha() + x86_bomb("IR_MATCH_ARBNO: COLLECTION geometry not staged (zls_arbno_geom)")
-         : (_.op_arbno_body_k0 && arbno_lon())
+         : _.op_arbno_body_k0
              ? bb_match_arbno_frameless()
          : _.op_arbno_chain
              ? x86("comment", "IR_MATCH_ARBNO_NARY (ZB-FC-4 rsp linked-frame-chain)")
              + x86_alpha()
-             + IF(arbno_rootspine(),
-                   x86("sub", "rsp", 48L)
-                 + x86("mov", trq(32), "rsp")
-                 + x86("mov", zv(), "rsp")
-                 + x86("add", zv(), (long)(-_.op_off))
-                 + x86("lea", "rax", RDQ("rsp", 48)))
              + x86("mov", FR(_.op_off), "r14d")
              + x86("mov", FR(_.op_off + 4), "r14d")
              + x86("mov", FR(_.op_off + 8), 0L)
-             + IF(arbno_rootspine(),  x86("mov", FRQ(_.op_off + 24), "rax"))
-             + IF(!arbno_rootspine(), x86("mov", FRQ(_.op_off + 24), "rsp"))
-             + IF(!arbno_rootspine(), x86("mov", FRQ(_.op_off + 32), "rsp"))
+             + x86("mov", FRQ(_.op_off + 24), "rsp")
+             + x86("mov", FRQ(_.op_off + 32), "rsp")
              + x86("mov", FRQ(_.op_off + 16), 0L)
              + x86_gamma()
              + x86_beta()

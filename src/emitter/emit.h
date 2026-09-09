@@ -543,19 +543,13 @@ typedef struct {
 } sm_emit_t;
 extern sm_emit_t g_emit;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int emit_patpin_probe(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_PROBE_PATPIN"); v = (e && *e == '1') ? 1 : 0; } return v; }
-static inline int emit_jmp_pin_legacy(void) { return g_emit.flat_deep_arrival || g_emit.flat_gen || g_emit.flat_lcl_proc || g_emit.zframe_graph || (emit_patpin_probe() && g_emit.flat_pat); }
+static inline int emit_jmp_pin_legacy(void) { return g_emit.flat_deep_arrival || g_emit.flat_gen || g_emit.flat_lcl_proc || g_emit.zframe_graph; }
 static inline int emit_heap_fb_adopt(void) { extern int g_gen_proc_active; extern int g_resumable_callable_active; return g_gen_proc_active || g_resumable_callable_active; }
 static inline int emit_rec_pin(void) { return emit_jmp_pin_legacy() || emit_heap_fb_adopt(); }
 static inline int emit_zframe_pinned(void) { return (g_emit.zframe_pinned_base && g_emit.zframe_graph) ? 1 : 0; }
 static inline int          emit_rec_fb_num(void) { return 4; }
 static inline const char * emit_rec_fb(void)     { return emit_rec_fb_num() == 5 ? "rbp" : "rsp"; }
 static inline int emit_rec_rsp_arm(void) { static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_REC_RSP"); on = (e && *e == '0') ? 0 : 1; } return on && g_emit.flat_pat && !emit_jmp_pin_legacy(); }
-int emit_match_begin_stfh_k(void);
-int emit_match_rbp(void);
-int emit_arbno_rbp(void);
-int emit_defer_rbp(void);
-int emit_arbno_rbp_unwind(void);
 int emit_match_begin_frame_extra(const IR_t * match_begin_nd);
 int arbno_frame_slot(const IR_t * arbno_nd);
 int fence_frame_slot(const IR_t * fence_nd);
@@ -565,7 +559,6 @@ int cap_fail_retreat(void);
 int capture_frame_slot(const IR_t * cap_nd);
 enum { ZCUS_LEAF = 0, ZCUS_ARBNO = 1, ZCUS_CAPTURE = 2, ZCUS_FENCE = 3, ZCUS_CHOICE = 4, ZCUS_N = 5 };
 int zzone_off_for(const IR_t * nd, int customer);
-int emit_match_owns_startd(void);
 extern IR_graph_t * g_emit_cfg;
 extern const char *Σ;
 extern int         Σlen;

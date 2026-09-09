@@ -33,9 +33,8 @@ extern "C" int sn4_alt_carrier(void);
 static int dw_cell(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_DEFER_CELL"); v = e ? (atoi(e) != 0) : 1; } return v; }
 static int one_defer(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ONE_DEFER"); v = (e && *e == '0') ? 0 : 1; } return v; }
 static int defer_inline(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_DEFER_INLINE"); v = (e && *e == '0') ? 0 : 1; } return v; }
-extern "C" int emit_defer_carve_rbp(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int dfrm(void) { return (_.op_seal == 1) || emit_defer_carve_rbp(); }
+static int dfrm(void) { return (_.op_seal == 1); }
 #define rspd()  (getenv("SCRIP_RSPDIFF") ? 1 : 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int patv_fast_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_PATV_FAST"); v = (e && *e == '0') ? 0 : 1; } return v; }
@@ -61,13 +60,10 @@ std::string bb_match_defer() {
     uint64_t cadr = ci >= 0 ? (uint64_t)(uintptr_t)(const void *)&g_sno_defer_cells[ci] : 0;
     return x86("comment", "IR_MATCH_DEFER (ZS-2 jmp-entry)")
          + x86_alpha()
-         + IF(dfrm() && emit_defer_rbp(),
+         + IF(dfrm(),
                x86("comment", "IR_MATCH_DEFER ζ-frame")
              + x86("push", "rbp")
              + x86("mov",  "rbp", "rsp"))
-         + IF(dfrm() && !emit_defer_rbp(),
-               x86("comment", "IR_MATCH_DEFER sealed")
-             + x86("mov",  FRQ(_.op_off), "rsp"))
          + IF(ci >= 0,
                x86("comment", "IR_MATCH_DEFER cell")
              + x86("lea",  "rsi", "[rip + __]", cadr, clbl)
@@ -264,24 +260,16 @@ std::string bb_match_defer() {
          + bb_glue_pass_wires_blob(4, 5)
          + x86("def",  L(4))
          + bb_glue_wire_land()
-         + IF(dfrm() && emit_defer_rbp(),
+         + IF(dfrm(),
                x86("mov", "rsp", "rbp")
              + x86("pop", "rbp"))
-         + IF(dfrm() && !emit_defer_rbp(),
-               x86("mov",  "rsp", FRQ(_.op_off)))
-         + IF(_.op_scan && _.op_scan_head_off >= 0 && !emit_match_owns_startd(),
-               x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_scan_hit_start, "g_scan_hit_start")
-             + x86("mov",  "rax", "[rcx]")
-             + x86("mov",  emit_match_begin_stfh_k() > 0 ? "dword ptr [rsp# + 0]" : FR(_.op_scan_head_off), "eax"))
          + rspd_snap(&g_rspd_g4, "g_rspd_g4")
          + x86_gamma()
          + x86("def",  L(5))
          + bb_glue_wire_land()
-         + IF(dfrm() && emit_defer_rbp(),
+         + IF(dfrm(),
                x86("mov", "rsp", "rbp")
              + x86("pop", "rbp"))
-         + IF(dfrm() && !emit_defer_rbp(),
-               x86("mov",  "rsp", FRQ(_.op_off)))
          + rspd_snap(&g_rspd_g5, "g_rspd_g5")
          + x86_omega()
          + (one_defer()
@@ -386,15 +374,10 @@ std::string bb_match_defer() {
              + x86_omega())
          + x86_beta()
          + ((_.op_seal == 1)
-              ? ((emit_defer_rbp() ? (x86("mov", "rsp", "rbp")
-                                    + x86("pop", "rbp"))
-                                   : x86("mov", "rsp", FRQ(_.op_off)))
+              ? (x86("mov", "rsp", "rbp")
+                 + x86("pop", "rbp")
                  + x86_omega())
-              : (IF(dfrm() && _.op_seal != 1 && emit_defer_rbp(),
-                      x86("comment", "IR_MATCH_DEFER β unsealed-carve")
-                    + x86("mov", "rsp", "rbp")
-                    + x86("pop", "rbp"))
-                 + (_.op_defer_leaf_susp > 0
+              : ((_.op_defer_leaf_susp > 0
                    ? (rspd_snap(&g_rspd_beta, "g_rspd_beta")
                       + x86("mov",  "rax", RDQ("rsp", 0))
                       + x86("test", "rax", "rax")

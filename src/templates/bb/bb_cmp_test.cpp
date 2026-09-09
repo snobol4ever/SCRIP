@@ -28,23 +28,6 @@ static inline const char * ct_fail_int() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_cmp_test() {
     x86_begin();
-    if (_.op_zres && getenv("SCRIP_OPT_CMPINT") && getenv("SCRIP_OPT_CMPINT")[0] == '0')
-        return x86("comment", "IR_CMP_TEST zd")
-             + x86_alpha()
-             + x86("note",   ZOPN(0))
-             + x86("lea",    "rdi", ZOPQ(0, 0))
-             + x86("note",   ZOPN(1))
-             + x86("lea",    "rsi", ZOPQ(1, 0))
-             + x86("call",   "rt_cmp_d", (uint64_t)(uintptr_t)(void *)rt_cmp_d)
-             + x86("test",   "eax", "eax")
-             + x86_omega(ct_fail_sign())
-             + IF(_.op_res_live,
-                   x86("note", ZRESN())
-                 + x86("mov",  ZRES(0), (long)0)
-                 + x86("note", ZRESN())
-                 + x86("mov",  ZRES(8), (long)0))
-             + x86_gamma()
-             + x86_beta_trampoline();
     if (_.op_zres)
         return x86("comment", "IR_CMP_TEST zd")
              + x86_alpha()

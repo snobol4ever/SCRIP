@@ -40,12 +40,6 @@ std::string bb_match_fence1() {
          + x86("jmp", PAIR(0))
          + x86("def", PAIR(2))
          + IF(fence_u2_frame(), bb_glue_framed_leave())
-         + IF(emit_arbno_rbp_unwind(),
-              x86_arbno_rbp_unwind_at(
-                  _.op_fence_frame_off != -1 ? FFCQ(0)
-                : fence_u2_frame()           ? FRQ(_.op_off+32+_.op_fence_body_kk)
-                                              : FRQ(_.op_off+_.op_fence_body_kk),
-                  11, 12))
          + fence_release(_.op_off, _.op_fence_body_kk)
          + x86_gamma()
          + x86("def", PAIR(3))

@@ -328,7 +328,7 @@ static int fc_vbinop_ok(long long v) { return v == 0 || v == 1 || v == 2 || v ==
 static int fc_vunop_ok(const IR_t * nd) { return nd->op == IR_UNOP && nd->n_operands == 1 && ((int)IR_LIT(nd).ival == TT_MNS || (int)IR_LIT(nd).ival == TT_PLS); }
 static int g_fcc_gfence = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int fc_call_ok(const IR_t * nd) { static int on = -1; if (on < 0) { const char * a = getenv("SCRIP_STMT_FRAME"); const char * b = getenv("SCRIP_CALL2BB"); on = (a && *a == '1' && b && *b == '1') ? 1 : 0; if (on) { const char * c = getenv("SCRIP_CALL2BB_FC"); if (!(c && *c == '1')) on = 0; } } if (!on || !nd) return 0; { static int dbg = -1; if (dbg < 0) { const char * e = getenv("SCRIP_FCC_DEBUG"); dbg = (e && *e == '1') ? 1 : 0; } if (dbg) { const char * fn = IR_LIT(nd).sval; extern int rt_proc_is_registered(const char *); extern int rt_builtin_is_known(const char *); fprintf(stderr, "[FCC] op=%d nops=%d sval=%s reg=%d blt=%d\n", (int)nd->op, nd->n_operands, fn ? fn : "(null)", (fn && fn[0]) ? rt_proc_is_registered(fn) : -1, (fn && fn[0]) ? rt_builtin_is_known(fn) : -1); { extern int rt_proc_is_generator(const char *); if (fn && fn[0]) fprintf(stderr, "[FCC] gen=%d\n", rt_proc_is_generator(fn)); } } } if (!(nd->op == IR_CALL || nd->op == IR_CALL_PROC_STAGED)) return 0; if (nd->n_operands != 1 || !nd->operands[0]) return 0; { const char * fn = IR_LIT(nd).sval; extern int rt_proc_is_registered(const char *); extern int rt_proc_is_generator(const char *); extern int rt_builtin_is_known(const char *); if (!fn || !fn[0] || !strcmp(fn, "CODE") || rt_builtin_is_known(fn) || !rt_proc_is_registered(fn) || rt_proc_is_generator(fn)) return 0; } return 1; }
+static int fc_call_ok(const IR_t * nd) { (void)nd; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int fc_vtree_scan(const IR_graph_t * g, const IR_t * nd, const IR_t ** post, int * pn, int cap, int depth) {
     if (!nd || depth > 24 || *pn >= cap) return 0;
@@ -444,7 +444,7 @@ void zls_build(IR_graph_t * g) {
         zls_field(root, 16 + i * 16, 16, ZK_DESCR, 0, "param", (const IR_t *)0);
     }
     int cur = 0;
-    { static int eon = -1; if (eon < 0) { const char * e = getenv("SCRIP_SLOT_ELIDE"); eon = (e && *e == '0') ? 0 : 1; { const char * sf = getenv("SCRIP_STMT_FRAME"); const char * xo = getenv("SCRIP_STF_ELIDE_OFF"); if (sf && *sf == '1' && xo && *xo == '1') eon = 0; } }
+    { static int eon = -1; if (eon < 0) { const char * e = getenv("SCRIP_SLOT_ELIDE"); eon = (e && *e == '0') ? 0 : 1; }
       char lv_sbuf[1024]; char * lv = (g->n <= (int)sizeof lv_sbuf) ? lv_sbuf : (char *)malloc((size_t)g->n);
       memset(lv, 0, (size_t)g->n);
       if (eon) zls_mark_value_refs(g, lv);

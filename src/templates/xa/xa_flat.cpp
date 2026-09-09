@@ -340,8 +340,6 @@ static int xa_flat_sig_names(const char * fname, int * nf_out, int * nsave_out, 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_chain_prologue_str(const char * fname) {
     if (!xa_flat_class_c()) return std::string();
-    static int _cf = -1; if (_cf < 0) { const char * e = getenv("SCRIP_CHAIN_FRAME"); _cf = (e && *e == '0') ? 0 : 1; }
-    if (!_cf) return std::string();
     { static int _d = -1; if (_d < 0) { const char * e = getenv("SCRIP_CHAIN_DIAG"); _d = (e && *e == '1') ? 1 : 0; } if (_d) { extern int bb_emit_pos; fprintf(stderr, "[CHAINFRAME] pos=%d kt=%d text=%d jmp=%d pat=%d\n", bb_emit_pos, g_emit.flat_frame_bytes, g_is_text ? 1 : 0, g_emit.flat_jmp_entry, g_emit.flat_pat); } }
     int kt = g_emit.flat_frame_bytes;
     if (kt & 15) { fprintf(stderr, "FATAL xa_flat_chain_prologue: kt=%d (must be a 16-multiple >= 48)\n", kt); abort(); }
@@ -376,16 +374,12 @@ static std::string xa_flat_chain_prologue_str(const char * fname) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_chain_epilogue_str(void) {
     if (!xa_flat_class_c()) return std::string();
-    static int _cf = -1; if (_cf < 0) { const char * e = getenv("SCRIP_CHAIN_FRAME"); _cf = (e && *e == '0') ? 0 : 1; }
-    if (!_cf) return std::string();
     return x86("comment", "CLASS-C chain epilogue (s114): release the α carve; no whack exists on this exit")
          + x86("add", "rsp", (long)g_emit.flat_frame_bytes);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_chain_epilogue_sig_str(int is_gamma, const char * fname) {
     if (!xa_flat_class_c()) return std::string();
-    static int _cf = -1; if (_cf < 0) { const char * e = getenv("SCRIP_CHAIN_FRAME"); _cf = (e && *e == '0') ? 0 : 1; }
-    if (!_cf) return std::string();
     int kt = g_emit.flat_frame_bytes;
     std::string pre;
     { int nf = 0, nsave = 0, res_gk = -1; int gk[29];

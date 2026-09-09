@@ -28,10 +28,6 @@ std::string bb_match_value() {
          + bb_glue_pass_wires_blob(4, 5)
          + x86("def",  L(4))
          + bb_glue_wire_land()
-         + IF(_.op_scan && _.op_scan_head_off >= 0 && !emit_match_owns_startd(),
-               x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)&g_scan_hit_start, "g_scan_hit_start")
-             + x86("mov",  "rax", "[rcx]")
-             + x86("mov",  FR(_.op_scan_head_off), "eax"))
          + x86_gamma()
          + x86("def",  L(5))
          + bb_glue_wire_land()

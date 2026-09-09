@@ -459,8 +459,7 @@ inline const char * x86_jcc_invert(const char * m) { return x86_jcc_canon((uint8
 inline const char * x86_zr()         { return "rsp"; }
 inline int          x86_zr_num()     { return 4; }
 inline int x86_fb_pinned() { return emit_zframe_pinned(); }
-inline int icn_host_pin_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ICN_HOST_PIN"); v = (e && *e == '0') ? 0 : 1; } return v; }
-inline int icn_host_pinned() { return (icn_host_pin_on() && g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && !g_emit.flat_gen && !g_emit.zframe_graph) ? 1 : 0; }
+inline int icn_host_pinned() { return (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && !g_emit.flat_gen && !g_emit.zframe_graph) ? 1 : 0; }
 inline int x86_fb_pinned_any() { return (x86_fb_pinned() || icn_host_pinned()) ? 1 : 0; }
 static inline int x86_fb_stmt_on() { static int m = -1; if (m < 0) { const char * e = getenv("SCRIP_FB_STMT"); m = (e && *e == '0') ? 0 : 1; } return m; }
 inline int x86_fb_data() { return 0; }
@@ -826,7 +825,6 @@ inline std::string x86_frame_sub_from_reg(const char * reg, int off) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * RDQ(const char * base, int off);
 inline const char * RDD(const char * base, int off);
-inline int icn_genframe2();
 inline int icn_gen_regime();
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline int icn_gen_zeta_ft() {
@@ -1959,23 +1957,17 @@ inline std::string x86_zdp_probe_at(int port) {
     return bb_zdp_probe((long)_.op_node_kind, (long)_.nid, (port == X86P_ALPHA) ? 1L : 2L, expect, want_rbp);
 }
 extern "C" void rt_zdp_ev(void);
-extern "C" int emit_match_rbp(void);
-extern "C" int emit_defer_rbp(void);
-extern "C" int emit_defer_carve_rbp(void);
 extern "C" void rt_zdp_sm_init(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline int icn_genframe2() {
-    static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ICN_GENFRAME2"); v = (e && *e == '0') ? 0 : 1; } return v;
-}
 inline int icn_gen_regime() {
-    return icn_genframe2() && g_emit_cfg && g_emit_cfg->icn_cells_graph;
+    return g_emit_cfg && g_emit_cfg->icn_cells_graph;
 }
 inline int x86_zdp_rbp_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZSM"); v = (e && *e == '1') ? 1 : 0; if (v) rt_zdp_sm_init(); } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline int x86_zdp_rbp_frames() {
     if (!_.op_zdp_rbp) return 0;
-    if (_.op_node_kind == (int)IR_MATCH_BEGIN) return emit_match_rbp();
-    if (_.op_node_kind == (int)IR_MATCH_DEFER) return (((_.op_seal == 1) || emit_defer_carve_rbp()) && emit_defer_rbp()) ? 1 : 0;
+    if (_.op_node_kind == (int)IR_MATCH_BEGIN) return 1;
+    if (_.op_node_kind == (int)IR_MATCH_DEFER) return (_.op_seal == 1) ? 1 : 0;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

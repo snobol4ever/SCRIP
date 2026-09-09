@@ -508,7 +508,6 @@ extern "C" void bb_ab_emit_nodes(IR_graph_t *g, int gva_active)
 #include <cstdint>
 #include "emit.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int fnrbp(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_FN_RBP"); v = e ? atoi(e) : 2; if (v == 1) v = 2; if (v < 0 || v > 2) v = 2; } return v; }
 static int fnsig(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_FN_SIG"); v = (e && *e == '0') ? 0 : 1; } return v; }
 extern "C" {
 #include "bb_template_common.h"
@@ -699,7 +698,7 @@ static std::string bb_define_sr() {
                  + x86_deflabel_id(231)
                  + x86("lea", "rcx", "extlbl", (uint64_t)(uintptr_t)lbl_b)
                  + x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)lbl_o)
-                 + IF(fnrbp() == 2, x86("comment", "s64 RSP-ONLY WRITER (see the s58 arm's full comment — unchanged under SIG)")
+                 + (x86("comment", "s64 RSP-ONLY WRITER (see the s58 arm's full comment — unchanged under SIG)")
                              + x86("push", "rax")
                              + x86("push", "rcx"))
                  + bb_define_body_cell_data(bcell, blb) + x86("jmp_fn_cell", bcell.c_str(), body_cell)
@@ -849,7 +848,7 @@ static std::string bb_define_sr() {
                         + x86_deflabel_id(41 + i); })
              + x86("lea", "rcx", "extlbl", (uint64_t)(uintptr_t)lbl_b)
              + x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)lbl_o)
-             + IF(fnrbp() == 2, x86("comment", "s64 RSP-ONLY WRITER (Lon challenge: zero RBP): push the 16B {gamma,omega} pair at TOS — [rsp+0]=gamma [rsp+8]=omega, body entered at P-16 (16-parity kept).  NO anchor register: the floaters find the pair by the DEPTH-INVARIANCE LAW — control transfers only at depth-neutral statement boundaries; MATCH banks its own mark in the r12 arena; the alpha-sub/omega-add pairing releases statement temporaries.  A statement shape that leaks (the s58 -16 census class) breaks the law and dies loud at the floater's jmp — under this arm the red set IS the leak census.")
+             + (x86("comment", "s64 RSP-ONLY WRITER (Lon challenge: zero RBP): push the 16B {gamma,omega} pair at TOS — [rsp+0]=gamma [rsp+8]=omega, body entered at P-16 (16-parity kept).  NO anchor register: the floaters find the pair by the DEPTH-INVARIANCE LAW — control transfers only at depth-neutral statement boundaries; MATCH banks its own mark in the r12 arena; the alpha-sub/omega-add pairing releases statement temporaries.  A statement shape that leaks (the s58 -16 census class) breaks the law and dies loud at the floater's jmp — under this arm the red set IS the leak census.")
                          + x86("push", "rax")
                          + x86("push", "rcx"))
              + bb_define_body_cell_data(bcell, blb) + x86("jmp_fn_cell", bcell.c_str(), body_cell)
@@ -891,8 +890,7 @@ static std::string bb_define_sr() {
         uint64_t _rtn_fp; { void (*_f)(int) = rt_kw_set_rtntype_role; _rtn_fp = (uint64_t)(uintptr_t)(void *)_f; }
         std::string rtn_set = x86("mov", "edi", (long)role) + x86("call", "rt_kw_set_rtntype_role", _rtn_fp);
         std::string frag_release = (g_rt_fragment_emit && xa_flat_class_c_pred()) ? x86("add", "rsp", (long)_.flat_frame_bytes) : std::string();
-        if (fnrbp() == 2)
-            return x86("comment", role == 1 ? "IR_DEFINE RETURN floater (s64 RSP-ONLY: pop {gamma,omega} pair at TOS — depth IS the anchor)" :
+        return x86("comment", role == 1 ? "IR_DEFINE RETURN floater (s64 RSP-ONLY: pop {gamma,omega} pair at TOS — depth IS the anchor)" :
                                    role == 2 ? "IR_DEFINE FRETURN floater (s64 RSP-ONLY: skip gamma, pop omega — depth IS the anchor)" :
                                                "IR_DEFINE NRETURN floater (s64 RSP-ONLY: pop gamma — by-name result)")
                  + x86_alpha()
@@ -901,13 +899,6 @@ static std::string bb_define_sr() {
                  + (role == 2 ? x86("add", "rsp", (long)8) + x86("pop", "rcx")
                               : x86("pop", "rcx") + x86("add", "rsp", (long)8))
                  + x86("jmp", "rcx");
-        return x86("comment", role == 1 ? "IR_DEFINE RETURN floater (s58: BOMB — coming-out frozen)" :
-                               role == 2 ? "IR_DEFINE FRETURN floater (s58: BOMB — coming-out frozen)" :
-                                           "IR_DEFINE NRETURN floater (s58: BOMB — coming-out frozen)")
-             + x86_alpha()
-             + (role == 1 ? x86_bomb("BOMB-RETURN: descent complete, coming-out frozen (s58 RSP-only) — UNKNOWN STACK DEPTH: the rsp-resident record cannot be found from here without a frame anchor")
-              : role == 2 ? x86_bomb("BOMB-FRETURN: descent complete, coming-out frozen (s58 RSP-only) — UNKNOWN STACK DEPTH: the rsp-resident record cannot be found from here without a frame anchor")
-                          : x86_bomb("BOMB-NRETURN: descent complete, coming-out frozen (s58 RSP-only) — UNKNOWN STACK DEPTH: the rsp-resident record cannot be found from here without a frame anchor"));
     }
     int c2np = 0, c2nsave = 0, c2res_gk = -1; int c2gk[64]; long c2nargs = (long)_.op_arg_slot_n;
     int elig = bb_scc_probe(_.op_sval, (int)c2nargs, &c2np, &c2nsave, c2gk, &c2res_gk);

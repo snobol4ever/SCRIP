@@ -36,8 +36,6 @@ int rt_define_returns_by_frame(const char *);
 int rt_pl_tail_args_safe(int nargs, void *frame_lo, void *frame_hi);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bcps_wire_pair_consumed(const char *fname) {
-    static int _wpf = -1; if (_wpf < 0) { const char *e = getenv("SCRIP_WIRE_PAIR_FRAME"); _wpf = (e && *e == (char)48) ? 0 : 1; }
-    if (!_wpf) return 1;
     return (fname && rt_define_returns_by_frame(fname)) ? 0 : 1;
 }
 int  rt_proc_dyn_scope(const char *name);
