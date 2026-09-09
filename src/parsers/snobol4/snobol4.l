@@ -21,6 +21,9 @@ static int   lineno = 1;
 static int   g_stmt_lineno = 1;
 static int   g_nofail_mode = 0;
 int snobol4_get_nofail_mode(void) { return g_nofail_mode; }
+static int   g_case_fold = 0;
+int snobol4_get_case_fold(void) { return g_case_fold; }
+static void sno_fold(char *s) { if (!g_case_fold) return; for (; *s; s++) if (*s >= 'a' && *s <= 'z') *s = (char)(*s - 'a' + 'A'); }
 static char  strbuf[65536];
 static int   strpos;
 static int   gt_depth;
@@ -137,6 +140,14 @@ G       ({WS}|{CONT})*
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <INITIAL>"-"[Ff][Aa][Ii][Ll][^\n]*\n    { lineno++; g_nofail_mode = 0; }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+<INITIAL>"-"[Cc][Aa][Ss][Ee]([ \t][^\n]*)?\n    {
+    lineno++;
+    if (g_case_fold || strncmp(yytext, "-CASE", 5) == 0) {
+        const char *_p = yytext + 5; while (*_p == ' ' || *_p == '\t') _p++;
+        g_case_fold = (*_p >= '0' && *_p <= '9') ? (atoi(_p) != 0) : 0;
+    }
+}
+ /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <INITIAL>"-"[^\n]*\n    {
     lineno++;
 }
@@ -159,12 +170,14 @@ G       ({WS}|{CONT})*
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <LABEL>[ \t]            {
     strbuf[strpos] = '\0';
+    sno_fold(strbuf);
     BEGIN(BODY_START);
     return T_LABEL;
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <LABEL>\n               {
     strbuf[strpos] = '\0';
+    sno_fold(strbuf);
     lineno++;
     BEGIN(LABEL_DONE);
     return T_LABEL;
@@ -172,6 +185,7 @@ G       ({WS}|{CONT})*
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <LABEL><<EOF>>          {
     strbuf[strpos] = '\0';
+    sno_fold(strbuf);
     BEGIN(LABEL_DONE);
     return T_LABEL;
 }
@@ -184,6 +198,7 @@ G       ({WS}|{CONT})*
 <LABEL>.                {
     yyless(0);
     strbuf[strpos] = '\0';
+    sno_fold(strbuf);
     BEGIN(BODY_START);
     return T_LABEL;
 }
@@ -199,7 +214,7 @@ G       ({WS}|{CONT})*
 <BODY>";"              { gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
 <BODY>{W}";"           { gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
 <BODY>{G}":"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_depth=0; gt_angle=0; gt_have_operand=0; BEGIN(GT); }
-<BODY>&{ALPHA}{ALNUM}* { strbuf[0]='\0'; strncat(strbuf,yytext+1,sizeof(strbuf)-1); return T_KEYWORD; }
+<BODY>&{ALPHA}{ALNUM}* { strbuf[0]='\0'; strncat(strbuf,yytext+1,sizeof(strbuf)-1); sno_fold(strbuf); return T_KEYWORD; }
 <BODY>{W}  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_CONCAT; }
 <BODY>{W}"**"{W}  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2CARET;  }
 <BODY>{W}"^"{W}   { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2CARET;  }
@@ -226,8 +241,8 @@ G       ({WS}|{CONT})*
 <BODY>{G}"]"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_RBRACK; }
 <BODY>{G}">"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; if (gt_angle && --gt_angle == 0) { BEGIN(GT); return T_GOTO_RANGLE; } return T_RANGLE; }
 <BODY>{G}","{G}  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=="\n") lineno++; return T_COMMA; }
-<BODY>{ALPHA}{IDCONT}*/"("  { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); return T_FUNCTION; }
-<BODY>{ALPHA}{IDCONT}*      { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); return strcmp(strbuf,"END")==0?T_END:T_IDENT; }
+<BODY>{ALPHA}{IDCONT}*/"("  { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); sno_fold(strbuf); return T_FUNCTION; }
+<BODY>{ALPHA}{IDCONT}*      { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); sno_fold(strbuf); return strcmp(strbuf,"END")==0?T_END:T_IDENT; }
 <BODY>{DIGIT}+"."{DIGIT}*{EXP}? |
 <BODY>{DIGIT}+{EXP}         { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); for (char *_e = strbuf; *_e; _e++) if (*_e == 'd' || *_e == 'D') *_e = 'e'; return T_REAL; }
 <BODY>{DIGIT}+                { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); return T_INT;  }
@@ -293,9 +308,9 @@ G       ({WS}|{CONT})*
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <GT>[ \t]+/[)>;\n]      { }
 <GT>[ \t]+              { if (gt_depth > 0 && gt_have_operand) return T_CONCAT; }
-<GT>[Ss]/"("            { if (gt_depth > 0) { gt_have_operand=1; strbuf[0]='\0'; strncat(strbuf, yytext, sizeof(strbuf)-1); return T_IDENT; } return T_GOTO_S; }
+<GT>[Ss]/"("            { if (gt_depth > 0) { gt_have_operand=1; strbuf[0]='\0'; strncat(strbuf, yytext, sizeof(strbuf)-1); sno_fold(strbuf); return T_IDENT; } return T_GOTO_S; }
 <GT>[Ss]/"<"            { return T_GOTO_S; }
-<GT>[Ff]/"("            { if (gt_depth > 0) { gt_have_operand=1; strbuf[0]='\0'; strncat(strbuf, yytext, sizeof(strbuf)-1); return T_IDENT; } return T_GOTO_F; }
+<GT>[Ff]/"("            { if (gt_depth > 0) { gt_have_operand=1; strbuf[0]='\0'; strncat(strbuf, yytext, sizeof(strbuf)-1); sno_fold(strbuf); return T_IDENT; } return T_GOTO_F; }
 <GT>[Ff]/"<"            { return T_GOTO_F; }
 <GT>"("                 { gt_depth++; gt_have_operand=0; return T_GOTO_LPAREN; }
 <GT>")"                 { if (gt_depth > 0) gt_depth--; gt_have_operand=1; return T_GOTO_RPAREN; }
@@ -304,7 +319,7 @@ G       ({WS}|{CONT})*
 <GT>"$"                 { return T_1DOLLAR; }
 <GT>[A-Za-z][A-Za-z0-9_.]* {
     gt_have_operand=1;
-    strbuf[0]='\0'; strncat(strbuf, yytext, sizeof(strbuf)-1);
+    strbuf[0]='\0'; strncat(strbuf, yytext, sizeof(strbuf)-1); sno_fold(strbuf);
     return T_IDENT;
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
