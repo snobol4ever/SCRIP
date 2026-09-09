@@ -118,8 +118,10 @@ ENTRY_FLOOR="${ICON_MASTER_ENTRY_FLOOR:-534}"
 # LANE'S AND THE ARITHMETIC SAYS SO RATHER THAN THE AUTHOR: hq_V's 718 came off this same merged tree WITHOUT the comparator, and with
 # it the same tree reads 720 -- procedure_write_261 and procedure_write_263, both modes. That is also why the number went into a
 # SECOND commit and not the cure's own: a floor written before the tree it guards exists is a guess wearing a measurement's clothes.
-M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-720}"
-M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-720}"
+# ⭐ RE-PINNED 720 -> 738 (hq_V 2026-09-09 17:0x CDT, MODE NONET) on SCRIP `63efd8436` + corpus `ca2b8a110`, both on origin: entries=903 · run-graded 750 · m3 PASS=738 · m4 PASS=738, both modes equal, xfail=0 xpass=0.
+# ⛔ MOST OF THE +18 OVER 720 IS NOT NEW CURING, IT IS A READING OF MINE BEING CORRECTED: hq_C's alt-bound cure `b3039f014` was already on origin when I measured the previous board, my build predated it by minutes, and the four entries I had recorded as red -- hq_C's eleven-shape probe and my three CEO-461 rungs -- are GREEN in both modes on the cured tree. The cell was RE-MEASURED, never annotated.
+M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-738}"
+M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-738}"
 # ⛔ NO AST_PASS_FLOOR: a self-pin has no floor to regress below, only a CURRENT-run comparison of
 # ap (matched) vs at (total) -- see the AST-SHAPE note above. Removed under ast-dump-refs-are-self-
 # pins-not-oracles rather than kept-but-unused, so a reader cannot mistake its presence for gating.
