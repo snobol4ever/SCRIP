@@ -1,5 +1,12 @@
 #include "rtx_abi.inc"
 RTX_GATE_DEF(arith)
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define RTX_REAL_FINITE_OR(slow) \
+    movq    rax, xmm0 ; \
+    add     rax, rax ; \
+    mov     r11, 0xFFE0000000000000 ; \
+    cmp     rax, r11 ; \
+    jae     slow
 .section .rodata
 .align 1
 .Lcd_empty:
@@ -135,6 +142,7 @@ RTX_FUNC(rt_add)
     movq    xmm0, rsi
     movq    xmm1, rcx
     addsd   xmm0, xmm1
+    RTX_REAL_FINITE_OR(.Ladd_slow)
     movq    rdx, xmm0
     mov     eax, DT_R | (MOD_OP_RT_ADD << 8)
     ret
@@ -161,6 +169,7 @@ RTX_FUNC(rt_sub)
     movq    xmm0, rsi
     movq    xmm1, rcx
     subsd   xmm0, xmm1
+    RTX_REAL_FINITE_OR(.Lsub_slow)
     movq    rdx, xmm0
     mov     eax, DT_R | (MOD_OP_RT_SUB << 8)
     ret
@@ -187,6 +196,7 @@ RTX_FUNC(rt_mul)
     movq    xmm0, rsi
     movq    xmm1, rcx
     mulsd   xmm0, xmm1
+    RTX_REAL_FINITE_OR(.Lmul_slow)
     movq    rdx, xmm0
     mov     eax, DT_R | (MOD_OP_RT_MUL << 8)
     ret
