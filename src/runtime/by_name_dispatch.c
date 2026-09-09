@@ -5056,14 +5056,18 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         int nl = (fn[5] == '\0');
         int start = 0;
         FILE *dest = stdout;
-        if (nargs > 0 && IS_FH_fn(args[0])) {
-            FILE *fp = fh_get((int)args[0].i);
-            if (fp) { if (nl && fp != stdout) fflush(stdout); dest = fp; }
-            start = 1;
-        }
         for (int _wi = start; _wi < nargs; _wi++) {
             DESCR_t av = args[_wi];
             if (IS_FAIL_fn(av)) { *out = FAILDESCR; return 1; }
+            if (IS_FH_fn(av)) {
+                FILE *fp = fh_get((int)av.i);
+                if (fp) {
+                    if (nl && _wi > 0) fputc('\n', dest);
+                    if (nl && fp != stdout) fflush(stdout);
+                    dest = fp;
+                }
+                continue;
+            }
             if (av.v == DT_SNUL) continue;
             if (dest != stdout && dest != stderr && IS_STR_fn(av) && !IS_CSET_fn(av)) { const char *_bs = VARVAL_fn(av); uint32_t _bn = av.slen ? av.slen : (_bs ? (uint32_t)strlen(_bs) : 0u); if (_bs && _bn) fwrite(_bs, 1, _bn, dest); continue; }
             out_write_descr(dest, av, nl);
