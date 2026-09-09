@@ -1318,11 +1318,12 @@ static IR_t * lower_to(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
-    (void) γ;
     const tree_t * E = (t->n > 0) ? t->c[0] : NULL; const tree_t * B = (t->n > 1) ? t->c[1] : NULL;
     IR_t * eval = NULL; IR_t * e_entry = lower(cx, E, NULL, ω, &eval); IR_t * gen_beta = cx->beta;
     if (gen_beta == ω) gen_beta = build(cx, IR_GOTO, ω, ω);
-    IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; IR_t * slf = cx->loop_fail; int slns = cx->loop_next_ssp; cx->loop_exit = ω; cx->loop_next = gen_beta; cx->loop_fail = ω; cx->loop_next_ssp = cx->scan_sp;
+    IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL;
+    IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";
+    IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; IR_t * slf = cx->loop_fail; int slns = cx->loop_next_ssp; cx->loop_exit = bres; cx->loop_next = gen_beta; cx->loop_fail = ω; cx->loop_next_ssp = cx->scan_sp;
     IR_t * bval = NULL; (void) bval; IR_t * b_entry;
     if (B) {
         IR_t * mark = build(cx, IR_BOUND, NULL, NULL);
@@ -1338,7 +1339,8 @@ static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     else { b_entry = gen_beta; }
     cx->loop_exit = sle; cx->loop_next = sln; cx->loop_fail = slf; cx->loop_next_ssp = slns;
     if (!(eval && eval->op == IR_SUSPEND)) γ_to(eval, b_entry);
-    cx->beta = ω; *res = NULL; return e_entry;
+    { IR_t * lbb = cx->loop_break_beta; cx->loop_break_beta = slb; if (lbb) { cx->beta = lbb; *res = bres; return e_entry; } }
+    cx->beta = ω; *res = bres; return e_entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_tree_mentions_kw(const tree_t * t, const char * kw) {
