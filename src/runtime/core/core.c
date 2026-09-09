@@ -2396,7 +2396,7 @@ static const char *icn_errmsg(int n) {
 int core_icn_error(int code, DESCR_t val) {
     extern long g_error;
     if (g_error != 0) {
-        if (g_error > 0) g_error--;
+        g_error--;
         g_icn_errnumber = code; g_icn_errtext = icn_errmsg(code); g_icn_errvalue = val; g_icn_err_valid = 1;
         if (g_core_errjmp_n > 0) longjmp(g_core_errjmp_stk[g_core_errjmp_n - 1], code);
         return 1;
