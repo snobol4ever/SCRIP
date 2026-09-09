@@ -37,8 +37,23 @@
 #     rather than a repair: it makes the answer independent of whatever grep is on PATH, at zero verdict cost.
 #     The check below therefore guards ONE thing only — that the two spellings do not drift apart.
 #
+# (3) ⭐ --behind: A DEAD PIN DOES NOT MERELY MISCLASSIFY, IT CONCEALS (ceo CEO-427, 2026-09-08).  Because the
+#     ref pins a transcript of SPITBOL dying, the suite never compares SCRIP's real output to anything -- it
+#     sees a mismatch, writes FAIL, and nobody asks what our output WAS.  The ceo found three programs that
+#     ABORT behind their dead pins, one cause, invisible for as long as the pins existed.  `--behind` runs
+#     SCRIP on each dead-pinned program and reports WHAT THE PIN WAS HIDING: CRASH / TIMEOUT / rc + line count.
+#     ⛔ IT FEEDS STDIN THROUGH split_at_end, THE SUITE'S OWN CONVENTION (stdin follows the END statement in
+#     the same file).  A </dev/null run here would print a clean-looking table from a STARVED program -- the
+#     trap that took hq_P, the cto and the ceo in one night, the last of them while actively looking for it.
+#
 # Exit: 0 = censused (any count; a report is not a verdict).  2 = REFUSED, could not measure.
 set -u
+BEHIND=0
+for a in "$@"; do case "$a" in
+  --behind) BEHIND=1 ;;
+  -h|--help) echo "usage: $0 [--behind]   (--behind also runs SCRIP on each dead-pinned program and reports what the pin conceals)"; exit 0 ;;
+  *) echo "⛔ REFUSE(2): unknown argument '$a' -- refusing rather than ignoring it and printing a census you did not ask for"; exit 2 ;;
+esac; done
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="${S4E_HOME:-$(cd "$HERE/../.." && pwd)}"
 CORPUS="${CORPUS:-$ROOT/corpus}"
@@ -69,11 +84,12 @@ echo "stamp:  $(cd "$CORPUS" && git rev-parse --short HEAD 2>/dev/null || echo '
 echo
 printf '%-52s %-9s %-9s %s\n' DIRECTORY PINS DEAD NAMES
 seen_any=0; tot_pins=0; tot_dead=0; dead_dirs=""
+DEADLIST=$(mktemp) || exit 2; trap 'rm -f "$DEADLIST"' EXIT
 while IFS= read -r d; do
   pins=0; dead=0; names=""
   while IFS= read -r f; do
     pins=$((pins+1))
-    if pin_is_dead "$f"; then dead=$((dead+1)); b="$(basename "$f")"; names="$names ${b%.*}"; fi
+    if pin_is_dead "$f"; then dead=$((dead+1)); b="$(basename "$f")"; names="$names ${b%.*}"; printf '%s\n' "$f" >> "$DEADLIST"; fi
   done < <(find "$d" -type f \( -name '*.ref' -o -name '*.std' \) ! -name 'ALL.ref' 2>/dev/null | sort)
   tot_pins=$((tot_pins+pins)); tot_dead=$((tot_dead+dead)); [ "$pins" -gt 0 ] && seen_any=1
   if [ "$pins" -eq 0 ]; then
@@ -108,4 +124,55 @@ echo
 echo "TOTAL dead-pinned entries: $tot_dead   (per-program pins examined: $tot_pins)"
 echo "affected:$dead_dirs"
 [ -n "${DIVERGE:-}" ] && { echo; echo "⚠️ PREDICATE DRIFT -- this census matches with -a and scorecard_snobol4.sh's sbl_died no longer does."; echo "   ⛔ This is NOT a claim that a number is being hidden: GNU grep in a script answers the same either way"; echo "   (measured 2026-09-08, hq_T + hq_B, on the real master). It is a spelling-drift guard only -- -a is"; echo "   insurance against a non-GNU grep on PATH, at zero verdict cost. Restore -a there and this goes quiet."; echo "   authority: $DIVERGE"; }
+# ⭐ WHAT THE PINS CONCEAL (ceo CEO-427).  Opt-in, because it BUILDS NOTHING but does RUN every dead-pinned
+# program, and a census must stay cheap enough that nobody skips it.
+if [ "$BEHIND" = 1 ]; then
+  echo
+  echo "WHAT THE DEAD PINS CONCEAL -- SCRIP's own behaviour behind each pin (stdin via split_at_end)"
+  SCRIP_BIN="${SCRIP_BIN:-$ROOT/SCRIP/scrip}"
+  if [ ! -x "$SCRIP_BIN" ]; then
+    echo "⛔ REFUSE(2): no scrip binary at $SCRIP_BIN -- cannot say what is behind a pin, and a blank column would read as 'nothing'"; exit 2
+  fi
+  W=$(mktemp -d) || exit 2
+  printf '%-46s %-10s %s\n' PROGRAM VERDICT DETAIL
+  nb=0; ncrash=0
+  while IFS= read -r pin; do
+    [ -n "$pin" ] || continue
+    d=$(dirname "$pin"); b=$(basename "$pin"); stem="${b%.*}"; src=""
+    srcext=""
+    for ext in sno sc icn; do [ -f "$d/$stem.$ext" ] && { src="$d/$stem.$ext"; srcext="$ext"; break; }; done
+    if [ -z "$src" ]; then printf '%-46s %-10s %s\n' "$stem" NO-SOURCE "pin has no sibling program -- cannot run it"; continue; fi
+    nb=$((nb+1))
+    rm -rf "$W/r"; mkdir -p "$W/r"; cp -rp "$d"/. "$W/r"/ 2>/dev/null || true
+    # ⛔ split_at_end: stdin follows the END statement IN THE SAME FILE.  Never </dev/null here.
+    # ⛔⭐ THE PROGRAM KEEPS ITS OWN EXTENSION.  The first cut of this block wrote "$stem.run" and SCRIP
+    # infers the FRONTEND FROM THE EXTENSION -- so every program was run as an unknown language and the
+    # table reported 10 CRASHes that were artifacts of this instrument, not defects.  Caught only by
+    # checking a row against a ceo ruling that said the same program was clean.  Same family as everything
+    # else in this file: an instrument answering a narrower question than the one asked, silently.
+    python3 - "$src" "$W/r/$stem.$srcext" "$W/r/$stem.in" <<'SPLITPY'
+import re, sys
+lines = open(sys.argv[1], 'r', errors='replace').read().split('\n')
+idx = next((i for i, l in enumerate(lines) if re.match(r'^END\s*$', l, re.IGNORECASE)), None)
+if idx is None:
+    open(sys.argv[2], 'w').write('\n'.join(lines)); open(sys.argv[3], 'w').write('')
+else:
+    open(sys.argv[2], 'w').write('\n'.join(lines[:idx+1]) + '\n'); open(sys.argv[3], 'w').write('\n'.join(lines[idx+1:]))
+SPLITPY
+    ( cd "$W/r" && timeout 20 "$SCRIP_BIN" "$stem.$srcext" < "$stem.in" > "$stem.out" 2>&1 ); rc=$?
+    lines=$(wc -l < "$W/r/$stem.out" 2>/dev/null || echo 0)
+    case "$rc" in
+      139) v=CRASH; det="SIGSEGV (rc=139) -- $lines line(s) before it";  ncrash=$((ncrash+1)) ;;
+      134) v=CRASH; det="SIGABRT (rc=134) -- $lines line(s) before it";  ncrash=$((ncrash+1)) ;;
+      124) v=TIMEOUT; det="killed at 20s -- $lines line(s) so far" ;;
+      0)   v=ran;   det="rc=0, $lines line(s)" ;;
+      *)   v=ran;   det="rc=$rc, $lines line(s)" ;;
+    esac
+    printf '%-46s %-10s %s\n' "$stem" "$v" "$det"
+  done < "$DEADLIST"
+  rm -rf "$W"
+  echo
+  echo "behind $nb dead-pinned program(s): $ncrash CRASH"
+  [ "$ncrash" -gt 0 ] && echo "⛔ A CRASH BEHIND A PIN WAS NEVER GRADED AGAINST ANYTHING -- the suite saw a mismatch and wrote FAIL."
+fi
 exit 0
