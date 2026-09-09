@@ -57,12 +57,14 @@ test_gate_emit_no_slot_alloc.sh	WIRED	-	-	-
 test_gate_gate_wiring_ratchet.sh	WIRED	-	-	-
 test_gate_harness_refusal_is_rc2.sh	WIRED	-	-	-
 test_gate_icn_bal_is_a_backtracking_generator.sh	WIRED	-	-	-
+test_gate_icn_byname_generator_region_is_not_on_the_arena.sh	WIRED	-	-	-
 test_gate_icn_function_builtin_names_dispatchable.sh	WIRED	-	-	-
 test_gate_icn_if_without_else_invocable_arity_and_string_continuation.sh	WIRED	-	-	-
 test_gate_icn_no_stack.sh	WIRED	-	-	-
 test_gate_icn_one_reg_frame.sh	WIRED	-	-	-
 test_gate_icn_scan_argtype.sh	WIRED	-	-	-
 test_gate_icn_tag_single_source.sh	WIRED	-	-	-
+test_gate_icon_features_and_preprocessor_symbols_agree.sh	WIRED	-	-	-
 test_gate_icon_master_per_entry_identity.sh	WIRED	-	-	-
 test_gate_kw_integer_hex_refused.sh	WIRED	-	-	-
 test_gate_ladder_forms_check_selftest.sh	WIRED	-	-	-
@@ -133,6 +135,7 @@ test_gate_score_tables_agree.sh	WIRED	-	-	-
 test_gate_score_unreadable_package_is_marked.sh	WIRED	-	-	-
 test_gate_seat_identity_one_map.sh	WIRED	-	-	-
 test_gate_sm_dead.sh	WIRED	-	-	-
+test_gate_sno_byname_goto_zeta_unwind_in_a_loop.sh	WIRED	-	-	-
 test_gate_sno_deferred_capture_keeps_the_name_save_stack_balanced.sh	WIRED	-	-	-
 test_gate_sno_deferred_goto_from_match_inside_define.sh	WIRED	-	-	-
 test_gate_sno_deferred_replacement_keeps_its_capture_mark.sh	WIRED	-	-	-
