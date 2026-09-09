@@ -278,8 +278,36 @@ run_one() { # $1=cmdkind $2=sno -> sets GOT RC ; input from $W/inp if HASINP
         # is graded FAIL on the LENGTH OF ITS OWN PATHNAME. Measured exactly: 119 characters are lost
         # regardless of message, so a longer path leaves MORE of the tail visible, not less -- the failure
         # gets less suspicious as it gets worse. Staging `f.sno` keeps every diagnostic under the wrap.
+        # ⛔⭐ THE TERMINATION DUMP IS RECOVERED FROM THE DIVERTED LISTING (hq_T 2026-09-08, ceo row
+        # snobol4-snoflake-runner-routes-the-termination-dump-into-the-listing-sink, on the cto's measurement).
+        # $SBL_SINK exists to keep SPITBOL's STATEMENT LISTING out of the compared stream -- SCRIP emits no
+        # listing, so grading against one is unfair, and it changes the oracle stream on 83 of these 180
+        # fixtures (measured 2026-09-08; this file's header still says 56, an older corpus).
+        # ⛔ BUT THE &DUMP TERMINATION DUMP IS NOT A LISTING. It is program-visible output SCRIP DOES produce,
+        # and SPITBOL writes it wherever the listing goes -- so the sink swallowed it and dump-ordered graded
+        # against an EMPTY oracle stream while SCRIP printed the dump to stdout. Measured: with the sink,
+        # stdout is 0 bytes and the 41-line dump is in listing.lst; without it, that dump IS stdout. A fixture
+        # failing because the runner hid the oracle's answer is a false red of the worst kind -- it convicts
+        # the compiler of the instrument's choice.
+        # ⭐ RECOVERED NARROWLY, ON TWO CONDITIONS BOTH KEYED ON MEASURED FACTS, so no other fixture can move:
+        # the fixture's own source must SET &DUMP (3 of 180 do), and the tail is taken from the first
+        # `dump of ` section header onward -- the dump happens at TERMINATION, so it is always the tail, and
+        # everything above it is the listing this sink is here to divert. topological-sort is why the split is
+        # positional rather than whole-file: its .lst carries an ERROR 248 diagnostic for 21 lines and THEN
+        # the dump, and appending the whole file would re-furnish the stream the sink just cleaned.
         sbl) ln -sf "$2" "$RUN/f.sno"
-             GOT="$(cd "$RUN" && timeout "$TIMEOUT" "$SBL" $SBL_FLAGS $SBL_SINK f.sno < "$inp" 2>&1)"; RC=$?;;
+             rm -f "${SBL_SINK#-o=}.lst"
+             GOT="$(cd "$RUN" && timeout "$TIMEOUT" "$SBL" $SBL_FLAGS $SBL_SINK f.sno < "$inp" 2>&1)"; RC=$?
+             if grep -qE '&DUMP[[:space:]]*=' "$2" 2>/dev/null; then
+                 _lst="${SBL_SINK#-o=}.lst"
+                 if [ -s "$_lst" ] && grep -qE '^dump of ' "$_lst"; then
+                     # ⛔ THE BLANK LINES IMMEDIATELY ABOVE THE FIRST `dump of ` BELONG TO THE DUMP. SPITBOL
+                     # writes three of them, and so does SCRIP -- measured byte-for-byte on dump-ordered --
+                     # so a split that starts exactly at the header hands the oracle side three fewer lines
+                     # than the compiler's and turns one false red into a different false red.
+                     GOT="${GOT}$(awk '/^dump of /{f=1; for(i=1;i<=nb;i++) print ""; nb=0} !f && /^[[:space:]]*$/{nb++; next} !f{nb=0; next} f' "$_lst")"
+                 fi
+             fi;;
         csn) GOT="$(cd "$RUN" && timeout "$TIMEOUT" "$CSN" "$2" < "$inp" 2>&1)"; RC=$?;;
     esac; }
 for sno in "$SUITE"/*.sno; do
