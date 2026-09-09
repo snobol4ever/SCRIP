@@ -353,9 +353,16 @@ void rt_coerce_int_d(const DESCR_t *in, DESCR_t *out, long codes) {
     out->v = DT_I; out->slen = 0; out->i = r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long rt_pat_prim_int(const char *varname) {
+static DESCR_t rt_pat_prim_arg(const char *varname) {
     extern DESCR_t NV_GET_fn(const char *);
-    DESCR_t v = NV_GET_fn(varname ? varname : "");
+    extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+    extern int rt_proc_is_registered(const char *name);
+    if (varname && varname[0] == '*') return rt_proc_is_registered(varname + 1) ? rt_call_proc_descr(varname + 1, 0) : NV_GET_fn(varname + 1);
+    return NV_GET_fn(varname ? varname : "");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long rt_pat_prim_int(const char *varname) {
+    DESCR_t v = rt_pat_prim_arg(varname);
     int64_t r = 0;
     if (v.v == DT_I) { r = v.i; }
     else if (v.v == DT_R) { double d = v.r; r = (int64_t)d; }
@@ -371,9 +378,10 @@ long rt_pat_prim_int(const char *varname) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_pat_prim_str(const char *varname, const char **out_ptr, long *out_len) {
-    extern DESCR_t NV_GET_fn(const char *);
-    DESCR_t v = NV_GET_fn(varname ? varname : "");
+    extern int IS_FAIL_fn(DESCR_t);
+    DESCR_t v = rt_pat_prim_arg(varname);
     DESCR_t s;
+    if (IS_FAIL_fn(v)) return -1;
     rt_coerce_str_d(&v, &s, 0);
     if (s.v != DT_S) return -1;
     *out_ptr = s.s ? s.s : "";

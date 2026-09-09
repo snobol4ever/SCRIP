@@ -1328,6 +1328,13 @@ static long sno_prearg_codes(int tt) {
     default: return 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * sno_pat_defer_arg_name(const tree_t * inner, int lead_star) {
+    char b[224];
+    if (inner && inner->t == TT_VAR && inner->v.sval && inner->v.sval[0]) { snprintf(b, sizeof b, "%s%s", lead_star ? "*" : "", inner->v.sval); return lp_strdup(b); }
+    snprintf(b, sizeof b, "%s*%s", lead_star ? "*" : "", sno_expr_collect(inner));
+    return lp_strdup(b);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_pre_req(scx_t * cx, const tree_t * t, IR_t * prim) {
     const tree_t * arg = (t->n > 0) ? t->c[0] : NULL;
     if (arg && arg->t == TT_DEFER && arg->n > 0 && arg->c[0]) arg = arg->c[0];
@@ -1535,8 +1542,8 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         const char * cs = sno_cset_fold((t->n > 0) ? t->c[0] : NULL);
         if (cs) { IR_LIT(nd).sval = (char *) cs; return nd; }
         { const tree_t * arg = (t->n > 0) ? t->c[0] : NULL;
-          if (arg && arg->t == TT_DEFER && arg->n > 0 && arg->c[0] && arg->c[0]->v.sval) {
-              IR_LIT(nd).sval = lp_strdup(arg->c[0]->v.sval);
+          if (arg && arg->t == TT_DEFER && arg->n > 0 && arg->c[0]) {
+              IR_LIT(nd).sval = (char *) sno_pat_defer_arg_name(arg->c[0], 0);
               nd->pat_static = 1;
               return nd;
           } }
@@ -1552,8 +1559,8 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         const char * cs = sno_cset_fold((t->n > 0) ? t->c[0] : NULL);
         if (cs) { IR_LIT(nd).sval = (char *) cs; return nd; }
         { const tree_t * arg = (t->n > 0) ? t->c[0] : NULL;
-          if (arg && arg->t == TT_DEFER && arg->n > 0 && arg->c[0] && arg->c[0]->v.sval) {
-              IR_LIT(nd).sval = lp_strdup(arg->c[0]->v.sval);
+          if (arg && arg->t == TT_DEFER && arg->n > 0 && arg->c[0]) {
+              IR_LIT(nd).sval = (char *) sno_pat_defer_arg_name(arg->c[0], 0);
               nd->pat_static = 1;
               return nd;
           } }
@@ -1566,8 +1573,8 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         const char * cs = sno_cset_fold((t->n > 0) ? t->c[0] : NULL);
         if (cs) { IR_LIT(nd).sval = (char *) cs; return nd; }
         { const tree_t * arg = (t->n > 0) ? t->c[0] : NULL;
-          if (arg && arg->t == TT_DEFER && arg->n > 0 && arg->c[0] && arg->c[0]->v.sval) {
-              IR_LIT(nd).sval = lp_strdup(arg->c[0]->v.sval);
+          if (arg && arg->t == TT_DEFER && arg->n > 0 && arg->c[0]) {
+              IR_LIT(nd).sval = (char *) sno_pat_defer_arg_name(arg->c[0], 0);
               nd->pat_static = 1;
               return nd;
           } }
@@ -1579,10 +1586,8 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         sno_ω_to(nd, fail);
         if (t->n <= 0 || !t->c[0]) sno_fatal("TAB/RTAB requires a count argument", NULL);
         if (t->c[0]->t == TT_ILIT) { IR_LIT(nd).ival = t->c[0]->v.ival; return nd; }
-        if (t->c[0]->t == TT_DEFER && t->c[0]->n > 0 && t->c[0]->c[0] && t->c[0]->c[0]->v.sval) {
-            const tree_t * inner = t->c[0]->c[0];
-            char pb[128]; snprintf(pb, sizeof pb, "*%s", inner->v.sval);
-            IR_LIT(nd).sval = lp_strdup(pb);
+        if (t->c[0]->t == TT_DEFER && t->c[0]->n > 0 && t->c[0]->c[0]) {
+            IR_LIT(nd).sval = (char *) sno_pat_defer_arg_name(t->c[0]->c[0], 1);
             return nd;
         }
         if (t->c[0]->t == TT_DEFER) { IR_t * argval = NULL; IR_t * arg_entry = sx_lower(cx, t->c[0], nd, fail, &argval); ir_operand_push(nd, argval); return arg_entry; }
@@ -1594,10 +1599,8 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         sno_ω_to(nd, fail);
         if (t->n <= 0 || !t->c[0]) sno_fatal("POS/RPOS requires a position argument", NULL);
         if (t->c[0]->t == TT_ILIT) { IR_LIT(nd).ival = t->c[0]->v.ival; return nd; }
-        if (t->c[0]->t == TT_DEFER && t->c[0]->n > 0 && t->c[0]->c[0] && t->c[0]->c[0]->v.sval) {
-            const tree_t * inner = t->c[0]->c[0];
-            char pb[128]; snprintf(pb, sizeof pb, "*%s", inner->v.sval);
-            IR_LIT(nd).sval = lp_strdup(pb);
+        if (t->c[0]->t == TT_DEFER && t->c[0]->n > 0 && t->c[0]->c[0]) {
+            IR_LIT(nd).sval = (char *) sno_pat_defer_arg_name(t->c[0]->c[0], 1);
             return nd;
         }
         if (t->c[0]->t == TT_DEFER) { IR_t * argval = NULL; IR_t * arg_entry = sx_lower(cx, t->c[0], nd, fail, &argval); ir_operand_push(nd, argval); return arg_entry; }
@@ -1714,11 +1717,8 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         sno_ω_to(nd, fail);
         if (t->n <= 0 || !t->c[0]) sno_fatal("LEN requires a count argument", NULL);
         if (t->c[0]->t == TT_ILIT) { IR_LIT(nd).ival = t->c[0]->v.ival; return nd; }
-        if (t->c[0]->t == TT_DEFER && t->c[0]->n > 0 && t->c[0]->c[0] && t->c[0]->c[0]->v.sval) {
-            const tree_t * inner = t->c[0]->c[0];
-            const char * vn = inner->v.sval;
-            char pb[128]; snprintf(pb, sizeof pb, "*%s", vn ? vn : "");
-            IR_LIT(nd).sval = lp_strdup(pb);
+        if (t->c[0]->t == TT_DEFER && t->c[0]->n > 0 && t->c[0]->c[0]) {
+            IR_LIT(nd).sval = (char *) sno_pat_defer_arg_name(t->c[0]->c[0], 1);
             return nd;
         }
         sno_pre_req(cx, t, nd);
@@ -2925,7 +2925,10 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
         g_stage2.proc_table[fpi].bb_idx = bb_program_add(&g_stage2.bbp, gf);
     }
     sno_expr_thunks_build(0);
-    sno_pat_thunks_build(0);
+    { int xdone = sno_expr_mark(); int pdone = 0;
+      for (int dp = 0; dp < 8; dp++) { int pn = sno_pat_count(); if (pn > pdone) { sno_pat_thunks_build(pdone); pdone = pn; }
+        int xn = sno_expr_mark(); if (xn > xdone) { sno_expr_thunks_build(xdone); xdone = xn; }
+        if (sno_pat_count() == pdone && sno_expr_mark() == xdone) break; } }
     free((void *) st); free(is_def);
     return &g_stage2;
 }
@@ -2947,10 +2950,11 @@ IR_graph_t * sno_pat_tree_graph_rt(const tree_t * pat) {
     IR_t * no = lc_build(gp, IR_FAIL, NULL, NULL);
     px.pat_fail = no; px.pat_seal = no;
     int before_pat = gp->n;
-    int rtc = sno_rtseq_resume();
+    int rtc = sno_rtseq_resume(); int rt_xmark = sno_expr_mark();
     IR_t * brt = NULL; int pfenced = 0;
     IR_t * pe = rtc ? sno_pat_carrier_build(&px, pat, ok, no, &brt, &pfenced) : sno_pat_node(&px, pat, ok, no);
     if (px.npre > 0) sno_fatal("runtime-operand primitive reached the RT recipe graph builder — recipes must bake literal args (B-RE contract)", NULL);
+    if (sno_expr_mark() != rt_xmark) sno_fatal("deferred pattern-primitive argument reached the RT recipe graph builder — its expression thunk has no builder on this path (B-RE contract)", NULL);
     gp->entry = pe;
     gp->resumable_callable = 1;
     if (rtc) sno_pat_publish_body_root(gp, before_pat, pat, brt, pfenced, "RT$");
