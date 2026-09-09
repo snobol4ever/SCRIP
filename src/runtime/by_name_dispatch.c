@@ -4842,7 +4842,8 @@ static int sort_descr_cmp(DESCR_t a, DESCR_t b) {
     int ra = sort_type_rank(a), rb = sort_type_rank(b);
     if (ra != rb) return ra < rb ? -1 : 1;
     if (ra == 0) return 0;
-    if (ra == 1) { if (a.v == DT_I && b.v == DT_I) return (a.i > b.i) ? 1 : (a.i < b.i) ? -1 : 0; return sort_key_str_cmp(a, b); }
+    if (ra == 1) { if (a.v == DT_I && b.v == DT_I) return (a.i > b.i) ? 1 : (a.i < b.i) ? -1 : 0;
+                   { extern int rt_big_cmp(DESCR_t, DESCR_t); int c = rt_big_cmp(a, b); return c < 0 ? -1 : (c > 0 ? 1 : 0); } }
     if (ra == 2) return (a.r > b.r) ? 1 : (a.r < b.r) ? -1 : 0;
     if (ra == 3 || ra == 4) return sort_chars_cmp(a, b);
     if (ra == 5) return sort_key_str_cmp(a, b);
@@ -6377,12 +6378,12 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         extern DESCR_t rt_make_list(DESCR_t *a, int nn);
         *out = rt_make_list(mem, n); return 1;
     }
-    if ((_bid == BID_sortf) && (nargs == 1 || nargs == 2) && args[0].v == DT_DATA && args[0].u && sort_struct_type_name(args[0])[0] && strcmp(sort_struct_type_name(args[0]), "list") != 0) {
+    if (((_bid == BID_sortf) || (_bid == BID_sort)) && (nargs == 1 || nargs == 2) && args[0].v == DT_DATA && args[0].u && sort_struct_type_name(args[0])[0] && strcmp(sort_struct_type_name(args[0]), "list") != 0) {
         DATINST_t *di = (DATINST_t *)args[0].u;
         int n = di->type->nfields; if (n < 0) n = 0;
         DESCR_t *mem = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t));
         for (int _k = 0; _k < n; _k++) mem[_k] = di->fields[_k];
-        { DESCR_t *_tmp = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t)); sort_msort_descr(mem, _tmp, n, sortf_field_i(args, nargs)); }
+        { DESCR_t *_tmp = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t)); sort_msort_descr(mem, _tmp, n, (_bid == BID_sortf) ? sortf_field_i(args, nargs) : 0); }
         extern DESCR_t rt_make_list(DESCR_t *a, int nn);
         *out = rt_make_list(mem, n); return 1;
     }
