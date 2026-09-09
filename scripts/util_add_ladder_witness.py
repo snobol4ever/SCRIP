@@ -376,6 +376,7 @@ def main():
     # Verify the OLD entries still round-trip identically inside the new file (prefix-equality check)
     # before replacing anything -- appending must never perturb what already existed.
     old_src_text = master_src.read_text()
+    old_ref_text = master_ref.read_text()
     if not tmp_src2.read_text().startswith(old_src_text[:-1] if old_src_text.endswith("\n") else old_src_text):
         tmp_src2.unlink(missing_ok=True); tmp_ref2.unlink(missing_ok=True)
         refuse("post-append check failed: the existing entries were perturbed by the append -- nothing written")
@@ -409,12 +410,36 @@ def main():
     err = subprocess.run([sys.executable, str(HERE / "corpus_suite_harness.py"), "extract",
                           str(master_src), str(master_ref), entry_name, str(check_src),
                           "--out-ref", str(check_ref)], capture_output=True, text=True)
-    ok = (err.returncode == 0 and check_src.read_text() == sno_text.rstrip("\n") + "\n"
-          and check_ref.read_text() == ref_text.rstrip("\n") + "\n")
+    # ⛔⭐ THE EXPECTATION IS RECONSTRUCTED FROM THE LINES THE MASTER STORES, NEVER FROM rstrip (hq_V,
+    # 2026-09-09, on the FIRST rung minted for CEO-445). It was `ref_text.rstrip("\n") + "\n"`, which
+    # collapses ANY run of trailing newlines to exactly one -- so a witness whose ORACLE OUTPUT LEGITIMATELY
+    # ENDS IN A BLANK LINE could never pass its own proof: the master stores lines (`ref_text.splitlines()`),
+    # the extractor faithfully returns the blank one, and the comparison had just stripped it. ⭐ NOTHING WAS
+    # EVER WRONG WITH THE STORED DATA -- the round trip was exact and only the assertion about it was not,
+    # which is why it read as a corpus fault rather than a proof fault and got worked around by appending a
+    # non-blank final line to the witness. That workaround silently weakens the very assertion the witness
+    # exists to make, and for Icon it is not a corner case at all: writing a null value prints an empty line,
+    # which is exactly what a rung distinguishing null from integer 0 must show.
+    def _as_stored(text):
+        lines = text.splitlines()
+        return "\n".join(lines) + "\n" if lines else ""
+    ok = (err.returncode == 0 and check_src.read_text() == _as_stored(sno_text)
+          and check_ref.read_text() == _as_stored(ref_text))
     check_src.unlink(missing_ok=True); check_ref.unlink(missing_ok=True)
     if not ok:
-        refuse("post-write extraction proof failed for %s (stderr: %s) -- files were written, "
-               "investigate before trusting them; do not commit" % (entry_name, err.stderr))
+        # ⛔ A REFUSAL LEAVES THE TREE AS IT FOUND IT. The proof necessarily runs AFTER the three masters are
+        # replaced -- it extracts through the OFFICIAL extractor rather than this script's belief, so there is
+        # nothing to extract until the write lands. hq_V's measured cost: the tool refused and left the corpus
+        # dirty, telling the operator not to trust files it had already written, which is the expensive half.
+        # So the pre-write contents are restored before refusing, and the refusal says the tree is clean.
+        try:
+            master_src.write_text(old_src_text); master_ref.write_text(old_ref_text)
+            master_csv.write_bytes(old_csv_bytes)
+            _rolled = "the three masters were RESTORED to their pre-write contents; the tree is clean"
+        except OSError as exc:
+            _rolled = "⛔ ROLLBACK ITSELF FAILED (%s) -- the masters are dirty, restore them from git" % exc
+        refuse("post-write extraction proof failed for %s (stderr: %s) -- %s"
+               % (entry_name, err.stderr, _rolled))
     print("APPLIED: %s rank=%s -> %s / %s / %s (extraction round-trip verified)"
           % (entry_name, rank, master_src, master_ref, master_csv))
 
