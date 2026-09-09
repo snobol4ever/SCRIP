@@ -31,6 +31,7 @@ owed work rather than counted as satisfied.
 EXIT: 0 every declared form (and, under --phase all, every declared pair) has a witness; 1 something declared
 has none; 2 REFUSED -- cannot measure (no census, no header, nothing graded).
 """
+import os
 import sys, os, re, csv, argparse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -365,10 +366,17 @@ def main():
         if named:
             print("  %-14s %s" % (st + ":", " ".join(named)))
     if allmissing:
-        for m in allmissing[:40]:
+        # ⛔ A COUNT WITHOUT NAMES CANNOT BE TRIAGED (RULES sec THE INSTRUMENT LAWS, batch 14 -- the same
+        # 40-line cap measured on corpus_suite_harness.py, where two rung-2 defects hid behind 170 SKIPs).
+        # This listing had the identical cap and no way to lift it: the one flag a reader would reach for,
+        # could not be lifted at all: 131 slots, 40 named, and the walker could not see the rung it stands on.
+        # LADDER_LIST_ALL=1 names every slot, spelled after the harness's own SUITE_LIST_ALL=1 rather than as a
+        # new flag -- --all here already means all LANGUAGES, and the two would have read as one.
+        shown = allmissing if os.environ.get("LADDER_LIST_ALL") else allmissing[:40]
+        for m in shown:
             print("    no witness: %s" % m)
-        if len(allmissing) > 40:
-            print("    ... and %d more" % (len(allmissing) - 40))
+        if len(shown) < len(allmissing):
+            print("    ... and %d more -- re-run with LADDER_LIST_ALL=1 to name every slot" % (len(allmissing) - len(shown)))
     # ⛔ NOTHING GRADED IS A REFUSAL. Today every census is still on the old schema, so this is the expected
     # answer for a while -- and it is the honest one. A checker that printed GREEN here would have closed the
     # row it exists to open.

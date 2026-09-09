@@ -178,6 +178,8 @@ const char *rt_kw_direct_sym(int idx, int *soff, const void **base) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_udc_on(void) { return kwb_own[7] != 0; }
+int rt_kw_input_on(void) { return kwb_own[3] != 0; }
+int rt_kw_output_on(void) { return kwb_own[4] != 0; }
 void rt_kw_bind(void *block, int n) { if (block && n > 0) { g_kwb_bound = (KWB_ENT_t *)block; g_kwb_bound_n = n; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void kwb_init_once(void) {

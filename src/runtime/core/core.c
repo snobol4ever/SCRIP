@@ -2622,7 +2622,7 @@ DESCR_t NV_GET_fn(const char *name) {
     _var_init();
     if (!name) return NULVCL;
     if (!g_call_fastpath_off && name[0] != '&' && (name[0] != 'I' || strcmp(name, "INPUT") != 0) && (name[0] != 'T' || strcmp(name, "TERMINAL") != 0)) { NV_t *e = _var_find_cached(name); if (e) return e->is_gva ? *e->cell : e->val; }
-    if (strcmp(name, "INPUT") == 0) return input_read();
+    if (strcmp(name, "INPUT") == 0) { extern int rt_kw_input_on(void); if (!rt_kw_input_on()) return NULVCL; return input_read(); }
     if (strcmp(name, "TERMINAL") == 0) return terminal_read();
     if (strcmp(name, "OUTPUT") == 0) { NV_t *e = _var_bucket_find("_OUTPUT"); return e ? (e->is_gva ? *e->cell : e->val) : NULVCL; }
     _io_chan_setup();
@@ -2680,7 +2680,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
         fprintf(_io_chan[ch].fp, "%s\n", s ? s : "");
         return val;
     }
-    if (strcmp(name, "OUTPUT") == 0) { output_val(val); _var_assoc_set("_OUTPUT", val); return val; }
+    if (strcmp(name, "OUTPUT") == 0) { extern int rt_kw_output_on(void); if (rt_kw_output_on()) output_val(val); _var_assoc_set("_OUTPUT", val); return val; }
     if (strcmp(name, "TERMINAL") == 0) {
         const char *s = IS_STR(val) ? rt_cstr_d(val) : "";
         fprintf(stderr, "%s\n", s);

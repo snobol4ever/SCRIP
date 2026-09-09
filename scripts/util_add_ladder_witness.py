@@ -59,8 +59,21 @@ import corpus_suite_harness as csh  # noqa: E402  -- the ONE authority for Entry
 
 S4E = HERE.parent.parent
 ORACLE = {
-    "icon": "/home/resources/icon-master/bin/icon",  # icont+iconx, one step -- grading wants one step
+    "icon": ["/home/resources/icon-master/bin/icon"],  # icont+iconx, one step -- grading wants one step
+    "snobol4": ["/home/resources/x64/bin/sbl", "-bf"],  # THE one SNOBOL4 oracle (Lon 2026-09-07/08, RULES sec
 }
+# ⛔⭐ `-bf` IS NOT OPTIONAL AND NOT A PER-PROGRAM WORKAROUND (RULES sec Oracles, s189): SPITBOL case-folds
+# names by default and SCRIP is case-sensitive, so a ref cut without -f grades a different language, and plain
+# -b manufactures phantom duplicate labels that walk into a crashing error path. sbl_correctness_bin() +
+# sbl_lang_flags() in lib_oracle_flags.sh are the shell-side authority for the same two facts.
+#
+# ⭐ SNOBOL4 SUPPORT (ceo 2026-09-08, walking snobol4-ladder-every-feature-in-isolation-with-variations, whose
+# forms check reported 131 declared slots with no witness across rungs 14-33): every language-specific fact
+# below is TAKEN FROM AN EXISTING AUTHORITY rather than re-derived here -- the feature columns and the entry
+# name come from util_build_master_suite.py's own COLS/NAME_FEATURES tables (the builder writes ALL.csv, so
+# anything else would be a second opinion about the same file), and the master's shape comes from
+# corpus_suite_harness.py. VALIDATED before use: the builder's predicates were run against all 94 existing
+# family==ladder rows of the SNOBOL4 master and reproduced every one of their 39 flags, 0 mismatches.
 
 SIMPLE_WORDS = ["write", "writes", "read", "reads", "find", "match", "upto", "many", "any", "bal", "tab",
     "move", "pos", "stop", "image", "type", "sort", "put", "push", "pop", "get", "insert", "delete",
@@ -135,11 +148,11 @@ def derive_flags(sno_lines):
     return f
 
 
-def run_oracle_twice(oracle_bin, src_path, timeout=8):
+def run_oracle_twice(oracle_argv, src_path, timeout=8):
     outs, rcs = [], []
     for _ in range(2):
         try:
-            p = subprocess.run([oracle_bin, str(src_path)], stdin=subprocess.DEVNULL,
+            p = subprocess.run(list(oracle_argv) + [str(src_path)], stdin=subprocess.DEVNULL,
                                 capture_output=True, timeout=timeout)
         except subprocess.TimeoutExpired:
             refuse("oracle timed out on %s -- not a witness candidate" % src_path)
@@ -147,7 +160,77 @@ def run_oracle_twice(oracle_bin, src_path, timeout=8):
         rcs.append(p.returncode)
     if outs[0] != outs[1] or rcs[0] != rcs[1]:
         refuse("oracle is NONDETERMINISTIC on %s (two runs disagreed) -- not a witness candidate" % src_path)
+    # ⛔⭐ THE REF IS CUT WITH EMPTY STDIN, AND THIS SCRIPT DOES NOT WRITE ALL.in -- so a witness that READS
+    # its input would be minted against an empty-stdin answer and then graded against it forever, quietly
+    # testing the wrong program. PROVED BY MEASUREMENT, not by grepping the source for INPUT: run the oracle
+    # once more with a non-empty stdin and refuse if the answer moves. A witness whose answer depends on
+    # stdin belongs to a landing that also writes the sidecar; refusing here is the honest half of that.
+    try:
+        p3 = subprocess.run(list(oracle_argv) + [str(src_path)], input=b"stdin-probe\n",
+                            capture_output=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        refuse("oracle timed out on %s under the stdin-sensitivity probe" % src_path)
+    if p3.stdout.decode("utf-8", errors="replace") != outs[0] or p3.returncode != rcs[0]:
+        refuse("witness READS STDIN: the oracle's answer changes when stdin is non-empty, and this script "
+               "writes no ALL.in sidecar, so the ref would pin the empty-stdin answer. Mint it in a landing "
+               "that writes the stdin sidecar too, or make the witness stdin-independent (%s)" % src_path)
     return outs[0], rcs[0]
+
+
+def _builder():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("_bms", str(HERE / "util_build_master_suite.py"))
+    mod = importlib.util.module_from_spec(spec)
+    argv = sys.argv[:]
+    sys.argv = ["util_build_master_suite.py"]
+    try:
+        spec.loader.exec_module(mod)
+    finally:
+        sys.argv = argv
+    return mod
+
+
+def lang_schema(lang, rows):
+    """The CSV schema is READ FROM THE FILE THIS TOOL IS ABOUT TO APPEND TO, never hardcoded twice. Icon keeps
+    its compiled-in assertion (its 61 columns are this script's own contract); every other language takes the
+    header as written, because the builder owns that header and a second copy of it here would drift."""
+    if not rows:
+        refuse("%s master ALL.csv has no rows -- nothing to derive a schema from" % lang)
+    fields = list(rows[0].keys())
+    if lang == "icon":
+        if fields != CSV_FIELDS:
+            refuse("ALL.csv header does not match this script's known schema -- do not proceed blind")
+        return CSV_FIELDS, FLAG_ORDER
+    fixed = ["rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "modes"]
+    if fields[:len(fixed)] != fixed:
+        refuse("%s ALL.csv does not open with the 8 fixed columns %s -- do not proceed blind" % (lang, fixed))
+    return fields, fields[len(fixed):]
+
+
+def builder_flags(lang, sno_lines):
+    """⛔ THE BUILDER'S OWN PREDICATES, NOT A SECOND OPINION. util_build_master_suite.py writes every other row
+    of ALL.csv from LANG_TABLES[lang][0] applied to the entry's joined source text; deriving the same columns
+    any other way here would put two rulesets on one file and the disagreement would show up as a flag nobody
+    can explain. Validated 2026-09-08 against all 94 existing family==ladder SNOBOL4 rows: 0 mismatches."""
+    b = _builder()
+    if lang not in b.LANG_TABLES:
+        refuse("util_build_master_suite.py has no LANG_TABLES entry for %r" % lang)
+    cols = b.LANG_TABLES[lang][0]
+    text = "\n".join(sno_lines)
+    return {name: pred(text) for name, pred in cols}
+
+
+def builder_entry_name(lang, rows, sno_lines, flags):
+    """The entry NAME is the builder's descriptive_name() plus the next free number, exactly as absorption
+    would have named it -- so an entry minted here and an entry minted by a rebuild are indistinguishable, and
+    test_gate_master_order_is_the_builders_order stays satisfiable (run the builder's --resort after minting)."""
+    b = _builder()
+    base = b.descriptive_name("\n".join(sno_lines), flags)
+    used = {r["entry"] for r in rows}
+    n = 1
+    while "%s_%d" % (base, n) in used:
+        n += 1
+    return "%s_%d" % (base, n)
 
 
 def next_rank(rows):
@@ -164,13 +247,19 @@ def next_entry_name(rows, prefix="procedure_write_"):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--lang", default="icon", choices=sorted(ORACLE))
+    ap.add_argument("--entry-name", default="", help="override the builder-derived entry name (rarely right)")
     ap.add_argument("--origin", required=True, help="ladder__rungNN_<slug>, must be new and NN must be an existing rung")
     ap.add_argument("--source", required=True, help="path to the new witness's source file")
     ap.add_argument("--apply", action="store_true", help="write the files; omit for a dry-run report")
     args = ap.parse_args()
 
     lang = args.lang
-    cfg = csh.LANG_CONFIGS[lang]
+    # ⛔ SNOBOL4 IS DELIBERATELY ABSENT FROM csh.LANG_CONFIGS (see LANG_CHOICES there: every other language is
+    # a converted block suite; SNOBOL4 is the original MIXED master and its config would imply a shape it does
+    # not have). Its three facts are spelled here, beside the code that uses them, rather than added to the
+    # shared table where they would claim membership of a family this master is not in.
+    cfg = csh.LANG_CONFIGS[lang] if lang in csh.LANG_CONFIGS else {
+        "ext": ".sno", "comment_open": "*", "comment_close": "", "modes": "m3,m4"}
     master_dir = S4E / "corpus" / "tests" / lang
     master_src, master_ref, master_csv = (master_dir / ("ALL" + cfg["ext"]), master_dir / "ALL.ref",
                                            master_dir / "ALL.csv")
@@ -185,8 +274,7 @@ def main():
 
     with open(master_csv, newline="") as fh:
         rows = list(csv.DictReader(fh))
-    if rows and list(rows[0].keys()) != CSV_FIELDS:
-        refuse("ALL.csv header does not match this script's known schema -- do not proceed blind")
+    fields, flag_order = lang_schema(lang, rows)
     if any(r["origin"] == args.origin for r in rows):
         refuse("origin %r already exists in %s" % (args.origin, master_csv))
     existing_rungs = {int(mm.group(1)) for r in rows
@@ -207,10 +295,10 @@ def main():
     if not sno_lines:
         refuse("--source is empty")
 
-    oracle_bin = ORACLE[lang]
-    if not Path(oracle_bin).is_file():
-        refuse("shared oracle missing at %s -- fix the shared tree, never fall back to PATH" % oracle_bin)
-    ref_text, want_rc = run_oracle_twice(oracle_bin, src_path)
+    oracle_argv = ORACLE[lang]
+    if not Path(oracle_argv[0]).is_file():
+        refuse("shared oracle missing at %s -- fix the shared tree, never fall back to PATH" % oracle_argv[0])
+    ref_text, want_rc = run_oracle_twice(oracle_argv, src_path)
     ref_lines = ref_text.splitlines()
     if want_rc != 0:
         # ⛔ NOT YET IMPLEMENTED: a nonzero want_rc must also gain a line in ALL.wantrc (keyed on the
@@ -220,33 +308,45 @@ def main():
         refuse("oracle exited rc=%d (nonzero) -- this script does not yet write ALL.wantrc, so it "
                "cannot correctly mint a nonzero-rc witness; extend it before using it for one" % want_rc)
 
-    flags = derive_flags(sno_lines)
+    flags = derive_flags(sno_lines) if lang == "icon" else builder_flags(lang, sno_lines)
 
-    banner_re = csh.banner_re_for(cfg["comment_open"], cfg["comment_close"])
-    entries = csh.read_block_suite(str(master_src), str(master_ref), banner_re,
-                                    w_path=str(master_dir / "ALL.wantrc"))
+    if lang == "icon":
+        banner_re = csh.banner_re_for(cfg["comment_open"], cfg["comment_close"])
+        entries = csh.read_block_suite(str(master_src), str(master_ref), banner_re,
+                                        w_path=str(master_dir / "ALL.wantrc"))
+        reserialize = lambda es, a, b: csh.write_block_suite(es, a, b, cfg["comment_open"], cfg["comment_close"])
+    else:
+        # ⛔ THE SNOBOL4 MASTER IS MIXED: one-line entries (`stmt;END;* name`) and 80-column banner blocks in
+        # ONE file, so read_block_suite REFUSES on its first line. read_suite/write_suite are the harness's
+        # own readers for that shape -- the round-trip proof below is what makes using them safe, and it is
+        # run against the real master before a single byte is written.
+        entries = csh.read_suite(str(master_src), str(master_ref), in_path=str(master_dir / "ALL.in"),
+                                  x_path=str(master_dir / "ALL.xfail"))
+        reserialize = lambda es, a, b: csh.write_suite(es, a, b, out_in=None, lang=lang)
     # ── ROUND-TRIP PROOF, before this tool is trusted to touch the real files: re-serialize the
     # UNCHANGED entries and diff against what is actually on disk. A mismatch here means this script's
     # understanding of the format is wrong, and it must refuse before writing anything, not after.
     tmp_src, tmp_ref = master_src.with_suffix(master_src.suffix + ".rtcheck"), master_ref.with_suffix(".ref.rtcheck")
-    csh.write_block_suite(entries, str(tmp_src), str(tmp_ref), cfg["comment_open"], cfg["comment_close"])
+    reserialize(entries, str(tmp_src), str(tmp_ref))
     same = tmp_src.read_text() == master_src.read_text() and tmp_ref.read_text() == master_ref.read_text()
     tmp_src.unlink(missing_ok=True); tmp_ref.unlink(missing_ok=True)
     if not same:
-        refuse("round-trip proof failed: read_block_suite+write_block_suite does not reproduce the "
+        refuse("round-trip proof failed: this language's reader+writer pair does not reproduce the "
                "existing master byte-for-byte -- refusing to trust this tool with a real write")
 
-    entry_name = next_entry_name(rows)
+    entry_name = args.entry_name or (next_entry_name(rows) if lang == "icon" else builder_entry_name(lang, rows, sno_lines, flags))
+    if any(r["entry"] == entry_name for r in rows):
+        refuse("entry name %r already exists -- pass --entry-name to disambiguate" % entry_name)
     rank = next_rank(rows)
     new_entry = csh.Entry("block", rank, entry_name, sno_lines, ref_lines, want_rc=want_rc)
     new_row = {"rank": str(rank), "entry": entry_name, "origin": args.origin, "family": "ladder",
                "kind": "block", "xfail": "0", "n_lines": str(len(sno_lines)), "modes": cfg["modes"]}
-    for k in FLAG_ORDER:
+    for k in flag_order:
         new_row[k] = str(flags[k])
 
     print("would add: rank=%s entry=%s origin=%s want_rc=%s n_lines=%s modes=%s"
           % (rank, entry_name, args.origin, want_rc, len(sno_lines), cfg["modes"]))
-    nz = [k for k in FLAG_ORDER if flags[k]]
+    nz = [k for k in flag_order if flags[k]]
     print("  non-zero flags:", ", ".join(nz) if nz else "(none)")
     print("  oracle stdout:", repr(ref_text))
 
@@ -257,7 +357,7 @@ def main():
     all_entries = entries + [new_entry]
     tmp_src2 = master_src.with_suffix(master_src.suffix + ".newtmp")
     tmp_ref2 = master_ref.with_suffix(".ref.newtmp")
-    csh.write_block_suite(all_entries, str(tmp_src2), str(tmp_ref2), cfg["comment_open"], cfg["comment_close"])
+    reserialize(all_entries, str(tmp_src2), str(tmp_ref2))
     # Verify the OLD entries still round-trip identically inside the new file (prefix-equality check)
     # before replacing anything -- appending must never perturb what already existed.
     old_src_text = master_src.read_text()
@@ -273,7 +373,7 @@ def main():
         # (confirmed byte-for-byte: 0a, never 0d0a). Without this override every one of 808 existing
         # lines reads as "changed" to git (CRLF vs LF), turning a one-row append into an 809-deletion
         # rewrite -- caught by inspecting the actual diff before this was ever committed.
-        w = csv.DictWriter(fh, fieldnames=CSV_FIELDS, lineterminator="\n")
+        w = csv.DictWriter(fh, fieldnames=fields, lineterminator="\n")
         w.writeheader()
         for r in rows:
             w.writerow(r)
