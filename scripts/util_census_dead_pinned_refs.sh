@@ -20,14 +20,22 @@
 #     have no per-program pins at all, they grade live against the oracle.  Every directory is therefore
 #     printed with its POPULATION, and a population of zero is spelled NO-PINS, never 0-dead.  A census that
 #     cannot see its population must never print 0.
-# (2) ⛔ GREP IS NOT BINARY-SAFE AND SAYS NOTHING WHEN IT GIVES UP.  `corpus/tests/snobol4/ALL.ref` — the
-#     SNOBOL4 MASTER, the announcement board — carries ONE NUL byte in 330570, so `file` calls it "data" and
-#     every plain grep over it reports NOTHING while exiting 0.  That single byte hid three dead-pinned
-#     master entries from this class for as long as the class has existed.  Hence `-a` on every match here.
-#     ⚠️ THE AUTHORITY ITSELF STILL LACKS IT: scorecard_snobol4.sh's `sbl_died` has no -a.  Not patched from
-#     here — that is hq_T's minted row (a pin tripping sbl_died must count as NO pin in run_one, + a mint-time
-#     refusal).  Instead this script READS the authority's line and PRINTS A DIVERGENCE NOTICE if it differs,
-#     so the two spellings can never drift apart silently.  Fix it there and this notice goes quiet.
+# (2) ⛔ MEASURE A PREDICATE WITH THE INTERPRETER THAT WILL RUN IT.  `corpus/tests/snobol4/ALL.ref` — the
+#     SNOBOL4 MASTER, the announcement board — carries ONE NUL byte in 330570, so `file` calls it "data".
+#     ⛔ AN EARLIER VERSION OF THIS HEADER SAID THAT BYTE *HID* THREE DEAD-PINNED MASTER ENTRIES behind a grep
+#     that reports nothing and exits 0.  THAT WAS WRONG, and hq_T bounded it 2026-09-08.  The interactive shell
+#     on this box routes `grep` to a ugrep FUNCTION; it is NOT exported (no BASH_FUNC_grep), so it never reaches
+#     a script.  Inside a script — the only place `sbl_died` ever runs — grep is /usr/bin/grep GNU 3.11, whose
+#     binary detection suppresses OUTPUT but never EXIT STATUS, and -q prints nothing anyway.  RE-MEASURED HERE
+#     on the real master, in a script: no -a => DEAD, with -a => DEAD.  The predicate has ALWAYS answered DEAD
+#     everywhere it actually runs; nothing was concealed and no board number was ever hidden.  The three entries
+#     are genuinely dead-pinned — that half of the finding stands — but the NUL byte is not why they went unseen.
+#     ⭐ THE KEEPER: `command -v grep` printed a bare "grep" and could not say so; `type -t` is the instrument
+#     that answers WHICH grep.  A shell function shadowing a binary survives no export and silently answers a
+#     different question than the same text in a script.
+#     `-a` stays on every match here, and hq_T landed it on the authority too (SCRIP 60d58c05b), as INSURANCE
+#     rather than a repair: it makes the answer independent of whatever grep is on PATH, at zero verdict cost.
+#     The check below therefore guards ONE thing only — that the two spellings do not drift apart.
 #
 # Exit: 0 = censused (any count; a report is not a verdict).  2 = REFUSED, could not measure.
 set -u
@@ -99,5 +107,5 @@ echo
 [ "$seen_any" = 1 ] || { echo "⛔ REFUSE(2): zero pin files found anywhere under $CORPUS -- a census over nothing, not a clean corpus"; exit 2; }
 echo "TOTAL dead-pinned entries: $tot_dead   (per-program pins examined: $tot_pins)"
 echo "affected:$dead_dirs"
-[ -n "${DIVERGE:-}" ] && { echo; echo "⚠️ PREDICATE DIVERGENCE -- scorecard_snobol4.sh's sbl_died is NOT binary-safe (no -a) and will"; echo "   silently report 0 on any pin carrying a NUL byte, which the SNOBOL4 master does. hq_T's row."; echo "   authority: $DIVERGE"; }
+[ -n "${DIVERGE:-}" ] && { echo; echo "⚠️ PREDICATE DRIFT -- this census matches with -a and scorecard_snobol4.sh's sbl_died no longer does."; echo "   ⛔ This is NOT a claim that a number is being hidden: GNU grep in a script answers the same either way"; echo "   (measured 2026-09-08, hq_T + hq_B, on the real master). It is a spelling-drift guard only -- -a is"; echo "   insurance against a non-GNU grep on PATH, at zero verdict cost. Restore -a there and this goes quiet."; echo "   authority: $DIVERGE"; }
 exit 0
