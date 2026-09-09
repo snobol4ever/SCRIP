@@ -107,12 +107,12 @@ static scrip_coctx_t *scrip_co_live_activator(scrip_coctx_t *me) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void scrip_coret(uint64_t d0, uint64_t d1, void *resume_addr) {
     if (!scrip_co_current) scrip_co_uerror("scrip_coexpr: scrip_coret with no current coexpression (RUNG 5 `@` wiring bug -- body entered without setting scrip_co_current)");
-    scrip_co_current->xmit[0] = d0;
-    scrip_co_current->xmit[1] = d1;
     scrip_co_current->resume_addr = resume_addr;
     scrip_coctx_t *me = scrip_co_current;
     scrip_coctx_t *back = scrip_co_live_activator(me);
     if (!back) scrip_co_uerror("scrip_coexpr: scrip_coret with no activator (RUNG 5 `@` did not set scrip_co_current->activator before switching in)");
+    back->xmit[0] = d0;
+    back->xmit[1] = d1;
     scrip_co_current = back;
     scrip_coswitch(me, back, 1);
 }
@@ -240,8 +240,8 @@ int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint6
     scrip_co_current = prev;
     if (target->dead) return 0;
     target->activations++;
-    out2[0] = target->xmit[0];
-    out2[1] = target->xmit[1];
+    out2[0] = self->xmit[0];
+    out2[1] = self->xmit[1];
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
