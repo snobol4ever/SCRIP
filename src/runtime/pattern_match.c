@@ -998,6 +998,16 @@ long rt_defer_step(DESCR_t val)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rt_dtx_drain(DESCR_t r);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rt_defer_expr_value(DESCR_t val)
+{
+    if (val.v != DT_E) return val;
+    val = EXPVAL_fn(val);
+    if (val.v == DT_X && val.s) val = rt_dtx_drain(val);
+    return val;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int c_rt_defer_close(int cur_delta)
 {
     if (g_dfx_top <= 0) return -1;
@@ -1005,6 +1015,7 @@ int c_rt_defer_close(int cur_delta)
     if (s.failed) return -1;
     DESCR_t val = s.val;
     if (IS_FAIL_fn(val)) return -1;
+    val = rt_defer_expr_value(val);
     char nb[40];
     if (val.v == DT_I) { snprintf(nb, sizeof nb, "%lld", (long long)val.i); val.v = DT_S; val.slen = (uint32_t)strlen(nb); val.s = nb; }
     else if (val.v == DT_R) { snprintf(nb, sizeof nb, "%g", val.r); val.v = DT_S; val.slen = (uint32_t)strlen(nb); val.s = nb; }
@@ -1184,6 +1195,7 @@ static inline __attribute__((always_inline)) int rt_defer_merge_on(void) { stati
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_defer_close_v(int cur_delta, DESCR_t val)
 {
+    val = rt_defer_expr_value(val);
     if (IS_FAIL_fn(val)) return -1;
     char nb[40];
     if (val.v == DT_I) { snprintf(nb, sizeof nb, "%lld", (long long)val.i); val.v = DT_S; val.slen = (uint32_t)strlen(nb); val.s = nb; }
