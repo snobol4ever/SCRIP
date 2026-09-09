@@ -4779,9 +4779,66 @@ static const char *sort_key_cstr(DESCR_t v, char *buf, int bufsz) {
     { const char *s = VARVAL_fn(v); return s ? s : ""; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sort_type_rank(DESCR_t v) {
+    if (v.v == DT_SNUL) return 0;
+    if (v.v == DT_I || v.v == DT_BIG) return 1;
+    if (v.v == DT_R) return 2;
+    if (IS_CSET_fn(v)) return 4;
+    if (v.v == DT_S || v.v == DT_N) return 3;
+    if (IS_FH_fn(v)) return 5;
+    if (v.v == DT_CO) return 6;
+    if (v.v == DT_E) return 7;
+    if (v.v == DT_A) return 8;
+    if (v.v == DT_T) return (v.tbl && v.tbl->is_set) ? 9 : 10;
+    if (v.v == DT_DATA) { DESCR_t tag = FIELD_GET_fn(v, "gen_type"); return (tag.v == DT_S && tag.s && !strcmp(tag.s, "list")) ? 8 : 11; }
+    return 3;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long sort_struct_serial(DESCR_t v) {
+    if (v.v == DT_CO && v.p) { extern long scrip_coexpr_serial_of(void *); return scrip_coexpr_serial_of(v.p); }
+    if (v.v == DT_A && v.arr) return v.arr->id;
+    if (v.v == DT_T && v.tbl) return v.tbl->id;
+    if (v.v == DT_DATA && v.u) return ((DATINST_t *)v.u)->id;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *sort_struct_type_name(DESCR_t v) {
+    if (v.v == DT_DATA && v.u && ((DATINST_t *)v.u)->type && ((DATINST_t *)v.u)->type->name) return ((DATINST_t *)v.u)->type->name;
+    return "";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sort_chars_len(DESCR_t d) { int n = (int)descr_slen(d); if (n == 0 && d.s && *d.s) n = (int)strlen(d.s); return n; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sort_chars_cmp(DESCR_t a, DESCR_t b) {
+    const char *sa = a.s ? a.s : "", *sb = b.s ? b.s : "";
+    int la = sort_chars_len(a), lb = sort_chars_len(b), n = la < lb ? la : lb, c = n > 0 ? memcmp(sa, sb, (size_t)n) : 0;
+    if (c) return c < 0 ? -1 : 1;
+    return la < lb ? -1 : (la > lb ? 1 : 0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sort_long_cmp(long x, long y) { return x < y ? -1 : (x > y ? 1 : 0); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *sort_proc_name(DESCR_t v) {
+    for (int i = 0; i < g_stage2.proc_count; i++) if (g_stage2.proc_table[i].entry_pc == (int)v.i && g_stage2.proc_table[i].name) return g_stage2.proc_table[i].name;
+    return v.s ? v.s : "";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sort_key_str_cmp(DESCR_t a, DESCR_t b) {
+    char ba[64], bb[64]; int c = strcmp(sort_key_cstr(a, ba, (int)sizeof ba), sort_key_cstr(b, bb, (int)sizeof bb));
+    return c < 0 ? -1 : (c > 0 ? 1 : 0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sort_descr_cmp(DESCR_t a, DESCR_t b) {
-    if (IS_INT_fn(a) && IS_INT_fn(b)) return (a.i > b.i) ? 1 : (a.i < b.i) ? -1 : 0;
-    { char ba[64], bb[64]; const char *sa = sort_key_cstr(a, ba, (int)sizeof ba), *sb = sort_key_cstr(b, bb, (int)sizeof bb); return strcmp(sa, sb); }
+    int ra = sort_type_rank(a), rb = sort_type_rank(b);
+    if (ra != rb) return ra < rb ? -1 : 1;
+    if (ra == 0) return 0;
+    if (ra == 1) { if (a.v == DT_I && b.v == DT_I) return (a.i > b.i) ? 1 : (a.i < b.i) ? -1 : 0; return sort_key_str_cmp(a, b); }
+    if (ra == 2) return (a.r > b.r) ? 1 : (a.r < b.r) ? -1 : 0;
+    if (ra == 3 || ra == 4) return sort_chars_cmp(a, b);
+    if (ra == 5) return sort_key_str_cmp(a, b);
+    if (ra == 7) { int c = strcmp(sort_proc_name(a), sort_proc_name(b)); return c < 0 ? -1 : (c > 0 ? 1 : 0); }
+    if (ra == 11) { int c = strcmp(sort_struct_type_name(a), sort_struct_type_name(b)); if (c) return c < 0 ? -1 : 1; }
+    return sort_long_cmp(sort_struct_serial(a), sort_struct_serial(b));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t sort_field_of(DESCR_t v, int field_idx) {

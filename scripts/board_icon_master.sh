@@ -112,6 +112,11 @@ ENTRY_FLOOR="${ICON_MASTER_ENTRY_FLOOR:-534}"
 # ⛔ TWO OF THE REMAINING 14 ARE GREEN THAT ASSERT NOTHING AND THE FLOOR CANNOT SEE IT: procedure_write_264 PASSES while five of its six oracle trace lines are absent, because lib_ladder.sh discards stderr -- FINDING-2026-09-09-hq_V-the-ladder-cannot-see-stderr-so-two-trace-rungs-grade-green-while-five-of-six-oracle-lines-are-missing.md. A watermark ratchets what is measured; it does not make an unmeasured line safe.
 M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-718}"
 M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-718}"
+# ⭐ hq_I 2026-09-09 (CEO-452), RESOLVING THIS SAME MINUTE: the sort type-class comparator measured 720/732 both modes on SCRIP
+# 1848637a7 + corpus a059b477d, and hq_V measured 718 on f48a3f0c7 + 23638085f. ⛔ NEITHER READING DOMINATES -- 720 carries the
+# comparator cure on an older tree, 718 carries a newer tree without it -- so the floor is LEFT AT 718, THE ONE MEASURED CLOSEST TO
+# ORIGIN, and is re-pinned in the follow-up commit that measures the merged tree. Writing 720 here would pin a number no checkout has
+# produced, which is the one thing a ratchet must never carry.
 # ⛔ NO AST_PASS_FLOOR: a self-pin has no floor to regress below, only a CURRENT-run comparison of
 # ap (matched) vs at (total) -- see the AST-SHAPE note above. Removed under ast-dump-refs-are-self-
 # pins-not-oracles rather than kept-but-unused, so a reader cannot mistake its presence for gating.
