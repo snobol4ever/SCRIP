@@ -34,6 +34,8 @@ Exit codes:
     3   protocol error (bad header, short read, etc.)
 """
 
+import errno
+import fcntl
 import os
 import struct
 import sys
@@ -514,10 +516,66 @@ def build_stno_map():
 # Open one FIFO pair (we read ready, write go).
 # ---------------------------------------------------------------------------
 
-def open_pair(ready_path, go_path):
-    """Open ready FIFO for read, go FIFO for write."""
-    rd = os.open(ready_path, os.O_RDONLY)
-    gw = os.open(go_path,    os.O_WRONLY)
+class ParticipantNeverStarted(Exception):
+    """A participant never opened its end of the FIFO pair within the deadline."""
+
+
+def open_pair(ready_path, go_path, name='?', deadline_s=None):
+    """Open ready FIFO for read, go FIFO for write, REFUSING rather than hanging.
+
+    ⛔⭐ THIS FUNCTION USED TO BE TWO BLOCKING os.open() CALLS AND IT COULD NOT FAIL
+    (hq_T 2026-09-09, ceo brief `the-ipc-sync-step-monitor-does-not-run-and-lon-is-
+    counting-on-it`).  A FIFO opened O_RDONLY blocks until a WRITER appears, and
+    O_WRONLY blocks until a READER appears -- forever, with no timeout of their own.
+    So when a participant died during startup, the controller blocked here for the
+    whole outer window, printed NOTHING (its first log line comes after the open),
+    and the harness sat in `wait` until an external `timeout` killed the process
+    group -- whose EXIT trap then deleted the scratch dir holding the answer.
+
+    MEASURED on the ceo's own witness (snoflake `string-pad.sno`): BOTH participants
+    had already exited within a second, each having written its reason to its .err
+    file, while the controller went on waiting 141s+ for writers that no longer
+    existed.  The instrument could not tell "measured and clean" from "never ran" --
+    the exact failure the INSTRUMENT LAWS name.
+
+    The read side is opened O_NONBLOCK (which never blocks even with no writer), so
+    the deadline is enforced on the WRITE side, where ENXIO means "no reader yet".
+    A blown deadline raises ParticipantNeverStarted, which run() turns into an rc=2
+    REFUSAL naming the participant -- never a verdict, never a hang.
+    """
+    if deadline_s is None:
+        deadline_s = float(os.environ.get('MONITOR_OPEN_TIMEOUT', '20'))
+    # Read side: O_NONBLOCK never blocks on a FIFO opened for read.
+    try:
+        rd = os.open(ready_path, os.O_RDONLY | os.O_NONBLOCK)
+    except OSError as e:
+        raise ParticipantNeverStarted(
+            f"{name}: cannot open ready FIFO {ready_path}: {e}")
+    # Write side: ENXIO until the participant opens its read end.  Poll to a deadline.
+    end = time.time() + deadline_s
+    gw = None
+    while True:
+        try:
+            gw = os.open(go_path, os.O_WRONLY | os.O_NONBLOCK)
+            break
+        except OSError as e:
+            if e.errno != errno.ENXIO:
+                os.close(rd)
+                raise ParticipantNeverStarted(
+                    f"{name}: cannot open go FIFO {go_path}: {e}")
+            if time.time() >= end:
+                os.close(rd)
+                raise ParticipantNeverStarted(
+                    f"{name}: never opened its end of the monitor FIFO pair within "
+                    f"{deadline_s:g}s -- its monitor bridge did not fire, or it exited "
+                    f"during startup. Check {name}.err in the scratch dir for the reason.")
+            time.sleep(0.02)
+    # Restore blocking semantics for the steady-state protocol; the deadline above has
+    # already proven both ends are open, so a blocking read here cannot hang on a
+    # never-started participant.  A participant that dies LATER yields EOF, not a hang.
+    for fd in (rd, gw):
+        fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+        fcntl.fcntl(fd, fcntl.F_SETFL, fl & ~os.O_NONBLOCK)
     return rd, gw
 
 
@@ -540,7 +598,17 @@ def run(participants):
 
     fds = []
     for nm, rp, gp in participants:
-        rd, gw = open_pair(rp, gp)
+        # ⛔ REFUSE (rc=2) rather than block forever when a participant never starts.
+        # The reason is NAMED here because the controller is the only process that
+        # knows which participant it is still waiting for.
+        try:
+            rd, gw = open_pair(rp, gp, name=nm)
+        except ParticipantNeverStarted as e:
+            print(f'REFUSING(2) [monitor_sync_bin]: {e}', file=sys.stderr)
+            for d in fds:
+                try: os.close(d['rd']); os.close(d['gw'])
+                except OSError: pass
+            return 2
         log_fp = None
         if trace_prefix:
             log_fp = open(f'{trace_prefix}.{nm}.log', 'w')

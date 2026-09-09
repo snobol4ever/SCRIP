@@ -257,14 +257,29 @@ for p in "${PARTICIPANTS[@]}"; do
     SPECS+=("$p:$TMP/$p.ready:$TMP/$p.go")
 done
 
+# ⛔⭐ THE CONTROLLER IS BOUNDED, BECAUSE IT USED TO BE THE THING THAT HUNG (hq_T 2026-09-09,
+# ceo brief `the-ipc-sync-step-monitor-does-not-run-and-lon-is-counting-on-it`).  Every
+# PARTICIPANT above carries `timeout $((TIMEOUT*2))`; the controller carried none, and a
+# bare `wait` on it is unbounded.  So the one process with no bound was the one that blocked
+# -- on a FIFO open whose writer had already exited -- and the whole harness inherited its
+# hang.  ⭐ The general form worth keeping: bounding N-1 of N cooperating processes bounds
+# NOTHING; the unbounded one becomes the duration of the job.
+CTRL_TIMEOUT="${MONITOR_CTRL_TIMEOUT:-$((TIMEOUT*4))}"
 MONITOR_SNO_FILE="$SNO" \
 MONITOR_INC_DIR="$(dirname "$(realpath "$SNO")"):$INC" \
-python3 "$MON_DIR/monitor_sync_bin.py" "${SPECS[@]}" > "$TMP/ctrl.out" 2>&1 &
+    timeout "$CTRL_TIMEOUT" python3 "$MON_DIR/monitor_sync_bin.py" "${SPECS[@]}" > "$TMP/ctrl.out" 2>&1 &
 CTRL_PID=$!
 
 # ── Wait + reap ────────────────────────────────────────────────────────
 wait "$CTRL_PID"
 CTRL_RC=$?
+
+# ⛔ A TIMED-OUT CONTROLLER IS A REFUSAL (rc=2), NEVER A RESULT.  rc=124 means the controller
+# could not measure, which must never reach a caller as 0 (agreed) or 1 (diverged).
+if [[ "$CTRL_RC" = "124" ]]; then
+    echo "REFUSING(2) [monitor_auto]: controller did not finish within ${CTRL_TIMEOUT}s -- it could not measure, so this is NOT a verdict." >&2
+    CTRL_RC=2
+fi
 
 # Make sure participants are reaped — SIGTERM in case they're still
 # blocked on the (now-closed) go FIFO.
