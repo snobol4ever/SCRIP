@@ -131,6 +131,7 @@ test_gate_s4e_next_refuses_hq_under_ceo_mode.sh	WIRED	-	-	-
 test_gate_s4e_next_tiebreak_by_mint_time.sh	WIRED	-	-	-
 test_gate_s4e_picker_v2.sh	WIRED	-	-	-
 test_gate_s4e_unclaim_keeps_park.sh	WIRED	-	-	-
+test_gate_s_artifact_drift_ignores_the_build_path.sh	WIRED	-	-	-
 test_gate_same_suite_ref_agreement.sh	WIRED	-	-	-
 test_gate_score_column_semantics.sh	WIRED	-	-	-
 test_gate_score_md_parses_and_github_is_marker_free.sh	WIRED	-	-	-

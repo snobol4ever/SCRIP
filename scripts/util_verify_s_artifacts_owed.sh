@@ -140,6 +140,43 @@ owed_total=0
 trouble_total=0
 report=()
 
+# ⛔⭐ POSITION-ONLY DRIFT IS NOT DRIFT (coo 2026-09-08, ceo's TWENTIETH INSTRUMENT-LAW BATCH).
+# THE DEFECT THIS CURES, and it blocked EVERY seat's handoff from 2026-08-30 until it was measured:
+# this script checks for drift by rebuilding the artifacts IN A DISPOSABLE CLONE and asking whether
+# the regen committed anything there. But an emitted .s carries its own SOURCE PATHNAME in the
+# `.file` directive, so an artifact built at /tmp/verify_s_owed.XXXX/corpus/... can NEVER equal one
+# built at /home/<seat>/corpus/... . Every prolog_bench artifact differed for that reason and no
+# other -- exactly two changed lines per file, both the directive -- so the verifier reported 23
+# OWED on a tree that was current, and would have reported it forever. Regenerating cannot fix it,
+# because regenerating is not what it is asking for.
+# ⛔ SETTLED BY DIRECT MEASUREMENT, not by preferring an instrument: the regen script said
+# emitted=23 changed=0 while this script said 23 owed, minutes apart on one tree; compiling cal.pl
+# in the REAL tree produced a file byte-identical to the committed cal.s.
+# ⭐ THE LAW: an engine handed two spellings of one source produces two outputs that cannot be
+# compared; a comparison whose two sides were produced at different PATHS is comparing the path.
+# Third instance of that class in one day (the cto's Arizona runner, the coo's snoflake runner,
+# this) -- which is why the fix is a shared helper here rather than one arm's special case.
+# ⛔ IT DISCOUNTS ONLY THE `.file` DIRECTIVE AND SAYS SO OUT LOUD when it discounts anything: a
+# file whose diff carries ANY other changed line is still owed, in full. Silence about a discount
+# would be the hiding mechanism.
+files_with_real_drift() {   # $1=repo $2=pre $3=post -> paths whose diff is more than the .file directive
+    local repo="$1" pre="$2" post="$3" f
+    for f in $(git -C "$repo" diff --name-only "$pre" "$post"); do
+        if git -C "$repo" diff -U0 "$pre" "$post" -- "$f" \
+             | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' \
+             | grep -qvE '^[+-][[:space:]]*\.file[[:space:]]'; then
+            printf '%s\n' "$f"
+        fi
+    done
+}
+position_only_note() {      # $1=repo $2=pre $3=post $4=label -- never silent about a discount
+    local all real
+    all="$(git -C "$1" diff --name-only "$2" "$3" | grep -c . || true)"
+    real="$(files_with_real_drift "$1" "$2" "$3" | grep -c . || true)"
+    [ "$all" -gt "$real" ] && echo "    [$4] $((all - real)) file(s) differed ONLY in the .file directive (the clone's path, not drift) -- discounted, see files_with_real_drift"
+    return 0
+}
+
 echo "------------------------------------------------------------"
 echo "--- benchmark (util_regen_benchmark_s_artifacts.sh) ---"
 out="$WORK/benchmark.out"
@@ -151,7 +188,8 @@ post="$(git -C "$SCRATCH_CORPUS" rev-parse HEAD)"
 sed 's/^/    /' "$out"
 bench_owed=0
 if [ "$pre" != "$post" ]; then
-  bench_files="$(git -C "$SCRATCH_CORPUS" diff --name-only "$pre" "$post")"
+  position_only_note "$SCRATCH_CORPUS" "$pre" "$post" benchmark
+  bench_files="$(files_with_real_drift "$SCRATCH_CORPUS" "$pre" "$post")"
   bench_owed="$(printf '%s\n' "$bench_files" | grep -c .)"
   owed_total=$((owed_total + bench_owed))
   report+=("benchmark: $bench_owed .s owed -> $(printf '%s' "$bench_files" | tr '\n' ' ')")
@@ -174,7 +212,8 @@ post="$(git -C "$SCRATCH_CORPUS" rev-parse HEAD)"
 sed 's/^/    /' "$out"
 demo_owed=0
 if [ "$pre" != "$post" ]; then
-  demo_files="$(git -C "$SCRATCH_CORPUS" diff --name-only "$pre" "$post")"
+  position_only_note "$SCRATCH_CORPUS" "$pre" "$post" demo
+  demo_files="$(files_with_real_drift "$SCRATCH_CORPUS" "$pre" "$post")"
   demo_owed="$(printf '%s\n' "$demo_files" | grep -c .)"
   owed_total=$((owed_total + demo_owed))
   report+=("demo: $demo_owed .s owed -> $(printf '%s' "$demo_files" | tr '\n' ' ')")
@@ -202,7 +241,8 @@ post="$(git -C "$SCRATCH_CORPUS" rev-parse HEAD)"
 sed 's/^/    /' "$out"
 pb_owed=0
 if [ "$pre" != "$post" ]; then
-  pb_files="$(git -C "$SCRATCH_CORPUS" diff --name-only "$pre" "$post")"
+  position_only_note "$SCRATCH_CORPUS" "$pre" "$post" prolog_bench
+  pb_files="$(files_with_real_drift "$SCRATCH_CORPUS" "$pre" "$post")"
   pb_owed="$(printf '%s\n' "$pb_files" | grep -c .)"
   owed_total=$((owed_total + pb_owed))
   report+=("prolog_bench: $pb_owed .s/.FENCED owed -> $(printf '%s' "$pb_files" | tr '\n' ' ')")
