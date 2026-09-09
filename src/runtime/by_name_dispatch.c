@@ -3388,6 +3388,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         fh_ensure_init();
         extern char fh_type[];
         if (is_pipe && (strcmp(mode, "r") && strcmp(mode, "w"))) { *out = FAILDESCR; return 1; }
+        if (is_pipe) { fflush(NULL); setvbuf(stdout, NULL, _IOLBF, 0); }
         FILE *fp = is_pipe ? popen(path, mode) : fopen(path, mode);
         if (!fp) { *out = FAILDESCR; return 1; }
         int idx = fh_alloc(fp);
@@ -6345,6 +6346,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         else if (strstr(mode,"a")) cmode = "a";
         extern char fh_type[];
         if (is_pipe && (strcmp(cmode, "r") && strcmp(cmode, "w"))) { *out = FAILDESCR; return 1; }
+        if (is_pipe) { fflush(NULL); setvbuf(stdout, NULL, _IOLBF, 0); }
         FILE *fp = is_pipe ? popen(path, cmode) : fopen(path, cmode);
         if (!fp) { *out = FAILDESCR; return 1; }
         int idx = fh_alloc(fp);
