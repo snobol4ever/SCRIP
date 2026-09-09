@@ -1,3 +1,4 @@
+#include <unordered_set>
 #include <string>
 #include <cstdlib>
 #include <cstdio>
@@ -414,10 +415,17 @@ static std::string xa_flat_chain_epilogue_sig_str(int is_gamma, const char * fna
          + x86_jmp_reg("rcx");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * xa_icn_trace_intern(const char * s) {
+    static std::unordered_set<std::string> pool;
+    if (!s) return s;
+    return pool.insert(std::string(s)).first->c_str();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string xa_icn_trace_tap(const char * pname, int kind, int np) {
     extern long g_trace; extern void rt_trace_call_hook_f(const char *, int, void *); extern void rt_trace_return_hook(const char *, DESCR_t); extern void rt_trace_fail_hook(const char *);
     extern int g_flat_node_id;
     if (!pname) return std::string();
+    pname = xa_icn_trace_intern(pname);
     std::string id = std::to_string(g_flat_node_id++);
     std::string sk = "L24" + std::to_string(6 + kind); std::string fl = ".Licn_trace_nm" + id;
     std::string s = x86("push", "rax") + x86("push", "rdx") + x86("push", "rbx") + x86("mov", "rbx", "rsp") + x86("and", "rsp", (long)-16)
