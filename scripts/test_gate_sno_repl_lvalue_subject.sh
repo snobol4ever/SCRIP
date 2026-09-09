@@ -32,6 +32,7 @@ RT_DIR="${RT_DIR:-$HERE/../out}"
 SBL="$(sbl_correctness_bin)" || { echo "⛔ REFUSE(rc=2): no correctness oracle -- an ungraded run must never print a verdict"; exit 2; }
 [ -x "$SBL" ] || { echo "⛔ REFUSE(rc=2): oracle not executable at $SBL"; exit 2; }
 [ -x "$SCRIP" ] || { echo "⛔ REFUSE(rc=2): scrip not built at $SCRIP"; exit 2; }
+"$HERE/util_require_fresh.sh" --gate test_gate_sno_repl_lvalue_subject "$SCRIP" "$RT_DIR/libscrip_rt.so" || exit 2
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 mkdir -p "$W/sink"
 SINK="$(sbl_listing_sink_flag "$W/sink")" || { echo "⛔ REFUSE(rc=2): no writable listing sink -- SPITBOL fails OPEN on -o= and would dump its listing into the compared stream"; exit 2; }
