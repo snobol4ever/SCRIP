@@ -4230,7 +4230,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
           else if (!strcmp(fn, "<<"))   oc = BINOP_SLT; else if (!strcmp(fn, "<<="))  oc = BINOP_SLE;
           else if (!strcmp(fn, ">>"))   oc = BINOP_SGT; else if (!strcmp(fn, ">>="))  oc = BINOP_SGE;
           else if (!strcmp(fn, "==="))  oc = BINOP_EQV; else if (!strcmp(fn, "~===")) oc = BINOP_NEQV;
-          if (oc >= 0) { if (!rt_jct_relop(a, b, oc)) return FAILDESCR; if (oc >= BINOP_SLT && oc <= BINOP_SNE) return rt_str_coerce(b); DESCR_t _rv; rt_relop_val_coerce(a, b, &_rv); return _rv; } }
+          if (oc >= 0) { if (!rt_jct_relop(a, b, oc)) return FAILDESCR; if (oc >= BINOP_SLT && oc <= BINOP_SNE) return rt_str_coerce(b); if (oc == BINOP_EQV || oc == BINOP_NEQV) return b; DESCR_t _rv; rt_relop_val_coerce(a, b, &_rv); return _rv; } }
     }
     if (try_call_builtin_by_name_bl(fn, args, nargs, &out, bidlen)) return out;
     out = APPLY_fn(fn, args, nargs);

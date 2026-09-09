@@ -96,8 +96,8 @@ ENTRY_FLOOR="${ICON_MASTER_ENTRY_FLOOR:-534}"
 # ladder_rung26_pow_pow_negbase_real and ladder_rung26_pow_pow_zero_negexp. They are open Icon defects to cure,
 # which is why 607 and not 609: a floor is what today already holds, never what tomorrow owes.
 # ⭐ RE-PINNED 607 -> 707 (cfo 2026-09-08 22:5x CDT, MODE NONET): board_icon_master.sh on SCRIP 259fddd68 + the three absorbed cfo witnesses (corpus, --absorb-only): entries=860 · m3 PASS=707 · m4 PASS=707 of 707, both modes, load 5.
-M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-707}"
-M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-707}"
+M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-708}"
+M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-708}"
 # ⛔ NO AST_PASS_FLOOR: a self-pin has no floor to regress below, only a CURRENT-run comparison of
 # ap (matched) vs at (total) -- see the AST-SHAPE note above. Removed under ast-dump-refs-are-self-
 # pins-not-oracles rather than kept-but-unused, so a reader cannot mistake its presence for gating.
