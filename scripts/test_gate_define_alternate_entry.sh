@@ -1,4 +1,5 @@
 #!/bin/bash
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # ⭐ WITNESS GATE for row snobol4-define-alternate-entry-binds-one-entry-for-the-whole-program (hq_P).
 #
 # DEFINE is an EXECUTABLE statement: each execution binds the entry point.  We bind once at compile time, so
