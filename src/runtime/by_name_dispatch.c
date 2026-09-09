@@ -993,18 +993,34 @@ DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) 
     return rt_call_value(callee, argv, n);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char *rt_data_type_name(DESCR_t v) { return (v.v == DT_DATA && v.u && ((DATINST_t *)v.u)->type && ((DATINST_t *)v.u)->type->name) ? ((DATINST_t *)v.u)->type->name : ""; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_data_is_record(DESCR_t v) { const char *n = rt_data_type_name(v); return n[0] && strcmp(n, "list") != 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_apply_unpack(DESCR_t lv, DESCR_t *buf, int cap) {
+    if (lv.v != DT_DATA) return -1;
+    { DESCR_t tag = FIELD_GET_fn(lv, "gen_type");
+      if (tag.v == DT_S && tag.s && strcmp(tag.s, "list") == 0) {
+          int ln = (int)FIELD_GET_fn(lv, "frame_size").i;
+          DESCR_t ea = FIELD_GET_fn(lv, "frame_elems");
+          DESCR_t *arr = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : (DESCR_t *)0;
+          if (!arr) return -1;
+          if (ln < 0) ln = 0; if (ln > cap) ln = cap;
+          for (int k = 0; k < ln; k++) buf[k] = arr[k];
+          return ln;
+      } }
+    if (rt_data_is_record(lv)) {
+        DATINST_t *di = (DATINST_t *)lv.u;
+        int n = di->type->nfields; if (n < 0) n = 0; if (n > cap) n = cap;
+        for (int k = 0; k < n; k++) buf[k] = di->fields[k];
+        return n;
+    }
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_apply_gen_h(DESCR_t callee, DESCR_t lv, void **hslot) {
-    DESCR_t buf[64]; int n = 0;
-    if (lv.v == DT_DATA) {
-        DESCR_t tag = FIELD_GET_fn(lv, "gen_type");
-        if (tag.v == DT_S && tag.s && strcmp(tag.s, "list") == 0) {
-            int ln = (int)FIELD_GET_fn(lv, "frame_size").i;
-            DESCR_t ea = FIELD_GET_fn(lv, "frame_elems");
-            DESCR_t *arr = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : NULL;
-            if (ln > 64) ln = 64;
-            if (arr) { for (int k = 0; k < ln; k++) buf[k] = arr[k]; n = ln; }
-        } else { buf[0] = lv; n = 1; }
-    } else { buf[0] = lv; n = 1; }
+    DESCR_t buf[64]; int n = rt_apply_unpack(lv, buf, 64);
+    if (n < 0) { core_icn_error(126, lv); return FAILDESCR; }
     return rt_call_value_gen_h(callee, buf, n, hslot);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1021,17 +1037,8 @@ void *rt_call_value_spine_prep(DESCR_t callee, DESCR_t *argv, int n) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_call_apply_spine_prep(DESCR_t callee, DESCR_t lv) {
-    DESCR_t buf[64]; int n = 0;
-    if (lv.v == DT_DATA) {
-        DESCR_t tag = FIELD_GET_fn(lv, "gen_type");
-        if (tag.v == DT_S && tag.s && strcmp(tag.s, "list") == 0) {
-            int ln = (int)FIELD_GET_fn(lv, "frame_size").i;
-            DESCR_t ea = FIELD_GET_fn(lv, "frame_elems");
-            DESCR_t *arr = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : NULL;
-            if (ln > 64) ln = 64;
-            if (arr) { for (int k = 0; k < ln; k++) buf[k] = arr[k]; n = ln; }
-        } else { buf[0] = lv; n = 1; }
-    } else { buf[0] = lv; n = 1; }
+    DESCR_t buf[64]; int n = rt_apply_unpack(lv, buf, 64);
+    if (n < 0) return (void *)0;
     return rt_call_value_spine_prep(callee, buf, n);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4810,12 +4817,9 @@ static long sort_struct_serial(DESCR_t v) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *sort_struct_type_name(DESCR_t v) {
-    if (v.v == DT_DATA && v.u && ((DATINST_t *)v.u)->type && ((DATINST_t *)v.u)->type->name) return ((DATINST_t *)v.u)->type->name;
-    return "";
-}
+static const char *sort_struct_type_name(DESCR_t v) { extern const char *rt_data_type_name(DESCR_t); return rt_data_type_name(v); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sort_is_record(DESCR_t v) { const char *n = sort_struct_type_name(v); return n[0] && strcmp(n, "list") != 0; }
+static int sort_is_record(DESCR_t v) { extern int rt_data_is_record(DESCR_t); return rt_data_is_record(v); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sort_chars_len(DESCR_t d) { int n = (int)descr_slen(d); if (n == 0 && d.s && *d.s) n = (int)strlen(d.s); return n; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -6203,16 +6207,9 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     L_bidjmp_6149: ;
     if ((_bid == BID___apply__) && nargs == 2) {
         DESCR_t callee = args[0]; DESCR_t lv = args[1];
-        if (lv.v == DT_DATA) {
-            DESCR_t tag = FIELD_GET_fn(lv,"gen_type");
-            if (tag.v==DT_S && tag.s && strcmp(tag.s,"list")==0) {
-                int n=(int)FIELD_GET_fn(lv,"frame_size").i;
-                DESCR_t ea=FIELD_GET_fn(lv,"frame_elems");
-                DESCR_t *arr=(ea.v==DT_DATA)?(DESCR_t*)ea.ptr:NULL;
-                *out = rt_call_value(callee, arr, (arr?n:0)); return 1;
-            }
-        }
-        { DESCR_t a1 = lv; *out = rt_call_value(callee, &a1, 1); return 1; }
+        DESCR_t buf[64]; int n = rt_apply_unpack(lv, buf, 64);
+        if (n < 0) return icn_argtype_raise(126, lv, out);
+        *out = rt_call_value(callee, buf, n); return 1;
     }
     L_bidjmp_6162: ;
     if ((_bid == BID_push) && nargs >= 1) {

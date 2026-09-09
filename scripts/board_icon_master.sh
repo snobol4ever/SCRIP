@@ -128,8 +128,11 @@ ENTRY_FLOOR="${ICON_MASTER_ENTRY_FLOOR:-534}"
 # grading 732, so the ratchet compared a pass count against a floor from a LARGER POPULATION. A floor is a scalar and carries no
 # denominator, so it cannot tell a stale corpus from a real regression, and it reads in the alarming direction. PULL EVERY REPO,
 # THEN MEASURE: the board was green on the merged tree with no code change at all.
-M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-739}"
-M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-739}"
+# ⭐ RE-PINNED 739 -> 740 (hq_I 2026-09-09, CEO-468): `f ! record` spreads the record's fields as arguments, as icont does, and a
+# non-container raises 126. procedure_write_260 (ladder__rung24_records_apply_bang_spreads_the_fields) flips in both modes.
+# entries=904 · run-graded 751 · m3 PASS=740 · m4 PASS=740; per-entry identity 0 regressions / 0 vanished over 1557 examined.
+M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-740}"
+M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-740}"
 # ⛔ NO AST_PASS_FLOOR: a self-pin has no floor to regress below, only a CURRENT-run comparison of
 # ap (matched) vs at (total) -- see the AST-SHAPE note above. Removed under ast-dump-refs-are-self-
 # pins-not-oracles rather than kept-but-unused, so a reader cannot mistake its presence for gating.
