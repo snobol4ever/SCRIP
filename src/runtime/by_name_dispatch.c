@@ -6302,6 +6302,12 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (unlink(_rp) == 0) { *out = NULVCL; return 1; }
         *out = FAILDESCR; return 1;
     }
+    if (!strcmp(fn, "rename") && nargs == 2) {
+        const char *_ra = VARVAL_fn(args[0]); if (!_ra) _ra = "";
+        const char *_rb = VARVAL_fn(args[1]); if (!_rb) _rb = "";
+        if (rename(_ra, _rb) == 0) { *out = NULVCL; return 1; }
+        *out = FAILDESCR; return 1;
+    }
     L_bidjmp_6381: ;
     if ((_bid == BID_close) && nargs == 1) {
         if (IS_FH_fn(args[0]) || IS_INT_fn(args[0])) {
