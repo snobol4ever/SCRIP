@@ -250,6 +250,10 @@ def main():
     ap.add_argument("--entry-name", default="", help="override the builder-derived entry name (rarely right)")
     ap.add_argument("--origin", required=True, help="ladder__rungNN_<slug>, must be new and NN must be an existing rung")
     ap.add_argument("--source", required=True, help="path to the new witness's source file")
+    ap.add_argument("--first-in-rung", action="store_true",
+                    help="this witness is deliberately the FIRST for its rung (rungs 24-33 are all brand new); "
+                         "everything is derived from --source, so no sibling is needed -- the flag exists so a "
+                         "typo'd rung number is still caught")
     ap.add_argument("--apply", action="store_true", help="write the files; omit for a dry-run report")
     args = ap.parse_args()
 
@@ -279,10 +283,21 @@ def main():
         refuse("origin %r already exists in %s" % (args.origin, master_csv))
     existing_rungs = {int(mm.group(1)) for r in rows
                        for mm in [re.match(r"^ladder__rung(\d+)_", r["origin"])] if mm}
-    if rung_num not in existing_rungs:
+    if rung_num not in existing_rungs and not args.first_in_rung:
+        # ⛔ THIS GUARD CATCHES A TYPO, NOT AN UNSOUNDNESS -- keep it, but make the deliberate case sayable.
+        # `rung_num` is read NOWHERE else in this script (grep it): the entry name comes from
+        # builder_entry_name(source), every flag from builder_flags(source), the ref from the oracle and the
+        # rank from the CSV, so a brand-new rung derives exactly as correctly as a populated one. What the
+        # guard really stops is `--origin ladder__rung42_...` typed for rung24 -- worth stopping, which is why
+        # --first-in-rung is an explicit opt-in and not a deletion. The real safety nets are downstream and
+        # still run for a first witness: the byte-for-byte round-trip proof and the extract-it-back-out proof.
+        # ⛔ Before this flag existed the message said "mint it by hand once", and there is no by-hand path --
+        # the master is a mixed one-line/banner-block format whose only sanctioned writer is this script.
+        # hq_P 2026-09-09: rungs 24-33 are ALL brand new (witnesses stop at rung16), so the advice was
+        # unfollowable for ten consecutive rungs, which is how it was found.
         refuse("rung%02d has no existing ladder__ witness in %s -- if this is deliberately the FIRST "
-               "witness for a brand-new rung, mint it by hand once and re-derive this tool's assumptions; "
-               "refusing rather than guessing" % (rung_num, master_csv))
+               "witness for a brand-new rung, pass --first-in-rung; refusing rather than guessing"
+               % (rung_num, master_csv))
 
     src_path = Path(args.source)
     if not src_path.is_file():
