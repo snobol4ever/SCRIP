@@ -5281,6 +5281,8 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     }
     L_bidjmp_5385: ;
     if ((_bid == BID_proc) && (nargs == 2 || nargs == 1)) {
+        if (args[0].v == DT_E) { *out = args[0]; return 1; }
+        if (args[0].v != DT_S && args[0].v != DT_SNUL) { *out = FAILDESCR; return 1; }
         const char *pname = VARVAL_fn(args[0]);
         int arity = (nargs >= 2) ? (int)to_int(args[1]) : -1;
         if (!pname) { *out = FAILDESCR; return 1; }
