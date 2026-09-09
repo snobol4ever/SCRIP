@@ -13,6 +13,8 @@
 #
 # ⛔ THE FIVE GREEN CONTROLS (p09-p13) ARE LOAD-BEARING: operators, nested calls, L[i] and the no-mutation case were
 # already right, and the likeliest way to break this class is to defer dereference too widely and move them.
+# p15/p16 pin the generator-call chain tail (a staged argument to find() or to a user generator: IPL morse regressed
+# on 2026-09-09 when the generator call's entry link was re-pointed to the last ARGUMENT instead of the last DEREF).
 # p14 is the ceo's CEO-456 R7 witness: arguments are passed by VALUE (a callee assigning its parameter does not
 # write the caller's variable). Expected outputs are PINNED from icont/iconx 9.5 (2026-09-09); the gate is hermetic
 # and never consults the oracle, so it cannot go green because an oracle install moved.
@@ -49,6 +51,9 @@ probe p12_subscript  '12'  'procedure main(); local i, L; L := [1, 2]; i := 1; w
 probe p13_nomut      '55'  'procedure main(); local i; i := 5; write(i, "", i); end'
 probe p14_byvalue    '1'   'procedure f(a); a := 2; end
 procedure main(); local y; y := 1; f(y); write(y); end'
+probe p15_genbuiltin '2'   'procedure main(); local c, s; c := "M"; s := "TMOT09"; write(find(c, s)); end'
+probe p16_usergen    '5|6' 'procedure g(n); suspend n to n + 1; end
+procedure main(); local i; i := 5; every write(g(i)); end'
 
 red=0; n=0
 for src in "$W"/p*.icn; do
@@ -64,5 +69,5 @@ for src in "$W"/p*.icn; do
 done
 gate_bin_unmoved
 GATE_EXAMINED="$n probes (m3+m4)"
-gate_floor "$n" 14 "probes minted"
+gate_floor "$n" 16 "probes minted"
 gate_verdict "$red" "probe(s) disagree with the pinned iconx output in at least one mode"

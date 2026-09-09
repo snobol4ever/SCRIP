@@ -232,7 +232,7 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
         prev = drf; args_r[k] = drf;
     }
     for (int k = 0; k < nargs; k++) if (args_r[k]) { ir_operand_push(call, args_r[k]); last_ar = args_r[k]; }
-    if (nstage && prev && !(icn_proc_is_generator(name) || gb || is_cursor_mover)) lc_γ_to(prev, call);
+    if (nstage && prev) { last_ar = prev; if (!(icn_proc_is_generator(name) || gb || is_cursor_mover)) lc_γ_to(prev, call); }
     if (fill_bal_cset) {
         IR_t * kc = build(cx, IR_KW_ICON, NULL, aω); IR_LIT(kc).sval = (char *) "&cset";
         if (prev) lc_γ_to(prev, kc); else entry = kc;
