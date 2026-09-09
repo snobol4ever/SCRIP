@@ -80,8 +80,14 @@
 # this table is seeded with the rules that DO, not a mechanical one-per-bullet transcription.
 #
 # ROOTS: override via DIGEST_GATE_ROOTS (space-separated list of CLAUDE.md paths) for testing against
-# scratch files instead of the real fleet -- never point the real invocation anywhere but the 21 real
-# roots. claude_B and claude_T were ABSENT until 2026-09-04 (hq_B, ceo ruling ruling-digest-gate-roots):
+# scratch files instead of the real fleet -- never point the real invocation anywhere but the real
+# seat roots. COUNT THE POPULATION, DO NOT QUOTE IT: this comment said "the 21 real roots" while the
+# array held 32, which is the same hard-coded-population defect the array itself keeps re-committing.
+# The one-line census that catches a new root nobody added:
+#   for r in /home/claude*/CLAUDE.md; do grep -q "$r" scripts/test_gate_digest_matches_rules.sh || echo "UNWATCHED $r"; done
+# /home/claude_cfo/CLAUDE.md was ABSENT until 2026-09-08 (hq_B, ceo RULED-DO-IT on ask-the-cfo-digest-
+# is-unwatched-one-line-in-the-gates-roots-array): the cfo seat went live 2026-09-07 08:06 and the gate
+# stayed green about the other 32 roots the whole time. claude_B and claude_T were ABSENT until 2026-09-04 (hq_B, ceo ruling ruling-digest-gate-roots):
 # both roots were opened after this list was written, so the two HQs whose lanes are HYGIENE and TESTS
 # were the two whose digests no gate read, and the gate was green about the other nineteen the whole
 # time -- the same narrow-instrument shape those digests document for `command -v` and for `$?` after a
@@ -104,7 +110,7 @@ else
            /home/claude13/CLAUDE.md /home/claude14/CLAUDE.md /home/claude15/CLAUDE.md /home/claude16/CLAUDE.md \
            /home/claude17/CLAUDE.md /home/claude18/CLAUDE.md /home/claude19/CLAUDE.md /home/claude20/CLAUDE.md \
            /home/claude_C/CLAUDE.md /home/claude_P/CLAUDE.md /home/claude_B/CLAUDE.md /home/claude_T/CLAUDE.md /home/claude_U/CLAUDE.md /home/claude_S/CLAUDE.md /home/claude_I/CLAUDE.md /home/claude_R/CLAUDE.md /home/claude_V/CLAUDE.md \
-           /home/claude_ceo/CLAUDE.md /home/claude_cto/CLAUDE.md /home/claude_coo/CLAUDE.md)
+           /home/claude_ceo/CLAUDE.md /home/claude_cto/CLAUDE.md /home/claude_coo/CLAUDE.md /home/claude_cfo/CLAUDE.md)
 fi
 
 VIOLATIONS=0
