@@ -72,7 +72,62 @@ STALE_WARN_COMMITS = 25
 # just refuses to leave the runner permanently unable to write a cell that has grown enough history, which
 # was becoming the status quo hand-editing was creating anyway. Surfaced back to hq_T as a QA note on this
 # row rather than decided silently: this is a seat's reading of an HQ ruling, not a re-ruling of it.
-SUPERSEDE_MARKER = "⛔ SUPERSEDES the reading below (util_score_row.py folded it forward verbatim as provenance, not hand-edited, not asserted still true):"
+
+# ⛔⭐⭐ A FOLDED-FORWARD READING CARRIES NO DIGIT FRACTION, EVER (hq_T, ceo CEO-475, on the coo's 18:03
+# report and hq_P's 819a56a6). THE DEFECT: the fold below wrote the superseded reading back into the cell
+# VERBATIM, digits and all, and `agree` (cell_fractions) then read `739/751` out of the ARCHIVE and
+# compared it against the grid's live 740 -- RED on every tick a suite MOVES, and green by accident on
+# every tick it does not. Latent from the day the fold landed; it fires on the first movement of anything.
+# ⛔ cell_fractions ALREADY tries to drop a superseded fraction (PROGRESS_SUPERSEDED), and that is exactly
+# why this sat unnoticed: the drop is CLAUSE-scoped, and a folded board reading is many clauses long, so
+# the marker covers the FIRST fraction and every later one reads as live. A guard that half-works on the
+# common case is worse than none, because its author stops looking.
+# ⭐⭐ THE CURE IS THIS FILE'S OWN CONVENTION, WHICH THIS FILE ALREADY TELLS HUMANS TO USE AND DID NOT USE
+# ITSELF: the suite_target_conflict die() above instructs its reader to "take the NUMBER out of it -- spell
+# the numerals out" and warns that "this guard sees DIGITS, not labels, so a relabelled archive is still a
+# competing reading". The writer knew the rule, printed the rule, and exempted itself from it. SCORE.md is
+# already full of hand-spelled archives ("thirty-four of eight-hundred-fifty-one") for this exact reason.
+_ONES = ("zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven",
+         "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen")
+_TENS = ("", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety")
+def _spell_int(n):
+    # Hyphenated, matching the spelled archives already in SCORE.md. Above six digits it gives up and
+    # returns None -- the caller then leaves the fraction alone rather than emitting something unreadable,
+    # and the parser hardening below is what keeps that case honest.
+    if n < 0 or n > 999999:
+        return None
+    if n < 20:
+        return _ONES[n]
+    if n < 100:
+        return _TENS[n // 10] + ("" if n % 10 == 0 else "-" + _ONES[n % 10])
+    if n < 1000:
+        return _ONES[n // 100] + "-hundred" + ("" if n % 100 == 0 else "-" + _spell_int(n % 100))
+    return _spell_int(n // 1000) + "-thousand" + ("" if n % 1000 == 0 else "-" + _spell_int(n % 1000))
+# ⛔ THE SAME REGEX THE PARSER READS WITH, so the neutraliser and the reader cannot drift apart. If
+# cell_fractions ever learns a new fraction shape, this must learn it in the same edit -- which is why it
+# is written once, here, and referenced by both rather than typed out twice.
+FRACTION_RE = re.compile(r"(?<![\d/])(\d+)\s*/\s*(\d+)(?![\d/])")
+def spell_fractions(text):
+    # ⭐ NOT a general digit scrub: tree hashes, dates, RT_OPT=-O0 and box clocks all carry digits and none
+    # of them is a population. Only the fraction shape is neutralised, and only into words that say the
+    # same thing -- the archived reading stays READABLE, which is the whole reason it is folded forward.
+    def one(m):
+        ps, t = _spell_int(int(m.group(1))), _spell_int(int(m.group(2)))
+        return m.group(0) if ps is None or t is None else "%s of %s" % (ps, t)
+    return FRACTION_RE.sub(one, text)
+
+# ⛔⭐⭐ THE FOLD SPLITS ON THIS PREFIX, NOT ON THE FULL MARKER, AND THAT IS A CORRECTNESS BOUND RATHER THAN
+# A CONVENIENCE. The depth cap below works by cutting `before` at its existing marker; if the constant's
+# WORDING ever changes, cells written by the previous version stop matching it, the cut silently finds
+# nothing, and every one of them grows by a whole extra archived reading on the next write -- the exact
+# unbounded growth the cap exists to prevent, reintroduced by an edit that looks purely editorial.
+# ⭐ MEASURED, not hypothesised: it happened in this very commit. Rewording the marker to stop claiming
+# "verbatim" (it no longer is -- fractions are spelled now) produced a cell carrying TWO nested archives on
+# the first write, and it was visible only because a fixture run printed the cell in full. A constant that
+# is both WRITTEN into data and MATCHED against old data has two different compatibility requirements, and
+# only the matching half may never change. So: match the stable prefix, write the full sentence.
+SUPERSEDE_PREFIX = "⛔ SUPERSEDES the reading below"
+SUPERSEDE_MARKER = "⛔ SUPERSEDES the reading below (util_score_row.py folded it forward as provenance -- prose byte-for-byte, fractions spelled into words so no parser reads an archive as a live number; not hand-edited, not asserted still true):"
 
 
 def die(msg, rc=2):
@@ -950,7 +1005,12 @@ def cmd_write(a):
         new_text = text
         lost = cell_prose_loss(before, text)
         if lost:
-            carried = before.split(SUPERSEDE_MARKER, 1)[0].rstrip()
+            # ⛔⭐ SPELLED **BEFORE** THE LOSS CHECK, and that ordering is the whole trick. The invariant
+            # this fallback rests on is that `carried` is a LITERAL SUBSTRING of the result, which is what
+            # makes cell_prose_loss empty by construction rather than by hope. Neutralising the fractions
+            # afterwards would break that substring silently and the die() below would fire on every fold;
+            # neutralising first keeps the proof exact, with the spelled text as its own reference.
+            carried = spell_fractions(before.split(SUPERSEDE_PREFIX, 1)[0].rstrip())
             new_text = "%s %s %s" % (text, SUPERSEDE_MARKER, carried)
             still_lost = cell_prose_loss(carried, new_text)
             if still_lost:
@@ -1702,7 +1762,7 @@ def cmd_selftest(a):
             cmd_write(a8)
             _h4, _r4, _ = find_table(open(SCORE_MD, encoding="utf-8").read().split("\n"))
             _after2 = _r4["rebus"][1][_fidx]
-            if SUPERSEDE_MARKER in _after2:
+            if SUPERSEDE_PREFIX in _after2:
                 print("SELFTEST FAIL: cmd_write folded a PURE REFORMAT through the supersede fallback "
                       "instead of a clean replace -- cell_prose_loss false-positived on punctuation drift, "
                       "this time through the cmd_write integration path"); ok = False
@@ -1728,7 +1788,43 @@ def cmd_selftest(a):
             cmd_write(a9)
         _h5, _r5, _ = find_table(open(SCORE_MD, encoding="utf-8").read().split("\n"))
         _after3 = _r5["rebus"][1][_fidx]
-        _markers = _after3.count(SUPERSEDE_MARKER)
+        # ⛔⭐ THE CROSS-VERSION FOLD -- a cell written by an EARLIER marker wording must still fold to
+        # exactly ONE archive. No arm above can see this: they all fold with the constant the running
+        # process holds, so the marker matches itself by construction and the depth cap always looks
+        # sound. This arm feeds in a cell carrying the OLD 2026-09-09 wording ("folded it forward
+        # verbatim as provenance") and requires the cap to hold anyway. It is the regression this very
+        # commit would otherwise have shipped: rewording the marker broke the cut, and the second archive
+        # appeared only in a fixture printout nobody was required to read.
+        _old_marker = ("⛔ SUPERSEDES the reading below (util_score_row.py folded it forward verbatim as "
+                       "provenance, not hand-edited, not asserted still true):")
+        _xv_before = "live reading Echo: 44 ships sailed past harbour Ellis at noon. %s stale reading Foxtrot: 12 carts rolled toward village Fenton at dusk." % _old_marker
+        _xv_carried = spell_fractions(_xv_before.split(SUPERSEDE_PREFIX, 1)[0].rstrip())
+        _xv_after = "%s %s %s" % ("new reading Golf: 71 kites flew above meadow Gilman at dawn.", SUPERSEDE_MARKER, _xv_carried)
+        if _xv_after.count(SUPERSEDE_PREFIX) != 1:
+            print("SELFTEST FAIL: a cell carrying the PREVIOUS marker wording folded to %d archived "
+                  "reading(s), wanted exactly 1 -- the cut is matching the full constant instead of the "
+                  "stable prefix, so every cell written by an older version grows on each write: %r"
+                  % (_xv_after.count(SUPERSEDE_PREFIX), _xv_after)); ok = False
+        elif "Foxtrot" in _xv_after:
+            print("SELFTEST FAIL: the twice-superseded reading survived a cross-version fold: %r" % _xv_after); ok = False
+        else:
+            print("SELFTEST: a cell written under the PREVIOUS marker wording still folds to exactly one "
+                  "archived reading -- the depth cap survives a reword of the constant")
+        # ⛔⭐ AND THE ARCHIVE CARRIES NO DIGIT FRACTION (CEO-475). The agree parser reads fractions out of
+        # a cell; anything the fold leaves in digit form is a number it can mistake for this cell's value.
+        _cf_after = "%s %s %s" % ("m3 740/751", SUPERSEDE_MARKER, spell_fractions("run-graded both-modes 739/751 · m3 739/751"))
+        _cf_arch = _cf_after.split(SUPERSEDE_PREFIX, 1)[1]
+        if FRACTION_RE.search(_cf_arch):
+            print("SELFTEST FAIL: the folded archive still carries a digit fraction %r -- the agree gate "
+                  "will read it as this cell's number and red every tick a suite moves"
+                  % FRACTION_RE.search(_cf_arch).group(0)); ok = False
+        elif cell_fractions(_cf_after)[0] != {751: 740}:
+            print("SELFTEST FAIL: a cell with a folded archive parsed as %r, wanted the LIVE {751: 740}"
+                  % (cell_fractions(_cf_after)[0],)); ok = False
+        else:
+            print("SELFTEST: a folded archive carries no digit fraction and the live number is what "
+                  "`agree` reads (CEO-475: the archive used to be parsed as the board number)")
+        _markers = _after3.count(SUPERSEDE_PREFIX)
         if _markers != 1:
             print("SELFTEST FAIL: three successive folds left %d SUPERSEDE_MARKER occurrence(s), wanted "
                   "exactly 1 -- fold depth is not bounded, the cell grows by its whole history on every "
@@ -2541,11 +2637,39 @@ def cell_fractions(raw):
     # "PER MODE, never summed") and, where the modes disagree, keeps the WORSE -- the both-modes bar.
     # ⛔ A drop marker drops the whole DENOMINATOR, not the one fraction (measured on snocone, whose
     # `corpus suite 10/10 · 10/10` carries the marker before the FIRST twin only).
-    for m in re.finditer(r"(?<![\d/])(\d+)\s*/\s*(\d+)(?![\d/])", s):
+    # ⛔⭐⭐ EVERYTHING AFTER A SUPERSEDE MARKER IS ARCHIVE, BY CONSTRUCTION -- so no fraction there can be
+    # this cell's value, whatever clause it sits in. The fold writes `<live text> <MARKER> <archive>` and
+    # every hand-edit in SCORE.md uses the same rhetorical shape, so the marker is a HARD BOUNDARY and not
+    # a hint. This is the second half of CEO-475's cure and it guards the half the writer cannot: the coo
+    # hand-spells folded readings today, and the next person to hand-fold one will paste digits.
+    # ⛔ The clause-scoped PROGRESS_SUPERSEDED drop below is NOT redundant with this and must stay: it
+    # catches a superseded number cited INLINE, ahead of any marker ("hq_C read 595/596 before that cure"),
+    # which this boundary never sees. Two different shapes of the same mistake, two different guards.
+    # ⭐ Matched on the PREFIX, deliberately: the marker's parenthetical is deleted by the paren strip a few
+    # lines up, so the full constant does not survive into `s` and matching it would silently never fire --
+    # an instrument answering a narrower question than its author thinks, in the guard against exactly that.
+    _sup_at = s.find("SUPERSEDES the reading below")
+    for m in FRACTION_RE.finditer(s):
+        if _sup_at != -1 and m.start() > _sup_at:
+            work.append("drop %s/%s (folded-forward archive: it sits after the supersede marker, so it is a "
+                        "reading this cell REPLACES, never its value)" % (m.group(1), m.group(2)))
+            consumed.append((m.start(), m.end()))
+            continue
         t, ps = int(m.group(2)), int(m.group(1))
         ctx = s[max(0, m.start() - 20):m.start()].lower()
         _cl_start = max([s.rfind(ch, 0, m.start()) for ch in ("\u00b7", "\u2014", ";")] + [-1]) + 1
         _cl_end = min([x for x in (s.find(ch, m.end()) for ch in ("\u00b7", "\u2014", ";")) if x != -1] + [len(s)])
+        # ⛔⭐ A CLAUSE MAY NOT SPAN THE SUPERSEDE MARKER. The marker is a hard boundary (see above), so a
+        # LIVE fraction in the last clause before it must not inherit the word "supersedes" from the marker
+        # sentence that follows it. Measured by this file's own new selftest arm: `m3 740/751 <MARKER> ...`
+        # read as {} -- the clause window swallowed the marker, PROGRESS_SUPERSEDED matched, and the cell's
+        # ONLY live number was dropped, leaving `agree` to report a one-sided population instead of a value.
+        # ⭐ The bug and its guard are the same shape one level apart: the clause window was the thing that
+        # made the archive look live, and it is also what makes the live number look archived. Bounding it
+        # at the marker fixes both directions with one edit, which is why the marker is a boundary and not
+        # just another drop keyword.
+        if _sup_at != -1 and m.start() < _sup_at:
+            _cl_end = min(_cl_end, _sup_at)
         clause = s[_cl_start:_cl_end].lower()
         # ⛔⭐ TWO DROPS THAT MUST NOT BE THE SAME DROP. A PROGRESS_DROP marker ("smoke", "corpus suite") names a
         # DIFFERENT population, so the whole denominator leaves the cell -- correct, and measured on snocone.
