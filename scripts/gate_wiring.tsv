@@ -42,6 +42,7 @@ test_gate_absent_line_is_unproven_not_red.sh	WIRED	-	-	-
 test_gate_ast_declared_refs_are_ast_dumps.sh	WIRED	-	-	-
 test_gate_ast_shaped_refs_are_declared_ast.sh	WIRED	-	-	-
 test_gate_banner_leads_with_the_suite_line.sh	WIRED	-	-	-
+test_gate_banner_reports_ahead_of_origin.sh	WIRED	-	-	-
 test_gate_capture_stdin_and_red_exit.sh	WIRED	-	-	-
 test_gate_coexpr_stack_of_uncreated_thread.sh	WIRED	-	-	-
 test_gate_collect_reports_free_storage_and_fails_when_short.sh	WIRED	-	-	-
@@ -155,6 +156,7 @@ test_gate_sno_terminal_read_fails_without_a_tty.sh	WIRED	-	-	-
 test_gate_snobol4_xfail_markers_are_attributed.sh	WIRED	-	-	-
 test_gate_snocone_returns_codegen.sh	WIRED	-	-	-
 test_gate_suite_argv_sidecar.sh	WIRED	-	-	-
+test_gate_suite_set_does_not_move_another_suites_row.sh	WIRED	-	-	-
 test_gate_table_convert_creation_order.sh	WIRED	-	-	-
 test_gate_template_medium_invisible.sh	WIRED	-	-	-
 test_gate_term_wordref_ratchet.sh	WIRED	-	-	-
