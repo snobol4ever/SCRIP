@@ -4823,6 +4823,8 @@ static const char *sort_proc_name(DESCR_t v) {
     return v.s ? v.s : "";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sortf_field_i(DESCR_t *args, int nargs) { return (nargs < 2 || args[1].v == DT_SNUL || IS_FAIL_fn(args[1])) ? 1 : (int)to_int(args[1]); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sort_key_str_cmp(DESCR_t a, DESCR_t b) {
     char ba[64], bb[64]; int c = strcmp(sort_key_cstr(a, ba, (int)sizeof ba), sort_key_cstr(b, bb, (int)sizeof bb));
     return c < 0 ? -1 : (c > 0 ? 1 : 0);
@@ -4841,16 +4843,37 @@ static int sort_descr_cmp(DESCR_t a, DESCR_t b) {
     return sort_long_cmp(sort_struct_serial(a), sort_struct_serial(b));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t sort_field_of(DESCR_t v, int field_idx) {
-    if (field_idx >= 0 && v.v == DT_DATA && v.u) { DATINST_t *ia = (DATINST_t *)v.u; if (ia->type && field_idx < ia->type->nfields) return ia->fields[field_idx]; }
-    return v;
+static int sort_field_slot(int field_i, int n) { int idx = field_i > 0 ? field_i - 1 : n + field_i; return (field_i == 0 || idx < 0 || idx >= n) ? -1 : idx; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sort_data_field(DESCR_t v, int field_i, DESCR_t *out) {
+    if (field_i == 0 || v.v != DT_DATA || !v.u) return 0;
+    DATINST_t *ia = (DATINST_t *)v.u;
+    if (!ia->type || !ia->type->name || !ia->fields) return 0;
+    if (!strcmp(ia->type->name, "list")) {
+        DESCR_t ea = FIELD_GET_fn(v, "frame_elems"); int n = (int)FIELD_GET_fn(v, "frame_size").i, idx = sort_field_slot(field_i, n);
+        DESCR_t *arr = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : (DESCR_t *)0;
+        if (!arr || idx < 0) return 0;
+        *out = arr[idx]; return 1;
+    }
+    { int idx = sort_field_slot(field_i, ia->type->nfields); if (idx < 0) return 0; *out = ia->fields[idx]; return 1; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void sort_msort_descr(DESCR_t *a, DESCR_t *tmp, int n, int field_idx) {
+static int sort_field_cmp(DESCR_t a, DESCR_t b, int field_i) {
+    int ra = sort_type_rank(a), rb = sort_type_rank(b);
+    if (ra != rb) return ra < rb ? -1 : 1;
+    { DESCR_t fa, fb; int ha = sort_data_field(a, field_i, &fa), hb = sort_data_field(b, field_i, &fb), c;
+      if (!ha && !hb) return sort_descr_cmp(a, b);
+      if (!ha) return -1;
+      if (!hb) return 1;
+      c = sort_descr_cmp(fa, fb);
+      return c ? c : sort_descr_cmp(a, b); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sort_msort_descr(DESCR_t *a, DESCR_t *tmp, int n, int field_i) {
     if (n < 2) return;
     { int m = n / 2, i = 0, j = n / 2, k = 0, t;
-      sort_msort_descr(a, tmp, m, field_idx); sort_msort_descr(a + m, tmp + m, n - m, field_idx);
-      while (i < m && j < n) { if (sort_descr_cmp(sort_field_of(a[j], field_idx), sort_field_of(a[i], field_idx)) < 0) tmp[k++] = a[j++]; else tmp[k++] = a[i++]; }
+      sort_msort_descr(a, tmp, m, field_i); sort_msort_descr(a + m, tmp + m, n - m, field_i);
+      while (i < m && j < n) { if (sort_field_cmp(a[j], a[i], field_i) < 0) tmp[k++] = a[j++]; else tmp[k++] = a[i++]; }
       while (i < m) tmp[k++] = a[i++];
       while (j < n) tmp[k++] = a[j++];
       for (t = 0; t < n; t++) a[t] = tmp[t]; }
@@ -4877,6 +4900,10 @@ static int icn_argtype_gate(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
         case BID_insert: case BID_member: return args[0].v == DT_T ? 0 : icn_argtype_raise(122, args[0], out);
         case BID_delete: return (args[0].v == DT_T || IS_STR_fn(args[0])) ? 0 : icn_argtype_raise(122, args[0], out);
         case BID_key: return (args[0].v == DT_T && args[0].tbl && !args[0].tbl->is_set) ? 0 : icn_argtype_raise(124, args[0], out);
+        case BID_sortf:
+            if (nargs != 1 && nargs != 2) return 0;
+            if (!(args[0].v == DT_DATA || (args[0].v == DT_T && args[0].tbl && args[0].tbl->is_set))) return icn_argtype_raise(125, args[0], out);
+            return sortf_field_i(args, nargs) == 0 ? icn_argtype_raise(205, args[1], out) : 0;
         case BID_bal:
             for (int i = 0; i < 3 && i < nargs; i++)
                 if (!IS_FAIL_fn(args[i]) && args[i].v != DT_SNUL && !icn_cvt_chars_ok(args[i])) return icn_argtype_raise(104, args[i], out);
@@ -6333,7 +6360,25 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         FIELD_SET_fn(outer, "frame_cap", INTVAL(n));
         *out = outer; return 1;
     }
-    if (((_bid == BID_sort)&&(nargs==1||nargs==2))||((_bid == BID_sortf)&&nargs==2)) {
+    if ((_bid == BID_sortf) && (nargs == 1 || nargs == 2) && args[0].v == DT_T && args[0].tbl && args[0].tbl->is_set) {
+        TBBLK_t *tb = args[0].tbl;
+        int n = 0; { TBPAIR_t *e; TBL_FOREACH(tb, e) n++; }
+        DESCR_t *mem = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t));
+        { int _k = 0; TBPAIR_t *e; TBL_FOREACH(tb, e) mem[_k++] = e->key_descr; }
+        { DESCR_t *_tmp = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t)); sort_msort_descr(mem, _tmp, n, sortf_field_i(args, nargs)); }
+        extern DESCR_t rt_make_list(DESCR_t *a, int nn);
+        *out = rt_make_list(mem, n); return 1;
+    }
+    if ((_bid == BID_sortf) && (nargs == 1 || nargs == 2) && args[0].v == DT_DATA && args[0].u && sort_struct_type_name(args[0])[0] && strcmp(sort_struct_type_name(args[0]), "list") != 0) {
+        DATINST_t *di = (DATINST_t *)args[0].u;
+        int n = di->type->nfields; if (n < 0) n = 0;
+        DESCR_t *mem = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t));
+        for (int _k = 0; _k < n; _k++) mem[_k] = di->fields[_k];
+        { DESCR_t *_tmp = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t)); sort_msort_descr(mem, _tmp, n, sortf_field_i(args, nargs)); }
+        extern DESCR_t rt_make_list(DESCR_t *a, int nn);
+        *out = rt_make_list(mem, n); return 1;
+    }
+    if (((_bid == BID_sort)&&(nargs==1||nargs==2))||((_bid == BID_sortf)&&(nargs==1||nargs==2))) {
         DESCR_t ld = args[0];
         if (ld.v != DT_DATA) return 0;
         DESCR_t tag = FIELD_GET_fn(ld,"gen_type");
@@ -6346,8 +6391,8 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if(!arr) { *out=rt_make_list(NULL,0); return 1; }
         DESCR_t *sorted=rt_ws_alloc(n*sizeof(DESCR_t));
         memcpy(sorted,arr,n*sizeof(DESCR_t));
-        int field_idx=((_bid == BID_sortf)&&nargs==2)?(int)to_int(args[1])-1:-1;
-        { DESCR_t *_tmp = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t)); sort_msort_descr(sorted, _tmp, n, field_idx); }
+        int field_i=(_bid == BID_sortf)?sortf_field_i(args, nargs):0;
+        { DESCR_t *_tmp = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t)); sort_msort_descr(sorted, _tmp, n, field_i); }
         *out=rt_make_list(sorted,n); return 1;
     }
     L_bidjmp_6322: ;

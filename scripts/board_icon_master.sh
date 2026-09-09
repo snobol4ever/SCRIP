@@ -120,8 +120,16 @@ ENTRY_FLOOR="${ICON_MASTER_ENTRY_FLOOR:-534}"
 # SECOND commit and not the cure's own: a floor written before the tree it guards exists is a guess wearing a measurement's clothes.
 # ⭐ RE-PINNED 720 -> 738 (hq_V 2026-09-09 17:0x CDT, MODE NONET) on SCRIP `63efd8436` + corpus `ca2b8a110`, both on origin: entries=903 · run-graded 750 · m3 PASS=738 · m4 PASS=738, both modes equal, xfail=0 xpass=0.
 # ⛔ MOST OF THE +18 OVER 720 IS NOT NEW CURING, IT IS A READING OF MINE BEING CORRECTED: hq_C's alt-bound cure `b3039f014` was already on origin when I measured the previous board, my build predated it by minutes, and the four entries I had recorded as red -- hq_C's eleven-shape probe and my three CEO-461 rungs -- are GREEN in both modes on the cured tree. The cell was RE-MEASURED, never annotated.
-M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-738}"
-M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-738}"
+# ⭐ RE-PINNED 738 -> 739 (hq_I 2026-09-09, CEO-452 follow-on): sortf on a SET and on a RECORD, a defaulted/negative field index,
+# and the field-tie order, all cut from icont. SCRIP 170baeda2 + corpus 36f9e9ea9, entries=904 · run-graded 751 · m3 PASS=739 ·
+# m4 PASS=739; per-entry identity 0 regressions / 0 vanished over 1557 examined. ⛔⭐ WORTH THE LINE BECAUSE IT COST ME A FALSE RED:
+# measured against hq_V's 738 on a tree whose CORPUS I had not pulled, this same binary read 721/732 and the board printed RED with
+# two lines naming a regression below the watermark. NOTHING HAD REGRESSED -- 738 was measured over 750 run-graded entries and I was
+# grading 732, so the ratchet compared a pass count against a floor from a LARGER POPULATION. A floor is a scalar and carries no
+# denominator, so it cannot tell a stale corpus from a real regression, and it reads in the alarming direction. PULL EVERY REPO,
+# THEN MEASURE: the board was green on the merged tree with no code change at all.
+M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-739}"
+M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-739}"
 # ⛔ NO AST_PASS_FLOOR: a self-pin has no floor to regress below, only a CURRENT-run comparison of
 # ap (matched) vs at (total) -- see the AST-SHAPE note above. Removed under ast-dump-refs-are-self-
 # pins-not-oracles rather than kept-but-unused, so a reader cannot mistake its presence for gating.
