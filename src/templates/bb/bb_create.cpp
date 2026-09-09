@@ -17,13 +17,15 @@ std::string bb_create() {
                          "(operand[0] not found in this chain's nodes[]? the BFS operand[0] enqueue may be missing)");
     std::string s = x86("comment", "IR_CREATE")
                    + x86_alpha();
-    const char *contract_regs[7] = {"r12", "r13", "r14", "r15", "rbx", icn_host_pinned() ? "rbp" : "rsp", "r9"};
+    int frame_base_pinned = (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit_cfg->zframe_pinned_base) ? 1 : 0;
+    const char *contract_regs[7] = {"r12", "r13", "r14", "r15", "rbx", frame_base_pinned ? "rbp" : "rsp", "r9"};
     for (int k = 0; k < 7; k++) {
         s += x86("mov", "qword ptr [" + std::string(x86_fb()) + " + " + std::to_string(_.op_off + 16 + k * 8) + "]", contract_regs[k]);
     }
     s += xa_coexpr_body_lea("rdi");
     s += x86_frame_lea("rsi", _.op_off + 16)
        + x86("mov", "edx", std::to_string(_.flat_carve_total > _.frame_region ? _.flat_carve_total : (_.frame_region > 0 ? _.frame_region : 0)))
+       + x86("mov", "ecx", std::to_string(frame_base_pinned ? _.flat_carve_total : 0))
        + x86("call", "scrip_coexpr_create", (uint64_t)(uintptr_t)(void *)scrip_coexpr_create)
        + x86("comment", "row icon-a-co-expression-value-is-not-a-descriptor: the context pointer goes in the VALUE word with DT_CO in the tag word, never raw in the tag word itself -- a raw pointer there makes type() read the pointer's low byte as a tag, and any slot the value passes through (a global, an argument, a structure) hands the next reader a value it will mis-dispatch on")
        + x86("mov",  "qword ptr [" + std::string(x86_fb()) + " + " + std::to_string(_.op_off) + "]", (long)DT_CO)

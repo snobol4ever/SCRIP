@@ -128,7 +128,7 @@ void scrip_cofail(void) {
 }
 typedef struct scrip_coexpr_entry_pkg_t {
     void    *body_entry_addr;
-    uint64_t r12, r13, r14, r15, rbx, csav5, gva, frame_bytes;
+    uint64_t r12, r13, r14, r15, rbx, csav5, gva, frame_bytes, below;
 } scrip_coexpr_entry_pkg_t;
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, body_entry_addr) ==  0, "pkg layout drift: body_entry_addr");
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, r12)             ==  8, "pkg layout drift: r12");
@@ -159,6 +159,8 @@ void scrip_coexpr_trampoline_entry(void *arg) {
         "and $-16, %%rsp\n\t"
         "mov %%rsp, %%rdi\n\t"
         "mov %%rsp, %%rbp\n\t"
+        "mov 72(%0), %%rdx\n\t"
+        "add %%rdx, %%rbp\n\t"
         "cld\n\t"
         "rep movsb\n\t"
         "jmp *%%rax\n\t"
@@ -167,13 +169,13 @@ void scrip_coexpr_trampoline_entry(void *arg) {
         "jmp *%%rax\n\t"
         :
         : "r"(pkg)
-        : "rax", "rcx", "rsi", "rdi", "r12", "r13", "r14", "r15", "rbx", "r9", "memory"
+        : "rax", "rcx", "rdx", "rsi", "rdi", "r12", "r13", "r14", "r15", "rbx", "r9", "memory"
     );
     fprintf(stderr, "scrip_coexpr: FATAL scrip_coexpr_trampoline_entry fell through the jmp -- bad body_entry_addr?\n");
     abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7], uint64_t frame_bytes) {
+scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7], uint64_t frame_bytes, uint64_t below_bytes) {
     extern long g_scrip_coexpr_live; g_scrip_coexpr_live++;
     scrip_coctx_t *ctx = (scrip_coctx_t *)malloc(sizeof(scrip_coctx_t));
     if (!ctx) scrip_co_uerror("scrip_coexpr: malloc scrip_coctx_t failed");
@@ -182,16 +184,17 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7]
     pkg->body_entry_addr = body_entry_addr;
     ctx->inherit_scan = 0;
     pkg->r12 = regs[0]; pkg->r13 = regs[1]; pkg->r14 = regs[2];
-    pkg->r15 = regs[3]; pkg->rbx = regs[4]; pkg->csav5 = regs[5]; pkg->gva = regs[6]; pkg->frame_bytes = frame_bytes;
-    ctx->frame_copy = NULL; ctx->frame_copy_sz = 0; ctx->stk_need = (size_t)frame_bytes;
-    if (frame_bytes > 0 && regs[5] != 0) {
+    pkg->r15 = regs[3]; pkg->rbx = regs[4]; pkg->csav5 = regs[5]; pkg->gva = regs[6]; pkg->frame_bytes = frame_bytes; pkg->below = 0;
+    ctx->frame_copy = NULL; ctx->frame_copy_sz = 0; ctx->frame_copy_below = below_bytes; ctx->stk_need = (size_t)frame_bytes;
+    if (frame_bytes + below_bytes > 0 && regs[5] != 0) {
         extern void rt_gc_root_range_add(const char *, const char *);
-        void *cp = malloc((size_t)frame_bytes);
+        size_t span = (size_t)(frame_bytes + below_bytes);
+        void *cp = malloc(span);
         if (!cp) scrip_co_uerror("scrip_coexpr: malloc frame snapshot failed");
-        memcpy(cp, (const void *)(uintptr_t)regs[5], (size_t)frame_bytes);
-        pkg->csav5 = (uint64_t)(uintptr_t)cp;
-        ctx->frame_copy = cp; ctx->frame_copy_sz = frame_bytes;
-        rt_gc_root_range_add((const char *)cp, (const char *)cp + frame_bytes);
+        memcpy(cp, (const void *)(uintptr_t)(regs[5] - below_bytes), span);
+        pkg->csav5 = (uint64_t)(uintptr_t)cp; pkg->frame_bytes = (uint64_t)span; pkg->below = below_bytes;
+        ctx->frame_copy = cp; ctx->frame_copy_sz = frame_bytes; ctx->stk_need = span;
+        rt_gc_root_range_add((const char *)cp, (const char *)cp + span);
     }
     ctx->entry_fn  = scrip_coexpr_trampoline_entry;
     ctx->entry_arg = pkg;
@@ -219,8 +222,8 @@ scrip_coctx_t *scrip_coexpr_refresh(scrip_coctx_t *orig) {
     if (!opkg) scrip_co_uerror("scrip_coexpr: refresh of a coexpression with no entry package");
     uint64_t regs[7];
     regs[0] = opkg->r12; regs[1] = opkg->r13; regs[2] = opkg->r14; regs[3] = opkg->r15;
-    regs[4] = opkg->rbx; regs[5] = opkg->csav5; regs[6] = opkg->gva;
-    return scrip_coexpr_create(opkg->body_entry_addr, regs, orig->frame_copy_sz);
+    regs[4] = opkg->rbx; regs[5] = opkg->csav5 + opkg->below; regs[6] = opkg->gva;
+    return scrip_coexpr_create(opkg->body_entry_addr, regs, orig->frame_copy_sz, orig->frame_copy_below);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint64_t *out2) {

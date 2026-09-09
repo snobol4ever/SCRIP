@@ -2947,6 +2947,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         int np = g_emit_cfg ? g_emit_cfg->nparams : 0;
         int nl = g_emit_cfg ? g_emit_cfg->nlocals : 0;
         int frame_total = kt2 + (np + nl) * 16;
+        g_emit.flat_carve_total = frame_total;
         extern void rt_lcl_proc_args_install(void *, int, int);
         extern void rt_icn_zframe_args_install(void *, int, int);
         int _use_zframe_install = (g_emit_cfg && g_emit_cfg->icn_cells_graph) ? 1 : 0;
