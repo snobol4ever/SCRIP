@@ -180,7 +180,16 @@ INV_PACKAGE=gimpel; INV_DIR="$CORPUS_REAL/packages/snobol4/gimpel"; INV_EXT=".sn
 # THE SNOFLAKE RUNNER'S, NOT THIS ONE'S (test_snoflake_suite.sh:133 oracle_equal, deliberate and documented);
 # that is where gimpel's topological-sort scored PASS on one integer, because snoflake_suite/topological-sort.sno
 # is graded by THAT runner over gimpel/TSORT.INC. Two runners, two comparisons, one package name.
-inventory_line "$SCORED" 0
+# ⛔⭐ CAPTURED, NOT PRINTED-AND-DISCARDED (coo 2026-09-08, measured on three seats' runs at once -- hq_C's 105,
+# the cto's 107 and the coo's own audit). This line called inventory_line for its STDOUT and threw it away, while
+# the write below splices ${INV_LINE:+...} -- a variable this file never assigns. So the vendor text carried no
+# PACKAGE_INVENTORY clause, util_score_row.py REFUSED rc=2 on every run, and gimpel's row could only ever be set
+# BY HAND. ⭐ THE TELL WORTH KEEPING: `${VAR:+...}` is SILENT on an unset variable by design, so the one construct
+# that would have named the missing piece is the construct that guarantees nothing is named. The refusal that did
+# fire named the missing CLAUSE, one level away from the missing ASSIGNMENT, and three seats read past it.
+# Both sibling runners already had these two lines (test_snobol4_csnobol4_suite.sh:304, test_snoflake_suite.sh:384).
+INV_LINE="$(inventory_line "$SCORED" 0)"
+if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
 # ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
 # vacuously, hq_T 2026-09-04): WITNESSED TWICE IN ONE HOUR on this exact file -- the concurrent-board
 # registry in scorecard_snobol4.sh declined (rc=$rc, an UPSTREAM refusal), which truncates results.tsv

@@ -255,6 +255,11 @@ test: scrip  # ⭐ WAS THE FALSE-GREEN TRAP (cured hq_P s268): `test`, `test-ir`
 	# -- a cured bug and a stale marker move it identically, which is to say not at all.
 	# ⛔ PROMOTE BY DELETING THE '-' the moment this prints GATE OK. Do not delete the arm.
 	-bash scripts/test_gate_master_boards_publish_xpass.sh   # <1s, pure parse of .github/SCORE.md, no build: the ruled master rows publish an xpass count beside their fraction (coo 2026-09-08), so movement inside a master's own known-red set is a READ and not a twenty-minute run.
+	# ⭐ BLOCKING FROM ITS FIRST DAY, and it can be because the one instance it found was cured in the same
+	# landing (test_snobol4_gimpel_suite.sh never assigned INV_LINE, so its row write refused rc=2 on every run
+	# and three seats hit it in one evening). A static parse, no build, no suite: the whole class is provable by
+	# grep in under a second, and the alternative was learning it from a twenty-minute board that refused at the end.
+	bash scripts/test_gate_score_row_text_splices_are_assigned.sh   # <1s, static parse of scripts/*.sh, no build: a $${VAR:+...} spliced into a leaderboard row's --text must be assigned in that same file. $${VAR:+} is silent on an unset variable, so the clause vanishes and the writer refuses -- with nothing naming the assignment that is missing.
 
 pristine-all:  # wipe EVERY cached configuration, not just this one (the pre-s258 behaviour)
 	# Same race, same cure, same bounded BUILD_LOCK as `pristine` above -- see its comment block for why
