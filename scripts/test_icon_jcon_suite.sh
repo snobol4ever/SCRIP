@@ -58,6 +58,11 @@ ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"
 RT_SO="${RT_SO:-$ROOT/out/libscrip_rt.so}"
 CORPUS="${CORPUS:-$S4E/corpus/packages/icon/jcon_tests}"
+# ⛔ icont_bin() comes from the ONE authority, never a hand-assembled path and never bare `icont` on PATH:
+# CLAUDE.md's measured lesson is a seat that ran `command -v icont`, got nothing, and wrote "no Icon oracle
+# exists" into a digest. The staleness arm below is the only consumer here, and it degrades to NAMING the
+# rows it could not re-check rather than silently passing them.
+. "$(dirname "${BASH_SOURCE[0]}")/lib_oracle_flags.sh"
 OUTSIDE="$CORPUS/OUTSIDE_ARIZONA_BASELINE.tsv"
 # ⛔⭐ THE ONE-ORACLE RULE, APPLIED TO THIS PACKAGE (ceo CEO-470 on hq_P's measurement, 2026-09-09). A program
 # ARIZONA icont cannot run has no ground truth, so it is OUT of the graded denominator and NAMED -- never
@@ -273,19 +278,90 @@ if [ "$total" -ne "$GRADED" ]; then
     exit 2
 fi
 [ -n "$GAP_NAMES" ] && echo "UNGRADED ($GAP of $SHIPPED shipped, zero of the population until graded):$GAP_NAMES"
+# ⛔⭐⭐ THE EXCLUSION LIST IS RECONCILED AGAINST THE ORACLE AND AGAINST THE INVENTORY, EVERY RUN (hq_T,
+# reviewing CEO-470). The reader landed correct and UNPROTECTED: it TRUSTS the .tsv as a static list, while
+# all four SNOBOL4 siblings re-measure theirs and print STALE / UNRECORDED / "does not mirror" -- see
+# test_snoflake_suite.sh:396-400, test_snobol4_gimpel_suite.sh:142-145, test_snobol4_dotnet_suite.sh:158-163,
+# test_snobol4_spitbol_testpgms_suite.sh:168-173. Without an arm the denominator can only ever SHRINK: the
+# day Arizona icont accepts htprep, the row stands forever, six programs stay out, and NOTHING reds.
+# ⭐ That is hq_P's own commit-message principle -- "a correction that only ever raises the number is not a
+# correction" -- running in the direction it did not look: a list that can only ever lower one is not one either.
+# ⛔ THE ORACLE_REFUSES CLASS IS RE-MEASURED, THE OTHER TWO ARE NOT, AND THE ASYMMETRY IS THE POINT rather
+# than a shortcut. `icont -s -c` is COMPILE-ONLY and costs 4 ms per program (measured), so re-proving a
+# refusal is free and always on. A TIMEOUT row costs the 30 s cap it is named for, and an
+# ENVIRONMENT_IDENTITY_IN_OUTPUT row cannot be re-measured at all -- its whole claim is that the answer
+# depends on who is running it. So this arm re-proves what is cheap to re-prove and says plainly which
+# rows it did not touch, rather than pricing a 60 s tax into every jcon run or pretending it checked six.
+outside_rows() { [ -f "$OUTSIDE" ] && grep -v '^#' "$OUTSIDE" | grep -v '^[[:space:]]*$'; }
+OUT_STALE=""; OUT_UNSHIPPED=""; OUT_UNMIRRORED=""; OUT_RECHECKED=0; OUT_UNCHECKED=""
+# ⛔ THE TRAP NAMES BOTH DIRECTORIES. A bare `trap ... EXIT` here REPLACES the one set at :108 and leaks
+# $WORK on every run -- caught in review of this very arm, which is the trap-handler class exactly: a
+# second registration for the same signal is not additive, and nothing warns that the first one is gone.
+_ORWORK="$(mktemp -d)"; trap 'rm -rf "$WORK" "$_ORWORK"' EXIT
+while IFS="$(printf '\t')" read -r _on _oc _or; do
+    [ -n "$_on" ] || continue
+    # A row naming no shipped program is a rename or a leftover, and it withdraws an exclusion silently --
+    # the same refusal lib_inventory.sh makes for UNGRADED/UNGRADABLE, which this file is NOT covered by
+    # except through the hand-written mirror checked just below.
+    [ -f "$CORPUS/$_on.icn" ] || { OUT_UNSHIPPED="$OUT_UNSHIPPED $_on"; continue; }
+    # ⛔ THE MIRROR IS NOT DECORATION: `gap` is split by UNGRADED.tsv/UNGRADABLE.tsv and NOT by this file,
+    # so an OUTSIDE row absent from both leaves the program out of the graded denominator AND out of the
+    # lockdown split -- excluded by one instrument and invisible to the other, which is how a population
+    # stops summing while every individual file still reads honest.
+    if ! grep -q "^$_on\.icn"$'\t' "$CORPUS/UNGRADED.tsv" 2>/dev/null && ! grep -q "^$_on\.icn"$'\t' "$CORPUS/UNGRADABLE.tsv" 2>/dev/null; then
+        OUT_UNMIRRORED="$OUT_UNMIRRORED $_on"
+    fi
+    case "$_oc" in
+        ORACLE_REFUSES)
+            if _ic="$(icont_bin 2>/dev/null)" && [ -x "$_ic" ]; then
+                cp "$CORPUS/$_on.icn" "$_ORWORK/" 2>/dev/null || true
+                _oout="$(cd "$_ORWORK" && timeout 120 "$_ic" -s -c "$_on.icn" 2>&1)"; _orc=$?
+                OUT_RECHECKED=$((OUT_RECHECKED+1))
+                [ "$_orc" = 0 ] && OUT_STALE="$OUT_STALE $_on(icont -s -c now rc=0)"
+            else OUT_UNCHECKED="$OUT_UNCHECKED $_on(no icont)"; fi ;;
+        *) OUT_UNCHECKED="$OUT_UNCHECKED $_on($_oc)" ;;
+    esac
+done <<EOF
+$(outside_rows)
+EOF
 # ⛔ PRINTED WHETHER OR NOT THE LIST IS EMPTY, for the reason CEO-409 guardrail 3 gives about masks: a line
 # that appears only when something is excluded tells the reader nothing on the day one is added and
 # everything on the day one is removed. Names AND the oracle's own class ride on it so the six stay visible.
 echo "OUTSIDE_ARIZONA_BASELINE ($(printf '%s' "$OUTSIDE_LIST" | wc -w), out of the graded denominator, named in $OUTSIDE):${OUTSIDE_LIST:- none}"
+# ⛔ THE RECONCILIATION PRINTS UNCONDITIONALLY TOO, and for a sharper reason than the list above it: a
+# silent agreement line is the only way a reader can tell "the arm ran and the record holds" apart from
+# "the arm did not run", and those two have opposite meanings for every number on the board line below.
+[ -n "$OUT_UNSHIPPED" ]  && echo "⚠ OUTSIDE_ARIZONA_BASELINE.tsv NAMES NOTHING SHIPPED:$OUT_UNSHIPPED -- a rename or a leftover; the row withdraws an exclusion silently, and this file is not covered by lib_inventory's declared-but-not-shipped refusal except through the mirror"
+[ -n "$OUT_UNMIRRORED" ] && echo "⚠ OUTSIDE_ARIZONA_BASELINE.tsv DOES NOT MIRROR the lockdown buckets:$OUT_UNMIRRORED -- named outside the denominator here and in neither UNGRADED.tsv nor UNGRADABLE.tsv, so the gap split above cannot see them; a TIMEOUT is work owed (UNGRADED), an oracle refusal is a ruling (UNGRADABLE)"
+[ -n "$OUT_STALE" ]      && echo "⚠ OUTSIDE_ARIZONA_BASELINE.tsv STALE:$OUT_STALE -- recorded as refused by Arizona icont, but icont compiled it THIS RUN. Move it back into the graded denominator; an exclusion list that can only ever lower the number is not a correction either"
+# ⛔⭐ THE AGREEMENT LINE MAY NOT CLAIM THE ORACLE AGREED WHEN THE ORACLE WAS NEVER ASKED. Caught by this
+# arm's OWN failure test (hq_T, driving it with icont_bin() forced to fail): with the oracle unreachable it
+# re-measured zero rows and still printed "agrees with the oracle", which is the exact defect the arm was
+# written to catch, one level up -- CLAUDE.md's "a missing oracle does not blank a board, it prints a full,
+# plausible, entirely false table", inverted into a plausible GREEN. The wording now follows what was
+# actually measured: agreement is claimed over the oracle only when a row was put to it.
+if [ -z "$OUT_UNSHIPPED$OUT_UNMIRRORED$OUT_STALE" ]; then
+    if [ "$OUT_RECHECKED" -gt 0 ]; then
+        echo "OUTSIDE_ARIZONA_BASELINE.tsv agrees with the oracle and the lockdown buckets (re-measured $OUT_RECHECKED ORACLE_REFUSES row(s) with icont -s -c; NOT re-measured:${OUT_UNCHECKED:- none})"
+    else
+        echo "OUTSIDE_ARIZONA_BASELINE.tsv agrees with the lockdown buckets; THE ORACLE WAS NOT ASKED (zero rows re-measured -- no ORACLE_REFUSES row was reachable). Every row stands on its recorded reason alone:${OUT_UNCHECKED:- none}"
+    fi
+fi
 echo "JCON_SUITE_BOARD shipped=$SHIPPED graded=$GRADED gap=$GAP total=$total m3_pass=${m3p:-n/a} m4_pass=${m4p:-n/a}"
 # ⛔⭐ THE PACKAGE LOCKDOWN INVENTORY (Lon 2026-09-06: "Fix the never graded business"; instrument row
 # every-package-runner-prints-shipped-graded-ungraded-and-ungradable..., hq_T). ONE line, ONE shape, from
-# the SHARED body -- never a second copy of the arithmetic. ⭐ IT SPLITS THE `gap=` PRINTED ABOVE, and for
-# THIS package the split is the whole point: all 9 gap entries are UNGRADABLE (upstream ships no .std, and
-# tpp's .std is preprocessor text rather than program output), so jcon's ungraded is ZERO and it already
-# meets the lockdown criterion. Under a single `gap=10` that was indistinguishable from ten programs of
-# work owed -- and since every lockdown row's DONE-WHEN reads `ungraded=0`, the conflated number made a
-# criterion this package ALREADY SATISFIES look permanently out of reach.
+# the SHARED body -- never a second copy of the arithmetic. ⭐ IT SPLITS THE `gap=` PRINTED ABOVE, and the
+# split is the whole point: under a single `gap=` a program upstream ships no oracle answer for is
+# indistinguishable from one this lane owes work on, and since every lockdown row's DONE-WHEN reads
+# `ungraded=0`, a conflated number makes the criterion unreadable in BOTH directions.
+# ⛔⭐ THIS COMMENT USED TO ASSERT THE SPLIT INSTEAD OF DERIVING IT -- "all 9 gap entries are UNGRADABLE, so
+# jcon's ungraded is ZERO and it already meets the lockdown criterion" -- and CEO-470 falsified it in the
+# same commit that made it stale: reading OUTSIDE_ARIZONA_BASELINE.tsv moved six programs into the gap, of
+# which lgint and toby are UNGRADED (a TIMEOUT is work owed, not a ruling), so the gap is 15 and ungraded
+# is 2 and this package does NOT meet the criterion today. ⭐ The reusable half is not the number: a
+# comment that states what the line below it PRINTS is a second, unversioned copy of a measurement, and it
+# decays exactly when the measurement moves -- which is the one moment a reader is most likely to trust it.
+# Read PACKAGE_INVENTORY on the run in front of you; this comment says what the split MEANS, never what it is.
 . "$(dirname "${BASH_SOURCE[0]}")/lib_inventory.sh"
 INV_PACKAGE=jcon; INV_DIR="$CORPUS"; INV_EXT=".icn"
 # ⛔ NAMED, NOT DOWNGRADED TO A ⚠ (test_gate_package_runners_print_the_inventory.sh flagged this runner by
