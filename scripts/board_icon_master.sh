@@ -105,8 +105,11 @@ ENTRY_FLOOR="${ICON_MASTER_ENTRY_FLOOR:-534}"
 # ⚠ A CONCURRENT SEAT PINNED 708 IN THIS SAME MINUTE and it is superseded, not disagreed with: 708 and 709 are two honest measurements of a
 # tree that grew between them. Kept the higher because a floor is a ratchet over the pass SET; if 709 ever reds, the entry that fell is the
 # finding, not this pin.
-M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-709}"
-M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-709}"
+# ⭐ RE-PINNED 708 -> 713 (cfo 2026-09-09 09:4x CDT, MODE NONET): board_icon_master.sh on the ilib cure (x <- e enters at α; case arms lowered onto their result) + hq_V's CEO-445 rungs in the denominator: entries=881 · m3 PASS=713 · m4 PASS=713 of 728, both modes, load ~5; the 13 FAIL + 2 CRASH are hq_V's rungs minted BEFORE their cures, by design.
+# ⭐ 713 SUPERSEDES 709 THE SAME WAY 709 SUPERSEDED 708 (cfo, resolving the rebase at 09:5x): two honest measurements of a tree that grew between them; the floor is a ratchet over the pass SET and takes the later, higher run.
+# ⭐ RE-PINNED 713 -> 714 (cfo 2026-09-09 09:5x CDT) on the REBASED tree: the ilib cure + f046ef00b (:=: against a static or global) measured together, entries=881 · m3 714 · m4 714 of 728; the 11 FAIL + 2 CRASH + 1 HANG are hq_V's pre-cure rungs and hq_C's three starved Jcon entries (the HANG is one of them waiting on the stdin it has no sidecar for).
+M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-714}"
+M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-714}"
 # ⛔ NO AST_PASS_FLOOR: a self-pin has no floor to regress below, only a CURRENT-run comparison of
 # ap (matched) vs at (total) -- see the AST-SHAPE note above. Removed under ast-dump-refs-are-self-
 # pins-not-oracles rather than kept-but-unused, so a reader cannot mistake its presence for gating.

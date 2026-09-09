@@ -655,10 +655,9 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         int has_dflt = (nc % 2 == 1);
         IR_t * chain_next = ω;
         if (has_dflt) {
-            IR_t * dv = NULL; IR_t * de = lower(cx, t->c[t->n - 1], NULL, ω, &dv);
             IR_t * dasn = build(cx, IR_ASSIGN, cvar, ω); IR_LIT(dasn).sval = (char *) CVAR;
-            { IR_t * dvf = icn_arm_result(dv); if (dvf) ir_operand_push(dasn, dvf); }
-            { IR_t * dvf = icn_arm_result(dv); if (dvf) γ_to(dvf, dasn); else if (!dv) γ_to(de, dasn); }
+            IR_t * dv = NULL; IR_t * de = lower(cx, t->c[t->n - 1], dasn, ω, &dv);
+            { IR_t * dvf = icn_arm_result(dv); if (dvf) { ir_operand_push(dasn, dvf); γ_to(dvf, dasn); } }
             chain_next = de;
         }
         for (int i = npairs - 1; i >= 0; i--) {
@@ -667,10 +666,9 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             IR_t * ksel_ω = is_resumable(t->c[ki]) ? chain_next : ω;
             IR_t * kn = NULL; IR_t * ke = lower(cx, t->c[ki], NULL, ksel_ω, &kn);
             IR_t * kβ = cx->beta;
-            IR_t * bv = NULL; IR_t * be = lower(cx, t->c[bi], NULL, ω, &bv);
             IR_t * asn = build(cx, IR_ASSIGN, cvar, ω); IR_LIT(asn).sval = (char *) CVAR;
-            { IR_t * bvf = icn_arm_result(bv); if (bvf) ir_operand_push(asn, bvf); }
-            { IR_t * bvf = icn_arm_result(bv); if (bvf) γ_to(bvf, asn); else if (!bv) γ_to(be, asn); }
+            IR_t * bv = NULL; IR_t * be = lower(cx, t->c[bi], asn, ω, &bv);
+            { IR_t * bvf = icn_arm_result(bv); if (bvf) { ir_operand_push(asn, bvf); γ_to(bvf, asn); } }
             IR_t * idc = build(cx, IR_CALL_BUILTIN, be, chain_next);
             IR_LIT(idc).sval = (char *) "IDENTICAL";
             if (is_resumable(t->c[bi]) || (be && ir_is_generator_kind(be->op))) lc_γ_to_α(idc, be);
@@ -931,7 +929,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             IR_t * rbeta = (cx->beta != b4) ? cx->beta : NULL;
             if (rbeta) ω_to(nd, rbeta);
             else if (rr && icn_tree_is_cursor_mover(rhs)) lc_ω_to_β(nd, rr);
-            γ_to(lr, re);
+            lc_γ_to(lr, re);
             lc_γ_to(rr, nd);
             ir_operand_push(nd, rr);
             ir_operand_push(nd, lr);
