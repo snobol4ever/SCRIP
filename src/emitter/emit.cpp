@@ -2685,6 +2685,8 @@ static void zd_depth_census(IR_t **nodes, int n, unsigned char *zon, int *zout, 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int flat_beta_kind_keeps(IR_t * nd) { int op = nd ? (int)nd->op : -1; return (nd && (ir_is_generator_kind(nd->op) || op == IR_SUSPEND || op == IR_CALL || op == IR_CALL_PROC_STAGED || op == IR_CALL_BUILTIN_GEN || op == IR_PROC_GEN || op == IR_REPALT || op == IR_LIMIT || op == IR_GOTO || op == IR_STATEMENT_BEGIN || (g_emit_cfg && nd == g_emit_cfg->body_root))) ? 1 : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int scan_body_beta_keeps(IR_t * nd) { int op = nd ? (int)nd->op : -1; return (nd && (flat_beta_kind_keeps(nd) || op == IR_SCAN_TAB || op == IR_SCAN_MOVE)) ? 1 : 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void flat_beta_used_scan(IR_t **nodes, int n, unsigned char *used) {
     for (int j = 0; j < n; j++) if (fc_seq_on(nodes[j]) || fc_alt_active(nodes[j])) { for (int k = 0; k < n; k++) used[k] = 1; return; }
     for (int k = 0; k < n; k++) {
@@ -3221,10 +3223,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             if (!g_scan_body_beta && nodes[i]->n_operands > 2) { IR_t *bb2 = nodes[i]->operands[2]; int _fk = -1;
                 for (int _hops = 0; bb2 && _fk < 0 && _hops < 8; _hops++) {
                     { int _conduit = (IR_LIT(nodes[i]).dval == 3.0 || IR_LIT(nodes[i]).dval == 4.0) ? 1 : 0;
-                    for (int k = 0; k < n; k++) if (nodes[k] == bb2) { _fk = k; g_scan_body_beta = (betas[k] && (flat_beta_kind_keeps(nodes[k]) || (!_conduit && bv && bused[k]))) ? betas[k] : lbls[k]; break; } }
+                    for (int k = 0; k < n; k++) if (nodes[k] == bb2) { _fk = k; g_scan_body_beta = (betas[k] && (scan_body_beta_keeps(nodes[k]) || (!_conduit && bv && bused[k]))) ? betas[k] : lbls[k]; break; } }
                     if (_fk < 0) bb2 = bb2->γ.node;
                 }
-                if (getenv("SCRIP_SCAN3_DIAG")) fprintf(stderr, "[SCAN3] i=%d found_k=%d dval=%g nops=%d bv=%d -> t0=%s (alpha=%s beta=%s keeps=%d used=%d)\n", i, _fk, IR_LIT(nodes[i]).dval, nodes[i]->n_operands, bv ? 1 : 0, g_scan_body_beta ? g_scan_body_beta->name : "-", (_fk >= 0 && lbls[_fk]) ? lbls[_fk]->name : "-", (_fk >= 0 && betas[_fk]) ? betas[_fk]->name : "-", _fk >= 0 ? flat_beta_kind_keeps(nodes[_fk]) : -1, _fk >= 0 ? (int)bused[_fk] : -1); }
+                if (getenv("SCRIP_SCAN3_DIAG")) fprintf(stderr, "[SCAN3] i=%d found_k=%d dval=%g nops=%d bv=%d -> t0=%s (alpha=%s beta=%s keeps=%d used=%d)\n", i, _fk, IR_LIT(nodes[i]).dval, nodes[i]->n_operands, bv ? 1 : 0, g_scan_body_beta ? g_scan_body_beta->name : "-", (_fk >= 0 && lbls[_fk]) ? lbls[_fk]->name : "-", (_fk >= 0 && betas[_fk]) ? betas[_fk]->name : "-", _fk >= 0 ? scan_body_beta_keeps(nodes[_fk]) : -1, _fk >= 0 ? (int)bused[_fk] : -1); }
         }
         if (nodes[i]->op == IR_GALT && nodes[i]->n_operands >= 2) {
             IR_t *arm2 = nodes[i]->operands[0]; IR_t *arm1 = nodes[i]->operands[1];

@@ -136,7 +136,7 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
     case IR_ITERATE:
         zls_field(scope_id, off, 8, ZK_RAW, 0, "iterate.index i (alpha=0, beta inc)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "iterate.pad (unused)", nd); return 1;
     case IR_LIMIT:
-        zls_field(scope_id, off, 8, ZK_RAW, 0, "limit.counter", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "limit.pad (unused)", nd); return 1;
+        zls_field(scope_id, off, 8, ZK_RAW, 0, "limit.counter", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "limit.resumed flag (+24 from box base; beta sets before resuming the generator, alpha consumes and clears it so a FRESH entry zeroes limit.counter -- see bb_limit.cpp)", nd); return 1;
     case IR_REPALT:
         zls_field(scope_id, off, 8, ZK_RAW, 0, "repalt.yielded flag (clear/yield/test)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "repalt.pad (unused)", nd); return 1;
     case IR_REV_ASSIGN: case IR_REV_ASSIGN_VAR:
