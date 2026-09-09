@@ -3387,6 +3387,7 @@ DESCR_t terminal_read(void) {
     }
     return STRVAL(rt_ws_strdup_c(tbuf));
 }
+#define RT_INPUT_DEFAULT_RECLEN 1024
 DESCR_t input_read(void) {
     if (!_input_fp) _input_fp = stdin;
     if (_input_rlen > 0) {
@@ -3400,6 +3401,7 @@ DESCR_t input_read(void) {
     ssize_t nread = getline(&_input_buf, &_input_cap, _input_fp);
     if (nread < 0) return FAILDESCR;
     if (nread > 0 && _input_buf[nread-1] == '\n') { _input_buf[nread-1] = '\0'; nread--; }
+    if (nread > RT_INPUT_DEFAULT_RECLEN) { nread = RT_INPUT_DEFAULT_RECLEN; _input_buf[nread] = '\0'; }
     if (kw_trim) {
         while (nread > 0 && (_input_buf[nread-1] == ' ' || _input_buf[nread-1] == '\t')) {
             _input_buf[--nread] = '\0';
