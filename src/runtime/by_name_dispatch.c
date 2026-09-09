@@ -4815,6 +4815,8 @@ static const char *sort_struct_type_name(DESCR_t v) {
     return "";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sort_is_record(DESCR_t v) { const char *n = sort_struct_type_name(v); return n[0] && strcmp(n, "list") != 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sort_chars_len(DESCR_t d) { int n = (int)descr_slen(d); if (n == 0 && d.s && *d.s) n = (int)strlen(d.s); return n; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sort_chars_cmp(DESCR_t a, DESCR_t b) {
@@ -6378,7 +6380,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         extern DESCR_t rt_make_list(DESCR_t *a, int nn);
         *out = rt_make_list(mem, n); return 1;
     }
-    if (((_bid == BID_sortf) || (_bid == BID_sort)) && (nargs == 1 || nargs == 2) && args[0].v == DT_DATA && args[0].u && sort_struct_type_name(args[0])[0] && strcmp(sort_struct_type_name(args[0]), "list") != 0) {
+    if (((_bid == BID_sortf) || (_bid == BID_sort)) && (nargs == 1 || nargs == 2) && args[0].v == DT_DATA && args[0].u && sort_is_record(args[0])) {
         DATINST_t *di = (DATINST_t *)args[0].u;
         int n = di->type->nfields; if (n < 0) n = 0;
         DESCR_t *mem = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t));
