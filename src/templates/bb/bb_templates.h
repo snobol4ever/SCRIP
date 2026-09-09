@@ -58,6 +58,7 @@ std::string bb_rev_assign_var();
 std::string bb_goto();
 std::string bb_bound();
 std::string bb_statement();
+std::string bb_stmt_mark(long stno, long line);
 std::string bb_glue_flat_enter();
 std::string bb_glue_flat_leave();
 std::string bb_glue_framed_enter();
