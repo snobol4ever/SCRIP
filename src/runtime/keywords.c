@@ -484,7 +484,11 @@ DESCR_t rt_keyword_gen(const char *sval, long idx) {
         return STRVAL(feats[idx]);
     }
     if (!strcmp(kw,"allocated")) {
-        if (idx >= 0 && idx <= 3) return INTVAL(0);
+        extern long g_rt_alloc_total, g_rt_alloc_str;
+        if (idx == 0) return INTVAL(g_rt_alloc_total);
+        if (idx == 1) return INTVAL(0);
+        if (idx == 2) return INTVAL(g_rt_alloc_str);
+        if (idx == 3) return INTVAL(g_rt_alloc_total - g_rt_alloc_str);
         return FAILDESCR;
     }
     if (!strcmp(kw,"regions")) {

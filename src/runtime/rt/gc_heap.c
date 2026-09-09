@@ -15,6 +15,8 @@
 _Static_assert(sizeof(rt_hblk_t) == 16, "rt_hblk_t must be one 16-byte title unit");
 typedef struct rt_hp_fr_t { char *top; char *end; long blocks; int armed; int _pad; char *virgin; int zfull; int _pad2; } rt_hp_fr_t;
 rt_hp_fr_t g_hp_fr = { (char *)0, (char *)0, 0, 0, 0, (char *)0, -1, 0 };
+__attribute__((visibility("hidden"))) long g_rt_alloc_total = 0;
+__attribute__((visibility("hidden"))) long g_rt_alloc_str = 0;
 _Static_assert(sizeof(rt_hp_fr_t) == 48, "RTX-2 extends the PL-SINK-3 cell; 0/8/16/24 stay put");
 _Static_assert(__builtin_offsetof(rt_hp_fr_t, top)    ==  0, "PL-SINK-3 bakes g_hp_fr.top @0");
 _Static_assert(__builtin_offsetof(rt_hp_fr_t, end)    ==  8, "PL-SINK-3 bakes g_hp_fr.end @8");
@@ -84,7 +86,7 @@ char *rt_sxt_extend(char *s, long al, long bl)
         uint64_t d = want - h->size;
         if (g_hp_top + d > g_hp_end) { g_sxt_owner = (char *)0; return (char *)0; }
         h->size = (uint32_t)want;
-        g_hp_top += d;
+        g_hp_top += d; g_rt_alloc_total += (long)d; g_rt_alloc_str += (long)d;
     }
     { uint64_t pay = want - sizeof(rt_hblk_t); uint64_t used = (uint64_t)(al + bl + 1); if (pay > used) memset(s + used, 0, (size_t)(pay - used)); }
     return s;
@@ -130,6 +132,7 @@ static void *rt_gcheap_carve(char *at, uint64_t total, uint16_t type)
 {
     rt_hblk_t *h = (rt_hblk_t *)at;
     h->fwd = 0; h->size = (uint32_t)total; h->type = type; h->flags = HBF_TTL;
+    g_rt_alloc_total += (long)total; if (type == (uint16_t)DT_S) g_rt_alloc_str += (long)total;
     uint64_t pay = total - sizeof(rt_hblk_t);
     if (g_hp_fr.zfull < 0) { const char *e = getenv("SCRIP_ZSKIP_OFF"); g_hp_fr.zfull = (e && *e && *e != '0') ? 1 : 0; }
     { const int zfull = g_hp_fr.zfull;
@@ -229,7 +232,7 @@ static void *rt_ws_alloc_core(size_t n, uint16_t ty)
     if (!g_wsi_base) rt_wsi_init();
     { uint64_t total = sizeof(rt_hblk_t) + ((((uint64_t)(n ? n : 1)) + 15u) & ~15ull);
       if ((uint64_t)(g_wsi_wss - g_wsi_ws) < total) { fprintf(stderr, "[WSI] workspace island exhausted (%d MB, %ld blocks) — raise WSI_MB\n", (int)WSI_MB, g_wsi_blocks); abort(); }
-      { rt_hblk_t *h = (rt_hblk_t *)g_wsi_ws; h->fwd = 0; h->size = (uint32_t)total; h->type = ty; h->flags = HBF_TTL; if (g_hp_fr.zfull < 0) { const char *ze = getenv("SCRIP_ZSKIP_OFF"); g_hp_fr.zfull = (ze && *ze && *ze != '0') ? 1 : 0; } if (g_hp_fr.zfull) memset((void *)(h + 1), 0, (size_t)(total - sizeof(rt_hblk_t)));
+      { rt_hblk_t *h = (rt_hblk_t *)g_wsi_ws; h->fwd = 0; h->size = (uint32_t)total; h->type = ty; h->flags = HBF_TTL; g_rt_alloc_total += (long)total; if (g_hp_fr.zfull < 0) { const char *ze = getenv("SCRIP_ZSKIP_OFF"); g_hp_fr.zfull = (ze && *ze && *ze != '0') ? 1 : 0; } if (g_hp_fr.zfull) memset((void *)(h + 1), 0, (size_t)(total - sizeof(rt_hblk_t)));
         g_wsi_ws += total; g_wsi_blocks += 1; return (void *)(h + 1); } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
