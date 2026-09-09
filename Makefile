@@ -238,23 +238,28 @@ test: scrip  # ⭐ WAS THE FALSE-GREEN TRAP (cured hq_P s268): `test`, `test-ir`
 	# enforcement, and the enforcement is not what was wrong -- the position was. Cheap-arms-first is the
 	# recipe's rule for FAILING FAST; it is not a licence for a cheap arm to mask an expensive one.
 	bash scripts/test_gate_master_order_is_the_builders_order.sh   # ~0.9s MEASURED, pure file parse via the builder's own master_file_key import (no build): THE COMMITTED MASTER IS SORTED THE WAY ITS BUILDER SORTS, for every language carrying an ALL.csv. ⭐ WIRED 2026-09-05 (seat06/hq_T, row three-master-builder-gates-are-red-at-head-and-none-is-in-make-test): pascal/prolog/raku/snobol4 had drifted from the level-ordering law (ceo 2026-09-03, "rank <= N must select the greenest N") since their last promotion and were resorted (util_build_master_suite.py --resort) to cure it, content-invariant. SNOBOL4 additionally needed a new master_file_key -- kind-partitioned, lines before blocks -- because plain master_sort_key names an order write_suite() cannot physically store for a mixed format-A/format-B master (a block ends only at the next banner or EOF, so a trailing one-liner is silently swallowed into it); every single-kind master is byte-identical under either key.
-	# ⛔⭐ REPORTED ON PURPOSE -- AND THE ONLY REASON IS THAT IT IS RED AT HEAD ON A ROW ITS AUTHOR DOES NOT OWN.
-	# coo asked for this as a BLOCKING red (2026-09-08) and blocking is the right end state; it is wired with a
-	# leading '-' for exactly as long as IcnM reads 704/704 while declaring 20 xfail, because promoting it today
-	# reds every seat's landing on a row under ICON WAITS that no SNOBOL4 seat may touch. ⭐ THE RULE THIS FOLLOWS:
-	# a NEW gate that is red at head through no fault of the code is wired REPORTED and promoted the day its row is
-	# corrected -- which is NOT the demotion of a blocking arm (that is always wrong), it is the arrival of one.
-	# ⛔ PROMOTE BY DELETING THE '-' the moment this prints GATE OK. Do not delete the arm.
-	-bash scripts/test_gate_score_row_denominator_includes_xfails.sh   # <1s, pure parse of .github/SCORE.md, no build: a master row's declared xfails must fit inside its denominator (CEO-416). Catches the N/N shape that re-flipped SnoM on every master run.
-	# ⛔⭐ REPORTED FOR THE SAME ONE REASON AS THE ARM ABOVE, AND NO OTHER: it is red at head on a row this seat
-	# must not measure for someone else. The snobol4 half greens the moment its master runs; the icon half greens
-	# when coo's IcnM run lands, and coo asked for that run to be the FIRST published pair so it is measured rather
-	# than inferred. Racing it would put an inferred number in the row the whole ruling was written to make honest.
+	# ✅ PROMOTED TO BLOCKING 2026-09-08, ON ITS OWN WRITTEN CONDITION -- it prints GATE OK. It stood REPORTED for
+	# one reason only: red at head on IcnM, a row under ICON WAITS that no SNOBOL4 seat could touch, and a gate
+	# promoted into a red it did not cause reds every seat for a reason none of them can act on. ⭐ THE RULE, now
+	# with a worked example on both ends: a NEW gate red at head through no fault of the code is wired REPORTED and
+	# promoted the day its row is corrected -- the ARRIVAL of a blocking arm, never the demotion of one.
+	# ⛔⭐ AND WHAT ACTUALLY CLEARED IT WAS NOT THE ROW, IT WAS THIS GATE'S OWN READER. IcnM was never wrong: the
+	# `20 xfail` it was graded against was HAND-WRITTEN PROSE counted from 20 per-entry .xfail markers in
+	# corpus/tests/icon, and hq_I measured that those 20 name entries NOT IN ALL.csv AT ALL. The note and the
+	# fraction were two disjoint sets and this gate was comparing across the seam. It now reads the xfail count the
+	# RUNNER published in the Master board cell -- the only count that provably shares the fraction's population.
+	bash scripts/test_gate_score_row_denominator_includes_xfails.sh   # <1s, pure parse of .github/SCORE.md, no build: a master row's declared xfails must fit inside its denominator (CEO-416). Catches the N/N shape that re-flipped SnoM on every master run.
+	# ✅ PROMOTED TO BLOCKING 2026-09-08: both halves green. The snobol4 half greened on its own master run; the
+	# icon half greened on the coo's, which is how it was asked for -- the first published pair MEASURED rather than
+	# inferred, by the seat that owns the row. Racing it would have put an inferred number in the one row the whole
+	# ruling was written to make honest, and the number it published was a MEASURED ZERO: icon reads xfail=0
+	# xpass=0, which settles the 704/704-vs-704/724 question the honest way and is the reading the row could not
+	# carry at all before this arm existed.
 	# ⭐ THE PROPERTY IT ASSERTS is not a number and cannot go stale: a master row that publishes a fraction must
 	# publish the xpass count beside it, because a fraction alone is blind to xfail and xpass TRADING underneath it
 	# -- a cured bug and a stale marker move it identically, which is to say not at all.
 	# ⛔ PROMOTE BY DELETING THE '-' the moment this prints GATE OK. Do not delete the arm.
-	-bash scripts/test_gate_master_boards_publish_xpass.sh   # <1s, pure parse of .github/SCORE.md, no build: the ruled master rows publish an xpass count beside their fraction (coo 2026-09-08), so movement inside a master's own known-red set is a READ and not a twenty-minute run.
+	bash scripts/test_gate_master_boards_publish_xpass.sh   # <1s, pure parse of .github/SCORE.md, no build: the ruled master rows publish an xpass count beside their fraction (coo 2026-09-08), so movement inside a master's own known-red set is a READ and not a twenty-minute run.
 	# ⭐ BLOCKING FROM ITS FIRST DAY, and it can be because the one instance it found was cured in the same
 	# landing (test_snobol4_gimpel_suite.sh never assigned INV_LINE, so its row write refused rc=2 on every run
 	# and three seats hit it in one evening). A static parse, no build, no suite: the whole class is provable by
