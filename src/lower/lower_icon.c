@@ -23,6 +23,7 @@ static tree_t * icn_variable_lit_tree(const char * nm) { tree_t * v = ast_node_n
 static lc_vec g_icn_synth_excl;
 static int icn_is_own_global(const icx_t * cx, const char * nm) { for (int i = 0; i < cx->ngn; i++) if (cx->gn[i] && !strcmp(cx->gn[i], nm)) return 1; return 0; }
 static const char * icn_static_mangled(const icx_t * cx, const char * nm) { if (!cx->pname) return NULL; size_t pl = strlen(cx->pname), nl = strlen(nm); for (int i = 0; i < g_icn_synth_excl.n; i++) { const char * m = LC_AT(&g_icn_synth_excl, const char *, i); if (m && !strncmp(m, cx->pname, pl) && !strncmp(m + pl, "__STATIC__", 10) && !strcmp(m + pl + 10, nm) && strlen(m) == pl + 10 + nl) return m; } return NULL; }
+static int icn_operand_derefs_late(const icx_t * cx, const tree_t * t) { if (!t || t->t != TT_VAR || !t->v.sval || t->v.sval[0] == '&') return 0; return !icn_is_local(cx, t->v.sval); }
 static int icn_is_proc(const char * nm) { for (int i = 0; i < g_stage2.proc_count; i++) if (g_stage2.proc_table[i].name && !strcmp(g_stage2.proc_table[i].name, nm)) return 1; return 0; }
 static tree_t * icn_variable_lit_target(const icx_t * cx, const char * vn) { if (vn[0] == '&') return icn_kw_assignable(vn) ? icn_variable_lit_tree(vn) : NULL; if (icn_is_local(cx, vn)) return icn_variable_lit_tree(vn); { const char * m = icn_static_mangled(cx, vn); if (m) return icn_variable_lit_tree(m); } if (icn_is_own_global(cx, vn) || icn_is_proc(vn)) return icn_variable_lit_tree(vn); return NULL; }
 static int icn_gen_wiring(const IR_t * t) {
@@ -437,16 +438,18 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t * cb2 = (is_arith && !blit) ? build(cx, IR_COERCE_NUMERIC, op, ω) : NULL; if (cb2) IR_LIT(cb2).ival = 102 | COERCE_ERR_FAILURE_CONVERTIBLE | ((bcode == BINOP_POW) ? COERCE_KEEP_INT : 0);
         IR_t * ca2 = (is_arith && !alit) ? build(cx, IR_COERCE_NUMERIC, cb2 ? cb2 : op, ω) : NULL; if (ca2) IR_LIT(ca2).ival = 102 | COERCE_ERR_FAILURE_CONVERTIBLE;
         IR_t * bsucc = ca2 ? ca2 : (cb2 ? cb2 : op);
-        IR_t * lr = NULL, * rr = NULL; IR_t * ea = lower(cx, t->c[0], NULL, ω, &lr); IR_t * lβ = cx->beta; IR_t * eb = lower(cx, t->c[1], bsucc, lβ, &rr);
-        IR_t * rβ = cx->beta;
+        int late_deref = icn_operand_derefs_late(cx, t->c[0]);
+        IR_t * lr = NULL, * rr = NULL, * ea = NULL, * eb = NULL, * lβ = NULL, * rβ = NULL;
+        if (late_deref) { eb = lower(cx, t->c[1], NULL, ω, &rr); rβ = cx->beta; ea = lower(cx, t->c[0], bsucc, rβ, &lr); lβ = cx->beta; }
+        else { ea = lower(cx, t->c[0], NULL, ω, &lr); lβ = cx->beta; eb = lower(cx, t->c[1], bsucc, lβ, &rr); rβ = cx->beta; }
         IR_t * opfail = (rβ && rβ != ω && rβ != op) ? rβ : ((lβ && lβ != ω && lβ != op) ? lβ : NULL);
         if (is_relop && opfail) ω_to(op, opfail);
-        lc_γ_to(lr, eb);
+        if (late_deref) lc_γ_to(rr, ea); else lc_γ_to(lr, eb);
         if (ca2) { ir_operand_push(ca2, lr); ir_operand_push(ca2, rr); }
         if (cb2) { ir_operand_push(cb2, rr); ir_operand_push(cb2, lr); }
         ir_operand_push(op, ca2 ? ca2 : lr); ir_operand_push(op, cb2 ? cb2 : rr);
         cx->beta = (rβ && rβ != ω && rβ != op) ? rβ : ((lβ && lβ != ω && lβ != op) ? lβ : ω);
-        *res = op; return ea; }
+        *res = op; return late_deref ? eb : ea; }
     if (is_unop_tt(t->t)) {
         {
             int64_t fb = 0; int fr = 0;

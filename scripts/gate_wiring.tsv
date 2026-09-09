@@ -61,6 +61,7 @@ test_gate_emit_no_lang.sh	WIRED	-	-	-
 test_gate_emit_no_slot_alloc.sh	WIRED	-	-	-
 test_gate_gate_wiring_ratchet.sh	WIRED	-	-	-
 test_gate_harness_refusal_is_rc2.sh	WIRED	-	-	-
+test_gate_icn_a_variable_operand_derefs_at_the_operation.sh	WIRED	-	-	-
 test_gate_icn_bal_is_a_backtracking_generator.sh	WIRED	-	-	-
 test_gate_icn_bounded_expression_releases_suspended_frame.sh	WIRED	-	-	-
 test_gate_icn_byname_generator_call_inherits_the_scanning_environment.sh	WIRED	-	-	-
