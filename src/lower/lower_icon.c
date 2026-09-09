@@ -103,6 +103,7 @@ static int is_resumable(const tree_t * t) {
     if (!t) return 0; if (t->t == TT_STMT) t = stmt_subj(t); if (!t) return 0;
     if (t->t == TT_BANG_BINARY) return 1;
     if (t->t == TT_FIELD || t->t == TT_NULL || t->t == TT_NONNULL) return (t->n > 0) ? is_resumable(t->c[0]) : 0;
+    if (t->t == TT_REPALT) return 1;
     if (is_unop_tt(t->t)) return (t->n > 0) ? is_resumable(t->c[0]) : 0;
     if (t->t == TT_FNC) { const char * nm = (t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) ? t->c[0]->v.sval : NULL; return nm ? icn_call_allow_gen(nm) : 1; }
     if (lc_is_binop(t->t)) { for (int i = 0; i < t->n; i++) if (is_resumable(t->c[i])) return 1; return 0; }
