@@ -1284,12 +1284,12 @@ static DESCR_t _ARRAY_(DESCR_t *a, int n) {
                 if (hi2 < 1) hi2 = 1;
             }
             ARBLK_t *arr2d = array_new2d(lo, hi, lo2, hi2);
-            arr2d->proto_bare = 0;
+            arr2d->proto_bare = 0; arr2d->proto = rt_ws_strdup(proto);
             return ARRAY_VAL(arr2d);
         }
         sscanf(proto, "%d:%d", &lo, &hi);
         ARBLK_t *arr1d = array_new(lo, hi);
-        arr1d->proto_bare = 0;
+        arr1d->proto_bare = 0; arr1d->proto = rt_ws_strdup(proto);
         return ARRAY_VAL(arr1d);
     }
     if (proto && strchr(proto, ',')) {
@@ -1298,7 +1298,7 @@ static DESCR_t _ARRAY_(DESCR_t *a, int n) {
         if (r < 1) r = 1;
         if (c < 1) c = 1;
         ARBLK_t *arrrc = array_new2d(1, r, 1, c);
-        arrrc->proto_bare = 1;
+        arrrc->proto_bare = 1; arrrc->proto = rt_ws_strdup(proto);
         return ARRAY_VAL(arrrc);
     }
     int sz = (int)to_int(a[0]);
@@ -1341,6 +1341,7 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
             int n = tbl->size;
             if (n == 0) return FAILDESCR;
             ARBLK_t *a = rt_ws_alloc_tag(sizeof(ARBLK_t), HB_ARR);
+            a->dumpno = rt_sno_dumpno_next();
             a->lo = 1; a->hi = n; a->ndim = 1; a->lo2 = 0; a->hi2 = 0;
             a->proto_bare = 1; a->id = rt_agg_serial_list();
             { char pb[48]; snprintf(pb, sizeof pb, "%d,2", n); a->proto = rt_ws_strdup(pb); }
@@ -1355,6 +1356,7 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
                              ? e->key_descr
                              : STRVAL(tbl_pair_key(e));
                 ARBLK_t *rb = rt_ws_alloc_tag(sizeof(ARBLK_t), HB_ARR);
+                rb->dumpno = 0;
                 rb->lo = 1; rb->hi = 2; rb->ndim = 1; rb->lo2 = 0; rb->hi2 = 0;
                 rb->proto_bare = 1; rb->proto = 0; rb->id = rt_agg_serial_list();
                 rb->data = rt_ws_alloc(2 * sizeof(DESCR_t));
@@ -1674,6 +1676,7 @@ static DESCR_t _make_ctor(int tidx, DESCR_t *args, int nargs) {
     DATINST_t *u = rt_ws_alloc_tag(sizeof(DATINST_t), HB_DINST);
     u->type   = t;
     u->id     = t->serial_next++;
+    u->dumpno = rt_sno_dumpno_next();
     u->fields = rt_ws_alloc(t->nfields * sizeof(DESCR_t));
     for (int i = 0; i < t->nfields; i++)
         u->fields[i] = (i < nargs) ? args[i] : NULVCL;
@@ -2582,6 +2585,7 @@ DESCR_t DATCON_fn(const char *typename, ...) {
     DATINST_t *u = rt_ws_alloc_tag(sizeof(DATINST_t), HB_DINST);
     u->type   = t;
     u->id     = t->serial_next++;
+    u->dumpno = rt_sno_dumpno_next();
     u->fields = rt_ws_alloc(t->nfields * sizeof(DESCR_t));
     for (int i = 0; i < t->nfields; i++) u->fields[i] = NULVCL;
     va_list ap;
@@ -2621,6 +2625,7 @@ typedef struct _VarEntry {
     DESCR_t *cell;
     int      is_gva;
     int      is_const;
+    int      touched;
     struct _VarEntry *next;
 } NV_t;
 static NV_t *_var_buckets[VAR_BUCKETS];
@@ -2685,6 +2690,7 @@ static DESCR_t _var_assoc_set(const char *key, DESCR_t val) {
 DESCR_t NV_GET_fn(const char *name) {
     _var_init();
     if (!name) return NULVCL;
+    if (is_protected_pat_lead(name[0]) && is_protected_pat_name(name)) { NV_t *pe = _var_bucket_find(name); if (pe) pe->touched = 1; }
     if (!g_call_fastpath_off && name[0] != '&' && (name[0] != 'I' || strcmp(name, "INPUT") != 0) && (name[0] != 'T' || strcmp(name, "TERMINAL") != 0)) { NV_t *e = _var_find_cached(name); if (e) return e->is_gva ? *e->cell : e->val; }
     if (strcmp(name, "INPUT") == 0) { extern int rt_kw_input_on(void); if (!rt_kw_input_on()) return NULVCL; return input_read(); }
     if (strcmp(name, "TERMINAL") == 0) return terminal_read();
@@ -2894,33 +2900,157 @@ int ASGNIC_fn(const char *kw_name, DESCR_t val) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int var_dump_cmp(const void *a, const void *b) { const NV_t *x = *(const NV_t *const *)a, *y = *(const NV_t *const *)b; return strcmp(x->name, y->name); }
+static const char *dump_var_name(const NV_t *e) { return (e->name[0] == '_') ? e->name + 1 : e->name; }
+static int var_dump_cmp(const void *a, const void *b) { const NV_t *x = *(const NV_t *const *)a, *y = *(const NV_t *const *)b; return strcmp(dump_var_name(x), dump_var_name(y)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void var_dump_val(FILE *f, DESCR_t d) {
-    if (d.v == DT_I) { fprintf(f, "%lld", (long long)d.i); return; }
-    if (d.v == DT_R) { extern const char *real_str(double r, char *b, int bufsz); char b[64]; fprintf(f, "%s", real_str(d.r, b, sizeof b)); return; }
-    if (IS_STR(d) || d.v == DT_SNUL) { const char *s = rt_cstr_d(d); fprintf(f, "'%s'", s ? s : ""); return; }
-    fprintf(f, "'%s'", "");
+static int g_dump_col = 0;
+static void dump_putc(char c) { if (g_dump_col >= 120) { putchar('\n'); g_dump_col = 0; } putchar(c); g_dump_col++; }
+static void dump_nl(void) { putchar('\n'); g_dump_col = 0; }
+static void dump_puts(const char *s) { while (*s) dump_putc(*s++); }
+static void dump_putn(const char *s, long n) { for (long i = 0; i < n; i++) dump_putc(s[i]); }
+static int dump_is_null(DESCR_t d) { if (d.v == DT_SNUL || d.v == DT_FAIL) return 1; if (d.v == DT_S) return !d.s || (d.slen == 0 && d.s[0] == 0); return 0; }
+static const char *dump_arr_proto(const ARBLK_t *a, char *pb, int n) {
+    if (a->proto) return a->proto;
+    if (a->ndim > 1) snprintf(pb, (size_t)n, "%d,%d", a->hi - a->lo + 1, a->hi2 - a->lo2 + 1);
+    else if (a->lo == 1) snprintf(pb, (size_t)n, "%d", a->hi);
+    else snprintf(pb, (size_t)n, "%d:%d", a->lo, a->hi);
+    return pb;
+}
+static void dump_obj_head(DESCR_t d, char *out, int n) {
+    if (d.v == DT_A && d.arr) { char pb[64]; snprintf(out, (size_t)n, "ARRAY(%s) #%ld", dump_arr_proto(d.arr, pb, (int)sizeof pb), d.arr->dumpno); return; }
+    if (d.v == DT_T && d.tbl) { snprintf(out, (size_t)n, "TABLE(%d) #%ld", d.tbl->init, d.tbl->dumpno); return; }
+    if (d.v == DT_DATA && d.u && d.u->type) { snprintf(out, (size_t)n, "%s #%ld", d.u->type->name ? d.u->type->name : "DATA", d.u->dumpno); return; }
+    out[0] = 0;
+}
+static void dump_val(DESCR_t d) {
+    char hb[192];
+    if (d.v == DT_I) { char b[32]; snprintf(b, sizeof b, "%lld", (long long)d.i); dump_puts(b); return; }
+    if (d.v == DT_R) { extern const char *real_str(double r, char *b, int bufsz); char b[64]; dump_puts(real_str(d.r, b, sizeof b)); return; }
+    if (d.v == DT_S || d.v == DT_SNUL) {
+        const char *s = d.s ? d.s : ""; long n = (d.slen && d.slen != 0xFFFFFFFFu) ? (long)d.slen : (long)strlen(s);
+        dump_putc('\''); dump_putn(s, n); dump_putc('\''); return;
+    }
+    dump_obj_head(d, hb, (int)sizeof hb); if (hb[0]) { dump_puts(hb); return; }
+    if (d.v == DT_P) { dump_puts("PATTERN"); return; }
+    if (d.v == DT_E) { dump_puts("EXPRESSION"); return; }
+    if (d.v == DT_C) { dump_puts("CODE"); return; }
+    if (d.v == DT_X) {
+        const char *q = d.s ? d.s : ""; const char *t = strncmp(q, "EXPR$", 5) ? (const char *)0 : strrchr(q + 5, '$');
+        if (t) { dump_putc('*'); dump_puts(t + 1); } else if (strchr(q, '$')) dump_puts("EXPRESSION"); else { dump_putc('*'); dump_puts(q); }
+        return;
+    }
+    if (d.v == DT_N && d.slen == 0 && d.s) { dump_putc('.'); dump_puts(d.s); return; }
+    if (d.v == DT_N) { dump_puts("NAME"); return; }
+    if (d.v == DT_K) { dump_puts("KEYWORD"); return; }
+    if (d.v == DT_BIG) { dump_puts("INTEGER"); return; }
+    dump_puts("''");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void kw_dump_emit(const char *name, DESCR_t v) { printf("&%s = ", name); var_dump_val(stdout, v); printf("\n"); }
+typedef struct { DESCR_t d; void *p; long no; const char *name; } DUMPOBJ_t;
+static DUMPOBJ_t *g_dobj = 0; static int g_ndobj = 0, g_cdobj = 0;
+static int dump_obj_ptr(DESCR_t d, void **pp, long *no) {
+    if (d.v == DT_A && d.arr) { *pp = d.arr; *no = d.arr->dumpno; return 1; }
+    if (d.v == DT_T && d.tbl) { *pp = d.tbl; *no = d.tbl->dumpno; return 1; }
+    if (d.v == DT_DATA && d.u) { *pp = d.u; *no = d.u->dumpno; return 1; }
+    return 0;
+}
+static long dump_arr_count(const ARBLK_t *a) { long n = (long)(a->hi - a->lo + 1); if (a->ndim > 1) n *= (long)(a->hi2 - a->lo2 + 1); return n < 0 ? 0 : n; }
+static void dump_collect(DESCR_t d, const char *name) {
+    void *p; long no; if (!dump_obj_ptr(d, &p, &no)) return;
+    if (no > 0) {
+        for (int i = 0; i < g_ndobj; i++) if (g_dobj[i].p == p) return;
+        if (g_ndobj == g_cdobj) { g_cdobj = g_cdobj ? g_cdobj * 2 : 64; g_dobj = (DUMPOBJ_t *)realloc(g_dobj, (size_t)g_cdobj * sizeof(DUMPOBJ_t)); if (!g_dobj) { g_ndobj = 0; g_cdobj = 0; return; } }
+        g_dobj[g_ndobj].d = d; g_dobj[g_ndobj].p = p; g_dobj[g_ndobj].no = no; g_dobj[g_ndobj].name = name; g_ndobj++;
+    }
+    if (d.v == DT_A) { ARBLK_t *a = d.arr; long cnt = dump_arr_count(a); if (a->data) for (long i = 0; i < cnt; i++) dump_collect(a->data[i], (const char *)0); }
+    else if (d.v == DT_T) { TBBLK_t *t = d.tbl; for (unsigned i = 0; i < t->ord_len; i++) { int f = 0; DESCR_t v = table_get_found_d(t, t->ord[i], &f); if (f) dump_collect(v, (const char *)0); } }
+    else if (d.v == DT_DATA && d.u->type && d.u->fields) { for (int i = 0; i < d.u->type->nfields; i++) dump_collect(d.u->fields[i], (const char *)0); }
+}
+typedef struct { unsigned idx; unsigned long bucket; } DUMPTK_t;
+static unsigned long dump_spitbol_bucket(DESCR_t k, int nb) {
+    unsigned long h = 0;
+    if (k.v == DT_I) { long long v = k.i; h = (unsigned long)(v < 0 ? -v : v); }
+    else if (k.v == DT_R) { memcpy(&h, &k.r, sizeof h); }
+    else if (k.v == DT_S || k.v == DT_SNUL) {
+        const char *sp = k.s ? k.s : ""; unsigned long len = (k.slen && k.slen != 0xFFFFFFFFu) ? (unsigned long)k.slen : (unsigned long)strlen(sp);
+        for (unsigned long i = 0; i < len; i += 8) { unsigned long w = 0; for (unsigned long j = 0; j < 8 && i + j < len; j++) w |= (unsigned long)(unsigned char)sp[i + j] << (8 * j); h ^= w; }
+        h ^= len;
+    }
+    return h % (unsigned long)nb;
+}
+static int dump_tk_cmp(const void *a, const void *b) {
+    const DUMPTK_t *x = (const DUMPTK_t *)a, *y = (const DUMPTK_t *)b;
+    if (x->bucket != y->bucket) return x->bucket < y->bucket ? -1 : 1;
+    return (x->idx > y->idx) - (x->idx < y->idx);
+}
+static int dump_obj_cmp(const void *a, const void *b) { long x = ((const DUMPOBJ_t *)a)->no, y = ((const DUMPOBJ_t *)b)->no; return (x > y) - (x < y); }
+static void dump_elem(const char *nm, const char *sub, DESCR_t v) { if (dump_is_null(v)) return; dump_puts(nm); dump_puts(sub); dump_puts(" = "); dump_val(v); dump_nl(); }
+static void dump_arr_walk(ARBLK_t *a, const char *nm, const char *pre) {
+    char sb[160]; if (!a->data) return;
+    if (a->ndim > 1) {
+        int cols = a->hi2 - a->lo2 + 1;
+        for (int i = a->lo; i <= a->hi; i++) for (int j = a->lo2; j <= a->hi2; j++) {
+            snprintf(sb, sizeof sb, "<%s%d,%d>", pre, i, j); dump_elem(nm, sb, a->data[(long)(i - a->lo) * cols + (j - a->lo2)]);
+        }
+        return;
+    }
+    for (int i = a->lo; i <= a->hi; i++) {
+        DESCR_t v = a->data[i - a->lo];
+        if (v.v == DT_A && v.arr && v.arr->dumpno == 0 && v.arr->data) { char np[160]; snprintf(np, sizeof np, "%s%d,", pre, i); dump_arr_walk(v.arr, nm, np); continue; }
+        snprintf(sb, sizeof sb, "<%s%d>", pre, i); dump_elem(nm, sb, v);
+    }
+}
+static void dump_arr_elems(ARBLK_t *a, const char *nm) { dump_arr_walk(a, nm, ""); }
+static void dump_contents(void) {
+    qsort(g_dobj, (size_t)g_ndobj, sizeof(DUMPOBJ_t), dump_obj_cmp);
+    for (int k = 0; k < g_ndobj; k++) {
+        DESCR_t d = g_dobj[k].d; char hb[192]; dump_obj_head(d, hb, (int)sizeof hb); const char *nm = g_dobj[k].name ? g_dobj[k].name : hb;
+        dump_puts(hb); dump_nl();
+        if (d.v == DT_A) dump_arr_elems(d.arr, nm);
+        else if (d.v == DT_T) { TBBLK_t *t = d.tbl; unsigned n = t->ord_len; DUMPTK_t *ks = (DUMPTK_t *)calloc(n ? n : 1, sizeof(DUMPTK_t)); if (!ks) continue;
+            for (unsigned i = 0; i < n; i++) { ks[i].idx = i; ks[i].bucket = dump_spitbol_bucket(t->ord[i], t->init > 0 ? t->init : 11); }
+            qsort(ks, (size_t)n, sizeof(DUMPTK_t), dump_tk_cmp);
+            for (unsigned j = 0; j < n; j++) {
+                unsigned i = ks[j].idx; int f = 0; DESCR_t v = table_get_found_d(t, t->ord[i], &f); if (!f || dump_is_null(v)) continue;
+                dump_puts(nm); dump_putc('<'); dump_val(t->ord[i]); dump_puts("> = "); dump_val(v); dump_nl();
+            }
+            free(ks); }
+        else if (d.v == DT_DATA && d.u->type && d.u->fields) {
+            for (int i = 0; i < d.u->type->nfields; i++) {
+                DESCR_t v = d.u->fields[i]; if (dump_is_null(v)) continue;
+                dump_puts(d.u->type->fields && d.u->type->fields[i] ? d.u->type->fields[i] : ""); dump_putc('('); dump_puts(nm); dump_puts(") = "); dump_val(v); dump_nl();
+            }
+        }
+        dump_nl();
+    }
+    free(g_dobj); g_dobj = 0; g_ndobj = 0; g_cdobj = 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void kw_dump_emit(const char *name, DESCR_t v) { dump_putc('&'); dump_puts(name); dump_puts(" = "); dump_val(v); dump_nl(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void var_dump(void) {
+    extern long g_dump;
     NV_t **v = (NV_t **)0; int n = 0, cap = 0;
     for (int i = 0; i < VAR_BUCKETS; i++) for (NV_t *e = _var_buckets[i]; e; e = e->next) {
-        if (!e->name || !e->name[0] || e->name[0] == '&' || e->name[0] == '_') continue;
-        if (is_protected_pat_lead(e->name[0]) && is_protected_pat_name(e->name)) continue;
+        if (!e->name || !e->name[0] || e->name[0] == '&' || strchr(e->name, '$')) continue;
+        if (e->name[0] == '_' && strcmp(e->name, "_OUTPUT") && strcmp(e->name, "_INPUT") && strcmp(e->name, "_TERMINAL") && strcmp(e->name, "_PUNCH")) continue;
+        if (!e->is_gva && !e->touched && is_protected_pat_lead(e->name[0]) && is_protected_pat_name(e->name)) continue;
         DESCR_t d = e->is_gva ? *e->cell : e->val;
-        if (d.v != DT_I && d.v != DT_R && !IS_STR(d)) continue;
+        if (dump_is_null(d) || d.v == DT_FH) continue;
         if (n == cap) { cap = cap ? cap * 2 : 64; v = (NV_t **)realloc(v, (size_t)cap * sizeof(NV_t *)); if (!v) return; }
         v[n++] = e;
     }
     if (n > 1) qsort(v, (size_t)n, sizeof(NV_t *), var_dump_cmp);
-    printf("\n\n\ndump of natural variables\n\n");
-    for (int i = 0; i < n; i++) { printf("%s = ", v[i]->name); var_dump_val(stdout, v[i]->is_gva ? *v[i]->cell : v[i]->val); printf("\n"); }
-    printf("\n\ndump of keyword values\n\n");
+    dump_nl(); dump_nl(); dump_nl(); dump_puts("dump of natural variables"); dump_nl(); dump_nl();
+    for (int i = 0; i < n; i++) {
+        DESCR_t d = v[i]->is_gva ? *v[i]->cell : v[i]->val;
+        dump_puts(dump_var_name(v[i])); dump_puts(" = "); dump_val(d); dump_nl();
+        if (g_dump >= 2) dump_collect(d, dump_var_name(v[i]));
+    }
+    dump_nl(); dump_nl(); dump_puts("dump of keyword values"); dump_nl(); dump_nl();
     rt_kw_dump_values(kw_dump_emit);
-    printf("\n\n\n");
+    if (g_dump >= 2 && g_ndobj > 0) { dump_nl(); dump_contents(); dump_nl(); dump_nl(); }
+    else { dump_nl(); dump_nl(); dump_nl(); }
     fflush(stdout);
     free(v);
 }

@@ -14,6 +14,9 @@ static long g_agg_set_ser = 1;
 long rt_agg_serial_list(void) { return g_agg_list_ser++; }
 long rt_agg_serial_table(void) { return g_agg_table_ser++; }
 long rt_agg_serial_set(void) { return g_agg_set_ser++; }
+static long g_sno_dumpno = 0;
+long rt_sno_dumpno_next(void) { return ++g_sno_dumpno; }
+void rt_sno_dumpno_undo(void) { if (g_sno_dumpno > 0) g_sno_dumpno--; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ARBLK_t *array_new(int lo, int hi) {
     ARBLK_t *a = rt_ws_alloc_tag(sizeof(ARBLK_t), HB_ARR);
@@ -21,6 +24,7 @@ ARBLK_t *array_new(int lo, int hi) {
     a->hi   = hi;
     a->ndim = 1;
     a->id   = g_agg_list_ser++;
+    a->dumpno = rt_sno_dumpno_next();
     a->proto = (const char *)0;
     int sz  = hi - lo + 1;
     if (sz < 1) sz = 1;
@@ -37,6 +41,7 @@ ARBLK_t *array_new2d(int lo1, int hi1, int lo2, int hi2) {
     a->hi2  = hi2;
     a->ndim = 2;
     a->id   = g_agg_list_ser++;
+    a->dumpno = rt_sno_dumpno_next();
     a->proto = (const char *)0;
     int rows = hi1 - lo1 + 1;
     int cols = hi2 - lo2 + 1;
@@ -92,6 +97,7 @@ static TBBUCK_t **_tbl_vec_new(unsigned nb) {
 TBBLK_t *table_new(void) {
     TBBLK_t *t = rt_agg_alloc(2, sizeof(TBBLK_t));
     t->id   = g_agg_table_ser++;
+    t->dumpno = rt_sno_dumpno_next();
     t->size = 0;
     t->init = 11;
     t->inc  = 10;

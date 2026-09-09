@@ -3114,7 +3114,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "arr_make") && nargs == 1) {
         long long hi = IS_INT_fn(args[0]) ? args[0].i : 0; long long n = hi + 1; if (n < 1) n = 1;
-        ARBLK_t *b = (ARBLK_t *) rt_ws_alloc_tag(sizeof(ARBLK_t), HB_ARR); b->id = rt_agg_serial_list(); b->lo = 0; b->hi = (int) hi;
+        ARBLK_t *b = (ARBLK_t *) rt_ws_alloc_tag(sizeof(ARBLK_t), HB_ARR); b->id = rt_agg_serial_list(); b->dumpno = rt_sno_dumpno_next(); b->lo = 0; b->hi = (int) hi;
         b->ndim = 1;
         b->ndim = 1;
         b->lo2 = 0; b->hi2 = 0; b->proto_bare = 0; b->data = (DESCR_t *) rt_ws_alloc(sizeof(DESCR_t) * (size_t) n); for (long long k = 0; k < n; k++) b->data[k] = INTVAL(0); DESCR_t d; d.v = DT_A;
@@ -3256,7 +3256,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (args[0].v == DT_A && args[0].arr) {
             ARBLK_t *b = (ARBLK_t *) args[0].arr; int n = b->hi - b->lo + 1; if (n < 0) n = 0;
             ARBLK_t *r = (ARBLK_t *) rt_ws_alloc_tag(sizeof(ARBLK_t), HB_ARR);
-            r->id = rt_agg_serial_list(); r->lo = b->lo; r->hi = b->hi; r->ndim = 1; r->lo2 = 0; r->hi2 = 0; r->proto_bare = 0;
+            r->id = rt_agg_serial_list(); r->dumpno = rt_sno_dumpno_next(); r->lo = b->lo; r->hi = b->hi; r->ndim = 1; r->lo2 = 0; r->hi2 = 0; r->proto_bare = 0;
             r->data = (DESCR_t *) rt_ws_alloc(sizeof(DESCR_t) * (size_t) (n ? n : 1));
             for (int i = 0; i < n; i++) r->data[i] = b->data[n - 1 - i];
             DESCR_t d; d.v = DT_A; d.slen = 0; d.arr = r; *out = d; return 1;
@@ -5782,6 +5782,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             DATINST_t *nu = (DATINST_t *) rt_ws_alloc_tag(sizeof(DATINST_t), HB_DINST);
             nu->type = rt;
             nu->id = src.u->id;
+            nu->dumpno = rt_sno_dumpno_next();
             nu->fields = (DESCR_t *) rt_ws_alloc((size_t)(nf > 0 ? nf : 1) * sizeof(DESCR_t));
             for (int i = 0; i < nf; i++) nu->fields[i] = src.u->fields[i];
             DESCR_t d = {0}; d.v = DT_DATA; d.slen = 0; d.u = nu;
@@ -6860,8 +6861,10 @@ const char *rt_builtin_synonym(const char *name) {
     return (const char *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t sno_array_from_proto(const char *proto, DESCR_t init) {
-    extern ARBLK_t *array_new(int lo, int hi);
+static DESCR_t sno_array_from_proto_d(const char *proto, DESCR_t init, int depth);
+DESCR_t sno_array_from_proto(const char *proto, DESCR_t init) { return sno_array_from_proto_d(proto, init, 0); }
+static DESCR_t sno_array_from_proto_d(const char *proto, DESCR_t init, int depth) {
+    extern ARBLK_t *array_new(int lo, int hi); extern void rt_sno_dumpno_undo(void);
     if (!proto || !*proto) return FAILDESCR;
     char buf[128]; int bn = 0;
     for (const char *q = proto; *q && *q != ',' && bn < 127; q++) buf[bn++] = *q;
@@ -6874,8 +6877,9 @@ DESCR_t sno_array_from_proto(const char *proto, DESCR_t init) {
     if (hi < lo - 1) return FAILDESCR;
     ARBLK_t *a = array_new((int)lo, (int)hi);
     if (!a) return FAILDESCR;
+    if (depth > 0) { a->dumpno = 0; rt_sno_dumpno_undo(); } else a->proto = rt_ws_strdup(proto);
     int n = (int)(hi - lo + 1);
-    for (int k = 0; k < n; k++) a->data[k] = rest ? sno_array_from_proto(rest, init) : init;
+    for (int k = 0; k < n; k++) a->data[k] = rest ? sno_array_from_proto_d(rest, init, depth + 1) : init;
     DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_A; d.slen = 0; d.arr = a;
     return d;
 }

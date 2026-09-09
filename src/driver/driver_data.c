@@ -344,6 +344,7 @@ DatType *dat_find_field(const char *name, int *fidx) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t dat_alloc_fill(DatType *t, DESCR_t *args, int nargs) {
     DATINST_t *inst = rt_ws_alloc_tag(sizeof(DATINST_t), HB_DINST);
+    { extern long rt_sno_dumpno_next(void); inst->dumpno = rt_sno_dumpno_next(); }
     DATBLK_t *blk = rt_ws_alloc(sizeof(DATBLK_t));
     blk->name    = rt_ws_strdup(t->name);
     blk->nfields = t->nfields;

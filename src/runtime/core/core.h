@@ -96,7 +96,10 @@ typedef struct _ARBLK_t {
     const char *proto;
     DESCR_t *data;
     long    id;
+    long    dumpno;
 } ARBLK_t;
+long rt_sno_dumpno_next(void);
+void rt_sno_dumpno_undo(void);
 long rt_agg_serial_list(void);
 long rt_agg_serial_table(void);
 long rt_agg_serial_set(void);
@@ -125,6 +128,7 @@ typedef struct _TBBLK_t {
     DESCR_t       *ord;
     unsigned       ord_len, ord_cap;
     unsigned long  icn_mask;
+    long           dumpno;
 } TBBLK_t;
 #define TBL_FOREACH(t_, e_)            for (unsigned _tb = 0; _tb < (t_)->nbuck; _tb++) if ((t_)->buckets[_tb]) for (unsigned _ts = 0; _ts < (t_)->buckets[_tb]->len && ((e_) = &(t_)->buckets[_tb]->ent[_ts]) != (TBPAIR_t *)0; _ts++)
 TBBLK_t *table_new(void);
@@ -155,6 +159,7 @@ typedef struct _DATINST_t {
     DATBLK_t *type;
     DESCR_t   *fields;
     long      id;
+    long      dumpno;
 } DATINST_t;
 void DEFDAT_fn(const char *spec);
 DESCR_t DATCON_fn(const char *type_name, ...);

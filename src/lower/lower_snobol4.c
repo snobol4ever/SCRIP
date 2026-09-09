@@ -90,7 +90,9 @@ static const char * sno_expr_collect(const tree_t * expr) {
     if (!expr) sno_fatal("unevaluated-expression operator (*) with no operand", NULL);
     for (int i = 0; i < g_sno_nexpr; i++) if (g_sno_exprs[i].salt == g_sno_expr_salt && strncmp(g_sno_exprs[i].name, "EXPRNM$", 7) && sno_expr_eq(g_sno_exprs[i].expr, expr)) return g_sno_exprs[i].name;
     if (g_sno_nexpr >= SNO_EXPR_MAX) sno_fatal("too many unevaluated expressions (*) in one program", NULL);
-    char buf[32]; if (g_sno_expr_salt) snprintf(buf, sizeof buf, "EXPR$%dF%d", g_sno_nexpr, g_sno_expr_salt); else snprintf(buf, sizeof buf, "EXPR$%d", g_sno_nexpr);
+    char buf[160]; if (g_sno_expr_salt) snprintf(buf, sizeof buf, "EXPR$%dF%d", g_sno_nexpr, g_sno_expr_salt); else snprintf(buf, sizeof buf, "EXPR$%d", g_sno_nexpr);
+    if (expr->t == TT_VAR && expr->v.sval && expr->v.sval[0] && !strchr(expr->v.sval, '$') && strlen(expr->v.sval) < 100)
+        { size_t bl = strlen(buf); snprintf(buf + bl, sizeof buf - bl, "$%s", expr->v.sval); }
     g_sno_exprs[g_sno_nexpr].name = lp_strdup(buf);
     g_sno_exprs[g_sno_nexpr].expr = expr;
     g_sno_exprs[g_sno_nexpr].salt = g_sno_expr_salt;
