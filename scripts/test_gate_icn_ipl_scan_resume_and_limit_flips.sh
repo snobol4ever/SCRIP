@@ -1,4 +1,5 @@
 R="$(cd "$(dirname "$0")" && pwd)"; R=/home/claude_R
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 . "$R/SCRIP/scripts/lib_icon_ipl_isolation.sh"
 PKG="$R/corpus/packages/icon/ipl"; SCRIP="$R/SCRIP/scrip"
 T=$(mktemp -d); trap 'rm -rf "$T"; ipl_isolation_cleanup' EXIT
