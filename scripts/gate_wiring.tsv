@@ -68,6 +68,7 @@ test_gate_icn_if_without_else_invocable_arity_and_string_continuation.sh	WIRED	-
 test_gate_icn_no_stack.sh	WIRED	-	-	-
 test_gate_icn_one_reg_frame.sh	WIRED	-	-	-
 test_gate_icn_scan_argtype.sh	WIRED	-	-	-
+test_gate_icn_string_invoked_to_by_is_a_generator.sh	WIRED	-	-	-
 test_gate_icn_tag_single_source.sh	WIRED	-	-	-
 test_gate_icon_features_and_preprocessor_symbols_agree.sh	WIRED	-	-	-
 test_gate_icon_master_per_entry_identity.sh	WIRED	-	-	-

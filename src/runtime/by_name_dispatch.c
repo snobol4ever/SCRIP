@@ -919,13 +919,17 @@ static const char * procval_name(DESCR_t v) {
 extern int rt_proc_is_registered(const char *name);
 extern int rt_proc_nparams(const char *name);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct { uint64_t magic; DESCR_t obj; int64_t idx; } ICN_OPGEN_t;
+typedef struct { uint64_t magic; DESCR_t obj; int64_t idx; int kind; int64_t cur, lim, step; } ICN_OPGEN_t;
 #define ICN_OPGEN_MAGIC 0x1CBA46E4E52DULL
+#define ICN_OPGEN_BANG 0
+#define ICN_OPGEN_TOBY 1
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t icn_opgen_pump(ICN_OPGEN_t *g) {
     extern int list_bang_at(DESCR_t, int64_t, DESCR_t *);
     DESCR_t out;
-    if (!g || !list_bang_at(g->obj, g->idx, &out)) return FAILDESCR;
+    if (!g) return FAILDESCR;
+    if (g->kind == ICN_OPGEN_TOBY) { if (g->step > 0 ? g->cur > g->lim : g->cur < g->lim) return FAILDESCR; out = INTVAL(g->cur); g->cur += g->step; return out; }
+    if (!list_bang_at(g->obj, g->idx, &out)) return FAILDESCR;
     g->idx++;
     return out;
 }
@@ -940,6 +944,7 @@ DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
         for (int k = 0; k < n && k < 64; k++) g_call_args[k] = argv[k]; for (int k = (n < 0 ? 0 : n); k < 64; k++) g_call_args[k] = (DESCR_t){0};
         return rt_call_proc_descr(nm, n);
     }
+    if (n == 3 && !strcmp(nm, "...")) { extern int core_icn_by_zero_check(int64_t); int64_t lo = to_int(argv[0]), hi = to_int(argv[1]), st = to_int(argv[2]); core_icn_by_zero_check(st); if (st > 0 ? lo > hi : lo < hi) return FAILDESCR; return INTVAL(lo); }
     if (n == 1 && !strcmp(nm, "!")) { extern int list_bang_at(DESCR_t, int64_t, DESCR_t *); DESCR_t out; return list_bang_at(argv[0], 0, &out) ? out : FAILDESCR; }
     if (n == 1 && !strcmp(nm, "/")) return (argv[0].v == DT_SNUL || argv[0].v == 0) ? argv[0] : FAILDESCR;
     return rt_call_arr(nm, argv, n);
@@ -956,10 +961,22 @@ DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) 
         for (int k = 0; k < n && k < 64; k++) g_call_args[k] = argv[k]; for (int k = (n < 0 ? 0 : n); k < 64; k++) g_call_args[k] = (DESCR_t){0};
         return rt_proc_call_gen_h(nm, n, hslot);
     }
+    if (n == 3 && !strcmp(nm, "...")) {
+        extern int core_icn_by_zero_check(int64_t);
+        int64_t lo = to_int(argv[0]), hi = to_int(argv[1]), st = to_int(argv[2]);
+        core_icn_by_zero_check(st);
+        ICN_OPGEN_t *g = (ICN_OPGEN_t *)calloc(1, sizeof *g);
+        if (!g) return FAILDESCR;
+        g->magic = ICN_OPGEN_MAGIC; g->kind = ICN_OPGEN_TOBY; g->cur = lo; g->lim = hi; g->step = st;
+        DESCR_t first = icn_opgen_pump(g);
+        if (IS_FAIL_fn(first) || !hslot) { free(g); return first; }
+        *hslot = (void *)g;
+        return first;
+    }
     if (n == 1 && !strcmp(nm, "!")) {
         ICN_OPGEN_t *g = (ICN_OPGEN_t *)calloc(1, sizeof *g);
         if (!g) return FAILDESCR;
-        g->magic = ICN_OPGEN_MAGIC; g->obj = argv[0]; g->idx = 0;
+        g->magic = ICN_OPGEN_MAGIC; g->kind = ICN_OPGEN_BANG; g->obj = argv[0]; g->idx = 0;
         DESCR_t first = icn_opgen_pump(g);
         if (IS_FAIL_fn(first) || !hslot) { free(g); return first; }
         *hslot = (void *)g;
@@ -5278,7 +5295,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (icn_builtin_is_known(pname) || rt_builtin_is_known(pname)) {
             DESCR_t bv; bv.v = DT_E; bv.slen = 0xFFFFFFFEu; bv.s = rt_ws_strdup(pname); *out = bv; return 1;
         }
-        { static const char *const op2[] = { "+","-","*","/","%","^","||","|||","++","--","**","<","<=",">",">=","=","~=","<<","<<=",">>",">>=","==","~==","===","~===", 0 };
+        { static const char *const op2[] = { "+","-","*","/","%","^","||","|||","++","--","**","<","<=",">",">=","=","~=","<<","<<=",">>",">>=","==","~==","===","~===","...", 0 };
           static const char *const op1[] = { "+","-","*","/","\\","=","?","~","!","@","^", 0 };
           const char **tbl = (arity == 2 || arity == 3) ? op2 : (arity == 1 || arity < 0) ? op1 : 0;
           if (tbl) for (int oi = 0; tbl[oi]; oi++) if (!strcmp(tbl[oi], pname)) { DESCR_t bv; bv.v = DT_E; bv.slen = 0xFFFFFFFEu; bv.s = rt_ws_strdup(pname); *out = bv; return 1; } }
