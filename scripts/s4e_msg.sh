@@ -2705,5 +2705,17 @@ TASKEOF
   board) if [ $# -gt 1 ]; then shift; grep -v "^$ME |" "$PO/BOARD.md" 2>/dev/null > "$PO/.b.$$" || true; printf '%s | %s | %s\n' "$ME" "$*" "$(date -u +%H:%M)" >> "$PO/.b.$$"; mv "$PO/.b.$$" "$PO/BOARD.md"; fi; cat "$PO/BOARD.md"
          # posting a board line IS the handoff gesture -- so the banner fires here too (see `done` above).
          [ "${S4E_NO_BANNER:-0}" = "1" ] || S4E_BANNER_NO_BOARD=1 "$0" banner;;
-  *) echo "usage: next|claim|unclaim|park|done|assign|mint|ask|send|check|clear|mailbox|sweep|board|banner|fleet"; exit 2;;
+  *) echo "usage: next|claim|unclaim|park|done|assign|mint|ask|send|check|clear|mailbox|sweep|board|banner|fleet"
+     # ⛔⭐ THE BACKTICK TRAP -- FIVE MEASURED OCCURRENCES, and it is printed here because THIS SCRIPT CANNOT
+     # DETECT IT. A backtick used for emphasis inside a double-quoted body is COMMAND SUBSTITUTION: the
+     # caller's shell runs the word, prints "X: command not found" on the CALLER's stderr, and substitutes
+     # the EMPTY STRING. The telegram then ships well-formed and quietly missing exactly one word -- and it
+     # is reliably the load-bearing one, because emphasis is what you put on the word that matters. By the
+     # time send() is reached the substitution has already happened, so there is nothing left here to check;
+     # a warning at the point of use is the only cure available. Occurrences on record: hq_B lost `END` from
+     # a split_at_end warning, hq_S lost `live` from a paragraph about a liveness flag, plus the three in
+     # CLAUDE.md from 2026-09-03 (two by the seat that had just filed the first).
+     echo "⛔ in a message BODY use plain quotes or nothing for emphasis -- NEVER a backtick: it is command"
+     echo "   substitution, it eats the word silently, and the message still arrives looking complete."
+     exit 2;;
 esac
