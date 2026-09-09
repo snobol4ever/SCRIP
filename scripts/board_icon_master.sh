@@ -278,9 +278,23 @@ if [ "$graded" -lt "$ENTRY_FLOOR" ]; then
     echo "        or this checkout is behind origin. An entry that stops being graded is exactly what this board exists to catch."
     RED=1
 fi
-if [ "$graded" -ne "$CSV_ENTRIES" ]; then
-    echo "⚠️  NOTE: harness graded $graded entries but ALL.csv carries $CSV_ENTRIES rows — the suite file and its"
-    echo "        provenance index disagree. Neither number is wrong on its face; they must not drift apart."
+# ⛔⭐ THE DRIFT CHECK MUST SUBTRACT WHAT WAS DELIBERATELY REMOVED, OR IT ACCUSES THE SUITE OF DRIFT ON EVERY
+# GREEN RUN. MEASURED (hq_V 2026-09-09, CEO-476): ALL.icn carried 905 banner markers, ALL.ref 905 and ALL.csv 905
+# rows with the three name-sets IDENTICAL -- nothing had drifted by any reading -- and this check still printed
+# "the suite file and its provenance index disagree", because `graded` excludes the entries the CEO-390/391
+# outside-baseline ruling removes from the denominator and `CSV_ENTRIES` still counts their rows. The harness
+# prints that population as OUTSIDE_BASELINE_COUNT and names every member with the oracle's own reason on every
+# run, so the number to reconcile against was already on screen and merely was not being read.
+# ⛔ WHY IT WAS WORTH CURING RATHER THAN TOLERATING: a warning that is permanently true and permanently
+# meaningless sits one line above the numbers a reader acts on, and it teaches that reader to scroll past the one
+# check whose entire job is to catch a REAL silent shrink -- so the check had been disabled by its own output.
+# Reconciled, it can speak again: it now fires only when the three populations genuinely fail to add up, and it
+# SHOWS the arithmetic so the next reader can see which term is wrong instead of re-deriving it.
+_outside_n=$(echo "$_raw" | grep -oE '^OUTSIDE_BASELINE_COUNT [0-9]+' | awk '{print $2}' | tail -1); _outside_n=${_outside_n:-0}
+if [ "$(( graded + _outside_n ))" -ne "$CSV_ENTRIES" ]; then
+    echo "⚠️  NOTE: harness graded $graded entries and $_outside_n are outside the baseline ($((graded + _outside_n)) accounted for),"
+    echo "        but ALL.csv carries $CSV_ENTRIES rows — the suite file and its provenance index genuinely disagree by"
+    echo "        $(( CSV_ENTRIES - graded - _outside_n )). Neither number is wrong on its face; they must not drift apart."
 fi
 # ⭐ PASS WATERMARKS: red on regression only. These are NOT a claim that the remainder is acceptable —
 # 122 m3 failures are real and belong to hq_C's lane; this board's job is to notice movement.
