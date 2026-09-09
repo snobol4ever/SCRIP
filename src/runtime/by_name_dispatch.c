@@ -4703,6 +4703,7 @@ static int bn_type_datatype(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
     }
     else if (IS_CSET_fn(av)) t="cset";
     else if (IS_FH_fn(av))   t="file";
+    else if (av.v==DT_E && av.slen == RT_CONVE_CHAIN_MARK) t="EXPRESSION";
     else if (av.v==DT_E) {
         t = "procedure";
         if (!strcmp(fn,"DATATYPE")) { t = "function";
@@ -6626,7 +6627,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     if ((_bid == BID_EVAL) && nargs == 1) {
         extern DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);
         DESCR_t av = args[0];
-        if (av.v == DT_X) { *out = rt_call_named_proc(av.s ? av.s : "", (DESCR_t *)0, 0); return 1; }
+        if (av.v == DT_X) { extern DESCR_t rt_sno_dtx_value(const char *); *out = rt_sno_dtx_value(av.s ? av.s : ""); return 1; }
         if (IS_INT_fn(av) || IS_REAL_fn(av)) { *out = av; return 1; }
         if (av.v == DT_SNUL) { *out = NULVCL; return 1; }
         if (av.v == DT_S) { extern DESCR_t EVAL_fn(DESCR_t); *out = EVAL_fn(av); return 1; }

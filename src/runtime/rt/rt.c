@@ -553,6 +553,12 @@ int rt_proc_is_registered(const char *name)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_sno_dtx_value(const char *name)
+{
+    if (name && *name && !rt_proc_is_registered(name)) return NV_GET_fn(name);
+    return rt_call_proc_descr(name ? name : "", 0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_unregister(const char *name)
 {
     if (!name) return 0;
@@ -1743,6 +1749,11 @@ static int rt_byname_alpha_on(void) { static int live = -1; if (live < 0) { cons
 DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
 {
     if (!name) return FAILDESCR;
+    { rt_proc_t *pd = rt_proc_find(name);
+      if (pd && !pd->fn && pd->dyn_scope) {
+          int _n = nargs < CALL_ARGS_MAX ? nargs : CALL_ARGS_MAX; if (_n < 0) _n = 0;
+          for (int i = 0; i < _n; i++) g_call_args[i] = args[i];
+          return rt_call_proc_descr(name, _n); } }
     int _wn = rt_g_want_name; rt_g_want_name = 0;
     rt_proc_t *p = rt_proc_find(name);
     if (!p || !p->fn) return FAILDESCR;

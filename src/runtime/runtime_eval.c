@@ -473,7 +473,7 @@ DESCR_t code(const char *src)
 DESCR_t EXPVAL_fn(DESCR_t expr_d)
 {
     if (expr_d.v == DT_E) {
-        if (expr_d.slen == 3) {
+        if (expr_d.slen == RT_CONVE_CHAIN_MARK) {
             eval_chain_fn fn = (eval_chain_fn)expr_d.ptr;
             if (!fn) return FAILDESCR;
             DESCR_t saved = NV_GET_fn(EVAL_TMP);
@@ -516,15 +516,28 @@ DESCR_t EXPVAL_fn(DESCR_t expr_d)
     return eval_expr(s);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int conve_is_bare_name(const char *s) {
+    if (!s || !((*s >= 'A' && *s <= 'Z') || (*s >= 'a' && *s <= 'z'))) return 0;
+    for (const char *p = s; *p; p++) if (!((*p >= 'A' && *p <= 'Z') || (*p >= 'a' && *p <= 'z') || (*p >= '0' && *p <= '9') || *p == '.' || *p == '_')) return 0;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t CONVE_fn(DESCR_t str_d)
 {
     const char *s = VARVAL_fn(str_d);
     if (!s || !*s) return FAILDESCR;
+    if (conve_is_bare_name(s)) {
+        DESCR_t xd;
+        xd.v    = DT_X;
+        xd.slen = (uint32_t)strlen(s);
+        xd.s    = rt_ws_strdup(s);
+        return xd;
+    }
     eval_chain_fn fn = eval_build_chain(s);
     if (!fn) return FAILDESCR;
     DESCR_t d;
     d.v    = DT_E;
-    d.slen = 3;
+    d.slen = RT_CONVE_CHAIN_MARK;
     d.ptr  = (void *)fn;
     return d;
 }

@@ -370,6 +370,7 @@ void   register_fn(const char *name, DESCR_t (*fn)(DESCR_t*, int), int min_args,
 int64_t rt_time_ns(void);
 DESCR_t EVAL_fn(DESCR_t expr);
 DESCR_t EXPVAL_fn(DESCR_t expr_d);
+#define RT_CONVE_CHAIN_MARK 0xFFFFFFFDu
 DESCR_t CONVE_fn(DESCR_t str_d);
 DESCR_t CODE_fn(DESCR_t str_d);
 DESCR_t opsyn(DESCR_t newname, DESCR_t oldname, DESCR_t type);

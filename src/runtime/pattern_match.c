@@ -729,12 +729,12 @@ __attribute__((visibility("hidden"))) long rt_dcap_pump(void)
         if (e->varname && e->varname[0] == '*') {
             _prev_star = 1;
             const int strict = rt_cap_name_strict();
-            extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+            extern DESCR_t rt_call_proc_descr(const char *name, int nargs); extern DESCR_t rt_sno_dtx_value(const char *);
             extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
             extern int rt_g_ret_by_name;
             const int nmyield = !strncmp(e->varname + 1, "EXPRNM$", 7);
             { int _wsv = rt_g_want_name; rt_g_want_name = 1; uint32_t _asv = g_cap_abort_gen;
-            DESCR_t nm = rt_call_proc_descr(e->varname + 1, 0);
+            DESCR_t nm = rt_sno_dtx_value(e->varname + 1);
             g_cap_abort_gen = _asv;
             rt_g_want_name = _wsv;
             const int by_name = rt_g_ret_by_name || nmyield; rt_g_ret_by_name = 0;
@@ -837,7 +837,7 @@ long c_rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_i
     DESCR_t matched = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
     if (g_cap_abort_gen && g_cap_abort_gen == g_cap_gen) return 0;
     if (varname[0] != '*') { rt_bomb("c_rt_cap_open: plain-name arm DELETED (s196 Lon one-to-maintain) — rt_cap_open in rtx_match.s is the sole spelling; this entry serves computed-name '*' targets only"); return 0; }
-    extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+    extern DESCR_t rt_call_proc_descr(const char *name, int nargs); extern DESCR_t rt_sno_dtx_value(const char *);
     extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
     extern int rt_g_want_name;
     extern int rt_g_ret_by_name;
@@ -845,7 +845,7 @@ long c_rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_i
     DESCR_t nm_capo;
     int by_name_capo;
     { int _wsv2 = rt_g_want_name; rt_g_want_name = 1; uint32_t _asv = g_cap_abort_gen;
-      nm_capo = rt_call_proc_descr(varname + 1, 0);
+      nm_capo = rt_sno_dtx_value(varname + 1);
       g_cap_abort_gen = _asv;
       rt_g_want_name = _wsv2;
       by_name_capo = rt_g_ret_by_name || nmyield_capo; rt_g_ret_by_name = 0; }
@@ -1023,14 +1023,14 @@ static int rt_defer_xstar_on(void) { static int v = -1; if (v < 0) { const char 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_dtx_drain(DESCR_t r)
 {
-    extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
-    for (int _g = 0; r.v == DT_X && r.s && _g < RT_XPAT_CHAIN_MAX; _g++) r = rt_call_proc_descr(r.s, 0);
+    extern DESCR_t rt_call_proc_descr(const char *name, int nargs); extern DESCR_t rt_sno_dtx_value(const char *);
+    for (int _g = 0; r.v == DT_X && r.s && _g < RT_XPAT_CHAIN_MAX; _g++) r = rt_sno_dtx_value(r.s);
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_defer_take(rt_dfx_t *s, DESCR_t r)
 {
-    extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+    extern DESCR_t rt_call_proc_descr(const char *name, int nargs); extern DESCR_t rt_sno_dtx_value(const char *);
     if (IS_FAIL_fn(r)) { s->failed = 1; return; }
     if (r.v == DT_X && r.s) { s->dtx_used = 1; r = rt_dtx_drain(r); if (IS_FAIL_fn(r)) { s->failed = 1; return; } }
     s->val = r;
@@ -1038,15 +1038,15 @@ static void rt_defer_take(rt_dfx_t *s, DESCR_t r)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_defer_run_all(const char *varname, int cur_delta)
 {
-    extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+    extern DESCR_t rt_call_proc_descr(const char *name, int nargs); extern DESCR_t rt_sno_dtx_value(const char *);
     rt_dfx_t *s = rt_dfx_push(); if (!s) return -1;
     if (varname && varname[0] == 'F' && !strcmp(varname, "FAIL")) { s->failed = 1; return c_rt_defer_close(cur_delta); }
     if (varname && varname[0] == '*') {
-        for (int _i = 0; _i < g_spk_n; _i++) { if (g_spk[_i].nm && !strcmp(g_spk[_i].nm, varname)) { DESCR_t r = g_spk[_i].val; if (_i < g_spk_n - 1) memmove(&g_spk[_i], &g_spk[_i+1], (size_t)(g_spk_n-1-_i)*sizeof(rt_spk_t)); g_spk_n--; if (IS_FAIL_fn(r)) { s->failed = 1; } else if (r.v == DT_X) { s->dtx_used = 1; rt_defer_take(s, rt_call_proc_descr(r.s ? r.s : "", 0)); } else s->val = r; return c_rt_defer_close(cur_delta); } }
-        s->dtx_used = 1; rt_defer_take(s, rt_call_proc_descr(varname + 1, 0)); return c_rt_defer_close(cur_delta);
+        for (int _i = 0; _i < g_spk_n; _i++) { if (g_spk[_i].nm && !strcmp(g_spk[_i].nm, varname)) { DESCR_t r = g_spk[_i].val; if (_i < g_spk_n - 1) memmove(&g_spk[_i], &g_spk[_i+1], (size_t)(g_spk_n-1-_i)*sizeof(rt_spk_t)); g_spk_n--; if (IS_FAIL_fn(r)) { s->failed = 1; } else if (r.v == DT_X) { s->dtx_used = 1; rt_defer_take(s, rt_sno_dtx_value(r.s ? r.s : "")); } else s->val = r; return c_rt_defer_close(cur_delta); } }
+        s->dtx_used = 1; rt_defer_take(s, rt_sno_dtx_value(varname + 1)); return c_rt_defer_close(cur_delta);
     }
     DESCR_t val = rt_defer_nv_read(varname);
-    if (val.v == DT_X) { s->dtx_used = 1; DESCR_t _pk; if (rt_defer_xpat_on() && rt_spk_take(val.s, &_pk)) rt_defer_take(s, _pk); else rt_defer_take(s, rt_call_proc_descr(val.s ? val.s : "", 0)); return c_rt_defer_close(cur_delta); }
+    if (val.v == DT_X) { s->dtx_used = 1; DESCR_t _pk; if (rt_defer_xpat_on() && rt_spk_take(val.s, &_pk)) rt_defer_take(s, _pk); else rt_defer_take(s, rt_sno_dtx_value(val.s ? val.s : "")); return c_rt_defer_close(cur_delta); }
     s->val = val;
     return c_rt_defer_close(cur_delta);
 }
@@ -1054,11 +1054,11 @@ static DESCR_t patv_slot(void *hv, long i, const char *fb, int ival_flag);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_patv_defer_run_all(void *hv, long i, const char *fb, int cur_delta)
 {
-    extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+    extern DESCR_t rt_call_proc_descr(const char *name, int nargs); extern DESCR_t rt_sno_dtx_value(const char *);
     rt_dfx_t *s = rt_dfx_push(); if (!s) return -1;
     DESCR_t val; { DTP_t *h = (DTP_t *)hv;
       if (h && h->snap && i >= 0 && i < h->nsnap) val = h->snap[i]; else val = patv_slot(hv, i, fb, 0); }
-    if (val.v == DT_X) { s->dtx_used = 1; DESCR_t _pk; if (rt_defer_xpat_on() && rt_spk_take(val.s, &_pk)) rt_defer_take(s, _pk); else rt_defer_take(s, rt_call_proc_descr(val.s ? val.s : "", 0)); return c_rt_defer_close(cur_delta); }
+    if (val.v == DT_X) { s->dtx_used = 1; DESCR_t _pk; if (rt_defer_xpat_on() && rt_spk_take(val.s, &_pk)) rt_defer_take(s, _pk); else rt_defer_take(s, rt_sno_dtx_value(val.s ? val.s : "")); return c_rt_defer_close(cur_delta); }
     s->val = val;
     return c_rt_defer_close(cur_delta);
 }
@@ -1088,8 +1088,8 @@ int cset_has(const char *cv, int clen, unsigned char ch) {
 void *c_rt_defer_get_pat_fn(const char *varname, int ival_flag)
 {
     if (varname && varname[0] == '*') {
-        extern DESCR_t rt_call_proc_descr(const char *, int);
-        DESCR_t r = rt_call_proc_descr(varname + 1, 0);
+        extern DESCR_t rt_call_proc_descr(const char *, int); extern DESCR_t rt_sno_dtx_value(const char *);
+        DESCR_t r = rt_sno_dtx_value(varname + 1);
         if (r.v == DT_P && r.p) { extern void *dtp_fn_of(void *); return dtp_fn_of(r.p); }
         if (!g_spk) { g_spk = (rt_spk_t *)rt_cas_carve((size_t)RT_CAS_SPK_MAX * sizeof(rt_spk_t)); g_spk_cap = RT_CAS_SPK_MAX; }
         if (g_spk_n >= g_spk_cap) { fprintf(stderr, "rt_cas: spk overflow (%d) — raise RT_CAS_SPK_MAX\n", g_spk_cap); abort(); }
@@ -1128,9 +1128,9 @@ static int rt_spk_take(const char *nm, DESCR_t *out) { if (!nm) return 0; for (i
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_defer_xpat_dtp(const char *nm)
 {
-    extern DESCR_t rt_call_proc_descr(const char *, int);
+    extern DESCR_t rt_call_proc_descr(const char *, int); extern DESCR_t rt_sno_dtx_value(const char *);
     if (!rt_defer_xpat_on()) return NULL;
-    DESCR_t r = rt_call_proc_descr(nm ? nm : "", 0);
+    DESCR_t r = rt_sno_dtx_value(nm ? nm : "");
     r = rt_dtx_drain(r);
     if (r.v == DT_P && r.p) { extern void *dtp_fn_of(void *); dtp_fn_of(r.p); return r.p; }
     rt_spk_park(nm, r);
@@ -1161,8 +1161,8 @@ long rt_patv_defer_open(void *hv, long i, const char *fb, int ival_flag)
 void *rt_defer_get_pat_dtp(const char *varname, int ival_flag)
 {
     if (varname && varname[0] == '*') {
-        extern DESCR_t rt_call_proc_descr(const char *, int);
-        DESCR_t r = rt_call_proc_descr(varname + 1, 0);
+        extern DESCR_t rt_call_proc_descr(const char *, int); extern DESCR_t rt_sno_dtx_value(const char *);
+        DESCR_t r = rt_sno_dtx_value(varname + 1);
         if (rt_defer_xstar_on()) r = rt_dtx_drain(r);
         if (r.v == DT_P && r.p) { extern void *dtp_fn_of(void *); dtp_fn_of(r.p); return r.p; }
         if (!g_spk) { g_spk = (rt_spk_t *)rt_cas_carve((size_t)RT_CAS_SPK_MAX * sizeof(rt_spk_t)); g_spk_cap = RT_CAS_SPK_MAX; }
