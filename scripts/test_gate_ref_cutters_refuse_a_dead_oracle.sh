@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export S4E_ONE_RUNNER_OVERRIDE="gate arm ${0##*/}: a runner invoked as an instrument fixture, not a board (CEO-523)"
 # test_gate_ref_cutters_refuse_a_dead_oracle.sh -- THE ACCEPTANCE GATE for row every-ref-cutting-path-refuses-
 # when-the-oracle-dies-mid-cut (ceo -> hq_T 2026-09-04, instrument side of seat07's rung04 FINDING; the ORACLE
 # cure is hq_P's row snobol4-oracle-sbl-bf-sigsegv-on-error-212-recovery-cuts-refs-silently).

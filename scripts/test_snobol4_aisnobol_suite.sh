@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
 # test_snobol4_aisnobol_suite.sh -- thin face over corpus_suite_harness.py for corpus/packages/snobol4/aisnobol
 # (task every-vendored-package-absorbed-into-the-one-liner-or-multi-liner-python-harness-with-oracle-cut-refs,
 # hq_T doorbell 2026-09-04, Lon verbatim: "You make the programs run, you measure the output, make a REF file,

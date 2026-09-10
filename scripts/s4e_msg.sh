@@ -1620,7 +1620,7 @@ case "$cmd" in
                     printf '     The claim and the QUEUE column are UNCHANGED. Build, then re-run `done`.\n' >&2
                     exit 2; fi
                   _dwto="${S4E_DONE_TIMEOUT:-3600}"; _dwt0="$(date +%s)"
-                  ( cd "$S4E" && S4E_HOME="$S4E" S4E_SEAT="$ME" timeout "$_dwto" bash -c "$dw" ) >"$_dwlog" 2>&1; rc=$?
+                  ( cd "$S4E" && S4E_HOME="$S4E" S4E_SEAT="$ME" S4E_DONE_WHEN_RUN=1 timeout "$_dwto" bash -c "$dw" ) >"$_dwlog" 2>&1; rc=$?
                   _dwel="$(( $(date +%s) - _dwt0 ))"
                   if [ "$rc" -eq 0 ]; then
                     rm -f "$_dwlog"

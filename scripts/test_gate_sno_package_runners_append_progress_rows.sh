@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export S4E_ONE_RUNNER_OVERRIDE="gate arm ${0##*/}: a runner invoked as an instrument fixture, not a board (CEO-523)"
 # test_gate_sno_package_runners_append_progress_rows.sh -- THE SNOBOL4 PACKAGE RUNNERS RECORD ONE PROGRESS ROW PER
 # PROGRAM PER MODE, ON THE STREAM-EQUAL BASIS, AND NEVER FROM A SCRATCH SUITE INTO THE LIVE TABLE.
 # Row snobol4-snoflake-aisnobol-and-dotnet-runners-wired-onto-lib-inventory-with-their-sidecars (coo, 2026-09-07;

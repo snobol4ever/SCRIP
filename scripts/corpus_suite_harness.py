@@ -2132,7 +2132,27 @@ def require_lang_for_suite(subcmd, src_path, args):
            f"--lang snobol4.")
 
 
+def _one_runner_guard():
+    """ONE RUNNER, ONE BOARD (Lon 2026-09-10, CEO-523): a master run is a board; refused rc=2 to any seat but the coo unless the bus
+    computed done (S4E_DONE_WHEN_RUN=1) or a loud S4E_ONE_RUNNER_OVERRIDE is set. Mirrors scripts/lib_one_runner.sh exactly."""
+    seat = os.environ.get("S4E_SEAT") or ""
+    if not seat:
+        try:
+            import util_score_row
+            seat = util_score_row.derive_measurer() or ""
+        except Exception:
+            seat = ""
+    if seat == "coo":
+        return
+    if os.environ.get("S4E_DONE_WHEN_RUN") == "1":
+        print("ONE-RUNNER: master run under the bus computed done for seat %s (exempt, one run per closure)" % (seat or "?")); return
+    if os.environ.get("S4E_ONE_RUNNER_OVERRIDE"):
+        print("\u26a0 ONE-RUNNER OVERRIDE by %s: %s" % (seat or "?", os.environ["S4E_ONE_RUNNER_OVERRIDE"])); return
+    sys.stderr.write("\u26d4 REFUSE(2) ONE RUNNER, ONE BOARD: a master suite run is a board and seat %s is not the coo (Lon 2026-09-10 16:3x, MODE line 2, RULES.md FACT RULES, CEO-523). Your landing verdict is your row DONE-WHEN plus the gates you touched plus make preflight; a DONE-WHEN board clause runs under s4e_msg.sh done. S4E_ONE_RUNNER_OVERRIDE=\"why\" is loud and recorded.\n" % (seat or "?"))
+    sys.exit(2)
+
 def cmd_run(args):
+    _one_runner_guard()
     paths = resolve_paths()
     _progress_pin(paths)
     check_scrip(paths)

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
 # test_icon_ipl_suite.sh -- grades corpus/packages/icon/ipl: the vendored Icon Program Library (every .icn
 # under gprogs/procs/incl/gincl/progs/gprocs -- COUNT IT, never quote a remembered figure:
 #   find corpus/packages/icon/ipl -name '*.icn' | wc -l

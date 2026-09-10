@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
 # test_snocone_corpus_suite.sh
 #
 # Grades the "corpus" family (10 entries) via execution (--run and --compile), diffed per entry

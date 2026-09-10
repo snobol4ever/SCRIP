@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export S4E_ONE_RUNNER_OVERRIDE="gate arm ${0##*/}: a runner invoked as an instrument fixture, not a board (CEO-523)"
 # test_gate_runners_refuse_on_a_stale_binary.sh -- THE ACCEPTANCE GATE for row harness-and-ladder-runner-
 # refuse-on-a-stale-binary-like-the-artifact-regen-does (ceo -> hq_T 2026-09-04).
 #

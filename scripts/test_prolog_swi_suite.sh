@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
 # test_prolog_swi_suite.sh — run SWI plunit conformance suite under --run and --compile
 # Iterates corpus/tests/prolog/swi_tests/test_*.pl, loads each with
 # plunit.pl shim + a main wrapper, compares PASS/FAIL per suite against .ref.

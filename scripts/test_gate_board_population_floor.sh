@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export S4E_ONE_RUNNER_OVERRIDE="gate arm ${0##*/}: a runner invoked as an instrument fixture, not a board (CEO-523)"
 # test_gate_board_population_floor.sh -- THE ACCEPTANCE GATE for row every-board-wrapper-refuses-on-a-
 # zero-population-instead-of-passing-vacuously (hq_T -> seat16, 2026-09-04).
 #

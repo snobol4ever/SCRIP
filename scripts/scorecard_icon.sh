@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
 # scorecard_icon.sh — THE Icon instrument (GOAL-ICON-100.md). Sibling of scorecard_snobol4.sh.
 # Usage:
 #   bash scripts/scorecard_icon.sh run    [--suites a,b] [--out DIR]   # runs suites, writes "<pass> <total>" per suite file

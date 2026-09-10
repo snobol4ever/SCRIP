@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export S4E_ONE_RUNNER_OVERRIDE="gate arm ${0##*/}: a runner invoked as an instrument fixture, not a board (CEO-523)"
 # test_gate_package_runners_print_the_inventory.sh — the invariant gate for THE PACKAGE LOCKDOWN's
 # instrument (row every-package-runner-prints-shipped-graded-ungraded-and-ungradable-and-the-leaderboard-
 # carries-the-inventory, hq_T 2026-09-06, rank 0 on the ceo's order; Lon: "Fix the never graded business.

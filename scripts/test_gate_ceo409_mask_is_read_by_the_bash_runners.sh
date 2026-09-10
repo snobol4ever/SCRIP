@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export S4E_ONE_RUNNER_OVERRIDE="gate arm ${0##*/}: a runner invoked as an instrument fixture, not a board (CEO-523)"
 # test_gate_ceo409_mask_is_read_by_the_bash_runners.sh -- GATE (hq_T, ceo CEO-432 item 1).
 # ⛔⭐ WHAT WENT WRONG WITHOUT IT: hq_R's CEO-409 mask mechanism landed in corpus_suite_harness.py and was INERT
 # for every suite graded by a BASH runner with its own loop -- a `<name>.mask` sidecar dropped beside a csnobol4

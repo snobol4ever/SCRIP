@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
 # test_pascal_pat_suite.sh — THE ISO 7185 PASCAL DENOMINATOR (row pascal-iso-7185-validation-suite-pat-vendored-and-graded).
 # Lon 2026-09-03 20:45: "100% means 100% of the industry standard language." For Pascal the standard is ISO 7185 and the
 # public suite that grades it is the Pascal-P5 validation suite, vendored at corpus/packages/pascal/pat (see its README).

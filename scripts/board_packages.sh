@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
 # board_packages.sh — runs EVERY vendored package/third-party suite gate in one place and prints the
 # denominator, so "the package suites" stops being a phrase and becomes a number nobody assembles by
 # hand (MASTER-PLAN I21; task board-packages-into-make-test-reported-then-blocking).

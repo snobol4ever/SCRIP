@@ -1,4 +1,5 @@
 #!/bin/bash
+export S4E_ONE_RUNNER_OVERRIDE="gate arm ${0##*/}: a runner invoked as an instrument fixture, not a board (CEO-523)"
 # test_gate_absent_line_is_unproven_not_red.sh -- DONE-WHEN for row
 # a-refusal-reported-in-the-vocabulary-of-a-red-absent-line-read-as-unparseable (seat15, dispatched by
 # hq_T, 2026-09-05).

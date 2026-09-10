@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
 # test_prolog_inria_suite.sh — THE ISO/IEC 13211-1 PROLOG DENOMINATOR (row prolog-iso-conformance-inria-suite-vendored-and-graded).
 # Lon 2026-09-03 20:45: "100% means 100% of the industry standard language." For Prolog the standard is ISO/IEC 13211-1
 # and the public suite that grades it is the INRIA suite (Deransart / Ed-Dbali / Cervoni), vendored at

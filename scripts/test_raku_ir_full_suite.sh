@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
 # scripts/test_raku_ir_full_suite.sh — Raku master-suite AST+run parity sweep via corpus_suite_harness.py.
 # Re-pointed off the retired test/raku rung tree (row test-raku-ir-full-suite-skips-rc-0-when-its-population-
 # directory-is-absent): the old TRACK-4 population never existed under the one-flat-suite corpus reorg, so this
