@@ -2906,8 +2906,9 @@ DESCR_t NV_GET_fn(const char *name) {
         return STRVAL(rt_heap_strdup_c(_io_chan[ch].buf));
     }
     if (strcmp   (name, "&subject") == 0) {
-        extern const char *scan_subj;
-        return scan_subj ? STRVAL(scan_subj) : NULVCL;
+        extern const char *scan_subj; extern long rt_scan_subj_len(void);
+        if (!scan_subj) return NULVCL;
+        { long n = rt_scan_subj_len(); return (n >= 0) ? BSTRVAL((char *)scan_subj, n) : STRVAL(scan_subj); }
     }
     if (strcmp   (name, "&pos") == 0) {
         extern int scan_pos;
@@ -2956,7 +2957,11 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
     if (strcmp   (name, "&subject") == 0) {
         extern const char *scan_subj;
         const char *s = (val.v == DT_S) ? rt_cstr_d(val) : (const char *)VARVAL_fn(val);
-        scan_subj = s ? rt_heap_strdup_c(s) : ""; return val;
+        { extern void rt_scan_subj_len_set(const char *, long);
+          long n = (val.v == DT_S && val.slen != 0xFFFFFFFFu && s == val.s) ? (long)val.slen : (s ? (long)strlen(s) : 0);
+          if (!s) { scan_subj = ""; rt_scan_subj_len_set("", 0); return val; }
+          { char *c = (char *)rt_heap_alloc_c((size_t)n + 1); memcpy(c, s, (size_t)n); c[n] = 0; scan_subj = c; rt_scan_subj_len_set(c, n); } }
+        return val;
     }
     if (strcmp   (name, "&pos") == 0) {
         extern int scan_pos;

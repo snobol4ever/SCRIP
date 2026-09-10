@@ -4,7 +4,7 @@ int ir_value_is_null_string(const IR_t * nd) {
     if (!nd) return 0;
     if (nd->op == IR_CMP_TEST) return 1;
     if (nd->op == IR_IDENT || nd->op == IR_DIFFER) return 1;
-    if (nd->op == IR_LIT_STRING) { const char * s = IR_LIT(nd).sval; return (!s || !s[0]) ? 1 : 0; }
+    if (nd->op == IR_LIT_STRING) { const char * s = IR_LIT(nd).sval; if (nd->n_operands > 0 && nd->operands[0] && nd->operands[0]->op == IR_LIT_INTEGER) return IR_LIT(nd->operands[0]).ival == 0 ? 1 : 0; return (!s || !s[0]) ? 1 : 0; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

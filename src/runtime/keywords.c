@@ -368,7 +368,7 @@ DESCR_t rt_kw_write_idx(int64_t idx, DESCR_t v) {
 DESCR_t kw_read(const char *kw) {
     if (!kw) return FAILDESCR;
     if (!strcmp(kw,"pos"))     return INTVAL(scan_pos);
-    if (!strcmp(kw,"subject")) return scan_subj ? STRVAL(scan_subj) : STRVAL("");
+    if (!strcmp(kw,"subject")) { extern long rt_scan_subj_len(void); if (!scan_subj) return STRVAL(""); { long n = rt_scan_subj_len(); return (n >= 0) ? BSTRVAL((char *)scan_subj, n) : STRVAL(scan_subj); } }
     if (!strcmp(kw,"e"))   return REALVAL(2.718281828459045);
     if (!strcmp(kw,"pi"))  return REALVAL(3.141592653589793);
     if (!strcmp(kw,"phi")) return REALVAL(1.618033988749895);

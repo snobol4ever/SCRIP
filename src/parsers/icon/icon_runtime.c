@@ -51,10 +51,19 @@ const char *cset_canonical(const char *cs, int len) {
     return cset_from_bits(x, (int *)0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_icn_cset_member_n(const char *needle, long len, int ch) {
+    if (!needle) return 0;
+    extern const unsigned char *kw_cset_bits(const char *);
+    { const unsigned char *b = kw_cset_bits(needle); if (b) { unsigned c = (unsigned char)ch; return (b[c >> 3] >> (c & 7)) & 1; } }
+    if (len < 0) { extern int kw_cset_len(const char *); int kn = kw_cset_len(needle); len = (kn >= 0) ? (long)kn : (long)strlen(needle); }
+    return memchr(needle, (unsigned char)ch, (unsigned long)len) != 0;
+}
 int rt_icn_cset_member(const char *needle, int ch) {
     if (!needle) return 0;
     extern const unsigned char *kw_cset_bits(const char *);
     { const unsigned char *b = kw_cset_bits(needle); if (b) { unsigned c = (unsigned char)ch; return (b[c >> 3] >> (c & 7)) & 1; } }
+    { extern const char *g_scan_needle_ptr; extern long g_scan_needle_len;
+      if (needle == g_scan_needle_ptr && g_scan_needle_len >= 0) return memchr(needle, (unsigned char)ch, (unsigned long)g_scan_needle_len) != 0; }
     extern int kw_cset_len(const char *);
     int kn = kw_cset_len(needle);
     int len = (kn >= 0) ? kn : (int) strlen(needle);

@@ -50,6 +50,15 @@ void rt_scan_state_reset(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 unsigned long rt_scan_state_size(void) { return (unsigned long)sizeof(ScanState); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long g_scan_subj_len = -1;
+const char *g_scan_subj_ptr = 0;
+void rt_scan_subj_len_set(const char *p, long n);
+long rt_scan_subj_len(void) {
+    extern const char *scan_subj; if (!scan_subj) return -1;
+    if (g_scan_subj_ptr == scan_subj && g_scan_subj_len >= 0) return g_scan_subj_len;
+    return (long)strlen(scan_subj);
+}
+void rt_scan_subj_len_set(const char *p, long n) { g_scan_subj_ptr = p; g_scan_subj_len = n; }
 ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi) {
     uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
     if (core_icn_argtype_check(lo, hi, 103)) { ScanSubjRegs z; z.ptr = 0; z.len = 0; return z; }
@@ -64,16 +73,21 @@ ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi) {
     uint64_t L;
     if (IS_CSET_fn(sv)) { extern int kw_cset_len(const char *); int kn = sv.s ? kw_cset_len(sv.s) : -1; L = (kn >= 0) ? (uint64_t)kn : (uint64_t)strlen(s); }
     else L = (sv.v == DT_S && sv.slen && s == sv.s) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
+    g_scan_subj_ptr = s; g_scan_subj_len = (long)L;
     ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = L;
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char *g_scan_needle_ptr = 0; long g_scan_needle_len = -1;
 ScanSubjRegs rt_scan_needle(uint64_t lo, uint64_t hi) {
     uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str_fracdigit(sv);
     const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
     if (!s) s = "";
-    uint64_t L = (sv.v == DT_S && sv.slen && s == sv.s) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
+    uint64_t L;
+    if (IS_CSET_fn(sv)) { extern int kw_cset_len(const char *); int kn = sv.s ? kw_cset_len(sv.s) : -1; L = (kn >= 0) ? (uint64_t)kn : (uint64_t)strlen(s); }
+    else L = (sv.v == DT_S && sv.slen != 0xFFFFFFFFu && s == sv.s) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
+    g_scan_needle_ptr = s; g_scan_needle_len = (long)L;
     ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = L;
     return r;
 }
@@ -84,6 +98,7 @@ void rt_scan_leave(uint64_t outer_sigma, uint64_t outer_delta) {
         if (scan_depth < SCAN_STACK_MAX) {
             scan_saved[scan_depth].subj = scan_subj;
             scan_saved[scan_depth].pos  = scan_pos;
+            scan_saved[scan_depth].len  = rt_scan_subj_len();
             if (scan_saved_depth < scan_depth + 1) scan_saved_depth = scan_depth + 1;
         }
     }
@@ -102,10 +117,11 @@ ScanSubjRegs rt_scan_reenter(void) {
     if (scan_depth < 0 || scan_depth >= SCAN_STACK_MAX || scan_depth >= scan_saved_depth) return r;
     scan_subj = scan_saved[scan_depth].subj;
     scan_pos  = scan_saved[scan_depth].pos;
+    { long n = scan_saved[scan_depth].len; if (scan_subj && n >= 0) rt_scan_subj_len_set(scan_subj, n); }
     scan_depth++;
     if (!scan_subj) scan_subj = "";
     r.ptr = (uint64_t)(uintptr_t)scan_subj;
-    r.len = (uint64_t)strlen(scan_subj);
+    { long n = rt_scan_subj_len(); r.len = (uint64_t)((n >= 0) ? n : (long)strlen(scan_subj)); }
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -116,7 +132,7 @@ ScanSubjRegs rt_scan_reenter_live(uint64_t subj) {
     const char *s = subj ? (const char *)(uintptr_t)subj : "";
     scan_depth++;
     scan_subj = s;
-    ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = (uint64_t)strlen(s);
+    ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; { long n = rt_scan_subj_len(); r.len = (uint64_t)((n >= 0) ? n : (long)strlen(s)); }
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -171,10 +187,10 @@ DESCR_t rt_substr(const char *sigma, int64_t a, int64_t b) {
     char *buf = rt_str_alloc((long)len);
     if (len > 0) memcpy(buf, sigma + lo, (size_t)len);
     buf[len] = '\0';
-    return STRVAL(buf);
+    return BSTRVAL(buf, (long)len);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_keyword_subject(void) { return scan_subj ? STRVAL(scan_subj) : NULVCL; }
+DESCR_t rt_keyword_subject(void) { if (!scan_subj) return NULVCL; { long n = rt_scan_subj_len(); return (n >= 0) ? BSTRVAL((char *)scan_subj, n) : STRVAL(scan_subj); } }
 DESCR_t rt_keyword_pos(void) { return INTVAL((int64_t)scan_pos); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long cvpos_of(DESCR_t v, long len, int *ok) {
