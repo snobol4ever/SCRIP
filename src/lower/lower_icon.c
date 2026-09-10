@@ -653,8 +653,12 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t * ea = lower(cx, lhs, NULL, ω, &lr); IR_t * eb = lower(cx, rhs, op, ω, &rr); γ_to(lr, eb); *res = op; return ea;
     }
     case TT_RETURN: { IR_t * ret = build(cx, IR_RETURN, cx->psucc ? cx->psucc : γ, ω);
-        if (t->n > 0 && t->c[0]) { IR_t * vr = NULL; IR_t * entry = lower(cx, t->c[0], ret, cx->pfail ? cx->pfail : ω, &vr); ir_operand_push(ret, vr); *res = ret; return entry; }
-        *res = ret; return ret; }
+        IR_t * vtgt = ret;
+        if (cx->scan_sp > 0) { IR_t * tgt = ret;
+            for (int _k = 0; _k < cx->scan_sp && _k < 16; _k++) { IR_t * lv = build(cx, IR_SCAN, NULL, NULL); ir_operand_push(lv, cx->scan_stk_enter[_k]); lc_γ_to(lv, tgt); lc_ω_to(lv, tgt); tgt = lv; }
+            IR_t * tramp = IR_node_alloc(cx->g, IR_GOTO); lc_γ_to(tramp, tgt); lc_ω_to(tramp, tgt); vtgt = tramp; }
+        if (t->n > 0 && t->c[0]) { IR_t * vr = NULL; IR_t * entry = lower(cx, t->c[0], vtgt, cx->pfail ? cx->pfail : ω, &vr); ir_operand_push(ret, vr); *res = ret; return entry; }
+        *res = ret; return vtgt; }
     case TT_PROC_FAIL: { IR_t * nd = build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
     case TT_LOOP_BREAK: {
         int k = 1; const tree_t * ch = (t->n >= 1) ? t->c[0] : NULL;

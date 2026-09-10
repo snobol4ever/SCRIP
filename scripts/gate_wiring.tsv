@@ -76,6 +76,7 @@ test_gate_icn_loadfunc_returns_a_callable.sh	WIRED	-	-	-
 test_gate_icn_no_stack.sh	WIRED	-	-	-
 test_gate_icn_one_reg_frame.sh	WIRED	-	-	-
 test_gate_icn_range_operands_must_be_integers.sh	WIRED	-	-	-
+test_gate_icn_return_from_inside_a_scan_block_restores_the_enclosing_scan.sh	WIRED	-	-	-
 test_gate_icn_reversible_exchange_on_a_global.sh	WIRED	-	-	-
 test_gate_icn_scan_argtype.sh	WIRED	-	-	-
 test_gate_icn_scan_subject_must_be_string_convertible.sh	WIRED	-	-	-
