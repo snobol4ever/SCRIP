@@ -82,10 +82,18 @@ procedure main()
 end
 EOF
 
+# ⛔ NO SEMICOLON BEFORE `else` -- THIS FIXTURE WAS NOT VALID ICON AND THE ORACLE SAYS SO (hq_C 2026-09-10, CEO-484).
+# `if C then E; else F` is refused by Arizona icont with `"else": invalid expression`: the `;` TERMINATES the
+# if-expression, so `else` starts a statement of its own and there is nothing for it to attach to. SCRIP accepted it
+# until 38470889b taught the parser the four semicolons icont refuses -- so the smoke went 15/15 -> 13/15 on a
+# CORRECTION, and the red was this file's own hand-written fixture, never the compiler. A smoke fixture is ours, not
+# upstream, which is exactly why nothing was checking it against the oracle; under the one-oracle rule (CEO-391) a
+# fixture icont refuses is not ground truth. Both cured forms were run through icont/iconx: "big" and "120", the
+# expectations already written here, unchanged.
 icon "if_expr" "big" << 'EOF'
 procedure main()
   x := 10;
-  if x > 5 then write("big"); else write("small");
+  if x > 5 then write("big") else write("small");
 end
 EOF
 
@@ -136,7 +144,7 @@ EOF
 
 icon "proc_recursion" "120" << 'EOF'
 procedure fact(n)
-  if n <= 1 then return 1; else return n * fact(n - 1);
+  if n <= 1 then return 1 else return n * fact(n - 1);
 end
 procedure main()
   write(fact(5));
