@@ -1427,7 +1427,16 @@ DESCR_t rt_list_bang_var_at(DESCR_t obj, int64_t idx) {
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rt_random_var_body(DESCR_t base);
 DESCR_t rt_random_var(DESCR_t base) {
+    extern long g_random;
+    long saved = g_random;
+    DESCR_t r = rt_random_var_body(base);
+    if (r.v == DT_FAIL) g_random = saved;
+    return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rt_random_var_body(DESCR_t base) {
     extern long g_random;
     DESCR_t bvar = base;
     if (IS_VARREF_fn(base)) base = rt_deref(base);
