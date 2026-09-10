@@ -952,6 +952,13 @@ static void icn_call_value_deref_args(const char *nm, DESCR_t *argv, int n) {
     if (nm && !strcmp(nm, "name")) return;
     for (int k = 0; k < n; k++) if (argv[k].v == DT_N) argv[k] = rt_deref(argv[k]);
 }
+static int icn_call_value_name_invocable(DESCR_t callee, const char *nm, int n) {
+    if (IS_PROCVAL_fn(callee) || !IS_STR_fn(callee) || !nm) return 1;
+    DESCR_t pa[2], pv = FAILDESCR; pa[0] = STRVAL((char *)nm); pa[1] = INTVAL(n);
+    if (!try_call_builtin_by_name_bl("proc", pa, 2, &pv, -1)) return 1;
+    return !IS_FAIL_fn(pv);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
     if (IS_INT_fn(callee)) { icn_call_value_deref_args(NULL, argv, n); long i = (long)callee.i; if (i < 0) i = n + i + 1; if (i >= 1 && i <= n) return argv[i - 1]; return FAILDESCR; }
     const char *nm = procval_name(callee);
@@ -967,6 +974,7 @@ DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
     if (n == 3 && !strcmp(nm, "...")) { extern int core_icn_by_zero_check(int64_t); extern int64_t core_icn_to_int_d(DESCR_t); int64_t lo = core_icn_to_int_d(argv[0]), hi = core_icn_to_int_d(argv[1]), st = core_icn_to_int_d(argv[2]); core_icn_by_zero_check(st); if (st > 0 ? lo > hi : lo < hi) return FAILDESCR; return INTVAL(lo); }
     if (n == 1 && !strcmp(nm, "!")) { extern int list_bang_at(DESCR_t, int64_t, DESCR_t *); DESCR_t out; return list_bang_at(argv[0], 0, &out) ? out : FAILDESCR; }
     if (n == 1 && !strcmp(nm, "/")) return (argv[0].v == DT_SNUL || argv[0].v == 0) ? argv[0] : FAILDESCR;
+    if (!icn_call_value_name_invocable(callee, nm, n)) { core_icn_error(106, callee); return FAILDESCR; }
     return rt_call_arr(nm, argv, n);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1005,6 +1013,7 @@ DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) 
         *hslot = (void *)g;
         return first;
     }
+    if (!icn_call_value_name_invocable(callee, nm, n)) { core_icn_error(106, callee); return FAILDESCR; }
     return rt_call_value(callee, argv, n);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
