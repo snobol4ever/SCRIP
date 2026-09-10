@@ -1499,7 +1499,7 @@ DESCR_t rt_section_var(DESCR_t base, DESCR_t i1d, DESCR_t i2d) {
         VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = 0; vc->key = 0; vc->key_d = i1d; vc->sv = bvar; vc->pos = ii; vc->len = jj - ii;
         return NAMETRAP(vc);
     }
-    return FAILDESCR;
+    return subscript_get2(base, i1d, i2d);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_var_ref_cell_named(DESCR_t *cellp, const char *name) {

@@ -18,6 +18,9 @@
 # p17-p20 pin the CALL THROUGH A VALUE (IR_CALL_VALUE, shared with Prolog): a variable argument reaches the runtime
 # dispatcher as the VARIABLE and is dereferenced there unless the callee is name(), so name() through a value answers
 # for a local, a subscript and a global, and deref timing through a value matches the direct call (CEO-464/468).
+# p21-p25 (row icon-argument-staging-widening-..., coo, CEO-477): an ASSIGNMENT (and +:=) in argument position yields its
+# left operand as a VARIABLE, a SECTION s[i:j] is a substring variable, and an element generator (!R) reaching a builtin
+# through a value (name) arrives as the variable; every expected output pinned from iconx 9.5 on 2026-09-09.
 # p14 is the ceo's CEO-456 R7 witness: arguments are passed by VALUE (a callee assigning its parameter does not
 # write the caller's variable). Expected outputs are PINNED from icont/iconx 9.5 (2026-09-09); the gate is hermetic
 # and never consults the oracle, so it cannot go green because an oracle install moved.
@@ -62,6 +65,13 @@ probe p18_valname_sub 'L[2]' 'procedure main(); local p, L; p := proc("name", 0)
 probe p19_valname_glb 'g'   'global g
 procedure main(); local p; g := 1; p := proc("name", 0); write(p(g)); end'
 probe p20_valcall_tim '22'  'procedure main(); local p, i; p := proc("write", 0); i := 1; p(i, (i := 2, ""), i); end'
+probe p21_assign_arg  '33'  'procedure main(); local x; write(x := 2, x := 3); end'
+probe p22_section_arg 'wqwerty' 'procedure main(); ev("abcdefghi"); end
+procedure ev(b); write(b[2:3], b[1:4] := "qwerty"); end'
+probe p23_valgen_name 'date2.m|date2.y|date2.f|date2.m|date2.y|date2.f' 'record date2(m, y, f)
+procedure main(); local p, R; R := date2("jan", 1999, "x"); p := proc("name", 0); every write(p(!R)); every write(name(!R)); end'
+probe p24_augop_arg   '77'  'procedure main(); local x; x := 5; write(x +:= 1, x +:= 1); end'
+probe p25_valgen_str  'a|b|c' 'procedure main(); local p; p := proc("write", 0); every p(!"abc"); end'
 
 red=0; n=0
 for src in "$W"/p*.icn; do

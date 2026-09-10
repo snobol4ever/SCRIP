@@ -176,6 +176,8 @@ static int icn_undeclared_assigned_var(const icx_t * cx, const char * nm) {
 static int icn_arg_stages(const icx_t * cx, const tree_t * a) {
     if (!a) return 0;
     if (a->t == TT_IDX || a->t == TT_FIELD) return 1;
+    if (a->t == TT_SECTION || a->t == TT_SECTION_PLUS || a->t == TT_SECTION_MINUS) return 1;
+    if ((a->t == TT_ASSIGN || a->t == TT_AUGOP || a->t == TT_SWAP) && a->n > 1 && a->c[0] && a->c[0]->t == TT_VAR) return icn_arg_stages(cx, a->c[0]);
     if (a->t != TT_VAR || !a->v.sval || a->v.sval[0] == '&') return 0;
     const char * nm = a->v.sval;
     if (icn_is_proc_or_record_name(nm)) return 0;
@@ -539,7 +541,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         ir_operand_push(nd, cr);
         for (int i = 1; i < t->n; i++) {
             IR_t * ar = NULL; IR_t * ae = NULL;
-            if (icn_arg_stages(cx, t->c[i])) { cx->beta = prevβ ? prevβ : ω; ae = lower_lvalue_var(cx, t->c[i], prevβ ? prevβ : ω, &ar); if (ae && ar && ar->op == IR_VAR_REF && t->c[i]->t == TT_VAR) ar->pat_static = 1; }
+            if (icn_arg_stages(cx, t->c[i]) || (t->c[i] && t->c[i]->t == TT_ITERATE && t->c[i]->n > 0 && icn_arg_stages(cx, t->c[i]->c[0]))) { cx->beta = prevβ ? prevβ : ω; ae = lower_lvalue_var(cx, t->c[i], prevβ ? prevβ : ω, &ar); if (ae && ar && ar->op == IR_VAR_REF) ar->pat_static = 1; }
             if (!ae || !ar) ae = lower(cx, t->c[i], NULL, prevβ ? prevβ : ω, &ar);
             prevβ = cx->beta;
             lc_γ_to(prev, ae); prev = ar;
