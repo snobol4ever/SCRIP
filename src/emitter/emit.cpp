@@ -2753,13 +2753,15 @@ static std::string icn_trace_tap(const char * pname, int kind, int np) {
     if (!pname) return std::string();
     pname = icn_trace_intern(pname);
     std::string id = std::to_string(g_flat_node_id++);
-    std::string sk = "L24" + std::to_string(6 + kind); std::string fl = ".Licn_trace_nm" + id;
+    std::string sk = (kind <= 3) ? "L24" + std::to_string(6 + kind) : "L246"; std::string fl = ".Licn_trace_nm" + id;
     std::string s = x86("push", "rax") + x86("push", "rdx") + x86("push", "rbx") + x86("mov", "rbx", "rsp") + x86("and", "rsp", (long)-16)
-        + IF(kind != 1, x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_trace, "g_trace")
+        + IF(kind == 2 || kind == 3, x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_trace, "g_trace")
         + x86("mov", "rax", RDQ("rax", 0)) + x86("cmp", "rax", (long)0) + x86("je", sk))
         + x86("directive", ".section .rodata") + x86("directive", (fl + ": .string \"" + pname + "\"").c_str()) + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix")
         + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)pname, fl.c_str());
-    if (kind == 1) s += x86("mov32", "esi", (long)np) + x86("lea", "rdx", RDQ("rbx", 24)) + x86("call", "rt_trace_call_hook_f", (uint64_t)(uintptr_t)(void *)rt_trace_call_hook_f);
+    if (kind == 4) { extern void core_icn_act_record(const char *, int, void *);
+        s += x86("mov32", "esi", (long)np) + x86("lea", "rdx", RDQ("rbx", 24)) + x86("call", "core_icn_act_record", (uint64_t)(uintptr_t)(void *)core_icn_act_record); }
+    else if (kind == 1) s += x86("mov32", "esi", (long)np) + x86("lea", "rdx", RDQ("rbx", 24)) + x86("call", "rt_trace_call_hook_f", (uint64_t)(uintptr_t)(void *)rt_trace_call_hook_f);
     else if (kind == 2) s += x86("mov", "rsi", RDQ("rbx", 16)) + x86("mov", "rdx", RDQ("rbx", 8)) + x86("call", "rt_trace_return_hook", (uint64_t)(uintptr_t)(void *)rt_trace_return_hook);
     else s += x86("call", "rt_trace_fail_hook", (uint64_t)(uintptr_t)(void *)rt_trace_fail_hook);
     s += x86("def", sk) + x86("mov", "rsp", "rbx") + x86("pop", "rbx") + x86("pop", "rdx") + x86("pop", "rax");
@@ -2989,6 +2991,12 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                   + x86("mov", "rdi", "rax") + x86("mov32", "esi", (long)np) + x86("mov32", "edx", (long)nl)
                   + x86("call", _use_zframe_install ? "rt_icn_zframe_args_install" : "rt_lcl_proc_args_install",
                         (uint64_t)(uintptr_t)(void *)(_use_zframe_install ? rt_icn_zframe_args_install : rt_lcl_proc_args_install)));
+        if (_use_zframe_install) {
+            const char * _gn = (prefix && strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix;
+            bb_emit_x86(x86("comment", "A GENERATOR RECORDS ITS ACTIVATION TOO (ceo FINDING-2026-09-10 only-main-records): the record and the trace event are two mechanisms, and this prologue ran neither -- so the traceback lost every generator frame, display lost its locals and a resume line had no call site. &level is already right here (measured 3 for main->f->g), so the record lands under the level the walk reads.")
+                        + icn_trace_tap(_gn, 4, np));
+            icn_register_local_offsets(_gn);
+        }
     } else if (g_emit.flat_lcl_proc) {
         int kt2 = g_emit.flat_frame_bytes;
         int np = g_emit_cfg ? g_emit_cfg->nparams : 0;

@@ -433,6 +433,10 @@ static void core_icn_report(int code, DESCR_t val, const char *msg) {
     core_icn_traceback();
     exit(1);
 }
+void core_icn_act_record(const char *fname, int np, void *base) {
+    extern int rt_k_level; extern long g_line; extern const char *g_file;
+    if (rt_k_level >= 0 && rt_k_level < ICN_ACT_CAP) { icn_act_rec_t *r = &g_icn_act[rt_k_level]; r->name = fname; r->base = base; r->np = np; r->line = g_line; r->file = g_file; }
+}
 void rt_trace_call_hook_f(const char *fname, int np, void *base) {
     extern long g_stno; extern int rt_k_level; extern long g_line; extern const char *g_file;
     if (rt_k_level >= 0 && rt_k_level < ICN_ACT_CAP) { icn_act_rec_t *r = &g_icn_act[rt_k_level]; r->name = fname; r->base = base; r->np = np; r->line = g_line; r->file = g_file; }
