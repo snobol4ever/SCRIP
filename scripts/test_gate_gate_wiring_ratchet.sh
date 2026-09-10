@@ -104,9 +104,19 @@ echo "--- ARM 7 — ONE LINE PER SCRIPT, graded on the LIVE Makefile (hq_U 2026-
 # out inside a week, and the muted check is worse than none. The wired-twice population is a MEASURED ZERO
 # (2026-09-10, hq_T, over `test` + `test-postoffice`), so a red here is never a backlog — it is a defect that
 # landed since the last green, it costs ONE LINE to cure, and its author is still in the room. ⭐ THE GENERAL
-# FORM WORTH KEEPING: whether a check belongs in the recipe or at handoff is decided by whether its refusal
-# is a TASK somebody must schedule or a TYPO somebody must delete, and the honest way to know is to measure
-# the backlog before wiring it, not to reason about how important the check feels.
+# FORM, adopted as the criterion by the ceo as CEO-520 and sharpened by hq_U: whether a check belongs in the
+# recipe or at handoff is decided by whether its refusal is a TASK somebody must schedule or a TYPO somebody
+# must delete -- equivalently, A LIVE-TREE ARM IS LEGITIMATE EXACTLY WHEN ITS RED POPULATION IS SMALL ENOUGH
+# THAT EVERY RED HAS A NAMED AUTHOR STILL IN THE ROOM. The honest way to know is to measure the backlog
+# before wiring it, never to reason about how important the check feels.
+# ⛔ THE MEASURED ZERO IS THE PRECONDITION, NOT A PLEASANT FACT ABOUT TODAY (hq_U, 2026-09-10). If this count
+# is ever nonzero AT REST -- a double nobody is about to delete -- the argument above has EXPIRED and ARM 7
+# moves to handoff_status.sh, where a standing red is a census rather than a blocker. A standing red left in
+# a recipe trains every reader to skip the arm, which is the exact failure ARM 4 was written against.
+# ⭐ AND THE SUB-MAKE WALK IS WHAT MAKES THE ZERO TRUSTWORTHY (hq_U): the overlap between `test:` and the
+# `test-postoffice:` it invokes is empty ONLY BECAUSE BOTH RECIPES WERE LOOKED IN. A count that stopped at
+# the target boundary would report the same zero with a cross-target double in plain sight, and the
+# precondition would then rest on the instrument's blind spot rather than on the tree.
 # Hermetic: Makefile TEXT only — no `make -n`, no build, no scripts read, <0.05s MEASURED.
 dbl_out="$(python3 "$HELPER" doubles 2>&1)"; dbl_rc=$?
 printf '%s\n' "$dbl_out" | sed 's/^/    /'
