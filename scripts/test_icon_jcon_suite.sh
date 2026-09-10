@@ -298,8 +298,23 @@ OUT_STALE=""; OUT_UNSHIPPED=""; OUT_UNMIRRORED=""; OUT_RECHECKED=0; OUT_UNCHECKE
 # $WORK on every run -- caught in review of this very arm, which is the trap-handler class exactly: a
 # second registration for the same signal is not additive, and nothing warns that the first one is gone.
 _ORWORK="$(mktemp -d)"; trap 'rm -rf "$WORK" "$_ORWORK"' EXIT
+OUT_ROWLEVEL=""
 while IFS="$(printf '\t')" read -r _on _oc _or; do
     [ -n "$_on" ] || continue
+    # ⛔⭐⭐ A ROW-LEVEL ENTRY IS NOT A PROGRAM AND MUST NOT BE CHECKED AS ONE (ceo CEO-516, hq_P 2026-09-10).
+    # CEO-516 ruled that lgint's unbounded arm is THREE ROWS INSIDE the program and ordered them named here
+    # "as rows, not the program", so lgint itself stays in the graded denominator.  This file's reader was
+    # program-keyed, so those entries -- `lgint:bigexp(3 ^ 41)` and its two siblings -- tripped the
+    # NAMES-NOTHING-SHIPPED arm on every run.  ⭐ THE WARNING WAS NOT WRONG ABOUT WHAT IT SAW; it was asking
+    # the wrong question of a kind of row that did not exist when it was written, and its text ("a rename or
+    # a leftover; the row withdraws an exclusion silently") actively misdescribes a deliberate ruling.
+    # ⛔ A PERMANENT FALSE WARNING IS WORSE THAN NO WARNING: it teaches the reader to skip this whole block,
+    # and the block's other two arms are real.  So a name carrying ':' is recognised as row-level, exempted
+    # from the shipped and mirror checks -- and PRINTED on its own line, never silently dropped, because an
+    # exclusion nobody can see is the thing this file exists to prevent.
+    case "$_on" in
+        *:*) OUT_ROWLEVEL="$OUT_ROWLEVEL $_on"; continue;;
+    esac
     # A row naming no shipped program is a rename or a leftover, and it withdraws an exclusion silently --
     # the same refusal lib_inventory.sh makes for UNGRADED/UNGRADABLE, which this file is NOT covered by
     # except through the hand-written mirror checked just below.
@@ -331,6 +346,7 @@ echo "OUTSIDE_ARIZONA_BASELINE ($(printf '%s' "$OUTSIDE_LIST" | wc -w), out of t
 # ⛔ THE RECONCILIATION PRINTS UNCONDITIONALLY TOO, and for a sharper reason than the list above it: a
 # silent agreement line is the only way a reader can tell "the arm ran and the record holds" apart from
 # "the arm did not run", and those two have opposite meanings for every number on the board line below.
+[ -n "$OUT_ROWLEVEL" ]   && echo "ROW-LEVEL exclusions (ceo CEO-516) -- rows INSIDE a graded program, named so the program stays in the denominator:$OUT_ROWLEVEL"
 [ -n "$OUT_UNSHIPPED" ]  && echo "⚠ OUTSIDE_ARIZONA_BASELINE.tsv NAMES NOTHING SHIPPED:$OUT_UNSHIPPED -- a rename or a leftover; the row withdraws an exclusion silently, and this file is not covered by lib_inventory's declared-but-not-shipped refusal except through the mirror"
 [ -n "$OUT_UNMIRRORED" ] && echo "⚠ OUTSIDE_ARIZONA_BASELINE.tsv DOES NOT MIRROR the lockdown buckets:$OUT_UNMIRRORED -- named outside the denominator here and in neither UNGRADED.tsv nor UNGRADABLE.tsv, so the gap split above cannot see them; a TIMEOUT is work owed (UNGRADED), an oracle refusal is a ruling (UNGRADABLE)"
 [ -n "$OUT_STALE" ]      && echo "⚠ OUTSIDE_ARIZONA_BASELINE.tsv STALE:$OUT_STALE -- recorded as refused by Arizona icont, but icont compiled it THIS RUN. Move it back into the graded denominator; an exclusion list that can only ever lower the number is not a correction either"
