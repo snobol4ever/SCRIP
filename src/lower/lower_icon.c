@@ -797,7 +797,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
                     lc_γ_to(SENT, ent[i]); lc_ω_to(SENT, ent[i]);
                     succ = SENT; failt = SENT;
                 }
-                if (t->t == TT_SEQ_EXPR && S[i]->line > 0) { IR_t * lh = cx->want_lines ? icn_line_hook(cx, S[i]->line, succ) : icn_line_mark(cx, S[i]->line, succ); if (succ == ent[i]) ent[i] = lh; succ = lh; failt = lh; }
+                if (t->t == TT_SEQ_EXPR && S[i]->line > 0 && succ == ent[i]) { ent[i] = cx->want_lines ? icn_line_hook(cx, S[i]->line, ent[i]) : icn_line_mark(cx, S[i]->line, ent[i]); succ = ent[i]; failt = ent[i]; }
             }
             if (val[k - 1]) ir_operand_push(SEQX, val[k - 1]);
             cx->conj_resumable = rb; cx->beta = last_beta; *res = SEQX; return ent[0];
@@ -899,6 +899,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_STMT: { const tree_t * sub = stmt_subj(t); if (sub) return lower(cx, sub, γ, ω, res); IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_CREATE: {
         IR_t * nd = build(cx, IR_CREATE, γ, ω);
+        IR_LIT(nd).sval = cx->pname;
         IR_t * coret = build(cx, IR_CORET, NULL, NULL);
         IR_t * cofail = build(cx, IR_COFAIL, NULL, NULL);
         IR_t * bv = NULL; IR_t * b_entry = lower(cx, (t->n > 0) ? t->c[0] : NULL, coret, cofail, &bv);

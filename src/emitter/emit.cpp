@@ -49,16 +49,6 @@ static void port_exit_prepass_build(void) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char * emit_enclosing_proc_name(void) {
-    if (!g_emit_cfg) return (const char *)0;
-    for (int i = 0; i < g_stage2.proc_count; i++) {
-        ProcEntry * pe = &g_stage2.proc_table[i];
-        if (!pe->name || pe->bb_idx < 0 || pe->bb_idx >= g_stage2.bbp.count) continue;
-        if (g_stage2.bbp.table[pe->bb_idx] == g_emit_cfg) return pe->name;
-    }
-    return (const char *)0;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int emit_port_exit_label_promotes(const char * label) {
     if (!label) return 0;
     port_exit_prepass_build();
@@ -1300,8 +1290,8 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_ITERATE:              bb_emit_x86(bb_iterate());        return 0;
     case IR_SCAN_ENTER:           { g_emit.op_sb = 1; g_emit.op_sa = g_emit.op_a_slot; bb_emit_x86(bb_gen_scan()); } return 0;
     case IR_INITIAL:           bb_emit_x86(bb_enter_init());     return 0;
-    case IR_CREATE:                bb_emit_x86(bb_create());        return 0;
-    case IR_ACTIVATE:             { g_emit.op_activate_proc = emit_enclosing_proc_name(); bb_emit_x86(bb_activate()); } return 0;
+    case IR_CREATE:               { g_emit.op_activate_proc = IR_LIT(nd).sval; bb_emit_x86(bb_create()); } return 0;
+    case IR_ACTIVATE:             { g_emit.op_activate_proc = IR_LIT(nd).sval; bb_emit_x86(bb_activate()); } return 0;
     case IR_CORET:                 bb_emit_x86(bb_coret());         return 0;
     case IR_COFAIL:                bb_emit_x86(bb_cofail());        return 0;
     case IR_MOVE_LABEL:            bb_emit_x86(bb_move_label());    return 0;
@@ -1981,6 +1971,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     }
     case IR_CREATE: {
         g_emit.op_off = drive_value_slot(nd);
+        g_emit.op_activate_proc = IR_LIT(nd).sval;
         g_emit.lbl_t0   = g_create_body_entry ? g_create_body_entry->name : NULL;
         g_emit.lbl_t0_p = g_create_body_entry;
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
@@ -1994,7 +1985,6 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         g_emit.op_sb = xv ? bb_slot_get(xv) : -1;
         g_emit.op_activate_proc = IR_LIT(nd).sval;
         g_emit.op_off = drive_value_slot(nd);
-        g_emit.op_activate_proc = emit_enclosing_proc_name();
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_CORET: {
