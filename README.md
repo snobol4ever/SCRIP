@@ -336,17 +336,64 @@ and being worked — not to the compiled code itself.
 and JCON's. Their boards, and how far the JCON self-host gets, follow the benchmark
 grid below.
 
-**Benchmarks.** **× vs Arizona `iconx`** (10/10 kernels output-identical, 2026-08-27;
-whole-program wall clock — this grid predates the cross-checked work-rate discipline
-now used for SNOBOL4 and is queued for re-measurement on that basis):
+**Benchmarks — the classic Icon benchmark set, against BOTH rivals.** Arizona `iconx`
+(the reference implementation) and JCON `jcont` (Proebsting & Townsend's Icon-to-JVM
+compiler). Measured 2026-09-10, SCRIP `38820e736` / corpus `223c9755e`, `RT_OPT=-O0`,
+`scripts/bench_icon_classic_set.sh`; machine record `corpus/benchmarks/icon/classic_set_board.tsv`.
 
-| kernel | × | kernel | × |
-|---|:---:|---|:---:|
-| int_loop | **5.64x** | list_dispatch | **2.52x** |
-| mod_isolate | **4.65x** | table_miss_dispatch | **1.49x** |
-| concat_dispatch | **4.45x** | concat_int_dispatch | 0.93x |
-| concat_table | **2.64x** | concat_intvar | 0.72x |
-| concat_strvar | **2.39x** | | |
+Shared axes for every row: wall ms (CPU ms is in the TSV), **median of 5 runs after 2
+discarded warm-ups**, spread printed per arm; two-number basis with `OVERHEAD` the
+empty-program constant per engine and `WORK = median − OVERHEAD`; multiples on the
+**faster axis** (`rival WORK / SCRIP m4 WORK`, so above 1 is SCRIP ahead) and never
+across instruments. `TOTAL:` marks a row where overhead reached half of an arm and the
+work multiple is refused in favour of the labelled total.
+
+| program | both modes vs `iconx` | `iconx` ms | `jcont` ms | m3 ms | m4 ms | m4 × vs `iconx` | m4 × vs `jcont` |
+|---|:---:|---:|---:|---:|---:|:---:|:---:|
+| `concord` | **PASS** | 30 | 210 | 90 | 90 | QNT:0.333x | QNT:1.333x |
+| `deal` | **PASS** | 20 | 220 | 400 | 400 | QNT:0.050x | QNT:0.325x |
+| `ipxref` | **PASS** | 20 | 230 | 90 | 60 | QNT:0.333x | QNT:2.333x |
+| `queens` | **PASS** | 40 | 170 | 40 | 20 | QNT:2.000x | QNT:TOTAL:8.500x |
+| `rsg` | **PASS** | 10 | 180 | 60 | 30 | QNT:0.333x | QNT:TOTAL:6.000x |
+| `geddump` | **RED** | 170 | 520 | — | — | m3 and m4 both SIGSEGV | — |
+
+Read `deal` first: 400 ms against `iconx`'s 20 ms is **the worst figure on this board
+and the one with real resolution behind it**, and m3 and m4 agree to within 10 ms, so it
+is not a mode artefact. `geddump` is the set's one correctness red — SIGSEGV in both
+modes where both rivals run it clean.
+
+**`QNT:` is not decoration.** `/usr/bin/time` reports wall to 10 ms and four of these
+six programs run in 10–90 ms, so those multiples are two ticks against four: a printed
+`2.000x` really spans roughly 1.5x–3x. The figure is real; the precision it *looks*
+like is not. Only `deal` and `geddump` are off that floor. The way off it for the rest
+is a bigger input or a self-timed hook in the program — never a tighter-looking format.
+
+**Why `jcont` is timed and not counted.** Every SCRIP-vs-`iconx` benchmark elsewhere in
+this tree measures callgrind `Ir`, because `Ir` repeats byte-identically and one run is
+the whole measurement. That property does not survive a JVM: the same kernel measured
+1,069,787,424 then 1,443,104,013 `Ir` — a 35% spread, from JIT decisions alone. So `Ir`
+**refuses** on the `jcont` arm and it is timed by wall and CPU instead. (If you ever do
+put a `.jxe` under callgrind, pass `--trace-children=yes`: it is a `/bin/sh` wrapper that
+execs `java`, and untraced it reads 367K `Ir` where the truth is 291M — a plausible,
+correctly measured count of the wrong process.)
+
+**How these programs are graded at all.** They link `post.icn`, which is a benchmark
+harness, not a library: it prints `&version`, `&host` and `&features`, then — unless the
+environment variable `OUTPUT` is set — assigns `1` to `write` and `writes` and suppresses
+the program's entire answer, printing elapsed time and GC statistics at the end instead.
+So the default stdout of every program here is environment and timing *with the answer
+removed*, and a byte-compare against an `iconx` cut fails by construction. The runner
+therefore grades the **answer cut**: `OUTPUT=1`, keeping only the lines between the two
+markers the harness itself prints. `queens` grades red on raw stdout and its 16,653
+answer lines are byte-identical to `iconx` once cut. `geddump` links no harness, so it is
+graded raw — decided per program from the oracle's own text and printed in the verdict
+column (`PASS/CUT` vs `RED/RAW`), because an absent marker would make the cut empty and
+two empty files compare equal.
+
+**Kernel grid (superseded, being re-measured).** The 10-kernel `× vs iconx` grid that
+stood here (int_loop 5.64x … concat_intvar 0.72x, 2026-08-27) was whole-program wall
+clock on a basis this tree no longer publishes. It is queued for re-measurement in
+callgrind `Ir` on the two-number basis, where both engines are deterministic.
 
 **Vendor test suites.** Icon is graded against the two official vendor test suites,
 vendored in the corpus and mechanically converted to SCRIP's explicit-semicolon
