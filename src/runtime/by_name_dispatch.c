@@ -10,6 +10,17 @@ extern int rt_icn_cset_member_n(const char *, long, int);
 #include "pl_arith_names.h"
 int core_icn_error(int code, DESCR_t val);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void icn_loadfunc_cstr_args(DESCR_t *args, int nargs) {
+    for (int i = 0; i < nargs && i < 2; i++) {
+        if (args[i].v != DT_S || !args[i].s) continue;
+        uint32_t n = args[i].slen;
+        if (n && args[i].s[n - 1] == 0) continue;
+        char *b = (char *)malloc((size_t)n + 1);
+        if (!b) continue;
+        memcpy(b, args[i].s, (size_t)n); b[n] = 0;
+        args[i].s = b; args[i].slen = n + 1;
+    }
+}
 static int icn_open_spec_is_icon(const char *spec) {
     for (const char *p = spec; p && *p; p++) if (!strchr("aAbBcCrRwWuUtTpP", *p)) return 0;
     return 1;
@@ -6151,7 +6162,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     if (!strcmp(fn, "delay") && nargs >= 1) { long long _ms = IS_INT_fn(args[0]) ? (long long)args[0].i : 0; if (_ms > 0) usleep((useconds_t)(_ms * 1000)); *out = NULVCL; return 1; }
     if (!strcmp(fn, "getch") || !strcmp(fn, "getche")) { unsigned char _c; ssize_t _n = read(0, &_c, 1); if (_n != 1) { *out = FAILDESCR; return 1; } if (fn[4] == 'e') { fputc(_c, stdout); fflush(stdout); } char *_b = rt_pinned_alloc(2); _b[0] = (char)_c; _b[1] = 0; *out = STRVAL(_b); return 1; }
     if (!strcmp(fn, "kbhit")) { fd_set _r; struct timeval _tv; FD_ZERO(&_r); FD_SET(0, &_r); _tv.tv_sec = 0; _tv.tv_usec = 0; if (select(1, &_r, 0, 0, &_tv) > 0) { *out = NULVCL; return 1; } *out = FAILDESCR; return 1; }
-    if (!strcmp(fn, "loadfunc") && nargs >= 2) { extern long g_error; extern DESCR_t rt_extfn_mint(const char *, void *); const char *_l = VARVAL_fn(args[0]); const char *_fnm = VARVAL_fn(args[1]); void *_h = _l ? dlopen(_l, RTLD_NOW) : 0; void *_f = (_h && _fnm) ? dlsym(_h, _fnm) : 0; if (!_f) { const char *_de = dlerror(); fprintf(stderr, "\nloadfunc(\"%s\",\"%s\"): %s\n", _l ? _l : "", _fnm ? _fnm : "", _de ? _de : ""); fflush(stderr); if (g_error != 0) return icn_argtype_raise(216, args[1], out); core_runtime_error(216, "external function not found"); *out = FAILDESCR; return 1; } *out = rt_extfn_mint(_fnm, _f); return 1; }
+    if (!strcmp(fn, "loadfunc") && nargs >= 2) { extern long g_error; extern DESCR_t rt_extfn_mint(const char *, void *); const char *_l = VARVAL_fn(args[0]); const char *_fnm = VARVAL_fn(args[1]); void *_h = _l ? dlopen(_l, RTLD_NOW) : 0; void *_f = (_h && _fnm) ? dlsym(_h, _fnm) : 0; if (!_f) { const char *_de = dlerror(); fprintf(stderr, "\nloadfunc(\"%s\",\"%s\"): %s\n", _l ? _l : "", _fnm ? _fnm : "", _de ? _de : ""); fflush(stderr); icn_loadfunc_cstr_args(args, nargs); if (g_error != 0) return icn_argtype_raise(216, args[1], out); core_runtime_error(216, "external function not found"); *out = FAILDESCR; return 1; } *out = rt_extfn_mint(_fnm, _f); return 1; }
     extern const char *scan_subj;
     extern int         scan_pos;
     extern int         scan_depth;
