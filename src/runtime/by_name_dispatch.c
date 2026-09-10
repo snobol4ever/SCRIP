@@ -5914,12 +5914,6 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
                 return 1;
             }
         }
-        if (src.v == DT_CO && src.p) {
-            extern void *scrip_coexpr_refresh(void *orig);
-            void *nc = scrip_coexpr_refresh(src.p);
-            DESCR_t d = {0}; d.v = DT_CO; d.p = nc;
-            *out = d; return 1;
-        }
         if (src.v == DT_DATA && src.u && src.u->type) {
             DATBLK_t *rt = src.u->type;
             int nf = rt->nfields > 0 ? rt->nfields : 0;
@@ -5934,6 +5928,16 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             *out = d; return 1;
         }
         *out = src; return 1;
+    }
+    if (!strcmp(fn, "ICN$REFRESH") && nargs == 1) {
+        DESCR_t src = args[0];
+        extern int core_icn_error(int code, DESCR_t val);
+        if (src.v != DT_CO || !src.p) { core_icn_error(118, src); *out = FAILDESCR; return 1; }
+        extern void *scrip_co_gc_root(void);
+        if ((void *)src.p == scrip_co_gc_root()) { core_icn_error(215, src); *out = FAILDESCR; return 1; }
+        extern void *scrip_coexpr_refresh(void *orig);
+        DESCR_t d = {0}; d.v = DT_CO; d.p = scrip_coexpr_refresh(src.p);
+        *out = d; return 1;
     }
     L_bidjmp_5840: ;
     if ((_bid == BID_list) && nargs >= 0) {
