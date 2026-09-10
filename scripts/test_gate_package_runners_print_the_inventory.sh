@@ -285,6 +285,67 @@ if [ "$rc" -ne 2 ]; then
     echo "GATE FAIL: an UNGRADED class was accepted in UNGRADABLE (rc=$rc): $out"; violations=$((violations+1))
 fi
 
+# ⛔⭐⭐ ARM 18 — THE READER MUST JOIN THE RUNNER'S OWN `package=` TOKEN TO THE TABLE'S LABEL, AND IT DID NOT
+# AT TWO OF THREE JOIN SITES (hq_T 2026-09-10, row package-shipped-per-lane-printed-by-the-runner-not-
+# transcribed). Every arm above grades what the RUNNER writes. This one grades what the READER does with it,
+# because carriage that nothing reads is not carriage. `inventory_clauses()` is keyed by the runner's token
+# and `PROGRESS_COUNTED` by the display label, and three pairs differ today: pat/PAT, gnu_prolog/gnu,
+# snoflake_suite/snoflake. A 2026-09-06 cure matched them for the DENOMINATOR and left `name in inv` spelled
+# at the other two sites, so the reader printed "⚠ PAT carries NO PACKAGE_INVENTORY clause ... Retrofit the
+# runner and paste its own line into the cell" about a clause sitting in the cell it had just parsed -- a
+# work item for work already done, issued by the only instrument that could have reported it.
+# ⛔ AND THE QUIETER HALF IS THE ONE THIS GATE EXISTS FOR: on a miss the shipped population fell through to
+# the PACKAGE_SHIPPED dict, which holds no entry for those languages, so shipped read 0 and THE UNGRADED
+# REMAINDER WAS NEVER BOOKED AS NOT-RUN. A package could ship 851 and grade 89 and contribute no inventory
+# at all -- the never-graded business, hidden by a spelling, inside the function written to end it.
+# ⭐ HERMETIC AND MUTATION-PROVED: the fixture is a V cell built here, never the live board, and the arm was
+# confirmed to RED against an ablated reader (the matched join reverted to the spelled one) before landing.
+examined=$((examined+1))
+python3 - "$HERE" <<'ARM18'
+import sys, os
+sys.path.insert(0, sys.argv[1])
+import util_score_row as U
+bad = 0
+# the three spellings measured on the live board, plus an exact match as the control
+for lang, label, key, shipped, graded in (("pascal", "PAT", "pat", 427, 425),
+                                          ("prolog", "gnu", "gnu_prolog", 62, 11),
+                                          ("snobol4", "snoflake", "snoflake_suite", 180, 103),
+                                          ("icon", "jcon", "jcon", 91, 78)):
+    names = [n for n, _rx, _d in U.PROGRESS_COUNTED.get(lang, [])]
+    if label not in names:
+        print("    ARM 18 REFUSES(2): %s is no longer a %s package in PROGRESS_COUNTED (names=%s) -- the "
+              "fixture describes a table that has moved, and a stale fixture must not pass" % (label, lang, names))
+        sys.exit(2)
+    cell = ("%s: m3 %d/%d graded · PACKAGE_INVENTORY package=%s shipped=%d graded=%d ungraded=0 "
+            "ungradable=%d graded_stream=%d graded_narrow=0 (`test_%s_suite.sh`)"
+            % (label, graded, graded, key, shipped, graded, shipped - graded, graded, key))
+    got, work = U.counted_fractions(lang, cell)
+    missing = [w for w in work if "carry NO PACKAGE_INVENTORY clause" in w and label in w]
+    if missing:
+        print("    ARM 18 FAIL: the reader says %s/%s carries no inventory clause while parsing a cell that "
+              "carries `package=%s`. The join is spelled, not matched." % (lang, label, key))
+        bad += 1
+    booked = [n for n, _c in got.notrun if n.startswith(label + " (ungraded remainder")]
+    if shipped > graded and not booked:
+        print("    ARM 18 FAIL: %s/%s ships %d and grades %d, and the reader booked NO ungraded remainder -- "
+              "%d programs in no bucket, which is the never-graded defect this gate exists to catch."
+              % (lang, label, shipped, graded, shipped - graded))
+        bad += 1
+    transcribed = [w for w in work if "PACKAGE_SHIPPED" in w and label in w]
+    if transcribed:
+        print("    ARM 18 FAIL: %s/%s took its shipped population from the PACKAGE_SHIPPED dict while its own "
+              "runner's clause was in the cell." % (lang, label))
+        bad += 1
+sys.exit(1 if bad else 0)
+ARM18
+_a18=$?
+if [ "$_a18" -eq 2 ]; then
+    echo "GATE REFUSES(2): ARM 18 could not measure (its fixture no longer describes PROGRESS_COUNTED)"; exit 2
+elif [ "$_a18" -ne 0 ]; then
+    violations=$((violations+1))
+fi
+
+
 # ARM 11 — THE CENSUS, WITH ITS DENOMINATOR PRINTED. Every package runner must reach the shared body.
 # ⚠ REPORTED, NOT COUNTED, WHILE THE ROW RAMPS: the instrument landed before its callers, so naming them
 # is the work list, not a verdict. ⭐ It prints the denominator rather than a boolean for the reason the

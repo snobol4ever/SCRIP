@@ -2520,6 +2520,21 @@ def counted_fractions(lang, vcell):
     inv, inv_bad = inventory_clauses(vcell)
     work.extend(inv_bad)
     _transcribed = []
+    # ⛔⭐⭐ THE MATCHED JOIN, RECORDED ONCE AND REUSED — because the 2026-09-06 cure below was applied to ONE
+    # OF THE THREE PLACES THIS FUNCTION JOINS A TABLE LABEL TO A RUNNER'S `package=` TOKEN, and the other two
+    # kept the spelled `name in inv` that the cure exists to replace (hq_T 2026-09-10). Measured on the live
+    # board: pascal's runner emits `PACKAGE_INVENTORY package=pat`, the clause sits in the very cell being
+    # read, and this reader printed "⚠ PAT carries NO PACKAGE_INVENTORY clause ... Retrofit the runner to
+    # lib_inventory.sh and paste its own line into the cell" — a work item for work already done, against the
+    # only instrument that could have reported it. The same three pairs miss as in 2026-09-06: pat/PAT,
+    # gnu_prolog/gnu, snoflake_suite/snoflake. ⛔ AND THE SECOND MISS IS THE WORSE ONE: `_ship` fell through to
+    # the PACKAGE_SHIPPED dict, which holds no pascal/prolog/snobol4 entry, so `_ship` was 0, `_ship > graded`
+    # was false, and THE UNGRADED REMAINDER WAS NEVER BOOKED AS NOT-RUN — the never-graded business hidden by
+    # a spelling, in the function written to stop exactly that. ⭐ THE REUSABLE HALF: a cure that replaces a
+    # JOIN has to be applied wherever the join is performed, and grep finds those sites by the OLD spelling —
+    # which is the string the author has just stopped thinking about. The fix is not vigilance: it is to
+    # compute the join ONCE, name it, and leave no second way to spell it.
+    _matched = {}
     for name, rx, dens in PROGRESS_COUNTED.get(lang, []):
         # ⭐ THE RUNNER'S OWN POPULATIONS BECOME LEGAL DENOMINATORS WITHOUT A CODE EDIT. Today a lane that
         # re-censuses a package must also edit PROGRESS_COUNTED here or its honest fraction reads UNREADABLE
@@ -2545,6 +2560,7 @@ def counted_fractions(lang, vcell):
                         "`package=` names in their runners." % (name, len(_hits), ", ".join(sorted(_hits))))
         elif _hits:
             _k = _hits[0]
+            _matched[name] = _k
             dens = tuple(dict.fromkeys(tuple(dens) + (inv[_k]["shipped"], inv[_k]["graded"])))
         best, saw = None, ""
         for m in re.finditer(rx, vcell):
@@ -2598,8 +2614,8 @@ def counted_fractions(lang, vcell):
         # other 35 have no oracle-cut ref and have never been executed against one. They are inventory, exactly
         # like a package nobody ran at all -- counting them inside the fraction is what made `46/124` read as a
         # measurement of 124 programs when it measured 89.
-        if name in inv:
-            _ship = inv[name]["shipped"]
+        if name in _matched:
+            _ship = inv[_matched[name]]["shipped"]
         else:
             _ship = PACKAGE_SHIPPED.get(lang, {}).get(name, 0)
             if _ship:
@@ -2609,7 +2625,7 @@ def counted_fractions(lang, vcell):
     # ⛔ THE REPORT THE ORDER ASKED FOR: a lane whose V cell does not carry its runner's own inventory line is
     # NAMED, every run. It is not an error -- the runner may simply not be retrofitted yet -- but an unnamed
     # gap is indistinguishable from a closed one, and that is the whole "never graded business".
-    _missing_inv = [n for n, _rx, _d in PROGRESS_COUNTED.get(lang, []) if n not in inv]
+    _missing_inv = [n for n, _rx, _d in PROGRESS_COUNTED.get(lang, []) if n not in _matched]
     if _missing_inv:
         work.append("⚠ %d package(s) carry NO PACKAGE_INVENTORY clause (%s) -- their shipped population is still "
                     "TRANSCRIBED, so it cannot go stale loudly. Retrofit the runner to lib_inventory.sh and paste "
