@@ -133,17 +133,7 @@ static tree_t *parse_primary(IcnParser *p) {
         advance(p);
         if (check(p, TK_RPAREN)) { advance(p); return ast_node_new(TT_SEQ_EXPR); }
         tree_t *first = check(p, TK_COMMA) ? ast_node_new(TT_NUL) : parse_expr(p);
-        if (check(p, TK_SEMICOL)) {
-            tree_t *seq = ast_node_new(TT_SEQ_EXPR);
-            push_child(seq, first);
-            while (check(p, TK_SEMICOL)) {
-                advance(p);
-                if (check(p, TK_RPAREN)) break;
-                push_child(seq, parse_expr(p));
-            }
-            expect(p, TK_RPAREN, "sequence expression");
-            return seq;
-        }
+        if (check(p, TK_SEMICOL)) parser_error(p, "parenthesised expression: a semicolon belongs in a compound expression { }, not in parentheses");
         if (check(p, TK_COMMA)) {
             tree_t *seq = ast_node_new(TT_CONJ);
             push_child(seq, first);
@@ -621,10 +611,8 @@ static tree_t *parse_ctrl(IcnParser *p) {
         advance(p);
         tree_t *e = ast_node_new(TT_IF);
         push_child(e, parse_expr(p));
-        match(p, TK_SEMICOL);
         expect(p, TK_THEN, "if/then");
         push_child(e, parse_expr(p));
-        if (check(p, TK_SEMICOL) && p->peek.kind == TK_ELSE) advance(p);
         if (match(p, TK_ELSE)) push_child(e, parse_expr(p));
         return e;
     }
@@ -677,13 +665,13 @@ static tree_t *parse_ctrl(IcnParser *p) {
                 expect(p, TK_COLON, "case default");
                 if (dflt) parser_error(p, "case default: duplicate default clause");
                 dflt = parse_expr(p);
-                match(p, TK_SEMICOL);
+                if (match(p, TK_SEMICOL) && check(p, TK_RBRACE)) parser_error(p, "case body: a semicolon separates case clauses and may not follow the last one");
                 continue;
             }
             push_child(e, parse_expr(p));
             expect(p, TK_COLON, "case clause");
             push_child(e, parse_expr(p));
-            match(p, TK_SEMICOL);
+            if (match(p, TK_SEMICOL) && check(p, TK_RBRACE)) parser_error(p, "case body: a semicolon separates case clauses and may not follow the last one");
         }
         expect(p, TK_RBRACE, "case body end");
         if (dflt) push_child(e, dflt);
@@ -729,10 +717,8 @@ static tree_t *parse_stmt(IcnParser *p) {
         advance(p);
         tree_t *e = ast_node_new(TT_IF);
         push_child(e, parse_expr(p));
-        match(p, TK_SEMICOL);
         expect(p, TK_THEN, "if/then");
         push_child(e, parse_expr(p));
-        if (check(p, TK_SEMICOL) && p->peek.kind == TK_ELSE) advance(p);
         if (match(p, TK_ELSE)) push_child(e, parse_expr(p));
         match(p, TK_SEMICOL);
         return e;
