@@ -142,8 +142,10 @@ static void kw_cset_prime(void) {
     { char a[256]; for (int c=0;c<256;c++) a[c]=(char)c; kw_cset_reg(a, "&cset", 256); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *g_kw_cset_regc_ptr[64]; static int g_kw_cset_regc_len[64];
 void rt_icn_cset_register(const char *ptr, int len) {
     if (!ptr) return;
+    { unsigned h = (unsigned)(((uintptr_t)ptr >> 4) & 63u); if (g_kw_cset_regc_ptr[h] == ptr && g_kw_cset_regc_len[h] == len) return; g_kw_cset_regc_ptr[h] = ptr; g_kw_cset_regc_len[h] = len; }
     kw_cset_prime();
     { int hit = kw_cset_find_ptr(ptr); if (hit >= 0) { if (g_kw_cset_names[hit].len != len) { g_kw_cset_names[hit].len = len; kw_cset_bits_fill(&g_kw_cset_names[hit]); } return; } }
     kw_cset_append(ptr, NULL, len);

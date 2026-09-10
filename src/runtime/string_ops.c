@@ -37,9 +37,11 @@ DESCR_t c_str_concat_d(DESCR_t a, DESCR_t b) {
     }
     const char *asp, *bsp;
     long alc = -1; long al_auth = -1, bl_auth = -1;
-    if (a.v == DT_DATA) asp = rk_obj_stringify(a, 0); else { DESCR_t as = descr_to_str(a); if (as.v == DT_S || as.v == DT_SNUL) { asp = VARVAL_fn(as); al_auth = (long)descr_slen(as); } else asp = NULL; }
-    if (a.v == DT_S && asp) { alc = rt_sxt_match(asp); if (alc >= 0 && al_auth >= 0 && alc != al_auth) alc = -1; }
-    if (b.v == DT_DATA) bsp = rk_obj_stringify(b, 0); else { DESCR_t bs = descr_to_str(b); if (bs.v == DT_S || bs.v == DT_SNUL) { bsp = VARVAL_fn(bs); bl_auth = (long)descr_slen(bs); } else bsp = NULL; }
+    if (a.v == DT_S && a.s && a.slen != 0xFFFFFFFFu) { asp = a.s; al_auth = (long)a.slen; }
+    else if (a.v == DT_DATA) asp = rk_obj_stringify(a, 0); else { DESCR_t as = descr_to_str(a); if (as.v == DT_S || as.v == DT_SNUL) { asp = VARVAL_fn(as); al_auth = (long)descr_slen(as); } else asp = NULL; }
+    if (a.v == DT_S && asp && g_sxt_fr.off <= 0) { alc = rt_sxt_match(asp); if (alc >= 0 && al_auth >= 0 && alc != al_auth) alc = -1; }
+    if (b.v == DT_S && b.s && b.slen != 0xFFFFFFFFu) { bsp = b.s; bl_auth = (long)b.slen; }
+    else if (b.v == DT_DATA) bsp = rk_obj_stringify(b, 0); else { DESCR_t bs = descr_to_str(b); if (bs.v == DT_S || bs.v == DT_SNUL) { bsp = VARVAL_fn(bs); bl_auth = (long)descr_slen(bs); } else bsp = NULL; }
     if (!asp) asp = "";
     if (!bsp) bsp = "";
     size_t bl = (bl_auth >= 0) ? (size_t)bl_auth : strlen(bsp);
@@ -57,11 +59,11 @@ DESCR_t c_str_concat_d(DESCR_t a, DESCR_t b) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t str_concat_fracdigit_d(DESCR_t a, DESCR_t b) {
-    extern int rt_big_is(DESCR_t); extern char *rt_big_str(DESCR_t);
-    if (IS_REAL_fn(a)) a = descr_to_str_fracdigit(a);
-    if (IS_REAL_fn(b)) b = descr_to_str_fracdigit(b);
-    if (rt_big_is(a)) a = STRVAL(rt_big_str(a));
-    if (rt_big_is(b)) b = STRVAL(rt_big_str(b));
+    extern char *rt_big_str(DESCR_t);
+    if (a.v == DT_R) a = descr_to_str_fracdigit(a);
+    if (b.v == DT_R) b = descr_to_str_fracdigit(b);
+    if (a.v == DT_BIG && a.p) a = STRVAL(rt_big_str(a));
+    if (b.v == DT_BIG && b.p) b = STRVAL(rt_big_str(b));
     return str_concat_d(a, b);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
