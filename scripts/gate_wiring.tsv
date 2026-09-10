@@ -76,6 +76,7 @@ test_gate_icn_ipl_scan_resume_and_limit_flips.sh	WIRED	-	-	-
 test_gate_icn_loadfunc_returns_a_callable.sh	WIRED	-	-	-
 test_gate_icn_no_stack.sh	WIRED	-	-	-
 test_gate_icn_one_reg_frame.sh	WIRED	-	-	-
+test_gate_icn_pow_large_integer_exponent.sh	WIRED	-	-	-
 test_gate_icn_range_operands_must_be_integers.sh	WIRED	-	-	-
 test_gate_icn_return_from_inside_a_scan_block_restores_the_enclosing_scan.sh	WIRED	-	-	-
 test_gate_icn_reversible_exchange_on_a_global.sh	WIRED	-	-	-
@@ -207,7 +208,6 @@ test_gate_baton_next_blocks.sh	RULING	reads the LIVE postoffice: grades rows six
 test_gate_baton_one_next_block.sh	RULING	reads the LIVE postoffice: grades rows sixteen seats are editing right now, so it reds on a dirty fleet BY DESIGN (ceo ruling 2026-09-03, stated verbatim in the Makefile test-postoffice header)	ceo	2026-09-03
 test_gate_baton_state_header_single_record.sh	RULING	reads the LIVE postoffice: grades rows sixteen seats are editing right now, so it reds on a dirty fleet BY DESIGN (ceo ruling 2026-09-03, stated verbatim in the Makefile test-postoffice header)	ceo	2026-09-03
 test_gate_define_alternate_entry.sh	RULING	Confirmed by RUNNING it, which is what the ruling needed and what nobody had done: rc=1 RED in 0.98 s on SCRIP 71d8bd89b -- 'the LAST DEFINE in program text won', oracle E0 v E1 v E2 v done vs m3 E2 v done, both modes. The cto's reason stands in every particular (hq_P's row snobol4-define-alternate-entry-binds-one-entry-for-the-whole-program, rank 0, PARKED-LON-HOLD under Lon's Icon-only order). A red DONE-WHEN is not an invariant and wiring it would redden the blocking set for all thirteen seats; it gets wired in the commit that makes it green (CEO-381).	hq_P	2026-09-09T14:56Z
-test_gate_icn_pow_large_integer_exponent.sh	RULING	ceo CEO-516 2026-09-10: hq_I landed it at 4f59dffd5 in no recipe and no list (the CEO-381 class, the second such today), which refused the ratchet in every root; declared out until hq_I wires it in its next landing	ceo	2026-09-10T16:19Z
 test_gate_preflight_complete.sh	RULING	reads the LIVE postoffice: grades rows sixteen seats are editing right now, so it reds on a dirty fleet BY DESIGN (ceo ruling 2026-09-03, stated verbatim in the Makefile test-postoffice header)	ceo	2026-09-03
 test_gate_queue_is_an_index.sh	RULING	reads the LIVE postoffice: grades rows sixteen seats are editing right now, so it reds on a dirty fleet BY DESIGN (ceo ruling 2026-09-03, stated verbatim in the Makefile test-postoffice header)	ceo	2026-09-03
 test_gate_s4e_release_verbs_mark_last_row.sh	RULING	reads the LIVE postoffice: grades rows sixteen seats are editing right now, so it reds on a dirty fleet BY DESIGN (ceo ruling 2026-09-03, stated verbatim in the Makefile test-postoffice header)	ceo	2026-09-03
