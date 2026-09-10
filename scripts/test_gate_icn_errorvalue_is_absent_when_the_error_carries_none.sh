@@ -38,6 +38,17 @@
 # because someone else's identical cure is holding them up. The only instrument that separates "my change did
 # this" from "my change is gone" is `git show <sha> --stat` on the pushed commit, read AFTER the push. Re-running
 # the tests cannot do it, and re-running them is what diligence feels like.
+# ⛔⛔ AND THE CORRECTION ABOVE ITSELF OVER-CORRECTED, WHICH IS THE THIRD LESSON AND THE ONE WORTH THE MOST.
+# In retracting my numbers I also retracted a REAL defect: I had reported an m4-only crossing at errors.icn's
+# last line, where the digits of `180` are split around `stop(&output,'testing stop')`'s output, and then wrote
+# it off as an artifact of a mis-linked witness. It was NOT an artifact -- the run that first showed it was
+# linked correctly with an absolute -L, the defect was genuinely on `3e68226ea`, and it was CURED by `e7e916e14`
+# (stop() honours a leading file argument and flushes before exit) which arrived in the same rebase. A LATER,
+# SEPARATE run of mine WAS mis-linked with a relative -L, and I let that one instrument fault explain away an
+# observation it had nothing to do with. ⭐ ONCE YOU CATCH YOURSELF IN ONE INSTRUMENT ERROR, THE CHEAPEST STORY
+# FOR EVERY OTHER SURPRISE IS THAT SAME ERROR -- and it is wrong exactly as often as it is right. A retraction
+# needs its own evidence; "I was sloppy over there" is not evidence about over here. Attribute each observation
+# to the run that produced it, and check what that particular run's command actually was.
 # ⭐ WHAT IS ACTUALLY THIS SEAT'S IS WHAT YOU ARE READING: the class bounded from Arizona's own source rather
 # than from the witness, the STALE arm below, and the fact that a cured behaviour with no gate is one refactor
 # from being un-cured. `118fe2e4a` shipped the fix with no gate; this pins it in both modes against a freshly
