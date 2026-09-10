@@ -459,5 +459,101 @@ if [ -n "$blindcarry" ]; then
     violations=$((violations+1))
 fi
 
+# ⛔⭐⭐ ARM 19 — THE LIVE BOARD, AND IT IS RATCHETED BY NAME (hq_T 2026-09-10, row package-shipped-per-lane-
+# printed-by-the-runner-not-transcribed). ARM 17 grades the CARRIAGE (does the runner splice its clause) and
+# ARM 18 grades the READER (does the join find it), and both are hermetic — ARM 18 builds its own V cell and
+# deliberately never opens SCORE.md. That is right for a unit arm and it left exactly one thing ungraded:
+# THE BOARD ITSELF. ⛔ THE MEASURED WITNESS, and it is why this arm exists: jcon's runner-written clause was
+# cured onto the board at .github `9c5f53b5` and was GONE by `03c6ca3a` six hours later — a rebase-conflict
+# resolution that took the older side restored the pre-cure prose verbatim, digits and all ("of 91 shipped,
+# 76 graded, 15 ungraded"), on a cell whose true reading was 78 graded / 13 not. Every arm above stayed
+# green through it: the runner still carried its clause, the reader still joined correctly, and the only
+# instrument that could see the loss was the row's own DONE-WHEN, which lives in a baton and runs when a
+# seat happens to read it. ⭐ THE GENERAL FORM: a cure that lands in a FILE is protected by the gate that
+# grades the file; a cure that lands in a CELL of a file twelve seats rewrite all day is protected by
+# nothing unless something re-reads the cell. Carriage that nothing reads is not carriage — and neither is
+# carriage that arrives and is then overwritten.
+# ⛔ WHY A PIN BY NAME AND NOT A COUNT. Seven of fifteen packages have no clause today and all seven are
+# under a PARKED-LON-HOLD language, so a strict arm would red the whole fleet for work nobody is allowed to
+# do. A count would also be a number typed into a script — the very defect this row is about — and a wrong
+# one passes silently. A pinned NAME is checkable: every name is verified to still be a package of its lane
+# in PROGRESS_COUNTED, so a stale pin REFUSES rc=2 instead of passing, and a lost clause is named directly.
+# ⭐ The unpinned remainder is printed as the work list with its denominator, never counted into the verdict
+# (ARM 11's doctrine: a gate that red-lights on work not yet done gets switched off by the first person it
+# blocks for a good reason). A package that GAINS a clause prints the one-line raise instruction.
+# ⭐ HERMETIC WHEN IT NEEDS TO BE: the board path is PKGINV_BOARD, defaulting to the live one, so the arm was
+# mutation-proved against a doctored copy (jcon's clause deleted -> RED naming jcon; a pin renamed -> rc=2)
+# before landing. ⛔ AND THE CURE IS NEVER A HAND EDIT: re-run the package's own runner, which rewrites the
+# cell in place. Restoring a clause by typing it back is this row's defect wearing the cure's clothes.
+examined=$((examined+1))
+PKGINV_BOARD="${PKGINV_BOARD:-$ROOT/../.github/SCORE.md}"
+if [ ! -f "$PKGINV_BOARD" ]; then
+    echo "GATE REFUSES(2): ARM 19 found no board at $PKGINV_BOARD -- cannot measure whether a cell lost its clause"
+    exit 2
+fi
+SCORE_MD="$PKGINV_BOARD" python3 - "$HERE" <<'ARM19'
+import io, os, sys
+sys.path.insert(0, sys.argv[1])
+import util_score_row as U
+# THE RATCHET, measured off the live board 2026-09-10 by hq_T and raised only by measurement.
+PINNED = {"icon":    ["arizona", "ipl", "jcon"],
+          "pascal":  ["fpc", "PAT"],
+          "prolog":  ["gnu"],
+          "snobol4": ["csnobol4", "snoflake"]}
+s = io.open(os.environ['SCORE_MD'], encoding='utf-8').read()
+cells = {}
+for ln in s.split('\n'):
+    if ln.startswith('| ') and ln.count('|') >= 8:
+        lang = ln.split('|')[1].strip()
+        if lang in U.PROGRESS_COUNTED and lang not in cells:
+            cells[lang] = ln.split('|')[4]
+bad, gained, lacking, pinned_n = 0, [], [], 0
+for lang in sorted(U.PROGRESS_COUNTED):
+    names = [n for n, _rx, _d in U.PROGRESS_COUNTED[lang]]
+    for want in PINNED.get(lang, []):
+        if want not in names:
+            print("    ARM 19 REFUSES(2): pinned package %s/%s is no longer in PROGRESS_COUNTED (names=%s) --"
+                  " the ratchet describes a table that has moved, and a stale pin must not pass" % (lang, want, names))
+            sys.exit(2)
+    if lang not in cells:
+        print("    ARM 19 REFUSES(2): no %s row on the board -- cannot measure" % lang)
+        sys.exit(2)
+    _got, work = U.counted_fractions(lang, cells[lang])
+    def lost(n):
+        return [w for w in work if ('PACKAGE_SHIPPED' in w or 'carry NO PACKAGE_INVENTORY clause' in w) and n in w]
+    for want in PINNED.get(lang, []):
+        pinned_n += 1
+        why = lost(want)
+        if why:
+            print("    ARM 19 FAIL: %s/%s HAD a runner-written PACKAGE_INVENTORY clause on the board and no longer"
+                  " does -- its shipped population is transcribed again." % (lang, want))
+            print("        reader says: " + why[0][:200])
+            bad += 1
+    for n in names:
+        if n in PINNED.get(lang, []):
+            continue
+        (lacking if lost(n) else gained).append("%s/%s" % (lang, n))
+print("    ARM 19 board=%s  pinned packages holding their own clause=%d/%d"
+      % (os.path.basename(os.environ['SCORE_MD']), pinned_n - bad, pinned_n))
+if lacking:
+    print("    NO RUNNER-WRITTEN CLAUSE YET (the row's work list, not a verdict -- every one is PARKED-LON-HOLD): "
+          + ", ".join(sorted(lacking)))
+if gained:
+    print("    ⭐ RAISE THE RATCHET: %s now carr%s a runner-written clause and %s not pinned. Add to PINNED in this"
+          " arm so it can never be lost silently." % (", ".join(sorted(gained)),
+                                                      "ies" if len(gained) == 1 else "y",
+                                                      "is" if len(gained) == 1 else "are"))
+if bad:
+    print("    CURE: re-run that package's own suite runner, which rewrites the cell in place. NEVER type the")
+    print("    clause back by hand -- a transcribed restatement of a measured number is this row's own defect.")
+sys.exit(1 if bad else 0)
+ARM19
+_a19=$?
+if [ "$_a19" -eq 2 ]; then
+    echo "GATE REFUSES(2): ARM 19 could not measure the live board"; exit 2
+elif [ "$_a19" -ne 0 ]; then
+    violations=$((violations+1))
+fi
+
 GATE_EXAMINED="$examined arms"
 gate_verdict "$violations" "package-inventory violations"
