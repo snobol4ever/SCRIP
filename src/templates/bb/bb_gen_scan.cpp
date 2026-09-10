@@ -6,8 +6,8 @@ extern "C" {
 #include "descr.h"
 typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs;
 ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi);
-void rt_scan_leave(uint64_t outer_sigma, uint64_t outer_delta);
-void rt_scan_leave_ns(uint64_t outer_sigma, uint64_t outer_delta);
+void rt_scan_leave(uint64_t outer_sigma, uint64_t outer_delta, uint64_t outer_len);
+void rt_scan_leave_ns(uint64_t outer_sigma, uint64_t outer_delta, uint64_t outer_len);
 void rt_scan_sync_out(uint64_t delta);
 ScanSubjRegs rt_scan_reenter(void);
 uint64_t rt_scan_sync_in(void);
@@ -46,6 +46,8 @@ std::string bb_gen_scan() {
                  + x86("mov", FRQ(_.op_ival + 8), "rax"))
              + x86("mov", "rdi", FRQ(_.op_off))
              + x86("mov", "rsi", FRQ(_.op_off + 8))
+             + x86("comment", "the outer Delta travels with the outer Sigma: leave restores the length CACHE too, or an embedded/trailing NUL in the outer subject is lost to strlen on the way out")
+             + x86("mov", "rdx", FRQ(_.op_off + 16))
              + (_.op_sb >= 2
                 ? x86("call", "rt_scan_leave_ns", (uint64_t)(uintptr_t)(void *)rt_scan_leave_ns)
                 : x86("call", "rt_scan_leave", (uint64_t)(uintptr_t)(void *)rt_scan_leave))

@@ -92,7 +92,7 @@ ScanSubjRegs rt_scan_needle(uint64_t lo, uint64_t hi) {
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_scan_leave(uint64_t outer_sigma, uint64_t outer_delta) {
+void rt_scan_leave(uint64_t outer_sigma, uint64_t outer_delta, uint64_t outer_len) {
     if (scan_depth > 0) {
         scan_depth--;
         if (scan_depth < SCAN_STACK_MAX) {
@@ -104,12 +104,17 @@ void rt_scan_leave(uint64_t outer_sigma, uint64_t outer_delta) {
     }
     scan_subj = outer_sigma ? (const char *)(uintptr_t)outer_sigma : "";
     scan_pos  = (int)outer_delta + 1;
+    rt_scan_subj_len_set(scan_subj, outer_sigma ? (long)outer_len : 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_scan_leave_ns(uint64_t outer_sigma, uint64_t outer_delta) {
-    if (scan_depth > 0) scan_depth--;
+void rt_scan_leave_ns(uint64_t outer_sigma, uint64_t outer_delta, uint64_t outer_len) {
+    if (scan_depth > 0) {
+        scan_depth--;
+        if (scan_depth < SCAN_STACK_MAX) { scan_saved[scan_depth].subj = scan_subj; scan_saved[scan_depth].pos = scan_pos; scan_saved[scan_depth].len = rt_scan_subj_len(); }
+    }
     scan_subj = outer_sigma ? (const char *)(uintptr_t)outer_sigma : "";
     scan_pos  = (int)outer_delta + 1;
+    rt_scan_subj_len_set(scan_subj, outer_sigma ? (long)outer_len : 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ScanSubjRegs rt_scan_reenter(void) {
@@ -130,9 +135,14 @@ uint64_t rt_scan_sync_in(void) { return (uint64_t)(int64_t)(scan_pos - 1); }
 uint64_t rt_scan_live_subj(void) { return (uint64_t)(uintptr_t)(scan_subj ? scan_subj : ""); }
 ScanSubjRegs rt_scan_reenter_live(uint64_t subj) {
     const char *s = subj ? (const char *)(uintptr_t)subj : "";
+    long n = -1;
+    if (scan_depth >= 0 && scan_depth < SCAN_STACK_MAX && scan_saved[scan_depth].subj == s && scan_saved[scan_depth].len >= 0) n = scan_saved[scan_depth].len;
     scan_depth++;
     scan_subj = s;
-    ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; { long n = rt_scan_subj_len(); r.len = (uint64_t)((n >= 0) ? n : (long)strlen(s)); }
+    if (n < 0) n = rt_scan_subj_len();
+    if (n < 0) n = (long)strlen(s);
+    rt_scan_subj_len_set(s, n);
+    ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = (uint64_t)n;
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

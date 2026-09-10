@@ -30,24 +30,33 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"
-[ $# -ge 1 ] || { echo "⛔ REFUSES(2): name at least one progs/ program" >&2; exit 2; }
+[ $# -ge 1 ] || { echo "⛔ REFUSES(2): name at least one ipl package program" >&2; exit 2; }
 [ -x "$SCRIP" ] || { echo "⛔ REFUSES(2): no scrip at $SCRIP -- run make" >&2; exit 2; }
 "$HERE/util_require_fresh.sh" --gate util_ipl_grade_programs "$SCRIP" "$ROOT/out/libscrip_rt.so" || exit 2
 . "$HERE/lib_icon_ipl_isolation.sh" 2>/dev/null || { echo "⛔ REFUSES(2): lib_icon_ipl_isolation.sh unloadable" >&2; exit 2; }
 PKG="$ROOT/../corpus/packages/icon/ipl"
 [ -d "$PKG/progs" ] || { echo "⛔ REFUSES(2): no ipl package at $PKG" >&2; exit 2; }
-export IPL_ISO_SUBDIR=progs
 export ICONPATH="$PKG/progs:$PKG/gprogs:$PKG/procs:$PKG/gprocs:$PKG/incl:$PKG/gincl"
 ipl_isolation_init "$PKG" || { echo "⛔ REFUSES(2): ipl_isolation_init failed" >&2; exit 2; }
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"; ipl_isolation_cleanup' EXIT
 GRADED=0; BAD=0
 for name in "$@"; do
-    icn="$PKG/progs/$name.icn"; std="$PKG/progs/$name.std"
-    [ -f "$icn" ] || { echo "⛔ REFUSES(2): no such program $icn" >&2; exit 2; }
+    # ⛔ THE PROGRAM'S DIRECTORY IS DISCOVERED, NEVER ASSUMED TO BE progs/. The suite grades every .std
+    # in the package and takes each entry's cwd from ITS OWN directory (its line 300); this file hardcoded
+    # progs/ and so REFUSED(2) on ichartp -- a procs/ entry the suite has been grading and failing for
+    # days -- with "no such program", which reads as "that program does not exist" rather than "I only
+    # look in one of the package's six directories". A grader that cannot address an entry the suite
+    # grades is measuring a different population than the board it is supposed to agree with.
+    icn=""; std=""
+    for d in progs gprogs procs gprocs incl gincl; do
+        if [ -f "$PKG/$d/$name.icn" ]; then icn="$PKG/$d/$name.icn"; std="$PKG/$d/$name.std"; break; fi
+    done
+    [ -n "$icn" ] || { echo "⛔ REFUSES(2): no such program $name.icn under $PKG/{progs,gprogs,procs,gprocs,incl,gincl}" >&2; exit 2; }
     [ -f "$std" ] || { echo "⛔ REFUSES(2): $name has no .std -- ungradable, not failing" >&2; exit 2; }
+    IPL_ISO_SUBDIR="$(basename "$(dirname "$std")")"; export IPL_ISO_SUBDIR
     GRADED=$((GRADED+1))
     exp="$(cat "$std")"
-    stdin_src=/dev/null; [ -f "$PKG/progs/$name.dat" ] && stdin_src="$PKG/progs/$name.dat"
+    stdin_src=/dev/null; [ -f "$(dirname "$icn")/$name.dat" ] && stdin_src="$(dirname "$icn")/$name.dat"
     declare -a AV=(); ipl_argv_read "$icn" AV; argv_rc=$?
     [ "$argv_rc" -eq 2 ] && { echo "⛔ REFUSES(2): $name argv sidecar malformed" >&2; exit 2; }
     IPL_ISO_FIXTURES="$icn"; export IPL_ISO_FIXTURES

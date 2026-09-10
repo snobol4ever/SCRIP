@@ -71,7 +71,7 @@ ScanSubjRegs rt_keyword_subject_set(uint64_t lo, uint64_t hi);
 ScanSubjRegs rt_match_enter(uint64_t lo, uint64_t hi);
 void rt_match_ctx_restore(uint64_t sig, uint64_t len, uint64_t capgen);
 DESCR_t rt_match_capture(uint64_t sigma, int64_t start, int64_t end, const char *var);
-void rt_scan_leave(uint64_t outer_sigma, uint64_t outer_delta);
+void rt_scan_leave(uint64_t outer_sigma, uint64_t outer_delta, uint64_t outer_len);
 ScanSubjRegs rt_scan_reenter(void);
 void rt_scan_sync_out(uint64_t delta);
 uint64_t rt_scan_sync_in(void);
