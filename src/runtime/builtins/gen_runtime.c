@@ -11,7 +11,7 @@
 #include <string.h>
 #include <stdio.h>
 extern DESCR_t NV_SET_fn(const char *name, DESCR_t val);
-extern void core_icn_argtype_check(uint64_t lo, uint64_t hi, uint64_t code);
+extern int core_icn_argtype_check(uint64_t lo, uint64_t hi, uint64_t code);
 tree_t      *g_root     = NULL;
 unsigned long bb_rnd_seed = 12345UL;
 GenFrame frame_stack[FRAME_STACK_MAX];
@@ -52,7 +52,7 @@ unsigned long rt_scan_state_size(void) { return (unsigned long)sizeof(ScanState)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi) {
     uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
-    core_icn_argtype_check(lo, hi, 103);
+    if (core_icn_argtype_check(lo, hi, 103)) { ScanSubjRegs z; z.ptr = 0; z.len = 0; return z; }
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str_fracdigit(sv);
     scan_depth++;
     if (scan_saved_depth > scan_depth - 1) scan_saved_depth = scan_depth - 1;

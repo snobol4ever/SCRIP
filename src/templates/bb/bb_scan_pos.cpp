@@ -3,6 +3,8 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
+int64_t core_icn_to_int_check(uint64_t lo, uint64_t hi);
+int     core_icn_int_operand_ok(uint64_t lo, uint64_t hi);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -11,7 +13,18 @@ std::string bb_scan_pos() {
     if (!(_.op_off >= 0)) return x86_alpha() + x86_bomb("bb_scan_pos: no result slot (op_off)");
     return x86("comment", "BOX ICN IR_SCAN_POS pos(n) [ICN-SCAN-3 fscan.r: i=cvpos(i,len); succeed iff i==&pos (r14+1); result {DT_I,i} normalized; single-shot beta->omega]")
          + x86_alpha()
-         + IF(_.op_sa >= 0, x86("mov", "rax", FRQ(_.op_sa + 8)))
+         + IF(_.op_sa >= 0, x86("mov", "rdi", FRQ(_.op_sa)))
+         + IF(_.op_sa >= 0, x86("mov", "rsi", FRQ(_.op_sa + 8)))
+         + IF(_.op_sa >= 0, x86("sub", "rsp", (long)8))
+         + IF(_.op_sa >= 0, x86("call", "core_icn_int_operand_ok", (uint64_t)(uintptr_t)(void*)core_icn_int_operand_ok))
+         + IF(_.op_sa >= 0, x86("add", "rsp", (long)8))
+         + IF(_.op_sa >= 0, x86("test", "eax", "eax"))
+         + IF(_.op_sa >= 0, x86_omega("jz"))
+         + IF(_.op_sa >= 0, x86("mov", "rdi", FRQ(_.op_sa)))
+         + IF(_.op_sa >= 0, x86("mov", "rsi", FRQ(_.op_sa + 8)))
+         + IF(_.op_sa >= 0, x86("sub", "rsp", (long)8))
+         + IF(_.op_sa >= 0, x86("call", "core_icn_to_int_check", (uint64_t)(uintptr_t)(void*)core_icn_to_int_check))
+         + IF(_.op_sa >= 0, x86("add", "rsp", (long)8))
          + IF(_.op_sa <  0, x86("mov", "rax", (long)_.op_sb))
          + x86("cmp64",   "rax", (long)1)
          + x86("jge",     "L0")

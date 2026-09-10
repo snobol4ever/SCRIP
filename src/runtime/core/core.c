@@ -2531,9 +2531,10 @@ static int core_icn_int_ok(DESCR_t d) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void core_icn_argtype_check(uint64_t lo, uint64_t hi, uint64_t code) {
+int core_icn_argtype_check(uint64_t lo, uint64_t hi, uint64_t code) {
     uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t d; memcpy(&d, w, sizeof d);
-    if (!core_icn_chars_ok(d)) core_icn_error((int) code, d);
+    if (!core_icn_chars_ok(d)) return core_icn_error((int) code, d);
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int64_t core_icn_to_int_d(DESCR_t d) {
