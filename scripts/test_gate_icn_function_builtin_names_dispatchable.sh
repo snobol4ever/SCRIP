@@ -6,22 +6,26 @@
 # static table icn_function_names[]. A HAND-TYPED TABLE IS A CLAIM ABOUT A SET, and this file is the thing
 # that keeps it true: it grades the table in BOTH directions against the live Icon oracle.
 #
-# ⛔⭐ WHY THE TABLE IS ONE SHORT OF THE ORACLE'S 91. It names what SCRIP ACTUALLY DISPATCHES, never what
-# Icon has. Yielding a name no call can reach and no proc() can resolve hands every caller a stated fact
-# nobody tested -- the defect class this lane keeps finding. THE SOLE OMISSION TODAY IS "display", measured
-# 2026-09-09 by probing all 91 at the oracle's own arity: it raises ERROR 022, the other 90 dispatch.
-# ⛔⭐ THIS COMMENT WAS ITSELF THE TRAP, AND IT COST A TREE-WIDE RED. It read "the table is 83 and the 8
-# omitted are chdir delay display getch getche kbhit loadfunc rename" -- true when written, and by 09-09
-# hq_B's rung-41 had landed SEVEN of those 8, so the prose named a hole that was one name wide while
-# claiming eight. Reading it as current, hq_R closed the gap the arithmetic implied (90 yielded vs 91 on the
-# oracle) by adding "display" to icn_function_names[] at 38118d03f WITHOUT probing whether it dispatched,
-# and ARM 4a went red in all thirteen roots. ⭐ A COUNT IN PROSE BESIDE A GATE THAT MEASURES THE SAME COUNT
-# IS ALWAYS THE STALER OF THE TWO: the numbers here are dated and are a worked example, never an authority.
-# Run the gate; ARM 4a prints the live omission set by name. When display is implemented, ARM 4b REDS until
-# it is added to the table -- that is the mechanism working, not a nuisance.
-# THE OMISSION IS A ROUTE, NOT A HOLE (hq_B ruling 2026-09-06, OCTET): a REFLECTIVE builtin must describe
-# THIS implementation, not the reference one; copying the oracle's 91 would be pinning a ref cut from a
-# system we are not -- which is precisely what the 38118d03f cure did, one name at a time.
+# ⛔⭐⭐ RE-CUT BY RULING (ceo CEO-481, 2026-09-09 19:04, applying CEO-463). THIS GATE NO LONGER DEMANDS
+# DISPATCHABILITY. function() ENUMERATES THE ORACLE'S LIST, name for name, display included; the enumeration
+# is compared against iconx's own function() output and nothing else. A name's DISPATCH is a separate
+# question with a separate owner -- display's is hq_B's rung-41 display row, and its red there is honest.
+# ⛔⭐ WHY THE RULING WENT THAT WAY, AND IT IS THE WHOLE LESSON OF THIS FILE. The gate previously held that
+# the table must name only what SCRIP can CALL, so a name that raises ERROR 022 had to be omitted. Read as
+# current, that doctrine cost an origin program: hq_R dropped "display" at bdd554570 to green ARM 4a, and IPL
+# progs/ifncsgen went RED in both modes -- because ifncsgen.std is cut from iconx, and iconx's function()
+# YIELDS display, so the .std carries a Display block SCRIP then omitted (diff 109,114d108). ⭐ A REFLECTIVE
+# BUILTIN IS GRADED BY THE ORACLE'S ANSWER, NOT BY OUR OWN CAPABILITIES: shortening the list to match what we
+# implement makes every oracle-cut ref in the corpus wrong, and it hides the missing builtin instead of
+# reporting it. The dispatch probe below is KEPT and still prints, because knowing which names cannot be
+# called is worth having -- but it is INFORMATIONAL and can never red this gate. A gate that reds on a
+# truthful enumeration is measuring the wrong thing.
+# ⭐ AND THE ERROR UNDER THE ERROR, worth more than either verdict: the doctrine hq_R acted on was stated in
+# THIS COMMENT, which said "the table is 83, the 8 omitted are chdir delay display getch getche kbhit
+# loadfunc rename". True when written; by 09-09 hq_B's rung-41 had landed SEVEN of those eight, so the prose
+# named an eight-wide hole that was one name wide. A COUNT IN PROSE BESIDE A GATE THAT MEASURES THE SAME
+# COUNT IS ALWAYS THE STALER OF THE TWO. The numbers here are dated and are worked examples, never an
+# authority: run the gate, which prints the live sets by name.
 #
 # ⛔ WHERE THIS NOTE LIVES, AND WHY IT IS NOT IN THE .c: hq_B asked for the 8 names in the cure's own comment.
 # src/ carries ZERO prose comments by law -- strip_comments.py --check reds any file holding one, and it red
@@ -98,9 +102,14 @@ if [ -s "$TMP/fn.s" ] && gcc -no-pie "$TMP/fn.s" -L"$ROOT/out" -lscrip_rt -Wl,-r
 else
     red "ARM 2: mode-4 compile/link of the function() witness failed"
 fi
-# -- ARM 3: every name we yield is one the oracle yields too (no invented builtins) -----------------------
+# -- ARM 3: THE ENUMERATION IS THE ORACLE'S, NAME FOR NAME, IN BOTH DIRECTIONS (ceo CEO-481) --------------
+# This is the gate's whole verdict now. Both directions are named separately because they fail for opposite
+# reasons: an invented name is a table nobody checked against iconx, a missing one silently rewrites every
+# oracle-cut ref that prints function() -- which is exactly how IPL ifncsgen went red at bdd554570.
 INVENTED="$(comm -23 "$TMP/ours_sorted.txt" "$TMP/oracle_names.txt" | tr '\n' ' ')"
-[ -z "$INVENTED" ] || red "ARM 3: function() yields names the Icon oracle does not: $INVENTED"
+ABSENT="$(comm -13 "$TMP/ours_sorted.txt" "$TMP/oracle_names.txt" | tr '\n' ' ')"
+[ -z "$INVENTED" ] || red "ARM 3: function() yields names the Icon oracle does not:$INVENTED"
+[ -z "$ABSENT" ] || red "ARM 3: the Icon oracle yields names function() does not -- add them to icn_function_names[]:$ABSENT"
 # -- ARM 4: BOTH DIRECTIONS, at the oracle's own arity ----------------------------------------------------
 probe_one_shape() {
     printf 'procedure main()\n   %s(%s);\nend\n' "$1" "$2" > "$TMP/probe.icn"
@@ -129,8 +138,10 @@ while read -r name ar; do
     [ "$listed" = 0 ] && [ "$dispatchable" = 1 ] && MISSING_FROM_TABLE="$MISSING_FROM_TABLE $name"
 done < "$TMP/oracle_arity.txt"
 [ "$GRADED" -gt 0 ] || { echo "⛔ GATE REFUSES(2): graded zero names"; exit 2; }
-[ -z "$NOT_DISPATCHABLE" ] || red "ARM 4a: function() yields names SCRIP cannot dispatch (ERROR 022 at oracle arity):$NOT_DISPATCHABLE"
-[ -z "$MISSING_FROM_TABLE" ] || red "ARM 4b: SCRIP dispatches these builtins but function() does not yield them -- add them to icn_function_names[]:$MISSING_FROM_TABLE"
+# ⛔ INFORMATIONAL ONLY (ceo CEO-481) -- these two lines REPORT and never red. Dispatch is a separate
+# question with a separate owner; a truthful enumeration must not be blocked by an unimplemented builtin.
+[ -z "$NOT_DISPATCHABLE" ] && echo "  · every yielded name dispatches at the oracle's arity" || echo "  ⚠ REPORTED, not a failure: yielded but not dispatchable (ERROR 022 at oracle arity) --$NOT_DISPATCHABLE"
+[ -z "$MISSING_FROM_TABLE" ] || echo "  ⚠ REPORTED, not a failure: SCRIP dispatches these but function() does not yield them --$MISSING_FROM_TABLE"
 # -- ARM 4c: hq_B's condition -- SORTED and of type string, asserted DIRECTLY IN BOTH MODES, never inferred
 # from ARM 1 plus ARM 2. A generator that yields the right SET in the wrong ORDER passes declchck by luck.
 cat > "$TMP/typed.icn" <<'ICN'
