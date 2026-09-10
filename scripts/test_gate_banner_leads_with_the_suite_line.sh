@@ -32,6 +32,24 @@ fail() { echo "  ⛔ $1"; viol=$((viol+1)); }
 
 [ -f "$S4E_MSG" ] || { echo "GATE UNPROVEN(2) [$GATE]: $S4E_MSG not on disk -- cannot measure"; exit 2; }
 
+# ⛔⭐⭐ THE DATA SOURCE IS PREFLIGHTED, BECAUSE ITS ABSENCE IS NOT THIS GATE'S VERDICT TO GIVE (hq_T
+# 2026-09-10, on the cfo's report via CEO-489; row banner-gate-arm-4-reads-live-session-state-so-it-grades-
+# the-seat-not-the-tool, which this is the first measured instance of). ARMS 1, 2 and 6 all read the LIVE
+# banner's suite line, and that line is produced from $S4E/.github/scripts/util_suite_banner.py. In a root
+# whose .github is unpulled or thinner than this one's, the script is simply not there, the line cannot
+# print, and this gate RED THREE OF SIX ARMS -- reproduced exactly, rc=1 "3 of 6 arms broken", by pointing
+# S4E_HOME at a root without it. ⛔ THAT IS A FALSE RED: the banner was correct and the tool was correct;
+# only the DATA was absent, and "I could not measure" is not "you are broken" (RULES.md: a test that cannot
+# measure REFUSES rc=2, never skip-as-success and never a conviction either). It cost the cfo a red on
+# origin and a telegram, and it convicted the one seat whose root was fine.
+# ⭐ WHY THIS DOES NOT MAKE THE GATE VACUOUS, which is the obvious objection: ARM 3 drives the absent case
+# DELIBERATELY through S4E_SUITE_BANNER_PROBE_BROKEN and still asserts the banner SAYS SO out loud. So the
+# missing-script behaviour is still fully graded -- by the arm built to grade it, on a root where the
+# script exists. What is removed is only this gate's ability to convict a root for what its .github lacks.
+_S4E="${S4E_HOME:-$(cd "$HERE/../.." && pwd)}"
+_SB="$_S4E/.github/scripts/util_suite_banner.py"
+[ -f "$_SB" ] || { echo "GATE UNPROVEN(2) [$GATE]: the suite banner's own source is not on disk at $_SB, so the live banner CANNOT carry a suite line and arms 1/2/6 would convict this root for what its .github lacks -- cannot measure. Pull .github (git -C $_S4E/.github merge --ff-only origin/main) and re-run."; exit 2; }
+
 OUT="$(bash "$S4E_MSG" banner 2>&1)" || true
 [ -n "$OUT" ] || { echo "GATE UNPROVEN(2) [$GATE]: banner printed nothing at all -- cannot measure"; exit 2; }
 
