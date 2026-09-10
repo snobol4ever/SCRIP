@@ -1295,6 +1295,7 @@ void rt_lcl_proc_args_install(void *base_p, int nparams, int nlocals) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_icn_zframe_args_install(void *base_p, int nparams, int nlocals) {
+    { extern void rt_sxt_frames_present(void); rt_sxt_frames_present(); }
     char *base = (char *)base_p;
     for (int i = 0; i < nparams; i++) *(DESCR_t *)(base + (i + 1) * 16) = g_call_args[i];
     for (int j = 0; j < nlocals; j++) { DESCR_t _n = NULVCL; *(DESCR_t *)(base + (nparams + j + 1) * 16) = _n; }

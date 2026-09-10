@@ -38,7 +38,7 @@ DESCR_t c_str_concat_d(DESCR_t a, DESCR_t b) {
     const char *asp, *bsp;
     long alc = -1; long al_auth = -1, bl_auth = -1;
     if (a.v == DT_DATA) asp = rk_obj_stringify(a, 0); else { DESCR_t as = descr_to_str(a); if (as.v == DT_S || as.v == DT_SNUL) { asp = VARVAL_fn(as); al_auth = (long)descr_slen(as); } else asp = NULL; }
-    if (a.v == DT_S && asp) alc = rt_sxt_match(asp);
+    if (a.v == DT_S && asp) { alc = rt_sxt_match(asp); if (alc >= 0 && al_auth >= 0 && alc != al_auth) alc = -1; }
     if (b.v == DT_DATA) bsp = rk_obj_stringify(b, 0); else { DESCR_t bs = descr_to_str(b); if (bs.v == DT_S || bs.v == DT_SNUL) { bsp = VARVAL_fn(bs); bl_auth = (long)descr_slen(bs); } else bsp = NULL; }
     if (!asp) asp = "";
     if (!bsp) bsp = "";
