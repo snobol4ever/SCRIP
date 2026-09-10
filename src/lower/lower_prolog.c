@@ -443,6 +443,15 @@ static tree_t * pl_cc_fnc3(const char * f, tree_t * a0, tree_t * a1, tree_t * a2
 static tree_t * pl_cc_pi_ar(const char * nm, int ar) { return pl_cc_fnc2("/", (tree_t *) pl_atom_goal(nm), pl_cc_ilit(ar)); }
 static tree_t * pl_cc_perm_static(const char * nm, int ar) { return pl_cc_fnc1("throw", pl_cc_fnc2("error", pl_cc_fnc3("permission_error", (tree_t *) pl_atom_goal("modify"), (tree_t *) pl_atom_goal("static_procedure"), pl_cc_pi_ar(nm, ar)), pl_cc_pi_ar(nm, ar))); }
 static tree_t * pl_cc_ischar(tree_t * x) { return pl_cc_fnc2(",", pl_cc_fnc1("atom", x), pl_cc_fnc2("atom_length", x, pl_cc_ilit(1))); }
+static tree_t * pl_cc_fnc4(const char * f, tree_t * a0, tree_t * a1, tree_t * a2, tree_t * a3) { tree_t * n = ast_node_new(TT_FNC); n->v.sval = (char *) f; ast_push(n, a0); ast_push(n, a1); ast_push(n, a2); ast_push(n, a3); return n; }
+static tree_t * pl_cc_freshvar(void) { static long long ctr = 900000; tree_t * v = ast_node_new(TT_VAR); v->v.ival = ctr++; return v; }
+static tree_t * pl_cc_gen2(const char * count_leaf, const char * nth_leaf, tree_t * a0, tree_t * a1, tree_t * a2) {
+    tree_t * cv = pl_cc_freshvar(); tree_t * cv2 = pl_cc_freshvar(); tree_t * iv = pl_cc_freshvar(); tree_t * iv2 = pl_cc_freshvar();
+    cv2->v.ival = cv->v.ival; iv2->v.ival = iv->v.ival;
+    tree_t * gen = pl_cc_fnc2(",", pl_cc_fnc1(count_leaf, cv), pl_cc_fnc3("between", pl_cc_ilit(1), cv2, iv));
+    tree_t * pick = a2 ? pl_cc_fnc4(nth_leaf, iv2, a0, a1, a2) : pl_cc_fnc3(nth_leaf, iv2, a0, a1);
+    return pl_cc_fnc2(",", gen, pick);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_lower_ite(lcx_t * cx, const tree_t * C, const tree_t * T, const tree_t * E, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     IR_t * ig = build(cx, IR_INDIRECT_GOTO, γnext, ωfail);
@@ -597,6 +606,8 @@ static const pl_det_leaf_t pl_det_leaves[] = {
     { "put_char", 2, "$put_char_c_s" }, { "flush_output", 1, "$flush_output_s" }, { "format", 3, "$format3" }, { "read", 2, "$read_s" }, { "get_char", 2, "$get_char_s" }, { "peek_char", 2, "$peek_char_s" },
     { "open", 3, "$open" }, { "open", 4, "$open4" }, { "close", 1, "$close" }, { "close", 2, "$close" }, { "current_output", 1, "$current_output" }, { "current_input", 1, "$current_input" },
     { "set_output", 1, "$set_output" }, { "set_input", 1, "$set_input" }, { "keysort", 2, "$keysort" }, { "op", 3, "$op" },
+    { "$pl_op_count", 1, "$pl_op_count" }, { "$pl_op_nth", 4, "$pl_op_nth" }, { "$pl_sp_count", 1, "$pl_sp_count" }, { "$pl_sp_nth", 3, "$pl_sp_nth" },
+    { "$pl_cs_count", 1, "$pl_cs_count" }, { "$pl_cs_nth", 4, "$pl_cs_nth" },
     { 0, 0, 0 } };
 static int pl_det_leaf_name_wired(const char * nm) {
     for (int i = 0; pl_det_leaves[i].nm; i++) if (!strcmp(nm, pl_det_leaves[i].nm)) return 1;
@@ -1193,6 +1204,25 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
                 IR_t * next = enum_entry; IR_t * first = NULL; int n = (ch->t == TT_CHOICE) ? ch->n : 1;
                 for (int i = n - 1; i >= 0; i--) { const tree_t * cl = (ch->t == TT_CHOICE) ? ch->c[i] : ch; IR_t * se = NULL; pl_db_leaf_seed(cx, k, i, pl_static_clause_term(cl, pn, ar), next, ωfail, &se); next = se; first = se; }
                 if (entry_out) *entry_out = first ? first : enum_entry; return to; } } }
+        if (!strcmp(nm, "current_op") && t->n == 3 && !pl_file_defines(nm, 3))
+            return goal(cx, pl_cc_gen2("$pl_op_count", "$pl_op_nth", (tree_t *) t->c[0], (tree_t *) t->c[1], (tree_t *) t->c[2]), γnext, ωfail, entry_out);
+        if (!strcmp(nm, "current_stream") && t->n == 3 && !pl_file_defines(nm, 3))
+            return goal(cx, pl_cc_gen2("$pl_cs_count", "$pl_cs_nth", (tree_t *) t->c[0], (tree_t *) t->c[1], (tree_t *) t->c[2]), γnext, ωfail, entry_out);
+        if (!strcmp(nm, "stream_property") && t->n == 2 && !pl_file_defines(nm, 2))
+            return goal(cx, pl_cc_gen2("$pl_sp_count", "$pl_sp_nth", (tree_t *) t->c[0], (tree_t *) t->c[1], (tree_t *) 0), γnext, ωfail, entry_out);
+        if (!strcmp(nm, "predicate_property") && t->n == 2 && !pl_file_defines(nm, 2)) {
+            const tree_t * h = t->c[0]; const char * pn = (h && (h->t == TT_FNC || h->t == TT_QLIT || h->t == TT_NAME)) ? h->v.sval : (const char *) 0;
+            int ar = (h && h->t == TT_FNC) ? h->n : 0;
+            if (!pn) pl_refuse("predicate_property/2 whose head is not a callable term known at compile time -- ISO's backtracking-over-every-predicate mode needs a proc-table generator design, not yet built --", nm, 7);
+            { int dyn = (pl_dyn_index(pn, ar) >= 0) || pl_decl_dyn_is(pn, ar); int def = dyn || pl_file_defines(pn, ar);
+              int bi = !def && (pl_det_leaf_name_wired(pn) || pl_rung_of(pn) != 0);
+              const char * props[4]; int np = 0;
+              if (dyn) props[np++] = "dynamic"; else if (def) props[np++] = "static";
+              if (def) props[np++] = "defined"; if (bi) { props[np++] = "built_in"; props[np++] = "defined"; }
+              if (!np) return build(cx, IR_GOTO, ωfail, ωfail);
+              { tree_t * alt = pl_cc_fnc2("=", (tree_t *) t->c[1], (tree_t *) pl_atom_goal(props[np - 1]));
+                for (int i = np - 2; i >= 0; i--) alt = pl_cc_fnc2(";", pl_cc_fnc2("=", (tree_t *) t->c[1], (tree_t *) pl_atom_goal(props[i])), alt);
+                return goal(cx, alt, γnext, ωfail, entry_out); } } }
         if (!strcmp(nm, "current_predicate") && t->n == 1) {
             int ar = 0; const char * pn = pl_spec_key(t->c[0], &ar);
             if (!pn) pl_refuse("current_predicate/1 argument that is not a literal Name/Arity known at compile time -- ISO 8.8.2's general backtracking-over-every-predicate mode needs a proc-table generator design, not yet built --", nm, 7);
@@ -1231,6 +1261,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         if (!strcmp(nm, "true")) return build(cx, IR_SUCCEED, γnext, ωfail);
         if (!strcmp(nm, "fail") || !strcmp(nm, "false")) return build(cx, IR_GOTO, ωfail, ωfail);
         if (!strcmp(nm, "nl")) return pl_leaf(cx, "$nl", t, 0, γnext, ωfail, entry_out);
+        if (!strcmp(nm, "repeat") && !pl_file_defines(nm, 0)) return goal(cx, pl_cc_fnc3("between", pl_cc_ilit(1), pl_cc_ilit(9223372036854775807LL), pl_cc_freshvar()), γnext, ωfail, entry_out);
         if (!strcmp(nm, "!")) { IR_t * cn = build(cx, IR_CUT, γnext, cx->cutω); if (cx->cutω != cx->clause_cutω) IR_LIT(cn).ival = 1; return cn; }
         { const char * ls = pl_det_leaf_sym(nm, 0); if (ls) return pl_leaf_lv(cx, ls, t, 0, γnext, ωfail, entry_out); }
         { int r = pl_rung_of(nm); if (r && !pl_file_defines(nm, 0) && !pl_det_leaf_name_wired(nm)) pl_refuse("builtin", nm, r); }

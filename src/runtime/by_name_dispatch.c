@@ -1759,6 +1759,38 @@ DESCR_t dop_pl_op(DESCR_t *args, int nargs) {
     if (!pl_cell_text(args[2], nb, sizeof nb, &nm) || !prolog_op_table_add(strdup(nm), (int)p.i, ty)) return FAILDESCR;
     return pl_ok();
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t pl_mk_cmp1(const char *f, DESCR_t a0) {
+    extern int prolog_atom_intern(const char *);
+    DESCR_t *kids = (DESCR_t *)rt_plj_alloc(sizeof(DESCR_t)); kids[0] = a0;
+    DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (((uint32_t)prolog_atom_intern(f)) << 16) | 1u; c.p = (void *)kids; return c;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define PL_SP_NPROP 8
+static int pl_sp_stream_live(int i) { extern FILE *fh_get(int); return fh_get(i) != (FILE *)0; }
+static int pl_sp_is_input(int i) { extern char fh_mode[]; return (i == 0) || (i >= 3 && fh_mode[i] == 'r'); }
+static const char *pl_sp_mode_name(int i) { extern char fh_mode[]; char m = (i == 0) ? 'r' : (i == 1 || i == 2) ? 'w' : fh_mode[i];
+    return (m == 'r') ? "read" : (m == 'a') ? "append" : (m == '+') ? "update" : "write"; }
+static const char *pl_sp_eos_name(int i) { extern FILE *fh_get(int); FILE *fp = fh_get(i); int c;
+    if (!fp) return (const char *)0;
+    if (feof(fp)) return "past";
+    c = fgetc(fp); if (c == EOF) { clearerr(fp); return "at"; }
+    ungetc(c, fp); return "not"; }
+static int pl_sp_prop(int i, int pidx, DESCR_t *out) {
+    extern char *fh_name[]; extern char fh_type[];
+    switch (pidx) {
+    case 0: if (i < 3 || !fh_name[i]) return 0; *out = pl_mk_cmp1("file_name", pl_mk_atom_dup(fh_name[i], strlen(fh_name[i]))); return 1;
+    case 1: *out = pl_mk_cmp1("mode", pl_mk_atom(pl_sp_mode_name(i))); return 1;
+    case 2: if (!pl_sp_is_input(i)) return 0; *out = pl_mk_atom("input"); return 1;
+    case 3: if (pl_sp_is_input(i)) return 0; *out = pl_mk_atom("output"); return 1;
+    case 4: *out = pl_mk_cmp1("type", pl_mk_atom(fh_type[i] == 'b' ? "binary" : "text")); return 1;
+    case 5: { const char *e; if (!pl_sp_is_input(i) || !(e = pl_sp_eos_name(i))) return 0; *out = pl_mk_cmp1("end_of_stream", pl_mk_atom(e)); return 1; }
+    case 6: *out = pl_mk_cmp1("eof_action", pl_mk_atom(pl_sp_is_input(i) ? "eof_code" : "error")); return 1;
+    case 7: { const char *a = (i == 0) ? "user_input" : (i == 1) ? "user_output" : (i == 2) ? "user_error" : (const char *)0;
+        if (!a) return 0; *out = pl_mk_cmp1("alias", pl_mk_atom(a)); return 1; }
+    default: return 0; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_open_leaf(DESCR_t *args, pl_tr_ctx_t *cx) {
     extern int fh_alloc(FILE *); extern void *rt_pl_ball_instantiation(void); extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
     char fb[4096], mb[64]; const char *fn, *md; FILE *fp; const char *fmode;
@@ -1770,7 +1802,8 @@ static int pl_open_leaf(DESCR_t *args, pl_tr_ctx_t *cx) {
     if (!fmode) { cx->ball = rt_pl_ball_kind2("domain_error", "io_mode", m); return 0; }
     fp = fopen(fn, fmode);
     if (!fp) { cx->ball = rt_pl_ball_kind2("existence_error", "source_sink", f); return 0; }
-    { int idx = fh_alloc(fp); if (idx < 0) { fclose(fp); return 0; } return plw_unify_vals(args[2], pl_mk_stream(idx), cx); }
+    { int idx = fh_alloc(fp); extern char *fh_name[]; extern char fh_mode[]; if (idx < 0) { fclose(fp); return 0; }
+      fh_name[idx] = rt_pinned_strdup(fn); fh_mode[idx] = (char) fmode[0]; return plw_unify_vals(args[2], pl_mk_stream(idx), cx); }
 }
 #define PL_CX_LEAF_HEAD(nm, ar) DESCR_t rt_pl_dop_##nm##_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) { extern void rt_gc_point_arr(DESCR_t *, int, const char **);int ok; \
     if (nargs != ar) return FAILDESCR;pl_atoms_ready();rt_pl_tr_gc_sync(cx->tr); rt_gc_point_arr(args, nargs, (const char **)0);
@@ -2301,6 +2334,23 @@ PL_CX_LEAF_HEAD(current_input, 1) { extern int fh_current_input(void); ok = plw_
 PL_CX_LEAF_HEAD(open, 3) ok = pl_open_leaf(args, cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(open4, 4) ok = pl_open_leaf(args, cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(keysort, 2) ok = rt_pl_keysort_cell(&args[0], &args[1], cx); PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(pl_op_count, 1) { extern int prolog_op_table_count(void); ok = plw_unify_vals(args[0], INTVAL((long long)prolog_op_table_count()), cx); } PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(pl_op_nth, 4) { extern int prolog_op_table_get(int, const char **, int *, const char **);
+    const char *onm = (const char *)0; const char *oty = (const char *)0; int opr = 0; DESCR_t iv = rt_pl_deref_val(args[0]); ok = 0;
+    if (iv.v == DT_I && prolog_op_table_get((int)iv.i - 1, &onm, &opr, &oty) && onm && oty)
+        ok = plw_unify_vals(args[1], INTVAL((long long)opr), cx) && plw_unify_vals(args[2], pl_mk_atom_dup(oty, strlen(oty)), cx)
+          && plw_unify_vals(args[3], pl_mk_atom_dup(onm, strlen(onm)), cx); } PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(pl_cs_count, 1) { ok = plw_unify_vals(args[0], INTVAL((long long)FH_MAX), cx); } PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(pl_cs_nth, 4) { extern char *fh_name[]; DESCR_t iv = rt_pl_deref_val(args[0]); int si; ok = 0;
+    if (iv.v == DT_I) { si = (int)iv.i - 1;
+        if (si >= 3 && si < FH_MAX && pl_sp_stream_live(si) && fh_name[si])
+            ok = plw_unify_vals(args[1], pl_mk_atom_dup(fh_name[si], strlen(fh_name[si])), cx)
+              && plw_unify_vals(args[2], pl_mk_atom(pl_sp_mode_name(si)), cx) && plw_unify_vals(args[3], pl_mk_stream(si), cx); } } PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(pl_sp_count, 1) { ok = plw_unify_vals(args[0], INTVAL((long long)(FH_MAX * PL_SP_NPROP)), cx); } PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(pl_sp_nth, 3) { DESCR_t iv = rt_pl_deref_val(args[0]); DESCR_t pv; int k, si, pi; ok = 0;
+    if (iv.v == DT_I) { k = (int)iv.i - 1; si = k / PL_SP_NPROP; pi = k % PL_SP_NPROP;
+        if (si >= 0 && si < FH_MAX && pl_sp_stream_live(si) && plw_unify_vals(args[1], pl_mk_stream(si), cx) && pl_sp_prop(si, pi, &pv))
+            ok = plw_unify_vals(args[2], pv, cx); } } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(format3, 3) { extern int fh_current_output(void); extern void fh_set_output(int); extern int fh_capture_begin(char **, size_t *, int *);
     extern void fh_capture_end(int, int); extern int prolog_atom_intern(const char *);
     DESCR_t d = rt_pl_deref_val(args[0]); int idx = pl_stream_idx(args[0], 1); ok = 0;
