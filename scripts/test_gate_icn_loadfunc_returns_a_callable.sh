@@ -96,7 +96,13 @@ else
     echo "  FAIL  m4 marshalling — could not compile or link the witness"; FAIL=$((FAIL+1))
 fi
 ( cd "${T}" && timeout 30 "${SCRIP}" n.icn </dev/null >n.out 2>&1 ); NRC=$?
-if grep -q 'ERROR 216' "${T}/n.out" && [ "${NRC}" -ne 0 ]; then
+# ⛔⭐ MATCH THE ERROR NUMBER AND ITS TEXT, NEVER ONE SPELLING OF THE REPORT. This arm was first written
+# grep -q 'ERROR 216' and went RED FLEET-WIDE (it is in make test) the moment the fatal-report identity
+# leak was cured and Icon errors began printing icont's own shape, "Run-time error 216 / File / Line",
+# instead of "(0) : ERROR 216 -- ...". Nothing about loadfunc had changed; the gate was pinned to a
+# diagnostic FORMAT rather than to the behaviour it exists to check, so an IMPROVEMENT to the report
+# read as a regression in the feature. Caught by hq_I, who reproduced it on clean origin before naming it.
+if grep -qE '(^|[^0-9])216([^0-9]|$)' "${T}/n.out" && grep -qi 'external function not found' "${T}/n.out" && [ "${NRC}" -ne 0 ]; then
     echo "  PASS  N negative control — a genuine dlopen failure still raises ERROR 216 (rc=${NRC})"; PASS=$((PASS+1))
 else
     echo "  FAIL  N negative control — expected ERROR 216 and a non-zero rc, got rc=${NRC}:"; sed -n '1,5p' "${T}/n.out" | sed 's/^/        /'; FAIL=$((FAIL+1))
