@@ -637,6 +637,7 @@ void emit_textf (const char * fmt, ...)
 void emit_textf_flush(void);
 void emit_sep_rule_c(char ch);
 void emit_set_sink(FILE * out);
+const char * emit_enclosing_proc_name(void);
 #ifdef __cplusplus
 }
 extern "C++" {

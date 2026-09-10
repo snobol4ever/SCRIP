@@ -111,7 +111,7 @@ static void scrip_co_trace_xmit(const char *procname, scrip_coctx_t *self, scrip
 static void scrip_co_trace_term(scrip_coctx_t *me, scrip_coctx_t *back, uint64_t d0, uint64_t d1, int failed) {
     extern void rt_icn_trace_coexpr(const char *procname, long self_serial, long targ_serial, uint64_t x0, uint64_t x1, int kind, long line_override);
     if (!me || !back || me->serial == 0 || me->create_line <= 0) return;
-    rt_icn_trace_coexpr("main", me->serial, scrip_co_serial_disp(back), d0, d1, failed ? 1 : 2, me->create_line);
+    rt_icn_trace_coexpr(me->create_proc ? me->create_proc : "main", me->serial, scrip_co_serial_disp(back), d0, d1, failed ? 1 : 2, me->create_line);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static scrip_coctx_t *scrip_co_live_activator(scrip_coctx_t *me) {
@@ -193,7 +193,7 @@ void scrip_coexpr_trampoline_entry(void *arg) {
     abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7], uint64_t frame_bytes, uint64_t below_bytes) {
+scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7], uint64_t frame_bytes, uint64_t below_bytes, const char *procname) {
     extern long g_scrip_coexpr_live; g_scrip_coexpr_live++;
     scrip_coctx_t *ctx = (scrip_coctx_t *)malloc(sizeof(scrip_coctx_t));
     if (!ctx) scrip_co_uerror("scrip_coexpr: malloc scrip_coctx_t failed");
@@ -231,6 +231,7 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7]
     ctx->serial = ++g_coexpr_serial;
     ctx->activations = 0;
     { extern long g_line; ctx->create_line = g_line; }
+    ctx->create_proc = procname;
     ctx->cur_line = 0;
     ctx->gc_next = g_co_gc_head; g_co_gc_head = ctx;
     return ctx;
@@ -243,7 +244,7 @@ scrip_coctx_t *scrip_coexpr_refresh(scrip_coctx_t *orig) {
     uint64_t regs[7];
     regs[0] = opkg->r12; regs[1] = opkg->r13; regs[2] = opkg->r14; regs[3] = opkg->r15;
     regs[4] = opkg->rbx; regs[5] = opkg->csav5 + opkg->below; regs[6] = opkg->gva;
-    return scrip_coexpr_create(opkg->body_entry_addr, regs, orig->frame_copy_sz, orig->frame_copy_below);
+    return scrip_coexpr_create(opkg->body_entry_addr, regs, orig->frame_copy_sz, orig->frame_copy_below, orig->create_proc);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint64_t *out2, const char *procname) {
@@ -289,6 +290,7 @@ void scrip_co_ctx_init(scrip_coctx_t *ctx, void (*entry_fn)(void *), void *entry
     ctx->serial = 0;
     ctx->activations = 0;
     ctx->create_line = 0;
+    ctx->create_proc = NULL;
     ctx->cur_line = 0;
     ctx->gc_next = NULL;
 }

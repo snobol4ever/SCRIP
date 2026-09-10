@@ -230,6 +230,7 @@ const char x86_argrole_blob[] =
     "regs\0"
     "frame_bytes\0"
     "below_bytes\0"
+    "procname\0"
     "scrip_coret\0"
     "d0\0"
     "d1\0"

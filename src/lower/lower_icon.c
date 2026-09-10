@@ -797,7 +797,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
                     lc_γ_to(SENT, ent[i]); lc_ω_to(SENT, ent[i]);
                     succ = SENT; failt = SENT;
                 }
-                if (t->t == TT_SEQ_EXPR && S[i]->line > 0 && succ == ent[i]) { ent[i] = cx->want_lines ? icn_line_hook(cx, S[i]->line, ent[i]) : icn_line_mark(cx, S[i]->line, ent[i]); succ = ent[i]; failt = ent[i]; }
+                if (t->t == TT_SEQ_EXPR && S[i]->line > 0) { IR_t * lh = cx->want_lines ? icn_line_hook(cx, S[i]->line, succ) : icn_line_mark(cx, S[i]->line, succ); if (succ == ent[i]) ent[i] = lh; succ = lh; failt = lh; }
             }
             if (val[k - 1]) ir_operand_push(SEQX, val[k - 1]);
             cx->conj_resumable = rb; cx->beta = last_beta; *res = SEQX; return ent[0];
