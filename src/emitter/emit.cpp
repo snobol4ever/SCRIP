@@ -1982,6 +1982,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         if (sa < 0) { drive_unowned(nd); break; }
         g_emit.op_sa = sa;
         g_emit.op_sb = xv ? bb_slot_get(xv) : -1;
+        g_emit.op_activate_proc = IR_LIT(nd).sval;
         g_emit.op_off = drive_value_slot(nd);
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
