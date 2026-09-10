@@ -371,7 +371,17 @@ static IR_t * lower_lvalue_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** 
         if (clv && ir_is_generator_kind(clv->op)) lc_ω_to_β(ut, clv);
         *var_res = ut; return ce;
     }
-    if ((t->t == TT_ASSIGN || t->t == TT_SWAP || t->t == TT_AUGOP) && t->n > 1 && t->c[0]) {
+    if (t->t == TT_CONJ && t->n > 1 && t->c[0] && t->c[t->n - 1]) {
+        const tree_t * head = t->c[0];
+        if (t->n > 2) { tree_t * hc = ast_node_new(TT_CONJ); for (int k = 0; k < t->n - 1; k++) ast_push(hc, (tree_t *) t->c[k]); head = hc; }
+        IR_t * ir = NULL; IR_t * ie = lower(cx, head, NULL, ω, &ir);
+        if (!ie || !ir) return NULL;
+        IR_t * lv = NULL; IR_t * lve = lower_lvalue_var(cx, t->c[t->n - 1], ω, &lv);
+        if (!lve || !lv) return NULL;
+        lc_γ_to(ir, lve);
+        *var_res = lv; return ie;
+    }
+    if ((t->t == TT_ASSIGN || t->t == TT_SWAP || t->t == TT_AUGOP || t->t == TT_REVSWAP || t->t == TT_REVASSIGN) && t->n > 1 && t->c[0]) {
         IR_t * ir = NULL; IR_t * ie = lower(cx, t, NULL, ω, &ir);
         if (!ie || !ir) return NULL;
         IR_t * lv = NULL; IR_t * lve = lower_lvalue_var(cx, t->c[0], ω, &lv);
@@ -969,7 +979,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         ir_operand_push(nd, lr); ir_operand_push(nd, rr); *res = nd; return nd; }
     case TT_REVASSIGN: {
         const tree_t * lhs = t->c[0]; const tree_t * rhs = (t->n > 1) ? t->c[1] : NULL;
-        if (lhs && (lhs->t == TT_IDX || lhs->t == TT_ITERATE || lhs->t == TT_SECTION || lhs->t == TT_SECTION_PLUS || lhs->t == TT_SECTION_MINUS || lhs->t == TT_FIELD || lhs->t == TT_RANDOM || lhs->t == TT_NULL || lhs->t == TT_NONNULL)) {
+        if (lhs && (lhs->t == TT_IDX || lhs->t == TT_ITERATE || lhs->t == TT_SECTION || lhs->t == TT_SECTION_PLUS || lhs->t == TT_SECTION_MINUS || lhs->t == TT_FIELD || lhs->t == TT_RANDOM || lhs->t == TT_NULL || lhs->t == TT_NONNULL || lhs->t == TT_CONJ || lhs->t == TT_ASSIGN || lhs->t == TT_SWAP || lhs->t == TT_REVSWAP || lhs->t == TT_REVASSIGN || lhs->t == TT_AUGOP)) {
             IR_t * b4 = cx->beta;
             IR_t * vr = NULL; IR_t * entry = lower_lvalue_var(cx, lhs, ω, &vr);
             IR_t * lvbeta = (cx->beta != b4) ? cx->beta : NULL;
@@ -1015,6 +1025,21 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         }
         if (icn_tree_is_literal(lt)) return lower_runerr_111(cx, rt2, lt, γ, ω, res);
         if (icn_tree_is_literal(rt2)) return lower_runerr_111(cx, lt, rt2, γ, ω, res);
+        { IR_t * b0 = cx->beta;
+          IR_t * xr = NULL; IR_t * xe = lower_lvalue_var(cx, lt, ω, &xr);
+          IR_t * xbeta = (cx->beta != b0) ? cx->beta : NULL;
+          IR_t * yr = NULL; IR_t * ye = xe ? lower_lvalue_var(cx, rt2, xbeta ? xbeta : ω, &yr) : NULL;
+          IR_t * ybeta = (cx->beta != (xbeta ? xbeta : b0)) ? cx->beta : NULL;
+          if (xe && ye) {
+              IR_t * back = ybeta ? ybeta : (xbeta ? xbeta : ω);
+              lc_γ_to(xr, ye);
+              IR_t * db = build(cx, IR_DEREF, NULL, back); ir_operand_push(db, yr); lc_γ_to(yr, db);
+              IR_t * da = build(cx, IR_DEREF, NULL, back); ir_operand_push(da, xr); lc_γ_to(db, da);
+              IR_t * n1 = build(cx, IR_REV_ASSIGN_VAR, NULL, back); ir_operand_push(n1, yr); ir_operand_push(n1, da); lc_γ_to(da, n1);
+              IR_t * n2 = build(cx, IR_REV_ASSIGN_VAR, γ, ω); ir_operand_push(n2, xr); ir_operand_push(n2, db); lc_γ_to(n1, n2); ω_to(n2, n1);
+              cx->beta = n2; *res = n2; return xe;
+          }
+          cx->beta = b0; }
         IR_t * nd = build(cx, IR_FAIL, γ, ω);
         IR_t * lr = NULL; lower(cx, lt, nd, ω, &lr);
         IR_t * rr = NULL; lower(cx, rt2, nd, ω, &rr);
