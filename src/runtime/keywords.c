@@ -31,7 +31,7 @@ long rt_stno_stack[2 * 4096] = { 0 };
 const char *g_file = NULL;
 const char *g_lastfile = NULL;
 const char *g_sno_errtext = NULL;
-typedef struct { const char *ptr; const char *name; int len; } kw_cset_ent_t;
+typedef struct { const char *ptr; const char *name; int len; unsigned char bits[32]; } kw_cset_ent_t;
 static kw_cset_ent_t *g_kw_cset_names = NULL;
 static int g_kw_cset_count = 0;
 static int g_kw_cset_cap = 0;
@@ -93,11 +93,21 @@ static void kw_cset_grow(void) {
     g_kw_cset_names = (kw_cset_ent_t *) realloc(g_kw_cset_names, (size_t)g_kw_cset_cap * sizeof(kw_cset_ent_t));
     kw_cset_hindex_rebuild();
 }
+static void kw_cset_bits_fill(kw_cset_ent_t *e) {
+    memset(e->bits, 0, sizeof e->bits);
+    if (e->ptr) for (int i = 0; i < e->len; i++) { unsigned c = (unsigned char)e->ptr[i]; e->bits[c >> 3] |= (unsigned char)(1u << (c & 7)); }
+}
+const unsigned char *kw_cset_bits(const char *ptr) { int hit = kw_cset_find_ptr(ptr); return hit >= 0 ? g_kw_cset_names[hit].bits : (const unsigned char *)0; }
+const unsigned char *rt_icn_cset_bits_d(uint64_t lo, uint64_t hi) {
+    uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
+    return (IS_CSET_fn(sv) && sv.s) ? kw_cset_bits(sv.s) : (const unsigned char *)0;
+}
 static void kw_cset_append(const char *ptr, const char *name, int len) {
     kw_cset_grow();
     g_kw_cset_names[g_kw_cset_count].ptr  = ptr;
     g_kw_cset_names[g_kw_cset_count].name = name;
     g_kw_cset_names[g_kw_cset_count].len  = len;
+    kw_cset_bits_fill(&g_kw_cset_names[g_kw_cset_count]);
     g_kw_cset_count++;
     if (ptr) { kw_cset_hindex_insert(g_kw_cset_count - 1); kw_cset_cindex_insert(g_kw_cset_count - 1); }
 }
@@ -135,7 +145,7 @@ static void kw_cset_prime(void) {
 void rt_icn_cset_register(const char *ptr, int len) {
     if (!ptr) return;
     kw_cset_prime();
-    { int hit = kw_cset_find_ptr(ptr); if (hit >= 0) { g_kw_cset_names[hit].len = len; return; } }
+    { int hit = kw_cset_find_ptr(ptr); if (hit >= 0) { if (g_kw_cset_names[hit].len != len) { g_kw_cset_names[hit].len = len; kw_cset_bits_fill(&g_kw_cset_names[hit]); } return; } }
     kw_cset_append(ptr, NULL, len);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -909,14 +909,12 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         cx->beta = ω; *res = nd; return nd; }
     case TT_ACTIVATE: {
         IR_t * nd = build(cx, IR_ACTIVATE, γ, ω);
-        IR_LIT(nd).sval = cx->pname;
         const tree_t * xt = (t->n > 1) ? t->c[0] : NULL;
         const tree_t * ct = (t->n > 1) ? t->c[1] : t->c[0];
         IR_t * cr = NULL; IR_t * c_entry = lower(cx, ct, nd, ω, &cr);
         IR_t * entry = c_entry;
         ir_operand_push(nd, cr);
         if (xt) { IR_t * xr = NULL; entry = lower(cx, xt, c_entry, ω, &xr); ir_operand_push(nd, xr); }
-        if (cx->want_lines && t->line > 0) entry = icn_line_hook(cx, t->line, entry);
         cx->beta = ω; *res = nd; return entry; }
     case TT_REPALT: {
         IR_t * nd = build(cx, IR_REPALT, γ, ω);
@@ -1420,12 +1418,9 @@ static IR_t * icn_line_mark(icx_t * cx, int line, IR_t * next) {
 }
 static IR_t * icn_line_hook(icx_t * cx, int line, IR_t * next) {
     extern const char * stmt_src_get_file(void);
-    IR_t * hook = build(cx, IR_CALL, NULL, NULL); IR_LIT(hook).sval = (char *) "ICN$LINE";
-    lc_γ_to(hook, next); lc_ω_to(hook, next);
-    IR_t * fpn = build(cx, IR_LIT_STRING, hook, hook); { const char * sf = stmt_src_get_file(); IR_LIT(fpn).sval = (char *) (sf ? sf : ""); }
-    IR_t * lnn = build(cx, IR_LIT_INTEGER, fpn, hook); IR_LIT(lnn).ival = (int64_t) line;
-    ir_operand_push(hook, lnn); ir_operand_push(hook, fpn);
-    return lnn;
+    IR_t * mark = build(cx, IR_LINE_MARK, NULL, NULL); lc_γ_to(mark, next); lc_ω_to(mark, next); mark->pat_static = line;
+    { const char * sf = stmt_src_get_file(); IR_LIT(mark).sval = (char *) (sf ? sf : ""); }
+    return mark;
 }
 static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
     IR_graph_t * g = IR_alloc(8192); cx->g = g;

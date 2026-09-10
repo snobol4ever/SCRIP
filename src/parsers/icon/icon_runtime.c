@@ -73,6 +73,8 @@ const char *cset_canonical(const char *cs, int len) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_icn_cset_member(const char *needle, int ch) {
     if (!needle) return 0;
+    extern const unsigned char *kw_cset_bits(const char *);
+    { const unsigned char *b = kw_cset_bits(needle); if (b) { unsigned c = (unsigned char)ch; return (b[c >> 3] >> (c & 7)) & 1; } }
     extern int kw_cset_len(const char *);
     int kn = kw_cset_len(needle);
     int len = (kn >= 0) ? kn : (int) strlen(needle);
