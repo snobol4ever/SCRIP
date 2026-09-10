@@ -689,12 +689,14 @@ static tree_t *parse_block_or_expr(IcnParser *p) {
     int nc = 0;
     while (!check(p, TK_RBRACE) && !check(p, TK_EOF)) {
         int sline = p->cur.line;
+        if (check(p, TK_SEMICOL)) { advance(p); push_child(seq, e_leaf_sval(TT_VAR, "&null", -1)); nc++; continue; }
         tree_t *s = parse_stmt(p);
         if (!s) break;
         if (s->line <= 0) s->line = sline;
         push_child(seq, s);
         nc++;
     }
+    if (nc > 0 && p->prev_kind == TK_SEMICOL) { push_child(seq, e_leaf_sval(TT_VAR, "&null", -1)); nc++; }
     expect(p, TK_RBRACE, "compound block");
     if (nc == 1) return seq->c[0];
     return seq;
