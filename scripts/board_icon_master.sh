@@ -147,8 +147,16 @@ ENTRY_FLOOR="${ICON_MASTER_ENTRY_FLOOR:-534}"
 # ⭐ RE-PINNED 748 -> 750 (hq_S 2026-09-10): loadfunc resolves a symbol AND returns a callable, so procedure_write_254
 # flips green in both modes (row icon-loadfunc-exits-1-with-no-output-master-procedure-write-254, CEO-476/485; the
 # nulldesc grant). entries=909 · run-graded 756 · m3 PASS=750 · m4 PASS=750, SCRIP 64292dee1.
-M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-750}"
-M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-750}"
+# ⭐ RE-PINNED 750 -> 756 (hq_V 2026-09-10, MODE NONET / ICON ONLY) on SCRIP `8410097ca` + corpus `726448e76`, both
+# on origin. entries=911 · run-graded 758 · m3 PASS=756 · m4 PASS=756, both modes equal, xfail=0 xpass=0. TWO
+# SOURCES, NAMED SEPARATELY because only one of them is this seat's: +1 population and +1 pass from this landing's
+# absorption of the cfo's sixth handed witness (a_string_held_by_a_frame_variable_is_not_extended_in_place ->
+# procedure_every_suspend_replace_3), absorbed GREEN after re-cutting its ref from icont on this tree; and +1 pass
+# from procedure_write_256, which arrived with the pull and belongs to the co-expression landing 8410097ca (^e is
+# refresh and copy(e) is not), NOT to this seat. The two remaining reds are unchanged and named on the row:
+# CRASH procedure_record_every_replace_12, FAIL procedure_every_scan_replace_13.
+M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-756}"
+M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-756}"
 # ⛔ NO AST_PASS_FLOOR: a self-pin has no floor to regress below, only a CURRENT-run comparison of
 # ap (matched) vs at (total) -- see the AST-SHAPE note above. Removed under ast-dump-refs-are-self-
 # pins-not-oracles rather than kept-but-unused, so a reader cannot mistake its presence for gating.
