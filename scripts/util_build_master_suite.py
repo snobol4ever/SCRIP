@@ -1579,7 +1579,9 @@ def main():
         raise SystemExit(2)
     if (family_prefix or only_families) and not delete_absorbed:
         sys.stderr.write("REFUSED: --family/--only scope what --delete-absorbed deletes -- pass --delete-absorbed too, "
-                          "or drop the selector for a plain dry run (a selector with nothing to delete is a no-op that looks like a typo).\n")
+                          "or drop the selector for a plain build (a selector with nothing to delete is a no-op that "
+                          "looks like a typo). \u26d4 NOT \"a dry run\": a plain build REWRITES the master pair -- the "
+                          "only thing the selector was going to change is which loose source pairs get DELETED.\n")
         raise SystemExit(2)
     if args.split_write:
         raise SystemExit(split_write(OUTDIR, EXT, lang, _CO, _CC, args.write))
@@ -2217,18 +2219,32 @@ def main():
         _cleanup_tmp()
         raise
     # -- VALIDATED: commit every staged file over its real path now, and only now. ---------------------------
-    os.replace(tmp_sno, out_sno)
-    os.replace(tmp_ref, out_ref)
+    # ⛔⭐⭐ EVERY COMMITTED PATH IS RECORDED HERE SO THE SIGN-OFF CAN NAME IT (hq_V 2026-09-10, measured, to
+    # hq_T's instruments lane). This tool's last line used to read "(dry run: pass --delete-absorbed …)" — true
+    # of the DELETION step, and eighty lines of output after the write, so it was read as a verdict on the whole
+    # run. It is not: by the time it prints, ALL.<ext>/ALL.ref/ALL.csv (and ALL.in) have already been replaced
+    # on disk. hq_V ran `--absorb-only FAMILY` with no `--write` to ASK A QUESTION, took the words at face
+    # value, and kept using entry line numbers read beforehand: the master had gone 912 → 913 entries, every
+    # banner had moved 39–50 lines, a line-sliced extract silently became the wrong text, and the grading then
+    # raised a banner-mismatch ValueError that reads exactly like a corrupt master pair. A cycle went on
+    # suspecting the corpus. ⭐ THE GENERAL FORM: a tool's LAST LINE is read as its verdict on the run, whatever
+    # earlier lines said — so a true statement about one step, placed last, is a false statement about the whole.
+    # ⛔ And the exposure is not one seat's afternoon: CEO-452 gives the Icon master exactly ONE writer because
+    # it is a built artifact two seats cannot merge, so an INSPECTION-SHAPED invocation that rewrites all four
+    # files can leave an uncommitted, unmeasured master under any seat that ran it to ask a question.
+    _committed = []
+    os.replace(tmp_sno, out_sno); _committed.append(out_sno)
+    os.replace(tmp_ref, out_ref); _committed.append(out_ref)
     if wrote_in:
-        os.replace(tmp_in, out_in)
+        os.replace(tmp_in, out_in); _committed.append(out_in)
     elif os.path.exists(out_in):
-        os.remove(out_in)
+        os.remove(out_in); _committed.append(out_in + " (removed)")
     if wrote_x:
-        os.replace(tmp_x, out_x)
+        os.replace(tmp_x, out_x); _committed.append(out_x)
     elif os.path.exists(out_x):
-        os.remove(out_x)
-    os.replace(tmp_csv, out_csv)
-    os.replace(tmp_excl, out_excl)
+        os.remove(out_x); _committed.append(out_x + " (removed)")
+    os.replace(tmp_csv, out_csv); _committed.append(out_csv)
+    os.replace(tmp_excl, out_excl); _committed.append(out_excl)
     # ⭐⭐ COMPANIONS GO IN config/, NOT THE FLAT DIR (hq_P 2026-08-30, ceo routed the cure to the finder).
     # Lon's end state is tests/<lang>/ FLAT with ALL.* plus ONE config/ folder holding runtime companions.
     # The harness READ side already implements it -- _copy_companions searches <dir> AND <dir>/config
@@ -2385,7 +2401,19 @@ def main():
                 os.rmdir(dirpath)
         print("DELETED %d absorbed source files (verified families only; fully-absorbed dirs' companions included); empty dirs pruned" % n, file=sys.stderr)
     elif verified:
-        print("(dry run: pass --delete-absorbed to remove the %d verified families' source pairs)" % len(verified), file=sys.stderr)
+        # ⛔ THE PHRASE "dry run" IS RESERVED FOR A RUN THAT WROTE NOTHING, and this run wrote the master.
+        # Naming the files is not politeness: it is the difference between a seat that knows its tree is dirty
+        # and one that goes on reading line numbers from a file that moved underneath it.
+        print("⛔ NOT A DRY RUN -- the master was REWRITTEN by this run. Nothing was DELETED: pass "
+              "--delete-absorbed to remove the %d verified families' loose source pairs." % len(verified),
+              file=sys.stderr)
+    # ⭐ THE LAST WORD NAMES WHAT IS NOW ON DISK, unconditionally, because the last word is the one that is
+    # read. Every path here was recorded at its own os.replace above, so this line cannot claim a write that
+    # did not happen or miss one that did -- it is not a second opinion about the write, it is the write's
+    # own receipt.
+    print("WROTE %d file(s) under %s (%d entries): %s"
+          % (len(_committed), OUTDIR, len(all_entries),
+             ", ".join(os.path.basename(f) for f in _committed)), file=sys.stderr)
 
 
 if __name__ == "__main__":
