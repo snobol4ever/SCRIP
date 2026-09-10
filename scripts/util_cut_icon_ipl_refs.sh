@@ -80,6 +80,25 @@ PROGS="$PKG/$SUBDIR"
 
 [ -d "$PROGS" ] || { echo "⛔ GATE REFUSES: corpus subtree missing: $PROGS" >&2; exit 2; }
 ICON="$(icon_bin)" || exit 2
+# ⛔⭐⭐ THE REF IS CUT FROM THE RUN, AND THE CLASSIFICATION EVIDENCE FROM THE LINK (hq_R 2026-09-10, CEO-508).
+# This script used to cut through the ONE-STEP `icon` driver with stdout and stderr folded into one file, and
+# icont writes EVERYTHING to stderr -- so for any program whose link closure touches a missing builtin, icont's
+# own "undeclared identifier" warnings landed INSIDE what would be the ref: text SCRIP can never reproduce. The
+# UNDECLARED_IDENTIFIER arm below was refusing on the INSTRUMENT'S contamination, not on the program. Measured on
+# the five gprogs rows CEO-458 sent here: clrs2pdb/fmap2pdb/gifs2pdb/wifs2pdb write 1 byte each and webimage 64
+# bytes of HTML, rc=0 and zero stderr, and SCRIP m3 already matched all five BYTE-FOR-BYTE -- five programs with
+# real ground truth held out of the denominator by a stream, not by a defect.
+# ⛔ THE FLAGS ARE LOAD-BEARING AND WERE MEASURED, NOT GUESSED. `icon` is a symlink to the icont ELF binary and
+# behaves by argv[0]; invoked that way it implies -u AND suppresses the progress banner. Plain `icont` does
+# NEITHER, so a naive two-step would have (a) quietly NARROWED the classification evidence -- iview reports 2
+# undeclared identifiers under `icon` and 0 under plain `icont` -- and (b) prepended "Translating:/No errors/
+# Linking:" to every diagnostic. `-s -u` reproduces the one-step diagnostic stream exactly: proven over the whole
+# affected population, 177 of 177 gprogs entries, where plain `icont` matched 0 of 177 and `icont -u` 127 of 177.
+# The 50 that still differ do so ONLY in the program name a runtime error is prefixed with (`binpack.x:` vs
+# `binpack.icn:`, iconx naming the file it was handed), which is why ev_normalize below exists and why it touches
+# the EVIDENCE ONLY and never the ref bytes.
+ICONT="$(icont_bin)" || exit 2
+ICONX="$(iconx_bin)" || exit 2
 
 # ── ONE pristine template, copied ONCE; every invocation below gets its OWN disposable copy of it.
 TEMPLATE="$(mktemp -d "${TMPDIR:-/tmp}/ipl_ref_template.XXXXXX")" || { echo "⛔ mktemp failed" >&2; exit 2; }
@@ -116,10 +135,35 @@ run_isolated() {
   ipl_fixtures_stage "$PROGS/$f" "$work/$SUBDIR"; [ $? -eq 2 ] && { rm -rf "$work"; return 125; }
   stdin_src=/dev/null
   [ -f "$PROGS/${f%.icn}.dat" ] && stdin_src="$PROGS/${f%.icn}.dat"
-  ( cd "$work/$SUBDIR" && timeout "$TIMEOUT" env ICONPATH="$work/progs:$work/gprogs:$work/procs:$work/gprocs:$work/incl:$work/gincl" "$ICON" "$f" ${argv[@]+"${argv[@]}"} < "$stdin_src" > "$outfile" 2>&1 )
+  local ip="$work/progs:$work/gprogs:$work/procs:$work/gprocs:$work/incl:$work/gincl" bx="${f%.icn}.x" crc
+  : > "$outfile.link"
+  ( cd "$work/$SUBDIR" && timeout "$TIMEOUT" env ICONPATH="$ip" "$ICONT" -s -u -o "$bx" "$f" > "$outfile.link" 2>&1 )
+  crc=$?
+  # ⛔ A LINK THAT PRODUCED NO EXECUTABLE IS REPORTED EXACTLY AS BEFORE: the link stream becomes the whole
+  # evidence AND the whole "output", so every arm below sees byte-for-byte what the one-step driver gave it.
+  # Splitting the streams must not invent a new outcome for a program that never ran -- the split is about
+  # where a SUCCESSFUL compile's warnings go, and says nothing about a failed one.
+  if [ ! -f "$work/$SUBDIR/$bx" ]; then
+    cp "$outfile.link" "$outfile"; rm -rf "$work"
+    [ "$crc" -eq 0 ] && crc=1
+    return "$crc"
+  fi
+  ( cd "$work/$SUBDIR" && timeout "$TIMEOUT" env ICONPATH="$ip" "$ICONX" "$bx" ${argv[@]+"${argv[@]}"} < "$stdin_src" > "$outfile" 2>&1 )
   rc=$?
   rm -rf "$work"
   return "$rc"
+}
+# ev_normalize <runfile> -> the run's bytes with a leading `NAME.x:` restored to `NAME.icn:`, for CLASSIFICATION
+# EVIDENCE ONLY. ⛔ Never applied to the ref: the ref is what the program wrote, and this rewrites the ORACLE's
+# own prefix. iconx names the file it was handed, so a two-step runtime error reads `binpack.x: can't open
+# display` where the one-step driver read `binpack.icn: ...` -- the same message about the same program, and the
+# only remaining difference between the two forms across all 177 gprogs entries. Normalizing it keeps every
+# reason string this script has ever printed stable across the change; leaving it would have rewritten the
+# quoted evidence on 50 rows for a spelling.
+ev_normalize() {
+  local rf="$1" base="$2"
+  [ -s "$rf" ] || return 0
+  sed "s|^${base}\.x:|${base}.icn:|" "$rf"
 }
 
 # first_diag <output> -> the first NON-BLANK line, truncated. ⛔ NOT `head -1`: icont's own output opens
@@ -196,7 +240,7 @@ TOTAL=${#FILES[@]}
 n_live=0; n_mint=0; n_empty=0; n_fail=0; n_display=0; n_diagnostic=0; n_ruled=0; n_timeout=0; n_suspect=0; n_undeclared=0; n_argv=0; n_badside=0; n_badfix=0; n_nondet=0; n_havestd=0; n_oversized=0
 OUT1="$(mktemp "${TMPDIR:-/tmp}/ipl_ref_out1.XXXXXX")"; OUT2="$(mktemp "${TMPDIR:-/tmp}/ipl_ref_out2.XXXXXX")"
 HOLD="$(mktemp -d "${TMPDIR:-/tmp}/ipl_ref_hold.XXXXXX")"
-trap 'cleanup_template; rm -f "$OUT1" "$OUT2"; rm -rf "$HOLD"' EXIT
+trap 'cleanup_template; rm -f "$OUT1" "$OUT2" "$OUT1.link" "$OUT2.link"; rm -rf "$HOLD"' EXIT
 # ⛔⛔ MAX_BYTES CAPS EVERY FULL-CONTENT READ, CHECKED ON THE FILE BEFORE EVER SLURPING IT INTO A BASH
 # VARIABLE (found this session, the hard way -- second incident, same script): under /dev/null stdin a
 # timing-out program is not necessarily QUIET while it waits -- one candidate (almost certainly
@@ -237,6 +281,12 @@ for f in "${FILES[@]}"; do
     continue
   fi
   out1="$(cat "$OUT1")"
+  # ⭐ THE EVIDENCE IS THE LINK STREAM PLUS THE RUN, AND THE REF IS THE RUN ALONE. Every arm below that asks
+  # "what did the ORACLE say" reads $ev1; every arm that asks "what did the PROGRAM write" reads $out1/$by1.
+  # Before the two-step split these were the same string, which is precisely why a link-time warning could be
+  # minted as program output.
+  ev1="$(cat "$OUT1.link" 2>/dev/null)$(ev_normalize "$OUT1" "$base")"
+  ev_link="$(cat "$OUT1.link" 2>/dev/null)"
   # ⛔⭐ DISPLAY_REFUSED IS SPLIT OUT OF ORACLE_FAIL ON PURPOSE, AND THE DISTINCTION IS THE WHOLE POINT
   # (hq_I 2026-09-06, CEO-316, measured over gprogs/): the oracle's own binary prints "<prog>: can't open
   # display" and exits 1 on a headless box. Folding that into ORACLE_FAIL is not a cosmetic mislabel --
@@ -251,13 +301,13 @@ for f in "${FILES[@]}"; do
   # probe reads a warning, misses the refusal, and files all 136 display-bound gprogs as ORACLE_FAIL --
   # which is the narrower-question trap: head -1 answers "how does the output OPEN", never "what did the
   # oracle DECIDE". The first draft of this very class did exactly that and reported DISPLAY_REFUSED 0.
-  if [ "$rc1" -ne 0 ] && printf '%s' "$out1" | grep -q "can't open display"; then
+  if [ "$rc1" -ne 0 ] && printf '%s' "$ev1" | grep -q "can't open display"; then
     # ⛔ QUOTE THE LINE THAT ACTUALLY MATCHED, never head -1. The class is decided by scanning the whole
     # output (above), so quoting line 1 in the EVIDENCE puts a benign "undeclared identifier" warning
     # where the reader expects the refusal -- a correct ruling wearing a false justification, which is
     # worse than a wrong ruling because it survives review. Measured on gprogs/fontpick.icn, whose
     # evidence read '"Font": undeclared identifier' for a display ruling.
-    n_display=$((n_display+1)); printf 'DISPLAY_REFUSED\t%s\t%s\t-\tNOT MINTED -- oracle refuses headless: %s\n' "$f" "$rc1" "$(printf '%s' "$out1" | grep -m1 "can't open display")"
+    n_display=$((n_display+1)); printf 'DISPLAY_REFUSED\t%s\t%s\t-\tNOT MINTED -- oracle refuses headless: %s\n' "$f" "$rc1" "$(printf '%s' "$ev1" | grep -m1 "can't open display")"
     continue
   fi
   # ⛔⭐ UNDECLARED_IDENTIFIER (seat07, STEP-1B verification, 2026-09-06): the SAME icont-symlink shape
@@ -290,13 +340,21 @@ for f in "${FILES[@]}"; do
   # (a link-time diagnostic) is INDEPENDENT of rc, so gating it on rc silently halves its population.
   # The two failure points stay distinguished by the RC COLUMN and by the action text, which is the
   # honest split: same cause, two consequences.
-  if printf '%s' "$out1" | grep -qE ': "[^"]+": undeclared identifier, procedure '; then
-    undecl_line="$(printf '%s' "$out1" | grep -m1 ': "[^"]*": undeclared identifier, procedure ')"
+  # ⛔⭐⭐ AND THIS ARM NOW ASKS THE SECOND QUESTION IT ALWAYS MEANT TO (hq_R 2026-09-10, CEO-508). A link-time
+  # diagnostic is a fact about the LINK; whether the program then produced ground truth is a fact about the RUN,
+  # and folding them into one stream made the first answer the second. The refusal is unchanged wherever it was
+  # ever right -- the run FAILED (rc!=0), or the run wrote NOTHING and the diagnostic was the entire "output",
+  # which is the 26-of-27 gprogs shape seat07 measured and the reason this arm exists. What changes is the case
+  # that was never tested because it could not be seen: a clean, non-empty, deterministic run that happens to sit
+  # behind a chatty link. Those are minted, and by construction this can only ADD refs -- every program refused
+  # here today is refused here still.
+  if printf '%s' "$ev1" | grep -qE ': "[^"]+": undeclared identifier, procedure ' && { [ "$rc1" -ne 0 ] || [ "$by1" -eq 0 ]; }; then
+    undecl_line="$(printf '%s' "$ev1" | grep -m1 ': "[^"]*": undeclared identifier, procedure ')"
     n_undeclared=$((n_undeclared+1))
     if [ "$rc1" -ne 0 ]; then
-      printf 'UNDECLARED_IDENTIFIER\t%s\t%s\t%s\tNOT MINTED -- an identifier never resolved at link time and the run then FAILED on it (rc=%s); no argument or fixture can supply a missing builtin: %s | first run diagnostic: %s\n' "$f" "$rc1" "$by1" "$rc1" "$undecl_line" "$(first_diag "$out1")"
+      printf 'UNDECLARED_IDENTIFIER\t%s\t%s\t%s\tNOT MINTED -- an identifier never resolved at link time and the run then FAILED on it (rc=%s); no argument or fixture can supply a missing builtin: %s | first run diagnostic: %s\n' "$f" "$rc1" "$by1" "$rc1" "$undecl_line" "$(first_diag "$ev1")"
     else
-      printf 'UNDECLARED_IDENTIFIER\t%s\t0\t%s\tNOT MINTED -- output contains an icont link-time unresolved-identifier diagnostic, not real program behavior: %s\n' "$f" "$by1" "$undecl_line"
+      printf 'UNDECLARED_IDENTIFIER\t%s\t0\t%s\tNOT MINTED -- the link named an unresolved identifier and the run then wrote NOTHING, so there is no program behavior to pin: %s\n' "$f" "$by1" "$undecl_line"
     fi
     continue
   fi
@@ -313,7 +371,7 @@ for f in "${FILES[@]}"; do
   # "ISO-8859 text, with escape sequences" and plain `grep -c` over it printed NOTHING AT ALL -- not zero,
   # nothing -- for a pattern with 34 matches. Same family as `command -v` and `head -1`: the instrument
   # quietly answered a narrower question than it was asked, and the empty answer read as an absence.
-  if [ "$rc1" -ne 0 ] && printf '%s' "$(first_diag "$out1")" | grep -aqi 'usage'; then
+  if [ "$rc1" -ne 0 ] && printf '%s' "$(first_diag "$ev1")" | grep -aqi 'usage'; then
     n_argv=$((n_argv+1)); printf 'NEEDS_ARGV_FIXTURE\t%s\t%s\t-\tNOT MINTED -- rc=%s and the program printed its own usage banner, so it refused the arguments it was given: %s\n' "$f" "$rc1" "$rc1" "$(first_diag "$out1")"
     continue
   fi
@@ -335,8 +393,17 @@ for f in "${FILES[@]}"; do
   # comparison as before this sidecar existed, so every program without one is completely unaffected.
   exp_rc=0; [ -f "$PROGS/${f%.icn}.rc" ] && exp_rc="$(cat "$PROGS/${f%.icn}.rc")"
   if [ "$rc1" -ne "$exp_rc" ]; then
-    n_fail=$((n_fail+1)); printf 'ORACLE_FAIL\t%s\t%s\t-\tNOT MINTED -- rc=%s under this driver (expected %s); the oracle said: %s\n' "$f" "$rc1" "$rc1" "$exp_rc" "$(first_diag "$out1")"
+    n_fail=$((n_fail+1)); printf 'ORACLE_FAIL\t%s\t%s\t-\tNOT MINTED -- rc=%s under this driver (expected %s); the oracle said: %s\n' "$f" "$rc1" "$rc1" "$exp_rc" "$(first_diag "$ev1")"
     [ "$VERBOSE" -eq 1 ] && printf '   %s\n' "$(first_diag "$out1")"
+    continue
+  fi
+  # ⛔ AN EMPTY RUN BEHIND A TALKING LINK IS STILL ALL_ORACLE_DIAGNOSTIC, NOT EMPTY. Before the two-step split
+  # the diagnostic was in $out1 and this program reached the ALL_ORACLE_DIAGNOSTIC arm further down; with the
+  # streams separated $by1 is 0 and it would fall into EMPTY, quietly retiring a class that names a measured
+  # cause and replacing it with one that names nothing. Same class, same evidence, read from the stream the
+  # evidence actually lives in now.
+  if [ "$by1" -eq 0 ] && [ "$(printf '%s' "$ev_link" | grep -cvE '^[[:space:]]*$')" -gt 0 ]; then
+    n_diagnostic=$((n_diagnostic+1)); printf 'ALL_ORACLE_DIAGNOSTIC\t%s\t%s\t0\tNOT MINTED -- the run wrote nothing and every line of evidence is the ORACLE talking about the program, not the program: %s\n' "$f" "$rc1" "$(printf '%s' "$ev_link" | grep -vE '^[[:space:]]*$' | head -1)"
     continue
   fi
   if [ "$by1" -eq 0 ]; then
