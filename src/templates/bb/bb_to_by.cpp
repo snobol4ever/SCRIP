@@ -9,9 +9,21 @@ DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op);
 int     rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
 int64_t to_int(DESCR_t v);
 int64_t core_icn_to_int_check(uint64_t lo, uint64_t hi);
+int     core_icn_int_operand_ok(uint64_t lo, uint64_t hi);
 int     core_icn_by_zero_check(int64_t by);
 }
 #include "x86_asm.h"
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string to_by_int_operand_guard(int slot) {
+    if (!_.op_range_int_operands) return std::string();
+    uint64_t fp; { int (*f)(uint64_t, uint64_t) = core_icn_int_operand_ok; fp = (uint64_t)(uintptr_t)(void *)f; }
+    return x86("comment", "ICON RANGE OPERAND CHECK, \"ag:int\" ONLY -- the same shape core_icn_by_zero_check already uses below: raise, then concede on a nonzero rc. core_icn_to_int_check cannot report failure through an int64 return, so a converted error 101 read back as the integer 0 and the range still generated. SNOBOL4 and Prolog take the plain to_int arm and emit none of this.")
+         + x86("mov",  "rdi", FRQ(slot))
+         + x86("mov",  "rsi", FRQ(slot + 8))
+         + x86("call", "core_icn_int_operand_ok", fp)
+         + x86("test", "eax", "eax")
+         + x86_omega("jz");
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_to_by() {
     x86_begin();
@@ -63,16 +75,19 @@ std::string bb_to_by() {
              + x86("jmp",     L(0)) :
                x86("comment", "IR_TO_BY")
              + x86_alpha()
+             + to_by_int_operand_guard(_.op_sa)
              + x86("mov",     "rdi", FRQ(_.op_sa))
              + x86("mov",     "rsi", FRQ(_.op_sa + 8))
              + x86("call",    _.op_range_int_operands ? "core_icn_to_int_check" : "to_int", _.op_range_int_operands ? (uint64_t)(uintptr_t)(void*)core_icn_to_int_check : (uint64_t)(uintptr_t)(void*)to_int)
              + x86("mov",     FRQ(_.op_sa),     (long)DT_I)
              + x86("mov",     FRQ(_.op_sa + 8), "rax")
+             + to_by_int_operand_guard(_.op_sb)
              + x86("mov",     "rdi", FRQ(_.op_sb))
              + x86("mov",     "rsi", FRQ(_.op_sb + 8))
              + x86("call",    _.op_range_int_operands ? "core_icn_to_int_check" : "to_int", _.op_range_int_operands ? (uint64_t)(uintptr_t)(void*)core_icn_to_int_check : (uint64_t)(uintptr_t)(void*)to_int)
              + x86("mov",     FRQ(_.op_sb),     (long)DT_I)
              + x86("mov",     FRQ(_.op_sb + 8), "rax")
+             + to_by_int_operand_guard(_.op_sc)
              + x86("mov",     "rdi", FRQ(_.op_sc))
              + x86("mov",     "rsi", FRQ(_.op_sc + 8))
              + x86("call",    _.op_range_int_operands ? "core_icn_to_int_check" : "to_int", _.op_range_int_operands ? (uint64_t)(uintptr_t)(void*)core_icn_to_int_check : (uint64_t)(uintptr_t)(void*)to_int)

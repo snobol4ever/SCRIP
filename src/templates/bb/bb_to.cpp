@@ -11,6 +11,7 @@ void    rt_pl_disj_open(void *, void *);
 int     rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
 int64_t to_int(DESCR_t v);
 int64_t core_icn_to_int_check(uint64_t lo, uint64_t hi);
+int     core_icn_int_operand_ok(uint64_t lo, uint64_t hi);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -31,6 +32,17 @@ static std::string to_trail_unwind() {
     return x86("comment", "PL GENERATOR STEP (rung 7, ARCH sec B.13): a solution was refused, so undo everything it bound back to this box's mark before the cursor advances -- the same rtx helper the rung-2 clause step and the rung-3 disjunction step use.")
          + x86("mov", "rdi", FRQ(_.op_off + 24))
          + x86("call_bare", "rt_pl_tr_unwind", fp);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string to_int_operand_guard(int slot) {
+    if (!_.op_range_int_operands) return std::string();
+    uint64_t fp; { int (*f)(uint64_t, uint64_t) = core_icn_int_operand_ok; fp = (uint64_t)(uintptr_t)(void *)f; }
+    return x86("comment", "ICON RANGE OPERAND CHECK, \"ag:int\" ONLY: core_icn_to_int_check hands back an int64 and cannot say \"this failed\", so a converted error 101 came back as the integer 0 and seq(\"a\") generated 0,1,2... with &errornumber already reading 101 -- the error was recorded and the expression still succeeded. Asking BEFORE converting lets the box CONCEDE, which is what &error converts an error TO. SNOBOL4 and Prolog take the plain to_int arm and emit none of this.")
+         + x86("mov",  "rdi", FRQ(slot))
+         + x86("mov",  "rsi", FRQ(slot + 8))
+         + x86("call", "core_icn_int_operand_ok", fp)
+         + x86("test", "eax", "eax")
+         + x86_omega("jz");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_to() {
@@ -103,11 +115,13 @@ std::string bb_to() {
              + x86(".quad",   (uint64_t)(int64_t)1) :
                x86("comment", "IR_TO")
              + x86_alpha()
+             + to_int_operand_guard(_.op_sa)
              + x86("mov",     "rdi", FRQ(_.op_sa))
              + x86("mov",     "rsi", FRQ(_.op_sa + 8))
              + x86("call",    _.op_range_int_operands ? "core_icn_to_int_check" : "to_int", _.op_range_int_operands ? (uint64_t)(uintptr_t)(void*)core_icn_to_int_check : (uint64_t)(uintptr_t)(void*)to_int)
              + x86("mov",     FRQ(_.op_sa),     (long)DT_I)
              + x86("mov",     FRQ(_.op_sa + 8), "rax")
+             + to_int_operand_guard(_.op_sb)
              + x86("mov",     "rdi", FRQ(_.op_sb))
              + x86("mov",     "rsi", FRQ(_.op_sb + 8))
              + x86("call",    _.op_range_int_operands ? "core_icn_to_int_check" : "to_int", _.op_range_int_operands ? (uint64_t)(uintptr_t)(void*)core_icn_to_int_check : (uint64_t)(uintptr_t)(void*)to_int)

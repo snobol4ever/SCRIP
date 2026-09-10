@@ -2473,6 +2473,13 @@ int64_t core_icn_to_int_check(uint64_t lo, uint64_t hi) {
     return core_icn_to_int_d(d);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int core_icn_int_operand_ok(uint64_t lo, uint64_t hi) {
+    uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t d; memcpy(&d, w, sizeof d);
+    if (core_icn_int_ok(d)) return 1;
+    core_icn_error(101, d);
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int64_t core_icn_limit_count_check(uint64_t lo, uint64_t hi) {
     uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t d; memcpy(&d, w, sizeof d);
     if (!core_icn_int_ok(d)) { core_icn_error(101, d); return 0; }
