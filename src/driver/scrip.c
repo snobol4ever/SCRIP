@@ -1319,7 +1319,7 @@ int main(int argc, char **argv)
             }
             g_frame_active = 1;
             extern void gva_collect_reset(void); extern void gva_collect_icon_globals(void); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
-            gva_collect_reset();
+            gva_collect_reset(); { extern void gva_keyword_refuse_reset(void); extern void gva_keyword_refuse_seed_snobol4(void); if (is_icon) gva_keyword_refuse_reset(); else gva_keyword_refuse_seed_snobol4(); }
             { extern void gva_io_refuse_scan_graph(IR_graph_t *); for (int _si = 0; _si < s2->bbp.count; _si++) if (s2->bbp.table[_si]) gva_io_refuse_scan_graph(s2->bbp.table[_si]); }
             gva_collect_icon_globals();
             int n_gva_icn = gva_count();
@@ -1524,7 +1524,7 @@ int main(int argc, char **argv)
                   if (idx2 < 0 || idx2 >= s2->bbp.count || !s2->bbp.table[idx2] || !s2->bbp.table[idx2]->entry) continue; proc_collect_graph(s2->bbp.table[idx2]);
               }
               g_proc_direct_active = (proc_slot_count() > 0) ? 1 : 0; }
-            if (is_pascal) { extern void gva_collect_reset(void); extern void gva_collect_graph(IR_graph_t *); extern int gva_count(void); extern int g_gva_active; gva_collect_reset(); gva_collect_graph(sbbg); for (int _pgi = 0; _pgi < s2->bbp.count; _pgi++) { if (s2->bbp.table[_pgi] && s2->bbp.table[_pgi] != sbbg) gva_collect_graph(s2->bbp.table[_pgi]); } g_gva_active = (gva_count() > 0) ? 1 : 0; }
+            if (is_pascal) { extern void gva_collect_reset(void); extern void gva_collect_graph(IR_graph_t *); extern int gva_count(void); extern int g_gva_active; gva_collect_reset(); extern void gva_keyword_refuse_reset(void); extern void gva_keyword_refuse_seed_snobol4(void); gva_keyword_refuse_reset(); gva_keyword_refuse_seed_snobol4(); gva_collect_graph(sbbg); for (int _pgi = 0; _pgi < s2->bbp.count; _pgi++) { if (s2->bbp.table[_pgi] && s2->bbp.table[_pgi] != sbbg) gva_collect_graph(s2->bbp.table[_pgi]); } g_gva_active = (gva_count() > 0) ? 1 : 0; }
             int _pbcap = (s2->proc_count > 0) ? s2->proc_count : 1;
             int *pidx_buf = (int *)malloc((size_t)_pbcap * sizeof(int));
             int *peak_buf = (int *)malloc((size_t)_pbcap * sizeof(int));
@@ -1620,7 +1620,7 @@ int main(int argc, char **argv)
             free(pidx_buf); free(peak_buf);
             extern void gva_collect_reset(void); extern void gva_collect_graph(IR_graph_t *); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
             extern int proc_slot_count(void); extern int g_proc_direct_active;
-            if (!is_pascal) { extern void gva_io_refuse_scan_graph(IR_graph_t *); gva_collect_reset(); gva_io_refuse_scan_graph(sbbg); gva_collect_graph(sbbg); }
+            if (!is_pascal) { extern void gva_io_refuse_scan_graph(IR_graph_t *); gva_collect_reset(); extern void gva_keyword_refuse_reset(void); extern void gva_keyword_refuse_seed_snobol4(void); gva_keyword_refuse_reset(); gva_keyword_refuse_seed_snobol4(); gva_io_refuse_scan_graph(sbbg); gva_collect_graph(sbbg); }
             if (n_gva > 0) {
                 emit_textf("  .section .rodata\n");
                 for (int k = 0; k < n_gva; k++) emit_textf("  .Lgvan%d: .string \"%s\"\n", k, gva_name(k));
@@ -1682,7 +1682,7 @@ int main(int argc, char **argv)
             void *m3_gva_arena = (void *)0;
             {
                 extern void gva_collect_reset(void); extern void gva_collect_icon_globals(void); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
-                gva_collect_reset();
+                gva_collect_reset(); { extern void gva_keyword_refuse_reset(void); extern void gva_keyword_refuse_seed_snobol4(void); if (is_icon) gva_keyword_refuse_reset(); else gva_keyword_refuse_seed_snobol4(); }
                 { extern void gva_io_refuse_scan_graph(IR_graph_t *); for (int _si = 0; _si < s2->bbp.count; _si++) if (s2->bbp.table[_si]) gva_io_refuse_scan_graph(s2->bbp.table[_si]); }
                 gva_collect_icon_globals();
                 int n_gva_m3; { const char *_gv = getenv("SCRIP_M3_GVA"); n_gva_m3 = _gv && *_gv && *_gv == (char)48 ? 0 : gva_count(); }
@@ -1829,7 +1829,7 @@ int main(int argc, char **argv)
             void *m3_gva_arena = (void *)0;
             if (is_pascal) {
                 extern void gva_collect_reset(void); extern void gva_collect_graph(IR_graph_t *); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
-                gva_collect_reset();
+                gva_collect_reset(); extern void gva_keyword_refuse_reset(void); extern void gva_keyword_refuse_seed_snobol4(void); gva_keyword_refuse_reset(); gva_keyword_refuse_seed_snobol4();
                 IR_graph_t *_mg = (main_bb_idx >= 0 && main_bb_idx < s2->bbp.count) ? s2->bbp.table[main_bb_idx] : (IR_graph_t *)0;
                 if (_mg) gva_collect_graph(_mg);
                 for (int _pi = 0; _pi < s2->proc_count; _pi++) { int _pgi = s2->proc_table[_pi].bb_idx; if (_pgi >= 0 && _pgi < s2->bbp.count && s2->bbp.table[_pgi] && s2->bbp.table[_pgi] != _mg) gva_collect_graph(s2->bbp.table[_pgi]); }

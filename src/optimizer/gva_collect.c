@@ -36,14 +36,41 @@ void gva_io_refuse_scan_graph(struct IR_graph_t *g) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char **g_gva_kw_refused = NULL;
+static int g_gva_kw_refused_n = 0;
+static int g_gva_kw_refused_max = 0;
+static int g_gva_kw_seeded = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int gva_keyword_refused(const char *name) {
+    if (!g_gva_kw_seeded) gva_keyword_refuse_seed_snobol4();
+    for (int i = 0; i < g_gva_kw_refused_n; i++) if (g_gva_kw_refused[i] && strcmp(g_gva_kw_refused[i], name) == 0) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void gva_keyword_refuse_name(const char *name) {
+    if (!name || !name[0] || gva_keyword_refused(name)) return;
+    if (g_gva_kw_refused_n >= g_gva_kw_refused_max) {
+        int nm = g_gva_kw_refused_max ? g_gva_kw_refused_max * 2 : 32; const char **g = (const char **)realloc(g_gva_kw_refused, (size_t)nm * sizeof(const char *));
+        if (!g) return; g_gva_kw_refused = g; g_gva_kw_refused_max = nm;
+    }
+    g_gva_kw_refused[g_gva_kw_refused_n++] = name;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void gva_keyword_refuse_reset(void) { g_gva_kw_refused_n = 0; g_gva_kw_seeded = 1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void gva_keyword_refuse_seed_snobol4(void) {
+    g_gva_kw_seeded = 1;
+    static const char *kw[] = { "INPUT","OUTPUT","PUNCH","TERMINAL","PUNCHAR","STLIMIT","STCOUNT","STNO","ANCHOR","TRIM","FULLSCAN","CASE","MAXLNGTH",
+                                "FTRACE","TRACE","ERRLIMIT","CODE","FNCLEVEL","RTNTYPE","ALPHABET","ABEND","DUMP","STEXEC","ERRTYPE","ERRTEXT","GTRACE",
+                                "FATALLIMIT","PARM","PI", (const char *)0 };
+    for (int i = 0; kw[i]; i++) gva_keyword_refuse_name(kw[i]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int is_protected_pat_name(const char *name);
 int gva_name_eligible(const char *name) {
     if (!name || !name[0]) return 0;
     if (name[0] == '&') return 0;
-    static const char *excl[] = { "INPUT","OUTPUT","PUNCH","TERMINAL","PUNCHAR","STLIMIT","STCOUNT","STNO","ANCHOR","TRIM","FULLSCAN","CASE","MAXLNGTH",
-                                   "FTRACE","TRACE","ERRLIMIT","CODE","FNCLEVEL","RTNTYPE","ALPHABET","ABEND","DUMP","STEXEC","ERRTYPE","ERRTEXT","GTRACE",
-                                   "FATALLIMIT","PARM","PI", (const char *)0 };
-    for (int i = 0; excl[i]; i++) if (strcmp(name, excl[i]) == 0) return 0;
+    if (gva_keyword_refused(name)) return 0;
     if (is_protected_pat_name(name)) return 0;
     if (gva_io_refused(name)) return 0;
     return 1;

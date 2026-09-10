@@ -8,6 +8,10 @@ int gva_collect_var(const char *name);
 int gva_count(void);
 const char *gva_name(int k);
 void gva_io_refuse_name(const char *name);
+int gva_keyword_refused(const char *name);
+void gva_keyword_refuse_name(const char *name);
+void gva_keyword_refuse_reset(void);
+void gva_keyword_refuse_seed_snobol4(void);
 struct IR_graph_t;
 void gva_io_refuse_scan_graph(struct IR_graph_t *g);
 #endif
