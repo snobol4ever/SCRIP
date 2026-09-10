@@ -471,8 +471,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         int is_arith = (bcode >= BINOP_ADD && bcode <= BINOP_MOD) || bcode == BINOP_POW;
         int alit = 0, blit = 0; { int64_t fb = 0; int fr = 0; alit = icn_const_step(t->c[0], &fb, &fr); fb = 0; fr = 0; blit = icn_const_step(t->c[1], &fb, &fr); }
         IR_t * op = build(cx, is_relop ? IR_BINOP_TEST : IR_BINOP, γ, ω); IR_LIT(op).ival = is_relop ? bcode : bemit;
-        IR_t * cb2 = (is_arith && !blit) ? build(cx, IR_COERCE_NUMERIC, op, ω) : NULL; if (cb2) IR_LIT(cb2).ival = 102 | COERCE_ERR_FAILURE_CONVERTIBLE | ((bcode == BINOP_POW) ? COERCE_KEEP_INT : 0);
-        IR_t * ca2 = (is_arith && !alit) ? build(cx, IR_COERCE_NUMERIC, cb2 ? cb2 : op, ω) : NULL; if (ca2) IR_LIT(ca2).ival = 102 | COERCE_ERR_FAILURE_CONVERTIBLE;
+        IR_t * cb2 = (is_arith && !blit) ? build(cx, IR_COERCE_NUMERIC, op, ω) : NULL; if (cb2) IR_LIT(cb2).ival = 102 | COERCE_ERR_FAILURE_CONVERTIBLE | ((bcode == BINOP_POW) ? COERCE_KEEP_INT : 0) | COERCE_OP_TAG(bcode) | COERCE_OP_SELF_RIGHT;
+        IR_t * ca2 = (is_arith && !alit) ? build(cx, IR_COERCE_NUMERIC, cb2 ? cb2 : op, ω) : NULL; if (ca2) IR_LIT(ca2).ival = 102 | COERCE_ERR_FAILURE_CONVERTIBLE | COERCE_OP_TAG(bcode);
         IR_t * bsucc = ca2 ? ca2 : (cb2 ? cb2 : op);
         int late_deref = icn_operand_derefs_late(cx, t->c[0]);
         IR_t * lr = NULL, * rr = NULL, * ea = NULL, * eb = NULL, * lβ = NULL, * rβ = NULL;
@@ -499,7 +499,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_e uop_kind = (t->t == TT_NONNULL) ? IR_UNOP_TEST : IR_UNOP;
         IR_t * op = build(cx, uop_kind, γ, ω); IR_LIT(op).ival = (long long) t->t; IR_t * orr = NULL;
         if (t->t == TT_MNS || t->t == TT_PLS) {
-            IR_t * co = build(cx, IR_COERCE_NUMERIC, op, ω); IR_LIT(co).ival = 102 | COERCE_ERR_FAILURE_CONVERTIBLE;
+            IR_t * co = build(cx, IR_COERCE_NUMERIC, op, ω); IR_LIT(co).ival = 102 | COERCE_ERR_FAILURE_CONVERTIBLE | ((t->t == TT_MNS) ? COERCE_OP_UNARY_NEG : COERCE_OP_UNARY_POS);
             IR_t * ea = lower(cx, t->c[0], co, ω, &orr);
             ir_operand_push(co, orr); ir_operand_push(op, co); *res = op; return ea;
         }

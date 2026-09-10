@@ -324,7 +324,11 @@ void c_rt_coerce_num2_d(const DESCR_t *self, const DESCR_t *other, DESCR_t *out,
     int sok = rt_parse_num_d(self, &si, &sr, &sreal);
     if (sok && (codes & COERCE_ERR_FAILURE_CONVERTIBLE) && rt_num_is_blank_d(self)) sok = 0;
     if (!sok) {
-        if (ec && (codes & COERCE_ERR_FAILURE_CONVERTIBLE)) { extern int core_icn_error(int code, DESCR_t val); core_icn_error(ec, *self); *out = FAILDESCR; return; }
+        if (ec && (codes & COERCE_ERR_FAILURE_CONVERTIBLE)) { extern int core_icn_error(int code, DESCR_t val);
+            if (codes & COERCE_OP_UNARY_NEG) core_icn_op_ctx("-", 1, *self, *self);
+            else if (codes & COERCE_OP_UNARY_POS) core_icn_op_ctx("+", 1, *self, *self);
+            else if (COERCE_OP_OF(codes) >= 0) { int _r = (codes & COERCE_OP_SELF_RIGHT) != 0; core_icn_op_ctx(core_icn_binop_sym(COERCE_OP_OF(codes)), 2, _r ? *other : *self, _r ? *self : *other); }
+            core_icn_error(ec, *self); core_icn_op_ctx_clear(); *out = FAILDESCR; return; }
         if (ec) core_runtime_error(ec, rt_coerce_errmsg(ec)); si = 0; sreal = 0; }
     int ook = rt_parse_num_d(other, &oi, &orr, &oreal);
     (void)ook; (void)oi; (void)orr;

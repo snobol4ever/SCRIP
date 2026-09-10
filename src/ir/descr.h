@@ -81,6 +81,12 @@ static inline __attribute__((always_inline)) int IS_VARREF_fn(DESCR_t v) { retur
 #define FHVAL(idx_) ((DESCR_t){ .v = DT_FH, .i = (int64_t)(idx_) })
 #define COERCE_ERR_FAILURE_CONVERTIBLE 0x1000000L
 #define COERCE_KEEP_INT 0x2000000L
+#define COERCE_OP_SHIFT 32
+#define COERCE_OP_TAG(bcode) (((long)((bcode) + 1)) << COERCE_OP_SHIFT)
+#define COERCE_OP_OF(codes) ((int)(((codes) >> COERCE_OP_SHIFT) & 0xffff) - 1)
+#define COERCE_OP_SELF_RIGHT (1L << 48)
+#define COERCE_OP_UNARY_NEG (1L << 49)
+#define COERCE_OP_UNARY_POS (1L << 50)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) int IS_FH_fn(DESCR_t v) { return v.v == DT_FH; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

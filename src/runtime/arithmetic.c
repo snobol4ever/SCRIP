@@ -207,7 +207,7 @@ long rt_arith(int lk, long li, const char *ls,
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_ipow_descr(int64_t li, int64_t ri) {
-    if (li == 0 && ri <= 0) { extern int core_icn_error(int code, DESCR_t val); core_icn_error(204, INTVAL(li)); return FAILDESCR; }
+    if (li == 0 && ri <= 0) { extern int core_icn_error(int code, DESCR_t val); core_icn_error(204, FAILDESCR); return FAILDESCR; }
     if (ri >= 0) { int64_t acc = 1; for (int64_t k = 0; k < ri; k++) if (__builtin_mul_overflow(acc, li, &acc)) { extern DESCR_t rt_big_pow(DESCR_t, int64_t); return rt_big_pow(INTVAL(li), ri); } return INTVAL(acc); }
     if (li == 1) return INTVAL(1);
     if (li == -1) return INTVAL((ri & 1) ? -1 : 1);
@@ -217,7 +217,7 @@ static DESCR_t rt_ipow_descr(int64_t li, int64_t ri) {
 static DESCR_t rt_ipow_promote_descr(int64_t li, int64_t ri) {
     if (ri >= 0) { int64_t acc = 1; for (int64_t k = 0; k < ri; k++) { int64_t _z; if (__builtin_mul_overflow(acc, li, &_z)) { extern DESCR_t rt_big_pow(DESCR_t, int64_t); return rt_big_pow(INTVAL(li), ri); } acc = _z; } return INTVAL(acc); }
     if (li == 0) return REALVAL(0.0);
-    { double _r = pow((double)li, (double)ri); if (!isfinite(_r)) { extern int core_icn_error(int code, DESCR_t val); core_icn_error(204, INTVAL(li)); return FAILDESCR; } return REALVAL(_r); }
+    { double _r = pow((double)li, (double)ri); if (!isfinite(_r)) { extern int core_icn_error(int code, DESCR_t val); core_icn_error(204, FAILDESCR); return FAILDESCR; } return REALVAL(_r); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int operand_is_real_str(DESCR_t v) {
@@ -244,11 +244,17 @@ DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op) {
     }
     if (g_core_errjmp_n >= 64) return rt_num_arith_impl(a, b, op);
     int my = g_core_errjmp_n;
-    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; return FAILDESCR; }
+    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; core_icn_op_ctx_clear(); return FAILDESCR; }
     g_core_errjmp_n = my + 1;
     DESCR_t r = rt_num_arith_impl(a, b, op);
     g_core_errjmp_n = my;
     return r;
+}
+static void rt_div_zero(int bcode, DESCR_t a, DESCR_t b, const char *msg) {
+    core_icn_op_ctx(core_icn_binop_sym(bcode), 2, a, b);
+    if (core_icn_active()) { extern int core_icn_error(int code, DESCR_t val); core_icn_error(bcode == BINOP_MOD ? 202 : 201, bcode == BINOP_MOD ? b : FAILDESCR); }
+    else core_runtime_error(2, msg);
+    core_icn_op_ctx_clear();
 }
 #define RT_BINOP_ENTRY(fn, code, fast) \
 DESCR_t fn(DESCR_t a, DESCR_t b) { \
@@ -257,7 +263,7 @@ DESCR_t fn(DESCR_t a, DESCR_t b) { \
     if (a.v == DT_DATA || b.v == DT_DATA) { DESCR_t ov; if (rt_binop_overload(a, b, code, &ov)) return ov; } \
     if (g_core_errjmp_n >= 64) return rt_num_arith_impl(a, b, code); \
     int my = g_core_errjmp_n; \
-    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; return FAILDESCR; } \
+    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; core_icn_op_ctx_clear(); return FAILDESCR; } \
     g_core_errjmp_n = my + 1; \
     DESCR_t r = rt_num_arith_impl(a, b, code); \
     g_core_errjmp_n = my; \
@@ -266,8 +272,8 @@ DESCR_t fn(DESCR_t a, DESCR_t b) { \
 RT_BINOP_ENTRY(c_rt_add,  BINOP_ADD,    { int64_t _z; if (!__builtin_add_overflow(a.i, b.i, &_z)) return INTVAL(_z); })
 RT_BINOP_ENTRY(c_rt_sub,  BINOP_SUB,    { int64_t _z; if (!__builtin_sub_overflow(a.i, b.i, &_z)) return INTVAL(_z); })
 RT_BINOP_ENTRY(c_rt_mul,  BINOP_MUL,    { int64_t _z; if (!__builtin_mul_overflow(a.i, b.i, &_z)) return INTVAL(_z); })
-RT_BINOP_ENTRY(rt_div,    BINOP_DIV,    if (b.i == 0) { core_runtime_error(2, "division caused integer overflow"); return FAILDESCR; } if (b.i != -1) return INTVAL(a.i / b.i);)
-RT_BINOP_ENTRY(rt_mod,    BINOP_MOD,    if (b.i == 0) { core_runtime_error(2, NULL); return FAILDESCR; } if (b.i != -1) return INTVAL(a.i % b.i);)
+RT_BINOP_ENTRY(rt_div,    BINOP_DIV,    if (b.i == 0) { rt_div_zero(BINOP_DIV, a, b, "division caused integer overflow"); return FAILDESCR; } if (b.i != -1) return INTVAL(a.i / b.i);)
+RT_BINOP_ENTRY(rt_mod,    BINOP_MOD,    if (b.i == 0) { rt_div_zero(BINOP_MOD, a, b, NULL); return FAILDESCR; } if (b.i != -1) return INTVAL(a.i % b.i);)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_add_big(DESCR_t a, DESCR_t b) { extern DESCR_t rt_big_add(DESCR_t, DESCR_t);
     if (a.v == DT_I && b.v == DT_I) { int64_t _z; if (!__builtin_add_overflow(a.i, b.i, &_z)) return INTVAL(_z); return rt_big_add(a, b); }
@@ -311,7 +317,7 @@ static DESCR_t rt_big_arith_route(DESCR_t a, DESCR_t b, int op) {
             if (op == BINOP_POW_PROMOTE) return FAILDESCR;
             if (a.v == DT_I && a.i ==  1) return INTVAL(1);
             if (a.v == DT_I && a.i == -1) return INTVAL(rt_big_is_odd(b) ? -1 : 1);
-            if (a.v == DT_I && a.i ==  0) { if (rt_big_sign(b) > 0) return INTVAL(0); core_icn_error(204, INTVAL(0)); return FAILDESCR; }
+            if (a.v == DT_I && a.i ==  0) { if (rt_big_sign(b) > 0) return INTVAL(0); core_icn_error(204, FAILDESCR); return FAILDESCR; }
             if (rt_big_sign(b) < 0) return INTVAL(0);
             core_icn_error(203, a); return FAILDESCR;
         }
@@ -337,7 +343,7 @@ static int rt_big_arith_wanted(DESCR_t a, DESCR_t b, int op) {
 static DESCR_t rt_real_overflow(int spitcode, const char *what, double lv) {
     extern long g_error; extern int64_t kw_errlimit; extern int core_icn_error(int code, DESCR_t val);
     if (g_error == 0 && kw_errlimit != 0) { core_runtime_error(spitcode, what); return FAILDESCR; }
-    core_icn_error(204, REALVAL(lv));
+    core_icn_error(204, FAILDESCR);
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -345,7 +351,14 @@ static int icn_cset_operand_ok(DESCR_t v) {
     return IS_CSET_fn(v) || v.v == DT_S || v.v == DT_I || v.v == DT_R;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rt_num_arith_body(DESCR_t a, DESCR_t b, int op);
 static DESCR_t rt_num_arith_impl(DESCR_t a, DESCR_t b, int op) {
+    core_icn_op_ctx(core_icn_binop_sym(op), 2, a, b);
+    DESCR_t r = rt_num_arith_body(a, b, op);
+    core_icn_op_ctx_clear();
+    return r;
+}
+static DESCR_t rt_num_arith_body(DESCR_t a, DESCR_t b, int op) {
     a = big_str_operand(a); b = big_str_operand(b);
     if (rt_big_arith_wanted(a, b, op)) return rt_big_arith_route(a, b, op);
     int csop = (op == BINOP_CUNION || op == BINOP_CDIFF || op == BINOP_CINTER);
@@ -365,7 +378,7 @@ static DESCR_t rt_num_arith_impl(DESCR_t a, DESCR_t b, int op) {
         case BINOP_POW: {
             extern int core_icn_error(int code, DESCR_t val);
             if (!anyf) return rt_ipow_descr(li, ri);
-            if (ld == 0.0 && rd <= 0.0) { core_icn_error(204, REALVAL(ld)); return FAILDESCR; }
+            if (ld == 0.0 && rd <= 0.0) { core_icn_error(204, FAILDESCR); return FAILDESCR; }
             if (ld < 0.0 && (rf || operand_is_real_str(b))) { core_icn_error(206, REALVAL(ld)); return FAILDESCR; }
             if (b.v == DT_BIG) { extern int rt_big_is_odd(DESCR_t); double _rb = pow(fabs(ld), rd); if (!isfinite(_rb)) return rt_real_overflow(266, "exponentiation caused real overflow", ld); if (ld < 0.0 && _rb != 0.0 && rt_big_is_odd(b)) _rb = -_rb; return REALVAL(_rb); }
             { double _rp = (!rf && !operand_is_real_str(b)) ? rt_ripow(ld, ri) : pow(ld, rd); if (!isfinite(_rp)) return rt_real_overflow(266, "exponentiation caused real overflow", ld); return REALVAL(_rp); }

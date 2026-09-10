@@ -423,8 +423,8 @@ std::string xa_icn_trace_tap(const char * pname, int kind, int np) {
     std::string id = std::to_string(g_flat_node_id++);
     std::string sk = "L24" + std::to_string(6 + kind); std::string fl = ".Licn_trace_nm" + id;
     std::string s = x86("push", "rax") + x86("push", "rdx") + x86("push", "rbx") + x86("mov", "rbx", "rsp") + x86("and", "rsp", (long)-16)
-        + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_trace, "g_trace")
-        + x86("mov", "rax", RDQ("rax", 0)) + x86("cmp", "rax", (long)0) + x86("je", sk)
+        + IF(kind != 1, x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_trace, "g_trace")
+        + x86("mov", "rax", RDQ("rax", 0)) + x86("cmp", "rax", (long)0) + x86("je", sk))
         + x86("directive", ".section .rodata") + x86("directive", (fl + ": .string \"" + pname + "\"").c_str()) + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix")
         + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)pname, fl.c_str());
     if (kind == 1) s += x86("mov32", "esi", (long)np) + x86("lea", "rdx", RDQ("rbx", 24)) + x86("call", "rt_trace_call_hook_f", (uint64_t)(uintptr_t)(void *)rt_trace_call_hook_f);

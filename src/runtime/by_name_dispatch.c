@@ -4272,8 +4272,8 @@ DESCR_t rt_call_arr_bl(const char *fn, DESCR_t *args, int nargs, int bidlen) {
     extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
     { static long _rspc = -1; if (_rspc == -1) { const char *ev = getenv("SCRIP_CALLARR_TRACE"); _rspc = (ev && *ev && *ev != '0') ? 0 : -2; } if (_rspc >= 0) { void *rsp_now; __asm__ volatile ("mov %%rsp, %0" : "=r"(rsp_now)); _rspc++; fprintf(stderr, "[RSP] %ld fn='%s' rsp=%p\n", _rspc, fn ? fn : "(null)", rsp_now); fflush(stderr); } }
     if (g_core_errjmp_n >= 64) { DESCR_t r0 = rt_call_arr_impl(fn, args, nargs, bidlen); return r0; }
-    int my = g_core_errjmp_n;
-    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; return FAILDESCR; }
+    int my = g_core_errjmp_n; void * volatile bimark = core_icn_bi_mark();
+    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; core_icn_bi_reset(bimark); return FAILDESCR; }
     g_core_errjmp_n = my + 1;
     DESCR_t r = rt_call_arr_impl(fn, args, nargs, bidlen);
     g_core_errjmp_n = my;
@@ -4331,7 +4331,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
           else if (!strcmp(fn, "==="))  oc = BINOP_EQV; else if (!strcmp(fn, "~===")) oc = BINOP_NEQV;
           if (oc >= 0) { if (!rt_jct_relop(a, b, oc)) return FAILDESCR; if (oc >= BINOP_SLT && oc <= BINOP_SNE) return rt_str_coerce(b); if (oc == BINOP_EQV || oc == BINOP_NEQV) return b; DESCR_t _rv; rt_relop_val_coerce(a, b, &_rv); return _rv; } }
     }
-    if (try_call_builtin_by_name_bl(fn, args, nargs, &out, bidlen)) return out;
+    { icn_bi_rec_t bi; core_icn_bi_push(&bi, fn, args, nargs); int hit = try_call_builtin_by_name_bl(fn, args, nargs, &out, bidlen); core_icn_bi_pop(&bi); if (hit) return out; }
     out = APPLY_fn(fn, args, nargs);
     return out;
 }
@@ -4453,7 +4453,7 @@ static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op) {
             int64_t a = L.i, b = R.i;
             switch (op) { case BINOP_EQ: return a==b; case BINOP_NE: return a!=b; case BINOP_LT: return a<b;
                           case BINOP_LE: return a<=b; case BINOP_GT: return a>b;  case BINOP_GE: return a>=b; } return 0; }
-        core_icn_error(102, _relop_lok ? rhs : lhs); return 0; }
+        core_icn_op_ctx(core_icn_binop_sym(op), 2, lhs, rhs); core_icn_error(102, _relop_lok ? rhs : lhs); core_icn_op_ctx_clear(); return 0; }
     if (num_rel && (IS_REAL_fn(lhs) || IS_REAL_fn(rhs)) && (IS_INT_fn(lhs) || IS_REAL_fn(lhs)) && (IS_INT_fn(rhs) || IS_REAL_fn(rhs))) {
         double a = to_real(lhs), b = to_real(rhs);
         switch (op) { case BINOP_EQ: return a==b; case BINOP_NE: return a!=b; case BINOP_LT: return a<b;

@@ -8,6 +8,7 @@
 #include "../rt/gc_heap.h"
 #include "../snobol4_system_fns.h"
 #include "../keywords.h"
+#include "../builtins/gen.h"
 extern int g_protected_pat_vars_armed;
 int g_call_fastpath_off = 0;
 #include <stdio.h>
@@ -322,8 +323,80 @@ void rt_trace_call_hook(const char *fname) {
     rt_trace_event_args(TRK_CALL, fname, a, np, NULVCL, g_stno);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *icn_errmsg(int n);
+#define ICN_ACT_CAP (1 << 16)
+static icn_act_rec_t g_icn_act[ICN_ACT_CAP];
+static icn_bi_rec_t *g_icn_bi_top = (icn_bi_rec_t *)0;
+static struct { const char *sym; int arity; DESCR_t a, b; } g_icn_op;
+static const char *icn_basename(const char *f) { const char *bn = f ? strrchr(f, '/') : (const char *)0; return bn ? bn + 1 : (f ? f : ""); }
+int core_icn_active(void) { extern long g_stno; extern long g_line; return g_stno == 0 && g_line > 0; }
+void core_icn_op_ctx(const char *sym, int arity, DESCR_t a, DESCR_t b) { g_icn_op.sym = sym; g_icn_op.arity = arity; g_icn_op.a = a; g_icn_op.b = b; }
+void core_icn_op_ctx_clear(void) { g_icn_op.sym = (const char *)0; }
+const char *core_icn_binop_sym(int bcode) {
+    switch (bcode) {
+        case BINOP_ADD: case BINOP_ADD_BIG: return "+"; case BINOP_SUB: case BINOP_SUB_BIG: return "-"; case BINOP_MUL: case BINOP_MUL_BIG: return "*";
+        case BINOP_DIV: return "/"; case BINOP_MOD: return "%"; case BINOP_POW: case BINOP_POW_PROMOTE: return "^";
+        case BINOP_LT: return "<"; case BINOP_LE: return "<="; case BINOP_GT: return ">"; case BINOP_GE: return ">="; case BINOP_EQ: return "="; case BINOP_NE: return "~=";
+        case BINOP_SLT: return "<<"; case BINOP_SLE: return "<<="; case BINOP_SGT: return ">>"; case BINOP_SGE: return ">>="; case BINOP_SEQ: return "=="; case BINOP_SNE: return "~==";
+        case BINOP_CONCAT: case BINOP_CONCAT_FRACDIGIT: return "||"; case BINOP_CUNION: return "++"; case BINOP_CDIFF: return "--"; case BINOP_CINTER: return "**";
+        case BINOP_EQV: return "==="; case BINOP_NEQV: return "~===";
+    }
+    return "?";
+}
+void core_icn_bi_push(icn_bi_rec_t *r, const char *name, DESCR_t *args, int nargs) { extern int rt_k_level; r->name = name; r->args = args; r->nargs = nargs; r->level = rt_k_level; r->prev = g_icn_bi_top; g_icn_bi_top = r; g_icn_op.sym = (const char *)0; }
+void core_icn_bi_pop(icn_bi_rec_t *r) { g_icn_bi_top = r->prev; }
+void *core_icn_bi_mark(void) { return (void *)g_icn_bi_top; }
+void core_icn_bi_reset(void *mark) { g_icn_bi_top = (icn_bi_rec_t *)mark; }
+static void icn_tb_image(DESCR_t v) {
+    if (v.v == DT_S || v.v == DT_SNUL) { char vb[512]; trace_icon_value_image(v, vb, sizeof vb); fputs(vb, stderr); return; }
+    trace_image_icon(v, 1);
+}
+static void icn_tb_builtins_at(int lv) {
+    int n = 0; for (icn_bi_rec_t *b = g_icn_bi_top; b; b = b->prev) if (b->level == lv) n++;
+    for (int k = n; k > 0; k--) {
+        int i = 0; icn_bi_rec_t *b = g_icn_bi_top; while (b && !(b->level == lv && ++i == k)) b = b->prev;
+        if (!b) break;
+        fputs(b->name ? b->name : "", stderr); fputc('(', stderr);
+        for (int j = 0; j < b->nargs; j++) { if (j) fputc(',', stderr); icn_tb_image(b->args ? b->args[j] : NULVCL); }
+        fputc(')', stderr);
+        { extern long g_line; extern const char *g_file; fprintf(stderr, " from line %ld in %s\n", g_line, icn_basename(g_file)); }
+    }
+}
+void core_icn_traceback(void) {
+    extern int rt_k_level; extern long g_line; extern const char *g_file;
+    int top = rt_k_level; if (top >= ICN_ACT_CAP) top = ICN_ACT_CAP - 1;
+    fputs("Traceback:\n", stderr);
+    for (int lv = 1; lv <= top; lv++) {
+        icn_act_rec_t *r = &g_icn_act[lv];
+        if (r->name) {
+            fputs(r->name, stderr); fputc('(', stderr);
+            for (int i = 0; i < r->np; i++) { if (i) fputc(',', stderr); icn_tb_image(*(DESCR_t *)((char *)r->base + (i + 1) * 16)); }
+            fputc(')', stderr);
+            if (lv > 1) fprintf(stderr, " from line %ld in %s", r->line, icn_basename(r->file));
+            fputc('\n', stderr);
+        }
+        icn_tb_builtins_at(lv);
+    }
+    if (g_icn_op.sym) {
+        fputc('{', stderr);
+        if (g_icn_op.arity == 1) { fputs(g_icn_op.sym, stderr); icn_tb_image(g_icn_op.a); }
+        else { icn_tb_image(g_icn_op.a); fprintf(stderr, " %s ", g_icn_op.sym); icn_tb_image(g_icn_op.b); }
+        fprintf(stderr, "} from line %ld in %s\n", g_line, icn_basename(g_file));
+    }
+    fflush(stderr);
+}
+static void core_icn_report(int code, DESCR_t val, const char *msg) {
+    extern long g_line; extern const char *g_file;
+    fflush(stdout);
+    fprintf(stderr, "\nRun-time error %d\nFile %s; Line %ld\n%s\n", code, icn_basename(g_file), g_line, msg ? msg : icn_errmsg(code));
+    if (val.v != DT_FAIL) { char vb[512]; trace_icon_value_image(val, vb, sizeof vb); if (vb[0]) fprintf(stderr, "offending value: %s\n", vb); }
+    core_icn_traceback();
+    exit(1);
+}
 void rt_trace_call_hook_f(const char *fname, int np, void *base) {
-    extern long g_stno;
+    extern long g_stno; extern int rt_k_level; extern long g_line; extern const char *g_file;
+    if (rt_k_level >= 0 && rt_k_level < ICN_ACT_CAP) { icn_act_rec_t *r = &g_icn_act[rt_k_level]; r->name = fname; r->base = base; r->np = np; r->line = g_line; r->file = g_file; }
+    if (g_trace == 0) return;
     DESCR_t a[16]; if (np < 0) np = 0; if (np > 16) np = 16;
     for (int i = 0; i < np; i++) a[i] = *(DESCR_t *)((char *)base + (i + 1) * 16);
     rt_trace_event_args(TRK_CALL, fname, a, np, NULVCL, g_stno);
@@ -2464,7 +2537,7 @@ void core_runtime_error(int code, const char *msg) {
     { extern long g_stno; extern long g_line; extern const char *g_file;
       if (g_stno == 0 && g_line > 0) { int ic = code == 2 ? 201 : code == 22 ? 106 : code; const char *im = code == 2 ? "division by zero" : code == 22 ? "procedure or integer expected" : (ic >= 101 ? icn_errmsg(ic) : (msg ? msg : ""));
           const char *bn = g_file ? strrchr(g_file, '/') : (const char *)0; bn = bn ? bn + 1 : (g_file ? g_file : "");
-          fprintf(stderr, "\nRun-time error %d\nFile %s; Line %ld\n%s\nTraceback:\nmain()\n", ic, bn, g_line, im); exit(1); }
+          (void)bn; core_icn_report(ic, FAILDESCR, im); }
       fprintf(stderr, "%s(%ld) : ERROR %03d -- %s\nin statement %ld\n",
               g_file ? g_file : "", g_line, code, msg ? msg : "", g_stno); }
     if (core_err_is_terminal(code)) exit(1);
@@ -2507,10 +2580,7 @@ int core_icn_error(int code, DESCR_t val) {
         if (g_core_errjmp_n > 0) longjmp(g_core_errjmp_stk[g_core_errjmp_n - 1], code);
         return 1;
     }
-    { extern long g_line; extern const char *g_file; const char *bn = g_file ? strrchr(g_file, '/') : (const char *)0; bn = bn ? bn + 1 : (g_file ? g_file : "");
-      fprintf(stderr, "\nRun-time error %d\nFile %s; Line %ld\n%s\n", code, bn, g_line, icn_errmsg(code));
-      { extern int try_call_builtin_by_name(const char *, DESCR_t *, int, DESCR_t *); DESCR_t _im = FAILDESCR; DESCR_t _va = val; if (val.v != DT_FAIL && try_call_builtin_by_name("image", &_va, 1, &_im) && _im.v != DT_FAIL) { fprintf(stderr, "offending value: %s\n", rt_cstr_d(_im)); } }
-      fprintf(stderr, "Traceback:\nmain()\n"); }
+    core_icn_report(code, val, (const char *)0);
     exit(1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
