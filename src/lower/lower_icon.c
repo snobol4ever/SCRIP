@@ -1779,7 +1779,7 @@ void lower_icon_resolve_call_kinds(void) {
         }
         for (int i = 0; i < g->n; i++) {
             IR_t * nd = g->all[i];
-            if (!nd || nd->op != IR_VAR) continue;
+            if (!nd || (nd->op != IR_VAR && nd->op != IR_VAR_REF)) continue;
             const char * vn = IR_LIT(nd).sval;
             if (!vn || !vn[0] || vn[0] == '&') continue;
             if (is_global(vn)) continue;
