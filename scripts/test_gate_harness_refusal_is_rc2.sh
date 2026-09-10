@@ -17,6 +17,11 @@
 # ARMS: 1 behavioural refusal (missing suite file) -> rc=2 · 2 the source carries ZERO sys.exit(3) arms and
 # refuse() exits 2 · 3 a red board still exits 1 (the distinction that must survive) · 4 a clean run still
 # exits 0 · 5 the staleness refusal, which was already 2, is unchanged -- both refusal paths now agree.
+# ⭐ ARMS 6-9 ADDED 2026-09-10 (hq_T, row corpus-suite-harness-run-without-lang-silently-regrades-...): a suite
+# pair whose suffix names a dialect REFUSES rc=2 without --lang, in `run` AND in `pin-ref`, and the refusal names
+# the flag instead of accusing the corpus · the explicit `--lang snobol4` escape hatch still reaches the
+# line-per-entry reader · and a .sno pair with no --lang is untouched, which is the arm that catches a guard
+# written too wide (it would red the SNOBOL4 master for the whole fleet).
 # EXIT: 0 all arms · 1 an arm failed · 2 REFUSED (no python3/harness/master, or an unbuilt tree).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -73,6 +78,44 @@ echo "--- ARM 5: the staleness refusal (already 2) agrees -- BOTH refusal paths 
 cp "$ROOT/scrip" "$W/scrip.old"; touch -d "2020-01-01T00:00:00" "$W/scrip.old"
 out="$(SCRIP="$W/scrip.old" timeout 120 python3 "$H" run "$MASTER/ALL.reb" "$MASTER/ALL.ref" --lang rebus --modes m3,m4 --by-modes-column 2>&1)"; rc=$?
 [ "$rc" = 2 ] && ck ok "the staleness refusal is rc=2, same code as every other refusal" || ck no "staleness refusal got rc=$rc"
+echo "--- ARM 6: a corpus suite pair whose suffix names a dialect REFUSES rc=2 without --lang ---"
+# ⛔⭐ ROW corpus-suite-harness-run-without-lang-silently-regrades-the-suite-one-entry-per-line-instead-of-refusing
+# (minted by the cfo 2026-09-08 from two live near-misses; cured by hq_T 2026-09-10). --lang is what selects the
+# comment syntax that DELIMITS ENTRIES. Omitted, `run` fell back to the SNOBOL4 `*`-banner grammar, which over a
+# .pas/.reb master parses EVERY SOURCE LINE as its own entry -- a different population -- and then reported
+# failures about that imaginary population with total confidence: `family.ref is shorter than family.sno at seq
+# 904` for a pascal pair whose ALL.pas and ALL.ref BOTH carry 251 markers, and `declarations with no matching
+# entry` naming four rebus entries that DO exist. ⛔ BOTH MESSAGES ACCUSE THE DATA, so the reader is sent to edit
+# a corpus that is fine -- the cfo was one step from filing two masters as unrunnable. THE DEFECT WAS THE SILENT
+# FALLBACK, NOT THE MISSING FLAG.
+out="$(timeout 120 python3 "$H" run "$MASTER/ALL.reb" "$MASTER/ALL.ref" --modes m3 2>&1)"; rc=$?
+[ "$rc" = 2 ] && ck ok "a .reb pair with no --lang REFUSES rc=2 instead of regrading line-per-entry" \
+              || ck no "must REFUSE rc=2; got rc=$rc -- $(tail -c 300 <<<"$out")"
+grep -qi -- '--lang' <<<"$out" && ck ok "the refusal names the flag the reader must pass" \
+                              || ck no "refused without naming --lang, so the reader cannot act on it -- $(head -c 300 <<<"$out")"
+grep -qiE 'shorter than|no matching entry' <<<"$out" && ck no "the refusal still carries the data-accusing wording" \
+                                                     || ck ok "the refusal blames the READER, not the corpus"
+echo "--- ARM 7: pin-ref carries the same guard (it REWRITES the pair from what it read) ---"
+# pin-ref is the worse of the two callers: a pin rewrites the whole pair from whatever the reader thought it read,
+# so a mis-chosen grammar there does not merely misreport, it EDITS the corpus into the misreading.
+out="$(timeout 120 python3 "$H" pin-ref "$MASTER/ALL.reb" "$MASTER/ALL.ref" nosuchentry --ruling "gate probe, no --apply" 2>&1)"; rc=$?
+[ "$rc" = 2 ] && ck ok "pin-ref on a .reb pair with no --lang REFUSES rc=2" || ck no "pin-ref must REFUSE rc=2; got rc=$rc -- $(tail -c 300 <<<"$out")"
+grep -qi -- '--lang' <<<"$out" && ck ok "pin-ref's refusal names the flag" || ck no "pin-ref refused without naming --lang -- $(head -c 300 <<<"$out")"
+echo "--- ARM 8: the line-per-entry reader stays REACHABLE when asked for explicitly ---"
+# ⭐ THE CURE MUST NOT REMOVE A CAPABILITY, only stop it being reached BY ACCIDENT. `--lang snobol4` is an
+# accepted synonym of the default, so it must still select the SNOBOL4 grammar on any suffix -- explicit is a
+# choice, blank is an accident, and only the accident is refused. Whatever this run does, it must NOT be the
+# suffix refusal: the escape hatch being silently closed would look identical to the cure working.
+out="$(timeout 120 python3 "$H" run "$MASTER/ALL.reb" "$MASTER/ALL.ref" --lang snobol4 --modes m3 2>&1)"; rc=$?
+grep -qi 'has suffix' <<<"$out" && ck no "--lang snobol4 was refused by the suffix guard -- the explicit escape hatch is gone" \
+                                || ck ok "--lang snobol4 still selects the SNOBOL4 grammar deliberately (rc=$rc)"
+echo "--- ARM 9: a .sno pair with no --lang is UNTOUCHED (every existing caller) ---"
+# The census before the cure: every `harness run` invocation in scripts/ that omits --lang passes a .sno pair.
+# This arm is the one that would catch a guard written too wide -- it would red the SNOBOL4 master for the fleet.
+out="$(timeout 300 python3 "$H" run "$S4E/corpus/tests/snobol4/ALL.sno" "$S4E/corpus/tests/snobol4/ALL.ref" --modes m3 --by-modes-column --shard 1/40 2>&1)"; rc=$?
+if [ "$rc" = 0 ] || [ "$rc" = 1 ]; then ck ok "the SNOBOL4 master still grades with no --lang (rc=$rc)"
+else ck no "the guard caught a .sno caller -- got rc=$rc -- $(tail -c 300 <<<"$out")"; fi
+grep -q '^SUITE_BOARD' <<<"$out" && ck ok "and it printed its board" || ck no "no board printed -- $(tail -c 300 <<<"$out")"
 echo "------------------------------------------------------------"
 if [ "$fails" -ne 0 ]; then echo "⛔ GATE FAIL: $fails of $checks check(s) failed"; exit 1; fi
 echo "✅ GATE PASS: $checks/$checks checks"; exit 0

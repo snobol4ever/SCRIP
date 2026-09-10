@@ -2094,6 +2094,44 @@ def cmd_convert_blocks(args):
     sys.exit(0)
 
 
+def require_lang_for_suite(subcmd, src_path, args):
+    """⛔⭐ A READER CHOSEN BY OMISSION IS NOT A CHOICE (row corpus-suite-harness-run-without-lang-silently-
+    regrades-the-suite-one-entry-per-line-instead-of-refusing, minted by the cfo 2026-09-08, cured by hq_T 2026-09-10).
+
+    `run` and `pin-ref` take a suite pair and an OPTIONAL --lang, and --lang is what selects the comment syntax
+    that DELIMITS ENTRIES. Omitted, they fell back to the SNOBOL4 grammar (`*` banners), which over a Pascal or
+    Rebus master parses EVERY SOURCE LINE as its own entry -- a completely different population -- and then
+    reports failures about that imaginary population with total confidence.
+    ⛔ MEASURED on two committed, UNCORRUPT masters: `run` on the pascal master without --lang printed
+    `family.ref is shorter than family.sno at seq 904` for a pair whose ALL.pas and ALL.ref BOTH carry exactly
+    251 entry markers, and the rebus master printed `ALL.wantrc: declarations with no matching entry` naming
+    four entries that DO exist.
+    ⛔⭐ THE DEFECT IS THE SILENT FALLBACK, NOT THE MISSING FLAG: both messages ACCUSE THE DATA, so the reader is
+    sent to edit a corpus that is fine. The cfo was one step from filing two masters as unrunnable and telling
+    Lon so; what stopped it was hand-counting the markers and finding that 251 and 251 did not fit the story.
+    A tool that changes its POPULATION SEMANTICS on an omitted argument owes its user a refusal, not a verdict.
+    ⭐ This is the same fault class, and deliberately the same wording, as the suffix refusal cmd_list has
+    carried since 2026-09-02; `run` and `pin-ref` were simply never given it. pin-ref is the worse of the two,
+    because a pin REWRITES the whole pair from whatever the reader thought it read.
+    ⭐ THE LINE-PER-ENTRY READER STAYS REACHABLE -- but only when ASKED FOR, spelled `--lang snobol4` (an
+    accepted synonym of the default since LANG_CHOICES), never by omission. Explicit is a choice; blank is an
+    accident, and only one of the two should be able to re-grade a suite into a population nobody wrote."""
+    if getattr(args, "lang", ""):
+        return
+    if getattr(args, "lang_explicit", False):
+        return                          # `--lang snobol4`: the SNOBOL4 grammar was ASKED FOR, not defaulted into
+    suffix = Path(src_path).suffix
+    if not suffix or suffix == ".sno":
+        return
+    owner = [k for k, c in LANG_CONFIGS.items() if c["ext"] == suffix]
+    hint = f" -- pass --lang {owner[0]}" if owner else " -- no LANG_CONFIGS dialect claims that suffix"
+    refuse(f"{subcmd}: {src_path} has suffix {suffix!r}, but with no --lang this reads the SNOBOL4 suite grammar "
+           f"(`*` banners), which parses every line as its own one-line entry{hint}. Refusing rather than grading "
+           f"a population that is not this suite's and then blaming the .ref file for being short -- the fault "
+           f"would be the READER, not the data. To read this pair with the SNOBOL4 grammar deliberately, pass "
+           f"--lang snobol4.")
+
+
 def cmd_run(args):
     paths = resolve_paths()
     _progress_pin(paths)
@@ -2119,6 +2157,7 @@ def cmd_run(args):
                                    x_path=sidecar_xfail_path(args.sno), w_path=sidecar_wantrc_path(args.sno),
                                    a_path=sidecar_argv_path(args.sno), modes=modes)
     else:
+        require_lang_for_suite("run", args.sno, args)
         ext = ".sno"
         modes = (args.modes or "m3,m4").split(",")
         entries = read_suite(args.sno, args.ref, in_path=sidecar_in_path(args.sno),
@@ -2547,6 +2586,7 @@ def cmd_pin_ref(args):
                                    x_path=sidecar_xfail_path(src_path), w_path=sidecar_wantrc_path(src_path),
                                    a_path=sidecar_argv_path(src_path))
     else:
+        require_lang_for_suite("pin-ref", src_path, args)
         co, cc = "*", ""
         entries = read_suite(src_path, ref_path, in_path=sidecar_in_path(src_path),
                              x_path=sidecar_xfail_path(src_path), w_path=sidecar_wantrc_path(src_path),
@@ -2978,6 +3018,12 @@ def main():
     l.set_defaults(func=cmd_list)
 
     args = ap.parse_args()
+    # ⛔⭐ EXPLICITNESS IS RECORDED BEFORE THE SYNONYM IS NORMALISED AWAY, because the next line destroys the
+    # only evidence that the SNOBOL4 grammar was CHOSEN rather than defaulted into: `--lang snobol4` and an
+    # omitted --lang both arrive downstream as "". require_lang_for_suite() needs to tell them apart -- one is
+    # a caller asking for the line-per-entry reader, the other is the omission that re-grades a suite into a
+    # population nobody wrote. Read after normalisation, this flag would always be False.
+    args.lang_explicit = bool(getattr(args, "lang", None))
     if getattr(args, "lang", None) == "snobol4":
         args.lang = ""      # the accepted synonym for the default -- see LANG_CHOICES
     args.func(args)
