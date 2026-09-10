@@ -317,7 +317,16 @@ fi
 # check whose entire job is to catch a REAL silent shrink -- so the check had been disabled by its own output.
 # Reconciled, it can speak again: it now fires only when the three populations genuinely fail to add up, and it
 # SHOWS the arithmetic so the next reader can see which term is wrong instead of re-deriving it.
-_outside_n=$(echo "$_raw" | grep -oE '^OUTSIDE_BASELINE_COUNT [0-9]+' | awk '{print $2}' | tail -1); _outside_n=${_outside_n:-0}
+# ⛔⭐ `|| true` IS WHAT KEEPS THE PROMISE MADE 119 LINES ABOVE (hq_V 2026-09-10, MEASURED). The OUTSIDE list
+# "rides only if it exists, and its absence is not an error" -- and the `${_outside_n:-0}` fallback on this very
+# line was written for exactly that case. Under `set -o pipefail` it never got the chance: with no outside list
+# the harness prints no OUTSIDE_BASELINE_COUNT at all, this grep exits 1, the pipeline fails, and `set -e` kills
+# the board HERE -- one line before the denominator reconciliation, the watermark verdict and the SCORE.md write.
+# MEASURED when CEO-503 retired the last outside row: the board ran all 759 entries, printed its full numbers and
+# the six non-PASS names, then vanished with rc=1 and wrote NO row. That is the worst shape an instrument can
+# fail in -- it looks like a completed run in the log and leaves the board silently stale, which the FACT RULE
+# counts as a defect of the session. An empty outside list must read as ZERO OUTSIDE, never as a dead board.
+_outside_n=$(echo "$_raw" | grep -oE '^OUTSIDE_BASELINE_COUNT [0-9]+' | awk '{print $2}' | tail -1 || true); _outside_n=${_outside_n:-0}
 if [ "$(( graded + _outside_n ))" -ne "$CSV_ENTRIES" ]; then
     echo "⚠️  NOTE: harness graded $graded entries and $_outside_n are outside the baseline ($((graded + _outside_n)) accounted for),"
     echo "        but ALL.csv carries $CSV_ENTRIES rows — the suite file and its provenance index genuinely disagree by"
