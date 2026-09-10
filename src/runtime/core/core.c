@@ -143,6 +143,36 @@ static void trace_print_banner_args(const char *name, DESCR_t *args, int nargs, 
 }
 static void trace_print_banner(const char *name, DESCR_t value, long long stno, int kind) { trace_print_banner_args(name, (DESCR_t *)0, 0, value, stno, kind); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void trace_image_icon_plain(DESCR_t a) {
+    extern int try_call_builtin_by_name(const char *fn, DESCR_t *a, int n, DESCR_t *out);
+    DESCR_t im; if (try_call_builtin_by_name("image", &a, 1, &im) && (im.v == DT_S || im.v == DT_SNUL)) fputs(VARVAL_fn(im) ? VARVAL_fn(im) : "", stderr);
+}
+static void trace_image_icon(DESCR_t a, int top) {
+    extern long rt_record_image_id(void *inst);
+    if (a.v == DT_DATA && a.u && a.u->type && a.u->type->name) {
+        DATBLK_t *t = a.u->type;
+        if (!strcmp(t->name, "list")) {
+            int n = (t->nfields >= 2 && a.u->fields) ? (int)a.u->fields[1].i : 0;
+            DESCR_t *e = (t->nfields >= 1 && a.u->fields) ? (DESCR_t *)a.u->fields[0].ptr : (DESCR_t *)0;
+            if (!top && n > 0) { trace_image_icon_plain(a); return; }
+            fprintf(stderr, "list_%ld = [", rt_record_image_id(a.u));
+            for (int i = 0; i < n; i++) {
+                if (n > 6 && i == 3) { fputs(",...", stderr); i = n - 4; continue; }
+                if (i) fputc(',', stderr);
+                trace_image_icon(e ? e[i] : NULVCL, 0);
+            }
+            fputc(']', stderr); return;
+        }
+        if (strcmp(t->name, "table") && strcmp(t->name, "set")) {
+            int nf = t->nfields;
+            if (!top && nf > 0) { trace_image_icon_plain(a); return; }
+            fprintf(stderr, "record %s_%ld(", t->name, rt_record_image_id(a.u));
+            for (int i = 0; i < nf; i++) { if (i) fputc(',', stderr); trace_image_icon(a.u->fields ? a.u->fields[i] : NULVCL, 0); }
+            fputc(')', stderr); return;
+        }
+    }
+    trace_image_icon_plain(a);
+}
 static void trace_print_icon(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value) {
     extern const char *g_file; extern long g_line; extern int * const rt_k_level_p;
     extern int try_call_builtin_by_name(const char *fn, DESCR_t *a, int n, DESCR_t *out);
@@ -153,10 +183,10 @@ static void trace_print_icon(int kind, const char *name, DESCR_t *args, int narg
     fputs(name, stderr);
     if (kind == TRK_CALL) {
         fputc('(', stderr);
-        for (int i = 0; i < nargs; i++) { DESCR_t im; DESCR_t a = args[i]; if (i) fputc(',', stderr); if (try_call_builtin_by_name("image", &a, 1, &im) && (im.v == DT_S || im.v == DT_SNUL)) fputs(VARVAL_fn(im) ? VARVAL_fn(im) : "", stderr); }
+        for (int i = 0; i < nargs; i++) { if (i) fputc(',', stderr); trace_image_icon(args[i], 1); }
         fputc(')', stderr);
     } else if (IS_FAIL(value)) fputs(" failed", stderr);
-    else { DESCR_t im; DESCR_t a = value; fputs(" returned ", stderr); if (try_call_builtin_by_name("image", &a, 1, &im) && (im.v == DT_S || im.v == DT_SNUL)) fputs(VARVAL_fn(im) ? VARVAL_fn(im) : "", stderr); }
+    else { fputs(" returned ", stderr); trace_image_icon(value, 1); }
     fputc('\n', stderr);
     fflush(stderr);
 }

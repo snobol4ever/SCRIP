@@ -1306,6 +1306,9 @@ void rt_gc_ws_roots(void)
     for (int i = 0; i < g_name_save_top; i++) rt_gc_visit_descr(&g_name_save[i].old);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static unsigned char g_lvl_own[1 << 16];
+static inline void rt_lvl_open(int own) { int L = rt_k_level; if (L >= 0 && L < (1 << 16)) g_lvl_own[L] = own ? 1 : 0; else own = 0; if (!own) rt_k_level++; }
+static inline void rt_lvl_close(void) { int L = rt_k_level; if (L >= 0 && L < (1 << 16) && g_lvl_own[L]) { g_lvl_own[L] = 0; return; } rt_k_level--; }
 int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
 {
     rt_proc_resolve_cells(p);
@@ -1322,20 +1325,20 @@ int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
     fbytes = (int)(((long)fbytes + 15L) & ~15L);
     if (g_monitor_bin) mon_emit_call_bin(p->name);
     { extern long g_stno; rt_trace_event_args(TRK_CALL, p->name, args, nargs, NULVCL, g_stno); }
-    rt_k_level++;
+    rt_lvl_open(0);
     rt_g_want_name = wn;
     return fbytes;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0)
 {
-    rt_k_level--;
+    rt_lvl_close();
     return frame0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_proc_call_epilogue_ω(void)
 {
-    rt_k_level--;
+    rt_lvl_close();
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1351,7 +1354,7 @@ static int rt_proc_save_count(rt_proc_t *p)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_proc_epilogue_named(const char *name, int failed)
 {
-    rt_k_level--;
+    rt_lvl_close();
     rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
     if (!p && name) p = rt_proc_find_alias(name);
     if (!p) return failed ? FAILDESCR : NULVCL;
@@ -1606,8 +1609,7 @@ static int rt_proc_call_prologue_lex(rt_proc_t *p, int nargs, int wn)
             for (int i = nargs; i < fixed; i++) g_call_args[i] = NULVCL;
             DESCR_t _tail = (p->rest_kind == 2) ? rt_make_nested_agg(rest > 0 ? &g_call_args[fixed] : (DESCR_t *)0, rest) : p->rest_kind ? rt_make_flat_agg(rest > 0 ? &g_call_args[fixed] : (DESCR_t *)0, rest) : rt_make_list(rest > 0 ? &g_call_args[fixed] : (DESCR_t *)0, rest);
             g_call_args[fixed] = _tail; } } }
-    rt_k_level++;
-    { extern long g_stno; rt_trace_event_args(TRK_CALL, p->name, g_call_args, nargs, NULVCL, g_stno); }
+    { long _pi = (long)(p - g_rt_gen_procs); int own = (_pi >= 0 && _pi < RT_DC_FNS_MAX && g_rt_dc_fns_store[_pi] && !p->is_generator) ? 1 : 0; rt_lvl_open(own); if (!own) { extern long g_stno; rt_trace_event_args(TRK_CALL, p->name, g_call_args, nargs, NULVCL, g_stno); } }
     return fbytes;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

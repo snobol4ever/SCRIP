@@ -4775,7 +4775,7 @@ static int bn_type_datatype(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
     *out = STRVAL(t); return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static long rt_record_image_id(void *inst)
+long rt_record_image_id(void *inst)
 {
     return inst ? ((DATINST_t *)inst)->id : 0;
 }
