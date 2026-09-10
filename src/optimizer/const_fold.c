@@ -2,6 +2,7 @@
 #include "gen.h"
 #include <string.h>
 #include <stdlib.h>
+#include <setjmp.h>
 extern DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op);
 extern DESCR_t str_concat_d(DESCR_t a, DESCR_t b);
 extern DESCR_t str_concat_fracdigit_d(DESCR_t a, DESCR_t b);
@@ -24,11 +25,24 @@ static int cf_store_descr(IR_graph_t * g, IR_t * nd, DESCR_t r) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int cf_eval(DESCR_t da, DESCR_t db, int code, DESCR_t * out) {
+    extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n; extern long g_error;
+    extern long g_icn_errnumber; extern const char * g_icn_errtext; extern DESCR_t g_icn_errvalue; extern int g_icn_err_valid; extern void core_icn_op_ctx_clear(void);
+    long snum = g_icn_errnumber; const char * stxt = g_icn_errtext; DESCR_t sval = g_icn_errvalue; int svalid = g_icn_err_valid;
+    long esv = g_error; int my = g_core_errjmp_n; int folded = 0;
+    if (my >= 64) return 0;
+    g_error = -1;
+    if (setjmp(g_core_errjmp_stk[my]) == 0) { g_core_errjmp_n = my + 1; *out = rt_num_arith(da, db, code); folded = 1; }
+    g_core_errjmp_n = my; g_error = esv; core_icn_op_ctx_clear();
+    g_icn_errnumber = snum; g_icn_errtext = stxt; g_icn_errvalue = sval; g_icn_err_valid = svalid;
+    return folded;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int cf_binop(IR_graph_t * g, IR_t * nd, long code, DESCR_t da, DESCR_t db) {
     if (code == BINOP_LCONCAT) return 0;
     if (code == BINOP_CONCAT_FRACDIGIT && !(core_icn_str_ok(da) && core_icn_str_ok(db))) return 0;
     if (binop_is_concat(code)) return cf_store_descr(g, nd, code == BINOP_CONCAT_FRACDIGIT ? str_concat_fracdigit_d(da, db) : str_concat_d(da, db));
-    if (code == BINOP_ADD || code == BINOP_SUB || code == BINOP_MUL || code == BINOP_DIV || code == BINOP_MOD) return cf_store_descr(g, nd, rt_num_arith(da, db, (int)code));
+    if (code == BINOP_ADD || code == BINOP_SUB || code == BINOP_MUL || code == BINOP_DIV || code == BINOP_MOD) { DESCR_t r; return cf_eval(da, db, (int)code, &r) ? cf_store_descr(g, nd, r) : 0; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
