@@ -37,6 +37,10 @@
 # CEO-510): every arm compares a VALUE the program itself printed via &errornumber, so a change to the
 # fatal-report format cannot turn this red while the semantics are right.
 # ⛔ A GATE THAT CANNOT MEASURE REFUSES rc=2 -- all 36 runs (18 rows x 2 modes) must be graded.
+# ⭐ NEGATIVE-TESTED AS A DISCRIMINATOR, not merely watched go green (CEO-510): the two source files
+# were restored to their pre-cure content, the runtime rebuilt, and this gate run again -- rc=1, RED
+# on BOTH arms in BOTH modes, with armB reading exactly "num=204" (the stale &errornumber) and armA
+# missing all nine exact-value rows. Cured tree: rc=0. So it can fail, and it fails on the real bug.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
