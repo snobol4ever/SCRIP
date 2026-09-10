@@ -43,7 +43,23 @@ CENSUS="$CORPUS/tests/ORPHANED-WITNESSES.tsv"
 # trace lines, so the master builder's rename would make it red by construction (86 differing lines, measured,
 # with a control green under its own name) -- tests/icon/KEEP.md carries the measurement. It can never be absorbed,
 # so its orphan is permanent and the floor is where that fact belongs.
-FLOOR_icon=20 FLOOR_pascal=0 FLOOR_prolog=0 FLOOR_raku=0 FLOOR_rebus=0 FLOOR_snobol4=39 FLOOR_snocone=1
+# ⭐⛔ FLOOR_icon 20 -> 5 (hq_V 2026-09-10, ceo CEO-541 landing), AND FIFTEEN OF THE EIGHTEEN WERE ALREADY PAID FOR --
+# THE CENSUS FILE JUST NEVER SAID SO. This landing absorbs eleven rung36_jcon keepers, which removes 0 orphans (they
+# pair a .icn with a .expected, and the census only counts a .ref sibling). The fall is HQV-26's: that landing
+# absorbed 18 long-loose witnesses and DID NOT REGENERATE corpus/tests/ORPHANED-WITNESSES.tsv, so the checked-in
+# census kept naming absorbed files and this gate read STALE -- red on origin, for anyone who ran it, in a way that
+# reads like someone else's debt. Regenerated here in the same commit. ⛔ THE DIRECTION IS THE ONLY MERCY: a stale
+# census OVER-reports orphans, so the ratchet failed safe rather than hiding real debt. An absorb landing owes this
+# file its regeneration, exactly as it owes ALL.csv one -- the count is not the artifact, the census is.
+# ⚠ AND THE COUNT READS 7, NOT 5, THE MOMENT THIS LANDS -- TWO CONCURRENT LANDINGS, NAMED, NOT ABSORBED BY ME.
+# corpus cfc826b0f (stop_writes_to_a_leading_file_argument_and_ends_its_line) and 2e8b94fe5
+# (list_and_reads_check_their_size_argument_and_real_exponentiation_reports_no_value) added two loose .icn/.ref
+# pairs in the window this landing was rebasing through. THE FLOOR IS NOT RAISED TO COVER THEM: raising it would
+# launder another seat's debt into my ratchet and the growth would never be seen again. The census is regenerated
+# HONESTLY to 7 so that this gate's complaint is a REAL one addressed to those two commits -- absorb the two
+# witnesses (or declare them with a reason) and the count returns to 5 on its own. Naming them here is the whole
+# of what CEO-463 asks of a seat that did not cause a red.
+FLOOR_icon=5 FLOOR_pascal=0 FLOOR_prolog=0 FLOOR_raku=0 FLOOR_rebus=0 FLOOR_snobol4=39 FLOOR_snocone=1
 out="$(python3 scripts/util_orphaned_witness_census.py "$CORPUS" --counts 2>&1)" || { echo "⛔ GATE REFUSES(2): census generator failed:"; echo "$out"; exit 2; }
 printf %s "$out" | grep -q . || { echo "⛔ GATE REFUSES(2): census produced NO output -- an empty census is not a green board"; exit 2; }
 rc=0 tot=0 seen=0
