@@ -183,8 +183,10 @@ static void trace_print_icon(int kind, const char *name, DESCR_t *args, int narg
     for (int k = *rt_k_level_p - 1; k > 0; k--) fputs("| ", stderr);
     fputs(name, stderr);
     if (kind == TRK_CALL) {
+        extern int rt_proc_nparams(const char *);
+        int nd = name ? rt_proc_nparams(name) : 0; if (nd < nargs) nd = nargs;
         fputc('(', stderr);
-        for (int i = 0; i < nargs; i++) { if (i) fputc(',', stderr); trace_image_icon(args[i], 1); }
+        for (int i = 0; i < nd; i++) { if (i) fputc(',', stderr); if (i < nargs) trace_image_icon(args[i], 1); else fputs("&null", stderr); }
         fputc(')', stderr);
     } else if (IS_FAIL(value)) fputs(" failed", stderr);
     else { fputs(" returned ", stderr); trace_image_icon(value, 1); }
