@@ -19,7 +19,7 @@ static IR_t * icn_line_mark(icx_t * cx, int line, IR_t * next);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_is_local(const icx_t * cx, const char * nm) { if (!nm) return 0; for (int i = 0; i < cx->nln; i++) if (cx->ln[i] && !strcmp(cx->ln[i], nm)) return 1; return 0; }
 static int icn_kw_assignable(const char * kw) { const char * id = (kw && kw[0] == '&') ? kw + 1 : kw; return id && (!strcmp(id, "subject") || !strcmp(id, "pos") || !strcmp(id, "random") || !strcmp(id, "trace") || !strcmp(id, "error") || !strcmp(id, "dump")); }
-static const char * icn_variable_lit(const icx_t * cx, const tree_t * t) { if (!t || t->t != TT_FNC || t->n != 2 || !t->c[0] || !t->c[1]) return NULL; const tree_t * f = t->c[0]; if (f->t != TT_VAR || !f->v.sval || strcmp(f->v.sval, "variable") || icn_is_local(cx, "variable")) return NULL; const tree_t * g = t->c[1]; return (g->t == TT_QLIT && g->v.sval && g->v.sval[0]) ? g->v.sval : NULL; }
+static const char * icn_variable_lit(const icx_t * cx, const tree_t * t) { if (!t || t->t != TT_FNC || t->n != 2 || !t->c[0] || !t->c[1]) return NULL; { extern void rt_icn_global_note(const char *); if (t->c[0]->v.sval) rt_icn_global_note(t->c[0]->v.sval); } const tree_t * f = t->c[0]; if (f->t != TT_VAR || !f->v.sval || strcmp(f->v.sval, "variable") || icn_is_local(cx, "variable")) return NULL; const tree_t * g = t->c[1]; return (g->t == TT_QLIT && g->v.sval && g->v.sval[0]) ? g->v.sval : NULL; }
 static tree_t * icn_variable_lit_tree(const char * nm) { tree_t * v = ast_node_new(nm[0] == '&' ? TT_KEYWORD : TT_VAR); v->v.sval = (char *) nm; return v; }
 static lc_vec g_icn_synth_excl;
 static int icn_is_own_global(const icx_t * cx, const char * nm) { for (int i = 0; i < cx->ngn; i++) if (cx->gn[i] && !strcmp(cx->gn[i], nm)) return 1; return 0; }
@@ -1757,6 +1757,7 @@ void lower_icon_resolve_call_kinds(void) {
     extern int rt_builtin_is_known(const char *);
     extern int is_global(const char *);
     icn_register_reassigned_builtin_globals();
+    { extern void rt_icn_global_note(const char *); for (int _pi = 0; _pi < g_stage2.proc_count; _pi++) if (g_stage2.proc_table[_pi].name) rt_icn_global_note(g_stage2.proc_table[_pi].name); }
     for (int gi = 0; gi < g_stage2.bbp.count; gi++) {
         IR_graph_t * g = g_stage2.bbp.table[gi];
         if (!g || !g->icn_cells_graph) continue;
@@ -1765,6 +1766,8 @@ void lower_icon_resolve_call_kinds(void) {
             if (!nd || nd->op != IR_CALL) continue;
             const char * fn = IR_LIT(nd).sval;
             if (!fn || !fn[0]) continue;
+            { extern void rt_icn_global_note(const char *);
+              if (icn_callable_proc_index(fn) >= 0 || rt_builtin_is_known(fn) || rt_builtin_is_generator(fn) || icn_builtin_arity(fn) != -99) rt_icn_global_note(fn); }
             int pi = icn_callable_proc_index(fn);
             if (pi >= 0 && g_stage2.proc_table[pi].is_generator) nd->op = IR_PROC_GEN;
             else if (pi >= 0) nd->op = IR_CALL_PROC_STAGED;
@@ -1789,7 +1792,7 @@ void lower_icon_resolve_call_kinds(void) {
             if (skip || icn_proc_reassigned(vn)) continue;
             int isproc = 0;
             for (int pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, vn)) { isproc = 1; break; }
-            if (isproc || rt_builtin_is_known(vn) || rt_builtin_is_generator(vn) || icn_builtin_arity(vn) != -99 || !strcmp(vn, "push") || !strcmp(vn, "put")) nd->op = IR_PROC_VALUE;
+            if (isproc || rt_builtin_is_known(vn) || rt_builtin_is_generator(vn) || icn_builtin_arity(vn) != -99 || !strcmp(vn, "push") || !strcmp(vn, "put")) { extern void rt_icn_global_note(const char *); rt_icn_global_note(vn); nd->op = IR_PROC_VALUE; }
         }
     }
 }

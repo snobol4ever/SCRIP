@@ -506,6 +506,7 @@ __attribute__((noreturn)) void rt_ab_undef_fn_stub(void) { core_runtime_error(22
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t *gva_register(const char **names, DESCR_t *cells, int n) {
     if (!cells) return cells;
+    { extern void rt_icn_global_note(const char *); for (int k = 0; k < n; k++) if (names && names[k]) rt_icn_global_note(names[k]); }
     for (int k = 0; k < n; k++) { const char *nm = names ? names[k] : (const char *)0; if (!nm) continue; (void)NV_bind_gva(nm, &cells[k]); }
     { extern int rt_is_reassigned_builtin(const char *); extern int rt_proc_is_registered(const char *); extern DESCR_t rt_proc_value(const char *);
       for (int k = 0; k < n; k++) { const char *nm = names ? names[k] : (const char *)0;
@@ -634,6 +635,18 @@ void rt_sno_runtime_define(const char *name, const char **pnames, int nparams, i
       p->fn = (bb_box_fn)0; p->pnames = pnames; p->nparams = nparams; p->nformals = nformals; p->dyn_scope = 1; p->result_name = (const char *)0; p->redefined = 1; p->cells_done = 0; p->is_generator = 0; p->is_variadic = 0; }
     { extern void *bb_ab_fn_cell_ptr(const char *); char cn[264]; snprintf(cn, sizeof cn, "alpha$%s", name); void **cell = (void **)bb_ab_fn_cell_ptr(cn); if (cell) *cell = (void *)0; }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define RT_PROC_LOC_MAX 4096
+static struct { const char *name; const char **lnames; int nlocals; } g_proc_loc[RT_PROC_LOC_MAX];
+static int g_proc_loc_n = 0;
+void rt_proc_set_locals(const char *name, const char **lnames, int nlocals) {
+    if (!name) return;
+    for (int i = 0; i < g_proc_loc_n; i++) if (g_proc_loc[i].name && !strcmp(g_proc_loc[i].name, name)) { g_proc_loc[i].lnames = lnames; g_proc_loc[i].nlocals = nlocals; return; }
+    if (g_proc_loc_n >= RT_PROC_LOC_MAX) return;
+    g_proc_loc[g_proc_loc_n].name = name; g_proc_loc[g_proc_loc_n].lnames = lnames; g_proc_loc[g_proc_loc_n].nlocals = nlocals; g_proc_loc_n++;
+}
+int rt_proc_nlocals(const char *name) { if (!name) return 0; for (int i = 0; i < g_proc_loc_n; i++) if (g_proc_loc[i].name && !strcmp(g_proc_loc[i].name, name)) return g_proc_loc[i].nlocals; return 0; }
+const char *rt_proc_lname(const char *name, int k) { if (!name) return (const char *)0; for (int i = 0; i < g_proc_loc_n; i++) if (g_proc_loc[i].name && !strcmp(g_proc_loc[i].name, name)) return (g_proc_loc[i].lnames && k >= 0 && k < g_proc_loc[i].nlocals) ? g_proc_loc[i].lnames[k] : (const char *)0; return (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_nformals(const char *name)
 {

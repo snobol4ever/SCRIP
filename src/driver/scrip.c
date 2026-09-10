@@ -1281,6 +1281,7 @@ int main(int argc, char **argv)
                 }
                 rt_proc_register(pname, pn, np);
                 { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }
+                { extern void rt_proc_set_locals(const char *, const char **, int); IR_graph_t *_lg = (idx >= 0 && idx < s2->bbp.count) ? s2->bbp.table[idx] : (IR_graph_t *)0; if (_lg && _lg->lnames && _lg->nlocals > 0) rt_proc_set_locals(pname, _lg->lnames, _lg->nlocals); }
                 { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); } { extern void rt_proc_set_jmpentry(const char *, int); rt_proc_set_jmpentry(pname, strncmp(pname, "gram__", 6) != 0); }
                 { extern void rt_proc_set_variadic(const char *, int); rt_proc_set_variadic(pname, s2->proc_table[_pi].is_variadic); }
                 { extern void rt_proc_set_rest_kind(const char *, int); rt_proc_set_rest_kind(pname, s2->proc_table[_pi].rest_kind); }
@@ -1513,6 +1514,7 @@ int main(int argc, char **argv)
                 }
                 rt_proc_register(pname, pn, np);
                 { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }
+                { extern void rt_proc_set_locals(const char *, const char **, int); IR_graph_t *_lg = (idx >= 0 && idx < s2->bbp.count) ? s2->bbp.table[idx] : (IR_graph_t *)0; if (_lg && _lg->lnames && _lg->nlocals > 0) rt_proc_set_locals(pname, _lg->lnames, _lg->nlocals); }
                 { extern void rt_proc_set_frame(const char *, int, int); extern void rt_proc_set_byref(const char *, uint64_t);
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask); }
@@ -1546,6 +1548,7 @@ int main(int argc, char **argv)
                 }
                 rt_proc_register(pname, pn, np);
                 { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }
+                { extern void rt_proc_set_locals(const char *, const char **, int); IR_graph_t *_lg = (idx >= 0 && idx < s2->bbp.count) ? s2->bbp.table[idx] : (IR_graph_t *)0; if (_lg && _lg->lnames && _lg->nlocals > 0) rt_proc_set_locals(pname, _lg->lnames, _lg->nlocals); }
                 { extern void rt_proc_set_frame(const char *, int, int); extern void rt_proc_set_byref(const char *, uint64_t); extern int g_emit_frame_caller_dl;
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask);
@@ -1685,6 +1688,7 @@ int main(int argc, char **argv)
                 gva_collect_reset(); { extern void gva_keyword_refuse_reset(void); extern void gva_keyword_refuse_seed_snobol4(void); if (is_icon) gva_keyword_refuse_reset(); else gva_keyword_refuse_seed_snobol4(); }
                 { extern void gva_io_refuse_scan_graph(IR_graph_t *); for (int _si = 0; _si < s2->bbp.count; _si++) if (s2->bbp.table[_si]) gva_io_refuse_scan_graph(s2->bbp.table[_si]); }
                 gva_collect_icon_globals();
+                { extern void rt_icn_global_note(const char *); extern const char *global_names[]; extern int global_count; for (int _gi = 0; _gi < global_count; _gi++) if (global_names[_gi]) rt_icn_global_note(global_names[_gi]); }
                 int n_gva_m3; { const char *_gv = getenv("SCRIP_M3_GVA"); n_gva_m3 = _gv && *_gv && *_gv == (char)48 ? 0 : gva_count(); }
                 if (n_gva_m3 > 0) {
                     { extern DESCR_t *rt_gva_island(int); m3_gva_arena = rt_gva_island(n_gva_m3); }
@@ -1709,6 +1713,7 @@ int main(int argc, char **argv)
                 }
                 rt_proc_register(pname, pn, np);
                 { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }
+                { extern void rt_proc_set_locals(const char *, const char **, int); IR_graph_t *_lg = (idx >= 0 && idx < s2->bbp.count) ? s2->bbp.table[idx] : (IR_graph_t *)0; if (_lg && _lg->lnames && _lg->nlocals > 0) rt_proc_set_locals(pname, _lg->lnames, _lg->nlocals); }
                 { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); } { extern void rt_proc_set_jmpentry(const char *, int); rt_proc_set_jmpentry(pname, strncmp(pname, "gram__", 6) != 0); }
                 { extern void rt_proc_set_variadic(const char *, int); rt_proc_set_variadic(pname, s2->proc_table[_pi].is_variadic); }
                 { extern void rt_proc_set_rest_kind(const char *, int); rt_proc_set_rest_kind(pname, s2->proc_table[_pi].rest_kind); }
@@ -1857,6 +1862,7 @@ int main(int argc, char **argv)
                 }
                 rt_proc_register(pname, pn, np);
                 { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }
+                { extern void rt_proc_set_locals(const char *, const char **, int); IR_graph_t *_lg = (idx >= 0 && idx < s2->bbp.count) ? s2->bbp.table[idx] : (IR_graph_t *)0; if (_lg && _lg->lnames && _lg->nlocals > 0) rt_proc_set_locals(pname, _lg->lnames, _lg->nlocals); }
                 { extern void rt_proc_set_frame(const char *, int, int); extern void rt_proc_set_byref(const char *, uint64_t);
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask); }
@@ -1875,6 +1881,7 @@ int main(int argc, char **argv)
                 }
                 rt_proc_register(pname, pn, np);
                 { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }
+                { extern void rt_proc_set_locals(const char *, const char **, int); IR_graph_t *_lg = (idx >= 0 && idx < s2->bbp.count) ? s2->bbp.table[idx] : (IR_graph_t *)0; if (_lg && _lg->lnames && _lg->nlocals > 0) rt_proc_set_locals(pname, _lg->lnames, _lg->nlocals); }
                 { extern void rt_proc_set_frame(const char *, int, int); extern void rt_proc_set_byref(const char *, uint64_t); extern int g_emit_frame_caller_dl;
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask);

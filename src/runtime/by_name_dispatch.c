@@ -5020,6 +5020,54 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         }
     }
     if (!fn || !out) return 0;
+    if (fn[0] == 'd' && !strcmp(fn, "display")) {
+        extern int core_icn_act_top(void); extern const char *core_icn_act_name(int); extern void *core_icn_act_base(int);
+        extern int rt_proc_nparams(const char *); extern const char *rt_proc_pname(const char *, int);
+        extern void rt_icn_global_note(const char *); extern int rt_icn_global_count(void); extern const char *rt_icn_global_name(int);
+        extern DESCR_t NV_GET_fn(const char *); extern int rt_k_level;
+        FILE *fp = stderr;
+        if (nargs >= 2 && (IS_FH_fn(args[1]) || IS_INT_fn(args[1]))) { FILE *q = fh_get((int)args[1].i); if (q) fp = q; }
+        int top = core_icn_act_top();
+        int want = top;
+        if (nargs >= 1 && !IS_FAIL_fn(args[0]) && args[0].v != DT_SNUL) { long long w = (long long)to_int(args[0]); if (w < 0) { core_icn_error(205, args[0]); *out = FAILDESCR; return 1; } want = (int)w; }
+        if (want > top) want = top;
+        fflush(stdout);
+        { extern DESCR_t kw_read(const char *); DESCR_t cur = kw_read("current"), im; if (try_call_builtin_by_name_bl("image", &cur, 1, &im, -1) && im.v == DT_S && im.s) fwrite(im.s, 1, descr_slen(im), fp); fputc('\n', fp); }
+        fputc('\n', fp);
+        for (int lv = top; lv > top - want && lv >= 1; lv--) {
+            const char *pn = core_icn_act_name(lv); void *base = core_icn_act_base(lv);
+            if (!pn) continue;
+            fprintf(fp, "%s local identifiers:\n", pn);
+            extern int rt_proc_nlocals(const char *); extern const char *rt_proc_lname(const char *, int);
+            int nt = rt_proc_nparams(pn); if (nt < 0) nt = 0;
+            int nl = (lv == top) ? rt_proc_nlocals(pn) : 0; if (nl < 0) nl = 0;
+            for (int k = 0; k < nt + nl; k++) {
+                const char *vn = (k < nt) ? rt_proc_pname(pn, k) : rt_proc_lname(pn, k - nt); if (!vn) continue;
+                if (vn[0] == 38) continue;
+                DESCR_t v = (k < nt) ? (base ? *(DESCR_t *)((char *)base + (k + 1) * 16) : NULVCL) : NV_GET_fn(vn), im;
+                fprintf(fp, "   %s = ", vn);
+                if (try_call_builtin_by_name_bl("image", &v, 1, &im, -1) && im.v == DT_S && im.s) fwrite(im.s, 1, descr_slen(im), fp);
+                fputc('\n', fp);
+            }
+        }
+        fputc('\n', fp);
+        fputs("global identifiers:\n", fp);
+        { int gn = rt_icn_global_count();
+          int *ord = (int *)rt_pinned_alloc((size_t)(gn > 0 ? gn : 1) * sizeof(int));
+          for (int i = 0; i < gn; i++) ord[i] = i;
+          for (int i = 1; i < gn; i++) { int t = ord[i], j = i - 1; const char *tn = rt_icn_global_name(t);
+              while (j >= 0 && strcmp(rt_icn_global_name(ord[j]), tn) > 0) { ord[j + 1] = ord[j]; j--; } ord[j + 1] = t; }
+          for (int i = 0; i < gn; i++) {
+              const char *gname = rt_icn_global_name(ord[i]); if (!gname || gname[0] == '&' || strstr(gname, "__STATIC__") || strstr(gname, "__icn_")) continue;
+              DESCR_t v = NV_GET_fn(gname), im;
+              if (v.v == DT_SNUL || IS_FAIL_fn(v)) { extern DESCR_t rt_proc_value(const char *); DESCR_t pv = rt_proc_value(gname); if (!IS_FAIL_fn(pv) && pv.v != DT_SNUL) v = pv; }
+              fprintf(fp, "   %s = ", gname);
+              if (try_call_builtin_by_name_bl("image", &v, 1, &im, -1) && im.v == DT_S && im.s) fwrite(im.s, 1, descr_slen(im), fp);
+              fputc('\n', fp);
+          } }
+        fflush(fp);
+        *out = NULVCL; return 1;
+    }
     if (bidlen >= 0 && rt_dtax_gen == 0 && !dtax_off()) {
         const int _fb = bidlen & 0xFFFF;
         extern long g_bidprof[1024]; extern int g_bidprof_on; extern void bidprof_init(void);

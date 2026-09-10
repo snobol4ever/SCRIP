@@ -18,6 +18,17 @@ void global_register(const char *name) {
     global_names[global_count++] = name;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *icn_gnames[GLOBAL_MAX];
+static int icn_gcount = 0;
+void rt_icn_global_note(const char *name) {
+    if (!name || !name[0]) return;
+    for (int i = 0; i < icn_gcount; i++) if (icn_gnames[i] && !strcmp(icn_gnames[i], name)) return;
+    if (icn_gcount >= GLOBAL_MAX) return;
+    icn_gnames[icn_gcount++] = name;
+}
+int rt_icn_global_count(void) { return icn_gcount; }
+const char *rt_icn_global_name(int k) { return (k >= 0 && k < icn_gcount) ? icn_gnames[k] : (const char *)0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rbi_names[GLOBAL_MAX];
 static int rbi_count = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

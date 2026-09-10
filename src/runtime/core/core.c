@@ -362,6 +362,10 @@ static void icn_tb_builtins_at(int lv) {
         { extern long g_line; extern const char *g_file; fprintf(stderr, " from line %ld in %s\n", g_line, icn_basename(g_file)); }
     }
 }
+int core_icn_act_top(void) { extern int rt_k_level; int t = rt_k_level; if (t >= ICN_ACT_CAP) t = ICN_ACT_CAP - 1; if (t < 0) t = 0; return t; }
+const char *core_icn_act_name(int lv) { return (lv >= 1 && lv < ICN_ACT_CAP) ? g_icn_act[lv].name : (const char *)0; }
+void *core_icn_act_base(int lv) { return (lv >= 1 && lv < ICN_ACT_CAP) ? g_icn_act[lv].base : (void *)0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_icn_traceback(void) {
     extern int rt_k_level; extern long g_line; extern const char *g_file;
     int top = rt_k_level; if (top >= ICN_ACT_CAP) top = ICN_ACT_CAP - 1;
