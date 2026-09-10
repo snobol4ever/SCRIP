@@ -1784,7 +1784,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         const char * vn = lv ? IR_LIT(lv).sval : NULL;
         if (!vn || nd->n_operands < 1 || !nd->operands[0]) { drive_unowned(nd); break; }
         { extern int is_global(const char *);
-          if (is_global(vn) && !graph_has_local(g_emit_cfg, vn)) { g_emit.op_sb = -1; g_emit.op_sval = vn; g_emit.op_gva_k = g_gva_active ? gva_index_of(vn) : -1; }
+          if (vn[0] == '&' || (is_global(vn) && !graph_has_local(g_emit_cfg, vn))) { g_emit.op_sb = -1; g_emit.op_sval = vn; g_emit.op_gva_k = (vn[0] != '&' && g_gva_active) ? gva_index_of(vn) : -1; }
           else { int voff = bb_varslot_peek(vn);
             if (voff == -1) { fprintf(stderr,
                 "[TE-4] IR_REV_ASSIGN '%s': not a global (is_global checked, so not the "
