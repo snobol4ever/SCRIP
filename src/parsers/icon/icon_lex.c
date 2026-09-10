@@ -603,8 +603,7 @@ void icn_pp_source_base(char *out, size_t n) {
     if (!out || n == 0) return;
     const char *slash = strrchr(icn_pp_src, '/');
     const char *base  = slash ? slash + 1 : icn_pp_src;
-    const char *dot   = strrchr(base, '.');
-    size_t bl = dot ? (size_t)(dot - base) : strlen(base);
+    size_t bl = strlen(base);
     if (bl >= n) bl = n - 1;
     memcpy(out, base, bl); out[bl] = 0;
 }

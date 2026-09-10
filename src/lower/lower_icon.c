@@ -434,7 +434,7 @@ static void icn_retag_scan_body(IR_graph_t * g, int depth) {
 static IR_t * lc_key(icx_t * cx, const tree_t * t, const char * kw, IR_t * γ, IR_t * ω, IR_t ** res) {
     const char * id = (kw && kw[0] == '&') ? kw + 1 : kw;
     if (id && !strcmp(id, "line")) { IR_t * nd = build(cx, IR_LIT_INTEGER, γ, ω); IR_LIT(nd).ival = (t && t->line > 0) ? t->line : 0; *res = nd; return nd; }
-    if (id && !strcmp(id, "progname")) { char pb[1024]; char pn[1032]; extern void icn_pp_source_base(char *, size_t); icn_pp_source_base(pb, sizeof pb); snprintf(pn, sizeof pn, "./%s", pb); IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = strdup(pn); *res = nd; return nd; }
+    if (id && !strcmp(id, "progname")) { char pb[1024]; char pn[1032]; extern void icn_pp_source_base(char *, size_t); icn_pp_source_base(pb, sizeof pb); snprintf(pn, sizeof pn, "%s", pb); IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = strdup(pn); *res = nd; return nd; }
     if (id && !strcmp(id, "file")) { extern const char * stmt_src_get_file(void); const char * sf = stmt_src_get_file(); IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = (char *) (sf ? sf : ""); *res = nd; return nd; }
     if (id) {
         const char * cs = !strcmp(id, "ucase") ? "ABCDEFGHIJKLMNOPQRSTUVWXYZ" : !strcmp(id, "lcase") ? "abcdefghijklmnopqrstuvwxyz" : !strcmp(id, "digits") ? "0123456789" : NULL;
@@ -1536,7 +1536,7 @@ static void icn_progname_as_global(const tree_t * prog, const tree_t * pd) {
     icn_rewrite_progname(body);
     if (!pd->v.sval || strcmp(pd->v.sval, "main")) return;
     for (int i = 0; i < body->n; i++) { const tree_t * st = body->c[i]; if (st && st->t == TT_ASSIGN && st->n == 2 && st->c[0] && st->c[0]->v.sval && !strcmp(st->c[0]->v.sval, "__icn_progname") && st->c[1] && st->c[1]->t == TT_QLIT && st->line == -1) return; }
-    char pb[1024]; char pn[1032]; extern void icn_pp_source_base(char *, size_t); icn_pp_source_base(pb, sizeof pb); snprintf(pn, sizeof pn, "./%s", pb);
+    char pb[1024]; char pn[1032]; extern void icn_pp_source_base(char *, size_t); icn_pp_source_base(pb, sizeof pb); snprintf(pn, sizeof pn, "%s", pb);
     tree_t * lhs = ast_node_new(TT_VAR); lhs->v.sval = (char *) "__icn_progname";
     tree_t * rhs = ast_node_new(TT_QLIT); rhs->v.sval = strdup(pn); rhs->slen = (int) strlen(pn);
     tree_t * as = ast_node_new(TT_ASSIGN); ast_push(as, lhs); ast_push(as, rhs); as->line = -1;

@@ -429,10 +429,10 @@ DESCR_t kw_read(const char *kw) {
       if (!strcmp(kw,"file"))     return STRVAL(g_file ? g_file : "");
       if (!strcmp(kw,"lastfile")) return STRVAL(g_lastfile ? g_lastfile : "");
     }
-    if (!strcmp(kw,"col"))     return INTVAL(0);
-    if (!strcmp(kw,"row"))     return INTVAL(0);
-    if (!strcmp(kw,"x"))       return INTVAL(0);
-    if (!strcmp(kw,"y"))       return INTVAL(0);
+    if (!strcmp(kw,"col"))     return FAILDESCR;
+    if (!strcmp(kw,"row"))     return FAILDESCR;
+    if (!strcmp(kw,"x"))       return FAILDESCR;
+    if (!strcmp(kw,"y"))       return FAILDESCR;
     { extern int rt_k_level; if (!strcmp(kw,"level")) return INTVAL(rt_k_level); }
     if (!strcmp(kw,"lpress"))   return INTVAL(-1);
     if (!strcmp(kw,"mpress"))   return INTVAL(-2);
@@ -446,7 +446,7 @@ DESCR_t kw_read(const char *kw) {
     if (!strcmp(kw,"resize"))   return INTVAL(-10);
     if (!strcmp(kw,"null"))    return NULVCL;
     if (!strcmp(kw,"fail"))    return FAILDESCR;
-    if (!strcmp(kw,"window"))  return NULVCL;
+    if (!strcmp(kw,"window"))  return FAILDESCR;
     if (!strcmp(kw,"input"))   { fh_ensure_init(); return FHVAL(0); }
     if (!strcmp(kw,"output"))  { fh_ensure_init(); return FHVAL(1); }
     if (!strcmp(kw,"errout"))  { fh_ensure_init(); return FHVAL(2); }
@@ -486,7 +486,7 @@ DESCR_t rt_keyword_read(const char *sval) {
     lk[li] = '\0';
     DESCR_t kv = kw_read(lk);
     if (!IS_FAIL(kv)) return kv;
-    if (!strcmp(lk,"control") || !strcmp(lk,"errornumber") || !strcmp(lk,"errortext") || !strcmp(lk,"errorvalue") || !strcmp(lk,"fail") || !strcmp(lk,"interval") || !strcmp(lk,"meta") || !strcmp(lk,"shift")) return FAILDESCR;
+    if (!strcmp(lk,"control") || !strcmp(lk,"errornumber") || !strcmp(lk,"errortext") || !strcmp(lk,"errorvalue") || !strcmp(lk,"fail") || !strcmp(lk,"interval") || !strcmp(lk,"meta") || !strcmp(lk,"shift") || !strcmp(lk,"col") || !strcmp(lk,"row") || !strcmp(lk,"x") || !strcmp(lk,"y") || !strcmp(lk,"window")) return FAILDESCR;
     return NV_GET_fn(sval);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
