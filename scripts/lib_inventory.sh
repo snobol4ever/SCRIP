@@ -100,6 +100,20 @@
 #     documentation deliberately, because it is what stops the next reader reaching for NONDETERMINISTIC: nobody
 #     can fix this by re-running, and a run-twice check sees a byte-stable program and calls the ruling wrong.
 #     The name has to say WHERE rather than WHEN.
+# ⛔⭐⭐ AND THE ADMISSION TEST ABOVE IS NOT ENOUGH ON ITS OWN -- SHARPENED 2026-09-10 BY THE ROW THAT WAS
+#     REFUSED UNDER IT (hq_V's kwds ask, ceo CEO-514; the correction is hq_V's and is recorded here because a
+#     ruling's own limits belong beside the ruling and not in a mailbox). The test I offered was CAN ANY
+#     ENVIRONMENT MAKE THESE AGREE -- a row whose output no environment can reconcile is a permanent ruling, one
+#     that some environment can is deferred work wearing a ruling's clothes. kwds passed that test and was still
+#     deferred work: &version &features &allocated &storage genuinely cannot agree across two implementations,
+#     and the ruling closed on exactly that permanence -- but THE PROGRAM WAS FREE TO STOP PRINTING THEM, which
+#     is what the cure did. It now prints type() of the four, so existence and type stay graded, the values are
+#     not, the row is GONE and the program is green in both modes.
+#     ⭐ PERMANENCE ABOUT A VALUE IS NOT PERMANENCE ABOUT A PROGRAM. So the question to ask before closing any
+#     UNGRADABLE row is not "can any environment make these agree" but "CAN THE PROGRAM BE MADE TO STOP ASKING",
+#     and the first reads as the second while quietly answering something weaker. ⛔ It fails in the direction
+#     this file's tie-break already calls the expensive one: a permanent-looking fact makes a ruling feel safe
+#     to close, and a closed ruling is what nobody re-reads.
 INV_CLASS_UNGRADABLE="CONTAINER_OR_LIBRARY NO_ORACLE_SHIPPED ORACLE_REFUSES ORACLE_CONTRACT_NOT_IMPLEMENTED NEEDS_INPUT NEEDS_INTERACTIVE_TTY NEEDS_DISPLAY NONDETERMINISTIC RESULT_NOT_ON_STDOUT ENVIRONMENT_IDENTITY_IN_OUTPUT"
 # THE TIE-BREAK, AND IT IS THE MOST LOAD-BEARING SENTENCE IN THIS FILE (hq_T, ruling hq_P's three gimpel
 # ERROR-285 drivers, 2026-09-06). hq_P found three rows whose bucket turns on ONE UNMEASURED FACT: FRSORT,
