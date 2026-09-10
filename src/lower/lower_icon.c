@@ -173,6 +173,11 @@ static int icn_undeclared_assigned_var(const icx_t * cx, const char * nm) {
     if (icn_builtin_is_known(nm) || icn_builtin_is_generator(nm) || icn_builtin_arity(nm) != -99) return 0;
     return icn_name_assigned(nm);
 }
+static int icn_callee_is_name(const icx_t * cx, const tree_t * fn) {
+    return fn && fn->t == TT_VAR && fn->v.sval && fn->v.sval[0] != '&' && !icn_is_local(cx, fn->v.sval)
+        && !(icn_is_own_global(cx, fn->v.sval) && !icn_is_proc(fn->v.sval)) && !icn_proc_reassigned(fn->v.sval)
+        && !icn_undeclared_assigned_var(cx, fn->v.sval) && !icn_is_static_mangled_name(fn->v.sval);
+}
 static int icn_arg_stages(const icx_t * cx, const tree_t * a) {
     if (!a) return 0;
     if (a->t == TT_IDX || a->t == TT_FIELD) return 1;
@@ -346,14 +351,19 @@ static IR_t * lower_lvalue_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** 
         if (b0->t == TT_VAR && b0->v.sval && b0->v.sval[0] != '&') { IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = b0->v.sval; ar = vr; ae = vr; }
         else if (b0->t == TT_SECTION || b0->t == TT_SECTION_PLUS || b0->t == TT_SECTION_MINUS || b0->t == TT_IDX) ae = lower_lvalue_var(cx, b0, ω, &ar);
         else ae = lower(cx, b0, NULL, ω, &ar);
-        IR_t * br = NULL; IR_t * be = lower(cx, t->c[1], NULL, ω, &br); γ_to(ar, be);
-        IR_t * i1β = cx->beta;
-        IR_t * cr = NULL; IR_t * ce = lower(cx, t->c[2], sec_variant ? NULL : sec, i1β, &cr); γ_to(br, ce);
+        IR_t * aβ = (b0->t == TT_VAR) ? NULL : cx->beta;
+        IR_t * ωa = (aβ && aβ != ω && aβ != sec) ? aβ : ω;
+        IR_t * br = NULL; IR_t * be = lower(cx, t->c[1], NULL, ωa, &br); lc_γ_to(ar, be); IR_t * bβ = cx->beta;
+        IR_t * ωb = (bβ && bβ != ωa && bβ != sec) ? bβ : ωa;
+        IR_t * cr = NULL; IR_t * ce = lower(cx, t->c[2], sec_variant ? NULL : sec, ωb, &cr); lc_γ_to(br, ce); IR_t * cβ = cx->beta;
+        IR_t * ωc = (cβ && cβ != ωb && cβ != sec) ? cβ : ωb;
         if (sec_variant) {
-            IR_t * op = build(cx, IR_BINOP, sec, i1β); IR_LIT(op).ival = (sec_variant == 1) ? BINOP_ADD : BINOP_SUB; ir_operand_push(op, br); ir_operand_push(op, cr); γ_to(cr, op); cr = op;
+            IR_t * op = build(cx, IR_BINOP, sec, ωc); IR_LIT(op).ival = (sec_variant == 1) ? BINOP_ADD : BINOP_SUB; ir_operand_push(op, br); ir_operand_push(op, cr); γ_to(cr, op); cr = op;
         }
         ir_operand_push(sec, ar); ir_operand_push(sec, br); ir_operand_push(sec, cr);
         lc_γ_to(cr, sec);
+        if (ωc != ω) ω_to(sec, ωc);
+        cx->beta = ωc;
         *var_res = sec; return ae;
     }
     if (t->t == TT_FIELD && t->n > 0 && t->c[0]) {
@@ -509,7 +519,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         const tree_t * lhs = (t->n > 0) ? t->c[0] : NULL;
         const tree_t * rhs = (t->n > 1) ? t->c[1] : NULL;
         tree_t * callee;
-        if (lhs && lhs->t == TT_VAR && lhs->v.sval && lhs->v.sval[0] != '&' && !icn_is_local(cx, lhs->v.sval) && !icn_is_static_mangled_name(lhs->v.sval)) {
+        if (lhs && icn_callee_is_name(cx, lhs)) {
             callee = ast_node_new(TT_QLIT); callee->v.sval = lhs->v.sval; callee->slen = (int) strlen(lhs->v.sval);
         } else callee = (tree_t *) lhs;
         IR_t * cr = NULL; IR_t * ce = lower(cx, callee, NULL, ω, &cr);
@@ -539,8 +549,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     case TT_FNC: { const tree_t * fn = (t->n > 0) ? t->c[0] : NULL;
         { const char * vn = icn_variable_lit(cx, t);
           if (vn) { tree_t * tg = icn_variable_lit_target(cx, vn); if (!tg) return lc_key(cx, t, "&fail", γ, ω, res); if (tg->t == TT_KEYWORD) return lc_key(cx, t, tg->v.sval, γ, ω, res); return lower(cx, tg, γ, ω, res); } }
-        if (!fn || (fn->t == TT_VAR && fn->v.sval && fn->v.sval[0] != '&' && !icn_is_local(cx, fn->v.sval)
-                    && !(icn_is_own_global(cx, fn->v.sval) && !icn_is_proc(fn->v.sval)) && !icn_proc_reassigned(fn->v.sval) && !icn_undeclared_assigned_var(cx, fn->v.sval) && !icn_is_static_mangled_name(fn->v.sval))) {
+        if (!fn || icn_callee_is_name(cx, fn)) {
             const char * nm = (fn && fn->t == TT_VAR) ? fn->v.sval : "?";
             return lower_call(cx, nm, t, 1, t->n - 1, γ, ω, res);
         }
