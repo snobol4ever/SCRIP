@@ -73,6 +73,8 @@ test_gate_icn_converted_arith_error_reports_its_own_number.sh	WIRED	-	-	-
 test_gate_icn_function_builtin_names_dispatchable.sh	WIRED	-	-	-
 test_gate_icn_generator_exhaustion_traces_failed.sh	WIRED	-	-	-
 test_gate_icn_generator_regime_calls_the_runtime_at_c_parity.sh	WIRED	-	-	-
+test_gate_icn_argument_type_discipline.sh	WIRED	-	-	-
+test_gate_icn_display_reads_every_activations_locals.sh	WIRED	-	-	-
 test_gate_icn_global_names_are_not_governed_by_snobol4_keywords.sh	WIRED	-	-	-
 test_gate_icn_if_without_else_invocable_arity_and_string_continuation.sh	WIRED	-	-	-
 test_gate_icn_ipl_scan_resume_and_limit_flips.sh	WIRED	-	-	-

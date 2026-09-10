@@ -825,6 +825,25 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void icn_register_locals(const char *pname, IR_graph_t *g) {
+    extern void rt_proc_set_locals(const char *, const char **, int);
+    extern void rt_proc_set_local_offs(const char *, const int *, int);
+    extern const char * zls_g_vslot_get(const IR_graph_t *, int, int *);
+    extern int zls_g_vslot_count(const IR_graph_t *);
+    if (!pname || !g || !g->lnames || g->nlocals <= 0) return;
+    rt_proc_set_locals(pname, g->lnames, g->nlocals);
+    int nv = zls_g_vslot_count(g);
+    if (nv <= 0) return;
+    int *offs = (int *)malloc(sizeof(int) * (size_t)g->nlocals);
+    if (!offs) return;
+    for (int k = 0; k < g->nlocals; k++) {
+        offs[k] = -1;
+        const char *ln = g->lnames[k]; if (!ln) continue;
+        for (int v = 0; v < nv; v++) { int off = -1; const char *vn = zls_g_vslot_get(g, v, &off); if (vn && off >= 0 && !strcmp(vn, ln)) { offs[k] = off; break; } }
+    }
+    rt_proc_set_local_offs(pname, offs, g->nlocals);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int main(int argc, char **argv)
 {
     if (argc >= 3 && strcmp(argv[1], "--audit-per-kind") == 0) {
@@ -1281,7 +1300,7 @@ int main(int argc, char **argv)
                 }
                 rt_proc_register(pname, pn, np);
                 { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }
-                { extern void rt_proc_set_locals(const char *, const char **, int); IR_graph_t *_lg = (idx >= 0 && idx < s2->bbp.count) ? s2->bbp.table[idx] : (IR_graph_t *)0; if (_lg && _lg->lnames && _lg->nlocals > 0) rt_proc_set_locals(pname, _lg->lnames, _lg->nlocals); }
+                { IR_graph_t *_lg = (idx >= 0 && idx < s2->bbp.count) ? s2->bbp.table[idx] : (IR_graph_t *)0; icn_register_locals(pname, _lg); }
                 { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); } { extern void rt_proc_set_jmpentry(const char *, int); rt_proc_set_jmpentry(pname, strncmp(pname, "gram__", 6) != 0); }
                 { extern void rt_proc_set_variadic(const char *, int); rt_proc_set_variadic(pname, s2->proc_table[_pi].is_variadic); }
                 { extern void rt_proc_set_rest_kind(const char *, int); rt_proc_set_rest_kind(pname, s2->proc_table[_pi].rest_kind); }
@@ -1514,7 +1533,7 @@ int main(int argc, char **argv)
                 }
                 rt_proc_register(pname, pn, np);
                 { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }
-                { extern void rt_proc_set_locals(const char *, const char **, int); IR_graph_t *_lg = (idx >= 0 && idx < s2->bbp.count) ? s2->bbp.table[idx] : (IR_graph_t *)0; if (_lg && _lg->lnames && _lg->nlocals > 0) rt_proc_set_locals(pname, _lg->lnames, _lg->nlocals); }
+                { IR_graph_t *_lg = (idx >= 0 && idx < s2->bbp.count) ? s2->bbp.table[idx] : (IR_graph_t *)0; icn_register_locals(pname, _lg); }
                 { extern void rt_proc_set_frame(const char *, int, int); extern void rt_proc_set_byref(const char *, uint64_t);
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask); }
@@ -1548,7 +1567,7 @@ int main(int argc, char **argv)
                 }
                 rt_proc_register(pname, pn, np);
                 { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }
-                { extern void rt_proc_set_locals(const char *, const char **, int); IR_graph_t *_lg = (idx >= 0 && idx < s2->bbp.count) ? s2->bbp.table[idx] : (IR_graph_t *)0; if (_lg && _lg->lnames && _lg->nlocals > 0) rt_proc_set_locals(pname, _lg->lnames, _lg->nlocals); }
+                { IR_graph_t *_lg = (idx >= 0 && idx < s2->bbp.count) ? s2->bbp.table[idx] : (IR_graph_t *)0; icn_register_locals(pname, _lg); }
                 { extern void rt_proc_set_frame(const char *, int, int); extern void rt_proc_set_byref(const char *, uint64_t); extern int g_emit_frame_caller_dl;
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask);
@@ -1713,7 +1732,7 @@ int main(int argc, char **argv)
                 }
                 rt_proc_register(pname, pn, np);
                 { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }
-                { extern void rt_proc_set_locals(const char *, const char **, int); IR_graph_t *_lg = (idx >= 0 && idx < s2->bbp.count) ? s2->bbp.table[idx] : (IR_graph_t *)0; if (_lg && _lg->lnames && _lg->nlocals > 0) rt_proc_set_locals(pname, _lg->lnames, _lg->nlocals); }
+                { IR_graph_t *_lg = (idx >= 0 && idx < s2->bbp.count) ? s2->bbp.table[idx] : (IR_graph_t *)0; icn_register_locals(pname, _lg); }
                 { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); } { extern void rt_proc_set_jmpentry(const char *, int); rt_proc_set_jmpentry(pname, strncmp(pname, "gram__", 6) != 0); }
                 { extern void rt_proc_set_variadic(const char *, int); rt_proc_set_variadic(pname, s2->proc_table[_pi].is_variadic); }
                 { extern void rt_proc_set_rest_kind(const char *, int); rt_proc_set_rest_kind(pname, s2->proc_table[_pi].rest_kind); }
@@ -1862,7 +1881,7 @@ int main(int argc, char **argv)
                 }
                 rt_proc_register(pname, pn, np);
                 { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }
-                { extern void rt_proc_set_locals(const char *, const char **, int); IR_graph_t *_lg = (idx >= 0 && idx < s2->bbp.count) ? s2->bbp.table[idx] : (IR_graph_t *)0; if (_lg && _lg->lnames && _lg->nlocals > 0) rt_proc_set_locals(pname, _lg->lnames, _lg->nlocals); }
+                { IR_graph_t *_lg = (idx >= 0 && idx < s2->bbp.count) ? s2->bbp.table[idx] : (IR_graph_t *)0; icn_register_locals(pname, _lg); }
                 { extern void rt_proc_set_frame(const char *, int, int); extern void rt_proc_set_byref(const char *, uint64_t);
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask); }
@@ -1881,7 +1900,7 @@ int main(int argc, char **argv)
                 }
                 rt_proc_register(pname, pn, np);
                 { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }
-                { extern void rt_proc_set_locals(const char *, const char **, int); IR_graph_t *_lg = (idx >= 0 && idx < s2->bbp.count) ? s2->bbp.table[idx] : (IR_graph_t *)0; if (_lg && _lg->lnames && _lg->nlocals > 0) rt_proc_set_locals(pname, _lg->lnames, _lg->nlocals); }
+                { IR_graph_t *_lg = (idx >= 0 && idx < s2->bbp.count) ? s2->bbp.table[idx] : (IR_graph_t *)0; icn_register_locals(pname, _lg); }
                 { extern void rt_proc_set_frame(const char *, int, int); extern void rt_proc_set_byref(const char *, uint64_t); extern int g_emit_frame_caller_dl;
                   if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
                   rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask);

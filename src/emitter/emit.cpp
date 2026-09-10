@@ -2737,6 +2737,26 @@ static const char * icn_trace_intern(const char * s) {
     return pool.insert(std::string(s)).first->c_str();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void icn_register_local_offsets(const char * pname) {
+    extern void rt_proc_set_locals(const char *, const char **, int);
+    extern void rt_proc_set_pname(const char *, int, const char *);
+    extern void rt_proc_set_local_offs(const char *, const int *, int);
+    extern const char * zls_g_vslot_get(const IR_graph_t *, int, int *);
+    extern int zls_g_vslot_count(const IR_graph_t *);
+    if (!pname || !g_emit_cfg || !g_emit_cfg->lnames || g_emit_cfg->nlocals <= 0) return;
+    rt_proc_set_locals(pname, g_emit_cfg->lnames, g_emit_cfg->nlocals);
+    for (int k = 0; k < g_emit_cfg->nparams; k++) if (g_emit_cfg->pnames && g_emit_cfg->pnames[k]) rt_proc_set_pname(pname, k, g_emit_cfg->pnames[k]);
+    int nv = zls_g_vslot_count(g_emit_cfg); if (nv <= 0) return;
+    int nl = g_emit_cfg->nlocals;
+    int * offs = (int *) malloc(sizeof(int) * (size_t) nl); if (!offs) return;
+    for (int k = 0; k < nl; k++) {
+        offs[k] = -1;
+        const char * ln = g_emit_cfg->lnames[k]; if (!ln) continue;
+        for (int v = 0; v < nv; v++) { int off = -1; const char * vn = zls_g_vslot_get(g_emit_cfg, v, &off); if (vn && off >= 0 && !strcmp(vn, ln)) { offs[k] = off; break; } }
+    }
+    rt_proc_set_local_offs(pname, offs, nl);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string icn_trace_tap(const char * pname, int kind, int np) {
     extern long g_trace; extern void rt_trace_call_hook_f(const char *, int, void *); extern void rt_trace_return_hook(const char *, DESCR_t); extern void rt_trace_fail_hook(const char *);
     extern int g_flat_node_id;
@@ -3035,8 +3055,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                      + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel")
                      + x86("mov", RDQ("rax", 0), "rcx"));
             bb_emit_x86(icn_trace_tap((strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix, 1, np));
+            icn_register_local_offsets((strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix);
         } else if (_iws && _use_zframe_install) {
             bb_emit_x86(icn_trace_tap("main", 1, np));
+            icn_register_local_offsets("main");
         }
     }
     if (!bare) emit_label_define_bb(&lbl_α_body);

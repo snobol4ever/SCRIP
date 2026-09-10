@@ -144,35 +144,51 @@ static void trace_print_banner_args(const char *name, DESCR_t *args, int nargs, 
 }
 static void trace_print_banner(const char *name, DESCR_t value, long long stno, int kind) { trace_print_banner_args(name, (DESCR_t *)0, 0, value, stno, kind); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void trace_image_icon_plain(DESCR_t a) {
+static void trace_image_icon_plain_f(FILE *fp, DESCR_t a) {
     extern int try_call_builtin_by_name(const char *fn, DESCR_t *a, int n, DESCR_t *out);
-    DESCR_t im; if (try_call_builtin_by_name("image", &a, 1, &im) && (im.v == DT_S || im.v == DT_SNUL)) fputs(VARVAL_fn(im) ? VARVAL_fn(im) : "", stderr);
+    DESCR_t im; if (try_call_builtin_by_name("image", &a, 1, &im) && (im.v == DT_S || im.v == DT_SNUL)) fputs(VARVAL_fn(im) ? VARVAL_fn(im) : "", fp);
 }
-static void trace_image_icon(DESCR_t a, int top) {
+#define TRACE_ICON_IMAGE_MAX 16
+static int g_icn_image_elide = 0;
+static void trace_image_icon_leaf_f(FILE *fp, DESCR_t a) {
+    extern int try_call_builtin_by_name(const char *fn, DESCR_t *a, int n, DESCR_t *out);
+    DESCR_t im;
+    if (!g_icn_image_elide || !try_call_builtin_by_name("image", &a, 1, &im) || !(im.v == DT_S || im.v == DT_SNUL)) { trace_image_icon_plain_f(fp, a); return; }
+    const char *s = VARVAL_fn(im); if (!s) { return; }
+    size_t n = strlen(s);
+    char q = (n >= 2 && (s[0] == 34 || s[0] == 39) && s[n - 1] == s[0]) ? s[0] : 0;
+    if (!q || n - 2 <= TRACE_ICON_IMAGE_MAX) { fputs(s, fp); return; }
+    fprintf(fp, "%c%.*s...%c", q, TRACE_ICON_IMAGE_MAX, s + 1, q);
+}
+static void trace_image_icon_f(FILE *fp, DESCR_t a, int top);
+static void trace_image_icon_plain(DESCR_t a) { trace_image_icon_plain_f(stderr, a); }
+static void trace_image_icon(DESCR_t a, int top) { trace_image_icon_f(stderr, a, top); }
+void core_icn_display_image(FILE *fp, DESCR_t v) { g_icn_image_elide = 1; trace_image_icon_f(fp, v, 1); g_icn_image_elide = 0; }
+static void trace_image_icon_f(FILE *fp, DESCR_t a, int top) {
     extern long rt_record_image_id(void *inst);
     if (a.v == DT_DATA && a.u && a.u->type && a.u->type->name) {
         DATBLK_t *t = a.u->type;
         if (!strcmp(t->name, "list")) {
             int n = (t->nfields >= 2 && a.u->fields) ? (int)a.u->fields[1].i : 0;
             DESCR_t *e = (t->nfields >= 1 && a.u->fields) ? (DESCR_t *)a.u->fields[0].ptr : (DESCR_t *)0;
-            if (!top && n > 0) { trace_image_icon_plain(a); return; }
-            fprintf(stderr, "list_%ld = [", rt_record_image_id(a.u));
+            if (!top && n > 0) { trace_image_icon_leaf_f(fp, a); return; }
+            fprintf(fp, "list_%ld = [", rt_record_image_id(a.u));
             for (int i = 0; i < n; i++) {
-                if (n > 6 && i == 3) { fputs(",...", stderr); i = n - 4; continue; }
-                if (i) fputc(',', stderr);
-                trace_image_icon(e ? e[i] : NULVCL, 0);
+                if (n > 6 && i == 3) { fputs(",...", fp); i = n - 4; continue; }
+                if (i) fputc(',', fp);
+                trace_image_icon_f(fp, e ? e[i] : NULVCL, 0);
             }
-            fputc(']', stderr); return;
+            fputc(']', fp); return;
         }
         if (strcmp(t->name, "table") && strcmp(t->name, "set")) {
             int nf = t->nfields;
-            if (!top && nf > 0) { trace_image_icon_plain(a); return; }
-            fprintf(stderr, "record %s_%ld(", t->name, rt_record_image_id(a.u));
-            for (int i = 0; i < nf; i++) { if (i) fputc(',', stderr); trace_image_icon(a.u->fields ? a.u->fields[i] : NULVCL, 0); }
-            fputc(')', stderr); return;
+            if (!top && nf > 0) { trace_image_icon_leaf_f(fp, a); return; }
+            fprintf(fp, "record %s_%ld(", t->name, rt_record_image_id(a.u));
+            for (int i = 0; i < nf; i++) { if (i) fputc(',', fp); trace_image_icon_f(fp, a.u->fields ? a.u->fields[i] : NULVCL, 0); }
+            fputc(')', fp); return;
         }
     }
-    trace_image_icon_plain(a);
+    trace_image_icon_leaf_f(fp, a);
 }
 static void trace_print_icon(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value) {
     extern const char *g_file; extern long g_line; extern int * const rt_k_level_p;
@@ -193,7 +209,6 @@ static void trace_print_icon(int kind, const char *name, DESCR_t *args, int narg
     fputc('\n', stderr);
     fflush(stderr);
 }
-#define TRACE_ICON_IMAGE_MAX 16
 #define TRACE_COE_XMIT 0
 #define TRACE_COE_FAILED 1
 #define TRACE_COE_RETURNED 2
@@ -395,6 +410,7 @@ static void icn_tb_builtins_at(int lv) {
 int core_icn_act_top(void) { extern int rt_k_level; int t = rt_k_level; if (t >= ICN_ACT_CAP) t = ICN_ACT_CAP - 1; if (t < 0) t = 0; return t; }
 const char *core_icn_act_name(int lv) { return (lv >= 1 && lv < ICN_ACT_CAP) ? g_icn_act[lv].name : (const char *)0; }
 void *core_icn_act_base(int lv) { return (lv >= 1 && lv < ICN_ACT_CAP) ? g_icn_act[lv].base : (void *)0; }
+int core_icn_act_np(int lv) { return (lv >= 1 && lv < ICN_ACT_CAP) ? g_icn_act[lv].np : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_icn_traceback(void) {
     extern int rt_k_level; extern long g_line; extern const char *g_file;

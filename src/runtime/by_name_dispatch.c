@@ -5075,16 +5075,24 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             if (!pn) continue;
             fprintf(fp, "%s local identifiers:\n", pn);
             extern int rt_proc_nlocals(const char *); extern const char *rt_proc_lname(const char *, int);
-            int nt = rt_proc_nparams(pn); if (nt < 0) nt = 0;
-            int nl = (lv == top) ? rt_proc_nlocals(pn) : 0; if (nl < 0) nl = 0;
+            int nt = core_icn_act_np(lv); if (nt <= 0) nt = rt_proc_nparams(pn); if (nt < 0) nt = 0;
+            int nl = rt_proc_nlocals(pn); if (nl < 0) nl = 0;
             for (int k = 0; k < nt + nl; k++) {
                 const char *vn = (k < nt) ? rt_proc_pname(pn, k) : rt_proc_lname(pn, k - nt); if (!vn) continue;
                 if (vn[0] == 38) continue;
-                DESCR_t v = (k < nt) ? (base ? *(DESCR_t *)((char *)base + (k + 1) * 16) : NULVCL) : NV_GET_fn(vn), im;
+                DESCR_t v; { extern int rt_proc_loff(const char *, int); int off = (k < nt) ? -1 : rt_proc_loff(pn, k - nt);
+                  if (k < nt) v = base ? *(DESCR_t *)((char *)base + (k + 1) * 16) : NULVCL;
+                  else if (base && off >= 0) v = *(DESCR_t *)((char *)base + off);
+                  else v = NV_GET_fn(vn); }
                 fprintf(fp, "   %s = ", vn);
-                if (try_call_builtin_by_name_bl("image", &v, 1, &im, -1) && im.v == DT_S && im.s) fwrite(im.s, 1, descr_slen(im), fp);
+                core_icn_display_image(fp, v);
                 fputc('\n', fp);
             }
+            { int gn2 = rt_icn_global_count(); size_t pl = strlen(pn);
+              for (int gi = 0; gi < gn2; gi++) { const char *gn3 = rt_icn_global_name(gi); if (!gn3) continue;
+                  const char *st = strstr(gn3, "__STATIC__"); if (!st || (size_t)(st - gn3) != pl || strncmp(gn3, pn, pl)) continue;
+                  DESCR_t sv = NV_GET_fn(gn3);
+                  fprintf(fp, "   %s = ", st + 10); core_icn_display_image(fp, sv); fputc('\n', fp); } }
         }
         fputc('\n', fp);
         fputs("global identifiers:\n", fp);
