@@ -1818,9 +1818,9 @@ def cmd_selftest(a):
             print("SELFTEST FAIL: the folded archive still carries a digit fraction %r -- the agree gate "
                   "will read it as this cell's number and red every tick a suite moves"
                   % FRACTION_RE.search(_cf_arch).group(0)); ok = False
-        elif cell_fractions(_cf_after)[0] != {751: 740}:
+        elif cell_bar(cell_fractions(_cf_after)[0]) != {751: 740}:
             print("SELFTEST FAIL: a cell with a folded archive parsed as %r, wanted the LIVE {751: 740}"
-                  % (cell_fractions(_cf_after)[0],)); ok = False
+                  % (cell_bar(cell_fractions(_cf_after)[0]),)); ok = False
         else:
             print("SELFTEST: a folded archive carries no digit fraction and the live number is what "
                   "`agree` reads (CEO-475: the archive used to be parsed as the board number)")
@@ -1913,10 +1913,10 @@ def cmd_selftest(a):
                 ("...and the older `was N/M` idiom no longer deletes the live population with it",
                  "**409/409** run-graded \u00b7 was 377/381", {409: 409})):
             got, _w = cell_fractions(txt)
-            if got == want:
+            if cell_bar(got) == want:
                 print("SELFTEST: %s" % label)
             else:
-                print("SELFTEST FAIL: %s -- read %s, wanted %s (from %r)" % (label, got, want, txt)); ok = False
+                print("SELFTEST FAIL: %s -- read %s, wanted %s (from %r)" % (label, cell_bar(got), want, txt)); ok = False
         # ⛔⭐ THE STALE MARK READS THE PROVENANCE LABEL, NOT PROSE. Arm 1 is the exact live defect Lon
         # named: an M cell measured TODAY that still printed `?` because its own commentary cites an older
         # date. Arm 4 is the opposite guard -- keying on the label must not make the cell's own explicit
@@ -1958,6 +1958,30 @@ def cmd_selftest(a):
                 print("SELFTEST: %s" % label)
             else:
                 print("SELFTEST FAIL: %s -- fraction=%s, wanted %s" % (label, got, want_frac)); ok = False
+        # ⛔⭐⭐ THE CELL THAT DISAGREES WITH ITSELF (hq_C 2026-09-06; cured hq_T 2026-09-10). These four arms
+        # pin a cure whose whole content is a NEGATIVE -- that nothing is discarded -- and a negative has no
+        # symptom to notice when it comes back. The old parser returned {114: 0} for a cell physically
+        # holding `m3 82/114 · m4 0/114`; `agree` then compared 0 against 0 and AGREED, while the percent
+        # reader took 82, so the published leaderboard was computed from a number the agreement gate had
+        # never looked at. ⭐ Arm 3 is the one that keeps the cure honest in the OTHER direction: 24 live
+        # cells write an m3/m4 twin with the SAME number in both modes, and a check that convicted those
+        # would be switched off within the day.
+        for label, txt, want_all, want_bar, want_amb in (
+                ("both fractions of a one-denominator twin survive the extractor",
+                 "swi_tests m3 82/114 · m4 0/114", {114: (82, 0)}, {114: 0}, [(114, (82, 0))]),
+                ("the both-modes bar is still the worse mode, now as a caller's stated choice",
+                 "--run 23/118 · --compile 17/118", {118: (23, 17)}, {118: 17}, [(118, (23, 17))]),
+                ("a twin REPEATING one number is NOT ambiguous -- it is one measurement written twice",
+                 "m3 743/756 · m4 743/756", {756: (743, 743)}, {756: 743}, []),
+                ("a lone fraction is a one-tuple, never a scalar, so no caller can read it two ways",
+                 "run-graded 85/89", {89: (85,)}, {89: 85}, [])):
+            _all, _w = cell_fractions(txt)
+            _bar, _amb = cell_bar(_all), cell_ambiguous(_all)
+            if (_all, _bar, _amb) == (want_all, want_bar, want_amb):
+                print("SELFTEST: %s" % label)
+            else:
+                print("SELFTEST FAIL: %s -- read all=%r bar=%r ambiguous=%r, wanted %r / %r / %r (from %r)"
+                      % (label, _all, _bar, _amb, want_all, want_bar, want_amb, txt)); ok = False
         # ============ THE SUITE-TABLE SYNC (ceo CEO-363) -- the write half AND every refusal ============
         # ⛔ THE REFUSALS ARE THE PRODUCT HERE AS MUCH AS THE WRITE IS.  This mirror exists because three
         # fixers in one hour wrote a grid cell and left SUITES.tsv untouched; a mirror that GUESSED which
@@ -2613,8 +2637,12 @@ def _drop_note(workings, t):
             return w
     return None
 def cell_fractions(raw):
-    # Return ({denominator: pass}, workings), or (None, workings) when the cell carries a population this
-    # parser cannot read -- see the fail-closed contract in language_progress.
+    # Return ({denominator: (pass, ...)}, workings), or (None, workings) when the cell carries a population
+    # this parser cannot read -- see the fail-closed contract in language_progress.
+    # ⛔⭐ THE VALUE IS A TUPLE OF EVERY SURVIVING FRACTION OVER THAT DENOMINATOR, IN CELL ORDER, AND NOTHING
+    # IS EVER SILENTLY DISCARDED. Use cell_bar() for the worse-mode number a verdict reads, and
+    # cell_ambiguous() to ask whether the cell can be read to ONE number at all. See the ruling at the tail
+    # of this function for why the collapse had to be removed from the parser rather than from its readers.
     # ⛔⭐ THE HARNESS SHAPE IS READ FIRST, AND BEFORE PARENTHESES ARE STRIPPED. Measured (ceo, on seat12's
     # snocone cell): `ast 67/67 · run(206) m3 176 pass/7 fail` printed `sc 100%`, because the run population's
     # TOTAL lives inside `run(206)` that the provenance strip deleted and its PASS is prose, not a fraction.
@@ -2739,14 +2767,46 @@ def cell_fractions(raw):
         if t in dropped:
             work.append("drop %s/%d (denominator dropped)" % ("/".join(str(x) for x in ps), t))
             continue
-        out[t] = min(ps)
+        # ⛔⭐⭐ EVERY SURVIVING FRACTION IS RETURNED -- THE VALUE IS A TUPLE, NEVER A SCALAR (hq_C measured
+        # 2026-09-06, .github ea220f45; cured here by hq_T 2026-09-10). This used to be `out[t] = min(ps)`,
+        # and the collapse was invisible ABOVE this line as well as below it: the prolog V cell physically
+        # held `swi_tests m3 82/114 · m4 0/114` and this function returned {114: 0}, so `agree` compared 0
+        # against 0, AGREED, and said nothing -- while the percent reader (counted_fractions) took the FIRST
+        # fraction in the package's clause, 82/114, and published a number this gate had never looked at.
+        # Removing the cell moved prolog 414/621 -> 332/507: exactly the 82 passes over 114 entries that the
+        # gate could not see. ⭐ THE SHAPE, which is why the cure is at the EXTRACTOR and not at either
+        # reader: a gate that compares two TABLES cannot see a disagreement WITHIN one cell, and both
+        # readers were individually correct -- there was no bug to find in either one. If the extractor
+        # collapses, no caller can know there were ever two numbers, so the collapse had to stop HERE.
+        # ⭐ min(ps) is still the both-modes bar and is still what every verdict uses -- it moved into
+        # cell_bar() so that taking the worse mode is now a CALLER'S stated choice rather than a silent
+        # property of the parser. Order is cell order: `fr[t][0]` is the fraction a left-to-right reader
+        # meets first, which is the one counted_fractions takes.
+        out[t] = tuple(ps)
         if t in logged:
             continue
         if len(ps) > 1:
-            work.append("%d/%d (from %s, worse mode)" % (out[t], t, ",".join(str(x) for x in ps)))
+            work.append("%d/%d (from %s, worse mode)" % (min(ps), t, ",".join(str(x) for x in ps)))
         else:
-            work.append("%d/%d" % (out[t], t))
+            work.append("%d/%d" % (ps[0], t))
     return out, work
+
+
+def cell_bar(fr):
+    # {denominator: worse-mode pass} -- the both-modes bar, which is what every VERDICT reads. Separated
+    # from cell_fractions so that a caller collapsing an m3/m4 twin says so out loud (see the ruling above).
+    return {t: min(v) for t, v in (fr or {}).items()}
+
+
+def cell_ambiguous(fr):
+    # [(denominator, values)] for every population this cell names more than once with DIFFERENT pass
+    # counts. ⛔⭐ REPEATING ONE NUMBER IS NOT AMBIGUITY -- `m3 743/756 · m4 743/756` is one measurement
+    # written twice and convicting on it would red 24 live cells for a house style. What is ambiguous is
+    # `m3 82/114 · m4 0/114`: two readers of that cell get two different numbers and neither is wrong.
+    # ⛔ AND A DENOMINATOR IS NOT A POPULATION IDENTITY. Two DIFFERENT suites of the same size group here
+    # under one key, so a hit is "this cell cannot be read to one number", never "this suite disagrees with
+    # itself" -- which is exactly why the caller REPORTS the cell and refuses to pick, rather than guessing.
+    return [(t, tuple(v)) for t, v in sorted((fr or {}).items()) if len(set(v)) > 1]
 
 
 def ladder_score(lang):
@@ -2998,7 +3058,7 @@ def cmd_agree(a):
     lines = open(SCORE_MD, encoding="utf-8").read().split("\n")
     _gh, grid, gskip = find_grid(lines)
     _dh, disp, dskip = find_table(lines)
-    bad, warn = [], []
+    bad, warn, ambiguous = [], [], []
     checked = 0
     # ⛔⭐ A LANGUAGE THIS GATE CANNOT READ IS A MEASUREMENT IT DID NOT MAKE, AND SAYING PASS OVER IT IS THE
     # VACUOUS-GATE CLASS. `if lang not in disp: continue` treated an unreadable display row as nothing to do,
@@ -3016,10 +3076,33 @@ def cmd_agree(a):
             continue
         _i, dcells = disp[lang]
         for col, gkey in GRID_MIRROR.items():
-            dfr, _w = cell_fractions(dcells[COLUMNS[col][0]])
-            gfr, _w2 = cell_fractions(grid[lang][GRID_COLUMNS[gkey][0]])
-            if dfr is None or gfr is None:
+            dfr_all, _w = cell_fractions(dcells[COLUMNS[col][0]])
+            gfr_all, _w2 = cell_fractions(grid[lang][GRID_COLUMNS[gkey][0]])
+            if dfr_all is None or gfr_all is None:
                 continue          # an unreadable cell is the readability gate's business, not this one
+            # ⛔⭐⭐ THE THIRD SIGNAL, AND IT IS THE ONE THIS GATE WAS STRUCTURALLY BLIND TO (hq_C
+            # 2026-09-06; cured hq_T 2026-09-10). Everything below compares one table's cell against the
+            # other's, and NO amount of that can see a cell that disagrees with ITSELF: `swi_tests m3
+            # 82/114 · m4 0/114` names one population twice with two different numbers, the percent reader
+            # takes 82 and the bar takes 0, and the two tables can be in perfect agreement the whole time.
+            # ⛔ THE GATE DOES NOT PICK. Which of two numbers is "the value" is an INTENT question, and a
+            # tool that guesses it manufactures the confident wrong answer this file refuses everywhere
+            # else -- so the cell is NAMED with both numbers and handed back to its writer.
+            for _t, _vals in cell_ambiguous(dfr_all):
+                ambiguous.append("%s: display %s names the %d-population %d times with DIFFERENT counts %s "
+                                 "-- first in cell order is %d, the both-modes bar is %d"
+                                 % (lang, col, _t, len(_vals), "/".join(str(x) for x in _vals),
+                                    _vals[0], min(_vals)))
+            for _t, _vals in cell_ambiguous(gfr_all):
+                ambiguous.append("%s: grid %s names the %d-population %d times with DIFFERENT counts %s "
+                                 "-- first in cell order is %d, the both-modes bar is %d"
+                                 % (lang, gkey, _t, len(_vals), "/".join(str(x) for x in _vals),
+                                    _vals[0], min(_vals)))
+            # ⭐ The VERDICT still reads the both-modes bar, unchanged, deliberately: this landing cures the
+            # extractor's silent discard and SURFACES the intra-cell class; it does not re-decide any
+            # existing conflict. Comparing full tuples instead would red a cell whose modes simply agree
+            # (`743/756 · 743/756` vs `743/756`), which is a house style, not a disagreement.
+            dfr, gfr = cell_bar(dfr_all), cell_bar(gfr_all)
             checked += 1
             # Compare the populations both tables actually name. A denominator present in ONE table only is
             # the staleness this gate exists for; a denominator in both must carry the same pass count.
@@ -3077,6 +3160,25 @@ def cmd_agree(a):
             print("  ✅ %d of those need NO action: the other cell names that population only as a FAILURE count, which is not a pass fraction. The one-sided population is honest, not debt." % len(_failcount))
         if _swallowed:
             print("  ⛔ %d of those are NOT the dual-write gap: the other cell CONTAINS the fraction and a marker word in the quoted clause dropped it. Fix the PROSE -- spell a retired figure in words, or bound it in its own clause with `·` or `;` -- and do not re-run anything." % len(_swallowed))
+    if ambiguous:
+        print("  ⛔ %d CELL(S) CANNOT BE READ TO ONE NUMBER -- one population, named more than once, with "
+              "different pass counts. Two readers of such a cell get two different numbers and NEITHER is "
+              "wrong, so no gate comparing tables can ever see it:" % len(ambiguous))
+        for x in ambiguous:
+            print("    " + x)
+        print("    ⭐ AN HONEST m3/m4 TWIN IS ON THIS LIST TOO, AND THAT IS THE POINT -- do NOT delete a "
+              "correct mode pair. `--run 23/118 · --compile 17/118` is two true measurements, and it is "
+              "STILL listed, because a reader taking the first fraction and a reader taking the bar resolve "
+              "the same cell to 23 and to 17. The cell is not wrong; it is not resolvable to one number, "
+              "and every consumer of this board resolves it anyway.")
+        print("    ⭐ FIX THE CELL, not a reader: give each measurement its own clause with `·` so the "
+              "populations stop sharing a key, or name the ONE number the cell means and demote the rest to "
+              "provenance. ⛔ Note a DENOMINATOR IS NOT A POPULATION IDENTITY -- two different suites of the "
+              "same size land under one key here, so a hit may be two unrelated suites, which is itself "
+              "worth spelling out in the cell.")
+        print("    ⭐ Run `agree --strict` to make this REFUSE rc=2 instead of report (hq_T row "
+              "gate-honesty-strict-by-default); it is report-only today so that surfacing the class does "
+              "not red a blocking arm fleet-wide on cells whose correct values are other seats' to state.")
     # ⛔⭐⭐ THE POPULATION FLOOR, AND IT IS THE ARM THAT WOULD HAVE CAUGHT hq_B's INCIDENT WITHOUT ANY OF THE
     # ABOVE. A comparison gate whose verdict is "0 conflicts" is computing an emptiness, and `0 conflicts over
     # 10 pairs`, `0 conflicts over 1 pair` and `0 conflicts over NOTHING` are the same arithmetic wearing the
@@ -3102,13 +3204,19 @@ def cmd_agree(a):
         print("    ⭐ A GREEN THAT APPEARS WHILE YOU ARE EDITING THE DATA IS A SUSPECT, NOT A REWARD (hq_B, 2026-09-05):")
         print("      breaking a row is how a population goes to zero, and a population of zero scores as a population with no conflicts.")
         return 1
+    if ambiguous and getattr(a, "strict", False):
+        die("%d cell(s) name one population more than once with DIFFERENT pass counts (listed above). Under "
+            "--strict this gate REFUSES rc=2 rather than reporting: it cannot say the two tables agree about "
+            "a number neither table can be read to name" % len(ambiguous))
     if bad:
         print("⛔ GATE RED [score_tables_agree]: %d SAME-DENOMINATOR disagreement(s) -- one of the two tables is wrong and a reader cannot tell which" % len(bad))
         for b in bad:
             print("    " + b)
         print("    ⭐ Compared by VALUE, never by date: same-day staleness (a true date beside a superseded number) is invisible to any freshness check.")
         return 1
-    print("GATE PASS(0) [score_tables_agree]: %d mirrored cell pair(s), 0 same-denominator conflicts, %d one-sided population(s) reported above" % (checked, len(warn)))
+    print("GATE PASS(0) [score_tables_agree]: %d mirrored cell pair(s), 0 same-denominator conflicts, %d "
+          "one-sided population(s) and %d unreadable-to-one-number cell(s) reported above"
+          % (checked, len(warn), len(ambiguous)))
     return 0
 
 
@@ -3260,6 +3368,9 @@ def main():
     g.add_argument("--verbose", action="store_true", help="show the per-language workings, plus the L and B cells the one-liner omits")
     g.set_defaults(fn=cmd_progress)
     g2 = sub.add_parser("agree", help="assert the September-10 grid and the standardized display agree BY VALUE")
+    g2.add_argument("--strict", action="store_true",
+                    help="REFUSE rc=2 (instead of reporting) when a cell names one population more than once "
+                         "with different pass counts -- a cell no reader can resolve to one number")
     g2.set_defaults(fn=cmd_agree)
     k = sub.add_parser("columns", help="assert every runner a grid cell cites is of that column's kind")
     k.set_defaults(fn=cmd_columns)
