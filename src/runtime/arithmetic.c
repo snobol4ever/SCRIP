@@ -341,6 +341,10 @@ static DESCR_t rt_real_overflow(int spitcode, const char *what, double lv) {
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_cset_operand_ok(DESCR_t v) {
+    return IS_CSET_fn(v) || v.v == DT_S || v.v == DT_I || v.v == DT_R;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_num_arith_impl(DESCR_t a, DESCR_t b, int op) {
     a = big_str_operand(a); b = big_str_operand(b);
     if (rt_big_arith_wanted(a, b, op)) return rt_big_arith_route(a, b, op);
@@ -375,6 +379,9 @@ static DESCR_t rt_num_arith_impl(DESCR_t a, DESCR_t b, int op) {
                 if (op == BINOP_CDIFF)  return TABLE_VAL(set_diff(a.tbl, b.tbl));
                 return TABLE_VAL(set_inter(a.tbl, b.tbl));
             }
+            { extern int core_icn_error(int code, DESCR_t val);
+              if (!icn_cset_operand_ok(a)) { core_icn_error(120, a); return FAILDESCR; }
+              if (!icn_cset_operand_ok(b)) { core_icn_error(120, b); return FAILDESCR; } }
             if (IS_CSET_fn(a) || a.v == DT_S || a.v == DT_SNUL) as = a.s ? a.s : "";
             else if (IS_INT_fn(a))  { snprintf(_ab, sizeof _ab, "%lld", (long long)a.i); as = _ab; }
             else if (IS_REAL_fn(a)) { icon_real_str(a.r, _ab, sizeof _ab); as = _ab; }
