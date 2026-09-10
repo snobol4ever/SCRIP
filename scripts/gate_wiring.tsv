@@ -44,6 +44,7 @@ test_gate_ast_declared_refs_are_ast_dumps.sh	WIRED	-	-	-
 test_gate_ast_shaped_refs_are_declared_ast.sh	WIRED	-	-	-
 test_gate_banner_leads_with_the_suite_line.sh	WIRED	-	-	-
 test_gate_banner_reports_ahead_of_origin.sh	WIRED	-	-	-
+test_gate_boards_refuse_when_the_binary_moves.sh	WIRED	-	-	-
 test_gate_build_freshness_is_behavioural.sh	WIRED	-	-	-
 test_gate_capture_stdin_and_red_exit.sh	WIRED	-	-	-
 test_gate_ceo409_mask_is_read_by_the_bash_runners.sh	WIRED	-	-	-
