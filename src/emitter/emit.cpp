@@ -2952,13 +2952,13 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         extern void rt_lcl_proc_args_install(void *, int, int);
         extern void rt_icn_zframe_args_install(void *, int, int);
         int _use_zframe_install = (g_emit_cfg && g_emit_cfg->icn_cells_graph) ? 1 : 0;
-        int carve = ((frame_total + 15) & ~15) + 48;
-        bb_emit_x86(x86("comment", "N-3 (ceo 2026-09-07, Lon: each BB carves its own memory, nothing is pre-carved): alpha carves THIS activation's own frame on the spine below the six entry words -- [R, R+ft) cells, header H=R+ft: [H+0]=caller rbp [H+8]=gamma [H+16]=omega [H+24]=ANCHOR(rsp0) [H+32]=resume label [H+40]=spine top banked at gamma; rbp:=H, rsp:=R. Entry stack unchanged: [rsp+0]=gamma [rsp+8]=omega [rsp+16]=unused [rsp+24]=L7 [rsp+32]=pad [rsp+40]=ABI word, rsp0=[rsp+48]. The frame survives gamma (the caller continues BELOW it and beta restores rsp from [H+40]) and is popped by omega (rsp:=ANCHOR). No host walks its callees, no maximum, no depth table.")
+        int carve = ((frame_total + 15) & ~15) + 48 + 8;
+        bb_emit_x86(x86("comment", "N-3 (ceo 2026-09-07, Lon: each BB carves its own memory, nothing is pre-carved): alpha carves THIS activation's own frame on the spine below the six entry words -- [R, R+ft) cells, header H=R+ft: [H+0]=caller rbp [H+8]=gamma [H+16]=omega [H+24]=ANCHOR(rsp0) [H+32]=resume label [H+40]=spine top banked at gamma; rbp:=H, rsp:=R. Entry stack (CEO-483, hq_U -- FIVE words, the pad is gone): [rsp+0]=gamma [rsp+8]=omega [rsp+16]=unused [rsp+24]=L7 [rsp+32]=ABI word, rsp0=[rsp+40]. The pad`s 8 bytes were not deleted, they MOVED ACROSS THE CALL into the +8 on carve just above: entry rsp is now rsp0-40 = 8 mod 16, so the carve carries the odd word and R = rsp_entry - carve stays 0 mod 16 exactly as before. Drop the pad WITHOUT that +8 and patchu SIGSEGVs -- measured 2026-09-10. rt_genp_spine_enter_n2 in rt.c is the hand-written twin of the entry block and carries the same five words. The frame survives gamma (the caller continues BELOW it and beta restores rsp from [H+40]) and is popped by omega (rsp:=ANCHOR). No host walks its callees, no maximum, no depth table.")
                   + x86("lea", "rax", RDQ("rsp", 0 - carve))
                   + x86("mov", RDQ("rax", frame_total + 0), "rbp")
                   + x86("mov", "rcx", RDQ("rsp", 0)) + x86("mov", RDQ("rax", frame_total + 8), "rcx")
                   + x86("mov", "rcx", RDQ("rsp", 8)) + x86("mov", RDQ("rax", frame_total + 16), "rcx")
-                  + x86("lea", "rcx", RDQ("rsp", 48)) + x86("mov", RDQ("rax", frame_total + 24), "rcx")
+                  + x86("lea", "rcx", RDQ("rsp", 40)) + x86("mov", RDQ("rax", frame_total + 24), "rcx")
                   + x86("lea", "rbp", RDQ("rax", frame_total))
                   + x86("mov", "rsp", "rax")
                   + x86("mov", "rdi", "rax") + x86("mov32", "esi", (long)np) + x86("mov32", "edx", (long)nl)
