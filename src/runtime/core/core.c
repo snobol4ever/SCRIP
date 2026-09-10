@@ -149,21 +149,22 @@ static void trace_image_icon_plain_f(FILE *fp, DESCR_t a) {
     DESCR_t im; if (try_call_builtin_by_name("image", &a, 1, &im) && (im.v == DT_S || im.v == DT_SNUL)) fputs(VARVAL_fn(im) ? VARVAL_fn(im) : "", fp);
 }
 #define TRACE_ICON_IMAGE_MAX 16
-static int g_icn_image_elide = 0;
 static void trace_image_icon_leaf_f(FILE *fp, DESCR_t a) {
     extern int try_call_builtin_by_name(const char *fn, DESCR_t *a, int n, DESCR_t *out);
     DESCR_t im;
-    if (!g_icn_image_elide || !try_call_builtin_by_name("image", &a, 1, &im) || !(im.v == DT_S || im.v == DT_SNUL)) { trace_image_icon_plain_f(fp, a); return; }
+    if (!try_call_builtin_by_name("image", &a, 1, &im) || !(im.v == DT_S || im.v == DT_SNUL)) { trace_image_icon_plain_f(fp, a); return; }
     const char *s = VARVAL_fn(im); if (!s) { return; }
     size_t n = strlen(s);
     char q = (n >= 2 && (s[0] == 34 || s[0] == 39) && s[n - 1] == s[0]) ? s[0] : 0;
-    if (!q || n - 2 <= TRACE_ICON_IMAGE_MAX) { fputs(s, fp); return; }
-    fprintf(fp, "%c%.*s...%c", q, TRACE_ICON_IMAGE_MAX, s + 1, q);
+    if (!q) { fputs(s, fp); return; }
+    size_t i = 1, cut = 0; int chars = 0;
+    while (i < n - 1) { if (chars == TRACE_ICON_IMAGE_MAX) { cut = i; break; } i += (s[i] != 92) ? 1 : (s[i + 1] == 120 ? 4 : 2); chars++; }
+    if (!cut) { fputs(s, fp); return; }
+    fprintf(fp, "%c%.*s...%c", q, (int)(cut - 1), s + 1, q);
 }
 static void trace_image_icon_f(FILE *fp, DESCR_t a, int top);
-static void trace_image_icon_plain(DESCR_t a) { trace_image_icon_plain_f(stderr, a); }
 static void trace_image_icon(DESCR_t a, int top) { trace_image_icon_f(stderr, a, top); }
-void core_icn_display_image(FILE *fp, DESCR_t v) { g_icn_image_elide = 1; trace_image_icon_f(fp, v, 1); g_icn_image_elide = 0; }
+void core_icn_display_image(FILE *fp, DESCR_t v) { trace_image_icon_f(fp, v, 1); }
 static void trace_image_icon_f(FILE *fp, DESCR_t a, int top) {
     extern long rt_record_image_id(void *inst);
     if (a.v == DT_DATA && a.u && a.u->type && a.u->type->name) {
@@ -213,15 +214,6 @@ static void trace_print_icon(int kind, const char *name, DESCR_t *args, int narg
 #define TRACE_COE_FAILED 1
 #define TRACE_COE_RETURNED 2
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void trace_icon_value_image(DESCR_t v, char *buf, size_t cap) {
-    extern int try_call_builtin_by_name(const char *fn, DESCR_t *a, int n, DESCR_t *out);
-    DESCR_t im; DESCR_t a = v; buf[0] = '\0';
-    if (!try_call_builtin_by_name("image", &a, 1, &im) || !(im.v == DT_S || im.v == DT_SNUL)) return;
-    const char *s = VARVAL_fn(im); if (!s) return;
-    size_t n = strlen(s);
-    if (n > 2 && s[0] == '"' && s[n - 1] == '"' && n - 2 > TRACE_ICON_IMAGE_MAX) { snprintf(buf, cap, "\"%.*s...\"", (int)TRACE_ICON_IMAGE_MAX, s + 1); return; }
-    snprintf(buf, cap, "%s", s);
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_icn_trace_coexpr(const char *procname, long self_serial, long targ_serial, uint64_t x0, uint64_t x1, int kind, long line_override) {
     extern const char *g_file; extern long g_line; extern int * const rt_k_level_p;
@@ -238,9 +230,9 @@ void rt_icn_trace_coexpr(const char *procname, long self_serial, long targ_seria
     if (line > 0) fprintf(stderr, "%-13s: %4ld  ", f, line); else fprintf(stderr, "             :       ");
     for (int k = *rt_k_level_p; k > 0; k--) fputs("| ", stderr);
     fprintf(stderr, "%s; co-expression_%ld", procname ? procname : "main", self_serial);
-    if (kind == TRACE_COE_XMIT) { char vb[512]; trace_icon_value_image(value, vb, sizeof vb); fprintf(stderr, " : %s @ co-expression_%ld", vb, targ_serial); }
+    if (kind == TRACE_COE_XMIT) { fputs(" : ", stderr); trace_image_icon(value, 1); fprintf(stderr, " @ co-expression_%ld", targ_serial); }
     else if (kind == TRACE_COE_FAILED) fprintf(stderr, " failed to co-expression_%ld", targ_serial);
-    else { char vb[512]; trace_icon_value_image(value, vb, sizeof vb); fprintf(stderr, " returned %s to co-expression_%ld", vb, targ_serial); }
+    else { fputs(" returned ", stderr); trace_image_icon(value, 1); fprintf(stderr, " to co-expression_%ld", targ_serial); }
     fputc('\n', stderr);
     fflush(stderr);
     trace_recursion_depth--;
@@ -392,10 +384,7 @@ void core_icn_bi_push(icn_bi_rec_t *r, const char *name, DESCR_t *args, int narg
 void core_icn_bi_pop(icn_bi_rec_t *r) { g_icn_bi_top = r->prev; }
 void *core_icn_bi_mark(void) { return (void *)g_icn_bi_top; }
 void core_icn_bi_reset(void *mark) { g_icn_bi_top = (icn_bi_rec_t *)mark; }
-static void icn_tb_image(DESCR_t v) {
-    if (v.v == DT_S || v.v == DT_SNUL) { char vb[512]; trace_icon_value_image(v, vb, sizeof vb); fputs(vb, stderr); return; }
-    trace_image_icon(v, 1);
-}
+static void icn_tb_image(DESCR_t v) { trace_image_icon(v, 1); }
 static void icn_tb_builtins_at(int lv) {
     int n = 0; for (icn_bi_rec_t *b = g_icn_bi_top; b; b = b->prev) if (b->level == lv) n++;
     for (int k = n; k > 0; k--) {
@@ -440,7 +429,7 @@ static void core_icn_report(int code, DESCR_t val, const char *msg) {
     extern long g_line; extern const char *g_file;
     fflush(stdout);
     fprintf(stderr, "\nRun-time error %d\nFile %s; Line %ld\n%s\n", code, icn_basename(g_file), g_line, msg ? msg : icn_errmsg(code));
-    if (val.v != DT_FAIL) { char vb[512]; trace_icon_value_image(val, vb, sizeof vb); if (vb[0]) fprintf(stderr, "offending value: %s\n", vb); }
+    if (val.v != DT_FAIL) { char *vb = (char *)0; size_t vn = 0; FILE *vf = open_memstream(&vb, &vn); if (vf) { trace_image_icon_f(vf, val, 1); fclose(vf); } if (vb && vb[0]) fprintf(stderr, "offending value: %s\n", vb); free(vb); }
     core_icn_traceback();
     exit(1);
 }
