@@ -48,13 +48,43 @@ git checkout -q -b main 2>/dev/null || true
 echo one > f.txt && git add f.txt && git commit -q -m "fixture base" 2>/dev/null || gate_unproven "could not commit the fixture base"
 git push -q -u origin main 2>/dev/null || gate_unproven "could not push the fixture base to its bare origin"
 
+# ⛔⭐ THE WHOLE BANNER IS CAPTURED, AND THE GREP READS THE CAPTURE (coo 2026-09-10, ceo CEO-524 (2)).
+# THE REPORT THIS ANSWERS (hq_B): this gate read 6/6 arms EMPTY inside `make test` twice and passed standalone
+# -- a flake whose failure mode is "the banner printed nothing". The old body piped the banner straight into
+# `grep -m1` and kept ONLY the matched line, so on the empty reading EVERY BYTE OF EVIDENCE WAS DISCARDED: no
+# rc, no stderr, no way to tell a timeout from an early exit from a banner that ran fine and simply omitted the
+# arm. Three candidate causes were ruled out by measurement rather than by reading -- the Makefile exports no
+# S4E_HOME (so the seat cannot mis-resolve under make), util_score_row.py takes no lock on SCORE.md (so a
+# concurrent board cannot block it), and the gate passed twice at load 1.8 with a package board grading beside
+# it. ⭐ SO THE CAUSE IS STILL UNNAMED, AND CEO-524 (2) SAYS NAME IT BEFORE CURING. This is the instrument that
+# names it: the capture costs nothing on the happy path and, on the next empty reading, prints the banner's rc
+# (124 IS THE TIMEOUT FIRING AND SAYS SO), the resolved identity the banner computed, and the first lines it
+# actually produced. ⛔ A gate that reports "printed nothing" and knows nothing about the nothing cannot be
+# debugged from its own log, which is why this flake survived two sightings.
+BANNER_RAW=""; BANNER_RC=0
 banner_ahead_line() {  # runs the banner arm against the fixture root and echoes its AHEAD line
-    S4E_AHEAD_HOME="$W/root" S4E_BANNER_NO_BOARD=1 timeout 300 bash "$HERE/s4e_msg.sh" banner 2>&1 | grep -m1 'AHEAD OF ORIGIN'
+    BANNER_RAW="$(S4E_AHEAD_HOME="$W/root" S4E_BANNER_NO_BOARD=1 timeout 300 bash "$HERE/s4e_msg.sh" banner 2>&1)"; BANNER_RC=$?
+    printf '%s\n' "$BANNER_RAW" | grep -m1 'AHEAD OF ORIGIN'
+}
+banner_evidence() {  # called ONLY on an empty reading -- the flake's own post-mortem, printed where the log is
+    echo "    ⛔ EVIDENCE FOR THE EMPTY READING (ceo CEO-524 (2), hq_B's flake):"
+    if [ "$BANNER_RC" -eq 124 ]; then
+        echo "       banner rc=124 -- THE 300s TIMEOUT FIRED. That is a duration, not a defect of the arm: the"
+        echo "       banner did not finish, so the line it would have printed was never reached."
+    else
+        echo "       banner rc=$BANNER_RC (124 would mean the 300s timeout fired; 3 is the bus refusing an unknown"
+        echo "       mailbox; 0 means it ran to completion and simply did not print the arm)"
+    fi
+    echo "       bytes captured: $(printf '%s' "$BANNER_RAW" | wc -c)   lines: $(printf '%s\n' "$BANNER_RAW" | grep -c .)"
+    echo "       S4E_HOME=${S4E_HOME:-<unset>}  S4E_SEAT=${S4E_SEAT:-<unset>}  S4E_POST=${S4E_POST:-<unset>}  PWD=$PWD"
+    echo "       first lines the banner actually produced:"
+    printf '%s\n' "$BANNER_RAW" | head -25 | sed 's/^/         | /'
 }
 
 # --- ARM 1: CLEAN -- HEAD is on origin, the line must say so and must not claim an ahead count ------------------
 clean_line="$(banner_ahead_line)"; clean_rc=$?
 [ -n "$clean_line" ] || gate_fail "the banner printed NO 'AHEAD OF ORIGIN' line at all against a clean fixture -- the arm is absent or unreachable, which is exactly the invisible-reporting defect this gate exists for"
+banner_evidence
 case "$clean_line" in
     *"AHEAD OF ORIGIN: none"*) ;;
     *) gate_fail "clean fixture (HEAD == origin) but the banner did not print the none-line; it printed: $clean_line" ;;
@@ -64,6 +94,7 @@ esac
 echo two >> f.txt && git commit -q -am "fixture unpushed commit" 2>/dev/null || gate_unproven "could not create the deliberate unpushed commit"
 ahead_line="$(banner_ahead_line)"; ahead_rc=$?
 [ -n "$ahead_line" ] || gate_fail "one unpushed commit exists and the banner printed NO 'AHEAD OF ORIGIN' line"
+banner_evidence
 case "$ahead_line" in
     *"AHEAD OF ORIGIN: none"*) gate_fail "one unpushed commit exists and the banner still reported 'none' -- the count is not being read live from git: $ahead_line" ;;
 esac
