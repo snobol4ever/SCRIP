@@ -249,8 +249,8 @@ scrip_coctx_t *scrip_coexpr_refresh(scrip_coctx_t *orig) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint64_t *out2, const char *procname) {
     if (!target) scrip_co_uerror("scrip_coexpr: activate of NULL coexpression (operand slot held garbage -- LOWER/driver wiring bug)");
-    if (target->dead) return 0;
     scrip_coctx_t *self = scrip_co_current ? scrip_co_current : &g_root_ctx;
+    if (target->dead) { scrip_co_trace_xmit(procname, self, target, x0, x1); scrip_co_trace_term(target, self, 0, 0, 1); return 0; }
     scrip_coctx_t *prev = scrip_co_current;
     int first = target->alive ? 1 : 0;
     scrip_co_trace_xmit(procname, self, target, x0, x1);
