@@ -190,6 +190,43 @@ static void trace_print_icon(int kind, const char *name, DESCR_t *args, int narg
     fputc('\n', stderr);
     fflush(stderr);
 }
+#define TRACE_ICON_IMAGE_MAX 16
+#define TRACE_COE_XMIT 0
+#define TRACE_COE_FAILED 1
+#define TRACE_COE_RETURNED 2
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void trace_icon_value_image(DESCR_t v, char *buf, size_t cap) {
+    extern int try_call_builtin_by_name(const char *fn, DESCR_t *a, int n, DESCR_t *out);
+    DESCR_t im; DESCR_t a = v; buf[0] = '\0';
+    if (!try_call_builtin_by_name("image", &a, 1, &im) || !(im.v == DT_S || im.v == DT_SNUL)) return;
+    const char *s = VARVAL_fn(im); if (!s) return;
+    size_t n = strlen(s);
+    if (n > 2 && s[0] == '"' && s[n - 1] == '"' && n - 2 > TRACE_ICON_IMAGE_MAX) { snprintf(buf, cap, "\"%.*s...\"", (int)TRACE_ICON_IMAGE_MAX, s + 1); return; }
+    snprintf(buf, cap, "%s", s);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_icn_trace_coexpr(const char *procname, long self_serial, long targ_serial, uint64_t x0, uint64_t x1, int kind, long line_override) {
+    extern const char *g_file; extern long g_line; extern int * const rt_k_level_p;
+    if (g_trace == 0) return;
+    trace_ent_t *e = trace_find("*", TRK_CALL);
+    if (!e || !e->tag || strcmp(e->tag, "icn")) return;
+    if (trace_recursion_depth > 0) return;
+    g_trace--;
+    trace_recursion_depth++;
+    DESCR_t value; uint64_t w[2]; w[0] = x0; w[1] = x1; memcpy(&value, w, sizeof value);
+    long line = line_override > 0 ? line_override : g_line;
+    fflush(stdout);
+    const char *f = g_file ? g_file : ""; size_t fl = strlen(f); if (fl > 13) f += fl - 13;
+    if (line > 0) fprintf(stderr, "%-13s: %4ld  ", f, line); else fprintf(stderr, "             :       ");
+    for (int k = *rt_k_level_p; k > 0; k--) fputs("| ", stderr);
+    fprintf(stderr, "%s; co-expression_%ld", procname ? procname : "main", self_serial);
+    if (kind == TRACE_COE_XMIT) { char vb[512]; trace_icon_value_image(value, vb, sizeof vb); fprintf(stderr, " : %s @ co-expression_%ld", vb, targ_serial); }
+    else if (kind == TRACE_COE_FAILED) fprintf(stderr, " failed to co-expression_%ld", targ_serial);
+    else { char vb[512]; trace_icon_value_image(value, vb, sizeof vb); fprintf(stderr, " returned %s to co-expression_%ld", vb, targ_serial); }
+    fputc('\n', stderr);
+    fflush(stderr);
+    trace_recursion_depth--;
+}
 void rt_trace_all_set(int on) {
     if (on) { trace_register("*", TRK_CALL, "icn", (const char *)0); trace_register("*", TRK_RETURN, "icn", (const char *)0); }
     else { trace_unregister("*", TRK_CALL); trace_unregister("*", TRK_RETURN); }

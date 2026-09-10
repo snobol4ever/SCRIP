@@ -2001,6 +2001,14 @@ inline std::string x86_bomb(const char * msg) {
          + (MEDIUM_BINARY ? x86_Lrec(x86_b2(0x0F, 0x0B)) : x86_recn("ud2") + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_load_ro_str(const char * dst, const char * s) {
+    const char * str = s ? s : "";
+    const char * lbl = emit_intern_str(str);
+    char lblbuf[24];
+    if (!MEDIUM_BINARY && (!lbl || !lbl[0])) { strtab_label(lblbuf, sizeof lblbuf, str); lbl = lblbuf; }
+    return x86_load_ro(dst, lbl, (uint64_t)(uintptr_t)(const void *)str);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jmp_fn_body(const char * label, uint64_t fp) {
     if (MEDIUM_BINARY) return fp ? x86_jmpfn(label, fp) : x86_bomb("bb_define_activate: proc fn not registered for binary body-jmp");
     return x86_jmp_lblptr(emit_label_intern(label), label);

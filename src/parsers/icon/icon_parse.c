@@ -309,7 +309,7 @@ static tree_t *parse_unary(IcnParser *p) {
     if (check(p, TK_SLASH))     { advance(p); return e_unary(TT_NULL,       parse_unary(p)); }
     if (check(p, TK_NOT))       { advance(p); return e_unary(TT_NOT,        parse_unary(p)); }
     if (check(p, TK_QMARK))     { advance(p); return e_unary(TT_RANDOM,     parse_unary(p)); }
-    if (check(p, TK_AT))        { advance(p); return e_unary(TT_ACTIVATE,   parse_unary(p)); }
+    if (check(p, TK_AT))        { int atline = p->cur.line; advance(p); tree_t *na = e_unary(TT_ACTIVATE, parse_unary(p)); if (na) na->line = atline; return na; }
     if (check(p, TK_TILDE))     { advance(p); return e_unary(TT_CSET_COMPL, parse_unary(p)); }
     if (check(p, TK_DOT))       { advance(p); return e_unary(TT_DEREF,      parse_unary(p)); }
     if (check(p, TK_PLUSPLUS))   { advance(p); return e_unary(TT_PLS,  e_unary(TT_PLS,  parse_unary(p))); }
@@ -493,8 +493,10 @@ static tree_t *parse_activate(IcnParser *p) {
     tree_t *n = parse_to(p);
     if (!n) return NULL;
     while (check(p, TK_AT)) {
+        int atline = p->cur.line;
         advance(p);
         n = e_binary(TT_ACTIVATE, n, parse_to(p));
+        if (n) n->line = atline;
     }
     return n;
 }

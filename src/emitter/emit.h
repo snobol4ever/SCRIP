@@ -313,6 +313,7 @@ typedef struct {
     const char *                 op_scan_pat_lit;
     const char *                 op_scan_subj_lit;
     const char *                 op_scan_replace_lit;
+    const char *                 op_activate_proc;
     int                          op_sa;
     int                          op_sb;
     int                          op_sc;

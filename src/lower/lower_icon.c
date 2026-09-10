@@ -900,12 +900,14 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         cx->beta = ω; *res = nd; return nd; }
     case TT_ACTIVATE: {
         IR_t * nd = build(cx, IR_ACTIVATE, γ, ω);
+        IR_LIT(nd).sval = cx->pname;
         const tree_t * xt = (t->n > 1) ? t->c[0] : NULL;
         const tree_t * ct = (t->n > 1) ? t->c[1] : t->c[0];
         IR_t * cr = NULL; IR_t * c_entry = lower(cx, ct, nd, ω, &cr);
         IR_t * entry = c_entry;
         ir_operand_push(nd, cr);
         if (xt) { IR_t * xr = NULL; entry = lower(cx, xt, c_entry, ω, &xr); ir_operand_push(nd, xr); }
+        if (cx->want_lines && t->line > 0) entry = icn_line_hook(cx, t->line, entry);
         cx->beta = ω; *res = nd; return entry; }
     case TT_REPALT: {
         IR_t * nd = build(cx, IR_REPALT, γ, ω);

@@ -224,6 +224,7 @@ const char x86_argrole_blob[] =
     "x0\0"
     "x1\0"
     "out2\0"
+    "procname\0"
     "scrip_coexpr_create\0"
     "body_entry_addr\0"
     "regs\0"

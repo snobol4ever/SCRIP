@@ -98,6 +98,22 @@ void scrip_coexpr_destroy(scrip_coctx_t *ctx) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static scrip_coctx_t g_root_ctx;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long scrip_co_serial_disp(scrip_coctx_t *c) { if (!c) return 0; if (c == &g_root_ctx && c->serial == 0) return 1; return c->serial; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void scrip_co_trace_xmit(const char *procname, scrip_coctx_t *self, scrip_coctx_t *target, uint64_t x0, uint64_t x1) {
+    extern void rt_icn_trace_coexpr(const char *procname, long self_serial, long targ_serial, uint64_t x0, uint64_t x1, int kind, long line_override);
+    if (!procname || !target) return;
+    long ts = scrip_co_serial_disp(target);
+    if (ts == 0) return;
+    rt_icn_trace_coexpr(procname, scrip_co_serial_disp(self), ts, x0, x1, 0, 0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void scrip_co_trace_term(scrip_coctx_t *me, scrip_coctx_t *back, uint64_t d0, uint64_t d1, int failed) {
+    extern void rt_icn_trace_coexpr(const char *procname, long self_serial, long targ_serial, uint64_t x0, uint64_t x1, int kind, long line_override);
+    if (!me || !back || me->serial == 0 || me->create_line <= 0) return;
+    rt_icn_trace_coexpr("main", me->serial, scrip_co_serial_disp(back), d0, d1, failed ? 1 : 2, me->create_line);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static scrip_coctx_t *scrip_co_live_activator(scrip_coctx_t *me) {
     scrip_coctx_t *b = me ? me->activator : 0;
     for (int hop = 0; b && b != &g_root_ctx && b->dead && hop < 64; hop++) b = b->activator;
@@ -113,6 +129,7 @@ void scrip_coret(uint64_t d0, uint64_t d1, void *resume_addr) {
     if (!back) scrip_co_uerror("scrip_coexpr: scrip_coret with no activator (RUNG 5 `@` did not set scrip_co_current->activator before switching in)");
     back->xmit[0] = d0;
     back->xmit[1] = d1;
+    scrip_co_trace_term(me, back, d0, d1, 0);
     scrip_co_current = back;
     scrip_coswitch(me, back, 1);
 }
@@ -123,6 +140,7 @@ void scrip_cofail(void) {
     me->dead = 1;
     scrip_coctx_t *back = scrip_co_live_activator(me);
     if (!back) scrip_co_uerror("scrip_coexpr: scrip_cofail with no activator (RUNG 5 `@` did not set the activator chain)");
+    scrip_co_trace_term(me, back, 0, 0, 1);
     scrip_co_current = back;
     scrip_coswitch(me, back, 1);
 }
@@ -212,6 +230,8 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7]
     ctx->scan_state = NULL;
     ctx->serial = ++g_coexpr_serial;
     ctx->activations = 0;
+    { extern long g_line; ctx->create_line = g_line; }
+    ctx->cur_line = 0;
     ctx->gc_next = g_co_gc_head; g_co_gc_head = ctx;
     return ctx;
 }
@@ -226,18 +246,21 @@ scrip_coctx_t *scrip_coexpr_refresh(scrip_coctx_t *orig) {
     return scrip_coexpr_create(opkg->body_entry_addr, regs, orig->frame_copy_sz, orig->frame_copy_below);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint64_t *out2) {
+int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint64_t *out2, const char *procname) {
     if (!target) scrip_co_uerror("scrip_coexpr: activate of NULL coexpression (operand slot held garbage -- LOWER/driver wiring bug)");
     if (target->dead) return 0;
     scrip_coctx_t *self = scrip_co_current ? scrip_co_current : &g_root_ctx;
     scrip_coctx_t *prev = scrip_co_current;
     int first = target->alive ? 1 : 0;
+    scrip_co_trace_xmit(procname, self, target, x0, x1);
     target->activator = self;
     target->xmit[0] = x0;
     target->xmit[1] = x1;
+    { extern long g_line; self->cur_line = g_line; if (!target->alive && target->create_line > 0) g_line = target->create_line; }
     scrip_co_current = target;
     scrip_coswitch(self, target, first);
     scrip_co_current = prev;
+    { extern long g_line; if (self->cur_line > 0) g_line = self->cur_line; }
     if (target->dead) return 0;
     target->activations++;
     out2[0] = self->xmit[0];
@@ -265,6 +288,8 @@ void scrip_co_ctx_init(scrip_coctx_t *ctx, void (*entry_fn)(void *), void *entry
     ctx->scan_state = NULL;
     ctx->serial = 0;
     ctx->activations = 0;
+    ctx->create_line = 0;
+    ctx->cur_line = 0;
     ctx->gc_next = NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
