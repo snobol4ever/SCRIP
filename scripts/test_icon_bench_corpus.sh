@@ -68,11 +68,33 @@ ICONX="${ICONX:-$(iconx_bin)}" || exit 2
 # §ICON BENCHMARK MAP): jcont is #!/bin/sh but uses bashisms (dash dies "Bad substitution") — ALWAYS
 # invoke via `bash`; and it writes ../$name.zip relative paths — ALWAYS run from the source dir with
 # bare filenames. jcont needs Arizona icont on PATH for its own operation.
-JCONM="${JCONM:-$S4E/jcon-src/jcon-master}"
-JCONT="$JCONM/bin/jcont"
+# ⛔⭐ BOTH RIVAL PATHS COME FROM lib_oracle_flags.sh ACCESSORS, NEVER FROM A HAND-ASSEMBLED ENV VAR
+# (ceo CEO-490b, cured hq_P 2026-09-10). This block carried two defects with OPPOSITE volumes, and the
+# quiet one is the dangerous one:
+#   (1) LOUD -- `export PATH="$ICONM/bin:$PATH"` referenced ICONM, which nothing in this script ever set.
+#       Under `set -u` (line 40) that is "ICONM: unbound variable" and the script died at line 75 having
+#       run NOT ONE PROGRAM. A board that cannot start is at least honest about it.
+#   (2) ⛔ SILENT, AND IT HAD BEEN SILENT FOR WEEKS -- JCONM defaulted to "$S4E/jcon-src/jcon-master",
+#       a path that exists in no root on this box; jcont lives at /home/resources/jcon-master/bin/jcont.
+#       `[ -f "$JCONT" ]` then set HAVE_JCON=0 and every jcon arm below SKIPPED ITSELF, so the board
+#       printed a complete, plausible three-column table with the fourth column simply absent -- the
+#       CLAUDE.md missing-oracle class exactly, wearing "optional 4th column when built" as its excuse.
+#       Lon asked on 2026-09-10 how SCRIP compares to Arizona AND JCON, and the reason no answer existed
+#       was this line. ⭐ An accessor REFUSES; a `[ -f ]` guard around a hand-built path cannot.
+# ⛔ Do not reintroduce either variable. icont's own directory is what jcont needs on PATH (it shells out
+# to icont), and the only place that directory is known correctly is the accessor that resolved ICONT.
+export PATH="$(dirname "$ICONT"):$PATH"
+JCONT="$(jcont_bin 2>/dev/null)" || JCONT=""
 HAVE_JCON=0
-[ -f "$JCONT" ] && command -v java >/dev/null 2>&1 && HAVE_JCON=1
-export PATH="$ICONM/bin:$PATH"
+if [ -n "$JCONT" ] && [ -x "$JCONT" ] && command -v java >/dev/null 2>&1; then HAVE_JCON=1; fi
+# ⛔ A MISSING RIVAL IS NAMED, NEVER INFERRED FROM A GAP IN THE GRID: with HAVE_JCON=0 every jcon cell is
+# absent below, and an absent cell and a measured-slower cell look identical to a reader scanning columns.
+if [ "$HAVE_JCON" = "1" ]; then
+  echo "JCON RIVAL: $JCONT (java $(java -version 2>&1 | head -1 | tr -d '\n'))"
+else
+  echo "⚠ JCON RIVAL ABSENT -- every jcont column below is EMPTY BECAUSE IT WAS NOT MEASURED, not because"
+  echo "  jcont was slow: jcont=${JCONT:-<accessor refused>} java=$(command -v java || echo '<not on PATH>')"
+fi
 for exe in "$SCRIP" "$ICONT" "$ICONX"; do
   [ -x "$exe" ] || { echo "FATAL: $exe missing/not executable (build failed or SKIP_BUILD=1 without a prior build)"; exit 2; }
 done
