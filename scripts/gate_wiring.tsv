@@ -91,6 +91,7 @@ test_gate_icon_features_and_preprocessor_symbols_agree.sh	WIRED	-	-	-
 test_gate_icon_master_entries_compile_under_icont.sh	WIRED	-	-	-
 test_gate_icon_master_per_entry_identity.sh	WIRED	-	-	-
 test_gate_icon_shipped_trees_compile_under_icont.sh	WIRED	-	-	-
+test_gate_ir_reading_voids_a_dead_run.sh	WIRED	-	-	-
 test_gate_kw_integer_hex_refused.sh	WIRED	-	-	-
 test_gate_ladder_asserts_stderr.sh	WIRED	-	-	-
 test_gate_ladder_forms_check_selftest.sh	WIRED	-	-	-
