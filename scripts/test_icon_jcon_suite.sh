@@ -369,7 +369,16 @@ INV_PACKAGE=jcon; INV_DIR="$CORPUS"; INV_EXT=".icn"
 # means the inventory COULD NOT BE MEASURED, which is a different thing from a bad number, and this project
 # keeps those three outcomes apart everywhere else (lib_gate.sh's exit codes, the harness's rc=2). It stays
 # non-fatal -- the board above IS a real measurement -- but it is printed as ⛔ and it says what is missing.
-if ! inventory_line "$GRADED" 0; then
+# ⛔⭐⭐ CAPTURED, NOT MERELY PRINTED (hq_T 2026-09-10, row package-shipped-per-lane-printed-by-the-runner-
+# not-transcribed; gate arm 17 of test_gate_package_runners_print_the_inventory.sh, proven red on THIS
+# runner and green on the other eleven before the cure). This runner printed a correct PACKAGE_INVENTORY
+# line on every run for four days and handed the leaderboard a hand-written restatement of it, so
+# util_score_row.py's inventory_clauses() found no jcon clause and took jcon's shipped population from the
+# PACKAGE_SHIPPED dict -- three integers typed into that file by a reader of somebody else's board. ⭐ The
+# reusable half: PRINTING A NUMBER AND REPORTING IT ARE TWO JOBS, and a board line satisfies only the
+# first. The measurement stood one line above the transcription, in this same script's own output.
+INV_LINE="$(inventory_line "$GRADED" 0)"
+if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else
     echo "⛔ PACKAGE INVENTORY REFUSED (rc=2, reason above) -- the jcon board line stands, the inventory does NOT, and this run publishes no bucket counts" >&2
 fi
 # ⭐ THE CLASS SPLIT, from the shared body (hq_T ruling 2026-09-06): its own line, its own refusal, and the
@@ -382,7 +391,19 @@ else echo "⛔ PACKAGE INVENTORY SPLIT REFUSED (rc=2, reason above) -- the class
 # ⛔ NON-FATAL BY DESIGN: a bookkeeping failure must never turn a real measurement into a red board,
 # because a gate that goes red for a reason unrelated to the code is a gate people route around. It
 # warns and names the unrecorded row instead; it has no silent path.
+# ⛔⭐ TWO THINGS THIS --text ASSERTED WRONGLY ON EVERY RUN UNTIL 2026-09-10 (hq_T), both of them the
+# defects test_icon_arizona_suite.sh had already had cured out of its own --text on 2026-09-06 -- the same
+# pair, in the sibling runner, four days later, which is what an uncopied cure looks like:
+#   1. THE DENOMINATOR WAS $SHIPPED, NOT THE GRADED POPULATION. Lon ruled 2026-09-05 "Show measured numbers
+#      from running test suites not FLOORS": `${m3p}/$SHIPPED` publishes a numerator measured over $total
+#      graded programs against a population that includes every program this suite never executed. $total
+#      is the grading loop's OWN count and is asserted equal to $GRADED above (rc=2 if they disagree), so
+#      it is the one denominator this run can prove.
+#   2. $GAP IS NOT "ungraded". Under the ruled vocabulary UNGRADED means WORK OWED and UNGRADABLE means a
+#      RULING; $GAP is just shipped-minus-graded, and CEO-470 measured jcon's as 13 ungradable + 2
+#      ungraded. Calling all 15 "ungraded" put a flat contradiction beside the inventory clause now riding
+#      in the same cell. The neutral phrase is the honest one -- the clause does the splitting.
 python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite JCON --modes m3,m4 \
-    --measurer "${S4E_SEAT:-}" --text "m3 ${m3p:-n/a}/$SHIPPED · m4 ${m4p:-n/a}/$SHIPPED (of $SHIPPED shipped, $GRADED graded, $GAP ungraded, \`test_icon_jcon_suite.sh\`)" \
+    --measurer "${S4E_SEAT:-}" --text "m3 ${m3p:-n/a}/$total · m4 ${m4p:-n/a}/$total graded (of $SHIPPED shipped, $GRADED graded, $GAP not graded -- the inventory clause splits ungraded=owed from ungradable=ruled)${INV_LINE:+ · $INV_LINE (\`test_icon_jcon_suite.sh\`)}" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 

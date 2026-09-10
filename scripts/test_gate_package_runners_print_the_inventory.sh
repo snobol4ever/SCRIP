@@ -301,6 +301,7 @@ fi
 # job, not a 2-second mktemp-only gate's. So the honest move is not a cleverer grep: it is to stop printing
 # one number, print the three that ARE decidable from the source, and name the gap the gate cannot close.
 runners=0; sources=0; calls=0; swallows=0; missing=""; partial=""; swallowed=""; notpkg=""
+writers=0; carries=0; nocarry=""; blindcarry=""
 for r in "$HERE"/test_*_suite.sh "$HERE"/raku_roast_scoreboard.sh "$HERE"/board_packages.sh; do
     [ -f "$r" ] || continue
     b="$(basename "$r")"
@@ -346,6 +347,32 @@ for r in "$HERE"/test_*_suite.sh "$HERE"/raku_roast_scoreboard.sh "$HERE"/board_
     # ⛔ AND A SWALLOWED REFUSAL IS THE jcon CASE EXACTLY: `inventory_line ... || echo "warn"` turns rc=2
     # into a line nobody reads, so a package can refuse on every run while the board stays quiet.
     grep -qE 'inventory_line[^|&]*(\|\||&&|2>/dev/null)' "$r" && { swallows=$((swallows+1)); swallowed="$swallowed $b"; }
+    # ⛔⭐⭐ ARM 17 — THE CARRIAGE HALF, AND IT IS A VIOLATION, NOT A REPORT (row package-shipped-per-lane-
+    # printed-by-the-runner-not-transcribed, hq_T 2026-09-10). ARM 11 above grades whether a runner can
+    # PRINT its inventory; this arm grades whether the number REACHES THE LEADERBOARD. Printing it on a
+    # board line that scrolls off a terminal is not carriage: util_score_row.py's inventory_clauses() reads
+    # the V CELL, and a package whose cell carries no clause falls back to PACKAGE_SHIPPED -- three integers
+    # typed into util_score_row.py by a reader of somebody else's board, which is the defect the row exists
+    # to end. ⭐ THE MEASURED WITNESS, and it is why this is a violation: test_icon_jcon_suite.sh printed a
+    # correct PACKAGE_INVENTORY line on every run for four days AND wrote a leaderboard cell that said
+    # "of 91 shipped, 76 graded, 15 ungraded" in prose -- so the reader took jcon's shipped population from
+    # the typed dict while the true number stood one line above in the same script's own output. A runner
+    # that measures a number and then hands the leaderboard a hand-written restatement of it has done the
+    # measuring and skipped the reporting, and nothing about the board line reveals that.
+    # ⛔ THE SPLICE MUST BE CONDITIONAL ON THE CAPTURE (`${VAR:+ ...}`) AND THE ARM CHECKS THAT SEPARATELY:
+    # an unconditional splice publishes an EMPTY clause when inventory_line REFUSED, which reads to the next
+    # reader as a measured absence rather than a refusal -- the rc=2-as-zero collapse this gate rejects in
+    # every other arm. So a runner is graded on two properties, and either one alone earns a name here.
+    grep -qE 'util_score_row\.py"? +write' "$r" || continue
+    writers=$((writers+1))
+    _iv="$(grep -oE '[A-Za-z_][A-Za-z0-9_]*="\$\(inventory_line' "$r" | head -1 | sed 's/=.*//')"
+    if [ -z "$_iv" ]; then
+        nocarry="$nocarry $b"
+    elif grep -qF "\${$_iv:+" "$r"; then
+        carries=$((carries+1))
+    else
+        blindcarry="$blindcarry $b($_iv)"
+    fi
 done
 echo "    package runners censused=$runners  sources=$sources  complete-stanza=$calls  unwired=$((runners-sources))  [aggregators excluded: they read lines, never emit one]"
 echo "    ⚠ NOT DECIDABLE HERE: whether a runner actually EMITS a summing line. Only running it proves that (board_packages.sh)."
@@ -353,6 +380,22 @@ echo "    ⚠ NOT DECIDABLE HERE: whether a runner actually EMITS a summing line
 [ -z "$missing" ]   || { echo "    NOT YET WIRED (the row's work list, not a verdict):"; printf '      %s\n' $missing; }
 [ -z "$partial" ]   || { echo "    ⛔ SOURCES THE BODY WITH AN INCOMPLETE STANZA -- wired to REFUSE, not to report:"; printf '      %s\n' $partial; }
 [ -z "$swallowed" ] || { echo "    ⛔ SWALLOWS THE REFUSAL (rc=2 becomes a warning nobody reads -- the jcon case):"; printf '      %s\n' $swallowed; }
+echo "    leaderboard writers=$writers  carry their own inventory clause into the cell=$carries"
+if [ -n "$nocarry" ]; then
+    echo "GATE FAIL: $(set -- $nocarry; echo $#) package runner(s) write a SCORE.md row WITHOUT carrying their own"
+    echo "    PACKAGE_INVENTORY clause into it -- the cell's shipped population is transcribed (or falls back to"
+    echo "    util_score_row.py's PACKAGE_SHIPPED dict) while the runner's own measurement scrolls past on stdout."
+    echo "    CURE: _iv=\"\$(inventory_line <graded> 0)\"; echo it; then splice \${_iv:+ · \$_iv (\`<runner>.sh\`)} into --text."
+    printf '      %s\n' $nocarry
+    violations=$((violations+1))
+fi
+if [ -n "$blindcarry" ]; then
+    echo "GATE FAIL: $(set -- $blindcarry; echo $#) package runner(s) capture the inventory line but splice it"
+    echo "    UNCONDITIONALLY -- when inventory_line REFUSES (rc=2) the cell publishes an empty clause, which the"
+    echo "    next reader cannot tell from a measured absence. Guard the splice with \${VAR:+ ...}."
+    printf '      %s\n' $blindcarry
+    violations=$((violations+1))
+fi
 
 GATE_EXAMINED="$examined arms"
 gate_verdict "$violations" "package-inventory violations"
