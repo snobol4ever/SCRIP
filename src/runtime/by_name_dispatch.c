@@ -4929,6 +4929,8 @@ static int icn_argtype_gate(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
         case BID_insert: case BID_member: return args[0].v == DT_T ? 0 : icn_argtype_raise(122, args[0], out);
         case BID_delete: return (args[0].v == DT_T || IS_STR_fn(args[0])) ? 0 : icn_argtype_raise(122, args[0], out);
         case BID_key: return (args[0].v == DT_T && args[0].tbl && !args[0].tbl->is_set) ? 0 : icn_argtype_raise(124, args[0], out);
+        case BID_read: case BID_reads:
+            return (args[0].v == DT_SNUL || IS_FH_fn(args[0])) ? 0 : icn_argtype_raise(105, args[0], out);
         case BID_sortf:
             if (nargs != 1 && nargs != 2) return 0;
             if (!(args[0].v == DT_DATA || (args[0].v == DT_T && args[0].tbl && args[0].tbl->is_set))) return icn_argtype_raise(125, args[0], out);
@@ -5978,17 +5980,6 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         DESCR_t rs; rs.v = DT_S; rs.slen = (uint32_t)len; rs.s = r; *out = rs; return 1;
     }
     L_bidjmp_5883: ;
-    if ((_bid == BID_reads) && nargs == 1 && (IS_INT_fn(args[0]) || IS_REAL_fn(args[0]))) {
-        DESCR_t nd = args[0];
-        int n = (int)to_int(nd);
-        if (n <= 0) { *out = FAILDESCR; return 1; }
-        char *buf = rt_ws_alloc(n + 1);
-        int got = (int)fread(buf, 1, (size_t)n, stdin);
-        if (got <= 0) { *out = FAILDESCR; return 1; }
-        buf[got] = '\0';
-        DESCR_t r; r.v = DT_S; r.slen = (uint32_t)got; r.s = buf;
-        *out = r; return 1;
-    }
     L_bidjmp_5894: ;
     if ((_bid == BID_runerr) && nargs >= 1) { long long _ec = IS_INT_fn(args[0]) ? (long long)args[0].i : 500; { extern long g_error; if (g_error != 0) return icn_argtype_raise((int)_ec, (nargs >= 2) ? args[1] : FAILDESCR, out); } fprintf(stderr, "Run-time error %lld\n", _ec); if (nargs >= 2) { DESCR_t _im = FAILDESCR; if (try_call_builtin_by_name("image", args + 1, 1, &_im) && !IS_FAIL_fn(_im)) { const char *_is = VARVAL_fn(_im); fprintf(stderr, "offending value: %s\n", _is ? _is : ""); } } exit(1); }
     L_bidjmp_5895: ;
