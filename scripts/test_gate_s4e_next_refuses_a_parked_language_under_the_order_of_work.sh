@@ -30,6 +30,13 @@
 #       (i) a language-neutral topic is never parked by any order of work
 #       (j) an EXPLICIT ASSIGNMENT outranks the order of work -- the ceo dispatching a parked-language row
 #           by name is a deliberate direction, the same precedent `claim` and the rank cap already set
+#       -- ARMS (k)..(o) added hq_S 2026-09-10, THE SAME DEFECT ONE OPERAND OVER (see below) --
+#       (k) a row whose SLUG names no language but whose BATON names SNOBOL4's own witnesses is parked
+#       (l) POSITIVE CONTROL for (k) -- a slug-neutral row whose baton names NO language's witnesses IS served
+#       (m) a DECLARED `LANGUAGE:` line in the baton parks the row on its own, with no witness path anywhere
+#       (n) AMBIGUITY STAYS NEUTRAL -- a baton naming TWO languages' witnesses is served, so the cure can
+#           only ever TIGHTEN: no row the freeze already refused becomes servable because of it
+#       (o) the SLUG still outranks the baton -- an `icon-` row whose baton greps SNOBOL4 is served under ICON
 # HERMETIC: builds its own scratch postoffice under mktemp; reads and writes nothing under /home/resources.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -39,8 +46,12 @@ refuse(){ echo "⛔ REFUSED-TO-GRADE: $*"; exit 2; }
 W="$(mktemp -d "${TMPDIR:-/tmp}/gate_order_of_work.XXXXXX")" || refuse "mktemp failed"
 trap 'rm -rf "$W"' EXIT
 mkdir -p "$W/tasks" "$W/claims" "$W/released"
-for s in ceo hq_C hq_B hq_P hq_T seat07; do mkdir -p "$W/$s/inbox" "$W/$s/archive"; done
+for s in ceo hq_C hq_B hq_P hq_S hq_T seat07; do mkdir -p "$W/$s/inbox" "$W/$s/archive"; done
 mk(){ printf '%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" >> "$W/QUEUE.tsv"; printf '# TASK %s\nGOAL: fixture\nDONE-WHEN: true\n## NEXT\nfixture\n## QA\n## LEDGER\n' "$2" > "$W/tasks/$2.task.md"; }
+# ⭐ mkb = mk with a CHOSEN BATON BODY. Arms (k)..(o) turn on what the baton says, and `mk`'s fixed
+# "GOAL: fixture" says nothing -- which is exactly why every arm above passed while the live picker was
+# handing out parked-language rows whose language lived only in their baton.
+mkb(){ printf '%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" >> "$W/QUEUE.tsv"; { printf '# TASK %s\n' "$2"; shift 4; printf '%s\n' "$@"; printf '## QA\n## LEDGER\n'; } > "$W/tasks/$2.task.md"; }
 run_next(){ S4E_POST="$W" S4E_SEAT="$1" S4E_RELEASE_COOLDOWN=0 bash "$SUT" next 2>&1; }
 fails=0; checks=0
 ck(){ checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; else printf '  FAIL  %s\n' "$2"; fails=$((fails+1)); fi; }
@@ -170,6 +181,101 @@ out="$(run_next hq_P)"
 grep -qE 'snobol4-assigned-tooling-fixture' <<<"$out" && ! grep -qE 'QUEUE EMPTY' <<<"$out" \
   && ck ok "(j) a row ASSIGNED to this seat by name is still served -- an explicit direction outranks the default" \
   || ck no "(j) the order of work must not block a deliberate assignment -- got: $out"
+
+# =========================================================================================================
+# ⛔⭐⭐ ARMS (k)..(o) -- THE SLUG IS NOT THE ONLY PLACE A ROW'S LANGUAGE LIVES (hq_S 2026-09-10).
+# MEASURED, and found by being SERVED one: under this same MODE (NONET, THE ORDER OF WORK IS ICON ONLY),
+# `s4e_msg.sh next` LOCKED hq_S onto `input-open-failure-not-signaled` -- a row whose GOAL reads "INPUT() ...
+# the oracle (sbl -bf) ... Witness: simple_output_62 in corpus/tests/snobol4/ALL.sno". The freeze check RAN
+# and passed it: the slug carries no `snobol4-` prefix, the prefix table returned empty, and empty means
+# LANGUAGE-NEUTRAL. The picker printed ⛔ SKIP for four prefixed SNOBOL4 rows and then handed out an
+# unprefixed one, in the same run, four lines apart.
+# ⭐ THIS IS CEO-489'S OWN DEFECT ON THE OTHER OPERAND, and that is why it belongs in THIS gate rather than a
+# new one. CEO-489 cured an extractor that answered "does MODE contain `ON <LANG> ONLY`?" while being read as
+# "what is the order of work?". This one is an extractor that answers "does this SLUG start with a language
+# prefix?" while being read as "what language is this ROW?". Both fail OPEN -- they leak parked work rather
+# than idle a seat -- so neither announces itself: a seat that is served a row does not audit why.
+# ⛔ AND ARM (i) ABOVE IS WHY THE GATE COULD NOT CATCH IT: it pins that a language-neutral topic is never
+# parked, using a fixture whose baton says "GOAL: fixture". Every slug-neutral row looked like arm (i) to
+# this gate, the real ones included. The fixture and the code shared the assumption a second time -- the
+# same "a guard and its own canary must not share a failure mode" this file's header already records.
+# MEASURED on the live queue the day these arms landed: 452 servable rows, 165 slug-NEUTRAL; of those 165,
+# 39 name exactly one language's witness paths or oracle in their baton (28 snobol4, 5 prolog, 6 icon).
+# =========================================================================================================
+
+# --- (k): THE REGRESSION ITSELF -- language in the BATON, not the slug ------------------------------------
+# The slug is deliberately the live one, and deliberately says nothing: no `snobol4-` prefix, no language
+# word at all. Only the baton knows, and it knows the way real batons do -- by naming the witness it grades
+# and the oracle it grades against.
+set_mode 'NONET' "$LIVE_L2" 'ORDER-OF-WORK: icon'
+reset_q
+mkb 0 input-open-failure-not-signaled hq_S FREE \
+    'GOAL: INPUT() on a file it cannot open never signals failure. The oracle (sbl -bf) fails fast with ERROR 116.' \
+    'Witness: simple_output_62 in corpus/tests/snobol4/ALL.sno' \
+    'DONE-WHEN: true' '## NEXT' 'fixture'
+mkb 5 icon-jcon-std-recut-fixture hq_S FREE 'GOAL: fixture' 'DONE-WHEN: true' '## NEXT' 'fixture'
+out="$(run_next hq_S)"
+grep -qE '^LOCKED.*icon-jcon-std-recut-fixture' <<<"$out" && ! grep -qE '^LOCKED.*input-open-failure-not-signaled' <<<"$out" \
+  && ck ok "(k) a slug-neutral row whose BATON names SNOBOL4's witnesses is parked under ICON ONLY -- the row that was actually served" \
+  || ck no "(k) the language may live only in the baton, and the freeze must still see it -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
+
+# --- (l): POSITIVE CONTROL FOR (k) -----------------------------------------------------------------------
+# ⛔ Without this arm, a classifier that called EVERY slug-neutral row snobol4 would pass (k) and would
+# quietly park the whole tooling half of the queue -- the exact harm arm (i) exists to prevent, arrived at
+# from the opposite direction. Same slug shape, same rank, same seat; only the baton's content differs.
+set_mode 'NONET' "$LIVE_L2" 'ORDER-OF-WORK: icon'
+reset_q
+mkb 0 postoffice-picker-tooling-fixture hq_S FREE \
+    'GOAL: the picker prints its own denominator when it serves nothing.' 'DONE-WHEN: true' '## NEXT' 'fixture'
+out="$(run_next hq_S)"
+grep -qE '^LOCKED.*postoffice-picker-tooling-fixture' <<<"$out" \
+  && ck ok "(l) POSITIVE CONTROL: a slug-neutral row whose baton names no language's witnesses is still served -- no misfire" \
+  || ck no "(l) genuinely language-neutral tooling must survive every order of work -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
+
+# --- (m): THE DECLARED LINE, which is what everyone SHOULD write ------------------------------------------
+# ⭐ Same doctrine CEO-489 landed one operand over: a language that is DECLARED cannot be mis-parsed out of
+# prose. This baton names no corpus path and no oracle -- inference has nothing to work with -- and the row
+# is parked anyway, on the strength of one written line.
+set_mode 'NONET' "$LIVE_L2" 'ORDER-OF-WORK: icon'
+reset_q
+mkb 0 some-unprefixed-row-fixture hq_S FREE \
+    'LANGUAGE: snobol4' 'GOAL: a row whose baton declares its language and names no witness path at all.' \
+    'DONE-WHEN: true' '## NEXT' 'fixture'
+mkb 5 icon-jcon-std-recut-fixture hq_S FREE 'GOAL: fixture' 'DONE-WHEN: true' '## NEXT' 'fixture'
+out="$(run_next hq_S)"
+grep -qE '^LOCKED.*icon-jcon-std-recut-fixture' <<<"$out" && ! grep -qE '^LOCKED.*some-unprefixed-row-fixture' <<<"$out" \
+  && ck ok "(m) a DECLARED 'LANGUAGE:' line in the baton parks the row on its own, with no witness path anywhere" \
+  || ck no "(m) declared must beat inferred, and must work where inference has nothing -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
+
+# --- (n): AMBIGUITY STAYS NEUTRAL -- the property that makes this cure safe to land -----------------------
+# ⛔ THE POINT OF THIS ARM IS THE DIRECTION OF THE ERROR, not the row. A baton naming two languages' witnesses
+# keeps TODAY'S behaviour exactly, so the cure can only TIGHTEN: nothing the freeze already refused becomes
+# servable because of it, and a cross-language row (a shared-node cure, a runner that grades both) is not
+# quietly assigned to whichever language its grep happens to hit first.
+set_mode 'NONET' "$LIVE_L2" 'ORDER-OF-WORK: icon'
+reset_q
+mkb 0 shared-node-emitter-fixture hq_S FREE \
+    'GOAL: a shared-node cure graded on corpus/tests/snobol4/ALL.sno AND corpus/tests/icon/ALL.icn.' \
+    'DONE-WHEN: true' '## NEXT' 'fixture'
+out="$(run_next hq_S)"
+grep -qE '^LOCKED.*shared-node-emitter-fixture' <<<"$out" \
+  && ck ok "(n) a baton naming TWO languages' witnesses stays neutral and is served -- the cure tightens, never loosens" \
+  || ck no "(n) ambiguity must fall back to today's behaviour, never guess a language -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
+
+# --- (o): THE SLUG STILL OUTRANKS THE BATON --------------------------------------------------------------
+# ⭐ Tested in the direction only precedence explains: the slug says icon (LIVE), the baton greps as snobol4
+# (PARKED), and the row is SERVED. Had the baton been consulted first, or ANDed in, this row would park and
+# the arm would fail. The prefix table stays the authority when it answers -- an `icon-` row that diffs
+# against sbl to explain a divergence is still an Icon row.
+set_mode 'NONET' "$LIVE_L2" 'ORDER-OF-WORK: icon'
+reset_q
+mkb 0 icon-jcon-loadfunc-fixture hq_S FREE \
+    'GOAL: an icon row that cites corpus/tests/snobol4/ALL.sno and sbl -bf only to contrast the two runtimes.' \
+    'DONE-WHEN: true' '## NEXT' 'fixture'
+out="$(run_next hq_S)"
+grep -qE '^LOCKED.*icon-jcon-loadfunc-fixture' <<<"$out" \
+  && ck ok "(o) the SLUG outranks the baton -- an icon- row whose baton greps SNOBOL4 is served under ICON ONLY" \
+  || ck no "(o) the prefix table must stay the authority when it answers -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
 
 echo "---"
 if [ "$fails" -eq 0 ]; then printf '✅ PASS: %d/%d arms — next refuses a parked language under THE ORDER OF WORK, hermetically\n' "$checks" "$checks"; exit 0

@@ -561,16 +561,88 @@ s4e_mode_live_languages() {
 # every prefix instead of defaulting one. A topic naming no language (tooling/meta, like this row itself)
 # returns empty: LANGUAGE-NEUTRAL, never frozen out, the same "empty is never a fifth category" rule
 # s4e_topic_lane documents for lane.
+# ⛔⭐⭐ THE SLUG IS NOT THE ONLY PLACE A ROW'S LANGUAGE LIVES, AND READING ONLY THE SLUG FAILS OPEN (hq_S
+# 2026-09-10, found by being SERVED one: `s4e_msg.sh next` under MODE NONET with `THE ORDER OF WORK IS ICON
+# ONLY` locked hq_S onto `input-open-failure-not-signaled`, whose GOAL reads "INPUT() ... the oracle (sbl -bf)
+# ... Witness: simple_output_62 in corpus/tests/snobol4/ALL.sno". The freeze check RAN and let it through: the
+# slug carries no `snobol4-` prefix, the prefix table returned empty, and empty is documented above as
+# LANGUAGE-NEUTRAL -- never frozen out. So a PARKED-language row was handed to a seat by the very picker that
+# prints ⛔ SKIP for its prefixed siblings four lines earlier, in the same run.
+# ⭐ THIS IS CEO-489'S DEFECT ONE AXIS OVER, and that is the part worth carrying. That row cured an extractor
+# that answered a NARROWER question than it was read as answering (it matched `ON <LANG> ONLY`, the ceo wrote
+# `IS ICON ONLY`, and empty meant no freeze). This one is the same sentence about the other operand: the
+# classifier answers "does this SLUG start with a language prefix?" and is read as "what language is this
+# ROW?". Both fail OPEN -- they leak parked work rather than idling a seat -- which is why neither announces
+# itself: a seat who is served a row does not go looking for the reason it was served.
+# MEASURED on the live queue the day this landed: 452 servable rows (FREE or CLAIMED), 165 of them classified
+# LANGUAGE-NEUTRAL by the prefix table alone; of those 165, 39 name exactly one language's own witness paths
+# or oracle in their baton -- 28 snobol4, 5 prolog, 6 icon. Under ICON ONLY that is 33 rows of a parked
+# language standing servable, of which the bus had already handed out the one in hand.
+# ✅ THE CURE, in the order the project's own doctrine ranks evidence -- DECLARED beats INFERRED beats NOTHING:
+#   1. the slug prefix table (unchanged, and still the authority when it answers);
+#   2. a DECLARED `LANGUAGE: <lang>` marker line in the baton -- the same shape as the ORDER-OF-WORK: line
+#      CEO-489 gave the MODE file, and for the same reason: a language that is written down cannot be
+#      mis-parsed out of prose. Anyone minting or re-laning a row should write it;
+#   3. only then INFERENCE, and only from WITNESS PATHS AND ORACLE BINARIES (`corpus/tests/<lang>/`,
+#      `corpus/packages/<lang>/`, sbl/iconx/icont/swipl/gprolog) -- never from a bare file extension and never
+#      from prose. ⛔ The extensions were tried first and dropped: `.pl` and a prose mention of SNOBOL4 convict
+#      half the instrument rows, which would freeze language-NEUTRAL tooling under any lane cut. A witness path
+#      answers the question that actually matters here -- whose suite does this row grade? -- rather than the
+#      question of which words it happens to contain.
+# ⛔ AMBIGUITY RETURNS EMPTY, DELIBERATELY. A baton naming two languages' witnesses stays NEUTRAL, i.e. it
+# keeps TODAY'S behaviour exactly. So this cure can only ever tighten, never loosen: no row that the freeze
+# already refused becomes servable by it. And a tooling row wrongly frozen costs one `claim`, which every
+# refusal above already prints -- the cheap side of an asymmetry whose expensive side is breaking Lon's freeze.
+s4e_baton_declared_language() {
+    local _t="${1:-}" _f _d
+    [ -n "$_t" ] || return 0
+    _f="$PO/tasks/$_t.task.md"; [ -f "$_f" ] || return 0
+    _d="$(grep -m1 -E '^LANGUAGE:' "$_f" 2>/dev/null | sed 's/^LANGUAGE://' | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
+    case "$_d" in icon|prolog|snobol4|snocone|pascal|raku|rebus) printf '%s' "$_d";; esac
+}
+s4e_baton_witness_language() {
+    local _t="${1:-}" _f _out="" _n
+    [ -n "$_t" ] || return 0
+    _f="$PO/tasks/$_t.task.md"; [ -f "$_f" ] || return 0
+    # ⛔⭐ A WITNESS IS A PATH, AND THE PATH IS OFTEN NOT UNDER corpus/tests/<lang>/ (widened hq_S 2026-09-10,
+    # within ONE command of the first cure landing). The freeze refused `input-open-failure-not-signaled` by
+    # name -- and the very next row `next` handed out was `conform-trim-tabs-not-stripped`, ALSO SNOBOL4: a
+    # TRIM conformance row off the SPITBOL manual whose witness is `corpus/probe/conformance/f83_trim.sno`.
+    # Its baton names no corpus/tests path, no oracle invocation, and no language word -- only a `.sno` file,
+    # under a directory (`corpus/probe/`) that no longer even exists. A marker set built from the suite
+    # directories alone has a RECALL hole exactly the width of every row minted before the corpus re-gridded.
+    # ⭐ So the witness EXTENSION is matched too, but only in PATH SHAPE (`<something>/<name>.sno`, or a bare
+    # `<name>.sno` token) -- never the bare word -- and the SPITBOL manual counts as a SNOBOL4 witness because
+    # nothing else is graded against it. Ambiguity still returns empty, so widening recall cannot mis-park a
+    # cross-language row; it can only move a row from "served" to "named and refused".
+    # ⛔ PROLOG GETS NO EXTENSION CLAUSE, DELIBERATELY: its witnesses are `.pl`, which is also Perl's, and a
+    # `.pl` token appears in tooling rows that have nothing to do with Prolog. Recall there stays on the
+    # corpus paths and the two oracle binaries -- a known, named hole, kept open on purpose rather than
+    # closed with a matcher that would convict the bus's own scripts.
+    grep -qE 'corpus/(tests|packages)/icon/|icon-master/bin/|\b(iconx|icont)\b|jcon_tests|arizona_tests|[A-Za-z0-9_./-]+\.icn\b' "$_f" && _out="$_out icon"
+    grep -qE 'corpus/(tests|packages)/snobol4/|csnobol4_suite|sbl -bf|x64/bin/sbl|spitbol-manual|[A-Za-z0-9_./-]+\.sno\b' "$_f" && _out="$_out snobol4"
+    grep -qE 'corpus/(tests|packages)/prolog/|\b(swipl|gprolog)\b' "$_f" && _out="$_out prolog"
+    grep -qE 'corpus/(tests|packages)/snocone/|[A-Za-z0-9_./-]+\.sc\b' "$_f" && _out="$_out snocone"
+    grep -qE 'corpus/(tests|packages)/pascal/|[A-Za-z0-9_./-]+\.pas\b' "$_f" && _out="$_out pascal"
+    grep -qE 'corpus/(tests|packages)/raku/|[A-Za-z0-9_./-]+\.raku\b' "$_f" && _out="$_out raku"
+    grep -qE 'corpus/(tests|packages)/rebus/|[A-Za-z0-9_./-]+\.reb\b' "$_f" && _out="$_out rebus"
+    _out="${_out# }"; _n=$(printf '%s' "$_out" | wc -w)
+    [ "$_n" -eq 1 ] || return 0
+    printf '%s' "$_out"
+}
 s4e_topic_language() {
+    local _s
     case "${1:-}" in
-      icon-*)                        printf 'icon';;
-      prolog-*)                      printf 'prolog';;
-      snobol4-*|gimpel-*|snoflake-*) printf 'snobol4';;
-      snocone-*)                     printf 'snocone';;
-      pascal-*)                      printf 'pascal';;
-      raku-*)                        printf 'raku';;
-      rebus-*)                       printf 'rebus';;
+      icon-*)                        printf 'icon'; return 0;;
+      prolog-*)                      printf 'prolog'; return 0;;
+      snobol4-*|gimpel-*|snoflake-*) printf 'snobol4'; return 0;;
+      snocone-*)                     printf 'snocone'; return 0;;
+      pascal-*)                      printf 'pascal'; return 0;;
+      raku-*)                        printf 'raku'; return 0;;
+      rebus-*)                       printf 'rebus'; return 0;;
     esac
+    _s="$(s4e_baton_declared_language "${1:-}")"; [ -z "$_s" ] || { printf '%s' "$_s"; return 0; }
+    s4e_baton_witness_language "${1:-}"
 }
 # rc 0 ("refuses") only when a freeze IS active, the topic's language IS determined, and they DIFFER --
 # every other combination (no freeze, language-neutral topic, or topic matches the frozen language) is
