@@ -138,6 +138,7 @@ typedef enum {
     IR_STATEMENT_BEGIN,
     IR_STATEMENT_END,
     IR_STMT_MARK,
+    IR_LINE_MARK,
     IR_SUBSCRIPT,
     IR_SUCCEED,
     IR_SUSPEND,

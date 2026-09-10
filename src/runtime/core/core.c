@@ -2353,6 +2353,7 @@ void core_err_compat_map(int *code, const char **msg) {
         if (M[i].spit == *code) { *code = M[i].csn; if (msg) *msg = M[i].text; return; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *icn_errmsg(int n);
 void core_runtime_error(int code, const char *msg) {
     core_err_compat_map(&code, &msg);
     if (!msg && code >= 1 && code <= 39)
@@ -2394,6 +2395,9 @@ void core_runtime_error(int code, const char *msg) {
           return;
       } }
     { extern long g_stno; extern long g_line; extern const char *g_file;
+      if (g_stno == 0 && g_line > 0) { int ic = code == 2 ? 201 : code == 22 ? 106 : code; const char *im = code == 2 ? "division by zero" : code == 22 ? "procedure or integer expected" : (ic >= 101 ? icn_errmsg(ic) : (msg ? msg : ""));
+          const char *bn = g_file ? strrchr(g_file, '/') : (const char *)0; bn = bn ? bn + 1 : (g_file ? g_file : "");
+          fprintf(stderr, "\nRun-time error %d\nFile %s; Line %ld\n%s\nTraceback:\nmain()\n", ic, bn, g_line, im); exit(1); }
       fprintf(stderr, "%s(%ld) : ERROR %03d -- %s\nin statement %ld\n",
               g_file ? g_file : "", g_line, code, msg ? msg : "", g_stno); }
     if (core_err_is_terminal(code)) exit(1);
@@ -2436,7 +2440,10 @@ int core_icn_error(int code, DESCR_t val) {
         if (g_core_errjmp_n > 0) longjmp(g_core_errjmp_stk[g_core_errjmp_n - 1], code);
         return 1;
     }
-    fprintf(stderr, "\nRun-time error %d\n%s\n", code, icn_errmsg(code));
+    { extern long g_line; extern const char *g_file; const char *bn = g_file ? strrchr(g_file, '/') : (const char *)0; bn = bn ? bn + 1 : (g_file ? g_file : "");
+      fprintf(stderr, "\nRun-time error %d\nFile %s; Line %ld\n%s\n", code, bn, g_line, icn_errmsg(code));
+      { extern int try_call_builtin_by_name(const char *, DESCR_t *, int, DESCR_t *); DESCR_t _im = FAILDESCR; DESCR_t _va = val; if (val.v != DT_FAIL && try_call_builtin_by_name("image", &_va, 1, &_im) && _im.v != DT_FAIL) { fprintf(stderr, "offending value: %s\n", rt_cstr_d(_im)); } }
+      fprintf(stderr, "Traceback:\nmain()\n"); }
     exit(1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -22,3 +22,12 @@ std::string bb_stmt_mark(long stno, long line) {
          + x86_gamma()
          + x86_beta_trampoline();
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string bb_line_mark(long line) {
+    x86_begin();
+    return x86_alpha()
+         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line")
+         + x86("mov", RDQ("rax", 0), (long)line)
+         + x86_gamma()
+         + x86_beta_trampoline();
+}

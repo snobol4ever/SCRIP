@@ -14,6 +14,7 @@ typedef struct {
     IR_t * loop_stk_exit[64]; IR_t * loop_stk_next[64]; IR_t * loop_stk_fail[64]; IR_t * loop_fail; int loop_sp; IR_t * scan_stk_enter[16]; int scan_sp; int loop_next_ssp; int want_lines; int end_line;
 } icx_t;
 static IR_t * icn_line_hook(icx_t * cx, int line, IR_t * next);
+static IR_t * icn_line_mark(icx_t * cx, int line, IR_t * next);
 #define ICN_LOOP_STK_MAX 64
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_is_local(const icx_t * cx, const char * nm) { if (!nm) return 0; for (int i = 0; i < cx->nln; i++) if (cx->ln[i] && !strcmp(cx->ln[i], nm)) return 1; return 0; }
@@ -787,7 +788,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
                     lc_γ_to(SENT, ent[i]); lc_ω_to(SENT, ent[i]);
                     succ = SENT; failt = SENT;
                 }
-                if (cx->want_lines && t->t == TT_SEQ_EXPR && S[i]->line > 0 && succ == ent[i]) { ent[i] = icn_line_hook(cx, S[i]->line, ent[i]); succ = ent[i]; failt = ent[i]; }
+                if (t->t == TT_SEQ_EXPR && S[i]->line > 0 && succ == ent[i]) { ent[i] = cx->want_lines ? icn_line_hook(cx, S[i]->line, ent[i]) : icn_line_mark(cx, S[i]->line, ent[i]); succ = ent[i]; failt = ent[i]; }
             }
             if (val[k - 1]) ir_operand_push(SEQX, val[k - 1]);
             cx->conj_resumable = rb; cx->beta = last_beta; *res = SEQX; return ent[0];
@@ -1403,6 +1404,9 @@ static int icn_tree_mentions_kw(const tree_t * t, const char * kw) {
     for (int i = 0; i < t->n; i++) if (icn_tree_mentions_kw(t->c[i], kw)) return 1;
     return 0;
 }
+static IR_t * icn_line_mark(icx_t * cx, int line, IR_t * next) {
+    IR_t * mark = build(cx, IR_LINE_MARK, NULL, NULL); lc_γ_to(mark, next); lc_ω_to(mark, next); mark->pat_static = line; return mark;
+}
 static IR_t * icn_line_hook(icx_t * cx, int line, IR_t * next) {
     extern const char * stmt_src_get_file(void);
     IR_t * hook = build(cx, IR_CALL, NULL, NULL); IR_LIT(hook).sval = (char *) "ICN$LINE";
@@ -1425,7 +1429,7 @@ static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
             IR_t * tramp = IR_node_alloc(g, IR_GOTO); lc_γ_to(tramp, entry); lc_ω_to(tramp, entry);
             entry = tramp;
         }
-        if (cx->want_lines && entry && sline > 0) entry = icn_line_hook(cx, sline, entry);
+        if (entry && sline > 0) entry = (cx->want_lines || i == 0) ? icn_line_hook(cx, sline, entry) : icn_line_mark(cx, sline, entry);
         succ = entry; fail = entry;
     }
     g->entry = succ;

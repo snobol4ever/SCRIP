@@ -166,6 +166,7 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
     case IR_STATEMENT_BEGIN:
     case IR_STATEMENT_END:
     case IR_STMT_MARK:
+    case IR_LINE_MARK:
     case IR_STATEMENT:
         return 0;
     case IR_INDIRECT_GOTO:
@@ -270,7 +271,7 @@ static int fct_rsp_range(IR_graph_t * g, int k0, int k1) {
         int op = (int)x->op;
         if (op == IR_ASSIGN || op == IR_GOTO || op == IR_GOTO_DEFERRED || (op == IR_DEFINE && ir_define_sr_citizen(x)) ||
             op == IR_MATCH_BEGIN || op == IR_MATCH_END || op == IR_MATCH_REPLACE ||
-            op == IR_STATEMENT || op == IR_STATEMENT_BEGIN || op == IR_STATEMENT_END || op == IR_STMT_MARK ||
+            op == IR_STATEMENT || op == IR_STATEMENT_BEGIN || op == IR_STATEMENT_END || op == IR_STMT_MARK || op == IR_LINE_MARK ||
             op == IR_MATCH_LIT || op == IR_MATCH_LEN || op == IR_MATCH_ANY || op == IR_MATCH_NOTANY ||
             op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_ASSIGN_COND ||
             op == IR_MATCH_ASSIGN_IMM || op == IR_MATCH_VALUE || op == IR_MATCH_ALTERNATE ||
@@ -856,10 +857,10 @@ void fl_derive_tier(IR_graph_t * g) {
             case IR_MATCH_FENCE1: case IR_MATCH_FENCE0: case IR_MATCH_ABORT: case IR_MATCH_ARBNO: case IR_MATCH_CALLOUT: case IR_MATCH_VALUE: case IR_MATCH_DEFER: case IR_MATCH_ALTERNATE: window = 1; break;
             case IR_CALL: case IR_CALL_ICON: case IR_CALL_PROC_STAGED: case IR_CALL_BUILTIN: case IR_INDIRECT_GOTO: case IR_MATCH: callee = 1; break;
             default: break; } }
+    if (g->icn_cells_graph) { g->zframe_pinned_base = (window || callee) ? 1 : 0; return; }
     if (statements || (matchers > 0 && others == 0)) return;
     if (g->root_graph) { g->zframe_graph = 1; g->zframe_pinned_base = 1; return; }
     int host = (window || callee) ? 1 : 0;
-    if (g->icn_cells_graph) { g->zframe_pinned_base = host; return; }
     g->zframe_pinned_base = (resumed || g->resumable_callable) ? 1 : 0; g->zframe_graph = 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
