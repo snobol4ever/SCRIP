@@ -26,6 +26,22 @@
 # would have gone green on a build that simply never cleared it, if the program's first error happened to be
 # value-less. Same family as the &errornumber trap in this row's baton.
 #
+# ⛔⭐ PROVENANCE, CORRECTED THE SAME SITTING AND LEFT HERE BECAUSE THE MISTAKE IS THE MORE USEFUL HALF.
+# THE CURE IS THE cfo's `118fe2e4a`, NOT THIS GATE'S COMMIT. hq_C diagnosed 206 and cut the identical one-line
+# change on a tree measured at `3e68226ea`; while that was being built and control-armed, the cfo landed
+# `118fe2e4a` carrying the SAME line (plus the list()/reads() size gates), so `git pull --rebase` silently
+# DROPPED hq_C's hunk as an already-applied patch and the commit that shipped this gate contains NO source
+# change at all -- while its message still claimed the cure and a 57 -> 56 delta measured on the vanished tree.
+# ⭐ THE REBASE-BASELINE COROLLARY IS USUALLY QUOTED FOR A/B NUMBERS; THIS IS ITS SHARPER FORM. A rebase that
+# drops your patch is SILENT and looks exactly like a rebase that kept it: it is not a conflict, there is no
+# warning, the build is green, the gate you wrote passes, and every arm you re-measure afterwards is TRUE --
+# because someone else's identical cure is holding them up. The only instrument that separates "my change did
+# this" from "my change is gone" is `git show <sha> --stat` on the pushed commit, read AFTER the push. Re-running
+# the tests cannot do it, and re-running them is what diligence feels like.
+# ⭐ WHAT IS ACTUALLY THIS SEAT'S IS WHAT YOU ARE READING: the class bounded from Arizona's own source rather
+# than from the witness, the STALE arm below, and the fact that a cured behaviour with no gate is one refactor
+# from being un-cured. `118fe2e4a` shipped the fix with no gate; this pins it in both modes against a freshly
+# built oracle.
 # ⛔ ARMS HASVALUE and NOVALUE_204 ARE CONTROLS THAT MUST NOT MOVE: a cure that made &errorvalue fail too eagerly
 # would green the new arms and silently break every error that legitimately reports its operand -- which is most
 # of them, and which is what errors.icn spends 500 lines checking.
