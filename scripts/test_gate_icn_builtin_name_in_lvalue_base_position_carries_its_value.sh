@@ -23,16 +23,23 @@
 # go green the moment the wrong value acquired a different spelling. Every want below is cut from a FRESHLY
 # BUILT icont/iconx binary -- ⛔ never from a stale ./probe left in the scratch dir by an earlier compile, which
 # is how a failed icont run reads as a passing oracle.
-# ⛔⭐ WHY `SECTION` (`pull[1:2]`) IS REPORTED AND NEVER BLOCKING, and it is the second lesson of this file.
-# Its VALUE half is cured with the rest; what remains is that SCRIP raises NO ERROR AT ALL there where the
-# oracle raises 110 -- that is class (C) of the errors row (the operation fails and records nothing), a
-# different shape with a different owner, and a gate that reds on a defect it does not own is measuring the
-# wrong thing. ⛔ IT IS ALSO WHERE THIS GATE ALMOST PINNED A FICTION: read inside a multi-error program the
-# expression reported 114 in one probe and 116 in the next -- each time the number the PRECEDING record had
-# raised. A number that moves when you reorder the probes around it is not that expression's number. Run the
-# suspect FIRST, in a program of its own, where UNSET is reachable: SCRIP then prints no line at all, because
-# the enclosing write() fails on an unset &errornumber. That is the honest signature, and it is invisible
-# anywhere a previous raise has left a plausible value behind.
+# ⛔⭐⭐ `SECTION` (`pull[1:2]`) IS BLOCKING, AND THE STORY OF HOW IT NEARLY WAS NOT IS THE SECOND LESSON HERE.
+# It is a TWO-SEAT COMPOSITION: 4c1ed8593 (another seat, same sitting) made a section of the null value RAISE
+# 110 instead of quietly slicing nothing, and this commit made the base carry its VALUE. Neither cure alone
+# greens this arm; together the shape matches the oracle exactly, in both modes.
+# ⛔ I WROTE THIS ARM AS INFORMATIONAL-AND-NOT-OURS FIRST, and it was already cured in the tree I was about to
+# land on. That is CLAUDE.md's tolerated-red rule biting inside a single sitting: a carve-out is written when
+# the defect is discovered and read long after it is closed, so it goes stale in the FLATTERING direction --
+# it invites the next reader to tolerate a failure that is now a live regression. ⭐ THE CHEAP GUARD IS THE ONE
+# THAT CAUGHT IT: run the DONE-WHEN after the rebase, not before, and read every arm of the output rather than
+# the verdict line -- the ✅ on a row I had just documented as red is what exposed it. A carve-out needs a
+# re-measurement on the merged tree before it ships, exactly like any other number.
+# ⛔ IT IS ALSO WHERE THIS GATE ALMOST PINNED A FICTION: read inside a multi-error program the expression
+# reported 114 in one probe and 116 in the next -- each time the number the PRECEDING record had raised. A
+# number that moves when you reorder the probes around it is not that expression's number. Run the suspect
+# FIRST, in a program of its own, where UNSET is reachable: before 4c1ed8593 SCRIP printed no line at all
+# there, because the enclosing write() fails on an unset &errornumber. That is the honest signature of "no
+# error was raised", and it is invisible anywhere a previous raise has left a plausible value behind.
 # ⭐ ARM 2 IS THE CONTROL THAT MUST NOT MOVE: subscript ASSIGNMENT through a real variable -- declared local,
 # global, and IMPLICITLY-declared local alike. Getting the guard wrong breaks exactly these, and they are the
 # reason the prior seat stopped at the diagnosis rather than half-landing the cure.
@@ -98,11 +105,10 @@ for key in CTL_localsub CTL_globalsub CTL_implicitsub CTL_exprsub SUB SUBASSIGN 
   for m in m3 m4; do
     g=$(grep -F "$k " "$T/$m" | head -1)
     if [ "$g" = "$w" ]; then printf '  ✅ %-4s %-14s %s\n' "$m" "$key" "$w"
-    elif [ "$key" = SECTION ]; then printf '  ⚠️  %-4s %-14s INFORMATIONAL, class (C), NOT this gate: want %s / got %s\n' "$m" "$key" "$w" "${g:-<absent>}"
     else printf '  ⛔ %-4s %-14s want: %s\n              got:  %s\n' "$m" "$key" "$w" "${g:-<absent>}"; bad=$((bad + 1)); fi
   done
 done
-echo "gate: $bad divergence(s) that this gate owns, over 8 blocking shapes x 2 modes; SECTION is reported, never blocking."
+echo "gate: $bad divergence(s) from the Arizona oracle, over 9 blocking shapes x 2 modes."
 [ "$bad" -eq 0 ] || { echo "GATE FAIL [icn_builtin_name_in_lvalue_base_position_carries_its_value]: a bare builtin name in lvalue-base position does not match the oracle."; exit 1; }
 echo "GATE PASS [icn_builtin_name_in_lvalue_base_position_carries_its_value]"
 exit 0
