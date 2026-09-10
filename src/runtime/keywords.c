@@ -143,6 +143,12 @@ static void kw_cset_prime(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *g_kw_cset_regc_ptr[64]; static int g_kw_cset_regc_len[64];
+const char *kw_cset_intern(const char *canon, int len) {
+    kw_cset_prime();
+    if (!canon) canon = "";
+    if (len >= 0 && (int)strlen(canon) == len) { int hit = kw_cset_find_content(canon); if (hit >= 0 && g_kw_cset_names[hit].len == len) return g_kw_cset_names[hit].ptr; }
+    { extern void *rt_pinned_alloc(size_t); char *stable = (char *)rt_pinned_alloc((size_t)len + 1); memcpy(stable, canon, (size_t)len); stable[len] = '\0'; kw_cset_append(stable, NULL, len); return stable; }
+}
 void rt_icn_cset_register(const char *ptr, int len) {
     if (!ptr) return;
     { unsigned h = (unsigned)(((uintptr_t)ptr >> 4) & 63u); if (g_kw_cset_regc_ptr[h] == ptr && g_kw_cset_regc_len[h] == len) return; g_kw_cset_regc_ptr[h] = ptr; g_kw_cset_regc_len[h] = len; }

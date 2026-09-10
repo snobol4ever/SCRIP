@@ -1,5 +1,3 @@
-static char icn_str_arena[65536];
-static int  str_arena_pos = 0;
 #define ICN_STACK_MAX 256
 static long icn_stack[ICN_STACK_MAX];
 static int  icn_sp = 0;
@@ -7,68 +5,50 @@ long icn_retval = 0;
 int  icn_failed = 0;
 static char subscript_buf[2];
 extern void rt_icn_cset_register(const char *ptr, int len);
+extern const unsigned char *kw_cset_bits(const char *ptr);
+extern const char *kw_cset_intern(const char *canon, int len);
+extern int kw_cset_len(const char *ptr);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char *cset_union(const char *a, int alen, const char *b, int blen, int *outlen) {
-    if (!a) a = ""; if (!b) b = "";
-    if (str_arena_pos + 256 > 65536) str_arena_pos = 0;
-    char *out = icn_str_arena + str_arena_pos;
-    int n = 0;
-    for (int i = 0; i < alen; i++) out[n++] = a[i];
-    for (int j = 0; j < blen; j++) {
-        int found = 0;
-        for (int i = 0; i < alen; i++) { if (a[i] == b[j]) { found = 1; break; } }
-        if (!found) out[n++] = b[j];
-    }
-    out[n] = '\0';
-    str_arena_pos += n + 1;
+static void cset_bits_of(const char *s, int len, unsigned char w[32]) {
+    const unsigned char *kb = s ? kw_cset_bits(s) : (const unsigned char *)0;
+    if (kb && kw_cset_len(s) == len) { memcpy(w, kb, 32); return; }
+    memset(w, 0, 32);
+    if (s) for (int i = 0; i < len; i++) { unsigned c = (unsigned char)s[i]; w[c >> 3] |= (unsigned char)(1u << (c & 7)); }
+}
+static const char *cset_from_bits(const unsigned char w[32], int *outlen) {
+    char buf[257]; int n = 0;
+    for (int by = 0; by < 32; by++) { unsigned char m = w[by]; if (!m) continue; for (int bit = 0; bit < 8; bit++) if (m & (unsigned char)(1u << bit)) buf[n++] = (char)(by * 8 + bit); }
+    buf[n] = '\0';
     if (outlen) *outlen = n;
-    return out;
+    return kw_cset_intern(buf, n);
+}
+static int cset_is_canonical(const char *s, int len) {
+    for (int i = 1; i < len; i++) if ((unsigned char)s[i] <= (unsigned char)s[i - 1]) return 0;
+    return 1;
+}
+const char *cset_union(const char *a, int alen, const char *b, int blen, int *outlen) {
+    unsigned char x[32], y[32]; cset_bits_of(a, alen, x); cset_bits_of(b, blen, y);
+    for (int i = 0; i < 32; i++) x[i] |= y[i];
+    return cset_from_bits(x, outlen);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *cset_diff(const char *a, int alen, const char *b, int blen, int *outlen) {
-    if (!a) a = ""; if (!b) b = "";
-    if (str_arena_pos + 256 > 65536) str_arena_pos = 0;
-    char *out = icn_str_arena + str_arena_pos;
-    int n = 0;
-    for (int i = 0; i < alen; i++) {
-        int found = 0;
-        for (int j = 0; j < blen; j++) { if (a[i] == b[j]) { found = 1; break; } }
-        if (!found) out[n++] = a[i];
-    }
-    out[n] = '\0';
-    str_arena_pos += n + 1;
-    if (outlen) *outlen = n;
-    return out;
+    unsigned char x[32], y[32]; cset_bits_of(a, alen, x); cset_bits_of(b, blen, y);
+    for (int i = 0; i < 32; i++) x[i] &= (unsigned char)~y[i];
+    return cset_from_bits(x, outlen);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *cset_inter(const char *a, int alen, const char *b, int blen, int *outlen) {
-    if (!a) a = ""; if (!b) b = "";
-    if (str_arena_pos + 256 > 65536) str_arena_pos = 0;
-    char *out = icn_str_arena + str_arena_pos;
-    int n = 0;
-    for (int i = 0; i < alen; i++) {
-        for (int j = 0; j < blen; j++) { if (a[i] == b[j]) { out[n++] = a[i]; break; } }
-    }
-    out[n] = '\0';
-    str_arena_pos += n + 1;
-    if (outlen) *outlen = n;
-    return out;
+    unsigned char x[32], y[32]; cset_bits_of(a, alen, x); cset_bits_of(b, blen, y);
+    for (int i = 0; i < 32; i++) x[i] &= y[i];
+    return cset_from_bits(x, outlen);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *cset_canonical(const char *cs, int len) {
     if (!cs || len <= 0) return "";
-    unsigned char present[256] = {0};
-    for (int i = 0; i < len; i++) present[(unsigned char)cs[i]] = 1;
-    int n = 0;
-    for (int c = 0; c < 256; c++) if (present[c]) n++;
-    if (str_arena_pos + n + 1 > 65536) str_arena_pos = 0;
-    char *out = icn_str_arena + str_arena_pos;
-    int bi = 0;
-    for (int c = 0; c < 256; c++) if (present[c]) out[bi++] = (char)c;
-    out[bi] = '\0';
-    str_arena_pos += bi + 1;
-    rt_icn_cset_register(out, bi);
-    return out;
+    if (cset_is_canonical(cs, len) && kw_cset_bits(cs) && kw_cset_len(cs) == len) return cs;
+    unsigned char x[32]; cset_bits_of(cs, len, x);
+    return cset_from_bits(x, (int *)0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_icn_cset_member(const char *needle, int ch) {
