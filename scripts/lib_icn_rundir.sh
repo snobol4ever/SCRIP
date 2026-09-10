@@ -34,7 +34,7 @@
 #   icn_rundir_make  "$icn" "$parent"          # echoes a FRESH rundir under $parent, fixtures staged
 #   icn_rundir_argv  "$icn" ARR                # 0 read / 1 none / 2 malformed
 #   icn_rundir_env   "$icn" ARR                # 0 read / 1 none / 2 malformed
-#   icn_rundir_declares "$icn"                 # 0 if ANY of argv/fixtures/env is declared
+#   icn_rundir_declares "$icn"                 # 0 if ANY of stdin/argv/fixtures/env is declared
 #
 # ⛔ EVERY MALFORMED DECLARATION REFUSES WITH 2 AND NEVER FALLS BACK TO "no contract". A witness graded
 # under a contract that silently failed to arm is the starvation defect wearing the cure's clothes -- it
@@ -89,9 +89,27 @@ icn_rundir_env() {
   return 2
 }
 
+# ⛔⭐⭐ STDIN IS PART OF THE CONTRACT, AND LEAVING IT OUT MADE THE CONTRACT'S OWN GATE BLIND TO IT (hq_P
+# 2026-09-10, on the coo's routed finding from the rung36_jcon_io ref cut). This predicate used to test argv,
+# fixtures and env ONLY. Two consequences, and the second is the one nobody would have gone looking for:
+#   (1) A WITNESS FED ON STDIN RAN IN THE SHARED SCRATCH. Its answer depends on an input that is not in its
+#       source, which is the whole definition of environment-dependent, yet it was not a contract-bearing
+#       witness -- so it got the cwd whose contents are whatever ran before it. MEASURED on the live corpus:
+#       8 witnesses carry a stdin sidecar, 6 of them declared nothing else, and 4 of those 6 have an answer
+#       that PROVABLY changes with stdin (btrees, others, prefix, recogn -- discriminated by running each
+#       twice with different stdin, with a same-input control first so nondeterminism could not be reported
+#       as dependence). rung36_jcon_io asserts that open("tmp1") FAILS; a sibling's litter is a wrong answer.
+#   (2) `test_gate_icn_rundir_contract.sh` DISCOVERS ITS POPULATION WITH THIS PREDICATE (`icn_rundir_declares
+#       "$icn" && WITNESSES+=(...)`). So the gate that exists to police the run-directory contract could not
+#       see a stdin-only witness AT ALL -- it graded 2 of the 8. ⭐ A guard and its own canary must not share
+#       a failure mode; here they were the same line of code, so the blind spot was perfectly silent.
+# ⛔ THE NAIVE FIX MATCHES NOTHING AND LOOKS LIKE IT WORKED: `[ -e "$base.stdin" ]` finds ZERO of the eight,
+# because every stdin sidecar in tests/icon lives in `config/`. The two-place lookup is stated once, in
+# icn_sidecar_path, and this predicate must ask THE SAME QUESTION `icn_rundir_stdin` answers -- or the bus
+# feeds a file the contract says is not declared, which is the two-instruments-one-question defect again.
 icn_rundir_declares() {
   local base="${1%.icn}"
-  [ -e "$base.argv" ] || [ -e "$base.fixtures" ] || [ -e "$base.env" ]
+  [ -e "$base.argv" ] || [ -e "$base.fixtures" ] || [ -e "$base.env" ] || icn_sidecar_path "$1" stdin >/dev/null
 }
 
 # A FRESH directory per witness, never a shared scratch. rung36_jcon_io writes tmp1/tmp2 and then asserts

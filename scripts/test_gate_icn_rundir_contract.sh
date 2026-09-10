@@ -64,28 +64,45 @@ CORPUS="${CORPUS:-$S4E/corpus/tests/icon}"
 ICONT="$(icont_bin)"
 
 # ⛔ ROWS WHOSE CHECKED-IN .expected DISAGREES WITH THE ARIZONA ORACLE AND IS KNOWN TO COME FROM A DIFFERENT
-# ONE. rung36_jcon_io.expected is a BYTE-FOR-BYTE COPY OF JCON'S OWN io.std (`diff` against
-# /home/resources/jcon-master/test/io.std is empty) -- a JVM-jcon reference, not an icont/iconx cut. The 9
-# lines it disagrees on are all `nonseq:` rows, where jcon FAILS a seek past end-of-file and prints '-' while
-# Arizona SUCCEEDS and prints '?'; SCRIP already matches Arizona on every one of them. The cut is the coo's
-# (CEO-532: "work it WITH the coo, who holds the ref cuts"), so this pin records the dispute rather than
-# hiding it -- and it is an XPASS trap, not a mute: when the ref is re-cut this gate FAILS until the row is
-# removed from here in the same commit.
-# ⚠️ THE COUNT WAS 10 HERE UNTIL 2026-09-10 AND IT IS 9 (hq_P, measured; the ceo's CEO-534 carries the 10 too).
-# It came from ARM 4's own REPORTED line, which counted diff's `<` AND `>` and called the total "lines" -- on two
-# files of equal length that is exactly twice the truth. ⭐ A GATE THAT MISREPORTS ITS OWN NUMBER TEACHES THAT
-# NUMBER TO EVERY READER DOWNSTREAM: the 10 reached a gate header, a FINDING and a ceo ruling before anyone
-# re-derived it. The label now says "ref line(s) disagree" and counts `<` alone.
-REF_DISPUTED="rung36_jcon_io"
+# ONE. ⭐⭐ EMPTY AS OF 2026-09-10, AND THE ENTRY THAT EMPTIED IT IS THE ARGUMENT FOR THE MECHANISM: this held
+# `rung36_jcon_io` because its .expected was a BYTE-FOR-BYTE COPY OF JCON'S OWN io.std -- a JVM-jcon
+# reference, not an icont/iconx cut -- disagreeing on 9 `nonseq:` rows where jcon FAILS a seek past
+# end-of-file and prints '-' while Arizona SUCCEEDS and prints '?'. SCRIP matched Arizona on every one.
+# ⭐ THE PIN WAS AN XPASS TRAP, NOT A MUTE, AND THAT IS WHY IT CLOSED ITSELF: the coo re-cut the ref from
+# Arizona icont (corpus 77a835525, confirmed by cutting it independently in their own directory and getting
+# a byte-identical result), and ARM 4 went RED THE NEXT TIME THIS GATE RAN -- "XPASS: pinned in REF_DISPUTED
+# but the ref now MATCHES the Arizona oracle" -- which is what removed the row. ⛔ A tolerated red recorded
+# as a MUTE would have gone on being tolerated after the thing it tolerated was fixed, silently, forever;
+# every entry here must keep that property.
+# ⚠️ THE COUNT WAS 10 HERE UNTIL 2026-09-10 AND IT IS 9 (hq_P, measured; the ceo's CEO-534 carried the 10 too,
+# and corrected it in CEO-536). It came from ARM 4's own REPORTED line, which counted diff's `<` AND `>` and
+# called the total "lines" -- on two files of equal length that is exactly twice the truth. ⭐ A GATE THAT
+# MISREPORTS ITS OWN NUMBER TEACHES THAT NUMBER TO EVERY READER DOWNSTREAM: the 10 reached a gate header, a
+# FINDING and a ceo ruling before anyone re-derived it. The label now says "ref line(s) disagree" and counts
+# `<` alone. Kept here after the row itself is gone, because the lesson outlives the dispute.
+REF_DISPUTED=""
 
 # ⭐ THE ANSWER FLOOR, one row per contracted witness: the number of lines the LIVE ORACLE produces in the
 # fully-armed rundir. It is the only thing standing between this gate and a silently shrinking contract --
 # see ARM 1 in the header. Measured hq_P 2026-09-10, icont/iconx v9.5.25a, three runs each byte-identical.
+# ⭐ SIX ROWS ADDED 2026-09-10 (hq_P, on the coo's routed finding). They are not new witnesses -- they were
+# always here, carrying a stdin sidecar, and this gate COULD NOT SEE THEM: it discovers its population with
+# icn_rundir_declares(), which tested argv/fixtures/env and not stdin, so the contract's own gate graded 2 of
+# the 8 contracted witnesses. ⛔ All six measured with the LIVE ORACLE in the fully-armed rundir, by the same
+# method this gate uses; the two pre-existing pins (io 135, recent 443) were RE-DERIVED by that method first
+# and reproduced exactly, which is what makes the six trustworthy rather than merely plausible. SCRIP agrees
+# with the oracle on all eight at the tree that pinned them.
 contract_floor() {
     case "$1" in
-        rung36_jcon_io)     echo 135 ;;
-        rung36_jcon_recent) echo 443 ;;
-        *)                  echo "" ;;
+        rung36_jcon_io)      echo 135 ;;
+        rung36_jcon_recent)  echo 443 ;;
+        rung36_jcon_btrees)  echo 30  ;;
+        rung36_jcon_geddump) echo 313 ;;
+        rung36_jcon_others)  echo 183 ;;
+        rung36_jcon_prefix)  echo 8   ;;
+        rung36_jcon_profsum) echo 62  ;;
+        rung36_jcon_recogn)  echo 8   ;;
+        *)                   echo "" ;;
     esac
 }
 
@@ -195,6 +212,65 @@ for icn in "${WITNESSES[@]}"; do
     fi
 done
 
+# ---- ARM 5: THE UNDECLARED-STDIN SWEEP -- the OTHER half of the contract, and the silent one
+# ⛔ THE DEFECT THIS ARM STANDS OVER (coo -> hq_P, 2026-09-10, out of the rung36_jcon_io ref cut): the entry
+# could not reproduce its own ref. io.icn reads stdin SIX different ways at lines 16-21 and eats eight lines
+# doing it; the entry declared argv and fixtures and stayed SILENT about the one input that decides eight of
+# its lines, and icn_rundir_stdin hands back /dev/null when no sidecar exists. So the witness graded STARVED,
+# produced a shorter but perfectly orderly answer, and read as A COMPILER DEFECT. ⭐ Every other arm above
+# grades witnesses that DO declare a contract; nothing anywhere graded the ones that should and do not, which
+# is the harder direction because the evidence of the omission IS the omission.
+# ⛔⭐ THE FIRST CUT OF THIS ARM COMPARED THE ORACLE STARVED VS FED SOME GENERIC BYTES, AND IT WAS NEARLY
+# VACUOUS -- proven so by its own fail-once test, which is the only reason it is not still here. Hiding
+# rung36_jcon_geddump's sidecar (a witness whose oracle answers 313 lines fed and 0 starved) did NOT red it:
+# geddump rejects arbitrary bytes exactly as it rejects EOF, so fed and starved agreed and it passed. ⭐ THE
+# SAME BLIND SPOT HAD ALREADY MISREAD geddump AND profsum ONCE, in the census that motivated this arm. An
+# instrument whose failures and successes look alike is worth less than no instrument, because it also
+# reports a number.
+# ✅ THE DISCRIMINATOR IS NOW "DOES IT READ STDIN AT ALL", NOT "DOES ITS ANSWER CHANGE", and it is
+# program-agnostic: stdin is a FIFO HELD OPEN BY A WRITER THAT SENDS NOTHING. A program that reads stdin
+# BLOCKS on it (timeout, rc 124); one that never reads runs to completion untouched. No knowledge of any
+# witness's input format is needed, which is exactly what the byte-feeding version required and could not have.
+# ⛔ WITH A CONTROL ARM, because "it blocked" has a second explanation: the same program is also run against
+# /dev/null, and a witness that fails to finish THERE TOO is slow or looping, not stdin-hungry, and is
+# excluded rather than convicted. Conviction needs BOTH: blocks on the fifo AND completes on /dev/null.
+# Graded on icont, never on us, so a SCRIP bug can neither raise nor suppress a finding here.
+sweep=0; suspects=0; undecided=0
+for icn in "$CORPUS"/*.icn; do
+    b="$(basename "$icn" .icn)"
+    [ -f "$CORPUS/$b.expected" ] || continue                      # ungraded: no verdict depends on its stdin
+    [ "$(icn_rundir_stdin "$icn")" = /dev/null ] || continue      # already declares one; arms 1-4 own it
+    sweep=$((sweep+1))
+    (cd "$WORK" && "$ICONT" -s -o "$WORK/$b.a5" "$icn") >/dev/null 2>&1 || continue
+    ( cd "$WORK" && timeout 10 "./$b.a5" </dev/null >/dev/null 2>&1 ); a5_bare=$?
+    fifo="$WORK/$b.fifo"; rm -f "$fifo"; mkfifo "$fifo" || { rm -f "$WORK/$b.a5"; continue; }
+    sleep 12 > "$fifo" & a5_hold=$!                               # holds the write end open, sends nothing
+    ( cd "$WORK" && timeout 5 "./$b.a5" <"$fifo" >/dev/null 2>&1 ); a5_fifo=$?
+    kill "$a5_hold" 2>/dev/null; wait "$a5_hold" 2>/dev/null; rm -f "$fifo" "$WORK/$b.a5"
+    if [ "$a5_fifo" = 124 ] && [ "$a5_bare" != 124 ]; then
+        echo "FAIL ARM5 $b: the ORACLE BLOCKS waiting on stdin, and this witness declares no stdin sidecar."
+        echo "     ⛔ It is being graded against /dev/null in silence -- it reads an input nothing declares."
+        echo "     Cut the sidecar (NAME.stdin beside the .icn, or config/NAME.stdin) from the input its ref"
+        echo "     was cut with. Do NOT read the short answer as a compiler defect: that is what this looks"
+        echo "     like from the board, and it is the whole reason this arm exists."
+        suspects=$((suspects+1)); fail=$((fail+1))
+    elif [ "$a5_fifo" = 124 ]; then
+        undecided=$((undecided+1))
+        echo "REPORTED ARM5 $b: blocks on a held-open stdin AND does not finish on /dev/null either -- slow or"
+        echo "     looping, not necessarily stdin-hungry. Excluded from the verdict rather than convicted."
+    fi
+done
+[ "$sweep" -gt 0 ] || refuse "ARM 5 examined no witness at all -- every graded witness appears to declare a stdin sidecar, which is not a state this corpus has ever been in. The sweep is vacuous, and a vacuous arm prints the same green as a passing one."
+# ⛔ THE VERDICT WORD MUST FOLLOW THE COUNT BESIDE IT. This line read "PASS ARM5 ... 1 starved silently" in
+# its first cut -- a summary announcing PASS while printing its own failure count on the same line. That is
+# the misreporting class this gate's own header already carries a scar from (ARM 4's doubled ref count), and
+# it is worse in a summary line, because a summary is the line a reader trusts INSTEAD of reading the body.
+if [ "$suspects" -eq 0 ]; then
+    echo "PASS ARM5 ($sweep graded witness(es) with no stdin sidecar swept, none starved, $undecided undecided)"
+else
+    echo "FAIL ARM5 ($sweep swept, $suspects STARVED SILENTLY, $undecided undecided) -- named above"
+fi
+
 echo "--- $checked witness(es) with a declared run-directory contract; $fail failure(s)"
 [ "$fail" -eq 0 ] || exit 1
-echo "✅ GATE PASS: every declared run-directory contract materializes, is load-bearing, and grades SCRIP equal to the live Arizona oracle."
+echo "✅ GATE PASS: every declared run-directory contract materializes, is load-bearing, grades SCRIP equal to the live Arizona oracle, and no graded witness outside the contract is silently starved of stdin."
