@@ -958,6 +958,7 @@ DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
     if (!nm && IS_STR_fn(callee) && callee.s) nm = callee.s;
     if (!nm) { core_icn_error(106, callee); return FAILDESCR; }
     icn_call_value_deref_args(nm, argv, n);
+    if (IS_PROCVAL_EXTERNAL_fn(callee)) { extern DESCR_t rt_extfn_invoke(DESCR_t, DESCR_t *, int); return rt_extfn_invoke(callee, argv, n); }
     if (!IS_PROCVAL_BUILTIN_fn(callee) && (rt_proc_is_registered(nm) || !strcmp(nm, "main"))) {
         extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
         for (int k = 0; k < n && k < 64; k++) g_call_args[k] = argv[k]; for (int k = (n < 0 ? 0 : n); k < 64; k++) g_call_args[k] = (DESCR_t){0};
@@ -976,6 +977,7 @@ DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) 
     if (!nm && IS_STR_fn(callee) && callee.s) nm = callee.s;
     if (!nm) { core_icn_error(106, callee); return FAILDESCR; }
     icn_call_value_deref_args(nm, argv, n);
+    if (IS_PROCVAL_EXTERNAL_fn(callee)) { extern DESCR_t rt_extfn_invoke(DESCR_t, DESCR_t *, int); return rt_extfn_invoke(callee, argv, n); }
     if (!IS_PROCVAL_BUILTIN_fn(callee) && rt_proc_is_registered(nm)) {
         extern DESCR_t g_call_args[]; extern DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout);
         for (int k = 0; k < n && k < 64; k++) g_call_args[k] = argv[k]; for (int k = (n < 0 ? 0 : n); k < 64; k++) g_call_args[k] = (DESCR_t){0};
@@ -5989,7 +5991,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     if (!strcmp(fn, "delay") && nargs >= 1) { long long _ms = IS_INT_fn(args[0]) ? (long long)args[0].i : 0; if (_ms > 0) usleep((useconds_t)(_ms * 1000)); *out = NULVCL; return 1; }
     if (!strcmp(fn, "getch") || !strcmp(fn, "getche")) { unsigned char _c; ssize_t _n = read(0, &_c, 1); if (_n != 1) { *out = FAILDESCR; return 1; } if (fn[4] == 'e') { fputc(_c, stdout); fflush(stdout); } char *_b = rt_pinned_alloc(2); _b[0] = (char)_c; _b[1] = 0; *out = STRVAL(_b); return 1; }
     if (!strcmp(fn, "kbhit")) { fd_set _r; struct timeval _tv; FD_ZERO(&_r); FD_SET(0, &_r); _tv.tv_sec = 0; _tv.tv_usec = 0; if (select(1, &_r, 0, 0, &_tv) > 0) { *out = NULVCL; return 1; } *out = FAILDESCR; return 1; }
-    if (!strcmp(fn, "loadfunc") && nargs >= 2) { extern long g_error; const char *_l = VARVAL_fn(args[0]); void *_h = _l ? dlopen(_l, RTLD_NOW) : 0; void *_f = 0; if (_h) { const char *_fnm = VARVAL_fn(args[1]); _f = _fnm ? dlsym(_h, _fnm) : 0; } if (!_f) { if (g_error != 0) return icn_argtype_raise(216, args[1], out); core_runtime_error(216, "external function not found"); } *out = FAILDESCR; return 1; }
+    if (!strcmp(fn, "loadfunc") && nargs >= 2) { extern long g_error; extern DESCR_t rt_extfn_mint(const char *, void *); const char *_l = VARVAL_fn(args[0]); const char *_fnm = VARVAL_fn(args[1]); void *_h = _l ? dlopen(_l, RTLD_NOW) : 0; void *_f = (_h && _fnm) ? dlsym(_h, _fnm) : 0; if (!_f) { if (g_error != 0) return icn_argtype_raise(216, args[1], out); core_runtime_error(216, "external function not found"); *out = FAILDESCR; return 1; } *out = rt_extfn_mint(_fnm, _f); return 1; }
     extern const char *scan_subj;
     extern int         scan_pos;
     extern int         scan_depth;

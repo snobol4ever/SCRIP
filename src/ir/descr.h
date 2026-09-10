@@ -94,7 +94,14 @@ DESCR_SASSERT(PROCVAL_BUILTIN_SLEN != 0xFFFFFFFFu && PROCVAL_BUILTIN_SLEN != 0xF
 DESCR_SASSERT(PROCVAL_SLEN == 0xFFFFFFFEu,
                "PROCVAL_SLEN is HAND-COPIED in src/runtime/rtx/rtx_icncall.s, which mints the ordinary form in asm where no assert "
                "in this header can see it; this arm pins the C side so a silent divergence needs two deliberate edits, not one");
-static inline __attribute__((always_inline)) int IS_PROCVAL_fn(DESCR_t v) { return v.v == DT_E && (v.slen == PROCVAL_SLEN || v.slen == PROCVAL_BUILTIN_SLEN); }
+#define PROCVAL_EXTERNAL_SLEN 0xFFFFFFFBu
+DESCR_SASSERT(PROCVAL_EXTERNAL_SLEN != PROCVAL_SLEN && PROCVAL_EXTERNAL_SLEN != PROCVAL_BUILTIN_SLEN && PROCVAL_EXTERNAL_SLEN != 0xFFFFFFFFu && PROCVAL_EXTERNAL_SLEN != 0xFFFFFFFDu,
+               "PROCVAL_EXTERNAL_SLEN joins the ONE shared 0xFFFFFFFx sentinel space this header's PROCVAL_BUILTIN_SLEN assert already warns about; 0xFFFFFFFB was free when it was minted and this arm keeps it free");
+typedef struct _EXTFN_t { void *fn; char name[]; } EXTFN_t;
+static inline __attribute__((always_inline)) int IS_PROCVAL_EXTERNAL_fn(DESCR_t v) { return v.v == DT_E && v.slen == PROCVAL_EXTERNAL_SLEN; }
+#define PROCVAL_EXTERNAL(blk_) ((DESCR_t){ .v = DT_E, .slen = PROCVAL_EXTERNAL_SLEN, .s = (blk_)->name })
+#define PROCVAL_EXT_FN(v_) (((EXTFN_t *)(void *)((char *)(v_).s - offsetof(EXTFN_t, name)))->fn)
+static inline __attribute__((always_inline)) int IS_PROCVAL_fn(DESCR_t v) { return v.v == DT_E && (v.slen == PROCVAL_SLEN || v.slen == PROCVAL_BUILTIN_SLEN || v.slen == PROCVAL_EXTERNAL_SLEN); }
 static inline __attribute__((always_inline)) int IS_PROCVAL_BUILTIN_fn(DESCR_t v) { return v.v == DT_E && v.slen == PROCVAL_BUILTIN_SLEN; }
 #define PROCVAL_BUILTIN(name_) ((DESCR_t){ .v = DT_E, .slen = PROCVAL_BUILTIN_SLEN, .s = (char *)(name_) })
 #endif
