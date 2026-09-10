@@ -19,7 +19,9 @@
 # FAILURE -- the seat has done nothing wrong except not finish"). So the gate also asserts the word FAILURE does
 # NOT appear on the ahead line, and that the banner's own rc is unchanged between the ahead and clean arms.
 #
-# Exit: 0 CLEAN / 1 VIOLATION / 2 UNPROVEN (cannot build the fixture -- never a silent skip).
+# Exit: 0 CLEAN / 1 VIOLATION / 2 UNPROVEN -- and UNPROVEN covers TWO cases, not one: the fixture could not be
+# built, OR the banner produced no output at all. A subject that never spoke cannot convict its own reporting
+# arm. Never a silent skip in either case.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/lib_gate.sh"
@@ -61,12 +63,44 @@ git push -q -u origin main 2>/dev/null || gate_unproven "could not push the fixt
 # (124 IS THE TIMEOUT FIRING AND SAYS SO), the resolved identity the banner computed, and the first lines it
 # actually produced. ⛔ A gate that reports "printed nothing" and knows nothing about the nothing cannot be
 # debugged from its own log, which is why this flake survived two sightings.
-BANNER_RAW=""; BANNER_RC=0
-banner_ahead_line() {  # runs the banner arm against the fixture root and echoes its AHEAD line
+BANNER_RAW=""; BANNER_RC=0; BANNER_LINE=""
+# ⛔⭐⭐ IT ASSIGNS TO GLOBALS AND IS CALLED BARE -- NEVER `x="$(banner_ahead_line)"` (hq_T 2026-09-10). That is
+# how it was written and the capture above could not work: A COMMAND SUBSTITUTION IS A SUBSHELL, so BANNER_RAW
+# and BANNER_RC were set in a child and died with it, and every reader in the parent saw the empty string.
+# ⭐ THE PROOF IS WHAT IT PRINTED, and it is the worst possible shape: on origin this gate PASSED rc=0 while its
+# own evidence block said `banner rc=0 / bytes captured: 0` -- on a run where the banner had demonstrably
+# produced the very line the arms then matched. The post-mortem CEO-524 (2) ordered to NAME hq_B's flake was
+# structurally incapable of capturing anything, and reported the flake's exact signature on every HEALTHY run.
+# ⛔ So had the flake recurred, its evidence would have been byte-identical to a green run's. An instrument
+# whose failure output is what it prints when nothing is wrong cannot distinguish the case it was built for.
+# ⭐ AND NOTE WHICH HALF WORKED: the substitution's STDOUT survived, so the arms were right and the gate was
+# honestly green -- only the diagnosis was fiction. Same family as `$?` after a pipeline: the mechanism answered
+# a narrower question than the author asked it, and had no way to say so. `clean_rc=$?` was the second instance
+# in these same three lines -- it read grep's status, never the banner's -- and it is gone with the same cure.
+banner_ahead_line() {  # runs the banner arm against the fixture root; sets BANNER_RAW/BANNER_RC/BANNER_LINE
     BANNER_RAW="$(S4E_AHEAD_HOME="$W/root" S4E_BANNER_NO_BOARD=1 timeout 300 bash "$HERE/s4e_msg.sh" banner 2>&1)"; BANNER_RC=$?
-    printf '%s\n' "$BANNER_RAW" | grep -m1 'AHEAD OF ORIGIN'
+    BANNER_LINE="$(printf '%s\n' "$BANNER_RAW" | grep -m1 'AHEAD OF ORIGIN')"
 }
-banner_evidence() {  # called ONLY on an empty reading -- the flake's own post-mortem, printed where the log is
+# ⛔⭐⭐ AN EMPTY READING IS rc=2 UNPROVEN, NOT rc=1 (hq_T 2026-09-10, on hq_B's ask and hq_B's second witness).
+# THE SPLIT: the banner produced NO OUTPUT AT ALL -> the gate could not measure, so it REFUSES; the banner
+# produced output and no AHEAD line -> the arm is absent or unreachable, which IS the defect this gate exists
+# for, so it FAILS. Both used to be rc=1. ⭐ They have OPPOSITE OWNERS and opposite next steps -- a refusal
+# sends its reader to the harness, a failure sends them to the banner -- and the flake this gate was hardened
+# for is exactly the first kind, so calling it a defect of the reporting arm pointed two sightings at the wrong
+# file. ⛔ AND IT IS THE ASYMMETRY THAT DECIDES IT, not the tidiness: a wrong FAIL accuses code that is fine and
+# gets the gate muted; a wrong UNPROVEN says only "I could not tell", which is what was true.
+# ⭐ THE GENERAL FORM, WIDER THAN THIS GATE, and hq_B measured the second instance the same day: ZERO BYTES OF
+# SUBJECT OUTPUT IS NOT A SCORE. Their probe ran ./scrip from a `cd $TMPDIR` subshell where it did not exist,
+# every run produced nothing, and the harness printed five plausible diff-line counts (transmit 105, cxprimes
+# 26) that read as a regression. A missing subject and a failing subject are indistinguishable from outside
+# unless the instrument is made to say which -- never merely made louder. Any harness here that counts diff
+# lines against a ref owes the same split; that sweep is a row, and this is its first instance.
+banner_measured_or_refuse() {  # $1 = arm label. REFUSES rc=2 when the subject produced nothing at all.
+    [ -n "$BANNER_RAW" ] && return 0
+    banner_evidence
+    gate_unproven "$1: the banner produced NO OUTPUT AT ALL (zero bytes captured, rc=$BANNER_RC) -- this gate cannot tell whether the AHEAD arm is missing or whether the banner never ran, and those have opposite owners. NOT a pass and NOT a failure of the reporting arm: the evidence above is the post-mortem CEO-524 (2) asked for."
+}
+banner_evidence() {  # the flake's own post-mortem -- printed on the paths that cannot certify, never on a green run
     echo "    ⛔ EVIDENCE FOR THE EMPTY READING (ceo CEO-524 (2), hq_B's flake):"
     if [ "$BANNER_RC" -eq 124 ]; then
         echo "       banner rc=124 -- THE 300s TIMEOUT FIRED. That is a duration, not a defect of the arm: the"
@@ -82,9 +116,14 @@ banner_evidence() {  # called ONLY on an empty reading -- the flake's own post-m
 }
 
 # --- ARM 1: CLEAN -- HEAD is on origin, the line must say so and must not claim an ahead count ------------------
-clean_line="$(banner_ahead_line)"; clean_rc=$?
-[ -n "$clean_line" ] || gate_fail "the banner printed NO 'AHEAD OF ORIGIN' line at all against a clean fixture -- the arm is absent or unreachable, which is exactly the invisible-reporting defect this gate exists for"
-banner_evidence
+banner_ahead_line; clean_line="$BANNER_LINE"; clean_rc="$BANNER_RC"   # ⛔ BARE, not "$( )" -- see the subshell note above
+banner_measured_or_refuse "ARM 1 (clean fixture)"
+# Past the refusal above the banner demonstrably RAN, so an absent line is now a statement about the arm and
+# not about the harness -- which is the whole point of separating them.
+if [ -z "$clean_line" ]; then
+    banner_evidence
+    gate_fail "the banner RAN (rc=$BANNER_RC, $(printf '%s' "$BANNER_RAW" | wc -c) bytes) and printed NO 'AHEAD OF ORIGIN' line at all against a clean fixture -- the arm is absent or unreachable, which is exactly the invisible-reporting defect this gate exists for"
+fi
 case "$clean_line" in
     *"AHEAD OF ORIGIN: none"*) ;;
     *) gate_fail "clean fixture (HEAD == origin) but the banner did not print the none-line; it printed: $clean_line" ;;
@@ -92,9 +131,12 @@ esac
 
 # --- ARM 2: AHEAD -- one deliberate unpushed commit, the line must NAME the repo and the count -------------------
 echo two >> f.txt && git commit -q -am "fixture unpushed commit" 2>/dev/null || gate_unproven "could not create the deliberate unpushed commit"
-ahead_line="$(banner_ahead_line)"; ahead_rc=$?
-[ -n "$ahead_line" ] || gate_fail "one unpushed commit exists and the banner printed NO 'AHEAD OF ORIGIN' line"
-banner_evidence
+banner_ahead_line; ahead_line="$BANNER_LINE"; ahead_rc="$BANNER_RC"   # ⛔ BARE, not "$( )"
+banner_measured_or_refuse "ARM 2 (one unpushed commit)"
+if [ -z "$ahead_line" ]; then
+    banner_evidence
+    gate_fail "one unpushed commit exists and the banner RAN (rc=$BANNER_RC) and printed NO 'AHEAD OF ORIGIN' line"
+fi
 case "$ahead_line" in
     *"AHEAD OF ORIGIN: none"*) gate_fail "one unpushed commit exists and the banner still reported 'none' -- the count is not being read live from git: $ahead_line" ;;
 esac
