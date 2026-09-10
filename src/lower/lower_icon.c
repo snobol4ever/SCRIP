@@ -165,6 +165,13 @@ static int icn_is_proc_or_record_name(const char * nm) {
     for (int ri = 0; ri < icn_record_name_count; ri++) if (!strcmp(icn_record_names[ri], nm)) return 1;
     return 0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_undeclared_assigned_var(const icx_t * cx, const char * nm) {
+    if (!nm || !nm[0] || nm[0] == '&') return 0;
+    if (icn_is_local(cx, nm) || icn_is_own_global(cx, nm) || icn_is_proc_or_record_name(nm)) return 0;
+    if (icn_builtin_is_known(nm) || icn_builtin_is_generator(nm) || icn_builtin_arity(nm) != -99) return 0;
+    return icn_name_assigned(nm);
+}
 static int icn_arg_stages(const icx_t * cx, const tree_t * a) {
     if (!a) return 0;
     if (a->t == TT_IDX || a->t == TT_FIELD) return 1;
@@ -520,7 +527,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         { const char * vn = icn_variable_lit(cx, t);
           if (vn) { tree_t * tg = icn_variable_lit_target(cx, vn); if (!tg) return lc_key(cx, t, "&fail", γ, ω, res); if (tg->t == TT_KEYWORD) return lc_key(cx, t, tg->v.sval, γ, ω, res); return lower(cx, tg, γ, ω, res); } }
         if (!fn || (fn->t == TT_VAR && fn->v.sval && fn->v.sval[0] != '&' && !icn_is_local(cx, fn->v.sval)
-                    && !(icn_is_own_global(cx, fn->v.sval) && !icn_is_proc(fn->v.sval)) && !icn_proc_reassigned(fn->v.sval))) {
+                    && !(icn_is_own_global(cx, fn->v.sval) && !icn_is_proc(fn->v.sval)) && !icn_proc_reassigned(fn->v.sval) && !icn_undeclared_assigned_var(cx, fn->v.sval))) {
             const char * nm = (fn && fn->t == TT_VAR) ? fn->v.sval : "?";
             return lower_call(cx, nm, t, 1, t->n - 1, γ, ω, res);
         }
