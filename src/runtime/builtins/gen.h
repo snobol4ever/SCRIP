@@ -16,9 +16,10 @@ typedef enum {
     BINOP_CONCAT_FRACDIGIT,
     BINOP_POW_PROMOTE,
     BINOP_ADD_BIG, BINOP_SUB_BIG, BINOP_MUL_BIG,
+    BINOP_LCONCAT,
 } BinopKind;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int binop_is_concat(long op) { return op == BINOP_CONCAT || op == BINOP_CONCAT_FRACDIGIT; }
+static inline int binop_is_concat(long op) { return op == BINOP_CONCAT || op == BINOP_CONCAT_FRACDIGIT || op == BINOP_LCONCAT; }
 #ifndef EXPR_T_DEFINED
 #define EXPR_T_DEFINED
 typedef struct tree_t tree_t;

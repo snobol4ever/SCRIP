@@ -128,12 +128,11 @@ RTX_ENDF(rt_jct_relop)
 RTX_FUNC(rt_str_coerce)
     RTX_GATE(icnrel, c_rt_str_coerce)
     cmp     dil, DT_S
-    jne     .Lsc_ident
+    jne     c_rt_str_coerce
     mov     rax, rdi
     shr     rax, 32
     cmp     eax, -1
     je      c_rt_str_coerce
-.Lsc_ident:
     mov     rax, rdi
     mov     rdx, rsi
     ret

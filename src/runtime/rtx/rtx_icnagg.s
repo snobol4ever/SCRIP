@@ -3,8 +3,6 @@ RTX_GATE_DEF(icnagg)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RTX_FUNC(rt_size_d)
     RTX_GATE(icnagg, c_rt_size_d)
-    cmp     dil, DT_SNUL
-    je      .Lsz_zero
     cmp     dil, DT_S
     jne     c_rt_size_d
     mov     rax, rdi
@@ -14,10 +12,6 @@ RTX_FUNC(rt_size_d)
     cmp     eax, -1
     je      c_rt_size_d
     mov     rdx, rax
-    mov     eax, DT_I | (MOD_OP_RT_SIZE_D << 8)
-    ret
-.Lsz_zero:
-    xor     edx, edx
     mov     eax, DT_I | (MOD_OP_RT_SIZE_D << 8)
     ret
 RTX_ENDF(rt_size_d)

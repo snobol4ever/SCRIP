@@ -50,7 +50,7 @@ std::string bb_binop_relop() {
              + x86("lea", "r9", FRQ(_.op_off))
              + x86("call", "rt_relop_overload", (uint64_t)(uintptr_t)(void*)rt_relop_overload)
              + x86("test", "eax", "eax")
-             + x86("je", L(1))
+             + x86("je", L(2))
              + x86("cmp", "eax", (long)1)
              + x86_omega("je")
              + x86_gamma()

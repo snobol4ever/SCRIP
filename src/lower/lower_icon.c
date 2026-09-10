@@ -940,7 +940,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         *res = lim; return ee; }
     case TT_LCONCAT: {
         if (t->n < 2 || !t->c[0] || !t->c[1]) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
-        IR_t * op = build(cx, IR_BINOP, γ, ω); IR_LIT(op).ival = BINOP_CONCAT_FRACDIGIT;
+        IR_t * op = build(cx, IR_BINOP, γ, ω); IR_LIT(op).ival = BINOP_LCONCAT;
         IR_t * lr = NULL; IR_t * ee = lower(cx, t->c[0], NULL, ω, &lr); IR_t * lβ = cx->beta;
         IR_t * rr = NULL; IR_t * re = lower(cx, t->c[1], op, lβ, &rr); γ_to(lr, re);
         ir_operand_push(op, lr); ir_operand_push(op, rr);

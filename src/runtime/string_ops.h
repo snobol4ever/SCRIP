@@ -5,6 +5,8 @@
 DESCR_t     str_concat_d(DESCR_t a, DESCR_t b);
 DESCR_t     c_str_concat_d(DESCR_t a, DESCR_t b);
 DESCR_t     str_concat_fracdigit_d(DESCR_t a, DESCR_t b);
+DESCR_t     rt_icn_lconcat_d(DESCR_t a, DESCR_t b);
+int         core_icn_str_ok(DESCR_t d);
 DESCR_t     str_repeat_d(DESCR_t s, DESCR_t n);
 DESCR_t     lconcat_d(DESCR_t a, DESCR_t b);
 const char *real_str(double r, char *buf, int bufsz);

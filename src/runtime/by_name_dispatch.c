@@ -4332,7 +4332,13 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
           else if (!strcmp(fn, "==="))  oc = BINOP_EQV; else if (!strcmp(fn, "~===")) oc = BINOP_NEQV;
           if (oc >= 0) { if (!rt_jct_relop(a, b, oc)) return FAILDESCR; if (oc >= BINOP_SLT && oc <= BINOP_SNE) return rt_str_coerce(b); if (oc == BINOP_EQV || oc == BINOP_NEQV) return b; DESCR_t _rv; rt_relop_val_coerce(a, b, &_rv); return _rv; } }
     }
-    { icn_bi_rec_t bi; core_icn_bi_push(&bi, fn, args, nargs); int hit = try_call_builtin_by_name_bl(fn, args, nargs, &out, bidlen); core_icn_bi_pop(&bi); if (hit) return out; }
+    { icn_bi_rec_t bi; core_icn_bi_push(&bi, fn, args, nargs);
+      if (core_icn_builtin_argcheck(fn, args, nargs)) { core_icn_bi_pop(&bi); return FAILDESCR; }
+      int hit = try_call_builtin_by_name_bl(fn, args, nargs, &out, bidlen); core_icn_bi_pop(&bi); if (hit) return out; }
+    if (core_icn_active() && !rt_proc_name_exists(fn) && !icn_builtin_is_known(fn) && icn_builtin_arity(fn) == ICN_ARITY_UNKNOWN) {
+        DESCR_t cal = NV_GET_fn(fn);
+        if (!IS_PROCVAL_fn(cal)) { core_icn_op_ctx(fn, 1, cal, cal); core_icn_error(106, cal); core_icn_op_ctx_clear(); return FAILDESCR; }
+    }
     out = APPLY_fn(fn, args, nargs);
     return out;
 }
@@ -4393,7 +4399,10 @@ static int relop_num_coerce(DESCR_t v, DESCR_t *out) {
 DESCR_t rt_str_coerce(DESCR_t d);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t c_rt_str_coerce(DESCR_t d) {
-    if (!IS_CSET_fn(d)) return d;
+    if (!IS_CSET_fn(d)) {
+        if (core_icn_active() && (d.v == DT_I || d.v == DT_R || d.v == DT_BIG)) { extern DESCR_t descr_to_str(DESCR_t); DESCR_t sv = descr_to_str(d); if (!IS_FAIL_fn(sv)) return sv; return d; }
+        return d;
+    }
     const char *cp; int cl; if (!cset_resolve(d, &cp, &cl) || cl < 0) return d;
     char *b = rt_pinned_alloc((size_t)cl + 1); memcpy(b, cp, (size_t)cl); b[cl] = 0;
     for (int i = 1; i < cl; i++) { char t = b[i]; int j = i - 1; while (j >= 0 && (unsigned char)b[j] > (unsigned char)t) { b[j+1] = b[j]; j--; } b[j+1] = t; }
@@ -4413,6 +4422,7 @@ int c_rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op) {
+    if (IS_FAIL_fn(lhs) || IS_FAIL_fn(rhs)) return 0;
     if (op == BINOP_EQV || op == BINOP_NEQV) {
         int eq = 0;
         int lcs = (lhs.v == DT_S && lhs.slen == 0xFFFFFFFFu), rcs = (rhs.v == DT_S && rhs.slen == 0xFFFFFFFFu);
@@ -4455,6 +4465,8 @@ static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op) {
             switch (op) { case BINOP_EQ: return a==b; case BINOP_NE: return a!=b; case BINOP_LT: return a<b;
                           case BINOP_LE: return a<=b; case BINOP_GT: return a>b;  case BINOP_GE: return a>=b; } return 0; }
         core_icn_op_ctx(core_icn_binop_sym(op), 2, lhs, rhs); core_icn_error(102, _relop_lok ? rhs : lhs); core_icn_op_ctx_clear(); return 0; }
+    if (str_rel && !(core_icn_str_ok(lhs) && core_icn_str_ok(rhs))) {
+        core_icn_op_ctx(core_icn_binop_sym(op), 2, lhs, rhs); core_icn_error(103, core_icn_str_ok(lhs) ? rhs : lhs); core_icn_op_ctx_clear(); return 0; }
     if (num_rel && (IS_REAL_fn(lhs) || IS_REAL_fn(rhs)) && (IS_INT_fn(lhs) || IS_REAL_fn(lhs)) && (IS_INT_fn(rhs) || IS_REAL_fn(rhs))) {
         double a = to_real(lhs), b = to_real(rhs);
         switch (op) { case BINOP_EQ: return a==b; case BINOP_NE: return a!=b; case BINOP_LT: return a<b;

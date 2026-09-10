@@ -1277,6 +1277,7 @@ long rt_match_value_open(DESCR_t *pval)
 DESCR_t c_rt_subscript_var(DESCR_t base, DESCR_t idx) {
     DESCR_t bvar = base;
     if (IS_VARREF_fn(base)) base = rt_deref(base);
+    if ((base.v == DT_SNUL || IS_PROCVAL_fn(base)) && core_icn_active()) { core_icn_op_ctx("[]", 2, base, idx); core_icn_error(114, base); core_icn_op_ctx_clear(); return FAILDESCR; }
     if (base.v == DT_A) {
         ARBLK_t *a = base.arr; if (!a) return FAILDESCR;
         int i = (int)to_int(idx); int off = i - a->lo;
@@ -1331,6 +1332,7 @@ DESCR_t c_rt_subscript_var_container_only(DESCR_t base, DESCR_t idx) {
     extern int kwb_error(int code, const char *msg);
     DESCR_t b = base;
     if (IS_VARREF_fn(b)) b = rt_deref(b);
+    if ((b.v == DT_SNUL || IS_PROCVAL_fn(b)) && core_icn_active()) { core_icn_op_ctx("[]", 2, b, idx); core_icn_error(114, b); core_icn_op_ctx_clear(); return FAILDESCR; }
     if (b.v != DT_A && b.v != DT_T) { kwb_error(235, "subscripted operand is not table or array"); return FAILDESCR; }
     if (b.v == DT_T) {
         TBBLK_t *tb = b.tbl; if (!tb) return FAILDESCR;
@@ -1440,6 +1442,7 @@ static DESCR_t rt_random_var_body(DESCR_t base) {
     extern long g_random;
     DESCR_t bvar = base;
     if (IS_VARREF_fn(base)) base = rt_deref(base);
+    if ((base.v == DT_SNUL || IS_PROCVAL_fn(base)) && core_icn_active()) { core_icn_op_ctx("?", 1, base, base); core_icn_error(113, base); core_icn_op_ctx_clear(); return FAILDESCR; }
     if (base.v == DT_R) { if (base.r >= 9223372036854775808.0 || base.r <= -9223372036854775808.0) return FAILDESCR; base = INTVAL((int64_t)base.r); bvar = base; }
     g_random = (1103515245L * g_random + 453816694L) & 0x7FFFFFFFL; double rval = 4.65661286e-10 * (double)g_random;
     if (base.v == DT_S && base.slen == 0xFFFFFFFFu) {

@@ -316,6 +316,7 @@ static int rt_num_is_blank_d(const DESCR_t *v) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void c_rt_coerce_num2_d(const DESCR_t *self, const DESCR_t *other, DESCR_t *out, long codes) {
     extern void core_runtime_error(int code, const char *msg);
+    if (IS_FAIL(*self) || IS_FAIL(*other)) { *out = FAILDESCR; return; }
     if (self->v == DT_BIG) { *out = *self; return; }
     if (self->v == DT_S && self->s) { const char *p = rt_cstr_d(*self); while (*p == ' ') p++; if (*p == '+' || *p == '-') p++;
         if (*p >= '0' && *p <= '9') { errno = 0; char *ep = NULL; strtoll(p, &ep, 10); if (errno == ERANGE && ep && ep != p) { const char *q = ep; while (*q == ' ') q++; if (!*q) { extern DESCR_t rt_big_from_str(const char *); DESCR_t bg = rt_big_from_str(rt_cstr_d(*self)); if (!IS_FAIL_fn(bg)) { *out = bg; return; } } } } }
@@ -1934,7 +1935,7 @@ DESCR_t c_rt_size_d(uint64_t lo, uint64_t hi)
     v.slen = (uint32_t)(lo >> 32);
     v.i    = (int64_t)hi;
     if (IS_FAIL_fn(v)) return FAILDESCR;
-    if (v.v == DT_SNUL) { DESCR_t r; r.v = DT_I; r.slen = 0; r.i = 0; return r; }
+    if (v.v == DT_SNUL || IS_PROCVAL_fn(v)) { extern int core_icn_error(int code, DESCR_t val); core_icn_op_ctx("*", 1, v, v); core_icn_error(112, v); core_icn_op_ctx_clear(); return FAILDESCR; }
     if (v.v == DT_T) { DESCR_t r; r.v = DT_I; r.slen = 0; r.i = (int64_t)(v.tbl ? v.tbl->size : 0); return r; }
     if (v.v == DT_CO) { extern long scrip_coexpr_activations_of(void *); DESCR_t r; r.v = DT_I; r.slen = 0; r.i = (int64_t)scrip_coexpr_activations_of(v.p); return r; }
     if (IS_CSET_fn(v)) { extern int kw_cset_len(const char *); int kn = v.s ? kw_cset_len(v.s) : -1; size_t n = (kn >= 0) ? (size_t)kn : (v.s ? strlen(v.s) : 0); DESCR_t r; r.v = DT_I; r.slen = 0; r.i = (int64_t)n; return r; }

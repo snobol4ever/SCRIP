@@ -343,6 +343,34 @@ const char *core_icn_binop_sym(int bcode) {
     }
     return "?";
 }
+static int core_icn_int_ok(DESCR_t d);
+static int icn_arg_int_ok(DESCR_t d) { return core_icn_int_ok(d); }
+static int icn_arg_cset_ok(DESCR_t d) { extern int core_icn_str_ok(DESCR_t d2); return core_icn_str_ok(d); }
+int core_icn_builtin_argcheck(const char *fn, DESCR_t *args, int nargs) {
+    static const struct { const char *nm; int idx; char want; int defaults; } tbl[] = {
+        {"pos", 0, 'i', 0}, {"tab", 0, 'i', 0}, {"move", 0, 'i', 0},
+        {"right", 1, 'i', 1}, {"left", 1, 'i', 1}, {"center", 1, 'i', 1}, {"repl", 1, 'i', 1},
+        {"trim", 1, 'c', 1},
+        {"close", 0, 'f', 0}, {"seek", 0, 'f', 0}, {"where", 0, 'f', 0}, {"display", 1, 'f', 1},
+        {(const char *)0, 0, 0, 0}};
+    if (!fn || !args || !core_icn_active()) return 0;
+    for (int i = 0; tbl[i].nm; i++) {
+        if (strcmp(tbl[i].nm, fn) || tbl[i].idx >= nargs) continue;
+        DESCR_t d = args[tbl[i].idx];
+        if (IS_FAIL(d)) return 1;
+        if (d.v == DT_SNUL && tbl[i].defaults) return 0;
+        int ok = 0, code = 0;
+        switch (tbl[i].want) {
+            case 'i': ok = icn_arg_int_ok(d); code = 101; break;
+            case 'c': ok = icn_arg_cset_ok(d); code = 104; break;
+            case 'f': ok = IS_FH_fn(d);        code = 105; break;
+            default:  ok = 1; break;
+        }
+        if (!ok) { core_icn_error(code, d); return 1; }
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_icn_bi_push(icn_bi_rec_t *r, const char *name, DESCR_t *args, int nargs) { extern int rt_k_level; r->name = name; r->args = args; r->nargs = nargs; r->level = rt_k_level; r->prev = g_icn_bi_top; g_icn_bi_top = r; g_icn_op.sym = (const char *)0; }
 void core_icn_bi_pop(icn_bi_rec_t *r) { g_icn_bi_top = r->prev; }
 void *core_icn_bi_mark(void) { return (void *)g_icn_bi_top; }

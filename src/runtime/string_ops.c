@@ -58,8 +58,24 @@ DESCR_t c_str_concat_d(DESCR_t a, DESCR_t b) {
     return BSTRVAL(buf, (long)(al + bl));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int core_icn_str_ok(DESCR_t d) { return d.v == DT_S || d.v == DT_I || d.v == DT_R || d.v == DT_BIG || IS_CSET_fn(d); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_icn_lconcat_d(DESCR_t a, DESCR_t b) {
+    extern int core_icn_error(int code, DESCR_t val);
+    if (IS_FAIL_fn(a) || IS_FAIL_fn(b)) return FAILDESCR;
+    if (!so_is_list(a)) { core_icn_op_ctx("|||", 2, a, b); core_icn_error(108, a); core_icn_op_ctx_clear(); return FAILDESCR; }
+    if (!so_is_list(b)) { core_icn_op_ctx("|||", 2, a, b); core_icn_error(108, b); core_icn_op_ctx_clear(); return FAILDESCR; }
+    return str_concat_d(a, b);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t str_concat_fracdigit_d(DESCR_t a, DESCR_t b) {
     extern char *rt_big_str(DESCR_t);
+    extern int core_icn_error(int code, DESCR_t val);
+    if (IS_FAIL_fn(a) || IS_FAIL_fn(b)) return FAILDESCR;
+    if (!core_icn_str_ok(a) || !core_icn_str_ok(b)) {
+        DESCR_t bad = core_icn_str_ok(a) ? b : a;
+        core_icn_op_ctx("||", 2, a, b); core_icn_error(103, bad); core_icn_op_ctx_clear(); return FAILDESCR;
+    }
     if (a.v == DT_R) a = descr_to_str_fracdigit(a);
     if (b.v == DT_R) b = descr_to_str_fracdigit(b);
     if (a.v == DT_BIG && a.p) a = STRVAL(rt_big_str(a));

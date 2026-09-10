@@ -134,7 +134,7 @@ std::string bb_binop_relop_val() {
              + x86("lea", "r9", FRQ(_.op_off))
              + x86("call", "rt_binop_overload", (uint64_t)(uintptr_t)(void*)rt_binop_overload)
              + x86("test", "eax", "eax")
-             + x86("je", L(1))
+             + x86("je", L(2))
              + x86_gamma()
              + x86("def", L(2))
              + x86("mov", "rdi", FRQ(_.op_sa))
