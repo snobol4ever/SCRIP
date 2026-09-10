@@ -49,6 +49,7 @@ ONLY="${KERNELS:-}"
 refuse() { echo "⛔ Ir SLOPE BOARD REFUSED (rc=2): $*" >&2; exit 2; }
 [ -x "$SCRIP_BIN" ] || refuse "scrip not built at $SCRIP_BIN."
 command -v valgrind >/dev/null 2>&1 || refuse "valgrind not on PATH."
+. "$HERE/lib_ir_measure.sh" 2>/dev/null || refuse "cannot load lib_ir_measure.sh -- this board will not read Ir by hand."
 . "$HERE/lib_perf_fmt.sh"     2>/dev/null || refuse "lib_perf_fmt.sh unloadable (the ONE multiple-printing authority)."
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || refuse "lib_oracle_flags.sh unloadable (the ONE oracle-path authority)."
 SBL="$(sbl_clean_bin)"; [ -x "$SBL" ] || refuse "clean SPITBOL benchmark oracle absent: $SBL"
@@ -57,11 +58,16 @@ B="$S4E/corpus/benchmarks/snobol4"
 [ -d "$B" ] || refuse "kernel dir missing: $B"
 W="$(mktemp -d "${TMPDIR:-/tmp}/irslope.XXXXXX")" || refuse "cannot make a work dir."
 trap 'rm -rf "$W"' EXIT
-ir_of() {  # argv -> Ir, or NOTHING unless the program exited 0 (see bench_two_number_ir.sh's note)
-  local out rc; out="$(mktemp -d "$W/cg.XXXXXX")"
-  timeout "$TMO" valgrind --tool=callgrind --callgrind-out-file="$out/cg.out" "$@" >"$out/o" 2>"$out/e"
-  rc=$?; [ "$rc" -eq 0 ] || return 0
-  callgrind_annotate "$out/cg.out" 2>/dev/null | awk '/PROGRAM TOTALS/{gsub(/,/,"",$1); print $1; exit}'
+# ⛔⭐ THE EXIT-STATUS VOID WAS ALREADY RIGHT HERE; WHAT WAS MISSING IS THE REASON.  Returning silence for a
+# crashed arm is correct arithmetic and a bad record: downstream this became a bare `UNPROVEN`, identical to
+# the one printed when valgrind is not installed at all.  ⭐ "not measured" and "measured and thrown away"
+# are different facts, and a board that prints one word for both has destroyed the difference -- so the void
+# stays (the slope math needs the empty), and the WHY now goes to stderr.  Rule: lib_ir_measure.sh.
+ir_of() {  # argv -> Ir, or NOTHING unless the program exited 0 -- with the reason on stderr when it is nothing
+  local v; v="$(IR_TMO="$TMO" ir_measure "$@")"
+  if ir_is_number "$v"; then echo "$v"; return 0; fi
+  echo "⚠ Ir arm voided: $(ir_cell "$v") for [$*] -- $(ir_reason "$v")" >&2
+  return 0
 }
 build_at() {  # $1=kernel-src $2=N -> path to wrapped source, or empty
   # ⛔ SPLIT, NOT ONE `local` LINE: bash expands ALL of a `local` builtin's arguments BEFORE it performs

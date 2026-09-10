@@ -171,6 +171,7 @@ ARRAY_SUM_IR_WATERMARK="${ARRAY_SUM_IR_WATERMARK:-9287873}"
 [ -x "$SCRIP_BIN" ] || { echo "GATE FAIL(2): scrip not built at $SCRIP_BIN"; exit 2; }
 [ -f "$RT_DIR/libscrip_rt.so" ] || { echo "GATE FAIL(2): libscrip_rt.so not built at $RT_DIR"; exit 2; }
 command -v valgrind >/dev/null 2>&1 || { echo "GATE FAIL(2): valgrind not installed"; exit 2; }
+. "$(dirname "${BASH_SOURCE[0]}")/lib_ir_measure.sh" 2>/dev/null || { echo "GATE FAIL(2): cannot load lib_ir_measure.sh -- this gate will not read Ir by hand"; exit 2; }
 [ "$ROMAN_IR_WATERMARK" -gt 0 ] && [ "$BEAUTY_IR_WATERMARK" -gt 0 ] && [ "$TABLE_ACCESS_IR_WATERMARK" -gt 0 ] && [ "$ARRAY_SUM_IR_WATERMARK" -gt 0 ] || { echo "GATE FAIL(2): watermark(s) not pinned yet"; exit 2; }
 
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
@@ -184,10 +185,17 @@ measure_ir() {  # name sno input cwd_or_empty  -> sets IR_TOTAL, RUN_OUT on succ
     if [ ! -s "$s" ]; then echo "GATE FAIL(2): $name mode-4 compile produced nothing"; sed 's/^/    /' "$WORK/$name.cc.err"; return 1; fi
     gcc -no-pie "$s" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o "$bin" 2>"$WORK/$name.ld.err"
     if [ ! -x "$bin" ]; then echo "GATE FAIL(2): $name mode-4 link failed"; sed 's/^/    /' "$WORK/$name.ld.err"; return 1; fi
-    valgrind --tool=callgrind --callgrind-out-file="$cg" "$bin" < "$input" > "$WORK/$name.out" 2>"$WORK/$name.vg.err"
-    IR_TOTAL=$(callgrind_annotate "$cg" 2>/dev/null | awk '/PROGRAM TOTALS/{gsub(/,/,"",$1); print $1}')
+    # ⛔⭐ A DEAD RUN'S Ir READS AS AN IMPROVEMENT HERE, WHICH IS THE WORST DIRECTION FOR THIS GATE TO FAIL
+    # IN.  callgrind prints a well-formed PROGRAM TOTALS whatever the client does, and a program that dies
+    # early does LESS work -- so an uncaught SEGV arrives as a number BELOW the watermark and check_budget
+    # prints "improved; consider re-pinning down".  The crash would have argued for lowering the budget it
+    # broke.  ⭐ So the exit status decides whether a reading exists at all, before any grading touches it.
+    # The rule and its wording live in lib_ir_measure.sh -- the ONE authority for taking an Ir reading.
+    local irv; irv="$(IR_PROG_OUT="$WORK/$name.out" IR_PROG_ERR="$WORK/$name.vg.err" ir_measure "$bin" < "$input")"
     RUN_OUT="$WORK/$name.out"
-    [ -n "$IR_TOTAL" ] && [ "$IR_TOTAL" -gt 0 ] 2>/dev/null
+    if ! ir_is_number "$irv"; then echo "GATE UNPROVEN(2) [$name]: $(ir_cell "$irv") -- $(ir_reason "$irv")"; IR_TOTAL=""; return 1; fi
+    IR_TOTAL="$irv"
+    [ "$IR_TOTAL" -gt 0 ] 2>/dev/null
 }
 
 check_budget() {  # label ir watermark

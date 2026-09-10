@@ -41,6 +41,7 @@ refuse() { echo "⛔ TWO-NUMBER BOARD REFUSED (rc=2): $*" >&2; exit 2; }
 [ -n "$LANG_ARG" ] || refuse "usage: bench_two_number_ir.sh <snobol4|snocone|rebus|icon|prolog|pascal|raku>"
 [ -x "$SCRIP_BIN" ] || refuse "scrip not built at $SCRIP_BIN -- a table printed without it would be plausible and false."
 command -v valgrind >/dev/null 2>&1 || refuse "valgrind not on PATH."
+. "$HERE/lib_ir_measure.sh" 2>/dev/null || refuse "cannot load lib_ir_measure.sh -- this board will not read Ir by hand."
 command -v callgrind_annotate >/dev/null 2>&1 || refuse "callgrind_annotate not on PATH."
 . "$HERE/lib_perf_fmt.sh" 2>/dev/null || refuse "lib_perf_fmt.sh unloadable -- it is the ONE authority for printing a multiple (s266)."
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || refuse "lib_oracle_flags.sh unloadable -- the ONE oracle-path authority (s200)."
@@ -56,11 +57,13 @@ ir_of() {  # $1.. = argv -> echoes PROGRAM TOTALS Ir, or NOTHING if the program 
   # never ran. Every Snocone WORK figure derived from it would have been silently wrong, and nothing
   # in the output would have said so. valgrind propagates the client's exit code, so requiring 0 is
   # the cheap guard; a non-zero arm returns empty and surfaces as NA/UNPROVEN, never as a number.
-  local out rc; out="$(mktemp -d "$WORKDIR/cg.XXXXXX")"
-  timeout "$TMO" valgrind --tool=callgrind --callgrind-out-file="$out/cg.out" "$@" >"$out/prog.out" 2>"$out/vg.log"
-  rc=$?
-  [ "$rc" -eq 0 ] || return 0
-  callgrind_annotate "$out/cg.out" 2>/dev/null | awk '/PROGRAM TOTALS/{gsub(/,/,"",$1); print $1; exit}'
+  # ⭐ THE CHECK ABOVE IS NOW THE TREE'S RULE, NOT THIS SCRIPT'S HABIT: it lives in lib_ir_measure.sh and
+  # every Ir cell in the tree goes through it (hq_P 2026-09-10, on hq_U's ask).  What is added here is the
+  # REASON -- a silently empty arm read as `NA` downstream, the same NA printed when valgrind is absent.
+  local v; v="$(IR_TMO="$TMO" ir_measure "$@")"
+  if ir_is_number "$v"; then echo "$v"; return 0; fi
+  echo "⚠ Ir arm voided: $(ir_cell "$v") for [$*] -- $(ir_reason "$v")" >&2
+  return 0
 }
 # ---- per-language adapters ---------------------------------------------------------------------
 # Each sets: KDIR EXT RIVAL_NAME; and defines empty_src(), rival_ir(file), plus m3/m4 via SCRIP.

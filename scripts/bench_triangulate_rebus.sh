@@ -30,28 +30,28 @@ if [ ! -x "$SCRIP_BIN" ]; then echo "⛔ REFUSED (rc=2): scrip not built at $SCR
 if ! command -v valgrind >/dev/null 2>&1; then echo "⛔ REFUSED (rc=2): valgrind not on PATH -- callgrind Ir is this board's whole method"; exit 2; fi
 if [ ! -d "$KDIR" ]; then echo "⛔ REFUSED (rc=2): no kernel dir at $KDIR"; exit 2; fi
 
-ir_of() {  # $1 = argv... -> echoes PROGRAM TOTALS Ir for running that command under callgrind
-  local out; out="$(mktemp -d)"
-  valgrind --tool=callgrind --callgrind-out-file="$out/cg.out" "$@" >"$out/prog.out" 2>"$out/vg.log"
-  callgrind_annotate "$out/cg.out" 2>/dev/null | awk '/PROGRAM TOTALS/{gsub(/,/,"",$1); print $1}'
-  rm -rf "$out"
-}
+# ⛔⭐ THE Ir READING GOES THROUGH lib_ir_measure.sh AND NOWHERE ELSE.  This script used to run callgrind
+# here with NO exit-status check, so a kernel that SEGVed or error-exited published the instruction count of
+# its dying path as an ordinary cell.  callgrind counts whatever the client does; only the exit status knows
+# whether the work happened.  The lib is the ONE place that rule lives, for every Ir cell in the tree.
+. "$HERE/lib_ir_measure.sh" 2>/dev/null || { echo "⛔ REFUSED (rc=2): cannot load lib_ir_measure.sh -- this board will not read Ir by hand"; exit 2; }
 
 echo "REBUS_TRIANGULATE -- callgrind Ir, RT_OPT=-O0, tree $(git -C "$HERE/.." rev-parse --short HEAD 2>/dev/null || echo '?')"
 echo "kernel               m3_Ir(compile+run)   m4_Ir(run only)"
 SCRIP_HASH="$(git -C "$HERE/.." rev-parse --short HEAD 2>/dev/null || echo unknown)"
-N=0
+N=0; RED=0
 for k in $KERNELS; do
   f="$KDIR/$k.reb"
   if [ ! -f "$f" ]; then echo "⛔ REFUSED (rc=2): kernel missing: $f"; exit 2; fi
-  m3ir="$(ir_of "$SCRIP_BIN" --run "$f" < /dev/null)"
+  m3ir="$(ir_measure "$SCRIP_BIN" --run "$f" < /dev/null)"
   s="$(mktemp -d)"
   "$SCRIP_BIN" --compile "$f" -o "$s/p.s" < /dev/null 2>/dev/null || { echo "⛔ REFUSED (rc=2): $k failed to compile mode-4"; exit 2; }
   gcc "$s/p.s" -o "$s/p.bin" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" 2>/dev/null || { echo "⛔ REFUSED (rc=2): $k failed to link mode-4"; exit 2; }
-  m4ir="$(ir_of "$s/p.bin" < /dev/null)"
+  m4ir="$(ir_measure "$s/p.bin" < /dev/null)"
   rm -rf "$s"
-  printf '%-20s %18s %18s\n' "$k" "${m3ir:-REFUSED}" "${m4ir:-REFUSED}"
+  for v in "$m3ir" "$m4ir"; do r="$(ir_reason "$v")"; [ -z "$r" ] || { echo "⚠ $k: $(ir_cell "$v") -- $r" >&2; RED=$((RED+1)); }; done
+  printf '%-20s %18s %18s\n' "$k" "$(ir_cell "$m3ir")" "$(ir_cell "$m4ir")"
   N=$((N+1))
 done
-echo "REBUS_BOARD kernels=$N (no external rival exists; see this script's own header)"
-[ "$N" -gt 0 ]
+echo "REBUS_BOARD kernels=$N voided_arms=$RED (no external rival exists; see this script's own header)"
+[ "$N" -gt 0 ] && [ "$RED" -eq 0 ]

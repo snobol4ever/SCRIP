@@ -32,31 +32,36 @@ SBL="$(sbl_clean_bin)"
 [ -x "$SBL" ] || { echo "⛔ REFUSED (rc=2): clean SPITBOL oracle absent: $SBL"; exit 2; }
 SBL_FLAGS="$(sbl_lang_flags)"
 
-ir_of() {  # $1.. = argv -> echoes PROGRAM TOTALS Ir
-  local out; out="$(mktemp -d)"
-  valgrind --tool=callgrind --callgrind-out-file="$out/cg.out" "$@" >"$out/prog.out" 2>"$out/vg.log"
-  callgrind_annotate "$out/cg.out" 2>/dev/null | awk '/PROGRAM TOTALS/{gsub(/,/,"",$1); print $1}'
-  rm -rf "$out"
-}
+# ⛔⭐ THE Ir READING GOES THROUGH lib_ir_measure.sh AND NOWHERE ELSE.  This script used to run callgrind
+# here and pipe callgrind_annotate straight into awk with NO exit-status check, so a kernel that SEGVed or
+# error-exited published the instruction count of its dying path as an ordinary cell -- and then this board
+# divided by it.  A crash that announces itself as a number is worse than one that announces itself as a
+# hole; the lib is the ONE place that rule lives, for every Ir cell in the tree.  A caller that cannot load
+# it REFUSES rather than re-deriving a private extraction (same law as lib_perf_fmt.sh / lib_oracle_flags.sh).
+. "$HERE/lib_ir_measure.sh" 2>/dev/null || { echo "⛔ REFUSED (rc=2): cannot load lib_ir_measure.sh -- this board will not read Ir by hand"; exit 2; }
 
 echo "SNOCONE_TRIANGULATE -- callgrind Ir vs SPITBOL (clean oracle $SBL_FLAGS), RT_OPT=-O0, tree $(git -C "$HERE/.." rev-parse --short HEAD 2>/dev/null || echo '?')"
 echo "kernel               m3_Ir(compile+run)   m4_Ir(run only)      SPITBOL_Ir      × (m4 vs SPITBOL)"
-N=0
+N=0; RED=0
 for pair in $KERNELS; do
   k="${pair%%:*}"; twin="${pair##*:}"
   scf="$SC_DIR/$k.sc"; snf="$SNO_DIR/$twin.sno"
   [ -f "$scf" ] || { echo "⛔ REFUSED (rc=2): kernel missing: $scf"; exit 2; }
   [ -f "$snf" ] || { echo "⛔ REFUSED (rc=2): twin missing: $snf"; exit 2; }
-  m3ir="$(ir_of "$SCRIP_BIN" --run "$scf" < /dev/null)"
+  m3ir="$(ir_measure "$SCRIP_BIN" --run "$scf" < /dev/null)"
   s="$(mktemp -d)"
   "$SCRIP_BIN" --compile "$scf" -o "$s/p.s" < /dev/null 2>/dev/null || { echo "⛔ REFUSED (rc=2): $k failed to compile mode-4"; exit 2; }
   gcc "$s/p.s" -o "$s/p.bin" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" 2>/dev/null || { echo "⛔ REFUSED (rc=2): $k failed to link mode-4"; exit 2; }
-  m4ir="$(ir_of "$s/p.bin" < /dev/null)"
+  m4ir="$(ir_measure "$s/p.bin" < /dev/null)"
   rm -rf "$s"
-  sblir="$(ir_of "$SBL" $SBL_FLAGS "$snf" < /dev/null)"
-  mult="$(awk -v r="$sblir" -v o="$m4ir" 'BEGIN{ if (o+0==0) print "n/a"; else printf "%.3fx", r/o }')"
-  printf '%-20s %18s %18s %18s   %s\n' "$k" "${m3ir:-REFUSED}" "${m4ir:-REFUSED}" "${sblir:-REFUSED}" "$mult"
+  sblir="$(ir_measure "$SBL" $SBL_FLAGS "$snf" < /dev/null)"
+  # ⛔ THE MULTIPLE IS COMPUTED ONLY FROM TWO READINGS THAT ARE ACTUALLY READINGS.  A voided cell must
+  # never reach the arithmetic -- a ratio built on a crashed arm is the crash wearing the board's format.
+  for v in "$m3ir" "$m4ir" "$sblir"; do r="$(ir_reason "$v")"; [ -z "$r" ] || echo "⚠ $k: $(ir_cell "$v") -- $r" >&2; done
+  if ir_is_number "$sblir" && ir_is_number "$m4ir"; then mult="$(awk -v r="$sblir" -v o="$m4ir" 'BEGIN{ if (o+0==0) print "n/a"; else printf "%.3fx", r/o }')"
+  else mult="n/a (an arm was not measured)"; RED=$((RED+1)); fi
+  printf '%-20s %18s %18s %18s   %s\n' "$k" "$(ir_cell "$m3ir")" "$(ir_cell "$m4ir")" "$(ir_cell "$sblir")" "$mult"
   N=$((N+1))
 done
-echo "SNOCONE_BOARD kernels=$N"
-[ "$N" -gt 0 ]
+echo "SNOCONE_BOARD kernels=$N voided_arms=$RED"
+[ "$N" -gt 0 ] && [ "$RED" -eq 0 ]

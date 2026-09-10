@@ -53,16 +53,19 @@ gate_require_exec "$WORK/sm.bin" "the compiled string_manip harness"
 
 command -v valgrind >/dev/null 2>&1 || { echo "GATE UNPROVEN(2) [$GATE_NAME]: valgrind not available, cannot measure Ir"; exit 2; }
 
-valgrind --tool=callgrind --callgrind-out-file="$WORK/on.cg" "$WORK/sm.bin" < /dev/null > "$WORK/on.out" 2>"$WORK/on.vgerr"
-SCRIP_DISPATCH_GC_INLINE=0 valgrind --tool=callgrind --callgrind-out-file="$WORK/off.cg" "$WORK/sm.bin" < /dev/null > "$WORK/off.out" 2>"$WORK/off.vgerr"
+# ⛔⭐ BOTH ARMS RAN WITH NO EXIT-STATUS CHECK, AND THIS GATE IS AN A/B -- WHICH IS THE SHAPE THAT HIDES A
+# CRASH BEST.  If the cure-on and killswitch-off arms both die the same way they produce the same (empty)
+# output, the correctness diff below PASSES, and the two dying-path instruction counts then get compared to
+# each other as though they were a measurement of the cure.  ⭐ Two crashes that agree look exactly like two
+# measurements that agree.  The exit status is the only thing that tells them apart, so it is checked first,
+# through lib_ir_measure.sh -- the ONE authority for taking an Ir reading.
+. "$(dirname "${BASH_SOURCE[0]}")/lib_ir_measure.sh" 2>/dev/null || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot load lib_ir_measure.sh -- this gate will not read Ir by hand"; exit 2; }
+ON_V="$(IR_PROG_OUT="$WORK/on.out" IR_PROG_ERR="$WORK/on.vgerr" ir_measure "$WORK/sm.bin" < /dev/null)"
+OFF_V="$(SCRIP_DISPATCH_GC_INLINE=0 IR_PROG_OUT="$WORK/off.out" IR_PROG_ERR="$WORK/off.vgerr" ir_measure "$WORK/sm.bin" < /dev/null)"
 
-ON_IR="$(grep -m1 '^==.*Collected' "$WORK/on.vgerr" | grep -oE '[0-9]+$')"
-OFF_IR="$(grep -m1 '^==.*Collected' "$WORK/off.vgerr" | grep -oE '[0-9]+$')"
-
-if [ -z "${ON_IR:-}" ] || [ -z "${OFF_IR:-}" ]; then
-    echo "GATE UNPROVEN(2) [$GATE_NAME]: could not parse Ir counts from callgrind output"
-    exit 2
-fi
+if ! ir_is_number "$ON_V"; then echo "GATE UNPROVEN(2) [$GATE_NAME]: cure-on arm $(ir_cell "$ON_V") -- $(ir_reason "$ON_V")"; exit 2; fi
+if ! ir_is_number "$OFF_V"; then echo "GATE UNPROVEN(2) [$GATE_NAME]: killswitch-off arm $(ir_cell "$OFF_V") -- $(ir_reason "$OFF_V")"; exit 2; fi
+ON_IR="$ON_V"; OFF_IR="$OFF_V"
 
 # --- correctness: identical observable output (ignore nothing -- this harness prints no timing noise on stdout other than ns/ms, which we exclude deliberately since wall-clock is expected to vary run to run and is not part of the correctness claim) ---
 if ! diff -q <(grep -v '^ns:\|^ms:' "$WORK/on.out") <(grep -v '^ns:\|^ms:' "$WORK/off.out") >/dev/null 2>&1; then
