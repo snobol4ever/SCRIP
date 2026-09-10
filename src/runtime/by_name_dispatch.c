@@ -6177,7 +6177,16 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     L_bidjmp_5894: ;
     if ((_bid == BID_runerr) && nargs >= 1) { long long _ec = IS_INT_fn(args[0]) ? (long long)args[0].i : 500; { extern long g_error; if (g_error != 0) return icn_argtype_raise((int)_ec, (nargs >= 2) ? args[1] : FAILDESCR, out); } core_icn_error((int)_ec, (nargs >= 2) ? args[1] : FAILDESCR); exit(1); }
     L_bidjmp_5895: ;
-    if ((_bid == BID_stop)) { for (int _si = 0; _si < nargs; _si++) { DESCR_t _a = args[_si]; if (IS_INT_fn(_a)) fprintf(stderr, "%lld", (long long)_a.i); else if (IS_REAL_fn(_a)) { char _rb[64]; icon_real_str(_a.r, _rb, sizeof _rb); fprintf(stderr, "%s", _rb); } else { const char *_s = VARVAL_fn(_a); if (_s) fprintf(stderr, "%s", _s); } } if (nargs) fprintf(stderr, "\n"); exit(1); }
+    if ((_bid == BID_stop)) {
+        FILE *dest = stderr;
+        for (int _si = 0; _si < nargs; _si++) {
+            DESCR_t _a = args[_si];
+            if (IS_FH_fn(_a)) { FILE *fp = fh_get((int)_a.i); if (fp) { if (_si > 0) fputc('\n', dest); dest = fp; } continue; }
+            if (_a.v == DT_SNUL) continue;
+            out_write_descr(dest, _a, 1);
+        }
+        fputc('\n', dest); fflush(stdout); fflush(dest); exit(1);
+    }
     if ((_bid == BID_exit)) { long long _st = (nargs >= 1 && IS_INT_fn(args[0])) ? (long long)args[0].i : 0; exit((int)_st); }
     if (!strcmp(fn, "chdir") && nargs == 1) { const char *_d = VARVAL_fn(args[0]); if (!_d || chdir(_d) != 0) { *out = FAILDESCR; return 1; } *out = NULVCL; return 1; }
     if (!strcmp(fn, "delay") && nargs >= 1) { long long _ms = IS_INT_fn(args[0]) ? (long long)args[0].i : 0; if (_ms > 0) usleep((useconds_t)(_ms * 1000)); *out = NULVCL; return 1; }
