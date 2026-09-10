@@ -166,6 +166,76 @@ if [ "$rc" -ne 0 ]; then
     echo "GATE FAIL: an oracle-side UNGRADABLE reason was rejected (rc=$rc): $out"; violations=$((violations+1))
 fi
 
+# ARM 8b — ⭐⭐ THE ONE ADMITTED EXCEPTION, AND IT IS CONTROL-ARMED BOTH WAYS (ceo CEO-541, on hq_T's ask).
+# icon/ipl's gincl/maccolor.icn names our compiler and is NOT a failure-as-reason: it states Arizona icont's
+# own refusal verbatim, then upstream's control on the UNMODIFIED file, and only THEN that we refuse at the
+# same line with the same class. That last clause is a CONTROL -- it strengthens the ruling by showing the
+# row is not our own damage -- and the ruling passes the discriminator this arm has always used: IT STANDS
+# UNCHANGED IF SCRIP WERE PERFECT AT EVERYTHING ELSE. ⛔ So the exception is granted BY A MARKER, never by a
+# reader's judgement of the prose: `AGREEMENT-CONTROL:` prefixes our clause, and the text before it must name
+# the oracle and must not name us. THE POSITIVE DIRECTION FIRST -- a properly-marked row is accepted.
+mkpkg 3; rm -f "$TD/p"/*.tsv
+examined=$((examined+1))
+printf 'f3.icn\tCONTAINER_OR_LIBRARY\tArizona icont REFUSES IT AT COMPILE, rc=1, verbatim "Line 23 # \\"map16\\": invalid declaration", and upstream ships the identical refusal on the unmodified file. AGREEMENT-CONTROL: scrip refuses at the same line with the same class, so we agree.\n' > "$TD/p/UNGRADABLE.tsv"
+out="$(run_inv 2 0)"; rc=$?
+if [ "$rc" -ne 0 ]; then
+    echo "GATE FAIL: a marked AGREEMENT-CONTROL row was refused (rc=$rc) -- CEO-541 admits it: $out"; violations=$((violations+1))
+fi
+# ⛔ AND THE NEGATIVE DIRECTION, WHICH IS THE HALF THAT KEEPS THE ARM HONEST. Three plants, each a way the
+# marker could be used to smuggle a failure-as-reason past the check, and each must STILL refuse:
+#   (a) the marker with NO oracle verdict before it -- the ruling rests on us and says so politely;
+#   (b) the marker with our compiler named BEFORE it -- the oracle's verdict is no longer independent, which
+#       is the exact tpp defect (a row citing BOTH), and CEO-541 explicitly did not weaken that precedent;
+#   (c) the marker in the CLASS column rather than the reason -- admission by accident of spelling.
+for _plant in \
+  'f3.icn\tORACLE_REFUSES\tAGREEMENT-CONTROL: scrip produces zero PASS/FAIL lines for this file today\n' \
+  'f3.icn\tORACLE_REFUSES\tscrip cannot compile it; icont refuses too. AGREEMENT-CONTROL: we agree with the oracle\n' \
+  'f3.icn\tAGREEMENT-CONTROL\tscrip produces zero PASS/FAIL lines for this file today\n' ; do
+    examined=$((examined+1))
+    printf "$_plant" > "$TD/p/UNGRADABLE.tsv"
+    out="$(run_inv 2 0)"; rc=$?
+    # ⭐ THE ASSERTION IS "STILL REFUSED", NOT "REFUSED BY ARM 8" -- and plant (c) is why, measured on the
+    # first run of this arm. The marker in the CLASS column is caught one check EARLIER, by the closed
+    # vocabulary (AGREEMENT-CONTROL is not an UNGRADABLE class), so demanding ARM 8's own wording reported a
+    # GATE FAIL for a row the body had correctly refused. ⛔ An arm that grades WHICH check fired, rather
+    # than THAT the row was refused, fails whenever a second check gets there first -- and the second check
+    # getting there first is a stronger outcome, not a weaker one.
+    if [ "$rc" -ne 2 ]; then
+        echo "GATE FAIL: a planted failure-as-reason row was ADMITTED by the marker (rc=$rc): $(printf "$_plant" | cut -c1-140)"
+        echo "  ⛔ the marker must not be satisfiable by position alone -- the text before it must name the oracle and must not name us."
+        violations=$((violations+1))
+    fi
+done
+
+# ARM 8c — ⛔⭐ A COMMENT IS NOT A REASON, AND THE ARM MUST NOT FIRE ON ITS OWN DOCUMENTATION. Measured the
+# moment CEO-541 was written into icon/ipl's header (hq_T 2026-09-10): the honesty scan read the WHOLE file,
+# so a header sentence explaining that a program excluded because SCRIP fails it is a red moved out of the
+# denominator REFUSED THE PACKAGE. ⭐ The cost of a check that answers a wider question than it was asked
+# lands on the lane doing the right thing -- documenting the rule -- which is the worst possible place for it.
+# Both directions here: the same text refuses as a data row and is ignored as a comment.
+mkpkg 3; rm -f "$TD/p"/*.tsv
+examined=$((examined+1))
+{ printf '# a program excluded because SCRIP fails it is a RED MOVED OUT OF THE DENOMINATOR -- never write one\n'
+  printf 'f3.icn\tNO_ORACLE_SHIPPED\tupstream ships no expected output for this program\n'; } > "$TD/p/UNGRADABLE.tsv"
+out="$(run_inv 2 0)"; rc=$?
+if [ "$rc" -ne 0 ]; then
+    echo "GATE FAIL: a COMMENT naming our compiler refused the package (rc=$rc) -- the reason column is what this arm reads: $out"; violations=$((violations+1))
+fi
+# and the control: the identical sentence AS A ROW'S REASON still refuses, and names the row's true line number.
+examined=$((examined+1))
+{ printf '# header\n'
+  printf 'f3.icn\tORACLE_REFUSES\ta program excluded because SCRIP fails it\n'; } > "$TD/p/UNGRADABLE.tsv"
+out="$(run_inv 2 0)"; rc=$?
+if [ "$rc" -ne 2 ] || ! printf '%s' "$out" | grep -q 'OUR OWN COMPILER'; then
+    echo "GATE FAIL: the same sentence as a ROW's reason was not refused (rc=$rc): $out"; violations=$((violations+1))
+fi
+# ⛔ AND THE LINE NUMBER MUST BE THE FILE'S, NOT THE FILTERED STREAM'S -- the cure filters comments out before
+# numbering would be the easy way to write this, and it renumbers every row a reader is then sent to look at.
+examined=$((examined+1))
+if ! printf '%s' "$out" | grep -qE '(^|[^0-9])2: *f3\.icn|(^|[^0-9])2:f3\.icn'; then
+    echo "GATE FAIL: the refusal did not cite line 2, the row's real line in the file: $out"; violations=$((violations+1))
+fi
+
 # ARM 9 — an empty shipped population REFUSES rather than printing a clean zero. A percent over zero is
 # not a score, and "0 ungraded" over 0 shipped would satisfy every lockdown criterion instantly.
 rm -rf "$TD/p"; mkdir -p "$TD/p"; INV_DIR="$TD/p"
@@ -601,7 +671,13 @@ if [ ! -d "$PKGINV_CORPUS/packages" ]; then
     exit 2
 fi
 # THE RATCHET, measured off the live sidecars 2026-09-10 by hq_T and raised only by measurement.
-PKGINV_PINNED="icon/arizona_tests icon/jcon_tests pascal/pat prolog/gnu_prolog snobol4/aisnobol snobol4/csnobol4_suite snobol4/dotnet snobol4/gimpel snobol4/snoflake_suite snobol4/spitbol_testpgms"
+# ⭐ RAISED 2026-09-10 (hq_T, ceo CEO-541): icon/ipl joins the pinned set the moment its two agreement-control
+# rows carry the marker. It was the ONE unpinned refusal this arm printed as its work list, and the reason it
+# refused was the honesty arm reading `SCRIP refuses at the SAME line` as a failure-as-reason -- which it was
+# not. ⛔ PINNING IS THE POINT OF CURING IT: the cure lives in a .tsv WORDING, and ARM 20 exists because a
+# wording change reverts a board cell to prose with every gate green. Unpinned, this row could be un-cured by
+# one careless edit and nothing would say so.
+PKGINV_PINNED="icon/arizona_tests icon/ipl icon/jcon_tests pascal/pat prolog/gnu_prolog snobol4/aisnobol snobol4/csnobol4_suite snobol4/dotnet snobol4/gimpel snobol4/snoflake_suite snobol4/spitbol_testpgms"
 _a20_bad=""; _a20_work=""; _a20_gain=""; _a20_n=0
 for _sd in $(find "$PKGINV_CORPUS/packages" -maxdepth 3 \( -name UNGRADABLE.tsv -o -name UNGRADED.tsv \) 2>/dev/null \
              | while IFS= read -r _f; do dirname "$_f"; done | sort -u); do

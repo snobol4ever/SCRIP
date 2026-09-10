@@ -146,6 +146,51 @@ INV_CLASS_LEGACY="EMPTY:NEEDS_STDIN_FIXTURE GRADABLE:REF_NOT_CUT NO-ORACLE-SHIPP
 
 inventory_refuse() { echo "⛔ INVENTORY REFUSES(2): $*" >&2; return 2; }
 
+# ⛔⭐⭐ THE ONE PLACE THAT DECIDES WHETHER A ROW NAMING OUR COMPILER IS A LIE OR A CONTROL (ceo CEO-541).
+# `INV_AGREEMENT_MARKER` is vocabulary, not prose: it is the prefix a lane puts on OUR clause, and it is the
+# only thing that can move a compiler-naming row out of ARM 8's refusal. ⭐ It is deliberately a MARKER and
+# not a smarter regex over the sentence -- the failure this arm hunts (240 of 240 swi_tests rows) was written
+# in good faith by careful people, so no amount of reading the wording separates a control from a lie. A lane
+# that types the marker is ASSERTING the oracle's verdict stands alone, and that assertion is one grep away
+# from any reviewer, forever, instead of being re-derived from the paragraph each time.
+INV_AGREEMENT_MARKER="AGREEMENT-CONTROL:"
+# the words that mean US, and the words that mean AN ORACLE. Both closed, both matched case-insensitively.
+_INV_OURS_RE='(^|[^a-z])(scrip|our compiler|m3|m4|mode-3|mode-4|rung [0-9])([^a-z]|$)'
+_INV_ORACLE_RE='(^|[^a-z])(oracle|upstream|icont|iconx|sbl|spitbol|swipl|gprolog|fpc|rakudo|arizona|jcon)([^a-z]|$)'
+# _inv_compiler_named_rows <file> -- echo `N:line` for every row that names our compiler AS ITS REASON, i.e.
+# every match ARM 8 refuses, MINUS the rows that are admitted agreement controls. Prints nothing when clean.
+_inv_compiler_named_rows() {
+    local f="$1" n line reason pre
+    # ⛔⭐ DATA ROWS ONLY, AND THIS WAS MEASURED THE MOMENT THE MARKER WAS DOCUMENTED (hq_T 2026-09-10). The
+    # scan used to read the WHOLE FILE, comments included -- so writing the CEO-541 policy into ipl's own
+    # header, in a sentence explaining that a program excluded because SCRIP fails it is a red moved out of
+    # the denominator, REFUSED THE PACKAGE. ⭐ A comment cannot be a failure-as-reason: it is not the reason
+    # column, no census reads it, and the refusal quotes `cut -f3-` of a data row. An instrument that fires on
+    # the documentation OF ITSELF is not being strict, it is answering a wider question than it was asked --
+    # and its cost is paid exactly by the lane doing the right thing, which is the worst place to put it.
+    # ⛔ The reason column stays mandatory (ARM 6), so nothing can be hidden in a comment: a row still has to
+    # say something, and whatever it says is what this arm reads.
+    grep -nE "^[^#]" "$f" 2>/dev/null | grep -iE "$_INV_OURS_RE" | while IFS= read -r hit; do
+        n="${hit%%:*}"; line="${hit#*:}"
+        # ⛔ THE MARKER COUNTS ONLY IN THE REASON COLUMN. A name or a class carrying it would admit a row by
+        # accident of spelling; `cut -f3-` is the same field the refusal quotes and the reader reads.
+        reason="$(printf '%s\n' "$line" | cut -f3-)"
+        case "$reason" in
+          *"$INV_AGREEMENT_MARKER"*)
+            pre="${reason%%"$INV_AGREEMENT_MARKER"*}"
+            # ⭐ TWO CONDITIONS, BOTH ON THE TEXT BEFORE THE MARKER, because that text is the ruling: it must
+            # NAME THE ORACLE (the verdict is stated) and must NOT NAME US (it is stated independently).
+            # Either one alone is satisfiable by a row whose ruling really does rest on our failure.
+            if printf '%s\n' "$pre" | grep -qiE "$_INV_ORACLE_RE" && ! printf '%s\n' "$pre" | grep -qiE "$_INV_OURS_RE"; then
+                continue
+            fi
+            printf '%s: %s\n' "$n" "$(printf '%s' "$line" | cut -c1-200)"
+            printf '      ⛔ this row carries %s but does not earn it: the text BEFORE the marker must name the oracle and must not name us.\n' "$INV_AGREEMENT_MARKER" ;;
+          *) printf '%s:%s\n' "$n" "$(printf '%s' "$line" | cut -c1-200)" ;;
+        esac
+    done | head -6
+}
+
 # _inv_class_check <kind> <file> <line-no> <class> -- rc 0 known, 1 legacy (warned), 2 unknown (refused).
 _inv_class_check() {
     local kind="$1" f="$2" n="$3" cls="$4" known pair
@@ -287,14 +332,32 @@ inventory_line() {
     # a review habit: every one of those 240 entries is individually honest and well documented, naming
     # file, rung and exact error. 240 carefully-written TRUE notes compose into a denominator that cannot
     # fall. Diligence at the entry level is exactly what makes the aggregate invisible.
+    # ⭐⭐ AND THE ONE ADMITTED EXCEPTION IS A CONTROL, NOT A LOOSENING (ceo CEO-541, 2026-09-10, on hq_T's
+    # ask). A row may name our compiler when, and only when, it does what icon/ipl's gincl/maccolor.icn does:
+    # state THE ORACLE'S OWN VERDICT FIRST AND INDEPENDENTLY (Arizona icont refuses at line 23, verbatim, and
+    # upstream's UNMODIFIED copy refuses identically), and only THEN add that we refuse at the same line with
+    # the same class. That last clause is an AGREEMENT CONTROL: it does not carry the ruling, it shows the
+    # ruling is not our own damage. ⛔ THE DISCRIMINATOR IS THE ONE THIS WHOLE ARM USES -- THE RULING MUST
+    # STAND UNCHANGED IF SCRIP WERE PERFECT AT EVERYTHING ELSE -- and here it does: a perfect SCRIP would
+    # still be refused by icont at line 23, so the row survives its own agreement clause being deleted.
+    # ⛔ AND IT IS ADMITTED BY A MARKER, NOT BY A READER'S JUDGEMENT, which is the entire point of CEO-541:
+    # `AGREEMENT-CONTROL:` prefixes OUR clause, so the arm separates a control from a failure-as-reason
+    # MECHANICALLY. Without the marker the row stays refused however true its prose -- the tpp precedent
+    # below is unweakened, and a row that merely mentions us in passing has not earned an exception.
+    # ⭐ WHY THE PREFIX MUST ITSELF BE CLEAN: "stated independently" is checkable exactly once -- the text
+    # BEFORE the marker must name the oracle and must NOT name us. If our compiler appears ahead of the
+    # marker the oracle's verdict is no longer stated on its own, and a reader cannot tell whether the
+    # ruling would survive without it. That is the same property ARM 8 has always protected; the marker
+    # moves it from prose a reviewer must weigh to a position a grep can find.
     if [ -n "$ugd_f" ]; then
         local badreason
-        badreason="$(grep -inE '(^|[^a-z])(scrip|our compiler|m3|m4|mode-3|mode-4|rung [0-9])([^a-z]|$)' "$ugd_f" | head -3 || true)"
+        badreason="$(_inv_compiler_named_rows "$ugd_f")"
         if [ -n "$badreason" ]; then
             inventory_refuse "$ugd_f names OUR OWN COMPILER as the reason a program cannot be graded:
 $badreason
     ⛔ UNGRADABLE is a statement about the ORACLE, never about us. A program excluded because SCRIP fails it is a RED MOVED OUT OF THE DENOMINATOR -- the score cannot fall when we fail, because failing is what removes the entry. If the oracle grades it and we do not, it is GRADED and RED. Move it, or give the oracle's own reason.
-    ⭐ AND A ROW CITING **BOTH** IS STILL REFUSED, deliberately -- measured on arizona general/tpp.icn, whose reason gives \"TWO reasons this is ungradable here\": one oracle-side (tpp.ok was never vendored) and one ours (no preprocessor-only mode). The oracle-side half is sufficient on its own, so state it on its own; while our half is written beside it a reader cannot tell whether the ruling would survive without it, and that is the whole property this arm protects."
+    ⭐ AND A ROW CITING **BOTH** IS STILL REFUSED, deliberately -- measured on arizona general/tpp.icn, whose reason gives \"TWO reasons this is ungradable here\": one oracle-side (tpp.ok was never vendored) and one ours (no preprocessor-only mode). The oracle-side half is sufficient on its own, so state it on its own; while our half is written beside it a reader cannot tell whether the ruling would survive without it, and that is the whole property this arm protects.
+    ⭐ THE ONE ADMITTED SHAPE (ceo CEO-541) is an AGREEMENT CONTROL: state the oracle's verdict first and on its own, then prefix our clause with $INV_AGREEMENT_MARKER -- as in \`... Arizona icont REFUSES IT AT COMPILE, rc=1, verbatim \"...\"; upstream's unmodified copy refuses identically. $INV_AGREEMENT_MARKER we refuse at the same line with the same class, so we AGREE with the oracle.\` The text before the marker must NAME THE ORACLE and must NOT name us; nothing else is accepted, and the marker cannot rescue a row whose ruling rests on our failure."
             return 2
         fi
     fi
