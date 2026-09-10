@@ -50,20 +50,27 @@ WORK="$(mktemp -d "${TMPDIR:-/tmp}/icn_master_icont_gate.XXXXXX")" || { echo "�
 trap 'rm -rf "$WORK"' EXIT
 
 # ── THE POPULATION READS ITSELF OUT OF ALL.csv AND IS NEVER A LITERAL HERE (RULES.md: a DONE-WHEN never pins a
-# population count). Run-graded means the entry declares a RUN mode -- an `ast`-only entry is never compiled by
-# anything, so asking icont to compile it would grade a witness the suite does not.
+# population count).
+# ⭐⛔ EVERY ENTRY, RUN-GRADED AND AST-GRADED ALIKE (CEO-497, 2026-09-10, ruling hq_V's HQV-19 ask). This gate
+# ORIGINALLY selected only entries declaring a RUN mode, on the reasoning that an ast-only entry is never
+# compiled by anything so asking icont to compile it grades a witness the suite does not. THAT REASONING WAS
+# WRONG, and the counter-example is in this lane's own record: parser/paren_seq and parser/case_multi_clause
+# carried INVALID ICON -- write((x := 1; x)) and a trailing semicolon after the last case clause -- for as long
+# as our parser tolerated it. Both were ast-graded, both were therefore invisible to this gate AND to every
+# board, and they surfaced only because a PARSER cure exposed them (HQV-19). The ceo's ruling states the
+# principle better than the exclusion did: an AST fixture that carries invalid Icon pins a parse THE ORACLE
+# REJECTS, so the tree it asserts is not Icon's tree. Measured before widening: all 153 ast-graded compile.
 mapfile -t NAMES < <(python3 - "$CSV" <<'PY'
 import csv, sys
 rows = list(csv.DictReader(open(sys.argv[1], encoding="utf-8")))
 for r in rows:
-    if "m3" in (r.get("modes") or ""):
-        print(r["entry"])
+    print(r["entry"])
 PY
 )
 N=${#NAMES[@]}
 # ⛔ REFUSE ON A ZERO/COLLAPSED POPULATION rather than print the success shape over nothing: "examined 757 and
 # clean" and "examined 0" must never render as the same string. A column rename upstream lands here as rc=2.
-[ "$N" -gt 100 ] || { echo "⛔ $GATE REFUSES rc=2: ALL.csv yielded $N run-graded entries -- column names or population wrong" >&2; exit 2; }
+[ "$N" -gt 100 ] || { echo "⛔ $GATE REFUSES rc=2: ALL.csv yielded $N entries -- column names or population wrong" >&2; exit 2; }
 
 # ⛔⭐ THE MASTER IS READ ONCE, NOT 757 TIMES. The obvious loop shells out to `extract` per entry, and
 # `extract` re-parses the WHOLE master pair on every call -- 192s MEASURED, which prices this gate out of
@@ -133,9 +140,9 @@ if [ "$n_extract" -gt 0 ]; then
     exit 2
 fi
 if [ "$n_refused" -gt 0 ]; then
-    echo "⛔ $GATE FAIL rc=1: $n_refused of $N run-graded Icon master entries are refused by icont -s -c:" >&2
+    echo "⛔ $GATE FAIL rc=1: $n_refused of $N Icon master entries are refused by icont -s -c:" >&2
     printf '     %s\n' "${REFUSED[@]}" >&2
     exit 1
 fi
-echo "✅ $GATE PASS: all $N run-graded Icon master entries compile under icont -s -c"
+echo "✅ $GATE PASS: all $N Icon master entries (run-graded AND ast-graded) compile under icont -s -c"
 exit 0
