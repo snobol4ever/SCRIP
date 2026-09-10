@@ -80,7 +80,6 @@ for w in g3 g4; do
   if cmp -s "$T/$w.m3" "$T/$w.want"; then echo "  PASS  m3 $w (rc=$rc3)"; else echo "  FAIL  m3 $w rc=$rc3"; diff "$T/$w.want" "$T/$w.m3" | head -8 | sed 's/^/        /'; fail=1; fi
   if ( cd "$T" && "$SCRIP" --compile "$w.icn" > "$w.s" 2>/dev/null && gcc -c "$w.s" -o "$w.o" 2>/dev/null && gcc "$w.o" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$w.bin" 2>/dev/null ); then
     ( cd "$T" && timeout 60 "./$w.bin" </dev/null > "$w.m4" 2>&1 ); rc4=$?
-    if [ "$w" = g4 ]; then echo "  INFO  m4 g4: display in a standalone binary has no procedure name tables yet (its own row); not graded here"; continue; fi
     if cmp -s "$T/$w.m4" "$T/$w.want"; then echo "  PASS  m4 $w (rc=$rc4)"; else echo "  FAIL  m4 $w rc=$rc4"; diff "$T/$w.want" "$T/$w.m4" | head -8 | sed 's/^/        /'; fail=1; fi
   else echo "  FAIL  m4 $w: no binary"; fail=1; fi
 done

@@ -231,6 +231,9 @@ static int scan_subgraph_safe(stage2_t *s2, int gi, IR_graph_t *g, IR_graph_t *s
     return 1;
 }
 static int graph_native_emittable_mode(stage2_t *s2, int for_run, char *why, size_t whysz);
+static int m4_icn_name_tables_data(int i, IR_graph_t *g);
+static int m4_icn_meta_present(stage2_t *s2);
+static void m4_icn_name_tables_calls(int i, const char *namelbl, IR_graph_t *g);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int graph_native_emittable(stage2_t *s2, char *why, size_t whysz) { return graph_native_emittable_mode(s2, 0, why, whysz); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -456,7 +459,7 @@ static int sn4_m4_alpha_seal(void) { static int v = -1; if (v < 0) { const char 
 static int sn4_define_lbl_alias(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_DEFINE_LBL_ALIAS"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int *proc_nparams_buf, int *proc_pidx_buf, int *proc_fb_buf, int *proc_ispat_buf, int *proc_zstatic_buf, int n_procs, int n_cls_emit, int n_gram_emit, int is_raku, const char *mi_name) {
-    if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0) {
+    if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0 || m4_icn_meta_present(s2)) {
         emit_textf("%s:\n", mi_name);
         emit_textf("  sub rsp, 8\n");
         { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
@@ -680,6 +683,22 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
               emit_textf("  mov edx, %d\n", rt_grammar_flavor(gi));
               emit_textf("  call rt_grammar_register@PLT\n");
           } }
+        { extern int rt_icn_global_count(void); extern const char *rt_icn_global_name(int);
+          int _gn = rt_icn_global_count();
+          if (_gn > 0) {
+              emit_textf("  .section .rodata\n");
+              for (int _k = 0; _k < _gn; _k++) { extern void x86_asm_str_escape_c(const char *, char *, unsigned long); char _e[1024]; x86_asm_str_escape_c(rt_icn_global_name(_k) ? rt_icn_global_name(_k) : "", _e, sizeof _e); emit_textf("  .Lstartup_ign%d: .string \"%s\"\n", _k, _e); }
+              emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+              for (int _k = 0; _k < _gn; _k++) emit_textf("  lea rdi, [rip + .Lstartup_ign%d]\n  call rt_icn_global_note@PLT\n", _k);
+          } }
+        { int _mx = polyglot_main_bb_idx(s2); IR_graph_t *_rg = (_mx >= 0 && _mx < s2->bbp.count) ? s2->bbp.table[_mx] : (IR_graph_t *)0;
+          if (_rg && !_rg->icn_cells_graph) _rg = (IR_graph_t *)0;
+          if (_rg && _rg->lnames && _rg->nlocals > 0) {
+              emit_textf("  .section .rodata\n  .Lstartup_rootnm: .string \"main\"\n");
+              m4_icn_name_tables_data(9000, _rg);
+              emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+              m4_icn_name_tables_calls(9000, ".Lstartup_rootnm", _rg);
+          } }
         for (int i = 0; i < n_procs; i++) {
             ProcEntry *pe = &s2->proc_table[proc_pidx_buf[i]];
             if (pe->dyn_scope && proc_role3_kind((pe->bb_idx >= 0 && pe->bb_idx < s2->bbp.count) ? s2->bbp.table[pe->bb_idx] : (IR_graph_t *)0) != 2) { if (sn4_m4_alpha_seal() && pe->name && strncmp(pe->name, "LBL__", 5) != 0 && !strchr(pe->name, '$')) { emit_textf("  .section .rodata\n  .Lseala%d: .string \"%s\"\n  .section .text\n  .intel_syntax noprefix\n", i, proc_names_buf[i]); emit_textf("  .weak %s_\xce\xb1\n  lea rdi, [rip + .Lseala%d]\n  mov rsi, qword ptr [rip + %s_\xce\xb1@GOTPCREL]\n  call rt_proc_seal_alpha@PLT\n", asm_sym_name(proc_names_buf[i]), i, asm_sym_name(proc_names_buf[i])); } continue; }
@@ -705,18 +724,21 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                     for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) { if (pe->lower_sc.e[k].name) emit_textf("  .quad .Lstartup_qp%d_%d\n", i, k); else emit_textf("  .quad 0\n"); }
                     emit_textf("  .quad 0\n");
                 }
+                IR_graph_t *_ig = (pe->bb_idx >= 0 && pe->bb_idx < s2->bbp.count) ? s2->bbp.table[pe->bb_idx] : (IR_graph_t *)0;
+                int _ihas_p = m4_icn_name_tables_data(i, _ig);
                 if (pe->dyn_scope && pe->result_name && strcmp(pe->result_name, pe->name)) { extern void x86_asm_str_escape_c(const char *, char *, unsigned long); char _esc[1024]; x86_asm_str_escape_c(pe->result_name, _esc, sizeof _esc); emit_textf("  .Lstartup_prn%d: .string \"%s\"\n", i, _esc); }
                 emit_textf("  .align 8\n  .Lstartup_prec%d:\n", i);
                 emit_textf("  .quad .Lstartup_pname%d\n", i);
                 if (strncmp(proc_names_buf[i], "LBL__", 5) == 0) emit_textf("  .quad LBL__%s\n", asm_sym_name(proc_names_buf[i] + 5)); else emit_textf("  .quad FN__%s\n", asm_sym_name(proc_names_buf[i]));
                 if (_dc) emit_textf("  .quad %s_dc\xce\xb1\n", asm_sym_name(proc_names_buf[i])); else emit_textf("  .quad 0\n");
                 if (pe->dyn_scope && pe->result_name && strcmp(pe->result_name, pe->name)) emit_textf("  .quad .Lstartup_prn%d\n", i); else emit_textf("  .quad 0\n");
-                if (pe->dyn_scope) emit_textf("  .quad .Lstartup_pnames%d\n", i); else if (_rkulex) emit_textf("  .quad .Lstartup_qparr%d\n", i); else emit_textf("  .quad 0\n");
+                if (pe->dyn_scope) emit_textf("  .quad .Lstartup_pnames%d\n", i); else if (_rkulex) emit_textf("  .quad .Lstartup_qparr%d\n", i); else if (_ihas_p) emit_textf("  .quad .Lstartup_ipnames%d\n", i); else emit_textf("  .quad 0\n");
                 emit_textf("  .long %d\n  .long %d\n  .long %d\n  .long %d\n  .long %d\n  .long %d\n", proc_nparams_buf[i], _nf, proc_fb_buf[i], _rkflags, pe->rest_kind, pe->named_rest);
                 emit_textf("  .section .text\n");
                 emit_textf("  .intel_syntax noprefix\n");
                 emit_textf("  lea rdi, [rip + .Lstartup_prec%d]\n", i);
                 emit_textf("  call rt_proc_register_rec@PLT\n");
+                { char _nl[64]; snprintf(_nl, sizeof _nl, ".Lstartup_pname%d", i); m4_icn_name_tables_calls(i, _nl, _ig); }
                 { extern int emit_icn_n2_gen_region_ft(const char *, int, IR_graph_t *); int _gpi = proc_pidx_buf[i]; int _gft2 = 0;
                   if (_gpi >= 0 && _gpi < s2->proc_count) { int _ggi = s2->proc_table[_gpi].bb_idx; if (_ggi >= 0 && _ggi < s2->bbp.count && s2->bbp.table[_ggi]) _gft2 = emit_icn_n2_gen_region_ft(proc_names_buf[i], s2->proc_table[_gpi].is_generator, s2->bbp.table[_ggi]); }
                   if (_gft2 > 0) {
@@ -825,6 +847,41 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int m4_icn_meta_present(stage2_t *s2) {
+    extern int rt_icn_global_count(void);
+    int _mx = polyglot_main_bb_idx(s2); IR_graph_t *_rg = (_mx >= 0 && _mx < s2->bbp.count) ? s2->bbp.table[_mx] : (IR_graph_t *)0;
+    if (_rg && _rg->icn_cells_graph && ((_rg->lnames && _rg->nlocals > 0) || rt_icn_global_count() > 0)) return 1;
+    return 0;
+}
+static int m4_icn_name_tables_data(int i, IR_graph_t *g) {
+    extern void x86_asm_str_escape_c(const char *, char *, unsigned long);
+    if (!g || !g->icn_cells_graph) return 0;
+    int has_p = (g->pnames && g->nparams > 0);
+    if (has_p) {
+        for (int k = 0; k < g->nparams; k++) { char e[1024]; x86_asm_str_escape_c(g->pnames[k] ? g->pnames[k] : "", e, sizeof e); emit_textf("  .Lstartup_ipp%d_%d: .string \"%s\"\n", i, k, e); }
+        emit_textf("  .align 8\n  .Lstartup_ipnames%d:\n", i);
+        for (int k = 0; k < g->nparams; k++) emit_textf("  .quad .Lstartup_ipp%d_%d\n", i, k);
+        emit_textf("  .quad 0\n");
+    }
+    if (g->lnames && g->nlocals > 0) {
+        for (int k = 0; k < g->nlocals; k++) { char e[1024]; x86_asm_str_escape_c(g->lnames[k] ? g->lnames[k] : "", e, sizeof e); emit_textf("  .Lstartup_iln%d_%d: .string \"%s\"\n", i, k, e); }
+        emit_textf("  .align 8\n  .Lstartup_ilnames%d:\n", i);
+        for (int k = 0; k < g->nlocals; k++) emit_textf("  .quad .Lstartup_iln%d_%d\n", i, k);
+        emit_textf("  .quad 0\n");
+        emit_textf("  .align 4\n  .Lstartup_iloffs%d:\n", i);
+        for (int k = 0; k < g->nlocals; k++) {
+            int off = -1; const char *ln = g->lnames[k];
+            if (ln && g->vslots) for (int v = 0; v < g->n_vslots; v++) if (g->vslots[v].name && !strcmp(g->vslots[v].name, ln)) { off = g->vslots[v].off; break; }
+            emit_textf("  .long %d\n", off);
+        }
+    }
+    return has_p;
+}
+static void m4_icn_name_tables_calls(int i, const char *namelbl, IR_graph_t *g) {
+    if (!g || !g->icn_cells_graph || !g->lnames || g->nlocals <= 0) return;
+    emit_textf("  lea rdi, [rip + %s]\n  lea rsi, [rip + .Lstartup_ilnames%d]\n  mov edx, %d\n  call rt_proc_set_locals@PLT\n", namelbl, i, g->nlocals);
+    emit_textf("  lea rdi, [rip + %s]\n  lea rsi, [rip + .Lstartup_iloffs%d]\n  mov edx, %d\n  call rt_proc_set_local_offs@PLT\n", namelbl, i, g->nlocals);
+}
 static void icn_register_locals(const char *pname, IR_graph_t *g) {
     extern void rt_proc_set_locals(const char *, const char **, int);
     extern void rt_proc_set_local_offs(const char *, const int *, int);
@@ -1395,8 +1452,8 @@ int main(int argc, char **argv)
             emit_textf("  push rdi\n");
             emit_textf("  push rsi\n");
             emit_textf("  call core_lib_init@PLT\n");
-            if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
-            if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0)
+            if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0 || m4_icn_meta_present(s2))
+            if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0 || m4_icn_meta_present(s2))
                 emit_textf("  call %s\n", sn4_module_init_bottom() ? "module_init" : "main_init");
             { extern int rt_is_reassigned_builtin(const char *); for (int k = 0; k < n_gva_icn; k++) if (rt_is_reassigned_builtin(gva_name(k))) emit_textf("  lea rdi, [rip + .Lgvan%d]\n  call rt_note_reassigned_builtin@PLT\n", k); }
             if (n_gva_icn > 0) emit_textf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  call gva_register@PLT\n", n_gva_icn, n_gva_icn);
