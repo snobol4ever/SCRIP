@@ -35,7 +35,15 @@ CENSUS="$CORPUS/tests/ORPHANED-WITNESSES.tsv"
 [ -d "$CORPUS/tests" ] || { echo "⛔ GATE REFUSES(2): no corpus tests tree at $CORPUS/tests"; exit 2; }
 [ -f scripts/util_orphaned_witness_census.py ] || { echo "⛔ GATE REFUSES(2): census generator missing"; exit 2; }
 # ---- the floor, per language.  Lower a number ONLY in the commit that absorbs the witnesses.
-FLOOR_icon=19 FLOOR_pascal=0 FLOOR_prolog=0 FLOOR_raku=0 FLOOR_rebus=0 FLOOR_snobol4=39 FLOOR_snocone=1
+# ⭐ FLOOR_icon 19 -> 20 (hq_V 2026-09-10, ceo CEO-516 landing). NET +1 FROM TWO MOVES IN OPPOSITE DIRECTIONS, named
+# apart so neither hides the other: the cfo's EIGHTH pair (cset_membership_is_a_bit_test_not_a_name_lookup) was
+# ABSORBED into the Icon master and its loose pair deleted, which REMOVED an orphan; and the cfo's SEVENTH pair
+# (trace_call_line_prints_every_parameter_and_images_a_list) became a PERMANENT loose keeper, which ADDED one.
+# ⛔ THE KEEPER IS NOT A DEBT AND THIS RAISE IS NOT A RATCHET LEAK: it prints its own file name in all 43 of its
+# trace lines, so the master builder's rename would make it red by construction (86 differing lines, measured,
+# with a control green under its own name) -- tests/icon/KEEP.md carries the measurement. It can never be absorbed,
+# so its orphan is permanent and the floor is where that fact belongs.
+FLOOR_icon=20 FLOOR_pascal=0 FLOOR_prolog=0 FLOOR_raku=0 FLOOR_rebus=0 FLOOR_snobol4=39 FLOOR_snocone=1
 out="$(python3 scripts/util_orphaned_witness_census.py "$CORPUS" --counts 2>&1)" || { echo "⛔ GATE REFUSES(2): census generator failed:"; echo "$out"; exit 2; }
 printf %s "$out" | grep -q . || { echo "⛔ GATE REFUSES(2): census produced NO output -- an empty census is not a green board"; exit 2; }
 rc=0 tot=0 seen=0
