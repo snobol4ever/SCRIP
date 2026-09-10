@@ -144,8 +144,11 @@ ENTRY_FLOOR="${ICON_MASTER_ENTRY_FLOOR:-534}"
 # deleted and a non-file first argument raises 105. entries=909 · run-graded 756 · m3 PASS=748 · m4 PASS=748. ⛔ TWO OF THE FIVE ARE
 # THIS LANDING'S (rung27_read_reads_bytes and call_through_a_static_variable_reads_the_static, both modes, measured by stashing the
 # change and re-running the identity gate: improved 12 -> 14). The other three arrived with the same pull and are read forward.
-M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-748}"
-M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-748}"
+# ⭐ RE-PINNED 748 -> 750 (hq_S 2026-09-10): loadfunc resolves a symbol AND returns a callable, so procedure_write_254
+# flips green in both modes (row icon-loadfunc-exits-1-with-no-output-master-procedure-write-254, CEO-476/485; the
+# nulldesc grant). entries=909 · run-graded 756 · m3 PASS=750 · m4 PASS=750, SCRIP 64292dee1.
+M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-750}"
+M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-750}"
 # ⛔ NO AST_PASS_FLOOR: a self-pin has no floor to regress below, only a CURRENT-run comparison of
 # ap (matched) vs at (total) -- see the AST-SHAPE note above. Removed under ast-dump-refs-are-self-
 # pins-not-oracles rather than kept-but-unused, so a reader cannot mistake its presence for gating.
