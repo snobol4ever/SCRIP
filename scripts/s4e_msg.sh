@@ -303,8 +303,8 @@ s4e_rank_cap_refuses() {   # <rank> -- rc 0 = REFUSE this row for this identity,
 s4e_promotion_admissible() {   # <promo-topic> <blocked-topic> <rank>
     local _p="$1" _blocked="$2" _rank="$3" _tl
     if s4e_language_freeze_refuses "$_p"; then
-      printf '⛔ REFUSED PROMOTION: rank-%s %s is BLOCKED-ON %s, but %s is %s and MODE freezes work to %s ONLY.\n' \
-        "$_rank" "$_blocked" "$_p" "$_p" "$(s4e_topic_language "$_p")" "$(s4e_mode_language_freeze | tr '[:lower:]' '[:upper:]')"
+      printf '⛔ REFUSED PROMOTION: rank-%s %s is BLOCKED-ON %s, but %s is %s and THE ORDER OF WORK is %s ONLY.\n' \
+        "$_rank" "$_blocked" "$_p" "$_p" "$(s4e_topic_language "$_p")" "$(s4e_mode_live_languages | tr '[:lower:]' '[:upper:]')"
       printf '   Not promoted, not served -- %s stays skipped this pass; a language freeze is never relaxed by a fallback.\n' "$_blocked"
       return 1
     fi
@@ -517,19 +517,43 @@ s4e_my_lane() {
              case "$_l" in hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V) printf '%s' "$_l";; esac ;;
     esac
 }
-# ⭐⭐ THE MODE LANGUAGE FREEZE -- next-dependency-promotion-walks-around-the-mode-lane-filter, item (3):
-# "add the MODE priority cut... as an explicit precondition alongside the lane cut, since today only the
-# lane column is consulted and the freeze is enforced by seats remembering it." A Lon language freeze
-# ("SNOBOL4 ONLY", later "ICON ONLY") is state written into MODE's newest entry, in prose, in the same
-# ALL-CAPS convention every ceo mode announcement already uses for a binding clause -- parsed here rather
-# than re-typed as a magic string, so the NEXT freeze (a different language) needs no code change. Line 2
-# is the newest dated entry (line 1 is the bare mode value s4e_mode_line already reads); a freeze not
-# stated there is not active, even if an older entry once had one -- each entry restates the CURRENT rule
-# in full, never a diff against the previous line. Returns the lowercased language token, or empty when no
-# freeze is stated -- empty means NO FREEZE, not "undetermined": unlike lane derivation there is no
-# ambiguous middle state here.
-s4e_mode_language_freeze() {
-    sed -n 2p "$PO/MODE" 2>/dev/null | grep -oE 'ON [A-Z][A-Z0-9]* ONLY' | head -1 | awk '{print $2}' | tr '[:upper:]' '[:lower:]'
+# ⭐⭐ THE ORDER OF WORK -- THE SET OF LIVE LANGUAGES, READ FROM A MACHINE LINE (row `snobol4-icon-postoffice-
+# next-refuses-a-row-of-a-language-parked-by-the-order-of-work-on-mode-line-2`, CEO-489; hq_P found it by
+# being served a rank-0 SNOBOL4 row under MODE NONET while THE ORDER OF WORK IS ICON ONLY stood on line 2).
+# ⛔ WHY THE PROSE PARSE WAS THE DEFECT, not merely an incomplete one: it matched the single spelling
+# `ON <LANG> ONLY`, and the ceo wrote the live freeze as `THE ORDER OF WORK IS ICON ONLY` -- an `IS`, not an
+# `ON`. The extractor returned EMPTY, empty is documented here as NO FREEZE (never "undetermined"), and so
+# every parked-language row in the queue became servable, silently, with no refusal to read. ⭐ THE SHAPE IS
+# THIS PROJECT'S OWN RECURRING ONE, twice over: an instrument answering a NARROWER question than the one it
+# was read as answering (the `command -v` oracle probe, the `ls` on a subdirectoried corpus), AND a law that
+# depended on a seat remembering a default (the banner, the inbox check) -- both cured the same way, by
+# moving the law into the harness. ⛔ AND THE GATE COULD NOT HAVE CAUGHT IT: the fixture in
+# test_gate_next_honours_the_lane_cut.sh writes `ON SNOBOL4 ONLY`, the one spelling the parser knew, so the
+# gate and the code under test shared the assumption. A guard and its own canary must not share a failure
+# mode -- the identical lesson the argnote sweep's stale prune already taught this project.
+# ✅ THE CURE: the order of work is DECLARED, in a line the bus reads, never inferred from prose. Spelling,
+# ceo custody, fixed here so the ceo can write it (the row's GOAL: "the ceo writes the MODE line the moment
+# the gate defines its spelling"):
+#     ORDER-OF-WORK: icon
+# -- a line whose FIRST characters are `ORDER-OF-WORK:`, holding the whitespace/comma-separated list of
+# language tokens that are LIVE; everything else is PARKED. ⭐ MATCHED BY MARKER, NEVER BY LINE NUMBER: the
+# ceo PREPENDS each new dated entry, so a positional line 3 would be shoved to 4 by the next announcement
+# and start answering for a superseded order of work -- the same position-splice defect that makes
+# util_apply_score_grid.py refuse. The FIRST marker line wins, which under prepend-newest is the newest.
+# `ORDER-OF-WORK: all` (any case) means NO restriction, and so does an absent marker: absence falls back to
+# the prose parse below rather than silently opening the queue, so this cure never reads as a loosening.
+# ⭐ THE PROSE FALLBACK IS KEPT AND WIDENED TO THE `IS` FORM, deliberately: until the ceo writes the marker
+# line, the fallback is the only thing standing between an idle seat and a parked language, and today's live
+# MODE is exactly the `IS` spelling. It stays a FALLBACK -- the marker line, when present, is the authority.
+# Returns a space-separated lowercase list, or empty for NO RESTRICTION (empty is never "undetermined").
+s4e_mode_live_languages() {
+    local _m
+    _m="$(grep -m1 -E '^ORDER-OF-WORK:' "$PO/MODE" 2>/dev/null | sed 's/^ORDER-OF-WORK://' | tr ',' ' ' | tr '[:upper:]' '[:lower:]' | tr -s '[:space:]' ' ' | sed 's/^ *//; s/ *$//')"
+    if [ -n "$_m" ]; then
+        [ "$_m" = "all" ] && return 0
+        printf '%s' "$_m"; return 0
+    fi
+    sed -n 2p "$PO/MODE" 2>/dev/null | grep -oE '(ON|IS) [A-Z][A-Z0-9]* ONLY' | head -1 | awk '{print $2}' | tr '[:upper:]' '[:lower:]'
 }
 # Companion to s4e_topic_lane, same prefix table, different axis: LANGUAGE, not HQ. gimpel-*/snoflake-*
 # are SNOBOL4-suite families with no snobol4- prefix of their own (this session's own aisnobol/snoflake
@@ -556,11 +580,17 @@ s4e_topic_language() {
 # regardless of an owner cell or a cross-lane fallback -- `claim <topic>` remains the deliberate override
 # it already is everywhere else in this file, for the rare case a seat has an actual reason to work
 # outside the freeze.
+# ⭐ NOW A SET-MEMBERSHIP TEST, not an equality one: THE ORDER OF WORK names the languages that are LIVE
+# (today one, `icon`; on 2026-09-08 it was two, "SNOBOL4 AND ICON TO 100%"), so a topic refuses when its
+# language is DETERMINED and is NOT IN that set. ⛔ Equality was wrong the moment the order of work named a
+# second language, and it would have failed CLOSED -- parking a live language -- which is the direction that
+# idles seats rather than the one that leaks work; both are defects, and a set answers both.
 s4e_language_freeze_refuses() {
-    local _fl _tl
-    _fl="$(s4e_mode_language_freeze)"; [ -n "$_fl" ] || return 1
+    local _live _tl _l
+    _live="$(s4e_mode_live_languages)"; [ -n "$_live" ] || return 1
     _tl="$(s4e_topic_language "${1:-}")"; [ -n "$_tl" ] || return 1
-    [ "$_tl" != "$_fl" ]
+    for _l in $_live; do [ "$_l" = "$_tl" ] && return 1; done
+    return 0
 }
 # ⛔ DECORATED NO-OP EVASION, COMPANION FIX to `done`'s own no-op blocklist below (row
 # `donewhen-decorated-noop-evasion`; the gate `test_gate_baton_donewhen_runnable.sh` carries the identical
@@ -2126,8 +2156,8 @@ TASKEOF
            # row's own GOAL: "add the MODE priority cut... alongside the lane cut"). Unconditional: unlike the
            # lane filter below, there is no any-lane-style fallback for a language freeze, ever.
            if s4e_language_freeze_refuses "$topic"; then
-             printf '⛔ SKIP %s (rank %s) — MODE freezes work to %s ONLY; this topic is %s. Not served automatically.\n' \
-               "$topic" "$rank" "$(s4e_mode_language_freeze | tr '[:lower:]' '[:upper:]')" "$(s4e_topic_language "$topic")"
+             printf '⛔ SKIP %s (rank %s) — THE ORDER OF WORK is %s ONLY; this topic is %s (PARKED). Not served automatically.\n' \
+               "$topic" "$rank" "$(s4e_mode_live_languages | tr '[:lower:]' '[:upper:]')" "$(s4e_topic_language "$topic")"
              printf '   Still live for a deliberate override: s4e_msg.sh claim %s\n' "$topic"
              continue
            fi
