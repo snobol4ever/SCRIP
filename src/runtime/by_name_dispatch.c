@@ -3479,11 +3479,17 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         extern char fh_type[];
         if (is_pipe && (strcmp(mode, "r") && strcmp(mode, "w"))) { *out = FAILDESCR; return 1; }
         if (is_pipe) { fflush(NULL); setvbuf(stdout, NULL, _IOLBF, 0); }
-        FILE *fp = is_pipe ? popen(path, mode) : fopen(path, mode);
+        FILE *fp = NULL;
+        extern FILE *rt_dir_snapshot(const char *);
+        int _isdir = 0;
+        struct stat _dst;
+        if (!is_pipe && !strcmp(mode, "r") && !stat(path, &_dst) && S_ISDIR(_dst.st_mode)) { fp = rt_dir_snapshot(path); if (!fp) { *out = FAILDESCR; return 1; } _isdir = 1; }
+        if (!fp) fp = is_pipe ? popen(path, mode) : fopen(path, mode);
         if (!fp) { *out = FAILDESCR; return 1; }
         int idx = fh_alloc(fp);
         if (idx < 0) { if (is_pipe) pclose(fp); else fclose(fp); *out = FAILDESCR; return 1; }
         if (is_pipe) fh_type[idx] = 'p';
+        if (_isdir && idx >= 0 && idx < FH_MAX) fh_type[idx] = 'd';
         { extern void fh_set_untranslated(int, int); const char *_us = (nargs == 2 && (args[1].v == DT_S || args[1].v == DT_SNUL)) ? VARVAL_fn(args[1]) : NULL;
           fh_set_untranslated(idx, (_us && icn_open_spec_is_icon(_us)) ? icn_open_untranslated(_us) : 0); }
         *out = INTVAL(idx); return 1;
@@ -6553,11 +6559,17 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         extern char fh_type[];
         if (is_pipe && (strcmp(cmode, "r") && strcmp(cmode, "w"))) { *out = FAILDESCR; return 1; }
         if (is_pipe) { fflush(NULL); setvbuf(stdout, NULL, _IOLBF, 0); }
-        FILE *fp = is_pipe ? popen(path, cmode) : fopen(path, cmode);
+        extern FILE *rt_dir_snapshot(const char *);
+        FILE *fp = NULL;
+        int _isdir = 0;
+        struct stat _dst;
+        if (!is_pipe && !strcmp(cmode, "r") && !stat(path, &_dst) && S_ISDIR(_dst.st_mode)) { fp = rt_dir_snapshot(path); if (!fp) { *out = FAILDESCR; return 1; } _isdir = 1; }
+        if (!fp) fp = is_pipe ? popen(path, cmode) : fopen(path, cmode);
         if (!fp) { *out = FAILDESCR; return 1; }
         int idx = fh_alloc(fp);
         if (idx < 0) { if (is_pipe) pclose(fp); else fclose(fp); *out = FAILDESCR; return 1; }
         if (is_pipe) fh_type[idx] = 'p';
+        if (_isdir && idx >= 0 && idx < FH_MAX) fh_type[idx] = 'd';
         { extern void fh_set_untranslated(int, int); const char *_us = (nargs == 2 && (args[1].v == DT_S || args[1].v == DT_SNUL)) ? VARVAL_fn(args[1]) : NULL;
           fh_set_untranslated(idx, (_us && icn_open_spec_is_icon(_us)) ? icn_open_untranslated(_us) : 0); }
         if (idx >= 0 && idx < FH_MAX) fh_name[idx] = rt_pinned_strdup(path);
@@ -6634,6 +6646,13 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (!fp) { *out = FAILDESCR; return 1; }
         int n = (nargs >= 2 && args[1].v != DT_SNUL && !IS_FAIL_fn(args[1])) ? (int)to_int(args[1]) : 1;
         if (n <= 0) { *out = FAILDESCR; return 1; }
+        { extern char fh_type[]; int _fhi = (args[0].v == DT_SNUL) ? 0 : (int)args[0].i;
+          if (_fhi >= 0 && _fhi < FH_MAX && fh_type[_fhi] == 'd') {
+              char *db = rt_pinned_alloc(n + 1); int dl = 0, dc, saw = 0;
+              while ((dc = fgetc(fp)) != EOF) { saw = 1; if (dc == '\n') break; if (dl < n) db[dl++] = (char)dc; }
+              if (!saw) { *out = FAILDESCR; return 1; }
+              db[dl] = '\0';
+              DESCR_t dr; dr.v = DT_S; dr.slen = (uint32_t)dl; dr.s = db; *out = dr; return 1; } }
         char *buf = rt_pinned_alloc(n + 1);
         int got = (int)fread(buf, 1, (size_t)n, fp);
         if (got <= 0) { *out = FAILDESCR; return 1; }
