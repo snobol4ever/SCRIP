@@ -53,13 +53,16 @@ printf '%s\n' "$out" | sed 's/^/    /'
 
 echo "--- ARM 2 — the selftest actually GRADED something (a green that examined nothing is the shape we are here about) ---"
 arms="$(printf '%s\n' "$out" | grep -cE '^  (ok|FAIL) ')"
-[ "${arms:-0}" -ge 34 ] && ck ok "selftest ran $arms arm(s), floor 34" || ck fail "selftest ran only ${arms:-0} arm(s) — below the floor of 34"
+[ "${arms:-0}" -ge 46 ] && ck ok "selftest ran $arms arm(s), floor 46" || ck fail "selftest ran only ${arms:-0} arm(s) — below the floor of 46"
 
 echo "--- ARM 3 — every refusal class the design names is still reachable in the selftest output ---"
 for cls in "left-the-wired-set" "count-unchanged regression" "landed unwired" "wired-but-listed-TASK" \
            "recorded-but-gone" "ruling without reason" "declare empty reason" "declare TASK over ceiling" \
            "duplicate + unknown class" "unmeasurable is rc=2" "only the executed gate is reachable" \
-           "declared-population arm is reachable" "unexpandable optional targets are named"; do
+           "declared-population arm is reachable" "unexpandable optional targets are named" \
+           "wired twice in one recipe" "flags the divergent cost comments" "identical lines still refuse" \
+           "wired twice across a sub-make" "a signed second line is clean" "signed with no reason refuses" \
+           "one line, a comment and an echo are not a double"; do
   printf '%s\n' "$out" | grep -q -- "$cls" && ck ok "arm present: $cls" || ck fail "arm MISSING: $cls — a refusal class lost its proof"
 done
 
@@ -92,6 +95,26 @@ tasks="$(grep -cE '	TASK	' "$HERE/gate_wiring.tsv")"
 echo "--- ARM 6 — every RULING carries a reason AND a declarer (hq_S's constraint 2: an exemption nobody signed is not a ruling) ---"
 bad="$(awk -F'\t' '$2=="RULING" && ($3=="-" || $3=="" || $4=="-" || $4=="") {print $1}' "$HERE/gate_wiring.tsv")"
 [ -z "$bad" ] && ck ok "all RULING rows signed and reasoned" || { ck fail "RULING without reason/declarer:"; printf '%s\n' "$bad" | sed 's/^/       /'; }
+
+echo "--- ARM 7 — ONE LINE PER SCRIPT, graded on the LIVE Makefile (hq_U 2026-09-10, ceo CEO-516) ---"
+# ⛔⭐ THIS IS THE ONE ARM HERE THAT GRADES THE LIVE TREE, AND ARM 4 ABOVE ARGUES AT LENGTH THAT IT MUST NOT.
+# The argument is right and this arm is not the exception to it — it is the case the argument does not reach,
+# and the difference is the SIZE OF THE POPULATION, not the strength of anyone's opinion. Coverage has ~190
+# unwired gates: a live coverage arm here reds every seat's `make test` for a stranger's debt, gets `|| true`-d
+# out inside a week, and the muted check is worse than none. The wired-twice population is a MEASURED ZERO
+# (2026-09-10, hq_T, over `test` + `test-postoffice`), so a red here is never a backlog — it is a defect that
+# landed since the last green, it costs ONE LINE to cure, and its author is still in the room. ⭐ THE GENERAL
+# FORM WORTH KEEPING: whether a check belongs in the recipe or at handoff is decided by whether its refusal
+# is a TASK somebody must schedule or a TYPO somebody must delete, and the honest way to know is to measure
+# the backlog before wiring it, not to reason about how important the check feels.
+# Hermetic: Makefile TEXT only — no `make -n`, no build, no scripts read, <0.05s MEASURED.
+dbl_out="$(python3 "$HELPER" doubles 2>&1)"; dbl_rc=$?
+printf '%s\n' "$dbl_out" | sed 's/^/    /'
+case "$dbl_rc" in
+  0) ck ok "no script is on two executing recipe lines" ;;
+  2) ck fail "CANNOT MEASURE the recipe (rc=2) — not clean and not a refusal, nothing was examined" ;;
+  *) ck fail "a script is wired TWICE — \`make test\` runs it twice and the two comments mislead the next reader" ;;
+esac
 
 GATE_EXAMINED="$examined"
 gate_verdict "$violations" "violation(s)"
