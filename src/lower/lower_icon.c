@@ -323,7 +323,12 @@ static IR_t * lower_idx_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var
 static IR_t * lower_lvalue_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var_res) {
     if (!t) return NULL;
     if (t->t == TT_ALTERNATE && t->n >= 1) return lower_alt_lv(cx, t, ω, var_res);
-    if (t->t == TT_FNC && t->n == 2 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "variable") && !icn_is_local(cx, "variable")) { fprintf(stderr, "icon: REFUSE: variable(expr) with a computed name is not an assignable variable in SCRIP yet (a literal name is) -- line %d\n", t->line); exit(2); }
+    if (t->t == TT_FNC && t->n == 2 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "variable") && !icn_is_local(cx, "variable")) {
+        IR_t * mk = build(cx, IR_CALL, NULL, ω); IR_LIT(mk).sval = (char *) "SNO$NAME";
+        IR_t * nr = NULL; IR_t * ne = lower(cx, t->c[1], mk, ω, &nr);
+        if (nr) ir_operand_push(mk, nr);
+        *var_res = mk; return ne;
+    }
     if (t->t == TT_VAR && t->v.sval && t->v.sval[0] != '&') {
         IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = t->v.sval; *var_res = vr; return vr;
     }
