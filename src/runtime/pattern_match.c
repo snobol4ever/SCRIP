@@ -383,7 +383,7 @@ DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) {
             return DATCON_fn("list", rptr, INTVAL(rlen), STRVAL("list"), INTVAL(rlen));
         }
     }
-    if (arr.v == DT_S || arr.v == DT_SNUL) {
+    if (arr.v == DT_S || (arr.v == DT_SNUL && arr.s)) {
         const char *s = arr.s ? arr.s : "";
         int slen = IS_CSET_fn(arr) ? kw_cset_len(s) : -1;
         if (slen < 0) slen = (arr.slen && arr.slen != 0xFFFFFFFFu) ? (int)arr.slen : (int)strlen(s);
@@ -397,6 +397,8 @@ DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) {
         char *buf = rt_str_alloc(len); memcpy(buf, s+ii-1, len); buf[len]='\0';
         return BSTRVAL(buf, len);
     }
+    { extern int core_icn_active(void); extern void core_icn_op_ctx(const char *, int, DESCR_t, DESCR_t);
+      if ((arr.v == DT_SNUL || IS_PROCVAL_fn(arr)) && core_icn_active()) { core_icn_op_ctx("[:]", 3, arr, i); core_icn_error(110, arr); } }
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1500,7 +1502,7 @@ static DESCR_t rt_random_var_body(DESCR_t base) {
 DESCR_t rt_section_var(DESCR_t base, DESCR_t i1d, DESCR_t i2d) {
     DESCR_t bvar = base;
     if (IS_VARREF_fn(base)) base = rt_deref(base);
-    if ((base.v == DT_S || base.v == DT_SNUL) && IS_VARREF_fn(bvar)) {
+    if ((base.v == DT_S || (base.v == DT_SNUL && base.s)) && IS_VARREF_fn(bvar)) {
         const char *sp = base.s ? base.s : ""; long slen = base.slen ? (long)base.slen : (long)strlen(sp);
         long ii = (long)to_int(i1d), jj = (long)to_int(i2d);
         if (ii < -slen || ii > slen + 1) return FAILDESCR;
