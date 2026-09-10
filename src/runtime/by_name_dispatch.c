@@ -5588,12 +5588,30 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         }
         int sl=icn_true_len(args[0], s); char *buf=rt_pinned_alloc(sl+1);
         int fl=icn_true_len(nargs >= 2 ? args[1] : NULVCL, from), tl=icn_true_len(nargs >= 3 ? args[2] : NULVCL, to);
-        for (int i=0;i<sl;i++) {
-            char c=s[i]; int hit=0;
-            for (int j=fl-1;j>=0;j--) {
-                if (from[j]==c) { buf[i] = (j<tl) ? to[j] : c; hit=1; break; }
+        typedef struct { int fl, tl; char from[256], to[256]; unsigned char tbl[256]; } map_cache_t;
+        static map_cache_t map_cache[8]; static int map_cache_next = 0; static int map_cache_init = 0;
+        if (!map_cache_init) { for (int e = 0; e < 8; e++) map_cache[e].fl = map_cache[e].tl = -1; map_cache_init = 1; }
+        const int tn = (tl < fl) ? tl : fl; map_cache_t *mc = 0;
+        if (fl <= 256 && tl <= 256) {
+            for (int e = 0; e < 8; e++) {
+                map_cache_t *ce = &map_cache[e];
+                if (ce->fl == fl && ce->tl == tl && !memcmp(ce->from, from, (size_t)fl) && !memcmp(ce->to, to, (size_t)tn)) { mc = ce; break; }
             }
-            if (!hit) buf[i]=c;
+            if (!mc) {
+                mc = &map_cache[map_cache_next]; map_cache_next = (map_cache_next + 1) & 7;
+                for (int c = 0; c < 256; c++) mc->tbl[c] = (unsigned char)c;
+                for (int j = 0; j < fl; j++) mc->tbl[(unsigned char)from[j]] = (unsigned char)((j < tl) ? to[j] : from[j]);
+                memcpy(mc->from, from, (size_t)fl); memcpy(mc->to, to, (size_t)tn); mc->fl = fl; mc->tl = tl;
+            }
+            for (int i=0;i<sl;i++) buf[i] = (char)mc->tbl[(unsigned char)s[i]];
+        } else {
+            for (int i=0;i<sl;i++) {
+                char c=s[i]; int hit=0;
+                for (int j=fl-1;j>=0;j--) {
+                    if (from[j]==c) { buf[i] = (j<tl) ? to[j] : c; hit=1; break; }
+                }
+                if (!hit) buf[i]=c;
+            }
         }
         buf[sl]='\0'; *out = BSTRVAL(buf, sl); return 1;
     }
