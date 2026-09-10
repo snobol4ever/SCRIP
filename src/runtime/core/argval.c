@@ -21,12 +21,12 @@ DESCR_t VARVAL_d_fn(DESCR_t d)
     if (d.v == DT_I) {
         char buf[64];
         snprintf(buf, sizeof buf, "%lld", (long long)d.i);
-        return STRVAL(rt_ws_strdup(buf));
+        return STRVAL(rt_pinned_strdup(buf));
     }
     if (d.v == DT_R) {
         char buf[64];
         snprintf(buf, sizeof buf, "%g", d.r);
-        return STRVAL(rt_ws_strdup(buf));
+        return STRVAL(rt_pinned_strdup(buf));
     }
     return FAILDESCR;
 }

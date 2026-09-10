@@ -76,34 +76,8 @@ RTX_FUNC(rt_agg_alloc)
     cmove   rsi, rcx
     jmp     .Lga_armed
 RTX_ENDF(rt_agg_alloc)
-RTX_FUNC(rt_ws_alloc)
-    RTX_GATE(alloc, c_rt_ws_alloc)
-    cmp     dword ptr [rip + g_ah_on], 0
-    jne     c_rt_ws_alloc
-    cmp     qword ptr [rip + g_wsi_base], 0
-    je      c_rt_ws_alloc
-    mov     r10, [rip + g_hp_fr@GOTPCREL]
-    cmp     dword ptr [r10 + 40], 0
-    jne     c_rt_ws_alloc
-    mov     rcx, 1
-    test    rdi, rdi
-    cmovnz  rcx, rdi
-    add     rcx, 15
-    and     rcx, -16
-    add     rcx, 16
-    mov     r9, [rip + g_wsi_ws]
-    mov     rdx, [rip + g_wsi_wss]
-    sub     rdx, r9
-    cmp     rdx, rcx
-    jb      c_rt_ws_alloc
-    add     qword ptr [rip + g_rt_alloc_total], rcx
-    mov     qword ptr [r9 + 0], 0
-    mov     dword ptr [r9 + 8], ecx
-    mov     dword ptr [r9 + 12], (HB_WS | (HBF_TTL << 16))
-    lea     r10, [r9 + rcx]
-    mov     [rip + g_wsi_ws], r10
-    add     qword ptr [rip + g_wsi_blocks], 1
-    lea     rax, [r9 + 16]
-    ret
-RTX_ENDF(rt_ws_alloc)
+RTX_FUNC(rt_pinned_alloc)
+    RTX_GATE(alloc, c_rt_pinned_alloc)
+    jmp     c_rt_pinned_alloc
+RTX_ENDF(rt_pinned_alloc)
 .section .note.GNU-stack,"",@progbits

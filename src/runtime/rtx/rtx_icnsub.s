@@ -222,7 +222,7 @@ RTX_FUNC(rt_subscript_var)
     mov     rcx, [rsp + 32]
     mov     [rax + VCELL_TBL], rcx
     mov     rdi, [rsp + 48]
-    call    rt_ws_strdup_c
+    call    rt_heap_strdup_c
     mov     rcx, [rsp + 40]
     mov     [rcx + VCELL_KEY], rax
     mov     r8, [rsp + 16]

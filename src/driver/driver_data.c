@@ -225,7 +225,7 @@ void dat_set_field_default_i(const char *cls, const char *field, int64_t v) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void dat_set_field_default_s(const char *cls, const char *field, const char *v) {
     DatType *t = dat_find_type(cls); if (!t) return;
-    for (int i = 0; i < t->nfields; i++) if (strcmp(t->fields[i], field) == 0) { t->defaults[i] = STRVAL(rt_ws_strdup(v ? v : "")); t->has_default[i] = 1; return; }
+    for (int i = 0; i < t->nfields; i++) if (strcmp(t->fields[i], field) == 0) { t->defaults[i] = STRVAL(rt_pinned_strdup(v ? v : "")); t->has_default[i] = 1; return; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void dat_set_field_default_r(const char *cls, const char *field, double v) {
@@ -343,28 +343,28 @@ DatType *dat_find_field(const char *name, int *fidx) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t dat_alloc_fill(DatType *t, DESCR_t *args, int nargs) {
-    DATINST_t *inst = rt_ws_alloc_tag(sizeof(DATINST_t), HB_DINST);
+    DATINST_t *inst = rt_pinned_alloc_tag(sizeof(DATINST_t), HB_DINST);
     { extern long rt_sno_dumpno_next(void); inst->dumpno = rt_sno_dumpno_next(); }
     DATBLK_t *blk = (DATBLK_t *)t->blk;
     if (!blk) {
-        blk = rt_ws_alloc(sizeof(DATBLK_t));
-        blk->name    = rt_ws_strdup(t->name);
+        blk = rt_pinned_alloc(sizeof(DATBLK_t));
+        blk->name    = rt_pinned_strdup(t->name);
         blk->nfields = t->nfields;
-        blk->fields  = rt_ws_alloc(t->nfields * sizeof(char *));
-        for (int i = 0; i < t->nfields; i++) blk->fields[i] = rt_ws_strdup(t->fields[i]);
+        blk->fields  = rt_pinned_alloc(t->nfields * sizeof(char *));
+        for (int i = 0; i < t->nfields; i++) blk->fields[i] = rt_pinned_strdup(t->fields[i]);
         blk->next    = NULL;
         blk->serial_next = 1;
         t->blk = (struct _DATINST_tType *)blk;
     }
     inst->type   = blk;
     inst->id     = blk->serial_next++;
-    inst->fields = rt_ws_alloc(t->nfields * sizeof(DESCR_t));
+    inst->fields = rt_pinned_alloc(t->nfields * sizeof(DESCR_t));
     for (int i = 0; i < t->nfields; i++) {
         inst->fields[i] = (i < nargs) ? args[i] : NULVCL;
         if (t->has_default[i] && inst->fields[i].v == DT_SNUL) inst->fields[i] = t->defaults[i];
     }
     for (int i = 0; i < t->nfields; i++) {
-        if ((t->sigil[i] == '@' || t->sigil[i] == '%') && inst->fields[i].v == DT_SNUL && !t->required[i]) inst->fields[i] = STRVAL(rt_ws_strdup(""));
+        if ((t->sigil[i] == '@' || t->sigil[i] == '%') && inst->fields[i].v == DT_SNUL && !t->required[i]) inst->fields[i] = STRVAL(rt_pinned_strdup(""));
     }
     DESCR_t r; r.v = DT_DATA; r.slen = 0; r.u = inst; return r;
 }
@@ -405,7 +405,7 @@ DESCR_t c_dat_field_get(const char *fname, DESCR_t obj) {
         const char *cn = (const char *)0;
         if (obj.v >= DT_DATA && obj.u) { DATBLK_t *b = obj.u->type; cn = b ? b->name : (const char *)0; }
         else { const char *s = VARVAL_fn(obj); if (s && dat_find_type(s)) cn = s; }
-        if (cn) return STRVAL(rt_ws_strdup(cn));
+        if (cn) return STRVAL(rt_pinned_strdup(cn));
     }
     extern int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmargs, DESCR_t *out);
     DESCR_t r; if (obj.v != DT_DATA && rt_str_method(fname, obj, (DESCR_t *)0, 0, &r)) return r;
@@ -427,7 +427,7 @@ DESCR_t _builtin_DATA(DESCR_t *args, int nargs) {
     if (nargs < 1) return FAILDESCR;
     const char *raw_spec = VARVAL_fn(args[0]);
     if (!raw_spec || !*raw_spec) return FAILDESCR;
-    char *spec = rt_ws_strdup(raw_spec);
+    char *spec = rt_pinned_strdup(raw_spec);
     DEFDAT_fn(spec);
     dat_register(spec);
     { char nb[64]; int k = 0; for (; spec[k] && spec[k] != '(' && k < 63; k++) nb[k] = spec[k]; nb[k] = 0; if (nb[0]) dat_set_live(nb, 1); }

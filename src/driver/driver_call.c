@@ -66,11 +66,11 @@ DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs)
     char *lnames[64]; if (nl > 64) nl = 64;
     for (int i = 0; i < np; i++) {
         const char *p = FUNC_PARAM_fn(fname, i);
-        pnames[i] = p ? rt_ws_strdup(p) : rt_ws_strdup("");
+        pnames[i] = p ? rt_pinned_strdup(p) : rt_pinned_strdup("");
     }
     for (int i = 0; i < nl; i++) {
         const char *l = FUNC_LOCAL_fn(fname, i);
-        lnames[i] = l ? rt_ws_strdup(l) : rt_ws_strdup("");
+        lnames[i] = l ? rt_pinned_strdup(l) : rt_pinned_strdup("");
     }
     char ufname[128];
     {
@@ -85,9 +85,9 @@ DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs)
     comm_call(retname);
     monitor_quiet_depth++;
     int nsaved = 1 + np + nl;
-    char   **snames = rt_ws_alloc((size_t)nsaved * sizeof(char *));
-    DESCR_t *svals  = rt_ws_alloc((size_t)nsaved * sizeof(DESCR_t));
-    snames[0] = rt_ws_strdup(retname);
+    char   **snames = rt_pinned_alloc((size_t)nsaved * sizeof(char *));
+    DESCR_t *svals  = rt_pinned_alloc((size_t)nsaved * sizeof(DESCR_t));
+    snames[0] = rt_pinned_strdup(retname);
     svals[0]  = NV_GET_fn(retname);
     NV_SET_fn(retname, STRVAL(""));
     for (int i = 0; i < np; i++) {

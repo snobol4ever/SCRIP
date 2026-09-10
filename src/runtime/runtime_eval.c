@@ -53,12 +53,12 @@ static void eval_cache_insert_raw(eval_cache_ent_t *tab, int cap, char *key, eva
 static void eval_cache_put(const char *s, eval_chain_fn fn) {
     if (g_eval_cache_cap == 0 || (g_eval_cache_n + 1) * 2 > g_eval_cache_cap) {
         int ncap = g_eval_cache_cap ? g_eval_cache_cap * 2 : 16;
-        eval_cache_ent_t *ntab = (eval_cache_ent_t *)rt_ws_alloc((size_t)ncap * sizeof(eval_cache_ent_t));
+        eval_cache_ent_t *ntab = (eval_cache_ent_t *)rt_pinned_alloc((size_t)ncap * sizeof(eval_cache_ent_t));
         if (!ntab) return;
         for (int k = 0; k < g_eval_cache_cap; k++) if (g_eval_cache[k].key) eval_cache_insert_raw(ntab, ncap, g_eval_cache[k].key, g_eval_cache[k].fn);
         g_eval_cache = ntab; g_eval_cache_cap = ncap;
     }
-    char *key = rt_ws_strdup(s);
+    char *key = rt_pinned_strdup(s);
     if (!key) return;
     eval_cache_insert_raw(g_eval_cache, g_eval_cache_cap, key, fn);
     g_eval_cache_n++;
@@ -200,16 +200,16 @@ static eval_chain_fn eval_build_chain(const char *s)
     { extern void bb_pool_init(void); bb_pool_init(); }
     { extern void fc_tables_reset(void); fc_tables_reset(); extern void zls_reset(void); zls_reset(); extern void bb_src_reset(void); bb_src_reset(); }
     size_t n = strlen(s);
-    char *src = (char *)rt_ws_alloc(n + 4);
+    char *src = (char *)rt_pinned_alloc(n + 4);
     if (!src) return NULL;
     snprintf(src, n + 4, "(%s)", s);
     extern void sno_error_quiet_begin(void); extern void sno_error_quiet_end(void); extern const char *sno_error_captured(void); extern const char *g_sno_errtext;
     sno_error_quiet_begin();
     tree_t *e = parse_expr_pat_from_str(src);
     sno_error_quiet_end();
-    if (!e) { const char *cap = sno_error_captured(); if (cap) g_sno_errtext = rt_ws_strdup_c(cap); return NULL; }
+    if (!e) { const char *cap = sno_error_captured(); if (cap) g_sno_errtext = rt_heap_strdup_c(cap); return NULL; }
     tree_t *var = ast_stmt_new(TT_VAR);
-    var->v.sval = rt_ws_strdup(EVAL_TMP);
+    var->v.sval = rt_pinned_strdup(EVAL_TMP);
     tree_t *st = ast_stmt_new(TT_STMT);
     ast_push(st, ast_attr_int(":line", 1));
     { static int _cs = -1; if (_cs < 0) { const char * e = getenv("SCRIP_MON_CHAIN_STNO"); _cs = (e && e[0] == '1') ? 1 : 0; }
@@ -313,11 +313,11 @@ void rt_label_set_fn(const char *name, void *fn) {
     for (int i = 0; i < g_lbl_n; i++) if (!strcmp(g_lbl_tab[i].key, name)) { g_lbl_tab[i].fn = (eval_chain_fn)fn; return; }
     if (g_lbl_n >= g_lbl_cap) {
         int ncap = g_lbl_cap ? g_lbl_cap * 2 : 16;
-        lbl_ent_t *nt = (lbl_ent_t *)rt_ws_realloc(g_lbl_tab, (size_t)ncap * sizeof(lbl_ent_t));
+        lbl_ent_t *nt = (lbl_ent_t *)rt_pinned_realloc(g_lbl_tab, (size_t)ncap * sizeof(lbl_ent_t));
         if (!nt) return;
         g_lbl_tab = nt; g_lbl_cap = ncap;
     }
-    g_lbl_tab[g_lbl_n].key = rt_ws_strdup(name);
+    g_lbl_tab[g_lbl_n].key = rt_pinned_strdup(name);
     g_lbl_tab[g_lbl_n].fn  = (eval_chain_fn)fn;
     g_lbl_n++;
 }
@@ -426,7 +426,7 @@ DESCR_t code_at(const char *src, long base)
     sno_error_quiet_begin();
     tree_t *prog = sno_parse_string_ast(src, NULL);
     sno_error_quiet_end();
-    if (!prog || prog->n == 0) { const char *cap = sno_error_captured(); if (cap) g_sno_errtext = rt_ws_strdup_c(cap); return FAILDESCR; }
+    if (!prog || prog->n == 0) { const char *cap = sno_error_captured(); if (cap) g_sno_errtext = rt_heap_strdup_c(cap); return FAILDESCR; }
     long stno_base = (base > g_stno) ? base : g_stno;
     extern int sno_pat_count(void); extern void sno_pat_thunks_build(int p0);
     extern int sno_expr_mark(void); extern void sno_expr_thunks_build(int x0);
@@ -532,7 +532,7 @@ DESCR_t CONVE_fn(DESCR_t str_d)
         DESCR_t xd;
         xd.v    = DT_X;
         xd.slen = (uint32_t)strlen(s);
-        xd.s    = rt_ws_strdup(s);
+        xd.s    = rt_pinned_strdup(s);
         return xd;
     }
     eval_chain_fn fn = eval_build_chain(s);

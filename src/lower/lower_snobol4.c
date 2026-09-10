@@ -819,7 +819,7 @@ static const char * sgoto(const tree_t * s, tree_e kind) {
         const tree_t * a = s->c[i];
         if (!a || a->t != kind) continue;
         if (a->n > 0 && a->c[0] && a->c[0]->t == TT_QLIT && a->c[0]->v.sval) return a->c[0]->v.sval;
-        if (a->n > 0 && a->c[0] && a->c[0]->t == TT_INDIRECT && a->c[0]->n > 0 && a->c[0]->c[0] && a->c[0]->c[0]->t == TT_VAR && a->c[0]->c[0]->v.sval) { const char * v = a->c[0]->c[0]->v.sval; sno_reg_var(v); size_t ln = strlen(v); char * o = (char *) rt_ws_alloc(ln + 2); o[0] = '$'; memcpy(o + 1, v, ln); o[ln + 1] = 0; return o; }
+        if (a->n > 0 && a->c[0] && a->c[0]->t == TT_INDIRECT && a->c[0]->n > 0 && a->c[0]->c[0] && a->c[0]->c[0]->t == TT_VAR && a->c[0]->c[0]->v.sval) { const char * v = a->c[0]->c[0]->v.sval; sno_reg_var(v); size_t ln = strlen(v); char * o = (char *) rt_pinned_alloc(ln + 2); o[0] = '$'; memcpy(o + 1, v, ln); o[ln + 1] = 0; return o; }
         return NULL;
     }
     return NULL;
@@ -877,7 +877,7 @@ static IR_t * sno_goto_special_chain(IR_graph_t * g, const char * dn, IR_t * tai
     size_t dl = strlen(dn); IR_t * head = tail;
     for (int k = 0; k < 3; k++) {
         IR_t * land = bb_label_landing(sn[k]); if (!land) continue;
-        char * te = (char *) rt_ws_alloc(dl + 3); te[0] = '^'; te[1] = sc[k]; memcpy(te + 2, dn, dl + 1);
+        char * te = (char *) rt_pinned_alloc(dl + 3); te[0] = '^'; te[1] = sc[k]; memcpy(te + 2, dn, dl + 1);
         IR_t * t = lc_build(g, IR_GOTO_DEFERRED, land, head); IR_LIT(t).sval = te; head = t;
     }
     return head;
@@ -913,7 +913,7 @@ static IR_t * sno_goto_computed_target(IR_graph_t * g, scx_t * cx, const tree_t 
     int by_name = _bn && expr && expr->t == TT_FNC;
     char nmb[24]; snprintf(nmb, sizeof nmb, "IGT$%d", g_igt_n++);
     char * tmpn = lp_strdup(nmb); sno_reg_var(tmpn);
-    size_t ln = strlen(tmpn); char * dn = (char *) rt_ws_alloc(ln + 2); dn[0] = by_name ? '@' : '$'; memcpy(dn + 1, tmpn, ln); dn[ln + 1] = 0;
+    size_t ln = strlen(tmpn); char * dn = (char *) rt_pinned_alloc(ln + 2); dn[0] = by_name ? '@' : '$'; memcpy(dn + 1, tmpn, ln); dn[ln + 1] = 0;
     IR_t * gd = lc_build(g, IR_GOTO_DEFERRED, exitnd, NULL); IR_LIT(gd).sval = dn;
     IR_t * chain = sno_goto_specials_impossible(expr) ? gd : sno_goto_special_chain(g, dn, gd);
     IR_t * asn = lc_build(g, IR_ASSIGN, chain, gd); IR_LIT(asn).sval = tmpn;
@@ -930,7 +930,7 @@ static IR_t * sno_goto_direct_target(IR_graph_t * g, scx_t * cx, const tree_t * 
     static int g_dgt_n = 0;
     char nmb[24]; snprintf(nmb, sizeof nmb, "DGT$%d", g_dgt_n++);
     char * tmpn = lp_strdup(nmb); sno_reg_var(tmpn);
-    size_t ln = strlen(tmpn); char * dn = (char *) rt_ws_alloc(ln + 2); dn[0] = '<'; memcpy(dn + 1, tmpn, ln); dn[ln + 1] = 0;
+    size_t ln = strlen(tmpn); char * dn = (char *) rt_pinned_alloc(ln + 2); dn[0] = '<'; memcpy(dn + 1, tmpn, ln); dn[ln + 1] = 0;
     IR_t * gd = lc_build(g, IR_GOTO_DEFERRED, exitnd, NULL); IR_LIT(gd).sval = dn;
     IR_t * asn = lc_build(g, IR_ASSIGN, gd, gd); IR_LIT(asn).sval = tmpn;
     IR_t * vr = NULL; IR_t * ec = sx_lower(cx, expr, asn, gd, &vr);
@@ -952,7 +952,7 @@ static const char * sno_qlit_fold(const tree_t * t) {
         const char * a = sno_qlit_fold(t->c[0]); if (!a) return NULL;
         const char * b = sno_qlit_fold(t->c[1]); if (!b) return NULL;
         size_t la = strlen(a), lb = strlen(b);
-        char * o = (char *) rt_ws_alloc(la + lb + 1);
+        char * o = (char *) rt_pinned_alloc(la + lb + 1);
         memcpy(o, a, la); memcpy(o + la, b, lb); o[la + lb] = 0;
         return o;
     }

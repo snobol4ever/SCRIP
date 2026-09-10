@@ -43,7 +43,7 @@ tree_t *lp_s_expr(const tree_t *s, const char *tag) { return stmt_attr_expr(stmt
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *lp_strdup(const char *s) {
     if (!s) return NULL;
-    { extern char *rt_ws_strdup(const char *); return rt_ws_strdup(s); }
+    { extern char *rt_pinned_strdup(const char *); return rt_pinned_strdup(s); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * norm_charseq(DESCR_t d) {
@@ -51,7 +51,7 @@ static const char * norm_charseq(DESCR_t d) {
     if (!IS_STR_fn(d)) return NULL;
     const char * s = d.s ? d.s : "";
     if (!strchr(s, '\x01')) return s;
-    size_t cap = strlen(s) + 1; char * out = (char *) rt_ws_alloc(cap); size_t oi = 0;
+    size_t cap = strlen(s) + 1; char * out = (char *) rt_pinned_alloc(cap); size_t oi = 0;
     const char * seg = s;
     for (;;) {
         const char * nx = strchr(seg, '\x01');
@@ -135,7 +135,7 @@ DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail) {
             const char *rs = rs_d.s ? rs_d.s : "";
             size_t ll = ls_d.slen > 0 ? (size_t)ls_d.slen : strlen(ls);
             size_t rl = rs_d.slen > 0 ? (size_t)rs_d.slen : strlen(rs);
-            char *buf = rt_ws_alloc(ll + rl + 1);
+            char *buf = rt_pinned_alloc(ll + rl + 1);
             memcpy(buf, ls, ll); memcpy(buf + ll, rs, rl); buf[ll + rl] = '\0';
             { DESCR_t r2; r2.v = DT_S; r2.slen = (int)(ll + rl); r2.s = buf; return r2; }
         }
@@ -145,9 +145,9 @@ DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail) {
             const char *ls = ls_d.s ? ls_d.s : "";
             size_t ll = ls_d.slen > 0 ? (size_t)ls_d.slen : strlen(ls);
             long cnt = IS_INT_fn(rv) ? rv.i : (IS_REAL_fn(rv) ? (long)rv.r : 0);
-            if (cnt < 1 || ll == 0) { DESCR_t re; re.v = DT_S; re.slen = 0; re.s = rt_ws_alloc(1); re.s[0] = '\0'; return re; }
+            if (cnt < 1 || ll == 0) { DESCR_t re; re.v = DT_S; re.slen = 0; re.s = rt_pinned_alloc(1); re.s[0] = '\0'; return re; }
             size_t total = ll * (size_t)cnt;
-            char *buf = rt_ws_alloc(total + 1);
+            char *buf = rt_pinned_alloc(total + 1);
             for (long k = 0; k < cnt; k++) memcpy(buf + (size_t)k * ll, ls, ll);
             buf[total] = '\0';
             { DESCR_t r2; r2.v = DT_S; r2.slen = (int)total; r2.s = buf; return r2; }
@@ -202,7 +202,7 @@ void lc_vec_init(lc_vec * v, int esz) { v->data = NULL; v->n = 0; v->cap = 0; v-
 void * lc_vec_push(lc_vec * v, const void * elem) {
     if (v->n >= v->cap) {
         int nc = v->cap ? v->cap * 2 : 8;
-        void * nd = v->data ? rt_ws_realloc(v->data, (size_t) nc * (size_t) v->esz) : rt_ws_alloc((size_t) nc * (size_t) v->esz);
+        void * nd = v->data ? rt_pinned_realloc(v->data, (size_t) nc * (size_t) v->esz) : rt_pinned_alloc((size_t) nc * (size_t) v->esz);
         if (!nd) return NULL;
         v->data = nd; v->cap = nc;
     }

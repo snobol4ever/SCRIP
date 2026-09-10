@@ -341,7 +341,7 @@ static DESCR_t icon_radix_big(const char *s) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t elem_to_descr(const char *s, size_t slen) {
-    char *buf = rt_ws_alloc(slen + 1);
+    char *buf = rt_pinned_alloc(slen + 1);
     memcpy(buf, s, slen); buf[slen] = '\0';
     char *ep; long iv = strtol(buf, &ep, 10);
     if (*ep == '\0' && ep > buf) return INTVAL(iv);
@@ -379,7 +379,7 @@ int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric) {
             int depth = 1; p++;
             while (*p && depth > 0) { if (*p == '\x03') depth++; else if (*p == '\x04') depth--; p++; }
             size_t L = (size_t)(p - start);
-            char *mb = rt_ws_alloc(L + 1); memcpy(mb, start, L); mb[L] = '\0';
+            char *mb = rt_pinned_alloc(L + 1); memcpy(mb, start, L); mb[L] = '\0';
             hit = junction_collapse(scalar, STRVAL(mb), op, numeric);
         } else {
             while (*p && *p != SOH && *p != '\x04') p++;
@@ -398,8 +398,8 @@ static struct { const char *qname; const char *body; int flavor; } gram_reg[GRAM
 static int gram_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gram_set(const char *qname, const char *body, int flavor) {
-    for (int i = 0; i < gram_n; i++) if (!strcmp(gram_reg[i].qname, qname)) { gram_reg[i].body = rt_ws_strdup(body); gram_reg[i].flavor = flavor; return; }
-    if (gram_n < GRAMMAR_MAX) { gram_reg[gram_n].qname = rt_ws_strdup(qname); gram_reg[gram_n].body = rt_ws_strdup(body); gram_reg[gram_n].flavor = flavor; gram_n++; }
+    for (int i = 0; i < gram_n; i++) if (!strcmp(gram_reg[i].qname, qname)) { gram_reg[i].body = rt_pinned_strdup(body); gram_reg[i].flavor = flavor; return; }
+    if (gram_n < GRAMMAR_MAX) { gram_reg[gram_n].qname = rt_pinned_strdup(qname); gram_reg[gram_n].body = rt_pinned_strdup(body); gram_reg[gram_n].flavor = flavor; gram_n++; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int gram_get_flavor(const char *qname) {
@@ -488,7 +488,7 @@ static int rk_gram_run_native(bb_box_fn bf, const char *subj, DESCR_t *out) {
     long Delta = (long)strlen(subj); long final_delta = 0; char fb[256] __attribute__((aligned(16))); memset(fb, 0, sizeof fb);
     DESCR_t r = rk_gram_enter_box(bf, subj, Delta, (void *)fb, &final_delta);
     int matched = (r.v != DT_FAIL); int full = matched && (final_delta == Delta);
-    *out = full ? STRVAL(rt_ws_strdup_c(subj)) : NULVCL; return 1;
+    *out = full ? STRVAL(rt_heap_strdup_c(subj)) : NULVCL; return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int grammar_parse_core(const char *gname, const char *subj, DESCR_t *out) {
@@ -506,28 +506,28 @@ static int grammar_parse_core(const char *gname, const char *subj, DESCR_t *out)
     nfa_free(nfa);
     int slen = (int)strlen(subj);
     int ok = m.matched && m.full_start == 0 && m.full_end == slen;
-    *out = ok ? STRVAL(rt_ws_strdup_c(subj)) : NULVCL; return 1;
+    *out = ok ? STRVAL(rt_heap_strdup_c(subj)) : NULVCL; return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmargs, DESCR_t *out) {
     if (!meth || !*meth) return 0;
     char sb[64]; const char *s = to_cstring(recv, sb, sizeof sb); if (!s) s = ""; size_t n = strlen(s);
     if (!strcmp(meth, "chars")) { *out = INTVAL((long)utf8_strlen(s)); return 1; }
-    if (!strcmp(meth, "uc")) { char *r = (char *)rt_ws_alloc(n + 1); for (size_t i = 0; i < n; i++) r[i] = (char)toupper((unsigned char)s[i]); r[n] = '\0'; *out = STRVAL(r); return 1; }
+    if (!strcmp(meth, "uc")) { char *r = (char *)rt_pinned_alloc(n + 1); for (size_t i = 0; i < n; i++) r[i] = (char)toupper((unsigned char)s[i]); r[n] = '\0'; *out = STRVAL(r); return 1; }
     if (!strcmp(meth, "lc") || !strcmp(meth, "fc")) {
-        char *r = (char *)rt_ws_alloc(n + 1); for (size_t i = 0; i < n; i++) r[i] = (char)tolower((unsigned char)s[i]); r[n] = '\0'; *out = STRVAL(r); return 1;
+        char *r = (char *)rt_pinned_alloc(n + 1); for (size_t i = 0; i < n; i++) r[i] = (char)tolower((unsigned char)s[i]); r[n] = '\0'; *out = STRVAL(r); return 1;
     }
-    if (!strcmp(meth, "tc")) { char *r = (char *)rt_ws_alloc(n + 1); memcpy(r, s, n + 1); if (n > 0) r[0] = (char)toupper((unsigned char)r[0]); *out = STRVAL(r); return 1; }
+    if (!strcmp(meth, "tc")) { char *r = (char *)rt_pinned_alloc(n + 1); memcpy(r, s, n + 1); if (n > 0) r[0] = (char)toupper((unsigned char)r[0]); *out = STRVAL(r); return 1; }
     if (!strcmp(meth, "tclc")) {
-        char *r = (char *)rt_ws_alloc(n + 1); for (size_t i = 0; i < n; i++) r[i] = (char)tolower((unsigned char)s[i]); r[n] = '\0'; if (n > 0) r[0] = (char)toupper((unsigned char)r[0]);
+        char *r = (char *)rt_pinned_alloc(n + 1); for (size_t i = 0; i < n; i++) r[i] = (char)tolower((unsigned char)s[i]); r[n] = '\0'; if (n > 0) r[0] = (char)toupper((unsigned char)r[0]);
         *out = STRVAL(r); return 1;
     }
-    if (!strcmp(meth, "flip")) { char *r = (char *)rt_ws_alloc(n + 1); for (size_t i = 0; i < n; i++) r[i] = s[n - 1 - i]; r[n] = '\0'; *out = STRVAL(r); return 1; }
+    if (!strcmp(meth, "flip")) { char *r = (char *)rt_pinned_alloc(n + 1); for (size_t i = 0; i < n; i++) r[i] = s[n - 1 - i]; r[n] = '\0'; *out = STRVAL(r); return 1; }
     if (!strcmp(meth, "trim")) {
-        size_t a = 0, b = n; while (a < b && isspace((unsigned char)s[a])) a++; while (b > a && isspace((unsigned char)s[b - 1])) b--; char *r = (char *)rt_ws_alloc(b - a + 1);
+        size_t a = 0, b = n; while (a < b && isspace((unsigned char)s[a])) a++; while (b > a && isspace((unsigned char)s[b - 1])) b--; char *r = (char *)rt_pinned_alloc(b - a + 1);
         memcpy(r, s + a, b - a); r[b - a] = '\0'; *out = STRVAL(r); return 1;
     }
-    if (!strcmp(meth, "Str")) { *out = STRVAL(rt_ws_strdup_c(s)); return 1; }
+    if (!strcmp(meth, "Str")) { *out = STRVAL(rt_heap_strdup_c(s)); return 1; }
     if (!strcmp(meth, "Int")) { if (IS_INT_fn(recv)) { *out = recv; return 1; } if (IS_REAL_fn(recv)) { *out = INTVAL((long)recv.r); return 1; } *out = INTVAL((long)atoll(s)); return 1; }
     if (!strcmp(meth, "contains") && nmargs >= 1) { char nb[64]; const char *nd = to_cstring(margs[0], nb, sizeof nb); if (!nd) nd = ""; *out = INTVAL(strstr(s, nd) ? 1 : 0); return 1; }
     if (!strcmp(meth, "starts-with") && nmargs >= 1) { char nb[128]; const char *nd = to_cstring(margs[0], nb, sizeof nb); if (!nd) nd = ""; size_t ln = strlen(nd); *out = INTVAL((ln <= n && !strncmp(s, nd, ln)) ? 1 : 0); return 1; }
@@ -537,8 +537,8 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         char rb[256]; const char *repl = (nmargs >= 2) ? to_cstring(margs[1], rb, sizeof rb) : ""; if (!repl) repl = "";
         size_t nl = strlen(needle), rl = strlen(repl);
         const char *hit = (nl > 0) ? strstr(s, needle) : NULL;
-        if (!hit) { char *o = (char *)rt_ws_alloc(n + 1); memcpy(o, s, n + 1); *out = STRVAL(o); return 1; }
-        size_t pre = (size_t)(hit - s); char *o = (char *)rt_ws_alloc(n - nl + rl + 1);
+        if (!hit) { char *o = (char *)rt_pinned_alloc(n + 1); memcpy(o, s, n + 1); *out = STRVAL(o); return 1; }
+        size_t pre = (size_t)(hit - s); char *o = (char *)rt_pinned_alloc(n - nl + rl + 1);
         memcpy(o, s, pre); memcpy(o + pre, repl, rl); memcpy(o + pre + rl, hit + nl, n - pre - nl); o[n - nl + rl] = '\0';
         *out = STRVAL(o); return 1;
     }
@@ -549,10 +549,10 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         long from = IS_INT_fn(margs[0]) ? (long)margs[0].i : atol(to_cstring(margs[0], sb, sizeof sb));
         long ln = (nmargs >= 2) ? (IS_INT_fn(margs[1]) ? (long)margs[1].i : atol(to_cstring(margs[1], sb, sizeof sb))) : (long)utf8_strlen(s) - from; if (from < 0) from = 0; if (ln < 0) ln = 0;
         long avail = (long)utf8_strlen(s) - from; if (avail < 0) avail = 0; if (ln > avail) ln = avail;
-        if (ln == 0) { *out = STRVAL(rt_ws_strdup_c("")); return 1; }
+        if (ln == 0) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
         *out = SUBSTR_fn(recv, INTVAL(from + 1), INTVAL(ln)); return 1;
     }
-    if (!strcmp(meth, "chr")) { long cp = IS_INT_fn(recv) ? (long)recv.i : (long)atoll(s); char *r = (char *)rt_ws_alloc(2); r[0] = (char)(cp & 0xFF); r[1] = '\0'; *out = BSTRVAL(r, 1); return 1; }
+    if (!strcmp(meth, "chr")) { long cp = IS_INT_fn(recv) ? (long)recv.i : (long)atoll(s); char *r = (char *)rt_pinned_alloc(2); r[0] = (char)(cp & 0xFF); r[1] = '\0'; *out = BSTRVAL(r, 1); return 1; }
     if (!strcmp(meth, "ord")) {
         size_t on = descr_slen(recv);
         if (!s || !on) { *out = FAILDESCR; return 1; }
@@ -572,19 +572,19 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         int d = !strcmp(meth, "succ") ? 1 : -1; if (IS_INT_fn(recv)) *out = INTVAL((long)recv.i + d); else *out = REALVAL(recv.r + d); return 1;
     }
     if (!strcmp(meth, "words")) {
-        char *r = (char *)rt_ws_alloc(n + 1); int op = 0, first = 1; size_t i = 0;
+        char *r = (char *)rt_pinned_alloc(n + 1); int op = 0, first = 1; size_t i = 0;
         while (i < n) {
             while (i < n && isspace((unsigned char)s[i])) i++; if (i >= n) break; if (!first) r[op++] = SOH; first = 0; while (i < n && !isspace((unsigned char)s[i])) r[op++] = s[i++];
         } r[op] = '\0';
         *out = STRVAL(r); return 1;
     }
     if (!strcmp(meth, "comb")) {
-        char *r = (char *)rt_ws_alloc(2 * n + 1); int op = 0;
+        char *r = (char *)rt_pinned_alloc(2 * n + 1); int op = 0;
         for (size_t i = 0; i < n; ) { int cl = utf8_seqlen((unsigned char)s[i]); if (i) r[op++] = SOH; for (int k = 0; k < cl && i < n; k++) r[op++] = s[i++]; } r[op] = '\0'; *out = STRVAL(r);
         return 1;
     }
     if (!strcmp(meth, "split") && nmargs >= 1) {
-        char sept[64]; const char *sep = to_cstring(margs[0], sept, sizeof sept); if (!sep) sep = ""; size_t sl = strlen(sep); char *r = (char *)rt_ws_alloc(2 * n + 2); int op = 0;
+        char sept[64]; const char *sep = to_cstring(margs[0], sept, sizeof sept); if (!sep) sep = ""; size_t sl = strlen(sep); char *r = (char *)rt_pinned_alloc(2 * n + 2); int op = 0;
         if (sl == 0) {
             for (size_t i = 0; i < n; ) { int cl = utf8_seqlen((unsigned char)s[i]); if (i) r[op++] = SOH; for (int k = 0; k < cl && i < n; k++) r[op++] = s[i++]; }
         } else { const char *p = s, *hit;
@@ -593,21 +593,21 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         *out = STRVAL(r); return 1;
     }
     if (!strcmp(meth, "chomp")) {
-        size_t b = n; if (b > 0 && (s[b - 1] == '\n' || s[b - 1] == '\r')) b--; char *r = (char *)rt_ws_alloc(b + 1); memcpy(r, s, b); r[b] = '\0'; *out = STRVAL(r); return 1;
+        size_t b = n; if (b > 0 && (s[b - 1] == '\n' || s[b - 1] == '\r')) b--; char *r = (char *)rt_pinned_alloc(b + 1); memcpy(r, s, b); r[b] = '\0'; *out = STRVAL(r); return 1;
     }
     if (!strcmp(meth, "wordcase")) {
-        char *r = (char *)rt_ws_alloc(n + 1); memcpy(r, s, n + 1); int start = 1;
+        char *r = (char *)rt_pinned_alloc(n + 1); memcpy(r, s, n + 1); int start = 1;
         for (size_t i = 0; i < n; i++) { if (isspace((unsigned char)r[i])) start = 1; else { if (start) r[i] = (char)toupper((unsigned char)r[i]); start = 0; } } *out = STRVAL(r); return 1;
     }
     if (!strcmp(meth, "lines")) {
-        char *r = (char *)rt_ws_alloc(2 * n + 1); int op = 0, first = 1; size_t i = 0;
+        char *r = (char *)rt_pinned_alloc(2 * n + 1); int op = 0, first = 1; size_t i = 0;
         while (i < n) { if (!first) r[op++] = SOH; first = 0; while (i < n && s[i] != '\n') { if (s[i] != '\r') r[op++] = s[i]; i++; } if (i < n) i++; } r[op] = '\0'; *out = STRVAL(r); return 1;
     }
     if (!strcmp(meth, "elems")) { if (n == 0) { *out = INTVAL(0); return 1; } int c = 1; for (size_t i = 0; i < n; i++) if (s[i] == SOH) c++; *out = INTVAL(c); return 1; }
     if (!strcmp(meth, "trans") && nmargs >= 1) {
         const char *lst = VARVAL_fn(margs[0]); if (!lst) lst = "";
         int total = lst[0] ? 1 : 0; for (const char *p = lst; *p; p++) if (*p == SOH) total++;
-        if (total < 2 || (total % 2) != 0) { char *r = (char *)rt_ws_alloc(n + 1); memcpy(r, s, n + 1); *out = STRVAL(r); return 1; }
+        if (total < 2 || (total % 2) != 0) { char *r = (char *)rt_pinned_alloc(n + 1); memcpy(r, s, n + 1); *out = STRVAL(r); return 1; }
         int half = total / 2; if (half > 128) half = 128;
         const char *from[128]; size_t fromlen[128]; const char *to[128]; size_t tolen[128];
         size_t maxto = 1; int idx = 0; const char *seg = lst;
@@ -617,7 +617,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
             else if (idx - half < 128) { to[idx - half] = seg; tolen[idx - half] = L; if (L > maxto) maxto = L; }
             idx++; if (!nx) break; seg = nx + 1;
         }
-        char *r = (char *)rt_ws_alloc(n * maxto + n + 1); size_t op = 0, i = 0;
+        char *r = (char *)rt_pinned_alloc(n * maxto + n + 1); size_t op = 0, i = 0;
         while (i < n) {
             int matched = -1;
             for (int k = 0; k < half; k++) { if (fromlen[k] > 0 && i + fromlen[k] <= n && memcmp(s + i, from[k], fromlen[k]) == 0) { matched = k; break; } }
@@ -628,7 +628,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     }
     if (!strcmp(meth, "join")) {
         const char *sep = ""; char jb[64]; if (nmargs >= 1) { sep = to_cstring(margs[0], jb, sizeof jb); if (!sep) sep = ""; } size_t sl = strlen(sep); int nsep = 0;
-        for (size_t i = 0; i < n; i++) if (s[i] == SOH) nsep++; char *r = (char *)rt_ws_alloc(n + (size_t)nsep * sl + 1); int op = 0;
+        for (size_t i = 0; i < n; i++) if (s[i] == SOH) nsep++; char *r = (char *)rt_pinned_alloc(n + (size_t)nsep * sl + 1); int op = 0;
         for (size_t i = 0; i < n; i++) { if (s[i] == SOH) { memcpy(r + op, sep, sl); op += (int)sl; } else r[op++] = s[i]; } r[op] = '\0'; *out = STRVAL(r); return 1;
     }
     if (!strcmp(meth, "fmt")) {
@@ -649,7 +649,7 @@ static DESCR_t *pas_heap_cell(long n, int grow) {
         if (!grow) return (DESCR_t *)0;
         long nc = g_pas_heap_cap ? g_pas_heap_cap : 1024;
         while (nc <= n) nc *= 2;
-        DESCR_t *nh = (DESCR_t *)(g_pas_heap ? rt_ws_realloc(g_pas_heap, (size_t)nc * sizeof(DESCR_t)) : rt_ws_alloc((size_t)nc * sizeof(DESCR_t)));
+        DESCR_t *nh = (DESCR_t *)(g_pas_heap ? rt_pinned_realloc(g_pas_heap, (size_t)nc * sizeof(DESCR_t)) : rt_pinned_alloc((size_t)nc * sizeof(DESCR_t)));
         if (!nh) return (DESCR_t *)0;
         memset(nh + g_pas_heap_cap, 0, (size_t)(nc - g_pas_heap_cap) * sizeof(DESCR_t));
         g_pas_heap = nh; g_pas_heap_cap = nc;
@@ -763,27 +763,27 @@ void rt_fire_build(const char *cname, DESCR_t self, DESCR_t *named, int nnamed) 
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char *pas_nrec_subrec_set(const char *cur, long fi, long ei, const char *val) {
-    if (!cur) cur = ""; if (!val) val = ""; if (fi < 0) return rt_ws_strdup(cur); if (ei < 0) ei = 0;
+    if (!cur) cur = ""; if (!val) val = ""; if (fi < 0) return rt_pinned_strdup(cur); if (ei < 0) ei = 0;
     const char *s = cur; long k = 0; const char *fstart = NULL; const char *fend = NULL;
     for (;;) { const char *nx = strchr(s, SOH); if (k == fi) { fstart = s; fend = nx; break; } if (!nx) { fstart = NULL; break; } s = nx + 1; k++; }
-    if (!fstart) return rt_ws_strdup(cur);
+    if (!fstart) return rt_pinned_strdup(cur);
     size_t flen = fend ? (size_t)(fend - fstart) : strlen(fstart);
-    char *field = rt_ws_alloc(flen + 1); memcpy(field, fstart, flen); field[flen] = '\0';
+    char *field = rt_pinned_alloc(flen + 1); memcpy(field, fstart, flen); field[flen] = '\0';
     long nsub = 1; for (size_t j = 0; j < flen; j++) if (field[j] == '\x05') nsub++;
     long want = (ei + 1 > nsub) ? ei + 1 : nsub;
-    const char **elems = (const char **)rt_ws_alloc((size_t)want * sizeof(char *));
+    const char **elems = (const char **)rt_pinned_alloc((size_t)want * sizeof(char *));
     const char *p = field; long ix = 0;
     for (;;) {
-        const char *nx = strchr(p, '\x05'); size_t el = nx ? (size_t)(nx - p) : strlen(p); char *e = rt_ws_alloc(el + 1); memcpy(e, p, el); e[el] = '\0'; if (ix < want) elems[ix] = e; ix++;
+        const char *nx = strchr(p, '\x05'); size_t el = nx ? (size_t)(nx - p) : strlen(p); char *e = rt_pinned_alloc(el + 1); memcpy(e, p, el); e[el] = '\0'; if (ix < want) elems[ix] = e; ix++;
         if (!nx) break; p = nx + 1;
     }
     for (long j = nsub; j < want; j++) elems[j] = "0";
     elems[ei] = val;
     size_t newflen = 0; for (long j = 0; j < want; j++) newflen += strlen(elems[j]); newflen += (size_t)(want - 1);
-    char *newf = rt_ws_alloc(newflen + 1); size_t fp = 0;
+    char *newf = rt_pinned_alloc(newflen + 1); size_t fp = 0;
     for (long j = 0; j < want; j++) { if (j) newf[fp++] = '\x05'; size_t L = strlen(elems[j]); memcpy(newf + fp, elems[j], L); fp += L; } newf[fp] = '\0';
     size_t pre = (size_t)(fstart - cur); size_t post = fend ? strlen(fend) : 0;
-    char *o = rt_ws_alloc(pre + fp + post + 1); memcpy(o, cur, pre); memcpy(o + pre, newf, fp); if (fend) memcpy(o + pre + fp, fend, post); o[pre + fp + post] = '\0';
+    char *o = rt_pinned_alloc(pre + fp + post + 1); memcpy(o, cur, pre); memcpy(o + pre, newf, fp); if (fend) memcpy(o + pre + fp, fend, post); o[pre + fp + post] = '\0';
     return o;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -886,7 +886,7 @@ static int rt_multi_meth_dispatch(const char *cname, const char *mname, DESCR_t 
         for (int j = 0; j < nacc; j++) { if (i == j) continue; if (rt_mc_narrower(acc_types[j], acc_types[i], nm)) { beaten = 1; break; } }
         if (!beaten) { win = i; break; } }
     if (win < 0) win = 0;
-    int total = 1 + nm; DESCR_t *ca = rt_ws_alloc((size_t)total * sizeof(DESCR_t));
+    int total = 1 + nm; DESCR_t *ca = rt_pinned_alloc((size_t)total * sizeof(DESCR_t));
     ca[0] = args[0]; for (int k = 0; k < nm; k++) ca[1 + k] = ma[k];
     *out = invoke_method_proc(acc_names[win], ca, total); return 1;
 }
@@ -1172,7 +1172,7 @@ static DESCR_t pl_cons(DESCR_t head, DESCR_t tail) {
 static DESCR_t pl_list_from_arr(DESCR_t *elems, int n) { DESCR_t acc = pl_nil(); for (int i = n - 1; i >= 0; i--) acc = pl_cons(elems[i], acc); return acc; }
 static void *pl_var_cell_ptr(DESCR_t v) { extern DESCR_t rt_pl_deref_val(DESCR_t); DESCR_t d = rt_pl_deref_val(v); return (d.v == (DTYPE_t)DT_PLVAR) ? d.p : (void *)0; }
 static void pl_count_var_occ(DESCR_t t, void *target, int *cnt) { extern DESCR_t rt_pl_deref_val(DESCR_t); DESCR_t d = rt_pl_deref_val(t); if (d.v == (DTYPE_t)DT_PLVAR) { if (d.p == target) (*cnt)++; return; } if (d.v == (DTYPE_t)DT_PLREF) { int ar = (int)(d.slen & 0xFFFFu); DESCR_t *kids = (DESCR_t *)d.p; for (int i = 0; i < ar; i++) pl_count_var_occ(kids[i], target, cnt); } }
-static DESCR_t pl_mk_atom_dup(const char *s, size_t n) { extern int prolog_atom_intern(const char *); char *o = (char *)rt_ws_alloc(n + 1); if (n) memcpy(o, s, n); o[n] = 0; DESCR_t d; d.v = DT_S; d.slen = (uint32_t)n; d.s = o; (void)prolog_atom_intern(o); return d; }
+static DESCR_t pl_mk_atom_dup(const char *s, size_t n) { extern int prolog_atom_intern(const char *); char *o = (char *)rt_pinned_alloc(n + 1); if (n) memcpy(o, s, n); o[n] = 0; DESCR_t d; d.v = DT_S; d.slen = (uint32_t)n; d.s = o; (void)prolog_atom_intern(o); return d; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_sink_kind(DESCR_t a) {
     extern DESCR_t rt_pl_deref_val(DESCR_t); extern const char *prolog_atom_name(int);
@@ -1189,10 +1189,10 @@ static int pl_sink_kind(DESCR_t a) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t pl_sink_build(int kind, const char *s, size_t n) {
     if (kind == 1 || kind == 2) return pl_mk_atom_dup(s, n);
-    DESCR_t *elems = (DESCR_t *)rt_ws_alloc((n > 0 ? n : 1) * sizeof(DESCR_t));
+    DESCR_t *elems = (DESCR_t *)rt_pinned_alloc((n > 0 ? n : 1) * sizeof(DESCR_t));
     for (size_t i = 0; i < n; i++) {
         if (kind == 3) { elems[i].v = (DTYPE_t)DT_I; elems[i].slen = 0; elems[i].i = (unsigned char)s[i]; }
-        else { char *o = (char *)rt_ws_alloc(2); o[0] = s[i]; o[1] = 0; elems[i] = pl_mk_atom_dup(o, 1); }
+        else { char *o = (char *)rt_pinned_alloc(2); o[0] = s[i]; o[1] = 0; elems[i] = pl_mk_atom_dup(o, 1); }
     }
     return pl_list_from_arr(elems, (int)n);
 }
@@ -1315,11 +1315,11 @@ static void rk_tap_diag(const char *msg) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rk_sprintf_core(const char *fmt, DESCR_t *args, int nargs, int from, char **outp, size_t *outlen) {
-    size_t cap = strlen(fmt) + 64, len = 0; char *buf = (char *)rt_ws_alloc(cap); int ai = from;
+    size_t cap = strlen(fmt) + 64, len = 0; char *buf = (char *)rt_pinned_alloc(cap); int ai = from;
     for (const char *p = fmt; *p; ) {
-        if (*p != '%') { if (len + 2 > cap) { cap = cap * 2 + 8; char *nb = (char *)rt_ws_alloc(cap); memcpy(nb, buf, len); buf = nb; } buf[len++] = *p++; continue; }
+        if (*p != '%') { if (len + 2 > cap) { cap = cap * 2 + 8; char *nb = (char *)rt_pinned_alloc(cap); memcpy(nb, buf, len); buf = nb; } buf[len++] = *p++; continue; }
         const char *start = p; p++;
-        if (*p == '%') { if (len + 2 > cap) { cap = cap * 2 + 8; char *nb = (char *)rt_ws_alloc(cap); memcpy(nb, buf, len); buf = nb; } buf[len++] = '%'; p++; continue; }
+        if (*p == '%') { if (len + 2 > cap) { cap = cap * 2 + 8; char *nb = (char *)rt_pinned_alloc(cap); memcpy(nb, buf, len); buf = nb; } buf[len++] = '%'; p++; continue; }
         char spec[64]; int sp = 0; spec[sp++] = '%';
         while (*p == '-' || *p == '+' || *p == ' ' || *p == '0' || *p == '#') { if (sp < 60) spec[sp++] = *p; p++; }
         long width = -1;
@@ -1347,18 +1347,18 @@ void rk_sprintf_core(const char *fmt, DESCR_t *args, int nargs, int from, char *
             const char *sv = to_cstring(a, sb, sizeof sb); if (!sv) sv = "";
             char cspec[68]; int cl = 0; for (int k = 0; k < sp; k++) cspec[cl++] = spec[k]; cspec[cl++] = 's'; cspec[cl] = 0;
             int need = snprintf(NULL, 0, cspec, sv);
-            if (need >= (int)sizeof piece) { char *big = (char *)rt_ws_alloc((size_t)need + 1); snprintf(big, (size_t)need + 1, cspec, sv);
-                if (len + (size_t)need + 1 > cap) { cap = len + (size_t)need + 8; char *nb = (char *)rt_ws_alloc(cap); memcpy(nb, buf, len); buf = nb; }
+            if (need >= (int)sizeof piece) { char *big = (char *)rt_pinned_alloc((size_t)need + 1); snprintf(big, (size_t)need + 1, cspec, sv);
+                if (len + (size_t)need + 1 > cap) { cap = len + (size_t)need + 8; char *nb = (char *)rt_pinned_alloc(cap); memcpy(nb, buf, len); buf = nb; }
                 memcpy(buf + len, big, (size_t)need); len += (size_t)need; continue; }
             snprintf(piece, sizeof piece, cspec, sv); done = 1;
         } else if (conv == 'b') {
             unsigned long uv = IS_INT_fn(a) ? (unsigned long)a.i : (IS_REAL_fn(a) ? (unsigned long)a.r : (unsigned long)atol(to_cstring(a, sb, sizeof sb)));
             char bits[72]; int bn = 0; if (uv == 0) bits[bn++] = '0'; else { char tmp[72]; int tn = 0; while (uv) { tmp[tn++] = (char)('0' + (uv & 1)); uv >>= 1; } while (tn) bits[bn++] = tmp[--tn]; } bits[bn] = 0;
             long w = 0; int zero = 0; for (int k = 1; k < sp; k++) { if (spec[k] == '0') zero = 1; else if (spec[k] >= '1' && spec[k] <= '9') { w = w * 10 + (spec[k] - '0'); } }
-            int pad = (int)w - bn; if (pad > 0) { char pc = zero ? '0' : ' '; for (int k = 0; k < pad; k++) { if (len + 1 >= cap) { cap = cap * 2 + 8; char *nb = (char *)rt_ws_alloc(cap); memcpy(nb, buf, len); buf = nb; } buf[len++] = pc; } }
-            for (int k = 0; k < bn; k++) { if (len + 1 >= cap) { cap = cap * 2 + 8; char *nb = (char *)rt_ws_alloc(cap); memcpy(nb, buf, len); buf = nb; } buf[len++] = bits[k]; } continue;
-        } else { for (const char *q = start; q <= start + (p - start) - 1; q++) { if (len + 1 >= cap) { cap = cap * 2 + 8; char *nb = (char *)rt_ws_alloc(cap); memcpy(nb, buf, len); buf = nb; } buf[len++] = *q; } continue; }
-        if (done) { size_t pl = strlen(piece); if (len + pl + 1 > cap) { cap = len + pl + 8; char *nb = (char *)rt_ws_alloc(cap); memcpy(nb, buf, len); buf = nb; } memcpy(buf + len, piece, pl); len += pl; }
+            int pad = (int)w - bn; if (pad > 0) { char pc = zero ? '0' : ' '; for (int k = 0; k < pad; k++) { if (len + 1 >= cap) { cap = cap * 2 + 8; char *nb = (char *)rt_pinned_alloc(cap); memcpy(nb, buf, len); buf = nb; } buf[len++] = pc; } }
+            for (int k = 0; k < bn; k++) { if (len + 1 >= cap) { cap = cap * 2 + 8; char *nb = (char *)rt_pinned_alloc(cap); memcpy(nb, buf, len); buf = nb; } buf[len++] = bits[k]; } continue;
+        } else { for (const char *q = start; q <= start + (p - start) - 1; q++) { if (len + 1 >= cap) { cap = cap * 2 + 8; char *nb = (char *)rt_pinned_alloc(cap); memcpy(nb, buf, len); buf = nb; } buf[len++] = *q; } continue; }
+        if (done) { size_t pl = strlen(piece); if (len + pl + 1 > cap) { cap = len + pl + 8; char *nb = (char *)rt_pinned_alloc(cap); memcpy(nb, buf, len); buf = nb; } memcpy(buf + len, piece, pl); len += pl; }
     }
     buf[len] = 0; *outp = buf; if (outlen) *outlen = len;
 }
@@ -1869,7 +1869,7 @@ static int rt_pl_all_solutions_cell(DESCR_t *args, pl_tr_ctx_t *cx, int mode) {
     { void *acc = (void *)(intptr_t)h.i; int n = rt_pl_findall_count(acc); int i;
       DESCR_t *el; DESCR_t lst;
       if (mode != 0 && n == 0) return 0;
-      el = (DESCR_t *)rt_ws_alloc((size_t)(n > 0 ? n : 1) * sizeof(DESCR_t));
+      el = (DESCR_t *)rt_pinned_alloc((size_t)(n > 0 ? n : 1) * sizeof(DESCR_t));
       if (!el) return 0;
       for (i = 0; i < n; i++) rt_pl_findall_item(acc, i, (void *)&el[i]);
       lst = pl_list_from_arr(el, n);
@@ -1892,11 +1892,11 @@ static int pl_bagof_groups(void *acc, DESCR_t **items_out, int **ord_out, int **
     int n = rt_pl_findall_count(acc), i, j, ng = 0, k = 0;
     DESCR_t *it; int *ord, *gs, *used, *gi;
     if (n <= 0) return 0;
-    it = (DESCR_t *)rt_ws_alloc((size_t)n * sizeof(DESCR_t));
-    ord = (int *)rt_ws_alloc((size_t)n * sizeof(int));
-    gs = (int *)rt_ws_alloc((size_t)(n + 1) * sizeof(int));
-    used = (int *)rt_ws_alloc((size_t)n * sizeof(int));
-    gi = (int *)rt_ws_alloc((size_t)n * sizeof(int));
+    it = (DESCR_t *)rt_pinned_alloc((size_t)n * sizeof(DESCR_t));
+    ord = (int *)rt_pinned_alloc((size_t)n * sizeof(int));
+    gs = (int *)rt_pinned_alloc((size_t)(n + 1) * sizeof(int));
+    used = (int *)rt_pinned_alloc((size_t)n * sizeof(int));
+    gi = (int *)rt_pinned_alloc((size_t)n * sizeof(int));
     if (!it || !ord || !gs || !used || !gi) return 0;
     for (i = 0; i < n; i++) { rt_pl_findall_item(acc, i, (void *)&it[i]); used[i] = 0; }
     for (i = 0; i < n; i++) {
@@ -1946,7 +1946,7 @@ static int rt_pl_bagof_group_at_cell(DESCR_t *args, pl_tr_ctx_t *cx, int sorted)
     g = gi[idx];
     cnt = gs[g + 1] - gs[g];
     if (cnt <= 0) return 0;
-    el = (DESCR_t *)rt_ws_alloc((size_t)cnt * sizeof(DESCR_t));
+    el = (DESCR_t *)rt_pinned_alloc((size_t)cnt * sizeof(DESCR_t));
     if (!el) return 0;
     if (!pl_pair_parts(it[ord[gs[g]]], &wrep, &trep)) return 0;
     ok = 1;
@@ -2109,7 +2109,7 @@ static int pl_text_is_unbalanced(const char *s) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_parse_term_text(const char *txt, DESCR_t *out, pl_vtab_t *vt, PlProgram **pg_out) {
-    size_t L = strlen(txt); char *text = (char *)rt_ws_alloc(L + 20); size_t e;
+    size_t L = strlen(txt); char *text = (char *)rt_pinned_alloc(L + 20); size_t e;
     if (pl_text_is_unbalanced(txt)) return 0;
     memcpy(text, "'$rd'((", 7); memcpy(text + 7, txt, L); e = 7 + L;
     while (e > 7 && (text[e - 1] == ' ' || text[e - 1] == '\n' || text[e - 1] == '\t' || text[e - 1] == '\r')) e--;
@@ -2315,19 +2315,19 @@ static int pl_read_src_from_fp(FILE *f, char *rb, int cap) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_make_nested_agg(DESCR_t *args, int nargs) {
-    if (nargs <= 0 || !args) { char *e = rt_ws_alloc(1); e[0] = '\0'; return STRVAL(e); }
+    if (nargs <= 0 || !args) { char *e = rt_pinned_alloc(1); e[0] = '\0'; return STRVAL(e); }
     size_t total = 0;
     for (int i = 0; i < nargs; i++) { char scratch[64]; const char *cs = to_cstring(args[i], scratch, sizeof scratch); total += strlen(cs) + 1; }
-    char *buf = rt_ws_alloc(total + 1); size_t p = 0;
+    char *buf = rt_pinned_alloc(total + 1); size_t p = 0;
     for (int i = 0; i < nargs; i++) { char scratch[64]; const char *cs = to_cstring(args[i], scratch, sizeof scratch); size_t L = strlen(cs); if (p > 0) buf[p++] = SOH; memcpy(buf + p, cs, L); p += L; }
     buf[p] = '\0';
     return STRVAL(buf);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs) {
-    if (nargs <= 0 || !args) { char *e = rt_ws_alloc(1); e[0] = '\0'; return STRVAL(e); }
-    const char **els = rt_ws_alloc((size_t)nargs * 64 * sizeof(const char *));
-    size_t *lens = rt_ws_alloc((size_t)nargs * 64 * sizeof(size_t));
+    if (nargs <= 0 || !args) { char *e = rt_pinned_alloc(1); e[0] = '\0'; return STRVAL(e); }
+    const char **els = rt_pinned_alloc((size_t)nargs * 64 * sizeof(const char *));
+    size_t *lens = rt_pinned_alloc((size_t)nargs * 64 * sizeof(size_t));
     int nel = 0, cap = nargs * 64;
     for (int i = 0; i < nargs; i++) {
         char scratch[64];
@@ -2336,13 +2336,13 @@ DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs) {
         for (;;) {
             const char *nx = strchr(seg, SOH);
             size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
-            if (nel < cap) { char *cp = rt_ws_alloc(L + 1); memcpy(cp, seg, L); cp[L] = '\0'; els[nel] = cp; lens[nel] = L; nel++; }
+            if (nel < cap) { char *cp = rt_pinned_alloc(L + 1); memcpy(cp, seg, L); cp[L] = '\0'; els[nel] = cp; lens[nel] = L; nel++; }
             if (!nx) break;
             seg = nx + 1;
         }
     }
     size_t total = 0; for (int i = 0; i < nel; i++) total += lens[i] + 1;
-    char *buf = rt_ws_alloc(total + 1); size_t p = 0;
+    char *buf = rt_pinned_alloc(total + 1); size_t p = 0;
     for (int i = 0; i < nel; i++) { if (p > 0) buf[p++] = SOH; memcpy(buf + p, els[i], lens[i]); p += lens[i]; }
     buf[p] = '\0';
     return STRVAL(buf);
@@ -2494,7 +2494,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "__pas_alloc_rec") && nargs == 1) {
         long nf = IS_INT_fn(args[0]) ? args[0].i : 1; if (nf < 1) nf = 1;
-        size_t len = (size_t)(nf * 2 - 1); char *seg = rt_ws_alloc(len + 1); size_t p = 0;
+        size_t len = (size_t)(nf * 2 - 1); char *seg = rt_pinned_alloc(len + 1); size_t p = 0;
         for (long k = 0; k < nf; k++) { if (k) seg[p++] = SOH; seg[p++] = '0'; } seg[p] = '\0';
         g_pas_heap_ctr++; DESCR_t *c = pas_heap_cell(g_pas_heap_ctr, 1);
         if (c) *c = STRVAL(seg); *out = INTVAL(g_pas_heap_ctr); return 1;
@@ -2505,7 +2505,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (!strcmp(fn, "__pas_alpha_str") && nargs == 2) {
         const char *sa = VARVAL_fn(args[0]); if (!sa) sa = "";
         long lo = IS_INT_fn(args[1]) ? (long)args[1].i : 0; if (lo < 0) lo = 0;
-        size_t sl = strlen(sa); char *o = rt_ws_alloc(sl + 2); size_t oi = 0; const char *pp = sa; long k = 0;
+        size_t sl = strlen(sa); char *o = rt_pinned_alloc(sl + 2); size_t oi = 0; const char *pp = sa; long k = 0;
         while (*pp) { char *ep = NULL; long v = strtol(pp, &ep, 10); if (ep == pp) break; if (k >= lo) o[oi++] = (char)v; k++; pp = ep; if (*pp == SOH) pp++; else break; }
         o[oi] = '\0'; *out = STRVAL(o); return 1;
     }
@@ -2521,13 +2521,13 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "__pas_ca_pack") && nargs >= 1) {
         const char *sa = VARVAL_fn(args[0]); if (!sa) sa = "";
-        size_t sl = strlen(sa); char *o = rt_ws_alloc(sl + 1);
+        size_t sl = strlen(sa); char *o = rt_pinned_alloc(sl + 1);
         for (size_t i = 0; i < sl; i++) o[i] = (sa[i] == SOH) ? '\x1e' : sa[i];
         o[sl] = '\0'; *out = STRVAL(o); return 1;
     }
     if (!strcmp(fn, "__pas_ca_unpack") && nargs >= 1) {
         const char *sa = VARVAL_fn(args[0]); if (!sa) sa = "";
-        size_t sl = strlen(sa); char *o = rt_ws_alloc(sl + 1);
+        size_t sl = strlen(sa); char *o = rt_pinned_alloc(sl + 1);
         for (size_t i = 0; i < sl; i++) o[i] = (sa[i] == '\x1e') ? SOH : sa[i];
         o[sl] = '\0'; *out = STRVAL(o); return 1;
     }
@@ -2541,7 +2541,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         for (;;) { const char *nx = strchr(s, SOH); if (k == idx) { tstart = s; tend = nx; break; } if (!nx) { tstart = NULL; break; } s = nx + 1; k++; }
         if (!tstart) { *out = args[2]; return 1; }
         size_t pre = (size_t)(tstart - cur); size_t post = tend ? strlen(tend) : 0; size_t rvl = strlen(rv);
-        char *o = rt_ws_alloc(pre + rvl + post + 1); memcpy(o, cur, pre); memcpy(o + pre, rv, rvl);
+        char *o = rt_pinned_alloc(pre + rvl + post + 1); memcpy(o, cur, pre); memcpy(o + pre, rv, rvl);
         if (tend) memcpy(o + pre + rvl, tend, post); o[pre + rvl + post] = '\0';
         *hc = STRVAL(o); *out = args[2]; return 1;
     }
@@ -2551,12 +2551,12 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         const char *cur = VARVAL_fn(*hc); if (!cur) cur = "";
         long idx = IS_INT_fn(args[1]) ? args[1].i : 0;
         char rb[64]; const char *rv0 = to_cstring(args[2], rb, sizeof rb); if (!rv0) rv0 = "";
-        size_t rvl = strlen(rv0); char *rv = rt_ws_alloc(rvl + 1); for (size_t j = 0; j < rvl; j++) rv[j] = (rv0[j] == SOH) ? '\x05' : rv0[j]; rv[rvl] = '\0';
+        size_t rvl = strlen(rv0); char *rv = rt_pinned_alloc(rvl + 1); for (size_t j = 0; j < rvl; j++) rv[j] = (rv0[j] == SOH) ? '\x05' : rv0[j]; rv[rvl] = '\0';
         const char *s = cur; long k = 0; const char *tstart = NULL; const char *tend = NULL;
         for (;;) { const char *nx = strchr(s, SOH); if (k == idx) { tstart = s; tend = nx; break; } if (!nx) { tstart = NULL; break; } s = nx + 1; k++; }
         if (!tstart) { *out = args[2]; return 1; }
         size_t pre = (size_t)(tstart - cur); size_t post = tend ? strlen(tend) : 0;
-        char *o = rt_ws_alloc(pre + rvl + post + 1); memcpy(o, cur, pre); memcpy(o + pre, rv, rvl);
+        char *o = rt_pinned_alloc(pre + rvl + post + 1); memcpy(o, cur, pre); memcpy(o + pre, rv, rvl);
         if (tend) memcpy(o + pre + rvl, tend, post); o[pre + rvl + post] = '\0';
         *hc = STRVAL(o); *out = args[2]; return 1;
     }
@@ -2573,10 +2573,10 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (IS_INT_fn(args[3])) {
             long cv = args[3].i; if (cv < 0) cv = 0; if (cv > 255) cv = 255; ch = (unsigned char)cv;
         } else { const char *vs = VARVAL_fn(args[3]); ch = (unsigned char)((vs && vs[0]) ? vs[0] : ' '); }
-        size_t nflen = ((size_t)eidx > flen) ? (size_t)eidx : flen; char *nfb = rt_ws_alloc(nflen + 1);
+        size_t nflen = ((size_t)eidx > flen) ? (size_t)eidx : flen; char *nfb = rt_pinned_alloc(nflen + 1);
         for (size_t j = 0; j < nflen; j++) nfb[j] = (j < flen) ? fstart[j] : ' '; nfb[eidx - 1] = (char)ch; nfb[nflen] = '\0';
         size_t pre = (size_t)(fstart - cur); size_t post = fend ? strlen(fend) : 0;
-        char *o = rt_ws_alloc(pre + nflen + post + 1); memcpy(o, cur, pre); memcpy(o + pre, nfb, nflen);
+        char *o = rt_pinned_alloc(pre + nflen + post + 1); memcpy(o, cur, pre); memcpy(o + pre, nfb, nflen);
         if (fend) memcpy(o + pre + nflen, fend, post); o[pre + nflen + post] = '\0';
         *hc = STRVAL(o); *out = args[3]; return 1;
     }
@@ -2614,12 +2614,12 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
         long fi = IS_INT_fn(args[1]) ? args[1].i : 0; if (fi < 0) { *out = args[0]; return 1; }
         char rb[64]; const char *rv = to_cstring(args[2], rb, sizeof rb); if (!rv) rv = "";
-        size_t rvl = strlen(rv); char *nf = rt_ws_alloc(rvl + 1); for (size_t j = 0; j < rvl; j++) nf[j] = (rv[j] == SOH) ? '\x05' : rv[j]; nf[rvl] = '\0';
+        size_t rvl = strlen(rv); char *nf = rt_pinned_alloc(rvl + 1); for (size_t j = 0; j < rvl; j++) nf[j] = (rv[j] == SOH) ? '\x05' : rv[j]; nf[rvl] = '\0';
         const char *s = cur; long k = 0; const char *fstart = NULL; const char *fend = NULL;
         for (;;) { const char *nx = strchr(s, SOH); if (k == fi) { fstart = s; fend = nx; break; } if (!nx) { fstart = NULL; break; } s = nx + 1; k++; }
         if (!fstart) { *out = args[0]; return 1; }
         size_t pre = (size_t)(fstart - cur); size_t post = fend ? strlen(fend) : 0;
-        char *o = rt_ws_alloc(pre + rvl + post + 1); memcpy(o, cur, pre); memcpy(o + pre, nf, rvl); if (fend) memcpy(o + pre + rvl, fend, post); o[pre + rvl + post] = '\0';
+        char *o = rt_pinned_alloc(pre + rvl + post + 1); memcpy(o, cur, pre); memcpy(o + pre, nf, rvl); if (fend) memcpy(o + pre + rvl, fend, post); o[pre + rvl + post] = '\0';
         *out = STRVAL(o); return 1;
     }
     if (!strcmp(fn, "__pas_nrec_deref_set") && nargs == 4) {
@@ -2632,7 +2632,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "__pas_fassign") && nargs == 1) {
         const char *s = VARVAL_fn(args[0]); if (!s) s = "";
-        *out = STRVAL(rt_ws_strdup_c(s)); return 1;
+        *out = STRVAL(rt_heap_strdup_c(s)); return 1;
     }
     if (!strcmp(fn, "__pas_rewrite") && nargs == 1) {
         extern int fh_alloc(FILE *);
@@ -2676,7 +2676,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = INTVAL(hit ? 1 : 0); return 1;
     }
     if (!strcmp(fn, "__pas_set")) {
-        unsigned char *buf = (unsigned char *)rt_ws_alloc(PAS_SET_BYTES); memset(buf, 0, PAS_SET_BYTES);
+        unsigned char *buf = (unsigned char *)rt_pinned_alloc(PAS_SET_BYTES); memset(buf, 0, PAS_SET_BYTES);
         for (int k = 0; k < nargs; k++) { long e = pas_ord_of(args[k]); if (e >= 0 && e < PAS_SET_BYTES * 8) buf[e / 8] |= (unsigned char)(1u << (e % 8)); }
         *out = BSTRVAL((char *)buf, PAS_SET_BYTES); return 1;
     }
@@ -2694,7 +2694,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             int eq = memcmp(a, b, PAS_SET_BYTES) == 0;
             *out = INTVAL((!strcmp(fn, "__pas_seteq") ? eq : !eq) ? 1 : 0); return 1;
         }
-        unsigned char *r = (unsigned char *)rt_ws_alloc(PAS_SET_BYTES);
+        unsigned char *r = (unsigned char *)rt_pinned_alloc(PAS_SET_BYTES);
         for (int i = 0; i < PAS_SET_BYTES; i++) {
             if      (!strcmp(fn, "__pas_setuni")) r[i] = a[i] | b[i];
             else if (!strcmp(fn, "__pas_setint")) r[i] = a[i] & b[i];
@@ -2708,16 +2708,16 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
                   : !strcmp(fn, "__rk_jct_all") ? 'l'
                   : !strcmp(fn, "__rk_jct_one") ? 'o' : 'n';
         size_t total = 2;
-        char **ms = rt_ws_alloc((size_t)nargs * sizeof(char *));
-        size_t *mlen = rt_ws_alloc((size_t)nargs * sizeof(size_t));
+        char **ms = rt_pinned_alloc((size_t)nargs * sizeof(char *));
+        size_t *mlen = rt_pinned_alloc((size_t)nargs * sizeof(size_t));
         for (int i = 0; i < nargs; i++) {
             char scratch[64];
             const char *cs = to_cstring(args[i], scratch, sizeof scratch);
             size_t L = strlen(cs);
-            char *cp = rt_ws_alloc(L + 1); memcpy(cp, cs, L + 1);
+            char *cp = rt_pinned_alloc(L + 1); memcpy(cp, cs, L + 1);
             ms[i] = cp; mlen[i] = L; total += 1 + L;
         }
-        char *buf = rt_ws_alloc(total + 2);
+        char *buf = rt_pinned_alloc(total + 2);
         size_t p = 0; buf[p++] = '\x03'; buf[p++] = flav;
         for (int i = 0; i < nargs; i++) { buf[p++] = SOH; memcpy(buf + p, ms[i], mlen[i]); p += mlen[i]; }
         buf[p++] = '\x04'; buf[p] = '\0';
@@ -2736,7 +2736,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         extern DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs);
         DESCR_t inner = rt_make_flat_agg(args, nargs);
         const char *cur = VARVAL_fn(inner); if (!cur) cur = "";
-        size_t n = strlen(cur); char *buf = rt_ws_alloc(n + 3); size_t p = 0;
+        size_t n = strlen(cur); char *buf = rt_pinned_alloc(n + 3); size_t p = 0;
         buf[p++] = '[';
         for (size_t i = 0; i < n; i++) buf[p++] = (cur[i] == SOH) ? ' ' : cur[i];
         buf[p++] = ']'; buf[p] = '\0';
@@ -2764,7 +2764,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         extern int rt_proc_named_rest(const char *name);
         int nrest = rt_proc_named_rest(pname); int nrx = nrest > 0 ? nrest - 1 : -1;
         size_t hcap = 1; for (int i = 2 + npos; i + 1 < nargs; i += 2) { char kb0[128], vb0[256]; const char *k0 = to_cstring(args[i], kb0, sizeof kb0); const char *v0 = to_cstring(args[i + 1], vb0, sizeof vb0); hcap += (k0 ? strlen(k0) : 0) + (v0 ? strlen(v0) : 0) + 2; }
-        char *hbuf = rt_ws_alloc(hcap); size_t hp = 0; hbuf[0] = '\0';
+        char *hbuf = rt_pinned_alloc(hcap); size_t hp = 0; hbuf[0] = '\0';
         for (int i = 0; i < npos && (2 + i) < nargs; i++) { slots[i] = args[2 + i]; if (i + 1 > maxslot) maxslot = i + 1; }
         for (int i = 2 + npos; i + 1 < nargs; i += 2) {
             char kb[128]; const char *k = to_cstring(args[i], kb, sizeof kb);
@@ -2791,7 +2791,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (!src) src = "";
         if (n < 0) n = 0;
         size_t L = strlen(src);
-        char *buf = rt_ws_alloc(L * (size_t)(n > 0 ? n : 0) + 1); size_t p = 0;
+        char *buf = rt_pinned_alloc(L * (size_t)(n > 0 ? n : 0) + 1); size_t p = 0;
         for (long long k = 0; k < n; k++) { memcpy(buf + p, src, L); p += L; }
         buf[p] = '\0';
         *out = STRVAL(buf); return 1;
@@ -2799,25 +2799,25 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (!strcmp(fn, "__rk_range_arr") && nargs == 2) {
         long long lo = IS_INT_fn(args[0]) ? (long long)args[0].i : (IS_REAL_fn(args[0]) ? (long long)args[0].r : 0);
         long long hi = IS_INT_fn(args[1]) ? (long long)args[1].i : (IS_REAL_fn(args[1]) ? (long long)args[1].r : 0);
-        if (hi < lo) { char *e = rt_ws_alloc(1); e[0] = '\0'; *out = STRVAL(e); return 1; }
+        if (hi < lo) { char *e = rt_pinned_alloc(1); e[0] = '\0'; *out = STRVAL(e); return 1; }
         long long cnt = hi - lo + 1;
-        char *buf = rt_ws_alloc((size_t)cnt * 24 + 1); size_t p = 0;
+        char *buf = rt_pinned_alloc((size_t)cnt * 24 + 1); size_t p = 0;
         for (long long v = lo; v <= hi; v++) { if (p > 0) buf[p++] = SOH; char eb[24]; int el = snprintf(eb, sizeof eb, "%lld", v); memcpy(buf + p, eb, (size_t)el); p += (size_t)el; }
         buf[p] = '\0';
         *out = STRVAL(buf); return 1;
     }
     if ((!strcmp(fn, "rk_write") || !strcmp(fn, "rk_writes"))) {
-        DESCR_t *tmp = (DESCR_t *)rt_ws_alloc((size_t)(nargs > 0 ? nargs : 1) * sizeof(DESCR_t));
+        DESCR_t *tmp = (DESCR_t *)rt_pinned_alloc((size_t)(nargs > 0 ? nargs : 1) * sizeof(DESCR_t));
         for (int _ri = 0; _ri < nargs; _ri++) {
-            if (IS_REAL_fn(args[_ri])) { char *_rb = rt_ws_alloc(64); rk_real_str(args[_ri].r, _rb, 64); tmp[_ri] = STRVAL(_rb); }
+            if (IS_REAL_fn(args[_ri])) { char *_rb = rt_pinned_alloc(64); rk_real_str(args[_ri].r, _rb, 64); tmp[_ri] = STRVAL(_rb); }
             else tmp[_ri] = args[_ri];
         }
         *out = rt_call_arr(!strcmp(fn, "rk_write") ? "write" : "writes", tmp, nargs); return 1;
     }
     if (!strcmp(fn, "note") && !rt_proc_is_registered(fn)) {
-        DESCR_t *tmp = (DESCR_t *)rt_ws_alloc((size_t)(nargs > 0 ? nargs : 1) * sizeof(DESCR_t));
+        DESCR_t *tmp = (DESCR_t *)rt_pinned_alloc((size_t)(nargs > 0 ? nargs : 1) * sizeof(DESCR_t));
         for (int _ri = 0; _ri < nargs; _ri++) {
-            if (IS_REAL_fn(args[_ri])) { char *_rb = rt_ws_alloc(64); rk_real_str(args[_ri].r, _rb, 64); tmp[_ri] = STRVAL(_rb); }
+            if (IS_REAL_fn(args[_ri])) { char *_rb = rt_pinned_alloc(64); rk_real_str(args[_ri].r, _rb, 64); tmp[_ri] = STRVAL(_rb); }
             else tmp[_ri] = args[_ri];
         }
         for (int _ri = 0; _ri < nargs; _ri++) { char _sb[512]; const char *_cs = to_cstring(tmp[_ri], _sb, sizeof _sb); fputs(_cs ? _cs : "", stderr); }
@@ -2826,7 +2826,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "rk_write_arr") && nargs == 1) {
         const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
-        size_t n = strlen(cur); char *buf = rt_ws_alloc(n + 3); size_t p = 0;
+        size_t n = strlen(cur); char *buf = rt_pinned_alloc(n + 3); size_t p = 0;
         buf[p++] = '[';
         for (size_t i = 0; i < n; i++) buf[p++] = (cur[i] == SOH) ? ' ' : cur[i];
         buf[p++] = ']'; buf[p] = '\0';
@@ -2854,8 +2854,8 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         long long lo = IS_INT_fn(args[1]) ? (long long)args[1].i : (IS_REAL_fn(args[1]) ? (long long)args[1].r : 0);
         long long hi = IS_INT_fn(args[2]) ? (long long)args[2].i : (IS_REAL_fn(args[2]) ? (long long)args[2].r : 0);
         if (lo < 0) lo = 0;
-        if (hi < lo) { char *e = rt_ws_alloc(1); e[0] = '\0'; *out = STRVAL(e); return 1; }
-        char *buf = rt_ws_alloc(strlen(cs) + 1); size_t p = 0; const char *seg = cs; long long k = 0; int wrote = 0;
+        if (hi < lo) { char *e = rt_pinned_alloc(1); e[0] = '\0'; *out = STRVAL(e); return 1; }
+        char *buf = rt_pinned_alloc(strlen(cs) + 1); size_t p = 0; const char *seg = cs; long long k = 0; int wrote = 0;
         for (;;) {
             const char *nx = strchr(seg, SOH); size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
             if (k >= lo && k <= hi) { if (wrote) buf[p++] = SOH; memcpy(buf + p, seg, L); p += L; wrote = 1; }
@@ -2867,10 +2867,10 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (!strcmp(fn, "__rk_arr_pick") && nargs >= 2) {
         char scratch[64]; const char *cs = to_cstring(args[0], scratch, sizeof scratch); if (!cs) cs = "";
         size_t tot = strlen(cs); int nsel = nargs - 1;
-        const char **els = rt_ws_alloc((tot + 2) * sizeof(const char *)); size_t *lens = rt_ws_alloc((tot + 2) * sizeof(size_t));
+        const char **els = rt_pinned_alloc((tot + 2) * sizeof(const char *)); size_t *lens = rt_pinned_alloc((tot + 2) * sizeof(size_t));
         int nel = 0; const char *seg = cs;
         for (;;) { const char *nx = strchr(seg, SOH); els[nel] = seg; lens[nel] = nx ? (size_t)(nx - seg) : strlen(seg); nel++; if (!nx) break; seg = nx + 1; }
-        char *buf = rt_ws_alloc((tot + 2) * (size_t)nsel + 2); size_t p = 0;
+        char *buf = rt_pinned_alloc((tot + 2) * (size_t)nsel + 2); size_t p = 0;
         for (int i = 1; i < nargs; i++) {
             long long k = IS_INT_fn(args[i]) ? (long long)args[i].i : (IS_REAL_fn(args[i]) ? (long long)args[i].r : 0);
             if (i > 1) buf[p++] = SOH;
@@ -2882,20 +2882,20 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         char scratch[64];
         const char *cs = to_cstring(args[0], scratch, sizeof scratch);
         long cnt = IS_INT_fn(args[1]) ? args[1].i : (IS_REAL_fn(args[1]) ? (long)args[1].r : 0);
-        if (cnt < 1) { char *e = rt_ws_alloc(1); e[0] = '\0'; *out = STRVAL(e); return 1; }
-        const char **els = rt_ws_alloc((size_t)64 * sizeof(const char *));
-        size_t *lens = rt_ws_alloc((size_t)64 * sizeof(size_t));
+        if (cnt < 1) { char *e = rt_pinned_alloc(1); e[0] = '\0'; *out = STRVAL(e); return 1; }
+        const char **els = rt_pinned_alloc((size_t)64 * sizeof(const char *));
+        size_t *lens = rt_pinned_alloc((size_t)64 * sizeof(size_t));
         int nel = 0, cap = 64;
         const char *seg = cs;
         for (;;) {
             const char *nx = strchr(seg, SOH);
             size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
-            if (nel < cap) { char *cp = rt_ws_alloc(L + 1); memcpy(cp, seg, L); cp[L] = '\0'; els[nel] = cp; lens[nel] = L; nel++; }
+            if (nel < cap) { char *cp = rt_pinned_alloc(L + 1); memcpy(cp, seg, L); cp[L] = '\0'; els[nel] = cp; lens[nel] = L; nel++; }
             if (!nx) break;
             seg = nx + 1;
         }
         size_t one = 0; for (int i = 0; i < nel; i++) one += lens[i] + 1;
-        size_t total = one * (size_t)cnt; char *buf = rt_ws_alloc(total + 1); size_t p = 0;
+        size_t total = one * (size_t)cnt; char *buf = rt_pinned_alloc(total + 1); size_t p = 0;
         for (long r = 0; r < cnt; r++) for (int i = 0; i < nel; i++) { if (p > 0) buf[p++] = SOH; memcpy(buf + p, els[i], lens[i]); p += lens[i]; }
         buf[p] = '\0';
         *out = STRVAL(buf); return 1;
@@ -2903,14 +2903,14 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (!strcmp(fn, "__rk_hash")) {
         size_t total = 1; char kb[256]; char vb[256];
         for (int i = 0; i + 1 < nargs; i += 2) { total += strlen(to_cstring(args[i], kb, sizeof kb)) + strlen(to_cstring(args[i + 1], vb, sizeof vb)) + 2; }
-        char *buf = rt_ws_alloc(total + 1); size_t p = 0;
+        char *buf = rt_pinned_alloc(total + 1); size_t p = 0;
         for (int i = 0; i + 1 < nargs; i += 2) { const char *k = to_cstring(args[i], kb, sizeof kb); const char *v = to_cstring(args[i + 1], vb, sizeof vb);
             if (p > 0) buf[p++] = '\x01'; size_t kl = strlen(k); memcpy(buf + p, k, kl); p += kl; buf[p++] = '\x02'; size_t vl = strlen(v); memcpy(buf + p, v, vl); p += vl; }
         buf[p] = '\0'; *out = STRVAL(buf); return 1;
     }
     if (!strcmp(fn, "reverse") && nargs >= 1) {
-        const char **els = rt_ws_alloc((size_t)nargs * 64 * sizeof(const char *));
-        size_t *lens = rt_ws_alloc((size_t)nargs * 64 * sizeof(size_t));
+        const char **els = rt_pinned_alloc((size_t)nargs * 64 * sizeof(const char *));
+        size_t *lens = rt_pinned_alloc((size_t)nargs * 64 * sizeof(size_t));
         int nel = 0, cap = nargs * 64;
         for (int i = 0; i < nargs; i++) {
             char scratch[64];
@@ -2919,13 +2919,13 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             for (;;) {
                 const char *nx = strchr(seg, SOH);
                 size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
-                if (nel < cap) { char *cp = rt_ws_alloc(L + 1); memcpy(cp, seg, L); cp[L] = '\0'; els[nel] = cp; lens[nel] = L; nel++; }
+                if (nel < cap) { char *cp = rt_pinned_alloc(L + 1); memcpy(cp, seg, L); cp[L] = '\0'; els[nel] = cp; lens[nel] = L; nel++; }
                 if (!nx) break;
                 seg = nx + 1;
             }
         }
         size_t total = 0; for (int i = 0; i < nel; i++) total += lens[i] + 1;
-        char *buf = rt_ws_alloc(total + 1); size_t p = 0;
+        char *buf = rt_pinned_alloc(total + 1); size_t p = 0;
         for (int i = nel - 1; i >= 0; i--) { if (p > 0) buf[p++] = SOH; memcpy(buf + p, els[i], lens[i]); p += lens[i]; }
         buf[p] = '\0';
         *out = STRVAL(buf); return 1;
@@ -2939,8 +2939,8 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             if (ns && ep > ns) n = v;
             listargs = nargs - 1;
         }
-        const char **els = rt_ws_alloc((size_t)nargs * 64 * sizeof(const char *));
-        size_t *lens = rt_ws_alloc((size_t)nargs * 64 * sizeof(size_t));
+        const char **els = rt_pinned_alloc((size_t)nargs * 64 * sizeof(const char *));
+        size_t *lens = rt_pinned_alloc((size_t)nargs * 64 * sizeof(size_t));
         int nel = 0, cap = nargs * 64;
         for (int i = 0; i < listargs; i++) {
             char scratch[64];
@@ -2949,7 +2949,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             for (;;) {
                 const char *nx = strchr(seg, SOH);
                 size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
-                if (nel < cap) { char *cp = rt_ws_alloc(L + 1); memcpy(cp, seg, L); cp[L] = '\0'; els[nel] = cp; lens[nel] = L; nel++; }
+                if (nel < cap) { char *cp = rt_pinned_alloc(L + 1); memcpy(cp, seg, L); cp[L] = '\0'; els[nel] = cp; lens[nel] = L; nel++; }
                 if (!nx) break;
                 seg = nx + 1;
             }
@@ -2959,14 +2959,14 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (is_tail) { lo = (int)(nel - n); if (lo < 0) lo = 0; hi = nel; }
         else         { lo = 0; hi = (int)(n < nel ? n : nel); }
         size_t total = 0; for (int i = lo; i < hi; i++) total += lens[i] + 1;
-        char *buf = rt_ws_alloc(total + 1); size_t p = 0;
+        char *buf = rt_pinned_alloc(total + 1); size_t p = 0;
         for (int i = lo; i < hi; i++) { if (p > 0) buf[p++] = SOH; memcpy(buf + p, els[i], lens[i]); p += lens[i]; }
         buf[p] = '\0';
         *out = STRVAL(buf); return 1;
     }
     if (!strcmp(fn, "unique") && nargs >= 1) {
-        const char **els = rt_ws_alloc((size_t)nargs * 64 * sizeof(const char *));
-        size_t *lens = rt_ws_alloc((size_t)nargs * 64 * sizeof(size_t));
+        const char **els = rt_pinned_alloc((size_t)nargs * 64 * sizeof(const char *));
+        size_t *lens = rt_pinned_alloc((size_t)nargs * 64 * sizeof(size_t));
         int nel = 0, cap = nargs * 64;
         for (int i = 0; i < nargs; i++) {
             char scratch[64];
@@ -2977,20 +2977,20 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
                 size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
                 int dup = 0;
                 for (int j = 0; j < nel; j++) if (lens[j] == L && memcmp(els[j], seg, L) == 0) { dup = 1; break; }
-                if (!dup && nel < cap) { char *cp = rt_ws_alloc(L + 1); memcpy(cp, seg, L); cp[L] = '\0'; els[nel] = cp; lens[nel] = L; nel++; }
+                if (!dup && nel < cap) { char *cp = rt_pinned_alloc(L + 1); memcpy(cp, seg, L); cp[L] = '\0'; els[nel] = cp; lens[nel] = L; nel++; }
                 if (!nx) break;
                 seg = nx + 1;
             }
         }
         size_t total = 0; for (int i = 0; i < nel; i++) total += lens[i] + 1;
-        char *buf = rt_ws_alloc(total + 1); size_t p = 0;
+        char *buf = rt_pinned_alloc(total + 1); size_t p = 0;
         for (int i = 0; i < nel; i++) { if (p > 0) buf[p++] = SOH; memcpy(buf + p, els[i], lens[i]); p += lens[i]; }
         buf[p] = '\0';
         *out = STRVAL(buf); return 1;
     }
     if (!strcmp(fn, "__rk_arr_sort") && nargs >= 1) {
-        const char **els = rt_ws_alloc((size_t)nargs * 64 * sizeof(const char *));
-        size_t *lens = rt_ws_alloc((size_t)nargs * 64 * sizeof(size_t));
+        const char **els = rt_pinned_alloc((size_t)nargs * 64 * sizeof(const char *));
+        size_t *lens = rt_pinned_alloc((size_t)nargs * 64 * sizeof(size_t));
         int nel = 0, cap = nargs * 64;
         for (int i = 0; i < nargs; i++) {
             char scratch[64];
@@ -2999,7 +2999,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             for (;;) {
                 const char *nx = strchr(seg, SOH);
                 size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
-                if (nel < cap) { char *cp = rt_ws_alloc(L + 1); memcpy(cp, seg, L); cp[L] = '\0'; els[nel] = cp; lens[nel] = L; nel++; }
+                if (nel < cap) { char *cp = rt_pinned_alloc(L + 1); memcpy(cp, seg, L); cp[L] = '\0'; els[nel] = cp; lens[nel] = L; nel++; }
                 if (!nx) break;
                 seg = nx + 1;
             }
@@ -3017,7 +3017,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             els[b + 1] = keys; lens[b + 1] = keyl;
         }
         size_t total = 0; for (int i = 0; i < nel; i++) total += lens[i] + 1;
-        char *buf = rt_ws_alloc(total + 1); size_t p = 0;
+        char *buf = rt_pinned_alloc(total + 1); size_t p = 0;
         for (int i = 0; i < nel; i++) { if (p > 0) buf[p++] = SOH; memcpy(buf + p, els[i], lens[i]); p += lens[i]; }
         buf[p] = '\0';
         *out = STRVAL(buf); return 1;
@@ -3038,13 +3038,13 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
                 if (!have) take = 1;
                 else if (isn && best_num) take = want_max ? (v > bestn) : (v < bestn);
                 else { int c = strcmp(eb, best ? best : ""); take = want_max ? (c > 0) : (c < 0); }
-                if (take) { char *cp = rt_ws_alloc(cl + 1); memcpy(cp, eb, cl); cp[cl] = '\0'; best = cp; bestl = cl; bestn = v; best_num = isn; have = 1; }
+                if (take) { char *cp = rt_pinned_alloc(cl + 1); memcpy(cp, eb, cl); cp[cl] = '\0'; best = cp; bestl = cl; bestn = v; best_num = isn; have = 1; }
                 if (!nx) break;
                 seg = nx + 1;
             }
         }
         if (!have) { *out = NULVCL; return 1; }
-        *out = best_num ? INTVAL(bestn) : STRVAL(rt_ws_strdup_c(best)); return 1;
+        *out = best_num ? INTVAL(bestn) : STRVAL(rt_heap_strdup_c(best)); return 1;
     }
     if (!strcmp(fn, "__rk_arr_first") && nargs >= 1) {
         char scratch[64];
@@ -3052,21 +3052,21 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         const char *nx = strchr(cs, SOH);
         size_t L = nx ? (size_t)(nx - cs) : strlen(cs);
         if (L == 0 && !nx && (!cs || !*cs)) { *out = NULVCL; return 1; }
-        char *cp = rt_ws_alloc(L + 1); memcpy(cp, cs, L); cp[L] = '\0';
+        char *cp = rt_pinned_alloc(L + 1); memcpy(cp, cs, L); cp[L] = '\0';
         char *ep; long long v = strtoll(cp, &ep, 10);
         *out = (*ep == '\0' && ep != cp) ? INTVAL(v) : STRVAL(cp); return 1;
     }
     if (!strcmp(fn, "__rk_arr_values") && nargs >= 1) {
         char scratch[64];
         const char *cs = to_cstring(args[0], scratch, sizeof scratch);
-        *out = STRVAL(rt_ws_strdup_c(cs ? cs : "")); return 1;
+        *out = STRVAL(rt_heap_strdup_c(cs ? cs : "")); return 1;
     }
     if (!strcmp(fn, "__rk_arr_keys") && nargs >= 1) {
         char scratch[64];
         const char *cs = to_cstring(args[0], scratch, sizeof scratch);
-        if (!cs || !*cs) { *out = STRVAL(rt_ws_strdup_c("")); return 1; }
+        if (!cs || !*cs) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
         int nel = 1; for (const char *p = cs; *p; p++) if (*p == SOH) nel++;
-        char *buf = rt_ws_alloc((size_t)nel * 24 + 1); int p = 0;
+        char *buf = rt_pinned_alloc((size_t)nel * 24 + 1); int p = 0;
         for (int i = 0; i < nel; i++) { if (i) buf[p++] = SOH; char nb[24]; int L = snprintf(nb, sizeof nb, "%d", i); memcpy(buf + p, nb, (size_t)L); p += L; }
         buf[p] = '\0'; *out = STRVAL(buf); return 1;
     }
@@ -3110,11 +3110,11 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "__rk_reduce_cat") && nargs >= 1) {
         char scratch[64]; const char *cs = to_cstring(args[0], scratch, sizeof scratch); if (!cs) cs = "";
-        if (*cs == '\0') { *out = STRVAL(rt_ws_strdup_c("")); return 1; }
-        char *buf = rt_ws_strdup(""); size_t blen = 0; const char *seg = cs;
+        if (*cs == '\0') { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
+        char *buf = rt_pinned_strdup(""); size_t blen = 0; const char *seg = cs;
         for (;;) {
             const char *nx = strchr(seg, SOH); size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
-            char *no = rt_ws_alloc(blen + L + 1); memcpy(no, buf, blen); memcpy(no + blen, seg, L); no[blen + L] = '\0';
+            char *no = rt_pinned_alloc(blen + L + 1); memcpy(no, buf, blen); memcpy(no + blen, seg, L); no[blen + L] = '\0';
             buf = no; blen += L;
             if (!nx) break; seg = nx + 1;
         }
@@ -3131,15 +3131,15 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             char *ep; long long v = strtoll(eb, &ep, 10); int isn = (*ep == '\0' && ep != eb);
             int take; if (!have) take = 1; else if (isn && best_num) take = want_max ? (v > bestn) : (v < bestn);
             else { int c = strcmp(eb, best ? best : ""); take = want_max ? (c > 0) : (c < 0); }
-            if (take) { char *cp = rt_ws_alloc(cl + 1); memcpy(cp, eb, cl); cp[cl] = '\0'; best = cp; bestn = v; best_num = isn; have = 1; }
+            if (take) { char *cp = rt_pinned_alloc(cl + 1); memcpy(cp, eb, cl); cp[cl] = '\0'; best = cp; bestn = v; best_num = isn; have = 1; }
             if (!nx) break; seg = nx + 1;
         }
-        *out = best_num ? INTVAL(bestn) : STRVAL(rt_ws_strdup_c(best ? best : "")); return 1;
+        *out = best_num ? INTVAL(bestn) : STRVAL(rt_heap_strdup_c(best ? best : "")); return 1;
     }
     if (!strcmp(fn, "join") && nargs >= 1) {
         char sb[64]; const char *sep = to_cstring(args[0], sb, sizeof sb);
-        char *sepd = rt_ws_strdup(sep ? sep : ""); size_t seplen = strlen(sepd);
-        char *buf = rt_ws_strdup(""); size_t blen = 0; int first = 1;
+        char *sepd = rt_pinned_strdup(sep ? sep : ""); size_t seplen = strlen(sepd);
+        char *buf = rt_pinned_strdup(""); size_t blen = 0; int first = 1;
         for (int i = 1; i < nargs; i++) {
             char scratch[64];
             const char *cs = to_cstring(args[i], scratch, sizeof scratch);
@@ -3148,7 +3148,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
                 const char *nx = strchr(seg, SOH);
                 size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
                 size_t add = (first ? 0 : seplen) + L;
-                char *no = rt_ws_alloc(blen + add + 1);
+                char *no = rt_pinned_alloc(blen + add + 1);
                 memcpy(no, buf, blen); size_t p = blen;
                 if (!first) { memcpy(no + p, sepd, seplen); p += seplen; }
                 memcpy(no + p, seg, L); p += L; no[p] = '\0';
@@ -3161,10 +3161,10 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "arr_make") && nargs == 1) {
         long long hi = IS_INT_fn(args[0]) ? args[0].i : 0; long long n = hi + 1; if (n < 1) n = 1;
-        ARBLK_t *b = (ARBLK_t *) rt_ws_alloc_tag(sizeof(ARBLK_t), HB_ARR); b->id = rt_agg_serial_list(); b->dumpno = rt_sno_dumpno_next(); b->lo = 0; b->hi = (int) hi;
+        ARBLK_t *b = (ARBLK_t *) rt_pinned_alloc_tag(sizeof(ARBLK_t), HB_ARR); b->id = rt_agg_serial_list(); b->dumpno = rt_sno_dumpno_next(); b->lo = 0; b->hi = (int) hi;
         b->ndim = 1;
         b->ndim = 1;
-        b->lo2 = 0; b->hi2 = 0; b->proto_bare = 0; b->data = (DESCR_t *) rt_ws_alloc(sizeof(DESCR_t) * (size_t) n); for (long long k = 0; k < n; k++) b->data[k] = INTVAL(0); DESCR_t d; d.v = DT_A;
+        b->lo2 = 0; b->hi2 = 0; b->proto_bare = 0; b->data = (DESCR_t *) rt_pinned_alloc(sizeof(DESCR_t) * (size_t) n); for (long long k = 0; k < n; k++) b->data[k] = INTVAL(0); DESCR_t d; d.v = DT_A;
         d.slen = 0; d.arr = b; *out = d; return 1;
     }
     if (!strcmp(fn, "arr_get") && nargs == 2) {
@@ -3202,7 +3202,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             if (start + ll > slen) ll = slen - start;
             len = ll;
         }
-        char *o = rt_ws_alloc((size_t)len + 1);
+        char *o = rt_pinned_alloc((size_t)len + 1);
         memcpy(o, s + start, (size_t)len); o[len] = '\0';
         *out = STRVAL(o); return 1;
     }
@@ -3229,13 +3229,13 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if ((!strcmp(fn, "uc") || !strcmp(fn, "str_uc")) && nargs == 1) {
         const char *s = VARVAL_fn(args[0]); if (!s) s = "";
-        size_t n = strlen(s); char *o = rt_ws_alloc(n + 1);
+        size_t n = strlen(s); char *o = rt_pinned_alloc(n + 1);
         for (size_t i = 0; i < n; i++) o[i] = (char)((s[i] >= 'a' && s[i] <= 'z') ? s[i] - 32 : s[i]);
         o[n] = '\0'; *out = STRVAL(o); return 1;
     }
     if ((!strcmp(fn, "lc") || !strcmp(fn, "str_lc")) && nargs == 1) {
         const char *s = VARVAL_fn(args[0]); if (!s) s = "";
-        size_t n = strlen(s); char *o = rt_ws_alloc(n + 1);
+        size_t n = strlen(s); char *o = rt_pinned_alloc(n + 1);
         for (size_t i = 0; i < n; i++) o[i] = (char)((s[i] >= 'A' && s[i] <= 'Z') ? s[i] + 32 : s[i]);
         o[n] = '\0'; *out = STRVAL(o); return 1;
     }
@@ -3248,7 +3248,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         while (*s == ' ' || *s == '\t' || *s == '\n' || *s == '\r') s++;
         size_t n = strlen(s);
         while (n > 0 && (s[n-1] == ' ' || s[n-1] == '\t' || s[n-1] == '\n' || s[n-1] == '\r')) n--;
-        char *o = rt_ws_alloc(n + 1); memcpy(o, s, n); o[n] = '\0';
+        char *o = rt_pinned_alloc(n + 1); memcpy(o, s, n); o[n] = '\0';
         *out = STRVAL(o); return 1;
     }
     if ((!strcmp(fn, "sprintf") || !strcmp(fn, "__rk_sprintf")) && nargs >= 1) {
@@ -3262,14 +3262,14 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         fwrite(r, 1, rl, stdout); *out = INTVAL(1); return 1;
     }
     if (!strcmp(fn, "array_sort") && nargs == 1) {
-        const char *as = VARVAL_fn(args[0]); if (!as || !*as) { *out = STRVAL(rt_ws_strdup_c("")); return 1; }
+        const char *as = VARVAL_fn(args[0]); if (!as || !*as) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
         int cnt = 1; for (const char *p = as; *p; p++) if (*p == SOH) cnt++;
-        char **elems = rt_ws_alloc((size_t)cnt * sizeof(char*));
+        char **elems = rt_pinned_alloc((size_t)cnt * sizeof(char*));
         int idx = 0; const char *seg = as;
         do {
             const char *nx = strchr(seg, SOH);
             size_t elen = nx ? (size_t)(nx - seg) : strlen(seg);
-            char *el = rt_ws_alloc(elen + 1); memcpy(el, seg, elen); el[elen] = '\0';
+            char *el = rt_pinned_alloc(elen + 1); memcpy(el, seg, elen); el[elen] = '\0';
             elems[idx++] = el;
             seg = nx ? nx + 1 : NULL;
         } while (seg && idx < cnt);
@@ -3292,7 +3292,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             }
         }
         size_t total = 0; for (int i = 0; i < cnt; i++) total += strlen(elems[i]) + 1;
-        char *o = rt_ws_alloc(total + 1); o[0] = '\0';
+        char *o = rt_pinned_alloc(total + 1); o[0] = '\0';
         for (int i = 0; i < cnt; i++) {
             if (i) { size_t ol = strlen(o); o[ol] = SOH; o[ol+1] = '\0'; }
             strcat(o, elems[i]);
@@ -3302,26 +3302,26 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (!strcmp(fn, "array_reverse") && nargs == 1) {
         if (args[0].v == DT_A && args[0].arr) {
             ARBLK_t *b = (ARBLK_t *) args[0].arr; int n = b->hi - b->lo + 1; if (n < 0) n = 0;
-            ARBLK_t *r = (ARBLK_t *) rt_ws_alloc_tag(sizeof(ARBLK_t), HB_ARR);
+            ARBLK_t *r = (ARBLK_t *) rt_pinned_alloc_tag(sizeof(ARBLK_t), HB_ARR);
             r->id = rt_agg_serial_list(); r->dumpno = rt_sno_dumpno_next(); r->lo = b->lo; r->hi = b->hi; r->ndim = 1; r->lo2 = 0; r->hi2 = 0; r->proto_bare = 0;
-            r->data = (DESCR_t *) rt_ws_alloc(sizeof(DESCR_t) * (size_t) (n ? n : 1));
+            r->data = (DESCR_t *) rt_pinned_alloc(sizeof(DESCR_t) * (size_t) (n ? n : 1));
             for (int i = 0; i < n; i++) r->data[i] = b->data[n - 1 - i];
             DESCR_t d; d.v = DT_A; d.slen = 0; d.arr = r; *out = d; return 1;
         }
         const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
         if (strchr(cur, SOH)) {
             int cnt = 1; for (const char *p = cur; *p; p++) if (*p == SOH) cnt++;
-            char **elems = rt_ws_alloc((size_t)cnt * sizeof(char*));
+            char **elems = rt_pinned_alloc((size_t)cnt * sizeof(char*));
             int idx = 0; const char *seg = cur;
             do {
                 const char *nx = strchr(seg, SOH);
                 size_t elen = nx ? (size_t)(nx - seg) : strlen(seg);
-                char *el = rt_ws_alloc(elen + 1); memcpy(el, seg, elen); el[elen] = '\0';
+                char *el = rt_pinned_alloc(elen + 1); memcpy(el, seg, elen); el[elen] = '\0';
                 elems[idx++] = el;
                 seg = nx ? nx + 1 : NULL;
             } while (seg && idx < cnt);
             size_t total = 0; for (int i = 0; i < cnt; i++) total += strlen(elems[i]) + 1;
-            char *o = rt_ws_alloc(total + 1); o[0] = '\0';
+            char *o = rt_pinned_alloc(total + 1); o[0] = '\0';
             for (int i = 0; i < cnt; i++) {
                 if (i) { size_t ol = strlen(o); o[ol] = SOH; o[ol+1] = '\0'; }
                 strcat(o, elems[cnt - 1 - i]);
@@ -3371,17 +3371,17 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (!strcmp(fn, "exc_clear") && nargs == 0) {
         extern char g_script_exception[512];
         g_script_exception[0] = '\0';
-        *out = STRVAL(rt_ws_strdup_c("")); return 1;
+        *out = STRVAL(rt_heap_strdup_c("")); return 1;
     }
     if (!strcmp(fn, "try_enter") && nargs == 0) {
         extern char g_script_exception[512]; extern int g_script_try_depth;
         g_script_try_depth++; g_script_exception[0] = '\0';
-        *out = STRVAL(rt_ws_strdup_c("")); return 1;
+        *out = STRVAL(rt_heap_strdup_c("")); return 1;
     }
     if (!strcmp(fn, "try_exit") && nargs == 0) {
         extern int g_script_try_depth;
         if (g_script_try_depth > 0) g_script_try_depth--;
-        *out = STRVAL(rt_ws_strdup_c("")); return 1;
+        *out = STRVAL(rt_heap_strdup_c("")); return 1;
     }
     if (!strcmp(fn, "exc_check") && nargs == 0) {
         extern char g_script_exception[512];
@@ -3390,7 +3390,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "exc_get") && nargs == 0) {
         extern char g_script_exception[512];
-        *out = STRVAL(rt_ws_strdup_c(g_script_exception)); return 1;
+        *out = STRVAL(rt_heap_strdup_c(g_script_exception)); return 1;
     }
     if (!strcmp(fn, "fh_capture") && nargs == 1) {
         extern void fh_ensure_init(void);
@@ -3446,12 +3446,12 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             fh_ensure_init();
             fp = fh_get((int)args[0].i);
         } else {
-            const char *path = VARVAL_fn(args[0]); if (!path || !*path) { *out = STRVAL(rt_ws_strdup_c("")); return 1; }
+            const char *path = VARVAL_fn(args[0]); if (!path || !*path) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
             fp = fopen(path, "r"); need_close = 1;
         }
-        if (!fp) { *out = STRVAL(rt_ws_strdup_c("")); return 1; }
+        if (!fp) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
         fseek(fp, 0, SEEK_END); long sz = ftell(fp); rewind(fp);
-        char *buf = rt_ws_alloc(sz + 1);
+        char *buf = rt_pinned_alloc(sz + 1);
         size_t nr = fread(buf, 1, (size_t)sz, fp); buf[nr] = '\0';
         if (need_close) fclose(fp);
         *out = STRVAL(buf); return 1;
@@ -3464,17 +3464,17 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             fh_ensure_init();
             fp = fh_get((int)args[0].i);
         } else {
-            const char *path = VARVAL_fn(args[0]); if (!path || !*path) { *out = STRVAL(rt_ws_strdup_c("")); return 1; }
+            const char *path = VARVAL_fn(args[0]); if (!path || !*path) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
             fp = fopen(path, "r"); need_close = 1;
         }
-        if (!fp) { *out = STRVAL(rt_ws_strdup_c("")); return 1; }
-        char *acc = rt_ws_alloc(65536); acc[0] = '\0'; size_t cap = 65536, used = 0; int first = 1;
+        if (!fp) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
+        char *acc = rt_pinned_alloc(65536); acc[0] = '\0'; size_t cap = 65536, used = 0; int first = 1;
         char line[4096];
         while (fgets(line, sizeof line, fp)) {
             size_t ll = strlen(line);
             while (ll > 0 && (line[ll-1] == '\n' || line[ll-1] == '\r')) line[--ll] = '\0';
             size_t need = used + ll + 2;
-            if (need > cap) { cap = need * 2; char *nb = rt_ws_alloc(cap); memcpy(nb, acc, used); acc = nb; }
+            if (need > cap) { cap = need * 2; char *nb = rt_pinned_alloc(cap); memcpy(nb, acc, used); acc = nb; }
             if (!first) { acc[used++] = '\x01'; }
             memcpy(acc + used, line, ll); used += ll; acc[used] = '\0'; first = 0;
         }
@@ -3585,24 +3585,24 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             const char *mm = mname0 + 1; const char *cn = NULL;
             if (args[0].v == DT_DATA && args[0].u) { DATINST_t *di = (DATINST_t *)args[0].u; cn = (di && di->type) ? di->type->name : NULL; }
             else { cn = VARVAL_fn(args[0]); if (cn && !dat_find_type(cn)) cn = NULL; }
-            if (cn && !strcmp(mm, "name")) { *out = STRVAL(rt_ws_strdup_c(cn)); return 1; }
+            if (cn && !strcmp(mm, "name")) { *out = STRVAL(rt_heap_strdup_c(cn)); return 1; }
             if (cn && !strcmp(mm, "parents")) {
                 extern int dat_mro(const char *name, const char **out, int max); const char *mro[64]; int mn = dat_mro(cn, mro, 64);
                 char buf[1024]; int pos = 0; buf[0] = 0;
                 for (int i = 1; i < mn; i++) { if (!mro[i]) continue; pos += snprintf(buf + pos, (int)sizeof buf - pos, "%s%s", pos ? " " : "", mro[i]); }
-                *out = STRVAL(rt_ws_strdup_c(buf)); return 1;
+                *out = STRVAL(rt_heap_strdup_c(buf)); return 1;
             }
             if (cn && !strcmp(mm, "methods")) {
                 extern int dat_methods(const char *name, const char **out, int max); const char *ms[256]; int mn = dat_methods(cn, ms, 256);
                 char buf[2048]; int pos = 0; buf[0] = 0;
                 for (int i = 0; i < mn; i++) { if (!ms[i]) continue; pos += snprintf(buf + pos, (int)sizeof buf - pos, "%s%s", pos ? " " : "", ms[i]); }
-                *out = STRVAL(rt_ws_strdup_c(buf)); return 1;
+                *out = STRVAL(rt_heap_strdup_c(buf)); return 1;
             }
             if (cn && !strcmp(mm, "attributes")) {
                 extern int dat_attributes(const char *name, const char **out, int max); const char *as[256]; int an = dat_attributes(cn, as, 256);
                 char buf[2048]; int pos = 0; buf[0] = 0;
                 for (int i = 0; i < an; i++) { if (!as[i]) continue; pos += snprintf(buf + pos, (int)sizeof buf - pos, "%s%s", pos ? " " : "", as[i]); }
-                *out = STRVAL(rt_ws_strdup_c(buf)); return 1;
+                *out = STRVAL(rt_heap_strdup_c(buf)); return 1;
             }
             *out = FAILDESCR; return 1;
         }
@@ -3610,7 +3610,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             const char *cn = NULL;
             if (args[0].v == DT_DATA && args[0].u) { DATINST_t *di = (DATINST_t *)args[0].u; cn = (di && di->type) ? di->type->name : NULL; }
             else { cn = VARVAL_fn(args[0]); if (cn && !dat_find_type(cn)) cn = NULL; }
-            if (cn) { *out = STRVAL(rt_ws_strdup_c(cn)); return 1; }
+            if (cn) { *out = STRVAL(rt_heap_strdup_c(cn)); return 1; }
             *out = FAILDESCR; return 1;
         }
         if (mname0 && (!strcmp(mname0, "isa") || !strcmp(mname0, "does")) && nargs >= 3) {
@@ -3682,7 +3682,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
                                     : !strcmp(mname0, "keys") ? "__rk_arr_keys" : !strcmp(mname0, "values") ? "__rk_arr_values"
                                     : !strcmp(mname0, "end") ? "elems" : mname0;
                     int total = 1 + (nargs - 2);
-                    DESCR_t *fa = rt_ws_alloc((size_t)total * sizeof(DESCR_t));
+                    DESCR_t *fa = rt_pinned_alloc((size_t)total * sizeof(DESCR_t));
                     if (!strcmp(mname0, "join")) { for (int k = 0; k < nargs - 2; k++) fa[k] = args[2 + k]; fa[nargs - 2] = args[0]; }
                     else { fa[0] = args[0]; for (int k = 0; k < nargs - 2; k++) fa[1 + k] = args[2 + k]; }
                     extern int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
@@ -3700,7 +3700,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
                 char tproc[256]; resolve_method_chain(tname, mname0, tproc, sizeof tproc, NULL);
                 if (meth_is_user_proc(tproc)) {
                     int nextra = nargs - 2, total = 1 + nextra;
-                    DESCR_t *ca = rt_ws_alloc((size_t)total * sizeof(DESCR_t));
+                    DESCR_t *ca = rt_pinned_alloc((size_t)total * sizeof(DESCR_t));
                     ca[0] = args[0]; for (int k = 0; k < nextra; k++) ca[1 + k] = args[2 + k];
                     int pi; for (pi = 0; pi < g_stage2.proc_count; pi++)
                         if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, tproc)) break;
@@ -3740,7 +3740,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             if (dat_handles_field(cname, mname, delegfield, sizeof delegfield)) {
                 extern DESCR_t dat_field_get(const char *field, DESCR_t obj);
                 DESCR_t deleg = dat_field_get(delegfield, args[0]);
-                DESCR_t *fwd = rt_ws_alloc((size_t)nargs * sizeof(DESCR_t)); fwd[0] = deleg; fwd[1] = args[1];
+                DESCR_t *fwd = rt_pinned_alloc((size_t)nargs * sizeof(DESCR_t)); fwd[0] = deleg; fwd[1] = args[1];
                 for (int k = 2; k < nargs; k++) fwd[k] = args[k];
                 extern int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
                 return script_try_call_builtin_by_name("meth_call", fwd, nargs, out);
@@ -3748,7 +3748,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         }
         int nextra = nargs - 2;
         int total = 1 + nextra;
-        DESCR_t *callargs = rt_ws_alloc((size_t)total * sizeof(DESCR_t));
+        DESCR_t *callargs = rt_pinned_alloc((size_t)total * sizeof(DESCR_t));
         callargs[0] = args[0];
         for (int k = 0; k < nextra; k++) callargs[1 + k] = args[2 + k];
         int rd = -1;
@@ -3811,9 +3811,9 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         const char *subj = VARVAL_fn(args[0]); if (!subj) subj = "";
         const char *pat  = VARVAL_fn(args[1]); if (!pat)  pat  = "";
         Nfa *nfa = nfa_build(pat);
-        if (!nfa) { *out = STRVAL(rt_ws_strdup_c("")); return 1; }
+        if (!nfa) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
         int slen = (int)strlen(subj);
-        char *acc = rt_ws_alloc((size_t)slen * 4 + 4); acc[0] = '\0';
+        char *acc = rt_pinned_alloc((size_t)slen * 4 + 4); acc[0] = '\0';
         int pos = 0, count = 0;
         while (pos <= slen) {
             Match m; nfa_exec(nfa, subj + pos, &m);
@@ -3844,13 +3844,13 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (!sep2) { *out = args[0]; return 1; }
         int plen = (int)(sep1 - tok);
         int rlen = (int)(sep2 - (sep1 + 1));
-        char *pat  = rt_ws_alloc((size_t)plen + 1); memcpy(pat, tok, (size_t)plen); pat[plen] = '\0';
-        char *repl = rt_ws_alloc((size_t)rlen + 1); memcpy(repl, sep1 + 1, (size_t)rlen); repl[rlen] = '\0';
+        char *pat  = rt_pinned_alloc((size_t)plen + 1); memcpy(pat, tok, (size_t)plen); pat[plen] = '\0';
+        char *repl = rt_pinned_alloc((size_t)rlen + 1); memcpy(repl, sep1 + 1, (size_t)rlen); repl[rlen] = '\0';
         int global = (*(sep2 + 1) == 'g');
         Nfa *nfa = nfa_build(pat);
         if (!nfa) { *out = args[0]; return 1; }
         int slen = (int)strlen(subj);
-        char *res = rt_ws_alloc((size_t)slen * 4 + (size_t)rlen * 8 + 4); res[0] = '\0';
+        char *res = rt_pinned_alloc((size_t)slen * 4 + (size_t)rlen * 8 + 4); res[0] = '\0';
         int pos = 0, did_one = 0;
         while (pos <= slen) {
             Match m; nfa_exec(nfa, subj + pos, &m);
@@ -3875,32 +3875,32 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "re_capture") && nargs == 1) {
         int n = (int)(IS_INT_fn(args[0]) ? args[0].i : 0);
-        if (!g_match.matched || n < 0 || n >= g_match.ngroups || g_match.group_start[n] < 0) { *out = STRVAL(rt_ws_strdup_c("")); return 1; }
+        if (!g_match.matched || n < 0 || n >= g_match.ngroups || g_match.group_start[n] < 0) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
         int gs = g_match.group_start[n], ge = g_match.group_end[n];
-        if (ge < gs) { *out = STRVAL(rt_ws_strdup_c("")); return 1; }
-        int len = ge - gs; char *o = rt_ws_alloc((size_t)len + 1);
+        if (ge < gs) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
+        int len = ge - gs; char *o = rt_pinned_alloc((size_t)len + 1);
         memcpy(o, g_subject + gs, (size_t)len); o[len] = '\0';
         *out = STRVAL(o); return 1;
     }
     if (!strcmp(fn, "re_named_capture") && nargs == 1) {
         const char *name = VARVAL_fn(args[0]); if (!name) name = "";
-        if (!g_match.matched) { *out = STRVAL(rt_ws_strdup_c("")); return 1; }
+        if (!g_match.matched) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
         int g = -1;
         for (int i = 0; i < g_match.ngroups; i++) if (strcmp(g_match.group_name[i], name) == 0) { g = i; break; }
-        if (g < 0 || g_match.group_start[g] < 0) { *out = STRVAL(rt_ws_strdup_c("")); return 1; }
+        if (g < 0 || g_match.group_start[g] < 0) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
         int gs = g_match.group_start[g], ge = g_match.group_end[g];
-        if (ge < gs) { *out = STRVAL(rt_ws_strdup_c("")); return 1; }
-        int len = ge - gs; char *o = rt_ws_alloc((size_t)len + 1);
+        if (ge < gs) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
+        int len = ge - gs; char *o = rt_pinned_alloc((size_t)len + 1);
         memcpy(o, g_subject + gs, (size_t)len); o[len] = '\0';
         *out = STRVAL(o); return 1;
     }
     if (!strcmp(fn, "push_pure") && nargs >= 2) {
         const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
-        char *acc = rt_ws_strdup(cur);
+        char *acc = rt_pinned_strdup(cur);
         for (int i = 1; i < nargs; i++) {
             char rb[64]; const char *rv = to_cstring(args[i], rb, sizeof rb);
             size_t ol = strlen(acc), rl = strlen(rv);
-            char *no = rt_ws_alloc(ol + rl + 2);
+            char *no = rt_pinned_alloc(ol + rl + 2);
             memcpy(no, acc, ol);
             if (ol > 0) { no[ol] = SOH; memcpy(no + ol + 1, rv, rl); no[ol + 1 + rl] = '\0'; }
             else        { memcpy(no, rv, rl); no[rl] = '\0'; }
@@ -3910,11 +3910,11 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "unshift_pure") && nargs >= 2) {
         const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
-        char *acc = rt_ws_strdup("");
+        char *acc = rt_pinned_strdup("");
         for (int i = 1; i < nargs; i++) {
             char rb[64]; const char *rv = to_cstring(args[i], rb, sizeof rb);
             size_t ol = strlen(acc), rl = strlen(rv);
-            char *no = rt_ws_alloc(ol + rl + 2);
+            char *no = rt_pinned_alloc(ol + rl + 2);
             memcpy(no, acc, ol);
             if (ol > 0) { no[ol] = SOH; memcpy(no + ol + 1, rv, rl); no[ol + 1 + rl] = '\0'; }
             else        { memcpy(no, rv, rl); no[rl] = '\0'; }
@@ -3922,7 +3922,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         }
         if (!*cur) { *out = STRVAL(acc); return 1; }
         size_t al = strlen(acc), cl = strlen(cur);
-        char *o = rt_ws_alloc(al + 1 + cl + 1);
+        char *o = rt_pinned_alloc(al + 1 + cl + 1);
         memcpy(o, acc, al); o[al] = SOH; memcpy(o + al + 1, cur, cl); o[al + 1 + cl] = '\0';
         *out = STRVAL(o); return 1;
     }
@@ -3937,9 +3937,9 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         size_t rvl = strlen(rv);
         if (!strchr(cur, SOH)) {
             size_t slen = strlen(cur);
-            if (idx == 0) { char *e0 = rt_ws_alloc(rvl + 1); memcpy(e0, rv, rvl); e0[rvl] = '\0'; *out = STRVAL(e0); return 1; }
+            if (idx == 0) { char *e0 = rt_pinned_alloc(rvl + 1); memcpy(e0, rv, rvl); e0[rvl] = '\0'; *out = STRVAL(e0); return 1; }
             if (idx < 1 || (size_t)idx > slen) { *out = FAILDESCR; return 1; }
-            char *buf = rt_ws_alloc(slen * 5 + rvl + 4);
+            char *buf = rt_pinned_alloc(slen * 5 + rvl + 4);
             size_t pos = 0; buf[pos++] = '0';
             for (size_t j = 1; j <= slen; j++) {
                 buf[pos++] = SOH;
@@ -3959,7 +3959,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         size_t pre = (size_t)(tstart - cur);
         size_t post = tend ? strlen(tend) : 0;
         size_t total = pre + rvl + post;
-        char *o = rt_ws_alloc(total + 1);
+        char *o = rt_pinned_alloc(total + 1);
         memcpy(o, cur, pre);
         memcpy(o + pre, rv, rvl);
         if (tend) memcpy(o + pre + rvl, tend, post);
@@ -3973,18 +3973,18 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = elem_to_descr(pstart, strlen(pstart)); return 1;
     }
     if (!strcmp(fn, "arr_init") && nargs == 1) {
-        const char *cur = VARVAL_fn(args[0]); if (!cur || !*cur) { *out = STRVAL(rt_ws_strdup_c("")); return 1; }
+        const char *cur = VARVAL_fn(args[0]); if (!cur || !*cur) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
         const char *last = strrchr(cur, SOH);
-        if (!last) { *out = STRVAL(rt_ws_strdup_c("")); return 1; }
+        if (!last) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
         size_t nl = (size_t)(last - cur);
-        char *o = rt_ws_alloc(nl + 1); memcpy(o, cur, nl); o[nl] = '\0';
+        char *o = rt_pinned_alloc(nl + 1); memcpy(o, cur, nl); o[nl] = '\0';
         *out = STRVAL(o); return 1;
     }
     if (!strcmp(fn, "arr_tail") && nargs == 1) {
-        const char *cur = VARVAL_fn(args[0]); if (!cur || !*cur) { *out = STRVAL(rt_ws_strdup_c("")); return 1; }
+        const char *cur = VARVAL_fn(args[0]); if (!cur || !*cur) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
         const char *first = strchr(cur, SOH);
-        if (!first) { *out = STRVAL(rt_ws_strdup_c("")); return 1; }
-        *out = STRVAL(rt_ws_strdup_c(first + 1)); return 1;
+        if (!first) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
+        *out = STRVAL(rt_heap_strdup_c(first + 1)); return 1;
     }
     if (!strcmp(fn, "hash_set_pure") && nargs >= 3) {
         extern char *script_hash_set_str(const char *h, const char *key, const char *val);
@@ -4036,7 +4036,7 @@ char *script_hash_set_str(const char *h, const char *key, const char *val) {
         size_t pre  = (size_t)(pair_start - h);
         size_t post = nx ? strlen(nx) : 0;
         size_t total = pre + klen + 1 + vlen + post;
-        char *o = rt_ws_alloc(total + 1);
+        char *o = rt_pinned_alloc(total + 1);
         memcpy(o, h, pre);
         memcpy(o + pre, key, klen);
         o[pre + klen] = STX;
@@ -4047,7 +4047,7 @@ char *script_hash_set_str(const char *h, const char *key, const char *val) {
     size_t hlen = strlen(h);
     int need_sep = (hlen > 0);
     size_t total = hlen + (need_sep ? 1 : 0) + klen + 1 + vlen;
-    char *o = rt_ws_alloc(total + 1);
+    char *o = rt_pinned_alloc(total + 1);
     memcpy(o, h, hlen);
     if (need_sep) o[hlen] = SOH;
     memcpy(o + hlen + (need_sep ? 1 : 0), key, klen);
@@ -4057,10 +4057,10 @@ char *script_hash_set_str(const char *h, const char *key, const char *val) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 char *script_hash_delete_str(const char *h, const char *key) {
-    if (!h || !*h) return rt_ws_strdup("");
+    if (!h || !*h) return rt_pinned_strdup("");
     const char *pair_start = NULL;
     hash_find(h, key, &pair_start);
-    if (!pair_start) return rt_ws_strdup(h);
+    if (!pair_start) return rt_pinned_strdup(h);
     const char *nx = strchr(pair_start, SOH);
     size_t pre = (size_t)(pair_start - h);
     size_t trim_pre = pre;
@@ -4068,7 +4068,7 @@ char *script_hash_delete_str(const char *h, const char *key) {
     else if (nx) { nx++; }
     size_t post = nx ? strlen(nx) : 0;
     size_t total = trim_pre + post;
-    char *o = rt_ws_alloc(total + 1);
+    char *o = rt_pinned_alloc(total + 1);
     if (pre > 0) { memcpy(o, h, trim_pre); if (nx) memcpy(o + trim_pre, nx, post); }
     else if (nx) memcpy(o, nx, post);
     o[total] = '\0'; return o;
@@ -4081,10 +4081,10 @@ int script_try_hash_builtin(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
     if (!strcmp(fn, "hash_get") && nargs >= 2) {
         char kb[64]; const char *key = to_cstring(args[1], kb, sizeof kb);
         const char *vstart = hash_find(h, key, NULL);
-        if (!vstart) { *out = STRVAL(rt_ws_strdup_c("")); return 1; }
+        if (!vstart) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
         const char *vend = strchr(vstart, SOH);
         size_t vlen = vend ? (size_t)(vend - vstart) : strlen(vstart);
-        char *v = rt_ws_alloc(vlen + 1); memcpy(v, vstart, vlen); v[vlen] = '\0';
+        char *v = rt_pinned_alloc(vlen + 1); memcpy(v, vstart, vlen); v[vlen] = '\0';
         char *ep; long iv = strtol(v, &ep, 10);
         if (*ep == '\0' && ep > v) { *out = INTVAL(iv); return 1; }
         *out = STRVAL(v); return 1;
@@ -4094,8 +4094,8 @@ int script_try_hash_builtin(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
         *out = hash_find(h, key, NULL) ? INTVAL(1) : INTVAL(0); return 1;
     }
     if (!strcmp(fn, "hash_keys") && nargs >= 1) {
-        if (!*h) { *out = STRVAL(rt_ws_strdup_c("")); return 1; }
-        char *acc = rt_ws_strdup("");
+        if (!*h) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
+        char *acc = rt_pinned_strdup("");
         const char *seg = h;
         while (*seg) {
             const char *nx   = strchr(seg, SOH);
@@ -4103,9 +4103,9 @@ int script_try_hash_builtin(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
             const char *stx  = (const char *)memchr(seg, STX, plen);
             if (stx) {
                 size_t klen = (size_t)(stx - seg);
-                char *k = rt_ws_alloc(klen + 1); memcpy(k, seg, klen); k[klen] = '\0';
+                char *k = rt_pinned_alloc(klen + 1); memcpy(k, seg, klen); k[klen] = '\0';
                 size_t al = strlen(acc);
-                char *na = rt_ws_alloc(al + (al ? 1 : 0) + klen + 1);
+                char *na = rt_pinned_alloc(al + (al ? 1 : 0) + klen + 1);
                 memcpy(na, acc, al);
                 if (al) na[al++] = SOH;
                 memcpy(na + al, k, klen); na[al + klen] = '\0';
@@ -4117,8 +4117,8 @@ int script_try_hash_builtin(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
         *out = STRVAL(acc); return 1;
     }
     if (!strcmp(fn, "hash_values") && nargs >= 1) {
-        if (!*h) { *out = STRVAL(rt_ws_strdup_c("")); return 1; }
-        char *acc = rt_ws_strdup("");
+        if (!*h) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
+        char *acc = rt_pinned_strdup("");
         const char *seg = h;
         while (*seg) {
             const char *nx   = strchr(seg, SOH);
@@ -4127,9 +4127,9 @@ int script_try_hash_builtin(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
             if (stx) {
                 const char *vstart = stx + 1;
                 size_t vlen = nx ? (size_t)(nx - vstart) : strlen(vstart);
-                char *v = rt_ws_alloc(vlen + 1); memcpy(v, vstart, vlen); v[vlen] = '\0';
+                char *v = rt_pinned_alloc(vlen + 1); memcpy(v, vstart, vlen); v[vlen] = '\0';
                 size_t al = strlen(acc);
-                char *na = rt_ws_alloc(al + (al ? 1 : 0) + vlen + 1);
+                char *na = rt_pinned_alloc(al + (al ? 1 : 0) + vlen + 1);
                 memcpy(na, acc, al);
                 if (al) na[al++] = SOH;
                 memcpy(na + al, v, vlen); na[al + vlen] = '\0';
@@ -4141,8 +4141,8 @@ int script_try_hash_builtin(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
         *out = STRVAL(acc); return 1;
     }
     if (!strcmp(fn, "hash_pairs") && nargs >= 1) {
-        if (!*h) { *out = STRVAL(rt_ws_strdup_c("")); return 1; }
-        char *acc = rt_ws_strdup("");
+        if (!*h) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
+        char *acc = rt_pinned_strdup("");
         const char *seg = h;
         while (*seg) {
             const char *nx   = strchr(seg, SOH);
@@ -4153,11 +4153,11 @@ int script_try_hash_builtin(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
                 const char *vstart = stx + 1;
                 size_t vlen = nx ? (size_t)(nx - vstart) : strlen(vstart);
                 size_t pl = klen + 1 + vlen;
-                char *pair = rt_ws_alloc(pl + 1);
+                char *pair = rt_pinned_alloc(pl + 1);
                 memcpy(pair, seg, klen); pair[klen] = ':';
                 memcpy(pair + klen + 1, vstart, vlen); pair[pl] = '\0';
                 size_t al = strlen(acc);
-                char *na = rt_ws_alloc(al + (al ? 1 : 0) + pl + 1);
+                char *na = rt_pinned_alloc(al + (al ? 1 : 0) + pl + 1);
                 memcpy(na, acc, al);
                 if (al) na[al++] = SOH;
                 memcpy(na + al, pair, pl); na[al + pl] = '\0';
@@ -4169,8 +4169,8 @@ int script_try_hash_builtin(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
         *out = STRVAL(acc); return 1;
     }
     if (!strcmp(fn, "hash_kv") && nargs >= 1) {
-        if (!*h) { *out = STRVAL(rt_ws_strdup_c("")); return 1; }
-        char *acc = rt_ws_strdup("");
+        if (!*h) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
+        char *acc = rt_pinned_strdup("");
         const char *seg = h;
         while (*seg) {
             const char *nx   = strchr(seg, SOH);
@@ -4181,7 +4181,7 @@ int script_try_hash_builtin(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
                 const char *vstart = stx + 1;
                 size_t vlen = nx ? (size_t)(nx - vstart) : strlen(vstart);
                 size_t al = strlen(acc);
-                char *na = rt_ws_alloc(al + (al ? 1 : 0) + klen + 1 + vlen + 1);
+                char *na = rt_pinned_alloc(al + (al ? 1 : 0) + klen + 1 + vlen + 1);
                 memcpy(na, acc, al);
                 if (al) na[al++] = SOH;
                 memcpy(na + al, seg, klen); al += klen; na[al++] = SOH;
@@ -4286,7 +4286,7 @@ DESCR_t rt_call_arr_gen(const char *fn, DESCR_t *args, int nargs, int64_t *resum
 DESCR_t rt_make_list(DESCR_t *args, int nargs) {
     static int list_reg3 = 0;
     if (!list_reg3) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap)"); list_reg3 = 1; }
-    DESCR_t *elems = rt_ws_alloc((nargs>0?nargs:1)*sizeof(DESCR_t));
+    DESCR_t *elems = rt_pinned_alloc((nargs>0?nargs:1)*sizeof(DESCR_t));
     for (int _j=0;_j<nargs;_j++) elems[_j]=args[_j];
     DESCR_t eptr; eptr.v=DT_DATA; eptr.slen=0; eptr.ptr=(void*)elems;
     return DATCON_fn("list", eptr, INTVAL(nargs), STRVAL("list"), INTVAL(nargs));
@@ -4294,7 +4294,7 @@ DESCR_t rt_make_list(DESCR_t *args, int nargs) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_args_list_from(char **v, int n) {
     if (n < 0 || !v) n = 0;
-    DESCR_t *tmp = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t));
+    DESCR_t *tmp = rt_pinned_alloc((n>0?n:1)*sizeof(DESCR_t));
     for (int _i=0;_i<n;_i++) tmp[_i] = STRVAL(v[_i]);
     return rt_make_list(tmp, n);
 }
@@ -4327,7 +4327,7 @@ DESCR_t rt_str_coerce(DESCR_t d);
 DESCR_t c_rt_str_coerce(DESCR_t d) {
     if (!IS_CSET_fn(d)) return d;
     const char *cp; int cl; if (!cset_resolve(d, &cp, &cl) || cl < 0) return d;
-    char *b = rt_ws_alloc((size_t)cl + 1); memcpy(b, cp, (size_t)cl); b[cl] = 0;
+    char *b = rt_pinned_alloc((size_t)cl + 1); memcpy(b, cp, (size_t)cl); b[cl] = 0;
     for (int i = 1; i < cl; i++) { char t = b[i]; int j = i - 1; while (j >= 0 && (unsigned char)b[j] > (unsigned char)t) { b[j+1] = b[j]; j--; } b[j+1] = t; }
     return BSTRVAL(b, cl);
 }
@@ -4468,7 +4468,7 @@ void out_write_str(FILE *dest, const char *s) {
                 int depth = 1; const char *start = p; p++;
                 while (*p && depth > 0) { if (*p == '\x03') depth++; else if (*p == '\x04') depth--; p++; }
                 size_t L = (size_t)(p - start);
-                char *mb = rt_ws_alloc(L + 1); memcpy(mb, start, L); mb[L] = '\0';
+                char *mb = rt_pinned_alloc(L + 1); memcpy(mb, start, L); mb[L] = '\0';
                 out_write_str(dest, mb);
             } else {
                 while (*p && *p != '\x01' && *p != '\x04') { fputc((unsigned char)*p, dest); p++; }
@@ -4624,7 +4624,7 @@ static __attribute__((noinline)) int bn_time(DESCR_t *args, int nargs, DESCR_t *
 static __attribute__((noinline)) int bn_date(DESCR_t *args, int nargs, DESCR_t *out) {
     (void)args; if (nargs > 1) return -1;
     time_t now = time(NULL); struct tm *tm = localtime(&now);
-    char *buf = (char *)rt_ws_alloc_c(64); strftime(buf, 64, "%m/%d/%Y %H:%M:%S", tm);
+    char *buf = (char *)rt_heap_alloc_c(64); strftime(buf, 64, "%m/%d/%Y %H:%M:%S", tm);
     *out = STRVAL(buf); return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4632,7 +4632,7 @@ static __attribute__((noinline)) int bn_trim(DESCR_t *args, int nargs, DESCR_t *
     if (nargs != 1) return -1;
     const char *sv = VARVAL_fn(args[0]); if (!sv) sv = "";
     size_t n = sv_len(args[0], sv); while (n > 0 && sv[n-1] == ' ') n--;
-    char *buf = (char *)rt_ws_alloc_c(n + 1); memcpy(buf, sv, n); buf[n] = 0;
+    char *buf = (char *)rt_heap_alloc_c(n + 1); memcpy(buf, sv, n); buf[n] = 0;
     *out = BSTRVAL(buf, n); return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4642,7 +4642,7 @@ static __attribute__((noinline)) int bn_dupl(DESCR_t *args, int nargs, DESCR_t *
     DESCR_t nn = args[1]; _SNOCOERCE(nn);
     long long k = IS_REAL_fn(nn) ? (long long)nn.r : nn.i;
     if (k < 0) { *out = FAILDESCR; return 1; }
-    size_t sl = sv_len(args[0], sv); char *buf = (char *)rt_ws_alloc_c(sl * (size_t)k + 1);
+    size_t sl = sv_len(args[0], sv); char *buf = (char *)rt_heap_alloc_c(sl * (size_t)k + 1);
     for (long long i = 0; i < k; i++) memcpy(buf + (size_t)i * sl, sv, sl);
     buf[sl * (size_t)k] = 0; *out = BSTRVAL(buf, sl * (size_t)k); return 1;
 }
@@ -4671,7 +4671,7 @@ static __attribute__((noinline)) int bn_replace(DESCR_t *args, int nargs, DESCR_
         else { map = g_rm[s].map; for (int i = 0; i < 256; i++) map[i] = (char)i; for (size_t k = 0; k < fl; k++) map[(unsigned char)fv[k]] = tv[k];
                memcpy(g_rm[s].f, fv, fl); memcpy(g_rm[s].t, tv, fl); g_rm[s].n = (unsigned char)fl; g_rm[s].v = 1; } }
     else { for (int i = 0; i < 256; i++) map[i] = (char)i; for (size_t k = 0; k < fl; k++) map[(unsigned char)fv[k]] = tv[k]; }
-    size_t n = sl; char *buf = (char *)rt_ws_alloc_c(n + 1);
+    size_t n = sl; char *buf = (char *)rt_heap_alloc_c(n + 1);
     rt_translate_bytes(buf, sv, n, map);
     buf[n] = 0; *out = BSTRVAL(buf, n); return 1;
 }
@@ -4767,9 +4767,9 @@ static int bn_type_datatype(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
     else if (av.v==DT_P)     t="PATTERN";
     else if (av.v==DT_SNUL)  t=(!strcmp(fn,"DATATYPE")) ? "string" : "null";
     else t="string";
-    if (!strcmp(fn,"DATATYPE") && declared) { *out = STRVAL(rt_ws_strdup_c(t)); return 1; }
+    if (!strcmp(fn,"DATATYPE") && declared) { *out = STRVAL(rt_heap_strdup_c(t)); return 1; }
     if (!strcmp(fn,"DATATYPE")) { char ub[32]; int ui=0;
-        for (; t[ui] && ui<31; ui++) ub[ui]=(char)((t[ui]>='a'&&t[ui]<='z')?t[ui]-32:t[ui]); ub[ui]=0; *out = STRVAL(rt_ws_strdup_c(ub)); return 1; }
+        for (; t[ui] && ui<31; ui++) ub[ui]=(char)((t[ui]>='a'&&t[ui]<='z')?t[ui]-32:t[ui]); ub[ui]=0; *out = STRVAL(rt_heap_strdup_c(ub)); return 1; }
     *out = STRVAL(t); return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4785,7 +4785,7 @@ static int bn_sno_name(DESCR_t *args, int nargs, DESCR_t *out)
     if (IS_VARREF_fn(args[0])) { *out = args[0]; return 1; }
     sv = rt_sno_indirect_name(args[0]);
     if (!sv || !*sv) { *out = FAILDESCR; return 1; }
-    { DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_N; d.slen = 0; d.s = rt_ws_strdup(sv); *out = d; return 1; }
+    { DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_N; d.slen = 0; d.s = rt_pinned_strdup(sv); *out = d; return 1; }
 }
 long g_bidprof[1024]; int g_bidprof_on = -1;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -5069,7 +5069,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     if ((_bid == BID___pas_chr) && nargs == 1) {
         long long cv = IS_INT_fn(args[0]) ? args[0].i : 0;
         if (cv < 0) cv = 0; if (cv > 255) cv = 255;
-        char *s = (char *)rt_ws_alloc(2); s[0] = (char)(unsigned char)cv; s[1] = '\0';
+        char *s = (char *)rt_pinned_alloc(2); s[0] = (char)(unsigned char)cv; s[1] = '\0';
         *out = (DESCR_t){ .v = DT_S, .s = s }; return 1;
     }
     L_bidjmp_5109: ;
@@ -5083,7 +5083,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         const char *p = csv; long long k = 0;
         while (*p && k < ord) { if (*p == ',') k++; p++; }
         const char *st = p; while (*p && *p != ',') p++;
-        size_t L = (size_t)(p - st); char *s = (char *)rt_ws_alloc(L + 1); memcpy(s, st, L); s[L] = '\0';
+        size_t L = (size_t)(p - st); char *s = (char *)rt_pinned_alloc(L + 1); memcpy(s, st, L); s[L] = '\0';
         *out = (DESCR_t){ .v = DT_S, .s = s }; return 1;
     }
     L_bidjmp_5121: ;
@@ -5277,7 +5277,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (IS_CSET_fn(av)) { *out = rt_str_coerce(av); return 1; }
         if (IS_STR_fn(av)) { *out = av; return 1; }
         if (av.v == DT_BIG) { extern char *rt_big_str(DESCR_t); *out = STRVAL(rt_big_str(av)); return 1; }
-        char *buf = rt_ws_alloc(64);
+        char *buf = rt_pinned_alloc(64);
         if (IS_INT_fn(av))       snprintf(buf,64,"%lld",(long long)av.i);
         else if (IS_REAL_fn(av)) { icon_real_str(av.r,buf,64); }
         else { *out = FAILDESCR; return 1; }
@@ -5319,7 +5319,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         DESCR_t av = args[0];
         const char *raw = VARVAL_fn(av); long long rv;
         int n = (int)(IS_INT_fn(av) ? av.i : (raw && icon_radix_int(raw, &rv)) ? rv : (long long)strtol(raw?raw:"0",NULL,10));
-        char *buf = rt_ws_alloc(2); buf[0]=(char)(n&0xFF); buf[1]='\0';
+        char *buf = rt_pinned_alloc(2); buf[0]=(char)(n&0xFF); buf[1]='\0';
         *out = BSTRVAL(buf, 1); return 1;
     }
     L_bidjmp_5320: ;
@@ -5403,7 +5403,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         int arity = (nargs >= 2) ? (int)to_int(args[1]) : -1;
         if (!pname) { *out = FAILDESCR; return 1; }
         if (arity == 0 && (icn_builtin_is_known(pname) || rt_builtin_is_known(pname) || icn_builtin_arity(pname) != ICN_ARITY_UNKNOWN)) {
-            *out = PROCVAL_BUILTIN(rt_ws_strdup(pname)); return 1;
+            *out = PROCVAL_BUILTIN(rt_pinned_strdup(pname)); return 1;
         }
         if (arity < 0) { DESCR_t gv = NV_GET_fn(pname); if (IS_PROCVAL_fn(gv) && gv.s) { *out = gv; return 1; } }
         for (int i = 0; i < g_stage2.proc_count; i++) {
@@ -5416,20 +5416,20 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         }
         { extern int rt_proc_is_registered(const char *name); extern int rt_proc_nparams(const char *name);
           if (rt_proc_is_registered(pname)) { int np = rt_proc_nparams(pname);
-              if (arity < 0 || np == arity || np <= 0) { extern DESCR_t rt_proc_value(const char *); *out = rt_proc_value(rt_ws_strdup(pname)); return 1; } } }
+              if (arity < 0 || np == arity || np <= 0) { extern DESCR_t rt_proc_value(const char *); *out = rt_proc_value(rt_pinned_strdup(pname)); return 1; } } }
         if (icn_builtin_is_known(pname) || rt_builtin_is_known(pname) || icn_builtin_arity(pname) != ICN_ARITY_UNKNOWN) {
-            DESCR_t bv; bv.v = DT_E; bv.slen = 0xFFFFFFFEu; bv.s = rt_ws_strdup(pname); *out = bv; return 1;
+            DESCR_t bv; bv.v = DT_E; bv.slen = 0xFFFFFFFEu; bv.s = rt_pinned_strdup(pname); *out = bv; return 1;
         }
         { static const char *const op2[] = { "+","-","*","/","%","^","||","|||","++","--","**","<","<=",">",">=","=","~=","<<","<<=",">>",">>=","==","~==","===","~===","...","[:]", 0 };
           static const char *const op1[] = { "+","-","*","/","\\","=","?","~","!","@","^", 0 };
           const char **tbl = (arity == 2 || arity == 3) ? op2 : (arity == 1 || arity < 0) ? op1 : 0;
-          if (tbl) for (int oi = 0; tbl[oi]; oi++) if (!strcmp(tbl[oi], pname)) { DESCR_t bv; bv.v = DT_E; bv.slen = 0xFFFFFFFEu; bv.s = rt_ws_strdup(pname); *out = bv; return 1; } }
+          if (tbl) for (int oi = 0; tbl[oi]; oi++) if (!strcmp(tbl[oi], pname)) { DESCR_t bv; bv.v = DT_E; bv.slen = 0xFFFFFFFEu; bv.s = rt_pinned_strdup(pname); *out = bv; return 1; } }
         *out = FAILDESCR; return 1;
     }
     if ((_bid == BID_image) && nargs == 1) {
         DESCR_t av = args[0];
         if (IS_FAIL_fn(av)) { *out = FAILDESCR; return 1; }
-        char *buf = rt_ws_alloc(256);
+        char *buf = rt_pinned_alloc(256);
         if (av.v == DT_SNUL)     { *out = STRVAL("&null"); return 1; }
         if (av.v == DT_CO)       { extern long scrip_coexpr_serial_of(void *); extern long scrip_coexpr_activations_of(void *); snprintf(buf,128,"co-expression_%ld(%ld)", scrip_coexpr_serial_of(av.p), scrip_coexpr_activations_of(av.p)); *out = STRVAL(buf); return 1; }
         if (av.v == DT_E) {
@@ -5478,7 +5478,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             if (kname) { *out = STRVAL(kname); return 1; }
             int _kl = kw_cset_len(cs);
             int cslen = (_kl >= 0) ? _kl : (int)strlen(cs);
-            char *outs = rt_ws_alloc(cslen * 4 + 3);
+            char *outs = rt_pinned_alloc(cslen * 4 + 3);
             int o = 0;
             outs[o++] = '\'';
             for (int i = 0; i < cslen; i++) {
@@ -5504,7 +5504,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         }
         const char *s=VARVAL_fn(av); if (!s) s = "";
         int sl = (av.slen && av.slen != 0xFFFFFFFFu) ? (int)av.slen : (int)strlen(s);
-        char *outs = rt_ws_alloc(sl*4 + 3);
+        char *outs = rt_pinned_alloc(sl*4 + 3);
         int o = 0;
         outs[o++] = '"';
         for (int i = 0; i < sl; i++) {
@@ -5544,14 +5544,14 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     if ((_bid == BID_repl) && nargs == 2) {
         const char *s=VARVAL_fn(args[0]); if(!s)s="";
         extern int64_t core_icn_to_int_d(DESCR_t); int n=(int)core_icn_to_int_d(args[1]); if(n<0){ core_icn_error(205, args[1]); n=0; }
-        int sl=icn_true_len(args[0], s); char *buf=rt_ws_alloc(sl*n+1); buf[0]='\0';
+        int sl=icn_true_len(args[0], s); char *buf=rt_pinned_alloc(sl*n+1); buf[0]='\0';
         for(int i=0;i<n;i++) memcpy(buf+i*sl,s,sl); buf[sl*n]='\0';
         *out = BSTRVAL(buf, sl*n); return 1;
     }
     L_bidjmp_5531: ;
     if ((_bid == BID_reverse) && nargs == 1) {
         const char *s=VARVAL_fn(args[0]); if(!s)s="";
-        int sl=icn_true_len(args[0], s); char *buf=rt_ws_alloc(sl+1);
+        int sl=icn_true_len(args[0], s); char *buf=rt_pinned_alloc(sl+1);
         for(int i=0;i<sl;i++) buf[i]=s[sl-1-i]; buf[sl]='\0';
         *out = BSTRVAL(buf, sl); return 1;
     }
@@ -5575,7 +5575,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
                 if (ts) to = ts;
             }
         }
-        int sl=icn_true_len(args[0], s); char *buf=rt_ws_alloc(sl+1);
+        int sl=icn_true_len(args[0], s); char *buf=rt_pinned_alloc(sl+1);
         int fl=icn_true_len(nargs >= 2 ? args[1] : NULVCL, from), tl=icn_true_len(nargs >= 3 ? args[2] : NULVCL, to);
         for (int i=0;i<sl;i++) {
             char c=s[i]; int hit=0;
@@ -5593,7 +5593,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (nargs == 2) { DESCR_t cv = args[1]; if (cv.v != DT_SNUL) { const char *cs = VARVAL_fn(cv); if (cs) cset = cs; } }
         int sl=icn_true_len(args[0], s);
         while (sl > 0 && strchr(cset, s[sl-1])) sl--;
-        char *buf=rt_ws_alloc(sl+1); memcpy(buf,s,sl); buf[sl]='\0';
+        char *buf=rt_pinned_alloc(sl+1); memcpy(buf,s,sl); buf[sl]='\0';
         *out = BSTRVAL(buf, sl); return 1;
     }
     L_bidjmp_5576: ;
@@ -5602,7 +5602,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (!name) { *out = FAILDESCR; return 1; }
         const char *val = getenv(name);
         if (!val) { *out = FAILDESCR; return 1; }
-        size_t vl = strlen(val); char *buf = rt_ws_alloc(vl+1); memcpy(buf, val, vl); buf[vl] = '\0';
+        size_t vl = strlen(val); char *buf = rt_pinned_alloc(vl+1); memcpy(buf, val, vl); buf[vl] = '\0';
         *out = STRVAL(buf); return 1;
     }
     L_bidjmp_5584: ;
@@ -5625,7 +5625,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
                 if (fs && *fs) { fill = fs; fl = (int)strlen(fs); }
             }
         }
-        char *buf=rt_ws_alloc(n+1);
+        char *buf=rt_pinned_alloc(n+1);
         int copy = sl < n ? sl : n;
         for (int i = 0; i < copy; i++) buf[i] = s[i];
         int rpad = n - copy;
@@ -5654,7 +5654,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
                 if (fs && *fs) { fill = fs; fl = (int)strlen(fs); }
             }
         }
-        char *buf=rt_ws_alloc(n+1);
+        char *buf=rt_pinned_alloc(n+1);
         int pad = n - sl; if (pad < 0) pad = 0;
         for (int i = 0; i < pad; i++) buf[i] = fill[i % fl];
         int srcoff = (sl > n) ? (sl - n) : 0;
@@ -5681,7 +5681,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
                 if (fs && *fs) { fill = fs; fl = (int)strlen(fs); }
             }
         }
-        char *buf=rt_ws_alloc(n+1);
+        char *buf=rt_pinned_alloc(n+1);
         int lpad = (n - sl) / 2; if (lpad < 0) lpad = 0;
         int srcoff = (sl > n) ? (sl - n + 1) / 2 : 0;
         int copy = sl - srcoff; if (lpad + copy > n) copy = n - lpad;
@@ -5715,7 +5715,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (nstops == 0) { stops[0] = 9; nstops = 1; }
         int gap = (nstops >= 2) ? stops[nstops-1] - stops[nstops-2] : stops[0] - 1;
         if (gap < 1) gap = 1;
-        int cap = 4096; char *buf = rt_ws_alloc(cap); int bi = 0, col = 0; int slen0 = icn_true_len(args[0], s);
+        int cap = 4096; char *buf = rt_pinned_alloc(cap); int bi = 0, col = 0; int slen0 = icn_true_len(args[0], s);
         for (int i = 0; i < slen0; i++) {
             if (s[i] == '\t') {
                 int next = -1;
@@ -5726,15 +5726,15 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
                     next = base + ((beyond / gap) + 1) * gap;
                 }
                 int sp = next - (col+1);
-                while (sp-- > 0) { if (bi>=cap-1){cap*=2;buf=rt_ws_realloc(buf,cap);} buf[bi++]=' '; col++; }
+                while (sp-- > 0) { if (bi>=cap-1){cap*=2;buf=rt_pinned_realloc(buf,cap);} buf[bi++]=' '; col++; }
             } else if (s[i] == '\b') {
                 if (col > 0) col--;
-                if (bi>=cap-1){cap*=2;buf=rt_ws_realloc(buf,cap);} buf[bi++]=s[i];
+                if (bi>=cap-1){cap*=2;buf=rt_pinned_realloc(buf,cap);} buf[bi++]=s[i];
             } else if (s[i] == '\n' || s[i] == '\r') {
                 col = 0;
-                if (bi>=cap-1){cap*=2;buf=rt_ws_realloc(buf,cap);} buf[bi++]=s[i];
+                if (bi>=cap-1){cap*=2;buf=rt_pinned_realloc(buf,cap);} buf[bi++]=s[i];
             } else {
-                if (bi>=cap-1){cap*=2;buf=rt_ws_realloc(buf,cap);} buf[bi++]=s[i];
+                if (bi>=cap-1){cap*=2;buf=rt_pinned_realloc(buf,cap);} buf[bi++]=s[i];
                 if (isprint((unsigned char)s[i])) col++;
             }
         }
@@ -5759,7 +5759,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (nstops == 0) { stops[0] = 9; nstops = 1; }
         int gap = (nstops >= 2) ? stops[nstops-1] - stops[nstops-2] : stops[0] - 1;
         if (gap < 1) gap = 1;
-        int cap = 4096; char *buf = rt_ws_alloc(cap); int bi = 0, col = 1;
+        int cap = 4096; char *buf = rt_pinned_alloc(cap); int bi = 0, col = 1;
         int slen = icn_true_len(args[0], s);
         for (int i = 0; i < slen; ) {
             char c = s[i];
@@ -5771,26 +5771,26 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
                     int do_tab = 1;
                     if (nt == col + 1) { int nt1 = icn_nxttab(nt, stops, nstops, gap); if (nt1 > target) do_tab = 0; }
                     if (do_tab) {
-                        while (nt <= target) { if (bi>=cap-1){cap*=2;buf=rt_ws_realloc(buf,cap);} buf[bi++]='\t'; col = nt; nt = icn_nxttab(col, stops, nstops, gap); }
-                        while (col++ < target) { if (bi>=cap-1){cap*=2;buf=rt_ws_realloc(buf,cap);} buf[bi++]=' '; }
+                        while (nt <= target) { if (bi>=cap-1){cap*=2;buf=rt_pinned_realloc(buf,cap);} buf[bi++]='\t'; col = nt; nt = icn_nxttab(col, stops, nstops, gap); }
+                        while (col++ < target) { if (bi>=cap-1){cap*=2;buf=rt_pinned_realloc(buf,cap);} buf[bi++]=' '; }
                     } else {
-                        while (col < target) { if (bi>=cap-1){cap*=2;buf=rt_ws_realloc(buf,cap);} buf[bi++]=' '; col++; }
+                        while (col < target) { if (bi>=cap-1){cap*=2;buf=rt_pinned_realloc(buf,cap);} buf[bi++]=' '; col++; }
                     }
                 } else {
-                    if (bi>=cap-1){cap*=2;buf=rt_ws_realloc(buf,cap);} buf[bi++]=' ';
+                    if (bi>=cap-1){cap*=2;buf=rt_pinned_realloc(buf,cap);} buf[bi++]=' ';
                 }
                 col = target; i = j;
             } else if (c == '\t') {
                 col = icn_nxttab(col, stops, nstops, gap);
-                if (bi>=cap-1){cap*=2;buf=rt_ws_realloc(buf,cap);} buf[bi++]='\t'; i++;
+                if (bi>=cap-1){cap*=2;buf=rt_pinned_realloc(buf,cap);} buf[bi++]='\t'; i++;
             } else if (c == '\b') {
                 if (col > 1) col--;
-                if (bi>=cap-1){cap*=2;buf=rt_ws_realloc(buf,cap);} buf[bi++]=c; i++;
+                if (bi>=cap-1){cap*=2;buf=rt_pinned_realloc(buf,cap);} buf[bi++]=c; i++;
             } else if (c == '\n' || c == '\r') {
                 col = 1;
-                if (bi>=cap-1){cap*=2;buf=rt_ws_realloc(buf,cap);} buf[bi++]=c; i++;
+                if (bi>=cap-1){cap*=2;buf=rt_pinned_realloc(buf,cap);} buf[bi++]=c; i++;
             } else {
-                if (bi>=cap-1){cap*=2;buf=rt_ws_realloc(buf,cap);} buf[bi++]=c;
+                if (bi>=cap-1){cap*=2;buf=rt_pinned_realloc(buf,cap);} buf[bi++]=c;
                 if (isprint((unsigned char)c)) col++;
                 i++;
             }
@@ -5905,7 +5905,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
                 DESCR_t ea = FIELD_GET_fn(src, "frame_elems");
                 int n = (int)FIELD_GET_fn(src, "frame_size").i;
                 DESCR_t *src_elems = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : NULL;
-                DESCR_t *new_elems = (DESCR_t *)rt_ws_alloc((size_t)(n > 0 ? n : 1) * sizeof(DESCR_t));
+                DESCR_t *new_elems = (DESCR_t *)rt_pinned_alloc((size_t)(n > 0 ? n : 1) * sizeof(DESCR_t));
                 if (src_elems && n > 0) memcpy(new_elems, src_elems, (size_t)n * sizeof(DESCR_t));
                 DESCR_t eptr; eptr.v = DT_DATA; eptr.slen = 0; eptr.ptr = (void *)new_elems;
                 *out = DATCON_fn("list", eptr, INTVAL(n), STRVAL("list"), INTVAL(n));
@@ -5921,12 +5921,12 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (src.v == DT_DATA && src.u && src.u->type) {
             DATBLK_t *rt = src.u->type;
             int nf = rt->nfields > 0 ? rt->nfields : 0;
-            DATINST_t *nu = (DATINST_t *) rt_ws_alloc_tag(sizeof(DATINST_t), HB_DINST);
+            DATINST_t *nu = (DATINST_t *) rt_pinned_alloc_tag(sizeof(DATINST_t), HB_DINST);
             nu->type = rt;
             if (rt->serial_next < 1) rt->serial_next = 1;
             nu->id = rt->serial_next++;
             nu->dumpno = rt_sno_dumpno_next();
-            nu->fields = (DESCR_t *) rt_ws_alloc((size_t)(nf > 0 ? nf : 1) * sizeof(DESCR_t));
+            nu->fields = (DESCR_t *) rt_pinned_alloc((size_t)(nf > 0 ? nf : 1) * sizeof(DESCR_t));
             for (int i = 0; i < nf; i++) nu->fields[i] = src.u->fields[i];
             DESCR_t d = {0}; d.v = DT_DATA; d.slen = 0; d.u = nu;
             *out = d; return 1;
@@ -5952,7 +5952,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         }
         static int list_reg2 = 0;
         if (!list_reg2) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap)"); list_reg2 = 1; }
-        DESCR_t *elems = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t));
+        DESCR_t *elems = rt_pinned_alloc((n>0?n:1)*sizeof(DESCR_t));
         for (int i = 0; i < n; i++) elems[i] = init;
         DESCR_t eptr; eptr.v=DT_DATA; eptr.slen=0; eptr.ptr=(void*)elems;
         *out = DATCON_fn("list", eptr, INTVAL(n), STRVAL("list"), INTVAL(n));
@@ -5976,7 +5976,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         size_t len = (size_t)got;
         if (len > 0 && ln[len-1] == '\n') ln[--len] = '\0';
         if (len > 0 && ln[len-1] == '\r') ln[--len] = '\0';
-        char *r = rt_ws_alloc(len + 1); memcpy(r, ln, len + 1); free(ln);
+        char *r = rt_pinned_alloc(len + 1); memcpy(r, ln, len + 1); free(ln);
         DESCR_t rs; rs.v = DT_S; rs.slen = (uint32_t)len; rs.s = r; *out = rs; return 1;
     }
     L_bidjmp_5883: ;
@@ -5987,7 +5987,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     if ((_bid == BID_exit)) { long long _st = (nargs >= 1 && IS_INT_fn(args[0])) ? (long long)args[0].i : 0; exit((int)_st); }
     if (!strcmp(fn, "chdir") && nargs == 1) { const char *_d = VARVAL_fn(args[0]); if (!_d || chdir(_d) != 0) { *out = FAILDESCR; return 1; } *out = NULVCL; return 1; }
     if (!strcmp(fn, "delay") && nargs >= 1) { long long _ms = IS_INT_fn(args[0]) ? (long long)args[0].i : 0; if (_ms > 0) usleep((useconds_t)(_ms * 1000)); *out = NULVCL; return 1; }
-    if (!strcmp(fn, "getch") || !strcmp(fn, "getche")) { unsigned char _c; ssize_t _n = read(0, &_c, 1); if (_n != 1) { *out = FAILDESCR; return 1; } if (fn[4] == 'e') { fputc(_c, stdout); fflush(stdout); } char *_b = rt_ws_alloc(2); _b[0] = (char)_c; _b[1] = 0; *out = STRVAL(_b); return 1; }
+    if (!strcmp(fn, "getch") || !strcmp(fn, "getche")) { unsigned char _c; ssize_t _n = read(0, &_c, 1); if (_n != 1) { *out = FAILDESCR; return 1; } if (fn[4] == 'e') { fputc(_c, stdout); fflush(stdout); } char *_b = rt_pinned_alloc(2); _b[0] = (char)_c; _b[1] = 0; *out = STRVAL(_b); return 1; }
     if (!strcmp(fn, "kbhit")) { fd_set _r; struct timeval _tv; FD_ZERO(&_r); FD_SET(0, &_r); _tv.tv_sec = 0; _tv.tv_usec = 0; if (select(1, &_r, 0, 0, &_tv) > 0) { *out = NULVCL; return 1; } *out = FAILDESCR; return 1; }
     if (!strcmp(fn, "loadfunc") && nargs >= 2) { extern long g_error; const char *_l = VARVAL_fn(args[0]); void *_h = _l ? dlopen(_l, RTLD_NOW) : 0; void *_f = 0; if (_h) { const char *_fnm = VARVAL_fn(args[1]); _f = _fnm ? dlsym(_h, _fnm) : 0; } if (!_f) { if (g_error != 0) return icn_argtype_raise(216, args[1], out); core_runtime_error(216, "external function not found"); } *out = FAILDESCR; return 1; }
     extern const char *scan_subj;
@@ -5996,10 +5996,10 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     L_bidjmp_5900: ;
     if ((_bid == BID_ICN_SCAN_PUSH) && nargs == 1) {
         const char *s;
-        if (IS_REAL_fn(args[0])) { char _rb[64]; icon_real_str(args[0].r,_rb,sizeof _rb); s = rt_ws_strdup(_rb); }
+        if (IS_REAL_fn(args[0])) { char _rb[64]; icon_real_str(args[0].r,_rb,sizeof _rb); s = rt_pinned_strdup(_rb); }
         else { s = VARVAL_fn(args[0]); if (!s) s = ""; }
         scan_depth++;
-        scan_subj = rt_ws_strdup(s); scan_pos = 1;
+        scan_subj = rt_pinned_strdup(s); scan_pos = 1;
         *out = args[0]; return 1;
     }
     L_bidjmp_5912: ;
@@ -6046,7 +6046,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         int old = scan_pos; scan_pos = target;
         int lo = old < target ? old : target, hi = old < target ? target : old;
         int len = hi - lo;
-        char *buf = rt_ws_alloc(len + 1);
+        char *buf = rt_pinned_alloc(len + 1);
         memcpy(buf, scan_subj + lo - 1, len); buf[len] = '\0';
         *out = STRVAL(buf); return 1;
     }
@@ -6060,7 +6060,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         int old = scan_pos; scan_pos = target;
         int lo = old < target ? old : target, hi = old < target ? target : old;
         int len = hi - lo;
-        char *buf = rt_ws_alloc(len + 1);
+        char *buf = rt_pinned_alloc(len + 1);
         memcpy(buf, scan_subj + lo - 1, len); buf[len] = '\0';
         *out = STRVAL(buf); return 1;
     }
@@ -6229,7 +6229,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             int _nv2 = (nargs > 1) ? nargs - 1 : 1;
             for (int _pi = 0; _pi < _nv2; _pi++) {
                 DESCR_t _vd = (nargs > 1) ? args[1 + _pi] : NULVCL;
-                DESCR_t *_nb=rt_ws_alloc((_n+1)*sizeof(DESCR_t));
+                DESCR_t *_nb=rt_pinned_alloc((_n+1)*sizeof(DESCR_t));
                 _nb[0]=_vd;
                 if(_a&&_n>0) memcpy(_nb+1,_a,_n*sizeof(DESCR_t));
                 _a=_nb; _n++;
@@ -6243,7 +6243,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             int n=(int)FIELD_GET_fn(ld,"frame_size").i;
             DESCR_t ea=FIELD_GET_fn(ld,"frame_elems");
             DESCR_t *old=(ea.v==DT_DATA)?(DESCR_t*)ea.ptr:NULL;
-            DESCR_t *nb=rt_ws_alloc((n+1)*sizeof(DESCR_t));
+            DESCR_t *nb=rt_pinned_alloc((n+1)*sizeof(DESCR_t));
             nb[0]=vd;
             if(old&&n>0) memcpy(nb+1,old,n*sizeof(DESCR_t));
             FIELD_SET_fn(ld,"frame_elems",(DESCR_t){.v=DT_DATA,.ptr=nb});
@@ -6263,7 +6263,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
                 long _c = rt_lv_cap(ld);
                 if(_a && _c>=0 && _n<_c){ _a[_n]=_vd; _n++; rt_lv_set_size(ld,_n); continue; }
                 long _ncap=(_n>0)?(long)_n*2:8; if(_ncap<_n+1)_ncap=_n+1;
-                DESCR_t *_nb=rt_ws_alloc(_ncap*sizeof(DESCR_t));
+                DESCR_t *_nb=rt_pinned_alloc(_ncap*sizeof(DESCR_t));
                 if(_a&&_n>0) memcpy(_nb,_a,_n*sizeof(DESCR_t));
                 _nb[_n]=_vd; _a=_nb; _n++;
                 rt_lv_set_elems(ld,(DESCR_t){.v=DT_DATA,.ptr=_nb}); rt_lv_set_size(ld,_n); rt_lv_set_cap(ld,_ncap); }
@@ -6280,7 +6280,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             long cap=(capd.v==DT_I)?capd.i:-1;
             if(old&&cap>=0&&n<cap){ old[n]=vd; FIELD_SET_fn(ld,"frame_size",INTVAL(n+1)); continue; }
             long ncap=(n>0)?(long)n*2:8; if(ncap<n+1)ncap=n+1;
-            DESCR_t *nb=rt_ws_alloc(ncap*sizeof(DESCR_t));
+            DESCR_t *nb=rt_pinned_alloc(ncap*sizeof(DESCR_t));
             if(old&&n>0) memcpy(nb,old,n*sizeof(DESCR_t));
             nb[n]=vd;
             FIELD_SET_fn(ld,"frame_elems",(DESCR_t){.v=DT_DATA,.ptr=nb});
@@ -6355,23 +6355,23 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (i_mode < 1 || i_mode > 4) i_mode = 1;
         int n = 0;
         { TBPAIR_t *e; TBL_FOREACH(tb, e) n++; }
-        TBPAIR_t **ent = rt_ws_alloc((n>0?n:1)*sizeof(TBPAIR_t*));
+        TBPAIR_t **ent = rt_pinned_alloc((n>0?n:1)*sizeof(TBPAIR_t*));
         { int _k = 0; TBPAIR_t *e; TBL_FOREACH(tb, e) ent[_k++] = e; }
         int by_val = (i_mode % 2 == 0);
-        { TBPAIR_t **_tmp = rt_ws_alloc((n>0?n:1)*sizeof(TBPAIR_t*)); sort_msort_pairs(ent, _tmp, n, by_val); }
+        { TBPAIR_t **_tmp = rt_pinned_alloc((n>0?n:1)*sizeof(TBPAIR_t*)); sort_msort_pairs(ent, _tmp, n, by_val); }
         extern DESCR_t rt_make_list(DESCR_t *a, int nn);
         if (tb->is_set) {
-            DESCR_t *mem = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t));
+            DESCR_t *mem = rt_pinned_alloc((n>0?n:1)*sizeof(DESCR_t));
             for (int _k = 0; _k < n; _k++) mem[_k] = ent[_k]->key_descr;
             *out = rt_make_list(mem, n); return 1;
         }
         if (i_mode >= 3) {
-            DESCR_t *flat = rt_ws_alloc((2*n>0?2*n:1)*sizeof(DESCR_t));
+            DESCR_t *flat = rt_pinned_alloc((2*n>0?2*n:1)*sizeof(DESCR_t));
             for (int _k = 0; _k < n; _k++) { flat[2*_k] = ent[_k]->key_descr; flat[2*_k+1] = ent[_k]->val; }
             *out = rt_make_list(flat, 2*n); return 1;
         }
         DESCR_t outer = rt_make_list(NULL, 0);
-        DESCR_t *pairs = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t));
+        DESCR_t *pairs = rt_pinned_alloc((n>0?n:1)*sizeof(DESCR_t));
         for (int _k = 0; _k < n; _k++) { DESCR_t pv[2] = { ent[_k]->key_descr, ent[_k]->val }; pairs[_k] = rt_make_list(pv, 2); }
         FIELD_SET_fn(outer, "frame_elems", (DESCR_t){.v=DT_DATA,.ptr=pairs});
         FIELD_SET_fn(outer, "frame_size", INTVAL(n));
@@ -6381,18 +6381,18 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     if ((_bid == BID_sortf) && (nargs == 1 || nargs == 2) && args[0].v == DT_T && args[0].tbl && args[0].tbl->is_set) {
         TBBLK_t *tb = args[0].tbl;
         int n = 0; { TBPAIR_t *e; TBL_FOREACH(tb, e) n++; }
-        DESCR_t *mem = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t));
+        DESCR_t *mem = rt_pinned_alloc((n>0?n:1)*sizeof(DESCR_t));
         { int _k = 0; TBPAIR_t *e; TBL_FOREACH(tb, e) mem[_k++] = e->key_descr; }
-        { DESCR_t *_tmp = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t)); sort_msort_descr(mem, _tmp, n, sortf_field_i(args, nargs)); }
+        { DESCR_t *_tmp = rt_pinned_alloc((n>0?n:1)*sizeof(DESCR_t)); sort_msort_descr(mem, _tmp, n, sortf_field_i(args, nargs)); }
         extern DESCR_t rt_make_list(DESCR_t *a, int nn);
         *out = rt_make_list(mem, n); return 1;
     }
     if (((_bid == BID_sortf) || (_bid == BID_sort)) && (nargs == 1 || nargs == 2) && args[0].v == DT_DATA && args[0].u && sort_is_record(args[0])) {
         DATINST_t *di = (DATINST_t *)args[0].u;
         int n = di->type->nfields; if (n < 0) n = 0;
-        DESCR_t *mem = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t));
+        DESCR_t *mem = rt_pinned_alloc((n>0?n:1)*sizeof(DESCR_t));
         for (int _k = 0; _k < n; _k++) mem[_k] = di->fields[_k];
-        { DESCR_t *_tmp = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t)); sort_msort_descr(mem, _tmp, n, (_bid == BID_sortf) ? sortf_field_i(args, nargs) : 0); }
+        { DESCR_t *_tmp = rt_pinned_alloc((n>0?n:1)*sizeof(DESCR_t)); sort_msort_descr(mem, _tmp, n, (_bid == BID_sortf) ? sortf_field_i(args, nargs) : 0); }
         extern DESCR_t rt_make_list(DESCR_t *a, int nn);
         *out = rt_make_list(mem, n); return 1;
     }
@@ -6407,10 +6407,10 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (n<=0) { *out=rt_make_list(NULL,0); return 1; }
         DESCR_t *arr=(ea.v==DT_DATA)?(DESCR_t*)ea.ptr:NULL;
         if(!arr) { *out=rt_make_list(NULL,0); return 1; }
-        DESCR_t *sorted=rt_ws_alloc(n*sizeof(DESCR_t));
+        DESCR_t *sorted=rt_pinned_alloc(n*sizeof(DESCR_t));
         memcpy(sorted,arr,n*sizeof(DESCR_t));
         int field_i=(_bid == BID_sortf)?sortf_field_i(args, nargs):0;
-        { DESCR_t *_tmp = rt_ws_alloc((n>0?n:1)*sizeof(DESCR_t)); sort_msort_descr(sorted, _tmp, n, field_i); }
+        { DESCR_t *_tmp = rt_pinned_alloc((n>0?n:1)*sizeof(DESCR_t)); sort_msort_descr(sorted, _tmp, n, field_i); }
         *out=rt_make_list(sorted,n); return 1;
     }
     L_bidjmp_6322: ;
@@ -6477,7 +6477,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (is_pipe) fh_type[idx] = 'p';
         { extern void fh_set_untranslated(int, int); const char *_us = (nargs == 2 && (args[1].v == DT_S || args[1].v == DT_SNUL)) ? VARVAL_fn(args[1]) : NULL;
           fh_set_untranslated(idx, (_us && icn_open_spec_is_icon(_us)) ? icn_open_untranslated(_us) : 0); }
-        if (idx >= 0 && idx < FH_MAX) fh_name[idx] = rt_ws_strdup(path);
+        if (idx >= 0 && idx < FH_MAX) fh_name[idx] = rt_pinned_strdup(path);
         *out = FHVAL(idx); return 1;
     }
     L_bidjmp_6376: ;
@@ -6543,7 +6543,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             ln[len++] = (char)c;
         }
         if (!any) { free(ln); *out = FAILDESCR; return 1; }
-        char *r = rt_ws_alloc(len + 1); memcpy(r, ln, len); r[len] = '\0'; free(ln);
+        char *r = rt_pinned_alloc(len + 1); memcpy(r, ln, len); r[len] = '\0'; free(ln);
         DESCR_t rs; rs.v = DT_S; rs.slen = (uint32_t)len; rs.s = r; *out = rs; return 1;
     }
     if ((_bid == BID_reads) && nargs >= 1) {
@@ -6551,7 +6551,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (!fp) { *out = FAILDESCR; return 1; }
         int n = (nargs >= 2 && args[1].v != DT_SNUL && !IS_FAIL_fn(args[1])) ? (int)to_int(args[1]) : 1;
         if (n <= 0) { *out = FAILDESCR; return 1; }
-        char *buf = rt_ws_alloc(n + 1);
+        char *buf = rt_pinned_alloc(n + 1);
         int got = (int)fread(buf, 1, (size_t)n, fp);
         if (got <= 0) { *out = FAILDESCR; return 1; }
         buf[got] = '\0';
@@ -6603,29 +6603,29 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     L_bidjmp_6446: ;
     if ((_bid == BID_name) && nargs == 1) {
         DESCR_t a = args[0];
-        if (a.v == DT_N && a.slen == 0 && a.s && *a.s) { *out = STRVAL(rt_ws_strdup_c(a.s)); return 1; }
+        if (a.v == DT_N && a.slen == 0 && a.s && *a.s) { *out = STRVAL(rt_heap_strdup_c(a.s)); return 1; }
         if (IS_NAMETRAP_fn(a) && a.p) {
             VCELL_t *vc = (VCELL_t *)a.p;
-            if (vc->key && *vc->key) { *out = STRVAL(rt_ws_strdup_c(vc->key)); return 1; }
+            if (vc->key && *vc->key) { *out = STRVAL(rt_heap_strdup_c(vc->key)); return 1; }
             if (vc->tbl) {
                 DESCR_t kn; int r2 = try_call_builtin_by_name("image", &vc->key_d, 1, &kn);
                 const char *key = (r2 && kn.v == DT_S && kn.s) ? kn.s : "";
                 char sb[192]; snprintf(sb, sizeof sb, "T[%s]", key);
-                *out = STRVAL(rt_ws_strdup_c(sb)); return 1;
+                *out = STRVAL(rt_heap_strdup_c(sb)); return 1;
             }
             if (vc->cellp && vc->pos > 0) {
                 char sb[64]; snprintf(sb, sizeof sb, "L[%ld]", (long)vc->pos);
-                *out = STRVAL(rt_ws_strdup_c(sb)); return 1;
+                *out = STRVAL(rt_heap_strdup_c(sb)); return 1;
             }
             if (vc->cellp && vc->pos < 0 && vc->sv.u && vc->sv.u->type && vc->sv.u->type->fields && -vc->pos <= vc->sv.u->type->nfields) {
                 char sb[256]; snprintf(sb, sizeof sb, "%s.%s", vc->sv.u->type->name ? vc->sv.u->type->name : "", vc->sv.u->type->fields[-vc->pos - 1] ? vc->sv.u->type->fields[-vc->pos - 1] : "");
-                *out = STRVAL(rt_ws_strdup_c(sb)); return 1;
+                *out = STRVAL(rt_heap_strdup_c(sb)); return 1;
             }
             if (vc->sv.v == DT_N && (vc->sv.slen == 0 || vc->sv.slen == 2) && vc->len > 0) {
                 DESCR_t bn; int r1 = try_call_builtin_by_name("name", &vc->sv, 1, &bn);
                 const char *base = (r1 && bn.v == DT_S && bn.s) ? bn.s : "";
                 char sb[128]; snprintf(sb, sizeof sb, "%s[%ld:%ld]", base, (long)vc->pos, (long)(vc->pos + vc->len));
-                *out = STRVAL(rt_ws_strdup_c(sb)); return 1;
+                *out = STRVAL(rt_heap_strdup_c(sb)); return 1;
             }
             *out = FAILDESCR; return 1;
         }
@@ -6658,7 +6658,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         proto = VARVAL_fn(args[0]); if (!proto || !*proto) { *out = FAILDESCR; return 1; }
         (void)pb;
         DESCR_t r = sno_array_from_proto(proto, init);
-        if (r.v == DT_A && r.arr) ((ARBLK_t *)r.arr)->proto = rt_ws_strdup(proto);
+        if (r.v == DT_A && r.arr) ((ARBLK_t *)r.arr)->proto = rt_pinned_strdup(proto);
         *out = r; return 1;
     }
     L_bidjmp_6479: ;
@@ -6699,7 +6699,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             char *e = NULL; double dv = strtod(sv, &e); if (e && *e == '\0' && e != sv) { *out = REALVAL(dv); return 1; }
             *out = FAILDESCR; return 1;
         }
-        if (!strcmp(tu,"STRING")) { const char *sv = VARVAL_fn(a); *out = STRVAL(rt_ws_strdup_c(sv ? sv : "")); return 1; }
+        if (!strcmp(tu,"STRING")) { const char *sv = VARVAL_fn(a); *out = STRVAL(rt_heap_strdup_c(sv ? sv : "")); return 1; }
         return 0;
     }
     L_bidjmp_6521: ;
@@ -6736,7 +6736,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     L_bidjmp_6540: ;
     if ((_bid == BID_SNOx24MKEXPR) && nargs == 1) {
         const char *nm = VARVAL_fn(args[0]); if (!nm) nm = "";
-        DESCR_t xd; xd.v = DT_X; xd.slen = (uint32_t)strlen(nm); xd.s = rt_ws_strdup(nm);
+        DESCR_t xd; xd.v = DT_X; xd.slen = (uint32_t)strlen(nm); xd.s = rt_pinned_strdup(nm);
         *out = xd; return 1;
     }
     L_bidjmp_6545: ;
@@ -6856,13 +6856,13 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         }
         if (fn[0]=='~' && fn[1]=='\0') {
             const char *s=NULL; int slen=-1;
-            if (IS_INT_fn(a)) { char *nb=rt_ws_alloc(32); snprintf(nb,32,"%lld",(long long)a.i); s=nb; }
-            else if (IS_REAL_fn(a)) { char *nb=rt_ws_alloc(64); icon_real_str(a.r,nb,64); s=nb; }
+            if (IS_INT_fn(a)) { char *nb=rt_pinned_alloc(32); snprintf(nb,32,"%lld",(long long)a.i); s=nb; }
+            else if (IS_REAL_fn(a)) { char *nb=rt_pinned_alloc(64); icon_real_str(a.r,nb,64); s=nb; }
             else { s=VARVAL_fn(a); if (IS_CSET_fn(a)) slen=kw_cset_len(s); }
             if(!s) s="";
             if (slen<0) slen=(int)strlen(s);
             unsigned char in_set[256]={0}; for (int i=0;i<slen;i++) in_set[(unsigned char)s[i]]=1;
-            char *buf=rt_ws_alloc(256); int n=0;
+            char *buf=rt_pinned_alloc(256); int n=0;
             for(int c=1;c<256;c++) if(!in_set[c]) buf[n++]=(char)c; buf[n]='\0';
             *out=STRVAL(buf); return 1;
         }
@@ -6870,7 +6870,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             if (IS_INT_fn(a)) { *out=(a.i>0)?INTVAL((long long)(rand()%(int)a.i)+1):FAILDESCR; return 1; }
             if (IS_REAL_fn(a)) { *out=REALVAL((double)rand()/RAND_MAX*a.r); return 1; }
             const char *s=VARVAL_fn(a);
-            if (s&&*s) { int n=(int)strlen(s); char *ch=rt_ws_alloc(2); ch[0]=s[rand()%n]; ch[1]='\0'; *out=STRVAL(ch); return 1; }
+            if (s&&*s) { int n=(int)strlen(s); char *ch=rt_pinned_alloc(2); ch[0]=s[rand()%n]; ch[1]='\0'; *out=STRVAL(ch); return 1; }
             *out=FAILDESCR; return 1;
         }
     }
@@ -7024,7 +7024,7 @@ static DESCR_t sno_array_from_proto_d(const char *proto, DESCR_t init, int depth
     if (hi < lo - 1) return FAILDESCR;
     ARBLK_t *a = array_new((int)lo, (int)hi);
     if (!a) return FAILDESCR;
-    if (depth > 0) { a->dumpno = 0; rt_sno_dumpno_undo(); } else a->proto = rt_ws_strdup(proto);
+    if (depth > 0) { a->dumpno = 0; rt_sno_dumpno_undo(); } else a->proto = rt_pinned_strdup(proto);
     int n = (int)(hi - lo + 1);
     for (int k = 0; k < n; k++) a->data[k] = rest ? sno_array_from_proto_d(rest, init, depth + 1) : init;
     DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_A; d.slen = 0; d.arr = a;
@@ -7410,13 +7410,13 @@ static tree_t * pl_cell_tree(DESCR_t *c, pl_ctv_t *vt) {
     if (pl_cell_unbound(d)) {
         for (int i = 0; i < vt->n; i++) if (vt->addr[i] == (void *)d) { tree_t *v = ast_node_new(TT_VAR); v->v.sval = vt->nm[i]; return v; }
         { char b[24]; tree_t *v = ast_node_new(TT_VAR); snprintf(b, sizeof b, "_A%d", vt->n);
-          if (vt->n < 256) { vt->addr[vt->n] = (void *)d; vt->nm[vt->n] = rt_ws_strdup_c(b); v->v.sval = vt->nm[vt->n]; vt->n++; } else v->v.sval = rt_ws_strdup_c(b);
+          if (vt->n < 256) { vt->addr[vt->n] = (void *)d; vt->nm[vt->n] = rt_heap_strdup_c(b); v->v.sval = vt->nm[vt->n]; vt->n++; } else v->v.sval = rt_heap_strdup_c(b);
           return v; }
     }
     if ((int)d->v == DT_I) { tree_t *t = ast_node_new(TT_ILIT); t->v.ival = d->i; return t; }
     if ((int)d->v == DT_R) { tree_t *t = ast_node_new(TT_FLIT); t->v.dval = d->r; return t; }
-    if ((int)d->v == DT_A) { tree_t *t = ast_node_new(TT_QLIT); t->v.sval = rt_ws_strdup_c(prolog_atom_name((int)d->i)); return t; }
-    if ((int)d->v == DT_S || (int)d->v == DT_SNUL) { tree_t *t = ast_node_new(TT_QLIT); t->v.sval = rt_ws_strdup_c(d->s ? d->s : ""); return t; }
+    if ((int)d->v == DT_A) { tree_t *t = ast_node_new(TT_QLIT); t->v.sval = rt_heap_strdup_c(prolog_atom_name((int)d->i)); return t; }
+    if ((int)d->v == DT_S || (int)d->v == DT_SNUL) { tree_t *t = ast_node_new(TT_QLIT); t->v.sval = rt_heap_strdup_c(d->s ? d->s : ""); return t; }
     if ((int)d->v == DT_PLREF) {
         int fn = plc_functor((pl_cell_t *)d), ar = pl_arity((pl_cell_t *)d);
         const char *nm = prolog_atom_name(fn); DESCR_t *aa = (DESCR_t *)d->p;
@@ -7432,11 +7432,11 @@ static tree_t * pl_cell_tree(DESCR_t *c, pl_ctv_t *vt) {
             }
             return lst;
         }
-        { tree_t *t = ast_node_new(TT_FNC); t->v.sval = rt_ws_strdup_c(nm ? nm : "?");
+        { tree_t *t = ast_node_new(TT_FNC); t->v.sval = rt_heap_strdup_c(nm ? nm : "?");
           for (int i = 0; i < ar; i++) ast_push(t, pl_cell_tree(&aa[i], vt));
           return t; }
     }
-    { tree_t *t = ast_node_new(TT_QLIT); t->v.sval = rt_ws_strdup_c("?"); return t; }
+    { tree_t *t = ast_node_new(TT_QLIT); t->v.sval = rt_heap_strdup_c("?"); return t; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t * rt_pl_clause_tree(void *clause_cell) {
@@ -7444,7 +7444,7 @@ tree_t * rt_pl_clause_tree(void *clause_cell) {
     return pl_cell_tree((DESCR_t *)clause_cell, &vt);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void * rt_pl_choice_new(const char *key) { tree_t *c = ast_node_new(TT_CHOICE); c->v.sval = rt_ws_strdup_c(key ? key : "?"); return (void *)c; }
+void * rt_pl_choice_new(const char *key) { tree_t *c = ast_node_new(TT_CHOICE); c->v.sval = rt_heap_strdup_c(key ? key : "?"); return (void *)c; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_choice_add(void *choice, void *clause_tree) { if (choice && clause_tree) ast_push((tree_t *)choice, (tree_t *)clause_tree); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

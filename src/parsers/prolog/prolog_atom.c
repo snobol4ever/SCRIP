@@ -27,7 +27,7 @@ static unsigned int ht_hash(const char *s) {
 static void ht_grow(int new_size) {
     HEntry *old = ht;
     int     old_size = ht_size;
-    ht = rt_ws_alloc(new_size * sizeof(HEntry));
+    ht = rt_pinned_alloc(new_size * sizeof(HEntry));
     memset(ht, 0, new_size * sizeof(HEntry));
     ht_size = new_size;
     ht_used = 0;
@@ -44,12 +44,12 @@ int prolog_atom_intern(const char *name) {
     if (!name) name = "";
     if (!ht) {
         ht_size = HT_INIT_SIZE;
-        ht = rt_ws_alloc(ht_size * sizeof(HEntry));
+        ht = rt_pinned_alloc(ht_size * sizeof(HEntry));
         memset(ht, 0, ht_size * sizeof(HEntry));
     }
     if (!atom_names) {
         atom_cap  = ATOM_INIT_CAP;
-        atom_names = rt_ws_alloc(atom_cap * sizeof(char *));
+        atom_names = rt_pinned_alloc(atom_cap * sizeof(char *));
         memset(atom_names, 0, atom_cap * sizeof(char *));
     }
     unsigned int h = ht_hash(name) & (ht_size - 1);
@@ -65,10 +65,10 @@ int prolog_atom_intern(const char *name) {
     if (atom_len >= atom_cap) {
         int old_cap = atom_cap;
         atom_cap *= 2;
-        atom_names = rt_ws_realloc(atom_names, atom_cap * sizeof(char *));
+        atom_names = rt_pinned_realloc(atom_names, atom_cap * sizeof(char *));
         memset(atom_names + old_cap, 0, (atom_cap - old_cap) * sizeof(char *));
     }
-    char *copy = rt_ws_strdup(name);
+    char *copy = rt_pinned_strdup(name);
     int   id   = atom_len++;
     atom_names[id] = copy;
     ht[h].key = copy;

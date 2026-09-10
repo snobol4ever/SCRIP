@@ -47,7 +47,7 @@ static DESCR_t make_kw_cset(const char *chars, const char *kw_name) {
         if (g_kw_cset_names[i].name && !strcmp(g_kw_cset_names[i].name, kw_name))
             return CSETVAL(g_kw_cset_names[i].ptr);
     const char *arena = cset_canonical(chars, (int)strlen(chars));
-    char *stable = rt_ws_strdup(arena);
+    char *stable = rt_pinned_strdup(arena);
     int clen = (int)strlen(stable);
     kw_cset_grow();
     g_kw_cset_names[g_kw_cset_count].ptr  = stable;
@@ -60,8 +60,8 @@ static DESCR_t make_kw_cset(const char *chars, const char *kw_name) {
 static void kw_cset_reg(const char *chars, const char *name, int len) {
     for (int i = 0; i < g_kw_cset_count; i++) if (g_kw_cset_names[i].name && !strcmp(g_kw_cset_names[i].name, name)) return;
     kw_cset_grow();
-    extern void *rt_ws_alloc(size_t);
-    char *stable = (char *)rt_ws_alloc((size_t)len + 1);
+    extern void *rt_pinned_alloc(size_t);
+    char *stable = (char *)rt_pinned_alloc((size_t)len + 1);
     memcpy(stable, chars, (size_t)len);
     stable[len] = '\0';
     g_kw_cset_names[g_kw_cset_count].ptr  = stable;
@@ -226,7 +226,7 @@ int kwb_error(int code, const char *msg) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_kw_publish_error(int code, const char *msg) {
     KWB_ENT_t *et = kwb_find("ERRTYPE"); if (et && et->cell) *et->cell = code;
-    g_sno_errtext = msg ? rt_ws_strdup_c(msg) : "";
+    g_sno_errtext = msg ? rt_heap_strdup_c(msg) : "";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_kw_set_rtntype(int which) {
@@ -256,7 +256,7 @@ static int kwb_numeric_text(const char *s) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int kwb_write_ent(KWB_ENT_t *e, DESCR_t v) {
     if (!e) return 0;
-    if (e->kind == KWB_STR && !strcmp(e->name, "ERRTEXT")) { const char *s = VARVAL_fn(v); g_sno_errtext = rt_ws_strdup_c(s ? s : ""); return 1; }
+    if (e->kind == KWB_STR && !strcmp(e->name, "ERRTEXT")) { const char *s = VARVAL_fn(v); g_sno_errtext = rt_heap_strdup_c(s ? s : ""); return 1; }
     int is_num = IS_INT(v) || IS_REAL(v);
     if (!is_num) is_num = kwb_numeric_text(VARVAL_fn(v));
     if (!is_num) return kwb_error(208, "keyword value assigned is not integer") ? 1 : -1;
@@ -319,8 +319,8 @@ DESCR_t kw_read(const char *kw) {
         if (!cs) {
             char ascii_str[128];
             for (int c=0;c<128;c++) ascii_str[c]=(char)c;
-            extern void *rt_ws_alloc(size_t);
-            char *stable = (char *)rt_ws_alloc(129); memcpy(stable, ascii_str, 128); stable[128] = '\0';
+            extern void *rt_pinned_alloc(size_t);
+            char *stable = (char *)rt_pinned_alloc(129); memcpy(stable, ascii_str, 128); stable[128] = '\0';
             kw_cset_grow();
             g_kw_cset_names[g_kw_cset_count].ptr  = stable;
             g_kw_cset_names[g_kw_cset_count].name = "&ascii";
@@ -335,8 +335,8 @@ DESCR_t kw_read(const char *kw) {
         if (!cs) {
             char cset_str[256];
             for (int c=0;c<256;c++) cset_str[c]=(char)c;
-            extern void *rt_ws_alloc(size_t);
-            char *stable = (char *)rt_ws_alloc(257); memcpy(stable, cset_str, 256); stable[256] = '\0';
+            extern void *rt_pinned_alloc(size_t);
+            char *stable = (char *)rt_pinned_alloc(257); memcpy(stable, cset_str, 256); stable[256] = '\0';
             kw_cset_grow();
             g_kw_cset_names[g_kw_cset_count].ptr  = stable;
             g_kw_cset_names[g_kw_cset_count].name = "&cset";
@@ -348,7 +348,7 @@ DESCR_t kw_read(const char *kw) {
     }
     { extern long g_icn_errnumber; extern const char *g_icn_errtext; extern DESCR_t g_icn_errvalue; extern int g_icn_err_valid;
       if (!strcmp(kw,"errornumber")) { if (!g_icn_err_valid) return FAILDESCR; return INTVAL(g_icn_errnumber); }
-      if (!strcmp(kw,"errortext"))   { if (!g_icn_err_valid) return FAILDESCR; return STRVAL(rt_ws_strdup_c(g_icn_errtext ? g_icn_errtext : "")); }
+      if (!strcmp(kw,"errortext"))   { if (!g_icn_err_valid) return FAILDESCR; return STRVAL(rt_heap_strdup_c(g_icn_errtext ? g_icn_errtext : "")); }
       if (!strcmp(kw,"errorvalue"))  { if (!g_icn_err_valid) return FAILDESCR; return g_icn_errvalue; }
       if (!strcmp(kw,"control"))     return FAILDESCR; }
     { extern long g_error, g_trace, g_dump, g_random;
@@ -400,17 +400,17 @@ DESCR_t kw_read(const char *kw) {
     if (!strcmp(kw,"source"))  { scrip_coctx_t *cur = scrip_co_current ? scrip_co_current : scrip_co_gc_root(); scrip_coctx_t *src = cur->activator ? cur->activator : scrip_co_gc_root(); DESCR_t d = {0}; d.v = DT_CO; d.p = src; return d; }
     { time_t t = time(NULL); struct tm *tm = localtime(&t);
       if (!strcmp(kw,"date")) {
-          char *buf = rt_ws_alloc(16);
+          char *buf = rt_pinned_alloc(16);
           snprintf(buf,16,"%04d/%02d/%02d",tm->tm_year+1900,tm->tm_mon+1,tm->tm_mday);
           return STRVAL(buf);
       }
       if (!strcmp(kw,"dateline")) {
-          char *buf = rt_ws_alloc(64);
+          char *buf = rt_pinned_alloc(64);
           strftime(buf,64,"%A, %B %e, %Y  %l:%M %P",tm);
           return STRVAL(buf);
       }
       if (!strcmp(kw,"clock")) {
-          char *buf = rt_ws_alloc(16);
+          char *buf = rt_pinned_alloc(16);
           snprintf(buf,16,"%02d:%02d:%02d",tm->tm_hour,tm->tm_min,tm->tm_sec);
           return STRVAL(buf);
       }

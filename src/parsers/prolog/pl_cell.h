@@ -48,7 +48,7 @@ static inline void *pl_compound_heap(pl_cell_t *c) { return pl_deref(c)->p; }
 static inline void pl_bind(pl_cell_t *cell, pl_cell_t word) {
     pl_cell_t *v = pl_deref(cell);
     char probe; char *floor_ = &probe;
-    if ((char *)v <= floor_) { extern void *rt_ws_alloc(size_t); pl_cell_t *j = (pl_cell_t *)rt_ws_alloc(sizeof(pl_cell_t)); *j = word; word.v = (DTYPE_t)DT_PLVAR; word.slen = 0; word.p = (void *)j; }
+    if ((char *)v <= floor_) { extern void *rt_pinned_alloc(size_t); pl_cell_t *j = (pl_cell_t *)rt_pinned_alloc(sizeof(pl_cell_t)); *j = word; word.v = (DTYPE_t)DT_PLVAR; word.slen = 0; word.p = (void *)j; }
     *v = word;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -56,7 +56,7 @@ static inline int pl_unify(pl_cell_t *a, pl_cell_t *b) {
     pl_cell_t *A = pl_deref(a), *B = pl_deref(b);
     if (A == B) return 1;
     int av = pl_cell_unbound(A), bv = pl_cell_unbound(B);
-    if (av && bv) { extern void *rt_ws_alloc(size_t); pl_cell_t *j = (pl_cell_t *)rt_ws_alloc(sizeof(pl_cell_t)); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; pl_cell_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; pl_bind(A, r); pl_bind(B, r); return 1; }
+    if (av && bv) { extern void *rt_pinned_alloc(size_t); pl_cell_t *j = (pl_cell_t *)rt_pinned_alloc(sizeof(pl_cell_t)); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; pl_cell_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; pl_bind(A, r); pl_bind(B, r); return 1; }
     if (av) { pl_bind(A, *B); return 1; }
     if (bv) { pl_bind(B, *A); return 1; }
     if (((int)A->v == DT_S || (int)A->v == DT_A) && ((int)B->v == DT_S || (int)B->v == DT_A)) {

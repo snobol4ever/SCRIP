@@ -12,7 +12,7 @@ static inline DESCR_t _real_impl(double d)    { return REALVAL(d); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline DESCR_t _str_impl(const char *s) {
     if (!s) return NULVCL;
-    char *p = rt_ws_strdup(s);
+    char *p = rt_pinned_strdup(s);
     return STRVAL(p);
 }
 #define INTVAL_fn(i)   _vint_impl((int64_t)(i))

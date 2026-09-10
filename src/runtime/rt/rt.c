@@ -435,7 +435,7 @@ static void rt_proc_hash_seed(int idx) { unsigned m = g_proc_hcap - 1, h = rt_pr
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_proc_hash_insert(int idx) {
     if ((unsigned)(g_rt_gen_proc_count + 1) * 4 >= g_proc_hcap * 3) {
-        unsigned nc = g_proc_hcap ? g_proc_hcap * 2 : 1024; int *np = (int *)rt_ws_realloc(g_proc_hsl, (size_t)nc * sizeof(int)); if (!np) return;
+        unsigned nc = g_proc_hcap ? g_proc_hcap * 2 : 1024; int *np = (int *)rt_pinned_realloc(g_proc_hsl, (size_t)nc * sizeof(int)); if (!np) return;
         g_proc_hsl = np; g_proc_hcap = nc; memset(g_proc_hsl, 0, (size_t)nc * sizeof(int));
         for (int i = 0; i < g_rt_gen_proc_count; i++) if (g_rt_gen_procs[i].name) rt_proc_hash_seed(i);
         return;
@@ -452,7 +452,7 @@ static int rt_proc_hash_lookup(const char *name) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_gen_proc_grow(void) {
     if (g_rt_gen_proc_count < g_rt_gen_proc_cap) return;
-    int nc = g_rt_gen_proc_cap ? g_rt_gen_proc_cap * 2 : 64; rt_proc_t *np = (rt_proc_t *)rt_ws_realloc(g_rt_gen_procs, (size_t)nc * sizeof(rt_proc_t));
+    int nc = g_rt_gen_proc_cap ? g_rt_gen_proc_cap * 2 : 64; rt_proc_t *np = (rt_proc_t *)rt_pinned_realloc(g_rt_gen_procs, (size_t)nc * sizeof(rt_proc_t));
     if (!np) return; g_rt_gen_procs = np; g_rt_gen_proc_cap = nc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -809,7 +809,7 @@ static void rt_frame_bind_args(char *fb, rt_proc_t *p, int nargs)
     }
     for (int i = 0; i < nargs; i++) *(DESCR_t *)(fb + 16 * (i + 1)) = g_call_args[i];
     for (int i = nargs; i < npc; i++) *(DESCR_t *)(fb + 16 * (i + 1)) = NULVCL;
-    if (p->named_rest > 0 && p->named_rest <= npc) { DESCR_t *slot = (DESCR_t *)(fb + 16 * p->named_rest); if (slot->v == NULVCL.v && slot->i == NULVCL.i) { char *e = (char *)rt_ws_alloc(1); e[0] = '\0'; *slot = STRVAL(e); } }
+    if (p->named_rest > 0 && p->named_rest <= npc) { DESCR_t *slot = (DESCR_t *)(fb + 16 * p->named_rest); if (slot->v == NULVCL.v && slot->i == NULVCL.i) { char *e = (char *)rt_pinned_alloc(1); e[0] = '\0'; *slot = STRVAL(e); } }
 }
 int rt_g_ret_by_name = 0;
 int rt_g_want_name = 0;
@@ -1223,7 +1223,7 @@ static void rt_proc_resolve_cells(rt_proc_t *p)
     if (p->cells_done) return;
     int np = p->nparams; const char **pn = p->pnames;
     if (np > 0 && pn) {
-        p->pcells = (DESCR_t **)rt_ws_alloc((size_t)np * sizeof(DESCR_t *));
+        p->pcells = (DESCR_t **)rt_pinned_alloc((size_t)np * sizeof(DESCR_t *));
         if (p->pcells) for (int k = 0; k < np; k++) { const char *nm = pn[k]; p->pcells[k] = (nm && !rt_name_side_effecting(nm)) ? NV_PTR_fn(nm) : (DESCR_t *)0; }
     }
     { const char *rn = p->result_name ? p->result_name : p->name;
@@ -1233,7 +1233,7 @@ static void rt_proc_resolve_cells(rt_proc_t *p)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_name_save_grow(void) {
     if (g_name_save_top < g_name_save_cap) return;
-    int nc = g_name_save_cap ? g_name_save_cap * 2 : 4096; NameSaveEnt *np = (NameSaveEnt *)rt_ws_realloc(g_name_save, (size_t)nc * sizeof(NameSaveEnt));
+    int nc = g_name_save_cap ? g_name_save_cap * 2 : 4096; NameSaveEnt *np = (NameSaveEnt *)rt_pinned_realloc(g_name_save, (size_t)nc * sizeof(NameSaveEnt));
     if (!np) return; g_name_save = np; g_name_save_cap = nc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
