@@ -390,10 +390,60 @@ graded raw — decided per program from the oracle's own text and printed in the
 column (`PASS/CUT` vs `RED/RAW`), because an absent marker would make the cut empty and
 two empty files compare equal.
 
-**Kernel grid (superseded, being re-measured).** The 10-kernel `× vs iconx` grid that
-stood here (int_loop 5.64x … concat_intvar 0.72x, 2026-08-27) was whole-program wall
-clock on a basis this tree no longer publishes. It is queued for re-measurement in
-callgrind `Ir` on the two-number basis, where both engines are deterministic.
+**Kernel grid — the ten kernels, both rivals, two instruments.** Re-measured 2026-09-10, SCRIP
+`3bbdfc8c7` / corpus `dd661ede8`, `RT_OPT=-O0`, `scripts/bench_icon_kernels.sh`; machine record
+`corpus/benchmarks/icon/bench_kernels_board.tsv`. This replaces the 2026-08-27 grid (int_loop
+5.64x … concat_intvar 0.72x), which was whole-program wall clock, carried no overhead term, and
+had no `jcont` column at all.
+
+Shared axes for every row: two-number basis, `OVERHEAD` = the empty Icon program measured per
+engine **on the same instrument**, `WORK = total − OVERHEAD`; multiples on the **faster axis**
+(`rival WORK / SCRIP m4 WORK`, above 1 is SCRIP ahead). **Two instruments, and no multiple
+crosses them:** `× vs iconx` is callgrind `Ir`, `× vs jcont` is wall. `TOTAL:` marks a row where
+overhead reached half an arm and the work multiple is refused in favour of the labelled total.
+All ten kernels answer **byte-identically to `iconx` in both modes** — correctness gates every
+number here, and a wrong answer would get no multiple.
+
+| kernel | both modes | `iconx` Ir | m4 Ir | **m4 × vs `iconx`** (Ir) | `iconx` ms | `jcont` ms | m4 ms | m4 × vs `jcont` (wall) |
+|---|:---:|---:|---:|:---:|---:|---:|---:|:---:|
+| `concat_dispatch` | **PASS** | 1,606,391,766 | 70,952,791 | **23.612x** | 110 | 150 | 10 | 8.000x |
+| `int_loop` | **PASS** | 1,500,321,544 | 168,953,120 | **9.035x** | 90 | 140 | 10 | TOTAL:14.000x |
+| `mod_isolate` | **PASS** | 1,566,321,374 | 234,953,641 | **6.749x** | 110 | 170 | 20 | 5.000x |
+| `list_dispatch` | **PASS** | 2,634,322,381 | 744,967,306 | **3.550x** | 160 | 180 | 60 | 1.833x |
+| `concat_strvar` | **PASS** | 1,680,393,558 | 594,959,443 | **2.838x** | 150 | 240 | 70 | 2.429x |
+| `table_miss_dispatch` | **PASS** | 1,846,547,237 | 966,966,098 | **1.915x** | 110 | 150 | 80 | 1.000x |
+| `concat_int_dispatch` | **PASS** | 2,313,225,976 | 2,127,396,785 | **1.089x** | 130 | 170 | 140 | 0.714x |
+| `table_miss_semantics` | **PASS** | 27,135,062 | 27,562,633 | **1.089x** | 0 | 130 | 0 | <1 tick |
+| `concat_intvar` | **PASS** | 2,006,402,358 | 2,106,963,216 | **0.953x** | 150 | 260 | 190 | 1.000x |
+| `concat_table` | **PASS** | 4,385,992,311 | *refused* | — | 290 | 130 | 220 | TOTAL:0.591x |
+
+**Nine of the ten carry an `Ir` multiple and eight of those nine are above `1.00x`**, from
+`23.612x` on `concat_dispatch` down to `0.953x` on `concat_intvar` — the one kernel where Arizona
+still does less work than we do. `concat_int_dispatch` (`1.089x`) and `concat_intvar` (`0.953x`)
+are the pair to read together: both concatenate a **string with an integer**, both sit at parity
+while the pure-string and pure-integer kernels around them run 3x–24x, so integer-to-string
+conversion is where our advantage is spent.
+
+**Why `Ir` and not the clock.** Measured on this box: the same binary with the same argv and
+environment returns a **byte-identical** `Ir` count three runs out of three (1,500,319,412 each
+time); change the path length or add one environment variable and it moves by about 1,000 counts
+in 1.5 billion (0.00009%), because the process copies `argv` and `environ` at start-up. The JVM
+arm does not have that property — the same kernel measured 1,069,787,424 then 1,443,104,013 `Ir`,
+a 35% spread from JIT decisions alone — so `Ir` **refuses** on `jcont`, which is timed instead.
+And the clock is the weaker instrument here for a second reason: this box is shared with nine
+other seats, the load average sat near 6–12 while the board ran, and the `jcont` wall spread
+moved between 6% and 130% across runs of the *same* binaries on the *same* tree. Every `ms`
+column and every `× vs jcont` cell should be read against the spread recorded beside it in the
+TSV; the `Ir` column is immune to all of it and reproduced exactly.
+
+**`concat_table` is the one refused cell, and it is a real defect rather than a gap.** Both m3
+and m4 run it clean and correct natively (answer `40000`, `rc=0`), and both **SIGSEGV under
+valgrind** inside `gc_zeta_frame` (`src/runtime/rt/gc_heap.c:557`), which our own handler then
+reclassifies as a stack overflow (`rt_stack_overflow.c:21`) and re-raises. callgrind still prints
+an `Ir` total for the crashed run — and two such runs disagree (330,078,095 then 330,079,909) —
+so the harness voids the reading and prints `REFUSED(rc=139)` rather than a number that would look
+exactly like every other cell. Routed to `hq_U` as a shared-runtime finding; the wall columns for
+that row are from clean native runs and stand.
 
 **Vendor test suites.** Icon is graded against the two official vendor test suites,
 vendored in the corpus and mechanically converted to SCRIP's explicit-semicolon
