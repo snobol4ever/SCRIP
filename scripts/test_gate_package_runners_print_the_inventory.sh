@@ -555,5 +555,98 @@ elif [ "$_a19" -ne 0 ]; then
     violations=$((violations+1))
 fi
 
+# ⛔⭐⭐ ARM 20 — THE LIVE SIDECARS, AND THE ARMS ABOVE ALL GRADE FIXTURES (hq_T 2026-09-10, row package-
+# shipped-per-lane-printed-by-the-runner-not-transcribed). ARMS 1-16 exercise every refusal in
+# lib_inventory.sh against mktemp fixtures, exhaustively and correctly; ARM 11 counts which runners reach
+# the body; ARM 17/18 grade carriage and reader; ARM 19 grades the board. NOT ONE of them ever points the
+# body at the ELEVEN REAL SIDECAR PAIRS the runners actually read. So the body was gated and its data was
+# not, and the gap is not theoretical: it swallowed a live defect for four hours on origin this very day.
+# ⛔ THE MEASURED WITNESS. Two seats filed the same ceo ruling (CEO-527, cfuncs/extlvals) into
+# arizona_tests/UNGRADABLE.tsv four hours apart, so the file held 38 rows for 36 distinct programs. The
+# honesty arm fired first -- not on the duplicate but on the older copy's `SCRIP: 'cannot find ...'`
+# evidence clause -- and `inventory_line` for arizona returned rc=2 AT ANY GRADED COUNT.
+# ⭐ AND THE CONSEQUENCE IS SILENT BY CONSTRUCTION, which is the half worth understanding rather than
+# fixing: every runner does `INV_LINE="$(inventory_line ...)"` and warns to stderr, because a bookkeeping
+# failure must never red a board (gate_score_row's own doctrine, and it is right). An empty INV_LINE
+# contributes nothing to the `--text` splice, so the cell reverts from a runner-written PACKAGE_INVENTORY
+# clause to transcribed prose, and the runner's exit status never moves. ⛔ A DATA-FILE WORDING CHANGE
+# THEREFORE STRIPS A LEADERBOARD CELL'S PROVENANCE WITH EVERY GATE GREEN. ARM 19 does catch it -- it is how
+# arizona and ipl were found -- but only one board pass later, from another seat's tree, naming a symptom
+# ("its shipped population is transcribed again") a lane away from the .tsv line that caused it.
+# ⭐ THE GENERAL FORM, and it is ARM 19's own lesson one level down: ARM 19 says a cure landing in a CELL is
+# protected by nothing unless something re-reads the cell. The sibling is that A REFUSAL DELIBERATELY MADE
+# NON-FATAL IS PROTECTED BY NOTHING UNLESS SOMETHING CALLS IT ON PURPOSE. Non-fatal is the correct design
+# and it converts a loud instrument into a quiet one at exactly the moment it fires; the cure is not to make
+# it fatal in the runner, it is to call the same body somewhere a red is free -- here, hermetically, in <1s.
+# ⛔ THIS ARM DELIBERATELY DOES NOT GRADE THE ARITHMETIC, and says so rather than letting a reader assume
+# it: the bucket-sum identity needs a GRADED count, which only a real suite pass produces, and under ONE
+# RUNNER ONE BOARD (CEO-523) this gate may not run one. So it feeds each package the graded count that makes
+# its own sum hold, which lets every OTHER arm of the body speak -- honesty, internal duplicates, both-files,
+# missing reason, closed vocabulary, stale name, moved package. The arithmetic stays the runner's to fail.
+# ⭐ EXTENSION COMES FROM THE DATA, NEVER FROM A LANG->EXT MAP: each sidecar's own name column carries it
+# (`general/cfuncs.icn`), all eleven self-describe exactly one, and each agrees with its runner's INV_EXT.
+# A map in this script would be one more number typed into a gate, which is this row's whole subject; a
+# package whose rows disagree about their extension REFUSES rc=2 rather than picking one.
+# ⛔ RATCHETED BY NAME, for ARM 19's reasons verbatim. The backlog was MEASURED BEFORE WIRING (ARM 7 of
+# test_gate_gate_wiring_ratchet.sh, ceo CEO-520: a live-tree arm is legitimate exactly when its red
+# population is small enough that every red has a named author still in the room) and it is 1 of 11:
+# icon/ipl, whose gincl/maccolor.icn row states the oracle's refusal AND upstream's control AND our
+# agreement with both. That row is hq_R's lane and its mention of us is an AGREEMENT CONTROL, not a
+# failure-as-reason -- an instrument limitation, not a lie -- so it is printed as the work list and never
+# counted. Ten pinned; a pinned package that starts refusing is a FAIL naming the file and the arm.
+examined=$((examined+1))
+PKGINV_CORPUS="${PKGINV_CORPUS:-$ROOT/../corpus}"
+if [ ! -d "$PKGINV_CORPUS/packages" ]; then
+    echo "GATE REFUSES(2): ARM 20 found no package corpus at $PKGINV_CORPUS/packages -- cannot measure the live sidecars"
+    exit 2
+fi
+# THE RATCHET, measured off the live sidecars 2026-09-10 by hq_T and raised only by measurement.
+PKGINV_PINNED="icon/arizona_tests icon/jcon_tests pascal/pat prolog/gnu_prolog snobol4/aisnobol snobol4/csnobol4_suite snobol4/dotnet snobol4/gimpel snobol4/snoflake_suite snobol4/spitbol_testpgms"
+_a20_bad=""; _a20_work=""; _a20_gain=""; _a20_n=0
+for _sd in $(find "$PKGINV_CORPUS/packages" -maxdepth 3 \( -name UNGRADABLE.tsv -o -name UNGRADED.tsv \) 2>/dev/null \
+             | while IFS= read -r _f; do dirname "$_f"; done | sort -u); do
+    _a20_n=$((_a20_n+1))
+    _rel="$(basename "$(dirname "$_sd")")/$(basename "$_sd")"
+    # the extension the lane itself declared, from the name column of its own rows
+    _ext="$(cat "$_sd/UNGRADABLE.tsv" "$_sd/UNGRADED.tsv" 2>/dev/null | grep -v '^#' | grep -v '^[[:space:]]*$' \
+            | cut -f1 | sed -n 's/.*\(\.[A-Za-z0-9]*\)$/\1/p' | sort -u)"
+    if [ "$(printf '%s\n' "$_ext" | grep -c .)" -ne 1 ]; then
+        echo "    ARM 20 REFUSES(2): $_rel declares $(printf '%s\n' "$_ext" | grep -c .) extensions in its own name column ($(printf '%s' "$_ext" | tr '\n' ' ')) -- one package, one shipped extension, and this arm will not pick for it"
+        echo "GATE REFUSES(2): ARM 20 could not derive $_rel's extension from its own rows"; exit 2
+    fi
+    # ⛔ ONE CALL PER PACKAGE, AND THE ARITHMETIC REFUSAL COUNTS AS CLEAN HERE -- deliberately, because this
+    # arm does not grade the sum (it cannot: the graded count comes from a suite pass this gate may not run).
+    # ⭐ THE FIRST VERSION PASSED graded=0 TO LEARN shipped, THEN CALLED AGAIN WITH A COUNT THAT MADE THE SUM
+    # HOLD, so the arithmetic would stay quiet and the other arms would speak. It worked and it cost DOUBLE:
+    # the shared body spends three subprocesses per row (`printf | cut` x3) and icon/ipl alone declares 851
+    # rows, so the gate went from 0.41s to 25.8s against a Makefile comment promising ~1s. Reading the sum
+    # refusal instead of engineering around it is both half the cost and the more honest shape -- an arm that
+    # declares the arithmetic out of scope must not care that the arithmetic failed.
+    _out="$(INV_PACKAGE="$(basename "$_sd")" INV_DIR="$_sd" INV_EXT="$_ext" inventory_line 0 0 2>&1)"; _rc=$?
+    case "$_out" in *"buckets do not sum"*) _rc=0 ;; esac
+    case " $PKGINV_PINNED " in
+      *" $_rel "*)
+        if [ "$_rc" -ne 0 ]; then
+            _a20_bad="$_a20_bad $_rel"
+            echo "    ARM 20 FAIL: $_rel is PINNED and its own sidecars now make the shared body REFUSE(rc=$_rc) --"
+            echo "      its runner will emit no PACKAGE_INVENTORY clause and its board cell will silently revert to prose:"
+            printf '%s\n' "$_out" | grep -v '^$' | head -3 | cut -c1-220 | sed 's/^/        /'
+        fi ;;
+      *)
+        if [ "$_rc" -ne 0 ]; then _a20_work="$_a20_work $_rel"
+        else _a20_gain="$_a20_gain $_rel"; fi ;;
+    esac
+done
+[ "$_a20_n" -gt 0 ] || { echo "GATE REFUSES(2): ARM 20 found zero sidecar pairs under $PKGINV_CORPUS/packages -- an empty population is not a census"; exit 2; }
+echo "    ARM 20 live sidecar pairs=$_a20_n  pinned packages whose own data the shared body accepts=$(( $(printf '%s' "$PKGINV_PINNED" | wc -w) - $(printf '%s' "$_a20_bad" | wc -w) ))/$(printf '%s' "$PKGINV_PINNED" | wc -w)"
+[ -n "$_a20_work" ] && echo "    THE BODY STILL REFUSES THESE, UNPINNED (the work list, not a verdict):$_a20_work -- each one's runner emits no inventory clause today"
+[ -n "$_a20_gain" ] && echo "    ⭐ RAISE THE RATCHET:$_a20_gain now validate(s) clean and are not pinned. Add to PKGINV_PINNED in this arm so a wording change can never quietly un-validate them."
+if [ -n "$_a20_bad" ]; then
+    echo "    CURE: read the refusal above and fix the .tsv ROW it names -- the arm is quoting lib_inventory.sh, which is"
+    echo "    the same body the runner calls. ⛔ Do NOT silence it by rewording around the check: the honesty arm exists"
+    echo "    to stop the lockdown being satisfiable by failing, and a synonym that dodges its regex is the defect it hunts."
+    violations=$((violations+1))
+fi
+
 GATE_EXAMINED="$examined arms"
 gate_verdict "$violations" "package-inventory violations"
