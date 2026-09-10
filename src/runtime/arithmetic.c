@@ -386,7 +386,7 @@ static DESCR_t rt_num_arith_body(DESCR_t a, DESCR_t b, int op) {
             extern int core_icn_error(int code, DESCR_t val);
             if (!anyf) return rt_ipow_descr(li, ri);
             if (ld == 0.0 && rd <= 0.0) { core_icn_error(204, FAILDESCR); return FAILDESCR; }
-            if (ld < 0.0 && (rf || operand_is_real_str(b))) { core_icn_error(206, REALVAL(ld)); return FAILDESCR; }
+            if (ld < 0.0 && (rf || operand_is_real_str(b))) { core_icn_error(206, FAILDESCR); return FAILDESCR; }
             if (b.v == DT_BIG) { extern int rt_big_is_odd(DESCR_t); double _rb = pow(fabs(ld), rd); if (!isfinite(_rb)) return rt_real_overflow(266, "exponentiation caused real overflow", ld); if (ld < 0.0 && _rb != 0.0 && rt_big_is_odd(b)) _rb = -_rb; return REALVAL(_rb); }
             { double _rp = (!rf && !operand_is_real_str(b)) ? rt_ripow(ld, ri) : pow(ld, rd); if (!isfinite(_rp)) return rt_real_overflow(266, "exponentiation caused real overflow", ld); return REALVAL(_rp); }
         }

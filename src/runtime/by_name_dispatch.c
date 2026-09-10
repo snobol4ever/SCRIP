@@ -5033,7 +5033,16 @@ static int icn_argtype_gate(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
         case BID_delete: return (args[0].v == DT_T || IS_STR_fn(args[0])) ? 0 : icn_argtype_raise(122, args[0], out);
         case BID_key: return (args[0].v == DT_T && args[0].tbl && !args[0].tbl->is_set) ? 0 : icn_argtype_raise(124, args[0], out);
         case BID_read: case BID_reads:
-            return (args[0].v == DT_SNUL || IS_FH_fn(args[0])) ? 0 : icn_argtype_raise(105, args[0], out);
+            if (!(args[0].v == DT_SNUL || IS_FH_fn(args[0]))) return icn_argtype_raise(105, args[0], out);
+            if (bid == BID_reads && nargs >= 2 && !IS_FAIL_fn(args[1]) && args[1].v != DT_SNUL) {
+                if (!icn_cvt_int_ok(args[1])) return icn_argtype_raise(101, args[1], out);
+                if (to_int(args[1]) < 1) return icn_argtype_raise(205, args[1], out); }
+            return 0;
+        case BID_list:
+            if (nargs >= 1 && !IS_FAIL_fn(args[0]) && args[0].v != DT_SNUL) {
+                if (!icn_cvt_int_ok(args[0])) return icn_argtype_raise(101, args[0], out);
+                if (to_int(args[0]) < 0) return icn_argtype_raise(205, args[0], out); }
+            return 0;
         case BID_sortf:
             if (nargs != 1 && nargs != 2) return 0;
             if (!(args[0].v == DT_DATA || (args[0].v == DT_T && args[0].tbl && args[0].tbl->is_set))) return icn_argtype_raise(125, args[0], out);
@@ -6126,6 +6135,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             if (!IS_FAIL_fn(nv) && nv.v != DT_SNUL) {
                 if (IS_INT_fn(nv)) n = (int)nv.i;
                 else if (IS_REAL_fn(nv)) n = (int)nv.r;
+                else if (icn_cvt_int_ok(nv)) n = (int)to_int(nv);
                 else { *out = FAILDESCR; return 1; }
                 if (n < 0) { *out = FAILDESCR; return 1; }
             }
