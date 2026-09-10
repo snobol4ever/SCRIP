@@ -152,8 +152,11 @@ ENTRY_FLOOR="${ICON_MASTER_ENTRY_FLOOR:-534}"
 # SOURCES, NAMED SEPARATELY because only one of them is this seat's: +1 population and +1 pass from this landing's
 # absorption of the cfo's sixth handed witness (a_string_held_by_a_frame_variable_is_not_extended_in_place ->
 # procedure_every_suspend_replace_3), absorbed GREEN after re-cutting its ref from icont on this tree; and +1 pass
-# from procedure_write_256, which arrived with the pull and belongs to the co-expression landing 8410097ca (^e is
-# refresh and copy(e) is not), NOT to this seat. The two remaining reds are unchanged and named on the row:
+# from procedure_write_256, which arrived with the pull and is NOT this seat's. ⛔ THE SIBLING COMMIT NAMED HERE
+# WAS CORRECTED BY THE coo's AUDIT (09:59): this pin first credited the co-expression landing 8410097ca, and the
+# coo, which extracted the entry and ran it, attributes it to hq_C's 98d75ebe0 reaching the board through that
+# landing. The half that mattered -- that the flip is not mine -- was right either way; the half I had not
+# measured myself was the one I got wrong, and a disclaimed flip still deserves the right owner. The two remaining reds are unchanged and named on the row:
 # CRASH procedure_record_every_replace_12, FAIL procedure_every_scan_replace_13.
 M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-756}"
 M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-756}"
