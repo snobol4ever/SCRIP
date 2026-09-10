@@ -2631,6 +2631,7 @@ int core_icn_by_zero_check(int64_t by) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int core_icn_chars_ok(DESCR_t d) { return d.v == DT_S || d.v == DT_I || d.v == DT_R || d.v == DT_C; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int core_icn_int_ok_d(DESCR_t d);
 static int core_icn_int_ok(DESCR_t d) {
     if (IS_INT_fn(d) || IS_REAL_fn(d)) return 1;
     if (d.v == DT_S && d.s) { const char *p = d.s; int dg = 0; while (*p == ' ' || *p == '\t') p++; if (*p == '+' || *p == '-') p++;
@@ -2968,6 +2969,8 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
     }
     if (strcmp   (name, "&subject") == 0) {
         extern const char *scan_subj;
+        { extern int rt_big_is(DESCR_t); extern int core_icn_active(void);
+          if (core_icn_active() && !(val.v == DT_S || IS_INT_fn(val) || IS_REAL_fn(val) || rt_big_is(val))) { core_icn_error(103, val); return FAILDESCR; } }
         const char *s = (val.v == DT_S) ? rt_cstr_d(val) : (const char *)VARVAL_fn(val);
         { extern void rt_scan_subj_len_set(const char *, long);
           long n = (val.v == DT_S && val.slen != 0xFFFFFFFFu && s == val.s) ? (long)val.slen : (s ? (long)strlen(s) : 0);
@@ -2977,6 +2980,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
     }
     if (strcmp   (name, "&pos") == 0) {
         extern int scan_pos;
+        { extern int core_icn_active(void); if (core_icn_active() && !core_icn_int_ok(val)) { core_icn_error(101, val); return FAILDESCR; } }
         scan_pos = (int)((val.v==DT_I) ? val.i : (int64_t)to_real(val)); return val;
     }
     if (g_kw_ctx) {
@@ -3950,3 +3954,4 @@ void core_gc_roots(void)
     extern void rt_gc_visit_descr(DESCR_t *d);
     for (int b = 0; b < VAR_BUCKETS; b++) for (NV_t *e = _var_buckets[b]; e; e = e->next) { rt_gc_visit_descr(&e->val); if (e->cell) rt_gc_visit_descr(e->cell); }
 }
+int core_icn_int_ok_d(DESCR_t d) { return core_icn_int_ok(d); }

@@ -216,7 +216,9 @@ static long cvpos_of(DESCR_t v, long len, int *ok) {
 int64_t rt_cvpos_pos(DESCR_t v, int64_t len) { int ok; long p = cvpos_of(v, (long)len, &ok); return ok ? (int64_t)p : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_keyword_pos_set(DESCR_t v) {
-    long len = scan_subj ? (long)strlen(scan_subj) : 0; int ok; long p = cvpos_of(v, len, &ok);
+    { extern int core_icn_active(void); extern int core_icn_error(int, DESCR_t); extern int core_icn_int_ok_d(DESCR_t);
+      if (core_icn_active() && !core_icn_int_ok_d(v)) { core_icn_error(101, v); return FAILDESCR; } }
+    long len = scan_subj ? rt_scan_subj_len() : 0; int ok; long p = cvpos_of(v, len, &ok);
     if (!ok) return FAILDESCR;
     scan_pos = (int)p; return INTVAL((int64_t)p);
 }
@@ -249,12 +251,18 @@ DESCR_t rt_rev_swap_undo(long lkind, DESCR_t *lp, long rkind, DESCR_t *rp, DESCR
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ScanSubjRegs rt_keyword_subject_set(uint64_t lo, uint64_t hi) {
     uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
+    { extern int rt_big_is(DESCR_t); extern int core_icn_active(void); extern int core_icn_error(int, DESCR_t);
+      int strish = (sv.v == DT_S) || (sv.v == DT_SNUL && sv.s);
+      if (!strish && !IS_INT_fn(sv) && !IS_REAL_fn(sv) && !rt_big_is(sv)) { if (core_icn_active()) core_icn_error(103, sv); ScanSubjRegs r; r.ptr = 0; r.len = 0; return r; } }
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str_fracdigit(sv);
-    if (!(IS_STR_fn(sv) || IS_NULL_fn(sv))) { ScanSubjRegs r; r.ptr = 0; r.len = 0; return r; }
-    const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
-    if (!s) s = "";
+    if (sv.v == DT_BIG) { extern char *rt_big_str(DESCR_t); sv = STRVAL(rt_big_str(sv)); }
+    const char *s = sv.s ? sv.s : "";
+    uint64_t L;
+    if (IS_CSET_fn(sv)) { extern int kw_cset_len(const char *); int kn = kw_cset_len(s); L = (kn >= 0) ? (uint64_t)kn : (uint64_t)strlen(s); }
+    else L = (sv.v == DT_S && sv.slen != 0xFFFFFFFFu) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
     scan_subj = s; scan_pos = 1;
-    ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = (uint64_t)strlen(s);
+    rt_scan_subj_len_set(s, (long)L);
+    ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = L;
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
