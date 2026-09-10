@@ -225,6 +225,93 @@ def tree_stamp():
     return " · ".join(parts)
 
 
+# ⛔⭐ ONE REGEX FOR "WHICH SCRIP TREE DOES THIS TEXT NAME", because two copies of it drift apart and
+# the drift is invisible: `check` grew this pattern to grade cells, `write` needs the same answer to
+# refuse a stale rewrite, and a second copy would eventually disagree with the first about what counts
+# as a stamp -- one of them would then quietly stop seeing half the board.
+TREE_HASH_RX = re.compile(r"SCRIP `([0-9a-f]{7,40})(?:-DIRTY)?`")
+
+
+def git_rc(repo, *args):
+    # The RETURN CODE of a git command, where git() above gives its stdout.
+    # ⛔⭐ git() COLLAPSES "RAN AND SAID NO" INTO "COULD NOT RUN": it returns None for rc=1 and for a
+    # missing checkout alike. `merge-base --is-ancestor` answers ENTIRELY in its exit status (0 yes,
+    # 1 no, >1 broken), so asking it through git() would make "these two trees are unrelated" and
+    # "there is no SCRIP repo here" the same answer -- and the safe default is OPPOSITE for the two:
+    # the first is a real finding, the second means the question was never asked.
+    p = os.path.join(S4E, repo)
+    if not os.path.exists(os.path.join(p, ".git")):
+        return None
+    try:
+        return subprocess.run(["git", "-C", p] + list(args), capture_output=True, text=True, timeout=30).returncode
+    except Exception:
+        return None
+
+
+def tree_ancestry(new, old, repo="SCRIP"):
+    """How the tree a write is about to STAMP relates to the tree that measurement ALREADY stamps.
+
+    "older"     new is a strict ancestor of old -- the write would publish a number measured further
+                BACK than the one already on the board.
+    "newer"     old is a strict ancestor of new -- the ordinary case, a re-measure moving forward.
+    "same"      both abbreviations resolve to one commit.
+    "unrelated" neither reaches the other (two branches); ancestry does not rank them and this does
+                not pretend it can.
+    None        one of them is not a commit THIS checkout knows, so the question went unanswered.
+
+    ⛔⭐ THE INCIDENT (hq_S, 2026-09-10, CEO-492): two runners minutes apart rewrote one SCORE.md row in
+    place and git handed the loser a textual conflict, whose correct resolution is per-row TREE
+    ANCESTRY and not ours-vs-theirs -- hq_S's 750/756 on 64292dee1 was an ancestor of 754/757 on
+    b9f9bc465, so keeping its own side would have published a LOWER AND STALER number that looked
+    exactly like an update. ⭐ Nothing in the row TEXT carries the ancestry: both sides are a real
+    number with a real hash and a real measurer, and the newer one is not longer, not larger, and not
+    later in the file. A human resolving that conflict has no signal to resolve it BY, which is why
+    hq_S had to run merge-base by hand and why the rule belongs in the writer.
+    ⛔ NOT `git rev-list --count`. Distance-to-origin ranks two hashes only while history is linear,
+    and for two unrelated branches it returns a confident ordering shaped exactly like a real answer --
+    the narrower-question-than-you-asked defect this tree keeps meeting (CLAUDE.md, `command -v`)."""
+    if not new or not old:
+        return None
+    if new == old:
+        return "same"
+    fn = git(repo, "rev-parse", "--verify", "-q", "%s^{commit}" % new)
+    fo = git(repo, "rev-parse", "--verify", "-q", "%s^{commit}" % old)
+    if not fn or not fo:
+        return None
+    if fn == fo:
+        return "same"
+    if git_rc(repo, "merge-base", "--is-ancestor", fn, fo) == 0:
+        return "older"
+    if git_rc(repo, "merge-base", "--is-ancestor", fo, fn) == 0:
+        return "newer"
+    return "unrelated"
+
+
+def stamped_trees(cell, prov, key):
+    # Every SCRIP tree the row ALREADY claims for the measurement about to be rewritten, as
+    # (where, hash) -- the provenance clause keyed for it, plus any hash in the LIVE reading of the
+    # cell itself.
+    # ⭐ BOTH SOURCES, because the board is full of hand-edits and they land in opposite places: a write
+    # through this helper stamps the Tree column, a hand re-measure writes the hash into the prose
+    # ("LANE RE-MEASURE ... on SCRIP `f3f4870d7`") and touches no clause. `check` learned that lesson on
+    # 2026-09-05; a guard that reads only one of the two is blind to whichever half it did not pick.
+    # ⛔ ONLY THE LIVE READING. Everything past SUPERSEDE_PREFIX was labelled not-asserted by an earlier
+    # fold, so the trees buried in it are retired by construction -- ranking a new measurement against an
+    # archived one would refuse a perfectly ordinary forward write for disagreeing with history.
+    out = []
+    for c in [x.strip() for x in (prov or "").split(";") if x.strip()]:
+        if re.match(r"^%s\s*(?::|(?=\s|$))" % re.escape(key), c):
+            hs = TREE_HASH_RX.findall(c)
+            if hs:
+                out.append(("the `%s:` provenance clause" % key, hs[0]))
+            break
+    head = (cell or "").split(SUPERSEDE_PREFIX, 1)[0]
+    for h in TREE_HASH_RX.findall(head):
+        if h not in [x[1] for x in out]:
+            out.append(("the cell's own text", h))
+    return out
+
+
 def rt_opt():
     # ⛔ READ IT, NEVER TYPE IT.  RT_OPT is -O0 by Lon's s262 FACT RULE and the Makefile carries that at
     # exactly one line -- but this file quoting "-O0" from memory is precisely the transcription defect
@@ -946,6 +1033,50 @@ def cmd_write(a):
     # the cell already uses bare suite names (`Arizona:`, `JCON:`, `STRICT:`, `smoke:`) and a new key shape
     # would sit beside the old clause instead of replacing it. Match the file's convention, don't impose one.
     key = a.suite or a.column
+    # ⛔⭐⭐ A REWRITE WHOSE TREE IS AN ANCESTOR OF THE TREE ALREADY STAMPED IS REFUSED (ceo CEO-492, off
+    # hq_S's 2026-09-10 incident -- see tree_ancestry for the full witness). It publishes a number measured
+    # further BACK than the one it replaces, and every surface reads it as an update: the row is rewritten
+    # in place, the provenance clause is stamped with this run's clock and this run's measurer, and `check`
+    # then grades the row against the OLDER tree and calls it fresh. The board goes backwards while every
+    # instrument on it says forwards.
+    # ⭐ THE COMMON WAY IN IS NOT A RACE, IT IS A CHECKOUT NOBODY PULLED. A seat measures a suite on the tree
+    # it happens to hold, another seat lands a cure and writes the row, and the first seat's write arrives
+    # minutes later carrying an honest number about a tree that no longer describes the compiler. Both
+    # numbers are real; only one of them is about the head of the project. Ancestry is the ONLY fact that
+    # separates them, and it is the one fact the row text does not carry.
+    # ⛔ NO --force AND NO ENV OVERRIDE, for the reason the dirty-tree guard gives one screen up: an opt-out
+    # on the highest-traffic board becomes the path taken by whoever is in the biggest hurry, which is
+    # exactly the seat racing another seat's landing. The cure is to pull and re-run -- which is the same
+    # work the number was going to need anyway, merely done before it is published rather than after.
+    _new_tree = (TREE_HASH_RX.findall(stamp) or [None])[0]
+    _unknown = []
+    for _where, _old_tree in stamped_trees(before, cells[PROV_COL], key):
+        _rel = tree_ancestry(_new_tree, _old_tree)
+        if _rel is None:
+            _unknown.append((_where, _old_tree))
+        elif _rel == "older":
+            die("%s/%s is ALREADY STAMPED ON A NEWER TREE than the one this write measured, and rewriting it "
+                "would move the board BACKWARDS while looking like an update.\n"
+                "  this write measured : SCRIP `%s`\n"
+                "  already on the board: SCRIP `%s`  (from %s)\n"
+                "  and `%s` is a strict ANCESTOR of `%s` -- git merge-base says so; the row text does not, "
+                "which is why nobody catches this by reading it.\n"
+                "  currently on the board: %s\n"
+                "  you were about to write: %s\n"
+                "  ⭐ CURE: pull, re-run the suite on the tree you now hold, and write THAT number. If the "
+                "older measurement is genuinely the one to publish (the newer row is wrong, not merely "
+                "later), that is a judgement about two measurements and a human makes it by hand -- this "
+                "helper does not rank them for you.\n"
+                "  NOTHING WAS WRITTEN."
+                % (a.lang, a.column, _new_tree, _old_tree, _where, _new_tree, _old_tree,
+                   before[:200], text[:200]))
+    for _where, _old_tree in _unknown:
+        # ⛔ SAY WHEN THE QUESTION WENT UNANSWERED. A guard that is silent both when it checked and when it
+        # could not check teaches the reader that silence means checked -- the false-green shape this file
+        # spends its length on. This is a note, not a refusal: an unresolvable hash is usually a tree this
+        # checkout has never fetched, and refusing on it would block a correct write over a missing fetch.
+        print("  ⚠ ancestry NOT checked against SCRIP `%s` (%s): this checkout does not know that commit, so "
+              "whether this write moves the board forward or backward was not established." % (_old_tree, _where))
     # ⛔ A WHOLESALE OVERWRITE MUST NOT SILENTLY DISCARD PROSE IT NEVER MODELLED (see cell_prose_loss).
     # Scoped to the no-suite path on purpose: --suite already merges via merge_clause, touching only its
     # own clause, and no incident has been measured against that narrower path -- guarding it too would be
@@ -1296,7 +1427,7 @@ def cmd_check(a):
     # hand-edit its own state.  UNSTAMPED is not STALE and not UNKNOWN -- the tree may be perfectly current;
     # what is broken is that no provenance clause claims it, so nobody is named for the number and the next
     # `write` to that column will overwrite the stamp without touching the prose that disagrees with it.
-    HASH_RX = re.compile(r"SCRIP `([0-9a-f]{7,40})(?:-DIRTY)?`")
+    HASH_RX = TREE_HASH_RX   # ONE pattern for the whole file; see its definition for why not two.
     by_col = sorted((idx, key) for key, (idx, _label) in COLUMNS.items())
     _dist = {}
 
@@ -1374,10 +1505,29 @@ def cmd_check(a):
                 if sd is None:
                     note = "  ⚠ ADRIFT: `%s:` clause stamps %s, which origin does not know" % (key, s)
                     adrift += 1
-                elif sd > d:
-                    note = "  ⚠ ADRIFT: `%s:` clause stamps %s (%d behind), %d commit(s) OLDER than the tree this cell claims -- hand-edited, not written through this helper" % (
-                        key, s, sd, sd - d)
-                    adrift += 1
+                else:
+                    # ⛔⭐ RANK THE TWO TREES BY ANCESTRY, NOT BY DISTANCE-TO-ORIGIN (ceo CEO-492, the same
+                    # rule `write` now refuses on, applied per row to a board that already carries the
+                    # damage). `sd > d` reads "the clause is further behind origin, so it is older", which
+                    # is true only while history is linear -- and it is exactly the reasoning hq_S had to
+                    # do by hand, with `git merge-base`, to resolve one row correctly. Two hashes on
+                    # different branches get a confident ordering out of the arithmetic and NO ordering
+                    # out of git, so the arithmetic was answering a question it could not see.
+                    # ⭐ UNRELATED IS ITS OWN STATE AND IT IS ADRIFT TOO. Neither tree reaches the other,
+                    # so nothing on this board can say which number came later -- and unlike a stale row,
+                    # nothing about it looks wrong. Distance ranked those silently and the note it printed
+                    # was a guess wearing a measurement's clothes.
+                    _rel = tree_ancestry(s, h)
+                    if _rel == "older" or (_rel is None and sd > d):
+                        _how = ("git merge-base: a strict ANCESTOR of" if _rel == "older"
+                                else "%d commit(s) further from origin than" % (sd - d))
+                        note = "  ⚠ ADRIFT: `%s:` clause stamps %s (%d behind), %s the tree this cell claims -- hand-edited, not written through this helper" % (
+                            key, s, sd, _how)
+                        adrift += 1
+                    elif _rel == "unrelated":
+                        note = "  ⚠ ADRIFT: `%s:` clause stamps %s and the cell claims %s -- NEITHER tree reaches the other, so no ancestry ranks them and this board cannot say which number was measured later" % (
+                            key, s, h)
+                        adrift += 1
             out.append("  %-9s %-9s %s %4d commits behind origin/main (cell claims %s)%s" % (
                 lang, key, flag, d, h, note))
         # Vendor-suite stamps live only in the Tree column -- they have no cell of their own, so they are
@@ -2042,6 +2192,77 @@ def cmd_selftest(a):
             print("SELFTEST: the last accepted write is the one that stands (9/48) -- rewrite-in-place holds for the suite row too")
         else:
             print("SELFTEST FAIL: suite row reads %r after the arms; a refusal must leave it untouched" % (_v and _v["today_pass"],)); ok = False
+        # ⛔⭐⭐ THE ANCESTOR ARM, BOTH WAYS (ceo CEO-492). Proving the refusal alone would be half a proof
+        # and the dangerous half: a guard that refuses EVERYTHING also refuses every ancestor, prints the
+        # right sentence, and stops the board dead. So the same fixture is run twice with the two trees
+        # SWAPPED -- backwards must refuse, forwards must land -- and only the pair says the guard can
+        # tell them apart.
+        # ⭐ THE FIXTURE IS REAL HISTORY, NOT A MOCK. `S4E_TREE_AT_START` (tree_stamp's own hook, set by a
+        # runner at the START of a long board) makes this write stamp a tree we choose, and the seeded
+        # provenance clause carries the other -- so `git merge-base` answers about two commits that
+        # genuinely exist in this checkout. A stubbed ancestry would prove the plumbing and nothing about
+        # whether the question asked of git is the right one.
+        _anc_old = git("SCRIP", "rev-parse", "--short", "HEAD~5") or git("SCRIP", "rev-parse", "--short", "HEAD~1")
+        _anc_new = git("SCRIP", "rev-parse", "--short", "HEAD")
+        if not _anc_old or not _anc_new or _anc_old == _anc_new:
+            # ⛔ CANNOT MEASURE IS NOT PASS. Without two real commits there is no ancestor to test, and a
+            # silent skip here would report a green selftest for a guard nothing exercised.
+            print("SELFTEST FAIL (CANNOT MEASURE): no two distinct SCRIP commits in this checkout, so the "
+                  "ancestor arm could not be built -- the ancestry refusal is UNPROVEN, not proven"); ok = False
+        else:
+            def _seed_prov(tree):
+                _l = open(SCORE_MD, encoding="utf-8").read().split("\n")
+                _h, _r, _ = find_table(_l)
+                _i, _c = _r["rebus"]
+                _c[COLUMNS["board"][0]] = "master: m3 9/48 · m4 9/48 (selftest seed)"
+                _c[PROV_COL] = merge_prov(_c[PROV_COL], "board",
+                                          "SCRIP `%s` · RT_OPT=-O0 · seeded · selftest" % tree)
+                _l[_i] = "| " + " | ".join(_c) + " |"
+                _write_score_md(_l, seeding=True)
+
+            def _anc_write(stamp_tree, label):
+                _prev = os.environ.get("S4E_TREE_AT_START")
+                os.environ["S4E_TREE_AT_START"] = "SCRIP=%s" % stamp_tree
+                a9 = A(); a9.lang = "rebus"; a9.column = "board"; a9.measurer = "selftest"
+                a9.text = "master: m3 11/48 · m4 11/48 (%s, not a measurement)" % label
+                a9.modes = "m3,m4"; a9.dry_run = False; a9.suite = ""
+                try:
+                    cmd_write(a9)
+                    return None
+                except SystemExit as e:
+                    return e.code
+                finally:
+                    if _prev is None:
+                        os.environ.pop("S4E_TREE_AT_START", None)
+                    else:
+                        os.environ["S4E_TREE_AT_START"] = _prev
+
+            if tree_ancestry(_anc_old, _anc_new) != "older":
+                print("SELFTEST FAIL (CANNOT MEASURE): tree_ancestry does not call %s an ancestor of %s, so "
+                      "the fixture itself is wrong and neither arm below proves anything" % (_anc_old, _anc_new)); ok = False
+            else:
+                _seed_prov(_anc_new)
+                _before9 = open(SCORE_MD, encoding="utf-8").read()
+                _rc9 = _anc_write(_anc_old, "backwards")
+                if _rc9 != 2:
+                    print("SELFTEST FAIL: a write stamping %s over a cell stamped %s -- an ANCESTOR tree -- "
+                          "exited %r, expected a rc=2 refusal" % (_anc_old, _anc_new, _rc9)); ok = False
+                elif open(SCORE_MD, encoding="utf-8").read() != _before9:
+                    print("SELFTEST FAIL: the ancestor refusal rewrote SCORE.md anyway -- rc=2 must mean NOTHING was written"); ok = False
+                else:
+                    print("SELFTEST: a rewrite whose tree is an ANCESTOR of the cell's stamped tree correctly "
+                          "REFUSED rc=2 (%s under %s) and left the file byte-identical" % (_anc_old, _anc_new))
+                _seed_prov(_anc_old)
+                _rc10 = _anc_write(_anc_new, "forwards")
+                _cell10 = find_table(open(SCORE_MD, encoding="utf-8").read().split("\n"))[1]["rebus"][1][COLUMNS["board"][0]]
+                if _rc10 is not None:
+                    print("SELFTEST FAIL: the FORWARD write (tree %s over a cell stamped ancestor %s) refused "
+                          "rc=%s -- the ancestry guard is refusing in both directions, which is not a guard" % (_anc_new, _anc_old, _rc10)); ok = False
+                elif "11/48" not in _cell10:
+                    print("SELFTEST FAIL: the forward write returned 0 but the cell reads %r" % _cell10[:120]); ok = False
+                else:
+                    print("SELFTEST: the same write with the two trees SWAPPED -- a DESCENDANT tree over an "
+                          "older stamp -- landed normally, so the ancestor refusal discriminates rather than blocks")
     finally:
         SCORE_MD = real
         SUITES_TSV = real_tsv

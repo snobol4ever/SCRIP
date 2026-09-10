@@ -69,7 +69,9 @@ for want in "rewrite-in-place holds" "not appended beside it" "unknown language 
             "absent measurer, known root correctly DERIVED" \
             "placeholder measurer, known root correctly DERIVED" \
             "absent measurer, numbered seat root correctly DERIVED" \
-            "placeholder measurer on an UNKNOWN root correctly REFUSED"; do
+            "placeholder measurer on an UNKNOWN root correctly REFUSED" \
+            "ANCESTOR of the cell's stamped tree correctly REFUSED" \
+            "the ancestor refusal discriminates rather than blocks"; do
     examined=$((examined + 1))
     case "$out" in
         *"$want"*) ;;
