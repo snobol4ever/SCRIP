@@ -44,8 +44,23 @@ cat > "$canon_pl" <<'PERL'
 my %m; my $i = 0;
 local $/; my $s = <>;
 $s =~ s/(?<=[A-Za-z])(\d{3,})_/ (exists $m{$1} ? $m{$1} : ($m{$1} = sprintf("%05d", ++$i))) . "_" /ge;
+$s =~ s{"/[^"\n]*/([^/"\n]+\.icn)"}{"$1"}g;
 print $s;
 PERL
+# ⛔⭐ THE SECOND CANONICALISATION LINE ABOVE IS NOT COSMETIC -- IT IS WHY THIS CHECK CAN EVER READ
+# GREEN TWICE IN A ROW. `--compile` writes the source path it was HANDED into the .file directive and
+# into every line-mark .string, and this loop hands it an ABSOLUTE path, so the committed artifact
+# recorded the absolute path of whichever root last regenerated it. Measured 2026-09-10 (hq_B): all 20
+# owed icon bench artifacts differed from HEAD by NOTHING BUT `/home/claude_U/` -> `/home/claude_B/`
+# -- zero content lines across all 20. ⭐ SO THE DEBT WAS NEVER PAYABLE: every seat that ran the regen
+# to clear a blocking handoff handed the NEXT seat the identical 20-file debt, in the other direction,
+# for ever. A check whose green state no tree can hold is the cry-wolf shape this file's own LIB note
+# already names, one level up: there the false positives hid the true ones, here the artifact churn
+# does. Stripping the directory leaves the basename, which is all a debugger resolves anyway (it
+# resolves relative to the compilation directory), and makes the artifact describe the PROGRAM instead
+# of the seat. Do NOT "fix" this by passing a relative path instead: that works (measured -- scrip
+# emits "version.icn" when handed "version.icn"), but it silently changes what a CERR line means when
+# a program `link`s a sibling by relative path, which is the trap the jcon demos already sprang once.
 upd=0; new=0; same=0; exc=0; cerr=0; aerr=0; nd=0; total=0; drift=0; lib=0
 for icn in "$CORPUS"/$GLOB; do
   [ -f "$icn" ] || continue
