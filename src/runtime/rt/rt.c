@@ -638,13 +638,24 @@ void rt_sno_runtime_define(const char *name, const char **pnames, int nparams, i
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define RT_PROC_LOC_MAX 4096
-static struct { const char *name; const char **lnames; int nlocals; const int *loffs; } g_proc_loc[RT_PROC_LOC_MAX];
+static struct { const char *name; const char **lnames; int nlocals; const int *loffs; const char **pnames; int nparams; } g_proc_loc[RT_PROC_LOC_MAX];
 static int g_proc_loc_n = 0;
 void rt_proc_set_locals(const char *name, const char **lnames, int nlocals) {
     if (!name) return;
     for (int i = 0; i < g_proc_loc_n; i++) if (g_proc_loc[i].name && !strcmp(g_proc_loc[i].name, name)) { g_proc_loc[i].lnames = lnames; g_proc_loc[i].nlocals = nlocals; return; }
     if (g_proc_loc_n >= RT_PROC_LOC_MAX) return;
     g_proc_loc[g_proc_loc_n].name = name; g_proc_loc[g_proc_loc_n].lnames = lnames; g_proc_loc[g_proc_loc_n].nlocals = nlocals; g_proc_loc_n++;
+}
+void rt_proc_set_loc_params(const char *name, const char **pnames, int nparams) {
+    if (!name) return;
+    for (int i = 0; i < g_proc_loc_n; i++) if (g_proc_loc[i].name && !strcmp(g_proc_loc[i].name, name)) { g_proc_loc[i].pnames = pnames; g_proc_loc[i].nparams = nparams; return; }
+    if (g_proc_loc_n >= RT_PROC_LOC_MAX) return;
+    g_proc_loc[g_proc_loc_n].name = name; g_proc_loc[g_proc_loc_n].pnames = pnames; g_proc_loc[g_proc_loc_n].nparams = nparams; g_proc_loc_n++;
+}
+const char *rt_proc_loc_pname(const char *name, int k) {
+    if (!name || k < 0) return (const char *)0;
+    for (int i = 0; i < g_proc_loc_n; i++) if (g_proc_loc[i].name && !strcmp(g_proc_loc[i].name, name)) return (g_proc_loc[i].pnames && k < g_proc_loc[i].nparams) ? g_proc_loc[i].pnames[k] : (const char *)0;
+    return (const char *)0;
 }
 void rt_proc_set_local_offs(const char *name, const int *loffs, int nlocals) {
     if (!name) return;

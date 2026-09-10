@@ -2736,6 +2736,10 @@ static void icn_register_local_offsets(const char * pname) {
     if (!pname || !g_emit_cfg || !g_emit_cfg->lnames || g_emit_cfg->nlocals <= 0) return;
     rt_proc_set_locals(pname, g_emit_cfg->lnames, g_emit_cfg->nlocals);
     for (int k = 0; k < g_emit_cfg->nparams; k++) if (g_emit_cfg->pnames && g_emit_cfg->pnames[k]) rt_proc_set_pname(pname, k, g_emit_cfg->pnames[k]);
+    { extern void rt_proc_set_loc_params(const char *, const char **, int);
+      if (g_emit_cfg->pnames && g_emit_cfg->nparams > 0) {
+          const char ** pc = (const char **) malloc(sizeof(const char *) * (size_t) g_emit_cfg->nparams);
+          if (pc) { for (int k = 0; k < g_emit_cfg->nparams; k++) pc[k] = g_emit_cfg->pnames[k] ? strdup(g_emit_cfg->pnames[k]) : (const char *) 0; rt_proc_set_loc_params(pname, pc, g_emit_cfg->nparams); } } }
     int nv = zls_g_vslot_count(g_emit_cfg); if (nv <= 0) return;
     int nl = g_emit_cfg->nlocals;
     int * offs = (int *) malloc(sizeof(int) * (size_t) nl); if (!offs) return;

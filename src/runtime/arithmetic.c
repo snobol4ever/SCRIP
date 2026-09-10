@@ -319,7 +319,7 @@ static DESCR_t rt_big_arith_route(DESCR_t a, DESCR_t b, int op) {
             if (a.v == DT_I && a.i == -1) return INTVAL(rt_big_is_odd(b) ? -1 : 1);
             if (a.v == DT_I && a.i ==  0) { if (rt_big_sign(b) > 0) return INTVAL(0); core_icn_error(204, FAILDESCR); return FAILDESCR; }
             if (rt_big_sign(b) < 0) return INTVAL(0);
-            core_icn_error(203, a); return FAILDESCR;
+            core_icn_error(203, FAILDESCR); return FAILDESCR;
         }
         default: return FAILDESCR;
     }

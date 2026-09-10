@@ -5087,7 +5087,8 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             int nt = core_icn_act_np(lv); if (nt <= 0) nt = rt_proc_nparams(pn); if (nt < 0) nt = 0;
             int nl = rt_proc_nlocals(pn); if (nl < 0) nl = 0;
             for (int k = 0; k < nt + nl; k++) {
-                const char *vn = (k < nt) ? rt_proc_pname(pn, k) : rt_proc_lname(pn, k - nt); if (!vn) continue;
+                extern const char *rt_proc_loc_pname(const char *, int);
+                const char *vn = (k < nt) ? (rt_proc_pname(pn, k) ? rt_proc_pname(pn, k) : rt_proc_loc_pname(pn, k)) : rt_proc_lname(pn, k - nt); if (!vn) continue;
                 if (vn[0] == 38) continue;
                 DESCR_t v; { extern int rt_proc_loff(const char *, int); int off = (k < nt) ? -1 : rt_proc_loff(pn, k - nt);
                   if (k < nt) v = base ? *(DESCR_t *)((char *)base + (k + 1) * 16) : NULVCL;

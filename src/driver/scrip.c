@@ -693,7 +693,7 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
           } }
         { int _mx = polyglot_main_bb_idx(s2); IR_graph_t *_rg = (_mx >= 0 && _mx < s2->bbp.count) ? s2->bbp.table[_mx] : (IR_graph_t *)0;
           if (_rg && !_rg->icn_cells_graph) _rg = (IR_graph_t *)0;
-          if (_rg && _rg->lnames && _rg->nlocals > 0) {
+          if (_rg && ((_rg->lnames && _rg->nlocals > 0) || (_rg->pnames && _rg->nparams > 0))) {
               emit_textf("  .section .rodata\n  .Lstartup_rootnm: .string \"main\"\n");
               m4_icn_name_tables_data(9000, _rg);
               emit_textf("  .section .text\n  .intel_syntax noprefix\n");
@@ -878,7 +878,9 @@ static int m4_icn_name_tables_data(int i, IR_graph_t *g) {
     return has_p;
 }
 static void m4_icn_name_tables_calls(int i, const char *namelbl, IR_graph_t *g) {
-    if (!g || !g->icn_cells_graph || !g->lnames || g->nlocals <= 0) return;
+    if (!g || !g->icn_cells_graph) return;
+    if (g->pnames && g->nparams > 0) emit_textf("  lea rdi, [rip + %s]\n  lea rsi, [rip + .Lstartup_ipnames%d]\n  mov edx, %d\n  call rt_proc_set_loc_params@PLT\n", namelbl, i, g->nparams);
+    if (!g->lnames || g->nlocals <= 0) return;
     emit_textf("  lea rdi, [rip + %s]\n  lea rsi, [rip + .Lstartup_ilnames%d]\n  mov edx, %d\n  call rt_proc_set_locals@PLT\n", namelbl, i, g->nlocals);
     emit_textf("  lea rdi, [rip + %s]\n  lea rsi, [rip + .Lstartup_iloffs%d]\n  mov edx, %d\n  call rt_proc_set_local_offs@PLT\n", namelbl, i, g->nlocals);
 }
