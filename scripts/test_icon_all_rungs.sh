@@ -34,6 +34,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HERE/lib_icn_rundir.sh"   # THE ONE AUTHORITY for a witness's stdin/argv/fixtures/env contract -- see that file's header
 SCRIP="${SCRIP:-$HERE/../scrip}"
 CORPUS="${CORPUS:-$S4E/corpus/tests/icon}"
 RUNG=""
@@ -116,7 +117,7 @@ run_one() {
     # only reinterprets the verdict below, it never skips measuring it.
     local is_xfail=0
     [ -f "${base}.xfail" ] && is_xfail=1
-    local stdin_file="${base}.stdin"; [ -f "$stdin_file" ] || stdin_file="$(dirname "$base")/config/$(basename "$base").stdin"
+    local stdin_file; stdin_file="$(icn_rundir_stdin "$icn")"
     local tdir tfn
     # ⛔⭐ RUN FROM A SCRATCH CWD, NOT FROM THE CORPUS (hq_B 2026-08-30, hq_C's cure (1) on the tmp3
     # recurrence). Icon tests legitimately do file I/O against RELATIVE paths -- rung36_jcon_io.icn opens
@@ -128,6 +129,25 @@ run_one() {
     # (the symptom is silenced while a test still writes into the source tree).
     # ⛔ The program is passed ABSOLUTE so nothing depends on cwd to FIND it; only what it WRITES moves.
     tdir="$ICN_SCRATCH"; tfn="$icn"
+    # ⭐⛔ THE RUN-DIRECTORY CONTRACT (hq_P, CEO-532). A witness that declares NAME.argv / NAME.fixtures/ /
+    # NAME.env is a program whose ANSWER DEPENDS ON ITS ENVIRONMENT, so it gets a fresh directory holding
+    # exactly its declared fixtures -- never the shared scratch, whose contents are whatever ran before it.
+    # ⛔ A malformed declaration REFUSES(2) for the whole board instead of degrading to "no contract": a
+    # witness silently graded starved is precisely the false green this contract exists to end, and it
+    # prints the same orderly, stable, non-empty output either way.
+    # ⛔ `if cmd; then` AND NEVER `cmd; [ $? -eq 2 ] && …` -- this file runs under `set -e`, where a `&&`
+    # list whose test is FALSE returns 1 and kills the whole board. Written the second way it did exactly
+    # that: rung36_jcon_io and everything after it vanished from the board with NO message and NO summary
+    # line, which reads as a shorter suite rather than as an aborted one.
+    local -a rd_argv=() rd_env=()
+    local rd_rc
+    if icn_rundir_declares "$icn"; then
+        rd_rc=0; icn_rundir_argv "$icn" rd_argv || rd_rc=$?
+        if [ "$rd_rc" -eq 2 ]; then echo "⛔ REFUSE(2) $name: malformed argv declaration" >&2; exit 2; fi
+        rd_rc=0; icn_rundir_env "$icn" rd_env || rd_rc=$?
+        if [ "$rd_rc" -eq 2 ]; then echo "⛔ REFUSE(2) $name: malformed env declaration" >&2; exit 2; fi
+        tdir="$(icn_rundir_make "$icn" "$ICN_SCRATCH")" || { echo "⛔ REFUSE(2) $name: could not stage the declared fixtures" >&2; exit 2; }
+    fi
     local got want rc=0 want_rc=0
     # ⛔ EXIT STATUS IS PART OF THE ANSWER (hq_P s272). This runner used to end both arms with `|| true`,
     # discarding rc entirely and grading stdout alone -- so a program that printed the right answer and then
@@ -137,11 +157,10 @@ run_one() {
     # ⭐ Graded against the ORACLE, not against 0: real iconx exits 0 for a main that FAILS (the normal end of
     # `every`), but a few programs legitimately exit nonzero, so a `<base>.exitcode` sidecar names the expected
     # code where it is not 0. Wrong-rc lands in its OWN bucket, never silently inside FAIL.
-    if [ -f "$stdin_file" ]; then
-        got=$( (cd "$tdir" && timeout "$tmo" "$SCRIP" --run "$tfn") < "$stdin_file" 2>/dev/null) || rc=$?
-    else
-        got=$( (cd "$tdir" && timeout "$tmo" "$SCRIP" --run "$tfn") < /dev/null     2>/dev/null) || rc=$?
-    fi
+    # ⛔ `--` separates OUR flags from the PROGRAM's argv; without it a declared argument is read as a
+    # second source file (CLAUDE.md § Build and run). ${rd_argv[@]+"${rd_argv[@]}"} is the empty-safe form
+    # -- a bare "${rd_argv[@]}" is an unbound-variable error under `set -u` when nothing is declared.
+    got=$( (cd "$tdir" && timeout "$tmo" env ${rd_env[@]+"${rd_env[@]}"} "$SCRIP" --run "$tfn" -- ${rd_argv[@]+"${rd_argv[@]}"}) < "$stdin_file" 2>/dev/null) || rc=$?
     [ -f "${base}.exitcode" ] && want_rc=$(tr -dc '0-9' < "${base}.exitcode")
     want=$(cat "$exp")
     if [ "$is_xfail" = 1 ]; then
