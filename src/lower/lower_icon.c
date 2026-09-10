@@ -710,6 +710,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             IR_t * dasn = build(cx, IR_ASSIGN, cvar, ω); IR_LIT(dasn).sval = (char *) CVAR;
             IR_t * dv = NULL; IR_t * de = lower(cx, t->c[t->n - 1], dasn, ω, &dv);
             { IR_t * dvf = icn_arm_result(dv); if (dvf) { ir_operand_push(dasn, dvf); γ_to(dvf, dasn); } }
+            if (de && ir_is_generator_kind(de->op)) { IR_t * DENT = build(cx, IR_GOTO, NULL, NULL); lc_γ_to_α(DENT, de); lc_ω_to_α(DENT, de); de = DENT; }
             chain_next = de;
         }
         for (int i = npairs - 1; i >= 0; i--) {
@@ -1357,7 +1358,8 @@ static int icn_tree_mentions_kw(const tree_t * t, const char * kw) {
 }
 static IR_t * icn_line_hook(icx_t * cx, int line, IR_t * next) {
     extern const char * stmt_src_get_file(void);
-    IR_t * hook = build(cx, IR_CALL, next, next); IR_LIT(hook).sval = (char *) "ICN$LINE";
+    IR_t * hook = build(cx, IR_CALL, NULL, NULL); IR_LIT(hook).sval = (char *) "ICN$LINE";
+    lc_γ_to(hook, next); lc_ω_to(hook, next);
     IR_t * fpn = build(cx, IR_LIT_STRING, hook, hook); { const char * sf = stmt_src_get_file(); IR_LIT(fpn).sval = (char *) (sf ? sf : ""); }
     IR_t * lnn = build(cx, IR_LIT_INTEGER, fpn, hook); IR_LIT(lnn).ival = (int64_t) line;
     ir_operand_push(hook, lnn); ir_operand_push(hook, fpn);
