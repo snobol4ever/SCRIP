@@ -76,6 +76,7 @@ std::string bb_to() {
                  + x86_gamma()
                  + x86_beta()
                  + x86("inc",   FRQ(_.op_off + 16))
+                 + x86_omega(  "jo")
                  + x86("jmp",   L(0));
         return !(_.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0) ? x86_alpha() + x86_bomb("bb_to: unhandled (needs static operands, descr flat-chain)") :
                _.op_num_real ?
@@ -141,5 +142,6 @@ std::string bb_to() {
              + x86_beta()
              + to_trail_unwind()
              + x86("inc",     FRQ(_.op_off + 16))
+             + x86_omega("jo")
              + x86("jmp",     L(0));
 }

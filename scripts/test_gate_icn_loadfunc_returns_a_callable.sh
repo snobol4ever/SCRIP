@@ -29,6 +29,8 @@ ICALL="${ICALL_H:-/home/resources/icon-master/ipl/cfuncs/icall.h}"
 [ -x "${SCRIP}" ]      || { echo "GATE REFUSE(2): ${SCRIP} is not built — cannot measure."; exit 2; }
 command -v gcc >/dev/null 2>&1 || { echo "GATE REFUSE(2): no gcc — this gate compiles its own plug-in and cannot measure without one."; exit 2; }
 [ -r "${ICALL}" ]      || { echo "GATE REFUSE(2): ${ICALL} unreadable — the iconx C-function ABI header is the gate's subject; cannot measure."; exit 2; }
+. "${HERE}/lib_gate.sh"
+gate_require_fresh "${ROOT}" src "${SCRIP}" "${ROOT}/out/libscrip_rt.so"
 T="$(mktemp -d)" || { echo "GATE REFUSE(2): no temp dir — cannot measure."; exit 2; }
 trap 'rm -rf "${T}"' EXIT
 cat > "${T}/plug.c" <<'CEOF'
