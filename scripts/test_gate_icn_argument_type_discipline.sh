@@ -68,8 +68,41 @@ D list_6(2)list_9(1)
 E "ab""b""ab ""ab"
 F "a"32.5table_1(0)
 WANT
+cat > "$T/w3.icn" <<'ICN'
+record rr(a,b)
+procedure main()
+   local L, R;
+   &error := 200;
+   write("01 sort  ", image(sort(&lcase)) | ("ERR " || &errornumber));
+   write("02 sort  ", image(sort(&null,1)) | ("ERR " || &errornumber));
+   write("03 put   ", image(put("s",1)) | ("ERR " || &errornumber));
+   write("04 push  ", image(push(&null,1)) | ("ERR " || &errornumber));
+   write("05 get   ", image(get(&null)) | ("ERR " || &errornumber));
+   write("06 pop   ", image(pop("x")) | ("ERR " || &errornumber));
+   write("07 pull  ", image(pull(&null)) | ("ERR " || &errornumber));
+   write("08 put   ", image(put(table(),1)) | ("ERR " || &errornumber));
+   L := [3,1,2]; R := rr(1,2);
+   write("09 keep  ", image(sort(L)), image(sort(table())), image(sort(set([1]))), image(sort(R)));
+   put(L,9); push(L,0);
+   write("10 keep  ", pull(L), get(L), pop(L), *L);
+   write("11 last  ", &errornumber);
+end
+ICN
+cat > "$T/w3.want" <<'WANT'
+01 sort  ERR 115
+02 sort  ERR 115
+03 put   ERR 108
+04 push  ERR 108
+05 get   ERR 108
+06 pop   ERR 108
+07 pull  ERR 108
+08 put   ERR 108
+09 keep  list_2(3)list_3(0)list_5(1)list_6(2)
+10 keep  9032
+11 last  108
+WANT
 fail=0
-for w in w1 w2; do
+for w in w1 w2 w3; do
   ( cd "$T" && timeout 60 "$SCRIP" "$w.icn" </dev/null > "$w.m3" 2>&1 ); rc3=$?
   if [ "$rc3" = 0 ] && cmp -s "$T/$w.m3" "$T/$w.want"; then echo "  PASS  m3 $w"; else echo "  FAIL  m3 $w rc=$rc3"; diff "$T/$w.want" "$T/$w.m3" | head -8 | sed 's/^/        /'; fail=1; fi
   if ( cd "$T" && "$SCRIP" --compile "$w.icn" > "$w.s" 2>/dev/null && gcc -c "$w.s" -o "$w.o" 2>/dev/null && gcc "$w.o" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$w.bin" 2>/dev/null ); then
@@ -87,5 +120,5 @@ SNO
 printf '0\n3\na5\n' > "$T/s1.want"
 ( cd "$T" && timeout 60 "$SCRIP" s1.sno </dev/null > s1.out 2>&1 )
 if cmp -s "$T/s1.out" "$T/s1.want"; then echo "  PASS  snobol4 control arm: SIZE and concatenation keep their own discipline"; else echo "  FAIL  snobol4 control arm"; diff "$T/s1.want" "$T/s1.out" | head -6 | sed 's/^/        /'; fail=1; fi
-if [ "$fail" = 0 ]; then echo "✅ PASS: Icon's argument type discipline -- 16 refusals with icont's own codes, 24 conversions still accepted, both modes, SNOBOL4 unaffected"; exit 0; fi
+if [ "$fail" = 0 ]; then echo "✅ PASS: Icon's argument type discipline -- 24 refusals with icont's own codes (w3: the eight structure builtins, whose wants are cut from Arizona icont, not typed), 24 conversions still accepted, both modes, SNOBOL4 unaffected"; exit 0; fi
 echo "⛔ FAIL: an Icon operation coerces where iconx raises, or raises where iconx converts (see the FAIL rows)"; exit 1
