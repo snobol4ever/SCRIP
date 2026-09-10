@@ -178,7 +178,7 @@ static void trace_print_icon(int kind, const char *name, DESCR_t *args, int narg
     extern const char *g_file; extern long g_line; extern int * const rt_k_level_p;
     extern int try_call_builtin_by_name(const char *fn, DESCR_t *a, int n, DESCR_t *out);
     fflush(stdout);
-    const char *f = g_file ? g_file : ""; size_t fl = strlen(f); if (fl > 13) f += fl - 13;
+    const char *f = g_file ? g_file : ""; { const char *bn = strrchr(f, 47); if (bn) f = bn + 1; } { size_t fl = strlen(f); if (fl > 13) f += fl - 13; }
     if (g_line > 0) fprintf(stderr, "%-13s: %4ld  ", f, g_line); else fprintf(stderr, "             :       ");
     for (int k = *rt_k_level_p - 1; k > 0; k--) fputs("| ", stderr);
     fputs(name, stderr);
@@ -217,7 +217,7 @@ void rt_icn_trace_coexpr(const char *procname, long self_serial, long targ_seria
     DESCR_t value; uint64_t w[2]; w[0] = x0; w[1] = x1; memcpy(&value, w, sizeof value);
     long line = line_override > 0 ? line_override : g_line;
     fflush(stdout);
-    const char *f = g_file ? g_file : ""; size_t fl = strlen(f); if (fl > 13) f += fl - 13;
+    const char *f = g_file ? g_file : ""; { const char *bn = strrchr(f, 47); if (bn) f = bn + 1; } { size_t fl = strlen(f); if (fl > 13) f += fl - 13; }
     if (line > 0) fprintf(stderr, "%-13s: %4ld  ", f, line); else fprintf(stderr, "             :       ");
     for (int k = *rt_k_level_p; k > 0; k--) fputs("| ", stderr);
     fprintf(stderr, "%s; co-expression_%ld", procname ? procname : "main", self_serial);

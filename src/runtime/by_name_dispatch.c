@@ -4320,6 +4320,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
         if (!strcmp(fn, "/")) return rt_num_arith(a, b, BINOP_DIV);
         if (!strcmp(fn, "%")) { extern int FNCEX_fn(const char *); if (FNCEX_fn(fn)) return APPLY_fn(fn, args, nargs); return rt_num_arith(a, b, BINOP_MOD); }
         if (!strcmp(fn, "^")) return rt_num_arith(a, b, BINOP_POW);
+        if (!strcmp(fn, "|||")) { extern DESCR_t str_concat_fracdigit_d(DESCR_t, DESCR_t); return str_concat_fracdigit_d(a, b); }
         if (!strcmp(fn, "||")) { const char *x = VARVAL_fn(a), *y = VARVAL_fn(b); if (!x) x = ""; if (!y) y = ""; size_t lx = strlen(x), ly = strlen(y); char *o = rt_str_alloc((int)(lx + ly)); memcpy(o, x, lx); memcpy(o + lx, y, ly); o[lx + ly] = 0; return STRVAL(o); }
         { DESCR_t rt_str_coerce(DESCR_t); void rt_relop_val_coerce(DESCR_t, DESCR_t, DESCR_t *); int oc = -1;
           if      (!strcmp(fn, "="))    oc = BINOP_EQ;  else if (!strcmp(fn, "~="))   oc = BINOP_NE;
