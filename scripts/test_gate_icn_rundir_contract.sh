@@ -65,12 +65,17 @@ ICONT="$(icont_bin)"
 
 # ⛔ ROWS WHOSE CHECKED-IN .expected DISAGREES WITH THE ARIZONA ORACLE AND IS KNOWN TO COME FROM A DIFFERENT
 # ONE. rung36_jcon_io.expected is a BYTE-FOR-BYTE COPY OF JCON'S OWN io.std (`diff` against
-# /home/resources/jcon-master/test/io.std is empty) -- a JVM-jcon reference, not an icont/iconx cut. The 10
+# /home/resources/jcon-master/test/io.std is empty) -- a JVM-jcon reference, not an icont/iconx cut. The 9
 # lines it disagrees on are all `nonseq:` rows, where jcon FAILS a seek past end-of-file and prints '-' while
 # Arizona SUCCEEDS and prints '?'; SCRIP already matches Arizona on every one of them. The cut is the coo's
 # (CEO-532: "work it WITH the coo, who holds the ref cuts"), so this pin records the dispute rather than
 # hiding it -- and it is an XPASS trap, not a mute: when the ref is re-cut this gate FAILS until the row is
 # removed from here in the same commit.
+# ⚠️ THE COUNT WAS 10 HERE UNTIL 2026-09-10 AND IT IS 9 (hq_P, measured; the ceo's CEO-534 carries the 10 too).
+# It came from ARM 4's own REPORTED line, which counted diff's `<` AND `>` and called the total "lines" -- on two
+# files of equal length that is exactly twice the truth. ⭐ A GATE THAT MISREPORTS ITS OWN NUMBER TEACHES THAT
+# NUMBER TO EVERY READER DOWNSTREAM: the 10 reached a gate header, a FINDING and a ceo ruling before anyone
+# re-derived it. The label now says "ref line(s) disagree" and counts `<` alone.
 REF_DISPUTED="rung36_jcon_io"
 
 # ⭐ THE ANSWER FLOOR, one row per contracted witness: the number of lines the LIVE ORACLE produces in the
@@ -178,7 +183,7 @@ for icn in "${WITNESSES[@]}"; do
                 echo "     The cut has landed: delete '$name' from REF_DISPUTED in this gate, in the same commit."
                 fail=$((fail+1))
             else
-                echo "REPORTED ARM4 $name: ref DISPUTED as declared ($(diff <(cat "$exp") <(printf '%s\n' "$o_out") | grep -c '^[<>]') lines) -- the coo holds the cut"
+                echo "REPORTED ARM4 $name: ref DISPUTED as declared ($(diff <(cat "$exp") <(printf '%s\n' "$o_out") | grep -c '^<') ref line(s) disagree) -- the coo holds the cut"
             fi
         elif [ "$(cat "$exp")" = "$o_out" ]; then
             echo "PASS ARM4 $name (checked-in ref == the Arizona oracle in the contracted rundir)"
