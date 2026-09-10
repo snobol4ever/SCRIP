@@ -35,7 +35,7 @@ cat > "$SRC" <<'EOF'
 #include "rt_coexpr.h"
 int main(void) {
     uint64_t regs[6] = {0,0,0,0,0,0};
-    scrip_coctx_t *ctx = scrip_coexpr_create((void *)0x1, regs, 0);
+    scrip_coctx_t *ctx = scrip_coexpr_create((void *)0x1, regs, 0, 0);
     if (ctx->thread != 0) {
         fprintf(stderr, "FAIL: ctx->thread not zero-initialized after scrip_coexpr_create\n");
         return 1;
