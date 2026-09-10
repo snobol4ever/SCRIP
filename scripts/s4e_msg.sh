@@ -304,7 +304,7 @@ s4e_promotion_admissible() {   # <promo-topic> <blocked-topic> <rank>
     local _p="$1" _blocked="$2" _rank="$3" _tl
     if s4e_language_freeze_refuses "$_p"; then
       printf '⛔ REFUSED PROMOTION: rank-%s %s is BLOCKED-ON %s, but %s is %s and THE ORDER OF WORK is %s ONLY.\n' \
-        "$_rank" "$_blocked" "$_p" "$_p" "$(s4e_topic_language "$_p")" "$(s4e_mode_live_languages | tr '[:lower:]' '[:upper:]')"
+        "$_rank" "$_blocked" "$_p" "$_p" "$(s4e_topic_language_display "$_p")" "$(s4e_mode_live_languages | tr '[:lower:]' '[:upper:]')"
       printf '   Not promoted, not served -- %s stays skipped this pass; a language freeze is never relaxed by a fallback.\n' "$_blocked"
       return 1
     fi
@@ -593,15 +593,61 @@ s4e_mode_live_languages() {
 # keeps TODAY'S behaviour exactly. So this cure can only ever tighten, never loosen: no row that the freeze
 # already refused becomes servable by it. And a tooling row wrongly frozen costs one `claim`, which every
 # refusal above already prints -- the cheap side of an asymmetry whose expensive side is breaking Lon's freeze.
+# ⛔ THE MARKER LINE IS STRIPPED OF A TRAILING `#` COMMENT BEFORE IT IS MATCHED (hq_P 2026-09-10). Without it
+# `LANGUAGE: neutral   # why` folds the WHOLE comment into the value and matches nothing -- the declaration
+# reads as absent, silently, and the row falls back to inference: a marker that LOOKS authoritative in the file
+# and is inert in the bus. Found by the harness arm for the declaration failing the moment it stopped being
+# vacuous. Same treatment `s4e_strip_donewhen_comment` already gives a DONE-WHEN, for the same reason.
 s4e_baton_declared_language() {
     local _t="${1:-}" _f _d
     [ -n "$_t" ] || return 0
     _f="$PO/tasks/$_t.task.md"; [ -f "$_f" ] || return 0
-    _d="$(grep -m1 -E '^LANGUAGE:' "$_f" 2>/dev/null | sed 's/^LANGUAGE://' | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
+    _d="$(grep -m1 -E '^LANGUAGE:' "$_f" 2>/dev/null | sed 's/^LANGUAGE://; s/#.*$//' | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
     case "$_d" in icon|prolog|snobol4|snocone|pascal|raku|rebus) printf '%s' "$_d";; esac
 }
-s4e_baton_witness_language() {
-    local _t="${1:-}" _f _out="" _n
+# ⭐ NEUTRALITY IS DECLARABLE TOO, AND FOR THE SAME REASON THE LANGUAGE IS (hq_P 2026-09-10, minted by the cost
+# side of the fail-closed cure above). Inference convicts tooling rows on PLACEHOLDER filenames: the census
+# turned up `legacy-dash-flags-dead-scripts` -- a sweep of SCRIP/scripts/*.sh for a dead single-dash CLI
+# convention, language-neutral beyond argument -- classified `snobol4 snocone` because its GOAL spells out
+# example invocations containing `file.sno` and `file.sc`. ⛔ The wrong cure is to teach the matcher about
+# `file.<ext>`: that is one witness wide, and the next placeholder is spelled `prog.sno`. ✅ The right one is
+# the ladder this file already ranks -- DECLARED beats INFERRED -- extended to the answer inference cannot
+# safely reach: a row may say `LANGUAGE: neutral` (or `none`) and be believed, exactly as it is believed when it
+# names a language. A tooling row then costs ONE LINE in its baton, permanently, instead of one `claim` per
+# freeze per seat forever. ⛔ It does NOT outrank a slug prefix, for the same reason a declared language does
+# not: `snobol4-foo` declaring itself neutral is a contradiction, and the slug is the older assertion.
+s4e_baton_declares_neutral() {
+    local _t="${1:-}" _f _d
+    [ -n "$_t" ] || return 1
+    _f="$PO/tasks/$_t.task.md"; [ -f "$_f" ] || return 1
+    _d="$(grep -m1 -E '^LANGUAGE:' "$_f" 2>/dev/null | sed 's/^LANGUAGE://; s/#.*$//' | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
+    case "$_d" in neutral|none) return 0;; *) return 1;; esac
+}
+# ⛔⭐⭐ AMBIGUITY RETURNS NEUTRAL, AND NEUTRAL IS NEVER FROZEN OUT -- SO A FALSE POSITIVE IN ANY ONE LANGUAGE'S
+# MATCHER DOES NOT MIS-LANE A ROW, IT DISARMS THE FREEZE FOR THAT ROW (hq_P 2026-09-10, found the same way both
+# earlier instances were -- BY BEING SERVED ONE. `next` under MODE NONET with THE ORDER OF WORK IS ICON ONLY
+# printed sixteen ⛔ SKIP lines for snobol4 rows and then locked this seat onto `corpus-import-roast-subset`, a
+# RAKU row: import the roast spec suite into corpus/packages/raku/roast/. The witness matcher answered BOTH
+# raku (correct -- the DONE-WHEN cds to corpus/packages/raku/roast) AND snobol4 (WRONG), because the baton names
+# the import convention it follows: "the packages/ import pattern beside gimpel/csnobol4_suite/ipl/jcon". The
+# `csnobol4_suite` marker convicted a row that merely cites that directory AS A NAMING PRECEDENT. Two matches,
+# so the set was ambiguous, so the classifier returned empty, so the freeze read the row as LANGUAGE-NEUTRAL and
+# served it.
+# ⭐ THE PRECEDING CURE DOCUMENTED ITSELF AS "can only ever tighten, never loosen", AND THAT CLAIM IS TRUE ONLY
+# FOR ROWS THE FREEZE ALREADY REFUSED. It is false in the direction that matters: a row a CORRECT single-language
+# classifier would have PARKED gets SERVED the moment a second matcher fires spuriously on it. Ambiguity is not a
+# neutral outcome here -- it is an ACTIVE BYPASS, and it is reached by a false positive in ANY of seven regexes,
+# i.e. the failure surface is the union of every marker set, not the intersection.
+# ✅ THE CURE IS ON THE DECISION, NOT ON THE MARKERS. Chasing false positives out of seven marker sets is
+# unbounded and each fix is one witness wide; instead the freeze now asks the question that is actually
+# decidable: IS EVERY LANGUAGE THIS ROW COULD BE PARKED? If so, refuse -- it does not matter which candidate is
+# the true one, because all of them are frozen. If any candidate is live, serve, which is exactly today's
+# behaviour. So a false positive can no longer bypass the freeze; at worst it names an extra parked language in a
+# refusal line. ⛔ This can only tighten -- and unlike the claim it replaces, that holds in BOTH directions: a row
+# with a live candidate is served as before, and no row that is served today becomes refused unless every
+# language it names is parked.
+s4e_baton_witness_languages() {
+    local _t="${1:-}" _f _out=""
     [ -n "$_t" ] || return 0
     _f="$PO/tasks/$_t.task.md"; [ -f "$_f" ] || return 0
     # ⛔⭐ A WITNESS IS A PATH, AND THE PATH IS OFTEN NOT UNDER corpus/tests/<lang>/ (widened hq_S 2026-09-10,
@@ -626,7 +672,14 @@ s4e_baton_witness_language() {
     grep -qE 'corpus/(tests|packages)/pascal/|[A-Za-z0-9_./-]+\.pas\b' "$_f" && _out="$_out pascal"
     grep -qE 'corpus/(tests|packages)/raku/|[A-Za-z0-9_./-]+\.raku\b' "$_f" && _out="$_out raku"
     grep -qE 'corpus/(tests|packages)/rebus/|[A-Za-z0-9_./-]+\.reb\b' "$_f" && _out="$_out rebus"
-    _out="${_out# }"; _n=$(printf '%s' "$_out" | wc -w)
+    printf '%s' "${_out# }"
+}
+# The single-language view, unchanged in behaviour and still what every DISPLAY caller wants: a set of one, or
+# empty. The freeze no longer goes through here -- it reads the SET above, because "which one language is this?"
+# is the question that has no answer for an ambiguous row, while "are all of them parked?" always does.
+s4e_baton_witness_language() {
+    local _out _n
+    _out="$(s4e_baton_witness_languages "${1:-}")"; _n=$(printf '%s' "$_out" | wc -w)
     [ "$_n" -eq 1 ] || return 0
     printf '%s' "$_out"
 }
@@ -641,8 +694,27 @@ s4e_topic_language() {
       raku-*)                        printf 'raku'; return 0;;
       rebus-*)                       printf 'rebus'; return 0;;
     esac
+    s4e_baton_declares_neutral "${1:-}" && return 0
     _s="$(s4e_baton_declared_language "${1:-}")"; [ -z "$_s" ] || { printf '%s' "$_s"; return 0; }
     s4e_baton_witness_language "${1:-}"
+}
+# ⭐ THE SAME LADDER, BUT IT KEEPS THE WHOLE CANDIDATE SET instead of collapsing it: a slug prefix or a DECLARED
+# marker still answers alone and outranks inference (both are assertions, not guesses, so neither can be
+# ambiguous), and only the witness inference can return more than one. Empty still means NOTHING is known --
+# genuinely language-neutral tooling -- and stays servable under any freeze.
+s4e_topic_language_candidates() {
+    local _s
+    _s="$(s4e_topic_language "${1:-}")"; [ -z "$_s" ] || { printf '%s' "$_s"; return 0; }
+    s4e_baton_declares_neutral "${1:-}" && return 0
+    s4e_baton_witness_languages "${1:-}"
+}
+# For a refusal line: the one language, or every candidate joined by `|` so the reader sees WHY the row was
+# refused without re-deriving it. ⛔ A refusal that named an ambiguous row's language printed EMPTY before this
+# -- "this topic is  (PARKED)" -- which is the shape that hides the very defect this cure is about.
+s4e_topic_language_display() {
+    local _c
+    _c="$(s4e_topic_language_candidates "${1:-}")"
+    printf '%s' "$(printf '%s' "$_c" | tr ' ' '|')"
 }
 # rc 0 ("refuses") only when a freeze IS active, the topic's language IS determined, and they DIFFER --
 # every other combination (no freeze, language-neutral topic, or topic matches the frozen language) is
@@ -657,11 +729,15 @@ s4e_topic_language() {
 # language is DETERMINED and is NOT IN that set. ⛔ Equality was wrong the moment the order of work named a
 # second language, and it would have failed CLOSED -- parking a live language -- which is the direction that
 # idles seats rather than the one that leaks work; both are defects, and a set answers both.
+# ⭐ NOW OVER THE CANDIDATE SET: refuse when the row's language is known to SOME extent and EVERY candidate is
+# parked. One candidate is the old rule exactly. Several is the ambiguous case that used to bypass the freeze
+# entirely, and it now refuses iff no candidate is live -- so a spurious extra match can widen the refusal's
+# reason but can never turn a refusal into a pick. Zero candidates is language-neutral and never refuses.
 s4e_language_freeze_refuses() {
-    local _live _tl _l
+    local _live _cand _c _l
     _live="$(s4e_mode_live_languages)"; [ -n "$_live" ] || return 1
-    _tl="$(s4e_topic_language "${1:-}")"; [ -n "$_tl" ] || return 1
-    for _l in $_live; do [ "$_l" = "$_tl" ] && return 1; done
+    _cand="$(s4e_topic_language_candidates "${1:-}")"; [ -n "$_cand" ] || return 1
+    for _c in $_cand; do for _l in $_live; do [ "$_l" = "$_c" ] && return 1; done; done
     return 0
 }
 # ⛔ DECORATED NO-OP EVASION, COMPANION FIX to `done`'s own no-op blocklist below (row
@@ -2229,7 +2305,7 @@ TASKEOF
            # lane filter below, there is no any-lane-style fallback for a language freeze, ever.
            if s4e_language_freeze_refuses "$topic"; then
              printf '⛔ SKIP %s (rank %s) — THE ORDER OF WORK is %s ONLY; this topic is %s (PARKED). Not served automatically.\n' \
-               "$topic" "$rank" "$(s4e_mode_live_languages | tr '[:lower:]' '[:upper:]')" "$(s4e_topic_language "$topic")"
+               "$topic" "$rank" "$(s4e_mode_live_languages | tr '[:lower:]' '[:upper:]')" "$(s4e_topic_language_display "$topic")"
              printf '   Still live for a deliberate override: s4e_msg.sh claim %s\n' "$topic"
              continue
            fi

@@ -247,11 +247,17 @@ grep -qE '^LOCKED.*icon-jcon-std-recut-fixture' <<<"$out" && ! grep -qE '^LOCKED
   && ck ok "(m) a DECLARED 'LANGUAGE:' line in the baton parks the row on its own, with no witness path anywhere" \
   || ck no "(m) declared must beat inferred, and must work where inference has nothing -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
 
-# --- (n): AMBIGUITY STAYS NEUTRAL -- the property that makes this cure safe to land -----------------------
-# ⛔ THE POINT OF THIS ARM IS THE DIRECTION OF THE ERROR, not the row. A baton naming two languages' witnesses
-# keeps TODAY'S behaviour exactly, so the cure can only TIGHTEN: nothing the freeze already refused becomes
-# servable because of it, and a cross-language row (a shared-node cure, a runner that grades both) is not
-# quietly assigned to whichever language its grep happens to hit first.
+# --- (n): AN AMBIGUOUS ROW WITH A LIVE CANDIDATE IS STILL SERVED ------------------------------------------
+# ⛔⭐ THIS ARM'S RATIONALE WAS REWRITTEN 2026-09-10 (hq_P) WITHOUT ITS FIXTURE OR ITS VERDICT CHANGING, WHICH
+# IS THE ONLY REASON IT IS WORTH READING. It used to say "ambiguity stays neutral and is served -- the cure
+# tightens, never loosens", and it still passes -- but NOT for that reason any more, and the old reason was
+# load-bearing prose that turned out to be false. Its fixture names snobol4 AND icon, and `icon` is the live
+# language here, so under the fail-closed rule below it is served BECAUSE A CANDIDATE IS LIVE. Ambiguity is no
+# longer a free pass: see arm (p), where every candidate is parked and the row is refused. ⭐ Kept and
+# re-explained rather than deleted, because a cross-language row (a shared-node cure, a runner grading two
+# suites) must never be assigned to whichever language its grep happens to hit first -- that property is real
+# and this arm still holds it. An arm that passes for a reason its comment does not name is the "correct
+# procedure, false explanation" class this project keeps paying for.
 set_mode 'NONET' "$LIVE_L2" 'ORDER-OF-WORK: icon'
 reset_q
 mkb 0 shared-node-emitter-fixture hq_S FREE \
@@ -259,8 +265,8 @@ mkb 0 shared-node-emitter-fixture hq_S FREE \
     'DONE-WHEN: true' '## NEXT' 'fixture'
 out="$(run_next hq_S)"
 grep -qE '^LOCKED.*shared-node-emitter-fixture' <<<"$out" \
-  && ck ok "(n) a baton naming TWO languages' witnesses stays neutral and is served -- the cure tightens, never loosens" \
-  || ck no "(n) ambiguity must fall back to today's behaviour, never guess a language -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
+  && ck ok "(n) an ambiguous baton with a LIVE candidate (icon) among its languages is still served" \
+  || ck no "(n) ambiguity with a live candidate must serve, never guess one language -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
 
 # --- (o): THE SLUG STILL OUTRANKS THE BATON --------------------------------------------------------------
 # ⭐ Tested in the direction only precedence explains: the slug says icon (LIVE), the baton greps as snobol4
@@ -276,6 +282,80 @@ out="$(run_next hq_S)"
 grep -qE '^LOCKED.*icon-jcon-loadfunc-fixture' <<<"$out" \
   && ck ok "(o) the SLUG outranks the baton -- an icon- row whose baton greps SNOBOL4 is served under ICON ONLY" \
   || ck no "(o) the prefix table must stay the authority when it answers -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
+
+# ⛔⭐⭐ ARMS (p)..(s) -- AMBIGUITY WAS NOT A NEUTRAL OUTCOME, IT WAS AN ACTIVE BYPASS (hq_P 2026-09-10, found
+# the way both earlier instances of this class were found: BY BEING SERVED ONE). Under MODE NONET with THE
+# ORDER OF WORK IS ICON ONLY, `next` printed sixteen ⛔ SKIP lines for snobol4 rows and then LOCKED this seat
+# onto `corpus-import-roast-subset` -- a RAKU row (import the roast spec suite into corpus/packages/raku/roast/).
+# The witness matcher answered BOTH raku (right) AND snobol4 (WRONG): the baton names the convention it copies,
+# "the packages/ import pattern beside gimpel/csnobol4_suite/ipl/jcon", and the `csnobol4_suite` marker convicts
+# a row that cites that directory AS A NAMING PRECEDENT. Two candidates, so the classifier returned empty, so
+# the freeze read LANGUAGE-NEUTRAL and served it.
+# ⛔ THE SHAPE WORTH CARRYING: with ambiguity-returns-neutral, A FALSE POSITIVE IN ANY ONE LANGUAGE'S MATCHER
+# DOES NOT MIS-LANE A ROW -- IT DISARMS THE FREEZE FOR THAT ROW ENTIRELY. So the failure surface is the UNION
+# of seven regexes, not any one of them, and every one of them is a prose grep. Arm (n)'s old comment claimed
+# the design "can only tighten, never loosen"; that is true only for rows the freeze already refused, and false
+# in the direction that matters -- a row a CORRECT classifier would have PARKED gets SERVED.
+# ✅ THE CURE IS ON THE DECISION, NOT THE MARKERS: chasing false positives out of seven marker sets is unbounded
+# and each fix is one witness wide, so the freeze now asks the question that is decidable -- IS EVERY LANGUAGE
+# THIS ROW COULD BE PARKED? -- and refuses only then. (p) is the bypass, (q) its positive control.
+# --- (p): EVERY CANDIDATE PARKED => REFUSED ---------------------------------------------------------------
+set_mode 'NONET' "$LIVE_L2" 'ORDER-OF-WORK: icon'
+reset_q
+mkb 0 roast-import-fixture hq_S FREE \
+    'GOAL: import a curated subset into corpus/packages/raku/roast/ (the packages/ import pattern beside gimpel/csnobol4_suite/ipl/jcon).' \
+    'DONE-WHEN: true' '## NEXT' 'fixture'
+out="$(run_next hq_S)"
+grep -qE '^LOCKED.*roast-import-fixture' <<<"$out" \
+  && ck no "(p) THE BYPASS: every candidate (raku, snobol4) is parked under ICON ONLY and the row was still SERVED" \
+  || ck ok "(p) a row whose every candidate language is parked is refused -- ambiguity is not a free pass"
+# --- (q): POSITIVE CONTROL FOR (p) -- a live candidate still serves ----------------------------------------
+# ⛔ Without this arm a classifier that refused EVERY ambiguous row would pass (p) and would quietly park every
+# cross-language row in the queue -- 7 of the 453 servable rows the day this landed, all of them naming icon.
+# That is the same harm arm (l) exists to prevent, arrived at from the other side.
+set_mode 'NONET' "$LIVE_L2" 'ORDER-OF-WORK: raku'
+reset_q
+mkb 0 roast-import-fixture hq_S FREE \
+    'GOAL: import a curated subset into corpus/packages/raku/roast/ (the packages/ import pattern beside gimpel/csnobol4_suite/ipl/jcon).' \
+    'DONE-WHEN: true' '## NEXT' 'fixture'
+out="$(run_next hq_S)"
+grep -qE '^LOCKED.*roast-import-fixture' <<<"$out" \
+  && ck ok "(q) POSITIVE CONTROL: the same ambiguous row IS served when one of its candidates is the live language" \
+  || ck no "(q) refusing every ambiguous row would park the cross-language half of the queue -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
+# --- (r): NEUTRALITY IS DECLARABLE ------------------------------------------------------------------------
+# ⛔ THE COST SIDE OF (p), AND IT IS REAL, NOT HYPOTHETICAL: the census over the live queue turned up
+# `legacy-dash-flags-dead-scripts` -- a sweep of SCRIP/scripts/*.sh for a dead single-dash CLI convention,
+# language-neutral beyond argument -- classified `snobol4 snocone` because its GOAL spells out example
+# invocations containing `file.sno` and `file.sc`. PLACEHOLDER filenames, read as witnesses. Teaching the
+# matcher about `file.<ext>` is one witness wide and the next placeholder is `prog.sno`; declaring neutrality
+# is permanent and readable. DECLARED beats INFERRED, extended to the answer inference cannot safely reach.
+set_mode 'NONET' "$LIVE_L2" 'ORDER-OF-WORK: icon'
+reset_q
+mkb 0 dead-flag-sweep-fixture hq_S FREE \
+    'LANGUAGE: neutral' \
+    'GOAL: sweep the scripts for a dead CLI convention; examples read scrip -x86 file.sno and scrip -sc file.sc.' \
+    'DONE-WHEN: true' '## NEXT' 'fixture'
+out="$(run_next hq_S)"
+grep -qE '^LOCKED.*dead-flag-sweep-fixture' <<<"$out" \
+  && ck ok "(r) a baton DECLARING 'LANGUAGE: neutral' is served though inference would park it on placeholder filenames" \
+  || ck no "(r) declared neutrality must outrank inference, or tooling rows park on prose -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
+# --- (s): A DECORATED MARKER IS STILL A MARKER ------------------------------------------------------------
+# ⛔ FOUND BY (r) FAILING THE MOMENT THE HARNESS STOPPED BEING VACUOUS. The marker parser did not strip a
+# trailing `#` comment, so `LANGUAGE: neutral   # why` folded the whole comment into the value and matched
+# nothing: the declaration read as ABSENT and the row fell back to inference. A marker that looks authoritative
+# in the file and is inert in the bus is worse than no marker -- it is believed by the reader and by nobody
+# else. The same treatment `s4e_strip_donewhen_comment` already gives a DONE-WHEN, and this arm is why anyone
+# writing one may explain it on the same line.
+set_mode 'NONET' "$LIVE_L2" 'ORDER-OF-WORK: icon'
+reset_q
+mkb 0 decorated-marker-fixture hq_S FREE \
+    'LANGUAGE: neutral   # a tooling row; the examples below are placeholders, not witnesses' \
+    'GOAL: sweep the scripts; examples read scrip -x86 file.sno and scrip -sc file.sc.' \
+    'DONE-WHEN: true' '## NEXT' 'fixture'
+out="$(run_next hq_S)"
+grep -qE '^LOCKED.*decorated-marker-fixture' <<<"$out" \
+  && ck ok "(s) a 'LANGUAGE:' marker with a trailing # comment still parses -- a decorated marker is not an absent one" \
+  || ck no "(s) an explained marker must not read as absent -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
 
 echo "---"
 if [ "$fails" -eq 0 ]; then printf '✅ PASS: %d/%d arms — next refuses a parked language under THE ORDER OF WORK, hermetically\n' "$checks" "$checks"; exit 0
