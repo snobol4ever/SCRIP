@@ -603,6 +603,32 @@ gate_file_executes_scrip() {
 # THE COST OF THE DELAY, so nobody repeats it: THREE seats reported false work items from this -- hq_T's own ARM 15 runs,
 # the coo's make-test report, and hq_R's, which the ceo turned into a ruling (CEO-462) directing a cure to
 # test_gate_pl_gz5c.sh, a file that has carried the guard on line 3 since 2026-09-05. Four innocent files accused.
+# gate_file_has_bin_watch_guard <file> -- 0 the file watches its artifacts for a MID-RUN swap and checks them
+# before it publishes, 1 it does not, 2 unreadable.  ⛔ THE POPULATION RULE FOR ceo CEO-524 (1) LIVES HERE AND
+# NOWHERE ELSE, for the same reason gate_file_has_fresh_guard does: a census that re-spells its own rule is a
+# second copy, and the copy is what drifts.  THREE CONDITIONS, and the third is the one that matters -- the
+# defect this grades is not a missing check, it is a check that fires AFTER the number is already on the page:
+#   1  the file calls gate_bin_watch                      (a baseline was taken)
+#   2  the file calls gate_bin_unmoved                    (the baseline is compared)
+#   3  the FIRST gate_bin_unmoved precedes the FIRST line that publishes a count -- an echo of a *_BOARD line,
+#      or a util_score_row.py / gate_score_row write.  A board with no such line publishes nothing and passes 3
+#      vacuously, which is correct: there is nothing to be too late for.
+# Comment lines are stripped before every read, so a file that merely NAMES the guard in prose does not pass.
+gate_file_has_bin_watch_guard() {
+    local _body _rc _w _u _pub
+    [ -f "$1" ] || return 2
+    [ -r "$1" ] || return 2
+    _body="$(grep -vE '^[[:space:]]*#' "$1")"; _rc=$?
+    [ "$_rc" -gt 1 ] && return 2
+    grep -qE 'gate_bin_watch' <<<"$_body" || return 1
+    grep -qE 'gate_bin_unmoved' <<<"$_body" || return 1
+    _u="$(grep -nE 'gate_bin_unmoved' <<<"$_body" | head -1 | cut -d: -f1)"
+    _pub="$(grep -nE 'echo "[A-Z0-9_]*BOARD |util_score_row\.py|gate_score_row' <<<"$_body" | head -1 | cut -d: -f1)"
+    [ -n "$_pub" ] || return 0
+    [ -n "$_u" ] || return 1
+    [ "$_u" -lt "$_pub" ] 2>/dev/null || return 1
+    return 0
+}
 gate_file_has_fresh_guard() {
     local _body _rc
     [ -f "$1" ] || return 2

@@ -99,6 +99,17 @@ fi
 # table is this class's normal output. NO LOGIC HERE: util_require_fresh.sh sources gate_require_fresh from
 # lib_gate.sh, the ONE authority (hq_B 4c7253e99) -- never a second copy of the staleness rule.
 "$HERE/util_require_fresh.sh" --gate test_icon_jcon_suite "$SCRIP" "${RT_DIR:-$HERE/../out}/libscrip_rt.so" || exit 2
+# ⛔⭐ THE BINARY MOVED UNDER THIS BOARD (ceo CEO-524 (1), wired by the coo 2026-09-10 as THE ONE RUNNER).
+# The line above proves the binary is CURRENT AT THE START. It cannot see a swap that happens while the board is
+# still grading, and the dirty guard downstream reads the tree at WRITE time -- so hq_R's board straddled a binary
+# swap and published m3 635/759 into SCORE.md with a CLEAN stamp while the correct 756/759 was refused as dirty.
+# ⛔ gate_bin_watch/gate_bin_unmoved ALREADY EXISTED for exactly this (lib_gate.sh, hoisted by hq_S 2026-09-06 out
+# of test_corpus_snobol4.sh) AND NO BOARD CALLED THEM -- the instrument was built, hoisted, documented and never
+# wired, which is the failure class it was written to catch, one level up. Both artifacts are watched because
+# ./scrip is a ~40 KB driver and the emitter lives in the .so: a scrip-only fingerprint is vacuous exactly when an
+# emitter change is the thing that moved.
+. "$HERE/lib_gate.sh" 2>/dev/null || { echo "⛔ REFUSED TO GRADE rc=2: lib_gate.sh unloadable -- this board cannot tell whether its binary moves under it" >&2; exit 2; }
+GATE_NAME=test_icon_jcon_suite gate_bin_watch "$SCRIP" "${RT_DIR:-$HERE/../out}/libscrip_rt.so"
 if [ ! -d "$CORPUS" ]; then
     echo "⛔ REFUSED TO GRADE: no jcon_tests corpus at $CORPUS" >&2
     exit 2
@@ -364,6 +375,10 @@ if [ -z "$OUT_UNSHIPPED$OUT_UNMIRRORED$OUT_STALE" ]; then
         echo "OUTSIDE_ARIZONA_BASELINE.tsv agrees with the lockdown buckets; THE ORACLE WAS NOT ASKED (zero rows re-measured -- no ORACLE_REFUSES row was reachable). Every row stands on its recorded reason alone:${OUT_UNCHECKED:- none}"
     fi
 fi
+# ⛔ BEFORE THE BOARD LINE AND BEFORE ANY SCORE.md WRITE, NEVER AFTER (ceo CEO-524 (1)): a refusal that fires
+# after the row is published is an annotation, not a refusal -- the same lesson test_gate_progress_rows_carry_
+# the_start_fingerprint.sh was written for. gate_bin_unmoved exits 2 itself when the fingerprint moved.
+GATE_NAME=test_icon_jcon_suite gate_bin_unmoved
 echo "JCON_SUITE_BOARD shipped=$SHIPPED graded=$GRADED gap=$GAP total=$total m3_pass=${m3p:-n/a} m4_pass=${m4p:-n/a}"
 # ⛔⭐ THE PACKAGE LOCKDOWN INVENTORY (Lon 2026-09-06: "Fix the never graded business"; instrument row
 # every-package-runner-prints-shipped-graded-ungraded-and-ungradable..., hq_T). ONE line, ONE shape, from

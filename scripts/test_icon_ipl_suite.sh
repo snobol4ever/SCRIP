@@ -104,6 +104,17 @@ VERBOSE=0; [ "${1:-}" = "-v" ] && VERBOSE=1
 # table is this class's normal output. NO LOGIC HERE: util_require_fresh.sh sources gate_require_fresh from
 # lib_gate.sh, the ONE authority (hq_B 4c7253e99) -- never a second copy of the staleness rule.
 "$HERE/util_require_fresh.sh" --gate test_icon_ipl_suite "$SCRIP" "${RT_DIR:-$HERE/../out}/libscrip_rt.so" || exit 2
+# ⛔⭐ THE BINARY MOVED UNDER THIS BOARD (ceo CEO-524 (1), wired by the coo 2026-09-10 as THE ONE RUNNER).
+# The line above proves the binary is CURRENT AT THE START. It cannot see a swap that happens while the board is
+# still grading, and the dirty guard downstream reads the tree at WRITE time -- so hq_R's board straddled a binary
+# swap and published m3 635/759 into SCORE.md with a CLEAN stamp while the correct 756/759 was refused as dirty.
+# ⛔ gate_bin_watch/gate_bin_unmoved ALREADY EXISTED for exactly this (lib_gate.sh, hoisted by hq_S 2026-09-06 out
+# of test_corpus_snobol4.sh) AND NO BOARD CALLED THEM -- the instrument was built, hoisted, documented and never
+# wired, which is the failure class it was written to catch, one level up. Both artifacts are watched because
+# ./scrip is a ~40 KB driver and the emitter lives in the .so: a scrip-only fingerprint is vacuous exactly when an
+# emitter change is the thing that moved.
+. "$HERE/lib_gate.sh" 2>/dev/null || { echo "⛔ REFUSED TO GRADE rc=2: lib_gate.sh unloadable -- this board cannot tell whether its binary moves under it" >&2; exit 2; }
+GATE_NAME=test_icon_ipl_suite gate_bin_watch "$SCRIP" "${RT_DIR:-$HERE/../out}/libscrip_rt.so"
 
 TMP="$(mktemp -d /tmp/ipl_suite_XXXXXX)"
 trap 'rm -rf "$TMP"' EXIT
@@ -218,6 +229,10 @@ fi
 
 COMPILE_GRADED=$((COMPILE_PASS + COMPILE_FAIL))
 echo ""
+# ⛔ BEFORE THE BOARD LINE AND BEFORE ANY SCORE.md WRITE, NEVER AFTER (ceo CEO-524 (1)): a refusal that fires
+# after the row is published is an annotation, not a refusal -- the same lesson test_gate_progress_rows_carry_
+# the_start_fingerprint.sh was written for. gate_bin_unmoved exits 2 itself when the fingerprint moved.
+GATE_NAME=test_icon_ipl_suite gate_bin_unmoved
 echo "IPL_SUITE_BOARD total=$TOTAL compile_graded=$COMPILE_GRADED compile_pass=$COMPILE_PASS compile_fail=$COMPILE_FAIL run_graded=$RUN_GRADED nomain_total=$NOMAIN_TOTAL hasmain_total=$HASMAIN_TOTAL nomain_ok=$NOMAIN_OK linkgap=$LINKGAP parseerr=$PARSEERR timeout=$TIMEOUT_N other=$OTHER"
 
 # ═══ RUN TIER -- every progs/*.icn with a NAME.std (cut by util_cut_icon_ipl_refs.sh) gets EXECUTED,

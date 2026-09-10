@@ -198,6 +198,16 @@ echo "=== Icon MASTER board — corpus/tests/icon/ALL.icn ==="
 # ⛔ Kept in a SEPARATE stream, deliberately: folding stderr into $_raw would put arbitrary diagnostic
 # text through the `grep '^SUITE_BOARD '` parses below, and a board that mis-parses its own verdict to
 # gain a fail list has traded the number for the names rather than getting both.
+# ⛔⭐ THE BINARY MOVED UNDER THIS BOARD (ceo CEO-524 (1), wired by the coo 2026-09-10 as THE ONE RUNNER).
+# This board hands a 763-entry master to the harness under a 1800 s cap -- the longest window on the fleet and
+# therefore the widest swap hazard. The staleness checks inside the harness prove the binary is CURRENT AT THE
+# START and the dirty guard downstream reads the tree at WRITE time; neither can see a rebuild that lands while
+# the run is still grading, which is how hq_R's board published m3 635/759 with a CLEAN stamp while the correct
+# 756/759 was refused as dirty. ⛔ gate_bin_watch/gate_bin_unmoved ALREADY EXISTED for exactly this (lib_gate.sh,
+# hq_S 2026-09-06) AND NO BOARD CALLED THEM. Both artifacts are watched: ./scrip is a ~40 KB driver and the
+# emitter lives in the .so, so a scrip-only fingerprint is vacuous exactly when an emitter change is what moved.
+. "$HERE/lib_gate.sh" 2>/dev/null || { echo "⛔ BOARD REFUSES (rc=2): lib_gate.sh unloadable -- this board cannot tell whether its binary moves under it"; exit 2; }
+GATE_NAME=board_icon_master gate_bin_watch "$SCRIP" "${RT_DIR:-$HERE/../out}/libscrip_rt.so"
 _errf=$(mktemp); trap 'rm -f "$_errf"' EXIT
 # ⛔⭐ THE OUTSIDE LIST RIDES ONLY IF IT EXISTS, and its absence is not an error: a suite with nothing outside
 # its baseline has no file, exactly as a package without one does. When it IS there the harness REFUSES on a
@@ -211,6 +221,11 @@ _raw=$(timeout 1800 python3 "$HARNESS" run "$MASTER_ICN" "$MASTER_REF" --lang ic
 # what it greps, so without this the entries dropped from the denominator would be INVISIBLE on the very
 # board whose number they changed -- which is precisely the masking the ruling forbids. Printed before the
 # counts, so a reader sees what left the population before reading the population.
+# ⛔ BEFORE THE FIRST NUMBER IS PRINTED AND BEFORE ANY SCORE.md WRITE, NEVER AFTER (ceo CEO-524 (1)): a refusal
+# that fires after the row is published is an annotation, not a refusal. Placed here rather than beside the
+# score-row call because this board PRINTS its counts long before it writes them, and a printed number gets
+# quoted. gate_bin_unmoved exits 2 itself when the fingerprint moved.
+GATE_NAME=board_icon_master gate_bin_unmoved
 printf '%s\n' "$_raw" | grep '^OUTSIDE_BASELINE' || true
 board=$(printf '%s\n' "$_raw" | grep '^SUITE_BOARD ' | tail -1 || true)
 astboard=$(printf '%s\n' "$_raw" | grep '^SUITE_BOARD_AST ' | tail -1 || true)

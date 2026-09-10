@@ -34,17 +34,17 @@ CORPUS="$S4E/corpus"
 # BOTH ARMS OFF ONE BUILD, env-only. That removes the hazard rather than detecting it. This guard is for the
 # case a killswitch cannot cover -- a board that takes minutes while somebody else, or your own next command,
 # rebuilds the tree underneath it.
-_sn4_bin_fp() { md5sum "$SCRIP" "$RT_DIR/libscrip_rt.so" 2>/dev/null | cut -c1-12 | tr '\n' ' '; }
-_SN4_BIN_FP0="$(_sn4_bin_fp)"
-_sn4_bin_unmoved() {   # REFUSES rc=2 if either artifact changed since this board started
-    local now; now="$(_sn4_bin_fp)"
-    [ -n "$_SN4_BIN_FP0" ] || { echo "⛔ REFUSE(rc=2): could not fingerprint ./scrip and out/libscrip_rt.so at start -- a board that cannot tell whether its binary moved must not print a verdict"; exit 2; }
-    [ "$now" = "$_SN4_BIN_FP0" ] || {
-        echo "⛔ REFUSE(rc=2): THE BINARY MOVED UNDER THIS BOARD -- start [$_SN4_BIN_FP0] end [$now]"
-        echo "   (scrip and libscrip_rt.so, md5 prefixes, in that order). Part of this population was graded on one build and part on another,"
-        echo "   so every number above describes no single tree. Re-run on a quiet tree; do NOT quote this board."
-        exit 2; }
-}
+# ⛔⭐ THE PRIVATE COPY THAT LIVED HERE IS RETIRED ONTO lib_gate.sh (coo 2026-09-10, ceo CEO-524 (1)). This
+# board is where the guard was INVENTED, and hq_S hoisted it into gate_bin_watch/gate_bin_unmoved on
+# 2026-09-06 so seven boards would not each spell it -- but the donor kept its own copy, so the fleet had the
+# authority AND the original side by side, which is the exact shape util_require_fresh.sh's header warns about
+# (curing one copy strengthens everyone's belief the class is dead while the other keeps the bug). The rule now
+# lives in ONE place; this file states only which artifacts it is watching.
+if ! . "$HERE/lib_gate.sh" 2>/dev/null || ! command -v gate_bin_watch >/dev/null 2>&1; then
+    echo "⛔ REFUSED TO GRADE rc=2: lib_gate.sh unavailable or missing gate_bin_watch -- this board cannot tell whether its binary moves under it" >&2
+    exit 2
+fi
+GATE_NAME=test_corpus_snobol4 gate_bin_watch "$SCRIP" "$RT_DIR/libscrip_rt.so"
 # ⛔⭐ 10s WAS A FAIL FACTORY AT FLEET LOAD, AND THE KILL WAS INDISTINGUISHABLE FROM A WRONG ANSWER
 # (hq_C 2026-08-29, verified by hq_B). This bound is PER PROGRAM, not for the board. A program taking 2s on a
 # quiet box can exceed 10s at load 30 with ~20 concurrent boards -- and because the captures below said
@@ -610,7 +610,7 @@ else echo "    (tree stamp unavailable — lib_gate.sh not sourced; record SCRIP
 #       the wrong cause, which is worse than silence because it is confidently actionable in one direction.
 # ⭐ The general form, and it is this house's own: the ORDER of two honest refusals is itself a claim about
 # which one caused the other.
-_sn4_bin_unmoved
+GATE_NAME=test_corpus_snobol4 gate_bin_unmoved
 if [ "$((TMOUT3+TMOUT4))" -gt 0 ]; then
     echo "⛔ GATE REFUSES: $((TMOUT3+TMOUT4)) program(s) KILLED at the ${TIMEOUT}s per-program bound (m3=$TMOUT3 m4=$TMOUT4) -- NOT graded:"
     printf "$TMOUT_LIST"
