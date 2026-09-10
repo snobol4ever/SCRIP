@@ -430,6 +430,7 @@ void core_icn_traceback(void) {
     if (g_icn_op.sym) {
         fputc('{', stderr);
         if (g_icn_op.arity == 1) { fputs(g_icn_op.sym, stderr); icn_tb_image(g_icn_op.a); }
+        else if (g_icn_op.sym[0] == '[' && g_icn_op.sym[1] == ']' && !g_icn_op.sym[2]) { icn_tb_image(g_icn_op.a); fputc('[', stderr); icn_tb_image(g_icn_op.b); fputc(']', stderr); }
         else { icn_tb_image(g_icn_op.a); fprintf(stderr, " %s ", g_icn_op.sym); icn_tb_image(g_icn_op.b); }
         fprintf(stderr, "} from line %ld in %s\n", g_line, icn_basename(g_file));
     }
@@ -2668,11 +2669,17 @@ int64_t core_icn_to_int_check(uint64_t lo, uint64_t hi) {
     return core_icn_to_int_d(d);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int core_icn_num_operand_ok_d(DESCR_t d, int code) {
+    if (core_icn_int_ok(d)) return 1;
+    core_icn_error(code, d);
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int core_icn_int_operand_ok_d(DESCR_t d) { return core_icn_num_operand_ok_d(d, 101); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int core_icn_int_operand_ok(uint64_t lo, uint64_t hi) {
     uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t d; memcpy(&d, w, sizeof d);
-    if (core_icn_int_ok(d)) return 1;
-    core_icn_error(101, d);
-    return 0;
+    return core_icn_int_operand_ok_d(d);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int64_t core_icn_limit_count_check(uint64_t lo, uint64_t hi) {

@@ -93,6 +93,7 @@ test_gate_icn_scan_argtype.sh	WIRED	-	-	-
 test_gate_icn_scan_subject_must_be_string_convertible.sh	WIRED	-	-	-
 test_gate_icn_seq_null_argument_defaults.sh	WIRED	-	-	-
 test_gate_icn_string_invoked_to_by_is_a_generator.sh	WIRED	-	-	-
+test_gate_icn_subscript_index_is_checked_and_the_account_is_written.sh	WIRED	-	-	-
 test_gate_icn_tag_single_source.sh	WIRED	-	-	-
 test_gate_icon_arguments_dereference_at_the_call.sh	WIRED	-	-	-
 test_gate_icon_features_and_preprocessor_symbols_agree.sh	WIRED	-	-	-

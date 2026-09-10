@@ -61,6 +61,8 @@ static inline __attribute__((always_inline)) int rt_plain_int_str(const char *s)
 int is_numeric_like(DESCR_t d);
 int64_t to_int(DESCR_t v);
 int64_t core_icn_to_int_d(DESCR_t d);
+int core_icn_int_operand_ok_d(DESCR_t d);
+int core_icn_num_operand_ok_d(DESCR_t d, int code);
 double to_real(DESCR_t v);
 char *STRCONCAT_fn(const char *a, const char *b);
 DESCR_t CONCAT_fn(DESCR_t a, DESCR_t b);
