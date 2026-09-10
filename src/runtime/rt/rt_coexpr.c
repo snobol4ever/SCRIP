@@ -43,7 +43,6 @@ static void *scrip_co_trampoline(void *arg) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static __attribute__((force_align_arg_pointer)) int scrip_co_pthread_create_aligned(pthread_t *t, const pthread_attr_t *a, void *(*f)(void *), void *arg) { return pthread_create(t, a, f, arg); }
 void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first) {
     if (!inited) {
         old->semp = &old->sema;
@@ -67,7 +66,7 @@ void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first) {
           size_t need = new_ctx->stk_need + (size_t)(2u << 20);
           if (need > (size_t)g_coexp_stksize) { need = (need + 4095u) & ~(size_t)4095u; pthread_attr_init(&big);
               if (pthread_attr_setstacksize(&big, need) != 0) scrip_co_uerror("scrip_coexpr: pthread_attr_setstacksize (snapshot-sized) failed"); ap = &big; }
-          if (scrip_co_pthread_create_aligned(&new_ctx->thread, ap, scrip_co_trampoline, new_ctx) != 0)
+          if (pthread_create(&new_ctx->thread, ap, scrip_co_trampoline, new_ctx) != 0)
               scrip_co_uerror("scrip_coexpr: pthread_create failed");
           if (ap == &big) pthread_attr_destroy(&big); }
         { pthread_attr_t a; void *sa = 0; size_t sz = 0;
