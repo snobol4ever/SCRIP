@@ -305,7 +305,16 @@ static DESCR_t rt_big_arith_route(DESCR_t a, DESCR_t b, int op) {
         case BINOP_MUL: return rt_big_mul(a, b);
         case BINOP_DIV: { extern DESCR_t rt_big_div(DESCR_t, DESCR_t); return rt_big_div(a, b); }
         case BINOP_MOD: { extern DESCR_t rt_big_mod(DESCR_t, DESCR_t); return rt_big_mod(a, b); }
-        case BINOP_POW: case BINOP_POW_PROMOTE: return (b.v == DT_I && b.i >= 0) ? rt_big_pow(a, b.i) : FAILDESCR;
+        case BINOP_POW: case BINOP_POW_PROMOTE: {
+            extern int core_icn_error(int code, DESCR_t val); extern int rt_big_sign(DESCR_t); extern int rt_big_is_odd(DESCR_t);
+            if (b.v == DT_I && b.i >= 0) return rt_big_pow(a, b.i);
+            if (op == BINOP_POW_PROMOTE) return FAILDESCR;
+            if (a.v == DT_I && a.i ==  1) return INTVAL(1);
+            if (a.v == DT_I && a.i == -1) return INTVAL(rt_big_is_odd(b) ? -1 : 1);
+            if (a.v == DT_I && a.i ==  0) { if (rt_big_sign(b) > 0) return INTVAL(0); core_icn_error(204, INTVAL(0)); return FAILDESCR; }
+            if (rt_big_sign(b) < 0) return INTVAL(0);
+            core_icn_error(203, a); return FAILDESCR;
+        }
         default: return FAILDESCR;
     }
 }
@@ -354,6 +363,7 @@ static DESCR_t rt_num_arith_impl(DESCR_t a, DESCR_t b, int op) {
             if (!anyf) return rt_ipow_descr(li, ri);
             if (ld == 0.0 && rd <= 0.0) { core_icn_error(204, REALVAL(ld)); return FAILDESCR; }
             if (ld < 0.0 && (rf || operand_is_real_str(b))) { core_icn_error(206, REALVAL(ld)); return FAILDESCR; }
+            if (b.v == DT_BIG) { extern int rt_big_is_odd(DESCR_t); double _rb = pow(fabs(ld), rd); if (!isfinite(_rb)) return rt_real_overflow(266, "exponentiation caused real overflow", ld); if (ld < 0.0 && _rb != 0.0 && rt_big_is_odd(b)) _rb = -_rb; return REALVAL(_rb); }
             { double _rp = (!rf && !operand_is_real_str(b)) ? rt_ripow(ld, ri) : pow(ld, rd); if (!isfinite(_rp)) return rt_real_overflow(266, "exponentiation caused real overflow", ld); return REALVAL(_rp); }
         }
         case BINOP_POW_PROMOTE: return anyf ? REALVAL((!rf && !operand_is_real_str(b)) ? rt_ripow(ld, ri) : pow(ld, rd)) : rt_ipow_promote_descr(li, ri);
