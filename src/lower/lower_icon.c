@@ -1266,6 +1266,7 @@ static int icn_const_step(const tree_t * s, int64_t * bits, int * isr) {
         if (s->t == TT_ADD) rv = la + ra; else if (s->t == TT_SUB) rv = la - ra; else if (s->t == TT_MUL) rv = la * ra; else if (s->t == TT_DIV) {
             if (ra == 0.0) return 0; rv = la / ra;
         } else { if (ra == 0.0) return 0; rv = fmod(la, ra); }
+        if (!isfinite(rv)) return 0;
         memcpy(bits, &rv, 8); *isr = 1; return 1;
     }
     return 0;
