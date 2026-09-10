@@ -41,6 +41,19 @@ SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_SO="$HERE/../out/libscrip_rt.so"
 CORPUS="$S4E/corpus"
 PKG="$CORPUS/packages/icon/arizona_tests"
+OUTSIDE="$PKG/OUTSIDE_ARIZONA_BASELINE.tsv"
+# ⛔⭐ THE ONE-ORACLE RULE, APPLIED TO THIS PACKAGE (ceo CEO-527, wired by hq_T 2026-09-10 under CEO-532).
+# A program whose ground truth the ONE ICON ORACLE can only produce from INSIDE ITS OWN BUILD is out of the
+# graded denominator and NAMED -- never hidden, never counted either way. Same reader as the sister package's
+# (test_icon_jcon_suite.sh) so there is ONE shape, with ONE deliberate difference: the key is the runner's own
+# `$sub/$name` identity, because this package ships two subdirectories and a bare basename is ambiguous here.
+# ⛔ THE ROWS ARE NOT THE USUAL "the oracle refuses" SHAPE -- icont runs cfuncs and extlvals perfectly, out of
+# a libcfunc.so that ships in ITS bin and a descriptor layout that is ITS OWN, which is worse and not better:
+# a ref like that can be matched only by embedding iconx, so it grades the wrong thing forever. The file
+# carries the measurement; this comment says what the exclusion MEANS, never what its numbers are.
+is_outside_baseline() { [ -f "$OUTSIDE" ] && awk -F"\t" -v n="$1" '$1==n {f=1} END {exit f?0:1}' "$OUTSIDE"; }
+outside_reason() { [ -f "$OUTSIDE" ] && awk -F"\t" -v n="$1" '$1==n {print $2; exit}' "$OUTSIDE"; }
+OUTSIDE_LIST=""
 SUITE_SUBDIRS="general special"   # ⛔ every subdirectory the package ships; add a new one here, not to a private list elsewhere
 TIMEOUT="${TIMEOUT:-8}"
 VERBOSE=0
@@ -136,6 +149,11 @@ for std in "$SUITE"/*.std; do
   name=$(basename "$std" .std)
   icn="$SUITE/$name.icn"
   [ -f "$icn" ] || continue
+  # ⛔ OUT OF THE DENOMINATOR BEFORE IT IS COUNTED, NEVER AFTER (CEO-527). Subtracting an excluded program
+  # from a total it was already added to leaves TOTAL and the PASS counts describing two different
+  # populations; skipping here keeps `graded=` the set that was actually put to the oracle's language.
+  # The name lands in neither GRADED_NAMES nor the FAIL lists, so the GAP walk below names it exactly once.
+  if is_outside_baseline "$sub/$name"; then OUTSIDE_LIST="$OUTSIDE_LIST $sub/$name"; continue; fi
   TOTAL=$((TOTAL+1))
   GRADED_NAMES="$GRADED_NAMES $sub/$name"
   exp=$(cat "$std")
@@ -228,7 +246,11 @@ UNGRADED_NAMES=""
 for n in $SHIPPED_NAMES; do
   case " $GRADED_NAMES " in
     *" $n "*) ;;
-    *) UNGRADED_NAMES="$UNGRADED_NAMES $n" ;;
+    # ⛔ A PROGRAM EXCLUDED BY CEO-527 IS NOT "no ref cut yet", AND THE GAP LIST IS WHERE THE TWO WOULD BE
+    # CONFLATED. It ships a .std, it is simply not OURS to match -- so it is named here WITH ITS REASON,
+    # the same way the sister runner names its own. A bare name in this list reads as work owed.
+    *) if is_outside_baseline "$n"; then UNGRADED_NAMES="$UNGRADED_NAMES $n(outside the Arizona baseline: $(outside_reason "$n"))"
+       else UNGRADED_NAMES="$UNGRADED_NAMES $n"; fi ;;
   esac
 done
 
@@ -250,6 +272,65 @@ echo "m4 REJECT ($M4_REJECT):$M4_REJECT_NAMES"
 # board must never fold into either count (RULES.md: "measured and clean" vs "never ran" may not share
 # an output). Counted as ZERO of the population per Lon's ruling until each is individually resolved.
 echo "NOT GRADED ($GAP, of $SHIPPED shipped, zero of population until graded -- the PACKAGE_INVENTORY line below splits these into ungraded=owed vs ungradable=ruled):$UNGRADED_NAMES"
+# ── OUTSIDE_ARIZONA_BASELINE reconciliation ──────────────────────────────────────────────────────────
+# ⛔ PRINTED WHETHER OR NOT THE LIST IS EMPTY (CEO-409 guardrail 3, as the jcon runner already argues): a
+# line that appears only when something is excluded tells the reader nothing on the day one is added and
+# everything on the day one is removed.
+outside_rows() { [ -f "$OUTSIDE" ] && grep -v '^#' "$OUTSIDE" | grep -v '^[[:space:]]*$'; }
+OUT_UNSHIPPED=""; OUT_UNMIRRORED=""; OUT_STALE=""; OUT_CHECKED=0
+# ⛔⭐⭐ THE STALENESS ARM ASKS ABOUT US, NOT ABOUT THE ORACLE, AND THAT IS THE WHOLE DESIGN. The sister
+# runner re-proves that icont still REFUSES its rows -- vacuous here, because icont never refused these: it
+# runs them, out of its own libcfunc.so. The fact that can change is OURS, and Icon states it in the language
+# itself: `&features`. So this arm asks SCRIP what it now claims, and REFUSES the exclusion the day a row's
+# named feature word appears in our own list. ⭐ An exclusion list that can only ever lower a number is not a
+# correction either; this one can raise it, on the first run after the capability lands, with nobody watching.
+# ⛔ THE FEATURE WORDS ARE READ OUT OF THE ROW'S REASON, never hardcoded here -- a second copy of "dynamic
+# loading" in this script is a second authority that decays the moment the file is edited.
+OUT_FEATURES=""
+if _pf="$(mktemp -d "${TMPDIR:-/tmp}/ariz_feat.XXXXXX")"; then
+  printf 'procedure main()\n   every write(&features);\nend\n' > "$_pf/f.icn"
+  OUT_FEATURES="$(cd "$_pf" && timeout "$TIMEOUT" "$SCRIP" --run f.icn </dev/null 2>/dev/null)"
+  rm -rf "$_pf"
+fi
+while IFS="$(printf '\t')" read -r _on _oc _or; do
+  [ -n "$_on" ] || continue
+  # A row naming no shipped program withdraws an exclusion silently -- a rename or a leftover.
+  [ -f "$PKG/$_on.icn" ] || { OUT_UNSHIPPED="$OUT_UNSHIPPED $_on"; continue; }
+  # ⛔ THE MIRROR IS NOT DECORATION: `gap` is split by UNGRADED.tsv/UNGRADABLE.tsv and NOT by this file, so
+  # an OUTSIDE row in neither leaves the program out of the graded denominator AND out of the lockdown
+  # split -- excluded by one instrument and invisible to the other, which is how a population stops summing
+  # while every individual file still reads honest.
+  if ! grep -q "^$_on\.icn"$'\t' "$PKG/UNGRADED.tsv" 2>/dev/null && ! grep -q "^$_on\.icn"$'\t' "$PKG/UNGRADABLE.tsv" 2>/dev/null; then
+    OUT_UNMIRRORED="$OUT_UNMIRRORED $_on"
+  fi
+  if [ -n "$OUT_FEATURES" ]; then
+    _hit=""
+    while IFS= read -r _feat; do
+      [ -n "$_feat" ] || continue
+      case "$_or" in *"$_feat"*) _hit="$_hit '$_feat'" ;; esac
+    done <<FEOF
+$OUT_FEATURES
+FEOF
+    OUT_CHECKED=$((OUT_CHECKED+1))
+    [ -n "$_hit" ] && OUT_STALE="$OUT_STALE $_on(we now declare$_hit)"
+  fi
+done <<EOF
+$(outside_rows)
+EOF
+echo "OUTSIDE_ARIZONA_BASELINE ($(printf '%s' "$OUTSIDE_LIST" | wc -w), out of the graded denominator, named in $OUTSIDE):${OUTSIDE_LIST:- none}"
+[ -n "$OUT_UNSHIPPED" ]  && echo "⚠ OUTSIDE_ARIZONA_BASELINE.tsv NAMES NOTHING SHIPPED:$OUT_UNSHIPPED -- a rename or a leftover; the row withdraws an exclusion silently"
+[ -n "$OUT_UNMIRRORED" ] && echo "⚠ OUTSIDE_ARIZONA_BASELINE.tsv DOES NOT MIRROR the lockdown buckets:$OUT_UNMIRRORED -- named outside the denominator here and in neither UNGRADED.tsv nor UNGRADABLE.tsv, so the gap split below cannot see them"
+[ -n "$OUT_STALE" ]      && echo "⚠ OUTSIDE_ARIZONA_BASELINE.tsv STALE:$OUT_STALE -- the row is excluded because we lack a feature we now DECLARE in our own &features. Move it back into the graded denominator, or correct the reason"
+# ⛔⭐ THE AGREEMENT LINE MAY NOT CLAIM A CHECK THAT DID NOT RUN (hq_T, the same defect this arm's sister
+# caught in itself: with its oracle unreachable it re-measured zero rows and still printed "agrees with the
+# oracle"). If the &features probe produced nothing, say so and name the rows standing on their reason alone.
+if [ -z "$OUT_UNSHIPPED$OUT_UNMIRRORED$OUT_STALE" ]; then
+  if [ "$OUT_CHECKED" -gt 0 ]; then
+    echo "OUTSIDE_ARIZONA_BASELINE.tsv agrees with the lockdown buckets and with our own &features ($OUT_CHECKED row(s) re-checked: none of their feature words is in the $(printf '%s' "$OUT_FEATURES" | grep -c .)-line list SCRIP printed this run)"
+  else
+    echo "OUTSIDE_ARIZONA_BASELINE.tsv agrees with the lockdown buckets; THE FEATURE PROBE DID NOT RUN (zero rows re-checked) -- every row stands on its recorded reason alone"
+  fi
+fi
 # ⛔ BEFORE THE BOARD LINE AND BEFORE ANY SCORE.md WRITE, NEVER AFTER (ceo CEO-524 (1)): a refusal that fires
 # after the row is published is an annotation, not a refusal -- the same lesson test_gate_progress_rows_carry_
 # the_start_fingerprint.sh was written for. gate_bin_unmoved exits 2 itself when the fingerprint moved.
