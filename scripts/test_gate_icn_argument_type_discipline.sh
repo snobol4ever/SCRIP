@@ -26,6 +26,9 @@ procedure main()
    write("14 sub   ", image(nowhere[1]) | ("ERR " || &errornumber));
    write("15 call  ", image(nowhere(1)) | ("ERR " || &errornumber));
    write("16 disp  ", image(display(,[])) | ("ERR " || &errornumber));
+   write("17 bylist ", image("|||"([1,2],[3])) | ("ERR " || &errornumber));
+   write("18 bycat  ", image("||"("a","b")) | ("ERR " || &errornumber));
+   write("19 byplus ", image("+"(1,2)) | ("ERR " || &errornumber));
 end
 ICN
 cat > "$T/w1.want" <<'WANT'
@@ -45,6 +48,9 @@ cat > "$T/w1.want" <<'WANT'
 14 sub   ERR 114
 15 call  ERR 106
 16 disp  ERR 105
+17 bylist list_9(3)
+18 bycat  "ab"
+19 byplus 3
 WANT
 cat > "$T/w2.icn" <<'ICN'
 procedure main()
