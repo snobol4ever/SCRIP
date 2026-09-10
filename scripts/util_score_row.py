@@ -2627,9 +2627,20 @@ def counted_fractions(lang, vcell):
     # gap is indistinguishable from a closed one, and that is the whole "never graded business".
     _missing_inv = [n for n, _rx, _d in PROGRESS_COUNTED.get(lang, []) if n not in _matched]
     if _missing_inv:
+        # ⛔⭐ AND THE CURE LINE MUST NAME BOTH CAUSES, because it named the wrong one for BOTH packages it
+        # reported today (hq_T 2026-09-10). This reader sees only the cell, so "no clause" has two causes it
+        # cannot tell apart: the runner is not retrofitted, OR it IS wired and `inventory_line` REFUSED, which
+        # emits nothing and lets the cell fall back to prose with the runner still green. arizona and ipl were
+        # both the second kind -- one duplicate ruling and one honesty-arm refusal -- and this line sent their
+        # reader to retrofit two already-wired runners. ⭐ A diagnostic that can only observe an ABSENCE must
+        # name every cause of the absence; asserting the likelier one costs the reader the whole investigation.
         work.append("⚠ %d package(s) carry NO PACKAGE_INVENTORY clause (%s) -- their shipped population is still "
-                    "TRANSCRIBED, so it cannot go stale loudly. Retrofit the runner to lib_inventory.sh and paste "
-                    "its own line into the cell." % (len(_missing_inv), ", ".join(_missing_inv)))
+                    "TRANSCRIBED, so it cannot go stale loudly. TWO CAUSES, and this reader cannot tell them "
+                    "apart: either the runner is not retrofitted to lib_inventory.sh, or it IS wired and "
+                    "inventory_line REFUSED (rc=2), which emits nothing while the runner stays green -- check "
+                    "that first with test_gate_package_runners_print_the_inventory.sh ARM 20, which calls the "
+                    "body on the live sidecars and names the refusing package."
+                    % (len(_missing_inv), ", ".join(_missing_inv)))
     if _transcribed:
         work.append("⚠ %d package(s) took the shipped population from PACKAGE_SHIPPED (%s), a number typed into "
                     "util_score_row.py rather than measured by the runner that grades it."
