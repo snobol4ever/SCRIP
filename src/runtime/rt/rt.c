@@ -507,7 +507,7 @@ DESCR_t *gva_register(const char **names, DESCR_t *cells, int n) {
       for (int k = 0; k < n; k++) { const char *nm = names ? names[k] : (const char *)0;
         if (!nm || !rt_is_reassigned_builtin(nm)) continue;
         if (rt_proc_is_registered(nm)) cells[k] = rt_proc_value(nm);
-        else { DESCR_t bv; bv.v = DT_E; bv.slen = 0xFFFFFFFEu; bv.s = (char *)nm; cells[k] = bv; } } }
+        else { DESCR_t bv; bv.v = DT_E; bv.slen = PROCVAL_SLEN; bv.s = (char *)nm; cells[k] = bv; } } }
     { static int _b1cg = -1; if (_b1cg < 0) { const char *_e = getenv("SCRIP_B1C_PARITY"); _b1cg = (_e && *_e == '0') ? 0 : 1; }
       extern int gva_count(void); extern int gva_collect_var(const char *); extern int g_gva_active;
       if (_b1cg && n > 0 && gva_count() == 0) { for (int k = 0; k < n; k++) if (names && names[k]) (void)gva_collect_var(names[k]); g_gva_active = (gva_count() > 0) ? 1 : 0; } }

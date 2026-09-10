@@ -909,9 +909,22 @@ static const char *icn_pad_str(DESCR_t d, char *buf, int bufsz) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_true_len(DESCR_t d, const char *materialized) { if (d.v == DT_S) return (int)descr_slen(d); return materialized ? (int)strlen(materialized) : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_procval_resolves_builtin(DESCR_t v) {
+    extern int rt_proc_is_registered(const char *);
+    if (IS_PROCVAL_BUILTIN_fn(v)) return 1;
+    if (!v.s) return 1;
+    return !(rt_proc_is_registered(v.s) || !strcmp(v.s, "main"));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_procval_same(DESCR_t a, DESCR_t b) {
+    if (!IS_PROCVAL_fn(a) || !IS_PROCVAL_fn(b)) return 0;
+    if (!a.s || !b.s || strcmp(a.s, b.s) != 0) return 0;
+    return rt_procval_resolves_builtin(a) == rt_procval_resolves_builtin(b);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * procval_name(DESCR_t v) {
     if (v.v != DT_E) return 0;
-    if (v.slen == 0xFFFFFFFEu) return v.s;
+    if (IS_PROCVAL_fn(v)) return v.s;
     for (int i = 0; i < g_stage2.proc_count; i++)
         if (g_stage2.proc_table[i].entry_pc == (int)v.i) return g_stage2.proc_table[i].name;
     return 0;
@@ -945,7 +958,7 @@ DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
     if (!nm && IS_STR_fn(callee) && callee.s) nm = callee.s;
     if (!nm) { core_icn_error(106, callee); return FAILDESCR; }
     icn_call_value_deref_args(nm, argv, n);
-    if (rt_proc_is_registered(nm) || !strcmp(nm, "main")) {
+    if (!IS_PROCVAL_BUILTIN_fn(callee) && (rt_proc_is_registered(nm) || !strcmp(nm, "main"))) {
         extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
         for (int k = 0; k < n && k < 64; k++) g_call_args[k] = argv[k]; for (int k = (n < 0 ? 0 : n); k < 64; k++) g_call_args[k] = (DESCR_t){0};
         return rt_call_proc_descr(nm, n);
@@ -963,7 +976,7 @@ DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) 
     if (!nm && IS_STR_fn(callee) && callee.s) nm = callee.s;
     if (!nm) { core_icn_error(106, callee); return FAILDESCR; }
     icn_call_value_deref_args(nm, argv, n);
-    if (rt_proc_is_registered(nm)) {
+    if (!IS_PROCVAL_BUILTIN_fn(callee) && rt_proc_is_registered(nm)) {
         extern DESCR_t g_call_args[]; extern DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout);
         for (int k = 0; k < n && k < 64; k++) g_call_args[k] = argv[k]; for (int k = (n < 0 ? 0 : n); k < 64; k++) g_call_args[k] = (DESCR_t){0};
         return rt_proc_call_gen_h(nm, n, hslot);
@@ -1029,6 +1042,7 @@ void *rt_call_value_spine_prep(DESCR_t callee, DESCR_t *argv, int n) {
     const char *nm = procval_name(callee);
     if (!nm && IS_STR_fn(callee) && callee.s) nm = callee.s;
     icn_call_value_deref_args(nm, argv, n);
+    if (IS_PROCVAL_BUILTIN_fn(callee)) return (void *)0;
     if (!nm || !rt_proc_is_registered(nm) || !rt_proc_jmp_entry(nm) || !rt_proc_is_generator(nm)) return (void *)0;
     { extern int rt_proc_gen_region_ft(const char *); if (rt_proc_gen_region_ft(nm) > 0) return (void *)0; }
     { extern DESCR_t g_call_args[]; for (int k = 0; k < n && k < 64; k++) g_call_args[k] = argv[k]; for (int k = (n < 0 ? 0 : n); k < 64; k++) g_call_args[k] = (DESCR_t){0}; }
@@ -4334,7 +4348,7 @@ static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op) {
     if (op == BINOP_EQV || op == BINOP_NEQV) {
         int eq = 0;
         int lcs = (lhs.v == DT_S && lhs.slen == 0xFFFFFFFFu), rcs = (rhs.v == DT_S && rhs.slen == 0xFFFFFFFFu);
-        if (lhs.v == DT_E && rhs.v == DT_E && lhs.slen == 0xFFFFFFFEu && rhs.slen == 0xFFFFFFFEu) eq = (lhs.s && rhs.s && strcmp(lhs.s, rhs.s) == 0);
+        if (IS_PROCVAL_fn(lhs) && IS_PROCVAL_fn(rhs)) eq = rt_procval_same(lhs, rhs);
         else if (lhs.v == rhs.v && lhs.i == rhs.i) eq = 1;
         else if (lcs || rcs) {
             if (lcs && rcs) { const char *ca, *cb; int la, lb; eq = cset_resolve(lhs, &ca, &la) && cset_resolve(rhs, &cb, &lb) && la == lb && memcmp(ca, cb, (size_t)la) == 0; }
@@ -4742,7 +4756,7 @@ static int bn_type_datatype(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
     else if (av.v==DT_E) {
         t = "procedure";
         if (!strcmp(fn,"DATATYPE")) { t = "function";
-            if (av.slen == 0xFFFFFFFEu && av.s) {
+            if (IS_PROCVAL_fn(av) && av.s) {
                 for (int _ti=0;_ti<g_stage2.proc_count;_ti++) if (g_stage2.proc_table[_ti].name && !strcmp(g_stage2.proc_table[_ti].name,av.s)){t="procedure";break;}
                 if (!strcmp(t,"function")) { extern int rt_proc_is_registered(const char *); if (rt_proc_is_registered(av.s)) t="procedure"; }
             } else t="procedure"; }
@@ -5201,7 +5215,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     L_bidjmp_5209: ;
     if ((_bid == BID_write) || (_bid == BID_writes)) {
         { DESCR_t _wv = NV_GET_fn(fn);
-          int _is_self_default = (_wv.v == DT_E && _wv.slen == 0xFFFFFFFEu && _wv.s && !strcmp(_wv.s, fn));
+          int _is_self_default = (IS_PROCVAL_fn(_wv) && _wv.s && !strcmp(_wv.s, fn));
           if (!_is_self_default) { *out = rt_call_value(_wv, args, nargs); return 1; } }
         L_write_body_5209: ;
         int nl = (fn[5] == '\0');
@@ -5332,7 +5346,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     L_bidjmp_5339: ;
     if ((_bid == BID_args) && nargs == 1) {
         DESCR_t a = args[0];
-        if (a.v == DT_E && a.slen == 0xFFFFFFFEu) {
+        if (IS_PROCVAL_fn(a)) {
             static const struct { const char *nm; int np; } _bt[] = {
                 {"push",-2},{"put",-2},{"insert",-2},{"delete",-2},
                 {"pop",1},{"get",1},{"pull",1},{"bal",3},{"find",3},{"upto",3},
@@ -5386,6 +5400,10 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         const char *pname = VARVAL_fn(args[0]);
         int arity = (nargs >= 2) ? (int)to_int(args[1]) : -1;
         if (!pname) { *out = FAILDESCR; return 1; }
+        if (arity == 0 && (icn_builtin_is_known(pname) || rt_builtin_is_known(pname) || icn_builtin_arity(pname) != ICN_ARITY_UNKNOWN)) {
+            *out = PROCVAL_BUILTIN(rt_ws_strdup(pname)); return 1;
+        }
+        if (arity < 0) { DESCR_t gv = NV_GET_fn(pname); if (IS_PROCVAL_fn(gv) && gv.s) { *out = gv; return 1; } }
         for (int i = 0; i < g_stage2.proc_count; i++) {
             if (g_stage2.proc_table[i].name && strcmp(g_stage2.proc_table[i].name, pname) == 0) {
                 if (arity < 0 || g_stage2.proc_table[i].nparams == arity || g_stage2.proc_table[i].nparams <= 0) {
@@ -5415,7 +5433,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (av.v == DT_E) {
             const char *nm = procval_name(av);
             if (!nm) nm = "?";
-            snprintf(buf,256, dat_find_type(nm) ? "record constructor %s" : (rt_proc_is_registered(nm) || !strcmp(nm, "main")) ? "procedure %s" : "function %s", nm);
+            snprintf(buf,256, dat_find_type(nm) ? "record constructor %s" : (!IS_PROCVAL_BUILTIN_fn(av) && (rt_proc_is_registered(nm) || !strcmp(nm, "main"))) ? "procedure %s" : "function %s", nm);
             *out = STRVAL(buf); return 1;
         }
         if (IS_FH_fn(av)) {
@@ -6561,8 +6579,8 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
                 int acs = (a.v == DT_S && a.slen == 0xFFFFFFFFu), bcs = (b.v == DT_S && b.slen == 0xFFFFFFFFu);
                 same = (acs == bcs) && (a.s == b.s || (a.s && b.s && strcmp(a.s,b.s)==0));
             }
-            else if (a.v == DT_E && a.slen == 0xFFFFFFFEu && b.slen == 0xFFFFFFFEu)
-                same = (a.s && b.s && strcmp(a.s,b.s)==0);
+            else if (IS_PROCVAL_fn(a) && IS_PROCVAL_fn(b))
+                same = rt_procval_same(a, b);
             else                                same = (a.ptr == b.ptr);
         }
         *out = same ? b : FAILDESCR; return 1;

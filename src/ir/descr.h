@@ -83,4 +83,18 @@ static inline __attribute__((always_inline)) int IS_VARREF_fn(DESCR_t v) { retur
 #define COERCE_KEEP_INT 0x2000000L
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) int IS_FH_fn(DESCR_t v) { return v.v == DT_FH; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define PROCVAL_SLEN         0xFFFFFFFEu
+#define PROCVAL_BUILTIN_SLEN 0xFFFFFFFCu
+DESCR_SASSERT(PROCVAL_SLEN != PROCVAL_BUILTIN_SLEN, "the two procedure-value markers must differ, or proc(s,0) is indistinguishable from a global of the same name");
+DESCR_SASSERT(PROCVAL_BUILTIN_SLEN != 0xFFFFFFFFu && PROCVAL_BUILTIN_SLEN != 0xFFFFFFFDu,
+               "slen sentinels share ONE 32-bit space across unrelated headers and nothing collects them: 0xFFFFFFFF is CSETVAL, "
+               "0xFFFFFFFD is core.h RT_CONVE_CHAIN_MARK. PROCVAL_BUILTIN_SLEN was first written 0xFFFFFFFD, every board stayed "
+               "green, and type(proc(name,0)) silently answered EXPRESSION -- grep the whole 0xFFFFFFFx space before adding one");
+DESCR_SASSERT(PROCVAL_SLEN == 0xFFFFFFFEu,
+               "PROCVAL_SLEN is HAND-COPIED in src/runtime/rtx/rtx_icncall.s, which mints the ordinary form in asm where no assert "
+               "in this header can see it; this arm pins the C side so a silent divergence needs two deliberate edits, not one");
+static inline __attribute__((always_inline)) int IS_PROCVAL_fn(DESCR_t v) { return v.v == DT_E && (v.slen == PROCVAL_SLEN || v.slen == PROCVAL_BUILTIN_SLEN); }
+static inline __attribute__((always_inline)) int IS_PROCVAL_BUILTIN_fn(DESCR_t v) { return v.v == DT_E && v.slen == PROCVAL_BUILTIN_SLEN; }
+#define PROCVAL_BUILTIN(name_) ((DESCR_t){ .v = DT_E, .slen = PROCVAL_BUILTIN_SLEN, .s = (char *)(name_) })
 #endif

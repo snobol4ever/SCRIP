@@ -137,8 +137,11 @@ ENTRY_FLOOR="${ICON_MASTER_ENTRY_FLOOR:-534}"
 # jcon's own gener.icn torture test read [ok] where seven of nine failed on the clean tree.
 # entries=906 · run-graded 753 · m3 PASS=742 · m4 PASS=742.  SNOBOL4 master as the shared-node control arm on the same
 # tree: both-modes PASS=1893/1917, m3 FAIL=0, m4 FAIL=0.
-M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-742}"
-M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-742}"
+# ⭐ RE-PINNED 742 -> 743 (hq_I 2026-09-09, CEO-474, hq_U co-signing): the procedure-value discriminator -- proc(name,0) yields the
+# BUILT-IN even where a user procedure of that name exists, proc(name) yields what the global holds, and image(), type() and the
+# call path read the marker instead of guessing from the name. entries=909 · run-graded 756 · m3 PASS=743 · m4 PASS=743.
+M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-743}"
+M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-743}"
 # ⛔ NO AST_PASS_FLOOR: a self-pin has no floor to regress below, only a CURRENT-run comparison of
 # ap (matched) vs at (total) -- see the AST-SHAPE note above. Removed under ast-dump-refs-are-self-
 # pins-not-oracles rather than kept-but-unused, so a reader cannot mistake its presence for gating.
