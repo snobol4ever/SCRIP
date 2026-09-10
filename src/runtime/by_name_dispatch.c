@@ -5002,6 +5002,11 @@ static void sort_msort_pairs(TBPAIR_t **a, TBPAIR_t **tmp, int n, int by_val) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) { return try_call_builtin_by_name_bl(fn, args, nargs, out, -1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_arg_is_list(DESCR_t v) {
+    if (v.v != DT_DATA || !v.u) return 0;
+    DESCR_t t = FIELD_GET_fn(v, "gen_type");
+    return (t.v == DT_S && t.s && !strcmp(t.s, "list")) ? 1 : 0;
+}
 static int icn_argtype_gate(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
     if (nargs < 1 || IS_FAIL_fn(args[0])) return 0;
     switch (bid) {
@@ -5009,6 +5014,11 @@ static int icn_argtype_gate(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
         case BID_find: case BID_match:             return icn_cvt_chars_ok(args[0]) ? 0 : icn_argtype_raise(103, args[0], out);
         case BID_tab: case BID_move:               return icn_cvt_int_ok(args[0])   ? 0 : icn_argtype_raise(101, args[0], out);
         case BID_insert: case BID_member: return args[0].v == DT_T ? 0 : icn_argtype_raise(122, args[0], out);
+        case BID_get: case BID_pop: case BID_pull: case BID_push: case BID_put:
+            return icn_arg_is_list(args[0]) ? 0 : icn_argtype_raise(108, args[0], out);
+        case BID_sort:
+            if (nargs >= 1 && !(icn_arg_is_list(args[0]) || args[0].v == DT_T || (args[0].v == DT_DATA && args[0].u && args[0].u->type))) return icn_argtype_raise(115, args[0], out);
+            return 0;
         case BID_delete: return (args[0].v == DT_T || IS_STR_fn(args[0])) ? 0 : icn_argtype_raise(122, args[0], out);
         case BID_key: return (args[0].v == DT_T && args[0].tbl && !args[0].tbl->is_set) ? 0 : icn_argtype_raise(124, args[0], out);
         case BID_read: case BID_reads:

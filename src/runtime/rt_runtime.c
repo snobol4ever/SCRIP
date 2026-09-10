@@ -263,9 +263,18 @@ int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t * out) {
         return 0;
     }
     {
-        DESCR_t     sobj = (obj.v == DT_S) ? obj : descr_to_str_fracdigit(obj);
-        const char *s    = (sobj.v == DT_S) ? sobj.s : NULL;
-        int64_t     slen = !s ? 0 : (IS_CSET_fn(sobj) ? (int64_t)strlen(s) : (int64_t)(sobj.slen > 0 ? sobj.slen : strlen(s)));
+        { extern int rt_big_is(DESCR_t);
+          if ((obj.v == DT_SNUL && !obj.s) || (obj.v != DT_S && obj.v != DT_SNUL && !IS_INT_fn(obj) && !IS_REAL_fn(obj) && !rt_big_is(obj))) {
+            extern int core_icn_error(int, DESCR_t);
+            core_icn_error(116, obj);
+            return 0;
+          } }
+        DESCR_t     sobj = (obj.v == DT_S || obj.v == DT_SNUL) ? obj : descr_to_str_fracdigit(obj);
+        const char *s    = sobj.s;
+        int64_t     slen;
+        if (!s) slen = 0;
+        else if (IS_CSET_fn(sobj)) { extern int kw_cset_len(const char *); int kn = kw_cset_len(s); slen = (kn >= 0) ? (int64_t)kn : (int64_t)strlen(s); }
+        else slen = (int64_t)descr_slen(sobj);
         if (!s || idx >= slen) return 0;
         char *ch = rt_pinned_alloc(2);
         ch[0] = s[idx];
