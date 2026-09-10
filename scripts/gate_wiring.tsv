@@ -72,6 +72,7 @@ test_gate_icn_generator_exhaustion_traces_failed.sh	WIRED	-	-	-
 test_gate_icn_global_names_are_not_governed_by_snobol4_keywords.sh	WIRED	-	-	-
 test_gate_icn_if_without_else_invocable_arity_and_string_continuation.sh	WIRED	-	-	-
 test_gate_icn_ipl_scan_resume_and_limit_flips.sh	WIRED	-	-	-
+test_gate_icn_loadfunc_returns_a_callable.sh	WIRED	-	-	-
 test_gate_icn_no_stack.sh	WIRED	-	-	-
 test_gate_icn_one_reg_frame.sh	WIRED	-	-	-
 test_gate_icn_range_operands_must_be_integers.sh	WIRED	-	-	-
@@ -83,6 +84,7 @@ test_gate_icn_string_invoked_to_by_is_a_generator.sh	WIRED	-	-	-
 test_gate_icn_tag_single_source.sh	WIRED	-	-	-
 test_gate_icon_arguments_dereference_at_the_call.sh	WIRED	-	-	-
 test_gate_icon_features_and_preprocessor_symbols_agree.sh	WIRED	-	-	-
+test_gate_icon_master_entries_compile_under_icont.sh	WIRED	-	-	-
 test_gate_icon_master_per_entry_identity.sh	WIRED	-	-	-
 test_gate_kw_integer_hex_refused.sh	WIRED	-	-	-
 test_gate_ladder_asserts_stderr.sh	WIRED	-	-	-
@@ -149,6 +151,7 @@ test_gate_s4e_donewhen_refuses_when_compiler_absent.sh	WIRED	-	-	-
 test_gate_s4e_donewhen_runs_the_whole_criterion.sh	WIRED	-	-	-
 test_gate_s4e_next_honours_owner.sh	WIRED	-	-	-
 test_gate_s4e_next_rank_cap_for_seats.sh	WIRED	-	-	-
+test_gate_s4e_next_refuses_a_parked_language_under_the_order_of_work.sh	WIRED	-	-	-
 test_gate_s4e_next_refuses_hq_under_ceo_mode.sh	WIRED	-	-	-
 test_gate_s4e_next_tiebreak_by_mint_time.sh	WIRED	-	-	-
 test_gate_s4e_picker_v2.sh	WIRED	-	-	-
