@@ -5553,7 +5553,10 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         const char *pname = VARVAL_fn(args[0]);
         int arity = (nargs >= 2) ? (int)to_int(args[1]) : -1;
         if (!pname) { *out = FAILDESCR; return 1; }
-        if (arity == 0 && (icn_builtin_is_known(pname) || rt_builtin_is_known(pname) || icn_builtin_arity(pname) != ICN_ARITY_UNKNOWN)) {
+        int _icn_field_only = 0;
+        { extern int rt_dat_field_of_any(const char *);
+          _icn_field_only = core_icn_active() && rt_dat_field_of_any(pname) && !dat_find_type(pname) && !icn_builtin_is_known(pname) && icn_builtin_arity(pname) == ICN_ARITY_UNKNOWN; }
+        if (!_icn_field_only && arity == 0 && (icn_builtin_is_known(pname) || rt_builtin_is_known(pname) || icn_builtin_arity(pname) != ICN_ARITY_UNKNOWN)) {
             *out = PROCVAL_BUILTIN(rt_pinned_strdup(pname)); return 1;
         }
         if (arity < 0) { DESCR_t gv = NV_GET_fn(pname); if (IS_PROCVAL_fn(gv) && gv.s) { *out = gv; return 1; } }
@@ -5568,7 +5571,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         { extern int rt_proc_is_registered(const char *name); extern int rt_proc_nparams(const char *name);
           if (rt_proc_is_registered(pname)) { int np = rt_proc_nparams(pname);
               if (arity < 0 || np == arity || np <= 0) { extern DESCR_t rt_proc_value(const char *); *out = rt_proc_value(rt_pinned_strdup(pname)); return 1; } } }
-        if (icn_builtin_is_known(pname) || rt_builtin_is_known(pname) || icn_builtin_arity(pname) != ICN_ARITY_UNKNOWN) {
+        if (!_icn_field_only && (icn_builtin_is_known(pname) || rt_builtin_is_known(pname) || icn_builtin_arity(pname) != ICN_ARITY_UNKNOWN)) {
             DESCR_t bv; bv.v = DT_E; bv.slen = 0xFFFFFFFEu; bv.s = rt_pinned_strdup(pname); *out = bv; return 1;
         }
         { static const char *const op2[] = { "+","-","*","/","%","^","||","|||","++","--","**","<","<=",">",">=","=","~=","<<","<<=",">>",">>=","==","~==","===","~===","...","[:]", 0 };
