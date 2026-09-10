@@ -132,6 +132,9 @@ typedef struct _TBBLK_t {
     long           dumpno;
     int64_t        gen_idx, gen_pos;
     unsigned       ord_dead;
+    unsigned long  gen_mask, gen_lseg, gen_lslot, gen_lhn;
+    unsigned       gen_lseq;
+    int            gen_have;
 } TBBLK_t;
 #define TBL_FOREACH(t_, e_)            for (unsigned _tb = 0; _tb < (t_)->nbuck; _tb++) if ((t_)->buckets[_tb]) for (unsigned _ts = 0; _ts < (t_)->buckets[_tb]->len && ((e_) = &(t_)->buckets[_tb]->ent[_ts]) != (TBPAIR_t *)0; _ts++)
 TBBLK_t *table_new(void);
