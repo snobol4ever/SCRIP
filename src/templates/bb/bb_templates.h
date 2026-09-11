@@ -149,6 +149,7 @@ std::string bb_indirect_goto();
 std::string xa_coexpr_body_lea(const char * dst);
 std::string bb_initial();
 std::string bb_limit_init();
+std::string bb_limit_gate();
 std::string bb_repalt_clear();
 std::string bb_repalt_yield();
 std::string bb_repalt_test();

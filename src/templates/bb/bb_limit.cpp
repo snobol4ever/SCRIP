@@ -50,3 +50,17 @@ std::string bb_limit_init() {
     x86_begin();
     return x86("mov", FRQ(_.op_off + 16), (long)0);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string bb_limit_gate() {
+    x86_begin();
+    return IF(!(_.op_sa >= 0), x86_alpha() + x86_bomb("bb_limit_gate: unhandled (needs the count operand slot)"))
+         + IF(_.op_sa >= 0,
+             x86("comment", "IR_LIMIT_GATE -- the count of e \\ n is validated HERE, before the generator is ever entered. core_icn_limit_count_check raises 101 on a non-integer and 205 on a negative, and a count of 0 concedes, so e is evaluated ZERO times. iconx does the same: the count is a value, not a result of e.")
+           + x86_alpha()
+           + x86("mov",   "rdi", FRQ(_.op_sa))
+           + x86("mov",   "rsi", FRQ(_.op_sa + 8))
+           + x86("call",  "core_icn_limit_count_check", (uint64_t)(uintptr_t)(void*)core_icn_limit_count_check)
+           + x86("test",  "rax", "rax")
+           + x86_omega("jz")
+           + x86_gamma());
+}

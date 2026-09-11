@@ -1286,6 +1286,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_PROC_VALUE:           bb_emit_x86(bb_proc_value());     return 0;
     case IR_CALL_VALUE:           bb_emit_x86(bb_call_value());     return 0;
     case IR_LIMIT:                bb_emit_x86(bb_limit());          return 0;
+    case IR_LIMIT_GATE:           bb_emit_x86(bb_limit_gate());     return 0;
     case IR_REPALT:                return 0;
     case IR_ITERATE:              bb_emit_x86(bb_iterate());        return 0;
     case IR_SCAN_ENTER:           { g_emit.op_sb = 1; g_emit.op_sa = g_emit.op_a_slot; bb_emit_x86(bb_gen_scan()); } return 0;
@@ -1956,6 +1957,13 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         int sa = xv ? drive_value_slot(xv) : -1; int sb = yv ? drive_value_slot(yv) : -1;
         if (sa < 0 || sb < 0) { drive_unowned(nd); break; }
         g_emit.op_a_slot = sa; g_emit.op_sa = sb; g_emit.op_off = drive_value_slot(nd);
+        DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
+    }
+    case IR_LIMIT_GATE: {
+        IR_t * cnt = nd->n_operands > 0 ? nd->operands[0] : NULL;
+        int sc = cnt ? drive_value_slot(cnt) : -1;
+        if (sc < 0) { drive_unowned(nd); break; }
+        g_emit.op_sa = sc; g_emit.op_off = drive_value_slot(nd);
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_LIMIT: {

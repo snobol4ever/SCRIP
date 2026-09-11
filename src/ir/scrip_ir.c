@@ -47,6 +47,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_GOTO] = "IR_GOTO",
     [IR_SUBSCRIPT] = "IR_SUBSCRIPT",
     [IR_LIMIT]  = "IR_LIMIT",
+    [IR_LIMIT_GATE] = "IR_LIMIT_GATE",
     [IR_REPALT] = "IR_REPALT",
     [IR_REV_ASSIGN] = "IR_REV_ASSIGN",
     [IR_REV_ASSIGN_VAR] = "IR_REV_ASSIGN_VAR",
