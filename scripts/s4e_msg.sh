@@ -746,6 +746,13 @@ s4e_language_freeze_refuses() {
 # `#` starts a comment only when it is outside any quoting and at the start of a word -- WITHOUT ever
 # executing its argument. Used so `done`'s blocklist judges `exit 0 # nothing to verify` by what it reduces
 # to (`exit 0`), not by its undigested text.
+# ⛔⭐ THE FIRST-WORD RULE IS SOURCED, NEVER RE-DERIVED (lib_donewhen.sh, hq_T 2026-09-11). Four copies of the
+# old whitespace-splitting one-liner existed -- two in this file, two in the gate -- and hq_S measured it calling
+# a CURED row PERMANENTLY UNCLOSEABLE because `D=$(mktemp -d)` splits into two fields. ⛔ IF THE LIB IS MISSING
+# THE NO-OP PROBE IS SKIPPED AND SAYS SO: the bus must not die for a missing helper, and it must not quietly
+# fall back to the defective line either -- that fallback is how four copies happened in the first place.
+if [ -r "$(dirname "${BASH_SOURCE[0]}")/lib_donewhen.sh" ]; then . "$(dirname "${BASH_SOURCE[0]}")/lib_donewhen.sh"
+else echo "⚠ lib_donewhen.sh not readable -- the decorated-no-op DONE-WHEN probe is SKIPPED this run (not silently approximated)" >&2; fi
 s4e_strip_donewhen_comment() {
     awk '
     {
@@ -807,7 +814,8 @@ s4e_donewhen_is_noop() {   # $1 = raw DONE-WHEN text; rc 0 = certifies nothing
     nrm="$(printf '%s' "$nc" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//; s/[[:space:]]+/ /g')"
     printf '%s' "$nrm" | grep -qE '[;|&`]|\$\(' && return 1
     case "$nrm" in ""|"exit 0"|exit0) return 0;; esac
-    first="$(printf '%s' "$nrm" | awk '{for(i=1;i<=NF;i++){if($i !~ /^[A-Za-z_][A-Za-z0-9_]*=/){print $i; exit}}}')"
+    command -v donewhen_first_word >/dev/null 2>&1 || return 1
+    first="$(donewhen_first_word "$nrm")"
     case "$first" in true|:|/bin/true|/usr/bin/true|echo) return 0;; esac
     return 1; }
 # ⛔⭐ S4E-GUARD-COMPILER-ABSENT -- A CRITERION THAT DRIVES AN UNBUILT COMPILER CANNOT BE MEASURED, SO IT IS
@@ -1672,7 +1680,7 @@ case "$cmd" in
                 dw_nc="$(printf '%s\n' "$dw" | s4e_strip_donewhen_comment)"
                 dw_norm="$(printf '%s' "$dw_nc" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//; s/[[:space:]]+/ /g')"
                 if ! printf '%s' "$dw_norm" | grep -qE '[;|&`]|\$\('; then
-                  _dw_first="$(printf '%s' "$dw_norm" | awk '{for(i=1;i<=NF;i++){if($i !~ /^[A-Za-z_][A-Za-z0-9_]*=/){print $i; exit}}}')"
+                  _dw_first="$(command -v donewhen_first_word >/dev/null 2>&1 && donewhen_first_word "$dw_norm")"
                   _dw_noop=0
                   case "$dw_norm" in ""|"exit 0"|exit0) _dw_noop=1 ;; esac
                   case "$_dw_first" in true|:|/bin/true|/usr/bin/true|echo) _dw_noop=1 ;; esac

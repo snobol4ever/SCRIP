@@ -17,10 +17,21 @@
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/lib_gate.sh"
+# ⛔ THE ONE AUTHORITY for "what is the first command word" -- never a fifth copy of the old awk one-liner,
+# which called two live, one of them CURED, rows PERMANENTLY UNCLOSEABLE (hq_S 2026-09-11). See lib_donewhen.sh.
+. "$HERE/lib_donewhen.sh" || { echo "⛔ GATE REFUSES(2): lib_donewhen.sh unloadable -- this gate will not re-derive the first-word rule" >&2; exit 2; }
 gate_parse_args "$@"
 PO="${S4E_POSTOFFICE:-/home/resources/postoffice}"
 TASKS="$PO/tasks"
 gate_require "$TASKS" "the postoffice task-baton directory"
+# ⛔⭐ THE EXTRACTOR IS GRADED BEFORE IT IS TRUSTED, and arm 1 of its selftest is hq_S's exact input. An
+# extractor nobody tested is how `D=$(mktemp -d) && bash x.sh` came to convict a cured row: the rule looked
+# obviously right in one line of awk, and no fixture ever put a space inside a substitution in front of it.
+if ! donewhen_selftest > /tmp/.dw_selftest.$$ 2>&1; then
+    echo "⛔ GATE REFUSES(2): lib_donewhen.sh fails its own selftest -- the first-word rule is wrong, so every verdict below would be" >&2
+    cat /tmp/.dw_selftest.$$ >&2; rm -f /tmp/.dw_selftest.$$; exit 2
+fi
+echo "first-word extractor: $(tail -1 /tmp/.dw_selftest.$$)"; rm -f /tmp/.dw_selftest.$$
 
 # ⛔ DECORATED NO-OP EVASION (row `donewhen-decorated-noop-evasion`; proven live by seat10 2026-08-23, see
 # FINDING-2026-08-23-seat10-rung-gate-false-green-audit-continued.md and
@@ -105,7 +116,7 @@ for f in "$TASKS"/*.task.md; do
     dw_nc=$(printf '%s\n' "$dw" | strip_donewhen_comment)
     dw_norm=$(printf '%s' "$dw_nc" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//; s/[[:space:]]+/ /g')
     if ! printf '%s' "$dw_norm" | grep -qE '[;|&`]|\$\('; then
-        first_nc=$(printf '%s' "$dw_norm" | awk '{for(i=1;i<=NF;i++){if($i !~ /^[A-Za-z_][A-Za-z0-9_]*=/){print $i; exit}}}')
+        first_nc=$(donewhen_first_word "$dw_norm")
         noop=0
         case "$dw_norm" in "exit 0"|exit0) noop=1 ;; esac
         case "$first_nc" in true|:|/bin/true|echo) noop=1 ;; esac
@@ -136,8 +147,25 @@ for f in "$TASKS"/*.task.md; do
         echo "        $(echo "$dw" | cut -c1-96)"
         BAD=$((BAD+1)); continue
     fi
-    first=$(echo "$dw" | awk '{for(i=1;i<=NF;i++){if($i !~ /^[A-Za-z_][A-Za-z0-9_]*=/){print $i; exit}}}')
-    case "$first" in ''|'['|test|cd|for|if|while|'!'|'{'|'('|'"'*) continue ;; esac
+    # ⛔⭐ THE FIRST WORD COMES FROM A SCANNER THAT RESPECTS QUOTING AND $( ) NESTING, NEVER FROM WHITESPACE
+    # SPLITTING (lib_donewhen.sh; hq_S's measured false positive, 2026-09-11). `D=$(mktemp -d) && bash x.sh`
+    # split into `D=$(mktemp` and `-d)`, and this arm convicted the row on `-d)` -- PERMANENTLY UNCLOSEABLE
+    # printed over a criterion that parses and runs to rc=0, on a row that had just been CURED. bash -n two
+    # checks above had ALREADY proved the line parses; the word had only to be taken the way bash takes it.
+    first=$(donewhen_first_word "$dw")
+    case "$first" in ''|'['|test|cd) continue ;; esac
+    # ⛔⭐ A WORD CARRYING AN EXPANSION OR A QUOTE IS NOT RESOLVABLE BY ANY STATIC CHECK -- AND IT IS NOT
+    # SILENTLY SKIPPED EITHER. Both halves were measured on the live queue in one sitting (hq_T 2026-09-11):
+    # skipping cleared hq_S's false positive AND lost a true one, `icon-bare-repeated-alternation-...`, whose
+    # criterion opens with a BACKTICKED PHRASE and is genuine prose -- the old arm convicted it by accident,
+    # and a bare `continue` here would have made real debt invisible. ⭐ THE THIRD ANSWER IS THE RIGHT ONE:
+    # a checker that cannot measure says so, out loud, by name. It warns rather than convicting, so no row is
+    # called PERMANENTLY UNCLOSEABLE on a word nobody could resolve, and no row disappears from the list.
+    if ! donewhen_word_is_resolvable "$first"; then
+        echo "  ⚠ $t: first command word is '$first' -- an expansion or quoted word NO STATIC CHECK CAN RESOLVE, so this row is NEITHER cleared NOR convicted here; read it by hand"
+        echo "        $(echo "$dw" | cut -c1-96)"
+        WARN=$((WARN+1)); continue
+    fi
     if ! command -v "$first" >/dev/null 2>&1; then
         echo "  ⛔ $t: first word '$first' is not a command -- row is PERMANENTLY UNCLOSEABLE"
         echo "        $(echo "$dw" | cut -c1-96)"
