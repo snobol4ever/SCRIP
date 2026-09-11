@@ -219,7 +219,21 @@ run_one() {
             rc=$?
             ;;
         m4)
-            local s="$WORK/$name.s" o="$WORK/$name.o" bin="$WORK/${name}_bin"
+            # ⛔⭐ THE M4 BINARY IS BUILT UNDER A STABLE STATED NAME IN THE RUNDIR, NEVER A MKTEMP PATH
+            # (CEO-569, hq_V 2026-09-11; the same cure the coo landed one level up for the master harness at
+            # 413a0e0a6 and hq_B landed for arizona under CEO-557). It was "$WORK/${name}_bin" -- an ABSOLUTE
+            # path under a mktemp root -- invoked by that absolute path, so a mode-4 binary, which IS the program
+            # and correctly answers its own argv[0], reported a name that CHANGES EVERY RUN and that no .ref
+            # could ever be cut from. &progname is argv[0] VERBATIM: measured on the oracle (Arizona icont/iconx
+            # 9.5.25a) with one program under three invocations -- ./pn printed "./pn", the absolute path printed
+            # the absolute path, and `iconx pn` printed "pn". A name nothing states is therefore not a defect in
+            # the compiler and not a bad ref; it is an ungradable quantity, and pinning it is what makes the
+            # question askable at all.
+            # ⛔ INTO THE RUNDIR AND NOT BESIDE THE SOURCE, and the bare stem is load-bearing: io.icn lists its
+            # own directory through `ls io.[ids][tca][dnt]` and `ls io.i?n io.d?t io.s?d`, patterns that require a
+            # dot plus three characters -- a binary named `io` cannot match either, which is why this may land at
+            # all. Measured across every .std in the package: io is the ONLY program that lists its directory.
+            local s="$WORK/$name.s" o="$WORK/$name.o" bin="$rundir/$name"
             if ! timeout "$TIMEOUT" "$SCRIP" --compile --target=x86 "$icn" ${mods[@]+"${mods[@]}"} < /dev/null > "$s" 2>"$errf"; then
                 : > "$outfile"; rc=1
             elif grep -q 'icon: parse error' "$errf"; then
@@ -229,7 +243,9 @@ run_one() {
             elif ! gcc -no-pie "$o" -L"$OUTDIR" -lscrip_rt -Wl,-rpath,"$OUTDIR" -lm -o "$bin" 2>>"$errf"; then
                 : > "$outfile"; rc=1
             else
-                ( cd "$rundir" && timeout "$TIMEOUT" "$bin" ${prog_args[@]+"${prog_args[@]}"} < "$IN" > "$outfile" 2>&1 )
+                # ⭐ BARE RELATIVE NAME, matching run_m4 in corpus_suite_harness.py exactly: a mode-4
+                # binary's argv IS the program's argv, so what we type here is what &progname answers.
+                ( cd "$rundir" && timeout "$TIMEOUT" "./$name" ${prog_args[@]+"${prog_args[@]}"} < "$IN" > "$outfile" 2>&1 )
                 rc=$?
             fi
             ;;
