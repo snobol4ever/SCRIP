@@ -51,7 +51,40 @@ def find_func_span(lines):
     sys.exit("ERROR: could not locate end of try_call_builtin_by_name")
 
 
+SPENT_BANNER = """
+⛔ gen_builtin_ids.py IS A SPENT ONE-SHOT MIGRATION. IT MUST NOT BE RUN AGAINST THE TREE.
+
+It harvests !strcmp(fn,"...") sites out of try_call_builtin_by_name_bl and REWRITES them into
+(_bid == BID_...) comparisons, then regenerates src/runtime/builtin_ids.h from exactly the names it
+harvested. That migration has already been performed: the sites it feeds on are the ones it already
+consumed, so a second run does not regenerate the numbering, it REPLACES it with whatever handful of
+strcmp sites were never migrated.
+
+It looks harmless today only because its FUNC_RE anchors on a DECLARATION at column 0 rather than on
+the definition, so it exits rc=1 having written nothing. That is an accident, not a safeguard, and
+"repair the anchor" is the catastrophe rather than the cure.
+
+MEASURED 2026-09-11 (hq_U, on a scratch copy, anchor corrected to the real definition and declarations
+skipped): it runs rc=0 and writes a table of NINE names where the committed one has 188 -- deleting 179
+builtin ids and renumbering what survived. Emitted code BAKES those ids into a mov32 immediate
+(bid_bake_of in src/templates/bb/bb_call.cpp and bb_call_fn.cpp) and the runtime reads them back WITHOUT
+revalidating against the name, so every committed .s carrying a baked id would dispatch a different
+builtin with no diagnostic.
+
+The numbering is now pinned by scripts/test_gate_shared_builtin_id_table_is_self_consistent.sh, whose
+entry floor turns exactly this into a red arm instead of a silent 95% deletion.
+
+TO ADD A BUILTIN: add its #define and its g_bid_tab entry BY HAND with a fresh id, and let that gate
+prove the table still round-trips. Do not run this script.
+
+If you have read all of the above and still mean to run it, set SCRIP_GEN_BUILTIN_IDS_I_MEAN_IT=1.
+"""
+
+
 def main():
+    if os.environ.get("SCRIP_GEN_BUILTIN_IDS_I_MEAN_IT") != "1":
+        sys.stderr.write(SPENT_BANNER)
+        sys.exit(2)
     with open(SRC, 'r', encoding='utf-8', errors='surrogateescape') as f:
         lines = f.read().split('\n')
     lo, hi = find_func_span(lines)
