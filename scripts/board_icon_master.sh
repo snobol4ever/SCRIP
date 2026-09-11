@@ -248,6 +248,16 @@ if [ -z "$astboard" ] || [ -z "$split" ]; then
     echo "⛔ BOARD REFUSES (rc=2): the harness printed no ast board / no MODES_COLUMN split."
     echo "   This board grades BY THE MASTER'S modes COLUMN; without that split the only number available"
     echo "   is the old one that ran the 153 self-pinned AST-shape fixtures and counted their inevitable reds."
+    # ⛔⭐ THE HARNESS'S OWN WORDS, ECHOED HERE BECAUSE THIS PATH USED TO THROW THEM AWAY. $_errf holds the
+    # harness's stderr and was first consulted ~80 lines below, which this early exit never reaches -- so the
+    # commonest cause of this refusal, the stale-binary REFUSAL ("binary older than the tree it names -- make
+    # scrip"), reached the reader as "the harness printed no MODES_COLUMN split" and, one caller further out,
+    # as a row DONE-WHEN reporting "icon master board not green". ⭐ Three layers, each one converting a
+    # COULD-NOT-MEASURE into something more specific and more wrong, ending in a DEFECT VERDICT against the
+    # compiler when the true instruction was `make`. A refusal that does not carry the refusing layer's own
+    # message is indistinguishable from a red by the time anyone reads it (hq_C 2026-09-10, measured while
+    # closing row icon-generator-comma-conjunction-in-an-every-operand-resumes-once). No number moves here.
+    if [ -s "$_errf" ]; then echo "   --- what the harness actually said (last 12 lines of its stderr) ---"; tail -12 "$_errf" | sed 's/^/   /'; fi
     exit 2
 fi
 if [ -z "$board" ]; then
