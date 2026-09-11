@@ -374,9 +374,7 @@ std::string bb_match_defer() {
              + x86_omega())
          + x86_beta()
          + ((_.op_seal == 1)
-              ? (x86("mov", "rsp", "rbp")
-                 + x86("pop", "rbp")
-                 + x86_omega())
+              ? x86_omega()
               : ((_.op_defer_leaf_susp > 0
                    ? (rspd_snap(&g_rspd_beta, "g_rspd_beta")
                       + x86("mov",  "rax", RDQ("rsp", 0))
