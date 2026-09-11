@@ -162,7 +162,13 @@ gate_floor "$N" 10 "live rows with batons (a postoffice with no live batons prov
 # nobody banks leaves headroom, so a later regrowth back toward 93 is invisible. The cure for that is to
 # bank it -- lower this number whenever you see the ⭐ line -- and step 3 of the ruling is CEILING=0, at
 # which point the headroom problem disappears because there is none.
-CEILING=93
+# ⭐ CEILING 93 -> 89 (hq_S 2026-09-11, same sitting, one landing later). SIX of my own rows were paid --
+# every hq_S row in the finding's per-owner column, written as real commands and each PROVEN RED before
+# being banked -- and the count fell by FOUR, not six, because the live population moved 439 -> 437 under
+# the same edit. That is the volatility this gate's header argues about, visible in its own first ratchet
+# move: the number is a property of the queue as much as of the debt, which is exactly why a fall here
+# passes loudly instead of reding the build.
+CEILING=89
 if [ "$BAD" -gt "$CEILING" ]; then
     echo "⛔ GATE FAIL [baton_donewhen_runnable]: $BAD live row(s) carry a DONE-WHEN that can never exit 0, ceiling $CEILING -- GREW by $((BAD-CEILING))"
     echo "   A row in this list can be cured perfectly and still record no flip, because \`done\` cannot pass on it."
