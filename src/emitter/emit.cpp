@@ -3268,6 +3268,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             if (sg == NULL || sg->op == IR_SUCCEED) node_γ = &lbl_γ;
             else if (sg->op == IR_FAIL) node_γ = &lbl_ω;
             else for (int k = 0; k < n; k++) if (nodes[k] == sg) { node_γ = (sg_is_phi && na_f[k]) ? na_f[k] : (sg_is_sig && na_s[k]) ? na_s[k] : sg_is_beta ? betas[k] : lbls[k]; break; }
+            if (g_emit_cfg && n_alt > 0 && emit_zframe_pinned() && !g_emit_cfg->root_graph)
+                for (int _ak = 0; _ak < n_alt; _ak++) if (sg && sg == g_emit_cfg->alt_ret[_ak] && g_emit_cfg->alt_redo[_ak]) { node_γ = ret_tr[_ak]; break; }
         }
         if (nodes[i]->op == IR_REPALT) {
             { static int _dd = -1; if (_dd < 0) { const char *_e = getenv("SCRIP_DRIVE_DIAG"); _dd = (_e && _e[0] == '1') ? 1 : 0; }
