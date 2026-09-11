@@ -8,6 +8,13 @@
 # not refused; (9/11/12) CONTROL: a corpus suite is still refused, both copies carry the narrowing, and a caller that does not say
 # what it grades is refused rather than waved through. Run it as a script, never pasted (CEO-480).
 set -u
+# ⛔⭐ THE GATE PINS ITS OWN ENVIRONMENT, AND THIS IS THE INSTRUMENT LAW NOT A TIDY-UP (found by running this gate under
+# `s4e_msg.sh done`, cto 2026-09-11). The bus exports S4E_DONE_WHEN_RUN=1 around a computed DONE-WHEN, and that is an EXEMPTION
+# from the very guard six of these arms exist to measure -- so the gate read 6 of 14 red from inside a `done` and 0 of 14 red from
+# a bare shell, ON THE SAME TREE. A verdict that depends on who called it measures the caller, not the subject. Every arm that
+# asserts a REFUSAL is one of the arms that flipped, so the failure ran in the flattering direction for the seat invoking it.
+# Arms 3 and 4 set the exemption they test, explicitly, one arm at a time.
+unset S4E_DONE_WHEN_RUN S4E_ONE_RUNNER_OVERRIDE S4E_SEAT
 H="$(cd "$(dirname "$0")" && pwd)"; L="$H/lib_one_runner.sh"; G=one_runner_one_board; fail=0; examined=0
 CORPUS="${S4E_CORPUS:-${S4E_HOME:-$(cd "$H/../.." && pwd)}/corpus}"
 [ -r "$CORPUS/tests/icon/ALL.icn" ] || { echo "REFUSE(2) [$G]: no corpus master at $CORPUS/tests/icon/ALL.icn -- the board/not-a-board arms cannot be measured"; exit 2; }
@@ -33,7 +40,8 @@ arm "9 control: a suite UNDER the corpus tree is still refused rc=2" 'out=$(S4E_
 arm "10 harness: a gate own mktemp fixture is graded, not refused" 'T=$(mktemp -d) || exit 1; printf "* one\nline\n" > "$T/f.sno"; printf "* one\nline\n" > "$T/f.ref"; out=$(cd "$H/.." && S4E_SEAT=hq_B python3 scripts/corpus_suite_harness.py run "$T/f.sno" "$T/f.ref" --lang snobol4 2>&1); rc=$?; rm -rf "$T"; [ $rc -ne 2 ] || ! grep -q "ONE RUNNER, ONE BOARD" <<<"$out"'
 arm "11 census: BOTH copies carry the narrowing, word for word is the promise in the header" 'grep -q "one_runner_suite_is_a_board" "$L" && grep -q "_suite_is_a_board" "$H/corpus_suite_harness.py"'
 arm "12 a caller that does not say what it grades is still refused, never waved through" 'out=$(S4E_SEAT=hq_B bash -c "source $L; one_runner_guard test_x_suite.sh" 2>&1); [ $? -eq 2 ] && grep -q "ONE RUNNER, ONE BOARD" <<<"$out"'
+arm "13 this gate pins its own environment, so a computed done cannot flip its verdict" 'grep -q "^unset S4E_DONE_WHEN_RUN S4E_ONE_RUNNER_OVERRIDE S4E_SEAT$" "$H/test_gate_one_runner_one_board.sh"'
 echo "$G: examined=$examined fail=$fail"
-[ $examined -ge 14 ] || { echo "REFUSE(2) [$G]: examined=$examined below the 14 declared arms"; exit 2; }
+[ $examined -ge 15 ] || { echo "REFUSE(2) [$G]: examined=$examined below the 15 declared arms"; exit 2; }
 [ $fail -eq 0 ] && { echo "GATE PASS(0) [$G]: $examined/$examined -- one runner (the coo), one board"; exit 0; }
 echo "GATE FAIL(1) [$G]: $fail of $examined arms red"; exit 1
