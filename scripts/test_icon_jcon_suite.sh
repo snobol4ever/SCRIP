@@ -72,6 +72,21 @@ OUTSIDE="$CORPUS/OUTSIDE_ARIZONA_BASELINE.tsv"
 # ZERO against .std files icont REFUSES to compile, so they were green cells resting on jcon's answers --
 # the same defect as the sixteen jcon-cut refs re-cut this morning, except these three cannot be re-cut
 # because the oracle will not run them. A false green is worth less than a smaller honest denominator.
+# ⛔⭐ MODES.tsv -- WHICH INSTRUMENT GRADES AN ENTRY (ceo CEO-561, 2026-09-11, hq_V). A program that prints
+# &progname has an output that is A FUNCTION OF ITS INVOCATION: jcon's kwds.std is a ONE-STEP cut reading
+# `&progname: kwds.icn`, and a mode-4 binary IS the program and reports its own argv[0], so NO single ref can
+# be right for both modes and no better ref or pinned name can close it. The modes column says which arm can
+# answer the question. ⛔ THIS IS NOT OUTSIDE_ARIZONA_BASELINE.tsv AND MUST NEVER BECOME IT: an outside-baseline
+# name leaves the graded denominator because no ground truth exists; a declared entry KEEPS its place in
+# SHIPPED, in GRADED and in the published fraction and is graded by the arm that can grade it. ⛔ AND THE
+# NOT-GRADED CELLS ARE NAMED ON THE BOARD, because a per-mode TOTAL that quietly shrinks is the false-green
+# shape this tree keeps paying for -- a reader must be able to see the cell that was not measured.
+MODES_TSV="$CORPUS/MODES.tsv"
+declared_modes() { [ -f "$MODES_TSV" ] && awk -F"\t" -v n="$1" '$1==n {print $2; exit}' "$MODES_TSV"; }
+# ⛔ A DECLARATION THAT NAMES NO SHIPPED PROGRAM REFUSES THIS RUNNER rc=2, and the reason is measured, not
+# theoretical: corpus tests/snocone/scrip/sm_lower_test.ref's own KEEP.md still DECLARES a pair whose source
+# left the tree (hq_T, 2026-09-11), a keeper declaration that outlived the file it keeps and that nothing
+# could see. A modes row for a deleted program would silently grade nothing while reading as a live rule.
 is_outside_baseline() { [ -f "$OUTSIDE" ] && awk -F"\t" -v n="$1" '$1==n {f=1} END {exit f?0:1}' "$OUTSIDE"; }
 outside_reason() { [ -f "$OUTSIDE" ] && awk -F"\t" -v n="$1" '$1==n {print $2; exit}' "$OUTSIDE"; }
 OUTSIDE_LIST=""
@@ -87,6 +102,21 @@ while [[ $# -gt 0 ]]; do
         *) flaggate_reject "$1" "--mode --scrip --corpus --timeout" ;;
     esac
 done
+# ⛔⭐ THE SIDECAR PATHS ARE RE-BOUND HERE, AFTER --corpus IS PARSED, AND THE FIRST VERSION OF THE MODES
+# WIRING ABOVE SHIPPED THIS BUG FOR TEN MINUTES BEFORE A SCRATCH ARM CAUGHT IT (hq_V 2026-09-11): both
+# OUTSIDE and MODES_TSV were bound from the DEFAULT $CORPUS at load time, so `--corpus <scratch>` graded the
+# scratch tree while reading the PACKAGE's declarations -- a run that silently mixes two trees' rules and
+# reports one number. It is invisible at the default path, which is exactly why it survived in the OUTSIDE
+# line; the fix belongs to both, since one of them being right by accident is not a contract.
+OUTSIDE="$CORPUS/OUTSIDE_ARIZONA_BASELINE.tsv"
+MODES_TSV="$CORPUS/MODES.tsv"
+if [ -f "$MODES_TSV" ]; then
+    while IFS=$'\t' read -r _mname _mmodes _mrest; do
+        case "$_mname" in ''|'#'*) continue ;; esac
+        [ -f "$CORPUS/$_mname.icn" ] || { echo "⛔ REFUSED TO GRADE rc=2: $MODES_TSV declares modes for '$_mname' but $CORPUS/$_mname.icn does not exist -- a declaration that outlived its program cannot be a live rule; delete the row or restore the file" >&2; exit 2; }
+        case "$_mmodes" in m3|m4|m3,m4) ;; *) echo "⛔ REFUSED TO GRADE rc=2: $MODES_TSV row '$_mname' declares modes '$_mmodes'; only m3, m4 or m3,m4 can be honoured -- guessing which arm was meant is how a wrong exclusion becomes permanent" >&2; exit 2 ;; esac
+    done < "$MODES_TSV"
+fi
 
 if [ ! -x "$SCRIP" ]; then
     echo "⛔ REFUSED TO GRADE: no scrip binary at $SCRIP — run make" >&2
@@ -160,9 +190,32 @@ run_one() {
     # separator is added for m3 alone and the binary gets the program's own argv.
     local -a extra_args=(); [ "${#prog_args[@]}" -eq 0 ] || extra_args=(-- "${prog_args[@]}")
     for m in $(sed -nE 's/^[[:space:]]*link[[:space:]]+"?([A-Za-z0-9_.-]+)"?.*$/\1/p' "$icn"); do m="${m%.icn}"; [ -f "$(dirname "$icn")/$m.icn" ] && mods+=("$(dirname "$icn")/$m.icn"); done
+    # ⛔⭐ A LINKED MODULE TRAVELS WITH THE PROGRAM, exactly as the program's own source does one screen up
+    # (hq_V 2026-09-11, measured on link1). `link link2` is resolved RELATIVE TO THE MAIN PROGRAM'S PATH, so
+    # naming the program by its bare name in the rundir -- which is what makes &progname gradable at all --
+    # moved that search to ./ and link1 died with `cannot open link2.icn (linked from link1.icn); tried:
+    # .../ipl/procs/link2.icn, ./link2.icn` even though link2.icn was ALSO on the command line. The two
+    # changes are one cure and must land together: argv carries the bare name, so the rundir must hold what
+    # the bare name implies. ⛔ Still the program's OWN closure and never the package: only sources this
+    # entry `link`s are copied, so io's rundir -- whose ref lists its directory and expects io.dat and io.icn
+    # and nothing else -- is untouched, because io links nothing.
+    local _mm; for _mm in ${mods[@]+"${mods[@]}"}; do cp "$_mm" "$rundir/$(basename "$_mm")" 2>/dev/null || true; done
     case "$mode" in
         m3)
-            ( cd "$rundir" && timeout "$TIMEOUT" "$SCRIP" --run "$icn" ${mods[@]+"${mods[@]}"} ${extra_args[@]+"${extra_args[@]}"} < "$IN" > "$outfile" 2>&1 )
+            # ⛔⭐ THE PROGRAM'S OWN NAME IN argv IS THE BARE NAME, NEVER THE ABSOLUTE PATH (hq_V 2026-09-11,
+            # measured on kwds). This handed "$icn" -- an absolute path -- to the driver while already cd'd into
+            # the rundir where the source was copied one screen up, so &progname echoed the whole path and the
+            # program could not match ANY ref: /tmp/.../kwds.icn against the shipped `&progname: kwds.icn`. That
+            # is a defect of the INVOCATION, not of scrip, and it read as a red cell in the published fraction.
+            # corpus_suite_harness.py's run_m3 already carries exactly this cure (row suite-harness-argv-echoes-
+            # a-mktemp-path-so-diagnostic-programs-cannot-be-graded: "Bare name in argv, explicit cwd so it still
+            # resolves"); this runner never got it. ⛔ SCOPE, MEASURED BEFORE THE CHANGE rather than asserted: the
+            # only programs whose output can turn on the spelling are the ones that print their own invocation or
+            # their own filename -- sources naming &progname/&file (kwds, profsum, tgrlink) and .std files quoting
+            # a .icn name (io, kwds, recent, traceback, cxtrace, loadfunc, tracing, tpp). All nine gradable ones
+            # were run both ways on a scratch corpus: kwds FAIL -> PASS, every other verdict byte-identical.
+            # The mods stay absolute on purpose -- they are not argv[0] and nothing echoes them.
+            ( cd "$rundir" && timeout "$TIMEOUT" "$SCRIP" --run "$(basename "$icn")" ${mods[@]+"${mods[@]}"} ${extra_args[@]+"${extra_args[@]}"} < "$IN" > "$outfile" 2>&1 )
             rc=$?
             ;;
         m4)
@@ -199,8 +252,8 @@ run_one() {
 
 run_mode() {
     local mode="$1"
-    local pass=0 fail=0 reject=0 crash=0 hang=0
-    local -a reject_names=() fail_names=() crash_names=() hang_names=()
+    local pass=0 fail=0 reject=0 crash=0 hang=0 notgraded=0
+    local -a reject_names=() fail_names=() crash_names=() hang_names=() notgraded_names=()
     local icn std kind outfile
     for icn in "$CORPUS"/*.icn; do
         [ -f "$icn" ] || continue
@@ -211,8 +264,13 @@ run_mode() {
         is_outside_baseline "$(basename "$icn" .icn)" && continue
         case "$(basename "$icn")" in tpp.icn) continue;; esac   # tpp.std is jcon PREPROCESSOR TEXT output, not program output (its body is deliberately-invalid Icon like `abc 11`); ungradable by execution — named exclusion, same class as the no-.std sources above
         outfile="$WORK/out.txt"
-        kind=$(run_one "$mode" "$icn" "$std" "$outfile")
         name=$(basename "$icn" .icn)
+        _dm=$(declared_modes "$name")
+        if [ -n "$_dm" ] && [[ ",$_dm," != *",$mode,"* ]]; then
+            notgraded=$((notgraded+1)); notgraded_names+=("$name")
+            continue
+        fi
+        kind=$(run_one "$mode" "$icn" "$std" "$outfile")
         # ⭐ THE PROGRESS DATABASE, ONE ROW PER PROGRAM PER MODE (CEO-331). Placed at the SINGLE point where
         # this runner already decides a per-program verdict, so the recorded outcome and the counted one are
         # the same value -- a second classification here would be a second opinion that drifts. $kind is
@@ -228,7 +286,8 @@ run_mode() {
     done
 [ "${PROGRESS_FAILED:-0}" -eq 0 ] || echo "⛔ PROGRESS DB: $PROGRESS_FAILED per-program appends have FAILED so far in this run -- this run is not fully recorded (CEO-331); the board lines below still stand, the table does not" >&2
     local mode_total=$((pass+fail+reject+crash+hang))
-    echo "--- jcon ($mode): PASS=$pass FAIL=$fail REJECT=$reject CRASH=$crash HANG=$hang TOTAL=$mode_total ---"
+    echo "--- jcon ($mode): PASS=$pass FAIL=$fail REJECT=$reject CRASH=$crash HANG=$hang NOTGRADED=$notgraded TOTAL=$mode_total ---"
+    [ "$notgraded" -gt 0 ] && echo "    NOT GRADED IN $mode by declaration in $(basename "$MODES_TSV") (in the denominator, graded by the other arm; reason in the row): ${notgraded_names[*]}"
     [ "$reject" -gt 0 ] && echo "    REJECT (dialect gap, semicolon-required): ${reject_names[*]}"
     [ "$fail" -gt 0 ]   && echo "    FAIL (wrong output): ${fail_names[*]}"
     [ "$crash" -gt 0 ]  && echo "    CRASH: ${crash_names[*]}"
