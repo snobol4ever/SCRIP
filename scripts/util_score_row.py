@@ -2627,19 +2627,30 @@ def counted_fractions(lang, vcell):
     # gap is indistinguishable from a closed one, and that is the whole "never graded business".
     _missing_inv = [n for n, _rx, _d in PROGRESS_COUNTED.get(lang, []) if n not in _matched]
     if _missing_inv:
-        # ⛔⭐ AND THE CURE LINE MUST NAME BOTH CAUSES, because it named the wrong one for BOTH packages it
-        # reported today (hq_T 2026-09-10). This reader sees only the cell, so "no clause" has two causes it
-        # cannot tell apart: the runner is not retrofitted, OR it IS wired and `inventory_line` REFUSED, which
-        # emits nothing and lets the cell fall back to prose with the runner still green. arizona and ipl were
-        # both the second kind -- one duplicate ruling and one honesty-arm refusal -- and this line sent their
-        # reader to retrofit two already-wired runners. ⭐ A diagnostic that can only observe an ABSENCE must
-        # name every cause of the absence; asserting the likelier one costs the reader the whole investigation.
+        # ⛔⭐⭐ AND THE CURE LINE MUST STOP ENUMERATING CAUSES AND SEND THE READER TO MEASURE ONE. Its history
+        # is the whole argument: it named ONE cause ("the runner is not retrofitted") and was wrong for BOTH
+        # packages it reported on 2026-09-10 -- arizona and ipl were wired, and their bodies had REFUSED. It
+        # was cured to name TWO. On 2026-09-11 both named causes were wrong again, for FOUR of the seven it
+        # reports: snobol4's gimpel/aisnobol/dotnet/testpgms are wired AND their sidecars validate (ARM 20
+        # pins all four), and their cells are prose only because no suite pass has rewritten them since the
+        # carriage landed -- which under ONE RUNNER ONE BOARD (CEO-523) only the coo can do. A fourth cause
+        # sits beside them: raku/roast has no vendored package corpus at all, so there is no runner to wire.
+        # ⭐⭐ THE GENERAL FORM: A DIAGNOSTIC THAT CAN ONLY OBSERVE AN ABSENCE MUST ENUMERATE EVERY CAUSE OF
+        # THE ABSENCE, AND ENUMERATING FROM MEMORY IS HOW YOU GET TWO OF FOUR. Each list was written by
+        # someone who had just measured the cause in front of them and then generalised, and each read as
+        # more rigorous than the last while staying wrong. The cure is not a longer list: it is to stop
+        # enumerating HERE -- this function is called by every runner and may read only its cell -- and hand
+        # the reader an instrument that LOOKS. ⛔ A wrong cause is a WORK LIST, not a wording: this row's own
+        # baton told its next reader to do "the CARRIAGE half" on four runners that were already correct.
         work.append("⚠ %d package(s) carry NO PACKAGE_INVENTORY clause (%s) -- their shipped population is still "
-                    "TRANSCRIBED, so it cannot go stale loudly. TWO CAUSES, and this reader cannot tell them "
-                    "apart: either the runner is not retrofitted to lib_inventory.sh, or it IS wired and "
-                    "inventory_line REFUSED (rc=2), which emits nothing while the runner stays green -- check "
-                    "that first with test_gate_package_runners_print_the_inventory.sh ARM 20, which calls the "
-                    "body on the live sidecars and names the refusing package."
+                    "TRANSCRIBED, so it cannot go stale loudly. ⛔ THIS READER SEES ONLY THE CELL AND THEREFORE "
+                    "CANNOT NAME THE CAUSE -- it has at least four (no vendored package corpus at all; the "
+                    "runner is not retrofitted; it IS wired and inventory_line REFUSED, which emits nothing "
+                    "while the runner stays green; or it is wired AND validates and simply has not been RUN "
+                    "since the carriage landed). ⭐ DO NOT GUESS FROM THIS LINE: run "
+                    "`bash scripts/util_package_inventory_cause.sh <lang> <label> <regex>`, or "
+                    "`util_package_shipped_is_runner_written.sh`, which calls it per package and prints the "
+                    "MEASURED cause -- only one of the four is carriage work."
                     % (len(_missing_inv), ", ".join(_missing_inv)))
     if _transcribed:
         work.append("⚠ %d package(s) took the shipped population from PACKAGE_SHIPPED (%s), a number typed into "

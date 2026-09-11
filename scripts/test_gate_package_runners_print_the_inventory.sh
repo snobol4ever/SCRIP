@@ -606,7 +606,15 @@ for lang in sorted(U.PROGRESS_COUNTED):
 print("    ARM 19 board=%s  pinned packages holding their own clause=%d/%d"
       % (os.path.basename(os.environ['SCORE_MD']), pinned_n - bad, pinned_n))
 if lacking:
-    print("    NO RUNNER-WRITTEN CLAUSE YET (the row's work list, not a verdict -- every one is PARKED-LON-HOLD): "
+    # ⛔ THIS LINE USED TO END "every one is PARKED-LON-HOLD" AND THAT WAS TWICE WRONG BY 2026-09-11. CEO-546
+    # (2026-09-10 19:2x) reopened SNOBOL4 for the seats whose Icon rows closed, and four of the seven named
+    # here are snobol4 -- so the clause that told a reader this list was unreachable had outlived its ruling.
+    # ⭐ AND THE DEEPER ERROR IS THAT IT NAMED A CAUSE AT ALL: "no clause yet" has at least four causes, and
+    # for those same four snobol4 packages the answer is that their carriage is CORRECT and pushed, and only
+    # a suite pass is owed. A work list that states the wrong cause is worse than one that states none.
+    print("    NO RUNNER-WRITTEN CLAUSE YET (the row's work list, not a verdict -- ⛔ this arm does NOT know"
+          " why, and only one of the four causes is carriage work; run util_package_inventory_cause.sh"
+          " <lang> <label> <regex>, or the reader that calls it per package): "
           + ", ".join(sorted(lacking)))
 if gained:
     print("    ⭐ RAISE THE RATCHET: %s now carr%s a runner-written clause and %s not pinned. Add to PINNED in this"
@@ -723,6 +731,76 @@ if [ -n "$_a20_bad" ]; then
     echo "    to stop the lockdown being satisfiable by failing, and a synonym that dodges its regex is the defect it hunts."
     violations=$((violations+1))
 fi
+
+# ⛔⭐⭐ ARM 21 — THE CAUSE READER (hq_T 2026-09-11, same row). ARM 20 proves the shared body ACCEPTS each
+# package's live data. It does not answer the question a reader actually arrives with when a board cell has
+# no runner-written clause: WHY NOT. That question was answered by an ENUMERATION inside util_score_row.py
+# -- a list of causes, maintained by hand -- and the list has now been wrong twice, in the same direction,
+# each time after being cured: it named ONE cause on 2026-09-10 and was wrong for both packages it reported
+# (arizona and ipl were wired; their bodies had REFUSED), was cured to TWO, and on 2026-09-11 both named
+# causes were wrong for FOUR of the seven it reports -- snobol4's gimpel/aisnobol/dotnet/testpgms are wired
+# AND validate, and are prose only because no suite pass has rewritten them since the carriage landed.
+# ⭐⭐ THE GENERAL FORM: A DIAGNOSTIC THAT CAN ONLY OBSERVE AN ABSENCE MUST ENUMERATE EVERY CAUSE OF THE
+# ABSENCE, AND ENUMERATING FROM MEMORY IS HOW YOU GET TWO OF FOUR. Every list was written by someone who had
+# just measured the cause in front of them and generalised; each read as more rigorous than the last and
+# stayed wrong. ⛔ A wrong cause is a WORK LIST, not a wording: this row's own baton sent its next reader to
+# retrofit four runners whose carriage had been correct and pushed for days.
+# ⭐ SO THE CURE WAS TO STOP ENUMERATING AND MEASURE -- util_package_inventory_cause.sh -- and THIS arm is
+# what keeps that instrument honest. It is HERMETIC BY CONSTRUCTION and grades the reader's DISCRIMINATION,
+# not the live tree: ARM 20 already grades the live sidecars, and the live causes are printed by
+# util_package_shipped_is_runner_written.sh, which is this row's DONE-WHEN and where a red is already free.
+# ⛔ DELIBERATELY NOT A LIVE SWEEP, and the number is why: calling the cause reader for all 15 declared
+# packages costs 7.1s on this box at load ~4 (24.4s before its per-runner grep loop was collapsed to one
+# pass), against a gate that already costs 7.7s. An arm that doubles a blocking gate to re-derive what two
+# other instruments already print is not diligence.
+examined=$((examined+1))
+_cause="$HERE/util_package_inventory_cause.sh"
+if [ ! -x "$_cause" ] && [ ! -f "$_cause" ]; then
+    echo "GATE REFUSES(2): ARM 21 found no util_package_inventory_cause.sh beside it -- the cause reader it grades is gone, and this arm must not pass by its absence"; exit 2
+fi
+_a21_bad=""
+_a21() {  # _a21 <want-cause> <want-rc> <lang> <label> <regex> <what-it-proves>
+    local _w="$1" _wrc="$2" _o _r
+    _o="$(PKGINV_CORPUS="$TD/cz" bash "$_cause" "$3" "$4" "$5" 2>&1)"; _r=$?
+    case "$_o" in
+      *"CAUSE=$_w"*) [ "$_r" -eq "$_wrc" ] || { echo "    ARM 21 FAIL: $6 -- cause $_w was named but rc=$_r, wanted rc=$_wrc"; _a21_bad="x$_a21_bad"; } ;;
+      *) echo "    ARM 21 FAIL: $6 -- wanted CAUSE=$_w, got: $(printf '%s' "$_o" | tr '\n' ' ' | cut -c1-170)"; _a21_bad="x$_a21_bad" ;;
+    esac
+}
+# A scratch corpus, never the real one: an in-place edit under corpus/ would rewrite the tree being graded.
+rm -rf "$TD/cz"; mkdir -p "$TD/cz/packages/zlang/zwired" "$TD/cz/packages/zlang/zunwired"
+echo 'procedure main(); end' > "$TD/cz/packages/zlang/zunwired/a.icn"
+printf 'a.icn\tORACLE_REFUSES\tthe oracle refuses this program: unsupported extension\n' > "$TD/cz/packages/zlang/zwired/UNGRADABLE.tsv"
+# A — the table declares a package this tree does not ship at all (raku/roast's live shape).
+_a21 A 0 zlang nothing 'nothing' "a declared package with no vendored corpus must read A, not 'not retrofitted'"
+# B — it ships, and no runner assigns INV_PACKAGE to a token its regex matches. THE ONLY CARRIAGE CAUSE.
+_a21 B 0 zlang zunwired 'zunwired' "a shipped package no runner declares must read B (the one cause that IS carriage work)"
+# ⛔ THE NEGATIVE CONTROL THE WHOLE ARM TURNS ON: a package that IS wired must NEVER read B. Without this,
+# an instrument that answered B unconditionally would pass every arm above and reproduce the exact defect
+# this row cured -- a work list telling its reader to retrofit runners that are already correct.
+_o21="$(PKGINV_CORPUS="$TD/cz" bash "$_cause" snobol4 aisnobol 'aisnobol' 2>&1)"
+case "$_o21" in
+  *"CAUSE=B"*) echo "    ARM 21 FAIL: a WIRED package read CAUSE=B -- the cause reader is not discriminating, it is guessing"; _a21_bad="x$_a21_bad" ;;
+esac
+# C vs D on the SAME package, one row apart: the split between 'the data blocks the clause' and 'the
+# carriage is correct and the cell merely awaits a pass'. Mutation-proven in both directions by construction.
+mkdir -p "$TD/cz/packages/snobol4/aisnobol"
+printf 'x.sno\tORACLE_REFUSES\tthe oracle refuses this program: unsupported extension\n' > "$TD/cz/packages/snobol4/aisnobol/UNGRADABLE.tsv"
+echo 'x' > "$TD/cz/packages/snobol4/aisnobol/x.sno"; echo 'y' > "$TD/cz/packages/snobol4/aisnobol/y.sno"
+_a21 D 0 snobol4 aisnobol 'aisnobol' "a wired package whose data validates must read D (awaits a runner pass, NOT carriage work)"
+printf 'y.sno\tSCRIP_REFUSES\tSCRIP cannot compile this program\n' >> "$TD/cz/packages/snobol4/aisnobol/UNGRADABLE.tsv"
+_a21 C 0 snobol4 aisnobol 'aisnobol' "a wired package whose own row names our compiler as the reason must read C (the data, not the runner)"
+# ⛔ AND AN AMBIGUOUS JOIN REFUSES rather than picking: two shipped directories match, both carrying the
+# sidecars the body reads, so there is no fact that chooses between them. rc=2 is a THIRD answer, never a cause.
+cp -r "$TD/cz/packages/snobol4/aisnobol" "$TD/cz/packages/snobol4/aisnobol_twin"
+_a21 '?' 2 snobol4 aisnobol 'aisnobol' "two matching package directories must REFUSE rc=2, never pick one"
+if [ -n "$_a21_bad" ]; then
+    echo "    CURE: util_package_inventory_cause.sh must MEASURE the cause (a directory, a grep over the runners, one"
+    echo "    call to the shared body) and REFUSE when it cannot. ⛔ Do not repair it by making a cause the default:"
+    echo "    a reader that guesses is the defect this arm exists for, and it guesses most convincingly when it is right."
+    violations=$((violations+${#_a21_bad}))
+fi
+echo "    ARM 21 cause reader: 6 discriminations graded hermetically (A/B/C/D, a wired-is-never-B control, an ambiguous join refusing rc=2)"
 
 GATE_EXAMINED="$examined arms"
 gate_verdict "$violations" "package-inventory violations"

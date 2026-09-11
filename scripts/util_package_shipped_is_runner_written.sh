@@ -27,7 +27,7 @@ LANGS="$*"
 # hands the shell the whole program (measured 2026-09-03, hq_T: `sbl -bf` printed its usage banner from
 # inside a Python source file).
 SCORE_MD="$BOARD" WANT="$LANGS" SCRIP_SCRIPTS="$HERE" python3 - <<'PY'
-import io, os, sys
+import io, os, subprocess, sys
 sys.path.insert(0, os.environ['SCRIP_SCRIPTS'])
 import util_score_row as U
 s = io.open(os.environ['SCORE_MD'], encoding='utf-8').read()
@@ -57,6 +57,25 @@ for lang in want:
               % (lang, len(named), len(pkgs), ', '.join(named) or 'unnamed'))
         for w in bad:
             print('       ' + w[:240])
+        # ⛔⭐ AND THE CAUSE IS MEASURED, NOT ENUMERATED. The work line above can observe only an ABSENCE --
+        # util_score_row.py reads the cell and nothing else -- so it has to LIST the causes, and a list
+        # written from memory has been wrong twice: it named one cause on 2026-09-10 (wrong for both
+        # packages it reported that day), was cured to two, and on 2026-09-11 both named causes were wrong
+        # for FOUR of the seven it reports -- snobol4's gimpel/aisnobol/dotnet/testpgms are wired AND their
+        # sidecars validate, so their cells are prose only because no suite pass has rewritten them.
+        # ⭐ THIS reader is allowed to look, so it looks: one directory, one grep, one call to the shared
+        # body, per package, and the answer is a FACT instead of a menu. A wrong cause is a WORK LIST --
+        # this row's own baton sent its next reader to retrofit four runners that were already correct.
+        for _n, _rx, _d in U.PROGRESS_COUNTED[lang]:
+            if not any(_n in w for w in bad):
+                continue
+            _r = subprocess.run(['bash', os.path.join(os.environ['SCRIP_SCRIPTS'], 'util_package_inventory_cause.sh'),
+                                 lang, _n, _rx], capture_output=True, text=True)
+            # ⛔ A REFUSAL IS PRINTED, NEVER SWALLOWED: rc=2 means this reader could not determine the cause
+            # (an ambiguous regex, no derivable extension), which is a different answer from every cause and
+            # must not read as one. It does not change the lane's verdict -- the cell is still transcribed.
+            for _ln in (_r.stdout or _r.stderr or 'CAUSE=? %s: the cause reader produced no output' % _n).strip().split('\n'):
+                print('         ' + _ln.strip()[:300])
     else:
         print('OK   %-8s all %d package(s) take shipped from a runner-written PACKAGE_INVENTORY clause'
               % (lang, len(pkgs)))
