@@ -130,7 +130,7 @@ oracle_trace_for() {
 m4build() { [ -s "$1" ] && as --64 -o "$1.o" "$1" 2>/dev/null && gcc -no-pie -o "$2" "$1.o" "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>/dev/null; }
 refblock() { awk -v o="$1" '$0 ~ "^%---- " o " " {on=1; next} /^%---- /{on=0} on' "$REF"; }
 refmeta()  { grep -E "^%---- $1 " "$REF" | head -1 | sed -E 's/.* total=([0-9]+) prefix=([0-9]+).*/\1 \2/'; }
-n=0; bad=0; skip=0; ans_ok=0; ans_red=0; declare -a lines
+n=0; bad=0; noref=0; skip=0; ans_ok=0; ans_red=0; declare -a lines
 [ "$CUT" = 1 ] && : > "$W/ALL.trace"
 for o in $origins; do
   src="$W/$o.icn"; ref="$W/$o.ref"
@@ -178,7 +178,22 @@ for o in $origins; do
     meta=$(refmeta "$o"); rt=${meta%% *}; rp=${meta##* }
     for m in m3 m4; do
       total=$(wc -l < "$W/$o.$m.norm")
-      if [ -z "$meta" ]; then v=NOREF; bad=$((bad+1))
+      # ⛔⭐⭐ NOREF IS A CANNOT-MEASURE, NOT A FAILED CHECK (hq_T 2026-09-11, on the ceo's finding that these
+      # gates are wired into no recipe and that icn reads "22 failed checks of 24"). A witness with NO REF BLOCK
+      # has never been pinned; the gate learned nothing about it. Counting it into `bad` publishes a backlog that
+      # looks like defects and is not one -- MEASURED across all six self-pin gates plus icn: 218 of the failed
+      # checks are NOREF, and ZERO witnesses have a wrong answer or a failed killswitch. icn's 22 of 24 is exactly
+      # 11 unpinned witnesses x 2 modes; its one pinned witness passes both modes.
+      # ⭐ THE TELL THAT THIS IS THE INSTRUMENT AND NOT THE COMPILER: every row reads killswitch=OK perturb=OK
+      # answer=ok, and only the trace column speaks. A real port-order regression cannot leave the answer correct
+      # in both modes across 130 witnesses.
+      # ⭐⭐ AND THE BODY ALREADY KNEW THE DISTINCTION TWO LINES ABOVE: a witness that compiles and emits ZERO
+      # trace lines REFUSES rc=2 with "the instrument is not firing; this is not 'no ports'". The same function
+      # draws the cannot-measure/fail line correctly for one absence and wrongly for the other. ⛔ A FAIL AND A
+      # CANNOT-MEASURE ARE DIFFERENT FACTS -- rc=1 sends a reader hunting a defect in the compiler that is really
+      # an unpinned witness. The lane cured this exact shape once already in test_icon_ir_rung_03.sh; it survived
+      # here because it was filed as a fact about that script instead of a fact about verdicts.
+      if [ -z "$meta" ]; then v=NOREF; noref=$((noref+1))
       elif [ "$rt" != "$total" ]; then v="FAIL(total $total != ref $rt)"; bad=$((bad+1))
       elif ! refblock "$o" | cmp -s - <(head -n "$rp" "$W/$o.$m.norm"); then v="FAIL(diff within first $rp)"; bad=$((bad+1)); refblock "$o" | diff - <(head -n "$rp" "$W/$o.$m.norm") | head -6 | sed 's/^/        /' > "$W/$o.$m.diff"
       else v="ok($total)"; fi
@@ -198,4 +213,18 @@ if [ "$CUT" = 1 ]; then
   else cp "$W/ALL.trace" "$REF"; echo "refs CUT -> $REF ($(grep -c '^%---- ' "$REF") blocks, prefix cap $PREFIX_CAP)"; fi
 fi
 echo "witnesses=$n skipped=$skip ($SELTAG) modes=2 (m3 --run, m4 --compile+as+gcc) . answer ok=$ans_ok red=$ans_red (informational: the master suite grades answers) . oracle=iconx &trace, normalised Call/Redo/Exit/Fail -> alpha/beta/gamma/omega, node numbers stripped, a trailing beta+omega handshake dropped from both sides (see header)"
+# ⛔⭐ A RUNNER THAT GRADED ZERO TRACE CHECKS REFUSES rc=2 RATHER THAN PRINTING THE SUCCESS SHAPE. With
+# NOREF correctly out of `bad`, a gate whose witnesses are ALL unpinned would otherwise report
+# "0 failed checks" -- the cleanest possible green over a measurement that never happened, and strictly
+# worse than the false red it replaces. ⭐ This is the ladder-runner rule of GOAL-TEST-SUITE-CONSISTENCY
+# arriving in the trace family: it prints its denominator, and it refuses when the denominator is zero.
+_pinned=$(( n*2 - noref ))
+if [ "$noref" -gt 0 ]; then
+    echo "⛔ $noref of $((n*2)) trace check(s) have NO REF BLOCK and were NOT graded -- unpinned witnesses are a CANNOT-MEASURE, never a failed check. Re-cut with the gate's own CUT mode; until then this gate speaks for $_pinned check(s) only."
+fi
+if [ "$_pinned" -le 0 ]; then
+    echo "GATE UNPROVEN(2) [$GATE_NAME]: every one of the $((n*2)) trace check(s) is unpinned (NOREF), so this gate graded NOTHING. A runner that cannot measure must not print a verdict."
+    gate_stamp; exit 2
+fi
+echo "trace checks graded=$_pinned of $((n*2)) (unpinned/NOREF=$noref, out of the denominator and named above)"
 GATE_EXAMINED=$((n*2)); gate_verdict "$bad" "failed checks across killswitch/perturbation/trace"
