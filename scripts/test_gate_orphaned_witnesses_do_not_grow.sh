@@ -72,7 +72,15 @@ CENSUS="$CORPUS/tests/ORPHANED-WITNESSES.tsv"
 # still-theirs -- were handed over for absorption and are now IN the master as procedure_alt_list_replace_1 and
 # procedure_every_to_52, three-way measured here first. So the debt named two commits ago is discharged rather than
 # outlived, which is the only honest way for a named debt to leave a ratchet.
-FLOOR_icon=2 FLOOR_pascal=0 FLOOR_prolog=0 FLOOR_raku=0 FLOOR_rebus=0 FLOOR_snobol4=39 FLOOR_snocone=1
+# ⭐⭐ FLOOR_icon 2 -> 0 (hq_V 2026-09-10/11). ICON REACHES THIS RATCHET'S INTENDED TERMINAL VALUE -- the header above says
+# 0 is reachable by design and is what the count is for; icon is the first language to get there. ⛔ AND THE LAST STRETCH
+# WAS NOT CONVERSION WORK AT ALL, which is why it sat still for a day: of the 20 files the conversion gate called "neither
+# converted nor declared", EIGHTEEN WERE ALREADY IN THE MASTER and only their loose copies had never been deleted. Two were
+# genuinely new. A duplicate left beside its absorbed entry is indistinguishable, to both this census and that gate, from a
+# witness nobody converted -- and the two want OPPOSITE cures, absorb versus delete. Every one of the 18 was content-verified
+# against its existing master entry by the builder's own --delete-absorbed before removal, and the master's content diff over
+# the whole landing is lost 0, gained exactly 2, changed 0.
+FLOOR_icon=0 FLOOR_pascal=0 FLOOR_prolog=0 FLOOR_raku=0 FLOOR_rebus=0 FLOOR_snobol4=39 FLOOR_snocone=1
 out="$(python3 scripts/util_orphaned_witness_census.py "$CORPUS" --counts 2>&1)" || { echo "⛔ GATE REFUSES(2): census generator failed:"; echo "$out"; exit 2; }
 printf %s "$out" | grep -q . || { echo "⛔ GATE REFUSES(2): census produced NO output -- an empty census is not a green board"; exit 2; }
 rc=0 tot=0 seen=0
