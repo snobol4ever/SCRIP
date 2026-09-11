@@ -26,6 +26,16 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIP="$ROOT/scrip"
 CORPUS="${ICON_CORPUS:-$S4E/corpus/benchmarks/icon}"
 GLOB="${1:-*.icn}"
+# ⛔⭐ $1 IS A GLOB, NOT A COMMIT LABEL, AND THE SIBLING REGENS TAKE A LABEL THERE (coo 2026-09-11).
+# util_regen_benchmark_s_artifacts.sh, util_regen_demo_s_artifacts.sh and util_regen_prolog_bench_s_artifacts.sh
+# are all invoked as `<script> "<rung>"` and the handoff cure line in util_verify_s_artifacts_owed.sh prints them
+# that way, side by side with this one. So the obvious call `update_icon_bench_asm.sh "COO-55 handoff regen"`
+# sets GLOB to that sentence, matches ZERO files, and this script PRINTS total=0 AND EXITS 0 -- a green that
+# examined nothing, while the verifier one line over still says 20 artifacts are owed.
+# ⛔ I MADE EXACTLY THAT MISTAKE TWICE, A DAY APART, AND READ total=0 AS "nothing owed" BOTH TIMES. The .s debt
+# then sat in every seat's handoff_status for a day with a green regen behind it. THE INSTRUMENT LAWS: an
+# instrument that reports success while doing nothing is the recurring failure, and a missing population is
+# rc=2, never green.
 CHECK="${CHECK:-0}"
 [ -x "$SCRIP" ] || { echo "FATAL: $SCRIP not built (run scripts/build_scrip.sh)"; exit 2; }
 [ -d "$CORPUS" ] || { echo "FATAL: corpus dir $CORPUS not found"; exit 2; }
@@ -104,6 +114,13 @@ for icn in "$CORPUS"/$GLOB; do
   if [ "$CHECK" = "1" ]; then echo "WOULD-$label  $name$asmnote";
   else cp "$can" "$s"; echo "$label  $name$asmnote"; fi
 done
+if [ "${total:-0}" -eq 0 ] 2>/dev/null; then
+    echo "⛔ REFUSED-TO-REGENERATE rc=2: the glob '$GLOB' matched ZERO .icn files under $CORPUS" >&2
+    echo "   Nothing was examined, so this run proves nothing about whether the artifacts are current." >&2
+    echo "   ⛔ \$1 IS A GLOB, NOT A COMMIT LABEL -- the sibling regen scripts take a label there and this one does not." >&2
+    echo "   cure: run it with NO argument for the whole Icon benchmark corpus, or pass a glob that matches, e.g. 'deal*.icn'." >&2
+    exit 2
+fi
 echo "--- icon bench .s: total=$total new=$new updated=$upd unchanged=$same refused=$exc nondet=$nd lib=$lib compile-err=$cerr asm-warn=$aerr ---"   # lib = link-only inputs with no `procedure main`; not programs, never a compile error
 if [ "$CHECK" = "1" ] && [ "$drift" -gt 0 ]; then
   echo "CHECK: $drift artifact(s) out of date — run scripts/update_icon_bench_asm.sh to refresh."; exit 1
