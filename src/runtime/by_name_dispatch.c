@@ -6963,15 +6963,15 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         *out = xd; return 1;
     }
     L_bidjmp_6545: ;
-    if ((_bid == BID_SNOx24PBK) && nargs == 2) { extern DESCR_t pat_mk_cset(int, const char *); *out = pat_mk_cset((int)to_int(args[0]), VARVAL_fn(args[1])); return 1; }
+    if ((_bid == BID_SNOx24PBK) && nargs == 2) { extern DESCR_t pat_mk_cset(int, const char *); *out = pat_mk_cset((int)to_int(args[0]), rt_cstr_d(args[1])); return 1; }
     L_bidjmp_6546: ;
     if ((_bid == BID_SNOx24PBN) && nargs == 2) { extern DESCR_t pat_mk_num(int, int64_t); *out = pat_mk_num((int)to_int(args[0]), to_int(args[1])); return 1; }
     L_bidjmp_6547: ;
     if ((_bid == BID_SNOx24PB0) && nargs == 1) { extern DESCR_t pat_mk_nil(int); *out = pat_mk_nil((int)to_int(args[0])); return 1; }
     L_bidjmp_6548: ;
-    if ((_bid == BID_SNOx24PBC) && nargs == 3) { extern DESCR_t pat_mk_capt(int, const char *, DESCR_t); *out = pat_mk_capt((int)to_int(args[0]), VARVAL_fn(args[1]), args[2]); return 1; }
+    if ((_bid == BID_SNOx24PBC) && nargs == 3) { extern DESCR_t pat_mk_capt(int, const char *, DESCR_t); *out = pat_mk_capt((int)to_int(args[0]), rt_cstr_d(args[1]), args[2]); return 1; }
     L_bidjmp_6549: ;
-    if ((_bid == BID_SNOx24PCUR) && nargs == 1) { extern DESCR_t pat_mk_cursor(const char *); *out = pat_mk_cursor(VARVAL_fn(args[0])); return 1; }
+    if ((_bid == BID_SNOx24PCUR) && nargs == 1) { extern DESCR_t pat_mk_cursor(const char *); *out = pat_mk_cursor(rt_cstr_d(args[0])); return 1; }
     L_bidjmp_6550: ;
     if ((_bid == BID_SNOx24PBALT) && nargs == 2) { extern DESCR_t pat_alt(DESCR_t, DESCR_t); *out = pat_alt(args[0], args[1]); return 1; }
     L_bidjmp_6551: ;
@@ -6979,7 +6979,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     L_bidjmp_6552: ;
     if ((_bid == BID_SNOx24PFEN) && nargs == 1) { extern DESCR_t pat_fence_p(DESCR_t); *out = pat_fence_p(args[0]); return 1; }
     L_bidjmp_6553: ;
-    if ((_bid == BID_SNOx24PDEF) && nargs == 1) { extern DESCR_t pat_defer(const char *); *out = pat_defer(VARVAL_fn(args[0])); return 1; }
+    if ((_bid == BID_SNOx24PDEF) && nargs == 1) { extern DESCR_t pat_defer(const char *); *out = pat_defer(rt_cstr_d(args[0])); return 1; }
     L_bidjmp_6554: ;
     if ((_bid == BID_SNOx24MKPAT) && nargs >= 1) {
         extern void *rt_proc_get_fn(const char *name);
