@@ -1649,7 +1649,7 @@ static int rt_proc_call_prologue_lex(rt_proc_t *p, int nargs, int wn)
             for (int i = nargs; i < fixed; i++) g_call_args[i] = NULVCL;
             DESCR_t _tail = (p->rest_kind == 2) ? rt_make_nested_agg(rest > 0 ? &g_call_args[fixed] : (DESCR_t *)0, rest) : p->rest_kind ? rt_make_flat_agg(rest > 0 ? &g_call_args[fixed] : (DESCR_t *)0, rest) : rt_make_list(rest > 0 ? &g_call_args[fixed] : (DESCR_t *)0, rest);
             g_call_args[fixed] = _tail; } } }
-    { long _pi = (long)(p - g_rt_gen_procs); int own = (_pi >= 0 && _pi < RT_DC_FNS_MAX && g_rt_dc_fns_store[_pi] && !p->is_generator) ? 1 : 0; rt_lvl_open(own); if (!own) { extern long g_stno; rt_trace_event_args(TRK_CALL, p->name, g_call_args, nargs, NULVCL, g_stno); } }
+    { int own = p->is_generator ? 0 : 1; rt_lvl_open(own); if (!own) { extern long g_stno; rt_trace_event_args(TRK_CALL, p->name, g_call_args, nargs, NULVCL, g_stno); } }
     return fbytes;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
