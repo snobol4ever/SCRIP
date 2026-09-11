@@ -1823,7 +1823,10 @@ void sno_setexit_fire_on_end(void) {
 void sno_setexit_resume(const char *which) {
     extern jmp_buf g_core_errjmp_stk[64];
     if (_setexit_resume >= 0) longjmp(g_core_errjmp_stk[_setexit_resume], (which && which[0] == 'A') ? 2 : 1);
-    core_runtime_error(35, NULL);
+    char w0 = which ? which[0] : 'C'; char w1 = which ? which[1] : '\0';
+    if (w0 == 'A') core_runtime_error(36, "goto abort with no preceding error");
+    else if (w0 == 'S' && w1 == 'C') core_runtime_error(321, "goto scontinue with no preceding error");
+    else core_runtime_error(37, "goto continue with no preceding error");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _FUNCTION_(DESCR_t *a, int n) {
