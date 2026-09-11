@@ -45,6 +45,7 @@ static IR_t * build(icx_t * cx, IR_e op, IR_t * γ, IR_t * ω) {
     if (ω && icn_gen_wiring(ω)) lc_ω_to_β(nd, ω);
     return nd;
 }
+static IR_t * icn_line_mark(icx_t * cx, int line, IR_t * next);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * stmt_subj(const tree_t * s) { return lc_stmt_subj(s); }
 static lc_vec g_icn_reassigned; static const tree_t * g_icn_reassigned_prog = NULL;
@@ -230,15 +231,17 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
     int fill_bal_cset = gb && nargs == 0 && !strcmp(name, "bal");
     IR_t * call = build(cx, icn_proc_is_generator(name) ? IR_PROC_GEN : (gb ? IR_CALL_BUILTIN_GEN : IR_CALL), γ, ω); IR_LIT(call).sval = (char *) name;
     if (res) *res = call;
+    int cline = (t && t->line > 0) ? t->line : ((t && argbase > 0 && t->c[argbase - 1]) ? t->c[argbase - 1]->line : 0);
+    IR_t * callin = (name && cline > 0) ? icn_line_mark(cx, cline, call) : call;
     int chains = name && (!strcmp(name, "write") || !strcmp(name, "writes"));
     if (!chains) { for (int k = 0; k < nargs; k++) if (is_resumable(t->c[argbase + k])) { if (is_cursor_mover && icn_arg_is_scan_fn(t->c[argbase + k])) continue; chains = 1; break; } }
-    IR_t * prev = NULL; IR_t * entry = call; IR_t * aω = ω; IR_t * last_ar = NULL;
+    IR_t * prev = NULL; IR_t * entry = callin; IR_t * aω = ω; IR_t * last_ar = NULL;
     int nstage = 0; for (int k = 0; k < nargs; k++) if (icn_arg_stages(cx, t->c[argbase + k])) nstage++;
     IR_t * args_r[nargs > 0 ? nargs : 1]; int staged[nargs > 0 ? nargs : 1];
     for (int k = 0; k < nargs; k++) {
         const tree_t * a = t->c[argbase + k]; IR_t * ar = NULL; IR_t * ae; staged[k] = 0;
         if (nstage && icn_arg_stages(cx, a)) { cx->beta = aω; ae = lower_lvalue_var(cx, a, aω, &ar); if (ae && ar) staged[k] = 1; }
-        if (!staged[k]) ae = lower(cx, a, (k == nargs - 1 && !fill_scan_defaults && !nstage) ? call : NULL, aω, &ar);
+        if (!staged[k]) ae = lower(cx, a, (k == nargs - 1 && !fill_scan_defaults && !nstage) ? callin : NULL, aω, &ar);
         aω = cx->beta;
         if (k == 0) entry = ae;
         if (prev) lc_γ_to(prev, ae);
@@ -250,7 +253,7 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
         prev = drf; args_r[k] = drf;
     }
     for (int k = 0; k < nargs; k++) if (args_r[k]) { ir_operand_push(call, args_r[k]); last_ar = args_r[k]; }
-    if (nstage && prev) { last_ar = prev; if (!(icn_proc_is_generator(name) || gb || is_cursor_mover)) lc_γ_to(prev, call); }
+    if (nstage && prev) { last_ar = prev; if (!(icn_proc_is_generator(name) || gb || is_cursor_mover)) lc_γ_to(prev, callin); }
     if (fill_bal_cset) {
         IR_t * kc = build(cx, IR_KW_ICON, NULL, aω); IR_LIT(kc).sval = (char *) "&cset";
         if (prev) lc_γ_to(prev, kc); else entry = kc;
@@ -262,7 +265,7 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
         if (prev) lc_γ_to(prev, ks); else entry = ks;
         lc_γ_to(ks, kp); ir_operand_push(call, ks); ir_operand_push(call, kp); prev = kp; last_ar = kp;
     }
-    if ((icn_proc_is_generator(name) || gb || is_cursor_mover) && last_ar) lc_γ_to(last_ar, call);
+    if ((icn_proc_is_generator(name) || gb || is_cursor_mover) && last_ar) lc_γ_to(last_ar, callin);
     const tree_t * la = (nargs > 0) ? t->c[argbase + nargs - 1] : NULL;
     int la_res = la && is_resumable(la) && !(is_cursor_mover && icn_arg_is_scan_fn(la));
     int chain_live = (aω != ω);

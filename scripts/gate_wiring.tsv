@@ -99,6 +99,8 @@ test_gate_icn_seq_null_argument_defaults.sh	WIRED	-	-	-
 test_gate_icn_string_invoked_to_by_is_a_generator.sh	WIRED	-	-	-
 test_gate_icn_subscript_index_is_checked_and_the_account_is_written.sh	WIRED	-	-	-
 test_gate_icn_tag_single_source.sh	WIRED	-	-	-
+test_gate_icn_traceback_corpus_pairs_are_oracle_exact.sh	WIRED	-	-	-
+test_gate_icn_traced_call_reports_its_own_call_site_line.sh	WIRED	-	-	-
 test_gate_icon_arguments_dereference_at_the_call.sh	WIRED	-	-	-
 test_gate_icon_features_and_preprocessor_symbols_agree.sh	WIRED	-	-	-
 test_gate_icon_master_entries_compile_under_icont.sh	WIRED	-	-	-
