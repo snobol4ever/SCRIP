@@ -1189,9 +1189,7 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
         scrip_co_gc_link(&g->co);
         g->next = g_genp_head; g_genp_head = g;
         uint64_t out2[2] = { 0, 0 };
-        rt_k_level++;
         int ok = scrip_coexpr_activate(&g->co, 0, 0, out2, (const char *)0);
-        rt_k_level--;
         return rt_genp_triage(g, ok, out2, hout);
     }
     if (p->jmp_entry) {
