@@ -135,9 +135,16 @@ run_isolated() {
   ipl_fixtures_stage "$PROGS/$f" "$work/$SUBDIR"; [ $? -eq 2 ] && { rm -rf "$work"; return 125; }
   stdin_src=/dev/null
   [ -f "$PROGS/${f%.icn}.dat" ] && stdin_src="$PROGS/${f%.icn}.dat"
-  local ip="$work/progs:$work/gprogs:$work/procs:$work/gprocs:$work/incl:$work/gincl" bx="${f%.icn}.x" crc
+  # ⛔⭐ THE ENVIRONMENT COMES FROM ipl_isolation_env, THE GRADER'S OWN DEFINITION, AND IS NEVER SPELLED OUT
+  # HERE (hq_P 2026-09-10). This function used to build its own `ICONPATH=...` and inherit PATH, exactly as
+  # the grader did separately -- two spellings of one environment, free to drift by ordinary editing, in a
+  # dimension neither named. A ref minted under one PATH and graded under another is a SILENT FALSE FAIL:
+  # progs/qei.icn shells out at line 185 and has three stable, well-formed, non-announcing outcomes depending
+  # on PATH alone (111 / 109 / 120 bytes). See the long note over ipl_isolation_env for the measurement.
+  local bx="${f%.icn}.x" crc
+  local -a _isoenv=(); ipl_isolation_env "$work" _isoenv
   : > "$outfile.link"
-  ( cd "$work/$SUBDIR" && timeout "$TIMEOUT" env ICONPATH="$ip" "$ICONT" -s -u -o "$bx" "$f" > "$outfile.link" 2>&1 )
+  ( cd "$work/$SUBDIR" && timeout "$TIMEOUT" env "${_isoenv[@]}" "$ICONT" -s -u -o "$bx" "$f" > "$outfile.link" 2>&1 )
   crc=$?
   # ⛔ A LINK THAT PRODUCED NO EXECUTABLE IS REPORTED EXACTLY AS BEFORE: the link stream becomes the whole
   # evidence AND the whole "output", so every arm below sees byte-for-byte what the one-step driver gave it.
@@ -148,7 +155,7 @@ run_isolated() {
     [ "$crc" -eq 0 ] && crc=1
     return "$crc"
   fi
-  ( cd "$work/$SUBDIR" && timeout "$TIMEOUT" env ICONPATH="$ip" "$ICONX" "$bx" ${argv[@]+"${argv[@]}"} < "$stdin_src" > "$outfile" 2>&1 )
+  ( cd "$work/$SUBDIR" && timeout "$TIMEOUT" env "${_isoenv[@]}" "$ICONX" "$bx" ${argv[@]+"${argv[@]}"} < "$stdin_src" > "$outfile" 2>&1 )
   rc=$?
   rm -rf "$work"
   return "$rc"

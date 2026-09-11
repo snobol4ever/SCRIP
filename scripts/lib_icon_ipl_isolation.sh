@@ -62,6 +62,46 @@ ipl_isolation_cleanup() { [ -n "${IPL_ISO_TEMPLATE:-}" ] && rm -rf "$IPL_ISO_TEM
 #       before exec, same env-var-toggle shape as IPL_ISO_SUBDIR. Unset means no staging (unchanged
 #       historical behavior). A malformed sidecar (see ipl_fixtures_stage below) returns 125, distinct
 #       from every other sentinel this function already returns (124 timeout, 127 setup failure).
+# ⛔⭐⭐ THE ISOLATED ENVIRONMENT IS STATED ONCE, HERE, AND PATH IS PART OF IT (hq_P 2026-09-10, on hq_R's
+# routed ASK out of the parked qei row). Until now every caller wrote its own `env ICONPATH=... cmd` line and
+# INHERITED EVERYTHING ELSE -- so the harness looked hermetic while controlling exactly one variable.
+# ⛔ WHAT THAT COSTS, MEASURED ON progs/qei.icn, WHICH SHELLS OUT AT LINE 185 (`system("icont -s qei_.icn …")`
+# then `system("qei_")`, both BARE NAMES resolved through PATH). Three stable outcomes, decided entirely by
+# the PATH of whoever invoked the harness, and NOT ONE OF THEM ANNOUNCES ITSELF -- every one is a well-formed,
+# non-empty, reproducible transcript:
+#     PATH without the oracle bin      -> 111 bytes, `sh: 1: icont: not found` per expression
+#     oracle bin, no '.' on PATH       -> 109 bytes, `sh: 1: qei_: not found`  per expression
+#     oracle bin and '.' on PATH       -> 120 bytes, the real evaluation
+# ⭐ THE DANGER IS THE SHAPE, NOT THE PROGRAM: `sh: 1: qei_: not found` reads as A DEFECT IN THE PROGRAM, so a
+# ref cut under one PATH and graded under another is a SILENT FALSE FAIL, and it is silent in both directions.
+# It also outlived its own evidence once already -- ALL.excluded.txt:731 records "oracle produced EMPTY output"
+# for qei, which is FALSE (the oracle answers 59 bytes on empty stdin); that line was written from a failed run
+# and survived the condition that produced it.
+# ✅ WHY A SHARED DEFINITION AND NOT A PER-PROGRAM `NAME.path` SIDECAR (the alternative hq_R offered): PATH is
+# not a property of qei. It is a hole in the isolation, identically open for all 108 run-graded entries, and a
+# per-program file would RECORD the hole rather than close it -- while requiring the one thing nobody can
+# supply in advance, namely which programs shell out. ⛔ AND THE LOAD-BEARING HALF IS THE SHARING, not the
+# policy: util_cut_icon_ipl_refs.sh (the CUTTER, which mints the refs) built its own env line twice, so the
+# minting environment and the grading environment were free to drift apart by ordinary editing, in a dimension
+# neither of them named. Two instruments, one question, no mechanism keeping them honest.
+# ⭐ ORDER IS DELIBERATE: the ORACLE BIN FIRST so `icont` is OUR Arizona icont and never another on the box;
+# '.' LAST so a file the program writes into its own rundir cannot shadow a system binary (verified sufficient
+# -- qei evaluates correctly with '.' last). A minimal /usr/bin:/bin between them rather than the caller's
+# inherited PATH, so the environment is DECLARED rather than borrowed.
+# ⛔ WHAT THIS DOES NOT DO, AND IT MATTERS TO ANY READER OF A qei ROW: a program that shells out to `icont` is
+# answered by the ARIZONA COMPILER in both arms, ours and the oracle's. Proven by killswitch -- run qei under
+# SCRIP with the oracle bin off PATH and `write(1+1);` answers `sh: 1: icont: not found` instead of 2. So such
+# an entry grades system(), file writing and the driver loop; it would stay GREEN if our expression evaluation
+# were entirely broken, and its agreement with the oracle is not evidence about the evaluator.
+ipl_isolation_env() {
+  local work="$1" arr="$2" _ob=""
+  if command -v icont_bin >/dev/null 2>&1; then _ob="$(dirname "$(icont_bin)")"; fi
+  eval "$arr=()"
+  eval "$arr+=(\"ICONPATH=\$work/progs:\$work/gprogs:\$work/procs:\$work/gprocs:\$work/incl:\$work/gincl\")"
+  # ⛔ A MISSING ORACLE MUST NOT SILENTLY PRODUCE A PLAUSIBLE PATH. If icont_bin is unavailable the oracle
+  # segment is simply absent, which reproduces outcome 1 above -- loud (`icont: not found`) rather than wrong.
+  if [ -n "$_ob" ]; then eval "$arr+=(\"PATH=\$_ob:/usr/bin:/bin:.\")"; else eval "$arr+=(\"PATH=/usr/bin:/bin:.\")"; fi
+}
 ipl_isolation_run() {
   local outfile="$1" to="$2" stdin_src="$3" work rc sub; shift 3
   sub="${IPL_ISO_SUBDIR:-progs}"
@@ -82,7 +122,8 @@ ipl_isolation_run() {
   if [ -n "${IPL_ISO_FIXTURES:-}" ]; then
     ipl_fixtures_stage "$IPL_ISO_FIXTURES" "$work/$sub"; [ $? -eq 2 ] && { rm -rf "$work"; return 125; }
   fi
-  ( cd "$work/$sub" && timeout "$to" env ICONPATH="$work/progs:$work/gprogs:$work/procs:$work/gprocs:$work/incl:$work/gincl" "$@" < "$stdin_src" > "$outfile" 2>&1 )
+  local -a _isoenv=(); ipl_isolation_env "$work" _isoenv
+  ( cd "$work/$sub" && timeout "$to" env "${_isoenv[@]}" "$@" < "$stdin_src" > "$outfile" 2>&1 )
   rc=$?
   rm -rf "$work"
   return "$rc"
