@@ -27,6 +27,7 @@ static const char * icn_static_mangled(const icx_t * cx, const char * nm) { if (
 static int icn_operand_derefs_late(const icx_t * cx, const tree_t * t) { if (!t || t->t != TT_VAR || !t->v.sval || t->v.sval[0] == '&') return 0; return !icn_is_local(cx, t->v.sval); }
 static int icn_tree_is_kw_var(const tree_t * t) { return t && (t->t == TT_KEYWORD || t->t == TT_VAR) && t->v.sval && t->v.sval[0] == '&' && icn_kw_assignable(t->v.sval); }
 static int icn_is_proc(const char * nm) { for (int i = 0; i < g_stage2.proc_count; i++) if (g_stage2.proc_table[i].name && !strcmp(g_stage2.proc_table[i].name, nm)) return 1; return 0; }
+static int icn_call_yields_a_variable(icx_t * cx, const char * nm) { (void) cx; return nm && icn_is_proc(nm); }
 static int icn_is_static_mangled_name(const char * nm) { if (!nm || !strstr(nm, "__STATIC__")) return 0; for (int i = 0; i < g_icn_synth_excl.n; i++) { const char * m = LC_AT(&g_icn_synth_excl, const char *, i); if (m && !strcmp(m, nm)) return 1; } return 0; }
 static tree_t * icn_variable_lit_target(const icx_t * cx, const char * vn) { if (vn[0] == '&') return icn_kw_assignable(vn) ? icn_variable_lit_tree(vn) : NULL; if (icn_is_local(cx, vn)) return icn_variable_lit_tree(vn); { const char * m = icn_static_mangled(cx, vn); if (m) return icn_variable_lit_tree(m); } if (icn_is_own_global(cx, vn) || icn_is_proc(vn)) return icn_variable_lit_tree(vn); return NULL; }
 static int icn_gen_wiring(const IR_t * t) {
@@ -345,6 +346,11 @@ static IR_t * lower_lvalue_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** 
     if (t->t == TT_VAR && t->v.sval && t->v.sval[0] != '&') {
         IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = t->v.sval; *var_res = vr; return vr;
     }
+    if (t->t == TT_FNC && t->n > 0 && t->c[0] && icn_callee_is_name(cx, t->c[0]) && t->c[0]->t == TT_VAR && icn_call_yields_a_variable(cx, t->c[0]->v.sval) && !icn_variable_lit(cx, t)) {
+        IR_t * cr = NULL; IR_t * ce = lower_call(cx, t->c[0]->v.sval, t, 1, t->n - 1, NULL, ω, &cr);
+        if (!ce || !cr) return NULL;
+        *var_res = cr; return ce;
+    }
     if (t->t == TT_IDX) return lower_idx_var(cx, t, ω, var_res);
     if (t->t == TT_ITERATE && t->n > 0 && t->c[0]) {
         IR_t * it = build(cx, IR_ITERATE, NULL, ω); IR_LIT(it).ival = 0; IR_LIT(it).sval = "lv";
@@ -570,7 +576,12 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
           if (vn) { tree_t * tg = icn_variable_lit_target(cx, vn); if (!tg) return lc_key(cx, t, "&fail", γ, ω, res); if (tg->t == TT_KEYWORD) return lc_key(cx, t, tg->v.sval, γ, ω, res); return lower(cx, tg, γ, ω, res); } }
         if (!fn || icn_callee_is_name(cx, fn)) {
             const char * nm = (fn && fn->t == TT_VAR) ? fn->v.sval : "?";
-            return lower_call(cx, nm, t, 1, t->n - 1, γ, ω, res);
+            if (!icn_call_yields_a_variable(cx, nm)) return lower_call(cx, nm, t, 1, t->n - 1, γ, ω, res);
+            IR_t * cr = NULL; IR_t * drf = build(cx, IR_DEREF, γ, ω);
+            IR_t * centry = lower_call(cx, nm, t, 1, t->n - 1, drf, ω, &cr);
+            IR_t * cβ = cx->beta; if (cβ && cβ != ω && cβ != drf) ω_to(drf, cβ);
+            ir_operand_push(drf, cr);
+            *res = drf; return centry;
         }
         IR_t * cr = NULL; IR_t * ce = lower(cx, fn, NULL, ω, &cr);
         IR_t * prevβ = cx->beta;
