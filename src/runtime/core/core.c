@@ -2621,7 +2621,7 @@ void core_runtime_error(int code, const char *msg) {
           if (how == 1) return;
           aborting = 1;
       }
-      if (!aborting && kw_errlimit != 0) {
+      if (!aborting && kw_errlimit != 0 && !core_err_is_terminal(code) && !core_err_is_fatal(code)) {
           if (kw_errlimit > 0) kw_errlimit--;
           rt_kw_publish_error(code, msg);
           return;

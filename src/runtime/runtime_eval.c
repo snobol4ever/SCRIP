@@ -380,7 +380,7 @@ static void *rt_goto_resolve_x(const char *name, int *undef)
         if (fn) return (void *)fn;
     }
     if (undef) { *undef = 1; return NULL; }
-    { extern void core_runtime_error(int code, const char *msg); char eb[288]; snprintf(eb, sizeof eb, "transfer to undefined label: %s", name); core_runtime_error(38, eb); }
+    { extern void core_runtime_error(int code, const char *msg); core_runtime_error(38, "goto undefined label"); }
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
