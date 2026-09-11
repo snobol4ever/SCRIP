@@ -590,14 +590,28 @@ def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=Non
     timeout = timeout or paths["timeout"]
     if not (paths["rt_dir"] / "libscrip_rt.so").is_file():
         return Verdict("SKIP", detail="libscrip_rt.so not built")
-    out_bin = tmp_dir / "t.bin"
+    # ⛔⭐ THE m4 BINARY IS NAMED AFTER ITS OWN SOURCE AND INVOKED BY BARE NAME (ceo CEO-569, on the
+    # coo's COO-56 ask; the same cure hq_B landed for the arizona runner, one level up). It was "t.bin"
+    # for every entry of every master suite in seven languages, so &progname / &pgname answered a name
+    # NO .ref was ever cut from and every entry answered the SAME one -- the mode-4 half of hq_B's finding
+    # that no single ref can be right for both modes on a program that prints its own name. Entry 924
+    # (jcon kwds.icn, absorbed) STAYS RED by that ruling: its ref is a one-step cut naming the .icn source,
+    # which no m4 invocation can produce. This pin is what stops the NEXT absorbed entry inheriting it.
+    # ⛔ CONDITIONAL BY NECESSITY, NOT BY TASTE: a suite entry is materialized INTO tmp_dir (run_suite_entry
+    # writes cand = tmp_dir/name.ext), so tmp_dir IS the cwd below and "./name" resolves; a discover_pairs
+    # family's source lives in the CORPUS and tmp_dir does not, so a bare name would not resolve there and
+    # writing the binary beside the source would litter the corpus tree. Absolute path preserved for that
+    # case -- same behaviour as before this change, which is why no pair-graded board moves.
+    out_bin = tmp_dir / (Path(sno_path).stem or "t")
     skip = compile_m4(paths, sno_path, out_bin, tmp_dir)
     if skip is not None:
         return skip
     # ⭐ NO `--` HERE, AND THE ASYMMETRY WITH run_m3 IS THE POINT: a mode-4 binary IS the program, so
     # its argv is the program's argv directly -- there is no driver in front of it to shield. Same
     # declared list, two spellings, one observable result (verified: identical argc/args in m3 and m4).
-    argv = stdbuf_wrap(paths, [str(out_bin)]) + [str(a) for a in (prog_argv or [])]
+    run_dir = Path(sno_path).parent
+    _same = out_bin.parent.resolve() == run_dir.resolve()
+    argv = stdbuf_wrap(paths, ["./" + out_bin.name if _same else str(out_bin)]) + [str(a) for a in (prog_argv or [])]
     env = dict(os.environ, SNO_LIB=str(paths["inc"]))
     # Same rule as run_m3 above: the compiled binary's relative opens must resolve against the
     # SOURCE's directory, not the harness's cwd. out_bin is an absolute path, so moving cwd is safe.
