@@ -788,6 +788,23 @@ mkdir -p "$TD/cz/packages/snobol4/aisnobol"
 printf 'x.sno\tORACLE_REFUSES\tthe oracle refuses this program: unsupported extension\n' > "$TD/cz/packages/snobol4/aisnobol/UNGRADABLE.tsv"
 echo 'x' > "$TD/cz/packages/snobol4/aisnobol/x.sno"; echo 'y' > "$TD/cz/packages/snobol4/aisnobol/y.sno"
 _a21 D 0 snobol4 aisnobol 'aisnobol' "a wired package whose data validates must read D (awaits a runner pass, NOT carriage work)"
+# ⛔⭐ AND THE `D` PREDICTION IS GRADED, NOT JUST ITS LETTER. The first version of this arm matched the
+# string CAUSE=D and passed -- which is how the reader shipped telling the coo that one pass would fix
+# gimpel's cell when no pass ever can: gimpel declares ungradable=174 against shipped=292, so its buckets
+# sum only at a graded count of 118, and the pass graded 132 (coo, 2026-09-11: "I RAN THE PASS YOU SAID WAS
+# OWED AND IT REFUSES"). ⭐ AN ARM THAT GRADES THE LETTER OF A VERDICT AND NOT ITS CONTENT PASSES EVERY TIME
+# THE CONTENT IS WRONG. This fixture ships 2 programs and excludes 1, so the one honest answer is "exactly 1".
+case "$(PKGINV_CORPUS="$TD/cz" bash "$_cause" snobol4 aisnobol 'aisnobol' 2>&1)" in
+  *"GRADES EXACTLY 1 PROGRAM"*) : ;;
+  *) echo "    ARM 21 FAIL: the D answer names no required graded count, or the wrong one -- a fixture shipping 2 and excluding 1 sums only at a graded count of 1. A D that does not state the count it depends on is a promise the next pass cannot keep"; _a21_bad="x$_a21_bad" ;;
+esac
+# ⛔⭐ NOT ARMED: the reader also reports an IMPOSSIBILITY (a required graded count <= 0, where declared
+# exclusions already account for everything shipped) as C rather than as a forecast. MEASURED 2026-09-11 --
+# that branch is UNREACHABLE from well-formed data, because over-declaring means naming a file the package
+# does not ship and lib_inventory.sh's "declared but not shipped" arm refuses first. It stays in the reader
+# as a guard and gets NO arm here, on this lane's own CEO-541 ruling: an arm that asserts WHICH check caught
+# something fails exactly when a stronger check gets there first. The guard is cheap; an arm on it would be
+# a test of the body's check order wearing the costume of a test of the reader.
 printf 'y.sno\tSCRIP_REFUSES\tSCRIP cannot compile this program\n' >> "$TD/cz/packages/snobol4/aisnobol/UNGRADABLE.tsv"
 _a21 C 0 snobol4 aisnobol 'aisnobol' "a wired package whose own row names our compiler as the reason must read C (the data, not the runner)"
 # ⛔ AND AN AMBIGUOUS JOIN REFUSES rather than picking: two shipped directories match, both carrying the

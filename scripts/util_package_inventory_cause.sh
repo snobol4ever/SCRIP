@@ -115,16 +115,46 @@ if [ "$(printf '%s\n' "$EXT" | grep -c .)" -ne 1 ]; then
         exit 2
     fi
 fi
-# ⛔ THE ARITHMETIC REFUSAL COUNTS AS CLEAN, exactly as ARM 20 does and for the same reason stated there:
-# the bucket-sum identity needs a GRADED count that only a real suite pass produces, and under ONE RUNNER
-# ONE BOARD (CEO-523) this reader may not run one. Every OTHER arm of the body still speaks.
+# ⛔⭐⭐ THE ARITHMETIC REFUSAL IS NOT CLEAN HERE, AND IMPORTING ARM 20'S EXEMPTION IS THE ONE MEASURED BUG
+# THIS SCRIPT SHIPPED WITH (coo, 2026-09-11: "I RAN THE PASS YOU SAID WAS OWED AND IT REFUSES"). ARM 20
+# declares the bucket sum out of scope and is RIGHT to: it grades whether a package's data is HONEST, and
+# the sum needs a graded count only a suite pass produces. THIS reader answers a different question -- WILL A
+# PASS PRODUCE A CLAUSE -- and for that question the arithmetic is decisive. gimpel declares ungradable=174
+# against shipped=292, so a pass emits a clause only if it grades exactly 118; the coo's pass graded 132, the
+# buckets did not sum, and no clause could be computed. CAUSE=D told the only seat who may run a board that
+# one pass would fix a cell that every future pass refuses identically.
+# ⭐⭐ THE GENERAL FORM, and it is the sharper half: AN EXEMPTION COPIED BETWEEN INSTRUMENTS ARRIVES WITH ITS
+# JUSTIFICATION ATTACHED AND ITS SCOPE SILENTLY CHANGED. ARM 20's sentence -- "the arithmetic stays the
+# runner's to fail" -- is true there and false here, and it reads as true in both places because it is phrased
+# about the arithmetic rather than about the question being asked. Same family as a digest copied between
+# roots carrying the donor's JOB rather than only its paths, one instrument down.
+# ⛔ SO THE ARITHMETIC IS READ, NOT IGNORED, AND THE BODY ITSELF PRINTS THE NUMBER: at graded=0 the delta IS
+# the graded count that would make the buckets sum. This reader states it as a FALSIFIABLE PREDICTION the
+# next pass either meets or refutes, instead of a promise it cannot keep.
 _out="$(INV_PACKAGE="$MATCHED" INV_DIR="$PKGDIR" INV_EXT="$EXT" inventory_line 0 0 2>&1)"; _rc=$?
-# the extension is reported with its provenance, because which of the two sources answered is itself a fact
-# about the package: a lane with no sidecars has nothing declared and is a different state from one that does.
-case "$_out" in *"buckets do not sum"*) _rc=0 ;; esac
+_need=""
+case "$_out" in
+  *"buckets do not sum"*)
+    _need="$(printf '%s' "$_out" | sed -n 's/.*(delta \(-\{0,1\}[0-9][0-9]*\)).*/\1/p' | head -1)"
+    # ⛔ A NEGATIVE OR ZERO REQUIREMENT IS NOT A PREDICTION, IT IS AN IMPOSSIBILITY: the declared exclusions
+    # already account for everything the package ships, so no run can make the identity hold. That is a data
+    # defect exactly like an honesty refusal, and it is reported as one rather than as a forecast.
+    if [ -n "$_need" ] && [ "$_need" -le 0 ] 2>/dev/null; then
+        echo "CAUSE=C $LABEL: WIRED by $WIRED, but its own sidecars can NEVER sum -- they declare exclusions that already account for every shipped program (required graded count $_need). No suite pass can emit a clause; the defect is in the data. $(printf '%s' "$_out" | tr '\n' ' ' | cut -c1-170)"
+        exit 0
+    fi
+    _rc=0 ;;
+esac
 if [ "$_rc" -ne 0 ]; then
     echo "CAUSE=C $LABEL: WIRED by $WIRED, but the shared body REFUSES(rc=$_rc) on its own sidecars, so the runner emits nothing while staying green. THE DEFECT IS IN THE DATA, NOT THE RUNNER: $(printf '%s' "$_out" | tr '\n' ' ' | cut -c1-220)"
     exit 0
 fi
-echo "CAUSE=D $LABEL: WIRED by $WIRED AND its data validates (ext $EXT from $EXT_FROM) -- the carriage is correct and pushed. The cell is prose only because no suite pass has rewritten it since; it needs ONE RUNNER PASS, which under ONE RUNNER ONE BOARD (CEO-523) is the coo's. ⛔ NOT CARRIAGE WORK -- editing this runner would change a correct one."
+# ⛔ D IS A CONDITIONAL ANSWER AND MUST READ AS ONE. Every non-arithmetic arm being clean is all this reader
+# can establish without a graded count, so it NAMES the count a pass must produce and the next pass settles
+# it. A reader that promised the pass would work is exactly what sent the coo to run one.
+if [ -n "$_need" ]; then
+    echo "CAUSE=D $LABEL: WIRED by $WIRED, every honesty/duplicate/vocabulary arm clean (ext $EXT from $EXT_FROM). ⛔ CONDITIONAL, AND THIS IS THE FALSIFIABLE PART: its sidecars declare exclusions such that a pass emits a clause ONLY IF IT GRADES EXACTLY $_need PROGRAM(S). Grade any other number and the buckets do not sum, the body refuses, and the cell stays prose however many passes are run. If a pass grades something else, the defect is the SIDECAR DATA -- typically a name counted in BOTH graded and ungradable -- not the runner and not the pass."
+else
+    echo "CAUSE=D $LABEL: WIRED by $WIRED AND its data validates outright (ext $EXT from $EXT_FROM) -- the carriage is correct and the buckets sum. The cell is prose only because no suite pass has rewritten it since; it needs ONE RUNNER PASS, which under ONE RUNNER ONE BOARD (CEO-523) is the coo's. ⛔ NOT CARRIAGE WORK -- editing this runner would change a correct one."
+fi
 exit 0
