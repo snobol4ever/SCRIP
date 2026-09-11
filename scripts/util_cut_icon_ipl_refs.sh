@@ -177,7 +177,27 @@ ev_normalize() {
 # with a blank line before "Run-time error N", so head -1 reports an EMPTY reason for every runtime error
 # -- the narrower-question trap this package has now paid for three times (head -1 vs the refusal in
 # DISPLAY_REFUSED; `.icn` vs the container in the population count; command -v vs the oracle path).
-first_diag() { printf '%s' "$1" | grep -m1 -v '^[[:space:]]*$' | cut -c1-200; }
+# ⛔⭐ AND NOT EVERY FIRST NON-BLANK LINE IS A DIAGNOSTIC (hq_R 2026-09-11, measured on progs/lister.icn and
+# progs/listviz.icn). Both open with ~60 U+FFFD REPLACEMENT CHARACTERS -- the oracle really does emit those
+# bytes, so quoting them is FAITHFUL and still useless: the reason column would carry 180 bytes of mojibake
+# under the words "the oracle said:", which reads as a quotation and carries no information a later reader can
+# sort by. ⭐ THE POINT OF THE QUOTE IS THAT A WRONG REASON IS VISIBLY WRONG (see the 212-row note below); a
+# reason nobody can read fails that test exactly as badly as a composed sentence does, from the other side.
+# So: if the line holds no printable ASCII at all, DESCRIBE it structurally instead -- still the instrument's
+# own words, never ours, and still falsifiable (the byte count is checkable). A line with any ASCII in it is
+# quoted verbatim as before, so every one of the other 63 ORACLE_FAIL rows is byte-identical to before.
+first_diag() {
+  local _l _p _n; _l="$(printf '%s' "$1" | grep -m1 -v '^[[:space:]]*$')"
+  _n="$(printf '%s' "$_l" | LC_ALL=C wc -c | tr -d ' ')"
+  # Keep ONLY printable ASCII and tabs->spaces. Everything dropped here is screen control or raw 8-bit data,
+  # neither of which is a diagnostic, and both of which corrupt the TSV this reason is written into.
+  _p="$(printf '%s' "$_l" | LC_ALL=C tr '\t' ' ' | LC_ALL=C tr -cd '\40-\176' | sed 's/^ *//; s/ *$//')"
+  if [ -z "$_p" ]; then
+    printf '<non-textual: %s bytes on the first non-blank line, no printable ASCII>' "$_n"
+    return 0
+  fi
+  printf '%s' "$_p" | cut -c1-200
+}
 
 # ⛔⭐⭐ A PROGRAM ALREADY RULED UNGRADABLE IS NEVER A MINT CANDIDATE (hq_I 2026-09-06, caught the hard
 # way twice in one sitting). This script walks the directory and knows nothing about the package's own
