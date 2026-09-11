@@ -1374,8 +1374,10 @@ int main(int argc, char **argv)
                 return 1;
             }
             if (main_bb_idx < 0 || main_bb_idx >= s2->bbp.count || !s2->bbp.table[main_bb_idx] || !s2->bbp.table[main_bb_idx]->entry) {
-                fprintf(stderr, "[IBB] FATAL: mode-4 driver: main BB graph not found\n");
-                return 1;
+                FILE * _nm = stdout; if (output_path) { _nm = fopen(output_path, "w"); if (!_nm) { perror(output_path); return 1; } }
+                fprintf(_nm, "  .intel_syntax noprefix\n  .text\n  .globl main\nmain:\n  sub rsp, 8\n  call core_icn_startup_error_no_main\n");
+                if (_nm != stdout) fclose(_nm);
+                return 0;
             }
             IR_graph_t * bbg = s2->bbp.table[main_bb_idx];
             extern bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
@@ -1850,8 +1852,8 @@ int main(int argc, char **argv)
                 { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); if (pfn && g_last_flat_frame_bytes > 0) rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
             }
             if (main_bb_idx < 0 || main_bb_idx >= s2->bbp.count || !s2->bbp.table[main_bb_idx]) {
-                fprintf(stderr, "[IBB] FATAL: mode-3 driver: main BB graph not found\n");
-                abort();
+                extern void core_icn_startup_error_no_main(void);
+                core_icn_startup_error_no_main();
             }
             IR_graph_t * bbg = s2->bbp.table[main_bb_idx];
             if (!bbg->entry) {
