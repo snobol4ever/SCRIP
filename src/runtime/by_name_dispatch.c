@@ -5607,7 +5607,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (av.v == DT_E) {
             const char *nm = procval_name(av);
             if (!nm) nm = "?";
-            snprintf(buf,256, dat_find_type(nm) ? "record constructor %s" : (!IS_PROCVAL_BUILTIN_fn(av) && (rt_proc_is_registered(nm) || !strcmp(nm, "main"))) ? "procedure %s" : "function %s", nm);
+            snprintf(buf,256, dat_find_type(nm) ? "record constructor %s" : (!IS_PROCVAL_EXTERNAL_fn(av) && !IS_PROCVAL_BUILTIN_fn(av) && (rt_proc_is_registered(nm) || !strcmp(nm, "main"))) ? "procedure %s" : "function %s", nm);
             *out = STRVAL(buf); return 1;
         }
         if (IS_FH_fn(av)) {

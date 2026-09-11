@@ -59,7 +59,12 @@ procedure main()
    write("img  :", image(loadfunc(d,"tf_int")));
    write("type :", type(loadfunc(d,"tf_int")));
    write("coerce:", loadfunc(d,"tf_int")("16"));
+   write("clash :", image(loadfunc(d,"tf_int")));
+   write("proc  :", image(tf_int));
    write("end");
+end
+procedure tf_int(a)
+   return "stub";
 end
 EOF
 cat > "${T}/w.ref" <<'EOF'
@@ -72,6 +77,8 @@ fail :FAILED
 img  :function tf_int
 type :procedure
 coerce:32
+clash :function tf_int
+proc  :procedure tf_int
 end
 EOF
 cat > "${T}/n.icn" <<'EOF'
@@ -88,10 +95,10 @@ grade() { # grade <label> <expected-file> <actual-file>
     if cmp -s "$2" "$3"; then echo "  PASS  $1"; PASS=$((PASS+1));
     else echo "  FAIL  $1"; diff "$2" "$3" | sed -n '1,8p' | sed 's/^/        /'; FAIL=$((FAIL+1)); fi
 }
-( cd "${T}" && timeout 30 "${SCRIP}" w.icn </dev/null >w.m3 2>&1 ); grade "m3 marshalling (10 arms: int real str cstr null fail image type coercion)" "${T}/w.ref" "${T}/w.m3"
+( cd "${T}" && timeout 30 "${SCRIP}" w.icn </dev/null >w.m3 2>&1 ); grade "m3 marshalling (12 arms: int real str cstr null fail image type coercion, NAME CLASH both ways)" "${T}/w.ref" "${T}/w.m3"
 if ( cd "${T}" && timeout 60 "${SCRIP}" --compile -o w.s w.icn </dev/null >/dev/null 2>&1 ) \
    && gcc -no-pie "${T}/w.s" -L"${ROOT}/out" -lscrip_rt -Wl,-rpath,"${ROOT}/out" -o "${T}/w.m4b" >/dev/null 2>&1; then
-    ( cd "${T}" && timeout 30 ./w.m4b </dev/null >w.m4 2>&1 ); grade "m4 marshalling (same 10 arms)" "${T}/w.ref" "${T}/w.m4"
+    ( cd "${T}" && timeout 30 ./w.m4b </dev/null >w.m4 2>&1 ); grade "m4 marshalling (same 12 arms)" "${T}/w.ref" "${T}/w.m4"
 else
     echo "  FAIL  m4 marshalling — could not compile or link the witness"; FAIL=$((FAIL+1))
 fi
