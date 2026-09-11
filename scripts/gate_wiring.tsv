@@ -44,6 +44,7 @@ test_gate_ast_declared_refs_are_ast_dumps.sh	WIRED	-	-	-
 test_gate_ast_shaped_refs_are_declared_ast.sh	WIRED	-	-	-
 test_gate_banner_leads_with_the_suite_line.sh	WIRED	-	-	-
 test_gate_banner_reports_ahead_of_origin.sh	WIRED	-	-	-
+test_gate_baton_donewhen_runnable.sh	WIRED	-	-	-
 test_gate_boards_refuse_when_the_binary_moves.sh	WIRED	-	-	-
 test_gate_build_freshness_is_behavioural.sh	WIRED	-	-	-
 test_gate_capture_stdin_and_red_exit.sh	WIRED	-	-	-
@@ -58,6 +59,7 @@ test_gate_dispatch_gc_safepoint_inline.sh	WIRED	-	-	-
 test_gate_dispatch_refuses_placeholder_donewhen.sh	WIRED	-	-	-
 test_gate_done_manifest_handoff.sh	WIRED	-	-	-
 test_gate_emit_fields_read_by_a_template_have_a_writer.sh	WIRED	-	-	-
+test_gate_emit_guard_sink_names_its_guard.sh	WIRED	-	-	-
 test_gate_emit_no_ir_mutation.sh	WIRED	-	-	-
 test_gate_emit_no_lang.sh	WIRED	-	-	-
 test_gate_emit_no_slot_alloc.sh	WIRED	-	-	-
@@ -222,7 +224,6 @@ test_gate_two_region.sh	WIRED	-	-	-
 test_gate_umbrella_done_whens_anchor_on_the_board_line.sh	WIRED	-	-	-
 test_gate_xfail_marker_and_index_agree.sh	WIRED	-	-	-
 test_gate_zd_omega_head_acceptance.sh	WIRED	-	-	-
-test_gate_baton_donewhen_runnable.sh	RULING	reads the LIVE postoffice: grades rows sixteen seats are editing right now, so it reds on a dirty fleet BY DESIGN (ceo ruling 2026-09-03, stated verbatim in the Makefile test-postoffice header)	ceo	2026-09-03
 test_gate_baton_donewhen_runnable_live.sh	RULING	reads the LIVE postoffice: grades rows sixteen seats are editing right now, so it reds on a dirty fleet BY DESIGN (ceo ruling 2026-09-03, stated verbatim in the Makefile test-postoffice header)	ceo	2026-09-03
 test_gate_baton_next_blocks.sh	RULING	reads the LIVE postoffice: grades rows sixteen seats are editing right now, so it reds on a dirty fleet BY DESIGN (ceo ruling 2026-09-03, stated verbatim in the Makefile test-postoffice header)	ceo	2026-09-03
 test_gate_baton_one_next_block.sh	RULING	reads the LIVE postoffice: grades rows sixteen seats are editing right now, so it reds on a dirty fleet BY DESIGN (ceo ruling 2026-09-03, stated verbatim in the Makefile test-postoffice header)	ceo	2026-09-03

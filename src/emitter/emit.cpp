@@ -1523,8 +1523,15 @@ static void drive_guard_refused(IR_t *nd, int line) {
     abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int drive_plant_guard_sink(void) {
+    static int v = -1;
+    if (v < 0) { const char * e = getenv("SCRIP_TEST_PLANT_GUARD_SINK"); v = (e && *e == (char)49) ? 1 : 0; }
+    return v;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lbl_ω, bb_label_t *lbl_β) {
     if (!nd) { drive_guard_refused(nd, __LINE__); return; }
+    if (drive_plant_guard_sink()) drive_guard_refused(nd, __LINE__);
     { extern int g_scan_regs_live; g_scan_regs_live = nd->in_scan ? 1 : 0; }
     switch (nd->op) {
     case IR_LIT_STRING: case IR_LIT_INTEGER: case IR_LIT_REAL:
