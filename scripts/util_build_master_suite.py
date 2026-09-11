@@ -66,10 +66,22 @@ import glob
 import shutil
 import argparse
 import subprocess
+import pathlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import corpus_suite_harness as h  # noqa: E402
+
+def _stdin_sidecar_names(src_path):
+    """The companions h.stdin_companion_candidates() found, rendered RELATIVE TO THE SOURCE'S DIRECTORY.
+    ⛔ Never `.name` alone: `w.stdin` and `config/w.stdin` both render as "w.stdin", so the diagnostic whose
+    whole job is to say WHICH file stopped the absorption would print the same word twice -- the identical
+    trap hq_U cured inside loose_stdin_companion()'s AMBIGUOUS message on 2026-09-08."""
+    _p = pathlib.Path(src_path)
+    _d = _p.parent
+    return ", ".join(str(c.relative_to(_d)) if _d in c.parents else c.name
+                     for c in h.stdin_companion_candidates(_p))
+
 
 S4E = os.environ.get("S4E_HOME", os.path.dirname(os.path.dirname(HERE)))
 PO = os.environ.get("S4E_POST", "/home/resources/postoffice")   # the fleet queue, for PENDING.md row-state
@@ -1801,8 +1813,13 @@ def main():
                 entries = None
             if entries is None:  # plain program: ONE format-B block entry, body and ref VERBATIM
                 mode = "plain"
-                if os.path.isfile(sno[:-len(EXT)] + ".input") or os.path.isfile(os.path.join(os.path.dirname(sno), "config", os.path.basename(sno)[:-len(EXT)] + ".input")):
-                    excluded.append((fam, "stdin sidecar (.input) -- stays as files until the stdin-sections format extension lands (hq_C row)"))
+                # ⛔⭐ ASK THE GRADER'S OWN FINDER, NEVER A LOCAL SPELLING LIST (hq_V 2026-09-11). This guard
+                # knew `.input` alone and the generalised one below knew `.in/.input`, while the harness knew
+                # `.stdin` too -- and `.stdin` is how all 8 icon companions in this corpus are spelled, so the
+                # one question that decides whether a program is absorbed had three answers.
+                _sc = _stdin_sidecar_names(sno)
+                if _sc:
+                    excluded.append((fam, "stdin sidecar (%s) -- stays as files until the stdin-sections format extension lands (hq_C row)" % _sc))
                     continue
                 sno_text = open(sno).read().splitlines()
                 ref_text = open(ref).read().splitlines()
@@ -1859,13 +1876,12 @@ def main():
                 # that silently reads nothing where it should read its input does not fail loudly; it produces
                 # a WRONG ANSWER that looks like a verdict. Checks BOTH sidecar spellings and the config/
                 # folder the flat layout puts companions in.
-                _stem = sno[:-len(EXT)]
-                _cfgdir = os.path.join(os.path.dirname(sno), "config")
-                _base = os.path.basename(_stem)
-                if any(os.path.isfile(x) for x in (_stem + ".input", _stem + ".in",
-                                                   os.path.join(_cfgdir, _base + ".input"),
-                                                   os.path.join(_cfgdir, _base + ".in"))):
-                    excluded.append((fam, "stdin sidecar (.in/.input) -- stays as files until the stdin-sections format extension lands"))
+                # ⛔⭐ Same one-finder rule as the plain-program guard above: the spellings live in
+                # corpus_suite_harness.STDIN_COMPANION_SUFFIXES and nowhere else, because this list and that
+                # one drifted apart by exactly `.stdin` and that gap absorbed 8 icon programs unfed.
+                _sc = _stdin_sidecar_names(sno)
+                if _sc:
+                    excluded.append((fam, "stdin sidecar (%s) -- stays as files until the stdin-sections format extension lands" % _sc))
                     continue
                 mode = "plain"
                 # ⭐ AUTO-XFAIL BY SOURCE VERDICT, EXTENDED PAST SNOBOL4 (the "named follow-up" this comment used

@@ -1040,6 +1040,28 @@ def sidecar_in_path(src_path):
 # then runs WITH THE WRONG INPUT while its output is graded as a genuine verdict -- a wrong answer
 # wearing a verdict, exactly the class sidecar_in_path's own `.input` amendment records. The cure is
 # not a fourth list: it is that there is only ever one list, here.
+STDIN_COMPANION_SUFFIXES = (".stdin", ".in", ".input")
+
+
+def stdin_companion_candidates(src):
+    """Every stdin companion that EXISTS for a loose source: <stem><suffix> beside it and in `config/`.
+    ⛔⭐ THIS IS THE ONE PLACE THE SPELLINGS ARE WRITTEN DOWN, and it exists because they were written
+    down THREE times with THREE different answers (hq_V 2026-09-11, measured): this finder knew
+    `.stdin/.in/.input`, util_build_master_suite.py's generalised stdin guard knew `.in/.input`, and its
+    snobol4 plain-program guard knew `.input` alone. All 8 icon stdin companions in the corpus are spelled
+    `config/<stem>.stdin` -- the one spelling the BUILDER did not know -- so the builder absorbed each of
+    them as an ordinary pair, the master graded a stdin-reading program against /dev/null, and the
+    auto-xfail path filed the starved run as a documented red. THERE IS NO XFAIL: every one of those is a
+    FAIL on the board. Proved both directions on scratch corpora one byte apart: `config/w.stdin`
+    ABSORBED (0 excluded), `config/w.in` EXCLUDED BY NAME, same program, same input, same ref.
+    ⭐ The builder and the grader must ask the SAME question about a file, so they ask it through the same
+    function rather than through two lists that agreed on the day they were written."""
+    _stem = src.stem
+    _cfg = src.parent / "config"
+    return [c for c in [src.with_suffix(x) for x in STDIN_COMPANION_SUFFIXES]
+            + [_cfg / (_stem + x) for x in STDIN_COMPANION_SUFFIXES] if c.is_file()]
+
+
 def loose_stdin_companion(src):
     """stdin companion for a LOOSE corpus file: <stem>.stdin / <stem>.in / <stem>.input beside it.
     Returns (text, path, refusal); at most one of text/refusal is ever meaningful --
@@ -1064,11 +1086,7 @@ def loose_stdin_companion(src):
     # guarantee below (one-candidate-or-refuse, UTF-8-or-refuse, banner-sniff-or-refuse) then applies to
     # the combined set unchanged, so a stem carrying BOTH a loose and a config/ companion is AMBIGUOUS and
     # refuses, which is the correct answer rather than a precedence rule invented here.
-    _stem = src.stem
-    _cfg = src.parent / "config"
-    cands = [c for c in (src.with_suffix(".stdin"), src.with_suffix(".in"), src.with_suffix(".input"),
-                         _cfg / (_stem + ".stdin"), _cfg / (_stem + ".in"), _cfg / (_stem + ".input"))
-             if c.is_file()]
+    cands = stdin_companion_candidates(src)
     if not cands:
         return None, None, None
     if len(cands) > 1:
