@@ -15,7 +15,11 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # already happened, and the row then names a tree carrying commits it never ran. Measured three times in one
 # sitting, twice while doing the disciplined thing. util_score_row.py stamps this instead of HEAD, and says so
 # when the two differ; unset, it behaves exactly as it always did.
-export S4E_TREE_AT_START="SCRIP=$(git -C "$HERE/.." rev-parse --short HEAD 2>/dev/null),corpus=$(git -C "$HERE/../../corpus" rev-parse --short HEAD 2>/dev/null)"
+# ⛔ THE HAND-SPELLED export S4E_TREE_AT_START THAT STOOD HERE IS RETIRED ONTO gate_tree_watch (coo
+# 2026-09-10, COO-54). It was written out in THREE runners and ABSENT from the three Icon package
+# boards the one runner runs every hour, so three of four boards stamped HEAD AT WRITE TIME -- which is
+# CEO-524 (1)'s defect in its second form. One spelling, in lib_gate.sh, set by the same call that takes
+# the baseline: a board cannot now acquire the stamp without also acquiring the refusal.
 SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_DIR="${RT_DIR:-$HERE/../out}"
 CORPUS="$S4E/corpus"
@@ -45,6 +49,12 @@ if ! . "$HERE/lib_gate.sh" 2>/dev/null || ! command -v gate_bin_watch >/dev/null
     exit 2
 fi
 GATE_NAME=test_corpus_snobol4 gate_bin_watch "$SCRIP" "$RT_DIR/libscrip_rt.so"
+# ⛔⭐ THE TREE MOVED UNDER THIS BOARD, and the stamp that names the tree this row actually graded
+# (coo 2026-09-10, COO-54, on the coo's own witness: a pass recorded one corpus hash and a background job
+# moved corpus eight seconds later; gate_bin_watch stayed silent and was right to, because the BINARY had
+# not moved). One call: gate_tree_watch exports S4E_TREE_AT_START in util_score_row's own vocabulary AND
+# takes the baseline, so this board stops stamping HEAD-at-WRITE-time and starts refusing a split reading.
+GATE_NAME=test_corpus_snobol4 gate_tree_watch "$(cd "$HERE/../.." && pwd)"
 # ⛔⭐ 10s WAS A FAIL FACTORY AT FLEET LOAD, AND THE KILL WAS INDISTINGUISHABLE FROM A WRONG ANSWER
 # (hq_C 2026-08-29, verified by hq_B). This bound is PER PROGRAM, not for the board. A program taking 2s on a
 # quiet box can exceed 10s at load 30 with ~20 concurrent boards -- and because the captures below said
@@ -611,6 +621,10 @@ else echo "    (tree stamp unavailable — lib_gate.sh not sourced; record SCRIP
 # ⭐ The general form, and it is this house's own: the ORDER of two honest refusals is itself a claim about
 # which one caused the other.
 GATE_NAME=test_corpus_snobol4 gate_bin_unmoved
+# ⛔ BEFORE THE FIRST PUBLISHED NUMBER, beside the binary check and for the same reason: an annotation that
+# the tree moved is not a refusal -- util_score_row would happily write "graded; HEAD moved during the run"
+# onto a number that describes no single tree.
+GATE_NAME=test_corpus_snobol4 gate_tree_unmoved
 if [ "$((TMOUT3+TMOUT4))" -gt 0 ]; then
     echo "⛔ GATE REFUSES: $((TMOUT3+TMOUT4)) program(s) KILLED at the ${TIMEOUT}s per-program bound (m3=$TMOUT3 m4=$TMOUT4) -- NOT graded:"
     printf "$TMOUT_LIST"

@@ -31,6 +31,17 @@
 #          here rather than in the next false row.
 #   ARM 9  ONE COPY: no board re-spells the fingerprint rule privately (the donor's own copy was retired
 #          onto the library in the landing this gate accompanies).
+#   ARM 10 THE TREE PAIR, same three conditions asked of gate_tree_watch/gate_tree_unmoved. ⛔ A SECOND
+#          GUARD AND NOT A SECOND SPELLING OF THE FIRST: gate_bin_watch answers "did the BINARY move" and is
+#          SILENT AND CORRECT when the corpus moves under a board. The coo's own witness, 2026-09-10 18:42 --
+#          a pass recorded one corpus hash and a background job moved corpus eight seconds later, and nothing
+#          in the fleet asked. A board grading half its population against one corpus and half against another
+#          prints a complete, plausible table.
+#   ARM 11 the tree authority REFUSES on a moved HEAD, on UNCOMMITTED state that leaves HEAD alone (the
+#          likelier accident on a seat root), and PASSES when neither moved -- with the stamp exported.
+#   ARM 12 ONE SPELLING OF THE STAMP: no runner hand-writes `export S4E_TREE_AT_START`. It was written out in
+#          three runners and ABSENT from the three Icon package boards, so three of four boards the one runner
+#          runs stamped HEAD AT WRITE TIME -- CEO-524 (1)'s defect in its second form.
 #
 # HERMETIC: arms 3-7 run against scratch files under mktemp and never touch this tree's scrip, out/ or
 # SCORE.md. Arms 1-2 and 8-9 are static reads. NO BUILD REQUIRED -- this gate grades wiring and a library
@@ -40,7 +51,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GATE_NAME="test_gate_boards_refuse_when_the_binary_moves"; export GATE_NAME
 . "$HERE/lib_gate.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE rc=2 [$GATE_NAME]: lib_gate.sh unloadable"; exit 2; }
-for _fn in gate_bin_watch gate_bin_unmoved gate_file_has_bin_watch_guard gate_verdict gate_floor; do
+for _fn in gate_bin_watch gate_bin_unmoved gate_file_has_bin_watch_guard gate_tree_watch gate_tree_unmoved gate_file_has_tree_watch_guard gate_verdict gate_floor; do
     command -v "$_fn" >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE rc=2 [$GATE_NAME]: lib_gate.sh carries no $_fn -- the rule under test is unreachable"; exit 2; }
 done
 
@@ -118,6 +129,59 @@ if [ "$rc7" -eq 2 ] && ! grep -q 'STUB_SUITE_BOARD' <<<"$out7" && ! grep -q 'SCO
 else red "ARM 7 a board that straddled a swap still published: rc=$rc7 out=$(head -3 <<<"$out7")"; fi
 examined=$((examined+1))
 
+echo "── ARM 10-12: the TREE pair (did the CORPUS move under this board) ──"
+for b in "${BOARDS[@]}"; do
+    f="$HERE/$b"
+    examined=$((examined+1))
+    gate_file_has_tree_watch_guard "$f"; rc=$?
+    case "$rc" in
+        0) ok "$b carries gate_tree_watch and gate_tree_unmoved, and the check precedes the first published count" ;;
+        1) red "$b: no start/end TREE fingerprint, or gate_tree_unmoved comes AFTER the first published count -- a corpus move under this board is invisible to it" ;;
+        *) echo "⛔ REFUSED-TO-GRADE rc=2 [$GATE_NAME]: could not read $b"; exit 2 ;;
+    esac
+done
+
+# ⛔ THE FIXTURE IS TWO REAL GIT REPOS named SCRIP and corpus under one scratch root, because gate_tree_watch
+# asks git for HEAD and for uncommitted state and a mock would grade neither.
+TR="$W/root"; mkdir -p "$TR/SCRIP" "$TR/corpus"
+for r in SCRIP corpus; do
+    ( cd "$TR/$r" && git init -q . && git -c user.email=lcherryh@yahoo.com -c user.name=LCherryholmes commit -q --allow-empty -m base ) >/dev/null 2>&1
+done
+out11a="$( ( . "$HERE/lib_gate.sh"; GATE_NAME=probe gate_tree_watch "$TR"; ( cd "$TR/corpus" && git -c user.email=lcherryh@yahoo.com -c user.name=LCherryholmes commit -q --allow-empty -m moved ); GATE_NAME=probe gate_tree_unmoved; echo "PUBLISHED" ) 2>&1 )"; rc11a=$?
+if [ "$rc11a" -eq 2 ] && grep -q 'THE TREE MOVED UNDER THIS BOARD' <<<"$out11a" && ! grep -q 'PUBLISHED' <<<"$out11a"; then
+    ok "ARM 11a a corpus COMMIT under the board refuses rc=2 and names both fingerprints"
+else red "ARM 11a a moved corpus HEAD did not refuse: rc=$rc11a out=$(head -2 <<<"$out11a")"; fi
+examined=$((examined+1))
+
+# ⭐ THE UNCOMMITTED ARM IS THE ONE THAT MATTERS ON A SEAT ROOT: a ref edited and not committed moves the
+# GRADED DATA without moving HEAD, and that is the likelier accident -- the coo hand-edited corpus refs four
+# times on the day this landed. A HEAD-only fingerprint would read this as quiet.
+out11b="$( ( . "$HERE/lib_gate.sh"; GATE_NAME=probe gate_tree_watch "$TR"; echo dirt > "$TR/corpus/uncommitted.txt"; GATE_NAME=probe gate_tree_unmoved; echo "PUBLISHED" ) 2>&1 )"; rc11b=$?
+if [ "$rc11b" -eq 2 ] && ! grep -q 'PUBLISHED' <<<"$out11b"; then
+    ok "ARM 11b UNCOMMITTED corpus state that leaves HEAD alone still refuses rc=2"
+else red "ARM 11b an uncommitted corpus edit did not refuse: rc=$rc11b out=$(head -2 <<<"$out11b")"; fi
+rm -f "$TR/corpus/uncommitted.txt"
+examined=$((examined+1))
+
+out11c="$( ( . "$HERE/lib_gate.sh"; GATE_NAME=probe gate_tree_watch "$TR"; GATE_NAME=probe gate_tree_unmoved; echo "PUBLISHED stamp=[$S4E_TREE_AT_START]" ) 2>&1 )"; rc11c=$?
+if [ "$rc11c" -eq 0 ] && grep -q 'PUBLISHED' <<<"$out11c" && grep -qE 'stamp=\[SCRIP=[0-9a-f]+,corpus=[0-9a-f]+\]' <<<"$out11c"; then
+    ok "ARM 11c CONTROL: an unmoved tree passes AND exports the stamp -- $(grep -o 'stamp=\[[^]]*\]' <<<"$out11c")"
+else red "ARM 11c control failed -- a guard that always refuses would satisfy 11a/11b, and the stamp is what stops a row naming HEAD-at-write-time: rc=$rc11c out=$(head -2 <<<"$out11c")"; fi
+examined=$((examined+1))
+
+out11d="$( ( . "$HERE/lib_gate.sh"; GATE_NAME=probe gate_tree_unmoved; echo "PUBLISHED" ) 2>&1 )"; rc11d=$?
+if [ "$rc11d" -eq 2 ] && ! grep -q 'PUBLISHED' <<<"$out11d"; then ok "ARM 11d unmoved without a prior watch refuses rather than answering from an empty baseline"
+else red "ARM 11d answered with no baseline: rc=$rc11d"; fi
+examined=$((examined+1))
+
+echo "── ARM 12: ONE SPELLING OF THE STAMP ──"
+# ⛔ lib_gate.sh IS EXCLUDED BECAUSE IT IS THE SPELLING -- gate_tree_watch exports the variable, which is the
+# whole point of the arm. Convicting the authority for doing its job is how a census gets muted.
+handspelt="$(grep -lE '^[[:space:]]*export S4E_TREE_AT_START=' "$HERE"/*.sh 2>/dev/null | grep -v '/lib_gate\.sh$' | xargs -r -n1 basename | tr '\n' ' ')"
+if [ -z "$handspelt" ]; then ok "ARM 12 no runner hand-writes export S4E_TREE_AT_START -- gate_tree_watch is the one spelling"
+else red "ARM 12 a hand-spelled stamp survives: $handspelt -- retire it onto gate_tree_watch, or the runners that lack it keep stamping HEAD at write time"; fi
+examined=$((examined+1))
+
 echo "── ARM 8: the RATCHET over every board-shaped script ──"
 # ⛔ THE POPULATION IS SPELLED HERE AND ITS DENOMINATOR IS PRINTED. Board-shaped = a SUITE RUNNER or BOARD
 # (test_*_suite.sh, test_corpus_*.sh, board_*.sh, raku_roast_scoreboard.sh) that publishes a count -- it echoes
@@ -141,7 +205,8 @@ while IFS= read -r f; do
     body="$(grep -vE '^[[:space:]]*#' "$f" 2>/dev/null)" || continue
     grep -qE '_BOARD |util_score_row\.py' <<<"$body" || continue
     pop=$((pop+1))
-    gate_file_has_bin_watch_guard "$f"; if [ $? -eq 0 ]; then covered=$((covered+1)); else uncovered="$uncovered $base"; fi
+    gate_file_has_bin_watch_guard "$f"; _b=$?; gate_file_has_tree_watch_guard "$f"; _t=$?
+    if [ $_b -eq 0 ] && [ $_t -eq 0 ]; then covered=$((covered+1)); else uncovered="$uncovered $base"; fi
 done < <(find "$HERE" -maxdepth 1 -name '*.sh' -type f | sort)
 echo "    board-shaped scripts=$pop  carrying the guard=$covered  floor=$COVER_FLOOR"
 [ "$pop" -ge 5 ] || { echo "⛔ REFUSED-TO-GRADE rc=2 [$GATE_NAME]: found only $pop board-shaped scripts -- zero-work-examined is indistinguishable from all-clean"; exit 2; }

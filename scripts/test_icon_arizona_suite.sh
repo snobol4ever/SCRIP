@@ -79,6 +79,12 @@ fi
 # emitter change is the thing that moved.
 . "$HERE/lib_gate.sh" 2>/dev/null || { echo "⛔ REFUSED TO GRADE rc=2: lib_gate.sh unloadable -- this board cannot tell whether its binary moves under it" >&2; exit 2; }
 GATE_NAME=test_icon_arizona_suite gate_bin_watch "$SCRIP" "${RT_DIR:-$HERE/../out}/libscrip_rt.so"
+# ⛔⭐ THE TREE MOVED UNDER THIS BOARD, and the stamp that names the tree this row actually graded
+# (coo 2026-09-10, COO-54, on the coo's own witness: a pass recorded one corpus hash and a background job
+# moved corpus eight seconds later; gate_bin_watch stayed silent and was right to, because the BINARY had
+# not moved). One call: gate_tree_watch exports S4E_TREE_AT_START in util_score_row's own vocabulary AND
+# takes the baseline, so this board stops stamping HEAD-at-WRITE-time and starts refusing a split reading.
+GATE_NAME=test_icon_arizona_suite gate_tree_watch "$(cd "$HERE/../.." && pwd)"
 # ⛔ EVERY PROGRAM RUNS IN A SCRATCH CWD, NEVER THE CALLER'S (seat02 -> hq_T 2026-09-04): general/fncs1.icn and
 # general/checkc.icn both `open("foo.baz","w")`, so any run whose cwd was the package dir left an untracked foo.baz in
 # corpus/packages/icon/arizona_tests/general/ -- and that litter blocked a seat's SCORE.md landing on util_score_row's
@@ -254,6 +260,10 @@ echo "NOT GRADED ($GAP, of $SHIPPED shipped, zero of population until graded -- 
 # after the row is published is an annotation, not a refusal -- the same lesson test_gate_progress_rows_carry_
 # the_start_fingerprint.sh was written for. gate_bin_unmoved exits 2 itself when the fingerprint moved.
 GATE_NAME=test_icon_arizona_suite gate_bin_unmoved
+# ⛔ BEFORE THE FIRST PUBLISHED NUMBER, beside the binary check and for the same reason: an annotation that
+# the tree moved is not a refusal -- util_score_row would happily write "graded; HEAD moved during the run"
+# onto a number that describes no single tree.
+GATE_NAME=test_icon_arizona_suite gate_tree_unmoved
 echo "ARIZONA_SUITE_BOARD shipped=$SHIPPED graded=$TOTAL gap=$GAP m3_pass=$M3_PASS m3_reject=$M3_REJECT m3_fail=$M3_FAIL m3_crash=$M3_CRASH m3_hang=$M3_HANG m4_pass=$M4_PASS m4_reject=$M4_REJECT m4_fail=$M4_FAIL m4_crash=$M4_CRASH m4_hang=$M4_HANG"
 # ⭐ THE PACKAGE LOCKDOWN inventory line, via the shared body (lib_inventory.sh) -- never a second copy
 # of the arithmetic. UNGRADABLE.tsv/UNGRADED.tsv beside $PKG (hq_I, corpus a284bcdbb) already split the

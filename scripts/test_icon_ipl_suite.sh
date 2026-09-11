@@ -115,6 +115,12 @@ VERBOSE=0; [ "${1:-}" = "-v" ] && VERBOSE=1
 # emitter change is the thing that moved.
 . "$HERE/lib_gate.sh" 2>/dev/null || { echo "⛔ REFUSED TO GRADE rc=2: lib_gate.sh unloadable -- this board cannot tell whether its binary moves under it" >&2; exit 2; }
 GATE_NAME=test_icon_ipl_suite gate_bin_watch "$SCRIP" "${RT_DIR:-$HERE/../out}/libscrip_rt.so"
+# ⛔⭐ THE TREE MOVED UNDER THIS BOARD, and the stamp that names the tree this row actually graded
+# (coo 2026-09-10, COO-54, on the coo's own witness: a pass recorded one corpus hash and a background job
+# moved corpus eight seconds later; gate_bin_watch stayed silent and was right to, because the BINARY had
+# not moved). One call: gate_tree_watch exports S4E_TREE_AT_START in util_score_row's own vocabulary AND
+# takes the baseline, so this board stops stamping HEAD-at-WRITE-time and starts refusing a split reading.
+GATE_NAME=test_icon_ipl_suite gate_tree_watch "$(cd "$HERE/../.." && pwd)"
 
 TMP="$(mktemp -d /tmp/ipl_suite_XXXXXX)"
 trap 'rm -rf "$TMP"' EXIT
@@ -233,6 +239,10 @@ echo ""
 # after the row is published is an annotation, not a refusal -- the same lesson test_gate_progress_rows_carry_
 # the_start_fingerprint.sh was written for. gate_bin_unmoved exits 2 itself when the fingerprint moved.
 GATE_NAME=test_icon_ipl_suite gate_bin_unmoved
+# ⛔ BEFORE THE FIRST PUBLISHED NUMBER, beside the binary check and for the same reason: an annotation that
+# the tree moved is not a refusal -- util_score_row would happily write "graded; HEAD moved during the run"
+# onto a number that describes no single tree.
+GATE_NAME=test_icon_ipl_suite gate_tree_unmoved
 echo "IPL_SUITE_BOARD total=$TOTAL compile_graded=$COMPILE_GRADED compile_pass=$COMPILE_PASS compile_fail=$COMPILE_FAIL run_graded=$RUN_GRADED nomain_total=$NOMAIN_TOTAL hasmain_total=$HASMAIN_TOTAL nomain_ok=$NOMAIN_OK linkgap=$LINKGAP parseerr=$PARSEERR timeout=$TIMEOUT_N other=$OTHER"
 
 # ═══ RUN TIER -- every progs/*.icn with a NAME.std (cut by util_cut_icon_ipl_refs.sh) gets EXECUTED,

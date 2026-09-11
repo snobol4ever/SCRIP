@@ -340,6 +340,66 @@ gate_bin_unmoved() {
         echo "   so every number above describes no single tree. Re-run on a quiet tree; do NOT quote this board."
         exit 2; }
 }
+# gate_tree_watch <sibling-root> / gate_tree_unmoved -- THE CORPUS MOVED UNDER THIS BOARD class, and the
+# STAMP that names the tree a row actually graded. ONE CALL, because they are one question asked twice.
+#
+# ⛔⭐ THE WITNESS IS THE coo's OWN, 2026-09-10 18:42 (COO-54): a board pass recorded corpus 4986354bb at start
+# and a background job moved corpus to 2e8b94fe5 EIGHT SECONDS LATER. gate_bin_watch stayed silent and was
+# RIGHT to -- the BINARY had not moved. That is the right question for it and the wrong one for this, and
+# NOTHING IN THE FLEET ASKED THE OTHER ONE. A board whose corpus moves grades half its population against one
+# corpus and half against another and prints a complete, plausible table -- the same shape hq_S measured for
+# the binary on 2026-09-06, one repo over.
+#
+# ⛔ AND THE HALF THAT ALREADY EXISTED ONLY ANNOTATED. util_score_row.py reads S4E_TREE_AT_START and, when HEAD
+# moved under the run, writes "graded; HEAD moved to <h> during the run" into the provenance -- an honest
+# sentence attached to a number that describes no single tree. ⭐ AN ANNOTATION IS NOT A REFUSAL: the row is
+# still published, still checkoutable, still quoted. Worse, only THREE runners ever set that variable, and the
+# three Icon PACKAGE boards the one runner runs every hour set NONE of it -- so their rows stamped HEAD AT
+# WRITE TIME, which is precisely the defect CEO-524 (1) was raised about, in its second form.
+#
+# SO THIS SETS THE VARIABLE *AND* REFUSES: gate_tree_watch exports S4E_TREE_AT_START in util_score_row's own
+# vocabulary (`SCRIP=<h>,corpus=<h>`), so a caller gets the honest stamp by calling it, and gate_tree_unmoved
+# refuses rc=2 before a number is published. ⛔ ONE SPELLING OF THAT STRING, HERE: it was hand-written in three
+# runners and absent from the rest, which is how three of four boards came to be unstamped.
+#
+# ⭐ THE FINGERPRINT INCLUDES UNCOMMITTED STATE, deliberately: `<short-HEAD> <md5 of git status --porcelain>`.
+# A ref edited and not committed moves the GRADED DATA without moving HEAD, and that is the likelier accident
+# on a seat root than a commit is -- the coo edited corpus refs by hand four times on the day this was written.
+# No false positives: a board READS SCRIP and corpus and writes neither. ⛔ .github IS NEVER WATCHED -- the
+# board writes SCORE.md and SUITES.tsv itself, so watching it would make every board trip on its own row.
+gate_tree_watch() {
+    local _root="$1" _r _h _d _fp=""
+    for _r in SCRIP corpus; do
+        _h="$(git -C "$_root/$_r" rev-parse --short HEAD 2>/dev/null)" || _h=""
+        [ -n "$_h" ] || {
+            echo "⛔ REFUSE(rc=2) [${GATE_NAME:-gate}]: cannot read HEAD of $_root/$_r -- a board that cannot tell whether its corpus moved must not print a verdict"
+            exit 2; }
+        _d="$(git -C "$_root/$_r" status --porcelain 2>/dev/null | md5sum | cut -c1-8)"
+        _fp="$_fp$_r=$_h/$_d "
+        case "$_r" in SCRIP) GATE_TREE_STAMP="SCRIP=$_h";; corpus) GATE_TREE_STAMP="$GATE_TREE_STAMP,corpus=$_h";; esac
+    done
+    GATE_TREE_ROOT="$_root"; GATE_TREE_FP0="$_fp"
+    export S4E_TREE_AT_START="$GATE_TREE_STAMP"
+}
+gate_tree_unmoved() {
+    [ -n "${GATE_TREE_FP0:-}" ] || {
+        echo "⛔ REFUSE(rc=2) [${GATE_NAME:-gate}]: gate_tree_unmoved called without gate_tree_watch -- there is no baseline, so this cannot answer"
+        exit 2; }
+    local _r _h _d _now=""
+    for _r in SCRIP corpus; do
+        _h="$(git -C "$GATE_TREE_ROOT/$_r" rev-parse --short HEAD 2>/dev/null)" || _h=""
+        [ -n "$_h" ] || {
+            echo "⛔ REFUSE(rc=2) [${GATE_NAME:-gate}]: $GATE_TREE_ROOT/$_r can no longer be read -- it moved or vanished mid-run, which is the moved-tree case in its loudest form"
+            exit 2; }
+        _d="$(git -C "$GATE_TREE_ROOT/$_r" status --porcelain 2>/dev/null | md5sum | cut -c1-8)"
+        _now="$_now$_r=$_h/$_d "
+    done
+    [ "$_now" = "$GATE_TREE_FP0" ] || {
+        echo "⛔ REFUSE(rc=2) [${GATE_NAME:-gate}]: THE TREE MOVED UNDER THIS BOARD -- start [$GATE_TREE_FP0] end [$_now]"
+        echo "   (repo=<HEAD>/<md5 of uncommitted state>). Part of this population was graded against one tree and part against another,"
+        echo "   so every number above describes no single tree. Re-run on a quiet tree; do NOT quote this board."
+        exit 2; }
+}
 # gate_floor <examined-count> <minimum> <what-was-counted> -- the empty-glob / empty-dir / zero-files class.
 gate_floor() {
     GATE_EXAMINED="$1"
@@ -614,6 +674,26 @@ gate_file_executes_scrip() {
 #      or a util_score_row.py / gate_score_row write.  A board with no such line publishes nothing and passes 3
 #      vacuously, which is correct: there is nothing to be too late for.
 # Comment lines are stripped before every read, so a file that merely NAMES the guard in prose does not pass.
+# gate_file_has_tree_watch_guard <file> -- the SAME three conditions gate_file_has_bin_watch_guard grades,
+# asked about the TREE pair instead of the artifact pair (coo 2026-09-10, COO-54).  ⛔ A SEPARATE FUNCTION AND
+# NOT A PARAMETER, deliberately: the two guards answer different questions -- did the BINARY move, did the
+# CORPUS move -- and a board can carry one and lack the other, which is exactly the state every board was in
+# until this landed.  Folding them into one predicate would let a board pass by carrying either.
+gate_file_has_tree_watch_guard() {
+    local _body _rc _u _pub
+    [ -f "$1" ] || return 2
+    [ -r "$1" ] || return 2
+    _body="$(grep -vE '^[[:space:]]*#' "$1")"; _rc=$?
+    [ "$_rc" -gt 1 ] && return 2
+    grep -qE 'gate_tree_watch' <<<"$_body" || return 1
+    grep -qE 'gate_tree_unmoved' <<<"$_body" || return 1
+    _u="$(grep -nE 'gate_tree_unmoved' <<<"$_body" | head -1 | cut -d: -f1)"
+    _pub="$(grep -nE 'echo "[A-Z0-9_]*BOARD |util_score_row\.py|gate_score_row' <<<"$_body" | head -1 | cut -d: -f1)"
+    [ -n "$_pub" ] || return 0
+    [ -n "$_u" ] || return 1
+    [ "$_u" -lt "$_pub" ] 2>/dev/null || return 1
+    return 0
+}
 gate_file_has_bin_watch_guard() {
     local _body _rc _w _u _pub
     [ -f "$1" ] || return 2

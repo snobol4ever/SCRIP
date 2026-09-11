@@ -110,6 +110,12 @@ fi
 # emitter change is the thing that moved.
 . "$HERE/lib_gate.sh" 2>/dev/null || { echo "⛔ REFUSED TO GRADE rc=2: lib_gate.sh unloadable -- this board cannot tell whether its binary moves under it" >&2; exit 2; }
 GATE_NAME=test_icon_jcon_suite gate_bin_watch "$SCRIP" "${RT_DIR:-$HERE/../out}/libscrip_rt.so"
+# ⛔⭐ THE TREE MOVED UNDER THIS BOARD, and the stamp that names the tree this row actually graded
+# (coo 2026-09-10, COO-54, on the coo's own witness: a pass recorded one corpus hash and a background job
+# moved corpus eight seconds later; gate_bin_watch stayed silent and was right to, because the BINARY had
+# not moved). One call: gate_tree_watch exports S4E_TREE_AT_START in util_score_row's own vocabulary AND
+# takes the baseline, so this board stops stamping HEAD-at-WRITE-time and starts refusing a split reading.
+GATE_NAME=test_icon_jcon_suite gate_tree_watch "$(cd "$HERE/../.." && pwd)"
 if [ ! -d "$CORPUS" ]; then
     echo "⛔ REFUSED TO GRADE: no jcon_tests corpus at $CORPUS" >&2
     exit 2
@@ -379,6 +385,10 @@ fi
 # after the row is published is an annotation, not a refusal -- the same lesson test_gate_progress_rows_carry_
 # the_start_fingerprint.sh was written for. gate_bin_unmoved exits 2 itself when the fingerprint moved.
 GATE_NAME=test_icon_jcon_suite gate_bin_unmoved
+# ⛔ BEFORE THE FIRST PUBLISHED NUMBER, beside the binary check and for the same reason: an annotation that
+# the tree moved is not a refusal -- util_score_row would happily write "graded; HEAD moved during the run"
+# onto a number that describes no single tree.
+GATE_NAME=test_icon_jcon_suite gate_tree_unmoved
 echo "JCON_SUITE_BOARD shipped=$SHIPPED graded=$GRADED gap=$GAP total=$total m3_pass=${m3p:-n/a} m4_pass=${m4p:-n/a}"
 # ⛔⭐ THE PACKAGE LOCKDOWN INVENTORY (Lon 2026-09-06: "Fix the never graded business"; instrument row
 # every-package-runner-prints-shipped-graded-ungraded-and-ungradable..., hq_T). ONE line, ONE shape, from

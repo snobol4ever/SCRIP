@@ -49,7 +49,11 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # already happened, and the row then names a tree carrying commits it never ran. Measured three times in one
 # sitting, twice while doing the disciplined thing. util_score_row.py stamps this instead of HEAD, and says so
 # when the two differ; unset, it behaves exactly as it always did.
-export S4E_TREE_AT_START="SCRIP=$(git -C "$HERE/.." rev-parse --short HEAD 2>/dev/null),corpus=$(git -C "$HERE/../../corpus" rev-parse --short HEAD 2>/dev/null)"
+# ⛔ THE HAND-SPELLED export S4E_TREE_AT_START THAT STOOD HERE IS RETIRED ONTO gate_tree_watch (coo
+# 2026-09-10, COO-54). It was written out in THREE runners and ABSENT from the three Icon package
+# boards the one runner runs every hour, so three of four boards stamped HEAD AT WRITE TIME -- which is
+# CEO-524 (1)'s defect in its second form. One spelling, in lib_gate.sh, set by the same call that takes
+# the baseline: a board cannot now acquire the stamp without also acquiring the refusal.
 SCRIP="${SCRIP:-$HERE/../scrip}"
 CORPUS="${CORPUS:-$S4E/corpus/tests/icon}"
 HARNESS="$HERE/corpus_suite_harness.py"
@@ -208,6 +212,12 @@ echo "=== Icon MASTER board — corpus/tests/icon/ALL.icn ==="
 # emitter lives in the .so, so a scrip-only fingerprint is vacuous exactly when an emitter change is what moved.
 . "$HERE/lib_gate.sh" 2>/dev/null || { echo "⛔ BOARD REFUSES (rc=2): lib_gate.sh unloadable -- this board cannot tell whether its binary moves under it"; exit 2; }
 GATE_NAME=board_icon_master gate_bin_watch "$SCRIP" "${RT_DIR:-$HERE/../out}/libscrip_rt.so"
+# ⛔⭐ THE TREE MOVED UNDER THIS BOARD, and the stamp that names the tree this row actually graded
+# (coo 2026-09-10, COO-54, on the coo's own witness: a pass recorded one corpus hash and a background job
+# moved corpus eight seconds later; gate_bin_watch stayed silent and was right to, because the BINARY had
+# not moved). One call: gate_tree_watch exports S4E_TREE_AT_START in util_score_row's own vocabulary AND
+# takes the baseline, so this board stops stamping HEAD-at-WRITE-time and starts refusing a split reading.
+GATE_NAME=board_icon_master gate_tree_watch "$(cd "$HERE/../.." && pwd)"
 _errf=$(mktemp); trap 'rm -f "$_errf"' EXIT
 # ⛔⭐ THE OUTSIDE LIST RIDES ONLY IF IT EXISTS, and its absence is not an error: a suite with nothing outside
 # its baseline has no file, exactly as a package without one does. When it IS there the harness REFUSES on a
@@ -226,6 +236,10 @@ _raw=$(timeout 1800 python3 "$HARNESS" run "$MASTER_ICN" "$MASTER_REF" --lang ic
 # score-row call because this board PRINTS its counts long before it writes them, and a printed number gets
 # quoted. gate_bin_unmoved exits 2 itself when the fingerprint moved.
 GATE_NAME=board_icon_master gate_bin_unmoved
+# ⛔ BEFORE THE FIRST PUBLISHED NUMBER, beside the binary check and for the same reason: an annotation that
+# the tree moved is not a refusal -- util_score_row would happily write "graded; HEAD moved during the run"
+# onto a number that describes no single tree.
+GATE_NAME=board_icon_master gate_tree_unmoved
 printf '%s\n' "$_raw" | grep '^OUTSIDE_BASELINE' || true
 board=$(printf '%s\n' "$_raw" | grep '^SUITE_BOARD ' | tail -1 || true)
 astboard=$(printf '%s\n' "$_raw" | grep '^SUITE_BOARD_AST ' | tail -1 || true)

@@ -252,7 +252,15 @@ cp -rp "$SUITE"/. "$RUN"/ 2>/dev/null || true
 # already happened, and the row then names a tree carrying commits it never ran. Measured three times in one
 # sitting, twice while doing the disciplined thing. util_score_row.py stamps this instead of HEAD, and says so
 # when the two differ; unset, it behaves exactly as it always did.
-export S4E_TREE_AT_START="SCRIP=$(git -C "$SD" rev-parse --short HEAD 2>/dev/null),corpus=$(git -C "$ROOT/corpus" rev-parse --short HEAD 2>/dev/null)"
+# ⛔⭐ THE HAND-SPELLED export S4E_TREE_AT_START THAT STOOD HERE IS RETIRED ONTO gate_tree_watch (coo
+# 2026-09-10, COO-54), which SETS THE STAMP AND TAKES THE BASELINE IN ONE CALL. It was the THIRD copy of
+# this string: written out here, in board_icon_master.sh and in test_corpus_snobol4.sh, and ABSENT from
+# every other board -- so the runners that had it stamped honestly and the rest stamped HEAD AT WRITE
+# TIME, silently. This one was found by ARM 12 of test_gate_boards_refuse_when_the_binary_moves.sh on the
+# very run that landed the arm; I had retired the other two by hand and missed this one, which is the
+# argument for the census rather than for my memory.
+. "$HERE/lib_gate.sh" 2>/dev/null || { echo "⛔ REFUSED TO GRADE rc=2: lib_gate.sh unloadable -- this board cannot tell whether its corpus moves under it" >&2; exit 2; }
+GATE_NAME=test_snobol4_csnobol4_suite gate_tree_watch "$(cd "$HERE/../.." && pwd)"
 SCRIP_HASH="$(git -C "$SD" rev-parse --short HEAD 2>/dev/null || echo '?')"
 CORP_HASH="$(git -C "$ROOT/corpus" rev-parse --short HEAD 2>/dev/null || echo '?')"
 
@@ -376,6 +384,10 @@ done
 
 
 echo "── csnobol4_suite: $TOTAL pairs · SCRIP $SCRIP_HASH · corpus $CORP_HASH · RT_OPT -O0 · timeout ${TIMEOUT}s · oracle sbl -bf (SPITBOL; Lon 2026-09-07: the one SNOBOL4 oracle; formerly csnobol4, Phil Budne, home dialect) · .ref primary, live csnobol4 = triangulation + tiebreak/regen"
+# ⛔ AND THE BASELINE IS COMPARED, not merely taken: a gate_tree_watch with no gate_tree_unmoved is a
+# half-instrument -- it records what nobody checks. Placed BEFORE the board line for the same reason the
+# binary guard is: a refusal that fires after the row is published is an annotation, not a refusal.
+GATE_NAME=test_snobol4_csnobol4_suite gate_tree_unmoved
 echo "CSNOBOL4_SUITE_BOARD total=$TOTAL m3_PASS=$M3_PASS m3_FAIL=$M3_FAIL m3_REJECT=$M3_REJECT m3_CRASH=$M3_CRASH m3_HANG=$M3_HANG m4_PASS=$M4_PASS m4_FAIL=$M4_FAIL m4_REJECT=$M4_REJECT m4_CRASH=$M4_CRASH m4_HANG=$M4_HANG"
 echo "sbl -bf re-read against the refs (staleness check, informational): PASS=$CSN_PASS FAIL=$CSN_FAIL"
 # ⛔ GUARDRAIL 3 -- PRINTED WHETHER OR NOT ANY MASK EXISTS. A line that appears only when masks are in play tells
