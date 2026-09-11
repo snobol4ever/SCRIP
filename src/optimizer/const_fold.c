@@ -46,6 +46,15 @@ static int cf_binop(IR_graph_t * g, IR_t * nd, long code, DESCR_t da, DESCR_t db
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int cf_valued_operand_op(IR_e op) { return op == IR_BINOP || op == IR_BINOP_TEST || op == IR_BINOP_RELOP_VAL || op == IR_UNOP || op == IR_UNOP_TEST; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int cf_fail_operand(IR_graph_t * g, IR_t * nd) {
+    int nv = (nd->op == IR_UNOP || nd->op == IR_UNOP_TEST) ? 1 : 2;
+    if (nd->n_operands < nv) return 0;
+    for (int k = 0; k < nv; k++) if (nd->operands[k] && nd->operands[k]->op == IR_FAIL) { (void)g; nd->op = IR_FAIL; nd->n_operands = 0; return 1; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int cf_run(IR_graph_t * g) {
     int total = 0;
     if (!g) return 0;
@@ -54,6 +63,7 @@ int cf_run(IR_graph_t * g) {
         for (int i = 0; i < g->n; i++) {
             IR_t * nd = g->all[i];
             if (!nd) continue;
+            if (cf_valued_operand_op(nd->op) && cf_fail_operand(g, nd)) { changed++; total++; continue; }
             if (nd->op == IR_BINOP && nd->n_operands == 2 && nd->operands[0] && nd->operands[1]) {
                 DESCR_t da, db;
                 if (cf_lit_descr(nd->operands[0], &da) && cf_lit_descr(nd->operands[1], &db) && cf_binop(g, nd, (long)IR_LIT(nd).ival, da, db)) { changed++; total++; }
