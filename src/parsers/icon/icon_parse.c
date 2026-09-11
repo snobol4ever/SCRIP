@@ -578,10 +578,11 @@ static tree_t *parse_expr(IcnParser *p) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *parse_ctrl(IcnParser *p) {
-    int line = p->cur.line; (void)line;
+    int line = p->cur.line;
     if (check(p, TK_RETURN)) {
         advance(p);
         tree_t *e = ast_node_new(TT_RETURN);
+        e->line = line;
         if (!check(p, TK_SEMICOL) && !check(p, TK_RPAREN) &&
             !check(p, TK_EOF)  && !check(p, TK_THEN) &&
             !check(p, TK_ELSE) && !check(p, TK_DO) && !check(p, TK_RBRACE))
@@ -590,11 +591,14 @@ static tree_t *parse_ctrl(IcnParser *p) {
     }
     if (check(p, TK_FAIL)) {
         advance(p);
-        return ast_node_new(TT_PROC_FAIL);
+        tree_t *e = ast_node_new(TT_PROC_FAIL);
+        e->line = line;
+        return e;
     }
     if (check(p, TK_SUSPEND)) {
         advance(p);
         tree_t *e = ast_node_new(TT_SUSPEND);
+        e->line = line;
         if (icn_begins_nexpr(p->cur.kind)) push_child(e, parse_expr(p));
         else push_child(e, e_leaf_sval(TT_VAR, "&null", -1));
         tree_t *body = parse_do_clause(p);

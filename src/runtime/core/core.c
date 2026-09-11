@@ -468,13 +468,19 @@ void rt_trace_resume_hook(const char *pname) {
     g_line = save;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void icn_act_restore_call_line(void) {
+    extern int rt_k_level; extern long g_line; extern const char *g_file;
+    if (rt_k_level >= 0 && rt_k_level < ICN_ACT_CAP) { icn_act_rec_t *r = &g_icn_act[rt_k_level]; if (r->line > 0) { g_line = r->line; if (r->file) g_file = r->file; } }
+}
 void rt_trace_fail_hook(const char *fname) {
     extern long g_stno;
     rt_trace_event(TRK_RETURN, fname, FAILDESCR, g_stno);
+    icn_act_restore_call_line();
 }
 void rt_trace_return_hook(const char *fname, DESCR_t retval) {
     extern long g_stno;
     rt_trace_event(TRK_RETURN, fname, retval, g_stno);
+    icn_act_restore_call_line();
 }
 int64_t kw_stcount = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
