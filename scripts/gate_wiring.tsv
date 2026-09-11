@@ -209,6 +209,7 @@ test_gate_sno_deferred_pattern_primitive_arg.sh	WIRED	-	-	-
 test_gate_sno_deferred_replacement_keeps_its_capture_mark.sh	WIRED	-	-	-
 test_gate_sno_dump_matches_spitbol.sh	WIRED	-	-	-
 test_gate_sno_fence_body_dynamic_operand.sh	WIRED	-	-	-
+test_gate_sno_goto_with_no_preceding_error.sh	WIRED	-	-	-
 test_gate_sno_io_assoc_channel_and_filespec.sh	WIRED	-	-	-
 test_gate_sno_keyword_spelling_is_case_sensitive.sh	WIRED	-	-	-
 test_gate_sno_lex_compare_binary_safe.sh	WIRED	-	-	-
