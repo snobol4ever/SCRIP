@@ -769,8 +769,10 @@ static tree_t *parse_stmt(IcnParser *p) {
         return e;
     }
     if (check(p, TK_SUSPEND)) {
+        int susline = p->cur.line;
         advance(p);
         tree_t *e = ast_node_new(TT_SUSPEND);
+        e->line = susline;
         if (icn_begins_nexpr(p->cur.kind)) push_child(e, parse_expr(p));
         else push_child(e, e_leaf_sval(TT_VAR, "&null", -1));
         tree_t *body = parse_do_clause(p);

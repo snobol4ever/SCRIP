@@ -6,7 +6,7 @@ extern "C" {
 #include "descr.h"
 }
 #include "x86_asm.h"
-extern "C" void rt_trace_suspend_hook(const char *pname, uint64_t lo, uint64_t hi);
+extern "C" void rt_trace_suspend_hook(const char *pname, uint64_t lo, uint64_t hi, long line);
 extern "C" void rt_trace_resume_hook(const char *pname);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_suspend() {
@@ -30,6 +30,8 @@ std::string bb_suspend() {
          + x86_scan_sync_out()
          + x86("push", "rax") + x86("push", "rdx") + x86("push", "rbx") + x86("mov", "rbx", "rsp") + x86("and", "rsp", (long)-16)
          + x86_load_ro_str("rdi", (_.op_activate_proc ? _.op_activate_proc : "main")) + x86("mov", "rsi", FRQ(0)) + x86("mov", "rdx", FRQ(8))
+         + x86("comment", "ARG 4 = THIS SUSPEND'S OWN SOURCE LINE, a compile-time constant. The hook used to print g_line, which tracks EXECUTION: in a re-suspension chain every outer level re-yields a value produced deep inside and nothing moves g_line on the way out, so all of them printed the innermost line (cxtrace: 16/16/16 where iconx prints 33/29/25). rcx is free here -- rax/rdx/rbx are already pushed around this call and rdi/rsi/rdx carry args 1-3.")
+         + x86("mov", "rcx", (long)_.op_line)
          + x86("call", "rt_trace_suspend_hook", (uint64_t)(uintptr_t)(void *)rt_trace_suspend_hook)
          + x86("mov", "rsp", "rbx") + x86("pop", "rbx") + x86("pop", "rdx") + x86("pop", "rax")
          + x86_gamma()

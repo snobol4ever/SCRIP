@@ -268,7 +268,7 @@ void comm_call(const char *fname);
 void comm_return(const char *fname, DESCR_t retval);
 int  trace_is_active(const char *name);
 typedef enum { TRK_VALUE = 0, TRK_ACCESS, TRK_LABEL, TRK_KEYWORD, TRK_FUNCTION, TRK_CALL, TRK_RETURN, TRK_SUSPEND, TRK_RESUME } trace_kind_t;
-void rt_trace_suspend_hook(const char *pname, uint64_t lo, uint64_t hi);
+void rt_trace_suspend_hook(const char *pname, uint64_t lo, uint64_t hi, long line);
 void rt_trace_resume_hook(const char *pname);
 void rt_trace_event(int kind, const char *name, DESCR_t value, long long stno);
 void rt_trace_event_args(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno);
