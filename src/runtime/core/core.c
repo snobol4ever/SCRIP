@@ -459,6 +459,15 @@ void rt_trace_suspend_hook(const char *pname, uint64_t lo, uint64_t hi, long lin
     g_line = save;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_trace_gen_return_hook(const char *pname, uint64_t lo, uint64_t hi) {
+    if (g_trace == 0 || !pname || !*pname) return;
+    trace_ent_t *e = trace_find("*", TRK_CALL);
+    if (!e || !e->tag || strcmp(e->tag, "icn")) return;
+    if (trace_recursion_depth > 0) return;
+    DESCR_t v; uint64_t w[2]; w[0] = lo; w[1] = hi; memcpy(&v, w, sizeof v);
+    g_trace--; trace_recursion_depth++; trace_print_icon(TRK_RETURN, pname, (DESCR_t *)0, 0, v); trace_recursion_depth--;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_trace_resume_hook(const char *pname) {
     extern int rt_k_level; extern long g_line;
     if (g_trace == 0 || !pname || !*pname) return;

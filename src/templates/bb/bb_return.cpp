@@ -6,6 +6,7 @@ extern "C" {
 #include "descr.h"
 }
 #include "x86_asm.h"
+extern "C" void rt_trace_gen_return_hook(const char *pname, uint64_t lo, uint64_t hi);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_return() {
     if (_.op_zres && _.op_dval != 2.0) {
@@ -37,6 +38,11 @@ std::string bb_return() {
              + x86("mov", FRQ(8), 0L)
              + x86("mov", "rax", FRQ(0))
              + x86("mov", "rdx", FRQ(8)))
+         + IF(_.op_dval != 2.0 && _.flat_gen,
+               x86("push", "rax") + x86("push", "rdx") + x86("push", "rbx") + x86("mov", "rbx", "rsp") + x86("and", "rsp", (long)-16)
+             + x86_load_ro_str("rdi", (_.op_activate_proc ? _.op_activate_proc : "main")) + x86("mov", "rsi", FRQ(0)) + x86("mov", "rdx", FRQ(8))
+             + x86("call", "rt_trace_gen_return_hook", (uint64_t)(uintptr_t)(void *)rt_trace_gen_return_hook)
+             + x86("mov", "rsp", "rbx") + x86("pop", "rbx") + x86("pop", "rdx") + x86("pop", "rax"))
          + IF(_.op_dval == 2.0, x86_omega())
          + IF(_.op_dval != 2.0, x86_gamma());
 }
