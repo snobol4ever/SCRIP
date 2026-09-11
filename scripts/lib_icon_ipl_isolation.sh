@@ -93,9 +93,47 @@ ipl_isolation_cleanup() { [ -n "${IPL_ISO_TEMPLATE:-}" ] && rm -rf "$IPL_ISO_TEM
 # SCRIP with the oracle bin off PATH and `write(1+1);` answers `sh: 1: icont: not found` instead of 2. So such
 # an entry grades system(), file writing and the driver loop; it would stay GREEN if our expression evaluation
 # were entirely broken, and its agreement with the oracle is not evidence about the evaluator.
+# ⛔⭐⭐ THE ENVIRONMENT IS STATED ONCE HERE, SO THIS FILE MUST OWN ALL OF IT -- INCLUDING THE HELPER IT
+# READS THE ORACLE PATH FROM (hq_R 2026-09-11, measured on the qei row). The PATH clause above resolves the
+# oracle bin through `icont_bin`, which lives in lib_oracle_flags.sh -- and this file never sourced it. A
+# caller that had sourced lib_oracle_flags.sh got the oracle segment; a caller that had not got the clause
+# SILENTLY DROPPED, because `command -v icont_bin` cannot tell "no oracle on this box" from "the helper was
+# never loaded". ⛔ THE TWO ANSWERS ARE NOT EQUALLY WRONG: a missing oracle is a fact about the box, while an
+# unloaded helper is a fact about the caller, and the second one is the common case here --
+# test_icon_ipl_suite.sh, THE RUN-GRADED BOARD ITSELF, sources this lib and has never sourced
+# lib_oracle_flags.sh, so every run-graded IPL entry was executed with the oracle OFF PATH while its .std was
+# cut with the oracle ON it. For the 108 entries that never resolve a name through PATH that is invisible;
+# for progs/qei, which shells out to `icont` and to its own compiled `qei_`, it is a SILENT FALSE FAIL -- the
+# graded run answers `sh: 1: icont: not found` in place of the evaluation, a well-formed 111-byte output that
+# announces nothing and diffs against a correct ref. ⭐ THE SHAPE, which is why the cure is here and not in
+# the runner: hq_P's own header for this clause says a missing oracle stays "loud (`icont: not found`) rather
+# than wrong" -- and that reasoning holds only while that string reaches a HUMAN. Here it lands inside the
+# graded program's own stdout, where loud and wrong are the same bytes. A diagnostic is only loud in a stream
+# somebody reads as a diagnostic; routed into a compared stream it is indistinguishable from an answer.
+# So: load the helper ourselves (it defines functions only -- no side effects, safe to re-source), and if the
+# oracle is genuinely unavailable AFTER that, say so ONCE on stderr instead of letting the absence travel
+# silently into 108 refs. The fallback itself is unchanged: the segment is still simply absent.
+_ipl_iso_load_oracle_flags() {
+  command -v icont_bin >/dev/null 2>&1 && return 0
+  local _here; _here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  . "$_here/lib_oracle_flags.sh" 2>/dev/null || return 1
+  command -v icont_bin >/dev/null 2>&1
+}
 ipl_isolation_env() {
   local work="$1" arr="$2" _ob=""
-  if command -v icont_bin >/dev/null 2>&1; then _ob="$(dirname "$(icont_bin)")"; fi
+  _ipl_iso_load_oracle_flags || :
+  # ⛔ `dirname "$(icont_bin)"` CANNOT EXPRESS "no oracle": on a box without one icont_bin prints its refusal
+  # to STDERR, returns 1 and emits NOTHING on stdout -- and `dirname ""` is `.`, so the unguarded form put the
+  # CURRENT WORKING DIRECTORY on PATH as though it were the oracle bin, and the absent-segment fallback the
+  # comment above promises was unreachable. Take the value, then test it: a non-zero rc or an empty string is
+  # the absence, and only a real directory becomes a PATH segment.
+  local _ib=""
+  if command -v icont_bin >/dev/null 2>&1; then _ib="$(icont_bin 2>/dev/null)" || _ib=""; fi
+  [ -n "$_ib" ] && [ -d "$(dirname "$_ib")" ] && _ob="$(dirname "$_ib")"
+  if [ -z "$_ob" ] && [ -z "${_IPL_ISO_NO_ORACLE_WARNED:-}" ]; then
+    _IPL_ISO_NO_ORACLE_WARNED=1
+    echo "⛔ ipl_isolation_env: NO ICON ORACLE BIN -- the PATH handed to every isolated run omits it, so a program that shells out to \`icont\` (progs/qei) answers \`icont: not found\` INSIDE its graded output and reads as a wrong answer, not as a missing tool. Refs cut elsewhere with the oracle on PATH will false-FAIL against this run." >&2
+  fi
   eval "$arr=()"
   eval "$arr+=(\"ICONPATH=\$work/progs:\$work/gprogs:\$work/procs:\$work/gprocs:\$work/incl:\$work/gincl\")"
   # ⛔ A MISSING ORACLE MUST NOT SILENTLY PRODUCE A PLAUSIBLE PATH. If icont_bin is unavailable the oracle
