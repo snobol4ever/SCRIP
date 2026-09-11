@@ -186,12 +186,24 @@ for std in "$SUITE"/*.std; do
   fi
 
   # ── mode 4: --compile (asm to stdout) -> assemble+link libscrip_rt.so -> run ─────────────────────
-  s4=$(mktemp /tmp/ariz_XXXXXX.s); bin4=$(mktemp /tmp/ariz_XXXXXX.bin); rm -f "$bin4"
+  # ⛔⭐ THE m4 INVOCATION IS PINNED TO ./NAME, AND THAT IS THIS RUNNER'S OWN GROUND TRUTH (ceo ruling
+  # 2026-09-11, "neither ref is wrong, the runner is"; hq_B FINDING-2026-09-11-...-progname). &progname IS
+  # argv[0], so a program printing it has an output that is A FUNCTION OF HOW IT WAS INVOKED. This built to
+  # `mktemp /tmp/ariz_XXXXXX.bin` and ran it by that absolute path -- a name that matches NO ref cut from any
+  # real invocation and CANNOT be made to by choosing a better ref. Upstream's Test-icon, cited as GROUND
+  # TRUTH at the head of this file, compiles NAME.icn to NAME and runs ./NAME; that is what the .std files
+  # were cut under, so that is what we reproduce. The binary is litter like any other and is removed by name
+  # below, both explicitly and by the pre-run snapshot sweep.
+  s4=$(mktemp /tmp/ariz_XXXXXX.s); bin4="$SUITE/$name"
+  # ⛔ REFUSE rather than overwrite: if a shipped file already owns that name, building over it would destroy
+  # tracked corpus content, and the snapshot sweep would NOT remove it (it is not new) -- so the damage would
+  # be silent and permanent. No arizona name collides today; this is the guard for the day one does.
+  if [ -e "$bin4" ]; then echo "REFUSE(2): $sub/$name -- cannot pin the m4 binary to $bin4, a shipped file already owns that name" >&2; rm -f "$s4"; exit 2; fi
   m4diag=$(cd "$SUITE" && timeout "$TIMEOUT" "$SCRIP" --compile "$name.icn" 2>&1 >"$s4" </dev/null)
   m4out=""
   if [ -s "$s4" ] && [ -f "$RT_SO" ]; then
     if gcc -no-pie "$s4" -L"$HERE/../out" -lscrip_rt -Wl,-rpath,"$HERE/../out" -o "$bin4" 2>/dev/null; then
-      m4out=$(cd "$SUITE" && timeout "$TIMEOUT" "$bin4" < "$stdin_file" 2>&1); m4rc=$?
+      m4out=$(cd "$SUITE" && timeout "$TIMEOUT" "./$name" < "$stdin_file" 2>&1); m4rc=$?
     fi
   fi
   if printf '%s\n%s\n%s' "$m4diag" "$m4out" "$(cat "$s4" 2>/dev/null)" | grep -q 'parse error'; then
