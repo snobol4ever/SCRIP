@@ -42,6 +42,20 @@ RT_SO="$HERE/../out/libscrip_rt.so"
 CORPUS="$S4E/corpus"
 PKG="$CORPUS/packages/icon/arizona_tests"
 SUITE_SUBDIRS="general special"   # ⛔ every subdirectory the package ships; add a new one here, not to a private list elsewhere
+# ⛔⭐⭐ THE ONE-ORACLE RULE, APPLIED TO THIS PACKAGE (ceo CEO-527, landed CEO-578 by hq_T 2026-09-11). A program
+# whose ground truth is not Arizona ICON but the Arizona DISTRIBUTION has no baseline answer here, so it is OUT of
+# the graded denominator and NAMED -- never hidden and never counted either way. The sister runner has read its own
+# OUTSIDE_ARIZONA_BASELINE.tsv since CEO-470; this one did not, so two rows the ceo ruled outside weeks ago went on
+# printing four red cells (cfuncs m3+m4, extlvals m3+m4) because THE RULING HAD NO READER. ⭐ A ruling landed in a
+# file no instrument opens is indistinguishable from a ruling nobody made.
+# ⛔ THE KEY IS THE PACKAGE-RELATIVE PATH WITH EXTENSION ("general/cfuncs.icn"), not the bare basename the jcon copy
+# uses: this package ships TWO subdirectories, and UNGRADABLE.tsv already keys that way for the same reason -- a
+# bare name would let general/io and special/io buy each other's exclusion.
+OUTSIDE="$PKG/OUTSIDE_ARIZONA_BASELINE.tsv"
+outside_rows() { [ -f "$OUTSIDE" ] && grep -v '^[[:space:]]*#' "$OUTSIDE" | grep -v '^[[:space:]]*$'; }
+is_outside_baseline() { [ -f "$OUTSIDE" ] && awk -F"\t" -v n="$1" '$1==n {f=1} END {exit f?0:1}' "$OUTSIDE"; }
+outside_reason() { [ -f "$OUTSIDE" ] && awk -F"\t" -v n="$1" '$1==n {print $2; exit}' "$OUTSIDE"; }
+OUTSIDE_LIST=""
 TIMEOUT="${TIMEOUT:-8}"
 VERBOSE=0
 if [ $# -gt 0 ]; then
@@ -142,6 +156,11 @@ for std in "$SUITE"/*.std; do
   name=$(basename "$std" .std)
   icn="$SUITE/$name.icn"
   [ -f "$icn" ] || continue
+  # ⛔ OUT OF THE DENOMINATOR BEFORE IT IS COUNTED, NEVER SUBTRACTED AFTER: a program excluded after TOTAL++ would
+  # ride in the fraction the board publishes and be named as excluded in the same breath, which is two answers.
+  # It stays in SHIPPED (POPULATION LAW) and so falls into the GAP, where the UNGRADED/UNGRADABLE split accounts
+  # for it -- the mirror check below refuses to let it be excluded here and invisible there.
+  if is_outside_baseline "$sub/$name.icn"; then OUTSIDE_LIST="$OUTSIDE_LIST $sub/$name"; continue; fi
   TOTAL=$((TOTAL+1))
   GRADED_NAMES="$GRADED_NAMES $sub/$name"
   exp=$(cat "$std")
@@ -246,7 +265,10 @@ UNGRADED_NAMES=""
 for n in $SHIPPED_NAMES; do
   case " $GRADED_NAMES " in
     *" $n "*) ;;
-    *) UNGRADED_NAMES="$UNGRADED_NAMES $n" ;;
+    # ⛔ THE GAP IS NOT ONE THING AND THIS LIST MUST NOT READ AS IF IT WERE: an outside-baseline name is a RULING
+    # with a measurement behind it, and an unannotated name beside it reads as a ref nobody has cut yet.
+    *) if is_outside_baseline "$n.icn"; then UNGRADED_NAMES="$UNGRADED_NAMES $n(outside the Arizona baseline: $(outside_reason "$n.icn"))"
+       else UNGRADED_NAMES="$UNGRADED_NAMES $n"; fi ;;
   esac
 done
 
@@ -268,6 +290,53 @@ echo "m4 REJECT ($M4_REJECT):$M4_REJECT_NAMES"
 # board must never fold into either count (RULES.md: "measured and clean" vs "never ran" may not share
 # an output). Counted as ZERO of the population per Lon's ruling until each is individually resolved.
 echo "NOT GRADED ($GAP, of $SHIPPED shipped, zero of population until graded -- the PACKAGE_INVENTORY line below splits these into ungraded=owed vs ungradable=ruled):$UNGRADED_NAMES"
+# ⛔ PRINTED WHETHER OR NOT THE LIST IS EMPTY (CEO-409 guardrail 3 on masks): a line that appears only when
+# something is excluded tells the reader nothing on the day one is added and everything on the day one is removed.
+echo "OUTSIDE_ARIZONA_BASELINE ($(printf '%s' "$OUTSIDE_LIST" | wc -w), out of the graded denominator, named in $OUTSIDE):${OUTSIDE_LIST:- none}"
+OUT_UNSHIPPED=""; OUT_UNMIRRORED=""; OUT_STALE=""; OUT_RECHECKED=0; OUT_UNCHECKED=""
+while IFS=$'\t' read -r _on _oc _orest; do
+    [ -n "$_on" ] || continue
+    # A row naming no shipped program is a rename or a leftover, and it withdraws an exclusion SILENTLY.
+    [ -f "$PKG/$_on" ] || { OUT_UNSHIPPED="$OUT_UNSHIPPED $_on"; continue; }
+    # ⛔ THE MIRROR IS NOT DECORATION: the GAP is split by UNGRADED.tsv/UNGRADABLE.tsv and NOT by this file, so an
+    # OUTSIDE row absent from both is excluded by one instrument and invisible to the other -- the population stops
+    # summing while every individual file still reads honest.
+    if ! grep -q "^$_on"$'\t' "$PKG/UNGRADED.tsv" 2>/dev/null && ! grep -q "^$_on"$'\t' "$PKG/UNGRADABLE.tsv" 2>/dev/null; then
+        OUT_UNMIRRORED="$OUT_UNMIRRORED $_on"
+    fi
+    # ⛔⭐ THE STALENESS ARM, AND ITS SHAPE IS DECIDED BY THE CLASS, NOT COPIED FROM THE SISTER RUNNER. jcon
+    # re-measures ORACLE_REFUSES rows by asking icont to compile them again, because there the oracle's refusal IS
+    # the premise. Here the oracle ANSWERS both rows; the premise is that WE CANNOT, for a reason outside the
+    # language (a library of the distribution's own bin). So the honest re-measure is to put the program to OUR
+    # compiler and see whether the premise still holds: if it now reproduces the oracle's answer, the exclusion is
+    # a number that can only ever be lowered, which is not a correction either.
+    case "$_oc" in
+        NEEDS_VENDORED_SOURCE|ORACLE_CONTRACT_NOT_IMPLEMENTED)
+            _osub="${_on%%/*}"; _ob="$(basename "$_on" .icn)"
+            if [ -f "$PKG/$_osub/$_ob.std" ]; then
+                _odat="$PKG/$_osub/$_ob.dat"; _ostdin="/dev/null"; [ -f "$_odat" ] && _ostdin="$_odat"
+                _oout=$(cd "$PKG/$_osub" && timeout "$TIMEOUT" "$SCRIP" --run "$_ob.icn" < "$_ostdin" 2>&1)
+                OUT_RECHECKED=$((OUT_RECHECKED+1))
+                [ "$_oout" = "$(cat "$PKG/$_osub/$_ob.std")" ] && OUT_STALE="$OUT_STALE $_on(m3 matches .std NOW)"
+            else OUT_UNCHECKED="$OUT_UNCHECKED $_on(no .std)"; fi ;;
+        *) OUT_UNCHECKED="$OUT_UNCHECKED $_on($_oc)" ;;
+    esac
+done <<EOF
+$(outside_rows)
+EOF
+[ -n "$OUT_UNSHIPPED" ]  && echo "⚠ OUTSIDE_ARIZONA_BASELINE.tsv NAMES NOTHING SHIPPED:$OUT_UNSHIPPED -- a rename or a leftover; the row withdraws an exclusion silently, and this file is not covered by lib_inventory's declared-but-not-shipped refusal except through the mirror"
+[ -n "$OUT_UNMIRRORED" ] && echo "⚠ OUTSIDE_ARIZONA_BASELINE.tsv DOES NOT MIRROR the lockdown buckets:$OUT_UNMIRRORED -- named outside the denominator here and in neither UNGRADED.tsv nor UNGRADABLE.tsv, so the gap split below cannot see them; work owed is UNGRADED, a ruling nobody owes work on is UNGRADABLE"
+[ -n "$OUT_STALE" ]      && echo "⚠ OUTSIDE_ARIZONA_BASELINE.tsv STALE:$OUT_STALE -- recorded as outside our reach, and we produced the oracle's answer THIS RUN. Move it back into the graded denominator; an exclusion list that can only ever lower the number is not a correction either"
+# ⛔ THE AGREEMENT LINE MAY NOT CLAIM MORE THAN WAS MEASURED (hq_T's own failure test on the jcon copy: with the
+# oracle unreachable it re-measured zero rows and still printed "agrees with the oracle"). It names what it put to
+# the compiler and what it did not.
+if [ -z "$OUT_UNSHIPPED$OUT_UNMIRRORED$OUT_STALE" ]; then
+    if [ "$OUT_RECHECKED" -gt 0 ]; then
+        echo "OUTSIDE_ARIZONA_BASELINE.tsv agrees with the lockdown buckets and with this compiler (re-measured $OUT_RECHECKED row(s) in m3 against their own .std; NOT re-measured:${OUT_UNCHECKED:- none})"
+    else
+        echo "OUTSIDE_ARIZONA_BASELINE.tsv agrees with the lockdown buckets; NO ROW WAS RE-MEASURED, so every row stands on its recorded reason alone:${OUT_UNCHECKED:- none}"
+    fi
+fi
 # ⛔ BEFORE THE BOARD LINE AND BEFORE ANY SCORE.md WRITE, NEVER AFTER (ceo CEO-524 (1)): a refusal that fires
 # after the row is published is an annotation, not a refusal -- the same lesson test_gate_progress_rows_carry_
 # the_start_fingerprint.sh was written for. gate_bin_unmoved exits 2 itself when the fingerprint moved.

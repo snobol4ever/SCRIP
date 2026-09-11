@@ -94,6 +94,7 @@ test_gate_icn_loadfunc_returns_a_callable.sh	WIRED	-	-	-
 test_gate_icn_no_stack.sh	WIRED	-	-	-
 test_gate_icn_one_reg_frame.sh	WIRED	-	-	-
 test_gate_icn_open_directory_reads_entries.sh	WIRED	-	-	-
+test_gate_icn_outside_baseline_is_read_and_mirrored.sh	WIRED	-	-	-
 test_gate_icn_pow_large_integer_exponent.sh	WIRED	-	-	-
 test_gate_icn_range_operands_must_be_integers.sh	WIRED	-	-	-
 test_gate_icn_record_field_name_is_not_a_procedure.sh	WIRED	-	-	-
