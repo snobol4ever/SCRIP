@@ -473,6 +473,7 @@ DESCR_t kw_read(const char *kw) {
           return INTVAL((int64_t)(clock()*1000/CLOCKS_PER_SEC));
       }
     }
+    if (!strcmp(kw,"progname")) { extern const char *rt_main_progname(void); return STRVAL(rt_main_progname()); }
     if (!strcmp(kw,"version")) return STRVAL("Jcon Version 2.2");
     if (!strcmp(kw,"host")) { static char hbuf[256]; if (!hbuf[0]) { if (gethostname(hbuf,sizeof(hbuf)-1) != 0 || !hbuf[0]) strcpy(hbuf,"scrip"); } return STRVAL(hbuf); }
     return FAILDESCR;

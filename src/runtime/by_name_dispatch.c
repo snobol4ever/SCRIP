@@ -4387,8 +4387,11 @@ DESCR_t rt_args_list_from(char **v, int n) {
 static DESCR_t g_main_args_descr;
 static char **g_main_args_v;
 static int g_main_args_n = -1;
+static const char *g_main_progname;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_main_args_stage(char **v, int n) { if (n < 0 || !v) n = 0; g_main_args_v = v; g_main_args_n = n; }
+void rt_main_progname_stage(const char *s) { char *c = s ? strdup(s) : 0; free((void *) g_main_progname); g_main_progname = c; }
+const char *rt_main_progname(void) { return g_main_progname ? g_main_progname : ""; }
 void rt_main_args_bind(void) { extern DESCR_t g_call_args[]; if (g_main_args_descr.v == DT_DATA) return; if (g_main_args_n < 0) rt_main_args_stage((char **)0, 0); g_main_args_descr = rt_args_list_from(g_main_args_v, g_main_args_n); if (!getenv("SCRIP_NO_MAIN_ARGS")) g_call_args[0] = g_main_args_descr; }
 DESCR_t rt_main_args_fetch(void) { rt_main_args_bind(); return g_main_args_descr; }
 int rt_main_args_count(void) { return g_main_args_n < 0 ? 0 : g_main_args_n; }
