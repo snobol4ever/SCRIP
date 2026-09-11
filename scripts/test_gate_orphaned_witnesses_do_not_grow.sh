@@ -68,7 +68,11 @@ CENSUS="$CORPUS/tests/ORPHANED-WITNESSES.tsv"
 # is written by the BUILDER and no build had run since. Verified the echo here before writing anything, then added the
 # one line the builder emits verbatim. ⛔ A DECLARED KEEPER READS AS AN ORPHAN UNTIL SOMEBODY RUNS A BUILD: the census
 # reads three files, and one of the three lags the declaration that governs it.
-FLOOR_icon=4 FLOOR_pascal=0 FLOOR_prolog=0 FLOOR_raku=0 FLOOR_rebus=0 FLOOR_snobol4=39 FLOOR_snocone=1
+# ⭐ FLOOR_icon 4 -> 2 (hq_V 2026-09-10, third landing of the sitting): the cfo's two pairs -- the very two named above as
+# still-theirs -- were handed over for absorption and are now IN the master as procedure_alt_list_replace_1 and
+# procedure_every_to_52, three-way measured here first. So the debt named two commits ago is discharged rather than
+# outlived, which is the only honest way for a named debt to leave a ratchet.
+FLOOR_icon=2 FLOOR_pascal=0 FLOOR_prolog=0 FLOOR_raku=0 FLOOR_rebus=0 FLOOR_snobol4=39 FLOOR_snocone=1
 out="$(python3 scripts/util_orphaned_witness_census.py "$CORPUS" --counts 2>&1)" || { echo "⛔ GATE REFUSES(2): census generator failed:"; echo "$out"; exit 2; }
 printf %s "$out" | grep -q . || { echo "⛔ GATE REFUSES(2): census produced NO output -- an empty census is not a green board"; exit 2; }
 rc=0 tot=0 seen=0
