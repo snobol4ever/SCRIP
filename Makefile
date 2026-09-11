@@ -558,7 +558,6 @@ RT_PIC_SRCS := \
     $(SRC)/optimizer/branch_chain.c \
     $(SRC)/optimizer/const_fold.c \
     $(SRC)/optimizer/copy_prop.c \
-    $(SRC)/optimizer/pat_fold.c \
     $(SRC)/optimizer/dead_pure.c \
     $(SRC)/optimizer/dead_goto.c \
     $(SRC)/optimizer/optimizer.c \

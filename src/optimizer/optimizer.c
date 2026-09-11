@@ -2,7 +2,6 @@
 #include "branch_chain.h"
 #include "const_fold.h"
 #include "copy_prop.h"
-#include "pat_fold.h"
 #include "dead_pure.h"
 #include "dead_goto.h"
 #include <stdio.h>
@@ -21,14 +20,14 @@ void optimizer_run(IR_graph_t *g) {
     if (!g) return;
     { extern void scc_taint_graph(IR_graph_t *); scc_taint_graph(g); }
     int do_cf = cf_spine_on() || g_is_proc_or_pat(g);
-    int t_cf = 0, t_cp = 0, t_pf = 0, t_dp = 0, t_bc = 0;
+    int t_cf = 0, t_cp = 0, t_dp = 0, t_bc = 0;
     for (int round = 0; round < 8; round++) {
-        int n_cf = do_cf ? cf_run(g) : 0, n_cp = cp_run(g), n_pf = pf_run(g), n_dp = dp_run(g);
+        int n_cf = do_cf ? cf_run(g) : 0, n_cp = cp_run(g), n_dp = dp_run(g);
         int b = bc_run(g);
-        t_cf += n_cf; t_cp += n_cp; t_pf += n_pf; t_dp += n_dp; t_bc += b;
-        if (!(n_cf + n_cp + n_pf + n_dp)) break;
+        t_cf += n_cf; t_cp += n_cp; t_dp += n_dp; t_bc += b;
+        if (!(n_cf + n_cp + n_dp)) break;
     }
     int t_dg = 0;
     for (int round = 0; round < 8; round++) { int n = dg_run(g); t_dg += n; if (!n) break; }
-    if (getenv("SCRIP_OPT_STATS")) fprintf(stderr, "[optimizer] fold=%d copy=%d pat=%d dead=%d branch_chain=%d dead_goto=%d\n", t_cf, t_cp, t_pf, t_dp, t_bc, t_dg);
+    if (getenv("SCRIP_OPT_STATS")) fprintf(stderr, "[optimizer] fold=%d copy=%d dead=%d branch_chain=%d dead_goto=%d\n", t_cf, t_cp, t_dp, t_bc, t_dg);
 }
