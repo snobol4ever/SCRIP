@@ -65,9 +65,39 @@ def _additive_origin(top, lang, base):
 # _EXTRA_TEST_TREES categories by hand; nothing enforces the two lists agreeing).
 _TESTS_ADDITIVE_CATS = ('tests', 'scrip_test', 'snocone_ladder')
 rows = collections.defaultdict(collections.Counter); owed = collections.defaultdict(list)
+dangling = collections.defaultdict(list)
+_REF_EXTS = ('.ref', '.expected', '.std')
+_LANGS = set(EXT.values())
 for root, dirs, files in os.walk(C):
     rel = os.path.relpath(root, C)
     if rel.startswith('packages') or rel.startswith('programs') or '/.git' in root or rel.startswith('.git'): continue   # programs/* excluded on Lon's word 2026-09-04 ("Go ahead and exclude programs/* folders."): the 08-27 parser-only ruling on that tree stands
+    # ⛔⭐⭐ THE BLIND SIDE: THIS CENSUS WALKS SOURCES AND ASKS "does a ref sit beside it", SO A REF WHOSE
+    # SOURCE IS GONE IS INVISIBLE TO IT BY CONSTRUCTION (hq_T 2026-09-11, routed by hq_V). MEASURED: corpus
+    # `249f653a6` deleted the four loose rung03 suspend pairs and its own commit message states "the four
+    # rung03 .expected twins went too" -- they did not; only the .icn and .ref halves were removed, and four
+    # .expected files stayed tracked on origin. The same commit reports "icon orphans reach 0", and BOTH
+    # SENTENCES WERE TRUE AT ONCE, because the only instrument either was checked against enumerates
+    # `ext not in EXT: continue` -- source extensions, one direction, forever.
+    # ⭐ THE GENERAL FORM, which is why this lives in the walk and not in a one-off script: AN INVENTORY THAT
+    # WALKS ONE HALF OF A PAIR CAN NEVER REPORT DEBT ON THE OTHER HALF, and it will keep printing a clean
+    # number while it does. A dangling ref is not cosmetic: it is a SELF-PIN waiting for a name collision --
+    # restore a source with that basename and the master builder's discover_pairs falls back to the sibling
+    # .expected, silently pinning a new program to a ref cut for a deleted one.
+    # ⛔ THE PREDICATE IS EXACT ON PURPOSE -- "no file in this directory shares the ref's basename", never a
+    # prefix or fuzzy match. A first pass asked "is there a partner with one of the SEVEN source extensions"
+    # and over-reported 25 where the truth is 10: demos/scrip/*.expected sit beside `.scrip` sources, which
+    # is a polyglot extension EXT has no reason to carry. An instrument answering a NARROWER question than
+    # you think you asked never says so -- this file's own header carries that lesson twice already.
+    _partners = set(os.path.splitext(x)[0] for x in files if not x.endswith(_REF_EXTS))
+    for f in files:
+        if f.endswith(_REF_EXTS) and not f.startswith('ALL'):
+            _base = f[:f.rfind('.')]
+            if _base not in _partners:
+                _parts = path_parts = os.path.normpath(os.path.join(rel, f)).split(os.sep)
+                _lang = next((q for q in _parts if q in _LANGS), '')
+                if not (A.lang and _lang != A.lang):
+                    dangling[_lang].append(os.path.normpath(os.path.join(rel, f)))
+                    rows[(_parts[0], _lang or '?')]['dangling ref (no source)'] += 1
     for f in files:
         ext = f.rsplit('.', 1)[-1] if '.' in f else ''
         if ext not in EXT: continue
@@ -110,15 +140,23 @@ for root, dirs, files in os.walk(C):
         elif re.search(r'(^|/)(parser|coverage)/', path) or re.match(r'parser_|probe_|coverage_', f): kind = 'fixture'; owed[lang].append(path)
         else: kind = 'loose source (no ref)'; owed[lang].append(path)
         rows[(top, lang)][kind] += 1
-print('%-12s %-8s %9s %6s %10s %10s %8s %12s' % ('tree', 'lang', 'container', 'module', 'accounted', 'loose-pair', 'fixture', 'loose-noref'))
+print('%-12s %-8s %9s %6s %10s %10s %8s %12s %9s' % ('tree', 'lang', 'container', 'module', 'accounted', 'loose-pair', 'fixture', 'loose-noref', 'dangling'))
 tot = collections.Counter()
 for (top, lang), c in sorted(rows.items()):
-    print('%-12s %-8s %9d %6d %10d %10d %8d %12d' % (top, lang, c['container'], c['module'], c['accounted'], c['loose pair (has ref)'], c['fixture'], c['loose source (no ref)']))
+    print('%-12s %-8s %9d %6d %10d %10d %8d %12d %9d' % (top, lang, c['container'], c['module'], c['accounted'], c['loose pair (has ref)'], c['fixture'], c['loose source (no ref)'], c['dangling ref (no source)']))
     for k, v in c.items(): tot[k] += v
-n = sum(len(v) for v in owed.values())
-print('UNABSORBED_CENSUS%s: containers=%d modules=%d accounted=%d OWED=%d (loose pairs %d, fixtures %d, loose no-ref %d) -- an owed source is absorbed into its master with an oracle-cut ref, or named in ALL.excluded.txt with the reason it cannot run with output' % (' lang=' + A.lang if A.lang else '', tot['container'], tot['module'], tot['accounted'], n, tot['loose pair (has ref)'], tot['fixture'], tot['loose source (no ref)']))
-for lang in sorted(owed): print('  %-8s owed %d' % (lang, len(owed[lang])))
+d = sum(len(v) for v in dangling.values())
+n = sum(len(v) for v in owed.values()) + d
+# ⛔ A DANGLING REF IS OWED DEBT, NOT A WARNING, so it joins the rc -- the four that prompted this check sat on
+# origin for two days BECAUSE the only thing that would have named them printed rc=0 about a different question.
+# ⭐ It is reported as its own bucket and never folded into 'loose pair': those are sources awaiting absorption,
+# these are refs whose source is already gone. Summing them would hide a ref-side regression inside a source-side
+# backlog that is being worked down anyway -- the arithmetic would stay plausible while the meaning drained out.
+print('UNABSORBED_CENSUS%s: containers=%d modules=%d accounted=%d OWED=%d (loose pairs %d, fixtures %d, loose no-ref %d, DANGLING REFS %d) -- an owed source is absorbed into its master with an oracle-cut ref, or named in ALL.excluded.txt with the reason it cannot run with output; an owed DANGLING REF is a .ref/.expected/.std whose source no longer exists and is deleted once its content is proven preserved (diff it against the master entry that absorbed it) or restored beside its source' % (' lang=' + A.lang if A.lang else '', tot['container'], tot['module'], tot['accounted'], n, tot['loose pair (has ref)'], tot['fixture'], tot['loose source (no ref)'], d))
+for lang in sorted(set(list(owed) + list(dangling))):
+    print('  %-8s owed %d%s' % (lang or '?', len(owed[lang]) + len(dangling[lang]), (' (dangling refs %d)' % len(dangling[lang])) if dangling[lang] else ''))
 if A.list:
-    for lang in sorted(owed):
+    for lang in sorted(set(list(owed) + list(dangling))):
         for p in sorted(owed[lang]): print('    ' + p)
+        for p in sorted(dangling[lang]): print('    DANGLING REF  ' + p)
 sys.exit(1 if n else 0)
