@@ -52,8 +52,30 @@ void record_register(const char *spec) {
     dat_register(spec);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int dat_spec_is_current(const char *spec) {
+    if (!spec || !*spec) return 0;
+    char name[64]; int ni = 0; const char *p = spec;
+    while (*p && *p != '(' && ni < 63) name[ni++] = *p++;
+    name[ni] = '\0';
+    DatType *t = dat_find_type(name);
+    if (!t) return 0;
+    if (*p == '(') p++;
+    int i = 0;
+    while (*p && *p != ')') {
+        while (*p == ' ' || *p == '\t') p++;
+        if (!*p || *p == ')') break;
+        char f[64]; int fi = 0;
+        while (*p && *p != ',' && *p != ')' && fi < 63) f[fi++] = *p++;
+        f[fi] = '\0';
+        if (i >= t->nfields || strcmp(t->fields[i], f) != 0) return 0;
+        i++;
+        if (*p == ',') p++;
+    }
+    return i == t->nfields;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DatType *dat_find_type(const char *name) {
-    for (int i = 0; i < dat_ntypes; i++)
+    for (int i = dat_ntypes - 1; i >= 0; i--)
         if (strcmp(dat_types[i].name, name) == 0) return &dat_types[i];
     return NULL;
 }
@@ -429,7 +451,7 @@ DESCR_t _builtin_DATA(DESCR_t *args, int nargs) {
     if (!raw_spec || !*raw_spec) return FAILDESCR;
     char *spec = rt_pinned_strdup(raw_spec);
     DEFDAT_fn(spec);
-    dat_register(spec);
+    if (!dat_spec_is_current(spec)) dat_register(spec);
     { char nb[64]; int k = 0; for (; spec[k] && spec[k] != '(' && k < 63; k++) nb[k] = spec[k]; nb[k] = 0; if (nb[0]) dat_set_live(nb, 1); }
     extern DESCR_t core_DATA_register(DESCR_t *a, int n);
     core_DATA_register(args, nargs);

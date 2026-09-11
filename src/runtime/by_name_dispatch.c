@@ -6931,7 +6931,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         const char *sp = VARVAL_fn(args[0]); if (!sp || !*sp) { *out = FAILDESCR; return 1; }
         char nb[128]; int k = 0; for (; sp[k] && sp[k] != '(' && k < 127; k++) nb[k] = sp[k]; nb[k] = 0;
         if (nb[0] && sn4_sysfn_protected(nb)) { extern int kwb_error(int code, const char *msg); kwb_error(248, "attempted redefinition of system function"); *out = FAILDESCR; return 1; }
-        if (!dat_find_type(nb)) dat_register(sp);
+        { extern int dat_spec_is_current(const char *spec); if (!dat_spec_is_current(sp)) dat_register(sp); }
         { extern void dat_set_live(const char *name, int live); if (nb[0]) dat_set_live(nb, 1); }
         *out = NULVCL; return 1;
     }

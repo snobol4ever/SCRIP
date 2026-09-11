@@ -2808,16 +2808,29 @@ const char *datatype(DESCR_t v) {
 }
 static DATBLK_t *_udef_types = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int _udef_fields_same(const DATBLK_t *t, const char *fields_str) {
+    char *tmp = rt_pinned_strdup(fields_str);
+    int i = 0;
+    for (char *tok = strtok(tmp, ","); tok; tok = strtok(NULL, ","), i++) {
+        while (*tok == ' ') tok++;
+        char *end = tok + strlen(tok) - 1;
+        while (end > tok && *end == ' ') *end-- = '\0';
+        if (i >= t->nfields || strcasecmp(t->fields[i], tok) != 0) return 0;
+    }
+    return i == t->nfields;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void DEFDAT_fn(const char *spec) {
     char *s = rt_pinned_strdup(spec);
     char *paren = strchr(s, '(');
     if (!paren) return;
     *paren = '\0';
     char *name = s;
-    if (_udef_lookup(name)) return;
     char *fields_str = paren + 1;
     char *close = strchr(fields_str, ')');
     if (close) *close = '\0';
+    DATBLK_t *prev = _udef_lookup(name);
+    if (prev && _udef_fields_same(prev, fields_str)) return;
     DATBLK_t *t = rt_pinned_alloc(sizeof(DATBLK_t));
     t->name = rt_pinned_strdup(name);
     int nfields = 0;
