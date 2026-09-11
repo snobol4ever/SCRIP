@@ -35,10 +35,38 @@ one_runner_guard() {
   printf '⛔ REFUSE(2) ONE RUNNER, ONE BOARD: %s is a board and seat %s is not the coo. The coo runs every board once per landing batch on origin HEAD and writes the rows (Lon 2026-09-10 16:3x, MODE line 2, RULES.md § FACT RULES, CEO-523). Your landing verdict is your row DONE-WHEN plus the gates you touched plus make preflight. A DONE-WHEN board clause runs under s4e_msg.sh done (exempt). S4E_ONE_RUNNER_OVERRIDE="why" is loud and recorded.\n' "$board" "${seat:-?}" >&2
   return 2
 }
+# ⛔⭐ THE SEAM: EVERY GUARD SHIPS A SANCTIONED WAY TO BE TRIPPED THAT DOES NOT REQUIRE DOING THE FORBIDDEN THING
+# (ceo CEO-560, 2026-09-11, on hq_B's self-report and hq_U's mirror case the same hour; FINDING-2026-09-11-hq_B-a-guard-
+# whose-only-proof-of-firing-is-committing-the-act-it-forbids.md). Until now the ONLY route to this guard's refusal was
+# S4E_SEAT=coo -- i.e. asserting another seat's identity, the exact act the guard exists to stop -- so proving it fires
+# meant committing the offence. A guard that can only be tested that way is tested that way OR NOT AT ALL, and "not at
+# all" is how icn_port_trace got to 22 of 24. ⭐ THE PROBE SEAT IS INERT BY CONSTRUCTION: it is a reserved name that can
+# never be a real seat, so it can only ever REMOVE privilege and never grant it -- the opposite of S4E_ONE_RUNNER_OVERRIDE,
+# which proves the BYPASS works and says nothing about the refusal. Those are different assertions and a seam must not
+# conflate them. The caller stays themselves throughout; the coo can run this and see a refusal without ceasing to be the coo.
+ONE_RUNNER_PROBE_SEAT='__one_runner_probe_not_a_seat__'
+one_runner_prove_seam() {
+  local out rc fails=0 outside
+  out=$(S4E_SEAT="$ONE_RUNNER_PROBE_SEAT" S4E_DONE_WHEN_RUN='' S4E_ONE_RUNNER_OVERRIDE='' one_runner_guard 'one-runner-seam-probe' "${S4E_CORPUS:-${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/corpus}" 2>&1); rc=$?
+  if [ "$rc" = 2 ] && printf '%s' "$out" | grep -q 'REFUSE(2) ONE RUNNER'; then printf '  OK   ARM 1 the guard REFUSES a board to a non-coo seat (rc=2, message asserted)
+'
+  else printf '  FAIL ARM 1 expected rc=2 and a REFUSE message on a corpus-rooted board, got rc=%s: %s
+' "$rc" "${out:-<silent>}"; fails=$((fails+1)); fi
+  outside="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  S4E_SEAT="$ONE_RUNNER_PROBE_SEAT" S4E_DONE_WHEN_RUN='' S4E_ONE_RUNNER_OVERRIDE='' one_runner_guard 'one-runner-seam-probe' "$outside" >/dev/null 2>&1; rc=$?
+  if [ "$rc" = 0 ]; then printf '  OK   ARM 2 the guard ADMITS a suite path OUTSIDE the corpus tree (a gate fixture is not a board)
+'
+  else printf '  FAIL ARM 2 expected rc=0 for a non-corpus suite path, got rc=%s
+' "$rc"; fails=$((fails+1)); fi
+  [ "$fails" = 0 ] || return 1
+  printf 'ONE-RUNNER SEAM: PASS -- refusal and admission both proven, no seat identity asserted
+'
+}
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
   case "${1:-}" in
+    --prove-seam) one_runner_prove_seam; exit $?;;
     --check) seat="$(one_runner_seat)"; { [ "$seat" = coo ] || [ "${S4E_DONE_WHEN_RUN:-}" = 1 ] || [ -n "${S4E_ONE_RUNNER_OVERRIDE:-}" ]; } && exit 0; exit 2;;
     --seat) one_runner_seat; exit 0;;
-    *) echo "usage: lib_one_runner.sh --check | --seat  (or source it and call one_runner_guard <board> [suite_path])" >&2; exit 2;;
+    *) echo "usage: lib_one_runner.sh --check | --seat | --prove-seam  (or source it and call one_runner_guard <board> [suite_path])" >&2; exit 2;;
   esac
 fi
