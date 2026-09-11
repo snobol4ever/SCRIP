@@ -66,7 +66,9 @@ test_gate_emit_no_slot_alloc.sh	WIRED	-	-	-
 test_gate_gate_wiring_ratchet.sh	WIRED	-	-	-
 test_gate_harness_refusal_is_rc2.sh	WIRED	-	-	-
 test_gate_icn_a_variable_operand_derefs_at_the_operation.sh	WIRED	-	-	-
+test_gate_icn_apply_invocation_of_a_generator_opens_one_level_not_two.sh	WIRED	-	-	-
 test_gate_icn_argument_type_discipline.sh	WIRED	-	-	-
+test_gate_icn_assignment_through_a_section_element_or_keyword_stores_like_icont.sh	WIRED	-	-	-
 test_gate_icn_bal_is_a_backtracking_generator.sh	WIRED	-	-	-
 test_gate_icn_bounded_expression_releases_suspended_frame.sh	WIRED	-	-	-
 test_gate_icn_builtin_name_in_lvalue_base_position_carries_its_value.sh	WIRED	-	-	-
@@ -169,6 +171,7 @@ test_gate_prolog_dynamic_predicate_with_file_clauses.sh	WIRED	-	-	-
 test_gate_queue_census_placeholder_arm.sh	WIRED	-	-	-
 test_gate_raku_paren_call_passes_its_arguments.sh	WIRED	-	-	-
 test_gate_ref_cutters_refuse_a_dead_oracle.sh	WIRED	-	-	-
+test_gate_right_sealed_defer_beta_no_double_teardown.sh	WIRED	-	-	-
 test_gate_rtcc_callee_class.sh	WIRED	-	-	-
 test_gate_rtcc_claimed_regs.sh	WIRED	-	-	-
 test_gate_runners_refuse_on_a_stale_binary.sh	WIRED	-	-	-
