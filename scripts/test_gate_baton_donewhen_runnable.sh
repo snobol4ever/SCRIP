@@ -65,9 +65,34 @@ strip_donewhen_comment() {
         print out
     }'
 }
+# ⛔⭐⭐ THE POPULATION IS THE LIVE ROWS, AND THAT IS A RULING, NOT AN OPTIMISATION (ceo CEO-546, on hq_S's
+# census 2026-09-11: FINDING-2026-09-11-hq_S-ninety-eight-live-rows-carry-a-done-when-that-can-never-exit-
+# zero-and-the-gate-that-says-so-is-unwired.md). Over ALL batons this gate counted 154 uncloseable criteria
+# and was therefore unwireable: most belong to rows long since closed, where a dead DONE-WHEN costs nobody
+# anything, and reding `make test` for nine seats over that backlog is how a true gate gets disabled rather
+# than satisfied. Cross-referenced against QUEUE.tsv for rows a picker can actually SERVE -- state FREE or
+# CLAIMED: -- the number that bites is 98, with 55 at rank 0 or 1.
+# ⛔ THE CEO'S DISTINCTION, WHICH IS SHARPER THAN THE ASK IT ANSWERS: done-row batons are EXCLUDED BY
+# POPULATION, never EXEMPTED BY STATE. An exemption says "this row may carry a dead criterion" -- a
+# permanent hole that grows every time a row closes. A population says "the set at risk is the rows that
+# can still be served", so a row leaves it BY BEING CLOSED rather than by being forgiven.
+# ⛔⛔ ANTI-SILENCE, AND IT IS THE ARM THIS GATE WOULD MOST LIKELY HAVE SHIPPED WITHOUT. A gate whose
+# population derives from QUEUE.tsv goes QUIET exactly when QUEUE.tsv breaks -- the file is not version
+# controlled, it is rewritten by every seat, and a parse failure or a truncation would read here as "zero
+# uncloseable rows", which is the shape of total success. So an unreadable queue and a ZERO-sized live
+# population are both rc=2 REFUSALS, never a pass.
+QUEUE="$PO/QUEUE.tsv"
+[ -r "$QUEUE" ] || { echo "⛔ GATE REFUSES(2): cannot read $QUEUE -- the live-row population is unknowable, and an unknown population is not an empty one"; exit 2; }
+LIVE=$(mktemp) || exit 2
+trap 'rm -f "$LIVE"' EXIT
+awk -F'\t' '$1 ~ /^[0-9]+$/ && $2 != "" && ($4 == "FREE" || $4 ~ /^CLAIMED:/) { print $2 }' "$QUEUE" | sort -u > "$LIVE"
+NLIVE=$(grep -c . "$LIVE" || true)
+[ "${NLIVE:-0}" -gt 0 ] || { echo "⛔ GATE REFUSES(2): $QUEUE yielded ZERO live rows (FREE or CLAIMED) -- that is the reading an empty or malformed queue produces, and it is indistinguishable from perfect health"; exit 2; }
 N=0; BAD=0; WARN=0
 for f in "$TASKS"/*.task.md; do
     [ -f "$f" ] || continue
+    _topic="$(basename "$f" .task.md)"
+    grep -qxF "$_topic" "$LIVE" || continue
     t=$(basename "$f" .task.md); N=$((N+1))
     dw=$(sed -n 's/^DONE-WHEN:[[:space:]]*//p' "$f" | head -1)
     if [ -z "$dw" ]; then echo "  ⛔ $t: NO DONE-WHEN line"; BAD=$((BAD+1)); continue; fi
@@ -120,6 +145,33 @@ for f in "$TASKS"/*.task.md; do
     fi
 done
 echo ""
-echo "examined $N baton(s): runnable=$((N-BAD))  UNCLOSEABLE=$BAD  WARN=$WARN"
-gate_floor "$N" 10 "task batons (a postoffice with no batons proves nothing)"
-gate_verdict "$BAD" "baton(s) carry a DONE-WHEN that can never exit 0 -- the row can never be closed"
+echo "examined $N live row(s) of $NLIVE in the queue: runnable=$((N-BAD))  UNCLOSEABLE=$BAD  WARN=$WARN"
+gate_floor "$N" 10 "live rows with batons (a postoffice with no live batons proves nothing)"
+# ⭐ CEILING 93 (hq_S 2026-09-11, ceo CEO-546 landing; measured 98 in the finding two hours earlier).
+# ⛔⭐ A FALL PASSES HERE, AND THAT IS A DELIBERATE DEPARTURE FROM THE HOUSE RATCHET SHAPE -- read this
+# before "fixing" it back. test_gate_orphaned_witnesses_do_not_grow.sh reds on a FALL as well as a rise, so
+# that paying debt down forces the floor lower in the same commit, and that is right THERE because its
+# population is the CORPUS: version-controlled, and it moves only when someone commits. This gate's
+# population is QUEUE.tsv, which is not version-controlled and is rewritten by every seat on every claim,
+# close, park and mint. MEASURED: the live count moved 98 -> 93 inside one sitting with nobody paying a
+# single DONE-WHEN -- rows simply closed and new ones were minted. A strict ratchet over a population that
+# volatile reds the build for nine seats several times an hour for reasons no commit caused, and a gate
+# that cries wolf is a gate that gets commented out -- the exact failure the ruling exists to avoid.
+# So: GROWTH IS RED, a fall PASSES and says loudly what the new ceiling should be. That is also the ruling's
+# own wording ("red only if the count goes UP"). ⛔ THE COST, NAMED RATHER THAN DISCOVERED LATER: a fall that
+# nobody banks leaves headroom, so a later regrowth back toward 93 is invisible. The cure for that is to
+# bank it -- lower this number whenever you see the ⭐ line -- and step 3 of the ruling is CEILING=0, at
+# which point the headroom problem disappears because there is none.
+CEILING=93
+if [ "$BAD" -gt "$CEILING" ]; then
+    echo "⛔ GATE FAIL [baton_donewhen_runnable]: $BAD live row(s) carry a DONE-WHEN that can never exit 0, ceiling $CEILING -- GREW by $((BAD-CEILING))"
+    echo "   A row in this list can be cured perfectly and still record no flip, because \`done\` cannot pass on it."
+    echo "   Fix the criterion on the rows named above, or -- if you minted one -- make it a command before you push."
+    exit 1
+fi
+if [ "$BAD" -lt "$CEILING" ]; then
+    echo "⭐ GATE PASS [baton_donewhen_runnable]: $BAD live row(s) uncloseable, ceiling $CEILING -- FELL by $((CEILING-BAD)). BANK IT: lower CEILING to $BAD in this gate, in your next commit."
+    exit 0
+fi
+echo "✅ GATE PASS [baton_donewhen_runnable]: $BAD live row(s) uncloseable, exactly at the ceiling $CEILING -- not grown"
+exit 0
