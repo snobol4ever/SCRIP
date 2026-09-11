@@ -82,6 +82,7 @@ test_gate_icn_generator_exhaustion_traces_failed.sh	WIRED	-	-	-
 test_gate_icn_generator_records_its_activation.sh	WIRED	-	-	-
 test_gate_icn_generator_regime_calls_the_runtime_at_c_parity.sh	WIRED	-	-	-
 test_gate_icn_generator_return_traces_returned_not_failed.sh	WIRED	-	-	-
+test_gate_icn_generator_return_ends_the_activation_and_varargs_image_as_the_list.sh	WIRED	-	-	-
 test_gate_icn_global_names_are_not_governed_by_snobol4_keywords.sh	WIRED	-	-	-
 test_gate_icn_if_without_else_invocable_arity_and_string_continuation.sh	WIRED	-	-	-
 test_gate_icn_ipl_scan_resume_and_limit_flips.sh	WIRED	-	-	-

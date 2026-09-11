@@ -2774,13 +2774,14 @@ static void icn_register_local_offsets(const char * pname) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string icn_trace_tap(const char * pname, int kind, int np) {
     extern long g_trace; extern void rt_trace_call_hook_f(const char *, int, void *); extern void rt_trace_return_hook(const char *, DESCR_t); extern void rt_trace_fail_hook(const char *);
+    extern void rt_trace_gen_fail_hook(const char *, void *);
     extern int g_flat_node_id;
     if (!pname) return std::string();
     pname = icn_trace_intern(pname);
     std::string id = std::to_string(g_flat_node_id++);
-    std::string sk = (kind <= 3) ? "L24" + std::to_string(6 + kind) : "L246"; std::string fl = ".Licn_trace_nm" + id;
+    std::string sk = (kind <= 3) ? "L24" + std::to_string(6 + kind) : (kind == 4 ? "L246" : "L" + std::to_string(235 + kind)); std::string fl = ".Licn_trace_nm" + id;
     std::string s = x86("push", "rax") + x86("push", "rdx") + x86("push", "rbx") + x86("mov", "rbx", "rsp") + x86("and", "rsp", (long)-16)
-        + IF(kind == 2 || kind == 3, x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_trace, "g_trace")
+        + IF(kind == 2 || kind == 3 || kind == 5, x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_trace, "g_trace")
         + x86("mov", "rax", RDQ("rax", 0)) + x86("cmp", "rax", (long)0) + x86("je", sk))
         + x86("directive", ".section .rodata") + x86("directive", (fl + ": .string \"" + pname + "\"").c_str()) + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix")
         + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)pname, fl.c_str());
@@ -2788,6 +2789,7 @@ static std::string icn_trace_tap(const char * pname, int kind, int np) {
         s += x86("mov32", "esi", (long)np) + x86("lea", "rdx", RDQ("rbx", 24)) + x86("call", "core_icn_act_record", (uint64_t)(uintptr_t)(void *)core_icn_act_record); }
     else if (kind == 1) s += x86("mov32", "esi", (long)np) + x86("lea", "rdx", RDQ("rbx", 24)) + x86("call", "rt_trace_call_hook_f", (uint64_t)(uintptr_t)(void *)rt_trace_call_hook_f);
     else if (kind == 2) s += x86("mov", "rsi", RDQ("rbx", 16)) + x86("mov", "rdx", RDQ("rbx", 8)) + x86("call", "rt_trace_return_hook", (uint64_t)(uintptr_t)(void *)rt_trace_return_hook);
+    else if (kind == 5) s += x86("mov", "rsi", "rbp") + x86("call", "rt_trace_gen_fail_hook", (uint64_t)(uintptr_t)(void *)rt_trace_gen_fail_hook);
     else s += x86("call", "rt_trace_fail_hook", (uint64_t)(uintptr_t)(void *)rt_trace_fail_hook);
     s += x86("def", sk) + x86("mov", "rsp", "rbx") + x86("pop", "rbx") + x86("pop", "rdx") + x86("pop", "rax");
     return s;
@@ -3549,7 +3551,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         else { ef_b4(0x48, 0x83, 0xE4, 0xF0); ef_b3(0x31, 0xFF, 0x90); { uint64_t _ex = (uint64_t)(uintptr_t)(void *)exit; ef_b2(0x48, 0xB8); bb_emit_u64(_ex); ef_b2(0xFF, 0xD0); } } }
     else if (_blob_wire) { extern int sn4_blob_casmark(void); bb_emit_x86(IF(blob_frame_bytes() > 0, IF(sn4_blob_casmark(), x86("mov", "r12", RDQ("rbp", -32))) + x86("mov", "rsp", "rbp") + x86("pop", "rbp")) + x86("comment", "WIRE-STACK (s195) FRETURN FORM, REGISTER-FREE: after mov rsp,rbp;pop rbp the stack is back at entry depth, which is exactly where the caller's PUSHed pair sits -- the RETIRING exit owns the release.  ⛔ The LANDING must NOT release it: a γ-SUSPEND leaves the blob's resume record on top of the pair, so a landing-side add would eat the record instead (Lon s195: yielding is different from returning).") + x86("add", "rsp", 8L) + x86("ret")); }
     else if (icn_gen_regime() && g_emit.flat_gen) {
-        bb_emit_x86(icn_trace_tap((strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix, 3, 0));
+        { bb_emit_x86(x86("comment", "A GENERATOR'S RETIRE IS NOT ALWAYS A FAILURE (row icon-a-traced-generator-that-returns-traces-as-failed): a `return` inside a generator is lowered as YIELD-THEN-RETIRE -- bb_return parks this very omega in the resume slot and jumps gamma -- so this exit is reached BOTH by exhaustion (iconx: `p failed`) and by the resumption that follows a return (iconx: nothing at all, the frame is already gone and the value was reported at the return). The tap therefore hands rbp (= the region header H, the same value bb_return's tap recorded) to rt_trace_gen_fail_hook, which suppresses exactly one fail per recorded return and otherwise is rt_trace_fail_hook verbatim. Kind 3 (the unconditional fail tap) is what stood here and it is what printed `vproc failed` where iconx prints `vproc returned &null`.")
+                     + icn_trace_tap((strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix, 5, 0)); }
         bb_emit_x86(x86("comment", "N-2 STEP 3 RETIRE (ceo s283): exhaustion restores the caller's world entirely from the region header -- rsp from the ANCHOR at [H+24] (= caller pre-pad rsp0, so the landing's retire arm releases NOTHING), caller rbp from [H+0], and jumps the gamma wire from [H+8] carrying DT_FAIL in al, which is how the shared landing tells a retirement from a yield. ⛔ No ret: after the first suspend the stack words the old ret popped are long dead -- the region is the only storage whose contents this exit may trust. The region itself is the HOST's to reuse; nothing is freed here.")
                   + x86("mov", "rcx", RDQ("rbp", 8))
                   + x86("mov", "rsp", RDQ("rbp", 24))

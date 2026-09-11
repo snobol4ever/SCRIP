@@ -459,13 +459,20 @@ void rt_trace_suspend_hook(const char *pname, uint64_t lo, uint64_t hi, long lin
     g_line = save;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_trace_gen_return_hook(const char *pname, uint64_t lo, uint64_t hi) {
+static void *g_icn_gen_ret[256]; static int g_icn_gen_ret_n;
+void rt_trace_gen_return_hook(const char *pname, uint64_t lo, uint64_t hi, void *h) {
     if (g_trace == 0 || !pname || !*pname) return;
     trace_ent_t *e = trace_find("*", TRK_CALL);
     if (!e || !e->tag || strcmp(e->tag, "icn")) return;
     if (trace_recursion_depth > 0) return;
     DESCR_t v; uint64_t w[2]; w[0] = lo; w[1] = hi; memcpy(&v, w, sizeof v);
     g_trace--; trace_recursion_depth++; trace_print_icon(TRK_RETURN, pname, (DESCR_t *)0, 0, v); trace_recursion_depth--;
+    if (g_icn_gen_ret_n == 256) { for (int i = 1; i < 256; i++) g_icn_gen_ret[i - 1] = g_icn_gen_ret[i]; g_icn_gen_ret_n = 255; }
+    g_icn_gen_ret[g_icn_gen_ret_n++] = h;
+}
+void rt_trace_gen_fail_hook(const char *fname, void *h) {
+    for (int i = g_icn_gen_ret_n - 1; i >= 0; i--) if (g_icn_gen_ret[i] == h) { for (int j = i + 1; j < g_icn_gen_ret_n; j++) g_icn_gen_ret[j - 1] = g_icn_gen_ret[j]; g_icn_gen_ret_n--; return; }
+    rt_trace_fail_hook(fname);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_trace_resume_hook(const char *pname) {
