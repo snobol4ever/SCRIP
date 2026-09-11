@@ -1425,7 +1425,9 @@ DESCR_t rt_field_var(const char *fname, DESCR_t obj) {
     return NAMETRAP(vc);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_list_bang_var_at(DESCR_t obj, int64_t idx) {
+static DESCR_t rt_list_bang_var_body(DESCR_t obj, int64_t idx, int elems_only);
+DESCR_t rt_list_bang_var_at(DESCR_t obj, int64_t idx) { return rt_list_bang_var_body(obj, idx, 0); }
+static DESCR_t rt_list_bang_var_body(DESCR_t obj, int64_t idx, int elems_only) {
     DESCR_t bvar = obj;
     if (IS_VARREF_fn(obj)) obj = rt_deref(obj);
     if (obj.v == DT_DATA) {
@@ -1442,7 +1444,7 @@ DESCR_t rt_list_bang_var_at(DESCR_t obj, int64_t idx) {
             { const char *rn = obj.u->type->name ? obj.u->type->name : "record"; const char *fn = (obj.u->type->fields && obj.u->type->fields[idx]) ? obj.u->type->fields[idx] : ""; int rl = (int)strlen(rn); int fl = (int)strlen(fn); char *nb = rt_str_alloc(rl + fl + 1); memcpy(nb, rn, rl); nb[rl] = '.'; memcpy(nb + rl + 1, fn, fl); nb[rl + 1 + fl] = 0; vc->key = nb; }
             return NAMETRAP(vc);
         }
-        return FAILDESCR;
+        { extern DESCR_t rt_list_bang_at(DESCR_t, int64_t); return rt_list_bang_at(bvar, idx); }
     }
     if (obj.v == DT_T && obj.tbl) {
         TBBLK_t *tbl = obj.tbl; int64_t seen = 0; TBPAIR_t *ep;
@@ -1455,13 +1457,26 @@ DESCR_t rt_list_bang_var_at(DESCR_t obj, int64_t idx) {
             }
         return FAILDESCR;
     }
-    if ((obj.v == DT_S || obj.v == DT_SNUL) && IS_VARREF_fn(bvar)) {
+    if ((obj.v == DT_S || obj.v == DT_SNUL) && !IS_CSET_fn(obj)) {
         const char *sp = obj.s ? obj.s : ""; long slen = obj.slen ? (long)obj.slen : (long)strlen(sp);
         if (idx < 0 || idx >= slen) return FAILDESCR;
-        VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = bvar; vc->pos = idx + 1; vc->len = 1;
-        return NAMETRAP(vc);
+        if (!elems_only && IS_VARREF_fn(bvar)) {
+            VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = bvar; vc->pos = idx + 1; vc->len = 1;
+            return NAMETRAP(vc);
+        }
+        char *out = rt_str_alloc(1); out[0] = sp[idx]; out[1] = 0;
+        return (DESCR_t){ .v = DT_S, .slen = 1, .s = out };
     }
-    return FAILDESCR;
+    { extern DESCR_t rt_list_bang_at(DESCR_t, int64_t); return rt_list_bang_at(bvar, idx); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_list_bang_elem_at(DESCR_t obj, int64_t idx) { return rt_list_bang_var_body(obj, idx, 1); }
+DESCR_t rt_var_table_elem(DESCR_t d, DESCR_t *tbl_out, DESCR_t *key_out) {
+    if (!IS_NAMETRAP_fn(d)) { if (tbl_out) tbl_out->v = DT_FAIL; return FAILDESCR; }
+    VCELL_t *vc = (VCELL_t *)d.p; if (!vc || !vc->tbl) { if (tbl_out) tbl_out->v = DT_FAIL; return FAILDESCR; }
+    if (tbl_out) { DESCR_t t; memset(&t, 0, sizeof t); t.v = DT_T; t.slen = 0; t.tbl = vc->tbl; *tbl_out = t; }
+    if (key_out) *key_out = vc->key_d;
+    return d;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_random_var_body(DESCR_t base);
@@ -1559,11 +1574,32 @@ DESCR_t rt_var_ref_cell(DESCR_t *cellp) {
     return NAMETRAP(vc);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_keyword_var(const char *name) {
+    VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = 0; vc->key = name; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = -1; vc->len = 0;
+    return NAMETRAP(vc);
+}
+int rt_var_is_keyword(DESCR_t d, const char **name_out) {
+    if (!IS_NAMETRAP_fn(d)) return 0;
+    VCELL_t *vc = (VCELL_t *)d.p; if (!vc || vc->cellp || vc->tbl || !vc->key || vc->pos != -1) return 0;
+    if (name_out) *name_out = vc->key;
+    return 1;
+}
+int rt_var_substring(DESCR_t d, DESCR_t *base_out, long *pos_out, long *len_out) {
+    if (!IS_NAMETRAP_fn(d)) return 0;
+    VCELL_t *vc = (VCELL_t *)d.p; if (!vc || vc->cellp || vc->pos <= 0 || !IS_VARREF_fn(vc->sv)) return 0;
+    DESCR_t base = vc->sv; long pos = vc->pos, len = vc->len;
+    while (IS_NAMETRAP_fn(base)) { VCELL_t *bv = (VCELL_t *)base.p; if (!bv || bv->cellp || bv->pos <= 0 || !IS_VARREF_fn(bv->sv)) break; pos += bv->pos - 1; base = bv->sv; }
+    if (base_out) *base_out = base; if (pos_out) *pos_out = pos; if (len_out) *len_out = len;
+    return 1;
+}
+void rt_trace_deref_slot(DESCR_t *p) { if (p) *p = rt_deref(*p); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_deref_slow(DESCR_t d) {
     if (d.v == DT_N && d.slen == 0 && d.s && *d.s) { extern DESCR_t NV_GET_fn(const char *); return NV_GET_fn(d.s); }
     if (d.v == DT_N && d.slen == 1 && d.ptr) return *(DESCR_t *)d.ptr;
     if (!IS_NAMETRAP_fn(d)) return d;
     VCELL_t *vc = (VCELL_t *)d.p; if (!vc) return FAILDESCR;
+    if (!vc->cellp && !vc->tbl && vc->key && vc->pos == -1) { extern DESCR_t rt_keyword_read(const char *); return rt_keyword_read(vc->key); }
     if (vc->cellp) return *vc->cellp;
     if (vc->tbl) {
         int found; DESCR_t hit = table_get_found_d(vc->tbl, vc->key_d, &found);
@@ -1592,6 +1628,10 @@ static DESCR_t c_rt_assign_var_body(DESCR_t var, DESCR_t val) {
         abort();
     }
     VCELL_t *vc = (VCELL_t *)var.p; if (!vc) return FAILDESCR;
+    if (!vc->cellp && !vc->tbl && vc->key && vc->pos == -1) {
+        fprintf(stderr, "[IDX] BOMB rt_assign_var: assignment to keyword variable %s is not implemented (the keyword write also resets the scanning environment, so it is not a cell store)\n", vc->key);
+        abort();
+    }
     if (vc->cellp) { extern void mon_tap_cell_store(void *, DESCR_t); *vc->cellp = val; if (monitor_fd >= 0) mon_tap_cell_store((void *)vc->cellp, val); return val; }
     if (vc->tbl) { table_set_descr_d(vc->tbl, vc->key_d, val); return val; }
     if (IS_VARREF_fn(vc->sv)) {

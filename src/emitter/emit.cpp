@@ -1129,7 +1129,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_LIT_NAME:
     case IR_LIT_REAL:               { { long fck; if (!g_emit.op_zres && fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; } } bb_emit_x86(bb_lit_scalar()); }         return 0;
     case IR_KW_ICON:
-    case IR_KW_ICON_GEN:     bb_emit_x86(bb_keyword_icon());       return 0;
+    case IR_KW_ICON_GEN:     g_emit.op_var_form = nd->pat_static; bb_emit_x86(bb_keyword_icon()); g_emit.op_var_form = 0; return 0;
     case IR_KW_SNOBOL4:      bb_emit_x86(bb_keyword_snobol4());    return 0;
     case IR_KW_ASSIGN:       bb_emit_x86(bb_keyword_assign());     return 0;
     case IR_KW_ASSIGN_SNOBOL4: bb_emit_x86(bb_keyword_assign_snobol4()); return 0;
@@ -1178,7 +1178,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         default:              bb_emit_x86(bb_binop_arith());       return 0;
         }
     case IR_SUCCEED:              bb_emit_x86(bb_succeed());        return 0;
-    case IR_SUSPEND:              { g_emit.op_activate_proc = IR_LIT(nd).sval; bb_emit_x86(bb_suspend()); } return 0;
+    case IR_SUSPEND:              { g_emit.op_activate_proc = IR_LIT(nd).sval; g_emit.op_var_form = nd->pat_static; bb_emit_x86(bb_suspend()); g_emit.op_var_form = 0; } return 0;
     case IR_TO:                   { bb_prepare(nd); g_emit.op_range_int_operands = ir_range_operands_must_be_integers(nd); bb_emit_x86(bb_to()); } return 0;
     case IR_MATCH_LEN:            { bb_prepare(nd); { const char * _sv = (nd->n_operands == 0 && (uintptr_t)(uint64_t)IR_LIT(nd).ival > (uintptr_t)0xFFFFU) ? IR_LIT(nd).sval : (const char *)0; g_emit.op_sval = (_sv && _sv[0] == '*') ? _sv : (const char *)0; } bb_emit_x86(bb_match_len()); } return 0;
     case IR_MATCH_LIT:            { bb_prepare(nd); bb_emit_x86(bb_match_lit()); } return 0;
@@ -2222,6 +2222,7 @@ static int zd_wl_kind(IR_t * nd) {
     if (op == IR_STATEMENT_BEGIN || op == IR_STATEMENT_END || op == IR_STMT_MARK) return 1;
     if (op == IR_KW_ASSIGN_SNOBOL4) return 1;
     if (op == IR_KW_SNOBOL4) return 1;
+    if (op == IR_KW_ICON && nd->pat_static) return 0;
     if (op == IR_KW_ICON) { static int _icnkw = -1; if (_icnkw < 0) { const char * e = getenv("SCRIP_ZD_ICN_KW"); _icnkw = (e && *e == '0') ? 0 : 1; } if (!(_icnkw && g_emit_cfg && g_emit_cfg->icn_cells_graph)) return 0; { const char *_kw = IR_LIT(nd).sval; if (!_kw) return 0; const char *_k = (_kw[0] == '&') ? _kw + 1 : _kw; return (!strcmp(_k, "null") || !strcmp(_k, "pos") || !strcmp(_k, "subject")) ? 1 : 0; } }
     if (op == IR_COERCE_STRING || op == IR_COERCE_INTEGER) return 1;
     if (op == IR_DEREF || op == IR_ASSIGN_VAR) return 1;

@@ -8,6 +8,7 @@ extern "C" {
 #include "x86_asm.h"
 extern "C" void rt_trace_suspend_hook(const char *pname, uint64_t lo, uint64_t hi, long line);
 extern "C" void rt_trace_resume_hook(const char *pname);
+extern "C" void rt_trace_deref_slot(DESCR_t *p);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_suspend() {
     x86_begin();
@@ -34,6 +35,13 @@ std::string bb_suspend() {
          + x86("mov", "rcx", (long)_.op_line)
          + x86("call", "rt_trace_suspend_hook", (uint64_t)(uintptr_t)(void *)rt_trace_suspend_hook)
          + x86("mov", "rsp", "rbx") + x86("pop", "rbx") + x86("pop", "rdx") + x86("pop", "rax")
+         + (_.op_var_form ?
+                x86("comment", "The operand was lowered in VARIABLE form so the tap above could image the variable rather than its value. The variable must not flow onward -- every consumer of a suspended value wants the value -- so it is dereferenced HERE, after the tap and before gamma. This is why a compile-time 'variable form' attribute is safe on a node whose operand is a run-time alternation: the form says only that SOME arm can yield a variable, and a non-variable descriptor passes through rt_trace_deref_slot untouched.")
+              + x86("push", "rax") + x86("push", "rdx") + x86("push", "rbx") + x86("mov", "rbx", "rsp") + x86("and", "rsp", (long)-16)
+              + x86("lea", "rdi", (_.op_zres ? ZRES(0) : FRQ(0)))
+              + x86("call", "rt_trace_deref_slot", (uint64_t)(uintptr_t)(void *)rt_trace_deref_slot)
+              + x86("mov", "rsp", "rbx") + x86("pop", "rbx") + x86("pop", "rdx") + x86("pop", "rax")
+            : std::string())
          + x86_gamma()
          + x86_beta()
          + x86("push", "rax") + x86("push", "rdx") + x86("push", "rbx") + x86("mov", "rbx", "rsp") + x86("and", "rsp", (long)-16)

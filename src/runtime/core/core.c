@@ -165,8 +165,30 @@ static void trace_image_icon_leaf_f(FILE *fp, DESCR_t a) {
 static void trace_image_icon_f(FILE *fp, DESCR_t a, int top);
 static void trace_image_icon(DESCR_t a, int top) { trace_image_icon_f(stderr, a, top); }
 void core_icn_display_image(FILE *fp, DESCR_t v) { trace_image_icon_f(fp, v, 1); }
+static void trace_image_icon_var_f(FILE *fp, DESCR_t a) {
+    extern DESCR_t rt_deref(DESCR_t);
+    extern int rt_var_is_keyword(DESCR_t, const char **);
+    extern int rt_var_substring(DESCR_t, DESCR_t *, long *, long *);
+    const char *kw = 0; DESCR_t base; long pos = 0, len = 0;
+    DESCR_t val = rt_deref(a);
+    if (rt_var_is_keyword(a, &kw)) { fprintf(fp, "%s = ", kw); trace_image_icon_f(fp, val, 1); return; }
+    if (!IS_NAMETRAP_fn(a)) { fputs("(variable = ", fp); trace_image_icon_f(fp, val, 1); fputc(')', fp); return; }
+    {
+        extern DESCR_t rt_var_table_elem(DESCR_t, DESCR_t *, DESCR_t *);
+        DESCR_t tb, ky; rt_var_table_elem(a, &tb, &ky);
+        if (tb.v == DT_T) { trace_image_icon_f(fp, tb, 0); fputc('[', fp); trace_image_icon_f(fp, ky, 1); fputc(']', fp); return; }
+    }
+    if (rt_var_substring(a, &base, &pos, &len)) {
+        const char *bkw = 0;
+        if (rt_var_is_keyword(base, &bkw)) fputs(bkw, fp); else trace_image_icon_f(fp, rt_deref(base), 1);
+        if (len == 1) fprintf(fp, "[%ld] = ", pos); else fprintf(fp, "[%ld+:%ld] = ", pos, len);
+        trace_image_icon_f(fp, val, 1); return;
+    }
+    fputs("(variable = ", fp); trace_image_icon_f(fp, val, 1); fputc(')', fp);
+}
 static void trace_image_icon_f(FILE *fp, DESCR_t a, int top) {
     extern long rt_record_image_id(void *inst);
+    if (IS_VARREF_fn(a)) { trace_image_icon_var_f(fp, a); return; }
     if (a.v == DT_DATA && a.u && a.u->type && a.u->type->name) {
         DATBLK_t *t = a.u->type;
         if (!strcmp(t->name, "list")) {

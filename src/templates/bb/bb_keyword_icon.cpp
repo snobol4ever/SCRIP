@@ -9,12 +9,25 @@ struct DESCR_t rt_keyword_subject(void);
 struct DESCR_t rt_keyword_pos(void);
 DESCR_t rt_keyword_read(const char *sval);
 DESCR_t rt_keyword_gen(const char *sval, long idx);
+DESCR_t rt_keyword_var(const char *name);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_keyword_icon() {
     if (!(_.op_off >= 0) && !_.op_zres) return x86_alpha() + x86_bomb("bb_keyword: no slot");
     const char *kw = !_.op_sval ? "" : (_.op_sval[0] == '&' ? _.op_sval + 1 : _.op_sval);
+    if (_.op_var_form && _.op_sval && _.op_sval[0] == '&')
+        return x86("comment", "KEYWORD_var: a keyword reaching a trace tap is a VARIABLE, so this arm mints rt_keyword_var(name) -- a NAMETRAP with no cell, because &subject and &pos live in scan registers and &trace behind kw_read -- and the read is deferred to DEREFERENCE time. Deferral is the semantics: iconx decrements &trace for the event and dereferences after, so &trace images -47 where an evaluation-time snapshot images -46.")
+             + x86_alpha()
+             + x86("mov",     "rdi", ROQ(0))
+             + x86("call",    "rt_keyword_var", (uint64_t)(uintptr_t)(void *)rt_keyword_var)
+             + x86("mov",     FRQ(_.op_off),     "rax")
+             + x86("mov",     FRQ(_.op_off + 8), "rdx")
+             + x86_gamma() + x86_beta() + x86_omega()
+             + x86("def",     L(0))
+             + x86(".quad",   LS(0), _.op_sval)
+             + x86("label",   LS(0))
+             + x86(".string", _.op_sval);
     return _.op_zres
          ? (!strcmp(kw, "subject")
             ? (g_scan_regs_live
