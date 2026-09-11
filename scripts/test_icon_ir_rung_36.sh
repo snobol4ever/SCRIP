@@ -59,6 +59,23 @@ run() {
     fi
 }
 
+# ⛔⭐ A NAME THAT MOVED INTO THE MASTER IS ASSERTED HERE, NEVER SILENTLY SKIPPED (hq_V, 2026-09-11).
+# run() above prints "SKIP (no .expected)" and returns SUCCESS when a file is gone, so absorbing a loose
+# rung36 witness into ALL.icn and deleting its pair -- the correct, routine end of a conversion -- takes this
+# script one witness smaller with no message and no failing exit code. That is the same false-green shape
+# test_icon_ir_rung_34's REFUSAL was written to kill. moved() states where the coverage went and PROVES it is
+# there: the entry must be present in ALL.csv under the origin named, or this gate REFUSES rc=2 rather than
+# reporting a smaller green board. It deliberately adds nothing to PASS -- the IcnM board grades that entry
+# now, in both modes, and counting it here too would double-count one program across two instruments.
+moved() {
+    local name="$1" origin="$2"
+    if [ -f "$CORPUS/${name}.icn" ]; then
+        echo "⛔ REFUSES rc=2: $name is loose again at $CORPUS/${name}.icn while this line says it moved to the master -- one program cannot be graded in two places; restore the run line or finish the absorption"; exit 2
+    fi
+    grep -q ",${origin}," "$CORPUS/ALL.csv" || { echo "⛔ REFUSES rc=2: $name was absorbed as origin $origin but no such origin is in $CORPUS/ALL.csv -- the coverage is in NEITHER place; this is not a pass"; exit 2; }
+    echo "  MOVED $name -> ALL.icn origin $origin (graded m3+m4 by the IcnM board, not counted twice here)"
+}
+
 echo "=== rung36: JCON integration suite (43 still-loose entries, individually diagnosed) ==="
 run rung36_jcon_args
 run rung36_jcon_btrees
@@ -76,7 +93,7 @@ run rung36_jcon_fncs
 run rung36_jcon_fncs1
 run rung36_jcon_geddump
 run rung36_jcon_gener
-run rung36_jcon_genqueen
+moved rung36_jcon_genqueen rung36_jcon_genqueen
 run rung36_jcon_image
 run rung36_jcon_io
 run rung36_jcon_iobig
