@@ -712,7 +712,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             lc_γ_to(ini, γ);
         }
         *res = ini; return ini; }
-    case TT_SUSPEND: { IR_t * sn = build(cx, IR_SUSPEND, cx->psucc ? cx->psucc : γ, ω); IR_LIT(sn).dval = 1.0;
+    case TT_SUSPEND: { IR_t * sn = build(cx, IR_SUSPEND, cx->psucc ? cx->psucc : γ, ω); IR_LIT(sn).dval = 1.0; IR_LIT(sn).sval = (char *) cx->pname;
         IR_t * ev = NULL; IR_t * e_entry = sn; IR_t * eβ = NULL;
         if (t->n > 0 && t->c[0]) { cx->beta = ω; e_entry = lower(cx, t->c[0], sn, ω, &ev); if (cx->beta && cx->beta != ω) eβ = cx->beta; }
         ir_operand_push(sn, ev);

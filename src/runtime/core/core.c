@@ -205,7 +205,9 @@ static void trace_print_icon(int kind, const char *name, DESCR_t *args, int narg
         fputc('(', stderr);
         for (int i = 0; i < nd; i++) { if (i) fputc(',', stderr); if (i < nargs) trace_image_icon(args[i], 1); else fputs("&null", stderr); }
         fputc(')', stderr);
-    } else if (IS_FAIL(value)) fputs(" failed", stderr);
+    } else if (kind == TRK_SUSPEND) { fputs(" suspended ", stderr); trace_image_icon(value, 1); }
+    else if (kind == TRK_RESUME) fputs(" resumed", stderr);
+    else if (IS_FAIL(value)) fputs(" failed", stderr);
     else { fputs(" returned ", stderr); trace_image_icon(value, 1); }
     fputc('\n', stderr);
     fflush(stderr);
@@ -445,6 +447,27 @@ void rt_trace_call_hook_f(const char *fname, int np, void *base) {
     for (int i = 0; i < np; i++) a[i] = *(DESCR_t *)((char *)base + (i + 1) * 16);
     rt_trace_event_args(TRK_CALL, fname, a, np, NULVCL, g_stno);
 }
+void rt_trace_suspend_hook(const char *pname, uint64_t lo, uint64_t hi) {
+    if (g_trace == 0 || !pname || !*pname) return;
+    trace_ent_t *e = trace_find("*", TRK_CALL);
+    if (!e || !e->tag || strcmp(e->tag, "icn")) return;
+    if (trace_recursion_depth > 0) return;
+    DESCR_t v; uint64_t w[2]; w[0] = lo; w[1] = hi; memcpy(&v, w, sizeof v);
+    g_trace--; trace_recursion_depth++; trace_print_icon(TRK_SUSPEND, pname, (DESCR_t *)0, 0, v); trace_recursion_depth--;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_trace_resume_hook(const char *pname) {
+    extern int rt_k_level; extern long g_line;
+    if (g_trace == 0 || !pname || !*pname) return;
+    trace_ent_t *e = trace_find("*", TRK_CALL);
+    if (!e || !e->tag || strcmp(e->tag, "icn")) return;
+    if (trace_recursion_depth > 0) return;
+    long save = g_line; int top = rt_k_level; if (top < 0) top = 0; if (top >= ICN_ACT_CAP) top = ICN_ACT_CAP - 1;
+    for (int lv = top; lv >= 1; lv--) if (g_icn_act[lv].name && !strcmp(g_icn_act[lv].name, pname) && g_icn_act[lv].line > 0) { g_line = g_icn_act[lv].line; break; }
+    g_trace--; trace_recursion_depth++; trace_print_icon(TRK_RESUME, pname, (DESCR_t *)0, 0, NULVCL); trace_recursion_depth--;
+    g_line = save;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_trace_fail_hook(const char *fname) {
     extern long g_stno;
     rt_trace_event(TRK_RETURN, fname, FAILDESCR, g_stno);

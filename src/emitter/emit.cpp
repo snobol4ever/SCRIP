@@ -1178,7 +1178,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         default:              bb_emit_x86(bb_binop_arith());       return 0;
         }
     case IR_SUCCEED:              bb_emit_x86(bb_succeed());        return 0;
-    case IR_SUSPEND:              bb_emit_x86(bb_suspend());        return 0;
+    case IR_SUSPEND:              { g_emit.op_activate_proc = IR_LIT(nd).sval; bb_emit_x86(bb_suspend()); } return 0;
     case IR_TO:                   { bb_prepare(nd); g_emit.op_range_int_operands = ir_range_operands_must_be_integers(nd); bb_emit_x86(bb_to()); } return 0;
     case IR_MATCH_LEN:            { bb_prepare(nd); { const char * _sv = (nd->n_operands == 0 && (uintptr_t)(uint64_t)IR_LIT(nd).ival > (uintptr_t)0xFFFFU) ? IR_LIT(nd).sval : (const char *)0; g_emit.op_sval = (_sv && _sv[0] == '*') ? _sv : (const char *)0; } bb_emit_x86(bb_match_len()); } return 0;
     case IR_MATCH_LIT:            { bb_prepare(nd); bb_emit_x86(bb_match_lit()); } return 0;
@@ -1868,6 +1868,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     case IR_LINE_MARK:
         DRIVE_PAIR_RESET(); DRIVE_PAIR_JMP(lbl_γ); DRIVE_PAIR_DEF_JMP(lbl_β, lbl_ω); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     case IR_SUSPEND: {
+        g_emit.op_activate_proc = IR_LIT(nd).sval;
         IR_t * ev = bb_child0(nd); int sa = ev ? bb_slot_get(ev) : -1;
         if (sa < 0 && ev) sa = nd_slot(ev);
         if (sa < 0) { drive_unowned(nd); break; }
