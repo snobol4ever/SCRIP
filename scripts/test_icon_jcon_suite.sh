@@ -59,6 +59,7 @@ ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"
 RT_SO="${RT_SO:-$ROOT/out/libscrip_rt.so}"
 CORPUS="${CORPUS:-$S4E/corpus/packages/icon/jcon_tests}"
+CORPUS_PUBLISHED="$S4E/corpus/packages/icon/jcon_tests"   # ⛔ the ONE population the JCON row in SCORE.md may ever name -- see the score-write guard at the foot of this file
 # ⛔ icont_bin() comes from the ONE authority, never a hand-assembled path and never bare `icont` on PATH:
 # CLAUDE.md's measured lesson is a seat that ran `command -v icont`, got nothing, and wrote "no Icon oracle
 # exists" into a digest. The staleness arm below is the only consumer here, and it degrades to NAMING the
@@ -269,7 +270,8 @@ run_one() {
 run_mode() {
     local mode="$1"
     local pass=0 fail=0 reject=0 crash=0 hang=0 notgraded=0
-    local -a reject_names=() fail_names=() crash_names=() hang_names=() notgraded_names=()
+    local -a reject_names=() fail_names=() crash_names=() hang_names=() notgraded_names=() moderef_names=()
+    local _want _nsub
     local icn std kind outfile
     for icn in "$CORPUS"/*.icn; do
         [ -f "$icn" ] || continue
@@ -286,7 +288,28 @@ run_mode() {
             notgraded=$((notgraded+1)); notgraded_names+=("$name")
             continue
         fi
-        kind=$(run_one "$mode" "$icn" "$std" "$outfile")
+        # ⛔⭐ THE PER-MODE REF IS RESOLVED HERE, NOT INSIDE run_one (ceo CEO-581, 2026-09-11). A line whose value
+        # the INVOCATION determines gets one ref per mode: kwds prints &progname, m3 is handed a SOURCE and the
+        # oracle answers kwds.icn, m4 IS the program and the oracle answers ./kwds, and BOTH are what icont
+        # prints -- measured on this package's own kwds.icn under both invocations (see kwds.moderef's receipt).
+        # Nothing is hidden: the line is graded in full, against the answer for THAT invocation.
+        # ⛔ THROUGH THE SHARED SHIM, NEVER A LOCAL sed: util_apply_moderef.py imports the harness's own reader,
+        # so this runner and the master cannot disagree about what a per-mode ref means -- the defect this lane
+        # cured one day earlier, when "does this program have stdin?" had three written answers.
+        # ⛔ AND IT IS RESOLVED IN run_mode AND NOT IN run_one BECAUSE run_one'S STDOUT IS THE VERDICT: it runs in
+        # a command substitution, so a refusal echoed there would be READ AS A KIND and an `exit 2` would leave
+        # only the subshell, with $kind empty and the program silently uncounted. A refusal must be able to stop
+        # the runner, so it lives where the runner can stop.
+        _want="$std"
+        if [ -f "${icn%.icn}.moderef" ]; then
+            _want="$WORK/$name.$mode.want"
+            if ! python3 "$HERE/util_apply_moderef.py" "$std" "$name" "$mode" "$WORK/$name.$mode.nsub" > "$_want"; then
+                echo "⛔ REFUSED TO GRADE rc=2: $(basename "${icn%.icn}.moderef") could not be rendered for $name/$mode -- a declaration that cannot be applied is not a ref, and grading this cell against the OTHER mode's string would manufacture a red"; exit 2
+            fi
+            _nsub=$(cat "$WORK/$name.$mode.nsub" 2>/dev/null || echo 0)
+            [ "${_nsub:-0}" -gt 0 ] && moderef_names+=("$name:$_nsub line(s)")
+        fi
+        kind=$(run_one "$mode" "$icn" "$_want" "$outfile")
         # ⭐ THE PROGRESS DATABASE, ONE ROW PER PROGRAM PER MODE (CEO-331). Placed at the SINGLE point where
         # this runner already decides a per-program verdict, so the recorded outcome and the counted one are
         # the same value -- a second classification here would be a second opinion that drifts. $kind is
@@ -303,6 +326,7 @@ run_mode() {
 [ "${PROGRESS_FAILED:-0}" -eq 0 ] || echo "⛔ PROGRESS DB: $PROGRESS_FAILED per-program appends have FAILED so far in this run -- this run is not fully recorded (CEO-331); the board lines below still stand, the table does not" >&2
     local mode_total=$((pass+fail+reject+crash+hang))
     echo "--- jcon ($mode): PASS=$pass FAIL=$fail REJECT=$reject CRASH=$crash HANG=$hang NOTGRADED=$notgraded TOTAL=$mode_total ---"
+    [ "${#moderef_names[@]}" -gt 0 ] && echo "    PER-MODE REF IN $mode (CEO-581: an invocation-determined line, graded in full against the oracle's answer for THIS invocation; receipt in the .moderef row): ${moderef_names[*]}"
     [ "$notgraded" -gt 0 ] && echo "    NOT GRADED IN $mode by declaration in $(basename "$MODES_TSV") (in the denominator, graded by the other arm; reason in the row): ${notgraded_names[*]}"
     [ "$reject" -gt 0 ] && echo "    REJECT (dialect gap, semicolon-required): ${reject_names[*]}"
     [ "$fail" -gt 0 ]   && echo "    FAIL (wrong output): ${fail_names[*]}"
@@ -532,6 +556,19 @@ else echo "⛔ PACKAGE INVENTORY SPLIT REFUSED (rc=2, reason above) -- the class
 # by hand. ⭐ THE SIBLING RUNNER FAILED THE OTHER WAY ON THE SAME PASS: arizona passed m3's number into both
 # halves of its cell, silently. One honestly unwritten, one silently wrong, ONE ROOT -- neither could COMPUTE
 # the number CEO-545 asks for. gate_and_per_program is that computation, spelled once in lib_gate.sh.
+# ⛔⭐ A RUN OVER A CORPUS THAT IS NOT THE PACKAGE'S OWN PUBLISHES NO ROW (hq_V 2026-09-11, found while wiring
+# CEO-581 and closed before using the flag). `--corpus <scratch>` exists so a seat can exercise this runner on a
+# FIXTURE without touching the tracked tree -- and every such run reached this write and published a JCON cell
+# measured over the fixture's population: one program in, "JCON 1/1" out, with a clean stamp and a plausible
+# denominator. THE BOARD ABOVE IS STILL A REAL MEASUREMENT OF WHAT WAS ASKED FOR and is still printed; what is
+# refused is calling it the package's published row. ⛔ IT IS THE SAME SHAPE AS THE BUILDER TRAP MEASURED ONE DAY
+# EARLIER (HQV-34): an instrument pointed at the wrong tree does not fail, it succeeds about something else, and
+# the output is complete and plausible. A guard belongs where the number is PUBLISHED, not where it is computed.
+_CORPUS_REAL="$(cd "$CORPUS" 2>/dev/null && pwd -P || echo "$CORPUS")"
+_CORPUS_PUB_REAL="$(cd "$CORPUS_PUBLISHED" 2>/dev/null && pwd -P || echo "$CORPUS_PUBLISHED")"
+if [ "$_CORPUS_REAL" != "$_CORPUS_PUB_REAL" ]; then
+    echo "⛔ SCORE ROW NOT WRITTEN: this run graded --corpus $_CORPUS_REAL, which is not the published jcon package ($_CORPUS_PUB_REAL). The board line above is a real measurement OF THAT CORPUS; the SCORE.md JCON row names the package's own population and no other, so this run publishes none."
+else
 read -r AND_PASS AND_RED AND_NAMES <<<"$(gate_and_per_program "$total" "${m3_RED_NAMES:-}" "${m4_RED_NAMES:-}")"
 if [ -z "${AND_PASS:-}" ]; then
     echo "⛔ SCORE ROW REFUSES (rc=2): gate_and_per_program could not compute the AND per program over total='$total' -- the row IS that number, so this run writes none rather than guess one" >&2
@@ -540,5 +577,6 @@ else
     python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite JCON --modes m3,m4 --suite-pass "$AND_PASS" --suite-total "$total" \
         --measurer "${S4E_SEAT:-}" --text "AND per program $AND_PASS/$total (ceo CEO-545: a program is green only if BOTH modes are; union of reds $AND_RED:$AND_NAMES) · m3 ${m3p:-n/a}/$total · m4 ${m4p:-n/a}/$total graded (of $SHIPPED shipped, $GRADED graded, $GAP not graded -- the inventory clause splits ungraded=owed from ungradable=ruled)${INV_LINE:+ · $INV_LINE (\`test_icon_jcon_suite.sh\`)}" \
         || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
+fi
 fi
 

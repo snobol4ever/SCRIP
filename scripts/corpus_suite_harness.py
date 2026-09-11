@@ -466,6 +466,128 @@ def apply_line_mask(text, patterns):
                 n += 1
                 break
     return "\n".join(lines), n
+# ================================================== CEO-581 per-mode refs ===
+# ⛔⭐ A LINE THE INVOCATION DETERMINES GETS ONE REF PER MODE, AND THE PAIR IS EARNED BY AN ORACLE
+# MEASUREMENT, NEVER BY A FAILING DIFF (ceo CEO-581, 2026-09-11, on hq_V's three-option ask; the
+# measurement behind it is FINDING-2026-09-11-hq_V-progname-is-argv-zero-verbatim-so-pinning-makes-it-
+# gradable-and-cannot-make-it-equal.md).  `&progname` is argv[0] VERBATIM: mode 3 is handed a SOURCE and
+# the oracle answers `<stem>.icn`, mode 4 IS the program and the oracle answers `./<stem>`, and NO
+# invocation of a compiled binary can ever produce the string `<stem>.icn`.  A single ref for such a
+# program therefore ASSERTS A FALSEHOOD -- that one string is correct for two different invocations --
+# and a red raised against it means nothing is wrong, which is the one thing a red must never mean.
+#
+# ⛔ IT IS NOT THE MASK MECHANISM AND MUST NOT BECOME IT.  CEO-409 masks hide a line from BOTH streams
+# because the ORACLE'S OWN value moves BETWEEN RUNS (a clock, an allocator count).  Here the oracle is
+# perfectly deterministic and its value moves BETWEEN INVOCATIONS, which is determinism answering a
+# different question -- so nothing is hidden: the line is still graded, in full, against what the oracle
+# prints for THAT invocation.  Masking widens by analogy; this states a measurement.  (CEO-581 refused
+# option two for exactly this reason, and refused a permanent red because the board would carry a lie.)
+#
+# ⛔ MODES MAY DIVERGE IS ALREADY LAW (Lon 2026-08-28, RULES.md): the m3==m4 identity restriction was
+# lifted and each mode is graded against the oracle INDEPENDENTLY.  The REF MODEL never caught up -- it
+# still assumed one mode-invariant expected text.  This is not a new allowance, it is the ref model
+# finally obeying a standing law, which is why the default stays ONE ref and the pair names itself.
+#
+# THE FOUR MECHANICAL GUARDRAILS, all enforced below, mirroring CEO-409's shape because it is the same
+# family of machine (something that could hide a red) and it is built accordingly:
+#   (1) EARNED BY MEASUREMENT -- the receipt column is MANDATORY and an empty one is REFUSED.  This code
+#       cannot run icont for you; it can refuse a declaration nobody can audit, and it does.
+#   (2) NAMED BESIDE THE DATA -- `<stem>.moderef` sits next to `<stem>.ref`, never inside a runner, and
+#       the SAME derivation serves the python harness and the bash runners (util_apply_moderef.py).
+#   (3) MINIMAL OR REFUSED -- only the lines the invocation genuinely determines.  A declaration whose
+#       ref-line is absent, ambiguous, or a majority of the entry, is REFUSED rather than honoured.
+#   (4) NEVER A WILDCARD -- `*` is legal for a mask (one implementation quantity, every entry) and is
+#       REFUSED here: a pair is earned by measuring ONE program, and an entry nobody measured would
+#       inherit a substitution nobody cut.
+_MODEREF_MODES = ("m3", "m4", "ast")
+def moderef_sidecar_path(ref_path):
+    """`<stem>.moderef` beside the ref -- the identical derivation read_mask_sidecar() makes, so the two
+    sidecars cannot disagree about where a suite's declarations live."""
+    return Path(str(ref_path).rsplit(".", 1)[0] + ".moderef")
+def read_moderef_sidecar(ref_path, sidecar=None):
+    """Parse `<stem>.moderef`: `entry<TAB>mode<TAB>ref-line<TAB>mode-line<TAB>receipt`, one per line, `#`
+    comments and blanks ignored.  Missing file -> {} and that is the overwhelmingly common case.
+    ⛔ TAB-SEPARATED WITH NO QUOTING LANGUAGE AT ALL, and the two line columns are taken VERBATIM --
+    never .strip()ed -- because the thing being declared IS a line of oracle output and its leading
+    whitespace is part of it (the icon master's own row is `    &progname: ...`, four spaces).  A parser
+    that trims here would silently declare a line the ref does not contain, and guardrail 3 would then
+    refuse a pair that was actually right.  Same argument read_argv_sidecar makes for its own columns."""
+    # ⛔⭐ `sidecar` NAMES THE DECLARATION FILE EXPLICITLY, for the one caller that cannot derive it: a gate or
+    # runner grading an entry EXTRACTED from a master container holds `<entry>.ref` in a tempdir, and the
+    # declarations live beside the container as `ALL.moderef`. The alternative is copying the sidecar next to
+    # the extraction, which is a second copy of a declaration -- exactly the drift this fleet keeps paying for.
+    # Derivation stays the default and the rule; the override is named at the call site, never guessed.
+    mp = Path(sidecar) if sidecar else moderef_sidecar_path(ref_path)
+    if sidecar and not mp.is_file():
+        refuse("%s: the per-mode ref declaration file was named explicitly and does not exist -- a caller that "
+               "states where the declarations live and is wrong must not be silently graded as having none" % mp)
+    if not mp.is_file():
+        return {}
+    out, seen = {}, set()
+    for ln in mp.read_text(encoding="utf-8").splitlines():
+        if not ln.strip() or ln.lstrip().startswith("#"):
+            continue
+        parts = ln.split("\t")
+        if len(parts) != 5:
+            refuse("%s: every row needs entry<TAB>mode<TAB>ref-line<TAB>mode-line<TAB>receipt (5 tab-separated "
+                   "fields); got %d in %r" % (mp, len(parts), ln))
+        name, mode, frm, to, why = parts[0].strip(), parts[1].strip(), parts[2], parts[3], parts[4].strip()
+        if name == "*":
+            refuse("%s: `*` is refused here (it is legal for a CEO-409 mask and is not legal for a per-mode ref): "
+                   "a per-mode ref is EARNED BY MEASURING ONE PROGRAM under both invocations, and a wildcard would "
+                   "hand that measurement to entries nobody measured" % mp)
+        if mode not in _MODEREF_MODES:
+            refuse("%s: row %r declares mode %r; only %s can be honoured -- guessing which arm was meant is how a "
+                   "wrong ref becomes a green cell" % (mp, name, mode, "/".join(_MODEREF_MODES)))
+        if not frm.strip() or not to.strip():
+            refuse("%s: row %r/%s has an empty ref-line or mode-line -- a per-mode ref STATES what the oracle "
+                   "prints for that invocation, and an empty statement is not a measurement" % (mp, name, mode))
+        if frm == to:
+            refuse("%s: row %r/%s declares a substitution that changes nothing -- if the two invocations answer "
+                   "the same string then this entry needs no per-mode ref at all" % (mp, name, mode))
+        if not why:
+            refuse("%s: row %r/%s carries no receipt -- CEO-581 makes the ORACLE MEASUREMENT mandatory (the run "
+                   "under BOTH invocations showing it answers differently), and a pair nobody can audit is exactly "
+                   "the paper-over this guard exists to stop" % (mp, name, mode))
+        key = (name, mode, frm)
+        if key in seen:
+            refuse("%s: row %r/%s declares the same ref-line twice -- two answers for one line is not a "
+                   "measurement, and picking one would be a precedence rule invented here" % (mp, name, mode))
+        seen.add(key)
+        out.setdefault(name, []).append((mode, frm, to, why))
+    return out
+def moderefs_for(decls, name, mode):
+    """⛔⭐ THE ONE PLACE THE entry AND mode COLUMNS ARE RESOLVED, so the python harness and the bash
+    runners (through util_apply_moderef.py) cannot disagree about which rows apply to a cell."""
+    return [(f, t, w) for (m, f, t, w) in decls.get(name, []) if m == mode]
+def apply_moderef(text, rows, where=""):
+    """Substitute the declared lines into the expected text for ONE mode.  Returns (text, n).
+    ⛔ THE REF-LINE MUST OCCUR EXACTLY ONCE, OR THIS REFUSES rc=2.  Zero occurrences is the decay class
+    this fleet keeps paying for -- a declaration that outlived the ref it declares withdraws a guarantee
+    silently -- and more than one is an ambiguity, which in this harness is always a refusal and never a
+    precedence rule (loose_stdin_companion's two-companion case, the same judgement).
+    ⛔ AND IT REFUSES A MAJORITY, guardrail 3: an entry whose expected text is mostly invocation-determined
+    is not a one-line divergence, it is a different program under the two modes, and it belongs outside the
+    baseline NAMED rather than reconciled line by line here.
+    ⭐ IT TOUCHES THE EXPECTED SIDE ONLY.  A mask rewrites BOTH streams because it is declining to grade a
+    line; this rewrites only what the oracle is expected to say, so the line stays graded in full."""
+    if not rows or text is None:
+        return text, 0
+    lines = text.split("\n")
+    n = 0
+    for frm, to, _why in rows:
+        hits = [i for i, ln in enumerate(lines) if ln == frm]
+        if len(hits) != 1:
+            refuse("%s: the per-mode ref declares the line %r, and the stored ref contains it %d time(s) -- "
+                   "exactly one is required: zero means the declaration outlived the ref it declares, and more "
+                   "than one means nobody can say which line was measured" % (where or "moderef", frm, len(hits)))
+        lines[hits[0]] = to
+        n += 1
+    if n * 2 >= len([l for l in lines if l != ""]) and n > 0:
+        refuse("%s: the per-mode ref rewrites %d of %d non-empty ref lines -- a majority-substituted entry is not "
+               "one invocation-determined line and CEO-581's pair must be MINIMAL; such a fixture belongs outside "
+               "the baseline, named" % (where or "moderef", n, len([l for l in lines if l != ""])))
+    return "\n".join(lines), n
 def classify(argv, timeout, expected_text, cwd=None, env=None, stdin_text=None, want_rc=0, mask=None):
     kind, out, err, rc = _run_raw(argv, timeout, cwd=cwd, env=env, stdin_text=stdin_text)
     if kind == "HANG":
@@ -586,7 +708,7 @@ def compile_m4(paths, sno_path, out_bin, tmp_dir):
     return None
 
 
-def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=None, want_rc=0, prog_argv=None, mask=None):
+def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=None, want_rc=0, prog_argv=None, mask=None, bin_dir=None):
     timeout = timeout or paths["timeout"]
     if not (paths["rt_dir"] / "libscrip_rt.so").is_file():
         return Verdict("SKIP", detail="libscrip_rt.so not built")
@@ -602,7 +724,25 @@ def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=Non
     # family's source lives in the CORPUS and tmp_dir does not, so a bare name would not resolve there and
     # writing the binary beside the source would litter the corpus tree. Absolute path preserved for that
     # case -- same behaviour as before this change, which is why no pair-graded board moves.
-    out_bin = tmp_dir / (Path(sno_path).stem or "t")
+    # ⛔⭐⭐ THE PIN ABOVE WAS TRUE OF THE LINE AND FALSE OF THE RUN, AND ONLY A LIVE MEASUREMENT SAID SO
+    # (hq_V 2026-09-11, grading entry 924 through this very function). The comment asserts "a suite entry is
+    # materialized INTO tmp_dir ... so tmp_dir IS the cwd below" -- and run_suite_entry materializes the entry
+    # into ITS OWN tempdir and then calls run_all_modes, which opens A SECOND, NESTED tempdir and passes THAT
+    # as tmp_dir. So out_bin.parent was never run_dir for a suite entry, _same was always False, and every
+    # master entry in seven languages was still invoked BY ITS ABSOLUTE MKTEMP PATH -- the exact ungradability
+    # CEO-569 named, surviving a cure that had been checked by reading the source and by grepping for the
+    # spelling. ⛔ A SOURCE-LEVEL ASSERTION IS NOT A MEASUREMENT OF BEHAVIOUR: the gate's own clause 1 greps
+    # this file for the pinned form and went green throughout, because the form is right here and the caller
+    # defeats it one frame up. bin_dir is how the caller that KNOWS it owns the run directory says so.
+    # ⛔ DECLARED, NEVER INFERRED, and the default is byte-identical to the behaviour before it existed: a
+    # discover_pairs family's source lives in the CORPUS, writing a binary beside it would litter the tracked
+    # tree, and that caller passes no bin_dir and keeps the absolute invocation it has always had.
+    # ⛔ ONLY THE BINARY MOVES. The .s/.o intermediates stay in tmp_dir, so the run directory gains exactly one
+    # file -- the same discipline test_icon_jcon_suite.sh keeps for its rundir, and for the same measured
+    # reason: a program that lists its own directory grades what is in it (jcon io.icn). Censused across all
+    # seven masters before landing: no entry lists or globs its run directory; three print their own argv[0]
+    # (icon 414 prints only its TYPE and length, icon 924 is this row, snobol4 104 prints HOST(0)).
+    out_bin = (Path(bin_dir) if bin_dir else tmp_dir) / (Path(sno_path).stem or "t")
     skip = compile_m4(paths, sno_path, out_bin, tmp_dir)
     if skip is not None:
         return skip
@@ -883,13 +1023,25 @@ def convert_one(paths, sno_path, ref_path, seq, tmp_root, modes, companion_dir=N
     return None, {"ok": False, "reason": f"NEITHER form reproduced the original's behavior: orig={orig_verdicts}"}
 
 
-def run_all_modes(paths, sno_path, expected_text, tmp_root, modes, stdin_text=None, want_rc=0, prog_argv=None, mask=None):
+def run_all_modes(paths, sno_path, expected_text, tmp_root, modes, stdin_text=None, want_rc=0, prog_argv=None, mask=None, moderef=None, where="", bin_dir=None):
+    """⛔⭐ THE PER-MODE REF IS RESOLVED HERE AND NOWHERE ELSE (CEO-581), at the single point where this
+    harness already knows BOTH the expected text and which mode is about to be run. Resolving it in the
+    caller would mean every caller resolving it, which is how one question gets three written answers --
+    the defect cured on 2026-09-11 in stdin_companion_candidates(), one function over. An entry with no
+    declaration takes the byte-identical path it took before this existed: _exp_for() returns the same
+    object when moderef is empty."""
     out = {}
+    def _exp_for(mode):
+        rows = [(f, t, w) for (m, f, t, w) in (moderef or []) if m == mode]
+        if not rows:
+            return expected_text
+        exp, _n = apply_moderef(expected_text, rows, where=f"{where or Path(sno_path).stem} [{mode}]")
+        return exp
     if "m3" in modes:
-        out["m3"] = run_m3(paths, sno_path, expected_text, stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask)
+        out["m3"] = run_m3(paths, sno_path, _exp_for("m3"), stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask)
     if "m4" in modes:
         with tempfile.TemporaryDirectory(dir=tmp_root) as td:
-            out["m4"] = run_m4(paths, sno_path, expected_text, Path(td), stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask)
+            out["m4"] = run_m4(paths, sno_path, _exp_for("m4"), Path(td), stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask, bin_dir=bin_dir)
     if "ast" in modes:
         # ⛔ stdin is deliberately NOT threaded into run_ast: --dump-ast parses and never executes,
         # so an entry's stdin cannot reach it. Passing it would imply a dependence that does not exist.
@@ -1680,7 +1832,8 @@ def run_suite_entry(paths, entry, tmp_root, modes, ext=".sno", companion_dir=Non
                 (Path(td) / _tok).write_bytes((Path(companion_dir) / _tok).read_bytes())
         return run_all_modes(paths, cand, expected, Path(td), modes, stdin_text=entry.stdin,
                              want_rc=getattr(entry, 'want_rc', 0), prog_argv=getattr(entry, 'argv', None),
-                             mask=getattr(entry, 'mask', None))
+                             mask=getattr(entry, 'mask', None), moderef=getattr(entry, 'moderef', None),
+                             where=entry.name, bin_dir=Path(td))
 
 
 # ================================================================== CLI ===
@@ -2256,6 +2409,25 @@ def cmd_run(args):
                    % ", ".join(_unknown))
         print("CEO-409 MASKS ACTIVE: %d of %d entries carry a declared implementation-defined line mask (%s)"
               % (len(_seen), len(entries), ", ".join(sorted(_seen))))
+    _moderefs = read_moderef_sidecar(args.ref)
+    if _moderefs:
+        _mseen = set()
+        for _e in entries:
+            _rows = _moderefs.get(_e.name)
+            if _rows:
+                _e.moderef = _rows
+                _mseen.add(_e.name)
+        # ⛔ THE SAME REFUSAL THE .mask SIDECAR MAKES, FOR THE SAME CAUSE: a declaration naming an entry this
+        # suite does not contain is either a rename or a leftover, and both withdraw a guarantee in silence --
+        # here the guarantee is that a mode-determined line is graded against what the oracle answers for THAT
+        # invocation, so a stale row leaves the cell graded against the OTHER mode's string and red forever.
+        _munknown = sorted(set(_moderefs) - _mseen)
+        if _munknown:
+            refuse("the .moderef sidecar names entries this suite does not contain: %s -- a per-mode ref that "
+                   "matches nothing is a pair nobody notices has stopped applying, and CEO-581 is audited or it "
+                   "is not a measurement" % ", ".join(_munknown))
+        print("CEO-581 PER-MODE REFS ACTIVE: %d of %d entries declare an invocation-determined line, graded in "
+              "full against the oracle's answer for each mode (%s)" % (len(_mseen), len(entries), ", ".join(sorted(_mseen))))
     require_population(paths, len(entries), 1, f"entries read from {args.sno} (a suite pair that names zero entries cannot be graded)")
     shard_tag = ""
     if getattr(args, "shard", ""):
