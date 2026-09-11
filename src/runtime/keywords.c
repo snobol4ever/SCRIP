@@ -252,6 +252,13 @@ static void kwb_init_once(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_kw_seed_defaults(void) { kwb_init_once(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sn4_kw_spelling_is_canonical(const char *kw) {
+    if (!kw) return 0;
+    if (kw[0] == '&') kw++;
+    for (size_t i = 0; kw[i]; i++) if (kw[i] >= 'a' && kw[i] <= 'z') return 0;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static KWB_ENT_t *kwb_find(const char *kw) {
     if (!kw) return (KWB_ENT_t *)0;
     if (kw[0] == '&') kw++;
@@ -348,6 +355,7 @@ void rt_kw_dump_values(void (*emit)(const char *name, DESCR_t v)) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_kw_index(const char *kw) {
     if (!kw) return -1;
+    if (!sn4_kw_spelling_is_canonical(kw)) return -1;
     KWB_ENT_t *e = kwb_find(kw); if (!e) return -1;
     return (int)(e - g_kwb_bound);
 }
@@ -497,19 +505,20 @@ DESCR_t rt_keyword_read_snobol4(const char *sval) {
     char lk[64]; size_t li = 0;
     for (; kw[li] && li < sizeof(lk) - 1; li++) lk[li] = (kw[li] >= 'A' && kw[li] <= 'Z') ? (char)(kw[li] - 'A' + 'a') : kw[li];
     lk[li] = '\0';
-    { DESCR_t bv; if (kwb_read(lk, &bv)) return bv; }
-    if (!strcmp(lk, "digits")) return STRVAL("0123456789");
-    if (!strcmp(lk, "ht")) return STRVAL("\t");
-    if (!strcmp(lk, "lf") || !strcmp(lk, "nl")) return STRVAL("\n");
-    if (!strcmp(lk, "vt")) return STRVAL("\x0B");
-    if (!strcmp(lk, "ff")) return STRVAL("\x0C");
-    if (!strcmp(lk, "cr")) return STRVAL("\r");
-    if (!strcmp(lk, "esc")) return STRVAL("\x1B");
+    const int canon = sn4_kw_spelling_is_canonical(kw);
+    { DESCR_t bv; if (canon && kwb_read(lk, &bv)) return bv; }
+    if (canon && !strcmp(lk, "digits")) return STRVAL("0123456789");
+    if (canon && !strcmp(lk, "ht")) return STRVAL("\t");
+    if (canon && (!strcmp(lk, "lf") || !strcmp(lk, "nl"))) return STRVAL("\n");
+    if (canon && !strcmp(lk, "vt")) return STRVAL("\x0B");
+    if (canon && !strcmp(lk, "ff")) return STRVAL("\x0C");
+    if (canon && !strcmp(lk, "cr")) return STRVAL("\r");
+    if (canon && !strcmp(lk, "esc")) return STRVAL("\x1B");
     char kb[128]; const char *ck = sval; if (sval[0] != '&') { kb[0] = '&'; size_t bl = strlen(sval); if (bl > 126) bl = 126; memcpy(kb + 1, sval, bl); kb[bl + 1] = 0; ck = kb; }
     if (rt_udc_on() && NV_CONST_ASSIGNED_fn(ck)) return NV_KW_GET_fn(ck);
-    DESCR_t kv = kw_read(lk);
+    DESCR_t kv = canon ? kw_read(lk) : FAILDESCR;
     if (!IS_FAIL(kv)) return kv;
-    if (!strcmp(lk,"arb") || !strcmp(lk,"bal") || !strcmp(lk,"rem") || !strcmp(lk,"fail") || !strcmp(lk,"fence") || !strcmp(lk,"abort") || !strcmp(lk,"succeed")) { const char *bn = sval[0] == '&' ? sval + 1 : sval; return NV_GET_fn(bn); }
+    if (canon && (!strcmp(lk,"arb") || !strcmp(lk,"bal") || !strcmp(lk,"rem") || !strcmp(lk,"fail") || !strcmp(lk,"fence") || !strcmp(lk,"abort") || !strcmp(lk,"succeed"))) { const char *bn = sval[0] == '&' ? sval + 1 : sval; return NV_GET_fn(bn); }
     if (!rt_udc_on()) { char eb[192]; snprintf(eb, sizeof eb, "keyword operand is not name of defined keyword: %s", sval[0] == '&' ? sval : lk); core_runtime_error(251, eb); return NULVCL; }
     {
       if (!NV_CONST_ASSIGNED_fn(ck)) { char eb[192]; snprintf(eb, sizeof eb, "&constant read before its one-time assignment: %s", ck); core_runtime_error(342, eb); return NULVCL; }
@@ -573,13 +582,14 @@ int rt_keyword_write_snobol4(const char *sval, DESCR_t v) {
     char lk[64]; size_t li = 0;
     for (; kw[li] && li < sizeof(lk) - 1; li++) lk[li] = (kw[li] >= 'A' && kw[li] <= 'Z') ? (char)(kw[li] - 'A' + 'a') : kw[li];
     lk[li] = '\0';
-    { int r = kwb_write(lk, v); if (r) return r > 0; }
+    const int canon = sn4_kw_spelling_is_canonical(kw);
+    { int r = canon ? kwb_write(lk, v) : 0; if (r) return r > 0; }
     long iv = 0;
     if (IS_INT(v)) iv = (long)v.i;
     else if (IS_REAL(v)) iv = (long)v.r;
     else { const char *s2 = VARVAL_fn(v); if (s2) iv = strtol(s2, (char **)0, 10); }
-    if (!strcmp(lk,"error"))    { g_error = iv; return 1; }
-    if (!strcmp(lk,"random"))   { g_random = iv; bb_rnd_seed = (unsigned long)iv; return 1; }
+    if (canon && !strcmp(lk,"error"))    { g_error = iv; return 1; }
+    if (canon && !strcmp(lk,"random"))   { g_random = iv; bb_rnd_seed = (unsigned long)iv; return 1; }
     { char kb[128]; const char *ck = sval; if (sval[0] != '&') { kb[0] = '&'; size_t bl = strlen(sval); if (bl > 126) bl = 126; memcpy(kb + 1, sval, bl); kb[bl + 1] = 0; ck = kb; }
       if (!rt_udc_on()) { char eb[192]; snprintf(eb, sizeof eb, "keyword operand is not name of defined keyword: %s", ck); core_runtime_error(251, eb); return 1; }
       NV_KW_SET_fn(ck, v); }

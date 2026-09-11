@@ -81,8 +81,8 @@ test_gate_icn_function_builtin_names_dispatchable.sh	WIRED	-	-	-
 test_gate_icn_generator_exhaustion_traces_failed.sh	WIRED	-	-	-
 test_gate_icn_generator_records_its_activation.sh	WIRED	-	-	-
 test_gate_icn_generator_regime_calls_the_runtime_at_c_parity.sh	WIRED	-	-	-
-test_gate_icn_generator_return_traces_returned_not_failed.sh	WIRED	-	-	-
 test_gate_icn_generator_return_ends_the_activation_and_varargs_image_as_the_list.sh	WIRED	-	-	-
+test_gate_icn_generator_return_traces_returned_not_failed.sh	WIRED	-	-	-
 test_gate_icn_global_names_are_not_governed_by_snobol4_keywords.sh	WIRED	-	-	-
 test_gate_icn_if_without_else_invocable_arity_and_string_continuation.sh	WIRED	-	-	-
 test_gate_icn_ipl_scan_resume_and_limit_flips.sh	WIRED	-	-	-
@@ -206,6 +206,7 @@ test_gate_sno_deferred_replacement_keeps_its_capture_mark.sh	WIRED	-	-	-
 test_gate_sno_dump_matches_spitbol.sh	WIRED	-	-	-
 test_gate_sno_fence_body_dynamic_operand.sh	WIRED	-	-	-
 test_gate_sno_io_assoc_channel_and_filespec.sh	WIRED	-	-	-
+test_gate_sno_keyword_spelling_is_case_sensitive.sh	WIRED	-	-	-
 test_gate_sno_lex_compare_binary_safe.sh	WIRED	-	-	-
 test_gate_sno_mode4_code_call_inherits_the_scc_taint.sh	WIRED	-	-	-
 test_gate_sno_package_runners_append_progress_rows.sh	WIRED	-	-	-
