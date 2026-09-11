@@ -186,5 +186,52 @@ else bad "⛔ the committed master changed despite the forced post-write validat
 if ! find "$W/g/corpus/tests/snobol4" -name '*.tmp-*' | grep -q .; then good "no stray .tmp-* files left behind"
 else bad "⛔ stray temp file(s) left on disk after the forced failure"; fi
 
+echo "== H. ALL.excluded.txt IS GENERATED: a hand edit REFUSES rc=2 instead of being silently absorbed (CEO-545) =="
+# ⛔ THE TWO ARMS ARE THE TWO MEASURED DEFECTS, and they used to fail in OPPOSITE directions on the same file
+# (hq_V 2026-09-10, scratch-tree measurement): a hand DELETION of a line the builder still computes was
+# SILENTLY REVERTED by the next full build, and a hand-ADDED line the builder never computes SURVIVED FOREVER
+# unchallenged. The second is the worse half -- it is how a WRONG exclusion becomes permanent, and an excluded
+# name cannot be red, so nobody looks. Both must now refuse. The third arm is the one that keeps this honest:
+# an UNTOUCHED file must rebuild clean, or the guard is a gate that fires on its own correct output.
+mkscratch "$W/h"
+EXCL="$W/h/corpus/tests/snobol4/ALL.excluded.txt"
+S4E_HOME="$W/h" S4E_POST="$W/h/postoffice" python3 "$BUILDER" --lang snobol4 >/dev/null 2>&1
+if grep -q '^# builder-digest:' "$EXCL" 2>/dev/null; then good "a legacy file with no digest MIGRATES (stamped, not refused)"
+else bad "⛔ no builder-digest stamped -- the guard cannot arm itself"; fi
+S4E_HOME="$W/h" S4E_POST="$W/h/postoffice" python3 "$BUILDER" --lang snobol4 >/dev/null 2>&1; rc=$?
+if [ "$rc" -eq 0 ]; then good "an UNTOUCHED generated file rebuilds clean (no false positive)"
+else bad "⛔ rc=$rc on an untouched file -- the guard fires on its own output"; fi
+keep_line="$(grep -m1 -P '^keepfam_probe\t' "$EXCL")"
+grep -vP '^keepfam_probe\t' "$EXCL" > "$EXCL.x" && mv "$EXCL.x" "$EXCL"
+out="$(S4E_HOME="$W/h" S4E_POST="$W/h/postoffice" python3 "$BUILDER" --lang snobol4 2>&1)"; rc=$?
+if [ "$rc" -eq 2 ]; then good "a hand DELETION of a computed line REFUSES rc=2 (was: silently reverted)"
+else bad "⛔ rc=$rc, expected 2 -- a hand deletion is still absorbed silently: $out"; fi
+if [ -z "$(grep -P '^keepfam_probe\t' "$EXCL")" ]; then good "the refused run wrote NOTHING back (the edit is not quietly undone)"
+else bad "⛔ the builder restored the deleted line despite refusing"; fi
+printf '%s\n' "$keep_line" >> "$EXCL"
+grep -v '^# builder-digest:' "$EXCL" > "$EXCL.x" && mv "$EXCL.x" "$EXCL"
+S4E_HOME="$W/h" S4E_POST="$W/h/postoffice" python3 "$BUILDER" --lang snobol4 >/dev/null 2>&1; rc=$?
+if [ "$rc" -eq 0 ]; then good "dropping the digest line ADOPTS the current file as the baseline (the documented escape hatch)"
+else bad "⛔ rc=$rc -- the escape hatch named in the refusal message does not work"; fi
+printf 'zzz_invented_family\tI WAS ADDED BY HAND AND NOTHING JUSTIFIES ME\n' >> "$EXCL"
+out="$(S4E_HOME="$W/h" S4E_POST="$W/h/postoffice" python3 "$BUILDER" --lang snobol4 2>&1)"; rc=$?
+if [ "$rc" -eq 2 ]; then good "an INVENTED line REFUSES rc=2 (was: survived every rebuild, unchallenged)"
+else bad "⛔ rc=$rc, expected 2 -- an invented exclusion still survives: $out"; fi
+echo "== I. MODES.tsv IS HAND-MAINTAINED AND MUST NOT BE GUARDED (the non-regression that matters most) =="
+# ⛔ The same merge helper writes MODES.tsv, whose whole contract is DECLARED, NEVER DERIVED -- every row is
+# hand-written with its evidence. Guarding it would refuse the file's own intended use on the next build.
+mkscratch "$W/i"
+MODES="$W/i/corpus/tests/snobol4/config/MODES.tsv"
+[ -f "$MODES" ] || MODES="$W/i/corpus/tests/snobol4/MODES.tsv"
+S4E_HOME="$W/i" S4E_POST="$W/i/postoffice" python3 "$BUILDER" --lang snobol4 >/dev/null 2>&1
+printf 'zzz_hand_declared_family\tm3,m4\t# a human wrote this, which is what this file is FOR\n' >> "$MODES"
+out="$(S4E_HOME="$W/i" S4E_POST="$W/i/postoffice" python3 "$BUILDER" --lang snobol4 2>&1)"; rc=$?
+if [ "$rc" -eq 0 ]; then good "a hand-written MODES.tsv declaration does NOT refuse the next build"
+else bad "⛔ rc=$rc -- the exclusion guard leaked onto the hand-maintained sidecar: $out"; fi
+if grep -q '^zzz_hand_declared_family' "$MODES"; then good "the hand-written MODES.tsv row survives the rebuild"
+else bad "⛔ the builder erased a hand-written MODES.tsv declaration"; fi
+if ! grep -q 'builder-digest' "$MODES"; then good "no digest line leaked into MODES.tsv"
+else bad "⛔ a builder-digest was written into the hand-maintained sidecar"; fi
+
 GATE_EXAMINED=$ASSERTIONS
 gate_verdict "$FAILS" "failed assertion(s)"

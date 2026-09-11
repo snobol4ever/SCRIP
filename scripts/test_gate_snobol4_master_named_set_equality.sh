@@ -41,7 +41,11 @@ ORIGINS=$(mktemp); FAMILIES=$(mktemp); EXCLUDED=$(mktemp); GAPFILE=$(mktemp)
 trap 'rm -f "$ORIGINS" "$FAMILIES" "$EXCLUDED" "$GAPFILE"' EXIT
 awk -F, 'NR>1{print $3}' "$CSV" > "$ORIGINS"
 awk -F, 'NR>1{print $4}' "$CSV" | sort -u > "$FAMILIES"
-cut -f1 "$EXC" > "$EXCLUDED"
+# ⛔ SKIP COMMENT LINES: ALL.excluded.txt has always been able to carry them (the builder's merge preserves a
+# header verbatim) and now ALWAYS ends with a `# builder-digest:` line (CEO-545). A bare `cut -f1` turns each
+# one into a phantom excluded NAME. Harmless by luck here -- no real basename looks like a comment -- but a
+# set-equality gate whose set is polluted by its own file format is one rename away from a false green.
+grep -v '^#' "$EXC" | cut -f1 > "$EXCLUDED"
 
 date_based=$(git log --format=%H --diff-filter=D --all --since="$START" -- 'tests/snobol4/*' 'probe/*' 'crosscheck/*')
 msg_based=$(git log --format=%H --diff-filter=D --all -- 'tests/snobol4/*' 'probe/*' 'crosscheck/*' | \

@@ -60,6 +60,7 @@ success. hq_P's phrasing is the one to remember: CLOBBER-BY-GUARD-REBUILD IS CLO
 import os
 import re
 import sys
+import hashlib
 import csv
 import glob
 import shutil
@@ -1213,7 +1214,53 @@ def _additive_next_name(base, taken):
     return "%s_%d" % (base, i)
 
 
-def _additive_write_sidecar_merge(path, new_lines):
+EXCL_DIGEST_TAG = "# builder-digest:"
+
+
+def _excl_digest(existing):
+    """sha256 over the sorted `key<TAB>value` DATA lines of an exclusion sidecar. Comments and order are
+    not part of it: the header is prose a human maintains, the data is what the builder owns."""
+    body = "".join("%s\t%s\n" % (k, existing[k]) for k in sorted(existing))
+    return hashlib.sha256(body.encode("utf-8")).hexdigest()
+
+
+def _excl_guard(path, existing):
+    """⛔⭐ REFUSE rc=2 IF ALL.excluded.txt HAS BEEN EDITED BY ANYTHING BUT THIS BUILDER (ceo CEO-545, on
+    hq_V's 2026-09-10 measurement). THE DEFECT IT CLOSES, both arms measured in a scratch tree before this
+    existed: (1) a hand DELETION of a line the builder still computes is SILENTLY REVERTED by the next full
+    build -- `rung36_jcon_io` removed by hand came back with no word said, which is the ceo's phrase exactly,
+    a generated artifact that can be edited but not honoured; (2) a hand-ADDED line the builder never
+    computes SURVIVES FOREVER -- an invented `zzz_invented_family` was still there after two full builds,
+    never challenged. The second is the worse half: it is how a WRONG EXCLUSION becomes permanent, and an
+    excluded name cannot be red, so nobody looks (the jcon `kwds` shape, four cycles).
+    ⛔ THE RULE IS THE CEO'S: a retraction is made where the exclusion is DECLARED -- KEEP.md, PENDING.md --
+    and the generated file is then REBUILT. This function makes the file say so instead of absorbing the
+    edit. A legacy file with no digest line is MIGRATED, not refused: refusing every tree on the first run
+    after this lands would be a gate that fires on its own introduction."""
+    if not os.path.isfile(path):
+        return
+    recorded = None
+    for line in open(path, encoding="utf-8", errors="replace"):
+        line = line.strip()
+        if line.startswith(EXCL_DIGEST_TAG):
+            recorded = line[len(EXCL_DIGEST_TAG):].strip()
+    if recorded is None:
+        return
+    actual = _excl_digest(existing)
+    if actual == recorded:
+        return
+    sys.stderr.write(
+        "⛔ REFUSED rc=2: %s has been edited since this builder last wrote it (recorded %s..., actual %s...).\n"
+        "   It is a GENERATED artifact and a hand edit to it is not honoured: a deletion is silently\n"
+        "   reverted by the next full build, and an invention survives forever unchallenged.\n"
+        "   CEO-545: retract or add the exclusion WHERE IT IS DECLARED -- the language's KEEP.md or\n"
+        "   PENDING.md -- then re-run this builder so the generated file is rebuilt from the declaration.\n"
+        "   To adopt the current file as the new baseline (only if you know the edit is right), delete the\n"
+        "   %s line and re-run.\n" % (path, recorded[:16], actual[:16], EXCL_DIGEST_TAG))
+    raise SystemExit(2)
+
+
+def _additive_write_sidecar_merge(path, new_lines, digest=False):
     """Merge {key: value} into a TAB-separated sidecar (MODES.tsv, ALL.excluded.txt), keyed on column 1 --
     new/changed keys win, everything else already on disk survives. Never a blind overwrite: a second
     --additive run (a different --lang, a different --from) must not erase the first run's lines.
@@ -1234,6 +1281,8 @@ def _additive_write_sidecar_merge(path, new_lines):
             seen_data = True
             k, v = line.split("\t", 1)
             existing[k] = v
+    if digest:
+        _excl_guard(path, existing)
     for k, v in new_lines.items():
         if k not in existing:            # ⛔ never overwrite a hand-written declaration and its evidence
             existing[k] = v
@@ -1242,6 +1291,8 @@ def _additive_write_sidecar_merge(path, new_lines):
             f.write("%s\n" % line)
         for k in sorted(existing):
             f.write("%s\t%s\n" % (k, existing[k]))
+        if digest:
+            f.write("%s %s\n" % (EXCL_DIGEST_TAG, _excl_digest(existing)))
 
 
 def additive_absorb(lang, categories, root, timeout, write, cols):
@@ -1365,7 +1416,7 @@ def additive_absorb(lang, categories, root, timeout, write, cols):
         print("--additive %s --from %s: 0 new entries (%d candidate(s) checked, %d excluded) -- nothing written."
               % (lang, ",".join(categories), len(absorbed) + len(excluded_rows), len(excluded_rows)), file=sys.stderr)
         _additive_write_sidecar_merge(os.path.join(OUTDIR, "ALL.excluded.txt"),
-                                       {("%s[%s]" % (n, c)): r for n, c, r in excluded_rows})
+                                       {("%s[%s]" % (n, c)): r for n, c, r in excluded_rows}, digest=True)
         return absorbed, excluded_rows, programs_named
 
     all_entries = base_entries + new_entries
@@ -1426,7 +1477,7 @@ def additive_absorb(lang, categories, root, timeout, write, cols):
     modes_path = os.path.join(cfg_dir, "MODES.tsv") if os.path.isdir(cfg_dir) else os.path.join(OUTDIR, "MODES.tsv")
     _additive_write_sidecar_merge(modes_path, modes_for_family)
     _additive_write_sidecar_merge(os.path.join(OUTDIR, "ALL.excluded.txt"),
-                                   {("%s[%s]" % (n, c)): r for n, c, r in excluded_rows})
+                                   {("%s[%s]" % (n, c)): r for n, c, r in excluded_rows}, digest=True)
     print("--additive %s --from %s: %d new entries absorbed (%d candidate(s) checked, %d excluded) -- "
           "ALL%s/ALL.ref/ALL.csv/%s updated." % (lang, ",".join(categories), len(new_entries),
           len(absorbed) + len(excluded_rows), len(excluded_rows), EXT, os.path.basename(modes_path)), file=sys.stderr)
@@ -2207,10 +2258,14 @@ def main():
                 _line = _line.rstrip("\n")
                 if _line and "\t" in _line:
                     _k, _v = _line.split("\t", 1); _excl_existing[_k] = _v
+        # ⛔ CEO-545: this file is GENERATED and a hand edit to it is not honoured -- see _excl_guard's own
+        # docstring for the two measured arms. Refuse here rather than absorb the edit silently.
+        _excl_guard(out_excl, _excl_existing)
         _excl_existing.update({fam: why for fam, why in excluded})
         with open(tmp_excl, "w", encoding="utf-8", newline="\n") as f:
             for fam in sorted(_excl_existing):
                 f.write("%s\t%s\n" % (fam, _excl_existing[fam]))
+            f.write("%s %s\n" % (EXCL_DIGEST_TAG, _excl_digest(_excl_existing)))
         if companion_copies:
             os.makedirs(_cfg, exist_ok=True)
             for cf, srcf in sorted(companion_copies.items()):
