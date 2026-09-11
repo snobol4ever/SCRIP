@@ -392,5 +392,23 @@ for want in 'PARSE 124 test_icon_arizona_suite.sh 0' 'NOSUM 0 1 True' 'DEN90 46'
         violations=$((violations + 1)); }
 done
 
+# ⛔⭐ THE BANNER'S OWN PROGRESS PATH RUNS AT LEAST ONCE. MEASURED 2026-09-11 (hq_T): a NameError in
+# cmd_progress crashed `util_score_row.py progress` on every invocation while `make preflight` stayed
+# 33 arms 0 red and all three score gates passed -- NOT ONE OF THEM EXECUTES IT. The banner's own caller
+# swallows the failure by design (`2>/dev/null || printf 'PROGRESS: UNREADABLE ...'`), which is right for a
+# banner and means a crash there is indistinguishable from an unreadable SCORE.md for every seat reading it.
+# ⭐ The arm is deliberately the weakest useful one -- does it RUN -- because that is the whole gap: nothing
+# asked. It asserts no number, so it cannot go stale, and it costs one subprocess.
+examined=$((examined + 1))
+_prog_out="$(S4E_HOME="${S4E_HOME:-$(cd "$HERE/../.." && pwd)}" python3 "$HERE/util_score_row.py" progress 2>&1)"; _prog_rc=$?
+if [ "$_prog_rc" -ne 0 ]; then
+    echo "GATE FAIL: \`util_score_row.py progress\` exits rc=$_prog_rc -- the line every seat's banner prints comes from this path, and its caller hides the failure behind 'PROGRESS: UNREADABLE'. Tail:"
+    printf '%s\n' "$_prog_out" | tail -4 | sed 's/^/      /'
+    violations=$((violations + 1))
+elif ! printf '%s' "$_prog_out" | grep -q '^PROGRESS 09-10 |'; then
+    echo "GATE FAIL: \`util_score_row.py progress\` exits 0 but prints no '^PROGRESS 09-10 |' score line -- the banner greps for exactly that and falls back to UNREADABLE without it"
+    violations=$((violations + 1))
+fi
+
 GATE_EXAMINED="$examined arms"
 gate_verdict "$violations" "leaderboard write-path invariants broken"

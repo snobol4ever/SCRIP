@@ -2596,6 +2596,26 @@ def counted_fractions(lang, vcell):
                 # unreadable cell must never be able to improve a score. It is a zero with a message, not an
                 # abstention -- the message is for the writer, the zero is for the reader.
                 got[dens[-1]] = got.get(dens[-1], 0)
+                # ⛔⭐⭐ IT STAYS BOOKED AS INVENTORY HERE, AND THE FALSE CLAIM IS CURED AT THE BANNER. It was, until 2026-09-11 (hq_I measured the
+                # symptom): ipl printed `IPL 108/108 Δ0 ✅ done` in the banner's grid and `ipl 108 programs`
+                # under "these suites exist and have never been run-graded" in the same banner, and the equal
+                # 108 is the tell -- one number, booked twice, in opposite senses. `notrun` is defined three
+                # hundred lines up as "on the list, NEVER RUN", and ipl had run: its cell merely states
+                # PASS=816, a count rather than a fraction, so this reader cannot parse it.
+                # ⭐⭐ THE GENERAL FORM, and it is the third instance in one sitting: AN INSTRUMENT THAT
+                # CANNOT READ SOMETHING MUST SAY "I CANNOT READ IT", NEVER "IT IS NOT THERE". The port-trace
+                # gates counted an unpinned witness (NOREF) as a failed check; the package cause reader
+                # promised a pass would write a cell whose buckets can never sum; this booked a cell it could
+                # not parse as a suite nobody ran. Each collapses an "I don't know" into a definite negative,
+                # and each reads as diligence -- the definite negative is always the more actionable-looking
+                # of the two.
+                # ⛔ MY FIRST CURE DELETED THE `_notrun` BOOKING AND test_gate_score_unreadable_package_is
+                # _marked.sh RED, CORRECTLY. That gate pins the package as INVENTORY precisely so it can never
+                # drift back into the measured percent, and the membership is the mechanism. ⭐ THE DATA
+                # CHANNEL WAS NOT THE LIE -- THE HEADING WAS: `notrun` here means "outside the measured
+                # percent", and the banner rendered it as "have never been run-graded", which is a strictly
+                # stronger claim than the bucket carries. Fixing the producer to satisfy a reader's wording is
+                # backwards, and it cost a gate red to find out.
                 _notrun.append((name, dens[-1]))
                 work.append("V %s UNREADABLE, counted 0/%d -- the cell carries %s, which is not a fraction over any "
                             "declared population %s. Counted ZERO (an unreadable cell must never raise a score), and "
@@ -3503,6 +3523,7 @@ def cmd_progress(a):
         die("the September-10 grid has no readable row for %s -- refusing to publish a progress line over a partial grid" % "; ".join(det))
     cells_out, bars, tp, tt, missing = [], [], 0, 0, []
     notrun_by_lang = {}
+    unread_by_lang = {}
     for lang, short in PROGRESS_LANGS:
         pct, mark, P, T, work = language_progress(lang, rows[lang], provs.get(lang, ""))
         if pct == "NOSUITE":
@@ -3534,9 +3555,41 @@ def cmd_progress(a):
             continue
         tp += P
         tt += T
+        # ⛔⭐⭐ THE BANNER MADE ONE NUMBER SAY TWO OPPOSITE THINGS (hq_I, 2026-09-11): it printed
+        # `IPL 108/108 Δ0 ✅ done` in the grid and `ipl 108 programs` under "these suites exist and have never
+        # been run-graded", and the equal 108 is the tell. ipl HAS run; its cell states PASS=816, a count
+        # rather than a fraction, so counted_fractions cannot parse it and books it as inventory. INVENTORY
+        # AND NEVER-RUN ARE NOT THE SAME CLAIM, and only the second one is false.
+        # ⭐⭐ THE GENERAL FORM, third instance this sitting: AN INSTRUMENT THAT CANNOT READ SOMETHING MUST SAY
+        # "I CANNOT READ IT", NEVER "IT IS NOT THERE". The port-trace gates counted an unpinned witness as a
+        # failed check; the package cause reader promised a pass would write a cell whose buckets can never
+        # sum; this rendered a cell it could not parse as a suite nobody ran. Each collapses an "I don't know"
+        # into a definite negative, and each reads as the more diligent of the two.
+        # ⛔ THE NAMES COME FROM THE WORK LINE, because cmd_progress holds no `got` -- language_progress
+        # returns (pct, mark, P, T, work) and nothing else. My first version reached for `got` here and
+        # NameError'd on every run, while `make preflight` stayed 33/33 green and all three score gates
+        # passed: ⭐ NOT ONE GATE EXERCISES THE BANNER'S OWN PROGRESS PATH. Found by running the command,
+        # not by reading the diff -- which is the whole argument for running it.
+        _unread_names = set()
+        for _w in work:
+            if str(_w).startswith("⚠ CELL NOT MACHINE-READABLE"):
+                _unread_names = {n.strip() for n in
+                                 str(_w).split(": ", 1)[-1].split(" -- ", 1)[0].split(",")}
         for _w in work:
             if str(_w).startswith("NOT RUN (inventory"):
-                notrun_by_lang[lang] = str(_w).split("): ", 1)[-1]
+                _items = [i for i in str(_w).split("): ", 1)[-1].split(" · ")
+                          if i.split(" ")[0] not in _unread_names]
+                if _items:
+                    notrun_by_lang[lang] = " · ".join(_items)
+            # ⛔⭐ AND THE UNREADABLE CELLS REACH THE BANNER TOO. Removing them from NOT RUN (they HAVE run;
+            # their cells merely state counts rather than fractions) was correct and, on its own, made them
+            # INVISIBLE here -- ipl and gimpel vanished from the banner entirely. ⭐⭐ THE FIX FOR A FALSE
+            # CLAIM IS A TRUE CLAIM, NEVER SILENCE: the code three hundred lines up already says it -- "hiding
+            # it would trade one dishonesty for another" -- and deleting the wrong line is exactly how a
+            # correction turns into a quieter version of the same defect. Caught by re-reading the banner
+            # after the cure rather than by reading the diff.
+            if str(_w).startswith("⚠ CELL NOT MACHINE-READABLE"):
+                unread_by_lang[lang] = str(_w).split(": ", 1)[-1].split(" -- ", 1)[0]
         cells_out.append("%s %d%%%s" % (short, pct, mark))
         bars.append("%s %s" % (short, "█" * (pct // 10) + "░" * (10 - pct // 10)))
         if a.verbose:
@@ -3566,6 +3619,14 @@ def cmd_progress(a):
     # ⛔⭐ THE NUMBER ABOVE IS A MEASUREMENT; THIS IS THE COVERAGE BESIDE IT. Keeping them on separate lines is the
     # whole point: folding an unrun suite into the percent as zeros is what made the old line unreadable as either
     # one thing or the other. Named, sized, and never averaged in.
+    if unread_by_lang:
+        # ⛔ A DIFFERENT CLAIM FROM NOT RUN, ON ITS OWN LINE, FOR THE REASON THE TWO MARKERS ARE KEPT APART
+        # elsewhere in this file: a suite that never ran and a suite whose RESULT CANNOT BE READ are not the
+        # same fact, and one glyph for both lets the louder problem hide inside the quieter one.
+        print("  CELL NOT MACHINE-READABLE (these suites MAY have run -- their cell states counts, not `<pass>/<total>`, so each counts ZERO and the percent above is a FLOOR):")
+        for _l, _short in PROGRESS_LANGS:
+            if _l in unread_by_lang:
+                print("    %-9s %s" % (_l, unread_by_lang[_l]))
     if notrun_by_lang:
         print("  NOT RUN (not in any percent above -- these suites exist and have never been run-graded):")
         for _l, _short in PROGRESS_LANGS:
