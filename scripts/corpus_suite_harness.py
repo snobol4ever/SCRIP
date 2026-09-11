@@ -2132,9 +2132,33 @@ def require_lang_for_suite(subcmd, src_path, args):
            f"--lang snobol4.")
 
 
-def _one_runner_guard():
-    """ONE RUNNER, ONE BOARD (Lon 2026-09-10, CEO-523): a master run is a board; refused rc=2 to any seat but the coo unless the bus
-    computed done (S4E_DONE_WHEN_RUN=1) or a loud S4E_ONE_RUNNER_OVERRIDE is set. Mirrors scripts/lib_one_runner.sh exactly."""
+def _suite_is_a_board(suite_path, corpus_root):
+    """⛔⭐ WHAT MAKES A RUN A BOARD IS THE POPULATION IT GRADES, NOT THE ENTRY POINT (ceo CEO-547 part 1, on the cfo's
+    measurement). A suite living under the corpus tree is a board: it grades a shared population, publishes rows and writes a
+    score. A gate's own two-entry mktemp fixture publishes no row, writes no score, grades no corpus population and costs about
+    a second -- it is not a board by the definition CEO-523 itself uses. The guard used to fire before it knew which of the two
+    it was holding, so make test -- THE blocking set -- was red on a clean origin tree for twelve of thirteen seats. An
+    unreadable or unresolvable path answers TRUE: a guard that cannot tell must refuse, never wave through."""
+    try:
+        sp = Path(suite_path).resolve()
+        cr = Path(corpus_root).resolve()
+    except Exception:
+        return True
+    try:
+        sp.relative_to(cr)
+        return True
+    except ValueError:
+        return False
+
+
+def _one_runner_guard(suite_path=None, corpus_root=None):
+    """ONE RUNNER, ONE BOARD (Lon 2026-09-10, CEO-523): a run of a suite UNDER THE CORPUS TREE is a board; refused rc=2 to any
+    seat but the coo unless the bus computed done (S4E_DONE_WHEN_RUN=1) or a loud S4E_ONE_RUNNER_OVERRIDE is set. A suite
+    outside the corpus tree -- a gate's own mktemp fixture -- is not a board and is never refused (CEO-547 part 1). Called with
+    no path it judges the run a board, so a new caller that forgets to say what it is graded is refused, not waved through.
+    Mirrors scripts/lib_one_runner.sh exactly."""
+    if suite_path is not None and corpus_root is not None and not _suite_is_a_board(suite_path, corpus_root):
+        return
     seat = os.environ.get("S4E_SEAT") or ""
     if not seat:
         try:
@@ -2152,8 +2176,8 @@ def _one_runner_guard():
     sys.exit(2)
 
 def cmd_run(args):
-    _one_runner_guard()
     paths = resolve_paths()
+    _one_runner_guard(args.sno, paths["corpus"])
     _progress_pin(paths)
     check_scrip(paths)
     # ⛔⭐ A SUITE FILE THAT IS NOT THERE IS A REFUSAL, NEVER A CRASH (row harness-refusal-exit-code-unified-on-
