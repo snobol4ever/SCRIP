@@ -234,6 +234,11 @@ run_mode() {
     [ "$crash" -gt 0 ]  && echo "    CRASH: ${crash_names[*]}"
     [ "$hang" -gt 0 ]   && echo "    HANG (>${TIMEOUT}s): ${hang_names[*]}"
     eval "${mode}_PASS=$pass"
+    # ⛔⭐ THE RED NAMES LEAVE run_mode BECAUSE THE ROW NEEDS THEM (ceo CEO-545): when the modes disagree the
+    # row is the AND PER PROGRAM, and the AND is computed from the UNION OF RED NAMES -- never from
+    # total minus two pass counts, which double-subtracts a program red in both modes. These four arrays
+    # were already built for the printed fail lists one screen up; only their scope was missing.
+    eval "${mode}_RED_NAMES=\"${fail_names[*]:-} ${reject_names[*]:-} ${crash_names[*]:-} ${hang_names[*]:-}\""
     # ⛔ TOTAL IS THE LOOP'S OWN DENOMINATOR, NEVER A SEPARATE `ls *.std` RECOUNT: jcon_tests carries one
     # orphaned .std (linking.std) with no matching .icn -- a stray in the vendored upstream, harmless to
     # leave in place (provenance), but counting it as part of TOTAL would assert a witness this suite
@@ -445,7 +450,20 @@ else echo "⛔ PACKAGE INVENTORY SPLIT REFUSED (rc=2, reason above) -- the class
 #      RULING; $GAP is just shipped-minus-graded, and CEO-470 measured jcon's as 13 ungradable + 2
 #      ungraded. Calling all 15 "ungraded" put a flat contradiction beside the inventory clause now riding
 #      in the same cell. The neutral phrase is the honest one -- the clause does the splitting.
-python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite JCON --modes m3,m4 \
-    --measurer "${S4E_SEAT:-}" --text "m3 ${m3p:-n/a}/$total · m4 ${m4p:-n/a}/$total graded (of $SHIPPED shipped, $GRADED graded, $GAP not graded -- the inventory clause splits ungraded=owed from ungradable=ruled)${INV_LINE:+ · $INV_LINE (\`test_icon_jcon_suite.sh\`)}" \
-    || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
+# ⛔⭐ THIS WRITE WAS REFUSED OUTRIGHT BEFORE THIS CHANGE, AND THE INSTRUMENT WAS RIGHT (measured on the
+# 2026-09-10 19:00 pass): with m3 79 and m4 78 the --text carried TWO different N/M fractions, and
+# util_score_row said so -- "which one the suite row means is a judgement, not a reading -- pass
+# --suite-pass/--suite-total" -- and wrote NOTHING rather than guess. The row went unwritten and the coo set it
+# by hand. ⭐ THE SIBLING RUNNER FAILED THE OTHER WAY ON THE SAME PASS: arizona passed m3's number into both
+# halves of its cell, silently. One honestly unwritten, one silently wrong, ONE ROOT -- neither could COMPUTE
+# the number CEO-545 asks for. gate_and_per_program is that computation, spelled once in lib_gate.sh.
+read -r AND_PASS AND_RED AND_NAMES <<<"$(gate_and_per_program "$total" "${m3_RED_NAMES:-}" "${m4_RED_NAMES:-}")"
+if [ -z "${AND_PASS:-}" ]; then
+    echo "⛔ SCORE ROW REFUSES (rc=2): gate_and_per_program could not compute the AND per program over total='$total' -- the row IS that number, so this run writes none rather than guess one" >&2
+else
+    echo "JCON_AND_PER_PROGRAM and_pass=$AND_PASS of $total (m3 ${m3p:-n/a} · m4 ${m4p:-n/a} · union of reds $AND_RED:$AND_NAMES)"
+    python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite JCON --modes m3,m4 --suite-pass "$AND_PASS" --suite-total "$total" \
+        --measurer "${S4E_SEAT:-}" --text "AND per program $AND_PASS/$total (ceo CEO-545: a program is green only if BOTH modes are; union of reds $AND_RED:$AND_NAMES) · m3 ${m3p:-n/a}/$total · m4 ${m4p:-n/a}/$total graded (of $SHIPPED shipped, $GRADED graded, $GAP not graded -- the inventory clause splits ungraded=owed from ungradable=ruled)${INV_LINE:+ · $INV_LINE (\`test_icon_jcon_suite.sh\`)}" \
+        || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
+fi
 

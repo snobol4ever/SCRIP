@@ -294,7 +294,22 @@ else echo "⛔ PACKAGE INVENTORY SPLIT REFUSED (rc=2, reason above) -- the class
 #      means a RULING; $GAP is just shipped-minus-graded and today is 34 ungradable + 0 ungraded. Saying
 #      "34 ungraded" put a flat contradiction beside this cell's own "ungraded=0 ungradable=34".
 #      The neutral phrase is the honest one: the inventory clause riding alongside does the splitting.
-python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite Arizona --modes m3,m4 --suite-pass "$M3_PASS" --suite-total "$TOTAL" \
-    --measurer "${S4E_SEAT:-}" --text "m3 $M3_PASS/$TOTAL · m4 $M4_PASS/$TOTAL graded (of $SHIPPED shipped, $TOTAL graded, $GAP not graded -- the inventory clause splits ungraded=owed from ungradable=ruled, m3_fail=$M3_FAIL m4_fail=$M4_FAIL, reject $M3_REJECT/$M4_REJECT)${INV_LINE:+ · $INV_LINE (\`test_icon_arizona_suite.sh\`)}" \
+# ⛔⭐ THE ROW IS THE AND PER PROGRAM WHEN THE MODES DISAGREE (ceo CEO-545, ruled 2026-09-10 on the coo's
+# handling; it supersedes the m3-where-they-differ convention retired at ceo-372). THE DEFECT THIS REPLACES,
+# measured on the 2026-09-10 19:00 pass: this line passed --suite-pass "$M3_PASS" -- m3's 84 -- into a cell
+# whose m4 read 83, so the published row asserted a fraction NO MODE MEASURED and did it silently, every pass,
+# whenever the modes differed. The coo corrected it by hand and the runner would have done it again next hour.
+# ⭐ THE SIBLING RUNNER FAILED THE OTHER WAY ON THE SAME PASS: jcon handed over two fractions and util_score_row
+# REFUSED the write, correctly. One silently wrong, one honestly unwritten, ONE ROOT -- neither could COMPUTE
+# the number the rule asks for. gate_and_per_program is that computation, spelled once in lib_gate.sh.
+# ⛔ REDS BY NAME, NEVER total-minus-two-pass-counts: a program red in BOTH modes would be subtracted twice.
+read -r AND_PASS AND_RED AND_NAMES <<<"$(gate_and_per_program "$TOTAL" "$M3_REJECT_NAMES $M3_FAIL_NAMES $M3_CRASH_NAMES $M3_HANG_NAMES" "$M4_REJECT_NAMES $M4_FAIL_NAMES $M4_CRASH_NAMES $M4_HANG_NAMES")"
+if [ -z "${AND_PASS:-}" ]; then
+    echo "⛔ SCORE ROW REFUSES (rc=2): gate_and_per_program could not compute the AND per program over TOTAL='$TOTAL' -- the row is that number and this run will not guess one" >&2
+    AND_PASS="$M3_PASS"; AND_RED=""; AND_NAMES=""
+fi
+echo "ARIZONA_AND_PER_PROGRAM and_pass=$AND_PASS of $TOTAL (m3 $M3_PASS · m4 $M4_PASS · union of reds $AND_RED:$AND_NAMES)"
+python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite Arizona --modes m3,m4 --suite-pass "$AND_PASS" --suite-total "$TOTAL" \
+    --measurer "${S4E_SEAT:-}" --text "AND per program $AND_PASS/$TOTAL (ceo CEO-545: a program is green only if BOTH modes are; union of reds $AND_RED:$AND_NAMES) · m3 $M3_PASS/$TOTAL · m4 $M4_PASS/$TOTAL graded (of $SHIPPED shipped, $TOTAL graded, $GAP not graded -- the inventory clause splits ungraded=owed from ungradable=ruled, m3_fail=$M3_FAIL m4_fail=$M4_FAIL, reject $M3_REJECT/$M4_REJECT)${INV_LINE:+ · $INV_LINE (\`test_icon_arizona_suite.sh\`)}" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 

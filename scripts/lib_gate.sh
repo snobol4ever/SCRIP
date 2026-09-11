@@ -400,6 +400,33 @@ gate_tree_unmoved() {
         echo "   so every number above describes no single tree. Re-run on a quiet tree; do NOT quote this board."
         exit 2; }
 }
+# gate_and_per_program <graded-total> <mode-A red names> <mode-B red names> -- THE ROW WHEN THE MODES DISAGREE.
+# Echoes "<and_pass> <union_count> <union names...>"; returns 2 and echoes nothing if the total is not a number.
+#
+# ⛔ THE RULE IS ceo CEO-545, ruled 2026-09-10 on the coo's handling: when the two modes disagree the row is the
+# AND PER PROGRAM -- a program is green only if BOTH modes are -- the UNION OF REDS IS NAMED, and the per-mode
+# numerators are carried BESIDE it, never a single fraction that hides which mode. It supersedes the
+# m3-where-they-differ convention retired at ceo-372.
+#
+# ⛔⭐ IT LIVES HERE BECAUSE TWO RUNNERS GOT IT WRONG IN TWO DIFFERENT DIRECTIONS ON THE SAME PASS (coo,
+# 2026-09-10). test_icon_jcon_suite handed util_score_row a --text carrying TWO fractions and the instrument
+# REFUSED the write outright, correctly, saying which number the row means is a judgement and not a reading --
+# so the row went unwritten. test_icon_arizona_suite did NOT refuse: it passed --suite-pass=$M3_PASS, m3's 84,
+# into both halves of a cell whose m4 read 83. ⭐ ONE SILENTLY WRONG AND ONE HONESTLY UNWRITTEN IS THE SAME
+# ROOT: neither runner could COMPUTE the number the rule asks for, so each did the best thing available to it.
+# Giving them the computation is the cure; asking them to remember the convention is not.
+#
+# ⛔ REDS ARE COUNTED BY NAME, NEVER BY SUBTRACTING PASS COUNTS. `total - m3_pass - m4_pass` is not the AND and
+# is not anything: a program red in BOTH modes would be subtracted twice. The union is what the rule names and
+# the union is what this computes -- which is also why the caller must hand over NAMES and not counts.
+gate_and_per_program() {
+    local _total="$1"; shift
+    case "$_total" in ''|*[!0-9]*) return 2;; esac
+    local _u _n
+    _u="$(printf '%s\n' $* | sed '/^$/d' | LC_ALL=C sort -u)"
+    _n="$(printf '%s\n' "$_u" | grep -c .)"
+    printf '%s %s %s\n' "$((_total - _n))" "$_n" "$(printf '%s ' $_u)"
+}
 # gate_floor <examined-count> <minimum> <what-was-counted> -- the empty-glob / empty-dir / zero-files class.
 gate_floor() {
     GATE_EXAMINED="$1"
