@@ -2003,6 +2003,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
     case IR_CORET: {
         IR_t * pv = nd->n_operands > 0 ? nd->operands[0] : NULL;
         int sa = pv ? bb_slot_get(pv) : -1;
+        if (sa < 0 && pv) { int _ns = nd_slot(pv); if (_ns >= 0) { bb_slot_register(pv, _ns); sa = _ns; } }
         if (sa < 0) { drive_guard_refused(nd, __LINE__); break; }
         g_emit.op_sa = sa;
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
