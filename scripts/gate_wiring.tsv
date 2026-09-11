@@ -48,6 +48,7 @@ test_gate_banner_reports_ahead_of_origin.sh	WIRED	-	-	-
 test_gate_baton_donewhen_runnable.sh	WIRED	-	-	-
 test_gate_boards_refuse_when_the_binary_moves.sh	WIRED	-	-	-
 test_gate_build_freshness_is_behavioural.sh	WIRED	-	-	-
+test_gate_builder_and_grader_agree_on_stdin_companion_spellings.sh	WIRED	-	-	-
 test_gate_capture_stdin_and_red_exit.sh	WIRED	-	-	-
 test_gate_ceo409_mask_is_read_by_the_bash_runners.sh	WIRED	-	-	-
 test_gate_coexpr_stack_of_uncreated_thread.sh	WIRED	-	-	-
@@ -66,6 +67,7 @@ test_gate_emit_no_lang.sh	WIRED	-	-	-
 test_gate_emit_no_slot_alloc.sh	WIRED	-	-	-
 test_gate_gate_wiring_ratchet.sh	WIRED	-	-	-
 test_gate_harness_refusal_is_rc2.sh	WIRED	-	-	-
+test_gate_icn_a_suspended_variable_images_as_a_variable_not_its_value.sh	WIRED	-	-	-
 test_gate_icn_a_variable_operand_derefs_at_the_operation.sh	WIRED	-	-	-
 test_gate_icn_apply_invocation_of_a_generator_opens_one_level_not_two.sh	WIRED	-	-	-
 test_gate_icn_argument_type_discipline.sh	WIRED	-	-	-
