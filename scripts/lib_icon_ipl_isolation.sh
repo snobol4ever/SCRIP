@@ -244,6 +244,11 @@ ipl_argv_read() {
   line="$(grep -v '^[[:space:]]*\(#.*\)\?$' "$side" | head -1)"
   local IFS=$'\t'; local -a f=($line); unset IFS
   if [ "${f[0]}" != "$base" ]; then
+    # ⛔ SAY WHICH OF THE TWO CONTRACTS THIS IS, because the same extension carries both and the refusal
+    # above is unreadable when the file is fine and the READER is wrong (hq_V 2026-09-12, CEO-604).
+    if [ -f "${icn%.icn}.csv" ]; then
+      echo "⛔ ARGV SIDECAR REFUSES(2): $side is a SUITE CONTAINER's per-entry argv table (a $base.csv sits beside it), read by corpus_suite_harness.read_argv_sidecar and keyed on ENTRY names -- it names '$base' nowhere and never could. This reader is for ONE witness's argv. The file is not malformed; the caller pointed a witness reader at a container." >&2; return 2
+    fi
     echo "⛔ ARGV SIDECAR REFUSES(2): $side declares '${f[0]}' but sits beside $base.icn -- a copied sidecar arming the wrong program" >&2; return 2
   fi
   if [ "${#f[@]}" -lt 2 ]; then

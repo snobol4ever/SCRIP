@@ -107,8 +107,25 @@ icn_rundir_env() {
 # because every stdin sidecar in tests/icon lives in `config/`. The two-place lookup is stated once, in
 # icn_sidecar_path, and this predicate must ask THE SAME QUESTION `icn_rundir_stdin` answers -- or the bus
 # feeds a file the contract says is not declared, which is the two-instruments-one-question defect again.
+# ⛔⭐ A SUITE CONTAINER IS NOT A WITNESS, AND ITS SIDECARS ARE A DIFFERENT CONTRACT WITH THE SAME EXTENSION
+# (hq_V 2026-09-12, CEO-604, on hq_T's census: test_gate_icn_rundir_contract REFUSED rc=2 fleet-wide).
+# TWO readers share `.argv` and they disagree by design. `NAME.argv` beside a WITNESS `NAME.icn` is ONE
+# program's argv and must name NAME -- ipl_argv_read refuses anything else as a copied sidecar arming the
+# wrong program, which is a refusal worth having. `ALL.argv` beside the MASTER `ALL.icn` is the PER-ENTRY
+# table read by corpus_suite_harness.read_argv_sidecar, keyed on ENTRY names; it names `ALL` nowhere and
+# never could. A master is a CONTAINER, never compiled whole (CLAUDE.md), and the same is true of its
+# sidecars -- so pointing the witness reader at one is a category error, not a malformed file.
+# ⭐ THE DISCRIMINATOR IS THE ENTRY TABLE, NOT THE NAME "ALL": a container is the thing that ships a
+# per-entry provenance table beside it. Measured over corpus/tests/icon -- exactly one of the 9 .icn files
+# declaring a contract has a sibling .csv, and it is precisely the one being mis-enumerated. A name-based
+# test would have to be re-taught every time a family is renamed; this one cannot drift.
+icn_rundir_is_container() {
+  local base="${1%.icn}"
+  [ -f "$base.csv" ]
+}
 icn_rundir_declares() {
   local base="${1%.icn}"
+  icn_rundir_is_container "$1" && return 1
   [ -e "$base.argv" ] || [ -e "$base.fixtures" ] || [ -e "$base.env" ] || icn_sidecar_path "$1" stdin >/dev/null
 }
 
