@@ -1044,7 +1044,7 @@ static int rt_pl_cell_compare(pl_cell_t *ca, pl_cell_t *cb, pl_vord_t *m) {
     int cla = rt_pl_cell_class(a), clb = rt_pl_cell_class(b);
     if (cla != clb) return cla < clb ? -1 : 1;
     if (cla == 0) { int ia = rt_pl_vord_of(m, a), ib = rt_pl_vord_of(m, b); return ia == ib ? 0 : (ia < ib ? -1 : 1); }
-    if (cla == 1) { double x = ((int)a->v == DT_I) ? (double)a->i : a->r, y = ((int)b->v == DT_I) ? (double)b->i : b->r; return x < y ? -1 : (x > y ? 1 : 0); }
+    if (cla == 1) { double x = ((int)a->v == DT_I) ? (double)a->i : a->r, y = ((int)b->v == DT_I) ? (double)b->i : b->r; if (x < y) return -1; if (x > y) return 1; if ((int)a->v == (int)b->v) return 0; return ((int)a->v == DT_R) ? -1 : 1; }
     if (cla == 2) { int c = strcmp(rt_pl_cell_name(a), rt_pl_cell_name(b)); return c < 0 ? -1 : (c > 0 ? 1 : 0); }
     int ara = (int)(a->slen & 0xFFFFu), arb = (int)(b->slen & 0xFFFFu);
     if (ara != arb) return ara < arb ? -1 : 1;

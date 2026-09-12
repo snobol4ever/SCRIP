@@ -2269,7 +2269,7 @@ static pl_flag_t pl_flags[] = {
     { "max_integer", "9223372036854775807", 0, { 0 } },
     { "min_integer", "-9223372036854775808", 0, { 0 } },
     { "integer_rounding_function", "toward_zero", 0, { 0 } },
-    { "max_arity", "unbounded", 0, { 0 } },
+    { "max_arity", "1024", 0, { 0 } },
     { "char_conversion", "off", 1, { "on", "off", 0 } },
     { "debug", "off", 1, { "on", "off", 0 } },
     { "unknown", "error", 1, { "error", "fail", "warning", 0 } },
@@ -2298,6 +2298,7 @@ PL_CX_LEAF_HEAD(current_prolog_flag, 2) { extern void *rt_pl_ball_kind2(const ch
     else if (!strcmp(fl->nm, "argv")) { ok = plw_unify_vals(args[1], pl_nil(), cx); }
     else if (!strcmp(fl->nm, "max_integer")) { ok = plw_unify_vals(args[1], INTVAL(9223372036854775807LL), cx); }
     else if (!strcmp(fl->nm, "min_integer")) { ok = plw_unify_vals(args[1], INTVAL(-9223372036854775807LL - 1), cx); }
+    else if (!strcmp(fl->nm, "max_arity")) { ok = plw_unify_vals(args[1], INTVAL(1024), cx); }
     else { ok = plw_unify_vals(args[1], pl_mk_atom_dup(fl->val, strlen(fl->val)), cx); } } PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_CX_LEAF_HEAD(set_prolog_flag, 2) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
@@ -7610,6 +7611,7 @@ static void * pl_anum_check(const char *nm, DESCR_t *a, int n) {
         if (pl_anum_is_compound(f)) return rt_pl_ball_kind2("type_error", "atomic", f);
         if ((long long)r.i < 0) return rt_pl_ball_kind2("domain_error", "not_less_than_zero", r);
         if ((long long)r.i > 0 && !pl_anum_is_text(f)) return rt_pl_ball_kind2("type_error", "atom", f);
+        if ((long long)r.i > 1024) { extern void *rt_pl_ball_kind1(const char *, const char *); return rt_pl_ball_kind1("representation_error", "max_arity"); }
         return (void *)0; }
     return (void *)0;
 }

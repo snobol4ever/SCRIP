@@ -51,8 +51,10 @@ static pl_bb_ent_t * pl_bb_register(const char * name, int arity, int bb_idx) {
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_pi_is_static_builtin(const char * pn, int ar);
 void pl_dyn_mark(const char *name, int arity) {
     if (!name) return;
+    if (pl_pi_is_static_builtin(name, arity)) return;
     for (int i = 0; i < g_stage2.pl_dyn_n; i++) if (g_stage2.pl_dyn_name[i] && !strcmp(g_stage2.pl_dyn_name[i], name) && g_stage2.pl_dyn_arity[i] == arity) return;
     if (g_stage2.pl_dyn_n >= 64) return;
     g_stage2.pl_dyn_name[g_stage2.pl_dyn_n] = name; g_stage2.pl_dyn_arity[g_stage2.pl_dyn_n] = arity; g_stage2.pl_dyn_n++;
@@ -75,7 +77,7 @@ static int pl_decl_dyn_is(const char * name, int arity) {
     for (int i = 0; i < g_pl_decl_dyn_n; i++) if (g_pl_decl_dyn_name[i] && !strcmp(g_pl_decl_dyn_name[i], name) && g_pl_decl_dyn_arity[i] == arity) return 1;
     return 0;
 }
-typedef struct { IR_graph_t * g; IR_t * tω; IR_t * cutω; IR_t * clause_cutω; } lcx_t;
+typedef struct { IR_graph_t * g; IR_t * tω; IR_t * cutω; IR_t * clause_cutω; int cut_scope; int scope_seq; IR_t * meta_redo; int meta_redo_set; } lcx_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * build(lcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) { return lc_build(cx->g, op, γ, ω); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -319,17 +321,21 @@ static void collect_conj(const tree_t * t, lc_vec * out) {
 static IR_t * pl_lower_conj(lcx_t * cx, const tree_t * const * gl, int ng, IR_t * γtail, IR_t * ωbase, IR_t ** entry_out, IR_t ** redo_out, IR_t ** tail_out) {
     IR_t ** gn = (IR_t **) calloc((size_t)(ng > 0 ? ng : 1), sizeof(IR_t *));
     IR_t ** en = (IR_t **) calloc((size_t)(ng > 0 ? ng : 1), sizeof(IR_t *));
+    IR_t ** rd = (IR_t **) calloc((size_t)(ng > 0 ? ng : 1), sizeof(IR_t *));
+    int * rds = (int *) calloc((size_t)(ng > 0 ? ng : 1), sizeof(int));
     IR_t * next = γtail;
     for (int i = ng - 1; i >= 0; i--) {
         IR_t * e = NULL;
+        cx->meta_redo_set = 0;
         IR_t * nd = goal(cx, gl[i], next, ωbase, &e);
+        rd[i] = cx->meta_redo_set ? cx->meta_redo : NULL; rds[i] = cx->meta_redo_set; cx->meta_redo_set = 0;
         gn[i] = nd; en[i] = e ? e : nd;
         next = en[i];
     }
     IR_t * last_res = ωbase; int last_res_beta = 0;
     for (int i = 0; i < ng; i++) {
-        if (gn[i] && gn[i]->op == IR_CUT) { lc_ω_to(gn[i], cx->cutω); last_res = cx->cutω; last_res_beta = 0; continue; }
-        if (gn[i] && gn[i]->op == IR_GOTO) { if (last_res_beta) lc_γ_to_β(gn[i], last_res); else lc_γ_to(gn[i], last_res); }
+        if (gn[i] && gn[i]->op == IR_CUT && IR_LIT(gn[i]).ival == cx->cut_scope) { lc_ω_to(gn[i], cx->cutω); last_res = cx->cutω; last_res_beta = 0; continue; }
+        if (gn[i] && gn[i]->op == IR_GOTO) { if (last_res_beta) lc_γ_to_β(gn[i], last_res); else lc_γ_to(gn[i], last_res); if (rds[i] && rd[i]) { last_res = rd[i]; last_res_beta = 1; } }
         else if (last_res_beta) lc_ω_to_β(gn[i], last_res);
         else lc_ω_to(gn[i], last_res);
         if (gn[i] && (gn[i]->op == IR_CALL_PROC_STAGED || gn[i]->op == IR_DISJUNCTION || gn[i]->op == IR_INDIRECT_GOTO || ir_is_generator_kind(gn[i]->op))) { last_res = gn[i]; last_res_beta = 1; }
@@ -338,7 +344,7 @@ static IR_t * pl_lower_conj(lcx_t * cx, const tree_t * const * gl, int ng, IR_t 
     if (entry_out) *entry_out = (ng > 0) ? en[0] : γtail;
     if (tail_out) *tail_out = (ng > 0) ? gn[ng - 1] : NULL;
     IR_t * first = (ng > 0) ? gn[0] : NULL;
-    free(gn); free(en);
+    free(gn); free(en); free(rd); free(rds);
     return first;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -408,7 +414,7 @@ static IR_t * pl_lower_disj(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * 
             if (x->ω.node == dj) { memcpy(x->ω.sz, "φ", 3); x->ω.sz[3] = 0; }
         }
         int cut_in_branch = 0;
-        for (int k = before; k < cx->g->n; k++) if (cx->g->all[k] && cx->g->all[k]->op == IR_CUT) { cut_in_branch = 1; break; }
+        for (int k = before; k < cx->g->n; k++) if (cx->g->all[k] && cx->g->all[k]->op == IR_CUT && IR_LIT(cx->g->all[k]).ival == cx->cut_scope) { cut_in_branch = 1; break; }
         ir_operand_push(dj, pl_disj_entry(cx, bentry ? bentry : (first ? first : dj), dj));
         ir_operand_push(dj, cut_in_branch ? cx->cutω : (redo ? redo : dj));
     }
@@ -479,9 +485,9 @@ static IR_t * pl_lower_ite(lcx_t * cx, const tree_t * C, const tree_t * T, const
       IR_t * ce = NULL;
       lc_γ_to(unmk_f, (nb > 1) ? arm_entry[1] : ig);
       IR_t * saveω = cx->cutω; cx->cutω = unmk_f;
-      IR_t * savecutω = cx->cutω; cx->cutω = unmk_f;
+      IR_t * savecutω = cx->cutω; cx->cutω = unmk_f; int save_scope = cx->cut_scope; cx->cut_scope = ++cx->scope_seq;
       IR_t * cfirst = pl_lower_conj(cx, (const tree_t * const *) cv.data, cv.n, arm_entry[0], unmk_f, &ce, NULL, NULL);
-      cx->cutω = savecutω;
+      cx->cutω = savecutω; cx->cut_scope = save_scope;
       cx->cutω = saveω;
       lc_γ_to(mark, ce ? ce : (cfirst ? cfirst : arm_entry[0]));
       if (entry_out) *entry_out = mark; }
@@ -504,9 +510,9 @@ static IR_t * pl_lower_softcut(lcx_t * cx, const tree_t * C, const tree_t * T, c
     { lc_vec cv; lc_vec_init(&cv, (int) sizeof(const tree_t *));
       collect_conj(C, &cv);
       IR_t * ce = NULL;
-      IR_t * savecutω = cx->cutω; cx->cutω = unmk_f;
+      IR_t * savecutω = cx->cutω; cx->cutω = unmk_f; int save_scope = cx->cut_scope; cx->cut_scope = ++cx->scope_seq;
       IR_t * cfirst = pl_lower_conj(cx, (const tree_t * const *) cv.data, cv.n, ml_c, unmk_f, &ce, &credo, NULL);
-      cx->cutω = savecutω;
+      cx->cutω = savecutω; cx->cut_scope = save_scope;
       lc_γ_to(ml_e, pl_sc_entry(ce ? ce : (cfirst ? cfirst : ml_c))); }
     IR_t * tredo = NULL;
     { lc_vec tv; lc_vec_init(&tv, (int) sizeof(const tree_t *));
@@ -741,6 +747,50 @@ static const char * pl_head_key(const tree_t * a, int * ar_out) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_pi_is_static_builtin(const char * pn, int ar) {
+    static const char * const ctl[] = { "true", "fail", "false", "!", ",", ";", "->", "*->", "\\+", "not", "call", ":-", "?-", "catch", "throw", "findall", "bagof", "setof",
+        "forall", "once", "ignore", "is", "=", "\\=", "==", "\\==", "@<", "@=<", "@>", "@>=", "=..", "<", ">", "=<", ">=", "=:=", "=\\=", "halt", "repeat", "assert", "asserta",
+        "assertz", "retract", "retractall", "abolish", "clause", "current_predicate", "predicate_property", "dynamic", "discontiguous", "multifile", "op", "current_op",
+        "set_prolog_flag", "current_prolog_flag", "char_conversion", "current_char_conversion", "unify_with_occurs_check", "subsumes_term", "compare", "keysort", "length",
+        "setup_call_cleanup", "call_cleanup", "atom_to_term", "number_vars", "open", "close", "set_input", "set_output", "current_input", "current_output", "at_end_of_stream",
+        "set_stream_position", "get_char", "get_code", "get_byte", "peek_char", "peek_code", "peek_byte", "put_char", "put_code", "put_byte", "write_term", "read_term", NULL };
+    if (!pn) return 0;
+    if (pl_decl_dyn_is(pn, ar)) return 0;
+    if (pl_name_in(pn, ctl)) return 1;
+    if (pl_det_leaf_sym(pn, ar)) return 1;
+    if (pl_rung_of(pn) && strcmp(pn, "for")) return 1;
+    return 0;
+}
+static const tree_t * pl_tree_number(const tree_t * t) { return (t && (t->t == TT_ILIT || t->t == TT_FLIT)) ? t : NULL; }
+static const tree_t * pl_body_ill_typed(const tree_t * b) {
+    if (!b) return NULL;
+    if (pl_tree_number(b)) return b;
+    if (b->t == TT_FNC && b->v.sval && b->n == 2 && (!strcmp(b->v.sval, ",") || !strcmp(b->v.sval, ";") || !strcmp(b->v.sval, "->") || !strcmp(b->v.sval, "*->") || !strcmp(b->v.sval, "|")))
+        return pl_body_ill_typed(b->c[0]) ? b : (pl_body_ill_typed(b->c[1]) ? b : NULL);
+    if (b->t == TT_FNC && b->v.sval && b->n == 1 && !strcmp(b->v.sval, "\\+")) return pl_body_ill_typed(b->c[0]) ? b : NULL;
+    return NULL;
+}
+static const tree_t * pl_clause_ill_typed(const tree_t * cl) {
+    if (!cl) return NULL;
+    if (cl->t == TT_FNC && cl->v.sval && !strcmp(cl->v.sval, ":-") && cl->n == 2) {
+        if (pl_tree_number(cl->c[0])) return cl->c[0];
+        return pl_body_ill_typed(cl->c[1]);
+    }
+    return pl_tree_number(cl);
+}
+static tree_t * pl_cc_throw_ar(tree_t * formal, const char * nm, int ar) { return pl_cc_fnc1("throw", pl_cc_fnc2("error", formal, pl_cc_pi_ar(nm, ar))); }
+static tree_t * pl_cc_type_error(const char * type, const tree_t * culprit, const char * nm, int ar) { return pl_cc_throw_ar(pl_cc_fnc2("type_error", (tree_t *) pl_atom_goal(type), (tree_t *) culprit), nm, ar); }
+static tree_t * pl_cc_perm_access(const char * pn, int ar) { return pl_cc_fnc1("throw", pl_cc_fnc2("error", pl_cc_fnc3("permission_error", (tree_t *) pl_atom_goal("access"), (tree_t *) pl_atom_goal("private_procedure"), pl_cc_pi_ar(pn, ar)), pl_cc_pi_ar("clause", 2))); }
+static tree_t * pl_cc_spec_ill_typed(const tree_t * s, const char * nm) {
+    if (!s || s->t == TT_VAR) return NULL;
+    if (!(s->t == TT_FNC && s->v.sval && !strcmp(s->v.sval, "/") && s->n == 2)) return pl_cc_type_error("predicate_indicator", s, nm, 1);
+    { const tree_t * n = s->c[0]; const tree_t * a = s->c[1];
+      if (n && n->t != TT_VAR && !(n->t == TT_QLIT || n->t == TT_NAME)) return strcmp(nm, "abolish") ? pl_cc_type_error("predicate_indicator", s, nm, 1) : pl_cc_type_error("atom", n, nm, 1);
+      if (a && a->t != TT_VAR && a->t != TT_ILIT) return strcmp(nm, "abolish") ? pl_cc_type_error("predicate_indicator", s, nm, 1) : pl_cc_type_error("integer", a, nm, 1);
+      if (a && a->t == TT_ILIT && a->v.ival < 0 && !strcmp(nm, "abolish")) return pl_cc_throw_ar(pl_cc_fnc2("domain_error", (tree_t *) pl_atom_goal("not_less_than_zero"), (tree_t *) a), nm, 1);
+      if (a && a->t == TT_ILIT && a->v.ival > 1024 && !strcmp(nm, "abolish")) return pl_cc_throw_ar(pl_cc_fnc1("representation_error", (tree_t *) pl_atom_goal("max_arity")), nm, 1);
+      return NULL; }
+}
 static const char * pl_spec_key(const tree_t * s, int * ar_out) {
     if (!s || s->t != TT_FNC || !s->v.sval || strcmp(s->v.sval, "/") || s->n != 2) return NULL;
     if (!s->c[0] || !(s->c[0]->t == TT_QLIT || s->c[0]->t == TT_NAME) || !s->c[0]->v.sval) return NULL;
@@ -912,6 +962,7 @@ static const tree_t * pl_meta_goal(const tree_t * g, const tree_t * const * extr
 static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     if (entry_out) *entry_out = NULL;
     if (!t) return build(cx, IR_SUCCEED, γnext, ωfail);
+    if (pl_tree_number(t)) return goal(cx, pl_cc_type_error("callable", t, "call", 1), γnext, ωfail, entry_out);
     if (t->t == TT_MAKELIST && t->n > 0) {
         tree_t * g = pl_cc_fnc1("consult", (tree_t *) t->c[0]);
         for (int i = 1; i < t->n; i++) g = pl_cc_fnc2(",", g, pl_cc_fnc1("consult", (tree_t *) t->c[i]));
@@ -944,11 +995,17 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             else { extra = (const tree_t * const *) &t->c[1]; nextra = t->n - 1; }
             if (t->c[0] && t->c[0]->t == TT_VAR) return pl_meta_call_dyn(cx, t->c[0], extra, nextra, γnext, ωfail, entry_out);
             const tree_t * ext = pl_meta_goal(t->c[0], extra, nextra);
+            if (ext && pl_body_ill_typed(ext)) return goal(cx, pl_cc_type_error("callable", ext, nm, t->n), γnext, ωfail, entry_out);
             if (!ext) return goal(cx, pl_cc_fnc1("throw", pl_cc_fnc2("error", pl_cc_fnc2("type_error", (tree_t *) pl_atom_goal("callable"), (tree_t *) t->c[0]), pl_cc_pi_ar(nm, t->n))), γnext, ωfail, entry_out);
-            IR_t * saveω = cx->cutω; cx->cutω = ωfail;
-            IR_t * r = goal(cx, ext, γnext, ωfail, entry_out);
-            cx->cutω = saveω;
-            return r;
+            { IR_t * callω = build(cx, IR_GOTO, ωfail, ωfail);
+              IR_t * saveω = cx->cutω; cx->cutω = callω; int save_scope = cx->cut_scope; cx->cut_scope = ++cx->scope_seq;
+              lc_vec glv; lc_vec_init(&glv, (int) sizeof(const tree_t *)); collect_conj(ext, &glv);
+              IR_t * ientry = NULL; IR_t * iredo = NULL;
+              pl_lower_conj(cx, (const tree_t * const *) glv.data, glv.n, γnext, callω, &ientry, &iredo, NULL);
+              cx->cutω = saveω; cx->cut_scope = save_scope;
+              cx->meta_redo = iredo; cx->meta_redo_set = 1;
+              if (entry_out) *entry_out = ientry;
+              return callω; }
         }
         if (!strcmp(nm, "throw") && t->n == 1) return pl_leaf(cx, "$throw", t, 1, ωfail, ωfail, entry_out);
         if (!strcmp(nm, "catch") && t->n == 3) return pl_lower_catch(cx, t->c[0], t->c[1], t->c[2], γnext, ωfail, entry_out);
@@ -1157,26 +1214,35 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         if (!strcmp(nm, "read_term") && t->n == 2 && pl_tree_is_nil(t->c[1])) return pl_leaf_lv(cx, "$read", t, 1, γnext, ωfail, entry_out);
         if (!strcmp(nm, "read_term") && t->n == 3 && pl_tree_is_nil(t->c[2])) return pl_leaf_lv(cx, "$read_s", t, 2, γnext, ωfail, entry_out);
         if ((!strcmp(nm, "assertz") || !strcmp(nm, "assert") || !strcmp(nm, "asserta")) && t->n == 1) {
-            int ar = 0; const char * pn = pl_head_key(t->c[0], &ar);
+            int ar = 0; const char * pn;
+            { const tree_t * bad = pl_clause_ill_typed(t->c[0]); if (bad) return goal(cx, pl_cc_type_error("callable", bad, nm, 1), γnext, ωfail, entry_out); }
+            pn = pl_head_key(t->c[0], &ar);
             if (!pn) pl_refuse("assert of a clause whose head is not a callable term known at compile time --", nm, 10);
-            if (!pl_db_owned(pn, ar)) return goal(cx, pl_cc_perm_static(pn, ar), γnext, ωfail, entry_out);
+            if (pl_pi_is_static_builtin(pn, ar) || !pl_db_owned(pn, ar)) return goal(cx, pl_cc_perm_static(pn, ar), γnext, ωfail, entry_out);
             { IR_t * le = NULL; IR_t * nd = pl_db_leaf2(cx, !strcmp(nm, "asserta") ? "$db_asserta" : "$db_assertz", pl_dyn_index_or_add(pn, ar), t->c[0], γnext, ωfail, &le);
               IR_t * se = NULL; pl_db_seed_file(cx, pn, ar, le, ωfail, &se); if (entry_out) *entry_out = se ? se : le; return nd; } }
         if (!strcmp(nm, "retract") && t->n == 1) {
-            int ar = 0; const char * pn = pl_head_key(t->c[0], &ar);
+            int ar = 0; const char * pn;
+            { const tree_t * bad = pl_clause_ill_typed(t->c[0]); if (bad) return goal(cx, pl_cc_type_error("callable", bad, nm, 1), γnext, ωfail, entry_out); }
+            pn = pl_head_key(t->c[0], &ar);
             if (!pn) pl_refuse("retract of a clause whose head is not a callable term known at compile time --", nm, 10);
-            if (!pl_db_owned(pn, ar)) return goal(cx, pl_cc_perm_static(pn, ar), γnext, ωfail, entry_out);
+            if (pl_pi_is_static_builtin(pn, ar) || !pl_db_owned(pn, ar)) return goal(cx, pl_cc_perm_static(pn, ar), γnext, ωfail, entry_out);
             { IR_t * le = NULL; IR_t * nd = pl_db_enum(cx, pl_dyn_index_or_add(pn, ar), pl_clause_target(t->c[0], NULL), 1, γnext, ωfail, &le);
               IR_t * se = NULL; pl_db_seed_file(cx, pn, ar, le, ωfail, &se); if (entry_out) *entry_out = se ? se : le; return nd; } }
         if (!strcmp(nm, "retractall") && t->n == 1) {
-            int ar = 0; const char * pn = pl_head_key(t->c[0], &ar);
+            int ar = 0; const char * pn;
+            { const tree_t * bad = pl_tree_number(t->c[0]); if (bad) return goal(cx, pl_cc_type_error("callable", bad, nm, 1), γnext, ωfail, entry_out); }
+            pn = pl_head_key(t->c[0], &ar);
             if (!pn) pl_refuse("retractall whose argument is not a callable term known at compile time --", nm, 10);
-            if (!pl_db_owned(pn, ar)) return goal(cx, pl_cc_perm_static(pn, ar), γnext, ωfail, entry_out);
+            if (pl_pi_is_static_builtin(pn, ar) || !pl_db_owned(pn, ar)) return goal(cx, pl_cc_perm_static(pn, ar), γnext, ωfail, entry_out);
             { IR_t * le = NULL; IR_t * nd = pl_db_leaf2(cx, "$db_retractall", pl_dyn_index_or_add(pn, ar), t->c[0], γnext, ωfail, &le);
               IR_t * se = NULL; pl_db_seed_file(cx, pn, ar, le, ωfail, &se); if (entry_out) *entry_out = se ? se : le; return nd; } }
         if (!strcmp(nm, "abolish") && t->n == 1) {
-            int ar = 0; const char * pn = pl_spec_key(t->c[0], &ar);
+            int ar = 0; const char * pn;
+            { tree_t * bad = pl_cc_spec_ill_typed(t->c[0], nm); if (bad) return goal(cx, bad, γnext, ωfail, entry_out); }
+            pn = pl_spec_key(t->c[0], &ar);
             if (!pn) pl_refuse("abolish whose argument is not a Name/Arity known at compile time --", nm, 10);
+            if (pl_pi_is_static_builtin(pn, ar)) return goal(cx, pl_cc_perm_static(pn, ar), γnext, ωfail, entry_out);
             if (!pl_db_owned(pn, ar)) return goal(cx, pl_cc_perm_static(pn, ar), γnext, ωfail, entry_out);
             { IR_t * le = NULL; IR_t * nd = pl_db_leaf1(cx, "$db_abolish", pl_dyn_index_or_add(pn, ar), γnext, ωfail, &le);
               IR_t * se = NULL; pl_db_seed_file(cx, pn, ar, le, ωfail, &se); if (entry_out) *entry_out = se ? se : le; return nd; } }
@@ -1191,8 +1257,12 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
                 IR_t * guard_entry = NULL; pl_db_leaf2(cx, "$pl_nb_getval_guard", k, kt, body_entry, ωfail, &guard_entry);
                 if (entry_out) *entry_out = guard_entry; return nd; } } }
         if (!strcmp(nm, "clause") && t->n == 2) {
-            int ar = 0; const char * pn = pl_head_key(t->c[0], &ar);
+            int ar = 0; const char * pn;
+            { const tree_t * bad = pl_tree_number(t->c[0]); if (!bad) bad = pl_tree_number(t->c[1]);
+              if (bad) return goal(cx, pl_cc_type_error("callable", bad, nm, 2), γnext, ωfail, entry_out); }
+            pn = pl_head_key(t->c[0], &ar);
             if (!pn) pl_refuse("clause/2 whose head is not a callable term known at compile time --", nm, 10);
+            if (pl_pi_is_static_builtin(pn, ar)) return goal(cx, pl_cc_perm_access(pn, ar), γnext, ωfail, entry_out);
             if (pl_db_owned(pn, ar)) { IR_t * le = NULL; IR_t * nd = pl_db_enum(cx, pl_dyn_index_or_add(pn, ar), pl_clause_target(t->c[0], t->c[1]), 0, γnext, ωfail, &le);
               IR_t * se = NULL; pl_db_seed_file(cx, pn, ar, le, ωfail, &se); if (entry_out) *entry_out = se ? se : le; return nd; }
             if (!pl_file_defines(pn, ar)) { IR_t * nf = build(cx, IR_GOTO, ωfail, ωfail); if (entry_out) *entry_out = nf; return nf; }
@@ -1224,7 +1294,9 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
                 for (int i = np - 2; i >= 0; i--) alt = pl_cc_fnc2(";", pl_cc_fnc2("=", (tree_t *) t->c[1], (tree_t *) pl_atom_goal(props[i])), alt);
                 return goal(cx, alt, γnext, ωfail, entry_out); } } }
         if (!strcmp(nm, "current_predicate") && t->n == 1) {
-            int ar = 0; const char * pn = pl_spec_key(t->c[0], &ar);
+            int ar = 0; const char * pn;
+            { tree_t * bad = pl_cc_spec_ill_typed(t->c[0], nm); if (bad) return goal(cx, bad, γnext, ωfail, entry_out); }
+            pn = pl_spec_key(t->c[0], &ar);
             if (!pn) pl_refuse("current_predicate/1 argument that is not a literal Name/Arity known at compile time -- ISO 8.8.2's general backtracking-over-every-predicate mode needs a proc-table generator design, not yet built --", nm, 7);
             return (pl_file_defines(pn, ar) || pl_dyn_index(pn, ar) >= 0) ? build(cx, IR_SUCCEED, γnext, ωfail) : build(cx, IR_GOTO, ωfail, ωfail); }
         if (!strcmp(nm, "dynamic") && t->n >= 1) return build(cx, IR_SUCCEED, γnext, ωfail);
@@ -1267,7 +1339,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         { int r = pl_rung_of(nm); if (r && !pl_file_defines(nm, 0) && !pl_det_leaf_name_wired(nm)) pl_refuse("builtin", nm, r); }
         return pl_user_call(cx, nm, t, 0, γnext, ωfail, entry_out);
     }
-    case TT_CUT: { IR_t * cn = build(cx, IR_CUT, γnext, cx->cutω); if (cx->cutω != cx->clause_cutω) IR_LIT(cn).ival = 1; return cn; }
+    case TT_CUT: { IR_t * cn = build(cx, IR_CUT, γnext, cx->cutω); IR_LIT(cn).ival = cx->cut_scope; return cn; }
     case TT_UNIFY: { IR_t * e = NULL; IR_t * nd = unify_pair(cx, t->c[0], t->c[1], γnext, ωfail, &e); if (entry_out) *entry_out = e ? e : nd; return nd; }
     case TT_IF: return pl_lower_ite(cx, t->c[0], (t->n > 1) ? t->c[1] : NULL, (t->n > 2) ? t->c[2] : NULL, γnext, ωfail, entry_out);
     case TT_PROGRAM: return pl_lower_conj(cx, (const tree_t * const *) t->c, t->n, γnext, ωfail, entry_out, NULL, NULL);
@@ -1310,7 +1382,7 @@ static void pl_alt_alloc(IR_graph_t * g, int nc) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_graph_t * pl_body_graph(const tree_t * const * gl, int ng) {
     IR_graph_t * g = IR_alloc(4096);
-    lcx_t cx; cx.g = g; cx.tω = NULL; cx.cutω = NULL; cx.clause_cutω = NULL;
+    lcx_t cx; cx.g = g; cx.tω = NULL; cx.cutω = NULL; cx.clause_cutω = NULL; cx.cut_scope = 0; cx.scope_seq = 0; cx.meta_redo = NULL; cx.meta_redo_set = 0;
     IR_t * succeed = build(&cx, IR_SUCCEED, NULL, NULL);
     IR_t * fail    = build(&cx, IR_FAIL, NULL, NULL);
     IR_t * step    = build(&cx, IR_FAIL, NULL, NULL);
@@ -1331,7 +1403,7 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
     int nc = (ch->t == TT_CHOICE) ? ch->n : 1;
     if (nc < 1) nc = 1;
     IR_graph_t * g = IR_alloc(1024 + 1024 * nc);
-    lcx_t cx; cx.g = g; cx.tω = NULL; cx.cutω = NULL; cx.clause_cutω = NULL;
+    lcx_t cx; cx.g = g; cx.tω = NULL; cx.cutω = NULL; cx.clause_cutω = NULL; cx.cut_scope = 0; cx.scope_seq = 0; cx.meta_redo = NULL; cx.meta_redo_set = 0;
     IR_t * step = build(&cx, IR_FAIL, NULL, NULL);
     cx.cutω = build(&cx, IR_FAIL, NULL, NULL); cx.clause_cutω = cx.cutω;
     pl_alt_alloc(g, nc);
