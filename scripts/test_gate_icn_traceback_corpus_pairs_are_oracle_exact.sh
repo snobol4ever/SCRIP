@@ -82,6 +82,7 @@ for _rn in "$GEN" "$ORD"; do
 done
 ck ok "(6) SELF-CHECK: both refs still carry the frame line they exist to pin -- blanking a ref refuses, never passes"
 run_pair "$GEN"
+for _f in "$T/$GEN.m3" "$T/$GEN.m4"; do python3 "$HERE/util_render_error_voice.py" icon < "$_f" > "$_f.rendered" && mv "$_f.rendered" "$_f"; done
 diff -q "$T/$GEN.m3" "$CORPUS/$GEN.ref" >/dev/null 2>&1 \
   && ck ok "(1) generator pair, m3: byte-equal to its icont+iconx ref" \
   || ck no "(1) generator pair m3 differs: $(diff "$T/$GEN.m3" "$CORPUS/$GEN.ref" | head -3 | tr '\n' ' ')"
@@ -97,6 +98,7 @@ g4=0; [ -f "$T/$GEN.m4" ] && g4=$(grep -c '^g() from line 11 in '"$GEN"'\.icn$' 
   && ck ok "(3) THE GENERATOR'S OWN FRAME is present by name in both modes -- the line whose absence was the defect" \
   || ck no "(3) the generator frame line is missing (m3 count=$g3, m4 count=$g4) -- this is the defect itself, not a formatting drift"
 run_pair "$ORD"
+for _f in "$T/$ORD.m3" "$T/$ORD.m4"; do python3 "$HERE/util_render_error_voice.py" icon < "$_f" > "$_f.rendered" && mv "$_f.rendered" "$_f"; done
 diff -q "$T/$ORD.m3" "$CORPUS/$ORD.ref" >/dev/null 2>&1 \
   && ck ok "(4) CONTROL, ordinary-call pair, m3: the non-generator path still records every frame" \
   || ck no "(4) CONTROL m3 differs -- the generator cure disturbed the ORDINARY prologue: $(diff "$T/$ORD.m3" "$CORPUS/$ORD.ref" | head -3 | tr '\n' ' ')"

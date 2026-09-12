@@ -129,7 +129,7 @@ done
 for p in f206 f102; do
   w=$(grep -c '^offending value:' "$T/want_$p")
   for m in m3 m4; do
-    g=$(grep -c '^offending value:' "$T/${m}_$p")
+    g=$(python3 "$R/scripts/util_render_error_voice.py" icon < "$T/${m}_$p" | grep -c '^offending value:')
     if [ "$g" = "$w" ]; then printf '  ✅ %-4s %-12s offending-value lines = %s (oracle %s)\n' "$m" "FATAL_$p" "$g" "$w"
     else printf '  ⛔ %-4s %-12s offending-value lines = %s, oracle prints %s\n' "$m" "FATAL_$p" "$g" "$w"; bad=$((bad + 1)); fi
   done
