@@ -45,8 +45,10 @@ for i,l in enumerate(L):
 open(p,'w',encoding='utf-8').write('\n'.join(L))
 PY
 }
-victim_row() { grep -oE "^\| [^|]*\($VICTIM\) \|[^|]*\|[^|]*\|[^|]*" "$W/SCORE.md" | head -1; }
-subject_row() { grep -oE "^\| [^|]*\($SUBJECT\) \|[^|]*\|[^|]*\|[^|]*" "$W/SCORE.md" | head -1; }
+# rows name the suite by NICKNAME only (Lon 2026-09-12: one name); the key resolves through SUITES.tsv
+nick_of() { awk -F'\t' -v k="$1" '!/^#/ && $1 == k {print $2; exit}' "$W/SUITES.tsv"; }
+victim_row() { grep -oE "^\| $(nick_of "$VICTIM") \|[^|]*\|[^|]*\|[^|]*" "$W/SCORE.md" | head -1; }
+subject_row() { grep -oE "^\| $(nick_of "$SUBJECT") \|[^|]*\|[^|]*\|[^|]*" "$W/SCORE.md" | head -1; }
 
 echo "== test_gate_suite_set_does_not_move_another_suites_row =="
 echo "   victim=$VICTIM (local TSV deliberately staled to 1/999) · subject=$SUBJECT · hermetic scratch under mktemp"

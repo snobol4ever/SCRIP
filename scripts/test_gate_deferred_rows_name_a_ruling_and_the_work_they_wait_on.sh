@@ -155,15 +155,15 @@ plain="$(python3 "$BANNER" --plain 2>&1 || python3 "$BANNER" 2>&1)"
 for k in $(awk -F'\t' -v seen=0 '!/^#/ && NF { if (!seen) { seen=1; next } print $1 }' "$DEF" | sort -u); do
     nick="$(awk -F'\t' -v k="$k" '!/^#/ && $1 == k {print $2; exit}' "$SUITES")"
     [ -n "$nick" ] || continue   # ARM 2 already reported this row; do not report it twice
-    printf '%s\n' "$md" | grep -qi "($k)" || { fail 9 "suite '$k' is deferred but does not appear in the markdown suite table at all"; continue; }
+    printf '%s\n' "$md" | grep -q "^| $nick |" || { fail 9 "suite '$k' ($nick) is deferred but does not appear in the markdown suite table at all"; continue; }
     # ⛔ THE MARKER, NOT THE WORD. Grading on the word DEFERRED alone passes VACUOUSLY here and I measured it
     # doing so: gnu_fd's own `criterion_changed` cell in SUITES.tsv contains the string
     # "DEFERRED-by-lon-ceo-572", which the no-runner branch prints as its reason -- so a banner with the
     # deferred rendering ripped out entirely still satisfied a `grep DEFERRED` on that row. ⭐ The check must
     # be on a token only the cure can emit (`⏸`) plus the ruling's own number, which is the general form of
     # every vacuous assertion in this project: an arm passing on text that was already there before the cure.
-    row_md="$(printf '%s\n' "$md" | grep -i "($k)" | head -1)"
-    printf '%s' "$row_md" | grep -q '⏸' || fail 9 "the markdown row for '$k' carries no ⏸ deferred marker -- it reads as ordinary unscheduled debt, and the ruling that lifted it is invisible where it matters"
+    row_md="$(printf '%s\n' "$md" | grep "^| $nick |" | head -1)"
+    printf '%s' "$row_md" | grep -q 'DEFERRED by Lon (' || fail 9 "the markdown row for '$k' carries no 'DEFERRED by Lon (' marker (the phrase only the deferred branch emits; plain text since Lon 2026-09-12) -- it reads as ordinary unscheduled debt, and the ruling that lifted it is invisible where it matters"
     printf '%s' "$row_md" | grep -q 'DEFERRED' || fail 9 "the markdown row for '$k' does not say DEFERRED in words beside the marker"
     printf '%s' "$row_md" | grep -qF "$(awk -F'\t' -v k="$k" -v c="$C_BY" '!/^#/ && $1 == k {print $c; exit}' "$DEF")" || fail 9 "the markdown row for '$k' does not carry its ruling number -- a reader meeting a lifted population on the board must be one grep from the ruling that lifted it"
     printf '%s\n' "$plain" | tr -d '\033' | grep -q "$nick" && { printf '%s\n' "$plain" | tr -d '\033' | grep -o "$nick[^│]*" | grep -qi 'deferr' || fail 9 "the banner cell for '$nick' does not say deferred"; }

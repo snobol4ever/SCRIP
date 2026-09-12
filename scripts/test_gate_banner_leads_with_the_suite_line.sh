@@ -55,7 +55,7 @@ OUT="$(bash "$S4E_MSG" banner 2>&1)" || true
 
 # --- ARM 1: the suite line prints ---
 arms=$((arms+1))
-suite_ln="$(printf '%s\n' "$OUT" | grep -n '^.*🏁 [0-9][0-9]-[0-9][0-9] [0-9]* SUITES' | head -1 | cut -d: -f1)"
+suite_ln="$(printf '%s\n' "$OUT" | grep -n '^[0-9][0-9]-[0-9][0-9] [0-9]* SUITES' | head -1 | cut -d: -f1)"
 [ -n "$suite_ln" ] || fail "ARM 1: no suite line in the banner (expected the util_suite_banner.py headline)"
 
 # --- ARM 2: it prints BEFORE the per-language PROGRESS line ---
@@ -117,13 +117,13 @@ import sys, subprocess, importlib.util
 spec = importlib.util.spec_from_file_location("b", sys.argv[1])
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 out = subprocess.run([sys.executable, sys.argv[1], "--plain"], capture_output=True, text=True).stdout
-lines = [l for l in out.split("\n") if " \u2502 " in l]
+lines = [l for l in out.split("\n") if " | " in l]
 if not lines: print("REFUSE: no grid rows to grade"); sys.exit(2)
 pos = []
 for l in lines:
     seps = []; start = 0
     while True:
-        i = l.find(" \u2502 ", start)
+        i = l.find(" | ", start)
         if i < 0: break
         seps.append(m.dw(l[:i])); start = i + 3
     pos.append(tuple(seps))
