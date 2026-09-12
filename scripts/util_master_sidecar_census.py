@@ -145,7 +145,14 @@ def census(tests_dir, langs):
         d, sno, entries = got
         rs, ra = re.compile(STDIN_RE[lang], re.I), re.compile(ARGV_RE[lang], re.I)
         decl_a = declared_argv(d)
+        ast_only = set()
+        _csv = d / "ALL.csv"
+        if _csv.is_file():
+            with open(_csv, encoding="utf-8", newline="") as _fh:
+                for _row in csv.DictReader(_fh):
+                    if (_row.get("modes") or "").strip() == "ast": ast_only.add((_row.get("entry") or "").strip())
         for e in entries:
+            if e.name in ast_only: continue
             examined += 1
             text = "\n".join(e.sno_lines)
             owes_in = bool(rs.search(text)) and e.stdin is None
