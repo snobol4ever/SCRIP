@@ -55,7 +55,7 @@ OUT="$(bash "$S4E_MSG" banner 2>&1)" || true
 
 # --- ARM 1: the suite line prints ---
 arms=$((arms+1))
-suite_ln="$(printf '%s\n' "$OUT" | grep -n 'SUITES 100/100' | head -1 | cut -d: -f1)"
+suite_ln="$(printf '%s\n' "$OUT" | grep -n '^.*🏁 [0-9][0-9]-[0-9][0-9] [0-9]* SUITES' | head -1 | cut -d: -f1)"
 [ -n "$suite_ln" ] || fail "ARM 1: no suite line in the banner (expected the util_suite_banner.py headline)"
 
 # --- ARM 2: it prints BEFORE the per-language PROGRESS line ---
