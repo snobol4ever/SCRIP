@@ -14,6 +14,12 @@ WHAT IT TOUCHES: only bare identifiers that match the SPITBOL builtin list below
 and only OUTSIDE string literals and comments. User identifiers keep their case -- they are consistent
 within a file and case-sensitivity does not disturb them. `&keyword` names are uppercased after the `&`.
 
+⛔ THE LIST IS THE INSTRUMENT, AND A NAME MISSING FROM IT IS A SILENT NO-OP ON THAT NAME, never an error here.
+`EXIT` was absent until 2026-09-12 (hq_C, the twelve-resisting row): `module.sbl` is ONE statement, `exit(-3,'module.out')`,
+and the converter reported 0 changes on it -- a file it could not convert at all, reported the same way as a file that
+needed nothing. The miss surfaces only downstream, as ERROR 022 undefined function under -bf, which is why the oracle
+proof and not this script's own count is the verdict. When a conversion leaves a file red, SUSPECT THIS LIST FIRST.
+
 ⛔ IT PROVES ITSELF OR IT FAILS. This script does not decide whether its own edit was correct; the caller
 runs the oracle both ways and compares (see --check in the runner, and the row's DONE-WHEN):
     sbl        ORIGINAL.sbl   (case folding, upstream's own invocation)
@@ -24,7 +30,7 @@ is a finding, never a silent acceptance.
 import re, sys
 BUILTINS = """END OUTPUT INPUT TERMINAL PUNCH
 ANY APPLY ARB ARBNO ARG ARRAY ATAN BAL BREAK BREAKX CHAR CHOP CLEAR CODE COLLECT CONVERT COPY COS DATA
-DATATYPE DATE DEFINE DETACH DIFFER DUMP DUPL ENDFILE EQ EVAL EXP FENCE FIELD FREEZE FUNCTION GE GT HOST
+DATATYPE DATE DEFINE DETACH DIFFER DUMP DUPL ENDFILE EQ EVAL EXIT EXP FENCE FIELD FREEZE FUNCTION GE GT HOST
 IDENT INTEGER ITEM LE LEN LGT LN LOAD LOCAL LPAD LT NE NOTANY OPSYN ORD POS PROTOTYPE REMDR REPLACE
 REVERSE RPAD RPOS RSORT RTAB SET SETEXIT SIN SIZE SORT SPAN SQRT STOPTR SUBSTR TAB TABLE TAN TIME TRACE
 TRIM UNLOAD VALUE VDIFFER REM ABORT FAIL SUCCEED RETURN FRETURN NRETURN CONTINUE
