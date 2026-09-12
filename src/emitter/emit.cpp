@@ -3455,8 +3455,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             if (!_rb) continue;
             emit_sep_rule('-'); emit_label_define_bb(ret_tr[_ak]);
             bb_emit_x86(x86("comment", "PL CLAUSE SUCCESS (rung 2, ARCH sec B.3): this clause is about to hand control to the graph gamma, so it banks the beta of its youngest resumable sub-goal into F.RES at [H+16]. A redo from the caller then re-enters THAT goal rather than stepping the clause; the graph beta zeroes F.RES as it consumes it, so a clause that succeeds again re-banks it here and one that runs out leaves it zero.")
-                      + x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)_rb)
-                      + x86("mov", RDQ("rbp", _kt0 - 48), "rax"));
+                      + x86("lea", "rcx", "extlbl", (uint64_t)(uintptr_t)_rb)
+                      + x86("mov", RDQ("rbp", _kt0 - 48), "rcx")
+                      + x86("mov32", "eax", (long)DT_I)
+                      + x86("mov32", "edx", 1L));
             emit_jmp_label(&lbl_γ, JMP_JMP);
         }
         emit_sep_rule('-'); emit_label_define_bb(pl_step_lbl);

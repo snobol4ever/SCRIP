@@ -255,7 +255,9 @@ def plan_case(c, supported):
         elif head == "error" and arg is not None:
             want, balls = "ball", ["error(%s, _)" % arg]
         elif head == "error_ball" and arg is not None:
-            want, balls = "ball", [arg]
+            t = arg.strip()
+            want = "ball"
+            balls = [x for x in ex.split_args(t[1:-1]) if x.strip()] if t.startswith("[") and t.endswith("]") else [arg]
         elif head == "errors" and arg is not None:
             t = arg.strip()
             if not (t.startswith("[") and t.endswith("]")):
@@ -263,7 +265,11 @@ def plan_case(c, supported):
             want = "ball"
             balls = ["error(%s, _)" % x for x in ex.split_args(t[1:-1]) if x.strip()]
         elif head == "ball" and arg is not None:
-            want, balls = "ball", [arg]
+            # throws(Name, [B1, B2]) lists the balls the suite accepts (the ISO one first, a common
+            # alternative second): each is its own '$lgt_want' clause, never one clause over the list text
+            t = arg.strip()
+            want = "ball"
+            balls = [x for x in ex.split_args(t[1:-1]) if x.strip()] if t.startswith("[") and t.endswith("]") else [arg]
         elif head == "balls" and arg is not None:
             t = arg.strip()
             want = "ball"
@@ -271,7 +277,7 @@ def plan_case(c, supported):
         else:
             return Plan(c, skip_reason="expectation form not implemented: %s" % e[:60])
         if head != "all":
-            goal = goal + tail
+            goal = goal + _braces_to_parens(tail)
         return _finish(c, want, goal, balls, weaker, opts)
 
 
@@ -370,6 +376,21 @@ def run_one(plan, db, shim_src, scrip, mode, workroot, srcdir, timeout=10, loade
         shutil.rmtree(d, ignore_errors=True)
 
 
+def _rewrite_hook(clean, name, supported):
+    """Rewrite the file's setup/0 or cleanup/0 clause in place as a plain-Prolog goal; True when it is injectable."""
+    for i, cl in enumerate(clean):
+        m = re.match(r"%s\s*(?::-\s*(.*))?$" % name, cl, re.S)
+        if not m:
+            continue
+        body = (m.group(1) or "true").strip()
+        goal, bad = _rewrite_helpers(body, supported)
+        if bad is not None:
+            return False
+        clean[i] = "%s :- %s" % (name, _braces_to_parens(goal))
+        return True
+    return False
+
+
 def grade(root, scrip, modes, jobs=8, limit=None, only_group=None):
     # ⛔ ABSOLUTE, AND CHECKED HERE. Every case runs with cwd set to its own scratch directory, so a
     # relative binary path ("./scrip", the obvious thing to type) resolves against the scratch dir and is
@@ -394,8 +415,21 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None):
             continue
         clean, dropped = split_db(fc.db)
         dbs[fc.path] = clean
+        # lgtunit runs the object's own setup/0 before its tests and cleanup/0 after them; every case here is
+        # its own process, so each case carries the file's hooks around its own goal. A hook body is Logtalk
+        # text like a test body ({...} and ^^helpers), so it is rewritten the same way; a hook whose helper the
+        # shim lacks is not injected at all (measured 2026-09-12: setup_call_cleanup_3's `setup :- {retractall(v(_))}`
+        # ran verbatim, raised existence_error({}/1) and turned 22 passing cases UNGRADED). setup is strict --
+        # lgtunit skips the set when it fails -- and cleanup is soft: its outcome never grades a test.
+        has_setup = _rewrite_hook(clean, "setup", supported)
+        has_cleanup = _rewrite_hook(clean, "cleanup", supported)
         for c in fc.cases:
             p = plan_case(c, supported)
+            if p.skip_reason is None:
+                if has_setup:
+                    p.goal = "lgt_h(setup), %s" % p.goal
+                if has_cleanup:
+                    p.goal = "%s, ignore(catch(cleanup, _, true))" % p.goal
             if p.skip_reason is None and dropped:
                 n = calls_dropped(p, dropped)
                 if n is not None:

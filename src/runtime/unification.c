@@ -1928,7 +1928,7 @@ int rt_pl_nb_is_set(void *root, int64_t k)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PL_DB_REGISTRY_CELL 0
-typedef struct { char key[264]; int k; pl_db_t *db; int stat; } pl_db_key_t;
+typedef struct { char key[264]; int k; pl_db_t *db; int stat; int decl; } pl_db_key_t;
 typedef struct { pl_db_key_t *e; int n; int cap; } pl_db_reg_t;
 static pl_db_reg_t * pl_db_registry(void *root, int create)
 {
@@ -1961,7 +1961,7 @@ static pl_db_key_t * pl_db_reg_add(pl_db_reg_t *r, const char *key)
         for (int i = 0; i < r->n; i++) ne[i] = r->e[i];
         r->e = ne; r->cap = nc;
     }
-    { pl_db_key_t *e = &r->e[r->n++]; snprintf(e->key, sizeof e->key, "%s", key); e->k = -1; e->db = (pl_db_t *)0; e->stat = 0; return e; }
+    { pl_db_key_t *e = &r->e[r->n++]; snprintf(e->key, sizeof e->key, "%s", key); e->k = -1; e->db = (pl_db_t *)0; e->stat = 0; e->decl = 0; return e; }
 }
 int rt_pl_db_bind(void *root, int64_t k, const char *name, int64_t arity)
 {
@@ -1976,7 +1976,48 @@ int rt_pl_db_bind(void *root, int64_t k, const char *name, int64_t arity)
 int rt_pl_db_key_is_dynamic(void *root, const char *key)
 {
     pl_db_key_t *e = pl_db_reg_find(pl_db_registry(root, 0), key);
-    return e ? 1 : 0;
+    return (e && !e->stat) ? 1 : 0;
+}
+int rt_pl_db_decl(void *root, const char *name, int64_t arity, int64_t kind)
+{
+    char key[264];
+    if (!root || !name) return 0;
+    snprintf(key, sizeof key, "%s/%d", name, (int)arity);
+    { pl_db_reg_t *r = pl_db_registry(root, 1); pl_db_key_t *e = pl_db_reg_find(r, key);
+      if (!e) e = pl_db_reg_add(r, key);
+      if (!e) return 0;
+      if (kind == 1) { if (e->k < 0 && !e->db) e->stat = 1; } else e->decl = 1;
+      return 1; }
+}
+static pl_db_t * pl_db_cell_peek(void *root, int k)
+{
+    if (!root || k < 0 || k >= PL_DB_CELLS_MAX) return (pl_db_t *)0;
+    return *(pl_db_t **)((char *)root - PL_DB_CELL0 - 8 * (size_t)k);
+}
+static int pl_db_key_current(void *root, pl_db_key_t *e)
+{
+    pl_db_t *db;
+    if (e->key[0] == '$') return 0;
+    if (e->stat) return 1;
+    db = (e->k >= 0) ? pl_db_cell_peek(root, e->k) : e->db;
+    if (db) return db->killed ? 0 : 1;
+    return e->decl ? 1 : 0;
+}
+int rt_pl_db_cp_count(void *root)
+{
+    pl_db_reg_t *r = pl_db_registry(root, 0); int c = 0;
+    if (!r) return 0;
+    for (int i = 0; i < r->n; i++) if (pl_db_key_current(root, &r->e[i])) c++;
+    return c;
+}
+const char * rt_pl_db_cp_nth(void *root, int64_t i, int *arity)
+{
+    pl_db_reg_t *r = pl_db_registry(root, 0); int c = 0;
+    if (!r || i < 1) return (const char *)0;
+    for (int j = 0; j < r->n; j++)
+        if (pl_db_key_current(root, &r->e[j]) && ++c == (int)i) {
+            const char *sl = strrchr(r->e[j].key, '/'); *arity = sl ? atoi(sl + 1) : 0; return r->e[j].key; }
+    return (const char *)0;
 }
 void * rt_pl_db_get_by_key(void *root, const char *key, int create)
 {

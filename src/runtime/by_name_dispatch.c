@@ -1717,7 +1717,6 @@ DESCR_t dop_pl_put_char(DESCR_t *args, int nargs) { extern FILE *fh_cur_out_fp(v
 DESCR_t dop_pl_put_code(DESCR_t *args, int nargs) { extern FILE *fh_cur_out_fp(void); if (nargs != 1) return FAILDESCR;
     { DESCR_t v = rt_pl_deref_val(args[0]); if (v.v != DT_I) return FAILDESCR; fputc((int)v.i, fh_cur_out_fp()); return pl_ok(); } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t dop_pl_halt(DESCR_t *args, int nargs) { int code = 0; if (nargs == 1) { DESCR_t v = rt_pl_deref_val(args[0]); if (v.v == DT_I) code = (int)v.i; } fflush((FILE *)0); exit(code); }
 DESCR_t dop_pl_flush_output(DESCR_t *args, int nargs) { extern FILE *fh_cur_out_fp(void); (void)args; (void)nargs; fflush(fh_cur_out_fp()); return pl_ok(); }
 DESCR_t dop_pl_format(DESCR_t *args, int nargs) {
     extern void rt_gc_point_arr(DESCR_t *, int, const char **);
@@ -7418,6 +7417,53 @@ DESCR_t rt_pl_dop_db_bind_c(DESCR_t *args, int nargs, void *root) {
     { DESCR_t k = rt_pl_deref_val(args[0]); DESCR_t a = rt_pl_deref_val(args[2]);
       if (k.v != DT_I || a.v != DT_I || !pl_cell_text(args[1], nb, sizeof nb, &nm) || !nm) return FAILDESCR;
       return rt_pl_db_bind(root, k.i, nm, a.i) ? pl_ok() : FAILDESCR; }
+}
+extern int rt_pl_db_decl(void *, const char *, int64_t, int64_t);
+extern int rt_pl_db_cp_count(void *);
+extern const char *rt_pl_db_cp_nth(void *, int64_t, int *);
+DESCR_t rt_pl_dop_db_decl_c(DESCR_t *args, int nargs, void *root) {
+    char nb[264]; const char *nm;
+    if (nargs != 3) return FAILDESCR;
+    pl_atoms_ready();
+    { DESCR_t a = rt_pl_deref_val(args[1]); DESCR_t k = rt_pl_deref_val(args[2]);
+      if (a.v != DT_I || k.v != DT_I || !pl_cell_text(args[0], nb, sizeof nb, &nm) || !nm) return FAILDESCR;
+      return rt_pl_db_decl(root, nm, a.i, k.i) ? pl_ok() : FAILDESCR; }
+}
+DESCR_t rt_pl_dop_pl_cp_count_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
+    extern void rt_gc_point_arr(DESCR_t *, int, const char **);
+    int ok;
+    if (nargs != 1) return FAILDESCR;
+    pl_atoms_ready(); rt_pl_tr_gc_sync(cx->tr); rt_gc_point_arr(args, nargs, (const char **)0);
+    ok = plw_unify_vals(args[0], INTVAL((long long)rt_pl_db_cp_count(root)), cx);
+    rt_pl_tr_gc_sync(cx->tr); return ok ? pl_ok() : FAILDESCR;
+}
+DESCR_t rt_pl_dop_pl_cp_nth_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
+    extern void rt_gc_point_arr(DESCR_t *, int, const char **);
+    int ok = 0; int ar = 0; const char *key; const char *sl;
+    if (nargs != 3) return FAILDESCR;
+    pl_atoms_ready(); rt_pl_tr_gc_sync(cx->tr); rt_gc_point_arr(args, nargs, (const char **)0);
+    { DESCR_t iv = rt_pl_deref_val(args[0]);
+      if (iv.v == DT_I && (key = rt_pl_db_cp_nth(root, iv.i, &ar)) != (const char *)0 && (sl = strrchr(key, '/')) != (const char *)0)
+          ok = plw_unify_vals(args[1], pl_mk_atom_dup(key, (size_t)(sl - key)), cx) && plw_unify_vals(args[2], INTVAL((long long)ar), cx); }
+    rt_pl_tr_gc_sync(cx->tr); return ok ? pl_ok() : FAILDESCR;
+}
+PL_CX_LEAF_HEAD(pl_cp_guard, 1) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); extern int prolog_atom_intern(const char *);
+    DESCR_t s = rt_pl_deref_val(args[0]); ok = 1;
+    if (!pl_iso_unbound(s)) {
+        int good = 0;
+        if (s.v == (DTYPE_t)DT_PLREF && (int)(s.slen & 0xFFFFu) == 2 && (int)(s.slen >> 16) == prolog_atom_intern("/")) {
+            DESCR_t n = rt_pl_deref_val(((DESCR_t *)s.p)[0]); DESCR_t a = rt_pl_deref_val(((DESCR_t *)s.p)[1]);
+            good = (pl_iso_unbound(n) || pl_anum_is_text(n)) && (pl_iso_unbound(a) || (a.v == DT_I && (long long)a.i >= 0)); }
+        if (!good) { cx->ball = rt_pl_ball_kind2("type_error", "predicate_indicator", s); ok = 0; } } } PL_CX_LEAF_TAIL
+DESCR_t rt_pl_dop_halt_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); extern void *rt_pl_ball_instantiation(void);
+    pl_atoms_ready();
+    if (nargs == 0) { fflush((FILE *)0); exit(0); }
+    { DESCR_t v = rt_pl_deref_val(args[0]);
+      if (pl_iso_unbound(v)) cx->ball = rt_pl_ball_instantiation();
+      else if (v.v != DT_I) cx->ball = rt_pl_ball_kind2("type_error", "integer", v);
+      else { fflush((FILE *)0); exit((int)v.i); }
+      rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
 }
 static int pl_db_body_ill_typed(DESCR_t b) {
     extern const char *prolog_atom_name(int);
