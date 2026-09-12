@@ -21,6 +21,16 @@
 # errors.icn reads as mysterious partial drift rather than a switch being off. That is exactly why ARM B
 # is BEHAVIOURAL AND PER-ERROR-NUMBER rather than a count: a count cannot tell those two apart.
 #
+# ⭐ THE SHARPER REASON, EARNED ON THIS GATE'S OWN AUTHOR (hq_I 2026-09-12): a first attempt at the cure
+# regressed 202 to 201 and made 204 vanish. To a COUNT that reads "2 of 8 wrong", which sends the next
+# author hunting two raises that went missing. What actually happened is that MOD COLLAPSED ONTO DIV --
+# one raise was ABSORBED by its neighbour, not lost. A count cannot distinguish a raise that VANISHED
+# from one that was ABSORBED, and those two want opposite cures. Per-number arms can, and did, in one run.
+#
+# ⛔ ON WHAT IS DELIBERATELY *NOT* PINNED: freezing a live defect into a criterion makes fixing it look
+# like a regression. The string-builtin route to 103 is a known open defect with its own row, so ARM B
+# grades the SCAN route and this header names the gap instead of the gate asserting it.
+#
 # ⭐ ANCHORED ON THE ORACLE, NOT ON OUR OWN OUTPUT (CEO-554). Every ARM B witness is run through iconx in
 # the same invocation and SCRIP is compared against THAT, so curing anything moves both sides together and
 # no cure can invalidate this instrument. hq_U lost an open gate this week to exactly that trap.

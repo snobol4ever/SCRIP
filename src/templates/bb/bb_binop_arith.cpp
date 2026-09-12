@@ -8,6 +8,7 @@ extern "C" {
 #include "descr.h"
 #include "../runtime/builtins/gen.h"
 DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op);
+DESCR_t rt_num_arith_raise(DESCR_t a, DESCR_t b, int op);
 int rt_binop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out);
 DESCR_t rt_add(DESCR_t a, DESCR_t b);
 DESCR_t rt_add_big(DESCR_t a, DESCR_t b);
@@ -19,6 +20,10 @@ DESCR_t rt_div(DESCR_t a, DESCR_t b);
 DESCR_t rt_mod(DESCR_t a, DESCR_t b);
 DESCR_t rt_pow(DESCR_t a, DESCR_t b);
 DESCR_t rt_powreal(DESCR_t a, DESCR_t b);
+DESCR_t rt_div_raise(DESCR_t a, DESCR_t b);
+DESCR_t rt_mod_raise(DESCR_t a, DESCR_t b);
+DESCR_t rt_pow_raise(DESCR_t a, DESCR_t b);
+DESCR_t rt_powreal_raise(DESCR_t a, DESCR_t b);
 DESCR_t rt_cunion(DESCR_t a, DESCR_t b);
 DESCR_t rt_cdiff(DESCR_t a, DESCR_t b);
 DESCR_t rt_cinter(DESCR_t a, DESCR_t b);
@@ -27,7 +32,8 @@ DESCR_t rt_cinter(DESCR_t a, DESCR_t b);
 #include <cstdlib>
 #include <cstdio>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline long long binop_base(long long op) {
+static inline long long binop_base(long long raw) {
+    long long op = binop_kind_of(raw);
     return op == BINOP_ADD_BIG ? BINOP_ADD : op == BINOP_SUB_BIG ? BINOP_SUB : op == BINOP_MUL_BIG ? BINOP_MUL : op;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -35,7 +41,15 @@ static inline int binop_promotes(long long op) {
     return op == BINOP_ADD_BIG || op == BINOP_SUB_BIG || op == BINOP_MUL_BIG;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline void * rtop_addr(long long op) {
+static inline void * rtop_addr(long long raw) {
+    long long op = binop_kind_of(raw);
+    if (binop_wants_raise(raw)) switch (op) {
+        case BINOP_DIV:    return (void*)rt_div_raise;
+        case BINOP_MOD:    return (void*)rt_mod_raise;
+        case BINOP_POW:    return (void*)rt_pow_raise;
+        case BINOP_POW_PROMOTE: return (void*)rt_powreal_raise;
+        default:           break;
+    }
     switch (op) {
         case BINOP_ADD_BIG: return (void*)rt_add_big;
         case BINOP_SUB_BIG: return (void*)rt_sub_big;
@@ -50,11 +64,19 @@ static inline void * rtop_addr(long long op) {
         case BINOP_CUNION: return (void*)rt_cunion;
         case BINOP_CDIFF:  return (void*)rt_cdiff;
         case BINOP_CINTER: return (void*)rt_cinter;
-        default:           return (void*)rt_num_arith;
+        default:           return binop_wants_raise(raw) ? (void*)rt_num_arith_raise : (void*)rt_num_arith;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline const char * rtop_name(long long op) {
+static inline const char * rtop_name(long long raw) {
+    long long op = binop_kind_of(raw);
+    if (binop_wants_raise(raw)) switch (op) {
+        case BINOP_DIV:    return "rt_div_raise";
+        case BINOP_MOD:    return "rt_mod_raise";
+        case BINOP_POW:    return "rt_pow_raise";
+        case BINOP_POW_PROMOTE: return "rt_powreal_raise";
+        default:           break;
+    }
     switch (op) {
         case BINOP_ADD_BIG: return "rt_add_big";
         case BINOP_SUB_BIG: return "rt_sub_big";
@@ -69,11 +91,11 @@ static inline const char * rtop_name(long long op) {
         case BINOP_CUNION: return "rt_cunion";
         case BINOP_CDIFF:  return "rt_cdiff";
         case BINOP_CINTER: return "rt_cinter";
-        default:           return "rt_num_arith";
+        default:           return binop_wants_raise(raw) ? "rt_num_arith_raise" : "rt_num_arith";
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define rtop_is_dyn(op) (rtop_addr(op) == (void*)rt_num_arith)
+#define rtop_is_dyn(op) (rtop_addr(op) == (void*)rt_num_arith || rtop_addr(op) == (void*)rt_num_arith_raise)
 #define SCRIP_DEF_ARITH_FUSE 1
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define fuse_on() (SCRIP_DEF_ARITH_FUSE)
@@ -102,7 +124,7 @@ static inline const char * rtop_name(long long op) {
     + x86("mov", "rsi", FRQ(_.op_sa + 8)) \
     + x86("mov", "rdx", FRQ(_.op_sb)) \
     + x86("mov", "rcx", FRQ(_.op_sb + 8)) \
-    + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)_.op_ival)) \
+    + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)binop_kind_of(_.op_ival))) \
     + x86("rtcc_wb") \
     + x86("call_bare", rtop_name(_.op_ival), (uint64_t)(uintptr_t)rtop_addr(_.op_ival)) \
     + x86("rtcc_rl") \
@@ -202,7 +224,7 @@ std::string bb_binop_arith() {
              + x86("mov", "rdx", ZOPQ(1, 0))
              + x86("note", ZOPN(1))
              + x86("mov", "rcx", ZOPQ(1, 8))
-             + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)_.op_ival))
+             + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)binop_kind_of(_.op_ival)))
              + x86("rtcc_wb")
              + x86("call_bare", rtop_name(_.op_ival), (uint64_t)(uintptr_t)rtop_addr(_.op_ival))
              + x86("rtcc_rl")
@@ -281,7 +303,7 @@ std::string bb_binop_arith() {
              + x86("mov", "rdx", ZOPQ(1, 0))
              + x86("note", ZOPN(1))
              + x86("mov", "rcx", ZOPQ(1, 8))
-             + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)_.op_ival))
+             + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)binop_kind_of(_.op_ival)))
              + x86("rtcc_wb")
              + x86("call_bare", rtop_name(_.op_ival), (uint64_t)(uintptr_t)rtop_addr(_.op_ival))
              + x86("rtcc_rl")

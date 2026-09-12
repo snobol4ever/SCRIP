@@ -489,7 +489,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         int is_relop = (bcode >= BINOP_LT && bcode <= BINOP_NE) || (bcode >= BINOP_SLT && bcode <= BINOP_SNE) || bcode == BINOP_EQV || bcode == BINOP_NEQV;
         int is_arith = (bcode >= BINOP_ADD && bcode <= BINOP_MOD) || bcode == BINOP_POW;
         int alit = 0, blit = 0; { int64_t fb = 0; int fr = 0; alit = icn_const_step(t->c[0], &fb, &fr); fb = 0; fr = 0; blit = icn_const_step(t->c[1], &fb, &fr); }
-        IR_t * op = build(cx, is_relop ? IR_BINOP_TEST : IR_BINOP, γ, ω); IR_LIT(op).ival = is_relop ? bcode : bemit;
+        IR_t * op = build(cx, is_relop ? IR_BINOP_TEST : IR_BINOP, γ, ω); IR_LIT(op).ival = is_relop ? bcode : (is_arith ? (bemit | (int64_t)BINOP_RAISE_ERRORS) : bemit);
         IR_t * cb2 = (is_arith && !blit) ? build(cx, IR_COERCE_NUMERIC, op, ω) : NULL; if (cb2) IR_LIT(cb2).ival = 102 | COERCE_ERR_FAILURE_CONVERTIBLE | ((bcode == BINOP_POW) ? COERCE_KEEP_INT : 0) | COERCE_OP_TAG(bcode) | COERCE_OP_SELF_RIGHT;
         IR_t * ca2 = (is_arith && !alit) ? build(cx, IR_COERCE_NUMERIC, cb2 ? cb2 : op, ω) : NULL; if (ca2) IR_LIT(ca2).ival = 102 | COERCE_ERR_FAILURE_CONVERTIBLE | COERCE_OP_TAG(bcode);
         IR_t * bsucc = ca2 ? ca2 : (cb2 ? cb2 : op);
