@@ -1046,9 +1046,10 @@ int main(int argc, char **argv)
             } \
         } \
     } while(0)
+    const char *last_input_path = (const char *)0;
     for (; argi < argc; argi++) {
         if (strcmp(argv[argi], "--") == 0) { argi++; g_prog_argv = &argv[argi]; g_prog_argc = argc - argi; break; }
-        const char *input_path = argv[argi];
+        const char *input_path = argv[argi]; last_input_path = input_path;
         { extern void stmt_src_set_file(const char *); if (input_path) stmt_src_set_file(input_path); }
         {
             char rp[4096];
@@ -1182,7 +1183,7 @@ int main(int argc, char **argv)
     int has_prolog_seg = is_prolog;
     if (!has_prolog_seg) for (int _si = 0; _si < nsegs; _si++) if (segs[_si].fn == lower_pl_stage2) { has_prolog_seg = 1; break; }
     if (opt_bench) clock_gettime(CLOCK_MONOTONIC, &_t1);
-    const char *input_path = argv[argc - 1];
+    const char *input_path = last_input_path ? last_input_path : argv[argc - 1];
     { extern void stmt_src_set_file(const char *); if (input_path) stmt_src_set_file(input_path); }
     if (opt_bench) clock_gettime(CLOCK_MONOTONIC, &_t2);
     if (!ast_prog) {

@@ -115,6 +115,7 @@ test_gate_icn_tag_single_source.sh	WIRED	-	-	-
 test_gate_icn_traceback_corpus_pairs_are_oracle_exact.sh	WIRED	-	-	-
 test_gate_icn_traced_call_reports_its_own_call_site_line.sh	WIRED	-	-	-
 test_gate_icn_write_is_byte_exact_through_an_embedded_nul.sh	WIRED	-	-	-
+test_gate_icn_traceback_names_the_source_file_not_the_last_argv.sh	WIRED	-	-	-
 test_gate_icon_arguments_dereference_at_the_call.sh	WIRED	-	-	-
 test_gate_icon_features_and_preprocessor_symbols_agree.sh	WIRED	-	-	-
 test_gate_icon_master_entries_compile_under_icont.sh	WIRED	-	-	-
