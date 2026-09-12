@@ -97,6 +97,7 @@ void rt_proc_table_fill(int64_t *tab, const char **names, int n);
 void rt_proc_set_frame(const char *name, int nslots, int decl_level);
 void rt_proc_set_frame_bytes(const char *name, int bytes);
 void rt_define_site(const char *name, const char *params_csv, int nparams, int nformals, int frame_bytes, void *fn);
+void rt_define_bind_body(const char *fname, const char *entry);
 int rt_define_tiny_ok(const char *name, int nargs);
 const char *rt_define_query(const char *name, int *np_out, int *nf_out, int *fb_out, void **fn_out);
 void rt_proc_set_zstatic(const char *name, int bit);

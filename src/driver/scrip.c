@@ -122,6 +122,28 @@ extern int         Δ;
 #include "../tools/emit_per_kind_audit.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scrip_symmap(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_SYMMAP"); v = e ? (atoi(e) != 0) : 0; } return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sn4_dentry_table_build(IR_graph_t *bbg, stage2_t *s2)
+{
+    if (!bbg || !s2) return;
+    int _bd = 0; for (int _s = 0; _s < bbg->n; _s++) { IR_t *_c = bbg->all[_s]; if (ir_define_is_bind(_c)) _bd++; }
+    if (_bd <= 0 || bbg->n_dentry != 0) return;
+    bbg->dentry_node = (IR_t **)calloc((size_t)_bd, sizeof(IR_t *)); bbg->dentry_entry = (IR_t **)calloc((size_t)_bd, sizeof(IR_t *)); bbg->dentry_name = (const char **)calloc((size_t)_bd, sizeof(char *));
+    if (!bbg->dentry_node || !bbg->dentry_entry || !bbg->dentry_name) return;
+    for (int _s = 0; _s < bbg->n; _s++) { IR_t *_c = bbg->all[_s]; if (!ir_define_is_bind(_c) || !IR_LIT(_c).sval) continue;
+        if (bbg->n_dentry >= _bd) break;
+        for (int _q = 0; _q < s2->proc_count; _q++) { ProcEntry *_pr = &s2->proc_table[_q]; if (!_pr->name || strcmp(_pr->name, IR_LIT(_c).sval)) continue;
+            IR_t *_sn = bb_proc_entry(_pr); if (!_sn) continue; int _sg = 0; while (_sn && (_sn->op == IR_SUCCEED || _sn->op == IR_FAIL || _sn->op == IR_GOTO) && _sn->γ.node && _sg++ < 64) _sn = _sn->γ.node;
+            IR_t *_gd = (_sn && _sn->op == IR_DEFINE && ir_define_sr_citizen(_sn)) ? _sn->γ.node : _sn; if (!_gd) break;
+            if (_gd->op == IR_GOTO_DEFERRED) { if (!IR_LIT(_gd).sval) break;
+                const char *_en = ir_define_bind_entry(_c); if (!_en) _en = IR_LIT(_gd).sval; if (strncmp(_en, "LBL__", 5) == 0) _en += 5;
+                IR_t *_tn = (IR_t *)0; for (int _w = 0; _w < s2->proc_count; _w++) { ProcEntry *_lr = &s2->proc_table[_w]; if (!_lr->name || strncmp(_lr->name, "LBL__", 5) != 0 || strcmp(_lr->name + 5, _en) || !_lr->proc_entry_node) continue;
+                    _tn = _lr->proc_entry_node; int _tg = 0; while (_tn && (_tn->op == IR_SUCCEED || _tn->op == IR_FAIL || _tn->op == IR_GOTO) && _tn->γ.node && _tg++ < 65536) _tn = _tn->γ.node; break; }
+                if (!_tn) break;
+                bbg->dentry_node[bbg->n_dentry] = _c; bbg->dentry_entry[bbg->n_dentry] = _tn; bbg->dentry_name[bbg->n_dentry] = (const char *)0; bbg->n_dentry++; break; }
+            { char _anb[300]; snprintf(_anb, sizeof _anb, "%s_\xce\xb1", IR_LIT(_c).sval);
+              bbg->dentry_node[bbg->n_dentry] = _c; bbg->dentry_entry[bbg->n_dentry] = (IR_t *)0; bbg->dentry_name[bbg->n_dentry] = strdup(_anb); bbg->n_dentry++; break; } } }
+}
 static int proc_role3_kind(const IR_graph_t *g) { if (!g || !g->entry) return 0; if (g->entry->op == IR_GOTO_DEFERRED) return 1;  const IR_t *e = (g->entry->op == IR_DEFINE && IR_LIT(g->entry).ival == 3) ? g->entry : (const IR_t *)0; return !e ? 0 : (e->γ.node && e->γ.node->op == IR_GOTO_DEFERRED) ? 1 : 2; }
 static const char *asm_sym_name(const char *nm) { extern const char * bb_ab_sym_name(const char *); return bb_ab_sym_name(nm); }
 static const char * ir_define_plain_name(const IR_t * nd) { return (nd && nd->op == IR_DEFINE && !ir_define_sr_citizen(nd)) ? IR_LIT(nd).sval : (const char *)0; }
@@ -1520,21 +1542,7 @@ int main(int argc, char **argv)
             int rc;
             {
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
-                { int _bd = 0; for (int _s = 0; _s < bbg->n; _s++) { IR_t *_c = bbg->all[_s]; if (ir_define_is_bind(_c)) _bd++; }
-                  if (_bd > 0 && bbg->n_dentry == 0) { bbg->dentry_node = (IR_t **)calloc((size_t)_bd, sizeof(IR_t *)); bbg->dentry_entry = (IR_t **)calloc((size_t)_bd, sizeof(IR_t *)); bbg->dentry_name = (const char **)calloc((size_t)_bd, sizeof(char *));
-                      if (bbg->dentry_node && bbg->dentry_entry && bbg->dentry_name) for (int _s = 0; _s < bbg->n; _s++) { IR_t *_c = bbg->all[_s]; if (!ir_define_is_bind(_c) || !IR_LIT(_c).sval) continue;
-                          if (bbg->n_dentry >= _bd) break;
-                          for (int _q = 0; _q < s2->proc_count; _q++) { ProcEntry *_pr = &s2->proc_table[_q]; if (!_pr->name || strcmp(_pr->name, IR_LIT(_c).sval)) continue;
-                              IR_t *_sn = bb_proc_entry(_pr); if (!_sn) continue; int _sg = 0; while (_sn && (_sn->op == IR_SUCCEED || _sn->op == IR_FAIL || _sn->op == IR_GOTO) && _sn->γ.node && _sg++ < 64) _sn = _sn->γ.node;
-                              IR_t *_gd = (_sn && _sn->op == IR_DEFINE && ir_define_sr_citizen(_sn)) ? _sn->γ.node : _sn; if (!_gd) break;
-                              if (_gd->op == IR_GOTO_DEFERRED) { if (!IR_LIT(_gd).sval) break;
-                                  const char *_en = IR_LIT(_gd).sval; if (strncmp(_en, "LBL__", 5) == 0) _en += 5;
-                                  IR_t *_tn = (IR_t *)0; for (int _w = 0; _w < s2->proc_count; _w++) { ProcEntry *_lr = &s2->proc_table[_w]; if (!_lr->name || strncmp(_lr->name, "LBL__", 5) != 0 || strcmp(_lr->name + 5, _en) || !_lr->proc_entry_node) continue;
-                                      _tn = _lr->proc_entry_node; int _tg = 0; while (_tn && (_tn->op == IR_SUCCEED || _tn->op == IR_FAIL || _tn->op == IR_GOTO) && _tn->γ.node && _tg++ < 65536) _tn = _tn->γ.node; break; }
-                                  if (!_tn) break;
-                                  bbg->dentry_node[bbg->n_dentry] = _c; bbg->dentry_entry[bbg->n_dentry] = _tn; bbg->dentry_name[bbg->n_dentry] = (const char *)0; bbg->n_dentry++; break; }
-                              { char _anb[300]; snprintf(_anb, sizeof _anb, "%s_\xce\xb1", IR_LIT(_c).sval);
-                                bbg->dentry_node[bbg->n_dentry] = _c; bbg->dentry_entry[bbg->n_dentry] = (IR_t *)0; bbg->dentry_name[bbg->n_dentry] = strdup(_anb); bbg->n_dentry++; break; } } } } }
+                sn4_dentry_table_build(bbg, s2);
                 { int _na = 0; for (int _q = 0; _q < s2->proc_count; _q++) if (s2->proc_table[_q].name && strncmp(s2->proc_table[_q].name, "LBL__", 5) == 0 && s2->proc_table[_q].proc_entry_node) _na++;
                   if (_na > 0 && bbg->n_balias == 0) { bbg->balias_node = (IR_t **)calloc((size_t)_na, sizeof(IR_t *)); bbg->balias_name = (const char **)calloc((size_t)_na, sizeof(char *));
                       if (bbg->balias_node && bbg->balias_name) for (int _q = 0; _q < s2->proc_count; _q++) { if (!s2->proc_table[_q].name || strncmp(s2->proc_table[_q].name, "LBL__", 5) != 0 || !s2->proc_table[_q].proc_entry_node) continue;
@@ -1878,6 +1886,7 @@ int main(int argc, char **argv)
             extern bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
             bb_box_fn fn;
             { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
+            sn4_dentry_table_build(bbg, s2);
             { extern int g_flat_outer_nparams; g_flat_outer_nparams = bbg->nparams; }
             { extern void (*g_emit_chain_posthook)(void); extern void bb_ab_emit_nodes(IR_graph_t*, int); extern int g_gva_active;
               g_ab_posthook_g = bbg; g_ab_posthook_gva = g_gva_active;

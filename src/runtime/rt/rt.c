@@ -1848,6 +1848,17 @@ void rt_proc_set_frame_bytes(const char *name, int bytes)
     if (p && bytes > p->frame_bytes) p->frame_bytes = bytes;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_define_bind_body(const char *fname, const char *entry)
+{
+    extern void *rt_entry_resolve(const char *, int *);
+    extern void *bb_ab_fn_cell_ptr(const char *);
+    extern void *bb_ab_cell_addr(const char *);
+    if (!fname || !*fname || !entry || !*entry) return;
+    { int frag = 0; void *fn = rt_entry_resolve(entry, &frag); if (!fn) return;
+      { void **c = (void **)bb_ab_cell_addr(fname); if (c) *c = fn; }
+      { char cell[300]; snprintf(cell, sizeof cell, "body$%s", fname); { void **c = (void **)bb_ab_fn_cell_ptr(cell); if (c) *c = fn; } } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_define_site(const char *name, const char *params_csv, int nparams, int nformals, int frame_bytes, void *fn)
 {
     rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;

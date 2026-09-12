@@ -14,6 +14,7 @@ extern int g_monitor_bin;
 extern int rt_g_want_name;
 extern int rt_g_ret_by_name;
 void rt_kw_set_rtntype_role(int);
+void rt_define_bind_body(const char *fname, const char *entry);
 extern int * const rt_k_level_p;
 extern long rt_stno_stack[];
 extern long g_stno;
@@ -439,7 +440,18 @@ static std::string bb_define_bind() {
             + x86("lea", "rax", std::string("[rip + __]"), (uint64_t)0, _.lbl_t0)
             + x86("mov", "rcx", std::string("[rip@got + __]"), (uint64_t)0, (std::string("body_cell$") + std::string(bb_ab_sym_name(fname))).c_str())
             + x86("mov", RDQ("rcx", 0), "rax"); } }
-    std::string seals = x86_ro_seal_str(0, fname) + x86_ro_seal_str(1, _csv ? _csv : "");
+    std::string bind_seal;
+    { if (_.lbl_t0 && bb_ab_cell_addr(fname)) {
+        const char * _ent = (strncmp(_.lbl_t0, "LBL__", 5) == 0) ? _.lbl_t0 + 5 : _.lbl_t0;
+        uint64_t _bind_fp; { void (*fp)(const char *, const char *) = rt_define_bind_body; _bind_fp = (uint64_t)(uintptr_t)(void *)fp; }
+        reg = reg + x86("comment", "AB-BODY-SEAL (the AB twin of term 3): fn_cell$<FN> <- the entry named by THIS DEFINE.  Resolved by NAME at runtime, not baked: the M4-BODY-SEAL's lea carries a label in TEXT but a compile-time-queried POINTER in BINARY (x86_load_ro), and in BINARY that pointer is the default entry, so a baked seal silently re-pins the winner it is here to unpin.")
+            + x86_ro_load_q("rdi", 0)
+            + x86_ro_load_q("rsi", 2)
+            + x86_scan_sync_out()
+            + x86("call", "rt_define_bind_body", _bind_fp)
+            + x86_scan_sync_in_rr();
+        bind_seal = x86_ro_seal_str(2, _ent); } }
+    std::string seals = x86_ro_seal_str(0, fname) + x86_ro_seal_str(1, _csv ? _csv : "") + bind_seal;
     if (!_ab) return x86_alpha() + reg + x86_pair_loop() + seals;
     if (bb_ab_cell_addr(fname)) return x86_alpha() + reg + x86_pair_loop() + seals;
     return x86_alpha()
