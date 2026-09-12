@@ -89,7 +89,17 @@ _rc=${PIPESTATUS[0]}
 _shell="$(grep -m1 '^BOARD_FOR_SHELL ' "$_out" || true)"
 [ -n "$_shell" ] || { echo "⚠ SCORE.md NOT UPDATED [$GATE_NAME]: the run printed no BOARD_FOR_SHELL line, so there is no measurement to record"; rm -f "$_out"; exit 1; }
 set -- $_shell
-_pop="$2"; _m3p="$3"; _m3f="$4"; _m4p="${5:-}"; _m4f="${6:-}"
+_pop="$2"; _both="$3"; _m3p="$4"; _m3f="$5"; _m4p="${6:-}"; _m4f="${7:-}"
+
+# ⛔⭐ ONE ROW PER CASE PER MODE (CEO-331), appended from what the grader just wrote. NON-FATAL BY DESIGN,
+# exactly like gate_score_row: a runner that gets red-ed by its own bookkeeping is a runner people stop
+# calling. ⛔ WITHOUT THIS THE SUITE READS AS **MISSING** TO util_progress_flips --coverage even while the
+# board is green, so a flip the progress table cannot see is a flip nobody is paid for (coo, 2026-09-12).
+if [ -f "$HERE/lib_progress.sh" ]; then
+    . "$HERE/lib_progress.sh"
+    _prows="$(grep -m1 '^PROGRESS_ROWS_TSV ' "$_out" | awk '{print $2}')"
+    if [ -n "${_prows:-}" ] && [ -s "$_prows" ]; then progress_append_rows_tsv "$_prows" || echo "  (progress append failed -- the board stands)"; fi
+fi
 
 # ⛔⭐ THE PACKAGE INVENTORY IS A FILE CENSUS AND THE BOARD ABOVE IS A CASE CENSUS -- two populations, and
 # conflating them is how a package reports 100% of the wrong thing. shipped counts .lgt files (400: 192
@@ -103,9 +113,20 @@ _iv="$(inventory_line 192 0)"; _ivrc=$?
 
 _board="$(grep -m1 '^LOGTALK_ISO_BOARD ' "$_out" || true)"
 _ident="$(grep -m1 ' identity ' "$_out" | sed 's/^ *//' || true)"
-_txt="logtalk_iso (ISO/IEC 13211-1, the suite's own per-case expectations) $_m3p/$_pop m3"
-[ -n "$_m4p" ] && _txt="$_txt · $_m4p/$_pop m4"
+_txt="logtalk_iso (ISO/IEC 13211-1, the suite's own per-case expectations) $_both/$_pop by the AND PER CASE — a case passes when it passes in EVERY mode graded (CEO-372), which is NOT either per-mode count: $_m3p/$_pop m3"
+[ -n "$_m4p" ] && _txt="$_txt · $_m4p/$_pop m4 are equal counts over sets that differ"
 _txt="$_txt — every case graded against the standard as the standard states it, not an oracle diff; $_ident"
-gate_score_row prolog vendor "$_txt${_iv:+ · $_iv (\`$GATE_NAME.sh\`)}" "$MODES" LOGTALK
+# ⛔⭐ THE SUITE ROW STATES THE **AND PER CASE**, PASSED EXPLICITLY, AND THE KEY IS LOWERCASE `logtalk`.
+# Three things went wrong here on the first pass and all three are the same mistake -- letting a helper
+# infer what only this runner knows (coo, 2026-09-12): (1) the key was written LOGTALK and SUITES.tsv's is
+# `logtalk`; (2) no --suite-pass/--suite-total was given, so util_score_row tried to read a fraction out of
+# the prose and REFUSED, leaving SCORE.md rewritten and SUITES.tsv untouched -- the adrift-cell split state
+# the handoff instrument warns on; (3) even had it read one, the per-mode fraction is the WRONG NUMBER when
+# the modes differ. m3 and m4 both say 1218 over sets that are not the same. CEO-372's answer is the AND per
+# case, and only this runner can compute it, so only this runner may state it.
+_sc="$HERE/util_score_row.py"
+python3 "$_sc" write --lang prolog --column vendor --text "$_txt${_iv:+ · $_iv (\`$GATE_NAME.sh\`)}" \
+    --measurer "${S4E_SEAT:-hq_R}" --modes "$MODES" --suite logtalk --suite-pass "$_both" --suite-total "$_pop" \
+    || echo "⚠ SCORE.md NOT UPDATED [$GATE_NAME] -- the board above stands on its own measurement; the leaderboard row does not"
 rm -f "$_out"
 exit 0

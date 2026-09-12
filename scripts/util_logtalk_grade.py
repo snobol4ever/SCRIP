@@ -456,7 +456,40 @@ def main(argv):
     if args.name_reds:
         for x in named[:400]:
             print("    RED " + x)
-    print("BOARD_FOR_SHELL %d %s" % (pop, " ".join("%d %d" % (board[m]["PASS"], board[m]["FAIL"]) for m in modes)))
+    # ⛔⭐ THE AND PER CASE, AND IT IS NOT min(m3, m4) (CEO-372; coo 2026-09-12 on this very board). m3 and
+    # m4 both read 1218 PASS and the SETS ARE NOT THE SAME -- m4 carries one more UNGRADED and one fewer
+    # FAIL, so they differ by at least one case. Two equal counts over different sets are not a number a
+    # suite row can state, and the only honest answer is computed PER CASE: a case passes this suite when
+    # it passes in EVERY mode graded. Printed beside the per-mode counts, never instead of them.
+    both = 0
+    for i, (fc, p) in enumerate(work):
+        if p.skip_reason is not None:
+            continue
+        if all(verdict(p, results[(i, m)][0])[0] == "PASS" for m in modes):
+            both += 1
+    print("  AND per case (passes in EVERY mode graded, the number a suite row states): %d/%d" % (both, pop))
+    if len(modes) > 1 and any(board[m]["PASS"] != both for m in modes):
+        print("    ⛔ and it is NOT either per-mode count: %s -- equal counts over different sets"
+              % ", ".join("%s=%d" % (m, board[m]["PASS"]) for m in modes))
+    # ⛔⭐ ONE ROW PER CASE PER MODE INTO THE PROGRESS DATABASE (CEO-331). This runner grades with its own
+    # loop, so nothing records it automatically and the coverage reader sees the suite as MISSING -- a flip
+    # the progress table cannot see is not paid. ⛔ THE PROGRAM KEY IS group:name, never the goal text:
+    # case names repeat across directories (iso_cut_0_01 style names are unique per file, not globally),
+    # and a colliding key silently shrinks the denominator. UNGRADED is a real outcome in this table's own
+    # vocabulary and is recorded as itself -- never dropped, and never collapsed into FAIL.
+    rows = os.path.join(tempfile.gettempdir(), "logtalk_progress_rows.tsv")
+    with open(rows, "w") as pf:
+        for i, (fc, p) in enumerate(work):
+            for m in modes:
+                if p.skip_reason is not None:
+                    v, note = "UNGRADED", p.skip_reason.split(":")[0][:60]
+                else:
+                    v, why = verdict(p, results[(i, m)][0])
+                    note = "iso-13211-1-case-expectation" if v == "PASS" else (why or v)[:60]
+                pf.write("package\tlogtalk\tprolog\t%s:%s\t%s\t%s\t0\t%s\n"
+                         % (fc.group, p.case.name, m, v, note))
+    print("PROGRESS_ROWS_TSV %s" % rows)
+    print("BOARD_FOR_SHELL %d %d %s" % (pop, both, " ".join("%d %d" % (board[m]["PASS"], board[m]["FAIL"]) for m in modes)))
     return 0
 
 
