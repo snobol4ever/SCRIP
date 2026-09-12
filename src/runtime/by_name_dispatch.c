@@ -5021,11 +5021,21 @@ static int icn_arg_is_list(DESCR_t v) {
     DESCR_t t = FIELD_GET_fn(v, "gen_type");
     return (t.v == DT_S && t.s && !strcmp(t.s, "list")) ? 1 : 0;
 }
+static int icn_scan_tail_gate(DESCR_t *args, int nargs, int subj, DESCR_t *out) {
+    if (nargs > subj && !IS_FAIL_fn(args[subj]) && args[subj].v != DT_SNUL && !icn_cvt_chars_ok(args[subj])) return icn_argtype_raise(103, args[subj], out);
+    for (int i = subj + 1; i < subj + 3 && i < nargs; i++)
+        if (!IS_FAIL_fn(args[i]) && args[i].v != DT_SNUL && !icn_cvt_int_ok(args[i])) return icn_argtype_raise(101, args[i], out);
+    return 0;
+}
 static int icn_argtype_gate(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
     if (nargs < 1 || IS_FAIL_fn(args[0])) return 0;
     switch (bid) {
-        case BID_any: case BID_many: case BID_upto: return icn_cvt_chars_ok(args[0]) ? 0 : icn_argtype_raise(104, args[0], out);
-        case BID_find: case BID_match:             return icn_cvt_chars_ok(args[0]) ? 0 : icn_argtype_raise(103, args[0], out);
+        case BID_any: case BID_many: case BID_upto:
+            if (!icn_cvt_chars_ok(args[0])) return icn_argtype_raise(104, args[0], out);
+            return icn_scan_tail_gate(args, nargs, 1, out);
+        case BID_find: case BID_match:
+            if (!icn_cvt_chars_ok(args[0])) return icn_argtype_raise(103, args[0], out);
+            return icn_scan_tail_gate(args, nargs, 1, out);
         case BID_trim: case BID_reverse: case BID_repl: case BID_detab: case BID_entab:
             return icn_cvt_chars_ok(args[0]) ? 0 : icn_argtype_raise(103, args[0], out);
         case BID_map:
@@ -5065,7 +5075,7 @@ static int icn_argtype_gate(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
         case BID_bal:
             for (int i = 0; i < 3 && i < nargs; i++)
                 if (!IS_FAIL_fn(args[i]) && args[i].v != DT_SNUL && !icn_cvt_chars_ok(args[i])) return icn_argtype_raise(104, args[i], out);
-            return 0;
+            return icn_scan_tail_gate(args, nargs, 3, out);
         default: return 0;
     }
 }
