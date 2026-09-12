@@ -5408,7 +5408,8 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
                 continue;
             }
             if (av.v == DT_SNUL) continue;
-            if (dest != stdout && dest != stderr && IS_STR_fn(av) && !IS_CSET_fn(av)) { const char *_bs = VARVAL_fn(av); uint32_t _bn = av.slen ? av.slen : (_bs ? (uint32_t)strlen(_bs) : 0u); if (_bs && _bn) fwrite(_bs, 1, _bn, dest); continue; }
+            if (IS_STR_fn(av) && !IS_CSET_fn(av)) { const char *_bs = VARVAL_fn(av); uint32_t _bn = av.slen ? av.slen : (_bs ? (uint32_t)strlen(_bs) : 0u);
+                if ((dest != stdout && dest != stderr) || (_bs && _bn && memchr(_bs, 0, _bn))) { if (_bs && _bn) fwrite(_bs, 1, _bn, dest); continue; } }
             out_write_descr(dest, av, nl);
         }
         if (nl) fputc('\n', dest);
