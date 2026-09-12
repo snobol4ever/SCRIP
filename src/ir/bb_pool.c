@@ -16,7 +16,7 @@ void bb_pool_init(void) {
     if (pool_base) return;
     page_size = sysconf(_SC_PAGESIZE);
     if (page_size <= 0) page_size = 4096;
-    pool_base = mmap(NULL, BB_POOL_SIZE, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+    pool_base = mmap(NULL, BB_POOL_SIZE, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE | MAP_NORESERVE, -1, 0);
     if (pool_base == MAP_FAILED) { perror("bb_pool_init: mmap"); abort(); }
     pool_top   = pool_base;
     pool_limit = pool_base + BB_POOL_SIZE;

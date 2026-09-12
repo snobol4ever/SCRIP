@@ -1,4 +1,6 @@
 #ifdef __cplusplus
+#include <unordered_map>
+#include <string>
 #include "emit.h"
 #include "ir_index.h"
 #include "templates/x86/x86_asm.h"
@@ -63,6 +65,7 @@ int        bb_emit_size  = 0;
 bb_patch_t bb_patch_list[BB_PATCH_MAX];
 int        bb_patch_count = 0;
 static bb_label_t ** g_label_pool      = NULL;
+static std::unordered_map<std::string, bb_label_t *> g_label_map;
 static int           g_label_pool_n    = 0;
 static int           g_label_pool_max  = 0;
 static bb_label_t * g_flt_lbl[4] = {0, 0, 0, 0};
@@ -70,7 +73,7 @@ static bb_label_t * g_flt_lbl[4] = {0, 0, 0, 0};
 void emit_label_pool_reset(void)
 {
     for (int i = 0; i < g_label_pool_n; i++) free(g_label_pool[i]);
-    g_label_pool_n = 0;
+    g_label_pool_n = 0; g_label_map.clear();
     g_flt_lbl[1] = g_flt_lbl[2] = g_flt_lbl[3] = (bb_label_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -109,14 +112,14 @@ bb_label_t *emit_label_alloc(const char *fmt, ...)
     bb_label_name_set(lbl->name, nb);
     lbl->offset = BB_LABEL_UNRESOLVED;
     g_label_pool[g_label_pool_n++] = lbl;
+    g_label_map.emplace(std::string(lbl->name), lbl);
     return lbl;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 bb_label_t *emit_label_intern(const char *name)
 {
     if (!name) return NULL;
-    for (int i = 0; i < g_label_pool_n; i++)
-        if (g_label_pool[i] && strcmp(g_label_pool[i]->name, name) == 0) return g_label_pool[i];
+    { auto it = g_label_map.find(std::string(name)); if (it != g_label_map.end() && it->second) return it->second; }
     return emit_label_alloc("%s", name);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -954,10 +957,24 @@ int binop_is_num_real(IR_graph_t *g, IR_t *nd) {
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t **g_nidx_nodes = 0; static int g_nidx_n = 0; static IR_t **g_nidx_keys = 0; static int *g_nidx_vals = 0; static size_t g_nidx_cap = 0;
+static void nidx_build(IR_t **nodes, int n) {
+    size_t want = 16; while (want < (size_t)n * 2 + 2) want <<= 1;
+    if (want > g_nidx_cap) { free(g_nidx_keys); free(g_nidx_vals); g_nidx_keys = (IR_t **)malloc(want * sizeof(IR_t *)); g_nidx_vals = (int *)malloc(want * sizeof(int)); g_nidx_cap = want; }
+    memset(g_nidx_keys, 0, g_nidx_cap * sizeof(IR_t *));
+    for (int i = 0; i < n; i++) { IR_t *k = nodes[i]; if (!k) continue; size_t h = ((size_t)(uintptr_t)k >> 4) & (g_nidx_cap - 1); while (g_nidx_keys[h] && g_nidx_keys[h] != k) h = (h + 1) & (g_nidx_cap - 1); if (!g_nidx_keys[h]) { g_nidx_keys[h] = k; g_nidx_vals[h] = i; } }
+    g_nidx_nodes = nodes; g_nidx_n = n;
+}
+static inline int nidx(IR_t **nodes, int n, const IR_t *e) {
+    if (!e) return -1;
+    if (nodes != g_nidx_nodes || n != g_nidx_n) { int k = 0; while (k < n) { if (nodes[k] == e) return k; k++; } return -1; }
+    size_t h = ((size_t)(uintptr_t)e >> 4) & (g_nidx_cap - 1); while (g_nidx_keys[h]) { if (g_nidx_keys[h] == e) return g_nidx_vals[h]; h = (h + 1) & (g_nidx_cap - 1); } return -1;
+}
 static int to_inner_gen_operand_k(IR_t *gi, IR_t **nodes, int n) {
     int bk = -1;
     if (gi->op != IR_TO && gi->op != IR_TO_BY) return -1;
-    for (int oi = 0; oi < gi->n_operands; oi++) for (int k = 0; k < n; k++) if (nodes[k] == (IR_t *)gi->operands[oi] && ir_is_generator_kind(nodes[k]->op) && k > bk) bk = k;
+    for (int oi = 0; oi < gi->n_operands; oi++) { int k = nidx(nodes, n, (IR_t *)gi->operands[oi]); if (k >= 0 && (ir_is_generator_kind(nodes[k]->op) && k > bk)) bk = k; }
     return bk;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1387,8 +1404,8 @@ static void flat_drive_repalt(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_
     int e_sa = e_root ? bb_slot_get(e_root) : -1;
     if (e_sa < 0 && e_root) e_sa = drive_value_slot(e_root);
     bb_label_t *e_lbl = node_ω; bb_label_t *e_beta = ra_t[i];
-    if (e_entry) for (int k = 0; k < n; k++) if (nodes[k] == e_entry) { e_lbl = lbls[k]; break; }
-    if (e_root && ir_is_generator_kind(e_root->op)) for (int k = 0; k < n; k++) if (nodes[k] == e_root) { e_beta = betas[k]; break; }
+    if (e_entry) { int k = nidx(nodes, n, e_entry); if (k >= 0) { e_lbl = lbls[k]; } }
+    if (e_root && ir_is_generator_kind(e_root->op)) { int k = nidx(nodes, n, e_root); if (k >= 0) { e_beta = betas[k]; } }
     g_emit.op_off = off; g_emit.op_sa = e_sa;
     DRIVE_FILL(nodes[i], lbls[i], node_γ, node_ω, betas[i]);
     bb_emit_x86(bb_repalt_clear());
@@ -1415,8 +1432,8 @@ static int fc_seq_on(const IR_t *nd) { return nd && fc_seq_active(nd); }
 static int fc_seq_elem_of(IR_t **nodes, int n, int k, int src) {
     int N = (int)(nodes[k]->n_operands / 2), el = 0, sp = -1;
     for (int j = 0; j < N; j++) if (nodes[k]->operands[2 * j] == nodes[src] || nodes[k]->operands[2 * j + 1] == nodes[src]) return j;
-    for (int p = 0; p < n; p++) if (nodes[p] == nodes[src]) { sp = p; break; }
-    for (int j = 0; j < N; j++) { IR_t *e = nodes[k]->operands[2 * j]; for (int p = 0; p < n; p++) if (nodes[p] == e) { if (p <= sp) el = j; break; } }
+    { int p = nidx(nodes, n, nodes[src]); if (p >= 0) { sp = p; } }
+    for (int j = 0; j < N; j++) { IR_t *e = nodes[k]->operands[2 * j]; { int p = nidx(nodes, n, e); if (p >= 0) { if (p <= sp) el = j; } } }
     return el;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1424,7 +1441,7 @@ static bb_label_t * fc_seq_sigma_tgt(IR_t **nodes, int n, int k, int src, bb_lab
     int N = (int)(nodes[k]->n_operands / 2), el = fc_seq_elem_of(nodes, n, k, src);
     if (el >= N - 1) return dflt;
     IR_t *nx = nodes[k]->operands[2 * (el + 1)];
-    for (int p = 0; p < n; p++) if (nodes[p] == nx) return lbls[p];
+    { int p = nidx(nodes, n, nx); if (p >= 0) return lbls[p]; }
     return dflt;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1445,7 +1462,7 @@ static bb_label_t * fc_seq_phi_tgt(IR_t **nodes, int n, int k, int src, bb_label
     int el = fc_seq_elem_of(nodes, n, k, src);
     if (el <= 0) return dflt;
     IR_t *pv = nodes[k]->operands[2 * (el - 1) + 1];
-    for (int p = 0; p < n; p++) if (nodes[p] == pv) return betas[p];
+    { int p = nidx(nodes, n, pv); if (p >= 0) return betas[p]; }
     return dflt;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1461,8 +1478,8 @@ static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, 
     IR_t *nd = nodes[i]; int N = (nd->op == IR_MATCH_ARBNO) ? 1 : (nd->op == IR_DISJUNCTION) ? (int)IR_LIT(nd).ival : nd->n_operands / 2;
     if (3 * N + 3 > XA_BB_EMIT_PAIR_MAX) { fprintf(stderr, "FATAL emit flat_drive_match_alt: node n%d op=%d N=%d needs %d pair slots > XA_BB_EMIT_PAIR_MAX(%d) — raise the constant in emit.h\n", i, (int)nd->op, N, 3 * N + 3, XA_BB_EMIT_PAIR_MAX); abort(); }
     g_emit.xa_bb_emit_pair_n = 0;
-    for (int j = 0; j < N; j++) { IR_t *e = nd->operands[2 * j];     bb_label_t *t = node_ω; for (int k = 0; k < n; k++) if (nodes[k] == e) { t = lbls[k];  break; } if (nd->op == IR_DISJUNCTION && e && e->op == IR_FAIL && chain_ω) t = chain_ω;    int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = NULL; g_emit.xa_bb_emit_pair_jmp[_i] = t; }
-    for (int j = 0; j < N; j++) { IR_t *r = nd->operands[2 * j + 1]; bb_label_t *t = node_ω; for (int k = 0; k < n; k++) if (nodes[k] == r) { t = betas[k]; break; } if (nd->op == IR_MATCH_ARBNO && nd->n_operands > 3 && nd->operands[3] == nd) t = na_fo[i];    if (nd->op == IR_DISJUNCTION && r == nd) t = na_fo[i];    int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = NULL; g_emit.xa_bb_emit_pair_jmp[_i] = t; }
+    for (int j = 0; j < N; j++) { IR_t *e = nd->operands[2 * j];     bb_label_t *t = node_ω; { int k = nidx(nodes, n, e); if (k >= 0) { t = lbls[k]; } } if (nd->op == IR_DISJUNCTION && e && e->op == IR_FAIL && chain_ω) t = chain_ω;    int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = NULL; g_emit.xa_bb_emit_pair_jmp[_i] = t; }
+    for (int j = 0; j < N; j++) { IR_t *r = nd->operands[2 * j + 1]; bb_label_t *t = node_ω; { int k = nidx(nodes, n, r); if (k >= 0) { t = betas[k]; } } if (nd->op == IR_MATCH_ARBNO && nd->n_operands > 3 && nd->operands[3] == nd) t = na_fo[i];    if (nd->op == IR_DISJUNCTION && r == nd) t = na_fo[i];    int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = NULL; g_emit.xa_bb_emit_pair_jmp[_i] = t; }
     { int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = na_s[i]; g_emit.xa_bb_emit_pair_jmp[_i] = NULL; }
     { int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = na_f[i]; g_emit.xa_bb_emit_pair_jmp[_i] = NULL; }
     if (nd->op == IR_MATCH_ARBNO) { IR_t *_t = (nd->n_operands > 2) ? nd->operands[2] : (IR_t *)0; { IR_t *_s0 = (nd->n_operands > 1) ? nd->operands[1] : (IR_t *)0; int _i0 = -1, _i1 = -1; for (int k = 0; k < n; k++) { if (_s0 && nodes[k] == _s0) _i0 = k; if (_t && nodes[k] == _t) _i1 = k; } if (_i0 > _i1) { int _sw = _i0; _i0 = _i1; _i1 = _sw; } if (_i0 >= 0) for (int k = _i1; k >= _i0; k--) if (nodes[k] && nodes[k] != nd && nodes[k]->γ.node == nd) { _t = nodes[k]; break; } }    bb_label_t *_tb = node_ω; for (int k = 0; k < n; k++) if (_t && nodes[k] == _t) { _tb = betas[k]; break; } int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = NULL; g_emit.xa_bb_emit_pair_jmp[_i] = _tb; }
@@ -2613,7 +2630,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
             for (int k = 0; k < n; k++) { if (nodes[k] == gt) gi = k; if (nodes[k] == ot) oi = k; }
             fprintf(stderr, "[ZD-MAP] i=%-3d %-22s nops=%d ops=[", i, bb_op_name(nodes[i]->op), nodes[i]->n_operands);
             for (int a = 0; a < nodes[i]->n_operands; a++) { int pi = -1;
-                for (int k = 0; k < n; k++) if (nodes[k] == nodes[i]->operands[a]) { pi = k; break; }
+                { int k = nidx(nodes, n, nodes[i]->operands[a]); if (k >= 0) { pi = k; } }
                 fprintf(stderr, "%s%d", a ? "," : "", pi); }
             fprintf(stderr, "] g=%d o=%d lit/nameptr=%lld src=%s\n", gi, oi, (long long)IR_LIT(nodes[i]).ival, bb_src_of(nodes[i]) ? bb_src_of(nodes[i]) : "-"); } } }
     for (int pass = 0; pass < 2; pass++) {
@@ -2624,7 +2641,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
         int rl = 0; IR_t * cur = nodes[hi]; int guard = 0;
         static int _z5b = -1; if (_z5b < 0) { const char * e = getenv("SCRIP_ZD_5B"); _z5b = (e && *e == '0') ? 0 : 1; }
         while (cur && guard++ <= n) {
-            int ci = -1; for (int k = 0; k < n; k++) if (nodes[k] == cur) { ci = k; break; }
+            int ci = -1; { int k = nidx(nodes, n, cur); if (k >= 0) { ci = k; } }
             if (ci < 0 || claim[ci] >= 0) break;
             if (rl > 0 && bb_src_of(nodes[ci])) break;
             { static int _fl = -1; if (_fl < 0) { const char * e = getenv("SCRIP_ZD_FLOATER_CUT"); _fl = (e && *e == '0') ? 0 : 1; } if (_fl && rl > 0 && emit_floater_kind(nodes[ci])) break; }
@@ -2637,7 +2654,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
             for (int r0 = 0; r0 < rl_main; r0++) { IR_t * env = nodes[run[r0]]; if ((int)env->op != IR_MATCH_ALTERNATE) continue; int ei = run[r0];
                 for (int a = 0; a + 1 < env->n_operands; a += 2) { IR_t * c2 = env->operands[a]; int rl0 = rl; int bad = 0; int g2 = 0; int first = 1;
                     while (c2 && g2++ <= n) {
-                        int ci = -1; for (int k = 0; k < n; k++) if (nodes[k] == c2) { ci = k; break; }
+                        int ci = -1; { int k = nidx(nodes, n, c2); if (k >= 0) { ci = k; } }
                         if (ci < 0 || claim[ci] >= 0) break;
                         if (bb_src_of(nodes[ci]) || emit_floater_kind(nodes[ci])) { bad = 1; break; }
                         { int aop = (int)nodes[ci]->op; int leaf = (aop == IR_MATCH_LIT || aop == IR_MATCH_LEN || aop == IR_MATCH_ANY || aop == IR_MATCH_NOTANY || aop == IR_MATCH_SPAN || aop == IR_MATCH_BREAK || aop == IR_MATCH_BREAKX || aop == IR_MATCH_POS || aop == IR_MATCH_RPOS || aop == IR_MATCH_TAB || aop == IR_MATCH_RTAB || aop == IR_MATCH_ARB || aop == IR_MATCH_REM || aop == IR_MATCH_BAL);
@@ -2653,7 +2670,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
           for (int r = 0; r < rl; r++) { cm[run[r]] = 1; wl[wn++] = run[r]; }
           while (wn > 0) { int i = wl[--wn];
               for (int a = 0; a < nodes[i]->n_operands; a++) { IR_t * p = nodes[i]->operands[a]; if (!p) continue;
-                  for (int k = 0; k < n; k++) if (nodes[k] == p && !cm[k]) { cm[k] = 1; wl[wn++] = k; nblob++; break; } } } }
+                  { int k = nidx(nodes, n, p); if (k >= 0 && (!cm[k])) { cm[k] = 1; wl[wn++] = k; nblob++; } } } } }
         int ok = (rl > 0); const char * why = ""; int badi = -1; int rgood = rl;
         for (int r = 0; r < rl && ok; r++) { int i = run[r];
             { int _a = zd_wl_kind(nodes[i]);
@@ -2667,7 +2684,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
         (void)rgood;
         int vd_tidx = -1;
         if (_zvd && pass == 1 && ok) { vd_tidx = zd_omega_test_idx(nodes, n, nodes[hi]);
-            if (vd_tidx >= 0 && claim[vd_tidx] >= 0 && cur) { int _curi = -1; for (int k = 0; k < n; k++) if (nodes[k] == cur) { _curi = k; break; }
+            if (vd_tidx >= 0 && claim[vd_tidx] >= 0 && cur) { int _curi = -1; { int k = nidx(nodes, n, cur); if (k >= 0) { _curi = k; } }
                 if (!(_curi >= 0 && claim[_curi] == claim[vd_tidx])) vd_tidx = -1; }
             else vd_tidx = -1; }
         if (vd_tidx >= 0) zvd_ok[vd_tidx] = 1;
@@ -2683,8 +2700,8 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                 int gib = port_sz_beta(nodes[i]->γ.sz); { int _gg = 0; IR_t * _g = nodes[i]->γ.node; while (_g && _g->op == IR_GOTO && _gg++ < 128) { if (!gib) gib = port_sz_beta(_g->γ.sz); _g = _g->γ.node; } } gib = gib && !beta_is_stmt_land(gt);
                 if (nblob > 0) { for (int k = 0; k < n; k++) if (cm[k]) { if (nodes[k] == gt) gin = 1; if (nodes[k] == ot && !(port_sz_beta(nodes[i]->ω.sz) && beta_is_stmt_land(ot))) oin = 1; } }
                 else for (int k = 0; k < rl; k++) { if (nodes[run[k]] == gt && (k > r || gib)) gin = 1; if (nodes[run[k]] == ot && !(port_sz_beta(nodes[i]->ω.sz) && beta_is_stmt_land(ot))) oin = 1; }
-                if (_zbe && gt) { for (int tk = 0; tk < n; tk++) if (nodes[tk] == gt && zon[tk]) { gback = tk; break; } }
-                if (_zbe && ot) { for (int tk = 0; tk < n; tk++) if (nodes[tk] == ot && zon[tk]) { oback = tk; break; } }
+                if (_zbe && gt) { { int tk = nidx(nodes, n, gt); if (tk >= 0 && (zon[tk])) { gback = tk; } } }
+                if (_zbe && ot) { { int tk = nidx(nodes, n, ot); if (tk >= 0 && (zon[tk])) { oback = tk; } } }
                 { if (!gin && gt && gt->op == IR_SUCCEED && g_emit_cfg && g_emit_cfg->icn_cells_graph && port_sz_beta(nodes[i]->ω.sz)) gin = 1; }
                 { (void)0; }
                 { int oib = port_sz_beta(nodes[i]->ω.sz); if (!oin && oib && K == 0 && !beta_is_stmt_land(ot)) oin = 1; }
@@ -2711,8 +2728,8 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
     const char * _zne = getenv("SCRIP_ZD_NORMALIZE"); const int _zn = !(_zne && *_zne == '0');
     const char * _znie = getenv("SCRIP_ZD_NORMALIZE_INRUN"); const int _zni = !(_znie && *_znie == '0');
     if (_zvd) { for (int i = 0; i < n; i++) { if (!zon[i] || !(zvd_ok[i] || _zn)) continue; int K = zd_k(nodes[i]); int gback = -1, oback = -1;
-        if (_zbe && zgt[i]) { for (int tk = 0; tk < n; tk++) if (nodes[tk] == zgt[i] && zon[tk]) { gback = tk; break; } }
-        if (_zbe && zot[i]) { for (int tk = 0; tk < n; tk++) if (nodes[tk] == zot[i] && zon[tk]) { oback = tk; break; } }
+        if (_zbe && zgt[i]) { { int tk = nidx(nodes, n, zgt[i]); if (tk >= 0 && (zon[tk])) { gback = tk; } } }
+        if (_zbe && zot[i]) { { int tk = nidx(nodes, n, zot[i]); if (tk >= 0 && (zon[tk])) { oback = tk; } } }
         int _gbpre = (gback >= 0) ? (zout[gback] - zd_k(nodes[gback])) : 0;
         int _obpre = (oback >= 0) ? (zout[oback] - zd_k(nodes[oback])) : 0;
         if (!zgin[i]) zgpop[i] = (gback >= 0 && _gbpre > 0) ? (zout[i] - _gbpre) : zd_exit_pop_s(nodes[i]->op, zmatch[i], zout[i], zstmt[i]);
@@ -2734,13 +2751,13 @@ static void zd_depth_census(IR_t **nodes, int n, unsigned char *zon, int *zout, 
         int K = zd_k(nodes[i]);
         for (int p = 0; p < 2; p++) { IR_t * t = zd_chase(p == 0 ? nodes[i]->γ.node : nodes[i]->ω.node); if (!t) continue;
             int d = (p == 0) ? (zout[i] - zgpop[i]) : (zout[i] - K - zwpop[i]); int ti = -1;
-            for (int k = 0; k < n; k++) if (nodes[k] == t) { ti = k; break; }
+            { int k = nidx(nodes, n, t); if (k >= 0) { ti = k; } }
             if (ti < 0 || !zon[ti]) continue; edges++;
             int f = -1; for (int k = 0; k < wn; k++) if (w[k].t == t) { f = k; break; }
             if (f < 0) { w[wn].t = t; w[wn].d0 = d; w[wn].nd = 1; w[wn].multi = 0; wn++; }
             else { w[f].nd++; if (d != w[f].d0 && !w[f].multi) { w[f].multi = 1; walls++; } } } }
     for (int k = 0; k < wn; k++) { if (!w[k].multi) continue;
-        int _wi = -1; for (int q = 0; q < n; q++) if (nodes[q] == w[k].t) { _wi = q; break; }
+        int _wi = -1; { int q = nidx(nodes, n, w[k].t); if (q >= 0) { _wi = q; } }
         fprintf(stderr, "[ZD-DEPTH] WALL %s i=%d %s preds=%d first_depth=%d gpop=%d zout=%d\n", prefix ? prefix : "?", _wi, bb_op_name(w[k].t->op) ? bb_op_name(w[k].t->op) : "<unnamed>", w[k].nd, w[k].d0, _wi >= 0 ? zgpop[_wi] : -9999, _wi >= 0 ? zout[_wi] : -9999);
         for (int i = 0; i < n; i++) { if (!zon[i]) continue; int Kp = zd_k(nodes[i]);
             for (int p = 0; p < 2; p++) { IR_t * t = zd_chase(p == 0 ? nodes[i]->γ.node : nodes[i]->ω.node); if (t != w[k].t) continue;
@@ -2762,18 +2779,18 @@ static void flat_beta_used_scan(IR_t **nodes, int n, unsigned char *used) {
     for (int j = 0; j < n; j++) {
         int op = (int)nodes[j]->op;
         if (op == IR_MATCH_ALTERNATE || op == IR_MATCH_ARBNO || (op == IR_MATCH_FENCE1 || op == IR_MATCH_FENCE0) || op == IR_SCAN_SEQUENCE || op == IR_SCAN_ALTERNATE || op == IR_DISJUNCTION || op == IR_REPALT)
-            for (int a = 0; a < nodes[j]->n_operands; a++) for (int k = 0; k < n; k++) if (nodes[k] == nodes[j]->operands[a]) used[k] = 1;
-        if (op == IR_SCAN && nodes[j]->n_operands > 2 && nodes[j]->operands[2]) for (int k = 0; k < n; k++) if (nodes[k] == nodes[j]->operands[2]) used[k] = 1;
+            for (int a = 0; a < nodes[j]->n_operands; a++) { int k = nidx(nodes, n, nodes[j]->operands[a]); if (k >= 0) used[k] = 1; }
+        if (op == IR_SCAN && nodes[j]->n_operands > 2 && nodes[j]->operands[2]) { int k = nidx(nodes, n, nodes[j]->operands[2]); if (k >= 0) used[k] = 1; }
         if (op == IR_MOVE_LABEL && nodes[j]->n_operands > 0 && nodes[j]->operands[0] && (int)IR_LIT(nodes[j]).ival)
-            for (int k = 0; k < n; k++) if (nodes[k] == nodes[j]->operands[0]) used[k] = 1;
+            { int k = nidx(nodes, n, nodes[j]->operands[0]); if (k >= 0) used[k] = 1; }
         int gib = port_sz_beta(nodes[j]->γ.sz);
         int oib = port_sz_beta(nodes[j]->ω.sz);
         IR_t *gtgt = nodes[j]->γ.node;
         IR_t *otgt = nodes[j]->ω.node;
         { int _gg = 0; IR_t * _g = gtgt; while (_g && _g->op == IR_GOTO && _gg++ < 128) { if (!gib) gib = port_sz_beta(_g->γ.sz); gtgt = _g->γ.node; _g = gtgt; } }
         { int _gg = 0; IR_t * _o = otgt; while (_o && _o->op == IR_GOTO && _gg++ < 128) { if (!oib) oib = port_sz_beta(_o->γ.sz); otgt = _o->γ.node; _o = otgt; } }
-        if (gib) for (int k = 0; k < n; k++) if (nodes[k] == gtgt) used[k] = 1;
-        if (oib) for (int k = 0; k < n; k++) if (nodes[k] == otgt) used[k] = 1;
+        if (gib) { int k = nidx(nodes, n, gtgt); if (k >= 0) used[k] = 1; }
+        if (oib) { int k = nidx(nodes, n, otgt); if (k >= 0) used[k] = 1; }
     }
 }
 extern "C" int xa_flat_class_c_pred(void);
@@ -2881,6 +2898,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     g_emit.flat_fail_p        = &lbl_ω;
     g_emit.flat_text_externalise = text_externalise;
     g_resumable_callable_active = (g_emit_cfg && g_emit_cfg->resumable_callable) ? 1 : 0;
+    g_nidx_nodes = 0; g_nidx_n = 0;
     int CH_MAX = 65536; if (g_emit_cfg && g_emit_cfg->n + 1024 > CH_MAX) CH_MAX = g_emit_cfg->n + 1024; int Q_MAX = CH_MAX * 16;
     static IR_t **nodes = 0; static int nodes_cap = 0; if (nodes_cap < CH_MAX) { nodes = (IR_t **)realloc(nodes, (size_t)CH_MAX * sizeof(IR_t *)); nodes_cap = CH_MAX; } int n = 0;
     static IR_t **queue = 0; static int queue_cap = 0; if (queue_cap < Q_MAX) { queue = (IR_t **)realloc(queue, (size_t)Q_MAX * sizeof(IR_t *)); queue_cap = Q_MAX; } int qh = 0, qt = 0;
@@ -2950,6 +2968,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     if (qt >= Q_MAX) { fprintf(stderr, "[GZ-7] FATAL: chain traversal queue saturated (qt=%d >= Q_MAX=%d) for prefix=%s -- control-flow edges were silently dropped; raise CH_MAX\n", qt, (int)Q_MAX, prefix); abort(); }
     unsigned char *zd_on = (unsigned char *)alloca((size_t)(n > 0 ? n : 1)); int *zd_out = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1)); int *zd_gp = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1)); int *zd_wp = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1)); int *zd_arm = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
     if (!g_emit.flat_jmp_entry) g_emit.flat_pat = 0;
+    nidx_build(nodes, n);
     zd_plan(nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_arm);
     zd_depth_census(nodes, n, zd_on, zd_out, zd_gp, zd_wp, prefix);
     {
@@ -3143,6 +3162,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     { int _bfb = blob_frame_bytes(); if (_bfb > 0) bb_emit_x86(x86("comment", "R-4(b) BLOB ACTIVATION FRAME (THREE ZETAS): this stored-pattern blob is the callee of a *P DEFER and owns registry slots (ARBNO cell / capture SAVE / FENCE1 watermark) that must survive its own interior's jmp-entry crossings and be PER-ACTIVATION under recursion -- push rbp; mov rbp,rsp; carve. Whacked at ω (mov rsp,rbp; pop rbp), retained across γ with rbp restored to the caller's through the resume record.  WIRE-STACK ARM (s195): the caller PUSHed the pair before entry, so after push rbp;mov rbp,rsp it sits at [rbp+8]=γ [rbp+16]=ω -- law 0a's layout exactly -- and the head SOURCES the pair from there instead of from the caller-set registers; every downstream exit keeps reading the banked [rbp-8]/[rbp-16] unchanged.") + x86("push", "rbp") + x86("mov", "rbp", "rsp") + x86("sub", "rsp", (long)_bfb) + x86("mov", "rcx", RDQ("rbp", 8)) + x86("mov", RDQ("rbp", -8), "rcx") + x86("mov", "rcx", RDQ("rbp", 16)) + x86("mov", RDQ("rbp", -16), "rcx") + x86("mov", RDQ("rbp", -24), "rdx") + IF(sn4_blob_casmark(), x86("mov", RDQ("rbp", -32), "r12")));
     }
     { extern int g_flat_outer_nparams; static int _gsym = -1; if (_gsym < 0) { const char * e = getenv("SCRIP_GLUE_SYM"); _gsym = (e && *e == '1') ? 1 : 0; } int _legacy = (!g_emit.flat_jmp_entry && !g_emit.flat_pat && !g_emit.flat_gen && !g_gen_proc_active && !g_emit.zframe_graph && !g_emit.flat_lcl_proc);  extern int g_glue_entered; g_glue_entered = (g_emit.flat_outer_nparams == 0 && _legacy) ? 1 : 0; if (g_glue_entered) bb_emit_x86(x86_main_prologue()); (void)_gsym; { static int _gluo = -1; if (_gluo < 0) { const char * e = getenv("SCRIP_GLUEO"); _gluo = (e && *e == '0') ? 0 : 1; } static int _gluod = -1; if (_gluod < 0) { const char * e = getenv("SCRIP_GLUEO_DIAG"); _gluod = (e && *e == '1') ? 1 : 0; } extern int g_glue_o_sup; g_glue_o_sup = (_gluo && g_glue_entered && !emit_rec_pin()) ? 1 : 0; if (g_glue_o_sup) g_glue_entered = 0; if (_gluod) fprintf(stderr, "[GLUEO] graph=%s entered=%d rec_pin=%d deep=%d pat=%d gen=%d -> closed_loop_suppressed=%d\n", g_emit.flat_lbl_α ? g_emit.flat_lbl_α : "<anon>", g_glue_entered, emit_rec_pin() ? 1 : 0, g_emit.flat_deep_arrival, g_emit.flat_pat, g_emit.flat_gen, g_glue_o_sup); } if (g_glue_entered) { { long _capN = 0; if (g_emit_cfg) for (int _ci = 0; _ci < g_emit_cfg->n; _ci++) { IR_t * _cs = g_emit_cfg->all[_ci]; if (_cs && _cs->op == IR_MATCH_ASSIGN_SAVE && cap_anchor_of(_cs) > 0) _capN++; } g_emit.op_fc_bytes = _capN > 0 ? (long)(64 + 16 * _capN) : 0; }    bb_emit_x86(bb_glue_framed_enter()); } }
+    nidx_build(nodes, n);
     bb_label_t **lbls  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     bb_label_t **betas = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
     bb_label_t **ra_y  = (bb_label_t **)alloca(sizeof(bb_label_t *) * n);
@@ -3219,6 +3239,9 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         bb_emit_x86(bb_limit_init());
     }
     int _bx_open = -1;
+    int *repalt_of = (int *)alloca(sizeof(int) * (n > 0 ? n : 1)); for (int _q = 0; _q < n; _q++) repalt_of[_q] = -1;
+    for (int _r = 0; _r < n; _r++) if (nodes[_r]->op == IR_REPALT && nodes[_r]->n_operands > 0) { int _k = nidx(nodes, n, nodes[_r]->operands[0]); if (_k >= 0 && repalt_of[_k] < 0) repalt_of[_k] = _r; }
+    std::unordered_map<const bb_label_t *, int> beta_of; beta_of.reserve((size_t)n * 2 + 1); for (int _q = 0; _q < n; _q++) if (betas[_q]) beta_of.emplace(betas[_q], _q);
     for (int i = 0; i < n; i++) {
         { int _fk = emit_floater_kind(nodes[i]); if (_fk && _flt_hoisted[_fk]) { g_flat_node_id += _flt_uid_burn[_fk]; continue; } }
         { static int _sz = -1; if (_sz < 0) { const char *_e = getenv("SCRIP_ASM_SYMSIZE"); _sz = (_e && _e[0] == '0') ? 0 : 1; }
@@ -3245,25 +3268,24 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
           if (!_always_exits) { int _sg = 0; while (gtgt && gtgt->op == IR_SUCCEED && gtgt->γ.node && _sg++ < 4096) gtgt = gtgt->γ.node; }
           if (!_always_exits) { int _sg = 0; while (otgt && otgt->op == IR_SUCCEED && otgt->γ.node && _sg++ < 4096) otgt = otgt->γ.node; } }
         int omega_is_retry = omega_is_beta && !beta_is_stmt_land(otgt);
-        for (int k = 0; k < n; k++) if (nodes[k] == gtgt) {
+        { int k = nidx(nodes, n, gtgt); if (k >= 0) {
             node_γ = (gamma_is_phi && na_f[k]) ? na_f[k] : (gamma_is_sig && na_s[k]) ? na_s[k] : gamma_is_beta ? betas[k] : lbls[k];
             if (getenv("SCRIP_NAF_DIAG") && gamma_is_phi && na_f[k]) fprintf(stderr, "[NAF-DIAG] GAMMA i=%d(%s) -> na_f[k=%d](%s) label=%s\n", i, bb_op_name(nodes[i]->op), k, bb_op_name(nodes[k]->op), na_f[k]->name);
             if (gamma_is_sig && fc_sig[k]) {
                 int _N = (int)(nodes[k]->n_operands / 2), _arm = 0, _src = -1, _best = -1;
-                for (int _p = 0; _p < n; _p++) if (nodes[_p] == nodes[i]) { _src = _p; break; }
-                for (int _j = 0; _j < _N; _j++) { IR_t *_e = nodes[k]->operands[2 * _j]; for (int _p = 0; _p < n; _p++) if (nodes[_p] == _e) { if (_p <= _src && _p > _best) { _best = _p; _arm = _j; } break; } }
+                { int _p = nidx(nodes, n, nodes[i]); if (_p >= 0) { _src = _p; } }
+                for (int _j = 0; _j < _N; _j++) { IR_t *_e = nodes[k]->operands[2 * _j]; { int _p = nidx(nodes, n, _e); if (_p >= 0) { if (_p <= _src && _p > _best) { _best = _p; _arm = _j; } } } }
                 node_γ = fc_sig[k][_arm];
             }
             if (gamma_is_sig) { node_γ = node_γ; }
             if (gamma_is_phi) { node_γ = node_γ; }
-            break;
-        }
+        } }
         { int _flk = emit_floater_kind(gtgt); if (_flk) node_γ = emit_floater_label(_flk); }
         { if (gtgt && gtgt->op == IR_CALL && emit_floater_member(gtgt) && node_γ == &lbl_γ) node_γ = emit_floater_label(1); }
         if (gtgt == NULL || gtgt->op == IR_SUCCEED) node_γ = &lbl_γ;
         if (gtgt && gtgt->op == IR_FAIL) node_γ = &lbl_ω;
         int omega_resolved = 0;
-        for (int k = 0; k < n; k++) if (nodes[k] == otgt) { node_ω = (omega_is_phi && na_fo[k]) ? na_fo[k] : omega_is_beta ? betas[k] : lbls[k]; omega_resolved = 1; if (getenv("SCRIP_NAF_DIAG") && omega_is_phi && na_fo[k]) fprintf(stderr, "[NAF-DIAG] OMEGA i=%d(%s) -> na_fo[k=%d](%s) label=%s\n", i, bb_op_name(nodes[i]->op), k, bb_op_name(nodes[k]->op), na_fo[k]->name); break; }
+        { int k = nidx(nodes, n, otgt); if (k >= 0) { node_ω = (omega_is_phi && na_fo[k]) ? na_fo[k] : omega_is_beta ? betas[k] : lbls[k]; omega_resolved = 1; if (getenv("SCRIP_NAF_DIAG") && omega_is_phi && na_fo[k]) fprintf(stderr, "[NAF-DIAG] OMEGA i=%d(%s) -> na_fo[k=%d](%s) label=%s\n", i, bb_op_name(nodes[i]->op), k, bb_op_name(nodes[k]->op), na_fo[k]->name); } }
         { int _flk = emit_floater_kind(otgt); if (_flk) { node_ω = emit_floater_label(_flk); omega_resolved = 1; } }
         if (!omega_resolved) node_ω = (otgt && otgt->op == IR_SUCCEED) ? &lbl_γ : &lbl_ω;
         g_emit.op_omega_is_death = (!omega_resolved && !(otgt && otgt->op == IR_SUCCEED)) ? 1 : 0;
@@ -3272,7 +3294,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
               if (gtgt && gtgt == g_emit_cfg->alt_fail && pl_step_lbl) node_γ = pl_step_lbl;
               if (!g_emit_cfg->root_graph) for (int _ak = 0; _ak < n_alt; _ak++) if (gtgt && gtgt == g_emit_cfg->alt_ret[_ak] && g_emit_cfg->alt_redo[_ak]) { node_γ = ret_tr[_ak]; break; } }
         if (getenv("SCRIP_OMEGA_DIAG")) fprintf(stderr, "[OMEGA-DIAG] i=%d node_op=%s omega_resolved=%d otgt_op=%s op_omega_is_death=%d\n", i, bb_op_name(nodes[i]->op), omega_resolved, otgt ? bb_op_name(otgt->op) : "NULL", g_emit.op_omega_is_death);
-        for (int r = 0; r < n; r++) if (nodes[r]->op == IR_REPALT && nodes[r]->n_operands > 0 && nodes[r]->operands[0] == nodes[i]) { node_γ = ra_y[r]; node_ω = ra_t[r]; break; }
+        { int r = repalt_of[i]; if (r >= 0) { node_γ = ra_y[r]; node_ω = ra_t[r]; } }
         if (nodes[i]->op == IR_CONJUNCTION && nodes[i]->n_operands > 0 && nodes[i]->operands[0]) {
             IR_t * op0 = nodes[i]->operands[0];
             { int _s0 = nd_slot(op0); if (_s0 >= 0 && bb_slot_get(nodes[i]) < 0) bb_slot_register(nodes[i], _s0); }
@@ -3285,20 +3307,20 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (nodes[i]->op == IR_SUSPEND && nodes[i]->n_operands > 1 && nodes[i]->operands[1]) {
             IR_t *dobody = nodes[i]->operands[1];
             if (dobody->op == IR_FAIL) { g_suspend_dobody_beta = &lbl_ω; }
-            else { for (int k = 0; k < n; k++) if (nodes[k] == dobody) { g_suspend_dobody_beta = (ir_is_generator_kind(dobody->op) || dobody->op == IR_CALL || dobody->op == IR_CALL_PROC_STAGED) ? betas[k] : lbls[k]; break; } }
+            else { { int k = nidx(nodes, n, dobody); if (k >= 0) { g_suspend_dobody_beta = (ir_is_generator_kind(dobody->op) || dobody->op == IR_CALL || dobody->op == IR_CALL_PROC_STAGED) ? betas[k] : lbls[k]; } } }
         }
         if (nodes[i]->op == IR_CREATE && nodes[i]->n_operands > 0 && nodes[i]->operands[0]) {
             IR_t *body_entry = nodes[i]->operands[0];
             g_emit.op_sval_lbl = NULL;
             g_create_body_entry = NULL;
-            for (int k = 0; k < n; k++) if (nodes[k] == body_entry) { g_emit.op_sval_lbl = lbls[k]->name; g_create_body_entry = lbls[k]; break; }
+            { int k = nidx(nodes, n, body_entry); if (k >= 0) { g_emit.op_sval_lbl = lbls[k]->name; g_create_body_entry = lbls[k]; } }
         }
         if (nodes[i]->op == IR_MOVE_LABEL && nodes[i]->n_operands > 0 && nodes[i]->operands[0]) {
             IR_t *rtgt = nodes[i]->operands[0];
             int wantb = (int) IR_LIT(nodes[i]).ival;
             if (rtgt->op == IR_FAIL) g_move_label_tgt = &lbl_ω;
             else if (rtgt->op == IR_SUCCEED) g_move_label_tgt = &lbl_γ;
-            else for (int k = 0; k < n; k++) if (nodes[k] == rtgt) { g_move_label_tgt = wantb ? betas[k] : lbls[k]; break; }
+            else { int k = nidx(nodes, n, rtgt); if (k >= 0) { g_move_label_tgt = wantb ? betas[k] : lbls[k]; } }
         }
         if (nodes[i]->op == IR_MOVE_LABEL && nodes[i]->n_operands > 1 && nodes[i]->operands[1] && !nodes[i]->γ.node) {
             IR_t *igp = nodes[i]->operands[1];
@@ -3308,7 +3330,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             int sg_is_phi  = (igp->γ.sz[0] == (char)0xcf && (unsigned char)igp->γ.sz[1] == 0x86);
             if (sg == NULL || sg->op == IR_SUCCEED) node_γ = &lbl_γ;
             else if (sg->op == IR_FAIL) node_γ = &lbl_ω;
-            else for (int k = 0; k < n; k++) if (nodes[k] == sg) { node_γ = (sg_is_phi && na_f[k]) ? na_f[k] : (sg_is_sig && na_s[k]) ? na_s[k] : sg_is_beta ? betas[k] : lbls[k]; break; }
+            else { int k = nidx(nodes, n, sg); if (k >= 0) { node_γ = (sg_is_phi && na_f[k]) ? na_f[k] : (sg_is_sig && na_s[k]) ? na_s[k] : sg_is_beta ? betas[k] : lbls[k]; } }
             if (g_emit_cfg && n_alt > 0 && emit_zframe_pinned() && !g_emit_cfg->root_graph)
                 for (int _ak = 0; _ak < n_alt; _ak++) if (sg && sg == g_emit_cfg->alt_ret[_ak] && g_emit_cfg->alt_redo[_ak]) { node_γ = ret_tr[_ak]; break; }
         }
@@ -3330,17 +3352,17 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             IR_t *gen = nodes[i]->n_operands > 0 ? nodes[i]->operands[0] : NULL;
             IR_t *rs = nodes[i]->n_operands > 2 ? nodes[i]->operands[2] : NULL;
             g_limit_gen_beta = NULL;
-            if (gen && ir_is_generator_kind(gen->op)) { for (int k = 0; k < n; k++) if (nodes[k] == gen) { g_limit_gen_beta = betas[k]; break; } }
-            else if (rs) for (int k = 0; k < n; k++) if (nodes[k] == rs) { g_limit_gen_beta = betas[k]; break; }
+            if (gen && ir_is_generator_kind(gen->op)) { { int k = nidx(nodes, n, gen); if (k >= 0) { g_limit_gen_beta = betas[k]; } } }
+            else if (rs) { int k = nidx(nodes, n, rs); if (k >= 0) { g_limit_gen_beta = betas[k]; } }
         }
         if (nodes[i]->op == IR_SCAN) {
             IR_t *bv = nodes[i]->n_operands > 1 ? nodes[i]->operands[1] : NULL;
             g_scan_body_beta = NULL;
-            if (bv && (ir_is_generator_kind(bv->op) || bv->op == IR_SCAN_TAB || bv->op == IR_SCAN_MOVE)) for (int k = 0; k < n; k++) if (nodes[k] == bv) { g_scan_body_beta = betas[k]; break; }
+            if (bv && (ir_is_generator_kind(bv->op) || bv->op == IR_SCAN_TAB || bv->op == IR_SCAN_MOVE)) { int k = nidx(nodes, n, bv); if (k >= 0) { g_scan_body_beta = betas[k]; } }
             if (!g_scan_body_beta && nodes[i]->n_operands > 2) { IR_t *bb2 = nodes[i]->operands[2]; int _fk = -1;
                 for (int _hops = 0; bb2 && _fk < 0 && _hops < 8; _hops++) {
                     { int _conduit = (IR_LIT(nodes[i]).dval == 3.0 || IR_LIT(nodes[i]).dval == 4.0) ? 1 : 0;
-                    for (int k = 0; k < n; k++) if (nodes[k] == bb2) { _fk = k; g_scan_body_beta = (betas[k] && (scan_body_beta_keeps(nodes[k]) || (!_conduit && bv && bused[k]))) ? betas[k] : lbls[k]; break; } }
+                    { int k = nidx(nodes, n, bb2); if (k >= 0) { _fk = k; g_scan_body_beta = (betas[k] && (scan_body_beta_keeps(nodes[k]) || (!_conduit && bv && bused[k]))) ? betas[k] : lbls[k]; } } }
                     if (_fk < 0) bb2 = bb2->γ.node;
                 }
                 if (getenv("SCRIP_SCAN3_DIAG")) fprintf(stderr, "[SCAN3] i=%d found_k=%d dval=%g nops=%d bv=%d -> t0=%s (alpha=%s beta=%s keeps=%d used=%d)\n", i, _fk, IR_LIT(nodes[i]).dval, nodes[i]->n_operands, bv ? 1 : 0, g_scan_body_beta ? g_scan_body_beta->name : "-", (_fk >= 0 && lbls[_fk]) ? lbls[_fk]->name : "-", (_fk >= 0 && betas[_fk]) ? betas[_fk]->name : "-", _fk >= 0 ? scan_body_beta_keeps(nodes[_fk]) : -1, _fk >= 0 ? (int)bused[_fk] : -1); }
@@ -3349,13 +3371,13 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             IR_t *arm2 = nodes[i]->operands[0]; IR_t *arm1 = nodes[i]->operands[1];
             g_emit.lbl_t0_p = NULL; g_emit.lbl_t0 = NULL;
             g_emit.lbl_t1_p = NULL; g_emit.lbl_t1 = NULL;
-            if (arm1) for (int k = 0; k < n; k++) if (nodes[k] == arm1) { g_emit.lbl_t0_p = lbls[k]; g_emit.lbl_t0 = lbls[k] ? lbls[k]->name : NULL; break; }
-            if (arm2) for (int k = 0; k < n; k++) if (nodes[k] == arm2) { g_emit.lbl_t1_p = lbls[k]; g_emit.lbl_t1 = lbls[k] ? lbls[k]->name : NULL; break; }
+            if (arm1) { int k = nidx(nodes, n, arm1); if (k >= 0) { g_emit.lbl_t0_p = lbls[k]; g_emit.lbl_t0 = lbls[k] ? lbls[k]->name : NULL; } }
+            if (arm2) { int k = nidx(nodes, n, arm2); if (k >= 0) { g_emit.lbl_t1_p = lbls[k]; g_emit.lbl_t1 = lbls[k] ? lbls[k]->name : NULL; } }
         }
         { static int _zpf = -1; if (_zpf < 0) { const char *_e = getenv("SCRIP_ZPOP_FOLD_OFF"); _zpf = (_e && _e[0] == '1') ? 1 : 0; }
           if (!_zpf) {
               long _sum = 0; int _fk = -1, _hops = 0;
-              for (int _k = 0; _k < n; _k++) if (node_ω == betas[_k]) { _fk = _k; break; }
+              { auto _bit = beta_of.find(node_ω); if (_bit != beta_of.end()) _fk = _bit->second; }
               if (_fk >= 0 && beta_is_stmt_land(nodes[_fk])) { _fk = -1; }
               while (_fk >= 0 && _hops++ < 64 && flat_trivial_beta(nodes[_fk])) {
                   { long _fck = 0; if (fc_geom(nodes[_fk], &_fck)) _sum += _fck; }
@@ -3364,12 +3386,12 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                   int _ip = (_c->ω.sz[0] == (char)0xcf && (unsigned char)_c->ω.sz[1] == 0x86);
                   { int _gg = 0; IR_t *_g = _o; while (_g && _g->op == IR_GOTO && _gg++ < 128) { if (!_ib) _ib = port_sz_beta(_g->γ.sz); if (!_ip) _ip = (_g->γ.sz[0] == (char)0xcf && (unsigned char)_g->γ.sz[1] == 0x86); _o = _g->γ.node; _g = _o; } }
                   bb_label_t *_next = NULL; int _k2 = -1;
-                  for (int _k = 0; _k < n; _k++) if (nodes[_k] == _o) { _k2 = _k; break; }
+                  { int _k = nidx(nodes, n, _o); if (_k >= 0) { _k2 = _k; } }
                   if (_k2 >= 0) { _next = (_ip && na_fo[_k2]) ? na_fo[_k2] : _ib ? betas[_k2] : lbls[_k2]; }
                   else _next = (_o && _o->op == IR_SUCCEED) ? &lbl_γ : &lbl_ω;
                   for (int _r = 0; _r < n; _r++) if (nodes[_r]->op == IR_REPALT && nodes[_r]->n_operands > 0 && nodes[_r]->operands[0] == _c) { _next = ra_t[_r]; break; }
                   node_ω = _next;
-                  _fk = -1; for (int _k = 0; _k < n; _k++) if (_next == betas[_k]) { _fk = _k; break; }
+                  _fk = -1; { auto _bit = beta_of.find(_next); if (_bit != beta_of.end()) _fk = _bit->second; }
               }
               g_emit.op_wpop = (int)_sum;
           } }
@@ -3403,7 +3425,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                 int _e2 = -1; for (int _j = i + 1; _j < n; _j++) { if (nodes[_j]->op == IR_STATEMENT_BEGIN) break; if (nodes[_j]->op == IR_STATEMENT_END || nodes[_j]->op == IR_STATEMENT) { _e2 = _j; break; } }
                 if (_e2 >= 0 && zd_gp[_e2] == zd_wp[i] + zd_k(nodes[i])) {
                     IR_t *_tf = zd_chase(nodes[i]->ω.node); IR_t *_te = zd_chase(nodes[_e2]->γ.node);
-                    int _kf = -1; if (_tf) for (int _k = 0; _k < n; _k++) if (nodes[_k] == _tf) { _kf = _k; break; }
+                    int _kf = -1; if (_tf) { int _k = nidx(nodes, n, _tf); if (_k >= 0) { _kf = _k; } }
                     if (_tf && _tf == _te && _kf >= 0 && node_ω == lbls[_kf]) { node_ω = lbls[_e2]; _endj_stolen = 1; g_emit.op_wpop = 0; } } } }
           bb_label_t *_zw5_saved_omega = NULL; int _zw5_wpop_stolen = 0;
           { int _h = i;
@@ -3415,7 +3437,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
               if (zd_on[i]) { int _no = zd_nops(nodes[i]);
                   int _op = (int)nodes[i]->op; int _cap = (_op == IR_MATCH_ASSIGN_COND || _op == IR_MATCH_ASSIGN_IMM);
                   for (int _zj = 0; _zj < _no && _zj < ZD_NOPS_MAX; _zj++) { if (_cap && _zj == 0) continue;
-                  IR_t * _p = nodes[i]->operands[_zj]; for (int _k = 0; _k < n; _k++) if (nodes[_k] == _p) { int _xh = 0; for (int _zm = i - 1; _zm > _k; _zm--) { if (zd_arm[i] >= 0 && _zm == zd_arm[i]) { _xh += 32; continue; }    if (nodes[_zm]->op == IR_MATCH_DEFER) { _xh += 16; continue; }    if (nodes[_zm]->op == IR_MATCH_ALTERNATE) { _xh += alt_flat_live_bytes(nodes[_zm]); continue; }    if (nodes[_zm]->op != IR_MATCH_BEGIN) continue; extern int fc_head_fp(const IR_t *); extern int fc_tail_head(const IR_t *); extern int emit_match_begin_frame_extra(const IR_t *); _xh += 64 + emit_match_begin_frame_extra(nodes[_zm]); } g_zd_read[_zj] = zd_out[i] - zd_out[_k] + _xh;       g_zd_kind[_zj] = (int)ir_norm_call_kind(_p->op); break; } } } }
+                  IR_t * _p = nodes[i]->operands[_zj]; { int _k = nidx(nodes, n, _p); if (_k >= 0) { int _xh = 0; for (int _zm = i - 1; _zm > _k; _zm--) { if (zd_arm[i] >= 0 && _zm == zd_arm[i]) { _xh += 32; continue; }    if (nodes[_zm]->op == IR_MATCH_DEFER) { _xh += 16; continue; }    if (nodes[_zm]->op == IR_MATCH_ALTERNATE) { _xh += alt_flat_live_bytes(nodes[_zm]); continue; }    if (nodes[_zm]->op != IR_MATCH_BEGIN) continue; extern int fc_head_fp(const IR_t *); extern int fc_tail_head(const IR_t *); extern int emit_match_begin_frame_extra(const IR_t *); _xh += 64 + emit_match_begin_frame_extra(nodes[_zm]); } g_zd_read[_zj] = zd_out[i] - zd_out[_k] + _xh;       g_zd_kind[_zj] = (int)ir_norm_call_kind(_p->op); } } } } }
               { if (zd_on[i] && nodes[i]->op == IR_MATCH_REPLACE) { g_zd_read[2] = -1; g_zd_kind[2] = -1; IR_t * _mb2 = (IR_t *)0; int _jh2 = -1; for (int _zj = i - 1; _zj >= 0; _zj--) { if (nodes[_zj]->op == IR_MATCH_BEGIN) { _mb2 = nodes[_zj]; _jh2 = _zj; break; } } IR_t * _sp = (_mb2 && _mb2->n_operands > 0) ? _mb2->operands[0] : (IR_t *)0; if (_sp && _jh2 >= 0) { for (int _js = _jh2 - 1; _js >= 0; _js--) if (nodes[_js] == _sp) { if (zd_on[_js]) { g_zd_read[2] = g_zd_zunder + (zd_out[_jh2] - zd_out[_js]); g_zd_kind[2] = (int)_sp->op; } if (getenv("SCRIP_ZPAT_DIAG")) fprintf(stderr, "[SUBJ2] jh=%d js=%d zout_jh=%d zout_js=%d zon_js=%d staged=%d\n", _jh2, _js, zd_out[_jh2], zd_out[_js], zd_on[_js], g_zd_read[2]); break; } } } }
           if (g_emit_cfg && n_alt > 0 && emit_zframe_pinned()) {
               if (otgt && otgt == g_emit_cfg->alt_fail && pl_step_lbl) node_ω = pl_step_lbl;
@@ -3442,7 +3464,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     auto pl_alt_target = [&](int ak) -> bb_label_t * {
         IR_t * _e = g_emit_cfg->alt_entry[ak];
         { int _sg = 0; while (_e && _e->op == IR_SUCCEED && _e->γ.node && _sg++ < 4096) _e = _e->γ.node; }
-        if (_e) for (int _k = 0; _k < n; _k++) if (nodes[_k] == _e) return lbls[_k];
+        if (_e) { int _k = nidx(nodes, n, _e); if (_k >= 0) return lbls[_k]; }
         if (_e && _e->op == IR_SUCCEED) return g_emit_cfg->alt_redo[ak] ? ret_tr[ak] : &lbl_γ;
         return &lbl_ω; };
     if (g_emit_cfg && n_alt > 0 && emit_zframe_pinned()) {
@@ -3451,7 +3473,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         for (int _ak = 0; _ak < n_alt; _ak++) {
             IR_t * _rd = g_emit_cfg->alt_redo[_ak]; bb_label_t * _rb = (bb_label_t *)0;
             if (!_rd || g_emit_cfg->root_graph) continue;
-            for (int _k = 0; _k < n; _k++) if (nodes[_k] == _rd) { _rb = betas[_k]; break; }
+            { int _k = nidx(nodes, n, _rd); if (_k >= 0) { _rb = betas[_k]; } }
             if (!_rb) continue;
             emit_sep_rule('-'); emit_label_define_bb(ret_tr[_ak]);
             bb_emit_x86(x86("comment", "PL CLAUSE SUCCESS (rung 2, ARCH sec B.3): this clause is about to hand control to the graph gamma, so it banks the beta of its youngest resumable sub-goal into F.RES at [H+16]. A redo from the caller then re-enters THAT goal rather than stepping the clause; the graph beta zeroes F.RES as it consumes it, so a clause that succeeds again re-banks it here and one that runs out leaves it zero.")
@@ -3522,22 +3544,22 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         bb_label_t *resume_tgt = &lbl_ω;
         for (int i = 0; i < n; i++) if (nodes[i]->op == IR_SUSPEND) { resume_tgt = betas[i]; break; }
         if (g_emit_cfg && g_emit_cfg->body_root)
-            for (int i = 0; i < n; i++) if (nodes[i] == g_emit_cfg->body_root && nodes[i]->op == IR_DISJUNCTION) { resume_tgt = lbls[i]; break; }
+            { int i = nidx(nodes, n, g_emit_cfg->body_root); if (i >= 0 && (nodes[i]->op == IR_DISJUNCTION)) { resume_tgt = lbls[i]; } }
         if (g_emit_cfg && g_emit_cfg->body_root)
-            for (int i = 0; i < n; i++) if (nodes[i] == g_emit_cfg->body_root && nodes[i]->op == IR_CALL_BUILTIN_GEN) { resume_tgt = betas[i]; break; }
+            { int i = nidx(nodes, n, g_emit_cfg->body_root); if (i >= 0 && (nodes[i]->op == IR_CALL_BUILTIN_GEN)) { resume_tgt = betas[i]; } }
         { extern int sn4_defer_resume(void); const int _dres = sn4_defer_resume();
           if (getenv("SCRIP_RESUME_WHY")) fprintf(stderr, "[RESUME-GATE] dres=%d flat_pat=%d cfg=%d body_root=%p\n", _dres, g_emit.flat_pat, g_emit_cfg ? 1 : 0, (void *)(g_emit_cfg ? g_emit_cfg->body_root : (IR_t *)0));
           if (_dres && g_emit.flat_pat && g_emit_cfg && g_emit_cfg->body_root) {
             int _f1 = 0; for (int i = 0; i < n; i++) if (nodes[i]->op == IR_MATCH_FENCE1) { _f1 = 1; break; }
             int _sd = resume_sealed_defer_on_root(nodes, n, g_emit_cfg->body_root);
             int _f1r = _f1; { extern int zdp_seam_tier(const IR_t *); const char * _fre = getenv("SCRIP_FENCE_RESUME"); if (!(_fre && *_fre == '0') && g_emit_cfg->body_root && g_emit_cfg->body_root->op != IR_MATCH_FENCE1 && (zdp_seam_tier(g_emit_cfg->body_root) == 1 || zdp_seam_tier(g_emit_cfg->body_root) == 3)) _f1r = 0; }
-            if (getenv("SCRIP_RESUME_WHY")) { extern int zdp_seam_tier(const IR_t *); const IR_t * _br = g_emit_cfg->body_root; int _found = 0; for (int i = 0; i < n; i++) if (nodes[i] == _br) _found = 1;
+            if (getenv("SCRIP_RESUME_WHY")) { extern int zdp_seam_tier(const IR_t *); const IR_t * _br = g_emit_cfg->body_root; int _found = 0; { int i = nidx(nodes, n, _br); if (i >= 0) _found = 1; }
                 int _wnc = 0, _wlf = 0, _wfn = 0; sn4_blob_choice_scan(&_wnc, &_wlf, &_wfn);
                 fprintf(stderr, "[RESUME-WHY] flat_pat=%d dres=%d f1=%d f1r=%d sd=%d body_root_op=%d tier=%d seal=%d in_nodes=%d n=%d nc=%d lf=%d fn=%d cro=%d\n", g_emit.flat_pat, _dres, _f1, _f1r, _sd, _br ? (int)_br->op : -1, _br ? zdp_seam_tier(_br) : -1, _br ? (int)_br->seal : -1, _found, n, _wnc, _wlf, _wfn, sn4_choice_rbp_off()); }
-            if (!_f1r) for (int i = 0; i < n; i++) if (nodes[i] == g_emit_cfg->body_root && resume_carrier_ok(nodes[i], _sd)) { resume_tgt = betas[i]; break; }
+            if (!_f1r) { int i = nidx(nodes, n, g_emit_cfg->body_root); if (i >= 0 && (resume_carrier_ok(nodes[i], _sd))) { resume_tgt = betas[i]; } }
             if (!_f1 && !_sd && resume_tgt == &lbl_ω && sn4_alt_carrier() && g_emit_cfg->body_root && (g_emit_cfg->body_root->op == IR_MATCH_ALTERNATE || g_emit_cfg->body_root->op == IR_DISJUNCTION) && !g_emit_cfg->body_root->seal) {
                 int _nc = 0, _lf = 0, _fn = 0; sn4_blob_choice_scan(&_nc, &_lf, &_fn);
-                if (_nc == 1 && !_fn && (_lf || sn4_choice_rbp_off() != 0)) for (int i = 0; i < n; i++) if (nodes[i] == g_emit_cfg->body_root) { resume_tgt = betas[i]; break; }    }
+                if (_nc == 1 && !_fn && (_lf || sn4_choice_rbp_off() != 0)) { int i = nidx(nodes, n, g_emit_cfg->body_root); if (i >= 0) { resume_tgt = betas[i]; } }    }
             if (!_sd && resume_tgt == &lbl_ω && sn4_alt_carrier()) {
                 int _nc = 0, _lf = 0, _fn = 0; sn4_blob_choice_scan(&_nc, &_lf, &_fn);
                 if (_nc >= 1) {
@@ -3834,21 +3856,22 @@ bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
     g_last_flat_fp = (g_emit_cfg && !g_emit.flat_layout_unknown) ? (g_emit.zframe_graph ? 0 : (g_emit.flat_gen ? (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16 : zls_g_fp_total(g_emit_cfg))) : 0;
     g_last_flat_uniform = (g_emit_cfg && !g_emit.flat_layout_unknown) ? emit_graph_uniform(g_emit_cfg) : 0;
     if (out) { emitter_init_text(out, TEXT_MODE_INVOCATION); int rc = codegen_flat_chain_body(entry, prefix); emitter_end(); return rc == 0 ? (bb_box_fn)1 : NULL; }
-    bb_buf_t buf = bb_alloc(FLAT_BUF_MAX);
+    long flat_cap = FLAT_BUF_MAX; if (g_emit_cfg && (long)g_emit_cfg->n * 2048L > flat_cap) { flat_cap = (long)g_emit_cfg->n * 2048L; if (flat_cap > 1024L * 1024L * 1024L) flat_cap = 1024L * 1024L * 1024L; }
+    bb_buf_t buf = bb_alloc(flat_cap);
     if (!buf) return NULL;
     g_flat_node_id = 0;
-    emitter_init_binary(buf, FLAT_BUF_MAX);
+    emitter_init_binary(buf, flat_cap);
     codegen_flat_chain_body(entry, prefix);
     if (g_emit_chain_posthook) { void (*h)(void) = g_emit_chain_posthook; g_emit_chain_posthook = NULL; h(); }
     int nbytes = emitter_end();
     extern int bb_emit_overflow;
-    if (bb_emit_overflow || nbytes <= 0 || nbytes > FLAT_BUF_MAX) {
+    if (bb_emit_overflow || nbytes <= 0 || nbytes > flat_cap) {
         extern int bb_emit_pos; extern int bb_patch_count;
         fprintf(stderr, "[IBB] emit_chain('%s') FAILED: overflow=%d nbytes=%d pos=%d cap=%d patches=%d/%d — %s\n",
-                prefix ? prefix : "", bb_emit_overflow, nbytes, bb_emit_pos, FLAT_BUF_MAX, bb_patch_count, BB_PATCH_MAX,
-                (bb_emit_pos >= FLAT_BUF_MAX) ? "FLAT_BUF_MAX exceeded (graph too large for the 1MB flat buffer)" :
+                prefix ? prefix : "", bb_emit_overflow, nbytes, bb_emit_pos, flat_cap, bb_patch_count, BB_PATCH_MAX,
+                (bb_emit_pos >= flat_cap) ? "flat_cap exceeded (graph too large for the 1MB flat buffer)" :
                 (bb_patch_count >= BB_PATCH_MAX) ? "BB_PATCH_MAX exceeded" : "empty or invalid emission");
-        bb_free(buf, FLAT_BUF_MAX); return NULL;
+        bb_free(buf, flat_cap); return NULL;
     }
     bb_seal(buf, (size_t)nbytes);
     { const char *_pm = getenv("SCRIP_PERF_MAP");
@@ -3857,7 +3880,7 @@ bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
           FILE *_pmf = fopen(_pmp, "a");
           if (_pmf) { fprintf(_pmf, "%llx %llx m3_%s\n", (unsigned long long)(uintptr_t)buf, (unsigned long long)(size_t)nbytes,
                               (prefix && *prefix) ? prefix : "chain"); fclose(_pmf); } } }
-    bb_pool_trim_last(buf, FLAT_BUF_MAX, (size_t)nbytes);
+    bb_pool_trim_last(buf, flat_cap, (size_t)nbytes);
     return (bb_box_fn)buf;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
