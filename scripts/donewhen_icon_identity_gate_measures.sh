@@ -38,10 +38,22 @@ DB="${S4E_PROGRESS_DB:-/home/resources/progress/results.tsv}"
 [ -s "$DB" ] || unproven "the progress table $DB is absent or empty -- cannot reach a recorded board"
 SC="$(git rev-parse --short=9 HEAD 2>/dev/null)" || unproven "cannot read this tree's scrip commit"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
+# ⛔ THESE ARMS PROVE THE COMPARISON STILL MEASURES AND CAN STILL SAY NO -- they do NOT claim this tree is clean.
+# That claim belongs to the coo's pass, which is where the gate now lives. So they prefer THIS tree's recorded board
+# and FALL BACK to the one runner's newest board of any tree, SAYING WHICH -- because a DONE-WHEN gradable only in
+# the window between a landing and the coo's next board is a DONE-WHEN that gets waved through.
 head -1 "$DB" >"$T/m.tsv"
 awk -F'\t' -v sc="$SC" '$6=="icon-master" && $2==sc && $4=="coo"' "$DB" >>"$T/m.tsv"
-n=$(( $(wc -l <"$T/m.tsv") - 1 ))
-[ "$n" -gt 0 ] || unproven "the one runner has recorded no icon-master board for this tree (scrip $SC) -- there is nothing to grade, which is not a pass"
+n=$(( $(wc -l <"$T/m.tsv") - 1 )); ON="of this tree"
+if [ "$n" -eq 0 ]; then
+    ALT="$(awk -F'\t' '$6=="icon-master" && $4=="coo"{t=$2} END{print t}' "$DB")"
+    [ -n "$ALT" ] || unproven "the one runner has recorded no icon-master board at all -- there is nothing to grade, which is not a pass"
+    head -1 "$DB" >"$T/m.tsv"
+    awk -F'\t' -v sc="$ALT" '$6=="icon-master" && $2==sc && $4=="coo"' "$DB" >>"$T/m.tsv"
+    n=$(( $(wc -l <"$T/m.tsv") - 1 )); SC="$ALT"; ON="NOT of this tree -- the one runner's newest board"
+    echo "⚠ no coo icon-master board recorded for this tree; arms 7-12 grade the one runner's newest board (scrip $ALT) instead. They assert the COMPARISON measures, never that this tree is clean."
+fi
+[ "$n" -gt 0 ] || unproven "the recorded board for scrip $SC carries no rows -- there is nothing to grade, which is not a pass"
 out="$(ICON_IDENTITY_MEASURED_FROM="$T/m.tsv" bash "scripts/$G" 2>&1)"; rc=$?
 # ⛔ A STALE BINARY REFUSES EVERY DONE-WHEN rc=2 (CLAUDE.md), NEVER RED. Measured the hard way: `git stash pop`
 # restored the Makefile with a fresh mtime, the gate's own freshness preflight refused, and arm 9 called that a
@@ -55,5 +67,5 @@ ex="$(grep -oE '^IDENTITY_RESULT examined=[0-9]+' <<<"$out" | head -1 | cut -d= 
 [ "${ex:-0}" -gt 0 ] || fail "arm 11 -- examined=$ex: a pin that grades nothing cannot certify anything"
 ICON_IDENTITY_MEASURED_FROM="$T/m.tsv" FAIL_ONCE=1 bash "scripts/$G" >/dev/null 2>&1; frc=$?
 [ "$frc" = 1 ] || fail "arm 12 -- FAIL_ONCE did not make the gate say no (rc=$frc); an identity gate that cannot fail on an injected red is the floor defect wearing a new name"
-echo "DONE-WHEN GREEN: the gate is out of the blocking set and in the coo's pass, RULING-declared with a reason and a declarer; fed the one runner's recorded board of this tree ($n rows, scrip $SC) it graded examined=$ex pinned pairs at rc=$rc, and FAIL_ONCE still reds it."
+echo "DONE-WHEN GREEN: the gate is out of the blocking set and in the coo's pass, RULING-declared with a reason and a declarer; fed the one runner's recorded board ($ON, $n rows, scrip $SC) it graded examined=$ex pinned pairs at rc=$rc, and FAIL_ONCE still reds it."
 exit 0
