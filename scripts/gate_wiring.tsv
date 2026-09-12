@@ -268,6 +268,7 @@ test_gate_icon_master_per_entry_identity.sh	RULING	CEO-547 (ceo, 2026-09-11, on 
 test_gate_preflight_complete.sh	RULING	reads the LIVE postoffice: grades rows sixteen seats are editing right now, so it reds on a dirty fleet BY DESIGN (ceo ruling 2026-09-03, stated verbatim in the Makefile test-postoffice header)	ceo	2026-09-03
 test_gate_queue_is_an_index.sh	RULING	reads the LIVE postoffice: grades rows sixteen seats are editing right now, so it reds on a dirty fleet BY DESIGN (ceo ruling 2026-09-03, stated verbatim in the Makefile test-postoffice header)	ceo	2026-09-03
 test_gate_s4e_release_verbs_mark_last_row.sh	RULING	reads the LIVE postoffice: grades rows sixteen seats are editing right now, so it reds on a dirty fleet BY DESIGN (ceo ruling 2026-09-03, stated verbatim in the Makefile test-postoffice header)	ceo	2026-09-03
+test_gate_sno_define_prototype_follows_the_executed_define.sh	RULING	RED by design until the prototype cure lands (row snobol4-gimpel-recursive-list-functions-overflow-the-call-stack-where-spitbol-completes, cfo 2026-09-12): one activation per distinct prototype; a red DONE-WHEN is not an invariant and gets wired in the commit that makes it green	cfo	2026-09-12T19:34Z
 test_gate_argnote_sweep.sh	TASK	-	-	-
 test_gate_asm_tabs_identity.sh	TASK	-	-	-
 test_gate_banner_leads_with_the_score.sh	TASK	-	-	-
