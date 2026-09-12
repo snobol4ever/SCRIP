@@ -113,7 +113,7 @@ ABSENT="$(comm -13 "$TMP/ours_sorted.txt" "$TMP/oracle_names.txt" | tr '\n' ' ')
 # -- ARM 4: BOTH DIRECTIONS, at the oracle's own arity ----------------------------------------------------
 probe_one_shape() {
     printf 'procedure main()\n   %s(%s);\nend\n' "$1" "$2" > "$TMP/probe.icn"
-    "$SCRIP" --run "$TMP/probe.icn" < /dev/null 2>&1 | grep -q 'ERROR 022' && return 1
+    "$SCRIP" --run "$TMP/probe.icn" < /dev/null 2>&1 | grep -q 'scrip: error 22:' && return 1
     return 0
 }
 probe_dispatchable() {

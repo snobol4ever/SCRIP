@@ -51,7 +51,7 @@ for m in m3 m4; do
         v="$(timeout 20s "$T/val.x"  < /dev/null 2>&1)"
     fi
     if [ "$g" = "go/landed/" ]; then echo "  ok   nret $m -- the returned NAME is the transfer target"; else echo "  RED  nret $m -- got [$g] want [go/landed/] (ERROR 239 here is the pre-cure inversion)"; bad=1; fi
-    case "$v" in *"ERROR 021"*) echo "  ok   val  $m -- a value return raises ERROR 021" ;; *) echo "  RED  val  $m -- a value return must raise ERROR 021 (SPITBOL parity); got [$(echo "$v" | head -2 | tr '\n' '/')]"; bad=1 ;; esac
+    case "$v" in *"error 21:"*) echo "  ok   val  $m -- a value return raises ERROR 021" ;; *) echo "  RED  val  $m -- a value return must raise ERROR 021 (SPITBOL parity); got [$(echo "$v" | head -2 | tr '\n' '/')]"; bad=1 ;; esac
 done
 if [ "$bad" -ne 0 ]; then echo "GATE RED(1) [sno-goto-field-call-is-by-name]: the goto-field call is not by-name in both arms -- half an inversion is still an inversion"; exit 1; fi
 echo "GATE GREEN(0) [sno-goto-field-call-is-by-name]: NRETURN name is the target and a value return raises ERROR 021, both modes"

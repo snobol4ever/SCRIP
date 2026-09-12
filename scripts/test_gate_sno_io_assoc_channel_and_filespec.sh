@@ -46,7 +46,7 @@ oracle_error_face() {
         *) echo "  FAIL $name (witness stale: oracle did not hit ERROR $errno -- oracle said: ${want:-<nothing>})"; rc=1; return ;;
     esac
     case "$got" in
-        *"ERROR $errno "*) echo "  PASS $name  spitbol-default matches oracle ($want)" ;;
+        *"ERROR $errno "*|*"error $((10#$errno)):"*) echo "  PASS $name  spitbol-default matches oracle ($want)" ;;
         *) echo "  FAIL $name  spitbol-default: got [$got] want ERROR $errno (oracle: $want)"; rc=1 ;;
     esac
     if [ -n "$new_files" ]; then echo "  FAIL $name  left stray file(s) in cwd: $new_files"; rc=1; fi
@@ -59,7 +59,7 @@ m4_error_face() {
       gcc -no-pie "$name.s" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -o "$name.bin" 2>/dev/null )
     got="$(cd "$W" && timeout 10 "./$name.bin" </dev/null 2>&1)"
     case "$got" in
-        *"ERROR $errno "*) echo "  PASS $name  m4 matches m3 (ERROR $errno)" ;;
+        *"ERROR $errno "*|*"error $((10#$errno)):"*) echo "  PASS $name  m4 matches m3 (ERROR $errno)" ;;
         *) echo "  FAIL $name  m4: got [$got] want ERROR $errno"; rc=1 ;;
     esac
 }

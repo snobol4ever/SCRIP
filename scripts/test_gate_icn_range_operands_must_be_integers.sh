@@ -65,7 +65,7 @@ GRADED=0; FAIL=0
 grade() { local w="$1" want="$2" got="$3" code; GRADED=$((GRADED+1))
   case "$want" in
     ERR*) code="${want#ERR}"
-          if printf '%s' "$got" | grep -q "Run-time error $code"; then echo "  PASS $w (refused $code)"; else echo "  FAIL $w: expected Run-time error $code, got [$(printf '%s' "$got" | tr '\n' '/' | cut -c1-70)]"; FAIL=$((FAIL+1)); fi ;;
+          if printf '%s' "$got" | grep -q "scrip: error $code:"; then echo "  PASS $w (refused $code)"; else echo "  FAIL $w: expected Run-time error $code, got [$(printf '%s' "$got" | tr '\n' '/' | cut -c1-70)]"; FAIL=$((FAIL+1)); fi ;;
     *)    if [ "$got" = "$want" ]; then echo "  PASS $w"; else echo "  FAIL $w: got [$(printf '%s' "$got" | tr '\n' '/')] want [$(printf '%s' "$want" | tr '\n' '/')]"; FAIL=$((FAIL+1)); fi ;;
   esac
 }
@@ -88,7 +88,7 @@ GRADED=$((GRADED+1))
 if [ "$rk_num" = "1,2,3,4,5" ]; then echo "  PASS raku numeric range (contract did not break it)"; else echo "  FAIL raku numeric range: got [$(printf '%s' "$rk_num" | tr '\n' '/')] want [1,2,3,4,5]"; FAIL=$((FAIL+1)); fi
 rk_str="$(timeout 20s "$SCRIP" "$TD/rk_str.raku" </dev/null 2>&1)"
 GRADED=$((GRADED+1))
-if printf '%s' "$rk_str" | grep -q 'Run-time error 101'; then echo "  FAIL raku string range: the Icon operand contract LEAKED into Raku -- got [$(printf '%s' "$rk_str" | tr '\n' '/' | cut -c1-70)]"; FAIL=$((FAIL+1)); else echo "  PASS raku string range (no Icon error; its own value is not pinned here)"; fi
+if printf '%s' "$rk_str" | grep -q 'scrip: error 101:'; then echo "  FAIL raku string range: the Icon operand contract LEAKED into Raku -- got [$(printf '%s' "$rk_str" | tr '\n' '/' | cut -c1-70)]"; FAIL=$((FAIL+1)); else echo "  PASS raku string range (no Icon error; its own value is not pinned here)"; fi
 [ "$GRADED" -eq 0 ] && refuse "graded zero witnesses"
 echo "graded=$GRADED FAIL=$FAIL (refuse_* and neg_repl are the cured refusals, every code cut from iconx; ok_* are the acceptances that must NOT become strict -- realstr/expstr/negreal are the number grammar, tab is a pre-existing red this cure also flipped; the two raku arms prove the contract does not leak to a frontend that shares IR_TO)"
 if [ "$FAIL" -ne 0 ]; then echo "GATE FAIL(1) [$NAME]: FAIL=$FAIL of $GRADED"; exit 1; fi

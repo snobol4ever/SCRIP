@@ -57,7 +57,7 @@ ORIGINS="$(awk -F, 'NR>1 && $3 ~ /^ladder__rung[0-9]+_.*_scan_(refuse|coerce)/ {
 N="$(printf '%s' "$ORIGINS" | grep -c . || true)"
 [ "$N" -gt 0 ] || refuse "census over $MASTER_DIR/ALL.csv found ZERO scan-argtype witnesses -- the population is unreachable, not empty"
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
-code_of() { grep -o 'Run-time error [0-9]*' | head -1; }   # the ONE field this gate compares out of stderr
+code_of() { grep -oE '(Run-time error|scrip: error) [0-9]+' | grep -oE '[0-9]+' | head -1; }   # the ONE field this gate compares out of stderr
 echo "=== Icon scan-node builtin argument-type gate (oracle-cut, both modes) ==="
 echo "oracle: $ICONT / $ICONX"
 echo "population: $N witnesses by origin from $MASTER_DIR/ALL.csv"

@@ -246,7 +246,7 @@ run_one() {
             else
                 # ⭐ BARE RELATIVE NAME, matching run_m4 in corpus_suite_harness.py exactly: a mode-4
                 # binary's argv IS the program's argv, so what we type here is what &progname answers.
-                ( cd "$rundir" && timeout "$TIMEOUT" "./$name" ${prog_args[@]+"${prog_args[@]}"} < "$IN" > "$outfile" 2>&1 )
+                ( cd "$rundir" && PATH="$rundir:$PATH" timeout "$TIMEOUT" "$name" ${prog_args[@]+"${prog_args[@]}"} < "$IN" > "$outfile" 2>&1 )
                 rc=$?
             fi
             ;;
@@ -264,7 +264,11 @@ run_one() {
     # xfail marker, arrived at accidentally. The two verdicts that DO turn on rc are kept above: 124 is the
     # timeout firing (HANG) and >=128 is a signal (CRASH), neither of which upstream can express because it
     # has no timeout and no crash bucket. Everything else is decided by the text, as upstream decides it.
-    if diff -q "$outfile" "$want" >/dev/null 2>&1; then echo "PASS"; else echo "FAIL"; fi
+    # ⛔⭐ ONE ERROR VOICE (Lon 2026-09-12, RULES.md § ONE ERROR VOICE, CEO-625): the runtime prints SCRIP's own error shape;
+    # the .std pins icont's. The captured stream is rendered through the Icon EQUIVALENCE LIST (util_render_error_voice.py)
+    # and THAT is diffed -- every field SCRIP printed is carried, a block the list cannot render stays as it is and reads red.
+    python3 "$HERE/util_render_error_voice.py" icon < "$outfile" > "$outfile.icon" 2>/dev/null || cp "$outfile" "$outfile.icon"
+    if diff -q "$outfile.icon" "$want" >/dev/null 2>&1; then echo "PASS"; else echo "FAIL"; fi
 }
 
 run_mode() {

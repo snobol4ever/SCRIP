@@ -59,13 +59,13 @@ reject() {  # $1 = program stem, $2 = extended regex that must NOT appear, $3 = 
     done
 }
 echo "[gate] SNOBOL4 goto ABORT/CONTINUE/SCONTINUE with no preceding error (oracle: sbl -bf)"
-check  g_abort     'ERROR 036 -- goto abort with no preceding error'      'ABORT raises 036 with SPITBOL text'
-check  g_continue  'ERROR 037 -- goto continue with no preceding error'   'CONTINUE raises 037 with SPITBOL text'
-check  g_scontinue 'ERROR 321 -- goto scontinue with no preceding error'  'SCONTINUE raises 321 with SPITBOL text'
+check  g_abort     'error 36: goto abort with no preceding error'      'ABORT raises 036 with SPITBOL text'
+check  g_continue  'error 37: goto continue with no preceding error'   'CONTINUE raises 037 with SPITBOL text'
+check  g_scontinue 'error 321: goto scontinue with no preceding error'  'SCONTINUE raises 321 with SPITBOL text'
 reject g_abort     'Not in a SETEXIT handler'                             'the CSNOBOL4 error-35 text is gone'
 reject g_continue  'Not in a SETEXIT handler'                             'the CSNOBOL4 error-35 text is gone'
 reject g_scontinue 'Not in a SETEXIT handler'                             'the CSNOBOL4 error-35 text is gone'
 check  g_handler   'caught'                                              'a live SETEXIT handler still intercepts'
-reject g_handler   'ERROR 03[67]|ERROR 321'                               'a live handler raises none of the three'
+reject g_handler   'error 3[67]:|error 321:'                               'a live handler raises none of the three'
 if [ "$FAIL" -eq 0 ]; then echo "GATE GREEN [sno_goto_with_no_preceding_error]: $TOTAL/$TOTAL arms"; exit 0; fi
 echo "⛔ GATE RED [sno_goto_with_no_preceding_error]: $FAIL of $TOTAL arms diverge"; exit 1

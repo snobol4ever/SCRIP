@@ -141,6 +141,7 @@ for sub in $SUITE_SUBDIRS; do
 done
 
 TOTAL=0
+MODEREF_NAMES=""
 GRADED_NAMES=""
 M3_PASS=0; M3_REJECT=0; M3_FAIL=0; M3_CRASH=0; M3_HANG=0
 M4_PASS=0; M4_REJECT=0; M4_FAIL=0; M4_CRASH=0; M4_HANG=0
@@ -164,6 +165,26 @@ for std in "$SUITE"/*.std; do
   TOTAL=$((TOTAL+1))
   GRADED_NAMES="$GRADED_NAMES $sub/$name"
   exp=$(cat "$std")
+  # ⛔⭐ THE PER-MODE REF (ceo CEO-581): a line whose value the INVOCATION determines gets one ref per mode, declared in
+  # NAME.moderef beside NAME.std with its oracle receipt, rendered THROUGH THE SHARED SHIM (util_apply_moderef.py imports
+  # the harness's own reader) so this runner, the jcon runner and the master cannot disagree about what one means.
+  # kwds prints &progname: the shipped .std was cut under "icont kwds.icn; ./kwds" and answers ./kwds, which is what m4
+  # reproduces; m3 is handed the SOURCE (scrip --run kwds.icn) and &progname IS argv[0] verbatim, so it answers kwds.icn
+  # -- exactly what icont answers for the one-step "icon kwds.icn" (hq_V's 09-11 receipt on jcon's own kwds). Nothing is
+  # hidden: the line is graded in full against the answer for THAT invocation, and a sidecar that cannot be rendered
+  # REFUSES rc=2 rather than grading a cell against the other mode's string.
+  exp3="$exp"; exp4="$exp"
+  if [ -f "$SUITE/$name.moderef" ]; then
+    for _mm in m3 m4; do
+      _want="$RUNDIR/$name.$_mm.want"
+      if ! python3 "$HERE/util_apply_moderef.py" "$std" "$name" "$_mm" "$RUNDIR/$name.$_mm.nsub" > "$_want"; then
+        echo "⛔ REFUSED TO GRADE rc=2: $name.moderef could not be rendered for $name/$_mm -- a declaration that cannot be applied is not a ref, and grading this cell against the OTHER mode's string would manufacture a red"; exit 2
+      fi
+      _nsub=$(cat "$RUNDIR/$name.$_mm.nsub" 2>/dev/null || echo 0)
+      [ "${_nsub:-0}" -gt 0 ] && MODEREF_NAMES="$MODEREF_NAMES $name:$_mm:$_nsub line(s)"
+      if [ "$_mm" = m3 ]; then exp3=$(cat "$_want"); else exp4=$(cat "$_want"); fi
+    done
+  fi
   dat="$SUITE/$name.dat"
   stdin_file="/dev/null"
   [ -f "$dat" ] && stdin_file="$dat"
@@ -188,10 +209,12 @@ for std in "$SUITE"/*.std; do
   # box or runtime fault to open under gdb, and a hang is neither. Collapsing them costs the reader the first
   # and cheapest classification of the defect, and the board that hides it looks tidier for doing so.
   m3out=$(cd "$SUITE" && timeout "$TIMEOUT" "$SCRIP" --run "$name.icn" < "$stdin_file" 2>&1); m3rc=$?
+  # ⛔⭐ ONE ERROR VOICE (CEO-625): SCRIP's error shape is rendered through the Icon equivalence list before the compare.
+  m3out=$(printf '%s\n' "$m3out" | python3 "$HERE/util_render_error_voice.py" icon)
   if printf '%s' "$m3out" | grep -q 'parse error'; then
     M3_REJECT=$((M3_REJECT+1)); M3_REJECT_NAMES="$M3_REJECT_NAMES $name"; arizona_progress "$name" m3 REJECT
     [ "$VERBOSE" = 1 ] && echo "  [m3 REJECT] $name"
-  elif [ "$m3out" = "$exp" ]; then
+  elif [ "$m3out" = "$exp3" ]; then
     M3_PASS=$((M3_PASS+1)); arizona_progress "$name" m3 PASS
   elif [ "$m3rc" -eq 124 ]; then
     M3_HANG=$((M3_HANG+1)); M3_HANG_NAMES="$M3_HANG_NAMES $name"; arizona_progress "$name" m3 HANG
@@ -222,13 +245,14 @@ for std in "$SUITE"/*.std; do
   m4out=""
   if [ -s "$s4" ] && [ -f "$RT_SO" ]; then
     if gcc -no-pie "$s4" -L"$HERE/../out" -lscrip_rt -Wl,-rpath,"$HERE/../out" -o "$bin4" 2>/dev/null; then
-      m4out=$(cd "$SUITE" && timeout "$TIMEOUT" "./$name" < "$stdin_file" 2>&1); m4rc=$?
+      m4out=$(cd "$SUITE" && PATH="$SUITE:$PATH" timeout "$TIMEOUT" "$name" < "$stdin_file" 2>&1); m4rc=$?
+      m4out=$(printf '%s\n' "$m4out" | python3 "$HERE/util_render_error_voice.py" icon)
     fi
   fi
   if printf '%s\n%s\n%s' "$m4diag" "$m4out" "$(cat "$s4" 2>/dev/null)" | grep -q 'parse error'; then
     M4_REJECT=$((M4_REJECT+1)); M4_REJECT_NAMES="$M4_REJECT_NAMES $name"; arizona_progress "$name" m4 REJECT
     [ "$VERBOSE" = 1 ] && echo "  [m4 REJECT] $name"
-  elif [ "$m4out" = "$exp" ]; then
+  elif [ "$m4out" = "$exp4" ]; then
     M4_PASS=$((M4_PASS+1)); arizona_progress "$name" m4 PASS
   elif [ "$m4rc" -eq 124 ]; then
     M4_HANG=$((M4_HANG+1)); M4_HANG_NAMES="$M4_HANG_NAMES $name"; arizona_progress "$name" m4 HANG
@@ -346,6 +370,7 @@ GATE_NAME=test_icon_arizona_suite gate_bin_unmoved
 # onto a number that describes no single tree.
 GATE_NAME=test_icon_arizona_suite gate_tree_unmoved
 echo "ARIZONA_SUITE_BOARD shipped=$SHIPPED graded=$TOTAL gap=$GAP m3_pass=$M3_PASS m3_reject=$M3_REJECT m3_fail=$M3_FAIL m3_crash=$M3_CRASH m3_hang=$M3_HANG m4_pass=$M4_PASS m4_reject=$M4_REJECT m4_fail=$M4_FAIL m4_crash=$M4_CRASH m4_hang=$M4_HANG"
+[ -n "$MODEREF_NAMES" ] && echo "    PER-MODE REF (CEO-581: an invocation-determined line, graded in full against the oracle's answer for THIS invocation; receipt in the .moderef row):$MODEREF_NAMES"
 # ⭐ THE PACKAGE LOCKDOWN inventory line, via the shared body (lib_inventory.sh) -- never a second copy
 # of the arithmetic. UNGRADABLE.tsv/UNGRADED.tsv beside $PKG (hq_I, corpus a284bcdbb) already split the
 # GAP printed above; graded_narrow=0, this suite compares full output, never by error-number-only.

@@ -415,7 +415,7 @@ static void icn_tb_builtins_at(int lv) {
     for (int k = n; k > 0; k--) {
         int i = 0; icn_bi_rec_t *b = g_icn_bi_top; while (b && !(b->level == lv && ++i == k)) b = b->prev;
         if (!b) break;
-        fputs(b->name ? b->name : "", stderr); fputc('(', stderr);
+        fputs("  in ", stderr); fputs(b->name ? b->name : "", stderr); fputc('(', stderr);
         { extern int icn_builtin_arity(const char *nm); int np = b->name ? icn_builtin_arity(b->name) : 0; int n2 = (np > b->nargs) ? np : b->nargs;
           for (int j = 0; j < n2; j++) { if (j) fputc(',', stderr); icn_tb_image((b->args && j < b->nargs) ? b->args[j] : NULVCL); } }
         fputc(')', stderr);
@@ -430,11 +430,10 @@ int core_icn_act_np(int lv) { return (lv >= 1 && lv < ICN_ACT_CAP) ? g_icn_act[l
 void core_icn_traceback(void) {
     extern int rt_k_level; extern long g_line; extern const char *g_file;
     int top = rt_k_level; if (top >= ICN_ACT_CAP) top = ICN_ACT_CAP - 1;
-    fputs("Traceback:\n", stderr);
     for (int lv = 1; lv <= top; lv++) {
         icn_act_rec_t *r = &g_icn_act[lv];
         if (r->name) {
-            fputs(r->name, stderr); fputc('(', stderr);
+            fputs("  in ", stderr); fputs(r->name, stderr); fputc('(', stderr);
             for (int i = 0; i < r->np; i++) { if (i) fputc(',', stderr); icn_tb_image(*(DESCR_t *)((char *)r->base + (i + 1) * 16)); }
             fputc(')', stderr);
             if (lv > 1) fprintf(stderr, " from line %ld in %s", r->line, icn_basename(r->file));
@@ -443,7 +442,7 @@ void core_icn_traceback(void) {
         icn_tb_builtins_at(lv);
     }
     if (g_icn_op.sym) {
-        fputc('{', stderr);
+        fputs("  in {", stderr);
         if (g_icn_op.arity == 1) { fputs(g_icn_op.sym, stderr); icn_tb_image(g_icn_op.a); }
         else if (g_icn_op.sym[0] == '[' && g_icn_op.sym[1] == ']' && !g_icn_op.sym[2]) { icn_tb_image(g_icn_op.a); fputc('[', stderr); icn_tb_image(g_icn_op.b); fputc(']', stderr); }
         else { icn_tb_image(g_icn_op.a); fprintf(stderr, " %s ", g_icn_op.sym); icn_tb_image(g_icn_op.b); }
@@ -451,12 +450,18 @@ void core_icn_traceback(void) {
     }
     fflush(stderr);
 }
-static void core_icn_report(int code, DESCR_t val, const char *msg) {
-    extern long g_line; extern const char *g_file;
+void core_error_voice(int code, const char *msg, int has_val, DESCR_t val) {
+    extern long g_line; extern const char *g_file; extern long g_stno; extern int rt_k_level;
     fflush(stdout);
-    fprintf(stderr, "\nRun-time error %d\nFile %s; Line %ld\n%s\n", code, icn_basename(g_file), g_line, msg ? msg : icn_errmsg(code));
-    if (val.v != DT_FAIL) { char *vb = (char *)0; size_t vn = 0; FILE *vf = open_memstream(&vb, &vn); if (vf) { trace_image_icon_f(vf, val, 1); fclose(vf); } if (vb && vb[0]) fprintf(stderr, "offending value: %s\n", vb); free(vb); }
-    core_icn_traceback();
+    fprintf(stderr, "scrip: error %d: %s\n  at %s:%ld", code, msg ? msg : "", g_file ? g_file : "", g_line);
+    if (g_stno > 0) fprintf(stderr, "; statement %ld", g_stno);
+    fputc('\n', stderr);
+    if (has_val && val.v != DT_FAIL) { char *vb = (char *)0; size_t vn = 0; FILE *vf = open_memstream(&vb, &vn); if (vf) { trace_image_icon_f(vf, val, 1); fclose(vf); } if (vb && vb[0]) fprintf(stderr, "  offending value: %s\n", vb); free(vb); }
+    if (rt_k_level >= 1 && g_icn_act[1].name) core_icn_traceback();
+    fflush(stderr);
+}
+static void core_icn_report(int code, DESCR_t val, const char *msg) {
+    core_error_voice(code, msg ? msg : icn_errmsg(code), 1, val);
     exit(1);
 }
 void core_icn_act_record(const char *fname, int np, void *base) {
@@ -2653,9 +2658,7 @@ void core_runtime_error(int code, const char *msg) {
           rt_kw_publish_error(code, msg);
           return;
       } }
-    { extern long g_stno; extern long g_line; extern const char *g_file;
-      fprintf(stderr, "%s(%ld) : ERROR %03d -- %s\nin statement %ld\n",
-              g_file ? g_file : "", g_line, code, msg ? msg : "", g_stno); }
+    { extern void core_error_voice(int, const char *, int, DESCR_t); core_error_voice(code, msg, 0, FAILDESCR); }
     if (core_err_is_terminal(code)) exit(1);
     if (core_err_is_fatal(code))    exit(1);
     exit(1);
@@ -2690,7 +2693,7 @@ static const char *icn_errmsg(int n) { const char *m = icn_errmsg_known(n); retu
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_icn_startup_error_no_main(void) {
     fflush(stdout);
-    fprintf(stderr, "\nRun-time error %d in startup code\n%s\n", 117, icn_errmsg(117));
+    fprintf(stderr, "scrip: error %d: %s\n  at startup\n", 117, icn_errmsg(117));
     exit(1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

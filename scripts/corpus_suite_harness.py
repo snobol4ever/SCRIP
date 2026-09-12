@@ -834,8 +834,8 @@ def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=Non
     # declared list, two spellings, one observable result (verified: identical argc/args in m3 and m4).
     run_dir = Path(sno_path).parent
     _same = out_bin.parent.resolve() == run_dir.resolve()
-    argv = stdbuf_wrap(paths, ["./" + out_bin.name if _same else str(out_bin)]) + [str(a) for a in (prog_argv or [])]
-    env = dict(os.environ, SNO_LIB=str(paths["inc"]))
+    argv = stdbuf_wrap(paths, [out_bin.name]) + [str(a) for a in (prog_argv or [])]
+    env = dict(os.environ, SNO_LIB=str(paths["inc"]), PATH=str(out_bin.parent) + os.pathsep + os.environ.get("PATH", ""))
     # Same rule as run_m3 above: the compiled binary's relative opens must resolve against the
     # SOURCE's directory, not the harness's cwd. out_bin is an absolute path, so moving cwd is safe.
     return classify(argv, timeout, expected_text, cwd=str(Path(sno_path).parent), env=env, stdin_text=stdin_text, want_rc=want_rc, mask=mask)

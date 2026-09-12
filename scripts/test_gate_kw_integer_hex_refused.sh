@@ -50,8 +50,8 @@ for v in '-0x2' 'inf' 'INF' 'infinity' 'nan' 'NAN' 'nan(0)' '1e400' '  inf  '; d
   og=$("$SBL" -bf "$W/k.sno" </dev/null 2>&1 || true)
   printf '%s' "$og" | grep -q 'ERROR 208' || { echo "⛔ REFUSES rc=2 (premise gone): the oracle no longer raises ERROR 208 for [$v]. Oracle said: $og"; exit 2; }
   for m in 3 4; do g=$("run$m")
-    if ! printf '%s' "$g" | grep -qE 'Error 208|ERROR 208'; then
-      echo "FAIL: m$m refuses [$v] for the WRONG reason -- got $(printf '%s' "$g" | grep -oE 'Error [0-9]+' | head -1), oracle raises ERROR 208 (not integer). The value is being parsed and then caught by the negative/too-large guard."; fail=1; fi
+    if ! printf '%s' "$g" | grep -qE 'Error 208|ERROR 208|error 208:'; then
+      echo "FAIL: m$m refuses [$v] for the WRONG reason -- got $(printf '%s' "$g" | grep -oiE 'error [0-9]+' | head -1), oracle raises ERROR 208 (not integer). The value is being parsed and then caught by the negative/too-large guard."; fail=1; fi
   done
 done
 # ⭐ SECOND CONTROL ARM: a FINITE number that is merely too large must KEEP raising 210, not 208 --
@@ -59,8 +59,8 @@ done
 for v in '1e30' '99999999' '16777217' '-3'; do
   mk "$v"
   for m in 3 4; do g=$("run$m")
-    if ! printf '%s' "$g" | grep -qE 'Error 210|ERROR 210'; then
-      echo "FAIL(control): m$m gives $(printf '%s' "$g" | grep -oE 'Error [0-9]+' | head -1) for [$v], expected Error 210 -- a finite out-of-range number is 'too large', not 'not integer'."; fail=1; fi
+    if ! printf '%s' "$g" | grep -qE 'Error 210|ERROR 210|error 210:'; then
+      echo "FAIL(control): m$m gives $(printf '%s' "$g" | grep -oiE 'error [0-9]+' | head -1) for [$v], expected Error 210 -- a finite out-of-range number is 'too large', not 'not integer'."; fail=1; fi
   done
 done
 for pair in '3.7 3' '+3 3' '010 10' '.5 0' '1.5e3 1500' '3. 3' '1e7 10000000'; do set -- $pair; mk "$1"

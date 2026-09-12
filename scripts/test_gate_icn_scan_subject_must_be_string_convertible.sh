@@ -63,7 +63,7 @@ for w in $REJECTS $ACCEPTS; do
     [ "$rc" = 124 ] && { echo "  FAIL m$m $w: timed out"; FAIL=$((FAIL+1)); continue; }
     case " $REJECTS " in
       *" $w "*)
-        if [ "$rc" -eq 0 ] || ! printf '%s' "$out" | grep -q 'Run-time error 103'; then
+        if [ "$rc" -eq 0 ] || ! printf '%s' "$out" | grep -q 'scrip: error 103:'; then
           echo "  FAIL m$m $w: want rc!=0 and 'Run-time error 103', got rc=$rc [$(printf '%s' "$out" | tr '\n' '/')]"
           FAIL=$((FAIL+1)); continue
         fi ;;

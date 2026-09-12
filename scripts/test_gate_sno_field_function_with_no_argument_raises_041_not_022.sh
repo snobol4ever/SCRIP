@@ -25,7 +25,7 @@ FLAGS="$(sbl_lang_flags)"
 SCRIP="${SCRIP:-$ROOT/scrip}"; [ -x "$SCRIP" ] || { echo "⛔ GATE REFUSE(2) [$G]: $SCRIP not built"; exit 2; }
 LIBDIR="$ROOT/out"; [ -f "$LIBDIR/libscrip_rt.so" ] || { echo "⛔ GATE REFUSE(2) [$G]: $LIBDIR/libscrip_rt.so missing"; exit 2; }
 W="$(mktemp -d "${TMPDIR:-/tmp}/$G.XXXXXX")" || exit 2; trap 'rm -rf "$W"' EXIT
-verdict() { grep -oE 'ERROR [0-9]+|RESULT\[[^]]*\]' | tr 'a-z' 'A-Z' | sort -u | tr '\n' ' ' | sed 's/ *$//'; }
+verdict() { grep -oiE 'error [0-9]+|RESULT\[[^]]*\]' | tr 'a-z' 'A-Z' | sed -E 's/ERROR 0+([0-9])/ERROR \1/' | sort -u | tr '\n' ' ' | sed 's/ *$//'; }
 FAIL=0; N=0
 for arm in "no-argument|X()" "string|X('hello')" "integer|X(7)" "array|X(AR)" "table|X(TB)" "other-data-type|Y(P)" "correct-field|X(P)"; do
     name="${arm%%|*}"; expr="${arm#*|}"; N=$((N+1))

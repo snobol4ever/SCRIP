@@ -1724,7 +1724,7 @@ int main(int argc, char **argv)
             int _zframe_pinned_root = (bbg->zframe_pinned_base && bbg->root_graph) ? 1 : 0;
             ir_delete_all(s2);
             void *mf = NULL;
-            { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); } { extern void rt_main_progname_stage(const char *); extern const char * stmt_src_get_file(void); const char * _pn = stmt_src_get_file(); rt_main_progname_stage(_pn ? _pn : ""); } if (_nparams >= 1) { extern void rt_main_args_bind(void); rt_main_args_bind(); }
+            { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); } { extern void rt_main_progname_stage(const char *); extern const char * stmt_src_get_file(void); const char * _pn = stmt_src_get_file(); char _pnb[4096]; if (_pn) { const char *_sl = strrchr(_pn, '/'); const char *_dt = strrchr(_pn, '.'); if (_dt && _dt > _pn && (!_sl || _dt > _sl + 1) && (size_t)(_dt - _pn) < sizeof _pnb) { memcpy(_pnb, _pn, (size_t)(_dt - _pn)); _pnb[_dt - _pn] = 0; _pn = _pnb; } } rt_main_progname_stage(_pn ? _pn : ""); } if (_nparams >= 1) { extern void rt_main_args_bind(void); rt_main_args_bind(); }
             { extern void bbprof_start(void); bbprof_start(); }
             { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }
             if (_zframe_graph && !_icn_cells_graph) {

@@ -32,6 +32,7 @@ for x in "${CASES[@]}"; do
   ( cd "$T" && timeout 20 "$SCRIP" w.icn </dev/null ) >"$T/m3.out" 2>&1
   ( cd "$T" && timeout 20 "$SCRIP" --compile -o w.s w.icn </dev/null && gcc -m64 -no-pie w.s -o w.bin -L"$ROOT/out" -lscrip_rt -lm -lpthread ) >/dev/null 2>&1 || { echo "⛔ REFUSE(2): mode-4 witness '$x' did not build"; exit 2; }
   ( cd "$T" && LD_LIBRARY_PATH="$ROOT/out" timeout 20 ./w.bin </dev/null ) >"$T/m4.out" 2>&1
+  for _o in m3 m4; do python3 "$ROOT/scripts/util_render_error_voice.py" icon < "$T/$_o.out" > "$T/$_o.out.r" && mv "$T/$_o.out.r" "$T/$_o.out"; done
   if [ -n "${FAIL_ONCE:-}" ]; then sed -i 's/^Run-time error 103$/Run-time error 999/' "$T/m3.out" "$T/m4.out"; fi
   for M in m3 m4; do
     if diff -q "$T/w.ref" "$T/$M.out" >/dev/null; then PASS=$((PASS+1))

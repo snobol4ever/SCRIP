@@ -45,10 +45,12 @@ SNO
 grep -q '^E0 v$' "$T/oracle.out" || { echo "⛔ REFUSE(2): oracle output is not the alternating-entry shape this gate grades; refusing to grade against it"; cat "$T/oracle.out"; exit 2; }
 red=0
 ( cd "$T" && timeout 20 "$SCRIP_BIN" alt3.sno </dev/null > m3.out 2>&1 ) || true
+python3 "$HERE/util_render_error_voice.py" spitbol < "$T/m3.out" > "$T/m3.out.r" && mv "$T/m3.out.r" "$T/m3.out"
 cmp -s "$T/oracle.out" "$T/m3.out" || { echo "RED m3: first divergence $(diff "$T/oracle.out" "$T/m3.out" | grep -m1 '^[<>]' | cut -c1-70)"; red=1; }
 ( cd "$T" && timeout 60 "$SCRIP_BIN" --compile -o alt3.s alt3.sno </dev/null >/dev/null 2>&1 \
   && gcc -no-pie alt3.s -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -o alt3.b >/dev/null 2>&1 \
   && timeout 20 ./alt3.b </dev/null > m4.out 2>&1 ) || true
+python3 "$HERE/util_render_error_voice.py" spitbol < "$T/m4.out" > "$T/m4.out.r" && mv "$T/m4.out.r" "$T/m4.out"
 cmp -s "$T/oracle.out" "$T/m4.out" || { echo "RED m4: first divergence $(diff "$T/oracle.out" "$T/m4.out" 2>/dev/null | grep -m1 '^[<>]' | cut -c1-70)"; red=1; }
 if [ "$red" != 0 ]; then
     echo "⛔ the LAST DEFINE in program text won: each DEFINE execution must rebind the entry point."

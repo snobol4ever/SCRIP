@@ -44,7 +44,7 @@ procedure main(); f() := 3; write("after"); end'
 probe g07_var_target_ctl  '4'          'procedure main(); local x; x := 5; x -:= 1; write(x); end'
 probe g08_idx_target_ctl  '2'          'procedure main(); local L; L := [1]; L[1] +:= 1; write(L[1]); end'
 
-filt() { grep -a 'Run-time error 111\|variable expected\|offending value\|^[^ ]' | grep -a -v '^Traceback\|^main()\|^File \|from line' | tr '\n' '|' | sed 's/|$//'; }
+filt() { python3 "$ROOT/scripts/util_render_error_voice.py" icon | grep -a 'Run-time error 111\|variable expected\|offending value\|^[^ ]' | grep -a -v '^Traceback\|^main()\|^File \|from line' | tr '\n' '|' | sed 's/|$//'; }
 red=0; n=0
 for src in "$W"/g*.icn; do
     b="$(basename "$src" .icn)"; want="$(cat "$W/$b.want")"; n=$((n+1))

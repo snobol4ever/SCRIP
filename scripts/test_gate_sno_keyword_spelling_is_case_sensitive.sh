@@ -45,10 +45,10 @@ check() {   # $1 = program stem, $2 = extended regex the output MUST match, $3 =
     done
 }
 echo "[gate] SNOBOL4 keyword spelling is case-sensitive (oracle: sbl -bf)"
-check read_folded   'ERROR 251'  'a folded read raises 251'
-check read_mixed    'ERROR 251'  'a mixed-case read raises 251'
-check write_folded  'ERROR 251'  'a folded write raises 251'
-check write_anchor  'ERROR 251'  'a folded write to a live keyword raises 251'
+check read_folded   'error 251:'  'a folded read raises 251'
+check read_mixed    'error 251:'  'a mixed-case read raises 251'
+check write_folded  'error 251:'  'a folded write raises 251'
+check write_anchor  'error 251:'  'a folded write to a live keyword raises 251'
 check read_canon    'LEN=256'    'the canonical spelling still resolves'
 check udc_mixed     'UDC=hello'  'a mixed-case USER-DECLARED constant is untouched'
 if [ "$FAIL" -eq 0 ]; then echo "GATE GREEN [sno_keyword_spelling_is_case_sensitive]: $TOTAL/$TOTAL arms"; exit 0; fi
