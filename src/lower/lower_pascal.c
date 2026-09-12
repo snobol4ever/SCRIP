@@ -782,6 +782,11 @@ stage2_t *lower_pascal_stage2(const tree_t *prog) {
                     sc->e[sc->n].slot = sc->n;
                     sc->n++;
                 }
+                if (locals->n > 0) {
+                    const char ** _ln = (const char **) calloc((size_t) locals->n, sizeof(const char *)); int _nl = 0;
+                    if (_ln) { for (int k = 0; k < locals->n; k++) if (locals->c[k] && locals->c[k]->v.sval) _ln[_nl++] = locals->c[k]->v.sval;
+                        g_stage2.bbp.table[bb_idx]->lnames = _ln; g_stage2.bbp.table[bb_idx]->nlocals = _nl; }
+                }
             }
             g_stage2.bbp.table[bb_idx]->nparams = np;
             if (np > 0) {

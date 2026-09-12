@@ -493,6 +493,18 @@ void zls_build(IR_graph_t * g) {
             k++;
         }
     }
+    if (g->caller_frame && g->lnames && g->nlocals > 0) {
+        for (int i = 0; i < g->nlocals; i++) {
+            const char * vn = g->lnames[i];
+            if (!vn || vn[0] == '&') continue;
+            int have = 0; for (int v = r->first_vslot; v < r->first_vslot + r->n_vslots; v++) if (zv[v].name && strcmp(zv[v].name, vn) == 0) { have = 1; break; }
+            if (have) continue;
+            if (zv_n >= FL_MAX_VSLOTS) { fprintf(stderr, "zls: vslot table overflow (%d)\n", FL_MAX_VSLOTS); abort(); }
+            zv[zv_n++] = (zls_vslot_t){ vn, base + k * 16 }; r->n_vslots++;
+            zls_field(root, base + k * 16, 16, ZK_DESCR, 0, "declared-local", (const IR_t *)0);
+            k++;
+        }
+    }
     if (g->zframe_graph && !g->icn_cells_graph && g->decl_level == 3) {
         for (int _pdl = 4; _pdl <= 16; _pdl++) {
             const char * nm = zls_pas_display_name(_pdl);
