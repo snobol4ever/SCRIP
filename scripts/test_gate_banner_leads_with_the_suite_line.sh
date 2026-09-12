@@ -60,7 +60,7 @@ suite_ln="$(printf '%s\n' "$OUT" | grep -n 'SUITES 100/100' | head -1 | cut -d: 
 
 # --- ARM 2: it prints BEFORE the per-language PROGRESS line ---
 arms=$((arms+1))
-prog_ln="$(printf '%s\n' "$OUT" | grep -n '^PROGRESS 09-10 |' | head -1 | cut -d: -f1)"
+prog_ln="$(printf '%s\n' "$OUT" | grep -n '^PROGRESS [0-9][0-9]-[0-9][0-9] |' | head -1 | cut -d: -f1)"
 if [ -n "$suite_ln" ] && [ -n "$prog_ln" ]; then
     [ "$suite_ln" -lt "$prog_ln" ] || fail "ARM 2: the suite line is at line $suite_ln, BELOW the PROGRESS line at $prog_ln -- the row is about which one leads"
 elif [ -z "$prog_ln" ]; then

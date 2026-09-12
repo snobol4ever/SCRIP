@@ -3598,144 +3598,97 @@ def cmd_agree(a):
 
 
 def cmd_progress(a):
-    lines = open(SCORE_MD, encoding="utf-8").read().split("\n")
-    _hdr, rows, gskip = find_grid(lines)
-    # ⭐ The freshness label lives on the STANDARDIZED DISPLAY row, not in the grid: the grid has no
-    # provenance column, and the display's `board:` clause is the machine-written mirror of the grid's M
-    # cell. Bound by shape via find_table, like every other reader of this file.
-    _dh, disp, _ = find_table(lines)
-    provs = {l: c[PROV_COL] for l, (_i, c) in disp.items()}
-    missing = [l for l, _ in PROGRESS_LANGS if l not in rows]
-    if missing:
-        # ⛔⭐ NAME THE DIFFERENCE BETWEEN A ROW THAT IS GONE AND A ROW THAT CANNOT BE READ. "No row for icon"
-        # sent hq_B looking for a deleted row while the row sat in the file two cells too wide (2026-09-05);
-        # the identical message sent seat07 looking for a registry that does not exist (2026-09-04). Both
-        # refusals were correct, well-formed and confident, and both pointed AWAY from the defect.
-        det = []
-        for l in missing:
-            if l in gskip:
-                _gl, _gn = gskip[l]
-                det.append("%s MALFORMED, NOT ABSENT (line %d has %d columns, the grid has %d)" % (l, _gl + 1, _gn, GRID_NCOLS))
-            else:
-                det.append("%s absent" % l)
-        die("the September-10 grid has no readable row for %s -- refusing to publish a progress line over a partial grid" % "; ".join(det))
+    # ⛔⭐ THE PROGRESS LINE READS THE SUITE TABLE'S MACHINE RECORD, NOTHING ELSE (Lon 2026-09-12 13:5x CDT, in-chat to
+    # cfo, verbatim: "Fix that stupid suite banner. It is bogus." -- "I'm referring to a banner with text 'PROGRESS
+    # 09-10'"). WHAT WAS BOGUS, measured on the live banner that turn: this line parsed the prose V cells of the
+    # September-10 grid in SCORE.md, a record no runner rewrites, so it printed "NOT RUN: csnobol4 132 programs,
+    # snoflake 124, testpgms 8" and "CELL NOT MACHINE-READABLE: gimpel" DIRECTLY UNDER a suite table showing Budne
+    # 70/72, Flake 117/124, TPgm 1/2 and Gimpel 122/132 -- and it wore a date literal, 09-10, two days after 09-10.
+    # Two instruments over one question, and the one Lon reads was the one nobody updates. Now both read
+    # .github/SUITES.tsv (every runner rewrites its row there through this tool), so they cannot disagree, and the
+    # date is the box clock's day, never a literal. ⭐ THE RULES THAT STAY: the percent is passes over the
+    # population the vendored suites ACTUALLY RAN on (Lon 2026-09-05: "Show measured numbers from running test
+    # suites not FLOORS"); our own masters are ours, printed under --verbose and never counted (Lon 2026-09-04);
+    # a language with no shipped package prints no-public-suite and is outside ALL; a vendored population with
+    # no reading is NOT RUN, named and sized, outside every percent; a population Lon deferred (DEFERRED.tsv) is
+    # named as deferred and is not a failure. `?` after a percent = at least one counted suite's latest reading
+    # is from before today, so the number is a real measurement of an older tree.
+    import csv as _csv, datetime as _dt
+    tsv = os.path.join(S4E, ".github", "SUITES.tsv")
+    if not os.path.exists(tsv):
+        die("no suite table at %s -- refusing to publish a progress line over nothing" % tsv)
+    with open(tsv, encoding="utf-8", newline="") as f:
+        lines_ = [l for l in f if l.strip() and not l.startswith("#")]
+    rd = list(_csv.DictReader(lines_, delimiter="\t"))
+    need = ("key", "nick", "lang", "today_date", "today_pass", "today_total")
+    if not rd or any(k not in rd[0] for k in need):
+        die("%s does not carry the columns %s -- refusing to compute a percent from a table this tool cannot read" % (tsv, ", ".join(need)))
+    deferred = {}
+    dpath = os.path.join(S4E, ".github", "DEFERRED.tsv")
+    if os.path.exists(dpath):
+        with open(dpath, encoding="utf-8", newline="") as f:
+            dl = [l for l in f if l.strip() and not l.startswith("#")]
+        for r in _csv.DictReader(dl, delimiter="\t"):
+            if r.get("suite"): deferred[r["suite"].strip()] = r
+    today = _dt.date.today().isoformat()
     cells_out, bars, tp, tt, missing = [], [], 0, 0, []
-    notrun_by_lang = {}
-    unread_by_lang = {}
+    notrun, defer_out, ours = [], [], []
     for lang, short in PROGRESS_LANGS:
-        pct, mark, P, T, work = language_progress(lang, rows[lang], provs.get(lang, ""))
-        if pct == "NOSUITE":
+        if lang in PROGRESS_NO_PUBLIC_SUITE:
             cells_out.append("%s no-public-suite" % short)
             bars.append("%s %s" % (short, "-" * 10))
-            if a.verbose:
-                sys.stdout.write("  %-8s no-public-suite  %s\n" % (lang, " · ".join(work)))
+            for r in rd:
+                if r["lang"] == lang and r["key"].endswith("-master") and r["today_pass"].strip():
+                    ours.append("%-8s %s %s/%s (%s)" % (lang, r["nick"], r["today_pass"], r["today_total"], r["today_date"]))
             continue
-        if pct is None:
-            # ⛔ NOT SCORED, and deliberately not folded into ALL either: a language whose cell we cannot
-            # read must not quietly improve or worsen the headline it is missing from.
+        vend = [r for r in rd if r["lang"] == lang and not r["key"].endswith("-master")]
+        for r in rd:
+            if r["lang"] == lang and r["key"].endswith("-master") and r["today_pass"].strip():
+                ours.append("%-8s %s %s/%s (%s)" % (lang, r["nick"], r["today_pass"], r["today_total"], r["today_date"]))
+        P = T = 0; stale = False
+        for r in vend:
+            if r["key"] in deferred:
+                defer_out.append("%-9s %s %s programs -- %s" % (lang, r["key"], r["today_total"].strip() or deferred[r["key"]].get("count", "?"), deferred[r["key"]].get("ruled_by", "")))
+                continue
+            if not r["today_pass"].strip() or not r["today_total"].strip():
+                notrun.append("%-9s %s %s programs" % (lang, r["key"], r["today_total"].strip() or "?"))
+                continue
+            try:
+                P += int(r["today_pass"]); T += int(r["today_total"])
+            except ValueError:
+                die("%s row %s carries a non-integer reading (%r/%r)" % (tsv, r["key"], r["today_pass"], r["today_total"]))
+            if r["today_date"].strip() < today: stale = True
+        if T == 0:
             missing.append(short)
             cells_out.append("%s MISSING" % short)
             bars.append("%s %s" % (short, "?" * 10))
-            if a.verbose:
-                # ⛔ NAME THE ACTUAL REASON. "cell unreadable" was the only MISSING reason when the percent
-                # came from M+V; now a language can be MISSING because its CENSUS IS INCOMPLETE, which is a
-                # different fact with a different owner and a different fix. One label for two causes sends
-                # the reader to the wrong file.
-                why = "cell unreadable"
-                for x in work:
-                    if "census is INCOMPLETE" in x:
-                        why = "census incomplete -- not all rungs enumerated"
-                        break
-                    if "NO usable census" in x:
-                        why = "no usable census"
-                        break
-                sys.stdout.write("  %-8s MISSING   (%s)  %s\n" % (lang, why, " · ".join(work)))
             continue
-        tp += P
-        tt += T
-        # ⛔⭐⭐ THE BANNER MADE ONE NUMBER SAY TWO OPPOSITE THINGS (hq_I, 2026-09-11): it printed
-        # `IPL 108/108 Δ0 ✅ done` in the grid and `ipl 108 programs` under "these suites exist and have never
-        # been run-graded", and the equal 108 is the tell. ipl HAS run; its cell states PASS=816, a count
-        # rather than a fraction, so counted_fractions cannot parse it and books it as inventory. INVENTORY
-        # AND NEVER-RUN ARE NOT THE SAME CLAIM, and only the second one is false.
-        # ⭐⭐ THE GENERAL FORM, third instance this sitting: AN INSTRUMENT THAT CANNOT READ SOMETHING MUST SAY
-        # "I CANNOT READ IT", NEVER "IT IS NOT THERE". The port-trace gates counted an unpinned witness as a
-        # failed check; the package cause reader promised a pass would write a cell whose buckets can never
-        # sum; this rendered a cell it could not parse as a suite nobody ran. Each collapses an "I don't know"
-        # into a definite negative, and each reads as the more diligent of the two.
-        # ⛔ THE NAMES COME FROM THE WORK LINE, because cmd_progress holds no `got` -- language_progress
-        # returns (pct, mark, P, T, work) and nothing else. My first version reached for `got` here and
-        # NameError'd on every run, while `make preflight` stayed 33/33 green and all three score gates
-        # passed: ⭐ NOT ONE GATE EXERCISES THE BANNER'S OWN PROGRESS PATH. Found by running the command,
-        # not by reading the diff -- which is the whole argument for running it.
-        _unread_names = set()
-        for _w in work:
-            if str(_w).startswith("⚠ CELL NOT MACHINE-READABLE"):
-                _unread_names = {n.strip() for n in
-                                 str(_w).split(": ", 1)[-1].split(" -- ", 1)[0].split(",")}
-        for _w in work:
-            if str(_w).startswith("NOT RUN (inventory"):
-                _items = [i for i in str(_w).split("): ", 1)[-1].split(" · ")
-                          if i.split(" ")[0] not in _unread_names]
-                if _items:
-                    notrun_by_lang[lang] = " · ".join(_items)
-            # ⛔⭐ AND THE UNREADABLE CELLS REACH THE BANNER TOO. Removing them from NOT RUN (they HAVE run;
-            # their cells merely state counts rather than fractions) was correct and, on its own, made them
-            # INVISIBLE here -- ipl and gimpel vanished from the banner entirely. ⭐⭐ THE FIX FOR A FALSE
-            # CLAIM IS A TRUE CLAIM, NEVER SILENCE: the code three hundred lines up already says it -- "hiding
-            # it would trade one dishonesty for another" -- and deleting the wrong line is exactly how a
-            # correction turns into a quieter version of the same defect. Caught by re-reading the banner
-            # after the cure rather than by reading the diff.
-            if str(_w).startswith("⚠ CELL NOT MACHINE-READABLE"):
-                unread_by_lang[lang] = str(_w).split(": ", 1)[-1].split(" -- ", 1)[0]
+        pct = (100 * P) // T
+        mark = "?" if stale else ""
+        tp += P; tt += T
         cells_out.append("%s %d%%%s" % (short, pct, mark))
         bars.append("%s %s" % (short, "█" * (pct // 10) + "░" * (10 - pct // 10)))
         if a.verbose:
-            # ⛔ BOTH ARE `grid` BY CONSTRUCTION, and this line is printed rather than assumed because the
-            # audit that caught the split read a claim, not the code: value from GRID_COLUMNS M/V, label
-            # from that same cell's own ⟨measured …⟩ stamp. If these two words ever differ, the line is
-            # pairing one table's number with another's freshness again.
-            sys.stdout.write("  %-8s %3d%%%-1s  %5d/%-5d  value-from=grid label-from=grid  %s\n"
-                             % (lang, pct, mark, P, T, " · ".join(work)))
+            sys.stdout.write("  %-8s %3d%%%-1s  %5d/%-5d  from SUITES.tsv: %s\n"
+                             % (lang, pct, mark, P, T, " · ".join("%s %s/%s (%s)" % (r["nick"], r["today_pass"], r["today_total"], r["today_date"][5:]) for r in vend if r["today_pass"].strip() and r["key"] not in deferred)))
     gh = git(".github", "rev-parse", "--short", "HEAD") or "unknown"
     allpct = (100 * tp) // tt if tt else 0
-    # ⛔⭐ ALL IS MISSING WHEN ANY LANGUAGE IS MISSING, AND THAT IS NOT PEDANTRY -- IT IS THE SAME
-    # ROUNDING-UP DEFECT ONE LEVEL UP. Measured: when icon's cell became unreadable, dropping its
-    # 1555-entry denominator moved ALL from 73% to 85%. So an UNREADABLE CELL MADE THE HEADLINE LOOK
-    # BETTER -- exactly what fail-closed exists to prevent, arriving through the aggregate instead of
-    # through the cell. ALL claims to be the whole program over all seven; it cannot be computed from
-    # six, and a "?" is far too quiet for a twelve-point move.
-    scored = [sh for l, sh in PROGRESS_LANGS if l not in PROGRESS_NO_PUBLIC_SUITE]
-    allcell = "ALL MISSING (%s unreadable)" % ",".join(missing) if missing else "ALL %d%% (%d with a public suite)" % (allpct, len(scored))
-    # ⛔ THE LINE PRINTS ITS OWN BASIS (ceo ruling; hq_T's header kept, wording per Lon): the percent changed meaning today.
-    print("PROGRESS 09-10 [basis: MEASURED ONLY -- every percent below is passes over the population the suites ACTUALLY RAN on (Lon 2026-09-05: \"Show measured numbers from running test suites not FLOORS\"). A suite that has not been run is NOT in the percent; it is listed under NOT RUN beneath, with its size. V = the vendored industry-standard packages, RUN-graded by their own oracle, ONLY; "
-          "our own master, AST fixtures and ladders are printed under --verbose as ours and are NOT in the percent; "
-          "a compile-graded suite is named and not counted; no public suite = no percent]")
-    print("PROGRESS 09-10 | %s | %s | tree %s %s"
-          % (" | ".join(cells_out), allcell, gh, time.strftime("%Y-%m-%d %H:%M %Z")))
+    scored = [sh for l, sh in PROGRESS_LANGS if l not in PROGRESS_NO_PUBLIC_SUITE and sh not in missing]
+    allcell = ("ALL %d%% (%d with a public suite, %d/%d)" % (allpct, len(scored), tp, tt)) if tt else "ALL MISSING (no vendored suite has a reading)"
+    day = time.strftime("%m-%d")
+    print("PROGRESS %s [basis: MEASURED ONLY, from .github/SUITES.tsv, the record every runner rewrites -- each percent is passes over the population the VENDORED suites actually ran on (Lon 2026-09-05: \"Show measured numbers from running test suites not FLOORS\"); our own masters are printed under --verbose as ours and are never counted; no public suite = no percent; ? = a counted suite's latest reading is from before today]" % day)
+    print("PROGRESS %s | %s | %s | tree %s %s"
+          % (day, " | ".join(cells_out), allcell, gh, time.strftime("%Y-%m-%d %H:%M %Z")))
     print("  " + "  ".join(bars))
-    # ⛔⭐ THE NUMBER ABOVE IS A MEASUREMENT; THIS IS THE COVERAGE BESIDE IT. Keeping them on separate lines is the
-    # whole point: folding an unrun suite into the percent as zeros is what made the old line unreadable as either
-    # one thing or the other. Named, sized, and never averaged in.
-    if unread_by_lang:
-        # ⛔ A DIFFERENT CLAIM FROM NOT RUN, ON ITS OWN LINE, FOR THE REASON THE TWO MARKERS ARE KEPT APART
-        # elsewhere in this file: a suite that never ran and a suite whose RESULT CANNOT BE READ are not the
-        # same fact, and one glyph for both lets the louder problem hide inside the quieter one.
-        print("  CELL NOT MACHINE-READABLE (these suites MAY have run -- their cell states counts, not `<pass>/<total>`, so each counts ZERO and the percent above is a FLOOR):")
-        for _l, _short in PROGRESS_LANGS:
-            if _l in unread_by_lang:
-                print("    %-9s %s" % (_l, unread_by_lang[_l]))
-    if notrun_by_lang:
-        print("  NOT RUN (not in any percent above -- these suites exist and have never been run-graded):")
-        for _l, _short in PROGRESS_LANGS:
-            if _l in notrun_by_lang:
-                print("    %-9s %s" % (_l, notrun_by_lang[_l]))
+    if notrun:
+        print("  NOT RUN (a vendored population with no reading on file -- outside every percent above):")
+        for l in notrun: print("    " + l)
+    if defer_out:
+        print("  DEFERRED by Lon (DEFERRED.tsv -- in scope, not a failure, outside every percent above):")
+        for l in defer_out: print("    " + l)
     if a.verbose:
-        print("  ALL %d%% = %d/%d MEASURED -- passes over the population the suites actually ran on. Our master, AST fixtures and ladders are printed as ours and never counted (Lon 2026-09-04); ? = the V cell reads STALE, or its own ⟨measured …⟩ stamp is older than today, or it carries no stamp at all (age unknown)." % (allpct, tp, tt))
-        for lang, short in PROGRESS_LANGS:
-            c = rows[lang]
-            print("  %-8s L: %s" % (lang, c[GRID_COLUMNS["L"][0]][:110]))
-            print("  %-8s B: %s" % (lang, c[GRID_COLUMNS["B"][0]][:110]))
+        print("  OURS, never counted (masters, our own graded population):")
+        for l in ours: print("    " + l)
     return 0
 
 

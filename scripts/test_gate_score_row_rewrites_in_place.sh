@@ -405,8 +405,8 @@ if [ "$_prog_rc" -ne 0 ]; then
     echo "GATE FAIL: \`util_score_row.py progress\` exits rc=$_prog_rc -- the line every seat's banner prints comes from this path, and its caller hides the failure behind 'PROGRESS: UNREADABLE'. Tail:"
     printf '%s\n' "$_prog_out" | tail -4 | sed 's/^/      /'
     violations=$((violations + 1))
-elif ! printf '%s' "$_prog_out" | grep -q '^PROGRESS 09-10 |'; then
-    echo "GATE FAIL: \`util_score_row.py progress\` exits 0 but prints no '^PROGRESS 09-10 |' score line -- the banner greps for exactly that and falls back to UNREADABLE without it"
+elif ! printf '%s' "$_prog_out" | grep -q '^PROGRESS [0-9][0-9]-[0-9][0-9] |'; then
+    echo "GATE FAIL: \`util_score_row.py progress\` exits 0 but prints no '^PROGRESS [0-9][0-9]-[0-9][0-9] |' score line -- the banner greps for exactly that and falls back to UNREADABLE without it"
     violations=$((violations + 1))
 fi
 

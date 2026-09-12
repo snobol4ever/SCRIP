@@ -2435,7 +2435,7 @@ TASKEOF
            printf 'SUITE BANNER: UNREADABLE -- ABSENT: %s is not on disk, so the suite view is NOT being shown this turn (pull .github); the verdict below is unaffected\n' "$_sb"
          fi
          if [ -n "${S4E_PROGRESS_PROBE_BROKEN:-}" ]; then _ph="/nonexistent-s4e-home"; else _ph="$S4E"; fi
-         S4E_HOME="$_ph" python3 "$(dirname "${BASH_SOURCE[0]}")/util_score_row.py" progress 2>/dev/null | grep -m1 '^PROGRESS 09-10 |' \
+         S4E_HOME="$_ph" python3 "$(dirname "${BASH_SOURCE[0]}")/util_score_row.py" progress 2>/dev/null | grep -m1 '^PROGRESS [0-9][0-9]-[0-9][0-9] |' \
            || printf 'PROGRESS: UNREADABLE -- util_score_row.py progress printed no score line under %s (SCORE.md missing or its grid unreadable); the verdict below is unaffected\n' "$_ph"
          # ⭐⭐ THE AHEAD-OF-ORIGIN LINE (ceo -> hq_B 2026-09-08, row instruments-the-banner-reports-a-seat-that-is-ahead-
          # of-origin-because-finished-invisible-work-is-reported-by-nothing; rank 0). ⛔ THE GAP IT CLOSES: the fleet
