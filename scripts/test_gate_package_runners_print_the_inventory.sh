@@ -686,16 +686,48 @@ fi
 # wording change reverts a board cell to prose with every gate green. Unpinned, this row could be un-cured by
 # one careless edit and nothing would say so.
 PKGINV_PINNED="icon/arizona_tests icon/ipl icon/jcon_tests pascal/pat prolog/gnu_prolog snobol4/aisnobol snobol4/csnobol4_suite snobol4/dotnet snobol4/gimpel snobol4/snoflake_suite snobol4/spitbol_testpgms"
-_a20_bad=""; _a20_work=""; _a20_gain=""; _a20_n=0
+_a20_bad=""; _a20_work=""; _a20_gain=""; _a20_n=0; _a20_empty=""; _a20_graded=0
 for _sd in $(find "$PKGINV_CORPUS/packages" -maxdepth 3 \( -name UNGRADABLE.tsv -o -name UNGRADED.tsv \) 2>/dev/null \
              | while IFS= read -r _f; do dirname "$_f"; done | sort -u); do
     _a20_n=$((_a20_n+1))
     _rel="$(basename "$(dirname "$_sd")")/$(basename "$_sd")"
+    # ⛔⭐⭐ AN EMPTY SIDECAR IS 'NOTHING DECLARED YET', NOT A REFUSAL (ceo CEO-604, on hq_R's find while building
+    # the x64tests runner: snobol4/spitbol_x64_tests ships a header and no data row, and THE WHOLE GATE REFUSED
+    # rc=2 for all thirteen seats on it -- every new package was RED AT BIRTH, and the one thing a package cannot
+    # have on the day it is created is a declaration). ⭐ THE DEFECT IS NOT THE REFUSAL, IT IS WHAT THE ARM KEYED
+    # ON: it derived the extensions and read `0 extensions` as ambiguity, when zero means TWO OPPOSITE THINGS --
+    # no rows at all (nothing to be ambiguous about) and rows whose name column carries no extension (genuinely
+    # malformed). So the row count is the fact that separates them and the extension count never could. That is
+    # the same collapse as ARM 2 of outside_baseline_rows reading rc=0-with-no-diagnostic and rc=124-with-no-
+    # diagnostic into one sentence, and hq_U's ladder ask one level up: WHENEVER AN INSTRUMENT'S OUTPUT SPACE IS
+    # SMALLER THAN THE SPACE OF THINGS THAT CAN GO WRONG, the collapse is invisible AND it points the reader
+    # somewhere specific and wrong -- here at an extension the package never claimed.
+    _rows="$(cat "$_sd/UNGRADABLE.tsv" "$_sd/UNGRADED.tsv" 2>/dev/null | grep -v '^#' | grep -cv '^[[:space:]]*$')"
+    if [ "$_rows" -eq 0 ]; then
+        # ⛔ PINNED IS THE ONE PLACE THIS IS STILL A FAIL, and it is the arm's own pinning doctrine rather than a
+        # new policy: a package is pinned BECAUSE the shared body accepted its own data, so emptying that data is
+        # exactly the silent un-validation the pin exists to catch. A package that was never pinned cannot be
+        # regressing -- it is being born.
+        case " $PKGINV_PINNED " in
+          *" $_rel "*)
+            _a20_bad="$_a20_bad $_rel"
+            echo "    ARM 20 FAIL: $_rel is PINNED and its sidecars now declare ZERO rows -- the data the pin was taken over is gone,"
+            echo "      so its runner's inventory clause has nothing to report and its board cell reverts to prose" ;;
+          *)
+            _a20_empty="$_a20_empty $_rel" ;;
+        esac
+        continue
+    fi
     # the extension the lane itself declared, from the name column of its own rows
     _ext="$(cat "$_sd/UNGRADABLE.tsv" "$_sd/UNGRADED.tsv" 2>/dev/null | grep -v '^#' | grep -v '^[[:space:]]*$' \
             | cut -f1 | sed -n 's/.*\(\.[A-Za-z0-9]*\)$/\1/p' | sort -u)"
-    if [ "$(printf '%s\n' "$_ext" | grep -c .)" -ne 1 ]; then
-        echo "    ARM 20 REFUSES(2): $_rel declares $(printf '%s\n' "$_ext" | grep -c .) extensions in its own name column ($(printf '%s' "$_ext" | tr '\n' ' ')) -- one package, one shipped extension, and this arm will not pick for it"
+    _nx="$(printf '%s\n' "$_ext" | grep -c .)"
+    if [ "$_nx" -eq 0 ]; then
+        echo "    ARM 20 REFUSES(2): $_rel declares $_rows row(s) and NOT ONE carries an extension in its name column -- this is a malformed name column, not an empty package, and the arm will not pick an extension the data never claimed"
+        echo "GATE REFUSES(2): ARM 20 could not derive $_rel's extension from its $_rows declared row(s)"; exit 2
+    fi
+    if [ "$_nx" -ne 1 ]; then
+        echo "    ARM 20 REFUSES(2): $_rel declares $_nx extensions in its own name column ($(printf '%s' "$_ext" | tr '\n' ' ')) over $_rows row(s) -- one package, one shipped extension, and this arm will not pick for it"
         echo "GATE REFUSES(2): ARM 20 could not derive $_rel's extension from its own rows"; exit 2
     fi
     # ⛔ ONE CALL PER PACKAGE, AND THE ARITHMETIC REFUSAL COUNTS AS CLEAN HERE -- deliberately, because this
@@ -706,6 +738,7 @@ for _sd in $(find "$PKGINV_CORPUS/packages" -maxdepth 3 \( -name UNGRADABLE.tsv 
     # rows, so the gate went from 0.41s to 25.8s against a Makefile comment promising ~1s. Reading the sum
     # refusal instead of engineering around it is both half the cost and the more honest shape -- an arm that
     # declares the arithmetic out of scope must not care that the arithmetic failed.
+    _a20_graded=$((_a20_graded+1))
     _out="$(INV_PACKAGE="$(basename "$_sd")" INV_DIR="$_sd" INV_EXT="$_ext" inventory_line 0 0 2>&1)"; _rc=$?
     case "$_out" in *"buckets do not sum"*) _rc=0 ;; esac
     case " $PKGINV_PINNED " in
@@ -722,7 +755,8 @@ for _sd in $(find "$PKGINV_CORPUS/packages" -maxdepth 3 \( -name UNGRADABLE.tsv 
     esac
 done
 [ "$_a20_n" -gt 0 ] || { echo "GATE REFUSES(2): ARM 20 found zero sidecar pairs under $PKGINV_CORPUS/packages -- an empty population is not a census"; exit 2; }
-echo "    ARM 20 live sidecar pairs=$_a20_n  pinned packages whose own data the shared body accepts=$(( $(printf '%s' "$PKGINV_PINNED" | wc -w) - $(printf '%s' "$_a20_bad" | wc -w) ))/$(printf '%s' "$PKGINV_PINNED" | wc -w)"
+echo "    ARM 20 live sidecar pairs=$_a20_n  graded=$_a20_graded  declaring nothing yet=$(printf '%s' "$_a20_empty" | wc -w)  pinned packages whose own data the shared body accepts=$(( $(printf '%s' "$PKGINV_PINNED" | wc -w) - $(printf '%s' "$_a20_bad" | wc -w) ))/$(printf '%s' "$PKGINV_PINNED" | wc -w)"
+[ -n "$_a20_empty" ] && echo "    DECLARING NOTHING YET, named and never a refusal:$_a20_empty -- a package with no rows has no extension to derive and no inventory to validate; it enters this arm's graded set with its first declared row"
 [ -n "$_a20_work" ] && echo "    THE BODY STILL REFUSES THESE, UNPINNED (the work list, not a verdict):$_a20_work -- each one's runner emits no inventory clause today"
 [ -n "$_a20_gain" ] && echo "    ⭐ RAISE THE RATCHET:$_a20_gain now validate(s) clean and are not pinned. Add to PKGINV_PINNED in this arm so a wording change can never quietly un-validate them."
 if [ -n "$_a20_bad" ]; then
