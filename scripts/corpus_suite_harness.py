@@ -251,7 +251,8 @@ def resolve_oracle_bin(paths, lang=""):
 
     lang="" or "snobol4" (the original, only path until 2026-08-29): sbl_correctness_bin +
     sbl_lang_flags, i.e. SPITBOL `-bf`. lang="prolog": swipl_bin() from the same lib, invoked
-    `-q` alone. No other --lang has an oracle wired here yet; refuses rather than guessing one.
+    `-q` alone. lang="icon"/"raku": the one-step driver, no flags. lang="pascal": the fpc wrapper.
+    No other --lang has an oracle wired here yet; refuses rather than guessing one.
 
     ⛔ WAS `-q -g halt` until 2026-09-05 (row prolog-every-non-package-source-...-with-oracle-refs,
     seat07) -- `-g halt` runs as a -g GOAL, which fires BEFORE swipl's deferred `initialization(Goal,
@@ -313,7 +314,32 @@ def resolve_oracle_bin(paths, lang=""):
         if not wrapper.is_file():
             refuse(f"fpc_oracle_run.sh missing at {wrapper} -- the one-step FPC oracle driver")
         return str(wrapper), "-Miso"
-    refuse(f"no oracle wired for --lang {lang!r} in capture-oracle-refs yet (only snobol4/prolog/icon/pascal so far)")
+    if lang == "raku":
+        # ⭐ Rakudo is one-step like icon: `raku <file>` compiles and runs in a single invocation, so it fits
+        # run_oracle()'s contract with no change to it and needs no wrapper of pascal's shape. Resolved through
+        # lib_oracle_flags.sh's rakudo_bin(), never a hand-built path or a bare `raku` on PATH -- that accessor
+        # deliberately PREFERS /home/resources/rakudo-local/bin/raku (v2026.05) over the apt /usr/bin/raku
+        # (v2022.12) and refuses rather than falling through to PATH, and the two differ by four years of the
+        # language. `command -v raku` answers the narrower question "is a raku on PATH" and would silently cut
+        # every ref in this corpus against the older rival. LABEL DUTY (lib_oracle_flags.sh's own FACT RULE):
+        # any grid quoting a rakudo arm names the version it resolved.
+        r = subprocess.run(["bash", "-c", f". '{lib}' && rakudo_bin"], capture_output=True, text=True)
+        if r.returncode != 0:
+            refuse(f"lib_oracle_flags.sh refused (rakudo_bin): {r.stderr.strip()}")
+        bin_path = r.stdout.strip()
+        if not bin_path:
+            refuse(f"unexpected empty output from rakudo_bin: {r.stdout!r}")
+        # ⛔ THE WRAPPER, NOT THE BARE BINARY -- it re-resolves rakudo_bin() itself and adds
+        # `-I<staged> -Mprelude_rakudo` for the self-timed benchmark kernels whose wall_us()/wall_ms() are
+        # SCRIP builtins. Without it rakudo refuses those at compile time with EMPTY stdout, which the
+        # builder's empty-output guard launders into a per-program "vacuous ref" exclusion -- see that
+        # script's own header for the four programs it silently cost. rakudo_bin() is still called above so
+        # a missing oracle refuses HERE, with lib_oracle_flags.sh's own message, rather than inside a wrapper.
+        wrapper = paths["scrip_root"] / "scripts" / "raku_oracle_run.sh"
+        if not wrapper.is_file():
+            refuse(f"raku_oracle_run.sh missing at {wrapper} -- the prelude-staging rakudo driver")
+        return str(wrapper), ""   # no flags: `raku <file>` is the whole invocation
+    refuse(f"no oracle wired for --lang {lang!r} in capture-oracle-refs yet (only snobol4/prolog/icon/pascal/raku so far)")
 
 
 def run_oracle(oracle_bin, flags, sno_path, timeout, stdin_text=None, prog_args=None):

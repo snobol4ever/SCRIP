@@ -1123,7 +1123,7 @@ def reindex_csv_only(OUTDIR, EXT, lang, h, _CO, _CC, COLS, modes_decl, loose_fam
 # resolve_oracle_bin/run_oracle/run_m3/run_m4 exactly as that function does; the only genuinely new things are
 # per-FILE dispatch instead of per-family-glob, and a recipe expressed as stdin only (see its own docstring for
 # why argv-extra recipes are deliberately out of scope here).
-ADDITIVE_ORACLE_LANGS = {"snobol4", "prolog", "icon", "pascal"}   # resolve_oracle_bin's own known set (its own refuse())
+ADDITIVE_ORACLE_LANGS = {"snobol4", "prolog", "icon", "pascal", "raku"}   # resolve_oracle_bin's own known set (its own refuse())
 _EXTRA_TEST_TREES = {"scrip_test": "scrip_test", "snocone_ladder": "snocone/ladder"}   # --from categories whose
 # src_dir is a FIXED corpus/tests/<path> outside corpus/tests/<lang>/ and outside demos/benchmarks -- see the
 # --from arg's category dispatch below for why these exist.
@@ -1144,7 +1144,7 @@ def _additive_walk(src_dir, ext):
     return sorted(out)
 
 
-def _additive_walk_tests(src_dir, ext):
+def _additive_walk_tests(src_dir, ext, skip_loose_pairs=True):
     """Like _additive_walk, but for the "tests" category ONLY: src_dir here IS corpus/tests/<lang>, the same
     directory the base (non-additive) loose-pair path (discover_pairs) already owns, and the same directory
     ALL.<ext>/ALL.ref/ALL.csv themselves live in -- so this walk must not re-offer a file that path already
@@ -1156,7 +1156,21 @@ def _additive_walk_tests(src_dir, ext):
     list does not know about: an -INCLUDE-only companion of an EXISTING master entry is not itself owed, and
     the correct fix for that census blind spot is naming it in ALL.excluded.txt with a reason, not walking it
     here at all -- config/ is excluded from the walk defensively, in case a future KEEP.md sibling is dropped
-    beside its family rather than under config/)."""
+    beside its family rather than under config/).
+
+    ⛔⭐⭐ skip_loose_pairs IS TRUE ONLY WHEN discover_pairs ACTUALLY OWNS THIS DIRECTORY (hq_S 2026-09-12, row
+    raku-absorb-every-owed-source). The skip above is a DEFERRAL -- "not mine, the other path has it" -- and it
+    is correct for the `tests` category, whose src_dir IS corpus/tests/<lang>/, the one tree discover_pairs
+    walks. It was ALSO being applied to the _EXTRA_TEST_TREES categories (scrip_test, snocone_ladder), which
+    discover_pairs NEVER walks -- so for those trees the deferral handed the file to nobody and every loose
+    pair under corpus/tests/scrip_test/<lang>/ stayed owed permanently, deferred to a path that does not go
+    there. ⭐ THE TELL WAS IN THE CENSUS ALL ALONG AND READ AS A BACKLOG INSTEAD OF A BUG: raku 15, prolog 4,
+    snobol4 and icon their own share -- a residue that no number of absorption runs could ever move, because
+    running the tool again re-made the same deferral. A file skipped by both halves of a two-part walk is
+    invisible in exactly the way a file skipped by one half is not: each half is individually defensible.
+    ⛔ The duplicate-origin hazard the paragraph above warns about does NOT apply to the extra trees for the
+    same reason the deferral does not: discover_pairs cannot absorb what it never walks, so there is no second
+    absorption to collide with. The hazard is real only where both paths reach the same file."""
     if not os.path.isdir(src_dir):
         return []
     out = []
@@ -1167,7 +1181,7 @@ def _additive_walk_tests(src_dir, ext):
             if not (fn.endswith(ext) and not fn.startswith("ALL") and not fn.startswith(".")):
                 continue
             stem = os.path.join(dirpath, fn)[: -len(ext)]
-            if any(os.path.isfile(stem + s) for s in (".ref", ".expected", ".std")):
+            if skip_loose_pairs and any(os.path.isfile(stem + s) for s in (".ref", ".expected", ".std")):
                 continue
             out.append(os.path.join(dirpath, fn))
     return sorted(out)
@@ -1212,6 +1226,27 @@ def _additive_classify_and_run(path, ext, oracle_bin, flags, paths, timeout):
         if v.kind in ("HANG", "UNPROVEN", "CRASH"):
             return ("exclude", name, "parser-only fixture (declared %s.ast-only) but --dump-ast %s"
                                        % (os.path.basename(stem), v.kind))
+        # ⛔⭐ THE EMPTY-REF GUARD BELONGS ON THIS BRANCH TOO, AND ONLY THE RUN BRANCH HAD IT (hq_S 2026-09-12).
+        # Twenty lines down, an oracle that prints nothing is refused as "a vacuous ref is worse than none".
+        # --dump-ast printing nothing is the SAME defect and was absorbed happily: SCRIP writes its parse error
+        # to STDERR and exits 1, so a fixture our own parser cannot read yields kind=PASS with EMPTY text, and
+        # the entry lands declared modes=ast with a ref it can never match. MEASURED: 13 raku parser-coverage
+        # fixtures absorbed exactly that way in this row's first pass -- `QUIT { say "quit"; }` and friends,
+        # where scrip answers "raku parse error line 1: syntax error" -- and
+        # test_gate_ast_declared_refs_are_ast_dumps.sh caught every one ("graded by --dump-ast against nothing").
+        # ⭐ THE ASYMMETRY IS THE WHOLE LESSON: the run branch's guard was written because an ORACLE can fail
+        # quietly, and nobody transplanted it to the branch where OUR OWN TOOL fails quietly. There is no oracle
+        # for SCRIP's AST (these refs are self-pins), so there is no second opinion to fall back on -- an empty
+        # dump cannot be repaired here, only refused. The fixture stays visible on its own board either way:
+        # test_raku_parser_fixtures.sh walks the tree from disk and grades all 97 by --dump-ast, so a parser gap
+        # excluded here is still red there. Excluding does not hide it; absorbing it vacuously WOULD.
+        if not v.text().strip():
+            return ("exclude", name, "parser-only fixture (declared %s.ast-only) but --dump-ast emits NOTHING -- "
+                                       "SCRIP's own parser cannot read it (the diagnostic goes to stderr and the "
+                                       "dump is empty), and a vacuous ast ref is worse than none: there is no "
+                                       "oracle for SCRIP's AST, so the ref would be a self-pin against emptiness. "
+                                       "Still graded from disk by the language's parser-fixture board."
+                                       % os.path.basename(stem))
         return ("ast", name, body_lines, v.text())
 
     stdin_text, stdin_src = _additive_stdin_for(stem)
@@ -1223,12 +1258,19 @@ def _additive_classify_and_run(path, ext, oracle_bin, flags, paths, timeout):
     if not ora_text.strip():
         return ("exclude", name, "oracle produced EMPTY output -- a vacuous ref is worse than none (same guard as cmd_capture_oracle_refs)")
 
-    existing_ref = stem + ".ref"
+    # ⛔ .expected AND .std COUNT AS A COMMITTED REF, NOT JUST .ref (hq_S 2026-09-12): util_unabsorbed_census.py
+    # has always called any of the three a "loose pair" (_REF_EXTS), and corpus/tests/scrip_test/raku/ ships
+    # .expected exclusively. Looking only for .ref here sent every one of those down the mint-a-fresh-ref path,
+    # ignoring a committed ref that was sitting beside the source -- the two instruments disagreeing about what
+    # a ref IS, which is the quieter half of why that tree never absorbed.
+    existing_ref = next((stem + x for x in (".ref", ".expected", ".std") if os.path.isfile(stem + x)), stem + ".ref")
+    ref_confirmed = False
     if os.path.isfile(existing_ref):
         committed = open(existing_ref, encoding="utf-8", errors="replace").read().rstrip("\n")
         if committed != ora_text:
             return ("exclude", name, "committed .ref disagrees with a fresh oracle run -- re-confirm by hand "
                                        "(stale ref, drifted oracle, or a scale/flag this recipe does not supply)")
+        ref_confirmed = True
 
     v3 = h.run_m3(paths, _P(path), ora_text, timeout=timeout, stdin_text=stdin_text)
     with __import__("tempfile").TemporaryDirectory() as td:
@@ -1237,9 +1279,50 @@ def _additive_classify_and_run(path, ext, oracle_bin, flags, paths, timeout):
         return ("exclude", name, "over budget (m3/m4 exceeded %.1fs)" % timeout)
     agree3 = v3.kind == "PASS" and v3.returncode == ora_rc
     agree4 = v4.kind == "PASS" and v4.returncode == ora_rc
+    # ⛔⭐⭐ TWO DIFFERENT QUESTIONS WERE BEING ANSWERED BY ONE GATE, AND THE WRONG ANSWER WAS UNFALSIFIABLE
+    # (hq_S 2026-09-12, row raku-absorb-every-owed-source, on the ceo's CEO-591 re-cut and hq_V's standing
+    # practice "a wrong exclusion costs more than a wrong cure, because a red stays visible and an excluded
+    # name cannot be red"). Three-way agreement exists to keep us from PINNING A REF WE CANNOT TRUST when we
+    # are minting one from scratch -- there, m3/m4 are the only second opinion available and the guard is
+    # right. But when a COMMITTED .ref is already on disk and has just RE-CONFIRMED byte-for-byte against a
+    # fresh oracle run (ref_confirmed, twenty lines up), the ref's correctness is ESTABLISHED BY THE ORACLE
+    # and m3/m4 are no longer evidence about the ref at all -- they are evidence about US. Excluding there
+    # does not protect a ref; it deletes one of OUR OWN REDS from the denominator and writes the false reason
+    # "non-deterministic or diverges from the oracle" over it.
+    # ⛔ MEASURED, and this is what makes it a defect rather than a preference: all 17 corpus/benchmarks/raku
+    # loose pairs re-confirm against rakudo-local 2026.05 EXACTLY, and 11 of them were being excluded with that
+    # sentence while the real cause was printed on stdout by our own compiler -- "[SMX] --run: mode-3 native
+    # emitter does not yet cover this program: variable 'Inf' is read but never assigned". Nothing about those
+    # programs is non-deterministic, and nothing about them diverges from the oracle; the oracle runs all 17 at
+    # rc=0 and matches every committed ref. The reason string was not merely imprecise, it named the innocent
+    # party, so anyone auditing the exclusion list would have gone looking at the programs instead of at us.
+    # ⭐ RULES.md:214 (Lon 2026-09-03, "there is no such thing now as XFAIL... we are shooting for 100%") is the
+    # law this restores: a program we fail is a FAIL on the board, never a name in a sidecar. The absorbed entry
+    # is declared m3,m4 in MODES.tsv like any other -- MODES.tsv says WHICH modes grade an entry, never whether
+    # it is allowed to fail -- so it reads red until the emitter covers it, which is the entire point.
     if not (agree3 and agree4):
-        return ("exclude", name, "non-deterministic or diverges from the oracle -- m3=%s m4=%s vs oracle rc=%s"
-                                   % (v3.kind, v4.kind, ora_rc))
+        if ref_confirmed:
+            return ("run", name, body_lines, ora_text, stdin_text)
+        # ⛔⭐ THE SECOND OPINION DOES NOT HAVE TO BE OUR OWN COMPILER, AND IT IS A BETTER ONE WHEN IT IS NOT.
+        # With no committed .ref the three-way guard has a real job -- do not pin a ref from a single run of a
+        # program that might be non-deterministic. But m3/m4 answer that question only by accident: they agree
+        # when we are CORRECT, and a program we simply do not implement yet reads exactly like a program whose
+        # output cannot be trusted. Asking the ORACLE TWICE separates the two cleanly -- it is the same question
+        # the guard was always trying to ask ("is this output reproducible?"), asked of the authority that
+        # defines the answer, and it costs one extra oracle run only on the path that was about to exclude.
+        # Two identical runs -> the ref is the oracle's output and the entry is absorbed, reading RED until we
+        # cover it (RULES.md:214, no XFAIL). Two different runs -> genuinely non-deterministic, and only NOW is
+        # that word the truthful reason to exclude.
+        # ⛔ THE RESIDUAL RISK, NAMED RATHER THAN PAPERED OVER: repetition catches a program that varies run to
+        # run, not one that is stable within a sitting and varies across days (a DATE()/TIME() or locale
+        # dependence). That exposure is identical for the committed-ref path directly above, which re-confirms
+        # against exactly one fresh run, so this adds no new class of error -- it inherits an existing one.
+        ora_text2, ora_rc2, ora_kind2 = h.run_oracle(oracle_bin, flags, _P(path), timeout, stdin_text=stdin_text)
+        if ora_kind2 == "RAN" and ora_text2 == ora_text and ora_rc2 == ora_rc:
+            return ("run", name, body_lines, ora_text, stdin_text)
+        return ("exclude", name, "NON-DETERMINISTIC, proven by repetition: two oracle runs of this program "
+                                   "disagree (rc %s then %s), so no ref can be cut from it -- m3=%s m4=%s"
+                                   % (ora_rc, ora_rc2, v3.kind, v4.kind))
     return ("run", name, body_lines, ora_text, stdin_text)
 
 
@@ -1384,7 +1467,12 @@ def additive_absorb(lang, categories, root, timeout, write, cols):
             src_dir = os.path.join(root, "corpus", "tests", lang)
         else:
             src_dir = os.path.join(root, "corpus", cat, lang)
-        walker = _additive_walk if cat in ("demos", "benchmarks") else _additive_walk_tests
+        if cat in ("demos", "benchmarks"):
+            walker = _additive_walk
+        elif cat in _EXTRA_TEST_TREES:
+            walker = lambda d, e: _additive_walk_tests(d, e, skip_loose_pairs=False)
+        else:
+            walker = _additive_walk_tests
         for path in walker(src_dir, EXT):
             result = _additive_classify_and_run(path, EXT, oracle_bin, flags, paths, timeout)
             if result[0] == "exclude":
