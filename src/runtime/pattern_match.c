@@ -263,6 +263,7 @@ static DESCR_t subscript_get_s(DESCR_t arr, DESCR_t idx, int strict) {
     if (arr.v == DT_S || arr.v == DT_SNUL) {
         const char *s = arr.s ? arr.s : "";
         int slen = IS_CSET_fn(arr) ? kw_cset_len(s) : -1;
+        if (slen < 0 && arr.v == DT_S && arr.slen != 0xFFFFFFFFu) slen = (int)arr.slen;
         if (slen < 0) slen = (int)strlen(s);
         if (!icn_index_operand_ok(arr, idx, strict)) return FAILDESCR;
         int i = (int)to_int(idx);

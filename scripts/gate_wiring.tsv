@@ -74,6 +74,7 @@ test_gate_errlimit_survival_is_measured_per_code.sh	WIRED	-	-	-
 test_gate_gate_wiring_ratchet.sh	WIRED	-	-	-
 test_gate_gc_pacing_bounds_a_churning_program.sh	WIRED	-	-	-
 test_gate_harness_refusal_is_rc2.sh	WIRED	-	-	-
+test_gate_icn_a_string_with_an_embedded_nul_subscripts_by_its_length.sh	WIRED	-	-	-
 test_gate_icn_a_suspended_variable_images_as_a_variable_not_its_value.sh	WIRED	-	-	-
 test_gate_icn_a_suspended_variable_survives_the_procedure_boundary.sh	WIRED	-	-	-
 test_gate_icn_a_variable_operand_derefs_at_the_operation.sh	WIRED	-	-	-
@@ -170,6 +171,9 @@ test_gate_our_files_are_lf.sh	WIRED	-	-	-
 test_gate_outside_baseline_rows_name_a_live_measurement.sh	WIRED	-	-	-
 test_gate_package_runners_print_the_inventory.sh	WIRED	-	-	-
 test_gate_parser_generated_files_in_sync.sh	WIRED	-	-	-
+test_gate_pas_boolean_write_iso_mod_and_forward_params.sh	WIRED	-	-	-
+test_gate_pas_calls_carry_more_than_six_operands.sh	WIRED	-	-	-
+test_gate_pas_five_or_more_parameters_arrive.sh	WIRED	-	-	-
 test_gate_pattern_operand_reentry.sh	WIRED	-	-	-
 test_gate_picker_autounblock.sh	WIRED	-	-	-
 test_gate_pl_allsol_goal_is_validated.sh	WIRED	-	-	-
@@ -183,7 +187,6 @@ test_gate_pl_iso_rung1_database_builtins_and_call_local_cut.sh	WIRED	-	-	-
 test_gate_pl_iso_rung2_runtime_heads_and_meta_call_wrappers.sh	WIRED	-	-	-
 test_gate_pl_iso_rung3_current_predicate_generator_and_halt_type_checks.sh	WIRED	-	-	-
 test_gate_pl_iso_rung4_run_time_meta_call_of_builtins_through_compiled_wrappers.sh	WIRED	-	-	-
-test_gate_pl_swi_every_shipped_case_is_graded_by_path.sh	WIRED	-	-	-
 test_gate_pl_meta_call_reaches_control_constructs.sh	WIRED	-	-	-
 test_gate_pl_meta_wrapper_does_not_break_m4_declarations.sh	WIRED	-	-	-
 test_gate_pl_multifile_initialization_runs_every_file.sh	WIRED	-	-	-
@@ -192,6 +195,7 @@ test_gate_pl_number_syntax_iso.sh	WIRED	-	-	-
 test_gate_pl_quad_regs.sh	WIRED	-	-	-
 test_gate_pl_raising_directive_does_not_abort_the_load.sh	WIRED	-	-	-
 test_gate_pl_read_raises_catchable_syntax_error.sh	WIRED	-	-	-
+test_gate_pl_swi_every_shipped_case_is_graded_by_path.sh	WIRED	-	-	-
 test_gate_pl_term_inspection_iso_errors.sh	WIRED	-	-	-
 test_gate_pl_trail_mechanism.sh	WIRED	-	-	-
 test_gate_pl_wall_us_arity1.sh	WIRED	-	-	-
