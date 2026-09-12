@@ -1812,6 +1812,28 @@ static DESCR_t pl_mk_cmp1(const char *f, DESCR_t a0) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PL_SP_NPROP 8
+void pas_tf_write(FILE *fp, DESCR_t v) {
+    if (v.v == DT_I) { unsigned char tg = 'I'; int64_t x = (int64_t)v.i; fwrite(&tg, 1, 1, fp); fwrite(&x, 8, 1, fp); return; }
+    if (v.v == DT_R) { unsigned char tg = 'R'; double x = v.r; fwrite(&tg, 1, 1, fp); fwrite(&x, 8, 1, fp); return; }
+    if (v.v == DT_A && v.arr) { ARBLK_t *b = (ARBLK_t *)v.arr; unsigned char tg = 'A'; int32_t lo = b->lo, hi = b->hi; fwrite(&tg, 1, 1, fp); fwrite(&lo, 4, 1, fp); fwrite(&hi, 4, 1, fp);
+        for (int k = 0; k <= b->hi - b->lo; k++) pas_tf_write(fp, b->data[k]); return; }
+    if (v.v == DT_S || v.v == DT_SNUL) { const char *sv = VARVAL_fn(v); uint32_t n = (v.v == DT_S && v.slen && v.slen != 0xFFFFFFFFu) ? v.slen : (sv ? (uint32_t)strlen(sv) : 0u);
+        unsigned char tg = 'S'; fwrite(&tg, 1, 1, fp); fwrite(&n, 4, 1, fp); if (n) fwrite(sv, 1, n, fp); return; }
+    unsigned char tg = 'N'; fwrite(&tg, 1, 1, fp);
+}
+int pas_tf_read(FILE *fp, DESCR_t *o) {
+    unsigned char tg; if (fread(&tg, 1, 1, fp) != 1) { *o = INTVAL(0); return 0; }
+    if (tg == 'I') { int64_t x = 0; if (fread(&x, 8, 1, fp) != 1) return 0; *o = INTVAL(x); return 1; }
+    if (tg == 'R') { double x = 0; if (fread(&x, 8, 1, fp) != 1) return 0; *o = REALVAL(x); return 1; }
+    if (tg == 'S') { uint32_t n = 0; if (fread(&n, 4, 1, fp) != 1) return 0; char *sv = (char *)rt_pinned_alloc((size_t)n + 1); if (n && fread(sv, 1, n, fp) != n) return 0; sv[n] = 0; *o = BSTRVAL(sv, n); return 1; }
+    if (tg == 'A') { int32_t lo = 0, hi = -1; if (fread(&lo, 4, 1, fp) != 1 || fread(&hi, 4, 1, fp) != 1) return 0;
+        long long n = (long long)hi - lo + 1; if (n < 1) n = 1;
+        ARBLK_t *b = (ARBLK_t *)rt_pinned_alloc_tag(sizeof(ARBLK_t), HB_ARR); b->id = rt_agg_serial_list(); b->dumpno = rt_sno_dumpno_next(); b->lo = lo; b->hi = hi; b->ndim = 1; b->lo2 = 0; b->hi2 = 0; b->proto_bare = 0;
+        b->data = (DESCR_t *)rt_pinned_alloc(sizeof(DESCR_t) * (size_t)n); for (long long k = 0; k < n; k++) b->data[k] = INTVAL(0);
+        for (int k = 0; k <= hi - lo; k++) if (!pas_tf_read(fp, &b->data[k])) return 0;
+        DESCR_t d; d.v = DT_A; d.slen = 0; d.arr = b; *o = d; return 1; }
+    *o = NULVCL; return 1;
+}
 static int pl_sp_stream_live(int i) { extern FILE *fh_get(int); return fh_get(i) != (FILE *)0; }
 static int pl_sp_is_input(int i) { extern char fh_mode[]; return (i == 0) || (i >= 3 && fh_mode[i] == 'r'); }
 static const char *pl_sp_mode_name(int i) { extern char fh_mode[]; char m = (i == 0) ? 'r' : (i == 1 || i == 2) ? 'w' : fh_mode[i];
@@ -2781,6 +2803,43 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         unsigned char bits[PAS_SET_BYTES]; pas_set_bits(args[1], bits);
         int hit = (e >= 0 && e < PAS_SET_BYTES * 8) ? ((bits[e / 8] >> (e % 8)) & 1) : 0;
         *out = INTVAL(hit ? 1 : 0); return 1;
+    }
+    if (!strncmp(fn, "__pas_f", 7) || !strcmp(fn, "__pas_treset") || !strcmp(fn, "__pas_trewrite")) {
+        extern int fh_alloc(FILE *); extern FILE *fh_get(int);
+        static struct { DESCR_t buf; int has; } tf[512];
+        if (!strcmp(fn, "__pas_trewrite") && nargs == 1) {
+            FILE *fp = (FILE *)0; int idx = -1;
+            if (IS_FH_fn(args[0])) { idx = (int)args[0].i; fp = fh_get(idx); if (fp) { rewind(fp); if (ftruncate(fileno(fp), 0) != 0) fp = (FILE *)0; } }
+            if (!fp) { const char *nm = VARVAL_fn(args[0]);
+                if (nm && nm[0] && !IS_FH_fn(args[0])) fp = fopen(nm, "w+b");
+                else { char tmpl[] = "/tmp/scrip_pas_XXXXXX"; int fd = mkstemp(tmpl); fp = (fd >= 0) ? fdopen(fd, "w+b") : (FILE *)0; }
+                if (!fp) { *out = FAILDESCR; return 1; }
+                idx = fh_alloc(fp); if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; } }
+            if (idx >= 0 && idx < 512) { tf[idx].has = 0; tf[idx].buf = INTVAL(0); }
+            *out = FHVAL(idx); return 1;
+        }
+        int pas_tf_read(FILE *fp, DESCR_t *o);
+        void pas_tf_write(FILE *fp, DESCR_t v);
+        if (!strcmp(fn, "__pas_treset") && nargs == 1) {
+            FILE *fp = (FILE *)0; int idx = -1;
+            if (IS_FH_fn(args[0])) { idx = (int)args[0].i; fp = fh_get(idx); if (fp) { fflush(fp); rewind(fp); } }
+            if (!fp) { const char *nm = VARVAL_fn(args[0]); if (!nm || !nm[0]) { *out = FAILDESCR; return 1; }
+                fp = fopen(nm, "rb"); if (!fp) { *out = FAILDESCR; return 1; }
+                idx = fh_alloc(fp); if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; } }
+            if (idx >= 0 && idx < 512) { tf[idx].has = pas_tf_read(fp, &tf[idx].buf); }
+            *out = FHVAL(idx); return 1;
+        }
+        if (!IS_FH_fn(args[0])) { *out = FAILDESCR; return 1; }
+        int idx = (int)args[0].i; FILE *fp = fh_get(idx);
+        if (!fp || idx < 0 || idx >= 512) { *out = FAILDESCR; return 1; }
+        if (!strcmp(fn, "__pas_fbuf_get") && nargs == 1) { *out = tf[idx].has ? tf[idx].buf : INTVAL(0); return 1; }
+        if (!strcmp(fn, "__pas_fbuf_set") && nargs == 2) { tf[idx].buf = args[1]; tf[idx].has = 1; *out = NULVCL; return 1; }
+        if (!strcmp(fn, "__pas_fput") && nargs == 1) { pas_tf_write(fp, tf[idx].buf); tf[idx].has = 0; *out = NULVCL; return 1; }
+        if (!strcmp(fn, "__pas_fget") && nargs == 1) { tf[idx].has = pas_tf_read(fp, &tf[idx].buf); *out = NULVCL; return 1; }
+        if (!strcmp(fn, "__pas_fwrite") && nargs == 2) { pas_tf_write(fp, args[1]); *out = NULVCL; return 1; }
+        if (!strcmp(fn, "__pas_fread") && nargs == 1) { DESCR_t v = tf[idx].has ? tf[idx].buf : INTVAL(0); tf[idx].has = pas_tf_read(fp, &tf[idx].buf); *out = v; return 1; }
+        if (!strcmp(fn, "__pas_feof_t") && nargs == 1) { *out = INTVAL(tf[idx].has ? 0 : 1); return 1; }
+        *out = FAILDESCR; return 1;
     }
     if (!strcmp(fn, "__pas_setrange") && nargs == 2) {
         unsigned char *buf = (unsigned char *)rt_pinned_alloc(PAS_SET_BYTES); memset(buf, 0, PAS_SET_BYTES);
