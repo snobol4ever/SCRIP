@@ -520,6 +520,8 @@ typedef struct {
     int                          op_range_int_operands;
     int                          op_frame_extra;
     int                          op_arbno_frame_off;
+    int                          op_arbno_win_lo;
+    int                          op_arbno_win_bytes;
     int                          op_cap_frame_off;
     int                          op_fence0_release;
     int                          op_fence0_floor;

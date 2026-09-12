@@ -6,7 +6,6 @@ extern "C" {
 #include "bb_templates.h"
 }
 extern "C" void * rt_zcol_push(void ** ptr_cell, int * cap_cell, int i, long elem_sz);
-extern "C" int sn4_defer_resume(void);
 extern "C" int sn4_arbno_seal_omega(void);
 extern "C" int sn4_arbno_tailbeta(void);
 #include "x86_asm.h"
@@ -89,37 +88,58 @@ static std::string bb_match_arbno_frameless() {
          + x86_omega();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string arbno_win_save(int dst) { std::string r; for (int i = 0; i < _.op_arbno_win_bytes; i += 8) r += x86("mov", "rax", RDQ("rbp", _.op_arbno_win_lo + i)) + x86("mov", RDQ("rsp", dst + i), "rax"); return r; }
+static std::string arbno_win_restore(const char * cell, int src) { std::string r; for (int i = 0; i < _.op_arbno_win_bytes; i += 8) r += x86("mov", "rax", RDQ(cell, src + i)) + x86("mov", RDQ("rbp", _.op_arbno_win_lo + i), "rax"); return r; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_match_arbno_frame() {
-    int off = _.op_arbno_frame_off;
-    return x86("comment", "IR_MATCH_ARBNO_FRAME (ARBNO-FRAME SLOT: frameless-arm cell, rbp-relative -- immune to a DEFER body member's frontier movement)")
+    const char * bodybeta = sn4_arbno_tailbeta() ? PAIR(4) : PAIR(1);
+    long cs = 32 + ((_.op_arbno_win_bytes + 15) & ~15);
+    return x86("comment", "IR_MATCH_ARBNO_FRAME (ARBNO-FRAME CHAIN: one cell per committed instance on the machine stack -- start@0 mark@4 r12@8 prev@16, then a snapshot of the BODY's rbp slot window -- the rbp slot holds only the chain HEAD.  A body member's slot is per BOX, so instance k+1's alpha overwrites instance k's saved cursor; the snapshot taken at k's commit and restored before receding into k's beta is what makes the recede land on the instance it names)")
          + x86_alpha()
-         + x86("mov", AFC(0), "r14d")
-         + x86("mov", AFC(4), "r14d")
-         + x86("comment", "PEND-MARK a: bank the r12 pend cursor in this node's own slot (frame_slot_off strides 16B per index; the arm uses only [0..7], so [8..15] is ours).  An instance ATTEMPT that is later abandoned must not leave its deferred-capture entries behind for rt_dcap_pump to replay")
-         + x86("mov", AFCQ(8), "r12")
+         + x86("sub", "rsp", cs)
+         + x86("mov", RDD("rsp", 0), "r14d")
+         + x86("mov", RDD("rsp", 4), "r14d")
+         + x86("mov", RDQ("rsp", 8), "r12")
+         + x86("mov", "rax", AFCQ(0))
+         + x86("mov", RDQ("rsp", 16), "rax")
+         + x86("mov", AFCQ(0), "rsp")
          + x86_gamma()
          + x86_beta()
-         + x86("comment", "PEND-MARK b: roll the pend cursor back to the last COMMITTED instance before retrying the body -- this is the cure for the double-fire")
-         + x86("mov", "r12", AFCQ(8))
+         + x86("comment", "PEND-MARK b: roll the pend cursor back to the last COMMITTED instance before retrying the body")
+         + x86("mov", "rax", AFCQ(0))
+         + x86("mov", "r12", RDQ("rax", 8))
          + x86("jmp", PAIR(0))
          + x86("def", PAIR(2))
-         + x86("mov", "eax", AFC(4))
+         + x86("mov", "rcx", AFCQ(0))
+         + x86("mov", "eax", RDD("rcx", 4))
          + x86("cmp", "r14d", "eax")
-         + x86("comment", "NULL-BODY GUARD: the body matched without moving the cursor, so another instance would be a non-terminating no-op -- recede INTO the body for a longer match")
-         + x86("comment", "the body is a CHAIN, so its beta is its LAST node's (PAIR(4)), never operands[1]'s (PAIR(1)) which is the body ENTRY.  The exhaust arm below recedes to the same place and must name it the same way")
-         + x86("je",  sn4_arbno_tailbeta() ? PAIR(4) : PAIR(1))
-         + x86("mov", AFC(4), "r14d")
-         + x86("comment", "PEND-MARK c: this instance made progress and is COMMITTED -- advance the mark so its entries SURVIVE the next retry (rolling back to the alpha mark would wipe legitimately-completed instances)")
-         + x86("mov", AFCQ(8), "r12")
+         + x86("comment", "NULL-BODY GUARD: the body matched without moving the cursor -- recede INTO the body (a CHAIN body's beta is its LAST node's, PAIR(4)) for a longer match")
+         + x86("je",  bodybeta)
+         + x86("comment", "COMMIT: push a fresh cell BELOW the body's live frames and snapshot the body's slot window into it")
+         + x86("sub", "rsp", cs)
+         + x86("mov", "eax", RDD("rcx", 0))
+         + x86("mov", RDD("rsp", 0), "eax")
+         + x86("mov", RDD("rsp", 4), "r14d")
+         + x86("mov", RDQ("rsp", 8), "r12")
+         + x86("mov", RDQ("rsp", 16), "rcx")
+         + arbno_win_save(32)
+         + x86("mov", AFCQ(0), "rsp")
          + x86_gamma()
          + x86("def", PAIR(3)) + x86("def", PAIR(5))
-         + x86("mov", "eax", AFC(0))
+         + x86("comment", "EXHAUST: the body conceded.  The cursor is the top cell's mark by definition; pop the cell; the alpha cell (mark == start) concedes, a commit cell restores its snapshot and recedes into the instance below's body beta with rsp exactly where that instance's gamma left it")
+         + x86("mov", "rcx", AFCQ(0))
+         + x86("mov", "eax", RDD("rcx", 0))
+         + x86("mov", "r14d", RDD("rcx", 4))
+         + x86("mov", "rdx", RDQ("rcx", 16))
+         + x86("mov", AFCQ(0), "rdx")
          + x86("cmp", "r14d", "eax")
-         + IF(!sn4_defer_resume() || !_.op_arbno_body_actframe, x86("je", L(3))
-              + x86("comment", "EXHAUST-RECEDE ROLLBACK: receding drops one instance, so AFC(4) -- the END cursor of the instance being abandoned -- is stale HIGH for the shallower instance we re-enter, and the null-body guard then grades that instance against a DEEPER one's cursor, so a null shallower instance passes and ARBNO re-enters its body forever.  eax already holds AFC(0)")
-              + x86("mov", AFC(4), "eax")
-              + x86("jmp", sn4_arbno_tailbeta() ? PAIR(4) : PAIR(1))
+         + IF(!(_.op_tail_seal && sn4_arbno_seal_omega()), x86("je", L(3))
+              + arbno_win_restore("rcx", 32)
+              + x86("lea", "rsp", RDQ("rcx", (int)cs))
+              + x86("mov", "r12", RDQ("rdx", 8))
+              + x86("jmp", bodybeta)
               + x86("def", L(3)))
+         + x86("lea", "rsp", RDQ("rcx", (int)cs))
          + x86_omega();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

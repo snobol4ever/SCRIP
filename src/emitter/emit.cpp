@@ -730,6 +730,7 @@ static int cap_save_cond_gap_has_alt(const IR_t * nd) {
     return nd->operands[0]->op == IR_MATCH_ALTERNATE;
 }
 static int zd_k(IR_t * nd);
+static int arbno_body_slot_window(const IR_t * nd, int * out_lo, int * out_bytes);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int fence_kk_gamma_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_FENCE_BODY_KK_GAMMA"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1199,7 +1200,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_MATCH_DEFER: { bb_prepare(nd); g_emit.op_seal = nd->seal; g_emit.op_off = drive_value_slot(nd); g_emit.op_defer_leaf_susp = g_emit_cfg ? fc_tail_defer_susp_g(g_emit_cfg, nd) : -1; bb_emit_x86(bb_match_defer()); } return 0;
     case IR_MATCH_VALUE:          { bb_prepare(nd); bb_emit_x86(bb_match_value()); } return 0;
     case IR_MATCH_ARBNO:          { bb_prepare(nd); g_emit.op_arbno_rbp = 0;
-                                    g_emit.op_arbno_frame_off = arbno_frame_slot(nd);
+                                    g_emit.op_arbno_frame_off = arbno_frame_slot(nd); arbno_body_slot_window(nd, &g_emit.op_arbno_win_lo, &g_emit.op_arbno_win_bytes);
                                     extern int fc_tail_arbno(const IR_t *, int *, int *, int *, int *); extern int fc_tail_ncap(const IR_t *); int _fpb = 0, _fpl = 0, _osb = 0, _hdr = 0;
                                     int _tailc = (fc_tail_arbno(nd, &_fpb, &_fpl, &_osb, &_hdr)) ? 1 : 0;
                                     int _k16r = 0; { static int _k16e = -1; if (_k16e < 0) { const char * _e1 = getenv("SCRIP_ARBNO_K16"); _k16e = (_e1 ? (atoi(_e1) != 0) : 1) ? 1 : 0; } if (_k16e && g_emit_cfg && nd->n_operands >= 3) { int _ni=-1; for(int _j=0;_j<g_emit_cfg->n;_j++) if(g_emit_cfg->all[_j]==nd){_ni=_j;break;} int _fr=0; if(_ni>=0) for(int _j=0;_j<g_emit_cfg->n&&!_fr;_j++){IR_t*_o=g_emit_cfg->all[_j]; if(_o&&_o!=nd&&_o->op==IR_MATCH_ARBNO&&_o->n_operands>=3){int _a=-1,_b=-1; for(int _k=0;_k<g_emit_cfg->n;_k++){if(g_emit_cfg->all[_k]==_o->operands[1])_a=_k;if(g_emit_cfg->all[_k]==_o->operands[2])_b=_k;} if(_a>_b){int _t=_a;_a=_b;_b=_t;} if(_a>=0&&_ni>=_a&&_ni<=_b)_fr=1;}} int _k0=1,_kk=0,_sq=1; { int _s0=-1,_s1=-1; for(int _j=0;_j<g_emit_cfg->n;_j++){if(g_emit_cfg->all[_j]==nd->operands[1])_s0=_j;if(g_emit_cfg->all[_j]==nd->operands[2])_s1=_j;} if(_s0>_s1){int _t=_s0;_s0=_s1;_s1=_t;} if(_s0<0){_k0=0;_sq=0;} else for(int _j=_s0;_j<=_s1;_j++){IR_t*_m=g_emit_cfg->all[_j]; if(_m&&_m!=nd){int _mo2=(int)_m->op; if(_mo2==IR_MATCH_ALTERNATE||_mo2==IR_MATCH_ARBNO||(_mo2==IR_MATCH_FENCE1 || _mo2==IR_MATCH_FENCE0)||_mo2==IR_MATCH_DEFER||_mo2==IR_MATCH_VALUE||_mo2==IR_CALL||_mo2==IR_CALL_VALUE||_mo2==IR_DISJUNCTION||_mo2==IR_MATCH_ABORT)_sq=0; int _mk=zd_k(_m); if(_mk!=0)_k0=0; _kk+=_mk;}} } int _osv=0,_dmb=-2,_dme=-2; { int _mb=-1,_hi=g_emit_cfg->n; for(int _j=_ni;_j>=0;_j--){if(g_emit_cfg->all[_j]&&g_emit_cfg->all[_j]->op==IR_MATCH_BEGIN){_mb=_j;break;}} if(_mb>=0) for(int _j=_mb+1;_j<g_emit_cfg->n;_j++){if(g_emit_cfg->all[_j]&&g_emit_cfg->all[_j]->op==IR_MATCH_BEGIN){_hi=_j;break;}} if(_mb>=0){ int _s0=-1,_s1=-1; for(int _j=0;_j<g_emit_cfg->n;_j++){if(g_emit_cfg->all[_j]==nd->operands[1])_s0=_j;if(g_emit_cfg->all[_j]==nd->operands[2])_s1=_j;} if(_s0>_s1){int _t=_s0;_s0=_s1;_s1=_t;} for(int _j=_mb+1;_j<_hi;_j++){ if(_j>=_s0&&_j<=_s1) continue; IR_t*_m=g_emit_cfg->all[_j]; if(_m&&_m->op==IR_MATCH_ASSIGN_SAVE)_osv=1; } } else _osv=1; _dmb=_mb; _dme=_hi; }    if (_sq && !_k0 && _kk > 0 && !_fr && !_osv) { _k16r = 1; g_arbk16_stmt = 1; g_emit.op_arbno_framed = 0; g_emit.op_arbno_body_k0 = 0; g_emit.op_arbno_body_kk = _kk; }       { static int _ad=-1; if(_ad<0){const char*_e=getenv("SCRIP_ARBNO_DIAG"); _ad=(_e&&*_e=='1')?1:0;} if(_ad) fprintf(stderr,"[ARBNO-K16] framed=%d k0=%d sq=%d kk=%d osv=%d mb=%d me=%d route=%s\n", _fr, _k0, _sq, _kk, _osv, _dmb, _dme, _k16r?"FRAMELESS_K":"legacy"); } } }
@@ -1349,7 +1350,7 @@ extern int           g_gva_active;
 extern IR_graph_t *  g_emit_cfg;
 #define DRIVE_FILL(nd,a,s,f,b) do { \
     g_emit.op_selfload = 0; \
-    g_emit.op_fc_bytes = 0; g_emit.op_fc_base = -1; g_emit.x86_fc_synth = 240; g_emit.op_fc_fpmax = -1; g_emit.op_fc_disp = -1; g_emit.op_fc_wbytes = 0; g_emit.op_arbno_chain = 0; g_emit.op_arbno_nzq = 0; g_emit.op_tail = 0; g_emit.op_tail_fpb = 0; g_emit.op_tail_fpl = 0; g_emit.op_tail_seal = 0; g_emit.op_tail_ncap = 0; g_emit.op_arbno_dt = 0; g_emit.op_arbno_dt_susp = 0; g_emit.op_defer_leaf_susp = -1; g_emit.op_tail_dfr = 0; g_emit.op_tail_fpr_rsp = 0; g_emit.op_body_has_arbno = 0; g_emit.op_arbno_framed = 0; g_emit.op_arbno_body_k0 = 0; g_emit.op_arbno_body_kk = 0; g_emit.op_fence_body_kk = 0; g_emit.op_fence_frame_off = -1; g_emit.op_fence0_floor = 0; g_emit.op_arbno_body_defer_unsafe = 0; g_emit.op_arbno_body_actframe = 0; g_emit.op_cap_anchor = 0; g_emit.op_arbno_rbp = 0; g_emit.op_range_int_operands = 0; \
+    g_emit.op_fc_bytes = 0; g_emit.op_fc_base = -1; g_emit.x86_fc_synth = 240; g_emit.op_fc_fpmax = -1; g_emit.op_fc_disp = -1; g_emit.op_fc_wbytes = 0; g_emit.op_arbno_chain = 0; g_emit.op_arbno_nzq = 0; g_emit.op_tail = 0; g_emit.op_tail_fpb = 0; g_emit.op_tail_fpl = 0; g_emit.op_tail_seal = 0; g_emit.op_tail_ncap = 0; g_emit.op_arbno_dt = 0; g_emit.op_arbno_dt_susp = 0; g_emit.op_defer_leaf_susp = -1; g_emit.op_tail_dfr = 0; g_emit.op_tail_fpr_rsp = 0; g_emit.op_body_has_arbno = 0; g_emit.op_arbno_framed = 0; g_emit.op_arbno_body_k0 = 0; g_emit.op_arbno_body_kk = 0; g_emit.op_fence_body_kk = 0; g_emit.op_fence_frame_off = -1; g_emit.op_fence0_floor = 0; g_emit.op_arbno_body_defer_unsafe = 0; g_emit.op_arbno_body_actframe = 0; g_emit.op_arbno_win_lo = 0; g_emit.op_arbno_win_bytes = 0; g_emit.op_cap_anchor = 0; g_emit.op_arbno_rbp = 0; g_emit.op_range_int_operands = 0; \
      \
     bb_label_t *_fs__=bb_label_fold((s)), *_ff__=bb_label_fold((f)); \
     g_emit.lbl_α=(a)->name; g_emit.lbl_γ=_fs__->name; g_emit.lbl_ω=_ff__->name; g_emit.lbl_β=(b)->name; \
@@ -2380,6 +2381,26 @@ static int frame_slot_scan(const IR_t * query, int * out_index, int * out_count)
 int sn4_blob_casmark(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BLOB_CASMARK"); v = (e && *e == '0') ? 0 : 1; } return v; }
 static int blob_head_bytes(void) { return sn4_blob_casmark() ? 40 : 24; }
 static int frame_slot_off(int scan_rc, int idx) { return -((scan_rc == 2 ? (blob_head_bytes() + 8) : 64) + 16 * idx); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int arbno_body_slot_window(const IR_t * nd, int * out_lo, int * out_bytes) {
+    if (out_lo) *out_lo = 0; if (out_bytes) *out_bytes = 0;
+    if (!nd || nd->n_operands < 3 || !g_emit_cfg) return 0;
+    int s0 = -1, s1 = -1, qi = -1;
+    for (int j = 0; j < g_emit_cfg->n; j++) { if (g_emit_cfg->all[j] == nd) qi = j; if (g_emit_cfg->all[j] == nd->operands[1]) s0 = j; if (g_emit_cfg->all[j] == nd->operands[2]) s1 = j; }
+    if (s0 > s1) { int t = s0; s0 = s1; s1 = t; }
+    if (s0 < 0 || qi < 0) return 0;
+    int mb = -1; for (int j = qi; j >= 0; j--) { IR_t * m = g_emit_cfg->all[j]; if (m && m->op == IR_MATCH_BEGIN) { mb = j; break; } }
+    int blob = (mb < 0 && blob_frame_scope()) ? 1 : 0;
+    if (mb < 0 && !blob) return 0;
+    int hi = g_emit_cfg->n; if (!blob) for (int j = mb + 1; j < g_emit_cfg->n; j++) { IR_t * m = g_emit_cfg->all[j]; if (m && m->op == IR_MATCH_BEGIN) { hi = j; break; } }
+    int rc = blob ? 2 : 1, k = 0, lo = 0, top = 0, any = 0; extern int zdp_scratch_cell(const IR_t *);
+    for (int j = mb + 1; j < hi; j++) { IR_t * m = g_emit_cfg->all[j]; if (!m || !frame_slot_is_candidate(m)) continue;
+        int u = (m->op == IR_MATCH_ALTERNATE) ? 2 : (zdp_scratch_cell(m) ? 2 : 1);
+        if (j >= s0 && j <= s1 && m != nd) { int a = frame_slot_off(rc, k + u - 1), b = frame_slot_off(rc, k) + 16; if (!any || a < lo) lo = a; if (!any || b > top) top = b; any = 1; }
+        k += u; }
+    if (out_lo) *out_lo = lo; if (out_bytes) *out_bytes = any ? top - lo : 0;
+    return any;
+}
 extern "C" int sn4_choice_rbp_off(void);
 static int choice_frame_slot(const IR_t * alt_nd);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
