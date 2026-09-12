@@ -55,8 +55,18 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 # MODE 4 HAS A DECLARED, MEASURED BUDGET.  These programs are enormous by generated-code standards --
 # math_minus emits a 55 MB .s in 9 s, and math_pow was still writing at 128 MB after 47 s.  The compile
 # runs under `ulimit -f` (SPITBOL_X64_M4_ASM_MB, default 64) and a timeout, so a program whose asm does
-# not fit is SKIPped WITH ITS MEASURED SIZE in the record, never silently dropped and never allowed to
-# fill the disk.  A SKIP is not a PASS: it keeps both_modes_pass honest by construction.
+# not fit is DEFERRED WITH ITS MEASURED SIZE in the record, never silently dropped and never allowed to
+# fill the disk.
+# ⛔⭐ SKIP IS RETIRED AS A LEAF AND SPLITS BY WHO DECIDED (hq_T ruling 2026-09-12, GOAL-TEST-SUITE-
+# CONSISTENCY.md, .github 8fda2878, on this runner's own ask).  One word was carrying two facts that want
+# opposite readings, and the instrument HAD the distinction and threw it away:
+#   DEFERRED     -- WE chose not to measure, and it carries its threshold (asm over the budget, or the
+#                   compile timeout).  Not our failure; not a pass either.
+#   COMPILE_FAIL -- OUR OWN toolchain refused a GRADED program.  ⛔ That is not a skip at all, it is a
+#   LINK_FAIL       failure, and calling it SKIP is skip-as-success wearing the ladder's clothes.  Both
+#                   are counted in m4_fail, not in a bucket beside it.
+# So m4_deferred is the only excluded bucket and it names its threshold; a program our compiler could not
+# build is red, which is what it is.
 #
 # Exit: 0 iff FAIL=0 in both modes over the graded population, the same contract as every sibling package
 # runner (dotnet, gimpel, snoflake, csnobol4).  rc=2 when it cannot measure.
@@ -95,8 +105,8 @@ fi
 # includes), so a run in place would both dirty the corpus checkout and let one program's output become
 # the next one's input.  The copy is made once and both engines run inside it.
 RUN="$W/run"; mkdir -p "$RUN"; cp -R "$SUITE"/. "$RUN"/ 2>/dev/null
-GRADED=0; UNGRADED_N=0; P3=0; F3=0; P4=0; F4=0; S4=0; BOTH=0; SELF=0; STREAM=0
-FL3=""; FL4=""; UNG_LIST=""; SKIP_LIST=""; SELF_LIST=""
+GRADED=0; UNGRADED_N=0; P3=0; F3=0; P4=0; F4=0; D4=0; BOTH=0; SELF=0; STREAM=0
+FL3=""; FL4=""; UNG_LIST=""; DEFER_LIST=""; SELF_LIST=""
 verdict_of() { if [ "$1" -eq 124 ]; then echo HANG; elif [ "$1" -ge 128 ]; then echo CRASH; else echo FAIL; fi; }
 # ⭐ THE PROGRESS DATABASE (CEO-319/331, CEO-383 ruling 2): one row per program per mode, written once at
 # the end through lib_progress.sh, said aloud either way, never a red board.  Recorded only for the
@@ -108,7 +118,7 @@ prog_row() { printf 'package\tspitbol_x64\tsnobol4\t%s\t%s\t%s\t0\t%s\n' "$1" "$
 verdict_lines() { grep -cE '^( pass: |\*FAIL: )' "$1" 2>/dev/null | tr -d ' '; }
 pass_lines()    { grep -c '^ pass: '  "$1" 2>/dev/null | tr -d ' '; }
 fail_lines()    { grep -c '^\*FAIL: ' "$1" 2>/dev/null | tr -d ' '; }
-compile_m4() {  # compile_m4 <src-basename> <out-binary>; echoes a SKIP reason on failure, silent on success
+compile_m4() {  # compile_m4 <src> <out>; on failure echoes "<OUTCOME>\t<reason>", silent on success (hq_T's split: who decided)
     local sno="$1" out="$2" rc sz
     # ⛔⭐ WHY AN INNER `bash -c` THAT DOES NOT `exec`, ON ALL FOUR RUN SITES.  bash announces a foreground
     # child killed by a signal ("Aborted", "File size limit exceeded") on the stderr of the shell that
@@ -121,11 +131,11 @@ compile_m4() {  # compile_m4 <src-basename> <out-binary>; echoes a SKIP reason o
     # every byte of them survives.  rc still arrives intact (134, 153, 124).
     timeout "$TIMEOUT" bash -c 'cd "$1" || exit 2; ulimit -f "$2" 2>/dev/null; "$3" --compile "$4" > "$5" 2> "$6"' _ "$RUN" "$((M4_ASM_MB * 1024))" "$SCRIP" "$sno" "$W/p.s" "$W/p.cerr" 2>/dev/null; rc=$?
     sz="$(wc -c < "$W/p.s" 2>/dev/null || echo 0)"
-    if [ "$rc" = 153 ]; then echo "mode-4 asm exceeded the ${M4_ASM_MB} MB budget (SIGXFSZ at $sz bytes)"; return 1; fi
-    if [ "$rc" = 124 ]; then echo "mode-4 compile hit the ${TIMEOUT}s timeout (asm at $sz bytes)"; return 1; fi
-    if [ "$rc" != 0 ]; then echo "mode-4 compile rc=$rc: $(head -1 "$W/p.cerr" 2>/dev/null | cut -c1-100)"; return 1; fi
-    gcc -c "$W/p.s" -o "$W/p.o" 2>"$W/p.cerr" || { echo "assembler rc=$? on $sz bytes of asm: $(head -1 "$W/p.cerr" | cut -c1-100)"; return 1; }
-    gcc "$W/p.o" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$out" 2>"$W/p.cerr" || { echo "link rc=$?: $(grep -m1 'undefined reference' "$W/p.cerr" | sed 's/.*undefined reference/undefined reference/' | cut -c1-80)"; return 1; }
+    if [ "$rc" = 153 ]; then printf 'DEFERRED\tWE chose not to measure: mode-4 asm exceeded the declared %s MB budget (SIGXFSZ at %s bytes); raise SPITBOL_X64_M4_ASM_MB to grade it\n' "$M4_ASM_MB" "$sz"; return 1; fi
+    if [ "$rc" = 124 ]; then printf 'DEFERRED\tWE chose not to measure: mode-4 compile hit the declared %ss timeout (asm at %s bytes); raise TIMEOUT to grade it\n' "$TIMEOUT" "$sz"; return 1; fi
+    if [ "$rc" != 0 ]; then printf 'COMPILE_FAIL\tOUR compiler refused a graded program, rc=%s: %s\n' "$rc" "$(head -1 "$W/p.cerr" 2>/dev/null | cut -c1-100)"; return 1; fi
+    gcc -c "$W/p.s" -o "$W/p.o" 2>"$W/p.cerr" || { printf 'COMPILE_FAIL\tOUR assembler refused %s bytes of our own asm: %s\n' "$sz" "$(head -1 "$W/p.cerr" | cut -c1-100)"; return 1; }
+    gcc "$W/p.o" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$out" 2>"$W/p.cerr" || { printf 'LINK_FAIL\tOUR link of a graded program failed: %s\n' "$(grep -m1 'undefined reference' "$W/p.cerr" | sed 's/.*undefined reference/undefined reference/' | cut -c1-80)"; return 1; }
     return 0
 }
 for sno in "$SUITE"/*.sbl; do
@@ -160,7 +170,7 @@ for sno in "$SUITE"/*.sbl; do
     fi
     if [ "$OUT3" = PASS ]; then P3=$((P3+1)); else F3=$((F3+1)); FL3="$FL3 $name($OUT3)"; fi
     # --- mode 4
-    skip=""; if skip="$(compile_m4 "$base" "$W/prog.bin")"; then
+    m4why=""; if m4why="$(compile_m4 "$base" "$W/prog.bin")"; then
         timeout "$TIMEOUT" bash -c 'cd "$1" || exit 2; "$2" < /dev/null > "$3" 2> "$4"' _ "$RUN" "$W/prog.bin" "$W/m4.out" "$W/m4.err" 2>/dev/null; rc4=$?
         if [ "$rc4" -eq 124 ] || [ "$rc4" -ge 128 ]; then OUT4="$(verdict_of "$rc4")"; N4="rc=$rc4: $(head -1 "$W/m4.err" | cut -c1-90)"
         elif [ "$ARM" = self ]; then
@@ -173,17 +183,19 @@ for sno in "$SUITE"/*.sbl; do
         fi
         if [ "$OUT4" = PASS ]; then P4=$((P4+1)); else F4=$((F4+1)); FL4="$FL4 $name($OUT4)"; fi
     else
-        OUT4=SKIP; N4="$skip"; S4=$((S4+1)); SKIP_LIST="$SKIP_LIST $name"
+        OUT4="${m4why%%	*}"; N4="${m4why#*	}"
+        if [ "$OUT4" = DEFERRED ]; then D4=$((D4+1)); DEFER_LIST="$DEFER_LIST $name"
+        else F4=$((F4+1)); FL4="$FL4 $name($OUT4)"; fi
     fi
     [ "$OUT3" = PASS ] && [ "$OUT4" = PASS ] && BOTH=$((BOTH+1))
     prog_row "$name" m3 "$OUT3" "$N3"; prog_row "$name" m4 "$OUT4" "$N4"
 done
-echo "SPITBOL_X64_BOARD shipped=$SHIPPED graded=$GRADED ungraded=$UNGRADED_N m3_pass=$P3 m3_fail=$F3 m4_pass=$P4 m4_fail=$F4 m4_skip=$S4 self_check_arm=$SELF stream_arm=$STREAM -- SCRIP $SCRIP_HASH corpus $CORP_HASH RT_OPT=-O0 oracle=sbl-bf timeout=${TIMEOUT}s m4_asm_budget=${M4_ASM_MB}MB"
-echo "SPITBOL_X64_AND both_modes_pass=$BOTH/$GRADED -- the suite table states this reading (ceo-372: the AND per program; a timed-out or crashed run is HANG/CRASH, never PASS, whatever its stream; a budgeted-out mode 4 is SKIP, never PASS)"
+echo "SPITBOL_X64_BOARD shipped=$SHIPPED graded=$GRADED ungraded=$UNGRADED_N m3_pass=$P3 m3_fail=$F3 m4_pass=$P4 m4_fail=$F4 m4_deferred=$D4 self_check_arm=$SELF stream_arm=$STREAM -- SCRIP $SCRIP_HASH corpus $CORP_HASH RT_OPT=-O0 oracle=sbl-bf timeout=${TIMEOUT}s m4_asm_budget=${M4_ASM_MB}MB"
+echo "SPITBOL_X64_AND both_modes_pass=$BOTH/$GRADED -- the suite table states this reading (ceo-372: the AND per program; a timed-out or crashed run is HANG/CRASH, never PASS, whatever its stream; a mode 4 we DEFERRED on a declared threshold is never PASS either, and one OUR OWN toolchain could not build is COMPILE_FAIL/LINK_FAIL and counts in m4_fail, never in a bucket beside it -- hq_T 2026-09-12)"
 # ⛔ THE ROW'S OWN CLAUSE: the population, said in one line, with the remainder NAMED rather than counted.
 echo "SPITBOL_X64_POPULATION graded $GRADED of $SHIPPED shipped -- the ungraded remainder ($UNGRADED_N), each with the oracle's own words:"
 if [ "$UNGRADED_N" -gt 0 ]; then printf '%b' "$UNG_LIST" | sed 's/^/UNGRADED\t/'; else printf 'UNGRADED\t(none -- every shipped program is graded)\n'; fi
-[ -n "$SKIP_LIST" ] && echo "M4-SKIP (compile/link/budget, never a pass):$SKIP_LIST"
+[ -n "$DEFER_LIST" ] && echo "M4-DEFERRED (WE chose not to measure, each carrying its threshold -- asm over ${M4_ASM_MB}MB or the ${TIMEOUT}s compile timeout; never a pass, and never our failure either):$DEFER_LIST"
 [ -n "$FL3" ] && echo "FAIL-M3:$FL3"
 [ -n "$FL4" ] && echo "FAIL-M4:$FL4"
 # ⭐ THE DECLARATION, RE-ASKED EVERY RUN.  UNGRADED.tsv is the authority on which programs are owed (a
@@ -231,13 +243,34 @@ if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (
 if [ "$PROG_RECORD" = 1 ]; then
     progress_append_rows_tsv "$PROG_ROWS" || echo "⚠ PROGRESS ROWS NOT RECORDED (writer rc=$? above) -- a run that leaves the table untouched is a defect of that run (progress/README.md), not a red board" >&2
 else echo "progress: scratch suite $SUITE -- $(grep -c . "$PROG_ROWS") row(s) NOT recorded (only the canonical suite, or S4E_PROGRESS_DB, records)"; fi
-# ⛔⭐ POPULATION FLOOR: F3/F4/S4 all read 0 over zero graded entries too (the oracle refusing every
+# ⛔⭐ AN EXCLUSION NOBODY SIGNED IS NOT AN EXCLUSION -- THE DEFERRAL DECLARATION, RE-ASKED BOTH WAYS.  The
+# split above stopped a DEFERRED program from redding the board, which is right (WE chose not to measure it)
+# and is ALSO a loosening: without this block, a deferral is a silent exclusion that keeps a green rc, the
+# exact shape of the skip-as-success it replaced.  So a deferral has to be DECLARED beside the suite with its
+# threshold, the same contract UNGRADED.tsv carries above -- an UNDECLARED deferral blocks (it is a new fact,
+# not a standing decision), and a declaration the run did not reproduce is said aloud so the list cannot
+# outlive the fact.  ⛔ The FORMAT here is this suite's own; the lane-wide DEFERRED.tsv standard and its
+# re-ask cadence are hq_T's row (CEO-597) and this does not anticipate them.
+DEF_TSV="$SUITE/DEFERRED.tsv"; DEF_UNDECLARED=""
+dlive="$(printf '%s\n' $DEFER_LIST | grep . | sort)"
+if [ -f "$DEF_TSV" ]; then
+    drec="$(awk -F'\t' 'NF>1 && $1 !~ /^#/{print $1}' "$DEF_TSV" | grep . | sort)"
+    dstale="$(comm -23 <(printf '%s\n' "$drec" | grep .) <(printf '%s\n' "$dlive" | grep .) | tr '\n' ' ')"
+    DEF_UNDECLARED="$(comm -13 <(printf '%s\n' "$drec" | grep .) <(printf '%s\n' "$dlive" | grep .) | tr '\n' ' ')"
+    [ -n "$dstale" ] && echo "⚠ DEFERRED.tsv STALE -- declared as over a threshold, but they were graded this run; delete their rows: $dstale"
+    [ -z "$dstale$DEF_UNDECLARED" ] && echo "DEFERRED.tsv agrees with the measured deferred set ($D4)"
+else DEF_UNDECLARED="$dlive"; fi
+if [ -n "$DEF_UNDECLARED" ]; then
+    echo "⛔ UNDECLARED DEFERRAL -- mode 4 was not measured for these and nothing beside the suite says we decided that:$(printf ' %s' $DEF_UNDECLARED)"
+    echo "    A deferral is a decision with a threshold, so it is recorded or it is red.  Add a row each to $DEF_TSV (name<TAB>threshold<TAB>why), or cure the program."
+fi
+# ⛔⭐ POPULATION FLOOR: F3/F4/D4 all read 0 over zero graded entries too (the oracle refusing every
 # program would do it), so refuse before the vacuous-clean verdict below can be reached.
-"$HERE/util_require_population.sh" --gate test_snobol4_spitbol_x64_suite "$GRADED" 1 "graded programs (shipped=$SHIPPED ungraded=$UNGRADED_N)" || exit 2
+"$HERE/util_require_population.sh" --gate test_snobol4_spitbol_x64_suite "$GRADED" 1 "graded programs (shipped=$SHIPPED ungraded=$UNGRADED_N deferred_m4=$D4)" || exit 2
 if [ "$SUITE" = "$CANON_SUITE" ]; then
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite x64tests --suite-key x64tests --modes m3,m4 \
     --measurer "${S4E_SEAT:-}" --suite-pass "$BOTH" --suite-total "$GRADED" \
-    --text "spitbol_x64 both_modes_pass=$BOTH/$GRADED (the table's reading: the ceo-372 AND per program · $SELF graded by the programs' OWN \" pass:\"/\"*FAIL:\" verdict lines, $STREAM by live oracle stdout diff · $UNGRADED_N of $SHIPPED shipped still unreadable by our mandated sbl -bf, named in UNGRADED.tsv and owed to the case-conversion row) · m3 $P3/$GRADED · m4 $P4/$GRADED ($S4 m4 SKIP, asm over the ${M4_ASM_MB}MB budget or would not build) · sbl -bf the one oracle${INV_LINE:+ · $INV_LINE} (\`test_snobol4_spitbol_x64_suite.sh\`)" \
+    --text "spitbol_x64 both_modes_pass=$BOTH/$GRADED (the table's reading: the ceo-372 AND per program · $SELF graded by the programs' OWN \" pass:\"/\"*FAIL:\" verdict lines, $STREAM by live oracle stdout diff · $UNGRADED_N of $SHIPPED shipped still unreadable by our mandated sbl -bf, named in UNGRADED.tsv and owed to the case-conversion row) · m3 $P3/$GRADED · m4 $P4/$GRADED ($D4 m4 DEFERRED on the declared ${M4_ASM_MB}MB asm budget; a program our own toolchain could not build is COMPILE_FAIL/LINK_FAIL and counts in m4_fail, hq_T 2026-09-12) · sbl -bf the one oracle${INV_LINE:+ · $INV_LINE} (\`test_snobol4_spitbol_x64_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 else echo "SCORE.md: scratch suite $SUITE -- not written (only the canonical suite records the leaderboard)"; fi
-[ "$F3" = 0 ] && [ "$F4" = 0 ] && [ "$S4" = 0 ]
+[ "$F3" = 0 ] && [ "$F4" = 0 ] && [ -z "$DEF_UNDECLARED" ]
