@@ -381,6 +381,7 @@ static int icn_arg_int_ok(DESCR_t d) { return core_icn_int_ok(d); }
 static int icn_arg_cset_ok(DESCR_t d) { extern int core_icn_str_ok(DESCR_t d2); return core_icn_str_ok(d); }
 int core_icn_builtin_argcheck(const char *fn, DESCR_t *args, int nargs) {
     static const struct { const char *nm; int idx; char want; int defaults; } tbl[] = {
+        {"trim", 0, 's', 0}, {"left", 0, 's', 0}, {"right", 0, 's', 0}, {"center", 0, 's', 0}, {"repl", 0, 's', 0},
         {"pos", 0, 'i', 0}, {"tab", 0, 'i', 0}, {"move", 0, 'i', 0},
         {"right", 1, 'i', 1}, {"left", 1, 'i', 1}, {"center", 1, 'i', 1}, {"repl", 1, 'i', 1},
         {"trim", 1, 'c', 1},
@@ -395,6 +396,7 @@ int core_icn_builtin_argcheck(const char *fn, DESCR_t *args, int nargs) {
         int ok = 0, code = 0;
         switch (tbl[i].want) {
             case 'i': ok = icn_arg_int_ok(d); code = 101; break;
+            case 's': { extern int core_icn_str_ok(DESCR_t d2); ok = core_icn_str_ok(d); code = 103; break; }
             case 'c': ok = icn_arg_cset_ok(d); code = 104; break;
             case 'f': ok = IS_FH_fn(d);        code = 105; break;
             default:  ok = 1; break;
@@ -415,7 +417,8 @@ static void icn_tb_builtins_at(int lv) {
         int i = 0; icn_bi_rec_t *b = g_icn_bi_top; while (b && !(b->level == lv && ++i == k)) b = b->prev;
         if (!b) break;
         fputs(b->name ? b->name : "", stderr); fputc('(', stderr);
-        for (int j = 0; j < b->nargs; j++) { if (j) fputc(',', stderr); icn_tb_image(b->args ? b->args[j] : NULVCL); }
+        { extern int icn_builtin_arity(const char *nm); int np = b->name ? icn_builtin_arity(b->name) : 0; int n2 = (np > b->nargs) ? np : b->nargs;
+          for (int j = 0; j < n2; j++) { if (j) fputc(',', stderr); icn_tb_image((b->args && j < b->nargs) ? b->args[j] : NULVCL); } }
         fputc(')', stderr);
         { extern long g_line; extern const char *g_file; fprintf(stderr, " from line %ld in %s\n", g_line, icn_basename(g_file)); }
     }

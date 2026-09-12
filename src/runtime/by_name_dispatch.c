@@ -5026,6 +5026,18 @@ static int icn_argtype_gate(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
     switch (bid) {
         case BID_any: case BID_many: case BID_upto: return icn_cvt_chars_ok(args[0]) ? 0 : icn_argtype_raise(104, args[0], out);
         case BID_find: case BID_match:             return icn_cvt_chars_ok(args[0]) ? 0 : icn_argtype_raise(103, args[0], out);
+        case BID_trim: case BID_reverse: case BID_repl: case BID_detab: case BID_entab:
+            return icn_cvt_chars_ok(args[0]) ? 0 : icn_argtype_raise(103, args[0], out);
+        case BID_map:
+            if (!icn_cvt_chars_ok(args[0])) return icn_argtype_raise(103, args[0], out);
+            for (int i = 1; i < 3 && i < nargs; i++)
+                if (!IS_FAIL_fn(args[i]) && args[i].v != DT_SNUL && !icn_cvt_chars_ok(args[i])) return icn_argtype_raise(103, args[i], out);
+            return 0;
+        case BID_left: case BID_right: case BID_center:
+            if (!icn_cvt_chars_ok(args[0])) return icn_argtype_raise(103, args[0], out);
+            if (nargs >= 2 && !IS_FAIL_fn(args[1]) && args[1].v != DT_SNUL && !icn_cvt_int_ok(args[1])) return icn_argtype_raise(101, args[1], out);
+            if (nargs >= 3 && !IS_FAIL_fn(args[2]) && args[2].v != DT_SNUL && !icn_cvt_chars_ok(args[2])) return icn_argtype_raise(103, args[2], out);
+            return 0;
         case BID_tab: case BID_move:               return icn_cvt_int_ok(args[0])   ? 0 : icn_argtype_raise(101, args[0], out);
         case BID_insert: case BID_member: return args[0].v == DT_T ? 0 : icn_argtype_raise(122, args[0], out);
         case BID_get: case BID_pop: case BID_pull: case BID_push: case BID_put:
