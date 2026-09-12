@@ -2548,13 +2548,19 @@ class _Counted(dict):
 # was right when it was written and nothing told it when it stopped being.
 #
 # ⭐ SO THE CELL CARRIES THE RUNNER'S OWN LINE and this reader prefers it over anything typed here:
-#   PACKAGE_INVENTORY package=<n> shipped=N graded=N ungraded=N ungradable=N [graded_stream=N graded_narrow=N]
-# ⛔ AND THE FOUR NUMBERS MUST SUM IN THE CELL TOO, not only inside lib_inventory.sh. A cell is edited by
+#   PACKAGE_INVENTORY package=<n> shipped=N graded=N ungraded=N ungradable=N [deferred=N] [graded_stream=N graded_narrow=N]
+# ⛔ AND THE BUCKETS MUST SUM IN THE CELL TOO, not only inside lib_inventory.sh. A cell is edited by
 # hand, so a clause can be pasted stale or half-updated; a sum that held at the runner and not in the cell is
 # a transcription error wearing the instrument's clothes, which is the one disguise this whole row is about.
+# ⛔ `deferred=` IS OPTIONAL IN THIS PATTERN AND NOT IN THE RUNNER (hq_T 2026-09-12, ceo CEO-593). Every
+# runner prints the sixth term from today on, but a V cell is EDITED BY HAND and SCORE.md already carries
+# clauses transcribed before the term existed. A required group would stop reading those cells entirely --
+# and this reader's whole purpose is to prefer the runner's own line over anything typed, so failing to
+# match is the one outcome that puts the typed number back in charge. Absent reads as 0, which is what
+# every one of those historical clauses meant.
 _INV_CLAUSE_RX = re.compile(
     r"PACKAGE_INVENTORY\s+package=(?P<pkg>[A-Za-z0-9_./-]+)\s+shipped=(?P<shipped>\d+)\s+graded=(?P<graded>\d+)"
-    r"\s+ungraded=(?P<ungraded>\d+)\s+ungradable=(?P<ungradable>\d+)")
+    r"\s+ungraded=(?P<ungraded>\d+)\s+ungradable=(?P<ungradable>\d+)(?:\s+deferred=(?P<deferred>\d+))?")
 
 
 def inventory_clauses(vcell):
@@ -2563,13 +2569,14 @@ def inventory_clauses(vcell):
     out, bad = {}, []
     for m in _INV_CLAUSE_RX.finditer(vcell or ""):
         d = {k: int(m.group(k)) for k in ("shipped", "graded", "ungraded", "ungradable")}
+        d["deferred"] = int(m.group("deferred") or 0)
         pkg = m.group("pkg")
-        tot = d["graded"] + d["ungraded"] + d["ungradable"]
+        tot = d["graded"] + d["ungraded"] + d["ungradable"] + d["deferred"]
         if tot != d["shipped"]:
-            bad.append("V %s INVENTORY CLAUSE DOES NOT SUM: graded(%d)+ungraded(%d)+ungradable(%d)=%d but shipped=%d. "
+            bad.append("V %s INVENTORY CLAUSE DOES NOT SUM: graded(%d)+ungraded(%d)+ungradable(%d)+deferred(%d)=%d but shipped=%d. "
                        "Dropped, not used -- a clause that sums at the runner and not in the cell was transcribed, "
                        "and re-running the runner is the cure, never editing the digits."
-                       % (pkg, d["graded"], d["ungraded"], d["ungradable"], tot, d["shipped"]))
+                       % (pkg, d["graded"], d["ungraded"], d["ungradable"], d["deferred"], tot, d["shipped"]))
             continue
         # the runner that measured it, if the cell names one after the clause (`by=` or a backticked script)
         rest = vcell[m.end():m.end() + 200]

@@ -38,7 +38,22 @@
 # cannot be falsified, which is the same failure one size down.
 #
 # THE LINE, one shape, from every package runner:
-#   PACKAGE_INVENTORY package=<name> shipped=N graded=N ungraded=N ungradable=N graded_stream=N graded_narrow=N
+#   PACKAGE_INVENTORY package=<name> shipped=N graded=N ungraded=N ungradable=N deferred=N graded_stream=N graded_narrow=N
+#
+# ⛔⭐⭐ THE SIXTH TERM, `deferred=N`, AND WHY IT IS ON THE LINE RATHER THAN BESIDE IT (hq_T 2026-09-12, ceo
+# CEO-593, on Lon's CEO-579 *"Do not count the FD as failures for us."*). DEFERRED means IN SCOPE, NOT BUILT,
+# NOT A FAILURE -- a scheduling ruling by Lon, never a fact about the oracle and never a seat's own judgement
+# (ARCH-PROGRAM-LEDGER.md § DEFERRED, sovereign; `.github/DEFERRED.tsv` is its machine twin).
+# ⛔ IT HAD TO JOIN THE SUM, WHICH IS WHY IT IS NOT A SECOND LINE LIKE THE SPLIT. The split is DETAIL and
+# cannot change a total; a deferral is a BUCKET. Without it the five buckets already sum to shipped, so a
+# deferred program has to be smuggled into `ungraded` to keep the arithmetic -- and then it is work owed,
+# counted against the lane, which is exactly the ruling's opposite. There was no honest bucket for it, and
+# a census with no bucket for a real population is the defect this whole library exists to end.
+# ⭐ THE NAMES PRINT WITH IT (`inventory_deferred_line`, condition 2 of the ledger's three), because a name
+# that cannot be red must be visible instead: A WRONG EXCLUSION COSTS MORE THAN A WRONG CURE (hq_V).
+# ⭐ `deferred=0` for every package with a runner today -- the only DEFERRED population is gnu_fd's 30 FD
+# programs and nothing grades them yet. The term lands at zero ON PURPOSE: a bucket added at the moment it is
+# first needed is a bucket added by whoever needs the number to move.
 #
 # THE STANZA a runner writes (four tokens, same shape as lib_port_trace.sh's):
 #   INV_PACKAGE=gimpel ; INV_DIR="$CORPUS/packages/snobol4/gimpel" ; INV_EXT=".sno"
@@ -52,6 +67,11 @@
 #
 # ⛔ ALL THREE ARE DECLARATIONS, NEVER INFERENCES. A runner may not decide at run time that something is
 # ungradable; that is a ruling somebody makes once, in a file, with a reason a later reader can dispute.
+#
+# ⛔ THE FOURTH DECLARATION IS NOT A SIDECAR, AND THAT IS DELIBERATE: `.github/DEFERRED.tsv`, one file for
+# every package, in the repo whose custody is the ceo's. The three above record MEASUREMENTS and the lane
+# that measures owns them; a deferral LIFTS A SCORE, so it must not be editable by the lane whose number it
+# raises. (`S4E_DEFERRED_TSV` redirects it, for scratch harnesses only.)
 
 # ⛔⭐⭐ THE REASON-CODE VOCABULARY IS CLOSED (hq_T ruling 2026-09-06, asked for by hq_I: three lanes had
 # invented three vocabularies in one morning -- CONTAINER_OR_LIBRARY (hq_I, seat03), NO-ORACLE-SHIPPED and
@@ -211,6 +231,55 @@ _inv_class_check() {
     return 2
 }
 
+# ⛔⭐ THE DEFERRED READER -- IT READS A RULING, SO IT IS STRICTER THAN THE SIDECAR READERS ABOVE, AND ITS
+# FAILURE MODE IS rc=2 RATHER THAN ZERO. A missing DEFERRED.tsv means NOTHING IS DEFERRED (zero, honestly --
+# no record is the normal state and must not refuse). A PRESENT record that cannot be read is a refusal: an
+# unreadable ruling is the one case where guessing zero would silently count Lon's deferred programs against
+# the lane, which is the ruling's exact opposite.
+# ⛔ THE GLOB IS RE-EXPANDED HERE, NEVER THE `count` COLUMN TRANSCRIBED. The count is graded against the disk
+# by test_gate_deferred_rows_name_a_ruling_and_the_work_they_wait_on.sh; this body uses the FILES, so a stale
+# count can never move a live inventory (FINDING-2026-09-09-hq_T: an exclusion list with no staleness arm can
+# only ever lower a denominator).
+# _inv_deferred_file -- echo the DEFERRED.tsv path (redirectable), or nothing when there is none.
+_inv_deferred_file() {
+    local f="${S4E_DEFERRED_TSV:-}"
+    [ -n "$f" ] || f="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/.github/DEFERRED.tsv"
+    [ -f "$f" ] && echo "$f"
+    return 0
+}
+# _inv_deferred_names -- echo the INV_DIR-relative names DEFERRED.tsv defers for INV_PACKAGE, one per line.
+_inv_deferred_names() {
+    local f home line pkg pop n=0 hit abs rel
+    f="$(_inv_deferred_file)"; [ -n "$f" ] || return 0
+    home="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+    while IFS= read -r line; do
+        n=$((n + 1))
+        case "$line" in ''|'#'*) continue ;; esac
+        # the header row names the columns; skip it by its own first field rather than by line number,
+        # so a comment added above it cannot shift what this reader believes a data row is.
+        pkg="$(printf '%s' "$line" | cut -f2)"
+        [ "$pkg" = "package" ] && continue
+        [ "$pkg" = "$INV_PACKAGE" ] || continue
+        pop="$(printf '%s' "$line" | cut -f4)"
+        if [ -z "$pop" ]; then
+            inventory_refuse "$f line $n defers package '$pkg' with an EMPTY population column -- a deferral naming no programs lifts a score over nothing"
+            return 2
+        fi
+        # ⛔ eval'd ONE field of a version-controlled, reviewed record, for glob expansion only, and the
+        # column is validated by the gate to be a corpus-relative path glob. Nothing here comes from a run.
+        for hit in $(eval echo "$home/$pop"); do
+            [ -f "$hit" ] || continue
+            abs="$(cd "$(dirname "$hit")" && pwd)/$(basename "$hit")"
+            case "$abs" in
+                "$INV_DIR"/*) rel="${abs#"$INV_DIR"/}" ;;
+                *) continue ;;   # a row may defer programs in a sibling tree; they are not this census's
+            esac
+            printf '%s\n' "$rel"
+        done
+    done < "$f"
+    return 0
+}
+
 # _inv_tsv <basename> -- echo the path of a sidecar beside INV_DIR or one level below it, or nothing.
 _inv_tsv() {
     local b="$1" c
@@ -317,9 +386,12 @@ inventory_line() {
     local ung_n ugd_n
     ung_n="$(_inv_names "$ung_f" UNGRADED)" || return 2
     ugd_n="$(_inv_names "$ugd_f" UNGRADABLE)" || return 2
-    local ungraded ungradable
+    local ungraded ungradable deferred def_n
     ungraded=$(printf '%s' "$ung_n"   | grep -c . || true)
     ungradable=$(printf '%s' "$ugd_n" | grep -c . || true)
+    def_n="$(_inv_deferred_names)" || return 2
+    def_n="$(printf '%s' "$def_n" | sort -u)"
+    deferred=$(printf '%s' "$def_n" | grep -c . || true)
 
     # ⛔⭐⭐ AN UNGRADABLE DECLARATION MUST GIVE THE ORACLE'S REASON, NEVER OURS -- and this is the arm
     # that stops the lockdown from being satisfiable by failing. hq_C measured it on prolog/swi_tests
@@ -390,11 +462,23 @@ $badreason
     local both
     both="$(printf '%s\n%s\n' "$ung_n" "$ugd_n" | grep -v '^$' | sort | uniq -d)"
     [ -z "$both" ] && : || { inventory_refuse "named in BOTH UNGRADED.tsv and UNGRADABLE.tsv: $(printf '%s' "$both" | tr '\n' ' ')-- a program cannot be both work owed and ruled impossible"; return 2; }
+    # ⛔ AND A DEFERRED PROGRAM MAY NOT ALSO BE DECLARED HERE. This is not tidiness: the sum below counts it
+    # once per bucket it appears in, so a program in DEFERRED.tsv and UNGRADED.tsv makes shipped unreachable
+    # by one and the whole census refuses -- with a message about arithmetic, for a defect about authority.
+    # ⭐ The direction matters too: DEFERRED comes from a ruling and UNGRADED from a lane, so the collision is
+    # a lane still carrying work Lon has already taken off the board, which reads as debt that cannot close.
+    local defboth
+    defboth="$(printf '%s\n%s\n%s\n' "$ung_n" "$ugd_n" "$def_n" | grep -v '^$' | sort | uniq -d)"
+    if [ -n "$defboth" ] && [ "$deferred" -gt 0 ]; then
+        local d hitdef=""
+        for d in $defboth; do case " $(printf '%s' "$def_n" | tr '\n' ' ') " in *" $d "*) hitdef="$hitdef $d" ;; esac; done
+        [ -z "$hitdef" ] || { inventory_refuse "named in DEFERRED.tsv AND in a package sidecar:$hitdef -- a deferral is Lon's ruling that the program is not owed and not a failure; a sidecar row for the same program is the lane claiming otherwise. Delete the sidecar row, or ask for the deferral to be withdrawn -- never both."; return 2; }
+    fi
 
     # ⛔ A DECLARATION NAMING NOTHING SHIPPED IS STALE -- the same refusal the wantrc/xfail sidecars make.
     # A stale line silently shrinks `graded` and inflates the lane's apparent debt, or hides a real one.
     local nm miss="" ambig=""
-    for nm in $ung_n $ugd_n; do
+    for nm in $ung_n $ugd_n $def_n; do
         if [ -n "${_rel["$nm"]:-}" ]; then continue; fi
         case "${_base["$nm"]:-0}" in
             0) miss="$miss $nm" ;;
@@ -418,11 +502,32 @@ $badreason
     # line is four independent opinions, each individually plausible, and a program can fall out of every
     # bucket -- which is the "never graded" defect the order exists to end, wearing an inventory's clothes.
     local graded=$((graded_stream + graded_narrow))
-    local total=$((graded + ungraded + ungradable))
+    local total=$((graded + ungraded + ungradable + deferred))
     if [ "$total" -ne "$shipped" ]; then
-        inventory_refuse "buckets do not sum: graded($graded)=stream($graded_stream)+narrow($graded_narrow) + ungraded($ungraded) + ungradable($ungradable) = $total, but shipped=$shipped (delta $((shipped - total))). Every shipped program lands in exactly one bucket, or the inventory is four opinions rather than a census."
+        inventory_refuse "buckets do not sum: graded($graded)=stream($graded_stream)+narrow($graded_narrow) + ungraded($ungraded) + ungradable($ungradable) + deferred($deferred) = $total, but shipped=$shipped (delta $((shipped - total))). Every shipped program lands in exactly one bucket, or the inventory is five opinions rather than a census."
         return 2
     fi
-    echo "PACKAGE_INVENTORY package=$INV_PACKAGE shipped=$shipped graded=$graded ungraded=$ungraded ungradable=$ungradable graded_stream=$graded_stream graded_narrow=$graded_narrow"
+    echo "PACKAGE_INVENTORY package=$INV_PACKAGE shipped=$shipped graded=$graded ungraded=$ungraded ungradable=$ungradable deferred=$deferred graded_stream=$graded_stream graded_narrow=$graded_narrow"
+    return 0
+}
+
+# ⛔⭐ CONDITION 2 OF THE LEDGER'S THREE: PRINTED, NEVER SUBTRACTED IN SILENCE. A runner with a nonzero
+# `deferred=` calls this immediately after inventory_line so the names stand beside the count.
+# ⭐ SEPARATE LINE, SEPARATE CALL, for the reason inventory_split_line already documents: PACKAGE_INVENTORY is
+# pinned by EXACT STRING EQUALITY, so nothing may print from inside it. ⛔ But unlike the split, this one is
+# NOT OPTIONAL WHEN IT HAS CONTENT -- a deferred count with no names is the shape a wrong exclusion hides in.
+# It prints nothing and returns 0 when the count is zero, which is every package with a runner today.
+#   PACKAGE_INVENTORY_DEFERRED package=<n> deferred=N names=a,b,c ruled_by=CEO-...,CEO-...
+inventory_deferred_line() {
+    [ -n "${INV_PACKAGE:-}" ] || { inventory_refuse "INV_PACKAGE unset -- the deferred line has no package to name"; return 2; }
+    local def_n c f ruled names
+    def_n="$(_inv_deferred_names)" || return 2
+    def_n="$(printf '%s' "$def_n" | sort -u)"
+    c=$(printf '%s' "$def_n" | grep -c . || true)
+    [ "$c" -gt 0 ] || return 0
+    f="$(_inv_deferred_file)"
+    ruled="$(awk -F'\t' -v p="$INV_PACKAGE" '$1 !~ /^#/ && $2 == p {print $6}' "$f" | paste -sd';' -)"
+    names="$(printf '%s' "$def_n" | paste -sd, -)"
+    echo "PACKAGE_INVENTORY_DEFERRED package=$INV_PACKAGE deferred=$c names=$names ruled_by=${ruled:-NONE}"
     return 0
 }

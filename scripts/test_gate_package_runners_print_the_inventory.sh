@@ -48,7 +48,7 @@ printf 'f4.icn\tNEEDS_STDIN_FIXTURE\tstdin-driven filter, no .in authored yet\n'
 printf 'f5.icn\tORACLE_REFUSES\tthe oracle refuses this program: unsupported extension\n' > "$TD/p/UNGRADABLE.tsv"
 examined=$((examined+1))
 out="$(run_inv 3 0)"; rc=$?
-want='PACKAGE_INVENTORY package=scratch shipped=5 graded=3 ungraded=1 ungradable=1 graded_stream=3 graded_narrow=0'
+want='PACKAGE_INVENTORY package=scratch shipped=5 graded=3 ungraded=1 ungradable=1 deferred=0 graded_stream=3 graded_narrow=0'
 if [ "$rc" -ne 0 ] || [ "$out" != "$want" ]; then
     echo "GATE FAIL: the summing case did not print the one shape (rc=$rc)"; echo "    want: $want"; echo "    got : $out"
     violations=$((violations+1))
@@ -283,7 +283,7 @@ INV_PACKAGE=big; INV_DIR="$TD/big"; INV_EXT=".icn"
 # unstable at ipl's scale and stable here; both are the same bug, and only the correctness half sees both.)
 # ⭐ This arm was written agreement-only first and caught by running it against the pre-cure body, which is
 # the whole reason a new gate arm must be proven to fail once before it lands.
-_want='PACKAGE_INVENTORY package=big shipped=800 graded=798 ungraded=1 ungradable=1 graded_stream=798 graded_narrow=0'
+_want='PACKAGE_INVENTORY package=big shipped=800 graded=798 ungraded=1 ungradable=1 deferred=0 graded_stream=798 graded_narrow=0'
 examined=$((examined+1))
 first=""; unstable=0; wrong=0
 for i in 1 2 3 4 5; do
@@ -300,7 +300,7 @@ done
 # never match anything and were reported missing wholesale even when printf won.
 examined=$((examined+1))
 out="$(run_inv 798 0)"; rc=$?
-want='PACKAGE_INVENTORY package=big shipped=800 graded=798 ungraded=1 ungradable=1 graded_stream=798 graded_narrow=0'
+want='PACKAGE_INVENTORY package=big shipped=800 graded=798 ungraded=1 ungradable=1 deferred=0 graded_stream=798 graded_narrow=0'
 if [ "$rc" -ne 0 ] || [ "$out" != "$want" ]; then
     echo "GATE FAIL: a package-relative declaration did not resolve (rc=$rc): $out"; violations=$((violations+1))
 fi
