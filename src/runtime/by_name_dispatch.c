@@ -5602,6 +5602,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
                     if (g_stage2.proc_table[i].name && !strcmp(g_stage2.proc_table[i].name, "main")) { np = g_stage2.proc_table[i].nparams; break; }
             }
             if (np < 0 && a.s) { DatType *_rct = dat_find_type(a.s); if (_rct) { *out = INTVAL((int64_t)_rct->nfields); return 1; } }
+            if (np >= 0 && a.s) { extern int rt_proc_is_variadic(const char *); if (rt_proc_is_variadic(a.s)) np = -np; }
             if (np >= 0) { *out = INTVAL(np); return 1; }
             *out = INTVAL(np < -1 ? np : -1); return 1;
         }

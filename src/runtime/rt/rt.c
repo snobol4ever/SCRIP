@@ -752,6 +752,13 @@ void rt_proc_set_generator(const char *name, int is_gen)
     { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].is_generator = is_gen ? 1 : 0; return; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_proc_is_variadic(const char *name)
+{
+    if (!name) return 0;
+    { int i = rt_proc_hash_lookup(name); if (i >= 0) return g_rt_gen_procs[i].is_variadic ? 1 : 0; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_variadic(const char *name, int is_var)
 {
     if (!name) return;
