@@ -117,6 +117,7 @@ test_gate_icn_rundir_contract.sh	WIRED	-	-	-
 test_gate_icn_scan_argtype.sh	WIRED	-	-	-
 test_gate_icn_scan_subject_must_be_string_convertible.sh	WIRED	-	-	-
 test_gate_icn_seq_null_argument_defaults.sh	WIRED	-	-	-
+test_gate_icn_seq_takes_a_variable_step.sh	WIRED	-	-	-
 test_gate_icn_string_builtins_refuse_a_non_string_argument.sh	WIRED	-	-	-
 test_gate_icn_string_invoked_to_by_is_a_generator.sh	WIRED	-	-	-
 test_gate_icn_subscript_index_is_checked_and_the_account_is_written.sh	WIRED	-	-	-
@@ -174,6 +175,7 @@ test_gate_pl_bagof_setof_grouping.sh	WIRED	-	-	-
 test_gate_pl_consult_loads_the_named_file.sh	WIRED	-	-	-
 test_gate_pl_gz6b.sh	WIRED	-	-	-
 test_gate_pl_iso_rung1_database_builtins_and_call_local_cut.sh	WIRED	-	-	-
+test_gate_pl_iso_rung2_runtime_heads_and_meta_call_wrappers.sh	WIRED	-	-	-
 test_gate_pl_meta_call_reaches_control_constructs.sh	WIRED	-	-	-
 test_gate_pl_meta_wrapper_does_not_break_m4_declarations.sh	WIRED	-	-	-
 test_gate_pl_multifile_initialization_runs_every_file.sh	WIRED	-	-	-

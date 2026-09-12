@@ -1341,10 +1341,22 @@ static int icn_const_step(const tree_t * s, int64_t * bits, int * isr) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_arg_is_null(const tree_t * a) { return a && (a->t == TT_VAR || a->t == TT_KEYWORD) && a->v.sval && (!strcmp(a->v.sval, "&null") || !strcmp(a->v.sval, "null")); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * icn_seq_leaf(tree_e k, const char * s, int64_t iv) { tree_t * e = ast_node_new(k); if (s) { e->v.sval = (char *) s; e->slen = (int) strlen(s); } else e->v.ival = iv; return e; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * lower_seq_variable_step(icx_t * cx, const tree_t * t, int argbase, int nargs, const tree_t * byt, IR_t * γ, IR_t * ω, IR_t ** res) {
+    if (byt->t != TT_VAR) return NULL;
+    const tree_t * fromt = (nargs > 0 && !icn_arg_is_null(t->c[argbase])) ? t->c[argbase] : NULL;
+    tree_t * from = fromt ? (tree_t *) fromt : icn_seq_leaf(TT_ILIT, NULL, 1);
+    tree_t * neg = ast_node_new(TT_LT); ast_push(neg, (tree_t *) byt); ast_push(neg, icn_seq_leaf(TT_ILIT, NULL, 0));
+    tree_t * bound = ast_node_new(TT_IF); ast_push(bound, neg); ast_push(bound, icn_seq_leaf(TT_ILIT, NULL, INT64_MIN)); ast_push(bound, icn_seq_leaf(TT_ILIT, NULL, INT64_MAX));
+    tree_t * tby = ast_node_new(TT_TO_BY); ast_push(tby, from); ast_push(tby, bound); ast_push(tby, (tree_t *) byt); tby->line = t->line;
+    return lower_to(cx, tby, γ, ω, res);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_seq(icx_t * cx, const tree_t * t, int argbase, int nargs, IR_t * γ, IR_t * ω, IR_t ** res) {
     int64_t by = 1; const tree_t * byt = (nargs > 1) ? t->c[argbase + 1] : NULL;
     if (icn_arg_is_null(byt)) byt = NULL;
-    if (byt) { int64_t bb = 1; int isr = 0; if (!icn_const_step(byt, &bb, &isr) || isr) return NULL; by = bb; }
+    if (byt) { int64_t bb = 1; int isr = 0; if (!icn_const_step(byt, &bb, &isr)) return lower_seq_variable_step(cx, t, argbase, nargs, byt, γ, ω, res); if (isr) return NULL; by = bb; }
     int use_by = (by != 1);
     IR_t * to = build(cx, use_by ? IR_TO_BY : IR_TO, γ, ω); IR_LIT(to).sval = (char *) "ag:int"; cx->last_gen = to;
     const tree_t * fromt = (nargs > 0) ? t->c[argbase] : NULL; IR_t * lr; IR_t * ea; IR_t * lβ;
