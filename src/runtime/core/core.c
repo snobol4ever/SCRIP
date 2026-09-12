@@ -445,6 +445,7 @@ void core_icn_traceback(void) {
         fputs("  in {", stderr);
         if (g_icn_op.arity == 1) { fputs(g_icn_op.sym, stderr); icn_tb_image(g_icn_op.a); }
         else if (g_icn_op.sym[0] == '[' && g_icn_op.sym[1] == ']' && !g_icn_op.sym[2]) { icn_tb_image(g_icn_op.a); fputc('[', stderr); icn_tb_image(g_icn_op.b); fputc(']', stderr); }
+        else if (g_icn_op.sym[0] == '.' && !g_icn_op.sym[1]) { icn_tb_image(g_icn_op.a); fputs(" . field", stderr); }
         else { icn_tb_image(g_icn_op.a); fprintf(stderr, " %s ", g_icn_op.sym); icn_tb_image(g_icn_op.b); }
         fprintf(stderr, "} from line %ld in %s\n", g_line, icn_basename(g_file));
     }

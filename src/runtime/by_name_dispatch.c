@@ -4378,15 +4378,15 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
     return out;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int bn_str_anal(DESCR_t *args, int nargs, int si, const char **out_s, int *out_i, int *out_j);
 static DESCR_t rt_call_arr_gen_s(const char *fn, DESCR_t *args, int nargs, int64_t *resume, int strict) {
     DESCR_t out = FAILDESCR;
     if (fn && resume && nargs >= 2 && nargs <= 4 && (!strcmp(fn, "find") || !strcmp(fn, "upto"))) {
         DESCR_t a4[4]; a4[0] = args[0]; a4[1] = args[1];
-        long i1 = (nargs >= 3 && (IS_INT_fn(args[2]) || IS_REAL_fn(args[2]))) ? (long)to_int(args[2]) : 1;
-        if (*resume > 0 && (long)*resume > i1) i1 = (long)*resume;
-        a4[2] = INTVAL(i1);
-        if (nargs >= 4) a4[3] = args[3];
-        if (try_call_builtin_by_name_bl_s(fn, a4, (nargs >= 4) ? 4 : 3, &out, -1, strict) && !IS_FAIL_fn(out)) { *resume = (int)out.i + 1; return out; }
+        { const char *hs; int ni, nj; if (!bn_str_anal(args, nargs, 1, &hs, &ni, &nj)) return FAILDESCR;
+          long i1 = ni; if (*resume > 0 && (long)*resume > i1) i1 = (long)*resume;
+          a4[2] = INTVAL(i1); a4[3] = INTVAL(nj); }
+        if (try_call_builtin_by_name_bl_s(fn, a4, 4, &out, -1, strict) && !IS_FAIL_fn(out)) { *resume = (int)out.i + 1; return out; }
         return FAILDESCR;
     }
     return rt_call_arr_bl_s(fn, args, nargs, -1, strict);
@@ -6384,16 +6384,11 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     L_bidjmp_6067: ;
     if ((_bid == BID_find) && nargs >= 1 && (scan_pos > 0 || nargs >= 2)) {
         const char *needle = VARVAL_fn(args[0]); if (!needle) { *out = FAILDESCR; return 1; }
-        const char *hay    = (nargs >= 2) ? VARVAL_fn(args[1]) : (const char *)0; if (!hay) hay = scan_subj ? scan_subj : "";
-        int nlen = (int)strlen(needle), hlen = (int)strlen(hay);
-        int i1 = (nargs >= 3) ? (int)args[2].i : (scan_pos > 0 && nargs < 2 ? scan_pos : 1);
-        int i2 = (nargs >= 4) ? (int)args[3].i : hlen + 1;
-        if (i1 <= 0 || i1 > hlen + 1) { *out = FAILDESCR; return 1; }
-        if (i2 <= 0 || i2 > hlen + 1) i2 = hlen + 1;
+        int nlen = (args[0].v == DT_S && args[0].s && args[0].slen != 0xFFFFFFFFu) ? (int)args[0].slen : (int)strlen(needle);
+        const char *hay; int i1, i2;
+        if (!bn_str_anal(args, nargs, 1, &hay, &i1, &i2)) { *out = FAILDESCR; return 1; }
         int term = (i2 - 1) - nlen;
-        for (int i = i1 - 1; i <= term; i++) {
-            if (strncmp(hay + i, needle, nlen) == 0) { *out = INTVAL(i + 1); return 1; }
-        }
+        for (int i = i1 - 1; i <= term; i++) if (memcmp(hay + i, needle, (size_t)nlen) == 0) { *out = INTVAL(i + 1); return 1; }
         *out = FAILDESCR; return 1;
     }
     L_bidjmp_6081: ;

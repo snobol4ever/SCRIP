@@ -1416,12 +1416,19 @@ DESCR_t c_rt_subscript_var2_lv(DESCR_t base, DESCR_t idx1, DESCR_t idx2) {
     return rt_subscript_var(hop1, idx2);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t icn_field_get(const char *fname, DESCR_t obj) {
+    extern DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);
+    if (IS_VARREF_fn(obj)) obj = rt_deref(obj);
+    if (obj.v != DT_DATA || !obj.u || !obj.u->type || !obj.u->type->name || !strcmp(obj.u->type->name, "list")) { core_icn_op_ctx(".", 2, obj, FAILDESCR); core_icn_error(107, obj); return FAILDESCR; }
+    { DESCR_t *cell = data_field_ptr(fname ? fname : "", obj); if (!cell) { core_icn_op_ctx(".", 2, obj, FAILDESCR); core_icn_error(207, obj); return FAILDESCR; } return *cell; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_field_var(const char *fname, DESCR_t obj) {
     extern DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);
     if (IS_VARREF_fn(obj)) obj = rt_deref(obj);
-    if (obj.v != DT_DATA || !obj.u) return FAILDESCR;
+    if (obj.v != DT_DATA || !obj.u || !obj.u->type || !obj.u->type->name || !strcmp(obj.u->type->name, "list")) { core_icn_op_ctx(".", 2, obj, FAILDESCR); core_icn_error(107, obj); return FAILDESCR; }
     DESCR_t *cell = data_field_ptr(fname ? fname : "", obj);
-    if (!cell) return FAILDESCR;
+    if (!cell) { core_icn_op_ctx(".", 2, obj, FAILDESCR); core_icn_error(207, obj); return FAILDESCR; }
     VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = cell; vc->tbl = 0; vc->key = 0; vc->key_d = FAILDESCR; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
     { const char *rn = (obj.u && obj.u->type && obj.u->type->name) ? obj.u->type->name : "record"; const char *fn = fname ? fname : ""; int rl = (int)strlen(rn); int fl = (int)strlen(fn); char *nb = rt_str_alloc(rl + fl + 1); memcpy(nb, rn, rl); nb[rl] = '.'; memcpy(nb + rl + 1, fn, fl); nb[rl + 1 + fl] = 0; vc->key = nb; }
     return NAMETRAP(vc);
