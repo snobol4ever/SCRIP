@@ -863,6 +863,8 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                 }
             }
             } }
+            { IR_graph_t *_cg = (pe->bb_idx >= 0 && pe->bb_idx < s2->bbp.count) ? s2->bbp.table[pe->bb_idx] : (IR_graph_t *)0;
+              if (_cg && _cg->caller_frame && _cg->nslots > 0) emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n  mov esi, %d\n  mov edx, %d\n  call rt_proc_set_frame@PLT\n", i, _cg->nslots - 1, pe->decl_level); }
         }
         emit_textf("  add rsp, 8\n");
         emit_textf("  ret\n");
@@ -1032,7 +1034,6 @@ int main(int argc, char **argv)
     int is_prolog = 0;
     int is_icon = 0;
     int is_raku = 0;
-    int is_pascal = 0;
     int saw_sno = 0;
     int is_scrip = 0;
     for (int fi = argi; fi < argc; fi++) {
@@ -1053,10 +1054,9 @@ int main(int argc, char **argv)
         if (scrip_exts[ei].prolog)  is_prolog  = 1;
         if (scrip_exts[ei].icon)    is_icon    = 1;
         if (scrip_exts[ei].raku)    is_raku    = 1;
-        if (scrip_exts[ei].pascal)  is_pascal  = 1;
         if (scrip_exts[ei].sno)     saw_sno    = 1;
     }
-    int is_sno_bb = (saw_sno || is_scrip) && !is_pascal;
+    int is_sno_bb = (saw_sno || is_scrip);
     lower_seg_t segs[64];
     int nsegs = 0;
     tree_t  *ast_prog = NULL;
@@ -1362,7 +1362,7 @@ int main(int argc, char **argv)
     }
     if (mode_compile_x86) {
         extern int g_frame_active;
-        if (is_icon || is_raku || is_sno_bb || is_prolog) {
+        {
             extern int g_m4_dense_nid; extern void g_bb_alpha_seq_reset(void);
             g_m4_dense_nid = 1; g_bb_alpha_seq_reset();
                 stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs); n2_host_scan_diag(s2);
@@ -1389,7 +1389,7 @@ int main(int argc, char **argv)
                 rt_proc_register(pname, pn, np);
                 { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }
                 { IR_graph_t *_lg = (idx >= 0 && idx < s2->bbp.count) ? s2->bbp.table[idx] : (IR_graph_t *)0; icn_register_locals(pname, _lg); }
-                { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); } { extern void rt_proc_set_jmpentry(const char *, int); rt_proc_set_jmpentry(pname, strncmp(pname, "gram__", 6) != 0); }
+                { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); } { extern void rt_proc_set_jmpentry(const char *, int); rt_proc_set_jmpentry(pname, !s2->bbp.table[idx]->caller_frame && strncmp(pname, "gram__", 6) != 0); }
                 { extern void rt_proc_set_variadic(const char *, int); rt_proc_set_variadic(pname, s2->proc_table[_pi].is_variadic); }
                 { extern void rt_proc_set_rest_kind(const char *, int); rt_proc_set_rest_kind(pname, s2->proc_table[_pi].rest_kind); }
                 { extern void rt_proc_set_named_rest(const char *, int); rt_proc_set_named_rest(pname, s2->proc_table[_pi].named_rest); }
@@ -1397,6 +1397,8 @@ int main(int argc, char **argv)
                 { extern void rt_proc_set_result_name(const char *, const char *); if (s2->proc_table[_pi].result_name) rt_proc_set_result_name(pname, s2->proc_table[_pi].result_name); }
             }
             drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
+            { extern void rt_proc_set_frame(const char *, int, int); for (int _pi = 0; _pi < s2->proc_count; _pi++) { const char *_fn = s2->proc_table[_pi].name; int _fx = s2->proc_table[_pi].bb_idx; if (!_fn || strcmp(_fn, "main") == 0 || _fx < 0 || _fx >= s2->bbp.count || !s2->bbp.table[_fx] || !s2->bbp.table[_fx]->entry) continue; IR_graph_t *_fg = s2->bbp.table[_fx]; if (_fg->caller_frame && _fg->nslots > 0) rt_proc_set_frame(_fn, _fg->nslots - 1, s2->proc_table[_pi].decl_level); } }
+            { extern int g_proc_direct_active; extern void proc_collect_reset(void); extern void proc_collect_graph(IR_graph_t *); extern int proc_slot_count(void); proc_collect_reset(); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi] && s2->bbp.table[_gi]->static_calls) proc_collect_graph(s2->bbp.table[_gi]); g_proc_direct_active = (proc_slot_count() > 0) ? 1 : 0; }
             char smx_why[256];
             if (!graph_native_emittable(s2, smx_why, sizeof smx_why)) {
                 fprintf(stderr, "[SMX] --compile --target=x86: mode-4 native emitter does not yet cover this program: %s. REJECTED — native BB emission pending (no interpreter fallback).\n", smx_why);
@@ -1462,8 +1464,10 @@ int main(int argc, char **argv)
                   int _isp = emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx]); if (!_isp) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]);
                   g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, np)) ? np : -1; proc_ispat_buf[n_procs] = _isp; }
                 { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); }
+                { extern int g_emit_frame_caller_dl; IR_graph_t *_cg = s2->bbp.table[idx]; g_emit_frame_caller_dl = (_cg->caller_frame && _cg->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
                 { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", asm_sym_name(pname)); int _islbl = pname && strncmp(pname, "LBL__", 5) == 0; IR_graph_t *_bg = s2->bbp.table[idx]; int _bare = (proc_role3_kind(_bg) == 1);    if (!_islbl && !_bare) {    emit_sep_rule_c('-'); if (scrip_symmap()) emit_textf("  .type FN__%s, @function\n", asm_sym_name(pname)); g_emit.flat_bare_chain = _bare; emit_chain(bb_proc_entry(&s2->proc_table[_pi]), _out, _pfx); g_emit.flat_bare_chain = 0; if (scrip_symmap()) emit_textf("  .size FN__%s, .-FN__%s\n", asm_sym_name(pname), asm_sym_name(pname)); } }
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
+                { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
                 { extern int g_last_flat_frame_bytes; proc_fb_buf[n_procs] = (pname && strncmp(pname, "LBL__", 5) == 0) ? 0 : g_last_flat_frame_bytes;
                   if (getenv("SCRIP_N2_FB_PREPASS")) fprintf(stderr, "[N2-FB] POSTEMIT mode=4 proc=%s idx=%d fb=%d\n", pname ? pname : "(null)", _pi, g_last_flat_frame_bytes); }
@@ -1486,8 +1490,8 @@ int main(int argc, char **argv)
             emit_textf("  push rsi\n");
             emit_textf("  call core_lib_init@PLT\n");
             if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0 || m4_icn_meta_present(s2))
-            if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0 || m4_icn_meta_present(s2))
                 emit_textf("  call %s\n", sn4_module_init_bottom() ? "module_init" : "main_init");
+            { extern int proc_slot_count(void); int _nps = proc_slot_count(); if (_nps > 0) emit_textf("  lea rdi, [rip + __proc]\n  lea rsi, [rip + __proc_names]\n  mov edx, %d\n  call rt_proc_table_fill@PLT\n", _nps); }
             { extern int rt_is_reassigned_builtin(const char *); for (int k = 0; k < n_gva_icn; k++) if (rt_is_reassigned_builtin(gva_name(k))) emit_textf("  lea rdi, [rip + .Lgvan%d]\n  call rt_note_reassigned_builtin@PLT\n", k); }
             if (n_gva_icn > 0) emit_textf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  call gva_register@PLT\n", n_gva_icn, n_gva_icn);
             if (s2->label_count > 0) emit_textf("  lea rdi, [rip + __label_names]\n  mov esi, %d\n  call rt_label_table_install@PLT\n", s2->label_count);
@@ -1531,6 +1535,8 @@ int main(int argc, char **argv)
                 for (int k = 0; k < s2->label_count; k++) emit_textf("  .quad .Llbln%d\n", k);
                 emit_textf("  .section .text\n  .intel_syntax noprefix\n");
             }
+            { extern int proc_slot_count(void); extern const char *proc_slot_name(int); int _nps = proc_slot_count();
+              if (_nps > 0) { emit_textf("  .section .rodata\n"); for (int k = 0; k < _nps; k++) emit_textf("  .Lprocn%d: .string \"%s\"\n", k, proc_slot_name(k)); emit_textf("  .align 8\n__proc_names:\n"); for (int k = 0; k < _nps; k++) emit_textf("  .quad .Lprocn%d\n", k); emit_textf("  .section .bss\n  .align 8\n__proc: .space %d, 0\n", _nps * 8); emit_textf("  .section .text\n  .intel_syntax noprefix\n"); } }
             int rc;
             {
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
@@ -1553,197 +1559,8 @@ int main(int argc, char **argv)
             free(proc_names_buf); free(proc_nparams_buf); free(proc_pidx_buf); free(proc_fb_buf); free(proc_zstatic_buf);
             g_gva_active = 0;
             g_frame_active = 0;
+            { extern int g_proc_direct_active; g_proc_direct_active = 0; }
             extern void xa_emit_strtab_rodata(void);
-            xa_emit_strtab_rodata();
-            { extern void xa_emit_csettab_rodata(void); xa_emit_csettab_rodata(); }
-            { extern int g_monitor_bin; extern int g_mon_max_stno; if (g_monitor_bin) emit_textf("  .align 4\n__mon_maxst:\n  .long %d\n", g_mon_max_stno); }
-            emit_textf("  .section .note.GNU-stack,\"\",@progbits\n");
-            emit_textf_flush();
-            fflush(stdout);
-            ir_delete_all(s2);
-            return rc;
-        }
-        {
-            extern bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
-            extern void xa_emit_strtab_rodata(void);
-            extern int g_frame_active;
-            extern void rt_proc_reset(void);
-            extern void rt_proc_register(const char * name, const char ** pnames, int nparams);
-            stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs); n2_host_scan_diag(s2);
-            if (!s2) { fprintf(stderr, "[SBB] mode-4: sm_preamble failed\n"); return 1; }
-            ast_tree_free(ast_prog); ast_prog = NULL;
-            { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
-            drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
-            int main_bb_idx = -1;
-            for (int _pi = 0; _pi < s2->proc_count; _pi++)
-                if (s2->proc_table[_pi].name && strcmp(s2->proc_table[_pi].name, "main") == 0) { main_bb_idx = s2->proc_table[_pi].bb_idx; break; }
-            if (main_bb_idx < 0 || main_bb_idx >= s2->bbp.count || !s2->bbp.table[main_bb_idx] || !s2->bbp.table[main_bb_idx]->entry) {
-                fprintf(stderr, "[SBB] FATAL: mode-4 driver: SNOBOL4 main BB graph not found\n");
-                return 1;
-            }
-            IR_graph_t *sbbg = s2->bbp.table[main_bb_idx];
-            extern int g_flat_node_id;
-            extern int g_m4_dense_nid;
-            g_flat_node_id = 0;
-            g_m4_dense_nid = 1;
-            g_medium = BB_MEDIUM_TEXT; FILE * _out = stdout; if (output_path) { _out = fopen(output_path, "w"); if (!_out) { perror(output_path); return 1; } } emit_set_sink(_out);
-            emit_textf("  .intel_syntax noprefix\n");
-            emit_textf("  .text\n");
-            { extern int emit_dwarf_loc_on(void); extern const char * stmt_src_get_file(void); const char * _sf = stmt_src_get_file();
-              if (emit_dwarf_loc_on() && _sf && *_sf) { emit_textf("  .file 1 \"%s\"\n", _sf); emit_textf("  .file 2 \"<included>\"\n"); } }
-            rt_proc_reset();
-            g_frame_active = 1;
-            for (int _pi = 0; _pi < s2->proc_count; _pi++) {
-                const char *pname = s2->proc_table[_pi].name;
-                if (!pname || strcmp(pname, "main") == 0) continue;
-                int idx = s2->proc_table[_pi].bb_idx;
-                if (idx < 0 || idx >= s2->bbp.count || !s2->bbp.table[idx] || !s2->bbp.table[idx]->entry) continue;
-                int is_dup = 0;
-                for (int _pj = _pi + 1; _pj < s2->proc_count; _pj++) { if (s2->proc_table[_pj].name && strcmp(s2->proc_table[_pj].name, pname) == 0) { is_dup = 1; break; } }
-                if (is_dup) continue;
-                int np = s2->proc_table[_pi].nparams;
-                const char **pn = NULL;
-                if (np > 0) {
-                    pn = (const char **)calloc((size_t)np, sizeof(const char *));
-                    for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++) pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
-                }
-                rt_proc_register(pname, pn, np);
-                { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }
-                { IR_graph_t *_lg = (idx >= 0 && idx < s2->bbp.count) ? s2->bbp.table[idx] : (IR_graph_t *)0; icn_register_locals(pname, _lg); }
-                { extern void rt_proc_set_frame(const char *, int, int); extern void rt_proc_set_byref(const char *, uint64_t);
-                  if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
-                  rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask); }
-            }
-            { extern int g_proc_direct_active; extern void proc_collect_reset(void); extern void proc_collect_graph(IR_graph_t *); extern int proc_slot_count(void);
-              proc_collect_reset(); proc_collect_graph(sbbg);
-              for (int _pi = 0; _pi < s2->proc_count; _pi++) {
-                  const char *pn2 = s2->proc_table[_pi].name; if (!pn2 || strcmp(pn2, "main") == 0) continue; int idx2 = s2->proc_table[_pi].bb_idx;
-                  if (idx2 < 0 || idx2 >= s2->bbp.count || !s2->bbp.table[idx2] || !s2->bbp.table[idx2]->entry) continue; proc_collect_graph(s2->bbp.table[idx2]);
-              }
-              g_proc_direct_active = (proc_slot_count() > 0) ? 1 : 0; }
-            if (is_pascal) { extern void gva_collect_reset(void); extern void gva_collect_graph(IR_graph_t *); extern int gva_count(void); extern int g_gva_active; gva_collect_reset();  gva_collect_graph(sbbg); for (int _pgi = 0; _pgi < s2->bbp.count; _pgi++) { if (s2->bbp.table[_pgi] && s2->bbp.table[_pgi] != sbbg) gva_collect_graph(s2->bbp.table[_pgi]); } g_gva_active = (gva_count() > 0) ? 1 : 0; }
-            int _pbcap = (s2->proc_count > 0) ? s2->proc_count : 1;
-            int *pidx_buf = (int *)malloc((size_t)_pbcap * sizeof(int));
-            int *peak_buf = (int *)malloc((size_t)_pbcap * sizeof(int));
-            int n_procs = 0;
-            for (int _pi = 0; _pi < s2->proc_count; _pi++) {
-                const char *pname = s2->proc_table[_pi].name;
-                if (!pname || strcmp(pname, "main") == 0) continue;
-                int idx = s2->proc_table[_pi].bb_idx;
-                if (idx < 0 || idx >= s2->bbp.count || !s2->bbp.table[idx] || !s2->bbp.table[idx]->entry) continue;
-                int is_dup = 0;
-                for (int _pj = _pi + 1; _pj < s2->proc_count; _pj++) { if (s2->proc_table[_pj].name && strcmp(s2->proc_table[_pj].name, pname) == 0) { is_dup = 1; break; } }
-                if (is_dup) continue;
-                int np = s2->proc_table[_pi].nparams;
-                const char **pn = NULL;
-                if (np > 0) {
-                    pn = (const char **)calloc((size_t)np, sizeof(const char *));
-                    for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++)
-                        pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
-                }
-                rt_proc_register(pname, pn, np);
-                { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }
-                { IR_graph_t *_lg = (idx >= 0 && idx < s2->bbp.count) ? s2->bbp.table[idx] : (IR_graph_t *)0; icn_register_locals(pname, _lg); }
-                { extern void rt_proc_set_frame(const char *, int, int); extern void rt_proc_set_byref(const char *, uint64_t); extern int g_emit_frame_caller_dl;
-                  if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
-                  rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask);
-                  g_emit_frame_caller_dl = (s2->bbp.table[idx]->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
-                { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
-                { extern int g_flat_frame_floor; extern int zls_g_region(const IR_graph_t *); IR_graph_t *_pg = s2->bbp.table[idx]; g_flat_frame_floor = 0; int _floor_hit = (_pg && _pg->entry && ((_pg->entry->op == IR_DEFINE && IR_LIT(_pg->entry).ival == 3) || _pg->entry->op == IR_GOTO_DEFERRED)); if (getenv("SCRIP_FLOOR_DIAG")) fprintf(stderr, "[FLOOR-DIAG-B] pname=%s entry_op=%d hit=%d\n", pname ? pname : "(null)", _pg && _pg->entry ? (int)_pg->entry->op : -1, _floor_hit); if (_floor_hit) { for (int _mi = 0; _mi < s2->proc_count; _mi++) if (s2->proc_table[_mi].name && !strcmp(s2->proc_table[_mi].name, "main")) { int _mx = s2->proc_table[_mi].bb_idx; if (_mx >= 0 && _mx < s2->bbp.count && s2->bbp.table[_mx]) g_flat_frame_floor = zls_g_region(s2->bbp.table[_mx]); break; } } if (getenv("SCRIP_FLOOR_DIAG") && _floor_hit) fprintf(stderr, "[FLOOR-DIAG-B] -> g_flat_frame_floor=%d\n", g_flat_frame_floor); }
-                { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern void emit_jmp_entry_clear(void); if (!emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx])) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]); }
-                { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); }
-                { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", asm_sym_name(pname)); int _islbl = pname && strncmp(pname, "LBL__", 5) == 0; emit_sep_rule_c('-'); if (!_islbl && scrip_symmap()) emit_textf("  .type FN__%s, @function\n", asm_sym_name(pname)); emit_chain(s2->proc_table[_pi].proc_entry_node, _out, _pfx); if (!_islbl && scrip_symmap()) emit_textf("  .size FN__%s, .-FN__%s\n", asm_sym_name(pname), asm_sym_name(pname)); }
-                { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
-                { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
-                { extern int g_last_flat_frame_bytes; peak_buf[n_procs] = g_last_flat_frame_bytes; }
-                pidx_buf[n_procs++] = _pi;
-            }
-            int n_gva = gva_count();
-            int n_proc_slot = proc_slot_count();
-            emit_textf("  .globl main\nmain:\n  sub rsp, 65544\n");
-            { const char * hr = getenv("SCRIP_M4_HEADROOM"); if (hr && *hr) { long hb = atol(hr); if (hb > 0) { hb = (hb + 15) & ~15L; emit_textf("  sub rsp, %ld\n", hb); } } }
-            emit_textf("  push rdi\n  push rsi\n");
-            if (n_procs > 0) emit_textf("  call main_init\n");
-            else emit_textf("  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
-            if (n_proc_slot > 0) emit_textf("  lea rdi, [rip + __proc]\n  lea rsi, [rip + __proc_names]\n  mov edx, %d\n  call rt_proc_table_fill@PLT\n", n_proc_slot);
-            { extern int rt_is_reassigned_builtin(const char *); extern const char *gva_name(int); for (int k = 0; k < n_gva; k++) if (rt_is_reassigned_builtin(gva_name(k))) emit_textf("  lea rdi, [rip + .Lgvan%d]\n  call rt_note_reassigned_builtin@PLT\n", k); }
-            if (n_gva > 0) emit_textf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  call gva_register@PLT\n", n_gva, n_gva);
-            { extern int g_monitor_bin; if (g_monitor_bin) emit_textf("  mov edi, dword ptr [rip + __mon_maxst]\n  call rt_mon_set_max_stno@PLT\n"); }
-            emit_textf("  mov rdi, qword ptr [rsp]\n  mov rdi, qword ptr [rdi]\n  call rt_main_progname_stage@PLT\n  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  call rt_main_args_stage@PLT\n"); if (sbbg->nparams >= 1) emit_textf("  call rt_main_args_bind@PLT\n");
-            emit_textf("  mov r12, qword ptr [0x70000000]\n");
-            emit_textf("  xor esi, esi\n");
-            { extern unsigned char g_rtcc_on; if (g_rtcc_on) emit_textf("  call rtcc_load_all@PLT\n"); }
-            emit_textf("  jmp flat_\xce\xb1\n");
-            if (n_procs > 0) {
-                emit_textf("  .section .rodata\n");
-                for (int i = 0; i < n_procs; i++) {
-                    ProcEntry *pe = &s2->proc_table[pidx_buf[i]];
-                    emit_textf("  .Lpn%d: .string \"%s\"\n", i, pe->name);
-                    for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++)
-                        emit_textf("  .Lpp%d_%d: .string \"%s\"\n", i, k, pe->lower_sc.e[k].name ? pe->lower_sc.e[k].name : "");
-                    emit_textf("  .Lpnames%d:\n", i);
-                    for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) emit_textf("  .quad .Lpp%d_%d\n", i, k);
-                    emit_textf("  .quad 0\n");
-                }
-                emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                emit_textf("main_init:\n  sub rsp, 8\n  call core_lib_init@PLT\n  call rt_proc_reset@PLT\n");
-                for (int i = 0; i < n_procs; i++) {
-                    ProcEntry *pe = &s2->proc_table[pidx_buf[i]];
-                    emit_textf("  lea rdi, [rip + .Lpn%d]\n", i);
-                    emit_textf("  lea rsi, [rip + .Lpnames%d]\n", i);
-                    emit_textf("  mov edx, %d\n", pe->nparams);
-                    emit_textf("  call rt_proc_register@PLT\n");
-                    emit_textf("  lea rdi, [rip + .Lpn%d]\n", i);
-                    emit_textf("  mov esi, %d\n", pe->nformals);
-                    emit_textf("  call rt_proc_set_nformals@PLT\n");
-                    emit_textf("  lea rdi, [rip + .Lpn%d]\n", i);
-                    if (pe->name && strncmp(pe->name, "LBL__", 5) == 0) emit_textf("  lea rsi, [rip + LBL__%s]\n", asm_sym_name(pe->name + 5));
-                    else emit_textf("  lea rsi, [rip + FN__%s]\n", asm_sym_name(pe->name));
-                    emit_textf("  call rt_proc_set_fn@PLT\n");
-                    int _fidx = pe->bb_idx;
-                    if (_fidx >= 0 && _fidx < s2->bbp.count && s2->bbp.table[_fidx] && s2->bbp.table[_fidx]->nslots > 0) {
-                        emit_textf("  lea rdi, [rip + .Lpn%d]\n", i);
-                        emit_textf("  mov esi, %d\n", s2->bbp.table[_fidx]->nslots - 1);
-                        emit_textf("  mov edx, %d\n", pe->decl_level);
-                        emit_textf("  call rt_proc_set_frame@PLT\n");
-                    }
-                    if (peak_buf[i] > 0) {
-                        emit_textf("  lea rdi, [rip + .Lpn%d]\n", i);
-                        emit_textf("  mov esi, %d\n", peak_buf[i]);
-                        emit_textf("  call rt_proc_set_frame_bytes@PLT\n");
-                    }
-                }
-                emit_textf("  add rsp, 8\n  ret\n");
-            }
-            free(pidx_buf); free(peak_buf);
-            extern void gva_collect_reset(void); extern void gva_collect_graph(IR_graph_t *); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
-            extern int proc_slot_count(void); extern int g_proc_direct_active;
-            if (!is_pascal) { extern void gva_io_refuse_scan_graph(IR_graph_t *); gva_collect_reset();  gva_io_refuse_scan_graph(sbbg); gva_collect_graph(sbbg); }
-            if (n_gva > 0) {
-                emit_textf("  .section .rodata\n");
-                for (int k = 0; k < n_gva; k++) emit_textf("  .Lgvan%d: .string \"%s\"\n", k, gva_name(k));
-                emit_textf("  .align 8\n__gva_names:\n");
-                for (int k = 0; k < n_gva; k++) emit_textf("  .quad .Lgvan%d\n", k);
-                emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-            }
-            if (n_proc_slot > 0) {
-                extern const char *proc_slot_name(int);
-                emit_textf("  .section .rodata\n");
-                for (int k = 0; k < n_proc_slot; k++) emit_textf("  .Lprocn%d: .string \"%s\"\n", k, proc_slot_name(k));
-                emit_textf("  .align 8\n__proc_names:\n");
-                for (int k = 0; k < n_proc_slot; k++) emit_textf("  .quad .Lprocn%d\n", k);
-                emit_textf("  .section .bss\n  .align 8\n__proc: .space %d, 0\n", n_proc_slot * 8);
-                emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-            }
-            g_gva_active = (n_gva > 0) ? 1 : 0;
-            { extern IR_graph_t *g_emit_cfg; g_emit_cfg = sbbg; }
-            { extern int g_flat_outer_nparams; g_flat_outer_nparams = sbbg->nparams; }
-            emit_sep_rule_c('-'); int rc = emit_chain(sbbg->entry, _out, "flat") ? 0 : 1;
-            { extern int g_flat_outer_nparams; g_flat_outer_nparams = 0; }
-            { extern void bb_ab_emit_nodes(IR_graph_t *g, int gva_active); bb_ab_emit_nodes(sbbg, g_gva_active); }
-            g_gva_active = 0;
-            g_proc_direct_active = 0;
-            g_frame_active = 0;
             xa_emit_strtab_rodata();
             { extern void xa_emit_csettab_rodata(void); xa_emit_csettab_rodata(); }
             { extern int g_monitor_bin; extern int g_mon_max_stno; if (g_monitor_bin) emit_textf("  .align 4\n__mon_maxst:\n  .long %d\n", g_mon_max_stno); }
@@ -1764,7 +1581,7 @@ int main(int argc, char **argv)
         stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs); n2_host_scan_diag(s2);
         if (!s2) return 1;
         ast_tree_free(ast_prog); ast_prog = NULL;
-        if (is_icon || is_raku || is_sno_bb || is_prolog) {
+        {
             extern void rt_proc_register(const char *name, const char **pnames, int nparams);
             extern void rt_proc_reset(void);
             extern bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
@@ -1807,7 +1624,7 @@ int main(int argc, char **argv)
                 rt_proc_register(pname, pn, np);
                 { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }
                 { IR_graph_t *_lg = (idx >= 0 && idx < s2->bbp.count) ? s2->bbp.table[idx] : (IR_graph_t *)0; icn_register_locals(pname, _lg); }
-                { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); } { extern void rt_proc_set_jmpentry(const char *, int); rt_proc_set_jmpentry(pname, strncmp(pname, "gram__", 6) != 0); }
+                { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); } { extern void rt_proc_set_jmpentry(const char *, int); rt_proc_set_jmpentry(pname, !s2->bbp.table[idx]->caller_frame && strncmp(pname, "gram__", 6) != 0); }
                 { extern void rt_proc_set_variadic(const char *, int); rt_proc_set_variadic(pname, s2->proc_table[_pi].is_variadic); }
                 { extern void rt_proc_set_rest_kind(const char *, int); rt_proc_set_rest_kind(pname, s2->proc_table[_pi].rest_kind); }
                 { extern void rt_proc_set_named_rest(const char *, int); rt_proc_set_named_rest(pname, s2->proc_table[_pi].named_rest); }
@@ -1816,6 +1633,7 @@ int main(int argc, char **argv)
             }
             { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
             drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
+            { extern void rt_proc_set_frame(const char *, int, int); for (int _pi = 0; _pi < s2->proc_count; _pi++) { const char *_fn = s2->proc_table[_pi].name; int _fx = s2->proc_table[_pi].bb_idx; if (!_fn || strcmp(_fn, "main") == 0 || _fx < 0 || _fx >= s2->bbp.count || !s2->bbp.table[_fx] || !s2->bbp.table[_fx]->entry) continue; IR_graph_t *_fg = s2->bbp.table[_fx]; if (_fg->caller_frame && _fg->nslots > 0) rt_proc_set_frame(_fn, _fg->nslots - 1, s2->proc_table[_pi].decl_level); } }
             char smx_why[256];
             if (!graph_native_emittable_mode(s2, 1, smx_why, sizeof smx_why)) {
                 fprintf(stderr, "[SMX] --run: mode-3 native emitter does not yet cover this program: %s. REJECTED — native BB emission pending (no interpreter fallback).\n", smx_why);
@@ -1835,7 +1653,7 @@ int main(int argc, char **argv)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
-                { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); } { extern void rt_proc_set_jmpentry(const char *, int); rt_proc_set_jmpentry(pname, strncmp(pname, "gram__", 6) != 0); }
+                { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); } { extern void rt_proc_set_jmpentry(const char *, int); rt_proc_set_jmpentry(pname, !s2->bbp.table[idx]->caller_frame && strncmp(pname, "gram__", 6) != 0); }
                 { extern void rt_proc_set_variadic(const char *, int); rt_proc_set_variadic(pname, s2->proc_table[_pi].is_variadic); }
                 { extern void rt_proc_set_rest_kind(const char *, int); rt_proc_set_rest_kind(pname, s2->proc_table[_pi].rest_kind); }
                 { extern void rt_proc_set_named_rest(const char *, int); rt_proc_set_named_rest(pname, s2->proc_table[_pi].named_rest); }
@@ -1847,11 +1665,13 @@ int main(int argc, char **argv)
                   int _isp = emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx]); if (!_isp) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]);
                   g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, s2->proc_table[_pi].nparams)) ? s2->proc_table[_pi].nparams : -1; }
                 { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); }
+                { extern int g_emit_frame_caller_dl; IR_graph_t *_cg = s2->bbp.table[idx]; g_emit_frame_caller_dl = (_cg->caller_frame && _cg->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
                 int _islbl3 = pname && strncmp(pname, "LBL__", 5) == 0;
                 char _m3pfx[300]; snprintf(_m3pfx, sizeof _m3pfx, "proc_%s", pname);
                 if (getenv("SCRIP_PL_RTASM") && !_islbl3) { fprintf(stderr, "[RTASM] ---- compile-time proc %s ----\n", pname); emit_chain(bb_proc_entry(&s2->proc_table[_pi]), stderr, _m3pfx); fprintf(stderr, "[RTASM] ---- end %s ----\n", pname); }
                 bb_box_fn pfn = _islbl3 ? NULL : emit_chain(bb_proc_entry(&s2->proc_table[_pi]), NULL, _m3pfx);
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
+                { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
                 { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); if (!_islbl3) rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
                 { extern int g_last_flat_frame_bytes; if (getenv("SCRIP_N2_FB_PREPASS"))
@@ -1913,108 +1733,6 @@ int main(int argc, char **argv)
             } else
             { extern void rt_outer_call(bb_box_fn, void *, long);  { extern void rtcc_load_all(void); extern unsigned char g_rtcc_on; if (g_rtcc_on) rtcc_load_all(); }    { extern void rt_outer_call_delta0(bb_box_fn, void *, long); if (_icn_cells_graph) rt_outer_call_delta0(fn, mf, 0); else rt_outer_call(fn, mf, 0); } }
             sno_setexit_fire_on_end();
-            goto run_done;
-        }
-        {
-            extern bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
-            extern int g_frame_active;
-            extern void rt_proc_register(const char *name, const char **pnames, int nparams);
-            extern void rt_proc_set_fn(const char *name, bb_box_fn fn);
-            extern void rt_proc_reset(void);
-            int main_bb_idx = -1;
-            for (int _pi = 0; _pi < s2->proc_count; _pi++)
-                if (s2->proc_table[_pi].name && strcmp(s2->proc_table[_pi].name, "main") == 0) { main_bb_idx = s2->proc_table[_pi].bb_idx; break; }
-            rt_proc_reset();
-            void *m3_gva_arena = (void *)0;
-            if (is_pascal) {
-                extern void gva_collect_reset(void); extern void gva_collect_graph(IR_graph_t *); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
-                gva_collect_reset();
-                IR_graph_t *_mg = (main_bb_idx >= 0 && main_bb_idx < s2->bbp.count) ? s2->bbp.table[main_bb_idx] : (IR_graph_t *)0;
-                if (_mg) gva_collect_graph(_mg);
-                for (int _pi = 0; _pi < s2->proc_count; _pi++) { int _pgi = s2->proc_table[_pi].bb_idx; if (_pgi >= 0 && _pgi < s2->bbp.count && s2->bbp.table[_pgi] && s2->bbp.table[_pgi] != _mg) gva_collect_graph(s2->bbp.table[_pgi]); }
-                int n_gva_m3; { const char *_gv = getenv("SCRIP_M3_GVA"); n_gva_m3 = _gv && *_gv && *_gv == (char)48 ? 0 : gva_count(); }
-                if (n_gva_m3 > 0) {
-                    { extern DESCR_t *rt_gva_island(int); m3_gva_arena = rt_gva_island(n_gva_m3); }
-                    const char **m3_gva_nms = (const char **)malloc((size_t)n_gva_m3 * sizeof(const char *));
-                    for (int _k = 0; _k < n_gva_m3; _k++) m3_gva_nms[_k] = gva_name(_k);
-                    if (m3_gva_arena && m3_gva_nms) { gva_register(m3_gva_nms, (DESCR_t *)m3_gva_arena, n_gva_m3); g_gva_active = 1; }
-                }
-                if (getenv("SCRIP_M3_GVA_TRACE")) fprintf(stderr, "[M3-GVA] m3 globals via pinned island: active=%d n_gva=%d\n", g_gva_active, n_gva_m3);
-            }
-            drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
-            g_frame_active = 1;
-            for (int _pi = 0; _pi < s2->proc_count; _pi++) {
-                const char *pname = s2->proc_table[_pi].name;
-                if (!pname || strcmp(pname, "main") == 0) continue;
-                int idx = s2->proc_table[_pi].bb_idx;
-                if (idx < 0 || idx >= s2->bbp.count || !s2->bbp.table[idx] || !s2->bbp.table[idx]->entry) continue;
-                int np = s2->proc_table[_pi].nparams;
-                const char **pn = NULL;
-                if (np > 0) {
-                    pn = (const char **)calloc((size_t)np, sizeof(const char *));
-                    for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++) pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
-                }
-                rt_proc_register(pname, pn, np);
-                { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }
-                { IR_graph_t *_lg = (idx >= 0 && idx < s2->bbp.count) ? s2->bbp.table[idx] : (IR_graph_t *)0; icn_register_locals(pname, _lg); }
-                { extern void rt_proc_set_frame(const char *, int, int); extern void rt_proc_set_byref(const char *, uint64_t);
-                  if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
-                  rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask); }
-            }
-            for (int _pi = 0; _pi < s2->proc_count; _pi++) {
-                const char *pname = s2->proc_table[_pi].name;
-                if (!pname || strcmp(pname, "main") == 0) continue;
-                int idx = s2->proc_table[_pi].bb_idx;
-                if (idx < 0 || idx >= s2->bbp.count || !s2->bbp.table[idx] || !s2->bbp.table[idx]->entry) continue;
-                int np = s2->proc_table[_pi].nparams;
-                const char **pn = NULL;
-                if (np > 0) {
-                    pn = (const char **)calloc((size_t)np, sizeof(const char *));
-                    for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++)
-                        pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
-                }
-                rt_proc_register(pname, pn, np);
-                { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }
-                { IR_graph_t *_lg = (idx >= 0 && idx < s2->bbp.count) ? s2->bbp.table[idx] : (IR_graph_t *)0; icn_register_locals(pname, _lg); }
-                { extern void rt_proc_set_frame(const char *, int, int); extern void rt_proc_set_byref(const char *, uint64_t); extern int g_emit_frame_caller_dl;
-                  if (s2->bbp.table[idx]->nslots > 0) rt_proc_set_frame(pname, s2->bbp.table[idx]->nslots - 1, s2->proc_table[_pi].decl_level);
-                  rt_proc_set_byref(pname, s2->proc_table[_pi].byref_mask);
-                  g_emit_frame_caller_dl = (s2->bbp.table[idx]->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
-                { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
-                { extern int g_flat_frame_floor; extern int zls_g_region(const IR_graph_t *); IR_graph_t *_pg = s2->bbp.table[idx]; g_flat_frame_floor = 0; int _floor_hit = (_pg && _pg->entry && ((_pg->entry->op == IR_DEFINE && IR_LIT(_pg->entry).ival == 3) || _pg->entry->op == IR_GOTO_DEFERRED)); if (getenv("SCRIP_FLOOR_DIAG")) fprintf(stderr, "[FLOOR-DIAG-B] pname=%s entry_op=%d hit=%d\n", pname ? pname : "(null)", _pg && _pg->entry ? (int)_pg->entry->op : -1, _floor_hit); if (_floor_hit) { for (int _mi = 0; _mi < s2->proc_count; _mi++) if (s2->proc_table[_mi].name && !strcmp(s2->proc_table[_mi].name, "main")) { int _mx = s2->proc_table[_mi].bb_idx; if (_mx >= 0 && _mx < s2->bbp.count && s2->bbp.table[_mx]) g_flat_frame_floor = zls_g_region(s2->bbp.table[_mx]); break; } } if (getenv("SCRIP_FLOOR_DIAG") && _floor_hit) fprintf(stderr, "[FLOOR-DIAG-B] -> g_flat_frame_floor=%d\n", g_flat_frame_floor); }
-                { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern void emit_jmp_entry_clear(void); if (!emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx])) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]); }
-                { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); }
-                char _m3pfx[300]; snprintf(_m3pfx, sizeof _m3pfx, "proc_%s", pname);
-                bb_box_fn pfn = emit_chain(s2->proc_table[_pi].proc_entry_node, NULL, _m3pfx);
-                { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
-                { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
-                { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
-                if (pfn) rt_proc_set_fn(pname, pfn);
-                if (pfn) m3_seal_entry_cells(pname, (void *)pfn, 1);
-                { extern int g_last_flat_zstatic; extern void rt_proc_set_zstatic(const char *, int); if (pfn) rt_proc_set_zstatic(pname, g_last_flat_zstatic); }
-                { extern int g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform; extern void emit_patzeta_register(const char *, int, int, int); emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform); }
-            }
-            g_frame_active = 0;
-            IR_graph_t *sbbg = (main_bb_idx >= 0 && main_bb_idx < s2->bbp.count) ? s2->bbp.table[main_bb_idx] : NULL;
-            if (sbbg && sbbg->entry) {
-                g_frame_active = 1;
-                { extern IR_graph_t *g_emit_cfg; g_emit_cfg = sbbg; }
-                { extern int g_flat_outer_nparams; g_flat_outer_nparams = sbbg->nparams; }
-                bb_box_fn fn = emit_chain(sbbg->entry, NULL, "pat_flat");
-                { extern int g_flat_outer_nparams; g_flat_outer_nparams = 0; }
-                g_frame_active = 0;
-                ir_delete_all(s2);
-                if (fn) {
-                    void *mf = NULL;
-                    { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); } { extern void rt_main_progname_stage(const char *); extern const char * stmt_src_get_file(void); const char * _pn = stmt_src_get_file(); rt_main_progname_stage(_pn ? _pn : ""); } if (sbbg->nparams >= 1) { extern void rt_main_args_bind(void); rt_main_args_bind(); }
-                    { extern void bbprof_start(void); bbprof_start(); }
-                    { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }
-                    { extern void rt_outer_call(bb_box_fn, void *, long); extern void rt_outer_call_delta0(bb_box_fn, void *, long); if (sbbg->icn_cells_graph) rt_outer_call_delta0(fn, mf, 0); else rt_outer_call(fn, mf, 0); }
-                    { extern int g_gva_active; g_gva_active = 0; } goto run_done;
-                }
-            }
-            fprintf(stderr, "[SBB] mode-3: SNOBOL4 statement shape not yet flat-emittable (a box lacks a "
-                            "MEDIUM_BINARY arm); soft fall — no output for this shape. No abort.\n");
             goto run_done;
         }
     } else if (has_non_sno) {

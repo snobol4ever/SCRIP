@@ -757,6 +757,7 @@ stage2_t *lower_pascal_stage2(const tree_t *prog) {
             g_stage2.proc_table[pi].bb_idx = bb_idx;
             g_stage2.bbp.table[bb_idx]->decl_level = (g_stage2.proc_table[pi].name && strcmp(g_stage2.proc_table[pi].name, "main") == 0) ? 0 : proc_decl_level(proc);
             g_stage2.bbp.table[bb_idx]->l3_ancestor_name = pas_l3_ancestor_name(proc, g_stage2.bbp.table[bb_idx]->decl_level);
+            g_stage2.bbp.table[bb_idx]->caller_frame = 1; g_stage2.bbp.table[bb_idx]->static_calls = 1; g_stage2.proc_table[pi].lex_startup = 1;
             g_stage2.proc_table[pi].proc_entry_node = g_stage2.bbp.table[bb_idx]->entry;
             const tree_t *plist = (proc->n >= 2) ? proc->c[1] : NULL;
             g_stage2.proc_table[pi].nparams = plist ? plist->n : 0;
