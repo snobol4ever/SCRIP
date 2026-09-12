@@ -48,6 +48,50 @@ DROP_DIRECTIVES = ("if", "elif", "else", "endif", "import", "use_module", "ensur
                    "set_logtalk_flag", "encoding", "include")
 
 
+# ⛔⭐ A FILE'S DATABASE IS NOT ALL PROLOG, AND ONE CLAUSE THAT IS NOT TAKES THE WHOLE FILE DOWN. The
+# clauses before `:- object(` and the helper clauses inside it travel with EVERY case of that file, so a
+# single helper written in Logtalk's own message-sending syntax (`^^Goal`, `Obj::Goal`) makes every one of
+# that file's generated programs a parse error -- and the case then reports `nooutput`, which reads as the
+# construct under test failing. Measured 2026-09-12 against the ceo's independent emulation: 40 files and
+# 1486 of 3617 cases were graded this way, is_2 and numbers among them, and every one was a verdict on
+# `cleanup :- ^^clean_text_input.` rather than on arithmetic. ⭐ THE SHAPE OF THE DEFECT IS THE POINT: the
+# harness was wrong in a way that could only ever produce reds, so it never looked like a harness bug --
+# a board of failures is what a young frontend is expected to print.
+LOGTALK_ONLY_SYNTAX = re.compile(r"\^\^|::")
+
+
+def _clause_head_name(clause):
+    """The functor a database clause defines, or None -- `foo(X) :- ...`, `foo :- ...`, `'q'(X).`"""
+    m = re.match(r"\s*('(?:[^']|'')*'|[a-z][A-Za-z0-9_]*)", clause)
+    return m.group(1) if m else None
+
+
+def split_db(db):
+    """(plain-Prolog clauses, names dropped). A helper clause in Logtalk-only syntax cannot be expressed
+    here, so it is DROPPED rather than emitted -- and its name is returned, because a case that calls it
+    must become UNGRADED-and-named rather than a silent existence_error red."""
+    keep, dropped = [], set()
+    for cl in db:
+        if LOGTALK_ONLY_SYNTAX.search(cl):
+            n = _clause_head_name(cl)
+            if n:
+                dropped.add(n)
+            continue
+        keep.append(cl)
+    return keep, dropped
+
+
+def calls_dropped(plan, dropped):
+    """The dropped helper this plan would call, or None. Checked against the goal AS FINISHED, so a
+    setup(...)/cleanup(...) option folded into the goal is covered by the same test."""
+    for n in sorted(dropped):
+        if re.search(r"(?<![A-Za-z0-9_])%s(?![A-Za-z0-9_])" % re.escape(n.strip("'")), plan.goal or ""):
+            return n
+        if plan.condition and re.search(r"(?<![A-Za-z0-9_])%s(?![A-Za-z0-9_])" % re.escape(n.strip("'")), plan.condition):
+            return n
+    return None
+
+
 def shim_helpers(path=SHIM):
     """The helper names lib_logtalk_lgtunit.pl actually defines, read from the file itself."""
     out = set()
@@ -241,9 +285,15 @@ def _finish(c, want, goal, balls, weaker, opts):
     return p
 
 
-def program_text(plan, db, shim_src):
+def program_text(plan, db, shim_src, loaded=()):
     c = plan.case
     parts = [shim_src]
+    # ⛔ The tester-loaded plain-Prolog files go in VERBATIM, ahead of the file's own database and without
+    # the directive filter below: their :- if/elif/else/endif guards ARE the subject of one group, and
+    # dropping a guard while keeping both of its branches defines exactly the predicates the case expects
+    # to be undefined -- a silent semantic edit that turns 31 correct failures into 31 wrong successes.
+    for cl in loaded:
+        parts.append(cl + ".")
     for cl in db:
         if cl.startswith(":-"):
             m = re.match(r":-\s*([a-z_]+)", cl)
@@ -270,7 +320,7 @@ def program_text(plan, db, shim_src):
     return "\n".join(parts) + "\n"
 
 
-def run_one(plan, db, shim_src, scrip, mode, workroot, srcdir, timeout=10):
+def run_one(plan, db, shim_src, scrip, mode, workroot, srcdir, timeout=10, loaded=()):
     """Run one planned case in one mode. Returns (outcome, detail)."""
     d = tempfile.mkdtemp(prefix="lgtcase.", dir=workroot)
     try:
@@ -282,7 +332,7 @@ def run_one(plan, db, shim_src, scrip, mode, workroot, srcdir, timeout=10):
                 except OSError:
                     pass
         prog = os.path.join(d, "case.pl")
-        open(prog, "w", encoding="utf-8").write(program_text(plan, db, shim_src))
+        open(prog, "w", encoding="utf-8").write(program_text(plan, db, shim_src, loaded))
         try:
             if mode == "m3":
                 r = subprocess.run([scrip, prog], capture_output=True, text=True, errors="replace", timeout=timeout,
@@ -335,11 +385,23 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None):
     supported = shim_helpers()
     shim_src = open(SHIM, encoding="utf-8").read()
     work = []
+    # ⛔ THE DATABASE IS SPLIT BEFORE ANY CASE IS PLANNED, per file: the plain-Prolog clauses travel with
+    # every case, the Logtalk-only ones are dropped AND NAMED, and a case that would have called one is
+    # UNGRADED with that name instead of being graded against a program that does not parse.
+    dbs = {}
     for fc in files:
         if only_group and fc.group != only_group:
             continue
+        clean, dropped = split_db(fc.db)
+        dbs[fc.path] = clean
         for c in fc.cases:
-            work.append((fc, plan_case(c, supported)))
+            p = plan_case(c, supported)
+            if p.skip_reason is None and dropped:
+                n = calls_dropped(p, dropped)
+                if n is not None:
+                    p.skip_reason = ("logtalk-only-helper-clause: this file defines %s in Logtalk "
+                                     "message-sending syntax, which has no plain-Prolog form here" % n)
+            work.append((fc, p))
     if limit:
         work = work[:limit]
     workroot = tempfile.mkdtemp(prefix="lgtsuite.")
@@ -354,7 +416,8 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None):
                 # measured. A runner that dies at case 900 publishes nothing at all.
                 i, fc, p = t
                 try:
-                    return i, run_one(p, fc.db, shim_src, scrip, mode, workroot, os.path.dirname(fc.path))
+                    return i, run_one(p, dbs[fc.path], shim_src, scrip, mode, workroot, os.path.dirname(fc.path),
+                                      loaded=fc.loaded or ())
                 except Exception as e:                      # noqa: BLE001 -- deliberately broad, see above
                     return i, ("harness", "%s: %s" % (type(e).__name__, e))
             with ThreadPoolExecutor(max_workers=jobs) as pool:
@@ -403,6 +466,16 @@ def main(argv):
             sys.stderr.write("    %s: %s\n" % (p, why))
         return 2
     work, results = out
+    # ⛔⭐ A DEVELOPMENT AID THAT GRADED NOTHING MUST REFUSE, NOT PRINT ZEROS. Measured 2026-09-12: `--group
+    # predicates/sub_atom_5` (the path, where the group is the basename) matched no file and this runner
+    # printed a complete board reading population=0, identity 0 == 0 ✓, AND per case 0/0 -- the success
+    # shape over an empty measurement, which is the one thing every gate in this tree is forbidden to do.
+    if args.group and not work:
+        groups = sorted({fc.group for fc in ex.parse_suite(args.suite)[0]})
+        sys.stderr.write("⛔ REFUSED(2) [logtalk_iso]: --group %r matched no file -- the group is the "
+                         "DIRECTORY BASENAME (sub_atom_5), never its path. Known groups: %s\n"
+                         % (args.group, ", ".join(groups)))
+        return 2
     pop = len(work)
     board = {}
     named = []

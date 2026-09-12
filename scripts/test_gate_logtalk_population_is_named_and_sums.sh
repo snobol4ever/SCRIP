@@ -128,7 +128,90 @@ PY
 )"
 [ "${n:-0}" -ge 15 ] || fail "ARM 6: shim_helpers() read $n names out of lib_logtalk_lgtunit.pl -- an empty or tiny set silently marks every helper-using case UNGRADED and the board still reconciles"
 
+# ---- ARM 7 — A DATABASE CLAUSE IN LOGTALK-ONLY SYNTAX IS DROPPED, AND THE FILE STILL GRADES. Measured
+# 2026-09-12 against the ceo's independent emulation: one `cleanup :- ^^clean_text_input.` helper travels
+# with every case of its file, so the generated program was a PARSE ERROR and all 49 predicates/is_2 cases
+# came back `nooutput` -- a verdict on the harness wearing the shape of an arithmetic red. 40 files and
+# 1486 of 3617 cases were graded that way. ⭐ The defect could only ever produce reds, which is why it did
+# not look like a defect: a board of failures is what a young frontend is expected to print.
+arms=$((arms+1))
+mkdir -p "$TD/d/grp"
+cat > "$TD/d/grp/tests.lgt" <<'LGT'
+cleanup :-
+	^^clean_text_input.
+support(1).
+:- object(tests, extends(lgtunit)).
+	test(t_plain, true) :-
+		{support(1)}.
+:- end_object.
+LGT
+if [ -x "$HERE/../scrip" ]; then
+    out="$(python3 "$HERE/util_logtalk_grade.py" --suite "$TD/d" --scrip "$HERE/../scrip" --modes m3 2>&1)"; rc=$?
+    case "$out" in
+        *"m3_pass=1"*) : ;;
+        *) fail "ARM 7: a file whose database carries a Logtalk-only helper (^^/::) did not grade its plain case (rc=$rc): $out
+    The clause cannot be expressed in Prolog, so it must be DROPPED from the generated program -- not emitted, where it makes every case of that file a parse error and reports the construct under test as the failure." ;;
+    esac
+else
+    echo "    ARM 7 SKIPPED: no scrip binary at $HERE/../scrip"
+fi
+
+# ---- ARM 8 — THE TESTER-LOADED PROLOG FILE IS INLINED, GUARDS INTACT. Seven directories ship a tester.lgt
+# whose initialization loads a plain-Prolog file before the tests run; every predicate the cases call lives
+# there. ⛔ It goes in VERBATIM: drop its :- if/endif guards while keeping both branches and the 31 cases
+# that exist to prove a branch was NOT compiled all start succeeding -- the harness answering the question
+# the suite was asking.
+arms=$((arms+1))
+mkdir -p "$TD/e/grp"
+cat > "$TD/e/grp/file.pl" <<'PL'
+:- dynamic(gated_off/0).
+:- if(true).
+gated_on.
+:- endif.
+:- if(fail).
+gated_off.
+:- endif.
+PL
+cat > "$TD/e/grp/tester.lgt" <<'LGT'
+:- initialization((
+	logtalk_load_context(directory, Directory),
+	atom_concat(Directory, 'file.pl', File),
+	'$lgt_load_prolog_file'(File),
+	tests::run
+)).
+LGT
+cat > "$TD/e/grp/tests.lgt" <<'LGT'
+:- object(tests, extends(lgtunit)).
+	test(kept_branch_is_defined, true) :-
+		{gated_on}.
+	test(dropped_branch_is_not, false) :-
+		{gated_off}.
+:- end_object.
+LGT
+if [ -x "$HERE/../scrip" ]; then
+    out="$(python3 "$HERE/util_logtalk_grade.py" --suite "$TD/e" --scrip "$HERE/../scrip" --modes m3 2>&1)"; rc=$?
+    case "$out" in
+        *"m3_pass=2"*) : ;;
+        *) fail "ARM 8: the file the directory's tester.lgt loads was not inlined with its conditional-compilation guards intact (rc=$rc): $out
+    Without it every case raises existence_error on a predicate that is defined -- and with its guards dropped, the branch the suite proves was NOT compiled becomes defined and the case wrongly passes." ;;
+    esac
+else
+    echo "    ARM 8 SKIPPED: no scrip binary at $HERE/../scrip"
+fi
+
+# ---- ARM 9 — A DEVELOPMENT AID THAT GRADED NOTHING REFUSES. `--group predicates/sub_atom_5` (the path,
+# where the group is the basename) matched no file and the grader printed a complete board reading
+# population=0, identity 0 == 0 ✓, AND per case 0/0: the success shape over an empty measurement, which is
+# the one thing every instrument in this tree is forbidden to do.
+arms=$((arms+1))
+out="$(python3 "$HERE/util_logtalk_grade.py" --suite "$TD/a" --scrip "$HERE/../scrip" --modes m3 --group no/such/group 2>&1)"; rc=$?
+if [ "$rc" -ne 2 ]; then
+    fail "ARM 9: --group matching no file exited $rc, want 2 -- it printed a board over a population of zero"
+elif ! printf '%s' "$out" | grep -q "Known groups"; then
+    fail "ARM 9: the refusal did not name the groups it does know: $out"
+fi
+
 echo "[$GATE] arms=$arms violations=$violations"
 [ "$violations" -eq 0 ] || exit 1
-echo "GATE PASS [$GATE]: the population is whole, an unreadable file refuses and is named, and the ISO numeric escape stays readable"
+echo "GATE PASS [$GATE]: the population is whole, an unreadable file refuses and is named, the ISO numeric escape stays readable, Logtalk-only database clauses are dropped rather than emitted, the tester-loaded Prolog file is inlined with its guards, and a group that matched nothing refuses"
 exit 0

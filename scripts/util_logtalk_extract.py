@@ -220,11 +220,42 @@ class Case(object):
 
 
 class FileCases(object):
-    __slots__ = ("path", "group", "db", "cases", "unparsed", "counted")
+    __slots__ = ("path", "group", "db", "loaded", "cases", "unparsed", "counted")
 
     def __init__(self, **kw):
         for k in self.__slots__:
             setattr(self, k, kw.get(k))
+
+
+# ⛔⭐ THE TESTER LOADS PLAIN PROLOG FILES AND THE CASES CANNOT PASS WITHOUT THEM. Seven directories ship a
+# tester.lgt whose initialization calls '$lgt_load_prolog_file'(Directory + '<name>.pl') BEFORE running the
+# tests: the predicates every case of directives/conditional_compilation calls (s1..s8, f01..f31) live in
+# file.pl and nowhere else. Grade without it and all 39 raise existence_error -- a complete, plausible,
+# entirely harness-made red on the one group whose subject is whether conditional compilation works at all
+# (measured 2026-09-12 against the ceo's independent emulation, which inlines the same file and passes 39).
+# ⭐ THE FILE IS NAMED BY THE VENDOR'S OWN tester.lgt, never guessed from the directory listing: op_3 and
+# discontiguous_1 also ship file.pl, include_1/ensure_loaded_1/initialization_1/multifile_1 ship main.pl or
+# file_1.pl, and a directory can ship a .pl the tester deliberately does NOT load.
+_TESTER_LOADS = re.compile(r"atom_concat\(\s*Directory\s*,\s*'([^']+\.pl)'")
+
+
+def _tester_loaded(path):
+    """Clauses of the plain-Prolog files this directory's tester.lgt loads, in the order it loads them.
+    Kept SEPARATE from the file's own database because they are loaded verbatim -- their :- if/endif guards
+    are the thing under test in one group, so the directive filter that cleans a tests.lgt must not run."""
+    d = os.path.dirname(path)
+    t = os.path.join(d, "tester.lgt")
+    if not os.path.exists(t):
+        return []
+    src = open(t, encoding="utf-8", errors="replace").read()
+    if "$lgt_load_prolog_file" not in src:
+        return []
+    out = []
+    for name in _TESTER_LOADS.findall(src):
+        f = os.path.join(d, name)
+        if os.path.exists(f):
+            out.extend(split_clauses(open(f, encoding="utf-8", errors="replace").read()))
+    return out
 
 
 def _group_of(path):
@@ -303,7 +334,8 @@ def parse_file(path):
     for line in open(path, encoding="utf-8", errors="replace"):
         if re.match(r"^\s*(test|succeeds|fails|throws)\(", line):
             counted += 1
-    return FileCases(path=path, group=_group_of(path), db=db, cases=cases, unparsed=unparsed, counted=counted)
+    return FileCases(path=path, group=_group_of(path), db=db, loaded=_tester_loaded(path), cases=cases,
+                     unparsed=unparsed, counted=counted)
 
 
 def parse_suite(root):
