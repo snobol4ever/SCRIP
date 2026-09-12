@@ -46,12 +46,26 @@ ck() { checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; 
 echo "=== gate: companion files are copied to transitive closure, with a cycle guard ==="
 
 echo "--- ARM 1: the real witness -- fail-once (one-level copier) then pass-once (the cure) ---"
-out1="$(timeout 240 python3 - "$H" "$FAM" <<'PY' 2>&1
-import sys, pathlib, tempfile
+# ⛔⭐ THIS ARM DECLARES ITS OWN PER-PROGRAM BUDGET AND RECORDS EVERY DURATION, AND UNTIL 2026-09-12 IT DID
+# NEITHER (hq_V, CEO-601/COO-60). It inherited corpus_suite_harness.py's TIMEOUT default of TEN SECONDS, and
+# the witness is a program that runs until it EXHAUSTS THE HEAP and aborts -- so the arm's verdict turned
+# entirely on an undeclared duration. MEASURED both ways on the same corpus witness, caches warm, binaries
+# alternated: at this gate's own mint commit 55843f71b it aborted signal 6 in 3.8-4.5 s (under 10 s -> CRASH,
+# green); on HEAD it aborts signal 6 in 31-34 s (over 10 s -> HANG, red). ⛔ THE PROGRAM NEVER STOPPED
+# CRASHING -- only the CLOCK moved, and the gate reported a HANG, which is the one reading the machine banner
+# on every board in this tree explicitly forbids: "an rc=124 is a TIMEOUT FIRING, which is not by itself
+# evidence of a hang -- it cannot distinguish needs-8.1s from never-finishes. If a verdict turns on duration,
+# record the duration." This arm grades the KIND of failure companion-copying produces; it must never be a
+# stopwatch on the runtime wearing a correctness arm's clothes.
+ARM1_BUDGET="${ARM1_BUDGET:-180}"
+ARM1_MINT_SECS=4.5
+out1="$(ARM1_BUDGET="$ARM1_BUDGET" timeout 900 python3 - "$H" "$FAM" <<'PY' 2>&1
+import sys, pathlib, tempfile, os, time
 sys.path.insert(0, str(pathlib.Path(sys.argv[1]).parent))
 import corpus_suite_harness as H
 fam = pathlib.Path(sys.argv[2])
 paths = H.resolve_paths()
+paths["timeout"] = float(os.environ.get("ARM1_BUDGET", "180"))
 H.check_scrip(paths)
 entries = H.read_suite(str(fam/"ALL.sno"), str(fam/"ALL.ref"),
                         in_path=H.sidecar_in_path(str(fam/"ALL.sno")),
@@ -86,23 +100,49 @@ real = H._copy_companions
 try:
     H._copy_companions = old_one_level
     with tempfile.TemporaryDirectory() as t:
+        _t0 = time.time()
         before = H.run_suite_entry(paths, entry, t, ["m3", "m4"], companion_dir=fam)
+        _before_secs = time.time() - _t0
 finally:
     H._copy_companions = real
 with tempfile.TemporaryDirectory() as t:
+    _t0 = time.time()
     after = H.run_suite_entry(paths, entry, t, ["m3", "m4"], companion_dir=fam)
+    _after_secs = time.time() - _t0
 print("BEFORE", before["m3"].kind, before["m4"].kind)
 print("AFTER", after["m3"].kind, after["m4"].kind)
+print("SECS budget=%.1f before=%.1f after=%.1f" % (paths["timeout"], _before_secs, _after_secs))
 PY
 )"
 echo "$out1" | sed 's/^/    /'
 grep -q '^MISSING-ENTRY$' <<<"$out1" && { echo "⛔ REFUSED-TO-GRADE rc=2: array_replace_branch_2 is no longer in $FAM/ALL.sno -- the real witness this arm needs is gone"; exit 2; }
 before_line="$(grep '^BEFORE' <<<"$out1")"
 after_line="$(grep '^AFTER' <<<"$out1")"
+secs_line="$(grep '^SECS' <<<"$out1")"
 [ "$before_line" = "BEFORE FAIL SKIP" ] && ck ok "fail-once: the one-level copier reproduces the exact pre-cure verdicts (FAIL m3 / SKIP m4)" \
     || ck no "fail-once did not reproduce the documented pre-cure shape -- ${before_line:-<no output>}"
+# ⛔ A HANG AT A DECLARED, GENEROUS BUDGET IS A REFUSAL, NOT A RED. The two readings "this program never
+# finishes" and "this program needed more than ${ARM1_BUDGET}s" are the same observation, and this arm cannot
+# tell them apart -- so it says so and refuses rather than convicting companion-copying of a runtime's clock.
+if grep -q 'HANG' <<<"$after_line"; then
+    echo "⛔ REFUSED-TO-GRADE rc=2: the cured witness read HANG at a declared ${ARM1_BUDGET}s budget -- ${after_line}."
+    echo "    This arm grades the KIND of failure companion-copying produces (CRASH vs FAIL/SKIP); it cannot"
+    echo "    distinguish 'never finishes' from 'needed more than ${ARM1_BUDGET}s', and it will not guess."
+    echo "    ${secs_line:-<no duration recorded>}"
+    echo "    Raise ARM1_BUDGET and re-run. If the duration keeps climbing, the row is the RUNTIME's, not this gate's."
+    exit 2
+fi
 [ "$after_line" = "AFTER CRASH CRASH" ] && ck ok "pass-once: the cured copier reports CRASH in both modes, the oracle-confirmed true state" \
     || ck no "the cure did not turn this witness into a CRASH verdict -- ${after_line:-<no output>}"
+# ⭐ THE DURATION IS REPORTED ON EVERY RUN AND NEVER REDDENS THIS GATE. A perf ratchet on a shared runtime node
+# is a different row with a different owner; reddening a companion-copying gate on it is how a gate teaches its
+# reader to route around it. But burying it is how an 8x slowdown reaches a board as the word HANG, so it is
+# NAMED here, with the mint figure beside it, every single run.
+if [ -n "${secs_line:-}" ]; then
+    after_secs="$(grep -oE 'after=[0-9.]+' <<<"$secs_line" | cut -d= -f2)"
+    echo "    $secs_line   (this gate's mint commit 55843f71b measured the same witness aborting signal 6 in ~${ARM1_MINT_SECS}s)"
+    awk -v a="${after_secs:-0}" -v m="$ARM1_MINT_SECS" 'BEGIN{ if (a > 4*m) printf "    ⚠ NOTICE, reported and deliberately NOT red here: the cured witness now takes %.1fs where this gate\x27s mint tree took ~%.1fs (%.1fx). Same abort, signal 6, same input -- only the clock moved. Bisected to ac044419d (2026-09-09, the workspace-island-into-GC-heap merge, CEO-450/451/454/474): [WSI] island exhausted (1024 MB, 25165235 blocks) became [ZHP] heap exhausted (512 MB, 11184399 blocks) on a pinned allocation. That is a RUNTIME row and a shared node, not this gate\x27s to cure.\n", a, m, a/m }'
+fi
 
 echo "--- ARM 2/3/4: synthetic closure depth, cycle termination, and refusal-safety ---"
 out2="$(timeout 30 python3 - "$H" <<'PY' 2>&1
