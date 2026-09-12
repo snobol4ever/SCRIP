@@ -126,7 +126,7 @@ _txt="$_txt — every case graded against the standard as the standard states it
 # case, and only this runner can compute it, so only this runner may state it.
 _sc="$HERE/util_score_row.py"
 python3 "$_sc" write --lang prolog --column vendor --text "$_txt${_iv:+ · $_iv (\`$GATE_NAME.sh\`)}" \
-    --measurer "${S4E_SEAT:-hq_R}" --modes "$MODES" --suite logtalk --suite-pass "$_both" --suite-total "$_pop" \
+    --measurer "${S4E_SEAT:-}" --modes "$MODES" --suite logtalk --suite-pass "$_both" --suite-total "$_pop" \
     || echo "⚠ SCORE.md NOT UPDATED [$GATE_NAME] -- the board above stands on its own measurement; the leaderboard row does not"
 rm -f "$_out"
 exit 0
