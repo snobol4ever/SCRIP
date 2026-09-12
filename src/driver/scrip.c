@@ -1018,7 +1018,7 @@ int main(int argc, char **argv)
         if (d && strcasecmp(d,".icn")==0) is_icon = 1;
         if (d && strcasecmp(d,".raku")==0) is_raku = 1;
         if (d && strcasecmp(d,".pas")==0) is_pascal = 1;
-        if (!d || strcasecmp(d,".sno")==0 || strcasecmp(d,".sc")==0 || strcasecmp(d,".reb")==0 || strcasecmp(d,".spt")==0) saw_sno = 1;
+        if (!d || strcasecmp(d,".sno")==0 || strcasecmp(d,".sc")==0 || strcasecmp(d,".reb")==0 || strcasecmp(d,".spt")==0 || strcasecmp(d,".sbl")==0) saw_sno = 1;
     }
     int is_sno_bb = (saw_sno || is_scrip) && !is_pascal;
     lower_seg_t segs[64];
