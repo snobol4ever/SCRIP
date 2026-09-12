@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
-typedef struct rt_hp_fr_t { char *top; char *end; long blocks; int armed; int _pad; char *virgin; int zfull; int _pad2; } rt_hp_fr_t;
+typedef struct rt_hp_fr_t { char *top; char *end; long blocks; int armed; int _pad; char *virgin; int zfull; int _pad2; char *line; } rt_hp_fr_t;
 extern rt_hp_fr_t g_hp_fr;
 void *rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes);
 void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes);

@@ -20,7 +20,7 @@ RTX_FUNC(rt_gcheap_alloc)
     mov     rax, r11
     add     rax, rcx
     jc      .Lga_slow
-    cmp     rax, [r10 + 8]
+    cmp     rax, [r10 + 48]
     ja      .Lga_slow
     cmp     r11, [r10 + 32]
     jb      .Lga_slow
