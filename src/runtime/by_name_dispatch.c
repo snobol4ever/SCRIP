@@ -4378,9 +4378,11 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
     return out;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int bn_bal_gen(DESCR_t *args, int nargs, DESCR_t *out, int64_t *state);
 static int bn_str_anal(DESCR_t *args, int nargs, int si, const char **out_s, int *out_i, int *out_j);
 static DESCR_t rt_call_arr_gen_s(const char *fn, DESCR_t *args, int nargs, int64_t *resume, int strict) {
     DESCR_t out = FAILDESCR;
+    if (fn && resume && nargs <= 6 && !strcmp(fn, "bal")) { if (*resume == (0x7FFFFFFFll << 32)) return FAILDESCR; if (bn_bal_gen(args, nargs, &out, resume) && !IS_FAIL_fn(out)) return out; return FAILDESCR; }
     if (fn && resume && nargs >= 2 && nargs <= 4 && (!strcmp(fn, "find") || !strcmp(fn, "upto"))) {
         DESCR_t a4[4]; a4[0] = args[0]; a4[1] = args[1];
         { const char *hs; int ni, nj; if (!bn_str_anal(args, nargs, 1, &hs, &ni, &nj)) return FAILDESCR;
@@ -4653,6 +4655,46 @@ static int bn_cvpos(long long pos, int len, int *out_p) {
     *out_p = (int)(pos > 0 ? pos : (long long)len + pos + 1);
     return 1;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int bn_bal_gen(DESCR_t *args, int nargs, DESCR_t *out, int64_t *state) {
+    extern const char *scan_subj; extern int scan_pos;
+        const char *c1 = 0; int c1len = 0; int c1any = 0;
+        if (nargs < 1 || IS_FAIL_fn(args[0]) || args[0].v == DT_SNUL) c1any = 1;
+        else if (!cset_resolve(args[0], &c1, &c1len)) { *out = FAILDESCR; return 1; }
+        const char *c2 = "("; int c2len = 1;
+        const char *c3 = ")"; int c3len = 1;
+        if (nargs >= 2) { const char *v; int vlen; if (cset_resolve(args[1], &v, &vlen) && vlen > 0) { c2 = v; c2len = vlen; } }
+        if (nargs >= 3) { const char *v; int vlen; if (cset_resolve(args[2], &v, &vlen) && vlen > 0) { c3 = v; c3len = vlen; } }
+        const char *s; int slen; int p;
+        if (nargs >= 4 && !IS_FAIL_fn(args[3]) && args[3].v != DT_SNUL) {
+            s = VARVAL_fn(args[3]); if (!s) s = "";
+            slen = (int)strlen(s);
+            int i1 = (nargs >= 5 && (IS_INT_fn(args[4]) || IS_REAL_fn(args[4]))) ? (int)to_int(args[4]) : 1;
+            int i2 = (nargs >= 6 && (IS_INT_fn(args[5]) || IS_REAL_fn(args[5]))) ? (int)to_int(args[5]) : slen + 1;
+            if (i1 <= 0) i1 = slen + 1 + i1;
+            if (i2 <= 0) i2 = slen + 1 + i2;
+            if (i1 < 1 || i1 > slen + 1) { *out = FAILDESCR; return 1; }
+            if (i2 - 1 < slen) slen = i2 - 1;
+            p = i1 - 1;
+        } else {
+            s = scan_subj ? scan_subj : ""; slen = (int)strlen(s);
+            p = scan_pos - 1;
+        }
+        long long cnt = 0;
+        if (state && *state > 0) { p = (int)(*state & 0xFFFFFFFFll) - 1; cnt = (long long)(*state >> 32); }
+        while (p < slen) {
+            unsigned char ch = (unsigned char)s[p];
+            if (cnt == 0 && (c1any || cset_has(c1, c1len, ch))) {
+                long long nc = cnt + (cset_has(c2, c2len, ch) ? 1 : 0) - (cset_has(c3, c3len, ch) ? 1 : 0);
+                if (state) *state = (nc < 0 ? 0x7FFFFFFFll << 32 : (nc << 32)) | (long long)(p + 2);
+                *out = INTVAL(p + 1); return 1; }
+            if (cset_has(c2, c2len, ch)) cnt++;
+            else if (cset_has(c3, c3len, ch)) { cnt--; if (cnt < 0) { *out = FAILDESCR; return 1; } }
+            p++;
+        }
+        *out = FAILDESCR;
+        return 1;
+    }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bn_str_anal(DESCR_t *args, int nargs, int si, const char **out_s, int *out_i, int *out_j) {
     extern const char *scan_subj;
@@ -6347,40 +6389,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         *out = INTVAL(i1 + plen2); return 1;
     }
     L_bidjmp_6033: ;
-    if ((_bid == BID_bal) && (scan_pos > 0 || nargs >= 4)) {
-        const char *c1 = 0; int c1len = 0; int c1any = 0;
-        if (nargs < 1 || IS_FAIL_fn(args[0]) || args[0].v == DT_SNUL) c1any = 1;
-        else if (!cset_resolve(args[0], &c1, &c1len)) { *out = FAILDESCR; return 1; }
-        const char *c2 = "("; int c2len = 1;
-        const char *c3 = ")"; int c3len = 1;
-        if (nargs >= 2) { const char *v; int vlen; if (cset_resolve(args[1], &v, &vlen) && vlen > 0) { c2 = v; c2len = vlen; } }
-        if (nargs >= 3) { const char *v; int vlen; if (cset_resolve(args[2], &v, &vlen) && vlen > 0) { c3 = v; c3len = vlen; } }
-        const char *s; int slen; int p;
-        if (nargs >= 4 && !IS_FAIL_fn(args[3]) && args[3].v != DT_SNUL) {
-            s = VARVAL_fn(args[3]); if (!s) s = "";
-            slen = (int)strlen(s);
-            int i1 = (nargs >= 5 && (IS_INT_fn(args[4]) || IS_REAL_fn(args[4]))) ? (int)to_int(args[4]) : 1;
-            int i2 = (nargs >= 6 && (IS_INT_fn(args[5]) || IS_REAL_fn(args[5]))) ? (int)to_int(args[5]) : slen + 1;
-            if (i1 <= 0) i1 = slen + 1 + i1;
-            if (i2 <= 0) i2 = slen + 1 + i2;
-            if (i1 < 1 || i1 > slen + 1) { *out = FAILDESCR; return 1; }
-            if (i2 - 1 < slen) slen = i2 - 1;
-            p = i1 - 1;
-        } else {
-            s = scan_subj ? scan_subj : ""; slen = (int)strlen(s);
-            p = scan_pos - 1;
-        }
-        long long cnt = 0;
-        while (p < slen) {
-            unsigned char ch = (unsigned char)s[p];
-            if (cnt == 0 && (c1any || cset_has(c1, c1len, ch))) { *out = INTVAL(p + 1); return 1; }
-            if (cset_has(c2, c2len, ch)) cnt++;
-            else if (cset_has(c3, c3len, ch)) { cnt--; if (cnt < 0) { *out = FAILDESCR; return 1; } }
-            p++;
-        }
-        *out = FAILDESCR;
-        return 1;
-    }
+    if ((_bid == BID_bal) && (scan_pos > 0 || nargs >= 4)) { return bn_bal_gen(args, nargs, out, (int64_t *)0); }
     L_bidjmp_6067: ;
     if ((_bid == BID_find) && nargs >= 1 && (scan_pos > 0 || nargs >= 2)) {
         const char *needle = VARVAL_fn(args[0]); if (!needle) { *out = FAILDESCR; return 1; }

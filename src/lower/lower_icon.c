@@ -229,8 +229,8 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
     }
     int gb = name && icn_callable_proc_index(name) < 0
                   && ((nargs >= 2 && nargs <= 4 && (!strcmp(name, "find") || !strcmp(name, "upto")))
-                   || (nargs == 1 && (!strcmp(name, "find") || !strcmp(name, "upto") || !strcmp(name, "bal")))
-                   || (nargs == 0 && !strcmp(name, "bal")));
+                   || (nargs == 1 && (!strcmp(name, "find") || !strcmp(name, "upto")))
+                   || (nargs <= 6 && !strcmp(name, "bal")));
     int is_cursor_mover = name && (!strcmp(name, "tab") || !strcmp(name, "move"));
     int fill_scan_defaults = gb && nargs == 1 && cx->scan_sp == 0 && (!strcmp(name, "find") || !strcmp(name, "upto"));
     int fill_bal_cset = gb && nargs == 0 && !strcmp(name, "bal");
