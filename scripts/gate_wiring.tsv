@@ -96,6 +96,7 @@ test_gate_icn_generator_return_traces_returned_not_failed.sh	WIRED	-	-	-
 test_gate_icn_global_names_are_not_governed_by_snobol4_keywords.sh	WIRED	-	-	-
 test_gate_icn_if_without_else_invocable_arity_and_string_continuation.sh	WIRED	-	-	-
 test_gate_icn_ipl_calc_reports_erroneous_input.sh	WIRED	-	-	-
+test_gate_icn_ipl_cutter_detects_a_nondeterministic_program.sh	WIRED	-	-	-
 test_gate_icn_ipl_scan_resume_and_limit_flips.sh	WIRED	-	-	-
 test_gate_icn_list_and_reads_size_argument_is_gated_like_iconx.sh	WIRED	-	-	-
 test_gate_icn_loadfunc_returns_a_callable.sh	WIRED	-	-	-
@@ -105,6 +106,7 @@ test_gate_icn_open_directory_reads_entries.sh	WIRED	-	-	-
 test_gate_icn_outside_baseline_is_read_and_mirrored.sh	WIRED	-	-	-
 test_gate_icn_pow_large_integer_exponent.sh	WIRED	-	-	-
 test_gate_icn_range_operands_must_be_integers.sh	WIRED	-	-	-
+test_gate_icn_real_str_is_icons_own_convention.sh	WIRED	-	-	-
 test_gate_icn_record_field_name_is_not_a_procedure.sh	WIRED	-	-	-
 test_gate_icn_return_from_inside_a_scan_block_restores_the_enclosing_scan.sh	WIRED	-	-	-
 test_gate_icn_reversible_exchange_on_a_global.sh	WIRED	-	-	-
@@ -122,6 +124,7 @@ test_gate_icn_traced_call_reports_its_own_call_site_line.sh	WIRED	-	-	-
 test_gate_icn_write_is_byte_exact_through_an_embedded_nul.sh	WIRED	-	-	-
 test_gate_icon_arguments_dereference_at_the_call.sh	WIRED	-	-	-
 test_gate_icon_features_and_preprocessor_symbols_agree.sh	WIRED	-	-	-
+test_gate_icon_m4_invocation_is_pinned.sh	WIRED	-	-	-
 test_gate_icon_master_entries_compile_under_icont.sh	WIRED	-	-	-
 test_gate_icon_shipped_trees_compile_under_icont.sh	WIRED	-	-	-
 test_gate_icon_shootout_is_ceo567_conforming.sh	WIRED	-	-	-
@@ -144,6 +147,7 @@ test_gate_monitor_refuses_when_a_participant_never_starts.sh	WIRED	-	-	-
 test_gate_next_honours_the_lane_cut.sh	WIRED	-	-	-
 test_gate_no_bb_bin_t.sh	WIRED	-	-	-
 test_gate_no_handencoded_bytes.sh	WIRED	-	-	-
+test_gate_no_language_discriminator_in_the_runtime.sh	WIRED	-	-	-
 test_gate_no_o2_arm_in_scripts.sh	WIRED	-	-	-
 test_gate_no_ref_pins_oracle_internal_state.sh	WIRED	-	-	-
 test_gate_no_vstack.sh	WIRED	-	-	-
@@ -154,6 +158,7 @@ test_gate_nreturn_by_name_value_broken.sh	WIRED	-	-	-
 test_gate_one_runner_one_board.sh	WIRED	-	-	-
 test_gate_orphaned_witnesses_do_not_grow.sh	WIRED	-	-	-
 test_gate_our_files_are_lf.sh	WIRED	-	-	-
+test_gate_outside_baseline_rows_name_a_live_measurement.sh	WIRED	-	-	-
 test_gate_package_runners_print_the_inventory.sh	WIRED	-	-	-
 test_gate_parser_generated_files_in_sync.sh	WIRED	-	-	-
 test_gate_pattern_operand_reentry.sh	WIRED	-	-	-
@@ -175,6 +180,7 @@ test_gate_pl_raising_directive_does_not_abort_the_load.sh	WIRED	-	-	-
 test_gate_pl_read_raises_catchable_syntax_error.sh	WIRED	-	-	-
 test_gate_pl_term_inspection_iso_errors.sh	WIRED	-	-	-
 test_gate_pl_trail_mechanism.sh	WIRED	-	-	-
+test_gate_pl_wall_us_arity1.sh	WIRED	-	-	-
 test_gate_pl_xfail_marker_consistent.sh	WIRED	-	-	-
 test_gate_polyglot_demos.sh	WIRED	-	-	-
 test_gate_postoffice_identity.sh	WIRED	-	-	-
