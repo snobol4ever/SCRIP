@@ -571,7 +571,7 @@ static std::string bb_define_sr() {
         std::string la = std::string(fn4) + "_\xce\xb1", lb = std::string(fn4) + "_\xce\xb3", lo = std::string(fn4) + "_\xcf\x89";
         std::string blb = inl5 ? std::string(en4) : (std::string("LBL__") + en4);
         const struct bb_label_t * lbl_b = emit_label_intern(lb.c_str()); const struct bb_label_t * lbl_o = emit_label_intern(lo.c_str());
-        uint64_t body_cell = (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("body$") + en4).c_str());
+        uint64_t body_cell = (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("body$") + fn4).c_str());
         std::string bcell = std::string("body_cell$") + std::string(bb_ab_sym_name(fn4));
         auto SCALE16 = [&]() { return x86("mov", "rax", "rcx") + x86("add", "rax", "rax") + x86("add", "rax", "rax") + x86("add", "rax", "rax") + x86("add", "rax", "rax"); };
         auto RESTORE4 = [&](int lid) {

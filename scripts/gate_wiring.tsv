@@ -58,6 +58,7 @@ test_gate_collect_reports_free_storage_and_fails_when_short.sh	WIRED	-	-	-
 test_gate_corpus_coverage_classified.sh	WIRED	-	-	-
 test_gate_cross_suite_ref_agreement.sh	WIRED	-	-	-
 test_gate_deferred_rows_name_a_ruling_and_the_work_they_wait_on.sh	WIRED	-	-	-
+test_gate_define_alternate_entry.sh	WIRED	-	-	-
 test_gate_dispatch_bus_failure_modes.sh	WIRED	-	-	-
 test_gate_dispatch_claim_single_authority.sh	WIRED	-	-	-
 test_gate_dispatch_gc_safepoint_inline.sh	WIRED	-	-	-
@@ -192,6 +193,7 @@ test_gate_progress_rows_carry_the_start_fingerprint.sh	WIRED	-	-	-
 test_gate_prolog_dynamic_predicate_with_file_clauses.sh	WIRED	-	-	-
 test_gate_queue_census_placeholder_arm.sh	WIRED	-	-	-
 test_gate_raku_paren_call_passes_its_arguments.sh	WIRED	-	-	-
+test_gate_rebus_derived_refs_match_their_rival_oracle.sh	WIRED	-	-	-
 test_gate_ref_cutters_refuse_a_dead_oracle.sh	WIRED	-	-	-
 test_gate_right_sealed_defer_beta_no_double_teardown.sh	WIRED	-	-	-
 test_gate_rtcc_callee_class.sh	WIRED	-	-	-
@@ -228,10 +230,10 @@ test_gate_sno_deferred_capture_keeps_the_name_save_stack_balanced.sh	WIRED	-	-	-
 test_gate_sno_deferred_goto_from_match_inside_define.sh	WIRED	-	-	-
 test_gate_sno_deferred_pattern_primitive_arg.sh	WIRED	-	-	-
 test_gate_sno_deferred_replacement_keeps_its_capture_mark.sh	WIRED	-	-	-
+test_gate_sno_define_entry_label_rebinds_at_runtime.sh	WIRED	-	-	-
 test_gate_sno_dump_matches_spitbol.sh	WIRED	-	-	-
 test_gate_sno_fence_body_dynamic_operand.sh	WIRED	-	-	-
 test_gate_sno_field_function_with_no_argument_raises_041_not_022.sh	WIRED	-	-	-
-test_gate_sno_define_entry_label_rebinds_at_runtime.sh	WIRED	-	-	-
 test_gate_sno_goto_with_no_preceding_error.sh	WIRED	-	-	-
 test_gate_sno_io_assoc_channel_and_filespec.sh	WIRED	-	-	-
 test_gate_sno_keyword_spelling_is_case_sensitive.sh	WIRED	-	-	-
@@ -260,7 +262,6 @@ test_gate_baton_donewhen_runnable_live.sh	RULING	reads the LIVE postoffice: grad
 test_gate_baton_next_blocks.sh	RULING	reads the LIVE postoffice: grades rows sixteen seats are editing right now, so it reds on a dirty fleet BY DESIGN (ceo ruling 2026-09-03, stated verbatim in the Makefile test-postoffice header)	ceo	2026-09-03
 test_gate_baton_one_next_block.sh	RULING	reads the LIVE postoffice: grades rows sixteen seats are editing right now, so it reds on a dirty fleet BY DESIGN (ceo ruling 2026-09-03, stated verbatim in the Makefile test-postoffice header)	ceo	2026-09-03
 test_gate_baton_state_header_single_record.sh	RULING	reads the LIVE postoffice: grades rows sixteen seats are editing right now, so it reds on a dirty fleet BY DESIGN (ceo ruling 2026-09-03, stated verbatim in the Makefile test-postoffice header)	ceo	2026-09-03
-test_gate_define_alternate_entry.sh	RULING	Confirmed by RUNNING it, which is what the ruling needed and what nobody had done: rc=1 RED in 0.98 s on SCRIP 71d8bd89b -- 'the LAST DEFINE in program text won', oracle E0 v E1 v E2 v done vs m3 E2 v done, both modes. The cto's reason stands in every particular (hq_P's row snobol4-define-alternate-entry-binds-one-entry-for-the-whole-program, rank 0, PARKED-LON-HOLD under Lon's Icon-only order). A red DONE-WHEN is not an invariant and wiring it would redden the blocking set for all thirteen seats; it gets wired in the commit that makes it green (CEO-381).	hq_P	2026-09-09T14:56Z
 test_gate_icon_master_per_entry_identity.sh	RULING	CEO-547 (ceo, 2026-09-11, on the cfo ECONOMY finding), EXECUTED by hq_V 2026-09-12: it runs the corpus Icon master, so ONE RUNNER, ONE BOARD (CEO-523) correctly refuses it rc=2 to every seat but the coo -- wired, it asserted nothing for two days and made make test unrunnable for twelve of thirteen seats. Moved to the coo pass (make test-boards). The comparison is UNWEAKENED and proven on the coo own recorded board of this tree: examined=1669 regressions=0, and FAIL_ONCE rc=1.	hq_V	2026-09-12T13:39Z
 test_gate_preflight_complete.sh	RULING	reads the LIVE postoffice: grades rows sixteen seats are editing right now, so it reds on a dirty fleet BY DESIGN (ceo ruling 2026-09-03, stated verbatim in the Makefile test-postoffice header)	ceo	2026-09-03
 test_gate_queue_is_an_index.sh	RULING	reads the LIVE postoffice: grades rows sixteen seats are editing right now, so it reds on a dirty fleet BY DESIGN (ceo ruling 2026-09-03, stated verbatim in the Makefile test-postoffice header)	ceo	2026-09-03
