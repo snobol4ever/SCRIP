@@ -165,6 +165,32 @@ def _fixture_of_a_witness(root, rel, f):
     return any(os.path.isfile(os.path.join(parent, stem + '.' + e)) for e in EXT)
 
 
+def _own_ref(root, base, files):
+    """The .ref/.expected/.std beside `base` that BELONGS TO IT, or None.
+    ⛔⭐ A REF IS CLAIMED BY BASENAME, AND A BASENAME IS NOT UNIQUE ACROSS LANGUAGES IN ONE DIRECTORY
+    (hq_B 2026-09-12, measured while landing CEO-609 and caught by reading the very first run of the new
+    counter, not by a test). corpus/demos/snobol4/claws5/ holds claws5.sno AND claws5.sc beside ONE
+    claws5.ref cut for the SNOBOL4 program -- so a plain "does base + '.ref' exist" credited the SNOCONE
+    source with another language's pinned output and reported it as kernel-with-ref, OWING NOTHING. Same
+    shape at porter/. That is a wrong exclusion, and a wrong exclusion costs more than a wrong cure: a red
+    stays visible and an excluded name cannot be red.
+    ⭐ THE PREDICATE IS THEREFORE ABOUT THE DIRECTORY, NOT THE FILE: when two or more sources in one
+    directory share a basename, NEITHER can claim the ref by name alone, and the question "whose output is
+    this" has no answer the filesystem can give. The census says so instead of guessing."""
+    twins = [x for x in files if x.rsplit('.', 1)[-1] in EXT and x[:x.rfind('.')] == base]
+    if len(twins) > 1: return None
+    for e in _REF_EXTS:
+        if os.path.exists(os.path.join(root, base + e)): return os.path.join(root, base + e)
+    return None
+
+
+def _ref_is_ambiguous(root, base, files):
+    """True when a ref sits beside `base` but two or more sources share that basename -- the collision
+    above, reported by name rather than silently resolved either way."""
+    twins = [x for x in files if x.rsplit('.', 1)[-1] in EXT and x[:x.rfind('.')] == base]
+    return len(twins) > 1 and any(os.path.exists(os.path.join(root, base + e)) for e in _REF_EXTS)
+
+
 for root, dirs, files in os.walk(C):
     rel = os.path.relpath(root, C)
     if rel.startswith('packages') or rel.startswith('programs') or '/.git' in root or rel.startswith('.git'): continue   # programs/* excluded on Lon's word 2026-09-04 ("Go ahead and exclude programs/* folders."): the 08-27 parser-only ruling on that tree stands
@@ -279,9 +305,9 @@ for root, dirs, files in os.walk(C):
               and os.path.exists(os.path.join(root, base + '.derivation'))
               and os.path.getsize(os.path.join(root, base + '.derivation')) > 0): kind = 'derived-ref'
         elif top in _KERNEL_TOPS:
-            if any(os.path.exists(os.path.join(root, base + s)) for s in _REF_EXTS): kind = 'kernel-with-ref'
-            else: kind = 'kernel-owed-ref'; kernel_owed[lang].append(path)
-        elif any(os.path.exists(os.path.join(root, base + s)) for s in ('.ref', '.expected', '.std')): kind = 'loose pair (has ref)'; owed[lang].append(path)
+            if _own_ref(root, base, files): kind = 'kernel-with-ref'
+            else: kind = 'kernel-owed-ref'; kernel_owed[lang].append((path, 'a ref sits beside it but is claimed by a same-named source of another language -- this one needs its own, under a name that does not collide') if _ref_is_ambiguous(root, base, files) else (path, ''))
+        elif _own_ref(root, base, files): kind = 'loose pair (has ref)'; owed[lang].append(path)
         elif re.search(r'(^|/)(parser|coverage)/', path) or re.match(r'parser_|probe_|coverage_', f): kind = 'fixture'; owed[lang].append(path)
         else: kind = 'loose source (no ref)'; owed[lang].append(path)
         rows[(top, lang)][kind] += 1
@@ -316,6 +342,6 @@ if A.list:
     for lang in sorted(set(list(owed) + list(dangling) + list(kernel_owed) + list(keepers))):
         for p in sorted(owed[lang]): print('    ' + p)
         for p in sorted(dangling[lang]): print('    DANGLING REF  ' + p)
-        for p in sorted(kernel_owed[lang]): print('    KERNEL OWED A REF  ' + p)
+        for p, why in sorted(kernel_owed[lang]): print('    KERNEL OWED A REF  ' + p + ('   <- ' + why if why else ''))
         for p, (kf, why) in sorted(keepers[lang]): print('    DECLARED KEEPER  %-58s %s (%s)' % (p, kf, why))
 sys.exit(1 if n else 0)
