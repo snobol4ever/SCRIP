@@ -318,6 +318,7 @@ static inline int core_err_is_terminal(int code) {
         case 20: case 21: case 22: case 23:
         case 26: case 27: case 29: case 30:
         case 31: case 38: case 39:
+        case 242:
             return 1;
         default: return 0;
     }
