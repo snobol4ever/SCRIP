@@ -2418,7 +2418,7 @@ PROGRESS_COUNTED = {
     # NARROWER THAN THE THING IT READS REPORTS ABSENCE, NEVER FAILURE, and absence is the one verdict that looks
     # like honest work.
     "icon": [("arizona", r"[Aa]rizona", (90, 124)), ("jcon", r"[Jj][Cc][Oo][Nn]", (81, 91)), ("ipl", r"\b[Ii][Pp][Ll]\b", (60, 851))],
-    "prolog": [("swi", r"[Ss][Ww][Ii]", (114, 249)), ("INRIA", r"INRIA|inria|ISO 13211", (445,)), ("gnu", r"[Gg][Nn][Uu]", (62, 91))],
+    "prolog": [("swi", r"[Ss][Ww][Ii]", (114, 249)), ("INRIA", r"INRIA|inria|ISO 13211", (445,)), ("gnu", r"[Gg][Nn][Uu]", (62, 91)), ("logtalk", r"[Ll]ogtalk", (3617,))],
     "pascal": [("fpc", r"fpc", (181,)), ("PAT", r"\bPAT\b|validation suite|ISO 7185", (427, 429))],
     "raku": [("roast", r"roast", (986, 1464))],
 }
