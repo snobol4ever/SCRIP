@@ -42,7 +42,6 @@ static int g_gva_kw_refused_max = 0;
 static int g_gva_kw_seeded = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int gva_keyword_refused(const char *name) {
-    if (!g_gva_kw_seeded) gva_keyword_refuse_seed_snobol4();
     for (int i = 0; i < g_gva_kw_refused_n; i++) if (g_gva_kw_refused[i] && strcmp(g_gva_kw_refused[i], name) == 0) return 1;
     return 0;
 }

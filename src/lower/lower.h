@@ -10,7 +10,6 @@
 #include "IR.h"
 #include "bb_box.h"
 #include "../runtime/builtins/gen.h"
-extern int g_postfix_resume;
 #define T0(t) ((t)->n > 0 ? (t)->c[0] : NULL)
 #define T1(t) ((t)->n > 1 ? (t)->c[1] : NULL)
 void lc_γ_to(IR_t *nd, IR_t *t);

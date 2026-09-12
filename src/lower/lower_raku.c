@@ -1145,7 +1145,7 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
                 sc->e[sc->n].name = lp_strdup(pv->v.sval);
                 sc->e[sc->n].slot = sc->n; sc->n++;
             }
-            g_stage2.bbp.table[bb_idx]->nparams = sc->n;
+            g_stage2.bbp.table[bb_idx]->nparams = sc->n; g_stage2.bbp.table[bb_idx]->entry_frame = 1; g_stage2.bbp.table[bb_idx]->smx = 1; g_stage2.proc_table[pi].lex_startup = 1;
             if (sc->n > 0) {
                 const char ** _pn = (const char **) calloc((size_t) sc->n, sizeof(const char *));
                 if (_pn) { for (int k = 0; k < sc->n; k++) _pn[k] = sc->e[k].name; g_stage2.bbp.table[bb_idx]->pnames = _pn; }
@@ -1200,5 +1200,6 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
         }
     }
     rk_reclassify_calls();
+    for (int pi = 0; pi < g_stage2.proc_count; pi++) { int bi = g_stage2.proc_table[pi].bb_idx; if (bi >= 0 && bi < g_stage2.bbp.count && g_stage2.bbp.table[bi]) { g_stage2.bbp.table[bi]->entry_frame = 1; g_stage2.bbp.table[bi]->smx = 1; } }
     return &g_stage2;
 }

@@ -385,7 +385,7 @@ static int graph_native_emittable_mode(stage2_t *s2, int for_run, char *why, siz
     if (!s2) { snprintf(why, whysz, "no stage2 graph"); return 0; }
     for (int gi = 0; gi < s2->bbp.count; gi++) {
         IR_graph_t *g = s2->bbp.table[gi];
-        if (!g || !g->all) continue;
+        if (!g || !g->all || !g->smx) continue;
         for (int ni = 0; ni < g->n; ni++) {
             IR_t *nd = g->all[ni];
             if (!nd) continue;
@@ -411,10 +411,10 @@ static int g_gz_no_struct_ptr = 0;
 static int    g_prog_argc = 0;
 static char **g_prog_argv = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void drive_slots_all(stage2_t * s2, int entry_frame) {
+static void drive_slots_all(stage2_t * s2) {
     extern void ir_drive_slot_assign(IR_graph_t * g); extern void fl_derive_tier(IR_graph_t * g);
     int _mx = polyglot_main_bb_idx(s2);
-    for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) { IR_graph_t * _g = s2->bbp.table[_gi]; fl_derive_tier(_g); if (_gi == _mx && !_g->icn_cells_graph && !_g->root_graph) _g->zframe_graph = entry_frame ? 1 : 0; ir_drive_slot_assign(_g); }
+    for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) { IR_graph_t * _g = s2->bbp.table[_gi]; fl_derive_tier(_g); if (_gi == _mx && !_g->icn_cells_graph && !_g->root_graph) _g->zframe_graph = _g->entry_frame ? 1 : 0; ir_drive_slot_assign(_g); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long parse_mem_arg(const char *s) {
@@ -480,7 +480,7 @@ static int sn4_module_init_bottom(void) { static int v = -1; if (v < 0) { const 
 static int sn4_m4_alpha_seal(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_M4_ALPHA_SEAL"); v = (e && *e == '0') ? 0 : 1; } return v; }
 static int sn4_define_lbl_alias(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_DEFINE_LBL_ALIAS"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int *proc_nparams_buf, int *proc_pidx_buf, int *proc_fb_buf, int *proc_ispat_buf, int *proc_zstatic_buf, int n_procs, int n_cls_emit, int n_gram_emit, int is_raku, const char *mi_name) {
+static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int *proc_nparams_buf, int *proc_pidx_buf, int *proc_fb_buf, int *proc_ispat_buf, int *proc_zstatic_buf, int n_procs, int n_cls_emit, int n_gram_emit, const char *mi_name) {
     if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0 || m4_icn_meta_present(s2)) {
         emit_textf("%s:\n", mi_name);
         emit_textf("  sub rsp, 8\n");
@@ -730,7 +730,7 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                 extern int rt_pl_dc_ok(const char *, int); int _dc = (!proc_ispat_buf[i] && rt_pl_dc_ok(proc_names_buf[i], proc_nparams_buf[i]));
                 int _pin = proc_pidx_buf[i]; int _nf = (_pin >= 0 && _pin < s2->proc_count) ? s2->proc_table[_pin].nformals : 0;
                 int _rkflags = (pe->dyn_scope ? 1 : 0) | ((proc_ispat_buf[i] && proc_zstatic_buf[i]) ? 2 : 0) | (pe->is_variadic ? 4 : 0) | (pe->is_generator ? 8 : 0) | ((strncmp(proc_names_buf[i], "gram__", 6) != 0) ? 16 : 0);
-                int _rkulex = (is_raku && !pe->dyn_scope && pe->nparams > 0 && pe->lower_sc.n > 0);
+                int _rkulex = (pe->lex_startup && !pe->dyn_scope && pe->nparams > 0 && pe->lower_sc.n > 0);
                 emit_textf("  .section .rodata\n");
                 { extern void x86_asm_str_escape_c(const char *, char *, unsigned long); char _esc[1024]; x86_asm_str_escape_c(proc_names_buf[i], _esc, sizeof _esc);
                   emit_textf("  .Lstartup_pname%d: .string \"%s\"\n", i, _esc); }
@@ -807,8 +807,8 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
               emit_textf("  mov esi, %d\n", _nf);
               emit_textf("  call rt_proc_set_nformals@PLT\n"); }
             { int _pi2 = proc_pidx_buf[i];
-              if (is_raku && _pi2 >= 0 && _pi2 < s2->proc_count) { ProcEntry *_pe = &s2->proc_table[_pi2];
-                if (!_pe->dyn_scope) for (int k = 0; k < _pe->nparams && k < _pe->lower_sc.n; k++) {
+              if (_pi2 >= 0 && _pi2 < s2->proc_count) { ProcEntry *_pe = &s2->proc_table[_pi2];
+                if (_pe->lex_startup && !_pe->dyn_scope) for (int k = 0; k < _pe->nparams && k < _pe->lower_sc.n; k++) {
                     const char *_pn = _pe->lower_sc.e[k].name; if (!_pn) continue;
                     emit_textf("  .section .rodata\n  .Lstartup_qp%d_%d: .string \"%s\"\n  .section .text\n  .intel_syntax noprefix\n", i, k, _pn);
                     emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
@@ -1216,8 +1216,6 @@ int main(int argc, char **argv)
             if (_dst && _src) { for (int _k = 0; _k < _src->n; _k++) if (_src->c[_k]) ast_push(_dst, _src->c[_k]); continue; } }
         segs[_w++] = segs[_r]; } nsegs = _w; }
     if (nsegs == 1) segs[0].prog = ast_prog;
-    int has_prolog_seg = is_prolog;
-    if (!has_prolog_seg) for (int _si = 0; _si < nsegs; _si++) if (segs[_si].fn == lower_pl_stage2) { has_prolog_seg = 1; break; }
     if (opt_bench) clock_gettime(CLOCK_MONOTONIC, &_t1);
     const char *input_path = last_input_path ? last_input_path : argv[argc - 1];
     { extern void stmt_src_set_file(const char *); if (input_path) stmt_src_set_file(input_path); }
@@ -1262,12 +1260,10 @@ int main(int argc, char **argv)
         extern void ir_drive_slot_assign(IR_graph_t * g);
         extern void zls_graph_name(const IR_graph_t * g, const char * name);
         extern void zls_dump(FILE * fp);
-        extern int g_postfix_resume;
-        if (is_icon) g_postfix_resume = 1;
         stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs); n2_host_scan_diag(s2);
         if (!s2) { fprintf(stderr, "scrip: sm_preamble failed\n"); return 1; }
         ast_tree_free(ast_prog); ast_prog = NULL;
-        if (dump_zeta && (is_icon || is_sno_bb)) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
+        if (dump_zeta) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
         const IR_t ** seen_all = (const IR_t **) calloc(s2->proc_count > 0 ? s2->proc_count : 1, sizeof(const IR_t *));
         int seen_n = 0;
         for (int _pi = 0; _pi < s2->proc_count; _pi++) {
@@ -1280,7 +1276,7 @@ int main(int argc, char **argv)
             if (dup) continue;
             seen_all[seen_n++] = (const IR_t *) all;
             if (dump_ir) fprintf(stdout, "; proc %s\n", pname);
-            if (is_icon || is_sno_bb) zls_graph_name(s2->bbp.table[idx], pname);
+            zls_graph_name(s2->bbp.table[idx], pname);
             ir_drive_slot_assign(s2->bbp.table[idx]);
             if (dump_ir) bb_print_v(s2->bbp.table[idx], stdout, dump_ir_verbose);
         }
@@ -1291,12 +1287,10 @@ int main(int argc, char **argv)
     if (dump_bb) {
         extern void optimizer_run(IR_graph_t * g);
         extern const char * bb_src_of(const IR_t * nd);
-        extern int g_postfix_resume;
-        if (is_icon) g_postfix_resume = 1;
         stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs); n2_host_scan_diag(s2);
         if (!s2) { fprintf(stderr, "scrip: sm_preamble failed\n"); return 1; }
         ast_tree_free(ast_prog); ast_prog = NULL;
-        if (is_icon || is_sno_bb || is_prolog) for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]);
+        for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]);
         const IR_graph_t ** gset = (const IR_graph_t **) calloc(s2->proc_count > 0 ? s2->proc_count : 1, sizeof(const IR_graph_t *));
         const char ** gname = (const char **) calloc(s2->proc_count > 0 ? s2->proc_count : 1, sizeof(const char *));
         int gn = 0;
@@ -1369,14 +1363,12 @@ int main(int argc, char **argv)
     if (mode_compile_x86) {
         extern int g_frame_active;
         if (is_icon || is_raku || is_sno_bb || is_prolog) {
-            extern int g_postfix_resume;
             extern int g_m4_dense_nid; extern void g_bb_alpha_seq_reset(void);
             g_m4_dense_nid = 1; g_bb_alpha_seq_reset();
-            if (is_icon) g_postfix_resume = 1;
-            stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs); n2_host_scan_diag(s2);
+                stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs); n2_host_scan_diag(s2);
             if (!s2) return 1;
             ast_tree_free(ast_prog); ast_prog = NULL;
-            if (is_icon || is_sno_bb || is_prolog) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
+            { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
             extern void rt_proc_register(const char *name, const char **pnames, int nparams);
             extern void rt_proc_reset(void);
             int main_bb_idx = polyglot_main_bb_idx(s2);
@@ -1404,9 +1396,9 @@ int main(int argc, char **argv)
                 { extern void rt_proc_set_dyn_scope(const char *, int); rt_proc_set_dyn_scope(pname, s2->proc_table[_pi].dyn_scope); }
                 { extern void rt_proc_set_result_name(const char *, const char *); if (s2->proc_table[_pi].result_name) rt_proc_set_result_name(pname, s2->proc_table[_pi].result_name); }
             }
-            if (is_icon || is_sno_bb || is_prolog || is_raku || is_pascal) drive_slots_all(s2, is_raku); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
+            drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
             char smx_why[256];
-            if (is_raku && !graph_native_emittable(s2, smx_why, sizeof smx_why)) {
+            if (!graph_native_emittable(s2, smx_why, sizeof smx_why)) {
                 fprintf(stderr, "[SMX] --compile --target=x86: mode-4 native emitter does not yet cover this program: %s. REJECTED — native BB emission pending (no interpreter fallback).\n", smx_why);
                 return 1;
             }
@@ -1437,7 +1429,7 @@ int main(int argc, char **argv)
             }
             g_frame_active = 1;
             extern void gva_collect_reset(void); extern void gva_collect_icon_globals(void); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
-            gva_collect_reset(); { extern void gva_keyword_refuse_reset(void); extern void gva_keyword_refuse_seed_snobol4(void); if (is_icon) gva_keyword_refuse_reset(); else gva_keyword_refuse_seed_snobol4(); }
+            gva_collect_reset();
             { extern void gva_io_refuse_scan_graph(IR_graph_t *); for (int _si = 0; _si < s2->bbp.count; _si++) if (s2->bbp.table[_si]) gva_io_refuse_scan_graph(s2->bbp.table[_si]); }
             gva_collect_icon_globals();
             int n_gva_icn = gva_count();
@@ -1450,7 +1442,7 @@ int main(int argc, char **argv)
             int *proc_fb_buf = (int *)malloc((size_t)_pnbcap * sizeof(int));
             int *proc_ispat_buf = (int *)malloc((size_t)_pnbcap * sizeof(int));
             int *proc_zstatic_buf = (int *)malloc((size_t)_pnbcap * sizeof(int));
-            if (has_prolog_seg) { extern void zls_graph_name(const IR_graph_t *, const char *); for (int _pi2 = 0; _pi2 < s2->proc_count; _pi2++) { const char *_pn2 = s2->proc_table[_pi2].name; if (!_pn2 || strcmp(_pn2, "main") == 0) continue; int _idx2 = s2->proc_table[_pi2].bb_idx; if (_idx2 >= 0 && _idx2 < s2->bbp.count && s2->bbp.table[_idx2]) zls_graph_name(s2->bbp.table[_idx2], _pn2); } }
+            { extern void zls_graph_name(const IR_graph_t *, const char *); for (int _pi2 = 0; _pi2 < s2->proc_count; _pi2++) { const char *_pn2 = s2->proc_table[_pi2].name; if (!_pn2 || strcmp(_pn2, "main") == 0) continue; int _idx2 = s2->proc_table[_pi2].bb_idx; if (_idx2 >= 0 && _idx2 < s2->bbp.count && s2->bbp.table[_idx2]) zls_graph_name(s2->bbp.table[_idx2], _pn2); } }
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
                 if (!pname || strcmp(pname, "main") == 0) continue;
@@ -1469,7 +1461,7 @@ int main(int argc, char **argv)
                 { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern void emit_jmp_entry_clear(void); extern int g_flat_dc_np; extern int rt_pl_dc_ok(const char *, int);
                   int _isp = emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx]); if (!_isp) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]);
                   g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, np)) ? np : -1; proc_ispat_buf[n_procs] = _isp; }
-                { if (is_icon || is_sno_bb || is_prolog) { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); } }
+                { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); }
                 { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", asm_sym_name(pname)); int _islbl = pname && strncmp(pname, "LBL__", 5) == 0; IR_graph_t *_bg = s2->bbp.table[idx]; int _bare = (proc_role3_kind(_bg) == 1);    if (!_islbl && !_bare) {    emit_sep_rule_c('-'); if (scrip_symmap()) emit_textf("  .type FN__%s, @function\n", asm_sym_name(pname)); g_emit.flat_bare_chain = _bare; emit_chain(bb_proc_entry(&s2->proc_table[_pi]), _out, _pfx); g_emit.flat_bare_chain = 0; if (scrip_symmap()) emit_textf("  .size FN__%s, .-FN__%s\n", asm_sym_name(pname), asm_sym_name(pname)); } }
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
@@ -1507,7 +1499,7 @@ int main(int argc, char **argv)
             emit_textf("  mov rdi, qword ptr [rsp]\n  mov rdi, qword ptr [rdi]\n  call rt_main_progname_stage@PLT\n  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  call rt_main_args_stage@PLT\n"); if (bbg->nparams >= 1) emit_textf("  call rt_main_args_bind@PLT\n");
             int _pinned_root = (bbg->zframe_pinned_base && bbg->root_graph) ? 1 : 0;
             if (!_pinned_root) emit_textf("  mov r12, qword ptr [0x70000000]\n");
-            if (is_prolog && bbg->zframe_graph && !bbg->icn_cells_graph) emit_textf("  call rt_gcheap_warmup@PLT\n");
+            if (bbg->zframe_graph && !bbg->icn_cells_graph) emit_textf("  call rt_gcheap_warmup@PLT\n");
             { extern unsigned char g_rtcc_on; if (g_rtcc_on) emit_textf("  call rtcc_load_all@PLT\n"); }
             emit_textf("  xor esi, esi\n");
             if (bbg->zframe_graph && !bbg->icn_cells_graph) {
@@ -1524,7 +1516,7 @@ int main(int argc, char **argv)
             emit_textf("  jmp main_\xce\xb1\n");
             emit_textf(".Llevel_zero_return:\n  call rt_kw_return_level_zero@PLT\n  ud2\n");
             }
-            if (!sn4_module_init_bottom()) emit_module_init_body(s2, proc_names_buf, proc_nparams_buf, proc_pidx_buf, proc_fb_buf, proc_ispat_buf, proc_zstatic_buf, n_procs, n_cls_emit, n_gram_emit, is_raku, "main_init");
+            if (!sn4_module_init_bottom()) emit_module_init_body(s2, proc_names_buf, proc_nparams_buf, proc_pidx_buf, proc_fb_buf, proc_ispat_buf, proc_zstatic_buf, n_procs, n_cls_emit, n_gram_emit, "main_init");
             if (n_gva_icn > 0) {
                 emit_textf("  .section .rodata\n");
                 for (int k = 0; k < n_gva_icn; k++) emit_textf("  .Lgvan%d: .string \"%s\"\n", k, gva_name(k));
@@ -1555,7 +1547,7 @@ int main(int argc, char **argv)
                 { extern int g_flat_outer_nparams; g_flat_outer_nparams = 0; }
                 { extern void bb_ab_emit_nodes(IR_graph_t *g, int gva_active); bb_ab_emit_nodes(bbg, g_gva_active); }
                 { extern int g_last_flat_frame_bytes; int _main_fb = g_last_flat_frame_bytes; for (int _q = 0; _q < n_procs; _q++) { if (proc_fb_buf[_q] != 0) continue; int _pi2 = proc_pidx_buf[_q]; if (_pi2 < 0 || _pi2 >= s2->proc_count) continue; const char *_qn = s2->proc_table[_pi2].name; if (!_qn || strncmp(_qn, "LBL__", 5) != 0) continue; if (s2->proc_table[_pi2].bb_idx == main_bb_idx) proc_fb_buf[_q] = _main_fb; } }
-                if (sn4_module_init_bottom()) emit_module_init_body(s2, proc_names_buf, proc_nparams_buf, proc_pidx_buf, proc_fb_buf, proc_ispat_buf, proc_zstatic_buf, n_procs, n_cls_emit, n_gram_emit, is_raku, "module_init");
+                if (sn4_module_init_bottom()) emit_module_init_body(s2, proc_names_buf, proc_nparams_buf, proc_pidx_buf, proc_fb_buf, proc_ispat_buf, proc_zstatic_buf, n_procs, n_cls_emit, n_gram_emit, "module_init");
             }
             for (int _fq = 0; _fq < n_procs; _fq++) if (proc_names_buf[_fq]) { free((void *)proc_names_buf[_fq]); proc_names_buf[_fq] = NULL; }
             free(proc_names_buf); free(proc_nparams_buf); free(proc_pidx_buf); free(proc_fb_buf); free(proc_zstatic_buf);
@@ -1580,8 +1572,8 @@ int main(int argc, char **argv)
             stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs); n2_host_scan_diag(s2);
             if (!s2) { fprintf(stderr, "[SBB] mode-4: sm_preamble failed\n"); return 1; }
             ast_tree_free(ast_prog); ast_prog = NULL;
-            if (is_pascal) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
-            drive_slots_all(s2, is_raku); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
+            { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
+            drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
             int main_bb_idx = -1;
             for (int _pi = 0; _pi < s2->proc_count; _pi++)
                 if (s2->proc_table[_pi].name && strcmp(s2->proc_table[_pi].name, "main") == 0) { main_bb_idx = s2->proc_table[_pi].bb_idx; break; }
@@ -1629,7 +1621,7 @@ int main(int argc, char **argv)
                   if (idx2 < 0 || idx2 >= s2->bbp.count || !s2->bbp.table[idx2] || !s2->bbp.table[idx2]->entry) continue; proc_collect_graph(s2->bbp.table[idx2]);
               }
               g_proc_direct_active = (proc_slot_count() > 0) ? 1 : 0; }
-            if (is_pascal) { extern void gva_collect_reset(void); extern void gva_collect_graph(IR_graph_t *); extern int gva_count(void); extern int g_gva_active; gva_collect_reset(); extern void gva_keyword_refuse_reset(void); extern void gva_keyword_refuse_seed_snobol4(void); gva_keyword_refuse_reset(); gva_keyword_refuse_seed_snobol4(); gva_collect_graph(sbbg); for (int _pgi = 0; _pgi < s2->bbp.count; _pgi++) { if (s2->bbp.table[_pgi] && s2->bbp.table[_pgi] != sbbg) gva_collect_graph(s2->bbp.table[_pgi]); } g_gva_active = (gva_count() > 0) ? 1 : 0; }
+            if (is_pascal) { extern void gva_collect_reset(void); extern void gva_collect_graph(IR_graph_t *); extern int gva_count(void); extern int g_gva_active; gva_collect_reset();  gva_collect_graph(sbbg); for (int _pgi = 0; _pgi < s2->bbp.count; _pgi++) { if (s2->bbp.table[_pgi] && s2->bbp.table[_pgi] != sbbg) gva_collect_graph(s2->bbp.table[_pgi]); } g_gva_active = (gva_count() > 0) ? 1 : 0; }
             int _pbcap = (s2->proc_count > 0) ? s2->proc_count : 1;
             int *pidx_buf = (int *)malloc((size_t)_pbcap * sizeof(int));
             int *peak_buf = (int *)malloc((size_t)_pbcap * sizeof(int));
@@ -1659,7 +1651,7 @@ int main(int argc, char **argv)
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
                 { extern int g_flat_frame_floor; extern int zls_g_region(const IR_graph_t *); IR_graph_t *_pg = s2->bbp.table[idx]; g_flat_frame_floor = 0; int _floor_hit = (_pg && _pg->entry && ((_pg->entry->op == IR_DEFINE && IR_LIT(_pg->entry).ival == 3) || _pg->entry->op == IR_GOTO_DEFERRED)); if (getenv("SCRIP_FLOOR_DIAG")) fprintf(stderr, "[FLOOR-DIAG-B] pname=%s entry_op=%d hit=%d\n", pname ? pname : "(null)", _pg && _pg->entry ? (int)_pg->entry->op : -1, _floor_hit); if (_floor_hit) { for (int _mi = 0; _mi < s2->proc_count; _mi++) if (s2->proc_table[_mi].name && !strcmp(s2->proc_table[_mi].name, "main")) { int _mx = s2->proc_table[_mi].bb_idx; if (_mx >= 0 && _mx < s2->bbp.count && s2->bbp.table[_mx]) g_flat_frame_floor = zls_g_region(s2->bbp.table[_mx]); break; } } if (getenv("SCRIP_FLOOR_DIAG") && _floor_hit) fprintf(stderr, "[FLOOR-DIAG-B] -> g_flat_frame_floor=%d\n", g_flat_frame_floor); }
                 { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern void emit_jmp_entry_clear(void); if (!emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx])) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]); }
-                { if (is_icon || is_sno_bb || is_prolog) { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); } }
+                { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); }
                 { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", asm_sym_name(pname)); int _islbl = pname && strncmp(pname, "LBL__", 5) == 0; emit_sep_rule_c('-'); if (!_islbl && scrip_symmap()) emit_textf("  .type FN__%s, @function\n", asm_sym_name(pname)); emit_chain(s2->proc_table[_pi].proc_entry_node, _out, _pfx); if (!_islbl && scrip_symmap()) emit_textf("  .size FN__%s, .-FN__%s\n", asm_sym_name(pname), asm_sym_name(pname)); }
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
@@ -1726,7 +1718,7 @@ int main(int argc, char **argv)
             free(pidx_buf); free(peak_buf);
             extern void gva_collect_reset(void); extern void gva_collect_graph(IR_graph_t *); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
             extern int proc_slot_count(void); extern int g_proc_direct_active;
-            if (!is_pascal) { extern void gva_io_refuse_scan_graph(IR_graph_t *); gva_collect_reset(); extern void gva_keyword_refuse_reset(void); extern void gva_keyword_refuse_seed_snobol4(void); gva_keyword_refuse_reset(); gva_keyword_refuse_seed_snobol4(); gva_io_refuse_scan_graph(sbbg); gva_collect_graph(sbbg); }
+            if (!is_pascal) { extern void gva_io_refuse_scan_graph(IR_graph_t *); gva_collect_reset();  gva_io_refuse_scan_graph(sbbg); gva_collect_graph(sbbg); }
             if (n_gva > 0) {
                 emit_textf("  .section .rodata\n");
                 for (int k = 0; k < n_gva; k++) emit_textf("  .Lgvan%d: .string \"%s\"\n", k, gva_name(k));
@@ -1769,8 +1761,6 @@ int main(int argc, char **argv)
         return 1;
     }
     if (mode_run) {
-        extern int g_postfix_resume;
-        if (is_icon) g_postfix_resume = 1;
         stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs); n2_host_scan_diag(s2);
         if (!s2) return 1;
         ast_tree_free(ast_prog); ast_prog = NULL;
@@ -1788,7 +1778,7 @@ int main(int argc, char **argv)
             void *m3_gva_arena = (void *)0;
             {
                 extern void gva_collect_reset(void); extern void gva_collect_icon_globals(void); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
-                gva_collect_reset(); { extern void gva_keyword_refuse_reset(void); extern void gva_keyword_refuse_seed_snobol4(void); if (is_icon) gva_keyword_refuse_reset(); else gva_keyword_refuse_seed_snobol4(); }
+                gva_collect_reset();
                 { extern void gva_io_refuse_scan_graph(IR_graph_t *); for (int _si = 0; _si < s2->bbp.count; _si++) if (s2->bbp.table[_si]) gva_io_refuse_scan_graph(s2->bbp.table[_si]); }
                 gva_collect_icon_globals();
                 { extern void rt_icn_global_note(const char *); extern const char *global_names[]; extern int global_count; for (int _gi = 0; _gi < global_count; _gi++) if (global_names[_gi]) rt_icn_global_note(global_names[_gi]); }
@@ -1824,14 +1814,14 @@ int main(int argc, char **argv)
                 { extern void rt_proc_set_dyn_scope(const char *, int); rt_proc_set_dyn_scope(pname, s2->proc_table[_pi].dyn_scope); }
                 { extern void rt_proc_set_result_name(const char *, const char *); if (s2->proc_table[_pi].result_name) rt_proc_set_result_name(pname, s2->proc_table[_pi].result_name); }
             }
-            if (is_icon || is_sno_bb || is_prolog) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
-            if (is_icon || is_sno_bb || is_prolog || is_raku || is_pascal) drive_slots_all(s2, is_raku); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
+            { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
+            drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
             char smx_why[256];
-            if (is_raku && !graph_native_emittable_mode(s2, 1, smx_why, sizeof smx_why)) {
+            if (!graph_native_emittable_mode(s2, 1, smx_why, sizeof smx_why)) {
                 fprintf(stderr, "[SMX] --run: mode-3 native emitter does not yet cover this program: %s. REJECTED — native BB emission pending (no interpreter fallback).\n", smx_why);
                 return 1;
             }
-            if (has_prolog_seg) { extern void zls_graph_name(const IR_graph_t *, const char *); for (int _pi2 = 0; _pi2 < s2->proc_count; _pi2++) { const char *_pn2 = s2->proc_table[_pi2].name; if (!_pn2 || strcmp(_pn2, "main") == 0) continue; int _idx2 = s2->proc_table[_pi2].bb_idx; if (_idx2 >= 0 && _idx2 < s2->bbp.count && s2->bbp.table[_idx2]) zls_graph_name(s2->bbp.table[_idx2], _pn2); } }
+            { extern void zls_graph_name(const IR_graph_t *, const char *); for (int _pi2 = 0; _pi2 < s2->proc_count; _pi2++) { const char *_pn2 = s2->proc_table[_pi2].name; if (!_pn2 || strcmp(_pn2, "main") == 0) continue; int _idx2 = s2->proc_table[_pi2].bb_idx; if (_idx2 >= 0 && _idx2 < s2->bbp.count && s2->bbp.table[_idx2]) zls_graph_name(s2->bbp.table[_idx2], _pn2); } }
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
                 if (!pname || strcmp(pname, "main") == 0) continue;
@@ -1856,7 +1846,7 @@ int main(int argc, char **argv)
                 { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern void emit_jmp_entry_clear(void); extern int g_flat_dc_np; extern int rt_pl_dc_ok(const char *, int);
                   int _isp = emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx]); if (!_isp) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]);
                   g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, s2->proc_table[_pi].nparams)) ? s2->proc_table[_pi].nparams : -1; }
-                { if (is_icon || is_sno_bb || is_prolog) { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); } }
+                { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); }
                 int _islbl3 = pname && strncmp(pname, "LBL__", 5) == 0;
                 char _m3pfx[300]; snprintf(_m3pfx, sizeof _m3pfx, "proc_%s", pname);
                 if (getenv("SCRIP_PL_RTASM") && !_islbl3) { fprintf(stderr, "[RTASM] ---- compile-time proc %s ----\n", pname); emit_chain(bb_proc_entry(&s2->proc_table[_pi]), stderr, _m3pfx); fprintf(stderr, "[RTASM] ---- end %s ----\n", pname); }
@@ -1921,7 +1911,7 @@ int main(int argc, char **argv)
                 { extern void rt_pl_root_omega(void);
                   icn_zf_main_call((void *)fn, mf, (void *)icn_zf_exit_γ, _zframe_pinned_root ? (void *)rt_pl_root_omega : (void *)icn_zf_exit_ω); }
             } else
-            { extern void rt_outer_call(bb_box_fn, void *, long);  { extern void rtcc_load_all(void); extern unsigned char g_rtcc_on; if (g_rtcc_on) rtcc_load_all(); }    { extern void rt_outer_call_delta0(bb_box_fn, void *, long); if (is_icon) rt_outer_call_delta0(fn, mf, 0); else rt_outer_call(fn, mf, 0); } }
+            { extern void rt_outer_call(bb_box_fn, void *, long);  { extern void rtcc_load_all(void); extern unsigned char g_rtcc_on; if (g_rtcc_on) rtcc_load_all(); }    { extern void rt_outer_call_delta0(bb_box_fn, void *, long); if (_icn_cells_graph) rt_outer_call_delta0(fn, mf, 0); else rt_outer_call(fn, mf, 0); } }
             sno_setexit_fire_on_end();
             goto run_done;
         }
@@ -1938,7 +1928,7 @@ int main(int argc, char **argv)
             void *m3_gva_arena = (void *)0;
             if (is_pascal) {
                 extern void gva_collect_reset(void); extern void gva_collect_graph(IR_graph_t *); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
-                gva_collect_reset(); extern void gva_keyword_refuse_reset(void); extern void gva_keyword_refuse_seed_snobol4(void); gva_keyword_refuse_reset(); gva_keyword_refuse_seed_snobol4();
+                gva_collect_reset();
                 IR_graph_t *_mg = (main_bb_idx >= 0 && main_bb_idx < s2->bbp.count) ? s2->bbp.table[main_bb_idx] : (IR_graph_t *)0;
                 if (_mg) gva_collect_graph(_mg);
                 for (int _pi = 0; _pi < s2->proc_count; _pi++) { int _pgi = s2->proc_table[_pi].bb_idx; if (_pgi >= 0 && _pgi < s2->bbp.count && s2->bbp.table[_pgi] && s2->bbp.table[_pgi] != _mg) gva_collect_graph(s2->bbp.table[_pgi]); }
@@ -1951,7 +1941,7 @@ int main(int argc, char **argv)
                 }
                 if (getenv("SCRIP_M3_GVA_TRACE")) fprintf(stderr, "[M3-GVA] m3 globals via pinned island: active=%d n_gva=%d\n", g_gva_active, n_gva_m3);
             }
-            drive_slots_all(s2, is_raku); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
+            drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
             g_frame_active = 1;
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
@@ -1993,7 +1983,7 @@ int main(int argc, char **argv)
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
                 { extern int g_flat_frame_floor; extern int zls_g_region(const IR_graph_t *); IR_graph_t *_pg = s2->bbp.table[idx]; g_flat_frame_floor = 0; int _floor_hit = (_pg && _pg->entry && ((_pg->entry->op == IR_DEFINE && IR_LIT(_pg->entry).ival == 3) || _pg->entry->op == IR_GOTO_DEFERRED)); if (getenv("SCRIP_FLOOR_DIAG")) fprintf(stderr, "[FLOOR-DIAG-B] pname=%s entry_op=%d hit=%d\n", pname ? pname : "(null)", _pg && _pg->entry ? (int)_pg->entry->op : -1, _floor_hit); if (_floor_hit) { for (int _mi = 0; _mi < s2->proc_count; _mi++) if (s2->proc_table[_mi].name && !strcmp(s2->proc_table[_mi].name, "main")) { int _mx = s2->proc_table[_mi].bb_idx; if (_mx >= 0 && _mx < s2->bbp.count && s2->bbp.table[_mx]) g_flat_frame_floor = zls_g_region(s2->bbp.table[_mx]); break; } } if (getenv("SCRIP_FLOOR_DIAG") && _floor_hit) fprintf(stderr, "[FLOOR-DIAG-B] -> g_flat_frame_floor=%d\n", g_flat_frame_floor); }
                 { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern void emit_jmp_entry_clear(void); if (!emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx])) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]); }
-                { if (is_icon || is_sno_bb) { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); } }
+                { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); }
                 char _m3pfx[300]; snprintf(_m3pfx, sizeof _m3pfx, "proc_%s", pname);
                 bb_box_fn pfn = emit_chain(s2->proc_table[_pi].proc_entry_node, NULL, _m3pfx);
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
@@ -2019,7 +2009,7 @@ int main(int argc, char **argv)
                     { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); } { extern void rt_main_progname_stage(const char *); extern const char * stmt_src_get_file(void); const char * _pn = stmt_src_get_file(); rt_main_progname_stage(_pn ? _pn : ""); } if (sbbg->nparams >= 1) { extern void rt_main_args_bind(void); rt_main_args_bind(); }
                     { extern void bbprof_start(void); bbprof_start(); }
                     { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }
-                    { extern void rt_outer_call(bb_box_fn, void *, long); extern void rt_outer_call_delta0(bb_box_fn, void *, long); if (is_icon) rt_outer_call_delta0(fn, mf, 0); else rt_outer_call(fn, mf, 0); }
+                    { extern void rt_outer_call(bb_box_fn, void *, long); extern void rt_outer_call_delta0(bb_box_fn, void *, long); if (sbbg->icn_cells_graph) rt_outer_call_delta0(fn, mf, 0); else rt_outer_call(fn, mf, 0); }
                     { extern int g_gva_active; g_gva_active = 0; } goto run_done;
                 }
             }

@@ -253,6 +253,8 @@ struct IR_graph_t {
     int            ring_head;
     int            ring_depth;
     int            zframe_graph;
+    int            entry_frame;
+    int            smx;
     int            icn_cells_graph;
     int            zframe_pinned_base;
     int            root_graph;

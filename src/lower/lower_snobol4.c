@@ -2772,6 +2772,7 @@ static void sno_entry_seen_push(const char ** seen, int * nseen, const char * el
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t * lower_sno_stage2(const tree_t * prog) {
+    { extern void gva_keyword_refuse_seed_snobol4(void); gva_keyword_refuse_seed_snobol4(); }
     g_sno_expr_define_seen = 0; g_sno_prescan_top = NULL;
     g_sno_seal_enabled = 1;
     if (!prog || prog->t != TT_PROGRAM) return NULL;

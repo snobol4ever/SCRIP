@@ -31,6 +31,7 @@ typedef struct ProcEntry {
     int                 rest_kind;
     int                 named_rest;
     int                 dyn_scope;
+    int                 lex_startup;
     const char         *result_name;
     uint64_t            byref_mask;
     int                 decl_level;

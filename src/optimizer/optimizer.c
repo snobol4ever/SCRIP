@@ -16,6 +16,7 @@ static int g_is_proc_or_pat(const IR_graph_t * g) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void optimizer_run(IR_graph_t *g) {
+    if (!g || g->smx) return;
     { extern void region_report(IR_graph_t *); if (getenv("SCRIP_REGION_REPORT")) region_report(g); }
     if (!g) return;
     { extern void scc_taint_graph(IR_graph_t *); scc_taint_graph(g); }

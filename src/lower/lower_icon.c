@@ -5,7 +5,6 @@
 extern int icn_builtin_is_known(const char *);
 extern int icn_builtin_arity(const char *);
 extern int icn_builtin_is_generator(const char *);
-int g_postfix_resume = 0;
 static int icn_const_step(const tree_t * s, int64_t * bits, int * isr);
 static IR_t * icn_arm_result(IR_t * rv);
 typedef struct {
@@ -276,7 +275,7 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
     int la_res = la && is_resumable(la) && !(is_cursor_mover && icn_arg_is_scan_fn(la));
     int chain_live = (aω != ω);
     if (la_res || chain_live) ω_to(call, aω);
-    cx->beta = (icn_proc_is_generator(name) || gb || is_cursor_mover) ? call : ((la_res || chain_live) ? aω : (g_postfix_resume ? aω : ω));
+    cx->beta = (icn_proc_is_generator(name) || gb || is_cursor_mover) ? call : aω;
     return entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1427,7 +1426,7 @@ static IR_t * lower_make_list(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω
     }
     for (int k = 0; k < t->n; k++) if (args_r[k]) ir_operand_push(ml, args_r[k]);
     if (nstage && prev) lc_γ_to(prev, ml);
-    cx->beta = g_postfix_resume ? aω : ω;
+    cx->beta = aω;
     return entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
