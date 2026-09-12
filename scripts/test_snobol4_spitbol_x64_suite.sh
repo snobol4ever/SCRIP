@@ -1,0 +1,243 @@
+#!/usr/bin/env bash
+source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" "${SPITBOL_X64_SUITE:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/corpus/packages/snobol4/spitbol_x64_tests}" || exit 2
+# test_snobol4_spitbol_x64_suite.sh -- the runner for corpus/packages/snobol4/spitbol_x64_tests, row
+# snobol4-spitbol-x64-tests-self-check-but-nothing-reads-their-verdict (ceo, 2026-09-11).  36 programs
+# vendored from https://github.com/spitbol/x64 test/ -- the upstream of our own correctness oracle, i.e.
+# the tests the reference implementation checks ITSELF with.  Before this file nothing graded them: no
+# runner, no SCORE.md row, no progress rows.  21 of the 36 are floating point, the thinnest part of our
+# coverage.
+#
+# ⭐⭐ TWO INSTRUMENTS, AND WHICH ONE A PROGRAM GETS IS MEASURED, NEVER LISTED.  The row's whole point is
+# that these programs SELF-CHECK: math_chks.inc's `chks(expression, expected)` EVALs the expression,
+# compares against the expected value and prints its own verdict -- " pass: <expr> Obs[..] Exp[..]" or
+# "*FAIL: <expr> Obs[..] Exp[..] (exception)".  So for those the runner reads THE PROGRAM'S OWN VERDICT
+# LINES, which is both cheaper than a cut ref and immune to float formatting: a digit of difference in
+# how the two engines print 2.6308364999025599e-307 is not a defect, and a byte diff would call it one.
+#   SELF-CHECK arm  (the oracle's own run printed >=1 verdict line): SCRIP passes iff it prints ZERO
+#                   "*FAIL:" lines AND exactly as many " pass:" lines as the oracle printed on the same
+#                   program this run.  The denominator is measured live, never pinned.
+#   STREAM arm      (the oracle printed no verdict line at all): gate_oracle_stdout_match, the ONE
+#                   authority for an oracle stdout diff (lib_gate.sh) -- byte-exact stdout plus matched
+#                   rc for a clean oracle run, error-identity for a run the oracle halted on.
+# ⛔ THE ARM IS CHOSEN FROM THE ORACLE'S OUTPUT, NOT FROM THE FILENAME.  A hand list of "the math ones"
+# would be wrong the moment the sibling case-conversion row lands (nine more math files join the graded
+# set) and wrong in the other direction for math_limits1..4, which are named math_* and print no verdict
+# line at all.  Measured 2026-09-12: 8 of the 24 graded take the self-check arm, 16 take the stream arm.
+#
+# ⛔⭐ WHY A PASS COUNT AND NOT JUST "NO *FAIL: LINES".  A run that prints NOTHING has zero "*FAIL:"
+# lines.  The sibling row records that trap biting for real: the math tests were converted one line each,
+# their -INCLUDE was left lower case, and the -bf run then printed nothing at all -- an empty run that
+# reads green if you only check rc, or only check for failure lines.  Requiring SCRIP's pass count to
+# EQUAL the oracle's makes silence a FAIL, which is what it is.
+#
+# ⛔ A CRASH OR A HANG IS NEVER A PASS, WHATEVER THE STREAM (the verdict ladder; the measured case is in
+# test_snobol4_dotnet_suite.sh's header -- "0 bytes equals 0 bytes" graded a timed-out run PASS).  It
+# bites here too and harder: seven of these programs are stdin filters (trim, lower, def, arcget, arcput,
+# cfreq, map-x64) which print nothing on /dev/null, so an abort that also prints nothing to stdout is
+# byte-equal to a correct run.  rc=124 is HANG, rc>=128 is CRASH, and both are checked BEFORE the stream.
+#
+# THE POPULATION, and the row's own refusal clause: 36 shipped .sbl.  If the glob does not find exactly
+# SPITBOL_X64_SHIPPED (default 36) the runner REFUSES rc=2 rather than grading a population that moved
+# under it -- a vendored third-party suite that changes size is a fact to look at, not one to average.
+#
+# UNGRADED, 12 of the 36, and this runner does not decide it -- UNGRADED.tsv beside the package declares
+# them (lib_inventory.sh: all three sidecars are declarations, never inferences).  What the runner does
+# is MEASURE the same set live every run and say STALE or UNRECORDED aloud when the declaration and the
+# oracle disagree, the shape test_snobol4_dotnet_suite.sh uses for OUTSIDE_SPITBOL_BASELINE.tsv.  Their
+# cure is one sibling row: snobol4-twelve-spitbol-tests-hold-code-inside-evaluated-string-literals.
+#
+# ⛔ NOT AN OUTSIDE-BASELINE SET.  The oracle runs all 36 under its OWN default (folding); it refuses 11
+# of them only under `-bf`, the arm WE mandate because it matches SCRIP's case sensitivity.  Under
+# CEO-542 the outside-baseline test is about the ORACLE, so these are INSIDE the SPITBOL baseline and the
+# gap is ours -- work owed, never a ruling.  That is why they are in UNGRADED.tsv and not UNGRADABLE.tsv,
+# and why this runner ships no OUTSIDE_SPITBOL_BASELINE.tsv.
+#
+# MODE 4 HAS A DECLARED, MEASURED BUDGET.  These programs are enormous by generated-code standards --
+# math_minus emits a 55 MB .s in 9 s, and math_pow was still writing at 128 MB after 47 s.  The compile
+# runs under `ulimit -f` (SPITBOL_X64_M4_ASM_MB, default 64) and a timeout, so a program whose asm does
+# not fit is SKIPped WITH ITS MEASURED SIZE in the record, never silently dropped and never allowed to
+# fill the disk.  A SKIP is not a PASS: it keeps both_modes_pass honest by construction.
+#
+# Exit: 0 iff FAIL=0 in both modes over the graded population, the same contract as every sibling package
+# runner (dotnet, gimpel, snoflake, csnobol4).  rc=2 when it cannot measure.
+set -u
+HERE="$(cd "$(dirname "$0")" && pwd)"; SD="$HERE/.."; ROOT="$(cd "$SD/.." && pwd)"
+SUITE="${SPITBOL_X64_SUITE:-$ROOT/corpus/packages/snobol4/spitbol_x64_tests}"
+SCRIP="$SD/scrip"; RT_DIR="$SD/out"
+TIMEOUT="${TIMEOUT:-120}"; M4_ASM_MB="${SPITBOL_X64_M4_ASM_MB:-64}"; SHIPPED_EXPECT="${SPITBOL_X64_SHIPPED:-36}"
+[ -d "$SUITE" ] || { echo "⛔ REFUSE(rc=2): suite dir missing: $SUITE"; exit 2; }
+[ -x "$SCRIP" ] || { echo "⛔ REFUSE(rc=2): no scrip binary at $SCRIP -- build first (make)"; exit 2; }
+# ⛔⭐ STALE-BINARY PREFLIGHT.  NO LOGIC HERE: util_require_fresh.sh sources gate_require_fresh from
+# lib_gate.sh, the ONE authority.  A vendor board is exactly where a stale binary is least visible,
+# because a plausible all-FAIL table is this class's normal output.
+"$HERE/util_require_fresh.sh" --gate test_snobol4_spitbol_x64_suite "$SCRIP" "$RT_DIR/libscrip_rt.so" || exit 2
+[ -f "$RT_DIR/libscrip_rt.so" ] || { echo "⛔ REFUSE(rc=2): no $RT_DIR/libscrip_rt.so"; exit 2; }
+. "$HERE/lib_gate.sh"        2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_gate.sh unloadable"; exit 2; }
+. "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_oracle_flags.sh unloadable"; exit 2; }
+. "$HERE/lib_inventory.sh"   2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_inventory.sh unloadable"; exit 2; }
+. "$HERE/lib_progress.sh"    2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_progress.sh unloadable"; exit 2; }
+SBL="$(sbl_correctness_bin)"; SBL_FLAGS="$(sbl_lang_flags)"
+[ -x "$SBL" ] || { echo "⛔ REFUSE(rc=2): oracle absent: $SBL"; exit 2; }
+sbl_assert_bf "$SBL" >/dev/null 2>&1 || { echo "⛔ REFUSE(rc=2): oracle at $SBL failed the -bf capability check"; exit 2; }
+W="$(mktemp -d)" || { echo "⛔ REFUSE(rc=2): mktemp failed"; exit 2; }; trap 'rm -rf "$W"' EXIT
+SCRIP_HASH="$(git -C "$SD" rev-parse --short HEAD 2>/dev/null || echo '?')"
+CORP_HASH="$(git -C "$ROOT/corpus" rev-parse --short HEAD 2>/dev/null || echo '?')"
+# ⛔ THE POPULATION PIN, this row's own refusal clause.  A fresh filesystem census every run, never a
+# cached count, and a size that is not the vendored size refuses instead of grading.
+SHIPPED=0; for f in "$SUITE"/*.sbl; do [ -e "$f" ] && SHIPPED=$((SHIPPED+1)); done
+if [ "$SHIPPED" != "$SHIPPED_EXPECT" ]; then
+    echo "⛔ REFUSE(rc=2): globbed $SHIPPED .sbl in $SUITE, expected $SHIPPED_EXPECT -- the vendored population moved."
+    echo "    A third-party suite that changed size is a fact to look at, not one to average over.  Re-pin with SPITBOL_X64_SHIPPED=$SHIPPED once the change is understood and recorded in _PROVENANCE.md."
+    exit 2
+fi
+# ⭐ EVERY RUN HAPPENS IN A SCRATCH COPY OF THE WHOLE PACKAGE, not in the vendored directory: these
+# programs WRITE files (arcput, sv, save) and read data beside themselves (files, ru.txt, the two .inc
+# includes), so a run in place would both dirty the corpus checkout and let one program's output become
+# the next one's input.  The copy is made once and both engines run inside it.
+RUN="$W/run"; mkdir -p "$RUN"; cp -R "$SUITE"/. "$RUN"/ 2>/dev/null
+GRADED=0; UNGRADED_N=0; P3=0; F3=0; P4=0; F4=0; S4=0; BOTH=0; SELF=0; STREAM=0
+FL3=""; FL4=""; UNG_LIST=""; SKIP_LIST=""; SELF_LIST=""
+verdict_of() { if [ "$1" -eq 124 ]; then echo HANG; elif [ "$1" -ge 128 ]; then echo CRASH; else echo FAIL; fi; }
+# ⭐ THE PROGRESS DATABASE (CEO-319/331, CEO-383 ruling 2): one row per program per mode, written once at
+# the end through lib_progress.sh, said aloud either way, never a red board.  Recorded only for the
+# canonical suite path or when S4E_PROGRESS_DB names a scratch table.
+PROG_ROWS="$W/progress.tsv"; : > "$PROG_ROWS"
+CANON_SUITE="$ROOT/corpus/packages/snobol4/spitbol_x64_tests"
+PROG_RECORD=0; { [ "$SUITE" = "$CANON_SUITE" ] || [ -n "${S4E_PROGRESS_DB:-}" ]; } && PROG_RECORD=1
+prog_row() { printf 'package\tspitbol_x64\tsnobol4\t%s\t%s\t%s\t0\t%s\n' "$1" "$2" "$3" "$4" >> "$PROG_ROWS"; }
+verdict_lines() { grep -cE '^( pass: |\*FAIL: )' "$1" 2>/dev/null | tr -d ' '; }
+pass_lines()    { grep -c '^ pass: '  "$1" 2>/dev/null | tr -d ' '; }
+fail_lines()    { grep -c '^\*FAIL: ' "$1" 2>/dev/null | tr -d ' '; }
+compile_m4() {  # compile_m4 <src-basename> <out-binary>; echoes a SKIP reason on failure, silent on success
+    local sno="$1" out="$2" rc sz
+    # ⛔⭐ WHY AN INNER `bash -c` THAT DOES NOT `exec`, ON ALL FOUR RUN SITES.  bash announces a foreground
+    # child killed by a signal ("Aborted", "File size limit exceeded") on the stderr of the shell that
+    # WAITED on it, and half these programs abort by design of the defect under test -- so the notices
+    # bury the board they are notices about.  Wrapping in `( ... ) 2>/dev/null` does NOT silence them
+    # (measured): a subshell whose last command dies of a signal re-raises it, so the OUTER shell is the
+    # announcer and its stderr is untouched.  An inner bash that runs the child as an ordinary command
+    # is the waiter instead, and `2>/dev/null` on the timeout discards only that inner shell's own
+    # diagnostics -- the child's stdout and stderr are redirected to files one level further in and
+    # every byte of them survives.  rc still arrives intact (134, 153, 124).
+    timeout "$TIMEOUT" bash -c 'cd "$1" || exit 2; ulimit -f "$2" 2>/dev/null; "$3" --compile "$4" > "$5" 2> "$6"' _ "$RUN" "$((M4_ASM_MB * 1024))" "$SCRIP" "$sno" "$W/p.s" "$W/p.cerr" 2>/dev/null; rc=$?
+    sz="$(wc -c < "$W/p.s" 2>/dev/null || echo 0)"
+    if [ "$rc" = 153 ]; then echo "mode-4 asm exceeded the ${M4_ASM_MB} MB budget (SIGXFSZ at $sz bytes)"; return 1; fi
+    if [ "$rc" = 124 ]; then echo "mode-4 compile hit the ${TIMEOUT}s timeout (asm at $sz bytes)"; return 1; fi
+    if [ "$rc" != 0 ]; then echo "mode-4 compile rc=$rc: $(head -1 "$W/p.cerr" 2>/dev/null | cut -c1-100)"; return 1; fi
+    gcc -c "$W/p.s" -o "$W/p.o" 2>"$W/p.cerr" || { echo "assembler rc=$? on $sz bytes of asm: $(head -1 "$W/p.cerr" | cut -c1-100)"; return 1; }
+    gcc "$W/p.o" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$out" 2>"$W/p.cerr" || { echo "link rc=$?: $(grep -m1 'undefined reference' "$W/p.cerr" | sed 's/.*undefined reference/undefined reference/' | cut -c1-80)"; return 1; }
+    return 0
+}
+for sno in "$SUITE"/*.sbl; do
+    name="$(basename "$sno" .sbl)"; base="$(basename "$sno")"
+    # ⛔ THE ORACLE FIRST, AND IT DECIDES BOTH WHETHER AND HOW.  Whether: a program our mandated -bf arm
+    # cannot get an answer for is UNGRADED (work owed, declared in UNGRADED.tsv).  How: whether its own
+    # run carried verdict lines picks the instrument.  Nothing here is read off a name.
+    timeout "$TIMEOUT" bash -c 'cd "$1" || exit 2; "$2" $3 "$4" < /dev/null > "$5" 2> "$6"' _ "$RUN" "$SBL" "$SBL_FLAGS" "$base" "$W/o.out" "$W/o.err" 2>/dev/null; rcO=$?
+    if grep -q 'No END statement found' "$W/o.out" "$W/o.err" 2>/dev/null; then
+        UNGRADED_N=$((UNGRADED_N+1)); UNG_LIST="${UNG_LIST}${base}\tORACLE_FAIL\tsbl -bf rc=$rcO \"No END statement found in source file(s).\"\n"
+        prog_row "$name" m3 UNGRADED "the oracle gives no answer under sbl -bf: No END statement found"
+        prog_row "$name" m4 UNGRADED "the oracle gives no answer under sbl -bf: No END statement found"; continue
+    fi
+    if grep -qE 'ERROR 0*22 -- [Uu]ndefined function called' "$W/o.out" "$W/o.err" 2>/dev/null; then
+        UNGRADED_N=$((UNGRADED_N+1)); UNG_LIST="${UNG_LIST}${base}\tORACLE_FAIL\tsbl -bf parses it and then raises ERROR 022 -- undefined function called (the name lives inside an EVAL'd string literal)\n"
+        prog_row "$name" m3 UNGRADED "the oracle raises ERROR 022 under sbl -bf: the name lives inside an EVAL'd string literal"
+        prog_row "$name" m4 UNGRADED "the oracle raises ERROR 022 under sbl -bf: the name lives inside an EVAL'd string literal"; continue
+    fi
+    GRADED=$((GRADED+1))
+    oracle_v="$(verdict_lines "$W/o.out")"; oracle_p="$(pass_lines "$W/o.out")"; oracle_f="$(fail_lines "$W/o.out")"
+    if [ "$oracle_v" -gt 0 ]; then ARM=self; SELF=$((SELF+1)); SELF_LIST="${SELF_LIST}${base}\n"; else ARM=stream; STREAM=$((STREAM+1)); fi
+    # --- mode 3
+    timeout "$TIMEOUT" bash -c 'cd "$1" || exit 2; "$2" --run "$3" < /dev/null > "$4" 2> "$5"' _ "$RUN" "$SCRIP" "$base" "$W/m3.out" "$W/m3.err" 2>/dev/null; rc3=$?
+    if [ "$rc3" -eq 124 ] || [ "$rc3" -ge 128 ]; then OUT3="$(verdict_of "$rc3")"; N3="rc=$rc3: $(head -1 "$W/m3.err" | cut -c1-90)"
+    elif [ "$ARM" = self ]; then
+        sp="$(pass_lines "$W/m3.out")"; sf="$(fail_lines "$W/m3.out")"
+        if [ "$sf" = 0 ] && [ "$sp" = "$oracle_p" ] && [ "$oracle_f" = 0 ]; then OUT3=PASS; N3="self-check: $sp pass, 0 FAIL, oracle $oracle_p/0"
+        else OUT3=FAIL; N3="self-check: $sp pass / $sf FAIL against the oracle's $oracle_p pass / $oracle_f FAIL"; fi
+    else
+        if gate_oracle_stdout_match "$W/o.out" "$W/m3.out" "$W/m3.err" "$rc3"; then OUT3=PASS; N3="stream: byte-equal stdout vs live sbl -bf, rc=$rc3 (oracle rc=$rcO)"
+        else OUT3=FAIL; N3="stream: differs from live sbl -bf, rc=$rc3 (oracle rc=$rcO)"; fi
+    fi
+    if [ "$OUT3" = PASS ]; then P3=$((P3+1)); else F3=$((F3+1)); FL3="$FL3 $name($OUT3)"; fi
+    # --- mode 4
+    skip=""; if skip="$(compile_m4 "$base" "$W/prog.bin")"; then
+        timeout "$TIMEOUT" bash -c 'cd "$1" || exit 2; "$2" < /dev/null > "$3" 2> "$4"' _ "$RUN" "$W/prog.bin" "$W/m4.out" "$W/m4.err" 2>/dev/null; rc4=$?
+        if [ "$rc4" -eq 124 ] || [ "$rc4" -ge 128 ]; then OUT4="$(verdict_of "$rc4")"; N4="rc=$rc4: $(head -1 "$W/m4.err" | cut -c1-90)"
+        elif [ "$ARM" = self ]; then
+            sp="$(pass_lines "$W/m4.out")"; sf="$(fail_lines "$W/m4.out")"
+            if [ "$sf" = 0 ] && [ "$sp" = "$oracle_p" ] && [ "$oracle_f" = 0 ]; then OUT4=PASS; N4="self-check: $sp pass, 0 FAIL, oracle $oracle_p/0"
+            else OUT4=FAIL; N4="self-check: $sp pass / $sf FAIL against the oracle's $oracle_p pass / $oracle_f FAIL"; fi
+        else
+            if gate_oracle_stdout_match "$W/o.out" "$W/m4.out" "$W/m4.err" "$rc4"; then OUT4=PASS; N4="stream: byte-equal stdout vs live sbl -bf, rc=$rc4 (oracle rc=$rcO)"
+            else OUT4=FAIL; N4="stream: differs from live sbl -bf, rc=$rc4 (oracle rc=$rcO)"; fi
+        fi
+        if [ "$OUT4" = PASS ]; then P4=$((P4+1)); else F4=$((F4+1)); FL4="$FL4 $name($OUT4)"; fi
+    else
+        OUT4=SKIP; N4="$skip"; S4=$((S4+1)); SKIP_LIST="$SKIP_LIST $name"
+    fi
+    [ "$OUT3" = PASS ] && [ "$OUT4" = PASS ] && BOTH=$((BOTH+1))
+    prog_row "$name" m3 "$OUT3" "$N3"; prog_row "$name" m4 "$OUT4" "$N4"
+done
+echo "SPITBOL_X64_BOARD shipped=$SHIPPED graded=$GRADED ungraded=$UNGRADED_N m3_pass=$P3 m3_fail=$F3 m4_pass=$P4 m4_fail=$F4 m4_skip=$S4 self_check_arm=$SELF stream_arm=$STREAM -- SCRIP $SCRIP_HASH corpus $CORP_HASH RT_OPT=-O0 oracle=sbl-bf timeout=${TIMEOUT}s m4_asm_budget=${M4_ASM_MB}MB"
+echo "SPITBOL_X64_AND both_modes_pass=$BOTH/$GRADED -- the suite table states this reading (ceo-372: the AND per program; a timed-out or crashed run is HANG/CRASH, never PASS, whatever its stream; a budgeted-out mode 4 is SKIP, never PASS)"
+# ⛔ THE ROW'S OWN CLAUSE: the population, said in one line, with the remainder NAMED rather than counted.
+echo "SPITBOL_X64_POPULATION graded $GRADED of $SHIPPED shipped -- the ungraded remainder ($UNGRADED_N), each with the oracle's own words:"
+if [ "$UNGRADED_N" -gt 0 ]; then printf '%b' "$UNG_LIST" | sed 's/^/UNGRADED\t/'; else printf 'UNGRADED\t(none -- every shipped program is graded)\n'; fi
+[ -n "$SKIP_LIST" ] && echo "M4-SKIP (compile/link/budget, never a pass):$SKIP_LIST"
+[ -n "$FL3" ] && echo "FAIL-M3:$FL3"
+[ -n "$FL4" ] && echo "FAIL-M4:$FL4"
+# ⭐ THE DECLARATION, RE-ASKED EVERY RUN.  UNGRADED.tsv is the authority on which programs are owed (a
+# runner may not decide that at run time), but a declaration nobody re-measures is how a list outlives
+# the fact it recorded -- the coo's own board rule this week, off gimpel's OUTSIDE_SPITBOL_BASELINE.tsv
+# naming sixteen programs as unanswerable by an oracle that now answers them.  So: measured set vs
+# declared set, both directions, said aloud, never a red board.
+UNG_TSV="$SUITE/UNGRADED.tsv"
+if [ -f "$UNG_TSV" ]; then
+    # ⛔ grep . ON BOTH OPERANDS, ALWAYS.  `printf '%s\n' "$empty"` emits ONE BLANK LINE, and comm counts
+    # it as a member -- so an empty declared or measured set manufactured a warning that named nothing.
+    # Measured here the first run after the sibling case-conversion row landed and the ungraded set went to
+    # zero: the STALE line was right and the UNRECORDED line beside it was an artifact of the blank.
+    rec="$(awk -F'\t' 'NF>2 && $1 !~ /^#/{print $1}' "$UNG_TSV" | grep . | sort)"
+    live="$(printf '%b' "$UNG_LIST" | cut -f1 | grep . | sort)"
+    stale="$(comm -23 <(printf '%s\n' "$rec" | grep .) <(printf '%s\n' "$live" | grep .) | tr '\n' ' ')"
+    unrec="$(comm -13 <(printf '%s\n' "$rec" | grep .) <(printf '%s\n' "$live" | grep .) | tr '\n' ' ')"
+    [ -n "$stale" ] && echo "⚠ UNGRADED.tsv STALE -- declared as unanswerable under sbl -bf, but the oracle answered them cleanly this run; they are graded now, so delete their rows: $stale"
+    [ -n "$unrec" ] && echo "⚠ UNGRADED.tsv UNRECORDED -- the oracle gave no answer for these under sbl -bf and the declaration does not name them; add a row each with the oracle's own words: $unrec"
+    [ -z "$stale$unrec" ] && echo "UNGRADED.tsv agrees with the measured ungraded set ($UNGRADED_N)"
+else echo "⚠ no UNGRADED.tsv beside the suite -- the ungraded set above is measured, not yet declared"; fi
+# ⭐⭐ AND THE SAME RE-ASKING FOR THE NARROW BUCKET, WHICH IS THE ONE NOBODY WOULD THINK TO RE-ASK.  The
+# self-check arm is graded_narrow, not graded_stream: it reads " pass:"/"*FAIL:" counts and therefore
+# cannot see the Obs[]/Exp[] text (NARROW.tsv states exactly that, per entry).  ⛔ The arm is CHOSEN by
+# measurement and the declaration is a FILE, so the two drift the moment the graded set moves -- and it
+# is about to: nine more math files join the self-check set when the case-conversion row lands.  The
+# inventory would refuse on the count mismatch, but a refusal names the count, not the names, so the
+# cross-check below names them.  Same discipline as UNGRADED.tsv above, both directions, never a red board.
+NAR_TSV="$SUITE/NARROW.tsv"
+if [ -f "$NAR_TSV" ]; then
+    nrec="$(awk -F'\t' 'NF>2 && $1 !~ /^#/{print $1}' "$NAR_TSV" | grep . | sort)"
+    nlive="$(printf '%b' "$SELF_LIST" | grep . | sort)"
+    nstale="$(comm -23 <(printf '%s\n' "$nrec" | grep .) <(printf '%s\n' "$nlive" | grep .) | tr '\n' ' ')"
+    nunrec="$(comm -13 <(printf '%s\n' "$nrec" | grep .) <(printf '%s\n' "$nlive" | grep .) | tr '\n' ' ')"
+    [ -n "$nstale" ] && echo "⚠ NARROW.tsv STALE -- declared as graded by their own verdict lines, but the oracle printed none for them this run (they are stream-graded now, or no longer graded at all): $nstale"
+    [ -n "$nunrec" ] && echo "⚠ NARROW.tsv UNRECORDED -- these were graded on their own verdict lines and the declaration does not name them; add a row each saying what that comparison does not see: $nunrec"
+    [ -z "$nstale$nunrec" ] && echo "NARROW.tsv agrees with the measured self-check set ($SELF)"
+elif [ "$SELF" -gt 0 ]; then echo "⚠ no NARROW.tsv beside the suite -- $SELF programs were graded by a comparison narrower than the percent claims, and nothing declares which"; fi
+# ⭐ THE PACKAGE LOCKDOWN (Lon 2026-09-06): graded + ungraded + ungradable must equal shipped, or a
+# program is in no bucket at all and appears in no number.  lib_inventory.sh recomputes every bucket
+# itself from the sidecars rather than trusting this runner's counters.
+INV_PACKAGE=spitbol_x64; INV_DIR="$SUITE"; INV_EXT=".sbl"
+INV_LINE="$(inventory_line "$STREAM" "$SELF")"
+if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
+if [ "$PROG_RECORD" = 1 ]; then
+    progress_append_rows_tsv "$PROG_ROWS" || echo "⚠ PROGRESS ROWS NOT RECORDED (writer rc=$? above) -- a run that leaves the table untouched is a defect of that run (progress/README.md), not a red board" >&2
+else echo "progress: scratch suite $SUITE -- $(grep -c . "$PROG_ROWS") row(s) NOT recorded (only the canonical suite, or S4E_PROGRESS_DB, records)"; fi
+# ⛔⭐ POPULATION FLOOR: F3/F4/S4 all read 0 over zero graded entries too (the oracle refusing every
+# program would do it), so refuse before the vacuous-clean verdict below can be reached.
+"$HERE/util_require_population.sh" --gate test_snobol4_spitbol_x64_suite "$GRADED" 1 "graded programs (shipped=$SHIPPED ungraded=$UNGRADED_N)" || exit 2
+if [ "$SUITE" = "$CANON_SUITE" ]; then
+python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite spitbol_x64 --modes m3,m4 \
+    --measurer "${S4E_SEAT:-}" --suite-pass "$BOTH" --suite-total "$GRADED" \
+    --text "spitbol_x64 both_modes_pass=$BOTH/$GRADED (the table's reading: the ceo-372 AND per program · $SELF graded by the programs' OWN \" pass:\"/\"*FAIL:\" verdict lines, $STREAM by live oracle stdout diff · $UNGRADED_N of $SHIPPED shipped still unreadable by our mandated sbl -bf, named in UNGRADED.tsv and owed to the case-conversion row) · m3 $P3/$GRADED · m4 $P4/$GRADED ($S4 m4 SKIP, asm over the ${M4_ASM_MB}MB budget or would not build) · sbl -bf the one oracle${INV_LINE:+ · $INV_LINE} (\`test_snobol4_spitbol_x64_suite.sh\`)" \
+    || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
+else echo "SCORE.md: scratch suite $SUITE -- not written (only the canonical suite records the leaderboard)"; fi
+[ "$F3" = 0 ] && [ "$F4" = 0 ] && [ "$S4" = 0 ]
