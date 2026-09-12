@@ -215,9 +215,13 @@ static long cvpos_of(DESCR_t v, long len, int *ok) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int64_t rt_cvpos_pos(DESCR_t v, int64_t len) { int ok; long p = cvpos_of(v, (long)len, &ok); return ok ? (int64_t)p : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_keyword_pos_set_strict(DESCR_t v) {
+    extern int core_icn_error(int, DESCR_t); extern int core_icn_int_ok_d(DESCR_t); extern DESCR_t rt_keyword_pos_set(DESCR_t);
+    if (!core_icn_int_ok_d(v)) { core_icn_error(101, v); return FAILDESCR; }
+    return rt_keyword_pos_set(v);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_keyword_pos_set(DESCR_t v) {
-    { extern int core_icn_active(void); extern int core_icn_error(int, DESCR_t); extern int core_icn_int_ok_d(DESCR_t);
-      if (core_icn_active() && !core_icn_int_ok_d(v)) { core_icn_error(101, v); return FAILDESCR; } }
     long len = scan_subj ? rt_scan_subj_len() : 0; int ok; long p = cvpos_of(v, len, &ok);
     if (!ok) return FAILDESCR;
     scan_pos = (int)p; return INTVAL((int64_t)p);
@@ -249,11 +253,19 @@ DESCR_t rt_rev_swap_undo(long lkind, DESCR_t *lp, long rkind, DESCR_t *rp, DESCR
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+ScanSubjRegs rt_keyword_subject_set_strict(uint64_t lo, uint64_t hi) {
+    uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
+    { extern int rt_big_is(DESCR_t); extern int core_icn_error(int, DESCR_t); extern ScanSubjRegs rt_keyword_subject_set(uint64_t, uint64_t);
+      int strish = (sv.v == DT_S) || (sv.v == DT_SNUL && sv.s);
+      if (!strish && !IS_INT_fn(sv) && !IS_REAL_fn(sv) && !rt_big_is(sv)) { core_icn_error(103, sv); ScanSubjRegs r; r.ptr = 0; r.len = 0; return r; } }
+    return rt_keyword_subject_set(lo, hi);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ScanSubjRegs rt_keyword_subject_set(uint64_t lo, uint64_t hi) {
     uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
-    { extern int rt_big_is(DESCR_t); extern int core_icn_active(void); extern int core_icn_error(int, DESCR_t);
+    { extern int rt_big_is(DESCR_t);
       int strish = (sv.v == DT_S) || (sv.v == DT_SNUL && sv.s);
-      if (!strish && !IS_INT_fn(sv) && !IS_REAL_fn(sv) && !rt_big_is(sv)) { if (core_icn_active()) core_icn_error(103, sv); ScanSubjRegs r; r.ptr = 0; r.len = 0; return r; } }
+      if (!strish && !IS_INT_fn(sv) && !IS_REAL_fn(sv) && !rt_big_is(sv)) { ScanSubjRegs r; r.ptr = 0; r.len = 0; return r; } }
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str_fracdigit(sv);
     if (sv.v == DT_BIG) { extern char *rt_big_str(DESCR_t); sv = STRVAL(rt_big_str(sv)); }
     const char *s = sv.s ? sv.s : "";

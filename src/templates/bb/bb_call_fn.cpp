@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include "emit.h"
 extern "C" {
+extern DESCR_t rt_call_arr_bl_strict(const char *, DESCR_t *, int, int);
 #include "bb_template_common.h"
 #include "bb_templates.h"
 DESCR_t rt_call_arr(const char * fn, DESCR_t * args, int nargs);
@@ -60,7 +61,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
         else           s += x86("xor", "esi", "esi");
         s += x86("mov32", "edx", (long)nargs);
         s += x86("mov32", "ecx", bid_bake_of(fn));
-        s += x86("call", "rt_call_arr_bl", (uint64_t)(uintptr_t)(void *)rt_call_arr_bl);
+        s += x86("call", (_.op_strict ? "rt_call_arr_bl_strict" : "rt_call_arr_bl"), (uint64_t)(uintptr_t)(void *)(_.op_strict ? rt_call_arr_bl_strict : rt_call_arr_bl));
         }
         if (nargs > 0) s += x86("add", "rsp", (long)(nargs * 16));
         { int _wpop_save = _.op_wpop; int _zgpop_save = _.op_zgpop; if (_.op_sb) { _.op_wpop = 0; _.op_zgpop = 0; }
@@ -126,7 +127,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
         s += x86("mov32", "edx", (long)nargs);
         s += x86("rtcc_wb");
         s += x86("mov32", "ecx", bid_bake_of(fn));
-        s += x86("call_bare", "rt_call_arr_bl", (uint64_t)(uintptr_t)(void *)rt_call_arr_bl);
+        s += x86("call_bare", (_.op_strict ? "rt_call_arr_bl_strict" : "rt_call_arr_bl"), (uint64_t)(uintptr_t)(void *)(_.op_strict ? rt_call_arr_bl_strict : rt_call_arr_bl));
         s += x86("rtcc_rl");
     }
     s += x86("mov", FRQ(resoff), "rax");

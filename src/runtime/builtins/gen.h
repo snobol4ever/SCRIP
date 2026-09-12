@@ -19,9 +19,6 @@ typedef enum {
     BINOP_LCONCAT,
 } BinopKind;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define BINOP_RAISE_ERRORS 0x100
-#define binop_kind_of(op)  ((long long)(op) & ~(long long)BINOP_RAISE_ERRORS)
-#define binop_wants_raise(op) (((long long)(op) & (long long)BINOP_RAISE_ERRORS) != 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int binop_is_concat(long op) { return op == BINOP_CONCAT || op == BINOP_CONCAT_FRACDIGIT || op == BINOP_LCONCAT; }
 #ifndef EXPR_T_DEFINED

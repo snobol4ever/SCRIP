@@ -905,7 +905,9 @@ static int rt_multi_meth_dispatch(const char *cname, const char *mname, DESCR_t 
     *out = invoke_method_proc(acc_names[win], ca, total); return 1;
 }
 DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs);
+DESCR_t rt_call_arr_strict(const char *fn, DESCR_t *args, int nargs);
 int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, int bidlen);
+int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, int bidlen, int strict);
 DESCR_t rt_call_arr_bl(const char *fn, DESCR_t *args, int nargs, int bidlen);
 extern const char *icon_real_str(double r, char *buf, int bufsz);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -969,7 +971,7 @@ static void icn_call_value_deref_args(const char *nm, DESCR_t *argv, int n) {
 static int icn_call_value_name_invocable(DESCR_t callee, const char *nm, int n) {
     if (IS_PROCVAL_fn(callee) || !IS_STR_fn(callee) || !nm) return 1;
     DESCR_t pa[2], pv = FAILDESCR; pa[0] = STRVAL((char *)nm); pa[1] = INTVAL(n);
-    if (!try_call_builtin_by_name_bl("proc", pa, 2, &pv, -1)) return 1;
+    if (!try_call_builtin_by_name_bl_s("proc", pa, 2, &pv, -1, 1)) return 1;
     return !IS_FAIL_fn(pv);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -989,7 +991,7 @@ DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
     if (n == 1 && !strcmp(nm, "!")) { extern int list_bang_at(DESCR_t, int64_t, DESCR_t *); DESCR_t out; return list_bang_at(argv[0], 0, &out) ? out : FAILDESCR; }
     if (n == 1 && !strcmp(nm, "/")) return (argv[0].v == DT_SNUL || argv[0].v == 0) ? argv[0] : FAILDESCR;
     if (!icn_call_value_name_invocable(callee, nm, n)) { core_icn_error(106, callee); return FAILDESCR; }
-    return rt_call_arr(nm, argv, n);
+    return rt_call_arr_strict(nm, argv, n);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) {
@@ -4278,23 +4280,27 @@ int script_try_hash_builtin(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
 }
 #undef STX
 #undef SOH
-static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bidlen);
+static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) { return rt_call_arr_bl(fn, args, nargs, -1); }
+static DESCR_t rt_call_arr_bl_s(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict);
+DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) { return rt_call_arr_bl_s(fn, args, nargs, -1, 0); }
+DESCR_t rt_call_arr_strict(const char *fn, DESCR_t *args, int nargs) { return rt_call_arr_bl_s(fn, args, nargs, -1, 1); }
+DESCR_t rt_call_arr_bl(const char *fn, DESCR_t *args, int nargs, int bidlen) { return rt_call_arr_bl_s(fn, args, nargs, bidlen, 0); }
+DESCR_t rt_call_arr_bl_strict(const char *fn, DESCR_t *args, int nargs, int bidlen) { return rt_call_arr_bl_s(fn, args, nargs, bidlen, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_call_arr_bl(const char *fn, DESCR_t *args, int nargs, int bidlen) {
+static DESCR_t rt_call_arr_bl_s(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict) {
     extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
     { static long _rspc = -1; if (_rspc == -1) { const char *ev = getenv("SCRIP_CALLARR_TRACE"); _rspc = (ev && *ev && *ev != '0') ? 0 : -2; } if (_rspc >= 0) { void *rsp_now; __asm__ volatile ("mov %%rsp, %0" : "=r"(rsp_now)); _rspc++; fprintf(stderr, "[RSP] %ld fn='%s' rsp=%p\n", _rspc, fn ? fn : "(null)", rsp_now); fflush(stderr); } }
-    if (g_core_errjmp_n >= 64) { DESCR_t r0 = rt_call_arr_impl(fn, args, nargs, bidlen); return r0; }
+    if (g_core_errjmp_n >= 64) { DESCR_t r0 = rt_call_arr_impl(fn, args, nargs, bidlen, strict); return r0; }
     int my = g_core_errjmp_n; void * volatile bimark = core_icn_bi_mark();
     if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; core_icn_bi_reset(bimark); return FAILDESCR; }
     g_core_errjmp_n = my + 1;
-    DESCR_t r = rt_call_arr_impl(fn, args, nargs, bidlen);
+    DESCR_t r = rt_call_arr_impl(fn, args, nargs, bidlen, strict);
     g_core_errjmp_n = my;
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bidlen) {
+static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict) {
     DESCR_t out = FAILDESCR;
     extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     extern int g_gc_pending;
@@ -4305,15 +4311,15 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
     if (fn[0] == 'S' && fn[1] == 'N' && !strcmp(fn, "SNO$NOFAIL")) { extern void rt_nofail_abort(void); rt_nofail_abort(); return out; }
     if (fn[0] == '$' && fn[1]) { if (script_try_call_builtin_by_name(fn, args, nargs, &out)) return out; out = FAILDESCR; }
     if (fn[0] && !((fn[0] >= 'a' && fn[0] <= 'z') || (fn[0] >= 'A' && fn[0] <= 'Z') || fn[0] == '_' || fn[0] == '&')) {
-        extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int);
+        extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int); extern DESCR_t rt_num_arith_strict(DESCR_t, DESCR_t, int); DESCR_t (*na)(DESCR_t, DESCR_t, int) = strict ? rt_num_arith_strict : rt_num_arith;
         if (nargs == 1) {
-            extern DESCR_t rt_random_var(DESCR_t); extern DESCR_t rt_deref(DESCR_t);
+            extern DESCR_t rt_random_var(DESCR_t); extern DESCR_t rt_random_var_strict(DESCR_t); extern DESCR_t rt_deref(DESCR_t);
             DESCR_t a = args[0];
-            if (!strcmp(fn, "-"))  return rt_num_arith(INTVAL(0), a, BINOP_SUB);
-            if (!strcmp(fn, "+"))  return rt_num_arith(INTVAL(0), a, BINOP_ADD);
+            if (!strcmp(fn, "-"))  return na(INTVAL(0), a, BINOP_SUB);
+            if (!strcmp(fn, "+"))  return na(INTVAL(0), a, BINOP_ADD);
             if (!strcmp(fn, "*"))  { extern DESCR_t rt_call_arr(const char *, DESCR_t *, int); DESCR_t _a = a; return try_call_builtin_by_name("*", &_a, 1, &out) ? out : FAILDESCR; }
             if (!strcmp(fn, "\\")) return (a.v == DT_SNUL || a.v == 0) ? FAILDESCR : a;
-            if (!strcmp(fn, "?"))  return rt_deref(rt_random_var(a));
+            if (!strcmp(fn, "?"))  return rt_deref((strict ? rt_random_var_strict : rt_random_var)(a));
             if (!strcmp(fn, "/") || !strcmp(fn, "%") || !strcmp(fn, "#") || !strcmp(fn, "|")) {
                 extern int core_call_registered_fn(const char *, DESCR_t *, int, DESCR_t *); extern int FNCEX_fn(const char *);
                 if (core_call_registered_fn(fn, args, nargs, &out)) return out;
@@ -4323,17 +4329,17 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
             }
         }
         DESCR_t a = (nargs > 0) ? args[0] : NULVCL, b = (nargs > 1) ? args[1] : NULVCL;
-        if (nargs == 3 && !strcmp(fn, "[:]")) { extern DESCR_t rt_section_var(DESCR_t, DESCR_t, DESCR_t); extern DESCR_t rt_deref(DESCR_t); extern DESCR_t rt_var_ref_cell(DESCR_t *); extern void *rt_agg_alloc(int, size_t); DESCR_t sb = a; if (!IS_VARREF_fn(sb)) { DESCR_t *cell = (DESCR_t *)rt_agg_alloc(0, sizeof(DESCR_t)); if (!cell) return FAILDESCR; *cell = a; sb = rt_var_ref_cell(cell); } DESCR_t v = rt_section_var(sb, b, args[2]); if (IS_FAIL_fn(v)) return FAILDESCR; return rt_deref(v); }
-        if (!strcmp(fn, "[]")) { extern DESCR_t rt_subscript_var(DESCR_t, DESCR_t); extern DESCR_t rt_deref(DESCR_t); DESCR_t v = rt_subscript_var(a, b); if (IS_FAIL_fn(v)) return FAILDESCR; return rt_deref(v); }
-        if (!strcmp(fn, "++")) return rt_num_arith(a, b, BINOP_CUNION);
-        if (!strcmp(fn, "--")) return rt_num_arith(a, b, BINOP_CDIFF);
-        if (!strcmp(fn, "**")) return rt_num_arith(a, b, BINOP_CINTER);
-        if (!strcmp(fn, "+")) return rt_num_arith(a, b, BINOP_ADD);
-        if (!strcmp(fn, "-")) return rt_num_arith(a, b, BINOP_SUB);
-        if (!strcmp(fn, "*")) return rt_num_arith(a, b, BINOP_MUL);
-        if (!strcmp(fn, "/")) return rt_num_arith(a, b, BINOP_DIV);
-        if (!strcmp(fn, "%")) { extern int FNCEX_fn(const char *); if (FNCEX_fn(fn)) return APPLY_fn(fn, args, nargs); return rt_num_arith(a, b, BINOP_MOD); }
-        if (!strcmp(fn, "^")) return rt_num_arith(a, b, BINOP_POW);
+        if (nargs == 3 && !strcmp(fn, "[:]")) { extern DESCR_t rt_section_var(DESCR_t, DESCR_t, DESCR_t); extern DESCR_t rt_section_var_strict(DESCR_t, DESCR_t, DESCR_t); extern DESCR_t rt_deref(DESCR_t); extern DESCR_t rt_var_ref_cell(DESCR_t *); extern void *rt_agg_alloc(int, size_t); DESCR_t sb = a; if (!IS_VARREF_fn(sb)) { DESCR_t *cell = (DESCR_t *)rt_agg_alloc(0, sizeof(DESCR_t)); if (!cell) return FAILDESCR; *cell = a; sb = rt_var_ref_cell(cell); } DESCR_t v = (strict ? rt_section_var_strict : rt_section_var)(sb, b, args[2]); if (IS_FAIL_fn(v)) return FAILDESCR; return rt_deref(v); }
+        if (!strcmp(fn, "[]")) { extern DESCR_t rt_subscript_var(DESCR_t, DESCR_t); extern DESCR_t rt_subscript_var_strict(DESCR_t, DESCR_t); extern DESCR_t rt_deref(DESCR_t); DESCR_t v = (strict ? rt_subscript_var_strict : rt_subscript_var)(a, b); if (IS_FAIL_fn(v)) return FAILDESCR; return rt_deref(v); }
+        if (!strcmp(fn, "++")) return na(a, b, BINOP_CUNION);
+        if (!strcmp(fn, "--")) return na(a, b, BINOP_CDIFF);
+        if (!strcmp(fn, "**")) return na(a, b, BINOP_CINTER);
+        if (!strcmp(fn, "+")) return na(a, b, BINOP_ADD);
+        if (!strcmp(fn, "-")) return na(a, b, BINOP_SUB);
+        if (!strcmp(fn, "*")) return na(a, b, BINOP_MUL);
+        if (!strcmp(fn, "/")) return na(a, b, BINOP_DIV);
+        if (!strcmp(fn, "%")) { extern int FNCEX_fn(const char *); if (FNCEX_fn(fn)) return APPLY_fn(fn, args, nargs); return na(a, b, BINOP_MOD); }
+        if (!strcmp(fn, "^")) return na(a, b, BINOP_POW);
         if (!strcmp(fn, "|||")) { extern DESCR_t rt_icn_lconcat_d(DESCR_t, DESCR_t); return rt_icn_lconcat_d(a, b); }
         if (!strcmp(fn, "||")) { const char *x = VARVAL_fn(a), *y = VARVAL_fn(b); if (!x) x = ""; if (!y) y = ""; size_t lx = strlen(x), ly = strlen(y); char *o = rt_str_alloc((int)(lx + ly)); memcpy(o, x, lx); memcpy(o + lx, y, ly); o[lx + ly] = 0; return STRVAL(o); }
         { DESCR_t rt_str_coerce(DESCR_t); void rt_relop_val_coerce(DESCR_t, DESCR_t, DESCR_t *); int oc = -1;
@@ -4347,9 +4353,9 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
           if (oc >= 0) { if (!rt_jct_relop(a, b, oc)) return FAILDESCR; if (oc >= BINOP_SLT && oc <= BINOP_SNE) return rt_str_coerce(b); if (oc == BINOP_EQV || oc == BINOP_NEQV) return b; DESCR_t _rv; rt_relop_val_coerce(a, b, &_rv); return _rv; } }
     }
     { icn_bi_rec_t bi; core_icn_bi_push(&bi, fn, args, nargs);
-      if (core_icn_builtin_argcheck(fn, args, nargs)) { core_icn_bi_pop(&bi); return FAILDESCR; }
-      int hit = try_call_builtin_by_name_bl(fn, args, nargs, &out, bidlen); core_icn_bi_pop(&bi); if (hit) return out; }
-    if (core_icn_active() && !rt_proc_name_exists(fn) && !icn_builtin_is_known(fn) && icn_builtin_arity(fn) == ICN_ARITY_UNKNOWN) {
+      if (core_icn_builtin_argcheck(fn, args, nargs, strict)) { core_icn_bi_pop(&bi); return FAILDESCR; }
+      int hit = try_call_builtin_by_name_bl_s(fn, args, nargs, &out, bidlen, strict); core_icn_bi_pop(&bi); if (hit) return out; }
+    if (strict && !rt_proc_name_exists(fn) && !icn_builtin_is_known(fn) && icn_builtin_arity(fn) == ICN_ARITY_UNKNOWN) {
         DESCR_t cal = NV_GET_fn(fn);
         if (!IS_PROCVAL_fn(cal)) { core_icn_op_ctx(fn, 1, cal, cal); core_icn_error(106, cal); core_icn_op_ctx_clear(); return FAILDESCR; }
     }
@@ -4357,7 +4363,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
     return out;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_call_arr_gen(const char *fn, DESCR_t *args, int nargs, int64_t *resume) {
+static DESCR_t rt_call_arr_gen_s(const char *fn, DESCR_t *args, int nargs, int64_t *resume, int strict) {
     DESCR_t out = FAILDESCR;
     if (fn && resume && nargs >= 2 && nargs <= 4 && (!strcmp(fn, "find") || !strcmp(fn, "upto"))) {
         DESCR_t a4[4]; a4[0] = args[0]; a4[1] = args[1];
@@ -4365,11 +4371,13 @@ DESCR_t rt_call_arr_gen(const char *fn, DESCR_t *args, int nargs, int64_t *resum
         if (*resume > 0 && (long)*resume > i1) i1 = (long)*resume;
         a4[2] = INTVAL(i1);
         if (nargs >= 4) a4[3] = args[3];
-        if (try_call_builtin_by_name(fn, a4, (nargs >= 4) ? 4 : 3, &out) && !IS_FAIL_fn(out)) { *resume = (int)out.i + 1; return out; }
+        if (try_call_builtin_by_name_bl_s(fn, a4, (nargs >= 4) ? 4 : 3, &out, -1, strict) && !IS_FAIL_fn(out)) { *resume = (int)out.i + 1; return out; }
         return FAILDESCR;
     }
-    return rt_call_arr(fn, args, nargs);
+    return rt_call_arr_bl_s(fn, args, nargs, -1, strict);
 }
+DESCR_t rt_call_arr_gen(const char *fn, DESCR_t *args, int nargs, int64_t *resume) { return rt_call_arr_gen_s(fn, args, nargs, resume, 0); }
+DESCR_t rt_call_arr_gen_strict(const char *fn, DESCR_t *args, int nargs, int64_t *resume) { return rt_call_arr_gen_s(fn, args, nargs, resume, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_make_list(DESCR_t *args, int nargs) {
     static int list_reg3 = 0;
@@ -4417,7 +4425,7 @@ DESCR_t rt_str_coerce(DESCR_t d);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t c_rt_str_coerce(DESCR_t d) {
     if (!IS_CSET_fn(d)) {
-        if (core_icn_active() && (d.v == DT_I || d.v == DT_R || d.v == DT_BIG)) { extern DESCR_t descr_to_str(DESCR_t); DESCR_t sv = descr_to_str(d); if (!IS_FAIL_fn(sv)) return sv; return d; }
+        if (d.v == DT_I || d.v == DT_R || d.v == DT_BIG) { extern DESCR_t descr_to_str(DESCR_t); DESCR_t sv = descr_to_str(d); if (!IS_FAIL_fn(sv)) return sv; return d; }
         return d;
     }
     const char *cp; int cl; if (!cset_resolve(d, &cp, &cl) || cl < 0) return d;
@@ -5029,7 +5037,7 @@ static int icn_scan_tail_gate(DESCR_t *args, int nargs, int subj, DESCR_t *out) 
         if (!IS_FAIL_fn(args[i]) && args[i].v != DT_SNUL && !icn_cvt_int_ok(args[i])) return icn_argtype_raise(101, args[i], out);
     return 0;
 }
-static int icn_argtype_gate(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
+static int icn_argtype_gate(int bid, DESCR_t *args, int nargs, DESCR_t *out, int strict) {
     if (nargs < 1 || IS_FAIL_fn(args[0])) return 0;
     switch (bid) {
         case BID_any: case BID_many: case BID_upto:
@@ -5082,7 +5090,8 @@ static int icn_argtype_gate(int bid, DESCR_t *args, int nargs, DESCR_t *out) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, int bidlen)
+int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, int bidlen) { return try_call_builtin_by_name_bl_s(fn, args, nargs, out, bidlen, 0); }
+int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, int bidlen, int strict)
 {
     if (nargs == 1 && args[0].v == DT_DATA && args[0].u && args[0].u->type) {
         DATBLK_t *idb = args[0].u->type; const char _f0 = fn ? fn[0] : 0;
@@ -5228,7 +5237,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         case (8u<<8)|'S': if ((_bid == BID_SNOx24NAME) && nargs == 1) _r = bn_sno_name(args, nargs, out); else if ((_bid == BID_SNOx24NRET)) { extern int rt_g_ret_by_name; rt_g_ret_by_name = 1; *out = NULVCL; _r = 1; } break;
         default: break; }
         if (_r >= 0) return _r; } }
-    if (icn_argtype_gate(_bid, args, nargs, out)) return 1;
+    if (icn_argtype_gate(_bid, args, nargs, out, strict)) return 1;
     if (g_bidjmp_on) switch (_bid) { case BID___rk_bool: goto L_bidjmp_5076; case BID___rk_defined: goto L_bidjmp_5087; case BID___rk_dor: goto L_bidjmp_5090; case BID___rk_bool_val: goto L_bidjmp_5093; case BID___pas_chr: goto L_bidjmp_5103; case BID___pas_chrlit: goto L_bidjmp_5109; case BID___pas_enum_name: goto L_bidjmp_5112; case BID___pas_read_i: goto L_bidjmp_5121; case BID___pas_read_c: goto L_bidjmp_5124; case BID___pas_readln: goto L_bidjmp_5127; case BID___pas_eof: goto L_bidjmp_5130; case BID___pas_eoln: goto L_bidjmp_5135; case BID___pas_getbufch: goto L_bidjmp_5149; case BID___pas_trunc: goto L_bidjmp_5152; case BID___pas_abs: goto L_bidjmp_5156; case BID___pas_writeln: goto L_bidjmp_5171; case BID___pas_write: goto L_bidjmp_5171; case BID_write: goto L_bidjmp_5209; case BID_writes: goto L_bidjmp_5209; case BID_integer: goto L_bidjmp_5232; case BID_real: goto L_bidjmp_5264; case BID_string: goto L_bidjmp_5273; case BID_numeric: goto L_bidjmp_5283; case BID_cset: goto L_bidjmp_5320; case BID_ord: goto L_bidjmp_5330; case BID_image: goto L_bidjmp_5336; case BID_args: goto L_bidjmp_5339; case BID_proc: goto L_bidjmp_5385; case BID_repl: goto L_bidjmp_5524; case BID_reverse: goto L_bidjmp_5531; case BID_map: goto L_bidjmp_5537; case BID_trim: goto L_bidjmp_5567; case BID_getenv: goto L_bidjmp_5576; case BID_collect: goto L_bidjmp_5584; case BID_left: goto L_bidjmp_5585; case BID_right: goto L_bidjmp_5613; case BID_center: goto L_bidjmp_5639; case BID_detab: goto L_bidjmp_5671; case BID_entab: goto L_bidjmp_5704; case BID_abs: goto L_bidjmp_5747; case BID_max: goto L_bidjmp_5754; case BID_min: goto L_bidjmp_5765; case BID_sqrt: goto L_bidjmp_5777; case BID_atan: goto L_bidjmp_5791; case BID_log: goto L_bidjmp_5797; case BID_dtor: goto L_bidjmp_5803; case BID_rtod: goto L_bidjmp_5804; case BID_iand: goto L_bidjmp_5805; case BID_ior: goto L_bidjmp_5806; case BID_ixor: goto L_bidjmp_5807; case BID_ishift: goto L_bidjmp_5808; case BID_icom: goto L_bidjmp_5809; case BID_copy: goto L_bidjmp_5811; case BID_list: goto L_bidjmp_5840; case BID_table: goto L_bidjmp_5864; case BID_read: goto L_bidjmp_5874; case BID_reads: goto L_bidjmp_5883; case BID_runerr: goto L_bidjmp_5894; case BID_stop: goto L_bidjmp_5895; case BID_ICN_SCAN_PUSH: goto L_bidjmp_5900; case BID_ICN_SCAN_POP: goto L_bidjmp_5912; case BID_any: goto L_bidjmp_5920; case BID_many: goto L_bidjmp_5938; case BID_upto: goto L_bidjmp_5958; case BID_tab: goto L_bidjmp_5978; case BID_move: goto L_bidjmp_5991; case BID_pos: goto L_bidjmp_6004; case BID_match: goto L_bidjmp_6012; case BID_bal: goto L_bidjmp_6033; case BID_find: goto L_bidjmp_6067; case BID_NONNULL: goto L_bidjmp_6081; case BID_ICN_CASE_EQ: goto L_bidjmp_6088; case BID_ICN_SWAP_TOP2: goto L_bidjmp_6104; case BID_ICN_NULL: goto L_bidjmp_6108; case BID_insert: goto L_bidjmp_6115; case BID_delete: goto L_bidjmp_6124; case BID_member: goto L_bidjmp_6132; case BID_key: goto L_bidjmp_6140; case BID___apply__: goto L_bidjmp_6149; case BID_push: goto L_bidjmp_6162; case BID_put: goto L_bidjmp_6182; case BID_get: goto L_bidjmp_6206; case BID_pop: goto L_bidjmp_6221; case BID_pull: goto L_bidjmp_6236; case BID_sort: goto L_bidjmp_6249; case BID_FIELD_GET: goto L_bidjmp_6322; case BID_FIELD_SET: goto L_bidjmp_6330; case BID_MAKELIST: goto L_bidjmp_6341; case BID_RECORD_REGISTER: goto L_bidjmp_6345; case BID_RECORD_MAKE: goto L_bidjmp_6351; case BID_open: goto L_bidjmp_6361; case BID_remove: goto L_bidjmp_6376; case BID_close: goto L_bidjmp_6381; case BID_flush: goto L_bidjmp_9999; case BID_serial: goto L_bidjmp_9998; case BID_errorclear: goto L_bidjmp_9997; case BID_IDENTICAL: goto L_bidjmp_6411; case BID_set: goto L_bidjmp_6423; case BID_ASGN: goto L_bidjmp_6439; case BID_name: goto L_bidjmp_6446; case BID_variable: goto L_bidjmp_6462; case BID_SNOx24NAME: goto L_bidjmp_6468; case BID_ARRAY: goto L_bidjmp_6469; case BID_TABLE: goto L_bidjmp_6479; case BID_ITEM: goto L_bidjmp_6484; case BID_PROTOTYPE: goto L_bidjmp_6490; case BID_CONVERT: goto L_bidjmp_6499; case BID_DATA: goto L_bidjmp_6521; case BID_SNOx24KWSET: goto L_bidjmp_6528; case BID_SNOx24STMT: goto L_bidjmp_6534; case BID_SNOx24MKEXPR: goto L_bidjmp_6540; case BID_SNOx24PBK: goto L_bidjmp_6545; case BID_SNOx24PBN: goto L_bidjmp_6546; case BID_SNOx24PB0: goto L_bidjmp_6547; case BID_SNOx24PBC: goto L_bidjmp_6548; case BID_SNOx24PCUR: goto L_bidjmp_6549; case BID_SNOx24PBALT: goto L_bidjmp_6550; case BID_SNOx24PARB: goto L_bidjmp_6551; case BID_SNOx24PFEN: goto L_bidjmp_6552; case BID_SNOx24PDEF: goto L_bidjmp_6553; case BID_SNOx24MKPAT: goto L_bidjmp_6554; case BID_OPSYN: goto L_bidjmp_6563; case BID_CODE: goto L_bidjmp_6567; case BID_EVAL: goto L_bidjmp_6572; case BID_VALUE: goto L_bidjmp_6581; case BID_SNOx24NRET: goto L_bidjmp_6587; case BID_SNOx24WANTNM: goto L_bidjmp_6588; case BID_APPLY: goto L_bidjmp_6589; default: break; }
     L_bidjmp_5076: ;
     if ((_bid == BID___rk_bool) && nargs == 1) {
@@ -5602,7 +5611,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         if (!pname) { *out = FAILDESCR; return 1; }
         int _icn_field_only = 0;
         { extern int rt_dat_field_of_any(const char *);
-          _icn_field_only = core_icn_active() && rt_dat_field_of_any(pname) && !dat_find_type(pname) && !icn_builtin_is_known(pname) && icn_builtin_arity(pname) == ICN_ARITY_UNKNOWN; }
+          _icn_field_only = strict && rt_dat_field_of_any(pname) && !dat_find_type(pname) && !icn_builtin_is_known(pname) && icn_builtin_arity(pname) == ICN_ARITY_UNKNOWN; }
         if (!_icn_field_only && arity == 0 && (icn_builtin_is_known(pname) || rt_builtin_is_known(pname) || icn_builtin_arity(pname) != ICN_ARITY_UNKNOWN)) {
             *out = PROCVAL_BUILTIN(rt_pinned_strdup(pname)); return 1;
         }

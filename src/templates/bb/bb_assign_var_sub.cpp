@@ -7,15 +7,18 @@ extern "C" {
 #include "descr.h"
 extern DESCR_t c_rt_table_assign_fast(DESCR_t base, DESCR_t idx, DESCR_t val);
 extern DESCR_t rt_subscript_var(DESCR_t base, DESCR_t idx);
+extern DESCR_t rt_subscript_var_strict(DESCR_t base, DESCR_t idx);
 extern DESCR_t rt_subscript_var_container_only(DESCR_t base, DESCR_t idx);
+extern DESCR_t rt_subscript_var_container_only_strict(DESCR_t base, DESCR_t idx);
 extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
+extern DESCR_t rt_assign_var_strict(DESCR_t, DESCR_t);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_assign_var_sub() {
     x86_begin();
     const int conly = _.op_sval && !strcmp(_.op_sval, "container-only");
-    const uint64_t sub_fn = conly ? (uint64_t)(uintptr_t)(void *)rt_subscript_var_container_only : (uint64_t)(uintptr_t)(void *)rt_subscript_var;
+    const uint64_t sub_fn = (uint64_t)(uintptr_t)(void *)(conly ? (_.op_strict ? rt_subscript_var_container_only_strict : rt_subscript_var_container_only) : (_.op_strict ? rt_subscript_var_strict : rt_subscript_var));
     if (_.op_zres)
         return x86("comment", "IR_ASSIGN_VAR T[i]=v fused zd")
              + x86_alpha()
@@ -44,7 +47,7 @@ std::string bb_assign_var_sub() {
              + x86("mov", ZRES(8), "rdx")
              + x86_gamma()
              + x86("def", L(0))
-             + x86("call",    conly ? "rt_subscript_var_container_only" : "rt_subscript_var", sub_fn)
+             + x86("call",    (conly ? (_.op_strict ? "rt_subscript_var_container_only_strict" : "rt_subscript_var_container_only") : (_.op_strict ? "rt_subscript_var_strict" : "rt_subscript_var")), sub_fn)
              + x86("cmp",     "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86("mov",     "rdi", "rax")
@@ -53,7 +56,7 @@ std::string bb_assign_var_sub() {
              + x86("mov",     "rdx", ZOPQ(2, 0))
              + x86("note", ZOPN(2))
              + x86("mov",     "rcx", ZOPQ(2, 8))
-             + x86("call",    "rt_assign_var", (uint64_t)(uintptr_t)(void *)rt_assign_var)
+             + x86("call",    (_.op_strict ? "rt_assign_var_strict" : "rt_assign_var"), (uint64_t)(uintptr_t)(void *)(_.op_strict ? rt_assign_var_strict : rt_assign_var))
              + x86("cmp",     "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86("note", ZRESN())
@@ -83,14 +86,14 @@ std::string bb_assign_var_sub() {
              + x86("mov",     FRQ(_.op_off + 8), "rdx")
              + x86_gamma()
              + x86("def", L(0))
-             + x86("call",    conly ? "rt_subscript_var_container_only" : "rt_subscript_var", sub_fn)
+             + x86("call",    (conly ? (_.op_strict ? "rt_subscript_var_container_only_strict" : "rt_subscript_var_container_only") : (_.op_strict ? "rt_subscript_var_strict" : "rt_subscript_var")), sub_fn)
              + x86("cmp",     "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86("mov",     "rdi", "rax")
              + x86("mov",     "rsi", "rdx")
              + x86("mov",     "rdx", FRQ(_.op_sb))
              + x86("mov",     "rcx", FRQ(_.op_sb + 8))
-             + x86("call",    "rt_assign_var", (uint64_t)(uintptr_t)(void *)rt_assign_var)
+             + x86("call",    (_.op_strict ? "rt_assign_var_strict" : "rt_assign_var"), (uint64_t)(uintptr_t)(void *)(_.op_strict ? rt_assign_var_strict : rt_assign_var))
              + x86("cmp",     "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86("mov",     FRQ(_.op_off),     "rax")

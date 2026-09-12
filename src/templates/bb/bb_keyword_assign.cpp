@@ -8,8 +8,10 @@ extern "C" {
 extern int g_scan_regs_live;
 int64_t rt_cvpos_pos(struct DESCR_t v, int64_t len);
 struct DESCR_t rt_keyword_pos_set(struct DESCR_t v);
+struct DESCR_t rt_keyword_pos_set_strict(struct DESCR_t v);
 typedef struct { uint64_t ptr; uint64_t len; } KwSubjRegs_t;
 KwSubjRegs_t rt_keyword_subject_set(uint64_t lo, uint64_t hi);
+KwSubjRegs_t rt_keyword_subject_set_strict(uint64_t lo, uint64_t hi);
 struct DESCR_t rt_keyword_random_set(struct DESCR_t v);
 struct DESCR_t rt_keyword_error_set(struct DESCR_t v);
 struct DESCR_t rt_keyword_trace_set(struct DESCR_t v);
@@ -26,7 +28,7 @@ std::string bb_keyword_assign() {
              + x86_alpha()
              + x86("mov",  "rdi", FRQ(_.op_a_slot))
              + x86("mov",  "rsi", FRQ(_.op_a_slot + 8))
-             + x86("call", "rt_keyword_pos_set", (uint64_t)(uintptr_t)(void *)rt_keyword_pos_set)
+             + x86("call", (_.op_strict ? "rt_keyword_pos_set_strict" : "rt_keyword_pos_set"), (uint64_t)(uintptr_t)(void *)(_.op_strict ? rt_keyword_pos_set_strict : rt_keyword_pos_set))
              + x86("cmp",  "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86("mov",  FRQ(_.op_off),     "rax")
@@ -41,7 +43,7 @@ std::string bb_keyword_assign() {
              + x86_alpha()
              + x86("mov",  "rdi", FRQ(_.op_a_slot))
              + x86("mov",  "rsi", FRQ(_.op_a_slot + 8))
-             + x86("call", "rt_keyword_subject_set", (uint64_t)(uintptr_t)(void *)rt_keyword_subject_set)
+             + x86("call", (_.op_strict ? "rt_keyword_subject_set_strict" : "rt_keyword_subject_set"), (uint64_t)(uintptr_t)(void *)(_.op_strict ? rt_keyword_subject_set_strict : rt_keyword_subject_set))
              + x86("test", "rax", "rax")
              + x86_omega("je")
              + x86("mov",  FRQ(_.op_off),     (long)DT_S)

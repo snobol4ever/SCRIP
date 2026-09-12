@@ -362,7 +362,6 @@ static icn_act_rec_t g_icn_act[ICN_ACT_CAP];
 static icn_bi_rec_t *g_icn_bi_top = (icn_bi_rec_t *)0;
 static struct { const char *sym; int arity; DESCR_t a, b; } g_icn_op;
 static const char *icn_basename(const char *f) { const char *bn = f ? strrchr(f, '/') : (const char *)0; return bn ? bn + 1 : (f ? f : ""); }
-int core_icn_active(void) { extern long g_stno; extern long g_line; return g_stno == 0 && g_line > 0; }
 void core_icn_op_ctx(const char *sym, int arity, DESCR_t a, DESCR_t b) { g_icn_op.sym = sym; g_icn_op.arity = arity; g_icn_op.a = a; g_icn_op.b = b; }
 void core_icn_op_ctx_clear(void) { g_icn_op.sym = (const char *)0; }
 const char *core_icn_binop_sym(int bcode) {
@@ -379,7 +378,7 @@ const char *core_icn_binop_sym(int bcode) {
 static int core_icn_int_ok(DESCR_t d);
 static int icn_arg_int_ok(DESCR_t d) { return core_icn_int_ok(d); }
 static int icn_arg_cset_ok(DESCR_t d) { extern int core_icn_str_ok(DESCR_t d2); return core_icn_str_ok(d); }
-int core_icn_builtin_argcheck(const char *fn, DESCR_t *args, int nargs) {
+int core_icn_builtin_argcheck(const char *fn, DESCR_t *args, int nargs, int strict) {
     static const struct { const char *nm; int idx; char want; int defaults; } tbl[] = {
         {"trim", 0, 's', 0}, {"left", 0, 's', 0}, {"right", 0, 's', 0}, {"center", 0, 's', 0}, {"repl", 0, 's', 0},
         {"pos", 0, 'i', 0}, {"tab", 0, 'i', 0}, {"move", 0, 'i', 0},
@@ -387,7 +386,7 @@ int core_icn_builtin_argcheck(const char *fn, DESCR_t *args, int nargs) {
         {"trim", 1, 'c', 1},
         {"close", 0, 'f', 0}, {"seek", 0, 'f', 0}, {"where", 0, 'f', 0}, {"display", 1, 'f', 1},
         {(const char *)0, 0, 0, 0}};
-    if (!fn || !args || !core_icn_active()) return 0;
+    if (!fn || !args || !strict) return 0;
     for (int i = 0; tbl[i].nm; i++) {
         if (strcmp(tbl[i].nm, fn) || tbl[i].idx >= nargs) continue;
         DESCR_t d = args[tbl[i].idx];
@@ -2655,9 +2654,6 @@ void core_runtime_error(int code, const char *msg) {
           return;
       } }
     { extern long g_stno; extern long g_line; extern const char *g_file;
-      if (g_stno == 0 && g_line > 0) { int ic = code == 2 ? 201 : code == 22 ? 106 : code; const char *im = code == 2 ? "division by zero" : code == 22 ? "procedure or integer expected" : (ic >= 101 ? icn_errmsg(ic) : (msg ? msg : ""));
-          const char *bn = g_file ? strrchr(g_file, '/') : (const char *)0; bn = bn ? bn + 1 : (g_file ? g_file : "");
-          (void)bn; core_icn_report(ic, FAILDESCR, im); }
       fprintf(stderr, "%s(%ld) : ERROR %03d -- %s\nin statement %ld\n",
               g_file ? g_file : "", g_line, code, msg ? msg : "", g_stno); }
     if (core_err_is_terminal(code)) exit(1);
@@ -3068,8 +3064,6 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
     }
     if (strcmp   (name, "&subject") == 0) {
         extern const char *scan_subj;
-        { extern int rt_big_is(DESCR_t); extern int core_icn_active(void);
-          if (core_icn_active() && !(val.v == DT_S || IS_INT_fn(val) || IS_REAL_fn(val) || rt_big_is(val))) { core_icn_error(103, val); return FAILDESCR; } }
         const char *s = (val.v == DT_S) ? rt_cstr_d(val) : (const char *)VARVAL_fn(val);
         { extern void rt_scan_subj_len_set(const char *, long);
           long n = (val.v == DT_S && val.slen != 0xFFFFFFFFu && s == val.s) ? (long)val.slen : (s ? (long)strlen(s) : 0);
@@ -3079,7 +3073,6 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
     }
     if (strcmp   (name, "&pos") == 0) {
         extern int scan_pos;
-        { extern int core_icn_active(void); if (core_icn_active() && !core_icn_int_ok(val)) { core_icn_error(101, val); return FAILDESCR; } }
         scan_pos = (int)((val.v==DT_I) ? val.i : (int64_t)to_real(val)); return val;
     }
     if (g_kw_ctx) {

@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include "emit.h"
 extern "C" {
+extern DESCR_t rt_num_arith_strict(DESCR_t, DESCR_t, int);
 #include "bb_template_common.h"
 #include "descr.h"
 #include "../runtime/builtins/gen.h"
@@ -106,7 +107,7 @@ std::string bb_to() {
              + x86("mov",     "rdx", ROQ(0))
              + x86("mov",     "rcx", ROQ(1))
              + x86("mov",     "r8d", (long)BINOP_ADD)
-             + x86("call",    "rt_num_arith", (uint64_t)(uintptr_t)(void*)rt_num_arith)
+             + x86("call",    (_.op_strict ? "rt_num_arith_strict" : "rt_num_arith"), (uint64_t)(uintptr_t)(void *)(_.op_strict ? rt_num_arith_strict : rt_num_arith))
              + x86("mov",     FRQ(_.op_off + 16), "rax")
              + x86("mov",     FRQ(_.op_off + 24), "rdx")
              + x86("jmp",     L(10))

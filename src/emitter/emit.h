@@ -496,6 +496,7 @@ typedef struct {
     int                          zop_seen;
     int                          op_zdepth;
     int                          op_zres;
+    int                          op_strict;
     int                          op_zgpop;
     int                          op_zread[6];
     int                          op_pair_rejoin;

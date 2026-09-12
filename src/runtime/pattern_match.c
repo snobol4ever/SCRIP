@@ -222,16 +222,16 @@ DESCR_t pat_alt(DESCR_t left, DESCR_t right) {
     return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int icn_index_operand_ok(DESCR_t base, DESCR_t idx) {
-    if (!core_icn_active()) return 1;
+static int icn_index_operand_ok(DESCR_t base, DESCR_t idx, int strict) {
+    if (!strict) return 1;
     core_icn_op_ctx("[]", 2, base, idx);
     int ok = core_icn_int_operand_ok_d(idx);
     core_icn_op_ctx_clear();
     return ok;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int icn_section_operands_ok_code(DESCR_t base, DESCR_t i, DESCR_t j, int code) {
-    if (!core_icn_active()) return 1;
+static int icn_section_operands_ok_code(DESCR_t base, DESCR_t i, DESCR_t j, int code, int strict) {
+    if (!strict) return 1;
     core_icn_op_ctx("[]", 2, base, i);
     if (!core_icn_num_operand_ok_d(i, code)) { core_icn_op_ctx_clear(); return 0; }
     core_icn_op_ctx("[]", 2, base, j);
@@ -240,13 +240,13 @@ static int icn_section_operands_ok_code(DESCR_t base, DESCR_t i, DESCR_t j, int 
     return ok;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int icn_section_operands_ok(DESCR_t base, DESCR_t i, DESCR_t j) { return icn_section_operands_ok_code(base, i, j, 101); }
+static int icn_section_operands_ok(DESCR_t base, DESCR_t i, DESCR_t j, int strict) { return icn_section_operands_ok_code(base, i, j, 101, strict); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t subscript_get(DESCR_t arr, DESCR_t idx) {
+static DESCR_t subscript_get_s(DESCR_t arr, DESCR_t idx, int strict) {
     if (IS_REAL_fn(arr)) { extern DESCR_t descr_to_str_fracdigit(DESCR_t); arr = descr_to_str_fracdigit(arr); }
     if (arr.v == DT_BIG) { extern char *rt_big_str(DESCR_t); arr = STRVAL(rt_big_str(arr)); }
     if (arr.v == DT_A) {
-        if (!icn_index_operand_ok(arr, idx)) return FAILDESCR;
+        if (!icn_index_operand_ok(arr, idx, strict)) return FAILDESCR;
         return array_get(arr.arr, (int)to_int(idx));
     }
     if (arr.v == DT_T) {
@@ -264,7 +264,7 @@ DESCR_t subscript_get(DESCR_t arr, DESCR_t idx) {
         const char *s = arr.s ? arr.s : "";
         int slen = IS_CSET_fn(arr) ? kw_cset_len(s) : -1;
         if (slen < 0) slen = (int)strlen(s);
-        if (!icn_index_operand_ok(arr, idx)) return FAILDESCR;
+        if (!icn_index_operand_ok(arr, idx, strict)) return FAILDESCR;
         int i = (int)to_int(idx);
         if (i < 0) i = slen + i + 1;
         if (i < 1 || i > slen) return FAILDESCR;
@@ -274,7 +274,7 @@ DESCR_t subscript_get(DESCR_t arr, DESCR_t idx) {
     if (arr.v == DT_DATA) {
         DESCR_t *elems; int n;
         if (rt_list_view(arr, &elems, &n)) {
-            if (!icn_index_operand_ok(arr, idx)) return FAILDESCR;
+            if (!icn_index_operand_ok(arr, idx, strict)) return FAILDESCR;
             int i = (int)to_int(idx);
             if (i < 0) i = n + i + 1;
             if (!elems || i < 1 || i > n) return FAILDESCR;
@@ -282,7 +282,7 @@ DESCR_t subscript_get(DESCR_t arr, DESCR_t idx) {
         }
         if (arr.u && arr.u->type && arr.u->type->nfields > 0 && arr.u->fields) {
             DATBLK_t *blk = arr.u->type;
-            if (idx.v == DT_SNUL && !icn_index_operand_ok(arr, idx)) return FAILDESCR;
+            if (idx.v == DT_SNUL && !icn_index_operand_ok(arr, idx, strict)) return FAILDESCR;
             if (IS_INT_fn(idx)) {
                 int i = (int)idx.i; if (i <= 0) i = blk->nfields + 1 + i;
                 if (i < 1 || i > blk->nfields) return FAILDESCR;
@@ -374,22 +374,23 @@ static int subscript_set_body(DESCR_t arr, DESCR_t idx, DESCR_t val) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val) { int ok = subscript_set_body(arr, idx, val); if (ok && g_monitor_bin) mon_emit_value_bin("<lval>", val); return ok; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t subscript_get2_ext(DESCR_t arr, DESCR_t i, DESCR_t end) {
-    if (!icn_section_operands_ok_code(arr, i, end, 102)) return FAILDESCR;
-    return subscript_get2(arr, i, end);
+static DESCR_t subscript_get2_s(DESCR_t arr, DESCR_t i, DESCR_t j, int strict);
+static DESCR_t subscript_get2_ext_s(DESCR_t arr, DESCR_t i, DESCR_t end, int strict) {
+    if (!icn_section_operands_ok_code(arr, i, end, 102, strict)) return FAILDESCR;
+    return subscript_get2_s(arr, i, end, strict);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) {
+static DESCR_t subscript_get2_s(DESCR_t arr, DESCR_t i, DESCR_t j, int strict) {
     if (IS_INT_fn(arr) || IS_REAL_fn(arr)) { extern DESCR_t descr_to_str_fracdigit(DESCR_t); arr = descr_to_str_fracdigit(arr); }
     if (arr.v == DT_BIG) { extern char *rt_big_str(DESCR_t); arr = STRVAL(rt_big_str(arr)); }
     if (arr.v == DT_A) {
-        if (!icn_section_operands_ok(arr, i, j)) return FAILDESCR;
+        if (!icn_section_operands_ok(arr, i, j, strict)) return FAILDESCR;
         return array_get2(arr.arr, (int)to_int(i), (int)to_int(j));
     }
     if (arr.v == DT_DATA) {
         DESCR_t *elems; int n;
         if (rt_list_view(arr, &elems, &n)) {
-            if (!icn_section_operands_ok(arr, i, j)) return FAILDESCR;
+            if (!icn_section_operands_ok(arr, i, j, strict)) return FAILDESCR;
             int ii = (int)to_int(i), jj = (int)to_int(j);
             if (ii < -n || ii > n + 1) return FAILDESCR;
             if (jj < -n || jj > n + 1) return FAILDESCR;
@@ -415,7 +416,7 @@ DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) {
         const char *s = arr.s ? arr.s : "";
         int slen = IS_CSET_fn(arr) ? kw_cset_len(s) : -1;
         if (slen < 0) slen = (arr.slen && arr.slen != 0xFFFFFFFFu) ? (int)arr.slen : (int)strlen(s);
-        if (!icn_section_operands_ok(arr, i, j)) return FAILDESCR;
+        if (!icn_section_operands_ok(arr, i, j, strict)) return FAILDESCR;
         int ii = (int)to_int(i), jj = (int)to_int(j);
         if (ii < -slen || ii > slen + 1) return FAILDESCR;
         if (jj < -slen || jj > slen + 1) return FAILDESCR;
@@ -426,8 +427,8 @@ DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) {
         char *buf = rt_str_alloc(len); memcpy(buf, s+ii-1, len); buf[len]='\0';
         return BSTRVAL(buf, len);
     }
-    { extern int core_icn_active(void); extern void core_icn_op_ctx(const char *, int, DESCR_t, DESCR_t);
-      if ((arr.v == DT_SNUL || IS_PROCVAL_fn(arr)) && core_icn_active()) { core_icn_op_ctx("[:]", 3, arr, i); core_icn_error(110, arr); } }
+    { extern void core_icn_op_ctx(const char *, int, DESCR_t, DESCR_t);
+      if ((arr.v == DT_SNUL || IS_PROCVAL_fn(arr)) && strict) { core_icn_op_ctx("[:]", 3, arr, i); core_icn_error(110, arr); } }
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1305,13 +1306,13 @@ long rt_match_value_open(DESCR_t *pval)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t c_rt_subscript_var(DESCR_t base, DESCR_t idx) {
+static DESCR_t c_rt_subscript_var_s(DESCR_t base, DESCR_t idx, int strict) {
     DESCR_t bvar = base;
     if (IS_VARREF_fn(base)) base = rt_deref(base);
-    if ((base.v == DT_SNUL || IS_PROCVAL_fn(base)) && core_icn_active()) { core_icn_op_ctx("[]", 2, base, idx); core_icn_error(114, base); core_icn_op_ctx_clear(); return FAILDESCR; }
+    if ((base.v == DT_SNUL || IS_PROCVAL_fn(base)) && strict) { core_icn_op_ctx("[]", 2, base, idx); core_icn_error(114, base); core_icn_op_ctx_clear(); return FAILDESCR; }
     if (base.v == DT_A) {
         ARBLK_t *a = base.arr; if (!a) return FAILDESCR;
-        if (!icn_index_operand_ok(base, idx)) return FAILDESCR;
+        if (!icn_index_operand_ok(base, idx, strict)) return FAILDESCR;
         int i = (int)to_int(idx); int off = i - a->lo;
         if (off < 0 || off >= (a->hi - a->lo + 1)) return FAILDESCR;
         VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = &a->data[off]; vc->tbl = 0; vc->key = 0; vc->key_d = idx; vc->sv = FAILDESCR; vc->pos = 0; vc->len = 0;
@@ -1327,7 +1328,7 @@ DESCR_t c_rt_subscript_var(DESCR_t base, DESCR_t idx) {
     if (base.v == DT_DATA) {
         DESCR_t *elems; int n;
         if (rt_list_view(base, &elems, &n)) {
-            if (!icn_index_operand_ok(base, idx)) return FAILDESCR;
+            if (!icn_index_operand_ok(base, idx, strict)) return FAILDESCR;
             int i = (int)to_int(idx);
             if (i < 0) i = n + i + 1;
             if (!elems || i < 1 || i > n) return FAILDESCR;
@@ -1336,25 +1337,25 @@ DESCR_t c_rt_subscript_var(DESCR_t base, DESCR_t idx) {
         }
         if (base.u && base.u->type && base.u->type->nfields > 0 && base.u->fields) {
             DATBLK_t *blk = base.u->type; int f = -1;
-            if (idx.v == DT_SNUL && !icn_index_operand_ok(base, idx)) return FAILDESCR;
+            if (idx.v == DT_SNUL && !icn_index_operand_ok(base, idx, strict)) return FAILDESCR;
             if (IS_INT_fn(idx)) { int i = (int)idx.i; if (i <= 0) i = blk->nfields + 1 + i; if (i < 1 || i > blk->nfields) return FAILDESCR; f = i - 1; }
             else if (idx.v == DT_S || idx.v == DT_SNUL) { const char *k = idx.s ? idx.s : ""; for (int i = 0; i < blk->nfields; i++) if (blk->fields[i] && strcmp(blk->fields[i], k) == 0) { f = i; break; } if (f < 0) return FAILDESCR; }
-            else { if (!icn_index_operand_ok(base, idx)) return FAILDESCR; return subscript_get(base, idx); }
+            else { if (!icn_index_operand_ok(base, idx, strict)) return FAILDESCR; return subscript_get_s(base, idx, strict); }
             VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = &base.u->fields[f]; vc->tbl = 0; vc->key = 0; vc->key_d = idx; vc->sv = base; vc->pos = -(f + 1); vc->len = 0;
             return NAMETRAP(vc);
         }
-        return subscript_get(base, idx);
+        return subscript_get_s(base, idx, strict);
     }
     if ((base.v == DT_S || base.v == DT_SNUL) && IS_VARREF_fn(bvar)) {
         const char *sp = base.s ? base.s : ""; long slen = base.slen ? (long)base.slen : (long)strlen(sp);
-        if (!icn_index_operand_ok(base, idx)) return FAILDESCR;
+        if (!icn_index_operand_ok(base, idx, strict)) return FAILDESCR;
         long i = (long)to_int(idx);
         if (i <= 0) i = slen + 1 + i;
         if (i < 1 || i > slen) return FAILDESCR;
         VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = 0; vc->key = 0; vc->key_d = idx; vc->sv = bvar; vc->pos = i; vc->len = 1;
         return NAMETRAP(vc);
     }
-    return subscript_get(base, idx);
+    return subscript_get_s(base, idx, strict);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t c_rt_svco_miss_d(TBBLK_t *tb) {
@@ -1363,11 +1364,11 @@ DESCR_t c_rt_svco_miss_d(TBBLK_t *tb) {
     return NULVCL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t c_rt_subscript_var_container_only(DESCR_t base, DESCR_t idx) {
+static DESCR_t c_rt_subscript_var_container_only_s(DESCR_t base, DESCR_t idx, int strict) {
     extern int kwb_error(int code, const char *msg);
     DESCR_t b = base;
     if (IS_VARREF_fn(b)) b = rt_deref(b);
-    if ((b.v == DT_SNUL || IS_PROCVAL_fn(b)) && core_icn_active()) { core_icn_op_ctx("[]", 2, b, idx); core_icn_error(114, b); core_icn_op_ctx_clear(); return FAILDESCR; }
+    if ((b.v == DT_SNUL || IS_PROCVAL_fn(b)) && strict) { core_icn_op_ctx("[]", 2, b, idx); core_icn_error(114, b); core_icn_op_ctx_clear(); return FAILDESCR; }
     if (b.v != DT_A && b.v != DT_T) { kwb_error(235, "subscripted operand is not table or array"); return FAILDESCR; }
     if (b.v == DT_T) {
         TBBLK_t *tb = b.tbl; if (!tb) return FAILDESCR;
@@ -1479,20 +1480,20 @@ DESCR_t rt_var_table_elem(DESCR_t d, DESCR_t *tbl_out, DESCR_t *key_out) {
     return d;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t rt_random_var_body(DESCR_t base);
-DESCR_t rt_random_var(DESCR_t base) {
+static DESCR_t rt_random_var_body(DESCR_t base, int strict);
+static DESCR_t rt_random_var_s(DESCR_t base, int strict) {
     extern long g_random;
     long saved = g_random;
-    DESCR_t r = rt_random_var_body(base);
+    DESCR_t r = rt_random_var_body(base, strict);
     if (r.v == DT_FAIL) g_random = saved;
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t rt_random_var_body(DESCR_t base) {
+static DESCR_t rt_random_var_body(DESCR_t base, int strict) {
     extern long g_random;
     DESCR_t bvar = base;
     if (IS_VARREF_fn(base)) base = rt_deref(base);
-    if ((base.v == DT_SNUL || IS_PROCVAL_fn(base)) && core_icn_active()) { core_icn_op_ctx("?", 1, base, base); core_icn_error(113, base); core_icn_op_ctx_clear(); return FAILDESCR; }
+    if ((base.v == DT_SNUL || IS_PROCVAL_fn(base)) && strict) { core_icn_op_ctx("?", 1, base, base); core_icn_error(113, base); core_icn_op_ctx_clear(); return FAILDESCR; }
     if (base.v == DT_R) { if (base.r >= 9223372036854775808.0 || base.r <= -9223372036854775808.0) return FAILDESCR; base = INTVAL((int64_t)base.r); bvar = base; }
     g_random = (1103515245L * g_random + 453816694L) & 0x7FFFFFFFL; double rval = 4.65661286e-10 * (double)g_random;
     if (base.v == DT_S && base.slen == 0xFFFFFFFFu) {
@@ -1547,12 +1548,12 @@ static DESCR_t rt_random_var_body(DESCR_t base) {
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_section_var(DESCR_t base, DESCR_t i1d, DESCR_t i2d) {
+static DESCR_t rt_section_var_s(DESCR_t base, DESCR_t i1d, DESCR_t i2d, int strict) {
     DESCR_t bvar = base;
     if (IS_VARREF_fn(base)) base = rt_deref(base);
     if ((base.v == DT_S || (base.v == DT_SNUL && base.s)) && IS_VARREF_fn(bvar)) {
         const char *sp = base.s ? base.s : ""; long slen = base.slen ? (long)base.slen : (long)strlen(sp);
-        if (!icn_section_operands_ok(base, i1d, i2d)) return FAILDESCR;
+        if (!icn_section_operands_ok(base, i1d, i2d, strict)) return FAILDESCR;
         long ii = (long)to_int(i1d), jj = (long)to_int(i2d);
         if (ii < -slen || ii > slen + 1) return FAILDESCR;
         if (jj < -slen || jj > slen + 1) return FAILDESCR;
@@ -1562,7 +1563,7 @@ DESCR_t rt_section_var(DESCR_t base, DESCR_t i1d, DESCR_t i2d) {
         VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t)); vc->cellp = 0; vc->tbl = 0; vc->key = 0; vc->key_d = i1d; vc->sv = bvar; vc->pos = ii; vc->len = jj - ii;
         return NAMETRAP(vc);
     }
-    return subscript_get2(base, i1d, i2d);
+    return subscript_get2_s(base, i1d, i2d, strict);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_var_ref_cell_named(DESCR_t *cellp, const char *name) {
@@ -1618,13 +1619,13 @@ DESCR_t rt_deref_slow(DESCR_t d) {
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t c_rt_assign_var_body(DESCR_t var, DESCR_t val) {
+static DESCR_t c_rt_assign_var_body(DESCR_t var, DESCR_t val, int strict) {
     { DESCR_t sh[2]; sh[0] = var; sh[1] = val; rt_gc_point_arr(sh, 2, (const char **)0); var = sh[0]; val = sh[1]; }
     { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); }
     if (var.v == DT_N && var.slen == 0 && var.s && *var.s) { extern DESCR_t NV_SET_fn(const char *, DESCR_t); NV_SET_fn(var.s, val); return val; }
     if (var.v == DT_N && var.slen == 1 && var.ptr) { extern void mon_tap_cell_store(void *, DESCR_t); *(DESCR_t *)var.ptr = val; if (monitor_fd >= 0) mon_tap_cell_store(var.ptr, val); return val; }
     if (!IS_NAMETRAP_fn(var)) {
-        { extern int core_icn_active(void); extern int core_icn_error(int code, DESCR_t val); if (core_icn_active()) { core_icn_error(111, var); return FAILDESCR; } }
+        { extern int core_icn_error(int code, DESCR_t val); if (strict) { core_icn_error(111, var); return FAILDESCR; } }
         fprintf(stderr, "[IDX] BOMB rt_assign_var: lvalue is not a variable (dtype=%d) — string/record subscript assignment is the tvsubs rung (GOAL-IR-IMMUTABLE-EMIT IDX-UNIFY)\n", (int)var.v);
         abort();
     }
@@ -1659,10 +1660,10 @@ static DESCR_t c_rt_assign_var_body(DESCR_t var, DESCR_t val) {
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t c_rt_assign_var(DESCR_t var, DESCR_t val)
+static DESCR_t c_rt_assign_var_s(DESCR_t var, DESCR_t val, int strict)
 {
     int simple = (var.v == DT_N && var.slen == 0 && var.s && *var.s);
-    DESCR_t r = c_rt_assign_var_body(var, val);
+    DESCR_t r = c_rt_assign_var_body(var, val, strict);
     if (!simple && g_monitor_bin && !IS_FAIL_fn(r)) mon_emit_value_bin("<lval>", val);
     return r;
 }
@@ -1727,3 +1728,20 @@ void * rt_zcol_push(void ** ptr_cell, int * cap_cell, int i, long elem_sz)
     memset(e, 0, (size_t)elem_sz);
     return e;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t subscript_get(DESCR_t arr, DESCR_t idx) { return subscript_get_s(arr, idx, 0); }
+DESCR_t subscript_get_strict(DESCR_t arr, DESCR_t idx) { return subscript_get_s(arr, idx, 1); }
+DESCR_t subscript_get2_ext(DESCR_t arr, DESCR_t i, DESCR_t end) { return subscript_get2_ext_s(arr, i, end, 0); }
+DESCR_t subscript_get2_ext_strict(DESCR_t arr, DESCR_t i, DESCR_t end) { return subscript_get2_ext_s(arr, i, end, 1); }
+DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j) { return subscript_get2_s(arr, i, j, 0); }
+DESCR_t subscript_get2_strict(DESCR_t arr, DESCR_t i, DESCR_t j) { return subscript_get2_s(arr, i, j, 1); }
+DESCR_t rt_section_var(DESCR_t base, DESCR_t i1d, DESCR_t i2d) { return rt_section_var_s(base, i1d, i2d, 0); }
+DESCR_t rt_section_var_strict(DESCR_t base, DESCR_t i1d, DESCR_t i2d) { return rt_section_var_s(base, i1d, i2d, 1); }
+DESCR_t c_rt_subscript_var(DESCR_t base, DESCR_t idx) { return c_rt_subscript_var_s(base, idx, 0); }
+DESCR_t rt_subscript_var_strict(DESCR_t base, DESCR_t idx) { return c_rt_subscript_var_s(base, idx, 1); }
+DESCR_t c_rt_subscript_var_container_only(DESCR_t base, DESCR_t idx) { return c_rt_subscript_var_container_only_s(base, idx, 0); }
+DESCR_t rt_subscript_var_container_only_strict(DESCR_t base, DESCR_t idx) { return c_rt_subscript_var_container_only_s(base, idx, 1); }
+DESCR_t rt_random_var(DESCR_t base) { return rt_random_var_s(base, 0); }
+DESCR_t rt_random_var_strict(DESCR_t base) { return rt_random_var_s(base, 1); }
+DESCR_t c_rt_assign_var(DESCR_t var, DESCR_t val) { return c_rt_assign_var_s(var, val, 0); }
+DESCR_t rt_assign_var_strict(DESCR_t var, DESCR_t val) { return c_rt_assign_var_s(var, val, 1); }

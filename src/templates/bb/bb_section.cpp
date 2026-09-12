@@ -5,8 +5,11 @@ extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
 extern DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j);
+extern DESCR_t subscript_get2_strict(DESCR_t, DESCR_t, DESCR_t);
 extern DESCR_t subscript_get2_ext(DESCR_t arr, DESCR_t i, DESCR_t end);
+extern DESCR_t subscript_get2_ext_strict(DESCR_t, DESCR_t, DESCR_t);
 extern DESCR_t rt_section_var(DESCR_t base, DESCR_t i1, DESCR_t i2);
+extern DESCR_t rt_section_var_strict(DESCR_t, DESCR_t, DESCR_t);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -22,7 +25,7 @@ std::string bb_section() {
              + x86("mov",     "rcx", FRQ(_.op_sa + 8))
              + x86("mov",     "r8",  FRQ(_.op_sb))
              + x86("mov",     "r9",  FRQ(_.op_sb + 8))
-             + x86("call",    "rt_section_var", (uint64_t)(uintptr_t)(void *)rt_section_var)
+             + x86("call",    (_.op_strict ? "rt_section_var_strict" : "rt_section_var"), (uint64_t)(uintptr_t)(void *)(_.op_strict ? rt_section_var_strict : rt_section_var))
              + x86("cmp",     "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86("mov",     FRQ(_.op_off),     "rax")
@@ -38,7 +41,7 @@ std::string bb_section() {
              + x86("mov",     "rcx", FRQ(_.op_sa + 8))
              + x86("mov",     "r8",  FRQ(_.op_sb))
              + x86("mov",     "r9",  FRQ(_.op_sb + 8))
-             + x86("call",    "subscript_get2_ext", (uint64_t)(uintptr_t)(void *)subscript_get2_ext)
+             + x86("call",    (_.op_strict ? "subscript_get2_ext_strict" : "subscript_get2_ext"), (uint64_t)(uintptr_t)(void *)(_.op_strict ? subscript_get2_ext_strict : subscript_get2_ext))
              + x86("cmp",     "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86("mov",     FRQ(_.op_off),     "rax")
@@ -53,7 +56,7 @@ std::string bb_section() {
              + x86("mov",     "rcx", FRQ(_.op_sa + 8))
              + x86("mov",     "r8",  FRQ(_.op_sb))
              + x86("mov",     "r9",  FRQ(_.op_sb + 8))
-             + x86("call",    "subscript_get2", (uint64_t)(uintptr_t)(void *)subscript_get2)
+             + x86("call",    (_.op_strict ? "subscript_get2_strict" : "subscript_get2"), (uint64_t)(uintptr_t)(void *)(_.op_strict ? subscript_get2_strict : subscript_get2))
              + x86("cmp",     "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86("mov",     FRQ(_.op_off),     "rax")

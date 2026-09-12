@@ -190,6 +190,7 @@ struct IR_t {
     int           in_scan;
     int           seal;
     int           pat_static;
+    int           strict;
     union { const char * sval; int64_t ival; double dval; };
 };
 #define IR_LIT(nd)  (*(nd))

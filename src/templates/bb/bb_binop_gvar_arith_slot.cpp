@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include "emit.h"
 extern "C" {
+extern DESCR_t rt_num_arith_strict(DESCR_t, DESCR_t, int);
 #include "bb_template_common.h"
 #include "SM.h"
 #include "ast.h"
@@ -35,7 +36,7 @@ std::string bb_binop_gvar_arith_slot() {
              + x86("mov", "rcx", FRQ(_.op_sb + 8))
              + x86("mov", "r8d", (long)_.op_ival)
              + x86("rtcc_wb")
-             + x86("call_bare", "rt_num_arith", (uint64_t)(uintptr_t)(void *) rt_num_arith)
+             + x86("call_bare", (_.op_strict ? "rt_num_arith_strict" : "rt_num_arith"), (uint64_t)(uintptr_t)(void *)(_.op_strict ? rt_num_arith_strict : rt_num_arith))
              + x86("rtcc_rl")
              + x86("cmp", "al", (long)DT_FAIL)
              + x86_omega("je")

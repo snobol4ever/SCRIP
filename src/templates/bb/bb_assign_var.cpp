@@ -5,6 +5,7 @@ extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
 extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
+extern DESCR_t rt_assign_var_strict(DESCR_t, DESCR_t);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -20,7 +21,7 @@ std::string bb_assign_var() {
              + x86("mov",     "rdx", ZOPQ(1, 0))
              + x86("note", ZOPN(1))
              + x86("mov",     "rcx", ZOPQ(1, 8))
-             + x86("call",    "rt_assign_var", (uint64_t)(uintptr_t)(void *)rt_assign_var)
+             + x86("call",    (_.op_strict ? "rt_assign_var_strict" : "rt_assign_var"), (uint64_t)(uintptr_t)(void *)(_.op_strict ? rt_assign_var_strict : rt_assign_var))
              + x86("cmp",     "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86("note", ZRESN())
@@ -37,7 +38,7 @@ std::string bb_assign_var() {
              + x86("mov",     "rsi", FRQ(_.op_a_slot + 8))
              + x86("mov",     "rdx", FRQ(_.op_sa))
              + x86("mov",     "rcx", FRQ(_.op_sa + 8))
-             + x86("call",    "rt_assign_var", (uint64_t)(uintptr_t)(void *)rt_assign_var)
+             + x86("call",    (_.op_strict ? "rt_assign_var_strict" : "rt_assign_var"), (uint64_t)(uintptr_t)(void *)(_.op_strict ? rt_assign_var_strict : rt_assign_var))
              + x86("cmp",     "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86("mov",     FRQ(_.op_off),     "rax")

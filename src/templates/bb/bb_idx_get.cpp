@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include "emit.h"
 extern "C" {
+extern DESCR_t subscript_get_strict(DESCR_t, DESCR_t);
 #include "bb_template_common.h"
 #include "descr.h"
 DESCR_t NV_GET_fn(const char * name);
@@ -26,7 +27,7 @@ std::string bb_idx_get() {
             + x86("mov",  "rsi", "rdx")
             + x86("movabs", "rdx", (uint64_t)DT_S)
             + x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t) _.op_name2, _.op_parts_lbl[1])
-            + x86("call", "subscript_get", (uint64_t)(uintptr_t)(void *) subscript_get)
+            + x86("call", (_.op_strict ? "subscript_get_strict" : "subscript_get"), (uint64_t)(uintptr_t)(void *)(_.op_strict ? subscript_get_strict : subscript_get))
             + x86("mov",  FRQ(_.op_off),     "rax")
             + x86("mov",  FRQ(_.op_off + 8), "rdx")
             + x86_gamma()
@@ -76,7 +77,7 @@ std::string bb_idx_get() {
             + IF(!(_.bb_lk == (int)IR_VAR),
                  x86("movabs", "rdx", (uint64_t)DT_I)
                + x86("movabs", "rcx", (uint64_t)(int64_t) _.bb_li))
-            + x86("call", "subscript_get", (uint64_t)(uintptr_t)(void *) subscript_get)
+            + x86("call", (_.op_strict ? "subscript_get_strict" : "subscript_get"), (uint64_t)(uintptr_t)(void *)(_.op_strict ? subscript_get_strict : subscript_get))
             + x86("cmp", "al", (long)DT_FAIL)
             + x86_omega("je")
             + x86("mov", FRQ(_.op_off),     "rax")
