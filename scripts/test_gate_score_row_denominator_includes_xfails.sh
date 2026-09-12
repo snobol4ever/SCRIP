@@ -13,9 +13,17 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCORE="${S4E_SCORE_MD:-$HERE/../../.github/SCORE.md}"
 [ -r "$SCORE" ] || { echo "⛔ GATE REFUSES (rc=2): cannot read SCORE.md at $SCORE -- a gate that cannot measure never prints the success shape."; exit 2; }
 python3 - "$SCORE" <<'PY'
-import re,sys
+import re,sys,os
 _lines=open(sys.argv[1],encoding='utf-8').read().splitlines()
-rows=[l for l in _lines if re.search(r'\(\w[\w-]*-master\)',l)]
+# rows name a suite by NICKNAME only (Lon 2026-09-12: one name); the master rows are the nicknames whose SUITES.tsv key ends in -master
+_nicks=set()
+try:
+    for _l in open(os.path.join(os.path.dirname(sys.argv[1]),'SUITES.tsv'),encoding='utf-8'):
+        if _l.startswith('#') or not _l.strip(): continue
+        _c=_l.rstrip('\n').split('\t')
+        if len(_c)>1 and _c[0].endswith('-master'): _nicks.add(_c[1])
+except OSError: pass
+rows=[l for l in _lines if re.match(r'^\|\s*([^|]+?)\s*\|',l) and re.match(r'^\|\s*([^|]+?)\s*\|',l).group(1) in _nicks]
 # ⛔⭐⭐ THE DECLARED XFAIL IS READ FROM THE RUNNER-PUBLISHED CELL, NEVER FROM PROSE ANYWHERE ON THE ROW.
 # This gate used to take the first `<n> xfail` it found on the grid line, and on IcnM that was a HAND-WRITTEN
 # note, "20 xfail=fail", counted from 20 per-entry .xfail markers in corpus/tests/icon. hq_I then measured what
@@ -54,7 +62,7 @@ def _published_xfail(lang):
         return max(ms) if ms else None
     return None
 if not rows:
-    print("⛔ GATE REFUSES (rc=2): no '(<lang>-master)' rows found in SCORE.md -- the table's shape changed and this gate is grading nothing."); sys.exit(2)
+    print("⛔ GATE REFUSES (rc=2): no master rows (by nickname, SUITES.tsv keys ending in -master) found in SCORE.md -- the table's shape changed and this gate is grading nothing."); sys.exit(2)
 bad=[];graded=0
 for l in rows:
     cells=[c.strip() for c in l.strip().strip('|').split('|')]
