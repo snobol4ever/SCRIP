@@ -2598,7 +2598,7 @@ static void sno_prescan_expr(const tree_t * t, sno_def_t * defs, int * ndefs, co
             extern void * dat_register(const char * spec); extern void * dat_find_type(const char * name); extern void dat_set_live(const char * name, int live); extern int dat_spec_is_current(const char * spec);
             const char * sp = t->c[argbase]->v.sval;
             char nb[128]; int k = 0; for (; sp[k] && sp[k] != '(' && k < 127; k++) nb[k] = sp[k]; nb[k] = 0;
-            if (nb[0] && !dat_spec_is_current(sp)) { dat_register(sp); dat_set_live(nb, 0); }
+            if (nb[0] && !sn4_sysfn_protected(nb) && !dat_spec_is_current(sp)) { dat_register(sp); dat_set_live(nb, 0); }
         }
         if (name && !strcmp(name, "OPSYN") && t->n - argbase == 2) {
             const char * an = sno_litname(t->c[argbase]);

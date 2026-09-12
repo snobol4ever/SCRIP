@@ -1,4 +1,5 @@
 #include "driver_private.h"
+#include "../runtime/snobol4_system_fns.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void label_table_build(stage2_t *s2, const tree_t *prog)
 {
@@ -80,6 +81,7 @@ void prescan_defines(const tree_t *prog)
         if (!subj) continue;
         const char *spec = define_spec_from_expr(subj);
         if (spec && *spec) {
+            { char nb[128]; int k = 0; for (; spec[k] && spec[k] != '(' && spec[k] != ' ' && k < 127; k++) nb[k] = spec[k]; nb[k] = 0; if (nb[0] && sn4_sysfn_protected(nb)) continue; }
             char *spec_copy = strdup(spec);
             const char *entry = define_entry_from_expr(subj);
             if (entry) DEFINE_fn_entry(spec_copy, NULL, strdup(entry));
