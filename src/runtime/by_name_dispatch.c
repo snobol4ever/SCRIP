@@ -63,6 +63,8 @@ static inline int icn_nxttab(int col, const int *stops, int nstops, int gap) {
     return base + ((beyond / gap) + 1) * gap;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_numeric_tail_is_blank(const char *p) { while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r' || *p == '\f' || *p == '\v') p++; return *p == '\0'; }
+static int icn_numeric_is_c_hex(const char *p) { while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r' || *p == '\f' || *p == '\v') p++; if (*p == '+' || *p == '-') p++; return p[0] == '0' && (p[1] == 'x' || p[1] == 'X'); }
 static int icn_cvt_chars_ok(DESCR_t d) { return d.v == DT_S || d.v == DT_I || d.v == DT_R || d.v == DT_C; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_cvt_int_ok(DESCR_t d) {
@@ -5505,9 +5507,10 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             }
         }
         char *end; long long iv = strtoll(s, &end, 10);
-        if (end != s && (*end=='\0'||*end==' ')) { *out = INTVAL(iv); return 1; }
+        if (end != s && icn_numeric_tail_is_blank(end)) { *out = INTVAL(iv); return 1; }
+        if (icn_numeric_is_c_hex(s)) { *out = FAILDESCR; return 1; }
         double rv = strtod(s, &end);
-        if (end != s && (*end=='\0'||*end==' ')) { if (!isfinite(rv)) { *out = FAILDESCR; return 1; } *out = REALVAL(rv); return 1; }
+        if (end != s && icn_numeric_tail_is_blank(end)) { if (!isfinite(rv)) { *out = FAILDESCR; return 1; } *out = REALVAL(rv); return 1; }
         *out = FAILDESCR; return 1;
     }
     if (((_bid == BID_char) || (_bid == BID_chr)) && nargs == 1) {
@@ -6880,9 +6883,11 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     L_bidjmp_6462: ;
     if ((_bid == BID_variable) && nargs == 1) {
         const char *vname = (args[0].v == DT_S || args[0].v == DT_SNUL) ? args[0].s : NULL;
-        if (!vname) { *out = FAILDESCR; return 1; }
+        if (!vname || !*vname) { *out = FAILDESCR; return 1; }
         DESCR_t v = NV_GET_fn(vname);
-        *out = IS_FAIL_fn(v) ? FAILDESCR : v; return 1;
+        if (IS_FAIL_fn(v)) { *out = FAILDESCR; return 1; }
+        if (v.v == DT_SNUL && !NV_EXISTS_fn(vname)) { *out = FAILDESCR; return 1; }
+        *out = v; return 1;
     }
     L_bidjmp_6468: ;
     if ((_bid == BID_SNOx24NAME) && nargs == 1) return bn_sno_name(args, nargs, out);
