@@ -39,9 +39,9 @@
 #   Everything else is TASK because nobody has ruled, which is the honest word for it.
 # TASK-CEILING: 180
 test_gate_a_fail_operand_folds_instead_of_refusing_at_the_binop_guard.sh	WIRED	-	-	-
-test_gate_an_assignment_to_a_value_raises_111_at_run_time_instead_of_aborting.sh	WIRED	-	-	-
 test_gate_a_master_with_xfails_never_reads_done.sh	WIRED	-	-	-
 test_gate_absent_line_is_unproven_not_red.sh	WIRED	-	-	-
+test_gate_an_assignment_to_a_value_raises_111_at_run_time_instead_of_aborting.sh	WIRED	-	-	-
 test_gate_ast_declared_refs_are_ast_dumps.sh	WIRED	-	-	-
 test_gate_ast_shaped_refs_are_declared_ast.sh	WIRED	-	-	-
 test_gate_banner_leads_with_the_suite_line.sh	WIRED	-	-	-
@@ -93,6 +93,7 @@ test_gate_icn_generator_return_ends_the_activation_and_varargs_image_as_the_list
 test_gate_icn_generator_return_traces_returned_not_failed.sh	WIRED	-	-	-
 test_gate_icn_global_names_are_not_governed_by_snobol4_keywords.sh	WIRED	-	-	-
 test_gate_icn_if_without_else_invocable_arity_and_string_continuation.sh	WIRED	-	-	-
+test_gate_icn_ipl_calc_reports_erroneous_input.sh	WIRED	-	-	-
 test_gate_icn_ipl_scan_resume_and_limit_flips.sh	WIRED	-	-	-
 test_gate_icn_list_and_reads_size_argument_is_gated_like_iconx.sh	WIRED	-	-	-
 test_gate_icn_loadfunc_returns_a_callable.sh	WIRED	-	-	-
@@ -114,9 +115,9 @@ test_gate_icn_string_invoked_to_by_is_a_generator.sh	WIRED	-	-	-
 test_gate_icn_subscript_index_is_checked_and_the_account_is_written.sh	WIRED	-	-	-
 test_gate_icn_tag_single_source.sh	WIRED	-	-	-
 test_gate_icn_traceback_corpus_pairs_are_oracle_exact.sh	WIRED	-	-	-
+test_gate_icn_traceback_names_the_source_file_not_the_last_argv.sh	WIRED	-	-	-
 test_gate_icn_traced_call_reports_its_own_call_site_line.sh	WIRED	-	-	-
 test_gate_icn_write_is_byte_exact_through_an_embedded_nul.sh	WIRED	-	-	-
-test_gate_icn_traceback_names_the_source_file_not_the_last_argv.sh	WIRED	-	-	-
 test_gate_icon_arguments_dereference_at_the_call.sh	WIRED	-	-	-
 test_gate_icon_features_and_preprocessor_symbols_agree.sh	WIRED	-	-	-
 test_gate_icon_master_entries_compile_under_icont.sh	WIRED	-	-	-
