@@ -1607,7 +1607,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         return nd;
     }
     case TT_FENCE:
-        if (t->n > 0 && t->c[0] && !sno_in_arbno && !g_sno_in_patproc) {
+        if (t->n > 0 && t->c[0] && !g_sno_in_patproc) {
             IR_t * F = lc_build(g, IR_MATCH_FENCE1, succ, NULL);
             sno_ω_to(F, fail);
             IR_LIT(F).ival = 1;

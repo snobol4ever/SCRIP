@@ -5630,7 +5630,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
     if ((_bid == BID_image) && nargs == 1) {
         DESCR_t av = args[0];
         if (IS_FAIL_fn(av)) { *out = FAILDESCR; return 1; }
-        char *buf = rt_pinned_alloc(256);
+        char *buf = rt_heap_alloc_c(256);
         if (av.v == DT_SNUL)     { *out = STRVAL("&null"); return 1; }
         if (av.v == DT_CO)       { extern long scrip_coexpr_serial_of(void *); extern long scrip_coexpr_activations_of(void *); snprintf(buf,128,"co-expression_%ld(%ld)", scrip_coexpr_serial_of(av.p), scrip_coexpr_activations_of(av.p)); *out = STRVAL(buf); return 1; }
         if (av.v == DT_E) {
@@ -5679,7 +5679,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
             if (kname) { *out = STRVAL(kname); return 1; }
             int _kl = kw_cset_len(cs);
             int cslen = (_kl >= 0) ? _kl : (int)strlen(cs);
-            char *outs = rt_pinned_alloc(cslen * 4 + 3);
+            char *outs = rt_heap_alloc_c(cslen * 4 + 3);
             int o = 0;
             outs[o++] = '\'';
             for (int i = 0; i < cslen; i++) {
@@ -5705,7 +5705,7 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
         }
         const char *s=VARVAL_fn(av); if (!s) s = "";
         int sl = (av.slen && av.slen != 0xFFFFFFFFu) ? (int)av.slen : (int)strlen(s);
-        char *outs = rt_pinned_alloc(sl*4 + 3);
+        char *outs = rt_heap_alloc_c(sl*4 + 3);
         int o = 0;
         outs[o++] = '"';
         for (int i = 0; i < sl; i++) {
