@@ -61,6 +61,7 @@ test_gate_dispatch_claim_single_authority.sh	WIRED	-	-	-
 test_gate_dispatch_gc_safepoint_inline.sh	WIRED	-	-	-
 test_gate_dispatch_refuses_placeholder_donewhen.sh	WIRED	-	-	-
 test_gate_done_manifest_handoff.sh	WIRED	-	-	-
+test_gate_driver_extension_table_lives_once.sh	WIRED	-	-	-
 test_gate_emit_fields_read_by_a_template_have_a_writer.sh	WIRED	-	-	-
 test_gate_emit_guard_sink_names_its_guard.sh	WIRED	-	-	-
 test_gate_emit_no_ir_mutation.sh	WIRED	-	-	-

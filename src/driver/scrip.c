@@ -967,6 +967,12 @@ int main(int argc, char **argv)
       if (_pm && *_pm && *_pm != '0')
           fprintf(stderr, "[PERF-MAP] %s: /tmp/perf-%d.map (perf jit convention; ⛔ APPEND -- delete a stale map for this pid before profiling)\n",
                   mode_run ? "mode-3 graph names will be written to" : "⛔ NOT written: --compile is mode-4, which already has real symbols; expected", (int)getpid()); }
+    static const struct { const char *ext; const char *lang; int sno, non_sno, scrip, prolog, icon, raku, pascal; } scrip_exts[] = {
+        { ".sno", "SNOBOL4", 1,0,0,0,0,0,0 }, { ".spt", "SNOBOL4", 1,0,0,0,0,0,0 }, { ".sbl", "SNOBOL4", 1,0,0,0,0,0,0 },
+        { ".sc", "Snocone", 1,1,0,0,0,0,0 },  { ".reb", "Rebus", 1,1,0,0,0,0,0 },   { ".icn", "Icon", 0,1,0,0,1,0,0 },
+        { ".pl", "Prolog", 0,1,0,1,0,0,0 },   { ".raku", "Raku", 0,1,0,0,0,1,0 },   { ".pas", "Pascal", 0,0,0,0,0,0,1 },
+        { ".scrip", "polyglot", 0,1,1,0,0,0,0 }, { ".md", "polyglot", 0,1,1,0,0,0,0 } };
+    const int scrip_next = (int)(sizeof scrip_exts / sizeof scrip_exts[0]);
     if (argi >= argc) {
         fprintf(stderr,
             "usage: scrip [mode] [options] <file> [-- program-args...]\n"
@@ -990,9 +996,10 @@ int main(int argc, char **argv)
             "  -mN              max object size -> &MAXLNGTH (default 5m)\n"
             "  -dN -iN          accepted for SPITBOL invocation compatibility (SCRIP's GC arena is not byte-sized)\n"
             "\n"
-            "Frontend inferred from file extension:\n"
-            "  .sno/.spt=SNOBOL4  .icn=Icon  .pl=Prolog  .sc=Snocone  .reb=Rebus\n"
+            "Frontend inferred from file extension; an extension not in this list is REFUSED (rc=2), never guessed at:\n"
         );
+        for (int ei = 0; ei < scrip_next; ei++) fprintf(stderr, "  %-7s %-9s%s", scrip_exts[ei].ext, scrip_exts[ei].lang, (ei % 3) == 2 || ei == scrip_next - 1 ? "\n" : "");
+        fprintf(stderr, "  %-7s %-9s\n", "(none)", "SNOBOL4");
         return 1;
     }
     extern void sno_add_include_dir(const char *d);
@@ -1008,17 +1015,24 @@ int main(int argc, char **argv)
     int is_scrip = 0;
     for (int fi = argi; fi < argc; fi++) {
         if (strcmp(argv[fi], "--") == 0) break;
-        const char *d = strrchr(argv[fi], '.');
-        if (d && (strcasecmp(d,".pl")==0 || strcasecmp(d,".icn")==0 ||
-                  strcasecmp(d,".raku")==0 || strcasecmp(d,".reb")==0 ||
-                  strcasecmp(d,".sc")==0 || strcasecmp(d,".scrip")==0 || strcasecmp(d,".md")==0))
-            has_non_sno = 1;
-        if (d && (strcasecmp(d,".scrip")==0 || strcasecmp(d,".md")==0)) is_scrip = 1;
-        if (d && strcasecmp(d,".pl")==0) is_prolog = 1;
-        if (d && strcasecmp(d,".icn")==0) is_icon = 1;
-        if (d && strcasecmp(d,".raku")==0) is_raku = 1;
-        if (d && strcasecmp(d,".pas")==0) is_pascal = 1;
-        if (!d || strcasecmp(d,".sno")==0 || strcasecmp(d,".sc")==0 || strcasecmp(d,".reb")==0 || strcasecmp(d,".spt")==0 || strcasecmp(d,".sbl")==0) saw_sno = 1;
+        const char *bn = strrchr(argv[fi], '/'); bn = bn ? bn + 1 : argv[fi];
+        const char *d = strrchr(bn, '.');
+        if (!d) { saw_sno = 1; continue; }
+        int ei = 0; while (ei < scrip_next && strcasecmp(d, scrip_exts[ei].ext) != 0) ei++;
+        if (ei == scrip_next) {
+            if (argv[fi][0] == '-') { saw_sno = 1; continue; }
+            fprintf(stderr, "scrip: %s: unknown source extension '%s'. The frontend is inferred from the extension, so an extension in no list selects no path -- refusing rather than guessing one. Known extensions:\n", argv[fi], d);
+            for (int kj = 0; kj < scrip_next; kj++) fprintf(stderr, "  %-7s %-9s%s", scrip_exts[kj].ext, scrip_exts[kj].lang, (kj % 3) == 2 || kj == scrip_next - 1 ? "\n" : "");
+            fprintf(stderr, "  %-7s %-9s\n", "(none)", "SNOBOL4");
+            return 2;
+        }
+        if (scrip_exts[ei].non_sno) has_non_sno = 1;
+        if (scrip_exts[ei].scrip)   is_scrip   = 1;
+        if (scrip_exts[ei].prolog)  is_prolog  = 1;
+        if (scrip_exts[ei].icon)    is_icon    = 1;
+        if (scrip_exts[ei].raku)    is_raku    = 1;
+        if (scrip_exts[ei].pascal)  is_pascal  = 1;
+        if (scrip_exts[ei].sno)     saw_sno    = 1;
     }
     int is_sno_bb = (saw_sno || is_scrip) && !is_pascal;
     lower_seg_t segs[64];
