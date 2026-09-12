@@ -27,6 +27,7 @@
 # ⭐ AND THE GREP VERSION IS REFUSED, by this seat and by the ceo: a gate that greps emit.cpp for two
 # distinct message strings asserts that we still PRINT something, never that the guard still FIRES, and it
 # would have read green through the entire window in which this sink was untrippable.
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"

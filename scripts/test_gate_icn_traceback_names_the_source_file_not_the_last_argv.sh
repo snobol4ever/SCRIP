@@ -39,7 +39,7 @@ for M in m3 m4; do
   else ( cd "$T" && timeout 30 "$SCRIP" --compile -o tb.s tb.icn </dev/null >/dev/null 2>&1 && gcc -no-pie tb.s -o tb.bin -L"$ROOT/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$ROOT/out" ) >/dev/null 2>&1 || { echo "  m4 RED: the witness would not compile or link"; RC=1; continue; }
        ( cd "$T" && timeout 20 ./tb.bin x y </dev/null >"$T/$M.out" 2>"$T/$M.err" )
   fi
-  grep -E '^File .*; Line [0-9]+$|from line [0-9]+ in ' "$T/$M.err" > "$T/$M.files"
+  python3 "$HERE/util_render_error_voice.py" icon < "$T/$M.err" | grep -E '^File .*; Line [0-9]+$|from line [0-9]+ in ' > "$T/$M.files"
   if [ -n "${GATE_FAIL_ONCE:-}" ]; then sed -i 's/^File tb.icn;/File y;/' "$T/$M.files"; fi
   if cmp -s "$T/tb.ref" "$T/$M.out" && cmp -s "$T/ref.files" "$T/$M.files"; then echo "  $M PASS (stdout byte-identical to iconx; file-bearing traceback lines: $(tr '\n' '|' < "$T/$M.files"))"
   else echo "  $M FAIL: stdout $(cmp "$T/tb.ref" "$T/$M.out" >/dev/null 2>&1 && echo same || echo DIFFERS); traceback file lines ours=[$(tr '\n' '|' < "$T/$M.files")] oracle=[$(tr '\n' '|' < "$T/ref.files")]"; RC=1; fi

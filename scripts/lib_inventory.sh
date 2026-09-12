@@ -377,7 +377,7 @@ inventory_line() {
             _rel["$rel"]=1
             _base["${f##*/}"]=$(( ${_base["${f##*/}"]:-0} + 1 ))
             shipped=$((shipped + 1))
-        done < <(find "$INV_DIR" -type f -name "*$e" 2>/dev/null)
+        done < <(find "$INV_DIR" -type f -name "*$e" ! -path "*.fixtures/*" 2>/dev/null)
     done
     [ "$shipped" -gt 0 ] || { inventory_refuse "zero files matching '$INV_EXT' under $INV_DIR -- an empty shipped population is not an inventory, and a percent over zero is not a score"; return 2; }
 

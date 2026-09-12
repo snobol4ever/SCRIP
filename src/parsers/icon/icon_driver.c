@@ -95,6 +95,36 @@ static void icn_resolve_links(tree_t * prog, const char * filename) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * icn_top_subject(const tree_t * s) {
+    while (s && s->t == TT_STMT) { const tree_t * subj = NULL; for (int i = 0; i < s->n; i++) { const tree_t * a = s->c[i]; if (a && a->t == TT_ATTR && a->v.sval && !strcmp(a->v.sval, ":subj")) { subj = (a->n > 0) ? a->c[0] : NULL; break; } } s = subj; }
+    return s;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void icn_mark_proc_refs(const tree_t * n, const tree_t ** procs, int np, char * keep) {
+    if (!n) return;
+    if (n->t == TT_VAR && n->v.sval) for (int k = 0; k < np; k++) if (!keep[k] && procs[k]->v.sval && !strcmp(procs[k]->v.sval, n->v.sval)) keep[k] = 1;
+    for (int i = 0; i < n->n; i++) icn_mark_proc_refs(n->c[i], procs, np, keep);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void icn_prune_unreachable_procs(tree_t * prog) {
+    if (!prog) return;
+    int np = 0; for (int i = 0; i < prog->n; i++) { const tree_t * s = icn_top_subject(prog->c[i]); if (s && s->t == TT_PROC_DECL) np++; }
+    if (np == 0) return;
+    const tree_t ** procs = (const tree_t **) calloc((size_t) np, sizeof *procs); char * keep = (char *) calloc((size_t) np, 1); char * walked = (char *) calloc((size_t) np, 1); int k = 0;
+    for (int i = 0; i < prog->n; i++) { const tree_t * s = icn_top_subject(prog->c[i]); if (s && s->t == TT_PROC_DECL) procs[k++] = s; }
+    for (int i = 0; i < prog->n; i++) { const tree_t * s = icn_top_subject(prog->c[i]); if (!s || s->t != TT_INVOCABLE) continue;
+        for (int j = 0; j < s->n; j++) { const char * nm = s->c[j] ? s->c[j]->v.sval : NULL; if (!nm) continue;
+            if (!strcmp(nm, "all")) { free(procs); free(keep); free(walked); return; }
+            for (int q = 0; q < np; q++) if (procs[q]->v.sval && !strcmp(procs[q]->v.sval, nm)) keep[q] = 1; } }
+    for (int q = 0; q < np; q++) if (procs[q]->v.sval && !strcmp(procs[q]->v.sval, "main")) keep[q] = 1;
+    for (int i = 0; i < prog->n; i++) { const tree_t * s = icn_top_subject(prog->c[i]); if (s && s->t != TT_PROC_DECL) icn_mark_proc_refs(s, procs, np, keep); }
+    int again = 1; while (again) { again = 0; for (int q = 0; q < np; q++) if (keep[q] && !walked[q]) { walked[q] = 1; icn_mark_proc_refs(procs[q], procs, np, keep); again = 1; } }
+    int w = 0; for (int i = 0; i < prog->n; i++) { const tree_t * s = icn_top_subject(prog->c[i]); int drop = 0;
+        if (s && s->t == TT_PROC_DECL) for (int q = 0; q < np; q++) if (procs[q] == s) { drop = !keep[q]; break; }
+        if (!drop) prog->c[w++] = prog->c[i]; }
+    prog->n = w; free(procs); free(keep); free(walked);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void icon_compile(const char *source, const char *filename, tree_t **out_ast) {
     if (!filename) filename = "<stdin>";
     if (out_ast) *out_ast = NULL;
@@ -112,4 +142,5 @@ void icon_compile(const char *source, const char *filename, tree_t **out_ast) {
     }
     (void)prog;
     if (out_ast && *out_ast) icn_resolve_links(*out_ast, filename);
+    if (out_ast && *out_ast) icn_prune_unreachable_procs(*out_ast);
 }

@@ -25,6 +25,7 @@
 #
 # ⛔ &trace WRITES ONLY TO stderr, so every run below captures 2>&1; a version that dropped stderr would
 # score a green board over an empty file.
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"

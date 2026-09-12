@@ -23,6 +23,7 @@
 #      break the case that was always right
 # ⭐ EVERY EXPECTATION IS CUT FROM sbl -bf AT RUN TIME, not pinned from us: the gate runs the oracle on the
 # same witness and diffs. A pinned expectation here would have frozen our own wrong answer.
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"

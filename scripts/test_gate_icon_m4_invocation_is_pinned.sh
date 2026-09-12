@@ -26,6 +26,7 @@
 # With icont unreachable this gate REFUSES rc=2: an instrument that cannot measure refuses.
 #
 # EXIT: 0 every clause green · 1 a clause is red (the report names which) · 2 REFUSED -- cannot measure.
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"; cd "$ROOT"
 S4E="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}"

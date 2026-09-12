@@ -47,6 +47,7 @@
 # SCORE.md. Arms 1-2 and 8-9 are static reads. NO BUILD REQUIRED -- this gate grades wiring and a library
 # function, not codegen, so it must not refuse on a stale binary it never executes.
 # EXIT: 0 all arms · 1 an arm failed · 2 REFUSED (could not measure).
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GATE_NAME="test_gate_boards_refuse_when_the_binary_moves"; export GATE_NAME

@@ -25,6 +25,7 @@
 #   REFUSES rc=2 if the sbl oracle is absent rather than passing on one arm and calling it a verdict.
 #
 # Usage: bash scripts/test_gate_icn_real_str_is_icons_own_convention.sh
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT" || exit 2

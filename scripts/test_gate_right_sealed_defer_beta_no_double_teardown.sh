@@ -26,6 +26,7 @@
 # HERMETIC: every program is written to mktemp. It grades no corpus population and publishes no row, so it is
 # not a board (ONE RUNNER, ONE BOARD, CEO-523/CEO-547) and every seat can run it.
 # EXIT: 0 all arms · 1 an arm failed · 2 REFUSED (no spitbol oracle, no build, no mktemp).
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"

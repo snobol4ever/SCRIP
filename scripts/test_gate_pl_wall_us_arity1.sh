@@ -12,6 +12,7 @@
 # trades one silent breakage for another.
 # ⛔ REFUSES rc=2 (never rc=1) when it cannot measure: no ./scrip, no runtime .so, or a witness that
 # neither succeeds nor produces the known defect signature -- "could not measure" is not "clean".
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="$HERE/../scrip"

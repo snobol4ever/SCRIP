@@ -52,6 +52,7 @@
 #   a contracted witness with no contract_floor() line   -> rc=2 REFUSED
 #
 # EXIT: 0 = every arm green.  1 = a regression.  2 = REFUSED/UNPROVEN.
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
