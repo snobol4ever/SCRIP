@@ -370,6 +370,15 @@ echo "mode-4 (--compile): RUN_PASS=$M4_RUN_PASS RUN_FAIL=$M4_RUN_FAIL RUN_CRASH=
 [ ${#M3_RUN_HANG_NAMES[@]} -gt 0 ] && printf 'm3 RUN_HANG:%s\n' "$(printf ' %s' "${M3_RUN_HANG_NAMES[@]}")"
 [ ${#M4_RUN_HANG_NAMES[@]} -gt 0 ] && printf 'm4 RUN_HANG:%s\n' "$(printf ' %s' "${M4_RUN_HANG_NAMES[@]}")"
 echo "IPL_RUN_BOARD run_graded=$RUN_GRADED m3_RUN_PASS=$M3_RUN_PASS m3_RUN_FAIL=$M3_RUN_FAIL m3_RUN_CRASH=$M3_RUN_CRASH m3_RUN_HANG=$M3_RUN_HANG m4_RUN_PASS=$M4_RUN_PASS m4_RUN_FAIL=$M4_RUN_FAIL m4_RUN_CRASH=$M4_RUN_CRASH m4_RUN_HANG=$M4_RUN_HANG"
+# ⛔⭐ THE ROW IS THE AND OF BOTH MODES PER PROGRAM (ceo CEO-627, 2026-09-12; the rule arizona and jcon already publish under
+# CEO-545). Until today this runner published --suite-pass "$M3_RUN_PASS" alone: a run that read m3 162/162 · m4 161/162 and
+# exited rc=1 on that mode-4 red still wrote "162/162 ✅ done" to SCORE.md. A program is green only if BOTH modes are; the
+# FAIL, CRASH and HANG names of each mode (their "(reason)" suffixes stripped, so one program never counts twice) are unioned by
+# gate_and_per_program and the row is RUN_GRADED minus that union. Gate: test_gate_icn_ipl_row_is_the_and_of_both_modes.sh.
+m3_RED_NAMES="$(printf '%s\n' ${M3_RUN_FAIL_NAMES[@]+"${M3_RUN_FAIL_NAMES[@]}"} ${M3_RUN_CRASH_NAMES[@]+"${M3_RUN_CRASH_NAMES[@]}"} ${M3_RUN_HANG_NAMES[@]+"${M3_RUN_HANG_NAMES[@]}"} | sed 's/(.*$//')"
+m4_RED_NAMES="$(printf '%s\n' ${M4_RUN_FAIL_NAMES[@]+"${M4_RUN_FAIL_NAMES[@]}"} ${M4_RUN_CRASH_NAMES[@]+"${M4_RUN_CRASH_NAMES[@]}"} ${M4_RUN_HANG_NAMES[@]+"${M4_RUN_HANG_NAMES[@]}"} | sed 's/(.*$//')"
+read -r AND_PASS AND_RED AND_NAMES <<<"$(gate_and_per_program "$RUN_GRADED" "$m3_RED_NAMES" "$m4_RED_NAMES")"
+echo "IPL_AND_PER_PROGRAM and_pass=${AND_PASS:-n/a} of $RUN_GRADED (m3 $M3_RUN_PASS · m4 $M4_RUN_PASS · union of reds ${AND_RED:-n/a}:${AND_NAMES:-})"
 ipl_isolation_verify_clean "$S4E/corpus" || true
 
 # ⭐ THE PACKAGE LOCKDOWN inventory line, via the shared body (lib_inventory.sh) -- never a second copy
@@ -409,10 +418,11 @@ UNG_SPLIT="$(printf '%s' "$SPLIT_LINE" | sed -n 's/.*ungraded_by_class=\([^ ]*\)
 # SUITE ROW, for the reason the comment block just above already gives: it is the only tier diffed against a
 # real oracle, so it is the verified-correctness population. SUITES.tsv's hand-set 75/89 of 2026-09-07 is
 # exactly M3_RUN_PASS/RUN_GRADED.
-python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite IPL \
-    --suite-pass "$M3_RUN_PASS" --suite-total "$RUN_GRADED" \
+[ -n "${AND_PASS:-}" ] || echo "⚠ SCORE.md NOT UPDATED -- AND per program unavailable (run_graded=$RUN_GRADED): record this row by hand"
+[ -n "${AND_PASS:-}" ] && python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite IPL --modes m3,m4 \
+    --suite-pass "${AND_PASS}" --suite-total "$RUN_GRADED" \
     --measurer "${S4E_SEAT:-}" \
-    --text "compile_pass=$COMPILE_PASS compile_fail=$COMPILE_FAIL (linkgap=$LINKGAP parseerr=$PARSEERR timeout=$TIMEOUT_N other=$OTHER) of total=$TOTAL · nomain_ok=$NOMAIN_OK of nomain_total=$NOMAIN_TOTAL, hasmain_total=$HASMAIN_TOTAL · run m3 $M3_RUN_PASS/$RUN_GRADED m4 $M4_RUN_PASS/$RUN_GRADED (of $RUN_GRADED oracle-cut · fail m3=$M3_RUN_FAIL m4=$M4_RUN_FAIL, crash m3=$M3_RUN_CRASH m4=$M4_RUN_CRASH, hang m3=$M3_RUN_HANG m4=$M4_RUN_HANG)${INV_LINE:+ · $INV_LINE}${UNG_SPLIT:+ · ungraded_by_class=$UNG_SPLIT} (\`test_icon_ipl_suite.sh\`)" \
+    --text "AND per program ${AND_PASS}/$RUN_GRADED (a program is green only if BOTH modes are; union of reds ${AND_RED:-n/a}:${AND_NAMES:-}) · compile_pass=$COMPILE_PASS compile_fail=$COMPILE_FAIL (linkgap=$LINKGAP parseerr=$PARSEERR timeout=$TIMEOUT_N other=$OTHER) of total=$TOTAL · nomain_ok=$NOMAIN_OK of nomain_total=$NOMAIN_TOTAL, hasmain_total=$HASMAIN_TOTAL · run m3 $M3_RUN_PASS/$RUN_GRADED m4 $M4_RUN_PASS/$RUN_GRADED (of $RUN_GRADED oracle-cut · fail m3=$M3_RUN_FAIL m4=$M4_RUN_FAIL, crash m3=$M3_RUN_CRASH m4=$M4_RUN_CRASH, hang m3=$M3_RUN_HANG m4=$M4_RUN_HANG)${INV_LINE:+ · $INV_LINE}${UNG_SPLIT:+ · ungraded_by_class=$UNG_SPLIT} (\`test_icon_ipl_suite.sh\`)" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
 # ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-

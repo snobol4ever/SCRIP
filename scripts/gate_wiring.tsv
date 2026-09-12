@@ -99,6 +99,7 @@ test_gate_icn_global_names_are_not_governed_by_snobol4_keywords.sh	WIRED	-	-	-
 test_gate_icn_if_without_else_invocable_arity_and_string_continuation.sh	WIRED	-	-	-
 test_gate_icn_ipl_calc_reports_erroneous_input.sh	WIRED	-	-	-
 test_gate_icn_ipl_cutter_detects_a_nondeterministic_program.sh	WIRED	-	-	-
+test_gate_icn_ipl_row_is_the_and_of_both_modes.sh	WIRED	-	-	-
 test_gate_icn_ipl_scan_resume_and_limit_flips.sh	WIRED	-	-	-
 test_gate_icn_list_and_reads_size_argument_is_gated_like_iconx.sh	WIRED	-	-	-
 test_gate_icn_loadfunc_returns_a_callable.sh	WIRED	-	-	-
@@ -172,6 +173,7 @@ test_gate_pl_atom_number_iso_errors.sh	WIRED	-	-	-
 test_gate_pl_bagof_setof_grouping.sh	WIRED	-	-	-
 test_gate_pl_consult_loads_the_named_file.sh	WIRED	-	-	-
 test_gate_pl_gz6b.sh	WIRED	-	-	-
+test_gate_pl_iso_rung1_database_builtins_and_call_local_cut.sh	WIRED	-	-	-
 test_gate_pl_meta_call_reaches_control_constructs.sh	WIRED	-	-	-
 test_gate_pl_meta_wrapper_does_not_break_m4_declarations.sh	WIRED	-	-	-
 test_gate_pl_multifile_initialization_runs_every_file.sh	WIRED	-	-	-
