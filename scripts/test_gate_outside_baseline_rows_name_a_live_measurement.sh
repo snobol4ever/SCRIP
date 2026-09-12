@@ -24,25 +24,49 @@
 # character. ⭐ That is why ARM 3 keys on the quoted ERROR NNN rather than on the whole line: a row that names
 # a number makes a falsifiable claim, and a row that names only the certificate makes none.
 #
+# ⛔⭐⭐ AN rc=124 IS NOT A REFUSAL AND IS NEVER STALE -- THE THIRD NARROWING OF ARM 2, found by hq_P 2026-09-12 by
+# landing CEO-591 against this gate. ARM 2 decided a ruling was stale by asking whether the oracle's output holds
+# an ERROR NNN or the no-END certificate. A program the oracle NEVER FINISHES prints NEITHER, so the arm rendered
+# rc=0-with-no-diagnostic and rc=124-with-no-diagnostic IN THE SAME SENTENCE -- 'refuses this program with no
+# diagnostic today; it belongs back in the denominator' -- when they are opposite facts. It told hq_P to readmit
+# gimpel's PHRASE_driver and QUEST_driver, measured rc=124 with ZERO output at 25s AND at 90s, fed from their own
+# .input fixture and unfed alike: following it would have put TWO PERMANENT TIMEOUTS into a graded denominator.
+# ⭐ THE CURE IS A BRANCH BEFORE THE DIAGNOSTIC TEST, AND IT IS SHARPER THAN 'EXEMPT THE TIMEOUTS'. 'The oracle
+# never finishes' IS ITSELF A FALSIFIABLE CLAIM, so this gate grades it the same way it grades a quoted ERROR NNN:
+#   · rc=124 + the row claims non-termination  -> CONFIRMED LIVE, with the elapsed time and the budget. Not a defect.
+#   · rc=124 + the row quotes a diagnostic     -> WRONG CAUSE: the oracle never reached any refusal it could print,
+#                                                 so the row promises a quotation the oracle cannot make.
+# ⛔ AND THE VERDICT NAMES THE BUDGET, NEVER 'DOES NOT TERMINATE': this instrument can only ever witness 'did not
+# finish within Ns'. --timeout raises N for a package owner who wants a stronger witness without editing the gate.
+# ⭐ WHY THIS ONE IS WORTH A PARAGRAPH RATHER THAN A LINE: the gate was not careless, it was CAREFUL AND STILL
+# NARROW -- its own header already documents two earlier versions of this exact error (keying ARM 2 on rc, and $?
+# after a pipeline reading tr's status, which called 78 sound rulings stale), and the warning it needed was already
+# written one file away, unprompted, in test_gate_package_runners_print_the_inventory: 'an rc=124 is a TIMEOUT
+# FIRING ... it cannot distinguish needs-8.1s from never-finishes. If a verdict turns on duration, record the
+# duration.' A correct warning in a neighbouring file is not wired into anything. THAT is why the duration is
+# printed here and why the classes must close over the population below.
+#
 # ⛔ THIS IS NOT A BOARD AND MUST NEVER BECOME ONE (ONE RUNNER, ONE BOARD -- only the coo runs a package board).
 # It runs the ORACLE ALONE over the recorded rows only, never scrip, never the shipped set, and prints no
 # pass/total for any suite. Its denominator is the RECORD's size, which is the only population it grades.
 #
-# Usage: bash scripts/test_gate_outside_baseline_rows_name_a_live_measurement.sh [--package <name>]
+# Usage: bash scripts/test_gate_outside_baseline_rows_name_a_live_measurement.sh [--package <name>] [--strict] [--timeout <s>]
 # rc=0 every recorded row names a live measurement · rc=1 a row does not · rc=2 cannot measure.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 PKGROOT="$ROOT/../corpus/packages/snobol4"
-ONLY=""; STRICT=0
-while [ $# -gt 0 ]; do case "$1" in --package) ONLY="${2:-}"; shift 2;; --strict) STRICT=1; shift;; *) echo "⛔ REFUSES(2): unknown argument $1" >&2; exit 2;; esac; done
+ONLY=""; STRICT=0; TMO=25
+while [ $# -gt 0 ]; do case "$1" in --package) ONLY="${2:-}"; shift 2;; --strict) STRICT=1; shift;; --timeout) TMO="${2:-}"; shift 2;; *) echo "⛔ REFUSES(2): unknown argument $1" >&2; exit 2;; esac; done
+case "$TMO" in *[!0-9]*|"") echo "⛔ REFUSES(2): --timeout wants a whole number of seconds, not '$TMO' -- a budget this gate prints in its own verdict is never guessed" >&2; exit 2;; esac
+[ "$TMO" -gt 0 ] || { echo "⛔ REFUSES(2): --timeout 0 would make every row read as non-terminating" >&2; exit 2; }
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "⛔ REFUSES(2): lib_oracle_flags.sh unloadable -- the ONE oracle authority" >&2; exit 2; }
 SBL="$(sbl_correctness_bin)" || { echo "⛔ REFUSES(2): sbl_correctness_bin refused -- no correctness oracle" >&2; exit 2; }
 [ -x "$SBL" ] || { echo "⛔ REFUSES(2): oracle not executable at $SBL -- a missing oracle prints a full, plausible, entirely false table" >&2; exit 2; }
 FLAGS="$(sbl_lang_flags)"
 [ -d "$PKGROOT" ] || { echo "⛔ REFUSES(2): no snobol4 packages at $PKGROOT" >&2; exit 2; }
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
-ROWS=0; PKGS=0; BAD_EMPTY=0; BAD_STALE=0; BAD_CAUSE=0
+ROWS=0; PKGS=0; GOOD=0; BAD_EMPTY=0; BAD_STALE=0; BAD_CAUSE=0; NT_OK=0; NT_BAD=0
 # ⛔⭐ WHY ONLY ARM 1 BLOCKS BY DEFAULT, AND IT IS A SCOPE RULE RATHER THAN A CONFIDENCE ONE. A vacuous reason is
 # a DOCUMENTATION defect: correcting it changes no score, so any seat may fix it and this gate may demand it.
 # A stale ruling or a wrong cause PROPOSES A DENOMINATOR CHANGE -- the program goes back into, or moves within,
@@ -83,14 +107,28 @@ for tsv in "$PKGROOT"/*/OUTSIDE_SPITBOL_BASELINE.tsv; do
         # ⛔ $? AFTER A PIPELINE IS THE LAST COMMAND'S STATUS, NOT THE ORACLE'S. Written the obvious way this read
         # `tr`'s rc -- always 0 -- so ARM 2 called SEVENTY-EIGHT rulings stale on a first run: a full, plausible,
         # entirely false table. util_snobol4_oracle_census.sh already carries the cure; this is the same one.
-        out="$(cd "$work" && timeout 25 "$SBL" $FLAGS "$name" < "$inp" 2>&1 | tr -d '\000'; exit "${PIPESTATUS[0]}")"; rc=$?
+        t0="${EPOCHREALTIME/./}"
+        out="$(cd "$work" && timeout "$TMO" "$SBL" $FLAGS "$name" < "$inp" 2>&1 | tr -d '\000'; exit "${PIPESTATUS[0]}")"; rc=$?
+        ds=$(( ( ${EPOCHREALTIME/./} - t0 ) / 100000 )); el="$((ds/10)).$((ds%10))"; nb="$(printf '%s' "$out" | wc -c)"
+        # ARM 2a -- ⛔ THE ORACLE NEVER FINISHED, WHICH IS NOT A REFUSAL AND NOT A STALE RULING. Decided BEFORE the
+        # diagnostic test below and regardless of any partial output, because a program that has not terminated has
+        # not refused anything: whatever it printed so far is a prefix, never a verdict. `timeout` alone answers 124;
+        # a 137/143 is a SIGKILL/SIGTERM from somewhere else, which is a crash and belongs to the arms below.
+        if [ "$rc" -eq 124 ]; then
+            if printf '%s' "$reason" | grep -qiE 'rc=124|does not (terminate|finish|halt|complete)|did not (terminate|finish|halt|complete)|never (terminates|finishes|halts|returns)|non-?terminat|hangs|infinite loop'; then
+                echo "   NON-TERMINATING [$pkg] $name -- CONFIRMED LIVE: the oracle did not finish within ${TMO}s (elapsed ${el}s, ${nb} byte(s) of output), which is what the row claims"
+                NT_OK=$((NT_OK+1)); continue
+            fi
+            echo "$LBL3 [$pkg] $name -- ARM 2a NON-TERMINATING BUT THE ROW QUOTES A DIAGNOSTIC: the oracle did not finish within ${TMO}s (elapsed ${el}s, ${nb} byte(s) of output), so it never reached any refusal it could print; the reason must name the non-termination and its budget instead of promising a quotation the oracle cannot make: '$reason'"
+            NT_BAD=$((NT_BAD+1)); continue
+        fi
         # ARM 2 -- THE RULING IS NOT STALE, AND ⛔ rc IS NOT THE SIGNAL. Measured: `sbl -bf test4.spt` prints
         # `ERROR 116 -- inappropriate file specification for input` and EXITS 0. Keying this arm on rc called
         # SEVENTY-EIGHT sound rulings stale on the first run -- a confident, stable, entirely false table, and the
         # same rc=0-with-a-refusal shape hq_V recorded for the `No END statement` family. A SPITBOL refusal is a
         # FATAL DIAGNOSTIC IN THE OUTPUT: an ERROR NNN line, or the no-END certificate it prints after aborting.
         if ! printf '%s\n' "$out" | grep -qE 'ERROR [0-9]{3}|No END statement found'; then
-            echo "$LBL2 [$pkg] $name -- ARM 2 STALE RULING: the oracle refuses this program with no diagnostic today (rc=$rc); it belongs back in the denominator"
+            echo "$LBL2 [$pkg] $name -- ARM 2 STALE RULING: the oracle RAN TO COMPLETION in ${el}s (rc=$rc, ${nb} byte(s) of output) and printed no fatal diagnostic today; it belongs back in the denominator"
             BAD_STALE=$((BAD_STALE+1)); continue
         fi
         # ARM 3 -- A QUOTED ERROR NNN IS A FALSIFIABLE CLAIM, SO FALSIFY IT. Rows that quote no error number
@@ -101,17 +139,24 @@ for tsv in "$PKGROOT"/*/OUTSIDE_SPITBOL_BASELINE.tsv; do
             echo "$LBL3 [$pkg] $name -- ARM 3 WRONG CAUSE: the row names '$want' and the oracle now says '${got:-<no ERROR NNN at all>}'"
             BAD_CAUSE=$((BAD_CAUSE+1)); continue
         fi
+        GOOD=$((GOOD+1))
     done < "$tsv"
     echo "   [$pkg] $n_pkg recorded row(s) re-asked"
 done
 [ "$ROWS" -gt 0 ] || { echo "⛔ REFUSES(2): zero recorded rows over $PKGS package(s) -- this gate cannot grade a vacuous population"; exit 2; }
-BAD=$((BAD_EMPTY+BAD_STALE+BAD_CAUSE))
-echo "OUTSIDE_BASELINE_REASONS packages=$PKGS rows=$ROWS vacuous=$BAD_EMPTY stale=$BAD_STALE wrong_cause=$BAD_CAUSE strict=$STRICT -- oracle $SBL $FLAGS"
+BAD=$((BAD_EMPTY+BAD_STALE+BAD_CAUSE+NT_BAD)); RPT=$((BAD_STALE+BAD_CAUSE+NT_BAD))
+echo "OUTSIDE_BASELINE_REASONS packages=$PKGS rows=$ROWS good=$GOOD vacuous=$BAD_EMPTY stale=$BAD_STALE wrong_cause=$BAD_CAUSE nonterm_confirmed=$NT_OK nonterm_wrong_reason=$NT_BAD strict=$STRICT budget=${TMO}s -- oracle $SBL $FLAGS"
+# ⛔⭐ THE CLASSES MUST CLOSE OVER THE POPULATION, and this is the CEO-582 lesson arriving one level down: a loop of
+# `continue` arms has one silent failure mode -- a path that classifies nothing -- and it reads GREEN, because every
+# counter it did not touch is still zero. Six classes summing to rows is the only statement that catches it, and an
+# instrument that cannot account for its own denominator REFUSES rather than reporting a total it did not build.
+ACC=$((GOOD+BAD_EMPTY+BAD_STALE+BAD_CAUSE+NT_OK+NT_BAD))
+[ "$ACC" -eq "$ROWS" ] || { echo "⛔ REFUSES(2): the classes do not close over the population -- good+vacuous+stale+wrong_cause+nonterm=$ACC but rows=$ROWS; a row left the loop unclassified and a partial pass must never read as a clean one"; exit 2; }
 if [ "$STRICT" = 1 ]; then
     [ "$BAD" -eq 0 ] || { echo "⛔ FAIL: $BAD of $ROWS outside-baseline rows do not name a measurement the oracle still makes (--strict)"; exit 1; }
 else
     [ "$BAD_EMPTY" -eq 0 ] || { echo "⛔ FAIL: $BAD_EMPTY of $ROWS outside-baseline rows quote the empty string -- a program left the denominator on a quotation of nothing"; exit 1; }
-    [ $((BAD_STALE+BAD_CAUSE)) -eq 0 ] && echo "✅ PASS: all $ROWS rows across $PKGS package(s) name a non-vacuous diagnostic, the oracle still refuses every one, and every quoted ERROR NNN still appears in its output" \
-        || echo "✅ PASS (ARM 1): no vacuous reason in $ROWS rows; ⚠ $((BAD_STALE+BAD_CAUSE)) row(s) REPORTED above for their package owner -- re-run with --strict to block on them"
+    [ "$RPT" -eq 0 ] && echo "✅ PASS: all $ROWS rows across $PKGS package(s) name a non-vacuous diagnostic the oracle still makes today -- $GOOD quote a refusal it still prints, $NT_OK claim a non-termination it still shows within ${TMO}s" \
+        || echo "✅ PASS (ARM 1): no vacuous reason in $ROWS rows; ⚠ $RPT row(s) REPORTED above for their package owner ($NT_OK non-termination(s) CONFIRMED, not counted against them) -- re-run with --strict to block on them"
 fi
 exit 0
