@@ -9,9 +9,13 @@
 # "Go ahead and exclude programs/* folders." -- the 2026-08-27 parser-only ruling on corpus/programs stands). Every source by extension is one of:
 # container (ALL.<ext>), module (include/, library/ -- no main, never absorbed alone), accounted (named in
 # tests/<lang>/ALL.excluded.txt with a reason), loose pair (has a .ref/.expected/.std beside it), fixture
-# (parser/coverage trees or parser_/probe_/coverage_ names), loose source with no ref. Prints the population per tree
-# and language; rc=0 when no unaccounted runnable source remains for the languages asked, rc=1 naming what is owed,
-# rc=2 when corpus/ cannot be read. A DONE-WHEN reads its rc, never a pinned count.
+# (parser/coverage trees or parser_/probe_/coverage_ names), loose source with no ref, DECLARED-KEEPER (a
+# KEEP.md declares it a permanent keeper, or a PENDING.md defers it to a LIVE row -- read from the builder's own
+# matchers, see below), or a KERNEL source (benchmarks/<lang>/, demos/<lang>/ -- never owed absorption, CEO-565
+# one copy + CEO-567 kernel convention: kernel-with-ref owes nothing, kernel-owed-ref owes a ref cut from the
+# oracle and is named). Prints the population per tree and language; rc=0 when no unaccounted runnable source
+# remains for the languages asked, rc=1 naming what is owed, rc=2 when corpus/ cannot be read or the deferral
+# contract cannot be read. A DONE-WHEN reads its rc, never a pinned count.
 import argparse, collections, csv, os, re, sys
 S4E = os.environ.get('S4E_HOME') or os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 C = os.path.join(S4E, 'corpus')
@@ -64,8 +68,84 @@ def _additive_origin(top, lang, base):
 # below could never match. Keep this list in sync with util_build_master_suite.py's own "tests" +
 # _EXTRA_TEST_TREES categories by hand; nothing enforces the two lists agreeing).
 _TESTS_ADDITIVE_CATS = ('tests', 'scrip_test', 'snocone_ladder')
+# ======================================================= the deferral contract, READ FROM THE BUILDER ===
+# ⛔⭐⭐ ONE SET OF DECLARATIONS, TWO INSTRUMENTS (ceo CEO-606, 2026-09-12, on hq_B's snocone absorption row).
+# This census and util_build_master_suite.py were each succeeding on their own terms and disagreeing about the
+# same 68 files: the builder REFUSES BY CONTRACT to absorb a source a KEEP.md declares a permanent keeper or a
+# PENDING.md defers to a live row, while this census had never heard of either filename and printed all 68 as
+# OWED -- debt no instrument would ever have let anyone pay, and a row whose DONE-WHEN is this census's own rc
+# could not have gone green by doing the work it named. MEASURED: snocone 79 owed -> 11, the 68 being
+# tests/snocone/ladder/prog/*.sc, declared keepers in tests/snocone/ladder/KEEP.md since the tree was built.
+# ⭐ THE GENERAL FORM, which outlives the fix: TWO INSTRUMENTS EACH SUCCEEDING ON THEIR OWN TERMS GIVE A
+# CONFIDENT, SELF-CONSISTENT, WRONG ANSWER, and a declaration read by one and not the other is exactly that
+# shape -- neither instrument is broken, so neither can warn you.
+# ⛔ THEREFORE THE MATCHERS ARE IMPORTED, NEVER RE-IMPLEMENTED. util_build_master_suite.py's _declared_in_keep /
+# _pending_deferral are already a deliberate port of test_gate_suite_conversion_complete.sh's bash matcher; a
+# THIRD copy here would reopen the substring/scope bugs those two paid to fix, and any disagreement between the
+# third copy and the other two would be UNATTRIBUTABLE -- you could not tell a real keeper from a drift.
+# ⛔ AND A CENSUS THAT CANNOT READ THE DECLARATIONS REFUSES (rc=2). Reporting "declared-keeper 0" because an
+# import failed is this file's own must-never-print-0 doctrine inverted: a population you cannot see is not an
+# empty population.
+import importlib.util
+_BLD = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'util_build_master_suite.py')
+try:
+    _spec = importlib.util.spec_from_file_location('_census_reads_the_builder', _BLD)
+    _bld = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(_bld)
+    _declared_in_keep, _pending_deferral, _PO = _bld._declared_in_keep, _bld._pending_deferral, _bld.PO
+except Exception as _e:
+    print('REFUSE(2): cannot read the deferral contract through %s (%s) -- a census that cannot see the KEEP.md/PENDING.md declarations must not report zero keepers' % (_BLD, _e)); sys.exit(2)
+_BC_CACHE = {}
+def _basename_counts(lang):
+    """The uniqueness population for the builder's bare-basename fallback (a bare `foo.sc` in a KEEP.md
+    declares a file only when that basename is unambiguous), computed over THIS census's candidates under
+    corpus/tests/<lang>/ -- every source by extension, not only the ones carrying a ref.
+    ⛔ Deliberately WIDER than the builder's own population (loose candidates WITH a matching ref), and wider
+    is the safe direction by construction: a larger count can only make the bare-basename fallback fire LESS
+    often, so this census waves a file through on a bare name only where the builder would too, never in a
+    case the builder would refuse. The two agree on every declaration made by relative path, which is every
+    declaration a KEEP.md table writes."""
+    if lang not in _BC_CACHE:
+        c = {}
+        for r, _d, fs in os.walk(os.path.join(C, 'tests', lang)):
+            for x in fs:
+                if x.rsplit('.', 1)[-1] in EXT: c[x] = c.get(x, 0) + 1
+        _BC_CACHE[lang] = c
+    return _BC_CACHE[lang]
+def _declared_keeper_of(abspath, lang):
+    """(declaring file, why) when the deferral contract protects this source, else None.
+    ⛔ A KEEP.md declaration is permanent; a PENDING.md deferral counts ONLY while its row is LIVE (or
+    UNVERIFIABLE, failing closed rather than guessing) -- exactly the builder's own rule, because
+    test_gate_suite_conversion_complete.sh's PBAD bucket says a deferral whose row has landed has outlived its
+    reason and must CONVERT. An expired deferral that still read as a keeper here would make that prescribed
+    fix invisible to the instrument that measures it.
+    ⛔ Scoped to corpus/tests/<lang>/ because that is the builder's own ROOT and therefore the only tree whose
+    KEEP.md/PENDING.md either instrument reads. (benchmarks/rebus/KEEP.md exists and is read by NOTHING; it
+    describes a kernel tree, which CEO-609 already places outside absorption debt, so nothing turns on it --
+    but do not mistake its presence for a contract this census honours.)"""
+    root = os.path.join(C, 'tests', lang)
+    if not abspath.startswith(root + os.sep): return None
+    bc = _basename_counts(lang)
+    kf = _declared_in_keep(abspath, root, bc)
+    if kf: return (os.path.relpath(kf, C), 'KEEPER')
+    pd = _pending_deferral(abspath, root, bc, _PO)
+    if pd:
+        pf, prow, pstate = pd
+        if pstate in ('LIVE', 'UNVERIFIABLE'): return (os.path.relpath(pf, C), 'DEFERRED row %s: %s' % (prow or 'UNNAMED', pstate))
+    return None
+# ⛔⭐ THE KERNEL TREES ARE NOT ABSORPTION DEBT (ceo CEO-609, addendum to CEO-606; CEO-565 ONE COPY + CEO-567 the
+# kernel convention). A source under benchmarks/<lang>/ or demos/<lang>/ is a kernel program: it is graded where
+# it lives, by the benchmark and demo instruments, and absorbing a second copy of it into a master is the very
+# duplication CEO-565 forbids. What it CAN owe is a ref: with a .ref/.expected/.std beside it there is nothing
+# owed (kernel-with-ref); without one it is owed a ref cut from the oracle (kernel-owed-ref) and is named.
+# ⛔ KEYED ON THE TREE, NEVER ON THE LANGUAGE SEGMENT MATCHING THE FILE'S OWN LANGUAGE -- measured:
+# demos/snobol4/claws5/claws5.sc and demos/snobol4/porter/porter.sc are SNOCONE sources living under the
+# snobol4 demo tree. A predicate spelled `demos/<this file's lang>/` reads them as ordinary loose debt and is
+# wrong about exactly the files nobody thinks to check.
+_KERNEL_TOPS = ('benchmarks', 'demos')
 rows = collections.defaultdict(collections.Counter); owed = collections.defaultdict(list)
 dangling = collections.defaultdict(list)
+keepers = collections.defaultdict(list)          # {lang: [(path, (declaring file, why)), ...]} -- reported, never owed
+kernel_owed = collections.defaultdict(list)      # {lang: [path, ...]} -- a kernel program owed a ref, its own debt class
 _REF_EXTS = ('.ref', '.expected', '.std')
 _LANGS = set(EXT.values())
 def _fixture_of_a_witness(root, rel, f):
@@ -126,6 +206,7 @@ for root, dirs, files in os.walk(C):
         # builder wrote. ⭐ A top-level source was invisible to this bug because there family == basename, which is
         # exactly why it survived: the population that disproved it was the one the instrument never sampled.
         fam = os.path.splitext(path[len(os.path.join('tests', lang)) + 1:])[0].replace(os.sep, '_') if path.startswith(os.path.join('tests', lang) + os.sep) else ''
+        _dk = _declared_keeper_of(os.path.join(root, f), lang) if top == 'tests' else None
         if f.startswith('ALL.'): kind = 'container'
         # ⛔⭐ A DECLARED FIXTURE IS NOT A LOOSE SOURCE, AND ABSORBING ONE BREAKS THE WITNESS THAT DECLARES IT
         # (hq_V 2026-09-12, CEO-598/599, found while classifying icon's 59 owed). A file inside `NAME.fixtures/`
@@ -142,6 +223,13 @@ for root, dirs, files in os.walk(C):
         # so a census that counts load-bearing data as debt is a criterion that commands the damage.
         elif _fixture_of_a_witness(root, rel, f): kind = 'accounted'
         elif top in ('include', 'library'): kind = 'module'
+        # ⛔⭐ THE DECLARATION IS THE ACCOUNTING, AND IT KEEPS ITS OWN NAME (ceo CEO-606): a declared keeper is
+        # reported as its own category rather than folded into `accounted`, because ALL.excluded.txt keeps ITS
+        # own meaning -- "this cannot run with output". Those are two different facts about a file, and one
+        # bucket for both would destroy the distinction in the only report that carries it. Placed AHEAD of the
+        # ALL.excluded.txt checks on purpose: the builder writes its own "KEEPER, declared in ..." lines into
+        # that file, so a later check would silently re-absorb the distinction this category exists to keep.
+        elif _dk: kind = 'declared-keeper'; keepers[lang].append((path, _dk))
         # ⛔⭐ SAME COLLISION CLASS AS THE additive_excluded FIX ABOVE, NEVER CLOSED HERE (seat02 2026-09-06,
         # row pascal-every-non-package-source-...-with-oracle-refs): ALL.excluded.txt's bare `name` column is
         # only ever written meaning "this name under tests/<lang>/" (util_build_master_suite.py's own loose-pair
@@ -162,27 +250,44 @@ for root, dirs, files in os.walk(C):
         elif top in ('demos', 'benchmarks') and ((base, top) in additive_excluded[lang] or _additive_origin(top, lang, base) in absorbed_origins[lang]): kind = 'accounted'
         elif top == 'tests' and (any((base, c) in additive_excluded[lang] for c in _TESTS_ADDITIVE_CATS)
                                   or any(_additive_origin(c, lang, base) in absorbed_origins[lang] for c in _TESTS_ADDITIVE_CATS)): kind = 'accounted'
+        elif top in _KERNEL_TOPS:
+            if any(os.path.exists(os.path.join(root, base + s)) for s in _REF_EXTS): kind = 'kernel-with-ref'
+            else: kind = 'kernel-owed-ref'; kernel_owed[lang].append(path)
         elif any(os.path.exists(os.path.join(root, base + s)) for s in ('.ref', '.expected', '.std')): kind = 'loose pair (has ref)'; owed[lang].append(path)
         elif re.search(r'(^|/)(parser|coverage)/', path) or re.match(r'parser_|probe_|coverage_', f): kind = 'fixture'; owed[lang].append(path)
         else: kind = 'loose source (no ref)'; owed[lang].append(path)
         rows[(top, lang)][kind] += 1
-print('%-12s %-8s %9s %6s %10s %10s %8s %12s %9s' % ('tree', 'lang', 'container', 'module', 'accounted', 'loose-pair', 'fixture', 'loose-noref', 'dangling'))
+print('%-12s %-8s %9s %6s %10s %10s %8s %12s %9s %7s %8s %10s' % ('tree', 'lang', 'container', 'module', 'accounted', 'loose-pair', 'fixture', 'loose-noref', 'dangling', 'keeper', 'kern-ref', 'kern-noref'))
 tot = collections.Counter()
 for (top, lang), c in sorted(rows.items()):
-    print('%-12s %-8s %9d %6d %10d %10d %8d %12d %9d' % (top, lang, c['container'], c['module'], c['accounted'], c['loose pair (has ref)'], c['fixture'], c['loose source (no ref)'], c['dangling ref (no source)']))
+    print('%-12s %-8s %9d %6d %10d %10d %8d %12d %9d %7d %8d %10d' % (top, lang, c['container'], c['module'], c['accounted'], c['loose pair (has ref)'], c['fixture'], c['loose source (no ref)'], c['dangling ref (no source)'], c['declared-keeper'], c['kernel-with-ref'], c['kernel-owed-ref']))
     for k, v in c.items(): tot[k] += v
 d = sum(len(v) for v in dangling.values())
-n = sum(len(v) for v in owed.values()) + d
+# ⛔⭐ A KERNEL SOURCE WITH NO REF IS DEBT, AND IT JOINS THE rc -- the same call this file already made for a
+# dangling ref, for the same reason: a debt reported beside an rc=0 is a debt nobody is measured on. CEO-609
+# names it "owed a ref cut from the oracle", and rc=1 fires when something is owed. ⭐ It is its OWN bucket and
+# is never folded into the absorption number: those are sources awaiting a master entry, these are kernel
+# programs that stay where they live and want an oracle-cut ref. Summing them would keep the arithmetic
+# plausible while the meaning drained out. ⛔ declared-keeper and kernel-with-ref owe NOTHING and never touch
+# the rc -- a declaration and a satisfied kernel pair are answers, not debt.
+k = sum(len(v) for v in kernel_owed.values())
+n = sum(len(v) for v in owed.values()) + d + k
 # ⛔ A DANGLING REF IS OWED DEBT, NOT A WARNING, so it joins the rc -- the four that prompted this check sat on
 # origin for two days BECAUSE the only thing that would have named them printed rc=0 about a different question.
 # ⭐ It is reported as its own bucket and never folded into 'loose pair': those are sources awaiting absorption,
 # these are refs whose source is already gone. Summing them would hide a ref-side regression inside a source-side
 # backlog that is being worked down anyway -- the arithmetic would stay plausible while the meaning drained out.
-print('UNABSORBED_CENSUS%s: containers=%d modules=%d accounted=%d OWED=%d (loose pairs %d, fixtures %d, loose no-ref %d, DANGLING REFS %d) -- an owed source is absorbed into its master with an oracle-cut ref, or named in ALL.excluded.txt with the reason it cannot run with output; an owed DANGLING REF is a .ref/.expected/.std whose source no longer exists and is deleted once its content is proven preserved (diff it against the master entry that absorbed it) or restored beside its source' % (' lang=' + A.lang if A.lang else '', tot['container'], tot['module'], tot['accounted'], n, tot['loose pair (has ref)'], tot['fixture'], tot['loose source (no ref)'], d))
-for lang in sorted(set(list(owed) + list(dangling))):
-    print('  %-8s owed %d%s' % (lang or '?', len(owed[lang]) + len(dangling[lang]), (' (dangling refs %d)' % len(dangling[lang])) if dangling[lang] else ''))
+print('UNABSORBED_CENSUS%s: containers=%d modules=%d accounted=%d declared-keepers=%d kernel-with-ref=%d OWED=%d (loose pairs %d, fixtures %d, loose no-ref %d, DANGLING REFS %d, KERNEL OWED A REF %d) -- an owed source is absorbed into its master with an oracle-cut ref, or named in ALL.excluded.txt with the reason it cannot run with output; an owed DANGLING REF is a .ref/.expected/.std whose source no longer exists and is deleted once its content is proven preserved (diff it against the master entry that absorbed it) or restored beside its source; a KERNEL source owed a ref is given one cut from its oracle and stays where it lives. Declared keepers are REPORTED BESIDE owed and never folded into it -- one master per language is the order, and a keeper is a deliberate exception that is SEEN, not one that hides' % (' lang=' + A.lang if A.lang else '', tot['container'], tot['module'], tot['accounted'], tot['declared-keeper'], tot['kernel-with-ref'], n, tot['loose pair (has ref)'], tot['fixture'], tot['loose source (no ref)'], d, k))
+for lang in sorted(set(list(owed) + list(dangling) + list(kernel_owed) + list(keepers))):
+    bits = []
+    if dangling[lang]: bits.append('dangling refs %d' % len(dangling[lang]))
+    if kernel_owed[lang]: bits.append('kernel owed a ref %d' % len(kernel_owed[lang]))
+    if keepers[lang]: bits.append('declared keepers %d, not owed' % len(keepers[lang]))
+    print('  %-8s owed %d%s' % (lang or '?', len(owed[lang]) + len(dangling[lang]) + len(kernel_owed[lang]), (' (' + '; '.join(bits) + ')') if bits else ''))
 if A.list:
-    for lang in sorted(set(list(owed) + list(dangling))):
+    for lang in sorted(set(list(owed) + list(dangling) + list(kernel_owed) + list(keepers))):
         for p in sorted(owed[lang]): print('    ' + p)
         for p in sorted(dangling[lang]): print('    DANGLING REF  ' + p)
+        for p in sorted(kernel_owed[lang]): print('    KERNEL OWED A REF  ' + p)
+        for p, (kf, why) in sorted(keepers[lang]): print('    DECLARED KEEPER  %-58s %s (%s)' % (p, kf, why))
 sys.exit(1 if n else 0)
