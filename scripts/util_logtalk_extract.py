@@ -1,65 +1,362 @@
 #!/usr/bin/env python3
-"""util_logtalk_extract.py -- CEO SPIKE, PROVEN, HANDED TO hq_R TO HARDEN AND OWN.
+"""util_logtalk_extract.py -- the extractor behind test_prolog_logtalk_suite.sh.
 
-Row: prolog-logtalk-iso-3268-conformance-cases-have-no-runner (the name under-counts; see below).
+Row: prolog-logtalk-iso-3268-conformance-cases-have-no-runner (the row NAME under-counts; see below).
 Lon 2026-09-11: "Let's get those Prolog programs graded."
+Spiked by the ceo (SCRIP d7766980e), HARDENED AND OWNED by hq_R 2026-09-12.
 
-⛔ THE POPULATION IS 3617, NOT 3268 -- the ceo under-reported it by 349 and the row name carries the
-old number. Census by head form across the 192 tests.lgt:
-    test/2      3268      succeeds/1   162      throws/2   134      fails/1    53   = 3617
-The legacy three are the same three expectations spelled differently: succeeds == true, fails == false,
-throws(Name,E) == error(E). A parser that handles only test/2 silently grades 90% and reports 100%.
+⛔ THE POPULATION IS 3617, NOT 3268 -- census by head form across the 192 tests.lgt:
+    test/2 3268 · succeeds/1 162 · throws/2 134 · fails/1 53  = 3617
+The legacy three are the same three expectations spelled differently (succeeds == true, fails == false,
+throws(Name,E) == error(E)). A parser that handles only test/2 silently grades 90% and reports 100%.
 
-WHAT THIS SPIKE PROVES (ceo, measured): 3261 of the 3268 test/2 cases extract cleanly from all 192 files
--- 99.8%. The 30 files that yield zero here are exactly the legacy-form files, NOT parse failures.
+⛔⭐ WHAT THE HARDENING ACTUALLY FOUND, and it is not any of the four things the spike's own header owed.
+The spike reported "3261 of 3268 test/2, 99.8%" and named the remainder as 7 stragglers. The real hole was
+31 CASES IN ONE FILE (predicates/write_term_3, cases 115..145) and the cause was the ISO HEX ESCAPE:
 
-THE FILE SHAPE, which is what makes this tractable:
+    test(lgt_write_term_3_114, true(Assertion)) :- ..., {writeq('\\x2\\')}, ...
+
+`\\x2\\` is ISO 6.4.2.1's numeric escape and it TERMINATES WITH A BACKSLASH. Every quote scanner in this
+repo's python (and the spike's) treats a backslash as "escape the next character", so it ate the closing
+quote, the string never closed, and the rest of the file -- 31 cases -- vanished into an unterminated
+atom. ⭐ THE FAILURE MODE IS THE POINT: it did not raise, it did not warn, and it did not mis-parse a
+case into a visibly wrong shape. It SHORTENED THE DENOMINATOR SILENTLY, and it did it in write_term_3 --
+the file whose whole subject is exactly the escapes that broke the scanner reading it. A suite is most
+likely to break the instrument reading it at precisely the construct that suite exists to test, so the
+census a parser prints about a syntax suite must never be trusted without a second, independent count.
+The second count here is `grep -c '^\\s*\\(test\\|succeeds\\|fails\\|throws\\)('` per file, and `--census`
+prints BOTH and refuses when they disagree.
+
+THE FILE SHAPE, which is what makes this tractable without Logtalk installed:
   * everything BEFORE `:- object(tests,` is the DATABASE: support clauses (a(1). a(2). b(X) :- ...) and
     directives (:- dynamic(unicorn/0).). It must be emitted with every case from that file.
-  * `{Goal}` is Logtalk's escape to PLAIN PROLOG -- so no Logtalk runtime is needed, which is the whole
-    reason this suite is gradeable by us.
-  * `^^name(...)` are lgtunit framework calls (^^suppress_text_output) and are stripped.
-  * expectations, by frequency: true 1764 | error 955 | false 198 | errors 138 | deterministic 50 |
-    exists 41 | variant 29 | true(Cond) 21 | fail 18 | subsumes 18 | ball 13 | false(Cond) 5.
-    true/error/false/errors/deterministic are 95% of the suite -- ship those first, then the rest.
+  * `{Goal}` is Logtalk's escape to PLAIN PROLOG -- so no Logtalk runtime is needed.
+  * `^^name(...)` are lgtunit FRAMEWORK calls. ⛔ THEY ARE NOT STRIPPABLE: 1141 of the 3617 cases call
+    one, and 450 of those BIND the variable the expectation then calls (`^^text_output_assertion(Expected,
+    Assertion)` with expectation `true(Assertion)`). Dropping the call leaves Assertion unbound, so the
+    case raises instantiation_error and grades RED -- a false defect manufactured by the harness. They are
+    mapped onto lib_logtalk_lgtunit.pl, the plain-Prolog shim; a helper the shim does not implement makes
+    its case UNGRADED AND NAMED, never dropped and never silently passed.
 
-⛔ HARDENING OWED BY hq_R BEFORE THIS IS A RUNNER: the legacy three forms; the 7 test/2 cases this
-misses; nested braces inside a goal; and the DONE-WHEN's identity --
-PASS+FAIL+OUTSIDE+UNGRADABLE+UNGRADED+DEFERRED must equal the population it globbed, and a case that
-cannot be parsed REFUSES rc=2 and is NAMED, never dropped (ARCH-PROGRAM-LEDGER: UNKNOWN is not ZERO).
+HEAD FORMS, all four parsed here:
+    test(Name, Expectation)                      3268
+    test(Name, Expectation, Options)             (a subset of the above; options carry condition/setup/cleanup)
+    test(Name)                                   7   -- lgtunit's "declared but not implemented" placeholder
+    succeeds(Name) / fails(Name) / throws(Name, Ball)
+
+API: parse_file(path) -> FileCases; parse_suite(root) -> (list[FileCases], list[(path, why)]).
+CLI: util_logtalk_extract.py --census <root>   |   --show <tests.lgt> [n]
 """
+import os
+import re
+import sys
+import glob
 
-import re,sys,os
-def parse(path):
-    src=open(path,encoding='utf-8',errors='replace').read()
-    i=src.find(':- object(')
-    db,body=(src[:i],src[i:]) if i>=0 else ('',src)
-    db='\n'.join(l for l in db.split('\n') if not l.lstrip().startswith('%'))
-    cases=[]
-    # a case starts at "test(" at indent and ends at the next "\n\ttest(" or ":- end_object"
-    parts=re.split(r'\n(?=\s*(?:test|succeeds|fails|throws)\()',body)
-    for p in parts:
-        m=re.match(r'\s*test\(\s*([a-zA-Z0-9_]+)\s*,\s*(.*?)\)\s*:-\s*(.*)',p,re.S)
-        if not m: continue
-        name=m.group(1); rest=m.group(2)+')'+m.group(3)
-        # split expectation from body by finding the ") :-" that closes test/2 head
-        mm=re.match(r'\s*test\((.*?)\)\s*:-\s*(.*)',p,re.S)
-        head=mm.group(1); goal=mm.group(2)
-        d=0; cut=None
-        for k,ch in enumerate(head):
-            if ch=='(':d+=1
-            elif ch==')':d-=1
-            elif ch==',' and d==0: cut=k; break
-        if cut is None: continue
-        exp=head[cut+1:].strip()
-        goal=goal.rsplit('.',1)[0] if goal.rstrip().endswith('.') else goal
-        goal='\n'.join(l for l in goal.split('\n') if not l.lstrip().startswith('%'))
-        goal=re.sub(r'\^\^[a-z_]+(\([^)]*\))?\s*,\s*','',goal)   # drop lgtunit helpers
-        goal=goal.replace('{','(').replace('}',')')               # plain-Prolog escape
-        cases.append((name,exp,' '.join(goal.split())))
-    return db,cases
-if __name__=='__main__':
-    db,cs=parse(sys.argv[1])
-    print(f"# db chars={len(db.strip())}  cases={len(cs)}")
-    for n,e,g in cs[:int(sys.argv[2]) if len(sys.argv)>2 else 6]:
-        print(f"  {n:22s} exp={e[:44]:44.44s} goal={g[:60]}")
+HEADS = ("test", "succeeds", "fails", "throws")
+# Directives INSIDE the object body that are plain Prolog and change what the cases mean. Everything else
+# there (object/end_object/info/uses/public/... ) is Logtalk's own scaffolding and is dropped.
+BODY_KEEP_DIRECTIVES = ("dynamic", "discontiguous", "multifile", "op", "set_prolog_flag")
+
+
+def _scan_quoted(s, i):
+    """s[i] opens a quote. Return the index just past the closing quote.
+
+    ⛔ THE BACKSLASH RULE IS NOT "skip two". ISO 6.4.2.1 numeric escapes -- \\x2A\\ (hex) and \\101\\
+    (octal) -- END WITH A BACKSLASH, so a two-character skip lands ON the terminating backslash, treats
+    THAT as the start of a new escape, and swallows the closing quote. That is the 31-case hole this
+    file's header describes. Single-character escapes (\\n \\' \\\\ ...) still skip two.
+    """
+    q = s[i]
+    n = len(s)
+    i += 1
+    while i < n:
+        ch = s[i]
+        if ch == "\\" and i + 1 < n:
+            if s[i + 1] == "x" or s[i + 1].isdigit():
+                j = i + 2
+                while j < n and s[j] != "\\":
+                    j += 1
+                i = min(j + 1, n)
+                continue
+            i += 2
+            continue
+        if ch == q:
+            if i + 1 < n and s[i + 1] == q:   # doubled quote is an escaped quote
+                i += 2
+                continue
+            return i + 1
+        i += 1
+    return n   # unterminated -- the caller decides; never silently absorb the rest of the file
+
+
+def _char_literal_end(s, i):
+    """s[i:i+2] == "0'". Return the index just past the character literal, or None if it is not one."""
+    n = len(s)
+    if i + 2 >= n:
+        return None
+    c = s[i + 2]
+    if c == "\\":
+        if i + 3 < n and (s[i + 3] == "x" or s[i + 3].isdigit()):
+            j = i + 4
+            while j < n and s[j] != "\\":
+                j += 1
+            return min(j + 1, n)
+        return min(i + 4, n)
+    if c == "'":                       # 0''' is the quote character; 0'' is also written
+        return min(i + 4, n) if (i + 3 < n and s[i + 3] == "'") else min(i + 3, n)
+    return i + 3
+
+
+def split_clauses(src):
+    """Split Prolog source into clause texts: comments removed, quoted material preserved verbatim."""
+    out = []
+    buf = []
+    i = 0
+    n = len(src)
+    depth = 0
+    while i < n:
+        ch = src[i]
+        if ch == "%":
+            while i < n and src[i] != "\n":
+                i += 1
+            continue
+        if ch == "/" and i + 1 < n and src[i + 1] == "*":
+            j = src.find("*/", i + 2)
+            i = n if j < 0 else j + 2
+            continue
+        if ch == "0" and i + 1 < n and src[i + 1] == "'":
+            j = _char_literal_end(src, i)
+            if j is not None:
+                buf.append(src[i:j])
+                i = j
+                continue
+        if ch in "'\"`":
+            j = _scan_quoted(src, i)
+            buf.append(src[i:j])
+            i = j
+            continue
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+        if ch == "." and depth == 0 and (i + 1 >= n or src[i + 1] in " \t\n\r"):
+            t = "".join(buf).strip()
+            if t:
+                out.append(t)
+            buf = []
+            i += 1
+            continue
+        buf.append(ch)
+        i += 1
+    t = "".join(buf).strip()
+    if t:
+        out.append(t)
+    return out
+
+
+def _skip_token(s, i):
+    """Advance past one quote/char-literal at s[i], else return i unchanged."""
+    if s[i] == "0" and i + 1 < len(s) and s[i + 1] == "'":
+        j = _char_literal_end(s, i)
+        if j is not None:
+            return j
+    if s[i] in "'\"`":
+        return _scan_quoted(s, i)
+    return i
+
+
+def split_args(s):
+    """Split an argument list at depth-0 commas, honouring quotes and character literals."""
+    args = []
+    depth = 0
+    cut = 0
+    i = 0
+    n = len(s)
+    while i < n:
+        j = _skip_token(s, i)
+        if j != i:
+            i = j
+            continue
+        ch = s[i]
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+        elif ch == "," and depth == 0:
+            args.append(s[cut:i])
+            cut = i + 1
+        i += 1
+    args.append(s[cut:])
+    return [a.strip() for a in args]
+
+
+def _close_paren(s):
+    """s is the text after an opening '('. Return the index of its matching ')', or None."""
+    depth = 1
+    i = 0
+    n = len(s)
+    while i < n:
+        j = _skip_token(s, i)
+        if j != i:
+            i = j
+            continue
+        ch = s[i]
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+            if depth == 0:
+                return i
+        i += 1
+    return None
+
+
+class Case(object):
+    __slots__ = ("file", "group", "kind", "name", "expect", "options", "goal", "helpers", "raw")
+
+    def __init__(self, **kw):
+        for k in self.__slots__:
+            setattr(self, k, kw.get(k))
+
+
+class FileCases(object):
+    __slots__ = ("path", "group", "db", "cases", "unparsed", "counted")
+
+    def __init__(self, **kw):
+        for k in self.__slots__:
+            setattr(self, k, kw.get(k))
+
+
+def _group_of(path):
+    """The directory that names what is under test: .../predicates/atom_length_2/tests.lgt -> atom_length_2."""
+    return os.path.basename(os.path.dirname(path))
+
+
+def _helpers(goal):
+    return sorted(set(re.findall(r"\^\^([a-z_]+)", goal)))
+
+
+def parse_file(path):
+    src = open(path, encoding="utf-8", errors="replace").read()
+    i = src.find(":- object(")
+    db_src, body_src = (src[:i], src[i:]) if i >= 0 else ("", src)
+    # ⛔ EVERY db clause is kept, DIRECTIVES INCLUDED. A first cut filtered `:-` clauses down to
+    # dynamic/discontiguous/op and that is a silent semantic edit: `:- set_prolog_flag(double_quotes, codes)`
+    # and `:- initialization(...)` change what the cases below them MEAN, and a case graded without its
+    # file's own flag settings is graded against a different language than the one the suite wrote it for.
+    db = split_clauses(db_src)
+    body_db = []
+    cases = []
+    unparsed = []
+    for cl in split_clauses(body_src):
+        m = re.match(r"(test|succeeds|fails|throws)\s*\(", cl)
+        if not m:
+            # ⛔⭐ THE OBJECT BODY IS NOT ONLY TEST CLAUSES, and reading it as if it were manufactures
+            # false reds by the hundred. 30+ files define their support predicates INSIDE the object,
+            # under their own comment "auxiliary predicates used to delay errors to runtime" -- foo/2,
+            # variable/1, three/1, small/1. Drop them and the case that calls foo(0, X) raises
+            # existence_error(procedure, foo/2), which is a perfectly plausible ISO red and is entirely
+            # the harness's doing: 373 of them on the first full run, concentrated in the arithmetic
+            # families where an undefined support predicate looks exactly like an evaluable-functor gap.
+            # ⭐ THE TELL WAS THE SHAPE OF THE ERROR, NOT ITS COUNT: real conformance reds name the
+            # BUILT-IN under test, and these named a lowercase two-letter predicate no standard mentions.
+            if cl.startswith(":-"):
+                d = re.match(r":-\s*([a-z_]+)", cl)
+                if not d or d.group(1) not in BODY_KEEP_DIRECTIVES:
+                    continue
+            body_db.append(cl)
+            continue
+        rest = cl[m.end():]
+        j = _close_paren(rest)
+        if j is None:
+            unparsed.append((cl[:70], "head parenthesis never closes"))
+            continue
+        args = split_args(rest[:j])
+        tail = rest[j + 1:].strip()
+        kind = m.group(1)
+        name = args[0].strip()
+        if tail.startswith(":-"):
+            goal = tail[2:].strip()
+        elif not tail:
+            goal = ""     # test(Name). -- lgtunit's not-implemented placeholder; legal, and not a parse failure
+        else:
+            unparsed.append((cl[:70], "clause neck is not ':-' and the head is not a fact"))
+            continue
+        expect, options = None, None
+        if kind == "test":
+            if len(args) >= 2:
+                expect = args[1].strip()
+            if len(args) >= 3:
+                options = args[2].strip()
+            if len(args) > 3:
+                unparsed.append((cl[:70], "test/%d -- unknown arity" % len(args)))
+                continue
+        elif kind == "throws":
+            if len(args) != 2:
+                unparsed.append((cl[:70], "throws/%d -- expected throws/2" % len(args)))
+                continue
+            expect = "error_ball(%s)" % args[1].strip()
+        cases.append(Case(file=path, group=_group_of(path), kind=kind, name=name, expect=expect,
+                          options=options, goal=goal, helpers=_helpers(goal), raw=cl))
+    db = db + body_db
+    counted = 0
+    for line in open(path, encoding="utf-8", errors="replace"):
+        if re.match(r"^\s*(test|succeeds|fails|throws)\(", line):
+            counted += 1
+    return FileCases(path=path, group=_group_of(path), db=db, cases=cases, unparsed=unparsed, counted=counted)
+
+
+def parse_suite(root):
+    """Return (list[FileCases], list[(path, why)]). A file whose two independent counts disagree is a REFUSAL."""
+    files = sorted(glob.glob(os.path.join(root, "**", "tests.lgt"), recursive=True))
+    out = []
+    bad = []
+    for f in files:
+        fc = parse_file(f)
+        for txt, why in fc.unparsed:
+            bad.append((f, "%s :: %s" % (why, txt)))
+        # ⛔ THE SECOND, INDEPENDENT COUNT. See this file's header: a parser reading a syntax suite fails
+        # silently and shortens its own denominator. grep is a different instrument with a different blind
+        # spot, so when the two agree the population is believable and when they disagree neither is.
+        if fc.counted != len(fc.cases):
+            bad.append((f, "line-count says %d cases, the term parser says %d -- two readings of one population "
+                           "disagree, so neither is published" % (fc.counted, len(fc.cases))))
+        out.append(fc)
+    return out, bad
+
+
+def main(argv):
+    if len(argv) >= 3 and argv[1] == "--census":
+        files, bad = parse_suite(argv[2])
+        tot = sum(len(f.cases) for f in files)
+        by_kind, by_exp, by_help = {}, {}, {}
+        for f in files:
+            for c in f.cases:
+                by_kind[c.kind] = by_kind.get(c.kind, 0) + 1
+                if c.kind == "test":
+                    k = re.match(r"[a-z_]+", c.expect or "")
+                    k = k.group(0) if k else "(none)"
+                    by_exp[k] = by_exp.get(k, 0) + 1
+                for h in c.helpers:
+                    by_help[h] = by_help.get(h, 0) + 1
+        print("files=%d cases=%d" % (len(files), tot))
+        print("  by head form : %s" % sorted(by_kind.items(), key=lambda x: -x[1]))
+        print("  by expectation: %s" % sorted(by_exp.items(), key=lambda x: -x[1]))
+        print("  by ^^helper  : %s" % sorted(by_help.items(), key=lambda x: -x[1]))
+        for p, why in bad:
+            print("  REFUSE %s: %s" % (p, why))
+        return 2 if bad else 0
+    if len(argv) >= 3 and argv[1] == "--show":
+        fc = parse_file(argv[2])
+        n = int(argv[3]) if len(argv) > 3 else 6
+        print("# %s  db-clauses=%d cases=%d (line count %d)" % (fc.path, len(fc.db), len(fc.cases), fc.counted))
+        for c in fc.cases[:n]:
+            print("  %-26s %-9s exp=%-28.28s helpers=%s" % (c.name, c.kind, c.expect or "-", ",".join(c.helpers) or "-"))
+            print("      goal: %s" % " ".join(c.goal.split())[:150])
+        return 0
+    sys.stderr.write(__doc__.split("API:")[-1])
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
