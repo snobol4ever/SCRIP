@@ -1,55 +1,26 @@
 #!/usr/bin/env bash
-# util_diagnose_prolog_swi.sh — show per-test detail for one SWI test file
-# Prints full raw scrip output, then diff vs .ref, then a summary.
+# util_diagnose_prolog_swi.sh -- per-case detail for ONE swi_tests file (a development aid, never a board).
+# Prints SCRIP's raw output through the plunit shim, then every case row from util_swi_match.py against the
+# oracle ref beside the source. The population is addressed BY PATH under corpus/packages/prolog/swi_tests.
 #
-# Usage:
-#   bash scripts/util_diagnose_prolog_swi.sh test_bips
-#   bash scripts/util_diagnose_prolog_swi.sh test_arith --mode --run
-S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
-set -euo pipefail
+# Usage: bash scripts/util_diagnose_prolog_swi.sh core/test_bips.pl [--mode m3|m4]
+set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIP="${HERE}/../scrip"
-CORPUS=$S4E/corpus/tests/prolog
-SWIT=$S4E/corpus/packages/prolog/swi_tests
-PLUNIT=$CORPUS/plunit.pl
-WRAP=$(mktemp /tmp/pl_wrap_XXXXXX.pl)
-trap 'rm -f "$WRAP"' EXIT
-
-BASE="${1:-}"
-MODE="--run"
-shift || true
-while [[ $# -gt 0 ]]; do
-    case "$1" in
-        --mode) MODE="$2"; shift 2 ;;
-        --run|--run|--run) MODE="$1"; shift ;;
-        *) echo "Unknown arg: $1"; exit 1 ;;
-    esac
-done
-
-[ -n "$BASE" ] || { echo "Usage: $0 <test_name>  e.g. test_bips"; exit 1; }
-f="$SWIT/${BASE}.pl"
-ref="$SWIT/${BASE}.ref"
-[ -f "$f" ]    || { echo "ERROR: $f not found"; exit 1; }
-[ -f "$ref" ]  || { echo "ERROR: $ref not found"; exit 1; }
-[ -f "$PLUNIT" ] || { echo "⛔ REFUSED-TO-GRADE: $PLUNIT missing"; exit 2; }
-[ -x "$SCRIP" ]  || { echo "⛔ REFUSED-TO-GRADE: scrip not built"; exit 2; }
-
-printf 'main :- run_tests.\n' > "$WRAP"
-
-echo "=== Raw scrip output ($MODE) ==="
-raw=$(timeout 30 "$SCRIP" "$MODE" "$PLUNIT" "$f" "$WRAP" < /dev/null 2>/dev/null)
-printf '%s\n' "$raw"
-
-actual=$(printf '%s\n' "$raw" | grep -E '^(PASS|FAIL) ')
-expected=$(cat "$ref")
-
-echo ""
-echo "=== Diff (< expected  > actual) ==="
-diff <(printf '%s\n' "$expected") <(printf '%s\n' "$actual") || true
-
-echo ""
-echo "=== Summary ==="
-suite_total=$(wc -l < "$ref")
-matched=$(comm -12 <(printf '%s\n' "$expected" | sort) \
-                   <(printf '%s\n' "$actual"   | sort) | wc -l)
-echo "match=$matched/$suite_total  file=$BASE  mode=$MODE"
+S4E="${S4E_HOME:-$(cd "$HERE/../.." && pwd)}"
+SWIT="$S4E/corpus/packages/prolog/swi_tests"
+PLUNIT="$S4E/corpus/tests/prolog/plunit.pl"
+SCRIP="$HERE/../scrip"; RT="${RT_DIR:-$HERE/../out}"
+REL="${1:?usage: util_diagnose_prolog_swi.sh <rel/path.pl> [--mode m3|m4]}"; MODE="${3:-m3}"
+f="$SWIT/$REL"; ref="${f%.pl}.ref"
+[ -f "$f" ] || { echo "⛔ no such shipped file: $REL" >&2; exit 2; }
+[ -f "$ref" ] || { echo "⛔ no oracle ref beside $REL -- cut it: scripts/util_swi_cut_refs.sh --write $REL" >&2; exit 2; }
+T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
+printf 'main :- run_tests.\n:- initialization(main).\n' > "$T/wrap.pl"
+echo "=== raw scrip output ($MODE) for $REL ==="
+if [ "$MODE" = m4 ]; then
+    timeout 60 "$SCRIP" --compile "$PLUNIT" "$f" "$T/wrap.pl" > "$T/p.s" && gcc -no-pie "$T/p.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$T/p" && timeout 60 "$T/p" </dev/null | tee "$T/act"
+else
+    timeout 60 "$SCRIP" --run "$PLUNIT" "$f" "$T/wrap.pl" </dev/null | tee "$T/act"
+fi
+echo "=== per case vs $(basename "$ref") ==="
+python3 "$HERE/util_swi_match.py" "$f" "$ref" "$T/act"

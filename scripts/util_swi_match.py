@@ -1,44 +1,84 @@
 #!/usr/bin/env python3
-"""util_swi_match.py — compare actual vs expected PASS/FAIL/EMPTY lines for one SWI test file.
-Usage: util_swi_match.py <ref_file> <actual_text_file>
-Prints matched count on stdout.
+"""util_swi_match.py -- grade ONE swi_tests file, per CASE, by agreement with the oracle's ref.
 
-  --per-line   instead of the count, print one `<unit>\t<MATCH|MISS>` row per EXPECTED line, in ref order.
+Usage: util_swi_match.py <file.pl> <file.ref> <actual_text_file>
 
-⛔ WHY --per-line EXISTS AND WHY THE COUNT WAS NOT ENOUGH (hq_C 2026-09-12, CEO-601 / COO-60).  The suite's
-denominator is SUITE LINES -- one plunit unit each -- while its progress rows were written one per FILE, so
-the coverage report read 20 rows against a 118-line board and could not say WHICH unit moved.  A count answers
-"how many agreed"; a board row has to answer "did THIS one agree", and the two are not recoverable from each
-other.  The default output is unchanged, because other callers grade on it.
+  <file.ref>   cut by util_swi_cut_refs.sh from real swipl: PASS|FAIL|BLOCKED unit:test, EMPTY unit, UNGRADABLE unit reason
+  <actual>     SCRIP's stdout through corpus/tests/prolog/plunit.pl: '  pass: unit:test', '  FAIL: unit:test  (why)', '  skip: unit:test  [why]'
 
-SWI-5 (2026-05-28): EMPTY added as a third verdict — printed by pj_suite_verdict
-when zero test bodies executed for a suite (TC =:= 0). Pre-SWI-5 the verdict was
-binary (PASS for SF=:=0, FAIL otherwise); EMPTY now distinguishes "no tests ran"
-from "all tests passed", killing the SF=:=0 false-positive PASS.
+THE POPULATION IS THE ORACLE'S ENUMERATION: every case the ref names (a forall(Gen) test is one case per generator
+instance, recorded by plunit as @(name,Bindings); a macro-generated test has no test/2 head in the source at all), plus,
+for a unit the oracle could not run (EMPTY, UNGRADABLE), the test/2 heads the source declares inside that unit (at
+least one entry, so a unit is never silently zero).  Names are matched by unit:name and OCCURRENCE ORDER on both sides,
+with @(name,Bindings) normalised to name.
+
+Prints one TSV row per case:
+  <unit:test#k>  PASS      agrees with the oracle (both pass, or both fail: an agreement control, marked in col 3)
+  <unit:test#k>  FAIL      disagrees, col 3 says how (oracle PASS / scrip FAIL (why); oracle FAIL / scrip pass; no verdict from scrip)
+  <unit:test#k>  UNGRADED  the oracle gave no PASS/FAIL for it: BLOCKED, EMPTY unit, or UNGRADABLE unit <oracle reason>
+then one summary line:
+  MATCH declared=N graded=N hit=N hit_pass=N hit_fail_agree=N miss=N ungraded=N
 """
-import sys
-
-_args = [a for a in sys.argv[1:] if not a.startswith("--")]
-if len(_args) != 2:
-    sys.stderr.write("usage: util_swi_match.py [--per-line] <ref_file> <actual_text_file>\n"); sys.exit(2)
-ref_path, actual_path = _args
-
-expected = open(ref_path).read().strip().splitlines()
-actual_raw = open(actual_path).read().strip().splitlines()
-
-# Deduplicate actual (first occurrence wins — eliminates double-run artefacts)
-seen = set()
-actual_set = set()
-for line in actual_raw:
-    line = line.strip()
-    if line.startswith(('PASS ', 'FAIL ', 'EMPTY ')) and line not in seen:
-        seen.add(line)
-        actual_set.add(line)
-
-per_line = "--per-line" in sys.argv[1:]
-if per_line:
-    for e in expected:
-        unit = e.split(None, 1)[1].strip() if len(e.split(None, 1)) > 1 else e.strip()
-        print(f"{unit}\t{'MATCH' if e in actual_set else 'MISS'}")
-else:
-    print(sum(1 for e in expected if e in actual_set))
+import re, sys
+if len(sys.argv) != 4:
+    sys.stderr.write(__doc__); sys.exit(2)
+src_path, ref_path, act_path = sys.argv[1:4]
+begin_re = re.compile(r'^\s*:-\s*begin_tests\(\s*([A-Za-z0-9_]+)')
+end_re = re.compile(r'^\s*:-\s*end_tests\(')
+test_re = re.compile(r"^\s*test\(\s*('(?:[^'\\]|\\.)*'|[A-Za-z0-9_]+)")
+heads = {}
+unit = None
+for line in open(src_path, encoding='utf-8', errors='replace'):
+    m = begin_re.match(line)
+    if m: unit = m.group(1); heads.setdefault(unit, []); continue
+    if end_re.match(line): unit = None; continue
+    if unit is None: continue
+    m = test_re.match(line)
+    if m:
+        name = m.group(1)
+        if name.startswith("'"): name = name[1:-1].replace("\\'", "'")
+        heads[unit].append(name)
+def norm(name):
+    m = re.match(r'^@\(([^,]+),', name)
+    return m.group(1) if m else name
+def split_key(key):
+    u, _, t = key.partition(':')
+    return u, norm(t)
+cases = []
+for line in open(ref_path, encoding='utf-8', errors='replace'):
+    parts = line.rstrip('\n').split(' ', 2)
+    if len(parts) < 2: continue
+    verdict, key = parts[0], parts[1]
+    if verdict in ('PASS', 'FAIL', 'BLOCKED'):
+        u, t = split_key(key); cases.append((u, t, verdict, ''))
+    elif verdict in ('EMPTY', 'UNGRADABLE'):
+        why = parts[2] if len(parts) > 2 else ''
+        names = heads.get(key, []) or ['(unit)']
+        for t in names: cases.append((key, t, verdict, why))
+act = {}
+act_re = re.compile(r'^\s*(pass|FAIL|skip):\s+(\S+?)(?:\s+(.*))?$')
+for line in open(act_path, encoding='utf-8', errors='replace'):
+    m = act_re.match(line.rstrip('\n'))
+    if not m: continue
+    u, t = split_key(m.group(2))
+    act.setdefault('%s:%s' % (u, t), []).append((m.group(1), (m.group(3) or '').strip()))
+seen = {}
+hit = hit_pass = hit_fail = miss = ungraded = graded = 0
+for u, t, r, why in cases:
+    key = '%s:%s' % (u, t)
+    k = seen.get(key, 0); seen[key] = k + 1
+    label = '%s#%d' % (key, k + 1)
+    if r in ('BLOCKED', 'EMPTY', 'UNGRADABLE'):
+        print('%s\tUNGRADED\t%s%s' % (label, r, (' ' + why) if why else '')); ungraded += 1; continue
+    graded += 1
+    av = act.get(key, [])
+    a = av[k] if k < len(av) else None
+    if a is None:
+        print('%s\tFAIL\toracle %s / no verdict from scrip' % (label, r)); miss += 1
+    elif r == 'PASS' and a[0] == 'pass':
+        print('%s\tPASS\t' % label); hit += 1; hit_pass += 1
+    elif r == 'FAIL' and a[0] == 'FAIL':
+        print('%s\tPASS\tagreement control: the oracle fails this case too %s' % (label, a[1])); hit += 1; hit_fail += 1
+    else:
+        print('%s\tFAIL\toracle %s / scrip %s %s' % (label, r, a[0], a[1])); miss += 1
+print('MATCH declared=%d graded=%d hit=%d hit_pass=%d hit_fail_agree=%d miss=%d ungraded=%d' % (len(cases), graded, hit, hit_pass, hit_fail, miss, ungraded))

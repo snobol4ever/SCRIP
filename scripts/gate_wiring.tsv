@@ -182,6 +182,7 @@ test_gate_pl_iso_rung1_database_builtins_and_call_local_cut.sh	WIRED	-	-	-
 test_gate_pl_iso_rung2_runtime_heads_and_meta_call_wrappers.sh	WIRED	-	-	-
 test_gate_pl_iso_rung3_current_predicate_generator_and_halt_type_checks.sh	WIRED	-	-	-
 test_gate_pl_iso_rung4_run_time_meta_call_of_builtins_through_compiled_wrappers.sh	WIRED	-	-	-
+test_gate_pl_swi_every_shipped_case_is_graded_by_path.sh	WIRED	-	-	-
 test_gate_pl_meta_call_reaches_control_constructs.sh	WIRED	-	-	-
 test_gate_pl_meta_wrapper_does_not_break_m4_declarations.sh	WIRED	-	-	-
 test_gate_pl_multifile_initialization_runs_every_file.sh	WIRED	-	-	-
