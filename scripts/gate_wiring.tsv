@@ -463,5 +463,5 @@ test_gate_xfail_has_reason.sh	TASK	-	-	-
 test_gate_zdp_on_null.sh	TASK	-	-	-
 test_gate_zeta_no_arena.sh	TASK	-	-	-
 test_gate_zpop_whitelist.sh	TASK	-	-	-
-test_gate_pl_swi_shim_runs_a_forall_test_per_instance.sh	TASK	-	-	-
-test_gate_pl_integer_division_floors_and_int64_overflow_raises.sh	TASK	-	-	-
+test_gate_pl_swi_shim_runs_a_forall_test_per_instance.sh	RULING	the DONE-WHEN of row prolog-swi-shim-runs-a-forall-test-once-per-generator-instance, minted red 4/4 in both modes on the ceo order re CTO-33; it is WIRED in the landing that turns it green, never before (a red gate in make test grades nothing new)	cto	2026-09-12T23:18:15Z
+test_gate_pl_integer_division_floors_and_int64_overflow_raises.sh	RULING	the DONE-WHEN of row prolog-integer-division-floors-and-int64-overflow-raises-instead-of-trapping, minted red 4/4 in both modes on the ceo order re CTO-33; it is WIRED in the landing that turns it green, never before (a red gate in make test grades nothing new)	cto	2026-09-12T23:18:15Z
