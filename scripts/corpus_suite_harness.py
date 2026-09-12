@@ -241,6 +241,15 @@ def require_fresh(paths):
         sys.exit(2)
 
 
+# ⛔⭐ LANGUAGES WITH NO INDEPENDENT RIVAL IMPLEMENTATION (CEO-607, 2026-09-12). Membership here is a MEASURED
+# property of the language, never a convenience: a language is in this set only when no second implementation of
+# it exists to be an oracle at all, so "cannot cut a ref" is permanent rather than pending. ⛔ It is NOT a way to
+# opt out of an oracle cut -- adding a language that HAS a rival would silently downgrade every one of its refs
+# from measured to authored, which is the exact circularity CEO-607 closes. Rebus is the only member measured so
+# far; Snocone is NOT one (SPITBOL grades it, lib_oracle_flags.sh sbl_correctness_bin).
+NO_RIVAL_LANGS = {"rebus"}
+
+
 def resolve_oracle_bin(paths, lang=""):
     """Resolve the correctness oracle's binary+flags via lib_oracle_flags.sh -- the ONE authority
     (RULES.md Oracles section): never hand-assemble an oracle path/flag pair in a second copy.
@@ -339,6 +348,27 @@ def resolve_oracle_bin(paths, lang=""):
         if not wrapper.is_file():
             refuse(f"raku_oracle_run.sh missing at {wrapper} -- the prelude-staging rakudo driver")
         return str(wrapper), ""   # no flags: `raku <file>` is the whole invocation
+    if lang in NO_RIVAL_LANGS:
+        # ⛔⭐ NOT "NOT WIRED YET" -- NOT WIREABLE, EVER, AND THE TWO REFUSALS MUST NOT READ ALIKE (CEO-607,
+        # 2026-09-12, on hq_C's ASK; option (a)). The bare refusal below says "no oracle wired ... yet", which
+        # every reader correctly parses as a backlog item someone will close by widening this function. For a
+        # language with NO INDEPENDENT RIVAL IMPLEMENTATION there is nothing to widen it TO: CEO-391's one
+        # oracle per language has no binary to name, and the honest remedy is a different one -- the runtime
+        # ref is DERIVED and the derivation is RECORDED beside it, the strongest derivation being a CROSS-
+        # LANGUAGE computation of the same kernel under a real oracle (the rival program and its oracle
+        # output), with the hand arithmetic as the second witness. ⭐ A refusal that names the wrong remedy
+        # costs more than a silent one: it sends the next seat to widen a function that cannot be widened,
+        # and the seat that fails to widen it concludes the SOURCES are the problem. This message names the
+        # remedy that exists, and the gate that re-performs it on every run is
+        # test_gate_rebus_derived_refs_match_their_rival_oracle.sh -- the derivation is re-computed, never
+        # believed, because a static record of a measurement is a claim and rots like any other prose here.
+        refuse(f"--lang {lang!r}: no rival: refs are derived, see KEEP.md -- {lang} has no independent rival "
+               f"implementation, so there is no oracle to cut a ref FROM and nothing for resolve_oracle_bin to be "
+               f"widened TO (CEO-607). Its kernels carry a ref DERIVED from a rival program in another language "
+               f"run under THAT language's oracle, with the derivation recorded in a .derivation file beside the "
+               f"ref and re-performed by test_gate_rebus_derived_refs_match_their_rival_oracle.sh. ⛔ Do NOT cut a "
+               f"ref from SCRIP's own output: a ref cut from the implementation it grades proves only that the "
+               f"implementation is deterministic")
     refuse(f"no oracle wired for --lang {lang!r} in capture-oracle-refs yet (only snobol4/prolog/icon/pascal/raku so far)")
 
 

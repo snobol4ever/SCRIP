@@ -1425,6 +1425,19 @@ def additive_absorb(lang, categories, root, timeout, write, cols):
     round trip in a temp sibling BEFORE any os.replace, same discipline as resort_master/reindex_csv_only."""
     if lang not in LANG_TABLES:
         h.refuse("--additive --lang %r has no attribute table -- see LANG_TABLES" % lang)
+    if lang in h.NO_RIVAL_LANGS:
+        # ⛔⭐ THIS ARM RUNS BEFORE THE "not wired yet" ONE ON PURPOSE (CEO-607, 2026-09-12). This check sits
+        # ahead of resolve_oracle_bin and would otherwise hand a no-rival language the backlog-shaped refusal
+        # below, which the caller can only read as "someone will wire it later" -- and hq_C measured exactly
+        # that reading costing a row a full sitting before the ruling. resolve_oracle_bin carries the same
+        # named refusal for the callers that reach IT first; the two must not diverge, which is why both read
+        # the one NO_RIVAL_LANGS set in corpus_suite_harness rather than spelling the membership twice.
+        h.refuse("--additive --lang %r: no rival: refs are derived, see KEEP.md -- %s has no independent rival "
+                 "implementation, so ABSORPTION WITH AN ORACLE-CUT REF IS NOT PENDING, IT IS IMPOSSIBLE. Its "
+                 "kernels stay in corpus/benchmarks/%s (CEO-609: a kernel tree never enters a master) carrying a "
+                 "ref DERIVED from a rival program in another language under THAT language's oracle, the "
+                 "derivation recorded in a .derivation beside the ref and re-performed on every run by "
+                 "test_gate_rebus_derived_refs_match_their_rival_oracle.sh" % (lang, lang, lang))
     if lang not in ADDITIVE_ORACLE_LANGS:
         h.refuse("--additive --lang %r: no oracle wired in resolve_oracle_bin yet (only %s) -- prove-on-one-"
                  "then-widen means widening THAT function first, never skipping the oracle cut"

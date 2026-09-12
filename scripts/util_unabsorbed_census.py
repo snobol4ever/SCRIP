@@ -92,6 +92,11 @@ try:
     _spec = importlib.util.spec_from_file_location('_census_reads_the_builder', _BLD)
     _bld = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(_bld)
     _declared_in_keep, _pending_deferral, _PO = _bld._declared_in_keep, _bld._pending_deferral, _bld.PO
+    # ⛔ THE ONE AUTHORITY FOR "this language has no rival implementation" (CEO-607) reached through the
+    # module this census ALREADY loads -- never a second import and never a second spelling of the set. A
+    # census that guessed the membership could hand a language that HAS an oracle the derived-ref arm below,
+    # which silently downgrades every one of its refs from measured to authored.
+    NO_RIVAL_LANGS = _bld.h.NO_RIVAL_LANGS
 except Exception as _e:
     print('REFUSE(2): cannot read the deferral contract through %s (%s) -- a census that cannot see the KEEP.md/PENDING.md declarations must not report zero keepers' % (_BLD, _e)); sys.exit(2)
 _BC_CACHE = {}
@@ -250,6 +255,29 @@ for root, dirs, files in os.walk(C):
         elif top in ('demos', 'benchmarks') and ((base, top) in additive_excluded[lang] or _additive_origin(top, lang, base) in absorbed_origins[lang]): kind = 'accounted'
         elif top == 'tests' and (any((base, c) in additive_excluded[lang] for c in _TESTS_ADDITIVE_CATS)
                                   or any(_additive_origin(c, lang, base) in absorbed_origins[lang] for c in _TESTS_ADDITIVE_CATS)): kind = 'accounted'
+        # ⛔⭐ A DERIVED REF IS ITS OWN CLASS AND MUST NOT READ AS AN ORACLE-CUT ONE (CEO-607, 2026-09-12, on
+        # hq_C's ASK; option (a)). This arm sits AHEAD of the kernel arm below ON PURPOSE. Rebus has NO
+        # INDEPENDENT RIVAL IMPLEMENTATION, so CEO-391's one-oracle-per-language has no binary to name for it and
+        # its kernels can never be given "a ref cut from its oracle" -- the remedy the kernel arm prints. CEO-607
+        # rules the remedy that exists: the ref is DERIVED from a CROSS-LANGUAGE computation of the same kernel
+        # under a REAL oracle (the rival program and its oracle output), the hand arithmetic is the second
+        # witness, and both are RECORDED in a `.derivation` beside the ref.
+        # ⛔ WITHOUT THIS ARM THESE THREE WOULD READ `kernel-with-ref`, WHICH IS THE FLATTERING WRONG ANSWER: that
+        # class means "this kernel's ref came from its oracle", and a derived ref that renders identically to an
+        # oracle-cut one is exactly the distinction the ruling exists to keep visible. It owes nothing either way,
+        # so the rc cannot catch the confusion -- only the class can. An excluded name cannot be red, so a wrong
+        # exclusion costs more than a wrong cure (hq_V, standing practice): a special case stays SEEN as one.
+        # ⛔ THE TWO GUARDS ARE THE WHOLE POINT, because this arm is otherwise a way to launder an authored number.
+        # (a) `lang in NO_RIVAL_LANGS` -- a language that HAS an oracle can never reach here, so a seat cannot dodge
+        # an oracle cut by writing a .derivation. (b) the `.derivation` must EXIST AND BE NON-EMPTY beside the ref:
+        # a derived ref with no recorded derivation is precisely the authored number nobody can check.
+        # ⭐ THIS CENSUS ONLY ACCOUNTS IT. The derivation itself is RE-PERFORMED against the live oracle on every
+        # run by test_gate_rebus_derived_refs_match_their_rival_oracle.sh -- a recorded derivation nobody
+        # re-executes is a claim, and a static sidecar rots the way this tree's prose digests rot.
+        elif (lang in NO_RIVAL_LANGS and top in _KERNEL_TOPS
+              and any(os.path.exists(os.path.join(root, base + s)) for s in _REF_EXTS)
+              and os.path.exists(os.path.join(root, base + '.derivation'))
+              and os.path.getsize(os.path.join(root, base + '.derivation')) > 0): kind = 'derived-ref'
         elif top in _KERNEL_TOPS:
             if any(os.path.exists(os.path.join(root, base + s)) for s in _REF_EXTS): kind = 'kernel-with-ref'
             else: kind = 'kernel-owed-ref'; kernel_owed[lang].append(path)
@@ -257,10 +285,10 @@ for root, dirs, files in os.walk(C):
         elif re.search(r'(^|/)(parser|coverage)/', path) or re.match(r'parser_|probe_|coverage_', f): kind = 'fixture'; owed[lang].append(path)
         else: kind = 'loose source (no ref)'; owed[lang].append(path)
         rows[(top, lang)][kind] += 1
-print('%-12s %-8s %9s %6s %10s %10s %8s %12s %9s %7s %8s %10s' % ('tree', 'lang', 'container', 'module', 'accounted', 'loose-pair', 'fixture', 'loose-noref', 'dangling', 'keeper', 'kern-ref', 'kern-noref'))
+print('%-12s %-8s %9s %6s %10s %10s %8s %12s %9s %7s %8s %10s %9s' % ('tree', 'lang', 'container', 'module', 'accounted', 'loose-pair', 'fixture', 'loose-noref', 'dangling', 'keeper', 'kern-ref', 'kern-noref', 'deriv-ref'))
 tot = collections.Counter()
 for (top, lang), c in sorted(rows.items()):
-    print('%-12s %-8s %9d %6d %10d %10d %8d %12d %9d %7d %8d %10d' % (top, lang, c['container'], c['module'], c['accounted'], c['loose pair (has ref)'], c['fixture'], c['loose source (no ref)'], c['dangling ref (no source)'], c['declared-keeper'], c['kernel-with-ref'], c['kernel-owed-ref']))
+    print('%-12s %-8s %9d %6d %10d %10d %8d %12d %9d %7d %8d %10d %9d' % (top, lang, c['container'], c['module'], c['accounted'], c['loose pair (has ref)'], c['fixture'], c['loose source (no ref)'], c['dangling ref (no source)'], c['declared-keeper'], c['kernel-with-ref'], c['kernel-owed-ref'], c['derived-ref']))
     for k, v in c.items(): tot[k] += v
 d = sum(len(v) for v in dangling.values())
 # ⛔⭐ A KERNEL SOURCE WITH NO REF IS DEBT, AND IT JOINS THE rc -- the same call this file already made for a
@@ -277,7 +305,7 @@ n = sum(len(v) for v in owed.values()) + d + k
 # ⭐ It is reported as its own bucket and never folded into 'loose pair': those are sources awaiting absorption,
 # these are refs whose source is already gone. Summing them would hide a ref-side regression inside a source-side
 # backlog that is being worked down anyway -- the arithmetic would stay plausible while the meaning drained out.
-print('UNABSORBED_CENSUS%s: containers=%d modules=%d accounted=%d declared-keepers=%d kernel-with-ref=%d OWED=%d (loose pairs %d, fixtures %d, loose no-ref %d, DANGLING REFS %d, KERNEL OWED A REF %d) -- an owed source is absorbed into its master with an oracle-cut ref, or named in ALL.excluded.txt with the reason it cannot run with output; an owed DANGLING REF is a .ref/.expected/.std whose source no longer exists and is deleted once its content is proven preserved (diff it against the master entry that absorbed it) or restored beside its source; a KERNEL source owed a ref is given one cut from its oracle and stays where it lives. Declared keepers are REPORTED BESIDE owed and never folded into it -- one master per language is the order, and a keeper is a deliberate exception that is SEEN, not one that hides' % (' lang=' + A.lang if A.lang else '', tot['container'], tot['module'], tot['accounted'], tot['declared-keeper'], tot['kernel-with-ref'], n, tot['loose pair (has ref)'], tot['fixture'], tot['loose source (no ref)'], d, k))
+print('UNABSORBED_CENSUS%s: containers=%d modules=%d accounted=%d declared-keepers=%d kernel-with-ref=%d derived-refs=%d OWED=%d (loose pairs %d, fixtures %d, loose no-ref %d, DANGLING REFS %d, KERNEL OWED A REF %d) -- an owed source is absorbed into its master with an oracle-cut ref, or named in ALL.excluded.txt with the reason it cannot run with output; an owed DANGLING REF is a .ref/.expected/.std whose source no longer exists and is deleted once its content is proven preserved (diff it against the master entry that absorbed it) or restored beside its source; a KERNEL source owed a ref is given one cut from its oracle and stays where it lives; a DERIVED REF is a kernel of a language with NO RIVAL IMPLEMENTATION (CEO-607) whose ref is derived cross-language under a real oracle with the derivation recorded beside it -- accounted, never owed, never available to a language that has an oracle, and kept a SEPARATE class from kernel-with-ref so a derived ref never reads as an oracle-cut one. Declared keepers are REPORTED BESIDE owed and never folded into it -- one master per language is the order, and a keeper is a deliberate exception that is SEEN, not one that hides' % (' lang=' + A.lang if A.lang else '', tot['container'], tot['module'], tot['accounted'], tot['declared-keeper'], tot['kernel-with-ref'], tot['derived-ref'], n, tot['loose pair (has ref)'], tot['fixture'], tot['loose source (no ref)'], d, k))
 for lang in sorted(set(list(owed) + list(dangling) + list(kernel_owed) + list(keepers))):
     bits = []
     if dangling[lang]: bits.append('dangling refs %d' % len(dangling[lang]))
