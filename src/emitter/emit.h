@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #pragma once
 #define RET              0xC3
+#define ZD_NOPS_MAX      64
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -500,10 +501,10 @@ typedef struct {
     int                          op_zres;
     int                          op_strict;
     int                          op_zgpop;
-    int                          op_zread[6];
+    int                          op_zread[ZD_NOPS_MAX];
     int                          op_pair_rejoin;
     int                          op_wsteal;
-    int                          op_zkind[6];
+    int                          op_zkind[ZD_NOPS_MAX];
     int                          flat_outer_nparams;
     int                          flat_lcl_proc;
     int                          op_arbno_framed;
@@ -538,7 +539,7 @@ typedef struct {
     int                          op_zdp_rbp;
     int                          op_leaf_frame_off;
     int                          op_xf_off;
-    int                          op_zread_xf[6];
+    int                          op_zread_xf[ZD_NOPS_MAX];
     int                          pl_trace_mode;
     unsigned long                pl_trace_n;
     long                         pl_trace_sp;
