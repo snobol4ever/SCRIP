@@ -477,7 +477,7 @@ extern "C" void bb_ab_emit_nodes(IR_graph_t *g, int gva_active)
     for (int i = 0; i < g->ab_n; i++) {
         IR_t *nd = g->ab_nodes[i];
         if (!nd || nd->op != IR_DEFINE) continue;
-        g_emit         = saved_emit;
+        { int64_t * pt = g_emit.op_parts_ival; int pc = g_emit.op_parts_cap; g_emit = saved_emit; g_emit.op_parts_ival = pt; g_emit.op_parts_cap = pc; }
         g_emit_cfg     = g;
         g_emit.op_sval = IR_LIT(nd).sval;
         g_emit.op_ival = (long)nd->n_operands;
@@ -512,7 +512,7 @@ extern "C" void bb_ab_emit_nodes(IR_graph_t *g, int gva_active)
                 *cell = (void *)(bb_emit_buf + al->offset);
         }
     }
-    g_emit     = saved_emit;
+    { int64_t * pt = g_emit.op_parts_ival; int pc = g_emit.op_parts_cap; g_emit = saved_emit; g_emit.op_parts_ival = pt; g_emit.op_parts_cap = pc; }
     g_emit_cfg = saved_cfg;
     g_gva_active = saved_gva;
 }

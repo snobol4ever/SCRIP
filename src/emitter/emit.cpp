@@ -1449,6 +1449,14 @@ static bb_label_t * fc_seq_phi_tgt(IR_t **nodes, int n, int k, int src, bb_label
     return dflt;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void emit_parts_reserve(int n) {
+    if (n <= g_emit.op_parts_cap) return;
+    int cap = g_emit.op_parts_cap > 0 ? g_emit.op_parts_cap : 32; while (cap < n) cap *= 2;
+    int64_t * grown = (int64_t *) realloc(g_emit.op_parts_ival, (size_t) cap * sizeof(int64_t));
+    if (!grown) { fprintf(stderr, "emit: op_parts table: out of memory at %d parts\n", n); exit(2); }
+    g_emit.op_parts_ival = grown; g_emit.op_parts_cap = cap;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_label_t **betas, bb_label_t **na_s, bb_label_t **na_f, bb_label_t **na_fo, bb_label_t ***fc_sig, bb_label_t *node_γ, bb_label_t *node_ω, bb_label_t *chain_ω) {
     IR_t *nd = nodes[i]; int N = (nd->op == IR_MATCH_ARBNO) ? 1 : (nd->op == IR_DISJUNCTION) ? (int)IR_LIT(nd).ival : nd->n_operands / 2;
     if (3 * N + 3 > XA_BB_EMIT_PAIR_MAX) { fprintf(stderr, "FATAL emit flat_drive_match_alt: node n%d op=%d N=%d needs %d pair slots > XA_BB_EMIT_PAIR_MAX(%d) — raise the constant in emit.h\n", i, (int)nd->op, N, 3 * N + 3, XA_BB_EMIT_PAIR_MAX); abort(); }
@@ -1462,8 +1470,8 @@ static void flat_drive_match_alt(IR_t **nodes, int n, int i, bb_label_t **lbls, 
         for (int j = 0; j < N; j++) { int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = fc_sig[i][j]; g_emit.xa_bb_emit_pair_jmp[_i] = NULL; }
     { int _i = g_emit.xa_bb_emit_pair_n++; g_emit.xa_bb_emit_pair_define[_i] = na_fo[i]; g_emit.xa_bb_emit_pair_jmp[_i] = NULL; }
     g_emit.op_off = drive_value_slot(nd); g_emit.op_ival = (int64_t)N;
-    if (nd->op == IR_SCAN_SEQUENCE) { for (int j = 0; j < N && j < 32; j++) g_emit.op_parts_ival[j] = zls_off(nd->operands[2 * j + 1]); g_emit.op_parts_n = N; }
-    if (nd->op == IR_DISJUNCTION) { for (int j = 0; j < N && j < 32; j++) { IR_t *rj = (2 * N + j < nd->n_operands) ? nd->operands[2 * N + j] : (IR_t *)0; { int _g = 0; while (rj && rj->op == IR_CONJUNCTION && rj->n_operands > 0 && _g++ < 16) rj = rj->operands[0]; }    int rs = rj ? emit_binop_opnd_slot(rj) : -1; g_emit.op_parts_ival[j] = rs; } g_emit.op_parts_n = N; }
+    if (nd->op == IR_SCAN_SEQUENCE) { emit_parts_reserve(N); for (int j = 0; j < N; j++) g_emit.op_parts_ival[j] = zls_off(nd->operands[2 * j + 1]); g_emit.op_parts_n = N; }
+    if (nd->op == IR_DISJUNCTION) { emit_parts_reserve(N); for (int j = 0; j < N; j++) { IR_t *rj = (2 * N + j < nd->n_operands) ? nd->operands[2 * N + j] : (IR_t *)0; { int _g = 0; while (rj && rj->op == IR_CONJUNCTION && rj->n_operands > 0 && _g++ < 16) rj = rj->operands[0]; }    int rs = rj ? emit_binop_opnd_slot(rj) : -1; g_emit.op_parts_ival[j] = rs; } g_emit.op_parts_n = N; }
     DRIVE_FILL(nd, lbls[i], node_γ, node_ω, betas[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

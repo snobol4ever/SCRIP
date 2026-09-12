@@ -1217,8 +1217,8 @@ static IR_t * lower_alt_impl(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω,
     IR_graph_t * g = cx->g;
     IR_t * dj = lc_build(g, IR_DISJUNCTION, NULL, NULL);
     γ_to(dj, γ); ω_to(dj, ω);
-    IR_t * resv[64];
-    for (int j = 0; j < n && j < 64; j++) {
+    IR_t * resv[n];
+    for (int j = 0; j < n; j++) {
         int before = g->n;
         IR_t * ar = NULL; cx->beta = dj;
         int use_lv = (lval == 2) ? icn_trace_var_form(cx, t->c[j]) : lval;
@@ -1239,8 +1239,8 @@ static IR_t * lower_alt_impl(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω,
         ir_operand_push(dj, rj);
         resv[j] = ar;
     }
-    for (int j = 0; j < n && j < 64; j++) ir_operand_push(dj, icn_arm_result(resv[j]));
-    IR_LIT(dj).ival = (long) (n < 64 ? n : 64);
+    for (int j = 0; j < n; j++) ir_operand_push(dj, icn_arm_result(resv[j]));
+    IR_LIT(dj).ival = (long) n;
     cx->beta = dj; *res = dj;
     return icn_dj_α_entry(g, dj);
 }
