@@ -285,6 +285,14 @@ PL_ROOT_LEAF(db_at)
 PL_ROOT_LEAF(db_nonempty)
 PL_ROOT_LEAF(db_seed_once)
 PL_ROOT_LEAF(nb_setval)
+PL_ROOT_LEAF(db_bind)
+PL_ROOT_LEAF(db_assertz_t)
+PL_ROOT_LEAF(db_asserta_t)
+PL_ROOT_LEAF(db_n_t)
+PL_ROOT_LEAF(db_at_t)
+PL_ROOT_LEAF(db_erase_t)
+PL_ROOT_LEAF(db_abolish_t)
+PL_ROOT_LEAF(db_retractall_t)
 #define PL_ROOTCTX_LEAF(nm) RTX_FUNC(rt_pl_dop_##nm); sub rsp, CTX_FRAME; mov qword ptr [rsp + CTX_TR], r12; mov qword ptr [rsp + CTX_B], r13; mov rdx, rsp; mov rcx, r14; \
     call rt_pl_dop_##nm##_c; mov r12, qword ptr [rsp + CTX_TR]; add rsp, CTX_FRAME; ret; RTX_ENDF(rt_pl_dop_##nm)
 PL_ROOTCTX_LEAF(nb_getval)
@@ -368,6 +376,22 @@ RTX_FUNC(rt_pl_dop_db_alive)
     mov     edx, 1
     ret
 RTX_ENDF(rt_pl_dop_db_alive)
+RTX_FUNC(rt_pl_dop_db_t_guard)
+    sub     rsp, 8
+    mov     rdx, r14
+    call    rt_pl_dop_db_t_guard_c
+    add     rsp, 8
+    test    rax, rax
+    jz      .Ldtg_ok
+    mov     r15, rax
+    mov     eax, DT_FAIL | (MOD_OP_RT_PL_DB_TGUARD << 8)
+    xor     edx, edx
+    ret
+.Ldtg_ok:
+    mov     eax, DT_I
+    mov     edx, 1
+    ret
+RTX_ENDF(rt_pl_dop_db_t_guard)
 RTX_FUNC(rt_pl_dop_goal_guard)
     sub     rsp, 8
     call    rt_pl_dop_goal_guard_c

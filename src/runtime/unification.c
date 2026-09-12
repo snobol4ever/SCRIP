@@ -1673,6 +1673,22 @@ void *rt_pl_ball_instantiation(void)
     return rt_pl_compound_cell("error", 2, (void *)er);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_pl_ball_permission_pi(const char *op, const char *type, const char *nm, int ar)
+{
+    extern DESCR_t rt_pl_fresh_var_ref(void);
+    pl_cell_t pi[2]; pl_cell_t *pic; pl_cell_t pe[3]; pl_cell_t *pec; pl_cell_t er[2];
+    pi[0] = pl_make_atom(prolog_atom_intern(nm ? nm : "?")); pi[1] = pl_make_int(ar);
+    pic = (pl_cell_t *)rt_pl_compound_cell("/", 2, (void *)pi);
+    if (!pic) return (void *)0;
+    pe[0] = pl_make_atom(prolog_atom_intern(op ? op : "modify"));
+    pe[1] = pl_make_atom(prolog_atom_intern(type ? type : "static_procedure"));
+    pe[2] = *pic;
+    pec = (pl_cell_t *)rt_pl_compound_cell("permission_error", 3, (void *)pe);
+    if (!pec) return (void *)0;
+    er[0] = *pec; er[1] = rt_pl_fresh_var_ref();
+    return rt_pl_compound_cell("error", 2, (void *)er);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_ball_permission3(const char *op, const char *type, DESCR_t culprit)
 {
     extern DESCR_t rt_pl_fresh_var_ref(void);
@@ -1910,6 +1926,90 @@ int rt_pl_nb_is_set(void *root, int64_t k)
     return *(pl_cell_t **)((char *)root - PL_DB_CELL0 - 8 * (size_t)k) != (pl_cell_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define PL_DB_REGISTRY_CELL 0
+typedef struct { char key[264]; int k; pl_db_t *db; int stat; } pl_db_key_t;
+typedef struct { pl_db_key_t *e; int n; int cap; } pl_db_reg_t;
+static pl_db_reg_t * pl_db_registry(void *root, int create)
+{
+    extern void *rt_plj_alloc(size_t);
+    if (!root) return (pl_db_reg_t *)0;
+    { pl_db_reg_t **cell = (pl_db_reg_t **)((char *)root - PL_DB_CELL0 - 8 * (size_t)PL_DB_REGISTRY_CELL);
+      if (!*cell && create) {
+          pl_db_reg_t *r = (pl_db_reg_t *)rt_plj_alloc(sizeof *r);
+          if (!r) return (pl_db_reg_t *)0;
+          r->cap = 32; r->n = 0; r->e = (pl_db_key_t *)rt_plj_alloc((size_t)r->cap * sizeof(pl_db_key_t));
+          if (!r->e) { r->cap = 0; }
+          *cell = r;
+      }
+      return *cell; }
+}
+static pl_db_key_t * pl_db_reg_find(pl_db_reg_t *r, const char *key)
+{
+    if (!r || !key) return (pl_db_key_t *)0;
+    for (int i = 0; i < r->n; i++) if (!strcmp(r->e[i].key, key)) return &r->e[i];
+    return (pl_db_key_t *)0;
+}
+static pl_db_key_t * pl_db_reg_add(pl_db_reg_t *r, const char *key)
+{
+    extern void *rt_plj_alloc(size_t);
+    if (!r || !key) return (pl_db_key_t *)0;
+    if (r->n >= r->cap) {
+        int nc = r->cap > 0 ? r->cap * 2 : 32;
+        pl_db_key_t *ne = (pl_db_key_t *)rt_plj_alloc((size_t)nc * sizeof(pl_db_key_t));
+        if (!ne) return (pl_db_key_t *)0;
+        for (int i = 0; i < r->n; i++) ne[i] = r->e[i];
+        r->e = ne; r->cap = nc;
+    }
+    { pl_db_key_t *e = &r->e[r->n++]; snprintf(e->key, sizeof e->key, "%s", key); e->k = -1; e->db = (pl_db_t *)0; e->stat = 0; return e; }
+}
+int rt_pl_db_bind(void *root, int64_t k, const char *name, int64_t arity)
+{
+    char key[264];
+    if (!root || !name || k <= PL_DB_REGISTRY_CELL || k >= PL_DB_CELLS_MAX) return 0;
+    snprintf(key, sizeof key, "%s/%d", name, (int)arity);
+    { pl_db_reg_t *r = pl_db_registry(root, 1); pl_db_key_t *e = pl_db_reg_find(r, key);
+      if (!e) e = pl_db_reg_add(r, key);
+      if (!e) return 0;
+      e->k = (int)k; return 1; }
+}
+int rt_pl_db_key_is_dynamic(void *root, const char *key)
+{
+    pl_db_key_t *e = pl_db_reg_find(pl_db_registry(root, 0), key);
+    return e ? 1 : 0;
+}
+void * rt_pl_db_get_by_key(void *root, const char *key, int create)
+{
+    extern void *rt_plj_alloc(size_t);
+    pl_db_reg_t *r = pl_db_registry(root, create);
+    pl_db_key_t *e = pl_db_reg_find(r, key);
+    if (e && e->k >= 0) return rt_pl_db_get(root, e->k);
+    if (e && e->db) return (void *)e->db;
+    if (!create) return (void *)0;
+    if (!e) e = pl_db_reg_add(r, key);
+    if (!e) return (void *)0;
+    { pl_db_t *d = (pl_db_t *)rt_plj_alloc(sizeof *d);
+      if (!d) return (void *)0;
+      d->cap = 8; d->n = 0; d->killed = 0; d->s = (pl_db_slot_t *)rt_plj_alloc((size_t)d->cap * sizeof(pl_db_slot_t));
+      if (!d->s) d->cap = 0;
+      e->db = d; return (void *)d; }
+}
+int rt_pl_db_term_key(void *term_cell, char *out, size_t n, int *ar)
+{
+    extern const char *prolog_atom_name(int);
+    extern int prolog_atom_intern(const char *);
+    pl_cell_t *t = pl_deref((pl_cell_t *)term_cell);
+    pl_cell_t *h = t;
+    if ((int)t->v == DT_PLREF && pl_arity(t) == 2 && plc_functor(t) == prolog_atom_intern(":-")) h = pl_deref(&((pl_cell_t *)t->p)[0]);
+    { const char *nm;
+      if ((int)h->v == DT_PLREF) { nm = prolog_atom_name(plc_functor(h)); *ar = pl_arity(h); }
+      else if ((int)h->v == DT_A) { nm = prolog_atom_name((int)h->i); *ar = 0; }
+      else if ((int)h->v == DT_S) { nm = h->s; *ar = 0; }
+      else return 0;
+      if (!nm) return 0;
+      snprintf(out, n, "%s/%d", nm, *ar);
+      return 1; }
+}
 int rt_pl_db_recompile(void *db_v, const char *key, int arity)
 {
     extern void * rt_pl_clause_tree(void *);
@@ -2002,12 +2102,40 @@ int rt_pl_db_clause_at(void *db_v, int i, void *out_v)
       return 1; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_db_define_absent(const char *key, int arity)
+{
+    extern void * rt_pl_clause_tree(void *);
+    extern void * pl_runtime_clause_tree(void *);
+    extern void * pl_runtime_define_pred(const char *, const void *, int);
+    extern void * rt_pl_choice_new(const char *);
+    extern void rt_pl_choice_add(void *, void *);
+    extern int prolog_atom_intern(const char *);
+    char nm[264]; const char *sl; pl_cell_t *hargs; pl_cell_t head; pl_cell_t pi[2]; pl_cell_t pic; pl_cell_t ee[2]; pl_cell_t eec; pl_cell_t er[2]; pl_cell_t erc; pl_cell_t th[1]; pl_cell_t body; pl_cell_t kids[2]; pl_cell_t pair;
+    void *raw; void *cl; void *ch;
+    if (!key) return 0;
+    sl = strrchr(key, '/'); if (!sl) return 0;
+    { size_t kl = (size_t)(sl - key); if (kl > 263) kl = 263; memcpy(nm, key, kl); nm[kl] = 0; }
+    if (arity > 0) { hargs = (pl_cell_t *)PL_CELL_ALLOC((size_t)arity * sizeof(pl_cell_t)); if (!hargs) return 0; for (int i = 0; i < arity; i++) pl_init_var(&hargs[i], -1); head = pl_make_compound(prolog_atom_intern(nm), arity, hargs); }
+    else head = pl_make_atom(prolog_atom_intern(nm));
+    pi[0] = pl_make_atom(prolog_atom_intern(nm)); pi[1] = pl_make_int(arity); pic = pl_make_compound(prolog_atom_intern("/"), 2, (void *)pi);
+    ee[0] = pl_make_atom(prolog_atom_intern("procedure")); ee[1] = pic; eec = pl_make_compound(prolog_atom_intern("existence_error"), 2, (void *)ee);
+    er[0] = eec; er[1] = pic; erc = pl_make_compound(prolog_atom_intern("error"), 2, (void *)er);
+    th[0] = erc; body = pl_make_compound(prolog_atom_intern("throw"), 1, (void *)th);
+    kids[0] = head; kids[1] = body; pair = pl_make_compound(prolog_atom_intern(":-"), 2, (void *)kids);
+    raw = rt_pl_clause_tree((void *)&pair); cl = raw ? pl_runtime_clause_tree(raw) : (void *)0;
+    if (!cl) return 0;
+    ch = rt_pl_choice_new(key); rt_pl_choice_add(ch, cl);
+    return pl_runtime_define_pred(key, ch, arity) ? 1 : 0;
+}
 int rt_pl_db_abolish(void *db_v)
 {
     pl_db_t *db = (pl_db_t *)db_v;
+    char key[264]; int ar = 0; int have = 0;
     if (!db) return 0;
+    for (int i = 0; i < db->n && !have; i++) if (rt_pl_db_head_key((void *)&db->s[i].cl, key, sizeof key, &ar)) have = 1;
     for (int i = 0; i < db->n; i++) db->s[i].erased = 1;
     db->killed = 1;
+    if (have) pl_db_define_absent(key, ar);
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

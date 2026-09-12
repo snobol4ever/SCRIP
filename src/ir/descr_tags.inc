@@ -161,4 +161,5 @@
 #define MOD_OP_RT_PL_CPF               219    /* rtx_plunify.s current_prolog_flag    */
 #define MOD_OP_RT_PL_SPF               220    /* rtx_plunify.s set_prolog_flag        */
 #define MOD_OP_RT_PL_GOAL_GUARD        221    /* rtx_plunify.s goal_guard             */
+#define MOD_OP_RT_PL_DB_TGUARD         222    /* rtx_plunify.s db_t_guard             */
 #endif

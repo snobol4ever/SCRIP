@@ -34,6 +34,7 @@ DESCR_t rt_pl_dop_db_assertz(DESCR_t *, int); DESCR_t rt_pl_dop_db_asserta(DESCR
 DESCR_t rt_pl_dop_nb_setval(DESCR_t *, int); DESCR_t rt_pl_dop_nb_getval(DESCR_t *, int);
 DESCR_t rt_pl_dop_db_retractall(DESCR_t *, int);
 DESCR_t rt_pl_dop_db_alive(DESCR_t *, int);
+DESCR_t rt_pl_dop_db_bind(DESCR_t *, int); DESCR_t rt_pl_dop_db_t_guard(DESCR_t *, int); DESCR_t rt_pl_dop_db_assertz_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_asserta_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_n_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_at_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_erase_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_abolish_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_retractall_t(DESCR_t *, int);
 DESCR_t rt_pl_dop_ax_zguard(DESCR_t *, int);
 DESCR_t rt_pl_dop_ax_eguard(DESCR_t *, int);
 DESCR_t rt_pl_dop_anum_guard2(DESCR_t *, int); DESCR_t rt_pl_dop_anum_guard3(DESCR_t *, int); DESCR_t rt_pl_dop_anum_guard5(DESCR_t *, int);
@@ -339,6 +340,8 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$db_erase", 2, "rt_pl_dop_db_erase", rt_pl_dop_db_erase }, { "$db_abolish", 1, "rt_pl_dop_db_abolish", rt_pl_dop_db_abolish }, { "$db_n", 1, "rt_pl_dop_db_n", rt_pl_dop_db_n }, { "$db_at", 2, "rt_pl_dop_db_at", rt_pl_dop_db_at }, { "$db_nonempty", 1, "rt_pl_dop_db_nonempty", rt_pl_dop_db_nonempty }, { "$ball_pending", 0, "rt_pl_dop_ball_pending", rt_pl_dop_ball_pending }, { "$db_seed_once", 3, "rt_pl_dop_db_seed_once", rt_pl_dop_db_seed_once },
         { "$db_retractall", 2, "rt_pl_dop_db_retractall", rt_pl_dop_db_retractall },
         { "$db_alive", 2, "rt_pl_dop_db_alive", rt_pl_dop_db_alive },
+        { "$db_bind", 3, "rt_pl_dop_db_bind", rt_pl_dop_db_bind }, { "$db_t_guard", 2, "rt_pl_dop_db_t_guard", rt_pl_dop_db_t_guard }, { "$db_assertz_t", 1, "rt_pl_dop_db_assertz_t", rt_pl_dop_db_assertz_t }, { "$db_asserta_t", 1, "rt_pl_dop_db_asserta_t", rt_pl_dop_db_asserta_t },
+        { "$db_n_t", 1, "rt_pl_dop_db_n_t", rt_pl_dop_db_n_t }, { "$db_at_t", 2, "rt_pl_dop_db_at_t", rt_pl_dop_db_at_t }, { "$db_erase_t", 2, "rt_pl_dop_db_erase_t", rt_pl_dop_db_erase_t }, { "$db_abolish_t", 1, "rt_pl_dop_db_abolish_t", rt_pl_dop_db_abolish_t }, { "$db_retractall_t", 1, "rt_pl_dop_db_retractall_t", rt_pl_dop_db_retractall_t },
         { "$nb_setval", 2, "rt_pl_dop_nb_setval", rt_pl_dop_nb_setval }, { "$nb_getval", 2, "rt_pl_dop_nb_getval", rt_pl_dop_nb_getval },
         { "$pl_nb_getval_guard", 2, "rt_pl_dop_nb_getval_guard", rt_pl_dop_nb_getval_guard },
         { "$ax_zguard", 2, "rt_pl_dop_ax_zguard", rt_pl_dop_ax_zguard },

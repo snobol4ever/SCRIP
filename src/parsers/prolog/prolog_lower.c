@@ -333,6 +333,7 @@ tree_t *pl_runtime_clause_tree(tree_t *raw) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 CODE_t *prolog_lower(PlProgram *pl_prog) {
+    pl_dyn_mark(strdup("$db_registry"), 0);
     for (PlClause *mcl = pl_prog->head; mcl; mcl = mcl->next) if (mcl->tr) { int _isdir = (mcl->tr->n > 0 && mcl->tr->c[0] && mcl->tr->c[0]->t == TT_NUL); pld_mark_scan(mcl->tr, 1); (void) _isdir; }
     CODE_t *prog = calloc(1, sizeof(CODE_t));
     tree_t *pld_seed[256]; int pld_seed_n = 0;
