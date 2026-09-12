@@ -83,6 +83,32 @@ def _stdin_sidecar_names(src_path):
                      for c in h.stdin_companion_candidates(_p))
 
 
+def _stdin_text_for_absorption(src_path):
+    """The stdin a plain program must be absorbed WITH, or (None, reason) if it cannot be carried.
+
+    ⛔⭐ THE RULE THIS REPLACES NAMED A CAPABILITY THAT HAD SINCE LANDED (hq_V 2026-09-11). Both guard sites
+    below used to EXCLUDE a stdin-bearing plain program with "stays as files until the stdin-sections format
+    extension lands" -- a rationale written when the master had no way to carry input. It has one: the master
+    pair ships `ALL.in`, write_stdin_sidecar() emits it, read_suite/read_block_suite attach it BY NAME, and
+    run_suite_entry() feeds it. MEASURED BEFORE THIS CHANGE, in the tree it governs: the icon master's ALL.in
+    already carries 20 stdin-fed entries. The extension is not pending; it shipped, and the park outlived it.
+    ⭐ THIS IS THE MISSING-CAPABILITY CLASS corpus/tests/icon/KEEP.md NAMES IN ITS OWN WORDS -- *a rationale
+    that names a MISSING CAPABILITY needs a RE-MEASURE date, not just an author date* -- and it is the second
+    time this month the same shape turned seats away from work that was already possible.
+    ⛔ IT DOES NOT WEAKEN THE GUARD THE PARK WAS PROTECTING, WHICH IS REAL AND STAYS: absorbing a stdin-reading
+    program WITHOUT its input grades it against /dev/null, it stops at EOF before reaching the behaviour it was
+    written to test, and the truncated run is filed as a documented red (seat04 measured exactly that on pascal
+    read1-4). The cure for that is to CARRY the input, not to refuse the program; what still refuses is a
+    program whose input cannot be carried FAITHFULLY, and that refusal is h.loose_stdin_companion()'s own --
+    AMBIGUOUS (two companions, so nobody can say which is the input) and non-UTF-8 (bytes this text path
+    cannot round-trip). Asked through the grader's finder, never a local spelling list, for the reason landed
+    one day earlier: when this question had three written answers, two of them were silently wrong."""
+    _txt, _path, _why = h.loose_stdin_companion(pathlib.Path(src_path))
+    # ⛔ (None, None) means NO COMPANION EXISTS and is NOT a refusal: the program is absorbed exactly as it was
+    # before this helper existed, fed nothing, because it reads nothing. Only a non-empty reason excludes.
+    return _txt, _why
+
+
 S4E = os.environ.get("S4E_HOME", os.path.dirname(os.path.dirname(HERE)))
 PO = os.environ.get("S4E_POST", "/home/resources/postoffice")   # the fleet queue, for PENDING.md row-state
 
@@ -1817,9 +1843,9 @@ def main():
                 # knew `.input` alone and the generalised one below knew `.in/.input`, while the harness knew
                 # `.stdin` too -- and `.stdin` is how all 8 icon companions in this corpus are spelled, so the
                 # one question that decides whether a program is absorbed had three answers.
-                _sc = _stdin_sidecar_names(sno)
-                if _sc:
-                    excluded.append((fam, "stdin sidecar (%s) -- stays as files until the stdin-sections format extension lands (hq_C row)" % _sc))
+                _stdin_txt, _stdin_why = _stdin_text_for_absorption(sno)
+                if _stdin_why:
+                    excluded.append((fam, "stdin companion cannot be carried faithfully (%s): %s" % (_stdin_sidecar_names(sno), _stdin_why)))
                     continue
                 sno_text = open(sno).read().splitlines()
                 ref_text = open(ref).read().splitlines()
@@ -1845,12 +1871,16 @@ def main():
                 _tmp = _tf.mkdtemp(prefix="mstr_")
                 try:
                     from pathlib import Path as _P
-                    _v = h.run_all_modes(_paths, _P(sno), open(ref).read(), _P(_tmp), ["m3", "m4"])
+                    # ⛔ THE PROBE IS FED WHAT THE ENTRY WILL BE FED, or its verdict is about a different run:
+                    # an unfed probe on a stdin-reading program stops at EOF and marks the entry xfail for a
+                    # starvation the absorbed entry will never experience -- a documented red that documents
+                    # the instrument. Same argument, one line down, as carrying the stdin at all.
+                    _v = h.run_all_modes(_paths, _P(sno), open(ref).read(), _P(_tmp), ["m3", "m4"], stdin_text=_stdin_txt)
                     _green = all(x.kind == "PASS" for x in _v.values())
                 finally:
                     import shutil as _sh
                     _sh.rmtree(_tmp, ignore_errors=True)
-                entries = [h.Entry("block", 1, os.path.basename(sno)[:-len(EXT)], sno_text, ref_text, xfail=not _green)]
+                entries = [h.Entry("block", 1, os.path.basename(sno)[:-len(EXT)], sno_text, ref_text, stdin=_stdin_txt, xfail=not _green)]
         else:
             # ⛔⭐ READ EACH SOURCE PAIR WITH ITS OWN DIALECT READER (hq_B, measured: read_suite on a .pl pair returns
             # the whole file as one entry whose body still contains %--- banners -- content that looks like structure).
@@ -1879,9 +1909,9 @@ def main():
                 # ⛔⭐ Same one-finder rule as the plain-program guard above: the spellings live in
                 # corpus_suite_harness.STDIN_COMPANION_SUFFIXES and nowhere else, because this list and that
                 # one drifted apart by exactly `.stdin` and that gap absorbed 8 icon programs unfed.
-                _sc = _stdin_sidecar_names(sno)
-                if _sc:
-                    excluded.append((fam, "stdin sidecar (%s) -- stays as files until the stdin-sections format extension lands" % _sc))
+                _stdin_txt, _stdin_why = _stdin_text_for_absorption(sno)
+                if _stdin_why:
+                    excluded.append((fam, "stdin companion cannot be carried faithfully (%s): %s" % (_stdin_sidecar_names(sno), _stdin_why)))
                     continue
                 mode = "plain"
                 # ⭐ AUTO-XFAIL BY SOURCE VERDICT, EXTENDED PAST SNOBOL4 (the "named follow-up" this comment used
@@ -1903,12 +1933,12 @@ def main():
                     _tmp = _tf.mkdtemp(prefix="mstr_")
                     try:
                         from pathlib import Path as _P
-                        _v = h.run_all_modes(_paths, _P(sno), open(ref, encoding="utf-8", errors="replace").read(), _P(_tmp), _run_modes)
+                        _v = h.run_all_modes(_paths, _P(sno), open(ref, encoding="utf-8", errors="replace").read(), _P(_tmp), _run_modes, stdin_text=_stdin_txt)
                         _xfail = not all(x.kind == "PASS" for x in _v.values())
                     finally:
                         import shutil as _sh
                         _sh.rmtree(_tmp, ignore_errors=True)
-                entries = [h.Entry("block", 1, os.path.basename(sno)[:-len(EXT)], _slines, _rlines, xfail=_xfail)]
+                entries = [h.Entry("block", 1, os.path.basename(sno)[:-len(EXT)], _slines, _rlines, stdin=_stdin_txt, xfail=_xfail)]
             else:
                 # ⛔⭐ READ THE SIDECARS, exactly as the snobol4 path does. This call passed no in_path/x_path,
                 # so a dialect SUITE pair's stdin and xfail sidecars were silently DROPPED -- the entries
@@ -2278,6 +2308,36 @@ def main():
         # docstring for the two measured arms. Refuse here rather than absorb the edit silently.
         _excl_guard(out_excl, _excl_existing)
         _excl_existing.update({fam: why for fam, why in excluded})
+        # ⛔⭐ AN ABSORBED FAMILY LEAVES THIS FILE, AND THE MERGE ALONE WOULD NEVER LET IT (hq_V 2026-09-11,
+        # measured on rung36_jcon_others). The merge above is right to never delete a line it did not write --
+        # that is what protects another run's additive exclusions -- but it made an exclusion PERMANENT: the
+        # moment a family is released and absorbed, its old row survives and the same program is BOTH in the
+        # graded denominator AND named as "never absorbed (deferral contract)". The two readings cannot both
+        # be true, and the file that contradicts the master is the one every census reads.
+        # ⛔ IT IS NOT A HAND EDIT AND MUST NOT BE ONE: CEO-545 makes this file GENERATED and _excl_guard
+        # REFUSES rc=2 on an edit, correctly -- which leaves the builder itself as the only thing that can
+        # retract a row. The retraction is still DECLARED where the ceo's rule says (KEEP.md/PENDING.md); this
+        # only stops the generated file from outliving the declaration it was generated from.
+        # ⛔⭐⭐ TWO CONDITIONS, AND THE SECOND ONE IS THE WHOLE CURE -- MY FIRST VERSION HAD ONLY THE FIRST AND
+        # WOULD HAVE DELETED 191 ROWS INSTEAD OF 1, WHICH I FOUND BY READING WHAT IT PROPOSED TO DELETE RATHER
+        # THAN BY TRUSTING THE RULE. "The family is in the master" DOES NOT MEAN "this row is stale": 153 of
+        # those rows are `parser_*` loose pairs that are deliberate KEEPERS in parser/KEEP.md while entries of
+        # the same family name were absorbed from elsewhere long ago. Both readings were true at once, and the
+        # naive rule would have silently retired 153 live declarations -- the origin-keyed-guard trap this
+        # corpus already paid for once (corpus/tests/icon/KEEP.md's own double-count note).
+        #   (1) IN THE DENOMINATOR: the family's origin appears in the entries being written.
+        #   (2) AND NOT EXCLUDED BY THE LIVE TREE THIS RUN: `excluded` is recomputed from scratch every run, so
+        #       a row that this run did NOT re-emit is a row whose declaration is GONE, while every still-live
+        #       keeper re-emits itself and is kept. This is also what protects another run's --additive rows:
+        #       a demo excluded by an --additive run is absent from the master, so (1) already spares it.
+        _absorbed_fams = {e.origin.split("__", 1)[0] for e in all_entries}
+        _live_excl = {fam for fam, _why in excluded}
+        _retracted = sorted(k for k in _excl_existing if k in _absorbed_fams and k not in _live_excl)
+        for _k in _retracted:
+            del _excl_existing[_k]
+        if _retracted:
+            sys.stderr.write("⭐ EXCLUSION RETRACTED for %d absorbed famil(y/ies) -- now in the graded denominator, "
+                             "so they cannot also be named as excluded from it: %s\n" % (len(_retracted), ", ".join(_retracted)))
         with open(tmp_excl, "w", encoding="utf-8", newline="\n") as f:
             for fam in sorted(_excl_existing):
                 f.write("%s\t%s\n" % (fam, _excl_existing[fam]))

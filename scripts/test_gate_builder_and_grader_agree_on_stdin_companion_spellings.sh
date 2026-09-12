@@ -27,7 +27,7 @@
 # ⛔ IT GRADES ON ITS OWN FIXTURES, NEVER ON THE CORPUS MASTER (CEO-547 part 2): a synthetic corpus per
 # spelling, built and torn down here, so the gate is runnable by any seat under ONE RUNNER, ONE BOARD.
 #
-# EXIT: 0 every spelling in both locations is excluded by the builder and found by the grader
+# EXIT: 0 every spelling in both locations is CARRIED into ALL.in by the builder and found by the grader
 #       · 1 a spelling the grader knows is INVISIBLE to the builder (the absorb-unfed defect is back)
 #       · 2 REFUSED -- cannot measure (no python3, harness will not import, no spellings, builder not found).
 set -u
@@ -76,14 +76,25 @@ for SUF in $SUFFIXES; do
     printf 'alpha\nbeta\n' > "$CP"
     OUT="$(S4E_HOME="$T" timeout 120s python3 "$HERE/util_build_master_suite.py" --lang "$LANG" --write 2>&1)" || true
     CHECKED=$((CHECKED + 1))
-    # ⛔ THE ASSERTION IS ON THE EXCLUSION, NOT ON A COUNT: the builder must REFUSE this pair and SAY SO.
-    # A count would also be satisfied by the pair vanishing for an unrelated reason, and the whole lesson of
-    # this defect is that a program leaving the numerator silently is indistinguishable from one never there.
-    if printf '%s' "$OUT" | grep -q "gate_stdin_probe: stdin sidecar"; then
-      echo "PASS  $LANG  $WHERE  $SUF  -- builder excludes it, naming the companion"
+    # ⛔⭐ THE ASSERTION MOVED FROM "THE BUILDER REFUSES IT" TO "THE BUILDER CARRIES IT", 2026-09-11 (hq_V),
+    # AND THAT IS A STRENGTHENING, NOT A WEAKENING -- read this before changing it back. The defect this gate
+    # was written for is UNCHANGED and is still what it measures: the builder and the grader must answer the
+    # same question about a file, or a stdin-reading program is graded against /dev/null. What changed is the
+    # ANSWER agreement produces. It used to be "both refuse", because the master had no way to carry input;
+    # the master pair ships ALL.in and the icon master was already grading 20 stdin-fed entries while that
+    # park went on turning the rest away, so agreement now means THE BUILDER CARRIES WHAT THE GRADER WOULD FEED.
+    # ⛔ THE OLD FAILURE IS STILL CAUGHT, and by a STRICTER test: a builder that cannot see this spelling does
+    # not refuse the pair -- it absorbs it UNFED, and then ALL.in has no block for the probe and the byte
+    # comparison below fails. A builder that sees it but drops the text fails the same arm. The previous form
+    # could be satisfied by a refusal for ANY reason; this one can only be satisfied by the input arriving.
+    _in="$D/ALL.in"
+    _got=""; [ -f "$_in" ] && _got="$(grep -v '^[#*;(/-]*-\{3,\} [0-9]* ' "$_in" 2>/dev/null)"
+    if [ -f "$_in" ] && [ "$_got" = "$(cat "$CP")" ]; then
+      echo "PASS  $LANG  $WHERE  $SUF  -- builder absorbs it and carries the companion into ALL.in byte-for-byte"
     else
-      echo "FAIL  $LANG  $WHERE  $SUF  -- the GRADER finds this companion and the BUILDER does not: the pair is"
-      echo "      absorbed and the master will grade a stdin-reading program against /dev/null."
+      echo "FAIL  $LANG  $WHERE  $SUF  -- the GRADER finds this companion and the BUILDER does not carry it: the"
+      echo "      pair is absorbed and the master will grade a stdin-reading program against /dev/null."
+      echo "      ALL.in $([ -f "$_in" ] && echo "carries: $(printf '%s' "$_got" | tr '\n' '|')" || echo 'WAS NOT WRITTEN AT ALL')  · companion: $(tr '\n' '|' < "$CP")"
       printf '%s\n' "$OUT" | grep -i 'CANNOT ABSORB\|MASTER SUITE:' | sed 's/^/      /'
       FAILED=$((FAILED + 1))
     fi
@@ -102,6 +113,18 @@ if path is None and refusal is None:
 done
 done
 [ "$CHECKED" -gt 0 ] || { echo "REFUSED: no spelling was exercised -- cannot measure"; exit 2; }
+# ⛔⭐ A POPULATION FLOOR, BECAUSE THIS GATE DRAWS ITS FIXTURES FROM THE VERY LIST IT IS TESTING (hq_V
+# 2026-09-11, found by MUTATING that list rather than by reading this file). SUFFIXES comes from
+# corpus_suite_harness.STDIN_COMPANION_SUFFIXES -- which is right, and is the whole point of asking the one
+# authority -- but it means DELETING A SPELLING DELETES ITS FIXTURES TOO: the mutation that removed `.stdin`
+# and `.input` took the run from 12 checks to 4 and the gate still printed a green tick. The count was on
+# screen and nothing refused, which is this project's own "a criterion that is never evaluated looks exactly
+# like one that was satisfied". ⛔ 12 IS NOT A TASTE: 3 spellings (.stdin/.in/.input) x 2 locations (beside,
+# config/) x 2 languages (icon, snobol4) is the population this gate was written over, and a smaller one is a
+# CAPABILITY THAT WENT AWAY, which must be a loud rc=2 refusal and never a quiet pass. Raise the floor in the
+# same landing that adds a spelling; a floor that is never raised is a ratchet nobody turns.
+CHECKED_FLOOR=12
+[ "$CHECKED" -ge "$CHECKED_FLOOR" ] || { echo "⛔ REFUSED rc=2: only $CHECKED spelling x location x language combination(s) were exercised, against a floor of $CHECKED_FLOOR -- the fixtures are generated FROM corpus_suite_harness.STDIN_COMPANION_SUFFIXES, so a shrunken run means a SPELLING WAS REMOVED and this gate silently stopped covering it. That is not a pass; it is a measurement that did not happen."; exit 2; }
 echo "----"
 echo "spellings x locations checked: $CHECKED   failures: $FAILED"
 [ "$FAILED" -eq 0 ] || { echo "⛔ the builder and the grader disagree about what a stdin companion is"; exit 1; }
