@@ -27,7 +27,8 @@ WRAP=$(mktemp /tmp/pl_wrap_XXXXXX.pl)
 ACTUAL_TMP=$(mktemp /tmp/pl_actual_XXXXXX.txt)
 ASM_TMP=$(mktemp /tmp/pl_asm_XXXXXX.s)
 PROG_TMP=$(mktemp /tmp/pl_prog_XXXXXX)
-trap 'rm -f "$WRAP" "$ACTUAL_TMP" "$ASM_TMP" "$PROG_TMP"' EXIT
+ROWS_TMP=$(mktemp /tmp/pl_rows_XXXXXX.tsv)
+trap 'rm -f "$WRAP" "$ACTUAL_TMP" "$ASM_TMP" "$PROG_TMP" "$ROWS_TMP"' EXIT
 
 VERBOSE=0; ONLY_FILE=""; MODE=""; RECUT=0
 while [[ $# -gt 0 ]]; do
@@ -176,10 +177,23 @@ run_one_mode() {
     local mode="$1"
     local PASS=0 FAIL=0 TOTAL=0
 
-    for f in $(find "$SWIT" -name "*.pl" | sort); do   # RECURSIVE (row swi-tests-subdirs-invisible, Lon direct 2026-08-30): the flat test_*.pl glob saw 18 of 249 -- 21 subdirs + test.pl were structurally invisible
-        base=$(basename "$f" .pl)
-        ref="$SWIT/${base}.ref"
-        [ -f "$ref" ] || continue
+    # ⛔⭐⭐ THE POPULATION IS THE REFS, NOT A RECURSIVE .pl SCAN -- AND THE SCAN WAS DOUBLE-COUNTING (hq_C
+    # 2026-09-12, CEO-601).  The old loop walked `find "$SWIT" -name "*.pl"` RECURSIVELY and kept any file
+    # whose BASENAME had a sibling `.ref` at the top level.  Ten of those basenames exist TWICE -- once beside
+    # their ref and once inside the vendored upstream `core/` tree -- so every ref was graded TWICE, from two
+    # different paths, and both results were added to the same PASS and the same TOTAL.  The suite's published
+    # denominator of 118 was 59 suite-lines counted twice, and 20 "graded files" were 10 refs counted twice.
+    # ⭐ THE PERCENTAGE HID IT PERFECTLY: PASS doubled with TOTAL, so the coverage figure was right the whole
+    # time and only the denominator was fiction.  A ratio is blind to a uniform double-count by construction.
+    # ⛔ AND THE TWO COPIES ARE NOT ALWAYS THE SAME PROGRAM: `test_string.pl` DIFFERS between the top level and
+    # `core/`, so one ref was being graded against two different sources whose agreement nobody checked.
+    # ⭐ The cure is to address the population by the thing that DEFINES it -- a ref names exactly one graded
+    # program and there are ten of them -- and grade the source that sits BESIDE the ref.  A basename is not an
+    # identity in a recursive tree; the ref path is.
+    for ref in $(find "$SWIT" -maxdepth 1 -name "*.ref" | sort); do
+        base=$(basename "$ref" .ref)
+        f="$SWIT/${base}.pl"
+        [ -f "$f" ] || { echo "⛔ REFUSED-TO-GRADE: $(basename "$ref") has no ${base}.pl beside it -- a ref without its program is not a score of 0, it is an unmeasurable row"; exit 2; }
         [ -z "$ONLY_FILE" ] || [ "$base" = "$ONLY_FILE" ] || continue
 
         suite_total=$(wc -l < "$ref")
@@ -205,14 +219,29 @@ run_one_mode() {
         PASS=$((PASS + matched))
         FAIL=$((FAIL + suite_total - matched))
 
-        # ⛔⭐ CEO-331: one progress row per program per mode. This runner grades with its OWN loop, so nothing records
-        # it automatically and the coverage report read swi as 9 of 114 replay rows and ZERO live. The mode flag here is
-        # --run/--compile; the database column is m3/m4, so it is TRANSLATED rather than written through: a suite that
-        # spells its own modes into a shared table is how two suites become uncomparable in one column.
+        # ⛔⭐ ONE PROGRESS ROW PER GRADED UNIT PER MODE, NOT ONE PER FILE (CEO-601 on COO-60, hq_C 2026-09-12).
+        # CEO-331 asked for a row per program per mode and this runner wrote one per FILE -- but its DENOMINATOR
+        # is SUITE LINES, one plunit unit each, so the board counted 59 units while the database got 10 rows and
+        # the coverage report compared two different populations in one column.  ⭐ The unit is what the ref
+        # grades, so the unit is what gets a row; `--per-line` exists on the matcher for exactly this and is
+        # cross-checked against the count below, because two readings of one measurement that can disagree will.
+        # The mode flag here is --run/--compile and the database column is m3/m4, so it is TRANSLATED rather than
+        # written through: a suite that spells its own modes into a shared table is how two suites become
+        # uncomparable in one column.
         _pmode=m3; [ "$mode" = "--compile" ] && _pmode=m4
-        if command -v progress_append >/dev/null 2>&1; then
-            progress_append package swi prolog "$base" "$_pmode" \
-                "$([ "$matched" -eq "$suite_total" ] && echo PASS || echo FAIL)" 0 "match=$matched/$suite_total" || true
+        if command -v progress_append_rows_tsv >/dev/null 2>&1; then
+            _rows=0; _hits=0; : > "$ROWS_TMP"
+            while IFS=$(printf '\t') read -r _unit _verd; do
+                [ -n "$_unit" ] || continue
+                _rows=$((_rows + 1)); [ "$_verd" = "MATCH" ] && _hits=$((_hits + 1))
+                printf 'package\tswi\tprolog\t%s:%s\t%s\t%s\t0\tunit of %s\n' \
+                    "$base" "$_unit" "$_pmode" "$([ "$_verd" = "MATCH" ] && echo PASS || echo FAIL)" "$base" >> "$ROWS_TMP"
+            done <<PERLINE
+$(python3 "$MATCH_PY" --per-line "$ref" "$ACTUAL_TMP")
+PERLINE
+            [ "$_rows" = "$suite_total" ] && [ "$_hits" = "$matched" ] || {
+                echo "⛔ REFUSED-TO-GRADE: $base -- the per-unit reading ($_hits of $_rows) and the counted reading ($matched of $suite_total) disagree; two readings of one measurement must not diverge"; exit 2; }
+            progress_append_rows_tsv "$ROWS_TMP" >/dev/null || echo "⚠ progress rows NOT recorded for $base [$mode]"
         fi
         if [ "$matched" -eq "$suite_total" ]; then
             echo "  PASS $base ($suite_total suite-lines)  [$mode]"
@@ -233,6 +262,12 @@ run_one_mode() {
     # Accumulate the board across modes into a global here rather than making the totals global, which
     # would let a later mode silently overwrite an earlier one and report the last mode as "the suite".
     SWI_BOARD="${SWI_BOARD:+$SWI_BOARD · }$mode $PASS/$TOTAL (FAIL=$FAIL)"
+    # ⭐ THE RUN TIER IS THE SUITE PASS (CEO-601, Lon's ruling routed by the ceo): a suite grades programs by
+    # their OUTPUT against the oracle.  The compile tier still prints -- it is an INVENTORY line, saying how
+    # many units survive emit+link -- but it is not the row, and it never was: the cell read 11/118, the
+    # compile number, while the run tier measured 17.  ⛔ Deleting the compile tier would trade one wrong
+    # reading for a missing one, so it stays visible and stays unpublished.
+    if [ "$mode" = "--run" ]; then RUN_PASS="$PASS"; RUN_TOTAL="$TOTAL"; else CMP_PASS="$PASS"; CMP_TOTAL="$TOTAL"; fi
     [ "$TOTAL" -gt 0 ] || { echo "⛔ REFUSED-TO-GRADE: no test files found"; exit 2; }
     local pct=$((PASS * 100 / TOTAL))
     echo "Coverage: ${pct}%  (gate: >=80%)"
@@ -240,6 +275,7 @@ run_one_mode() {
 }
 
 OVERALL_RC=0
+RUN_PASS=""; RUN_TOTAL=""; CMP_PASS=""; CMP_TOTAL=""
 if [ -n "$MODE" ]; then
     run_one_mode "$MODE" || OVERALL_RC=1
 else
@@ -264,8 +300,20 @@ if [ -n "${ONLY_FILE:-}" ]; then
     echo "SCORE.md NOT UPDATED (by design): --file ${ONLY_FILE} grades ONE file and cannot produce a suite-wide"
     echo "  number. The leaderboard cell keeps whatever the last FULL run measured. Re-run without --file to record."
 else
-    python3 "$HERE/util_score_row.py" write --lang prolog --column vendor --suite SWI \
-        --measurer "${S4E_SEAT:-}" --text "${SWI_BOARD:-no mode ran} (\`test_prolog_swi_suite.sh\`)" \
-        || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
+    # ⛔⭐ ONE LABELLED BOARD LINE, AND IT IS WHAT THE ROW IS WRITTEN FROM (CEO-601).  Until 2026-09-12 this
+    # runner handed util_score_row a --text carrying TWO fractions and no --suite-pass, so the helper REFUSED
+    # every write -- correctly, because which fraction the row means is a judgement and a helper must not make
+    # it -- and the cell kept whatever some older run had left behind.  ⭐ The refusal was right and the row
+    # still rotted: a correct refusal upstream of a cell nobody re-measures is indistinguishable from a write.
+    if [ -z "$RUN_TOTAL" ]; then
+        echo "SCORE.md NOT UPDATED (by design): no --run tier in this invocation, and the RUN tier is the suite pass (CEO-601)."
+    else
+        printf 'SUITE_BOARD suite=swi lang=prolog tier=run pass=%s total=%s compile_inventory=%s/%s runner=test_prolog_swi_suite.sh\n' \
+            "$RUN_PASS" "$RUN_TOTAL" "${CMP_PASS:-na}" "${CMP_TOTAL:-na}"
+        python3 "$HERE/util_score_row.py" write --lang prolog --column vendor --suite SWI \
+            --measurer "${S4E_SEAT:-}" --suite-pass "$RUN_PASS" --suite-total "$RUN_TOTAL" \
+            --text "run $RUN_PASS/$RUN_TOTAL · compile-inventory ${CMP_PASS:-na}/${CMP_TOTAL:-na} (\`test_prolog_swi_suite.sh\`)" \
+            || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
+    fi
 fi
 exit "$OVERALL_RC"
