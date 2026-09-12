@@ -1377,7 +1377,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         { const char * ls = pl_det_leaf_sym(nm, t->n); if (ls) { const char * gs = pl_anum_guard_sym(nm, t->n);
             if (gs) return pl_leaf_lv_guarded(cx, ls, gs, nm, t, t->n, γnext, ωfail, entry_out);
             return pl_leaf_lv(cx, ls, t, t->n, γnext, ωfail, entry_out); } }
-        { int r = pl_rung_of(nm); if (r && !pl_file_defines(nm, t->n) && !pl_det_leaf_name_wired(nm)) pl_refuse("builtin", nm, r); }
+        { extern int g_rt_fragment_emit; int r = pl_rung_of(nm); if (r && !g_rt_fragment_emit && !pl_file_defines(nm, t->n) && !pl_det_leaf_name_wired(nm)) pl_refuse("builtin", nm, r); }
         return pl_user_call(cx, nm, t, t->n, γnext, ωfail, entry_out);
     }
     case TT_QLIT: case TT_NAME: {
@@ -1388,7 +1388,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
         if (!strcmp(nm, "repeat") && !pl_file_defines(nm, 0)) return goal(cx, pl_cc_fnc3("between", pl_cc_ilit(1), pl_cc_ilit(9223372036854775807LL), pl_cc_freshvar()), γnext, ωfail, entry_out);
         if (!strcmp(nm, "!")) { IR_t * cn = build(cx, IR_CUT, γnext, cx->cutω); if (cx->cutω != cx->clause_cutω) IR_LIT(cn).ival = 1; return cn; }
         { const char * ls = pl_det_leaf_sym(nm, 0); if (ls) return pl_leaf_lv(cx, ls, t, 0, γnext, ωfail, entry_out); }
-        { int r = pl_rung_of(nm); if (r && !pl_file_defines(nm, 0) && !pl_det_leaf_name_wired(nm)) pl_refuse("builtin", nm, r); }
+        { extern int g_rt_fragment_emit; int r = pl_rung_of(nm); if (r && !g_rt_fragment_emit && !pl_file_defines(nm, 0) && !pl_det_leaf_name_wired(nm)) pl_refuse("builtin", nm, r); }
         return pl_user_call(cx, nm, t, 0, γnext, ωfail, entry_out);
     }
     case TT_CUT: { IR_t * cn = build(cx, IR_CUT, γnext, cx->cutω); IR_LIT(cn).ival = cx->cut_scope; return cn; }
@@ -1502,7 +1502,7 @@ static int lower_pl_pred_graph(const char * key, const tree_t * ch) {
       return bb_program_add(&g_stage2.bbp, g); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void * pl_runtime_define_pred(const char * key, const tree_t * choice, int arity) {
+static void * pl_runtime_define_pred_g(const char * key, const tree_t * choice, int arity, IR_graph_t ** gout) {
     extern IR_graph_t * g_emit_cfg; extern int g_frame_active; extern int g_rt_fragment_emit; extern int g_gen_proc_active;
     extern int emit_jmp_entry_for_proc(const char *, int, int, IR_graph_t *); extern void emit_jmp_entry_clear(void);
     extern void zls_graph_name(const IR_graph_t *, const char *);
@@ -1520,6 +1520,7 @@ void * pl_runtime_define_pred(const char * key, const tree_t * choice, int arity
     if (idx < 0) return (void *)0;
     g = g_stage2.bbp.table[idx];
     if (!g) return (void *)0;
+    if (gout) *gout = g;
     g->resumable_callable = 1;
     { extern void zls_forget_graph_nodes(const IR_graph_t *); zls_forget_graph_nodes(g); }
     { extern void fl_derive_tier(IR_graph_t *); fl_derive_tier(g); }
@@ -1556,6 +1557,50 @@ void * pl_runtime_define_pred(const char * key, const tree_t * choice, int arity
     emit_patzeta_register(key, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform);
     { extern long g_last_dc_off; extern void rt_proc_set_dcfn(const char *, void *); rt_proc_set_dcfn(key, (g_last_dc_off >= 0) ? (void *)((char *)fn + g_last_dc_off) : (void *)0); }
     return (void *)fn;
+}
+void * pl_runtime_define_pred(const char * key, const tree_t * choice, int arity) { return pl_runtime_define_pred_g(key, choice, arity, NULL); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_mc_wrapper_term(const char * fn, int ar) {
+    if (ar <= 0) { tree_t * a = ast_node_new(TT_QLIT); a->v.sval = strdup(fn); return a; }
+    { tree_t * t = ast_node_new(TT_FNC); t->v.sval = strdup(fn);
+      for (int i = 0; i < ar; i++) { char b[24]; tree_t * v = ast_node_new(TT_VAR); snprintf(b, sizeof b, "_A%d", i); v->v.sval = strdup(b); ast_push(t, v); }
+      return t; }
+}
+static int pl_mc_graph_fell_back(const IR_graph_t * g, const char * nm, int ar) {
+    if (!g) return 1;
+    for (int i = 0; i < g->n; i++) {
+        const IR_t * nd = g->all[i]; const IR_t * gv;
+        if (!nd || nd->op != IR_CALL_VALUE || !IR_LIT(nd).sval || strcmp(IR_LIT(nd).sval, "goal") || nd->n_operands < 1) continue;
+        gv = nd->operands[0];
+        if (!gv) continue;
+        if (ar == 0 && gv->op == IR_LIT_STRING && IR_LIT(gv).sval && !strcmp(IR_LIT(gv).sval, nm)) return 1;
+        if (ar > 0 && gv->op == IR_CALL && IR_LIT(gv).sval && !strcmp(IR_LIT(gv).sval, "$mkc") && gv->n_operands == ar + 1
+            && gv->operands[0] && gv->operands[0]->op == IR_LIT_STRING && IR_LIT(gv->operands[0]).sval && !strcmp(IR_LIT(gv->operands[0]).sval, nm)) return 1;
+    }
+    return 0;
+}
+static void * pl_mc_define(const char * wkey, const char * wname, int ar, tree_t * body, IR_graph_t ** gout) {
+    extern tree_t * pl_runtime_clause_tree(tree_t *);
+    tree_t * pair = pl_cc_fnc2(":-", pl_mc_wrapper_term(wname, ar), body);
+    tree_t * cl = pl_runtime_clause_tree(pair);
+    tree_t * ch;
+    if (!cl) return (void *)0;
+    ch = ast_node_new(TT_CHOICE); ch->v.sval = strdup(wkey); ast_push(ch, cl);
+    return pl_runtime_define_pred_g(wkey, ch, ar, gout);
+}
+void * pl_runtime_define_goal_wrapper(const char * wkey, const char * nm, int ar) {
+    extern int rt_pl_unknown_suppress(const char *);
+    char wname[300]; IR_graph_t * g = NULL; void * fn;
+    if (!wkey || !nm || ar < 0) return (void *)0;
+    nm = strdup(nm);
+    snprintf(wname, sizeof wname, "$mc:%s", nm);
+    fn = pl_mc_define(wkey, wname, ar, pl_mc_wrapper_term(nm, ar), &g);
+    if (!fn) return (void *)0;
+    if (!pl_mc_graph_fell_back(g, nm, ar)) return fn;
+    { char key[300]; tree_t * body; snprintf(key, sizeof key, "%s/%d", nm, ar);
+      if (rt_pl_unknown_suppress(key)) body = (tree_t *) pl_atom_goal("fail");
+      else body = pl_cc_fnc1("throw", pl_cc_fnc2("error", pl_cc_fnc2("existence_error", (tree_t *) pl_atom_goal("procedure"), pl_cc_pi_ar(nm, ar)), pl_cc_pi_ar(nm, ar)));
+      return pl_mc_define(wkey, wname, ar, body, NULL); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_register_program(stage2_t * s2, const tree_t * prog) {
