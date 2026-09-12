@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """util_swi_match.py -- grade ONE swi_tests file, per CASE, by agreement with the oracle's ref.
 
-Usage: util_swi_match.py <file.pl> <file.ref> <actual_text_file>
+Usage: util_swi_match.py SOURCE.pl REF ACTUAL
 
-  <file.ref>   cut by util_swi_cut_refs.sh from real swipl: PASS|FAIL|BLOCKED unit:test, EMPTY unit, UNGRADABLE unit reason
-  <actual>     SCRIP's stdout through corpus/tests/prolog/plunit.pl: '  pass: unit:test', '  FAIL: unit:test  (why)', '  skip: unit:test  [why]'
+  REF      the oracle's verdicts beside the source, cut by util_swi_cut_refs.sh: PASS|FAIL|BLOCKED unit:test, EMPTY unit, UNGRADABLE unit reason
+  ACTUAL   SCRIP's stdout through corpus/tests/prolog/plunit.pl: '  pass: unit:test', '  FAIL: unit:test  (why)', '  skip: unit:test  [why]'
 
 THE POPULATION IS THE ORACLE'S ENUMERATION: every case the ref names (a forall(Gen) test is one case per generator
 instance, recorded by plunit as @(name,Bindings); a macro-generated test has no test/2 head in the source at all), plus,

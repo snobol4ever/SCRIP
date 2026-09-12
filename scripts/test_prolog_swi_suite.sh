@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" "${S4E_CORPUS:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/corpus}/packages/prolog/swi_tests" || exit 2
 # test_prolog_swi_suite.sh -- THE SWI-PROLOG TEST SUITE BOARD: every plunit CASE the vendored swipl-devel src/Tests tree
 # declares, graded by AGREEMENT with real swipl's own verdict, in mode 3 and mode 4.
 #
@@ -51,7 +52,6 @@ done
 "$HERE/util_require_fresh.sh" --gate "$GATE_NAME" "$SCRIP" "$RT/libscrip_rt.so" || exit 2
 . "$HERE/lib_gate.sh"
 . "$HERE/lib_inventory.sh"
-. "$HERE/lib_one_runner.sh"; one_runner_guard "$GATE_NAME" "$SWIT" || exit 2
 [ -f "$HERE/lib_progress.sh" ] && . "$HERE/lib_progress.sh"
 WORK="$(mktemp -d /tmp/swi_board_XXXXXX)"; trap 'rm -rf "$WORK"' EXIT
 printf 'main :- run_tests.\n:- initialization(main).\n' > "$WORK/wrap.pl"
@@ -145,7 +145,7 @@ else
     printf 'SUITE_BOARD suite=swi lang=prolog tier=run pass=%s total=%s runner=test_prolog_swi_suite.sh\n' "$BOTH" "$DECLARED"
     python3 "$HERE/util_score_row.py" write --lang prolog --column vendor --suite SWI \
         --measurer "${S4E_SEAT:-}" --suite-pass "$BOTH" --suite-total "$DECLARED" \
-        --text "swi_tests (swipl-devel src/Tests, every plunit case, agreement with swipl 9.0.4 per case) $BOTH/$DECLARED by the AND PER CASE over modes $MODES (\`test_prolog_swi_suite.sh\`)" \
+        --text "swi_tests (swipl-devel src/Tests, every plunit case, agreement with swipl 9.0.4 per case) $BOTH/$DECLARED by the AND PER CASE over modes $MODES (\`test_prolog_swi_suite.sh\`)${_iv:+ · $_iv (\`test_prolog_swi_suite.sh\`)}" \
         || echo "⚠ SUITES.tsv NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 fi
 [ "$NOREF" -eq 0 ] || { echo "⛔ $NOREF shipped test file(s) carry no oracle ref: cut them with scripts/util_swi_cut_refs.sh --write"; exit 1; }
