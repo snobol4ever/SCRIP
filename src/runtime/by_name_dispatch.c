@@ -5471,6 +5471,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         if (IS_REAL_fn(av)) { if (!isfinite(av.r)) { *out = FAILDESCR; return 1; } if (fabs(av.r) >= 9223372036854775807.0) { extern DESCR_t rt_big_from_str(const char *); char _bb[400]; snprintf(_bb, sizeof _bb, "%.0f", trunc(av.r)); *out = rt_big_from_str(_bb); return 1; } *out = INTVAL((long long)av.r); return 1; }
         { extern int rt_big_is(DESCR_t); if (rt_big_is(av)) { *out = av; return 1; } }
         const char *s = VARVAL_fn(av); if (!s) { *out = FAILDESCR; return 1; }
+        if (icn_numeric_is_c_hex(s)) { *out = FAILDESCR; return 1; }
         { long long rv; int rr = icon_radix_int(s, &rv); if (rr > 0) { *out = INTVAL(rv); return 1; } if (rr < 0) { *out = icon_radix_big(s); return 1; } }
         { extern DESCR_t rt_big_from_str(const char *); errno = 0; char *e2; strtoll(s, &e2, 10);
           if (e2 != s && (*e2 == 0 || *e2 == 32) && errno == ERANGE) { DESCR_t bg = rt_big_from_str(s); if (!IS_FAIL_fn(bg)) { *out = bg; return 1; } } }
@@ -5486,6 +5487,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         if (IS_REAL_fn(av)) { *out = av; return 1; }
         if (IS_INT_fn(av))  { *out = REALVAL((double)av.i); return 1; }
         const char *s = VARVAL_fn(av); if (!s) { *out = FAILDESCR; return 1; }
+        if (icn_numeric_is_c_hex(s)) { *out = FAILDESCR; return 1; }
         { long long rv; int rr = icon_radix_int(s, &rv); if (rr > 0) { *out = REALVAL((double)rv); return 1; } }
         char *end; errno = 0; double rv = strtod(s, &end);
         if (end != s && (*end=='\0'||*end==' ')) { if (!isfinite(rv) || (errno == ERANGE && !isfinite(rv))) { *out = FAILDESCR; return 1; } *out = REALVAL(rv); return 1; }

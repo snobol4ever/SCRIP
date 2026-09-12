@@ -100,6 +100,7 @@ test_gate_icn_generator_return_ends_the_activation_and_varargs_image_as_the_list
 test_gate_icn_generator_return_traces_returned_not_failed.sh	WIRED	-	-	-
 test_gate_icn_global_names_are_not_governed_by_snobol4_keywords.sh	WIRED	-	-	-
 test_gate_icn_if_without_else_invocable_arity_and_string_continuation.sh	WIRED	-	-	-
+test_gate_icn_integer_and_real_refuse_a_c_hex_string.sh	WIRED	-	-	-
 test_gate_icn_ipl_calc_reports_erroneous_input.sh	WIRED	-	-	-
 test_gate_icn_ipl_cutter_detects_a_nondeterministic_program.sh	WIRED	-	-	-
 test_gate_icn_ipl_row_is_the_and_of_both_modes.sh	WIRED	-	-	-
