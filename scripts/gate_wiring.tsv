@@ -126,6 +126,7 @@ test_gate_ladder_asserts_stderr.sh	WIRED	-	-	-
 test_gate_ladder_forms_check_selftest.sh	WIRED	-	-	-
 test_gate_ladder_walk_v4_exempts_package_class_rows.sh	WIRED	-	-	-
 test_gate_logtalk_population_is_named_and_sums.sh	WIRED	-	-	-
+test_gate_make_test_loops_and_reports.sh	WIRED	-	-	-
 test_gate_master_boards_publish_xpass.sh	WIRED	-	-	-
 test_gate_master_builder_reindex_only.sh	WIRED	-	-	-
 test_gate_master_companions_resolve.sh	WIRED	-	-	-

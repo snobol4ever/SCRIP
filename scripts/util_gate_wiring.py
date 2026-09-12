@@ -116,6 +116,18 @@ def makefile_recipes(root):
 
 _SUBMAKE = re.compile(r"\$\(MAKE\)(.*)$")
 
+# ⛔⭐ A TARGET WHOSE POPULATION IS DECLARED BY ANOTHER TARGET, and this map is the difference between an
+# instrument that sees the blocking set and one that sees a single line.  `make test` became loop-and-report
+# on 2026-09-12 (CEO-582): its recipe is now ONE line, `bash scripts/run_blocking_set.sh`, and the ~155 arms
+# it runs are the recipe lines of `test-sequential`, which the driver reads.  MEASURED THE MINUTE THE
+# RESTRUCTURE LANDED, before this map existed: reachable() fell from 292 scripts to 103 and the doubles walk
+# lost test-postoffice -- 189 gates would have read as run by nothing, in the comfortable direction that
+# nobody notices.  ⭐ THIS IS THIS FILE'S OWN WARNING ONE NOTCH UP: reachable() already follows a recipe's
+# declared-population FILE (scripts/preflight_arms.txt) because "expanding the recipe stops answering the
+# question you asked" the moment a target reads its population from somewhere else.  A declared-population
+# TARGET is the same fact wearing make syntax, so it is followed the same way -- named here, never guessed.
+DECLARATION_TARGETS = {"test": "test-sequential"}
+
 
 def run_targets(root, entry="test"):
     """`entry` plus every target it hands to a sub-make: the set whose lines all execute in ONE `make test`.
@@ -129,15 +141,21 @@ def run_targets(root, entry="test"):
     if entry not in recipes:
         raise RuntimeError("`%s:` has no recipe in the Makefile" % entry)
     order = [entry]
-    for _, line in recipes[entry]:
-        m = _SUBMAKE.search(_CMT.sub("", line))
-        if not m:
-            continue
-        for tok in m.group(1).split():
-            if tok.startswith("-") or "=" in tok or tok.startswith("$"):
+    k = 0
+    while k < len(order):
+        dec = DECLARATION_TARGETS.get(order[k])
+        if dec and dec in recipes and dec not in order:
+            order.append(dec)
+        for _, line in recipes[order[k]]:
+            m = _SUBMAKE.search(_CMT.sub("", line))
+            if not m:
                 continue
-            if tok in recipes and tok not in order:
-                order.append(tok)
+            for tok in m.group(1).split():
+                if tok.startswith("-") or "=" in tok or tok.startswith("$"):
+                    continue
+                if tok in recipes and tok not in order:
+                    order.append(tok)
+        k += 1
     return order, recipes
 
 
@@ -211,11 +229,28 @@ def reachable(root, skipped=None):
     their `^scripts/` lines -- an over-broad rule here would quietly mark gates wired that nothing runs, which
     is the comfortable direction and the one nobody would notice."""
     seed, texts = set(), []
+    # ⛔ THE DECLARATION TARGET OF A REQUIRED TARGET IS ITSELF REQUIRED. If it will not expand it must REFUSE,
+    # never join the skipped-and-named bucket: `test-sequential` carries the whole blocking set, so losing it
+    # quietly would take 189 gates out of the wired set while the header said only that one target was skipped.
+    # ⛔ A DECLARATION TARGET IS FOLLOWED ONLY IF THE MAKEFILE ACTUALLY DECLARES IT, and then it inherits the
+    # entry's requiredness. Both halves are load-bearing: a fixture whose `test:` carries its own arms has no
+    # `test-sequential` and must not refuse, while the real tree's `test-sequential` carries the WHOLE blocking
+    # set and must never slip into the skipped-and-named bucket -- that would drop 189 gates out of the wired
+    # set while the header reported only a skipped target.
+    declared = makefile_recipes(root)
+    walk, required = [], set(REQUIRED_TARGETS)
     for t in REQUIRED_TARGETS + OPTIONAL_TARGETS:
+        walk.append(t)
+        dec = DECLARATION_TARGETS.get(t)
+        if dec and dec in declared and dec not in walk:
+            walk.append(dec)
+            if t in required:
+                required.add(dec)
+    for t in walk:
         p = subprocess.run(["make", "-n", "--no-print-directory", t], cwd=root,
                            capture_output=True, text=True, timeout=300)
         if p.returncode != 0:
-            if t in REQUIRED_TARGETS:
+            if t in required:
                 raise RuntimeError("`make -n %s` failed rc=%d: %s" % (t, p.returncode, (p.stderr or "").strip()[:400]))
             if skipped is not None:
                 skipped.append(t)
