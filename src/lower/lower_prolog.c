@@ -286,7 +286,7 @@ static const char * pl_ax_suffix(const char * s, int ar) { return pl_ax_suffix_o
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_ax_divides(const char * sfx) {
     if (!sfx) return 0;
-    return !strcmp(sfx, "div") || !strcmp(sfx, "idiv") || !strcmp(sfx, "mod") || !strcmp(sfx, "rem");
+    return !strcmp(sfx, "div") || !strcmp(sfx, "idiv") || !strcmp(sfx, "divf") || !strcmp(sfx, "mod") || !strcmp(sfx, "rem");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_arith_val(lcx_t * cx, const tree_t * t, IR_t * ωfail, IR_t ** entry_out) {
