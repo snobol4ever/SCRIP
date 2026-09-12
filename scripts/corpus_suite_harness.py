@@ -372,6 +372,33 @@ def resolve_oracle_bin(paths, lang=""):
     refuse(f"no oracle wired for --lang {lang!r} in capture-oracle-refs yet (only snobol4/prolog/icon/pascal/raku so far)")
 
 
+def oracle_diagnostic(oracle_bin, flags, sno_path, timeout, stdin_text=None, prog_args=None):
+    """ONE extra oracle invocation whose ONLY product is the oracle's OWN first diagnostic line, for a caller
+    that is about to EXCLUDE a program and must name the measured cause rather than a theory about it.
+    ⛔⭐ WHY IT IS A SEPARATE FUNCTION AND NOT A WIDER run_oracle() RETURN: run_oracle's (text, rc, kind) triple
+    has many callers across the runners, and widening it to carry stderr would touch every one of them for the
+    benefit of one path. This is additive -- nothing that grades anything calls it, and it is invoked only on
+    an exclusion path, where one more sub-second oracle run costs nothing.
+    ⛔⭐⭐ THE DEFECT IT CLOSES, MEASURED (hq_S 2026-09-12, raku scrip_test, CEO-604): an exclusion reason is the
+    ONLY record of why a program left the denominator, and an excluded name cannot be red, so nobody re-reads
+    it. Thirteen raku fixtures were excluded as "rakudo prints NOTHING: the file defines `sub main()` and never
+    calls it" -- true of four of them, GENERALIZED FROM ONE WITNESS onto the other nine, of which five are not
+    that shape at all: rakudo REFUSES them at compile time (two constructs SCRIP accepts and Raku does not, one
+    SCRIP builtin that is not a Raku routine, one Perl5 `/g`) or at run time (`$*STDOUT`). The oracle said so,
+    in one line, on stderr, every single run -- and the guard that excluded them threw that line away and kept
+    a human sentence instead. ⭐ THE GENERAL FORM: when an instrument excludes something, the excluder's prose is
+    a hypothesis and the tool's own stderr is the measurement; write down the measurement."""
+    sno_path = Path(sno_path)
+    argv = [oracle_bin] + flags.split() + [sno_path.name] + (list(prog_args) if prog_args else [])
+    _kind, _out, err, _rc = _run_raw(argv, timeout, cwd=str(sno_path.parent), stdin_text=stdin_text)
+    err = (err or b"").decode("utf-8", "replace")   # ⛔ _run_raw returns BYTES on all four arms, never str
+    for line in err.splitlines():
+        line = line.strip()
+        if line and not line.startswith("==="):     # rakudo's "===SORRY!===" banner names no cause; the next line does
+            return line
+    return ""
+
+
 def run_oracle(oracle_bin, flags, sno_path, timeout, stdin_text=None, prog_args=None):
     """One live oracle invocation. stdin is `/dev/null` unless the caller passes stdin_text -- the
     one caller that does is cmd_capture_oracle_refs, feeding a loose companion resolved by

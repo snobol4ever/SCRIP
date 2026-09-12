@@ -1256,7 +1256,17 @@ def _additive_classify_and_run(path, ext, oracle_bin, flags, paths, timeout):
     if ora_kind != "RAN":
         return ("exclude", name, "oracle itself %s" % ora_kind)
     if not ora_text.strip():
-        return ("exclude", name, "oracle produced EMPTY output -- a vacuous ref is worse than none (same guard as cmd_capture_oracle_refs)")
+        # ⛔⭐ NAME WHAT THE ORACLE SAID, NEVER A THEORY ABOUT IT (hq_S 2026-09-12, CEO-604). This reason used to
+        # end at "a vacuous ref is worse than none", which is true and tells the next reader nothing about WHY
+        # the oracle printed nothing -- so the reader supplies a cause, and a cause supplied once is then
+        # generalized over every program the guard caught. It was: 13 raku fixtures carried one hand-written
+        # explanation ("defines `sub main()` and never calls it") that was true of four of them, while five
+        # were compile- or run-time REFUSALS whose cause rakudo printed on stderr on every run. One extra
+        # sub-second oracle invocation on an exclusion path buys the measurement instead.
+        _diag = h.oracle_diagnostic(oracle_bin, flags, _P(path), timeout, stdin_text=stdin_text)
+        return ("exclude", name, "oracle produced EMPTY output at rc=%s -- a vacuous ref is worse than none (same "
+                                   "guard as cmd_capture_oracle_refs). THE ORACLE'S OWN FIRST DIAGNOSTIC: %s"
+                                   % (ora_rc, _diag or "(none on stderr)"))
 
     # ⛔ .expected AND .std COUNT AS A COMMITTED REF, NOT JUST .ref (hq_S 2026-09-12): util_unabsorbed_census.py
     # has always called any of the three a "loose pair" (_REF_EXTS), and corpus/tests/scrip_test/raku/ ships
@@ -1381,7 +1391,7 @@ def _excl_guard(path, existing):
     raise SystemExit(2)
 
 
-def _additive_write_sidecar_merge(path, new_lines, digest=False):
+def _additive_write_sidecar_merge(path, new_lines, digest=False, fresh_wins=False, retract=()):
     """Merge {key: value} into a TAB-separated sidecar (MODES.tsv, ALL.excluded.txt), keyed on column 1 --
     new/changed keys win, everything else already on disk survives. Never a blind overwrite: a second
     --additive run (a different --lang, a different --from) must not erase the first run's lines.
@@ -1389,7 +1399,22 @@ def _additive_write_sidecar_merge(path, new_lines, digest=False):
     so each --additive run silently deleted the sidecar's own governing text -- MODES.tsv's "DECLARED,
     NEVER DERIVED" ruling and the per-line (evidence) column that ruling REQUIRES were erased by the
     tool that the ruling governs. The file then read as 39 bare declarations with no law and no evidence,
-    and nothing in it said that anything had been removed. Comments are preserved verbatim, in place."""
+    and nothing in it said that anything had been removed. Comments are preserved verbatim, in place.
+    ⛔⭐⭐ `fresh_wins` AND `retract` EXIST BECAUSE CEO-545 CHANGED WHAT THE NEVER-OVERWRITE RULE PROTECTS, AND
+    NOBODY MOVED THE RULE (hq_S 2026-09-12, measured on raku scrip_test). The `if k not in existing` below was
+    written to protect A HAND-WRITTEN DECLARATION AND ITS EVIDENCE -- correct for MODES.tsv, which is DECLARED
+    NEVER DERIVED. But CEO-545 made ALL.excluded.txt GENERATED and _excl_guard now REFUSES a hand edit to it,
+    so in that file there is no hand-written line left to protect: the only thing never-overwrite preserves
+    there is THIS TOOL'S OWN STALE TEXT. Both arms measured on the same 15 rows: (1) eight programs absorbed
+    into the master stayed NAMED AS EXCLUDED FROM IT -- the exact contradiction the non-additive writer's own
+    retraction arm exists to stop ("the two readings cannot both be true, and the file that contradicts the
+    master is the one every census reads"), which that path has and this one did not; (2) the five still
+    unabsorbable rows kept a reason that had become FALSE -- it said appending one `main();` line would make
+    them gradeable and that the question was open with the ceo, when the line had been appended, the ceo had
+    ruled, and the real cause was five different constructs rakudo refuses. A stale reason is worse than a
+    blunt one: it names the wrong cause with the authority of a measurement. So for the generated sidecar the
+    current run's measurement REPLACES the old one (`fresh_wins`) and a key now in the graded denominator is
+    DELETED (`retract`); MODES.tsv passes neither and keeps never-overwrite exactly as before."""
     existing, header = {}, []
     if os.path.isfile(path):
         seen_data = False
@@ -1404,9 +1429,11 @@ def _additive_write_sidecar_merge(path, new_lines, digest=False):
             existing[k] = v
     if digest:
         _excl_guard(path, existing)
+    for k in retract:                    # ⛔ in the graded denominator: it cannot also be named as excluded from it
+        existing.pop(k, None)
     for k, v in new_lines.items():
-        if k not in existing:            # ⛔ never overwrite a hand-written declaration and its evidence
-            existing[k] = v
+        if fresh_wins or k not in existing:   # ⛔ never overwrite a hand-written DECLARATION (MODES.tsv); a GENERATED
+            existing[k] = v                   #    reason is replaced by this run's measurement (ALL.excluded.txt)
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         for line in header:
             f.write("%s\n" % line)
@@ -1414,6 +1441,21 @@ def _additive_write_sidecar_merge(path, new_lines, digest=False):
             f.write("%s\t%s\n" % (k, existing[k]))
         if digest:
             f.write("%s %s\n" % (EXCL_DIGEST_TAG, _excl_digest(existing)))
+
+
+def _additive_write_excluded(outdir, absorbed, excluded_rows):
+    """Write ALL.excluded.txt for an --additive run: this run's reasons REPLACE their predecessors, and a
+    program that reached the master is RETRACTED rather than named as excluded from it (see
+    _additive_write_sidecar_merge's own docstring for the two measured arms and why CEO-545 requires it).
+    ⛔ A PROGRAM ALREADY IN THE MASTER IS IN `absorbed` AND IN `excluded_rows` AT THE SAME TIME, by design --
+    the absorb loop pushes an "already in the master (origin ...) -- not re-appended" row so the run's printed
+    accounting still balances. That bookkeeping note is NOT an exclusion, so the retraction wins over it: the
+    key is dropped from what is written, which is the same two-condition rule the non-additive writer applies
+    (in the denominator AND not excluded by the live tree this run), reached from the additive side."""
+    absorbed_keys = {("%s[%s]" % (row[0], row[1])) for row in absorbed}
+    fresh = {("%s[%s]" % (n, c)): r for n, c, r in excluded_rows if ("%s[%s]" % (n, c)) not in absorbed_keys}
+    _additive_write_sidecar_merge(os.path.join(outdir, "ALL.excluded.txt"), fresh,
+                                   digest=True, fresh_wins=True, retract=absorbed_keys)
 
 
 def additive_absorb(lang, categories, root, timeout, write, cols):
@@ -1554,8 +1596,7 @@ def additive_absorb(lang, categories, root, timeout, write, cols):
     if not new_entries:
         print("--additive %s --from %s: 0 new entries (%d candidate(s) checked, %d excluded) -- nothing written."
               % (lang, ",".join(categories), len(absorbed) + len(excluded_rows), len(excluded_rows)), file=sys.stderr)
-        _additive_write_sidecar_merge(os.path.join(OUTDIR, "ALL.excluded.txt"),
-                                       {("%s[%s]" % (n, c)): r for n, c, r in excluded_rows}, digest=True)
+        _additive_write_excluded(OUTDIR, absorbed, excluded_rows)
         return absorbed, excluded_rows, programs_named
 
     all_entries = base_entries + new_entries
@@ -1615,8 +1656,7 @@ def additive_absorb(lang, categories, root, timeout, write, cols):
     cfg_dir = os.path.join(OUTDIR, "config")
     modes_path = os.path.join(cfg_dir, "MODES.tsv") if os.path.isdir(cfg_dir) else os.path.join(OUTDIR, "MODES.tsv")
     _additive_write_sidecar_merge(modes_path, modes_for_family)
-    _additive_write_sidecar_merge(os.path.join(OUTDIR, "ALL.excluded.txt"),
-                                   {("%s[%s]" % (n, c)): r for n, c, r in excluded_rows}, digest=True)
+    _additive_write_excluded(OUTDIR, absorbed, excluded_rows)
     print("--additive %s --from %s: %d new entries absorbed (%d candidate(s) checked, %d excluded) -- "
           "ALL%s/ALL.ref/ALL.csv/%s updated." % (lang, ",".join(categories), len(new_entries),
           len(absorbed) + len(excluded_rows), len(excluded_rows), EXT, os.path.basename(modes_path)), file=sys.stderr)
