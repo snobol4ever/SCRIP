@@ -473,6 +473,39 @@ static IR_t * lower_runerr_111(icx_t * cx, const tree_t * other, const tree_t * 
     tree_t * call = ast_node_new(TT_FNC); tree_t * fnv = ast_node_new(TT_VAR); fnv->v.sval = (char *) "runerr"; ast_push(call, fnv); tree_t * code = ast_node_new(TT_ILIT); code->v.ival = 111; ast_push(call, code); ast_push(call, (tree_t *) bad);
     tree_t * seq = ast_node_new(TT_CONJ); if (other) ast_push(seq, (tree_t *) other); ast_push(seq, call); return lower(cx, seq, γ, ω, res); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * lower_scan_impl(icx_t * cx, const tree_t * subj_t, const tree_t * lv_t, const tree_t * body_t, IR_t * γ, IR_t * ω, IR_t ** res, IR_t ** lv_out) {
+    IR_t * enter = build(cx, IR_SCAN_ENTER, NULL, ω);
+    IR_t * leave_succ = build(cx, IR_SCAN, γ, ω);
+    IR_t * leave_fail = build(cx, IR_SCAN, ω, ω);
+    icn_mark_γ_fail_conduit(leave_fail);
+    ir_operand_push(leave_succ, enter);
+    ir_operand_push(leave_fail, enter);
+    IR_t * succ_tramp = IR_node_alloc(cx->g, IR_GOTO); lc_γ_to(succ_tramp, leave_succ); lc_ω_to(succ_tramp, leave_succ);
+    IR_t * fail_tramp = IR_node_alloc(cx->g, IR_GOTO); lc_γ_to(fail_tramp, leave_fail); lc_ω_to(fail_tramp, leave_fail);
+    int scan_body_lo = cx->g->n;
+    if (cx->scan_sp < 16) cx->scan_stk_enter[cx->scan_sp] = enter; cx->scan_sp++;
+    IR_t * bv = NULL; IR_t * b_entry = lower(cx, body_t, succ_tramp, fail_tramp, &bv);
+    cx->scan_sp--;
+    if (IR_LIT(enter).dval == 3.0) { IR_LIT(leave_succ).dval = 3.0; IR_LIT(leave_fail).dval = 3.0; }
+    IR_t * body_beta = cx->beta;
+    for (int _si = scan_body_lo; _si < cx->g->n; _si++) if (cx->g->all[_si]) cx->g->all[_si]->in_scan = 1;
+    if (bv) ir_operand_push(leave_succ, bv);
+    icn_retag_scan_body(cx->g, 0);
+    lc_γ_to(enter, b_entry);
+    cx->beta = ω;
+    IR_t * sr = NULL; IR_t * s_entry = NULL;
+    if (subj_t) s_entry = lower(cx, subj_t, enter, ω, &sr);
+    else { IR_t * lv = NULL; s_entry = lower_lvalue_var(cx, lv_t, ω, &lv); if (!s_entry || !lv) return NULL; IR_t * dr = build(cx, IR_DEREF, enter, ω); ir_operand_push(dr, lv); lc_γ_to(lv, dr); sr = dr; if (lv_out) *lv_out = lv; }
+    ir_operand_push(enter, sr);
+    if (sr && sr->op == IR_SCAN && IR_LIT(sr).dval != 3.0) IR_LIT(sr).dval = 4.0;
+    IR_t * subj_beta = cx->beta;
+    if (subj_beta && subj_beta != ω) { γ_to(leave_fail, subj_beta); ω_to(leave_fail, subj_beta); }
+    int body_resumes = (bv && icn_gen_wiring(bv)) || (body_beta && body_beta != ω && body_beta != fail_tramp && body_beta != succ_tramp);
+    if (body_resumes && !(bv && icn_gen_wiring(bv))) ir_operand_push(leave_succ, body_beta);
+    cx->beta = body_resumes ? leave_succ : ((subj_beta && subj_beta != ω) ? subj_beta : ω);
+    *res = leave_succ; return s_entry;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * dummy = NULL; if (!res) res = &dummy;
     cx->beta = ω;
@@ -647,6 +680,11 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     }
     case TT_AUGOP: {
         const tree_t * lhs = t->c[0]; const tree_t * rhs = t->c[1]; int bc = augop_code((int) t->v.ival);
+        if ((int) t->v.ival == AUGOP_SCAN && lhs && rhs && (lhs->t == TT_ALTERNATE || lhs->t == TT_IDX || lhs->t == TT_FIELD)) {
+            IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω); IR_t * sres = NULL; IR_t * lv = NULL;
+            IR_t * entry = lower_scan_impl(cx, NULL, lhs, rhs, asn, ω, &sres, &lv);
+            if (entry && lv && sres) { ir_operand_push(asn, lv); ir_operand_push(asn, sres); *res = asn; return entry; }
+        }
         if ((int) t->v.ival == AUGOP_SCAN && lhs && rhs) {
             tree_t * scn = ast_node_new(TT_SCAN); ast_push(scn, (tree_t *) lhs); ast_push(scn, (tree_t *) rhs);
             tree_t * as = ast_node_new(TT_ASSIGN); ast_push(as, (tree_t *) lhs); ast_push(as, scn);
@@ -908,34 +946,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         if (t->n < 2 || !t->c[0] || !t->c[1]) {
             IR_t * gs = build(cx, IR_FAIL, γ, ω); *res = gs; return gs;
         }
-        IR_t * enter = build(cx, IR_SCAN_ENTER, NULL, ω);
-        IR_t * leave_succ = build(cx, IR_SCAN, γ, ω);
-        IR_t * leave_fail = build(cx, IR_SCAN, ω, ω);
-        icn_mark_γ_fail_conduit(leave_fail);
-        ir_operand_push(leave_succ, enter);
-        ir_operand_push(leave_fail, enter);
-        IR_t * succ_tramp = IR_node_alloc(cx->g, IR_GOTO); lc_γ_to(succ_tramp, leave_succ); lc_ω_to(succ_tramp, leave_succ);
-        IR_t * fail_tramp = IR_node_alloc(cx->g, IR_GOTO); lc_γ_to(fail_tramp, leave_fail); lc_ω_to(fail_tramp, leave_fail);
-        int scan_body_lo = cx->g->n;
-        if (cx->scan_sp < 16) cx->scan_stk_enter[cx->scan_sp] = enter; cx->scan_sp++;
-        IR_t * bv = NULL; IR_t * b_entry = lower(cx, t->c[1], succ_tramp, fail_tramp, &bv);
-        cx->scan_sp--;
-        if (IR_LIT(enter).dval == 3.0) { IR_LIT(leave_succ).dval = 3.0; IR_LIT(leave_fail).dval = 3.0; }
-        IR_t * body_beta = cx->beta;
-        for (int _si = scan_body_lo; _si < cx->g->n; _si++) if (cx->g->all[_si]) cx->g->all[_si]->in_scan = 1;
-        if (bv) ir_operand_push(leave_succ, bv);
-        icn_retag_scan_body(cx->g, 0);
-        lc_γ_to(enter, b_entry);
-        cx->beta = ω;
-        IR_t * sr = NULL; IR_t * s_entry = lower(cx, t->c[0], enter, ω, &sr);
-        ir_operand_push(enter, sr);
-        if (sr && sr->op == IR_SCAN && IR_LIT(sr).dval != 3.0) IR_LIT(sr).dval = 4.0;
-        IR_t * subj_beta = cx->beta;
-        if (subj_beta && subj_beta != ω) { γ_to(leave_fail, subj_beta); ω_to(leave_fail, subj_beta); }
-        int body_resumes = (bv && icn_gen_wiring(bv)) || (body_beta && body_beta != ω && body_beta != fail_tramp && body_beta != succ_tramp);
-        if (body_resumes && !(bv && icn_gen_wiring(bv))) ir_operand_push(leave_succ, body_beta);
-        cx->beta = body_resumes ? leave_succ : ((subj_beta && subj_beta != ω) ? subj_beta : ω);
-        *res = leave_succ; return s_entry; }
+        IR_t * sc = lower_scan_impl(cx, t->c[0], NULL, t->c[1], γ, ω, res, NULL); if (sc) return sc;
+        { IR_t * gs = build(cx, IR_FAIL, γ, ω); *res = gs; return gs; } }
     case TT_STMT: { const tree_t * sub = stmt_subj(t); if (sub) return lower(cx, sub, γ, ω, res); IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_CREATE: {
         IR_t * nd = build(cx, IR_CREATE, γ, ω);

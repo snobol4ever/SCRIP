@@ -80,6 +80,7 @@ test_gate_icn_alternation_beyond_32_arms.sh	WIRED	-	-	-
 test_gate_icn_apply_invocation_of_a_generator_opens_one_level_not_two.sh	WIRED	-	-	-
 test_gate_icn_argument_type_discipline.sh	WIRED	-	-	-
 test_gate_icn_assignment_through_a_section_element_or_keyword_stores_like_icont.sh	WIRED	-	-	-
+test_gate_icn_augmented_scan_over_an_alternation.sh	WIRED	-	-	-
 test_gate_icn_bal_is_a_backtracking_generator.sh	WIRED	-	-	-
 test_gate_icn_bounded_expression_releases_suspended_frame.sh	WIRED	-	-	-
 test_gate_icn_builtin_name_in_lvalue_base_position_carries_its_value.sh	WIRED	-	-	-
