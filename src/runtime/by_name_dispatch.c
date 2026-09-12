@@ -65,7 +65,7 @@ static inline int icn_nxttab(int col, const int *stops, int nstops, int gap) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_numeric_tail_is_blank(const char *p) { while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r' || *p == '\f' || *p == '\v') p++; return *p == '\0'; }
 static int icn_numeric_is_c_hex(const char *p) { while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r' || *p == '\f' || *p == '\v') p++; if (*p == '+' || *p == '-') p++; return p[0] == '0' && (p[1] == 'x' || p[1] == 'X'); }
-static int icn_cvt_chars_ok(DESCR_t d) { return d.v == DT_S || d.v == DT_I || d.v == DT_R || d.v == DT_C; }
+static int icn_cvt_chars_ok(DESCR_t d) { return d.v == DT_S || d.v == DT_I || d.v == DT_R || d.v == DT_C || d.v == DT_BIG; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_cvt_int_ok(DESCR_t d) {
     if (IS_INT_fn(d) || IS_REAL_fn(d)) return 1;
