@@ -2767,6 +2767,13 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         int hit = (e >= 0 && e < PAS_SET_BYTES * 8) ? ((bits[e / 8] >> (e % 8)) & 1) : 0;
         *out = INTVAL(hit ? 1 : 0); return 1;
     }
+    if (!strcmp(fn, "__pas_setrange") && nargs == 2) {
+        unsigned char *buf = (unsigned char *)rt_pinned_alloc(PAS_SET_BYTES); memset(buf, 0, PAS_SET_BYTES);
+        long lo = pas_ord_of(args[0]), hi = pas_ord_of(args[1]);
+        if (lo < 0) lo = 0; if (hi >= PAS_SET_BYTES * 8) hi = PAS_SET_BYTES * 8 - 1;
+        for (long e = lo; e <= hi; e++) buf[e / 8] |= (unsigned char)(1u << (e % 8));
+        *out = BSTRVAL((char *)buf, PAS_SET_BYTES); return 1;
+    }
     if (!strcmp(fn, "__pas_set")) {
         unsigned char *buf = (unsigned char *)rt_pinned_alloc(PAS_SET_BYTES); memset(buf, 0, PAS_SET_BYTES);
         for (int k = 0; k < nargs; k++) { long e = pas_ord_of(args[k]); if (e >= 0 && e < PAS_SET_BYTES * 8) buf[e / 8] |= (unsigned char)(1u << (e % 8)); }

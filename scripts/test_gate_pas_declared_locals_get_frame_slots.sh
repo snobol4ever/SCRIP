@@ -10,7 +10,7 @@
 # lowerer stamps caller_frame. Expected lines cut from fpc 3.2.2 -Miso on 2026-09-12. Hermetic: the oracle is never called.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"
-RT_DIR="${RT_DIR:-$(dirname "$0")/../out}"
+RT_DIR="${RT_DIR:-$(cd "$(dirname "$0")/../out" && pwd)}"
 . "$(dirname "$0")/lib_gate.sh"
 gate_require_exec "$SCRIP" "the scrip compiler"
 gate_require "$RT_DIR/libscrip_rt.so" "the runtime shared object out/libscrip_rt.so"

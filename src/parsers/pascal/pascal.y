@@ -635,6 +635,7 @@ static tree_t *mk_array_init(const char *name, long long high) {
 %token <ival> INTCONST
 %token <dval> REALCONST
 %token <str>  STRINGCONST IDENT
+%type <node> set_member set_member_list
 %type <node> block body statement statement_no_label compound_statement
 %type <node> assignment call call_with_args if_statement while_statement
 %type <node> repeat_statement for_statement with_statement case_statement goto_statement
@@ -950,7 +951,16 @@ factor:
     | STRINGCONST { if ($1 && strlen($1) == 1) { tree_t *_cl = ast_node_new(TT_FNC); ast_push(_cl, leaf_s(TT_VAR, "__pas_chrlit")); ast_push(_cl, ilit((long long)(unsigned char)$1[0])); $$ = _cl; } else $$ = leaf_s(TT_QLIT, $1); }
     | LPARENT expression RPARENT { $$ = $2; }
     | NOTSY factor { $$ = pas_flip_rel(pas_cond($2)); }
-    | LBRACK expression_list_opt RBRACK { $$ = mk_set_ctor($2); }
+    | LBRACK RBRACK { $$ = mk_set_ctor(NULL); }
+    | LBRACK set_member_list RBRACK { $$ = $2; }
+    ;
+set_member_list:
+    set_member { $$ = $1; }
+    | set_member_list COMMA set_member { $$ = mk_set_bin("__pas_setuni", $1, $3); }
+    ;
+set_member:
+    expression { PNodeList *_l = pnl_new(); pnl_push(_l, $1); $$ = mk_set_ctor(_l); }
+    | expression DOTDOT expression { $$ = mk_set_bin("__pas_setrange", $1, $3); }
     ;
 expression_list_opt:
     expression_list { $$ = $1; }
