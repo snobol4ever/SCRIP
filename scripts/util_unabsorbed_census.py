@@ -68,6 +68,18 @@ rows = collections.defaultdict(collections.Counter); owed = collections.defaultd
 dangling = collections.defaultdict(list)
 _REF_EXTS = ('.ref', '.expected', '.std')
 _LANGS = set(EXT.values())
+def _fixture_of_a_witness(root, rel, f):
+    """True when this file sits in `NAME.fixtures/` and the witness `NAME.<ext>` exists beside that directory.
+    Keyed on the DECLARATION (the sibling source), never on the directory name alone, so a stray directory
+    called `x.fixtures` with no witness beside it is still counted as debt rather than waved through."""
+    d = os.path.basename(os.path.normpath(root))
+    if not d.endswith('.fixtures'):
+        return False
+    stem = d[:-len('.fixtures')]
+    parent = os.path.dirname(os.path.normpath(root))
+    return any(os.path.isfile(os.path.join(parent, stem + '.' + e)) for e in EXT)
+
+
 for root, dirs, files in os.walk(C):
     rel = os.path.relpath(root, C)
     if rel.startswith('packages') or rel.startswith('programs') or '/.git' in root or rel.startswith('.git'): continue   # programs/* excluded on Lon's word 2026-09-04 ("Go ahead and exclude programs/* folders."): the 08-27 parser-only ruling on that tree stands
@@ -115,6 +127,20 @@ for root, dirs, files in os.walk(C):
         # exactly why it survived: the population that disproved it was the one the instrument never sampled.
         fam = os.path.splitext(path[len(os.path.join('tests', lang)) + 1:])[0].replace(os.sep, '_') if path.startswith(os.path.join('tests', lang) + os.sep) else ''
         if f.startswith('ALL.'): kind = 'container'
+        # ⛔⭐ A DECLARED FIXTURE IS NOT A LOOSE SOURCE, AND ABSORBING ONE BREAKS THE WITNESS THAT DECLARES IT
+        # (hq_V 2026-09-12, CEO-598/599, found while classifying icon's 59 owed). A file inside `NAME.fixtures/`
+        # is DATA belonging to the witness `NAME.icn` beside that directory -- lib_icn_rundir.sh (THE ONE
+        # AUTHORITY for the run-directory contract) stages exactly those files into a fresh rundir, and
+        # test_gate_icn_rundir_contract grades the result against the live Arizona oracle. It is accounted BY
+        # THAT DECLARATION, as surely as an entry named in ALL.excluded.txt is accounted by its reason line.
+        # ⛔ MEASURED, and it is not hypothetical: `tests/icon/rung36_jcon_io.fixtures/io.icn` read `loose pair`
+        # (an `io.std` sits beside it) and `rung36_jcon_recent.fixtures/recent.icn` read `loose source (no ref)`.
+        # This row's instruction is that an owed source is absorbed into the master AND THEN DELETED from the
+        # tree -- so acting on those two would have deleted the staged data out from under two witnesses that
+        # pass all four arms of that gate today, and the gate would have gone red naming a missing fixture while
+        # the master gained two entries that grade nothing. ⭐ The criterion of this row is the census's own rc,
+        # so a census that counts load-bearing data as debt is a criterion that commands the damage.
+        elif _fixture_of_a_witness(root, rel, f): kind = 'accounted'
         elif top in ('include', 'library'): kind = 'module'
         # ⛔⭐ SAME COLLISION CLASS AS THE additive_excluded FIX ABOVE, NEVER CLOSED HERE (seat02 2026-09-06,
         # row pascal-every-non-package-source-...-with-oracle-refs): ALL.excluded.txt's bare `name` column is
