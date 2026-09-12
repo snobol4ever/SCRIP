@@ -1709,6 +1709,14 @@ static DESCR_t _COPY_(DESCR_t *a, int n) {
         for (int i = 0; i < sz; i++) copy->data[i] = v.arr->data[i];
         return ARRAY_VAL(copy);
     }
+    if (IS_DATA_fn(v) && v.u) {
+        DATINST_t *src = (DATINST_t *)v.u; DATBLK_t *blk = src->type; int nf = blk ? blk->nfields : 0;
+        DATINST_t *inst = rt_pinned_alloc_tag(sizeof(DATINST_t), HB_DINST);
+        inst->type = blk; inst->id = blk ? blk->serial_next++ : 0; inst->dumpno = rt_sno_dumpno_next();
+        inst->fields = rt_pinned_alloc((size_t)(nf > 0 ? nf : 1) * sizeof(DESCR_t));
+        for (int i = 0; i < nf; i++) inst->fields[i] = src->fields[i];
+        DESCR_t r; r.v = DT_DATA; r.slen = 0; r.u = inst; return r;
+    }
     if (IS_TBL(v)) {
         if (!v.tbl) return v;
         TBBLK_t *tcopy = table_new_args(v.tbl->init, v.tbl->inc);

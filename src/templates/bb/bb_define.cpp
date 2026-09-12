@@ -412,6 +412,7 @@ static std::string bb_define_bind() {
     std::string clbl = std::string("fn_cell$") + fname;
     static int _ab = -1; if (_ab < 0) { const char * _e = getenv("SCRIP_AB"); _ab = (_e && *_e == '1') ? 1 : 0; }
     int _np = 0, _nf = 0, _fb = 0; void * _fn = 0; const char * _csv = rt_define_query(fname, &_np, &_nf, &_fb, &_fn);
+    if (_.op_proto && strchr(_.op_proto, '|')) { _nf = atoi(_.op_proto); _csv = strchr(_.op_proto, '|') + 1; _np = *_csv ? 1 : 0; for (const char * c = _csv; *c; c++) if (*c == ',') _np++; _fn = 0; }
     uint64_t _site_fp; { void (*fp)(const char *, const char *, int, int, int, void *) = rt_define_site; _site_fp = (uint64_t)(uintptr_t)(void *)fp; }
     static int _direct_alpha = -1; if (_direct_alpha < 0) { const char * _e = getenv("SCRIP_DEFINE_FN_DIRECT_ALPHA"); _direct_alpha = (_e && *_e == '0') ? 0 : 1; }
     int _alpha_defined = (!bb_ab_cell_addr(fname) && bb_tiny_shim_ok(fname, 0));

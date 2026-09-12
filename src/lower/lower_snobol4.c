@@ -17,6 +17,7 @@ typedef struct { IR_graph_t * g; IR_t * loop_exit; IR_t * loop_next; const char 
 #define SNO_DEF_MAX 128
 #define SNO_DEF_NAMES_MAX 64
 typedef struct { const char * fname; const char * entry; const char * result_name; const char * names[SNO_DEF_NAMES_MAX]; int nnames; int nformals; } sno_def_t;
+static int sno_fname_is_multiproto(const char * fname);
 #define SNO_EXPR_MAX 4096
 static struct { const char * name; const tree_t * expr; int salt; int want_name; } g_sno_exprs[SNO_EXPR_MAX];
 static int g_sno_nexpr = 0;
@@ -998,6 +999,13 @@ static const char * sno_define_entry_opt(const tree_t * dsub, int argbase) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define SNO_MULTIPROTO_MAX 64
+static const char * g_sno_multiproto[SNO_MULTIPROTO_MAX]; static int g_sno_n_multiproto = 0;
+static int sno_fname_is_multiproto(const char * fname) { for (int k = 0; k < g_sno_n_multiproto; k++) if (!strcmp(g_sno_multiproto[k], fname)) return 1; return 0; }
+static const char * sno_proto_encode(const sno_def_t * d) { char e[4096]; size_t need = sizeof e; int n = snprintf(e, need, "%d|", d->nformals); for (int k = 0; k < d->nnames && (size_t)n < need - 1; k++) n += snprintf(e + n, need - (size_t)n, "%s%s", k ? "," : "", d->names[k]); return lp_strdup(e); }
+static const char * g_sno_proto_fn[SNO_DEF_MAX]; static const char * g_sno_proto_enc[SNO_DEF_MAX]; static int g_sno_nproto = 0;
+static void sno_proto_note(const sno_def_t * d) { const char * enc = sno_proto_encode(d); for (int k = 0; k < g_sno_nproto; k++) if (!strcmp(g_sno_proto_fn[k], d->fname)) { if (strcmp(g_sno_proto_enc[k], enc) && !sno_fname_is_multiproto(d->fname) && g_sno_n_multiproto < SNO_MULTIPROTO_MAX) g_sno_multiproto[g_sno_n_multiproto++] = lp_strdup(d->fname); g_sno_proto_enc[k] = enc; return; } if (g_sno_nproto < SNO_DEF_MAX) { g_sno_proto_fn[g_sno_nproto] = lp_strdup(d->fname); g_sno_proto_enc[g_sno_nproto] = enc; g_sno_nproto++; } }
+static void sno_bind_attach_proto(IR_graph_t * g, IR_t * bind, const sno_def_t * d, IR_t * fail) { if (!sno_fname_is_multiproto(d->fname)) return; IR_t * pr = lc_build(g, IR_LIT_STRING, bind, fail); IR_LIT(pr).sval = (char *) sno_proto_encode(d); ir_operand_push(bind, pr); }
 static void sno_bind_attach_entry(IR_graph_t * g, IR_t * bind, const char * entry, IR_t * fail) {
     if (!g || !bind || !entry || !entry[0]) return;
     IR_t * en = lc_build(g, IR_LIT_NAME, bind, fail);
@@ -2252,7 +2260,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                     for (int _k = 0; _k < d.nnames; _k++) { IR_t * nm = lc_build(g, IR_LIT_STRING, ab, failnd); IR_LIT(nm).sval = lp_strdup(d.names[_k]); ir_operand_push(ab, nm); }
                     if (g->ab_n < (int)(sizeof g->ab_nodes / sizeof *g->ab_nodes)) g->ab_nodes[g->ab_n++] = ab;
                     else fprintf(stderr, "WARN AB-1: ab_nodes[] full (>32 DEFINEs in one graph); activation block for '%s' will be missing from .s\n", d.fname);
-                    { IR_t * bind = lc_build(g, IR_DEFINE, sJ, fA); IR_LIT(bind).sval = lp_strdup(d.fname); sno_bind_attach_entry(g, bind, d.entry, fA); lc_γ_to(anchor[i], bind); continue; }
+                    { IR_t * bind = lc_build(g, IR_DEFINE, sJ, fA); IR_LIT(bind).sval = lp_strdup(d.fname); sno_bind_attach_entry(g, bind, d.entry, fA); sno_bind_attach_proto(g, bind, &d, fA); lc_γ_to(anchor[i], bind); continue; }
                 }
             }
             { int _argbase = 0; const tree_t * dsub = sno_stmt_define(s, &_argbase);
@@ -2265,7 +2273,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                   lc_γ_to(last, call); lc_γ_to(anchor[i], sp); continue; }
               const tree_t * pnode = (dsub && dsub->n > _argbase) ? dsub->c[_argbase] : NULL;
               if (pnode && sno_qlit_fold(pnode)) { sno_def_t d; sno_parse_define(sno_qlit_fold(pnode), sno_define_entry_opt(dsub, _argbase), &d);
-                IR_t * bind = lc_build(g, IR_DEFINE, sJ, fA); IR_LIT(bind).sval = lp_strdup(d.fname); sno_bind_attach_entry(g, bind, d.entry, fA); lc_γ_to(anchor[i], bind); continue; } }
+                IR_t * bind = lc_build(g, IR_DEFINE, sJ, fA); IR_LIT(bind).sval = lp_strdup(d.fname); sno_bind_attach_entry(g, bind, d.entry, fA); sno_bind_attach_proto(g, bind, &d, fA); lc_γ_to(anchor[i], bind); continue; } }
             lc_γ_to(anchor[i], sJ); continue;
         }
         if (_pro_open && (goU || goS || goF || exU || exS || exF)) _pro_close = 1;
@@ -2619,6 +2627,7 @@ static void sno_prescan_expr(const tree_t * t, sno_def_t * defs, int * ndefs, co
             }
             sno_def_t d; sno_parse_define(t->c[argbase]->v.sval, entry_opt, &d);
             if (sn4_sysfn_protected(d.fname)) return;
+            sno_proto_note(&d);
             if (t != g_sno_prescan_top) { g_sno_expr_define_seen = 1; sno_exprdef_note(exprdef_names, n_exprdef, d.fname); }
             sno_predef_note(d.fname);
             int fo = -1;
@@ -2779,7 +2788,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
     g_sno_nexpr = 0;
     g_sno_npat = 0;
     g_sno_uses_stmtkw = 0;
-    g_sno_uses_code = 0;
+    g_sno_uses_code = 0; g_sno_n_multiproto = 0; g_sno_nproto = 0;
     for (int i = 0; i < prog->n; i++) if (prog->c[i]) { sno_scan_stmtkw(prog->c[i]); sno_scan_code_use(prog->c[i]); }
     { const char * _sk = getenv("SCRIP_SNO_STMTKW"); if (g_sno_uses_stmtkw) setenv("SCRIP_SNO_STMTKW", "1", 1); else if (_sk && *_sk == '1') g_sno_uses_stmtkw = 1; }
     sno_register_program(&g_stage2, prog);
@@ -2829,6 +2838,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
         int found = -1;
         for (int k = 0; k < ndefs; k++) if (!strcmp(defs[k].fname, d.fname)) { found = k; break; }
         sno_entry_seen_push(def_entry_all, &n_def_entry_all, d.entry);
+        sno_proto_note(&d);
         if (found >= 0) defs[found] = d;
         else if (ndefs < SNO_DEF_MAX) defs[ndefs++] = d;
         else sno_fatal("too many DEFINEs in one program", d.fname);
@@ -2926,6 +2936,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
         g_stage2.proc_table[fpi].is_generator = 0;
         g_stage2.proc_table[fpi].dyn_scope = 1;
         g_stage2.proc_table[fpi].result_name = rn;
+        gf->multi_proto = sno_fname_is_multiproto(defs[di].fname);
         g_stage2.proc_table[fpi].bb_idx = bb_program_add(&g_stage2.bbp, gf);
     }
     sno_expr_thunks_build(0);

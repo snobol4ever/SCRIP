@@ -1254,7 +1254,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_GOTO_DEFERRED:             bb_emit_x86(bb_goto_deferred());       return 0;
     case IR_DEFINE: {
         if (ir_define_sr_citizen(nd)) { extern int fc_call_active(const IR_t *); if (g_emit.op_ival == 4 && nd->n_operands >= 2 && nd->operands[0] && nd->operands[1]) { g_emit.op_sval = IR_LIT(nd->operands[0]).sval; g_emit.lbl_t0 = IR_LIT(nd->operands[1]).sval; }    if (g_emit.op_ival == 3 && nd->γ.node && sr3_gamma_label(nd->γ.node)) { const char *_e = sr3_gamma_label(nd->γ.node); g_emit.op_sval = strncmp(_e, "LBL__", 5) ? _e : _e + 5; }    if (g_emit.op_ival == 0 && nd->γ.node && fc_call_active(nd->γ.node) && nd->n_operands == 1 && nd->operands[0]) { extern int zls_off(const IR_t *); int _as = bb_slot_get(nd->operands[0]); if (_as < 0) _as = zls_off(nd->operands[0]); if (_as >= 0) { g_emit.op_fc_wbytes = 16; g_emit.op_fc_base = _as; } } g_emit.op_define_role = (int)g_emit.op_ival; extern std::string bb_define(); bb_emit_x86(bb_define()); return 0; }
-        if (ir_define_is_bind(nd)) { g_emit.op_sval = IR_LIT(nd).sval;    g_emit.lbl_t0 = (const char *)0; int _realstub = 0; if (g_emit_cfg && g_emit_cfg->n_dentry > 0) for (int _dq = 0; _dq < g_emit_cfg->n_dentry; _dq++) if (g_emit_cfg->dentry_node[_dq] == nd) { g_emit.lbl_t0 = g_emit_cfg->dentry_name[_dq]; _realstub = g_emit_cfg->dentry_entry[_dq] ? 1 : 0; break; }    g_emit.op_define_role = 6; extern std::string bb_define(); bb_emit_x86(bb_define()); int _d1st = 1; if (g_emit_cfg && g_emit.op_sval) for (int _dr = 0; _dr < g_emit_cfg->n_dentry; _dr++) { IR_t *_dp = g_emit_cfg->dentry_node[_dr]; if (_dp == nd) break; if (_dp && ir_define_is_bind(_dp) && IR_LIT(_dp).sval && !strcmp(IR_LIT(_dp).sval, g_emit.op_sval)) { _d1st = 0; break; } }    if (g_is_text && g_emit.lbl_t0 && _d1st && _realstub) { long _sv5 = g_emit.op_ival; g_emit.op_ival = 5; g_emit.op_define_role = 5; bb_emit_x86(bb_define()); g_emit.op_ival = _sv5; }    return 0; }
+        if (ir_define_is_bind(nd)) { g_emit.op_sval = IR_LIT(nd).sval;    g_emit.lbl_t0 = (const char *)0; g_emit.op_proto = ir_define_bind_proto(nd); int _realstub = 0; if (g_emit_cfg && g_emit_cfg->n_dentry > 0) for (int _dq = 0; _dq < g_emit_cfg->n_dentry; _dq++) if (g_emit_cfg->dentry_node[_dq] == nd) { g_emit.lbl_t0 = g_emit_cfg->dentry_name[_dq]; _realstub = g_emit_cfg->dentry_entry[_dq] ? 1 : 0; break; }    g_emit.op_define_role = 6; extern std::string bb_define(); bb_emit_x86(bb_define()); int _d1st = 1; if (g_emit_cfg && g_emit.op_sval) for (int _dr = 0; _dr < g_emit_cfg->n_dentry; _dr++) { IR_t *_dp = g_emit_cfg->dentry_node[_dr]; if (_dp == nd) break; if (_dp && ir_define_is_bind(_dp) && IR_LIT(_dp).sval && !strcmp(IR_LIT(_dp).sval, g_emit.op_sval)) { _d1st = 0; break; } }    if (g_is_text && g_emit.lbl_t0 && _d1st && _realstub) { long _sv5 = g_emit.op_ival; g_emit.op_ival = 5; g_emit.op_define_role = 5; bb_emit_x86(bb_define()); g_emit.op_ival = _sv5; }    return 0; }
         g_emit.op_sval = IR_LIT(nd).sval;
         g_emit.op_ival = (long)nd->n_operands;
         g_emit.op_ab_nformals = nd->seal;
@@ -2881,16 +2881,16 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     g_emit.flat_fail_p        = &lbl_ω;
     g_emit.flat_text_externalise = text_externalise;
     g_resumable_callable_active = (g_emit_cfg && g_emit_cfg->resumable_callable) ? 1 : 0;
-    enum { CH_MAX = 65536, Q_MAX = CH_MAX * 16 };
-    static IR_t *nodes[CH_MAX]; int n = 0;
-    static IR_t *queue[Q_MAX]; int qh = 0, qt = 0;
+    int CH_MAX = 65536; if (g_emit_cfg && g_emit_cfg->n + 1024 > CH_MAX) CH_MAX = g_emit_cfg->n + 1024; int Q_MAX = CH_MAX * 16;
+    static IR_t **nodes = 0; static int nodes_cap = 0; if (nodes_cap < CH_MAX) { nodes = (IR_t **)realloc(nodes, (size_t)CH_MAX * sizeof(IR_t *)); nodes_cap = CH_MAX; } int n = 0;
+    static IR_t **queue = 0; static int queue_cap = 0; if (queue_cap < Q_MAX) { queue = (IR_t **)realloc(queue, (size_t)Q_MAX * sizeof(IR_t *)); queue_cap = Q_MAX; } int qh = 0, qt = 0;
     int entry_is_own_graph_root = (g_emit_cfg && (entry == g_emit_cfg->entry)) ? 1 : 0;
     { int guard = 0; while (entry && (entry->op == IR_SUCCEED || entry->op == IR_FAIL || entry->op == IR_GOTO) && entry->γ.node && guard++ < CH_MAX) entry = entry->γ.node; }
     if (g_emit_cfg && entry == g_emit_cfg->entry) entry_is_own_graph_root = 1;
     int flat_empty_body_fail = (entry && entry->op == IR_FAIL) ? 1 : 0;
     int flat_empty_body_succ = (entry && entry->op == IR_SUCCEED) ? 1 : 0;
     entry = entry;
-    static IR_t *postv[CH_MAX]; int pn = 0;
+    static IR_t **postv = 0; static int postv_cap = 0; if (postv_cap < CH_MAX) { postv = (IR_t **)realloc(postv, (size_t)CH_MAX * sizeof(IR_t *)); postv_cap = CH_MAX; } int pn = 0;
     ir_pset_t seenset; ir_pset_init(&seenset);
 #define RPO_VISITED(p) (ir_pset_has(&seenset, (const IR_t *)(p)))
 #define RPO_MARK(p)    ir_pset_add(&seenset, (const IR_t *)(p))

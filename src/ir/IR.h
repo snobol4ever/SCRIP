@@ -208,8 +208,9 @@ static inline int ir_range_operands_must_be_integers(const IR_t * nd) {
 static inline int ir_define_ch8_role(const IR_t * nd) { long long v = (long long)IR_LIT(nd).ival; return (v >= 1 && v <= 4) ? (int)v : 0; }
 static inline int ir_define_sr_citizen(const IR_t * nd) { return ir_define_ch8_role(nd) ? 1 : ((nd->γ.node && ir_norm_call_kind(nd->γ.node->op) == IR_CALL) ? 1 : 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline const char * ir_define_bind_entry(const IR_t * nd) { return (nd && nd->op == IR_DEFINE && nd->pat_static == 1 && nd->n_operands == 1 && nd->operands[0] && nd->operands[0]->op == IR_LIT_NAME) ? IR_LIT(nd->operands[0]).sval : (const char *)0; }
-static inline int ir_define_is_bind(const IR_t * nd) { return (nd && nd->op == IR_DEFINE && !ir_define_sr_citizen(nd) && (nd->n_operands == 0 || ir_define_bind_entry(nd))) ? 1 : 0; }
+static inline const char * ir_define_bind_entry(const IR_t * nd) { return (nd && nd->op == IR_DEFINE && nd->pat_static == 1 && nd->n_operands >= 1 && nd->n_operands <= 2 && nd->operands[0] && nd->operands[0]->op == IR_LIT_NAME) ? IR_LIT(nd->operands[0]).sval : (const char *)0; }
+static inline const char * ir_define_bind_proto(const IR_t * nd) { return (nd && nd->op == IR_DEFINE && nd->n_operands >= 1 && nd->operands[nd->n_operands - 1] && nd->operands[nd->n_operands - 1]->op == IR_LIT_STRING) ? IR_LIT(nd->operands[nd->n_operands - 1]).sval : (const char *)0; }
+static inline int ir_define_is_bind(const IR_t * nd) { if (!nd || nd->op != IR_DEFINE || ir_define_sr_citizen(nd)) return 0; if (nd->n_operands == 0) return 1; if (ir_define_bind_entry(nd)) return (nd->n_operands == 1 || ir_define_bind_proto(nd)) ? 1 : 0; return (nd->n_operands == 1 && ir_define_bind_proto(nd)) ? 1 : 0; }
 typedef struct {
     const char * sval;
     int64_t      ival;
@@ -234,6 +235,7 @@ struct IR_graph_t {
     int            decl_level;
     int            caller_frame;
     int            static_calls;
+    int            multi_proto;
     const char   * l3_ancestor_name;
     int            deterministic;
     int            zeta_mark_slot;
