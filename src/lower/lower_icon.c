@@ -673,8 +673,23 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             *res = asn; return lve;
           }
         }
-        IR_t * op = build(cx, IR_BINOP, γ, ω); IR_LIT(op).ival = bc; IR_t * lr = NULL, * rr = NULL;
-        IR_t * ea = lower(cx, lhs, NULL, ω, &lr); IR_t * eb = lower(cx, rhs, op, ω, &rr); γ_to(lr, eb); *res = op; return ea;
+        { IR_t * b4 = cx->beta;
+          IR_t * lr = NULL; IR_t * ea = (lhs && rhs) ? lower(cx, lhs, NULL, ω, &lr) : NULL;
+          if (ea && lr) {
+            IR_t * lvbeta = (cx->beta != b4) ? cx->beta : NULL;
+            IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
+            IR_t * op = build(cx, IR_BINOP, asn, ω); IR_LIT(op).ival = bc;
+            IR_t * dr = build(cx, IR_DEREF, NULL, ω);
+            ir_operand_push(dr, lr);
+            lc_γ_to(lr, dr);
+            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, op, lvbeta ? lvbeta : ω, &rr);
+            lc_γ_to(dr, re);
+            ir_operand_push(op, dr); ir_operand_push(op, rr);
+            ir_operand_push(asn, lr); ir_operand_push(asn, op);
+            *res = asn; return ea;
+          }
+        }
+        { IR_t * nd = build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
     }
     case TT_RETURN: { IR_t * ret = build(cx, IR_RETURN, cx->psucc ? cx->psucc : γ, ω);
         IR_t * vtgt = ret;

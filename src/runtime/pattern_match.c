@@ -1624,6 +1624,7 @@ static DESCR_t c_rt_assign_var_body(DESCR_t var, DESCR_t val) {
     if (var.v == DT_N && var.slen == 0 && var.s && *var.s) { extern DESCR_t NV_SET_fn(const char *, DESCR_t); NV_SET_fn(var.s, val); return val; }
     if (var.v == DT_N && var.slen == 1 && var.ptr) { extern void mon_tap_cell_store(void *, DESCR_t); *(DESCR_t *)var.ptr = val; if (monitor_fd >= 0) mon_tap_cell_store(var.ptr, val); return val; }
     if (!IS_NAMETRAP_fn(var)) {
+        { extern int core_icn_active(void); extern int core_icn_error(int code, DESCR_t val); if (core_icn_active()) { core_icn_error(111, var); return FAILDESCR; } }
         fprintf(stderr, "[IDX] BOMB rt_assign_var: lvalue is not a variable (dtype=%d) — string/record subscript assignment is the tvsubs rung (GOAL-IR-IMMUTABLE-EMIT IDX-UNIFY)\n", (int)var.v);
         abort();
     }
