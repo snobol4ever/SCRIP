@@ -153,6 +153,44 @@ def die(msg, rc=2):
 # lost it (a conflicted rebase, a hand edit), so silently re-adding the clause would republish a number
 # nobody measured -- stamped current by this run's provenance. Losing it loudly beats keeping it falsely.
 _INV_PKG_RX = re.compile(r"PACKAGE_INVENTORY\s+package=([A-Za-z0-9_./-]+)")
+# ⛔⭐⭐ THE SECOND INVARIANT OF THE ONE WRITER: A ROW MAY NOT CHANGE ITS COLUMN COUNT (hq_U 2026-09-12,
+# on CEO-610 / COO-62 -- my own x64tests write, which is why it is stated here rather than reported).
+# ⭐ THE OCCURRENCE, character-exact: the x64tests vendor clause landed INSIDE the snobol4 DISPLAY row's
+# provenance cell, at its first ';' -- which falls inside "hq_B (postoffice-gates row; incremental build
+# ..." -- followed by a LITERAL ' | '.  The row went from 6 cells to 7 against a 6-column header.  Note
+# what that is NOT: the vendor cell was never touched, so merge_clause did not fragment it and a better
+# matcher would not have helped.  Whatever produced it, the result reached this function and was written.
+# ⛔ WHY IT IS WORSE THAN A WRONG NUMBER, and the coo's words for it: "a grid row with the wrong column
+# count is silently invisible, which is the worst failure shape we have."  Every reader that parses the
+# table by column DROPS the row whole -- test_gate_score_tables_agree reported `1 language(s) MALFORMED`
+# and compared snobol4 against nothing at all, fleet-wide, for an hour; the logtalk runner's own write
+# printed the same SKIP on the coo's pass.  A language that scores nothing conflicts with nothing, so
+# the damage reads as calm.
+# ⭐⭐ THE CHECK IS DIFFERENTIAL ON PURPOSE, and that is the whole reason it is landable today.  Refusing
+# every ragged row outright would make this writer refuse for as long as ANY row anywhere in the file is
+# ragged -- i.e. it would punish thirteen seats for one seat's damage and be reverted within the hour.
+# It refuses only a row THIS WRITE makes ragged, keyed by the row's first cell so an edit elsewhere in
+# the row does not look like a new offence.  ⛔ REFUSES, NEVER REPAIRS: which cell the stray text belongs
+# in is a judgement about what the prose MEANS (the same reason merge_clause refuses rather than guesses),
+# and this function cannot make it.
+def _table_shapes(text):
+    """{(table index, first cell) -> column count} for every markdown row under a `|---|` header."""
+    shapes, ti, hdr = {}, -1, None
+    lines = text.split("\n")
+    for n, ln in enumerate(lines):
+        t = ln.strip()
+        if not t.startswith("|"):
+            hdr = None
+            continue
+        if re.match(r"^\|[\s:|-]*\|\s*$", t) and "-" in t and n and lines[n - 1].strip().startswith("|"):
+            ti += 1; hdr = t.count("|") - 1; continue      # the separator row OPENS a table; cells, not pipes
+        if hdr is None:
+            continue
+        key = (ti, t.split("|")[1].strip() if t.count("|") > 1 else "")
+        shapes.setdefault(key, t.count("|") - 1)            # first spelling of a key wins; duplicates are not this guard's business
+    return shapes
+
+
 
 
 def _write_score_md(lines, seeding=False):
@@ -164,6 +202,17 @@ def _write_score_md(lines, seeding=False):
         old = open(SCORE_MD, encoding="utf-8").read()
     except OSError:
         old = ""
+    was, now = _table_shapes(old), _table_shapes(new)
+    ragged = sorted(k for k, v in now.items() if k in was and was[k] != v)
+    if ragged and not seeding:
+        die("this write would change the COLUMN COUNT of %d table row(s), and a row whose column count "
+            "disagrees with its header is not read wrong -- it is DROPPED WHOLE by every reader that "
+            "parses the table, while the tables around it still print confidently (CEO-610/COO-62):\n%s\n"
+            "  ⛔ Nothing was written, and this guard does not repair: which cell the extra text belongs "
+            "in is a judgement about what the prose means.  Look at the row, put the text in the cell it "
+            "was measured for, then re-run the runner that measured it."
+            % (len(ragged), "\n".join("  - table %d, row %r: %d columns -> %d" % (t, k, was[(t, k)], now[(t, k)])
+                                      for (t, k) in ragged)))
     lost = sorted(set(_INV_PKG_RX.findall(old)) - set(_INV_PKG_RX.findall(new)))
     if lost and not seeding:
         die("this write would DROP the PACKAGE_INVENTORY clause for %s. Those clauses carry the GRADED "
@@ -2263,6 +2312,48 @@ def cmd_selftest(a):
                 else:
                     print("SELFTEST: the same write with the two trees SWAPPED -- a DESCENDANT tree over an "
                           "older stamp -- landed normally, so the ancestor refusal discriminates rather than blocks")
+        # ⛔⭐ THE COLUMN-COUNT ARM (CEO-610 / COO-62).  Fail-once AND pass-once, because a guard proven
+        # only on the bad input is indistinguishable from one that refuses everything -- and this one
+        # sits in the path of every write in the fleet, so refusing everything is the expensive failure.
+        _cc = open(SCORE_MD, encoding="utf-8").read().split("\n")
+        _ch, _cr, _ = find_table(_cc)
+        _ci, _cc_cells = _cr["rebus"]
+        _widened = list(_cc_cells) + ["a stray cell, exactly the CEO-610 shape"]
+        _cc[_ci] = "| " + " | ".join(_widened) + " |"
+        _before_cc = open(SCORE_MD, encoding="utf-8").read()
+        try:
+            _write_score_md(_cc)
+            print("SELFTEST FAIL: a write that gave the rebus row a SEVENTH cell in a six-column table "
+                  "was ACCEPTED -- the column-count invariant is not holding, and a row with the wrong "
+                  "count is dropped whole by every reader that parses the table"); ok = False
+        except SystemExit as e:
+            if e.code != 2 or open(SCORE_MD, encoding="utf-8").read() != _before_cc:
+                print("SELFTEST FAIL: the column-count refusal returned rc=%r and/or did not leave the "
+                      "file byte-identical -- a refusal that half-writes is worse than none" % (e.code,)); ok = False
+            else:
+                print("SELFTEST: a write that would widen a row to 7 cells in a 6-column table correctly "
+                      "REFUSED rc=2 and left SCORE.md byte-identical (CEO-610's own shape)")
+        # ⭐ PASS-ONCE, and the case that matters is not "an ordinary write still works" -- it is that a
+        # row somebody ELSE already left ragged does not turn this into a fleet-wide stop.  That is the
+        # differential half of the check, and it is the half that would have been quietly wrong.
+        _rag = open(SCORE_MD, encoding="utf-8").read().split("\n")
+        _rh, _rr, _ = find_table(_rag)
+        _rgi, _rgc = _rr["raku"]
+        _rag[_rgi] = "| " + " | ".join(list(_rgc) + ["pre-existing damage, not this write's"]) + " |"
+        _write_score_md(_rag, seeding=True)
+        a8 = A(); a8.lang = "rebus"; a8.column = "board"; a8.measurer = "selftest"
+        a8.text = "master: m3 12/48 · m4 12/48 (past a ragged neighbour, not a measurement)"
+        a8.modes = "m3,m4"; a8.dry_run = False; a8.suite = ""
+        try:
+            cmd_write(a8)
+            if "12/48" in open(SCORE_MD, encoding="utf-8").read():
+                print("SELFTEST: an unrelated write still lands while ANOTHER row is already ragged -- the "
+                      "invariant is differential, so one seat's damage does not stop the other twelve")
+            else:
+                print("SELFTEST FAIL: the write past a ragged neighbour reported success but did not land"); ok = False
+        except SystemExit as e:
+            print("SELFTEST FAIL: a ragged row belonging to ANOTHER language blocked an unrelated write "
+                  "(rc=%r) -- that turns one seat's damage into a fleet-wide stop" % (e.code,)); ok = False
     finally:
         SCORE_MD = real
         SUITES_TSV = real_tsv
