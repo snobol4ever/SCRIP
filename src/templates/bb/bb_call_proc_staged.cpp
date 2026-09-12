@@ -395,7 +395,8 @@ static std::string bcps_det_arm() {
                     + FOR(0, det_nA_z, [&](int i) { return x86("note", ZOPN(i)) + x86("lea", detN_argreg_z[i], ZOPQ(i, 0)); })
                     + x86("call", detN_nm_z[det_nA_z], detN_fp_z[det_nA_z])
                     : ((det_idx_z >= 0
-                        ? x86("mov32", "edi", (long)det_idx_z)
+                        ? FOR(0, (int)_.op_ival, [&](int i) { return x86("mov32", "edi", (long)i) + x86("note", ZOPN(i)) + x86("mov", "rsi", ZOPQ(i, 0)) + x86("note", ZOPN(i)) + x86("mov", "rdx", ZOPQ(i, 8)) + x86("call", "rt_arg_stage", stage_fp_z); })
+                        + x86("mov32", "edi", (long)det_idx_z)
                         + x86("mov32", "esi", (long)_.op_ival)
                         + x86("call", "rt_proc_call_open_det", (uint64_t)det_fp_z)
                         : FOR(0, (int)_.op_ival, [&](int i) { uint64_t stage_fp_z; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp_z = (uint64_t)(uintptr_t)(void*)fp; } return x86("mov32", "edi", (long)i) + x86("note", ZOPN(i)) + x86("mov", "rsi", ZOPQ(i, 0)) + x86("note", ZOPN(i)) + x86("mov", "rdx", ZOPQ(i, 8)) + x86("call", "rt_arg_stage", stage_fp_z); })
