@@ -142,6 +142,9 @@ DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs)
             if (try_call_builtin_by_name(entry, args, nargs, &_bout)) { retval = _bout; goto fn_done; }
         }
         if (!body && !FNCEX_fn(fname) && !FNCEX_fn(ufname)) {
+            { extern int rt_dat_field_of_any(const char *); extern DESCR_t c_dat_field_get(const char *fname, DESCR_t obj);
+              const char *_fld = (entry && rt_dat_field_of_any(entry)) ? entry : ((fname && rt_dat_field_of_any(fname)) ? fname : (const char *)0);
+              if (_fld && nargs < 1) { retval = c_dat_field_get(_fld, NULVCL); goto fn_done; } }
             if (getenv("SCRIP_DEBUG_APPLY"))
                 fprintf(stderr, "[call-err5] unresolved '%s' (ufname='%s', nargs=%d)\n", fname ? fname : "(null)", ufname ? ufname : "(null)", nargs);
             core_runtime_error(22, "Undefined function called");
