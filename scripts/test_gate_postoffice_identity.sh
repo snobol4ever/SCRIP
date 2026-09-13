@@ -84,12 +84,29 @@ echo "== V2-3 HQ banner refuses the tick on a stale inbox =="
 newpo
 printf 'FROM seat01 TO hq_P RE q-something\nquestion\n' > "$T/po/hq_P/inbox/1-seat01-q-something.msg"
 touch -d '2 minutes ago' "$T/po/hq_P/inbox/1-seat01-q-something.msg"
-out="$(run hq_P banner)"
-printf '%s' "$out" | grep -q '⛔ DRAIN FIRST' && no "fresh mail does not trip the refusal" "tripped at 2 min" || ok "fresh mail (2 min) does not trip the refusal"
+# ⛔⭐ READ THE VERDICT FROM BOARD.md, NOT FROM STDOUT (hq_B 2026-09-13). Lon ordered the printed banner
+# deleted entire (hq_S, SCRIP c902a4b73: "I want the entire text gone. Not just the header."), so the verdict
+# box no longer reaches stdout. These two arms grepped stdout, and BOTH broke in the deletion -- but they broke
+# in OPPOSITE directions, and only one of them was visible:
+#   the stale arm went RED, which is how it was found;
+#   the fresh arm went VACUOUSLY GREEN. It asserts the ABSENCE of a string, and nothing prints that string any
+#   more, so it now passes for a banner that has no verdict at all -- it could never fail again.
+# ⛔ THAT IS THE DANGEROUS HALF AND IT WAS SILENT. A red announces itself; an assertion that has quietly
+# become unfalsifiable does not, and it goes on being counted in "21 passed" forever.
+# ⭐ THE PROPERTY IS NOT RETIRED, ONLY ITS CHANNEL MOVED. What matters here was never that the banner PRINTS
+# a refusal -- it is that an HQ sitting on stale mail is not awarded a ✅. hq_S's cut deleted the DISPLAY and
+# deliberately kept the COMPUTE: the verdict is still computed and still written to BOARD.md, which is what
+# `fleet` renders and what Lon reads. So these arms read it there, and they can fail again.
+_verdict() { grep -m1 "^$1 |" "$T/po/BOARD.md" 2>/dev/null; }
+run hq_P banner >/dev/null 2>&1
+v="$(_verdict hq_P)"
+[ -n "$v" ] || no "banner wrote a BOARD.md verdict at all" "BOARD.md has no hq_P line -- the arms below cannot measure"
+printf '%s' "$v" | grep -q '⛔ DRAIN FIRST' && no "fresh mail does not trip the refusal" "tripped at 2 min" || ok "fresh mail (2 min) does not trip the refusal"
 touch -d '90 minutes ago' "$T/po/hq_P/inbox/1-seat01-q-something.msg"
-out="$(run hq_P banner)"
-{ printf '%s' "$out" | grep -q '⛔ DRAIN FIRST' && ! printf '%s' "$out" | grep -q '✅ SUCCESS'; } \
-  && ok "stale mail (90 min) refuses the HQ ✅ and replaces the headline" || no "stale mail refuses the HQ ✅" "${out:0:140}"
+run hq_P banner >/dev/null 2>&1
+v="$(_verdict hq_P)"
+{ printf '%s' "$v" | grep -q '⛔ DRAIN FIRST' && ! printf '%s' "$v" | grep -q '✅ SUCCESS'; } \
+  && ok "stale mail (90 min) refuses the HQ ✅ and replaces the headline" || no "stale mail refuses the HQ ✅" "${v:0:140}"
 # a SEAT is not an HQ: the drain law binds HQ only, so a seat with old mail keeps its own verdict.
 newpo
 printf 'FROM hq_P TO seat01 RE x\nbody\n' > "$T/po/seat01/inbox/1-hq_P-x.msg"; touch -d '90 minutes ago' "$T/po/seat01/inbox/1-hq_P-x.msg"

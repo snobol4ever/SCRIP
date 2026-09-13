@@ -2737,10 +2737,6 @@ TASKEOF
          fnd=$(git -C "$S4E/.github" log --since="$since" --diff-filter=A --name-only --format= 2>/dev/null | grep '^FINDING-' | grep -ci -e "$ME" -e "$mealt" ${row1:+-e "$row1"} || true); fnd="${fnd:-0}"
          if [ "$cmts" -eq 0 ] && [ "$fnd" -eq 0 ]; then lvl="⚠ NOTHING ATTRIBUTABLE LANDED"
          else lvl="row ${rowst}${row1:+ ${row1}} · ${cmts} commit(s) · ${fnd} FINDING(s), attributed since ${since}"; fi
-         # ⭐ THE SAME FACT WITHOUT THE ROW TOPIC, for the GRID below, which gives the row its own line.
-         # $lvl keeps the topic inline because it is what BOARD.md stores and `fleet` cuts to 40 columns.
-         if [ "$cmts" -eq 0 ] && [ "$fnd" -eq 0 ]; then lvlshort="⚠ nothing attributable landed"
-         else lvlshort="${cmts} commit(s) · ${fnd} FINDING(s), attributed since ${since}"; fi
          # ⛔ BEHIND-ONLY IS NOT A FAILURE. handoff_status.sh answers "is this tree in sync"; the banner answers a
          # NARROWER question -- does anything of value live ONLY in this session. A clone merely BEHIND origin (clean
          # tree, nothing unpushed) loses nothing on /clear; it just pulls next time. Measured directly per repo, since
@@ -2751,15 +2747,11 @@ TASKEOF
            br=$(git -C "$r" rev-parse --abbrev-ref HEAD 2>/dev/null)
            u=$(git -C "$r" rev-list --count "origin/$br..$br" 2>/dev/null || echo 0)
            onlyhere=$((onlyhere + d + ${u:-0})); done
-         vhead=""; vnote=""
          if   [ -n "$diverged" ]; then line="⛔ STOP — $ME — PRE-REWRITE CLONE:$diverged — re-clone before use"
-           vhead="⛔ STOP — $ME — PRE-REWRITE CLONE — re-clone before use"; vnote="$diverged"
          # rc is deliberately NOT changed by the drain refusal, for the same reason NOTHING LANDED did not change it:
          # rc answers "is it safe to /clear", and unread mail is safe to /clear -- it is on disk and waits. What the
          # drain law governs is the VERDICT LON READS, and that is this line.
          elif [ "$drain" -eq 1 ]; then line="⛔ DRAIN FIRST — $ME — ${inbx} unread, oldest ${staleage}m (limit ${stalemin}m). LAW 3: answer every pending question into its task file BEFORE minting or assigning. No ✅ until the inbox is current — $lvl"
-           vhead="⛔ DRAIN FIRST — $ME — ${inbx} unread, oldest ${staleage}m (limit ${stalemin}m)"
-           vnote="LAW 3: answer every pending question into its task file before minting."
          # ⛔⛔ s255, LON: "I never stopped a FLEET worker whose banner did not say SUCCESS after I prompted 'show me
          # the required banner.' So they lied."  THE SEATS DID NOT LIE -- THIS HEADLINE ANSWERED THE WRONG QUESTION.
          # SUCCESS was emitted on handoff_status rc=0, i.e. "tree clean, nothing unpushed" -- which A SEAT THAT DID
@@ -2770,18 +2762,11 @@ TASKEOF
          # SUCCESS verdict. The wrong one was in the headline. Now: nothing landed => the headline says so.
          # rc is deliberately UNCHANGED -- it still answers "safe to /clear", which is a different question and the
          # one tooling consumes. The banner's TEXT is what Lon reads, and it is now the one that must be earned.
-         # ⭐ $line is the RECORD (BOARD.md); $vhead + $vnote are the same verdict split for the GRID, so a
-         # long explanation becomes its own row instead of pushing the headline past the terminal.
          elif [ "$cmts" -eq 0 ] && [ "$fnd" -eq 0 ]; then line="⚠ NOTHING LANDED — $ME — tree is clean and safe to /clear, but this session produced NO commit and NO FINDING. That is not success; it is an empty session."
-           vhead="⚠ NOTHING LANDED — $ME — tree clean, safe to /clear"
-           vnote="NO commit and NO FINDING this session. Not success; an empty session."
          elif [ "$onlyhere" -eq 0 ] && [ "$hrc" -ne 0 ]; then line="✅ SUCCESS — $ME — safe to /clear (behind origin, nothing unpushed) — $lvl"
-           vhead="✅ SUCCESS — $ME — safe to /clear (behind origin, nothing unpushed)"
          elif [ "$hrc" -eq 0 ]; then line="✅ SUCCESS — $ME — safe to /clear — $lvl"
-           vhead="✅ SUCCESS — $ME — safe to /clear"
          else                        line="⛔ FAILURE — $ME — do NOT /clear — $lvl — $(printf '%s' "$pline" | sed 's/^ *-* *//')"
-           vhead="⛔ FAILURE — $ME — do NOT /clear"
-           vnote="$(printf '%s' "$pline" | sed 's/^ *-* *//')"; fi
+           fi
          # ⭐ V2-3, second half: the BOARD LINE carries the oldest-unanswered age and the row topic. BOARD.md is what
          # `fleet` renders and what Lon reads when he is not reading a banner, and in v1 it could not show either --
          # so an HQ sitting on a 1h47m question looked exactly like an HQ with an empty inbox.
