@@ -538,7 +538,7 @@ static IR_t * pl_lower_softcut(lcx_t * cx, const tree_t * C, const tree_t * T, c
       int before = cx->g->n;
       IR_t * te = NULL;
       IR_t * tfirst = pl_lower_conj(cx, (const tree_t * const *) tv.data, tv.n, ml_t, credo ? credo : unmk_c, &te, &tredo, NULL);
-      if (credo) pl_mark_into(cx, before, credo, NULL, "β");
+      if (credo) pl_mark_into(cx, before, credo, "β", "β");
       lc_γ_to(ml_c, pl_sc_entry(te ? te : (tfirst ? tfirst : ml_t))); }
     IR_t * ee = NULL;
     if (E) {
@@ -1023,6 +1023,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             return pl_lower_disj(cx, t, γnext, ωfail, entry_out); }
         if (!strcmp(nm, "->") && t->n == 2) return pl_lower_ite(cx, t->c[0], t->c[1], NULL, γnext, ωfail, entry_out);
         if (!strcmp(nm, "*->") && t->n == 2) return pl_lower_softcut(cx, t->c[0], t->c[1], NULL, γnext, ωfail, entry_out);
+        if (!strcmp(nm, "if") && t->n == 3 && !pl_db_owned(nm, 3) && !pl_file_defines(nm, 3) && !pl_bb_lookup("if/3", 3)) return pl_lower_softcut(cx, pl_cc_fnc1("call", (tree_t *) t->c[0]), pl_cc_fnc1("call", (tree_t *) t->c[1]), pl_cc_fnc1("call", (tree_t *) t->c[2]), γnext, ωfail, entry_out);
         if ((!strcmp(nm, "\\+") || !strcmp(nm, "not")) && t->n == 1) return pl_lower_ite(cx, t->c[0], pl_atom_goal("fail"), pl_atom_goal("true"), γnext, ωfail, entry_out);
         if (!strcmp(nm, "once") && t->n == 1) return pl_lower_ite(cx, t->c[0], pl_atom_goal("true"), pl_atom_goal("fail"), γnext, ωfail, entry_out);
         if (!strcmp(nm, "ignore") && t->n == 1) return pl_lower_ite(cx, t->c[0], pl_atom_goal("true"), pl_atom_goal("true"), γnext, ωfail, entry_out);
@@ -1790,7 +1791,15 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             cl = pl_runtime_clause_tree(raw); if (!cl) continue; ast_push(ch, cl); nb++; }
           if (!nb) continue;
           { int bb_idx = lower_pl_pred_graph(key, ch); if (bb_idx < 0) continue;
-            pl_bb_register(key, 2, bb_idx); pl_new_proc(key, 2, bb_idx); } } } }
+            pl_bb_register(key, 2, bb_idx); pl_new_proc(key, 2, bb_idx); } } }
+      { const char * ik = "if/3";
+        if (!pl_bb_lookup(ik, 3) && !resolve_pred_table_lookup(&g_stage2.resolve_pred_table, ik) && !pl_decl_dyn_is("if", 3)) {
+          tree_t * ch = ast_node_new(TT_CHOICE); ch->v.sval = strdup(ik);
+          tree_t * hd = ast_node_new(TT_FNC); hd->v.sval = strdup("if"); ast_push(hd, pl_meta_var("C")); ast_push(hd, pl_meta_var("T")); ast_push(hd, pl_meta_var("E"));
+          tree_t * body = pl_cc_scite(pl_cc_fnc1("call", pl_meta_var("C")), pl_cc_fnc1("call", pl_meta_var("T")), pl_cc_fnc1("call", pl_meta_var("E")));
+          tree_t * raw = ast_node_new(TT_FNC); raw->v.sval = (char *) ":-"; ast_push(raw, hd); ast_push(raw, body);
+          tree_t * cl = pl_runtime_clause_tree(raw);
+          if (cl) { ast_push(ch, cl); { int bb_idx = lower_pl_pred_graph(ik, ch); if (bb_idx >= 0) { pl_bb_register(ik, 3, bb_idx); pl_new_proc(ik, 3, bb_idx); } } } } } }
     { extern tree_t * pl_runtime_clause_tree(tree_t *);
       static const pl_det_leaf_t pl_meta_early[] = { { "write", 1, "$write" }, { "nl", 0, "$nl" }, { "true", 0, "$true" }, { "!", 0, "$true" }, { "fail", 0, "$fail" }, { "false", 0, "$fail" }, { "throw", 1, "$throw" }, { "=", 2, "$unify" }, { "is", 2, "$is_v" }, { ">", 2, "$cmp_gt" }, { "assert", 1, "$db_assertz_t" }, { "asserta", 1, "$db_asserta_t" }, { "assertz", 1, "$db_assertz_t" }, { "retract", 1, "$db_erase_t" }, { "retractall", 1, "$db_retractall_t" }, { "abolish", 1, "$db_abolish_t" }, { "clause", 2, "$db_at_t" }, { 0, 0, 0 } };
       for (int tbl = 0; tbl < 2; tbl++)
