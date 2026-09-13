@@ -37,6 +37,7 @@ scripts/test_gate_no_vstack.sh
 scripts/test_gate_no_weak_abort_stub.sh
 scripts/test_gate_no_worktree_blind_subject.sh
 scripts/test_gate_picker_lane_table_agrees_with_mode.sh
+scripts/test_gate_icon_scratch_names_are_not_tracked.sh
 scripts/test_gate_our_files_are_lf.sh
 scripts/test_gate_pl_no_value_stack.sh
 scripts/test_gate_pl_trail_mechanism.sh

@@ -86,7 +86,6 @@ tools/bench_rusage
 /sm_macros.s
 # EM-7c-bb-macros: bb_macros.s is regenerated alongside each .s emit too.
 /bb_macros.s
-tmp1
 refs/
 *.gcov
 *.gcda
@@ -96,8 +95,29 @@ SCRIP
 test-results/scorecard-*/list.*
 test-results/scorecard-*/noise.log
 test-results/
-/tmp3
 
 # arizona-suite-scratch-io: checkc.icn/fncs1.icn open a relative-path scratch file for real;
 # test_icon_arizona_suite.sh never isolates each run's cwd, so it lands here every run.
 /foo.baz
+
+# ⛔⭐ THE ICON SCRATCH NAMES -- ALL FOUR, ROOT-ANCHORED, AND THE ASYMMETRY IS THE LESSON (hq_I measured it
+# 2026-09-13, hq_B landed it). This list carried `tmp1` (since the initial commit) and `/tmp3` (2026-08-30)
+# and NOT tmp2, NOT tmp4 -- while corpus/packages/icon/{arizona,jcon}_tests write all four: io.icn opens
+# tmp1/tmp2 "w" and iobig.icn testio()s tmp3/tmp4. hq_I's sitting: a stray 400KB tmp4 left by a suite run
+# they did not make turned their handoff banner ⛔ FAILURE on a sitting whose work was entirely pushed.
+# ⭐ hq_I'S SENTENCE, WHICH IS THE REUSABLE HALF: an ignore list that covers SOME of a generated set is worse
+# than one that covers none, because the covered members train you to believe the set is handled. tmp1 and
+# tmp3 being ignored is exactly why nobody looked for tmp2 and tmp4.
+# ⛔ AND IT IS WORSE THAN A NUISANCE IN ONE SPECIFIC DIRECTION: handoff_status.sh says "commit them" about
+# untracked output, and the obvious reading is to COMMIT a 400KB generated artifact. tmp3 was committed by
+# accident once already and the ceo deleted it.
+# ⭐ WHAT THESE LINES ARE FOR, AND WHAT THEY ARE NOT: the SUITES no longer write here -- test_icon_all_rungs
+# runs from ICN_SCRATCH (2026-08-30) and test_icon_arizona_suite snapshots its test dirs and deletes what
+# appeared (2026-09-04). These four cover the HAND RUN, a human grading a program from the repo root, which
+# is a mess and not a defect. ⛔ THE DEFECT -- a suite writing into the source tree again -- must NOT be
+# silenced by them, and is not: test_gate_icon_scratch_names_are_not_tracked.sh is the instrument that still
+# sees it, because an ignored name is invisible to git status BY DESIGN and that is the whole hazard here.
+/tmp1
+/tmp2
+/tmp3
+/tmp4
