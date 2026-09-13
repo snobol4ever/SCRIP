@@ -46,12 +46,27 @@ gate_parse_args() {
 # remember to opt in are the carefully-written ones, so the stamp would be present exactly where it was least
 # needed and absent where it mattered most. No call site changes; all 17 callers inherit it.
 # It must never break a gate: every git call is failure-tolerant and an unreadable repo prints `unknown`.
+# ⛔⭐⭐ AND IT STAMPS THE TREE THIS SCRIPT LIVES IN, NOT THE ONE WHOSE NAME MATCHES (hq_B 2026-09-13, row
+# snobol4-a-gate-that-reads-the-main-tree-src-passes-in-a-worktree-while-origin-is-red).  This helper used to
+# hop UP to the sibling root and back DOWN into the literal string `SCRIP` -- which is the name of the MAIN
+# checkout and of nothing else -- so a gate run in a second worktree stamped the main checkout's HEAD.
+# ⛔ THE DAMAGE IS SPECIFICALLY TO `-DIRTY`, THE PART THIS COMMENT ALREADY CALLS LOAD-BEARING. Measured from an
+# armed sibling worktree: the stamp printed `SCRIP=202d8bfff` with NO `-DIRTY` while the tree actually being
+# graded was dirty -- a clean-looking receipt for an uncommitted tree, which is the one reading `-DIRTY` exists
+# to make impossible.  ⭐ A bug in the instrument that reports provenance does not produce a wrong answer; it
+# produces a wrong answer WEARING A CORRECT-LOOKING CITATION, and every downstream reader inherits it.
+# The SIBLINGS (corpus, .github) still resolve through the root, because they genuinely are siblings and going
+# up to reach them is the D-17 PORTABLE-HOME rule working as intended.  Only the hop BACK DOWN was ever wrong.
 gate_stamp() {
-    local _root _r _p _h _dirty
+    local _root _r _p _h _dirty _self
+    _self="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd)"
     _root="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd 2>/dev/null)}"
     printf '    tree:'
     for _r in SCRIP corpus .github; do
-        _p="$_root/$_r"
+        # ⭐ This helper lives at <SCRIP-repo>/scripts/lib_gate.sh BY CONSTRUCTION, so `_self` IS the SCRIP
+        # repo being run -- worktree or main checkout, whatever it is named on disk.  That is the whole fix:
+        # the SCRIP row is stamped from where this file actually is, the sibling rows from the root above it.
+        if [ "$_r" = SCRIP ] && [ -n "$_self" ]; then _p="$_self"; else _p="$_root/$_r"; fi
         # ⛔ -e NOT -d: in a git WORKTREE `.git` is a FILE, not a directory, so `-d` skipped every repo and the
         # stamp printed a bare `tree:` with NOTHING after it — the exact unactionable verdict this helper
         # exists to prevent, and it fired precisely where fail-once proofs are required to run (rungs say

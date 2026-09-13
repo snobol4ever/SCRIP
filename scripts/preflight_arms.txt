@@ -35,6 +35,7 @@ scripts/test_gate_no_handencoded_bytes.sh
 scripts/test_gate_no_o2_arm_in_scripts.sh
 scripts/test_gate_no_vstack.sh
 scripts/test_gate_no_weak_abort_stub.sh
+scripts/test_gate_no_worktree_blind_subject.sh
 scripts/test_gate_our_files_are_lf.sh
 scripts/test_gate_pl_no_value_stack.sh
 scripts/test_gate_pl_trail_mechanism.sh

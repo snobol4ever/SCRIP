@@ -14,15 +14,26 @@
 # allocation site that forgot the -1. The path is deleted now; this gate keeps the shape from coming back.
 #
 # REFUSES rc=2 when it cannot measure -- never skip-as-success.
+#
+# ⛔⭐ AND IT GRADES THE TREE IT IS RUN FROM (hq_B 2026-09-13, row
+# snobol4-a-gate-that-reads-the-main-tree-src-passes-in-a-worktree-while-origin-is-red).  It did not used to.
+# It hopped UP to the sibling root and back DOWN into the literal string `SCRIP`, so run from a second
+# worktree it graded the MAIN checkout -- and the coo's pre-landing preflight read 33 arms 0 red while origin
+# was red for about thirty-five minutes after f0d0adf5b landed a weak pas_gc_roots.  ⭐ Note the gate was not
+# confused and did not guess: it PRINTED the tree it graded, on the `src:` line, correctly.  A wrong-subject
+# verdict has no symptom, because a verdict about the wrong tree looks exactly like a verdict.
+# The subject now comes from scripts/lib_subject_tree.sh, which is where the reasoning lives.
 set -u
-S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
-SRC="${WEAKGATE_SRC:-$S4E/SCRIP/src}"
-[ -d "$SRC" ] || SRC="$S4E/src"
-[ -d "$SRC" ] || { echo "⛔ REFUSES rc=2: src tree not found (tried \$S4E/SCRIP/src and \$S4E/src)"; exit 2; }
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HERE/lib_subject_tree.sh"
+REPO="$(s4e_subject_repo "${BASH_SOURCE[0]}")"
+SRC="${WEAKGATE_SRC:-$REPO/src}"
+[ -d "$SRC" ] || { echo "⛔ REFUSES rc=2: src tree not found at \$REPO/src ($REPO/src)"; exit 2; }
 command -v grep >/dev/null || { echo "⛔ REFUSES rc=2: no grep"; exit 2; }
 
 FAIL=0
 echo "weak-abort-stub gate -- recomputed live, $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+s4e_subject_announce "$REPO" || true
 echo "src: $SRC"
 
 # ── HALF 1: no weak definition may reappear. ──────────────────────────────────────────────────────────────────────
