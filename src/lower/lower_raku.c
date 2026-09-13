@@ -1183,11 +1183,14 @@ static void rk_hoist_anon_blocks(tree_t * prog) {
         tree_t * sd = ast_node_new(TT_SUB_DECL); sd->v.ival = 0;
         tree_t * nn = ast_node_new(TT_VAR); nn->v.sval = pn; ast_push(sd, nn);
         const tree_t * body = (blk->n > 0) ? blk->c[0] : NULL;
-        int topic = 0, nph = 0; const char * ph[16];
-        rk_scan_implicit_params(body, &topic, ph, &nph, 16);
-        for (int a = 1; a < nph; a++) { const char * key = ph[a]; int b = a - 1; while (b >= 0 && strcmp(ph[b], key) > 0) { ph[b + 1] = ph[b]; b--; } ph[b + 1] = key; }
-        if (nph > 0) { for (int k = 0; k < nph; k++) { tree_t * pv = ast_node_new(TT_VAR); pv->v.sval = (char *) ph[k]; ast_push(sd, pv); } sd->v.ival = nph; }
-        else if (topic) { tree_t * pv = ast_node_new(TT_VAR); pv->v.sval = (char *) intern("_"); ast_push(sd, pv); sd->v.ival = 1; }
+        if (blk->n > 1) { for (int k = 1; k < blk->n; k++) ast_push(sd, blk->c[k]); sd->v.ival = blk->n - 1; }
+        else {
+            int topic = 0, nph = 0; const char * ph[16];
+            rk_scan_implicit_params(body, &topic, ph, &nph, 16);
+            for (int a = 1; a < nph; a++) { const char * key = ph[a]; int b = a - 1; while (b >= 0 && strcmp(ph[b], key) > 0) { ph[b + 1] = ph[b]; b--; } ph[b + 1] = key; }
+            if (nph > 0) { for (int k = 0; k < nph; k++) { tree_t * pv = ast_node_new(TT_VAR); pv->v.sval = (char *) ph[k]; ast_push(sd, pv); } sd->v.ival = nph; }
+            else if (topic) { tree_t * pv = ast_node_new(TT_VAR); pv->v.sval = (char *) intern("_"); ast_push(sd, pv); sd->v.ival = 1; }
+        }
         if (body) {
             for (int k = 0; k < body->n; k++) {
                 tree_t * st = body->c[k];

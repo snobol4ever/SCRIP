@@ -2067,6 +2067,12 @@ atom
           ExprList *a=$4; if(a){ for(int i=0;i<a->count;i++) expr_add_child(call,a->items[i]); exprlist_free(a); } $$=call; }
     | block           { tree_t *b=ast_node_new(TT_ANON_BLOCK); expr_add_child(b,$1); $$=b; }
     | KW_SUB block    { tree_t *b=ast_node_new(TT_ANON_BLOCK); expr_add_child(b,$2); $$=b; }
+    | KW_SUB '(' param_list ')' block
+        { tree_t *b=ast_node_new(TT_ANON_BLOCK); expr_add_child(b,$5);
+          ExprList *ps=$3; if(ps){ for(int i=0;i<ps->count;i++) expr_add_child(b,ps->items[i]); exprlist_free(ps); } $$=b; }
+    | OP_ARROW scalar_list block
+        { tree_t *b=ast_node_new(TT_ANON_BLOCK); expr_add_child(b,$3);
+          ExprList *vs=$2; if(vs){ for(int i=0;i<vs->count;i++) expr_add_child(b,vs->items[i]); exprlist_free(vs); } $$=b; }
     ;
 %%
 extern void *raku_yy_scan_string(const char *);
