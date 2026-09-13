@@ -2327,15 +2327,18 @@ int rt_pl_db_abolish(void *db_v)
 int rt_pl_db_match_erase(void *db_v, void *goal_term)
 {
     pl_db_t *db = (pl_db_t *)db_v;
-    int hit = 0;
+    int hit = 0; char key[264]; int ar = 0; int have_key = 0;
     if (!db || !goal_term) return 0;
     for (int i = 0; i < db->n; i++) {
         if (db->s[i].erased) continue;
         { pl_cell_t *va[256]; pl_cell_t *vn2[256]; int vn = 0; pl_cell_t pair = pl_cell_copy_cells(&db->s[i].cl, va, vn2, &vn, 256);
           int vn3 = 0; pl_cell_t *va3[256]; pl_cell_t *vn4[256]; pl_cell_t g = pl_cell_copy_cells((pl_cell_t *)goal_term, va3, vn4, &vn3, 256);
           pl_cell_t *h = (pl_cell_t *)pl_deref(&pair)->p;
-          if (h && pl_unify(&h[0], &g)) { db->s[i].erased = 1; hit++; } }
+          if (h && pl_unify(&h[0], &g)) {
+              if (!have_key) have_key = rt_pl_db_head_key((void *)&db->s[i].cl, key, sizeof key, &ar);
+              db->s[i].erased = 1; hit++; } }
     }
+    if (hit && have_key) rt_pl_db_recompile(db_v, key, ar);
     return hit;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
