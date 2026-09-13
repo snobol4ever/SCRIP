@@ -102,7 +102,29 @@ port_trace_main() {
     # ⛔ AN EMPTY SELECTION IS UNMEASURED, NEVER A PASS -- a rung with no witness must refuse exactly as the ladder runner does.
     [ -n "${origins// /}" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: no ladder origins $SELDESC in $MASTER_DIR/ALL.csv"; gate_stamp; exit 2; }; fi
   W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
-  norm() { grep -E '^\([0-9]+\) [0-9]+ (Call|Exit|Redo|Fail|Exception): ' "$1" | sed -E 's/^(\([0-9]+\)) [0-9]+ /\1 /; s/\bn[0-9]+_//g; s/\$2F/\//g; s/ r15=0x[0-9a-f]+$//'; }
+  # ⛔⭐⭐ THE SOURCE FILENAME IS NORMALISED OUT, AND WITHOUT IT A SELF-PIN CANNOT BE RE-CUT AT ALL
+  # (hq_T 2026-09-13, on hq_S's ask; reproduced here before landing). The SNO$STMT/stmt_mark startup
+  # preamble minted at lower_snobol4.c:927 carries THE SOURCE FILE NAME as a lit_string operand, so
+  # THE SAME PROGRAM, BYTE-IDENTICAL, RUN UNDER TWO DIFFERENT FILENAMES PRODUCED TWO DIFFERENT
+  # NORMALISED TRACES. MEASURED on ladder__rung01_arith_divide extracted from the rebus master: 58
+  # trace lines under each of two names, diff = exactly 4 lines, all of them the basename at node (3)
+  # ("(3) Call: lit_string A.reb" vs "... zz_a_much_longer_origin_name_here.reb").
+  # ⛔ WHY THAT BLOCKED A RE-CUT RATHER THAN MERELY ANNOYING ONE: master_extract_origin materialises
+  # every witness under its ORIGIN name, 40-60 characters, so a --cut today would have written refs
+  # PINNED TO THE HARNESS'S EXTRACTION BASENAME -- an instrument that reds the first time an origin is
+  # renamed, and whose failing line talks about a filename instead of about ports. hq_S stopped and
+  # asked rather than re-pin their lane green, which was the right call and is why this is cured in the
+  # SHARED body before any language re-cuts.
+  # ⭐ THE SUBSTITUTION IS BY THE KNOWN BASENAME, NOT BY A PATTERN OVER lit_string. Blinding every
+  # lit_string operand would also blind a witness that legitimately prints a path-shaped string, and
+  # anchoring on "the lit_string before call SNO$STMT" needs cross-line lookahead that sed does not
+  # have and that would silently stop matching if the preamble grows a node. The gate WROTE the file,
+  # so it knows the one string that must not survive: $2 is that basename and only that basename is
+  # replaced. A witness that really does print its own filename is normalised too, which is correct --
+  # such output IS filename-dependent and must never be pinned.
+  norm() { local _bn="${2:-}"; grep -E '^\([0-9]+\) [0-9]+ (Call|Exit|Redo|Fail|Exception): ' "$1" \
+    | sed -E 's/^(\([0-9]+\)) [0-9]+ /\1 /; s/\bn[0-9]+_//g; s/\$2F/\//g; s/ r15=0x[0-9a-f]+$//' \
+    | { [ -n "$_bn" ] && sed "s@$(printf '%s' "$_bn" | sed 's/[][\\.*^$@/&]/\\&/g')@<SRC>@g" || cat; }; }
   m4build() { [ -s "$1" ] && as --64 -o "$1.o" "$1" 2>/dev/null && gcc -no-pie -o "$2" "$1.o" "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>/dev/null; }
   refblock() { awk -v o="$1" -v m="$2" '$0 ~ "^%---- " o " " m " " {on=1; next} /^%---- /{on=0} on' "$REF"; }
   refmeta()  { grep -E "^%---- $1 $2 " "$REF" | head -1 | sed -E 's/.* total=([0-9]+) prefix=([0-9]+).*/\1 \2/'; }
@@ -140,7 +162,7 @@ port_trace_main() {
     cmp -s "$W/$o.m3.out0" "$ref" && { ans=ok; ans_ok=$((ans_ok+1)); } || { ans=RED; ans_red=$((ans_red+1)); }
     tr3=?; tr4=?
     for m in m3 m4; do
-      norm "$W/$o.$m.raw" > "$W/$o.$m.norm"; total=$(wc -l < "$W/$o.$m.norm")
+      norm "$W/$o.$m.raw" "$o$PORTTRACE_EXT" > "$W/$o.$m.norm"; total=$(wc -l < "$W/$o.$m.norm")
       # the m4 twin of the compile-time refusal: a binary that was never built traced nothing, and pert4=NOBUILD already counted it
       if [ "$m" = m4 ] && [ "$pert4" = NOBUILD ]; then tr4="NOBUILD"; continue; fi
       [ "$total" -gt 0 ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: $o $m: the witness COMPILED (rc=0) and ran, yet $PORT_TRACE_ENV=1 produced ZERO trace lines -- the instrument is not firing; this is not 'no ports' and not a compile-time refusal (a refusal is a named row, never this message)"; gate_stamp; exit 2; }
