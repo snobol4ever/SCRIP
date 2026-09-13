@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
+source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" || exit 2; case "${1:-report}" in run|report) one_runner_guard "${0##*/} ${1:-report}" || exit 2;; esac  # PER VERB, CEO-547 part 1: run and report ARE boards; `one` and `oracle` grade ONE named program, write no results.tsv and publish no board, so they are development aids and the guard must not judge them by the entry point (hq_B measurement, .github 92335e4b)
 # scorecard_snobol4.sh — THE SNOBOL4 SCORECARD + META SCORE (Lon directive 2026-08-15 s91, Fable seat).
 #
 #   bash scripts/scorecard_snobol4.sh run    [--suites a,b,..] [--jobs N] [--out DIR] [--force]   # measure (long)
