@@ -209,6 +209,8 @@ int rt_pl_arg_cell(void *n_cell, void *t_cell, void *arg_cell, struct pl_tr_ctx_
 int rt_pl_univ_cell(void *t0_cell, void *list_cell, struct pl_tr_ctx_s *cx);
 int rt_pl_succ_plus_cell(long arity, void *a_cell, void *b_cell, void *c_cell, struct pl_tr_ctx_s *cx);
 int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_cell, struct pl_tr_ctx_s *cx);
+int rt_pl_u8_get(const char *s, int *adv);
+int rt_pl_u8_put(char *o, int cp);
 long size_value(DESCR_t v, int *failed);
 #ifdef __cplusplus
 }

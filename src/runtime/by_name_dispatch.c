@@ -2292,9 +2292,9 @@ DESCR_t rt_pl_dop_atomic_list_concat_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx
 DESCR_t rt_pl_dop_concat_atom_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) { extern void rt_gc_point_arr(DESCR_t *, int, const char **);int ok;if (nargs != 2 && nargs != 3) return FAILDESCR;
     pl_atoms_ready();rt_pl_tr_gc_sync(cx->tr); rt_gc_point_arr(args, nargs, (const char **)0);
     ok = rt_pl_atom_op_cell("concat_atom", &args[0], &args[1], nargs == 3 ? (void *)&args[2] : (void *)0, cx); PL_CX_LEAF_TAIL
-PL_CX_LEAF_HEAD(char_code, 2) { char b[64]; const char *s; DESCR_t a = rt_pl_deref_val(args[0]), c = rt_pl_deref_val(args[1]);
-    if (pl_atom_str(a) && pl_cell_text(a, b, sizeof b, &s) && s[0]) ok = plw_unify_vals(args[1], INTVAL((long long)(unsigned char)s[0]), cx);
-    else if (c.v == DT_I) { char c2[2] = { (char)c.i, 0 }; ok = plw_unify_vals(args[0], pl_mk_atom_dup(c2, 1), cx); } else ok = 0; } PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(char_code, 2) { char b[64]; const char *s; int adv; DESCR_t a = rt_pl_deref_val(args[0]), c = rt_pl_deref_val(args[1]);
+    if (pl_atom_str(a) && pl_cell_text(a, b, sizeof b, &s) && s[0]) ok = plw_unify_vals(args[1], INTVAL((long long)rt_pl_u8_get(s, &adv)), cx);
+    else if (c.v == DT_I) { char c2[8]; int bl = rt_pl_u8_put(c2, (int)c.i); c2[bl] = 0; ok = plw_unify_vals(args[0], pl_mk_atom_dup(c2, (size_t)bl), cx); } else ok = 0; } PL_CX_LEAF_TAIL
 static int pl_number_text_leaf(DESCR_t *args, int codes, pl_tr_ctx_t *cx) { char b[4096]; const char *s; DESCR_t a = rt_pl_deref_val(args[0]);
     { DESCR_t num; if (pl_list_text(args[1], b, sizeof b) && pl_parse_number(b, &num)) return plw_unify_vals(args[0], num, cx); }
     if (a.v == DT_I || a.v == DT_R) { pl_cell_text(a, b, sizeof b, &s); return plw_unify_vals(args[1], pl_text_list(s, codes), cx); }
@@ -8183,7 +8183,9 @@ static int pl_anum_list_kind(DESCR_t d) {
 static int pl_anum_is_text(DESCR_t d) { return pl_atom_str(d) != (const char *)0; }
 static int pl_anum_is_num(DESCR_t d) { return d.v == DT_I || d.v == DT_R; }
 static int pl_anum_is_compound(DESCR_t d) { return d.v == (DTYPE_t)DT_PLREF && (int)(d.slen & 0xFFFFu) > 0; }
-static int pl_anum_code_ok(long c) { return c >= 0 && c <= 255; }
+static int pl_anum_code_ok(long c) { return c >= 0 && c <= 0x10FFFF; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_anum_one_char(const char *es) { int adv; if (!es || !es[0]) return 0; (void)rt_pl_u8_get(es, &adv); return es[adv] == '\0'; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void * pl_anum_elems(DESCR_t lst, int codes) {
     extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
@@ -8198,27 +8200,23 @@ static void * pl_anum_elems(DESCR_t lst, int codes) {
             if (!pl_anum_code_ok((long)e.i)) return rt_pl_ball_kind1("representation_error", "character_code"); }
         else {
             const char *es = pl_atom_str(e);
-            if (!es || !es[0] || es[1]) return rt_pl_ball_kind2("type_error", "character", e); }
+            if (!pl_anum_one_char(es)) return rt_pl_ball_kind2("type_error", "character", e); }
         cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1]); }
     return (void *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void * pl_anum_number_syntax(DESCR_t lst, int codes) {
     extern void *rt_pl_ball_kind1(const char *, const char *);
-    char buf[512]; size_t k = 0; DESCR_t cur = rt_pl_deref_val(lst);
+    char buf[512]; size_t k = 0; DESCR_t cur = rt_pl_deref_val(lst); DESCR_t num;
     while (pl_is_cons(cur)) {
         DESCR_t e = rt_pl_deref_val(((DESCR_t *)cur.p)[0]);
-        if (codes) { if (e.v != DT_I) return (void *)0; if (k + 1 >= sizeof buf) return (void *)0; buf[k++] = (char)e.i; }
-        else { const char *es = pl_atom_str(e); if (!es || !es[0] || es[1]) return (void *)0; if (k + 1 >= sizeof buf) return (void *)0; buf[k++] = es[0]; }
+        if (codes) { if (e.v != DT_I) return (void *)0; if (k + 8 >= sizeof buf) return (void *)0; k += (size_t)rt_pl_u8_put(buf + k, (int)e.i); }
+        else { const char *es = pl_atom_str(e); if (!pl_anum_one_char(es)) return (void *)0; { size_t cl = strlen(es); if (k + cl + 1 >= sizeof buf) return (void *)0; memcpy(buf + k, es, cl); k += cl; } }
         cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1]); }
     buf[k] = '\0';
-    { const char *p = buf; char *end = (char *)0; while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r') p++;
-      if (!*p) return (void *)0;
-      (void)strtod(p, &end);
-      if (!end || end == p || !*end) return (void *)0;
-      { const char *q = end; while (*q == ' ' || *q == '\t' || *q == '\n' || *q == '\r') q++;
-        if (!*q) return rt_pl_ball_kind1("syntax_error", "illegal_number"); } }
-    return (void *)0;
+    { const char *p = buf; while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r') p++;
+      if (*p && pl_parse_number(p, &num)) return (void *)0;
+      return rt_pl_ball_kind1("syntax_error", "illegal_number"); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void * pl_anum_text_list_pair(DESCR_t a, DESCR_t l, int codes, const char *atom_type) {

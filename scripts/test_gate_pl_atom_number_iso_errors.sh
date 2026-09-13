@@ -43,7 +43,26 @@ export PLA_SCRIP="$SCRIP"
 python3 - <<'PY'
 import os, subprocess, tempfile, sys, re
 scrip = os.environ["PLA_SCRIP"]
-# goal <TAB> expected ISO error functor. Extracted from the vendored INRIA suite; see this script's header.
+# goal <TAB> expected ISO error functor, or the literal `success` where the ORACLE raises nothing.
+#
+# ⛔⭐ TWO WITNESSES CARRY THE ORACLE'S ANSWER, NOT THE VENDOR SUITE'S, AND THEY ARE NAMED HERE RATHER THAN
+# DROPPED (CEO-391: what only another implementation provides is OUTSIDE THE BASELINE -- named beside the
+# suite with the oracle's own error and a source check, out of nobody's denominator, never hidden).
+# The vendored INRIA entries are
+#     [atom_codes(A,[ 0'i, 0's, 1000]),   representation_error(character_code)].  % 1000 not a code
+#     [number_codes(A,[ 0'1, 0'2, 1000]), representation_error(character_code)].  % 1000 not a code
+# and that comment is the suite author's own premise: a processor whose character set is 0..255. ISO
+# 13211-1 leaves the character set IMPLEMENTATION-DEFINED, and this engine's is Unicode -- which the
+# Logtalk conformance suite's whole unicode/ group tests and which atom_length('<3 Greek letters>') =:= 3
+# now depends on. Measured against the oracle (swipl, the ISO superset, CEO-391 Oracles), 2026-09-13:
+#     atom_codes(A,[0'i,0's,1000])    -> A = is<U+03E8>          (succeeds; NO error)
+#     number_codes(A,[0'1,0'2,1000])  -> error(syntax_error(illegal_number), ...)
+#     atom_codes(A,[0'i,-1])          -> error(type_error(character_code,-1), ...)   (still an error)
+# So the two rows below are graded on the oracle. ⭐ The reason this is written out instead of just edited:
+# a witness whose expectation is silently relaxed is indistinguishable from a witness that was never
+# strict, and the next reader cannot tell a measured ruling from a convenience. hq_R owns this gate and
+# was told; the cto was told.
+# Everything else here is the vendored INRIA suite verbatim; see this script's header.
 W = """atom_chars(A,L)\tinstantiation_error
 atom_chars(A,[a,E,c])\tinstantiation_error
 atom_chars(A,[a,b|L])\tinstantiation_error
@@ -53,7 +72,7 @@ atom_chars(A,[a,f(b)])\ttype_error
 atom_codes(A,L)\tinstantiation_error
 atom_codes(f(a),L)\ttype_error
 atom_codes(A, 0'x)\ttype_error
-atom_codes(A,[ 0'i, 0's, 1000])\trepresentation_error
+atom_codes(A,[ 0'i, 0's, 1000])\tsuccess
 atom_concat(A1,'iso',A3)\tinstantiation_error
 atom_concat('iso',A2,A3)\tinstantiation_error
 atom_concat(f(a),'iso',A3)\ttype_error
@@ -74,7 +93,7 @@ number_chars(A,['4',2])\ttype_error
 number_codes(A,L)\tinstantiation_error
 number_codes(a,L)\ttype_error
 number_codes(A,4)\ttype_error
-number_codes(A,[ 0'1, 0'2, 1000])\trepresentation_error
+number_codes(A,[ 0'1, 0'2, 1000])\tsyntax_error
 sub_atom(Banana, 3, 2, _, S2)\tinstantiation_error
 sub_atom(f(a), 2, 2, _, S2)\ttype_error
 sub_atom('Banana', 4, 2, _, 2)\ttype_error
@@ -117,7 +136,9 @@ for goal, want in tests:
             got = functor_of(o) or "error?"
             if got == want: continue
             fails += 1; rows.append((goal, mode, want, "raised " + got))
-        elif "@OK" in o: fails += 1; rows.append((goal, mode, want, "SUCCEEDED (no error raised)"))
+        elif "@OK" in o:
+            if want == "success": continue
+            fails += 1; rows.append((goal, mode, want, "SUCCEEDED (no error raised)"))
         elif "@NO" in o: fails += 1; rows.append((goal, mode, want, "FAILED (no error raised)"))
         else:            fails += 1; rows.append((goal, mode, want, "NO-CLASS (no @OK/@NO/@ER in output)"))
 # ⛔ A GATE THAT GRADED NOTHING REFUSES -- it never prints the success shape (RULES.md).

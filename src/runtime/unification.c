@@ -633,6 +633,26 @@ static int plc_unify_into_cell(pl_cell_t *dst, pl_cell_t val)
     return pl_unify(dst, &tmp);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_u8_get(const char *s, int *adv) {
+    const unsigned char *u = (const unsigned char *)s; unsigned c = u[0];
+    if (c < 0x80) { *adv = 1; return (int)c; }
+    if ((c & 0xE0) == 0xC0 && (u[1] & 0xC0) == 0x80) { *adv = 2; return (int)(((c & 0x1Fu) << 6) | (u[1] & 0x3Fu)); }
+    if ((c & 0xF0) == 0xE0 && (u[1] & 0xC0) == 0x80 && (u[2] & 0xC0) == 0x80) { *adv = 3; return (int)(((c & 0x0Fu) << 12) | ((u[1] & 0x3Fu) << 6) | (u[2] & 0x3Fu)); }
+    if ((c & 0xF8) == 0xF0 && (u[1] & 0xC0) == 0x80 && (u[2] & 0xC0) == 0x80 && (u[3] & 0xC0) == 0x80)
+        { *adv = 4; return (int)(((c & 0x07u) << 18) | ((u[1] & 0x3Fu) << 12) | ((u[2] & 0x3Fu) << 6) | (u[3] & 0x3Fu)); }
+    *adv = 1; return (int)c;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static size_t pl_u8_count(const char *s) { size_t n = 0; int a; while (*s) { (void)rt_pl_u8_get(s, &a); s += a; n++; } return n; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_u8_put(char *o, int cp) {
+    if (cp < 0) return 0;
+    if (cp < 0x80) { o[0] = (char)cp; return 1; }
+    if (cp < 0x800) { o[0] = (char)(0xC0 | (cp >> 6)); o[1] = (char)(0x80 | (cp & 0x3F)); return 2; }
+    if (cp < 0x10000) { o[0] = (char)(0xE0 | (cp >> 12)); o[1] = (char)(0x80 | ((cp >> 6) & 0x3F)); o[2] = (char)(0x80 | (cp & 0x3F)); return 3; }
+    o[0] = (char)(0xF0 | (cp >> 18)); o[1] = (char)(0x80 | ((cp >> 12) & 0x3F)); o[2] = (char)(0x80 | ((cp >> 6) & 0x3F)); o[3] = (char)(0x80 | (cp & 0x3F)); return 4;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_cell, pl_tr_ctx_t *cx)
 {
     pl_cell_t *t0 = a0_cell ? pl_deref((pl_cell_t *)a0_cell) : (pl_cell_t *)0;
@@ -642,7 +662,7 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
     if (!strcmp(fn, "atom_length")) {
         const char *s = plc_atom_op_text(t0, buf0, sizeof buf0);
         if (!s) { return 0; }
-        if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, pl_make_int((int64_t)strlen(s)), cx)) { return 0; }
+        if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, pl_make_int((int64_t)pl_u8_count(s)), cx)) { return 0; }
         return 1;
     }
     if (!strcmp(fn, "atom_concat")) {
@@ -680,13 +700,13 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
         if (t0 && !pl_cell_unbound(t0)) {
             const char *s = plc_atom_op_text(t0, buf0, sizeof buf0);
             if (!s) { return 0; }
-            size_t n = strlen(s);
+            int cps[4096]; int cn = 0, adv;
+            for (const char *q = s; *q && cn < 4096; q += adv) { cps[cn] = rt_pl_u8_get(q, &adv); cn++; }
             pl_cell_t lst = plc_make_atom_cell("[]");
-            for (size_t i = n; i > 0; i--) {
-                unsigned char ch = (unsigned char)s[i - 1];
+            for (int i = cn; i > 0; i--) {
                 pl_cell_t el;
-                if (as_codes) el = pl_make_int((int64_t)ch);
-                else { char cs[2] = { (char)ch, '\0' }; el = plc_make_atom_cell(cs); }
+                if (as_codes) el = pl_make_int((int64_t)cps[i - 1]);
+                else { char cs[8]; int bl = rt_pl_u8_put(cs, cps[i - 1]); cs[bl] = '\0'; el = plc_make_atom_cell(cs); }
                 pl_cell_t *pair = (pl_cell_t *)PL_CELL_ALLOC(2 * sizeof(pl_cell_t));
                 pair[0] = el; pair[1] = lst;
                 lst = pl_make_compound(ATOM_DOT, 2, pair);
@@ -699,9 +719,10 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
         while (cur && (int)cur->v == DT_PLREF && (int)(cur->slen >> 16) == ATOM_DOT && (int)(cur->slen & 0xFFFFu) == 2) {
             pl_cell_t *pr = (pl_cell_t *)cur->p;
             pl_cell_t *el = pl_deref(&pr[0]);
-            if (oi >= sizeof(out) - 1) break;
-            if (as_codes) { if ((int)el->v != DT_I) { return 0; } out[oi++] = (char)el->i; }
-            else { if ((int)el->v != DT_A && (int)el->v != DT_S) { return 0; } const char *cn = plc_atom_text(el); out[oi++] = cn ? cn[0] : '?'; }
+            if (oi + 8 >= sizeof(out)) break;
+            if (as_codes) { if ((int)el->v != DT_I) { return 0; } oi += (size_t)rt_pl_u8_put(out + oi, (int)el->i); }
+            else { if ((int)el->v != DT_A && (int)el->v != DT_S) { return 0; } const char *cn = plc_atom_text(el);
+                   if (!cn) { out[oi++] = '?'; } else { size_t cl = strlen(cn); memcpy(out + oi, cn, cl); oi += cl; } }
             cur = pl_deref(&pr[1]);
         }
         out[oi] = '\0';

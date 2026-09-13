@@ -3,6 +3,21 @@
 # NUMERICALLY, and must accept the ISO number syntax (row
 # flip-inria-number-chars-and-codes-reject-exponent-and-character-code-number-syntax, hq_R 2026-09-06).
 #
+# ⛔⭐ THE `NO` CLASS SPLIT INTO `RAISE` AND `NO` ON 2026-09-13 (hq_C, CEO-660's lane). Five of the six
+# no-accept witnesses were written as "must FAIL, not accept" at a time when this engine could not raise at
+# all, and BOTH ORACLES RAISE ON THEM. Measured that day, goal for goal, each inside catch/3:
+#     number_chars(X,['a','b'])              swipl error(syntax_error(illegal_number),...)   gprolog syntax_error
+#     number_chars(X,['3','.','3','.','3'])  swipl error(syntax_error(illegal_number),...)   gprolog syntax_error
+#     number_chars(X,['0',''''])             swipl error(syntax_error(illegal_number),...)   gprolog syntax_error
+#     number_codes(X,[0'0,0'x])              swipl error(syntax_error(illegal_number),...)   gprolog syntax_error
+#     number_codes(X,[])                     swipl error(syntax_error(illegal_number),...)   gprolog syntax_error
+#     number_chars(3.3,['3','.','4'])        swipl @NO (fails)                               gprolog @NO (fails)
+# ⭐ THE SIXTH IS WHY THE CLASS HAD TO SPLIT RATHER THAN BE RELABELLED WHOLESALE: it is the only one whose
+# list DOES denote a number, so it is an honest unification failure and must stay a failure. A single `NO`
+# bucket could not tell "this text is not a number" from "this number is not that number" -- and because
+# RAISING also does not accept, the weaker expectation was satisfied by both behaviours and could never
+# notice which one it had. A gate whose PASS is reachable two ways names only one of them.
+#
 # WHAT THIS PINS. ISO/IEC 13211-1 § 8.16.7/8.16.8 with § 6.4.4: when the list argument of number_chars/2 or
 # number_codes/2 is a proper list, it is PARSED and the resulting NUMBER is unified with the first argument.
 # SCRIP failed silently on four INRIA goals, and the four are TWO different defects that share one choke point:
@@ -59,12 +74,12 @@ number_codes(X,[0'0,0'o,0'1,0'7])	V:15	octal
 number_codes(X,[0'0,0'b,0'1,0'1])	V:3	binary
 number_chars(3.3,['3','.','3'])	OK	identical spelling still unifies
 number_codes(255,[0'0,0'x,0'f,0'f])	OK	bound integer vs a radix spelling of itself
-number_chars(X,['a','b'])	NO	not a number -- must FAIL, not accept
-number_chars(X,['3','.','3','.','3'])	NO	malformed float
-number_chars(3.3,['3','.','4'])	NO	a DIFFERENT number must not unify
-number_chars(X,['0',''''])	NO	0' with no character is incomplete
-number_codes(X,[0'0,0'x])	NO	radix prefix with no digits
-number_codes(X,[])	NO	empty list is not a number"""
+number_chars(X,['a','b'])	RAISE	not a number -- syntax_error, both oracles
+number_chars(X,['3','.','3','.','3'])	RAISE	malformed float
+number_chars(3.3,['3','.','4'])	NO	a DIFFERENT number must not unify -- the ONE arm that is a failure, not an error
+number_chars(X,['0',''''])	RAISE	0' with no character is incomplete
+number_codes(X,[0'0,0'x])	RAISE	radix prefix with no digits
+number_codes(X,[])	RAISE	empty list is not a number"""
 TYPE = [("number_codes(N,[0'0,0'x,0'f,0'f]), integer(N)", "0xff must be an INTEGER -- the float 255.0 writes indistinguishably"),
         ("number_codes(N,[0'1,0'2]), integer(N)", "a plain integer stays an integer"),
         ("number_chars(N,['3','.','3']), float(N)", "a float stays a float"),
@@ -100,7 +115,9 @@ for goal, want, why in tests:
     for mode, (o, rc) in zip(("m3", "m4"), run_both(g2)):
         graded += 1
         if rc != 0: fails += 1; rows.append((goal, mode, want, "rc=%d %s" % (rc, o[:40]))); continue
-        if want == "NO":
+        if want == "RAISE":
+            if "syntax_error" not in o: fails += 1; rows.append((goal, mode, "@ER syntax_error", "%s   [%s]" % (o[:44], why)))
+        elif want == "NO":
             if "@NO" not in o: fails += 1; rows.append((goal, mode, "@NO (must not accept)", "%s   [%s]" % (o[:44], why)))
         elif want == "OK":
             if "@OK" not in o: fails += 1; rows.append((goal, mode, "@OK", "%s   [%s]" % (o[:44], why)))
@@ -121,8 +138,10 @@ if graded == 0:
 for goal, mode, want, got in rows[:80]:
     print("    %-44s %s  want %-22s got %s" % (goal[:44], mode, want[:22], got))
 print("    UNGRADED BY DESIGN: number_codes(X,[0'0,39,39])  \"0''\"  -- swipl 9.x says 39, gprolog 1.4.5 raises syntax_error; SCRIP follows swipl, named not pinned")
-print("PLNUMSYN_BOARD witnesses=%d (accept/value=%d no-accept=%d type=%d reverse=%d) modes=2 graded=%d PASS=%d FAIL=%d"
-      % (len(tests) + len(TYPE) + len(REV), sum(1 for _, w, _ in tests if w != "NO"), sum(1 for _, w, _ in tests if w == "NO"), len(TYPE), len(REV), graded, graded - fails, fails))
+print("PLNUMSYN_BOARD witnesses=%d (accept/value=%d raise=%d no-accept=%d type=%d reverse=%d) modes=2 graded=%d PASS=%d FAIL=%d"
+      % (len(tests) + len(TYPE) + len(REV), sum(1 for _, w, _ in tests if w not in ("NO", "RAISE")),
+         sum(1 for _, w, _ in tests if w == "RAISE"), sum(1 for _, w, _ in tests if w == "NO"),
+         len(TYPE), len(REV), graded, graded - fails, fails))
 sys.exit(1 if fails else 0)
 PY
 _prc=${PIPESTATUS[0]}

@@ -68,6 +68,13 @@ static int hexval(char c) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_lex_u8_put(char *o, int cp) {
+    if (cp < 0x80) { o[0] = (char)cp; return 1; }
+    if (cp < 0x800) { o[0] = (char)(0xC0 | (cp >> 6)); o[1] = (char)(0x80 | (cp & 0x3F)); return 2; }
+    if (cp < 0x10000) { o[0] = (char)(0xE0 | (cp >> 12)); o[1] = (char)(0x80 | ((cp >> 6) & 0x3F)); o[2] = (char)(0x80 | (cp & 0x3F)); return 3; }
+    o[0] = (char)(0xF0 | (cp >> 18)); o[1] = (char)(0x80 | ((cp >> 12) & 0x3F)); o[2] = (char)(0x80 | ((cp >> 6) & 0x3F)); o[3] = (char)(0x80 | (cp & 0x3F)); return 4;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int decode_escape(Lexer *lx, int *code) {
     char e = advance(lx);
     switch (e) {
@@ -84,15 +91,20 @@ static int decode_escape(Lexer *lx, int *code) {
         case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': {
             int v = e - '0';
             while (cur(lx) >= '0' && cur(lx) <= '7') v = v * 8 + (advance(lx) - '0');
-            if (cur(lx) != '\\') return -1;
-            advance(lx); *code = v; return 1;
+            if (cur(lx) == '\\') advance(lx);
+            *code = v; return 1;
         }
         case 'x': {
             int v = 0, h;
             if (hexval(cur(lx)) < 0) return -1;
             while ((h = hexval(cur(lx))) >= 0) { v = v * 16 + h; advance(lx); }
-            if (cur(lx) != '\\') return -1;
-            advance(lx); *code = v; return 1;
+            if (cur(lx) == '\\') advance(lx);
+            *code = v; return 1;
+        }
+        case 'u': case 'U': {
+            int want = (e == 'u') ? 4 : 8, v = 0, h;
+            for (int i = 0; i < want; i++) { if ((h = hexval(cur(lx))) < 0) return -1; v = v * 16 + h; advance(lx); }
+            *code = v; return 1;
         }
         case '\\': *code = '\\'; return 1;
         case '\'': *code = '\''; return 1;
@@ -118,7 +130,7 @@ static Token scan_quoted_atom(Lexer *lx) {
         } else if (c == '\\') {
             advance(lx);
             int code; int st = decode_escape(lx, &code);
-            if (st == 1) buf_push(&buf, &len, &cap, (char)(code & 0xFF));
+            if (st == 1) { char eb[8]; int bl = pl_lex_u8_put(eb, code); for (int i = 0; i < bl; i++) buf_push(&buf, &len, &cap, eb[i]); }
             else if (st < 0) { free(buf); return make_err(line, "invalid escape sequence in quoted atom"); }
         } else if (c == '\n' || c == '\t') {
             free(buf); return make_err(line, "unescaped layout character in quoted atom");
@@ -142,7 +154,7 @@ static Token scan_string(Lexer *lx) {
         if (c == '\\') {
             advance(lx);
             int code; int st = decode_escape(lx, &code);
-            if (st == 1) buf_push(&buf, &len, &cap, (char)(code & 0xFF));
+            if (st == 1) { char eb[8]; int bl = pl_lex_u8_put(eb, code); for (int i = 0; i < bl; i++) buf_push(&buf, &len, &cap, eb[i]); }
             else if (st < 0) { free(buf); return make_err(line, "invalid escape sequence in double-quoted token"); }
         } else if (c == '\n' || c == '\t') {
             free(buf); return make_err(line, "unescaped layout character in double-quoted token");
@@ -166,7 +178,13 @@ static Token scan_number(Lexer *lx) {
             if (st != 1) { free(t.text); return make_err(line, "invalid escape sequence in character code constant"); }
             t.ival = (long)code; return t; }
         if (cur(lx) == '\'' && peek1(lx) == '\'') { advance(lx); advance(lx); t.ival = (long)'\''; return t; }
-        t.ival = (long)(unsigned char)advance(lx);
+        { const unsigned char *u = (const unsigned char *)&lx->src[lx->pos]; int adv = 1, cp = (int)u[0];
+          if ((u[0] & 0xE0) == 0xC0 && (u[1] & 0xC0) == 0x80) { adv = 2; cp = ((u[0] & 0x1F) << 6) | (u[1] & 0x3F); }
+          else if ((u[0] & 0xF0) == 0xE0 && (u[1] & 0xC0) == 0x80 && (u[2] & 0xC0) == 0x80) { adv = 3; cp = ((u[0] & 0x0F) << 12) | ((u[1] & 0x3F) << 6) | (u[2] & 0x3F); }
+          else if ((u[0] & 0xF8) == 0xF0 && (u[1] & 0xC0) == 0x80 && (u[2] & 0xC0) == 0x80 && (u[3] & 0xC0) == 0x80)
+              { adv = 4; cp = ((u[0] & 0x07) << 18) | ((u[1] & 0x3F) << 12) | ((u[2] & 0x3F) << 6) | (u[3] & 0x3F); }
+          while (adv--) advance(lx);
+          t.ival = (long)cp; }
         return t;
     }
     if (cur(lx) == '0' && (peek1(lx) == 'b' || peek1(lx) == 'x' || peek1(lx) == 'o')) {
