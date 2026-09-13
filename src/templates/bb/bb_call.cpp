@@ -81,6 +81,7 @@ extern int g_gva_active;
 int gva_index_of(const char * name);
 DESCR_t NV_GET_fn(const char * name);
 int  rt_is_truthy(DESCR_t v);
+int  rk_is_truthy(DESCR_t v);
 int  rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
 }
 #include "x86_asm.h"
@@ -572,7 +573,7 @@ static std::string bb_call_bool_truthy_cond_str(IR_t * pBB) {
     IR_t * e = cond ? cond->entry : NULL;
     if (!e) return x86_alpha() + x86_bomb("bb_call_bool_truthy: empty cond sub-graph");
     std::string s = x86_alpha()
-                  + x86("comment", "BOX __rk_bool [dval=2 truthy condition -> rt_is_truthy -> branch true=γ / false=ω]");
+                  + x86("comment", "BOX __rk_bool [dval=2 truthy condition -> rk_is_truthy -> branch true=γ / false=ω]");
     if (e->op == IR_LIT_INTEGER) {
         s += x86("mov32", "edi", (long)DT_I) + x86_movabs_r64("rsi", (uint64_t)IR_LIT(e).ival);
     } else if (e->op == IR_LIT_STRING) {
@@ -589,7 +590,7 @@ static std::string bb_call_bool_truthy_cond_str(IR_t * pBB) {
     } else {
         return x86_alpha() + x86_bomb("bb_call_bool_truthy: unhandled cond entry kind");
     }
-    return s + x86("call", "rt_is_truthy", (uint64_t)(uintptr_t)(void *)rt_is_truthy)
+    return s + x86("call", "rk_is_truthy", (uint64_t)(uintptr_t)(void *)rk_is_truthy)
              + x86("test", "eax", "eax") + x86_omega("je") + x86_gamma() + x86_beta() + x86_omega();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

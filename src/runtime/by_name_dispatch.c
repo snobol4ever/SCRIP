@@ -445,7 +445,7 @@ static const char *rk_grammar_builtin_class(const char *nm) {
     if (!strcmp(nm, "upper"))  return "[A-Z]";
     if (!strcmp(nm, "lower"))  return "[a-z]";
     if (!strcmp(nm, "space"))  return "[ \\t\\n\\r]";
-    if (!strcmp(nm, "ws"))     return "[ \\t\\n\\r]*";
+    if (!strcmp(nm, "ws"))     return "{!ww}[ \\t\\n\\r]*{!sp}";
     if (!strcmp(nm, "xdigit")) return "[0-9a-fA-F]";
     return NULL;
 }
@@ -468,12 +468,13 @@ static void gram_expand(const char *gname, const char *body, int flavor, char *o
         }
         if (c == ' ' || c == '\t' || c == '\n' || c == '\r') {
             while (i < n && (body[i]==' '||body[i]=='\t'||body[i]=='\n'||body[i]=='\r')) i++;
-            if (flavor == 1 && op < outsz - 3) { out[op++]='\\'; out[op++]='s'; out[op++]='*'; }
+            int at_arm_start = (op == 0) || out[op-1] == '|' || out[op-1] == '(';
+            if (flavor == 1 && !at_arm_start && op < outsz - 14) { const char *wsp = "{!ww}\\s*{!sp}"; for (int k = 0; wsp[k]; k++) out[op++] = wsp[k]; }
             continue;
         }
         if (c == '<' && i + 1 < n) {
-            int ns = i + 1;
-            if (body[ns] == '.' && ns + 1 < n && isalpha((unsigned char)body[ns + 1])) ns++;
+            int ns = i + 1; int nocap = 0;
+            if (body[ns] == '.' && ns + 1 < n && isalpha((unsigned char)body[ns + 1])) { ns++; nocap = 1; }
             if (isalpha((unsigned char)body[ns])) {
                 int j = ns; char nm[64]; int nl = 0;
                 while (j < n && (isalnum((unsigned char)body[j]) || body[j] == '_') && nl < 63) nm[nl++] = body[j++];
@@ -483,6 +484,7 @@ static void gram_expand(const char *gname, const char *body, int flavor, char *o
                     if (depth < 16) { char qn[256]; snprintf(qn, sizeof qn, "%s::%s", gname, nm); sub = gram_get(qn); subfl = gram_get_flavor(qn); }
                     if (sub) {
                         char tmp[4096]; gram_expand(gname, sub, subfl, tmp, sizeof tmp, depth + 1);
+                        if (!nocap) { if (op < outsz - 1) out[op++] = '<'; for (int k = 0; nm[k] && op < outsz - 1; k++) out[op++] = nm[k]; if (op < outsz - 1) out[op++] = '>'; }
                         if (op < outsz - 1) out[op++] = '(';
                         for (int k = 0; tmp[k] && op < outsz - 1; k++) out[op++] = tmp[k];
                         if (op < outsz - 1) out[op++] = ')';
@@ -490,7 +492,9 @@ static void gram_expand(const char *gname, const char *body, int flavor, char *o
                     }
                     const char *bc = rk_grammar_builtin_class(nm);
                     if (bc) {
+                        if (!nocap) { if (op < outsz - 1) out[op++] = '<'; for (int k = 0; nm[k] && op < outsz - 1; k++) out[op++] = nm[k]; if (op < outsz - 1) out[op++] = '>'; if (op < outsz - 1) out[op++] = '('; }
                         for (int k = 0; bc[k] && op < outsz - 1; k++) out[op++] = bc[k];
+                        if (!nocap && op < outsz - 1) out[op++] = ')';
                         i = j + 1; continue;
                     }
                 }
@@ -509,29 +513,50 @@ int rt_grammar_flavor(int i) { return (i >= 0 && i < gram_n) ? gram_reg[i].flavo
 int rt_grammar_has_top(const char *gname) { if (!gname) return 0; char qn[256]; snprintf(qn, sizeof qn, "%s::TOP", gname); return gram_get(qn) != NULL; }
 extern DESCR_t rk_gram_enter_box(bb_box_fn fn, const char *sigma, long delta, void *zeta, long *out_delta);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_match_is_nil(DESCR_t d) {
+    if (!(d.v == DT_DATA && d.u && d.u->type && d.u->type->name && !strcmp(d.u->type->name, "Match"))) return 0;
+    return FIELD_GET_fn(d, "ok").i == 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rk_is_truthy(DESCR_t v) { extern int rt_is_truthy(DESCR_t); if (rk_match_is_nil(v)) return 0; return rt_is_truthy(v); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_match_make(const char *text, const char *caps, int ok) {
+    static int rk_match_reg = 0;
+    if (!rk_match_reg) { DEFDAT_fn("Match(text,caps,ok)"); rk_match_reg = 1; }
+    return DATCON_fn("Match", STRVAL(rt_heap_strdup_c(text ? text : "")), STRVAL(rt_heap_strdup_c(caps ? caps : "")), INTVAL(ok));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_gram_run_native(bb_box_fn bf, const char *subj, DESCR_t *out) {
     long Delta = (long)strlen(subj); long final_delta = 0; char fb[256] __attribute__((aligned(16))); memset(fb, 0, sizeof fb);
     DESCR_t r = rk_gram_enter_box(bf, subj, Delta, (void *)fb, &final_delta);
     int matched = (r.v != DT_FAIL); int full = matched && (final_delta == Delta);
-    *out = full ? STRVAL(rt_heap_strdup_c(subj)) : NULVCL; return 1;
+    *out = rk_match_make(full ? subj : "", "", full); return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int grammar_parse_core(const char *gname, const char *subj, DESCR_t *out) {
     if (!gname) gname = ""; if (!subj) subj = "";
-    { char gpn[320]; snprintf(gpn, sizeof gpn, "gram__%s__TOP", gname);
-      extern void *rt_proc_get_fn(const char *); bb_box_fn bf = (bb_box_fn)rt_proc_get_fn(gpn); if (bf) return rk_gram_run_native(bf, subj, out); }
     char qn[256]; snprintf(qn, sizeof qn, "%s::TOP", gname);
     const char *body = gram_get(qn);
-    if (!body) { *out = FAILDESCR; return 1; }
+    char gpn[320]; snprintf(gpn, sizeof gpn, "gram__%s__TOP", gname);
+    extern void *rt_proc_get_fn(const char *); bb_box_fn bf = (bb_box_fn)rt_proc_get_fn(gpn);
+    if (!body) { if (bf) return rk_gram_run_native(bf, subj, out); *out = FAILDESCR; return 1; }
     int topflv = gram_get_flavor(qn);
     char pat[4096]; gram_expand(gname, body, topflv, pat, sizeof pat, 0);
+    if (bf && !strstr(pat, "{!ww}") && !strchr(pat, '<')) return rk_gram_run_native(bf, subj, out);
     Nfa *nfa = nfa_build(pat);
     if (!nfa) { *out = FAILDESCR; return 1; }
     Match m; nfa_exec(nfa, subj, &m);
-    nfa_free(nfa);
     int slen = (int)strlen(subj);
     int ok = m.matched && m.full_start == 0 && m.full_end == slen;
-    *out = ok ? STRVAL(rt_heap_strdup_c(subj)) : NULVCL; return 1;
+    char caps[2048]; int cp = 0; caps[0] = '\0';
+    if (ok) for (int k = 0; k < m.ncaplog && cp < (int)sizeof(caps) - 128; k++) {
+        int g = m.caplog_group[k]; if (g < 0 || g >= MAX_GROUPS) continue;
+        const char *cn = m.group_name[g]; if (!cn || !*cn) continue;
+        int cs = m.caplog_start[k], ce = m.caplog_end[k]; if (cs < 0 || ce < cs) continue;
+        cp += snprintf(caps + cp, sizeof(caps) - cp, "%s\t%.*s\n", cn, ce - cs, subj + cs);
+    }
+    nfa_free(nfa);
+    *out = rk_match_make(ok ? subj : "", caps, ok); return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmargs, DESCR_t *out) {
@@ -5211,7 +5236,26 @@ void out_write_str(FILE *dest, const char *s) {
     fputs(s, dest);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_match_render(DESCR_t d, int use_gist) {
+    if (!(d.v == DT_DATA && d.u && d.u->type && d.u->type->name && !strcmp(d.u->type->name, "Match"))) return NULL;
+    int ok = (int) FIELD_GET_fn(d, "ok").i;
+    if (!ok) return use_gist ? "Nil" : "";
+    const char *text = VARVAL_fn(FIELD_GET_fn(d, "text")); if (!text) text = "";
+    if (!use_gist) return text;
+    const char *caps = VARVAL_fn(FIELD_GET_fn(d, "caps")); if (!caps) caps = "";
+    size_t need = strlen(text) + strlen(caps) * 3 + 256;
+    char *b = (char *) rt_str_alloc((long) need); int bp = 0;
+    bp += snprintf(b + bp, need - bp, "\xEF\xBD\xA2%s\xEF\xBD\xA3", text);
+    for (const char *ln = caps; *ln; ) {
+        const char *tab = strchr(ln, '\t'); const char *eol = strchr(ln, '\n'); if (!tab || !eol || tab > eol) break;
+        bp += snprintf(b + bp, need - bp, "\n %.*s => \xEF\xBD\xA2%.*s\xEF\xBD\xA3", (int)(tab - ln), ln, (int)(eol - tab - 1), tab + 1);
+        ln = eol + 1;
+    }
+    b[bp] = '\0'; return b;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rk_obj_stringify(DESCR_t d, int use_gist) {
+    { const char *ms = rk_match_render(d, use_gist); if (ms) return ms; }
     if (d.v == DT_DATA && d.u && d.u->type && d.u->type->name) {
         const char *mname = use_gist ? "gist" : "Str";
         char proc[256]; resolve_method_chain(d.u->type->name, mname, proc, sizeof proc, NULL);
@@ -5902,6 +5946,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         else if (IS_INT_fn(v))  t = (v.i != 0);
         else if (IS_REAL_fn(v)) t = (v.r != 0.0);
         else if (v.v == DT_SNUL) t = 0;
+        else if (v.v == DT_DATA) t = rk_match_is_nil(v) ? 0 : 1;
         else { const char *s = v.s ? v.s : ""; t = (s[0] != '\0' && !(s[0]=='0' && s[1]=='\0')); }
         if (!t) { *out = FAILDESCR; return 1; }
         *out = v; return 1;
@@ -5922,6 +5967,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         else if (IS_INT_fn(v))  t = (v.i != 0);
         else if (IS_REAL_fn(v)) t = (v.r != 0.0);
         else if (v.v == DT_SNUL) t = 0;
+        else if (v.v == DT_DATA) t = rk_match_is_nil(v) ? 0 : 1;
         else { const char *s = v.s ? v.s : ""; t = (s[0] != '\0' && !(s[0]=='0' && s[1]=='\0')); }
         *out = INTVAL(t); return 1;
     }

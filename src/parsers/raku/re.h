@@ -14,6 +14,8 @@ typedef enum {
     NK_CAP_OPEN,
     NK_CAP_CLOSE,
     NK_CODE_ASSERT,
+    NK_ASSERT_NOT_WW,
+    NK_ASSERT_NOT_SP,
     NK_CODE_PRED,
     NK_SUB_CALL,
     NK_ACCEPT
@@ -32,6 +34,7 @@ typedef struct {
     int       pred_neg;
     int       bb_id;
 } Nfa_state;
+#define MAX_CAPLOG 32
 typedef struct {
     int matched;
     int full_start;
@@ -40,6 +43,10 @@ typedef struct {
     int  group_end[MAX_GROUPS];
     char group_name[MAX_GROUPS][64];
     int  ngroups;
+    int  ncaplog;
+    int  caplog_group[MAX_CAPLOG];
+    int  caplog_start[MAX_CAPLOG];
+    int  caplog_end[MAX_CAPLOG];
 } Match;
 typedef struct Nfa Nfa;
 Nfa  *nfa_build(const char *pattern);

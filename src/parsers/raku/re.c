@@ -187,7 +187,7 @@ static int parse_atom(Re_parser *p, int *out_start, int *out_accept) {
         int clen=ce-cs;
         char *code=malloc(clen+1); memcpy(code,p->pat+cs,clen); code[clen]='\0';
         int id=nfa_alloc(p->nfa);
-        p->nfa->states[id].kind=NK_CODE_ASSERT;
+        p->nfa->states[id].kind=(!strcmp(code,"!ww")) ? NK_ASSERT_NOT_WW : (!strcmp(code,"!sp")) ? NK_ASSERT_NOT_SP : NK_CODE_ASSERT;
         p->nfa->states[id].code_str=code;
         p->nfa->states[id].out1=NFA_NULL;
         p->nfa->states[id].out2=NFA_NULL;
@@ -315,32 +315,42 @@ typedef struct { int ids[MAX_STATES]; int n; } State_set;
 typedef struct {
     int gs[MAX_GROUPS];
     int ge[MAX_GROUPS];
+    int nlog; short lg[MAX_CAPLOG]; short ls[MAX_CAPLOG]; short le[MAX_CAPLOG];
 } Cap_snap;
 static Cap_snap g_snaps[MAX_STATES];
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int re_is_word_ch(unsigned char c) { return isalnum(c) || c=='_'; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void ss_add(State_set *ss, Cap_snap *snaps, const Nfa *nfa, int id,
-                   char *visited, int pos, int slen, const Cap_snap *cur_snap) {
+                   char *visited, int pos, int slen, const Cap_snap *cur_snap, const char *subj) {
     if (id==NFA_NULL||visited[id]) return;
     visited[id]=1;
     Nfa_state *s=&nfa->states[id];
     switch (s->kind) {
         case NK_EPS:
-            ss_add(ss,snaps,nfa,s->out1,visited,pos,slen,cur_snap); break;
+            ss_add(ss,snaps,nfa,s->out1,visited,pos,slen,cur_snap,subj); break;
         case NK_SPLIT:
-            ss_add(ss,snaps,nfa,s->out1,visited,pos,slen,cur_snap);
-            ss_add(ss,snaps,nfa,s->out2,visited,pos,slen,cur_snap); break;
+            ss_add(ss,snaps,nfa,s->out1,visited,pos,slen,cur_snap,subj);
+            ss_add(ss,snaps,nfa,s->out2,visited,pos,slen,cur_snap,subj); break;
         case NK_ANCHOR_BOL:
-            if (pos==0) ss_add(ss,snaps,nfa,s->out1,visited,pos,slen,cur_snap); break;
+            if (pos==0) ss_add(ss,snaps,nfa,s->out1,visited,pos,slen,cur_snap,subj); break;
         case NK_ANCHOR_EOL:
-            if (pos==slen) ss_add(ss,snaps,nfa,s->out1,visited,pos,slen,cur_snap); break;
+            if (pos==slen) ss_add(ss,snaps,nfa,s->out1,visited,pos,slen,cur_snap,subj); break;
+        case NK_ASSERT_NOT_SP: {
+            int sp = subj && pos<slen && isspace((unsigned char)subj[pos]);
+            if (!sp) ss_add(ss,snaps,nfa,s->out1,visited,pos,slen,cur_snap,subj); break; }
+        case NK_ASSERT_NOT_WW: {
+            int ww = subj && pos>0 && pos<slen && re_is_word_ch((unsigned char)subj[pos-1]) && re_is_word_ch((unsigned char)subj[pos]);
+            if (!ww) ss_add(ss,snaps,nfa,s->out1,visited,pos,slen,cur_snap,subj); break; }
         case NK_CAP_OPEN: {
             Cap_snap ns=*cur_snap;
             ns.gs[s->cap_idx]=pos; ns.ge[s->cap_idx]=-1;
-            ss_add(ss,snaps,nfa,s->out1,visited,pos,slen,&ns); break; }
+            ss_add(ss,snaps,nfa,s->out1,visited,pos,slen,&ns,subj); break; }
         case NK_CAP_CLOSE: {
             Cap_snap ns=*cur_snap;
             ns.ge[s->cap_idx]=pos;
-            ss_add(ss,snaps,nfa,s->out1,visited,pos,slen,&ns); break; }
+            if (ns.nlog<MAX_CAPLOG && ns.gs[s->cap_idx]>=0) { ns.lg[ns.nlog]=(short)s->cap_idx; ns.ls[ns.nlog]=(short)ns.gs[s->cap_idx]; ns.le[ns.nlog]=(short)pos; ns.nlog++; }
+            ss_add(ss,snaps,nfa,s->out1,visited,pos,slen,&ns,subj); break; }
         default:
             snaps[ss->n]=*cur_snap;
             ss->ids[ss->n++]=id; break;
@@ -348,9 +358,9 @@ static void ss_add(State_set *ss, Cap_snap *snaps, const Nfa *nfa, int id,
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void eps_closure_into(State_set *ss, Cap_snap *snaps, const Nfa *nfa,
-                              int start, int pos, int slen, const Cap_snap *snap) {
+                              int start, int pos, int slen, const Cap_snap *snap, const char *subj) {
     char visited[MAX_STATES]; memset(visited,0,(size_t)nfa->n);
-    ss_add(ss,snaps,nfa,start,visited,pos,slen,snap);
+    ss_add(ss,snaps,nfa,start,visited,pos,slen,snap,subj);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void nfa_exec(const Nfa *nfa, const char *subject, Match *result) {
@@ -362,11 +372,11 @@ void nfa_exec(const Nfa *nfa, const char *subject, Match *result) {
     if (nfa->n>MAX_STATES) { fprintf(stderr,"re: NFA too large\n"); return; }
     int slen=(int)strlen(subject);
     int anchored_bol=(nfa->states[nfa->start].kind==NK_ANCHOR_BOL);
-    Cap_snap blank; for(int i=0;i<MAX_GROUPS;i++){blank.gs[i]=-1;blank.ge[i]=-1;}
+    Cap_snap blank; for(int i=0;i<MAX_GROUPS;i++){blank.gs[i]=-1;blank.ge[i]=-1;} blank.nlog=0;
     static Cap_snap cur_snaps[MAX_STATES], nxt_snaps[MAX_STATES];
     for (int start_pos=0; start_pos<=slen; start_pos++) {
         State_set cur; cur.n=0;
-        eps_closure_into(&cur,cur_snaps,nfa,nfa->start,start_pos,slen,&blank);
+        eps_closure_into(&cur,cur_snaps,nfa,nfa->start,start_pos,slen,&blank,subject);
         int pos=start_pos;
         int best_end = -1;
         Cap_snap best_snap; memset(&best_snap,0xff,sizeof best_snap);
@@ -391,7 +401,7 @@ void nfa_exec(const Nfa *nfa, const char *subject, Match *result) {
                 }
                 if (advance) {
                     char visited[MAX_STATES]; memset(visited,0,(size_t)nfa->n);
-                    ss_add(&nxt,nxt_snaps,nfa,s->out1,visited,pos+1,slen,&cur_snaps[i]);
+                    ss_add(&nxt,nxt_snaps,nfa,s->out1,visited,pos+1,slen,&cur_snaps[i],subject);
                 }
             }
             cur=nxt;
@@ -408,6 +418,8 @@ void nfa_exec(const Nfa *nfa, const char *subject, Match *result) {
                 result->group_end[g]   = best_snap.ge[g];
                 memcpy(result->group_name[g], nfa->group_name[g], 64);
             }
+            result->ncaplog = (best_snap.nlog<0) ? 0 : ((best_snap.nlog>MAX_CAPLOG) ? MAX_CAPLOG : best_snap.nlog);
+            for (int k=0;k<result->ncaplog;k++) { result->caplog_group[k]=best_snap.lg[k]; result->caplog_start[k]=best_snap.ls[k]; result->caplog_end[k]=best_snap.le[k]; }
             return;
         }
         if (anchored_bol) break;

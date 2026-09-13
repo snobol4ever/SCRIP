@@ -5,6 +5,7 @@ extern "C" {
 #include "../runtime/rt/rt.h"
 #include "../runtime/builtins/gen.h"
 int bb_slot_get(IR_t *nd);
+int rk_is_truthy(DESCR_t v);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -25,7 +26,7 @@ std::string bb_call_bool_str(IR_t * pBB) {
          + x86("comment", "BOX __rk_bool [descr flat-chain: slot truthiness test]")
          + x86("mov", "rdi", FRQ(off))
          + x86("mov", "rsi", FRQ(off + 8))
-         + x86("call", "rt_is_truthy", (uint64_t)(uintptr_t)(void *)rt_is_truthy)
+         + x86("call", "rk_is_truthy", (uint64_t)(uintptr_t)(void *)rk_is_truthy)
          + x86("test", "eax", "eax")
          + x86_omega("je")
          + x86_gamma()
