@@ -273,7 +273,7 @@ int rt_builtin_is_known(const char *name)
         "MAKELIST",
         "__rk_arr", "__rk_arr_lit", "__rk_arr_lit_item", "arr_get", "arr_set_pure", "arr_init", "arr_last", "array_sort", "array_reverse", "arr_make",
         "__rk_arr_xx", "__rk_arr_at", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first",
-        "__rk_arr_map", "__rk_arr_grep",
+        "__rk_arr_map", "__rk_arr_grep", "__rk_arr_reduce",
         "__rk_arr_keys", "__rk_arr_values", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
         "__rk_div", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
@@ -321,6 +321,18 @@ static char *itos(long long v, char *buf, size_t cap) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char *rtos(double r, char *buf, size_t cap) {
     gcvt(r, 14, buf); (void)cap; return buf;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_elem_descr(const char *el, size_t L) {
+    char *ep; long long ev = strtoll(el, &ep, 10);
+    return (*ep == '\0' && ep != el && L > 0) ? INTVAL(ev) : STRVAL(el);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_block_cmp(const char *bn, const char *x, size_t xl, const char *y, size_t yl) {
+    extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+    g_call_args[0] = rk_elem_descr(x, xl); g_call_args[1] = rk_elem_descr(y, yl);
+    double d = to_real(rt_call_proc_descr(bn, 2));
+    return d < 0 ? -1 : (d > 0 ? 1 : 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_order_both_numeric(DESCR_t a, DESCR_t b) { return (IS_INT_fn(a) || IS_REAL_fn(a)) && (IS_INT_fn(b) || IS_REAL_fn(b)); }
@@ -3654,6 +3666,31 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         buf[p] = '\0';
         *out = STRVAL(buf); return 1;
     }
+    if (!strcmp(fn, "__rk_arr_sort") && nargs >= 2 && args[1].v == DT_BLK && args[1].s && *args[1].s) {
+        const char *bn = args[1].s;
+        char scratch0[64];
+        const char *cs0 = to_cstring(args[0], scratch0, sizeof scratch0); if (!cs0) cs0 = "";
+        const char **els = rt_pinned_alloc(64 * sizeof(const char *));
+        size_t *lens = rt_pinned_alloc(64 * sizeof(size_t));
+        int nel = 0, cap = 64;
+        const char *seg = cs0;
+        while (*cs0) {
+            const char *nx = strchr(seg, SOH); size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
+            if (nel < cap) { char *cp = rt_pinned_alloc(L + 1); memcpy(cp, seg, L); cp[L] = '\0'; els[nel] = cp; lens[nel] = L; nel++; }
+            if (!nx) break;
+            seg = nx + 1;
+        }
+        for (int a = 1; a < nel; a++) {
+            const char *keys = els[a]; size_t keyl = lens[a]; int b = a - 1;
+            while (b >= 0 && rk_block_cmp(bn, els[b], lens[b], keys, keyl) > 0) { els[b + 1] = els[b]; lens[b + 1] = lens[b]; b--; }
+            els[b + 1] = keys; lens[b + 1] = keyl;
+        }
+        size_t total = 0; for (int i = 0; i < nel; i++) total += lens[i] + 1;
+        char *buf = rt_pinned_alloc(total + 1); size_t p = 0;
+        for (int i = 0; i < nel; i++) { if (p > 0) buf[p++] = SOH; memcpy(buf + p, els[i], lens[i]); p += lens[i]; }
+        buf[p] = '\0';
+        *out = STRVAL(buf); return 1;
+    }
     if (!strcmp(fn, "__rk_arr_sort") && nargs >= 1) {
         const char **els = rt_pinned_alloc((size_t)nargs * 64 * sizeof(const char *));
         size_t *lens = rt_pinned_alloc((size_t)nargs * 64 * sizeof(size_t));
@@ -3687,6 +3724,25 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         for (int i = 0; i < nel; i++) { if (p > 0) buf[p++] = SOH; memcpy(buf + p, els[i], lens[i]); p += lens[i]; }
         buf[p] = '\0';
         *out = STRVAL(buf); return 1;
+    }
+    if (!strcmp(fn, "__rk_arr_reduce") && nargs >= 2 && args[1].v == DT_BLK && args[1].s && *args[1].s) {
+        const char *bn = args[1].s;
+        extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+        char scratch0[64];
+        const char *cs0 = to_cstring(args[0], scratch0, sizeof scratch0); if (!cs0) cs0 = "";
+        if (!*cs0) { *out = NULVCL; return 1; }
+        DESCR_t acc; int have = 0;
+        const char *seg = cs0;
+        for (;;) {
+            const char *nx = strchr(seg, SOH); size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
+            char *el = rt_pinned_alloc(L + 1); memcpy(el, seg, L); el[L] = '\0';
+            DESCR_t ed = rk_elem_descr(el, L);
+            if (!have) { acc = ed; have = 1; }
+            else { g_call_args[0] = acc; g_call_args[1] = ed; acc = rt_call_proc_descr(bn, 2); }
+            if (!nx) break;
+            seg = nx + 1;
+        }
+        *out = have ? acc : NULVCL; return 1;
     }
     if ((!strcmp(fn, "__rk_arr_min") || !strcmp(fn, "__rk_arr_max")) && nargs >= 1) {
         int want_max = (fn[10] == 'a');
@@ -4417,11 +4473,13 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
                            || !strcmp(mname0, "elems") || !strcmp(mname0, "end") || !strcmp(mname0, "join") || !strcmp(mname0, "sum")
                            || !strcmp(mname0, "head") || !strcmp(mname0, "tail") || !strcmp(mname0, "min")
                            || !strcmp(mname0, "max") || !strcmp(mname0, "first")
+                           || (!strcmp(mname0, "reduce") && nargs == 3 && args[2].v == DT_BLK)
                            || !strcmp(mname0, "keys") || !strcmp(mname0, "values");
                 if (is_arrm) {
                     const char *afn = !strcmp(mname0, "map") ? "__rk_arr_map" : !strcmp(mname0, "grep") ? "__rk_arr_grep"
                                     : !strcmp(mname0, "kv") ? "__rk_arr_kv" : !strcmp(mname0, "sort") ? "__rk_arr_sort" : !strcmp(mname0, "min") ? "__rk_arr_min"
                                     : !strcmp(mname0, "max") ? "__rk_arr_max" : !strcmp(mname0, "first") ? "__rk_arr_first"
+                                    : !strcmp(mname0, "reduce") ? "__rk_arr_reduce"
                                     : !strcmp(mname0, "keys") ? "__rk_arr_keys" : !strcmp(mname0, "values") ? "__rk_arr_values"
                                     : !strcmp(mname0, "end") ? "elems" : mname0;
                     int total = 1 + (nargs - 2);
