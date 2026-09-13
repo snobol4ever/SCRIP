@@ -74,7 +74,7 @@ TN=$(printf '%s' "$TRACKED" | wc -w)
 # (CEO-669: a change to a node another concern owns is an ASK with the measurement, never a landing).
 # ⭐ THE RATCHET IS THE HONEST MIDDLE: the count may only fall, so the defect cannot grow while the ruling is
 # outstanding, and a green gate never has to mean "there is nothing here".
-TCEIL="${ICON_SCRATCH_TRACKED_CEILING:-4}"
+TCEIL="${ICON_SCRATCH_TRACKED_CEILING:-0}"
 if [ "$TN" -gt "$TCEIL" ]; then
     echo "⛔ RATCHET BROKEN: $TN tracked scratch file(s) > ceiling $TCEIL -- generated output was ADDED:$TRACKED"
     echo "     -> git rm --cached it. handoff_status.sh says \"commit them\" about untracked output, and"
