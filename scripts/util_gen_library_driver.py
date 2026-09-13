@@ -324,19 +324,29 @@ def oracle_once(suite, driver, outfile):
     """-> (status, rc, bytes). ⛔ ONE DOOR, NEVER A SECOND SPELLING: scorecard_snobol4.sh's `oracle` verb
     already carries the cwd / SETL4PATH / -bf / timeout facts and already classifies TIMEOUT, SIG,
     RC<n>, DEAD_REPORT (the oracle exits 0 while printing a fatal report -- seat2, s191), EMPTY and LIVE.
-    ⛔ THE OVERRIDE IS NOT A WORKAROUND AND IT IS NOT SILENT. That script's line 2 calls one_runner_guard
-    with no suite_path, so EVERY verb is judged a board -- including this single-program one, which
-    grades no population and writes no row. The guard's own stated criterion (CEO-547 part 1, quoted in
-    lib_one_runner.sh) is that WHAT MAKES A RUN A BOARD IS THE POPULATION IT GRADES, NOT THE ENTRY POINT,
-    so the refusal contradicts the rule it enforces. Until the coo cuts the guard per-verb, the sanctioned
-    seam is the loud, recorded override -- which is better than the alternative the shut door actually
-    produces, namely every seat re-deriving the invocation by hand and minting pins that can never match."""
-    env = dict(os.environ)
-    env["S4E_ONE_RUNNER_OVERRIDE"] = ("util_gen_library_driver.py cut: ONE program through the ONE oracle "
-                                      "door; grades no population, writes no SCORE row (CEO-706)")
+    ✅ THE DOOR IS OPEN AND THE OVERRIDE IS GONE (the coo, SCRIP 26b19872b, 2026-09-13). scorecard_snobol4.sh
+    guards PER VERB now: `run` and `report` are boards and keep the refusal, while `one` and `oracle` grade ONE
+    named program, write no results.tsv, publish no board and write no SCORE row -- so they pass. That is the
+    guard's own criterion finally applied to itself (CEO-547 part 1, quoted in lib_one_runner.sh: WHAT MAKES A
+    RUN A BOARD IS THE POPULATION IT GRADES, NOT THE ENTRY POINT).
+    ⛔ WHY TAKING THE OVERRIDE OFF MATTERS MORE THAN THE TWO LINES IT DELETES: at CEO-706 scale this call runs
+    hundreds of times, and A LOUD CHANNEL USED 900 TIMES IS A QUIET CHANNEL -- the next seat who genuinely
+    overrides a BOARD would have been one indistinguishable line in the same stream. It also put a line on
+    stdout AHEAD of the status TSV and so invented a parsing contract: every caller had to read the LAST
+    status-shaped line instead of the only one. Both go away together, which is why the parse below now
+    REFUSES on a second status line rather than quietly preferring one of them.
+    ⭐ AND THE MEASUREMENT THE SHUT DOOR PRODUCED IS WORTH KEEPING, because it is the argument that opened it:
+    of gimpel's 28 ref-less drivers a correct cut takes 12 and refuses 16, and EIGHT of those refusals are
+    DEAD_REPORT -- sbl exiting 0 while printing a fatal report. A hand-rolled sbl line cut on "did it exit 0 and
+    print something" agrees with the correct answer on 20 of 28 and disagrees on 8, minting a crash dump as the
+    pinned correct answer. A closed door does not stop mandated work, it relocates it somewhere unobservable."""
     p = subprocess.run(["bash", str(HERE / "scorecard_snobol4.sh"), "oracle", suite, str(driver), str(outfile)],
-                       capture_output=True, text=True, env=env)
+                       capture_output=True, text=True)
     tsv = [l for l in p.stdout.splitlines() if l.count("\t") >= 3]
+    if len(tsv) > 1:
+        refuse(f"the oracle door printed {len(tsv)} status-shaped lines for {driver.name}; one program has ONE "
+               f"status. Preferring the last one is how a preamble on this channel stayed invisible:\n   "
+               + "\n   ".join(tsv[:4]))
     if not tsv:
         refuse(f"the oracle door produced no status line for {driver.name} (rc={p.returncode}).\n"
                f"   stdout: {p.stdout.strip()[:400]}\n   stderr: {p.stderr.strip()[:400]}")
