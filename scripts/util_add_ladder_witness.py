@@ -61,12 +61,35 @@ S4E = HERE.parent.parent
 ORACLE = {
     "icon": ["/home/resources/icon-master/bin/icon"],  # icont+iconx, one step -- grading wants one step
     "snobol4": ["/home/resources/x64/bin/sbl", "-bf"],  # THE one SNOBOL4 oracle (Lon 2026-09-07/08, RULES sec
+    "snocone": ["/home/resources/x64/bin/sbl", "-bf"],  # ⛔ NOT RUNNABLE ON THE WITNESS -- see SNOCONE SUPPORT below
 }
 # ⛔⭐ `-bf` IS NOT OPTIONAL AND NOT A PER-PROGRAM WORKAROUND (RULES sec Oracles, s189): SPITBOL case-folds
 # names by default and SCRIP is case-sensitive, so a ref cut without -f grades a different language, and plain
 # -b manufactures phantom duplicate labels that walk into a crashing error path. sbl_correctness_bin() +
 # sbl_lang_flags() in lib_oracle_flags.sh are the shell-side authority for the same two facts.
 #
+# ⛔⭐ SNOCONE SUPPORT IS A TWIN, NOT A BINARY (hq_I 2026-09-13, granted CEO-672). Snocone is the one language
+# here with NO oracle that can read its own source: SPITBOL cannot parse a .sc file at all -- measured, a
+# one-line witness gives ERROR 221 syntax error missing operand and then "No END statement found in source
+# file(s)", because Snocone uses semicolon terminators, slash-slash and slash-star comments, struct, and
+# C-style control flow. So adding a row to the table above would be worse than useless: it would name a
+# binary that cannot answer, and the refusal would look like a broken oracle rather than a category error.
+# WHAT THE TWIN IS: the caller supplies --oracle-twin W.sno beside --source W.sc, and the ref is cut by
+# running sbl -bf on the TWIN, twice, refusing on disagreement exactly as the icon and snobol4 paths do.
+# This is legitimate rather than a dodge because Snocone's expression semantics ARE SPITBOL's -- corpus/
+# tests/snocone/config/LADDER.tsv reference (b), citing ARCH-LANGUAGES.md sec SNOCONE. The witness never
+# contributes its own output; SCRIP is never the oracle.
+# ⭐ THE METHOD WAS VALIDATED BEFORE IT WAS USED, which is the only reason it is trusted: cutting refs
+# through the twin reproduced the ALREADY-GREEN stored refs of ladder__rung00_hello and
+# ladder__rung02_arithmetic BYTE-FOR-BYTE. A ref-cutting method that cannot reproduce a known-good ref has
+# no business cutting a new one.
+# ⛔⛔ CEO-672'S CONDITION IS ENFORCED HERE, NOT LEFT TO CARE: a twin is a TRANSLITERATION, or the
+# equivalence is NAMED IN THE WITNESS, one line, at the site. An equivalence twin passed off as a
+# transliteration is a ref we cut ourselves wearing the oracle's name, which CEO-548 forbids. The check is
+# structural (significant-line counts must match) and it REFUSES rather than warns; --twin-equivalence
+# declares the difference and writes it into the witness as a comment, so the next reader sees it at the
+# code rather than in a commit message. The known instance is chained_multi_assign: SPITBOL has no chained
+# assignment, so its twin is three separate assignments with identical output.
 # ⭐ SNOBOL4 SUPPORT (ceo 2026-09-08, walking snobol4-ladder-every-feature-in-isolation-with-variations, whose
 # forms check reported 131 declared slots with no witness across rungs 14-33): every language-specific fact
 # below is TAKEN FROM AN EXISTING AUTHORITY rather than re-derived here -- the feature columns and the entry
@@ -250,6 +273,15 @@ def main():
     ap.add_argument("--entry-name", default="", help="override the builder-derived entry name (rarely right)")
     ap.add_argument("--origin", required=True, help="ladder__rungNN_<slug>, must be new and NN must be an existing rung")
     ap.add_argument("--source", required=True, help="path to the new witness's source file")
+    ap.add_argument("--oracle-twin", default="",
+                    help="path to the SPITBOL twin whose output IS the ref (required for --lang snocone, "
+                         "which has no oracle able to read its own source; forbidden for the others, whose "
+                         "oracle reads the witness itself)")
+    ap.add_argument("--twin-equivalence", default="",
+                    help="one line naming WHY the twin is not a transliteration (e.g. 'SPITBOL has no "
+                         "chained assignment; the twin is three assignments with identical output'). "
+                         "Written into the witness as a comment. Required when the twin's significant-line "
+                         "count differs from the witness's -- CEO-672.")
     ap.add_argument("--first-in-rung", action="store_true",
                     help="this witness is deliberately the FIRST for its rung (rungs 24-33 are all brand new); "
                          "everything is derived from --source, so no sibling is needed -- the flag exists so a "
@@ -313,7 +345,50 @@ def main():
     oracle_argv = ORACLE[lang]
     if not Path(oracle_argv[0]).is_file():
         refuse("shared oracle missing at %s -- fix the shared tree, never fall back to PATH" % oracle_argv[0])
-    ref_text, want_rc = run_oracle_twice(oracle_argv, src_path)
+    # ⛔ WHICH FILE THE ORACLE READS IS A PER-LANGUAGE FACT, not a caller preference. snocone MUST cut from a
+    # twin (its oracle cannot parse .sc at all); every other language MUST cut from the witness itself, and
+    # accepting a twin there would silently let a caller grade one program while landing another.
+    twin_path = Path(args.oracle_twin) if args.oracle_twin else None
+    if lang == "snocone":
+        if twin_path is None:
+            refuse("--lang snocone requires --oracle-twin: SPITBOL cannot parse a .sc source, so there is no "
+                   "way to cut this witness's ref from the witness itself (see SNOCONE SUPPORT above)")
+    elif twin_path is not None:
+        refuse("--oracle-twin is only for --lang snocone; %s's oracle reads the witness itself, and cutting "
+               "the ref from a second file would grade a different program than the one landed" % lang)
+    if twin_path is not None:
+        if not twin_path.is_file():
+            refuse("--oracle-twin not found: %s" % twin_path)
+        try:
+            twin_lines = twin_path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError as e:
+            refuse("--oracle-twin is not valid UTF-8: %s" % e)
+        # ⛔ CEO-672: TRANSLITERATION OR DECLARED EQUIVALENCE, no third option. `significant` drops blanks,
+        # comments and SNOBOL4's END, so the comparison is between the two programs' actual statements.
+        def _sig(lines, is_twin):
+            out = []
+            for ln in lines:
+                t = ln.strip()
+                if not t:                                        continue
+                if is_twin and (t.startswith("*") or t == "END"): continue
+                if (not is_twin) and (t.startswith("//") or t.startswith("/*")): continue
+                out.append(t)
+            return out
+        n_w, n_t = len(_sig(sno_lines, False)), len(_sig(twin_lines, True))
+        if n_w != n_t and not args.twin_equivalence:
+            refuse("TWIN IS NOT A TRANSLITERATION and no --twin-equivalence was given (CEO-672): the witness "
+                   "has %d significant line(s) and the twin has %d. Either make the twin a line-for-line "
+                   "transliteration, or pass --twin-equivalence naming why it cannot be -- an equivalence "
+                   "twin passed off as a transliteration is a ref we cut ourselves wearing the oracle's "
+                   "name (CEO-548)." % (n_w, n_t))
+        if args.twin_equivalence:
+            # ⭐ NAMED AT THE SITE, not in a commit message: the note goes into the witness itself, so the
+            # next reader meets it beside the code rather than in history they have no reason to open.
+            note = "%s TWIN IS AN EQUIVALENCE, NOT A TRANSLITERATION: %s%s" % (
+                cfg["comment_open"], args.twin_equivalence.strip(), cfg["comment_close"])
+            sno_lines = [note] + sno_lines
+            sno_text = "\n".join(sno_lines) + "\n"
+    ref_text, want_rc = run_oracle_twice(oracle_argv, twin_path if twin_path is not None else src_path)
     ref_lines = ref_text.splitlines()
     if want_rc != 0:
         # ⛔ NOT YET IMPLEMENTED: a nonzero want_rc must also gain a line in ALL.wantrc (keyed on the
@@ -323,9 +398,29 @@ def main():
         refuse("oracle exited rc=%d (nonzero) -- this script does not yet write ALL.wantrc, so it "
                "cannot correctly mint a nonzero-rc witness; extend it before using it for one" % want_rc)
 
+    # ⛔⭐ THE MODES CELL IS DERIVED FROM THE POPULATION THIS WITNESS IS JOINING, NOT FROM LANG_CONFIGS
+    # (hq_I 2026-09-13). LANG_CONFIGS["snocone"]["modes"] is "ast" -- correct for the parser-fixture
+    # family that entry was written for, and WRONG for a ladder witness, every one of which is graded m3+m4
+    # by lib_ladder.sh. Taking it from cfg would have minted every Snocone ladder row claiming to be an
+    # AST-only entry, which the ladder runner would then grade in two modes anyway: a cell that disagrees
+    # with how the row is actually graded is worse than an absent one. So read it off the existing
+    # family==ladder rows and REFUSE if they disagree among themselves rather than picking a winner.
+    _lm = sorted({(r.get("modes") or "").strip() for r in rows
+                  if (r.get("family") or "").strip() == "ladder" and (r.get("modes") or "").strip()})
+    if len(_lm) > 1:
+        refuse("family==ladder rows of %s disagree on the modes cell (%s) -- a new witness cannot pick a "
+               "winner; reconcile the master first" % (master_csv, ", ".join(_lm)))
+    ladder_modes = _lm[0] if _lm else cfg["modes"]
     flags = derive_flags(sno_lines) if lang == "icon" else builder_flags(lang, sno_lines)
 
-    if lang == "icon":
+    # ⛔⭐ THE READER IS CHOSEN BY SUITE SHAPE, NOT BY LANGUAGE NAME (hq_I 2026-09-13). This read `lang ==
+    # "icon"` while it had only two languages, so the two axes coincided and nothing said which one it meant.
+    # They part at the third: snocone is a converted BLOCK suite like icon, and sending it down the mixed
+    # SNOBOL4 reader raises `family.ref is shorter than family.sno at seq 1416` -- a real refusal, but one
+    # that accuses the master of being malformed when the caller merely picked the wrong reader. The axis is
+    # the one this file's own comment above already names: membership of csh.LANG_CONFIGS IS being a block
+    # suite, and SNOBOL4's absence from it IS the mixed master.
+    if lang in csh.LANG_CONFIGS:
         banner_re = csh.banner_re_for(cfg["comment_open"], cfg["comment_close"])
         entries = csh.read_block_suite(str(master_src), str(master_ref), banner_re,
                                         w_path=str(master_dir / "ALL.wantrc"))
@@ -355,12 +450,12 @@ def main():
     rank = next_rank(rows)
     new_entry = csh.Entry("block", rank, entry_name, sno_lines, ref_lines, want_rc=want_rc)
     new_row = {"rank": str(rank), "entry": entry_name, "origin": args.origin, "family": "ladder",
-               "kind": "block", "xfail": "0", "n_lines": str(len(sno_lines)), "modes": cfg["modes"]}
+               "kind": "block", "xfail": "0", "n_lines": str(len(sno_lines)), "modes": ladder_modes}
     for k in flag_order:
         new_row[k] = str(flags[k])
 
     print("would add: rank=%s entry=%s origin=%s want_rc=%s n_lines=%s modes=%s"
-          % (rank, entry_name, args.origin, want_rc, len(sno_lines), cfg["modes"]))
+          % (rank, entry_name, args.origin, want_rc, len(sno_lines), ladder_modes))
     nz = [k for k in flag_order if flags[k]]
     print("  non-zero flags:", ", ".join(nz) if nz else "(none)")
     print("  oracle stdout:", repr(ref_text))
