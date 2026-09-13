@@ -2672,7 +2672,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 187:
 YY_RULE_SETUP
-{ raku_yylval.sval = strdup(yytext); return QIDENT; }
+{ raku_yylval.sval = strdup(yytext); return IDENT; }
 	YY_BREAK
 case 188:
 YY_RULE_SETUP

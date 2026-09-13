@@ -318,6 +318,22 @@ static tree_t *rk_named_call(const char *fname, ExprList *pos, ExprList *named) 
     if (named) { for (int i = 0; i < named->count; i++) expr_add_child(c, named->items[i]); exprlist_free(named); }
     return c;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_is_adhoc_name(const char *nm) { return nm && !strcmp(nm, "X::AdHoc"); }
+static tree_t *rk_adhoc_new(const char *cname, ExprList *named, ExprList *pos) {
+    if (!rk_is_adhoc_name(cname)) return NULL;
+    tree_t *val = NULL;
+    if (named) { for (int i = 0; i + 1 < named->count; i += 2) {
+            tree_t *k = named->items[i]; const char *ks = k ? k->v.sval : NULL;
+            if (ks && (!strcmp(ks, "payload") || !strcmp(ks, "message"))) { val = named->items[i + 1]; break; } } }
+    if (!val && pos && pos->count > 0) val = pos->items[0];
+    if (!val) { val = ast_node_new(TT_QLIT); val->v.sval = (char *)intern(""); }
+    return val;
+}
+static tree_t *rk_catch_when_cond(tree_t *e) {
+    if (e && e->t == TT_VAR && rk_is_adhoc_name(e->v.sval)) return ast_node_new(TT_NUL);
+    return e;
+}
 static tree_t *rk_defaults_prologue(ExprList *params, tree_t *body) {
     if (!params) return body;
     ExprList *pro = NULL;
@@ -464,7 +480,6 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token <dval> LIT_FLOAT
 %token <sval> LIT_STR LIT_INTERP_STR LIT_REGEX LIT_MATCH_GLOBAL LIT_SUBST
 %token <sval> VAR_SCALAR VAR_ARRAY VAR_HASH VAR_TWIGIL IDENT
-%token <sval> QIDENT
 %token <sval> VAR_ARRAY_TWIGIL VAR_HASH_TWIGIL
 %token CARET
 %token DOLLAR_LBRACKET
@@ -623,10 +638,6 @@ stmt
     | KW_USE IDENT ';'
         { tree_t *u=ast_node_new(TT_USE_DECL); u->v.sval=intern($2); free($2); $$=u; }
     | KW_USE IDENT expr ';'
-        { tree_t *u=ast_node_new(TT_USE_DECL); u->v.sval=intern($2); free($2); ast_push(u,$3); $$=u; }
-    | KW_USE QIDENT ';'
-        { tree_t *u=ast_node_new(TT_USE_DECL); u->v.sval=intern($2); free($2); $$=u; }
-    | KW_USE QIDENT expr ';'
         { tree_t *u=ast_node_new(TT_USE_DECL); u->v.sval=intern($2); free($2); ast_push(u,$3); $$=u; }
     | KW_CONSTANT IDENT '=' expr ';'
         { $$ = expr_binary(TT_ASSIGN, var_node($2), $4); free($2); }
@@ -992,9 +1003,9 @@ given_stmt
     ;
 catch_when_list
     : KW_WHEN expr block
-        { ExprList *l=exprlist_new(); exprlist_append(l,$2); exprlist_append(l,$3); $$=l; }
+        { ExprList *l=exprlist_new(); exprlist_append(l,rk_catch_when_cond($2)); exprlist_append(l,$3); $$=l; }
     | catch_when_list KW_WHEN expr block
-        { exprlist_append($1,$3); exprlist_append($1,$4); $$=$1; }
+        { exprlist_append($1,rk_catch_when_cond($3)); exprlist_append($1,$4); $$=$1; }
     ;
 when_list
     :  { $$=exprlist_new(); }
@@ -1195,7 +1206,6 @@ method_body
     ;
 pkg_name
     : IDENT  { $$=$1; }
-    | QIDENT { $$=$1; }
     ;
 class_decl
     : KW_CLASS pkg_name is_clauses '{' class_body_list '}'
@@ -1819,21 +1829,30 @@ call_expr
     | VAR_SCALAR '(' ')'
         { tree_t *e=ast_node_new(TT_INVOKE); expr_add_child(e,var_node($1)); $$=e; }
     | IDENT '.' KW_NEW '(' named_arg_list ')'
-        { tree_t *c = ast_node_new(TT_NEW);
+        { tree_t *ah = rk_adhoc_new($1, $5, NULL);
+          if (ah) { free($1); exprlist_free($5); $$ = ah; }
+          else {
+          tree_t *c = ast_node_new(TT_NEW);
           ast_push(c, leaf_sval(TT_QLIT, $1)); free($1);
           ExprList *nargs = $5;
           if (nargs) { for (int i = 0; i < nargs->count; i++) ast_push(c, nargs->items[i]); exprlist_free(nargs); }
-          $$ = c; }
+          $$ = c; } }
     | IDENT '.' KW_NEW '(' arg_list ')'
-        { tree_t *c = ast_node_new(TT_NEW);
+        { tree_t *ah = rk_adhoc_new($1, NULL, $5);
+          if (ah) { free($1); exprlist_free($5); $$ = ah; }
+          else {
+          tree_t *c = ast_node_new(TT_NEW);
           ast_push(c, leaf_sval(TT_QLIT, $1)); free($1);
           ExprList *args = $5;
           if (args) { for (int i = 0; i < args->count; i++) ast_push(c, args->items[i]); exprlist_free(args); }
-          $$ = c; }
+          $$ = c; } }
     | IDENT '.' KW_NEW '(' ')'
-        { tree_t *c = ast_node_new(TT_NEW);
+        { tree_t *ah = rk_adhoc_new($1, NULL, NULL);
+          if (ah) { free($1); $$ = ah; }
+          else {
+          tree_t *c = ast_node_new(TT_NEW);
           ast_push(c, leaf_sval(TT_QLIT, $1)); free($1);
-          $$ = c; }
+          $$ = c; } }
     | IDENT '.' KW_NEW
         { tree_t *c = ast_node_new(TT_NEW);
           ast_push(c, leaf_sval(TT_QLIT, $1)); free($1);

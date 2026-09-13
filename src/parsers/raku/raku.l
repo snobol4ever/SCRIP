@@ -219,7 +219,7 @@ WS       [ \t\r]
 "@"{ALPHA}{ALNUM}*("-"{ALPHA}{ALNUM}*)*  { raku_yylval.sval = strdup(yytext); return VAR_ARRAY; }
 "%"{ALPHA}{ALNUM}*("-"{ALPHA}{ALNUM}*)*  { raku_yylval.sval = strdup(yytext); return VAR_HASH; }
 "\\"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return VAR_SCALAR; }
-{ALPHA}{ALNUM}*("::"{ALPHA}{ALNUM}*)+ { raku_yylval.sval = strdup(yytext); return QIDENT; }
+{ALPHA}{ALNUM}*("::"{ALPHA}{ALNUM}*)+ { raku_yylval.sval = strdup(yytext); return IDENT; }
 {ALPHA}{ALNUM}*("-"{ALPHA}{ALNUM}*)* { raku_yylval.sval = strdup(yytext); return IDENT; }
 "\""            { raku_strpos = 0; BEGIN(STR_DQ); }
 <STR_DQ>"\"" {
