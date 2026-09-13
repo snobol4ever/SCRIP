@@ -1554,17 +1554,20 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
         if (!strcmp(op, "pos"))   { *out = a; return 1; }
         if (!strcmp(op, "abs"))   { if (ai && a.i == LLONG_MIN) { *out = FAILDESCR; if (ball && !*ball) *ball = rt_pl_ball_eval_error("int_overflow", "abs", 1); return 1; } *out = ai ? INTVAL(a.i < 0 ? -a.i : a.i) : REALVAL(fabs(ad)); return 1; }
         if (!strcmp(op, "sign"))  { *out = ai ? INTVAL((a.i > 0) - (a.i < 0)) : REALVAL((double)((ad > 0) - (ad < 0))); return 1; }
-        if (!strcmp(op, "trunc")) { *out = INTVAL((long long)ad); return 1; }
+        if (!strcmp(op, "trunc") || !strcmp(op, "floor") || !strcmp(op, "ceil") || !strcmp(op, "round")) {
+            extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+            if (!arl) { if (ball && !*ball) *ball = rt_pl_ball_kind2("type_error", "float", a); *out = FAILDESCR; return 1; }
+            *out = INTVAL(!strcmp(op, "trunc") ? (long long)ad : !strcmp(op, "floor") ? (long long)floor(ad)
+                        : !strcmp(op, "ceil") ? (long long)ceil(ad) : (long long)llround(ad));
+            return 1; }
         if (!strcmp(op, "intg"))  { *out = ai ? a : INTVAL((long long)llround(ad)); return 1; }
         if (!strcmp(op, "flt"))   { *out = REALVAL(ad); return 1; }
-        if (!strcmp(op, "floor")) { *out = INTVAL((long long)floor(ad)); return 1; }
-        if (!strcmp(op, "ceil"))  { *out = INTVAL((long long)ceil(ad)); return 1; }
-        if (!strcmp(op, "round")) { *out = INTVAL((long long)llround(ad)); return 1; }
         if (!strcmp(op, "sqrt"))  { *out = REALVAL(sqrt(ad)); return 1; }
         if (!strcmp(op, "sin"))   { *out = REALVAL(sin(ad)); return 1; }
         if (!strcmp(op, "cos"))   { *out = REALVAL(cos(ad)); return 1; }
         if (!strcmp(op, "atan"))  { *out = REALVAL(atan(ad)); return 1; }
-        if (!strcmp(op, "log"))   { *out = REALVAL(log(ad)); return 1; }
+        if (!strcmp(op, "log"))   { if (ad <= 0.0) { *out = FAILDESCR; if (ball && !*ball) *ball = rt_pl_ball_eval_error("undefined", "log", 1); return 1; }
+            *out = REALVAL(log(ad)); return 1; }
         if (!strcmp(op, "exp"))   { *out = REALVAL(exp(ad)); return 1; }
         if (!strcmp(op, "fip"))   { *out = REALVAL(trunc(ad)); return 1; }
         if (!strcmp(op, "ffp"))   { *out = REALVAL(ad - trunc(ad)); return 1; }
