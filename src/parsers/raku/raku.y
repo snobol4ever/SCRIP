@@ -475,6 +475,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token OP_ADD_EQ OP_SUB_EQ OP_MUL_EQ OP_DIV_EQ OP_CAT_EQ
 %token OP_DOR
 %token OP_DIV
+%token ADV_EXISTS ADV_DELETE
 %token OP_BAND OP_SHL
 %token OP_DIVIS
 %token OP_REP_X OP_REP_XX
@@ -1890,6 +1891,14 @@ atom
         { tree_t *c=ast_node_new(TT_HASH_EXISTS); ast_push(c,var_node($2)); ast_push(c,leaf_sval(TT_QLIT,$4)); $$=c; }
     | KW_EXISTS VAR_HASH '{' expr '}'
         { tree_t *c=ast_node_new(TT_HASH_EXISTS); ast_push(c,var_node($2)); ast_push(c,$4); $$=c; }
+    | VAR_HASH '{' expr '}' ADV_EXISTS
+        { tree_t *c=ast_node_new(TT_HASH_EXISTS); ast_push(c,var_node($1)); ast_push(c,$3); $$=c; }
+    | VAR_HASH '<' IDENT '>' ADV_EXISTS
+        { tree_t *c=ast_node_new(TT_HASH_EXISTS); ast_push(c,var_node($1)); ast_push(c,leaf_sval(TT_QLIT,$3)); $$=c; }
+    | VAR_HASH '{' expr '}' ADV_DELETE
+        { tree_t *c=ast_node_new(TT_HASH_DELETE); ast_push(c,var_node($1)); ast_push(c,$3); $$=c; }
+    | VAR_HASH '<' IDENT '>' ADV_DELETE
+        { tree_t *c=ast_node_new(TT_HASH_DELETE); ast_push(c,var_node($1)); ast_push(c,leaf_sval(TT_QLIT,$3)); $$=c; }
     | IDENT           { $$=var_node($1); }
     | VAR_TWIGIL
         { tree_t *fe = ast_node_new(TT_TWIGIL_FIELD);

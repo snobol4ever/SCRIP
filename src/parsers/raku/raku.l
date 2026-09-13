@@ -102,6 +102,8 @@ WS       [ \t\r]
 "infix:<"[^>]+">"   { char raw[64]; int rl=(int)yyleng-8; if(rl>63)rl=63; memcpy(raw,yytext+7,rl); raw[rl]=0; char cb[96]; rk_op_canon_base("infix",raw,cb,sizeof cb); raku_yylval.sval=strdup(cb); return OP_NAME; }
 "prefix:<"[^>]+">"  { char raw[64]; int rl=(int)yyleng-9; if(rl>63)rl=63; memcpy(raw,yytext+8,rl); raw[rl]=0; char cb[96]; rk_op_canon_base("prefix",raw,cb,sizeof cb); raku_yylval.sval=strdup(cb); return OP_NAME; }
 "postfix:<"[^>]+">" { char raw[64]; int rl=(int)yyleng-10; if(rl>63)rl=63; memcpy(raw,yytext+9,rl); raw[rl]=0; char cb[96]; rk_op_canon_base("postfix",raw,cb,sizeof cb); raku_yylval.sval=strdup(cb); return OP_NAME; }
+":exists"       { return ADV_EXISTS; }
+":delete"       { return ADV_DELETE; }
 ":D"            { return OP_COLON_D; }
 ":U"            { return OP_COLON_U; }
 ":$"{ALPHA}{ALNUM}*  { raku_yylval.sval = strdup(yytext+1); return VAR_SCALAR; }

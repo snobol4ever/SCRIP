@@ -4324,7 +4324,7 @@ int script_try_hash_builtin(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
     if (!strcmp(fn, "hash_get") && nargs >= 2) {
         char kb[64]; const char *key = to_cstring(args[1], kb, sizeof kb);
         const char *vstart = hash_find(h, key, NULL);
-        if (!vstart) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
+        if (!vstart) { *out = NULVCL; return 1; }
         const char *vend = strchr(vstart, SOH);
         size_t vlen = vend ? (size_t)(vend - vstart) : strlen(vstart);
         char *v = rt_pinned_alloc(vlen + 1); memcpy(v, vstart, vlen); v[vlen] = '\0';
