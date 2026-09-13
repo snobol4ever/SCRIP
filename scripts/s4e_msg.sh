@@ -480,24 +480,58 @@ s4e_root() { case "$1" in ceo|hq) if [ -d /home/claude_ceo ]; then echo /home/cl
     seat0[1-9]|seat1[0-9]|seat20) echo "/home/claude${1#seat}";; *) echo "";; esac; }
 s4e_hqboxes() { for _h in hq hq_C hq_P hq_B hq_T hq_U hq_S hq_I hq_R hq_V ceo cto coo cfo; do [ -d "$PO/$_h/inbox" ] && echo "$_h"; done; }
 s4e_is_hq() { case "$1" in hq|hq_C|hq_P|hq_B|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V|ceo|cto|coo|cfo) return 0;; *) return 1;; esac; }
-# ⭐⭐ THE LANE — topic->HQ and identity->HQ, so `next` can restrict dispatch without inventing a second
-# copy of MASTER-PLAN's THE LANES table (row next-serves-a-seat-only-rows-in-its-hqs-lane-and-no-row-
-# carries-a-blank-owner-cell). Topic lane: the owner cell (QUEUE.tsv field 3) wins when it already names
-# one of the four HQs — an explicit, already-made decision beats a guess; otherwise derived from the
-# topic's LANGUAGE prefix, the same split THE LANES table uses. A topic naming no language (a postoffice/
-# tooling/meta row — this very row is one) returns empty: UNDETERMINED, never defaulted, because guessing
-# wrong here would starve or misroute a lane the mapping cannot see. Callers must treat empty as
-# lane-neutral (servable from any lane), not as a fifth lane of its own.
-s4e_topic_lane() {
-    local _t="$1" _owner
-    _owner="$(qrow "$_t" | cut -f3)"
-    case "$_owner" in hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V) printf '%s' "$_owner"; return 0;; esac
-    case "$_t" in
-      prolog-*)                      printf 'hq_C';;
-      icon-*)                        printf 'hq_B';;
-      snobol4-*|snocone-*|pascal-*)  printf 'hq_P';;
-      raku-*|rebus-*)                printf 'hq_T';;
+# ⭐⭐ THE LANE — topic->seat and identity->seat, so `next` can restrict dispatch. Topic lane: the owner cell
+# (QUEUE.tsv field 3) wins when it already names a standing seat — an explicit, already-made decision beats a
+# guess; otherwise derived from the topic's LANGUAGE prefix. A topic naming no language (a postoffice/tooling/
+# meta row) returns empty: UNDETERMINED, never defaulted, because guessing wrong here would starve or misroute
+# a lane the mapping cannot see. Callers must treat empty as lane-neutral (servable from any lane).
+#
+# ⛔⭐⭐ THE FALLBACK IS A SECOND COPY OF MODE LINE 2, AND A SECOND COPY OF A LAW IS A LAW THAT ROTS (ceo
+# CEO-672, verbatim). It did rot: measured 2026-09-13 by the ceo and re-measured independently here, SIX OF
+# SEVEN language fallbacks named a seat that does not own that language under NONET — icon->hq_B where Icon is
+# the ceo, snobol4->hq_P where it is the cfo, snocone->hq_P where it is hq_I, pascal->hq_P where it is the coo,
+# rebus->hq_T where it is hq_S, prolog->hq_C where the cto owns completeness. Exactly one, raku->hq_T, survived.
+# ⛔ AND IT FAILED SILENTLY IN BOTH DIRECTIONS AT ONCE, which is why nobody caught it: `next` served rows to
+# seats that do not own them AND skipped them for the seats that do. hq_S watched it skip thirty rows before
+# locking a SNOBOL4 row it then released unworked.
+# ⭐ THE IRONY IS TWELVE LINES UP, AND IT IS THE WHOLE LESSON: s4e_root's comment already records this exact
+# class — "nothing checks that two hand-written tables of the same fact still agree" — written when hq_T was
+# missing from one of two identity maps. The lane table was the next instance, sitting directly beneath the
+# warning. A lesson filed as a fact about one table does not generalise on its own; only an instrument does.
+# ⛔ SO THE TABLE IS WRITTEN ONCE, HERE, AND EVERY OTHER READER DERIVES FROM IT. It used to be written twice in
+# this one file — the case arms below and the `mint` help text — and by 2026-09-13 the two were stale in
+# DIFFERENT directions (the help text still read "hq_I Icon suites", where hq_I is SNOCONE). A third copy is
+# what `mint` printed while refusing the very row that cures this.
+# ⛔ IT IS STILL A COPY, AND test_gate_picker_lane_table_agrees_with_mode.sh is what keeps it honest. Deriving
+# it from MODE line 2 at call time was the other option the ceo offered and it was MEASURED AND REJECTED: the
+# only parseable ownership shape ("THE SEATS: RAKU -- hq_T; ...") appears in ONE of the last TEN MODE versions,
+# because line 2's phrasing is reinvented at every mode cut. A parser over it would have silently fallen back
+# to this table for nine of ten modes — today's bug, with machinery on top and a false claim of freshness.
+s4e_lane_languages() { printf 'icon prolog snobol4 snocone pascal raku rebus'; }
+s4e_lane_owner_of_language() {
+    case "$1" in
+      icon)     printf 'ceo';;    # CONCERN 1 completeness owner, MODE line 2
+      prolog)   printf 'cto';;    # completeness + the ISO ladder; hq_C breadth, hq_R builtins/streams
+      snobol4)  printf 'cfo';;    # the master and the six SNOBOL4 packages
+      pascal)   printf 'coo';;    # and THE ONE RUNNER for every master and package board
+      snocone)  printf 'hq_I';;   # per-language ladder seat
+      rebus)    printf 'hq_S';;   # per-language ladder seat, then the SNOBOL4 runtime
+      raku)     printf 'hq_T';;   # per-language ladder seat, and the test standard
     esac
+}
+# One line of prose for the `mint` refusal, DERIVED so it cannot drift from the arms above.
+s4e_lane_help() { local _l _o _out=""; for _l in $(s4e_lane_languages); do _o="$(s4e_lane_owner_of_language "$_l")"; _out="$_out$_l -> $_o · "; done; printf '%s' "${_out% · }"; }
+s4e_topic_lane() {
+    local _t="$1" _owner _lang
+    _owner="$(qrow "$_t" | cut -f3)"
+    # ⛔ THE EXECUTIVES BELONG IN THIS SHORT-CIRCUIT AND WERE MISSING (hq_B 2026-09-13, found while verifying
+    # CEO-672). It accepted only hq_* names, so a row whose owner cell EXPLICITLY said ceo/cto/coo/cfo fell
+    # through and was re-guessed from its prefix. Under NONET four of the seven completeness owners ARE
+    # executives, so "an explicit, already-made decision beats a guess" was switched off for exactly the seats
+    # the fallback most often names — and the failure is invisible because a guess still returns something.
+    case "$_owner" in ceo|cto|coo|cfo|hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V) printf '%s' "$_owner"; return 0;; esac
+    _lang="${_t%%-*}"
+    case " $(s4e_lane_languages) " in *" $_lang "*) s4e_lane_owner_of_language "$_lang";; esac
 }
 # Identity lane: ceo is never restricted — checked by the CALLER against the identity SHAPE, the same
 # precedent the MODE guard above already set (⛔ NOT s4e_is_hq(), which counts ceo as an HQ and would
@@ -1847,6 +1881,46 @@ case "$cmd" in
               # then uncloseable by anyone. Two distinguishable states must not share one diagnostic.
               printf 'no claim exists on this row -- run `claim %s` first\n' "$topic" >&2; exit 1
          else printf 'not your claim -- %s holds it, you are %s\n' "$(head -1 "$c")" "$ME" >&2; exit 1; fi;;
+  reown) # ⭐⭐ CHANGE A ROW'S OWNER CELL (QUEUE.tsv field 3). The verb that did not exist, which is why the
+         # lane could rot without anyone being able to repair it (hq_B 2026-09-13, ceo CEO-672 part 2).
+         # ⛔ REOWN IS NOT ASSIGN, AND CONFLATING THEM IS HOW PART 2 WENT UNDONE FOR AS LONG AS IT DID. `assign`
+         # writes a CLAIM -- it locks one row to one seat for one sitting, LAW 2, "assignment is the lock". It
+         # never touches column 3. So the queue header's own advice ("to move ownership properly, an HQ or the
+         # ceo runs: s4e_msg.sh assign <topic> <seat>") describes something assign does not do, AND states the
+         # arguments in the wrong order -- assign takes <seat> <topic>. Two errors in one sentence of guidance,
+         # in the file the guidance is about. ⭐ A verb that does not exist is not discovered by reading docs
+         # about it; it is discovered by trying to do the thing and finding nothing that does it.
+         # OWNERSHIP is "whose lane is this row in" and outlives any sitting; a CLAIM is "who is holding it right
+         # now". Changing the first must never silently do the second.
+         seat="${2:?seat}"; topic="${3:?topic}"; q="$PO/QUEUE.tsv"
+         case "$seat"  in ""|*/*|*$'\n'*) echo "⛔ REFUSED: seat must be a filename-safe mailbox name (hq_S, cfo, ...)" >&2; exit 2;; esac
+         case "$topic" in ""|*/*|*$'\n'*) echo "⛔ REFUSED: topic must be a filename-safe slug" >&2; exit 2;; esac
+         [ -f "$q" ] || { echo "⛔ REFUSED: no QUEUE.tsv at $q" >&2; exit 2; }
+         # LAW 6, same as assign: a seat with no mailbox is not a seat, and this never creates one.
+         [ -d "$PO/$seat/inbox" ] || { printf '⛔ REFUSED: seat "%s" has NO postoffice mailbox (%s). reown never creates one (LAW 6).\n' "$seat" "$PO/$seat/inbox" >&2; exit 2; }
+         row="$(grep -P "^[0-9]+\t\Q$topic\E\t" "$q" 2>/dev/null | head -1)"
+         [ -n "$row" ] || { echo "⛔ REFUSED: no QUEUE.tsv row named '$topic'." >&2; exit 2; }
+         _old="$(printf '%s' "$row" | cut -f3)"; _state="$(printf '%s' "$row" | cut -f4)"
+         if [ "$_old" = "$seat" ]; then printf 'already owned: %s -> %s (no change)\n' "$topic" "$seat"; exit 0; fi
+         # ⛔⭐ A HELD ROW IS NOT REOWNED UNDER ITS HOLDER. The whole point of this verb is repairing a lane cut,
+         # and a lane cut that yanks a row out from under the seat currently working it trades one misdispatch for
+         # a worse one. --force is a deliberate act and says so; it still never touches the claim.
+         _c="$PO/claims/$topic.claim"
+         if [ -f "$_c" ] && ! grep -q '^DONE$' "$_c" 2>/dev/null && [ "${4:-}" != "--force" ]; then
+           printf '⛔ REFUSED: "%s" is CLAIMED by %s (state %s). Reowning it now would move the row out from under a\n' "$topic" "$(head -1 "$_c")" "$_state" >&2
+           printf '   working seat. Wait for it to park or land, or say so deliberately: reown %s %s --force\n' "$seat" "$topic" >&2
+           printf '   (--force changes the OWNER CELL only and never releases the claim -- those are two different acts.)\n' >&2
+           exit 1; fi
+         cp "$q" "$q.bak.reown-$(date -u +%Y%m%dT%H%M%SZ)"
+         _tmp="$(mktemp)"
+         TOPIC="$topic" NEW="$seat" awk -F'\t' -v OFS='\t' '$2==ENVIRON["TOPIC"] && /^[0-9]/ {$3=ENVIRON["NEW"]} {print}' "$q" > "$_tmp"
+         # ⛔ ANTI-VACUITY: a rewrite that changed nothing, or changed the line count, is a broken rewrite and must
+         # not be moved over the real queue. The backup above is not a substitute for noticing.
+         if [ "$(wc -l < "$_tmp")" -ne "$(wc -l < "$q")" ]; then rm -f "$_tmp"; echo "⛔ REFUSED: rewrite changed the row count -- not applied. QUEUE.tsv untouched." >&2; exit 2; fi
+         if ! grep -qP "^[0-9]+\t\Q$topic\E\t\Q$seat\E\t" "$_tmp"; then rm -f "$_tmp"; echo "⛔ REFUSED: rewrite did not take -- not applied. QUEUE.tsv untouched." >&2; exit 2; fi
+         mv "$_tmp" "$q"; chmod 664 "$q"
+         printf 'reowned: %s  %s -> %s  (state %s unchanged, claim untouched)\n' "$topic" "$_old" "$seat" "$_state"
+         ;;
   assign) # ⭐ V2-1 / LAW 2 — ASSIGNMENT IS THE LOCK (ARCH-FLEET-CEO.md). HQ writes the seat's claim ATOMICALLY on HQ's
          # side, which makes the v1 dispatch race UNREPRESENTABLE: v1 mailed a brief AND let the seat run `next`, so two
          # channels answered "what am I working on" with nothing arbitrating -- that race is what killed seat13's session
@@ -1948,7 +2022,12 @@ case "$cmd" in
          # it there, once, is cheaper than another blank cell nobody catches until a seat wanders into it.
          owner=""
          if [ "${1:-}" = "--owner" ]; then owner="${2:?--owner needs an hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V argument}"; shift 2
-           case "$owner" in hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V) : ;; *) echo "⛔ REFUSED: --owner must be one of hq_C hq_B hq_P hq_T hq_U hq_S hq_I hq_R hq_V, not '$owner'." >&2; exit 2;; esac; fi
+           # ⛔ THE EXECUTIVES WERE REFUSED HERE (hq_B 2026-09-13, CEO-672's class, found while curing it). This
+           # accepted only hq_* names, so under NONET -- where FOUR of the seven completeness owners are the
+           # ceo, cto, coo and cfo -- `mint --owner ceo` was rejected outright and an Icon row could not be
+           # minted to the seat that owns Icon. s4e_is_hq() is the one roster and already counts all thirteen;
+           # a second hand-written list beside it is the very defect this row exists to end.
+           if ! s4e_is_hq "$owner"; then echo "⛔ REFUSED: --owner must be a standing seat ($(s4e_hqboxes | tr '\n' ' ')), not '$owner'." >&2; exit 2; fi; fi
          if [ "${1:-}" = "--stdin" ] || [ "${1:-}" = "-" ]; then goal="$(cat)"; else goal="$*"; fi
          # ⛔ THE TOPIC BECOMES A FILENAME TWICE OVER (a QUEUE.tsv row AND tasks/<topic>.task.md) — same guard
          # as send (s191), checked before either write, not after.
@@ -1956,9 +2035,14 @@ case "$cmd" in
          [ -n "$goal" ] || { echo "⛔ REFUSED: empty GOAL text. Usage: $0 mint <topic> [rank] \"GOAL text\" (or --stdin)" >&2; exit 2; }
          [ -n "$owner" ] || owner="$(s4e_topic_lane "$topic")"
          if [ -z "$owner" ]; then
-           printf '⛔ REFUSED: cannot derive an owner lane for "%s" -- its name matches no language THE LANES table maps\n' "$topic" >&2
-           printf '   (prolog- icon- snobol4- snocone- pascal- raku- rebus-*). Supply one: mint %s %s --owner hq_X "GOAL"\n' "$topic" "$rank" >&2
-           printf '   (hq_C correctness/Prolog · hq_B beautify/Icon+public face+postoffice tooling · hq_P speed/SNOBOL4+Snocone+Pascal+benchmarks · hq_T test suites/Raku+Rebus+the standard · hq_U unify/shared engine+cross-language regressions · hq_S SNOBOL4 runtime · hq_I Icon suites · hq_R Prolog builtins)\n' >&2
+           printf '⛔ REFUSED: cannot derive an owner lane for "%s" -- its name starts with no language prefix\n' "$topic" >&2
+           printf '   (%s-*). Supply one: mint %s %s --owner <seat> "GOAL"\n' "$(s4e_lane_languages | tr ' ' '|')" "$topic" "$rank" >&2
+           # ⛔ DERIVED, NEVER RESTATED. This line used to carry its own hand-written lane list and by
+           # 2026-09-13 it was stale in a DIFFERENT direction from the table it was paraphrasing -- it read
+           # "hq_I Icon suites" where hq_I is SNOCONE. A help text that confidently misnames a lane is worse
+           # than none: it is read at exactly the moment someone does not know the answer.
+           printf '   completeness owners, from the one table: %s\n' "$(s4e_lane_help)" >&2
+           printf '   any standing seat may be named: %s\n' "$(s4e_hqboxes | tr '\n' ' ')" >&2
            exit 2; fi
          q="$PO/QUEUE.tsv"; d="$PO/QUEUE.done.tsv"; b="$PO/tasks/$topic.task.md"; mkdir -p "$PO/tasks"
          s4e_mint_dup() { grep -qP "^[0-9]+\t\Q$topic\E\t" "$q" 2>/dev/null && return 0
@@ -2204,7 +2288,12 @@ TASKEOF
            [ "${_owned_skipped:-0}" -gt 0 ] || return 0
            printf '↩ skipped %d free row(s) owned by another seat (topmost: %s).\n' "$_owned_skipped" "$_owned_first"
            printf '   The owner column constrains the pick (ceo 2026-09-03). To take one anyway: s4e_msg.sh claim <topic>.\n'
-           printf '   To move ownership properly, an HQ or the ceo runs: s4e_msg.sh assign <topic> <seat>.\n'; }
+           # ⛔ THIS LINE WAS WRONG TWICE OVER (hq_B 2026-09-13, ceo CEO-672): it named `assign`, which writes a
+           # CLAIM and never touches column 3, and it stated assign's arguments in the wrong order (assign takes
+           # <seat> <topic>). It is the line a seat reads at the exact moment they do not know how to move a row
+           # -- the worst place for confident wrong guidance, and the reason part 2 of CEO-672 had no tool.
+           printf '   To move ownership properly, an HQ or the ceo runs: s4e_msg.sh reown <seat> <topic>.\n'
+           printf '   (reown changes the OWNER CELL; assign <seat> <topic> writes the CLAIM. Two different acts.)\n'; }
          s4e_pass3_scan() {
            # ⛔ RESET PER PASS, NOT PER next() -- s4e_pass3_scan is called TWICE (own-lane, then any-lane) and a
            # counter initialised outside it counts every skipped row once per pass. Measured: three rank-6+ rows
@@ -2891,7 +2980,7 @@ TASKEOF
   board) if [ $# -gt 1 ]; then shift; grep -v "^$ME |" "$PO/BOARD.md" 2>/dev/null > "$PO/.b.$$" || true; printf '%s | %s | %s\n' "$ME" "$*" "$(date -u +%H:%M)" >> "$PO/.b.$$"; mv "$PO/.b.$$" "$PO/BOARD.md"; fi; cat "$PO/BOARD.md"
          # posting a board line IS the handoff gesture -- so the banner fires here too (see `done` above).
          [ "${S4E_NO_BANNER:-0}" = "1" ] || S4E_BANNER_NO_BOARD=1 "$0" banner;;
-  *) echo "usage: next|claim|unclaim|park|done|assign|mint|ask|send|check|clear|mailbox|sweep|board|banner|fleet"
+  *) echo "usage: next|claim|unclaim|park|done|assign|reown|mint|ask|send|check|clear|mailbox|sweep|board|banner|fleet"
      # ⛔⭐ THE BACKTICK TRAP -- FIVE MEASURED OCCURRENCES, and it is printed here because THIS SCRIPT CANNOT
      # DETECT IT. A backtick used for emphasis inside a double-quoted body is COMMAND SUBSTITUTION: the
      # caller's shell runs the word, prints "X: command not found" on the CALLER's stderr, and substitutes

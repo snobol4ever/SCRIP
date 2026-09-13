@@ -39,7 +39,37 @@ W="$(mktemp -d "${TMPDIR:-/tmp}/gate_promo_lane.XXXXXX")" || refuse "mktemp fail
 trap 'rm -rf "$W"' EXIT
 mkdir -p "$W/tasks" "$W/claims" "$W/released"
 for s in ceo hq_C hq_B hq_P hq_T seat07; do mkdir -p "$W/$s/inbox" "$W/$s/archive"; done
-printf 'hq_B\n' > "$W/seat07/HQ"     # seat07's lane is hq_B for this fixture (icon)
+# ⛔⭐⭐ THE FIXTURE DERIVES ITS LANGUAGE FROM THE PICKER UNDER TEST, AND NAMES NONE (hq_B 2026-09-13, ceo
+# CEO-672). This block used to read `printf 'hq_B\n' > "$W/seat07/HQ"` with the comment "seat07's lane is
+# hq_B for this fixture (icon)", and every row below hardcoded `hq_B` as its owner cell -- a FOURTH copy of
+# the language->owner table, living inside the very test that grades the picker that owns the table.
+# ⭐ WHEN NONET MOVED ICON TO THE CEO, CHECK (a) WENT RED FOR THE WRONG REASON. Promotion had not broken; the
+# fixture still believed hq_B owned Icon, so seat07 had no own-lane row and the cross-lane blocker was
+# CORRECTLY promoted. A fixture that restates its subject's facts does not fail when the subject is wrong --
+# it fails when the subject is RIGHT and has moved, which is the most expensive red there is: it points at
+# the cure and calls it the bug. Editing the assertion to match would have buried a real defect.
+# ⛔ AND CHASING IT UNCOVERED THE REAL ONE: `s4e_my_lane` recognises only hq_* names, so an executive is not a
+# lane at all. Under NONET four of the seven completeness owners ARE executives, so a seat whose HQ is one of
+# them resolves to NO lane and goes lane-blind. That is documented, deliberate ("ceo is never restricted") and
+# is a separate ruling from this row -- so the fixture must not depend on it either way.
+# ⭐ SO IT ASKS FOR WHAT IT ACTUALLY NEEDS: a language whose owner IS lane-determinable, chosen at run time.
+# The checks below grade the PROMOTION and FREEZE mechanisms, which is their real subject, and they now
+# survive every future lane cut without an edit.
+_lane_owner_of(){ bash -c '. /dev/stdin <<<"$(sed -n "/^s4e_lane_languages()/,/^s4e_lane_help()/p" "$1")"; s4e_lane_owner_of_language "$2"' _ "$SUT" "$1" 2>/dev/null; }
+_lane_langs="$(bash -c '. /dev/stdin <<<"$(sed -n "/^s4e_lane_languages()/,/^s4e_lane_help()/p" "$1")"; s4e_lane_languages' _ "$SUT" 2>/dev/null)"
+[ -n "$_lane_langs" ] || refuse "cannot read the language list out of $SUT -- a lane fixture that cannot see the lane table must not grade it"
+# The frozen language in blocks (d)-(g) is SNOBOL4 by name (the freeze string is prose in MODE), so the
+# fixture's OWN language must be a different one, or (d) would be testing two mechanisms at once.
+_own_lang=""; _own_owner=""
+for _l in $_lane_langs; do
+  [ "$_l" = snobol4 ] && continue
+  _o="$(_lane_owner_of "$_l")"
+  case "$_o" in hq_*) _own_lang="$_l"; _own_owner="$_o"; break;; esac
+done
+[ -n "$_own_lang" ] || refuse "no language in the picker's table is owned by a lane-determinable hq_* seat, so an own-lane scenario cannot be built. This is a real finding about the lane cut, not a broken fixture -- report it rather than lowering the bar."
+mkdir -p "$W/$_own_owner/inbox" "$W/$_own_owner/archive"
+printf '%s\n' "$_own_owner" > "$W/seat07/HQ"     # seat07's lane is whoever owns $_own_lang TODAY, read from the picker itself
+echo "    fixture: own lane = $_own_owner (owns $_own_lang), cross/frozen language = snobol4"
 mk(){ printf '%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" >> "$W/QUEUE.tsv"; printf '# TASK %s\nGOAL: fixture\nDONE-WHEN: true\n## NEXT\nfixture\n## QA\n## LEDGER\n' "$2" > "$W/tasks/$2.task.md"; }
 run_next(){ S4E_POST="$W" S4E_SEAT="$1" S4E_RELEASE_COOLDOWN=0 bash "$SUT" next 2>&1; }
 fails=0; checks=0
@@ -55,21 +85,21 @@ set_mode 'FLEET-16'   # no language freeze active for this block -- isolates the
 # (a)+(b): own-lane pass must refuse to promote a cross-lane blocker, and say so; a genuine own-lane
 # row at a worse rank is served instead.
 reset_q
-mk 0 icon-blocked-row      hq_B BLOCKED-ON:snobol4-blocker-row
+mk 0 ${_own_lang}-blocked-row      "$_own_owner" BLOCKED-ON:snobol4-blocker-row
 mk 5 snobol4-blocker-row   unassigned FREE
-mk 1 icon-fallback-row     unassigned FREE
+mk 1 ${_own_lang}-fallback-row     unassigned FREE
 out="$(run_next seat07)"
-grep -qE '^LOCKED.*icon-fallback-row' <<<"$out" && ! grep -qE '^LOCKED.*snobol4-blocker-row' <<<"$out" \
+grep -qE "^LOCKED.*${_own_lang}-fallback-row" <<<"$out" && ! grep -qE '^LOCKED.*snobol4-blocker-row' <<<"$out" \
   && ck ok "(a) own-lane pass serves the genuine own-lane fallback row, not the cross-lane promoted blocker" \
   || ck no "(a) a cross-lane blocker must not be promoted while an own-lane row is servable -- got: $(grep -E '^LOCKED' <<<"$out")"
-grep -qi 'REFUSED PROMOTION' <<<"$out" && grep -q 'icon-blocked-row' <<<"$out" && grep -q 'snobol4-blocker-row' <<<"$out" \
+grep -qi 'REFUSED PROMOTION' <<<"$out" && grep -q "${_own_lang}-blocked-row" <<<"$out" && grep -q 'snobol4-blocker-row' <<<"$out" \
   && ck ok "(b) the refusal is printed, naming both the blocked row and the refused blocker" \
   || ck no "(b) a refused promotion must be a visible REFUSAL naming both topics, never a silent skip -- got: $out"
 
 # (c): with NO own-lane fallback available at all, the cross-lane blocker IS still promoted+served --
 # dependency inversion keeps working, only gated by lane, not removed.
 reset_q
-mk 0 icon-blocked-row2     hq_B BLOCKED-ON:snobol4-blocker-row2
+mk 0 ${_own_lang}-blocked-row2     "$_own_owner" BLOCKED-ON:snobol4-blocker-row2
 mk 5 snobol4-blocker-row2  unassigned FREE
 out="$(run_next seat07)"
 grep -qE '^LOCKED.*snobol4-blocker-row2' <<<"$out" \
@@ -85,12 +115,12 @@ set_mode 'FLEET-8
 # (d)+(e): an active SNOBOL4-only freeze refuses a same-lane Icon blocker, and says so; a same-lane
 # SNOBOL4-language row at a worse rank is served instead.
 reset_q
-mk 0 icon-blocked-row3       hq_B BLOCKED-ON:icon-frozen-blocker
-mk 5 icon-frozen-blocker     hq_B FREE
+mk 0 ${_own_lang}-blocked-row3       "$_own_owner" BLOCKED-ON:${_own_lang}-frozen-blocker
+mk 5 ${_own_lang}-frozen-blocker     "$_own_owner" FREE
 mk 1 snobol4-fallback-row    unassigned FREE
 out="$(run_next seat07)"
-grep -qE '^LOCKED.*snobol4-fallback-row' <<<"$out" && ! grep -qE '^LOCKED.*icon-frozen-blocker' <<<"$out" \
-  && ck ok "(d) an active SNOBOL4-only freeze refuses a same-lane Icon blocker; the SNOBOL4 fallback row is served instead" \
+grep -qE '^LOCKED.*snobol4-fallback-row' <<<"$out" && ! grep -qE "^LOCKED.*${_own_lang}-frozen-blocker" <<<"$out" \
+  && ck ok "(d) an active SNOBOL4-only freeze refuses a same-lane blocker of the OTHER language; the SNOBOL4 fallback row is served instead" \
   || ck no "(d) the freeze must refuse promotion by LANGUAGE even when the lane matches -- got: $(grep -E '^LOCKED' <<<"$out")"
 grep -qi 'REFUSED PROMOTION' <<<"$out" && grep -qi 'SNOBOL4' <<<"$out" \
   && ck ok "(e) the freeze refusal is printed and names the frozen language" \
@@ -101,19 +131,19 @@ grep -qi 'REFUSED PROMOTION' <<<"$out" && grep -qi 'SNOBOL4' <<<"$out" \
 # without this control -- the standing lesson to test both arms, not just the reported direction).
 set_mode 'FLEET-16'
 reset_q
-mk 0 icon-blocked-row3       hq_B BLOCKED-ON:icon-frozen-blocker
-mk 5 icon-frozen-blocker     hq_B FREE
+mk 0 ${_own_lang}-blocked-row3       "$_own_owner" BLOCKED-ON:${_own_lang}-frozen-blocker
+mk 5 ${_own_lang}-frozen-blocker     "$_own_owner" FREE
 mk 1 snobol4-fallback-row    unassigned FREE
 out="$(run_next seat07)"
-grep -qE '^LOCKED.*icon-frozen-blocker' <<<"$out" \
-  && ck ok "(f) CONTROL: the same Icon blocker IS promoted when no MODE freeze is active" \
+grep -qE "^LOCKED.*${_own_lang}-frozen-blocker" <<<"$out" \
+  && ck ok "(f) CONTROL: the same same-lane blocker IS promoted when no MODE freeze is active" \
   || ck no "(f) CONTROL FAILED: with no freeze active, promotion must work exactly as before this row -- got: $(grep -E '^LOCKED' <<<"$out")"
 
 # (g) POSITIVE CONTROL: a language-neutral promotion candidate (no recognized prefix) is never frozen out.
 set_mode 'FLEET-8
 # 2026-09-04 18:23 CDT ceo: MODE FLEET-16 -> FLEET-8 ON SNOBOL4 ONLY, on Lon'"'"'s word'
 reset_q
-mk 0 icon-blocked-row4        hq_B BLOCKED-ON:postoffice-tooling-blocker
+mk 0 ${_own_lang}-blocked-row4        "$_own_owner" BLOCKED-ON:postoffice-tooling-blocker
 mk 5 postoffice-tooling-blocker unassigned FREE
 out="$(run_next seat07)"
 grep -qE '^LOCKED.*postoffice-tooling-blocker' <<<"$out" \
