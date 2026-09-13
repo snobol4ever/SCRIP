@@ -11,6 +11,8 @@ RTX_FUNC(rt_is_truthy)
     je      .Lit_ret
     cmp     dil, DT_I
     je      .Lit_int
+    cmp     dil, DT_BOOL
+    je      .Lit_int
     cmp     dil, DT_R
     je      .Lit_real
     test    edi, edi
