@@ -103,7 +103,7 @@ static int rk_yields_list(const tree_t * t) {
     }
     if (t->t == TT_METHCALL && t->n > 1 && t->c[1] && t->c[1]->v.sval) {
         const char * m = t->c[1]->v.sval;
-        return !strcmp(m, "keys") || !strcmp(m, "values") || !strcmp(m, "sort") || !strcmp(m, "reverse")
+        return !strcmp(m, "keys") || !strcmp(m, "values") || !strcmp(m, "kv") || !strcmp(m, "sort") || !strcmp(m, "reverse")
             || !strcmp(m, "grep") || !strcmp(m, "map");
     }
     return 0;

@@ -272,7 +272,7 @@ int rt_builtin_is_known(const char *name)
         "MAKELIST",
         "__rk_arr", "__rk_arr_lit", "__rk_arr_lit_item", "arr_get", "arr_set_pure", "arr_init", "arr_last", "array_sort", "array_reverse", "arr_make",
         "__rk_arr_xx", "__rk_arr_at", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first",
-        "__rk_arr_keys", "__rk_arr_values", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
+        "__rk_arr_keys", "__rk_arr_values", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
         "__rk_div", "__rk_intdiv", "__rk_mod", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
         "__pas_ca_pack", "__pas_ca_unpack",
@@ -3298,6 +3298,23 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         const char *cs = to_cstring(args[0], scratch, sizeof scratch);
         *out = STRVAL(rt_heap_strdup_c(cs ? cs : "")); return 1;
     }
+    if (!strcmp(fn, "__rk_arr_kv") && nargs >= 1) {
+        char scratch[64];
+        const char *cs = to_cstring(args[0], scratch, sizeof scratch);
+        if (!cs || !*cs) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
+        size_t clen = strlen(cs); int nel = 1; for (const char *q = cs; *q; q++) if (*q == SOH) nel++;
+        char *buf = rt_pinned_alloc(clen + (size_t)nel * 25 + 1); int p = 0; int idx = 0;
+        const char *seg = cs;
+        for (;;) {
+            const char *nx = strchr(seg, SOH); size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
+            if (idx) buf[p++] = SOH;
+            char nb[24]; int NL = snprintf(nb, sizeof nb, "%d", idx); memcpy(buf + p, nb, (size_t)NL); p += NL;
+            buf[p++] = SOH; memcpy(buf + p, seg, L); p += (int)L;
+            idx++; if (!nx) break; seg = nx + 1;
+        }
+        buf[p] = '\0'; *out = STRVAL(buf); return 1;
+    }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
     if (!strcmp(fn, "__rk_arr_keys") && nargs >= 1) {
         char scratch[64];
         const char *cs = to_cstring(args[0], scratch, sizeof scratch);
@@ -3914,13 +3931,13 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
                 }
             }
             if (!is_dat_recv) {
-                int is_arrm = !strcmp(mname0, "reverse") || !strcmp(mname0, "unique") || !strcmp(mname0, "sort")
+                int is_arrm = !strcmp(mname0, "kv") || !strcmp(mname0, "reverse") || !strcmp(mname0, "unique") || !strcmp(mname0, "sort")
                            || !strcmp(mname0, "elems") || !strcmp(mname0, "end") || !strcmp(mname0, "join") || !strcmp(mname0, "sum")
                            || !strcmp(mname0, "head") || !strcmp(mname0, "tail") || !strcmp(mname0, "min")
                            || !strcmp(mname0, "max") || !strcmp(mname0, "first")
                            || !strcmp(mname0, "keys") || !strcmp(mname0, "values");
                 if (is_arrm) {
-                    const char *afn = !strcmp(mname0, "sort") ? "__rk_arr_sort" : !strcmp(mname0, "min") ? "__rk_arr_min"
+                    const char *afn = !strcmp(mname0, "kv") ? "__rk_arr_kv" : !strcmp(mname0, "sort") ? "__rk_arr_sort" : !strcmp(mname0, "min") ? "__rk_arr_min"
                                     : !strcmp(mname0, "max") ? "__rk_arr_max" : !strcmp(mname0, "first") ? "__rk_arr_first"
                                     : !strcmp(mname0, "keys") ? "__rk_arr_keys" : !strcmp(mname0, "values") ? "__rk_arr_values"
                                     : !strcmp(mname0, "end") ? "elems" : mname0;

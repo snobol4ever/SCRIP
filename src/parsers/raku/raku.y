@@ -190,6 +190,30 @@ static tree_t *rk_destructure(ExprList *targets, tree_t *rhs_arr) {
     if (targets) exprlist_free(targets);
     return seq;
 }
+static tree_t *rk_for_multi(ExprList *vars, tree_t *list, tree_t *body) {
+    static int __fm_uid = 0; char av[32], iv[32];
+    snprintf(av, sizeof av, "__fm_a_%d", __fm_uid); snprintf(iv, sizeof iv, "__fm_i_%d", __fm_uid); __fm_uid++;
+    int k = vars ? vars->count : 0;
+    tree_t *hoist = expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, intern(av)), list);
+    tree_t *z = ast_node_new(TT_ILIT); z->v.ival = 0;
+    tree_t *init = expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, intern(iv)), z);
+    tree_t *el = make_call("elems"); expr_add_child(el, leaf_sval(TT_VAR, intern(av)));
+    tree_t *cond = expr_binary(TT_LT, leaf_sval(TT_VAR, intern(iv)), el);
+    tree_t *kk = ast_node_new(TT_ILIT); kk->v.ival = k;
+    tree_t *incr = expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, intern(iv)), expr_binary(TT_ADD, leaf_sval(TT_VAR, intern(iv)), kk));
+    tree_t *seq = ast_node_new(TT_SEQ);
+    for (int i = 0; i < k; i++) {
+        tree_t *idx = leaf_sval(TT_VAR, intern(iv));
+        if (i) { tree_t *off = ast_node_new(TT_ILIT); off->v.ival = i; idx = expr_binary(TT_ADD, idx, off); }
+        tree_t *get = make_call("__rk_arr_at"); expr_add_child(get, leaf_sval(TT_VAR, intern(av))); expr_add_child(get, idx);
+        expr_add_child(seq, expr_binary(TT_ASSIGN, vars->items[i], get));
+    }
+    expr_add_child(seq, body);
+    if (vars) exprlist_free(vars);
+    tree_t *outer = ast_node_new(TT_SEQ);
+    expr_add_child(outer, hoist); expr_add_child(outer, rk_cstyle_loop(init, cond, incr, seq));
+    return outer;
+}
 static tree_t *rk_with_mod(tree_t *stmt, tree_t *cond, int negate) {
     tree_t *topic = ast_node_new(TT_ASSIGN); expr_add_child(topic, leaf_sval(TT_VAR, "_")); expr_add_child(topic, cond);
     tree_t *dcall = make_call("__rk_defined"); expr_add_child(dcall, leaf_sval(TT_VAR, "_"));
@@ -895,11 +919,14 @@ for_stmt
           ast_push(r, leaf_sval(TT_VAR, vn)); ast_push(r, $2); ast_push(r, rk_dec($4)); ast_push(r, $7);
           tree_t *ex = ast_node_new(TT_ILIT); ex->v.ival = 0; ast_push(r, ex);
           $$ = r; }
-    | KW_FOR expr OP_ARROW VAR_SCALAR block
-        { const char *vn = intern(strip_sigil($4)); free($4);
-          tree_t *gen = expr_unary(TT_ITERATE, $2);
-          gen->v.sval = (char *)vn;
-          $$ = expr_binary(TT_EVERY, gen, $5); }
+    | KW_FOR expr OP_ARROW scalar_list block
+        { ExprList *vs = $4;
+          if (vs && vs->count == 1) {
+              const char *vn = vs->items[0]->v.sval; exprlist_free(vs);
+              tree_t *gen = expr_unary(TT_ITERATE, $2);
+              gen->v.sval = (char *)vn;
+              $$ = expr_binary(TT_EVERY, gen, $5);
+          } else $$ = rk_for_multi(vs, $2, $5); }
     | KW_FOR expr ',' arg_list OP_ARROW VAR_SCALAR block
         { const char *vn = intern(strip_sigil($6)); free($6);
           tree_t *lst = make_call("__rk_arr"); expr_add_child(lst,$2);
