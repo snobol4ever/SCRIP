@@ -57,7 +57,7 @@ Usage:
   util_gen_library_driver.py inventory <package-DIR> [--cause C]    # the shape census of the ROWS -- FIRST
 Exit: 0 = did the thing.  1 = a real failure.  2 = REFUSED, could not measure / would have minted a lie.
 """
-import argparse, os, re, subprocess, sys, tempfile
+import argparse, os, re, shutil, subprocess, sys, tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -387,6 +387,19 @@ def nondet_scan_tree(driver, lang):
             found.extend(nondet_sources(inc, lang))
     return found
 
+def dir_fingerprint(d):
+    """Every file under d, with size and mtime. The falsifiable half of the overlay below."""
+    out = []
+    for root, _, names in os.walk(d):
+        for n in sorted(names):
+            f = Path(root) / n
+            try:
+                st = f.stat()
+                out.append(f"{f} {st.st_size} {st.st_mtime}")
+            except OSError:
+                out.append(f"{f} ?")
+    return sorted(out)
+
 def cut_ref(suite, driver, ref_path, force):
     """Arms 3 and 4 of the brief. REFUSES rather than writing a ref that is empty, that records an error,
     or that two oracle runs of the same program do not agree on."""
@@ -395,7 +408,37 @@ def cut_ref(suite, driver, ref_path, force):
                f"Pass --force only when you mean to re-cut it.")
     with tempfile.TemporaryDirectory() as td:
         o1, o2 = Path(td) / "run1", Path(td) / "run2"
-        st1, rc1, b1 = oracle_once(suite, driver, o1)
+        # ⛔⭐⭐ THE DRIVER RUNS ON AN OVERLAY, BECAUSE A DRIVER MAY WRITE FILES AND THIS TOOL DIRTIED THE
+        # VENDORED TREE BEFORE THE OVERLAY EXISTED (hq_B 2026-09-13, caught by a `git status` at handoff and
+        # not by any check of mine). Cutting refs for gimpel's 28 ref-less drivers left
+        # `corpus/packages/snobol4/gimpel/asmtemp` behind: ASM.sno opens a DISK work file by the relative name
+        # `asmtemp`, and the oracle door deliberately runs each program in the PROGRAM'S OWN DIRECTORY so a
+        # relative -INCLUDE resolves -- so the work file lands in the vendored package.
+        # ⭐ THIS IS NOT A NEW DEFECT, IT IS A KNOWN ONE I WALKED INTO: test_snobol4_gimpel_suite.sh carries
+        # the identical cure and the identical reason (row snobol4-gimpel-runner-writes-asmtemp-into-the-
+        # vendored-dir-and-blocks-its-own-score-write), and its consequence there was that util_score_row.py
+        # correctly refused the leaderboard row, because a number measured on a dirty tree describes no tree
+        # anyone can check out. ⛔ A grader that writes into what it grades is the same defect as a gate that
+        # edits the artifact it measures -- and the lesson had been written down, in this tree, by someone
+        # else, before I repeated it. Reading the runner I was calling would have cost a minute.
+        # ⭐ WHY AN OVERLAY RATHER THAN A cwd CHANGE: the per-program cwd is load-bearing and it belongs to
+        # the shared board runner, not to me. Copying the driver's directory leaves that contract untouched.
+        ov = Path(td) / "overlay"
+        try:
+            shutil.copytree(driver.parent, ov, symlinks=True)
+        except OSError as e:
+            refuse(f"could not mint a scratch overlay of {driver.parent} ({e}) -- refusing to run a driver "
+                   f"in the tree it was read from, because a driver that writes a work file dirties it.")
+        run_driver = ov / driver.name
+        if not run_driver.is_file():
+            refuse(f"the overlay of {driver.parent.name} does not contain {driver.name} -- refusing rather "
+                   f"than falling back to the real tree.")
+        # ⛔ THE OVERLAY IS NOT TRUSTED, IT IS CHECKED, and that is the gimpel runner's own hard-won rule:
+        # two seats could not reproduce a witnessed leak by argument, so the runner measures instead. A guard
+        # that fires ONCE with the file named is worth more than an hour of reasoning about whether an
+        # overlay can leak, and it costs two directory walks.
+        real_before = dir_fingerprint(driver.parent)
+        st1, rc1, b1 = oracle_once(suite, run_driver, o1)
         if st1 != "LIVE":
             refuse(f"{driver.name}: the oracle answered {st1} (rc={rc1}, {b1} bytes), not LIVE. "
                    f"A ref cut from a {st1} run pins an error report, a timeout or nothing at all as "
@@ -407,7 +450,7 @@ def cut_ref(suite, driver, ref_path, force):
         # and the ref it would mint is red the moment it is committed and red forever after, reading as
         # a compiler defect. ⭐ THE GENERAL FORM: a byte-compare ref is a claim that the program is a
         # FUNCTION of its input, and that claim is never checked by looking at ONE output.
-        st2, rc2, b2 = oracle_once(suite, driver, o2)
+        st2, rc2, b2 = oracle_once(suite, run_driver, o2)
         t1, t2 = o1.read_text(errors="replace"), o2.read_text(errors="replace")
         if (st2, rc2) != (st1, rc1) or t1 != t2:
             a, b = t1.splitlines(), t2.splitlines()
@@ -422,6 +465,14 @@ def cut_ref(suite, driver, ref_path, force):
         if not t1.strip():
             refuse(f"{driver.name}: the oracle ran clean and printed nothing. A 0-byte ref grades "
                    f"'produced no output' as correct forever and reads as coverage.")
+        real_after = dir_fingerprint(driver.parent)
+        if real_before != real_after:
+            changed = sorted(set(x.split(" ")[0] for x in
+                                 set(real_after) ^ set(real_before)))
+            refuse(f"{driver.name}: the source tree CHANGED while cutting its ref, despite the overlay -- "
+                   f"{len(changed)} path(s): {' '.join(Path(c).name for c in changed[:8])}. A ref measured "
+                   f"by a run that writes into the tree it read describes no tree anyone can check out. "
+                   f"Remove those files and find out how the write escaped the overlay before re-cutting.")
         # ⛔ THE SECOND INSTRUMENT (see nondet_sources). The two runs above agreed; that is necessary and it
         # is not sufficient, so a clock in the source refuses here even when the samples matched.
         nd = nondet_scan_tree(driver, lang_of(driver)[0])

@@ -270,6 +270,38 @@ printf '%s\n' "$OUT" | grep -q 'no CONTAINER_OR_LIBRARY rows' \
     && pass "and it is the OTHER message -- the two causes are told apart" \
     || fail "the empty-inventory refusal did not use its own message: $OUT"
 
+echo "== ARM 12: a driver that WRITES A FILE must not dirty the tree it was read from"
+# ⛔⭐⭐ THIS ARM EXISTS BECAUSE THE TOOL DID EXACTLY THIS, AND A `git status` AT HANDOFF CAUGHT IT RATHER THAN
+# ANY CHECK OF MINE (hq_B 2026-09-13). Cutting refs for gimpel's 28 ref-less drivers left
+# corpus/packages/snobol4/gimpel/asmtemp behind: ASM.sno opens a DISK work file by the relative name
+# `asmtemp`, and the oracle door deliberately runs each program in the PROGRAM'S OWN DIRECTORY so a relative
+# -INCLUDE resolves, so the work file lands in the vendored package.
+# ⭐ AND IT WAS A KNOWN DEFECT I WALKED INTO, NOT A NEW ONE: test_snobol4_gimpel_suite.sh carries the
+# identical overlay cure for the identical reason, and there the consequence was that util_score_row.py
+# refused the leaderboard row -- a number measured on a dirty tree describes no tree anyone can check out.
+# The lesson was written down in this tree, by someone else, before I repeated it. ⛔ SO THE ARM IS NOT "does
+# the overlay exist"; it is the OBSERVABLE: run a writing driver, then assert the source directory is
+# byte-identical. That is the gimpel runner's own rule -- two seats could not settle a witnessed leak by
+# argument, so it measures.
+mkdir -p "$W/writer"
+printf "\tDEFINE('NOTE(S)')\t\t\t:(NOTE_END)\nNOTE\tOUTPUT(.DISK,10,'sidefx.tmp')\n\tDISK  =  S\n\tENDFILE(10)\n\tNOTE  =  S\t\t\t:(RETURN)\nNOTE_END\n" > "$W/writer/W.sno"
+cat > "$W/writer/W_driver.sno" <<'EOF'
+-INCLUDE "W.sno"
+	OUTPUT  =  NOTE('wrote')
+END
+EOF
+before="$(find "$W/writer" -type f -printf '%p %s
+' | LC_ALL=C sort)"
+run python3 "$GEN" cut "$W/writer/W_driver.sno" --suite gimpel --ref "$W/writer_out.ref"
+after="$(find "$W/writer" -type f -printf '%p %s
+' | LC_ALL=C sort)"
+[ "$ORC" = 0 ] && pass "the writing driver cut its ref (rc=0)" || fail "cut failed on a file-writing driver (rc=$ORC): $OUT"
+if [ "$before" = "$after" ]; then
+    pass "and the source directory is byte-identical -- the side-effect file landed on the overlay"
+else
+    fail "the source directory CHANGED while cutting the ref -- the overlay leaked: $(printf '%s\n' "$after" | comm -13 <(printf '%s\n' "$before") - | tr '\n' ' ')"
+fi
+
 if [ "$RC" = 0 ]; then
     echo "✅ GATE OK: util_gen_library_driver.py -- enumeration (DEFINE, continuation, DEFINE.), goto/literal"
     echo "   regions excluded from call scans, ref cut from the oracle, FOUR refusals proven to mint nothing"
