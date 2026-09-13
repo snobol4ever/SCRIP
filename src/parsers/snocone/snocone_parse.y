@@ -98,6 +98,7 @@ struct ForHead {
 struct FuncHead {
     char   *name;
     char   *argstr;
+    char   *locstr;
     char   *prev_func;
     STMT_t *before_body;
 };
@@ -126,7 +127,7 @@ static void     sc_finalize_do_while_pst(ScParseState *st, struct DoHead *h, tre
 static struct ForHead   *sc_for_head_new_pst(ScParseState *st, tree_t *init, tree_t *cond, tree_t *step, STMT_t *before_body);
 static void     sc_append_chain       (ScParseState *st, STMT_t *chain_head, STMT_t *chain_tail);
 static void     sc_finalize_for_pst   (ScParseState *st, struct ForHead *h);
-static struct FuncHead *sc_func_head_new_pst(ScParseState *st, char *name, char *argstr);
+static struct FuncHead *sc_func_head_new_pst(ScParseState *st, char *name, char *argstr, char *locstr);
 static void     sc_finalize_function_pst(ScParseState *st, struct FuncHead *h);
 static void     sc_append_label_node  (ScParseState *st, const char *name);
 static void     sc_loop_push           (ScParseState *st, char *cont_label, char *end_label, int is_loop);
@@ -202,7 +203,7 @@ static void     sc_emit_struct         (ScParseState *st, char *name, char *fiel
 %type <stmt_ptr>  else_keyword
 %type <forhead>   for_head
 %type <funchead>  func_head
-%type <str>       func_arglist func_arglist_ne
+%type <str>       func_arglist func_arglist_ne func_locals func_locals_ne
 %type <switchhead> switch_head
 %type <str>       struct_field_list
 %%
@@ -292,8 +293,19 @@ opt_head_sep
             :
             | T_CONCAT
             ;
-func_head   : T_DEFINE T_IDENT T_LPAREN func_arglist opt_head_sep
-                                        { $$ = sc_func_head_new_pst(st, $2, $4); free($2); free($4); }
+func_head   : T_DEFINE T_IDENT T_LPAREN func_arglist func_locals
+                                        { $$ = sc_func_head_new_pst(st, $2, $4, $5); free($2); free($4); free($5); }
+            ;
+func_locals
+            : opt_head_sep                              { $$ = strdup(""); }
+            | opt_head_sep func_locals_ne opt_head_sep  { $$ = $2; }
+            ;
+func_locals_ne
+            : T_IDENT                  { $$ = strdup($1); free($1); }
+            | func_locals_ne T_COMMA T_IDENT
+                { int len = strlen($1) + 1 + strlen($3) + 1;
+                  char *s = malloc(len); snprintf(s, len, "%s,%s", $1, $3);
+                  free($1); free($3); $$ = s; }
             ;
 func_arglist
             : T_RPAREN                 { $$ = strdup(""); }
@@ -580,10 +592,11 @@ static struct ForHead *sc_for_head_new_pst(ScParseState *st, tree_t *init, tree_
     h->before_body = before_body;
     return h;
 }
-static struct FuncHead *sc_func_head_new_pst(ScParseState *st, char *name, char *argstr) {
+static struct FuncHead *sc_func_head_new_pst(ScParseState *st, char *name, char *argstr, char *locstr) {
     struct FuncHead *h  = calloc(1, sizeof *h);
     h->name             = strdup(name);
     h->argstr           = strdup(argstr);
+    h->locstr           = strdup(locstr ? locstr : "");
     h->prev_func        = st->cur_func_name;
     h->before_body      = st->code->tail;
     st->cur_func_name   = h->name;
@@ -592,9 +605,9 @@ static struct FuncHead *sc_func_head_new_pst(ScParseState *st, char *name, char 
 static void sc_finalize_function_pst(ScParseState *st, struct FuncHead *h)
 {
     tree_t *body  = sc_collect_body(st, h->before_body);
-    int slen = strlen(h->name) + 1 + strlen(h->argstr) + 2;
+    int slen = strlen(h->name) + 1 + strlen(h->argstr) + 1 + strlen(h->locstr) + 1;
     char *sig = malloc((size_t)slen);
-    snprintf(sig, (size_t)slen, "%s(%s)", h->name, h->argstr);
+    snprintf(sig, (size_t)slen, "%s(%s)%s", h->name, h->argstr, h->locstr);
     tree_t *qname = ast_node_new(TT_QLIT); qname->sval = strdup(h->name);
     tree_t *qsig  = ast_node_new(TT_QLIT); qsig->sval  = sig;
     tree_t *def   = ast_node_new(TT_DEFINE);
@@ -602,7 +615,7 @@ static void sc_finalize_function_pst(ScParseState *st, struct FuncHead *h)
     ast_push(def, qsig);
     ast_push(def, body);
     st->cur_func_name = h->prev_func;
-    free(h->name); free(h->argstr); free(h);
+    free(h->name); free(h->argstr); free(h->locstr); free(h);
     sc_append_stmt(st, def);
 }
 static void sc_append_label_node(ScParseState *st, const char *name) {
