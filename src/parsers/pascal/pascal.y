@@ -243,8 +243,13 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         else ast_push(alloc, leaf_s(TT_VAR, "__pas_alloc"));
         return mk_assign(pv, alloc);
     }
-    if (name && (!strcmp(name, "mark") || !strcmp(name, "release")) && args && args->count >= 1) {
-        return mk_fnc1("__pas_dispose", args->items[0]);
+    if (name && !strcmp(name, "mark") && args && args->count >= 1) {
+        tree_t *mk = ast_node_new(TT_FNC);
+        ast_push(mk, leaf_s(TT_VAR, "__pas_mark"));
+        return mk_assign(args->items[0], mk);
+    }
+    if (name && !strcmp(name, "release") && args && args->count >= 1) {
+        return mk_fnc1("__pas_release", args->items[0]);
     }
     if (name && !strcmp(name, "dispose") && args && args->count >= 1) {
         return mk_fnc1("__pas_dispose", args->items[0]);
