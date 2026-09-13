@@ -100,6 +100,7 @@ test_gate_sno_data_type_named_list_is_a_record.sh	WIRED	-	-	-
 test_gate_icn_bal_argument_types_raise_as_icont.sh	WIRED	-	-	-
 test_gate_icn_keyword_variable_argument_dereferences_at_the_call.sh	WIRED	-	-	-
 test_gate_icn_coexpression_image_counts_activations_like_icont.sh	WIRED	-	-	-
+test_gate_icn_dump_ast_shows_the_parsed_program_and_pruning_stays_a_lowering_step.sh	WIRED	-	-	-
 test_gate_icn_find_takes_negative_positions.sh	WIRED	-	-	-
 test_gate_icn_function_builtin_names_dispatchable.sh	WIRED	-	-	-
 test_gate_icn_generator_exhaustion_traces_failed.sh	WIRED	-	-	-

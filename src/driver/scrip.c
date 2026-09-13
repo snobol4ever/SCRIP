@@ -1083,6 +1083,7 @@ int main(int argc, char **argv)
         } \
     } while(0)
     const char *last_input_path = (const char *)0;
+    int n_sources = 0; for (int fi = argi; fi < argc; fi++) { if (strcmp(argv[fi], "--") == 0) break; if (argv[fi][0] != '-') n_sources++; }
     for (; argi < argc; argi++) {
         if (strcmp(argv[argi], "--") == 0) { argi++; g_prog_argv = &argv[argi]; g_prog_argc = argc - argi; break; }
         const char *input_path = argv[argi]; last_input_path = input_path;
@@ -1158,6 +1159,7 @@ int main(int argc, char **argv)
                 ir_dump_program(sub_ast, stdout); return 0;
             }
             lower_entry_fn seg_fn = lower_sno_stage2;
+            if (lang_icon && n_sources == 1) { extern void icn_prune_unreachable_procs(tree_t * prog); icn_prune_unreachable_procs(sub_ast); }
             if      (lang_pascal) seg_fn = lower_pascal_stage2;
             else if (lang_icon)   seg_fn = lower_icon_stage2;
             else if (lang_prolog) seg_fn = lower_pl_stage2;

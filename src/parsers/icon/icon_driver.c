@@ -106,7 +106,7 @@ static void icn_mark_proc_refs(const tree_t * n, const tree_t ** procs, int np, 
     for (int i = 0; i < n->n; i++) icn_mark_proc_refs(n->c[i], procs, np, keep);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void icn_prune_unreachable_procs(tree_t * prog) {
+void icn_prune_unreachable_procs(tree_t * prog) {
     if (!prog) return;
     int np = 0; for (int i = 0; i < prog->n; i++) { const tree_t * s = icn_top_subject(prog->c[i]); if (s && s->t == TT_PROC_DECL) np++; }
     if (np == 0) return;
@@ -142,5 +142,4 @@ void icon_compile(const char *source, const char *filename, tree_t **out_ast) {
     }
     (void)prog;
     if (out_ast && *out_ast) icn_resolve_links(*out_ast, filename);
-    if (out_ast && *out_ast) icn_prune_unreachable_procs(*out_ast);
 }
