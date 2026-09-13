@@ -7,13 +7,14 @@
 # N is AUTO-RANGED PER ENGINE (doubling until wall-floor >= MIN_WALL_MS, cap NMAX),
 # so fast engines get big N (precision) and slow ones small N (bounded wall);
 # per-iteration ms = (wall - engine startup floor) / N, which is N-independent at
-# steady state. The gprolog-calibrated wrapper is left in VANROY_DIR as the
-# checked-in driver artifact. queensn (broken) auto-SKIPs via consensus pre-flight.
+# ⛔ RETIRED PATH: that board also left its gprolog-calibrated wrapper in VANROY_DIR as a checked-in artifact. Both the
+# board and the directory are gone (CEO-567); see the note at the foot of this file. What remains here is --two-number (the
+# 21-kernel bucket board) and --measured-from (its rule check), neither of which writes anything.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
 B="${BENCH_DIR:-$S4E/corpus/benchmarks/prolog/bench}"
-V="${VANROY_DIR:-$S4E/corpus/benchmarks/prolog/vanroy}"
+NTSV="${NTSV:-$S4E/corpus/benchmarks/prolog/fixed-iter-n.tsv}"   # the 21-kernel universe, since vanroy/ retired (CEO-567)
 T="${TIMEOUT:-240}"; MIN_WALL_MS="${MIN_WALL_MS:-300}"; NMAX="${NMAX:-65536}"
 # ⭐ THE TWO AUTHORITIES, SOURCED NOT REIMPLEMENTED: lib_oracle_flags.sh owns WHICH BINARY IS THE RIVAL
 # (swipl_bin/gprolog_bin, loud rc=2 refusal when absent) and lib_perf_fmt.sh owns HOW A MULTIPLE IS PRINTED
@@ -43,7 +44,7 @@ if [ "$TWO_NUMBER" -eq 0 ] && [ -z "$RULECHECK" ]; then
 command -v gprolog >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE gprolog absent"; exit 2; }
 command -v swipl   >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE swipl absent"; exit 2; }
 fi
-mkdir -p "$V"; W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
+W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 now_ms() { echo $(( $(date +%s%N) / 1000000 )); }
 # ⛔⛔ THE BUCKET RULE'S ONE IMPLEMENTATION. Both the board and its gate call THESE -- never a second awk.
 # tn_rivals: the engines that form the comparison axis, DERIVED FROM THE DATA. ⛔ SCRIP's own mode rows (m3/m4, and
@@ -118,13 +119,16 @@ two_number_board() {
   [ -f "$RT/libscrip_rt.so" ] || { echo "⛔ REFUSED-TO-GRADE (rc=2): libscrip_rt.so missing"; return 2; }
   TN_PRO="$S4E/corpus/benchmarks/prolog"; TN_BENCH="$TN_PRO/bench"; TN_T="${TN_T:-25}"
   local TRI EXC; TRI="$(ls -1t "$TN_PRO"/triangulation-*.tsv 2>/dev/null | head -1)"; EXC="$TN_PRO/EXCLUDED.tsv"
-  [ -d "$V" ]   || { echo "⛔ REFUSED-TO-GRADE (rc=2): vanroy kernel dir missing: $V"; return 2; }
+  [ -s "$NTSV" ] || { echo "⛔ REFUSED-TO-GRADE (rc=2): committed-N table missing or empty: $NTSV -- the 21-kernel universe has no source"; return 2; }
   [ -n "$TRI" ] || { echo "⛔ REFUSED-TO-GRADE (rc=2): no triangulation-*.tsv -- MEASURED has no source"; return 2; }
   [ -f "$EXC" ] || { echo "⛔ REFUSED-TO-GRADE (rc=2): EXCLUDED.tsv missing -- DECLARED has no source"; return 2; }
   # ── THE UNIVERSE IS vanroy/ (21); THE SOURCES ARE bench/ (23). Measured 2026-09-01: 0 of 21 vanroy files carry a
   # wall_ms bracket and 10 of 23 bench files do -- vanroy/*.pl are mkwrap OUTPUTS the legacy path regenerates, not
   # kernels. So names come from vanroy, source text from bench. ⛔ Do not let the two directories blur.
-  local KERNELS NK; KERNELS=$(ls -1 "$V"/*.pl 2>/dev/null | xargs -n1 basename | sed 's/\.pl$//' | sort)
+  # ⛔⭐ THE UNIVERSE MOVED FROM A DIRECTORY OF GENERATED FILES TO A COMMITTED TABLE (hq_P 2026-09-13, CEO-567): it was
+  # `ls vanroy/*.pl`, i.e. the denominator was a property of a DERIVED ARTIFACT. Same 21 names, verified identical by diff at
+  # the retirement; test_gate_bench_rivals_coverage.sh reads the same table, so the two boards cannot drift apart.
+  local KERNELS NK; KERNELS=$(awk -F'\t' '!/^[[:space:]]*#/ && NF && $1 != "kernel" { print $1 }' "$NTSV" | sort)
   NK=$(printf '%s\n' "$KERNELS" | grep -c .)
   # ── MEASURED, IDENTITY-KEYED ON COLUMN 6. ⛔⛔ NEVER `grep AGREE`: AGREE IS A SUBSTRING OF DISAGREE. That one
   # substring is where this row's GOAL got "the 6 that pass" -- grep -c says 6; the verdict column says 4 AGREE +
@@ -166,7 +170,7 @@ two_number_board() {
   printf '%-9s %-13s %-6s %11s %11s %11s   %s\n' BUCKET KERNEL BASIS SCRIP_us GNU_us SWI_us NOTE
   local k src bucket basis note rc us_s us_g us_w n_meas=0 n_decl=0 n_ref=0 n_rows=0
   for k in $KERNELS; do
-    src="$TN_BENCH/$k.pl"; [ -f "$src" ] || src="$V/$k.pl"
+    src="$TN_BENCH/$k.pl"
     if grep -q 'wall_us' "$src" 2>/dev/null; then basis=SELF; else basis=FLOOR; fi
     # ⛔ `2>/dev/null` on the subshell does NOT silence this: the "Segmentation fault"/"Aborted" line is printed by
     # THIS shell's job reporting about the dead child, not by the child. Wrapping the compound is what suppresses it
@@ -224,80 +228,26 @@ if [ -n "$RULECHECK" ]; then
   exit 0
 fi
 if [ "$TWO_NUMBER" -eq 1 ]; then two_number_board; exit $?; fi
-wall_ms() { local t0 t1; t0=$(now_ms); (cd "$W" && timeout -k 5 "$T" "$@" </dev/null >/dev/null 2>&1); t1=$(now_ms); echo $((t1 - t0)); }
-med5() { local a=() i; for i in 1 2 3 4 5; do a+=( "$(wall_ms "$@")" ); done; printf '%s\n' "${a[@]}" | sort -n | sed -n 3p; }
-mkwrap() { # $1=src $2=N $3=out — FAILURE-DRIVEN loop: backtracking reclaims the
-  # global/copy stacks every iteration (gprolog has NO heap GC — a recursion loop
-  # silently aborts on allocation-heavy benches after tens of iterations; measured
-  # 2026-07-18: fib x1000 recursion-loop stopped at 42 iters). NO once/1 fence:
-  # SCRIP's once does not hold under external redo (measured 2026-07-18, queens_8
-  # x50 emitted 1111 lines vs GNU 50 — filed) — so each iteration enumerates ALL
-  # solutions via plain fail; identical work on every engine, still comparable.
-  { sed 's/^main :-/bench__main :-/' "$1"
-    printf 'main :- l__(%d).\nl__(N__) :- between(1, N__, _), bench__main, fail.\nl__(_).\n' "$2"
-  } > "$3"
-}
-# auto_range <src.pl> <floor> <engine> [m4bin-prefix] -> "periter N" or "DNF N"
-auto_range() {
-  local src="$1" fl="$2" eng="$3" s="$4" N=1 w=0 c
-  while :; do
-    mkwrap "$src" "$N" "$W/ar.pl"
-    case "$eng" in
-      gnu) w=$(wall_ms gprolog --consult-file "$W/ar.pl" --query-goal halt) ;;
-      swi) w=$(wall_ms swipl -q -g halt "$W/ar.pl") ;;
-      m3)  w=$(wall_ms "$SCRIP" --run "$W/ar.pl") ;;
-      m4)  asm=$(cd "$W" && timeout "$T" "$SCRIP" --compile --target=x86 ar.pl </dev/null 2>/dev/null)
-           printf '%s\n' "$asm" > "$W/ar.s"
-           (cd "$W" && as --64 -o ar.o ar.s 2>/dev/null && gcc -no-pie -o ar.bin ar.o "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>/dev/null) || { echo "DNF $N"; return; }
-           w=$(wall_ms ./ar.bin) ;;
-    esac
-    [ "$w" -ge $((T*1000-500)) ] && { echo "DNF $N"; return; }
-    c=$((w - fl)); [ "$c" -lt 0 ] && c=0
-    if [ "$c" -ge "$MIN_WALL_MS" ] || [ "$N" -ge "$NMAX" ]; then
-      awk -v c="$c" -v n="$N" 'BEGIN{printf "%.4f %d", c/n, n}'; return
-    fi
-    N=$((N*4)); [ "$N" -gt "$NMAX" ] && N=$NMAX
-  done
-}
-# --- startup floors (warm once, then median of 5 on an empty program) ---
-printf ':- initialization(main).\nmain.\n' > "$W/empty.pl"
-gprolog --consult-file "$W/empty.pl" --query-goal halt >/dev/null 2>&1
-swipl -q -g halt "$W/empty.pl" >/dev/null 2>&1
-FG=$(med5 gprolog --consult-file "$W/empty.pl" --query-goal halt)
-FS=$(med5 swipl -q -g halt "$W/empty.pl"); F3=$(med5 "$SCRIP" --run "$W/empty.pl")
-asm=$(cd "$W" && timeout "$T" "$SCRIP" --compile --target=x86 empty.pl </dev/null 2>/dev/null); printf '%s\n' "$asm" > "$W/empty.s"
-(cd "$W" && as --64 -o empty.o empty.s 2>/dev/null && gcc -no-pie -o empty.bin empty.o "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>/dev/null)
-F4=$(med5 ./empty.bin)
-echo "floors_ms: GNU=$FG SWI=$FS m3=$F3 m4=$F4  (median of 5 after warm-up, empty program)"
-echo
-printf "%-12s %9s %9s %9s %9s %9s %9s   %s\n" BENCH GNU_it SWI_it m3_it m4_it m4/GNU m4/SWI "N(g/s/3/4)"
-declare -a G_RATIO=() S_RATIO=()
-for pl in "$B"/*.pl; do
-  s=$(basename "${pl%.pl}"); exp="${pl%.pl}.expected"; [ -f "$exp" ] || continue
-  want=$(cat "$exp")
-  go=$(cd "$W" && timeout 60 gprolog --consult-file "$pl" --query-goal halt 2>/dev/null </dev/null \
-       | grep -vE '^GNU Prolog|^Compiled |^By Daniel|^Copyright|^compiling |compiled, |^\| \?-|^error:|^warning:|cannot be redefined')
-  so=$(cd "$W" && timeout 60 swipl -q -g halt "$pl" 2>/dev/null </dev/null | head -200)
-  m3o=$(cd "$W" && timeout 60 "$SCRIP" --run "$pl" </dev/null 2>/dev/null | head -200)
-  if [ "$go" != "$want" ] || [ "$so" != "$want" ] || [ "$m3o" != "$want" ]; then
-    printf "%-12s %9s %9s %9s %9s %9s %9s   %s\n" "$s" SKIP SKIP SKIP SKIP - - -; continue; fi
-  read gi NG <<< "$(auto_range "$pl" "$FG" gnu)"
-  read si NS <<< "$(auto_range "$pl" "$FS" swi)"
-  read m3i N3 <<< "$(auto_range "$pl" "$F3" m3)"
-  read m4i N4 <<< "$(auto_range "$pl" "$F4" m4 "$s")"
-  mkwrap "$pl" "$NG" "$V/$s.pl"   # checked-in driver = gprolog-calibrated wrapper
-  rg=-; rs=-
-  if [ "$m4i" != DNF ] && [ "$gi" != DNF ]; then
-    rg=$(awk -v a="$m4i" -v b="$gi" 'BEGIN{ if(b<=0.0001)b=0.0001; printf "%.2f", a/b }'); G_RATIO+=("$rg"); fi
-  if [ "$m4i" != DNF ] && [ "$si" != DNF ]; then
-    rs=$(awk -v a="$m4i" -v b="$si" 'BEGIN{ if(b<=0.0001)b=0.0001; printf "%.2f", a/b }'); S_RATIO+=("$rs"); fi
-  printf "%-12s %9s %9s %9s %9s %9s %9s   %s\n" "$s" "$gi" "$si" "$m3i" "$m4i" "$rg" "$rs" "$NG/$NS/$N3/$N4"
-done
-echo
-gm() { [ $# -eq 0 ] && { printf '%s' -; return; }; printf '%s\n' "$@" | awk '{s+=log($1); n++} END{printf "%.2f", exp(s/n)}'; }
-echo "GEOMEAN m4/GNU = $(gm "${G_RATIO[@]}")   m4/SWI = $(gm "${S_RATIO[@]}")   (over non-DNF rows)"
-echo "ENGINES: GNU=$(gprolog --version </dev/null 2>&1 | head -1)"
-echo "         SWI=$(swipl --version </dev/null 2>&1 | head -1)"
-echo "METHOD: per-iteration ms = (wall - startup floor)/N; N auto-ranged per engine"
-echo "        (x4 until compute >= ${MIN_WALL_MS}ms, cap ${NMAX}); loop wrapper (gprolog N)"
-echo "        regenerated into $V; timeout ${T}s => DNF."
+# ⛔⭐ THE LEGACY PER-ITERATION PRODUCER PATH WAS DELETED HERE (hq_P 2026-09-13, CEO-567, 77 lines: wall_ms/med5/mkwrap/
+# auto_range, the startup-floor block and the per-iteration board). IT WAS THE ROOT PRODUCER OF corpus/benchmarks/prolog/vanroy/
+# -- its board ended `mkwrap "$pl" "$NG" "$V/$s.pl"   # checked-in driver = gprolog-calibrated wrapper`, which is precisely the
+# artifact CEO-567 forbids: the iteration count frozen into the file under measurement, and calibrated to ONE engine at that, so
+# every other engine was measured on gprolog's N. Retiring the directory without retiring its producer would have left the next
+# run of this script to recreate it. The three angles that replace it all GENERATE their wrapper: angle 1
+# test_bench_prolog_timed.sh (live doubling search), angle 2 bench_prolog_fixed_iter.sh (committed N from fixed-iter-n.tsv),
+# both through scripts/bench_prolog_wrap.sh.
+# ⛔ A SECOND REASON NOT TO PRESERVE IT, worth recording because it is a law violation and not a taste question: its ratio
+# columns were m4/GNU and m4/SWI computed as OURS/REFERENCE (`a=m4i b=gi; a/b`), so a value BELOW 1.00 meant we were ahead --
+# the inverted orientation. RULES.md FACT RULE fixes the multiple as reference/ours on the faster axis, and lib_perf_fmt.sh is
+# its one authority. A number carried out of that board into a today's column would have to be re-measured, never converted.
+# ⭐ WHAT SURVIVES ABOVE, and why this script is not simply deleted: --two-number is the 21-kernel BUCKET BOARD that
+# corpus/benchmarks/prolog/EXCLUDED.tsv names as the authority promoting a kernel to MEASURED, and --measured-from is the pure
+# rule-check that test_gate_vanroy_bucket_rule.sh grades against fixtures. Neither writes anything. THE NAME STAYS: "van Roy"
+# is the kernel set's PROVENANCE, never the retired directory's.
+[ -n "$RULECHECK" ] || [ "$TWO_NUMBER" -eq 1 ] || {
+    echo "⛔ REFUSED (rc=2): the legacy per-iteration board is RETIRED (CEO-567) -- it wrote the checked-in wrapped form."
+    echo "   Use one of the generating angles instead:"
+    echo "     angle 1  bash scripts/test_bench_prolog_timed.sh      (live doubling search for N)"
+    echo "     angle 2  bash scripts/bench_prolog_fixed_iter.sh      (committed N, corpus/benchmarks/prolog/fixed-iter-n.tsv)"
+    echo "   This script still serves --two-number (the bucket board) and --measured-from <tri.tsv> (the rule check)."
+    exit 2; }

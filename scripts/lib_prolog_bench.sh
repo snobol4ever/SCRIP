@@ -25,3 +25,33 @@ loop_check() {
   cmp -s "$o.f" "$o.want" && return 0
   echo "LOOP-OUTPUT-MISMATCH(lines=$(wc -l < "$o.f")/$(wc -l < "$o.want"))"; return 1
 }
+# ⭐ gen_counted_set <outdir> [engine] -- MATERIALISE THE COUNTED KERNEL SET, the ONE replacement for the retired checked-in
+# corpus/benchmarks/prolog/vanroy/ directory (hq_P 2026-09-13, CEO-567: the iteration count may not live inside the artifact under
+# measurement). vanroy/ was 21 files, each bench/<k>.pl with `main :- l__(N).` frozen in; the N values were lifted verbatim into
+# corpus/benchmarks/prolog/fixed-iter-n.tsv when it was retired, so this generates the same 21 programs at the same 21 counts from
+# the pristine sources instead of reading a derived artifact out of git. Writes <outdir>/<kernel>.pl and echoes the count.
+# ⛔ REFUSES rc=2 on every way of producing a SMALLER set -- missing table, missing generator, zero rows, a row whose bench source
+# does not exist, or a generator failure. A census that cannot see its whole population must not print a number (THE INSTRUMENT LAWS):
+# the failure this replaces is precisely a board that got quietly shorter when a directory moved.
+gen_counted_set() {
+  local out="$1" eng="${2:-scrip}"
+  local here root pro tsv gen k n src
+  here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  root="${S4E_HOME:-$(cd "$here/../.." && pwd)}"
+  pro="$root/corpus/benchmarks/prolog"; tsv="$pro/fixed-iter-n.tsv"; gen="$here/bench_prolog_wrap.sh"
+  [ -s "$tsv" ] || { echo "⛔ REFUSED (rc=2): committed-N table missing or empty: $tsv" >&2; return 2; }
+  [ -x "$gen" ] || { echo "⛔ REFUSED (rc=2): wrapper generator missing: $gen -- the counted form is generated, never checked in (CEO-567)" >&2; return 2; }
+  mkdir -p "$out" || return 2
+  local made=0
+  while IFS=$'\t' read -r k n; do
+    case "$k" in ''|'#'*|kernel) continue ;; esac
+    case "$n" in ''|*[!0-9]*) echo "⛔ REFUSED (rc=2): $tsv row '$k' has a non-numeric N '$n'" >&2; return 2 ;; esac
+    src="$pro/bench/$k.pl"
+    [ -f "$src" ] || { echo "⛔ REFUSED (rc=2): $tsv names '$k' but $src does not exist -- an orphan denominator entry is a lie, not a smaller board" >&2; return 2; }
+    "$gen" "$src" --mode=iter --n="$n" --engine="$eng" -o "$out/$k.pl" >/dev/null 2>&1 \
+      || { echo "⛔ REFUSED (rc=2): $(basename "$gen") failed to wrap $k at n=$n" >&2; return 2; }
+    made=$((made+1))
+  done < "$tsv"
+  [ "$made" -gt 0 ] || { echo "⛔ REFUSED (rc=2): $tsv carries zero kernel rows -- an empty set is not a green board" >&2; return 2; }
+  echo "$made"
+}

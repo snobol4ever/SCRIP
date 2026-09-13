@@ -612,8 +612,11 @@ timed.
 kernels that carry a self-timing bracket. The remaining eleven are not absent — they
 are *red*, and a benchmark page that shows only what passes is the failure mode this
 project measures against. `scripts/bench_prolog_vanroy.sh --two-number` prints all
-**21 vanroy kernels**, each in exactly one bucket, and refuses (`rc=2`) if either
-rival binary is missing rather than filling a column:
+**21 van Roy kernels**, each in exactly one bucket, and refuses (`rc=2`) if either
+rival binary is missing rather than filling a column. The 21 names come from
+`corpus/benchmarks/prolog/fixed-iter-n.tsv`; the `vanroy/` directory of checked-in
+loop-wrappers they used to be read from was retired under CEO-567, which forbids the
+iteration count living inside the artifact under measurement.
 
 | bucket | n | meaning |
 |---|:---:|---|

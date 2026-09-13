@@ -1,7 +1,7 @@
 #!/bin/bash
 # test_gate_vanroy_prolog_acceptance.sh -- the PERF-SIDE ACCEPTANCE INSTRUMENT of the PROLOG REDESIGN program (Lon escalation 2026-09-02 10:00, ceo-routed; hq_P owns P6 and P7).
 #
-# ⭐ WHAT IT GRADES: the 21 van Roy kernels under corpus/benchmarks/prolog/vanroy/, mode 3. Baseline measured by hq_P at SCRIP fa12d7cb, -O0:
+# ⭐ WHAT IT GRADES: the 21 van Roy kernels in their COUNTED form, mode 3, GENERATED per run (see the note at D= below; they were read from the retired corpus/benchmarks/prolog/vanroy/ until 2026-09-13). Baseline measured by hq_P at SCRIP fa12d7cb, -O0:
 #     3 CLEAN · 8 REFUSE (rc=134) · 8 SIGSEGV (rc=139) · 2 rc=1
 # The 8 REFUSE are derive deriv divide10 ham meta_qsort queens sendmore tak, and every one is the SAME failure -- "SCRIP FATAL: pl_trail_unwind refuses corrupt trail mark ... its PRODUCER handed
 # over garbage" -- i.e. the PZ-4 trail-mark-corruption class. That is why PZ-4 (hq_C) lands first and P7/P6 sequence behind it.
@@ -29,8 +29,18 @@ CLEAN_FLOOR=3      # WORST-OF-REPS, measured hq_P 2026-09-02, SCRIP fa12d7cb, -O
 REPS="${VANROY_REPS:-3}"   # worst-of-N. 1 is NOT a valid setting for a verdict -- see the header; it is offered only for a quick eyeball.
 cd "$R/SCRIP" 2>/dev/null || { echo "⛔ REFUSED (rc=2): no $R/SCRIP"; exit 2; }
 [ -x ./scrip ] || { echo "⛔ REFUSED (rc=2): ./scrip is not built -- a board built on a missing binary is a plausible all-FAIL table, not a measurement"; exit 2; }
-D="$R/corpus/benchmarks/prolog/vanroy"
-[ -d "$D" ] || { echo "⛔ REFUSED (rc=2): $D missing -- the kernels moved; re-point this gate rather than shrinking the board"; exit 2; }
+# ⛔⭐ THE 21 KERNELS ARE GENERATED, NOT READ OUT OF GIT (hq_P 2026-09-13, CEO-567). This gate used to read
+# corpus/benchmarks/prolog/vanroy/*.pl -- 21 checked-in files, each bench/<k>.pl with `main :- l__(N).` frozen in, i.e. the
+# iteration count living inside the artifact under measurement. That directory is RETIRED; gen_counted_set() rebuilds the same
+# 21 kernels at the same 21 counts from the pristine bench/ sources plus corpus/benchmarks/prolog/fixed-iter-n.tsv, which is
+# where those N values were lifted to, verbatim by execution. THE NAME STAYS: "van Roy" is the kernels' PROVENANCE, not the
+# directory's. ⛔ The CLEAN_FLOOR above was pinned against the OLD checked-in files, which were generated from PRE-conversion
+# bench/ sources (they wrapped a self-timing main/0 that raised existence_error(wall_us/1)); the subject is the same 21
+# computations at the same counts, but it is not the same bytes -- so the floor is re-proven against this form, never assumed.
+. "$R/SCRIP/scripts/lib_prolog_bench.sh" 2>/dev/null || { echo "⛔ REFUSED (rc=2): cannot source lib_prolog_bench.sh -- the one authority for materialising the counted set"; exit 2; }
+D=$(mktemp -d "${TMPDIR:-/tmp}/vanroy_accept.XXXXXX") || { echo "⛔ REFUSED (rc=2): cannot create a work dir"; exit 2; }
+trap 'rm -rf "$D"' EXIT
+gen_counted_set "$D" scrip >/dev/null || exit 2
 n=0; clean=0; refuse=0; segv=0; other=0; refuse_l=""; segv_l=""; other_l=""
 for f in "$D"/*.pl; do
     [ -f "$f" ] || continue
@@ -52,8 +62,8 @@ for f in "$D"/*.pl; do
       0) clean=$((clean+1)) ;;
     esac
 done
-[ "$n" -gt 0 ] || { echo "⛔ REFUSED (rc=2): zero kernels found under $D -- an empty board is not a green board"; exit 2; }
-echo "van Roy Prolog acceptance ($n kernels, mode 3, worst-of-$REPS): CLEAN=$clean (floor $CLEAN_FLOOR) · REFUSE=$refuse · CRASH=$segv · other=$other"
+[ "$n" -gt 0 ] || { echo "⛔ REFUSED (rc=2): zero kernels generated -- an empty board is not a green board"; exit 2; }
+echo "van Roy Prolog acceptance ($n generated counted kernels, mode 3, worst-of-$REPS): CLEAN=$clean (floor $CLEAN_FLOOR) · REFUSE=$refuse · CRASH=$segv · other=$other"
 echo "  [] shows the per-rep outcome string (. clean, R refuse, C crash, o other); a trailing ! marks a kernel that FLIPPED between reps -- 11 of 21 do so on an unchanged binary."
 [ -n "$refuse_l" ] && echo "  REFUSE:$refuse_l"
 [ -n "$segv_l" ]   && echo "  CRASH :$segv_l"

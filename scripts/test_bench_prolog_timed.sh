@@ -6,7 +6,7 @@
 # whose between+fail loop wrapper completes within TIME_BUDGET_MS, then reports iters/s = N / cpu_seconds.
 # This N is DERIVED FRESH every run (never read from a committed file) -- the independence property the
 # cross-proof needs against angle 2 (bench_prolog_fixed_iter.sh), which instead EXECUTES a pre-committed,
-# historical N from corpus/benchmarks/prolog/vanroy/<k>.pl. Same atomic operation (loop N times, measure),
+# historical N from corpus/benchmarks/prolog/fixed-iter-n.tsv. Same atomic operation (loop N times, measure),
 # different SOURCE for N -- live-derived here, historically-committed there.
 #
 # ⛔ CORRECTNESS GATES THE TIMING (binding, ARCH-BENCH-CAMPAIGN-README-TABLES.md): this script re-verifies

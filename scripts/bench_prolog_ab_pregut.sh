@@ -12,15 +12,27 @@
 #     note (unpresized fib measured 15x worse — collection storms, see FINDING)
 #   - lpi column = output lines / N: catches silent truncation (the rail's banked abort-blindness)
 #   - single run per cell; at these ratios +/-10-20% host noise is immaterial
-# Env: PREGUT_REF (default 7ec7305a) PREGUT_DIR (default /home/claude/SCRIP-pregut)
-#      BENCH_V (default /home/claude/corpus/benchmarks/prolog/vanroy)
+# Env: PREGUT_REF (default 7ec7305a) PREGUT_DIR (default <root>/SCRIP-pregut)
+#      BENCH_K (default <root>/corpus/benchmarks/prolog/bench -- the PRISTINE kernels)
+#
+# ⛔⭐ IT READS THE PRISTINE KERNELS NOW, NOT THE RETIRED vanroy/ (hq_P 2026-09-13, CEO-567). This rail never wanted the
+#   checked-in wrapped form: mkwrap() below opened corpus/benchmarks/prolog/vanroy/<k>.pl only to STRIP the three generated
+#   loop lines back off it (`main :- l__(N).`, `l__(N__) :- between...`, `l__(_).`) and recover the bare kernel, then wrapped
+#   it in this rail's OWN era-neutral fact-table loop. So it was reading a derived artifact to undo the derivation. vanroy/ is
+#   retired (its N values now live in fixed-iter-n.tsv, its wrapped form is generated on demand); the pristine kernel this rail
+#   always wanted IS corpus/benchmarks/prolog/bench/<k>.pl, and mkwrap() now strips one line from it instead of three.
+#   ⛔ THE CONTRACT PREDICATE CHANGED WITH THE CONVERSION and the rail must follow it: the work used to be reachable as
+#   bench__main/0 (the generator's rename of the kernel's own main/0); in the pristine contract it is bench_work/1, and the
+#   timing bracket and the write are no longer inside it. This rail brackets from OUTSIDE and discards the result, so calling
+#   bench_work(_) is the faithful translation -- but it is a DIFFERENT CALL, so no number from before this change may be
+#   compared against one from after it without re-measuring both arms.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; NEW="$(cd "$HERE/.." && pwd)"
 PREGUT_REF="${PREGUT_REF:-7ec7305a}"; OLD="${PREGUT_DIR:-$S4E/SCRIP-pregut}"
-V="${BENCH_V:-$S4E/corpus/benchmarks/prolog/vanroy}"
+K="${BENCH_K:-$S4E/corpus/benchmarks/prolog/bench}"
 W=/tmp/ab_pregut.$$; mkdir -p "$W"; trap 'rm -rf "$W"' EXIT
 command -v gprolog >/dev/null || { echo "⛔ REFUSED-TO-GRADE: gprolog absent (apt-get install gprolog)"; exit 2; }
-[ -d "$V" ] || { echo "⛔ REFUSED-TO-GRADE: vanroy corpus missing: $V"; exit 2; }
+[ -d "$K" ] || { echo "⛔ REFUSED-TO-GRADE: pristine kernel dir missing: $K"; exit 2; }
 if [ ! -d "$OLD" ]; then (cd "$NEW" && git worktree add "$OLD" "$PREGUT_REF") || { echo "FAIL worktree"; exit 1; }; fi
 [ -x "$OLD/scrip" ] || (cd "$OLD" && make -j4 scrip >/tmp/ab_build_old.log 2>&1) || { echo "FAIL old build (see /tmp/ab_build_old.log)"; exit 1; }
 [ -f "$OLD/out/libscrip_rt.so" ] || (cd "$OLD" && make libscrip_rt >>/tmp/ab_build_old.log 2>&1) || { echo "FAIL old rt"; exit 1; }
@@ -28,10 +40,13 @@ if [ ! -d "$OLD" ]; then (cd "$NEW" && git worktree add "$OLD" "$PREGUT_REF") ||
 [ -f "$NEW/out/libscrip_rt.so" ] || (cd "$NEW" && make libscrip_rt >>/tmp/ab_build_new.log 2>&1) || { echo "FAIL new rt"; exit 1; }
 conj(){ case $1 in 8)echo "a(_), ";;64)echo "b(_), ";;512)echo "a(_), b(_), ";;4096)echo "b(_), b(_), ";;32768)echo "a(_), b(_), b(_), ";;262144)echo "b(_), b(_), b(_), ";;esac; }
 mkwrap(){ p=$1; n=$2; f="$W/${p}_${n}.pl"
-  grep -vE '^main :- l__\([0-9]+\)\.|^l__\(N__\) :- between|^l__\(_\)\.' "$V/$p.pl" > "$f"
+  # ⛔ REFUSE rather than wrap a kernel that does not carry the contract -- a silently unwrapped source would compile,
+  # run its own main/0 once, and be reported as a fast iteration rate (the loop-never-looped class, lib_prolog_bench.sh).
+  grep -q '^bench_work(' "$K/$p.pl" || { echo "⛔ REFUSED-TO-GRADE: $K/$p.pl carries no bench_work/1 -- not a pristine kernel (CEO-567)" >&2; exit 2; }
+  grep -vE '^main :- ' "$K/$p.pl" > "$f"
   for i in $(seq 1 8); do echo "a($i)."; done >> "$f"
   for i in $(seq 1 64); do echo "b($i)."; done >> "$f"
-  printf 'main :- l__.\nl__ :- %sbench__main, fail.\nl__.\n' "$(conj $n)" >> "$f"; echo "$f"; }
+  printf 'main :- l__.\nl__ :- %sbench_work(_), fail.\nl__.\n' "$(conj $n)" >> "$f"; echo "$f"; }
 tdiff(){ echo $(( ($2 - $1) / 1000000 )); }
 build_m4(){ d=$1; f=$2; b=$3; xl=$4
   (cd "$W" && timeout 90 "$d/scrip" --compile --target=x86 "$f" </dev/null 2>"$b.err" > "$b.s") || { echo BUILDFAIL; return 1; }
