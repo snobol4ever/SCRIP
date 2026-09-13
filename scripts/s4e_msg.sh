@@ -2580,13 +2580,26 @@ TASKEOF
            [ "$_aage" -gt "$_ah_oldest" ] && _ah_oldest="$_aage"
            _ah_repos="$_ah_repos $(basename "$_ar")+${_an}(${_aage}m)"
          done
+         # ⛔⭐ ALL THREE AHEAD-OF-ORIGIN ARMS ARE FITTED, and this is where the width gate earned itself.
+         # These lines are CONDITIONAL -- two of the three print only while a repo is ahead -- so they were
+         # absent from every banner measured while building the 80-column cure, and the gate went green over a
+         # population that did not contain them. It caught them the moment a rebase left .github ahead: 187
+         # columns. ⭐ THE LESSON IS THE ONE THIS WHOLE ROW IS ABOUT, arriving from the other side: a gate is
+         # evidence only about the population it actually saw, and a line that fires only in a rare state is
+         # exactly the line no routine run will ever show you. When adding a printf here, fit it -- do not wait
+         # for the state that reveals it.
          _ah_stale="${S4E_AHEAD_STALE_MIN:-10}"
          if [ "$_ah_total" -eq 0 ]; then
-           printf 'AHEAD OF ORIGIN: none -- every repo in %s has its HEAD on origin%s\n' "$_ah_home" "${_ah_nofetch:+ (⚠ could not fetch:$_ah_nofetch -- read from the local origin ref, so a just-pushed commit may still be counted next turn)}"
+           { printf 'AHEAD OF ORIGIN: none -- every repo in %s has its HEAD on origin%s\n' "$_ah_home" "${_ah_nofetch:+ (⚠ could not fetch:$_ah_nofetch -- read from the local origin ref, so a just-pushed commit may still be counted next turn)}"; } | s4e_fit
          elif [ "$_ah_oldest" -ge "$_ah_stale" ]; then
-           printf '⚠⚠ AHEAD OF ORIGIN FOR %sm --%s -- %s commit(s) exist ONLY in this clone and no other seat can see them. This is NOT a failure and does not change the verdict below; it is finished work that is invisible. Pull with rebase, RE-PROVE your gate after the rebase, push code repos first and .github last. If it is unpushed because something is red, say so in one paragraph to your HQ rather than holding it.%s\n' "$_ah_oldest" "$_ah_repos" "$_ah_total" "${_ah_nofetch:+ (⚠ could not fetch:$_ah_nofetch)}"
+           { printf '⚠⚠ AHEAD OF ORIGIN FOR %sm --%s -- %s commit(s) ONLY in this clone%s\n' "$_ah_oldest" "$_ah_repos" "$_ah_total" "${_ah_nofetch:+ (⚠ could not fetch:$_ah_nofetch)}"
+             printf '   NOT a failure and NOT part of the verdict -- finished work nobody can see.\n'
+             printf '   Pull --rebase, RE-PROVE your gate after it, push code first and .github last.\n'
+             printf '   If it is unpushed because something is RED, say so to your HQ in a paragraph.\n'; } | s4e_fit
          else
-           printf '⚠ AHEAD OF ORIGIN --%s -- %s commit(s) not yet on origin, oldest %sm. NOT a failure (under the %sm threshold this reads as a seat mid-push); push code repos first, .github last.%s\n' "$_ah_repos" "$_ah_total" "$_ah_oldest" "$_ah_stale" "${_ah_nofetch:+ (⚠ could not fetch:$_ah_nofetch)}"
+           { printf '⚠ AHEAD OF ORIGIN --%s -- %s commit(s) not yet on origin, oldest %sm%s\n' "$_ah_repos" "$_ah_total" "$_ah_oldest" "${_ah_nofetch:+ (⚠ could not fetch:$_ah_nofetch)}"
+             printf '   NOT a failure -- under the %sm threshold this reads as a seat mid-push.\n' "$_ah_stale"
+             printf '   Push code repos first, .github last.\n'; } | s4e_fit
          fi
          _ih="$(dirname "${BASH_SOURCE[0]}")/install_commit_msg_hook.sh"
          if [ -x "$_ih" ]; then

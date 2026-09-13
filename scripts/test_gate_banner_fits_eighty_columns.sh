@@ -158,6 +158,41 @@ for _need in 'SUITES,' 'PROGRESS ' '════'; do
 done
 _n3=$(wc -l < "$TMP/a3.txt"); [ "$_n3" -ge 20 ] || { echo "⛔ REFUSE rc=2: banner is only $_n3 lines; expected >=20"; exit 2; }
 arm "arm3 s4e_msg.sh banner, whole output" "$TMP/a3.txt"
+# ⛔⭐ ARMS 6 AND 7 EXIST BECAUSE ARM 3 WAS GREEN OVER A POPULATION THAT DID NOT CONTAIN THE DEFECT.
+# The banner's three AHEAD-OF-ORIGIN lines are CONDITIONAL: two of them print only while a repo in this root
+# has an unpushed commit. Every banner measured while building this cure had nothing ahead, so those lines
+# were never in any graded output, and arm 3 passed without ever seeing them. They were caught by accident --
+# a rebase left .github ahead by one commit and the next run read 187 columns.
+# ⭐ THE LESSON IS THIS GATE'S OWN SUBJECT ARRIVING FROM THE OTHER SIDE: a gate is evidence only about the
+# population it actually saw, and a line that fires only in a rare state is exactly the line no routine run
+# will ever show it. So the rare state is MANUFACTURED here rather than waited for: a scratch origin plus a
+# clone holding one unpushed commit, pointed at by S4E_AHEAD_HOME, with S4E_AHEAD_STALE_MIN selecting which
+# of the two arms speaks. Without these the gate would go green again the moment every repo is pushed --
+# which is precisely when a seat runs it.
+_ah="$TMP/ahead"; mkdir -p "$_ah"
+( set -e; cd "$_ah"; git init -q --bare origin.git
+  git clone -q origin.git work 2>/dev/null; cd work
+  git config user.name LCherryholmes; git config user.email lcherryh@yahoo.com
+  echo one > f; git add f; git commit -qm "base"; git push -q origin HEAD:main 2>/dev/null
+  git branch -q -M main 2>/dev/null || true
+  git branch -q --set-upstream-to=origin/main main 2>/dev/null || true
+  echo two >> f; git commit -qam "an unpushed commit, so the ahead lines fire" ) >/dev/null 2>&1
+if [ -d "$_ah/work/.git" ] && [ "$(git -C "$_ah/work" rev-list --count origin/main..HEAD 2>/dev/null || echo 0)" -ge 1 ]; then
+  S4E_POST="$TMP/po" S4E_BANNER_NO_BOARD=1 S4E_AHEAD_HOME="$_ah" S4E_AHEAD_STALE_MIN=99999 \
+    timeout 300 bash "$MSG" banner > "$TMP/a6.txt" 2>&1
+  grep -q 'AHEAD OF ORIGIN --' "$TMP/a6.txt" \
+    && arm "arm6 banner AHEAD-OF-ORIGIN lines (mid-push arm)" "$TMP/a6.txt" \
+    || { echo "⛔ REFUSE rc=2: the ahead fixture did not make the mid-push line fire -- arm6 would grade"
+         echo "   a banner without the lines it exists to measure, which is green about nothing"; exit 2; }
+  S4E_POST="$TMP/po" S4E_BANNER_NO_BOARD=1 S4E_AHEAD_HOME="$_ah" S4E_AHEAD_STALE_MIN=0 \
+    timeout 300 bash "$MSG" banner > "$TMP/a7.txt" 2>&1
+  grep -q 'AHEAD OF ORIGIN FOR' "$TMP/a7.txt" \
+    && arm "arm7 banner AHEAD-OF-ORIGIN lines (stale arm)" "$TMP/a7.txt" \
+    || { echo "⛔ REFUSE rc=2: the ahead fixture did not make the STALE line fire -- see arm6"; exit 2; }
+else
+  echo "⛔ REFUSE rc=2: could not build an ahead-of-origin fixture (git unavailable?); arms 6-7 cannot"
+  echo "   measure, and a width gate that silently skips the conditional lines is the defect it guards"; exit 2
+fi
 # ⭐ ARM 4 -- THE DETECTOR PROOF, and it is not decoration. Arms 1-3 are satisfied by a producer that
 # prints nothing, or by a checker that always says "narrow". This fixture MUST be caught, or the three
 # arms above are passing over nothing -- the empty-denominator shape.
