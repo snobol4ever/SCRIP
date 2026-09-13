@@ -174,7 +174,7 @@ static void     sc_emit_struct         (ScParseState *st, char *name, char *fiel
 %token T_1PLUS
 %token T_1MINUS
 %token T_2EQUAL
-%token T_PLUS_ASSIGN T_MINUS_ASSIGN T_STAR_ASSIGN T_SLASH_ASSIGN T_CARET_ASSIGN T_PERCENT_ASSIGN
+%token T_PLUS_ASSIGN T_MINUS_ASSIGN T_STAR_ASSIGN T_SLASH_ASSIGN T_CARET_ASSIGN
 %token T_2QUEST
 %token T_2PIPE
 %token T_CONCAT
@@ -372,9 +372,6 @@ expr0       : expr1 T_2EQUAL    expr0
                                   ast_push(a, $1); ast_push(a, $3); $$ = a; }
             | expr1 T_CARET_ASSIGN  expr0
                                 { tree_t *a = ast_node_new(TT_AUGOP); a->ival = TK_AUGPOW;
-                                  ast_push(a, $1); ast_push(a, $3); $$ = a; }
-            | expr1 T_PERCENT_ASSIGN expr0
-                                { tree_t *a = ast_node_new(TT_AUGOP); a->ival = TK_AUGMOD;
                                   ast_push(a, $1); ast_push(a, $3); $$ = a; }
             | expr1
                                 { $$ = $1; }
