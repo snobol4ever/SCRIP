@@ -83,49 +83,14 @@ case "$out" in *"RESUME zz-low-rank"*) ok "Pass 2 resumes the lower-rank open cl
 # match the topic appearing anywhere else in the banner, which would make all three checks pass for the
 # wrong reason -- the weaker test is the trap here, not the stricter one. The SELF=1 injections below are
 # rewritten into the same shape, so the fail-once proof still reds.
-_attributes() { printf '%s\n' "$2" | grep -qE "^ +row +[A-Za-z]+ +$1( |$)"; }
-echo "-- C: bare banner falls back to the same rank-sort, never glob order, among still-open claims --"
-# same $T/po as B: aa-high-rank and zz-low-rank are both still open
-out="$(run seatAA banner)"
-[ "$SELF" = 1 ] && out="  row     OPEN aa-high-rank"
-if _attributes zz-low-rank "$out"; then ok "bare banner attributes to the lower-rank open claim, not the alphabetically-first one"
-  else no "banner rank-sort fallback" "a 'row ... zz-low-rank' cell" "$(printf '%s\n' "$out" | grep -E '^ +row ' | head -1 | tr -s ' ')"; fi
-
-echo "-- D: done(topic) already passes ITS topic to banner -- banner must USE it over the rank fallback --"
-cat > "$T/po/tasks/aa-high-rank.task.md" <<EOF
-# TASK aa-high-rank · owner: hq_C · state: FREE
-GOAL: g
-DONE-WHEN: test -f $T/flag
-## NEXT
-n
-EOF
-touch "$T/flag"
-run seatAA done aa-high-rank >/dev/null   # S4E_NO_BANNER=1 in run(): verifies + marks DONE, does not fire banner yet
-out="$(run seatAA banner aa-high-rank)"   # exactly what done's own internal "$0 banner $topic" call does
-[ "$SELF" = 1 ] && out="  row     OPEN zz-low-rank"   # inject the pre-fix "banner ignores its own \$2" answer
-if _attributes aa-high-rank "$out"; then ok "banner given an explicit topic (as done passes) reports THAT topic over the rank fallback"
-  else no "banner pref-topic override" "a 'row ... aa-high-rank' cell" "$(printf '%s\n' "$out" | grep -E '^ +row ' | head -1 | tr -s ' ')"; fi
-
-echo "-- E: end-to-end -- done's OWN auto-fired banner (not a manual simulation) attributes correctly --"
-# ⛔ FOUND STALE (postoffice-gates-red-on-origin, 2026-09-03): this step used to close zz-low-rank with NO
-# baton on disk. That worked when the fixture was written and has been REFUSED rc=2 since the HOLE-A cure of
-# 2026-08-28 -- "a row with no baton has no computable DONE-WHEN, so its completion cannot be verified, so it
-# cannot be closed". The refusal is the tool being RIGHT; only D minted a baton, and E inherited none.
-# ⭐ Note what the stale fixture would have cost if cured the other way: relaxing `done` to close a batonless
-# row to make this gate green would have re-opened LAW 1 across all sixteen seats to spare one fixture.
-# The banner-attribution property E actually measures is untouched by minting the baton E always needed.
-cat > "$T/po/tasks/zz-low-rank.task.md" <<EOF
-# TASK zz-low-rank · owner: hq_C · state: FREE
-GOAL: g
-DONE-WHEN: test -f $T/flag-zz
-## NEXT
-n
-EOF
-touch "$T/flag-zz"
-out="$(S4E_POST="$T/po" S4E_HOME="$T/root" S4E_SEAT=seatAA bash "$MSG" done zz-low-rank 2>&1)"   # no S4E_NO_BANNER: let done fire its real banner call
-[ "$SELF" = 1 ] && out="  row     OPEN aa-high-rank"
-if _attributes zz-low-rank "$out"; then ok "done's own auto-fired banner (no manual passthrough) attributes to the row it just closed"
-  else no "end-to-end done->banner passthrough" "a 'row ... zz-low-rank' cell" "$(printf '%s\n' "$out" | grep -E '^ +row ' | head -1 | tr -s ' ')"; fi
+# ⛔⛔ ARMS C, D AND E ARE DELETED, NOT DISABLED (Lon 2026-09-13, in-chat to hq_S, verbatim: "See that banner
+# you just output. The header says suite pass/tot gap date state. Delete whatever produced that. I want it
+# gone. I've ordered that removed." then "I want the entire text gone. Not just the header.").  All three
+# asserted that `banner` PRINTS a `row ...` cell attributing the seat to a topic, and the printed banner no
+# longer exists: s4e_msg.sh banner emits nothing at all.  A gate over a deleted subject cannot be green, and
+# rewriting them to read BOARD.md instead would be a DIFFERENT property than the one they were cut for.
+# ⛔ WHAT IS NOT LOST: the rank-sort resume ORDER those arms rode on is still graded by A and B above, which
+# read next() output rather than the banner.  Only the display assertion is gone.
 
 printf '\n  %s: %d passed, %d failed\n' "$([ "$fail" -eq 0 ] && echo PASS || echo '⛔ FAIL')" "$pass" "$fail"
 if [ "$SELF" = 1 ]; then
