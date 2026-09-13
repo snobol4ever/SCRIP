@@ -452,9 +452,12 @@ void rt_gc_visit_descr(DESCR_t *d)
         return; }
     case DT_A: {
         ARBLK_t *a = d->arr;
+        gc_mark_agg((const void *)a);
         gc_slot_reg((void *)&d->arr);
-        if (!a || !gc_hins((void *)a) || !a->data) return;
-        gc_slot_reg((void *)&a->data);
+        if (!a || !gc_hins((void *)a)) return;
+        if (a->proto) rt_gc_visit_raw((const char **)&a->proto);
+        if (!a->data) return;
+        rt_gc_visit_raw((const char **)&a->data);
         { long n = (long)(a->hi - a->lo + 1); if (a->ndim == 2) n *= (long)(a->hi2 - a->lo2 + 1); if (n < 0) n = 0; for (long i = 0; i < n; i++) rt_gc_visit_descr(&a->data[i]); }
         return; }
     case DT_T: {
@@ -465,11 +468,14 @@ void rt_gc_visit_descr(DESCR_t *d)
         return; }
     case DT_DATA: {
         DATINST_t *u = d->u;
+        gc_mark_agg((const void *)u);
         gc_slot_reg((void *)&d->u);
         if (!u || !gc_hins((void *)u) || !u->fields || !u->type) return;
-        gc_slot_reg((void *)&u->fields);
+        rt_gc_visit_raw((const char **)&u->type);
+        rt_gc_visit_raw((const char **)&u->fields);
         if ((u->type->nfields == 3 || u->type->nfields == 4) && u->type->fields && u->type->fields[0] && !strcmp(u->type->fields[0], "frame_elems")) {
             long n = (long)u->fields[1].i; DESCR_t *el = (u->fields[0].v == DT_DATA) ? (DESCR_t *)u->fields[0].ptr : NULL;
+            if (el) rt_gc_visit_raw((const char **)&u->fields[0].ptr);
             if (el && n > 0) for (long i = 0; i < n; i++) rt_gc_visit_descr(&el[i]);
             rt_gc_visit_descr(&u->fields[2]);
             return; }
