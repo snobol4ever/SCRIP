@@ -209,13 +209,15 @@ for k in "${timed[@]}"; do
 done
 
 echo
-echo "-- FACT-RULE grid: WORK basis (angle 3, single angle -- label it so). multiple = rakudo work_us / SCRIP work_us; >1.000x means SCRIP does the kernel's work faster --"
+grid_incomplete=0
+perf_grid_begin "FACT-RULE grid: WORK basis (angle 3, single angle -- label it so). multiple = rakudo work_us / SCRIP work_us; >1.000x means SCRIP does the kernel's work faster"
 for k in "${timed[@]}"; do
   rw="${BW["$k:rakudo"]:-}"; w3="${BW["$k:m3"]:-}"; w4="${BW["$k:m4"]:-}"
-  [ -n "$rw" ] && [ -n "$w3" ] && perf_row "$k  m3 vs rakudo" "$rw" "$w3"
-  [ -n "$rw" ] && [ -n "$w4" ] && perf_row "$k  m4 vs rakudo" "$rw" "$w4"
-  [ -z "$rw" ] && echo "  $k: rakudo arm unverified -- no multiple"
+  perf_row_or_refuse "$k  m3 vs rakudo" "$rw" "$w3"
+  perf_row_or_refuse "$k  m4 vs rakudo" "$rw" "$w4"
+  [ -z "$rw" ] && echo "  $k: rakudo arm unverified -- the REFUSED cells above name the kernel; this line names the reason"
 done
+perf_grid_end || grid_incomplete=1
 echo
 echo "-- OVERHEAD per engine (elapsed - work, us, of each kernel's best rep): the process/startup constant the totals basis was charging to the engine --"
 for eng in m3 m4 rakudo; do
@@ -237,5 +239,9 @@ echo "TSV: $TRI_TSV (coverage-gate schema)"
 if [ "$any_disagree" -eq 1 ]; then echo "⛔ DISAGREE present in the cross-proof -- VOID: do not publish or cite those kernel/engine cells until re-measured."; fi
 if [ "$any_bad" -eq 1 ]; then echo "⛔ at least one angle-3 cell is DIFF/CRASH/VOID/BUILD-ERR -- do not publish or cite those cells."; fi
 if [ "$any_bad" -eq 1 ] || [ "$any_disagree" -eq 1 ]; then exit 1; fi
+if [ "$grid_incomplete" -eq 1 ]; then
+  echo "⛔ the FACT-RULE grid above is INCOMPLETE -- a cell REFUSED (its subject is named on stderr). VOID as a reading: a dark cell is worse than a red one (CEO-676), so do not publish or cite this grid until every cell measures."
+  exit 1
+fi
 echo "every measured cell VERIFIED (byte-equal stdout on every rep, clock and unit invariants held); no DISAGREE in the cross-proof (AGREE or honestly UNPROVEN)."
 exit 0

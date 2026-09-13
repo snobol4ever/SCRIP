@@ -88,7 +88,8 @@ for k in $kernels; do
 done
 
 echo
-echo "-- FACT-RULE grid: m3 vs fpc, m4 vs fpc (angle 1 numbers; WORK metric, us/rep COST basis, axis named once here, RT_OPT=-O0 SCRIP / fpc -O2 released default) --"
+grid_incomplete=0
+perf_grid_begin "FACT-RULE grid: m3 vs fpc, m4 vs fpc (angle 1 numbers; WORK metric, us/rep COST basis, axis named once here, RT_OPT=-O0 SCRIP / fpc -O2 released default)"
 # ⛔ perf_row/perf_mult (lib_perf_fmt.sh) take (LABEL, REF, OURS) and are documented as COST inputs
 # (lower=better; multiple=ref/ours). fpc is the reference, m3/m4 are ours -- REF FIRST, OURS SECOND. The
 # pre-slope code here fed RATE values (reps/s, bigger=better) with the args the OTHER way round (ours in
@@ -96,16 +97,21 @@ echo "-- FACT-RULE grid: m3 vs fpc, m4 vs fpc (angle 1 numbers; WORK metric, us/
 # (a genuine cost), that swap would silently invert every published multiple if left in place.
 for k in $kernels; do
   rf=$(dehuman "${A1["$k:fpc"]:-}"); r3=$(dehuman "${A1["$k:m3"]:-}"); r4=$(dehuman "${A1["$k:m4"]:-}")
-  [ -n "$rf" ] && [ -n "$r3" ] && perf_row "$k  m3 vs fpc" "$rf" "$r3"
-  [ -n "$rf" ] && [ -n "$r4" ] && perf_row "$k  m4 vs fpc" "$rf" "$r4"
+  perf_row_or_refuse "$k  m3 vs fpc" "$rf" "$r3"
+  perf_row_or_refuse "$k  m4 vs fpc" "$rf" "$r4"
 done
 [ -z "$kernels" ] && echo "  (no kernel had both angle-1 and angle-2 numeric rates for any SCRIP engine this run)"
+perf_grid_end || grid_incomplete=1
 
 echo
 echo "TSV: $OUT_TSV"
 if [ "${CHECK_SHAPE:-0}" != 1 ]; then . "$HERE/lib_progress.sh"; progress_append_triangulation pascal "$OUT_TSV" || { echo "⛔ bench_triangulate_pascal: the progress database did not take this run's kernels (see above) -- a benchmark run that leaves the table untouched is a defect of the run (progress/README.md, CEO-331)"; exit 2; }; fi
 if [ "$any_disagree" -eq 1 ]; then
   echo "⛔ DISAGREE present -- VOID: do not publish or cite those kernel/engine cells until re-measured."
+  exit 1
+fi
+if [ "$grid_incomplete" -eq 1 ]; then
+  echo "⛔ the FACT-RULE grid above is INCOMPLETE -- a cell REFUSED (its subject is named on stderr). VOID as a reading: a dark cell is worse than a red one (CEO-676), so do not publish or cite this grid until every cell measures."
   exit 1
 fi
 echo "no DISAGREE (measured cells, if any, all AGREE; UNPROVEN cells need an EXCLUDED.tsv line, not a citation)."

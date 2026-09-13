@@ -143,21 +143,27 @@ for k in $kernels; do
 done
 
 echo
-echo "-- FACT-RULE grid: m3 vs gnu, m3 vs swi, m4 vs gnu, m4 vs swi (angle 1 numbers; rate metric, axis named once here) --"
+grid_incomplete=0
+perf_grid_begin "FACT-RULE grid: m3 vs gnu, m3 vs swi, m4 vs gnu, m4 vs swi (angle 1 numbers; rate metric, axis named once here)"
 for k in $kernels; do
   rg=$(dehuman "${A1["$k:gnu"]:-}"); rs=$(dehuman "${A1["$k:swi"]:-}"); r3=$(dehuman "${A1["$k:m3"]:-}"); r4=$(dehuman "${A1["$k:m4"]:-}")
-  [ -n "$rg" ] && [ -n "$r3" ] && perf_row "$k  m3 vs gnu" "$r3" "$rg"
-  [ -n "$rs" ] && [ -n "$r3" ] && perf_row "$k  m3 vs swi" "$r3" "$rs"
-  [ -n "$rg" ] && [ -n "$r4" ] && perf_row "$k  m4 vs gnu" "$r4" "$rg"
-  [ -n "$rs" ] && [ -n "$r4" ] && perf_row "$k  m4 vs swi" "$r4" "$rs"
+  perf_row_or_refuse "$k  m3 vs gnu" "$r3" "$rg"
+  perf_row_or_refuse "$k  m3 vs swi" "$r3" "$rs"
+  perf_row_or_refuse "$k  m4 vs gnu" "$r4" "$rg"
+  perf_row_or_refuse "$k  m4 vs swi" "$r4" "$rs"
 done
 [ -z "$kernels" ] && echo "  (no kernel had both angle-1 and angle-2 numeric rates for any SCRIP engine this run)"
+perf_grid_end || grid_incomplete=1
 
 echo
 echo "TSV: $OUT_TSV"
 if [ "${CHECK_SHAPE:-0}" != 1 ]; then . "$HERE/lib_progress.sh"; progress_append_triangulation prolog "$OUT_TSV" || { echo "⛔ bench_triangulate_prolog: the progress database did not take this run's kernels (see above) -- a benchmark run that leaves the table untouched is a defect of the run (progress/README.md, CEO-331)"; exit 2; }; fi
 if [ "$any_disagree" -eq 1 ]; then
   echo "⛔ DISAGREE present -- VOID: do not publish or cite those kernel/engine cells until re-measured."
+  exit 1
+fi
+if [ "$grid_incomplete" -eq 1 ]; then
+  echo "⛔ the FACT-RULE grid above is INCOMPLETE -- a cell REFUSED (its subject is named on stderr). VOID as a reading: a dark cell is worse than a red one (CEO-676), so do not publish or cite this grid until every cell measures."
   exit 1
 fi
 echo "no DISAGREE (measured cells, if any, all AGREE; UNPROVEN cells need an EXCLUDED.tsv line, not a citation)."

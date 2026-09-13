@@ -199,18 +199,24 @@ echo
 # second) to keep ">= 1.00x GREEN means we're faster" true for a rate too. Same m3-vs-sbl, m4-vs-m3
 # comparisons the two angle scripts already print as sp3/sp4 (hand-rolled there); this is angle 1's
 # numbers through the ONE authority instead.
-echo "-- FACT-RULE grid: m3 vs sbl, m4 vs m3 (angle 1 numbers; axis named once per row group here) --"
+grid_incomplete=0
+perf_grid_begin "FACT-RULE grid: m3 vs sbl, m4 vs m3 (angle 1 numbers; RATE metric so the operands are swapped -- see the note above; axis named once per row group here)"
 for k in $kernels; do
   r1sbl=$(dehuman "${A1["$k:sbl"]:-}"); r1m3=$(dehuman "${A1["$k:m3"]:-}"); r1m4=$(dehuman "${A1["$k:m4"]:-}")
-  [ -n "$r1sbl" ] && [ -n "$r1m3" ] && perf_row "$k  m3 vs sbl" "$r1m3" "$r1sbl"
-  [ -n "$r1m3" ] && [ -n "$r1m4" ] && perf_row "$k  m4 vs m3"  "$r1m4" "$r1m3"
+  perf_row_or_refuse "$k  m3 vs sbl" "$r1m3" "$r1sbl"
+  perf_row_or_refuse "$k  m4 vs m3"  "$r1m4" "$r1m3"
 done
+perf_grid_end || grid_incomplete=1
 
 echo
 echo "TSV: $OUT_TSV"
 if [ "${CHECK_SHAPE:-0}" != 1 ]; then . "$HERE/lib_progress.sh"; progress_append_triangulation snobol4 "$OUT_TSV" || { echo "⛔ bench_triangulate_snobol4: the progress database did not take this run's kernels (see above) -- a benchmark run that leaves the table untouched is a defect of the run (progress/README.md, CEO-331)"; exit 2; }; fi
 if [ "$any_disagree" -eq 1 ]; then
   echo "⛔ DISAGREE or CHECK-FAIL present -- VOID: do not publish or cite those kernels' numbers until re-measured (or their correctness fixed)."
+  exit 1
+fi
+if [ "$grid_incomplete" -eq 1 ]; then
+  echo "⛔ the FACT-RULE grid above is INCOMPLETE -- a cell REFUSED (its subject is named on stderr). VOID as a reading: a dark cell is worse than a red one (CEO-676), so do not publish or cite this grid until every cell measures."
   exit 1
 fi
 echo "all measured kernels AGREE (each within its OWN baked noise tolerance -- see the per-row tol= values above, not a flat ${TOL}%)."

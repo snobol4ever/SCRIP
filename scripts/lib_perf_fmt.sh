@@ -123,10 +123,20 @@ perf_pct() {
 # the axis ONCE ("x vs <reference>") and carry its SHARED-AXES line; this only formats.
 # ⭐ The label is TRUNCATED to its field, never wrapped: a row that wraps turns a grid into prose,
 # and Lon's ruling on the suite banner was that an unreadable grid is not a grid (2026-09-13).
+# ⛔ THE SUBSHELL SEAM, AND IT MADE perf_grid_end INERT ON THE ONLY PATH THAT MATTERS (hq_P 2026-09-13).
+# This function used to call perf_mult inside the printf's own $( ), so perf_refuse's
+# PERF_DARK_CELLS bump happened in a SUBSHELL and never reached the parent: every refusal arriving
+# through perf_row was invisible to perf_grid_end, which then closed rc=0 on a grid with a hole in it.
+# ⭐ The two gate arms that should have caught it BOTH PASSED -- arm C refused a grid whose dark cell
+# came from a DIRECT perf_mult call (parent shell, counter survives) and arm D proved the row prints
+# REFUSED -- and nothing composed them. A seam between two passing guards is where a mechanism leaks.
+# So the multiple is captured FIRST, its rc read in THIS shell, and the count bumped here.
 perf_row() {
-    local lbl="$1"
+    local lbl="$1" mult rc
     [ "${#lbl}" -le 34 ] || lbl="${lbl:0:31}..."
-    printf '  %-34s %14s %14s   %s\n' "$lbl" "$2" "$3" "$(perf_mult "$2" "$3" "$1")"
+    mult="$(perf_mult "$2" "$3" "$1")"; rc=$?
+    [ "$rc" -eq 0 ] || PERF_DARK_CELLS=$(( ${PERF_DARK_CELLS:-0} + 1 ))
+    printf '  %-34s %14s %14s   %s\n' "$lbl" "$2" "$3" "$mult"
 }
 #-----------------------------------------------------------------------------------------------------
 # perf_row_or_refuse LABEL REF OURS -- perf_row for callers that today write

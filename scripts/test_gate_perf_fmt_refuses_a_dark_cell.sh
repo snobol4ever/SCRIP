@@ -82,6 +82,44 @@ row="$(perf_row_or_refuse "nreverse m3 vs gnu" "" "" 2>/dev/null)"
 if [ -n "$row" ] && printf '%s' "$row" | grep -q 'nreverse m3 vs gnu' && printf '%s' "$row" | grep -q 'REFUSED'
 then ok "perf_row_or_refuse still prints the labelled row"; else bad "row must survive a missing operand" "a row naming the kernel + REFUSED" "'$row'"; fi
 #-----------------------------------------------------------------------------------------------------
+# E. ⛔ THE COMPOSITION -- AND IT IS THE ARM WHOSE ABSENCE LET A DEFECT SURVIVE INSIDE ITS OWN GATE.
+# Arm C refuses a grid whose dark cell came from a DIRECT perf_mult call (parent shell, so the
+# PERF_DARK_CELLS bump survives).  Arm D proves the row still prints.  NEITHER ARM COMPOSED THEM, and
+# perf_row used to call perf_mult inside the printf's own $( ) -- a SUBSHELL, where the bump died.  So
+# every refusal arriving through perf_row, WHICH IS THE PATH EVERY HARNESS ACTUALLY USES, was invisible
+# to perf_grid_end and the grid closed rc=0 with a hole in it.  Both arms passed the whole time.
+# ⭐ A SEAM BETWEEN TWO PASSING GUARDS IS WHERE A MECHANISM LEAKS -- test the composition, not the parts.
+echo "E. a dark cell arriving through perf_row reaches the grid verdict (the subshell seam)"
+perf_grid_begin "x vs rival" >/dev/null 2>&1
+perf_row "kernel a m3 vs rival" 200 100 >/dev/null 2>&1
+perf_row "kernel b m3 vs rival" 100 ""  >/dev/null 2>&1
+out="$(perf_grid_end 2>/dev/null)"; rc=$?
+if [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q 'GRID REFUSES'; then ok "a refusal through perf_row reaches perf_grid_end (rc=2)"
+else bad "a refusal through perf_row must reach the grid verdict" "rc=2 + 'GRID REFUSES'" "rc=$rc ($out)"; fi
+# ⭐ CONTROL ARM, and it is not optional: the cure must not make EVERY grid refuse.  Valid cells -> rc=0.
+perf_grid_begin "x vs rival" >/dev/null 2>&1
+perf_row "kernel a m3 vs rival" 200 100 >/dev/null 2>&1
+perf_row "kernel b m4 vs rival" 100 200 >/dev/null 2>&1
+out="$(perf_grid_end 2>/dev/null)"; rc=$?
+[ "$rc" -eq 0 ] && ok "a grid of valid cells through perf_row still closes rc=0" || bad "a clean perf_row grid must close rc=0" "rc=0" "rc=$rc ($out)"
+#-----------------------------------------------------------------------------------------------------
+# F. THE HARNESSES THEMSELVES -- the law is worth nothing while no harness is wired to it.  Measured
+# 2026-09-13: NOT ONE bench script called perf_grid_begin/perf_grid_end, so the whole-grid refusal
+# guarded nothing in production, and four harnesses carried 10 sites of the row-deleting guard
+#     [ -n "$ref" ] && [ -n "$ours" ] && perf_row ...
+# which DELETES the row when an operand is missing -- shape (3), the invisible cell: the grid looks
+# complete because nobody greps for a row that was never printed.
+echo "F. the bench harnesses cannot delete a row, and they close the grid they open"
+for h in bench_triangulate_pascal.sh bench_triangulate_prolog.sh bench_triangulate_raku.sh bench_triangulate_snobol4.sh; do
+    f="$HERE/$h"
+    [ -r "$f" ] || { bad "$h: unreadable" "a readable harness" "missing"; continue; }
+    if grep -q '\[ -n "\$[a-zA-Z0-9_]*" \].*perf_row' "$f"; then
+        bad "$h: row-deleting guard present" "no '[ -n ] && perf_row' idiom" "$(grep -c '\[ -n "\$[a-zA-Z0-9_]*" \].*perf_row' "$f") site(s)"
+    elif ! grep -q 'perf_grid_begin' "$f"; then bad "$h: grid never opened" "perf_grid_begin (it carries the load stamp)" "no call"
+    elif ! grep -q 'perf_grid_end'   "$f"; then bad "$h: grid never closed" "perf_grid_end (the whole-grid refusal)" "no call"
+    else ok "$h: no row-deleting guard, grid opened and closed"; fi
+done
+#-----------------------------------------------------------------------------------------------------
 printf '\nGATE %s -- pass=%s fail=%s\n' "$([ "$FAIL" -eq 0 ] && echo PASS || echo FAIL)" "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1
 exit 0
