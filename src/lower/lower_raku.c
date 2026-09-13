@@ -192,6 +192,34 @@ static tree_t * rk_divis_desugar(const tree_t * t) {
     tree_t * eq = ast_node_new(TT_EQ); ast_push(eq, md); ast_push(eq, z); return eq;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * rk_case_match(const tree_t * subj, const tree_t * cond) {
+    if (cond->t == TT_TO && cond->n > 1) {
+        tree_t * ge = ast_node_new(TT_GE); ast_push(ge, (tree_t *) subj); ast_push(ge, (tree_t *) cond->c[0]);
+        tree_t * le = ast_node_new(TT_LE); ast_push(le, (tree_t *) subj); ast_push(le, (tree_t *) cond->c[1]);
+        tree_t * an = ast_node_new(TT_SEQ); ast_push(an, ge); ast_push(an, le); return an;
+    }
+    tree_t * eq = ast_node_new(cond->t == TT_QLIT ? TT_LEQ : TT_EQ);
+    ast_push(eq, (tree_t *) subj); ast_push(eq, (tree_t *) cond); return eq;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * rk_case_desugar(const tree_t * t) {
+    static int cid = 0; char nb[48]; snprintf(nb, sizeof nb, "__case_%d", cid++); const char * vn = intern(nb);
+    tree_t * chain = NULL;
+    for (int i = t->n - 2; i >= 1; i -= 2) {
+        const tree_t * cond = t->c[i]; const tree_t * blk = t->c[i + 1];
+        if (cond && cond->t == TT_NUL) { chain = (tree_t *) blk; continue; }
+        tree_t * gate = ast_node_new(TT_IF);
+        ast_push(gate, rk_case_match(leaf_sval2(TT_VAR, vn), cond));
+        ast_push(gate, (tree_t *) blk);
+        if (chain) ast_push(gate, chain);
+        chain = gate;
+    }
+    tree_t * seq = ast_node_new(TT_SEQ);
+    tree_t * as = ast_node_new(TT_ASSIGN); ast_push(as, leaf_sval2(TT_VAR, vn)); ast_push(as, (tree_t *) t->c[0]);
+    ast_push(seq, as); if (chain) ast_push(seq, chain);
+    return seq;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_cond(rcx_t * cx, const tree_t * c, IR_t * on_true, IR_t * on_false) {
     if (c && c->t == TT_STMT) { const tree_t * sub = stmt_subj(c); if (sub) c = sub; }
     if (!c) return on_true;
@@ -498,7 +526,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             return lower_rv(cx, fr, γ, ω, res); }
         return rk_excise(cx, γ, ω, res); }
         return rk_excise(cx, γ, ω, res);
-    case TT_CASE: return rk_excise(cx, γ, ω, res);
+    case TT_CASE: if (t->n >= 1 && t->c[0]) return lower_rv(cx, rk_case_desugar(t), γ, ω, res); return rk_excise(cx, γ, ω, res);
     case TT_SMATCH: if (t->n > 2 && t->c[2] && t->c[2]->v.sval && strcmp(t->c[2]->v.sval, "subst")) {
         IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = strcmp(t->c[2]->v.sval, "match_global") ? "re_match" : "re_match_global";
         IR_t * sr = NULL, * pr = NULL; IR_t * es = lower_rv(cx, t->c[0], NULL, ω, &sr); IR_t * ep = lower_rv(cx, t->c[1], nd, ω, &pr);
