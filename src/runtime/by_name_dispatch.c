@@ -2013,7 +2013,7 @@ static DESCR_t pl_mk_cmp1(const char *f, DESCR_t a0) {
     DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (((uint32_t)prolog_atom_intern(f)) << 16) | 1u; c.p = (void *)kids; return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define PL_SP_NPROP 8
+#define PL_SP_NPROP 9
 void pas_tf_write(FILE *fp, DESCR_t v) {
     if (v.v == DT_I) { unsigned char tg = 'I'; int64_t x = (int64_t)v.i; fwrite(&tg, 1, 1, fp); fwrite(&x, 8, 1, fp); return; }
     if (v.v == DT_R) { unsigned char tg = 'R'; double x = v.r; fwrite(&tg, 1, 1, fp); fwrite(&x, 8, 1, fp); return; }
@@ -2056,7 +2056,14 @@ static int pl_sp_prop(int i, int pidx, DESCR_t *out) {
     case 6: *out = pl_mk_cmp1("eof_action", pl_mk_atom(pl_sp_is_input(i) ? "eof_code" : "error")); return 1;
     case 7: { const char *a = (i == 0) ? "user_input" : (i == 1) ? "user_output" : (i == 2) ? "user_error" : (const char *)0;
         if (!a) return 0; *out = pl_mk_cmp1("alias", pl_mk_atom(a)); return 1; }
+    case 8: { extern const char *fh_encoding(int); const char *e = fh_encoding(i); if (!e) return 0; *out = pl_mk_cmp1("encoding", pl_mk_atom(e)); return 1; }
     default: return 0; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_enc_norm(const char *s, char *out, size_t n) { size_t i, k = 0;
+    if (!s) return 0;
+    for (i = 0; s[i]; i++) { char c = s[i]; if (c == '-' || c == '_') continue; if (c >= 'A' && c <= 'Z') c = (char)(c - 'A' + 'a'); if (k + 1 >= n) return 0; out[k++] = c; }
+    out[k] = '\0'; return k != 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_open_opts(DESCR_t *args, int nargs, int idx, pl_tr_ctx_t *cx) {
@@ -2075,6 +2082,9 @@ static int pl_open_opts(DESCR_t *args, int nargs, int idx, pl_tr_ctx_t *cx) {
           else if (on && !strcmp(on, "type")) { if (!as || (strcmp(as, "text") && strcmp(as, "binary"))) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; }
               if (idx >= 0 && idx < FH_MAX) g_fh[idx].type = (char)(as[0] == 'b' ? 'b' : 't'); fh_set_untranslated(idx, as[0] == 'b'); }
           else if (on && (!strcmp(on, "reposition") || !strcmp(on, "eof_action"))) { if (!as) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; } }
+          else if (on && !strcmp(on, "encoding")) { extern void fh_set_encoding(int, const char *); char eb[64];
+              if (!as || !pl_enc_norm(as, eb, sizeof eb) || (strcmp(eb, "utf8") && strcmp(eb, "text"))) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; }
+              fh_set_encoding(idx, "utf8"); }
           else { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; } }
         o = rt_pl_deref_val(kids[1]); }
     if (pl_val_unbound(o)) { cx->ball = rt_pl_ball_instantiation(); return 0; }

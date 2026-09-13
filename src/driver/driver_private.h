@@ -38,11 +38,13 @@ extern Match  g_match;
 extern const char *g_subject;
 extern int   g_kw_ctx;
 #define FH_MAX 64
-typedef struct { FILE *fp; char *name; char *alias; char mode; char type; char untrans; } fh_slot_t;
+typedef struct { FILE *fp; char *name; char *alias; char *enc; char mode; char type; char untrans; } fh_slot_t;
 extern fh_slot_t g_fh[FH_MAX];
 extern int   fh_init;
 int   fh_alias_idx(const char *nm);
 void  fh_set_alias(int idx, const char *nm);
+void  fh_set_encoding(int idx, const char *nm);
+const char *fh_encoding(int idx);
 void  fh_ensure_init(void);
 int   fh_alloc(FILE *fp);
 FILE *fh_get(int idx);

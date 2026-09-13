@@ -20,9 +20,11 @@ int fh_is_untranslated(int idx){ fh_ensure_init(); return (idx>=0 && idx<FH_MAX)
 void fh_set_untranslated(int idx, int v){ fh_ensure_init(); if(idx>=0 && idx<FH_MAX) g_fh[idx].untrans=(char)(v?1:0); }
 int fh_alias_idx(const char *nm){ fh_ensure_init(); if(!nm) return -1; for(int i=3;i<FH_MAX;i++) if(g_fh[i].fp&&g_fh[i].alias&&!strcmp(g_fh[i].alias,nm)) return i; return -1; }
 void fh_set_alias(int idx, const char *nm){ extern char *rt_pinned_strdup(const char *); fh_ensure_init(); if(idx>=3&&idx<FH_MAX) g_fh[idx].alias = nm ? rt_pinned_strdup(nm) : (char *)0; }
+void fh_set_encoding(int idx, const char *nm){ extern char *rt_pinned_strdup(const char *); fh_ensure_init(); if(idx>=0&&idx<FH_MAX) g_fh[idx].enc = nm ? rt_pinned_strdup(nm) : (char *)0; }
+const char *fh_encoding(int idx){ fh_ensure_init(); if(idx<0||idx>=FH_MAX) return (const char *)0; if(g_fh[idx].type=='b'||g_fh[idx].untrans) return "octet"; return g_fh[idx].enc ? g_fh[idx].enc : "utf8"; }
 int fh_alloc(FILE *fp) {
     fh_ensure_init();
-    for(int i=3;i<FH_MAX;i++) if(!g_fh[i].fp){g_fh[i].fp=fp;g_fh[i].name=NULL;g_fh[i].alias=NULL;g_fh[i].mode=0;g_fh[i].type='t';g_fh[i].untrans=0;return i;}
+    for(int i=3;i<FH_MAX;i++) if(!g_fh[i].fp){g_fh[i].fp=fp;g_fh[i].name=NULL;g_fh[i].alias=NULL;g_fh[i].enc=NULL;g_fh[i].mode=0;g_fh[i].type='t';g_fh[i].untrans=0;return i;}
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -33,7 +35,7 @@ FILE *fh_get(int idx){
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fh_free(int idx){
-    if(fh_init&&idx>=3&&idx<FH_MAX){ g_fh[idx].fp=NULL; g_fh[idx].alias=NULL; }
+    if(fh_init&&idx>=3&&idx<FH_MAX){ g_fh[idx].fp=NULL; g_fh[idx].alias=NULL; g_fh[idx].enc=NULL; }
 }
 int   fh_cur_in  = 0;
 int   fh_cur_out = 1;
