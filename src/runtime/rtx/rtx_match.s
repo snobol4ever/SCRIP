@@ -604,6 +604,9 @@ rt_cap_open_plain:
     shl     rcx, 32
     or      rsi, rcx
     mov     rdx, r8
+    xor     ecx, ecx
+    xor     r8d, r8d
+    xor     r9d, r9d
     call    comm_var@PLT
     RTX_CALL_UNALIGN
 .Lcap_fastret:

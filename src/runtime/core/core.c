@@ -107,7 +107,7 @@ static void trace_spell_value(DESCR_t val, char *buf, size_t bufsz) {
         case DT_R: snprintf(buf, bufsz, "%g", val.r); return;
         case DT_N: snprintf(buf, bufsz, ".%s", val.s ? val.s : ""); return;
         case DT_FAIL: buf[0] = '\0'; return;
-        case DT_S: case DT_SNUL: { const char *s = val.s ? val.s : ""; snprintf(buf, bufsz, "'%s'", s); return; }
+        case DT_S: case DT_SNUL: { const char *s = rt_cstr_d(val); snprintf(buf, bufsz, "'%s'", s ? s : ""); return; }
         case DT_A: case DT_T: case DT_DATA: { char hb[192]; dump_obj_head(val, hb, (int)sizeof hb); if (hb[0]) { snprintf(buf, bufsz, "%s", hb); return; } }
         default: { const char *s = VARVAL_fn(val); snprintf(buf, bufsz, "%s", s ? s : ""); return; }
     }
@@ -878,6 +878,7 @@ void comm_var(const char *name, DESCR_t val, const char *file, long line, long l
     if (!dbg && trace_set_n == 0 && monitor_fd < 0 && kw_trace <= 0) return;
     if (dbg)
         fprintf(stderr, "[scrip-trace] comm_var name=%s recur=%d\n", name, trace_recursion_depth);
+    if (stno <= 0) { extern long g_stno; stno = (long long)g_stno; }
     if (!g_monitor_bin) {
         rt_trace_event(TRK_VALUE, name, val, stno);
     }
