@@ -638,7 +638,8 @@ static long gc_collect_ex(int cons_stack)
     gc_root_cas();
     { static int cov = -1; if (cov < 0) { const char *e = getenv("SCRIP_GC_COVERAGE"); cov = (e && *e && *e != '0') ? 1 : 0; }
       if (cov) fprintf(stderr, "[GC-COV] ranges=%ld cas_scanned_bytes=%ld pz=%d cons_stack=%d\n", g_gc_rrng_n, g_gc_cas_bytes, pz, cons_stack); }
-    for (long i = 0; i < g_gc_nblk; i++) { rt_hblk_t *h = g_gc_idx[i]; if (hb_pinned(h->type) && !(h->flags & HBF_MARK)) { h->flags |= HBF_MARK; h->fwd = (uint64_t)(uintptr_t)g_gc_mhead; g_gc_mhead = h; } }
+    { static int fm = -1; if (fm < 0) { const char *e = getenv("SCRIP_GC_PIN_AGGREGATES"); fm = (e && *e && *e != (char)48) ? 1 : 0; }
+      if (fm) for (long i = 0; i < g_gc_nblk; i++) { rt_hblk_t *h = g_gc_idx[i]; if (hb_pinned(h->type) && !(h->flags & HBF_MARK)) { h->flags |= HBF_MARK; h->fwd = (uint64_t)(uintptr_t)g_gc_mhead; g_gc_mhead = h; } } }
     core_gc_roots(); gen_gc_roots(); pas_gc_roots(); rt_gc_root_args();
     if (pz) { extern uint64_t rtccb[32]; for (int ci = 0; ci < 32; ci++) rt_gc_visit_raw((const char **)&rtccb[ci]); }
     if (pz && g_gc_seam_sp) { char *sst = gc_stack_top(); if (g_gc_seam_sp < sst) gc_zeta_frame(g_gc_seam_sp, sst); }

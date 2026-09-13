@@ -4058,6 +4058,13 @@ int _command_pending_parent_frame = -1;
 void core_gc_roots(void)
 {
     extern void rt_gc_visit_descr(DESCR_t *d);
-    for (int b = 0; b < VAR_BUCKETS; b++) for (NV_t *e = _var_buckets[b]; e; e = e->next) { rt_gc_visit_descr(&e->val); if (e->cell) rt_gc_visit_descr(e->cell); }
+    extern void rt_gc_visit_raw(const char **loc);
+    for (int b = 0; b < VAR_BUCKETS; b++) {
+        if (_var_buckets[b]) rt_gc_visit_raw((const char **)&_var_buckets[b]);
+        for (NV_t *e = _var_buckets[b]; e; e = e->next) {
+            if (e->name) rt_gc_visit_raw((const char **)&e->name);
+            if (e->next) rt_gc_visit_raw((const char **)&e->next);
+            rt_gc_visit_descr(&e->val);
+            if (e->cell) { rt_gc_visit_raw((const char **)&e->cell); rt_gc_visit_descr(e->cell); } } }
 }
 int core_icn_int_ok_d(DESCR_t d) { return core_icn_int_ok(d); }
