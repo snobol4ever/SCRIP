@@ -187,8 +187,10 @@ ladder_main() {
     # It stopped being true the moment rungs 19, 20 and 21 were built above the 17/18 gap: `--to 16` is the cumulative
     # ceiling, so _top stayed 16 and the cell told SCORE.md that three rungs with sixteen graded witnesses were NOT BUILT.
     # A cell that names the rungs cannot say that: the list comes from the same declared-census-minus-origins comparison
-    # the REFUSE above already trusts, over the WHOLE census rather than below the ceiling.
-    _have="$(printf '%s\n' "${origins[@]}" | awk '{print $1}' | sort -n -u)"
+    # the REFUSE above already trusts, over the WHOLE census rather than below the ceiling. ⛔ AND THE WITNESS SIDE IS
+    # all_origins, NOT the selected `origins`: the selected set is what THIS invocation graded, so deriving the cell from it
+    # made `--to 16` report every rung above 16 as unbuilt -- including the five that have witnesses. Measured both ways here.
+    _have="$(printf '%s\n' $all_origins | sed -nE 's/^ladder__rung0*([0-9]+)_.*$/\1/p' | sort -n -u)"
     _unb=""
     if [ -f "$MASTER_DIR/config/LADDER.tsv" ]; then
       while read -r _r _rest; do
