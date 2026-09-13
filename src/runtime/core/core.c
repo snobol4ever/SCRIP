@@ -4078,5 +4078,11 @@ void core_gc_roots(void)
             if (e->next) rt_gc_visit_raw((const char **)&e->next);
             rt_gc_visit_descr(&e->val);
             if (e->cell) { rt_gc_visit_raw((const char **)&e->cell); rt_gc_visit_descr(e->cell); } } }
+    if (_udef_types) rt_gc_visit_raw((const char **)&_udef_types);
+    for (DATBLK_t *t = _udef_types; t; t = t->next) {
+        if (t->name) rt_gc_visit_raw((const char **)&t->name);
+        if (t->fields) { rt_gc_visit_raw((const char **)&t->fields);
+            for (int i = 0; i < t->nfields; i++) if (t->fields[i]) rt_gc_visit_raw((const char **)&t->fields[i]); }
+        if (t->next) rt_gc_visit_raw((const char **)&t->next); }
 }
 int core_icn_int_ok_d(DESCR_t d) { return core_icn_int_ok(d); }
