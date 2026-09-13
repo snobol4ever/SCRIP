@@ -37,7 +37,7 @@
 #   in its own header that it is deliberately out of the recipe. NOT ONE DOES. The 8 below are the ceo's
 #   ruling of 2026-09-03, quoted from the Makefile's own test-postoffice header — cited, not invented.
 #   Everything else is TASK because nobody has ruled, which is the honest word for it.
-# TASK-CEILING: 180
+# TASK-CEILING: 178
 test_gate_a_fail_operand_folds_instead_of_refusing_at_the_binop_guard.sh	WIRED	-	-	-
 test_gate_a_master_with_xfails_never_reads_done.sh	WIRED	-	-	-
 test_gate_a_nested_alternation_receded_into_resumes_its_own_arm_not_the_outer_beta.sh	WIRED	-	-	-
@@ -204,6 +204,7 @@ test_gate_pas_set_constructor_takes_a_subrange_member.sh	WIRED	-	-	-
 test_gate_pas_typed_files_read_and_write_components.sh	WIRED	-	-	-
 test_gate_pas_uplevel_var_parameter_writes_back.sh	WIRED	-	-	-
 test_gate_pattern_operand_reentry.sh	WIRED	-	-	-
+test_gate_perf_fmt_refuses_a_dark_cell.sh	WIRED	-	-	-
 test_gate_picker_autounblock.sh	WIRED	-	-	-
 test_gate_picker_lane_table_agrees_with_mode.sh	WIRED	-	-	-
 test_gate_pl_allsol_goal_is_validated.sh	WIRED	-	-	-
