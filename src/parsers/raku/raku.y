@@ -176,6 +176,18 @@ static tree_t *rk_post_incdec(const char *var, int add) {
     expr_add_child(seq, leaf_sval(TT_VAR, tmp));
     return seq;
 }
+static tree_t *rk_tw_field(const char *name) {
+    tree_t *fe = ast_node_new(TT_TWIGIL_FIELD); fe->v.sval = (char *)intern(rk_tw_bare(name)); return fe;
+}
+static tree_t *rk_tw_post_incdec(const char *var, int add) {
+    static int __twpost_uid = 0; char tmp[32]; snprintf(tmp, sizeof tmp, "__twpost_%d", __twpost_uid++);
+    tree_t *seq = ast_node_new(TT_SEQ_EXPR);
+    expr_add_child(seq, expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, tmp), rk_tw_field(var)));
+    tree_t *one = ast_node_new(TT_ILIT); one->v.ival = 1;
+    expr_add_child(seq, expr_binary(TT_ASSIGN, rk_tw_field(var), expr_binary(add ? TT_ADD : TT_SUB, rk_tw_field(var), one)));
+    expr_add_child(seq, leaf_sval(TT_VAR, tmp));
+    return seq;
+}
 static tree_t *rk_destructure(ExprList *targets, tree_t *rhs_arr) {
     static int __destr_uid = 0;
     char tmp[32]; snprintf(tmp, sizeof tmp, "__destr_%d", __destr_uid++);
@@ -470,7 +482,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token KW_EXISTS KW_DELETE KW_UNLESS KW_UNTIL KW_REPEAT
 %token KW_LOOP KW_LAST KW_NEXT
 %token KW_MAP KW_GREP KW_SORT KW_REVERSE
-%token KW_TRY KW_CATCH KW_DIE
+%token KW_TRY KW_CATCH KW_DIE KW_FAIL
 %token KW_CLASS KW_METHOD KW_HAS KW_NEW
 %token KW_ROLE
 %token KW_MULTI KW_PROTO
@@ -667,6 +679,10 @@ stmt
     | KW_RETURN expr ';'
         { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,$2); $$=r; }
     | KW_RETURN ';'
+        { $$=ast_node_new(TT_RETURN); }
+    | KW_FAIL expr ';'
+        { $$=ast_node_new(TT_RETURN); }
+    | KW_FAIL ';'
         { $$=ast_node_new(TT_RETURN); }
     | KW_RETURN expr KW_IF expr ';'
         { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,$2);
@@ -1083,6 +1099,11 @@ scalar_methcall
           ast_push(c, var_node($1));
           ast_push(c, leaf_sval(TT_QLIT, $3)); free($3);
           $$ = c; }
+    | VAR_SCALAR '.' IDENT
+        { tree_t *c = ast_node_new(TT_METHCALL);
+          ast_push(c, var_node($1));
+          ast_push(c, leaf_sval(TT_QLIT, $3)); free($3);
+          $$ = c; }
     ;
 sub_body
     : '{' stmt_list '}'          { $$=make_seq($2); }
@@ -1129,6 +1150,9 @@ sub_body
 method_body
     : '{' stmt_list '}'          { $$=make_seq($2); }
     | '{' YADA '}'               { ExprList *l = exprlist_new(); exprlist_append(l, ast_node_new(TT_YADA)); $$=make_seq(l); }
+    | '{' stmt_list VAR_TWIGIL '=' expr '}'
+        { tree_t *fe=rk_tw_field($3); free($3);
+          ExprList *l=$2; exprlist_append(l,expr_binary(TT_ASSIGN,fe,$5)); $$=make_seq(l); }
     | '{' stmt_list expr '}'
         { tree_t *r=ast_node_new(TT_RETURN); expr_add_child(r,$3);
           ExprList *l=$2; exprlist_append(l,r); $$=make_seq(l); }
@@ -1291,6 +1315,18 @@ class_body_list
           else fv = leaf_sval(TT_VAR, $3);
           free($3); free($4); free($5);
           $$ = exprlist_append($1, fv); }
+    | class_body_list KW_HAS VAR_TWIGIL IDENT IDENT '=' expr ';'
+        { const char *an = intern($3); ExprList *l = $1;
+          if ($4 && !strcmp($4, "is") && $5 && !strcmp($5, "rw")) { tree_t *rw = ast_node_new(TT_RW_DECL); rw->v.sval = (char *)an; l = exprlist_append(l, rw); }
+          tree_t *fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)an; expr_add_child(fv, $7);
+          free($3); free($4); free($5);
+          $$ = exprlist_append(l, fv); }
+    | class_body_list KW_HAS VAR_TWIGIL TESTOP IDENT '=' expr ';'
+        { const char *an = intern($3); ExprList *l = $1;
+          if ($4 && !strcmp($4, "is") && $5 && !strcmp($5, "rw")) { tree_t *rw = ast_node_new(TT_RW_DECL); rw->v.sval = (char *)an; l = exprlist_append(l, rw); }
+          tree_t *fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)an; expr_add_child(fv, $7);
+          free($3); free($4); free($5);
+          $$ = exprlist_append(l, fv); }
     | class_body_list KW_HAS VAR_TWIGIL TESTOP IDENT ';'
         { tree_t *fv;
           if ($4 && !strcmp($4, "is") && $5 && !strcmp($5, "required")) { fv = ast_node_new(TT_HAS_DECL); fv->v.sval = (char *)intern($3); }
@@ -1669,6 +1705,12 @@ cmp_expr
           ast_push(c, leaf_sval(TT_QLIT, $3));
           ast_push(c, leaf_sval(TT_QLIT, "subst"));
           $$ = c; }
+    | divis_expr OP_SMATCH pkg_name
+        { tree_t *mc = ast_node_new(TT_METHCALL);
+          ast_push(mc, $1);
+          ast_push(mc, leaf_sval(TT_QLIT, "does"));
+          ast_push(mc, leaf_sval(TT_QLIT, $3)); free($3);
+          $$ = mc; }
     | divis_expr                 { $$=$1; }
     ;
 divis_expr
@@ -1866,6 +1908,23 @@ call_expr
           ast_push(c, $1);
           ast_push(c, leaf_sval(TT_QLIT, $3)); free($3);
           $$ = c; }
+    | '.' meth_name '(' arg_list ')'
+        { tree_t *c = ast_node_new(TT_METHCALL);
+          ast_push(c, var_node("$_"));
+          ast_push(c, leaf_sval(TT_QLIT, $2)); free($2);
+          ExprList *args = $4;
+          if (args) { for (int i = 0; i < args->count; i++) ast_push(c, args->items[i]); exprlist_free(args); }
+          $$ = c; }
+    | '.' meth_name '(' ')'
+        { tree_t *c = ast_node_new(TT_METHCALL);
+          ast_push(c, var_node("$_"));
+          ast_push(c, leaf_sval(TT_QLIT, $2)); free($2);
+          $$ = c; }
+    | '.' meth_name
+        { tree_t *c = ast_node_new(TT_METHCALL);
+          ast_push(c, var_node("$_"));
+          ast_push(c, leaf_sval(TT_QLIT, $2)); free($2);
+          $$ = c; }
     | KW_DIE expr
         { tree_t *d=ast_node_new(TT_DIE); expr_add_child(d,$2); $$=d; }
     | KW_MAP closure expr
@@ -1906,6 +1965,8 @@ atom
     | OP_DEC VAR_SCALAR { $$=rk_incdec($2,0); }
     | VAR_SCALAR OP_INC { $$=rk_post_incdec($1,1); }
     | VAR_SCALAR OP_DEC { $$=rk_post_incdec($1,0); }
+    | VAR_TWIGIL OP_INC { $$=rk_tw_post_incdec($1,1); free($1); }
+    | VAR_TWIGIL OP_DEC { $$=rk_tw_post_incdec($1,0); free($1); }
     | VAR_ARRAY       { $$=var_node($1); }
     | VAR_HASH        { $$=var_node($1); }
     | VAR_CAPTURE

@@ -2810,6 +2810,7 @@ double to_real(DESCR_t v) {
         case DT_BIG: { extern char *rt_big_str(DESCR_t); return strtod(rt_big_str(v), NULL); }
         case DT_R: return v.r;
         case DT_I:  return (double)v.i;
+        case DT_BOOL: return (double)v.i;
         case DT_S:
         case DT_SNUL: {
             const char *s = rt_cstr_d(v);

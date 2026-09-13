@@ -165,6 +165,19 @@ static IR_t * lower_rcall(rcx_t * cx, const tree_t * t, const char * nm, int fro
     if (res) *res = nd; return entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_meth_is_bool(const char * m) {
+    return m && (!strcmp(m, "defined") || !strcmp(m, "Bool") || !strcmp(m, "so") || !strcmp(m, "not") ||
+                 !strcmp(m, "does") || !strcmp(m, "isa") || !strcmp(m, "starts-with") || !strcmp(m, "ends-with") ||
+                 !strcmp(m, "contains"));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * lower_rcall_bool(rcx_t * cx, const tree_t * t, const char * nm, int from, IR_t * γ, IR_t * ω, IR_t ** res) {
+    IR_t * bl = build(cx, IR_CALL, γ, ω); IR_LIT(bl).sval = "__rk_mkbool";
+    IR_t * inner = NULL; IR_t * e = lower_rcall(cx, t, nm, from, bl, ω, &inner);
+    if (inner) ir_operand_push(bl, inner);
+    if (res) *res = bl; return e;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_rcall1(rcx_t * cx, const tree_t * recv, const char * nm, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = nm;
     IR_t * ar = NULL; IR_t * ae = lower_rv(cx, recv, nd, ω, &ar);
@@ -197,6 +210,11 @@ static tree_t * rk_case_match(const tree_t * subj, const tree_t * cond) {
         tree_t * ge = ast_node_new(TT_GE); ast_push(ge, (tree_t *) subj); ast_push(ge, (tree_t *) cond->c[0]);
         tree_t * le = ast_node_new(TT_LE); ast_push(le, (tree_t *) subj); ast_push(le, (tree_t *) cond->c[1]);
         tree_t * an = ast_node_new(TT_SEQ); ast_push(an, ge); ast_push(an, le); return an;
+    }
+    if (cond->t == TT_VAR) {
+        tree_t * mc = ast_node_new(TT_FNC); mc->v.sval = (char *) intern("__rk_when_match");
+        tree_t * nmv = ast_node_new(TT_VAR); nmv->v.sval = (char *) intern("__rk_when_match"); ast_push(mc, nmv);
+        ast_push(mc, (tree_t *) subj); ast_push(mc, (tree_t *) cond); return mc;
     }
     tree_t * eq = ast_node_new(cond->t == TT_QLIT ? TT_LEQ : TT_EQ);
     ast_push(eq, (tree_t *) subj); ast_push(eq, (tree_t *) cond); return eq;
@@ -555,7 +573,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         IR_t * as = build(cx, IR_ASSIGN, γ, ω); IR_LIT(as).sval = vn;
         IR_t * r2 = NULL; IR_t * e = lower_rcall(cx, t, "hash_set_pure", 0, as, ω, &r2); if (r2) ir_operand_push(as, r2); *res = as; return e; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
-    case TT_HASH_EXISTS: return lower_rcall(cx, t, "hash_exists", 0, γ, ω, res);
+    case TT_HASH_EXISTS: return lower_rcall_bool(cx, t, "hash_exists", 0, γ, ω, res);
     case TT_HASH_DELETE: if (t->n > 0 && t->c[0] && (t->c[0]->t == TT_VAR || t->c[0]->t == TT_TWIGIL_FIELD)) {
         const char * vn = t->c[0]->t == TT_TWIGIL_FIELD ? t->c[0]->v.sval : (t->c[0]->n > 0 && t->c[0]->c[0] ? t->c[0]->c[0]->v.sval : t->c[0]->v.sval);
         IR_t * as = build(cx, IR_ASSIGN, γ, ω); IR_LIT(as).sval = vn;
@@ -590,6 +608,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 *res = rval; return eval_;
             }
         }
+        if (mname && rk_meth_is_bool(mname)) return lower_rcall_bool(cx, t, "meth_call", 0, γ, ω, res);
         return lower_rcall(cx, t, "meth_call", 0, γ, ω, res);
     }
     case TT_NEW: return lower_rcall(cx, t, "obj_new", 0, γ, ω, res);

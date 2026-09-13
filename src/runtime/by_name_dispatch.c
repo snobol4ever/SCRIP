@@ -274,7 +274,7 @@ int rt_builtin_is_known(const char *name)
         "__rk_arr_xx", "__rk_arr_at", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first",
         "__rk_arr_keys", "__rk_arr_values", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
-        "__rk_div", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
+        "__rk_div", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_when_match", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
         "__pas_ca_pack", "__pas_ca_unpack",
         "__rk_hash",
         "elems", "push_pure", "unshift_pure", "arr_tail",
@@ -322,6 +322,7 @@ static char *rtos(double r, char *buf, size_t cap) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *to_cstring(DESCR_t v, char *scratch, size_t scap) {
+    if (v.v == DT_BOOL) { return v.i ? "True" : "False"; }
     if (IS_INT_fn(v))  { return itos((long long)v.i, scratch, scap); }
     if (IS_REAL_fn(v)) { return rtos(v.r, scratch, scap); }
     const char *s = VARVAL_fn(v); return s ? s : "";
@@ -2604,6 +2605,29 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = (DESCR_t){ .v = DT_BOOL, .i = t }; return 1;
     }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+    if (!strcmp(fn, "__rk_when_match") && nargs >= 2) {
+        const char * tn = VARVAL_fn(args[1]);
+        if (tn && *tn && dat_find_type(tn)) {
+            const char * cn = NULL;
+            if (args[0].v == DT_DATA && args[0].u) { DATINST_t * di = (DATINST_t *)args[0].u; cn = (di && di->type) ? di->type->name : NULL; }
+            else { const char * s0 = VARVAL_fn(args[0]); if (s0 && dat_find_type(s0)) cn = s0; }
+            if (!cn) { *out = INTVAL(0); return 1; }
+            extern int dat_mro(const char *name, const char **out, int max);
+            extern int dat_roles(const char *name, const char **out, int max);
+            int hit = 0; const char * mro[64]; int mn = dat_mro(cn, mro, 64);
+            if (mn == 0) { mro[0] = cn; mn = 1; }
+            for (int i = 0; i < mn && !hit; i++) if (mro[i] && !strcmp(mro[i], tn)) hit = 1;
+            for (int i = 0; i < mn && !hit; i++) { const char * rls[8]; int rn = dat_roles(mro[i], rls, 8);
+                for (int j = 0; j < rn && !hit; j++) if (rls[j] && !strcmp(rls[j], tn)) hit = 1; }
+            *out = INTVAL(hit ? 1 : 0); return 1;
+        }
+        if (IS_INT_fn(args[0]) && IS_INT_fn(args[1])) { *out = INTVAL(args[0].i == args[1].i ? 1 : 0); return 1; }
+        if ((IS_INT_fn(args[0]) || IS_REAL_fn(args[0])) && (IS_INT_fn(args[1]) || IS_REAL_fn(args[1]))) {
+            *out = INTVAL(to_real(args[0]) == to_real(args[1]) ? 1 : 0); return 1;
+        }
+        { const char * a0 = VARVAL_fn(args[0]); const char * a1 = VARVAL_fn(args[1]);
+          *out = INTVAL((a0 && a1 && !strcmp(a0, a1)) ? 1 : 0); return 1; }
+    }
     if (!strcmp(fn, "__rk_undef")) { (void) args; (void) nargs; *out = NULVCL; return 1; }
     if (!strcmp(fn, "__rk_exit") && nargs == 1) {
         long code = IS_INT_fn(args[0]) ? args[0].i : 0;

@@ -88,6 +88,7 @@ WS       [ \t\r]
 "catch"         { return KW_CATCH; }
 "CATCH"         { return KW_CATCH; }
 "die"           { return KW_DIE; }
+"fail"          { return KW_FAIL; }
 "class"         { return KW_CLASS; }
 "role"          { return KW_ROLE; }
 "grammar"       { return KW_GRAMMAR; }
