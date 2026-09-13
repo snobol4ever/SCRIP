@@ -90,7 +90,14 @@ fi
 # 1.82x-2.15x, a range that bounds INSTRUMENT NOISE HERE and is NOT a published property of any kernel.  Today the
 # qualifying set is EMPTY in both corpus and benchmarks (hq_P measured it: every TRACE under corpus/benchmarks is
 # one of the non-qualifying controls above), so the cliff falls on nobody -- which is exactly why it is invisible.
-# THESE FOUR QUALIFYING WITNESSES ARE THE CANARY: they are named, they live in the tree, and a seat who makes one
-# of them go quiet has turned the demotion off.  The SPEED half is hq_P's lane and is carried under their row.
+# THESE FOUR QUALIFYING WITNESSES ARE THE CANARY FOR ONE OF THE TWO ABSENCES, AND ONLY ONE (hq_P, 2026-09-13).
+# They detect THE TRIGGER BEING SWITCHED OFF: a future change that stops the demotion firing makes them red.
+# ⛔ THEY DO NOT DETECT A NEW PROGRAM FALLING ONTO THE CLIFF.  The day someone writes a kernel or corpus program
+# with a computed or ACCESS trace type, THIS GATE STAYS GREEN -- correctly -- and that program silently takes the
+# hit, because a demoted program is still CORRECT.  Do not read a green here as covering that; it never could.
+# That second absence is guarded in hq_P's lane by a hermetic census asserting that NO benchmark kernel qualifies.
+# The two guards share ONE ground truth -- the emitted GVA island -- and answer opposite questions over it: here
+# that the island is GONE for four programs that must demote, there that it is PRESENT for every kernel that must
+# not.  Keyed that way neither can drift from the predicate (gva_trace_type_provably_non_access, gva_collect.c).
 [ "$rc" = 0 ] && echo "GATE OK: 7 oracle arms x 2 modes + 2 structural arms -- an ACCESS trace fires on a PLAIN global read at all three sinks, a computed type demotes conservatively, a lowercase type demotes even though the runtime then refuses it, and the GVA island is dropped ONLY for a qualifying program (non-qualifying twin carries $nn names / $ns slot refs; all 4 qualifying forms carry 0). A demoted program is still CORRECT, so these 4 named witnesses are the ONLY canary for the cliff."
 exit $rc
