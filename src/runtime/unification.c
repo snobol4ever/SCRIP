@@ -582,34 +582,53 @@ int rt_pl_univ_cell(void *t0_cell, void *list_cell, pl_tr_ctx_t *cx)
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void plc_sp_ball(pl_tr_ctx_t *cx, void *b) { if (cx && !cx->ball) cx->ball = b; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_sp_int_arg(pl_cell_t *d, pl_tr_ctx_t *cx, int *bound)
+{
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    *bound = 0;
+    if (!d || pl_cell_unbound(d)) return 1;
+    if ((int)d->v != DT_I) { plc_sp_ball(cx, rt_pl_ball_kind2("type_error", "integer", *d)); return 0; }
+    *bound = 1; return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_sp_not_negative(pl_cell_t *d, pl_tr_ctx_t *cx)
+{
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    if (d && (int)d->v == DT_I && d->i < 0) { plc_sp_ball(cx, rt_pl_ball_kind2("domain_error", "not_less_than_zero", *d)); return 0; }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_succ_plus_cell(long arity, void *a_cell, void *b_cell, void *c_cell, pl_tr_ctx_t *cx)
 {
+    extern void *rt_pl_ball_instantiation(void); extern void *rt_pl_ball_eval_error(const char *, const char *, int);
     pl_cell_t *da = a_cell ? pl_deref((pl_cell_t *)a_cell) : (pl_cell_t *)0;
     pl_cell_t *db = b_cell ? pl_deref((pl_cell_t *)b_cell) : (pl_cell_t *)0;
     pl_cell_t *dc = c_cell ? pl_deref((pl_cell_t *)c_cell) : (pl_cell_t *)0;
     if (arity == 2) {
-        if (da && (int)da->v == DT_I) {
-            if (da->i < 0) return 0;
-            pl_cell_t v = pl_make_int(da->i + 1);
-            if (!plc_unify_cells_cx((pl_cell_t *)b_cell, &v, cx)) { return 0; }
-            return 1;
+        int va, vb;
+        if (!plc_sp_int_arg(da, cx, &va) || !plc_sp_int_arg(db, cx, &vb)) return 0;
+        if (!va && !vb) { plc_sp_ball(cx, rt_pl_ball_instantiation()); return 0; }
+        if (!plc_sp_not_negative(da, cx) || !plc_sp_not_negative(db, cx)) return 0;
+        if (va) {
+            long long r;
+            if (__builtin_add_overflow(da->i, (long long)1, &r)) { plc_sp_ball(cx, rt_pl_ball_eval_error("int_overflow", "succ", 2)); return 0; }
+            { pl_cell_t v = pl_make_int(r); return plc_unify_cells_cx((pl_cell_t *)b_cell, &v, cx) ? 1 : 0; }
         }
-        if (db && (int)db->v == DT_I) {
-            if (db->i <= 0) return 0;
-            pl_cell_t v = pl_make_int(db->i - 1);
-            if (!plc_unify_cells_cx((pl_cell_t *)a_cell, &v, cx)) { return 0; }
-            return 1;
-        }
-        return 0;
+        if (db->i == 0) return 0;
+        { pl_cell_t v = pl_make_int(db->i - 1); return plc_unify_cells_cx((pl_cell_t *)a_cell, &v, cx) ? 1 : 0; }
     }
     if (arity == 3) {
-        int va = (da && (int)da->v == DT_I), vb = (db && (int)db->v == DT_I), vc = (dc && (int)dc->v == DT_I);
-        int ok = 0; pl_cell_t v;
-        if (va && vb)      { v = pl_make_int(da->i + db->i); ok = plc_unify_cells_cx((pl_cell_t *)c_cell, &v, cx); }
-        else if (va && vc) { v = pl_make_int(dc->i - da->i); ok = plc_unify_cells_cx((pl_cell_t *)b_cell, &v, cx); }
-        else if (vb && vc) { v = pl_make_int(dc->i - db->i); ok = plc_unify_cells_cx((pl_cell_t *)a_cell, &v, cx); }
-        if (!ok) { return 0; }
-        return 1;
+        int va, vb, vc; long long r;
+        if (!plc_sp_int_arg(da, cx, &va) || !plc_sp_int_arg(db, cx, &vb) || !plc_sp_int_arg(dc, cx, &vc)) return 0;
+        if (va + vb + vc < 2) { plc_sp_ball(cx, rt_pl_ball_instantiation()); return 0; }
+        if (va && vb)      { if (__builtin_add_overflow(da->i, db->i, &r)) { plc_sp_ball(cx, rt_pl_ball_eval_error("int_overflow", "plus", 3)); return 0; }
+                             { pl_cell_t v = pl_make_int(r); return plc_unify_cells_cx((pl_cell_t *)c_cell, &v, cx) ? 1 : 0; } }
+        if (va && vc)      { if (__builtin_sub_overflow(dc->i, da->i, &r)) { plc_sp_ball(cx, rt_pl_ball_eval_error("int_overflow", "plus", 3)); return 0; }
+                             { pl_cell_t v = pl_make_int(r); return plc_unify_cells_cx((pl_cell_t *)b_cell, &v, cx) ? 1 : 0; } }
+        if (__builtin_sub_overflow(dc->i, db->i, &r)) { plc_sp_ball(cx, rt_pl_ball_eval_error("int_overflow", "plus", 3)); return 0; }
+        { pl_cell_t v = pl_make_int(r); return plc_unify_cells_cx((pl_cell_t *)a_cell, &v, cx) ? 1 : 0; }
     }
     return 0;
 }

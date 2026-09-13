@@ -148,3 +148,26 @@ lgt_variant(A, B) :- copy_term(A, A1), copy_term(B, B1), numbervars(A1, 0, N), n
 lgt_subsumes(General, Specific) :- \+ \+ ( copy_term(Specific, S1), numbervars(S1, 0, _), General = S1 ).
 lgt_assertion(G) :- call(G).
 lgt_assertion(_Label, G) :- call(G).
+
+% ⛔⭐ '=~='/2 -- lgtunit's APPROXIMATE EQUALITY, AND IT WAS IMPLEMENTED NOWHERE. 103 expectations across 27
+% of the suite's files are written `true(X =~= <constant>)`, and with no operator declaration every one of
+% them was a PARSE ERROR in the generated program -- reported as `nooutput`, which reads as the arithmetic
+% function under test producing nothing. Measured 2026-09-13: it is every float-valued case in the
+% arithmetic families, acos_1 01/02 among them, and it was invisible precisely because those groups also
+% had real defects beside it.
+%
+% ⛔ THE TOLERANCE IS FIXED BY THE SUITE'S OWN CASES, NOT CHOSEN. log_1's iso_log_1_02 asserts
+% `E is log(2.71828)` then `E =~= 1.0`; the true value is 0.999999327347282, a RELATIVE error of 6.73e-7
+% against the constant the case writes. So any threshold tighter than that reds a case the suite says is
+% green. 1.0e-6 is the loosest-needed value and is what lgtunit itself uses. ⭐ Note what that costs and
+% do not pretend otherwise: at 1.0e-6 this predicate accepts about six correct significant digits, while
+% the suite's constants carry eight -- so a cure that got seven digits right would pass here. That is a
+% real false-green surface, it is forced by the corpus, and it is named here rather than left implicit.
+:- op(700, xfx, =~=).
+'=~='(A, B) :- number(A), number(B), !, lgt_near(A, B).
+'=~='([], []) :- !.
+'=~='([A|As], [B|Bs]) :- !, '=~='(A, B), '=~='(As, Bs).
+'=~='(A, B) :- A == B.
+lgt_near(A, B) :- A =:= B, !.
+lgt_near(A, B) :- D is abs(A - B), D =< 1.0e-9, !.
+lgt_near(A, B) :- D is abs(A - B), M is max(abs(A), abs(B)), M > 0.0, R is D / M, R =< 1.0e-6.
