@@ -95,6 +95,7 @@ static int icn_argtype_raise(int code, DESCR_t val, DESCR_t *out) { core_icn_err
 #include <time.h>
 #include <ctype.h>
 #include <math.h>
+#include <float.h>
 #include <sys/select.h>
 #include <dlfcn.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1536,7 +1537,13 @@ static int pl_big_binop(const char *op, DESCR_t a, DESCR_t b, DESCR_t *out, void
 }
 static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void **ball) {
     extern DESCR_t rt_pl_deref_val(DESCR_t); extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int); extern void *rt_pl_ball_eval_error(const char *, const char *, int);
-    if (nargs == 0) { if (!strcmp(op, "pi")) { *out = REALVAL(M_PI); return 1; } if (!strcmp(op, "e")) { *out = REALVAL(M_E); return 1; } *out = FAILDESCR; return 1; }
+    if (nargs == 0) { if (!strcmp(op, "pi")) { *out = REALVAL(M_PI); return 1; } if (!strcmp(op, "e")) { *out = REALVAL(M_E); return 1; }
+        if (!strcmp(op, "eps")) { *out = REALVAL(DBL_EPSILON); return 1; }
+        if (!strcmp(op, "inf")) { *out = REALVAL(HUGE_VAL); return 1; }
+        if (!strcmp(op, "nan")) { *out = REALVAL(0.0 / 0.0); return 1; }
+        if (!strcmp(op, "maxi")) { *out = INTVAL(LLONG_MAX); return 1; }
+        if (!strcmp(op, "mini")) { *out = INTVAL(LLONG_MIN); return 1; }
+        *out = FAILDESCR; return 1; }
     DESCR_t a = rt_pl_deref_val(args[0]);
     if (a.v != DT_I && a.v != DT_R && a.v != DT_BIG) { void *bl = (void *)0; DESCR_t ev; if (pl_ax_eval(a, &ev, &bl)) a = ev; else { if (bl && ball && !*ball) *ball = bl; *out = FAILDESCR; return 1; } }
     int ai = (a.v == DT_I), arl = (a.v == DT_R);
@@ -1563,6 +1570,27 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
         if (!strcmp(op, "ffp"))   { *out = REALVAL(ad - trunc(ad)); return 1; }
         if (!strcmp(op, "msb"))   { if (!ai) { if (ball && !*ball) *ball = pl_ax_int_ball(a, a, 0); *out = FAILDESCR; return 1; } if (a.i <= 0) { *out = FAILDESCR; return 1; } *out = INTVAL(63 - __builtin_clzll((unsigned long long)a.i)); return 1; }
         if (!strcmp(op, "bnot"))  { if (!ai) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); if (ball && !*ball) *ball = rt_pl_ball_kind2("type_error", "integer", a); *out = FAILDESCR; return 1; } *out = INTVAL(~a.i); return 1; }
+        if (!strcmp(op, "tan"))   { *out = REALVAL(tan(ad)); return 1; }
+        if (!strcmp(op, "sinh"))  { *out = REALVAL(sinh(ad)); return 1; }
+        if (!strcmp(op, "cosh"))  { *out = REALVAL(cosh(ad)); return 1; }
+        if (!strcmp(op, "tanh"))  { *out = REALVAL(tanh(ad)); return 1; }
+        if (!strcmp(op, "asinh")) { *out = REALVAL(asinh(ad)); return 1; }
+        if (!strcmp(op, "asin") || !strcmp(op, "acos") || !strcmp(op, "acosh") || !strcmp(op, "atanh")
+            || !strcmp(op, "log2") || !strcmp(op, "log10")) {
+            int ok = !strcmp(op, "asin") || !strcmp(op, "acos") ? (ad >= -1.0 && ad <= 1.0)
+                   : !strcmp(op, "acosh") ? (ad >= 1.0)
+                   : !strcmp(op, "atanh") ? (ad > -1.0 && ad < 1.0) : (ad > 0.0);
+            if (!ok) { *out = FAILDESCR; if (ball && !*ball) *ball = rt_pl_ball_eval_error("undefined", op, 1); return 1; }
+            *out = REALVAL(!strcmp(op, "asin") ? asin(ad) : !strcmp(op, "acos") ? acos(ad) : !strcmp(op, "acosh") ? acosh(ad)
+                         : !strcmp(op, "atanh") ? atanh(ad) : !strcmp(op, "log2") ? log2(ad) : log10(ad));
+            return 1; }
+        if (!strcmp(op, "lsb") || !strcmp(op, "popc")) {
+            if (!ai) { if (ball && !*ball) *ball = pl_ax_int_ball(a, a, 0); *out = FAILDESCR; return 1; }
+            if (a.i < 0) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+                if (ball && !*ball) *ball = rt_pl_ball_kind2("domain_error", "not_less_than_zero", a); *out = FAILDESCR; return 1; }
+            if (!strcmp(op, "popc")) { *out = INTVAL(__builtin_popcountll((unsigned long long)a.i)); return 1; }
+            if (a.i == 0) { *out = FAILDESCR; if (ball && !*ball) *ball = rt_pl_ball_eval_error("undefined", "lsb", 1); return 1; }
+            *out = INTVAL(__builtin_ctzll((unsigned long long)a.i)); return 1; }
         *out = FAILDESCR; return 1;
     }
     DESCR_t b = rt_pl_deref_val(args[1]);
@@ -1571,6 +1599,10 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
     double bd = brl ? b.r : (b.v == DT_BIG ? pl_big_as_real(b) : (double)b.i);
     if ((a.v == DT_BIG || b.v == DT_BIG) && !arl && !brl && pl_big_binop(op, a, b, out, ball)) return 1;
     if (!strcmp(op, "fpow") || !strcmp(op, "pow")) { if (ai && bi && b.i >= 0) { long long r = 1, bs = a.i, e = b.i; int ovf = 0; while (e) { if (e & 1) ovf |= __builtin_mul_overflow(r, bs, &r); e >>= 1; if (e) ovf |= __builtin_mul_overflow(bs, bs, &bs); } if (!ovf) { *out = INTVAL(r); return 1; } } *out = REALVAL(pow(ad, bd)); return 1; }
+    if (!strcmp(op, "atan2")) { if (ad == 0.0 && bd == 0.0) { *out = FAILDESCR; if (ball && !*ball) *ball = rt_pl_ball_eval_error("undefined", "atan2", 2); return 1; }
+        *out = REALVAL(atan2(ad, bd)); return 1; }
+    if (!strcmp(op, "logb")) { if (ad <= 0.0 || bd <= 0.0 || ad == 1.0) { *out = FAILDESCR; if (ball && !*ball) *ball = rt_pl_ball_eval_error("undefined", "log", 2); return 1; }
+        *out = REALVAL(log(bd) / log(ad)); return 1; }
     if (!strcmp(op, "min")) { *out = (ai && bi) ? INTVAL(a.i < b.i ? a.i : b.i) : REALVAL(ad < bd ? ad : bd); return 1; }
     if (!strcmp(op, "max")) { *out = (ai && bi) ? INTVAL(a.i > b.i ? a.i : b.i) : REALVAL(ad > bd ? ad : bd); return 1; }
     if (!strcmp(op, "gcd")) { if (!ai || !bi) { if (ball && !*ball) *ball = pl_ax_int_ball(a, b, ai); *out = FAILDESCR; return 1; } long long x = a.i < 0 ? -a.i : a.i, y = b.i < 0 ? -b.i : b.i; while (y) { long long t2 = x % y; x = y; y = t2; } *out = INTVAL(x); return 1; }
@@ -1602,10 +1634,10 @@ static int pl_ax_eval(DESCR_t t, DESCR_t *out, void **ball) {
     if (d.v == DT_I || d.v == DT_R || d.v == DT_BIG) { *out = d; return 1; }
     *out = d;
     if (d.v == (DTYPE_t)DT_PLVAR || d.v == DT_SNUL || d.v == DT_FAIL) { *ball = rt_pl_ball_instantiation(); return 0; }
-    if ((int)d.v == DT_A || d.v == DT_S) { const char *nm = pl_atom_str(d); const char *sfx = pl_ax_suffix_of(nm, 0);
+    if ((int)d.v == DT_A || d.v == DT_S) { const char *nm = pl_atom_str(d); const char *sfx = pl_ax_suffix_any(nm, 0);
       if (sfx) { DESCR_t none = FAILDESCR; dop_ax(sfx, &none, 0, out, ball); return out->v != DT_FAIL; }
       *ball = rt_pl_ball_type_pi("type_error", "evaluable", nm ? nm : "?", 0); return 0; }
-    if ((int)d.v == DT_PLREF) { int ar = (int)(d.slen & 0xFFFFu); const char *nm = prolog_atom_name((int)(d.slen >> 16)); const char *sfx = pl_ax_suffix_of(nm, ar); DESCR_t *kids = (DESCR_t *)d.p; DESCR_t ev[2];
+    if ((int)d.v == DT_PLREF) { int ar = (int)(d.slen & 0xFFFFu); const char *nm = prolog_atom_name((int)(d.slen >> 16)); const char *sfx = pl_ax_suffix_any(nm, ar); DESCR_t *kids = (DESCR_t *)d.p; DESCR_t ev[2];
       if (!sfx || ar < 1 || ar > 2 || !kids) { *ball = rt_pl_ball_type_pi("type_error", "evaluable", nm ? nm : "?", ar); return 0; }
       for (int k = 0; k < ar; k++) if (!pl_ax_eval(kids[k], &ev[k], ball)) { *out = ev[k]; return 0; }
       dop_ax(sfx, ev, ar, out, ball); return out->v != DT_FAIL; }

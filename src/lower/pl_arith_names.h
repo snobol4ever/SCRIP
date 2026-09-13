@@ -23,4 +23,30 @@ static inline const char * pl_ax_suffix_of(const char * s, int ar) {
     if (ar == 0) { if (!strcmp(s, "pi")) return "pi"; if (!strcmp(s, "e")) return "e"; return (const char *)0; }
     return (const char *)0;
 }
+static inline const char * pl_ax_suffix_ext(const char * s, int ar) {
+    if (!s) return (const char *)0;
+    if (ar == 2) {
+        if (!strcmp(s, "atan2")) return "atan2"; if (!strcmp(s, "atan")) return "atan2"; if (!strcmp(s, "log")) return "logb";
+        if (!strcmp(s, "truncate")) return (const char *)0;
+        return (const char *)0;
+    }
+    if (ar == 1) {
+        if (!strcmp(s, "asin")) return "asin"; if (!strcmp(s, "acos")) return "acos"; if (!strcmp(s, "tan")) return "tan";
+        if (!strcmp(s, "sinh")) return "sinh"; if (!strcmp(s, "cosh")) return "cosh"; if (!strcmp(s, "tanh")) return "tanh";
+        if (!strcmp(s, "asinh")) return "asinh"; if (!strcmp(s, "acosh")) return "acosh"; if (!strcmp(s, "atanh")) return "atanh";
+        if (!strcmp(s, "log2")) return "log2"; if (!strcmp(s, "log10")) return "log10";
+        if (!strcmp(s, "lsb")) return "lsb"; if (!strcmp(s, "popcount")) return "popc";
+        return (const char *)0;
+    }
+    if (ar == 0) {
+        if (!strcmp(s, "epsilon")) return "eps"; if (!strcmp(s, "inf")) return "inf"; if (!strcmp(s, "nan")) return "nan";
+        if (!strcmp(s, "max_integer")) return "maxi"; if (!strcmp(s, "min_integer")) return "mini";
+        return (const char *)0;
+    }
+    return (const char *)0;
+}
+static inline const char * pl_ax_suffix_any(const char * s, int ar) {
+    const char * f = pl_ax_suffix_of(s, ar);
+    return f ? f : pl_ax_suffix_ext(s, ar);
+}
 #endif
