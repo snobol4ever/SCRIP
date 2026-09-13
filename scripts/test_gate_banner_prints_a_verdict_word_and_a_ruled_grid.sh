@@ -11,8 +11,15 @@
 # that pins them would red on honest movement, which is the failure class that deleted the display in the first
 # place (a gate whose subject is the display, pinned to a constant, going stale and being "fixed" by deletion).
 set -u
-HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="${S4E_HOME:-$(cd "$HERE/.." && pwd)}"; [ -d "$ROOT/SCRIP" ] || ROOT="$(cd "$HERE/../.." && pwd)"
-M="$ROOT/SCRIP/scripts/s4e_msg.sh"
+HERE="$(cd "$(dirname "$0")" && pwd)"
+# ⛔⭐ THE SUBJECT IS THE TREE THIS SCRIPT LIVES IN, AND IT IS THE SCRIPT NEXT DOOR (cured 2026-09-13 by hq_B
+# on hq_C's flag; test_gate_no_worktree_blind_subject.sh's own advice line). This read `$ROOT/SCRIP/scripts/
+# s4e_msg.sh` -- up to the sibling root and back DOWN into the literal name `SCRIP`, which is the name of the
+# MAIN checkout and of nothing else, so a preflight run in a worktree graded the main tree's banner instead of
+# the one being pushed. ⭐ THE TELL THAT IT WAS ALWAYS WRONG RATHER THAN MERELY FRAGILE: the subject is a file
+# in THIS SCRIPT'S OWN DIRECTORY, so the round trip could never reach anything the bare `$HERE` did not
+# already name -- two hops and a hardcoded string to arrive one directory below where we started.
+M="$HERE/s4e_msg.sh"
 [ -f "$M" ] || { echo "⛔ REFUSE(2): no $M"; exit 2; }
 # S4E_BANNER_NO_BOARD keeps this gate from clobbering the live BOARD.md row of whoever runs it.
 out="$(S4E_BANNER_NO_BOARD=1 timeout 100 bash "$M" banner 2>&1)"; brc=$?

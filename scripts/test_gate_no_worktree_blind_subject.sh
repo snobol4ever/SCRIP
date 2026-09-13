@@ -99,11 +99,21 @@ fi
 # ⛔ ANTI-VACUITY FIRST.  A census whose pattern has stopped matching reports a triumphant zero.  So the floor is
 # not 0: this gate knows roughly how large the class is, and a sudden collapse to nothing is a broken pattern,
 # not a finished campaign.  Same lesson lib_gate.sh learned when a stray \? matched 1 site of 17 and read green.
-BLIND_FILES=$(grep -rlE '\$\{?S4E\}?/SCRIP/|\$\{?ROOT\}?/SCRIP/' "$SCRIPTS" 2>/dev/null | sort || true)
+# ⛔⭐ THE CENSUS READS CODE, NEVER COMMENTS -- AND THIS GATE WAS TWO OF ITS OWN 69 (hq_B 2026-09-13, on hq_C's
+# flag that preflight read 39 of 40 on a clean origin/main with nobody's diff behind the red). A `grep -rl`
+# matches the string ANYWHERE in a file, so the two files that exist to CURE this idiom -- lib_subject_tree.sh
+# and this gate -- were counted as instances of it, because both QUOTE the bad two hops in their own teaching
+# comments. ⭐ THAT IS NOT A COSMETIC MISCOUNT, IT IS AN UNREACHABLE FLOOR: the refusal a dozen lines below
+# says a finished campaign "would have been landed with the ceiling lowered to 0 in the same commit", and with
+# the cure's own documentation permanently inside the count, 0 was arithmetically impossible to reach. A
+# ratchet that can never close is a ratchet nobody can finish.
+# ⛔ Measured at the cure: 69 matches = 67 genuine code instances + exactly these 2 comment-only mentions.
+BLIND_FILES=$(grep -rnE '\$\{?S4E\}?/SCRIP/|\$\{?ROOT\}?/SCRIP/' "$SCRIPTS" 2>/dev/null \
+              | grep -vE '^[^:]+:[0-9]+:[[:space:]]*#' | cut -d: -f1 | sort -u || true)
 BLIND=$(printf '%s' "$BLIND_FILES" | grep -c . || true)
 GATES=$(printf '%s\n' "$BLIND_FILES" | grep -c '/test_gate_' || true)
 TOTAL=$(ls "$SCRIPTS" | grep -c . || true)
-CEILING="${WORKTREE_BLIND_CEILING:-68}"       # ⛔ MEASURED, never estimated: 68 on 2026-09-13 at 202d8bfff. A ceiling above the measurement is not a ratchet, it is slack -- 48 free slots is 48 new instances nobody would hear about.
+CEILING="${WORKTREE_BLIND_CEILING:-66}"       # ⛔ MEASURED, never estimated: 66 on 2026-09-13 by hq_B, on THIS tree, with the comment-only mentions excluded above and test_gate_banner_prints_a_verdict_word_and_a_ruled_grid.sh cured in the same commit. Was 68 at 202d8bfff under the old comment-blind pattern (69 by the time hq_C hit it). ⛔ RE-CUT DOWNWARD, NEVER UP: the 69th was a real new instance and the cure was to remove it, not to make room for it -- a ceiling raised to admit the instance that broke it is not a ratchet, it is a rubber stamp with extra steps.
 FLOOR="${WORKTREE_BLIND_FLOOR:-1}"
 
 echo "  census: $BLIND of $TOTAL script(s) resolve a subject through the hardcoded name \`SCRIP/\` ($GATES of them are test_gate_*)"
