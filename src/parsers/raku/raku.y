@@ -460,7 +460,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
     tree_t  *node;
     ExprList *list;
 }
-%token <ival> LIT_INT
+%token <ival> LIT_INT LIT_BOOL
 %token <dval> LIT_FLOAT
 %token <sval> LIT_STR LIT_INTERP_STR LIT_REGEX LIT_MATCH_GLOBAL LIT_SUBST
 %token <sval> VAR_SCALAR VAR_ARRAY VAR_HASH VAR_TWIGIL IDENT
@@ -1948,6 +1948,10 @@ arg_list
     ;
 atom
     : LIT_INT         { tree_t *e=ast_node_new(TT_ILIT); e->v.ival=$1; $$=e; }
+    | LIT_BOOL
+        { tree_t *iv=ast_node_new(TT_ILIT); iv->v.ival=$1;
+          tree_t *bl=ast_node_new(TT_FNC); bl->v.sval=(char *)intern("__rk_mkbool");
+          ast_push(bl, leaf_sval(TT_VAR, "__rk_mkbool")); ast_push(bl, iv); $$=bl; }
     | LIT_FLOAT       { tree_t *e=ast_node_new(TT_FLIT); e->v.dval=$1; $$=e; }
     | LIT_STR         { $$=leaf_sval(TT_QLIT,$1); }
     | WORDLIST

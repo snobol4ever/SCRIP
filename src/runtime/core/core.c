@@ -984,6 +984,7 @@ char alphabet[257];
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int is_numeric_like(DESCR_t d) {
     if (d.v == DT_BIG) return 1;
+    if (d.v == DT_BOOL) return 1;
     if (IS_INT(d) || IS_REAL(d) || IS_NULL(d)) return 1;
     if (IS_STR(d)) {
         const char *s = rt_cstr_d(d);
@@ -1142,6 +1143,7 @@ static DESCR_t _VDIFFER_(DESCR_t *a, int n) {
     } else {
         switch (x.v) {
             case DT_I: equal = (x.i == y.i); break;
+            case DT_BOOL: equal = (x.i == y.i); break;
             case DT_R: equal = (x.r == y.r); break;
             case DT_S: {
                            const char *xs = x.s ? x.s : "";
@@ -2489,6 +2491,7 @@ char *c_VARVAL_fn(DESCR_t v) {
     char buf[64];
     switch (v.v) {
         case DT_SNUL:    return rt_heap_strdup_c("");
+        case DT_BOOL:    return rt_heap_strdup_c(v.i ? "True" : "False");
         case DT_S:     return v.s ? v.s : rt_heap_strdup_c("");
         case DT_I: {
             int64_t _x = v.i; int _p = (int)sizeof(buf);
@@ -2729,7 +2732,7 @@ int core_icn_by_zero_check(int64_t by) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int core_icn_chars_ok(DESCR_t d) { return d.v == DT_S || d.v == DT_I || d.v == DT_R || d.v == DT_C; }
+static int core_icn_chars_ok(DESCR_t d) { return d.v == DT_S || d.v == DT_I || d.v == DT_BOOL || d.v == DT_R || d.v == DT_C; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int core_icn_int_ok_d(DESCR_t d);
 static int core_icn_int_ok(DESCR_t d) {
@@ -2795,6 +2798,7 @@ int64_t to_int_slow(DESCR_t v) {
     switch (v.v) {
         case DT_BIG: { extern char *rt_big_str(DESCR_t); return (int64_t)strtoll(rt_big_str(v), NULL, 10); }
         case DT_I:  return v.i;
+        case DT_BOOL: return v.i;
         case DT_R: return (int64_t)v.r;
         case DT_S:
         case DT_SNUL: {

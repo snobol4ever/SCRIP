@@ -48,4 +48,5 @@ scripts/test_gate_score_unreadable_package_is_marked.sh
 scripts/test_gate_sm_dead.sh
 scripts/test_gate_term_wordref_ratchet.sh
 scripts/test_gate_two_region.sh
+scripts/util_coercion_surface_census.py
 scripts/util_tag_layout_verify.py

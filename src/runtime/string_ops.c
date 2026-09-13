@@ -58,7 +58,7 @@ DESCR_t c_str_concat_d(DESCR_t a, DESCR_t b) {
     return BSTRVAL(buf, (long)(al + bl));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int core_icn_str_ok(DESCR_t d) { return d.v == DT_S || d.v == DT_I || d.v == DT_R || d.v == DT_BIG || IS_CSET_fn(d); }
+int core_icn_str_ok(DESCR_t d) { return d.v == DT_S || d.v == DT_I || d.v == DT_BOOL || d.v == DT_R || d.v == DT_BIG || IS_CSET_fn(d); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_icn_lconcat_d(DESCR_t a, DESCR_t b) {
     extern int core_icn_error(int code, DESCR_t val);

@@ -18,6 +18,7 @@ DESCR_t VARVAL_d_fn(DESCR_t d)
     if (d.v == DT_K && d.s) d = NV_GET_fn(d.s);
     if (d.v == DT_FAIL) return FAILDESCR;
     if (d.v == DT_S || d.v == DT_SNUL) return d;
+    if (d.v == DT_BOOL) return STRVAL(rt_pinned_strdup(d.i ? "True" : "False"));
     if (d.v == DT_I) {
         char buf[64];
         snprintf(buf, sizeof buf, "%lld", (long long)d.i);

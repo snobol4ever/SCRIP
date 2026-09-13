@@ -512,6 +512,7 @@ static int _sort_type_rank(DESCR_t d) {
         case DT_C: return 1;
         case DT_E: return 2;
         case DT_I: return 3;
+        case DT_BOOL: return 3;
         case DT_P: return 6;
         case DT_R: return 7;
         case DT_S: return 8;
@@ -931,7 +932,8 @@ DESCR_t rt_concat_parts_d(void *parts, int n)
         else {
             DESCR_t v = NV_GET_fn(p[i].s ? p[i].s : "");
             if (IS_NAMEVAL(v)) v = NV_GET_fn(v.s);
-            if (v.v == DT_S || v.v == DT_SNUL) { s = v.s ? v.s : ""; len = v.slen ? (int)v.slen : (int)strlen(s); }
+            if (v.v == DT_BOOL) { s = v.i ? "True" : "False"; len = (int)strlen(s); }
+            else if (v.v == DT_S || v.v == DT_SNUL) { s = v.s ? v.s : ""; len = v.slen ? (int)v.slen : (int)strlen(s); }
             else if (IS_INT_fn(v)) { char *b = rt_str_alloc(31); snprintf(b, 32, "%lld", (long long)v.i); s = b; len = (int)strlen(b); }
             else if (IS_REAL_fn(v)) { char *b = rt_str_alloc(39); gcvt(v.r, 14, b); s = b; len = (int)strlen(b); }
         }

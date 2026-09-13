@@ -868,6 +868,7 @@ static char *pas_nrec_subrec_set(DESCR_t *src, long fi, long ei, const char *val
 static const char *rt_mc_type_name(DESCR_t d) {
     switch (d.v) {
     case DT_I: return "Int";
+    case DT_BOOL: return "Bool";
     case DT_R: return "Num";
     case DT_S: return "Str";
     case DT_DATA: { if (d.u && d.u->type && d.u->type->name) return d.u->type->name; return "Any"; }

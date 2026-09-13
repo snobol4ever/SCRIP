@@ -2249,11 +2249,11 @@ YY_RULE_SETUP
 	YY_BREAK
 case 85:
 YY_RULE_SETUP
-{ raku_yylval.ival = 1; return LIT_INT; }
+{ raku_yylval.ival = 1; return LIT_BOOL; }
 	YY_BREAK
 case 86:
 YY_RULE_SETUP
-{ raku_yylval.ival = 0; return LIT_INT; }
+{ raku_yylval.ival = 0; return LIT_BOOL; }
 	YY_BREAK
 case 87:
 YY_RULE_SETUP
