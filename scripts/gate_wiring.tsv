@@ -212,6 +212,7 @@ test_gate_pattern_operand_reentry.sh	WIRED	-	-	-
 test_gate_perf_fmt_refuses_a_dark_cell.sh	WIRED	-	-	-
 test_gate_picker_autounblock.sh	WIRED	-	-	-
 test_gate_picker_lane_table_agrees_with_mode.sh	WIRED	-	-	-
+test_gate_pl_a_binary_stream_has_no_encoding_property.sh	WIRED	-	-	-
 test_gate_pl_a_quoted_atom_doubles_its_apostrophe.sh	WIRED	-	-	-
 test_gate_pl_allsol_goal_is_validated.sh	WIRED	-	-	-
 test_gate_pl_an_unknown_stream_alias_throws_and_never_dies_silently.sh	WIRED	-	-	-

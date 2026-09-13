@@ -2118,7 +2118,7 @@ static int pl_sp_prop(int i, int pidx, DESCR_t *out) {
     case 6: *out = pl_mk_cmp1("eof_action", pl_mk_atom(pl_sp_is_input(i) ? "eof_code" : "error")); return 1;
     case 7: { const char *a = (i == 0) ? "user_input" : (i == 1) ? "user_output" : (i == 2) ? "user_error" : (i >= 3) ? g_fh[i].alias : (const char *)0;
         if (!a) return 0; *out = pl_mk_cmp1("alias", pl_mk_atom_dup(a, strlen(a))); return 1; }
-    case 8: { extern const char *fh_encoding(int); const char *e = fh_encoding(i); if (!e) return 0; *out = pl_mk_cmp1("encoding", pl_mk_atom(e)); return 1; }
+    case 8: { extern const char *fh_encoding(int); const char *e; if (g_fh[i].type == 'b') return 0; e = fh_encoding(i); if (!e) return 0; *out = pl_mk_cmp1("encoding", pl_mk_atom(e)); return 1; }
     default: return 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
