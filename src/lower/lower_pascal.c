@@ -100,6 +100,7 @@ static IR_t * lower_var_r(pcx_t * cx, const char * name, IR_t * γ, IR_t * ω, I
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_assign_var(pcx_t * cx, const char * name, IR_t * γ, IR_t * ω) {
+    if (!name) name = "__pas_unresolved_target";
     pas_res_t r; pas_resolve2(cx, name, &r);
     if (r.uplevel) return pas_frame_node(cx, IR_ASSIGN_FRAME, name, &r, γ, ω);
     if (r.slot < 0 && !(pas_in_real_proc(cx) && !strncmp(name, "__pas_vptmp_", 12))) pas_reg_var(name);
