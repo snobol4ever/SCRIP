@@ -1435,8 +1435,9 @@ int main(int argc, char **argv)
             extern void gva_collect_reset(void); extern void gva_collect_icon_globals(void); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
             gva_collect_reset();
             { extern void gva_io_refuse_scan_graph(IR_graph_t *); for (int _si = 0; _si < s2->bbp.count; _si++) if (s2->bbp.table[_si]) gva_io_refuse_scan_graph(s2->bbp.table[_si]); }
+                { extern void gva_trace_demote_scan_graph(IR_graph_t *); for (int _si = 0; _si < s2->bbp.count; _si++) if (s2->bbp.table[_si]) gva_trace_demote_scan_graph(s2->bbp.table[_si]); }
             gva_collect_icon_globals();
-            int n_gva_icn = gva_count();
+            int n_gva_icn; { extern int gva_trace_demoted(void); n_gva_icn = gva_trace_demoted() ? 0 : gva_count(); }
             g_gva_active = (n_gva_icn > 0) ? 1 : 0;
             int n_procs = 0;
             int _pnbcap = (s2->proc_count > 0) ? s2->proc_count : 1;
@@ -1599,9 +1600,10 @@ int main(int argc, char **argv)
                 extern void gva_collect_reset(void); extern void gva_collect_icon_globals(void); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
                 gva_collect_reset();
                 { extern void gva_io_refuse_scan_graph(IR_graph_t *); for (int _si = 0; _si < s2->bbp.count; _si++) if (s2->bbp.table[_si]) gva_io_refuse_scan_graph(s2->bbp.table[_si]); }
+                { extern void gva_trace_demote_scan_graph(IR_graph_t *); for (int _si = 0; _si < s2->bbp.count; _si++) if (s2->bbp.table[_si]) gva_trace_demote_scan_graph(s2->bbp.table[_si]); }
                 gva_collect_icon_globals();
                 { extern void rt_icn_global_note(const char *); extern const char *global_names[]; extern int global_count; for (int _gi = 0; _gi < global_count; _gi++) if (global_names[_gi]) rt_icn_global_note(global_names[_gi]); }
-                int n_gva_m3; { const char *_gv = getenv("SCRIP_M3_GVA"); n_gva_m3 = _gv && *_gv && *_gv == (char)48 ? 0 : gva_count(); }
+                int n_gva_m3; { extern int gva_trace_demoted(void); const char *_gv = getenv("SCRIP_M3_GVA"); n_gva_m3 = (gva_trace_demoted() || (_gv && *_gv && *_gv == (char)48)) ? 0 : gva_count(); }
                 if (n_gva_m3 > 0) {
                     { extern DESCR_t *rt_gva_island(int); m3_gva_arena = rt_gva_island(n_gva_m3); }
                     const char **m3_gva_nms = (const char **)malloc((size_t)n_gva_m3 * sizeof(const char *));

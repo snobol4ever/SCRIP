@@ -5,11 +5,15 @@
 # referenced.  If you say X = N, that does not change the value of N, but it is a reference -- an 'access' to N",
 # and Ch19 p.244 adds that SNOBOL4 has no access trace at all, so the ORACLE is the only reference for it.
 # Measured on d1c122fd7 in BOTH modes: SCRIP printed NO access banner anywhere and never decremented &TRACE.
-# ⛔ WHAT THIS GATE DOES *NOT* COVER, AND WHY THE ARMS ALL READ THROUGH $(): a plain read of a global is the
-# g_gva_active fast path in bb_var_global, two movs straight out of the GVA slot with NO call to hook, so the
-# read-tap in NV_GET_fn cannot see it.  Tapping that path is a shared-node change (bb_var_global serves every
-# language) and is an ASK, not this row's landing -- so the manual's own X = N example is still red today and
-# is NOT asserted here.  Every arm below is a reference that genuinely reaches NV_GET_fn.
+# ⛔ WHY THE ARMS ALL READ THROUGH $() -- A HISTORICAL REASON AS OF 2026-09-13, NOT A LIVE LIMITATION.  A plain
+# read of a global WAS the g_gva_active fast path in bb_var_global, two movs straight out of the GVA slot with NO
+# call to hook, so the read-tap in NV_GET_fn could not see it at any price, and the manual's own X = N example was
+# red.  hq_P REFUSED a runtime guard on that path -- a load-and-branch per global read, shared by all seven
+# frontends, paid by every program forever -- and ruled for COMPILE-TIME DEMOTION instead: for a program that
+# qualifies, the driver declines to build the GVA island at all.  bb_var_global is UNTOUCHED.  X = N is now GREEN
+# and is asserted by test_gate_sno_trace_access_fires_on_a_plain_global_read_via_compile_time_gva_demotion.sh.
+# ⭐ THESE ARMS STAY AS THEY ARE ON PURPOSE: they cover the INDIRECTION path, which the demotion does not touch,
+# so they are the arms that move first if a future change breaks the tap itself rather than the route to it.
 # ⛔ ARM 'silent' IS A CONTROL: an assignment is not an access, and it was already correct before the cure
 # (nothing fired at all), so it is the arm that moves first if the tap is ever hung on the store path by mistake.
 set -u

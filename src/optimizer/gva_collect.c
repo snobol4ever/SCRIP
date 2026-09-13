@@ -2,6 +2,7 @@
 #include "IR.h"
 #include <string.h>
 #include <stdlib.h>
+#include <strings.h>
 static const char **g_gva_names = NULL;
 static int g_gva_n = 0;
 static int g_gva_max = 0;
@@ -40,6 +41,8 @@ static const char **g_gva_kw_refused = NULL;
 static int g_gva_kw_refused_n = 0;
 static int g_gva_kw_refused_max = 0;
 static int g_gva_kw_seeded = 0;
+static int g_gva_sn4_family = 0;
+static int g_gva_trace_demote = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int gva_keyword_refused(const char *name) {
     for (int i = 0; i < g_gva_kw_refused_n; i++) if (g_gva_kw_refused[i] && strcmp(g_gva_kw_refused[i], name) == 0) return 1;
@@ -55,14 +58,39 @@ void gva_keyword_refuse_name(const char *name) {
     g_gva_kw_refused[g_gva_kw_refused_n++] = name;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void gva_keyword_refuse_reset(void) { g_gva_kw_refused_n = 0; g_gva_kw_seeded = 1; }
+void gva_keyword_refuse_reset(void) { g_gva_kw_refused_n = 0; g_gva_kw_seeded = 1; g_gva_sn4_family = 0; g_gva_trace_demote = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void gva_keyword_refuse_seed_snobol4(void) {
     g_gva_kw_seeded = 1;
+    g_gva_sn4_family = 1;
     static const char *kw[] = { "INPUT","OUTPUT","PUNCH","TERMINAL","PUNCHAR","STLIMIT","STCOUNT","STNO","ANCHOR","TRIM","FULLSCAN","CASE","MAXLNGTH",
                                 "FTRACE","TRACE","ERRLIMIT","CODE","FNCLEVEL","RTNTYPE","ALPHABET","ABEND","DUMP","STEXEC","ERRTYPE","ERRTEXT","GTRACE",
                                 "FATALLIMIT","PARM","PI", (const char *)0 };
     for (int i = 0; kw[i]; i++) gva_keyword_refuse_name(kw[i]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int gva_trace_demoted(void) { return g_gva_trace_demote; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int gva_trace_type_provably_non_access(IR_t *arg) {
+    if (!arg) return 0;
+    if (arg->op != IR_LIT_NAME && arg->op != IR_LIT_STRING) return 0;
+    { const char *t = IR_LIT(arg).sval;
+      if (!t) return 0;
+      if (strcasecmp(t, "A") == 0 || strcasecmp(t, "ACCESS") == 0) return 0;
+      return 1; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void gva_trace_demote_scan_graph(struct IR_graph_t *g) {
+    if (!g || !g_gva_sn4_family || g_gva_trace_demote) return;
+    for (int i = 0; i < g->n; i++) {
+        IR_t *nd = g->all[i]; if (!nd) continue;
+        if (nd->op != IR_CALL) continue;
+        { const char *fn = IR_LIT(nd).sval;
+          if (!fn || strcmp(fn, "TRACE") != 0) continue; }
+        if (nd->n_operands < 2) continue;
+        if (gva_trace_type_provably_non_access(nd->operands[1])) continue;
+        g_gva_trace_demote = 1; return;
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int is_protected_pat_name(const char *name);

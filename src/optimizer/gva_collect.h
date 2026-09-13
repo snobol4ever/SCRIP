@@ -14,4 +14,6 @@ void gva_keyword_refuse_reset(void);
 void gva_keyword_refuse_seed_snobol4(void);
 struct IR_graph_t;
 void gva_io_refuse_scan_graph(struct IR_graph_t *g);
+void gva_trace_demote_scan_graph(struct IR_graph_t *g);
+int gva_trace_demoted(void);
 #endif
