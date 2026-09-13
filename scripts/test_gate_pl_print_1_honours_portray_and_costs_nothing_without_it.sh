@@ -110,6 +110,52 @@ PLEOF
 N=$((N+1))
 got=$(timeout 20 "$SCRIP" "$D/ownprint.pl" </dev/null 2>/dev/null)
 if [ "$got" = "mine(foo)" ]; then PASS=$((PASS+1)); else printf '  RED  user print/1 was shadowed: got [%s] want [mine(foo)]\n' "$got"; FAIL=$((FAIL+1)); fi
+echo "=== ARM 4: format ~p consults portray, and operator and list notation SURVIVE the hook -- both modes ==="
+cat > "$D/fp.pl" <<'PLEOF'
+:- dynamic(portray/1).
+portray(Atom) :- atom(Atom), write(Atom), write(Atom).
+portray(Float) :- float(Float), Integer is truncate(Float), write(Integer).
+:- initialization(main).
+main :- format("[~p]~n", [3.14]), format("[~p]~n", [foo]), format("[~p]~n", [a(foo)]),
+	format("[~p]~n", [a(foo,b(c(foo,3.14)))]), format("[~p]~n", [[foo,3.14]]), format("[~p]~n", [1+foo]), halt.
+PLEOF
+want4='[3]
+[foofoo]
+[a(foofoo)]
+[a(foofoo,b(c(foofoo,3)))]
+[[foofoo,3]]
+[1+foofoo]'
+N=$((N+1))
+got=$(cd "$D" && timeout 20 "$SCRIP" "$D/fp.pl" </dev/null 2>/dev/null)
+if [ "$got" = "$want4" ]; then PASS=$((PASS+1)); else printf '  m3 RED  format ~~p: got [%s]\n       want [%s]\n' "$got" "$want4"; FAIL=$((FAIL+1)); fi
+N=$((N+1))
+if (cd "$D" && timeout 60 "$SCRIP" --compile -o "$D/fp.s" "$D/fp.pl" >/dev/null 2>&1) && gcc -m64 -no-pie "$D/fp.s" -o "$D/fp.bin" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm >/dev/null 2>&1; then
+  got=$(cd "$D" && timeout 20 "$D/fp.bin" 2>/dev/null)
+  if [ "$got" = "$want4" ]; then PASS=$((PASS+1)); else printf '  m4 RED  format ~~p: got [%s]\n       want [%s]\n' "$got" "$want4"; FAIL=$((FAIL+1)); fi
+else echo "  m4 RED  the ~~p program failed to compile or link"; FAIL=$((FAIL+1)); fi
+echo "=== ARM 5: THE PORTRAY HOOK RELEASES ITS ACTIVATION FRAME -- a slope, never a total ==="
+cat > "$D/slope.pl" <<'PLEOF'
+:- dynamic(portray/1).
+portray(x) :- write(one).
+portray(x) :- write(two).
+loop(0) :- !.
+loop(N) :- format("~p", [f(x,x,x,x,x)]), nl, M is N-1, loop(M).
+:- initialization(main).
+main :- loop(LOOPS), write(done), nl, halt.
+PLEOF
+slope_rss() {
+  sed "s/loop(LOOPS)/loop($1)/" "$D/slope.pl" > "$D/s$1.pl"
+  /usr/bin/time -f '%M' timeout 300 "$SCRIP" "$D/s$1.pl" </dev/null >/dev/null 2>"$D/s$1.rss" || { echo ""; return; }
+  tail -1 "$D/s$1.rss"
+}
+N=$((N+1))
+lo=$(slope_rss 3000); hi=$(slope_rss 12000)
+case "$lo$hi" in
+    *[!0-9]*|"") echo "  ⛔ ARM 5 UNPROVEN: could not read maxrss for both runs (lo=[$lo] hi=[$hi]) -- an arm that cannot measure is not an arm that passed"; FAIL=$((FAIL+1)) ;;
+    *) kb=$(( (hi - lo) * 100 / 54000 ))
+       echo "    slope: $lo kB at 3000 iterations, $hi kB at 12000 -> $((kb / 100)).$(printf '%02d' $((kb % 100))) kB per portray call (54000 calls between the two)"
+       if [ "$kb" -le 200 ]; then PASS=$((PASS+1)); else echo "  RED  ARM 5: the portray hook retains its activation frame -- $((kb / 100)).$(printf '%02d' $((kb % 100))) kB per call exceeds the 2.00 kB/call fence"; FAIL=$((FAIL+1)); fi ;;
+esac
 [ "$N" -gt 0 ] || { echo "⛔ REFUSE(2): graded nothing"; exit 2; }
 echo "PL PRINT/PORTRAY: PASS=$PASS FAIL=$FAIL / $N arms  verdict=$([ $FAIL = 0 ] && echo GREEN || echo RED)"
 [ "$FAIL" = 0 ] || exit 1

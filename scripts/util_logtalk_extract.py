@@ -239,6 +239,34 @@ class FileCases(object):
 _TESTER_LOADS = re.compile(r"atom_concat\(\s*Directory\s*,\s*'([^']+\.pl)'")
 
 
+# ⛔⭐ A tester.lgt MAY DEFINE PLAIN-PROLOG CLAUSES ITSELF, and they travel with every case of its
+# directory exactly like a loaded .pl. Measured 2026-09-13 (hq_R): predicates/format_2 and predicates/format_3
+# define `portray/1` in tester.lgt under the comment "for testing the ~p control sequence" -- NOT in tests.lgt
+# and NOT in a .pl the tester loads. Read only the loaded files and the eight
+# lgt_format_{2,3}_print_portray_* cases grade `format("~p", [foo])` against an engine that has no portray/1
+# to consult, so the answer is right for a world the suite is not describing and the cases can never pass.
+# ⭐ The tell was that the four print_2 cases with the SAME expectation pass: that file defines portray in
+# its own database. One directory's cases failing while its twin passes is a statement about the HARNESS.
+# Only clauses before the first `:- object(` are taken, directives are dropped except `dynamic` (the vendor's
+# own `multifile/1` has no plain-Prolog meaning here), and a clause in Logtalk-only syntax is left behind by
+# the same rule that governs a tests.lgt database.
+def _tester_own_clauses(src):
+    """The tester's OWN plain-Prolog clauses: outside every object, non-directive (plus `dynamic`), no ^^/::."""
+    head = src.split(":- object(")[0]
+    head = re.sub(r"(?m)^\s*%.*$", "", head)
+    out = []
+    for cl in split_clauses(head):
+        t = cl.strip()
+        if not t or "^^" in t or "::" in t:
+            continue
+        if t.startswith(":-"):
+            if re.match(r":-\s*dynamic\s*\(", t):
+                out.append(t)
+            continue
+        out.append(t)
+    return out
+
+
 def _tester_loaded(path):
     """Clauses of the plain-Prolog files this directory's tester.lgt loads, in the order it loads them.
     Kept SEPARATE from the file's own database because they are loaded verbatim -- their :- if/endif guards
@@ -248,13 +276,13 @@ def _tester_loaded(path):
     if not os.path.exists(t):
         return []
     src = open(t, encoding="utf-8", errors="replace").read()
-    if "$lgt_load_prolog_file" not in src:
-        return []
     out = []
-    for name in _TESTER_LOADS.findall(src):
-        f = os.path.join(d, name)
-        if os.path.exists(f):
-            out.extend(split_clauses(open(f, encoding="utf-8", errors="replace").read()))
+    if "$lgt_load_prolog_file" in src:
+        for name in _TESTER_LOADS.findall(src):
+            f = os.path.join(d, name)
+            if os.path.exists(f):
+                out.extend(split_clauses(open(f, encoding="utf-8", errors="replace").read()))
+    out.extend(_tester_own_clauses(src))
     return out
 
 
