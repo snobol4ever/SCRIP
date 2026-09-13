@@ -36,9 +36,19 @@
 #
 # DONE-WHEN (all three, BOTH MODES, at the pinned default 8 MB):
 #   1. DET control  p(200000)      completes                 -- passes today, must never regress
-#   2. CP arm       p(100000)      completes                 -- red today (dies ~29,000)
+#   2. CP arm       p(100000)      completes                 -- red today (dies at 8,013 at this arm's pinned 8192 KB)
 #   3. tak(18,12,6,A) yields A = 7                           -- red today (needs ~256 MB)
 # EXIT 0 all green; 1 the rung is not yet met (names which arm); 2 REFUSED (cannot measure).
+# ⛔⭐ A 4x UNIT ERROR OF MY OWN, CORRECTED HERE 2026-09-13 (cto), BECAUSE THIS GATE PUBLISHED IT.
+# Until today this file's arm text and CTO-41 both said the CP arm "dies ~29,000; ~289 B per retained frame".
+# THOSE TWO NUMBERS DO NOT DESCRIBE THE SAME RUN. The DEPTH was taken at `ulimit -s 32768` and the
+# BYTES-PER-FRAME was computed by dividing 8 MB by it -- a 4x error, published side by side as if one run had
+# produced both. Reproduced deliberately before correcting: the pre-cure compiler reaches 28,274 at 32768 KB,
+# which is the ~29,000, and 1,186 B/frame there -- matching the 1,191 B/frame it reaches at 8192 KB. Both
+# figures are now BISECTED at THIS ARM'S OWN PINNED LIMIT and carry the tree they were measured on.
+# THE LESSON IS THE ONE THIS GATE ALREADY PINS ITS ulimit FOR, arriving one level up: pinning the limit stops
+# the SHELL from grading the run, and does nothing about an ARITHMETIC that quietly uses a different limit
+# than the measurement did. A number's divisor is part of its label.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 "$HERE/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
@@ -92,9 +102,9 @@ for mode in m3 m4; do
     if printf '%s' "$det" | grep -q 'det_ok'; then echo "  ✅ CONTROL $mode -- deterministic recursion reaches 200,000 (must never regress)"
     else echo "  ⛔ CONTROL FAILED $mode -- deterministic recursion no longer reaches 200,000: $(printf '%s' "$det" | head -1)"; fail=$((fail+1)); fi
     if printf '%s' "$cp_" | grep -q 'cp_ok'; then echo "  ✅ OK      $mode -- a choicepoint-retaining recursion reaches 100,000"
-    else echo "  FAIL      $mode -- a choicepoint-retaining recursion cannot reach 100,000 (dies ~29,000; ~289 B of machine stack per retained frame): $(printf '%s' "$cp_" | head -1)"; fail=$((fail+1)); fi
+    else echo "  FAIL      $mode -- a choicepoint-retaining recursion cannot reach 100,000 (BISECTED 2026-09-13 at this arm's own pinned 8192 KB: dies at 8,013, 1,046 B of machine stack per retained frame -- was 7,039 and 1,191 B before hq_U's zls_grant_locals cure at SCRIP 43aae1073): $(printf '%s' "$cp_" | head -1)"; fail=$((fail+1)); fi
     if printf '%s' "$tk" | grep -q 'tak(7)'; then echo "  ✅ OK      $mode -- tak(18,12,6,A) yields 7 at the default stack"
-    else echo "  FAIL      $mode -- tak(18,12,6,A) does not complete at the default stack (needs ~256 MB; ~3.1 KB per retained frame over ~63,609 calls): $(printf '%s' "$tk" | head -1)"; fail=$((fail+1)); fi
+    else echo "  FAIL      $mode -- tak(18,12,6,A) does not complete at the default stack (BISECTED 2026-09-13: needs 140 MB, 2,320 B per retained frame over ~63,609 calls -- was 162 MB and 2,672 B before SCRIP 43aae1073): $(printf '%s' "$tk" | head -1)"; fail=$((fail+1)); fi
 done
 echo "------------------------------------------------------------"
 if [ "$fail" -eq 0 ]; then echo "✅ GATE OK: rung 9 met -- backtrackable recursion reaches the oracle's depth in both modes"; exit 0; fi
