@@ -205,7 +205,7 @@ printf '* all commented out, like gimpel BREAKX.sno\n*	DEFINE(%s)\n' "'BREAKX(S)
 run python3 "$GEN" procs "$W/M7.sno"
 [ "$ORC" = 2 ] && pass "refused rc=2 rather than printing a triumphant zero" || fail "expected rc=2 for a module defining nothing, got rc=$ORC: $OUT"
 
-echo "== ARM 8: the SHAPE CENSUS separates the three kinds of 'library module'"
+echo "== ARM 8: the SHAPE CENSUS separates the FOUR kinds of 'library module'"
 # ⛔⭐ CONTAINER_OR_LIBRARY is not one shape. Measured over gimpel's 149 modules: 131 PROCEDURES, 12
 # PATTERN_FRAGMENT (ASM360.sno builds a pattern-valued variable; there is nothing to call), 6 with no
 # executable content at all. A lane that discovers this one module at a time, at the moment its generated
@@ -213,8 +213,18 @@ echo "== ARM 8: the SHAPE CENSUS separates the three kinds of 'library module'"
 cp "$W/M3.sno" "$W/census_procs.sno"
 printf "\tLETTER  =  'ABC'\n\tPAT  =  ANY(LETTER)\n" > "$W/census_pattern.sno"
 printf '* nothing but comments\n' > "$W/census_dead.sno"
+# ⛔ THE ENTRY-POINT FIXTURE, AND THE SHAPE IT PROVES WAS MISSING UNTIL A SECOND PACKAGE CONTRADICTED THE
+# FIRST. Read over gimpel alone the other three shapes looked complete; run the same census over
+# snoflake_suite and 140 of 180 came back PATTERN_FRAGMENT, which is nonsense -- they are standalone test
+# programs. The discriminator is a bare `END` statement, and it is exact: gimpel library modules 10 of 149
+# carry one, snoflake_suite 178 of 180, csnobol4_suite 101 of 131. ⭐ A file with an entry point filed as
+# CONTAINER_OR_LIBRARY is not awaiting a driver -- it is awaiting a RUN, and the row is wrong about the file.
+# NOTE it carries a DEFINE as well, because precedence is the whole point: a program with its own procedures
+# is still a program, and drafting a driver for it would put a second entry point in one file.
+printf "\tDEFINE('HELPER(S)')\t\t\t:(HELPER_END)\nHELPER\tHELPER  =  S\t\t\t:(RETURN)\nHELPER_END\n\tOUTPUT  =  HELPER('x')\nEND\n" > "$W/census_standalone.sno"
 run python3 "$GEN" classify "$W"
 [ "$ORC" = 0 ] || fail "classify refused a directory with three shapes in it (rc=$ORC): $OUT"
+printf '%s\n' "$OUT" | grep -q "^STANDALONE_PROGRAM.*census_standalone.sno$" && pass "STANDALONE_PROGRAM recognised, and it OUTRANKS the DEFINE in the same file" || fail "census_standalone.sno not classified STANDALONE_PROGRAM: $OUT"
 printf '%s\n' "$OUT" | grep -q "^PROCEDURES.*census_procs.sno$"            && pass "PROCEDURES recognised"            || fail "census_procs.sno not classified PROCEDURES: $OUT"
 printf '%s\n' "$OUT" | grep -q "^PATTERN_FRAGMENT.*census_pattern.sno$"    && pass "PATTERN_FRAGMENT recognised"      || fail "census_pattern.sno not classified PATTERN_FRAGMENT: $OUT"
 printf '%s\n' "$OUT" | grep -q "^NO_EXECUTABLE_CONTENT.*census_dead.sno$"  && pass "NO_EXECUTABLE_CONTENT recognised" || fail "census_dead.sno not classified NO_EXECUTABLE_CONTENT: $OUT"
@@ -235,10 +245,36 @@ run python3 "$GEN" coverage "$W/M3.sno" "$W/M3_driver.sno"
 printf '%s\n' "$OUT" | grep -q 'THIN WITNESS' && fail "a 1-of-1 driver was wrongly called thin: $OUT" \
     || pass "a complete witness is NOT warned about (the warning can say no as well as yes)"
 
+echo "== ARM 11 (REFUSAL): 'the inventory is empty' and 'I cannot read the inventory' are DIFFERENT refusals"
+# ⛔⭐ THIS ARM EXISTS BECAUSE THE TOOL FAILED IT (hq_B 2026-09-13, found by adding the per-package numbers up
+# against the fleet cause census and refusing to let a 208-row shortfall be arithmetic). logtalk_iso carries
+# 208 CONTAINER_OR_LIBRARY rows, every one a .lgt file this tool has no enumerator for, and `inventory`
+# refused with "no CONTAINER_OR_LIBRARY rows in ..." -- rc=2, loud, honest-looking, and naming the WRONG
+# CAUSE. ⭐ "The population is empty" and "the population is invisible to me" are the same output unless one
+# of them says which -- and the first reads as a FINISHED package, so the error points away from the work.
+mkdir -p "$W/pkg_unreadable" "$W/pkg_empty"
+printf '# name\tCLASS\treason\nthing.lgt\tCONTAINER_OR_LIBRARY\ta dialect this tool cannot read\n' > "$W/pkg_unreadable/UNGRADABLE.tsv"
+printf 'irrelevant\n' > "$W/pkg_unreadable/thing.lgt"
+printf '# name\tCLASS\treason\nthing.sno\tORACLE_REFUSES\tsome other cause entirely\n' > "$W/pkg_empty/UNGRADABLE.tsv"
+printf 'END\n' > "$W/pkg_empty/thing.sno"
+run python3 "$GEN" inventory "$W/pkg_unreadable"
+[ "$ORC" = 2 ] && pass "refused rc=2 on rows it cannot read" || fail "expected rc=2 on unreadable rows, got rc=$ORC: $OUT"
+printf '%s\n' "$OUT" | grep -q 'NO enumerator' \
+    && pass "and the refusal says UNMEASURED, naming the extension -- not 'no rows'" \
+    || fail "the refusal did not name the missing enumerator, so it is indistinguishable from an empty inventory: $OUT"
+printf '%s\n' "$OUT" | grep -q 'not empty of rows' && pass "it explicitly denies the reading that would send a lane away" \
+    || fail "the refusal does not rule out being read as zero: $OUT"
+run python3 "$GEN" inventory "$W/pkg_empty"
+[ "$ORC" = 2 ] && pass "a genuinely empty cause still refuses (never a clean zero)" || fail "expected rc=2 on an empty cause, got rc=$ORC: $OUT"
+printf '%s\n' "$OUT" | grep -q 'no CONTAINER_OR_LIBRARY rows' \
+    && pass "and it is the OTHER message -- the two causes are told apart" \
+    || fail "the empty-inventory refusal did not use its own message: $OUT"
+
 if [ "$RC" = 0 ]; then
     echo "✅ GATE OK: util_gen_library_driver.py -- enumeration (DEFINE, continuation, DEFINE.), goto/literal"
-    echo "   regions excluded from call scans, ref cut from the oracle, and FOUR refusals proven to mint nothing"
-    echo "   (non-LIVE oracle · self-diff disagreement · agreeing-runs-with-a-clock · existing ref)."
+    echo "   regions excluded from call scans, ref cut from the oracle, FOUR refusals proven to mint nothing"
+    echo "   (non-LIVE oracle · self-diff disagreement · agreeing-runs-with-a-clock · existing ref), the four-way"
+    echo "   shape census, and an unreadable inventory told apart from an empty one."
 else
     echo "⛔ GATE FAILED"
 fi

@@ -53,7 +53,8 @@ Usage:
   util_gen_library_driver.py cut      <driver> --suite SUITE [--ref FILE] [--force]
   util_gen_library_driver.py gen      <module> --suite SUITE --out DIR   # skeleton + cut + coverage
   util_gen_library_driver.py coverage <module> <driver>
-  util_gen_library_driver.py classify <module-or-DIR>               # the shape census -- READ THIS FIRST
+  util_gen_library_driver.py classify  <module-or-DIR>              # the shape census of a TREE
+  util_gen_library_driver.py inventory <package-DIR> [--cause C]    # the shape census of the ROWS -- FIRST
 Exit: 0 = did the thing.  1 = a real failure.  2 = REFUSED, could not measure / would have minted a lie.
 """
 import argparse, os, re, subprocess, sys, tempfile
@@ -477,12 +478,28 @@ def driver_call_text(driver, lang):
     return "\n".join(lines)
 
 SHAPE_HELP = {
+    "STANDALONE_PROGRAM": "already a complete program with its own entry point -- it needs RUNNING, not a "
+                          "driver. If a row calls this ungradable, the row is wrong about the file",
     "PROCEDURES": "defines callable procedures -- `skeleton` can draft a driver for it",
     "PATTERN_FRAGMENT": "defines no procedure; it builds a PATTERN-valued variable. Driving it means "
                         "APPLYING the pattern to a subject, not calling anything -- hand-authored, not generated",
     "NO_EXECUTABLE_CONTENT": "nothing executable at all (all commented out, or pure data) -- NOT a container "
                              "awaiting a driver, and no driver will ever make it gradable",
 }
+
+def has_entry_point(path, lang):
+    """Does this file start executing on its own? SNOBOL4/Snocone: a bare `END` statement. Icon: a `procedure
+    main`. Prolog: an `initialization/1,2` directive or a `main` clause. See classify() for why this is the
+    first question asked and how it was measured."""
+    text = path.read_text(errors="replace")
+    if lang in ("snobol4", "snocone"):
+        return any(re.match(r"^[ \t]*END[ \t]*$", l) for l in text.splitlines() if l[:1] != "*")
+    if lang == "icon":
+        return re.search(r"^\s*procedure\s+main\s*\(", text, re.M) is not None
+    if lang == "prolog":
+        return (re.search(r":-\s*initialization\s*\(", text) is not None
+                or re.search(r"^main\b", text, re.M) is not None)
+    return False
 
 def classify(path):
     """⛔⭐⭐ CONTAINER_OR_LIBRARY IS NOT ONE SHAPE, AND A PROCEDURE-ENUMERATING GENERATOR CAN ONLY DRIVE ONE
@@ -500,6 +517,21 @@ def classify(path):
     ⛔ NOTE WHAT THIS DOES NOT CLAIM. A shape is not a verdict on gradability: a PATTERN_FRAGMENT is perfectly
     gradable by a hand-written driver (gimpel ships one for ASM360), it is only outside THIS tool's reach."""
     lang, fn = lang_of(path)
+    # ⛔⭐⭐ THE ENTRY POINT IS TESTED FIRST, AND THIS SHAPE WAS MISSING UNTIL THE CENSUS OF A SECOND PACKAGE
+    # CONTRADICTED IT (hq_B 2026-09-13). Read over gimpel alone the three shapes below looked complete, because
+    # every non-driver .sno in gimpel really is an include. Run the same census over snoflake_suite and 140 of
+    # 180 files came back PATTERN_FRAGMENT -- which is nonsense: they are complete standalone test programs.
+    # They have executable statements and no DEFINE, which is all the old test looked at.
+    # ⭐ THE DISCRIMINATOR IS THE ENTRY POINT, AND IT IS EXACT, AND IT WAS LEARNED FROM A BUG IN THIS TOOL'S OWN
+    # GATE: a SNOBOL4 `END` statement ENDS THE PROGRAM, so a library module must NOT carry one (a driver that
+    # includes such a module terminates at the include and prints nothing), while a standalone program MUST.
+    # Measured: gimpel library modules 10 of 149 carry a bare END; snoflake_suite 178 of 180; csnobol4_suite
+    # 101 of 131. ⛔ WHY IT MATTERS TO THE 915-ROW CLASS AND NOT ONLY TO THIS TOOL: a file with an entry point
+    # filed as CONTAINER_OR_LIBRARY is not awaiting a driver at all -- it is awaiting a RUN, and the row that
+    # called it ungradable is simply wrong about the file. Drafting a driver for it would be work with no
+    # deliverable at the end, and the driver would be the second entry point in one program.
+    if has_entry_point(path, lang):
+        return "STANDALONE_PROGRAM", 0
     own = [p for p in fn(path) if p.own]
     if own:
         return "PROCEDURES", len(own)
@@ -523,8 +555,17 @@ def cmd_classify(a):
     targets = []
     root = Path(a.target).resolve()
     if root.is_dir():
+        # ⛔⭐ RECURSIVE, AND THE FLAT GLOB WAS WRONG IN A WAY THAT READ AS AN ANSWER (hq_B 2026-09-13). A
+        # top-level-only glob censused icon/ipl as ONE module and prolog/gnu_prolog as ZERO, and printed both
+        # as a completed census -- while ipl holds 853 .icn under procs/ incl/ progs/ gprocs/ gincl/ gprogs/
+        # and gnu_prolog holds 45 under BipsPl/ alone. ⭐ The same unanchored-glob shape this tree has now
+        # paid for three times (corpus/crosscheck's 1-of-401, src/templates' bb_*.cpp matching zero). A glob
+        # that reports a smaller population than exists never says so.
+        # ⛔ An `ALL.<ext>` file is the suite's own concatenation of the package, not a module: censusing it
+        # would count the whole package twice, once as itself and once as one enormous entry.
         for ext in LANGS:
-            targets += [f for f in sorted(root.glob(f"*{ext}")) if not f.stem.endswith("_driver")]
+            targets += [f for f in sorted(root.rglob(f"*{ext}"))
+                        if not f.stem.endswith("_driver") and f.stem != "ALL"]
     elif root.is_file():
         targets = [root]
     else:
@@ -538,7 +579,7 @@ def cmd_classify(a):
         tally[shape] = tally.get(shape, 0) + 1
         print(f"{shape}\t{n}\t{t.name}")
     print(f"\n# CENSUS of {len(targets)} module(s) under {root.name}:")
-    for shape in ("PROCEDURES", "PATTERN_FRAGMENT", "NO_EXECUTABLE_CONTENT"):
+    for shape in ("STANDALONE_PROGRAM", "PROCEDURES", "PATTERN_FRAGMENT", "NO_EXECUTABLE_CONTENT"):
         if shape in tally:
             print(f"#   {shape:22} {tally[shape]:5}   {SHAPE_HELP[shape]}")
     drivable = tally.get("PROCEDURES", 0)
@@ -609,6 +650,69 @@ def cmd_coverage(a):
         print("NOT EXERCISED: " + " ".join(missed))
     return 0
 
+def cmd_inventory(a):
+    """⛔⭐⭐ THE CENSUS THE FOUR TARGET LANES ACTUALLY NEED FIRST, and it is NOT a census of the tree -- it is
+    a census of THE ROWS. A shape census over every file in a package answers "what is in here", which is a
+    different question from "what are these 886 rows about", and answering the easier one and reporting it as
+    the harder one is this tree's most-repeated defect. So this reads each package's own UNGRADABLE.tsv
+    (name<TAB>CLASS<TAB>reason, the rulings hq_P/hq_S authored from measured oracle runs) and classifies the
+    CONTAINER_OR_LIBRARY entries -- exactly the population the brief is about, and no other file.
+    ⛔ A row whose file is GONE is reported, never skipped: a ruling about a file nobody can find is a row
+    that can never close, and it is invisible to every count that silently drops it."""
+    root = Path(a.package).resolve()
+    inv = root / "UNGRADABLE.tsv"
+    if not inv.is_file():
+        refuse(f"no UNGRADABLE.tsv under {root} -- this command censuses ROWS, and without the row file it "
+               f"would silently fall back to censusing the tree, which answers a different question.")
+    want = a.cause
+    rows, tally, missing, unknown_ext, unknown_exts = [], {}, [], 0, set()
+    for line in inv.read_text(errors="replace").splitlines():
+        if line.startswith("#") or not line.strip():
+            continue
+        parts = line.split("\t")
+        if len(parts) < 2 or parts[1] != want:
+            continue
+        f = root / parts[0]
+        if not f.is_file():
+            missing.append(parts[0])
+            continue
+        if f.suffix.lower() not in LANGS:
+            unknown_ext += 1
+            unknown_exts.add(f.suffix.lower())
+            continue
+        shape, n = classify(f)
+        tally[shape] = tally.get(shape, 0) + 1
+        rows.append((shape, n, parts[0]))
+    # ⛔⭐ TWO DIFFERENT FACTS, AND THIS TOOL CONFLATED THEM UNTIL THE FLEET TOTAL DID NOT ADD UP (hq_B
+    # 2026-09-13). logtalk_iso carries 208 CONTAINER_OR_LIBRARY rows, every one a `.lgt` file, and this
+    # command refused with "no CONTAINER_OR_LIBRARY rows in ..." -- which is FALSE. There are 208; I cannot
+    # READ any of them. ⭐ It was found only by adding the per-package numbers up against the fleet cause
+    # census and refusing to let 208 be arithmetic: the refusal was loud, honest-looking, rc=2, and named
+    # the wrong cause. "The population is empty" and "the population is invisible to me" are the same output
+    # unless one of them says which, and the first reads as a finished package.
+    if not rows and not missing and unknown_ext:
+        refuse(f"{unknown_ext} {want} row(s) in {inv} name files with extension(s) "
+               f"{' '.join(sorted(unknown_exts))}, for which this tool has NO enumerator -- so this package "
+               f"is UNMEASURED by it, not empty of rows. Known: {' '.join(sorted(LANGS))}. Add an enumerator "
+               f"for that dialect, or grade these rows another way; do not read this as zero.")
+    if not rows and not missing:
+        refuse(f"no {want} rows in {inv} -- a census that cannot see its population must never print zero.")
+    for shape, n, name in rows:
+        print(f"{shape}\t{n}\t{name}")
+    print(f"\n# {len(rows)} {want} row(s) in {root.name}, classified:")
+    for shape in ("STANDALONE_PROGRAM", "PROCEDURES", "PATTERN_FRAGMENT", "NO_EXECUTABLE_CONTENT"):
+        if shape in tally:
+            print(f"#   {shape:22} {tally[shape]:5}   {SHAPE_HELP[shape]}")
+    if missing:
+        print(f"#   ⛔ {len(missing)} row(s) name a file that is NOT ON DISK -- a ruling about a file nobody "
+              f"can find can never close: {' '.join(missing[:8])}{' ...' if len(missing) > 8 else ''}")
+    if unknown_ext:
+        print(f"#   ⚠ {unknown_ext} row(s) have an extension this tool has no enumerator for, and are "
+              f"counted in NEITHER column above rather than quietly in one of them.")
+    print(f"# A DRIVER IS OWED FOR {tally.get('PROCEDURES', 0)} OF THEM. The STANDALONE_PROGRAM rows need a "
+          f"RUN, not a driver -- those rows are wrong about their file. The rest need a hand-authored witness.")
+    return 0
+
 def cmd_gen(a):
     module = Path(a.module).resolve()
     if not module.is_file():
@@ -644,6 +748,8 @@ def main():
     p.add_argument("--ref"); p.add_argument("--force", action="store_true"); p.set_defaults(f=cmd_cut)
     p = sub.add_parser("coverage"); p.add_argument("module"); p.add_argument("driver"); p.set_defaults(f=cmd_coverage)
     p = sub.add_parser("classify"); p.add_argument("target"); p.set_defaults(f=cmd_classify)
+    p = sub.add_parser("inventory"); p.add_argument("package")
+    p.add_argument("--cause", default="CONTAINER_OR_LIBRARY"); p.set_defaults(f=cmd_inventory)
     p = sub.add_parser("gen"); p.add_argument("module"); p.add_argument("--suite", required=True)
     p.add_argument("--out", required=True); p.add_argument("--max-procs", type=int, default=0)
     p.add_argument("--force", action="store_true"); p.set_defaults(f=cmd_gen)
