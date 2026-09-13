@@ -273,6 +273,7 @@ int rt_builtin_is_known(const char *name)
         "MAKELIST",
         "__rk_arr", "__rk_arr_lit", "__rk_arr_lit_item", "arr_get", "arr_set_pure", "arr_init", "arr_last", "array_sort", "array_reverse", "arr_make",
         "__rk_arr_xx", "__rk_arr_at", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first",
+        "__rk_arr_map", "__rk_arr_grep",
         "__rk_arr_keys", "__rk_arr_values", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
         "__rk_div", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_when_match", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
@@ -3635,6 +3636,60 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (!have) { *out = NULVCL; return 1; }
         *out = best_num ? INTVAL(bestn) : STRVAL(rt_heap_strdup_c(best)); return 1;
     }
+    if ((!strcmp(fn, "__rk_arr_map") || !strcmp(fn, "__rk_arr_grep")) && nargs >= 2) {
+        int want_map = (fn[9] == 'm');
+        const char *bn = (args[1].v == DT_BLK) ? args[1].s : NULL;
+        if (!bn || !*bn) { *out = FAILDESCR; return 1; }
+        char scratch[64];
+        const char *cs = to_cstring(args[0], scratch, sizeof scratch);
+        if (!cs) cs = "";
+        extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs); extern int rt_is_truthy(DESCR_t v);
+        size_t cap = strlen(cs) * 4 + 64; char *buf = rt_pinned_alloc(cap + 1); size_t p = 0; int nout = 0;
+        const char *seg = cs; int empty = (*cs == '\0');
+        while (!empty) {
+            const char *nx = strchr(seg, SOH); size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
+            char *el = rt_pinned_alloc(L + 1); memcpy(el, seg, L); el[L] = '\0';
+            char *ep; long long ev = strtoll(el, &ep, 10);
+            DESCR_t ed = (*ep == '\0' && ep != el && L > 0) ? INTVAL(ev) : STRVAL(el);
+            g_call_args[0] = ed;
+            DESCR_t rd = rt_call_proc_descr(bn, 1);
+            const char *keep = NULL; char rscratch[64];
+            if (want_map) keep = to_cstring(rd, rscratch, sizeof rscratch);
+            else keep = rt_is_truthy(rd) ? el : NULL;
+            if (keep) {
+                size_t KL = strlen(keep);
+                if (p + KL + 2 > cap) { size_t ncap = (p + KL + 2) * 2; char *nb = rt_pinned_alloc(ncap + 1); memcpy(nb, buf, p); buf = nb; cap = ncap; }
+                if (nout) buf[p++] = SOH;
+                memcpy(buf + p, keep, KL); p += KL; nout++;
+            }
+            if (!nx) break;
+            seg = nx + 1;
+        }
+        buf[p] = '\0';
+        *out = STRVAL(buf); return 1;
+    }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+    if (!strcmp(fn, "__rk_arr_first") && nargs >= 2) {
+        const char *bn = (args[1].v == DT_BLK) ? args[1].s : NULL;
+        if (bn && *bn) {
+            char scratch0[64];
+            const char *cs0 = to_cstring(args[0], scratch0, sizeof scratch0); if (!cs0) cs0 = "";
+            extern DESCR_t g_call_args[]; extern DESCR_t rt_call_proc_descr(const char *name, int nargs); extern int rt_is_truthy(DESCR_t v);
+            const char *seg = cs0;
+            while (*cs0) {
+                const char *nx = strchr(seg, SOH); size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
+                char *el = rt_pinned_alloc(L + 1); memcpy(el, seg, L); el[L] = '\0';
+                char *ep; long long ev = strtoll(el, &ep, 10);
+                DESCR_t ed = (*ep == '\0' && ep != el && L > 0) ? INTVAL(ev) : STRVAL(el);
+                g_call_args[0] = ed;
+                if (rt_is_truthy(rt_call_proc_descr(bn, 1))) { *out = ed; return 1; }
+                if (!nx) break;
+                seg = nx + 1;
+            }
+            *out = NULVCL; return 1;
+        }
+    }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
     if (!strcmp(fn, "__rk_arr_first") && nargs >= 1) {
         char scratch[64];
         const char *cs = to_cstring(args[0], scratch, sizeof scratch);
@@ -4282,12 +4337,14 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             }
             if (!is_dat_recv) {
                 int is_arrm = !strcmp(mname0, "kv") || !strcmp(mname0, "reverse") || !strcmp(mname0, "unique") || !strcmp(mname0, "sort")
+                           || ((!strcmp(mname0, "map") || !strcmp(mname0, "grep")) && nargs == 3 && args[2].v == DT_BLK)
                            || !strcmp(mname0, "elems") || !strcmp(mname0, "end") || !strcmp(mname0, "join") || !strcmp(mname0, "sum")
                            || !strcmp(mname0, "head") || !strcmp(mname0, "tail") || !strcmp(mname0, "min")
                            || !strcmp(mname0, "max") || !strcmp(mname0, "first")
                            || !strcmp(mname0, "keys") || !strcmp(mname0, "values");
                 if (is_arrm) {
-                    const char *afn = !strcmp(mname0, "kv") ? "__rk_arr_kv" : !strcmp(mname0, "sort") ? "__rk_arr_sort" : !strcmp(mname0, "min") ? "__rk_arr_min"
+                    const char *afn = !strcmp(mname0, "map") ? "__rk_arr_map" : !strcmp(mname0, "grep") ? "__rk_arr_grep"
+                                    : !strcmp(mname0, "kv") ? "__rk_arr_kv" : !strcmp(mname0, "sort") ? "__rk_arr_sort" : !strcmp(mname0, "min") ? "__rk_arr_min"
                                     : !strcmp(mname0, "max") ? "__rk_arr_max" : !strcmp(mname0, "first") ? "__rk_arr_first"
                                     : !strcmp(mname0, "keys") ? "__rk_arr_keys" : !strcmp(mname0, "values") ? "__rk_arr_values"
                                     : !strcmp(mname0, "end") ? "elems" : mname0;
