@@ -449,7 +449,13 @@ def main():
     if any(r["entry"] == entry_name for r in rows):
         refuse("entry name %r already exists -- pass --entry-name to disambiguate" % entry_name)
     rank = next_rank(rows)
-    new_entry = csh.Entry("block", rank, entry_name, sno_lines, ref_lines, want_rc=want_rc)
+    # ⛔⭐ THE BANNER'S seq IS THE ENTRY'S POSITION, NOT ITS CSV rank. read_block_suite() IGNORES the number
+    # printed in the banner and re-derives seq positionally (`seq += 1`), while write_block_suite() writes
+    # e.seq back out -- so "banner number == position" is an invariant of every file the reader has touched,
+    # and an entry whose seq is its rank makes the master fail this tool's OWN round-trip proof on the very
+    # next invocation. It was invisible for as long as rank and position coincided; corpus a6646f04c removed
+    # the 620 modes=ast entries from all seven masters and separated them permanently (hq_T 2026-09-13).
+    new_entry = csh.Entry("block", len(entries) + 1, entry_name, sno_lines, ref_lines, want_rc=want_rc)
     new_row = {"rank": str(rank), "entry": entry_name, "origin": args.origin, "family": "ladder",
                "kind": "block", "xfail": "0", "n_lines": str(len(sno_lines)), "modes": ladder_modes}
     for k in flag_order:
