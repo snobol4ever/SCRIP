@@ -1860,13 +1860,15 @@ DESCR_t rt_pl_dop_cmp_ge_c(DESCR_t *args, int nargs, void **ball) { return nargs
 DESCR_t rt_pl_dop_cmp_eq_c(DESCR_t *args, int nargs, void **ball) { return nargs == 2 ? dop_cmp_fast(args, 4, dop_cmp_eq, ball) : FAILDESCR; }
 DESCR_t rt_pl_dop_cmp_ne_c(DESCR_t *args, int nargs, void **ball) { return nargs == 2 ? dop_cmp_fast(args, 5, dop_cmp_ne, ball) : FAILDESCR; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_val_unbound(DESCR_t d);
 DESCR_t dop_write(DESCR_t *args, int nargs) {
     extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     extern FILE *fh_cur_out_fp(void);
     if (nargs != 1) return FAILDESCR;
     rt_gc_point_arr(args, 1, (const char **)0);
     { FILE *wd = fh_cur_out_fp(); DESCR_t v = rt_pl_deref_val(args[0]);
-      if (v.v == DT_R) { char fb[64]; fputs(pl_real_iso_str(v.r, fb, sizeof fb), wd); }
+      if (pl_val_unbound(v)) { extern void rt_pl_write_cell_fp(void *, FILE *); rt_pl_write_cell_fp((void *)&args[0], wd); }
+      else if (v.v == DT_R) { char fb[64]; fputs(pl_real_iso_str(v.r, fb, sizeof fb), wd); }
       else out_write_descr(wd, v, 0); }
     { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
 }
