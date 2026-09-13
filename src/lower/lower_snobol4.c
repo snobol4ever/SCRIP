@@ -46,6 +46,7 @@ static void sno_scan_stmtkw(const tree_t * t) {
     for (int i = 0; i < t->n; i++) sno_scan_stmtkw(t->c[i]);
 }
 static int g_sno_uses_code = 0;
+static int g_sno_calls_code = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_setexit_on(void) { const char * e = getenv("SCRIP_SETEXIT"); return (e && e[0] == '0') ? 0 : 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -54,7 +55,7 @@ static void sno_scan_code_use(const tree_t * t) {
     if (t->t == TT_FNC) {
         const char * fn = t->v.sval;
         if (!fn && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) fn = t->c[0]->v.sval;
-        if (fn && !strcmp(fn, "CODE")) { g_sno_uses_code = 1; return; }
+        if (fn && !strcmp(fn, "CODE")) { g_sno_uses_code = 1; g_sno_calls_code = 1; return; }
         if (fn && sno_setexit_on() && !strcmp(fn, "SETEXIT")) { g_sno_uses_code = 1; return; }
         if (fn && !strcmp(fn, "DEFINE")) { int ab = t->v.sval ? 0 : 1; if (t->n <= ab || !t->c[ab] || t->c[ab]->t != TT_QLIT) { g_sno_uses_code = 1; return; } }
     }
@@ -900,7 +901,7 @@ static IR_t * sno_label_trace_wrap(IR_graph_t * g, const char * nm, IR_t * land)
 static IR_t * sno_goto_target(IR_graph_t * g, const char * nm, IR_t * exitnd) {
     extern int g_rt_fragment_emit;
     IR_t * l = (nm && nm[0] != '$') ? bb_label_landing(nm) : NULL;
-    if (l && g_rt_fragment_emit && !sno_label_reserved(nm)) l = NULL;
+    if (l && (g_rt_fragment_emit || g_sno_calls_code) && !sno_label_reserved(nm)) l = NULL;
     if (l) return l;
     if (!nm || !nm[0]) sno_fatal("goto to unknown label", "?");
     IR_t * gd = lc_build(g, IR_GOTO_DEFERRED, exitnd, NULL);
@@ -2788,7 +2789,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
     g_sno_nexpr = 0;
     g_sno_npat = 0;
     g_sno_uses_stmtkw = 0;
-    g_sno_uses_code = 0; g_sno_n_multiproto = 0; g_sno_nproto = 0;
+    g_sno_uses_code = 0; g_sno_calls_code = 0; g_sno_n_multiproto = 0; g_sno_nproto = 0;
     for (int i = 0; i < prog->n; i++) if (prog->c[i]) { sno_scan_stmtkw(prog->c[i]); sno_scan_code_use(prog->c[i]); }
     { const char * _sk = getenv("SCRIP_SNO_STMTKW"); if (g_sno_uses_stmtkw) setenv("SCRIP_SNO_STMTKW", "1", 1); else if (_sk && *_sk == '1') g_sno_uses_stmtkw = 1; }
     sno_register_program(&g_stage2, prog);
