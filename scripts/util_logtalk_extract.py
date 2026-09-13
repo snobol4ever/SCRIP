@@ -220,7 +220,7 @@ class Case(object):
 
 
 class FileCases(object):
-    __slots__ = ("path", "group", "db", "loaded", "cases", "unparsed", "counted")
+    __slots__ = ("path", "group", "db", "loaded", "cases", "unparsed", "counted", "dead", "undecided")
 
     def __init__(self, **kw):
         for k in self.__slots__:
@@ -267,6 +267,48 @@ def _helpers(goal):
     return sorted(set(re.findall(r"\^\^([a-z_]+)", goal)))
 
 
+# ⛔⭐ A `:- if(...)` BLOCK INSIDE THE TEST OBJECT IS NOT DECORATION, AND READING BOTH OF ITS BRANCHES MAKES
+# FAIL=0 UNREACHABLE BY CONSTRUCTION. format_2 guards ~n on os::operating_system_type(windows): the if-branch
+# expects '\r\n' and the else-branch '\n' from the SAME goal under the SAME case name. Grade both and one of
+# every pair is red whatever the engine does -- 14 cases in format_2/format_3 alone, and 21 suite-wide.
+# ⭐ THE HONEST TREATMENT IS NOT "PICK ONE": it is to decide the guard where this runner can state the fact
+# about ITSELF with certainty, and to leave both branches in the population (today's behaviour, and a named
+# residual) where it cannot. We are on Linux and we are not any Prolog the suite names, so exactly those two
+# conjunct forms are decidable here; everything else -- coinduction support, current_op, catch(1^true) --
+# stays UNDECIDED and is reported by --census rather than silently resolved in one direction.
+_DIALECTS = ("b", "ciao", "cx", "eclipse", "gnu", "ji", "quintus", "sicstus", "swi", "swipl", "trealla",
+             "xsb", "xvm", "yap")
+
+
+def _conjunct_value(t):
+    t = t.strip()
+    while t.startswith("(") and _close_paren(t[1:]) == len(t) - 2:
+        t = t[1:-1].strip()
+    if t.startswith("\\+"):
+        v = _conjunct_value(t[2:])
+        return None if v is None else (not v)
+    m = re.match(r"os::operating_system_type\(\s*([a-z]+)\s*\)$", t)
+    if m:
+        return m.group(1) == "unix"
+    m = re.match(r"current_logtalk_flag\(\s*prolog_dialect\s*,\s*([a-z][a-zA-Z0-9_]*)\s*\)$", t)
+    if m:
+        return False if m.group(1) in _DIALECTS else None
+    return None
+
+
+def cond_value(text):
+    """True / False when this system decides the guard, else None (both branches stay in the population)."""
+    t = text.strip()
+    while t.startswith("(") and _close_paren(t[1:]) == len(t) - 2:
+        t = t[1:-1].strip()
+    vals = [_conjunct_value(x) for x in split_args(t)]
+    if any(v is False for v in vals):
+        return False
+    if all(v is True for v in vals):
+        return True
+    return None
+
+
 def parse_file(path):
     src = open(path, encoding="utf-8", errors="replace").read()
     i = src.find(":- object(")
@@ -279,8 +321,38 @@ def parse_file(path):
     body_db = []
     cases = []
     unparsed = []
+    dead = 0
+    undecided = []
+    guards = []            # one entry per open :- if(...): {"live": is this branch in the population, "done": a branch was definitely taken}
     for cl in split_clauses(body_src):
+        g = re.match(r":-\s*(if|elif|else|endif)\b", cl)
+        if g:
+            k = g.group(1)
+            if k in ("if", "elif"):
+                b = cl.find("(")
+                e = _close_paren(cl[b + 1:]) if b >= 0 else None
+                arg = cl[b + 1:b + 1 + e] if e is not None else ""
+                v = cond_value(arg)
+                if v is None:
+                    undecided.append(" ".join(arg.split())[:120])
+                if k == "if":
+                    guards.append({"live": v is not False, "done": v is True})
+                elif guards:
+                    guards[-1] = {"live": (not guards[-1]["done"]) and v is not False, "done": guards[-1]["done"] or v is True}
+            elif k == "else":
+                if guards:
+                    guards[-1] = {"live": not guards[-1]["done"], "done": guards[-1]["done"]}
+            else:
+                if guards:
+                    guards.pop()
+            continue
+        live = all(x["live"] for x in guards)
         m = re.match(r"(test|succeeds|fails|throws)\s*\(", cl)
+        if m and not live:
+            dead += 1
+            continue
+        if not live:
+            continue
         if not m:
             # ⛔⭐ THE OBJECT BODY IS NOT ONLY TEST CLAUSES, and reading it as if it were manufactures
             # false reds by the hundred. 30+ files define their support predicates INSIDE the object,
@@ -335,7 +407,7 @@ def parse_file(path):
         if re.match(r"^\s*(test|succeeds|fails|throws)\(", line):
             counted += 1
     return FileCases(path=path, group=_group_of(path), db=db, loaded=_tester_loaded(path), cases=cases,
-                     unparsed=unparsed, counted=counted)
+                     unparsed=unparsed, counted=counted, dead=dead, undecided=undecided)
 
 
 def parse_suite(root):
@@ -350,9 +422,10 @@ def parse_suite(root):
         # ⛔ THE SECOND, INDEPENDENT COUNT. See this file's header: a parser reading a syntax suite fails
         # silently and shortens its own denominator. grep is a different instrument with a different blind
         # spot, so when the two agree the population is believable and when they disagree neither is.
-        if fc.counted != len(fc.cases):
-            bad.append((f, "line-count says %d cases, the term parser says %d -- two readings of one population "
-                           "disagree, so neither is published" % (fc.counted, len(fc.cases))))
+        if fc.counted != len(fc.cases) + (fc.dead or 0):
+            bad.append((f, "line-count says %d cases, the term parser says %d graded + %d guarded-out -- two "
+                           "readings of one population disagree, so neither is published"
+                        % (fc.counted, len(fc.cases), fc.dead or 0)))
         out.append(fc)
     return out, bad
 
@@ -371,7 +444,14 @@ def main(argv):
                     by_exp[k] = by_exp.get(k, 0) + 1
                 for h in c.helpers:
                     by_help[h] = by_help.get(h, 0) + 1
-        print("files=%d cases=%d" % (len(files), tot))
+        dead = sum((f.dead or 0) for f in files)
+        und = {}
+        for f in files:
+            for u in (f.undecided or []):
+                und.setdefault(u, []).append(f.group)
+        print("files=%d cases=%d  (+%d guarded out by a :- if(...) this system decides FALSE)" % (len(files), tot, dead))
+        for u, gs in sorted(und.items(), key=lambda x: -len(x[1])):
+            print("  UNDECIDED GUARD in %d file(s) -- BOTH branches stay in the population: %s" % (len(gs), u))
         print("  by head form : %s" % sorted(by_kind.items(), key=lambda x: -x[1]))
         print("  by expectation: %s" % sorted(by_exp.items(), key=lambda x: -x[1]))
         print("  by ^^helper  : %s" % sorted(by_help.items(), key=lambda x: -x[1]))

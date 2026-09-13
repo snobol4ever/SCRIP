@@ -167,4 +167,6 @@
 #define MOD_OP_RT_PL_DB_TGUARD         222    /* rtx_plunify.s db_t_guard             */
 #define MOD_OP_RT_PL_CP_GUARD          223    /* rtx_plunify.s pl_cp_guard            */
 #define MOD_OP_RT_PL_HALT              224    /* rtx_plunify.s halt                   */
+#define MOD_OP_RT_PL_FORMAT            227    /* rtx_plunify.s rt_pl_dop_format       */
+#define MOD_OP_RT_PL_FORMAT3           228    /* rtx_plunify.s rt_pl_dop_format3      */
 #endif

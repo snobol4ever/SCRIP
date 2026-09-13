@@ -114,9 +114,31 @@ def _braces_to_parens(s):
             i = j
             continue
         ch = s[i]
+        # ⛔ `{}` IS A TERM, NOT AN EMPTY ESCAPE. Logtalk's escape is {Goal}; the empty braces are the atom
+        # `{}`, and rewriting them to `()` hands the parser a clause that cannot parse -- the case then reports
+        # nooutput, which reads as the builtin under test failing rather than as the harness eating its argument.
+        if ch == "{" and i + 1 < n and s[i + 1] == "}":
+            out.append("{}")
+            i += 2
+            continue
         out.append("(" if ch == "{" else (")" if ch == "}" else ch))
         i += 1
     return "".join(out)
+
+
+# Logtalk library messages a case sends as a HELPER (never as the subject under test), and the plain-Prolog
+# shim predicate each becomes. Anything else of the form Obj::Goal cannot be expressed here, so the case is
+# UNGRADED-and-named -- the alternative, emitting `list::member(...)` into a Prolog file, is a parse error that
+# reads as the builtin under test failing (the harness-made-red class this runner's header is about).
+LIB_MESSAGES = (("list::member", "lgt_member"),)
+
+
+def _rewrite_messages(goal):
+    """(goal with library messages rewritten, the first message left over or None)."""
+    for k, v in LIB_MESSAGES:
+        goal = re.sub(r"(?<![A-Za-z0-9_])%s(?![A-Za-z0-9_])" % re.escape(k), v, goal)
+    m = re.search(r"([a-zA-Z0-9_]+\s*::\s*[a-zA-Z0-9_]+)", goal)
+    return goal, (" ".join(m.group(1).split()) if m else None)
 
 
 def _rewrite_helpers(goal, supported):
@@ -204,6 +226,9 @@ def plan_case(c, supported):
     if bad is not None:
         return Plan(c, skip_reason="lgtunit helper ^^%s is not implemented by lib_logtalk_lgtunit.pl" % bad)
     goal = _braces_to_parens(goal)
+    goal, msg = _rewrite_messages(goal)
+    if msg is not None:
+        return Plan(c, skip_reason="Logtalk message %s in the goal is not expressible in plain Prolog" % msg)
     opts, unknown = _split_option(c.options)
     if unknown:
         return Plan(c, skip_reason="test/3 option(s) not understood: %s" % ",".join(unknown))

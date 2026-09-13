@@ -46,6 +46,12 @@
 % lgt_h(+Goal) -- run one harness step. Failure and error alike become a NAMED harness refusal.
 lgt_h(G) :- ( catch(G, E, throw('$lgt_harness'(error(G, E)))) -> true ; throw('$lgt_harness'(failed(G))) ).
 
+% Logtalk LIBRARY objects a case uses as a HELPER, never as the subject: list::member/2 is the standard
+% library's member/2 and nothing about it is under test, so it is provided here and the message is rewritten
+% to it. A message this shim does NOT provide leaves the case UNGRADED-and-named rather than parse-error RED.
+lgt_member(X, [X| _]).
+lgt_member(X, [_| T]) :- lgt_member(X, T).
+
 lgt_read_chars(S, L) :- get_char(S, C), ( C == end_of_file -> L = [] ; L = [C|T], lgt_read_chars(S, T) ).
 lgt_file_to_atom(F, A) :- open(F, read, S), lgt_read_chars(S, Cs), close(S), atom_chars(A, Cs).
 lgt_file_to_atom(F, Opts, A) :- open(F, read, S, Opts), lgt_read_chars(S, Cs), close(S), atom_chars(A, Cs).
@@ -63,16 +69,20 @@ lgt_set_text_output(Alias, Contents) :- lgt_set_text_output(Alias, Contents, [])
 lgt_set_text_output(Alias, Contents, Opts) :-
     open('lgt_capture_out.txt', write, S, [alias(Alias)|Opts]), assertz(lgt_cap_out(S)),
     ( Contents == '' -> true ; write(S, Contents) ).
-lgt_text_output_contents(Contents) :- lgt_close_out, lgt_file_to_atom('lgt_capture_out.txt', Contents).
-lgt_text_output_contents(_Alias, Contents) :- lgt_close_out, lgt_file_to_atom('lgt_capture_out.txt', Contents).
+% lgtunit's text_output_contents/1 yields a LIST OF CHARACTERS, not an atom -- every caller in the suite
+% asserts over it with subsumes(['1','.','0'| _], Contents), which an atom can never satisfy. The atom form
+% belongs to the ASSERTION helpers, which compare against the expected atom, so the two are kept apart here.
+lgt_text_output_chars(Cs) :- lgt_close_out, open('lgt_capture_out.txt', read, S), lgt_read_chars(S, Cs), close(S).
+lgt_text_output_contents(Contents) :- lgt_text_output_chars(Contents).
+lgt_text_output_contents(_Alias, Contents) :- lgt_text_output_chars(Contents).
 lgt_text_output_assertion(Expected, Assertion) :-
-    lgt_text_output_contents(Text), Assertion = (Text == Expected).
+    lgt_text_output_chars(Cs), atom_chars(Text, Cs), Assertion = (Text == Expected).
 lgt_text_output_assertion(Alias, Expected, Assertion) :-
-    lgt_text_output_contents(Alias, Text), Assertion = (Text == Expected).
+    lgt_text_output_contents(Alias, Cs), atom_chars(Text, Cs), Assertion = (Text == Expected).
 lgt_text_output_assertion(_Alias, Expected, Opts, Assertion) :-
     lgt_close_out, lgt_file_to_atom('lgt_capture_out.txt', Opts, Text), Assertion = (Text == Expected).
-lgt_check_text_output(Expected) :- lgt_text_output_contents(Text), Text == Expected.
-lgt_check_text_output(Alias, Expected) :- lgt_text_output_contents(Alias, Text), Text == Expected.
+lgt_check_text_output(Expected) :- lgt_text_output_chars(Cs), atom_chars(Text, Cs), Text == Expected.
+lgt_check_text_output(Alias, Expected) :- lgt_text_output_contents(Alias, Cs), atom_chars(Text, Cs), Text == Expected.
 lgt_suppress_text_output :- lgt_set_text_output('').
 lgt_clean_text_output :- lgt_close_out, catch(lgt_delete('lgt_capture_out.txt'), _, true).
 

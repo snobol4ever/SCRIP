@@ -913,33 +913,208 @@ static pl_cell_t *plc_fmt_next_arg(pl_cell_t **args) {
     return (pl_cell_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_pl_format_cell(const char *fmt, void *list_cell)
+typedef struct { char *b; size_t n; size_t cap; size_t seg; size_t fpos[256]; int fchr[256]; int nf; } plc_fb;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void plc_fb_raw(plc_fb *f, const char *s, size_t n)
 {
-    plc_atoms_ready();
-    if (!fmt) return;
-    plc_vmap vm; vm.n = 0; vm.fp = plc_out();
-    FILE *fd = vm.fp;
-    pl_cell_t *args = (pl_cell_t *)list_cell;
-    for (const char *p = fmt; *p; p++) {
-        if (*p != '~') { fputc(*p, fd); continue; }
-        p++;
-        int have_n = 0; long nval = 0;
-        if (*p == '*') { pl_cell_t *h = plc_fmt_next_arg(&args); if (h && pl_is_int(h)) { nval = (long)pl_int_val(h); have_n = 1; } p++; }
-        else { while (*p >= '0' && *p <= '9') { nval = nval * 10 + (*p - '0'); have_n = 1; p++; } }
-        if (*p == 'w' || *p == 'a' || *p == 'p') { pl_cell_t *h = plc_fmt_next_arg(&args); if (h) plc_write(h, &vm); }
-        else if (*p == 'q') { pl_cell_t *h = plc_fmt_next_arg(&args); if (h) plc_writeq(h, &vm); }
-        else if (*p == 'd') { pl_cell_t *h = plc_fmt_next_arg(&args); if (h && pl_is_int(h)) fprintf(fd, "%ld", (long)pl_int_val(h)); }
-        else if (*p == 'e') { pl_cell_t *h = plc_fmt_next_arg(&args); if (h) { double d = pl_is_int(h) ? (double)pl_int_val(h) : pl_float_val(h); fprintf(fd, "%e", d); } }
-        else if (*p == 'g') { pl_cell_t *h = plc_fmt_next_arg(&args); if (h) { double d = pl_is_int(h) ? (double)pl_int_val(h) : pl_float_val(h); fprintf(fd, "%g", d); } }
-        else if (*p == 'f') { pl_cell_t *h = plc_fmt_next_arg(&args); if (h) { double d = pl_is_int(h) ? (double)pl_int_val(h) : pl_float_val(h); fprintf(fd, "%.*f", have_n ? (int)nval : 6, d); } }
-        else if (*p == 'r' || *p == 'R') { pl_cell_t *h = plc_fmt_next_arg(&args); int base = have_n ? (int)nval : 8; if (h && pl_is_int(h) && base >= 2 && base <= 36) { long iv = (long)pl_int_val(h); char buf[72]; int bi = 0; unsigned long u = (iv < 0) ? (unsigned long)(-iv) : (unsigned long)iv; const char *dig = (*p == 'R') ? "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ" : "0123456789abcdefghijklmnopqrstuvwxyz"; if (u == 0) buf[bi++] = '0'; while (u) { buf[bi++] = dig[u % (unsigned long)base]; u /= (unsigned long)base; } if (iv < 0) fputc('-', fd); while (bi) fputc(buf[--bi], fd); } }
-        else if (*p == 'c') { pl_cell_t *h = plc_fmt_next_arg(&args); if (h && pl_is_int(h)) { int rep = have_n ? (int)nval : 1; for (int i = 0; i < rep; i++) fputc((int)pl_int_val(h), fd); } }
-        else if (*p == 's') { pl_cell_t *h = plc_fmt_next_arg(&args); pl_cell_t *lst = h ? pl_deref(h) : (pl_cell_t *)0; while (lst && (int)lst->v == DT_PLREF && pl_arity(lst) == 2) { pl_cell_t *aa = (pl_cell_t *)pl_compound_heap(lst); pl_cell_t *e = pl_deref(&aa[0]); if (e && pl_is_int(e)) fputc((int)pl_int_val(e), fd); lst = pl_deref(&aa[1]); } }
-        else if (*p == 'i') { plc_fmt_next_arg(&args); }
-        else if (*p == 'n' || *p == 'N') { int rep = have_n ? (int)nval : 1; for (int i = 0; i < rep; i++) fputc('\n', fd); }
-        else if (*p == '~') { fputc('~', fd); }
-    }
+    if (!n) return;
+    if (f->n + n + 1 > f->cap) { size_t c = f->cap ? f->cap : 512; while (c < f->n + n + 1) c *= 2; char *nb = (char *)realloc(f->b, c); if (!nb) return; f->b = nb; f->cap = c; }
+    memcpy(f->b + f->n, s, n); f->n += n; f->b[f->n] = '\0';
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void plc_fb_add(plc_fb *f, const char *s, size_t n)
+{
+    size_t at = f->n; plc_fb_raw(f, s, n);
+    for (size_t k = at; k < f->n; k++) if (f->b[k] == '\n') { f->seg = k + 1; f->nf = 0; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static size_t plc_fb_colat(plc_fb *f, size_t at) { size_t k = at; while (k > 0 && f->b[k - 1] != '\n') k--; return at - k; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void plc_fb_tab(plc_fb *f, int fill) { if (f->nf < 256) { f->fpos[f->nf] = f->n; f->fchr[f->nf] = fill; f->nf++; } }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void plc_fb_stop(plc_fb *f, long target)
+{
+    long cur = (long)plc_fb_colat(f, f->n), pad = target - cur;
+    if (pad > 0 && f->nf == 0) { for (long i = 0; i < pad; i++) plc_fb_raw(f, " ", 1); }
+    else if (pad > 0) {
+        size_t base = f->seg, segn = f->n - f->seg; int nf = f->nf, fi = 0; char *seg = (char *)malloc(segn + 1);
+        if (!seg) { f->seg = f->n; f->nf = 0; return; }
+        if (segn) memcpy(seg, f->b + base, segn); f->n = base; if (f->b) f->b[f->n] = '\0';
+        for (size_t k = 0; k <= segn; k++) {
+            while (fi < nf && f->fpos[fi] - base == k) {
+                long hi = ((long)(fi + 1) * pad) / nf, lo = ((long)fi * pad) / nf; char c = (char)f->fchr[fi];
+                for (long j = lo; j < hi; j++) plc_fb_raw(f, &c, 1);
+                fi++;
+            }
+            if (k < segn) plc_fb_raw(f, seg + k, 1);
+        }
+        free(seg);
+    }
+    f->seg = f->n; f->nf = 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void plc_fb_term(plc_fb *f, pl_cell_t *t, int kind, int quoted, int ignore_ops)
+{
+    char *bp = (char *)0; size_t bn = 0; FILE *ms = open_memstream(&bp, &bn); plc_vmap m;
+    if (!ms) return;
+    m.n = 0; m.fp = ms;
+    if (kind == 0) plc_write(t, &m);
+    else if (kind == 1) plc_writeq(t, &m);
+    else if (kind == 2) plc_write_canonical(t, &m);
+    else plc_wt(t, quoted, ignore_ops, 1, -1, 0, &m);
+    fclose(ms);
+    plc_fb_add(f, bp ? bp : "", bn);
+    free(bp);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_fmt_is_atom(pl_cell_t *d) { return d && ((int)d->v == DT_A || (int)d->v == DT_S) && !pl_cell_unbound(d); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_fmt_eval(pl_cell_t *h, DESCR_t *out, void **ball)
+{
+    extern int rt_pl_ax_eval_val(DESCR_t, DESCR_t *, void **);
+    if (!h) return 0;
+    if (pl_cell_unbound(h)) { extern void *rt_pl_ball_instantiation(void); if (!*ball) *ball = rt_pl_ball_instantiation(); return 0; }
+    return rt_pl_ax_eval_val(*h, out, ball);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_fmt_int(pl_cell_t *h, long *out, void **ball)
+{
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    DESCR_t v;
+    if (!plc_fmt_eval(h, &v, ball)) return 0;
+    if (v.v != DT_I) { if (!*ball) *ball = rt_pl_ball_kind2("type_error", "integer", v); return 0; }
+    *out = (long)v.i; return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_fmt_dbl(pl_cell_t *h, double *out, void **ball)
+{
+    DESCR_t v;
+    if (!plc_fmt_eval(h, &v, ball)) return 0;
+    *out = (v.v == DT_I) ? (double)v.i : v.r; return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_fmt_text(pl_cell_t *h, char **out, size_t *len, void **ball)
+{
+    extern void *rt_pl_ball_instantiation(void); extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    size_t cap = 64, n = 0; char *b; pl_cell_t *lst;
+    if (!h) return 0;
+    if (pl_cell_unbound(h)) { if (!*ball) *ball = rt_pl_ball_instantiation(); return 0; }
+    if (plc_fmt_is_atom(h)) { const char *s = plc_atom_text(h); *len = strlen(s); *out = (char *)malloc(*len + 1); if (!*out) return 0; memcpy(*out, s, *len + 1); return 1; }
+    b = (char *)malloc(cap); if (!b) return 0;
+    lst = pl_deref(h);
+    while (lst && (int)lst->v == DT_PLREF && pl_arity(lst) == 2) {
+        pl_cell_t *aa = (pl_cell_t *)pl_compound_heap(lst); pl_cell_t *e = pl_deref(&aa[0]); int ch = -1;
+        if (pl_cell_unbound(e)) { free(b); if (!*ball) *ball = rt_pl_ball_instantiation(); return 0; }
+        if (pl_is_int(e)) ch = (int)pl_int_val(e);
+        else if (plc_fmt_is_atom(e)) { const char *s = plc_atom_text(e); ch = s ? (unsigned char)s[0] : 0; }
+        else { free(b); if (!*ball) *ball = rt_pl_ball_kind2("type_error", "text", *e); return 0; }
+        if (n + 2 > cap) { cap *= 2; char *nb = (char *)realloc(b, cap); if (!nb) { free(b); return 0; } b = nb; }
+        b[n++] = (char)ch; lst = pl_deref(&aa[1]);
+    }
+    if (lst && pl_cell_unbound(lst)) { free(b); if (!*ball) *ball = rt_pl_ball_instantiation(); return 0; }
+    if (!lst || !plc_is_nil(lst)) { free(b); if (!*ball) *ball = rt_pl_ball_kind2("type_error", "text", lst ? *lst : *h); return 0; }
+    b[n] = '\0'; *out = b; *len = n; return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void plc_fmt_dec(plc_fb *f, long long iv, long places, int group)
+{
+    char dig[32]; int nd = 0, neg = iv < 0; unsigned long long u = neg ? (unsigned long long)(-(iv + 1)) + 1ull : (unsigned long long)iv; char outb[96]; int oi = 0, i, ip;
+    if (!u) dig[nd++] = '0';
+    while (u) { dig[nd++] = (char)('0' + (int)(u % 10ull)); u /= 10ull; }
+    while (nd <= places) dig[nd++] = '0';
+    if (neg) outb[oi++] = '-';
+    ip = nd - (int)places;
+    for (i = 0; i < ip; i++) { if (group && i && !((ip - i) % 3)) outb[oi++] = ','; outb[oi++] = dig[nd - 1 - i]; }
+    if (places > 0) { outb[oi++] = '.'; for (; i < nd; i++) outb[oi++] = dig[nd - 1 - i]; }
+    plc_fb_add(f, outb, (size_t)oi);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void plc_fmt_radix(plc_fb *f, long long iv, int base, int upper)
+{
+    const char *d = upper ? "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ" : "0123456789abcdefghijklmnopqrstuvwxyz";
+    char buf[80]; int bi = 0, oi = 0; char outb[82]; unsigned long long u = iv < 0 ? (unsigned long long)(-(iv + 1)) + 1ull : (unsigned long long)iv;
+    if (!u) buf[bi++] = '0';
+    while (u) { buf[bi++] = d[(int)(u % (unsigned long long)base)]; u /= (unsigned long long)base; }
+    if (iv < 0) outb[oi++] = '-';
+    while (bi) outb[oi++] = buf[--bi];
+    plc_fb_add(f, outb, (size_t)oi);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_pl_format_run(const char *fmt, void *list_cell)
+{
+    extern void *rt_pl_ball_instantiation(void); extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    plc_fb f; void *ball = (void *)0; pl_cell_t *args = (pl_cell_t *)list_cell; pl_cell_t all = list_cell ? *(pl_cell_t *)list_cell : pl_make_int(0); const char *p; FILE *fd;
+    plc_atoms_ready();
+    memset(&f, 0, sizeof f);
+    if (!fmt) return (void *)0;
+    for (p = fmt; *p && !ball; p++) {
+        long nval = 0; int have_n = 0, fill = ' ';
+        if (*p != '~') { plc_fb_add(&f, p, 1); continue; }
+        p++;
+        if (*p == '`' && p[1]) { fill = (unsigned char)p[1]; have_n = 1; nval = fill; p += 2; }
+        else if (*p == '*') { pl_cell_t *h = plc_fmt_next_arg(&args); p++; if (!h) { ball = rt_pl_ball_kind2("domain_error", "format_arguments", all); break; } if (!plc_fmt_int(h, &nval, &ball)) break; have_n = 1; fill = (int)nval; }
+        else { while (*p >= '0' && *p <= '9') { nval = nval * 10 + (*p - '0'); have_n = 1; p++; } if (have_n) fill = (int)nval; }
+        if (!*p) break;
+        if (*p == '~') { plc_fb_add(&f, "~", 1); continue; }
+        if (*p == 'n') { long r = have_n ? nval : 1; for (long i = 0; i < r; i++) plc_fb_add(&f, "\n", 1); continue; }
+        if (*p == 'N') { if (plc_fb_colat(&f, f.n)) plc_fb_add(&f, "\n", 1); continue; }
+        if (*p == 't') { plc_fb_tab(&f, have_n ? fill : ' '); continue; }
+        if (*p == '|') { plc_fb_stop(&f, have_n ? nval : (long)plc_fb_colat(&f, f.n)); continue; }
+        if (*p == '+') { plc_fb_stop(&f, (long)plc_fb_colat(&f, f.seg) + (have_n ? nval : 8)); continue; }
+        { pl_cell_t *h = plc_fmt_next_arg(&args);
+          if (!h) { ball = rt_pl_ball_kind2("domain_error", "format_arguments", all); break; }
+          if (*p == 'w' || *p == 'p') plc_fb_term(&f, h, 0, 0, 0);
+          else if (*p == 'q') plc_fb_term(&f, h, 1, 0, 0);
+          else if (*p == 'k') plc_fb_term(&f, h, 2, 0, 0);
+          else if (*p == 'i') { }
+          else if (*p == 'a') {
+              if (pl_cell_unbound(h)) { ball = rt_pl_ball_instantiation(); break; }
+              if (!plc_fmt_is_atom(h)) { ball = rt_pl_ball_kind2("type_error", "atom", *h); break; }
+              { const char *s = plc_atom_text(h); plc_fb_add(&f, s, strlen(s)); }
+          }
+          else if (*p == 'c') { long cv; if (!plc_fmt_int(h, &cv, &ball)) break; { long r = have_n ? nval : 1; char c = (char)cv; for (long i = 0; i < r; i++) plc_fb_add(&f, &c, 1); } }
+          else if (*p == 'd' || *p == 'D') { long iv; if (have_n && nval < 0) { ball = rt_pl_ball_kind2("domain_error", "format_argument", pl_make_int(nval)); break; } if (!plc_fmt_int(h, &iv, &ball)) break; plc_fmt_dec(&f, (long long)iv, have_n ? nval : 0, *p == 'D'); }
+          else if (*p == 'r' || *p == 'R') { long iv; long base = have_n ? nval : 8; if (base < 2 || base > 36) { ball = rt_pl_ball_kind2("domain_error", "radix", pl_make_int(base)); break; } if (!plc_fmt_int(h, &iv, &ball)) break; plc_fmt_radix(&f, (long long)iv, (int)base, *p == 'R'); }
+          else if (*p == 'f' || *p == 'e' || *p == 'E' || *p == 'g' || *p == 'G') {
+              double dv; char spec[8], nb[512];
+              if (!plc_fmt_dbl(h, &dv, &ball)) break;
+              spec[0] = '%'; spec[1] = '.'; spec[2] = '*'; spec[3] = (char)*p; spec[4] = '\0';
+              snprintf(nb, sizeof nb, spec, have_n ? (int)nval : 6, dv);
+              plc_fb_add(&f, nb, strlen(nb));
+          }
+          else if (*p == 's') {
+              char *tx = (char *)0; size_t tn = 0;
+              if (!plc_fmt_text(h, &tx, &tn, &ball)) break;
+              if (have_n && (size_t)nval < tn) tn = (size_t)(nval < 0 ? 0 : nval);
+              plc_fb_add(&f, tx, tn);
+              if (have_n && (size_t)nval > tn) for (size_t i = tn; i < (size_t)nval; i++) plc_fb_add(&f, " ", 1);
+              free(tx);
+          }
+          else if (*p == 'W') {
+              pl_cell_t *o = plc_fmt_next_arg(&args); int quoted = 0, iops = 0; pl_cell_t *lst;
+              if (!o) { ball = rt_pl_ball_kind2("domain_error", "format_arguments", all); break; }
+              if (pl_cell_unbound(o)) { ball = rt_pl_ball_instantiation(); break; }
+              for (lst = pl_deref(o); lst && (int)lst->v == DT_PLREF && pl_arity(lst) == 2; ) {
+                  pl_cell_t *aa = (pl_cell_t *)pl_compound_heap(lst); pl_cell_t *e = pl_deref(&aa[0]);
+                  if (e && (int)e->v == DT_PLREF && pl_arity(e) == 1) {
+                      const char *on = prolog_atom_name((int)(e->slen >> 16)); pl_cell_t *ov = pl_deref(&((pl_cell_t *)pl_compound_heap(e))[0]);
+                      int on_true = plc_fmt_is_atom(ov) && !strcmp(plc_atom_text(ov), "true");
+                      if (on && !strcmp(on, "quoted")) quoted = on_true;
+                      else if (on && !strcmp(on, "ignore_ops")) iops = on_true;
+                  }
+                  lst = pl_deref(&aa[1]);
+              }
+              plc_fb_term(&f, h, 3, quoted, iops);
+          }
+        }
+    }
+    if (!ball && args && !pl_cell_unbound(args) && !plc_is_nil(args)) ball = rt_pl_ball_kind2("domain_error", "format_arguments", all);
+    if (!ball) { fd = plc_out(); if (f.n) fwrite(f.b, 1, f.n, fd); }
+    free(f.b);
+    return ball;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_format_cell(const char *fmt, void *list_cell) { (void)rt_pl_format_run(fmt, list_cell); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_char_type_cell(void *char_cell, void *type_cell, void *val_cell, pl_tr_ctx_t *cx)
 {
