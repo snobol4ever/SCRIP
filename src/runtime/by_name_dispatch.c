@@ -8166,8 +8166,8 @@ void * rt_pl_dop_db_t_guard_c(DESCR_t *args, int nargs, void *root) {
     if (!pl_cell_text(args[1], ob, sizeof ob, &op) || !op) op = "assert";
     { DESCR_t t = rt_pl_deref_val(args[0]);
       if (!strcmp(op, "clref_out")) return pl_iso_unbound(t) ? (void *)0 : rt_pl_ball_culprit1("uninstantiation_error", t);
-      if (!strcmp(op, "clref_in")) {
-          if (pl_iso_unbound(t)) return rt_pl_ball_instantiation();
+      if (!strcmp(op, "clref_in") || !strcmp(op, "clref_opt")) {
+          if (pl_iso_unbound(t)) return strcmp(op, "clref_in") ? (void *)0 : rt_pl_ball_instantiation();
           if (!pl_cell_is_clref(t)) return rt_pl_ball_kind2("type_error", "db_reference", t);
           return (void *)0; }
       if (pl_iso_unbound(t)) return rt_pl_ball_instantiation();
@@ -8223,6 +8223,46 @@ static DESCR_t pl_db_add_r(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root
 }
 DESCR_t rt_pl_dop_db_assertz_r_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) { return pl_db_add_r(args, nargs, cx, root, 0); }
 DESCR_t rt_pl_dop_db_asserta_r_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) { return pl_db_add_r(args, nargs, cx, root, 1); }
+static void *pl_db_and_key(DESCR_t *tgt, DESCR_t refv, void *root, char *key, size_t kn) {
+    extern int rt_pl_db_term_key(void *, char *, size_t, int *);
+    extern void *rt_pl_db_get_by_key(void *, const char *, int);
+    int ar = 0;
+    if (rt_pl_db_term_key((void *)tgt, key, kn, &ar)) { void *db = rt_pl_db_get_by_key(root, key, 0); if (db) return db; }
+    { DESCR_t r = rt_pl_deref_val(refv);
+      if (pl_cell_is_clref(r)) { DESCR_t k = rt_pl_deref_val(((DESCR_t *)r.p)[0]); const char *ks = pl_atom_str(k);
+        if (ks) { snprintf(key, kn, "%s", ks); return rt_pl_db_get_by_key(root, ks, 0); } } }
+    return (void *)0;
+}
+DESCR_t rt_pl_dop_db_n_r_c(DESCR_t *args, int nargs, void *root) {
+    extern int rt_pl_db_count(void *);
+    char key[264];
+    if (nargs != 2) return FAILDESCR;
+    pl_atoms_ready();
+    { void *db = pl_db_and_key(&args[0], args[1], root, key, sizeof key); return INTVAL(db ? rt_pl_db_count(db) : 0); }
+}
+DESCR_t rt_pl_dop_db_at_r_c(DESCR_t *args, int nargs, void *root) {
+    extern int rt_pl_db_clause_at(void *, int, void *);
+    char key[264]; DESCR_t out;
+    if (nargs != 3) return FAILDESCR;
+    pl_atoms_ready();
+    { void *db = pl_db_and_key(&args[0], args[1], root, key, sizeof key); DESCR_t iv = rt_pl_deref_val(args[2]);
+      if (!db || iv.v != DT_I) return FAILDESCR;
+      return rt_pl_db_clause_at(db, (int)iv.i, (void *)&out) ? out : FAILDESCR; }
+}
+DESCR_t rt_pl_dop_db_ref_r_c(DESCR_t *args, int nargs, void *root) {
+    extern int rt_pl_db_ref_at(void *, int);
+    extern void *rt_pl_compound_cell(const char *, int, void *);
+    char key[264];
+    if (nargs != 3) return FAILDESCR;
+    pl_atoms_ready();
+    { void *db = pl_db_and_key(&args[0], args[1], root, key, sizeof key); DESCR_t iv = rt_pl_deref_val(args[2]);
+      if (!db || iv.v != DT_I) return FAILDESCR;
+      { int r = rt_pl_db_ref_at(db, (int)iv.i); DESCR_t kids[2]; DESCR_t *rc;
+        if (r < 1) return FAILDESCR;
+        kids[0] = pl_mk_atom_dup(key, strlen(key)); kids[1] = INTVAL((long long)r);
+        rc = (DESCR_t *)rt_pl_compound_cell("$clref", 2, (void *)kids);
+        return rc ? *rc : FAILDESCR; } }
+}
 DESCR_t rt_pl_dop_db_erase_ref_c(DESCR_t *args, int nargs, void *root) {
     extern int rt_pl_db_slot_of_ref(void *, int);
     extern int rt_pl_db_erase(void *, int);

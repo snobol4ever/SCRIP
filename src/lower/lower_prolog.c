@@ -650,6 +650,7 @@ static const pl_det_leaf_t pl_det_leaves[] = {
     { "$db_bind", 3, "$db_bind" }, { "$db_t_guard", 2, "$db_t_guard" }, { "$db_assertz_t", 1, "$db_assertz_t" }, { "$db_asserta_t", 1, "$db_asserta_t" },
     { "$db_abolish_t", 1, "$db_abolish_t" }, { "$db_retractall_t", 1, "$db_retractall_t" }, { "$db_seed_once", 3, "$db_seed_once" },
     { "$db_asserta_r", 2, "$db_asserta_r" }, { "$db_assertz_r", 2, "$db_assertz_r" }, { "$db_erase_ref", 1, "$db_erase_ref" },
+    { "$db_n_r", 2, "$db_n_r" }, { "$db_at_r", 3, "$db_at_r" }, { "$db_ref_r", 3, "$db_ref_r" },
     { "$db_decl", 3, "$db_decl" }, { "$pl_declared", 2, "$pl_declared" }, { "$pl_list_guard", 1, "$pl_list_guard" }, { "$pl_goal_guard", 1, "$pl_goal_guard" }, { "$pl_cp_count", 1, "$pl_cp_count" }, { "$pl_cp_nth", 3, "$pl_cp_nth" }, { "$pl_cp_guard", 1, "$pl_cp_guard" },
     { "halt", 0, "$halt" }, { "halt", 1, "$halt" }, { "flush_output", 0, "$flush_output" }, { "format", 1, "$format" }, { "format", 2, "$format" },
     { "write", 2, "$write_s" }, { "writeq", 2, "$writeq_s" }, { "print", 2, "$writeq_s" }, { "write_canonical", 2, "$write_canonical_s" }, { "writeln", 2, "$writeln_s" }, { "nl", 1, "$nl_s" },
@@ -885,6 +886,29 @@ static IR_t * pl_db_enum(lcx_t * cx, int k, const tree_t * target, int erase, IR
     if (er) { ir_operand_push(er, kn); ir_operand_push(er, to); lc_ω_to_β(er, to); }
     lc_ω_to_β(at, to); lc_ω_to_β(uni, to);
     if (entry_out) *entry_out = kn;
+    return to;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_db_enum_ref(lcx_t * cx, const tree_t * target, const tree_t * refterm, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    IR_t * un2 = build(cx, IR_CALL, γnext, ωfail); IR_LIT(un2).sval = "$unify";
+    IR_t * rat = build(cx, IR_CALL, un2, ωfail); IR_LIT(rat).sval = "$db_ref_r";
+    IR_t * uni = build(cx, IR_CALL, rat, ωfail); IR_LIT(uni).sval = "$unify";
+    IR_t * at = build(cx, IR_CALL, uni, ωfail); IR_LIT(at).sval = "$db_at_r";
+    IR_t * to = build(cx, IR_TO, at, ωfail); IR_LIT(to).sval = (char *) "ag";
+    IR_t * cnt = build(cx, IR_CALL, to, ωfail); IR_LIT(cnt).sval = "$db_n_r";
+    IR_t * lo = build(cx, IR_LIT_INTEGER, cnt, ωfail); IR_LIT(lo).ival = 0;
+    IR_t * re = NULL; IR_t * rv = term_lval_e(cx, refterm, &re);
+    IR_t * te = NULL; IR_t * tv = term_e(cx, target, &te);
+    lc_γ_to(tv, re ? re : rv); lc_ω_to(tv, ωfail);
+    lc_γ_to(rv, lo); lc_ω_to(rv, ωfail);
+    ir_operand_push(cnt, tv); ir_operand_push(cnt, rv);
+    ir_operand_push(to, lo); ir_operand_push(to, cnt);
+    ir_operand_push(at, tv); ir_operand_push(at, rv); ir_operand_push(at, to);
+    ir_operand_push(uni, at); ir_operand_push(uni, tv);
+    ir_operand_push(rat, tv); ir_operand_push(rat, rv); ir_operand_push(rat, to);
+    ir_operand_push(un2, rat); ir_operand_push(un2, rv);
+    lc_ω_to_β(at, to); lc_ω_to_β(uni, to); lc_ω_to_β(rat, to); lc_ω_to_β(un2, to);
+    if (entry_out) *entry_out = te ? te : tv;
     return to;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1333,6 +1357,12 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
                           pl_cc_fnc2(",", pl_cc_fnc2("$db_t_guard", (tree_t *) t->c[0], (tree_t *) pl_atom_goal("assert")),
                                      pl_cc_fnc2(!strcmp(nm, "asserta") ? "$db_asserta_r" : "$db_assertz_r", (tree_t *) t->c[0], (tree_t *) t->c[1]))),
                         γnext, ωfail, entry_out); }
+        if (!strcmp(nm, "clause") && t->n == 3) {
+            { const tree_t * bad = pl_tree_number(t->c[0]); if (!bad) bad = pl_tree_number(t->c[1]);
+              if (bad) return goal(cx, pl_cc_type_error("callable", bad, nm, 3), γnext, ωfail, entry_out); }
+            { IR_t * le = NULL; IR_t * nd = pl_db_enum_ref(cx, pl_clause_target(t->c[0], t->c[1]), t->c[2], γnext, ωfail, &le);
+              IR_t * ge = NULL; pl_db_leaf2_tree(cx, "$db_t_guard", t->c[2], pl_atom_goal("clref_opt"), le, ωfail, &ge);
+              if (entry_out) *entry_out = ge ? ge : le; return nd; } }
         if (!strcmp(nm, "erase") && t->n == 1) {
             return goal(cx, pl_cc_fnc2(",", pl_cc_fnc2("$db_t_guard", (tree_t *) t->c[0], (tree_t *) pl_atom_goal("clref_in")),
                                        pl_cc_fnc1("$db_erase_ref", (tree_t *) t->c[0])), γnext, ωfail, entry_out); }
