@@ -42,6 +42,7 @@ static void  mon_send_bin(uint32_t kind, uint32_t name_id, uint8_t type,
 typedef struct { char used; int kind; const char *name; const char *tag; const char *cbfn; } trace_ent_t;
 static trace_ent_t trace_tab[TRACE_TAB_CAP];
 static int trace_set_n = 0;
+static int trace_access_n = 0;
 static int g_comm_dbg = -1;
 static int trace_recursion_depth = 0;
 extern long g_trace;
@@ -84,6 +85,7 @@ static void trace_register(const char *name, int kind, const char *tag, const ch
         if (!e) return;
         e->used = 1; e->kind = kind; e->name = rt_pinned_strdup(name);
         trace_set_n++;
+        if (kind == TRK_ACCESS) trace_access_n++;
     }
     e->tag  = (tag  && *tag)  ? rt_pinned_strdup(tag)  : "";
     e->cbfn = (cbfn && *cbfn) ? rt_pinned_strdup(cbfn) : (const char *)0;
@@ -94,6 +96,7 @@ static void trace_unregister(const char *name, int kind) {
     if (!e) return;
     e->used = 0; e->kind = 0; e->name = (const char *)0; e->tag = (const char *)0; e->cbfn = (const char *)0;
     if (trace_set_n > 0) trace_set_n--;
+    if (kind == TRK_ACCESS && trace_access_n > 0) trace_access_n--;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int trace_registered(const char *name) { return trace_find_any(name) != (trace_ent_t *)0; }
@@ -3019,7 +3022,7 @@ static DESCR_t _var_assoc_set(const char *key, DESCR_t val) {
     return val;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t NV_GET_fn(const char *name) {
+static DESCR_t NV_GET_untapped(const char *name) {
     _var_init();
     if (!name) return NULVCL;
     if (is_protected_pat_lead(name[0]) && is_protected_pat_name(name)) { NV_t *pe = _var_bucket_find(name); if (pe) pe->touched = 1; }
@@ -3055,6 +3058,12 @@ DESCR_t NV_GET_fn(const char *name) {
     { extern DESCR_t rt_proc_value(const char *);
       if (name && (!strcmp(name, "write") || !strcmp(name, "writes"))) return rt_proc_value(name); }
     return NULVCL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t NV_GET_fn(const char *name) {
+    DESCR_t v = NV_GET_untapped(name);
+    if (trace_access_n != 0 && name && *name) { extern long g_stno; rt_trace_event(TRK_ACCESS, name, v, (long long)g_stno); }
+    return v;
 }
 int g_protected_pat_vars_armed = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
