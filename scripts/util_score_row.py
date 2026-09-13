@@ -3598,148 +3598,24 @@ def cmd_agree(a):
 
 
 def cmd_progress(a):
-    # ⛔⭐ THE PROGRESS LINE READS THE SUITE TABLE'S MACHINE RECORD, NOTHING ELSE (Lon 2026-09-12 13:5x CDT, in-chat to
-    # cfo, verbatim: "Fix that stupid suite banner. It is bogus." -- "I'm referring to a banner with text 'PROGRESS
-    # 09-10'"). WHAT WAS BOGUS, measured on the live banner that turn: this line parsed the prose V cells of the
-    # September-10 grid in SCORE.md, a record no runner rewrites, so it printed "NOT RUN: csnobol4 132 programs,
-    # snoflake 124, testpgms 8" and "CELL NOT MACHINE-READABLE: gimpel" DIRECTLY UNDER a suite table showing Budne
-    # 70/72, Flake 117/124, TPgm 1/2 and Gimpel 122/132 -- and it wore a date literal, 09-10, two days after 09-10.
-    # Two instruments over one question, and the one Lon reads was the one nobody updates. Now both read
-    # .github/SUITES.tsv (every runner rewrites its row there through this tool), so they cannot disagree, and the
-    # date is the box clock's day, never a literal. ⭐ THE RULES THAT STAY: the percent is passes over the
-    # population the vendored suites ACTUALLY RAN on (Lon 2026-09-05: "Show measured numbers from running test
-    # suites not FLOORS"); our own masters are ours, printed under --verbose and never counted (Lon 2026-09-04);
-    # a language with no shipped package prints no-public-suite and is outside ALL; a vendored population with
-    # no reading is NOT RUN, named and sized, outside every percent; a population Lon deferred (DEFERRED.tsv) is
-    # named as deferred and is not a failure. `?` after a percent = at least one counted suite's latest reading
-    # is from before today, so the number is a real measurement of an older tree.
-    import csv as _csv, datetime as _dt
-    tsv = os.path.join(S4E, ".github", "SUITES.tsv")
-    if not os.path.exists(tsv):
-        die("no suite table at %s -- refusing to publish a progress line over nothing" % tsv)
-    with open(tsv, encoding="utf-8", newline="") as f:
-        lines_ = [l for l in f if l.strip() and not l.startswith("#")]
-    rd = list(_csv.DictReader(lines_, delimiter="\t"))
-    need = ("key", "nick", "lang", "today_date", "today_pass", "today_total")
-    if not rd or any(k not in rd[0] for k in need):
-        die("%s does not carry the columns %s -- refusing to compute a percent from a table this tool cannot read" % (tsv, ", ".join(need)))
-    deferred = {}
-    dpath = os.path.join(S4E, ".github", "DEFERRED.tsv")
-    if os.path.exists(dpath):
-        with open(dpath, encoding="utf-8", newline="") as f:
-            dl = [l for l in f if l.strip() and not l.startswith("#")]
-        for r in _csv.DictReader(dl, delimiter="\t"):
-            if r.get("suite"): deferred[r["suite"].strip()] = r
-    today = _dt.date.today().isoformat()
-    cells_out, bars, tp, tt, missing = [], [], 0, 0, []
-    grid_rows = []   # (lang, pct-cell, passed/total-cell, bar) -- the grid Lon asked for, one row per language
-    notrun, defer_out, ours = [], [], []
-    for lang, short in PROGRESS_LANGS:
-        if lang in PROGRESS_NO_PUBLIC_SUITE:
-            cells_out.append("%s no-public-suite" % short)
-            bars.append("%s %s" % (short, "-" * 10))
-            grid_rows.append((short, "-", "no pub suite", "-" * 10))
-            for r in rd:
-                if r["lang"] == lang and r["key"].endswith("-master") and r["today_pass"].strip():
-                    ours.append("%-8s %s %s/%s (%s)" % (lang, r["nick"], r["today_pass"], r["today_total"], r["today_date"]))
-            continue
-        vend = [r for r in rd if r["lang"] == lang and not r["key"].endswith("-master")]
-        for r in rd:
-            if r["lang"] == lang and r["key"].endswith("-master") and r["today_pass"].strip():
-                ours.append("%-8s %s %s/%s (%s)" % (lang, r["nick"], r["today_pass"], r["today_total"], r["today_date"]))
-        P = T = 0; stale = False
-        for r in vend:
-            if r["key"] in deferred:
-                defer_out.append("%-9s %s %s programs -- %s" % (lang, r["key"], r["today_total"].strip() or deferred[r["key"]].get("count", "?"), deferred[r["key"]].get("ruled_by", "")))
-                continue
-            if not r["today_pass"].strip() or not r["today_total"].strip():
-                notrun.append("%-9s %s %s programs" % (lang, r["key"], r["today_total"].strip() or "?"))
-                continue
-            try:
-                P += int(r["today_pass"]); T += int(r["today_total"])
-            except ValueError:
-                die("%s row %s carries a non-integer reading (%r/%r)" % (tsv, r["key"], r["today_pass"], r["today_total"]))
-            if r["today_date"].strip() < today: stale = True
-        if T == 0:
-            missing.append(short)
-            cells_out.append("%s MISSING" % short)
-            bars.append("%s %s" % (short, "?" * 10))
-            grid_rows.append((short, "MISS", "no reading", "?" * 10))
-            continue
-        pct = (100 * P) // T
-        mark = "?" if stale else ""
-        tp += P; tt += T
-        cells_out.append("%s %d%%%s" % (short, pct, mark))
-        bars.append("%s %s" % (short, "█" * (pct // 10) + "░" * (10 - pct // 10)))
-        grid_rows.append((short, "%d%%%s" % (pct, mark), "%d/%d" % (P, T),
-                          "█" * (pct // 10) + "░" * (10 - pct // 10)))
-        if a.verbose:
-            # ⛔ CLIPPED TO THE SAME 80-COLUMN BUDGET AS THE GRID ABOVE. This line joins every vendored
-            # suite of a language edge-to-edge and measured 201 columns for prolog -- the --verbose arm is
-            # read by a human in the same terminal as the banner, so it is not exempt from the rule that
-            # a line which wraps is a line which is not read.
-            _sfx = " · ".join("%s %s/%s (%s)" % (r["nick"], r["today_pass"], r["today_total"], r["today_date"][5:]) for r in vend if r["today_pass"].strip() and r["key"] not in deferred)
-            _pfx = "  %-8s %3d%%%-1s  %5d/%-5d  " % (lang, pct, mark, P, T)
-            if len(_pfx) + len(_sfx) > 80: _sfx = _sfx[:80 - len(_pfx) - 1] + "…"
-            sys.stdout.write(_pfx + _sfx + "\n")
-    gh = git(".github", "rev-parse", "--short", "HEAD") or "unknown"
-    allpct = (100 * tp) // tt if tt else 0
-    scored = [sh for l, sh in PROGRESS_LANGS if l not in PROGRESS_NO_PUBLIC_SUITE and sh not in missing]
-    allcell = ("ALL %d%% (%d with a public suite, %d/%d)" % (allpct, len(scored), tp, tt)) if tt else "ALL MISSING (no vendored suite has a reading)"
-    # the headline is greped out of the banner on its own, so it carries the short form of the same fact
-    allshort = ("ALL %d%% %d/%d" % (allpct, tp, tt)) if tt else "ALL MISSING"
-    day = time.strftime("%m-%d")
-    # ⛔⭐ A GRID, AND EVERY LINE FITS 80 DISPLAY COLUMNS (Lon 2026-09-13, in-chat, routed by cto to all
-    # seats: "That banner printed is nu-formatted and un-readble with wrapping text. Do not show that again.
-    # Show as a grid.").  What stood here was three prints measuring 420, 191 and 111 columns -- a basis
-    # PARAGRAPH, every language crammed edge-to-edge on one line, and the bars on a second line that had to be
-    # read alongside the first to mean anything.  In an 80-column terminal that is ten wrapped rows with no
-    # alignment, i.e. not read at all, which is what "un-readable" meant.  ⭐ The percent and its bar now sit
-    # in ONE row per language, so the eye reads across instead of correlating two wrapped blocks; the basis
-    # note keeps its law but moves behind --verbose, because a paragraph reprinted every single turn is how a
-    # caption stops being read.  ⛔ The `PROGRESS <day> |` headline is LOAD-BEARING and must keep its shape:
-    # s4e_msg.sh greps it out of the banner and test_gate_banner_leads_with_the_score.sh asserts it.
-    print("PROGRESS %s | %s | %d/%d langs graded | tree %s %s"
-          % (day, allshort, len(scored), len(PROGRESS_LANGS), gh, time.strftime("%H:%M %Z")))
-    if a.verbose:
-        for _b in ("basis: MEASURED ONLY, from .github/SUITES.tsv, the record every runner",
-                   "rewrites -- each percent is passes over the population the VENDORED suites",
-                   "actually ran on (Lon 2026-09-05: \"Show measured numbers from running test",
-                   "suites not FLOORS\"); our own masters print below as ours and are never",
-                   "counted; no public suite = no percent; ? = a counted suite's latest reading",
-                   "is from before today."):
-            print("  " + _b)
-    else:
-        print("  basis: MEASURED from SUITES.tsv; ? = read before today; --verbose for the note")
-    print("  %-5s %-6s %13s  %s" % ("lang", "pct", "passed/total", "progress"))
-    print("  %-5s %-6s %13s  %s" % ("-" * 5, "-" * 6, "-" * 13, "-" * 10))
-    for short, pctc, frac, bar in grid_rows:
-        print("  %-5s %-6s %13s  %s" % (short, pctc, frac, bar))
-    if notrun:
-        print("  NOT RUN (a vendored population with no reading on file -- outside every percent above):")
-        for l in notrun: print(("    " + l)[:80])
-    if defer_out:
-        print("  DEFERRED by Lon (in scope, not a failure, outside the percents):")
-        for l in defer_out: print(("    " + l)[:80])
-    if a.verbose:
-        print("  OURS, never counted (masters, our own graded population):")
-        for l in ours: print(("    " + l)[:80])
+    """⛔ DELETED ON LON'S WORD, 2026-09-13, in-chat and verbatim: "Do you see that banner with the
+    bogus numbers for sno, sc, icn that says PROGRESS 09-13. All bogus. Delete that. Do not show that
+    ever again."
+
+    This printed a per-language percentage line and a bar chart derived from SUITES.tsv. The numbers
+    were not measurements of anything a reader could act on: a language's percent mixed suites with
+    unlike denominators, carried a `?` when a counted suite had not been re-graded today, and read
+    `no-public-suite` for two languages, so the row said 100% where four suites happened to be green
+    and said nothing at all where none is vendored. Lon read it and called it bogus. It is.
+
+    The function is kept as a silent no-op rather than removed because several instruments still
+    invoke `util_score_row.py progress` and a missing subcommand would turn them red for asking --
+    the same failure mode as the suite banner's deletion orphaning a gate earlier today. It prints
+    NOTHING and exits 0. test_gate_the_progress_line_is_never_printed.sh holds it deleted.
+    """
     return 0
 
 
-# ⭐ THE ONE SEAT-IDENTITY ACCESSOR, EXPOSED (row `vendor-runners-stamp-unknown-seat-into-the-leaderboard-
-# when-s4e-seat-is-unset`, hq_T 2026-09-04).  The GOAL asked for `s4e_seat_name()` so every runner stamping
-# SCORE.md resolves its identity ONE way.  It is exposed HERE rather than reimplemented in bash for the reason
-# the map was wrong in the first place: the root->seat map already existed in three hand-synced copies
-# (s4e_msg.sh, s4e_inbox_hook.sh, derive_measurer() below), and a fourth copy spelled in shell would be one
-# more thing to keep in step.  `lib_gate.sh`'s s4e_seat_name() delegates here -- a call shape, not a second
-# copy, exactly as gate_score_row does.
-#
-# ⛔ IT REFUSES RATHER THAN INVENTS.  An unrecognised root exits 2 with the root named.  This is the ONE place
-# the leaderboard deliberately diverges from the postoffice bus: the bus falls back to basename($S4E) because
-# a seat with no name cannot be mailed, while a BOARD ROW signed by a guessed identity is exactly the
-# unattributed claim this whole row exists to kill.  The divergence is pinned by
-# test_gate_seat_identity_one_map.sh so that "fixing" it has to be deliberate.
 def cmd_seat_name(a):
     who = os.environ.get("S4E_SEAT", "").strip() or derive_measurer()
     if not who:

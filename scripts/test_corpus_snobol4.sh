@@ -742,7 +742,9 @@ python3 "$HERE/util_score_row.py" write --lang snobol4 --column board --modes m3
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 # ⭐ THE PROGRESS LINE, after the rewrite (see board_icon_master.sh for the same call and why it is here
 # rather than only in lib_gate.sh: this runner writes its row directly, bypassing gate_score_row).
-python3 "$HERE/util_score_row.py" progress 2>/dev/null || true
+# ⛔ THE PROGRESS LINE IS DELETED (Lon 2026-09-13, verbatim: "All bogus. Delete that. Do not show
+# that ever again."). The call that stood here printed it; util_score_row.py progress is now a silent
+# no-op and this call is removed so the intent is visible rather than inferred from an empty output.
 # ⛔ AST FAILURES BLOCK. A parser fixture whose --dump-ast diff moved is a real red in the shared front end -- it
 # reaches BOTH modes, so calling it informational the way mode-3 is would be strictly weaker than either mode's bar.
 if [ "$FAIL4" -gt 0 ] || [ "$ASTFAIL" -gt 0 ]; then

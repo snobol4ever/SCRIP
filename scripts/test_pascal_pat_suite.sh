@@ -219,7 +219,9 @@ python3 "$HERE/util_score_row.py" write --lang pascal --column vendor --suite PA
     --measurer "${S4E_SEAT:-}" \
     --text "ISO 7185 validation suite (Pascal-P5 1.4.x, vendored corpus/packages/pascal/pat): both-modes $BOTH/$TOTAL · m3 ${P[m3]}/$TOTAL · m4 ${P[m4]}/$TOTAL (crash m3 ${C[m3]}, m4 ${C[m4]}) — $TOTAL programs, of which 427 are REJECTION tests graded on whether scrip refuses them${INV_LINE:+ . $INV_LINE}, per \`test_pascal_pat_suite.sh\`" \
     2>&1 | sed 's/^/    /'
-python3 "$HERE/util_score_row.py" progress 2>/dev/null || true
+# ⛔ THE PROGRESS LINE IS DELETED (Lon 2026-09-13, verbatim: "All bogus. Delete that. Do not show
+# that ever again."). The call that stood here printed it; util_score_row.py progress is now a silent
+# no-op and this call is removed so the intent is visible rather than inferred from an empty output.
 # ⛔⭐ THE FACT RULE'S OTHER HALF (CEO-319, /home/resources/progress/README.md): every suite run APPENDS its
 # per-program rows in the same sitting it rewrites its cell. MEASURED by hq_V at its opening, 2026-09-06:
 # 497 pascal rows stood in that table and every one was pascal-master -- ZERO from pat or fpc, so no Pascal

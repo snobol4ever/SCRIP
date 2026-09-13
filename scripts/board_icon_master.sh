@@ -423,6 +423,8 @@ python3 "$HERE/util_score_row.py" write --lang icon --column board --modes m3,m4
 # lib_gate.sh's gate_score_row, so it needs the call the shared path already carries -- same one line,
 # not a second implementation (both ends run `util_score_row.py progress`, which reads SCORE.md and
 # runs no suite).  Non-fatal by construction: it must not be able to change this board's verdict.
-python3 "$HERE/util_score_row.py" progress 2>/dev/null || true
+# ⛔ THE PROGRESS LINE IS DELETED (Lon 2026-09-13, verbatim: "All bogus. Delete that. Do not show
+# that ever again."). The call that stood here printed it; util_score_row.py progress is now a silent
+# no-op and this call is removed so the intent is visible rather than inferred from an empty output.
 if [ "$RED" -ne 0 ]; then echo "⛔ ICON MASTER BOARD RED"; exit 1; fi
 echo "✅ ICON MASTER BOARD OK: entries=$graded at/above floor $ENTRY_FLOOR · run-graded both-modes PASS=$mall/$mt (the AND, what the leaderboard row states) · m3 PASS=$m3p m4 PASS=$m4p / $mt (watermarks held) · ast-shape check $ap/$at (informational)"

@@ -571,7 +571,6 @@ gate_score_row() {
         return 0
     fi
     echo "$_out" | sed 's/^/    /'
-    gate_progress_line
     return 0
 }
 
@@ -582,10 +581,9 @@ gate_score_row() {
 # putting a seventh copy of the same three lines into seven runners.  ⛔ NON-FATAL, like its neighbour --
 # a reporting line must never be able to turn a measured board red.
 gate_progress_line() {
-    local _py
-    _py="$(dirname "${BASH_SOURCE[0]}")/util_score_row.py"
-    [ -f "$_py" ] || return 0
-    python3 "$_py" progress 2>/dev/null || true
+    # ⛔ DELETED ON LON'S WORD 2026-09-13 ("All bogus. Delete that. Do not show that ever again.").
+    # Kept as a no-op so any caller still works; it prints nothing and is no longer called from
+    # gate_score_row above. See cmd_progress in util_score_row.py for what it printed and why it went.
     return 0
 }
 # gate_three_way <label> <rc> <out> <extract-pattern> -- THE ABSENT-LINE PRIMITIVE (row
