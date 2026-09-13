@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# test_gate_bench_prolog_kernels_pristine.sh -- EVERY PROLOG BENCHMARK KERNEL IS PRISTINE AND HAS A REF
+# (CEO-567, RULES.md:321, ARCH-PROGRAM-LEDGER.md; row bench-kernels-are-not-pristine-and-carry-no-refs).
+#
+# THE RULE: a benchmark kernel's source holds the COMPUTATION AND NOTHING ELSE. The timing bracket and the
+# iteration loop are GENERATED around it by scripts/bench_prolog_wrap.sh, and every kernel carries a ref cut
+# from the ORACLE so the run that is timed is also graded.
+#
+# WHY THIS GATE EXISTS -- MEASURED hq_P 2026-09-13, SCRIP 202d8bfff, corpus 7bedb92d0, and the reason it is a
+# gate rather than a one-off cleanup:
+#   corpus/benchmarks/prolog/bench/ shipped TWO conventions in ONE directory -- 13 pristine result-signature
+#   kernels and 10 with a wall_us/wall_ms bracket baked into main/0.  The rival arms consult
+#   prelude_gplc.pl / prelude_swipl.pl, which define wall_us/1, so gprolog and swipl kept publishing real
+#   numbers for all 23.  ⛔ SCRIP HAS NO PROLOG-REACHABLE WALL CLOCK AT ANY SPELLING, so on the engine
+#   actually under measurement each of the ten raised existence_error(wall_us/1), printed NO answer, and
+#   EXITED 0.  A sweep counted that as a run.  The defect was therefore invisible from every direction that
+#   mattered: the board was full, the rival columns were real, and the SCRIP column was empty for a reason
+#   nothing reported.  That is the shape this gate exists to make impossible -- not the ten files, which are
+#   already cured, but the SECOND convention silently reappearing beside the first.
+#
+# ⭐ IT ALSO CAUGHT A REAL RED THE MOMENT IT MADE ONE MEASURABLE: with the bracket gone, tak.pl reaches
+#   SCRIP and dies at ERROR 246 stack overflow.  That red is now visible instead of masked; it is a Prolog
+#   runtime defect, not a benchmark defect, and it is filed rather than fixed here.
+set -uo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
+BD="${1:-$ROOT/../corpus/benchmarks/prolog/bench}"
+WRAP="$HERE/bench_prolog_wrap.sh"
+# REFUSES rc=2 WHEN IT CANNOT MEASURE -- never skip-as-success (RULES.md: a test that cannot measure refuses).
+[ -d "$BD" ] || { echo "GATE REFUSED (rc=2): no kernel directory at $BD -- nothing was checked" >&2; exit 2; }
+n=$(ls "$BD"/*.pl 2>/dev/null | wc -l)
+[ "$n" -gt 0 ] || { echo "GATE REFUSED (rc=2): $BD/*.pl matched 0 files -- a green here would be an empty claim" >&2; exit 2; }
+[ -x "$WRAP" ] || { echo "GATE REFUSED (rc=2): the generator $WRAP is missing -- the kernels would be pristine with nothing able to wrap them" >&2; exit 2; }
+bad=0
+for pl in "$BD"/*.pl; do
+  k=$(basename "$pl" .pl); why=""
+  # 1. NO TIMING AND NO ITERATION BUILTIN IN THE SOURCE. The spellings are every one the three engines use.
+  #    Comments are stripped first: the cure for these ten files left prose behind describing a bracket that
+  #    no longer existed, and prose that names a builtin is not a builtin.
+  code=$(sed 's/^%.*//' "$pl")
+  if printf '%s' "$code" | grep -qE '\b(wall_us|wall_ms|statistics|real_time|get_time|cputime|realtime)\b'; then
+    why="$why timing-builtin"; fi
+  if printf '%s' "$code" | grep -qE '^\s*l__\(|between\(\s*1\s*,\s*[0-9]+\s*,'; then
+    why="$why baked-iteration-loop"; fi
+  # 2. THE CONTRACT bench_prolog_wrap.sh READS. Without it the generator would emit a wrapper whose bracket
+  #    encloses nothing, and the harness would publish the startup cost as the work.
+  grep -qE '^% \*BENCH kernel='"$k"'\b' "$pl" || why="$why no-BENCH-marker"
+  grep -qE '^bench_work\(' "$pl"             || why="$why no-bench_work/1"
+  grep -qE '^main :- bench_work\(Res\), write\(Res\), nl\.$' "$pl" || why="$why no-standalone-main"
+  # 3. A REF, SO THE RUN THAT IS TIMED IS ALSO GRADED. Named .expected here because that is the extension
+  #    lib_prolog_bench.sh and nine other harnesses already read; the requirement is the ref, not the spelling.
+  [ -s "$BD/$k.expected" ] || why="$why no-ref"
+  [ -n "$why" ] && { echo "⛔ NOT PRISTINE: $k --$why"; bad=$((bad+1)); }
+done
+# 4. THE GENERATOR MUST REFUSE A NON-PRISTINE KERNEL, or the contract is advisory. Negative-tested here so
+#    the gate proves the refusal rather than trusting it.
+probe=$(mktemp -t gate_nonpristine_XXXXXX.pl)
+{ echo "% *BENCH kernel=probe"; echo ":- initialization(main)."
+  echo "bench_work(X) :- wall_us(X)."; echo "main :- bench_work(Res), write(Res), nl."; } > "$probe"
+"$WRAP" "$probe" --mode=single --engine=gnu >/dev/null 2>&1
+rc=$?; rm -f "$probe"
+[ "$rc" = 2 ] || { echo "⛔ THE GENERATOR DID NOT REFUSE a kernel carrying wall_us (rc=$rc, wanted 2) -- the contract is unenforced"; bad=$((bad+1)); }
+if [ "$bad" -gt 0 ]; then echo "GATE RED: $bad of $n Prolog benchmark kernel(s) violate the pristine-kernel contract"; exit 1; fi
+echo "GATE GREEN: $n Prolog benchmark kernels are pristine, carry the bench_work/1 contract and a ref, and the generator refuses a non-pristine source"
+exit 0
