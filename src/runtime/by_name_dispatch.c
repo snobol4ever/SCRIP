@@ -1944,16 +1944,24 @@ static int pl_parse_number_radix(const char *s, DESCR_t *out) { char *e = 0; int
             if (c < 0) return 0; *out = INTVAL(c); return 1; }
         if (s[2] && !s[3]) { *out = INTVAL((unsigned char)s[2]); return 1; }
         return 0; }
-    if (s[0] == '0' && (s[1] == 'x' || s[1] == 'X')) base = 16; else if (s[0] == '0' && (s[1] == 'o' || s[1] == 'O')) base = 8; else if (s[0] == '0' && (s[1] == 'b' || s[1] == 'B')) base = 2;
+    if (s[0] == '0' && s[1] == 'x') base = 16; else if (s[0] == '0' && s[1] == 'o') base = 8; else if (s[0] == '0' && s[1] == 'b') base = 2;
     if (!base) return 0;
     { long long v = strtoll(s + 2, &e, base); if (e && e != s + 2 && !*e) { *out = INTVAL(v); return 1; } }
     return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char * pl_skip_layout(const char *s) { if (!s) return s; while (*s == ' ' || *s == '\t' || *s == '\n' || *s == '\r' || *s == '\f' || *s == '\v') s++; return s; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_parse_number(const char *s, DESCR_t *out) { char *e = 0;
-    if (s && s[0] && pl_parse_number_radix(s, out)) return 1;
+    if (!s) return 0;
+    { const char *p = pl_skip_layout(s);
+      if (*p && pl_parse_number_radix(p, out)) return 1;
+      if (p[0] == '0' && (p[1] == 'x' || p[1] == 'X' || p[1] == 'o' || p[1] == 'O' || p[1] == 'b' || p[1] == 'B')) return 0; }
     { long long iv = strtoll(s, &e, 10);if (e && e != s && !*e) { *out = INTVAL(iv);return 1;} }
     { double dv = strtod(s, &e);
-    if (e && e != s && !*e) { *out = REALVAL(dv);return 1;} } return 0; }
+    if (e && e != s && !*e) { const char *b = pl_skip_layout(s); const char *d = strchr(b, '.');
+        if (d && (d[1] < '0' || d[1] > '9')) return 0;
+        if (d && (d == b || d[-1] < '0' || d[-1] > '9')) return 0;
+        *out = REALVAL(dv);return 1;} } return 0; }
 #define PL_TYPE_LEAF(nm) DESCR_t dop_pl_##nm(DESCR_t *args, int nargs) { pl_atoms_ready(); return (nargs == 1 && rt_pl_type_test_cell(&args[0], #nm)) ? pl_ok() : FAILDESCR; }
 PL_TYPE_LEAF(var) PL_TYPE_LEAF(nonvar) PL_TYPE_LEAF(atom) PL_TYPE_LEAF(number) PL_TYPE_LEAF(integer) PL_TYPE_LEAF(float)
 PL_TYPE_LEAF(atomic) PL_TYPE_LEAF(compound) PL_TYPE_LEAF(callable) PL_TYPE_LEAF(ground) PL_TYPE_LEAF(is_list)
@@ -8563,7 +8571,7 @@ static void * pl_anum_number_syntax(DESCR_t lst, int codes) {
         else { const char *es = pl_atom_str(e); if (!pl_anum_one_char(es)) return (void *)0; { size_t cl = strlen(es); if (k + cl + 1 >= sizeof buf) return (void *)0; memcpy(buf + k, es, cl); k += cl; } }
         cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1]); }
     buf[k] = '\0';
-    { const char *p = buf; while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r') p++;
+    { extern const char *pl_skip_layout(const char *); const char *p = pl_skip_layout(buf);
       if (*p && pl_parse_number(p, &num)) return (void *)0;
       return rt_pl_ball_kind1("syntax_error", "illegal_number"); }
 }
@@ -8578,7 +8586,7 @@ static void * pl_anum_text_list_pair(DESCR_t a, DESCR_t l, int codes, const char
     if (lk == -1) return rt_pl_ball_kind2("type_error", "list", l);
     { void *b = pl_anum_elems(l, codes); if (b) return b; }
     if (pl_iso_unbound(a) && lk == 0) return rt_pl_ball_instantiation();
-    if (pl_iso_unbound(a) && lk == 1 && !strcmp(atom_type, "number")) { void *b = pl_anum_number_syntax(l, codes); if (b) return b; }
+    if (lk == 1 && !strcmp(atom_type, "number")) { void *b = pl_anum_number_syntax(l, codes); if (b) return b; }
     return (void *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
