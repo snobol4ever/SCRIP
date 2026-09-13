@@ -212,7 +212,7 @@ static void plc_wt_atom(FILE *fp, const char *name, int quoted)
         fputc('\'', fp);
         for (const char *q = name; *q; q++) {
             switch (*q) {
-            case '\'': fputs("\\'", fp); break;
+            case '\'': fputs("''", fp); break;
             case '\\': fputs("\\\\", fp); break;
             case '\n': fputs("\\n", fp); break;
             case '\t': fputs("\\t", fp); break;
