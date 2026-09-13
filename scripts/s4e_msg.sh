@@ -2826,7 +2826,21 @@ TASKEOF
          # ⛔ THE GRID IS RENDERED BY util_suite_banner.py AND NEVER ASSEMBLED HERE (Lon: "not text from the
          # shell script"). This case must not format a suite number; if the renderer is missing, SAY SO loudly
          # rather than fall back to shell-built text, which is the exact thing that was ruled out.
-         if [ "$hrc" -eq 0 ] || [ "$onlyhere" -eq 0 ]; then printf '%s\n' "✅ SUCCESS"; else printf '%s\n' "❌ FAILURE"; fi
+         # ⛔⭐ THE WORD IS ONE OF FOUR, NOT ONE OF TWO (Lon 2026-09-13, in-chat to cfo, verbatim: "Change word
+         # FAILURE to IN-PROGRESS, and other unique modes if there are more than 2 states."). There ARE more than
+         # two: the verdict line above already branches four ways, and collapsing them onto SUCCESS/FAILURE threw
+         # away the two that tell a seat what to DO. Each word below is the branch that was already computed --
+         # nothing new is inferred, and no state is invented to fill the list out.
+         #   STOP        pre-rewrite clone; the tree itself is wrong and must be re-cloned before any work.
+         #   DRAIN       unread mail past the staleness limit; LAW 3 says answer before working.
+         #   SUCCESS     tree clean and nothing unpushed -- the only state that is actually finished.
+         #   IN-PROGRESS uncommitted or unpushed work. ⭐ THIS IS WHAT USED TO PRINT "FAILURE", AND FAILURE WAS
+         #     THE WRONG WORD: a seat mid-cure has failed at nothing, and a banner that calls ordinary unfinished
+         #     work a failure trains every reader to ignore the one word that should mean something.
+         if   [ -n "$diverged" ];   then printf '%s\n' "STOP"
+         elif [ "${drain:-0}" -eq 1 ]; then printf '%s\n' "DRAIN"
+         elif [ "$hrc" -eq 0 ] || [ "$onlyhere" -eq 0 ]; then printf '%s\n' "SUCCESS"
+         else printf '%s\n' "IN-PROGRESS"; fi
          _sb="$S4E/.github/scripts/util_suite_banner.py"
          if [ -f "$_sb" ]; then timeout 30 python3 "$_sb" || printf '%s\n' "⛔ SUITE GRID REFUSED (rc=$?) -- $_sb ran and did not render"
          else printf '%s\n' "⛔ SUITE GRID MISSING -- no $_sb"; fi
