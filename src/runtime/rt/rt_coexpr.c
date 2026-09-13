@@ -129,6 +129,7 @@ void scrip_coret(uint64_t d0, uint64_t d1, void *resume_addr) {
     if (!back) scrip_co_uerror("scrip_coexpr: scrip_coret with no activator (RUNG 5 `@` did not set scrip_co_current->activator before switching in)");
     back->xmit[0] = d0;
     back->xmit[1] = d1;
+    me->activations++;
     scrip_co_trace_term(me, back, d0, d1, 0);
     scrip_co_current = back;
     scrip_coswitch(me, back, 1);
@@ -263,7 +264,6 @@ int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint6
     scrip_co_current = prev;
     { extern long g_line; if (self->cur_line > 0) g_line = self->cur_line; }
     if (target->dead) return 0;
-    target->activations++;
     out2[0] = self->xmit[0];
     out2[1] = self->xmit[1];
     return 1;
