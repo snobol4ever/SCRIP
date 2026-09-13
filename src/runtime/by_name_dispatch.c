@@ -274,7 +274,7 @@ int rt_builtin_is_known(const char *name)
         "__rk_arr_xx", "__rk_arr_at", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first",
         "__rk_arr_keys", "__rk_arr_values", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
-        "__rk_div", "rk_write", "rk_writes", "rk_write_arr", "__rk_named_call", "__rk_rep", "__rk_exit",
+        "__rk_div", "__rk_intdiv", "__rk_mod", "rk_write", "rk_writes", "rk_write_arr", "__rk_named_call", "__rk_rep", "__rk_exit",
         "__pas_ca_pack", "__pas_ca_unpack",
         "__rk_hash",
         "elems", "push_pure", "unshift_pure", "arr_tail",
@@ -3034,6 +3034,27 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (bd == 0.0) { rt_script_die_surface("Attempt to divide by zero"); *out = FAILDESCR; return 1; }
         *out = REALVAL(ad / bd); return 1;
     }
+    if ((!strcmp(fn, "__rk_intdiv") || !strcmp(fn, "__rk_mod")) && nargs == 2) {
+        extern void rt_script_die_surface(const char *msg);
+        int is_div = (fn[5] == 'i');
+        DESCR_t a = args[0], b = args[1];
+        int ai = IS_INT_fn(a), arl = IS_REAL_fn(a), bi = IS_INT_fn(b), brl = IS_REAL_fn(b);
+        double ad = arl ? a.r : (ai ? (double)a.i : 0.0), bd = brl ? b.r : (bi ? (double)b.i : 0.0);
+        if (!ai && !arl) { char sa[64]; const char *cs = to_cstring(a, sa, sizeof sa); ad = cs ? strtod(cs, (char **)0) : 0.0; }
+        if (!bi && !brl) { char sb[64]; const char *cs = to_cstring(b, sb, sizeof sb); bd = cs ? strtod(cs, (char **)0) : 0.0; }
+        if (ai && bi) {
+            if (b.i == 0) { rt_script_die_surface(is_div ? "Attempt to divide by zero" : "Attempt to divide by zero using infix:<%>"); *out = FAILDESCR; return 1; }
+            long long q = a.i / b.i, r = a.i % b.i;
+            if (r != 0 && ((r < 0) != (b.i < 0))) { q -= 1; r += b.i; }
+            *out = INTVAL(is_div ? q : r); return 1;
+        }
+        if (bd == 0.0) { rt_script_die_surface(is_div ? "Attempt to divide by zero" : "Attempt to divide by zero using infix:<%>"); *out = FAILDESCR; return 1; }
+        double qf = floor(ad / bd);
+        if (is_div) { *out = REALVAL(qf); return 1; }
+        double rf = ad - bd * qf;
+        *out = REALVAL(rf); return 1;
+    }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
     if (!strcmp(fn, "__rk_arr_slice") && nargs == 3) {
         char scratch[64]; const char *cs = to_cstring(args[0], scratch, sizeof scratch); if (!cs) cs = "";
         long long lo = IS_INT_fn(args[1]) ? (long long)args[1].i : (IS_REAL_fn(args[1]) ? (long long)args[1].r : 0);

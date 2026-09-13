@@ -1661,7 +1661,8 @@ mul_expr
     : mul_expr '*'     unary_expr  { $$=expr_binary(TT_MUL,$1,$3); }
     | mul_expr '/'     unary_expr  { $$=expr_binary(TT_DIV,$1,$3); }
     | mul_expr '%'     unary_expr  { $$=expr_binary(TT_MOD,$1,$3); }
-    | mul_expr OP_DIV  unary_expr  { $$=expr_binary(TT_DIV,$1,$3); }
+    | mul_expr OP_DIV  unary_expr
+        { tree_t *c=make_call("__rk_intdiv"); expr_add_child(c,$1); expr_add_child(c,$3); $$=c; }
     | mul_expr OP_BAND unary_expr
         { tree_t *c=make_call("iand"); expr_add_child(c,$1); expr_add_child(c,$3); $$=c; }
     | mul_expr OP_SHL  unary_expr
