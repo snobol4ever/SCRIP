@@ -2811,6 +2811,25 @@ TASKEOF
            grep -v "^$ME |" "$PO/BOARD.md" 2>/dev/null > "$PO/.b.$$" || true
            printf '%s | %s | %s\n' "$ME" "$line" "$(date -u +%H:%M)" >> "$PO/.b.$$"
            mv "$PO/.b.$$" "$PO/BOARD.md" 2>/dev/null || rm -f "$PO/.b.$$"; fi
+         # ⛔⭐⭐ THE PRINTED BANNER IS EXACTLY TWO THINGS AND NOTHING ELSE (Lon 2026-09-13, in-chat to cfo,
+         # verbatim, in order: "Hey where is the banner showing SUCCESS and FAILURE?" · "No, it should not print
+         # anything but SUCCESS and FAILURE. And a grid of the test suite scores." · "Ensure a grid is output not
+         # text from the shell script." · "No, the grid must not be text." · "I want a excel type grid with lines
+         # and cells." · "I mean border lines."). THE VERDICT WORD, then THE GRID. No row topic, no commit count,
+         # no FINDING count, no safe-to-/clear prose -- $line keeps all of that and goes to BOARD.md ABOVE, which
+         # is a FILE and not the print, so `fleet` and `board` lose nothing.
+         # ⛔ HISTORY, so nobody re-deletes this: the printed banner was deleted entire at c902a4b73 on Lon's
+         # earlier word about the standing status block, and util_suite_banner.py's printer went with it. The
+         # deletion took the ONE-LINE VERDICT with the block Lon had actually objected to, and for the hours
+         # between that commit and this one EVERY SEAT'S Stop hook fired an EMPTY string -- measured here, rc=0
+         # and zero bytes. Lon noticed before any instrument did, because no gate asserts that the banner prints.
+         # ⛔ THE GRID IS RENDERED BY util_suite_banner.py AND NEVER ASSEMBLED HERE (Lon: "not text from the
+         # shell script"). This case must not format a suite number; if the renderer is missing, SAY SO loudly
+         # rather than fall back to shell-built text, which is the exact thing that was ruled out.
+         if [ "$hrc" -eq 0 ] || [ "$onlyhere" -eq 0 ]; then printf '%s\n' "✅ SUCCESS"; else printf '%s\n' "❌ FAILURE"; fi
+         _sb="$S4E/.github/scripts/util_suite_banner.py"
+         if [ -f "$_sb" ]; then timeout 30 python3 "$_sb" || printf '%s\n' "⛔ SUITE GRID REFUSED (rc=$?) -- $_sb ran and did not render"
+         else printf '%s\n' "⛔ SUITE GRID MISSING -- no $_sb"; fi
          { [ "$hrc" -eq 0 ] || [ "$onlyhere" -eq 0 ]; } && [ -z "$diverged" ] && exit 0 || exit 1;;
   fleet) # ⛔ LON'S HEALTH VIEW (Lon 2026-08-22: "I'll not read much but I will check on the health").
          # ONE screen for the whole fleet, all COMPUTED. Deliberately does NOT run handoff_status.sh per seat
