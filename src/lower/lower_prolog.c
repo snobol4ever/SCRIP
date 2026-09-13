@@ -628,7 +628,7 @@ static const pl_det_leaf_t pl_det_leaves[] = {
     { "put_code", 2, "$put_code_s" }, { "put_byte", 2, "$put_byte_s" }, { "unget_char", 2, "$unget_char_s" }, { "unget_code", 2, "$unget_code_s" }, { "unget_byte", 2, "$unget_byte_s" },
     { "read", 1, "$read" },
     { "atom_to_term", 3, "$atom_to_term" }, { "read_term_from_atom", 3, "$read_term_from_atom" }, { "read_term_from_chars", 3, "$read_term_from_chars" }, { "read_term_from_codes", 3, "$read_term_from_codes" },
-    { "writeq", 1, "$writeq" }, { "print", 1, "$writeq" }, { "write_canonical", 1, "$write_canonical" }, { "writeln", 1, "$writeln" },
+    { "writeq", 1, "$writeq" }, { "print", 1, "$writeq" }, { "write_term", 2, "$write_term" }, { "write_term", 3, "$write_term_s" }, { "write_canonical", 1, "$write_canonical" }, { "writeln", 1, "$writeln" },
     { "put_char", 1, "$put_char" },
     { "$db_bind", 3, "$db_bind" }, { "$db_t_guard", 2, "$db_t_guard" }, { "$db_assertz_t", 1, "$db_assertz_t" }, { "$db_asserta_t", 1, "$db_asserta_t" },
     { "$db_abolish_t", 1, "$db_abolish_t" }, { "$db_retractall_t", 1, "$db_retractall_t" }, { "$db_seed_once", 3, "$db_seed_once" },

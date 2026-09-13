@@ -169,4 +169,15 @@
 #define MOD_OP_RT_PL_HALT              224    /* rtx_plunify.s halt                   */
 #define MOD_OP_RT_PL_FORMAT            227    /* rtx_plunify.s rt_pl_dop_format       */
 #define MOD_OP_RT_PL_FORMAT3           228    /* rtx_plunify.s rt_pl_dop_format3      */
+#define MOD_OP_RT_PL_WRITE_TERM        229    /* rtx_plunify.s rt_pl_dop_write_term   */
+#define MOD_OP_RT_PL_WRITE_TERM_S      230    /* rtx_plunify.s rt_pl_dop_write_term_s */
+#define MOD_OP_RT_PL_WRITE_SB               231    /* rtx_plunify.s rt_pl_dop_write_sb */
+#define MOD_OP_RT_PL_WRITEQ_SB              232    /* rtx_plunify.s rt_pl_dop_writeq_sb */
+#define MOD_OP_RT_PL_WRITE_CANONICAL_SB     233    /* rtx_plunify.s rt_pl_dop_write_canonical_sb */
+#define MOD_OP_RT_PL_WRITELN_SB             234    /* rtx_plunify.s rt_pl_dop_writeln_sb */
+#define MOD_OP_RT_PL_NL_SB                  235    /* rtx_plunify.s rt_pl_dop_nl_sb */
+#define MOD_OP_RT_PL_TAB_SB                 236    /* rtx_plunify.s rt_pl_dop_tab_sb */
+#define MOD_OP_RT_PL_PUT_CHAR_SB            237    /* rtx_plunify.s rt_pl_dop_put_char_sb */
+#define MOD_OP_RT_PL_PUT_CODE_SB            238    /* rtx_plunify.s rt_pl_dop_put_code_sb */
+#define MOD_OP_RT_PL_FLUSH_OUTPUT_SB        239    /* rtx_plunify.s rt_pl_dop_flush_output_sb */
 #endif
