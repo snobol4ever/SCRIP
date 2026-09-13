@@ -26,6 +26,13 @@
 # element with a PLAIN ASSIGNMENT in a function · the IDENTICAL replacement statement at TOP LEVEL. That last one is
 # the sibling that pins the activation as the discriminator: the statement is not wrong, its context is.
 #
+# ⛔⭐ THE CLASS IS WIDER THAN AN ARRAY ELEMENT AND ARM 7 IS WHY THIS MATTERS (hq_S 2026-09-13, measured after hq_U
+# took the cure). An INDIRECT REFERENCE subject -- `$NM  LEN(1) . S1  REM . S2  =  S2  S1` inside a function -- has the
+# IDENTICAL signature: SIGSEGV where the oracle prints BCA, and green at top level. So the discriminator is a COMPUTED
+# LVALUE (subscripted OR indirect), not a subscript. A cure that keys on the subscript node alone passes arms 1-2 and
+# leaves gimpel PEEL_driver.sno dead -- PEEL.sno:26 is `$NAME.  LEN(K1.) . PEEL  =` inside a function, the indirect
+# spelling. Arm 7 exists so that cure cannot read as complete.
+#
 # ⛔ COVERAGE NOTE, measured and worth more than the gate: corpus/tests/snobol4/ALL.sno contains ZERO entries whose
 # replacement subject is subscripted, which is exactly why the SNOBOL4 master reads clean while gimpel PERMS_driver
 # SIGSEGVs. A green board is necessary, never sufficient. Adding a master witness is hq_S's suite-gap row and waits
@@ -55,6 +62,8 @@ w_leak()    { printf "\tA = ARRAY(2, 'ABC')\n\tN = 0\nL\tN = N + 1\n\tA<2>  LEN(
 c_plainvar(){ printf "\tDEFINE('F()')\t\t\t\t:(F_END)\nF\tV  LEN(1) . S1  REM . S2  =  S2  S1\t:(RETURN)\nF_END\tV = 'ABC'\n\tF()\n\tOUTPUT = V\nEND\n" > "$1"; }
 c_matchonly(){ printf "\tDEFINE('F()')\t\t\t\t:(F_END)\nF\tA<2>  LEN(1) . S1  REM . S2\t\t:(RETURN)\nF_END\tA = ARRAY(2, 'ABC')\n\tF()\n\tOUTPUT = A<2>\nEND\n" > "$1"; }
 c_plainassign(){ printf "\tDEFINE('F()')\t\t\t\t:(F_END)\nF\tA<2> = 'ZZZ'\t\t\t\t:(RETURN)\nF_END\tA = ARRAY(2, 'ABC')\n\tF()\n\tOUTPUT = A<2>\nEND\n" > "$1"; }
+w_indirect(){ printf "\tDEFINE('F()')\t\t\t\t:(F_END)\nF\t\$NM  LEN(1) . S1  REM . S2  =  S2  S1\t:(RETURN)\nF_END\tNM = 'V'\n\tV = 'ABC'\n\tF()\n\tOUTPUT = V\nEND\n" > "$1"; }
+c_indirect_top(){ printf "\tNM = 'V'\n\tV = 'ABC'\n\t\$NM  LEN(1) . S1  REM . S2  =  S2  S1\n\tOUTPUT = V\nEND\n" > "$1"; }
 c_toplevel(){ printf "\tA = ARRAY(2, 'ABC')\n\tA<2>  LEN(1) . S1  REM . S2  =  S2  S1\n\tOUTPUT = A<2>\nEND\n" > "$1"; }
 oracle_ref() {  # $1=src $2=out-ref  -- run the oracle TWICE, refuse if it is not deterministic
     ( cd "$t" && timeout 120 "$ORACLE" -bf "$1" < /dev/null > "$2.a" 2>&1 ); local ra=$?
@@ -97,7 +106,10 @@ grade "3 CONTROL plain-variable subject in a function" c_plainvar     "m3 m4"
 grade "4 CONTROL array element, match but no replace"  c_matchonly    "m3 m4"
 grade "5 CONTROL array element, plain assignment"      c_plainassign  "m3 m4"
 grade "6 CONTROL same replacement at TOP LEVEL"        c_toplevel     "m3 m4"
+echo "== THE WIDTH ARM: the class is a COMPUTED lvalue, not an array element =="
+grade "7 indirect-reference subject in a function"     w_indirect     "m3 m4"
+grade "8 CONTROL same indirect replacement TOP LEVEL"  c_indirect_top "m3 m4"
 echo "graded $GRADED witness-modes: PASS=$PASS FAIL=$FAIL (oracle $ORACLE, refs cut from it this run)"
 [ "$GRADED" -gt 0 ] || { echo "REFUSE(2): graded nothing"; exit 2; }
-if [ "$FAIL" -eq 0 ]; then echo "GREEN: a subscripted replacement leaves the spine where it found it"; exit 0; fi
-echo "RED: the subscripted-replacement store chain leaks ζ-SPINE -- cure site is the depth planner (hq_U's concern)"; exit 1
+if [ "$FAIL" -eq 0 ]; then echo "GREEN: a replacement through a COMPUTED LVALUE (subscripted or indirect) leaves the spine where it found it"; exit 0; fi
+echo "RED: a replacement through a COMPUTED LVALUE leaks ζ-SPINE inside an activation -- cure is hq_U's (CONCERN 3); the FILENAME says subscripted and UNDERSTATES it, arm 7 is the indirect spelling"; exit 1
