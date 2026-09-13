@@ -1497,6 +1497,12 @@ static void *pl_ax_int_ball(DESCR_t a, DESCR_t b, int ai) {
     return rt_pl_ball_kind2("type_error", "integer", ai ? b : a);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_ax_float_result(double r, double x, double y, const char *fn, int arity, DESCR_t *out, void **ball) {
+    extern void *rt_pl_ball_eval_error(const char *, const char *, int);
+    if (!isfinite(r) && isfinite(x) && isfinite(y)) { *out = FAILDESCR; if (ball && !*ball) *ball = rt_pl_ball_eval_error("float_overflow", fn, arity); return 1; }
+    *out = REALVAL(r); return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static double pl_big_as_real(DESCR_t d) { extern char *rt_big_str(DESCR_t); char *t = rt_big_str(d); return t ? strtod(t, (char **)0) : 0.0; }
 static int pl_big_sign(DESCR_t d) { extern int rt_big_cmp(DESCR_t, DESCR_t); return rt_big_cmp(d, INTVAL(0)); }
 static DESCR_t rt_big_neg_l(DESCR_t d) { extern DESCR_t rt_big_neg(DESCR_t); return rt_big_neg(d); }
@@ -1563,22 +1569,22 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
             return 1; }
         if (!strcmp(op, "intg"))  { *out = ai ? a : INTVAL((long long)llround(ad)); return 1; }
         if (!strcmp(op, "flt"))   { *out = REALVAL(ad); return 1; }
-        if (!strcmp(op, "sqrt"))  { *out = REALVAL(sqrt(ad)); return 1; }
+        if (!strcmp(op, "sqrt"))  { if (ad < 0.0) { *out = FAILDESCR; if (ball && !*ball) *ball = rt_pl_ball_eval_error("undefined", "sqrt", 1); return 1; } return pl_ax_float_result(sqrt(ad), ad, 0.0, "sqrt", 1, out, ball); }
         if (!strcmp(op, "sin"))   { *out = REALVAL(sin(ad)); return 1; }
         if (!strcmp(op, "cos"))   { *out = REALVAL(cos(ad)); return 1; }
         if (!strcmp(op, "atan"))  { *out = REALVAL(atan(ad)); return 1; }
         if (!strcmp(op, "log"))   { if (ad <= 0.0) { *out = FAILDESCR; if (ball && !*ball) *ball = rt_pl_ball_eval_error("undefined", "log", 1); return 1; }
             *out = REALVAL(log(ad)); return 1; }
-        if (!strcmp(op, "exp"))   { *out = REALVAL(exp(ad)); return 1; }
+        if (!strcmp(op, "exp"))   { return pl_ax_float_result(exp(ad), ad, 0.0, "exp", 1, out, ball); }
         if (!strcmp(op, "fip"))   { *out = REALVAL(trunc(ad)); return 1; }
         if (!strcmp(op, "ffp"))   { *out = REALVAL(ad - trunc(ad)); return 1; }
         if (!strcmp(op, "msb"))   { if (!ai) { if (ball && !*ball) *ball = pl_ax_int_ball(a, a, 0); *out = FAILDESCR; return 1; } if (a.i <= 0) { *out = FAILDESCR; return 1; } *out = INTVAL(63 - __builtin_clzll((unsigned long long)a.i)); return 1; }
         if (!strcmp(op, "bnot"))  { if (!ai) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); if (ball && !*ball) *ball = rt_pl_ball_kind2("type_error", "integer", a); *out = FAILDESCR; return 1; } *out = INTVAL(~a.i); return 1; }
         if (!strcmp(op, "tan"))   { *out = REALVAL(tan(ad)); return 1; }
-        if (!strcmp(op, "sinh"))  { *out = REALVAL(sinh(ad)); return 1; }
-        if (!strcmp(op, "cosh"))  { *out = REALVAL(cosh(ad)); return 1; }
+        if (!strcmp(op, "sinh"))  { return pl_ax_float_result(sinh(ad), ad, 0.0, "sinh", 1, out, ball); }
+        if (!strcmp(op, "cosh"))  { return pl_ax_float_result(cosh(ad), ad, 0.0, "cosh", 1, out, ball); }
         if (!strcmp(op, "tanh"))  { *out = REALVAL(tanh(ad)); return 1; }
-        if (!strcmp(op, "asinh")) { *out = REALVAL(asinh(ad)); return 1; }
+        if (!strcmp(op, "asinh")) { return pl_ax_float_result(asinh(ad), ad, 0.0, "asinh", 1, out, ball); }
         if (!strcmp(op, "asin") || !strcmp(op, "acos") || !strcmp(op, "acosh") || !strcmp(op, "atanh")
             || !strcmp(op, "log2") || !strcmp(op, "log10")) {
             int ok = !strcmp(op, "asin") || !strcmp(op, "acos") ? (ad >= -1.0 && ad <= 1.0)
@@ -1628,6 +1634,13 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
     if (!strcmp(op, "shr")) { if (!ai || !bi) { if (ball && !*ball) *ball = pl_ax_int_ball(a, b, ai); *out = FAILDESCR; return 1; } *out = INTVAL(a.i >> b.i); return 1; }
     if (!strcmp(op, "band")) { if (!ai || !bi) { if (ball && !*ball) *ball = pl_ax_int_ball(a, b, ai); *out = FAILDESCR; return 1; } *out = INTVAL(a.i & b.i); return 1; }
     if (!strcmp(op, "bor"))  { if (!ai || !bi) { if (ball && !*ball) *ball = pl_ax_int_ball(a, b, ai); *out = FAILDESCR; return 1; } *out = INTVAL(a.i | b.i); return 1; }
+    if (arl || brl) {
+        if (!strcmp(op, "add")) return pl_ax_float_result(ad + bd, ad, bd, "+", 2, out, ball);
+        if (!strcmp(op, "sub")) return pl_ax_float_result(ad - bd, ad, bd, "-", 2, out, ball);
+        if (!strcmp(op, "mul")) return pl_ax_float_result(ad * bd, ad, bd, "*", 2, out, ball);
+        if (!strcmp(op, "div")) { extern void *rt_pl_ball_eval_error(const char *, const char *, int);
+            if (bd == 0.0) { *out = FAILDESCR; if (ball && !*ball) *ball = rt_pl_ball_eval_error("zero_divisor", "/", 2); return 1; }
+            return pl_ax_float_result(ad / bd, ad, bd, "/", 2, out, ball); } }
     { DESCR_t r = pl_arith2(op, a, b); if (r.v == DT_FAIL) { *out = FAILDESCR; return 1; } *out = r; return 1; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
