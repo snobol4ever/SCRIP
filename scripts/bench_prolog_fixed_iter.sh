@@ -4,18 +4,28 @@
 #
 # Run EXACTLY N iterations per kernel (N fixed, COMMITTED, never a wall-clock deadline) and report
 # throughput (iterations/s) for gnu (gprolog) / swi (swipl) / m3 / m4. This is the mirror of
-# bench_prolog_vanroy.sh (angle 1: LIVE auto-ranged search each run). Angle 2 instead EXECUTES THE
-# ALREADY-COMMITTED corpus/benchmarks/prolog/vanroy/<kernel>.pl directly -- each file already carries a
-# frozen `main :- l__(N).` from a prior calibration run (bench_prolog_vanroy.sh's own checked-in-artifact
-# convention) -- so N here is HISTORICAL data, not derived live, which is the independence property the
-# cross-proof needs (angle 1 = live search this run; angle 2 = pre-committed N from a prior run).
+# test_bench_prolog_timed.sh (angle 1: LIVE doubling search each run). Angle 2 instead reads N from the
+# committed table corpus/benchmarks/prolog/fixed-iter-n.tsv and GENERATES the counted wrapper around the
+# pristine kernel at run time -- so N here is HISTORICAL data, not derived live, which is the independence
+# property the cross-proof needs (angle 1 = live search this run; angle 2 = pre-committed N).
 #
-# ⛔ CORRECTNESS IS NOT RE-VERIFIED HERE. A kernel only gets a vanroy/<k>.pl file if
-# bench_prolog_vanroy.sh's own gnu/swi/m3-vs-.expected correctness gate passed at generation time (see
-# that script's SKIP logic) -- this script trusts that provenance and gates only on the run completing
-# without crash/timeout. Re-verifying correctness on every angle-2 invocation would require re-running
-# the ORIGINAL (non-looped) bench/<k>.pl too, which angle 1 already does every time it regenerates
-# vanroy/ -- one authority, not two copies of the correctness check.
+# ⭐⛔ THE WRAPPER IS GENERATED, NEVER CHECKED IN (CEO-567, RULES.md:321; hq_P 2026-09-13, row
+# bench-kernels-are-not-pristine-and-carry-no-refs-ceo-567-conversion). This arm used to EXECUTE
+# corpus/benchmarks/prolog/vanroy/<k>.pl -- 21 checked-in files each carrying a frozen `main :- l__(N).`,
+# i.e. THE ITERATION COUNT LIVING INSIDE THE ARTIFACT UNDER MEASUREMENT, which is the thing CEO-567
+# forbids. Worse, those 21 were generated from the PRE-conversion bench/ sources, so each wrapped an old
+# self-timing main/0: MEASURED on SCRIP 5b17c350f / corpus d97c5fe87, the last vanroy board read
+# ok=0 bad=21 with EVERY m3 and m4 cell NA -- 13 of them LOOP-OUTPUT-MISMATCH(lines=0/N) because
+# existence_error(wall_us/1) killed the answer and exited 0, and gnu itself failed on ham/queens_8/queens.
+# The directory was a generated artifact that had drifted away from the sources it was generated from,
+# and nothing reported the drift because the rival columns kept printing real numbers.
+# Now: N comes from the TSV, the source is bench/<k>.pl VERBATIM, and scripts/bench_prolog_wrap.sh builds
+# the counted form per engine into a temp file. One authority for the wrapper shape, none of it on disk.
+#
+# ⛔ CORRECTNESS IS NOT RE-VERIFIED HERE, but it is no longer taken on trust either: loop_check()
+# compares this run's stdout byte-for-byte against N copies of bench/<k>.expected (the oracle-cut ref), so
+# a kernel whose loop did not loop N times reports LOOP-OUTPUT-MISMATCH and never a rate. The single-shot
+# answer check remains angle 1's job -- one authority, not two copies of the correctness check.
 #
 # External CPU time via tools/bench_rusage (elapsed_ns + user_us + sys_us), same instrument angle 3
 # (disk telemetry) and the SNOBOL4 triangulator both use -- never self-timing (row
@@ -24,30 +34,32 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
-V="${VANROY_DIR:-$S4E/corpus/benchmarks/prolog/vanroy}"
 B="${BENCH_DIR:-$S4E/corpus/benchmarks/prolog/bench}"
 PRO="${PROLOG_DIR:-$S4E/corpus/benchmarks/prolog}"
+NTSV="${NTSV:-$PRO/fixed-iter-n.tsv}"
+GEN="${GEN:-$HERE/bench_prolog_wrap.sh}"
 T="${TIMEOUT:-60}"
 # KERNELS, if set, restricts the run to this space-separated allowlist (basenames, no .pl) instead of
-# every *.pl under $V. Needed because $V can carry STALE wrappers for kernels that no longer pass angle
-# 1's correctness gate (a regenerate-in-place tool, not auto-pruned -- see bench_prolog_vanroy.sh's own
-# header) -- re-timing a kernel currently known to crash wastes wall-clock for no citable number. The
-# triangulator passes this explicitly from angle 1's OWN fresh non-SKIP list each run, so the allowlist
-# is never hand-maintained or stale itself. Unset (bare use) keeps the old "every file in $V" behaviour.
+# every row of $NTSV. Re-timing a kernel currently known to crash wastes wall-clock for no citable
+# number. The triangulator passes this explicitly from angle 1's OWN fresh non-SKIP list each run, so the
+# allowlist is never hand-maintained or stale itself. Unset (bare use) runs every row of the table.
 KERNELS="${KERNELS:-}"
 [ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built"; exit 2; }
 [ -f "$RT/libscrip_rt.so" ] || { echo "⛔ REFUSED-TO-GRADE libscrip_rt.so not built"; exit 2; }
-[ -d "$V" ] || { echo "⛔ REFUSED-TO-GRADE vanroy corpus missing: $V (run bench_prolog_vanroy.sh first to populate it)"; exit 2; }
+[ -d "$B" ] || { echo "⛔ REFUSED-TO-GRADE kernel dir missing: $B"; exit 2; }
+[ -s "$NTSV" ] || { echo "⛔ REFUSED-TO-GRADE committed-N table missing or empty: $NTSV -- angle 2 has no historical N and would be a second copy of angle 1"; exit 2; }
+[ -x "$GEN" ] || { echo "⛔ REFUSED-TO-GRADE wrapper generator missing: $GEN -- the counted form is generated, never checked in (CEO-567)"; exit 2; }
 command -v gprolog >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE gprolog absent"; exit 2; }
 command -v swipl   >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE swipl absent"; exit 2; }
 # ⛔ THE RIVAL PRELUDES ARE PART OF THE RIVAL INVOCATION, NOT AN OPTION (hq_P 2026-09-02, row prolog-instruments-and-baseline-standup).
-# Ten of the 21 van Roy kernels are self-timed on the two-number basis and call wall_us/1 + wall_ms/1 -- SCRIP builtins that are
-# UNDEFINED on gprolog/swipl unless prelude_gplc.pl / prelude_swipl.pl is consulted first. MEASURED before this line existed: every
-# bracketed kernel failed the rival single-shot correctness gate with existence_error(wall_us/1), so its whole row read SKIP and the
-# triangulation TSV published UNPROVEN for gnu AND swi -- an instrument defect printed in the vocabulary of a kernel finding (the
-# 2026-09-02 "12 cells UNPROVEN in 6 s" null). bench_prolog_vanroy.sh --two-number already consults the preludes; this arm now runs
-# the IDENTICAL rival invocation so the three angles and the two-number board grade one program. Missing prelude => REFUSE, never a
-# plausible SKIP: a rival that cannot load its clock is not a rival that disagreed.
+# The generated wrapper calls wall_us/1 + wall_ms/1, which gprolog and swipl do not have; prelude_gplc.pl / prelude_swipl.pl supply
+# them. MEASURED before that line existed: every bracketed kernel failed the rival correctness gate with existence_error(wall_us/1),
+# so its whole row read SKIP and the triangulation TSV published UNPROVEN for gnu AND swi -- an instrument defect printed in the
+# vocabulary of a kernel finding (the 2026-09-02 "12 cells UNPROVEN in 6 s" null). ⭐ THE PRELUDE IS NOW INLINED BY THE GENERATOR
+# (bench_prolog_wrap.sh cats it above the verbatim kernel) rather than consulted as a second file, so each engine runs ONE
+# self-contained program and the kernel text inside it stays byte-identical across engines -- the kernel is the thing being compared.
+# Consulting it again here would redefine wall_us/1 under the generator's own definition and grade a program nobody wrote.
+# Still REFUSE when a prelude is missing, never a plausible SKIP: a rival that cannot load its clock is not a rival that disagreed.
 [ -f "$PRO/prelude_gplc.pl" ] && [ -f "$PRO/prelude_swipl.pl" ] || { echo "⛔ REFUSED-TO-GRADE rival preludes missing under $PRO (prelude_gplc.pl / prelude_swipl.pl)"; exit 2; }
 . "$HERE/lib_prolog_bench.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE (rc=2): cannot source lib_prolog_bench.sh -- the ONE loop-output check"; exit 2; }
 WRAP="$ROOT/tools/bench_rusage"
@@ -58,15 +70,24 @@ WRAP="$ROOT/tools/bench_rusage"
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 ulimit -s unlimited 2>/dev/null || ulimit -s 1048576 2>/dev/null || true
 
-get_n() { sed -n 's/^main :- l__(\([0-9]*\))\.$/\1/p' "$1" | head -1; }
+# ⛔ THE TABLE IS THE ONLY SOURCE OF N HERE. It is read once, up front, so an unreadable or orphaned row
+# REFUSES before a single engine is launched rather than printing a board that is quietly smaller.
+declare -A NCOMMIT=(); order=()
+while IFS=$'\t' read -r k n; do
+  case "$k" in ''|'#'*|kernel) continue ;; esac
+  case "$n" in ''|*[!0-9]*) echo "⛔ REFUSED-TO-GRADE: $NTSV row '$k' has a non-numeric N '$n'"; exit 2 ;; esac
+  [ -f "$B/$k.pl" ] || { echo "⛔ REFUSED-TO-GRADE: $NTSV names '$k' but $B/$k.pl does not exist -- an orphan denominator entry is a lie, not a smaller board"; exit 2; }
+  NCOMMIT["$k"]="$n"; order+=("$k")
+done < "$NTSV"
+[ "${#order[@]}" -gt 0 ] || { echo "⛔ REFUSED-TO-GRADE: $NTSV carries zero kernel rows"; exit 2; }
 rate() { awk -v n="$1" -v us="$2" 'BEGIN{ if (us+0>0) printf "%.4f", n/(us/1e6); else print "NA" }'; }
 
 # one bench_rusage-wrapped run; echoes "cpu_us nivcsw" or "- -" + reason on crash/DNF/missing rusage line
 run1() {
   local eng="$1" pl="$2" n="${3:-}" exp="${4:-}" out rl user sys nivcsw r
   case "$eng" in
-    gnu) out=$("$WRAP" timeout -k 5 "$T" gprolog --consult-file "$PRO/prelude_gplc.pl" --consult-file "$pl" --query-goal halt >"$W/o.$$" 2>"$W/e.$$") ;;
-    swi) out=$("$WRAP" timeout -k 5 "$T" swipl -q -g halt "$PRO/prelude_swipl.pl" "$pl" >"$W/o.$$" 2>"$W/e.$$") ;;
+    gnu) out=$("$WRAP" timeout -k 5 "$T" gprolog --consult-file "$pl" --query-goal halt >"$W/o.$$" 2>"$W/e.$$") ;;
+    swi) out=$("$WRAP" timeout -k 5 "$T" swipl -q -g halt "$pl" >"$W/o.$$" 2>"$W/e.$$") ;;
     m3)  out=$("$WRAP" timeout -k 5 "$T" "$SCRIP" --run "$pl" >"$W/o.$$" 2>"$W/e.$$") ;;
     m4)  local s="$W/$$.s" b="$W/$$.bin"
          if ! (cd "$W" && timeout -k 5 "$T" "$SCRIP" --compile --target=x86 "$pl" </dev/null >"$s" 2>/dev/null) || [ ! -s "$s" ]; then
@@ -94,21 +115,28 @@ run1() {
   echo "$(( ${user:-0} + ${sys:-0} )) ${nivcsw:-0}"
 }
 
-echo "FIXED-ITERATION PROLOG BENCHMARKS -- angle 2: N fixed per kernel (committed in vanroy/<k>.pl), external cpu time measured"
-echo "engines: gnu swi m3 m4   vanroy: $V   external instrument: tools/bench_rusage (user+sys cpu time)"
+echo "FIXED-ITERATION PROLOG BENCHMARKS -- angle 2: N fixed per kernel (committed in $NTSV), external cpu time measured"
+echo "kernels: $B (pristine, verbatim)   wrapper: GENERATED per engine by $(basename "$GEN") --mode=iter (never checked in, CEO-567)"
+echo "engines: gnu swi m3 m4   external instrument: tools/bench_rusage (user+sys cpu time)"
 echo
 printf "%-14s %10s %14s %14s %14s %14s  %s\n" BENCHMARK N gnu/s swi/s m3/s m4/s check
 printf "%-14s %10s %14s %14s %14s %14s  %s\n" "--------------" "----------" "--------------" "--------------" "--------------" "--------------" "-----"
 tot_ok=0; tot_bad=0
-for pl in "$V"/*.pl; do
-  [ -e "$pl" ] || continue
-  k=$(basename "${pl%.pl}")
+for k in "${order[@]}"; do
   if [ -n "$KERNELS" ]; then case " $KERNELS " in *" $k "*) ;; *) continue ;; esac; fi
-  N=$(get_n "$pl")
-  if [ -z "$N" ]; then printf "%-14s %10s   MISSING l__(N) IN COMMITTED FILE -- regenerate via bench_prolog_vanroy.sh\n" "$k" "-"; tot_bad=$((tot_bad+1)); continue; fi
+  N="${NCOMMIT[$k]}"
   ckstat=ok; declare -A RATE=()
   for eng in gnu swi m3 m4; do
-    res=$(run1 "$eng" "$pl" "$N" "$B/$k.expected"); cpu=$(awk '{print $1}' <<<"$res")
+    # ⛔ --engine names WHO WILL RUN THE OUTPUT and changes only the PRELUDE, never the kernel; m3 and m4 are
+    # both the SCRIP arm, which gets no prelude because SCRIP's Prolog has no wall clock at any spelling.
+    case "$eng" in gnu) ge=gnu ;; swi) ge=swi ;; *) ge=scrip ;; esac
+    gpl="$W/gen.$k.$ge.pl"
+    if [ ! -s "$gpl" ]; then
+      if ! "$GEN" "$B/$k.pl" --mode=iter --n="$N" --engine="$ge" -o "$gpl" >/dev/null 2>"$W/gen.err"; then
+        RATE[$eng]="NA"; [ "$ckstat" = ok ] && ckstat="$eng:GEN-REFUSED($(head -1 "$W/gen.err" | cut -c1-48))"; continue
+      fi
+    fi
+    res=$(run1 "$eng" "$gpl" "$N" "$B/$k.expected"); cpu=$(awk '{print $1}' <<<"$res")
     if [ "$cpu" = "-" ]; then RATE[$eng]="NA"; reason=$(cut -d' ' -f3- <<<"$res"); [ "$ckstat" = ok ] && ckstat="$eng:$reason"
     else RATE[$eng]=$(rate "$N" "$cpu"); fi
   done

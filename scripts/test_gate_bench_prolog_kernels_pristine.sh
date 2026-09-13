@@ -30,6 +30,15 @@ WRAP="$HERE/bench_prolog_wrap.sh"
 n=$(ls "$BD"/*.pl 2>/dev/null | wc -l)
 [ "$n" -gt 0 ] || { echo "GATE REFUSED (rc=2): $BD/*.pl matched 0 files -- a green here would be an empty claim" >&2; exit 2; }
 [ -x "$WRAP" ] || { echo "GATE REFUSED (rc=2): the generator $WRAP is missing -- the kernels would be pristine with nothing able to wrap them" >&2; exit 2; }
+# ⭐⛔ NAME THE CORPUS TREE THIS GATE GRADED, ON THE VERDICT LINE, GREEN OR RED (hq_P 2026-09-13, on hq_B's
+# report). THIS GATE READS A SIBLING REPO. hq_B ran it against a corpus checkout predating the conversion
+# commit 84249578f and got a full, well-formed "23 of 23 violate the contract" -- a content verdict whose real
+# cause was cross-repo staleness, escalated as a standing red and costing a round trip to disprove. Nothing in
+# the output could have told them: the gate named the DIRECTORY and never the TREE, and a seat whose SCRIP is
+# current has no reason to suspect its corpus is not. A gate that grades a repo it does not live in must say
+# which commit of that repo it graded, or every one of its verdicts is unfalsifiable from the outside.
+CTREE="$(git -C "$BD" rev-parse --short HEAD 2>/dev/null || echo UNKNOWN)"
+CDIRTY=""; [ "$CTREE" = UNKNOWN ] || git -C "$BD" diff --quiet HEAD -- "$BD" 2>/dev/null || CDIRTY=" -dirty"
 bad=0
 for pl in "$BD"/*.pl; do
   k=$(basename "$pl" .pl); why=""
@@ -59,6 +68,12 @@ probe=$(mktemp -t gate_nonpristine_XXXXXX.pl)
 "$WRAP" "$probe" --mode=single --engine=gnu >/dev/null 2>&1
 rc=$?; rm -f "$probe"
 [ "$rc" = 2 ] || { echo "⛔ THE GENERATOR DID NOT REFUSE a kernel carrying wall_us (rc=$rc, wanted 2) -- the contract is unenforced"; bad=$((bad+1)); }
-if [ "$bad" -gt 0 ]; then echo "GATE RED: $bad of $n Prolog benchmark kernel(s) violate the pristine-kernel contract"; exit 1; fi
-echo "GATE GREEN: $n Prolog benchmark kernels are pristine, carry the bench_work/1 contract and a ref, and the generator refuses a non-pristine source"
+if [ "$bad" -gt 0 ]; then
+  echo "GATE RED: $bad of $n Prolog benchmark kernel(s) violate the pristine-kernel contract  [corpus $CTREE$CDIRTY]"
+  echo "   ⛔ BEFORE FILING THIS: the kernels live in the SIBLING corpus repo, graded here at $CTREE$CDIRTY. The"
+  echo "      pristine convention landed at corpus 84249578f -- a checkout older than that reads 23 of 23 red for"
+  echo "      staleness, not for content. Run: git -C \"$BD\" fetch origin && git -C \"$BD\" merge --ff-only origin/main"
+  exit 1
+fi
+echo "GATE GREEN: $n Prolog benchmark kernels are pristine, carry the bench_work/1 contract and a ref, and the generator refuses a non-pristine source  [corpus $CTREE$CDIRTY]"
 exit 0
