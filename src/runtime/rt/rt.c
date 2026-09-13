@@ -864,8 +864,8 @@ int rt_g_ret_by_name = 0;
 int rt_g_want_name = 0;
 DESCR_t rt_nret_fix(DESCR_t r, int wn);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_nret_fix(DESCR_t r, int wn) { extern int rt_cap_name_strict(void); if (rt_g_ret_by_name) { if (!wn || !rt_cap_name_strict()) rt_g_ret_by_name = 0; if (!wn && r.v == DT_N) { extern DESCR_t rt_deref(DESCR_t); r = rt_deref(r); } } rt_g_want_name = wn; return r; }
-DESCR_t rt_nret_fix_tiny(DESCR_t r, int unused_edx) { (void)unused_edx; int wn = rt_g_want_name; DESCR_t o = rt_nret_fix(r, wn); rt_g_want_name = wn; return o; }
+DESCR_t rt_nret_fix(DESCR_t r, int wn) { extern int rt_cap_name_strict(void); if (rt_g_ret_by_name) { if (!wn || !rt_cap_name_strict()) rt_g_ret_by_name = 0; if (!wn && r.v == DT_N) { extern DESCR_t rt_deref(DESCR_t); r = rt_deref(r); } } rt_g_want_name = 0; return r; }
+DESCR_t rt_nret_fix_tiny(DESCR_t r, int unused_edx) { (void)unused_edx; int wn = rt_g_want_name; return rt_nret_fix(r, wn); }
 long    rt_proc_call_open(const char *name, int nargs);
 void   *rt_frame_prep(void *fb, long fbytes);
 void   *rt_proc_open_fn(void);

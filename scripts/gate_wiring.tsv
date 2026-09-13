@@ -73,8 +73,8 @@ test_gate_emit_no_lang.sh	WIRED	-	-	-
 test_gate_emit_no_slot_alloc.sh	WIRED	-	-	-
 test_gate_errlimit_survival_is_measured_per_code.sh	WIRED	-	-	-
 test_gate_gate_wiring_ratchet.sh	WIRED	-	-	-
-test_gate_gc_pacing_bounds_a_churning_program.sh	WIRED	-	-	-
 test_gate_gc_aggregates_are_collectable_not_immortal.sh	WIRED	-	-	-
+test_gate_gc_pacing_bounds_a_churning_program.sh	WIRED	-	-	-
 test_gate_harness_refusal_is_rc2.sh	WIRED	-	-	-
 test_gate_icn_a_string_with_an_embedded_nul_subscripts_by_its_length.sh	WIRED	-	-	-
 test_gate_icn_a_suspended_variable_images_as_a_variable_not_its_value.sh	WIRED	-	-	-
@@ -99,7 +99,6 @@ test_gate_icn_coexpression_image_counts_activations_like_icont.sh	WIRED	-	-	-
 test_gate_icn_converted_arith_error_reports_its_own_number.sh	WIRED	-	-	-
 test_gate_icn_display_reads_every_activations_locals.sh	WIRED	-	-	-
 test_gate_icn_dump_ast_shows_the_parsed_program_and_pruning_stays_a_lowering_step.sh	WIRED	-	-	-
-test_gate_icn_string_escapes_match_icont_including_unknown_and_uppercase.sh	WIRED	-	-	-
 test_gate_icn_errorvalue_is_absent_when_the_error_carries_none.sh	WIRED	-	-	-
 test_gate_icn_field_access_on_a_non_record_raises_107.sh	WIRED	-	-	-
 test_gate_icn_find_takes_negative_positions.sh	WIRED	-	-	-
@@ -135,6 +134,7 @@ test_gate_icn_scan_subject_must_be_string_convertible.sh	WIRED	-	-	-
 test_gate_icn_seq_null_argument_defaults.sh	WIRED	-	-	-
 test_gate_icn_seq_takes_a_variable_step.sh	WIRED	-	-	-
 test_gate_icn_string_builtins_refuse_a_non_string_argument.sh	WIRED	-	-	-
+test_gate_icn_string_escapes_match_icont_including_unknown_and_uppercase.sh	WIRED	-	-	-
 test_gate_icn_string_invoked_to_by_is_a_generator.sh	WIRED	-	-	-
 test_gate_icn_subscript_index_is_checked_and_the_account_is_written.sh	WIRED	-	-	-
 test_gate_icn_tag_single_source.sh	WIRED	-	-	-
@@ -182,6 +182,7 @@ test_gate_our_files_are_lf.sh	WIRED	-	-	-
 test_gate_outside_baseline_rows_name_a_live_measurement.sh	WIRED	-	-	-
 test_gate_package_runners_print_the_inventory.sh	WIRED	-	-	-
 test_gate_parser_generated_files_in_sync.sh	WIRED	-	-	-
+test_gate_pas_array_field_elements_keep_their_declared_width.sh	WIRED	-	-	-
 test_gate_pas_boolean_write_iso_mod_and_forward_params.sh	WIRED	-	-	-
 test_gate_pas_calls_carry_more_than_six_operands.sh	WIRED	-	-	-
 test_gate_pas_declared_locals_get_frame_slots.sh	WIRED	-	-	-
@@ -191,6 +192,7 @@ test_gate_pas_inline_record_char_fields_print_as_chars.sh	WIRED	-	-	-
 test_gate_pas_pack_unpack_and_text_get_put.sh	WIRED	-	-	-
 test_gate_pas_read_at_end_of_line_yields_a_space.sh	WIRED	-	-	-
 test_gate_pas_real_record_fields_read_back_as_reals.sh	WIRED	-	-	-
+test_gate_pas_record_variables_are_scoped_to_their_procedure.sh	WIRED	-	-	-
 test_gate_pas_set_constructor_takes_a_subrange_member.sh	WIRED	-	-	-
 test_gate_pas_typed_files_read_and_write_components.sh	WIRED	-	-	-
 test_gate_pas_uplevel_var_parameter_writes_back.sh	WIRED	-	-	-
@@ -211,6 +213,7 @@ test_gate_pl_iso_rung4_run_time_meta_call_of_builtins_through_compiled_wrappers.
 test_gate_pl_iso_rung5_body_conversion_of_a_run_time_goal_list_guard_and_declared_empty_predicates.sh	WIRED	-	-	-
 test_gate_pl_iso_rung6_the_soft_cut_if_3_predicate.sh	WIRED	-	-	-
 test_gate_pl_iso_rung7_a_cut_inside_a_findall_bagof_setof_goal_has_its_own_barrier.sh	WIRED	-	-	-
+test_gate_pl_iso_rung8_an_unbounded_integer_literal_reads_writes_and_computes.sh	WIRED	-	-	-
 test_gate_pl_meta_call_reaches_control_constructs.sh	WIRED	-	-	-
 test_gate_pl_meta_wrapper_does_not_break_m4_declarations.sh	WIRED	-	-	-
 test_gate_pl_multifile_initialization_runs_every_file.sh	WIRED	-	-	-
@@ -289,6 +292,7 @@ test_gate_sno_runtime_define.sh	WIRED	-	-	-
 test_gate_sno_setexit_resume_matches_oracle.sh	WIRED	-	-	-
 test_gate_sno_terminal_read_fails_without_a_tty.sh	WIRED	-	-	-
 test_gate_sno_trace_keyword_name_is_validated.sh	WIRED	-	-	-
+test_gate_sno_want_name_request_is_consumed_not_left_standing.sh	WIRED	-	-	-
 test_gate_snobol4_xfail_markers_are_attributed.sh	WIRED	-	-	-
 test_gate_snocone_returns_codegen.sh	WIRED	-	-	-
 test_gate_spitbol_x64_case_conversion_is_oracle_equivalent.sh	WIRED	-	-	-
@@ -491,4 +495,3 @@ test_gate_xfail_has_reason.sh	TASK	-	-	-
 test_gate_zdp_on_null.sh	TASK	-	-	-
 test_gate_zeta_no_arena.sh	TASK	-	-	-
 test_gate_zpop_whitelist.sh	TASK	-	-	-
-test_gate_pl_iso_rung8_an_unbounded_integer_literal_reads_writes_and_computes.sh	WIRED	-	-	-
