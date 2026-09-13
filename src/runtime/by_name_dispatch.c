@@ -4679,7 +4679,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         size_t pre = (size_t)(tstart - cur);
         size_t post = tend ? strlen(tend) : 0;
         size_t total = pre + rvl + post;
-        char *o = rt_pinned_alloc(total + 1);
+        char *o = rt_str_alloc(total);
         memcpy(o, cur, pre);
         memcpy(o + pre, rv, rvl);
         if (tend) memcpy(o + pre + rvl, tend, post);
