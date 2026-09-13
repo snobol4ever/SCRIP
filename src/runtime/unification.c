@@ -1,6 +1,7 @@
 #include "rt/rt_arena.h"
 #include "rt/rt.h"
 #include "core.h"
+#include "core/utf8.h"
 #include "bb_pool.h"
 #include "../parsers/prolog/prolog_atom.h"
 #include "../ir/IR.h"
@@ -195,6 +196,14 @@ static int plc_atom_needs_quoting(const char *name)
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_utf8_run(const char *q) { int n, k;
+    if ((unsigned char)*q < 0x80) return 1;
+    n = utf8_seqlen((unsigned char)*q);
+    if (n < 2) return 1;
+    for (k = 1; k < n; k++) if (((unsigned char)q[k] & 0xC0) != 0x80) return 1;
+    return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_wt_atom(FILE *fp, const char *name, int quoted)
 {
     if (!name) name = "?";
@@ -212,7 +221,10 @@ static void plc_wt_atom(FILE *fp, const char *name, int quoted)
             case '\f': fputs("\\f", fp); break;
             case '\v': fputs("\\v", fp); break;
             case '\0': fputs("\\0", fp); break;
-            default: if (!isprint((unsigned char)*q)) fprintf(fp, "\\x%x\\", (unsigned)(unsigned char)*q); else fputc(*q, fp); break; }
+            default: { int _sl = plc_utf8_run(q);
+                if (_sl > 1) { for (int _k = 0; _k < _sl; _k++) fputc(q[_k], fp); q += _sl - 1; }
+                else if (!isprint((unsigned char)*q)) fprintf(fp, "\\x%x\\", (unsigned)(unsigned char)*q);
+                else fputc(*q, fp); break; } }
         }
         fputc('\'', fp);
     }
