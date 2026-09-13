@@ -74,10 +74,20 @@ for lang in sorted(EXT):
         "agree" if not (only_master or only_index) else "⛔ DISAGREE"))
     if only_master or only_index:
         bad += 1
+        # ⛔⭐ EACH SHAPE CARRIES ITS OWN DIRECTION, BECAUSE A DISAGREEMENT HAS TWO RESOLUTIONS AND ONLY ONE OF
+        # THEM IS RIGHT PER ENTRY (hq_S 2026-09-13, measured on four Rebus entries this census had just red).
+        # Naming a single cure for a two-sided disagreement is not a wording problem: hq_S's four were banner
+        # XFAIL / index 0 with the entries PASSING in both modes, so obeying the one cure this gate used to
+        # print would have stamped xfail=1 on four passing entries -- MANUFACTURING an xfail, which is the one
+        # thing THERE IS NO XFAIL abolishes -- and it would have been reported as a fix.
         for n in only_master[:5]:
             print("      banner in the master, xfail=0 in the index: %s" % n)
+            print("          -> if %s PASSES both modes the BANNER is the stale half: promote it (strip the XFAIL from the banner in the master AND its ref, and delete its ALL.xfail reason block in the same commit)" % n)
+            print("          -> if it FAILS, the INDEX is the stale half: re-run the builder (--reindex)")
         for n in only_index[:5]:
             print("      xfail=1 in the index, NO banner in the master: %s  <-- the promotion shape" % n)
+            print("          -> a promotion rewrote the master and left the index at 1: re-run the builder (--reindex) so the index follows the suite")
+            print("          -> but if %s FAILS today, the promotion itself was wrong and the banner is what is missing" % n)
     if missing:
         print("      %d xfail(s) with no reason recorded in ALL.xfail: %s" % (len(missing), ", ".join(missing[:4])))
 if not graded:
@@ -85,6 +95,26 @@ if not graded:
     raise SystemExit(2)
 print("GRADED=%d BAD=%d REASONS_MISSING=%d" % (graded, bad, reasons_missing))
 EOF
+}
+
+# ⛔⭐ THE REMEDIATION IS A FUNCTION, NOT FOUR ECHOES INSIDE THE FAIL BRANCH, FOR ONE REASON: the fail branch
+# does not run while the tree is green, so text living only there is text no arm can grade, and the cure hq_S
+# reported was a WRONG REMEDIATION printed by a CORRECT detection -- exactly the half that had no arm. ARM 4
+# calls this and requires both resolutions and the fact that selects between them, so a future edit that
+# collapses it back to one cure reds HERE instead of six months later in somebody else's promotion.
+print_remediation() {
+echo "GATE FAIL: a master's XFAIL banners and its ALL.csv xfail column name different entries."
+echo "           ⛔ THIS GATE DOES NOT KNOW WHICH HALF IS STALE, AND IT WILL NOT PRETEND TO: it is a pure source"
+echo "              census and runs no programs, so it can see the disagreement and not its direction. THE FACT"
+echo "              THAT SELECTS THE CURE IS WHETHER THE ENTRY PASSES IN BOTH MODES TODAY -- measure that first."
+echo "           1. THE ENTRY PASSES  -> the BANNER is stale. PROMOTE it: strip ' XFAIL' from the banner in the"
+echo "              master AND in its ref, and delete its ALL.xfail reason block, all in the same commit."
+echo "           2. THE ENTRY FAILS   -> the INDEX is stale (a promotion rewrote the master and left the column"
+echo "              at 1). Re-run the builder (--reindex) so the index follows the suite."
+echo "           ⛔ DO NOT --reindex A PASSING ENTRY: that stamps xfail=1 on a program that works, which"
+echo "              MANUFACTURES the xfail THERE IS NO XFAIL abolished, and it reads as a fix in the receipt."
+echo "              Measured 2026-09-13 (hq_S): four Rebus entries were exactly that shape, and the single cure"
+echo "              this gate used to print pointed at all four of them."
 }
 
 # ARM 1 — THE AGREEMENT ITSELF, pinned at zero. It is pinned rather than ratcheted because it is SATISFIED
@@ -97,9 +127,7 @@ if [ "$crc" -eq 2 ] || ! printf '%s' "$out" | grep -q '^GRADED='; then
     exit 2
 fi
 if [ "$(printf '%s' "$out" | sed -n 's/^GRADED=[0-9]* BAD=\([0-9]*\).*/\1/p')" != "0" ]; then
-    echo "GATE FAIL: a master's XFAIL banners and its ALL.csv xfail column name different entries."
-    echo "           A promotion that rewrites the master and leaves the index at 1 is the measured shape;"
-    echo "           re-run the builder (--reindex) so the index follows the suite."
+    print_remediation
     violations=$((violations + 1))
 fi
 
@@ -140,5 +168,44 @@ else
     echo "GATE NOTE: corpus 5df255b01 unreachable here -- ARM 3's historical witness was NOT graded"
 fi
 
+# ARM 4 — ⛔ THE REMEDIATION IS GRADED, BOTH DIRECTIONS, ON A FIXTURE CARRYING BOTH SHAPES AT ONCE (hq_B
+# 2026-09-13, on hq_S's measurement; row instruments-a-two-sided-disagreement-gate-names-one-cure-so-half-its-
+# reds-point-at-manufacturing-an-xfail). ⭐ WHY THIS ARM AND NOT A CAREFUL READING: ARMS 1-3 all grade
+# DETECTION, and detection was never the defect -- this gate correctly red on hq_S's four Rebus entries. It
+# then named ONE cure, --reindex, which for their shape (banner XFAIL, index 0, entries PASSING) would have
+# stamped xfail=1 on four working programs and been written up as a fix. A gate that names a single cure for a
+# two-sided disagreement is obeyed into the wrong state by whoever trusts it most, and no amount of correct
+# detection protects against that. ⛔ IT IS ALSO FALSIFIABLE IN BOTH DIRECTIONS, which the old text was not:
+# delete either resolution, or the sentence naming the fact that selects between them, and this arm reds.
+examined=$((examined + 1))
+W4="$(mktemp -d "${TMPDIR:-/tmp}/xfail_two_sided.XXXXXX")"
+trap 'rm -rf "$W" "$W4"' EXIT
+mkdir -p "$W4/rebus"
+# Both shapes in ONE fixture, because the gate has to say something useful about each without being told which
+# it is looking at: stale_banner carries a banner and xfail=0, stale_index carries xfail=1 and no banner.
+{ echo "*--- 1 stale_banner XFAIL"; echo "*--- 2 agreeing_entry"; } > "$W4/rebus/ALL.reb"
+{ echo "entry,xfail"; echo "stale_banner,0"; echo "agreeing_entry,0"; echo "stale_index,1"; } > "$W4/rebus/ALL.csv"
+f4="$(census "$W4" 2>&1)"
+r4="$(print_remediation 2>&1)"
+a4=0
+printf '%s' "$f4" | grep -q 'GRADED=1 BAD=1' || { echo "    ARM 4: the both-shapes fixture did not red at all"; a4=1; }
+printf '%s' "$f4" | grep -q 'banner in the master, xfail=0 in the index: stale_banner' || { echo "    ARM 4: the stale-BANNER shape was not named"; a4=1; }
+printf '%s' "$f4" | grep -q 'xfail=1 in the index, NO banner in the master: stale_index' || { echo "    ARM 4: the stale-INDEX shape was not named"; a4=1; }
+printf '%s' "$f4" | grep -q 'if stale_banner PASSES both modes the BANNER is the stale half' || { echo "    ARM 4: the stale-banner line does not say what makes the BANNER the stale half"; a4=1; }
+printf '%s' "$f4" | grep -q 'stale_index FAILS today, the promotion itself was wrong' || { echo "    ARM 4: the promotion-shape line does not name its own opposite direction"; a4=1; }
+printf '%s' "$r4" | grep -qi 'PASSES IN BOTH MODES' || { echo "    ARM 4: the remediation does not name the FACT that selects the cure"; a4=1; }
+printf '%s' "$r4" | grep -qi 'PROMOTE it' || { echo "    ARM 4: the remediation does not offer PROMOTION as a resolution"; a4=1; }
+printf '%s' "$r4" | grep -q -- '--reindex' || { echo "    ARM 4: the remediation does not offer --reindex as a resolution"; a4=1; }
+printf '%s' "$r4" | grep -qi 'MANUFACTURES the xfail' || { echo "    ARM 4: the remediation does not warn that the wrong cure MANUFACTURES an xfail on a passing entry"; a4=1; }
+if [ "$a4" = 0 ]; then
+    echo "ARM 4 OK: the census names both shapes with their own direction, and the remediation offers BOTH resolutions and the fact that selects between them"
+else
+    echo "GATE FAIL: the remediation is one-sided again -- a reader who trusts it will --reindex a passing entry"
+    violations=$((violations + 1))
+fi
+
 GATE_EXAMINED="$examined arms"
-gate_verdict "$violations" "masters whose XFAIL marker and index disagree"
+# ⛔ THE VERDICT NOUN COVERS BOTH SUBJECTS, because ARM 4 raises the same counter: a red printed as "1 masters
+# whose marker and index disagree" while the actual finding was a one-sided remediation would send the reader
+# to the corpus to look for a disagreement that is not there -- a true count under a false name.
+gate_verdict "$violations" "marker/index disagreements or one-sided remediations"
