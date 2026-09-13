@@ -60,6 +60,10 @@ static trace_ent_t *trace_find_any(const char *name) {
     return (trace_ent_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_kw_is_traceable(const char *name) {
+    return name && (!strcmp(name, "ERRTYPE") || !strcmp(name, "FNCLEVEL") || !strcmp(name, "STCOUNT"));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int trace_type_parse(const char *type) {
     if (!type || !*type) return TRK_VALUE;
     if (!strcmp(type, "A") || !strcmp(type, "ACCESS"))   return TRK_ACCESS;
@@ -1914,6 +1918,7 @@ static DESCR_t _TRACE_(DESCR_t *a, int n) {
     if (kind == TRK_CALL || kind == TRK_RETURN || kind == TRK_FUNCTION) {
         if (!rt_proc_is_defined(varname)) { core_runtime_error(198, "trace first argument is not appropriate name"); return FAILDESCR; }
     }
+    if (kind == TRK_KEYWORD && !sno_kw_is_traceable(varname)) { core_runtime_error(198, "trace first argument is not appropriate name"); return FAILDESCR; }
     const char *tag  = (n >= 3) ? VARVAL_fn(a[2]) : (const char *)0;
     const char *cbfn = (n >= 4) ? VARVAL_fn(a[3]) : (const char *)0;
     trace_register(varname, kind, tag, cbfn);
@@ -1927,6 +1932,7 @@ static DESCR_t _STOPTR_(DESCR_t *a, int n) {
     const char *type = (n >= 2) ? VARVAL_fn(a[1]) : (const char *)0;
     int kind = trace_type_parse(type);
     if (kind < 0) { core_runtime_error(199, "trace second argument is not trace type"); return FAILDESCR; }
+    if (kind == TRK_KEYWORD && !sno_kw_is_traceable(varname)) { core_runtime_error(190, "stoptr first argument is not appropriate name"); return FAILDESCR; }
     trace_unregister(varname, kind);
     return STRVAL(rt_heap_strdup_c(varname));
 }
