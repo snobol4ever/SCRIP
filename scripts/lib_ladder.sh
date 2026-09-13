@@ -206,7 +206,21 @@ ladder_main() {
   # the reader who tries it gets a refusal and reads the CELL as stale (hq_T 2026-09-13).
   _decl=$( [ -n "$_unb" ] && printf ' · declared top rung %s, %s rung(s) NOT BUILT (RED by declaration):%s' "$_dtop" "$(set -- $_unb; echo $#)" "$_unb" )
     _cell="built rungs 0..${_top} PASS $pass/$((n*2)) FAIL $fail${_decl} (witnesses=$n · m3+m4 · test_${_ll}_ladder.sh${TO:+ --to $TO}${ONLY:+ --only $ONLY} · SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo ?) corpus=$(git -C "$S4E/corpus" rev-parse --short HEAD 2>/dev/null || echo ?) RT_OPT=-O0)"
-    if _w=$(python3 "$ROOT/scripts/util_score_row.py" write --lang "$_ll" --column ladder --text "$_cell" --measurer "${S4E_SEAT:-}" 2>&1); then printf '%s\n' "$_w" | grep -E '^SCORE.md|ROW SKIPPED|^  now:' | cut -c1-200
+    # ⛔⭐ A FILTER THAT MATCHES NOTHING MUST SAY SO, NOT FALL SILENT (hq_T 2026-09-13, on the cfo's
+    # measured report). This grep listed the three SUCCESS shapes and nothing else, while
+    # util_score_row.py's ONE-RUNNER identity refusal exits 0 (correctly -- a bookkeeping refusal must
+    # never red a board) and prints a line beginning '⚠ '. So for twelve of the thirteen seats the helper
+    # ran, refused, and the seat saw NOTHING AT ALL: no SCORE line, no UNWRITTEN line, a green verdict and
+    # rc=0. ⭐ THE FAILURE MODE IS NOT A MISSING MESSAGE, IT IS THE WRONG BELIEF IT LEAVES BEHIND -- a
+    # guard that works and is invisible reads exactly like a write that happened, and the cfo spent four
+    # measurements and a bash -x finding out their number was not on the leaderboard. ⛔ THE FIX IS THE
+    # CLASS, NOT THE SHAPE: widening the pattern to also match '⚠' would swallow the NEXT refusal wearing
+    # a fourth prefix just as silently. An unmatched filter falls back to printing what it was given, so
+    # any output this call site does not recognise is surfaced rather than dropped.
+    if _w=$(python3 "$ROOT/scripts/util_score_row.py" write --lang "$_ll" --column ladder --text "$_cell" --measurer "${S4E_SEAT:-}" 2>&1); then
+      _shown=$(printf '%s\n' "$_w" | grep -E '^SCORE.md|ROW SKIPPED|^  now:' | cut -c1-200)
+      if [ -n "$_shown" ]; then printf '%s\n' "$_shown"
+      elif [ -n "$_w" ]; then echo "SCORE ROW: NOT WRITTEN (util_score_row.py exited 0 but wrote no row; the verdict below is unchanged):"; printf '%s\n' "$_w" | head -3 | cut -c1-200; fi
     else echo "SCORE ROW: UNWRITTEN (util_score_row.py refused; the verdict below is unchanged):"; printf '%s\n' "$_w" | head -3 | cut -c1-200; fi
   fi
   [ "$fail" -eq 0 ] && { if [ -n "$ONLY" ]; then echo "✅ LADDER OK: rung $ONLY alone PASS $pass/$((n*2))"; else echo "✅ LADDER OK: rungs 0..${_top} PASS $pass/$((n*2))$( [ "${TO:-}" != "" ] && [ "${TO}" != "${_top}" ] && printf ' (requested --to %s; top graded rung is %s)' "$TO" "$_top")"; fi; exit 0; }

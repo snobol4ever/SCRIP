@@ -1124,11 +1124,38 @@ def cmd_write(a):
     # leaderboard just as the display columns do, so a guard on one of the two would have left half the runners
     # writing -- and the half it left would be the half nobody was watching.  Checked here, once, ahead of the
     # dispatch, so there is exactly one site to read and no way for the two paths to drift apart.
-    if not getattr(a, "dry_run", False):
-        _decl = one_runner_declines(a.measurer, "%s / %s = %s" % (a.lang, a.column, a.text.strip()))
-        if _decl:
+    # ⛔⭐ A DRY RUN PREVIEWS THE WRITE **AND** THE REFUSAL, OR IT IS NOT A PREVIEW OF THIS COMMAND
+    # (hq_T 2026-09-13, on the cfo's measured report; this call site previously skipped the roster check
+    # entirely under --dry-run, on the reasoning below that a preview writes nothing so cannot need
+    # refusing). The reasoning was right about the MECHANISM and wrong about the QUESTION. --dry-run is
+    # what a seat runs to find out whether their cell will land before they land it, and on the same tree
+    # where the real write refused for identity it printed a clean "WOULD REWRITE grid L for snobol4"
+    # with was/now cells and no hint that the real path would decline -- so the preview promised a write
+    # the command refuses. ⭐ The cure is NOT to refuse the dry run, which would throw away the was/now
+    # comparison that is the whole reason to run one: it is to preview BOTH halves, the cell AND the
+    # verdict on whether it lands. Same principle as the --dry-run fix at the display/grid split below:
+    # a preview that covers one of a command's two outcomes is a preview of a different command.
+    _decl = one_runner_declines(a.measurer, "%s / %s = %s" % (a.lang, a.column, a.text.strip()))
+    if _decl:
+        if not getattr(a, "dry_run", False):
             print(_decl)
             return 0
+        # ⛔ THE DRY-RUN VERDICT IS ITS OWN SENTENCE, NOT A REPLAY OF THE REAL-RUN REFUSAL, and the
+        # distinction is not cosmetic. The real path says "SCORE.md NOT UPDATED", which is a statement
+        # about a write that was ATTEMPTED and declined; under --dry-run no write is attempted either
+        # way, so replaying that line asserts something false about what just happened AND makes a
+        # preview indistinguishable from a refused write -- which is precisely what
+        # test_gate_score_row_only_the_one_runner_writes.sh arm 9 exists to forbid, and it caught this
+        # draft. ⭐ The arm was right and its own title said so ("--dry-run is PREVIEWED, never
+        # refused"); the first cure here would have satisfied the cfo's complaint by breaking hq_B's
+        # guard, and the cure that satisfies both is to say the true thing in the right tense.
+        print("⚠ PREVIEW ONLY, AND THE REAL WRITE WOULD DECLINE: seat %s is not %s, THE ONE RUNNER, so "
+              "re-running this WITHOUT --dry-run would write nothing either. The cell below is what the "
+              "row WOULD say when the one runner next measures it -- read it as your own board line, not "
+              "as a row that is about to land. (Doors: the bus's computed `done` run of a DONE-WHEN is "
+              "exempt, and S4E_ONE_RUNNER_OVERRIDE=\"why\" writes the row and prints the reason.)"
+              % (a.measurer or "?", board_writer_seat()[0] or "?"))
+        print("--- preview follows (nothing is written under --dry-run) ---")
     if a.column in GRID_DIRECT:
         return write_grid_direct(a)
     if a.column not in COLUMNS:
