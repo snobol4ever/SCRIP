@@ -180,4 +180,15 @@
 #define MOD_OP_RT_PL_PUT_CHAR_SB            237    /* rtx_plunify.s rt_pl_dop_put_char_sb */
 #define MOD_OP_RT_PL_PUT_CODE_SB            238    /* rtx_plunify.s rt_pl_dop_put_code_sb */
 #define MOD_OP_RT_PL_FLUSH_OUTPUT_SB        239    /* rtx_plunify.s rt_pl_dop_flush_output_sb */
+#define MOD_OP_RT_PL_SUCC                   240    /* rtx_plunify.s rt_pl_dop_succ */
+#define MOD_OP_RT_PL_PLUS                   241    /* rtx_plunify.s rt_pl_dop_plus */
+#define MOD_OP_RT_PL_GET_CHAR_S             242    /* rtx_plunify.s rt_pl_dop_get_char_s */
+#define MOD_OP_RT_PL_GET_CODE_S             243    /* rtx_plunify.s rt_pl_dop_get_code_s */
+#define MOD_OP_RT_PL_GET_BYTE_S             244    /* rtx_plunify.s rt_pl_dop_get_byte_s */
+#define MOD_OP_RT_PL_PEEK_CHAR_S            245    /* rtx_plunify.s rt_pl_dop_peek_char_s */
+#define MOD_OP_RT_PL_PEEK_CODE_S            246    /* rtx_plunify.s rt_pl_dop_peek_code_s */
+#define MOD_OP_RT_PL_PEEK_BYTE_S            247    /* rtx_plunify.s rt_pl_dop_peek_byte_s */
+#define MOD_OP_RT_PL_UNGET_CHAR_S           248    /* rtx_plunify.s rt_pl_dop_unget_char_s */
+#define MOD_OP_RT_PL_UNGET_CODE_S           249    /* rtx_plunify.s rt_pl_dop_unget_code_s */
+#define MOD_OP_RT_PL_UNGET_BYTE_S           250    /* rtx_plunify.s rt_pl_dop_unget_byte_s */
 #endif
