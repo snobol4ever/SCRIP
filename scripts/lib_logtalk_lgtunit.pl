@@ -26,10 +26,13 @@
 % vacuously either, which is why lgt_h/1 treats a silent failure as a harness error rather than letting
 % the conjunction fail into a plausible `false` verdict.
 %
-% ⛔ WHAT IS DELIBERATELY NOT HERE, and why naming it beats faking it: the binary-stream family
-% (set_binary_input/output, create_binary_file, check_binary_input, binary_output_assertion,
-% clean_binary_*) and stream_position/1. Their cases are reported UNGRADED with the helper named, so the
-% work owed is readable off the board instead of being buried in a red count.
+% ⛔ WHAT IS DELIBERATELY NOT HERE, and why naming it beats faking it: set_binary_input/1,2,
+% create_binary_file/2, check_binary_input/1,2, binary_output_assertion/2,3 and stream_position/1. Their
+% cases are reported UNGRADED with the helper named, so the work owed is readable off the board instead of
+% being buried in a red count. ⭐ set_binary_output/1,2 and clean_binary_output/0 WERE on this list and are
+% now implemented below (hq_R 2026-09-13) -- implemented because four cases needed only that a stream BE
+% binary, not that anything read binary back. The rest of the family stays absent: writing helpers nothing
+% grades is how a shim grows an unmeasured surface.
 %
 % ⛔ THE CAPTURE IS A FILE, NOT A MEMORY BUFFER, and the restore is via a saved handle, NEVER via the alias
 % `user_output`. Measured on scrip 2026-09-12: set_output(user_output) did NOT restore the default sink, so
@@ -102,6 +105,23 @@ lgt_check_text_output(Expected) :- lgt_text_output_chars(Cs), atom_chars(Text, C
 lgt_check_text_output(Alias, Expected) :- lgt_text_output_contents(Alias, Cs), atom_chars(Text, Cs), Text == Expected.
 lgt_suppress_text_output :- lgt_set_text_output('').
 lgt_clean_text_output :- lgt_close_out, catch(lgt_delete('lgt_capture_out.txt'), _, true).
+
+% ---- binary output ---------------------------------------------------------------------------------
+% ⛔ THE BINARY SINK IS A SEPARATE FILE FROM THE TEXT ONE, on purpose: lgt_clean_binary_output must not
+% delete a text capture some other case is still asserting over, and a shared name made the two cleanups
+% order-dependent. It reuses lgt_cap_out/1 and lgt_prev_out/1 so lgt_close_out restores the real handle
+% exactly as the text path does -- never via the user_output alias, which was measured not to restore.
+% ⭐ These four cases do NOT ask the shim to read binary back. They ask only that the current output, or an
+% aliased stream, BE binary, so that a text write to it raises permission_error(output, binary_stream, _)
+% from the system under test. So binary_output_assertion and check_binary_input stay deliberately absent
+% and their cases stay UNGRADED-with-a-name; implementing only what the cases need is what keeps that
+% honest, rather than writing four more helpers nothing grades.
+lgt_set_binary_output(Opts) :-
+    current_output(Prev), assertz(lgt_prev_out(Prev)),
+    open('lgt_capture_out.bin', write, S, [type(binary)|Opts]), assertz(lgt_cap_out(S)), set_output(S).
+lgt_set_binary_output(Alias, Opts) :-
+    open('lgt_capture_out.bin', write, S, [type(binary), alias(Alias)|Opts]), assertz(lgt_cap_out(S)).
+lgt_clean_binary_output :- lgt_close_out, catch(lgt_delete('lgt_capture_out.bin'), _, true).
 
 % ---- input ------------------------------------------------------------------------------------------
 lgt_close_in :- ( retract(lgt_cap_in(S)) -> catch(close(S), _, true) ; true ),
