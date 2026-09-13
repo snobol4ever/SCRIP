@@ -4494,10 +4494,12 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bn_bal_gen(DESCR_t *args, int nargs, DESCR_t *out, int64_t *state);
 static int bn_str_anal(DESCR_t *args, int nargs, int si, const char **out_s, int *out_i, int *out_j);
+static int icn_argtype_gate(int bid, DESCR_t *args, int nargs, DESCR_t *out, int strict);
 static DESCR_t rt_call_arr_gen_s(const char *fn, DESCR_t *args, int nargs, int64_t *resume, int strict) {
     DESCR_t out = FAILDESCR;
-    if (fn && resume && nargs <= 6 && !strcmp(fn, "bal")) { if (*resume == (0x7FFFFFFFll << 32)) return FAILDESCR; if (bn_bal_gen(args, nargs, &out, resume) && !IS_FAIL_fn(out)) return out; return FAILDESCR; }
+    if (fn && resume && nargs <= 6 && !strcmp(fn, "bal")) { if (*resume == (0x7FFFFFFFll << 32)) return FAILDESCR; if (*resume == 0 && icn_argtype_gate(BID_bal, args, nargs, &out, strict)) return FAILDESCR; if (bn_bal_gen(args, nargs, &out, resume) && !IS_FAIL_fn(out)) return out; return FAILDESCR; }
     if (fn && resume && nargs >= 2 && nargs <= 4 && (!strcmp(fn, "find") || !strcmp(fn, "upto"))) {
+        if (*resume == 0 && icn_argtype_gate(fn[0] == 'f' ? BID_find : BID_upto, args, nargs, &out, strict)) return FAILDESCR;
         DESCR_t a4[4]; a4[0] = args[0]; a4[1] = args[1];
         { const char *hs; int ni, nj; if (!bn_str_anal(args, nargs, 1, &hs, &ni, &nj)) return FAILDESCR;
           long i1 = ni; if (*resume > 0 && (long)*resume > i1) i1 = (long)*resume;
