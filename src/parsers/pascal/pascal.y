@@ -926,7 +926,11 @@ assignment:
           } else { $$ = mk_assign($1, pas_bool($3)); } }
     ;
 selector:
-    selector LBRACK expression_list RBRACK { tree_t *e = NULL; if ($3 && $3->count == 2 && $1 && $1->t == TT_VAR && $1->v.sval) { long long _nc = pas_array_ncols($1->v.sval); if (_nc > 0) { tree_t *flat = bin(TT_ADD, bin(TT_MUL, $3->items[0], ilit(_nc)), $3->items[1]); e = ast_node_new(TT_IDX); ast_push(e, $1); ast_push(e, flat); } } if (!e && pas_is_nafield($1) && $3 && $3->count == 1) { long long _nlo = pas_nafield_lo_get($1); tree_t *_ei = $3->items[0];
+    selector LBRACK expression_list RBRACK { tree_t *e = NULL; if ($3 && $3->count == 2 && $1 && $1->t == TT_VAR && $1->v.sval) { long long _nc = pas_array_ncols($1->v.sval); if (_nc > 0) { tree_t *flat = bin(TT_ADD, bin(TT_MUL, $3->items[0], ilit(_nc)), $3->items[1]); e = ast_node_new(TT_IDX); ast_push(e, $1); ast_push(e, flat); } } if (!e && $3 && $3->count == 1 && $1 && $1->t == TT_IDX && $1->n == 2 && $1->c[0] && $1->c[0]->t == TT_VAR && $1->c[0]->v.sval && !pas_is_nafield($1)) {
+        long long _nc2 = pas_array_ncols($1->c[0]->v.sval);
+        if (_nc2 > 0) { tree_t *flat2 = bin(TT_ADD, bin(TT_MUL, $1->c[1], ilit(_nc2)), $3->items[0]);
+          e = ast_node_new(TT_IDX); ast_push(e, $1->c[0]); ast_push(e, flat2); } }
+      if (!e && pas_is_nafield($1) && $3 && $3->count == 1) { long long _nlo = pas_nafield_lo_get($1); tree_t *_ei = $3->items[0];
         if (_nlo != 0) _ei = bin(TT_SUB, _ei, ilit(_nlo));
         e = ast_node_new(TT_IDX); ast_push(e, $1); ast_push(e, _ei); pas_nrec_mark_add(e); }
       if (!e) { e = ast_node_new(TT_IDX); ast_push(e, $1); if ($3) for (int i = 0; i < $3->count; i++) ast_push(e, $3->items[i]); } if (e && $1 && $1->t == TT_VAR && $1->v.sval) { const char *_et = pas_enumarr_get($1->v.sval); if (_et) { int _ei = pas_enumnames_idx(_et); if (_ei >= 0) e->v.ival = (long long)(_ei + 1); } } $$ = e; }
