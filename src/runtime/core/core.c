@@ -100,6 +100,7 @@ static int trace_registered(const char *name) { return trace_find_any(name) != (
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int trace_is_active(const char *name) { return trace_find(name, TRK_VALUE) != (trace_ent_t *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void dump_obj_head(DESCR_t d, char *out, int n);
 static void trace_spell_value(DESCR_t val, char *buf, size_t bufsz) {
     switch (val.v) {
         case DT_I: snprintf(buf, bufsz, "%lld", (long long)val.i); return;
@@ -107,6 +108,7 @@ static void trace_spell_value(DESCR_t val, char *buf, size_t bufsz) {
         case DT_N: snprintf(buf, bufsz, ".%s", val.s ? val.s : ""); return;
         case DT_FAIL: buf[0] = '\0'; return;
         case DT_S: case DT_SNUL: { const char *s = val.s ? val.s : ""; snprintf(buf, bufsz, "'%s'", s); return; }
+        case DT_A: case DT_T: case DT_DATA: { char hb[192]; dump_obj_head(val, hb, (int)sizeof hb); if (hb[0]) { snprintf(buf, bufsz, "%s", hb); return; } }
         default: { const char *s = VARVAL_fn(val); snprintf(buf, bufsz, "%s", s ? s : ""); return; }
     }
 }

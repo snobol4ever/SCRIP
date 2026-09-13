@@ -291,6 +291,7 @@ test_gate_sno_repl_lvalue_subject.sh	WIRED	-	-	-
 test_gate_sno_runtime_define.sh	WIRED	-	-	-
 test_gate_sno_setexit_resume_matches_oracle.sh	WIRED	-	-	-
 test_gate_sno_terminal_read_fails_without_a_tty.sh	WIRED	-	-	-
+test_gate_sno_trace_banner_spells_an_object_like_dump.sh	WIRED	-	-	-
 test_gate_sno_trace_keyword_name_is_validated.sh	WIRED	-	-	-
 test_gate_sno_want_name_request_is_consumed_not_left_standing.sh	WIRED	-	-	-
 test_gate_snobol4_xfail_markers_are_attributed.sh	WIRED	-	-	-
