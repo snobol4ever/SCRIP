@@ -50,6 +50,11 @@ gen_counted_set() {
     [ -f "$src" ] || { echo "⛔ REFUSED (rc=2): $tsv names '$k' but $src does not exist -- an orphan denominator entry is a lie, not a smaller board" >&2; return 2; }
     "$gen" "$src" --mode=iter --n="$n" --engine="$eng" -o "$out/$k.pl" >/dev/null 2>&1 \
       || { echo "⛔ REFUSED (rc=2): $(basename "$gen") failed to wrap $k at n=$n" >&2; return 2; }
+    # ⭐ THE N SIDECAR (hq_P 2026-09-13).  N is what makes the run GRADEABLE: loop_check needs it to build
+    # the N x .expected it compares stdout against.  Without it every consumer of this set is left grading
+    # "did it exit 0", which scored ten silent no-ops as passes for months.  Written beside the kernel so a
+    # consumer cannot reach the program without also being able to reach its iteration count.
+    printf '%s\n' "$n" > "$out/$k.n" || return 2
     made=$((made+1))
   done < "$tsv"
   [ "$made" -gt 0 ] || { echo "⛔ REFUSED (rc=2): $tsv carries zero kernel rows -- an empty set is not a green board" >&2; return 2; }

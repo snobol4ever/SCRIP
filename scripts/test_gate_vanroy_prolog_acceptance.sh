@@ -37,17 +37,41 @@ cd "$R/SCRIP" 2>/dev/null || { echo "⛔ REFUSED (rc=2): no $R/SCRIP"; exit 2; }
 # directory's. ⛔ The CLEAN_FLOOR above was pinned against the OLD checked-in files, which were generated from PRE-conversion
 # bench/ sources (they wrapped a self-timing main/0 that raised existence_error(wall_us/1)); the subject is the same 21
 # computations at the same counts, but it is not the same bytes -- so the floor is re-proven against this form, never assumed.
+# ⛔⭐ FOURTH DIMENSION, REPORTED NOT BLOCKING (hq_P 2026-09-13, CEO-676): "CLEAN" HERE MEANS rc=0, AND rc=0 IS
+# WEAKER THAN THE CLAIM THIS BOARD IS READ AS MAKING. Measured on this tree with loop_check() wired into the m3
+# census: SEVEN of the 21 exit 0 WITHOUT producing their N answers -- deriv 26954/65536, divide10 15186/65536,
+# meta_qsort 199/1024, nrev 1438/65536, ops8 26954/65536, zebra 11/256, and ham 107/16 (which OVER-produces,
+# because the wrapper's trailing `fail` backtracks into a nondeterministic kernel). A truncated run scored CLEAN.
+# ⛔ SO WHY IS THE VERDICT NOT SIMPLY RE-CUT? BECAUSE `nrev` IS ONE OF THE THREE KERNELS CLEAN_FLOOR=3 IS PINNED
+# ON. Redefining CLEAN to include the output check would drop CLEAN below its own floor and the gate would read
+# as a REGRESSION when nothing regressed -- and the cure for that reads as LOWERING A PIN, which line 15 forbids
+# outright and rightly: it is the motion every gamed gate makes. ⭐ A criterion that gets STRONGER is not a cure
+# and must never be cashed as one, and it is not a regression either; it is a re-cut baseline, and the honest
+# shape for a re-cut is the SUITES.tsv `criterion_changed` discipline -- the new number published BESIDE the old
+# with its reason, never silently in place of it. So CLEAN_FLOOR keeps grading exactly what it was pinned
+# against (rc=0, worst-of-REPS), and CLEAN_GRADED is printed beside it, named per kernel, blocking NOTHING today.
+# ⛔ THE RAMP TO BLOCKING IS A ceo/Lon DECISION, NOT A SCRIPT AUTHOR'S -- it needs the floor re-pinned against the
+# graded criterion in the same commit, citing the measurement. Until then this half is EVIDENCE, not a verdict.
 . "$R/SCRIP/scripts/lib_prolog_bench.sh" 2>/dev/null || { echo "⛔ REFUSED (rc=2): cannot source lib_prolog_bench.sh -- the one authority for materialising the counted set"; exit 2; }
+. "$R/SCRIP/scripts/lib_perf_fmt.sh" 2>/dev/null || { echo "⛔ REFUSED (rc=2): cannot source lib_perf_fmt.sh -- the one authority for stamping a measurement with its load"; exit 2; }
 D=$(mktemp -d "${TMPDIR:-/tmp}/vanroy_accept.XXXXXX") || { echo "⛔ REFUSED (rc=2): cannot create a work dir"; exit 2; }
 trap 'rm -rf "$D"' EXIT
 gen_counted_set "$D" scrip >/dev/null || exit 2
 n=0; clean=0; refuse=0; segv=0; other=0; refuse_l=""; segv_l=""; other_l=""
+clean_graded=0; ungraded_l=""; BENCH="$R/corpus/benchmarks/prolog/bench"
 for f in "$D"/*.pl; do
     [ -f "$f" ] || continue
     n=$((n+1)); b="$(basename "$f" .pl)"; worst=0; seen=""
     # worst-of-REPS: 3 CRASH > 2 REFUSE > 1 other > 0 CLEAN. A kernel is CLEAN only if it is clean EVERY pass.
     i=0; while [ $i -lt "$REPS" ]; do i=$((i+1))
-        out="$(timeout 60s ./scrip "$f" < /dev/null 2>&1)"; rc=$?
+        # ⛔ STDOUT GOES STRAIGHT TO THE FILE, NEVER THROUGH $( ) (hq_P 2026-09-13, caught by this gate's own
+        # first run). Command substitution STRIPS TRAILING NEWLINES, so writing it back out cost exactly one
+        # line and loop_check read cal 65535/65536, fib 63/64, sendmore 255/256 -- three PASSING kernels
+        # reported as failures, in an off-by-one that looks like a real truncation. The tell was the pattern:
+        # three mismatches each exactly one short of a power of two. An instrument that damages its own
+        # evidence on the way to the comparison is the same class as grading by exit code.
+        timeout 60s ./scrip "$f" < /dev/null > "$D/$b.stdout" 2>"$D/$b.err"; rc=$?
+        out="$(cat "$D/$b.stdout" "$D/$b.err" 2>/dev/null)"
         if   printf '%s' "$out" | grep -qi 'refuses\|REFUSE'; then k=2; seen="${seen}R"
         elif [ $rc -eq 139 ] || [ $rc -eq 134 ];              then k=3; seen="${seen}C"
         elif [ $rc -ne 0 ];                                    then k=1; seen="${seen}o"
@@ -59,7 +83,10 @@ for f in "$D"/*.pl; do
       3) segv=$((segv+1));   segv_l="$segv_l $b[$seen]$flap" ;;
       2) refuse=$((refuse+1)); refuse_l="$refuse_l $b[$seen]$flap" ;;
       1) other=$((other+1));  other_l="$other_l $b[$seen]$flap" ;;
-      0) clean=$((clean+1)) ;;
+      0) clean=$((clean+1))
+         # rc=0 on every rep. Now ask the STRONGER question the board is read as answering: did it print its N answers?
+         if why=$(loop_check scrip "$D/$b.stdout" "$(cat "$D/$b.n" 2>/dev/null)" "$BENCH/$b.expected" 2>/dev/null)
+         then clean_graded=$((clean_graded+1)); else ungraded_l="$ungraded_l $b($why)"; fi ;;
     esac
 done
 [ "$n" -gt 0 ] || { echo "⛔ REFUSED (rc=2): zero kernels generated -- an empty board is not a green board"; exit 2; }
@@ -68,6 +95,10 @@ echo "  [] shows the per-rep outcome string (. clean, R refuse, C crash, o other
 [ -n "$refuse_l" ] && echo "  REFUSE:$refuse_l"
 [ -n "$segv_l" ]   && echo "  CRASH :$segv_l"
 [ -n "$other_l" ]  && echo "  other :$other_l"
+echo "  measured at $(perf_load_stamp) -- ⛔ this board's classification moves with machine load while the Prolog heap leak stands (89.5 kB/iteration, dead linear): a budget-driven N crosses the threshold on a FAST box and stays under it on a LOADED one. Witness .github/probes/prolog-heap-leak-2026-09-13/, routed to hq_V/cto."
+echo "  CLEAN_GRADED=$clean_graded of CLEAN=$clean -- ⭐ REPORTED, BLOCKING NOTHING (see the header): CLEAN means rc=0, CLEAN_GRADED additionally means the loop printed its N answers."
+[ -n "$ungraded_l" ] && echo "  ⛔ rc=0 BUT NOT N ANSWERS:$ungraded_l"
+[ "$clean_graded" -eq "$clean" ] || echo "  ⛔ $((clean - clean_graded)) kernel(s) above are counted CLEAN on exit status alone. That is the pass criterion being weaker than the claim; it is named here rather than cashed as a verdict."
 F=0
 [ "$refuse" -eq 0 ] || { echo "  ⛔ REFUSE=$refuse, must be 0"; F=1; }
 [ "$segv"   -eq 0 ] || { echo "  ⛔ CRASH=$segv, must be 0 -- a refusal converted into a crash is a REGRESSION, not progress"; F=1; }
