@@ -31,7 +31,14 @@ W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 mkdir -p "$W/gh" "$W/corpus/tests/xl"
 head -2 "$GH/SUITES.tsv" > "$W/gh/SUITES.tsv"
 printf 'xl-master\tXlM\t🧪\txl\t2026-09-01\t10\t10\t2026-09-08\t10\t10\tdeadbeef1\t\n' >> "$W/gh/SUITES.tsv"
-run_banner() { S4E_SUITES_TSV="$W/gh/SUITES.tsv" python3 "$B" --line --plain 2>&1 | sed -n '2p'; }
+# ⛔ THE OBSERVATION SURFACE MOVED 2026-09-13, THE RULE DID NOT. This read the BANNER's printed line
+# (--line --plain, line 2) until Lon deleted the banner that day -- "Delete whatever produced that. I want it
+# gone." banner() and grid() went with it, a bare run now prints nothing, and THIS GATE WENT RED FOR EVERY
+# SEAT rather than refusing: it was grading a reading, not the rule. The rule -- a master carrying an xfail
+# never renders as done -- is untouched and still worth a gate, so it now reads the SUITE TABLE row (--md),
+# which carries the same three states from the same xfail_by_lang(): "done", "N xfail=fail", "xfail
+# unreadable". A deleted instrument retires the READING, never the RULE.
+run_banner() { S4E_SUITES_TSV="$W/gh/SUITES.tsv" python3 "$B" --md 2>&1 | grep '| XlM |'; }
 
 RED=0; ARMS=0
 arm() { ARMS=$((ARMS+1)); if [ "$2" = yes ]; then echo "  ✓ $1"; else echo "  ⛔ $1"; RED=$((RED+1)); fi; }
