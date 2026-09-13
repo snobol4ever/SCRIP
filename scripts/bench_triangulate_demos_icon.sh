@@ -150,6 +150,9 @@ echo "instrument: tools/bench_rusage external cpu(user+sys); engines: $ENGINES; 
 echo "oracle: $ICONT / iconx (Arizona v9.5.25a); RT_OPT=-O0 (no -O2 build exists)"
 echo "trees: SCRIP $(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)  corpus $(git -C "$S4E/corpus" rev-parse --short HEAD 2>/dev/null)"
 for e in $ENGINES; do echo "overhead(empty program, $e): ${OVH[$e]} ms cpu"; done
+# ⛔ THE GRID OPENS HERE so no multiple below can print without the load it ran under, and so a cell that
+# REFUSES is counted in THIS shell (perf_row is called directly, never inside $( ) -- arm G of the dark-cell gate).
+perf_grid_begin "demo vs iconx -- x on the FASTER axis (iconx/ours) · TOTAL basis, whole-program run incl startup · WORK basis = total - empty-program overhead · instrument tools/bench_rusage cpu(user+sys) · RT_OPT=-O0"
 echo
 printf "%-14s %-6s %11s %11s %8s %-9s %9s %9s %s\n" DEMO ENGINE "a1 runs/s" "a2 runs/s" ratio VERDICT "total ms" "work ms" answer
 printf '%s\n' "----------------------------------------------------------------------------------------------------"
@@ -223,15 +226,16 @@ for E in "$D"/*.icn; do
                         'BEGIN{a=(c>0)?o/c:1; b=(ce>0)?oe/ce:1; print ((a>=0.5)||(b>=0.5))?"DOM":"OK"}')
                 if [ "$ofr" = DOM ]; then
                     echo "    ⛔ $N $e: WORK MULTIPLE REFUSED -- process startup is >=50% of the reading on at least one arm (overhead iconx=${OVH[iconx]}ms of ${CPU[iconx]}ms, $e=${OVH[$e]}ms of ${CPU[$e]}ms), so total-minus-overhead is dominated by its own error bars."
-                    echo "    $(perf_row "  $N $e vs iconx (TOTAL basis -- startup INCLUDED, not the two-number work basis)" "${CPU[iconx]}" "${CPU[$e]}")"
+                    perf_row "  $N $e vs iconx (TOTAL basis -- startup INCLUDED, not the two-number work basis)" "${CPU[iconx]}" "${CPU[$e]}"
                 else
-                    echo "    $(perf_row "  $N $e vs iconx (WORK basis)" "$wo" "$we")"
+                    perf_row "  $N $e vs iconx (WORK basis)" "$wo" "$we"
                 fi
             fi
         done
     fi
     unset A1 A2 DG CPU IB OB; ROWS=$((ROWS+1)); echo
 done
+perf_grid_end || RC=1
 echo "rows measured: $ROWS   TSV: $OUT"
 [ "$ROWS" -gt 0 ] || refuse "no demo rows measured -- a grid of nothing is not a measurement."
 [ "$RC" = 0 ] && echo "✅ every measured row AGREE across angle 1 and angle 2." \

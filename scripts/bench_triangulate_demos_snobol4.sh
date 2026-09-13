@@ -142,6 +142,9 @@ echo "   startup AND compile -- NOT a kernel slope. Never share a column with be
 echo "instrument: tools/bench_rusage external cpu(user+sys); engines: $ENGINES; budget(a1)=${BUDGET_MS}ms; reps(a2)=$REPS_A2; tol=${TOL}%"
 echo "oracle: $SBL $(sbl_lang_flags) (+per-row size flags from DEMO-SCALE.tsv); RT_OPT=-O0; ulimit -s matched across sbl/m3/m4 per row"
 echo "trees: SCRIP $(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)  corpus $(git -C "$S4E/corpus" rev-parse --short HEAD 2>/dev/null)"
+# ⛔ THE GRID OPENS HERE so no multiple below can print without the load it ran under, and so a cell that
+# REFUSES is counted in THIS shell (perf_row is called directly, never inside $( ) -- arm G of the dark-cell gate).
+perf_grid_begin "demo vs SPITBOL -- x on the FASTER axis (SPITBOL/ours) · TOTAL basis, whole-program run incl startup+compile · instrument tools/bench_rusage cpu(user+sys) · RT_OPT=-O0"
 echo
 printf "%-11s %-6s %12s %12s %9s %-9s %7s %7s %s\n" DEMO ENGINE "a1 runs/s" "a2 runs/s" "ratio" "VERDICT" "inblk" "oublk" "answer"
 printf '%s\n' "-------------------------------------------------------------------------------------------------------"
@@ -201,13 +204,14 @@ while IFS=$'\t' read -r fam prog input scale sf note; do
       elif [ "${DG[$e]:-}" != "${DG[sbl]}" ]; then
         echo "    ⛔ $fam $e: ANSWER DIVERGES FROM THE ORACLE (${DG[$e]:-none} vs ${DG[sbl]}) -- NO MULTIPLE IS PRINTED. A wrong answer is never a fast answer."
       else
-        echo "    $(perf_row "  $fam $e vs SPITBOL" "${CPU[sbl]}" "${CPU[$e]}")"
+        perf_row "  $fam $e vs SPITBOL" "${CPU[sbl]}" "${CPU[$e]}"
       fi
     done
   fi
   unset A1 A2 DG CPU IB OB; ROWS=$((ROWS+1)); echo
 done < "$SCALETSV"
 
+perf_grid_end || RC=1
 echo "rows measured: $ROWS   TSV: $OUT"
 [ "$RC" = 0 ] && echo "✅ every measured row AGREE across angle 1 and angle 2." \
               || echo "⛔ at least one row DISAGREE/VOID/UNPROVEN -- those rows are NOT CITABLE. Raw readings kept above."

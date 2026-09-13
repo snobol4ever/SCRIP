@@ -110,7 +110,7 @@ out="$(perf_grid_end 2>/dev/null)"; rc=$?
 # which DELETES the row when an operand is missing -- shape (3), the invisible cell: the grid looks
 # complete because nobody greps for a row that was never printed.
 echo "F. the bench harnesses cannot delete a row, and they close the grid they open"
-for h in bench_triangulate_pascal.sh bench_triangulate_prolog.sh bench_triangulate_raku.sh bench_triangulate_snobol4.sh; do
+for h in bench_triangulate_pascal.sh bench_triangulate_prolog.sh bench_triangulate_raku.sh bench_triangulate_snobol4.sh bench_triangulate_demos_icon.sh bench_triangulate_demos_snobol4.sh; do
     f="$HERE/$h"
     [ -r "$f" ] || { bad "$h: unreadable" "a readable harness" "missing"; continue; }
     if grep -q '\[ -n "\$[a-zA-Z0-9_]*" \].*perf_row' "$f"; then
@@ -119,6 +119,25 @@ for h in bench_triangulate_pascal.sh bench_triangulate_prolog.sh bench_triangula
     elif ! grep -q 'perf_grid_end'   "$f"; then bad "$h: grid never closed" "perf_grid_end (the whole-grid refusal)" "no call"
     else ok "$h: no row-deleting guard, grid opened and closed"; fi
 done
+#-----------------------------------------------------------------------------------------------------
+# G. NO HARNESS MAY CALL perf_row INSIDE $( ).  ⛔ THIS IS ARM E's SEAM ONE LEVEL OUT, AND IT SURVIVED
+# ARM E's CURE.  perf_row was fixed to bump PERF_DARK_CELLS in its OWN shell, but a CALLER writing
+#     echo "    $(perf_row ...)"
+# puts perf_row in a subshell of its own making, so the bump dies there exactly as it used to die
+# inside the printer -- and the grid closes rc=0 with a hole in it.  Measured 2026-09-13 on the two
+# demos harnesses, the last three such sites in the tree: wrapped read PERF_DARK_CELLS=0 / grid rc=0,
+# unwrapped read 1 / rc=2 on the identical refusing cell.
+# ⭐ THE REASON THIS IS A GATE AND NOT A NOTE: arm F checks that a harness OPENS and CLOSES a grid,
+# and a $( )-wrapped caller passes arm F while its verdict cannot fail.  A guard that is satisfied by
+# the broken shape is the shape this lane keeps paying for -- so the census that found it lives here now.
+echo "G. no bench harness calls perf_row inside a subshell"
+gsites=0
+for f in "$HERE"/bench_*.sh; do
+    [ -r "$f" ] || continue
+    n="$(grep -c '\$(perf_row' "$f" 2>/dev/null)" || n=0
+    [ "$n" -eq 0 ] || { bad "$(basename "$f"): perf_row wrapped in \$( )" "a direct call (the dark-cell bump must land in the harness's own shell)" "$n site(s)"; gsites=$((gsites+n)); }
+done
+[ "$gsites" -eq 0 ] && ok "no bench harness wraps perf_row in \$( ) (census over $HERE/bench_*.sh)"
 #-----------------------------------------------------------------------------------------------------
 printf '\nGATE %s -- pass=%s fail=%s\n' "$([ "$FAIL" -eq 0 ] && echo PASS || echo FAIL)" "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1
