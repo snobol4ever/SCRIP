@@ -2778,7 +2778,18 @@ TASKEOF
          elif [ "$cmts" -eq 0 ] && [ "$fnd" -eq 0 ]; then line="⚠ NOTHING LANDED — $ME — tree is clean and safe to /clear, but this session produced NO commit and NO FINDING. That is not success; it is an empty session."
          elif [ "$onlyhere" -eq 0 ] && [ "$hrc" -ne 0 ]; then line="✅ SUCCESS — $ME — safe to /clear (behind origin, nothing unpushed) — $lvl"
          elif [ "$hrc" -eq 0 ]; then line="✅ SUCCESS — $ME — safe to /clear — $lvl"
-         else                        line="⛔ FAILURE — $ME — do NOT /clear — $lvl — $(printf '%s' "$pline" | sed 's/^ *-* *//')"
+         # ⛔⭐ IN-PROGRESS, NOT FAILURE (Lon 2026-09-13: "Does FAILURE mean IN-PROGRESS?" then "Change FAILURE
+         # to IN-PROGRESS."; ceo CEO-713). THIS BRANCH MEASURES ONE FACT AND ONLY ONE: onlyhere > 0 -- dirty
+         # files or unpushed commits exist IN THIS CLONE AND NOWHERE ELSE. A seat mid-row holding two
+         # uncommitted files HAS NOT FAILED AT ANYTHING; it is working, and calling that FAILURE told Lon a
+         # working seat was broken thirteen times an hour. The measured instance: the coo read ⛔ FAILURE on
+         # two dirty .github files with nothing unpushed and an OPEN P5 row.
+         # ⛔ rc IS DELIBERATELY UNCHANGED. This headline answers "safe to /clear?", which is a DIFFERENT
+         # question from "did this seat succeed?" -- the same separation the NOTHING LANDED arm above already
+         # keeps. A rename that quietly flipped rc would turn thirteen seats' handoff checks into something
+         # else. The real failure states keep their own words and are ABOVE this branch: STOP for a
+         # pre-rewrite clone, DRAIN FIRST for unread mail.
+         else                        line="⏳ IN-PROGRESS — $ME — do NOT /clear, work is only here — $lvl — $(printf '%s' "$pline" | sed 's/^ *-* *//')"
            fi
          # ⭐ V2-3, second half: the BOARD LINE carries the oldest-unanswered age and the row topic. BOARD.md is what
          # `fleet` renders and what Lon reads when he is not reading a banner, and in v1 it could not show either --
