@@ -45,10 +45,11 @@ test_gate_absent_line_is_unproven_not_red.sh	WIRED	-	-	-
 test_gate_an_assignment_to_a_value_raises_111_at_run_time_instead_of_aborting.sh	WIRED	-	-	-
 test_gate_ast_declared_refs_are_ast_dumps.sh	WIRED	-	-	-
 test_gate_ast_shaped_refs_are_declared_ast.sh	WIRED	-	-	-
-test_gate_banner_leads_with_the_suite_line.sh	WIRED	-	-	-
 test_gate_banner_groups_by_language_and_excludes_unread_suites.sh	WIRED	-	-	-
+test_gate_banner_leads_with_the_suite_line.sh	WIRED	-	-	-
 test_gate_banner_reports_ahead_of_origin.sh	WIRED	-	-	-
 test_gate_baton_donewhen_runnable.sh	WIRED	-	-	-
+test_gate_bench_prolog_kernels_pristine.sh	WIRED	-	-	-
 test_gate_boards_refuse_when_the_binary_moves.sh	WIRED	-	-	-
 test_gate_build_freshness_is_behavioural.sh	WIRED	-	-	-
 test_gate_builder_and_grader_agree_on_stdin_companion_spellings.sh	WIRED	-	-	-
@@ -222,6 +223,7 @@ test_gate_pl_number_syntax_iso.sh	WIRED	-	-	-
 test_gate_pl_quad_regs.sh	WIRED	-	-	-
 test_gate_pl_raising_directive_does_not_abort_the_load.sh	WIRED	-	-	-
 test_gate_pl_read_raises_catchable_syntax_error.sh	WIRED	-	-	-
+test_gate_pl_stream_arg_errors_are_catchable.sh	WIRED	-	-	-
 test_gate_pl_swi_every_shipped_case_is_graded_by_path.sh	WIRED	-	-	-
 test_gate_pl_swi_shim_runs_a_forall_test_per_instance.sh	WIRED	-	-	-
 test_gate_pl_term_inspection_iso_errors.sh	WIRED	-	-	-
