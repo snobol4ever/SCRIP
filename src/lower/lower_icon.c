@@ -190,6 +190,7 @@ static int icn_arg_stages(const icx_t * cx, const tree_t * a) {
     if (a->t == TT_IDX || a->t == TT_FIELD) return 1;
     if (a->t == TT_SECTION || a->t == TT_SECTION_PLUS || a->t == TT_SECTION_MINUS) return 1;
     if ((a->t == TT_ASSIGN || a->t == TT_AUGOP || a->t == TT_SWAP) && a->n > 1 && a->c[0] && a->c[0]->t == TT_VAR) return icn_arg_stages(cx, a->c[0]);
+    if (icn_tree_is_kw_var(a)) return 1;
     if (a->t != TT_VAR || !a->v.sval || a->v.sval[0] == '&') return 0;
     const char * nm = a->v.sval;
     if (icn_is_proc_or_record_name(nm)) return 0;
@@ -253,7 +254,7 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
         prev = ar; args_r[k] = ar;
     }
     for (int k = 0; k < nargs; k++) if (staged[k] && args_r[k]) {
-        IR_t * drf = build(cx, IR_DEREF, NULL, aω); ir_operand_push(drf, args_r[k]);
+        IR_t * drf; if (icn_tree_is_kw_var(t->c[argbase + k])) { drf = build(cx, IR_KW_ICON, NULL, aω); IR_LIT(drf).sval = (char *) t->c[argbase + k]->v.sval; } else { drf = build(cx, IR_DEREF, NULL, aω); ir_operand_push(drf, args_r[k]); }
         if (prev) lc_γ_to(prev, drf); else entry = drf;
         prev = drf; args_r[k] = drf;
     }
@@ -503,6 +504,8 @@ static IR_t * lower_scan_impl(icx_t * cx, const tree_t * subj_t, const tree_t * 
     int body_resumes = (bv && icn_gen_wiring(bv)) || (body_beta && body_beta != ω && body_beta != fail_tramp && body_beta != succ_tramp);
     if (body_resumes && !(bv && icn_gen_wiring(bv))) ir_operand_push(leave_succ, body_beta);
     cx->beta = body_resumes ? leave_succ : ((subj_beta && subj_beta != ω) ? subj_beta : ω);
+    { const tree_t * bt = body_t; while (bt && bt->t == TT_CONJ && bt->n >= 2) bt = bt->c[bt->n - 1];
+      if (icn_tree_is_kw_var(bt)) { IR_t * kr = build(cx, IR_KW_ICON, γ, ω); IR_LIT(kr).sval = (char *) bt->v.sval; lc_γ_to(leave_succ, kr); *res = kr; return s_entry; } }
     *res = leave_succ; return s_entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1444,7 +1447,7 @@ static IR_t * lower_make_list(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω
         prev = ar; args_r[k] = ar;
     }
     for (int k = 0; k < t->n; k++) if (staged[k] && args_r[k]) {
-        IR_t * drf = build(cx, IR_DEREF, NULL, aω); ir_operand_push(drf, args_r[k]);
+        IR_t * drf; if (icn_tree_is_kw_var(t->c[k])) { drf = build(cx, IR_KW_ICON, NULL, aω); IR_LIT(drf).sval = (char *) t->c[k]->v.sval; } else { drf = build(cx, IR_DEREF, NULL, aω); ir_operand_push(drf, args_r[k]); }
         if (prev) lc_γ_to(prev, drf); else entry = drf;
         prev = drf; args_r[k] = drf;
     }
