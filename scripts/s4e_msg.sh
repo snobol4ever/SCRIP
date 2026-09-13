@@ -2807,6 +2807,16 @@ TASKEOF
          # verify is not a status.  PERSIST IT.  The verdict is already computed one line above; write it to BOARD.md
          # so `fleet`, `board`, and Lon reading the file all see the same COMPUTED line whatever the client does with
          # the hint.  Suppressed when `board` is the caller, so a seat's typed status is never clobbered by this.
+         # ⛔⭐⭐ THE COMPUTED VERDICT IS PRINTED (ceo CEO-708, 2026-09-13). It had stopped: 92739c0d6 applied
+         # Lon's order about the SUITE TABLE to the whole banner and left the seat banner printing nothing at
+         # all, so $line went to BOARD.md and never to a human. ⛔ THE COST WAS THIRTEEN SEATS: Lon /cleared
+         # all nine HQs and all four officers without a verdict to read, verbatim -- "There was no diplay
+         # banner there either." SUCCESS and safe-to-/clear are THE SAME FACT, so a seat with no verdict
+         # cannot be cleared safely and nobody can tell whether its work is on origin.
+         # ⛔ THIS IS NOT THE DELETED SUITE TABLE AND MUST NEVER GROW BACK INTO ONE: it is ONE line, the
+         # seat's own handoff verdict, which the law says must never be typed by hand. The suite table stays
+         # deleted. If this ever prints more than one line, it has become the thing Lon ordered removed.
+         printf '%s\n' "$line"
          if [ "${S4E_BANNER_NO_BOARD:-0}" != "1" ] && [ -d "$PO" ]; then
            grep -v "^$ME |" "$PO/BOARD.md" 2>/dev/null > "$PO/.b.$$" || true
            printf '%s | %s | %s\n' "$ME" "$line" "$(date -u +%H:%M)" >> "$PO/.b.$$"
