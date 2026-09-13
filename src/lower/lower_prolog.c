@@ -492,9 +492,11 @@ static IR_t * pl_lower_ite(lcx_t * cx, const tree_t * C, const tree_t * T, const
         collect_conj(arms[j], &av);
         IR_t * ae = NULL; IR_t * redo = NULL;
         IR_t * first = pl_lower_conj(cx, (const tree_t * const *) av.data, av.n, ml, unmk_c, &ae, &redo, NULL);
-        ir_operand_push(ml, redo ? redo : ig);
+        int cut_in_arm = 0;
+        for (int k = before; k < cx->g->n; k++) if (cx->g->all[k] && cx->g->all[k]->op == IR_CUT && IR_LIT(cx->g->all[k]).ival == cx->cut_scope) { cut_in_arm = 1; break; }
+        ir_operand_push(ml, cut_in_arm ? cx->cutω : (redo ? redo : ig));
         ir_operand_push(ml, ig);
-        IR_LIT(ml).ival = redo ? 1 : 0;
+        IR_LIT(ml).ival = (redo || cut_in_arm) ? 1 : 0;
         arm_entry[j] = ae ? ae : (first ? first : ml);
     }
     { int before = cx->g->n;
@@ -532,12 +534,13 @@ static IR_t * pl_lower_softcut(lcx_t * cx, const tree_t * C, const tree_t * T, c
       IR_t * cfirst = pl_lower_conj(cx, (const tree_t * const *) cv.data, cv.n, ml_c, unmk_f, &ce, &credo, NULL);
       cx->cutω = savecutω; cx->cut_scope = save_scope;
       lc_γ_to(ml_e, pl_sc_entry(ce ? ce : (cfirst ? cfirst : ml_c))); }
-    IR_t * tredo = NULL;
+    IR_t * tredo = NULL; int sc_cut_in_then = 0; int sc_cut_in_else = 0;
     { lc_vec tv; lc_vec_init(&tv, (int) sizeof(const tree_t *));
       collect_conj(T, &tv);
       int before = cx->g->n;
       IR_t * te = NULL;
       IR_t * tfirst = pl_lower_conj(cx, (const tree_t * const *) tv.data, tv.n, ml_t, credo ? credo : unmk_c, &te, &tredo, NULL);
+      for (int k = before; k < cx->g->n; k++) if (cx->g->all[k] && cx->g->all[k]->op == IR_CUT && IR_LIT(cx->g->all[k]).ival == cx->cut_scope) { sc_cut_in_then = 1; break; }
       if (credo) pl_mark_into(cx, before, credo, "β", "β");
       lc_γ_to(ml_c, pl_sc_entry(te ? te : (tfirst ? tfirst : ml_t))); }
     IR_t * ee = NULL;
@@ -546,14 +549,16 @@ static IR_t * pl_lower_softcut(lcx_t * cx, const tree_t * C, const tree_t * T, c
         lc_vec ev; lc_vec_init(&ev, (int) sizeof(const tree_t *));
         collect_conj(E, &ev);
         IR_t * eredo = NULL;
+        int ebefore = cx->g->n;
         IR_t * efirst = pl_lower_conj(cx, (const tree_t * const *) ev.data, ev.n, ml_ee, unmk_c, &ee, &eredo, NULL);
-        ir_operand_push(ml_ee, eredo ? eredo : ig); ir_operand_push(ml_ee, ig); IR_LIT(ml_ee).ival = eredo ? 1 : 0;
+        for (int k = ebefore; k < cx->g->n; k++) if (cx->g->all[k] && cx->g->all[k]->op == IR_CUT && IR_LIT(cx->g->all[k]).ival == cx->cut_scope) { sc_cut_in_else = 1; break; }
+        ir_operand_push(ml_ee, sc_cut_in_else ? cx->cutω : (eredo ? eredo : ig)); ir_operand_push(ml_ee, ig); IR_LIT(ml_ee).ival = (eredo || sc_cut_in_else) ? 1 : 0;
         ee = pl_sc_entry(ee ? ee : (efirst ? efirst : ml_ee));
         if (!ee) ee = ml_ee;
     }
     ir_operand_push(ml_e, E ? ee : eg); ir_operand_push(ml_e, eg); IR_LIT(ml_e).ival = 0;
     ir_operand_push(ml_c, eg); ir_operand_push(ml_c, eg); IR_LIT(ml_c).ival = 0;
-    ir_operand_push(ml_t, tredo ? tredo : (credo ? credo : ig)); ir_operand_push(ml_t, ig); IR_LIT(ml_t).ival = (tredo || credo) ? 1 : 0;
+    ir_operand_push(ml_t, sc_cut_in_then ? cx->cutω : (tredo ? tredo : (credo ? credo : ig))); ir_operand_push(ml_t, ig); IR_LIT(ml_t).ival = (tredo || credo || sc_cut_in_then) ? 1 : 0;
     lc_γ_to(mark, ml_e);
     if (entry_out) *entry_out = mark;
     return ig;
@@ -1178,7 +1183,10 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
                 IR_t * pkids[2]; IR_t * pkes[2]; pkids[0] = wc; pkes[0] = wce; pkids[1] = tv2; pkes[1] = te2;
                 IR_t * pe = NULL; IR_t * pr = mkc_node(cx, "-", 2, pkids, pkes, &pe);
                 IR_t * bc2 = build(cx, IR_CALL, lo, ωfail); IR_LIT(bc2).sval = "$ball_pending";
+                IR_t * gcutω2 = build(cx, IR_GOTO, lo, lo);
+                IR_t * gsaveω2 = cx->cutω; cx->cutω = gcutω2; int gsave_scope2 = cx->cut_scope; cx->cut_scope = ++cx->scope_seq;
                 IR_t * first2 = pl_lower_conj(cx, (const tree_t * const *) glv2.data, glv2.n, pe ? pe : pr, bc2, &gentry, &gredo, NULL);
+                cx->cutω = gsaveω2; cx->cut_scope = gsave_scope2;
                 lc_γ_to(acc, gentry ? gentry : (first2 ? first2 : lo));
                 lc_γ_to(pr, add); lc_ω_to(pr, lo);
                 ir_operand_push(add, acc); ir_operand_push(add, pr);
@@ -1208,7 +1216,10 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             collect_conj(pl_isfind ? (wantg ? gt : t->c[1]) : gt, &glv);
             IR_t * te = NULL; IR_t * tv = term_e(cx, t->c[0], &te);
             IR_t * bc = build(cx, IR_CALL, nd, ωfail); IR_LIT(bc).sval = "$ball_pending";
+            IR_t * gcutω = build(cx, IR_GOTO, nd, nd);
+            IR_t * gsaveω = cx->cutω; cx->cutω = gcutω; int gsave_scope = cx->cut_scope; cx->cut_scope = ++cx->scope_seq;
             IR_t * first = pl_lower_conj(cx, (const tree_t * const *) glv.data, glv.n, te ? te : tv, bc, &gentry, &gredo, NULL);
+            cx->cutω = gsaveω; cx->cut_scope = gsave_scope;
             lc_γ_to(acc, gentry ? gentry : (first ? first : nd));
             lc_γ_to(tv, add); lc_ω_to(tv, nd);
             ir_operand_push(add, acc); ir_operand_push(add, tv);
