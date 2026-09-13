@@ -109,6 +109,7 @@ static const char * pl_pi_name(const char * nm, int ar) {
     snprintf(buf, sizeof buf, "%s/%d", nm, ar); return strdup(buf);
 }
 static IR_t * term_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out);
+static int pl_tree_is_big(const tree_t * t) { return t && t->t == TT_FNC && t->n == 1 && t->v.sval && !strcmp(t->v.sval, "$pl_big") && t->c[0] && t->c[0]->t == TT_QLIT && t->c[0]->v.sval; }
 static IR_t * term_lval_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * mkc_node(lcx_t * cx, const char * fname, int nkids, IR_t ** kids, IR_t ** kid_entries, IR_t ** entry_out) {
@@ -150,6 +151,13 @@ static IR_t * term_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out) {
     }
     case TT_FNC: {
         int nk = t->n;
+        if (pl_tree_is_big(t)) {
+            IR_t * nd = build(cx, IR_CALL, NULL, cx->tω); IR_LIT(nd).sval = "$pl_big";
+            IR_t * dg = build(cx, IR_LIT_STRING, NULL, cx->tω); IR_LIT(dg).sval = t->c[0]->v.sval;
+            ir_operand_push(nd, dg);
+            lc_γ_to(dg, nd);
+            if (entry_out) *entry_out = dg;
+            return nd; }
         if (nk == 0) { IR_t * nd = build(cx, IR_LIT_STRING, NULL, cx->tω); IR_LIT(nd).sval = t->v.sval ? t->v.sval : "?"; return nd; }
         IR_t ** kids = (IR_t **) calloc((size_t)(nk > 0 ? nk : 1), sizeof(IR_t *));
         IR_t ** kes  = (IR_t **) calloc((size_t)(nk > 0 ? nk : 1), sizeof(IR_t *));
@@ -290,6 +298,14 @@ static int pl_ax_divides(const char * sfx) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_arith_val(lcx_t * cx, const tree_t * t, IR_t * ωfail, IR_t ** entry_out) {
+    if (pl_tree_is_big(t)) {
+        IR_t * nd = build(cx, IR_CALL, NULL, ωfail); IR_LIT(nd).sval = "$pl_big";
+        IR_t * dg = build(cx, IR_LIT_STRING, NULL, ωfail); IR_LIT(dg).sval = t->c[0]->v.sval;
+        ir_operand_push(nd, dg);
+        lc_γ_to(dg, nd); lc_ω_to(dg, ωfail);
+        if (entry_out) *entry_out = dg;
+        return nd;
+    }
     if (t && (t->t == TT_QLIT || t->t == TT_NAME) && t->v.sval && pl_ax_suffix(t->v.sval, 0)) {
         char nb[24]; snprintf(nb, sizeof nb, "$ax_%s", pl_ax_suffix(t->v.sval, 0));
         IR_t * nd = build(cx, IR_CALL, NULL, ωfail); IR_LIT(nd).sval = strdup(nb);
@@ -781,7 +797,7 @@ static int pl_pi_is_static_builtin(const char * pn, int ar) {
     if (pl_rung_of(pn) && strcmp(pn, "for")) return 1;
     return 0;
 }
-static const tree_t * pl_tree_number(const tree_t * t) { return (t && (t->t == TT_ILIT || t->t == TT_FLIT)) ? t : NULL; }
+static const tree_t * pl_tree_number(const tree_t * t) { return (t && (t->t == TT_ILIT || t->t == TT_FLIT || pl_tree_is_big(t))) ? t : NULL; }
 static const tree_t * pl_body_ill_typed(const tree_t * b) {
     if (!b) return NULL;
     if (pl_tree_number(b)) return b;

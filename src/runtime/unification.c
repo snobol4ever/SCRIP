@@ -284,6 +284,7 @@ static void plc_wt(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, lon
     if (tg == DT_A || tg == DT_S) { plc_wt_atom(fp, plc_atom_text(d), quoted); return; }
     if (tg == DT_I) { fprintf(fp, "%ld", (long)d->i); return; }
     if (tg == DT_R) { plc_wt_num(fp, d); return; }
+    if (tg == DT_BIG) { extern char *rt_big_str(DESCR_t); char *bs = rt_big_str(*d); fputs(bs ? bs : "0", fp); return; }
     if (tg != DT_PLREF) { { const char *vn = plc_vname(m, d); if (vn) fputs(vn, fp); else fprintf(fp, "_G%d", plc_vindex(m, d)); } return; }
     int fnid = (int)(d->slen >> 16), ar = (int)(d->slen & 0xFFFFu);
     pl_cell_t *aa = (pl_cell_t *)d->p;
@@ -473,7 +474,7 @@ int rt_pl_type_test_cell(void *cell_term, const char *fn)
     pl_cell_t *d = cell_term ? pl_deref((pl_cell_t *)cell_term) : (pl_cell_t *)0;
     int isvar = (!d || pl_cell_unbound(d));
     int isatom = (d && !isvar && plc_is_atomlike(d));
-    int isint = (d && !isvar && (int)d->v == DT_I);
+    int isint = (d && !isvar && ((int)d->v == DT_I || (int)d->v == DT_BIG));
     int isfloat = (d && !isvar && (int)d->v == DT_R);
     int iscomp = (d && !isvar && (int)d->v == DT_PLREF);
     if (!fn) return 0;
@@ -1093,7 +1094,7 @@ static void rt_pl_vord_walk(pl_cell_t *c, pl_vord_t *m) {
 static int rt_pl_cell_class(pl_cell_t *d) {
     int t = (int)d->v;
     if (pl_cell_unbound(d)) return 0;
-    if (t == DT_I || t == DT_R) return 1;
+    if (t == DT_I || t == DT_R || t == DT_BIG) return 1;
     if (t == DT_A || t == DT_S) return 2;
     if (t == DT_PLREF) return 3;
     return 0;
@@ -1110,6 +1111,13 @@ static int rt_pl_cell_compare(pl_cell_t *ca, pl_cell_t *cb, pl_vord_t *m) {
     int cla = rt_pl_cell_class(a), clb = rt_pl_cell_class(b);
     if (cla != clb) return cla < clb ? -1 : 1;
     if (cla == 0) { int ia = rt_pl_vord_of(m, a), ib = rt_pl_vord_of(m, b); return ia == ib ? 0 : (ia < ib ? -1 : 1); }
+    if (cla == 1 && ((int)a->v == DT_BIG || (int)b->v == DT_BIG) && (int)a->v != DT_R && (int)b->v != DT_R) { extern int rt_big_cmp(DESCR_t, DESCR_t); int rc = rt_big_cmp(*a, *b); return rc < 0 ? -1 : (rc > 0 ? 1 : 0); }
+    if (cla == 1 && ((int)a->v == DT_BIG || (int)b->v == DT_BIG)) {
+        extern char *rt_big_str(DESCR_t);
+        double x = ((int)a->v == DT_BIG) ? strtod(rt_big_str(*a), (char **)0) : (((int)a->v == DT_I) ? (double)a->i : a->r);
+        double y = ((int)b->v == DT_BIG) ? strtod(rt_big_str(*b), (char **)0) : (((int)b->v == DT_I) ? (double)b->i : b->r);
+        if (x < y) return -1; if (x > y) return 1;
+        return ((int)a->v == DT_R) ? -1 : 1; }
     if (cla == 1) { double x = ((int)a->v == DT_I) ? (double)a->i : a->r, y = ((int)b->v == DT_I) ? (double)b->i : b->r; if (x < y) return -1; if (x > y) return 1; if ((int)a->v == (int)b->v) return 0; return ((int)a->v == DT_R) ? -1 : 1; }
     if (cla == 2) { int c = strcmp(rt_pl_cell_name(a), rt_pl_cell_name(b)); return c < 0 ? -1 : (c > 0 ? 1 : 0); }
     int ara = (int)(a->slen & 0xFFFFu), arb = (int)(b->slen & 0xFFFFu);

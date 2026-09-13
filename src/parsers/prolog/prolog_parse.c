@@ -448,6 +448,14 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
             return v;
         }
         case TK_INT: {
+            if (tk.big && tk.text) {
+                tree_t *n = ast_node_new(TT_FNC);
+                tree_t *d = ast_node_new(TT_QLIT);
+                n->v.sval = strdup("$pl_big");
+                d->v.sval = strdup(tk.text);
+                ast_push(n, d);
+                return n;
+            }
             tree_t *n = ast_node_new(TT_ILIT);
             n->v.ival = tk.ival;
             return n;

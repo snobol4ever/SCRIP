@@ -32,6 +32,7 @@ typedef struct {
     long    ival;
     double  fval;
     int     line;
+    int     big;
 } Token;
 typedef struct {
     const char *src;

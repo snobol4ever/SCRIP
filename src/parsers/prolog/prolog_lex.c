@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <errno.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char cur(Lexer *lx) {
     return lx->src[lx->pos];
@@ -30,12 +31,12 @@ static void buf_push(char **buf, int *len, int *cap, char c) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static Token make_tok(TkKind kind, char *text, int line) {
-    Token t; t.kind = kind; t.text = text; t.ival = 0; t.fval = 0.0; t.line = line;
+    Token t; t.kind = kind; t.text = text; t.ival = 0; t.fval = 0.0; t.line = line; t.big = 0;
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static Token make_err(int line, const char *msg) {
-    Token t; t.kind = TK_ERROR; t.text = strdup(msg); t.ival = 0; t.fval = 0.0; t.line = line;
+    Token t; t.kind = TK_ERROR; t.text = strdup(msg); t.ival = 0; t.fval = 0.0; t.line = line; t.big = 0;
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -241,7 +242,9 @@ static Token scan_number(Lexer *lx) {
         return t;
     } else {
         Token t = make_tok(TK_INT, buf, line);
-        t.ival = (long)(unsigned long long)strtoull(buf, NULL, 10);
+        errno = 0;
+        t.ival = (long)strtoll(buf, NULL, 10);
+        t.big = (errno == ERANGE);
         return t;
     }
 }

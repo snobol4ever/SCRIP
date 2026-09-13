@@ -19,6 +19,12 @@
 # Logtalk ISO groups this rung touches, graded one --group at a time in BOTH modes (RED BEFORE on a clean origin
 # build 577298671: not_1 8/10; the other floors are the standing counts, held so a later change to the resolver
 # cannot trade a group away). A later rung may only raise a floor.
+# ⛔⭐ EXPECTATION CORRECTED 2026-09-13 (cto), and the correction is the point: this arm shipped expecting
+# `ok(1=1,1==1)` -- which READS AS ok/2 and was the term writer emitting a(b,c) for a((b,c)), a DIFFERENT TERM
+# and not a formatting difference. hq_R cured that in cb1578145 (three near-identical writers, each with its own
+# operator table, unified into one plc_wt with maximum priority threaded), and this gate went red on the cure
+# because its expectation was ANCHORED ON THE DEFECT (RULES.md INSTRUMENT LAWS, eighteenth batch). Both oracles
+# agree on the corrected line: swipl 9 and gprolog 1.4.5 both write `ok((1=1,1==1))` and both read functor ok/1.
 set -u
 GATE_NAME=test_gate_pl_iso_rung4_run_time_meta_call_of_builtins_through_compiled_wrappers
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -79,7 +85,7 @@ main :-
     halt.
 member(X,[X|_]). member(X,[_|T]) :- member(X,T).
 EOP
-arm every_lowerer_known_builtin_is_reachable_by_a_run_time_goal "$TMPD/reach.pl" "$(printf '%s\n' 'ok(current_op(700,xfx,is))' 'ok(between(1,3,1))' 'ok(current_predicate(main/0))' 'ok(atom_length(abc,3))' 'ok(call(true))' 'ok(1=1,1==1)' 'ok(findall(_G0,member(_G0,[a,b]),[a,b]))' '[a,b]' 'ok(sub_atom(abc,1,1,1,b))' 'ok(atom_codes(hi,[104,105]))')" 0
+arm every_lowerer_known_builtin_is_reachable_by_a_run_time_goal "$TMPD/reach.pl" "$(printf '%s\n' 'ok(current_op(700,xfx,is))' 'ok(between(1,3,1))' 'ok(current_predicate(main/0))' 'ok(atom_length(abc,3))' 'ok(call(true))' 'ok((1=1,1==1))' 'ok(findall(_G0,member(_G0,[a,b]),[a,b]))' '[a,b]' 'ok(sub_atom(abc,1,1,1,b))' 'ok(atom_codes(hi,[104,105]))')" 0
 cat > "$TMPD/redo.pl" <<'EOP'
 :- initialization(main).
 main :-

@@ -35,7 +35,7 @@ static inline pl_cell_t *pl_deref(pl_cell_t *c) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int pl_cell_unbound(const pl_cell_t *d) { return (int)d->v == DT_PLVAR || d->v == DT_SNUL || d->v == DT_FAIL; }
 static inline int pl_is_var(pl_cell_t *c)      { pl_cell_t *d = pl_deref(c); return pl_cell_unbound(d); }
-static inline int pl_is_int(pl_cell_t *c)      { pl_cell_t *d = pl_deref(c); return (int)d->v == DT_I; }
+static inline int pl_is_int(pl_cell_t *c)      { pl_cell_t *d = pl_deref(c); return (int)d->v == DT_I || (int)d->v == DT_BIG; }
 static inline int pl_is_atom(pl_cell_t *c)     { pl_cell_t *d = pl_deref(c); return (int)d->v == DT_A; }
 static inline int plc_is_float(pl_cell_t *c)    { pl_cell_t *d = pl_deref(c); return (int)d->v == DT_R; }
 static inline int pl_is_compound(pl_cell_t *c) { pl_cell_t *d = pl_deref(c); return (int)d->v == DT_PLREF; }
