@@ -89,3 +89,11 @@ void prolog_atom_init(void) {
     ATOM_FAIL = prolog_atom_intern("fail");
     ATOM_CUT  = prolog_atom_intern("!");
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void pl_gc_roots(void) {
+    extern void rt_gc_visit_raw(const char **loc);
+    if (ht) { rt_gc_visit_raw((const char **)&ht);
+        for (int i = 0; i < ht_size; i++) if (ht[i].key) rt_gc_visit_raw((const char **)&ht[i].key); }
+    if (atom_names) { rt_gc_visit_raw((const char **)&atom_names);
+        for (int i = 0; i < atom_len; i++) if (atom_names[i]) rt_gc_visit_raw((const char **)&atom_names[i]); }
+}

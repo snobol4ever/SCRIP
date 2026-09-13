@@ -2036,7 +2036,14 @@ static int    g_rt_cap_count = 0;
 void rt_gc_root_args(void)
 {
     extern void rt_gc_visit_descr(DESCR_t *d);
+    extern void rt_gc_visit_raw(const char **loc);
     for (int i = 0; i < CALL_ARGS_MAX; i++) rt_gc_visit_descr(&g_call_args[i]);
+    if (g_proc_hsl) rt_gc_visit_raw((const char **)&g_proc_hsl);
+    if (g_rt_gen_procs) { rt_gc_visit_raw((const char **)&g_rt_gen_procs);
+        for (int i = 0; i < g_rt_gen_proc_count; i++) { rt_proc_t *pr = &g_rt_gen_procs[i];
+            if (pr->name) rt_gc_visit_raw((const char **)&pr->name);
+            if (pr->pnames) { rt_gc_visit_raw((const char **)&pr->pnames);
+                for (int k = 0; k < pr->nparams; k++) if (pr->pnames[k]) rt_gc_visit_raw((const char **)&pr->pnames[k]); } } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_nofail_abort(void)
