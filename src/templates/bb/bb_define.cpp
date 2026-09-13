@@ -29,6 +29,7 @@ extern long g_trace;
 extern int64_t kw_ftrace;
 const char *rt_define_query(const char *, int *, int *, int *, void **);
 void rt_define_site(const char *, const char *, int, int, int, void *);
+void rt_define_site_entry(const char *, const char *);
 int bb_tiny_shim_ok(const char *, int);
 }
 extern "C" { extern int g_rt_fragment_emit; int xa_flat_class_c_pred(void); }
@@ -452,7 +453,17 @@ static std::string bb_define_bind() {
             + x86("call", "rt_define_bind_body", _bind_fp)
             + x86_scan_sync_in_rr();
         bind_seal = x86_ro_seal_str(2, _ent); } }
-    std::string seals = x86_ro_seal_str(0, fname) + x86_ro_seal_str(1, _csv ? _csv : "") + bind_seal;
+    std::string entry_seal;
+    { if (_.op_proto && strchr(_.op_proto, '|') && _.op_entry && *_.op_entry) {
+        uint64_t _ent_fp; { void (*fp)(const char *, const char *) = rt_define_site_entry; _ent_fp = (uint64_t)(uintptr_t)(void *)fp; }
+        reg = reg + x86("comment", "SITE-ENTRY-SEAL (CEO-630, multi-prototype name): the executed DEFINE's ENTRY is resolved by NAME when the statement runs and written into the one record the generic path enters through -- in BINARY the r9 pointer above is the compile-time default, so without this the last textual DEFINE's entry ran for every prototype")
+            + x86_ro_load_q("rdi", 0)
+            + x86_ro_load_q("rsi", 3)
+            + x86_scan_sync_out()
+            + x86("call", "rt_define_site_entry", _ent_fp)
+            + x86_scan_sync_in_rr();
+        entry_seal = x86_ro_seal_str(3, _.op_entry); } }
+    std::string seals = x86_ro_seal_str(0, fname) + x86_ro_seal_str(1, _csv ? _csv : "") + bind_seal + entry_seal;
     if (!_ab) return x86_alpha() + reg + x86_pair_loop() + seals;
     if (bb_ab_cell_addr(fname)) return x86_alpha() + reg + x86_pair_loop() + seals;
     return x86_alpha()

@@ -633,7 +633,9 @@ void rt_sno_runtime_define(const char *name, const char **pnames, int nparams, i
 {
     rt_proc_register(name, pnames, nparams);
     { rt_proc_t *p = rt_proc_find(name); if (!p) return;
-      p->fn = (bb_box_fn)0; p->pnames = pnames; p->nparams = nparams; p->nformals = nformals; p->dyn_scope = 1; p->result_name = (const char *)0; p->redefined = 1; p->cells_done = 0; p->is_generator = 0; p->is_variadic = 0; }
+      p->fn = (bb_box_fn)0; p->pnames = pnames; p->nparams = nparams; p->nformals = nformals; p->dyn_scope = 1; p->result_name = (const char *)0; p->redefined = 1; p->cells_done = 0; p->is_generator = 0; p->is_variadic = 0;
+      { extern const char *core_define_entry_label(const char *); extern void *rt_entry_resolve(const char *, int *); const char *el = core_define_entry_label(name); int frag = 0; void *fn = el ? rt_entry_resolve(el, &frag) : (void *)0;
+        if (fn && !frag) { p->fn = (bb_box_fn)fn; p->jmp_entry = 1; } } }
     { extern void *bb_ab_fn_cell_ptr(const char *); char cn[264]; snprintf(cn, sizeof cn, "alpha$%s", name); void **cell = (void **)bb_ab_fn_cell_ptr(cn); if (cell) *cell = (void *)0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1869,11 +1871,27 @@ void rt_define_bind_body(const char *fname, const char *entry)
 void rt_define_site(const char *name, const char *params_csv, int nparams, int nformals, int frame_bytes, void *fn)
 {
     rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
-    if (p) { if (fn && p->fn && (void *)p->fn != fn) p->redefined = 1; if (fn) p->fn = (bb_box_fn)fn; if (nparams) p->nparams = nparams; p->nformals = nformals; if (frame_bytes) p->frame_bytes = frame_bytes; p->dyn_scope = 1; p->jmp_entry = 1; return; }
+    if (p) { if (fn && p->fn && (void *)p->fn != fn) p->redefined = 1; if (fn) p->fn = (bb_box_fn)fn;
+      if (params_csv) { int np = nparams > 0 ? nparams : 0; int same = (np == p->nparams); char *dup = strdup(params_csv); char *sv = (char *)0; int k = 0;
+        if (same && dup) { for (char *t = strtok_r(dup, ",", &sv); t; t = strtok_r((char *)0, ",", &sv)) { if (k >= np || !p->pnames || !p->pnames[k] || strcmp(p->pnames[k], t)) { same = 0; break; } k++; } if (k != np) same = 0; }
+        if (!same) { const char **pn = (const char **)calloc((size_t)(np + 1), sizeof(const char *)); char *dup2 = strdup(params_csv); char *sv2 = (char *)0; int j = 0;
+          if (pn && dup2) { for (char *t = strtok_r(dup2, ",", &sv2); t && j < np; t = strtok_r((char *)0, ",", &sv2)) pn[j++] = t; }
+          if (pn) { p->pnames = pn; p->nparams = np; p->pnames_owned = 1; p->pcells = (DESCR_t **)0; p->cells_done = 0; p->redefined = 1; } }
+        free(dup); }
+      else if (nparams) p->nparams = nparams;
+      p->nformals = nformals; if (frame_bytes) p->frame_bytes = frame_bytes; p->dyn_scope = 1; p->jmp_entry = 1; return; }
     { int np = nparams > 0 ? nparams : 0; const char **pn = (const char **)calloc((size_t)(np + 1), sizeof(const char *)); char *dup = params_csv ? strdup(params_csv) : (char *)0; int k = 0;
       if (pn && dup) { char *sv = (char *)0; for (char *t = strtok_r(dup, ",", &sv); t && k < np; t = strtok_r((char *)0, ",", &sv)) pn[k++] = t; }
       rt_proc_register(name, pn, np); p = rt_proc_find(name);
       if (p) { p->pnames_owned = 1; p->fn = (bb_box_fn)fn; p->dyn_scope = 1; p->jmp_entry = 1; p->nformals = nformals; p->frame_bytes = frame_bytes; } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_define_site_entry(const char *name, const char *entry)
+{
+    extern void *rt_entry_resolve(const char *, int *);
+    if (!name || !*name || !entry || !*entry) return;
+    { int frag = 0; void *fn = rt_entry_resolve(entry, &frag); rt_proc_t *p = fn ? rt_proc_find(name) : (rt_proc_t *)0; if (!p) return;
+      if (p->fn && (void *)p->fn != fn) p->redefined = 1; p->fn = (bb_box_fn)fn; p->dyn_scope = 1; p->jmp_entry = 1; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_define_tiny_ok(const char *name, int nargs)

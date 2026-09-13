@@ -364,6 +364,7 @@ typedef struct {
     int                          op_call_route;
     int                          op_ab_nformals;
     const char *                 op_proto;
+    const char *                 op_entry;
     const char *                 lbl_α;
     const char *                 lbl_γ;
     const char *                 lbl_ω;
