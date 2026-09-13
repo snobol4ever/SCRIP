@@ -361,6 +361,7 @@ static DESCR_t elem_to_descr(const char *s, size_t slen) {
     memcpy(buf, s, slen); buf[slen] = '\0';
     char *ep; long iv = strtol(buf, &ep, 10);
     if (*ep == '\0' && ep > buf) return INTVAL(iv);
+    if (slen > 1 && strpbrk(buf, ".eE") && (buf[0] == '-' || buf[0] == '+' || buf[0] == '.' || (buf[0] >= '0' && buf[0] <= '9'))) { char *ep2; double dv = strtod(buf, &ep2); if (*ep2 == '\0' && ep2 > buf) return REALVAL(dv); }
     return STRVAL(buf);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
