@@ -811,7 +811,7 @@ record_field:
     |
     ;
 record_case_opt:
-    CASESY IDENT COLON IDENT { if ($2) { g_pas_pend_typename = strdup($4); pas_pend_add($2); } } OFSY record_case_list
+    CASESY IDENT COLON IDENT OFSY record_case_list { if ($2) { g_pas_pend_typename = strdup($4); pas_pend_add($2); } }
     | CASESY IDENT OFSY record_case_list { if ($2) pas_pend_add($2); }
     |
     ;

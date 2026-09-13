@@ -9,13 +9,16 @@
 # no slot. The unhandled nodes were 38 raw field selections, and they were raw because of two frontend faults together:
 #
 #   1. PAS_FIELD_MAX was 32 and pas_pend_add DROPPED SILENTLY past it. P5's identifier record has about 35 fields.
-#   2. The tag field of a tagged variant part was registered by an action that runs AFTER the whole variant part is
-#      parsed, so every tag landed at the END of the field list rather than at its own position -- which put exactly the
-#      tags past the 32 cap. The three names that fell off were klass, pfdeckind and pfkind, all three of them tags.
+#   2. A tagged variant part registers its tag AFTER the whole variant part is parsed, so every tag lands at the END of
+#      the field list -- which is what put exactly the tags past the 32 cap. The three names that fell off were klass,
+#      pfdeckind and pfkind, all three of them tags.
 #
-# Cure: the cap is 128, an overflow now SAYS SO on stderr instead of dropping a field in silence, and a tagged variant
-# part registers its tag through a mid-rule action, before its variants, which is where ISO 7185 6.4.3.3 puts it.
-# pascal.y keeps its 5 shift/reduce conflicts.
+# Cure: the cap is 128 and an overflow now SAYS SO on stderr instead of dropping a field in silence. That is the whole
+# cure and it is deliberately the smaller one. ⛔ MOVING THE TAG TO ITS OWN POSITION, which is where ISO 7185 6.4.3.3
+# puts it, WAS TRIED AND REVERTED: it shifted every field after a tag by one and made the SCRIP-built Pascal-P4 compiler
+# reject its own source with 105 errors where it had none, and CEO-589 forbids a cure that trades one program for
+# another. The cap raise alone fixes P5's pcom and leaves P4 clean. The ordering is a separate row with the downstream
+# assumption to find first. pascal.y keeps its 5 shift/reduce conflicts.
 #
 # ARMS: one program, both modes, byte-identical to fpc -Miso -- a record with 28 fixed fields and a NESTED tagged variant
 # part, so the inner tag sits past the old cap; every fixed field written and summed, both tags written and read back by
