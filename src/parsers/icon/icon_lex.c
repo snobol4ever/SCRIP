@@ -119,6 +119,23 @@ static void skip_ws(IcnLexer *lx) {
         break;
     }
 }
+static char icn_esc_simple(char esc) {
+    switch (esc) {
+        case 'b': case 'B': return (char)0x08;
+        case 'd': case 'D': return (char)0x7f;
+        case 'e': case 'E': return (char)0x1b;
+        case 'f': case 'F': return (char)0x0c;
+        case 'l': case 'L': return (char)0x0a;
+        case 'n': case 'N': return (char)0x0a;
+        case 'r': case 'R': return (char)0x0d;
+        case 't': case 'T': return (char)0x09;
+        case 'v': case 'V': return (char)0x0b;
+        case '8': return (char)0x08;
+        case '9': return (char)0x09;
+        default: return esc;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IcnToken scan_string(IcnLexer *lx) {
     int line = lx->line, col = lx->col;
@@ -129,27 +146,14 @@ static IcnToken scan_string(IcnLexer *lx) {
         if (c == '\\') {
             char esc = lex_advance(lx);
             switch (esc) {
-                case 'n':  buf_push(&buf, &len, &cap, '\n'); break;
-                case 't':  buf_push(&buf, &len, &cap, '\t'); break;
-                case 'r':  buf_push(&buf, &len, &cap, '\r'); break;
-                case '\\': buf_push(&buf, &len, &cap, '\\'); break;
-                case '"':  buf_push(&buf, &len, &cap, '"');  break;
-                case '\'': buf_push(&buf, &len, &cap, '\''); break;
-                case 'b':  buf_push(&buf, &len, &cap, '\b'); break;
-                case 'd':  buf_push(&buf, &len, &cap, (char)0x7f); break;
-                case 'e':  buf_push(&buf, &len, &cap, (char)0x1b); break;
-                case 'f':  buf_push(&buf, &len, &cap, '\f'); break;
-                case 'l':  buf_push(&buf, &len, &cap, '\n'); break;
-                case 'v':  buf_push(&buf, &len, &cap, '\v'); break;
-                case 'x': case 'X': { int v = 0, nd = 0;
+                case 'x': { int v = 0, nd = 0;
                     while (nd < 2 && isxdigit((unsigned char)lex_cur(lx))) { char h = lex_advance(lx); v = v * 16 + (isdigit((unsigned char)h) ? h - '0' : (tolower((unsigned char)h) - 'a' + 10)); nd++; }
                     buf_push(&buf, &len, &cap, (char)v); break; }
                 case '^': { char cc = lex_cur(lx) ? lex_advance(lx) : 0; buf_push(&buf, &len, &cap, (char)(cc & 0x1f)); break; }
                 case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': { int v = esc - '0', nd = 1;
                     while (nd < 3 && lex_cur(lx) >= '0' && lex_cur(lx) <= '7') { v = v * 8 + (lex_advance(lx) - '0'); nd++; }
                     buf_push(&buf, &len, &cap, (char)v); break; }
-                default:   buf_push(&buf, &len, &cap, '\\');
-                           buf_push(&buf, &len, &cap, esc);  break;
+                default:   buf_push(&buf, &len, &cap, icn_esc_simple(esc)); break;
             }
         } else if (c == '_' && (lex_cur(lx) == '\n' || (lex_cur(lx) == '\r' && lex_peek1(lx) == '\n'))) {
             if (lex_cur(lx) == '\r') lex_advance(lx);
@@ -177,26 +181,14 @@ static IcnToken scan_cset(IcnLexer *lx) {
         if (c == '\\' && lex_cur(lx)) {
             char esc = lex_advance(lx);
             switch (esc) {
-                case '\'': c = '\''; break;
-                case '\\': c = '\\'; break;
-                case 'n':  c = '\n'; break;
-                case 't':  c = '\t'; break;
-                case 'r':  c = '\r'; break;
-                case 'b':  c = '\b'; break;
-                case 'd':  c = (char)0x7f; break;
-                case 'e':  c = (char)0x1b; break;
-                case 'f':  c = '\f'; break;
-                case 'l':  c = '\n'; break;
-                case 'v':  c = '\v'; break;
-                case '"':  c = '"'; break;
-                case 'x': case 'X': { int v = 0, nd = 0;
+                case 'x': { int v = 0, nd = 0;
                     while (nd < 2 && isxdigit((unsigned char)lex_cur(lx))) { char h = lex_advance(lx); v = v * 16 + (isdigit((unsigned char)h) ? h - '0' : (tolower((unsigned char)h) - 'a' + 10)); nd++; }
                     c = (char)v; break; }
                 case '^': { c = (char)((lex_cur(lx) ? lex_advance(lx) : 0) & 0x1f); break; }
                 case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': { int v = esc - '0', nd = 1;
                     while (nd < 3 && lex_cur(lx) >= '0' && lex_cur(lx) <= '7') { v = v * 8 + (lex_advance(lx) - '0'); nd++; }
                     c = (char)v; break; }
-                default:   buf_push(&buf, &len, &cap, c); c = esc; break;
+                default:   c = icn_esc_simple(esc); break;
             }
         }
         buf_push(&buf, &len, &cap, c);
