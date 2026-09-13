@@ -6,6 +6,7 @@
 #define RT_PIN_BASE   0x70000000UL
 #define RT_PIN_BYTES  4096UL
 #define RT_DCAP_TOP    (RT_PIN_BASE + 0)
+#define RT_DCAP_ISLAND_BYTES ((size_t)64u << 20)
 #define RT_WS_LIMIT   (RT_PIN_BASE + 8)
 #define RT_WS_TOP     (RT_PIN_BASE + 16)
 #define RT_AB_ANCHOR  (RT_PIN_BASE + 24)
