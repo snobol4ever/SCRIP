@@ -365,6 +365,11 @@ static tree_t *rk_chain_cmp(tree_t *left, tree_e op, tree_t *right) {
     if (last) return expr_binary(TT_SEQ, left, expr_binary(op, rk_tree_clone(last), right));
     return expr_binary(op, left, right);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_order_call(const char *fn, tree_t *left, tree_t *right) {
+    tree_t *c = ast_node_new(TT_FNC); c->v.sval = (char *)intern(fn);
+    ast_push(c, leaf_sval(TT_VAR, fn)); ast_push(c, left); ast_push(c, right); return c;
+}
 static tree_t *rk_interp_primary(const char *s, int *ip, int len) {
     int i = *ip;
     while (i<len && s[i]==' ') i++;
@@ -518,6 +523,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token OP_ARROW
 %token OP_EQ OP_NE OP_LE OP_GE
 %token OP_SEQ OP_SNE OP_SLT OP_SLE OP_SGT OP_SGE
+%token OP_CMP3 OP_CMPG OP_LEG
 %token OP_AND OP_OR OP_TERNARY1 OP_TERNARY2
 %token OP_BIND
 %token OP_DOTEQ
@@ -546,6 +552,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %left  OP_AND
 %left  '!'
 %left  OP_EQ OP_NE '<' '>' OP_LE OP_GE OP_SEQ OP_SNE OP_SLT OP_SLE OP_SGT OP_SGE OP_SMATCH
+%left  OP_CMP3 OP_CMPG OP_LEG
 %left  OP_DIVIS
 %left  '|' '&'
 %left  OP_RANGE OP_RANGE_EX
@@ -1692,6 +1699,9 @@ cmp_expr
     | cmp_expr OP_LE  divis_expr  { $$=rk_chain_cmp($1,TT_LE,$3); }
     | cmp_expr OP_GE  divis_expr  { $$=rk_chain_cmp($1,TT_GE,$3); }
     | divis_expr OP_SEQ divis_expr  { $$=expr_binary(TT_LEQ,$1,$3); }
+    | divis_expr OP_CMP3 divis_expr  { $$=rk_order_call("__rk_cmp3",$1,$3); }
+    | divis_expr OP_CMPG divis_expr  { $$=rk_order_call("__rk_cmpg",$1,$3); }
+    | divis_expr OP_LEG  divis_expr  { $$=rk_order_call("__rk_leg",$1,$3); }
     | divis_expr OP_SNE divis_expr  { $$=expr_binary(TT_LNE,$1,$3); }
     | divis_expr OP_SLT divis_expr  { $$=expr_binary(TT_LLT,$1,$3); }
     | divis_expr OP_SLE divis_expr  { $$=expr_binary(TT_LLE,$1,$3); }

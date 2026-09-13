@@ -276,7 +276,7 @@ int rt_builtin_is_known(const char *name)
         "__rk_arr_map", "__rk_arr_grep",
         "__rk_arr_keys", "__rk_arr_values", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
-        "__rk_div", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_when_match", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
+        "__rk_div", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
         "__pas_ca_pack", "__pas_ca_unpack",
         "__rk_hash",
         "elems", "push_pure", "unshift_pure", "arr_tail",
@@ -323,8 +323,20 @@ static char *rtos(double r, char *buf, size_t cap) {
     gcvt(r, 14, buf); (void)cap; return buf;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_order_both_numeric(DESCR_t a, DESCR_t b) { return (IS_INT_fn(a) || IS_REAL_fn(a)) && (IS_INT_fn(b) || IS_REAL_fn(b)); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long long rk_order_cmp_num(DESCR_t a, DESCR_t b) {
+    double x = to_real(a), y = to_real(b); return x < y ? -1 : (x > y ? 1 : 0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long long rk_order_cmp_str(DESCR_t a, DESCR_t b) {
+    const char *x = VARVAL_fn(a), *y = VARVAL_fn(b); int c = strcmp(x ? x : "", y ? y : "");
+    return c < 0 ? -1 : (c > 0 ? 1 : 0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *to_cstring(DESCR_t v, char *scratch, size_t scap) {
     if (v.v == DT_BOOL) { return v.i ? "True" : "False"; }
+    if (v.v == DT_ORDER) { return v.i < 0 ? "Less" : (v.i > 0 ? "More" : "Same"); }
     if (IS_INT_fn(v))  { return itos((long long)v.i, scratch, scap); }
     if (IS_REAL_fn(v)) { return rtos(v.r, scratch, scap); }
     const char *s = VARVAL_fn(v); return s ? s : "";
@@ -896,6 +908,7 @@ static const char *rt_mc_type_name(DESCR_t d) {
     switch (d.v) {
     case DT_I: return "Int";
     case DT_BOOL: return "Bool";
+    case DT_ORDER: return "Order";
     case DT_R: return "Num";
     case DT_S: return "Str";
     case DT_DATA: { if (d.u && d.u->type && d.u->type->name) return d.u->type->name; return "Any"; }
@@ -2908,6 +2921,15 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = (DESCR_t){ .v = DT_BOOL, .i = t }; return 1;
     }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+    if ((!strcmp(fn, "__rk_cmp3") || !strcmp(fn, "__rk_cmpg") || !strcmp(fn, "__rk_leg")) && nargs >= 2) {
+        DESCR_t a = args[0], b = args[1]; int numeric;
+        if (!strcmp(fn, "__rk_cmp3")) numeric = 1;
+        else if (!strcmp(fn, "__rk_leg")) numeric = 0;
+        else numeric = rk_order_both_numeric(a, b);
+        long long r = numeric ? rk_order_cmp_num(a, b) : rk_order_cmp_str(a, b);
+        *out = (DESCR_t){ .v = DT_ORDER, .i = r }; return 1;
+    }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
     if (!strcmp(fn, "__rk_when_match") && nargs >= 2) {
         const char * tn = VARVAL_fn(args[1]);
         if (tn && *tn && dat_find_type(tn)) {
@@ -3421,6 +3443,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         DESCR_t *tmp = (DESCR_t *)rt_pinned_alloc((size_t)(nargs > 0 ? nargs : 1) * sizeof(DESCR_t));
         for (int _ri = 0; _ri < nargs; _ri++) {
             if (args[_ri].v == DT_BOOL) tmp[_ri] = STRVAL(rt_heap_strdup_c(args[_ri].i ? "True" : "False"));
+            else if (args[_ri].v == DT_ORDER) tmp[_ri] = STRVAL(rt_heap_strdup_c(args[_ri].i < 0 ? "Less" : (args[_ri].i > 0 ? "More" : "Same")));
             else if (IS_REAL_fn(args[_ri])) { char *_rb = rt_pinned_alloc(64); rk_real_str(args[_ri].r, _rb, 64); tmp[_ri] = STRVAL(_rb); }
             else tmp[_ri] = args[_ri];
         }
@@ -5052,6 +5075,7 @@ extern int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int relop_num_coerce(DESCR_t v, DESCR_t *out) {
     if (v.v == DT_BIG) { *out = v; return 1; }
+    if (v.v == DT_ORDER) { *out = INTVAL((int64_t)v.i); return 1; }
     if (IS_INT_fn(v) || IS_REAL_fn(v)) { *out = v; return 1; }
     const char *s = IS_STR_fn(v) ? v.s : IS_CSET_fn(v) ? v.s : (const char *)0;
     if (!s) return 0;

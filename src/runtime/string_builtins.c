@@ -138,6 +138,7 @@ int ident(DESCR_t a, DESCR_t b) {
         }
         case DT_I:  return a.i == b.i;
         case DT_BOOL: return a.i == b.i;
+        case DT_ORDER: return a.i == b.i;
         case DT_R: return a.r == b.r;
         case DT_DATA: return a.u == b.u;
         default:       return a.ptr == b.ptr;

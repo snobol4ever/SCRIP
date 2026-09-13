@@ -170,31 +170,34 @@ typedef struct ExprList {
     OP_SLE = 351,                  /* OP_SLE  */
     OP_SGT = 352,                  /* OP_SGT  */
     OP_SGE = 353,                  /* OP_SGE  */
-    OP_AND = 354,                  /* OP_AND  */
-    OP_OR = 355,                   /* OP_OR  */
-    OP_TERNARY1 = 356,             /* OP_TERNARY1  */
-    OP_TERNARY2 = 357,             /* OP_TERNARY2  */
-    OP_BIND = 358,                 /* OP_BIND  */
-    OP_DOTEQ = 359,                /* OP_DOTEQ  */
-    OP_SMATCH = 360,               /* OP_SMATCH  */
-    OP_INC = 361,                  /* OP_INC  */
-    OP_DEC = 362,                  /* OP_DEC  */
-    OP_ADD_EQ = 363,               /* OP_ADD_EQ  */
-    OP_SUB_EQ = 364,               /* OP_SUB_EQ  */
-    OP_MUL_EQ = 365,               /* OP_MUL_EQ  */
-    OP_DIV_EQ = 366,               /* OP_DIV_EQ  */
-    OP_CAT_EQ = 367,               /* OP_CAT_EQ  */
-    OP_DOR = 368,                  /* OP_DOR  */
-    OP_DIV = 369,                  /* OP_DIV  */
-    ADV_EXISTS = 370,              /* ADV_EXISTS  */
-    ADV_DELETE = 371,              /* ADV_DELETE  */
-    OP_BAND = 372,                 /* OP_BAND  */
-    OP_SHL = 373,                  /* OP_SHL  */
-    OP_DIVIS = 374,                /* OP_DIVIS  */
-    OP_REP_X = 375,                /* OP_REP_X  */
-    OP_REP_XX = 376,               /* OP_REP_XX  */
-    OP_POW = 377,                  /* OP_POW  */
-    UMINUS = 378                   /* UMINUS  */
+    OP_CMP3 = 354,                 /* OP_CMP3  */
+    OP_CMPG = 355,                 /* OP_CMPG  */
+    OP_LEG = 356,                  /* OP_LEG  */
+    OP_AND = 357,                  /* OP_AND  */
+    OP_OR = 358,                   /* OP_OR  */
+    OP_TERNARY1 = 359,             /* OP_TERNARY1  */
+    OP_TERNARY2 = 360,             /* OP_TERNARY2  */
+    OP_BIND = 361,                 /* OP_BIND  */
+    OP_DOTEQ = 362,                /* OP_DOTEQ  */
+    OP_SMATCH = 363,               /* OP_SMATCH  */
+    OP_INC = 364,                  /* OP_INC  */
+    OP_DEC = 365,                  /* OP_DEC  */
+    OP_ADD_EQ = 366,               /* OP_ADD_EQ  */
+    OP_SUB_EQ = 367,               /* OP_SUB_EQ  */
+    OP_MUL_EQ = 368,               /* OP_MUL_EQ  */
+    OP_DIV_EQ = 369,               /* OP_DIV_EQ  */
+    OP_CAT_EQ = 370,               /* OP_CAT_EQ  */
+    OP_DOR = 371,                  /* OP_DOR  */
+    OP_DIV = 372,                  /* OP_DIV  */
+    ADV_EXISTS = 373,              /* ADV_EXISTS  */
+    ADV_DELETE = 374,              /* ADV_DELETE  */
+    OP_BAND = 375,                 /* OP_BAND  */
+    OP_SHL = 376,                  /* OP_SHL  */
+    OP_DIVIS = 377,                /* OP_DIVIS  */
+    OP_REP_X = 378,                /* OP_REP_X  */
+    OP_REP_XX = 379,               /* OP_REP_XX  */
+    OP_POW = 380,                  /* OP_POW  */
+    UMINUS = 381                   /* UMINUS  */
   };
   typedef enum raku_yytokentype raku_yytoken_kind_t;
 #endif
@@ -203,7 +206,7 @@ typedef struct ExprList {
 #if ! defined RAKU_YYSTYPE && ! defined RAKU_YYSTYPE_IS_DECLARED
 union RAKU_YYSTYPE
 {
-#line 472 "raku.y"
+#line 477 "raku.y"
 
     long      ival;
     double    dval;
@@ -211,7 +214,7 @@ union RAKU_YYSTYPE
     tree_t  *node;
     ExprList *list;
 
-#line 215 "raku.tab.h"
+#line 218 "raku.tab.h"
 
 };
 typedef union RAKU_YYSTYPE RAKU_YYSTYPE;

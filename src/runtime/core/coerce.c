@@ -29,6 +29,7 @@ DESCR_t descr_to_str(DESCR_t d)
     }
     if (IS_REAL_fn(d)) return real_descr_via(d.r, real_str);
     if (d.v == DT_BOOL) { const char *b = d.i ? "True" : "False"; size_t len = strlen(b); char *nbuf = rt_str_alloc((long)len); memcpy(nbuf, b, len + 1); return BSTRVAL(nbuf, len); }
+    if (d.v == DT_ORDER) { const char *b = d.i < 0 ? "Less" : (d.i > 0 ? "More" : "Same"); size_t len = strlen(b); char *nbuf = rt_str_alloc((long)len); memcpy(nbuf, b, len + 1); return BSTRVAL(nbuf, len); }
     if (IS_STR_fn(d) || d.v == DT_SNUL) return d;
     if (d.v == DT_N && d.slen == 0 && d.s) return STRVAL(d.s);
     return FAILDESCR;

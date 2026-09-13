@@ -445,7 +445,15 @@ def main():
         refuse("round-trip proof failed: this language's reader+writer pair does not reproduce the "
                "existing master byte-for-byte -- refusing to trust this tool with a real write")
 
-    entry_name = args.entry_name or (next_entry_name(rows) if lang == "icon" else builder_entry_name(lang, rows, sno_lines, flags))
+    # ⛔⭐ A LADDER WITNESS IS NAMED FOR ITS ORIGIN. Every `family==ladder` row of every block-suite master
+    # carries entry == origin, and a reader who greps the master for a rung finds the row by that name. The
+    # builder's descriptive_name() is content-derived (`say (3 <=> 1);` names itself simple_assign_1), which
+    # is right for an ABSORBED corpus program and wrong for a witness whose whole identity is its rung: the
+    # first row this tool minted for rung17 was the ONLY entry != origin ladder row in the raku master
+    # (hq_T 2026-09-13). --entry-name still overrides, and a non-ladder origin keeps the builder's name.
+    default_name = args.origin if args.origin.startswith("ladder__") else (
+        next_entry_name(rows) if lang == "icon" else builder_entry_name(lang, rows, sno_lines, flags))
+    entry_name = args.entry_name or default_name
     if any(r["entry"] == entry_name for r in rows):
         refuse("entry name %r already exists -- pass --entry-name to disambiguate" % entry_name)
     rank = next_rank(rows)

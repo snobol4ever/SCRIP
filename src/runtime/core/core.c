@@ -991,6 +991,7 @@ char alphabet[257];
 int is_numeric_like(DESCR_t d) {
     if (d.v == DT_BIG) return 1;
     if (d.v == DT_BOOL) return 1;
+    if (d.v == DT_ORDER) return 1;
     if (IS_INT(d) || IS_REAL(d) || IS_NULL(d)) return 1;
     if (IS_STR(d)) {
         const char *s = rt_cstr_d(d);
@@ -1150,6 +1151,7 @@ static DESCR_t _VDIFFER_(DESCR_t *a, int n) {
         switch (x.v) {
             case DT_I: equal = (x.i == y.i); break;
             case DT_BOOL: equal = (x.i == y.i); break;
+            case DT_ORDER: equal = (x.i == y.i); break;
             case DT_R: equal = (x.r == y.r); break;
             case DT_S: {
                            const char *xs = x.s ? x.s : "";
@@ -2498,6 +2500,7 @@ char *c_VARVAL_fn(DESCR_t v) {
     switch (v.v) {
         case DT_SNUL:    return rt_heap_strdup_c("");
         case DT_BOOL:    return rt_heap_strdup_c(v.i ? "True" : "False");
+        case DT_ORDER:   return rt_heap_strdup_c(v.i < 0 ? "Less" : (v.i > 0 ? "More" : "Same"));
         case DT_S:     return v.s ? v.s : rt_heap_strdup_c("");
         case DT_I: {
             int64_t _x = v.i; int _p = (int)sizeof(buf);
@@ -2805,6 +2808,7 @@ int64_t to_int_slow(DESCR_t v) {
         case DT_BIG: { extern char *rt_big_str(DESCR_t); return (int64_t)strtoll(rt_big_str(v), NULL, 10); }
         case DT_I:  return v.i;
         case DT_BOOL: return v.i;
+        case DT_ORDER: return v.i;
         case DT_R: return (int64_t)v.r;
         case DT_S:
         case DT_SNUL: {
@@ -2827,6 +2831,7 @@ double to_real(DESCR_t v) {
         case DT_R: return v.r;
         case DT_I:  return (double)v.i;
         case DT_BOOL: return (double)v.i;
+        case DT_ORDER: return (double)v.i;
         case DT_S:
         case DT_SNUL: {
             const char *s = rt_cstr_d(v);
@@ -2848,6 +2853,7 @@ const char *datatype(DESCR_t v) {
         case DT_BIG:     return "INTEGER";
         case DT_CO:      return "CO-EXPRESSION";
         case DT_BOOL:    return "BOOL";
+        case DT_ORDER:   return "ORDER";
         case DT_R:       return "REAL";
         case DT_DATA:    return v.u ? v.u->type->name : "DATA";
         case DT_P:       return "PATTERN";

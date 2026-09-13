@@ -120,6 +120,8 @@ WS       [ \t\r]
 "le"            { return OP_SLE; }
 "gt"            { return OP_SGT; }
 "ge"            { return OP_SGE; }
+"cmp"           { return OP_CMPG; }
+"leg"           { return OP_LEG; }
 [ \t]+("xx"|"x")/[ \t]*"=>"  { const char *_p = yytext; while (*_p == ' ' || *_p == '\t') _p++; raku_yylval.sval = strdup(_p); return IDENT; }
 [ \t]+"xx"/[^A-Za-z0-9_-]  { return OP_REP_XX; }
 [ \t]+"x"/[^A-Za-z0-9_-]   { return OP_REP_X; }
@@ -131,6 +133,7 @@ WS       [ \t\r]
 "->"            { return OP_ARROW; }
 "=="            { return OP_EQ; }
 "!="            { return OP_NE; }
+"<=>"           { return OP_CMP3; }
 "<="            { return OP_LE; }
 ">="            { return OP_GE; }
 "&&"            { return OP_AND; }

@@ -29,6 +29,7 @@ typedef enum {
     DT_BIG  = 0x78,
     DT_CO   = 0x80,
     DT_BOOL = 0x88,
+    DT_ORDER = 0x90,
 } DTYPE_t;
 #ifdef __cplusplus
 #define DESCR_SASSERT(c, m) static_assert(c, m)
@@ -47,6 +48,8 @@ DESCR_SASSERT(!(DT_FAIL & DT_NUMERIC_BIT) && (DT_FAIL & (DT_NOTSTR_MASK & 0xFF))
                "DT_FAIL must read as neither numeric nor string under the 8-bit mask");
 DESCR_SASSERT(!(DT_BOOL & DT_NUMERIC_BIT) && (DT_BOOL & (DT_NOTSTR_MASK & 0xFF)),
                "DT_BOOL must read as neither numeric nor string under the 8-bit mask (ceo CEO-654): a Bool renders True/False, and only a Raku-own arm may coerce it to 1/0");
+DESCR_SASSERT(!(DT_ORDER & DT_NUMERIC_BIT) && (DT_ORDER & (DT_NOTSTR_MASK & 0xFF)),
+               "DT_ORDER must read as neither numeric nor string under the 8-bit mask, same shape as DT_BOOL above: a Raku Order renders Less/Same/More, and only a Raku-own arm may coerce it to -1/0/1");
 DESCR_SASSERT(!(DT_DATA & DT_NUMERIC_BIT) && !(DT_DATA_STRIDE & DT_NUMERIC_BIT),
                "DATA base and stride must leave NUMERIC clear so no user datatype enters the arith fast path");
 DESCR_SASSERT(DT_FAIL < DT_DATA, "the v >= DT_DATA range tests require every fixed tag below DT_DATA");
