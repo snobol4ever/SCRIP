@@ -257,6 +257,38 @@ def builder_entry_name(lang, rows, sno_lines, flags):
     return "%s_%d" % (base, n)
 
 
+def banner_drift(lang, master_dir, master_src, master_ref, entries):
+    """Return a human summary of the master's stale banner numbers, or "" if every banner already equals its
+    entry's position. This is the DIAGNOSIS half of the round-trip refusal above: it answers "is the file
+    stale?" so the refusal never has to accuse the tool for a defect in the data. It reads only -- the CURE
+    is util_renumber_master_banners.py, deliberately a separate tool so that the sanctioned add-a-witness
+    path never silently rewrites 1000 lines of somebody else's master as a side effect of minting one row."""
+    cfg = csh.LANG_CONFIGS.get(lang)
+    banner_re = (csh.banner_re_for(cfg["comment_open"], cfg["comment_close"]) if cfg else csh.BANNER_RE)
+    pos = {e.name: i for i, e in enumerate(entries, 1)}
+    hits, first = [], None
+    for label, path in (("ALL." + master_src.suffix.lstrip("."), master_src), ("ALL.ref", master_ref),
+                        ("ALL.in", master_dir / "ALL.in")):
+        if not path.is_file():
+            continue
+        n = 0
+        for line in path.read_text().splitlines():
+            m = banner_re.match(line)
+            if not m:
+                continue
+            want = pos.get(m.group("name"))
+            if want is not None and want != int(m.group("seq")):
+                n += 1
+                if first is None:
+                    first = (m.group("name"), int(m.group("seq")), want)
+        if n:
+            hits.append("%s has %d" % (label, n))
+    if not hits:
+        return ""
+    return ("%s stale banner(s) -- first is %r, numbered %d but sitting at position %d"
+            % (" and ".join(hits), first[0], first[1], first[2]))
+
+
 def next_rank(rows):
     ranks = [int(r["rank"]) for r in rows]
     return max(ranks) + 1 if ranks else 1
@@ -442,8 +474,31 @@ def main():
     same = tmp_src.read_text() == master_src.read_text() and tmp_ref.read_text() == master_ref.read_text()
     tmp_src.unlink(missing_ok=True); tmp_ref.unlink(missing_ok=True)
     if not same:
-        refuse("round-trip proof failed: this language's reader+writer pair does not reproduce the "
-               "existing master byte-for-byte -- refusing to trust this tool with a real write")
+        # ⛔⭐ THE REFUSAL IS CORRECT; ITS EXPLANATION WAS FALSE, AND THAT COST FOUR LANES A DIAGNOSIS EACH
+        # (hq_T 2026-09-13, on the cfo's routed brief). This message used to say only "this language's
+        # reader+writer pair does not reproduce the existing master" -- which accuses THE TOOL, while by far
+        # the likeliest fault is in THE FILE: corpus a6646f04c removed the 620 modes=ast entries from all
+        # seven masters without renumbering, leaving banner numbers that no longer equal their positions, and
+        # this proof went red on five of the seven at once. Three lanes each paid the same unaided diagnosis
+        # and then each hand-renumbered their own master. So before accusing itself, the proof now SEPARATES
+        # its two causes -- a stale banner number (a data defect, with a one-command cure) from a genuine
+        # format disagreement (a tool defect) -- and names which one it actually found. ⭐ A refusal that
+        # cannot say which of its causes fired is a refusal every reader must re-derive from scratch.
+        stale = banner_drift(lang, master_dir, master_src, master_ref, entries)
+        if stale:
+            refuse("the master's banner numbers are STALE, not this tool's format understanding: %s. The "
+                   "banner number must equal the entry's POSITION (read_block_suite/read_suite re-derive seq "
+                   "positionally and the writers print it back out), and corpus a6646f04c's 620-entry removal "
+                   "left it behind in five of seven masters.\n"
+                   "   CURE, run by this master's own lane owner:  "
+                   "python3 scripts/util_renumber_master_banners.py --lang %s --apply\n"
+                   "   (it renumbers ALL.<ext>, ALL.ref AND ALL.in together, proves every graded field and "
+                   "every non-banner byte unmoved first, and refuses rc=2 rather than write on any arm.)"
+                   % (stale, lang))
+        refuse("round-trip proof failed and the banner numbers are NOT the cause -- this language's "
+               "reader+writer pair genuinely does not reproduce the existing master byte-for-byte. That is a "
+               "defect in this tool or in the harness, not in the master: refusing to trust either with a "
+               "real write. Diff the .rtcheck pair to see what moved.")
 
     # ⛔⭐ A LADDER WITNESS IS NAMED FOR ITS ORIGIN. Every `family==ladder` row of every block-suite master
     # carries entry == origin, and a reader who greps the master for a rung finds the row by that name. The
