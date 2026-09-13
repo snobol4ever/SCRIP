@@ -678,7 +678,7 @@ static const char *plc_atom_op_text(pl_cell_t *t, char *buf, size_t bufsz)
     pl_cell_t *d = pl_deref(t);
     if ((int)d->v == DT_A || (int)d->v == DT_S) return plc_atom_text(d);
     if ((int)d->v == DT_I) { snprintf(buf, bufsz, "%ld", (long)d->i); return buf; }
-    if ((int)d->v == DT_R) { snprintf(buf, bufsz, "%g", d->r); return buf; }
+    if ((int)d->v == DT_R) { extern const char *pl_real_iso_str(double, char *, int); return pl_real_iso_str(d->r, buf, (int)bufsz); }
     return (const char *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
