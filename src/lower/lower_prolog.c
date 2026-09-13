@@ -656,6 +656,7 @@ static const pl_det_leaf_t pl_det_leaves[] = {
     { "set_output", 1, "$set_output" }, { "set_input", 1, "$set_input" }, { "keysort", 2, "$keysort" }, { "op", 3, "$op" },
     { "$pl_op_count", 1, "$pl_op_count" }, { "$pl_op_nth", 4, "$pl_op_nth" }, { "$pl_sp_count", 1, "$pl_sp_count" }, { "$pl_sp_nth", 3, "$pl_sp_nth" },
     { "$pl_cs_count", 1, "$pl_cs_count" }, { "$pl_cs_nth", 4, "$pl_cs_nth" },
+    { "wall_us", 1, "$wall_us" }, { "wall_ms", 1, "$wall_ms" },
     { 0, 0, 0 } };
 static int pl_det_leaf_name_wired(const char * nm) {
     for (int i = 0; pl_det_leaves[i].nm; i++) if (!strcmp(nm, pl_det_leaves[i].nm)) return 1;

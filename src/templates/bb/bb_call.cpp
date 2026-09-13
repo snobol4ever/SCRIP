@@ -27,6 +27,7 @@ DESCR_t rt_pl_dop_ax_divf(DESCR_t *, int); DESCR_t rt_pl_dop_ax_add(DESCR_t *, i
 DESCR_t rt_pl_dop_cmp_lt(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_gt(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_le(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_ge(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_eq(DESCR_t *, int); DESCR_t rt_pl_dop_cmp_ne(DESCR_t *, int);
 DESCR_t rt_pl_dop_compare(DESCR_t *, int); DESCR_t rt_pl_dop_functor(DESCR_t *, int); DESCR_t rt_pl_dop_arg(DESCR_t *, int); DESCR_t rt_pl_dop_univ(DESCR_t *, int);
 DESCR_t rt_pl_dop_copy_term(DESCR_t *, int); DESCR_t rt_pl_dop_term_variables(DESCR_t *, int); DESCR_t rt_pl_dop_numbervars3(DESCR_t *, int); DESCR_t rt_pl_dop_numbervars1(DESCR_t *, int); DESCR_t rt_pl_dop_succ(DESCR_t *, int);
+DESCR_t rt_pl_dop_wall_us(DESCR_t *, int); DESCR_t rt_pl_dop_wall_ms(DESCR_t *, int);
 DESCR_t rt_pl_dop_plus(DESCR_t *, int); DESCR_t rt_pl_dop_sort(DESCR_t *, int); DESCR_t rt_pl_dop_msort(DESCR_t *, int); DESCR_t rt_pl_dop_char_type(DESCR_t *, int);
 DESCR_t rt_pl_dop_findall_new(DESCR_t *, int); DESCR_t rt_pl_dop_findall_add(DESCR_t *, int); DESCR_t rt_pl_dop_findall_result(DESCR_t *, int); DESCR_t rt_pl_dop_bagof_result(DESCR_t *, int); DESCR_t rt_pl_dop_setof_result(DESCR_t *, int);
 DESCR_t rt_pl_dop_sub_atom_n(DESCR_t *, int); DESCR_t rt_pl_dop_sub_atom_at(DESCR_t *, int); DESCR_t rt_pl_dop_atom_concat_n(DESCR_t *, int); DESCR_t rt_pl_dop_atom_concat_at(DESCR_t *, int); DESCR_t rt_pl_dop_bagof_group_n(DESCR_t *, int); DESCR_t rt_pl_dop_bagof_group_at(DESCR_t *, int); DESCR_t rt_pl_dop_setof_group_at(DESCR_t *, int);
@@ -330,6 +331,7 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$univ", 2, "rt_pl_dop_univ", rt_pl_dop_univ }, { "$copy_term", 2, "rt_pl_dop_copy_term", rt_pl_dop_copy_term },
         { "$term_variables", 2, "rt_pl_dop_term_variables", rt_pl_dop_term_variables }, { "$numbervars3", 3, "rt_pl_dop_numbervars3", rt_pl_dop_numbervars3 },
         { "$numbervars1", 1, "rt_pl_dop_numbervars1", rt_pl_dop_numbervars1 }, { "$succ", 2, "rt_pl_dop_succ", rt_pl_dop_succ }, { "$plus", 3, "rt_pl_dop_plus", rt_pl_dop_plus },
+        { "$wall_us", 1, "rt_pl_dop_wall_us", rt_pl_dop_wall_us }, { "$wall_ms", 1, "rt_pl_dop_wall_ms", rt_pl_dop_wall_ms },
         { "$sort", 2, "rt_pl_dop_sort", rt_pl_dop_sort }, { "$msort", 2, "rt_pl_dop_msort", rt_pl_dop_msort }, { "$char_type", 2, "rt_pl_dop_char_type", rt_pl_dop_char_type },
         { "$pl_big", 1, "rt_pl_dop_big", rt_pl_dop_big }, { "$findall_new", 0, "rt_pl_dop_findall_new", rt_pl_dop_findall_new }, { "$findall_add", 2, "rt_pl_dop_findall_add", rt_pl_dop_findall_add },
         { "$findall_result", 2, "rt_pl_dop_findall_result", rt_pl_dop_findall_result }, { "$bagof_result", 2, "rt_pl_dop_bagof_result", rt_pl_dop_bagof_result },

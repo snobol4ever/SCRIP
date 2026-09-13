@@ -6,6 +6,7 @@
 #include "../parsers/prolog/prolog_atom.h"
 #include "../ir/IR.h"
 #include <stdio.h>
+#include <time.h>
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
@@ -610,6 +611,14 @@ static int plc_sp_not_negative(pl_cell_t *d, pl_tr_ctx_t *cx)
     extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
     if (d && (int)d->v == DT_I && d->i < 0) { plc_sp_ball(cx, rt_pl_ball_kind2("domain_error", "not_less_than_zero", *d)); return 0; }
     return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_wall_clock_cell(int ms, void *a_cell, pl_tr_ctx_t *cx)
+{
+    struct timespec _ts; clock_gettime(CLOCK_MONOTONIC, &_ts);
+    long long us = (long long)_ts.tv_sec * 1000000LL + (long long)_ts.tv_nsec / 1000LL;
+    pl_cell_t v = pl_make_int(ms ? us / 1000LL : us);
+    return plc_unify_cells_cx((pl_cell_t *)a_cell, &v, cx) ? 1 : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_succ_plus_cell(long arity, void *a_cell, void *b_cell, void *c_cell, pl_tr_ctx_t *cx)
