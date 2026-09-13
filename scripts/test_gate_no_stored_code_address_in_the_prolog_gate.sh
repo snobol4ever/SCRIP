@@ -47,6 +47,12 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="$ROOT/scrip"
 [ -x "$SCRIP" ] || { echo "⛔ GATE REFUSED (rc=2): no $SCRIP -- nothing was checked" >&2; exit 2; }
+# ⛔ THE STALE-BINARY GUARD, ADDED 2026-09-13 BY hq_R (not this gate's author): arm 2 runs ./scrip, and
+# test_gate_runners_refuse_on_a_stale_binary.sh census #2 named this file as the one scrip-executing gate
+# without it -- 253 of 254 wired -- which reds that census for every seat. A gate that grades a binary older
+# than the tree it is standing in reports yesterday's behaviour under today's tree hash, which is the one
+# failure mode an ARM-2 BYTE-IDENTICAL claim cannot survive.
+"$HERE/util_require_fresh.sh" --gate "${0##*/}" "$SCRIP" "${RT_DIR:-$ROOT/out}/libscrip_rt.so" || exit 2
 command -v swipl >/dev/null 2>&1 || { echo "⛔ GATE REFUSED (rc=2): no swipl oracle -- nothing was checked" >&2; exit 2; }
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 rc=0
