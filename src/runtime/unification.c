@@ -1792,6 +1792,17 @@ void *rt_pl_ball_kind2(const char *kind, const char *arg0_atom, DESCR_t culprit)
     return rt_pl_compound_cell("error", 2, (void *)er);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_pl_ball_culprit1(const char *kind, DESCR_t culprit)
+{
+    extern DESCR_t rt_pl_fresh_var_ref(void);
+    pl_cell_t fe[1]; pl_cell_t *fec; pl_cell_t er[2];
+    fe[0] = rt_pl_cell_snapshot(&culprit);
+    fec = (pl_cell_t *)rt_pl_compound_cell(kind, 1, (void *)fe);
+    if (!fec) return (void *)0;
+    er[0] = *fec; er[1] = rt_pl_fresh_var_ref();
+    return rt_pl_compound_cell("error", 2, (void *)er);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_ball_kind1(const char *kind, const char *arg0_atom)
 {
     extern DESCR_t rt_pl_fresh_var_ref(void);
@@ -2020,8 +2031,8 @@ static pl_cell_t pl_cell_copy_persist(pl_cell_t *c, pl_cell_t **vaddr, pl_cell_t
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PL_DB_CELL0   24
 #define PL_DB_CELLS_MAX 64
-typedef struct { pl_cell_t cl; int erased; } pl_db_slot_t;
-typedef struct { pl_db_slot_t *s; int n; int cap; int killed; } pl_db_t;
+typedef struct { pl_cell_t cl; int erased; int ref; } pl_db_slot_t;
+typedef struct { pl_db_slot_t *s; int n; int cap; int killed; int next_ref; } pl_db_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void * rt_pl_db_get(void *root, int64_t k)
 {
@@ -2031,7 +2042,7 @@ void * rt_pl_db_get(void *root, int64_t k)
       if (!*cell) {
           pl_db_t *d = (pl_db_t *)rt_plj_alloc(sizeof *d);
           if (!d) return (void *)0;
-          d->cap = 8; d->n = 0; d->killed = 0; d->s = (pl_db_slot_t *)rt_plj_alloc((size_t)d->cap * sizeof(pl_db_slot_t));
+          d->cap = 8; d->n = 0; d->killed = 0; d->next_ref = 1; d->s = (pl_db_slot_t *)rt_plj_alloc((size_t)d->cap * sizeof(pl_db_slot_t));
           if (!d->s) { d->cap = 0; }
           *cell = d;
       }
@@ -2175,7 +2186,7 @@ void * rt_pl_db_get_by_key(void *root, const char *key, int create)
     if (!e) return (void *)0;
     { pl_db_t *d = (pl_db_t *)rt_plj_alloc(sizeof *d);
       if (!d) return (void *)0;
-      d->cap = 8; d->n = 0; d->killed = 0; d->s = (pl_db_slot_t *)rt_plj_alloc((size_t)d->cap * sizeof(pl_db_slot_t));
+      d->cap = 8; d->n = 0; d->killed = 0; d->next_ref = 1; d->s = (pl_db_slot_t *)rt_plj_alloc((size_t)d->cap * sizeof(pl_db_slot_t));
       if (!d->s) d->cap = 0;
       e->db = d; return (void *)d; }
 }
@@ -2234,6 +2245,28 @@ int rt_pl_db_head_key(void *pair_cell, char *out, size_t n, int *ar)
 static int pl_db_store(void *db_v, void *clause_term, int prepend, int recompile);
 int rt_pl_db_assert(void *db_v, void *clause_term, int prepend) { return pl_db_store(db_v, clause_term, prepend, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_assert_ref(void *db_v, void *clause_term, int prepend)
+{
+    pl_db_t *db = (pl_db_t *)db_v;
+    if (!pl_db_store(db_v, clause_term, prepend, 1)) return 0;
+    return db->s[prepend ? 0 : db->n - 1].ref;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_slot_of_ref(void *db_v, int ref)
+{
+    pl_db_t *db = (pl_db_t *)db_v;
+    if (!db || ref < 1) return -1;
+    for (int i = 0; i < db->n; i++) if (!db->s[i].erased && db->s[i].ref == ref) return i;
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_ref_at(void *db_v, int i)
+{
+    pl_db_t *db = (pl_db_t *)db_v;
+    if (!db || i < 0 || i >= db->n || db->s[i].erased) return 0;
+    return db->s[i].ref;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_seed(void *db_v, void *clause_term) { return pl_db_store(db_v, clause_term, 0, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_db_store(void *db_v, void *clause_term, int prepend, int recompile)
@@ -2256,8 +2289,9 @@ static int pl_db_store(void *db_v, void *clause_term, int prepend, int recompile
       else { kids[0] = *t; kids[1] = pl_make_atom(prolog_atom_intern("true")); }
       pair = pl_make_compound(prolog_atom_intern(":-"), 2, (void *)kids);
       { pl_cell_t stored = pl_cell_copy_persist(&pair, va, vn2, &vn, 256);
-        if (prepend) { for (int i = db->n; i > 0; i--) db->s[i] = db->s[i - 1]; db->s[0].cl = stored; db->s[0].erased = 0; }
-        else { db->s[db->n].cl = stored; db->s[db->n].erased = 0; }
+        if (db->next_ref < 1) db->next_ref = 1;
+        if (prepend) { for (int i = db->n; i > 0; i--) db->s[i] = db->s[i - 1]; db->s[0].cl = stored; db->s[0].erased = 0; db->s[0].ref = db->next_ref++; }
+        else { db->s[db->n].cl = stored; db->s[db->n].erased = 0; db->s[db->n].ref = db->next_ref++; }
         db->n++; }
       if (recompile) { char key[264]; int ar = 0;
         if (rt_pl_db_head_key((void *)&db->s[prepend ? 0 : db->n - 1].cl, key, sizeof key, &ar)) rt_pl_db_recompile(db_v, key, ar); }

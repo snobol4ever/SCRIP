@@ -649,6 +649,7 @@ static const pl_det_leaf_t pl_det_leaves[] = {
     { "put_char", 1, "$put_char" },
     { "$db_bind", 3, "$db_bind" }, { "$db_t_guard", 2, "$db_t_guard" }, { "$db_assertz_t", 1, "$db_assertz_t" }, { "$db_asserta_t", 1, "$db_asserta_t" },
     { "$db_abolish_t", 1, "$db_abolish_t" }, { "$db_retractall_t", 1, "$db_retractall_t" }, { "$db_seed_once", 3, "$db_seed_once" },
+    { "$db_asserta_r", 2, "$db_asserta_r" }, { "$db_assertz_r", 2, "$db_assertz_r" }, { "$db_erase_ref", 1, "$db_erase_ref" },
     { "$db_decl", 3, "$db_decl" }, { "$pl_declared", 2, "$pl_declared" }, { "$pl_list_guard", 1, "$pl_list_guard" }, { "$pl_goal_guard", 1, "$pl_goal_guard" }, { "$pl_cp_count", 1, "$pl_cp_count" }, { "$pl_cp_nth", 3, "$pl_cp_nth" }, { "$pl_cp_guard", 1, "$pl_cp_guard" },
     { "halt", 0, "$halt" }, { "halt", 1, "$halt" }, { "flush_output", 0, "$flush_output" }, { "format", 1, "$format" }, { "format", 2, "$format" },
     { "write", 2, "$write_s" }, { "writeq", 2, "$writeq_s" }, { "print", 2, "$writeq_s" }, { "write_canonical", 2, "$write_canonical_s" }, { "writeln", 2, "$writeln_s" }, { "nl", 1, "$nl_s" },
@@ -1326,6 +1327,15 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
                     IR_t * ge = NULL; pl_db_leaf2_tree(cx, "$db_t_guard", t->c[0], pl_atom_goal("assert"), first, ωfail, &ge); if (ge) first = ge; }
                 if (entry_out) *entry_out = first; }
               return nd; } }
+        if ((!strcmp(nm, "asserta") || !strcmp(nm, "assertz")) && t->n == 2) {
+            { const tree_t * bad = pl_clause_ill_typed(t->c[0]); if (bad) return goal(cx, pl_cc_type_error("callable", bad, nm, 2), γnext, ωfail, entry_out); }
+            return goal(cx, pl_cc_fnc2(",", pl_cc_fnc2("$db_t_guard", (tree_t *) t->c[1], (tree_t *) pl_atom_goal("clref_out")),
+                          pl_cc_fnc2(",", pl_cc_fnc2("$db_t_guard", (tree_t *) t->c[0], (tree_t *) pl_atom_goal("assert")),
+                                     pl_cc_fnc2(!strcmp(nm, "asserta") ? "$db_asserta_r" : "$db_assertz_r", (tree_t *) t->c[0], (tree_t *) t->c[1]))),
+                        γnext, ωfail, entry_out); }
+        if (!strcmp(nm, "erase") && t->n == 1) {
+            return goal(cx, pl_cc_fnc2(",", pl_cc_fnc2("$db_t_guard", (tree_t *) t->c[0], (tree_t *) pl_atom_goal("clref_in")),
+                                       pl_cc_fnc1("$db_erase_ref", (tree_t *) t->c[0])), γnext, ωfail, entry_out); }
         if (!strcmp(nm, "retract") && t->n == 1) {
             int ar = 0; const char * pn;
             { const tree_t * bad = pl_clause_ill_typed(t->c[0]); if (bad) return goal(cx, pl_cc_type_error("callable", bad, nm, 1), γnext, ωfail, entry_out); }
