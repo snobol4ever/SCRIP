@@ -147,9 +147,24 @@ static IR_t * sx_subscript_lv(scx_t * cx, const tree_t * base, const tree_t * co
 static IR_t * sx_subscript_lv_fused(scx_t * cx, const tree_t * base, const tree_t * const * idxs, int nidx, IR_t * ω, IR_t ** var_res, IR_t ** fuse_base, IR_t ** fuse_idx);
 static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * repl_t, int has_repl, IR_t * sJ, IR_t * fJ, IR_t ** out_land);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_tree_has_scan(const tree_t * n, int d) { if (!n || d > 24) return 0; if (n->t == TT_SCAN) return 1; for (int i = 0; i < n->n; i++) if (sno_tree_has_scan(n->c[i], d + 1)) return 1; return 0; }
 static IR_t * sx_binop(scx_t * cx, const tree_t * t, int code, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * op = lc_build(cx->g, IR_BINOP, γ, ω); IR_LIT(op).ival = code;
     IR_t * lr = NULL; IR_t * rr = NULL;
+    if (sno_tree_has_scan(t->c[1], 0)) {
+        static int g_scl_n = 0;
+        char nmb[24]; snprintf(nmb, sizeof nmb, "SCL$%d", g_scl_n++);
+        char * tmpn = lp_strdup(nmb); sno_reg_var(tmpn);
+        IR_t * asn = lc_build(cx->g, IR_ASSIGN, NULL, ω); IR_LIT(asn).sval = tmpn;
+        IR_t * ea = sx_lower(cx, t->c[0], asn, ω, &lr);
+        ir_operand_push(asn, lr);
+        IR_t * rd = lc_build(cx->g, IR_VAR, op, ω); IR_LIT(rd).sval = tmpn;
+        IR_t * eb = sx_lower(cx, t->c[1], NULL, ω, &rr);
+        lc_γ_to(asn, eb);
+        lc_γ_to(rr, rd);
+        ir_operand_push(op, rd); ir_operand_push(op, rr);
+        if (res) *res = op; return ea;
+    }
     IR_t * ea = sx_lower(cx, t->c[0], NULL, ω, &lr);
     IR_t * eb = sx_lower(cx, t->c[1], op, ω, &rr);
     lc_γ_to(lr, eb);
@@ -542,8 +557,24 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     }
     case TT_SCAN: {
         if (t->n < 2) sno_fatal("TT_SCAN with missing subject or pattern", NULL);
+        if (res) {
+            extern tree_t * ast_stmt_new(tree_e kind);
+            static int g_scv_n = 0;
+            char nmb[24]; snprintf(nmb, sizeof nmb, "SCV$%d", g_scv_n++);
+            char * tmpn = lp_strdup(nmb); sno_reg_var(tmpn);
+            tree_t * capt = ast_stmt_new(TT_CAPT_COND_ASGN);
+            ast_push(capt, (tree_t *) t->c[1]);
+            tree_t * tv = ast_node_new(TT_VAR); tv->v.sval = tmpn;
+            ast_push(capt, tv);
+            tree_t * sc = ast_stmt_new(TT_SCAN);
+            ast_push(sc, (tree_t *) t->c[0]);
+            ast_push(sc, capt);
+            IR_t * rd = lc_build(cx->g, IR_VAR, γ, ω); IR_LIT(rd).sval = tmpn;
+            IR_t * e = sno_lower_match(cx, sc, NULL, 0, rd, ω, NULL);
+            *res = rd;
+            return e;
+        }
         IR_t * e = sno_lower_match(cx, t, NULL, 0, γ, ω, NULL);
-        if (res) *res = NULL;
         return e;
     }
     case TT_ASSIGN: {
