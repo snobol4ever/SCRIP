@@ -37,7 +37,7 @@
 #   in its own header that it is deliberately out of the recipe. NOT ONE DOES. The 8 below are the ceo's
 #   ruling of 2026-09-03, quoted from the Makefile's own test-postoffice header — cited, not invented.
 #   Everything else is TASK because nobody has ruled, which is the honest word for it.
-# TASK-CEILING: 178
+# TASK-CEILING: 177
 test_gate_a_fail_operand_folds_instead_of_refusing_at_the_binop_guard.sh	WIRED	-	-	-
 test_gate_a_master_with_xfails_never_reads_done.sh	WIRED	-	-	-
 test_gate_a_nested_alternation_receded_into_resumes_its_own_arm_not_the_outer_beta.sh	WIRED	-	-	-
@@ -49,6 +49,7 @@ test_gate_ast_shaped_refs_are_declared_ast.sh	WIRED	-	-	-
 test_gate_baton_donewhen_reads_its_runner_rc.sh	WIRED	-	-	-
 test_gate_baton_donewhen_runnable.sh	WIRED	-	-	-
 test_gate_bench_prolog_kernels_pristine.sh	WIRED	-	-	-
+test_gate_bench_rivals_coverage.sh	WIRED	-	-	-
 test_gate_boards_refuse_when_the_binary_moves.sh	WIRED	-	-	-
 test_gate_build_freshness_is_behavioural.sh	WIRED	-	-	-
 test_gate_builder_and_grader_agree_on_stdin_companion_spellings.sh	WIRED	-	-	-
@@ -273,6 +274,7 @@ test_gate_score_column_semantics.sh	WIRED	-	-	-
 test_gate_score_inventory_clauses_never_vanish.sh	WIRED	-	-	-
 test_gate_score_md_parses_and_github_is_marker_free.sh	WIRED	-	-	-
 test_gate_score_row_denominator_includes_xfails.sh	WIRED	-	-	-
+test_gate_score_row_only_the_one_runner_writes.sh	WIRED	-	-	-
 test_gate_score_row_rewrites_in_place.sh	WIRED	-	-	-
 test_gate_score_row_stamps_the_tree_it_graded.sh	WIRED	-	-	-
 test_gate_score_row_text_splices_are_assigned.sh	WIRED	-	-	-
@@ -346,7 +348,6 @@ test_gate_bb_block_label_prefix.sh	TASK	-	-	-
 test_gate_bb_emit_blind.sh	TASK	-	-	-
 test_gate_bb_label_no_silent_truncation.sh	TASK	-	-	-
 test_gate_bb_one_box.sh	TASK	-	-	-
-test_gate_bench_rivals_coverage.sh	TASK	-	-	-
 test_gate_board_population_floor.sh	TASK	-	-	-
 test_gate_build_governor.sh	TASK	-	-	-
 test_gate_call2bb_stub_regime.sh	TASK	-	-	-

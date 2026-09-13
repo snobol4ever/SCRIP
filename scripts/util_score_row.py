@@ -807,6 +807,115 @@ def derive_measurer():
     return ""
 
 
+# ⛔⭐⭐ THE ROSTER IS ASKED AT THE WRITE PATH, BECAUSE THE MITIGATION WAS A SEAT'S MEMORY (hq_I 2026-09-13, row
+# instruments-a-suite-runner-writes-a-score-md-row-for-every-seat-while-one-runner-allows-only-the-coo).  MODE NONET
+# cuts ONE RUNNER: every seat but the one MODE line 2 names grades with the per-group development aids and writes no
+# SCORE.md row.  This helper predates that lane cut and faithfully obeys the older FACT RULE ("any run of a test suite
+# by any session will update the ONE LEADERBOARD"), so NOBODY MADE A MISTAKE -- two rules held at once and the older
+# one is on the code path.  ⛔ THE FAILURE WAS NOT A SEAT WRITING THE ROW DELIBERATELY, IT WAS VERSION-CONTROL HYGIENE
+# PICKING IT UP AS COLLATERAL: hq_I declined a rank raise on the grounds that it watched the file at every push, and
+# within the hour a pull-with-rebase refused on the dirty SCORE.md, an ordinary stage-everything swept the row in, and
+# a row only the one runner may write sat on origin for about four minutes -- a TRUE number with the wrong provenance,
+# indistinguishable from the runner's own.  The rule was never evaluated and skipped; it simply was not on the path a
+# seat was standing in.  ⭐ SO THE NO-OP IS WORTH MORE THAN THE ANNOUNCEMENT FOR THIS CLASS, which is hq_I's own
+# correction and the reason the cure is here and not in a discard ritual: if the file is never modified, a
+# stage-everything has nothing to sweep and the whole class is gone, whereas a loud line still leaves a dirty file in
+# the tree waiting for the next rebase.  The announcement is kept anyway, because a silent no-op and a silent success
+# look identical, which is the trap one layer up.
+# ⛔ THE ROSTER IS READ LIVE AND NEVER HARD-CODED.  A hard-coded population never announces what it left out: this
+# root's own digest gate carried a literal ROOTS array, was green for months, and that greenness was about nineteen
+# other files while two seats' digests went unread; the queue's owner column was 44 rows behind this very lane cut.
+# So the seat who may write is lifted out of MODE line 2 at the moment of the write, and a MODE that names no ONE
+# RUNNER cuts no writer, so nothing is refused.
+MODE_SEAT_RE = r"(?:ceo|cto|coo|cfo|hq_[A-Z])"
+
+
+def mode_file():
+    f = os.environ.get("S4E_MODE_FILE", "").strip()
+    if f:
+        return f
+    root = (os.environ.get("S4E_POSTOFFICE", "").strip() or os.environ.get("S4E_POST", "").strip()
+            or "/home/resources/postoffice")
+    return os.path.join(root, "MODE")
+
+
+def board_writer_seat():
+    """The seat MODE line 2 names as THE ONE RUNNER, plus the provenance of that answer.
+
+    Returns (seat, why).  seat is None when the question CANNOT BE ANSWERED -- unreadable file, no line 2, no ONE
+    RUNNER clause, or a clause naming no seat -- and `why` then says which of those it was.  ⛔ A None is never read
+    as "nobody may write": an instrument that cannot measure must not be allowed to print an answer, and the honest
+    fallback here is the older FACT RULE (write the row, say the roster could not be read), never a silent refusal
+    that would make an unreadable MODE file look exactly like a seat correctly declining.
+    """
+    p = mode_file()
+    try:
+        with open(p) as fh:
+            lines = fh.read().split("\n")
+    except Exception as e:
+        return None, "could not read %s (%s)" % (p, e.__class__.__name__)
+    if len(lines) < 2 or not lines[1].strip():
+        return None, "%s carries no line 2, which is where the lanes are cut" % p
+    l2 = lines[1]
+    m = re.search(r"THE ONE RUNNER", l2)
+    if not m:
+        return None, "line 2 of %s names no THE ONE RUNNER, so this mode cuts no single board writer" % p
+    seats = re.findall(r"(?:^|[\s;,.(])(%s)\b" % MODE_SEAT_RE, l2[:m.start()])
+    if not seats:
+        return None, "line 2 of %s says THE ONE RUNNER and names no seat before it" % p
+    return seats[-1], "named on line 2 of %s" % p
+
+
+def score_md_is_the_shared_board():
+    """Is the file about to be written THE leaderboard every seat reads, or a scratch copy?
+
+    ⛔⭐ WHAT MAKES A WRITE A LEADERBOARD WRITE IS THE FILE IT LANDS IN, NOT THE ENTRY POINT -- the same rule the coo
+    landed for boards (CEO-547 part 1: what makes a run a board is the population it grades).  The shared board is a
+    tracked file in a clone with an `origin`, so every other seat meets it; a gate's mktemp .github copy is read by
+    nobody, publishes nothing, and must never be refused, or the gates that prove this writer could not run at all.
+    """
+    d = os.path.dirname(os.path.abspath(SCORE_MD))
+    try:
+        top = subprocess.run(["git", "-C", d, "rev-parse", "--show-toplevel"], capture_output=True, text=True, timeout=30)
+        if top.returncode != 0:
+            return False
+        url = subprocess.run(["git", "-C", d, "remote", "get-url", "origin"], capture_output=True, text=True, timeout=30)
+        return url.returncode == 0 and bool(url.stdout.strip())
+    except Exception:
+        return False
+
+
+def one_runner_declines(measurer, what):
+    """The announcement to print INSTEAD of writing `what`, or None to go ahead and write it.
+
+    Exemptions are lib_one_runner.sh's own, word for word, because two guards over one rule that disagree about their
+    doors are a third defect: the bus's computed `done` run of a DONE-WHEN (one run per closure), and a loud, named
+    S4E_ONE_RUNNER_OVERRIDE.  A --dry-run writes nothing, so it is previewed, never refused.
+    """
+    if not score_md_is_the_shared_board():
+        return None
+    if os.environ.get("S4E_DONE_WHEN_RUN", "") == "1":
+        return None
+    writer, why = board_writer_seat()
+    if writer is None:
+        print("⚠ ONE RUNNER NOT DETERMINED: %s -- writing %s as the FACT RULE requires (any suite run updates the "
+              "leaderboard). If you are not the one runner, this row is yours to discard." % (why, what))
+        return None
+    if (measurer or "").strip() == writer:
+        return None
+    ov = os.environ.get("S4E_ONE_RUNNER_OVERRIDE", "").strip()
+    if ov:
+        print("⚠ ONE-RUNNER OVERRIDE by %s on the leaderboard (%s is the one runner, %s): %s" % (measurer, writer, why, ov))
+        return None
+    return ("⚠ SCORE.md NOT UPDATED — seat %s is not %s, THE ONE RUNNER (%s), and under ONE RUNNER, ONE BOARD only the "
+            "one runner writes leaderboard rows. NOTHING WAS WRITTEN and the file is untouched, deliberately: a row "
+            "left in your working tree is swept in by the next stage-everything.\n"
+            "  The measurement below stands as your own board line -- %s -- and lands when the one runner's next "
+            "pass measures it. Doors, both loud and recorded: the bus's computed `done` run of a DONE-WHEN is exempt, "
+            "and S4E_ONE_RUNNER_OVERRIDE=\"why\" writes the row and prints the reason."
+            % (measurer or "?", writer, why, what))
+
+
 def write_grid_direct(a):
     gkey = GRID_DIRECT[a.column]
     text = a.text.strip()
@@ -1011,6 +1120,15 @@ def cmd_write(a):
             print("⚠ measurer %r is a placeholder, not an identity -- derived %r from the root %s instead "
                   "(the caller should pass ${S4E_SEAT:-} and let this helper resolve it)."
                   % (stale, a.measurer, S4E))
+    # ⛔ THE ROSTER IS ASKED BEFORE EITHER WRITE PATH (see one_runner_declines): the grid-direct columns write the
+    # leaderboard just as the display columns do, so a guard on one of the two would have left half the runners
+    # writing -- and the half it left would be the half nobody was watching.  Checked here, once, ahead of the
+    # dispatch, so there is exactly one site to read and no way for the two paths to drift apart.
+    if not getattr(a, "dry_run", False):
+        _decl = one_runner_declines(a.measurer, "%s / %s = %s" % (a.lang, a.column, a.text.strip()))
+        if _decl:
+            print(_decl)
+            return 0
     if a.column in GRID_DIRECT:
         return write_grid_direct(a)
     if a.column not in COLUMNS:
