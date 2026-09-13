@@ -25,6 +25,7 @@ inside the generated program. Comparing printed text instead would make quoting,
 operator spacing our problem, and each of those has its own way of being wrong -- _G0 vs _123 alone would
 red every instantiation_error case in the suite.
 """
+import io
 import os
 import re
 import shutil
@@ -58,6 +59,44 @@ DROP_DIRECTIVES = ("if", "elif", "else", "endif", "import", "use_module", "ensur
 # harness was wrong in a way that could only ever produce reds, so it never looked like a harness bug --
 # a board of failures is what a young frontend is expected to print.
 LOGTALK_ONLY_SYNTAX = re.compile(r"\^\^|::")
+# ⛔⭐ THE ORDER-DEPENDENT CASES -- NEITHER A RED NOR A DROPPED CASE. This runner generates ONE PROGRAM PER
+# CASE, which is what makes a case's verdict a verdict on its construct instead of on its neighbours -- and a
+# handful of cases in this suite are written against the database THEIR FILE'S EARLIER CASES leave behind.
+# `predicates/retract_1` is the measured example (hq_C, FINDING-2026-09-13, claim 2): case 04 wants a
+# three-entry findall from a legs/2 that cases 01 and 03 have already cut to three clauses, and case 05 wants
+# retract/1 to FAIL on a legs/2 that only case 04 can drain. Standalone NEITHER CAN PASS WHATEVER THE ENGINE
+# DOES, and they arrived as FAIL -- the one bucket that means *the engine got it wrong* and the one bucket a
+# seat is expected to drive to zero, so they were picked up, ablated and handed back unsolved by everyone who
+# inherited the row. ⭐ A FAIL NO CURE CAN CLEAR IS A DEFECT OF THE INSTRUMENT, and it is the
+# flattering-direction error for an instrument: it makes the runner look like it is measuring the language
+# when it is measuring its own harness.
+# THE MECHANISM: a case NAMED in lib_logtalk_sequenced.tsv is graded with its file's earlier cases run first,
+# IN FILE ORDER -- which is how lgtunit itself runs a tests.lgt, so this is fidelity and not a workaround.
+# Each prefix goal becomes its OWN clause ('$lgt_preN') called inside ignore(catch(...)): its variables stay
+# local (a textual splice would make case 03's X and case 04's X one variable, a silently different program)
+# and its own outcome never grades anything.
+# ⛔ THE DECLARATION IS POLICED ON EVERY RUN, NEVER TRUSTED. Every declared case is ALSO run standalone, and
+# if it PASSES standalone the run REFUSES rc=2 and says to delete the line; so does a declaration naming a
+# case that is FIRST in its file (no prefix to run) or a name its group does not have. Without those arms
+# this table is a silencer -- one line per red, and every verdict it touches weaker than the suite supports.
+SEQ_TABLE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib_logtalk_sequenced.tsv")
+
+
+def load_sequenced(path=SEQ_TABLE):
+    """{(group, case): reason} read from the declaration table. A malformed line is NAMED, never skipped."""
+    out, bad = {}, []
+    if not os.path.exists(path):
+        return out, [(path, "the sequenced-case declaration table is missing -- it is data this runner reads, "
+                            "never a default it invents")]
+    for n, line in enumerate(io.open(path, encoding="utf-8"), 1):
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        f = line.rstrip("\n").split("\t")
+        if len(f) != 3 or not all(x.strip() for x in f):
+            bad.append((path, "line %d is not group<TAB>case<TAB>reason: %r" % (n, line.rstrip()[:80])))
+            continue
+        out[(f[0].strip(), f[1].strip())] = f[2].strip()
+    return out, bad
 
 
 def _clause_head_name(clause):
@@ -81,15 +120,19 @@ def split_db(db):
     return keep, dropped
 
 
+def dropped_in(text, dropped):
+    """The dropped helper this goal TEXT would call, or None. Text-level so a PREFIX goal -- which never
+    reaches plan.goal, only its '$lgt_preN' call does -- is tested by the same rule as the case's own goal."""
+    for n in sorted(dropped):
+        if text and re.search(r"(?<![A-Za-z0-9_])%s(?![A-Za-z0-9_])" % re.escape(n.strip("'")), text):
+            return n
+    return None
+
+
 def calls_dropped(plan, dropped):
     """The dropped helper this plan would call, or None. Checked against the goal AS FINISHED, so a
     setup(...)/cleanup(...) option folded into the goal is covered by the same test."""
-    for n in sorted(dropped):
-        if re.search(r"(?<![A-Za-z0-9_])%s(?![A-Za-z0-9_])" % re.escape(n.strip("'")), plan.goal or ""):
-            return n
-        if plan.condition and re.search(r"(?<![A-Za-z0-9_])%s(?![A-Za-z0-9_])" % re.escape(n.strip("'")), plan.condition):
-            return n
-    return None
+    return dropped_in(plan.goal or "", dropped) or dropped_in(plan.condition or "", dropped)
 
 
 def shim_helpers(path=SHIM):
@@ -206,7 +249,7 @@ def _split_option(options):
 
 class Plan(object):
     """How one case will be graded, or why it will not be."""
-    __slots__ = ("case", "want", "goal", "balls", "weaker", "skip_reason", "condition")
+    __slots__ = ("case", "want", "goal", "balls", "weaker", "skip_reason", "condition", "prefix", "sequenced")
 
     def __init__(self, case, want=None, goal=None, balls=(), weaker=None, skip_reason=None):
         self.case = case
@@ -216,19 +259,31 @@ class Plan(object):
         self.weaker = weaker
         self.skip_reason = skip_reason
         self.condition = None
+        self.prefix = []          # earlier cases' goals, run before this one (see SEQ_TABLE above)
+        self.sequenced = None     # the declared reason it needs them
+
+
+def action_goal(c, supported):
+    """One case's GOAL as plain Prolog, with no expectation attached: (goal, None) or (None, why not).
+    Shared with the prefix builder, which needs an earlier case's ACTION and never its check -- two copies of
+    these three rewrites would be two places for the meaning to drift."""
+    goal, bad = _rewrite_helpers(c.goal or "", supported)
+    if bad is not None:
+        return None, "lgtunit helper ^^%s is not implemented by lib_logtalk_lgtunit.pl" % bad
+    goal = _braces_to_parens(goal)
+    goal, msg = _rewrite_messages(goal)
+    if msg is not None:
+        return None, "Logtalk message %s in the goal is not expressible in plain Prolog" % msg
+    return goal, None
 
 
 def plan_case(c, supported):
     """Turn one extracted Case into a Plan: either an executable grading, or a NAMED refusal to grade."""
     if c.kind == "test" and not c.expect:
         return Plan(c, skip_reason="lgtunit test/1 placeholder: the suite declares this test and does not implement it")
-    goal, bad = _rewrite_helpers(c.goal, supported)
-    if bad is not None:
-        return Plan(c, skip_reason="lgtunit helper ^^%s is not implemented by lib_logtalk_lgtunit.pl" % bad)
-    goal = _braces_to_parens(goal)
-    goal, msg = _rewrite_messages(goal)
-    if msg is not None:
-        return Plan(c, skip_reason="Logtalk message %s in the goal is not expressible in plain Prolog" % msg)
+    goal, why = action_goal(c, supported)
+    if goal is None:
+        return Plan(c, skip_reason=why)
     opts, unknown = _split_option(c.options)
     if unknown:
         return Plan(c, skip_reason="test/3 option(s) not understood: %s" % ",".join(unknown))
@@ -339,6 +394,10 @@ def program_text(plan, db, shim_src, loaded=()):
     parts.append("'$lgt_want'('$lgt_no_ball_expected_here').")
     for b in plan.balls:
         parts.append("'$lgt_want'(%s)." % b)
+    # ⛔ ONE CLAUSE PER PREFIX GOAL, never a textual splice into the case's own goal: a clause's variables
+    # are local to it, and case 03's X spliced beside case 04's X is ONE variable and a different program.
+    for k, g in enumerate(plan.prefix or (), 1):
+        parts.append("'$lgt_pre%d' :- %s." % (k, g))
     parts.append("'$lgt_cond' :- %s." % (plan.condition if plan.condition else "true"))
     parts.append("'$lgt_case' :- %s." % plan.goal)
     parts.append(
@@ -416,7 +475,40 @@ def _rewrite_hook(clean, name, supported):
     return False
 
 
-def grade(root, scrip, modes, jobs=8, limit=None, only_group=None):
+def _sweep(work, results, where, builders, dbs, shim_src, scrip, modes, workroot, jobs):
+    """THE DIAGNOSTIC THAT FINDS THE NEXT ONE -- never a grading path, and it can never move the board.
+    Every case that FAILS in every graded mode is re-run ONCE with its file's earlier cases ahead of it; the
+    ones that flip to PASS are the candidates for a lib_logtalk_sequenced.tsv line, printed for a human to
+    declare with a reason. ⛔ IT DOES NOT DECLARE THEM ITSELF. An automatic retry-with-prefix that counted as a
+    pass would turn a real engine defect into a green cell the first time a neighbour's state happened to
+    mask it -- the flattering direction, and the reason the table is data a person signs."""
+    todo = []
+    for i, (fc, p) in enumerate(work):
+        if p.skip_reason is not None or p.sequenced is not None or where.get(i, (None, 0))[1] == 0:
+            continue
+        if all(verdict(p, results[(i, m)][0])[0] == "FAIL" for m in modes):
+            q = builders[fc.path](p.case, where[i][1], True)
+            if q.skip_reason is None:
+                todo.append((i, fc, q))
+    out = []
+    for mode in modes:
+        def job(t):
+            i, fc, q = t
+            try:
+                return i, run_one(q, dbs[fc.path], shim_src, scrip, mode, workroot, os.path.dirname(fc.path),
+                                  loaded=fc.loaded or ())
+            except Exception as e:                          # noqa: BLE001 -- one case never takes a run down
+                return i, ("harness", "%s: %s" % (type(e).__name__, e))
+        with ThreadPoolExecutor(max_workers=jobs) as pool:
+            got = dict(pool.map(job, todo))
+        todo = [(i, fc, q) for i, fc, q in todo
+                if verdict(q, got[i][0])[0] == "PASS"]      # a candidate must flip in EVERY graded mode
+    for i, fc, _q in todo:
+        out.append((fc.group, work[i][1].case.name))
+    return out
+
+
+def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ_TABLE, sweep=False):
     # ⛔ ABSOLUTE, AND CHECKED HERE. Every case runs with cwd set to its own scratch directory, so a
     # relative binary path ("./scrip", the obvious thing to type) resolves against the scratch dir and is
     # not there. Measured 2026-09-12: it does not raise anything a reader would notice -- every case comes
@@ -428,18 +520,28 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None):
     files, bad = ex.parse_suite(root)
     if bad:
         return None, bad
+    sequenced, seqbad = load_sequenced(seq_table)
+    if seqbad:
+        return None, seqbad
     supported = shim_helpers()
     shim_src = open(SHIM, encoding="utf-8").read()
     work = []
+    probes = []                   # (index into work, the SAME case planned standalone) -- the policing arm
+    where = {}                    # index into work -> (file, the case's position in that file)
+    seqerr = []                   # declarations this suite contradicts; they REFUSE, never warn
+    seqseen = set()
     # ⛔ THE DATABASE IS SPLIT BEFORE ANY CASE IS PLANNED, per file: the plain-Prolog clauses travel with
     # every case, the Logtalk-only ones are dropped AND NAMED, and a case that would have called one is
     # UNGRADED with that name instead of being graded against a program that does not parse.
     dbs = {}
+    drops = {}
+    builders = {}                 # path -> the planner for that file, so the sweep never re-derives one
     for fc in files:
         if only_group and fc.group != only_group:
             continue
         clean, dropped = split_db(fc.db)
         dbs[fc.path] = clean
+        drops[fc.path] = dropped
         # lgtunit runs the object's own setup/0 before its tests and cleanup/0 after them; every case here is
         # its own process, so each case carries the file's hooks around its own goal. A hook body is Logtalk
         # text like a test body ({...} and ^^helpers), so it is rewritten the same way; a hook whose helper the
@@ -448,8 +550,26 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None):
         # lgtunit skips the set when it fails -- and cleanup is soft: its outcome never grades a test.
         has_setup = _rewrite_hook(clean, "setup", supported)
         has_cleanup = _rewrite_hook(clean, "cleanup", supported)
-        for c in fc.cases:
+
+        def build(c, idx, want_prefix, fc=fc, dropped=dropped, has_setup=has_setup, has_cleanup=has_cleanup):
+            """One plan for one case. want_prefix wires this file's EARLIER cases ahead of it (SEQ_TABLE)."""
             p = plan_case(c, supported)
+            if p.skip_reason is None and want_prefix and idx > 0:
+                pre = []
+                for e in fc.cases[:idx]:
+                    g, why = action_goal(e, supported)
+                    n = dropped_in(g, dropped) if (g is not None and dropped) else None
+                    if g is None or n is not None:
+                        p.skip_reason = ("sequenced-prefix-not-expressible: this case is graded with its file's "
+                                         "earlier cases run first and %s cannot be expressed here (%s)"
+                                         % (e.name, why if g is None else "it calls %s, a clause this file "
+                                            "defines in Logtalk message-sending syntax" % n))
+                        break
+                    pre.append(g)
+                if p.skip_reason is None:
+                    p.prefix = pre
+                    p.goal = "%s, %s" % (", ".join("ignore(catch('$lgt_pre%d', _, true))" % (k + 1)
+                                                   for k in range(len(pre))), p.goal)
             if p.skip_reason is None:
                 if has_setup:
                     p.goal = "lgt_h(setup), %s" % p.goal
@@ -460,31 +580,64 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None):
                 if n is not None:
                     p.skip_reason = ("logtalk-only-helper-clause: this file defines %s in Logtalk "
                                      "message-sending syntax, which has no plain-Prolog form here" % n)
+            return p
+
+        builders[fc.path] = build
+        for idx, c in enumerate(fc.cases):
+            reason = sequenced.get((fc.group, c.name))
+            p = build(c, idx, reason is not None)
+            if reason is not None:
+                seqseen.add((fc.group, c.name))
+                if idx == 0:
+                    seqerr.append((fc.group, c.name, "is declared order-dependent and is the FIRST case in its "
+                                   "file -- there is no prefix to run, so the line grades nothing differently "
+                                   "and tells a reader something untrue"))
+                elif p.skip_reason is None:
+                    p.sequenced = reason
+                    probes.append((len(work), build(c, idx, False)))
+            where[len(work)] = (fc, idx)
             work.append((fc, p))
+    # ⛔ A DECLARATION WHOSE GROUP IS HERE AND WHOSE CASE IS NOT is a renamed or deleted case, and it must not
+    # rot as a line nobody reads. Only groups actually graded are judged, so --group and a scratch fixture do
+    # not turn every other declaration into a refusal.
+    graded_groups = {fc.group for fc in files if not (only_group and fc.group != only_group)}
+    for (g, nm), _r in sorted(sequenced.items()):
+        if g in graded_groups and (g, nm) not in seqseen:
+            seqerr.append((g, nm, "is declared order-dependent and its group was graded, but no case of that "
+                           "name is in it -- the case was renamed or deleted and the declaration is stale"))
     if limit:
         work = work[:limit]
+        probes = [(i, q) for i, q in probes if i < limit]
     workroot = tempfile.mkdtemp(prefix="lgtsuite.")
     results = {}
+    probe_results = {}
     try:
         for mode in modes:
-            todo = [(i, fc, p) for i, (fc, p) in enumerate(work) if p.skip_reason is None]
+            # ⛔ THE POLICING ARM RUNS IN THE SAME PASS AS THE BOARD, on the same binary and the same tree. A
+            # declaration checked by a separate invocation is a declaration checked against a different run.
+            todo = [(("w", i), fc, p) for i, (fc, p) in enumerate(work) if p.skip_reason is None]
+            todo += [(("p", j), work[i][0], q) for j, (i, q) in enumerate(probes) if q.skip_reason is None]
             def job(t):
                 # ⛔ ONE CASE MUST NEVER TAKE THE RUN DOWN. A harness exception here (the unicode family
                 # writes UTF-16/32 bytes to stdout, which killed the first full run on a decode error) is
                 # the harness failing, not the case -- it is reported as such and the other 3616 still get
                 # measured. A runner that dies at case 900 publishes nothing at all.
-                i, fc, p = t
+                k, fc, p = t
                 try:
-                    return i, run_one(p, dbs[fc.path], shim_src, scrip, mode, workroot, os.path.dirname(fc.path),
+                    return k, run_one(p, dbs[fc.path], shim_src, scrip, mode, workroot, os.path.dirname(fc.path),
                                       loaded=fc.loaded or ())
                 except Exception as e:                      # noqa: BLE001 -- deliberately broad, see above
-                    return i, ("harness", "%s: %s" % (type(e).__name__, e))
+                    return k, ("harness", "%s: %s" % (type(e).__name__, e))
             with ThreadPoolExecutor(max_workers=jobs) as pool:
-                for i, res in pool.map(job, todo):
-                    results[(i, mode)] = res
+                for k, res in pool.map(job, todo):
+                    (results if k[0] == "w" else probe_results)[(k[1], mode)] = res
+        cands = _sweep(work, results, where, builders, dbs, shim_src, scrip, modes, workroot, jobs) \
+            if sweep else []
     finally:
         shutil.rmtree(workroot, ignore_errors=True)
-    return (work, results), []
+    seqinfo = {"table": sequenced, "errors": seqerr, "probes": probes, "probe_results": probe_results,
+               "sweep": cands}
+    return (work, results, seqinfo), []
 
 
 def verdict(plan, outcome):
@@ -513,18 +666,25 @@ def main(argv):
     ap.add_argument("--jobs", type=int, default=12)
     ap.add_argument("--group", default=None, help="grade one directory only (a development aid, never a board)")
     ap.add_argument("--name-reds", action="store_true")
+    ap.add_argument("--sequenced", default=SEQ_TABLE,
+                    help="the order-dependent-case declaration table (default: lib_logtalk_sequenced.tsv)")
+    ap.add_argument("--sweep-sequenced", action="store_true",
+                    help="DIAGNOSTIC, never a grading path: re-run every red with its file's earlier cases "
+                         "ahead of it and name the ones that flip -- the candidates for a declaration")
     args = ap.parse_args(argv[1:])
     modes = [m for m in args.modes.split(",") if m]
-    out, bad = grade(args.suite, args.scrip, modes, jobs=args.jobs, only_group=args.group)
+    out, bad = grade(args.suite, args.scrip, modes, jobs=args.jobs, only_group=args.group,
+                     seq_table=args.sequenced, sweep=args.sweep_sequenced)
     if bad:
-        # ⛔ THE DONE-WHEN'S REFUSAL: a tests.lgt that cannot be parsed is NAMED and the run publishes
-        # nothing. A partial population printed as if it were whole is the one failure this row exists to
-        # prevent -- see util_logtalk_extract.py's header for the 31 cases that vanished in silence.
-        sys.stderr.write("⛔ REFUSED(2) [logtalk_iso]: %d file(s) could not be parsed; no board is published\n" % len(bad))
+        # ⛔ THE DONE-WHEN'S REFUSAL: an input this instrument cannot read -- a tests.lgt that will not parse,
+        # or a malformed line in the declaration table -- is NAMED and the run publishes nothing. A partial
+        # population printed as if it were whole is the one failure this row exists to prevent; see
+        # util_logtalk_extract.py's header for the 31 cases that vanished in silence.
+        sys.stderr.write("⛔ REFUSED(2) [logtalk_iso]: %d instrument input(s) could not be read; no board is published\n" % len(bad))
         for p, why in bad:
             sys.stderr.write("    %s: %s\n" % (p, why))
         return 2
-    work, results = out
+    work, results, seqinfo = out
     # ⛔⭐ A DEVELOPMENT AID THAT GRADED NOTHING MUST REFUSE, NOT PRINT ZEROS. Measured 2026-09-12: `--group
     # predicates/sub_atom_5` (the path, where the group is the basename) matched no file and this runner
     # printed a complete board reading population=0, identity 0 == 0 ✓, AND per case 0/0 -- the success
@@ -534,6 +694,29 @@ def main(argv):
         sys.stderr.write("⛔ REFUSED(2) [logtalk_iso]: --group %r matched no file -- the group is the "
                          "DIRECTORY BASENAME (sub_atom_5), never its path. Known groups: %s\n"
                          % (args.group, ", ".join(groups)))
+        return 2
+    # ⛔⭐ THE DECLARATION TABLE IS POLICED BEFORE ANY NUMBER IS PRINTED, and it REFUSES. Every case declared
+    # order-dependent was ALSO run standalone on this same binary: if it passes standalone the prefix is
+    # unnecessary, the verdict it produced is WEAKER than this suite can support, and the line must go. A
+    # table nobody checks is a silencer with a comment on top.
+    for g, nm, why in seqinfo["errors"]:
+        sys.stderr.write("⛔ REFUSED(2) [logtalk_iso]: %s:%s %s\n" % (g, nm, why))
+    if seqinfo["errors"]:
+        sys.stderr.write("    Fix %s; no board is published.\n" % os.path.basename(args.sequenced))
+        return 2
+    unearned = []
+    for j, (i, q) in enumerate(seqinfo["probes"]):
+        for m in modes:
+            o = seqinfo["probe_results"].get((j, m))
+            if o is not None and verdict(q, o[0])[0] == "PASS":
+                unearned.append("%s:%s PASSES standalone in %s" % (work[i][0].group, q.case.name, m))
+    if unearned:
+        sys.stderr.write("⛔ REFUSED(2) [logtalk_iso]: %d declared order-dependent case(s) do not need a "
+                         "prefix, so grading them with one makes the verdict weaker than this suite supports"
+                         " -- delete their line(s) from %s:\n"
+                         % (len(unearned), os.path.basename(args.sequenced)))
+        for u in unearned:
+            sys.stderr.write("    %s\n" % u)
         return 2
     pop = len(work)
     board = {}
@@ -554,7 +737,10 @@ def main(argv):
             if v == "UNGRADED":
                 reasons[(mode, why)] = reasons.get((mode, why), 0) + 1
             elif v == "FAIL":
-                named.append("%s:%s:%s:%s%s" % (fc.group, p.case.name, mode, o, (" " + d) if d else ""))
+                # ⛔ a sequenced red is NAMED as one: it is a verdict on the construct in the state its own
+                # file establishes, and must never be read as a standalone verdict by whoever picks it up.
+                named.append("%s:%s:%s:%s%s%s" % (fc.group, p.case.name, mode, o, (" " + d) if d else "",
+                                                  " [SEQUENCED]" if p.sequenced else ""))
         # ⛔ THE IDENTITY IS ASSERTED, NOT ASSUMED. Four plausible counts with an invisible remainder is
         # the exact defect the package lockdown exists to end, so a total that does not reconcile REFUSES.
         tot = sum(b.values())
@@ -585,6 +771,29 @@ def main(argv):
         print("  UNGRADED %s, by reason -- work owed, named, never dropped from the population and never a pass:" % m)
         for k in sorted(rs, key=lambda x: -rs[x]):
             print("    %4d  %s" % (rs[k], k))
+    # ⛔⭐ THE SEQUENCED CASES ARE PRINTED ON EVERY RUN, WITH THEIR STANDALONE OUTCOME BESIDE THEM. The
+    # weakening is the whole cost of this mechanism, so it is stated where the number is, never buried in a
+    # data file: each line says what the case scored with its file's prefix AND what it scores alone.
+    seqrows = [(i, q) for i, q in seqinfo["probes"]]
+    if seqrows:
+        print("  SEQUENCED %d case(s) graded with their file's EARLIER cases run first, in file order (which is "
+              "how lgtunit runs a tests.lgt) -- declared in %s, and each one re-run standalone on this same "
+              "board to prove the prefix is needed:" % (len(seqrows), os.path.basename(args.sequenced)))
+        for j, (i, q) in enumerate(seqrows):
+            fc, pl = work[i]
+            got = " ".join("%s %s" % (m, verdict(pl, results[(i, m)][0])[0]) for m in modes)
+            alone = " ".join("%s %s" % (m, verdict(q, seqinfo["probe_results"][(j, m)][0])[0]) for m in modes)
+            print("    %s:%s  sequenced: %s · standalone: %s" % (fc.group, q.case.name, got, alone))
+            print("        %s" % pl.sequenced)
+    if seqinfo["sweep"]:
+        print("  ⚠ SWEEP: %d red case(s) PASS when their file's earlier cases run first -- candidates for a "
+              "%s line, to be declared BY HAND with a reason and never automatically:"
+              % (len(seqinfo["sweep"]), os.path.basename(args.sequenced)))
+        for g, nm in seqinfo["sweep"]:
+            print("    %s\t%s" % (g, nm))
+    elif args.sweep_sequenced:
+        print("  SWEEP: no red case passes when its file's earlier cases run first -- every red on this board "
+              "is a verdict on the engine, not on this runner's one-program-per-case isolation")
     if args.name_reds:
         for x in named[:400]:
             print("    RED " + x)
@@ -617,7 +826,8 @@ def main(argv):
                     v, note = "UNGRADED", p.skip_reason.split(":")[0][:60]
                 else:
                     v, why = verdict(p, results[(i, m)][0])
-                    note = "iso-13211-1-case-expectation" if v == "PASS" else (why or v)[:60]
+                    note = ("iso-13211-1-case-expectation" + ("-file-sequenced" if p.sequenced else "")) \
+                        if v == "PASS" else (why or v)[:60]
                 pf.write("package\tlogtalk\tprolog\t%s:%s\t%s\t%s\t0\t%s\n"
                          % (fc.group, p.case.name, m, v, note))
     print("PROGRESS_ROWS_TSV %s" % rows)

@@ -211,7 +211,97 @@ elif ! printf '%s' "$out" | grep -q "Known groups"; then
     fail "ARM 9: the refusal did not name the groups it does know: $out"
 fi
 
+# ---- ARM 10..13 — THE ORDER-DEPENDENT CASE MECHANISM (lib_logtalk_sequenced.tsv). A handful of cases in
+# this suite are written against the database their file's EARLIER cases leave behind (hq_C,
+# FINDING-2026-09-13, claim 2: predicates/retract_1 cases 04 and 05). Standalone they cannot pass WHATEVER
+# THE ENGINE DOES, and they arrive as FAIL -- the one bucket that means the engine got it wrong and the one
+# bucket a seat drives to zero, so they get picked up, ablated and handed back unsolved. ⭐ A FAIL NO CURE CAN
+# CLEAR IS A DEFECT OF THE INSTRUMENT. The cure is a DECLARED prefix, and what these arms protect is not the
+# prefix but the POLICING: a table nobody checks is a silencer with a comment on top.
+mkdir -p "$TD/f/seq"
+cat > "$TD/f/seq/tests.lgt" <<'LGT'
+:- dynamic(v/1).
+v(1).
+v(2).
+:- object(tests, extends(lgtunit)).
+	test(s_01, true) :-
+		{retract(v(X)), X == 1}.
+	test(s_02, true(L == [2])) :-
+		{findall(X, v(X), L)}.
+	test(s_03, true) :-
+		{atom(a)}.
+:- end_object.
+LGT
+printf 'seq\ts_02\tthe one-element answer is the state case 01 leaves\n' > "$TD/f/ok.tsv"
+printf 'seq\ts_03\tdeclared but it passes standalone and needs no prefix\n' > "$TD/f/unearned.tsv"
+printf 'seq\ts_99\tno case of this name\n' > "$TD/f/stale.tsv"
+printf 'seq\ts_01\tthe first case in its file has no prefix\n' > "$TD/f/first.tsv"
+printf 'seq s_02 spaces where the format says tabs\n' > "$TD/f/malformed.tsv"
+G="python3 $HERE/util_logtalk_grade.py --suite $TD/f --scrip $HERE/../scrip --modes m3"
+if [ -x "$HERE/../scrip" ]; then
+    # ARM 10 — UNDECLARED, the order-dependent case is a red nobody can cure; DECLARED, it grades, and the
+    # board PRINTS the weakening: what it scored with its file's prefix AND what it scores alone.
+    arms=$((arms+1))
+    out="$($G --sequenced /dev/null 2>&1)"
+    case "$out" in *"m3_pass=2 m3_fail=1"*) : ;; *) fail "ARM 10: the fixture's order-dependent case did not read as the one red with no declaration -- the defect this mechanism exists for is not reproduced, so the arms below prove nothing: $out" ;; esac
+    out="$($G --sequenced "$TD/f/ok.tsv" 2>&1)"; rc=$?
+    case "$out" in *"m3_pass=3 m3_fail=0"*) : ;; *) fail "ARM 10: a DECLARED order-dependent case did not grade with its file's earlier cases run first (rc=$rc): $out" ;; esac
+    printf '%s' "$out" | grep -q "SEQUENCED 1 case" || fail "ARM 10: the board did not NAME the sequenced case. The weakening is the whole cost of this mechanism and belongs beside the number, never only in the data file: $out"
+    printf '%s' "$out" | grep -q "standalone: m3 FAIL" || fail "ARM 10: the board did not print the case's STANDALONE outcome beside its verdict, so a reader cannot see that the prefix was needed: $out"
+    # ⭐ AND THE PREFIX GOALS' VARIABLES STAY LOCAL. The fixture's case 01 binds X and case s_02 names X too:
+    # spliced textually they are ONE variable and s_02 measures a different program, so this arm passes only
+    # because each prefix goal is emitted as its own clause.
+    # ARM 11 — a declaration the suite does not need REFUSES. Without this arm the table silences reds.
+    arms=$((arms+1))
+    out="$($G --sequenced "$TD/f/unearned.tsv" 2>&1)"; rc=$?
+    if [ "$rc" -ne 2 ]; then
+        fail "ARM 11: declaring a case that PASSES STANDALONE exited $rc, want 2 -- every declared case must be re-run standalone on the same board, or one line per red turns this table into a silencer and every verdict it touches is weaker than the suite supports"
+    elif ! printf '%s' "$out" | grep -q "do not need a prefix"; then
+        fail "ARM 11: the refusal did not say the prefix is unnecessary: $out"
+    fi
+    # ARM 12 — a stale or impossible declaration REFUSES and names itself: a renamed case, and a case that is
+    # FIRST in its file and therefore has no prefix at all.
+    arms=$((arms+1))
+    out="$($G --sequenced "$TD/f/stale.tsv" 2>&1)"; rc=$?
+    { [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q "s_99"; } || fail "ARM 12: a declaration naming a case its graded group does not have exited $rc and did not name the case: $out"
+    out="$($G --sequenced "$TD/f/first.tsv" 2>&1)"; rc=$?
+    { [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q "FIRST case"; } || fail "ARM 12: declaring the FIRST case of a file exited $rc -- there is no prefix to run, so the line grades nothing differently and tells a reader something untrue: $out"
+    out="$($G --sequenced "$TD/f/malformed.tsv" 2>&1)"; rc=$?
+    [ "$rc" -eq 2 ] || fail "ARM 12: a malformed declaration line exited $rc, want 2 -- a line this instrument cannot read must never be skipped in silence"
+    # ARM 13 — THE SWEEP IS A DIAGNOSTIC AND NEVER A GRADING PATH. It names the candidate and leaves the red
+    # standing: an automatic retry-with-prefix that counted as a pass would turn a real engine defect green
+    # the first time a neighbour's state happened to mask it.
+    arms=$((arms+1))
+    out="$($G --sequenced /dev/null --sweep-sequenced 2>&1)"; rc=$?
+    printf '%s' "$out" | grep -q "SWEEP: 1 red case" || fail "ARM 13: the sweep did not name the undeclared order-dependent case as a candidate (rc=$rc): $out"
+    case "$out" in *"m3_pass=2 m3_fail=1"*) : ;; *) fail "ARM 13: the sweep MOVED THE BOARD. It may only name candidates for a human to declare with a reason: $out" ;; esac
+else
+    echo "    ARM 10..13 SKIPPED: no scrip binary at $HERE/../scrip"
+fi
+
+# ---- ARM 14 — THE SHIPPED DECLARATIONS STILL POINT AT REAL CASES, checked against the vendored suite with
+# no compiler. Offline, so the table cannot rot between two full board runs.
+arms=$((arms+1))
+SUITE_REAL="${S4E_CORPUS:-$(cd "$HERE/../.." && pwd)/corpus}/packages/prolog/logtalk_iso"
+if [ -d "$SUITE_REAL" ]; then
+    miss="$(GATE_SCRIPTS="$HERE" SUITE_REAL="$SUITE_REAL" python3 - <<'PY'
+import os, sys
+sys.path.insert(0, os.environ["GATE_SCRIPTS"])
+import util_logtalk_grade as g, util_logtalk_extract as ex
+table, bad = g.load_sequenced()
+if bad:
+    print("TABLE " + "; ".join(w for _p, w in bad)); sys.exit(0)
+files, _b = ex.parse_suite(os.environ["SUITE_REAL"])
+have = {(fc.group, c.name) for fc in files for c in fc.cases}
+print(" ".join("%s:%s" % k for k in sorted(table) if k not in have))
+PY
+)"
+    [ -z "$miss" ] || fail "ARM 14: lib_logtalk_sequenced.tsv declares case(s) the vendored suite does not have: $miss"
+else
+    echo "    ARM 14 SKIPPED: no vendored suite at $SUITE_REAL"
+fi
+
 echo "[$GATE] arms=$arms violations=$violations"
 [ "$violations" -eq 0 ] || exit 1
-echo "GATE PASS [$GATE]: the population is whole, an unreadable file refuses and is named, the ISO numeric escape stays readable, Logtalk-only database clauses are dropped rather than emitted, the tester-loaded Prolog file is inlined with its guards, and a group that matched nothing refuses"
+echo "GATE PASS [$GATE]: the population is whole, an unreadable file refuses and is named, the ISO numeric escape stays readable, Logtalk-only database clauses are dropped rather than emitted, the tester-loaded Prolog file is inlined with its guards, a group that matched nothing refuses, and every order-dependent declaration is earned -- policed standalone on the same board, named on the board line, stale or unnecessary lines refusing rc=2"
 exit 0
