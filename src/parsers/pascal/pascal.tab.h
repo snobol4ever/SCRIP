@@ -138,7 +138,7 @@ typedef struct PNodeList { tree_t **items; int count; int cap; } PNodeList;
 #if ! defined PASCAL_YYSTYPE && ! defined PASCAL_YYSTYPE_IS_DECLARED
 union PASCAL_YYSTYPE
 {
-#line 678 "pascal.y"
+#line 689 "pascal.y"
 
     tree_t    *node;
     PNodeList *list;
