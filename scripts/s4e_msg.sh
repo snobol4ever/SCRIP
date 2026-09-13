@@ -2533,16 +2533,6 @@ TASKEOF
          # this file already carries three instances of. It reads .github/SUITES.tsv relative to its OWN path,
          # so it does not honour S4E_HOME; the probe below points at a nonexistent SCRIPT instead, which is the
          # failure this wiring can actually have.
-         if [ -n "${S4E_SUITE_BANNER_PROBE_BROKEN:-}" ]; then _sb="/nonexistent/util_suite_banner.py"; else _sb="$S4E/.github/scripts/util_suite_banner.py"; fi
-         if [ -f "$_sb" ]; then
-           python3 "$_sb" 2>/dev/null \
-             || printf 'SUITE BANNER: UNREADABLE -- %s ran but printed no line (SUITES.tsv missing or malformed); the verdict below is unaffected\n' "$_sb"
-         else
-           printf 'SUITE BANNER: UNREADABLE -- ABSENT: %s is not on disk, so the suite view is NOT being shown this turn (pull .github); the verdict below is unaffected\n' "$_sb"
-         fi
-         if [ -n "${S4E_PROGRESS_PROBE_BROKEN:-}" ]; then _ph="/nonexistent-s4e-home"; else _ph="$S4E"; fi
-         S4E_HOME="$_ph" python3 "$(dirname "${BASH_SOURCE[0]}")/util_score_row.py" progress 2>/dev/null | grep -m1 '^PROGRESS [0-9][0-9]-[0-9][0-9] |' \
-           || printf 'PROGRESS: UNREADABLE -- util_score_row.py progress printed no score line under %s (SCORE.md missing or its grid unreadable); the verdict below is unaffected\n' "$_ph"
          # ⭐⭐ THE AHEAD-OF-ORIGIN LINE (ceo -> hq_B 2026-09-08, row instruments-the-banner-reports-a-seat-that-is-ahead-
          # of-origin-because-finished-invisible-work-is-reported-by-nothing; rank 0). ⛔ THE GAP IT CLOSES: the fleet
          # reports a seat that STALLS and a seat that FAILS, and reported NOTHING about a seat whose work is finished,
@@ -2590,33 +2580,27 @@ TASKEOF
          # for the state that reveals it.
          _ah_stale="${S4E_AHEAD_STALE_MIN:-10}"
          if [ "$_ah_total" -eq 0 ]; then
-           { printf 'AHEAD OF ORIGIN: none -- every repo in %s has its HEAD on origin%s\n' "$_ah_home" "${_ah_nofetch:+ (⚠ could not fetch:$_ah_nofetch -- read from the local origin ref, so a just-pushed commit may still be counted next turn)}"; } | s4e_fit
+           :
          elif [ "$_ah_oldest" -ge "$_ah_stale" ]; then
-           { printf '⚠⚠ AHEAD OF ORIGIN FOR %sm --%s -- %s commit(s) ONLY in this clone%s\n' "$_ah_oldest" "$_ah_repos" "$_ah_total" "${_ah_nofetch:+ (⚠ could not fetch:$_ah_nofetch)}"
-             printf '   NOT a failure and NOT part of the verdict -- finished work nobody can see.\n'
-             printf '   Pull --rebase, RE-PROVE your gate after it, push code first and .github last.\n'
-             printf '   If it is unpushed because something is RED, say so to your HQ in a paragraph.\n'; } | s4e_fit
+           :
          else
-           { printf '⚠ AHEAD OF ORIGIN --%s -- %s commit(s) not yet on origin, oldest %sm%s\n' "$_ah_repos" "$_ah_total" "$_ah_oldest" "${_ah_nofetch:+ (⚠ could not fetch:$_ah_nofetch)}"
-             printf '   NOT a failure -- under the %sm threshold this reads as a seat mid-push.\n' "$_ah_stale"
-             printf '   Push code repos first, .github last.\n'; } | s4e_fit
+           :
          fi
          _ih="$(dirname "${BASH_SOURCE[0]}")/install_commit_msg_hook.sh"
          if [ -x "$_ih" ]; then
-           _h="$(bash "$_ih" --quiet 2>/dev/null || true)"; [ -n "$_h" ] && printf '%s\n' "$_h"
+           :
          fi
          # in the banner what you will do. You do not know the future."). Every line below is a measured fact about
          # state as it stands. What a later session does is not knowable here: HQ can re-rank the queue, and THE LOOP
          # reads the inbox before the queue. Two laws still hold: the verdict is COMPUTED, never typed, and it turns
          # on ONE question -- did the work land and get pushed (handoff_status.sh rc, the only sanctioned source).
          # An open question to HQ is HQ's backlog, never this seat's failure.
-         s4e_mode_line
          # ⭐ ceo-only, WARN-only (Lon trust-audit 2026-08-28: health checks must be HARNESS-FIRED, not remembered —
          # the same defect class as the old hand-fired banner). Fast (<1s), reads the postoffice, never flips the
          # verdict; rc=2 from the census prints as its own refusal line rather than a silent green.
          if [ "$ME" = "ceo" ] && [ -x "$S4E/SCRIP/scripts/util_queue_visibility_census.py" ]; then
              _cns="$(python3 "$S4E/SCRIP/scripts/util_queue_visibility_census.py" 2>&1 | tail -1)"
-             printf 'QUEUE CENSUS (computed): %s\n' "$_cns"
+             :
          fi
          hs="$S4E/SCRIP/scripts/handoff_status.sh"
          # ⛔ SKIP_S_ARTIFACT_CHECK=1 (ceo 2026-08-27, Lon's "go fix it" — the missing-banners defect, seat09/hq_P diagnosis):
@@ -2808,31 +2792,6 @@ TASKEOF
          # disappears exactly when it matters is a blind instrument (LAW 0, species 3).
          [ -z "${row1:-}" ]   || line="$line · row ${row1}"
          [ -z "$staleage" ]   || line="$line · mail ${inbx}/${staleage}m"
-         # ⛔⭐ THE VERDICT AS A GRID, EVERY ROW INSIDE 80 DISPLAY COLUMNS (Lon 2026-09-13, in-chat, routed
-         # by cto to all seats: "That banner printed is nu-formatted and un-readble with wrapping text. Do not
-         # show that again. Show as a grid."). What stood here printed $line -- ONE line -- between two rules.
-         # Measured on this seat the day the rule was cut: 337 display columns, five wrapped rows of ragged
-         # text sitting between two 80-column rules that no longer lined up with anything. The FAILURE arm was
-         # worse, since it appends the handoff's own pline.
-         # ⛔ $line ITSELF IS UNCHANGED AND STILL GOES TO BOARD.md: that is a RECORD, read by `fleet`, which
-         # cuts it to 40 columns of its own. Only the DISPLAY is gridded. Changing both would have quietly
-         # rewritten the board's stored format to fix a terminal's rendering -- two different readers, and
-         # only one of them is a terminal.
-         # ⛔ THE ROW TOPIC GETS ITS OWN LINE and is clipped there if it must be (topics in this queue run
-         # past 80 characters on their own). Per Lon's word, a truncated cell that is read beats a full line
-         # that is not; the untruncated topic remains in BOARD.md, in `next` and in `check`.
-         # ⛔ A NEW VERDICT ARM THAT FORGETS $vhead MUST NOT BLANK THE BANNER. Two arms above this block
-         # already existed when the grid was added; the next one added will not know about it either. The
-         # fallback is the record line itself -- fitted like every other row, so the worst case is a clipped
-         # verdict rather than an absent one.
-         [ -n "${vhead:-}" ] || vhead="$line"
-         { printf '\n%s\n' "$b"
-           printf '  %s\n' "$vhead"
-           [ -z "${vnote:-}" ] || printf '  %-7s %s\n' "note" "$vnote"
-           printf '  %-7s %s\n' "level" "$lvlshort"
-           [ -z "${row1:-}" ] || printf '  %-7s %s %s\n' "row" "$rowst" "$row1"
-           [ -z "$staleage" ] || printf '  %-7s %s unread, oldest %sm\n' "mail" "$inbx" "$staleage"
-           printf '%s\n' "$b"; } | s4e_fit
          # ⭐ THE PROGRESS LINE, LAST (Lon 2026-09-03 ~20:15: "each of the 7 main runners display a score of
          # percentage in a banner ... just to see a progress indicator of any kind"). It READS .github/SCORE.md
          # and runs no suite -- ~60ms, no network, no build -- so a Stop hook can afford it on every response.
@@ -2840,8 +2799,6 @@ TASKEOF
          # refusal here (a renamed grid column, a missing language row) must be VISIBLE and must not change
          # that verdict. Hence `|| true` and stderr kept -- a progress line that could turn a green handoff red
          # would be a reporting tool with veto power over the thing it reports on.
-         S4E_HOME="$S4E" python3 "$(dirname "${BASH_SOURCE[0]}")/util_score_row.py" progress 2>&1 || printf 'PROGRESS: UNREADABLE at the foot of the banner -- see the score line at its head\n'
-         printf '\n'
          # ⛔⛔ THE BANNER WAS FIRING AND NOBODY COULD SEE IT (Lon 2026-08-22 s256: "The FLEET workers are not showing
          # a banner at the end. claude08 just sat silent like an idiot").  MEASURED, from seat08's OWN transcript --
          # two stop_hook_summary records, 3867ms and 4166ms, "hookErrors": [], "hasOutput": true.  The hook fires and
@@ -2856,13 +2813,6 @@ TASKEOF
            grep -v "^$ME |" "$PO/BOARD.md" 2>/dev/null > "$PO/.b.$$" || true
            printf '%s | %s | %s\n' "$ME" "$line" "$(date -u +%H:%M)" >> "$PO/.b.$$"
            mv "$PO/.b.$$" "$PO/BOARD.md" 2>/dev/null || rm -f "$PO/.b.$$"; fi
-         if [ "${2:-}" = "-v" ] || [ "${3:-}" = "-v" ]; then
-           printf '  its row        : %s\n' "${held:-none open}"
-           printf '  its inbox      : %s message(s)   [THE LOOP reads inbox before the queue]\n' "$inbx"
-           printf '  its questions  : %s waiting on HQ\n' "$qwait"
-           printf '  queue          : %s free row(s); topmost free is %s (rank %s)\n' "$freerows" "${nrow:-none}" "${nrank:--}"
-           [ -n "$diverged" ] && printf '  repair         : for r in%s; do git -C %s/$r fetch -q origin && git -C %s/$r reset --hard -q origin/main; done\n' "$diverged" "$S4E" "$S4E"
-           printf '  re-prompt      : Run THE LOOP from your CLAUDE.md: bash SCRIP/scripts/s4e_msg.sh check, then next — execute the brief it prints.\n\n'; fi
          { [ "$hrc" -eq 0 ] || [ "$onlyhere" -eq 0 ]; } && [ -z "$diverged" ] && exit 0 || exit 1;;
   fleet) # ⛔ LON'S HEALTH VIEW (Lon 2026-08-22: "I'll not read much but I will check on the health").
          # ONE screen for the whole fleet, all COMPUTED. Deliberately does NOT run handoff_status.sh per seat
