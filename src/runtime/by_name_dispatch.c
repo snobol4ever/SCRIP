@@ -1900,7 +1900,7 @@ static int pl_stream_idx(DESCR_t s, int out) {
     extern FILE *fh_get(int); extern int prolog_atom_intern(const char *);
     DESCR_t d = rt_pl_deref_val(s); const char *nm = pl_atom_str(d);
     if (nm) { if (!strcmp(nm, "user_input")) return out ? -1 : 0; if (!strcmp(nm, "user_output")) return out ? 1 : -1;
-        if (!strcmp(nm, "user_error")) return out ? 2 : -1; return -1; }
+        if (!strcmp(nm, "user_error")) return out ? 2 : -1; { extern int fh_alias_idx(const char *); return fh_alias_idx(nm); } }
     if (d.v == (DTYPE_t)DT_PLREF && (int)(d.slen >> 16) == prolog_atom_intern("$stream") && (d.slen & 0xFFFFu) == 1) {
         DESCR_t a = rt_pl_deref_val(((DESCR_t *)d.p)[0]); if (a.v == DT_I && fh_get((int)a.i)) return (int)a.i; }
     return -1;
@@ -1912,7 +1912,7 @@ static DESCR_t pl_mk_stream(int idx) {
 }
 static int pl_stream_resolve(DESCR_t s, int out, int textop, void **ball)
 {
-    extern FILE *fh_get(int); extern char fh_mode[]; extern char fh_type[]; extern int prolog_atom_intern(const char *);
+    extern FILE *fh_get(int); extern int prolog_atom_intern(const char *);
     extern void *rt_pl_ball_instantiation(void); extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
     extern void *rt_pl_ball_permission3(const char *, const char *, DESCR_t);
     DESCR_t d = rt_pl_deref_val(s); const char *nm; int idx = -1;
@@ -1921,17 +1921,17 @@ static int pl_stream_resolve(DESCR_t s, int out, int textop, void **ball)
     nm = pl_atom_str(d);
     if (nm) {
         if (!strcmp(nm, "user_input")) idx = 0; else if (!strcmp(nm, "user_output")) idx = 1; else if (!strcmp(nm, "user_error")) idx = 2;
-        else idx = -1;
+        else { extern int fh_alias_idx(const char *); idx = fh_alias_idx(nm); }
         if (idx < 0 || !fh_get(idx)) { *ball = rt_pl_ball_kind2("existence_error", "stream", d); return -1; } }
     else if (d.v == (DTYPE_t)DT_PLREF && (int)(d.slen >> 16) == prolog_atom_intern("$stream") && (d.slen & 0xFFFFu) == 1) {
         DESCR_t a = rt_pl_deref_val(((DESCR_t *)d.p)[0]);
         if (a.v != DT_I || (int)a.i < 0 || (int)a.i >= FH_MAX || !fh_get((int)a.i)) { *ball = rt_pl_ball_kind2("existence_error", "stream", d); return -1; }
         idx = (int)a.i; }
     else { *ball = rt_pl_ball_kind2("domain_error", "stream_or_alias", d); return -1; }
-    { int is_in = (fh_mode[idx] == 'r');
+    { int is_in = (g_fh[idx].mode == 'r');
       if (out && is_in) { *ball = rt_pl_ball_permission3("output", "stream", d); return -1; }
       if (!out && !is_in && idx != 0) { *ball = rt_pl_ball_permission3("input", "stream", d); return -1; }
-      if (textop && fh_type[idx] == 'b') { *ball = rt_pl_ball_permission3(out ? "output" : "input", "binary_stream", d); return -1; } }
+      if (textop && g_fh[idx].type == 'b') { *ball = rt_pl_ball_permission3(out ? "output" : "input", "binary_stream", d); return -1; } }
     return idx;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2002,8 +2002,8 @@ int pas_tf_read(FILE *fp, DESCR_t *o) {
     *o = NULVCL; return 1;
 }
 static int pl_sp_stream_live(int i) { extern FILE *fh_get(int); return fh_get(i) != (FILE *)0; }
-static int pl_sp_is_input(int i) { extern char fh_mode[]; return (i == 0) || (i >= 3 && fh_mode[i] == 'r'); }
-static const char *pl_sp_mode_name(int i) { extern char fh_mode[]; char m = (i == 0) ? 'r' : (i == 1 || i == 2) ? 'w' : fh_mode[i];
+static int pl_sp_is_input(int i) { return (i == 0) || (i >= 3 && g_fh[i].mode == 'r'); }
+static const char *pl_sp_mode_name(int i) { char m = (i == 0) ? 'r' : (i == 1 || i == 2) ? 'w' : g_fh[i].mode;
     return (m == 'r') ? "read" : (m == 'a') ? "append" : (m == '+') ? "update" : "write"; }
 static const char *pl_sp_eos_name(int i) { extern FILE *fh_get(int); FILE *fp = fh_get(i); int c;
     if (!fp) return (const char *)0;
@@ -2011,13 +2011,12 @@ static const char *pl_sp_eos_name(int i) { extern FILE *fh_get(int); FILE *fp = 
     c = fgetc(fp); if (c == EOF) { clearerr(fp); return "at"; }
     ungetc(c, fp); return "not"; }
 static int pl_sp_prop(int i, int pidx, DESCR_t *out) {
-    extern char *fh_name[]; extern char fh_type[];
     switch (pidx) {
-    case 0: if (i < 3 || !fh_name[i]) return 0; *out = pl_mk_cmp1("file_name", pl_mk_atom_dup(fh_name[i], strlen(fh_name[i]))); return 1;
+    case 0: if (i < 3 || !g_fh[i].name) return 0; *out = pl_mk_cmp1("file_name", pl_mk_atom_dup(g_fh[i].name, strlen(g_fh[i].name))); return 1;
     case 1: *out = pl_mk_cmp1("mode", pl_mk_atom(pl_sp_mode_name(i))); return 1;
     case 2: if (!pl_sp_is_input(i)) return 0; *out = pl_mk_atom("input"); return 1;
     case 3: if (pl_sp_is_input(i)) return 0; *out = pl_mk_atom("output"); return 1;
-    case 4: *out = pl_mk_cmp1("type", pl_mk_atom(fh_type[i] == 'b' ? "binary" : "text")); return 1;
+    case 4: *out = pl_mk_cmp1("type", pl_mk_atom(g_fh[i].type == 'b' ? "binary" : "text")); return 1;
     case 5: { const char *e; if (!pl_sp_is_input(i) || !(e = pl_sp_eos_name(i))) return 0; *out = pl_mk_cmp1("end_of_stream", pl_mk_atom(e)); return 1; }
     case 6: *out = pl_mk_cmp1("eof_action", pl_mk_atom(pl_sp_is_input(i) ? "eof_code" : "error")); return 1;
     case 7: { const char *a = (i == 0) ? "user_input" : (i == 1) ? "user_output" : (i == 2) ? "user_error" : (const char *)0;
@@ -2027,7 +2026,7 @@ static int pl_sp_prop(int i, int pidx, DESCR_t *out) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_open_opts(DESCR_t *args, int nargs, int idx, pl_tr_ctx_t *cx) {
     extern void *rt_pl_ball_instantiation(void); extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); extern void fh_set_untranslated(int, int);
-    extern char fh_type[]; DESCR_t o;
+    DESCR_t o;
     if (nargs < 4) return 1;
     o = rt_pl_deref_val(args[3]);
     while (pl_is_cons(o)) { DESCR_t *kids = (DESCR_t *)o.p; DESCR_t opt = rt_pl_deref_val(kids[0]); const char *on;
@@ -2036,9 +2035,10 @@ static int pl_open_opts(DESCR_t *args, int nargs, int idx, pl_tr_ctx_t *cx) {
         on = prolog_atom_name((int)(opt.slen >> 16));
         { DESCR_t a = rt_pl_deref_val(((DESCR_t *)opt.p)[0]); const char *as = pl_atom_str(a);
           if (pl_val_unbound(a)) { cx->ball = rt_pl_ball_instantiation(); return 0; }
-          if (on && !strcmp(on, "alias")) { if (!as) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; } }
+          if (on && !strcmp(on, "alias")) { extern void fh_set_alias(int, const char *);
+              if (!as) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; } fh_set_alias(idx, as); }
           else if (on && !strcmp(on, "type")) { if (!as || (strcmp(as, "text") && strcmp(as, "binary"))) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; }
-              if (idx >= 0 && idx < FH_MAX) fh_type[idx] = (char)(as[0] == 'b' ? 'b' : 't'); fh_set_untranslated(idx, as[0] == 'b'); }
+              if (idx >= 0 && idx < FH_MAX) g_fh[idx].type = (char)(as[0] == 'b' ? 'b' : 't'); fh_set_untranslated(idx, as[0] == 'b'); }
           else if (on && (!strcmp(on, "reposition") || !strcmp(on, "eof_action"))) { if (!as) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; } }
           else { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; } }
         o = rt_pl_deref_val(kids[1]); }
@@ -2058,8 +2058,8 @@ static int pl_open_leaf(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
     if (!fmode) { cx->ball = rt_pl_ball_kind2("domain_error", "io_mode", m); return 0; }
     fp = fopen(fn, fmode);
     if (!fp) { cx->ball = rt_pl_ball_kind2("existence_error", "source_sink", f); return 0; }
-    { int idx = fh_alloc(fp); extern char *fh_name[]; extern char fh_mode[]; if (idx < 0) { fclose(fp); return 0; }
-      fh_name[idx] = rt_pinned_strdup(fn); fh_mode[idx] = (char) fmode[0];
+    { int idx = fh_alloc(fp); if (idx < 0) { fclose(fp); return 0; }
+      g_fh[idx].name = rt_pinned_strdup(fn); g_fh[idx].mode = (char) fmode[0];
       if (!pl_open_opts(args, nargs, idx, cx)) { fclose(fp); fh_free(idx); return 0; }
       return plw_unify_vals(args[2], pl_mk_stream(idx), cx); }
 }
@@ -2699,10 +2699,10 @@ PL_CX_LEAF_HEAD(pl_op_nth, 4) { extern int prolog_op_table_get(int, const char *
         ok = plw_unify_vals(args[1], INTVAL((long long)opr), cx) && plw_unify_vals(args[2], pl_mk_atom_dup(oty, strlen(oty)), cx)
           && plw_unify_vals(args[3], pl_mk_atom_dup(onm, strlen(onm)), cx); } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(pl_cs_count, 1) { ok = plw_unify_vals(args[0], INTVAL((long long)FH_MAX), cx); } PL_CX_LEAF_TAIL
-PL_CX_LEAF_HEAD(pl_cs_nth, 4) { extern char *fh_name[]; DESCR_t iv = rt_pl_deref_val(args[0]); int si; ok = 0;
+PL_CX_LEAF_HEAD(pl_cs_nth, 4) { DESCR_t iv = rt_pl_deref_val(args[0]); int si; ok = 0;
     if (iv.v == DT_I) { si = (int)iv.i - 1;
-        if (si >= 3 && si < FH_MAX && pl_sp_stream_live(si) && fh_name[si])
-            ok = plw_unify_vals(args[1], pl_mk_atom_dup(fh_name[si], strlen(fh_name[si])), cx)
+        if (si >= 3 && si < FH_MAX && pl_sp_stream_live(si) && g_fh[si].name)
+            ok = plw_unify_vals(args[1], pl_mk_atom_dup(g_fh[si].name, strlen(g_fh[si].name)), cx)
               && plw_unify_vals(args[2], pl_mk_atom(pl_sp_mode_name(si)), cx) && plw_unify_vals(args[3], pl_mk_stream(si), cx); } } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(pl_sp_count, 1) { ok = plw_unify_vals(args[0], INTVAL((long long)(FH_MAX * PL_SP_NPROP)), cx); } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(pl_sp_nth, 3) { DESCR_t iv = rt_pl_deref_val(args[0]); DESCR_t pv; int k, si, pi; ok = 0;
@@ -3974,7 +3974,6 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         extern void fh_ensure_init(void);
         extern int fh_alloc(FILE *);
         fh_ensure_init();
-        extern char fh_type[];
         if (is_pipe && (strcmp(mode, "r") && strcmp(mode, "w"))) { *out = FAILDESCR; return 1; }
         if (is_pipe) { fflush(NULL); setvbuf(stdout, NULL, _IOLBF, 0); }
         FILE *fp = NULL;
@@ -3986,8 +3985,8 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (!fp) { *out = FAILDESCR; return 1; }
         int idx = fh_alloc(fp);
         if (idx < 0) { if (is_pipe) pclose(fp); else fclose(fp); *out = FAILDESCR; return 1; }
-        if (is_pipe) fh_type[idx] = 'p';
-        if (_isdir && idx >= 0 && idx < FH_MAX) fh_type[idx] = 'd';
+        if (is_pipe) g_fh[idx].type = 'p';
+        if (_isdir && idx >= 0 && idx < FH_MAX) g_fh[idx].type = 'd';
         { extern void fh_set_untranslated(int, int); const char *_us = (nargs == 2 && (args[1].v == DT_S || args[1].v == DT_SNUL)) ? VARVAL_fn(args[1]) : NULL;
           fh_set_untranslated(idx, (_us && icn_open_spec_is_icon(_us)) ? icn_open_untranslated(_us) : 0); }
         *out = INTVAL(idx); return 1;
@@ -3996,10 +3995,9 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         extern FILE *fh_get(int);
         extern void  fh_free(int);
         int idx = (int)(IS_INT_fn(args[0]) ? args[0].i : 0);
-        extern char fh_type[];
         FILE *fp = fh_get(idx);
         int pst = -1;
-        if (fp) { if (fh_type[idx] == 'p') { fflush(stdout); pst = pclose(fp); } else fclose(fp); fh_type[idx] = 0; fh_free(idx); }
+        if (fp) { if (g_fh[idx].type == 'p') { fflush(stdout); pst = pclose(fp); } else fclose(fp); g_fh[idx].type = 0; fh_free(idx); }
         if (pst >= 0) { *out = INTVAL((pst >> 8) & 0xFF); return 1; }
         *out = INTVAL(0); return 1;
     }
@@ -5435,7 +5433,7 @@ static const char *sort_key_cstr(DESCR_t v, char *buf, int bufsz) {
         if (idx == 0) return "&input";
         if (idx == 1) return "&output";
         if (idx == 2) return "&errout";
-        if (idx >= 0 && idx < FH_MAX && fh_name[idx]) { snprintf(buf, (size_t)bufsz, "file(%s)", fh_name[idx]); return buf; }
+        if (idx >= 0 && idx < FH_MAX && g_fh[idx].name) { snprintf(buf, (size_t)bufsz, "file(%s)", g_fh[idx].name); return buf; }
         return "file(?)";
     }
     { const char *s = VARVAL_fn(v); return s ? s : ""; }
@@ -6184,8 +6182,8 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
             if (idx == 0) { snprintf(buf,256,"&input");  *out = STRVAL(buf); return 1; }
             if (idx == 1) { snprintf(buf,256,"&output"); *out = STRVAL(buf); return 1; }
             if (idx == 2) { snprintf(buf,256,"&errout"); *out = STRVAL(buf); return 1; }
-            if (idx >= 0 && idx < FH_MAX && fh_name[idx]) {
-                snprintf(buf,256,"file(%s)",fh_name[idx]);
+            if (idx >= 0 && idx < FH_MAX && g_fh[idx].name) {
+                snprintf(buf,256,"file(%s)",g_fh[idx].name);
                 *out = STRVAL(buf); return 1;
             }
             snprintf(buf,256,"file(?)"); *out = STRVAL(buf); return 1;
@@ -7205,7 +7203,6 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         if (icn_open_spec_is_icon(mode)) { icn_open_cmode(mode, mbuf, &is_pipe); cmode = mbuf; }
         else if (strstr(mode,"w")) cmode = "w";
         else if (strstr(mode,"a")) cmode = "a";
-        extern char fh_type[];
         if (is_pipe && (strcmp(cmode, "r") && strcmp(cmode, "w"))) { *out = FAILDESCR; return 1; }
         if (is_pipe) { fflush(NULL); setvbuf(stdout, NULL, _IOLBF, 0); }
         extern FILE *rt_dir_snapshot(const char *);
@@ -7217,11 +7214,11 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         if (!fp) { *out = FAILDESCR; return 1; }
         int idx = fh_alloc(fp);
         if (idx < 0) { if (is_pipe) pclose(fp); else fclose(fp); *out = FAILDESCR; return 1; }
-        if (is_pipe) fh_type[idx] = 'p';
-        if (_isdir && idx >= 0 && idx < FH_MAX) fh_type[idx] = 'd';
+        if (is_pipe) g_fh[idx].type = 'p';
+        if (_isdir && idx >= 0 && idx < FH_MAX) g_fh[idx].type = 'd';
         { extern void fh_set_untranslated(int, int); const char *_us = (nargs == 2 && (args[1].v == DT_S || args[1].v == DT_SNUL)) ? VARVAL_fn(args[1]) : NULL;
           fh_set_untranslated(idx, (_us && icn_open_spec_is_icon(_us)) ? icn_open_untranslated(_us) : 0); }
-        if (idx >= 0 && idx < FH_MAX) fh_name[idx] = rt_pinned_strdup(path);
+        if (idx >= 0 && idx < FH_MAX) g_fh[idx].name = rt_pinned_strdup(path);
         *out = FHVAL(idx); return 1;
     }
     L_bidjmp_6376: ;
@@ -7240,10 +7237,9 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     if ((_bid == BID_close) && nargs == 1) {
         if (IS_FH_fn(args[0]) || IS_INT_fn(args[0])) {
             int idx = (int)args[0].i;
-            extern char fh_type[];
             FILE *fp = fh_get(idx);
             int pst = -1;
-            if (fp && idx > 2) { if (fh_type[idx] == 'p') { fflush(stdout); pst = pclose(fp); } else fclose(fp); fh_type[idx] = 0; fh_free(idx); }
+            if (fp && idx > 2) { if (g_fh[idx].type == 'p') { fflush(stdout); pst = pclose(fp); } else fclose(fp); g_fh[idx].type = 0; fh_free(idx); }
             if (pst >= 0) { *out = INTVAL((pst >> 8) & 0xFF); return 1; }
         }
         *out = args[0]; return 1;
@@ -7295,8 +7291,8 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         if (!fp) { *out = FAILDESCR; return 1; }
         int n = (nargs >= 2 && args[1].v != DT_SNUL && !IS_FAIL_fn(args[1])) ? (int)to_int(args[1]) : 1;
         if (n <= 0) { *out = FAILDESCR; return 1; }
-        { extern char fh_type[]; int _fhi = (args[0].v == DT_SNUL) ? 0 : (int)args[0].i;
-          if (_fhi >= 0 && _fhi < FH_MAX && fh_type[_fhi] == 'd') {
+        { int _fhi = (args[0].v == DT_SNUL) ? 0 : (int)args[0].i;
+          if (_fhi >= 0 && _fhi < FH_MAX && g_fh[_fhi].type == 'd') {
               char *db = rt_pinned_alloc(n + 1); int dl = 0, dc, saw = 0;
               while ((dc = fgetc(fp)) != EOF) { saw = 1; if (dc == '\n') break; if (dl < n) db[dl++] = (char)dc; }
               if (!saw) { *out = FAILDESCR; return 1; }

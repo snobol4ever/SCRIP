@@ -131,7 +131,7 @@ static int plc_user_op(const char *fn, int ar, int *prec, int *ra)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define PLC_WC_IGNORE_OPS 2
+#define PLC_WC_IGNORE_OPS 1
 static int plc_op_info(const char *name, int arity, int *prec, int *lmax, int *rmax)
 {
     extern int prolog_op_table_count(void); extern int prolog_op_table_get(int, const char **, int *, const char **);

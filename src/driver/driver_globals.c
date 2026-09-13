@@ -4,42 +4,36 @@ int g_script_try_depth = 0;
 Match g_match;
 const char *g_subject = "";
 #define FH_MAX 64
-FILE *fh_table[FH_MAX];
-char *fh_name[FH_MAX];
-char  fh_mode[FH_MAX];
-char  fh_type[FH_MAX];
-char  fh_untrans[FH_MAX];
+fh_slot_t g_fh[FH_MAX];
 int   fh_init = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fh_ensure_init(void) {
     if (fh_init) return;
-    memset(fh_table,0,sizeof fh_table);
-    memset(fh_name,0,sizeof fh_name);
-    memset(fh_mode,0,sizeof fh_mode);
-    memset(fh_type,0,sizeof fh_type);
-    memset(fh_untrans,0,sizeof fh_untrans);
-    fh_table[0]=stdin; fh_table[1]=stdout; fh_table[2]=stderr;
-    fh_name[0]="&input"; fh_name[1]="&output"; fh_name[2]="&errout";
-    fh_mode[0]='r'; fh_mode[1]='w'; fh_mode[2]='w'; fh_type[0]='t'; fh_type[1]='t'; fh_type[2]='t';
+    memset(g_fh,0,sizeof g_fh);
+    g_fh[0].fp=stdin; g_fh[1].fp=stdout; g_fh[2].fp=stderr;
+    g_fh[0].name="&input"; g_fh[1].name="&output"; g_fh[2].name="&errout";
+    g_fh[0].mode='r'; g_fh[1].mode='w'; g_fh[2].mode='w'; g_fh[0].type='t'; g_fh[1].type='t'; g_fh[2].type='t';
     fh_init=1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int fh_is_untranslated(int idx){ fh_ensure_init(); return (idx>=0 && idx<FH_MAX) ? fh_untrans[idx] : 0; }
-void fh_set_untranslated(int idx, int v){ fh_ensure_init(); if(idx>=0 && idx<FH_MAX) fh_untrans[idx]=(char)(v?1:0); }
+int fh_is_untranslated(int idx){ fh_ensure_init(); return (idx>=0 && idx<FH_MAX) ? g_fh[idx].untrans : 0; }
+void fh_set_untranslated(int idx, int v){ fh_ensure_init(); if(idx>=0 && idx<FH_MAX) g_fh[idx].untrans=(char)(v?1:0); }
+int fh_alias_idx(const char *nm){ fh_ensure_init(); if(!nm) return -1; for(int i=3;i<FH_MAX;i++) if(g_fh[i].fp&&g_fh[i].alias&&!strcmp(g_fh[i].alias,nm)) return i; return -1; }
+void fh_set_alias(int idx, const char *nm){ extern char *rt_pinned_strdup(const char *); fh_ensure_init(); if(idx>=3&&idx<FH_MAX) g_fh[idx].alias = nm ? rt_pinned_strdup(nm) : (char *)0; }
 int fh_alloc(FILE *fp) {
     fh_ensure_init();
-    for(int i=3;i<FH_MAX;i++) if(!fh_table[i]){fh_table[i]=fp;fh_name[i]=NULL;fh_mode[i]=0;fh_type[i]='t';fh_untrans[i]=0;return i;}
+    for(int i=3;i<FH_MAX;i++) if(!g_fh[i].fp){g_fh[i].fp=fp;g_fh[i].name=NULL;g_fh[i].alias=NULL;g_fh[i].mode=0;g_fh[i].type='t';g_fh[i].untrans=0;return i;}
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 FILE *fh_get(int idx){
     fh_ensure_init();
     if(idx<0||idx>=FH_MAX) return NULL;
-    return fh_table[idx];
+    return g_fh[idx].fp;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fh_free(int idx){
-    if(fh_init&&idx>=3&&idx<FH_MAX){ fh_table[idx]=NULL; }
+    if(fh_init&&idx>=3&&idx<FH_MAX){ g_fh[idx].fp=NULL; g_fh[idx].alias=NULL; }
 }
 int   fh_cur_in  = 0;
 int   fh_cur_out = 1;
@@ -48,8 +42,8 @@ int   fh_cur_init = 0;
 void fh_cur_ensure(void){ if(fh_cur_init) return; fh_ensure_init(); fh_cur_in=0; fh_cur_out=1; fh_cur_init=1; }
 int fh_current_input(void){ fh_cur_ensure(); return fh_cur_in; }
 int fh_current_output(void){ fh_cur_ensure(); return fh_cur_out; }
-void fh_set_input(int idx){ fh_cur_ensure(); if(idx>=0&&idx<FH_MAX&&fh_table[idx]) fh_cur_in=idx; }
-void fh_set_output(int idx){ fh_cur_ensure(); if(idx>=0&&idx<FH_MAX&&fh_table[idx]) fh_cur_out=idx; }
+void fh_set_input(int idx){ fh_cur_ensure(); if(idx>=0&&idx<FH_MAX&&g_fh[idx].fp) fh_cur_in=idx; }
+void fh_set_output(int idx){ fh_cur_ensure(); if(idx>=0&&idx<FH_MAX&&g_fh[idx].fp) fh_cur_out=idx; }
 FILE *fh_cur_out_fp(void){ fh_cur_ensure(); FILE *fp=fh_get(fh_cur_out); return fp?fp:stdout; }
 FILE *fh_cur_in_fp(void){ fh_cur_ensure(); FILE *fp=fh_get(fh_cur_in); return fp?fp:stdin; }
 int fh_capture_begin(char **bufp, size_t *szp, int *saved_out){ fh_cur_ensure(); FILE *ms=open_memstream(bufp,szp); if(!ms) return -1; int idx=fh_alloc(ms); if(idx<0){ fclose(ms); return -1; } *saved_out=fh_current_output(); fh_set_output(idx); return idx; }
