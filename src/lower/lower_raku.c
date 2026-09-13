@@ -1152,6 +1152,27 @@ static void rk_collect_blocks(const tree_t * t, tree_t ** out, int * n, int max)
     for (int i = 0; i < t->n; i++) rk_collect_blocks(t->c[i], out, n, max);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_scan_implicit_params(const tree_t * t, int * topic, const char ** ph, int * nph, int max) {
+    if (!t) return;
+    if (t->t == TT_ANON_BLOCK) return;
+    if (t->t == TT_VAR && t->v.sval) {
+        const char * v = t->v.sval;
+        if (!strcmp(v, "_")) *topic = 1;
+        else if (v[0] == '^') { int seen = 0; for (int i = 0; i < *nph; i++) if (!strcmp(ph[i], v)) seen = 1; if (!seen && *nph < max) ph[(*nph)++] = v; }
+    }
+    for (int i = 0; i < t->n; i++) rk_scan_implicit_params(t->c[i], topic, ph, nph, max);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_block_tail_is_value(const tree_t * s) {
+    if (!s) return 0;
+    switch (s->t) {
+        case TT_RETURN: case TT_NRETURN: case TT_PROC_FAIL: case TT_SAY: case TT_SAY_FH: case TT_PRINT: case TT_PRINT_FH:
+        case TT_IF: case TT_UNLESS: case TT_CASE: case TT_WHILE: case TT_UNTIL: case TT_REPEAT: case TT_FOR: case TT_EVERY:
+        case TT_DO_WHILE: case TT_CLOOP: case TT_SEQ: case TT_SEQ_EXPR: case TT_STMT: case TT_SUB_DECL: return 0;
+        default: return 1;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_hoist_anon_blocks(tree_t * prog) {
     if (!prog) return;
     static tree_t * blks[512]; int nb = 0; rk_collect_blocks(prog, blks, &nb, 512);
@@ -1162,7 +1183,19 @@ static void rk_hoist_anon_blocks(tree_t * prog) {
         tree_t * sd = ast_node_new(TT_SUB_DECL); sd->v.ival = 0;
         tree_t * nn = ast_node_new(TT_VAR); nn->v.sval = pn; ast_push(sd, nn);
         const tree_t * body = (blk->n > 0) ? blk->c[0] : NULL;
-        if (body) { for (int k = 0; k < body->n; k++) ast_push(sd, body->c[k]); ((tree_t *) body)->n = 0; }
+        int topic = 0, nph = 0; const char * ph[16];
+        rk_scan_implicit_params(body, &topic, ph, &nph, 16);
+        for (int a = 1; a < nph; a++) { const char * key = ph[a]; int b = a - 1; while (b >= 0 && strcmp(ph[b], key) > 0) { ph[b + 1] = ph[b]; b--; } ph[b + 1] = key; }
+        if (nph > 0) { for (int k = 0; k < nph; k++) { tree_t * pv = ast_node_new(TT_VAR); pv->v.sval = (char *) ph[k]; ast_push(sd, pv); } sd->v.ival = nph; }
+        else if (topic) { tree_t * pv = ast_node_new(TT_VAR); pv->v.sval = (char *) intern("_"); ast_push(sd, pv); sd->v.ival = 1; }
+        if (body) {
+            for (int k = 0; k < body->n; k++) {
+                tree_t * st = body->c[k];
+                if (k == body->n - 1 && rk_block_tail_is_value(st)) { tree_t * r = ast_node_new(TT_RETURN); ast_push(r, st); st = r; }
+                ast_push(sd, st);
+            }
+            ((tree_t *) body)->n = 0;
+        }
         blk->n = 0;
         ast_push(prog, sd);
     }
@@ -1194,7 +1227,8 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
         if (bb_idx >= 0) {
             g_stage2.proc_table[pi].bb_idx = bb_idx;
             const char * pname = g_stage2.proc_table[pi].name;
-            int is_method = (pname && strchr(pname, '_') && strchr(pname, '_')[1] == '_');
+            const char * _mu = pname ? strchr(pname, '_') : NULL;
+            int is_method = (_mu && _mu != pname && _mu[1] == '_');
             int param_start = is_method ? 0 : 1;
             int np = g_stage2.proc_table[pi].nparams;
             Scope *sc = &g_stage2.proc_table[pi].lower_sc;
