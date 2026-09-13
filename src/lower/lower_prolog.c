@@ -915,11 +915,33 @@ static void pl_tree_renumber_vars(tree_t * t, long long * slots, int * n, int ba
     for (int i = 0; i < t->n; i++) pl_tree_renumber_vars(t->c[i], slots, n, base);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_body_term(const tree_t * b) {
+    if (!b) return (tree_t *) pl_atom_goal("true");
+    if (b->t == TT_VAR) { tree_t * c = ast_node_new(TT_FNC); c->v.sval = (char *) "call"; ast_push(c, pl_tree_copy(b)); return c; }
+    if (b->t == TT_IF) {
+        tree_t * ar = ast_node_new(TT_FNC); ar->v.sval = (char *) "->";
+        ast_push(ar, pl_body_term(b->n > 0 ? b->c[0] : NULL));
+        ast_push(ar, pl_body_term(b->n > 1 ? b->c[1] : NULL));
+        if (b->v.ival) return ar;
+        { tree_t * d = ast_node_new(TT_FNC); d->v.sval = (char *) ";"; ast_push(d, ar);
+          ast_push(d, (b->n > 2) ? pl_body_term(b->c[2]) : (tree_t *) pl_atom_goal("fail")); return d; } }
+    if (b->t == TT_PROGRAM) {
+        tree_t * acc = NULL;
+        for (int i = b->n - 1; i >= 0; i--) { tree_t * g = pl_body_term(b->c[i]);
+            if (!acc) acc = g; else { tree_t * c = ast_node_new(TT_FNC); c->v.sval = (char *) ","; ast_push(c, g); ast_push(c, acc); acc = c; } }
+        return acc ? acc : (tree_t *) pl_atom_goal("true"); }
+    if (b->t == TT_FNC && b->v.sval && b->n >= 2 && (!strcmp(b->v.sval, ",") || !strcmp(b->v.sval, ";") || !strcmp(b->v.sval, "->"))) {
+        tree_t * c = ast_node_new(TT_FNC); c->v.sval = b->v.sval;
+        for (int i = 0; i < b->n; i++) ast_push(c, pl_body_term(b->c[i]));
+        return c; }
+    return pl_tree_copy(b);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * pl_static_clause_term(const tree_t * cl, const char * pn, int ar) {
     tree_t * h; tree_t * bt = NULL; int nc = (cl && cl->t == TT_CLAUSE) ? cl->n : 0;
     if (ar > 0) { h = ast_node_new(TT_FNC); h->v.sval = strdup(pn); for (int i = 0; i < ar; i++) ast_push(h, (i < nc) ? pl_tree_copy(cl->c[i]) : pl_meta_var("_")); }
     else { h = ast_node_new(TT_QLIT); h->v.sval = strdup(pn); }
-    for (int i = nc - 1; i >= ar; i--) { tree_t * g = pl_tree_copy(cl->c[i]); if (!bt) bt = g; else { tree_t * c = ast_node_new(TT_FNC); c->v.sval = (char *) ","; ast_push(c, g); ast_push(c, bt); bt = c; } }
+    for (int i = nc - 1; i >= ar; i--) { tree_t * g = pl_body_term(cl->c[i]); if (!bt) bt = g; else { tree_t * c = ast_node_new(TT_FNC); c->v.sval = (char *) ","; ast_push(c, g); ast_push(c, bt); bt = c; } }
     if (!bt) { bt = ast_node_new(TT_QLIT); bt->v.sval = (char *) "true"; }
     { tree_t * tg = pl_clause_target(h, bt); long long slots[256]; int n = 0;
       pl_tree_renumber_vars(tg, slots, &n, g_pl_seed_var_base); g_pl_seed_var_base += (n > 0 ? n : 1);

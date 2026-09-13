@@ -60,6 +60,7 @@ static tree_t *pl_rewrite_control(tree_t *t) {
         tree_t *else_prog = ast_node_new(TT_PROGRAM);
         { tree_t *f = ast_node_new(TT_QLIT); f->v.sval = strdup("fail"); ast_push(else_prog, f); }
         tree_t *iff = ast_node_new(TT_IF);
+        iff->v.ival = 1;
         ast_push(iff, pl_rewrite_control(t->c[0]));
         ast_push(iff, then_prog->n == 1 ? then_prog->c[0] : then_prog);
         ast_push(iff, else_prog->n == 1 ? else_prog->c[0] : else_prog);
