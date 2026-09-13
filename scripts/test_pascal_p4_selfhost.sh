@@ -26,14 +26,14 @@ tm() { /usr/bin/time -f "%e %M" -o "$W/t" "$@"; local rc=$?; read -r secs kb < "
 echo "P4 self-host on $TREE"
 # generation 1: the SCRIP-built compiler compiles its own source
 ( cd "$W" && /usr/bin/time -f "%e %M" -o "$W/t1" timeout 300s "$SCRIP" --run "$PKG/comp.pas" < "$PKG/comp_detab.p" > gen1.listing 2> gen1.err ); rc1=$?
-read -r s1 k1 < "$W/t1"; echo "WORK comp.pas(gen1, compiling comp_detab.p) wall=${s1}s rss=${k1}KB  ($TREE)"
+read -r s1 k1 < <(tail -1 "$W/t1"); case "$s1" in |*[!0-9.]*) s1=unmeasured; k1=unmeasured;; esac; echo "WORK comp.pas(gen1, compiling comp_detab.p) wall=${s1}s rss=${k1}KB  ($TREE)"
 g1lines=$(wc -l < "$W/prr" 2>/dev/null); g1lines=${g1lines:-0}; g1err=$(grep -c '^ *\*\*\*\*[[:space:]]*\^[0-9]' "$W/gen1.listing" 2>/dev/null); g1err=${g1err:-0}
 echo "gen1: rc=$rc1 listing_lines=$(wc -l < "$W/gen1.listing") pcode_lines=$g1lines p4_errors=$g1err $(head -c 120 "$W/gen1.err" | tr '\n' ' ')"
 [ "$rc1" -eq 0 ] && [ "$g1lines" -gt 0 ] && [ "$g1err" -eq 0 ] || { echo "P4_SELFHOST: compile=$rc1 gen1=$rc1 gen1_pcode_lines=$g1lines gen1_errors=$g1err gen2=BLOCKED pcode_identical=n/a"; echo "SELFHOST BLOCKED (generation 1 is not clean)"; exit 1; }
 cp "$W/prr" "$W/gen1.pcode"
 # generation 2: the SCRIP-built interpreter runs the gen1 P-code (the P4 compiler) on the same source
 ( cd "$W" && rm -f prr && cp gen1.pcode prd && /usr/bin/time -f "%e %M" -o "$W/t2" timeout 600s "$SCRIP" --run "$PKG/int.pas" < "$PKG/comp_detab.p" > gen2.out 2> gen2.err ); rc2=$?
-read -r s2 k2 < "$W/t2"; echo "WORK int.pas(gen2, running the gen1 P-code on comp_detab.p) wall=${s2}s rss=${k2}KB  ($TREE)"
+read -r s2 k2 < <(tail -1 "$W/t2"); case "$s2" in |*[!0-9.]*) s2=unmeasured; k2=unmeasured;; esac; echo "WORK int.pas(gen2, running the gen1 P-code on comp_detab.p) wall=${s2}s rss=${k2}KB  ($TREE)"
 g2lines=$(wc -l < "$W/prr" 2>/dev/null); g2lines=${g2lines:-0}
 echo "gen2: rc=$rc2 out_lines=$(wc -l < "$W/gen2.out") pcode_lines=$g2lines $(grep -v '^Command' "$W/gen2.err" | head -c 160 | tr '\n' ' ')"
 if [ "$rc2" -ne 0 ] || [ "$g2lines" -eq 0 ]; then echo "P4_SELFHOST: compile=0 gen1=0 gen1_pcode_lines=$g1lines gen1_errors=0 gen2=BLOCKED pcode_identical=n/a"; echo "SELFHOST BLOCKED (generation 2 did not finish: rc=$rc2)"; exit 1; fi
