@@ -1978,6 +1978,11 @@ int rt_pl_db_key_is_dynamic(void *root, const char *key)
     pl_db_key_t *e = pl_db_reg_find(pl_db_registry(root, 0), key);
     return (e && !e->stat) ? 1 : 0;
 }
+int rt_pl_db_key_is_declared(void *root, const char *key)
+{
+    pl_db_key_t *e = pl_db_reg_find(pl_db_registry(root, 0), key);
+    return (e && e->decl) ? 1 : 0;
+}
 int rt_pl_db_decl(void *root, const char *name, int64_t arity, int64_t kind)
 {
     char key[264];

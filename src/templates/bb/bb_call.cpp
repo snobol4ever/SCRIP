@@ -41,7 +41,7 @@ DESCR_t rt_pl_dop_ax_eguard(DESCR_t *, int);
 DESCR_t rt_pl_dop_anum_guard2(DESCR_t *, int); DESCR_t rt_pl_dop_anum_guard3(DESCR_t *, int); DESCR_t rt_pl_dop_anum_guard5(DESCR_t *, int);
 DESCR_t rt_pl_dop_char_guard(DESCR_t *, int); DESCR_t rt_pl_dop_between_guard(DESCR_t *, int); DESCR_t rt_pl_dop_stream_guard(DESCR_t *, int); DESCR_t rt_pl_dop_curstream_guard(DESCR_t *, int);
 DESCR_t rt_pl_dop_nb_getval_guard(DESCR_t *, int);
-DESCR_t rt_pl_dop_goal_guard(DESCR_t *, int);
+DESCR_t rt_pl_dop_goal_guard(DESCR_t *, int); DESCR_t rt_pl_dop_list_guard(DESCR_t *, int); DESCR_t rt_pl_dop_pl_declared(DESCR_t *, int);
 DESCR_t rt_pl_dop_term_string(DESCR_t *, int); DESCR_t rt_pl_dop_atom_length(DESCR_t *, int); DESCR_t rt_pl_dop_atom_concat(DESCR_t *, int); DESCR_t rt_pl_dop_atom_chars(DESCR_t *, int);
 DESCR_t rt_pl_dop_atom_codes(DESCR_t *, int); DESCR_t rt_pl_dop_atom_number(DESCR_t *, int); DESCR_t rt_pl_dop_atom_string(DESCR_t *, int); DESCR_t rt_pl_dop_upcase_atom(DESCR_t *, int);
 DESCR_t rt_pl_dop_downcase_atom(DESCR_t *, int); DESCR_t rt_pl_dop_string_concat(DESCR_t *, int); DESCR_t rt_pl_dop_string_length(DESCR_t *, int); DESCR_t rt_pl_dop_string_lower(DESCR_t *, int);
@@ -355,7 +355,7 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$pl_between_guard", 3, "rt_pl_dop_between_guard", rt_pl_dop_between_guard },
         { "$pl_stream_guard", 2, "rt_pl_dop_stream_guard", rt_pl_dop_stream_guard },
         { "$pl_curstream_guard", 1, "rt_pl_dop_curstream_guard", rt_pl_dop_curstream_guard },
-        { "$pl_goal_guard", 1, "rt_pl_dop_goal_guard", rt_pl_dop_goal_guard },
+        { "$pl_goal_guard", 1, "rt_pl_dop_goal_guard", rt_pl_dop_goal_guard }, { "$pl_list_guard", 1, "rt_pl_dop_list_guard", rt_pl_dop_list_guard }, { "$pl_declared", 2, "rt_pl_dop_pl_declared", rt_pl_dop_pl_declared },
         { "$term_string", 2, "rt_pl_dop_term_string", rt_pl_dop_term_string }, { "$atom_length", 2, "rt_pl_dop_atom_length", rt_pl_dop_atom_length },
         { "$atom_concat", 3, "rt_pl_dop_atom_concat", rt_pl_dop_atom_concat }, { "$atom_chars", 2, "rt_pl_dop_atom_chars", rt_pl_dop_atom_chars },
         { "$atom_codes", 2, "rt_pl_dop_atom_codes", rt_pl_dop_atom_codes }, { "$atom_number", 2, "rt_pl_dop_atom_number", rt_pl_dop_atom_number },

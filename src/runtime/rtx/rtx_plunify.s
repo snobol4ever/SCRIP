@@ -413,6 +413,22 @@ RTX_FUNC(rt_pl_dop_goal_guard)
     mov     edx, 1
     ret
 RTX_ENDF(rt_pl_dop_goal_guard)
+RTX_FUNC(rt_pl_dop_list_guard)
+    sub     rsp, 8
+    call    rt_pl_dop_list_guard_c
+    add     rsp, 8
+    test    rax, rax
+    jz      .Llg_ok
+    mov     r15, rax
+    mov     eax, DT_FAIL | (MOD_OP_RT_PL_LIST_GUARD << 8)
+    xor     edx, edx
+    ret
+.Llg_ok:
+    mov     eax, DT_I
+    mov     edx, 1
+    ret
+RTX_ENDF(rt_pl_dop_list_guard)
+PL_ROOT_LEAF(pl_declared)
 RTX_FUNC(rt_pl_dop_char_guard)
     sub     rsp, 8
     call    rt_pl_dop_char_guard_c

@@ -148,6 +148,7 @@
 #define MOD_OP_RT_PL_READ_TFCH         206    /* rtx_plunify.s read_term_from_chars   */
 #define MOD_OP_RT_PL_READ_TFCO         207    /* rtx_plunify.s read_term_from_codes   */
 #define MOD_OP_RT_PL_AX_DIVF          225    /* rtx_plunify.s rt_pl_dop_ax_divf    */
+#define MOD_OP_RT_PL_LIST_GUARD       226    /* rtx_plunify.s rt_pl_dop_list_guard */
 #define MOD_OP_RT_PL_READ_S            208    /* rtx_plunify.s rt_pl_dop_read_s       */
 #define MOD_OP_RT_PL_PUT_BYTE          209    /* rtx_plunify.s rt_pl_dop_put_byte     */
 #define MOD_OP_RT_PL_PUT_BYTE_S        210    /* rtx_plunify.s rt_pl_dop_put_byte_s   */

@@ -381,6 +381,13 @@ static int pl_tree_noncallable_goal(const tree_t * t) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_goal_arg_wants_guard(const tree_t * t) { return t && (t->t == TT_VAR || pl_tree_noncallable_goal(t)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_tree_control_var_leaf(const tree_t * t) {
+    if (!t) return 0;
+    if (t->t == TT_VAR) return 1;
+    if (pl_tree_is_control(t)) { for (int i = 0; i < t->n; i++) if (pl_tree_control_var_leaf(t->c[i])) return 1; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_is_ite(const tree_t * t) { return t && t->t == TT_FNC && t->v.sval && (!strcmp(t->v.sval, ";") || !strcmp(t->v.sval, "|")) && t->n == 2 && t->c[0] && t->c[0]->t == TT_FNC && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "->"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_is_softcut(const tree_t * t) { return t && t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "*->") && t->n == 2; }
@@ -620,7 +627,7 @@ static const pl_det_leaf_t pl_det_leaves[] = {
     { "put_char", 1, "$put_char" },
     { "$db_bind", 3, "$db_bind" }, { "$db_t_guard", 2, "$db_t_guard" }, { "$db_assertz_t", 1, "$db_assertz_t" }, { "$db_asserta_t", 1, "$db_asserta_t" },
     { "$db_abolish_t", 1, "$db_abolish_t" }, { "$db_retractall_t", 1, "$db_retractall_t" }, { "$db_seed_once", 3, "$db_seed_once" },
-    { "$db_decl", 3, "$db_decl" }, { "$pl_cp_count", 1, "$pl_cp_count" }, { "$pl_cp_nth", 3, "$pl_cp_nth" }, { "$pl_cp_guard", 1, "$pl_cp_guard" },
+    { "$db_decl", 3, "$db_decl" }, { "$pl_declared", 2, "$pl_declared" }, { "$pl_list_guard", 1, "$pl_list_guard" }, { "$pl_goal_guard", 1, "$pl_goal_guard" }, { "$pl_cp_count", 1, "$pl_cp_count" }, { "$pl_cp_nth", 3, "$pl_cp_nth" }, { "$pl_cp_guard", 1, "$pl_cp_guard" },
     { "halt", 0, "$halt" }, { "halt", 1, "$halt" }, { "flush_output", 0, "$flush_output" }, { "format", 1, "$format" }, { "format", 2, "$format" },
     { "write", 2, "$write_s" }, { "writeq", 2, "$writeq_s" }, { "print", 2, "$writeq_s" }, { "write_canonical", 2, "$write_canonical_s" }, { "writeln", 2, "$writeln_s" }, { "nl", 1, "$nl_s" },
     { "put_char", 2, "$put_char_c_s" }, { "flush_output", 1, "$flush_output_s" }, { "format", 3, "$format3" }, { "read", 2, "$read_s" }, { "get_char", 2, "$get_char_s" }, { "peek_char", 2, "$peek_char_s" },
@@ -1038,6 +1045,9 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
               pl_lower_conj(cx, (const tree_t * const *) glv.data, glv.n, γnext, callω, &ientry, &iredo, NULL);
               cx->cutω = saveω; cx->cut_scope = save_scope;
               cx->meta_redo = iredo; cx->meta_redo_set = 1;
+              if (nextra == 0 && pl_tree_is_control(t->c[0]) && pl_tree_control_var_leaf(t->c[0])) {
+                  IR_t * gge = NULL; IR_t * gg = goal(cx, pl_cc_fnc1("$pl_goal_guard", (tree_t *) t->c[0]), ientry ? ientry : γnext, ωfail, &gge);
+                  ientry = gge ? gge : gg; }
               if (entry_out) *entry_out = ientry;
               return callω; }
         }
@@ -1185,7 +1195,8 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
                 ir_operand_push(nd, acc); ir_operand_push(nd, to); ir_operand_push(nd, wr); ir_operand_push(nd, rl2);
                 lc_ω_to_β(nd, to);
                 free(wk); free(we); free(rk); free(rke);
-                if (entry_out) *entry_out = re2 ? re2 : rl2;
+                { IR_t * lge = NULL; IR_t * lg = goal(cx, pl_cc_fnc1("$pl_list_guard", (tree_t *) t->c[2]), re2 ? re2 : rl2, ωfail, &lge);
+                  if (entry_out) *entry_out = lge ? lge : lg; }
                 return to;
             }
             IR_t * nd  = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = (char *) fin;
@@ -1211,8 +1222,10 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
                 IR_t * gchk = build(cx, IR_CALL, re ? re : rl, ωfail); IR_LIT(gchk).sval = "$pl_goal_guard";
                 ir_operand_push(gchk, gv);
                 lc_γ_to(gv, gchk); lc_ω_to(gv, ωfail);
-                if (entry_out) *entry_out = ge ? ge : gv;
-            } else if (entry_out) *entry_out = re ? re : rl;
+                { IR_t * lge = NULL; IR_t * lg = goal(cx, pl_cc_fnc1("$pl_list_guard", (tree_t *) t->c[2]), ge ? ge : gv, ωfail, &lge);
+                  if (entry_out) *entry_out = lge ? lge : lg; }
+            } else { IR_t * lge = NULL; IR_t * lg = goal(cx, pl_cc_fnc1("$pl_list_guard", (tree_t *) t->c[2]), re ? re : rl, ωfail, &lge);
+                     if (entry_out) *entry_out = lge ? lge : lg; }
             return nd;
         }
         if ((!strcmp(nm, "between") || !strcmp(nm, "for")) && t->n == 3) {
@@ -1599,7 +1612,8 @@ void * pl_runtime_define_goal_wrapper(const char * wkey, const char * nm, int ar
     if (!pl_mc_graph_fell_back(g, nm, ar)) return fn;
     { char key[300]; tree_t * body; snprintf(key, sizeof key, "%s/%d", nm, ar);
       if (rt_pl_unknown_suppress(key)) body = (tree_t *) pl_atom_goal("fail");
-      else body = pl_cc_fnc1("throw", pl_cc_fnc2("error", pl_cc_fnc2("existence_error", (tree_t *) pl_atom_goal("procedure"), pl_cc_pi_ar(nm, ar)), pl_cc_pi_ar(nm, ar)));
+      else body = pl_cc_fnc2(";", pl_cc_fnc2("->", pl_cc_fnc2("$pl_declared", (tree_t *) pl_atom_goal(nm), pl_cc_ilit(ar)), (tree_t *) pl_atom_goal("fail")),
+                             pl_cc_fnc1("throw", pl_cc_fnc2("error", pl_cc_fnc2("existence_error", (tree_t *) pl_atom_goal("procedure"), pl_cc_pi_ar(nm, ar)), pl_cc_pi_ar(nm, ar))));
       return pl_mc_define(wkey, wname, ar, body, NULL); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

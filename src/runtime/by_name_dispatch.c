@@ -1123,10 +1123,20 @@ static int rt_pl_goal_stage(DESCR_t *kids, int ar, DESCR_t *argv, int n) {
     return k;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_goal_key_is_control(const char *key) { return !strcmp(key, ",/2") || !strcmp(key, ";/2") || !strcmp(key, "->/2") || !strcmp(key, "*->/2") || !strcmp(key, "|/2"); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void *pl_goal_body_conv_ball(DESCR_t goal, const char *key, int n) {
+    extern void *rt_pl_dop_goal_guard_c(DESCR_t *args, int nargs);
+    DESCR_t gg = goal;
+    if (n != 0 || !pl_goal_key_is_control(key)) return (void *)0;
+    return rt_pl_dop_goal_guard_c(&gg, 1);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_goal_spine_prep(DESCR_t goal, DESCR_t *argv, int n) {
     extern int rt_proc_jmp_entry(const char *name); extern void *rt_proc_fn(const char *name); extern long rt_proc_call_open(const char *name, int nargs);
     char key[288]; DESCR_t *kids = (DESCR_t *)0; int ar = 0;
     if (!rt_pl_goal_key(goal, n, key, sizeof key, &kids, &ar)) return (void *)0;
+    if (pl_goal_body_conv_ball(goal, key, n)) return (void *)0;
     if (!pl_goal_key_live(key, sizeof key) || !rt_proc_jmp_entry(key) || !rt_proc_is_generator(key)) return (void *)0;
     { extern int rt_proc_gen_region_ft(const char *); if (rt_proc_gen_region_ft(key) > 0) return (void *)0; }
     rt_pl_goal_stage(kids, ar, argv, n);
@@ -1146,6 +1156,7 @@ DESCR_t rt_pl_goal_gen_h_c(DESCR_t goal, DESCR_t *argv, int n, void **hslot, voi
         if (ball) { *ball = gb ? gb : rt_pl_ball_type_pi("type_error", "callable", "?", 0); return FAILDESCR; }
         { extern void rt_bomb(const char *msg); rt_bomb("rt_pl_goal_gen_h_c: the no-ball path is UNREACHABLE BY CONSTRUCTION and has no classifier. Its one caller, RTX_FUNC(rt_pl_goal_gen_h) in rtx_plunify.s, always passes a ball slot (sub rsp,24 then lea r9,[rsp+8]), so nothing has ever reached this arm and no test can grade it. It used to throw type_error(callable, ?/0) unconditionally, which is the WRONG ISO CLASS whenever the goal is unbound (7.6.2 orders instantiation_error) -- a future caller reading it would inherit that silently. Give this arm a real classifier before giving it a caller: pl_goal_conv_scan already distinguishes the two cases and is static in this file. Refusing rather than guessing a class, which is what a test that cannot measure does."); }
         return FAILDESCR; }
+    { void *cb = pl_goal_body_conv_ball(goal, key, n); if (cb && ball) { *ball = cb; return FAILDESCR; } }
     if (!pl_goal_key_live(key, sizeof key)) {
         if (ball) { *ball = rt_pl_ball_existence_key(key); return FAILDESCR; }
         rt_pl_iso_throw_existence_key(key); return FAILDESCR; }
@@ -7722,7 +7733,7 @@ void * rt_pl_dop_char_guard_c(DESCR_t *args, int nargs) {
 static int pl_goal_conv_scan(DESCR_t t, int depth) {
     extern DESCR_t rt_pl_deref_val(DESCR_t); extern const char *prolog_atom_name(int);
     DESCR_t v = rt_pl_deref_val(t);
-    if (pl_iso_unbound(v)) return 1;
+    if (pl_iso_unbound(v)) return depth ? 0 : 1;
     if ((int)v.v == DT_PLREF) {
         int ar = (int)(v.slen & 0xFFFFu); const char *fn = prolog_atom_name((int)(v.slen >> 16));
         if (ar == 2 && fn && depth < 64 && (!strcmp(fn, ",") || !strcmp(fn, ";") || !strcmp(fn, "->") || !strcmp(fn, "*->") || !strcmp(fn, "|"))) {
@@ -7744,6 +7755,28 @@ void * rt_pl_dop_goal_guard_c(DESCR_t *args, int nargs) {
       if (k == 1) return rt_pl_ball_instantiation();
       if (k == 2) return rt_pl_ball_kind2("type_error", "callable", g);
       return (void *)0; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void * rt_pl_dop_list_guard_c(DESCR_t *args, int nargs) {
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    extern DESCR_t rt_pl_deref_val(DESCR_t);
+    if (nargs != 1) return (void *)0;
+    pl_atoms_ready();
+    { DESCR_t orig = rt_pl_deref_val(args[0]); DESCR_t cur = orig; long steps = 0;
+      while (cur.v == (DTYPE_t)DT_PLREF && (int)(cur.slen & 0xFFFFu) == 2 && steps < 100000000L) { cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1]); steps++; }
+      if (pl_iso_unbound(cur) || pl_is_nil(cur)) return (void *)0;
+      return rt_pl_ball_kind2("type_error", "list", orig); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_pl_declared_c(DESCR_t *args, int nargs, void *root) {
+    extern int rt_pl_db_key_is_declared(void *, const char *);
+    char nb[264]; char key[300]; const char *nm;
+    if (nargs != 2) return FAILDESCR;
+    pl_atoms_ready();
+    { DESCR_t a = rt_pl_deref_val(args[1]);
+      if (a.v != DT_I || !pl_cell_text(args[0], nb, sizeof nb, &nm) || !nm) return FAILDESCR;
+      snprintf(key, sizeof key, "%s/%d", nm, (int)a.i);
+      return rt_pl_db_key_is_declared(root, key) ? pl_ok() : FAILDESCR; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void * rt_pl_dop_between_guard_c(DESCR_t *args, int nargs) {
