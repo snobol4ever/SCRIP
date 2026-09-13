@@ -1219,6 +1219,14 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
     return *(DESCR_t *)(fb + 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_proc_drop_frame_h(void **hslot)
+{
+    void *frame = hslot ? *hslot : (void *)0;
+    if (!frame) return;
+    { rt_genp_s *g = rt_genp_lookup(frame); if (g) rt_genp_destroy(g); }
+    *hslot = (void *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_proc_resume_frame_h(void **hslot)
 {
     void *frame = hslot ? *hslot : (void *)0;

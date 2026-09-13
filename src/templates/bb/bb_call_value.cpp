@@ -10,6 +10,7 @@ extern DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n);
 extern DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot);
 extern DESCR_t rt_call_apply_gen_h(DESCR_t callee, DESCR_t lv, void **hslot);
 extern DESCR_t rt_call_value_resume_h(void **hslot);
+extern void rt_proc_drop_frame_h(void **hslot);
 extern void *rt_call_value_spine_prep(DESCR_t callee, DESCR_t *argv, int n);
 extern void *rt_call_apply_spine_prep(DESCR_t callee, DESCR_t lv);
 extern void *rt_pl_goal_spine_prep(DESCR_t goal, DESCR_t *argv, int n);
@@ -52,7 +53,13 @@ std::string bb_call_value() {
            + x86("mov", FRQ(_.op_off + 16 + i * 16 + 8), "rax");
     s += x86_scan_sync_out()
        + x86_anchor_enter()
-       + x86("mov",   FRQ(H), 0L)
+       + x86("comment", "ALPHA DROPS A STALE HANDLE RATHER THAN OVERWRITING IT (cto, hq_R's rt.c ask): this word used to be cleared with `mov 0`, and a bounded caller that takes one result and never backs into this box leaves its genp handle HERE -- the next alpha of the same box, same frame, same word, then wrote 0 over the only pointer to a suspended coexpression thread. Measured on Icon `every i := 1 to n do x := p()` with p a procedure value naming a generator: 11.2 kB and one live pthread per abandoned call, dead linear, SIGABRT in pthread_create at n=60000. A ZERO word needs nothing dropped and nothing cleared, so the guard keeps a first alpha at its old cost -- a load and a branch, no call, no caller-saved spill -- and only a word that actually holds something pays. rt_proc_drop_frame_h is total by construction -- it resolves through rt_genp_lookup, so the two OTHER things this word legitimately holds (the Icon spine flag 1, a retained PL callee frame base) miss the list, are not destroyed, and are zeroed exactly as before.")
+       + x86("mov",   "rax", FRQ(H))
+       + x86("test",  "rax", "rax")
+       + x86("je",    L(22))
+       + x86("lea",   "rdi", FRQ(H))
+       + x86("call", "rt_proc_drop_frame_h", (uint64_t)(uintptr_t)(void *)rt_proc_drop_frame_h)
+       + x86("def",   L(22))
        + IF(cv_pl_proto(), x86("comment", "PL META-CALL: zero the resume-address word too, because it is this site's ONLY discriminator between its two runtime arms. A goal resolved at run time reaches either the PL Byrd box (prep resolved a jmp-entry generator: FRQ(H)=callee frame base, FRQ(H+8)=its graph beta, both non-zero) or the one-shot C window (prep returned 0: FRQ(H)=an opaque handle, FRQ(H+8) never written). The old spine flag 1 cannot separate them -- a retained PL frame base is an arbitrary pointer, so `cmp rax,1` would read it as a C-window handle and resume the wrong protocol. A zeroed H+8 is the fact that distinguishes them and it must be established at alpha, not inferred at beta.")
                           + x86("mov", FRQ(H + 8), 0L))
        + x86("mov",   "rdi", FRQ(_.op_sa))

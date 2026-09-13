@@ -85,6 +85,7 @@ DESCR_t rt_ab_leave_env(void *frame, DESCR_t result, int is_fail);
 void rt_call_proc(const char *name, int nargs);
 DESCR_t rt_call_proc_descr(const char *name, int nargs);
 DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout);
+void rt_proc_drop_frame_h(void **hslot);
 void rt_proc_set_gen_region_ft(const char *name, int ft);
 int rt_proc_gen_region_ft(const char *name);
 DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);

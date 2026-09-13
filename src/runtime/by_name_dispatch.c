@@ -1087,7 +1087,7 @@ DESCR_t rt_call_value(DESCR_t callee, DESCR_t *argv, int n) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) {
-    if (hslot) *hslot = (void *)0;
+    { extern void rt_proc_drop_frame_h(void **hslot); rt_proc_drop_frame_h(hslot); }
     if (IS_INT_fn(callee)) { icn_call_value_deref_args(NULL, argv, n); long i = (long)callee.i; if (i < 0) i = n + i + 1; if (i >= 1 && i <= n) return argv[i - 1]; return FAILDESCR; }
     const char *nm = procval_name(callee);
     if (!nm && IS_STR_fn(callee) && callee.s) nm = callee.s;
@@ -1238,7 +1238,7 @@ DESCR_t rt_pl_goal_gen_h_c(DESCR_t goal, DESCR_t *argv, int n, void **hslot, voi
     extern void *rt_pl_ball_existence_key(const char *key);
     extern void *rt_pl_ball_type_pi(const char *kind, const char *what, const char *nm, int ar);
     char key[288]; DESCR_t *kids = (DESCR_t *)0; int ar = 0;
-    if (hslot) *hslot = (void *)0;
+    { extern void rt_proc_drop_frame_h(void **hslot); rt_proc_drop_frame_h(hslot); }
     if (!rt_pl_goal_key(goal, n, key, sizeof key, &kids, &ar)) {
         extern void *rt_pl_dop_goal_guard_c(DESCR_t *args, int nargs);
         DESCR_t gg = goal; void *gb = rt_pl_dop_goal_guard_c(&gg, 1);
