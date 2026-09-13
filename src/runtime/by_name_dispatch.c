@@ -382,6 +382,10 @@ static int jct_one_cmp_str(const char *a, const char *b, int op) {
                   default: return c == 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int junction_mirror_op(int op) {
+    switch (op) { case TT_LT: return TT_GT; case TT_GT: return TT_LT; case TT_LE: return TT_GE; case TT_GE: return TT_LE; default: return op; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric) {
     const char *s = jct.s; if (!s || s[0] != '\x03' || !s[1]) return 0;
     char flav = s[1];
@@ -4656,6 +4660,7 @@ static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op) {
                     (op == BINOP_LT || op == BINOP_SLT) ? TT_LT : (op == BINOP_LE || op == BINOP_SLE) ? TT_LE :
                     (op == BINOP_GT || op == BINOP_SGT) ? TT_GT : TT_GE;
         int numeric = str_rel ? 0 : (IS_INT_fn(scalar) || IS_REAL_fn(scalar));
+        if (lj) tt_op = junction_mirror_op(tt_op);
         return junction_collapse(scalar, jct, tt_op, numeric) ? 1 : 0;
     }
     if (num_rel) { DESCR_t L, R;

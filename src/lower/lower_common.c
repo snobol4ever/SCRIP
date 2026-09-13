@@ -12,6 +12,7 @@
 #include <ctype.h>
 extern int junction_is(DESCR_t v);
 extern int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric);
+extern int junction_mirror_op(int op);
 typedef struct { const char * name; IR_t * landing; } bb_label_entry_t;
 static lc_vec g_bb_labels = { NULL, 0, 0, (int) sizeof(bb_label_entry_t) };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -80,6 +81,7 @@ DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail) {
                         (op == BINOP_LT || op == BINOP_SLT) ? TT_LT : (op == BINOP_LE || op == BINOP_SLE) ? TT_LE :
                         (op == BINOP_GT || op == BINOP_SGT) ? TT_GT : TT_GE;
             int numeric = str_rel ? 0 : (IS_INT_fn(scalar) || IS_REAL_fn(scalar));
+            if (lj) tt_op = junction_mirror_op(tt_op);
             int truth = junction_collapse(scalar, jct, tt_op, numeric);
             *rel_fail = !truth;
             return truth ? rv : FAILDESCR;
