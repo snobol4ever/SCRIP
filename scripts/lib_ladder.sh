@@ -182,7 +182,22 @@ ladder_main() {
   if [ -z "$ONLY" ]; then
     _ll=$(printf '%s' "$LADDER_LANG" | tr 'A-Z' 'a-z')
     _dtop=$( [ -f "$MASTER_DIR/config/LADDER.tsv" ] && grep -o '^rung[0-9]*' "$MASTER_DIR/config/LADDER.tsv" | sed 's/^rung0*//' | sort -n | tail -1 )
-    _decl=$( [ -n "$_dtop" ] && [ "$_dtop" != "$_top" ] && printf ' · declared top rung %s, rungs %s..%s NOT BUILT (RED by declaration)' "$_dtop" "$((_top+1))" "$_dtop" )
+    # ⛔ THE UNBUILT SET IS ENUMERATED, NEVER A RANGE (cfo 2026-09-13). This printed "rungs <top+1>..<dtop> NOT BUILT",
+    # a contiguous-range claim derived from two numbers -- true only while every built rung is below every unbuilt one.
+    # It stopped being true the moment rungs 19, 20 and 21 were built above the 17/18 gap: `--to 16` is the cumulative
+    # ceiling, so _top stayed 16 and the cell told SCORE.md that three rungs with sixteen graded witnesses were NOT BUILT.
+    # A cell that names the rungs cannot say that: the list comes from the same declared-census-minus-origins comparison
+    # the REFUSE above already trusts, over the WHOLE census rather than below the ceiling.
+    _have="$(printf '%s\n' "${origins[@]}" | awk '{print $1}' | sort -n -u)"
+    _unb=""
+    if [ -f "$MASTER_DIR/config/LADDER.tsv" ]; then
+      while read -r _r _rest; do
+        case "$_r" in rung[0-9]*) ;; *) continue;; esac
+        _num=$(printf '%s' "$_r" | sed 's/^rung0*//'); [ -n "$_num" ] || _num=0
+        grep -qx "$_num" <<<"$_have" || _unb="$_unb $_num"
+      done < "$MASTER_DIR/config/LADDER.tsv"
+    fi
+    _decl=$( [ -n "$_unb" ] && printf ' · declared top rung %s, %s rung(s) NOT BUILT (RED by declaration):%s' "$_dtop" "$(set -- $_unb; echo $#)" "$_unb" )
     _cell="built rungs 0..${_top} PASS $pass/$((n*2)) FAIL $fail${_decl} (witnesses=$n · m3+m4 · test_${_ll}_ladder.sh --to ${TO:-max} · SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo ?) corpus=$(git -C "$S4E/corpus" rev-parse --short HEAD 2>/dev/null || echo ?) RT_OPT=-O0)"
     if _w=$(python3 "$ROOT/scripts/util_score_row.py" write --lang "$_ll" --column ladder --text "$_cell" --measurer "${S4E_SEAT:-}" 2>&1); then printf '%s\n' "$_w" | grep -E '^SCORE.md|ROW SKIPPED|^  now:' | cut -c1-200
     else echo "SCORE ROW: UNWRITTEN (util_score_row.py refused; the verdict below is unchanged):"; printf '%s\n' "$_w" | head -3 | cut -c1-200; fi
