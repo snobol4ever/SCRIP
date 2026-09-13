@@ -15,6 +15,7 @@
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"; cd "$ROOT"
 SCRIP="${SCRIP_BIN:-$ROOT/scrip}"
+"$HERE/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 [ -x "$SCRIP" ] || { echo "⛔ REFUSE(2): no scrip at $SCRIP"; exit 2; }
 [ -f "$ROOT/out/libscrip_rt.so" ] || { echo "⛔ REFUSE(2): no out/libscrip_rt.so -- m4 cannot link"; exit 2; }
 D=$(mktemp -d) || { echo "⛔ REFUSE(2): no tmpdir"; exit 2; }
