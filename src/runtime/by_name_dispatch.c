@@ -2541,7 +2541,7 @@ static int pl_write_opt_bad(const char *on, DESCR_t a) {
         if (!strcmp(on, "variable_names") || !strcmp(on, "max_depth")) return 1; return 2; }
     as = pl_atom_str(a);
     for (int i = 0; bools[i]; i++) if (!strcmp(on, bools[i])) return (as && (!strcmp(as, "true") || !strcmp(as, "false"))) ? 0 : 2;
-    if (!strcmp(on, "max_depth")) return a.v == DT_I ? 0 : 2;
+    if (!strcmp(on, "max_depth")) return (a.v == DT_I && a.i >= 0) ? 0 : 2;
     if (!strcmp(on, "variable_names")) { DESCR_t l = a;
         for (;;) { if (pl_val_unbound(l)) return 1;
             if (pl_is_nil(l)) return 0;

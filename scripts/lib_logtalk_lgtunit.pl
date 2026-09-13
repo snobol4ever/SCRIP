@@ -49,6 +49,15 @@ lgt_h(G) :- ( catch(G, E, throw('$lgt_harness'(error(G, E)))) -> true ; throw('$
 % Logtalk LIBRARY objects a case uses as a HELPER, never as the subject: list::member/2 is the standard
 % library's member/2 and nothing about it is under test, so it is provided here and the message is rewritten
 % to it. A message this shim does NOT provide leaves the case UNGRADED-and-named rather than parse-error RED.
+% ⛔ current_logtalk_flag/2 -- UNDEFINED here until 2026-09-13, and that was an INSTRUMENT defect wearing a
+% language defect's clothes. 26 cases of write_term_3 alone carry a condition(...) whose body asks this
+% flag, so the call raised existence_error, the condition failed, and the case was filed UNGRADED -- i.e.
+% NOT MEASURED -- when nothing about SCRIP was in question. The suite asks it two ways and ONE clause
+% answers both honestly: current_logtalk_flag(prolog_dialect, swi) must FAIL because we are not swi, and
+% current_logtalk_flag(prolog_dialect, D), D \== b, D \== cx, ... must SUCCEED because we are none of
+% them. Every other flag (coinduction, ...) then FAILS cleanly rather than raising, which is the right
+% answer for a feature we do not have.
+current_logtalk_flag(prolog_dialect, scrip).
 lgt_member(X, [X| _]).
 lgt_member(X, [_| T]) :- lgt_member(X, T).
 

@@ -221,6 +221,7 @@ test_gate_pl_meta_wrapper_does_not_break_m4_declarations.sh	WIRED	-	-	-
 test_gate_pl_multifile_initialization_runs_every_file.sh	WIRED	-	-	-
 test_gate_pl_no_value_stack.sh	WIRED	-	-	-
 test_gate_pl_number_syntax_iso.sh	WIRED	-	-	-
+test_gate_pl_print_1_honours_portray_and_costs_nothing_without_it.sh	WIRED	-	-	-
 test_gate_pl_quad_regs.sh	WIRED	-	-	-
 test_gate_pl_raising_directive_does_not_abort_the_load.sh	WIRED	-	-	-
 test_gate_pl_read_raises_catchable_syntax_error.sh	WIRED	-	-	-

@@ -1415,7 +1415,9 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
                 pl_cc_throw(pl_cc_fnc2("type_error", (tree_t *) pl_atom_goal("character"), in), "current_char_conversion"));
             tree_t * rewrite = pl_cc_ite(pl_cc_fnc1("var", in), lookup, bound_path);
             return goal(cx, rewrite, γnext, ωfail, entry_out); }
-        { const char * ls = pl_det_leaf_sym(nm, t->n); if (ls) { const char * gs = pl_anum_guard_sym(nm, t->n);
+        { const char * ls = pl_det_leaf_sym(nm, t->n);
+          if (ls && !strcmp(nm, "print") && t->n == 1 && (pl_file_defines("portray", 1) || pl_db_owned("portray", 1))) ls = (const char *) 0;
+          if (ls) { const char * gs = pl_anum_guard_sym(nm, t->n);
             if (gs) return pl_leaf_lv_guarded(cx, ls, gs, nm, t, t->n, γnext, ωfail, entry_out);
             return pl_leaf_lv(cx, ls, t, t->n, γnext, ωfail, entry_out); } }
         { extern int g_rt_fragment_emit; int r = pl_rung_of(nm); if (r && !g_rt_fragment_emit && !pl_file_defines(nm, t->n) && !pl_det_leaf_name_wired(nm)) pl_refuse("builtin", nm, r); }
@@ -1819,6 +1821,15 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
           if (!nb) continue;
           { int bb_idx = lower_pl_pred_graph(key, ch); if (bb_idx < 0) continue;
             pl_bb_register(key, 2, bb_idx); pl_new_proc(key, 2, bb_idx); } } }
+      { const char * pk = "print/1";
+        if ((pl_file_defines("portray", 1) || pl_db_owned("portray", 1)) && !pl_bb_lookup(pk, 1)
+            && !resolve_pred_table_lookup(&g_stage2.resolve_pred_table, pk) && !pl_decl_dyn_is("print", 1)) {
+          tree_t * ch = ast_node_new(TT_CHOICE); ch->v.sval = strdup(pk);
+          tree_t * hd = ast_node_new(TT_FNC); hd->v.sval = strdup("print"); ast_push(hd, pl_meta_var("A"));
+          tree_t * body = pl_cc_ite(pl_cc_fnc1("portray", pl_meta_var("A")), (tree_t *) pl_atom_goal("true"), pl_cc_fnc1("writeq", pl_meta_var("A")));
+          tree_t * raw = ast_node_new(TT_FNC); raw->v.sval = (char *) ":-"; ast_push(raw, hd); ast_push(raw, body);
+          tree_t * cl = pl_runtime_clause_tree(raw);
+          if (cl) { ast_push(ch, cl); { int bb_idx = lower_pl_pred_graph(pk, ch); if (bb_idx >= 0) { pl_bb_register(pk, 1, bb_idx); pl_new_proc(pk, 1, bb_idx); } } } } }
       { const char * ik = "if/3";
         if (!pl_bb_lookup(ik, 3) && !resolve_pred_table_lookup(&g_stage2.resolve_pred_table, ik) && !pl_decl_dyn_is("if", 3)) {
           tree_t * ch = ast_node_new(TT_CHOICE); ch->v.sval = strdup(ik);

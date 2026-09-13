@@ -300,16 +300,20 @@ static void plc_wt(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, lon
         if ((int)n->v == DT_A || (int)n->v == DT_S) { const char *vn = plc_atom_text(n); fprintf(fp, "%s", vn ? vn : "_"); return; }
     }
     if (ignore_ops != 1 && fnid == ATOM_DOT && ar == 2) {
-        fprintf(fp, "["); plc_wt(&aa[0], quoted, ignore_ops, numbervars, max_depth, depth+1, 999, m);
-        pl_cell_t *tail = pl_deref(&aa[1]); long dd = depth + 1; int open = 1;
-        while ((int)tail->v == DT_PLREF && (int)(tail->slen >> 16) == ATOM_DOT && (int)(tail->slen & 0xFFFFu) == 2) {
-            if (max_depth > 0 && dd >= max_depth) { fprintf(fp, "|..."); tail = (pl_cell_t *)0; open = 0; break; }
-            pl_cell_t *ta = (pl_cell_t *)tail->p;
-            fprintf(fp, ","); plc_wt(&ta[0], quoted, ignore_ops, numbervars, max_depth, dd+1, 999, m);
-            tail = pl_deref(&ta[1]); dd++;
+        pl_cell_t *cur = d; long n = 0;
+        fputc('[', fp);
+        for (;;) {
+            pl_cell_t *ca = (pl_cell_t *)cur->p; pl_cell_t *tl;
+            if (max_depth > 0 && n >= max_depth) { fprintf(fp, "|..."); break; }
+            if (n) fputc(',', fp);
+            plc_wt(&ca[0], quoted, ignore_ops, numbervars, max_depth, depth, 999, m);
+            n++;
+            tl = pl_deref(&ca[1]);
+            if ((int)tl->v == DT_PLREF && (int)(tl->slen >> 16) == ATOM_DOT && (int)(tl->slen & 0xFFFFu) == 2 && tl->p) { cur = tl; continue; }
+            if (!plc_is_nil(tl)) { fputc('|', fp); plc_wt(tl, quoted, ignore_ops, numbervars, max_depth, depth, 999, m); }
+            break;
         }
-        if (open && tail && !plc_is_nil(tail)) { fprintf(fp, "|"); plc_wt(tail, quoted, ignore_ops, numbervars, max_depth, dd, 999, m); }
-        fprintf(fp, "]"); return;
+        fputc(']', fp); return;
     }
     if (!ignore_ops && ar == 1 && strcmp(fn, "{}") == 0) {
         fprintf(fp, "{"); plc_wt(&aa[0], quoted, ignore_ops, numbervars, max_depth, depth+1, 1200, m); fprintf(fp, "}"); return;
