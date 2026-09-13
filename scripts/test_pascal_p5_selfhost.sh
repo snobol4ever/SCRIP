@@ -28,19 +28,19 @@ for h in pcom pint; do
   if [ "$h" = pcom ]; then DEFS="-DWRDSIZ32 -DSELF_COMPILE"; else DEFS="-DWRDSIZ32"; fi
   /usr/bin/time -f "%e %M" -o "$W/tp_$h" cpp -P -nostdinc -traditional-cpp $DEFS "$P5/source/$h.pas" > "$W/$h.pas" 2>"$W/$h.cpp.err"
   rc=$?; [ "$rc" -eq 0 ] || prerc=$rc
-  read -r s k < <(tail -1 "$W/tp_$h"); case "$s" in |*[!0-9.]*) s=unmeasured; k=unmeasured;; esac
+  read -r s k < <(tail -1 "$W/tp_$h"); case "$s" in ""|*[!0-9.]*) s=unmeasured; k=unmeasured;; esac
   echo "WORK $h.pas(preprocess, P5's own cpp step) wall=${s}s rss=${k}KB lines=$(wc -l < "$W/$h.pas")  ($TREE)"
 done
 [ "$prerc" -eq 0 ] || { echo "P5_SELFHOST: pre=$prerc pcom=BLOCKED pint=BLOCKED gen1_pcode_lines=0 gen2=BLOCKED pcode_identical=n/a"; echo "SELFHOST BLOCKED (P5's preprocessing step failed: rc=$prerc)"; exit 1; }
 # ---- half 1: the compiler must run at all -------------------------------------------------------------------------
 ( cd "$W" && /usr/bin/time -f "%e %M" -o "$W/t1" timeout 600s "$SCRIP" --run pcom.pas < "$W/pcom.pas" > pcom.out 2> pcom.err ); pcomrc=$?
-read -r s1 k1 < <(tail -1 "$W/t1"); case "$s1" in |*[!0-9.]*) s1=unmeasured; k1=unmeasured;; esac
+read -r s1 k1 < <(tail -1 "$W/t1"); case "$s1" in ""|*[!0-9.]*) s1=unmeasured; k1=unmeasured;; esac
 echo "WORK pcom.pas(gen1, compiling its own preprocessed source) wall=${s1}s rss=${k1}KB  ($TREE)"
 g1lines=$(wc -l < "$W/prr" 2>/dev/null); g1lines=${g1lines:-0}
 echo "pcom: rc=$pcomrc out_lines=$(wc -l < "$W/pcom.out") pcode_lines=$g1lines $(grep -v '^Command' "$W/pcom.err" | head -c 160 | tr '\n' ' ')"
 # ---- half 2: the interpreter must run at all ----------------------------------------------------------------------
 ( cd "$W" && /usr/bin/time -f "%e %M" -o "$W/t2" timeout 600s "$SCRIP" --run pint.pas < /dev/null > pint.out 2> pint.err ); pintrc=$?
-read -r s2 k2 < <(tail -1 "$W/t2"); case "$s2" in |*[!0-9.]*) s2=unmeasured; k2=unmeasured;; esac
+read -r s2 k2 < <(tail -1 "$W/t2"); case "$s2" in ""|*[!0-9.]*) s2=unmeasured; k2=unmeasured;; esac
 echo "WORK pint.pas(load probe, no P-code supplied) wall=${s2}s rss=${k2}KB  ($TREE)"
 echo "pint: rc=$pintrc out_lines=$(wc -l < "$W/pint.out") first_line=$(head -1 "$W/pint.out" | cut -c1-60) $(grep -v '^Command' "$W/pint.err" | head -c 120 | tr '\n' ' ')"
 if [ "$pcomrc" -ne 0 ] || [ "$g1lines" -eq 0 ]; then
@@ -51,7 +51,7 @@ fi
 cp "$W/prr" "$W/gen1.pcode"
 # ---- generation 2: the interpreter runs gen1's P-code on the same source -------------------------------------------
 ( cd "$W" && rm -f prr && cp gen1.pcode prd && /usr/bin/time -f "%e %M" -o "$W/t3" timeout 900s "$SCRIP" --run pint.pas < "$W/pcom.pas" > gen2.out 2> gen2.err ); gen2rc=$?
-read -r s3 k3 < <(tail -1 "$W/t3"); case "$s3" in |*[!0-9.]*) s3=unmeasured; k3=unmeasured;; esac
+read -r s3 k3 < <(tail -1 "$W/t3"); case "$s3" in ""|*[!0-9.]*) s3=unmeasured; k3=unmeasured;; esac
 echo "WORK pint.pas(gen2, running the gen1 P-code on pcom's own source) wall=${s3}s rss=${k3}KB  ($TREE)"
 g2lines=$(wc -l < "$W/prr" 2>/dev/null); g2lines=${g2lines:-0}
 echo "gen2: rc=$gen2rc out_lines=$(wc -l < "$W/gen2.out") pcode_lines=$g2lines $(grep -v '^Command' "$W/gen2.err" | head -c 160 | tr '\n' ' ')"
