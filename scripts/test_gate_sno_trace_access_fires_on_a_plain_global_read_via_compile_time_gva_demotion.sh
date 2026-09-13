@@ -43,6 +43,7 @@ body "\tTRACE('N','VALUE')"           > "$T/ctl_value.sno"
 body "\tTRACE('N')"                   > "$T/ctl_omitted.sno"
 body "\tTRACE('STCOUNT','KEYWORD')"   > "$T/ctl_keyword.sno"
 body "\tOUTPUT = 'no trace here'"     > "$T/ctl_untraced.sno"
+body "\tTRACE('N','access')"          > "$T/ctl_lowercase.sno"
 rc=0; ran=0
 # ⭐ Every 'must' below is CUT FROM THE LIVE ORACLE by the helper, which REFUSES rc=2 if sbl does not print it.
 # ⭐ THE ACCESS AND VALUE ARMS ARE THE SAME SOURCE DIFFERING ONLY IN THE TYPE LITERAL, and they disagree in a way
@@ -70,11 +71,26 @@ done
 # twin is asserted in the same breath.  The two sources differ ONLY in the TRACE type literal.
 (cd "$ROOT" && ./scrip --compile -o "$T/q.s" "$T/plain_read.sno" </dev/null >/dev/null 2>&1) || { echo "⛔ REFUSE(2): qualifying witness did not compile in m4"; exit 2; }
 (cd "$ROOT" && ./scrip --compile -o "$T/n.s" "$T/ctl_value.sno"  </dev/null >/dev/null 2>&1) || { echo "⛔ REFUSE(2): control witness did not compile in m4"; exit 2; }
+# ⛔⭐ THE FOURTH QUALIFYING FORM, ASSERTED STRUCTURALLY ONLY, AND THAT IS DELIBERATE.  A lowercase type is
+# rowed as a SEPARATE divergence (trace_type_parse uses strcmp; sbl folds), so its RUNTIME behaviour is red today
+# and is not asserted anywhere here.  What IS asserted is that the TRIGGER does not care: it demotes on a spelling
+# the runtime will go on to refuse, which is the whole point of a trigger that fails TOWARD demotion.  This arm
+# stays TRUE whether or not that row ever lands, so curing it cannot turn this gate red.
+(cd "$ROOT" && ./scrip --compile -o "$T/lc.s" "$T/ctl_lowercase.sno" </dev/null >/dev/null 2>&1) || { echo "⛔ REFUSE(2): lowercase witness did not compile in m4"; exit 2; }
+lcn=$(grep -c '__gva_names' "$T/lc.s" || true)
+[ "$lcn" -eq 0 ] || { echo "⛔ RED lowercase_still_demotes: a lowercase ACCESS type left the GVA island in place ($lcn) -- the trigger has started trusting the runtime's type parse"; rc=1; }
 qn=$(grep -c '__gva_names' "$T/q.s" || true); qs=$(grep -cE 'qword ptr \[r9 \+ [0-9]+\]' "$T/q.s" || true)
 nn=$(grep -c '__gva_names' "$T/n.s" || true); ns=$(grep -cE 'qword ptr \[r9 \+ [0-9]+\]' "$T/n.s" || true)
 [ "$nn" -gt 0 ] && [ "$ns" -gt 0 ] || { echo "⛔ REFUSE(2): the NON-qualifying twin carries no GVA island ($nn names, $ns slot refs) -- this arm cannot discriminate, re-measure before trusting any green here"; exit 2; }
 if [ "$qn" -ne 0 ] || [ "$qs" -ne 0 ]; then
   echo "⛔ RED gva_off_only_when_it_qualifies: the ACCESS-traced program still emits the GVA island ($qn names, $qs slot refs); its plain reads cannot reach the tap"; rc=1
 fi
-[ "$rc" = 0 ] && echo "GATE OK: 7 arms x 2 modes oracle-exact + 1 two-way discrimination arm -- an ACCESS trace now fires on a PLAIN global read at all three sinks, a computed trace type demotes conservatively, and the GVA island is dropped ONLY for a qualifying program (twin carries $nn names / $ns slot refs, qualifying carries 0 / 0)"
+# ⛔⭐ THE CLIFF CANARY (hq_P ASK 2026-09-13).  A demoted program is still CORRECT, so NO board, ref or gate in
+# this tree will ever report that it got slower -- and measured on this box a demoted global read costs roughly
+# 1.82x-2.15x, a range that bounds INSTRUMENT NOISE HERE and is NOT a published property of any kernel.  Today the
+# qualifying set is EMPTY in both corpus and benchmarks (hq_P measured it: every TRACE under corpus/benchmarks is
+# one of the non-qualifying controls above), so the cliff falls on nobody -- which is exactly why it is invisible.
+# THESE FOUR QUALIFYING WITNESSES ARE THE CANARY: they are named, they live in the tree, and a seat who makes one
+# of them go quiet has turned the demotion off.  The SPEED half is hq_P's lane and is carried under their row.
+[ "$rc" = 0 ] && echo "GATE OK: 7 oracle arms x 2 modes + 2 structural arms -- an ACCESS trace fires on a PLAIN global read at all three sinks, a computed type demotes conservatively, a lowercase type demotes even though the runtime then refuses it, and the GVA island is dropped ONLY for a qualifying program (non-qualifying twin carries $nn names / $ns slot refs; all 4 qualifying forms carry 0). A demoted program is still CORRECT, so these 4 named witnesses are the ONLY canary for the cliff."
 exit $rc
