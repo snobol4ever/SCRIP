@@ -331,6 +331,20 @@ static void lower_tree_stmt(RebLow *L, tree_t *s) {
         if (L->loop_depth > 0) emit_goto(L, L->loop_top[L->loop_depth - 1]);
         break;
     }
+    case TT_SWAP: {
+        if (s->n < 2 || !s->c[0] || !s->c[1]) { STMT_t *bad = blank_stmt(); bad->subject = lower_tree_expr(L, s); emit(L, bad); break; }
+        char tmpbuf[32];
+        snprintf(tmpbuf, sizeof tmpbuf, "rb_swap_%d", ++L->label_ctr);
+        tree_t *lhs = lower_tree_expr(L, s->c[0]);
+        tree_t *rhs = lower_tree_expr(L, s->c[1]);
+        tree_t *tmp_w = ast_node_new(TT_VAR); tmp_w->v.sval = strdup(tmpbuf);
+        tree_t *tmp_r = ast_node_new(TT_VAR); tmp_r->v.sval = strdup(tmpbuf);
+        STMT_t *save = blank_stmt(); save->subject = tmp_w; save->replacement = rebus_tree_copy(lhs); save->has_eq = 1;
+        STMT_t *fwd  = blank_stmt(); fwd->subject  = lhs;   fwd->replacement  = rebus_tree_copy(rhs); fwd->has_eq  = 1;
+        STMT_t *back = blank_stmt(); back->subject = rhs;   back->replacement = tmp_r;                back->has_eq = 1;
+        emit(L, save); emit(L, fwd); emit(L, back);
+        break;
+    }
     default: {
         STMT_t *st = blank_stmt();
         tree_t *ex = lower_tree_expr(L, s);
