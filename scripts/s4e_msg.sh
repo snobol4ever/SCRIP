@@ -456,7 +456,18 @@ cmd="${1:-check}"
 # lock a mailbox that does not exist yet. ⛔ `check` and `clear` ARE locked, unlike the unread-mail banner below:
 # THE LOOP step 1 is `check`, and a `check` that quietly succeeds beside a second live writer is precisely the
 # silent-race reading this row exists to abolish. The refusal IS the diagnostic that surfaces the second process.
-case "$cmd" in mailbox|"") ;; *) s4e_assert_box "$ME" identity; s4e_pid_acquire;; esac
+# ⛔⭐⭐ THE READ-ONLY REPORTING VERBS DO NOT TAKE THE IDENTITY LOCK (ceo CEO-716, 2026-09-13).
+# THE LOCK EXISTS FOR ONE REASON, stated in its own refusal text: "A claim HIDES its row from the other
+# picker, so the two would race SILENTLY and each would read a coherent, wrong world." `banner` and
+# `check` CLAIM NOTHING -- measured, zero claim writes in either -- so holding it buys nothing.
+# ⛔ AND IT COST THE WHOLE FLEET: the ceo installed Stop and UserPromptSubmit hooks in all thirteen roots
+# that run exactly these two verbs at every turn boundary. `banner` is SLOW -- it runs handoff_status
+# across three repos -- so it held the claim mutex for the length of a report, and any verb the seat ran
+# in that window died on "ANOTHER LIVE PROCESS ALREADY HOLDS THE IDENTITY hq_*". Lon: "A weird error keeps
+# happening to the seats, another process already own the hq_* and just spazes out."
+# ⭐ THE GENERAL RULE: A REPORTING VERB MUST NEVER HOLD A MUTEX MEANT FOR MUTATION. If one does, every
+# reader becomes a writer for locking purposes, and the slowest reader sets the outage window.
+case "$cmd" in mailbox|banner|check|"") ;; *) s4e_assert_box "$ME" identity; s4e_pid_acquire;; esac
 # ⛔ ORPHANED .msg.* ARE SWEPT ON EVERY RUN (LAW 6, second half). `send` writes the message to a mktemp
 # $PO/.msg.XXXXXX and then mv's it into the destination inbox; when that mv failed the temp file just SAT there
 # -- one rotted 46 hours at the postoffice root, a seat-to-seat brief neither end ever knew was lost. A message
