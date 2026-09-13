@@ -589,6 +589,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         *out = INTVAL(!strcmp(meth, "not") ? (truthy ? 0 : 1) : (truthy ? 1 : 0)); return 1;
     }
     if (!strcmp(meth, "defined")) { *out = INTVAL(recv.v != DT_SNUL ? 1 : 0); return 1; }
+    if (!strcmp(meth, "message") || !strcmp(meth, "payload")) { *out = STRVAL(rt_heap_strdup_c(s)); return 1; }
     if (!strcmp(meth, "raku") || !strcmp(meth, "perl")) {
         if (recv.v == DT_SNUL) { *out = STRVAL(rt_heap_strdup_c("Any")); return 1; }
         if (IS_INT_fn(recv) || IS_REAL_fn(recv)) { *out = STRVAL(rt_heap_strdup_c(s)); return 1; }

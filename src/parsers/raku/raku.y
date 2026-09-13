@@ -512,7 +512,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %type <node> pair_list
 %type <list> scalar_list
 %type <sval> is_clauses meth_name pkg_name
-%type <list> stmt_list arg_list param_list when_list named_arg_list class_body_list grammar_body_list
+%type <list> stmt_list arg_list param_list when_list catch_when_list named_arg_list class_body_list grammar_body_list
 %right '=' OP_BIND
 %right OP_TERNARY1 OP_TERNARY2
 %left  OP_OR
@@ -809,6 +809,19 @@ stmt
         { tree_t *e=ast_node_new(TT_TRY); ast_push(e,$2); $$=e; }
     | KW_TRY block KW_CATCH block
         { tree_t *e=ast_node_new(TT_TRY); ast_push(e,$2); ast_push(e,$4); $$=e; }
+    | KW_CATCH '{' catch_when_list '}'
+        { tree_t *ec=ast_node_new(TT_CASE); expr_add_child(ec,leaf_sval(TT_VAR,intern("_")));
+          ExprList *ws=$3; for(int i=0;i<ws->count;i++) expr_add_child(ec,ws->items[i]); exprlist_free(ws);
+          tree_t *e=ast_node_new(TT_CATCH); ast_push(e,seq1(ec)); $$=e; }
+    | KW_CATCH '{' catch_when_list KW_DEFAULT block '}'
+        { tree_t *ec=ast_node_new(TT_CASE); expr_add_child(ec,leaf_sval(TT_VAR,intern("_")));
+          ExprList *ws=$3; for(int i=0;i<ws->count;i++) expr_add_child(ec,ws->items[i]); exprlist_free(ws);
+          expr_add_child(ec,ast_node_new(TT_NUL)); expr_add_child(ec,$5);
+          tree_t *e=ast_node_new(TT_CATCH); ast_push(e,seq1(ec)); $$=e; }
+    | KW_CATCH '{' KW_DEFAULT block '}'
+        { tree_t *ec=ast_node_new(TT_CASE); expr_add_child(ec,leaf_sval(TT_VAR,intern("_")));
+          expr_add_child(ec,ast_node_new(TT_NUL)); expr_add_child(ec,$4);
+          tree_t *e=ast_node_new(TT_CATCH); ast_push(e,seq1(ec)); $$=e; }
     | KW_CATCH block
         { tree_t *e=ast_node_new(TT_CATCH); ast_push(e,$2); $$=e; }
     | block
@@ -960,6 +973,12 @@ given_stmt
           exprlist_free(whens);
           expr_add_child(ec,ast_node_new(TT_NUL)); expr_add_child(ec,$6);
           $$=ec; }
+    ;
+catch_when_list
+    : KW_WHEN expr block
+        { ExprList *l=exprlist_new(); exprlist_append(l,$2); exprlist_append(l,$3); $$=l; }
+    | catch_when_list KW_WHEN expr block
+        { exprlist_append($1,$3); exprlist_append($1,$4); $$=$1; }
     ;
 when_list
     :  { $$=exprlist_new(); }
