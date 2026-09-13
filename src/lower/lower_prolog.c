@@ -227,7 +227,7 @@ static IR_t * unify_pair(lcx_t * cx, const tree_t * lt, const tree_t * rt, IR_t 
     return nd;
 }
 static const char * pl_rung6_builtins[] = { "=..", "==", "@<", "@=<", "@>", "@>=", "\\==", "acyclic_term", "arg", "atom", "atom_chars", "atom_codes",
-    "atom_concat", "atom_length", "atom_number", "atom_string", "atomic", "atomic_list_concat", "callable", "char_type", "compound", "concat_atom", "copy_term", "downcase_atom", "float", "format",
+    "atom_concat", "atom_length", "atom_number", "atom_string", "atomic", "atomic_concat", "atomic_list_concat", "callable", "char_type", "compound", "concat_atom", "copy_term", "downcase_atom", "float", "format",
     "functor", "ground", "integer", "is_list", "msort", "name", "nonvar", "number", "number_chars", "number_codes", "number_string", "numbervars", "plus", "print", "sort", "string_chars",
     "string_codes", "string_concat", "string_length", "string_lower", "string_to_atom", "string_upper", "succ", "tab", "term_string", "term_to_atom", "term_variables", "upcase_atom", "var", "write_canonical",
     "writeln", "writeq", "put_char", "halt", "flush_output", "read", "read_term", "get_char", "peek_char", "nl", "write", NULL };
@@ -635,7 +635,7 @@ static const pl_det_leaf_t pl_det_leaves[] = {
     { "atom_length", 2, "$atom_length" }, { "atom_concat", 3, "$atom_concat" }, { "atom_chars", 2, "$atom_chars" }, { "atom_codes", 2, "$atom_codes" }, { "atom_number", 2, "$atom_number" },
     { "atom_string", 2, "$atom_string" }, { "upcase_atom", 2, "$upcase_atom" }, { "downcase_atom", 2, "$downcase_atom" }, { "string_concat", 3, "$string_concat" },
     { "string_length", 2, "$string_length" }, { "string_lower", 2, "$string_lower" }, { "string_upper", 2, "$string_upper" }, { "string_to_atom", 2, "$string_to_atom" },
-    { "number_string", 2, "$number_string" }, { "string_chars", 2, "$atom_chars" }, { "string_codes", 2, "$atom_codes" }, { "atomic_list_concat", 2, "$atomic_list_concat" },
+    { "number_string", 2, "$number_string" }, { "string_chars", 2, "$atom_chars" }, { "string_codes", 2, "$atom_codes" }, { "atomic_concat", 3, "$atomic_concat" }, { "atomic_list_concat", 2, "$atomic_list_concat" },
     { "atomic_list_concat", 3, "$atomic_list_concat" }, { "concat_atom", 2, "$concat_atom" }, { "concat_atom", 3, "$concat_atom" }, { "char_code", 2, "$char_code" },
     { "number_codes", 2, "$number_codes" }, { "number_chars", 2, "$number_chars" }, { "name", 2, "$name" }, { "get_char", 1, "$get_char" }, { "peek_char", 1, "$peek_char" },
     { "get_code", 1, "$get_code" }, { "peek_code", 1, "$peek_code" }, { "get_byte", 1, "$get_byte" }, { "peek_byte", 1, "$peek_byte" },
@@ -673,7 +673,7 @@ static const char * pl_det_leaf_sym(const char * nm, int ar) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const struct { const char * nm; int ar; const char * gsym; } pl_anum_guards[] = {
     { "atom_length", 2, "$pl_anum_guard2" }, { "atom_chars", 2, "$pl_anum_guard2" }, { "atom_codes", 2, "$pl_anum_guard2" }, { "char_code", 2, "$pl_anum_guard2" },
-    { "number_chars", 2, "$pl_anum_guard2" }, { "number_codes", 2, "$pl_anum_guard2" }, { "number_string", 2, "$pl_anum_guard2" }, { "atom_concat", 3, "$pl_anum_guard3" },
+    { "number_chars", 2, "$pl_anum_guard2" }, { "number_codes", 2, "$pl_anum_guard2" }, { "number_string", 2, "$pl_anum_guard2" }, { "atom_concat", 3, "$pl_anum_guard3" }, { "atomic_concat", 3, "$pl_anum_guard3" },
     { "arg", 3, "$pl_anum_guard3" }, { "functor", 3, "$pl_anum_guard3" }, { 0, 0, 0 } };
 static const char * pl_anum_guard_sym(const char * nm, int ar) {
     for (int i = 0; pl_anum_guards[i].nm; i++) if (pl_anum_guards[i].ar == ar && !strcmp(nm, pl_anum_guards[i].nm)) return pl_anum_guards[i].gsym;

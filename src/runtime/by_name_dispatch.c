@@ -2358,7 +2358,7 @@ static int rt_pl_bagof_group_at_cell(DESCR_t *args, pl_tr_ctx_t *cx, int sorted)
 PL_CX_LEAF_HEAD(bagof_group_at, 4) ok = rt_pl_bagof_group_at_cell(args, cx, 0); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(setof_group_at, 4) ok = rt_pl_bagof_group_at_cell(args, cx, 1); PL_CX_LEAF_TAIL
 #define PL_ATOM_OP_LEAF(nm, ar) PL_CX_LEAF_HEAD(nm, ar) ok = rt_pl_atom_op_cell(#nm, &args[0], ar > 1 ? (void *)&args[1] : (void *)0, ar > 2 ? (void *)&args[2] : (void *)0, cx); PL_CX_LEAF_TAIL
-PL_ATOM_OP_LEAF(atom_length, 2) PL_ATOM_OP_LEAF(atom_concat, 3) PL_ATOM_OP_LEAF(atom_chars, 2) PL_ATOM_OP_LEAF(atom_codes, 2) PL_ATOM_OP_LEAF(atom_number, 2) PL_ATOM_OP_LEAF(atom_string, 2)
+PL_ATOM_OP_LEAF(atom_length, 2) PL_ATOM_OP_LEAF(atom_concat, 3) PL_ATOM_OP_LEAF(atomic_concat, 3) PL_ATOM_OP_LEAF(atom_chars, 2) PL_ATOM_OP_LEAF(atom_codes, 2) PL_ATOM_OP_LEAF(atom_number, 2) PL_ATOM_OP_LEAF(atom_string, 2)
 PL_ATOM_OP_LEAF(upcase_atom, 2) PL_ATOM_OP_LEAF(downcase_atom, 2) PL_ATOM_OP_LEAF(string_concat, 3) PL_ATOM_OP_LEAF(string_length, 2) PL_ATOM_OP_LEAF(string_lower, 2) PL_ATOM_OP_LEAF(string_upper, 2)
 PL_ATOM_OP_LEAF(string_to_atom, 2) PL_ATOM_OP_LEAF(number_string, 2)
 static int pl_split_text(DESCR_t *args, pl_tr_ctx_t *cx) {
@@ -8514,6 +8514,13 @@ static void * pl_anum_check(const char *nm, DESCR_t *a, int n) {
         DESCR_t x = rt_pl_deref_val(a[0]), s = rt_pl_deref_val(a[1]);
         if (!pl_iso_unbound(x) && !pl_anum_is_num(x)) return rt_pl_ball_kind2("type_error", "number", x);
         if (pl_iso_unbound(x) && pl_iso_unbound(s)) return rt_pl_ball_instantiation();
+        return (void *)0; }
+    if (!strcmp(nm, "atomic_concat") && n == 3) {
+        DESCR_t x = rt_pl_deref_val(a[0]), y = rt_pl_deref_val(a[1]), z = rt_pl_deref_val(a[2]);
+        if (!pl_iso_unbound(z) && !pl_anum_is_text(z)) return rt_pl_ball_kind2("type_error", "atom", z);
+        if (!pl_iso_unbound(x) && !pl_anum_is_text(x) && !pl_anum_is_num(x)) return rt_pl_ball_kind2("type_error", "atomic", x);
+        if (!pl_iso_unbound(y) && !pl_anum_is_text(y) && !pl_anum_is_num(y)) return rt_pl_ball_kind2("type_error", "atomic", y);
+        if (pl_iso_unbound(x) || pl_iso_unbound(y)) return rt_pl_ball_instantiation();
         return (void *)0; }
     if (!strcmp(nm, "atom_concat") && n == 3) {
         DESCR_t x = rt_pl_deref_val(a[0]), y = rt_pl_deref_val(a[1]), z = rt_pl_deref_val(a[2]);

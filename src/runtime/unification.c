@@ -709,6 +709,14 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
         if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, pl_make_int((int64_t)pl_u8_count(s)), cx)) { return 0; }
         return 1;
     }
+    if (!strcmp(fn, "atomic_concat")) {
+        const char *s0 = plc_atom_op_text(t0, buf0, sizeof buf0);
+        const char *s1 = plc_atom_op_text(t1, buf1, sizeof buf1);
+        if (!s0 || !s1) { return 0; }
+        { size_t l0 = strlen(s0), l1 = strlen(s1);
+          char *cat = (char *)rt_pinned_alloc(l0 + l1 + 1); memcpy(cat, s0, l0); memcpy(cat + l0, s1, l1); cat[l0 + l1] = '\0';
+          return plc_unify_into_cell_cx((pl_cell_t *)a2_cell, plc_make_atom_cell(cat), cx) ? 1 : 0; }
+    }
     if (!strcmp(fn, "atom_concat")) {
         const char *s0 = plc_atom_op_text(t0, buf0, sizeof buf0);
         const char *s1 = plc_atom_op_text(t1, buf1, sizeof buf1);
