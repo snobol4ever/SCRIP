@@ -46,6 +46,7 @@ static int pas_sem_subtree_start(const tree_t *root, int k) {
 static int pas_sem_threat_nested(const tree_t *root, int k, const char *cv) {
     int start = pas_sem_subtree_start(root, k); int j = k - 1;
     while (j >= start) { const tree_t *p = pas_sem_proc_at(root, j); int sub = pas_sem_subtree_start(root, j);
+        if (p && pas_sem_level(p) <= pas_sem_level(pas_sem_proc_at(root, k))) break;
         if (p && pas_sem_shadows(p, cv)) { j = sub - 1; continue; }
         if (p) { int r = pas_sem_threatens(root, pas_sem_body(p), cv, NULL); if (r) return r; }
         j--; }
@@ -53,7 +54,7 @@ static int pas_sem_threat_nested(const tree_t *root, int k, const char *cv) {
 }
 static void pas_sem_walk(const tree_t *root, int k, const tree_t *node, const char *fname, int *nerr) {
     if (!node) return;
-    if (node->t == TT_FOR && node->n > 0 && node->c[0] && node->c[0]->v.sval) {
+    if (node->t == TT_FOR && node->n > 0 && node->c[0] && node->c[0]->v.sval && strncmp(node->c[0]->v.sval, "__pas_", 6) != 0) {
         const char *cv = node->c[0]->v.sval; const tree_t *b = pas_sem_proc_at(root, k); int lvl = pas_sem_level(b);
         if (lvl >= 1 && !pas_sem_vlist_has(pas_sem_locals(b), cv) && !pas_sem_vlist_has(pas_sem_params(b), cv)) {
             fprintf(stderr, "pascal: ISO 7185 6.8.3.9 violation in %s line %d: for-statement control-variable '%s' is not declared in the"
@@ -61,9 +62,10 @@ static void pas_sem_walk(const tree_t *root, int k, const tree_t *node, const ch
             (*nerr)++; }
         int t = (node->n > 3) ? pas_sem_threatens(root, node->c[3], cv, node) : 0;
         if (!t) t = pas_sem_threat_nested(root, k, cv);
-        if (t) { fprintf(stderr, "pascal: ISO 7185 6.8.3.9 violation in %s line %d: for-statement control-variable '%s' is threatened at line %d by the"
-                                 " block closest-containing the for-statement (assigned to, passed as a variable parameter, or reused as a control-variable)\n",
-                         fname, node->line, cv, t); (*nerr)++; }
+        if (t) { const tree_t *_bp = pas_sem_proc_at(root, k); const char *_pn = (_bp && _bp->v.sval) ? _bp->v.sval : "(main)";
+                 fprintf(stderr, "pascal: ISO 7185 6.8.3.9 violation in %s line %d: for-statement control-variable '%s' is threatened at line %d by the"
+                                 " block closest-containing the for-statement (assigned to, passed as a variable parameter, or reused as a control-variable) -- in procedure %s\n",
+                         fname, node->line, cv, t, _pn); (*nerr)++; }
     }
     for (int i = 0; i < node->n; i++) pas_sem_walk(root, k, node->c[i], fname, nerr);
 }

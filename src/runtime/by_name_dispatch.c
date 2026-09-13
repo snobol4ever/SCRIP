@@ -2782,16 +2782,18 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         const char *s = VARVAL_fn(args[0]); if (!s) s = "";
         *out = STRVAL(rt_heap_strdup_c(s)); return 1;
     }
-    if (!strcmp(fn, "__pas_rewrite") && nargs == 1) {
+    if (!strcmp(fn, "__pas_rewrite") && (nargs == 1 || nargs == 2)) {
         extern int fh_alloc(FILE *);
         if (IS_FH_fn(args[0])) {
             FILE *ofp = fh_get((int)args[0].i);
             if (ofp) { rewind(ofp); if (ftruncate(fileno(ofp), 0) == 0) { *out = args[0]; return 1; } }
         }
         const char *nm = VARVAL_fn(args[0]);
+        if ((!nm || !nm[0]) && nargs == 2 && !IS_INT_fn(args[1])) nm = VARVAL_fn(args[1]);
+        if (nm && nm[0] && (!strcmp(nm, "input") || !strcmp(nm, "output"))) nm = "";
         FILE *fp;
         if (nm && nm[0]) {
-            fp = fopen(nm, "w");
+            fp = fopen(nm, "w+");
         } else {
             char tmpl[] = "/tmp/scrip_pas_XXXXXX";
             int fd = mkstemp(tmpl);
@@ -2801,13 +2803,13 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         int idx = fh_alloc(fp); if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; }
         *out = FHVAL(idx); return 1;
     }
-    if (!strcmp(fn, "__pas_reset") && nargs == 1) {
+    if (!strcmp(fn, "__pas_reset") && (nargs == 1 || nargs == 2)) {
         extern int fh_alloc(FILE *);
         if (IS_FH_fn(args[0])) {
             FILE *ofp = fh_get((int)args[0].i);
             if (ofp) { rewind(ofp); *out = args[0]; return 1; }
         }
-        const char *nm = VARVAL_fn(args[0]); if (!nm || !nm[0]) { *out = FAILDESCR; return 1; }
+        const char *nm = VARVAL_fn(args[0]); if ((!nm || !nm[0]) && nargs == 2) nm = VARVAL_fn(args[1]); if (!nm || !nm[0]) { *out = FAILDESCR; return 1; }
         FILE *fp = fopen(nm, "r"); if (!fp) { *out = FAILDESCR; return 1; }
         int idx = fh_alloc(fp); if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; }
         *out = FHVAL(idx); return 1;
@@ -2823,14 +2825,26 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         int hit = (e >= 0 && e < PAS_SET_BYTES * 8) ? ((bits[e / 8] >> (e % 8)) & 1) : 0;
         *out = INTVAL(hit ? 1 : 0); return 1;
     }
+    if (!strcmp(fn, "__pas_tget") || !strcmp(fn, "__pas_tput") || !strcmp(fn, "__pas_tbuf_get") || !strcmp(fn, "__pas_tbuf_set")) {
+        extern FILE *fh_get(int);
+        static struct { int has; int c; } tb[512];
+        if (!IS_FH_fn(args[0])) { extern void core_runtime_error(int code, const char *msg); core_runtime_error(103, "file not open (reset or rewrite it first)"); *out = FAILDESCR; return 1; }
+        int idx = (int)args[0].i; FILE *fp = fh_get(idx); if (!fp || idx < 0 || idx >= 512) { *out = FAILDESCR; return 1; }
+        if (!strcmp(fn, "__pas_tbuf_get")) { int c = fgetc(fp); if (c == EOF) { *out = INTVAL((long long)' '); return 1; } ungetc(c, fp); if (c == '\n') c = ' '; *out = INTVAL((long long)(unsigned char)c); return 1; }
+        if (!strcmp(fn, "__pas_tbuf_set") && nargs == 2) { tb[idx].has = 1; tb[idx].c = IS_INT_fn(args[1]) ? (int)args[1].i : (VARVAL_fn(args[1]) ? (unsigned char)VARVAL_fn(args[1])[0] : ' '); *out = NULVCL; return 1; }
+        if (!strcmp(fn, "__pas_tget")) { int c = fgetc(fp); (void)c; *out = NULVCL; return 1; }
+        if (!strcmp(fn, "__pas_tput")) { if (tb[idx].has) fputc(tb[idx].c, fp); tb[idx].has = 0; *out = NULVCL; return 1; }
+        *out = FAILDESCR; return 1;
+    }
     if (!strncmp(fn, "__pas_f", 7) || !strcmp(fn, "__pas_treset") || !strcmp(fn, "__pas_trewrite")) {
         extern int fh_alloc(FILE *); extern FILE *fh_get(int);
         static struct { DESCR_t buf; int has; } tf[512];
-        if (!strcmp(fn, "__pas_trewrite") && nargs == 1) {
+        if (!strcmp(fn, "__pas_trewrite") && (nargs == 1 || nargs == 2)) {
             FILE *fp = (FILE *)0; int idx = -1;
             if (IS_FH_fn(args[0])) { idx = (int)args[0].i; fp = fh_get(idx); if (fp) { rewind(fp); if (ftruncate(fileno(fp), 0) != 0) fp = (FILE *)0; } }
-            if (!fp) { const char *nm = VARVAL_fn(args[0]);
-                if (nm && nm[0] && !IS_FH_fn(args[0])) fp = fopen(nm, "w+b");
+            if (!fp) { const char *nm = IS_FH_fn(args[0]) ? (const char *)0 : VARVAL_fn(args[0]);
+                if ((!nm || !nm[0]) && nargs == 2) nm = VARVAL_fn(args[1]);
+                if (nm && nm[0]) fp = fopen(nm, "w+b");
                 else { char tmpl[] = "/tmp/scrip_pas_XXXXXX"; int fd = mkstemp(tmpl); fp = (fd >= 0) ? fdopen(fd, "w+b") : (FILE *)0; }
                 if (!fp) { *out = FAILDESCR; return 1; }
                 idx = fh_alloc(fp); if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; } }
@@ -2839,10 +2853,10 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         }
         int pas_tf_read(FILE *fp, DESCR_t *o);
         void pas_tf_write(FILE *fp, DESCR_t v);
-        if (!strcmp(fn, "__pas_treset") && nargs == 1) {
+        if (!strcmp(fn, "__pas_treset") && (nargs == 1 || nargs == 2)) {
             FILE *fp = (FILE *)0; int idx = -1;
             if (IS_FH_fn(args[0])) { idx = (int)args[0].i; fp = fh_get(idx); if (fp) { fflush(fp); rewind(fp); } }
-            if (!fp) { const char *nm = VARVAL_fn(args[0]); if (!nm || !nm[0]) { *out = FAILDESCR; return 1; }
+            if (!fp) { const char *nm = VARVAL_fn(args[0]); if ((!nm || !nm[0]) && nargs == 2) nm = VARVAL_fn(args[1]); if (!nm || !nm[0]) { *out = FAILDESCR; return 1; }
                 fp = fopen(nm, "rb"); if (!fp) { *out = FAILDESCR; return 1; }
                 idx = fh_alloc(fp); if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; } }
             if (idx >= 0 && idx < 512) { tf[idx].has = pas_tf_read(fp, &tf[idx].buf); }
@@ -5487,7 +5501,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     }
     L_bidjmp_5124: ;
     if ((_bid == BID___pas_read_c) && nargs == 0) {
-        int c = getchar(); if (c == EOF) c = 26; *out = INTVAL((long long)(unsigned char)c); return 1;
+        int c = getchar(); if (c == EOF) c = 26; if (c == '\n') c = ' '; *out = INTVAL((long long)(unsigned char)c); return 1;
     }
     L_bidjmp_5127: ;
     if ((_bid == BID___pas_readln) && nargs == 0) {
@@ -5506,9 +5520,9 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         ungetc(c, stdin); *out = INTVAL(0); return 1;
     }
     if (((_bid == BID___pas_read_i_f) || (_bid == BID___pas_read_c_f) || (_bid == BID___pas_readln_f) || (_bid == BID___pas_eof_f) || (_bid == BID___pas_eoln_f) || (_bid == BID___pas_getbufch_f)) && nargs == 1) {
-        extern FILE *fh_get(int); FILE *f = IS_FH_fn(args[0]) ? fh_get((int)args[0].i) : NULL; if (!f) f = stdin;
+        extern FILE *fh_get(int); FILE *f = IS_FH_fn(args[0]) ? fh_get((int)args[0].i) : NULL; if (!f && IS_STR_fn(args[0]) && args[0].slen && VARVAL_fn(args[0]) && *VARVAL_fn(args[0])) { extern void core_runtime_error(int code, const char *msg); core_runtime_error(103, "file not open for reading (reset it first)"); } if (!f) f = stdin;
         if ((_bid == BID___pas_read_i_f)) { long long v = 0; if (fscanf(f, " %lld", &v) != 1) v = 0; *out = INTVAL(v); return 1; }
-        if ((_bid == BID___pas_read_c_f)) { int c = fgetc(f); if (c == EOF) c = 26; *out = INTVAL((long long)(unsigned char)c); return 1; }
+        if ((_bid == BID___pas_read_c_f)) { int c = fgetc(f); if (c == EOF) c = 26; if (c == '\n') c = ' '; *out = INTVAL((long long)(unsigned char)c); return 1; }
         if ((_bid == BID___pas_readln_f)) { int c; while ((c = fgetc(f)) != '\n' && c != EOF) (void)c; *out = NULVCL; return 1; }
         if ((_bid == BID___pas_eof_f)) { int c = fgetc(f); if (c == EOF) { *out = INTVAL(1); return 1; } ungetc(c, f); *out = INTVAL(0); return 1; }
         if ((_bid == BID___pas_eoln_f)) { int c = fgetc(f); if (c == EOF || c == '\n') { if (c != EOF) ungetc(c, f); *out = INTVAL(1); return 1; } ungetc(c, f); *out = INTVAL(0); return 1; }
@@ -5576,6 +5590,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         int _start = 0;
         FILE *_dest = stdout;
         if (nargs >= 1 && IS_FH_fn(args[0])) { extern FILE *fh_get(int); FILE *_fp = fh_get((int)args[0].i); if (_fp) _dest = _fp; _start = 2; }
+        else if (nargs >= 2 && IS_INT_fn(args[1]) && args[1].i == -9) { extern void core_runtime_error(int code, const char *msg); core_runtime_error(103, "file not open for writing (rewrite it first)"); _start = 2; }
         for (int _pi = _start; _pi + 1 < nargs; _pi += 2) {
             DESCR_t av = args[_pi];
             DESCR_t aw = args[_pi + 1];

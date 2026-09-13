@@ -691,6 +691,18 @@ grows as they land; see `corpus/benchmarks/raku/README.md`.
 
 ### Pascal
 
+**P4 self-host** (`scripts/test_pascal_p4_selfhost.sh`, the Zurich Pascal-P4 compiler vendored with its
+patch record at `corpus/packages/pascal/p4/PATCHES.md`): the SCRIP-built P4 compiler compiles its own
+detabbed source with **zero errors** (generation 1: rc 0, 4018 listing lines, 18911 lines of P-code),
+each program's WORK time printed as wall seconds and RSS from `/usr/bin/time` with the tree and mode;
+the SCRIP-built P4 interpreter compiles and runs the generation-1 P-code on the same source (generation
+2) and today stops on heap exhaustion (its byte-addressed store is an array of records whose every
+field store mints a fresh pinned block) -- the verdict line reads `SELFHOST BLOCKED` until the Pascal
+heap rides a movable root (row pascal-heap-records-are-reached-through-a-movable-root-not-an-immortal-block,
+CEO-648). The oracle cannot grade P4 itself: fpc -Miso refuses its pre-ISO text (ord of a pointer,
+mark/release) and default fpc reserves `operator`, so the fpc-built rival for timing carries its own
+patch list, not yet written. (coo, 2026-09-12)
+
 **Coverage** (third-party): graded against the **Free Pascal compiler's own test
 suite**, vendored (181 programs; `scripts/test_pascal_fpc_suite.sh`, 2026-08-30):
 **PASS=119 FAIL=62 in both modes**, identical failure sets — the misses are shared

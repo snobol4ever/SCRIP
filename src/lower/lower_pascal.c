@@ -215,7 +215,10 @@ static IR_t * pas_call_args_brm(pcx_t * cx, IR_t * call, uint64_t brm, const tre
     for (int k = 0; k < nargs; k++) {
         IR_t * ar = NULL; IR_t * ae;
         if (((brm >> k) & 1ULL) && args[k] && args[k]->t == TT_VAR && args[k]->v.sval && !pas_name_is_byref(cx, args[k]->v.sval)) {
-            IR_t * vr = build(cx, IR_VAR_REF, (k == nargs - 1) ? call : NULL, ω); IR_LIT(vr).sval = args[k]->v.sval;
+            pas_res_t r; pas_resolve2(cx, args[k]->v.sval, &r);
+            IR_t * vr = r.uplevel ? pas_frame_node(cx, IR_VAR_REF, args[k]->v.sval, &r, (k == nargs - 1) ? call : NULL, ω)
+                                  : build(cx, IR_VAR_REF, (k == nargs - 1) ? call : NULL, ω);
+            IR_LIT(vr).sval = args[k]->v.sval;
             ae = vr; ar = vr;
         } else if (((brm >> k) & 1ULL) && args[k] && args[k]->t == TT_VAR && args[k]->v.sval) {
             IR_t * vr = build(cx, IR_VAR, (k == nargs - 1) ? call : NULL, ω); IR_LIT(vr).sval = args[k]->v.sval;

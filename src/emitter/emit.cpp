@@ -1164,6 +1164,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         if (g_emit.op_a_slot < 0 && _fr) { int _z = nd_slot(_fr); if (_z >= 0) g_emit.op_a_slot = _z; }
         bb_emit_x86(bb_assign_frame()); } return 0;
     case IR_VAR_REF:              { extern int is_global(const char *); const char * _rn = IR_LIT(nd).sval; g_emit.op_var_named = nd->pat_static;
+        if (nd->n_operands >= 1 && nd->operands[0] && nd->operands[0]->op == IR_LIT_NAME) { bb_prepare(nd); bb_emit_x86(bb_var_ref_frame()); return 0; }
         if (_rn && is_global(_rn) && !graph_has_local(g_emit_cfg, _rn)) { g_emit.op_sa = -1; g_emit.op_gva_k = g_gva_active ? gva_index_of(_rn) : -1; }
         else if (_rn) { int _vo = bb_varslot_peek(_rn); g_emit.op_sa = _vo; g_emit.op_gva_k = -1; }
         bb_emit_x86(bb_var_ref()); } return 0;
