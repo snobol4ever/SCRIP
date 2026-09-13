@@ -112,7 +112,21 @@ run1() {
   r=$(loop_check "$eng" "$W/o.$$" "$n" "$exp") || { echo "- - $r"; return; }
   user=$(echo "$rl" | grep -oE 'user_us=[0-9]+' | cut -d= -f2); sys=$(echo "$rl" | grep -oE 'sys_us=[0-9]+' | cut -d= -f2)
   nivcsw=$(echo "$rl" | grep -oE 'nivcsw=[0-9]+' | cut -d= -f2)
-  echo "$(( ${user:-0} + ${sys:-0} )) ${nivcsw:-0}"
+  # ⭐ THE TWO-NUMBER WORK/OVERHEAD BASIS (CEO-567 DONE-WHEN: "the process wrapper's numbers printed
+  #   beside the self-measured ones").  WORK is what the generated bracket measured from INSIDE;
+  #   ELAPSED is what tools/bench_rusage measured from OUTSIDE; OVERHEAD is the difference, and it is
+  #   the startup + load + teardown the kernel never did.
+  # ⛔⛔ THE SUBTRACTION IS WALL MINUS WALL, AND THAT IS NOT A DETAIL -- IT IS THE APPLES-TO-APPLES LAW.
+  #   bench_rusage reports BOTH elapsed_ns (CLOCK_MONOTONIC) and user_us+sys_us (CPU), and the rate
+  #   columns above deliberately use the CPU pair.  But wall_us/1 inside the bracket is CLOCK_MONOTONIC
+  #   (src/runtime/unification.c:618, VERIFIED for this row), so `user+sys - work` would subtract a WALL
+  #   number from a CPU one and publish the difference of two different instruments as an overhead.
+  #   On a loaded box that difference can even go NEGATIVE, which is the tell.  elapsed_us is therefore
+  #   carried separately from cpu_us for exactly this one purpose.  RULES.md: never mix instruments.
+  local elns work
+  elns=$(echo "$rl" | grep -oE 'elapsed_ns=[0-9]+' | cut -d= -f2)
+  work=$(grep -oE 'work_us=[0-9]+' "$W/e.$$" 2>/dev/null | tail -1 | cut -d= -f2)
+  echo "$(( ${user:-0} + ${sys:-0} )) ${nivcsw:-0} $(( ${elns:-0} / 1000 )) ${work:--}"
 }
 
 echo "FIXED-ITERATION PROLOG BENCHMARKS -- angle 2: N fixed per kernel (committed in $NTSV), external cpu time measured"
@@ -122,10 +136,11 @@ echo
 printf "%-14s %10s %14s %14s %14s %14s  %s\n" BENCHMARK N gnu/s swi/s m3/s m4/s check
 printf "%-14s %10s %14s %14s %14s %14s  %s\n" "--------------" "----------" "--------------" "--------------" "--------------" "--------------" "-----"
 tot_ok=0; tot_bad=0
+declare -A BWORK=(); declare -A BOVH=(); basis_rows=()
 for k in "${order[@]}"; do
   if [ -n "$KERNELS" ]; then case " $KERNELS " in *" $k "*) ;; *) continue ;; esac; fi
   N="${NCOMMIT[$k]}"
-  ckstat=ok; declare -A RATE=()
+  ckstat=ok; declare -A RATE=(); declare -A WORK=(); declare -A OVH=(); local_el=""; local_wk=""
   for eng in gnu swi m3 m4; do
     # ⛔ --engine names WHO WILL RUN THE OUTPUT and changes only the PRELUDE, never the kernel; m3 and m4 are
     # both the SCRIP arm, which gets no prelude because SCRIP's Prolog has no wall clock at any spelling.
@@ -137,12 +152,53 @@ for k in "${order[@]}"; do
       fi
     fi
     res=$(run1 "$eng" "$gpl" "$N" "$B/$k.expected"); cpu=$(awk '{print $1}' <<<"$res")
-    if [ "$cpu" = "-" ]; then RATE[$eng]="NA"; reason=$(cut -d' ' -f3- <<<"$res"); [ "$ckstat" = ok ] && ckstat="$eng:$reason"
-    else RATE[$eng]=$(rate "$N" "$cpu"); fi
+    if [ "$cpu" = "-" ]; then RATE[$eng]="NA"; WORK[$eng]="NA"; OVH[$eng]="NA"; reason=$(cut -d' ' -f3- <<<"$res"); [ "$ckstat" = ok ] && ckstat="$eng:$reason"
+    else
+      RATE[$eng]=$(rate "$N" "$cpu")
+      local_el=$(awk '{print $3}' <<<"$res"); local_wk=$(awk '{print $4}' <<<"$res")
+      # ⛔ A MISSING work_us IS PRINTED AS DARK, NEVER AS A BLANK AND NEVER AS ZERO (CEO-676,
+      #   dark-is-worse-than-red): an engine whose bracket did not report is a cell that could not
+      #   measure its subject, and it must say so in its own voice rather than leave the column empty.
+      case "$local_wk" in ''|-|*[!0-9]*) WORK[$eng]="DARK"; OVH[$eng]="DARK" ;;
+        *) WORK[$eng]="$local_wk"; OVH[$eng]=$(( local_el - local_wk )) ;; esac
+    fi
   done
   [ "$ckstat" = ok ] && tot_ok=$((tot_ok+1)) || tot_bad=$((tot_bad+1))
   printf "%-14s %10s %14s %14s %14s %14s  %s\n" "$k" "$N" "${RATE[gnu]}" "${RATE[swi]}" "${RATE[m3]}" "${RATE[m4]}" "$ckstat"
+  for eng in gnu swi m3 m4; do BWORK["$k:$eng"]="${WORK[$eng]:-DARK}"; BOVH["$k:$eng"]="${OVH[$eng]:-DARK}"; done
+  basis_rows+=("$k")
 done
 echo
 echo "CHECK RESULT: ok=$tot_ok bad=$tot_bad   (bad = crash/DNF/build-fail on at least one engine this run; correctness itself is angle 1's job)"
+
+# ⭐⭐ THE TWO-NUMBER WORK/OVERHEAD BASIS, PUBLISHED PER ENGINE -- the CEO-567 DONE-WHEN clause "the
+#   process wrapper's numbers printed beside the self-measured ones".  Until 2026-09-13 the SCRIP
+#   columns here could not exist at all: SCRIP's Prolog had no wall clock at any spelling, so the m3
+#   and m4 arms had a TOTAL and no WORK, and a total carries startup and may never share a column with
+#   a rival's self-measured work.  wall_us/1 and wall_ms/1 landing as real builtins (cto, 05317a5fb)
+#   is what fills these two grids in.
+echo
+echo "SELF-MEASURED WORK (us) -- read from INSIDE the generated bracket, wall clock (CLOCK_MONOTONIC)"
+echo "  this is the number that is comparable across engines: it excludes process startup entirely."
+printf "%-14s %14s %14s %14s %14s\n" BENCHMARK gnu swi m3 m4
+printf "%-14s %14s %14s %14s %14s\n" "--------------" "--------------" "--------------" "--------------" "--------------"
+for k in "${basis_rows[@]}"; do
+  printf "%-14s %14s %14s %14s %14s\n" "$k" "${BWORK[$k:gnu]}" "${BWORK[$k:swi]}" "${BWORK[$k:m3]}" "${BWORK[$k:m4]}"
+done
+echo
+echo "OVERHEAD (us) = external elapsed (tools/bench_rusage, CLOCK_MONOTONIC) MINUS self-measured work"
+echo "  ⛔ wall minus wall, never CPU minus wall -- the rate columns above use CPU and are a DIFFERENT"
+echo "  instrument; subtracting across the two would publish the difference of two clocks as an overhead."
+echo "  DARK = the engine ran but its bracket reported no work_us; it is named, never left blank (CEO-676)."
+printf "%-14s %14s %14s %14s %14s\n" BENCHMARK gnu swi m3 m4
+printf "%-14s %14s %14s %14s %14s\n" "--------------" "--------------" "--------------" "--------------" "--------------"
+for k in "${basis_rows[@]}"; do
+  printf "%-14s %14s %14s %14s %14s\n" "$k" "${BOVH[$k:gnu]}" "${BOVH[$k:swi]}" "${BOVH[$k:m3]}" "${BOVH[$k:m4]}"
+done
+echo
+# ⛔ CEO-697 (ceo -> all seats, 2026-09-13): A COST WITHOUT THE LOAD IT RAN UNDER IS NOT A COST.  Every
+#   duration this harness prints is load-sensitive -- two runs of this same angle on one tree have been
+#   measured differing by up to 2.15x -- so the load is printed WITH the numbers, by the harness, rather
+#   than left to whoever pastes them to remember.  Same reason a watermark carries its command.
+echo "LOAD: $(cut -d' ' -f1-3 /proc/loadavg 2>/dev/null) (1/5/15m) on $(nproc 2>/dev/null) cores at $(date -u +%Y-%m-%dT%H:%M:%SZ) -- a duration here without this line is a scouting datum, not a measurement (CEO-697)"
 [ "$tot_bad" -eq 0 ]

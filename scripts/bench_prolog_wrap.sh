@@ -51,7 +51,20 @@
 #   ⭐ The prelude is here rather than in the kernel because the KERNEL must be byte-identical across
 #   every engine -- the kernel is the thing being compared.
 #
-# ⛔⛔ SCRIP'S PROLOG HAS NO WALL CLOCK AT ALL, AND THAT IS REPORTED, NOT PAPERED OVER
+# ✅⭐⭐ RETRACTED 2026-09-13 BY hq_P, BY EXECUTION: SCRIP'S PROLOG NOW HAS A WALL CLOCK, AND THE
+#   PARAGRAPH BELOW IS KEPT ONLY FOR ITS HISTORY AND ITS LESSON.  The cto landed wall_us/1 and wall_ms/1
+#   as real Prolog builtins at SCRIP 05317a5fb.  Verified HERE with NO prelude loaded, so it is SCRIP
+#   answering and not a rival prelude's definition: m3 -> us(248130129882) ms(248130129), m4 -> the same
+#   shape.  The script no longer believes either the old claim OR the new one: it PROBES the binary (see
+#   the CLOCK block below) and both modes must answer before a bracket is emitted.
+#   ⛔⭐ THE LESSON IS WHY THE WHOLE PARAGRAPH STAYS: the claim below was MEASURED, was TRUE the day it
+#   was written, named its evidence and its commit -- and was still the thing that made this harness
+#   wrong, because it was frozen into a CONSTANT (`CLOCK=1; [ "$ENGINE" = scrip ] && CLOCK=0`) sitting
+#   under a comment that said "Measured, not assumed."  A measurement pasted into a constant stops being
+#   a measurement the moment the world moves, and it keeps the authority of one.  That is the defect
+#   class, not this one flag: TRUE-WHEN-WRITTEN IS NOT TRUE, AND A CAPABILITY IS ASKED, NEVER REMEMBERED.
+# ⛔⛔ THE SUPERSEDED CLAIM (hq_P 2026-09-13, SCRIP 202d8bfff -- read as history, never as current state):
+#   SCRIP'S PROLOG HAS NO WALL CLOCK AT ALL, AND THAT IS REPORTED, NOT PAPERED OVER
 #   (MEASURED by execution, hq_P 2026-09-13, SCRIP 202d8bfff).  The row that sent this work up said the
 #   defect was an ARITY mismatch -- wall_us registered at 0, called at 1.  It is worse than that: all
 #   SIX spellings the three engines use raise on SCRIP --
@@ -70,6 +83,12 @@
 set -u
 SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SELF/../.." && pwd)"
+# ⛔ TWO DIFFERENT ROOTS, AND CONFUSING THEM COSTS A SILENT FALSE ANSWER: ROOT is the SIBLING root (the
+# parent of SCRIP/ and corpus/), STREE is the SCRIP CHECKOUT.  The clock probe needs the BINARY, which
+# lives in the checkout -- `$ROOT/scrip` does not exist, and a probe that cannot find the binary answers
+# "no clock" in exactly the same voice as a binary that has none.  (Measured here: the first cut of the
+# probe used $ROOT and reported no-clock on a binary that had just answered the witness by hand.)
+STREE="$(cd "$SELF/.." && pwd)"
 PRO="$ROOT/corpus/benchmarks/prolog"
 MODE=single; N=""; BUD=1000; OUT=""; ENGINE=scrip; KPL=""
 for a in "$@"; do
@@ -86,8 +105,56 @@ done
 case "$MODE" in single|iter|time) ;; *) echo "⛔ REFUSED: unknown --mode=$MODE" >&2; exit 2 ;; esac
 case "$ENGINE" in scrip|gnu|swi) ;; *) echo "⛔ REFUSED: unknown --engine=$ENGINE" >&2; exit 2 ;; esac
 [ "$MODE" = iter ] && [ -z "$N" ] && { echo "⛔ REFUSED: --mode=iter needs --n=<iterations>" >&2; exit 2; }
-# CLOCK is the per-engine capability the two-number basis needs; see the header. Measured, not assumed.
-CLOCK=1; [ "$ENGINE" = scrip ] && CLOCK=0
+# ⭐ CLOCK is the per-engine wall-clock capability the two-number basis needs, and it is PROBED, NEVER
+#   ASSUMED.  This spot used to read `CLOCK=1; [ "$ENGINE" = scrip ] && CLOCK=0` directly beneath a
+#   comment that said "Measured, not assumed." -- a HARDCODED CAPABILITY ASSUMPTION that was true the day
+#   it was written and became FALSE the moment the cto landed wall_us/1 and wall_ms/1 as real Prolog
+#   builtins (SCRIP 05317a5fb).  It is replaced by a PROBE and not by the opposite constant on purpose:
+#   a constant with the right value is the SAME DEFECT holding a luckier number, and the next capability
+#   change would need another edit right here.  After this, it needs none.
+#   ⛔ EACH ENGINE IS ASKED AT ITS OWN PROVIDER, because that is where the capability actually comes from:
+#     gnu / swi -- the clock is supplied by the prelude THIS SCRIPT cats in, so the PRELUDE FILE is what
+#                  is asked; a prelude that lost the definition is caught here instead of at run time.
+#     scrip     -- nothing is catted in, so the BINARY is asked, by compiling and running a witness that
+#                  carries NO prelude.  ⛔ A prelude-bearing witness can never testify about the builtin:
+#                  it answers with get_time/1 out of the prelude and reads as a pass (hq_P made exactly
+#                  this mistake once this row and nearly recorded the builtin as proven).
+#   ⛔ BOTH MODES MUST ANSWER.  --engine=scrip names ONE generated artifact that angle 2 then runs under
+#   m3 AND m4, so the clock must exist under both or the emitted bracket raises in whichever mode lacks
+#   it -- which is precisely the existence_error-and-exit-0 silence this entire row exists to end.
+#   The answer is cached under a fingerprint of the binary and the runtime it links, so a rebuild
+#   re-probes by itself and the 23-kernel sweep pays for the probe once rather than 23 times.
+clock_probe_prelude() {  # $1 = prelude path; the provider for the rival engines
+  [ -s "$1" ] || return 1
+  grep -qE '^[[:space:]]*wall_us\(' "$1" && grep -qE '^[[:space:]]*wall_ms\(' "$1"
+}
+clock_probe_scrip() {    # ask the BINARY, no prelude, in BOTH modes; cache on the binary fingerprint
+  local bin="${SCRIP:-$STREE/scrip}" rt="${RT_DIR:-$STREE/out}" fp cache w pl ok=1
+  [ -x "$bin" ] || return 1
+  fp="$( { stat -c '%s %Y' "$bin" "$rt/libscrip_rt.so" 2>/dev/null; } | md5sum 2>/dev/null | cut -c1-16)"
+  cache="${TMPDIR:-/tmp}/.scrip_prolog_clock.${fp:-nofp}"
+  if [ -s "$cache" ]; then [ "$(cat "$cache")" = yes ]; return $?; fi
+  w="$(mktemp -d -t clockprobe_XXXXXX)" || return 1
+  pl="$w/w.pl"
+  { echo ":- initialization(main)."
+    echo "main :- wall_us(A), wall_ms(B), integer(A), integer(B), write(clockok), nl."; } > "$pl"
+  [ "$(cd "$w" && timeout 30 "$bin" --run "$pl" </dev/null 2>/dev/null | head -1)" = clockok ] || ok=0
+  if [ "$ok" = 1 ]; then
+    if (cd "$w" && timeout 60 "$bin" --compile --target=x86 "$pl" </dev/null >"$w/w.s" 2>/dev/null) && [ -s "$w/w.s" ] \
+       && as --64 -o "$w/w.o" "$w/w.s" 2>/dev/null \
+       && gcc -no-pie -o "$w/w.bin" "$w/w.o" "$rt/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$rt" 2>/dev/null; then
+      [ "$(cd "$w" && timeout 30 "$w/w.bin" </dev/null 2>/dev/null | head -1)" = clockok ] || ok=0
+    else ok=0; fi
+  fi
+  rm -rf "$w"
+  [ "$ok" = 1 ] && echo yes > "$cache" || echo no > "$cache"
+  [ "$ok" = 1 ]
+}
+case "$ENGINE" in
+  gnu)   clock_probe_prelude "$PRO/prelude_gplc.pl"  && CLOCK=1 || CLOCK=0 ;;
+  swi)   clock_probe_prelude "$PRO/prelude_swipl.pl" && CLOCK=1 || CLOCK=0 ;;
+  scrip) clock_probe_scrip                           && CLOCK=1 || CLOCK=0 ;;
+esac
 if [ "$CLOCK" = 0 ] && [ "$MODE" = time ]; then
   echo "⛔ REFUSED: --mode=time needs a wall clock and SCRIP's Prolog has none (see the header)." >&2
   echo "   Use --mode=iter with a fixed --n and time the whole process from OUTSIDE (angle 3)." >&2; exit 2; fi
@@ -107,8 +174,14 @@ if grep -qE '\b(wall_us|wall_ms|statistics|real_time|get_time)\s*\(' "$KPL"; the
   case "$ENGINE" in
     gnu) cat "$PRO/prelude_gplc.pl" ;;
     swi) cat "$PRO/prelude_swipl.pl" ;;
-    scrip) echo "% no prelude: SCRIP's Prolog has no wall clock at any spelling (measured; see the header),"
-           echo "% so this generated program carries NO timing bracket and reports work_us=UNAVAILABLE." ;;
+    scrip) if [ "$CLOCK" = 1 ]; then
+             echo "% no prelude, and none is needed: wall_us/1 and wall_ms/1 are REAL SCRIP BUILTINS (cto,"
+             echo "% SCRIP 05317a5fb), PROBED on this very binary before this file was written -- so the"
+             echo "% bracket below is SCRIP's own clock and not a prelude's get_time/1 wearing its name."
+           else
+             echo "% no prelude, and the PROBE of this binary found no wall_us/1 + wall_ms/1 pair, so this"
+             echo "% generated program carries NO timing bracket and says work_us=UNAVAILABLE out loud."
+           fi ;;
   esac
   # the kernel verbatim, minus its own main/0 and its initialization directive -- the wrapper supplies both
   sed -e '/^:- *initialization(main)\./d' -e '/^main *:- *bench_work(Res), *write(Res), *nl\./d' "$KPL"
