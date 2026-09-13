@@ -466,8 +466,21 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
             return n;
         }
         case TK_STRING: {
-            tree_t *n = ast_node_new(TT_QLIT);
-            n->v.sval = strdup(tk.text);
+            extern int rt_pl_double_quotes_mode(void);
+            int dqm = rt_pl_double_quotes_mode();
+            if (dqm == 0) {
+                tree_t *n = ast_node_new(TT_QLIT);
+                n->v.sval = strdup(tk.text);
+                return n;
+            }
+            tree_t *n = ast_node_new(TT_MAKELIST);
+            n->v.ival = 0;
+            for (const unsigned char *q = (const unsigned char *)tk.text; *q; q++) {
+                tree_t *e;
+                if (dqm == 2) { e = ast_node_new(TT_ILIT); e->v.ival = (long long)*q; }
+                else { char one[2]; one[0] = (char)*q; one[1] = 0; e = ast_node_new(TT_QLIT); e->v.sval = strdup(one); }
+                ast_push(n, e);
+            }
             return n;
         }
         case TK_ATOM: {

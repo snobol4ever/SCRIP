@@ -79,17 +79,20 @@ static int decode_escape(Lexer *lx, int *code) {
         case 't': *code = 9;  return 1;
         case 'v': *code = 11; return 1;
         case 'e': *code = 27; return 1;
+        case 's': *code = 32; return 1;
+        case 'd': *code = 127; return 1;
         case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': {
             int v = e - '0';
             while (cur(lx) >= '0' && cur(lx) <= '7') v = v * 8 + (advance(lx) - '0');
-            if (cur(lx) == '\\') advance(lx);
-            *code = v; return 1;
+            if (cur(lx) != '\\') return -1;
+            advance(lx); *code = v; return 1;
         }
         case 'x': {
             int v = 0, h;
+            if (hexval(cur(lx)) < 0) return -1;
             while ((h = hexval(cur(lx))) >= 0) { v = v * 16 + h; advance(lx); }
-            if (cur(lx) == '\\') advance(lx);
-            *code = v; return 1;
+            if (cur(lx) != '\\') return -1;
+            advance(lx); *code = v; return 1;
         }
         case '\\': *code = '\\'; return 1;
         case '\'': *code = '\''; return 1;
@@ -116,7 +119,9 @@ static Token scan_quoted_atom(Lexer *lx) {
             advance(lx);
             int code; int st = decode_escape(lx, &code);
             if (st == 1) buf_push(&buf, &len, &cap, (char)(code & 0xFF));
-            else if (st < 0) { buf_push(&buf, &len, &cap, '\\'); buf_push(&buf, &len, &cap, (char)code); }
+            else if (st < 0) { free(buf); return make_err(line, "invalid escape sequence in quoted atom"); }
+        } else if (c == '\n' || c == '\t') {
+            free(buf); return make_err(line, "unescaped layout character in quoted atom");
         } else {
             buf_push(&buf, &len, &cap, c); advance(lx);
         }
@@ -133,12 +138,14 @@ static Token scan_string(Lexer *lx) {
     for (;;) {
         char c = cur(lx);
         if (c == '\0') return make_err(line, "unterminated string");
-        if (c == '"') { advance(lx); break; }
+        if (c == '"') { advance(lx); if (cur(lx) == '"') { buf_push(&buf, &len, &cap, '"'); advance(lx); continue; } break; }
         if (c == '\\') {
             advance(lx);
             int code; int st = decode_escape(lx, &code);
             if (st == 1) buf_push(&buf, &len, &cap, (char)(code & 0xFF));
-            else if (st < 0) { buf_push(&buf, &len, &cap, '\\'); buf_push(&buf, &len, &cap, (char)code); }
+            else if (st < 0) { free(buf); return make_err(line, "invalid escape sequence in double-quoted token"); }
+        } else if (c == '\n' || c == '\t') {
+            free(buf); return make_err(line, "unescaped layout character in double-quoted token");
         } else {
             buf_push(&buf, &len, &cap, c); advance(lx);
         }
@@ -155,7 +162,9 @@ static Token scan_number(Lexer *lx) {
     if (cur(lx) == '0' && peek1(lx) == '\'') {
         advance(lx); advance(lx);
         Token t = make_tok(TK_INT, NULL, line); t.text = strdup("0'c");
-        if (cur(lx) == '\\') { advance(lx); int code; int st = decode_escape(lx, &code); t.ival = (st == 1) ? (long)code : (long)'\\'; return t; }
+        if (cur(lx) == '\\') { advance(lx); int code; int st = decode_escape(lx, &code);
+            if (st != 1) { free(t.text); return make_err(line, "invalid escape sequence in character code constant"); }
+            t.ival = (long)code; return t; }
         if (cur(lx) == '\'' && peek1(lx) == '\'') { advance(lx); advance(lx); t.ival = (long)'\''; return t; }
         t.ival = (long)(unsigned char)advance(lx);
         return t;
@@ -165,16 +174,15 @@ static Token scan_number(Lexer *lx) {
         buf_push(&buf, &len, &cap, advance(lx));
         int radix = (buf[1]=='b'||buf[1]=='B') ? 2 :
                     (buf[1]=='o'||buf[1]=='O') ? 8 : 16;
+        int ndig = 0;
         while (1) {
-            if (isxdigit((unsigned char)cur(lx)) || cur(lx) == '_') {
-                if (cur(lx) != '_') buf_push(&buf, &len, &cap, advance(lx));
-                else advance(lx);
-            } else if (cur(lx) == ' ' && isxdigit((unsigned char)peek1(lx))) {
-                advance(lx);
-            } else {
-                break;
-            }
+            int dv = hexval(cur(lx));
+            if (dv >= 0 && dv < radix) { buf_push(&buf, &len, &cap, advance(lx)); ndig++; }
+            else if (cur(lx) == '_' && ndig) advance(lx);
+            else if (cur(lx) == ' ' && ndig) { int pv = hexval(peek1(lx)); if (pv < 0 || pv >= radix) break; advance(lx); }
+            else break;
         }
+        if (!ndig || (hexval(cur(lx)) >= 0) || isalnum((unsigned char)cur(lx))) { free(buf); return make_err(line, "malformed radix integer"); }
         Token t = make_tok(TK_INT, buf, line);
         t.ival = (long)(unsigned long long)strtoull(buf+2, NULL, radix);
         return t;
@@ -227,13 +235,6 @@ static Token scan_number(Lexer *lx) {
             advance(lx); advance(lx); advance(lx);
             if (!buf) buf = strdup("nan");
         }
-    } else if (cur(lx) == 'e' || cur(lx) == 'E') {
-        is_float = 1;
-        buf_push(&buf, &len, &cap, advance(lx));
-        if (cur(lx) == '+' || cur(lx) == '-')
-            buf_push(&buf, &len, &cap, advance(lx));
-        while (isdigit((unsigned char)cur(lx)))
-            buf_push(&buf, &len, &cap, advance(lx));
     }
     if (!buf) buf = strdup("0");
     if (is_float) {

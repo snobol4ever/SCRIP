@@ -2371,22 +2371,41 @@ static DESCR_t pl_tree_cell(const tree_t *t, pl_vtab_t *vt) {
 }
 static int pl_tok_is_graphic(int c) { return c && strchr("+-*/\\^<>=~:.?@#&$", c) != (char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_read_esc_body(FILE *in, char *buf, size_t n, size_t *kp) {
+    size_t k = *kp; int e = fgetc(in), d;
+    if (e == EOF) { *kp = k; return 2; }
+    if (k + 2 >= n) return -1; buf[k++] = (char)e;
+    if (e >= '0' && e <= '7') { while ((d = fgetc(in)) != EOF && d >= '0' && d <= '7') { if (k + 2 >= n) return -1; buf[k++] = (char)d; } }
+    else if (e == 'x' || e == 'X') { while ((d = fgetc(in)) != EOF && isxdigit((unsigned char)d)) { if (k + 2 >= n) return -1; buf[k++] = (char)d; } }
+    else { *kp = k; return 0; }
+    if (d == '\\') { if (k + 2 >= n) return -1; buf[k++] = (char)d; } else if (d != EOF) ungetc(d, in);
+    *kp = k; return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_read_term_text(char *buf, size_t n) {
     extern FILE *fh_cur_in_fp(void); FILE *in = fh_cur_in_fp();
-    size_t k = 0; int c, q = 0, seen = 0;
+    size_t k = 0; int c, q = 0, seen = 0, lit = 0, wlit;
     while ((c = fgetc(in)) != EOF) {
         if (!seen && (c == ' ' || c == '\t' || c == '\n' || c == '\r')) continue;
         if (!seen && c == '%') { while ((c = fgetc(in)) != EOF && c != '\n') ; continue; }
-        seen = 1; if (k + 2 >= n) return -1; buf[k++] = (char)c;
-        if (q) { if (c == q) q = 0; continue; }
+        if (!q && c == '/') { int d = fgetc(in);
+            if (d == '*') { int p = 0, e2, closed = 0;
+                while ((e2 = fgetc(in)) != EOF) { if (p == '*' && e2 == '/') { closed = 1; break; } p = e2; }
+                if (!closed) { buf[k] = 0; return 2; }
+                continue; }
+            if (d != EOF) ungetc(d, in); }
+        seen = 1; if (k + 2 >= n) return -1; wlit = lit; lit = 0; buf[k++] = (char)c;
+        if (q) { if (c == '\\') { int r = pl_read_esc_body(in, buf, n, &k); if (r) { buf[k] = 0; return r; } }
+                 else if (c == q) { q = 0; lit = 1; }
+                 continue; }
             if (c == '\'' && k >= 2 && buf[k - 2] == '0' && (k < 3 || !(isalnum((unsigned char)buf[k - 3]) || buf[k - 3] == '_'))) {
             int d = fgetc(in); if (d == EOF) { buf[k] = 0; return 2; }
             if (k + 2 >= n) return -1; buf[k++] = (char)d;
-            if (d == '\\') { int e2; while ((e2 = fgetc(in)) != EOF) { if (k + 2 >= n) return -1; buf[k++] = (char)e2; if (e2 == '\\' || isalpha((unsigned char)e2)) break; } }
+            if (d == '\\') { int r = pl_read_esc_body(in, buf, n, &k); if (r) { buf[k] = 0; return r; } }
             else if (d == '\'') { int e2 = fgetc(in); if (e2 == '\'') { if (k + 2 >= n) return -1; buf[k++] = (char)e2; } else if (e2 != EOF) ungetc(e2, in); }
-            continue; }
+            lit = 1; continue; }
         if (c == '\'' || c == '"') { q = c; continue; }
-        if (c == '.' && !(k >= 2 && pl_tok_is_graphic((unsigned char)buf[k - 2]))) {
+        if (c == '.' && (wlit || !(k >= 2 && pl_tok_is_graphic((unsigned char)buf[k - 2])))) {
             int d = fgetc(in); if (d != EOF) ungetc(d, in); if (d == EOF || d == ' ' || d == '\t' || d == '\n' || d == '\r' || d == '%') { buf[k] = 0; return 1; } }
     }
     buf[k] = 0; return seen ? 2 : 0;
@@ -2399,7 +2418,9 @@ static int pl_text_is_unbalanced(const char *s) {
         if (c == '/' && s[i + 1] == '*') { i += 2; while (s[i] && !(s[i] == '*' && s[i + 1] == '/')) i++; if (!s[i]) return 1; i++; continue; }
         if (c == '0' && s[i + 1] == '\'' && s[i + 2] && (i == 0 || !(isalnum((unsigned char)s[i - 1]) || s[i - 1] == '_'))) {
             i += 2;
-            if (s[i] == '\\') { i++; while (s[i] && s[i] != '\\' && !isalpha((unsigned char)s[i])) i++; if (!s[i]) return 1; }
+            if (s[i] == '\\') { i++; if (!s[i]) return 1;
+                if (s[i] >= '0' && s[i] <= '7') { while (s[i + 1] >= '0' && s[i + 1] <= '7') i++; if (s[i + 1] == '\\') i++; }
+                else if (s[i] == 'x' || s[i] == 'X') { while (isxdigit((unsigned char)s[i + 1])) i++; if (s[i + 1] == '\\') i++; } }
             else if (s[i] == '\'' && s[i + 1] == '\'') i++;
             continue; }
         if (c == '\'' || c == '"' || c == '`') { char q = c; i++;
@@ -2592,6 +2613,14 @@ static pl_flag_t pl_flags[] = {
 static pl_flag_t * pl_flag_find(const char *nm) {
     for (int i = 0; pl_flags[i].nm; i++) if (!strcmp(nm, pl_flags[i].nm)) return &pl_flags[i];
     return (pl_flag_t *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_double_quotes_mode(void) {
+    pl_flag_t *fl = pl_flag_find("double_quotes");
+    if (!fl) return 0;
+    if (!strcmp(fl->val, "chars")) return 1;
+    if (!strcmp(fl->val, "codes")) return 2;
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_unknown_suppress(const char *key) {

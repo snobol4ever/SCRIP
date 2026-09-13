@@ -55,8 +55,16 @@ lgt_member(X, [_| T]) :- lgt_member(X, T).
 lgt_read_chars(S, L) :- get_char(S, C), ( C == end_of_file -> L = [] ; L = [C|T], lgt_read_chars(S, T) ).
 lgt_file_to_atom(F, A) :- open(F, read, S), lgt_read_chars(S, Cs), close(S), atom_chars(A, Cs).
 lgt_file_to_atom(F, Opts, A) :- open(F, read, S, Opts), lgt_read_chars(S, Cs), close(S), atom_chars(A, Cs).
-lgt_atom_to_file(F, A) :- open(F, write, S), write(S, A), close(S).
-lgt_atom_to_file(F, Opts, A) :- open(F, write, S, Opts), write(S, A), close(S).
+% ⛔ A LIST ARGUMENT IS A SEQUENCE OF TEXT ITEMS, NOT A TERM TO PRINT. set_text_input/1 takes either one
+% atom or a list of pieces, and writing the list with write/2 puts `[a,b,c]` on the stream -- which is a
+% perfectly well-formed Prolog term, so the case under test then reports a syntax error about ITS OWN
+% subject and reads as a frontend defect. Two cases in the suite settle the semantics on their own:
+% double_quoted_terms 01-06 spell a parenthesised disjunction one line per element, and atoms 17 spells
+% 'enchanted evening' as ['\'', enchanted, '\\', '\n', ' evening''. '] -- neither is readable any other way.
+lgt_write_pieces(_, []).
+lgt_write_pieces(S, [P|Ps]) :- ( integer(P) -> put_char(S, P) ; write(S, P) ), lgt_write_pieces(S, Ps).
+lgt_atom_to_file(F, A) :- open(F, write, S), ( A = [_|_] -> lgt_write_pieces(S, A) ; write(S, A) ), close(S).
+lgt_atom_to_file(F, Opts, A) :- open(F, write, S, Opts), ( A = [_|_] -> lgt_write_pieces(S, A) ; write(S, A) ), close(S).
 
 % ---- output capture ---------------------------------------------------------------------------------
 lgt_close_out :- ( retract(lgt_cap_out(S)) -> catch(close(S), _, true) ; true ),
