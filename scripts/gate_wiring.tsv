@@ -334,7 +334,6 @@ test_gate_sno_code_pool_exhaustion_is_a_numbered_error.sh	RULING	REFUSES rc=2 by
 test_gate_sno_define_prototype_follows_the_executed_define.sh	RULING	RED by design until the prototype cure lands (row snobol4-gimpel-recursive-list-functions-overflow-the-call-stack-where-spitbol-completes, cfo 2026-09-12): one activation per distinct prototype; a red DONE-WHEN is not an invariant and gets wired in the commit that makes it green	cfo	2026-09-12T19:34Z
 test_gate_argnote_sweep.sh	TASK	-	-	-
 test_gate_asm_tabs_identity.sh	TASK	-	-	-
-test_gate_banner_row_attribution.sh	TASK	-	-	-
 test_gate_baton_hidden_criterion.sh	TASK	-	-	-
 test_gate_bb_block_label_prefix.sh	TASK	-	-	-
 test_gate_bb_emit_blind.sh	TASK	-	-	-
