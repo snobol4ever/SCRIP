@@ -538,18 +538,18 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     if (!meth || !*meth) return 0;
     char sb[64]; const char *s = to_cstring(recv, sb, sizeof sb); if (!s) s = ""; size_t n = strlen(s);
     if (!strcmp(meth, "chars")) { *out = INTVAL((long)utf8_strlen(s)); return 1; }
-    if (!strcmp(meth, "uc")) { char *r = (char *)rt_pinned_alloc(n + 1); for (size_t i = 0; i < n; i++) r[i] = (char)toupper((unsigned char)s[i]); r[n] = '\0'; *out = STRVAL(r); return 1; }
+    if (!strcmp(meth, "uc")) { char *r = (char *)rt_str_alloc(n); for (size_t i = 0; i < n; i++) r[i] = (char)toupper((unsigned char)s[i]); r[n] = '\0'; *out = STRVAL(r); return 1; }
     if (!strcmp(meth, "lc") || !strcmp(meth, "fc")) {
-        char *r = (char *)rt_pinned_alloc(n + 1); for (size_t i = 0; i < n; i++) r[i] = (char)tolower((unsigned char)s[i]); r[n] = '\0'; *out = STRVAL(r); return 1;
+        char *r = (char *)rt_str_alloc(n); for (size_t i = 0; i < n; i++) r[i] = (char)tolower((unsigned char)s[i]); r[n] = '\0'; *out = STRVAL(r); return 1;
     }
-    if (!strcmp(meth, "tc")) { char *r = (char *)rt_pinned_alloc(n + 1); memcpy(r, s, n + 1); if (n > 0) r[0] = (char)toupper((unsigned char)r[0]); *out = STRVAL(r); return 1; }
+    if (!strcmp(meth, "tc")) { char *r = (char *)rt_str_alloc(n); memcpy(r, s, n + 1); if (n > 0) r[0] = (char)toupper((unsigned char)r[0]); *out = STRVAL(r); return 1; }
     if (!strcmp(meth, "tclc")) {
-        char *r = (char *)rt_pinned_alloc(n + 1); for (size_t i = 0; i < n; i++) r[i] = (char)tolower((unsigned char)s[i]); r[n] = '\0'; if (n > 0) r[0] = (char)toupper((unsigned char)r[0]);
+        char *r = (char *)rt_str_alloc(n); for (size_t i = 0; i < n; i++) r[i] = (char)tolower((unsigned char)s[i]); r[n] = '\0'; if (n > 0) r[0] = (char)toupper((unsigned char)r[0]);
         *out = STRVAL(r); return 1;
     }
-    if (!strcmp(meth, "flip")) { char *r = (char *)rt_pinned_alloc(n + 1); for (size_t i = 0; i < n; i++) r[i] = s[n - 1 - i]; r[n] = '\0'; *out = STRVAL(r); return 1; }
+    if (!strcmp(meth, "flip")) { char *r = (char *)rt_str_alloc(n); for (size_t i = 0; i < n; i++) r[i] = s[n - 1 - i]; r[n] = '\0'; *out = STRVAL(r); return 1; }
     if (!strcmp(meth, "trim")) {
-        size_t a = 0, b = n; while (a < b && isspace((unsigned char)s[a])) a++; while (b > a && isspace((unsigned char)s[b - 1])) b--; char *r = (char *)rt_pinned_alloc(b - a + 1);
+        size_t a = 0, b = n; while (a < b && isspace((unsigned char)s[a])) a++; while (b > a && isspace((unsigned char)s[b - 1])) b--; char *r = (char *)rt_str_alloc(b - a);
         memcpy(r, s + a, b - a); r[b - a] = '\0'; *out = STRVAL(r); return 1;
     }
     if (!strcmp(meth, "Str")) { *out = STRVAL(rt_heap_strdup_c(s)); return 1; }
@@ -562,8 +562,8 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         char rb[256]; const char *repl = (nmargs >= 2) ? to_cstring(margs[1], rb, sizeof rb) : ""; if (!repl) repl = "";
         size_t nl = strlen(needle), rl = strlen(repl);
         const char *hit = (nl > 0) ? strstr(s, needle) : NULL;
-        if (!hit) { char *o = (char *)rt_pinned_alloc(n + 1); memcpy(o, s, n + 1); *out = STRVAL(o); return 1; }
-        size_t pre = (size_t)(hit - s); char *o = (char *)rt_pinned_alloc(n - nl + rl + 1);
+        if (!hit) { char *o = (char *)rt_str_alloc(n); memcpy(o, s, n + 1); *out = STRVAL(o); return 1; }
+        size_t pre = (size_t)(hit - s); char *o = (char *)rt_str_alloc(n - nl + rl);
         memcpy(o, s, pre); memcpy(o + pre, repl, rl); memcpy(o + pre + rl, hit + nl, n - pre - nl); o[n - nl + rl] = '\0';
         *out = STRVAL(o); return 1;
     }
@@ -577,7 +577,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         if (ln == 0) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
         *out = SUBSTR_fn(recv, INTVAL(from + 1), INTVAL(ln)); return 1;
     }
-    if (!strcmp(meth, "chr")) { long cp = IS_INT_fn(recv) ? (long)recv.i : (long)atoll(s); char *r = (char *)rt_pinned_alloc(2); r[0] = (char)(cp & 0xFF); r[1] = '\0'; *out = BSTRVAL(r, 1); return 1; }
+    if (!strcmp(meth, "chr")) { long cp = IS_INT_fn(recv) ? (long)recv.i : (long)atoll(s); char *r = (char *)rt_str_alloc(1); r[0] = (char)(cp & 0xFF); r[1] = '\0'; *out = BSTRVAL(r, 1); return 1; }
     if (!strcmp(meth, "ord")) {
         size_t on = descr_slen(recv);
         if (!s || !on) { *out = FAILDESCR; return 1; }
@@ -597,7 +597,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     if (!strcmp(meth, "raku") || !strcmp(meth, "perl")) {
         if (recv.v == DT_SNUL) { *out = STRVAL(rt_heap_strdup_c("Any")); return 1; }
         if (IS_INT_fn(recv) || IS_REAL_fn(recv)) { *out = STRVAL(rt_heap_strdup_c(s)); return 1; }
-        char *r = (char *)rt_pinned_alloc(2 * n + 3); size_t p = 0; r[p++] = '"';
+        char *r = (char *)rt_str_alloc(2 * n + 2); size_t p = 0; r[p++] = '"';
         for (size_t i = 0; i < n; i++) { if (s[i] == '"' || s[i] == '\\') r[p++] = '\\'; r[p++] = s[i]; }
         r[p++] = '"'; r[p] = '\0'; *out = STRVAL(r); return 1;
     }
@@ -605,19 +605,19 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         int d = !strcmp(meth, "succ") ? 1 : -1; if (IS_INT_fn(recv)) *out = INTVAL((long)recv.i + d); else *out = REALVAL(recv.r + d); return 1;
     }
     if (!strcmp(meth, "words")) {
-        char *r = (char *)rt_pinned_alloc(n + 1); int op = 0, first = 1; size_t i = 0;
+        char *r = (char *)rt_str_alloc(n); int op = 0, first = 1; size_t i = 0;
         while (i < n) {
             while (i < n && isspace((unsigned char)s[i])) i++; if (i >= n) break; if (!first) r[op++] = SOH; first = 0; while (i < n && !isspace((unsigned char)s[i])) r[op++] = s[i++];
         } r[op] = '\0';
         *out = STRVAL(r); return 1;
     }
     if (!strcmp(meth, "comb")) {
-        char *r = (char *)rt_pinned_alloc(2 * n + 1); int op = 0;
+        char *r = (char *)rt_str_alloc(2 * n); int op = 0;
         for (size_t i = 0; i < n; ) { int cl = utf8_seqlen((unsigned char)s[i]); if (i) r[op++] = SOH; for (int k = 0; k < cl && i < n; k++) r[op++] = s[i++]; } r[op] = '\0'; *out = STRVAL(r);
         return 1;
     }
     if (!strcmp(meth, "split") && nmargs >= 1) {
-        char sept[64]; const char *sep = to_cstring(margs[0], sept, sizeof sept); if (!sep) sep = ""; size_t sl = strlen(sep); char *r = (char *)rt_pinned_alloc(2 * n + 2); int op = 0;
+        char sept[64]; const char *sep = to_cstring(margs[0], sept, sizeof sept); if (!sep) sep = ""; size_t sl = strlen(sep); char *r = (char *)rt_str_alloc(2 * n + 1); int op = 0;
         if (sl == 0) {
             for (size_t i = 0; i < n; ) { int cl = utf8_seqlen((unsigned char)s[i]); if (i) r[op++] = SOH; for (int k = 0; k < cl && i < n; k++) r[op++] = s[i++]; }
         } else { const char *p = s, *hit;
@@ -626,21 +626,21 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         *out = STRVAL(r); return 1;
     }
     if (!strcmp(meth, "chomp")) {
-        size_t b = n; if (b > 0 && (s[b - 1] == '\n' || s[b - 1] == '\r')) b--; char *r = (char *)rt_pinned_alloc(b + 1); memcpy(r, s, b); r[b] = '\0'; *out = STRVAL(r); return 1;
+        size_t b = n; if (b > 0 && (s[b - 1] == '\n' || s[b - 1] == '\r')) b--; char *r = (char *)rt_str_alloc(b); memcpy(r, s, b); r[b] = '\0'; *out = STRVAL(r); return 1;
     }
     if (!strcmp(meth, "wordcase")) {
-        char *r = (char *)rt_pinned_alloc(n + 1); memcpy(r, s, n + 1); int start = 1;
+        char *r = (char *)rt_str_alloc(n); memcpy(r, s, n + 1); int start = 1;
         for (size_t i = 0; i < n; i++) { if (isspace((unsigned char)r[i])) start = 1; else { if (start) r[i] = (char)toupper((unsigned char)r[i]); start = 0; } } *out = STRVAL(r); return 1;
     }
     if (!strcmp(meth, "lines")) {
-        char *r = (char *)rt_pinned_alloc(2 * n + 1); int op = 0, first = 1; size_t i = 0;
+        char *r = (char *)rt_str_alloc(2 * n); int op = 0, first = 1; size_t i = 0;
         while (i < n) { if (!first) r[op++] = SOH; first = 0; while (i < n && s[i] != '\n') { if (s[i] != '\r') r[op++] = s[i]; i++; } if (i < n) i++; } r[op] = '\0'; *out = STRVAL(r); return 1;
     }
     if (!strcmp(meth, "elems")) { if (n == 0) { *out = INTVAL(0); return 1; } int c = 1; for (size_t i = 0; i < n; i++) if (s[i] == SOH) c++; *out = INTVAL(c); return 1; }
     if (!strcmp(meth, "trans") && nmargs >= 1) {
         const char *lst = VARVAL_fn(margs[0]); if (!lst) lst = "";
         int total = lst[0] ? 1 : 0; for (const char *p = lst; *p; p++) if (*p == SOH) total++;
-        if (total < 2 || (total % 2) != 0) { char *r = (char *)rt_pinned_alloc(n + 1); memcpy(r, s, n + 1); *out = STRVAL(r); return 1; }
+        if (total < 2 || (total % 2) != 0) { char *r = (char *)rt_str_alloc(n); memcpy(r, s, n + 1); *out = STRVAL(r); return 1; }
         int half = total / 2; if (half > 128) half = 128;
         const char *from[128]; size_t fromlen[128]; const char *to[128]; size_t tolen[128];
         size_t maxto = 1; int idx = 0; const char *seg = lst;
@@ -650,7 +650,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
             else if (idx - half < 128) { to[idx - half] = seg; tolen[idx - half] = L; if (L > maxto) maxto = L; }
             idx++; if (!nx) break; seg = nx + 1;
         }
-        char *r = (char *)rt_pinned_alloc(n * maxto + n + 1); size_t op = 0, i = 0;
+        char *r = (char *)rt_str_alloc(n * maxto + n); size_t op = 0, i = 0;
         while (i < n) {
             int matched = -1;
             for (int k = 0; k < half; k++) { if (fromlen[k] > 0 && i + fromlen[k] <= n && memcmp(s + i, from[k], fromlen[k]) == 0) { matched = k; break; } }
@@ -661,7 +661,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     }
     if (!strcmp(meth, "join")) {
         const char *sep = ""; char jb[64]; if (nmargs >= 1) { sep = to_cstring(margs[0], jb, sizeof jb); if (!sep) sep = ""; } size_t sl = strlen(sep); int nsep = 0;
-        for (size_t i = 0; i < n; i++) if (s[i] == SOH) nsep++; char *r = (char *)rt_pinned_alloc(n + (size_t)nsep * sl + 1); int op = 0;
+        for (size_t i = 0; i < n; i++) if (s[i] == SOH) nsep++; char *r = (char *)rt_str_alloc(n + (size_t)nsep * sl); int op = 0;
         for (size_t i = 0; i < n; i++) { if (s[i] == SOH) { memcpy(r + op, sep, sl); op += (int)sl; } else r[op++] = s[i]; } r[op] = '\0'; *out = STRVAL(r); return 1;
     }
     if (!strcmp(meth, "fmt")) {
