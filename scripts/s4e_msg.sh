@@ -1317,7 +1317,20 @@ case "$cmd" in
          # or $( always refuses, an ordinary body always still sends -- no exception for --stdin, because a
          # sender who genuinely needs literal shell-like text has no safe way to prove it arrived undamaged.
          case "$_body" in
-           *'`'*|*'$('*) echo "⛔ REFUSED: message body contains a backtick or \$(. An intervening shell (yours, or whatever built this command) silently command-substitutes these in transit, so send cannot tell safe literal text from the surviving half of an already-mangled message -- it refuses on the SHAPE either way, with no bypass. Rewrite the body without a literal backtick or \$(. For text that must contain shell-like syntax, describe it in words instead of pasting it live." >&2
+           *'`'*|*'$('*) echo "⛔ REFUSED: message body contains a backtick or \$(. An intervening shell (yours, or whatever built this command) silently command-substitutes these in transit, so send cannot tell safe literal text from the surviving half of an already-mangled message -- it refuses on the SHAPE either way, with no bypass.
+   ⛔ --stdin IS NOT AN EXEMPTION AND DELIBERATELY NEVER WAS: a literal backtick refuses on EVERY path, so
+   do not reach for the heredoc to smuggle one through. Say it in words -- name the thing instead of quoting it.
+   ⭐ WHAT --stdin IS FOR, WHICH IS A DIFFERENT AND BIGGER PROBLEM: it takes your shell out of the body path,
+   so nothing is silently EXPANDED before this script runs. Use it for all prose:
+       $0 send <to> <topic> --stdin <<'EOF'
+       ...body...
+       EOF
+   The QUOTED delimiter is the load-bearing part -- <<'EOF' disables expansion, <<EOF does not.
+   ⛔ AND KNOW WHAT THIS REFUSAL CANNOT SEE (hq_I 2026-09-13, occurrence FOUR, measured): if your shell
+   ALREADY ate the backticks, the body arriving here is clean and this check passes. It answers 'does this text
+   contain a backtick', never 'did this text lose a word to substitution' -- the second is undecidable here,
+   because the evidence is gone before send runs. A message can arrive with a hole in it and rc=0. That is why
+   the cure is a safe INPUT path, not a validator." >&2
              exit 1;;
          esac
          t="$(mktemp "$PO/.msg.XXXXXX")"; { echo "FROM $ME TO $to RE $topic"; echo "$_body"; } > "$t"
