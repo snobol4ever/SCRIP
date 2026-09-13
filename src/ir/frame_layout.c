@@ -169,13 +169,13 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
     case IR_LINE_MARK:
     case IR_STATEMENT:
         return 0;
-    case IR_INDIRECT_GOTO:
-        zls_field(scope_id, off, 8, ZK_PTR_CODE, 0, "gate.stored resume target (Proebsting ifstmt.gate: IR_MOVE_LABEL writes it at each arm's success, the box alpha jumps through it). Granted at rung 5 -- bb_indirect_goto and bb_move_label had ALWAYS addressed [op_off+16], which is this field, while the kind fell through to default and was granted only its 16-byte result, so the gate write landed 8 bytes past the grant. Harmless with ONE such box live and a core dump with two, because the second box's region began where the first's gate was still being written", nd);
+    case IR_GATE:
+        zls_field(scope_id, off, 8, ZK_RAW, 0, "gate.live arm index (+16 from box base; IR_GATE_ARM banks its own position in this gate's operand list at each arm's success, the box beta dispatches on it over compile-time wired ports). NOT A CODE ADDRESS: the stored resume target this slot used to hold died with the two label ops on Lon's order 2026-09-13 (CEO-693, 'There are no labels'), and the field is ZK_RAW rather than ZK_PTR_CODE for that reason -- a collector that sees a code pointer here is reading a small integer. Granted at rung 5 -- both templates had ALWAYS addressed [op_off+16], which is this field, while the kind fell through to default and was granted only its 16-byte result, so the gate write landed 8 bytes past the grant. Harmless with ONE such box live and a core dump with two, because the second box's region began where the first's gate was still being written", nd);
         zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "gate.pad (unused)", nd);
         return 1;
     case IR_DISJUNCTION:
         if (nd->op == IR_DISJUNCTION && nd->n_operands > 0) { zls_field(scope_id, off, 8, ZK_RAW, 0, "disj.alt_i live-alternative index (+16 from box base; nary self-state, MOVE_LABEL-ERAD: α=0, φ-glue ++, β dispatches; value DESCR = the box result slot at [base], option-B per-arm copy in σ-glue) (+24 pad)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "disj.pad (unused)", nd); return 1; }
-        zls_field(scope_id, off, 8, ZK_PTR_CODE, 0, "gate.stored resume target", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "gate.pad (unused)", nd); return 1;
+        zls_field(scope_id, off, 8, ZK_RAW, 0, "gate.live arm index (operand-less disjunction shares the gate box)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "gate.pad (unused)", nd); return 1;
     case IR_CALL_BUILTIN_GEN:
         for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * j, 16, ZK_DESCR, 0, "call.argv", nd);
         zls_field(scope_id, off + 16 * nd->n_operands, 8, ZK_RAW, 0, "callgen.resume position (alpha=0, runtime writes next start)", nd);
@@ -204,7 +204,7 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int zls_is_wiring(IR_e op) { return op == IR_GOTO || op == IR_MOVE_LABEL || op == IR_GOTO_DEFERRED || op == IR_SUCCEED || op == IR_FAIL || op == IR_RETURN || op == IR_SUSPEND || op == IR_CORET || op == IR_COFAIL || op == IR_CUT || op == IR_MATCH_END || op == IR_STATEMENT || op == IR_STATEMENT_BEGIN || op == IR_STATEMENT_END || op == IR_STMT_MARK || op == IR_GLIT || op == IR_GCC || op == IR_GALT; }
+static int zls_is_wiring(IR_e op) { return op == IR_GOTO || op == IR_GATE_ARM || op == IR_GOTO_DEFERRED || op == IR_SUCCEED || op == IR_FAIL || op == IR_RETURN || op == IR_SUSPEND || op == IR_CORET || op == IR_COFAIL || op == IR_CUT || op == IR_MATCH_END || op == IR_STATEMENT || op == IR_STATEMENT_BEGIN || op == IR_STATEMENT_END || op == IR_STMT_MARK || op == IR_GLIT || op == IR_GCC || op == IR_GALT; }
 static int zls_locals_shifted(IR_e op) { return op == IR_MATCH_BEGIN || op == IR_MATCH_ALTERNATE || op == IR_MATCH_ARB || op == IR_MATCH_BAL || op == IR_MATCH_FENCE0 || op == IR_MATCH_FENCE1 || op == IR_MATCH_ARBNO || op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_REM || op == IR_MATCH_DEFER || op == IR_MATCH_VALUE || op == IR_MATCH_ASSIGN_SAVE || op == IR_SCAN_ENTER || op == IR_INITIAL; }
 int fc_arm_member(const IR_t * nd);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -225,7 +225,7 @@ static int zls_s4_ok(IR_e op) { return op == IR_MATCH_SPAN || op == IR_MATCH_BRE
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void zls_mark_value_refs(const IR_graph_t * g, char * live) {
     for (int k = 0; k < g->n; k++) { const IR_t * c = g->all[k]; if (!c) continue;
-        if (c->op == IR_MATCH_ALTERNATE || c->op == IR_MATCH_FENCE0 || c->op == IR_MATCH_FENCE1 || c->op == IR_MOVE_LABEL) continue;
+        if (c->op == IR_MATCH_ALTERNATE || c->op == IR_MATCH_FENCE0 || c->op == IR_MATCH_FENCE1 || c->op == IR_GATE_ARM || c->op == IR_GATE) continue;
         for (int j = 0; j < c->n_operands; j++) { const IR_t * p = c->operands[j]; if (!p) continue; if (j == 0 && (c->op == IR_MATCH_ASSIGN_COND || c->op == IR_MATCH_ASSIGN_IMM)) continue; for (int i = 0; i < g->n; i++) if (g->all[i] == p) { live[i] = 1; break; } } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -276,7 +276,7 @@ static int fct_rsp_range(IR_graph_t * g, int k0, int k1) {
             op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_ASSIGN_COND ||
             op == IR_MATCH_ASSIGN_IMM || op == IR_MATCH_VALUE || op == IR_MATCH_ALTERNATE ||
             op == IR_MATCH_FENCE0 || op == IR_MATCH_FENCE1 || op == IR_BOUND || op == IR_UNMARK || op == IR_CONJUNCTION ||
-            op == IR_CUT || op == IR_MOVE_LABEL || op == IR_GLIT || op == IR_GCC || op == IR_GALT ||
+            op == IR_CUT || op == IR_GATE_ARM || op == IR_GLIT || op == IR_GCC || op == IR_GALT ||
             op == IR_RETURN || (op == IR_DISJUNCTION && x->n_operands == 0) ||
             (op == IR_MATCH_DEFER && x->pat_static && IR_LIT(x).sval && !strncmp(IR_LIT(x).sval, "PATV$", 5))) continue;
         if (op == IR_MATCH_ALTERNATE) {
@@ -313,7 +313,7 @@ static void zls_slot_census(IR_graph_t * g) {
     for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (!nd || zls_is_wiring(nd->op) || zls_result_off(nd) < 0) continue; G++;
         int ref = 0;
         for (int k = 0; k < g->n && !ref; k++) { IR_t * c = g->all[k]; if (!c || c == nd) continue;
-            if (c->op == IR_MATCH_ALTERNATE || c->op == IR_MATCH_ARBNO || c->op == IR_MATCH_FENCE1 || c->op == IR_SCAN_SEQUENCE || c->op == IR_SCAN_ALTERNATE || c->op == IR_REPALT || c->op == IR_MOVE_LABEL) continue;
+            if (c->op == IR_MATCH_ALTERNATE || c->op == IR_MATCH_ARBNO || c->op == IR_MATCH_FENCE1 || c->op == IR_SCAN_SEQUENCE || c->op == IR_SCAN_ALTERNATE || c->op == IR_REPALT || c->op == IR_GATE_ARM) continue;
             for (int j = 0; j < c->n_operands; j++) if (c->operands[j] == nd) { ref = 1; break; } }
         if (ref) L++; }
     tg += G; tl += L; tn++;
@@ -347,7 +347,7 @@ static const char * zls_pas_display_name(int lvl) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_build(IR_graph_t * g) {
     if (!g) return;
-    { int f = 1; for (int i = 0; i < g->n && f; i++) { IR_t * x = g->all[i]; if (!x) continue; if (x->op == IR_GOTO_DEFERRED || x->op == IR_INDIRECT_GOTO || x->op == IR_MATCH_BEGIN || x->op == IR_MATCH_DEFER) f = 0; else if ((x->op == IR_DEFINE && ir_define_sr_citizen(x))) { long long v = IR_LIT(x).ival; if (v == 1 || v == 2) f = 0; } else if ((x->op == IR_CALL_BUILTIN || x->op == IR_CALL_SNOBOL4 || x->op == IR_CALL) && IR_LIT(x).sval && (!strcmp(IR_LIT(x).sval, "EVAL") || !strcmp(IR_LIT(x).sval, "CODE"))) f = 0; } g_fcc_gfence = f; }
+    { int f = 1; for (int i = 0; i < g->n && f; i++) { IR_t * x = g->all[i]; if (!x) continue; if (x->op == IR_GOTO_DEFERRED || x->op == IR_GATE || x->op == IR_MATCH_BEGIN || x->op == IR_MATCH_DEFER) f = 0; else if ((x->op == IR_DEFINE && ir_define_sr_citizen(x))) { long long v = IR_LIT(x).ival; if (v == 1 || v == 2) f = 0; } else if ((x->op == IR_CALL_BUILTIN || x->op == IR_CALL_SNOBOL4 || x->op == IR_CALL) && IR_LIT(x).sval && (!strcmp(IR_LIT(x).sval, "EVAL") || !strcmp(IR_LIT(x).sval, "CODE"))) f = 0; } g_fcc_gfence = f; }
     for (int vi = 0; vi < g->n; vi++) { IR_t * a = g->all[vi]; if (!(a && a->op == IR_ASSIGN && a->n_operands == 1 && a->operands[0])) continue;
         { const char * vn = IR_LIT(a).sval; if (!(vn && is_global(vn) && !graph_has_local(g, vn))) continue; }
         IR_t * r = a->operands[0];
@@ -427,7 +427,7 @@ void zls_build(IR_graph_t * g) {
           unsigned long h = (((unsigned long)(uintptr_t)p) >> 4) & (unsigned long)(hn - 1); while (hk[h] && hk[h] != p) h = (h + 1) & (unsigned long)(hn - 1);
           if (hk[h] && !rb[hv[h]]) { rb[hv[h]] = 1; wl[wn++] = hv[h]; } }
       int dyn = 0;
-      for (int i = 0; i < g->n && !dyn; i++) if (g->all[i] && (g->all[i]->op == IR_GOTO_DEFERRED || g->all[i]->op == IR_INDIRECT_GOTO || ((g->all[i]->op == IR_CALL || g->all[i]->op == IR_CALL_BUILTIN || g->all[i]->op == IR_CALL_SNOBOL4) && IR_LIT(g->all[i]).sval && strcmp(IR_LIT(g->all[i]).sval, "CODE") == 0))) dyn = 1;
+      for (int i = 0; i < g->n && !dyn; i++) if (g->all[i] && (g->all[i]->op == IR_GOTO_DEFERRED || g->all[i]->op == IR_GATE || ((g->all[i]->op == IR_CALL || g->all[i]->op == IR_CALL_BUILTIN || g->all[i]->op == IR_CALL_SNOBOL4) && IR_LIT(g->all[i]).sval && strcmp(IR_LIT(g->all[i]).sval, "CODE") == 0))) dyn = 1;
       if (dyn) { for (int i = 0; i < g->n; i++) if (g->all[i]) rb[i] = 1; wn = 0; }
       for (int i = 0; i < g->n; i++) if (g->all[i] && !rb[i] && zls_is_wiring(g->all[i]->op)) { rb[i] = 1; wl[wn++] = i; }
       for (int mi2 = 0; mi2 < nl; mi2++) { int sp0 = mstart[mi2]; int sp1 = (mi2 + 1 < nl) ? mstart[mi2 + 1] : g->n; for (int i = sp0; i >= 0 && i < sp1 && i < g->n; i++) if (g->all[i] && !rb[i]) { rb[i] = 1; wl[wn++] = i; } }
@@ -872,7 +872,7 @@ void fl_derive_tier(IR_graph_t * g) {
             case IR_TO: case IR_TO_BY: case IR_LIMIT: case IR_REPALT: case IR_ITERATE: case IR_DISJUNCTION: case IR_GALT: case IR_CUT:
             case IR_CALL_BUILTIN_GEN: case IR_KW_ICON_GEN: case IR_CALL_VALUE: case IR_REV_ASSIGN: case IR_REV_ASSIGN_VAR: case IR_REV_SWAP:
             case IR_MATCH_FENCE1: case IR_MATCH_FENCE0: case IR_MATCH_ABORT: case IR_MATCH_ARBNO: case IR_MATCH_CALLOUT: case IR_MATCH_VALUE: case IR_MATCH_DEFER: case IR_MATCH_ALTERNATE: window = 1; break;
-            case IR_CALL: case IR_CALL_ICON: case IR_CALL_PROC_STAGED: case IR_CALL_BUILTIN: case IR_INDIRECT_GOTO: case IR_MATCH: callee = 1; break;
+            case IR_CALL: case IR_CALL_ICON: case IR_CALL_PROC_STAGED: case IR_CALL_BUILTIN: case IR_GATE: case IR_MATCH: callee = 1; break;
             default: break; } }
     if (g->icn_cells_graph) { g->zframe_pinned_base = (window || callee) ? 1 : 0; return; }
     if (statements || (matchers > 0 && others == 0)) return;

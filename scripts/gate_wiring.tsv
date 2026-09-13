@@ -176,6 +176,7 @@ test_gate_no_handencoded_bytes.sh	WIRED	-	-	-
 test_gate_no_language_discriminator_in_the_runtime.sh	WIRED	-	-	-
 test_gate_no_o2_arm_in_scripts.sh	WIRED	-	-	-
 test_gate_no_ref_pins_oracle_internal_state.sh	WIRED	-	-	-
+test_gate_no_stored_code_address_in_the_prolog_gate.sh	WIRED	-	-	-
 test_gate_no_unnamed_holes_in_an_activation_frame.sh	WIRED	-	-	-
 test_gate_no_vstack.sh	WIRED	-	-	-
 test_gate_no_weak_abort_stub.sh	WIRED	-	-	-
