@@ -191,4 +191,6 @@
 #define MOD_OP_RT_PL_UNGET_CHAR_S           248    /* rtx_plunify.s rt_pl_dop_unget_char_s */
 #define MOD_OP_RT_PL_UNGET_CODE_S           249    /* rtx_plunify.s rt_pl_dop_unget_code_s */
 #define MOD_OP_RT_PL_UNGET_BYTE_S           250    /* rtx_plunify.s rt_pl_dop_unget_byte_s */
+#define MOD_OP_RT_PL_CLOSE                  251    /* rtx_plunify.s rt_pl_dop_close */
+#define MOD_OP_RT_PL_SP_NTH                 252    /* rtx_plunify.s rt_pl_dop_pl_sp_nth */
 #endif
