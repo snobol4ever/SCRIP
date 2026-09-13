@@ -296,6 +296,7 @@ static void pld_mark_spec(tree_t *spec) {
         if ((nm->t == TT_QLIT || nm->t == TT_NAME) && nm->v.sval && ar->t == TT_ILIT) pl_dyn_mark(strdup(nm->v.sval), (int)ar->v.ival);
         return;
     }
+    if (spec->t == TT_MAKELIST) { for (int i = 0; i < spec->n; i++) pld_mark_spec(spec->c[i]); return; }
     if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, ",") && spec->n == 2) { pld_mark_spec(spec->c[0]); pld_mark_spec(spec->c[1]); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
