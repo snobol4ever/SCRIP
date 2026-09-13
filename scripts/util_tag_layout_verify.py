@@ -4,7 +4,7 @@ the emitted BBs depend on. Reads the TREE, never a hardcoded table (s229).
 Exit 0 = all predicates hold. Exit 1 = a renumber broke an inline form."""
 import re, sys, os
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-h = open(os.path.join(ROOT, 'src/contracts/descr.h')).read()
+h = open(os.path.join(ROOT, 'src/ir/descr.h')).read()
 T = {m[0]: int(m[1], 16) for m in re.findall(r'\b(DT_[A-Z0-9_]+)\s*=\s*(0x[0-9A-Fa-f]+)', h)}
 NUMBIT, CHARS, REALBIT = 0x01, 0x02, 0x04
 NOTSTR, STRIDE, NDATA = 0xFFFFFFFD, 8, 64
@@ -18,7 +18,7 @@ def ck(name, form, ok):
     print(f"  {'OK ' if ok else 'BAD'}  {name:16} {form}")
     if not ok: fails.append(name)
 
-print("DTYPE_t inline-predicate gate — layout read from src/contracts/descr.h")
+print("DTYPE_t inline-predicate gate — layout read from src/ir/descr.h")
 ck('is numeric', 'test eax,DT_NUMERIC_BIT',
    all(v & NUMBIT for v in num) and all(not (v & NUMBIT) for v in allv if v not in num))
 ck('is string', 'test eax,DT_NOTSTR_MASK ->Z',
@@ -48,7 +48,7 @@ ck('A/T adjacent', 'one subscript range guard', T['DT_T'] - T['DT_A'] == STRIDE)
 # The fused form is the reason a human reviewer and three greps all missed it: there is no "tag immediate"
 # to see, only a nibble. So the gate now reads the TREE, not just the layout.
 srcroot = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'src')
-inc = os.path.join(srcroot, 'contracts', 'descr_tags.inc')
+inc = os.path.join(srcroot, 'ir', 'descr_tags.inc')
 itags = {}
 for ln in open(inc):
     m = re.match(r'\s*#define\s+(DT_[A-Z0-9_]+)\s+(0x[0-9a-fA-F]+|\d+)\s*$', ln)
