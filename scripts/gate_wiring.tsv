@@ -48,6 +48,7 @@ test_gate_ast_shaped_refs_are_declared_ast.sh	WIRED	-	-	-
 test_gate_banner_groups_by_language_and_excludes_unread_suites.sh	WIRED	-	-	-
 test_gate_banner_leads_with_the_suite_line.sh	WIRED	-	-	-
 test_gate_banner_reports_ahead_of_origin.sh	WIRED	-	-	-
+test_gate_baton_donewhen_reads_its_runner_rc.sh	WIRED	-	-	-
 test_gate_baton_donewhen_runnable.sh	WIRED	-	-	-
 test_gate_bench_prolog_kernels_pristine.sh	WIRED	-	-	-
 test_gate_boards_refuse_when_the_binary_moves.sh	WIRED	-	-	-
@@ -57,6 +58,7 @@ test_gate_capture_stdin_and_red_exit.sh	WIRED	-	-	-
 test_gate_ceo409_mask_is_read_by_the_bash_runners.sh	WIRED	-	-	-
 test_gate_coexpr_stack_of_uncreated_thread.sh	WIRED	-	-	-
 test_gate_collect_reports_free_storage_and_fails_when_short.sh	WIRED	-	-	-
+test_gate_control_edges_live_on_ports.sh	WIRED	-	-	-
 test_gate_corpus_coverage_classified.sh	WIRED	-	-	-
 test_gate_cross_suite_ref_agreement.sh	WIRED	-	-	-
 test_gate_deferred_rows_name_a_ruling_and_the_work_they_wait_on.sh	WIRED	-	-	-
@@ -74,6 +76,7 @@ test_gate_emit_no_lang.sh	WIRED	-	-	-
 test_gate_emit_no_slot_alloc.sh	WIRED	-	-	-
 test_gate_errlimit_survival_is_measured_per_code.sh	WIRED	-	-	-
 test_gate_gate_wiring_ratchet.sh	WIRED	-	-	-
+test_gate_gc_aggregate_interiors_are_marked_not_only_slotted.sh	WIRED	-	-	-
 test_gate_gc_aggregates_are_collectable_not_immortal.sh	WIRED	-	-	-
 test_gate_gc_pacing_bounds_a_churning_program.sh	WIRED	-	-	-
 test_gate_harness_refusal_is_rc2.sh	WIRED	-	-	-
@@ -185,6 +188,8 @@ test_gate_our_files_are_lf.sh	WIRED	-	-	-
 test_gate_outside_baseline_rows_name_a_live_measurement.sh	WIRED	-	-	-
 test_gate_package_runners_print_the_inventory.sh	WIRED	-	-	-
 test_gate_parser_generated_files_in_sync.sh	WIRED	-	-	-
+test_gate_pas_a_record_wider_than_the_field_table_still_resolves_its_variant_tags.sh	WIRED	-	-	-
+test_gate_pas_a_two_dimensional_array_indexes_the_same_both_ways.sh	WIRED	-	-	-
 test_gate_pas_array_field_elements_keep_their_declared_width.sh	WIRED	-	-	-
 test_gate_pas_boolean_write_iso_mod_and_forward_params.sh	WIRED	-	-	-
 test_gate_pas_calls_carry_more_than_six_operands.sh	WIRED	-	-	-
@@ -297,6 +302,7 @@ test_gate_sno_pos_rpos_dynamic_operand.sh	WIRED	-	-	-
 test_gate_sno_repl_lvalue_subject.sh	WIRED	-	-	-
 test_gate_sno_runtime_define.sh	WIRED	-	-	-
 test_gate_sno_setexit_resume_matches_oracle.sh	WIRED	-	-	-
+test_gate_sno_stcount_counts_statements_inside_code_fragments.sh	WIRED	-	-	-
 test_gate_sno_terminal_read_fails_without_a_tty.sh	WIRED	-	-	-
 test_gate_sno_trace_banner_spells_an_object_like_dump.sh	WIRED	-	-	-
 test_gate_sno_trace_value_fires_at_every_sink_with_the_sinks_statement_number.sh	WIRED	-	-	-
