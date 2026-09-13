@@ -95,6 +95,20 @@ static int rk_is_binop(tree_e tt) {
     switch (tt) { case TT_ADD: case TT_SUB: case TT_MUL: case TT_DIV: case TT_MOD: case TT_POW: case TT_CAT: case TT_XREP: return 1; default: return 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_yields_list(const tree_t * t) {
+    if (!t) return 0;
+    if (t->t == TT_FNC && t->n > 0 && t->c[0] && t->c[0]->v.sval) {
+        const char * f = t->c[0]->v.sval;
+        return !strcmp(f, "__rk_arr_slice") || !strcmp(f, "__rk_arr_pick");
+    }
+    if (t->t == TT_METHCALL && t->n > 1 && t->c[1] && t->c[1]->v.sval) {
+        const char * m = t->c[1]->v.sval;
+        return !strcmp(m, "keys") || !strcmp(m, "values") || !strcmp(m, "sort") || !strcmp(m, "reverse")
+            || !strcmp(m, "grep") || !strcmp(m, "map");
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_relop(tree_e tt) {
     switch (tt) { case TT_LT: case TT_LE: case TT_GT: case TT_GE: case TT_EQ: case TT_NE: case TT_LEQ: case TT_LNE: case TT_LLT: case TT_LLE: case TT_LGT: case TT_LGE: return 1; default: return 0; }
 }
@@ -312,6 +326,8 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (t->n == 1 && t->c[0] && t->c[0]->t == TT_VAR &&
             (rk_is_arrlit_scalar(t->c[0]->v.sval) || rk_is_array_name(t->c[0]->v.sval)))
             return lower_rcall(cx, t, "rk_write_arr", 0, γ, ω, res);
+        if (t->n == 1 && rk_yields_list(t->c[0]))
+            return lower_rcall(cx, t, "rk_write_list", 0, γ, ω, res);
         return lower_rcall(cx, t, "rk_write", 0, γ, ω, res);
     case TT_PRINT: case TT_PRINT_FH: return lower_rcall(cx, t, "rk_writes", 0, γ, ω, res);
     case TT_DIE: return lower_rcall(cx, t, "die", 0, γ, ω, res);

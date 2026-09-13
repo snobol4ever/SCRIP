@@ -274,7 +274,7 @@ int rt_builtin_is_known(const char *name)
         "__rk_arr_xx", "__rk_arr_at", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first",
         "__rk_arr_keys", "__rk_arr_values", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
-        "__rk_div", "__rk_intdiv", "__rk_mod", "rk_write", "rk_writes", "rk_write_arr", "__rk_named_call", "__rk_rep", "__rk_exit",
+        "__rk_div", "__rk_intdiv", "__rk_mod", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
         "__pas_ca_pack", "__pas_ca_unpack",
         "__rk_hash",
         "elems", "push_pure", "unshift_pure", "arr_tail",
@@ -585,6 +585,13 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         *out = INTVAL(!strcmp(meth, "not") ? (truthy ? 0 : 1) : (truthy ? 1 : 0)); return 1;
     }
     if (!strcmp(meth, "defined")) { *out = INTVAL(recv.v != DT_SNUL ? 1 : 0); return 1; }
+    if (!strcmp(meth, "raku") || !strcmp(meth, "perl")) {
+        if (recv.v == DT_SNUL) { *out = STRVAL(rt_heap_strdup_c("Any")); return 1; }
+        if (IS_INT_fn(recv) || IS_REAL_fn(recv)) { *out = STRVAL(rt_heap_strdup_c(s)); return 1; }
+        char *r = (char *)rt_pinned_alloc(2 * n + 3); size_t p = 0; r[p++] = '"';
+        for (size_t i = 0; i < n; i++) { if (s[i] == '"' || s[i] == '\\') r[p++] = '\\'; r[p++] = s[i]; }
+        r[p++] = '"'; r[p] = '\0'; *out = STRVAL(r); return 1;
+    }
     if ((!strcmp(meth, "succ") || !strcmp(meth, "pred")) && (IS_INT_fn(recv) || IS_REAL_fn(recv))) {
         int d = !strcmp(meth, "succ") ? 1 : -1; if (IS_INT_fn(recv)) *out = INTVAL((long)recv.i + d); else *out = REALVAL(recv.r + d); return 1;
     }
@@ -3009,6 +3016,16 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         fputc('\n', stderr); fflush(stderr);
         *out = INTVAL(1); return 1;
     }
+    if (!strcmp(fn, "rk_write_list") && nargs == 1) {
+        const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
+        size_t n = strlen(cur); char *buf = rt_pinned_alloc(n + 3); size_t p = 0;
+        buf[p++] = '(';
+        for (size_t i = 0; i < n; i++) buf[p++] = (cur[i] == SOH) ? ' ' : cur[i];
+        buf[p++] = ')'; buf[p] = '\0';
+        DESCR_t tmp1 = STRVAL(buf);
+        *out = rt_call_arr("write", &tmp1, 1); return 1;
+    }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
     if (!strcmp(fn, "rk_write_arr") && nargs == 1) {
         const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
         size_t n = strlen(cur); char *buf = rt_pinned_alloc(n + 3); size_t p = 0;
