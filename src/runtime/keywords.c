@@ -527,6 +527,8 @@ DESCR_t rt_keyword_read_snobol4(const char *sval) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_stmt_file_init(const char *file) { g_file = file; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rt_stmt_seed_code_fragment_statement_hooks(void) { setenv("SCRIP_SNO_STMTKW", "1", 1); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_stmt_enter(long stno, long line) {
     g_lastno = g_stno;
     g_stno = stno;
@@ -535,6 +537,7 @@ void rt_stmt_enter(long stno, long line) {
     g_lastfile = (g_stcount > 0) ? g_file : (const char *)0;
     if (kw_stlimit < 0) return;
     g_stcount++;
+    if (g_stcount == 1) rt_stmt_seed_code_fragment_statement_hooks();
     { extern void rt_trace_keyword_write(const char *, int64_t, long long); rt_trace_keyword_write("STCOUNT", (int64_t)g_stcount, (long long)stno); }
     if (g_stcount > kw_stlimit) kwb_error(244, "statement count exceeds value of stlimit keyword");
 }
