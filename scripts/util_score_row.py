@@ -3632,11 +3632,13 @@ def cmd_progress(a):
             if r.get("suite"): deferred[r["suite"].strip()] = r
     today = _dt.date.today().isoformat()
     cells_out, bars, tp, tt, missing = [], [], 0, 0, []
+    grid_rows = []   # (lang, pct-cell, passed/total-cell, bar) -- the grid Lon asked for, one row per language
     notrun, defer_out, ours = [], [], []
     for lang, short in PROGRESS_LANGS:
         if lang in PROGRESS_NO_PUBLIC_SUITE:
             cells_out.append("%s no-public-suite" % short)
             bars.append("%s %s" % (short, "-" * 10))
+            grid_rows.append((short, "-", "no pub suite", "-" * 10))
             for r in rd:
                 if r["lang"] == lang and r["key"].endswith("-master") and r["today_pass"].strip():
                     ours.append("%-8s %s %s/%s (%s)" % (lang, r["nick"], r["today_pass"], r["today_total"], r["today_date"]))
@@ -3662,33 +3664,66 @@ def cmd_progress(a):
             missing.append(short)
             cells_out.append("%s MISSING" % short)
             bars.append("%s %s" % (short, "?" * 10))
+            grid_rows.append((short, "MISS", "no reading", "?" * 10))
             continue
         pct = (100 * P) // T
         mark = "?" if stale else ""
         tp += P; tt += T
         cells_out.append("%s %d%%%s" % (short, pct, mark))
         bars.append("%s %s" % (short, "█" * (pct // 10) + "░" * (10 - pct // 10)))
+        grid_rows.append((short, "%d%%%s" % (pct, mark), "%d/%d" % (P, T),
+                          "█" * (pct // 10) + "░" * (10 - pct // 10)))
         if a.verbose:
-            sys.stdout.write("  %-8s %3d%%%-1s  %5d/%-5d  from SUITES.tsv: %s\n"
-                             % (lang, pct, mark, P, T, " · ".join("%s %s/%s (%s)" % (r["nick"], r["today_pass"], r["today_total"], r["today_date"][5:]) for r in vend if r["today_pass"].strip() and r["key"] not in deferred)))
+            # ⛔ CLIPPED TO THE SAME 80-COLUMN BUDGET AS THE GRID ABOVE. This line joins every vendored
+            # suite of a language edge-to-edge and measured 201 columns for prolog -- the --verbose arm is
+            # read by a human in the same terminal as the banner, so it is not exempt from the rule that
+            # a line which wraps is a line which is not read.
+            _sfx = " · ".join("%s %s/%s (%s)" % (r["nick"], r["today_pass"], r["today_total"], r["today_date"][5:]) for r in vend if r["today_pass"].strip() and r["key"] not in deferred)
+            _pfx = "  %-8s %3d%%%-1s  %5d/%-5d  " % (lang, pct, mark, P, T)
+            if len(_pfx) + len(_sfx) > 80: _sfx = _sfx[:80 - len(_pfx) - 1] + "…"
+            sys.stdout.write(_pfx + _sfx + "\n")
     gh = git(".github", "rev-parse", "--short", "HEAD") or "unknown"
     allpct = (100 * tp) // tt if tt else 0
     scored = [sh for l, sh in PROGRESS_LANGS if l not in PROGRESS_NO_PUBLIC_SUITE and sh not in missing]
     allcell = ("ALL %d%% (%d with a public suite, %d/%d)" % (allpct, len(scored), tp, tt)) if tt else "ALL MISSING (no vendored suite has a reading)"
+    # the headline is greped out of the banner on its own, so it carries the short form of the same fact
+    allshort = ("ALL %d%% %d/%d" % (allpct, tp, tt)) if tt else "ALL MISSING"
     day = time.strftime("%m-%d")
-    print("PROGRESS %s [basis: MEASURED ONLY, from .github/SUITES.tsv, the record every runner rewrites -- each percent is passes over the population the VENDORED suites actually ran on (Lon 2026-09-05: \"Show measured numbers from running test suites not FLOORS\"); our own masters are printed under --verbose as ours and are never counted; no public suite = no percent; ? = a counted suite's latest reading is from before today]" % day)
-    print("PROGRESS %s | %s | %s | tree %s %s"
-          % (day, " | ".join(cells_out), allcell, gh, time.strftime("%Y-%m-%d %H:%M %Z")))
-    print("  " + "  ".join(bars))
+    # ⛔⭐ A GRID, AND EVERY LINE FITS 80 DISPLAY COLUMNS (Lon 2026-09-13, in-chat, routed by cto to all
+    # seats: "That banner printed is nu-formatted and un-readble with wrapping text. Do not show that again.
+    # Show as a grid.").  What stood here was three prints measuring 420, 191 and 111 columns -- a basis
+    # PARAGRAPH, every language crammed edge-to-edge on one line, and the bars on a second line that had to be
+    # read alongside the first to mean anything.  In an 80-column terminal that is ten wrapped rows with no
+    # alignment, i.e. not read at all, which is what "un-readable" meant.  ⭐ The percent and its bar now sit
+    # in ONE row per language, so the eye reads across instead of correlating two wrapped blocks; the basis
+    # note keeps its law but moves behind --verbose, because a paragraph reprinted every single turn is how a
+    # caption stops being read.  ⛔ The `PROGRESS <day> |` headline is LOAD-BEARING and must keep its shape:
+    # s4e_msg.sh greps it out of the banner and test_gate_banner_leads_with_the_score.sh asserts it.
+    print("PROGRESS %s | %s | %d/%d langs graded | tree %s %s"
+          % (day, allshort, len(scored), len(PROGRESS_LANGS), gh, time.strftime("%H:%M %Z")))
+    if a.verbose:
+        for _b in ("basis: MEASURED ONLY, from .github/SUITES.tsv, the record every runner",
+                   "rewrites -- each percent is passes over the population the VENDORED suites",
+                   "actually ran on (Lon 2026-09-05: \"Show measured numbers from running test",
+                   "suites not FLOORS\"); our own masters print below as ours and are never",
+                   "counted; no public suite = no percent; ? = a counted suite's latest reading",
+                   "is from before today."):
+            print("  " + _b)
+    else:
+        print("  basis: MEASURED from SUITES.tsv; ? = read before today; --verbose for the note")
+    print("  %-5s %-6s %13s  %s" % ("lang", "pct", "passed/total", "progress"))
+    print("  %-5s %-6s %13s  %s" % ("-" * 5, "-" * 6, "-" * 13, "-" * 10))
+    for short, pctc, frac, bar in grid_rows:
+        print("  %-5s %-6s %13s  %s" % (short, pctc, frac, bar))
     if notrun:
         print("  NOT RUN (a vendored population with no reading on file -- outside every percent above):")
-        for l in notrun: print("    " + l)
+        for l in notrun: print(("    " + l)[:80])
     if defer_out:
-        print("  DEFERRED by Lon (DEFERRED.tsv -- in scope, not a failure, outside every percent above):")
-        for l in defer_out: print("    " + l)
+        print("  DEFERRED by Lon (in scope, not a failure, outside the percents):")
+        for l in defer_out: print(("    " + l)[:80])
     if a.verbose:
         print("  OURS, never counted (masters, our own graded population):")
-        for l in ours: print("    " + l)
+        for l in ours: print(("    " + l)[:80])
     return 0
 
 

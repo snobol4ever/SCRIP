@@ -34,6 +34,16 @@ set -u
 shopt -s dotglob
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 sibling root
 PO="${S4E_POST:-/home/resources/postoffice}"
+# ⛔⭐ ONE COLUMN FITTER FOR THE WHOLE SCRIPT (Lon 2026-09-13, in-chat, routed by cto to all seats:
+# "That banner printed is nu-formatted and un-readble with wrapping text ... Show as a grid."). Anything this
+# script prints for a human goes through here, because a line that wraps in an 80-column terminal is not read
+# -- and an instrument whose output is not read has not measured anything. ⛔ It clips on DISPLAY columns, not
+# bytes: `cut -c80` would saw the banner's 240-byte box rules into a third of a line while missing every real
+# offender. The one width authority is dw() in util_suite_banner.py, imported by util_fit_columns.py.
+# ⛔ IT CAN NEVER BREAK ITS CALLER: no fitter, or a fitter that dies, degrades to `cat`. The banner's exit
+# status is the seat's computed verdict, and a formatter must never hold veto power over the thing it formats.
+S4E_FIT="$(dirname "${BASH_SOURCE[0]}")/util_fit_columns.py"
+s4e_fit() { if [ -f "$S4E_FIT" ]; then python3 "$S4E_FIT" "${1:-80}" 2>/dev/null || cat; else cat; fi; }
 # ⭐ s266 (ceo request, Lon reporting restarted seats assuming DUO): MODE IS COMPUTED, NEVER ASSUMED FROM PROSE.
 # /home/resources/postoffice/MODE (ceo custody, first line = value) is the single authority; absent = LOUD, never
 # a silent default -- the identity-assert law applied to mode.
@@ -57,11 +67,18 @@ s4e_canon() { case "$1" in
     *)                         echo "$1";; esac; }
 s4e_boxes() { for _b in "$PO"/*/; do [ -d "$_b/inbox" ] || continue; basename "$_b"; done; }
 s4e_assert_box() { [ -d "$PO/$1/inbox" ] && return 0
-    printf '\n⛔⛔⛔ NO POSTOFFICE MAILBOX FOR %s "%s" ⛔⛔⛔\n' "${2:-identity}" "$1" >&2
-    printf '    %s does NOT exist, and this script no longer creates one on the fly (LAW 6: that is how the\n' "$PO/$1/inbox" >&2
-    printf '    phantom claude01/ mailbox was born and how seat01 lost a day of HQ mail).\n' >&2
-    printf '    known mailboxes: %s\n' "$(s4e_boxes | tr '\n' ' ')" >&2
-    printf '    if this identity is genuinely new, an HQ creates it DELIBERATELY: %s mailbox %s\n\n' "$0" "$1" >&2
+    # ⛔ EVERY LINE FITTED. This refusal interpolates a filesystem path AND the full mailbox list, so its
+    # width is set by the data, not by the format string: measured at 126 columns against a scratch postoffice
+    # under /tmp. A refusal that wraps is the worst line in the script to lose -- it is the one a confused
+    # reader is trying hardest to read.
+    { printf '\n⛔⛔⛔ NO POSTOFFICE MAILBOX FOR %s "%s" ⛔⛔⛔\n' "${2:-identity}" "$1"
+      printf '    %s\n' "$PO/$1/inbox"
+      printf '    does NOT exist, and this script no longer creates one on the fly (LAW 6:\n'
+      printf '    that is how the phantom claude01/ mailbox was born and how seat01 lost\n'
+      printf '    a day of HQ mail).\n'
+      printf '    known mailboxes: %s\n' "$(s4e_boxes | tr '\n' ' ')"
+      printf '    if this identity is genuinely new, an HQ creates it DELIBERATELY:\n'
+      printf '        %s mailbox %s\n\n' "$0" "$1"; } | s4e_fit >&2
     exit 3; }
 # ⭐ THE OWNING HQ IS A FACT ON DISK, NEVER A GUESS. `ask` used to hardcode `hq`; with hq retiring and two HQs
 # owning different questions, guessing would route a correctness question into the perf HQ's backlog. Order:
@@ -2723,6 +2740,10 @@ TASKEOF
          fnd=$(git -C "$S4E/.github" log --since="$since" --diff-filter=A --name-only --format= 2>/dev/null | grep '^FINDING-' | grep -ci -e "$ME" -e "$mealt" ${row1:+-e "$row1"} || true); fnd="${fnd:-0}"
          if [ "$cmts" -eq 0 ] && [ "$fnd" -eq 0 ]; then lvl="⚠ NOTHING ATTRIBUTABLE LANDED"
          else lvl="row ${rowst}${row1:+ ${row1}} · ${cmts} commit(s) · ${fnd} FINDING(s), attributed since ${since}"; fi
+         # ⭐ THE SAME FACT WITHOUT THE ROW TOPIC, for the GRID below, which gives the row its own line.
+         # $lvl keeps the topic inline because it is what BOARD.md stores and `fleet` cuts to 40 columns.
+         if [ "$cmts" -eq 0 ] && [ "$fnd" -eq 0 ]; then lvlshort="⚠ nothing attributable landed"
+         else lvlshort="${cmts} commit(s) · ${fnd} FINDING(s), attributed since ${since}"; fi
          # ⛔ BEHIND-ONLY IS NOT A FAILURE. handoff_status.sh answers "is this tree in sync"; the banner answers a
          # NARROWER question -- does anything of value live ONLY in this session. A clone merely BEHIND origin (clean
          # tree, nothing unpushed) loses nothing on /clear; it just pulls next time. Measured directly per repo, since
@@ -2733,11 +2754,15 @@ TASKEOF
            br=$(git -C "$r" rev-parse --abbrev-ref HEAD 2>/dev/null)
            u=$(git -C "$r" rev-list --count "origin/$br..$br" 2>/dev/null || echo 0)
            onlyhere=$((onlyhere + d + ${u:-0})); done
+         vhead=""; vnote=""
          if   [ -n "$diverged" ]; then line="⛔ STOP — $ME — PRE-REWRITE CLONE:$diverged — re-clone before use"
+           vhead="⛔ STOP — $ME — PRE-REWRITE CLONE — re-clone before use"; vnote="$diverged"
          # rc is deliberately NOT changed by the drain refusal, for the same reason NOTHING LANDED did not change it:
          # rc answers "is it safe to /clear", and unread mail is safe to /clear -- it is on disk and waits. What the
          # drain law governs is the VERDICT LON READS, and that is this line.
          elif [ "$drain" -eq 1 ]; then line="⛔ DRAIN FIRST — $ME — ${inbx} unread, oldest ${staleage}m (limit ${stalemin}m). LAW 3: answer every pending question into its task file BEFORE minting or assigning. No ✅ until the inbox is current — $lvl"
+           vhead="⛔ DRAIN FIRST — $ME — ${inbx} unread, oldest ${staleage}m (limit ${stalemin}m)"
+           vnote="LAW 3: answer every pending question into its task file before minting."
          # ⛔⛔ s255, LON: "I never stopped a FLEET worker whose banner did not say SUCCESS after I prompted 'show me
          # the required banner.' So they lied."  THE SEATS DID NOT LIE -- THIS HEADLINE ANSWERED THE WRONG QUESTION.
          # SUCCESS was emitted on handoff_status rc=0, i.e. "tree clean, nothing unpushed" -- which A SEAT THAT DID
@@ -2748,10 +2773,18 @@ TASKEOF
          # SUCCESS verdict. The wrong one was in the headline. Now: nothing landed => the headline says so.
          # rc is deliberately UNCHANGED -- it still answers "safe to /clear", which is a different question and the
          # one tooling consumes. The banner's TEXT is what Lon reads, and it is now the one that must be earned.
+         # ⭐ $line is the RECORD (BOARD.md); $vhead + $vnote are the same verdict split for the GRID, so a
+         # long explanation becomes its own row instead of pushing the headline past the terminal.
          elif [ "$cmts" -eq 0 ] && [ "$fnd" -eq 0 ]; then line="⚠ NOTHING LANDED — $ME — tree is clean and safe to /clear, but this session produced NO commit and NO FINDING. That is not success; it is an empty session."
+           vhead="⚠ NOTHING LANDED — $ME — tree clean, safe to /clear"
+           vnote="NO commit and NO FINDING this session. Not success; an empty session."
          elif [ "$onlyhere" -eq 0 ] && [ "$hrc" -ne 0 ]; then line="✅ SUCCESS — $ME — safe to /clear (behind origin, nothing unpushed) — $lvl"
+           vhead="✅ SUCCESS — $ME — safe to /clear (behind origin, nothing unpushed)"
          elif [ "$hrc" -eq 0 ]; then line="✅ SUCCESS — $ME — safe to /clear — $lvl"
-         else                        line="⛔ FAILURE — $ME — do NOT /clear — $lvl — $(printf '%s' "$pline" | sed 's/^ *-* *//')"; fi
+           vhead="✅ SUCCESS — $ME — safe to /clear"
+         else                        line="⛔ FAILURE — $ME — do NOT /clear — $lvl — $(printf '%s' "$pline" | sed 's/^ *-* *//')"
+           vhead="⛔ FAILURE — $ME — do NOT /clear"
+           vnote="$(printf '%s' "$pline" | sed 's/^ *-* *//')"; fi
          # ⭐ V2-3, second half: the BOARD LINE carries the oldest-unanswered age and the row topic. BOARD.md is what
          # `fleet` renders and what Lon reads when he is not reading a banner, and in v1 it could not show either --
          # so an HQ sitting on a 1h47m question looked exactly like an HQ with an empty inbox.
@@ -2762,7 +2795,31 @@ TASKEOF
          # disappears exactly when it matters is a blind instrument (LAW 0, species 3).
          [ -z "${row1:-}" ]   || line="$line · row ${row1}"
          [ -z "$staleage" ]   || line="$line · mail ${inbx}/${staleage}m"
-         printf '\n%s\n  %s\n%s\n' "$b" "$line" "$b"
+         # ⛔⭐ THE VERDICT AS A GRID, EVERY ROW INSIDE 80 DISPLAY COLUMNS (Lon 2026-09-13, in-chat, routed
+         # by cto to all seats: "That banner printed is nu-formatted and un-readble with wrapping text. Do not
+         # show that again. Show as a grid."). What stood here printed $line -- ONE line -- between two rules.
+         # Measured on this seat the day the rule was cut: 337 display columns, five wrapped rows of ragged
+         # text sitting between two 80-column rules that no longer lined up with anything. The FAILURE arm was
+         # worse, since it appends the handoff's own pline.
+         # ⛔ $line ITSELF IS UNCHANGED AND STILL GOES TO BOARD.md: that is a RECORD, read by `fleet`, which
+         # cuts it to 40 columns of its own. Only the DISPLAY is gridded. Changing both would have quietly
+         # rewritten the board's stored format to fix a terminal's rendering -- two different readers, and
+         # only one of them is a terminal.
+         # ⛔ THE ROW TOPIC GETS ITS OWN LINE and is clipped there if it must be (topics in this queue run
+         # past 80 characters on their own). Per Lon's word, a truncated cell that is read beats a full line
+         # that is not; the untruncated topic remains in BOARD.md, in `next` and in `check`.
+         # ⛔ A NEW VERDICT ARM THAT FORGETS $vhead MUST NOT BLANK THE BANNER. Two arms above this block
+         # already existed when the grid was added; the next one added will not know about it either. The
+         # fallback is the record line itself -- fitted like every other row, so the worst case is a clipped
+         # verdict rather than an absent one.
+         [ -n "${vhead:-}" ] || vhead="$line"
+         { printf '\n%s\n' "$b"
+           printf '  %s\n' "$vhead"
+           [ -z "${vnote:-}" ] || printf '  %-7s %s\n' "note" "$vnote"
+           printf '  %-7s %s\n' "level" "$lvlshort"
+           [ -z "${row1:-}" ] || printf '  %-7s %s %s\n' "row" "$rowst" "$row1"
+           [ -z "$staleage" ] || printf '  %-7s %s unread, oldest %sm\n' "mail" "$inbx" "$staleage"
+           printf '%s\n' "$b"; } | s4e_fit
          # ⭐ THE PROGRESS LINE, LAST (Lon 2026-09-03 ~20:15: "each of the 7 main runners display a score of
          # percentage in a banner ... just to see a progress indicator of any kind"). It READS .github/SCORE.md
          # and runs no suite -- ~60ms, no network, no build -- so a Stop hook can afford it on every response.

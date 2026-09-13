@@ -72,12 +72,24 @@ out="$(run seatAA next)"
 case "$out" in *"RESUME zz-low-rank"*) ok "Pass 2 resumes the lower-rank open claim first, not the alphabetically-first one";;
   *) no "Pass 2 rank order among MY OWN claims" "RESUME zz-low-rank" "$(echo "$out" | head -1)";; esac
 
+# ⛔⭐ THE ROW CELL, READ AS A CELL (hq_B 2026-09-13, row `instruments-the-stop-banner-wraps-twenty-six-
+# of-its-forty-two-lines-past-eighty-columns`). These three checks used to substring-match "row <topic>"
+# against the WHOLE banner, which worked only while the banner printed one long "· row <topic>" line. That
+# line was 337 display columns and wrapped into five unreadable rows in Lon's terminal, so the verdict is now
+# a fitted grid and the topic sits in its own labelled cell: "  row     OPEN <topic>".
+# ⛔ WHAT IS BEING PRESERVED, EXACTLY: this gate's subject is ATTRIBUTION -- which row the banner picks --
+# and that property is unchanged and still strictly asserted. Only the rendering it reads moved. The matcher
+# is ANCHORED to the row line rather than loosened to a bare topic search: a bare *"<topic>"* would also
+# match the topic appearing anywhere else in the banner, which would make all three checks pass for the
+# wrong reason -- the weaker test is the trap here, not the stricter one. The SELF=1 injections below are
+# rewritten into the same shape, so the fail-once proof still reds.
+_attributes() { printf '%s\n' "$2" | grep -qE "^ +row +[A-Za-z]+ +$1( |$)"; }
 echo "-- C: bare banner falls back to the same rank-sort, never glob order, among still-open claims --"
 # same $T/po as B: aa-high-rank and zz-low-rank are both still open
 out="$(run seatAA banner)"
-[ "$SELF" = 1 ] && out="· row aa-high-rank"
-case "$out" in *"row zz-low-rank"*) ok "bare banner attributes to the lower-rank open claim, not the alphabetically-first one";;
-  *) no "banner rank-sort fallback" "row zz-low-rank" "$(echo "$out" | tail -3 | tr '\n' ' ')";; esac
+[ "$SELF" = 1 ] && out="  row     OPEN aa-high-rank"
+if _attributes zz-low-rank "$out"; then ok "bare banner attributes to the lower-rank open claim, not the alphabetically-first one"
+  else no "banner rank-sort fallback" "a 'row ... zz-low-rank' cell" "$(printf '%s\n' "$out" | grep -E '^ +row ' | head -1 | tr -s ' ')"; fi
 
 echo "-- D: done(topic) already passes ITS topic to banner -- banner must USE it over the rank fallback --"
 cat > "$T/po/tasks/aa-high-rank.task.md" <<EOF
@@ -90,9 +102,9 @@ EOF
 touch "$T/flag"
 run seatAA done aa-high-rank >/dev/null   # S4E_NO_BANNER=1 in run(): verifies + marks DONE, does not fire banner yet
 out="$(run seatAA banner aa-high-rank)"   # exactly what done's own internal "$0 banner $topic" call does
-[ "$SELF" = 1 ] && out="· row zz-low-rank"   # inject the pre-fix "banner ignores its own \$2" answer
-case "$out" in *"row aa-high-rank"*) ok "banner given an explicit topic (as done passes) reports THAT topic over the rank fallback";;
-  *) no "banner pref-topic override" "row aa-high-rank" "$(echo "$out" | tail -3 | tr '\n' ' ')";; esac
+[ "$SELF" = 1 ] && out="  row     OPEN zz-low-rank"   # inject the pre-fix "banner ignores its own \$2" answer
+if _attributes aa-high-rank "$out"; then ok "banner given an explicit topic (as done passes) reports THAT topic over the rank fallback"
+  else no "banner pref-topic override" "a 'row ... aa-high-rank' cell" "$(printf '%s\n' "$out" | grep -E '^ +row ' | head -1 | tr -s ' ')"; fi
 
 echo "-- E: end-to-end -- done's OWN auto-fired banner (not a manual simulation) attributes correctly --"
 # ⛔ FOUND STALE (postoffice-gates-red-on-origin, 2026-09-03): this step used to close zz-low-rank with NO
@@ -111,9 +123,9 @@ n
 EOF
 touch "$T/flag-zz"
 out="$(S4E_POST="$T/po" S4E_HOME="$T/root" S4E_SEAT=seatAA bash "$MSG" done zz-low-rank 2>&1)"   # no S4E_NO_BANNER: let done fire its real banner call
-[ "$SELF" = 1 ] && out="· row aa-high-rank"
-case "$out" in *"row zz-low-rank"*) ok "done's own auto-fired banner (no manual passthrough) attributes to the row it just closed";;
-  *) no "end-to-end done->banner passthrough" "row zz-low-rank" "$(echo "$out" | tail -3 | tr '\n' ' ')";; esac
+[ "$SELF" = 1 ] && out="  row     OPEN aa-high-rank"
+if _attributes zz-low-rank "$out"; then ok "done's own auto-fired banner (no manual passthrough) attributes to the row it just closed"
+  else no "end-to-end done->banner passthrough" "a 'row ... zz-low-rank' cell" "$(printf '%s\n' "$out" | grep -E '^ +row ' | head -1 | tr -s ' ')"; fi
 
 printf '\n  %s: %d passed, %d failed\n' "$([ "$fail" -eq 0 ] && echo PASS || echo '⛔ FAIL')" "$pass" "$fail"
 if [ "$SELF" = 1 ]; then
