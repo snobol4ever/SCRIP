@@ -467,18 +467,32 @@ for r in "$HERE"/test_*_suite.sh "$HERE"/raku_roast_scoreboard.sh "$HERE"/board_
     # construct-ladder/stress runners (seat12, 2026-09-06).
     grep -qE '/packages/[a-z0-9_]+/' "$r" || { notpkg="$notpkg $b"; continue; }
     runners=$((runners+1))
-    grep -q 'lib_inventory.sh' "$r" || { missing="$missing $b"; continue; }
+    # ⛔⭐ GREP THE CODE, NOT THE COMMENTARY -- THIS ARM WAS FRAGILE TO THE DELETION IT EXISTS TO CATCH
+    # (hq_P routed 2026-09-13 with the table; landed by hq_B, census re-measured here rather than relayed).
+    # Every token below was matched against the RAW file, so a runner naming it in a COMMENT satisfied the arm
+    # whether or not the code did. Delete the real `inventory_line` call from any of six runners --
+    # test_icon_arizona_suite.sh, test_icon_jcon_suite.sh, test_pascal_pat_suite.sh,
+    # test_snobol4_csnobol4_suite.sh, test_snobol4_gimpel_suite.sh, test_snobol4_spitbol_testpgms_suite.sh
+    # (raw=2, non-comment=1 in each) -- and this arm stayed green on the surviving comment.
+    # ⭐ WIDENED BEYOND THE TOKEN THAT WAS REPORTED, which is the half worth keeping: hq_P named
+    # `inventory_line` (6 runners), but `lib_inventory.sh` -- the GATEKEEPER grep, the one that decides a
+    # runner is wired at all -- is fragile in FOURTEEN of the fifteen. Curing only the reported token would
+    # have left the weaker check guarding the stronger one. ✅ NOTHING IS INERT TODAY: measured across all
+    # five tokens and all fifteen runners, no token appears ONLY in comments, so this is fragility to a
+    # future deletion, not a live false green. Stripping is done ONCE per runner, not per grep.
+    body="$(sed 's/^[[:space:]]*#.*$//' "$r")"
+    grep -q 'lib_inventory.sh' <<<"$body" || { missing="$missing $b"; continue; }
     sources=$((sources+1))
     # a COMPLETE stanza: all three tokens plus the call. A missing INV_EXT refuses at run time, so a
     # runner that sources the body and sets two of three is wired to refuse, not wired to report.
-    if grep -q 'inventory_line' "$r" && grep -q 'INV_PACKAGE=' "$r" && grep -q 'INV_DIR=' "$r" && grep -q 'INV_EXT=' "$r"; then
+    if grep -q 'inventory_line' <<<"$body" && grep -q 'INV_PACKAGE=' <<<"$body" && grep -q 'INV_DIR=' <<<"$body" && grep -q 'INV_EXT=' <<<"$body"; then
         calls=$((calls+1))
     else
         partial="$partial $b"; continue
     fi
     # ⛔ AND A SWALLOWED REFUSAL IS THE jcon CASE EXACTLY: `inventory_line ... || echo "warn"` turns rc=2
     # into a line nobody reads, so a package can refuse on every run while the board stays quiet.
-    grep -qE 'inventory_line[^|&]*(\|\||&&|2>/dev/null)' "$r" && { swallows=$((swallows+1)); swallowed="$swallowed $b"; }
+    grep -qE 'inventory_line[^|&]*(\|\||&&|2>/dev/null)' <<<"$body" && { swallows=$((swallows+1)); swallowed="$swallowed $b"; }
     # ⛔⭐⭐ ARM 17 — THE CARRIAGE HALF, AND IT IS A VIOLATION, NOT A REPORT (row package-shipped-per-lane-
     # printed-by-the-runner-not-transcribed, hq_T 2026-09-10). ARM 11 above grades whether a runner can
     # PRINT its inventory; this arm grades whether the number REACHES THE LEADERBOARD. Printing it on a
@@ -510,7 +524,27 @@ echo "    package runners censused=$runners  sources=$sources  complete-stanza=$
 echo "    ⚠ NOT DECIDABLE HERE: whether a runner actually EMITS a summing line. Only running it proves that (board_packages.sh)."
 [ -z "$notpkg" ]    || { echo "    NOT A VENDORED-PACKAGE RUNNER (excluded from this population -- no /packages/<name>/ path, nothing a vendor ships, never wire):"; printf '      %s\n' $notpkg; }
 [ -z "$missing" ]   || { echo "    NOT YET WIRED (the row's work list, not a verdict):"; printf '      %s\n' $missing; }
-[ -z "$partial" ]   || { echo "    ⛔ SOURCES THE BODY WITH AN INCOMPLETE STANZA -- wired to REFUSE, not to report:"; printf '      %s\n' $partial; }
+# ⛔⭐ AN INCOMPLETE STANZA IS A VIOLATION, NOT A REPORT -- AND MAKING IT ONE IS THE OTHER HALF OF THE
+# COMMENT-STRIPPING CURE ABOVE, WITHOUT WHICH THAT CURE IS A NET LOSS (hq_B 2026-09-13, measured).
+# ⭐ THE MEASUREMENT, WHICH INVERTED WHAT I EXPECTED AND IS THE REASON THIS BLOCK EXISTS: with the live
+# `inventory_line` call deleted from test_icon_jcon_suite.sh and its comment left behind, the OLD body
+# counted complete-stanza=15 -- the WRONG number, fooled by the comment exactly as hq_P reported -- and
+# still exited rc=1 with 1 violation, because counting jcon complete let it fall through to a later arm
+# that caught the missing call. The freshly comment-stripped body counted complete-stanza=14 -- the RIGHT
+# number -- and exited rc=0, because a partial stanza `continue`s out of the loop before reaching that arm.
+# So stripping the comments ALONE traded a wrong count for a MISSED VIOLATION: the fragile grep had been
+# load-bearing for detection, and curing the number quietly removed the detection it was accidentally
+# providing. ⛔ THE GENERAL SHAPE, worth more than this arm: when a check is wrong in a way that makes it
+# OVER-count, something downstream may be depending on the over-count, and a cure that only fixes the
+# number can subtract power while every report line looks better. Measure the CURED gate against the
+# deletion, never just the census against the tree.
+# ✅ SAFE TODAY, MEASURED: on the clean tree sources=15 and complete-stanza=15, so this books zero
+# violations now; it is a floor against a future deletion, not a red being introduced.
+if [ -n "$partial" ]; then
+    echo "    ⛔ SOURCES THE BODY WITH AN INCOMPLETE STANZA -- wired to REFUSE, not to report:"; printf '      %s\n' $partial
+    echo "GATE FAIL: a package runner sources lib_inventory.sh with an incomplete stanza (a comment naming a token is not the token):$partial"
+    violations=$((violations+1))
+fi
 [ -z "$swallowed" ] || { echo "    ⛔ SWALLOWS THE REFUSAL (rc=2 becomes a warning nobody reads -- the jcon case):"; printf '      %s\n' $swallowed; }
 echo "    leaderboard writers=$writers  carry their own inventory clause into the cell=$carries"
 if [ -n "$nocarry" ]; then
