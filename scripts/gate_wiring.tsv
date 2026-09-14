@@ -233,6 +233,7 @@ test_gate_pl_arith_iso_errors_are_catchable.sh	WIRED	-	-	-
 test_gate_pl_atom_concat_modes.sh	WIRED	-	-	-
 test_gate_pl_atom_number_iso_errors.sh	WIRED	-	-	-
 test_gate_pl_bagof_setof_grouping.sh	WIRED	-	-	-
+test_gate_pl_bom_is_written_detected_and_reported.sh	WIRED	-	-	-
 test_gate_pl_consult_loads_the_named_file.sh	WIRED	-	-	-
 test_gate_pl_ctx_leaf_thunks_cannot_drop_a_ball.sh	WIRED	-	-	-
 test_gate_pl_gz6b.sh	WIRED	-	-	-

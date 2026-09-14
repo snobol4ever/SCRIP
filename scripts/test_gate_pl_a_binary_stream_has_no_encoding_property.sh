@@ -47,11 +47,21 @@ main :- open('b.bin', write, B, [type(binary)]),
 	( stream_property(P, encoding(E3)) -> write(plain_encoding(E3)) ; write(plain_no_encoding) ), nl,
 	close(P), halt.
 PLEOF
+# ⛔⭐ THE SPELLING PIN WAS REVISED ON PURPOSE, 2026-09-13 (hq_R, row prolog-logtalk-eleven-unicode-stream-
+# cases-...). This gate pinned `utf8` and the engine now answers `UTF-8`, so this gate WENT RED on the cure
+# and was updated KNOWINGLY rather than discovered afterwards -- which is the whole reason the pin is here.
+# WHAT DID NOT CHANGE IS THE INVARIANT THIS GATE IS NAMED FOR: bin_no_encoding is still the first line, and
+# ARM 2's text-stream arm still grades beside it. Only the ATOM changed, and the reason is in driver_globals.c
+# above fh_encoding: ISO/IEC 13211-1 does not define encoding/1 at all, so there is no standard name to
+# defer to, and the logtalk_iso suite -- the instrument that decides this engine's conformance -- writes the
+# IANA name 'UTF-8' in all 81 places it names an encoding and `utf8` in none. `encoding(utf8)` is still an
+# ACCEPTED INPUT on open/4 (this witness passes it and still opens), which is the distinction that matters:
+# the input vocabulary stayed wide, the reported value became single.
 want='bin_no_encoding
 bin_type(binary)
-txt_encoding(utf8)
+txt_encoding(UTF-8)
 txt_type(text)
-plain_encoding(utf8)'
+plain_encoding(UTF-8)'
 for mode in m3 m4; do
     N=$((N+1))
     if [ "$mode" = m3 ]; then got=$(cd "$D" && timeout 20 "$SCRIP" "$D/sp.pl" </dev/null 2>&1)
