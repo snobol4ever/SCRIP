@@ -1296,7 +1296,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             ir_operand_push(nd, acc); ir_operand_push(nd, rl);
             lc_γ_to(rl, acc);
             if (pl_find4) {
-                IR_t * t4e = NULL; IR_t * t4 = term_e(cx, t->c[3], &t4e);
+                IR_t * t4e = NULL; IR_t * t4 = term_lval_e(cx, t->c[3], &t4e);
                 lc_γ_to(t4, acc); lc_ω_to(t4, ωfail);
                 lc_γ_to(rl, t4e ? t4e : t4);
                 ir_operand_push(nd, t4);

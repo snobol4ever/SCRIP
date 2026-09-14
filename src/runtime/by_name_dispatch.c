@@ -2345,7 +2345,8 @@ static int rt_pl_all_solutions_tail_cell(DESCR_t *args, pl_tr_ctx_t *cx) {
     extern int rt_pl_findall_count(void *); extern void rt_pl_findall_item(void *, int, void *);
     DESCR_t h = rt_pl_deref_val(args[0]);
     if (h.v != DT_I) return 0;
-    { void *acc = (void *)(intptr_t)h.i; int n = rt_pl_findall_count(acc); int i; DESCR_t *el; DESCR_t lst = args[2];
+    DESCR_t t4 = args[2]; DESCR_t *c4 = plw_cell_deref(plw_entry(&t4));
+    { void *acc = (void *)(intptr_t)h.i; int n = rt_pl_findall_count(acc); int i; DESCR_t *el; DESCR_t lst = plw_unbound_tag(c4) ? args[2] : *c4;
       el = (DESCR_t *)rt_pinned_alloc((size_t)(n > 0 ? n : 1) * sizeof(DESCR_t));
       if (!el) return 0;
       for (i = 0; i < n; i++) rt_pl_findall_item(acc, i, (void *)&el[i]);
