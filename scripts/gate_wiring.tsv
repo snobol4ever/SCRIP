@@ -229,7 +229,7 @@ test_gate_pl_bagof_setof_grouping.sh	WIRED	-	-	-
 test_gate_pl_consult_loads_the_named_file.sh	WIRED	-	-	-
 test_gate_pl_ctx_leaf_thunks_cannot_drop_a_ball.sh	WIRED	-	-	-
 test_gate_pl_gz6b.sh	WIRED	-	-	-
-test_gate_pl_integer_division_floors_and_int64_overflow_raises.sh	WIRED	-	-	-
+test_gate_pl_integer_division_floors_and_int64_overflow_promotes.sh	WIRED	-	-	-
 test_gate_pl_iso_rung1_database_builtins_and_call_local_cut.sh	WIRED	-	-	-
 test_gate_pl_iso_rung2_runtime_heads_and_meta_call_wrappers.sh	WIRED	-	-	-
 test_gate_pl_iso_rung3_current_predicate_generator_and_halt_type_checks.sh	WIRED	-	-	-

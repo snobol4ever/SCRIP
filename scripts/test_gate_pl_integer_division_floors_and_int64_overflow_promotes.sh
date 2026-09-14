@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test_gate_pl_integer_division_floors_and_int64_overflow_raises.sh -- ISO 9.1.3 integer arithmetic (cto, 2026-09-12,
+# test_gate_pl_integer_division_floors_and_int64_overflow_promotes.sh -- ISO 9.1.3 integer arithmetic (cto, 2026-09-12,
 # row prolog-integer-division-floors-and-int64-overflow-raises-instead-of-trapping, ceo re CTO-33). RED BEFORE:
 # -10 div 3 gave -3 (truncated like //, ISO floors to -4) and -9223372036854775808 // -1 executed idiv on INT64_MIN / -1,
 # a CPU trap (SIGFPE, rc=136) that killed the program -- core/test_arith.pl lost every case after it (0/220 on the SWI board).
@@ -10,8 +10,18 @@
 # remaining 165 misses are tests the file guards with :- if(current_prolog_flag(bounded, false)) -- the UNBOUNDED
 # INTEGER class (bigint, minint/maxint promotion, rationals), which this reader correctly does not compile under
 # bounded=true and which is its own row, never this one's).
+# ⛔ RENAMED AND TIGHTENED 2026-09-13 (cto). THIS GATE WAS BLIND ON THE AXIS ITS OWN NAME ASSERTED. Its witness
+# arm graded the four overflow lines with `case "$l" in int_overflow|9223372036854775808|0)`, a disjunction that
+# accepts RAISING and PROMOTING alike -- so a gate called ..._int64_overflow_raises passed identically whether
+# int64 overflow raised or promoted, and could not fail on the one thing it was named for. Measured both ways:
+# on clean origin 8f7f0d394 the arm printed `int_overflow` and passed; with the promotion cure it printed
+# `9223372036854775808` and passed. An arm that cannot distinguish the two states it exists to separate is not
+# measuring (cto's law THE UNEXPLAINED GREEN, corollary 1: falsifiable in both directions or not counted).
+# The four lines are now pinned to the oracle's exact answers, CUT FROM swipl 9:
+#   [-3,2,-1,-4] / 9223372036854775808 / 0 / 9223372036854775808 / 9223372036854775808
+# and the name says promotes, because that is what the tree does since the int64-overflow promotion landing.
 set -u
-GATE_NAME=test_gate_pl_integer_division_floors_and_int64_overflow_raises
+GATE_NAME=test_gate_pl_integer_division_floors_and_int64_overflow_promotes
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="${S4E_HOME:-$(cd "$HERE/../.." && pwd)}"
 CORPUS="${S4E_CORPUS:-$ROOT/corpus}"
@@ -38,8 +48,10 @@ for mode in ${MODES//,/ }; do
     got="$(run "$mode" "$T/w.pl")"; rc=$?
     ok=1; [ "$rc" = 0 ] || ok=0
     [ "$(printf '%s\n' "$got" | sed -n 1p)" = "[-3,2,-1,-4]" ] || ok=0
-    for i in 2 3 4 5; do l="$(printf '%s\n' "$got" | sed -n ${i}p)"; case "$l" in int_overflow|9223372036854775808|0) : ;; *) ok=0 ;; esac; done
-    [ "$(printf '%s\n' "$got" | sed -n 3p)" != "" ] || ok=0
+    [ "$(printf '%s\n' "$got" | sed -n 2p)" = "9223372036854775808" ] || ok=0
+    [ "$(printf '%s\n' "$got" | sed -n 3p)" = "0" ] || ok=0
+    [ "$(printf '%s\n' "$got" | sed -n 4p)" = "9223372036854775808" ] || ok=0
+    [ "$(printf '%s\n' "$got" | sed -n 5p)" = "9223372036854775808" ] || ok=0
     if [ "$ok" = 1 ]; then echo "  ok  witness $mode: $(printf '%s' "$got" | tr '\n' ' ')"; else echo "  RED witness $mode: rc=$rc out=[$(printf '%s' "$got" | tr '\n' ' ')]"; red=$((red+1)); fi
     total=$((total+1))
     run "$mode" "$PLUNIT" "$SWIT/core/test_arith.pl" "$T/wrap.pl" > "$T/act"; rc=$?

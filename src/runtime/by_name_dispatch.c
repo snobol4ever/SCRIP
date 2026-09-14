@@ -1607,9 +1607,9 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
     double ad = arl ? a.r : (a.v == DT_BIG ? pl_big_as_real(a) : (double)a.i);
     if (a.v == DT_BIG && nargs == 1 && pl_big_unop(op, a, out)) return 1;
     if (nargs == 1) {
-        if (!strcmp(op, "neg"))   { if (ai && a.i == LLONG_MIN) { *out = FAILDESCR; if (ball && !*ball) *ball = rt_pl_ball_eval_error("int_overflow", "-", 1); return 1; } *out = ai ? INTVAL(-a.i) : REALVAL(-ad); return 1; }
+        if (!strcmp(op, "neg"))   { if (ai && a.i == LLONG_MIN) return pl_big_unop("neg", a, out); *out = ai ? INTVAL(-a.i) : REALVAL(-ad); return 1; }
         if (!strcmp(op, "pos"))   { *out = a; return 1; }
-        if (!strcmp(op, "abs"))   { if (ai && a.i == LLONG_MIN) { *out = FAILDESCR; if (ball && !*ball) *ball = rt_pl_ball_eval_error("int_overflow", "abs", 1); return 1; } *out = ai ? INTVAL(a.i < 0 ? -a.i : a.i) : REALVAL(fabs(ad)); return 1; }
+        if (!strcmp(op, "abs"))   { if (ai && a.i == LLONG_MIN) return pl_big_unop("abs", a, out); *out = ai ? INTVAL(a.i < 0 ? -a.i : a.i) : REALVAL(fabs(ad)); return 1; }
         if (!strcmp(op, "sign"))  { *out = ai ? INTVAL((a.i > 0) - (a.i < 0)) : REALVAL((double)((ad > 0) - (ad < 0))); return 1; }
         if (!strcmp(op, "trunc") || !strcmp(op, "floor") || !strcmp(op, "ceil") || !strcmp(op, "round")) {
             extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
@@ -1670,14 +1670,14 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
     if (!strcmp(op, "idiv") || !strcmp(op, "divf") || !strcmp(op, "mod")) {
         if (!ai || !bi) { if (ball && !*ball) *ball = pl_ax_int_ball(a, b, ai); *out = FAILDESCR; return 1; }
         if (b.i == 0) { *out = FAILDESCR; if (ball && !*ball) *ball = rt_pl_ball_eval_error("zero_divisor", !strcmp(op, "idiv") ? "//" : !strcmp(op, "divf") ? "div" : "mod", 2); return 1; }
-        if (b.i == -1) { if (a.i == LLONG_MIN && strcmp(op, "mod")) { *out = FAILDESCR; if (ball && !*ball) *ball = rt_pl_ball_eval_error("int_overflow", !strcmp(op, "idiv") ? "//" : "div", 2); return 1; } *out = INTVAL(!strcmp(op, "mod") ? 0 : -a.i); return 1; }
+        if (b.i == -1) { if (a.i == LLONG_MIN && strcmp(op, "mod")) return pl_big_binop(op, a, b, out, ball); *out = INTVAL(!strcmp(op, "mod") ? 0 : -a.i); return 1; }
         { long long q = a.i / b.i, m = a.i % b.i;
           if (!strcmp(op, "idiv")) { *out = INTVAL(q); return 1; }
           if (m != 0 && ((m < 0) != (b.i < 0))) { q--; m += b.i; }
           *out = INTVAL(!strcmp(op, "mod") ? m : q); return 1; } }
     if (ai && bi && (!strcmp(op, "add") || !strcmp(op, "sub") || !strcmp(op, "mul"))) {
         long long r; int ovf = !strcmp(op, "add") ? __builtin_add_overflow(a.i, b.i, &r) : !strcmp(op, "sub") ? __builtin_sub_overflow(a.i, b.i, &r) : __builtin_mul_overflow(a.i, b.i, &r);
-        if (ovf) { *out = FAILDESCR; if (ball && !*ball) *ball = rt_pl_ball_eval_error("int_overflow", !strcmp(op, "add") ? "+" : !strcmp(op, "sub") ? "-" : "*", 2); return 1; }
+        if (ovf) return pl_big_binop(op, a, b, out, ball);
         *out = INTVAL(r); return 1; }
     if (!strcmp(op, "xor")) { if (!ai || !bi) { if (ball && !*ball) *ball = pl_ax_int_ball(a, b, ai); *out = FAILDESCR; return 1; } *out = INTVAL(a.i ^ b.i); return 1; }
     if (!strcmp(op, "shl")) { if (!ai || !bi) { if (ball && !*ball) *ball = pl_ax_int_ball(a, b, ai); *out = FAILDESCR; return 1; } *out = INTVAL(a.i << b.i); return 1; }
