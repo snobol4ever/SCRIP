@@ -35,8 +35,17 @@ for k in $(seq 1 "$SHARDS"); do
   # this gate refused rc=2 on HEAD with no codegen change anywhere near it. ⭐ SAME CLASS AS THE ICON AND
   # PASCAL CASES: the corpus moved and the runner did not. A gate pinned to a suite whose SHAPE is declared in
   # the suite must read that declaration, or it is grading a population that no longer exists.
-  timeout 900 python3 "$HERE/corpus_suite_harness.py" run "$P/ALL.pl" "$P/ALL.ref" --lang prolog --modes m3,m4 --by-modes-column --shard "$k/$SHARDS" 2>&1 | grep '^SUITE_BOARD' >> "$W/all.txt"
+  # ⛔⭐ KEEP THE WHOLE HARNESS OUTPUT, NOT ONLY THE LINES THIS GATE WANTS (hq_B routed this to me 2026-09-13,
+  # and it is my file). Piping straight into `grep SUITE_BOARD` discards every other line the harness emitted --
+  # including the ONE RUNNER refusal, which is the single most likely reason a shard prints no board line at
+  # all. The reader then got "only 0 of 16 shards printed a SUITE_BOARD line" with NO CAUSE ANYWHERE: an
+  # honest refusal that names nothing actionable. A refusal whose cause was on stdout and got filtered out is
+  # the ABSENT-DECLARATION half of hq_B's pair -- uncertain rather than falsely confident, which is much the
+  # better failure, and still a reader left guessing. The full text is kept and quoted on the refusal below.
+  timeout 900 python3 "$HERE/corpus_suite_harness.py" run "$P/ALL.pl" "$P/ALL.ref" --lang prolog --modes m3,m4 --by-modes-column --shard "$k/$SHARDS" > "$W/raw.$k.txt" 2>&1
+  grep '^SUITE_BOARD' "$W/raw.$k.txt" >> "$W/all.txt" || true
 done
+cat "$W"/raw.*.txt > "$W/raw.txt" 2>/dev/null || : 
 # ⛔⭐ ANCHOR ON THE TRAILING SPACE, OR THE PATTERN MATCHES ITS OWN SIBLING. --by-modes-column makes the harness
 # print TWO board lines per shard -- SUITE_BOARD_AST for the ast population and SUITE_BOARD for the run one --
 # and `^SUITE_BOARD` is a PREFIX, so it collects both: 32 lines for 16 shards, which tripped the shard count
@@ -53,7 +62,10 @@ grep '^SUITE_BOARD_AST ' "$W/all.txt" > "$W/a.txt"   || true
 # was not -- a refusal that cannot count is still a refusal, but it teaches its reader a wrong denominator on
 # the way out. `wc -l` cannot fail this way: no match is an empty file is 0, on one exit path.
 got="$(wc -l < "$W/b.txt" 2>/dev/null)"; got="${got:-0}"
-[ "$got" -eq "$SHARDS" ] || refuse "only $got of $SHARDS shards printed a SUITE_BOARD line -- the board was not fully measured"
+if [ "$got" -ne "$SHARDS" ]; then
+  cause="$(grep -v '^SUITE_BOARD' "$W/raw.txt" 2>/dev/null | grep -v '^[[:space:]]*$' | sort -u | head -4 | tr '\n' ' | ')"
+  refuse "only $got of $SHARDS shards printed a SUITE_BOARD line -- the board was not fully measured. WHAT THE HARNESS ACTUALLY SAID: ${cause:-NOTHING AT ALL ON STDOUT OR STDERR, which is itself the finding}"
+fi
 read -r tot m3 m4 <<<"$(awk '{for(i=1;i<=NF;i++){split($i,a,"=");if(a[1]=="total")t+=a[2];if(a[1]=="m3_pass")p3+=a[2];if(a[1]=="m4_pass")p4+=a[2]}} END{print t, p3, p4}' "$W/b.txt")"
 # The ast population is REPORTED beside the run one rather than folded into it: they are different
 # populations graded different ways, and a single number over both would be the denominator defect this gate

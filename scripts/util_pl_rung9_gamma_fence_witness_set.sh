@@ -84,6 +84,11 @@ s(a).
 d(1,one). d(2,two). d(3,three).
 f(1,one). f(1,two). f(1,three).
 e(a). e(b). e(c).
+m(1). m(2). m(3). m(4). m(5). m(6). m(7). m(8). m(9). m(10).
+m(11). m(12). m(13). m(14). m(15). m(16). m(17). m(18). m(19). m(20).
+m(21). m(22). m(23). m(24). m(25). m(26). m(27). m(28). m(29). m(30).
+m(31). m(32). m(33). m(34). m(35). m(36). m(37). m(38). m(39). m(40).
+m(41). m(42). m(43). m(44). m(45). m(46). m(47). m(48). m(49). m(50).
 $pre
 p(0) :- !.
 p(N) :- N > 0, $body, N1 is N - 1, p(N1).
@@ -147,6 +152,18 @@ printf "  %-20s %-30s %-12s %s\n" NAME BODY DEPTH PER-FRAME
 row last_clause_match "d(3, _)"
 row single_clause     "s(_)"
 row findall_inner     "findall(X, q(X), _)"
+echo
+echo "THE BLIND SPOT THIS TABLE WOULD OTHERWISE HAVE -- every prize row above uses q/1, a CLAUSE-DEFINED goal,"
+echo "and a barrier's reclamation is NOT uniform in the kind of goal it wraps. Measured 2026-09-13: findall"
+echo "over a 50-clause fact predicate reaches the ceiling while findall over between/3 with TWO solutions does"
+echo "not, and between/3 WITH A LEXICAL CUT reaches the ceiling, so the generator does not leak on its own --"
+echo "it leaks only with a barrier between it and the fence. Without these four rows a cure could green every"
+echo "row above and leave the builtin-generator half untouched with nothing here saying so."
+printf "  %-20s %-30s %-12s %s\n" NAME BODY DEPTH PER-FRAME
+row gen_in_once        "once(between(1,2,X))"
+row gen_in_findall     "findall(X, between(1,2,X), _)"
+row ctl_gen_cut        "between(1,2,X), !"
+row ctl_50_facts       "findall(X, m(X), _)"
 echo
 echo "SAFETY CONTROL -- answers, not depths. A teardown that moves these is wrong whatever the table says."
 cat > "$W/live.pl" <<'EOF'
