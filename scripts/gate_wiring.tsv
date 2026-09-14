@@ -344,6 +344,7 @@ test_gate_sno_trace_access_fires_on_a_plain_global_read_via_compile_time_gva_dem
 test_gate_sno_trace_access_fires_on_a_reference_and_is_silent_on_an_assignment.sh	WIRED	-	-	-
 test_gate_sno_trace_banner_spells_an_object_like_dump.sh	WIRED	-	-	-
 test_gate_sno_trace_keyword_name_is_validated.sh	WIRED	-	-	-
+test_gate_sno_trace_of_an_array_or_table_element_fires_and_spells_it_like_the_oracle.sh	WIRED	-	-	-
 test_gate_sno_trace_value_fires_at_every_sink_with_the_sinks_statement_number.sh	WIRED	-	-	-
 test_gate_sno_want_name_request_is_consumed_not_left_standing.sh	WIRED	-	-	-
 test_gate_snobol4_xfail_markers_are_attributed.sh	WIRED	-	-	-

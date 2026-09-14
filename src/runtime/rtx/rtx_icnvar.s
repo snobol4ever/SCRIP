@@ -32,6 +32,9 @@ RTX_FUNC(rt_assign_var)
 .Lav_nametrap:
     test    rsi, rsi
     je      .Lav_c
+    mov     r10, [rip + g_sno_etrace_n@GOTPCREL]
+    cmp     dword ptr [r10], 0
+    jne     .Lav_c
     mov     r10, [rsi]
     test    r10, r10
     jne     .Lav_cellp_store

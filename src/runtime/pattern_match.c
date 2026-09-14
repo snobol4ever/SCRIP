@@ -1384,8 +1384,8 @@ static DESCR_t c_rt_subscript_var_container_only_s(DESCR_t base, DESCR_t idx, in
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t c_rt_table_assign_fast(DESCR_t base, DESCR_t idx, DESCR_t val) {
-    extern int g_gc_pending;
-    if (g_gc_pending) {
+    extern int g_gc_pending; extern int g_sno_etrace_n;
+    if (g_gc_pending || g_sno_etrace_n != 0) {
         DESCR_t ref = rt_subscript_var(base, idx);
         if (ref.v == DT_FAIL) return ref;
         return rt_assign_var(ref, val);
@@ -1687,6 +1687,8 @@ static DESCR_t c_rt_assign_var_s(DESCR_t var, DESCR_t val, int strict)
     int simple = (var.v == DT_N && var.slen == 0 && var.s && *var.s);
     DESCR_t r = c_rt_assign_var_body(var, val, strict);
     if (!simple && g_monitor_bin && !IS_FAIL_fn(r)) mon_emit_value_bin("<lval>", val);
+    { extern int g_sno_etrace_n; extern void rt_sno_elem_store_trace(DESCR_t, DESCR_t);
+      if (g_sno_etrace_n != 0 && !IS_FAIL_fn(r) && IS_NAMETRAP_fn(var)) rt_sno_elem_store_trace(var, val); }
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

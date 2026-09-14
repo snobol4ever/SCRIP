@@ -39,12 +39,15 @@ static uint32_t intern_name_bin(const char *p, int len);
 static void  mon_send_bin(uint32_t kind, uint32_t name_id, uint8_t type,
                           const void *value, uint32_t value_len);
 #define TRACE_TAB_CAP 256
-typedef struct { char used; int kind; const char *name; const char *tag; const char *cbfn; } trace_ent_t;
+typedef struct { char used; int kind; const char *name; const char *tag; const char *cbfn; long eid; } trace_ent_t;
 static trace_ent_t trace_tab[TRACE_TAB_CAP];
 static int trace_set_n = 0;
 static int trace_access_n = 0;
 static int g_comm_dbg = -1;
 static int trace_recursion_depth = 0;
+int g_sno_etrace_n = 0;
+static int etrace_spell_of_cell(VCELL_t *vc, char *out, size_t n, long *id_out);
+static void etrace_recount(void);
 extern long g_trace;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static trace_ent_t *trace_find(const char *name, int kind) {
@@ -87,7 +90,7 @@ static void trace_register(const char *name, int kind, const char *tag, const ch
     if (!e) {
         for (int i = 0; i < TRACE_TAB_CAP; i++) if (!trace_tab[i].used) { e = &trace_tab[i]; break; }
         if (!e) return;
-        e->used = 1; e->kind = kind; e->name = rt_pinned_strdup(name);
+        e->used = 1; e->kind = kind; e->name = rt_pinned_strdup(name); e->eid = 0;
         trace_set_n++;
         if (kind == TRK_ACCESS) trace_access_n++;
     }
@@ -98,7 +101,7 @@ static void trace_register(const char *name, int kind, const char *tag, const ch
 static void trace_unregister(const char *name, int kind) {
     trace_ent_t *e = trace_find(name, kind);
     if (!e) return;
-    e->used = 0; e->kind = 0; e->name = (const char *)0; e->tag = (const char *)0; e->cbfn = (const char *)0;
+    e->used = 0; e->kind = 0; e->name = (const char *)0; e->tag = (const char *)0; e->cbfn = (const char *)0; e->eid = 0;
     if (trace_set_n > 0) trace_set_n--;
     if (kind == TRK_ACCESS && trace_access_n > 0) trace_access_n--;
 }
@@ -1922,7 +1925,8 @@ static DESCR_t _DUMP_(DESCR_t *a, int n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _TRACE_(DESCR_t *a, int n) {
     if (n < 1) return FAILDESCR;
-    const char *varname = VARVAL_fn(a[0]);
+    char ebuf[256]; long eid = 0;
+    const char *varname = (IS_NAMETRAP_fn(a[0]) && etrace_spell_of_cell((VCELL_t *)a[0].p, ebuf, sizeof ebuf, &eid)) ? ebuf : VARVAL_fn(a[0]);
     if (!varname || !*varname) return FAILDESCR;
     if (getenv("SCRIP_DEBUG_TRACE"))
         fprintf(stderr, "[scrip-trace] _TRACE_ entry n=%d varname=%s\n", n, varname);
@@ -1936,18 +1940,22 @@ static DESCR_t _TRACE_(DESCR_t *a, int n) {
     const char *tag  = (n >= 3) ? VARVAL_fn(a[2]) : (const char *)0;
     const char *cbfn = (n >= 4) ? VARVAL_fn(a[3]) : (const char *)0;
     trace_register(varname, kind, tag, cbfn);
+    if (eid != 0) { trace_ent_t *ee = trace_find(varname, kind); if (ee) ee->eid = eid; }
+    etrace_recount();
     return STRVAL(rt_heap_strdup_c(varname));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _STOPTR_(DESCR_t *a, int n) {
     if (n < 1) return FAILDESCR;
-    const char *varname = VARVAL_fn(a[0]);
+    char ebuf[256]; long eid = 0;
+    const char *varname = (IS_NAMETRAP_fn(a[0]) && etrace_spell_of_cell((VCELL_t *)a[0].p, ebuf, sizeof ebuf, &eid)) ? ebuf : VARVAL_fn(a[0]);
     if (!varname || !*varname) return FAILDESCR;
     const char *type = (n >= 2) ? VARVAL_fn(a[1]) : (const char *)0;
     int kind = trace_type_parse(type);
     if (kind < 0) { core_runtime_error(199, "trace second argument is not trace type"); return FAILDESCR; }
     if (kind == TRK_KEYWORD && !sno_kw_is_traceable(varname)) { core_runtime_error(190, "stoptr first argument is not appropriate name"); return FAILDESCR; }
     trace_unregister(varname, kind);
+    etrace_recount();
     return STRVAL(rt_heap_strdup_c(varname));
 }
 static DATBLK_t *_udef_lookup(const char *name);
@@ -3396,6 +3404,60 @@ static void dump_contents(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void kw_dump_emit(const char *name, DESCR_t v) { dump_putc('&'); dump_puts(name); dump_puts(" = "); dump_val(v); dump_nl(); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int etrace_var_name_ok(const char *nm) { return nm && nm[0] && nm[0] != '&' && nm[0] != '_' && !strchr(nm, '$'); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int etrace_spell_of_cell(VCELL_t *vc, char *out, size_t n, long *id_out) {
+    if (!vc || !out || n < 4) return 0;
+    char kb[160];
+    if (vc->tbl) {
+        for (int i = 0; i < VAR_BUCKETS; i++) for (NV_t *e = _var_buckets[i]; e; e = e->next) {
+            if (!etrace_var_name_ok(e->name)) continue;
+            DESCR_t d = e->is_gva ? *e->cell : e->val;
+            if (d.v != DT_T || d.tbl != vc->tbl) continue;
+            trace_spell_value(vc->key_d, kb, sizeof kb);
+            snprintf(out, n, "%s<%s>", e->name, kb);
+            if (id_out) *id_out = d.tbl->id;
+            return 1;
+        }
+        return 0;
+    }
+    if (!vc->cellp) return 0;
+    for (int i = 0; i < VAR_BUCKETS; i++) for (NV_t *e = _var_buckets[i]; e; e = e->next) {
+        if (!etrace_var_name_ok(e->name)) continue;
+        DESCR_t d = e->is_gva ? *e->cell : e->val;
+        if (d.v != DT_A || !d.arr || !d.arr->data) continue;
+        ARBLK_t *a = d.arr;
+        long rows = (long)a->hi - (long)a->lo + 1, cols = (a->ndim == 2) ? ((long)a->hi2 - (long)a->lo2 + 1) : 1;
+        if (rows < 0) rows = 0;
+        if (cols < 0) cols = 0;
+        long total = rows * cols;
+        if (vc->cellp < a->data || vc->cellp >= a->data + total) continue;
+        long off = (long)(vc->cellp - a->data);
+        if (a->ndim == 2 && cols > 0) snprintf(kb, sizeof kb, "%ld,%ld", (long)a->lo + off / cols, (long)a->lo2 + off % cols);
+        else trace_spell_value(vc->key_d, kb, sizeof kb);
+        snprintf(out, n, "%s<%s>", e->name, kb);
+        if (id_out) *id_out = a->id;
+        return 1;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void etrace_recount(void) {
+    int c = 0;
+    for (int i = 0; i < TRACE_TAB_CAP; i++) if (trace_tab[i].used && trace_tab[i].name && strchr(trace_tab[i].name, '<')) c++;
+    g_sno_etrace_n = c;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_sno_elem_store_trace(DESCR_t var, DESCR_t val) {
+    extern long g_stno;
+    char eb[256]; long eid = 0;
+    if (g_sno_etrace_n == 0 || !IS_NAMETRAP_fn(var) || !var.p) return;
+    if (!etrace_spell_of_cell((VCELL_t *)var.p, eb, sizeof eb, &eid)) return;
+    { trace_ent_t *ee = trace_find(eb, TRK_VALUE); if (!ee || ee->eid != eid) return; }
+    rt_trace_event(TRK_VALUE, eb, val, (long long)g_stno);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void var_dump(void) {
     extern long g_dump;
