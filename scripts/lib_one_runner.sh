@@ -25,14 +25,26 @@ one_runner_suite_is_a_board() {
   [ -n "$cr" ] || return 0
   case "$sp" in "$cr"/*|"$cr") return 0;; *) return 1;; esac
 }
+# ⛔⭐⭐ WHO THE ONE RUNNER IS COMES FROM THE LAW, NOT FROM A NAME BAKED IN HERE (ceo CEO-756, 2026-09-14).
+# The rule is ONE RUNNER, ONE BOARD -- it was never "the coo, personally". This file spelled it `coo`, which was
+# right for every mode that had a coo standing and wrong the moment MODE line 1 read CEO, where line 2 says in so
+# many words that with the coo quiet the ceo IS the one runner. A guard that names a seat instead of reading the
+# law is the same second-copy defect as the picker's lane table: correct until the law moves, then silently wrong.
+# ⛔ IT STILL ADMITS EXACTLY ONE SEAT. This is not a loosening -- under MODE CEO the coo is refused in its turn,
+# because a stood-down seat running boards is precisely the concurrent-pass churn the rule exists to stop.
+one_runner_who() {
+  local mode
+  mode="$(head -1 "${S4E_POST:-/home/resources/postoffice}/MODE" 2>/dev/null | tr -d '[:space:]')"
+  case "$mode" in CEO) printf 'ceo';; *) printf 'coo';; esac
+}
 one_runner_guard() {
-  local board="${1:-${0##*/}}" suite="${2:-}" seat
+  local board="${1:-${0##*/}}" suite="${2:-}" seat who
   if [ -n "$suite" ] && ! one_runner_suite_is_a_board "$suite"; then return 0; fi
-  seat="$(one_runner_seat)"
-  if [ "$seat" = coo ]; then return 0; fi
+  seat="$(one_runner_seat)"; who="$(one_runner_who)"
+  if [ "$seat" = "$who" ]; then return 0; fi
   if [ "${S4E_DONE_WHEN_RUN:-}" = 1 ]; then printf 'ONE-RUNNER: %s runs under the bus computed done for seat %s (exempt, one run per closure)\n' "$board" "${seat:-?}"; return 0; fi
   if [ -n "${S4E_ONE_RUNNER_OVERRIDE:-}" ]; then printf '⚠ ONE-RUNNER OVERRIDE by %s on %s: %s\n' "${seat:-?}" "$board" "$S4E_ONE_RUNNER_OVERRIDE"; return 0; fi
-  printf '⛔ REFUSE(2) ONE RUNNER, ONE BOARD: %s is a board and seat %s is not the coo. The coo runs every board once per landing batch on origin HEAD and writes the rows (Lon 2026-09-10 16:3x, MODE line 2, RULES.md § FACT RULES, CEO-523). Your landing verdict is your row DONE-WHEN plus the gates you touched plus make preflight. A DONE-WHEN board clause runs under s4e_msg.sh done (exempt). S4E_ONE_RUNNER_OVERRIDE="why" is loud and recorded.\n' "$board" "${seat:-?}" >&2
+  printf '⛔ REFUSE(2) ONE RUNNER, ONE BOARD: %s is a board and seat %s is not %s, who is THE ONE RUNNER under MODE line 1 today. That seat runs every board once per landing batch on origin HEAD and writes the rows (Lon 2026-09-10 16:3x, MODE line 2, RULES.md § FACT RULES, CEO-523; the runner is read from the law rather than baked in, CEO-756). Your landing verdict is your row DONE-WHEN plus the gates you touched plus make preflight. A DONE-WHEN board clause runs under s4e_msg.sh done (exempt). S4E_ONE_RUNNER_OVERRIDE="why" is loud and recorded.\n' "$board" "${seat:-?}" "$(one_runner_who)" >&2
   return 2
 }
 # ⛔⭐ THE SEAM: EVERY GUARD SHIPS A SANCTIONED WAY TO BE TRIPPED THAT DOES NOT REQUIRE DOING THE FORBIDDEN THING
@@ -65,7 +77,8 @@ one_runner_prove_seam() {
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
   case "${1:-}" in
     --prove-seam) one_runner_prove_seam; exit $?;;
-    --check) seat="$(one_runner_seat)"; { [ "$seat" = coo ] || [ "${S4E_DONE_WHEN_RUN:-}" = 1 ] || [ -n "${S4E_ONE_RUNNER_OVERRIDE:-}" ]; } && exit 0; exit 2;;
+    --check) seat="$(one_runner_seat)"; { [ "$seat" = "$(one_runner_who)" ] || [ "${S4E_DONE_WHEN_RUN:-}" = 1 ] || [ -n "${S4E_ONE_RUNNER_OVERRIDE:-}" ]; } && exit 0; exit 2;;
+    --who) one_runner_who; echo; exit 0;;
     --seat) one_runner_seat; exit 0;;
     *) echo "usage: lib_one_runner.sh --check | --seat | --prove-seam  (or source it and call one_runner_guard <board> [suite_path])" >&2; exit 2;;
   esac

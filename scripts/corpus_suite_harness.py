@@ -2432,6 +2432,18 @@ def _suite_is_a_board(suite_path, corpus_root):
         return False
 
 
+def _one_runner_who():
+    """WHO the one runner is comes from the LAW, never from a name baked in here (ceo CEO-756, 2026-09-14).
+    lib_one_runner.sh:one_runner_who is the same three lines; the rule is ONE RUNNER, ONE BOARD and was never
+    "the coo, personally" -- under MODE CEO line 2 says the ceo is the one runner, and this copy said coo.
+    It still admits exactly one seat: under MODE CEO the coo is refused in its turn."""
+    try:
+        with open(os.path.join(os.environ.get("S4E_POST", "/home/resources/postoffice"), "MODE"), encoding="utf-8") as fh:
+            mode = fh.readline().strip()
+    except Exception:
+        mode = ""
+    return "ceo" if mode == "CEO" else "coo"
+
 def _one_runner_guard(suite_path=None, corpus_root=None):
     """ONE RUNNER, ONE BOARD (Lon 2026-09-10, CEO-523): a run of a suite UNDER THE CORPUS TREE is a board; refused rc=2 to any
     seat but the coo unless the bus computed done (S4E_DONE_WHEN_RUN=1) or a loud S4E_ONE_RUNNER_OVERRIDE is set. A suite
@@ -2447,13 +2459,13 @@ def _one_runner_guard(suite_path=None, corpus_root=None):
             seat = util_score_row.derive_measurer() or ""
         except Exception:
             seat = ""
-    if seat == "coo":
+    if seat == _one_runner_who():
         return
     if os.environ.get("S4E_DONE_WHEN_RUN") == "1":
         print("ONE-RUNNER: master run under the bus computed done for seat %s (exempt, one run per closure)" % (seat or "?")); return
     if os.environ.get("S4E_ONE_RUNNER_OVERRIDE"):
         print("\u26a0 ONE-RUNNER OVERRIDE by %s: %s" % (seat or "?", os.environ["S4E_ONE_RUNNER_OVERRIDE"])); return
-    sys.stderr.write("\u26d4 REFUSE(2) ONE RUNNER, ONE BOARD: a master suite run is a board and seat %s is not the coo (Lon 2026-09-10 16:3x, MODE line 2, RULES.md FACT RULES, CEO-523). Your landing verdict is your row DONE-WHEN plus the gates you touched plus make preflight; a DONE-WHEN board clause runs under s4e_msg.sh done. S4E_ONE_RUNNER_OVERRIDE=\"why\" is loud and recorded.\n" % (seat or "?"))
+    sys.stderr.write("\u26d4 REFUSE(2) ONE RUNNER, ONE BOARD: a master suite run is a board and seat %s is not %s, THE ONE RUNNER under MODE line 1 today (Lon 2026-09-10 16:3x, MODE line 2, RULES.md FACT RULES, CEO-523; the runner is read from the law rather than baked in, CEO-756). Your landing verdict is your row DONE-WHEN plus the gates you touched plus make preflight; a DONE-WHEN board clause runs under s4e_msg.sh done. S4E_ONE_RUNNER_OVERRIDE=\"why\" is loud and recorded.\n" % (seat or "?", _one_runner_who()))
     sys.exit(2)
 
 def cmd_run(args):

@@ -812,6 +812,11 @@ static int fence_frame_candidate(const IR_t * nd) {
     if (!nd || !g_emit_cfg || nd->op != IR_MATCH_FENCE1 || nd->n_operands < 2) return 0;
     if (IR_LIT(nd).ival == 2) return 1;
     if (IR_LIT(nd).ival != 0) { int blob_frame_scope(void); if (blob_frame_scope()) return 1; }
+    { IR_t * cur = zd_chase(nd->operands[0]); int guard = 0;
+      while (cur && guard++ <= g_emit_cfg->n) {
+          if (cur != nd && fence_body_kk_complex((int)cur->op)) return 1;
+          if (cur == nd->operands[1]) break;
+          cur = zd_chase(cur->γ.node); } }
     int lo = -1, hi = -1; for (int k = 0; k < g_emit_cfg->n; k++) { if (g_emit_cfg->all[k] == nd->operands[0]) lo = k; if (g_emit_cfg->all[k] == nd->operands[1]) hi = k; }
     if (lo < 0 || hi < 0) return 0; if (lo > hi) { int t = lo; lo = hi; hi = t; }
     for (int j = lo; j <= hi; j++) { IR_t * m = g_emit_cfg->all[j]; if (!m || m == nd) continue; int mo = (int)m->op;
