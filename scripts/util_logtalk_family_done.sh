@@ -22,7 +22,10 @@
 # that is not in the group's population at all, REFUSES(2) instead of passing, because a tolerated-red list is
 # written when the red is found and read long after it is closed, and so goes stale in the flattering
 # direction. The day the owning row lands, the routed cases come back into this row's denominator.
-# Usage: bash scripts/util_logtalk_family_done.sh <group> [<group>...]      rc 0 green · 1 red · 2 could not measure
+# Usage: bash scripts/util_logtalk_family_done.sh <group> [<group>...]
+# rc 0 green AND the row may be declared done · 1 red · 2 could not measure, OR every case passes and the DONE
+# CLAIM IS REFUSED because a group's population could not have produced the counter-example (see the cross-index
+# block below) -- rc 2 is never a pass, so a caller that tests `rc = 0` is already correct without knowing which.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP_BIN:-$ROOT/scrip}"; [ -x "$SCRIP" ] || { echo "⛔ REFUSE(2): no scrip at $SCRIP"; exit 2; }
@@ -30,7 +33,7 @@ SUITE="$ROOT/../corpus/packages/prolog/logtalk_iso"; [ -d "$SUITE" ] || { echo "
 [ $# -ge 1 ] || { echo "⛔ REFUSE(2): name at least one group (a directory basename under $SUITE)"; exit 2; }
 ROUTED_TSV="${LOGTALK_ROUTED_TSV:-$HERE/lib_logtalk_routed.tsv}"
 ALLCSV="$SUITE/ALL.csv"; [ -f "$ALLCSV" ] || { echo "⛔ REFUSE(2): no ALL.csv at $ALLCSV -- the population census a routed declaration is audited against"; exit 2; }
-RC=0; POP=0; BOTH=0; F3=0; F4=0; OUT=0; N=$#; ROUTED_TOTAL=0
+RC=0; POP=0; BOTH=0; F3=0; F4=0; OUT=0; N=$#; ROUTED_TOTAL=0; UNWIT=""; MISPOP=""
 for G in "$@"; do
   RAW=$(cd "$ROOT" && timeout 900 python3 scripts/util_logtalk_grade.py --suite "$SUITE" --scrip "$SCRIP" --modes m3,m4 --group "$G" --name-reds 2>&1) || true
   L=$(printf '%s\n' "$RAW" | grep -m1 '^BOARD_FOR_SHELL ') || true
@@ -67,13 +70,23 @@ for G in "$@"; do
   # have gone red however wrong its predicate was. An instrument that cannot produce the red is
   # indistinguishable from one that found none, and only the second is evidence. The cross-index is derived
   # mechanically from the suite's own ALL.csv feature columns, never hand-kept.
-  # ⚠ REPORTED, NOT ARMED: LOGTALK_CROSSINDEX_STRICT=1 makes a group with no outside witness REFUSE(2).
-  # Measured blast radius on the suite as vendored 2026-09-13: 144 eponymous groups, 104 with outside
-  # evidence, 40 without, and 10 whose own cases never call their own predicate at all. Arming it today
-  # would refuse rows across two seats, so the switch is the cto's to throw, not this script's to assume.
+  # ⛔⭐ ARMED, AND ARMED AGAINST THE CLAIM AND NOT AGAINST THE WORK (cto ruling to hq_C, 2026-09-13). The
+  # index runs ORDINARY here -- it prints and PROCEEDS, so an unwitnessed group stays workable, stays
+  # gradeable and can still read PASS on its own line. What the switch takes away is the right to be
+  # DECLARED DONE: the refusal is applied ONCE, at the verdict, and only where the verdict would otherwise
+  # have been GREEN. A red row is never stopped by it. A big-bang --strict over the grading path would have
+  # stopped 40 live rows in two lanes to remove a false confidence nobody was acting on -- a cure that
+  # trades one thing for another (CEO-589), which is no better as process than it is in the suite.
+  CLAIM=""
   if [ -f "$HERE/util_logtalk_crossindex.py" ]; then
-    LOGTALK_SUITE="$SUITE" python3 "$HERE/util_logtalk_crossindex.py" --group "$G" ${LOGTALK_CROSSINDEX_STRICT:+--strict} || {
-      [ -n "${LOGTALK_CROSSINDEX_STRICT:-}" ] && { echo "⛔ REFUSE(2): $G has no independent witness outside itself (LOGTALK_CROSSINDEX_STRICT=1)"; exit 2; }; }
+    CIOUT=$(LOGTALK_SUITE="$SUITE" python3 "$HERE/util_logtalk_crossindex.py" --group "$G" 2>&1) || true
+    printf '%s\n' "$CIOUT" | grep -v '^CROSSINDEX_CLAIM '
+    CLAIM=$(printf '%s\n' "$CIOUT" | sed -n "s/^CROSSINDEX_CLAIM $G //p" | head -1)
+    case "$CLAIM" in
+      MIS-POPULATED) MISPOP="$MISPOP $G" ;;
+      UNWITNESSED)   UNWIT="$UNWIT $G" ;;
+      CLEAN|"")      : ;;
+    esac
   fi
   ROUTED_TOTAL=$((ROUTED_TOTAL+NROUTED)); scoped=$((gpop-NROUTED))
   UNROUTED=$(comm -23 <(printf '%s\n' "$REDS" | sed '/^$/d') <(printf '%s\n' "$ROUTED" | sed '/^$/d'))
@@ -87,5 +100,24 @@ for G in "$@"; do
     [ -z "$UNROUTED" ] && [ "$NROUTED" -gt 0 ] && echo "      ⛔ every named RED is routed, yet $((gpop-both-NROUTED)) more case(s) are not passing -- the remainder is UNGRADED, which this verdict counts as not passing (see the false-green note at the top)"
     RC=1; fi
 done
-echo "LOGTALK_FAMILY groups=$N cases=$POP outside=$OUT routed=$ROUTED_TOTAL graded=$((POP-OUT)) scoped=$((POP-OUT-ROUTED_TOTAL)) both_modes_pass=$BOTH m3_fail=$F3 m4_fail=$F4 verdict=$([ $RC = 0 ] && echo GREEN || echo RED)  tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)  measured $(date -u +%Y-%m-%dT%H:%MZ)"
+VERDICT=$([ $RC = 0 ] && echo GREEN || echo RED)
+# ⛔⭐ THE DONE CLAIM IS REFUSED HERE AND NOWHERE EARLIER. Every case was graded, every number above is
+# real, and the group lines say PASS where they earned it -- what this refuses is RECORDING the family as
+# closed on a population that could not have produced the counter-example. ⭐ It expires by itself: both
+# classes are recomputed from ALL.csv on every run, so the refusal lifts the moment a witness exists and
+# returns the moment one is lost. Nobody has to remember to take it off, which is the only kind of
+# carve-out that does not go stale in the flattering direction.
+if [ -n "$UNWIT$MISPOP" ]; then
+  if [ $RC = 0 ]; then VERDICT="REFUSE(2)-DONE-CLAIM"; else VERDICT="RED-AND-THE-DONE-CLAIM-IS-ALREADY-REFUSED"; fi
+fi
+echo "LOGTALK_FAMILY groups=$N cases=$POP outside=$OUT routed=$ROUTED_TOTAL graded=$((POP-OUT)) scoped=$((POP-OUT-ROUTED_TOTAL)) both_modes_pass=$BOTH m3_fail=$F3 m4_fail=$F4 verdict=$VERDICT  tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)  measured $(date -u +%Y-%m-%dT%H:%MZ)"
+if [ -n "$UNWIT$MISPOP" ]; then
+  LOGTALK_SUITE="$SUITE" python3 "$HERE/util_logtalk_crossindex.py" --group $UNWIT $MISPOP --strict >/dev/null
+  if [ $RC = 0 ]; then
+    echo "⛔ REFUSE(2) THE DONE CLAIM: every graded case in this row passes in both modes, and the row may NOT be recorded as closed."
+    echo "   The work is not refused and nothing above was suppressed -- keep curing, keep re-running this gate. What is refused is the DECLARATION."
+    exit 2
+  fi
+  echo "⚠ This row is RED, so the DONE claim is not yet in question -- but the group(s) named above cannot be declared closed even when they go green. Read the refusal now rather than at the end."
+fi
 exit $RC
