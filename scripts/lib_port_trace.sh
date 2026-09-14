@@ -131,9 +131,29 @@ port_trace_main() {
   n=0; bad=0; noref=0; ans_ok=0; ans_red=0; declare -a lines
   [ "$CUT" = 1 ] && : > "$W/ALL.trace"
   for o in $origins; do
-    n=$((n+1)); src="$W/$o$PORTTRACE_EXT"; ref="$W/$o.ref"
+    # ⛔⭐⭐ THE WITNESS IS MATERIALISED UNDER A SHORT FIXED BASENAME AND EVERY ARM INVOKES IT RELATIVE FROM $W
+    # (hq_T 2026-09-13, on hq_S's measurement; the cure below REPLACES hq_T's own 9df862afc, which was correct
+    # about the defect and wrong about the shape). The earlier cure normalised THE ORIGIN NAME out of the trace
+    # and was proven on a RELATIVE, SHORT witness -- but this body handed $SCRIP an ABSOLUTE path inside a
+    # mktemp dir, and the port-hook operand is THE ARGV STRING VERBATIM, truncated to 48 characters by the
+    # " %.48s" stem at src/templates/x86/x86_asm.h:1882. So the string that reached the trace was
+    # "/tmp/tmp.XXXXXXXXXX/ladder__rung01_arith_divide." -- the volatile tmp component survived, and the
+    # basename the substitution was keyed on was CUT MID-NAME and never appeared whole to be replaced.
+    # ⛔ HOW IT WOULD HAVE FAILED, WHICH IS THE PART THAT MADE IT URGENT: a --cut reports PASS on its own run
+    # (it is comparing the traces it just wrote), and reds on the NEXT invocation when mktemp hands out a
+    # different directory. A seat who cut, saw green and pushed would land a permanently red gate having never
+    # seen a red -- and since e62070ca8 wired the self-pins into `make test` as REPORTED arms, that red prints
+    # for every seat on every run. hq_S measured the exposed class rather than inferring it: rebus, snobol4 and
+    # snocone leak the path (2 lines each); icon, pascal, prolog and raku do not. Raku was the one language
+    # whose end-to-end re-cut could NOT have surfaced this, which is why hq_T's own proof came back green.
+    # ⭐ WHY A SHORT FIXED NAME AND NOT A WIDER SUBSTITUTION: pinning the 48-char prefix would hard-code a
+    # truncation width that lives in x86_asm.h and would fail SILENTLY the day it changes (hq_S's ruling, and
+    # it is right). Making the operand short and stable instead means the substitution keyed on the known
+    # basename -- the design this body already had -- simply works, and nothing here knows about 48.
+    n=$((n+1)); srcbn="w$PORTTRACE_EXT"; src="$W/$srcbn"; ref="$W/$o.ref"
+    rm -f "$W/$srcbn" "$W/${srcbn%.*}.in"
     master_extract_origin "$o" "$src" "$ref" >/dev/null 2>&1 || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot extract $o from the master suite"; gate_stamp; exit 2; }
-    (cd "$W" && timeout "$T" "$SCRIP" --compile -o "$o.s0" "$src" </dev/null >/dev/null 2>"$W/$o.cc.err"); crc=$?; (cd "$W" && env "$PORT_TRACE_ENV=0" timeout "$T" "$SCRIP" --compile -o "$o.s0b" "$src" </dev/null >/dev/null 2>&1)
+    (cd "$W" && timeout "$T" "$SCRIP" --compile -o "$o.s0" "$srcbn" </dev/null >/dev/null 2>"$W/$o.cc.err"); crc=$?; (cd "$W" && env "$PORT_TRACE_ENV=0" timeout "$T" "$SCRIP" --compile -o "$o.s0b" "$srcbn" </dev/null >/dev/null 2>&1)
     # ⛔⭐ A WITNESS THAT NEVER COMPILED HAS NOTHING TO TRACE, AND THAT IS NOT A TRACER THAT IS NOT FIRING (row
     # port-trace-zero-lines-check-cannot-tell-a-compile-time-refusal-from-a-tracer-that-is-not-firing; seat09's
     # find, hq_C's ruling, cfo 2026-09-07). The zero-trace-lines check below used to fold THREE causes into one
@@ -148,10 +168,11 @@ port_trace_main() {
       else lines+=("$(printf '%-40s REFUSES AT COMPILE TIME (--compile rc=%s: %s) -- nothing was emitted, so there is nothing to trace: a red witness (cure the refusal, or move it out of the graded population with a named reason), not a tracer that is not firing; neither mode is measured for it' "$o" "$crc" "${ccmsg:-no diagnostic on stderr}")"); fi
       continue
     fi
-    (cd "$W" && env "$PORT_TRACE_ENV=1" timeout "$T" "$SCRIP" --compile -o "$o.s1" "$src" </dev/null >/dev/null 2>&1)
+    (cd "$W" && env "$PORT_TRACE_ENV=1" timeout "$T" "$SCRIP" --compile -o "$o.s1" "$srcbn" </dev/null >/dev/null 2>&1)
     ks=OK; { cmp -s "$W/$o.s0" "$W/$o.s0b" && [ -s "$W/$o.s0" ] && ! cmp -s "$W/$o.s0" "$W/$o.s1"; } || { ks=FAIL; bad=$((bad+1)); }
-    timeout "$T" "$SCRIP" --run "$src" </dev/null >"$W/$o.m3.out0" 2>/dev/null; r30=$?
-    env "$PORT_TRACE_ENV=1" timeout "$T" "$SCRIP" --run "$src" </dev/null >"$W/$o.m3.out1" 2>"$W/$o.m3.raw"; r31=$?
+    # the m3 arms are the ones that did NOT cd into $W, so they are where the absolute path entered the trace
+    (cd "$W" && timeout "$T" "$SCRIP" --run "$srcbn" </dev/null >"$W/$o.m3.out0" 2>/dev/null); r30=$?
+    (cd "$W" && env "$PORT_TRACE_ENV=1" timeout "$T" "$SCRIP" --run "$srcbn" </dev/null >"$W/$o.m3.out1" 2>"$W/$o.m3.raw"); r31=$?
     pert3=OK; { [ "$r30" = "$r31" ] && cmp -s "$W/$o.m3.out0" "$W/$o.m3.out1"; } || { pert3=FAIL; bad=$((bad+1)); }
     pert4=OK; r40=?; r41=?
     if m4build "$W/$o.s0" "$W/$o.bin0" && m4build "$W/$o.s1" "$W/$o.bin1"; then
@@ -162,11 +183,23 @@ port_trace_main() {
     cmp -s "$W/$o.m3.out0" "$ref" && { ans=ok; ans_ok=$((ans_ok+1)); } || { ans=RED; ans_red=$((ans_red+1)); }
     tr3=?; tr4=?
     for m in m3 m4; do
-      norm "$W/$o.$m.raw" "$o$PORTTRACE_EXT" > "$W/$o.$m.norm"; total=$(wc -l < "$W/$o.$m.norm")
+      norm "$W/$o.$m.raw" "$srcbn" > "$W/$o.$m.norm"; total=$(wc -l < "$W/$o.$m.norm")
       # the m4 twin of the compile-time refusal: a binary that was never built traced nothing, and pert4=NOBUILD already counted it
       if [ "$m" = m4 ] && [ "$pert4" = NOBUILD ]; then tr4="NOBUILD"; continue; fi
       [ "$total" -gt 0 ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: $o $m: the witness COMPILED (rc=0) and ran, yet $PORT_TRACE_ENV=1 produced ZERO trace lines -- the instrument is not firing; this is not 'no ports' and not a compile-time refusal (a refusal is a named row, never this message)"; gate_stamp; exit 2; }
       if [ "$CUT" = 1 ]; then
+        # ⛔⭐⭐ A CUT REFUSES RATHER THAN BAKE THE VOLATILE WORKDIR INTO A REF. hq_S's procedural ask was
+        # "grade a cure by CUTTING AND THEN RE-RUNNING, never by the cut's own verdict" -- which is right, and
+        # which is exactly the kind of duty no procedure reliably keeps, because the cut's own run is GREEN by
+        # construction: it compares the traces it just wrote. So the instrument enforces it instead. $W is a
+        # fresh mktemp dir on every invocation, so any $W component surviving into a normalised line is, by
+        # definition, a string that CANNOT match on the next run -- a ref written from it is red forever, and
+        # the seat who wrote it never saw a red. This is the one check that can catch that at cut time.
+        if grep -qF -- "$W" "$W/$o.$m.norm"; then
+          echo "GATE UNPROVEN(2) [$GATE_NAME]: $o $m: --cut REFUSED -- $(grep -cF -- "$W" "$W/$o.$m.norm") normalised line(s) still carry this run's throwaway work directory ($W), so the ref would pin a path that cannot exist on the next invocation and the gate would be RED FOREVER while this cut reported PASS. First such line:"
+          grep -nF -- "$W" "$W/$o.$m.norm" | head -1
+          echo "  the witness is invoked as the short relative basename '$srcbn' from \$W precisely so the port-hook operand is stable; a path reaching the trace by some OTHER route is a new leak and must be normalised at its source, never pinned"
+          gate_stamp; exit 2; fi
         p=$total; [ "$p" -gt "$PREFIX_CAP" ] && p=$PREFIX_CAP
         { echo "%---- $o $m total=$total prefix=$p"; head -n "$p" "$W/$o.$m.norm"; } >> "$W/ALL.trace"; v=CUT
       else

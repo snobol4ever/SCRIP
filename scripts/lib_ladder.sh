@@ -177,6 +177,51 @@ ladder_main() {
           grep -qx "$_num" <<<"$_decl_nums" || _undeclared="$_undeclared $_r"
       done < "$_ltsv"
       [ -z "$_undeclared" ] || refuse "LADDER.tsv declares rung(s)$_undeclared at or below $_ceiling with NO witness in $MASTER_DIR/ALL.csv -- a declared rung that is not built is RED, not absent; grading only what exists would print the success shape over the gap"
+      # ⛔⭐⭐ THE SAME LAW ONE LEVEL DOWN, AT FORM GRANULARITY -- REPORTED, NOT YET ENFORCED (hq_T 2026-09-13,
+      # on hq_I's report from inside this body). The refusal above enforces "declared and not built is RED" at
+      # RUNG granularity: a rung with AT LEAST ONE witness satisfies it. Nothing compared the FORMS column
+      # against the origins that exist, so snocone rung23 -- six forms declared, four built -- graded 8/8 and
+      # printed the success shape over two gaps, and its STATUS said PARTIAL-4-OF-6 in words precisely because
+      # the instrument would not say it. That is this runner's own missing-denominator defect with FORMS
+      # substituted for RUNG.
+      # ⛔ WHY THIS PRINTS AND DOES NOT REFUSE, WHICH IS A MEASURED DECISION AND NOT TIMIDITY. hq_I asked the
+      # right question before proposing a gate -- how many declared-but-unbuilt forms exist across the seven? --
+      # and scripts/util_ladder_form_census.py answers it: 94 of 1058, BUT 77 of those sit in rungs with NO
+      # witness at all, which is the ladder DECLARED AHEAD, a roadmap, and redding it would red every language
+      # whose FORMS column looks past the current rung. Only 17 sit in rungs that HAVE witnesses and grade
+      # green over a gap -- prolog r11/r12/r13/r18 (5), snobol4 r14/r19/r21 (10), snocone r23 (2) -- and those
+      # 17 live in three OTHER seats' lanes (cto, cfo, hq_I). Turning the refusal on from here would red three
+      # lanes on a number they have not yet seen. So the instrument says the true thing today; the refusal
+      # follows once the 17 are named by the seats that own them.
+      # ⭐ AND THE MATCH IS BY NAME, SO IT PROVES ABSENCE AND NEVER PRESENCE: an origin bearing a form's name
+      # could still grade nothing. This reports a FLOOR on the gap, which is why it is worded as "declares ...
+      # with no witness bearing its name" rather than as a count of defects.
+      _fgap=""
+      # ⛔⭐⭐ `IFS=$'\t' read` COALESCES CONSECUTIVE TABS, SO AN EMPTY COLUMN SHIFTS EVERY FIELD LEFT.
+      # Tab is IFS *whitespace*, and bash collapses runs of IFS whitespace into one separator -- so a row with
+      # an empty REFERENCE or PAIRS cell handed $4 the WITNESS_ORIGIN value instead of FORMS. It did not look
+      # wrong: it printed a confident, plausible, entirely false gap list -- pascal "declares 1 form(s): 
+      # ladder__rung06_arrays" (an origin, not a form) and rebus "declares 1 form(s): -" (the empty-column
+      # dash). ⭐ NOTHING IN THE RUNNER COULD HAVE CAUGHT THAT; it was caught because util_ladder_form_census.py,
+      # which splits in python and does NOT coalesce, reported ZERO gaps for both languages while this loop
+      # reported four each. TWO INSTRUMENTS OVER ONE POPULATION, DISAGREEING, is what found it -- re-reading
+      # either one alone would have confirmed it. `cut -f` uses a strict single-tab delimiter and is the fix.
+      while IFS= read -r _line; do
+          _r=$(printf '%s' "$_line" | cut -f1); _forms=$(printf '%s' "$_line" | cut -f4)
+          case "$_r" in rung[0-9]*) ;; *) continue;; esac
+          _num=$(printf '%s' "$_r" | sed 's/^rung0*//'); [ -n "$_num" ] || _num=0
+          [ "$_num" -le "$_ceiling" ] 2>/dev/null || continue
+          if [ -n "$ONLY" ] && [ "$_num" -ne "$ONLY" ]; then continue; fi
+          [ -n "$_forms" ] || continue
+          _rorig="$(printf '%s\n' "${origins[@]}" | awk -v n="$_num" '$1==n{print $2}')"
+          [ -n "$_rorig" ] || continue   # no witness at all = declared ahead, already the rung-level rule's business
+          _miss=""
+          for _f in $(printf '%s' "$_forms" | tr '|' ' '); do
+              printf '%s\n' "$_rorig" | grep -q -e "_${_f}\$" -e "_${_f}_" || _miss="$_miss $_f"
+          done
+          [ -z "$_miss" ] || _fgap="$_fgap"$'\n'"    rung$_num declares $(set -- $_miss; echo $#) form(s) with no witness bearing the name:$_miss"
+      done < "$_ltsv"
+      [ -z "$_fgap" ] || { echo "⚠ FORM-LEVEL GAP (reported, and the verdict below is unchanged -- see scripts/util_ladder_form_census.py):$_fgap"; }
   fi
   _top=$(printf '%s\n' "${!rp[@]}" "${!rf[@]}" | sort -n | tail -1)
   if [ -z "$ONLY" ]; then
