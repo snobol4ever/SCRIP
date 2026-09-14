@@ -50,11 +50,23 @@ mode_with() { printf 'NONET\n# %s\n' "$1" > "$WORK/MODE"; }
 # ⛔ `write` IS CALLED THE WAY A RUNNER CALLS IT, not through an internal function: the defect hq_I hit was in the
 # path the runners actually take, and a gate that imports the module and calls a helper can be green while the
 # command-line path is not. --column ladder + no --suite keeps SUITES.tsv out of it, so each arm grades one thing.
+# ⛔⭐ THE SEAT IS EXPORTED IN A SUBSHELL AND THE SIGNATURE IS THE ONE CALL SHAPE `--measurer "${S4E_SEAT:-}"`.
+# Both halves are load-bearing and neither is cosmetic. (a) This fixture must drive the writer AS DIFFERENT SEATS
+# -- that is the whole experiment -- and `derive_measurer()` resolves from the ROOT PATH, so simply dropping the
+# argument would sign every arm `hq_B` and grade nothing. (b) The one call shape may NOT be written with a command
+# PREFIX assignment: `S4E_SEAT="$meas" cmd --measurer "${S4E_SEAT:-}"` expands the argument in the CALLING shell,
+# BEFORE the prefix takes effect, so it would pass this gate's own seat while appearing to pass the fixture's.
+# A `( export ... )` subshell is what makes the literal shape and the correct value the same thing.
+# ⭐ WHY THE SHAPE AT ALL: test_gate_seat_identity_one_map.sh requires ONE identity source across every runner,
+# and it red on this line (arm 48) while THIS gate was green at arm 49 -- two gates disagreeing about one file,
+# which is worth more than either verdict: whichever shape is right, one of them was wrong about the other.
+# Reported by hq_C 2026-09-13 out of an unrelated Prolog `make test`; the file is mine, from fbb1db6ef today.
 run_write() { # run_write <home> <measurer> [extra args...]
     local home="$1" meas="$2"; shift 2
-    S4E_HOME="$home" S4E_MODE_FILE="$WORK/MODE" S4E_SEAT="$meas" S4E_DONE_WHEN_RUN="${DW:-}" \
-      S4E_ONE_RUNNER_OVERRIDE="${OV:-}" python3 "$U" write --lang snocone --column ladder \
-      --text "rungs 0..9 PASS 33/33 (fixture)" --measurer "$meas" "$@" 2>&1
+    ( export S4E_SEAT="$meas"
+      S4E_HOME="$home" S4E_MODE_FILE="$WORK/MODE" S4E_DONE_WHEN_RUN="${DW:-}" \
+        S4E_ONE_RUNNER_OVERRIDE="${OV:-}" python3 "$U" write --lang snocone --column ladder \
+        --text "rungs 0..9 PASS 33/33 (fixture)" --measurer "${S4E_SEAT:-}" "$@" 2>&1 )
 }
 sum_of() { md5sum "$1/.github/SCORE.md" | cut -d' ' -f1; }
 echo "--- ARMS 1-2: a scratch MODE naming the coo -- a non-runner seat writes NOTHING and SAYS SO, the runner writes ---"
