@@ -74,6 +74,19 @@ the converted entry (both modes) and comparing full verdicts (not just stdout te
 trusted; the whole point of the empirical validate+fallback loop is that this file does not need to
 be a perfect SNOBOL4/SPITBOL grammar -- a wrong guess just falls back to the always-safe multi-line
 block shape instead of silently producing a bad conversion.
+
+⛔ THE WHOLE-PROGRAM BOUND IS A HANG CATCHER, NEVER A SPEED GRADER, so it lives an ORDER OF
+MAGNITUDE above the slowest thing it grades -- 120s, raised from 10s on 2026-09-13 by the coo
+(THE ONE RUNNER, whose bound this is) after hq_T measured the two raku kernels this board had
+been calling HANG: benchmark_point_class_add and benchmark_point_class_add1 terminate rc=0 with
+the byte-correct answer in 9-11s warm and 21-42s cold on a loaded box. A bound tuned near a job's
+measured duration is not a tight bound, it is a FLAKY one: its verdict is then decided by what
+else the box was doing rather than by the tree, which is exactly why the pair moved together and
+why the slowest of the four gradings was the one already reading HANG on the earlier tree. An
+rc=124 cannot distinguish needs-more-time from never-finishes, so the only honest place for the
+line is far above every honest program. COST, measured rather than assumed: across every board
+pass on 2026-09-13 exactly two entries exceeded the old bound, so a true hang now costs 120s
+instead of 10s and nothing else on any board pays anything.
 """
 import argparse
 import hashlib
@@ -136,7 +149,7 @@ def resolve_paths():
         "corpus": s4e_home / "corpus",
         "inc": Path(os.environ.get("INC", str(s4e_home / "corpus" / "include"))),
         "scrip_root": scrip_root,
-        "timeout": float(os.environ.get("TIMEOUT", "10")),
+        "timeout": float(os.environ.get("TIMEOUT", "120")),
         "stdbuf_bin": _which("stdbuf"),
     }
 
