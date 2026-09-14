@@ -7806,8 +7806,9 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         if (!strcmp(tu,"REAL")) {
             if (IS_REAL_fn(a)) { *out = a; return 1; }
             if (IS_INT_fn(a)) { *out = REALVAL((double)a.i); return 1; }
-            const char *sv = VARVAL_fn(a); if (!sv) { *out = FAILDESCR; return 1; }
-            char *e = NULL; double dv = strtod(sv, &e); if (e && *e == '\0' && e != sv) { *out = REALVAL(dv); return 1; }
+            { extern int rt_str_to_real(const char *, double *);
+              const char *sv = IS_STR(a) ? rt_cstr_d(a) : VARVAL_fn(a); if (!sv) { *out = FAILDESCR; return 1; }
+              { double dv; if (rt_str_to_real(sv, &dv)) { *out = REALVAL(dv); return 1; } } }
             *out = FAILDESCR; return 1;
         }
         if (!strcmp(tu,"STRING")) { const char *sv = VARVAL_fn(a); *out = STRVAL(rt_heap_strdup_c(sv ? sv : "")); return 1; }

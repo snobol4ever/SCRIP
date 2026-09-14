@@ -1131,9 +1131,8 @@ static DESCR_t _REAL_(DESCR_t *a, int n) {
     if (IS_INT(a[0]))  return REALVAL((double)a[0].i);
     if (IS_STR(a[0]) && a[0].s) {
         const char *p0 = rt_cstr_d(a[0]);
-        char *end;
-        double v = strtod(p0, &end);
-        if (end != p0 && *end == '\0') return REALVAL(v);
+        double v;
+        if (rt_str_to_real(p0, &v)) return REALVAL(v);
     }
     return FAILDESCR;
 }
@@ -1194,9 +1193,7 @@ static DESCR_t _NUMERIC_(DESCR_t *a, int n) {
         long long iv = strtoll(s, &end, 10);
         while (*end == ' ') end++;
         if (*end == '\0') return INTVAL((int64_t)iv);
-        double rv = strtod(s, &end);
-        while (*end == ' ') end++;
-        if (*end == '\0') return REALVAL(rv);
+        { double rv; if (rt_str_to_real(s, &rv)) return REALVAL(rv); }
     }
     return FAILDESCR;
 }
@@ -1626,6 +1623,7 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
     }
     if (strcmp(type, "REAL")    == 0) {
         if (!IS_STR(val) && !IS_INT(val) && !IS_REAL(val)) return FAILDESCR;
+        if (IS_STR(val)) { double rv; if (!rt_str_to_real(rt_cstr_d(val), &rv)) return FAILDESCR; return REALVAL(rv); }
         return REALVAL(to_real(val));
     }
     if (strcmp(type, "ARRAY")   == 0) {
@@ -1722,9 +1720,7 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
             long long iv = strtoll(s, &end, 10);
             while (*end == ' ') end++;
             if (*end == '\0') return INTVAL((int64_t)iv);
-            double rv = strtod(s, &end);
-            while (*end == ' ') end++;
-            if (*end == '\0') return REALVAL(rv);
+            { double rv; if (rt_str_to_real(s, &rv)) return REALVAL(rv); }
         }
         return FAILDESCR;
     }
@@ -3689,6 +3685,18 @@ void DEFINE_fn_entry(const char *spec, FNCPTR_t fn, const char *entry_label) {
             return;
         }
     }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_str_to_real(const char *s, double *out) {
+    if (!s) return 0;
+    while (*s == ' ') s++;
+    { char *end = (char *)0; double v = strtod(s, &end);
+      if (!end || end == s) return 0;
+      while (*end == ' ') end++;
+      if (*end) return 0;
+      if (!isfinite(v)) return 0;
+      if (out) *out = v;
+      return 1; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *core_define_entry_label(const char *name) {

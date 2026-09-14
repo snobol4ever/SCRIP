@@ -474,9 +474,10 @@ DESCR_t EVAL_fn(DESCR_t expr) {
         if (endp && *endp == '\0') return INTVAL(iv);
     }
     {
-        char *endp = NULL;
-        double rv = strtod(s, &endp);
-        if (endp && *endp == '\0') return REALVAL(rv);
+        extern int rt_str_to_real(const char *, double *);
+        double rv;
+        if (rt_str_to_real(s, &rv)) return REALVAL(rv);
+        { char *endp = NULL; (void)strtod(s, &endp); if (endp && *endp == '\0') return FAILDESCR; }
     }
     if (g_eval_str_hook) return g_eval_str_hook(s);
     extern DESCR_t eval_string_transient(const char *s);

@@ -324,6 +324,7 @@ test_gate_sm_dead.sh	WIRED	-	-	-
 test_gate_sn4_replacement_releases_its_post_match_spine.sh	WIRED	-	-	-
 test_gate_sno_a_by_name_call_survives_collect.sh	WIRED	-	-	-
 test_gate_sno_a_captured_number_is_numeric_in_every_coercion_path.sh	WIRED	-	-	-
+test_gate_sno_a_real_that_overflows_is_not_a_value.sh	WIRED	-	-	-
 test_gate_sno_an_error_inside_eval_publishes_its_own_text.sh	WIRED	-	-	-
 test_gate_sno_byname_goto_zeta_unwind_in_a_loop.sh	WIRED	-	-	-
 test_gate_sno_captured_substring_compares_by_its_own_length.sh	WIRED	-	-	-
