@@ -2683,8 +2683,8 @@ void core_runtime_error(int code, const char *msg) {
         msg = core_err_msgs[code];
     { extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
       extern long g_icn_errnumber; extern const char *g_icn_errtext; extern DESCR_t g_icn_errvalue; extern int g_icn_err_valid;
-      extern long g_error; extern int64_t kw_errlimit;
-      if (g_error != 0 && g_core_errjmp_n > 0 && !(core_setexit_on() && _setexit_label[0] && kw_errlimit != 0)) {
+      extern long g_error;
+      if (g_error != 0 && g_core_errjmp_n > 0) {
           if (g_error > 0) g_error--;
           extern void rt_kw_publish_error(int code, const char *msg);
           g_icn_errnumber = code; g_icn_errtext = msg ? msg : ""; memset(&g_icn_errvalue, 0, sizeof g_icn_errvalue); g_icn_err_valid = 1;
