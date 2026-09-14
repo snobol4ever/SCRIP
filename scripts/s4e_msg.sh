@@ -631,10 +631,10 @@ s4e_lane_owner_of_language() {
       icon)     printf 'ceo';;    # CONCERN 1 completeness owner, MODE line 2
       prolog)   printf 'cto';;    # completeness + the ISO ladder; hq_C breadth, hq_R builtins/streams
       snobol4)  printf 'cfo';;    # the master and the six SNOBOL4 packages
-      pascal)   printf 'hq_S';;   # CEO-723: the coo is THE ONE RUNNER and holds no language lane
-      snocone)  printf 'hq_I';;   # per-language ladder seat
-      rebus)    printf 'ceo';;    # CEO-742: MODE line 2 declares REBUS -- CLOSED, NO OWNER, so a rebus-* row is a REOPENING question for the arbiter and not a lane
-      raku)     printf 'hq_T';;   # per-language ladder seat, and the test standard
+      pascal)   printf 'cfo';;    # CEO-748 EXECUTIVE: the coo is THE ONE RUNNER and holds no language lane; hq_S stood down
+      snocone)  printf 'cfo';;    # CEO-748 EXECUTIVE: rides lower_snobol4, so it sits with SNOBOL4; hq_I stood down
+      rebus)    printf 'ceo';;    # CEO-742/745: the ceo is the Rebus owner, and CEO-748 keeps it there
+      raku)     printf 'ceo';;    # CEO-748 EXECUTIVE: the ceo's cure lane, Icon being full and Rebus closed; hq_T stood down
     esac
 }
 # One line of prose for the `mint` refusal, DERIVED so it cannot drift from the arms above.
