@@ -493,6 +493,8 @@ static tree_t * pl_cc_gen2(const char * count_leaf, const char * nth_leaf, tree_
     return pl_cc_fnc2(",", gen, pick);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_fence_on(void) { return emit_pl_fence_on(); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_lower_ite(lcx_t * cx, const tree_t * C, const tree_t * T, const tree_t * E, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     IR_t * ig = build(cx, IR_GATE, γnext, ωfail);
     IR_t * mark = build(cx, IR_BOUND, NULL, ig);
@@ -523,7 +525,9 @@ static IR_t * pl_lower_ite(lcx_t * cx, const tree_t * C, const tree_t * T, const
       lc_γ_to(unmk_f, (nb > 1) ? arm_entry[1] : ig);
       IR_t * saveω = cx->cutω; cx->cutω = unmk_f;
       IR_t * savecutω = cx->cutω; cx->cutω = unmk_f; int save_scope = cx->cut_scope; cx->cut_scope = ++cx->scope_seq;
-      IR_t * cfirst = pl_lower_conj(cx, (const tree_t * const *) cv.data, cv.n, arm_entry[0], unmk_f, &ce, NULL, NULL);
+      IR_t * fence = pl_fence_on() ? build(cx, IR_UNMARK, arm_entry[0], unmk_c) : (IR_t *) 0;
+      if (fence) { ir_operand_push(fence, mark); IR_LIT(fence).ival = 2; }
+      IR_t * cfirst = pl_lower_conj(cx, (const tree_t * const *) cv.data, cv.n, fence ? fence : arm_entry[0], unmk_f, &ce, NULL, NULL);
       cx->cutω = savecutω; cx->cut_scope = save_scope;
       cx->cutω = saveω;
       lc_γ_to(mark, ce ? ce : (cfirst ? cfirst : arm_entry[0]));
