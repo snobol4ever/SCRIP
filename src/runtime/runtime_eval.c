@@ -303,8 +303,10 @@ DESCR_t eval_string_transient(const char *s) {
     eval_chain_fn cached = eval_cache_get(s);
     if (cached) {
         DESCR_t saved = NV_GET_fn(EVAL_TMP);
+        NV_SET_fn(EVAL_TMP, FAILDESCR);
         int ok = eval_chain_run_guarded(cached);
-        DESCR_t result = ok ? NV_GET_fn(EVAL_TMP) : FAILDESCR;
+        DESCR_t got = NV_GET_fn(EVAL_TMP);
+        DESCR_t result = (ok && !IS_FAIL(got)) ? got : FAILDESCR;
         NV_SET_fn(EVAL_TMP, saved);
         return result;
     }
@@ -312,8 +314,10 @@ DESCR_t eval_string_transient(const char *s) {
     eval_chain_fn fn = eval_build_chain(s);
     if (!fn) { bb_pool_release(mark); return FAILDESCR; }
     DESCR_t saved = NV_GET_fn(EVAL_TMP);
+    NV_SET_fn(EVAL_TMP, FAILDESCR);
     int ok = eval_chain_run_guarded(fn);
-    DESCR_t result = ok ? NV_GET_fn(EVAL_TMP) : FAILDESCR;
+    DESCR_t got = NV_GET_fn(EVAL_TMP);
+    DESCR_t result = (ok && !IS_FAIL(got)) ? got : FAILDESCR;
     NV_SET_fn(EVAL_TMP, saved);
     if (mark < eval_retain_budget()) eval_cache_put(s, fn);
     else bb_pool_release(mark);

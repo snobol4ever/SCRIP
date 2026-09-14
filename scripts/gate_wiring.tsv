@@ -335,6 +335,7 @@ test_gate_sno_deferred_pattern_primitive_arg.sh	WIRED	-	-	-
 test_gate_sno_deferred_replacement_keeps_its_capture_mark.sh	WIRED	-	-	-
 test_gate_sno_define_entry_label_rebinds_at_runtime.sh	WIRED	-	-	-
 test_gate_sno_dump_matches_spitbol.sh	WIRED	-	-	-
+test_gate_sno_eval_fails_when_its_expression_fails.sh	WIRED	-	-	-
 test_gate_sno_eval_of_a_converted_expression_keeps_the_replacement_pointer.sh	WIRED	-	-	-
 test_gate_sno_fence_body_dynamic_operand.sh	WIRED	-	-	-
 test_gate_sno_field_function_with_no_argument_raises_041_not_022.sh	WIRED	-	-	-
