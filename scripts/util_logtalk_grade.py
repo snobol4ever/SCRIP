@@ -249,7 +249,8 @@ def _split_option(options):
 
 class Plan(object):
     """How one case will be graded, or why it will not be."""
-    __slots__ = ("case", "want", "goal", "balls", "weaker", "skip_reason", "condition", "prefix", "sequenced")
+    __slots__ = ("case", "want", "goal", "balls", "weaker", "skip_reason", "condition", "prefix", "sequenced",
+                 "outside_reason")
 
     def __init__(self, case, want=None, goal=None, balls=(), weaker=None, skip_reason=None):
         self.case = case
@@ -258,6 +259,7 @@ class Plan(object):
         self.balls = list(balls)
         self.weaker = weaker
         self.skip_reason = skip_reason
+        self.outside_reason = None
         self.condition = None
         self.prefix = []          # earlier cases' goals, run before this one (see SEQ_TABLE above)
         self.sequenced = None     # the declared reason it needs them
@@ -508,6 +510,168 @@ def _sweep(work, results, where, builders, dbs, shim_src, scrip, modes, workroot
     return out
 
 
+
+# ⛔⭐ THE PER-CASE OUTSIDE ASSIGNER (cto ruling 2026-09-13, on hq_C's encodings census; RULES.md FACT RULE
+# CEO-542: OUTSIDE-THE-BASELINE IS ABOUT THE ORACLE, NEVER ABOUT US). A program the oracle cannot run is
+# outside the baseline; a program it CAN run is ours and any gap in it is ours. This assigns that per CASE.
+#
+# WHY PER CASE AND NOT PER FILE. UNGRADABLE.tsv already declares 208 tester.lgt files CONTAINER_OR_LIBRARY
+# for needing the Logtalk runtime, and it reads as if that dependency were fully accounted for. It is not:
+# unicode/encodings/tests.lgt -- the ONLY tests.lgt of all 192 that does this -- holds 40 CASES with the
+# identical dependency, inside a graded file, so they sat in the denominator and read as 40 cases of engine
+# work when the group's real ceiling was 9 of 49. ⭐ The census answered WHICH FILES ARE DRIVERS and was read
+# as WHICH CASES NEED THE RUNTIME. Same dependency, different granularity, and the artifact could not say
+# which question it had answered.
+#
+# ⛔ THE RULING DOES NOT LAND WITHOUT THIS INSTRUMENT, AND THAT IS THE POINT OF WRITING IT FIRST. Moving 40
+# cases out of a denominator by prose, with nothing that can recompute the move, would read as a 9-of-9 green
+# forever and nothing in the output would distinguish it from the day it was load-bearing.
+#
+# ⛔ IT REFUSES TO GUESS. A case is OUTSIDE only when a predicate it calls is measured ABSENT FROM THE ORACLE
+# and is resolved to a provider we do not have -- a Logtalk system predicate, or a fixture .lgt that only
+# logtalk_load could bring in. Anything else STAYS IN and is counted as UNRESOLVED and named, because an
+# audit that cannot say how many subjects it failed to resolve is not a measurement. With no oracle present
+# NOTHING is assigned and every case stays IN: an assigner that gets more generous when it can measure less
+# is the criterion that improves as the work becomes less measurable.
+LOGTALK_SYSTEM = (("logtalk_compile", 1), ("logtalk_compile", 2), ("logtalk_load", 1), ("logtalk_load", 2),
+                  ("logtalk_load_context", 2), ("logtalk_make", 0), ("logtalk_make", 1),
+                  ("create_object", 4), ("create_protocol", 3), ("create_category", 4),
+                  ("abolish_object", 1), ("abolish_protocol", 1), ("abolish_category", 1))
+CALL_RE = re.compile(r"(?<![A-Za-z0-9_])([a-z][A-Za-z0-9_]*)\s*\(")
+DEF_RE = r"(?<![A-Za-z0-9_])%s\s*\("
+
+
+def oracle_binary():
+    for c in ("/usr/bin/swipl", "swipl"):
+        if os.path.isabs(c):
+            if os.access(c, os.X_OK):
+                return c
+        elif shutil.which(c):
+            return shutil.which(c)
+    return None
+
+
+def oracle_has(swipl, name, arity, cache):
+    """Does the ORACLE have this predicate? None when it could not be asked -- never guessed either way."""
+    key = (name, arity)
+    if key in cache:
+        return cache[key]
+    g = ("( catch(( current_predicate(%s/%d) ; functor(H,%s,%d), predicate_property(H,built_in) ),_,fail)"
+         " -> write(has) ; write(lacks) ), nl, halt" % (name, arity, name, arity))
+    try:
+        r = subprocess.run([swipl, "-q", "-g", g], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                           timeout=20)
+        out = r.stdout.decode("utf-8", "replace").strip()
+    except Exception:
+        out = ""
+    v = True if out == "has" else (False if out == "lacks" else None)
+    cache[key] = v
+    return v
+
+
+def called_predicates(text):
+    """(name, arity) for every call spelled in a goal. Over-collects rather than under-collects: a name it
+    wrongly includes ends up UNRESOLVED and keeps its case IN, which is the safe direction."""
+    out = set()
+    for m in CALL_RE.finditer(text or ""):
+        e = ex._close_paren(text[m.end():])
+        if e is None:
+            continue
+        try:
+            n = len(ex.split_args(text[m.end():m.end() + e]))
+        except Exception:
+            continue
+        out.add((m.group(1), n))
+    return out
+
+
+def fixture_text(path):
+    """⛔ THE FIXTURES OF THIS GROUP ARE THE ENCODINGS THEMSELVES, AND GUESSING WRONG FAILS SILENTLY. Reading
+    a provider as UTF-8 to learn which predicate it defines fails on exactly the UTF-16/UTF-32 files the group
+    exists to exercise. ⭐ AND THE OBVIOUS GUARD DOES NOT WORK: a UTF-16BE file with no BOM decoded as UTF-16LE
+    yields plausible text with NO NUL characters at all, so a "reject it if it has NULs" test passes it and the
+    predicate simply is not found -- the case then reports UNRESOLVED, which reads as the assigner being
+    careful rather than as the assigner being wrong. Measured: 4 of the 20 fixture-backed cases sat in that
+    hole. So every candidate is decoded and SCORED, and the one that looks most like source wins."""
+    try:
+        b = io.open(path, "rb").read()
+    except Exception:
+        return ""
+    best, best_score = "", -1.0
+    for enc in ("utf-8-sig", "utf-16", "utf-16-be", "utf-16-le", "utf-32", "utf-32-be", "utf-32-le", "utf-8"):
+        try:
+            t = b.decode(enc)
+        except Exception:
+            continue
+        if not t:
+            continue
+        good = sum(1 for c in t if c == "\n" or c == "\t" or " " <= c <= "~")
+        score = float(good) / len(t)
+        if score > best_score:
+            best, best_score = t, score
+    return best
+
+
+def assign_outside(work, dbs, supported, root):
+    """Set p.outside_reason per case. Returns (assigned, unresolved_names, why_not) -- why_not is the one
+    stated reason nothing could be assigned, or None."""
+    swipl = oracle_binary()
+    if not swipl:
+        return 0, [], ("no oracle on this machine, so NOTHING is outside -- every case stays IN and in the "
+                       "denominator, because outside-the-baseline is a measurement of the oracle (CEO-542)")
+    cache = {}
+    fixtures = {}
+    assigned = 0
+    unresolved = []
+    for fc, p in work:
+        if p.outside_reason is not None:
+            continue
+        # ⛔ THE GOAL, NEVER THE RAW CASE. raw carries lgtunit's own scaffolding -- test/2, true/1,
+        # condition/1, clean/1 -- none of which the oracle has, all of which would read as unresolved
+        # dependencies and bury the real ones. Measured: scanning raw produced 135 unresolved lines naming
+        # the harness instead of the subject.
+        body = p.case.goal or ""
+        own = dbs.get(fc.path) or ""
+        if not isinstance(own, str):
+            own = "\n".join(x if isinstance(x, str) else str(x) for x in own)
+        d = os.path.dirname(fc.path)
+        if d not in fixtures:
+            fixtures[d] = [f for f in sorted(glob.glob(os.path.join(d, "*.lgt")))
+                           if os.path.basename(f) not in ("tests.lgt", "tester.lgt")]
+        pending = []
+        for (nm, ar) in sorted(called_predicates(body)):
+            if re.search(DEF_RE % re.escape(nm), own) or nm in supported:
+                continue
+            has = oracle_has(swipl, nm, ar, cache)
+            if has is None or has:
+                continue
+            if (nm, ar) in LOGTALK_SYSTEM:
+                p.outside_reason = ("%s/%d is a Logtalk SYSTEM predicate and the oracle raises "
+                                    "existence_error on it -- no Logtalk runtime ships here" % (nm, ar))
+                break
+            prov = None
+            for f in fixtures[d]:
+                try:
+                    if re.search(DEF_RE % re.escape(nm), fixture_text(f)):
+                        prov = os.path.basename(f)
+                        break
+                except Exception:
+                    continue
+            if prov:
+                p.outside_reason = ("%s/%d is defined only in %s, which nothing but logtalk_load/1-2 can "
+                                    "bring in, and the oracle lacks it" % (nm, ar, prov))
+                break
+            pending.append("%s:%s calls %s/%d, which the oracle lacks and this assigner could not resolve "
+                           "to a provider -- STAYS IN" % (fc.group, p.case.name, nm, ar))
+        # ⛔ AN UNRESOLVED NAME ON A CASE THAT DID RESOLVE IS NOISE ABOUT A CASE NOBODY NEEDS TO LOOK AT. The
+        # scan reads option terms as calls (clean/1 out of logtalk_load(P,[clean(on)])), which is the safe
+        # direction, but reporting them beside the genuinely unresolved ones buries the list that matters.
+        if p.outside_reason is not None:
+            assigned += 1
+        else:
+            unresolved.extend(pending)
+    return assigned, unresolved, None
+
 def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ_TABLE, sweep=False):
     # ⛔ ABSOLUTE, AND CHECKED HERE. Every case runs with cwd set to its own scratch directory, so a
     # relative binary path ("./scrip", the obvious thing to type) resolves against the scratch dir and is
@@ -608,6 +772,7 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
     if limit:
         work = work[:limit]
         probes = [(i, q) for i, q in probes if i < limit]
+    outside_n, outside_unresolved, outside_off = assign_outside(work, dbs, supported, root)
     workroot = tempfile.mkdtemp(prefix="lgtsuite.")
     results = {}
     probe_results = {}
@@ -615,7 +780,8 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
         for mode in modes:
             # ⛔ THE POLICING ARM RUNS IN THE SAME PASS AS THE BOARD, on the same binary and the same tree. A
             # declaration checked by a separate invocation is a declaration checked against a different run.
-            todo = [(("w", i), fc, p) for i, (fc, p) in enumerate(work) if p.skip_reason is None]
+            todo = [(("w", i), fc, p) for i, (fc, p) in enumerate(work)
+                    if p.skip_reason is None and p.outside_reason is None]
             todo += [(("p", j), work[i][0], q) for j, (i, q) in enumerate(probes) if q.skip_reason is None]
             def job(t):
                 # ⛔ ONE CASE MUST NEVER TAKE THE RUN DOWN. A harness exception here (the unicode family
@@ -636,7 +802,8 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
     finally:
         shutil.rmtree(workroot, ignore_errors=True)
     seqinfo = {"table": sequenced, "errors": seqerr, "probes": probes, "probe_results": probe_results,
-               "sweep": cands}
+               "sweep": cands, "outside_n": outside_n, "outside_unresolved": outside_unresolved,
+               "outside_off": outside_off}
     return (work, results, seqinfo), []
 
 
@@ -722,10 +889,18 @@ def main(argv):
     board = {}
     named = []
     reasons = {}          # keyed (mode, reason) -- see the print below
+    outside_reasons = {}  # keyed (mode, reason) -- the OUTSIDE bucket, named per case by PREDICATE
     weaker = sum(1 for _fc, p in work if p.weaker)
     for mode in modes:
         b = {"PASS": 0, "FAIL": 0, "OUTSIDE": 0, "UNGRADABLE": 0, "UNGRADED": 0, "DEFERRED": 0}
         for i, (fc, p) in enumerate(work):
+            # ⛔ OUTSIDE IS TESTED FIRST AND ON PURPOSE. A case the oracle cannot run is outside whether or
+            # not its own condition(...) also happened to be false, and bucketing it UNGRADED instead would
+            # file a denominator fact under a work-owed reason.
+            if p.outside_reason is not None:
+                b["OUTSIDE"] += 1
+                outside_reasons[(mode, p.outside_reason)] = outside_reasons.get((mode, p.outside_reason), 0) + 1
+                continue
             if p.skip_reason is not None:
                 b["UNGRADED"] += 1
                 k = (mode, p.skip_reason.split(":")[0])
@@ -756,6 +931,26 @@ def main(argv):
         b = board[m]
         print("  identity %s: PASS %d + FAIL %d + OUTSIDE %d + UNGRADABLE %d + UNGRADED %d + DEFERRED %d == %d ✓"
               % (m, b["PASS"], b["FAIL"], b["OUTSIDE"], b["UNGRADABLE"], b["UNGRADED"], b["DEFERRED"], pop))
+    outside_off = seqinfo.get("outside_off")
+    outside_unresolved = seqinfo.get("outside_unresolved") or []
+    if outside_off:
+        print("  OUTSIDE: none assigned -- %s" % outside_off)
+    for m in modes:
+        rs = sorted(((r, n) for (mm, r) in outside_reasons for n in [outside_reasons[(mm, r)]] if mm == m),
+                    key=lambda t: (-t[1], t[0]))
+        if rs:
+            print("  OUTSIDE %s, by the PREDICATE that put the case there -- out of the graded denominator, "
+                  "never hidden (CEO-542: the oracle cannot run these):" % m)
+            for r, n in rs:
+                print("    %4d  %s" % (n, r))
+    if outside_unresolved:
+        print("  ⛔ UNRESOLVED by the outside assigner -- these STAY IN the denominator, and an audit that "
+              "cannot say how many subjects it failed to resolve is not a measurement: %d"
+              % len(outside_unresolved))
+        for u in outside_unresolved[:8]:
+            print("      %s" % u)
+        if len(outside_unresolved) > 8:
+            print("      ... and %d more" % (len(outside_unresolved) - 8))
     print("  criterion: each case's OWN expectation as ISO/IEC 13211-1 states it (the suite cites the section "
           "numbers), matched by UNIFICATION inside the engine -- not an oracle diff, and never a text compare")
     if weaker:
@@ -804,7 +999,7 @@ def main(argv):
     # it passes in EVERY mode graded. Printed beside the per-mode counts, never instead of them.
     both = 0
     for i, (fc, p) in enumerate(work):
-        if p.skip_reason is not None:
+        if p.skip_reason is not None or p.outside_reason is not None:
             continue
         if all(verdict(p, results[(i, m)][0])[0] == "PASS" for m in modes):
             both += 1
@@ -822,7 +1017,9 @@ def main(argv):
     with open(rows, "w") as pf:
         for i, (fc, p) in enumerate(work):
             for m in modes:
-                if p.skip_reason is not None:
+                if p.outside_reason is not None:
+                    v, note = "OUTSIDE", p.outside_reason[:60]
+                elif p.skip_reason is not None:
                     v, note = "UNGRADED", p.skip_reason.split(":")[0][:60]
                 else:
                     v, why = verdict(p, results[(i, m)][0])
@@ -831,7 +1028,13 @@ def main(argv):
                 pf.write("package\tlogtalk\tprolog\t%s:%s\t%s\t%s\t0\t%s\n"
                          % (fc.group, p.case.name, m, v, note))
     print("PROGRESS_ROWS_TSV %s" % rows)
-    print("BOARD_FOR_SHELL %d %d %s" % (pop, both, " ".join("%d %d" % (board[m]["PASS"], board[m]["FAIL"]) for m in modes)))
+    # ⛔ THE OUTSIDE COUNT IS APPENDED, NEVER SUBTRACTED FROM pop HERE. Every reader of this line takes its
+    # fields POSITIONALLY, and a shrinking pop would silently re-base every one of them; a trailing field is
+    # invisible to a reader that does not want it and available to the one that does. The GRADED denominator
+    # is pop MINUS outside, and it is the reader's job to say so out loud when it uses it.
+    print("BOARD_FOR_SHELL %d %d %s outside=%d"
+          % (pop, both, " ".join("%d %d" % (board[m]["PASS"], board[m]["FAIL"]) for m in modes),
+             board[modes[0]]["OUTSIDE"]))
     return 0
 
 

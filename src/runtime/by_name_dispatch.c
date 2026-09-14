@@ -2136,7 +2136,13 @@ static int pl_enc_norm(const char *s, char *out, size_t n) { size_t i, k = 0;
     out[k] = '\0'; return k != 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_open_opts(DESCR_t *args, int nargs, int idx, pl_tr_ctx_t *cx) {
+static void pl_skip_bom(FILE *fp) {
+    long pos = ftell(fp); unsigned char b[3]; size_t n = fread(b, 1, 3, fp);
+    if (n == 3 && b[0] == 0xEF && b[1] == 0xBB && b[2] == 0xBF) return;
+    if (pos >= 0) { if (fseek(fp, pos, SEEK_SET) == 0) return; }
+    while (n > 0) { ungetc(b[--n], fp); } }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_open_opts(DESCR_t *args, int nargs, int idx, pl_tr_ctx_t *cx, int *bom_opt) {
     extern void *rt_pl_ball_instantiation(void); extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); extern void fh_set_untranslated(int, int);
     DESCR_t o;
     if (nargs < 4) return 1;
@@ -2152,6 +2158,8 @@ static int pl_open_opts(DESCR_t *args, int nargs, int idx, pl_tr_ctx_t *cx) {
           else if (on && !strcmp(on, "type")) { if (!as || (strcmp(as, "text") && strcmp(as, "binary"))) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; }
               if (idx >= 0 && idx < FH_MAX) g_fh[idx].type = (char)(as[0] == 'b' ? 'b' : 't'); fh_set_untranslated(idx, as[0] == 'b'); }
           else if (on && (!strcmp(on, "reposition") || !strcmp(on, "eof_action"))) { if (!as) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; } }
+          else if (on && !strcmp(on, "bom")) { if (!as || (strcmp(as, "true") && strcmp(as, "false"))) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; }
+              if (bom_opt) *bom_opt = (as[0] == 't'); }
           else if (on && !strcmp(on, "encoding")) { extern void fh_set_encoding(int, const char *); char eb[64];
               if (!as || !pl_enc_norm(as, eb, sizeof eb) || (strcmp(eb, "utf8") && strcmp(eb, "text"))) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; }
               fh_set_encoding(idx, "utf8"); }
@@ -2163,7 +2171,7 @@ static int pl_open_opts(DESCR_t *args, int nargs, int idx, pl_tr_ctx_t *cx) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_open_leaf(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
-    extern int fh_alloc(FILE *); extern void *rt_pl_ball_instantiation(void); extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    extern int fh_alloc(FILE *); extern void *rt_pl_ball_instantiation(void); extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); extern int fh_is_untranslated(int);
     char fb[4096], mb[64]; const char *fn, *md; FILE *fp; const char *fmode;
     DESCR_t f = rt_pl_deref_val(args[0]); DESCR_t m = rt_pl_deref_val(args[1]);
     if (pl_val_unbound(f) || pl_val_unbound(m)) { cx->ball = rt_pl_ball_instantiation(); return 0; }
@@ -2175,7 +2183,9 @@ static int pl_open_leaf(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
     if (!fp) { cx->ball = rt_pl_ball_kind2("existence_error", "source_sink", f); return 0; }
     { int idx = fh_alloc(fp); if (idx < 0) { fclose(fp); return 0; }
       g_fh[idx].name = rt_pinned_strdup(fn); g_fh[idx].mode = (char) fmode[0];
-      if (!pl_open_opts(args, nargs, idx, cx)) { fclose(fp); fh_free(idx); return 0; }
+      { int bom_opt = 1;
+        if (!pl_open_opts(args, nargs, idx, cx, &bom_opt)) { fclose(fp); fh_free(idx); return 0; }
+        if (fmode[0] == 'r' && bom_opt && g_fh[idx].type != 'b' && !fh_is_untranslated(idx)) pl_skip_bom(fp); }
       return plw_unify_vals(args[2], pl_mk_stream(idx), cx); }
 }
 #define PL_CX_LEAF_HEAD(nm, ar) DESCR_t rt_pl_dop_##nm##_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) { extern void rt_gc_point_arr(DESCR_t *, int, const char **);int ok; \
@@ -2421,18 +2431,44 @@ PL_CX_LEAF_HEAD(number_chars, 2) ok = pl_number_text_leaf(args, 0, cx); PL_CX_LE
 PL_CX_LEAF_HEAD(name, 2) { char b[4096]; const char *s; DESCR_t a = rt_pl_deref_val(args[0]);
     if (a.v == DT_I || a.v == DT_R || pl_atom_str(a)) { pl_cell_text(a, b, sizeof b, &s); ok = plw_unify_vals(args[1], pl_text_list(s, 1), cx); }
     else { DESCR_t num; if (!pl_list_text(args[1], b, sizeof b)) ok = 0; else ok = plw_unify_vals(args[0], pl_parse_number(b, &num) ? num : pl_mk_atom_dup(b, strlen(b)), cx); } } PL_CX_LEAF_TAIL
-PL_CX_LEAF_HEAD(get_char, 1) { extern FILE *fh_cur_in_fp(void); int c = fgetc(fh_cur_in_fp());
-    if (c == EOF) ok = plw_unify_vals(args[0], pl_mk_atom("end_of_file"), cx);else { char c2[2] = { (char)c, 0 };
-    ok = plw_unify_vals(args[0], pl_mk_atom_dup(c2, 1), cx); } } PL_CX_LEAF_TAIL
-PL_CX_LEAF_HEAD(peek_char, 1) { extern FILE *fh_cur_in_fp(void); int c = fgetc(fh_cur_in_fp());
-    if (c == EOF) ok = plw_unify_vals(args[0], pl_mk_atom("end_of_file"), cx);else { ungetc(c, fh_cur_in_fp());char c2[2] = { (char)c, 0 };
-    ok = plw_unify_vals(args[0], pl_mk_atom_dup(c2, 1), cx); } } PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-PL_CX_LEAF_HEAD(get_code, 1) { extern FILE *fh_cur_in_fp(void); int c = fgetc(fh_cur_in_fp());
+static int pl_in_is_text(void) { extern int fh_current_input(void); extern int fh_is_untranslated(int); int ix = fh_current_input();
+    return ix >= 0 && ix < FH_MAX && g_fh[ix].type != 'b' && !fh_is_untranslated(ix); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_getc_cp(FILE *f, char *seq, int *seqn) {
+    int b0, n, i, cp;
+    if (seqn) *seqn = 0;
+    b0 = fgetc(f); if (b0 == EOF) return EOF;
+    if (seq) seq[0] = (char)b0; if (seqn) *seqn = 1;
+    if ((unsigned char)b0 < 0x80 || !pl_in_is_text()) return b0 & 0xFF;
+    n = utf8_seqlen((unsigned char)b0); if (n < 2) return b0 & 0xFF;
+    cp = b0 & (0xFF >> (n + 1));
+    for (i = 1; i < n; i++) { int c = fgetc(f);
+        if (c == EOF) { if (seqn) *seqn = 1; return b0 & 0xFF; }
+        if ((c & 0xC0) != 0x80) { ungetc(c, f); if (seqn) *seqn = 1; return b0 & 0xFF; }
+        if (seq) seq[i] = (char)c; if (seqn) *seqn = i + 1; cp = (cp << 6) | (c & 0x3F); }
+    return cp; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_peekc_cp(FILE *f, char *seq, int *seqn) {
+    long pos = ftell(f); int i, sn = 0, cp = pl_getc_cp(f, seq, &sn);
+    if (seqn) *seqn = sn;
+    if (cp == EOF) return EOF;
+    if (pos >= 0) { if (fseek(f, pos, SEEK_SET) == 0) return cp; }
+    for (i = sn - 1; i >= 0; i--) ungetc((unsigned char)seq[i], f);
+    return cp; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(get_char, 1) { extern FILE *fh_cur_in_fp(void); char sq[8]; int sn = 0; int c = pl_getc_cp(fh_cur_in_fp(), sq, &sn);
+    if (c == EOF) ok = plw_unify_vals(args[0], pl_mk_atom("end_of_file"), cx);
+    else ok = plw_unify_vals(args[0], pl_mk_atom_dup(sq, (size_t)sn), cx); } PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(peek_char, 1) { extern FILE *fh_cur_in_fp(void); char sq[8]; int sn = 0; int c = pl_peekc_cp(fh_cur_in_fp(), sq, &sn);
+    if (c == EOF) ok = plw_unify_vals(args[0], pl_mk_atom("end_of_file"), cx);
+    else ok = plw_unify_vals(args[0], pl_mk_atom_dup(sq, (size_t)sn), cx); } PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(get_code, 1) { extern FILE *fh_cur_in_fp(void); char sq[8]; int sn = 0; int c = pl_getc_cp(fh_cur_in_fp(), sq, &sn);
     ok = plw_unify_vals(args[0], INTVAL(c == EOF ? -1LL : (long long)c), cx); } PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-PL_CX_LEAF_HEAD(peek_code, 1) { extern FILE *fh_cur_in_fp(void); int c = fgetc(fh_cur_in_fp());
-    if (c != EOF) ungetc(c, fh_cur_in_fp());
+PL_CX_LEAF_HEAD(peek_code, 1) { extern FILE *fh_cur_in_fp(void); char sq[8]; int sn = 0; int c = pl_peekc_cp(fh_cur_in_fp(), sq, &sn);
     ok = plw_unify_vals(args[0], INTVAL(c == EOF ? -1LL : (long long)c), cx); } PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_CX_LEAF_HEAD(get_byte, 1) { extern FILE *fh_cur_in_fp(void); int c = fgetc(fh_cur_in_fp());

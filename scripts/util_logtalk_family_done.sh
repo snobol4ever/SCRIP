@@ -19,14 +19,23 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && p
 SCRIP="${SCRIP_BIN:-$ROOT/scrip}"; [ -x "$SCRIP" ] || { echo "⛔ REFUSE(2): no scrip at $SCRIP"; exit 2; }
 SUITE="$ROOT/../corpus/packages/prolog/logtalk_iso"; [ -d "$SUITE" ] || { echo "⛔ REFUSE(2): no logtalk_iso at $SUITE"; exit 2; }
 [ $# -ge 1 ] || { echo "⛔ REFUSE(2): name at least one group (a directory basename under $SUITE)"; exit 2; }
-RC=0; POP=0; BOTH=0; F3=0; F4=0; N=$#
+RC=0; POP=0; BOTH=0; F3=0; F4=0; OUT=0; N=$#
 for G in "$@"; do
   L=$(cd "$ROOT" && timeout 900 python3 scripts/util_logtalk_grade.py --suite "$SUITE" --scrip "$SCRIP" --modes m3,m4 --group "$G" 2>&1 | grep -m1 '^BOARD_FOR_SHELL ') || true
+  out=$(printf '%s' "$L" | grep -oE 'outside=[0-9]+' | head -1); out=${out#outside=}
   set -- $L; [ "${1:-}" = BOARD_FOR_SHELL ] && [ "${2:-0}" -gt 0 ] || { echo "⛔ REFUSE(2): group $G graded nothing ($L)"; exit 2; }
   pop=$2; both=$3; p3=$4; f3=$5; p4=$6; f4=$7
+  # ⛔ THE GRADED DENOMINATOR IS THE POPULATION MINUS WHAT THE ORACLE CANNOT RUN, AND IT IS NAMED EVERY TIME
+  # IT IS USED (cto ruling 2026-09-13; RULES.md FACT RULE CEO-542, CEO-391: outside-the-baseline is named
+  # beside the suite, out of the denominator, NEVER HIDDEN). ⭐ An absent outside= field means an OLDER grader
+  # that cannot assign the bucket -- it reads 0 and the verdict falls back to the full population, which is
+  # the strict direction. A missing measurement must never be the lenient one.
+  [ -n "$out" ] || out=0
+  gpop=$((pop-out)); OUT=$((OUT+out))
   POP=$((POP+pop)); BOTH=$((BOTH+both)); F3=$((F3+f3)); F4=$((F4+f4))
-  if [ "$both" = "$pop" ]; then echo "  $G  PASS  cases=$pop both-modes=$both"
-  else echo "  $G  RED   cases=$pop both-modes=$both m3_fail=$f3 m4_fail=$f4 not-passing=$((pop-both))"; RC=1; fi
+  [ "$gpop" -gt 0 ] || { echo "⛔ REFUSE(2): group $G has $pop case(s) and ALL of them are outside the baseline -- a group with an empty graded denominator cannot be PASSED or RED, and calling it green would be a verdict on nothing"; exit 2; }
+  if [ "$both" = "$gpop" ]; then echo "  $G  PASS  graded=$gpop both-modes=$both$([ "$out" -gt 0 ] && echo "  (+$out OUTSIDE the baseline, of $pop)")"
+  else echo "  $G  RED   graded=$gpop both-modes=$both m3_fail=$f3 m4_fail=$f4 not-passing=$((gpop-both))$([ "$out" -gt 0 ] && echo "  (+$out OUTSIDE the baseline, of $pop)")"; RC=1; fi
 done
-echo "LOGTALK_FAMILY groups=$N cases=$POP both_modes_pass=$BOTH m3_fail=$F3 m4_fail=$F4 verdict=$([ $RC = 0 ] && echo GREEN || echo RED)  tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)  measured $(date -u +%Y-%m-%dT%H:%MZ)"
+echo "LOGTALK_FAMILY groups=$N cases=$POP outside=$OUT graded=$((POP-OUT)) both_modes_pass=$BOTH m3_fail=$F3 m4_fail=$F4 verdict=$([ $RC = 0 ] && echo GREEN || echo RED)  tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)  measured $(date -u +%Y-%m-%dT%H:%MZ)"
 exit $RC
