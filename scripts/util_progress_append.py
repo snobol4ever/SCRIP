@@ -27,7 +27,8 @@ rc 0 = rows written (count printed) or S4E_PROGRESS_OFF · rc 2 = refused (unwri
 import os, sys, csv, io, time, fcntl, subprocess, re, collections
 COLUMNS = ["ts_utc", "scrip", "corpus", "measurer", "class", "suite", "lang", "program", "mode", "outcome", "secs", "note", "fingerprint"]
 CLASSES = ("master", "package", "benchmark")
-OUTCOMES = ("PASS", "FAIL", "CRASH", "HANG", "SKIP", "REFUSE", "UNGRADED", "UNPROVEN", "MISSING", "REJECT", "XFAIL", "XPASS")
+OUTCOMES = ("PASS", "FAIL", "CRASH", "HANG", "SKIP", "REFUSE", "UNGRADED", "UNPROVEN", "MISSING", "REJECT", "XFAIL", "XPASS",
+            "DEFERRED", "OUTSIDE", "UNGRADABLE")
 DB_DEFAULT = "/home/resources/progress/results.tsv"
 HERE = os.path.dirname(os.path.abspath(__file__))
 S4E = os.environ.get("S4E_HOME") or os.path.abspath(os.path.join(HERE, "..", ".."))
