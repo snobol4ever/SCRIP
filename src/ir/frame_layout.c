@@ -81,6 +81,8 @@ static void zls_field(int scope_id, int off, int size, int kind, int audit, cons
     if (zf_n >= FL_MAX_FIELDS) { fprintf(stderr, "zls: field table overflow (%d)\n", FL_MAX_FIELDS); abort(); }
     zf[zf_n++] = (zls_pfield_t){ scope_id, off, size, (unsigned char)kind, (unsigned char)audit, what, nd };
 }
+int emit_pl_fence_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_PL_FENCE"); v = (e && *e == (char) 48) ? 0 : 1; } return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_locals_shifted(IR_e op);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void zls_entry(const IR_t * nd, int scope_id, int off) {
@@ -138,7 +140,7 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
     case IR_SCAN_TAB: case IR_SCAN_MOVE:
         zls_field(scope_id, off, 8, ZK_RAW, 0, "scan.r14 data-backtrack save", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "scan.pad (unused)", nd); return 1;
     case IR_BOUND:
-        zls_field(scope_id, off, 8, ZK_RAW, 0, "bound.saved rsp (Op_Mark: bounded-expression entry frontier; IR_UNMARK restores it, discarding abandoned retained-suspension FC carves — interp.r Op_Unmark rsp=efp-1)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "bound.pad (unused)", nd); return 1;
+        zls_field(scope_id, off, 8, ZK_RAW, 0, "bound.saved rsp (Op_Mark: bounded-expression entry frontier; IR_UNMARK restores it, discarding abandoned retained-suspension FC carves — interp.r Op_Unmark rsp=efp-1)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "bound.saved rsp at entry -- the gamma-fence release frontier (rung 9, CEO-690)", nd); if (!emit_pl_fence_on()) return 1; zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "bound.saved B at entry, banked BEFORE rt_pl_disj_open raises it -- the gamma-fence commit target, because a fence that leaves B at this frame's own H pins the frame it just emptied", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "bound.pad (unused)", nd); return 2;
     case IR_SCAN_UPTO: case IR_SCAN_FIND: case IR_SCAN_MATCH: case IR_SCAN_BAL:
         zls_field(scope_id, off, 8, ZK_RAW, 0, "scan.cursor", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "scan.len/counter", nd); return 1;
     case IR_INITIAL:

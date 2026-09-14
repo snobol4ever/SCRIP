@@ -31,6 +31,10 @@ RTX_FUNC(rt_pl_cut_barrier)
     mov     r13, qword ptr [rdi + 24]
     ret
 RTX_ENDF(rt_pl_cut_barrier)
+RTX_FUNC(rt_pl_fence_commit)
+    mov     r13, rdi
+    ret
+RTX_ENDF(rt_pl_fence_commit)
 RTX_FUNC(rt_pl_throw_raise)
     sub     rsp, 8
     call    rt_pl_ball_make
