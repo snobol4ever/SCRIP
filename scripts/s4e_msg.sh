@@ -631,9 +631,9 @@ s4e_lane_owner_of_language() {
       icon)     printf 'ceo';;    # CONCERN 1 completeness owner, MODE line 2
       prolog)   printf 'cto';;    # completeness + the ISO ladder; hq_C breadth, hq_R builtins/streams
       snobol4)  printf 'cfo';;    # the master and the six SNOBOL4 packages
-      pascal)   printf 'coo';;    # and THE ONE RUNNER for every master and package board
+      pascal)   printf 'hq_S';;   # CEO-723: the coo is THE ONE RUNNER and holds no language lane
       snocone)  printf 'hq_I';;   # per-language ladder seat
-      rebus)    printf 'hq_S';;   # per-language ladder seat, then the SNOBOL4 runtime
+      rebus)    printf 'hq_S';;   # per-language ladder seat; RebM is 43/43 and closed
       raku)     printf 'hq_T';;   # per-language ladder seat, and the test standard
     esac
 }

@@ -60,7 +60,7 @@ static tree_e pat_prim_kind(const char *s) {
 %token T_1BANG T_1PERCENT T_1SLASH T_1POUND T_1CARET
 %token T_1EQUAL T_1PIPE
 %token T_CONCAT T_COMMA T_LPAREN T_RPAREN T_LBRACK T_RBRACK T_LANGLE T_RANGLE
-%type <expr> expr0 expr2 expr3 expr4 expr5 expr6 expr7 expr8
+%type <expr> expr0 expr1 expr2 expr3 expr4 expr5 expr6 expr7 expr8
 %type <expr> expr9 expr10 expr11 expr12 expr13 expr14 expr15 expr17
 %type <expr> opt_subject opt_pattern opt_repl
 %type <expr> goto_label_expr
@@ -120,8 +120,10 @@ goto_label_expr
            | T_GOTO_LPAREN T_IDENT T_GOTO_LPAREN { tree_e _k=pat_prim_kind($2.sval); tal_open(); tal_fnc_open(_k,(char*)$2.sval); } goto_fnc_args T_GOTO_RPAREN T_GOTO_RPAREN { $$=tal_fnc_close(); }
            | T_GOTO_LANGLE expr0 T_GOTO_RANGLE                                               { tree_t*e=ast_node_new(TT_GOTO_DIRECT);expr_add_child(e,$2);$$=e; }
            ;
-expr0      : expr2 T_2EQUAL expr0                                                             { $$=expr_binary(TT_ASSIGN,          $1,$3); }
-           | expr2 T_2QUEST      expr0                                                             { $$=expr_binary(TT_SCAN,            $1,$3); }
+expr0      : expr1 T_2EQUAL expr0                                                             { $$=expr_binary(TT_ASSIGN,          $1,$3); }
+           | expr1                                                                                 { $$=$1; }
+           ;
+expr1      : expr2 T_2QUEST      expr1                                                             { $$=expr_binary(TT_SCAN,            $1,$3); }
            | expr2                                                                                 { $$=$1; }
            ;
 expr2      : expr2 T_2AMP  expr3                                                             { tree_t*_e=expr_binary(TT_OPSYN,$1,$3); _e->v.sval=strdup("&"); $$=_e; }

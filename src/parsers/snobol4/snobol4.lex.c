@@ -1316,7 +1316,7 @@ YY_RULE_SETUP
 case 19:
 /* rule 19 can match eol */
 YY_RULE_SETUP
-{ lineno++; BEGIN(INITIAL); return T_STMT_END; }
+{ yyless(0); BEGIN(INITIAL); return T_STMT_END; }
 	YY_BREAK
 case 20:
 YY_RULE_SETUP

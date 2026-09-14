@@ -325,15 +325,15 @@ RTX_FUNC(rt_match_replace)
     jne     .Lmr_repl_done
     xor     r10d, r10d
 .Lmr_repl_done:
+.Lmr_call:
+    push    r12
+    push    r13
     xor     r13d, r13d
     test    r9, r9
     jz      .Lmr_replslen_done
     mov     r13d, dword ptr [r9 + 4]
 .Lmr_replslen_done:
-.Lmr_call:
-    push    r12
-    push    r13
-    sub     rsp, 80
+    sub     rsp, 88
     mov     qword ptr [rsp + 0], rdi
     mov     qword ptr [rsp + 8], rdx
     mov     qword ptr [rsp + 16], rcx
@@ -416,7 +416,7 @@ RTX_FUNC(rt_match_replace)
     or      rsi, DT_S | (MOD_OP_RT_MATCH_REPLACE << 8)
     mov     rdi, qword ptr [rsp + 0]
     call    NV_SET_fn
-    add     rsp, 80
+    add     rsp, 88
     pop     r13
     pop     r12
     ret

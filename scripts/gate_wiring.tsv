@@ -328,6 +328,7 @@ test_gate_sno_pattern_position_expression.sh	WIRED	-	-	-
 test_gate_sno_port_trace_oracle_diff.sh	WIRED	-	-	-
 test_gate_sno_pos_rpos_dynamic_operand.sh	WIRED	-	-	-
 test_gate_sno_repl_lvalue_subject.sh	WIRED	-	-	-
+test_gate_sno_rewind_on_an_unopened_unit_raises_174.sh	WIRED	-	-	-
 test_gate_sno_runtime_define.sh	WIRED	-	-	-
 test_gate_sno_setexit_resume_matches_oracle.sh	WIRED	-	-	-
 test_gate_sno_stcount_counts_statements_inside_code_fragments.sh	WIRED	-	-	-

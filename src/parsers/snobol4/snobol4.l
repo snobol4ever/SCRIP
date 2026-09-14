@@ -231,7 +231,7 @@ G       ({WS}|{CONT})*
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <LABEL_DONE>[ \t]          { yyless(0); BEGIN(INITIAL); return T_STMT_END; }
-<LABEL_DONE>\n             { lineno++; BEGIN(INITIAL); return T_STMT_END; }
+<LABEL_DONE>\n             { yyless(0); BEGIN(INITIAL); return T_STMT_END; }
 <LABEL_DONE>[*!|;]         { yyless(0); BEGIN(INITIAL); return T_STMT_END; }
 <LABEL_DONE>[^ \t\n*!|;]  { yyless(0); BEGIN(INITIAL); return T_STMT_END; }
 <LABEL_DONE><<EOF>>        { BEGIN(INITIAL); return T_STMT_END; }

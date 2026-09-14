@@ -582,6 +582,12 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (!L) sno_fatal("TT_ASSIGN with no lhs", NULL);
         if (!R) sno_fatal("TT_ASSIGN with no rhs", NULL);
         if (L->t == TT_SCAN && L->n >= 2) {
+            if (res && L->c[0] && L->c[0]->t == TT_VAR && L->c[0]->v.sval) {
+                IR_t * rv = lc_build(cx->g, IR_VAR, γ, ω); IR_LIT(rv).sval = L->c[0]->v.sval;
+                IR_t * ev = sno_lower_match(cx, L, R, 1, rv, ω, NULL);
+                *res = rv;
+                return ev;
+            }
             IR_t * e = sno_lower_match(cx, L, R, 1, γ, ω, NULL);
             if (res) *res = NULL;
             return e;

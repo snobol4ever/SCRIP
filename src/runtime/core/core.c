@@ -66,14 +66,18 @@ static int sno_kw_is_traceable(const char *name) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int trace_type_parse(const char *type) {
-    if (!type || !*type) return TRK_VALUE;
-    if (!strcmp(type, "A") || !strcmp(type, "ACCESS"))   return TRK_ACCESS;
-    if (!strcmp(type, "V") || !strcmp(type, "VALUE"))    return TRK_VALUE;
-    if (!strcmp(type, "K") || !strcmp(type, "KEYWORD"))  return TRK_KEYWORD;
-    if (!strcmp(type, "L") || !strcmp(type, "LABEL"))    return TRK_LABEL;
-    if (!strcmp(type, "F") || !strcmp(type, "FUNCTION")) return TRK_FUNCTION;
-    if (!strcmp(type, "C") || !strcmp(type, "CALL"))     return TRK_CALL;
-    if (!strcmp(type, "R") || !strcmp(type, "RETURN"))   return TRK_RETURN;
+    if (!type) return TRK_VALUE;
+    while (*type == ' ') type++;
+    if (!*type) return TRK_VALUE;
+    switch ((*type >= 'a' && *type <= 'z') ? (*type - 'a' + 'A') : *type) {
+        case 'A': return TRK_ACCESS;
+        case 'V': return TRK_VALUE;
+        case 'K': return TRK_KEYWORD;
+        case 'L': return TRK_LABEL;
+        case 'F': return TRK_FUNCTION;
+        case 'C': return TRK_CALL;
+        case 'R': return TRK_RETURN;
+    }
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1598,19 +1602,19 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
     DESCR_t val  = a[0];
     const char *type = VARVAL_fn(a[1]);
     if (!type) return FAILDESCR;
-    if (strcasecmp(type, "STRING")  == 0) {
+    if (strcmp(type, "STRING")  == 0) {
         const char *s = VARVAL_fn(val);
         return s ? STRVAL(rt_heap_strdup_c(s)) : NULVCL;
     }
-    if (strcasecmp(type, "INTEGER") == 0) {
+    if (strcmp(type, "INTEGER") == 0) {
         if (!IS_STR(val) && !IS_INT(val) && !IS_REAL(val)) return FAILDESCR;
         return INTVAL((int64_t)to_int(val));
     }
-    if (strcasecmp(type, "REAL")    == 0) {
+    if (strcmp(type, "REAL")    == 0) {
         if (!IS_STR(val) && !IS_INT(val) && !IS_REAL(val)) return FAILDESCR;
         return REALVAL(to_real(val));
     }
-    if (strcasecmp(type, "ARRAY")   == 0) {
+    if (strcmp(type, "ARRAY")   == 0) {
         if (IS_ARR(val)) return val;
         if (IS_TBL(val) && val.tbl) {
             TBBLK_t *tbl = val.tbl;
@@ -1645,7 +1649,7 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
         }
         return FAILDESCR;
     }
-    if (strcasecmp(type, "TABLE")   == 0) {
+    if (strcmp(type, "TABLE")   == 0) {
         if (IS_TBL(val)) return val;
         if (IS_ARR(val) && val.arr) {
             ARBLK_t *a = val.arr;
@@ -1672,7 +1676,7 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
         }
         return FAILDESCR;
     }
-    if (strcasecmp(type, "PATTERN") == 0) {
+    if (strcmp(type, "PATTERN") == 0) {
         if (IS_PAT(val)) return val;
         if (IS_STR(val) || val.v == DT_SNUL) {
             const char *s = VARVAL_fn(val);
@@ -1680,20 +1684,20 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
         }
         return FAILDESCR;
     }
-    if (strcasecmp(type, "CODE")       == 0) {
+    if (strcmp(type, "CODE")       == 0) {
         const char *s = VARVAL_fn(val);
         if (!s || !*s) return FAILDESCR;
         return code(s);
     }
-    if (strcasecmp(type, "EXPRESSION") == 0) {
+    if (strcmp(type, "EXPRESSION") == 0) {
         return CONVE_fn(val);
     }
-    if (strcasecmp(type, "NAME") == 0) {
+    if (strcmp(type, "NAME") == 0) {
         const char *s = VARVAL_fn(val);
         if (!s || !*s) return FAILDESCR;
         return NAMEVAL(rt_heap_strdup_c(s));
     }
-    if (strcasecmp(type, "NUMERIC")    == 0) {
+    if (strcmp(type, "NUMERIC")    == 0) {
         if (IS_INT(val)) return val;
         if (IS_REAL(val)) return val;
         if (IS_STR(val) || val.v == DT_SNUL) {
