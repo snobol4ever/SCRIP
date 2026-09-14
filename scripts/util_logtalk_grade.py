@@ -416,9 +416,18 @@ def run_one(plan, db, shim_src, scrip, mode, workroot, srcdir, timeout=10, loade
     """Run one planned case in one mode. Returns (outcome, detail)."""
     d = tempfile.mkdtemp(prefix="lgtcase.", dir=workroot)
     try:
+        # ⛔⭐ tests.lgt IS COPIED, AND THAT IS DELIBERATE (hq_R 2026-09-13, row prolog-logtalk-eleven-
+        # unicode-stream-cases-routed-from-the-builtins-family-row). It used to be excluded alongside
+        # tester.lgt on the reasonable-sounding rule "the test SOURCE is not a fixture" -- but
+        # unicode/builtins cases 04 and 05 open `^^file_path('tests.lgt')` in read mode precisely BECAUSE
+        # it is a known UTF-8 file with no BOM, which makes the suite's own source a genuine fixture for
+        # exactly those two. Excluding it did not make them fail honestly: it made them throw
+        # existence_error(source_sink,'tests.lgt'), a ball indistinguishable from an engine defect in
+        # open/4, and an engine lane is where a harness defect sits red forever (cto 2026-09-13).
+        # tester.lgt stays out -- grep the whole suite and no case names it (measured, not assumed).
         for f in os.listdir(srcdir):
             s = os.path.join(srcdir, f)
-            if os.path.isfile(s) and f not in ("tests.lgt", "tester.lgt"):
+            if os.path.isfile(s) and f != "tester.lgt":
                 try:
                     shutil.copy2(s, os.path.join(d, f))
                 except OSError:

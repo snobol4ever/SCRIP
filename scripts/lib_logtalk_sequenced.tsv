@@ -17,3 +17,5 @@
 # mechanism was hq_R's call, 2026-09-13).
 retract_1	iso_retract_1_04	ISO 8.9.3.4 -- the expected three-entry findall over retract((legs(X,Y):-Z)) is the state cases 01 and 03 leave; standalone legs/2 still has all five clauses and the findall yields five
 retract_1	iso_retract_1_05	ISO 8.9.3.4 -- retract((legs(_,_):-_)) can only FAIL after case 04 has drained legs/2; standalone it succeeds, whatever the engine does
+builtins	lgt_unicode_stream_property_2_11	the binary-stream read of sample_utf_8_bom needs that file to EXIST, and nothing in this suite ships it -- cases 03 and 06..10 of this same file create it by opening it for write; standalone the open throws existence_error(source_sink,sample_utf_8_bom) whatever stream_property/2 does
+builtins	lgt_unicode_stream_property_2_12	same fixture as case 11 -- sample_utf_8_bom is created by this file's earlier write-mode cases and by nothing else, so standalone this case can only ever throw existence_error(source_sink,...) and never reach the bom/1 property it is written to test
