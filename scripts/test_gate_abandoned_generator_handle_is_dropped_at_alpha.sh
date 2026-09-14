@@ -2,6 +2,7 @@
 set -u
 cd "$(dirname "$0")/.." || exit 1
 SCRIP=./scrip
+scripts/util_require_fresh.sh --gate "$(basename "$0" .sh)" || exit $?
 [ -x "$SCRIP" ] || { echo "GATE ABANDONED-HANDLE: no ./scrip -- run make"; exit 1; }
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 fail=0; pass=0
