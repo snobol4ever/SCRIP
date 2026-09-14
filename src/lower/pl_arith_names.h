@@ -40,7 +40,6 @@ static inline const char * pl_ax_suffix_ext(const char * s, int ar) {
     }
     if (ar == 0) {
         if (!strcmp(s, "epsilon")) return "eps"; if (!strcmp(s, "inf")) return "inf"; if (!strcmp(s, "nan")) return "nan";
-        if (!strcmp(s, "max_integer")) return "maxi"; if (!strcmp(s, "min_integer")) return "mini";
         return (const char *)0;
     }
     return (const char *)0;

@@ -1618,8 +1618,6 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
         if (!strcmp(op, "eps")) { *out = REALVAL(DBL_EPSILON); return 1; }
         if (!strcmp(op, "inf")) { *out = REALVAL(HUGE_VAL); return 1; }
         if (!strcmp(op, "nan")) { *out = REALVAL(0.0 / 0.0); return 1; }
-        if (!strcmp(op, "maxi")) { *out = INTVAL(LLONG_MAX); return 1; }
-        if (!strcmp(op, "mini")) { *out = INTVAL(LLONG_MIN); return 1; }
         *out = FAILDESCR; return 1; }
     DESCR_t a = rt_pl_deref_val(args[0]);
     if (a.v != DT_I && a.v != DT_R && a.v != DT_BIG) { void *bl = (void *)0; DESCR_t ev; if (pl_ax_eval(a, &ev, &bl)) a = ev; else { if (bl && ball && !*ball) *ball = bl; *out = FAILDESCR; return 1; } }
