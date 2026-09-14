@@ -87,6 +87,7 @@ test_gate_icn_a_suspended_variable_survives_the_procedure_boundary.sh	WIRED	-	-	
 test_gate_icn_a_variable_operand_derefs_at_the_operation.sh	WIRED	-	-	-
 test_gate_icn_alternation_beyond_32_arms.sh	WIRED	-	-	-
 test_gate_icn_apply_invocation_of_a_generator_opens_one_level_not_two.sh	WIRED	-	-	-
+test_gate_icn_argcheck_filter_admits_every_table_row.sh	WIRED	-	-	-
 test_gate_icn_args_of_a_variadic_procedure_is_negative.sh	WIRED	-	-	-
 test_gate_icn_argument_type_discipline.sh	WIRED	-	-	-
 test_gate_icn_assignment_through_a_section_element_or_keyword_stores_like_icont.sh	WIRED	-	-	-

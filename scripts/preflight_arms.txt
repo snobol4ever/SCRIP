@@ -61,3 +61,4 @@ scripts/test_gate_master_banner_seq_is_position.sh
 scripts/test_gate_mint_refuses_a_prose_donewhen.sh
 scripts/test_gate_triangulate_parsers_read_only_the_first_grid.sh
 scripts/util_gate_wiring.py check
+scripts/test_gate_icn_argcheck_filter_admits_every_table_row.sh

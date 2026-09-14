@@ -394,18 +394,25 @@ const char *core_icn_binop_sym(int bcode) {
 static int core_icn_int_ok(DESCR_t d);
 static int icn_arg_int_ok(DESCR_t d) { return core_icn_int_ok(d); }
 static int icn_arg_cset_ok(DESCR_t d) { extern int core_icn_str_ok(DESCR_t d2); return core_icn_str_ok(d); }
+#define ICN_ARGCHK_ROWS(X) \
+    X("trim",   't','r', 0, 's', 0) X("left",  'l','e', 0, 's', 0) X("right", 'r','i', 0, 's', 0) X("center", 'c','e', 0, 's', 0) X("repl", 'r','e', 0, 's', 0) \
+    X("pos",    'p','o', 0, 'i', 0) X("tab",   't','a', 0, 'i', 0) X("move",  'm','o', 0, 'i', 0) \
+    X("right",  'r','i', 1, 'i', 1) X("left",  'l','e', 1, 'i', 1) X("center",'c','e', 1, 'i', 1) X("repl", 'r','e', 1, 'i', 1) \
+    X("trim",   't','r', 1, 'c', 1) \
+    X("close",  'c','l', 0, 'f', 0) X("seek",  's','e', 0, 'f', 0) X("where", 'w','h', 0, 'f', 0) X("display", 'd','i', 1, 'f', 1)
+#define ICN_ARGCHK_ROW(s,a,b,i,w,d) {s, a, b, i, w, d},
+#define ICN_ARGCHK_BIT(s,a,b,i,w,d) | (1ull << ((((unsigned)(unsigned char)(a) * 33u) + (unsigned)(unsigned char)(b)) & 63u))
+#define ICN_ARGCHK_HASH(a,b) ((((unsigned)(unsigned char)(a) * 33u) + (unsigned)(unsigned char)(b)) & 63u)
 int core_icn_builtin_argcheck(const char *fn, DESCR_t *args, int nargs, int strict) {
-    static const struct { const char *nm; int idx; char want; int defaults; } tbl[] = {
-        {"trim", 0, 's', 0}, {"left", 0, 's', 0}, {"right", 0, 's', 0}, {"center", 0, 's', 0}, {"repl", 0, 's', 0},
-        {"pos", 0, 'i', 0}, {"tab", 0, 'i', 0}, {"move", 0, 'i', 0},
-        {"right", 1, 'i', 1}, {"left", 1, 'i', 1}, {"center", 1, 'i', 1}, {"repl", 1, 'i', 1},
-        {"trim", 1, 'c', 1},
-        {"close", 0, 'f', 0}, {"seek", 0, 'f', 0}, {"where", 0, 'f', 0}, {"display", 1, 'f', 1},
-        {(const char *)0, 0, 0, 0}};
+    static const struct { const char *nm; char c0; char c1; int idx; char want; int defaults; } tbl[] = {
+        ICN_ARGCHK_ROWS(ICN_ARGCHK_ROW)
+        {(const char *)0, 0, 0, 0, 0, 0}};
     if (!fn || !args || !strict) return 0;
     const char _f0 = fn[0]; if (!_f0) return 0; const char _f1 = fn[1];
+    const unsigned long long _present = 0ull ICN_ARGCHK_ROWS(ICN_ARGCHK_BIT);
+    if (!((_present >> ICN_ARGCHK_HASH(_f0, _f1)) & 1ull)) return 0;
     for (int i = 0; tbl[i].nm; i++) {
-        if (tbl[i].nm[0] != _f0 || tbl[i].nm[1] != _f1) continue;
+        if (tbl[i].c0 != _f0 || tbl[i].c1 != _f1) continue;
         if (strcmp(tbl[i].nm, fn) || tbl[i].idx >= nargs) continue;
         DESCR_t d = args[tbl[i].idx];
         if (IS_FAIL(d)) return 1;
