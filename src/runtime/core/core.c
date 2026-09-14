@@ -1117,9 +1117,10 @@ static DESCR_t _INTEGER_(DESCR_t *a, int n) {
     if (n < 1) return FAILDESCR;
     if (IS_INT(a[0])) return a[0];
     if (IS_STR(a[0]) && a[0].s) {
+        const char *p0 = rt_cstr_d(a[0]);
         char *end;
-        long long v = strtoll(a[0].s, &end, 10);
-        if (end != a[0].s && *end == '\0') return INTVAL(v);
+        long long v = strtoll(p0, &end, 10);
+        if (end != p0 && *end == '\0') return INTVAL(v);
     }
     return FAILDESCR;
 }
@@ -1129,9 +1130,10 @@ static DESCR_t _REAL_(DESCR_t *a, int n) {
     if (IS_REAL(a[0])) return a[0];
     if (IS_INT(a[0]))  return REALVAL((double)a[0].i);
     if (IS_STR(a[0]) && a[0].s) {
+        const char *p0 = rt_cstr_d(a[0]);
         char *end;
-        double v = strtod(a[0].s, &end);
-        if (end != a[0].s && *end == '\0') return REALVAL(v);
+        double v = strtod(p0, &end);
+        if (end != p0 && *end == '\0') return REALVAL(v);
     }
     return FAILDESCR;
 }

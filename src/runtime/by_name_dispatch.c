@@ -5460,7 +5460,7 @@ static void out_write_descr(FILE *dest, DESCR_t av, int use_gist) {
 }
 #define _OPCOERCE(d) do { \
         if (!IS_INT_fn(d) && !IS_REAL_fn(d)) { \
-            const char *_s = VARVAL_fn(d); \
+            const char *_s = IS_STR(d) ? rt_cstr_d(d) : VARVAL_fn(d); \
             if (_s && *_s) { char *_e=NULL; long long _iv=strtoll(_s,&_e,10); \
                 if (_e && !*_e){(d)=INTVAL(_iv);} \
                 else {double _rv=strtod(_s,&_e); \
@@ -5475,7 +5475,7 @@ static void out_write_descr(FILE *dest, DESCR_t av, int use_gist) {
         int _cmp=strcmp(_ls,_rs); *out=(_cmp op 0)?rt_str_coerce(_r):FAILDESCR; return 1; } while(0)
 #define _SNOCOERCE(d) do { \
         if (!IS_INT_fn(d) && !IS_REAL_fn(d)) { \
-            const char *_s9 = VARVAL_fn(d); \
+            const char *_s9 = IS_STR(d) ? rt_cstr_d(d) : VARVAL_fn(d); \
             if (!_s9 || !*_s9) { (d) = INTVAL(0); } else { _OPCOERCE(d); } } } while(0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bn_cvpos(long long pos, int len, int *out_p) {
@@ -5692,7 +5692,7 @@ static __attribute__((noinline)) int bn_integer(DESCR_t *args, int nargs, DESCR_
     DESCR_t av = args[0];
     if (IS_INT_fn(av))  { *out = NULVCL; return 1; }
     if (IS_REAL_fn(av)) { *out = FAILDESCR; return 1; }
-    const char *sv = VARVAL_fn(av); if (!sv) sv = "";
+    const char *sv = IS_STR(av) ? rt_cstr_d(av) : VARVAL_fn(av); if (!sv) sv = "";
     const char *p = sv; while (*p == ' ' || *p == '\t') p++;
     if (*p == '\0') { *out = NULVCL; return 1; }
     if (*p == '+' || *p == '-') p++;
