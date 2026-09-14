@@ -468,6 +468,77 @@ cmd="${1:-check}"
 # ⭐ THE GENERAL RULE: A REPORTING VERB MUST NEVER HOLD A MUTEX MEANT FOR MUTATION. If one does, every
 # reader becomes a writer for locking purposes, and the slowest reader sets the outage window.
 case "$cmd" in mailbox|banner|check|"") ;; *) s4e_assert_box "$ME" identity; s4e_pid_acquire;; esac
+# /*------------------------------------------------------------------------------------------------------*/
+# ⛔⭐⭐ THE CODEGEN CONTROL ARM -- `done` COMPUTES WHETHER A LANDING TOUCHED CODEGEN, AND CITES A BOARD OF ITS
+# OWN TREE RATHER THAN RUNNING ONE.  Row done-runs-the-snobol4-master-arm-itself-for-any-row-whose-commits-touch-
+# codegen (ceo, CEO-342 rule 4, minted 2026-09-06).  THE INCIDENT: seat11's DEFINE landing d067ceae4 turned 299
+# SNOBOL4 master entries red and ITS DONE-WHEN PASSED -- the rule "a codegen landing carries the master as its
+# control arm" lived in prose, so the one command whose job is to certify completion could not see it, and three
+# hours of eight HQs went to the bisect, the revert and the re-measure.
+#
+# ⛔⭐⭐ THE MECHANISM IS **CITE**, NOT **RUN**, AND THAT IS A RULING AND NOT A PREFERENCE (ceo CEO-697,
+# 2026-09-13, verbatim: "NO SEAT RUNS A FULL BLOCKING SET FOR A LANDING VERDICT ... your verdict is your row
+# DONE-WHEN, the gates your diff touched, and make preflight"; MODE line 2 under NONET: "ONE RUNNER, ONE BOARD --
+# every master and package board is the coo's, and every other seat grades ... never a board").  The row's own
+# GOAL anticipated this and offered both branches -- "test_corpus_snobol4.sh, OR the one-board-per-tree CITED
+# board of the same tree" -- and CEO-697 decides which one is lawful.  ⭐ THE REASON THIS MATTERS MORE HERE THAN
+# ANYWHERE ELSE: `done` runs in EVERY seat.  A `done` that auto-ran a master board would not merely repeat the
+# drift CEO-697 was issued to stop, it would MECHANISE it and make it compulsory -- thirteen seats each firing a
+# board on every codegen landing, which is the 25m55s-at-load-11-13 contention the cfo measured, but automated.
+# An instrument that enforces a rule by breaking a newer one is not an instrument, it is a second defect.
+#
+# ⭐ WHAT SURVIVES THE RULING UNCHANGED IS THE HALF THE BATON FLAGGED AS "THE ONE THING NOT TO GUESS": WHICH
+# COMMITS COUNT AS TOUCHING CODEGEN IS COMPUTED FROM THE DIFF, NEVER FROM THE SEAT ASSERTING IT.  A seat that
+# is asked "did you touch codegen?" answers from memory of what it MEANT to change; the diff answers from what
+# it DID change, and the two differ exactly in the cases that matter.  If this were a declaration, the rule it
+# mechanises would still be a promise -- which is the state it was already in, in prose, when seat11 landed.
+s4e_codegen_paths() {   # THE ONE LIST, in ONE place, so no second copy can drift from it (the emit_rec_fb lesson)
+    printf '%s\n' src/templates/ src/emitter/ src/lower/ src/runtime/ src/ir/
+}
+# s4e_codegen_touched <repo> <claimfile> -- prints the touched codegen paths, one per line; rc 0 = touched.
+# ⛔ THREE SOURCES, UNIONED AND EACH NAMED IN THE RECEIPT, because no single one of them sees every landing:
+# unpushed commits (origin/main..HEAD) go dark the moment the seat pushes before closing, which is the ORDINARY
+# order; commits since the claim catch those, but only while the claim file's mtime survives; and the working
+# tree catches what is not committed at all.  A union of honest sources, with the sources PRINTED, beats one
+# source that is silently empty -- an empty answer from a source nobody named reads exactly like "no codegen".
+s4e_codegen_touched() {
+    local repo="$1" cf="${2:-}" pats since files=""
+    [ -d "$repo/.git" ] || return 1
+    pats="$(s4e_codegen_paths | tr '\n' ' ')"
+    files="$(git -C "$repo" diff --name-only HEAD 2>/dev/null)"                      # (c) working tree
+    files="$files
+$(git -C "$repo" diff --name-only origin/main...HEAD 2>/dev/null)"                   # (a) unpushed
+    if [ -n "$cf" ] && [ -f "$cf" ]; then                                            # (b) since the claim
+        since="$(date -u -r "$cf" +%Y-%m-%dT%H:%M:%S 2>/dev/null)"
+        [ -n "$since" ] && files="$files
+$(git -C "$repo" log --since="$since" --name-only --pretty=format: HEAD 2>/dev/null)"
+    fi
+    printf '%s\n' "$files" | sed '/^$/d' | sort -u | grep -E "^($(s4e_codegen_paths | sed 's:/$:/:' | paste -sd'|' -))" 2>/dev/null
+}
+# s4e_baton_inherited <batonfile> -- the INHERITED set, READ LIVE from the baton, one entry per line.
+# ⛔ NEVER REMEMBERED AND NEVER DEFAULTED TO A LIST: a hard-coded population never announces what it left out,
+# which is the defect class this whole guard exists to end.  An ABSENT INHERITED line and an EMPTY one are the
+# same answer here -- "nothing is inherited" -- and that is deliberate: the convention (ceo, this row's own
+# ledger) is that the HQ writes the line at assignment from the live board, so its absence means none were named.
+s4e_baton_inherited() {
+    [ -f "${1:-}" ] || return 0
+    sed -n 's/^INHERITED:[[:space:]]*//p' "$1" | head -1 | tr ' ' '\n' | sed '/^$/d' | sort -u
+}
+# s4e_cite_board <db> <scrip> <corpus> <suite> -- prints the FAIL/CRASH program names of a board measured on
+# EXACTLY this tree; rc 0 = a board exists and was cited, rc 1 = NO board of this tree (could not measure).
+# ⛔⭐ THE TREE IS PART OF THE CITATION AND NOT A LABEL ON IT (hq_S/hq_B, this sitting, measured twice from both
+# ends): A RED IS A CLAIM ABOUT A TREE, AND IT IS ONLY AS FRESH AS THE TREE IT WAS MEASURED ON, NOT AS THE CLOCK.
+# So this matches on scrip AND corpus and never on recency -- a two-hour-old board of THIS tree is authoritative
+# and a two-minute-old board of a tree sixty commits back is worthless, which is the exact inversion a timestamp
+# sort would produce.  ⛔ AND rc=1 IS "I COULD NOT MEASURE", NEVER "IT IS GREEN": the caller must keep them apart.
+s4e_cite_board() {
+    local db="$1" scrip="$2" corpus="$3" suite="$4" rows
+    [ -f "$db" ] || return 1
+    rows="$(grep -F "	$scrip	$corpus	" "$db" 2>/dev/null | awk -F'\t' -v s="$suite" '$6==s')"
+    [ -n "$rows" ] || return 1
+    printf '%s\n' "$rows" | awk -F'\t' '$10=="FAIL"||$10=="CRASH"{print $8}' | sort -u
+    return 0
+}
 # ⛔ ORPHANED .msg.* ARE SWEPT ON EVERY RUN (LAW 6, second half). `send` writes the message to a mktemp
 # $PO/.msg.XXXXXX and then mv's it into the destination inbox; when that mv failed the temp file just SAT there
 # -- one rotted 46 hours at the postoffice root, a seat-to-seat brief neither end ever knew was lost. A message
@@ -1897,6 +1968,69 @@ case "$cmd" in
                 printf '   A row with no baton has no computable DONE-WHEN, so its completion cannot be verified, so it\n' >&2
                 printf '   cannot be closed. This is NOT a pass and NOT a skip. Mint the baton for this topic, then close.\n' >&2
                 exit 2
+              fi
+              # ⛔⭐⭐ THE CODEGEN CONTROL ARM FIRES HERE -- AFTER the DONE-WHEN has passed and BEFORE the DONE
+              # marker is written, because a landing that reds the master is NOT DONE however green its own
+              # criterion is.  That ordering IS the cure: seat11's DONE-WHEN passed and the row closed, and the
+              # 299 red master entries were discovered by other seats hours later.  See s4e_codegen_touched above
+              # for why the touch set is COMPUTED and why this CITES a board rather than running one (CEO-697).
+              _cg_repo="$S4E/SCRIP"; _cg_touch="$(s4e_codegen_touched "$_cg_repo" "$c")"
+              if [ -n "$_cg_touch" ]; then
+                printf '\n⭐ CODEGEN CONTROL ARM -- this landing touches codegen, computed from the diff (never asserted):\n'
+                printf '%s\n' "$_cg_touch" | sed 's/^/     /'
+                if [ -n "${S4E_DONE_SKIP_MASTER_ARM:-}" ]; then
+                  # ω-class escape hatch, LOUD AND RECORDED, exactly like S4E_DONE_OVERRIDE. A silent skip and a
+                  # silent pass are indistinguishable one layer up, which is the trap this whole guard is about.
+                  printf '⚠⚠ CONTROL ARM SKIPPED by %s -- reason recorded in the baton ledger: %s\n' "$ME" "$S4E_DONE_SKIP_MASTER_ARM" >&2
+                  [ -f "$tf" ] && printf '\n- [%s·%s] ⚠ CODEGEN CONTROL ARM **SKIPPED** via S4E_DONE_SKIP_MASTER_ARM on a landing touching: %s -- stated reason: %s\n' \
+                    "$ME" "$(date -u +%Y-%m-%d)" "$(printf '%s' "$_cg_touch" | tr '\n' ' ')" "$S4E_DONE_SKIP_MASTER_ARM" >> "$tf"
+                else
+                  # ⛔ THE SUITES ARE CHOSEN BY WHAT THE DIFF TOUCHED, not by a fixed pair: the SNOBOL4 master is the
+                  # standing control arm for ANY codegen change, and the Icon watermark joins it exactly when the diff
+                  # reaches Icon's own lowerer or templates (this row's GOAL, "the Icon watermark arm likewise").
+                  _cg_suites="snobol4-master"
+                  printf '%s\n' "$_cg_touch" | grep -qE 'lower_icon\.c|templates/.*icn|icn.*\.cpp' && _cg_suites="$_cg_suites icon-master"
+                  _cg_scrip="$(git -C "$_cg_repo" rev-parse --short HEAD 2>/dev/null)"
+                  _cg_corpus="$(git -C "$S4E/corpus" rev-parse --short HEAD 2>/dev/null)"
+                  _cg_db="${S4E_PROGRESS_DB:-/home/resources/progress/results.tsv}"
+                  _cg_inh="$(s4e_baton_inherited "$tf")"
+                  printf '   tree: scrip=%s corpus=%s   db=%s\n' "${_cg_scrip:-?}" "${_cg_corpus:-?}" "$_cg_db"
+                  [ -n "$_cg_inh" ] && printf '   INHERITED (read live from the baton, never remembered): %s\n' "$(printf '%s' "$_cg_inh" | tr '\n' ' ')"
+                  for _cg_s in $_cg_suites; do
+                    if _cg_fails="$(s4e_cite_board "$_cg_db" "$_cg_scrip" "$_cg_corpus" "$_cg_s")"; then
+                      # ⛔ set -o pipefail is NOT on here; comm needs both sides sorted, which both helpers guarantee.
+                      _cg_excess="$(comm -23 <(printf '%s\n' "$_cg_fails" | sed '/^$/d') <(printf '%s\n' "$_cg_inh" | sed '/^$/d'))"
+                      if [ -n "$_cg_excess" ]; then
+                        printf '\n⛔⛔⛔ NOT DONE -- the CITED %s board of THIS EXACT TREE is red beyond the inherited set.\n' "$_cg_s" >&2
+                        printf '   Entries failing that the baton does NOT name as inherited:\n' >&2
+                        printf '%s\n' "$_cg_excess" | sed 's/^/       /' >&2
+                        printf '   ⭐ This board was CITED, not run: it was measured on scrip=%s corpus=%s, which is your tree.\n' "$_cg_scrip" "$_cg_corpus" >&2
+                        printf '   Cure the regression, or -- if these are genuinely inherited -- add them to the baton INHERITED: line\n' >&2
+                        printf '   with the board that shows them red BEFORE your change. ⛔ Do NOT widen INHERITED to make this pass.\n' >&2
+                        printf '   Escape hatch, loud and recorded: S4E_DONE_SKIP_MASTER_ARM="why".\n' >&2
+                        exit 1; fi
+                      printf '   ✅ %s: CITED board of this tree is clean over the inherited set (%s entry/entries inherited).\n' \
+                        "$_cg_s" "$(printf '%s' "$_cg_inh" | sed '/^$/d' | grep -c . || echo 0)"
+                    else
+                      # ⛔⭐⭐ COULD NOT MEASURE IS NOT A VERDICT, AND IT IS ALSO NOT A BLOCKER.  There is no board of
+                      # this exact tree in the database, and under CEO-697 this seat MAY NOT RUN ONE -- the full set
+                      # runs once per stage, on the coo, beside its board pass.  So refusing here would block every
+                      # codegen landing in the fleet on a board only one seat is allowed to produce.  What `done` owes
+                      # instead is to make the coo's stage pass CHEAP: it names this landing, so a red stage board
+                      # arrives with its candidate set already enumerated.  ⭐ THAT IS THE ACTUAL CURE FOR THE
+                      # INCIDENT: the three hours went to the BISECT, not to the board.  A named candidate set is the
+                      # difference between three hours of eight HQs and a lookup.
+                      printf '   ⚠⚠ %s: NO BOARD OF THIS TREE EXISTS -- so the control arm COULD NOT MEASURE, which is\n' "$_cg_s" >&2
+                      printf '      neither a pass nor a red. Not running one: under CEO-697 the board is the coo stage pass.\n' >&2
+                      printf '      This landing is RECORDED as a codegen landing awaiting that pass.\n' >&2
+                      _cg_pend="$PO/codegen-landings.tsv"
+                      printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%MZ)" "$ME" "$topic" "${_cg_scrip:-?}" "${_cg_corpus:-?}" \
+                        "$(printf '%s' "$_cg_touch" | tr '\n' ' ')" >> "$_cg_pend" 2>/dev/null || true
+                      [ -f "$tf" ] && printf '\n- [%s·%s] ⚠ CODEGEN LANDING WITH NO CITABLE BOARD -- touched: %s (scrip=%s corpus=%s). Recorded in codegen-landings.tsv for the coo stage pass; the control arm could not measure and did not pretend to.\n' \
+                        "$ME" "$(date -u +%Y-%m-%d)" "$(printf '%s' "$_cg_touch" | tr '\n' ' ')" "${_cg_scrip:-?}" "${_cg_corpus:-?}" >> "$tf"
+                    fi
+                  done
+                fi
               fi
               grep -q '^DONE$' "$c" || echo DONE >> "$c"; echo "done $topic"
               # ⛔⭐ (a) DONE CLOSES ITS OWN WINDOW (hq_B scope, 2026-08-28, ratified by ceo as rank 1). Until now
