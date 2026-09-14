@@ -133,6 +133,32 @@ if (cd "$D" && timeout 60 "$SCRIP" --compile -o "$D/fp.s" "$D/fp.pl" >/dev/null 
   got=$(cd "$D" && timeout 20 "$D/fp.bin" 2>/dev/null)
   if [ "$got" = "$want4" ]; then PASS=$((PASS+1)); else printf '  m4 RED  format ~~p: got [%s]\n       want [%s]\n' "$got" "$want4"; FAIL=$((FAIL+1)); fi
 else echo "  m4 RED  the ~~p program failed to compile or link"; FAIL=$((FAIL+1)); fi
+echo "=== ARM 6: A THROWING portray/1 -- print/1 PROPAGATES, and format ~p's swallow is NAMED, not hidden ==="
+cat > "$D/thr.pl" <<'PLEOF'
+:- dynamic(portray/1).
+portray(_) :- throw(portray_fired).
+:- initialization(main).
+main :- catch(print(baz(3)), E, (write(caught_print(E)), nl)),
+	catch(format("~p", [qux(4)]), E2, (write(caught_format(E2)), nl)), halt.
+PLEOF
+N=$((N+1))
+got=$(cd "$D" && timeout 20 "$SCRIP" "$D/thr.pl" </dev/null 2>&1)
+case "$got" in
+    caught_print\(portray_fired\)*) PASS=$((PASS+1)) ;;
+    *) printf '  RED  a throwing portray/1 did not propagate through print/1: got [%s]\n' "$got"; FAIL=$((FAIL+1)) ;;
+esac
+# \u26d4\u2b50 GRADED AS TODAY'S BEHAVIOUR AND NAMED AS A GAP, because the alternative is worse. `format("~p", [T])`
+# with a THROWING portray/1 prints the plain term here and raises in swipl (measured 2026-09-13: swipl gives
+# caught_format(portray_fired), we give qux(4)). The hook's ball is recorded in the writer's own `pthrown` slot
+# and never reaches the format leaf, so the throw is SWALLOWED. It is pinned in the direction it actually
+# behaves so the day someone routes that ball this arm turns red and asks to be updated -- an UNPINNED gap is
+# one nobody discovers, and a gap pinned as if it were correct is one nobody fixes.
+N=$((N+1))
+case "$got" in
+    *qux\(4\)*) PASS=$((PASS+1)); echo "    NAMED GAP (pinned as today's behaviour, NOT as correct): format ~p swallows a throwing portray/1 and prints the plain term; swipl raises. The ball stops in the writer's pthrown slot and never reaches the format leaf." ;;
+    *caught_format*) echo "  RED  format ~p now PROPAGATES a throwing portray/1 -- that is an IMPROVEMENT and this arm is stale: update the want and delete the NAMED GAP note"; FAIL=$((FAIL+1)) ;;
+    *) printf '  RED  format ~p with a throwing portray/1 did neither: got [%s]\n' "$got"; FAIL=$((FAIL+1)) ;;
+esac
 echo "=== ARM 5: THE PORTRAY HOOK RELEASES ITS ACTIVATION FRAME -- a slope, never a total ==="
 cat > "$D/slope.pl" <<'PLEOF'
 :- dynamic(portray/1).
