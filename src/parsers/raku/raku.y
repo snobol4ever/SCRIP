@@ -540,7 +540,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %type <node> stmt expr atom range_expr cmp_expr or_expr and_expr tern_expr jct_expr dor_expr add_expr closure
 %type <node> mul_expr unary_expr pow_expr postfix_expr call_expr block
 %type <node> repl_expr addsub_expr divis_expr
-%type <node> if_stmt while_stmt for_stmt sub_decl given_stmt sub_body method_body elsif_tail scalar_methcall
+%type <node> if_stmt while_stmt for_stmt sub_decl given_stmt sub_body method_body elsif_tail
 %type <node> unless_stmt until_stmt repeat_stmt loop_stmt loop_incr class_decl grammar_decl role_decl module_decl
 %type <node> pair_list
 %type <list> scalar_list
@@ -734,33 +734,16 @@ stmt
         { tree_t *mc=ast_node_new(TT_METHCALL);
           ast_push(mc,var_node($1)); ast_push(mc,leaf_sval(TT_QLIT,$3)); free($3);
           $$=expr_binary(TT_ASSIGN,var_node($1),mc); }
-    | VAR_SCALAR '.' IDENT '=' expr ';'
-        { tree_t *fe=ast_node_new(TT_FIELD);
-          fe->v.sval=(char*)intern($3); free($3);
-          expr_add_child(fe,var_node($1));
+    | call_expr '.' meth_name '=' expr ';'
+        { tree_t *fe=ast_node_new(TT_FIELD); fe->v.sval=(char*)intern($3); free($3); expr_add_child(fe,$1);
+          $$=expr_binary(TT_ASSIGN,fe,$5); }
+    | atom '.' meth_name '=' expr ';'
+        { tree_t *fe=ast_node_new(TT_FIELD); fe->v.sval=(char*)intern($3); free($3); expr_add_child(fe,$1);
           $$=expr_binary(TT_ASSIGN,fe,$5); }
     | VAR_TWIGIL '=' expr ';'
         { tree_t *fe=ast_node_new(TT_TWIGIL_FIELD);
           fe->v.sval=(char*)intern(rk_tw_bare($1)); free($1);
           $$=expr_binary(TT_ASSIGN,fe,$3); }
-    | scalar_methcall ';'                        { $$=$1; }
-    | scalar_methcall KW_IF expr ';'
-        { tree_t *e=ast_node_new(TT_IF); expr_add_child(e,$3); expr_add_child(e,seq1($1)); $$=e; }
-    | scalar_methcall KW_UNLESS expr ';'
-        { tree_t *e=ast_node_new(TT_UNLESS); ast_push(e,$3); ast_push(e,seq1($1)); $$=e; }
-    | scalar_methcall KW_WHILE expr ';'
-        { $$=expr_binary(TT_WHILE,$3,seq1($1)); }
-    | scalar_methcall KW_UNTIL expr ';'
-        { tree_t *e=ast_node_new(TT_UNTIL); expr_add_child(e,$3); expr_add_child(e,seq1($1)); $$=e; }
-    | scalar_methcall KW_FOR expr ';'
-        { tree_t *gen=expr_unary(TT_ITERATE,$3); gen->v.sval=(char*)intern("_");
-          $$=expr_binary(TT_EVERY, gen, seq1($1)); }
-    | scalar_methcall KW_WITH expr ';'
-        { $$=rk_with_mod($1,$3,0); }
-    | scalar_methcall KW_WITHOUT expr ';'
-        { $$=rk_with_mod($1,$3,1); }
-    | scalar_methcall KW_GIVEN expr ';'
-        { $$=rk_given_mod($1,$3); }
     | VAR_ARRAY '[' expr ']' '=' expr ';'
         { tree_t *c=ast_node_new(TT_ARR_SET);
           ast_push(c,var_node($1)); ast_push(c,$3); ast_push(c,$6); $$=c; }
@@ -1103,25 +1086,6 @@ sub_decl
           tree_t *body=$5;
           for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
           free($2); $$=e; }
-    ;
-scalar_methcall
-    : VAR_SCALAR '.' IDENT '(' arg_list ')'
-        { tree_t *c = ast_node_new(TT_METHCALL);
-          ast_push(c, var_node($1));
-          ast_push(c, leaf_sval(TT_QLIT, $3)); free($3);
-          ExprList *args = $5;
-          if (args) { for (int i = 0; i < args->count; i++) ast_push(c, args->items[i]); exprlist_free(args); }
-          $$ = c; }
-    | VAR_SCALAR '.' IDENT '(' ')'
-        { tree_t *c = ast_node_new(TT_METHCALL);
-          ast_push(c, var_node($1));
-          ast_push(c, leaf_sval(TT_QLIT, $3)); free($3);
-          $$ = c; }
-    | VAR_SCALAR '.' IDENT
-        { tree_t *c = ast_node_new(TT_METHCALL);
-          ast_push(c, var_node($1));
-          ast_push(c, leaf_sval(TT_QLIT, $3)); free($3);
-          $$ = c; }
     ;
 sub_body
     : '{' stmt_list '}'          { $$=make_seq($2); }
@@ -1615,15 +1579,11 @@ block
           tree_t *e=rk_given_mod(s,$6); ExprList *l=$2; exprlist_append(l,e); $$=make_seq(l); }
     | '{' stmt_list KW_PRINT expr '}'
         { tree_t *p=ast_node_new(TT_PRINT); expr_add_child(p,$4); ExprList *l=$2; exprlist_append(l,p); $$=make_seq(l); }
-    | '{' stmt_list VAR_SCALAR '.' IDENT '(' arg_list ')' '}'
-        { tree_t *c=ast_node_new(TT_METHCALL); ast_push(c,var_node($3)); ast_push(c,leaf_sval(TT_QLIT,$5)); free($5);
-          ExprList *args=$7; if(args){ for(int i=0;i<args->count;i++) ast_push(c,args->items[i]); exprlist_free(args); }
-          ExprList *l=$2; exprlist_append(l,c); $$=make_seq(l); }
-    | '{' stmt_list VAR_SCALAR '.' IDENT '(' ')' '}'
-        { tree_t *c=ast_node_new(TT_METHCALL); ast_push(c,var_node($3)); ast_push(c,leaf_sval(TT_QLIT,$5)); free($5);
-          ExprList *l=$2; exprlist_append(l,c); $$=make_seq(l); }
-    | '{' stmt_list VAR_SCALAR '.' IDENT '=' expr '}'
-        { tree_t *fe=ast_node_new(TT_FIELD); fe->v.sval=(char*)intern($5); free($5); expr_add_child(fe,var_node($3));
+    | '{' stmt_list call_expr '.' meth_name '=' expr '}'
+        { tree_t *fe=ast_node_new(TT_FIELD); fe->v.sval=(char*)intern($5); free($5); expr_add_child(fe,$3);
+          tree_t *a=expr_binary(TT_ASSIGN,fe,$7); ExprList *l=$2; exprlist_append(l,a); $$=make_seq(l); }
+    | '{' stmt_list atom '.' meth_name '=' expr '}'
+        { tree_t *fe=ast_node_new(TT_FIELD); fe->v.sval=(char*)intern($5); free($5); expr_add_child(fe,$3);
           tree_t *a=expr_binary(TT_ASSIGN,fe,$7); ExprList *l=$2; exprlist_append(l,a); $$=make_seq(l); }
     | '{' stmt_list VAR_TWIGIL '=' expr '}'
         { tree_t *fe=ast_node_new(TT_TWIGIL_FIELD); fe->v.sval=(char*)intern(rk_tw_bare($3)); free($3);
