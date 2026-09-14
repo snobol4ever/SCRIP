@@ -498,8 +498,8 @@ static int pl_fence_on(void) { return emit_pl_fence_on(); }
 static IR_t * pl_lower_ite(lcx_t * cx, const tree_t * C, const tree_t * T, const tree_t * E, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     IR_t * ig = build(cx, IR_GATE, γnext, ωfail);
     IR_t * mark = build(cx, IR_BOUND, NULL, ig);
-    IR_t * unmk_c = build(cx, IR_UNMARK, ig, ωfail); ir_operand_push(unmk_c, mark); IR_LIT(unmk_c).ival = 1;
-    IR_t * unmk_f = build(cx, IR_UNMARK, ig, ωfail); ir_operand_push(unmk_f, mark); IR_LIT(unmk_f).ival = 1;
+    IR_t * unmk_c = build(cx, IR_UNMARK, ig, ωfail); ir_operand_push(unmk_c, mark); IR_LIT(unmk_c).ival = pl_fence_on() ? 5 : 1;
+    IR_t * unmk_f = build(cx, IR_UNMARK, ig, ωfail); ir_operand_push(unmk_f, mark); IR_LIT(unmk_f).ival = pl_fence_on() ? 5 : 1;
     IR_t * arm_entry[2] = { NULL, NULL };
     const tree_t * arms[2]; int nb = 0;
     arms[nb++] = T; if (E) arms[nb++] = E;
