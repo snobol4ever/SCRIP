@@ -1223,8 +1223,9 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             if (entry_out) *entry_out = be ? be : bl;
             return to;
         }
-        if ((!strcmp(nm, "findall") || !strcmp(nm, "bagof") || !strcmp(nm, "setof")) && t->n == 3) {
-            const char * fin = !strcmp(nm, "findall") ? "$findall_result" : (!strcmp(nm, "bagof") ? "$bagof_result" : "$setof_result");
+        if (((!strcmp(nm, "findall") || !strcmp(nm, "bagof") || !strcmp(nm, "setof")) && t->n == 3) || (!strcmp(nm, "findall") && t->n == 4)) {
+            int pl_find4 = t->n == 4;
+            const char * fin = !strcmp(nm, "findall") ? (pl_find4 ? "$findall_result4" : "$findall_result") : (!strcmp(nm, "bagof") ? "$bagof_result" : "$setof_result");
             const tree_t * gt = pl_caret_body(t->c[1]);
             int wantg = pl_goal_arg_wants_guard(gt);
             int pl_isfind = !strcmp(nm, "findall");
@@ -1294,6 +1295,12 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
             lc_γ_to(rl, nd); lc_ω_to(rl, ωfail);
             ir_operand_push(nd, acc); ir_operand_push(nd, rl);
             lc_γ_to(rl, acc);
+            if (pl_find4) {
+                IR_t * t4e = NULL; IR_t * t4 = term_e(cx, t->c[3], &t4e);
+                lc_γ_to(t4, acc); lc_ω_to(t4, ωfail);
+                lc_γ_to(rl, t4e ? t4e : t4);
+                ir_operand_push(nd, t4);
+            }
             if (wantg) {
                 IR_t * ge = NULL; IR_t * gv = term_lval_e(cx, gt, &ge);
                 IR_t * gchk = build(cx, IR_CALL, re ? re : rl, ωfail); IR_LIT(gchk).sval = "$pl_goal_guard";
@@ -1303,6 +1310,11 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
                   if (entry_out) *entry_out = lge ? lge : lg; }
             } else { IR_t * lge = NULL; IR_t * lg = goal(cx, pl_cc_fnc1("$pl_list_guard", (tree_t *) t->c[2]), re ? re : rl, ωfail, &lge);
                      if (entry_out) *entry_out = lge ? lge : lg; }
+            if (pl_find4) {
+                IR_t * hd = entry_out ? *entry_out : nd; IR_t * t4ge = NULL;
+                IR_t * t4g = goal(cx, pl_cc_fnc1("$pl_list_guard", (tree_t *) t->c[3]), hd, ωfail, &t4ge);
+                if (entry_out) *entry_out = t4ge ? t4ge : t4g;
+            }
             return nd;
         }
         if ((!strcmp(nm, "between") || !strcmp(nm, "for")) && t->n == 3) {

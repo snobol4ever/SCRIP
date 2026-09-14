@@ -2336,6 +2336,19 @@ static int rt_pl_all_solutions_cell(DESCR_t *args, pl_tr_ctx_t *cx, int mode) {
       if (mode == 2) return rt_pl_sort_cell(0, (void *)&lst, (void *)&args[1], cx);
       return plw_unify_vals(args[1], lst, cx); }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rt_pl_all_solutions_tail_cell(DESCR_t *args, pl_tr_ctx_t *cx) {
+    extern int rt_pl_findall_count(void *); extern void rt_pl_findall_item(void *, int, void *);
+    DESCR_t h = rt_pl_deref_val(args[0]);
+    if (h.v != DT_I) return 0;
+    { void *acc = (void *)(intptr_t)h.i; int n = rt_pl_findall_count(acc); int i; DESCR_t *el; DESCR_t lst = args[2];
+      el = (DESCR_t *)rt_pinned_alloc((size_t)(n > 0 ? n : 1) * sizeof(DESCR_t));
+      if (!el) return 0;
+      for (i = 0; i < n; i++) rt_pl_findall_item(acc, i, (void *)&el[i]);
+      for (i = n - 1; i >= 0; i--) lst = pl_cons(el[i], lst);
+      return plw_unify_vals(args[1], lst, cx); }
+}
+PL_CX_LEAF_HEAD(findall_result4, 3) ok = rt_pl_all_solutions_tail_cell(args, cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(findall_result, 2) ok = rt_pl_all_solutions_cell(args, cx, 0); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(bagof_result, 2)   ok = rt_pl_all_solutions_cell(args, cx, 1); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(setof_result, 2)   ok = rt_pl_all_solutions_cell(args, cx, 2); PL_CX_LEAF_TAIL
