@@ -113,7 +113,13 @@ echo "F. the bench harnesses cannot delete a row, and they close the grid they o
 # ⭐ bench_prolog_perf.sh (angle 3) JOINED THIS LIST 2026-09-13 when it grew the two-number
 # work/overhead basis: it formats its own aligned grids rather than perf_row rows, so it reaches the
 # whole-grid verdict through perf_dark_cell -- arm H below is that path's own guard.
-for h in bench_triangulate_pascal.sh bench_triangulate_prolog.sh bench_triangulate_raku.sh bench_triangulate_snobol4.sh bench_triangulate_demos_icon.sh bench_triangulate_demos_snobol4.sh bench_prolog_perf.sh; do
+# ⭐ THE TWO REMAINING PROLOG ANGLES JOINED THIS LIST 2026-09-13 (hq_P) AND THEY WERE THE LAST GAP.
+# Angle 1 (test_bench_prolog_timed.sh) closed with `perf_grid_end || true` over literal DARK/NA cells
+# that never bumped the counter, so its grid verdict was structurally unable to fire; angle 2
+# (bench_prolog_fixed_iter.sh) did not source lib_perf_fmt.sh AT ALL and hand-rolled its own LOAD line
+# BELOW the grids.  Both now bump through perf_dark_cell and fold the verdict into their exit code.
+# ⛔ Angle 1 is not named bench_*.sh, so arm G's census over "$HERE"/bench_*.sh never reached it either.
+for h in bench_triangulate_pascal.sh bench_triangulate_prolog.sh bench_triangulate_raku.sh bench_triangulate_snobol4.sh bench_triangulate_demos_icon.sh bench_triangulate_demos_snobol4.sh bench_prolog_perf.sh test_bench_prolog_timed.sh bench_prolog_fixed_iter.sh; do
     f="$HERE/$h"
     [ -r "$f" ] || { bad "$h: unreadable" "a readable harness" "missing"; continue; }
     if grep -q '\[ -n "\$[a-zA-Z0-9_]*" \].*perf_row' "$f"; then

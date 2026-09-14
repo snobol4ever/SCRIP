@@ -138,7 +138,7 @@ perf_grid_begin "Prolog kernels vs gnu/swi -- angle 1, live doubling search · r
 echo
 printf "%-14s %14s %14s %14s %14s  %s\n" BENCHMARK gnu/s swi/s m3/s m4/s check
 printf "%-14s %14s %14s %14s %14s  %s\n" "--------------" "--------------" "--------------" "--------------" "--------------" "-----"
-tot_ok=0; tot_skip=0
+tot_ok=0; tot_skip=0; tot_dark_rows=0
 declare -A BWORK=(); declare -A BOVH=(); declare -A BN=(); basis_rows=()
 for pl in "$B"/*.pl; do
   [ -e "$pl" ] || continue
@@ -158,6 +158,15 @@ for pl in "$B"/*.pl; do
     r=$(awk '{print $2}' <<<"$res")
     case "$r" in
       -) R[$eng]="NA"; C[$eng]="$eng@N=$n:$(cut -d' ' -f3- <<<"$res")"
+         # ⛔⭐ THE BUMP IS WHAT MAKES perf_grid_end ABLE TO REFUSE, AND WITHOUT IT THIS ANGLE'S GRID
+         #   VERDICT WAS STRUCTURALLY UNABLE TO FIRE (hq_P 2026-09-13, my own defect from the sitting
+         #   before).  The literal "NA" printed here never touched PERF_DARK_CELLS, so the counter
+         #   perf_grid_end reads was never bumped by the cells it exists to count -- and the close was
+         #   `perf_grid_end || true`, which discarded even that.  A reader seeing perf_grid_end in this
+         #   file believed the grid could refuse.  It could not.  ONE BUMP PER UNMEASURED (kernel,
+         #   engine) PAIR, not per printed cell: one failed search darkens the same measurement in all
+         #   three grids below, and counting it three times would say three things went wrong.
+         perf_dark_cell "$k/$eng" "search returned no rate: $(cut -d' ' -f3- <<<"$res")"
          BWORK["$k:$eng"]="NA"; BOVH["$k:$eng"]="NA"; BN["$k:$eng"]="-" ;;
       *) R[$eng]="$r"
          el=$(awk '{print $3}' <<<"$res"); wk=$(awk '{print $4}' <<<"$res"); BN["$k:$eng"]="$n"
@@ -171,14 +180,21 @@ for pl in "$B"/*.pl; do
          #   like a comparison and is not.  MEASURED on nrev: m3 work 122476 us at its N beside m4
          #   1024762 us at ITS N, an 8x that is entirely the two N's and says nothing about either
          #   engine.  Dividing by N is what makes the column mean one thing.
-         case "$wk" in ''|-|*[!0-9]*) BWORK["$k:$eng"]="DARK"; BOVH["$k:$eng"]="DARK" ;;
+         case "$wk" in ''|-|*[!0-9]*) BWORK["$k:$eng"]="DARK"; BOVH["$k:$eng"]="DARK"
+              perf_dark_cell "$k/$eng" "the generated bracket reported no work_us" ;;
            *) BWORK["$k:$eng"]=$(awk -v w="$wk" -v n="$n" 'BEGIN{printf "%.4f", (n>0)?w/n:0}')
               BOVH["$k:$eng"]=$(( el - wk )) ;; esac ;;
     esac
   done
   basis_rows+=("$k")
-  ckstat=ok; for eng in gnu swi m3 m4; do [ -n "${C[$eng]:-}" ] && ckstat="${C[$eng]}"; done
-  [ "$ckstat" = ok ] && tot_ok=$((tot_ok+1))
+  # ⛔⭐ EVERY FAILING ENGINE IS NAMED, NOT WHICHEVER ONE THE LOOP VISITS LAST (hq_P 2026-09-13, measured).
+  #   This line used to ASSIGN in a loop, so the last non-empty reason overwrote the rest and a row where
+  #   all four engines failed reported ONE cause -- always m4's, since m4 is last.  MEASURED on the four
+  #   kernels that were NA on every engine: the board read "m4@N=1:NONZERO(124)" and a reader concluded m4
+  #   was the problem, when gnu, swi and m3 had failed too.  An instrument that reports one cause for four
+  #   failures is not shorter, it is wrong about WHICH SUBJECT is broken.
+  ckstat=ok; for eng in gnu swi m3 m4; do [ -n "${C[$eng]:-}" ] && { [ "$ckstat" = ok ] && ckstat="${C[$eng]}" || ckstat="$ckstat; ${C[$eng]}"; }; done
+  [ "$ckstat" = ok ] && tot_ok=$((tot_ok+1)) || tot_dark_rows=$((tot_dark_rows+1))
   printf "%-14s %14s %14s %14s %14s  %s\n" "$k" "${R[gnu]:-NA}" "${R[swi]:-NA}" "${R[m3]:-NA}" "${R[m4]:-NA}" "$ckstat"
 done
 # ⭐⭐ THE TWO-NUMBER WORK/OVERHEAD BASIS ON ANGLE 1 -- the CEO-567 DONE-WHEN clause "the three angles
@@ -222,6 +238,20 @@ for k in "${basis_rows[@]}"; do
   printf "%-14s %14s %14s %14s %14s\n" "$k" "${BOVH[$k:gnu]:-DARK}" "${BOVH[$k:swi]:-DARK}" "${BOVH[$k:m3]:-DARK}" "${BOVH[$k:m4]:-DARK}"
 done
 echo
-perf_grid_end || true
-echo "CHECK RESULT: measured=$tot_ok correctness-skip=$tot_skip"
-[ "$tot_skip" -eq 0 ]
+# ⛔⭐ THE VERDICT FOLDS IN, AND THAT IS A RULING THE MEASUREMENT EARNED RATHER THAN A PREFERENCE.
+#   The open question was whether this angle carries STANDING unmeasurable cells: if it did, bumping
+#   would make it ALWAYS RED, and a verdict that is always red is one nobody reads -- which is how a
+#   REAL dark cell would then travel unnoticed beside it (lib_perf_fmt.sh's DARK-CELL LAW, and the
+#   reason the TICK-FLOOR class deliberately does NOT bump).  MEASURED FIRST, as the row required:
+#   the board carried 48 NA cells over four kernels, every one of them a CURABLE defect in the
+#   generated wrapper rather than a permanent property of an instrument.  Curing it (SCRIP 9968d7fdf)
+#   took the board to ZERO NA cells, so folding costs nothing today and the counter now means what it
+#   says.  ⛔ A future standing dark cell is therefore a DECISION to make here again, with a number.
+perf_grid_end; grid_rc=$?
+# ⛔ THE THREE NUMBERS MUST SUM TO THE POPULATION, AND UNTIL NOW THEY DID NOT (hq_P 2026-09-13).  A row
+#   that was NA on every engine was neither ok nor a correctness-skip, so it fell out of BOTH counters:
+#   the board printed "measured=18 correctness-skip=1" over 23 kernels and four kernels simply vanished.
+#   ⭐ A SUMMARY WHOSE PARTS DO NOT ADD UP TO ITS WHOLE CANNOT REPORT AN ABSENCE -- it can only ever
+#   report what it found, which is the one thing a reader does not need an instrument for.
+echo "CHECK RESULT: measured=$tot_ok correctness-skip=$tot_skip unmeasured=$tot_dark_rows of $((tot_ok+tot_skip+tot_dark_rows)) kernels"
+[ "$tot_skip" -eq 0 ] && [ "$grid_rc" -eq 0 ]

@@ -62,6 +62,7 @@ command -v swipl   >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE swipl absent"
 # Still REFUSE when a prelude is missing, never a plausible SKIP: a rival that cannot load its clock is not a rival that disagreed.
 [ -f "$PRO/prelude_gplc.pl" ] && [ -f "$PRO/prelude_swipl.pl" ] || { echo "⛔ REFUSED-TO-GRADE rival preludes missing under $PRO (prelude_gplc.pl / prelude_swipl.pl)"; exit 2; }
 . "$HERE/lib_prolog_bench.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE (rc=2): cannot source lib_prolog_bench.sh -- the ONE loop-output check"; exit 2; }
+. "$HERE/lib_perf_fmt.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE (rc=2): cannot load lib_perf_fmt.sh -- the ONE authority for the load stamp and the whole-grid refusal (s266/CEO-697)"; exit 2; }
 WRAP="$ROOT/tools/bench_rusage"
 [ -x "$WRAP" ] || gcc -O2 -o "$WRAP" "$ROOT/tools/bench_rusage.c" || { echo "⛔ REFUSED: bench_rusage failed to build" >&2; exit 2; }
 # ⛔ timeout -k 5 EVERYWHERE (hq_P 2026-09-02, measured): swipl ignores timeout's SIGTERM -- angle 2 sat 648 s on vanroy/queens.pl
@@ -132,6 +133,13 @@ run1() {
 echo "FIXED-ITERATION PROLOG BENCHMARKS -- angle 2: N fixed per kernel (committed in $NTSV), external cpu time measured"
 echo "kernels: $B (pristine, verbatim)   wrapper: GENERATED per engine by $(basename "$GEN") --mode=iter (never checked in, CEO-567)"
 echo "engines: gnu swi m3 m4   external instrument: tools/bench_rusage (user+sys cpu time)"
+# ⛔⭐ THE LOAD STAMP IS THE PRINTER'S JOB AND IT BELONGS ABOVE THE NUMBERS, NOT UNDER THEM (hq_P
+#   2026-09-13).  This harness hand-rolled its own LOAD line and printed it AFTER the last grid, so a
+#   reader who pasted a grid -- which is what anyone pastes -- carried the numbers away and left the
+#   load behind.  perf_grid_begin welds it to the shared-axes line the FACT RULE requires, at the top,
+#   where it cannot be separated from what it qualifies.  Two runs of this angle on one tree have been
+#   measured differing by up to 2.15x, so the stamp is not decoration.
+perf_grid_begin "Prolog kernels vs gnu/swi -- angle 2, N committed per kernel in $(basename "$NTSV") · rate = iterations / CPU(user+sys) · WORK = self-measured wall inside the bracket · RT_OPT=-O0"
 echo
 printf "%-14s %10s %14s %14s %14s %14s  %s\n" BENCHMARK N gnu/s swi/s m3/s m4/s check
 printf "%-14s %10s %14s %14s %14s %14s  %s\n" "--------------" "----------" "--------------" "--------------" "--------------" "--------------" "-----"
@@ -148,18 +156,25 @@ for k in "${order[@]}"; do
     gpl="$W/gen.$k.$ge.pl"
     if [ ! -s "$gpl" ]; then
       if ! "$GEN" "$B/$k.pl" --mode=iter --n="$N" --engine="$ge" -o "$gpl" >/dev/null 2>"$W/gen.err"; then
-        RATE[$eng]="NA"; [ "$ckstat" = ok ] && ckstat="$eng:GEN-REFUSED($(head -1 "$W/gen.err" | cut -c1-48))"; continue
+        RATE[$eng]="NA"; perf_dark_cell "$k/$eng" "generator refused: $(head -1 "$W/gen.err" | cut -c1-48)"
+        [ "$ckstat" = ok ] && ckstat="$eng:GEN-REFUSED($(head -1 "$W/gen.err" | cut -c1-48))"; continue
       fi
     fi
     res=$(run1 "$eng" "$gpl" "$N" "$B/$k.expected"); cpu=$(awk '{print $1}' <<<"$res")
-    if [ "$cpu" = "-" ]; then RATE[$eng]="NA"; WORK[$eng]="NA"; OVH[$eng]="NA"; reason=$(cut -d' ' -f3- <<<"$res"); [ "$ckstat" = ok ] && ckstat="$eng:$reason"
+    if [ "$cpu" = "-" ]; then RATE[$eng]="NA"; WORK[$eng]="NA"; OVH[$eng]="NA"; reason=$(cut -d' ' -f3- <<<"$res")
+      # ⛔ ONE BUMP PER UNMEASURED (kernel, engine) PAIR, not per printed cell: one failed run darkens
+      #   the same measurement in the rate, work and overhead grids, and counting it three times would
+      #   say three things went wrong when one did.
+      perf_dark_cell "$k/$eng" "run produced no cpu time: $reason"
+      [ "$ckstat" = ok ] && ckstat="$eng:$reason"
     else
       RATE[$eng]=$(rate "$N" "$cpu")
       local_el=$(awk '{print $3}' <<<"$res"); local_wk=$(awk '{print $4}' <<<"$res")
       # ⛔ A MISSING work_us IS PRINTED AS DARK, NEVER AS A BLANK AND NEVER AS ZERO (CEO-676,
       #   dark-is-worse-than-red): an engine whose bracket did not report is a cell that could not
       #   measure its subject, and it must say so in its own voice rather than leave the column empty.
-      case "$local_wk" in ''|-|*[!0-9]*) WORK[$eng]="DARK"; OVH[$eng]="DARK" ;;
+      case "$local_wk" in ''|-|*[!0-9]*) WORK[$eng]="DARK"; OVH[$eng]="DARK"
+          perf_dark_cell "$k/$eng" "the generated bracket reported no work_us" ;;
         *) WORK[$eng]="$local_wk"; OVH[$eng]=$(( local_el - local_wk )) ;; esac
     fi
   done
@@ -196,9 +211,9 @@ for k in "${basis_rows[@]}"; do
   printf "%-14s %14s %14s %14s %14s\n" "$k" "${BOVH[$k:gnu]}" "${BOVH[$k:swi]}" "${BOVH[$k:m3]}" "${BOVH[$k:m4]}"
 done
 echo
-# ⛔ CEO-697 (ceo -> all seats, 2026-09-13): A COST WITHOUT THE LOAD IT RAN UNDER IS NOT A COST.  Every
-#   duration this harness prints is load-sensitive -- two runs of this same angle on one tree have been
-#   measured differing by up to 2.15x -- so the load is printed WITH the numbers, by the harness, rather
-#   than left to whoever pastes them to remember.  Same reason a watermark carries its command.
-echo "LOAD: $(cut -d' ' -f1-3 /proc/loadavg 2>/dev/null) (1/5/15m) on $(nproc 2>/dev/null) cores at $(date -u +%Y-%m-%dT%H:%M:%SZ) -- a duration here without this line is a scouting datum, not a measurement (CEO-697)"
-[ "$tot_bad" -eq 0 ]
+# ⛔⭐ tot_bad AND THE GRID VERDICT ARE NOT THE SAME BAR, WHICH IS WHY BOTH ARE HERE.  tot_bad counts a
+#   ROW that had a crash/DNF on some engine; perf_grid_end counts every CELL that could not be measured,
+#   including a work_us that never arrived on a row whose rate came back fine -- a hole tot_bad cannot
+#   see, because the row is not "bad", it is INCOMPLETE.
+perf_grid_end; grid_rc=$?
+[ "$tot_bad" -eq 0 ] && [ "$grid_rc" -eq 0 ]
