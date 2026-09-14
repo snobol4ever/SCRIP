@@ -2209,7 +2209,7 @@ PL_CX_LEAF_HEAD(char_type, 2) ok = rt_pl_char_type_cell(&args[0], &args[1], (voi
 static long pl_sub_atom_count(DESCR_t a) {
     char sb[8192]; DESCR_t av = rt_pl_deref_val(a);
     if (av.v != DT_S) return -1;
-    { const char *s = to_cstring(av, sb, sizeof sb); if (!s) return -1; return (long)strlen(s); }
+    { const char *s = to_cstring(av, sb, sizeof sb); if (!s) return -1; return (long)utf8_strlen(s); }
 }
 DESCR_t rt_pl_dop_sub_atom_n(DESCR_t *args, int nargs) {
     if (nargs != 1) return FAILDESCR;
@@ -2222,14 +2222,16 @@ static int rt_pl_sub_atom_at_cell(DESCR_t *args, pl_tr_ctx_t *cx) {
     char sb[8192]; DESCR_t av = rt_pl_deref_val(args[0]); DESCR_t iv = rt_pl_deref_val(args[1]);
     if (av.v != DT_S || iv.v != DT_I) return 0;
     { const char *s = to_cstring(av, sb, sizeof sb);
-      long n = s ? (long)strlen(s) : -1, idx = (long)iv.i, b = 0, l, a;
+      size_t blen = s ? strlen(s) : 0, boff, bspan;
+      long n = s ? (long)utf8_strlen(s) : -1, idx = (long)iv.i, b = 0, l, a;
       if (!s || n < 0 || idx < 0) return 0;
       while (b <= n) { long w = n - b + 1; if (idx < w) break; idx -= w; b++; }
       if (b > n) return 0;
       l = idx; a = n - b - l;
+      boff = utf8_char_offset(s, blen, (size_t)b + 1); bspan = utf8_char_bytes(s, blen, boff, (size_t)l);
       { char *tr0 = cx->tr;
         int ok = plw_unify_vals(args[2], INTVAL(b), cx) && plw_unify_vals(args[3], INTVAL(l), cx)
-              && plw_unify_vals(args[4], INTVAL(a), cx) && plw_unify_vals(args[5], pl_mk_atom_dup(s + b, (size_t)l), cx);
+              && plw_unify_vals(args[4], INTVAL(a), cx) && plw_unify_vals(args[5], pl_mk_atom_dup(s + boff, bspan), cx);
         if (!ok) cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0);
         return ok; } }
 }
