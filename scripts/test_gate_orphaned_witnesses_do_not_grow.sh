@@ -80,7 +80,24 @@ CENSUS="$CORPUS/tests/ORPHANED-WITNESSES.tsv"
 # witness nobody converted -- and the two want OPPOSITE cures, absorb versus delete. Every one of the 18 was content-verified
 # against its existing master entry by the builder's own --delete-absorbed before removal, and the master's content diff over
 # the whole landing is lost 0, gained exactly 2, changed 0.
-FLOOR_icon=0 FLOOR_pascal=0 FLOOR_prolog=0 FLOOR_raku=0 FLOOR_rebus=0 FLOOR_snobol4=39 FLOOR_snocone=1
+# ⛔⭐ FLOOR_snobol4 39 -> 41 (cfo 2026-09-14, row snobol4-fence-then-an-operand-then-an-alternation-in-a-pattern-
+# variable-never-backtracks). THIS IS A RAISE AND IT OWES AN ARGUMENT, because hq_I named raising a floor as the move worth
+# NOT making -- it silences the gate without answering the question. THE TWO ARE ANSWERED AND THAT IS THE WHOLE DIFFERENCE:
+# `fence_then_operand_then_alternation_never_backtracks` and `tpgm4_syntactic_recognizer` are DECLARED in
+# corpus/tests/snobol4/PENDING.md, deferred to a LIVE row whose DONE-WHEN grades the first of them in both modes, and they
+# convert into the master the day it is cured -- at which point this floor falls back to 39 and this gate is what says so.
+# ⛔ WHY THEY ARE NOT SIMPLY ABSORBED RED, WHICH IS WHAT THE LADDER LAW ASKS FOR: util_build_master_suite.py runs every
+# plain loose pair before absorbing it and mints `xfail = not green` with NO reason block and NO flag to decline (its own
+# comment: "auto-XFAIL by source verdict"). I absorbed them once, measured the result -- two XFAIL entries carrying no
+# reason -- and reverted it: that moves test_gate_no_xfail_survives.sh's population the wrong way on Lon's own ruling that
+# there is no such thing as XFAIL, and test_gate_xfail_has_reason.sh would be right to call it a defect. So the sanctioned
+# path into the master cannot carry a red witness honestly today, and until it can, a declared deferral is the honest shape.
+# ⭐ THE THIRD THING THIS COST IS THE ONE WORTH FIXING FIRST, reported to hq_T rather than patched here: THIS CENSUS DOES
+# NOT READ KEEP.md OR PENDING.md AT ALL. A pair the deferral contract has properly declared still reads as an orphan, so the
+# one mechanism the tree offers for "loose on purpose, attached to a row" is invisible to the one gate that counts loose
+# files. Teaching the census the two files it already has would make this raise unnecessary and would lower icon's argument
+# from prose to code.
+FLOOR_icon=0 FLOOR_pascal=0 FLOOR_prolog=0 FLOOR_raku=0 FLOOR_rebus=0 FLOOR_snobol4=41 FLOOR_snocone=1
 out="$(python3 scripts/util_orphaned_witness_census.py "$CORPUS" --counts 2>&1)" || { echo "⛔ GATE REFUSES(2): census generator failed:"; echo "$out"; exit 2; }
 printf %s "$out" | grep -q . || { echo "⛔ GATE REFUSES(2): census produced NO output -- an empty census is not a green board"; exit 2; }
 rc=0 tot=0 seen=0
