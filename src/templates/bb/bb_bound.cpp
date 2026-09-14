@@ -27,7 +27,7 @@ std::string bb_bound() {
                + x86("lea", "rdi", RDQ(x86_fb(), g_emit.flat_frame_bytes - 64)) + x86("mov", "rsi", x86_fb())
                + x86("call_bare", "rt_pl_disj_open", fp2)
                + x86_gamma() + x86_beta_trampoline()
-             : _.op_ival == 2
+             : (_.op_ival & 2)
              ? x86("comment", "IR_UNMARK gamma-fence arm (rung 9, CEO-690, Lon 2026-09-13 verbatim: \"do a whack-free on GAMMA for a FENCE d (i.e. cut !) or otherwise FENCE d operation.\"): this landing is the SUCCESS edge of an opaque-goal barrier -- once/1, the condition of an if-then-else, the guard of a negation -- where beta into the goal is unreachable by the lowerer's own wiring, so every frame the goal carved below the banked frontier is dead and is released HERE instead of being retained for a recession that can never come. It does NOT unwind the trail: the goal succeeded and its bindings are what the taken arm is about to read.")
                + x86_alpha()
                + x86("comment", "B first, while the frames it may point into are still mapped: restore the choice the paired IR_BOUND banked at entry, so no choice record survives inside the region about to be released and this frame does not stay pinned as its own current choice. Through a NAMED rtx helper, never an emitted r13 write -- the same discipline bb_cut states at rung 4.")
@@ -37,11 +37,11 @@ std::string bb_bound() {
                + x86_gamma() + x86_beta_trampoline()
              : x86("comment", "IR_UNMARK pinned arm (rung 5): undo to the paired IR_BOUND's mark before leaving. Same named rtx helper the rung-2 clause step, the rung-3 disjunction step and the rung-7 generator step use -- the only writer of r12 on this path.")
                + x86_alpha() + x86("mov", "rdi", FRQ(_.op_off)) + x86("call_bare", "rt_pl_tr_unwind", fp)
-               + IF(_.op_ival == 1,
+               + IF((_.op_ival & 1) != 0,
                      x86("comment", "AND THE C9 BALL GUARD (rung 9, ARCH sec A.1 review C9 + sec B.7): this unmark is a CONDITION-FAILURE landing, and a ball in flight is not a failure -- without the test, `( throw(oops) -> yes ; no )` undoes the trail and then runs the ELSE arm, which is an if-then-else SWALLOWING an exception (measured: it printed no/after). The lowerer sets the flag only on the landings that can be reached with a ball, so this costs an Icon or SNOBOL4 unmark nothing: they never carry it.")
                    + x86("test", "r15", "r15") + x86_omega("jne"))
-               + x86("comment", "AND THE SAME GAMMA-FENCE RELEASE, on the OTHER edge (rung 9, CEO-690). This landing is reached when the construct's goal or its taken arm is EXHAUSTED -- a barrier that has run out is as committed as one that succeeded, and everything it carved below the banked frontier is dead the same way. It sits after the ball guard on purpose: a ball in flight leaves through omega with the spine untouched, exactly as it did before this rung, because the frames it unwinds through are the catch's business and not this unmark's.")
-               + IF(emit_pl_fence_on(), x86("mov", "rdi", FRQ(_.op_off + 16)) + x86("call_bare", "rt_pl_fence_commit", fp3) + x86("mov", "rsp", FRQ(_.op_off + 8)))
+               + IF((_.op_ival & 4) != 0, x86("comment", "AND THE SAME RELEASE, on the OTHER edge (rung 9, CEO-690), BUT ONLY WHERE THE LOWERER SET BIT 2. This landing is reached when the construct's goal or its taken arm is EXHAUSTED, and for an OPAQUE barrier that is as committed as succeeding, so everything carved below the banked frontier is dead the same way. ⛔ IT IS NOT TRUE OF EVERY PINNED UNMARK AND I SHIPPED IT THAT WAY FIRST: the SOFT CUT (*->) is backtrack-TRANSPARENT into its condition -- every solution of C runs T -- so its unmark is a landing the machine RE-ENTERS, and releasing there whacks frames a redo is about to use. Measured 2026-09-14: test_gate_pl_iso_rung6 was GREEN at b6b42eee1 and RED with an unconditional release, while every smoke and the whole capacity table stayed green. OPACITY IS A LOWERER FACT, exactly as bb_cut says at rung 4, so it travels as a bit and is never inferred here: pl_lower_ite sets it (once/1, ->, \\+, forall, ignore are all genuinely opaque), pl_lower_softcut and pl_lower_catch do not. It sits after the ball guard on purpose: a ball in flight leaves through omega with the spine untouched, as it did before this rung.")
+               + x86("mov", "rdi", FRQ(_.op_off + 16)) + x86("call_bare", "rt_pl_fence_commit", fp3) + x86("mov", "rsp", FRQ(_.op_off + 8)))
                + x86_gamma() + x86_beta_trampoline();
     }
     if (_.op_zres) {

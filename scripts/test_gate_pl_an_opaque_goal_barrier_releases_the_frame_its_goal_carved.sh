@@ -23,6 +23,25 @@
 # ⛔ THE STACK SIZE IS PART OF THE MEASUREMENT AND THIS GATE PINS IT. Unpinned, it grades the shell and not
 # the compiler. It sets its own limit in a subshell, PRINTS it, and refuses rc=2 if it cannot.
 #
+# ⛔⭐⭐ THERE ARE TWO ANSWER-GRADED CONTROLS AND THE SECOND ONE WAS ADDED BECAUSE ITS ABSENCE SHIPPED A BUG.
+# An unconditional release at every pinned IR_UNMARK reads GREEN on every depth arm below, on all four
+# per-language smokes, and on the whole capacity table -- and it BREAKS THE SOFT CUT, because (*->)/2 is
+# backtrack-TRANSPARENT into its condition (every solution of C runs T), so its unmark is a landing the
+# machine RE-ENTERS rather than one it leaves. Measured 2026-09-14: test_gate_pl_iso_rung6 was GREEN at
+# b6b42eee1 and RED with the unconditional form, and NOTHING ELSE IN THE FLEET SAW IT. OPACITY IS A LOWERER
+# FACT and travels as a bit.
+#
+# ⛔⭐⭐ AND THERE IS NO TRANSPARENCY CONTROL IN THIS FILE, DELIBERATELY, BECAUSE I WROTE ONE AND PROVED IT
+# COULD NOT FAIL. With the bug reintroduced on purpose (pl_lower_softcut's landings marked releasable), a
+# local witness -- findall over ( q(X) *-> true ; X = none ) and over ( fail *-> Z = t ; c(Z) ), both graded
+# by ANSWER against swipl -- read GREEN, and so did the same shapes written with if/3 standalone. The arm
+# that reds is test_gate_pl_iso_rung6_the_soft_cut_if_3_predicate.sh, whose witness needs its WHOLE program
+# to diverge: it reads [9] where the oracle reads [7,8,9] on `findall(Z, if((!, fail), b(_), c(Z)), L3)`,
+# the fifth of twenty-six lines of one program. ⭐ A CONTROL THAT STAYS GREEN ON THE DEFECT IT NAMES IS
+# WORSE THAN NO CONTROL, because the next reader counts it as coverage. THE TRANSPARENCY ARM FOR THIS CURE
+# IS THAT GATE, BY NAME, and it is already wired and blocking; do not re-derive it here and do not copy its
+# fixture.
+#
 # ⛔⭐ THE SAFETY CONTROL IS THE GRADING CRITERION AND NOT A FOOTNOTE (CEO-690, CEO-550). GAMMA IS THE SHARED
 # YIELD PORT FOR SUSPEND AND RETURN, so a generator that suspends through gamma expects to be resumed INTO
 # THAT VERY FRAME, and an unconditional whack tears down a frame a redo is about to re-enter. The control is a
