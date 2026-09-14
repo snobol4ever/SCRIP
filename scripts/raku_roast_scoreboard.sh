@@ -86,25 +86,46 @@ classify() {
 # (row m4-pie-vs-no-pie-changes-behaviour-not-just-signal, ARCH-ENGINE.md "Mode-4 Link Mode": -no-pie
 # SIGSEGVs two programs PIE runs clean 20/20, RSP==0x0 at fault, gdb-confirmed).
 if [ "$DO_RUN" = 1 ]; then
+  . "$ROOT/scripts/lib_progress.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_progress.sh unloadable -- a run that leaves the progress table untouched is the same defect as one that leaves its SCORE row untouched (ceo CEO-330/331)"; exit 2; }
   ROAST_COMMIT="unversioned-tree"
   [ -d "$ROAST/.git" ] && ROAST_COMMIT="$(cd "$ROAST" && git rev-parse --short=9 HEAD 2>/dev/null || echo unversioned-tree)"
   RT_DIR="$ROOT/out"
   m3p=0; m3f=0; m4p=0; m4f=0; compiled_ok=0; n=0; t0=$(date +%s)
+  TREE_T=$(find -L "$ROAST" -name '*.t' | wc -l)
+  MAN_ALL=0; MAN_TIER=0; MAN_MISSING=0; MAN_MISSING_LIST=""
+  if [ -f "$MANIFEST" ]; then
+    while read -r rel _rest; do
+      case "$rel" in ''|'#'*) continue ;; esac
+      MAN_ALL=$((MAN_ALL+1))
+      is_excluded "$rel" || is_tier_c "$rel" || MAN_TIER=$((MAN_TIER+1))
+      [ -f "$ROAST/$rel" ] || { MAN_MISSING=$((MAN_MISSING+1)); MAN_MISSING_LIST="$MAN_MISSING_LIST $rel"; }
+    done < "$MANIFEST"
+  fi
+  printf 'ROAST_POPULATION tree_t=%d manifest_lines=%d manifest_in_tier=%d manifest_named_but_absent=%d graded=tree_t\n' \
+    "$TREE_T" "$MAN_ALL" "$MAN_TIER" "$MAN_MISSING"
+  FAILED_M3=""; FAILED_M4=""
+  roast_outcome() { case "$1" in PASS) echo PASS ;; FAIL) echo FAIL ;; PARSE-FAIL) echo REJECT ;; CRASH) echo CRASH ;; NO-TAP) echo UNPROVEN ;; *) echo UNPROVEN ;; esac; }
   while IFS= read -r -d '' src; do
     n=$((n+1)); [ "$LIMIT" -gt 0 ] && [ "$n" -gt "$LIMIT" ] && { n=$((n-1)); break; }
     stage="$TMP/case.raku"; cp "$src" "$stage"
     so="$TMP/o"; se="$TMP/e"
+    pname="${src#$ROAST/}"; pname="${pname%.t}"
     timeout 5 "$SCRIP" --run "$stage" > "$so" 2> "$se" < /dev/null; rc=$?
-    if [ "$(classify "$so" "$se" "$rc")" = PASS ]; then m3p=$((m3p+1)); else m3f=$((m3f+1)); fi
+    v3="$(classify "$so" "$se" "$rc")"
+    progress_append package roast raku "$pname" m3 "$(roast_outcome "$v3")" >/dev/null 2>&1 || true
+    if [ "$v3" = PASS ]; then m3p=$((m3p+1)); else m3f=$((m3f+1)); FAILED_M3="$FAILED_M3 $pname:$v3"; fi
     s4="$TMP/c.s"; o4="$TMP/c.o"; b4="$TMP/c.bin"
     if timeout 20 "$SCRIP" --compile --target=x86 "$stage" > "$s4" 2>/dev/null \
        && timeout 20 gcc -c "$s4" -o "$o4" 2>/dev/null \
        && timeout 20 gcc "$o4" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$b4" 2>/dev/null; then
       compiled_ok=$((compiled_ok+1))
       timeout 10 "$b4" > "$TMP/o4" 2> "$TMP/e4" < /dev/null; rc4=$?
-      if [ "$(classify "$TMP/o4" "$TMP/e4" "$rc4")" = PASS ]; then m4p=$((m4p+1)); else m4f=$((m4f+1)); fi
+      v4="$(classify "$TMP/o4" "$TMP/e4" "$rc4")"
+      progress_append package roast raku "$pname" m4 "$(roast_outcome "$v4")" >/dev/null 2>&1 || true
+      if [ "$v4" = PASS ]; then m4p=$((m4p+1)); else m4f=$((m4f+1)); FAILED_M4="$FAILED_M4 $pname:$v4"; fi
     else
-      m4f=$((m4f+1))
+      m4f=$((m4f+1)); FAILED_M4="$FAILED_M4 $pname:CC"
+      progress_append package roast raku "$pname" m4 REJECT 0 "mode-4 compile or link failed" >/dev/null 2>&1 || true
     fi
     if [ $((n % 100)) -eq 0 ]; then
       printf '  ...%d files (%ds elapsed): m3 %d/%d  m4 %d/%d\n' "$n" "$(( $(date +%s) - t0 ))" "$m3p" "$n" "$m4p" "$n" >&2
@@ -112,8 +133,30 @@ if [ "$DO_RUN" = 1 ]; then
   done < <(find -L "$ROAST" -name '*.t' -print0 | sort -z)
   compile_only=$((compiled_ok - m4p))
   elapsed=$(( $(date +%s) - t0 ))
-  printf 'ROAST_BOARD total=%d m3_run_pass=%d m3_run_fail=%d m4_run_pass=%d m4_run_fail=%d compile_only=%d roast_commit=%s elapsed=%ds\n' \
-    "$n" "$m3p" "$m3f" "$m4p" "$m4f" "$compile_only" "$ROAST_COMMIT" "$elapsed"
+  both=$((m3p < m4p ? m3p : m4p))
+  if [ -n "$MAN_MISSING_LIST" ]; then
+    printf 'ROAST_MANIFEST_ABSENT %d file(s) the 6.c manifest names and the vendored tree does not contain:\n' "$MAN_MISSING"
+    for f in $MAN_MISSING_LIST; do printf '    %s\n' "$f"; done | head -40
+    [ "$MAN_MISSING" -gt 40 ] && printf '    ... %d more (ROAST_LIST_ALL=1 prints every one)\n' $((MAN_MISSING - 40))
+  fi
+  list_reds() {
+    local label="$1" list="$2" cnt=0 f
+    [ -n "$list" ] || return 0
+    printf 'ROAST_RED_%s:\n' "$label"
+    for f in $list; do cnt=$((cnt+1)); [ "${ROAST_LIST_ALL:-0}" != 1 ] && [ "$cnt" -gt 40 ] && continue; printf '    %s\n' "$f"; done
+    [ "${ROAST_LIST_ALL:-0}" != 1 ] && [ "$cnt" -gt 40 ] && printf '    ... %d more (ROAST_LIST_ALL=1 prints every one)\n' $((cnt - 40))
+    return 0
+  }
+  list_reds M3 "$FAILED_M3"
+  list_reds M4 "$FAILED_M4"
+  printf 'ROAST_BOARD total=%d m3_run_pass=%d m3_run_fail=%d m4_run_pass=%d m4_run_fail=%d both_modes_pass=%d compile_only=%d roast_commit=%s elapsed=%ds\n' \
+    "$n" "$m3p" "$m3f" "$m4p" "$m4f" "$both" "$compile_only" "$ROAST_COMMIT" "$elapsed"
+  [ "$LIMIT" -gt 0 ] && { printf 'ROAST_PARTIAL: --limit %d was in force, so this is a SMOKE OF THE INSTRUMENT and NOT a board; no SCORE row is written.\n' "$LIMIT"; exit 0; }
+  python3 "$ROOT/scripts/util_score_row.py" write --lang raku --column vendor --modes m3,m4 \
+      --suite-pass "$both" --suite-total "$n" \
+      --measurer "${S4E_SEAT:-}" \
+      --text "roast run-graded both-modes $both/$n · m3 $m3p/$n · m4 $m4p/$n · compile_only=$compile_only · roast=$ROAST_COMMIT · ⛔ THE DENOMINATOR IS THE POPULATION THIS RUNNER WALKS, every .t file under the vendored tree, which is what Lon's run-graded ruling names; the 986 this cell used to carry was the 6.c manifest's IN-TIER subset and NO RUNNER MEASURED IT (tree_t=$TREE_T manifest_lines=$MAN_ALL manifest_in_tier=$MAN_TIER manifest_named_but_absent=$MAN_MISSING)" \
+    || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
   exit 0
 fi
 while read -r rel _rest; do
