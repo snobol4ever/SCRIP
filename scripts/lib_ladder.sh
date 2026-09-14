@@ -216,8 +216,18 @@ ladder_main() {
           _rorig="$(printf '%s\n' "${origins[@]}" | awk -v n="$_num" '$1==n{print $2}')"
           [ -n "$_rorig" ] || continue   # no witness at all = declared ahead, already the rung-level rule's business
           _miss=""
+          # ⛔ CAPTURE FIRST, THEN TEST -- never `printf ... | grep -q ... || x=y`. That shape asks a PIPELINE for a
+          # status and gets the LAST stage's, which is the trap this file's own gate (test_gate_ladder_asserts_stderr.sh
+          # arm 11) exists to ban, and it caught its author one hour after landing (hq_I -> hq_T 2026-09-13). Here the
+          # names are already in a shell variable, so no pipeline is needed at all: `case` matches them in the shell.
           for _f in $(printf '%s' "$_forms" | tr '|' ' '); do
-              printf '%s\n' "$_rorig" | grep -q -e "_${_f}\$" -e "_${_f}_" || _miss="$_miss $_f"
+              _hit=0
+              while IFS= read -r _o; do
+                  case "$_o" in *"_${_f}") _hit=1;; *"_${_f}_"*) _hit=1;; esac
+              done <<EOF
+$_rorig
+EOF
+              [ "$_hit" -eq 1 ] || _miss="$_miss $_f"
           done
           [ -z "$_miss" ] || _fgap="$_fgap"$'\n'"    rung$_num declares $(set -- $_miss; echo $#) form(s) with no witness bearing the name:$_miss"
       done < "$_ltsv"
