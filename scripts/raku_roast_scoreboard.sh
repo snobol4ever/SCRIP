@@ -1,5 +1,19 @@
 #!/usr/bin/env bash
-source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
+source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" || exit 2
+# ⛔⭐ THE GUARD IS CALLED AFTER ARGUMENT PARSING, NOT HERE, AND THAT IS THE FIX AND NOT A LOOPHOLE (hq_T
+# 2026-09-14, Lon in-chat, verbatim: "get the package runner working"). It used to fire on line 2, BEFORE
+# this script knew which mode it was in, so every mode was refused to every seat but the coo -- including
+# --limit, which already prints ROAST_PARTIAL and deliberately writes no SCORE row, and which therefore
+# could never be run by anybody as the smoke-the-instrument arm its own help text offers.
+# ⛔ THE CONSEQUENCE WAS NOT THEORETICAL. Roast read 4 of 986 on 09-03 and 6 of 986 ten days later -- the
+# worst row on the board by a factor of thirty -- and the seat that OWNS roast could not run the instrument
+# to find out why. A guard that cannot be satisfied by the person responsible for the thing it guards does
+# not prevent bad measurement; it prevents measurement, and dark is worse than red.
+# ⭐ THE RULE IT NOW FOLLOWS IS THE GUARD'S OWN (CEO-547 part 1): what makes a run a board is the population
+# it grades AND the row it publishes. A mode that writes no SCORE row and no RAKU-COVERAGE.md publishes
+# nothing, cannot churn a leaderboard and cannot collide with the coo's pass, so it is admitted BY NAME
+# below. Every publishing mode is still refused to every seat but the coo, unchanged, by the same call to
+# the same guard, and the refusal text is still the guard's own.
 # raku_roast_scoreboard.sh — RK-100-0b. THE coverage instrument for the RAKU-100 ladder.
 #
 # Runs every IN-TIER roast 6.c file under scrip and classifies the result. Coverage claims
@@ -26,16 +40,30 @@ SCRIP="$ROOT/scrip"
 MANIFEST="$ROOT/refs/rakudo-main/t/spectest.data.6.c"
 ROAST="$ROOT/refs/roast"
 OUT="$ROOT/../.github/RAKU-COVERAGE.md"
-DO_M4=0; LIMIT=0; SECTION=""; DO_RUN=0
+DO_M4=0; LIMIT=0; SECTION=""; DO_RUN=0; DO_INV=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --mode4) DO_M4=1; shift ;;
     --run) DO_RUN=1; shift ;;
+    --inventory) DO_INV=1; shift ;;
     --limit) LIMIT="$2"; shift 2 ;;
     --section) SECTION="$2"; shift 2 ;;
     *) echo "unknown arg: $1" >&2; exit 2 ;;
   esac
 done
+# THE GUARD, now that the mode is known. PUBLISHES is the whole test, and it is a property of the mode, not
+# of the seat: --inventory writes nothing whatever, and --limit prints ROAST_PARTIAL and writes no row --
+# an exemption this script declared for itself at the bottom of the --run arm long before this change, so
+# it is being HONOURED here rather than invented.
+PUBLISHES=1
+[ "$DO_INV" = 1 ] && PUBLISHES=0
+[ "$LIMIT" -gt 0 ] && PUBLISHES=0
+if [ "$PUBLISHES" = 1 ]; then
+  one_runner_guard "${0##*/}" || exit 2
+else
+  printf 'ONE-RUNNER: %s runs in a NON-PUBLISHING mode (%s) -- no SCORE row, no RAKU-COVERAGE.md, nothing written. Admitted.\n' \
+    "${0##*/}" "$( [ "$DO_INV" = 1 ] && printf -- '--inventory' || printf -- '--limit %s' "$LIMIT" )" >&2
+fi
 [ -x "$SCRIP" ] || { echo "SCOREBOARD BLOCKED: no scrip binary (run: make scrip)" >&2; exit 2; }
 # ⛔ refs/roast is per-root and gitignored (CLAUDE.md): symlink it to the shared /home/resources/roast-master
 # (NOT /home/resources/roast, which does not exist -- that dangling target cost hq_T's root a whole session,
@@ -73,6 +101,79 @@ classify() {
   if [ "$rc" -ne 0 ]; then echo "FAIL"; return; fi
   echo "PASS"
 }
+# ⭐⭐ --inventory: SHIPPED / GRADED / UNGRADED / UNGRADABLE, THE WAY EVERY OTHER PACKAGE RUNNER IS REQUIRED
+# TO PRINT IT (ceo CEO-744, on Lon's "get the package runner working"). This answers a question the two
+# scoring arms below CANNOT answer and never could: they report how many files PASS, and a suite where
+# almost nothing passes needs to say WHY NOT before its fraction means anything.
+# ⛔ THE REASON THIS MODE HAD TO EXIST. Roast read 4 of 986, then 6 of 986 ten days later. Read as a score
+# that says Raku is 0.6% correct. It does not. The classification below is what the number actually is, and
+# the two readings have opposite consequences: a compiler 0.6% correct is years of language work, while a
+# suite that cannot be PARSED is a front-end gap in front of a corpus nobody has ever graded. DARK IS WORSE
+# THAN RED (cfo, CEO-582) -- a red file has been measured and found wrong; a file that never reached the
+# compiler has not been measured at all, and it sits in the denominator looking exactly like a red.
+# ⛔ IT MOVES NO DENOMINATOR AND EXCLUDES NOTHING. Every shipped file is counted and classified; nothing is
+# quietly dropped to make a fraction look better (ceo CEO-744: "a wrong exclusion costs more than a wrong
+# cure, because a red stays visible and an excluded name cannot be red").
+# ⛔ IT WRITES NOTHING -- no SCORE row, no RAKU-COVERAGE.md -- which is exactly why the guard admits it.
+if [ "$DO_INV" = 1 ]; then
+  t0=$(date +%s)
+  TREE_T=$(find -L "$ROAST" -name '*.t' | wc -l)
+  MAN_ALL=0; MAN_TIER=0; MAN_MISSING=0
+  if [ -f "$MANIFEST" ]; then
+    while read -r rel _rest; do
+      case "$rel" in ''|'#'*) continue ;; esac
+      MAN_ALL=$((MAN_ALL+1))
+      is_excluded "$rel" || is_tier_c "$rel" || MAN_TIER=$((MAN_TIER+1))
+      [ -f "$ROAST/$rel" ] || MAN_MISSING=$((MAN_MISSING+1))
+    done < "$MANIFEST"
+  fi
+  CSV="$TMP/inventory.tsv"; : > "$CSV"
+  n=0
+  while IFS= read -r -d '' src; do
+    n=$((n+1)); [ "$LIMIT" -gt 0 ] && [ "$n" -gt "$LIMIT" ] && { n=$((n-1)); break; }
+    stage="$TMP/case.raku"; cp "$src" "$stage"
+    so="$TMP/o"; se="$TMP/e"
+    timeout 10 "$SCRIP" --run "$stage" > "$so" 2> "$se" < /dev/null; rc=$?
+    rel="${src#$ROAST/}"
+    err1=$(head -1 "$se" 2>/dev/null)
+    # THE BUCKET. GRADED means our compiler ran the file and TAP came out; everything else is a reason it did not.
+    if printf '%s' "$err1" | grep -q 'parse error'; then
+      bucket=UNGRADED-PARSE
+    elif printf '%s' "$err1" | grep -q 'does not yet cover'; then
+      bucket=UNGRADED-EMITTER
+    elif [ "$rc" -ge 124 ]; then
+      bucket=UNGRADABLE-TIMEOUT
+    else
+      case "$(classify "$so" "$se" "$rc")" in
+        PASS)  bucket=GRADED-PASS ;;
+        FAIL)  bucket=GRADED-FAIL ;;
+        NO-TAP) bucket=UNGRADED-NO-TAP ;;
+        *)     bucket=UNGRADED-OTHER ;;
+      esac
+    fi
+    # The line the parser died on, so the histogram names CONSTRUCTS and not line numbers.
+    ln=$(printf '%s' "$err1" | sed -n 's/.*line \([0-9]\+\).*/\1/p')
+    srcln="."
+    [ -n "$ln" ] && srcln=$(sed -n "${ln}p" "$src" 2>/dev/null | sed 's/^[ \t]*//' | cut -c1-90)
+    printf '%s\t%s\t%s\t%s\n' "$rel" "$bucket" "${ln:-.}" "${srcln:-.}" >> "$CSV"
+    if [ $((n % 200)) -eq 0 ]; then printf '  ...%d/%d files (%ds)\n' "$n" "$TREE_T" "$(( $(date +%s) - t0 ))" >&2; fi
+  done < <(find -L "$ROAST" -name '*.t' -print0 | sort -z)
+  # ⛔ REFUSES rather than printing the success shape over an empty population (CLAUDE.md § Testing).
+  [ "$n" -gt 0 ] || { echo "⛔ REFUSE(2) [roast --inventory]: classified ZERO files -- an inventory with no population is not an inventory" >&2; exit 2; }
+  graded=$(awk -F'\t' '$2 ~ /^GRADED-/' "$CSV" | wc -l)
+  gpass=$(awk -F'\t' '$2=="GRADED-PASS"' "$CSV" | wc -l)
+  echo "ROAST_INVENTORY shipped=$n manifest_lines=$MAN_ALL manifest_in_tier=$MAN_TIER manifest_named_but_absent=$MAN_MISSING roast=$( [ -d "$ROAST/.git" ] && (cd "$ROAST" && git rev-parse --short=9 HEAD 2>/dev/null) || echo unversioned-tree )"
+  echo "ROAST_BUCKETS (every shipped file, nothing excluded):"
+  awk -F'\t' '{c[$2]++} END{for(k in c) printf "    %-20s %6d  %5.1f%%\n", k, c[k], c[k]*100.0/NR}' "$CSV" | sort -k2 -rn
+  echo "ROAST_REACHED_OUR_SEMANTICS graded=$graded of $n ($(awk -v a="$graded" -v b="$n" 'BEGIN{printf "%.1f", a*100.0/b}')%) · of those GRADED-PASS=$gpass"
+  echo "⛔ ROAST_DARK ungraded_or_ungradable=$((n - graded)) -- these never reached our semantics at all, so they are NOT evidence about Raku correctness in either direction."
+  echo "ROAST_TOP_BLOCKING_CONSTRUCTS (the source line the parse died on, literals folded):"
+  awk -F'\t' '$2=="UNGRADED-PARSE"{print $4}' "$CSV" \
+    | sed "s/'[^']*'/'STR'/g; s/\"[^\"]*\"/\"STR\"/g; s/[0-9][0-9]*/N/g" \
+    | sort | uniq -c | sort -rn | head -20 | sed 's/^/    /'
+  echo "ROAST_INVENTORY_DONE elapsed=$(( $(date +%s) - t0 ))s  ⛔ NOTHING WRITTEN: no SCORE row, no RAKU-COVERAGE.md."
+  exit 0
+fi
 # ⭐⭐ --run: row raku-roast-run-graded-runner-and-score-cell (Lon 2026-09-03 20:45: 100% = the industry
 # standard; roast graded RUN, compile-only is not a score). A DIFFERENT question from the tier/manifest sweep
 # above ("does every roast .t file actually run clean" vs "how much of the ladder's in-tier subset passes"):
