@@ -3476,8 +3476,10 @@ typedef struct _FNCBLK_t {
     char  **params;
     int     nlocals;
     char  **locals;
+    int     min_args;
     struct _FuncEntry *next;
 } FNCBLK_t;
+#define CORE_FN_PAD_MAX 8
 static FNCBLK_t *_func_buckets[FUNC_BUCKETS];
 static int        _func_init_done = 0;
 static unsigned _func_hash(const char *name);
@@ -3573,10 +3575,18 @@ static FNCBLK_t *_parse_define_spec(const char *spec) {
     return fe;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void core_fn_set_min_args(const char *name, int min_args) {
+    _func_init();
+    if (!name || !*name || min_args <= 0) return;
+    unsigned h = _func_hash(name);
+    for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0) { e->min_args = min_args; return; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void DEFINE_fn(const char *spec, FNCPTR_t fn) {
     _func_init();
     FNCBLK_t *fe = _parse_define_spec(spec);
     fe->fn = fn;
+    fe->min_args = 0;
     unsigned h = _func_hash(fe->name);
     for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next) {
         if (strcmp(e->name, fe->name) == 0) {
@@ -3707,6 +3717,12 @@ DESCR_t APPLY_fn(const char *name, DESCR_t *args, int nargs) {
               if (_tgt && nargs == 1 && args && args[0].v >= DT_DATA && strcmp(_tgt, name) != 0 && rt_dat_field_of_any_live(_tgt))
                   return dat_field_get(_tgt, args[0]); }
             if (e->fn) {
+                if (e->min_args > 0 && nargs < e->min_args && e->min_args <= CORE_FN_PAD_MAX) {
+                    DESCR_t pad[CORE_FN_PAD_MAX]; int pi = 0;
+                    for (; pi < nargs && pi < e->min_args; pi++) pad[pi] = args[pi];
+                    for (; pi < e->min_args; pi++) pad[pi] = NULVCL;
+                    return e->fn(pad, e->min_args);
+                }
                 return e->fn(args, nargs);
             }
             { DESCR_t pr; if (core_apply_runtime_proc(name, args, nargs, &pr)) return pr; }
