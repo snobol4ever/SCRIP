@@ -1126,6 +1126,55 @@ s4e_donewhen_incomplete() {   # $1 = criterion text; rc 0 = bash cannot finish r
     printf '%s' "${1:-}" | bash -n /dev/stdin 2>&1 \
       | grep -qE 'here-document.*delimited by end-of-file|unexpected EOF while looking for matching|syntax error: unexpected end of file'; }
 s4e_donewhen_unterminated_heredoc() { s4e_donewhen_incomplete "${1:-}"; }
+# ⛔⭐⭐ THE MINT-TIME LINT (row mint-refuses-a-done-when-whose-first-word-is-not-a-command, hq_T's mint
+# 2026-09-13). THE SHAPE, and it is why this belongs at the MINT and not on the rows: a row whose DONE-WHEN
+# is prose can be cured PERFECTLY and still record no flip, because `done` executes the criterion and prose
+# cannot exit 0. THE COST IS PAID BY WHOEVER LATER CURES THE ROW, NOT BY WHOEVER MINTED IT -- exactly the
+# shape that does not self-correct, and the reason test_gate_baton_donewhen_runnable.sh's knowledge ("if you
+# minted one, make it a command before you push") sits at the wrong end of the pipeline. hq_T walked into it
+# three times in one hour and only found out when a blocking arm said so.
+# ⛔ EVERY RULE HERE IS SOURCED, NONE IS RE-DERIVED. s4e_donewhen_is_noop, s4e_donewhen_is_placeholder,
+# s4e_donewhen_incomplete and lib_donewhen.sh's donewhen_first_word are the authorities that `done`, the
+# dispatch probe and the gate already answer to; a fifth private copy of the first-word rule beside them is
+# the very defect lib_donewhen.sh was cut to end (four copies existed, all with one bug, hq_T 2026-09-11).
+# ⛔⭐ AND IT NEVER EXECUTES THE CRITERION. mint runs before any work exists, so a criterion that legitimately
+# reds today is the NORMAL case -- the only questions asked are the two static ones the gate asks: does it
+# PARSE, and does its first command word RESOLVE.
+# ⛔ A WORD NO STATIC CHECK CAN RESOLVE IS NOT CONVICTED ("$SCRIP", `which x`) -- same ruling as the gate's:
+# a checker that cannot measure says so rather than convicting, because convicting there is precisely the
+# false positive that made a seat rewrite two CURED rows' criteria to please an instrument.
+# Prints the reason on stdout; rc 0 = REFUSE this criterion, rc 1 = it is acceptable.
+s4e_donewhen_unrunnable_why() {   # $1 = criterion text, DONE-WHEN: label already stripped
+    local dw="${1:-}" judge first
+    [ -n "$(printf '%s' "$dw" | tr -d '[:space:]')" ] || { printf 'it is empty'; return 0; }
+    # ⛔ CONTROL CHARACTERS, hq_P's 2026-08-22 measurement: a criterion written through python's re.sub had
+    # its \b word-boundaries turned into literal BACKSPACE bytes. It parsed, its first word resolved, grep
+    # matched NOTHING, and `! grep` therefore returned 0 -- a criterion that could only ever say YES.
+    if [ "$dw" != "$(printf '%s' "$dw" | tr -d '\001-\010\013\014\016-\037')" ]; then
+        printf 'it contains a CONTROL CHARACTER, so it does not mean what it looks like'; return 0; fi
+    if s4e_donewhen_is_placeholder "$dw"; then
+        printf 'it is a placeholder/self-refusing stub, which certifies nothing'; return 0; fi
+    # ⛔ THE `true` BYPASS IS SHUT, AND THE ROW'S OWN MINTER ASKED FOR THAT IN SO MANY WORDS ("the guard must
+    # not be satisfiable by typing true, or the cure hands everyone a bypass"). A guard whose cheapest escape
+    # is one word is not a guard, it is a speed bump with a documented ramp.
+    if s4e_donewhen_is_noop "$dw"; then
+        printf 'it reduces to a NO-OP that always succeeds (true, :, echo, exit 0), so it certifies nothing'; return 0; fi
+    # ⭐ JUDGE THE TEXT THE RUNNER WILL ACTUALLY RUN, which is s4e_donewhen_text's own rule: the first line
+    # IS the criterion unless that line is incomplete shell, in which case the whole block is. Judging the
+    # whole block unconditionally would convict every criterion that carries the prose annotation this
+    # project's convention puts AFTER a complete one-line criterion (121 of 122 multi-line DONE batons).
+    judge="$(printf '%s\n' "$dw" | head -1)"
+    s4e_donewhen_incomplete "$judge" && judge="$dw"
+    if s4e_donewhen_incomplete "$judge"; then
+        printf 'it ends mid-heredoc or mid-quote, so bash can never finish reading it'; return 0; fi
+    if ! bash -n -c "$judge" 2>/dev/null; then
+        printf 'it is PROSE -- it does not parse as shell, so it can never exit 0'; return 0; fi
+    first="$(command -v donewhen_first_word >/dev/null 2>&1 && donewhen_first_word "$judge")"
+    case "$first" in ''|'['|test|cd) return 1;; esac
+    donewhen_word_is_resolvable "$first" || return 1
+    if ! command -v "$first" >/dev/null 2>&1; then
+        printf "its first command word '%s' is not a command on this box" "$first"; return 0; fi
+    return 1; }
 # ⛔⭐ HIDDEN-ELSEWHERE: is there a DIFFERENT "DONE-WHEN:"-labeled line sitting in this baton's live text
 # (GOAL/NEXT/QA), where a human but not the tool would read it as the contract? Scoped deliberately:
 # the ## LEDGER section is excluded outright (it is historical narration -- this project's own ledgers
@@ -2227,6 +2276,34 @@ case "$cmd" in
          # as send (s191), checked before either write, not after.
          case "$topic" in ""|*/*|*$'\n'*) echo "⛔ REFUSED: topic must be a short filename-safe slug (no / and no newline). Usage: $0 mint <topic> [rank] \"GOAL text\"" >&2; exit 2;; esac
          [ -n "$goal" ] || { echo "⛔ REFUSED: empty GOAL text. Usage: $0 mint <topic> [rank] \"GOAL text\" (or --stdin)" >&2; exit 2; }
+         # ⛔⭐ THE SPLIT HAPPENS HERE, BEFORE THE LOCK AND BEFORE EITHER WRITE -- it used to sit inside the
+         # lock, next to the baton heredoc. It is hoisted so the criterion can be JUDGED while refusing is
+         # still free: a refusal after the queue row is appended is not a refusal, it is a cleanup problem.
+         # (A GOAL that already carries its own DONE-WHEN must not get the placeholder underneath it --
+         # hq_I 2026-09-06, on a row hq_B minted for them: "the baton carries TWO DONE-WHEN lines, yours and
+         # the mint placeholder underneath". The extractor takes the FIRST and a human reading down the file
+         # takes the LAST, so the two readers of one file disagreed.)
+         dw_block="DONE-WHEN: ⛔ MUST BE MADE RUNNABLE BEFORE done CAN EVER PASS — minted with no executable acceptance test; replace this line with a real command (see other tasks/*.task.md for the shape) before anyone can close this row."
+         if printf '%s\n' "$goal" | grep -q '^DONE-WHEN:'; then
+             dw_block="$(printf '%s\n' "$goal" | sed -n '/^DONE-WHEN:/,$p')"
+             goal="$(printf '%s\n' "$goal" | sed '/^DONE-WHEN:/,$d')"
+             # ⛔⭐ REFUSE A PROSE CRITERION AT THE MINT (row mint-refuses-a-done-when-whose-first-word-is-not-
+             # a-command). rc=2 and not 1: this is a REFUSAL to create work, the same vocabulary the topic and
+             # --owner guards above already speak, and the caller's criterion is handed back verbatim so the
+             # fix is a re-mint and not an investigation.
+             _dw_why="$(s4e_donewhen_unrunnable_why "$(printf '%s\n' "$dw_block" | sed '1s/^DONE-WHEN:[[:space:]]*//')")" && {
+                 printf '⛔ REFUSED: the DONE-WHEN you supplied is not a runnable criterion -- %s.\n' "$_dw_why" >&2
+                 printf '   Your DONE-WHEN: %s\n' "$(printf '%s\n' "$dw_block" | sed '1s/^DONE-WHEN:[[:space:]]*//' | head -1 | cut -c1-120)" >&2
+                 printf '   Nothing was written: no QUEUE.tsv row, no baton. Fix the criterion and mint again.\n' >&2
+                 printf '   ⛔ WHY THIS IS REFUSED HERE AND NOT LATER: `done` EXECUTES the DONE-WHEN, so a criterion\n' >&2
+                 printf '      that cannot exit 0 makes the row PERMANENTLY UNCLOSEABLE -- it can be cured perfectly\n' >&2
+                 printf '      and still record no flip, and the cost lands on whoever cures it, not on whoever minted it.\n' >&2
+                 printf '   A DONE-WHEN is a COMMAND that can exit non-zero, never prose (LAW 1). The shape:\n' >&2
+                 printf '      DONE-WHEN: bash scripts/test_gate_<thing>.sh\n' >&2
+                 printf '      DONE-WHEN: out=$(./scrip w.sno 2>&1); [ "$out" = "want" ] || exit 1; echo PASS\n' >&2
+                 printf '   See any of %s/tasks/*.task.md for live examples.\n' "$PO" >&2
+                 exit 2; }
+         fi
          [ -n "$owner" ] || owner="$(s4e_topic_lane "$topic")"
          if [ -z "$owner" ]; then
            printf '⛔ REFUSED: cannot derive an owner lane for "%s" -- its name starts with no language prefix\n' "$topic" >&2
@@ -2264,18 +2341,9 @@ case "$cmd" in
          # task file (inert — nobody's picker ever finds a file next() never points at) rather than a live
          # QUEUE.tsv row with no baton behind it, which next()'s own "⛔ NO BATON" path can only catch AFTER
          # some seat has already been served the row.
-         # ⛔⭐ A GOAL THAT ALREADY CARRIES ITS OWN DONE-WHEN MUST NOT GET THE PLACEHOLDER UNDERNEATH IT
-         # (hq_I 2026-09-06, on a row hq_B minted for them: "the baton carries TWO DONE-WHEN lines, yours and
-         # the mint placeholder underneath"). Every mint that supplies a real criterion inline -- which is what
-         # the ceo asks minters to do -- produced a baton with two DONE-WHEN lines, and the two readers of that
-         # file disagree: the extractor takes the FIRST, a human reading down the file takes the LAST and is
-         # told the row can never be closed. Split the criterion out of the goal text here, so the file has
-         # exactly one, and keep the placeholder for the mints that genuinely supply none.
-         dw_block="DONE-WHEN: ⛔ MUST BE MADE RUNNABLE BEFORE done CAN EVER PASS — minted with no executable acceptance test; replace this line with a real command (see other tasks/*.task.md for the shape) before anyone can close this row."
-         if printf '%s\n' "$goal" | grep -q '^DONE-WHEN:'; then
-             dw_block="$(printf '%s\n' "$goal" | sed -n '/^DONE-WHEN:/,$p')"
-             goal="$(printf '%s\n' "$goal" | sed '/^DONE-WHEN:/,$d')"
-         fi
+         # ⛔ $goal and $dw_block were split, and the criterion LINTED, before the lock was taken -- see the
+         # hoisted block above. Nothing here may re-derive them: a second split would silently re-admit the
+         # prose criterion the guard just refused.
          cat > "$b" <<TASKEOF
 # TASK $topic
 GOAL: $goal
