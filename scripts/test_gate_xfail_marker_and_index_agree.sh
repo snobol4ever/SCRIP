@@ -59,6 +59,16 @@ for lang in sorted(EXT):
     if not (os.path.isfile(master) and os.path.isfile(index)):
         continue
     ban = names(master)
+    # ⛔⭐ THE FOURTH REPRESENTATION, ADDED 2026-09-14 (hq_T, CEO-740's xpass promotion). This gate shipped
+    # naming THREE places an XFAIL lives -- the banner, the index, the reason file -- and its own remediation
+    # text already said to strip the marker "in the master AND its ref". It advised about a representation it
+    # never graded. The promotion of raku's 17 both-mode XPASSes proved the gap the expensive way: master and
+    # index were cured and agreed, this gate went PASS(0), and util_build_master_suite.py --resort then REFUSED
+    # on `ALL.ref banner mismatch at seq 796` because the ref still carried all 67. The harness caught what the
+    # guard did not. ⭐ THE RULE, one turn past the one in this header: when a guard on AGREEMENT is written,
+    # its population is every representation that must agree -- and the honest census of that population is
+    # whatever REFUSES when one is wrong, not the list the gate's author had in mind.
+    refb = names(os.path.join(d, "ALL.ref"))
     with open(index, encoding="utf-8") as fh:
         rows = list(csv.DictReader(fh))
     if not rows:
@@ -66,12 +76,25 @@ for lang in sorted(EXT):
     graded += 1
     idx = {r["entry"] for r in rows if r.get("xfail") == "1"}
     only_master, only_index = sorted(ban - idx), sorted(idx - ban)
+    only_ban_ref = sorted(ban - refb) if refb is not None else []
+    only_ref_ban = sorted(refb - ban) if refb is not None else []
     rea = names(os.path.join(d, "ALL.xfail"))
     missing = sorted(idx - rea) if rea is not None else []
     reasons_missing += len(missing)
-    print("  %-9s master=%-4d index=%-4d reasons=%-6s %s" % (
-        lang, len(ban), len(idx), "-" if rea is None else len(rea),
-        "agree" if not (only_master or only_index) else "⛔ DISAGREE"))
+    print("  %-9s master=%-4d index=%-4d ref=%-6s reasons=%-6s %s" % (
+        lang, len(ban), len(idx), "-" if refb is None else len(refb),
+        "-" if rea is None else len(rea),
+        "agree" if not (only_master or only_index or only_ban_ref or only_ref_ban) else "⛔ DISAGREE"))
+    if only_ban_ref or only_ref_ban:
+        bad += 1
+        for n in only_ban_ref[:5]:
+            print("      banner in the master, NO banner in ALL.ref: %s  <-- the half-promotion shape" % n)
+            print("          -> the master and its ref are ONE suite in two files and the harness reads them in lockstep:")
+            print("             util_build_master_suite.py --resort REFUSES on this with 'ALL.ref banner mismatch'. Strip or")
+            print("             restore ' XFAIL' in BOTH, never one, then re-run the builder.")
+        for n in only_ref_ban[:5]:
+            print("      banner in ALL.ref, NO banner in the master: %s  <-- the half-promotion shape, reversed" % n)
+            print("          -> same cure, same reason: the two files must carry the identical banner line.")
     if only_master or only_index:
         bad += 1
         # ⛔⭐ EACH SHAPE CARRIES ITS OWN DIRECTION, BECAUSE A DISAGREEMENT HAS TWO RESOLUTIONS AND ONLY ONE OF
