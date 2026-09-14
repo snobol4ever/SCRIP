@@ -134,7 +134,31 @@
 #     and the first reads as the second while quietly answering something weaker. ⛔ It fails in the direction
 #     this file's tie-break already calls the expensive one: a permanent-looking fact makes a ruling feel safe
 #     to close, and a closed ruling is what nobody re-reads.
-INV_CLASS_UNGRADABLE="CONTAINER_OR_LIBRARY NO_ORACLE_SHIPPED ORACLE_REFUSES ORACLE_CONTRACT_NOT_IMPLEMENTED NEEDS_INPUT NEEDS_INTERACTIVE_TTY NEEDS_DISPLAY NONDETERMINISTIC RESULT_NOT_ON_STDOUT ENVIRONMENT_IDENTITY_IN_OUTPUT"
+# ⭐⭐ ONE REASON ADMITTED 2026-09-13 (ceo CEO-724, on the last member of test_gate_no_ref_pins_oracle_internal_state.sh's
+# floor still sitting inside a graded denominator). It is the first one where the oracle RUNS the program fine and
+# the ref is still unmatchable, so none of the reasons above fit and reaching for ORACLE_REFUSES would have been a lie.
+#   ORACLE_ACCOUNTING_IN_OUTPUT -- the oracle's own output carries ITS OWN INTERNAL ACCOUNTING, so the ref can only be
+#     matched by transcribing that engine's state rather than by being correct. SPITBOL prints `memory used (bytes)`,
+#     `memory left (bytes)`, `REGENERATIONS`, `stmts executed` and `execution time msec` on an abnormal termination;
+#     measured across the 22 csnobol4 refs carrying them the byte counts are all different and one of them moves with
+#     the SOURCE FILENAME'S LENGTH (11408 for prog.sno, 11416 for rewind1.sno, measured 2026-09-13).
+#     ⛔ IT IS NOT ENVIRONMENT_IDENTITY_IN_OUTPUT AND THE DIFFERENCE IS THE WHOLE POINT: that one varies in SPACE and
+#     names WHERE the run happened, so a reader knows no environment can reconcile it. This one varies by
+#     IMPLEMENTATION -- it is stable on this box forever and no second engine reproduces it -- and a reader handed the
+#     wrong name goes looking for a machine difference that is not there. ⛔ AND IT IS NOT A LICENCE TO NORMALISE: the
+#     gate that found the class already ruled that out, because SCRIP prints NOTHING for these lines and a strip broad
+#     enough to remove the oracle's accounting reduces the pin to nothing, turning all 22 green over a compiler that
+#     emits no report at all.
+#     ⭐ ADMISSION TEST, the one this file already applies: can the ruling be overturned for the whole class at once?
+#     Yes -- the day a suite's refs are re-cut without the accounting, every member moves together.
+#     ⭐ AND hq_V's SHARPENING WAS APPLIED BEFORE ADMITTING IT, not after: the question is not "can any environment make
+#     these agree" but CAN THE PROGRAM BE MADE TO STOP ASKING. rewind1 cannot -- it is three vendored lines whose whole
+#     purpose is to raise a fatal error, and the accounting is the oracle's death rattle, not the program's output. What
+#     the program tested is carried instead by test_gate_sno_rewind_on_an_unopened_unit_raises_174.sh, which grades the
+#     SAME semantic through the ONE ERROR VOICE equivalence list in both modes, so leaving the denominator costs no
+#     coverage. ⛔ AN EXCLUSION THAT DROPS A BEHAVIOUR NOBODY RE-CHECKS IS THE EXPENSIVE MISTAKE; pair every member of
+#     this class with the instrument that keeps its semantic.
+INV_CLASS_UNGRADABLE="CONTAINER_OR_LIBRARY NO_ORACLE_SHIPPED ORACLE_REFUSES ORACLE_CONTRACT_NOT_IMPLEMENTED NEEDS_INPUT NEEDS_INTERACTIVE_TTY NEEDS_DISPLAY NONDETERMINISTIC RESULT_NOT_ON_STDOUT ENVIRONMENT_IDENTITY_IN_OUTPUT ORACLE_ACCOUNTING_IN_OUTPUT"
 # THE TIE-BREAK, AND IT IS THE MOST LOAD-BEARING SENTENCE IN THIS FILE (hq_T, ruling hq_P's three gimpel
 # ERROR-285 drivers, 2026-09-06). hq_P found three rows whose bucket turns on ONE UNMEASURED FACT: FRSORT,
 # TIMEGC and TIMER die "include file cannot be opened" because the include chain wants stringout.sno,
