@@ -394,7 +394,7 @@ static DESCR_t rt_num_arith_body(DESCR_t a, DESCR_t b, int op, int strict) {
             if (b.v == DT_BIG) { extern int rt_big_is_odd(DESCR_t); double _rb = pow(fabs(ld), rd); if (!isfinite(_rb)) return rt_real_overflow(266, "exponentiation caused real overflow", ld); if (ld < 0.0 && _rb != 0.0 && rt_big_is_odd(b)) _rb = -_rb; return REALVAL(_rb); }
             { double _rp = (!rf && !operand_is_real_str(b)) ? rt_ripow(ld, ri) : pow(ld, rd); if (!isfinite(_rp)) return rt_real_overflow(266, "exponentiation caused real overflow", ld); return REALVAL(_rp); }
         }
-        case BINOP_POW_PROMOTE: return anyf ? REALVAL((!rf && !operand_is_real_str(b)) ? rt_ripow(ld, ri) : pow(ld, rd)) : rt_ipow_promote_descr(li, ri);
+        case BINOP_POW_PROMOTE: if (anyf) { double _rq = (!rf && !operand_is_real_str(b)) ? rt_ripow(ld, ri) : pow(ld, rd); if (!isfinite(_rq)) return rt_real_overflow(266, "exponentiation caused real overflow", ld); return REALVAL(_rq); } return rt_ipow_promote_descr(li, ri);
         case BINOP_CUNION: case BINOP_CDIFF: case BINOP_CINTER: {
             extern const char *icon_real_str(double r, char *buf, int bufsz);
             char _ab[64], _bb[64]; const char *as, *bs;
