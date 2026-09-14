@@ -16,7 +16,7 @@ static int descr_stamp_on(void) {
     return on;
 }
 #define lit_tag_imm(base_tag) (!descr_stamp_on() ? (base_tag) : ((base_tag) \
-     | ((_.node ? (long)_.node->op + 1 : (long)DESCR_MOD_OP_UNSTAMPED) << 8) \
+     | ((_.node ? (long)_.node->op : (long)DESCR_MINT_OP_UNSTAMPED) << 8) \
      | (((_.nid <= 0 || _.nid > 0xFFFE) ? (long)DESCR_SRC_NODE_OVERFLOW : (long)_.nid) << 16)))
 #define ls_rq(w) (_.op_zres ? ZRES(w) : FRQ(_.op_off + (w)))
 #define ls_rd(w) (_.op_zres ? ZRESD(w) : FR(_.op_off + (w)))

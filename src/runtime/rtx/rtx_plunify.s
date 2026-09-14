@@ -36,7 +36,7 @@ RTX_FUNC(rt_pl_throw_raise)
     call    rt_pl_ball_make
     mov     r15, rax
     add     rsp, 8
-    mov     eax, DT_FAIL | (MOD_OP_RT_PL_THROW_RAISE << 8)
+    mov     eax, DT_FAIL
     xor     edx, edx
     ret
 RTX_ENDF(rt_pl_throw_raise)
@@ -45,7 +45,7 @@ RTX_FUNC(rt_pl_exist_raise)
     call    rt_pl_ball_existence
     mov     r15, rax
     add     rsp, 8
-    mov     eax, DT_FAIL | (MOD_OP_RT_PL_EXIST_RAISE << 8)
+    mov     eax, DT_FAIL
     xor     edx, edx
     ret
 RTX_ENDF(rt_pl_exist_raise)
@@ -54,7 +54,7 @@ RTX_FUNC(rt_pl_exist_key_raise)
     call    rt_pl_ball_existence_key
     mov     r15, rax
     add     rsp, 8
-    mov     eax, DT_FAIL | (MOD_OP_RT_PL_EXIST_KEY_RAISE << 8)
+    mov     eax, DT_FAIL
     xor     edx, edx
     ret
 RTX_ENDF(rt_pl_exist_key_raise)
@@ -68,7 +68,7 @@ RTX_FUNC(rt_pl_goal_gen_h)
     test    rcx, rcx
     jz      .Lggh_ret
     mov     r15, rcx
-    mov     eax, DT_FAIL | (MOD_OP_RT_PL_EXIST_KEY_RAISE << 8)
+    mov     eax, DT_FAIL
     xor     edx, edx
 .Lggh_ret:
     ret
@@ -91,7 +91,7 @@ RTX_FUNC(rt_pl_catch_handle)
     mov     edx, 1
     ret
 .Lch_fail:
-    mov     eax, DT_FAIL | (MOD_OP_RT_PL_CATCH_HANDLE << 8)
+    mov     eax, DT_FAIL
     xor     edx, edx
     ret
 RTX_ENDF(rt_pl_catch_handle)
@@ -125,7 +125,7 @@ RTX_FUNC(rt_pl_dop_unify)
     add     rsp, CTX_FRAME
     cmp     al, DT_FAIL
     jne     .Lpu_ret
-    mov     eax, DT_FAIL | (MOD_OP_RT_PL_DOP_UNIFY << 8)
+    mov     eax, DT_FAIL
     xor     edx, edx
 .Lpu_ret:
     ret
@@ -173,16 +173,16 @@ RTX_FUNC(rt_pl_dop_is_v)
     test    rcx, rcx
     jz      .Lisv_ret
     mov     r15, rcx
-    mov     eax, DT_FAIL | (MOD_OP_RT_PL_IS_V << 8)
+    mov     eax, DT_FAIL
     xor     edx, edx
 .Lisv_ret:
     ret
 RTX_ENDF(rt_pl_dop_is_v)
 #define PL_CTX_LEAF(nm) RTX_FUNC(rt_pl_dop_##nm); sub rsp, CTX_FRAME; mov qword ptr [rsp + CTX_TR], r12; mov qword ptr [rsp + CTX_B], r13; mov rdx, rsp; \
     call rt_pl_dop_##nm##_c; mov r12, qword ptr [rsp + CTX_TR]; add rsp, CTX_FRAME; ret; RTX_ENDF(rt_pl_dop_##nm)
-#define PL_CTX_LEAF_BALL(nm, modop) RTX_FUNC(rt_pl_dop_##nm); sub rsp, CTX_FRAME; mov qword ptr [rsp + CTX_TR], r12; mov qword ptr [rsp + CTX_B], r13; \
+#define PL_CTX_LEAF_BALL(nm) RTX_FUNC(rt_pl_dop_##nm); sub rsp, CTX_FRAME; mov qword ptr [rsp + CTX_TR], r12; mov qword ptr [rsp + CTX_B], r13; \
     mov qword ptr [rsp + CTX_BALL], 0; mov rdx, rsp; call rt_pl_dop_##nm##_c; mov r12, qword ptr [rsp + CTX_TR]; mov rcx, qword ptr [rsp + CTX_BALL]; add rsp, CTX_FRAME; \
-    test rcx, rcx; jz 99f; mov r15, rcx; mov eax, DT_FAIL | (modop << 8); xor edx, edx; 99: ret; RTX_ENDF(rt_pl_dop_##nm)
+    test rcx, rcx; jz 99f; mov r15, rcx; mov eax, DT_FAIL ; xor edx, edx; 99: ret; RTX_ENDF(rt_pl_dop_##nm)
 PL_CTX_LEAF(sub_atom_at)
 PL_CTX_LEAF(atom_concat_at)
 PL_CTX_LEAF(bagof_group_at)
@@ -198,8 +198,8 @@ PL_CTX_LEAF(copy_term)
 PL_CTX_LEAF(term_variables)
 PL_CTX_LEAF(numbervars3)
 PL_CTX_LEAF(numbervars1)
-PL_CTX_LEAF_BALL(succ, MOD_OP_RT_PL_SUCC)
-PL_CTX_LEAF_BALL(plus, MOD_OP_RT_PL_PLUS)
+PL_CTX_LEAF_BALL(succ)
+PL_CTX_LEAF_BALL(plus)
 PL_CTX_LEAF(wall_us)
 PL_CTX_LEAF(wall_ms)
 PL_CTX_LEAF(sort)
@@ -240,58 +240,58 @@ PL_CTX_LEAF(get_edin)
 PL_CTX_LEAF(telling)
 PL_CTX_LEAF(seeing)
 PL_CTX_LEAF(skip)
-PL_CTX_LEAF_BALL(read, MOD_OP_RT_PL_READ)
+PL_CTX_LEAF_BALL(read)
 PL_CTX_LEAF(atom_to_term)
-PL_CTX_LEAF_BALL(read_term_from_atom, MOD_OP_RT_PL_READ_TFA)
-PL_CTX_LEAF_BALL(read_term_from_chars, MOD_OP_RT_PL_READ_TFCH)
-PL_CTX_LEAF_BALL(read_term_from_codes, MOD_OP_RT_PL_READ_TFCO)
-PL_CTX_LEAF_BALL(read_s, MOD_OP_RT_PL_READ_S)
-PL_CTX_LEAF_BALL(get_char_s, MOD_OP_RT_PL_GET_CHAR_S)
-PL_CTX_LEAF_BALL(get_code_s, MOD_OP_RT_PL_GET_CODE_S)
-PL_CTX_LEAF_BALL(peek_code_s, MOD_OP_RT_PL_PEEK_CODE_S)
-PL_CTX_LEAF_BALL(get_byte_s, MOD_OP_RT_PL_GET_BYTE_S)
-PL_CTX_LEAF_BALL(peek_byte_s, MOD_OP_RT_PL_PEEK_BYTE_S)
-PL_CTX_LEAF_BALL(unget_char_s, MOD_OP_RT_PL_UNGET_CHAR_S)
-PL_CTX_LEAF_BALL(unget_code_s, MOD_OP_RT_PL_UNGET_CODE_S)
-PL_CTX_LEAF_BALL(unget_byte_s, MOD_OP_RT_PL_UNGET_BYTE_S)
-PL_CTX_LEAF_BALL(put_byte, MOD_OP_RT_PL_PUT_BYTE)
-PL_CTX_LEAF_BALL(put_byte_s, MOD_OP_RT_PL_PUT_BYTE_S)
-PL_CTX_LEAF_BALL(at_end_of_stream_s, MOD_OP_RT_PL_AT_EOS_S)
-PL_CTX_LEAF_BALL(close, MOD_OP_RT_PL_CLOSE)
-PL_CTX_LEAF_BALL(put_char_c, MOD_OP_RT_PL_PUT_CHAR_C)
-PL_CTX_LEAF_BALL(put_char_c_s, MOD_OP_RT_PL_PUT_CHAR_C_S)
-PL_CTX_LEAF_BALL(tell, MOD_OP_RT_PL_TELL)
-PL_CTX_LEAF_BALL(append1, MOD_OP_RT_PL_APPEND1)
-PL_CTX_LEAF_BALL(see, MOD_OP_RT_PL_SEE)
-PL_CTX_LEAF_BALL(current_prolog_flag, MOD_OP_RT_PL_CPF)
-PL_CTX_LEAF_BALL(set_prolog_flag, MOD_OP_RT_PL_SPF)
-PL_CTX_LEAF_BALL(peek_char_s, MOD_OP_RT_PL_PEEK_CHAR_S)
+PL_CTX_LEAF_BALL(read_term_from_atom)
+PL_CTX_LEAF_BALL(read_term_from_chars)
+PL_CTX_LEAF_BALL(read_term_from_codes)
+PL_CTX_LEAF_BALL(read_s)
+PL_CTX_LEAF_BALL(get_char_s)
+PL_CTX_LEAF_BALL(get_code_s)
+PL_CTX_LEAF_BALL(peek_code_s)
+PL_CTX_LEAF_BALL(get_byte_s)
+PL_CTX_LEAF_BALL(peek_byte_s)
+PL_CTX_LEAF_BALL(unget_char_s)
+PL_CTX_LEAF_BALL(unget_code_s)
+PL_CTX_LEAF_BALL(unget_byte_s)
+PL_CTX_LEAF_BALL(put_byte)
+PL_CTX_LEAF_BALL(put_byte_s)
+PL_CTX_LEAF_BALL(at_end_of_stream_s)
+PL_CTX_LEAF_BALL(close)
+PL_CTX_LEAF_BALL(put_char_c)
+PL_CTX_LEAF_BALL(put_char_c_s)
+PL_CTX_LEAF_BALL(tell)
+PL_CTX_LEAF_BALL(append1)
+PL_CTX_LEAF_BALL(see)
+PL_CTX_LEAF_BALL(current_prolog_flag)
+PL_CTX_LEAF_BALL(set_prolog_flag)
+PL_CTX_LEAF_BALL(peek_char_s)
 PL_CTX_LEAF(current_output)
 PL_CTX_LEAF(current_input)
-PL_CTX_LEAF_BALL(open, MOD_OP_RT_PL_OPEN)
-PL_CTX_LEAF_BALL(open4, MOD_OP_RT_PL_OPEN4)
+PL_CTX_LEAF_BALL(open)
+PL_CTX_LEAF_BALL(open4)
 PL_CTX_LEAF(keysort)
-PL_CTX_LEAF_BALL(format, MOD_OP_RT_PL_FORMAT)
-PL_CTX_LEAF_BALL(format3, MOD_OP_RT_PL_FORMAT3)
-PL_CTX_LEAF_BALL(write_term, MOD_OP_RT_PL_WRITE_TERM)
-PL_CTX_LEAF_BALL(write_term_s, MOD_OP_RT_PL_WRITE_TERM_S)
-PL_CTX_LEAF_BALL(write_sb, MOD_OP_RT_PL_WRITE_SB)
-PL_CTX_LEAF_BALL(writeq_sb, MOD_OP_RT_PL_WRITEQ_SB)
-PL_CTX_LEAF_BALL(write_canonical_sb, MOD_OP_RT_PL_WRITE_CANONICAL_SB)
-PL_CTX_LEAF_BALL(writeln_sb, MOD_OP_RT_PL_WRITELN_SB)
-PL_CTX_LEAF_BALL(nl_sb, MOD_OP_RT_PL_NL_SB)
-PL_CTX_LEAF_BALL(tab_sb, MOD_OP_RT_PL_TAB_SB)
-PL_CTX_LEAF_BALL(put_char_sb, MOD_OP_RT_PL_PUT_CHAR_SB)
-PL_CTX_LEAF_BALL(put_code_sb, MOD_OP_RT_PL_PUT_CODE_SB)
-PL_CTX_LEAF_BALL(flush_output_sb, MOD_OP_RT_PL_FLUSH_OUTPUT_SB)
+PL_CTX_LEAF_BALL(format)
+PL_CTX_LEAF_BALL(format3)
+PL_CTX_LEAF_BALL(write_term)
+PL_CTX_LEAF_BALL(write_term_s)
+PL_CTX_LEAF_BALL(write_sb)
+PL_CTX_LEAF_BALL(writeq_sb)
+PL_CTX_LEAF_BALL(write_canonical_sb)
+PL_CTX_LEAF_BALL(writeln_sb)
+PL_CTX_LEAF_BALL(nl_sb)
+PL_CTX_LEAF_BALL(tab_sb)
+PL_CTX_LEAF_BALL(put_char_sb)
+PL_CTX_LEAF_BALL(put_code_sb)
+PL_CTX_LEAF_BALL(flush_output_sb)
 PL_CTX_LEAF(pl_op_count)
 PL_CTX_LEAF(pl_op_nth)
 PL_CTX_LEAF(pl_sp_count)
-PL_CTX_LEAF_BALL(pl_sp_nth, MOD_OP_RT_PL_SP_NTH)
+PL_CTX_LEAF_BALL(pl_sp_nth)
 PL_CTX_LEAF(pl_cs_count)
 PL_CTX_LEAF(pl_cs_nth)
-PL_CTX_LEAF_BALL(pl_cp_guard, MOD_OP_RT_PL_CP_GUARD)
-PL_CTX_LEAF_BALL(halt, MOD_OP_RT_PL_HALT)
+PL_CTX_LEAF_BALL(pl_cp_guard)
+PL_CTX_LEAF_BALL(halt)
 #define PL_ROOT_LEAF(nm) RTX_FUNC(rt_pl_dop_##nm); mov rdx, r14; jmp rt_pl_dop_##nm##_c; RTX_ENDF(rt_pl_dop_##nm)
 PL_ROOT_LEAF(db_assertz)
 PL_ROOT_LEAF(db_asserta)
@@ -324,7 +324,7 @@ PL_ROOTCTX_LEAF(pl_cp_nth)
 PL_ROOTCTX_LEAF(db_assertz_r)
 PL_ROOTCTX_LEAF(db_asserta_r)
 #define PL_AX_VENEER(nm, NM) RTX_FUNC(rt_pl_dop_ax_##nm); sub rsp, 24; mov qword ptr [rsp + 8], 0; lea rdx, [rsp + 8]; call rt_pl_dop_ax_##nm##_c; mov rcx, qword ptr [rsp + 8]; add rsp, 24; \
-    test rcx, rcx; jz 9f; mov r15, rcx; mov eax, DT_FAIL | (MOD_OP_RT_PL_AX_##NM << 8); xor edx, edx; 9: ret; RTX_ENDF(rt_pl_dop_ax_##nm)
+    test rcx, rcx; jz 9f; mov r15, rcx; mov eax, DT_FAIL; xor edx, edx; 9: ret; RTX_ENDF(rt_pl_dop_ax_##nm)
 PL_AX_VENEER(add, ADD)
 PL_AX_VENEER(sub, SUB)
 PL_AX_VENEER(mul, MUL)
@@ -366,7 +366,7 @@ PL_AX_VENEER(ffp, FFP)
 PL_AX_VENEER(pi, PI)
 PL_AX_VENEER(e, E)
 #define PL_CMP_LEAF(nm, NM) RTX_FUNC(rt_pl_dop_cmp_##nm); sub rsp, 24; mov qword ptr [rsp + 8], 0; lea rdx, [rsp + 8]; call rt_pl_dop_cmp_##nm##_c; mov rcx, qword ptr [rsp + 8]; add rsp, 24; \
-    test rcx, rcx; jz 8f; mov r15, rcx; mov eax, DT_FAIL | (MOD_OP_RT_PL_CMP_##NM << 8); xor edx, edx; 8: ret; RTX_ENDF(rt_pl_dop_cmp_##nm)
+    test rcx, rcx; jz 8f; mov r15, rcx; mov eax, DT_FAIL; xor edx, edx; 8: ret; RTX_ENDF(rt_pl_dop_cmp_##nm)
 PL_CMP_LEAF(lt, LT)
 PL_CMP_LEAF(gt, GT)
 PL_CMP_LEAF(le, LE)
@@ -380,7 +380,7 @@ RTX_FUNC(rt_pl_dop_ax_zguard)
     test    rax, rax
     jz      .Lzg_ok
     mov     r15, rax
-    mov     eax, DT_FAIL | (MOD_OP_RT_PL_AX_ZGUARD << 8)
+    mov     eax, DT_FAIL
     xor     edx, edx
     ret
 .Lzg_ok:
@@ -396,7 +396,7 @@ RTX_FUNC(rt_pl_dop_db_alive)
     test    rax, rax
     jz      .Lda_ok
     mov     r15, rax
-    mov     eax, DT_FAIL | (MOD_OP_RT_PL_DB_ALIVE << 8)
+    mov     eax, DT_FAIL
     xor     edx, edx
     ret
 .Lda_ok:
@@ -412,7 +412,7 @@ RTX_FUNC(rt_pl_dop_db_t_guard)
     test    rax, rax
     jz      .Ldtg_ok
     mov     r15, rax
-    mov     eax, DT_FAIL | (MOD_OP_RT_PL_DB_TGUARD << 8)
+    mov     eax, DT_FAIL
     xor     edx, edx
     ret
 .Ldtg_ok:
@@ -427,7 +427,7 @@ RTX_FUNC(rt_pl_dop_goal_guard)
     test    rax, rax
     jz      .Lgg_ok
     mov     r15, rax
-    mov     eax, DT_FAIL | (MOD_OP_RT_PL_GOAL_GUARD << 8)
+    mov     eax, DT_FAIL
     xor     edx, edx
     ret
 .Lgg_ok:
@@ -442,7 +442,7 @@ RTX_FUNC(rt_pl_dop_list_guard)
     test    rax, rax
     jz      .Llg_ok
     mov     r15, rax
-    mov     eax, DT_FAIL | (MOD_OP_RT_PL_LIST_GUARD << 8)
+    mov     eax, DT_FAIL
     xor     edx, edx
     ret
 .Llg_ok:
@@ -458,7 +458,7 @@ RTX_FUNC(rt_pl_dop_char_guard)
     test    rax, rax
     jz      .Lcg_ok
     mov     r15, rax
-    mov     eax, DT_FAIL | (MOD_OP_RT_PL_CHAR_GUARD << 8)
+    mov     eax, DT_FAIL
     xor     edx, edx
     ret
 .Lcg_ok:
@@ -474,7 +474,7 @@ RTX_FUNC(rt_pl_dop_nb_getval_guard)
     test    rax, rax
     jz      .Lnbgg_ok
     mov     r15, rax
-    mov     eax, DT_FAIL | (MOD_OP_RT_PL_NB_GETVAL_GUARD << 8)
+    mov     eax, DT_FAIL
     xor     edx, edx
     ret
 .Lnbgg_ok:
@@ -489,7 +489,7 @@ RTX_FUNC(rt_pl_dop_anum_guard2)
     test    rax, rax
     jz      .Lag2_ok
     mov     r15, rax
-    mov     eax, DT_FAIL | (MOD_OP_RT_PL_ANUM_GUARD2 << 8)
+    mov     eax, DT_FAIL
     xor     edx, edx
     ret
 .Lag2_ok:
@@ -504,7 +504,7 @@ RTX_FUNC(rt_pl_dop_anum_guard3)
     test    rax, rax
     jz      .Lag3_ok
     mov     r15, rax
-    mov     eax, DT_FAIL | (MOD_OP_RT_PL_ANUM_GUARD3 << 8)
+    mov     eax, DT_FAIL
     xor     edx, edx
     ret
 .Lag3_ok:
@@ -519,7 +519,7 @@ RTX_FUNC(rt_pl_dop_anum_guard5)
     test    rax, rax
     jz      .Lag5_ok
     mov     r15, rax
-    mov     eax, DT_FAIL | (MOD_OP_RT_PL_ANUM_GUARD5 << 8)
+    mov     eax, DT_FAIL
     xor     edx, edx
     ret
 .Lag5_ok:
@@ -534,7 +534,7 @@ RTX_FUNC(rt_pl_dop_ax_eguard)
     test    rax, rax
     jz      .Leg_ok
     mov     r15, rax
-    mov     eax, DT_FAIL | (MOD_OP_RT_PL_AX_EGUARD << 8)
+    mov     eax, DT_FAIL
     xor     edx, edx
     ret
 .Leg_ok:
@@ -549,7 +549,7 @@ RTX_FUNC(rt_pl_dop_between_guard)
     test    rax, rax
     jz      .Lbg_ok
     mov     r15, rax
-    mov     eax, DT_FAIL | (MOD_OP_RT_PL_BETWEEN_GUARD << 8)
+    mov     eax, DT_FAIL
     xor     edx, edx
     ret
 .Lbg_ok:
@@ -564,7 +564,7 @@ RTX_FUNC(rt_pl_dop_stream_guard)
     test    rax, rax
     jz      .Lsg_ok
     mov     r15, rax
-    mov     eax, DT_FAIL | (MOD_OP_RT_PL_STREAM_GUARD << 8)
+    mov     eax, DT_FAIL
     xor     edx, edx
     ret
 .Lsg_ok:
@@ -579,7 +579,7 @@ RTX_FUNC(rt_pl_dop_curstream_guard)
     test    rax, rax
     jz      .Lcsg_ok
     mov     r15, rax
-    mov     eax, DT_FAIL | (MOD_OP_RT_PL_CURSTREAM_GUARD << 8)
+    mov     eax, DT_FAIL
     xor     edx, edx
     ret
 .Lcsg_ok:

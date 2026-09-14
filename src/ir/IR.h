@@ -18,7 +18,7 @@
 #  define STRVAL(s_)   __extension__({ char *_sv_ = (char *)(s_); (DESCR_t){ .v = DT_S, .slen = _sv_ ? (uint32_t)__builtin_strlen(_sv_) : 0u, .s = _sv_ }; })
 #endif
 typedef enum {
-    IR_ACTIVATE,
+    IR_ACTIVATE = 1,
     IR_ASSIGN,
     IR_ASSIGN_VAR,
     IR_BINOP,
@@ -156,6 +156,17 @@ typedef enum {
     IR_LIMIT_GATE,
     IR_OP_COUNT
 } IR_e;
+DESCR_SASSERT(IR_OP_COUNT <= 255, "mint_op is a uint8_t (descr.h) and it answers ONE question: WHICH BB MINTED "
+               "THIS DESCRIPTOR. 0 is UNSTAMPED, 1..IR_OP_COUNT-1 is the minting BB/IR op, and an op past 255 "
+               "would stamp as a DIFFERENT op with no compiler or test saying so. THIS IS THE WHOLE GUARD. It "
+               "replaced a literal 130 in descr_tags.inc standing for IR_OP_COUNT+1, which was true when it was "
+               "typed and then stopped being true SEVEN TIMES as ops were added, because nothing read both "
+               "files. IF YOU ARE READING THIS BECAUSE YOU WANT TO RECORD WHICH RUNTIME FUNCTION A BB CALLED: "
+               "that was a SECOND, ORTHOGONAL DIMENSION carried here as 123 per-routine ids, it is deliberately "
+               "and temporarily GONE (Lon 2026-09-13, ceo CEO-719: we can do without that granularity for now "
+               "until we figure something else), and its home is ITS OWN STORAGE AND NEVER THIS BYTE -- N values "
+               "for which-rt added back here is 1 + 136 + 123 = 260 in a 256-wide field, the exact overflow this "
+               "cured. descr_tags.inc carries the long form where those ids used to be.");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int ir_is_matcher(int t) {
     switch (t) { case IR_MATCH_LIT: case IR_MATCH_ANY: case IR_MATCH_NOTANY: case IR_MATCH_SPAN: case IR_MATCH_SPAN_VAR: case IR_MATCH_BREAK: case IR_MATCH_BREAKX: case IR_MATCH_LEN:

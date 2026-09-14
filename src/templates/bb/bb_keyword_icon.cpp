@@ -31,7 +31,7 @@ std::string bb_keyword_icon() {
     return _.op_zres
          ? (!strcmp(kw, "subject")
             ? (g_scan_regs_live
-               ? x86("comment", "KEYWORD_subject_reg->ZRES (ZK-2): word0 is {v:1,mod_op:1,src_node:2,slen:4} packed (descr.h) -- a bare `mov ZRES(0),DT_S` zeroes slen along with it (row icon-scan-subj-cglobal-retirement's *&subject-in-scan-is-0 sibling), so the tag and the live length (r15) land in the same word as two dword stores instead of one clobbering qword one.")
+               ? x86("comment", "KEYWORD_subject_reg->ZRES (ZK-2): word0 is {v:1,mint_op:1,src_node:2,slen:4} packed (descr.h) -- a bare `mov ZRES(0),DT_S` zeroes slen along with it (row icon-scan-subj-cglobal-retirement's *&subject-in-scan-is-0 sibling), so the tag and the live length (r15) land in the same word as two dword stores instead of one clobbering qword one.")
                + x86_alpha()
                + x86("mov", ZRESD(0), (long)DT_S)
                + x86("mov", ZRESD(4), "r15d")

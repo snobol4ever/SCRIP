@@ -34,10 +34,10 @@ int main(void) {
     memset(&d,0,sizeof d); d.v=DT_P; d.s=s3;        chk("PAT-as-ptr", d, 1);
     memset(&d,0,sizeof d); d.v=DT_S; d.slen=7; d.s=s3; chk("STR slen!=0", d, 1);
     DESCR_t fa = rt_faildescr(), fg = FAILDESCR; n++;
-    fg.mod_op = MOD_OP_RT_FAILDESCR;
+    fg.mint_op = DESCR_MINT_OP_UNSTAMPED;
     if (memcmp(&fa,&fg,sizeof fa)) { fails++;
-        printf("  MISMATCH faildescr asm{v=%d,mod_op=%u,src_node=%u,slen=%u,i=%lld} golden{v=%d,mod_op=%u,src_node=%u,slen=%u,i=%lld}\n",
-            fa.v,fa.mod_op,fa.src_node,fa.slen,(long long)fa.i, fg.v,fg.mod_op,fg.src_node,fg.slen,(long long)fg.i);
+        printf("  MISMATCH faildescr asm{v=%d,mint_op=%u,src_node=%u,slen=%u,i=%lld} golden{v=%d,mint_op=%u,src_node=%u,slen=%u,i=%lld}\n",
+            fa.v,fa.mint_op,fa.src_node,fa.slen,(long long)fa.i, fg.v,fg.mint_op,fg.src_node,fg.slen,(long long)fg.i);
         { const unsigned char *pa=(const unsigned char*)&fa, *pg=(const unsigned char*)&fg; unsigned k;
           printf("    bytes asm ="); for (k=0;k<sizeof fa;k++) printf(" %02x", pa[k]);
           printf("\n    bytes gold="); for (k=0;k<sizeof fg;k++) printf(" %02x", pg[k]);

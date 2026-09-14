@@ -1,7 +1,7 @@
 #include "rtx_abi.inc"
 RTX_GATE_DEF(misc)
 RTX_FUNC(rt_faildescr)
-    mov     eax, DT_FAIL | (MOD_OP_RT_FAILDESCR << 8)
+    mov     eax, DT_FAIL
     xor     edx, edx
     ret
 RTX_ENDF(rt_faildescr)

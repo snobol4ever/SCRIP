@@ -4,7 +4,7 @@
 RTX_GATE_DEF(icncall)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RTX_FUNC(rt_proc_value)
-    mov     rax, (PROCVAL_SLEN << 32) | (MOD_OP_RT_PROC_VALUE << 8) | DT_E
+    mov     rax, (PROCVAL_SLEN << 32) | DT_E
     mov     rdx, rdi
     ret
 RTX_ENDF(rt_proc_value)

@@ -131,14 +131,14 @@ RTX_FUNC(rt_subscript_var)
     mov     r9, [rsp + 24]
     mov     [rax + VCELL_KEY_D], r8
     mov     [rax + VCELL_KEY_D + 8], r9
-    mov     qword ptr [rax + VCELL_SV], DT_FAIL | (MOD_OP_RT_SUBSCRIPT_VAR << 8)
+    mov     qword ptr [rax + VCELL_SV], DT_FAIL
     mov     qword ptr [rax + VCELL_SV + 8], 0
     movsxd  rcx, dword ptr [rsp + 48]
     mov     [rax + VCELL_POS], rcx
     mov     qword ptr [rax + VCELL_LEN], 0
     add     rsp, 88
     mov     rdx, rax
-    mov     rax, DT_NAMETRAP_LO | (MOD_OP_RT_SUBSCRIPT_VAR << 8)
+    mov     rax, DT_NAMETRAP_LO
     ret
 .Lsub_table:
     jmp     .Lsub_bail
@@ -203,13 +203,13 @@ RTX_FUNC(rt_subscript_var)
     mov     r9, [rsp + 24]
     mov     [rax + VCELL_KEY_D], r8
     mov     [rax + VCELL_KEY_D + 8], r9
-    mov     qword ptr [rax + VCELL_SV], DT_FAIL | (MOD_OP_RT_SUBSCRIPT_VAR << 8)
+    mov     qword ptr [rax + VCELL_SV], DT_FAIL
     mov     qword ptr [rax + VCELL_SV + 8], 0
     mov     qword ptr [rax + VCELL_POS], 0
     mov     qword ptr [rax + VCELL_LEN], 0
     add     rsp, 88
     mov     rdx, rax
-    mov     rax, DT_NAMETRAP_LO | (MOD_OP_RT_SUBSCRIPT_VAR << 8)
+    mov     rax, DT_NAMETRAP_LO
     ret
 .Lsub_tbl_miss:
     mov     [rsp + 32], rsi
@@ -229,13 +229,13 @@ RTX_FUNC(rt_subscript_var)
     mov     r9, [rsp + 24]
     mov     [rcx + VCELL_KEY_D], r8
     mov     [rcx + VCELL_KEY_D + 8], r9
-    mov     qword ptr [rcx + VCELL_SV], DT_FAIL | (MOD_OP_RT_SUBSCRIPT_VAR << 8)
+    mov     qword ptr [rcx + VCELL_SV], DT_FAIL
     mov     qword ptr [rcx + VCELL_SV + 8], 0
     mov     qword ptr [rcx + VCELL_POS], 0
     mov     qword ptr [rcx + VCELL_LEN], 0
     add     rsp, 88
     mov     rdx, rcx
-    mov     rax, DT_NAMETRAP_LO | (MOD_OP_RT_SUBSCRIPT_VAR << 8)
+    mov     rax, DT_NAMETRAP_LO
     ret
 .Lsub_string:
     mov     r8, rax
@@ -275,7 +275,7 @@ RTX_FUNC(rt_subscript_var)
     mov     qword ptr [rax + VCELL_LEN], 1
     add     rsp, 88
     mov     rdx, rax
-    mov     rax, DT_NAMETRAP_LO | (MOD_OP_RT_SUBSCRIPT_VAR << 8)
+    mov     rax, DT_NAMETRAP_LO
     ret
 .Lsub_array:
     test    rsi, rsi
@@ -312,16 +312,16 @@ RTX_FUNC(rt_subscript_var)
     mov     r9, [rsp + 24]
     mov     [rax + VCELL_KEY_D], r8
     mov     [rax + VCELL_KEY_D + 8], r9
-    mov     qword ptr [rax + VCELL_SV], DT_FAIL | (MOD_OP_RT_SUBSCRIPT_VAR << 8)
+    mov     qword ptr [rax + VCELL_SV], DT_FAIL
     mov     qword ptr [rax + VCELL_SV + 8], 0
     mov     qword ptr [rax + VCELL_POS], 0
     mov     qword ptr [rax + VCELL_LEN], 0
     add     rsp, 88
     mov     rdx, rax
-    mov     rax, DT_NAMETRAP_LO | (MOD_OP_RT_SUBSCRIPT_VAR << 8)
+    mov     rax, DT_NAMETRAP_LO
     ret
 .Lsub_arr_fail:
-    mov     eax, DT_FAIL | (MOD_OP_RT_SUBSCRIPT_VAR << 8)
+    mov     eax, DT_FAIL
     xor     edx, edx
     ret
 .Lsub_table_direct:
@@ -342,13 +342,13 @@ RTX_FUNC(rt_subscript_var)
     mov     r9, [rsp + 16]
     mov     [rax + VCELL_KEY_D], r8
     mov     [rax + VCELL_KEY_D + 8], r9
-    mov     qword ptr [rax + VCELL_SV], DT_FAIL | (MOD_OP_RT_SUBSCRIPT_VAR << 8)
+    mov     qword ptr [rax + VCELL_SV], DT_FAIL
     mov     qword ptr [rax + VCELL_SV + 8], 0
     mov     qword ptr [rax + VCELL_POS], 0
     mov     qword ptr [rax + VCELL_LEN], 0
     add     rsp, 24
     mov     rdx, rax
-    mov     rax, DT_NAMETRAP_LO | (MOD_OP_RT_SUBSCRIPT_VAR << 8)
+    mov     rax, DT_NAMETRAP_LO
     ret
 .Lsub_table_int:
     jmp     .Lsub_bail
@@ -386,7 +386,7 @@ RTX_FUNC(rt_subscript_var)
     jmp     .Lsub_hash_init
 .Lsub_fail:
     add     rsp, 88
-    mov     eax, DT_FAIL | (MOD_OP_RT_SUBSCRIPT_VAR << 8)
+    mov     eax, DT_FAIL
     xor     edx, edx
     ret
 .Lsub_bail:

@@ -172,6 +172,7 @@ test_gate_master_order_is_the_builders_order.sh	WIRED	-	-	-
 test_gate_master_resort_preserves_modes.sh	WIRED	-	-	-
 test_gate_master_sidecars_cover_stdin_and_argv.sh	WIRED	-	-	-
 test_gate_master_suite_builder_contract.sh	WIRED	-	-	-
+test_gate_mint_op_is_one_numbering.sh	WIRED	-	-	-
 test_gate_modes_declaration_travels.sh	WIRED	-	-	-
 test_gate_monitor_refuses_when_a_participant_never_starts.sh	WIRED	-	-	-
 test_gate_next_honours_the_lane_cut.sh	WIRED	-	-	-

@@ -413,7 +413,7 @@ RTX_FUNC(rt_match_replace)
 .Lmr_setnv:
     mov     rsi, r12
     shl     rsi, 32
-    or      rsi, DT_S | (MOD_OP_RT_MATCH_REPLACE << 8)
+    or      rsi, DT_S
     mov     rdi, qword ptr [rsp + 0]
     call    NV_SET_fn
     add     rsp, 88

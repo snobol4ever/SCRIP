@@ -51,17 +51,19 @@
  *
  * ---------------------------------------------------------------------------
  * DESCR_t — 4-FIELD LAYOUT SINCE descr-stamp-fields (this HEAD; supersedes the s162 2-field probe
- * below, kept for the history): v (uint8) at 0, mod_op (uint8) at 1, src_node (uint16) at 2, slen
+ * below, kept for the history): v (uint8) at 0, mint_op (uint8) at 1, src_node (uint16) at 2, slen
  * (uint32) at 4, value union at 8. Two INTEGER eightbytes still, so SysV still passes and returns it
  * in a register PAIR -- the split narrowed v within the SAME low eightbyte, it did not add one:
- *     ARG n=1:  rdi = (slen << 32) | src_node << 16 | mod_op << 8 | v      rsi = value
- *     RETURN :  rax = (slen << 32) | src_node << 16 | mod_op << 8 | v      rdx = value
+ *     ARG n=1:  rdi = (slen << 32) | src_node << 16 | mint_op << 8 | v      rsi = value
+ *     RETURN :  rax = (slen << 32) | src_node << 16 | mint_op << 8 | v      rdx = value
  *   al/eax still alias the tag byte directly (v is the LOW BYTE now, not the low 32 bits -- a 32-bit
- *   `cmp eax,DT_x` or a 32-bit zero-test against the whole low eightbyte reads mod_op/src_node/slen
+ *   `cmp eax,DT_x` or a 32-bit zero-test against the whole low eightbyte reads mint_op/src_node/slen
  *   too and is WRONG post-split; every live tag test in this family compares al/cl/dl/dil/sil, per
- *   the 171-site conversion). shr by 32 still gets slen; mod_op is (eax >> 8) & 0xFF, src_node is
- *   (eax >> 16) & 0xFFFF. See descr_tags.inc's MOD_OP_RT_* block (row descr-stamp-asm-mints) for the
- *   sentinel values this family's hand-written mints fold into the SAME already-existing immediate.
+ *   the 171-site conversion). shr by 32 still gets slen; mint_op is (eax >> 8) & 0xFF, src_node is
+ *   (eax >> 16) & 0xFFFF. A HAND-WRITTEN MINT HERE LEAVES mint_op 0, UNSTAMPED, AND THAT IS DELIBERATE: the
+ *   123 per-routine ids this family used to fold into the same immediate were a SECOND DIMENSION (which rt
+ *   function a BB called, never which BB minted) and they are gone -- see descr_tags.inc's mint_op block for
+ *   what was lost, why Lon accepted the loss, and why its home must NOT be this byte.
  *   Phase-1 ports keep C signatures, so descriptor-in-registers is FREE and
  *   NO template changes are owed. Registerized signatures are RTX-CC (rung 11).
  *
@@ -82,7 +84,7 @@
  * DT_SNUL is 0 ON PURPOSE (bulk memset mints null strings free). rtx_init.c carries a
  * _Static_assert per value; a drift here breaks the BUILD, not the runtime.
  * ⛔ STRING tests are 8-BIT ONLY (test <r8-class>, DT_NOTSTR_MASK & 0xFF) -- CORRECTED s256:
- * a 32-bit test reads the DESCR provenance stamp's mod_op/src_node bytes (bits 8-31, ARCH-
+ * a 32-bit test reads the DESCR provenance stamp's mint_op/src_node bytes (bits 8-31, ARCH-
  * SNOBOL4-RTX.md sec9) once SCRIP_DESCR_STAMP=1, and misclassifies a stamped string as not-a-
  * string (HQ FINDING s256). The OLD 32-bit rule this comment stated was the bug. See descr.h. ---- */
 #include "descr_tags.inc"   /* s230: THE tag numbers live there and ONLY there -- syntax-neutral so the AT&T files can share them. */

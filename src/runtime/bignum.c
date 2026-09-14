@@ -79,8 +79,8 @@ DESCR_t rt_big_norm(void *vb) {
     BIG_t *b = (BIG_t *) vb; int64_t f;
     if (!b) return FAILDESCR;
     big_trim(b);
-    if (big_fits_i64(b, &f)) { DESCR_t d; d.v = DT_I; d.mod_op = 0; d.src_node = 0; d.slen = 0; d.i = f; return d; }
-    DESCR_t d; d.v = DT_BIG; d.mod_op = 0; d.src_node = 0; d.slen = b->n; d.p = (void *) b; return d;
+    if (big_fits_i64(b, &f)) { DESCR_t d; d.v = DT_I; d.mint_op = 0; d.src_node = 0; d.slen = 0; d.i = f; return d; }
+    DESCR_t d; d.v = DT_BIG; d.mint_op = 0; d.src_node = 0; d.slen = b->n; d.p = (void *) b; return d;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_big_sign(DESCR_t d) { if (d.v == DT_BIG && d.p) return ((BIG_t *)d.p)->sign; return d.i < 0 ? -1 : (d.i > 0 ? 1 : 0); }

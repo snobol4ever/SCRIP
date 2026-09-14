@@ -12,7 +12,7 @@ RTX_FUNC(rt_size_d)
     cmp     eax, -1
     je      c_rt_size_d
     mov     rdx, rax
-    mov     eax, DT_I | (MOD_OP_RT_SIZE_D << 8)
+    mov     eax, DT_I
     ret
 RTX_ENDF(rt_size_d)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -27,7 +27,7 @@ RTX_FUNC(rt_list_bang_at)
     add     rsp, 24
     ret
 .Lbang_fail:
-    mov     eax, DT_FAIL | (MOD_OP_RT_LIST_BANG_AT << 8)
+    mov     eax, DT_FAIL
     xor     edx, edx
     add     rsp, 24
     ret

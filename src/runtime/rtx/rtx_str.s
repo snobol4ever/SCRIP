@@ -113,7 +113,7 @@ RTX_FUNC(str_concat_d)
 .Lsc_ret:
     mov     rax, r11
     shl     rax, 32
-    or      rax, DT_S | (MOD_OP_RT_STR_CONCAT_D << 8)
+    or      rax, DT_S
     mov     rdx, r10
     ret
 .Lsc_null:

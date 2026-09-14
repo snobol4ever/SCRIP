@@ -132,7 +132,7 @@ RTX_FUNC(rt_add)
     mov     rdx, rsi
     add     rdx, rcx
     jo      .Ladd_slow
-    mov     eax, DT_I | (MOD_OP_RT_ADD << 8)
+    mov     eax, DT_I
     ret
 .Ladd_notii:
     cmp     dil, DT_R
@@ -144,7 +144,7 @@ RTX_FUNC(rt_add)
     addsd   xmm0, xmm1
     RTX_REAL_FINITE_OR(.Ladd_slow)
     movq    rdx, xmm0
-    mov     eax, DT_R | (MOD_OP_RT_ADD << 8)
+    mov     eax, DT_R
     ret
 .Ladd_slow:
     jmp     c_rt_add
@@ -159,7 +159,7 @@ RTX_FUNC(rt_sub)
     mov     rdx, rsi
     sub     rdx, rcx
     jo      .Lsub_slow
-    mov     eax, DT_I | (MOD_OP_RT_SUB << 8)
+    mov     eax, DT_I
     ret
 .Lsub_notii:
     cmp     dil, DT_R
@@ -171,7 +171,7 @@ RTX_FUNC(rt_sub)
     subsd   xmm0, xmm1
     RTX_REAL_FINITE_OR(.Lsub_slow)
     movq    rdx, xmm0
-    mov     eax, DT_R | (MOD_OP_RT_SUB << 8)
+    mov     eax, DT_R
     ret
 .Lsub_slow:
     jmp     c_rt_sub
@@ -186,7 +186,7 @@ RTX_FUNC(rt_mul)
     mov     rdx, rsi
     imul    rdx, rcx
     jo      .Lmul_slow
-    mov     eax, DT_I | (MOD_OP_RT_MUL << 8)
+    mov     eax, DT_I
     ret
 .Lmul_notii:
     cmp     dil, DT_R
@@ -198,7 +198,7 @@ RTX_FUNC(rt_mul)
     mulsd   xmm0, xmm1
     RTX_REAL_FINITE_OR(.Lmul_slow)
     movq    rdx, xmm0
-    mov     eax, DT_R | (MOD_OP_RT_MUL << 8)
+    mov     eax, DT_R
     ret
 .Lmul_slow:
     jmp     c_rt_mul
