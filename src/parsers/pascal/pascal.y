@@ -564,7 +564,11 @@ static void pas_nrec_mark_add(tree_t *e) { if (g_pas_nrec_nmarks < 512 && e) g_p
 int pas_is_nrec_idx(const tree_t *e) { for (int i = 0; i < g_pas_nrec_nmarks; i++) if (g_pas_nrec_marks[i] == (tree_t *)e) return 1; return 0; }
 static tree_t *pas_nested_field_resolve(tree_t *base, const char *fld) {
     const char *_brt = pas_with_sel_rtype(base);
-    if (_brt) { int _nfi = pas_rectype_field_index(_brt, fld); if (_nfi >= 0) { tree_t *e = ast_node_new(TT_IDX); ast_push(e, base); ast_push(e, ilit(_nfi)); const char *_fe = pas_rectype_field_enum_by_index(_brt, _nfi); if (_fe) { int _ei = pas_enumnames_idx(_fe); if (_ei >= 0) e->v.ival = (long long)(_ei + 1); } pas_nrec_mark_add(e); return e; } }
+    if (_brt) { int _nfi = pas_rectype_field_index(_brt, fld); if (_nfi >= 0) { tree_t *e = ast_node_new(TT_IDX); ast_push(e, base); ast_push(e, ilit(_nfi)); const char *_fe = pas_rectype_field_enum_by_index(_brt, _nfi); if (_fe) { int _ei = pas_enumnames_idx(_fe); if (_ei >= 0) e->v.ival = (long long)(_ei + 1); }
+        if (pas_rectype_field_is_ca(_brt, _nfi)) pas_cafield_mark_add(e, pas_rectype_field_ca_lo(_brt, _nfi), pas_rectype_field_ca_hi(_brt, _nfi));
+        if (pas_rectype_field_is_na(_brt, _nfi)) pas_nafield_mark_add(e, pas_rectype_field_na_lo(_brt, _nfi));
+        if (pas_rectype_field_is_char(_brt, _nfi)) pas_cvfield_mark_add(e);
+        pas_nrec_mark_add(e); return e; } }
     return bin(TT_FIELD, base, leaf_s(TT_VAR, fld));
 }
 static int pas_recspan_nf(tree_t *e) {
@@ -1031,7 +1035,9 @@ term:
 factor:
     selector { if (pas_is_nrec_idx($1) && $1->n >= 2 && $1->c[0] && $1->c[0]->t == TT_IDX && $1->c[0]->n >= 2) {
           tree_t *g = ast_node_new(TT_FNC); ast_push(g, leaf_s(TT_VAR, "__pas_nrec_get"));
-          ast_push(g, $1->c[0]->c[0]); ast_push(g, $1->c[0]->c[1]); ast_push(g, $1->c[1]); $$ = g; }
+          ast_push(g, $1->c[0]->c[0]); ast_push(g, $1->c[0]->c[1]); ast_push(g, $1->c[1]);
+          if (pas_is_cvfield($1)) pas_cvfield_mark_add(g);
+          $$ = g; }
       else if (pas_is_cafield($1)) { tree_t *u = ast_node_new(TT_FNC); ast_push(u, leaf_s(TT_VAR, "__pas_ca_unpack")); ast_push(u, $1); ast_push(u, ilit(pas_cafield_lo_get($1))); $$ = u; } else $$ = $1; }
     | call_with_args { $$ = $1; }
     | INTCONST { $$ = ilit($1); }
