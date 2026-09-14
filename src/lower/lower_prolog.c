@@ -1770,7 +1770,9 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
         if (!subj || subj->t == TT_CHOICE || subj->t == TT_CLAUSE) continue;
         if (subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "initialization") && subj->n >= 1) {
             const tree_t *gt = subj->c[0];
-            if (gt && ((gt->t == TT_QLIT || gt->t == TT_NAME || gt->t == TT_FNC) && gt->v.sval)) { if (ninit < PL_INIT_GOALS_MAX) init_goals[ninit++] = gt; continue; }
+            if (gt && ((gt->t == TT_QLIT || gt->t == TT_NAME || gt->t == TT_FNC) && gt->v.sval)) {
+                int iv_scope0 = dvc; pl_dir_number_vars((tree_t *) gt, dvn, &dvc, iv_scope0);
+                if (ninit < PL_INIT_GOALS_MAX) init_goals[ninit++] = gt; continue; }
         }
         if (subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "dynamic") && subj->n >= 1) {
             for (int k = 0; k < subj->n; k++) pl_decl_dynamic_record(&g_stage2, subj->c[k], (tree_t *) subj); continue; }
