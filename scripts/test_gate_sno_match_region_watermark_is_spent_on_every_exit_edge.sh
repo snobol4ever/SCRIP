@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # A match region opened INSIDE A PROCEDURE must have its watermark spent on EVERY edge that leaves the region, not
 # only on the edge the statement happens to end on.  zd_exit_pop_s (src/emitter/emit.cpp) applies the close-tracker
 # correction only when the exit node is IR_STATEMENT_END / IR_STATEMENT / IR_GOTO_DEFERRED; every other terminal path
@@ -20,11 +22,18 @@
 # inline too and this follows that convention.  Each value below is what the construct must mean, cross-checked
 # against hq_I's six-witness table measured on both sides of SCRIP 152461d75.
 #
-# ⚠️ THIS GATE IS RED ON PURPOSE AND IS LANDED UNWIRED.  Owner: hq_U.  Row:
+# ✅ CURED AND WIRED.  Owner: hq_U.  Row:
 # snocone-the-match-region-watermark-is-spent-on-one-edge-so-non-local-exits-out-of-the-region-overpop (rank 0).
-# It is wired into `make test` BY THE CURE, never before -- a red gate in the blocking set is a broken build for
-# every seat.  A gate that lands red with an owner and a row named in its own header is a debt with a due date; one
-# that lands red with neither is a line every seat learns to ignore.
+# It landed RED 6/9 at SCRIP 910f27184 -- deliberately UNWIRED, because a red gate in the blocking set is a broken
+# build for every seat -- and is wired into `make test` HERE, BY THE CURE, per CEO-381.  A gate that lands red with
+# an owner and a row named in its own header is a debt with a due date; one that lands red with neither is a line
+# every seat learns to ignore.
+#
+# ⭐ FAIL-ONCE/PASS-ONCE IS PROVEN ON ONE BINARY, NOT BY STASH-AND-REBUILD: the cure carries the killswitch
+# SCRIP_ZD_CLOSE=0, so `SCRIP_ZD_CLOSE=0 bash $0` reproduces 6/9 with the same three arms red and `bash $0`
+# reads 9/9, from the same ./scrip.  ⛔ THE KILLSWITCH IS A MEASUREMENT INSTRUMENT, NOT A SUPPORTED CONFIGURATION:
+# nothing may depend on the OFF position, which is the retired behaviour and is kept only so the next reader can
+# re-derive the delta without owning a second tree.
 set -u
 cd "$(dirname "$0")/.." || exit 1
 SCRIP=./scrip

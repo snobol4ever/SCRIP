@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # A match-with-REPLACEMENT whose subject needs a post-match store chain (an ARRAY ELEMENT, a TABLE element) leaves
 # that chain's spine carve unreleased at the statement's gamma exit.  zd_exit_pop_s() released down to the MATCH
 # watermark, which is the right answer only when nothing outlives the match region -- true for a plain-variable
