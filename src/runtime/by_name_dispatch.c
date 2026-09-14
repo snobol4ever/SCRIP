@@ -1998,8 +1998,9 @@ DESCR_t dop_pl_tab(DESCR_t *args, int nargs) { extern FILE *fh_cur_out_fp(void);
     FILE *o = fh_cur_out_fp();for (long long i = 0;i < v.i;i++) fputc(' ', o);} return pl_ok(); }
 DESCR_t dop_pl_put_char(DESCR_t *args, int nargs) { extern FILE *fh_cur_out_fp(void);char b[64];const char *s;if (nargs != 1 || !pl_cell_text(args[0], b, sizeof b, &s)) return FAILDESCR;
     fputs(s, fh_cur_out_fp());return pl_ok(); }
-DESCR_t dop_pl_put_code(DESCR_t *args, int nargs) { extern FILE *fh_cur_out_fp(void); if (nargs != 1) return FAILDESCR;
-    { DESCR_t v = rt_pl_deref_val(args[0]); if (v.v != DT_I) return FAILDESCR; fputc((int)v.i, fh_cur_out_fp()); return pl_ok(); } }
+DESCR_t dop_pl_put_code(DESCR_t *args, int nargs) { extern FILE *fh_cur_out_fp(void); extern int rt_pl_u8_put(char *, int); if (nargs != 1) return FAILDESCR;
+    { DESCR_t v = rt_pl_deref_val(args[0]); char cb[8]; int bl; if (v.v != DT_I) return FAILDESCR;
+      bl = rt_pl_u8_put(cb, (int)v.i); fwrite(cb, 1, (size_t)bl, fh_cur_out_fp()); return pl_ok(); } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t dop_pl_flush_output(DESCR_t *args, int nargs) { extern FILE *fh_cur_out_fp(void); (void)args; (void)nargs; fflush(fh_cur_out_fp()); return pl_ok(); }
 static void *pl_format_body(DESCR_t *args, int nargs) {
