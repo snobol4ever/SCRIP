@@ -167,7 +167,20 @@ if [ "$DO_INV" = 1 ]; then
   awk -F'\t' '{c[$2]++} END{for(k in c) printf "    %-20s %6d  %5.1f%%\n", k, c[k], c[k]*100.0/NR}' "$CSV" | sort -k2 -rn
   echo "ROAST_REACHED_OUR_SEMANTICS graded=$graded of $n ($(awk -v a="$graded" -v b="$n" 'BEGIN{printf "%.1f", a*100.0/b}')%) · of those GRADED-PASS=$gpass"
   echo "⛔ ROAST_DARK ungraded_or_ungradable=$((n - graded)) -- these never reached our semantics at all, so they are NOT evidence about Raku correctness in either direction."
+  # ⛔⭐ THIS HISTOGRAM IS A QUEUE, NOT A BOTTLENECK, AND IT MUST SAY SO ON EVERY RUN (hq_T 2026-09-14,
+  # measured by ablation the first hour this mode existed). It ranks what each file hits FIRST, which is not
+  # what is BLOCKING it -- curing the head of the list just advances those files to their next error.
+  # THE MEASUREMENT: the top entry, "use lib $*PROGRAM...", heads 59 files. Deleting that line from all 59
+  # and re-running leaves 57 STILL parse-failing, on 40-odd different next constructs, and moves exactly ZERO
+  # into a graded bucket. A cure aimed at the top of this list would have looked like the obvious first move,
+  # would have been defensible from this histogram alone, and would have bought nothing.
+  # ⭐ THE ONLY HONEST UNLOCK METRIC IS ABLATION: how many files become GRADED when this construct works --
+  # which means removing it and re-running, not counting how often it appears. Frequency is where the queue
+  # is long; value is where the queue is SHORT BEHIND IT, and those are different lists.
   echo "ROAST_TOP_BLOCKING_CONSTRUCTS (the source line the parse died on, literals folded):"
+  echo "    ⛔ READ THIS AS A QUEUE, NOT A WORK PLAN: these are FIRST errors, not blockers. Measured by"
+  echo "       ablation -- deleting the top construct from its 59 files left 57 still parse-failing on other"
+  echo "       constructs and moved 0 into a graded bucket. Rank a cure by ABLATION, never by frequency."
   awk -F'\t' '$2=="UNGRADED-PARSE"{print $4}' "$CSV" \
     | sed "s/'[^']*'/'STR'/g; s/\"[^\"]*\"/\"STR\"/g; s/[0-9][0-9]*/N/g" \
     | sort | uniq -c | sort -rn | head -20 | sed 's/^/    /'
