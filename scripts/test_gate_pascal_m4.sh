@@ -68,7 +68,22 @@ if [ -f "$MASTER_SRC" ] && [ -f "$MASTER_REF" ]; then
     # `parser__*` entries `modes=ast` (graded by --dump-ast diff, never executed) — invoking plain `--modes m4`
     # silently ran them as m4 anyway and misreported all 5 as output-mismatch FAILs. Same bug class already hit
     # Raku once (SCORE.md's raku row: a modes-blind invocation collapsed run-graded entries into the ast bucket).
-    board=$(timeout 180s python3 "$HARNESS" run "$MASTER_SRC" "$MASTER_REF" --lang pascal --by-modes-column --modes m4 2>/dev/null)
+    # ⛔⭐ CAPTURE THE HARNESS rc AND ITS stderr -- A REFUSAL IS NOT A RED AND IS NOT A CORPUS DEFECT (hq_B 2026-09-13,
+    # row pascal-gates-report-a-one-runner-refusal-as-an-unpopulated-master). `2>/dev/null` here threw away the ONE sentence
+    # that said what had happened. Under ONE RUNNER, ONE BOARD (CEO-523) a run of the master IS a board, so the harness
+    # refuses it rc=2 to every seat but the coo; `board` came back empty, `p` was unset, MASTER_EXAMINED fell to 0, and the
+    # arm at the bottom then accused $MASTER_SRC of being "a path defect or unpopulated master" -- while it sits on disk,
+    # populated, 5239 lines. hq_S measured that message, went and checked the corpus, and found it fine (relayed by the coo
+    # 2026-09-13). ⭐ THE COST IS NOT THE RED, IT IS THE FALSE CAUSE: a gate that cannot measure must say so and name what
+    # stopped it, never nominate a suspect it never looked at. RULES.md § a correct procedure with a false explanation.
+    HERR=$(mktemp); board=$(timeout 180s python3 "$HARNESS" run "$MASTER_SRC" "$MASTER_REF" --lang pascal --by-modes-column --modes m4 2>"$HERR"); hrc=$?
+    if [ $hrc -eq 2 ]; then
+        echo "⛔ REFUSED-TO-GRADE rc=2: the harness refused the master, so M4 has NO master verdict. This gate does not know the master is bad and does not say so." >&2
+        sed 's/^/    harness said: /' "$HERR" >&2; rm -f "$HERR"
+        echo "    the master is present and populated -- $MASTER_SRC ($(wc -l <"$MASTER_SRC") lines) / $MASTER_REF ($(wc -l <"$MASTER_REF") lines); it is NOT what this refusal is about." >&2
+        exit 2
+    fi
+    rm -f "$HERR"
     p=$(grep -oP '(?<=m4_pass=)\d+' <<<"$board"); f=$(grep -oP '(?<=m4_fail=)\d+' <<<"$board")
     crash=$(grep -oP '(?<=m4_crash=)\d+' <<<"$board"); hang=$(grep -oP '(?<=m4_hang=)\d+' <<<"$board")
     unproven=$(grep -oP '(?<=m4_unproven=)\d+' <<<"$board")

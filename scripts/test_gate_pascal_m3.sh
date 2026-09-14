@@ -64,7 +64,22 @@ if [ -f "$MASTER_SRC" ] && [ -f "$MASTER_REF" ]; then
     # `parser__*` entries `modes=ast` (graded by --dump-ast diff, never executed) — invoking plain `--modes m3`
     # silently ran them as m3 anyway and misreported all 5 as output-mismatch FAILs. Same bug class already hit
     # Raku once (SCORE.md's raku row: a modes-blind invocation collapsed run-graded entries into the ast bucket).
-    board=$(timeout 120s python3 "$HARNESS" run "$MASTER_SRC" "$MASTER_REF" --lang pascal --by-modes-column --modes m3 2>/dev/null)
+    # ⛔⭐ CAPTURE THE HARNESS rc AND ITS stderr -- A REFUSAL IS NOT A RED AND IS NOT A CORPUS DEFECT (hq_B 2026-09-13,
+    # row pascal-gates-report-a-one-runner-refusal-as-an-unpopulated-master). `2>/dev/null` here threw away the ONE sentence
+    # that said what had happened. Under ONE RUNNER, ONE BOARD (CEO-523) a run of the master IS a board, so the harness
+    # refuses it rc=2 to every seat but the coo; `board` came back empty, `p` was unset, MASTER_EXAMINED fell to 0, and the
+    # arm at the bottom then accused $MASTER_SRC of being "a path defect or unpopulated master" -- while it sits on disk,
+    # populated, 5239 lines. hq_S measured that message, went and checked the corpus, and found it fine (relayed by the coo
+    # 2026-09-13). ⭐ THE COST IS NOT THE RED, IT IS THE FALSE CAUSE: a gate that cannot measure must say so and name what
+    # stopped it, never nominate a suspect it never looked at. RULES.md § a correct procedure with a false explanation.
+    HERR=$(mktemp); board=$(timeout 120s python3 "$HARNESS" run "$MASTER_SRC" "$MASTER_REF" --lang pascal --by-modes-column --modes m3 2>"$HERR"); hrc=$?
+    if [ $hrc -eq 2 ]; then
+        echo "⛔ REFUSED-TO-GRADE rc=2: the harness refused the master, so M3 has NO master verdict. This gate does not know the master is bad and does not say so." >&2
+        sed 's/^/    harness said: /' "$HERR" >&2; rm -f "$HERR"
+        echo "    the master is present and populated -- $MASTER_SRC ($(wc -l <"$MASTER_SRC") lines) / $MASTER_REF ($(wc -l <"$MASTER_REF") lines); it is NOT what this refusal is about." >&2
+        exit 2
+    fi
+    rm -f "$HERR"
     p=$(grep -oP '(?<=m3_pass=)\d+' <<<"$board"); f=$(grep -oP '(?<=m3_fail=)\d+' <<<"$board")
     crash=$(grep -oP '(?<=m3_crash=)\d+' <<<"$board"); hang=$(grep -oP '(?<=m3_hang=)\d+' <<<"$board")
     unproven=$(grep -oP '(?<=m3_unproven=)\d+' <<<"$board")
@@ -100,7 +115,7 @@ fi
 # ⛔ 7 of the 9 open with `readln(reps)`; feeding /dev/null yields reps=0, an empty loop and a PLAUSIBLE all-zero
 # board that is pure instrument error (measured, hq_C 2026-08-27). The `1` below is load-bearing -- do not remove it.
 WCORPUS="${WCORPUS:-$S4E/corpus/benchmarks/pascal}"
-WITNESS_XFAIL="${WITNESS_XFAIL:-fbench}"   # quick CURED (seat08, 71175348, void-procedure return-value fix) -- removed 2026-08-28. fbench: original LOWER-time SIGSEGV (lower_assign_var name=NULL on a curried multi-dim array write, e.g. testcase[i,sp] := v -- NOT self-assignment, that hypothesis was wrong) FIXED (seat02, row pascal-fbench-nested-function-self-assign-null-name). Still XFAIL: fixing that unmasked a SEPARATE, already-tracked, still-open defect one step further in -- transitXsurface/traceXline's nested if/elseif-inside-for-loop shape SIGSEGVs, matching pascal-m4-for-spine-leak-64b-per-iter's own "second spine leak" (zd_plan misses IR_BINOP_TEST merge points) exactly. Blocked on that row, not this one.
+WITNESS_XFAIL="${WITNESS_XFAIL:-}"   # ⛔ EMPTY, AND THAT IS THE CURED STATE -- THERE IS NO XFAIL (Lon 2026-09-03 21:30). `fbench` sat here since 2026-08-28 blocked on pascal-m4-for-spine-leak-64b-per-iter (nested if/elseif-inside-for SIGSEGV in transitXsurface/traceXline). That row is cured: fbench now matches its .ref, rc=0, measured hq_B 2026-09-13, so the XFAIL_STALE arm below fired exactly as designed and the entry is deleted here. ⭐ THE ARM IS THE POINT AND IT STAYS: an exception list that only permits FAILING lets a cure rot unnoticed, and this one caught its own rot. ⛔ It could only report it to a seat that could reach the witness section at all -- for two weeks every non-coo seat exited 2 at the master arm above and never got here, which is how a stale entry survived its own detector.
 W_PASS=0; W_FAIL=0; W_EXAMINED=0; W_STALE=0
 if [ -f "$WCORPUS/uplevel2.pas" ]; then
     for wpas in "$WCORPUS"/*.pas; do
