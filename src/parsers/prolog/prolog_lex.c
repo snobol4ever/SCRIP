@@ -110,6 +110,7 @@ static int decode_escape(Lexer *lx, int *code) {
         case '\'': *code = '\''; return 1;
         case '"':  *code = '"';  return 1;
         case '`':  *code = '`';  return 1;
+        case 'c': while (cur(lx) == ' ' || cur(lx) == '\t' || cur(lx) == '\n' || cur(lx) == '\r' || cur(lx) == '\f' || cur(lx) == '\v') advance(lx); return 0;
         case '\n': return 0;
         default:   *code = (unsigned char)e; return -1;
     }
