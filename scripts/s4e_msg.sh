@@ -1411,12 +1411,22 @@ s4e_sweep_orphans
 # running seat -- Lon does not relay -- so it cannot depend on the seat remembering to `check`. Every subcommand
 # except check/clear now surfaces pending mail first. A seat cannot run `next`, `done`, `board` or `banner`
 # without being told it has unread HQ mail.
+# ⛔⭐ THE BANNER GOES TO stderr FOR SCRIPTABLE VERBS, AND IS NOT SUPPRESSED FOR ANY OF THEM (hq_B 2026-09-13).
+# A human still sees every word on a terminal, where stdout and stderr are the same screen; what changes is that
+# `whoami`'s stdout carries the seat name and nothing else, so a caller can use it. ⛔ THE ALTERNATIVE -- exempting
+# whoami the way check/clear are exempted -- WAS REJECTED: the law above is that unread mail is shouted on EVERY
+# command, and an exemption list is how that law erodes one quiet verb at a time. Moving the stream keeps the shout.
+# ⭐ MEASURED, AND IT IS WHY THIS BLOCK CHANGED AT ALL: whoami's first version returned the entire six-line unread
+# banner welded into one word as the seat identity, and its caller built a mailbox path out of that. The gate
+# REFUSED rc=2 rather than proceed, which is the instrument working -- but a human banner on stdout silently
+# corrupts every machine-readable verb, and only the newest verb happened to notice.
+_bfd=1; case "$cmd" in whoami) _bfd=2;; esac
 case "$cmd" in check|clear) ;; *)
   _n=0; for _f in "$PO/$ME/inbox"/*.msg; do [ -f "$_f" ] && _n=$((_n+1)); done
   if [ "$_n" -gt 0 ]; then
-    printf '\n⛔⛔⛔ %s HAS %s UNREAD HQ MESSAGE(S) — READ THEM BEFORE ANYTHING ELSE ⛔⛔⛔\n' "$ME" "$_n"
-    for _f in "$PO/$ME/inbox"/*.msg; do [ -f "$_f" ] || continue; printf '    %s\n' "$(head -1 "$_f")"; done
-    printf '    bash SCRIP/scripts/s4e_msg.sh check      <- do this now\n\n'; fi ;;
+    { printf '\n⛔⛔⛔ %s HAS %s UNREAD HQ MESSAGE(S) — READ THEM BEFORE ANYTHING ELSE ⛔⛔⛔\n' "$ME" "$_n"
+      for _f in "$PO/$ME/inbox"/*.msg; do [ -f "$_f" ] || continue; printf '    %s\n' "$(head -1 "$_f")"; done
+      printf '    bash SCRIP/scripts/s4e_msg.sh check      <- do this now\n\n'; } >&$_bfd; fi ;;
 esac
 # ⭐ ONE PROTOCOL NUMBER, HOISTED (ceo 2026-08-29, row s4e-clear-needs-protocol-version-guard): next() and clear() both
 # guard on it now, and two inline copies of one value is the drift class this file convicts elsewhere. Bump it HERE and
@@ -1454,8 +1464,47 @@ case "$cmd" in
          # with no residue to test for. That is why the cure has to be a SAFE INPUT PATH rather than a validator.
          # ⭐ USE:  s4e_msg.sh send <to> <topic> --stdin <<'MSG'   ... body ...   MSG
          # The QUOTED heredoc delimiter is the load-bearing part: <<'MSG' disables expansion, <<MSG does not.
-         if [ "${1:-}" = "--stdin" ] || [ "${1:-}" = "-" ]; then _body="$(cat)"; else _body="$*"; fi
+         if [ "${1:-}" = "--stdin" ] || [ "${1:-}" = "-" ]; then _body="$(cat)"; _via_stdin=1; else _body="$*"; _via_stdin=0; fi
          [ -n "$_body" ] || { echo "⛔ REFUSED: empty message body. With --stdin, check the heredoc actually delivered." >&2; exit 1; }
+         # ⛔⭐⭐ A PROSE BODY MUST COME THROUGH --stdin. THE SAFE INPUT PATH IS NOW THE DEFAULT, NOT THE ADVICE
+         # (hq_I 2026-09-13, occurrence FOUR, routed to hq_B as postoffice tooling; landed by hq_B).
+         # ⛔ WHY A VALIDATOR CANNOT DO THIS AND ONLY THE INPUT PATH CAN: the guard below refuses a body that still
+         # CARRIES a backtick or $(. It cannot see the case that actually bites -- a body whose backticks were already
+         # eaten by the CALLER's shell arrives here clean, shorter, and passes every check. hq_I's witness, twice in one
+         # message: two backtick-wrapped code fragments ran as commands, failed, and spliced their empty output back in;
+         # send reported SUCCESS, correctly, on a body whose entire technical content had been deleted. The evidence is
+         # gone before this script starts. ⭐ So do not add a smarter check to the wrong side of the boundary -- hq_T
+         # talked hq_I out of exactly that, and the reasoning is the valuable half: a gutted-body detector would be a
+         # THIRD instrument reporting success while answering a narrower question than it appears to, which is the very
+         # family this row is about. Fix the input path.
+         # ⛔ DISCIPLINE DEMONSTRABLY DOES NOT FIX IT, WHICH IS THE ARGUMENT FOR A REFUSAL AT THE MOMENT OF THE ACT:
+         # hq_P walked into it ONE MESSAGE AFTER READING hq_C's warning; hq_I has this trap written into their own root
+         # digest as a named, dated, three-instance lesson, has quoted it to others, and hit it anyway -- because
+         # composing prose does not feel like the moment the rule is about. An instrument that refuses when you act is
+         # worth more than any number of readings.
+         # ⭐ THE THRESHOLD IS MEASURED, NOT GUESSED (hq_B, over 400 real messages in the postoffice): real seat-to-seat
+         # bodies run 120..5698 bytes, median 988, p10 271. Operational one-liners the argv path exists for -- "queue
+         # empty", "row vanished under me" -- are ~11..25. 200 bytes or a second sentence separates them with room to
+         # spare, so this refuses prose and leaves short operational sends alone.
+         # ⛔ NO BYPASS, matching the backtick guard directly below: an OPTIONAL safe path is the defect being cured,
+         # and nothing in the tree sends a prose body through argv (censused -- the in-tree hits are usage text in echo
+         # strings). If automation ever needs one, it can pipe: printf '%s' "$body" | s4e_msg.sh send <to> <topic> --stdin
+         if [ "$_via_stdin" = 0 ]; then
+           _blen=${#_body}
+           _bsent=$(printf '%s' "$_body" | grep -oE '[.!?](  *|$)' | wc -l)
+           if [ "$_blen" -ge 200 ] || [ "$_bsent" -ge 2 ]; then
+             echo "⛔ REFUSED: a prose body ($_blen bytes) must be sent through --stdin, not as a shell argument. NOTHING WAS DELIVERED." >&2
+             echo "   ⛔ THE POINT IS NOT THIS MESSAGE, IT IS THE ONES THAT ARRIVE LOOKING FINE: a body written inside double" >&2
+             echo "   quotes is expanded by YOUR shell before send ever runs, so backticks, \$(...) and bare \$NAME are replaced" >&2
+             echo "   by their expansion -- usually nothing. The result is well-formed, shorter, and silently missing the words" >&2
+             echo "   you cared about most. send cannot detect that: the evidence is gone before it starts." >&2
+             echo "   ✅ SEND IT AGAIN THIS WAY -- the QUOTED delimiter is the load-bearing part (<<'MSG' disables expansion, <<MSG does not):" >&2
+             echo "       $0 send $to $topic --stdin <<'MSG'" >&2
+             echo "       ...your body, exactly as you mean it..." >&2
+             echo "       MSG" >&2
+             exit 1
+           fi
+         fi
          # ⛔⭐ SHAPE GUARD, NOT A DAMAGE DETECTOR (hq_T, task send-executes-backticks-in-a-message-body...,
          # on hq_C's + hq_P's same-hour hits above). A body that ALREADY lost text to an intervening shell's
          # command substitution arrives here with the backtick/$( already gone -- there is no residue to
@@ -2237,7 +2286,13 @@ case "$cmd" in
          s4e_backfill_owner_lane "$topic" "$seat" || true   # fills col3 ONLY if blank -- see the function's own note
          # THE DOORBELL CARRIES NO CONTENT (ARCH-FLEET-CEO: "the mail never carries content that isn't also in a file").
          # A seat that never reads this message still resumes correctly, because the claim + task file are authoritative.
-         if S4E_NO_BANNER=1 "$0" send "$seat" "task-$topic" "ASSIGNED: $topic. Run: bash SCRIP/scripts/s4e_msg.sh next — it serves this row FIRST, ahead of anything you picked yourself. The task file is authoritative; this message is only the doorbell." >/dev/null 2>&1
+         # ⭐ THE DOORBELL GOES THROUGH --stdin LIKE EVERY OTHER PROSE BODY, AND THAT IS THE POINT (hq_B 2026-09-13).
+         # ⛔ IT WAS AN ARGV SEND AND THE NEW PROSE GUARD REFUSED IT, WHICH BROKE `assign` -- caught by
+         # test_gate_s4e_picker_v2.sh's `doorbell` arm, not by me: I censused external callers for argv prose bodies
+         # and found none, and never censused s4e_msg.sh's OWN internal sends. A blast-radius census that stops at
+         # the file boundary is the narrow-instrument defect wearing a census's clothes. ✅ The fix is the safe path,
+         # not an exemption: an internal caller that needed a bypass would be the first argument for the next one.
+         if printf '%s' "ASSIGNED: $topic. Run: bash SCRIP/scripts/s4e_msg.sh next — it serves this row FIRST, ahead of anything you picked yourself. The task file is authoritative; this message is only the doorbell." | S4E_NO_BANNER=1 "$0" send "$seat" "task-$topic" --stdin >/dev/null 2>&1
          then echo "assigned $topic -> $seat (claim written, doorbell sent)"
          else echo "assigned $topic -> $seat (claim written; ⛔ DOORBELL NOT SENT — the claim still governs, $seat gets it from next)"; fi;;
   # ⭐⭐ ceo RULING 2026-08-29 (row s4e-mint-subcommand, hq_C's find): A SEAT COULD NOT MINT A ROW — next|claim|
@@ -3098,6 +3153,16 @@ TASKEOF
          if [ -f "$_sb" ]; then timeout 30 python3 "$_sb" || printf '%s\n' "⛔ SUITE GRID REFUSED (rc=$?) -- $_sb ran and did not render"
          else printf '%s\n' "⛔ SUITE GRID MISSING -- no $_sb"; fi
          { [ "$hrc" -eq 0 ] || [ "$onlyhere" -eq 0 ]; } && [ -z "$diverged" ] && exit 0 || exit 1;;
+  # ⭐ whoami PRINTS THE RESOLVED SEAT AND NOTHING ELSE, ON stdout, WITH NO SIDE EFFECT (hq_B 2026-09-13).
+  # ⛔ IT EXISTS SO NOBODY MAKES A FOURTH COPY OF THE ROOT-PATH MAP. The mapping above is already the ONE
+  # authority (util_score_row.derive_measurer and lib_one_runner.sh both defer to it by rule); a gate or a
+  # helper that needs the seat had no way to ASK, so its only options were to duplicate the case statement or
+  # to scrape it out of another subcommand's output. Scraping is what test_gate_send_prose_requires_stdin.sh
+  # tried first, and `check` prefixes an unread-mail banner: the "identity" it recovered was the whole banner
+  # welded into one word, and it built a mailbox path out of it. ✅ The gate REFUSED rc=2 rather than proceed
+  # on that, which is the behaviour working -- but a verb that answers the question directly is the cure.
+  # ⛔ Deliberately silent about mail: this must stay safe to call from a script in a loop.
+  whoami) echo "$ME";;
   fleet) # ⛔ LON'S HEALTH VIEW (Lon 2026-08-22: "I'll not read much but I will check on the health").
          # ONE screen for the whole fleet, all COMPUTED. Deliberately does NOT run handoff_status.sh per seat
          # (that walks every repo, 9x over) -- it inspects each seat root's clones directly, which is the same
@@ -3284,7 +3349,7 @@ TASKEOF
   board) if [ $# -gt 1 ]; then shift; grep -v "^$ME |" "$PO/BOARD.md" 2>/dev/null > "$PO/.b.$$" || true; printf '%s | %s | %s\n' "$ME" "$*" "$(date -u +%H:%M)" >> "$PO/.b.$$"; mv "$PO/.b.$$" "$PO/BOARD.md"; fi; cat "$PO/BOARD.md"
          # posting a board line IS the handoff gesture -- so the banner fires here too (see `done` above).
          [ "${S4E_NO_BANNER:-0}" = "1" ] || S4E_BANNER_NO_BOARD=1 "$0" banner;;
-  *) echo "usage: next|claim|unclaim|park|done|assign|reown|mint|ask|send|check|clear|mailbox|sweep|board|banner|fleet"
+  *) echo "usage: next|claim|unclaim|park|done|assign|reown|mint|ask|send|check|clear|mailbox|sweep|board|banner|fleet|whoami"
      # ⛔⭐ THE BACKTICK TRAP -- FIVE MEASURED OCCURRENCES, and it is printed here because THIS SCRIPT CANNOT
      # DETECT IT. A backtick used for emphasis inside a double-quoted body is COMMAND SUBSTITUTION: the
      # caller's shell runs the word, prints "X: command not found" on the CALLER's stderr, and substitutes
