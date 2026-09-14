@@ -33,7 +33,7 @@ W="$(mktemp -d)" || { echo "⛔ REFUSED: mktemp failed -- nothing was checked"; 
 PO="$W/po"; ROW=gate-fixture-row
 mk_po() {  # $1 = mode text, or the literal NONE to omit the file entirely
   rm -rf "$PO"; mkdir -p "$PO/tasks" "$PO/claims" || return 2
-  for m in ceo hq_B seat01; do mkdir -p "$PO/$m/inbox" || return 2; done
+  for m in ceo cto cfo coo hq_B seat01; do mkdir -p "$PO/$m/inbox" || return 2; done
   : > "$PO/BOARD.md"; : > "$PO/QUEUE.done.tsv"
   [ "$1" = NONE ] || printf '%s\n' "$1" > "$PO/MODE"
   { printf '# gate fixture queue\n'; printf '0\t%s\tunassigned\tFREE\n' "$ROW"; } > "$PO/QUEUE.tsv"
@@ -60,6 +60,17 @@ arm_allow() { # $1 seat  $2 mode  $3 label
 arm_refuse hq_B   CEO     "(A) hq_B under CEO"
 arm_refuse seat01 QUARTET "(B) seat01 under QUARTET"
 arm_refuse seat01 NONET   "(B2) seat01 under NONET"
+# ⛔⭐ THE OFFICERS WERE NOT IN THE GUARD AT ALL UNTIL CEO-755 (ceo 2026-09-14, the day MODE went to CEO).
+# The guard's case matched ceo by name, hq_* and seat*; cto, cfo and coo matched NOTHING and fell out of the
+# case, and falling out of a case returns success -- so under MODE CEO, where line 2 says the ceo works the
+# rows itself, three stood-down seats could still lock rows and hide them from the only seat standing.
+# ⛔ AND THIS GATE COULD NOT SEE IT: five of its seven arms named hq_B or seat01, the two shapes the guard
+# already knew. A guard and its gate written from the same list share the same blind spot -- which is the
+# stale-canary class this file's own header warns about, arriving in the file that warns about it.
+arm_refuse cto    CEO     "(B3) cto under CEO -- an officer is stood down too"
+arm_refuse cfo    CEO     "(B4) cfo under CEO"
+arm_refuse coo    CEO     "(B5) coo under CEO"
+arm_allow  cto    NONET   "(B6) CONTROL: cto under NONET still dispatches -- the refusal is the MODE, not the seat"
 arm_allow  ceo    CEO     "(C) ceo under CEO is NEVER refused"
 arm_allow  hq_B   FLEET-16 "(D) hq_B under FLEET-16"
 arm_allow  hq_B   NONET    "(D2) hq_B under NONET -- all nine HQs stand (Lon 2026-09-08)"

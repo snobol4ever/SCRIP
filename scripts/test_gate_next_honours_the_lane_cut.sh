@@ -64,9 +64,36 @@ _own_lang=""; _own_owner=""
 for _l in $_lane_langs; do
   [ "$_l" = snobol4 ] && continue
   _o="$(_lane_owner_of "$_l")"
-  case "$_o" in hq_*|cto|cfo|coo) _own_lang="$_l"; _own_owner="$_o"; break;; esac
+  # ⛔ ceo IS ADMITTED HERE AND THAT IS NOT A CONTRADICTION OF THE LAW ABOVE (ceo CEO-755, MODE CEO). The law
+  # restricts the ceo IDENTITY -- ME=ceo is never lane-filtered. This fixture never runs AS the ceo: it runs as
+  # a numbered seat whose HQ file names the owner, and a seat reporting to the ceo is lane-determinable exactly
+  # as a seat reporting to an HQ is. Refusing ceo here would have made the gate ungradable in the one mode where
+  # every language has the same owner -- i.e. it would go dark precisely when the lane cut is simplest to check.
+  case "$_o" in hq_*|ceo|cto|cfo|coo) _own_lang="$_l"; _own_owner="$_o"; break;; esac
 done
-[ -n "$_own_lang" ] || refuse "no language in the picker's table is owned by a lane-determinable seat (hq_*, cto, cfo or coo -- the ceo is never lane-restricted by law), so an own-lane scenario cannot be built. This is a real finding about the lane cut, not a broken fixture -- report it rather than lowering the bar."
+[ -n "$_own_lang" ] || refuse "no language in the picker's table is owned by a lane-determinable seat (hq_*, ceo, cto, cfo or coo), so an own-lane scenario cannot be built. This is a real finding about the lane cut, not a broken fixture -- report it rather than lowering the bar."
+# ⛔⭐⭐ HOW MANY LANES DOES THE TABLE ACTUALLY HAVE? (ceo CEO-755, the day MODE went to CEO.) Blocks (a)-(c)
+# grade a CROSS-lane promotion, and a cross lane has to EXIST to be graded. Under a single-seat mode the
+# table gives all seven languages to one owner, so there is no second lane and the fixture's old cross-lane
+# row -- a snobol4 row with an `unassigned` owner cell -- resolved to the SAME lane and was promoted, exactly
+# as the picker should. That read as 2 of 10 arms RED: a gate reporting a defect in the thing it grades when
+# the real event was its own scenario dissolving. ⛔ AND THE EXPLICIT-OWNER WORKAROUND DOES NOT WORK EITHER,
+# which is worth writing down so the next reader does not spend the hour: giving the blocker a hq_B owner cell
+# makes (a) and (b) gradable but breaks (c), because an owner-cell skip is not a lane skip -- arm (j) proves
+# a row owned by another seat is never auto-served in EITHER pass, so the blocker could not be promoted.
+# ⛔ SO THE THREE ARMS ARE UNBUILDABLE, AND THE CHOICE IS STATED RATHER THAN TAKEN SILENTLY: a one-owner table
+# under a mode that DECLARES one working seat is the lane cut being dormant, not broken -- those arms are
+# printed UNBUILDABLE by name and the population is stated with the verdict. A one-owner table under a
+# multi-seat mode is a CONTRADICTION and still refuses rc=2. The difference is whether the law says so.
+_n_owners="$(for _l in $_lane_langs; do _lane_owner_of "$_l"; echo; done | sort -u | grep -c .)"
+_live_mode="$(head -1 "${S4E_POST_LIVE:-/home/resources/postoffice}/MODE" 2>/dev/null | tr -d '[:space:]')"
+_one_lane=0
+if [ "${_n_owners:-0}" -le 1 ]; then
+  case "$_live_mode" in
+    CEO) _one_lane=1 ;;
+    *) refuse "the picker's table gives every language to ONE owner ($_own_owner) while MODE line 1 reads '${_live_mode:-unreadable}', which declares more than one working seat. A cross-lane scenario cannot be built and this disagreement is the finding: either the table collapsed or the mode did." ;;
+  esac
+fi
 mkdir -p "$W/$_own_owner/inbox" "$W/$_own_owner/archive"
 printf '%s\n' "$_own_owner" > "$W/seat07/HQ"     # seat07's lane is whoever owns $_own_lang TODAY, read from the picker itself
 echo "    fixture: own lane = $_own_owner (owns $_own_lang), cross/frozen language = snobol4"
@@ -84,6 +111,13 @@ set_mode 'FLEET-16'   # no language freeze active for this block -- isolates the
 
 # (a)+(b): own-lane pass must refuse to promote a cross-lane blocker, and say so; a genuine own-lane
 # row at a worse rank is served instead.
+unbuilt=0
+unbuildable(){ unbuilt=$((unbuilt+1)); printf '  ----  %s  [UNBUILDABLE: %s]\n' "$1" "$2"; }
+if [ "$_one_lane" = 1 ]; then
+  unbuildable "(a) own-lane pass serves the genuine own-lane fallback row, not the cross-lane promoted blocker" "one lane under MODE CEO"
+  unbuildable "(b) the refusal is printed, naming both the blocked row and the refused blocker" "one lane under MODE CEO"
+  unbuildable "(c) cross-lane fallback still promotes the blocker when the seat's own lane has nothing else" "one lane under MODE CEO"
+else
 reset_q
 mk 0 ${_own_lang}-blocked-row      "$_own_owner" BLOCKED-ON:snobol4-blocker-row
 mk 5 snobol4-blocker-row   unassigned FREE
@@ -105,6 +139,7 @@ out="$(run_next seat07)"
 grep -qE '^LOCKED.*snobol4-blocker-row2' <<<"$out" \
   && ck ok "(c) cross-lane fallback still promotes the blocker when the seat's own lane has nothing else" \
   || ck no "(c) dependency promotion must still work cross-lane when nothing own-lane is servable -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
+fi
 
 # --- (d)+(e)+(f): THE MODE LANGUAGE FREEZE ---------------------------------------------------------------
 # Same lane on both rows this time (deliberately) so a refusal here can ONLY be explained by the freeze,
@@ -177,5 +212,6 @@ out="$(run_next seat07)"
 printf 'hq_B\n' > "$W/seat07/HQ"
 
 echo "------------------------------------------------------------"
-[ "$fails" -ne 0 ] && { echo "⛔ GATE FAIL: $fails of $checks check(s) failed"; exit 1; }
+[ "$fails" -ne 0 ] && { echo "⛔ GATE FAIL: $fails of $checks check(s) failed ($unbuilt unbuildable in this mode, named above)"; exit 1; }
+[ "${unbuilt:-0}" -ne 0 ] && { echo "✅ GATE PASS: $checks graded, 0 red — $unbuilt arm(s) UNBUILDABLE under a one-lane mode and named above, never counted green"; exit 0; }
 echo "✅ GATE PASS: $checks/$checks checks"; exit 0

@@ -628,13 +628,17 @@ s4e_is_hq() { case "$1" in hq|hq_C|hq_P|hq_B|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V|ceo|c
 s4e_lane_languages() { printf 'icon prolog snobol4 snocone pascal raku rebus'; }
 s4e_lane_owner_of_language() {
     case "$1" in
-      icon)     printf 'ceo';;    # CONCERN 1 completeness owner, MODE line 2
-      prolog)   printf 'cto';;    # completeness + the ISO ladder; hq_C breadth, hq_R builtins/streams
-      snobol4)  printf 'cfo';;    # the master and the six SNOBOL4 packages
-      pascal)   printf 'cfo';;    # CEO-748 EXECUTIVE: the coo is THE ONE RUNNER and holds no language lane; hq_S stood down
-      snocone)  printf 'cfo';;    # CEO-748 EXECUTIVE: rides lower_snobol4, so it sits with SNOBOL4; hq_I stood down
-      rebus)    printf 'ceo';;    # CEO-742/745: the ceo is the Rebus owner, and CEO-748 keeps it there
-      raku)     printf 'ceo';;    # CEO-748 EXECUTIVE: the ceo's cure lane, Icon being full and Rebus closed; hq_T stood down
+      # ⛔ MODE CEO (CEO-755): ONE WORKING SEAT, so every language is the ceo's. This is not seven decisions,
+      # it is one -- and it is written out per language anyway because the gate beside it compares this table
+      # to MODE line 2 LANGUAGE BY LANGUAGE, and a table that collapsed to a default would agree with a line 2
+      # that had drifted on six of them without anything noticing.
+      icon)     printf 'ceo';;
+      prolog)   printf 'ceo';;
+      snobol4)  printf 'ceo';;
+      pascal)   printf 'ceo';;
+      snocone)  printf 'ceo';;
+      rebus)    printf 'ceo';;
+      raku)     printf 'ceo';;
     esac
 }
 # One line of prose for the `mint` refusal, DERIVED so it cannot drift from the arms above.
@@ -2467,6 +2471,14 @@ TASKEOF
              exit 2; }
          case "$ME" in
            ceo) : ;;
+           # ⛔⭐ AN OFFICER IS A STOOD-DOWN IDENTITY UNDER MODE CEO, AND THE GUARD DID NOT KNOW IT (ceo CEO-755).
+           # The case below matched hq_* and seat* and let ceo through by name; cto, cfo and coo matched NOTHING
+           # and fell out of the case entirely, so under MODE CEO -- where line 2 says the ceo works the rows
+           # itself -- three seats could still lock rows and hide them from the only seat that is standing.
+           # The defect was invisible for exactly the reason the comment above names: falling out of a case
+           # returns success, so "not refused" and "permitted" are the same observable.
+           cto|cfo|coo) case "$_mode" in
+                      CEO) _refuse_dispatch "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";; esac;;
            hq|hq_?) case "$_mode" in
                       CEO) _refuse_dispatch "an HQ" "Under CEO no HQ is standing -- the ceo works the rows itself.";;
                       EXECUTIVE) _refuse_dispatch "an HQ" "Under EXECUTIVE only the executives (ceo, cto, coo, cfo) work rows -- every HQ is stood down (Lon 2026-09-07).";; esac;;
