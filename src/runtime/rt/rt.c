@@ -418,6 +418,7 @@ static rt_frame_t g_rt_frames[RT_FRAME_STACK_MAX];
 static int        g_rt_frame_depth = 0;
 __attribute__((visibility("hidden"))) int rt_k_level = 1;
 int * const rt_k_level_p = &rt_k_level;
+static inline void rt_k_level_mirror(void) { kw_fnclevel = (int64_t)rt_k_level - 1; }
 #define PROC_FRAME_QWORDS 512
 #define CALL_ARGS_MAX     64
 typedef struct {
@@ -539,8 +540,7 @@ int rt_ab_enter_env(void *frame)
     *(uint64_t *)(fb + AB_OFF_SIGMA)    = (uint64_t)(uintptr_t)Σ;
     *(uint64_t *)(fb + AB_OFF_SIGMALEN) = (uint64_t)(int64_t)Σlen;
     *(uint64_t *)(fb + AB_OFF_WN)       = (uint64_t)(int64_t)rt_g_want_name; rt_g_want_name = 0;
-    rt_k_level++;
-    kw_fnclevel = (int64_t)rt_k_level - 1;
+    rt_k_level++; rt_k_level_mirror();
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -550,8 +550,7 @@ DESCR_t rt_ab_leave_env(void *frame, DESCR_t result, int is_fail)
     int wn   = (int)(int64_t)*(uint64_t *)(fb + AB_OFF_WN);
     Σ    = (const char *)(uintptr_t)*(uint64_t *)(fb + AB_OFF_SIGMA);
     Σlen = (int)(int64_t)*(uint64_t *)(fb + AB_OFF_SIGMALEN);
-    rt_k_level--;
-    kw_fnclevel = (int64_t)rt_k_level - 1;
+    rt_k_level--; rt_k_level_mirror();
     if (is_fail) { rt_g_want_name = wn; return FAILDESCR; }
     return rt_nret_fix(result, wn);
 }
@@ -1215,7 +1214,7 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
     if (nargs > CALL_ARGS_MAX) nargs = CALL_ARGS_MAX;
     rt_frame_bind_args(fb, p, nargs);
     if (hout) *hout = (void *)0;
-    rt_k_level++; (void)p->fn((void *)fb, 0); rt_k_level--;
+    rt_k_level++; rt_k_level_mirror(); (void)p->fn((void *)fb, 0); rt_k_level--; rt_k_level_mirror();
     return *(DESCR_t *)(fb + 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1234,9 +1233,9 @@ DESCR_t rt_proc_resume_frame_h(void **hslot)
     { rt_genp_s *g = rt_genp_lookup(frame);
       if (g) {
           uint64_t out2[2] = { 0, 0 };
-          rt_k_level++;
+          rt_k_level++; rt_k_level_mirror();
           int ok = scrip_coexpr_activate(&g->co, 0, 0, out2, (const char *)0);
-          rt_k_level--;
+          rt_k_level--; rt_k_level_mirror();
           return rt_genp_triage(g, ok, out2, hslot);
       } }
     if (hslot) *hslot = (void *)0;
@@ -1362,8 +1361,8 @@ void rt_gc_ws_roots(void)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned char g_lvl_own[1 << 16];
-static inline void rt_lvl_open(int own) { int L = rt_k_level; if (L >= 0 && L < (1 << 16)) g_lvl_own[L] = own ? 1 : 0; else own = 0; if (!own) rt_k_level++; }
-static inline void rt_lvl_close(void) { int L = rt_k_level; if (L >= 0 && L < (1 << 16) && g_lvl_own[L]) { g_lvl_own[L] = 0; return; } rt_k_level--; }
+static inline void rt_lvl_open(int own) { int L = rt_k_level; if (L >= 0 && L < (1 << 16)) g_lvl_own[L] = own ? 1 : 0; else own = 0; if (!own) rt_k_level++; rt_k_level_mirror(); }
+static inline void rt_lvl_close(void) { int L = rt_k_level; if (L >= 0 && L < (1 << 16) && g_lvl_own[L]) { g_lvl_own[L] = 0; return; } rt_k_level--; rt_k_level_mirror(); }
 int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
 {
     rt_proc_resolve_cells(p);
@@ -1438,19 +1437,19 @@ long rt_proc_call_open_slim(const char *name, int np, int nargs)
       if (!sh) { if (p->rcell) *p->rcell = NULVCL; else NV_SET_fn(rname, NULVCL); } }
     if (g_monitor_bin) mon_emit_call_bin(p->name);
     { extern long g_stno; DESCR_t _ta[16]; int _tn = nargs < 16 ? nargs : 16; for (int _k = 0; _k < _tn; _k++) _ta[_k] = (p->pcells && p->pcells[_k]) ? *p->pcells[_k] : NULVCL; rt_trace_event_args(TRK_CALL, p->name, _ta, _tn, NULVCL, g_stno); }
-    rt_k_level++;
+    rt_k_level++; rt_k_level_mirror();
     return (long)(uintptr_t)(void *)p->fn;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_proc_call_epilogue_slim_γ(DESCR_t result)
 {
-    rt_k_level--;
+    rt_k_level--; rt_k_level_mirror();
     return result;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_proc_call_epilogue_slim_ω(void)
 {
-    rt_k_level--;
+    rt_k_level--; rt_k_level_mirror();
     return FAILDESCR;
 }
 static int rt_proc_call_prologue_lex(rt_proc_t *p, int nargs, int wn);
@@ -1481,18 +1480,18 @@ void rt_pl_dc_prep(void *fb, long suffix_off, long region_bytes, long np, long n
     for (long k = nargs; k < np; k++) zf[1 + k] = NULVCL;
     zf[0] = NULVCL;
     { DESCR_t *sz = (DESCR_t *)((char *)fb + suffix_off); for (long zi = 0; zi < (region_bytes - suffix_off) / 16; zi++) sz[zi] = NULVCL; }
-    rt_k_level++;
+    rt_k_level++; rt_k_level_mirror();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dc_leave_γ(DESCR_t r, long vtmark, void *fb)
 {
-    rt_k_level--;
+    rt_k_level--; rt_k_level_mirror();
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dc_leave_ω(long vtmark, void *fb)
 {
-    rt_k_level--;
+    rt_k_level--; rt_k_level_mirror();
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1963,7 +1962,7 @@ DESCR_t rt_call_named_proc_sl(const char *name, DESCR_t *args, int nargs, void *
     for (int k = 0; k < ns; k++) slots[k] = (k < np && k < nargs) ? args[k] : NULVCL;
     const char *save_Σ = Σ; int save_Σlen = Σlen;
     if (g_monitor_bin) mon_emit_call_bin(name);
-    rt_k_level++; DESCR_t fret = p->fn(fb, 0); rt_k_level--;
+    rt_k_level++; rt_k_level_mirror(); DESCR_t fret = p->fn(fb, 0); rt_k_level--; rt_k_level_mirror();
     Σ = save_Σ; Σlen = save_Σlen;
     DESCR_t *rcell = rt_call_fastpath_ok() ? p->rcell : (DESCR_t *)0; DESCR_t result = IS_FAIL_fn(fret) ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(name));
     rt_name_restore(save_base);
