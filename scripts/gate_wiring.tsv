@@ -222,6 +222,7 @@ test_gate_pl_a_binary_stream_has_no_encoding_property.sh	WIRED	-	-	-
 test_gate_pl_a_negative_unbounded_integer_literal_reads_as_its_own_value.sh	WIRED	-	-	-
 test_gate_pl_a_quoted_atom_doubles_its_apostrophe.sh	WIRED	-	-	-
 test_gate_pl_allsol_goal_is_validated.sh	WIRED	-	-	-
+test_gate_pl_an_int64_overflow_promotes_to_the_bignum_core_instead_of_raising.sh	WIRED	-	-	-
 test_gate_pl_an_unknown_stream_alias_throws_and_never_dies_silently.sh	WIRED	-	-	-
 test_gate_pl_arith_iso_errors_are_catchable.sh	WIRED	-	-	-
 test_gate_pl_atom_concat_modes.sh	WIRED	-	-	-
