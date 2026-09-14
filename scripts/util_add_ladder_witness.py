@@ -423,13 +423,15 @@ def main():
             sno_text = "\n".join(sno_lines) + "\n"
     ref_text, want_rc = run_oracle_twice(oracle_argv, twin_path if twin_path is not None else src_path)
     ref_lines = ref_text.splitlines()
-    if want_rc != 0:
-        # ⛔ NOT YET IMPLEMENTED: a nonzero want_rc must also gain a line in ALL.wantrc (keyed on the
-        # entry NAME -- lib_ladder.sh's own wantrc() reads it there, never from ALL.csv), and this
-        # script does not write that sidecar. Minting the CSV/master rows without it would grade this
-        # witness against the wrong expected rc (default 0) forever -- refuse rather than land it broken.
-        refuse("oracle exited rc=%d (nonzero) -- this script does not yet write ALL.wantrc, so it "
-               "cannot correctly mint a nonzero-rc witness; extend it before using it for one" % want_rc)
+    # ⛔⭐ A NONZERO want_rc IS DECLARED IN ALL.wantrc, NEVER ONLY IN ALL.csv (hq_I 2026-09-13, extending the
+    # refusal that stood here). lib_ladder.sh's own wantrc() reads the sidecar and nothing else, so a witness
+    # minted without that line is graded against the default rc=0 forever -- which is why the old refusal was
+    # right to block rather than mint half of it. The sidecar is written below, after the master and the CSV,
+    # under the same tmp+replace discipline and the same preserve-what-existed proof.
+    if want_rc != 0 and lang not in csh.LANG_CONFIGS:
+        refuse("oracle exited rc=%d and %s is a mixed (non-block) master, whose reader this tool drives "
+               "through read_suite without a wantrc sidecar path -- extend that arm before minting a "
+               "nonzero-rc witness for it" % (want_rc, lang))
 
     # ⛔⭐ THE MODES CELL IS DERIVED FROM THE POPULATION THIS WITNESS IS JOINING, NOT FROM LANG_CONFIGS
     # (hq_I 2026-09-13). LANG_CONFIGS["snocone"]["modes"] is "ast" -- correct for the parser-fixture
@@ -568,6 +570,27 @@ def main():
         tmp_csv.unlink(missing_ok=True)
         refuse("post-append check failed: existing ALL.csv rows were perturbed by the append -- nothing written")
     tmp_csv.replace(master_csv)
+
+    # ── THE wantrc SIDECAR. Written only for a nonzero rc: read_wantrc_sidecar() REFUSES a declared rc=0
+    # (it is already the default), so writing one would break every later read of this master.
+    if want_rc != 0:
+        w_path = master_dir / "ALL.wantrc"
+        header = ("# ALL.wantrc \u2014 DECLARED exit codes for entries whose CORRECT run exits nonzero.\n"
+                  "# Format: name<TAB>rc   \u00b7   blank lines and # comments ignored   \u00b7   rc=0 is the default and is REFUSED here.\n"
+                  "#\n"
+                  "# \u26d4 DECLARED, NEVER INFERRED: classify() refuses to call a nonzero-rc run a PASS unless the\n"
+                  "# entry declares that exit code here, so an undeclared nonzero rc is a FAIL and not a silent pass.\n")
+        old_w = w_path.read_text() if w_path.is_file() else header
+        if not old_w.endswith("\n"):
+            old_w += "\n"
+        new_w = old_w + "%s\t%d\n" % (entry_name, want_rc)
+        tmp_w = w_path.with_suffix(".wantrc.newtmp")
+        tmp_w.write_text(new_w)
+        if not tmp_w.read_text().startswith(old_w):
+            tmp_w.unlink(missing_ok=True)
+            refuse("post-append check failed: existing ALL.wantrc lines were perturbed -- nothing written")
+        tmp_w.replace(w_path)
+        print("  wrote ALL.wantrc: %s\t%d" % (entry_name, want_rc))
 
     # ── FINAL PROOF: extract the just-written entry back out via the OFFICIAL extractor (not this
     # script's own belief) and confirm it is byte-identical to what the oracle produced.

@@ -3409,6 +3409,9 @@ static void var_dump(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void var_dump_at_exit(void) { extern long g_dump; if (g_dump) var_dump(); }
 void rt_dump_atexit_arm(void) { static int armed = 0; if (!armed) { armed = 1; atexit(var_dump_at_exit); } }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void code_at_exit(int status, void * arg) { (void) arg; if (status == 0 && kw_code != 0) { fflush((FILE *) 0); _exit((int) kw_code); } }
+void rt_code_atexit_arm(void) { static int armed = 0; if (!armed) { armed = 1; on_exit(code_at_exit, (void *) 0); } }
 #define NSTACK_MAX 256
 static int64_t _nstack[NSTACK_MAX];
 static int      _ntop = -1;

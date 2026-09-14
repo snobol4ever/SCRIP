@@ -250,7 +250,7 @@ static void kwb_init_once(void) {
     for (int i = 0; i < g_kwb_bound_n; i++) if (g_kwb_bound[i].kind == KWB_INT && !g_kwb_bound[i].prot && g_kwb_bound[i].cell) *g_kwb_bound[i].cell = g_kwb_bound[i].init;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_kw_seed_defaults(void) { kwb_init_once(); }
+void rt_kw_seed_defaults(void) { kwb_init_once(); { extern void rt_code_atexit_arm(void); rt_code_atexit_arm(); } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sn4_kw_spelling_is_canonical(const char *kw) {
     if (!kw) return 0;
