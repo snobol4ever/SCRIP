@@ -7785,6 +7785,18 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         const char *sp = VARVAL_fn(args[0]); if (!sp || !*sp) { *out = FAILDESCR; return 1; }
         char nb[128]; int k = 0; for (; sp[k] && sp[k] != '(' && k < 127; k++) nb[k] = sp[k]; nb[k] = 0;
         if (nb[0] && sn4_sysfn_protected(nb)) { extern int kwb_error(int code, const char *msg); kwb_error(248, "attempted redefinition of system function"); *out = FAILDESCR; return 1; }
+        if (sp[k] == '(') {
+            const char *fs = sp + k + 1; const char *fe = strchr(fs, ')'); if (!fe) fe = fs + strlen(fs);
+            while (fs < fe) {
+                const char *cm = fs; while (cm < fe && *cm != ',') cm++;
+                const char *b = fs; while (b < cm && (*b == ' ' || *b == '\t')) b++;
+                const char *e2 = cm; while (e2 > b && (e2[-1] == ' ' || e2[-1] == '\t')) e2--;
+                size_t fl = (size_t)(e2 - b);
+                if (fl > 0 && fl < 128) { char fb[128]; memcpy(fb, b, fl); fb[fl] = 0;
+                    if (sn4_sysfn_protected(fb)) { extern int kwb_error(int code, const char *msg); kwb_error(248, "attempted redefinition of system function"); *out = FAILDESCR; return 1; } }
+                fs = (cm < fe) ? cm + 1 : fe;
+            }
+        }
         { extern int dat_spec_is_current(const char *spec); if (!dat_spec_is_current(sp)) dat_register(sp); }
         { extern void dat_set_live(const char *name, int live); if (nb[0]) dat_set_live(nb, 1); }
         *out = NULVCL; return 1;

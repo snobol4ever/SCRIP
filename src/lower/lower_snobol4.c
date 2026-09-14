@@ -2644,7 +2644,19 @@ static void sno_prescan_expr(const tree_t * t, sno_def_t * defs, int * ndefs, co
             extern void * dat_register(const char * spec); extern void * dat_find_type(const char * name); extern void dat_set_live(const char * name, int live); extern int dat_spec_is_current(const char * spec);
             const char * sp = t->c[argbase]->v.sval;
             char nb[128]; int k = 0; for (; sp[k] && sp[k] != '(' && k < 127; k++) nb[k] = sp[k]; nb[k] = 0;
-            if (nb[0] && !sn4_sysfn_protected(nb) && !dat_spec_is_current(sp)) { dat_register(sp); dat_set_live(nb, 0); }
+            int prot = (nb[0] && sn4_sysfn_protected(nb)) ? 1 : 0;
+            if (!prot && sp[k] == '(') {
+                const char * fs = sp + k + 1; const char * fe = strchr(fs, ')'); if (!fe) fe = fs + strlen(fs);
+                while (fs < fe && !prot) {
+                    const char * cm = fs; while (cm < fe && *cm != ',') cm++;
+                    const char * b = fs; while (b < cm && (*b == ' ' || *b == '\t')) b++;
+                    const char * e2 = cm; while (e2 > b && (e2[-1] == ' ' || e2[-1] == '\t')) e2--;
+                    size_t fl = (size_t)(e2 - b);
+                    if (fl > 0 && fl < 128) { char fb[128]; memcpy(fb, b, fl); fb[fl] = 0; if (sn4_sysfn_protected(fb)) prot = 1; }
+                    fs = (cm < fe) ? cm + 1 : fe;
+                }
+            }
+            if (nb[0] && !prot && !dat_spec_is_current(sp)) { dat_register(sp); dat_set_live(nb, 0); }
         }
         if (name && !strcmp(name, "OPSYN") && t->n - argbase == 2) {
             const char * an = sno_litname(t->c[argbase]);

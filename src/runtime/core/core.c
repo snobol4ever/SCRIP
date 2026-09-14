@@ -2189,6 +2189,19 @@ DESCR_t core_DATA_register(DESCR_t *a, int n) {
           if (plen >= sizeof probe_name) plen = sizeof probe_name - 1;
           memcpy(probe_name, raw_spec, plen); probe_name[plen] = '\0';
           if (sn4_sysfn_protected(probe_name)) { extern int kwb_error(int code, const char *msg); kwb_error(248, "attempted redefinition of system function"); return FAILDESCR; }
+          const char *fs = p + 1; const char *fe = strchr(fs, ')'); if (!fe) fe = fs + strlen(fs);
+          while (fs < fe) {
+              const char *comma = fs; while (comma < fe && *comma != ',') comma++;
+              const char *b = fs; while (b < comma && (*b == ' ' || *b == '\t')) b++;
+              const char *e2 = comma; while (e2 > b && (e2[-1] == ' ' || e2[-1] == '\t')) e2--;
+              size_t flen = (size_t)(e2 - b);
+              if (flen > 0) {
+                  char fprobe[256]; if (flen >= sizeof fprobe) flen = sizeof fprobe - 1;
+                  memcpy(fprobe, b, flen); fprobe[flen] = '\0';
+                  if (sn4_sysfn_protected(fprobe)) { extern int kwb_error(int code, const char *msg); kwb_error(248, "attempted redefinition of system function"); return FAILDESCR; }
+              }
+              fs = (comma < fe) ? comma + 1 : fe;
+          }
       } }
     char *spec = rt_pinned_strdup(raw_spec);
     DEFDAT_fn(spec);
