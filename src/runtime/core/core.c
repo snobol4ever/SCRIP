@@ -403,7 +403,9 @@ int core_icn_builtin_argcheck(const char *fn, DESCR_t *args, int nargs, int stri
         {"close", 0, 'f', 0}, {"seek", 0, 'f', 0}, {"where", 0, 'f', 0}, {"display", 1, 'f', 1},
         {(const char *)0, 0, 0, 0}};
     if (!fn || !args || !strict) return 0;
+    const char _f0 = fn[0]; if (!_f0) return 0; const char _f1 = fn[1];
     for (int i = 0; tbl[i].nm; i++) {
+        if (tbl[i].nm[0] != _f0 || tbl[i].nm[1] != _f1) continue;
         if (strcmp(tbl[i].nm, fn) || tbl[i].idx >= nargs) continue;
         DESCR_t d = args[tbl[i].idx];
         if (IS_FAIL(d)) return 1;
