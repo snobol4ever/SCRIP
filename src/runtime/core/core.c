@@ -4024,6 +4024,9 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
         fname = _io_extract_fname(VARVAL_fn(a[2]), fname_buf, sizeof(fname_buf));
     }
     int ch = (n >= 2 && IS_INT(a[1])) ? (int)a[1].i : -1;
+    { const char *third = (n >= 3) ? VARVAL_fn(a[2]) : (const char *)0;
+      if (!core_io_assoc_legacy() && n >= 2 && (n == 2 || !third || !third[0])) {
+          core_runtime_error(116, "inappropriate file specification for input"); return FAILDESCR; } }
     if (!fname || !fname[0]) {
         extern int dup(int);
         long fd = -1, rlen = 0;
@@ -4065,6 +4068,9 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
     _io_chan_setup();
+    { const char *third = (n >= 3) ? VARVAL_fn(a[2]) : (const char *)0;
+      if (!core_io_assoc_legacy() && n >= 2 && (n == 2 || !third || !third[0])) {
+          core_runtime_error(160, "inappropriate file specification for output"); return FAILDESCR; } }
     char fname_buf[4096];
     const char *fname = NULL;
     if (n >= 4) {
