@@ -199,7 +199,30 @@ if grep -qE '\b(wall_us|wall_ms|statistics|real_time|get_time)\s*\(' "$KPL"; the
       || { echo "main :- bench_work(Res), write(Res), nl,"
            echo "        format(user_error, \"BENCH kernel=$K mode=single work_us=UNAVAILABLE work_ms=UNAVAILABLE engine=$ENGINE-has-no-wall-clock~n\", [])."; } ;;
     iter)
-      echo "bench__loop(N) :- between(1, N, _), bench_work(Res), write(Res), nl, fail."
+      # ⛔⭐ once/1 AROUND THE KERNEL, AND IT IS THE DIFFERENCE BETWEEN ITERATING N TIMES AND ENUMERATING
+      #   A SOLUTION SET (hq_P 2026-09-13, measured on 4 of 23 kernels).  This is a FAILURE-DRIVEN loop:
+      #   the trailing `fail` backtracks, and Prolog retries the MOST RECENT choice point first -- which
+      #   is bench_work's, not between/3's.  So for a NONDETERMINISTIC kernel the loop walks that kernel's
+      #   whole solution set before it ever asks between/3 for iteration 2.  MEASURED: queens on m3 ran
+      #   120 s emitting 18,297 solution lines where gnu answers in 11 ms, and queens_8/ham printed 92
+      #   lines at N=1.  All four read NA on every engine and vanished from angle 1's board.
+      #   ⭐ THE LOOP-OUTPUT CHECK IS WHAT CAUGHT IT AND IT BEHAVED EXACTLY AS DESIGNED -- it refused with
+      #   LOOP-OUTPUT-MISMATCH(lines=92/1) rather than dividing a time by an N the loop never ran.  The
+      #   fabrication it prevented is the one its own header records: a wrapper that stopped after two
+      #   iterations divided by N=65536 and published m3 at 3,102,442 iter/s.
+      #   ⛔ COMMITTING TO THE FIRST SOLUTION IS SEMANTICALLY TRANSPARENT ON A DETERMINISTIC KERNEL, which
+      #   is what the other 19 are -- their .expected is a single answer, so taking the first solution is
+      #   what the reference already says the program computes.  It is not a tolerance and it hides no
+      #   red: a kernel whose FIRST solution is wrong still fails the loop-output check against .expected.
+      #   ⛔⭐ AND IT IS A CUT IN A ONE-LINE HELPER, NOT once/1, FOR A MEASURED REASON -- once/1 WAS TRIED
+      #   FIRST AND REGRESSED 18 GREEN KERNELS (hq_P 2026-09-13).  On m3/m4 a failure-driven loop calling
+      #   once/1 dies after exactly 121 iterations: nrev at N=64 printed 64 lines rc=0, at N=256 printed
+      #   121 lines rc=1, at N=1024 the same 121 and rc=1.  The cut form runs 64/256/1024 clean.  The two
+      #   are ISO-equivalent (once(G) IS call(G), !), so this is a SCRIP once/1 defect the wrapper must
+      #   not stand on -- routed to the Prolog lane, NOT worked around silently.  ⛔ Do not "simplify"
+      #   this back to once/1 without re-running nrev at N=1024 on m3.
+      echo "bench__one(Res) :- bench_work(Res), !."
+      echo "bench__loop(N) :- between(1, N, _), bench__one(Res), write(Res), nl, fail."
       echo "bench__loop(_)."
       [ "$CLOCK" = 1 ] \
       && { echo "main :- wall_us(T0), wall_ms(M0), bench__loop($N), wall_us(T1), wall_ms(M1),"
