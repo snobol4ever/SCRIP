@@ -633,7 +633,7 @@ s4e_lane_owner_of_language() {
       snobol4)  printf 'cfo';;    # the master and the six SNOBOL4 packages
       pascal)   printf 'hq_S';;   # CEO-723: the coo is THE ONE RUNNER and holds no language lane
       snocone)  printf 'hq_I';;   # per-language ladder seat
-      rebus)    printf 'hq_S';;   # per-language ladder seat; RebM is 43/43 and closed
+      rebus)    printf 'ceo';;    # CEO-742: MODE line 2 declares REBUS -- CLOSED, NO OWNER, so a rebus-* row is a REOPENING question for the arbiter and not a lane
       raku)     printf 'hq_T';;   # per-language ladder seat, and the test standard
     esac
 }

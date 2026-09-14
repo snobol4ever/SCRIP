@@ -57,6 +57,7 @@ table_owner() { bash -c '. /dev/stdin <<<"$(sed -n "/^s4e_lane_languages()/,/^s4
 
 # ── what MODE LINE 2 says. ⭐ Two independent shapes, because line 2 has used both and neither is promised:
 #   (a) "THE SEATS: RAKU -- hq_T; ... ICON -- the ceo"     (the NONET cut)
+#   (c) "THE SEATS: ... REBUS -- CLOSED, NO OWNER"          a language with NO owner by declaration
 #   (b) "<seat> ICON", "<seat> SNOBOL4", ...               (the CONCERN-1 roster earlier in the same line)
 # A language found by NEITHER is UNPARSEABLE, and unparseable is rc=2 for that language -- never an assumed
 # agreement. ⛔ The two shapes must not be allowed to disagree silently either: when both match and differ,
@@ -68,6 +69,7 @@ mode_owner() {
     _lang_uc="$(printf '%s' "$1" | tr '[:lower:]' '[:upper:]')"
     _a="$(printf '%s' "$L2" | grep -oE "$_lang_uc -- (the )?(ceo|cto|coo|cfo|hq_[A-Z])" | head -1 | sed -E 's/.* -- (the )?//')"
     _b="$(printf '%s' "$L2" | grep -oE "(ceo|cto|coo|cfo|hq_[A-Z]) $_lang_uc[ ,]" | head -1 | sed -E 's/ .*//')"
+    if [ -z "${_a:-}" ] && [ -z "${_b:-}" ] && printf '%s' "$L2" | grep -qE "$_lang_uc -- CLOSED"; then printf 'CLOSED'; return 0; fi
     if [ -n "$_a" ] && [ -n "$_b" ] && [ "$_a" != "$_b" ]; then printf 'CONFLICT:%s/%s' "$_a" "$_b"; return 0; fi
     printf '%s' "${_a:-$_b}"
 }
@@ -79,6 +81,8 @@ for L in $LANGS; do
     case "$M" in
       CONFLICT:*) printf '  %-9s %-8s %-8s ⛔ MODE LINE 2 CONTRADICTS ITSELF (%s)\n' "$L" "${T:-?}" "--" "${M#CONFLICT:}"; CONFLICT=$((CONFLICT+1));;
       "")         printf '  %-9s %-8s %-8s ⚠️  unparseable in line 2 -- cannot check\n' "$L" "${T:-?}" "--"; UNPARSED=$((UNPARSED+1));;
+      CLOSED)     if [ "$T" = "${LANE_GATE_CLOSED_OWNER:-ceo}" ]; then printf '  %-9s %-8s %-8s ✅ closed language, table routes to the arbiter\n' "$L" "$T" "$M";
+                  else printf '  %-9s %-8s %-8s ⛔ DISAGREE -- MODE line 2 declares %s CLOSED, so a %s-* row is a REOPENING question and belongs to the arbiter (%s), not to %s\n' "$L" "${T:-?}" "$M" "$L" "$L" "${LANE_GATE_CLOSED_OWNER:-ceo}" "${T:-<nothing>}"; FAIL=$((FAIL+1)); fi;;
       "$T")       printf '  %-9s %-8s %-8s ✅\n' "$L" "$T" "$M";;
       *)          printf '  %-9s %-8s %-8s ⛔ DISAGREE -- the table sends %s-* rows to %s; MODE line 2 says %s owns %s\n' "$L" "${T:-?}" "$M" "$L" "${T:-<nothing>}" "$M" "$L"; FAIL=$((FAIL+1));;
     esac
@@ -102,5 +106,5 @@ if [ "$UNPARSED" -ne 0 ]; then
     echo "      this copy entirely. Until then a language can drift here and nobody is told."
     exit 2
 fi
-echo "✅ GATE OK -- all $N language fallbacks name the owner MODE line 2 names"
+echo "✅ GATE OK -- all $N language fallbacks name the owner MODE line 2 names (a CLOSED language must route to ${LANE_GATE_CLOSED_OWNER:-ceo})"
 exit 0
