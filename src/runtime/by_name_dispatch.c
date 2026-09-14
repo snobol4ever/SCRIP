@@ -8685,7 +8685,7 @@ static void * pl_anum_check(const char *nm, DESCR_t *a, int n) {
         return pl_anum_text_list_pair(rt_pl_deref_val(a[0]), rt_pl_deref_val(a[1]), !strcmp(nm, "number_codes"), "number");
     if (!strcmp(nm, "char_code") && n == 2) {
         DESCR_t c = rt_pl_deref_val(a[0]), k = rt_pl_deref_val(a[1]);
-        if (!pl_iso_unbound(c)) { const char *cs = pl_atom_str(c); if (!cs || !cs[0] || cs[1]) return rt_pl_ball_kind2("type_error", "character", c); }
+        if (!pl_iso_unbound(c)) { const char *cs = pl_atom_str(c); if (!cs || !cs[0] || cs[utf8_seqlen((unsigned char)cs[0])]) return rt_pl_ball_kind2("type_error", "character", c); }
         if (!pl_iso_unbound(k)) {
             if (k.v != DT_I) return rt_pl_ball_kind2("type_error", "integer", k);
             if (!pl_anum_code_ok((long)k.i)) { extern void *rt_pl_ball_kind1(const char *, const char *); return rt_pl_ball_kind1("representation_error", "character_code"); } }
