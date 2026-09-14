@@ -51,6 +51,10 @@ refuse() { echo "⛔ Ir SLOPE BOARD REFUSED (rc=2): $*" >&2; exit 2; }
 command -v valgrind >/dev/null 2>&1 || refuse "valgrind not on PATH."
 . "$HERE/lib_ir_measure.sh" 2>/dev/null || refuse "cannot load lib_ir_measure.sh -- this board will not read Ir by hand."
 . "$HERE/lib_perf_fmt.sh"     2>/dev/null || refuse "lib_perf_fmt.sh unloadable (the ONE multiple-printing authority)."
+# CEO-743 welded a load stamp onto every standalone perf_mult/perf_pct. THIS SCRIPT COMPOSES ITS OWN CELLS
+# from captured multiples, so the stamp must not land INSIDE a cell -- it is emitted once, above, with the
+# shared axes, which is where the FACT RULE says a grid names anything it shares.
+PERF_STAMP_OFF=1
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || refuse "lib_oracle_flags.sh unloadable (the ONE oracle-path authority)."
 SBL="$(sbl_clean_bin)"; [ -x "$SBL" ] || refuse "clean SPITBOL benchmark oracle absent: $SBL"
 SBL_FLAGS="$(sbl_lang_flags)"
@@ -93,6 +97,8 @@ echo "  basis: Ir(n) = OVERHEAD + n*WORK fitted at n = $BASE_N / $((BASE_N*2)) /
 echo "         (Ir per iteration, startup cancelled exactly), OVERHEAD is the INTERCEPT (its own number)."
 echo "         Linearity cross-check: slope(N,2N) vs slope(2N,4N) must agree within ${LIN_TOL}% or the row reads NONLINEAR."
 echo "         Multiple = SPITBOL WORK / SCRIP WORK (FASTER axis: above 1.00x SCRIP does less work per iteration)."
+echo "  instrument = callgrind Ir regression, LOAD-IMMUNE: no load stamp is required on this board (CEO-743 binds"
+echo "         wall-clock numbers). For the record the box was at $(perf_load_stamp)."
 printf '%-20s %9s %13s %13s %13s %13s %13s %11s  %s\n' kernel "N" "m3 WORK/it" "m4 WORK/it" "sbl WORK/it" "m4 OVERHEAD" "sbl OVERHEAD" "linearity" "x vs SPITBOL (m4)"
 N=0; RC=0
 for src in "$B"/*.sno; do

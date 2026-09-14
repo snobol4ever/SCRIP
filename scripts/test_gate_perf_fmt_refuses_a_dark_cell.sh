@@ -49,13 +49,17 @@ dark "zero both"                  0   0       "crypt m3 vs gnu"
 # B. A REAL MEASUREMENT IS UNTOUCHED.  ⛔ This half is why the gate can be trusted: a refusal rule that
 # also broke live cells would be caught here, not in a grid three sessions later.
 echo "B. a measurable subject still prints its multiple, unchanged"
-m() { local want="$1" got; got="$(perf_mult "$2" "$3" 2>/dev/null)"
+# PERF_STAMP_OFF=1 HERE IS NOT THE TEST BEING BENT TO PASS -- it is this section testing the thing it was
+# always about. CEO-743 welded a load stamp onto every standalone number, so a bare perf_mult now prints
+# "2.000x   . load 3.21 on 16 cores"; B pins the VALUE FORMATTING, and PERF_STAMP_OFF is the documented
+# composition path for a caller building its own line. The stamp law itself is pinned in section I below.
+m() { local want="$1" got; got="$(PERF_STAMP_OFF=1 perf_mult "$2" "$3" 2>/dev/null)"
       [ "$got" = "$want" ] && ok "perf_mult $2 $3 = $want" || bad "perf_mult $2 $3" "$want" "$got"; }
 m "2.000x"  100 50
 m "0.500x"  50  100
 m "1.000x"  7   7
 m "1.628x"  1628 1000
-p() { local want="$1" got; got="$(perf_pct "$2" "$3" 2>/dev/null)"
+p() { local want="$1" got; got="$(PERF_STAMP_OFF=1 perf_pct "$2" "$3" 2>/dev/null)"
       [ "$got" = "$want" ] && ok "perf_pct $2 $3 = $want" || bad "perf_pct $2 $3" "$want" "$got"; }
 p "100.0% faster" 200 100
 p "50.0% slower"  100 200
@@ -135,6 +139,44 @@ for h in bench_triangulate_pascal.sh bench_triangulate_prolog.sh bench_triangula
     elif ! sed 's/^[[:space:]]*#.*$//' "$f" | grep -q 'perf_grid_end'; then bad "$h: grid never closed" "a perf_grid_end CALL (the whole-grid refusal)" "no call outside comments"
     else ok "$h: no row-deleting guard, grid opened and closed"; fi
 done
+#-----------------------------------------------------------------------------------------------------
+# I. CEO-743: EVERY WALL-CLOCK NUMBER RECORDS THE LOAD AT MEASUREMENT, IN THE SAME LINE AS THE NUMBER.
+# WHY THIS SECTION EXISTS RATHER THAN A NOTE IN A PROCEDURE: the ruling puts the stamp in lib_perf_fmt.sh
+# "so it cannot be forgotten", and the census that earned it is that EIGHT bench scripts print multiples
+# through perf_row and never call perf_grid_begin -- so the stamp the file already carried reached NONE of
+# them. A law living only in the one entry point nobody calls is not a law.
+# THE WARRANT IS A MEASUREMENT, NOT A PREFERENCE: one unchanged binary read 0.549x at load 6.96 and 0.384x
+# at load 29.84, so the ratio moved by 30% of itself and the SIGN of the error is not knowable from inside
+# the reading. Two such numbers are identical on paper and 30% apart in fact.
+echo "I. every number carries the load it was measured under (CEO-743)"
+# THE PRECONDITION IS SET EXPLICITLY, AND FINDING IT IS HALF THE VALUE OF THIS SECTION. Section C opens grids
+# and the sections after it never close the last one, so PERF_GRID_OPEN was still 1 here and the first two
+# arms failed on a library that was behaving correctly. That is worth stating rather than quietly working
+# around: AN UNCLOSED GRID SILENTLY SUPPRESSES THE STAMP ON EVERY LATER STANDALONE NUMBER. A harness that
+# forgets perf_grid_end is already broken -- it never reads its own dark-cell verdict -- but the second
+# symptom is the quiet one, and a test that inherits ambient state from four sections above is not pinning
+# what it claims to pin.
+PERF_GRID_OPEN=0; PERF_ROWS_STAMPED=0
+got="$(perf_mult 100 50 2>/dev/null)"
+case "$got" in *load*core*) ok "a standalone perf_mult carries its load stamp" ;;
+    *) bad "standalone perf_mult must carry a load stamp" "2.000x ... load N on C cores" "$got" ;; esac
+got="$(perf_pct 200 100 2>/dev/null)"
+case "$got" in *load*core*) ok "a standalone perf_pct carries its load stamp" ;;
+    *) bad "standalone perf_pct must carry a load stamp" "100.0% faster ... load N on C cores" "$got" ;; esac
+got="$(PERF_STAMP_OFF=1 perf_mult 100 50 2>/dev/null)"
+case "$got" in *load*) bad "PERF_STAMP_OFF must suppress the stamp for a caller composing its own line" "2.000x" "$got" ;;
+    *) ok "PERF_STAMP_OFF=1 suppresses the stamp (the composition path)" ;; esac
+# INSIDE A GRID THE ROWS STAY BARE. The FACT RULE is that a grid names its axis ONCE in the header and its
+# rows carry bare multiples, so a stamp on every row would break the very grid it is trying to make honest.
+got="$( perf_grid_begin "x vs rival" >/dev/null 2>&1; perf_row "alpha" 100 50 2>/dev/null )"
+case "$got" in *load*) bad "a row inside an opened grid must stay bare" "alpha ... 2.000x" "$got" ;;
+    *) ok "a row inside an opened grid stays bare (its header carried the stamp)" ;; esac
+# AND THE SEAM THAT MATTERS: rows printed with NO perf_grid_begin -- the shape of all eight bench scripts --
+# must still emit the stamp, exactly ONCE, ahead of the first row.
+got="$( PERF_GRID_OPEN=0; PERF_ROWS_STAMPED=0; perf_row "alpha" 100 50 2>/dev/null; perf_row "beta" 100 80 2>/dev/null )"
+nload=$(printf '%s\n' "$got" | grep -c "load")
+[ "$nload" -eq 1 ] && ok "rows with no perf_grid_begin self-stamp exactly once (got $nload)" \
+                   || bad "gridless rows must stamp exactly once" "1 load line" "$nload load line(s)"
 #-----------------------------------------------------------------------------------------------------
 # G. NO HARNESS MAY CALL perf_row INSIDE $( ).  ⛔ THIS IS ARM E's SEAM ONE LEVEL OUT, AND IT SURVIVED
 # ARM E's CURE.  perf_row was fixed to bump PERF_DARK_CELLS in its OWN shell, but a CALLER writing

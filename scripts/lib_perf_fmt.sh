@@ -113,6 +113,34 @@ perf_dark_cell() {
     return 0
 }
 #-----------------------------------------------------------------------------------------------------
+# perf_stamp_suffix / perf_stamp_once_for_rows -- CEO-743: EVERY WALL-CLOCK NUMBER RECORDS THE LOAD AT
+# MEASUREMENT, IN THE SAME LINE AS THE NUMBER.  ⛔ The ruling is explicit that this belongs in this file
+# "so it cannot be forgotten, rather than in a procedure that must be remembered", and the census that
+# earned it is the reason: EIGHT benchmark scripts -- bench_icon_classic_set.sh, bench_icon_kernels.sh,
+# bench_ir_slope.sh, bench_two_number_ir.sh, bench_prolog_vanroy.sh, bench_pascal_fixed_iter.sh,
+# test_bench_pascal_timed.sh, bench_startup_touch_ab.sh -- print multiples through perf_row/perf_mult and
+# never call perf_grid_begin, so the stamp this file already had reached NONE of them.
+# ⭐ THE MEASUREMENT THAT MAKES IT A LAW AND NOT A COURTESY: one unchanged binary read 0.549x at load 6.96
+# and 0.384x at load 29.84 -- the ratio moved by 30% of itself, so load does NOT cancel out of a multiple,
+# and the SIGN of the error is not knowable from inside the measurement.  Two such readings are identical
+# on paper and 30% apart in fact, and the only thing that separates them is a figure neither one printed.
+# WHERE THE STAMP GOES, AND WHY IT IS NOT SIMPLY "ON EVERY LINE": the FACT RULE says a grid names its axis
+# ONCE in the header and its rows carry BARE multiples, so stamping every row would break the grid it is
+# trying to make honest.  So: a standalone perf_mult/perf_pct carries the stamp itself; inside a grid the
+# header carries it once; and a grid built WITHOUT perf_grid_begin -- all eight scripts above -- gets it
+# emitted once before its first row, which is the seam that would otherwise keep them loadless forever.
+perf_stamp_suffix() {
+    [ "${PERF_STAMP_OFF:-0}" = "1" ] && return 0
+    [ "${PERF_GRID_OPEN:-0}" = "1" ] && return 0
+    printf '   · %s' "$(perf_load_stamp)"
+}
+perf_stamp_once_for_rows() {
+    [ "${PERF_GRID_OPEN:-0}" = "1" ] && return 0
+    [ "${PERF_ROWS_STAMPED:-0}" = "1" ] && return 0
+    PERF_ROWS_STAMPED=1
+    printf '  measured at %s · %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$(perf_load_stamp)"
+}
+#-----------------------------------------------------------------------------------------------------
 # perf_mult REF OURS [SUBJECT] -- the multiple, coloured, with its unit.  Nothing else.
 # ⛔ REFUSES rather than printing "n/a" or a fabricated "0.000x"; see THE DARK-CELL LAW above.
 perf_mult() {
@@ -120,11 +148,13 @@ perf_mult() {
     local subj="${3:-reference=$1 ours=$2}"
     perf_is_cost "$1" || { perf_refuse "$subj" "reference cost is not a positive number: '$1'"; return 2; }
     perf_is_cost "$2" || { perf_refuse "$subj" "our cost is not a positive number: '$2'"; return 2; }
-    awk -v r="$1" -v o="$2" -v c="$(perf_color_on && echo 1 || echo 0)" 'BEGIN{
+    local out
+    out="$(awk -v r="$1" -v o="$2" -v c="$(perf_color_on && echo 1 || echo 0)" 'BEGIN{
         m = r / o
         s = sprintf("%.3fx", m)
         if (c) { print (m >= 1.0 ? "\033[92m" : "\033[31m") s "\033[0m" } else { print s }
-    }'
+    }')"
+    printf '%s%s\n' "$out" "$(perf_stamp_suffix)"
 }
 #-----------------------------------------------------------------------------------------------------
 # perf_pct BEFORE AFTER [SUBJECT] -- a DELTA, and a delta is the one form allowed to say the word.
@@ -134,11 +164,13 @@ perf_pct() {
     local subj="${3:-before=$1 after=$2}"
     perf_is_cost "$1" || { perf_refuse "$subj" "before cost is not a positive number: '$1'"; return 2; }
     perf_is_cost "$2" || { perf_refuse "$subj" "after cost is not a positive number: '$2'"; return 2; }
-    awk -v b="$1" -v a="$2" -v c="$(perf_color_on && echo 1 || echo 0)" 'BEGIN{
+    local out
+    out="$(awk -v b="$1" -v a="$2" -v c="$(perf_color_on && echo 1 || echo 0)" 'BEGIN{
         m = b / a; p = (m - 1) * 100
         s = (p >= 0) ? sprintf("%.1f%% faster", p) : sprintf("%.1f%% slower", -p)
         if (c) { print (p >= 0 ? "\033[92m" : "\033[31m") s "\033[0m" } else { print s }
-    }'
+    }')"
+    printf '%s%s\n' "$out" "$(perf_stamp_suffix)"
 }
 #-----------------------------------------------------------------------------------------------------
 # perf_row LABEL REF OURS -- one row of a grid.  ⛔ The grid's own header still has to name
@@ -156,7 +188,8 @@ perf_pct() {
 perf_row() {
     local lbl="$1" mult rc
     [ "${#lbl}" -le 34 ] || lbl="${lbl:0:31}..."
-    mult="$(perf_mult "$2" "$3" "$1")"; rc=$?
+    perf_stamp_once_for_rows
+    mult="$(PERF_STAMP_OFF=1 perf_mult "$2" "$3" "$1")"; rc=$?
     [ "$rc" -eq 0 ] || PERF_DARK_CELLS=$(( ${PERF_DARK_CELLS:-0} + 1 ))
     printf '  %-34s %14s %14s   %s\n' "$lbl" "$2" "$3" "$mult"
 }
@@ -180,7 +213,7 @@ perf_load_stamp() {
 # perf_grid_begin AXIS-LINE -- open a grid.  Emits the shared-axes line the FACT RULE requires ONCE,
 # with the load stamp welded to it, and resets the dark-cell counter.
 perf_grid_begin() {
-    PERF_DARK_CELLS=0
+    PERF_DARK_CELLS=0; PERF_GRID_OPEN=1; PERF_ROWS_STAMPED=1
     printf '  %s\n  measured at %s · %s\n' "${1:-x vs reference (basis and RT_OPT unstated -- ⛔ name them)}" \
            "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$(perf_load_stamp)"
 }
@@ -188,6 +221,7 @@ perf_grid_begin() {
 # perf_grid_end -- close a grid.  ⛔ A GRID REFUSES TO PUBLISH A COLUMN IT COULD NOT FILL: if any cell
 # refused, say how many and return 2 so the caller's `set -e` or its own verdict line carries it out.
 perf_grid_end() {
+    PERF_GRID_OPEN=0; PERF_ROWS_STAMPED=0
     [ "${PERF_DARK_CELLS:-0}" -eq 0 ] && return 0
     printf '  ⛔ GRID REFUSES: %s cell(s) could not measure their subject (named on stderr above); this grid is INCOMPLETE and must not be quoted as a reading\n' \
            "$PERF_DARK_CELLS"

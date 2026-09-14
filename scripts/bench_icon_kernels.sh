@@ -98,6 +98,10 @@ TSV_OUT="${TSV_OUT:-}"
 refuse() { echo "⛔ ICON KERNEL BOARD REFUSED (rc=2): $*" >&2; exit 2; }
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || refuse "lib_oracle_flags.sh unloadable -- the ONE oracle-path authority (s200)."
 . "$HERE/lib_perf_fmt.sh"     2>/dev/null || refuse "lib_perf_fmt.sh unloadable -- the ONE authority for printing a multiple (s266)."
+# CEO-743 welded a load stamp onto every standalone perf_mult/perf_pct. THIS SCRIPT COMPOSES ITS OWN CELLS
+# from captured multiples, so the stamp must not land INSIDE a cell -- it is emitted once, above, with the
+# shared axes, which is where the FACT RULE says a grid names anything it shares.
+PERF_STAMP_OFF=1
 [ -x "$SCRIP_BIN" ] || refuse "scrip not built at $SCRIP_BIN -- a table printed without it would be plausible and false."
 ICONT="$(icont_bin)" || refuse "no icont"
 ICONX="$(iconx_bin)" || refuse "no iconx"
@@ -245,6 +249,7 @@ echo "  ⚠ SHARED BOX: 1/5/15-min load average at start = $LOADAVG. Instrument 
 echo "    depend on the neighbours, and these readings reproduce byte-identically across runs); instrument [B] wall is NOT -- read"
 echo "    every ms column and every 'x vs jcont' cell against the spread beside it, and prefer the Ir column where the two disagree."
 echo "  ⛔ SHARED AXES (RULES.md § FACT RULES, APPLES TO APPLES) -- every row below shares ALL of these:"
+echo "     load at start = $(perf_load_stamp)  (CEO-743: a wall-clock row shares a basis only with rows at a like load)"
 echo "     basis = two-number; OVERHEAD is the EMPTY ICON PROGRAM per engine on the SAME instrument; WORK = total - OVERHEAD"
 echo "     RT_OPT=-O0 · mode m3=--run (compiles every run) m4=--compile+gcc · oracle = $ICONX · rival = ${JCONT:-<absent>} · corpus $CTREE · one box, one sitting"
 echo "     [A] Ir  = callgrind instruction reads, ONE rep, DETERMINISTIC (byte-identical for fixed argv+env; ~0.0001% otherwise) -- iconx, m3, m4"

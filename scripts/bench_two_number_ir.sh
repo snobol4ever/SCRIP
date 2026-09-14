@@ -44,6 +44,10 @@ command -v valgrind >/dev/null 2>&1 || refuse "valgrind not on PATH."
 . "$HERE/lib_ir_measure.sh" 2>/dev/null || refuse "cannot load lib_ir_measure.sh -- this board will not read Ir by hand."
 command -v callgrind_annotate >/dev/null 2>&1 || refuse "callgrind_annotate not on PATH."
 . "$HERE/lib_perf_fmt.sh" 2>/dev/null || refuse "lib_perf_fmt.sh unloadable -- it is the ONE authority for printing a multiple (s266)."
+# CEO-743 welded a load stamp onto every standalone perf_mult/perf_pct. THIS SCRIPT COMPOSES ITS OWN CELLS
+# from captured multiples, so the stamp must not land INSIDE a cell -- it is emitted once, above, with the
+# shared axes, which is where the FACT RULE says a grid names anything it shares.
+PERF_STAMP_OFF=1
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || refuse "lib_oracle_flags.sh unloadable -- the ONE oracle-path authority (s200)."
 WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/two_number.XXXXXX")" || refuse "cannot make a work dir."
 trap 'rm -rf "$WORKDIR"' EXIT
@@ -140,6 +144,9 @@ CORPUS_TREE="$(git -C "$S4E/corpus" rev-parse --short HEAD 2>/dev/null || echo '
 echo "TWO_NUMBER_IR lang=$LANG_ARG tree=SCRIP $TREE corpus $CORPUS_TREE RT_OPT=-O0 instrument=callgrind-Ir date=$(date -u +%Y-%m-%d)"
 echo "  basis: WORK = total Ir - OVERHEAD; OVERHEAD = empty-program subtraction (the marked interim of"
 echo "         RULES.md § THE TWO-NUMBER BENCHMARK BASIS). Multiple = rival WORK / SCRIP WORK (FASTER axis)."
+echo "  instrument = callgrind Ir at fixed work, which is LOAD-IMMUNE: this board carries no load stamp deliberately,"
+echo "         not by omission (CEO-743 requires the stamp on WALL-CLOCK numbers; stamping an Ir board would imply a"
+echo "         dependence it does not have). Measured here anyway for the record: $(perf_load_stamp)."
 echo "  OVERHEAD (empty program, Ir): m3=${OVH_M3:-n/a}  m4=${OVH_M4:-n/a}  rival=${OVH_RV:-n/a}${RIVAL_NAME:+  [$RIVAL_NAME]}"
 printf '%-22s %14s %14s %14s %14s %14s %10s %s\n' kernel m3_total m4_total m4_WORK rival_total rival_WORK basis "x vs ${RIVAL_NAME:-none}"
 N=0; RC=0

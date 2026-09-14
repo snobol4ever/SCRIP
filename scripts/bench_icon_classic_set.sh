@@ -51,6 +51,10 @@ QUANT_TICKS="${QUANT_TICKS:-5}"  # below this many ticks a multiple is QUANTIZED
 refuse() { echo "⛔ CLASSIC-SET BOARD REFUSED (rc=2): $*" >&2; exit 2; }
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || refuse "lib_oracle_flags.sh unloadable -- the ONE oracle-path authority (s200)."
 . "$HERE/lib_perf_fmt.sh"     2>/dev/null || refuse "lib_perf_fmt.sh unloadable -- the ONE authority for printing a multiple (s266)."
+# CEO-743 welded a load stamp onto every standalone perf_mult/perf_pct. THIS SCRIPT COMPOSES ITS OWN CELLS
+# from captured multiples, so the stamp must not land INSIDE a cell -- it is emitted once, above, with the
+# shared axes, which is where the FACT RULE says a grid names anything it shares.
+PERF_STAMP_OFF=1
 [ -x "$SCRIP_BIN" ] || refuse "scrip not built at $SCRIP_BIN -- a table printed without it would be plausible and false."
 ICONT="$(icont_bin)" || refuse "no icont"
 ICONX="$(iconx_bin)" || refuse "no iconx"
@@ -173,6 +177,8 @@ echo "  ⛔ SHARED AXES (RULES.md § FACT RULES, APPLES TO APPLES) -- every row 
 echo "     instrument = WALL ms and CPU ms (user+sys) from /usr/bin/time, MEDIAN of $REPS runs after $WARMUP discarded warm-ups"
 echo "     basis = two-number; OVERHEAD is the empty-program constant per engine; WORK = median - OVERHEAD"
 echo "     RT_OPT=-O0 · oracle = $ICONX · rival = ${JCONT:-<absent>} · corpus $CTREE · one box, one sitting"
+echo "     load at start = $(perf_load_stamp)  ⛔ CEO-743: a wall-clock multiple is NOT comparable across loads --"
+echo "        one unchanged binary read 0.549x at load 6.96 and 0.384x at load 29.84, so load does not cancel out of a ratio."
 echo "     ⛔ CORRECTNESS is graded on the ANSWER CUT (OUTPUT=1, the lines between post.icn's own two markers),"
 echo "        never on raw stdout: post.icn SUPPRESSES the answer unless OUTPUT is set and prints &version,"
 echo "        &features, elapsed time and GC statistics instead -- a raw compare grades RED by construction."
