@@ -467,7 +467,26 @@ cmd="${1:-check}"
 # happening to the seats, another process already own the hq_* and just spazes out."
 # ⭐ THE GENERAL RULE: A REPORTING VERB MUST NEVER HOLD A MUTEX MEANT FOR MUTATION. If one does, every
 # reader becomes a writer for locking purposes, and the slowest reader sets the outage window.
-case "$cmd" in mailbox|banner|check|"") ;; *) s4e_assert_box "$ME" identity; s4e_pid_acquire;; esac
+# ⛔⭐⭐ TWO SEPARATE DUTIES ON TWO SEPARATE LINES, AND COLLAPSING THEM INTO ONE `case` IS WHAT BROKE THE
+# EXISTENCE ASSERTION FOR EVERY REPORTING VERB. `s4e_assert_box` answers "does this seat EXIST"; `s4e_pid_acquire`
+# answers "is another live process already mutating as this seat". Only the SECOND is a mutation mutex, and only
+# the second was the defect 0ae4a57cc cured -- Lon's "another process already owns the hq_* and just spazes out",
+# caused by the Stop hook's slow `banner` holding the claim mutex for the length of a report. That cure is RIGHT
+# and stands: A REPORTING VERB MUST NEVER HOLD A MUTEX MEANT FOR MUTATION.
+# ⛔ BUT THE TWO DUTIES SHARED ONE `case`, so exempting banner|check from the LOCK silently exempted them from the
+# EXISTENCE CHECK as well, and an unknown or typo'd S4E_SEAT began reading as a CLEAN EMPTY INBOX at rc=0.
+# ⭐ THAT IS THE WORST POSSIBLE DIRECTION FOR THIS PARTICULAR FAILURE, WHICH IS WHY IT IS SPLIT RATHER THAN
+# PATCHED: under THE LOOP an EMPTY INBOX **IS** THE ACKNOWLEDGEMENT. So a seat whose identity is wrong does not
+# get an error it can act on -- it gets the exact reading that means "you are done, nothing is waiting for you",
+# and it gets it from the one verb THE LOOP makes mandatory. A seat that does not exist and a seat with no mail
+# became indistinguishable, and the indistinguishable one is the silent one. This is the phantom-claude01 class
+# the assertion was written for, re-entering through the door a correct fix left open.
+# ⭐ THE REUSABLE HALF: A FIX THAT EXEMPTS A VERB FROM A LINE EXEMPTS IT FROM EVERY DUTY ON THAT LINE. When one
+# statement discharges two obligations, a change scoped to one of them cannot be scoped at all. Bisected to
+# 0ae4a57cc by hq_C 2026-09-13 (mechanism measured directly: S4E_SEAT=nosuchseat -> rc=3 before, rc=0 after), who
+# also named this cure -- keep the existence assertion on its own, ahead of and independent of the lock.
+case "$cmd" in mailbox|"") ;; *) s4e_assert_box "$ME" identity;; esac
+case "$cmd" in mailbox|banner|check|"") ;; *) s4e_pid_acquire;; esac
 # /*------------------------------------------------------------------------------------------------------*/
 # ⛔⭐⭐ THE CODEGEN CONTROL ARM -- `done` COMPUTES WHETHER A LANDING TOUCHED CODEGEN, AND CITES A BOARD OF ITS
 # OWN TREE RATHER THAN RUNNING ONE.  Row done-runs-the-snobol4-master-arm-itself-for-any-row-whose-commits-touch-
