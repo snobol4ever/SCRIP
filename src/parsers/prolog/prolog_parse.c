@@ -429,6 +429,15 @@ static int pt_args(Parser *p, TreeScope *ts, tree_t *parent) {
     return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *pt_big_lit(const char *digits) {
+    tree_t *n = ast_node_new(TT_FNC);
+    tree_t *d = ast_node_new(TT_QLIT);
+    n->v.sval = strdup("$pl_big");
+    d->v.sval = strdup(digits);
+    ast_push(n, d);
+    return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *pt_binop(const char *op, tree_t *lhs, tree_t *rhs) {
     tree_t *n = ast_node_new(TT_FNC);
     n->v.sval = strdup(op);
@@ -448,14 +457,7 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
             return v;
         }
         case TK_INT: {
-            if (tk.big && tk.text) {
-                tree_t *n = ast_node_new(TT_FNC);
-                tree_t *d = ast_node_new(TT_QLIT);
-                n->v.sval = strdup("$pl_big");
-                d->v.sval = strdup(tk.text);
-                ast_push(n, d);
-                return n;
-            }
+            if (tk.big && tk.text) return pt_big_lit(tk.text);
             tree_t *n = ast_node_new(TT_ILIT);
             n->v.ival = tk.ival;
             return n;
@@ -596,6 +598,17 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
                 Token pk3 = lexer_peek(&p->lx);
                 if (pk3.kind == TK_INT) {
                     Token num = lexer_next(&p->lx);
+                    if (num.big && num.text) {
+                        size_t dn = strlen(num.text);
+                        char *nb = (char *) malloc(dn + 2);
+                        tree_t *n;
+                        if (!nb) return ast_node_new(TT_ILIT);
+                        nb[0] = '-';
+                        memcpy(nb + 1, num.text, dn + 1);
+                        n = pt_big_lit(nb);
+                        free(nb);
+                        return n;
+                    }
                     tree_t *n = ast_node_new(TT_ILIT);
                     n->v.ival = -num.ival;
                     return n;

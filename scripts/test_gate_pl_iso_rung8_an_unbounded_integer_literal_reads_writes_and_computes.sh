@@ -74,7 +74,7 @@ main :-
     halt.
 EOP
 arm an_unbounded_integer_literal_reads_writes_and_computes "$TMPD/big.pl" "$(printf '%s\n' 'a(123456789012345678901234567890)' 'b(yes)' 'c(123456789012345678901234567891)' 'd(370370367037037036703703703670)' 'e(123456789012345678901234567890)' 'f(-123456789012345678901234567890)' 'g(yes)' 'h(yes)' 'i(yes)' 'j(41152263004115226300411522630)' 'k(false)' 'l(yes)' 'm(5)')" 0
-floor unbounded 70
+floor unbounded 82
 echo "$GATE_NAME: arms=$total red=$red modes=$MODES"
 [ "$red" -eq 0 ] || { echo "⛔ $GATE_NAME RED"; exit 1; }
 echo "✅ $GATE_NAME GREEN"
