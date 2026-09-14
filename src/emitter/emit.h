@@ -556,6 +556,11 @@ static inline int emit_jmp_pin_legacy(void) { return g_emit.flat_deep_arrival ||
 static inline int emit_heap_fb_adopt(void) { extern int g_gen_proc_active; extern int g_resumable_callable_active; return g_gen_proc_active || g_resumable_callable_active; }
 static inline int emit_rec_pin(void) { return emit_jmp_pin_legacy() || emit_heap_fb_adopt(); }
 static inline int emit_zframe_pinned(void) { return (g_emit.zframe_pinned_base && g_emit.zframe_graph) ? 1 : 0; }
+#ifdef __cplusplus
+extern "C" int emit_pl_fence_on(void);
+#else
+int emit_pl_fence_on(void);
+#endif
 static inline int          emit_rec_fb_num(void) { return 4; }
 static inline const char * emit_rec_fb(void)     { return emit_rec_fb_num() == 5 ? "rbp" : "rsp"; }
 static inline int emit_rec_rsp_arm(void) { static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_REC_RSP"); on = (e && *e == '0') ? 0 : 1; } return on && g_emit.flat_pat && !emit_jmp_pin_legacy(); }
