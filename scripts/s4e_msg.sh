@@ -663,10 +663,25 @@ s4e_topic_lane() {
 s4e_my_lane() {
     case "$ME" in
       hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V) printf '%s' "$ME"; return 0;;
+      # ⭐⭐ AN EXECUTIVE'S LANE IS ITSELF, ON THE SAME LAW AS AN HQ's (ceo CEO-748, under MODE EXECUTIVE).
+      # ⛔ THIS IS NOT A NEW RULE, IT IS THE OLD RULE REACHING THE SEATS THAT NOW HOLD THE LANES: the table
+      # above gives all seven languages to ceo/cto/cfo, so under EXECUTIVE the set of lane-determinable
+      # seats was EMPTY and the own-lane pass could never run for anybody. test_gate_next_honours_the_lane_cut
+      # measured it the minute the mode flipped and REFUSED rc=2 rather than passing vacuously -- the gate's
+      # own note (line 51) had already named `s4e_my_lane` as the real defect and it came true unchanged.
+      # ⛔ THE ceo IS DELIBERATELY ABSENT and stays absent: the comment above this function is law -- the ceo
+      # is never lane-restricted, and the own-lane pass would restrict it. coo/cto/cfo degrade safely because
+      # the own-lane pass tries the WHOLE rank-sorted queue and then falls through to the any-lane pass, so a
+      # seat whose lane is empty (the coo, which holds no cure lane at all) wanders rather than starves.
+      cto|cfo|coo) printf '%s' "$ME"; return 0;;
       seat*) local _f="$PO/$ME/HQ" _l
              [ -f "$_f" ] || return 0
              _l="$(head -1 "$_f" | tr -d '[:space:]')"
-             case "$_l" in hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V) printf '%s' "$_l";; esac ;;
+             # ⭐ A SEAT WHOSE HQ FILE NAMES AN EXECUTIVE HAS THAT EXECUTIVE'S LANE (ceo CEO-748). The law
+             # above restricts the ceo IDENTITY, never a seat reporting to it, and under EXECUTIVE every
+             # language lane is held by an officer -- so refusing to read an officer's name here would have
+             # left every numbered seat lane-blind for the same reason the executives themselves were.
+             case "$_l" in hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V|ceo|cto|cfo|coo) printf '%s' "$_l";; esac ;;
     esac
 }
 # ⭐⭐ THE ORDER OF WORK -- THE SET OF LIVE LANGUAGES, READ FROM A MACHINE LINE (row `snobol4-icon-postoffice-

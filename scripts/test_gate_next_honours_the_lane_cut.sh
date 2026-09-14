@@ -64,9 +64,9 @@ _own_lang=""; _own_owner=""
 for _l in $_lane_langs; do
   [ "$_l" = snobol4 ] && continue
   _o="$(_lane_owner_of "$_l")"
-  case "$_o" in hq_*) _own_lang="$_l"; _own_owner="$_o"; break;; esac
+  case "$_o" in hq_*|cto|cfo|coo) _own_lang="$_l"; _own_owner="$_o"; break;; esac
 done
-[ -n "$_own_lang" ] || refuse "no language in the picker's table is owned by a lane-determinable hq_* seat, so an own-lane scenario cannot be built. This is a real finding about the lane cut, not a broken fixture -- report it rather than lowering the bar."
+[ -n "$_own_lang" ] || refuse "no language in the picker's table is owned by a lane-determinable seat (hq_*, cto, cfo or coo -- the ceo is never lane-restricted by law), so an own-lane scenario cannot be built. This is a real finding about the lane cut, not a broken fixture -- report it rather than lowering the bar."
 mkdir -p "$W/$_own_owner/inbox" "$W/$_own_owner/archive"
 printf '%s\n' "$_own_owner" > "$W/seat07/HQ"     # seat07's lane is whoever owns $_own_lang TODAY, read from the picker itself
 echo "    fixture: own lane = $_own_owner (owns $_own_lang), cross/frozen language = snobol4"
