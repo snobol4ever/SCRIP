@@ -1565,6 +1565,8 @@ static int pl_big_unop(const char *op, DESCR_t a, DESCR_t *out) {
     if (!strcmp(op, "intg") || !strcmp(op, "trunc") || !strcmp(op, "floor") || !strcmp(op, "ceil") || !strcmp(op, "round")) { *out = a; return 1; }
     return 0;
 }
+static int pl_big_binop(const char *op, DESCR_t a, DESCR_t b, DESCR_t *out, void **ball);
+static int pl_ax_shift(const char *op, DESCR_t a, DESCR_t b, DESCR_t *out, void **ball);
 static int pl_big_binop(const char *op, DESCR_t a, DESCR_t b, DESCR_t *out, void **ball) {
     extern DESCR_t rt_big_add(DESCR_t, DESCR_t); extern DESCR_t rt_big_sub(DESCR_t, DESCR_t); extern DESCR_t rt_big_mul(DESCR_t, DESCR_t);
     extern DESCR_t rt_big_div(DESCR_t, DESCR_t); extern DESCR_t rt_big_mod(DESCR_t, DESCR_t); extern DESCR_t rt_big_pow(DESCR_t, int64_t);
@@ -1586,11 +1588,29 @@ static int pl_big_binop(const char *op, DESCR_t a, DESCR_t b, DESCR_t *out, void
       if (!strcmp(op, "band")) { *out = rt_big_and(a, b); return 1; }
       if (!strcmp(op, "bor")) { *out = rt_big_or(a, b); return 1; }
       if (!strcmp(op, "xor")) { *out = rt_big_xor(a, b); return 1; } }
+    if (!strcmp(op, "shl") || !strcmp(op, "shr")) return pl_ax_shift(op, a, b, out, ball);
     if (!strcmp(op, "gcd")) {
         DESCR_t x = pl_big_sign(a) < 0 ? rt_big_neg_l(a) : a, y = pl_big_sign(b) < 0 ? rt_big_neg_l(b) : b;
         while (pl_big_sign(y) != 0) { DESCR_t t = rt_big_mod(x, y); if (pl_big_sign(t) < 0) t = rt_big_add(t, y); x = y; y = t; }
         *out = x; return 1; }
     return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_ax_shift(const char *op, DESCR_t a, DESCR_t b, DESCR_t *out, void **ball) {
+    extern DESCR_t rt_big_mul(DESCR_t, DESCR_t); extern DESCR_t rt_big_pow(DESCR_t, int64_t);
+    enum { SHIFT_BITS_MAX = 1 << 20 };
+    if (b.v != DT_I) return 0;
+    long long n = b.i; int left = !strcmp(op, "shl");
+    if (n < 0) { if (n == LLONG_MIN) { *out = INTVAL(pl_big_sign(a) < 0 ? -1 : 0); return 1; } n = -n; left = !left; }
+    if (!left) {
+        if (a.v == DT_I) { *out = INTVAL(n >= 63 ? (a.i < 0 ? -1 : 0) : (a.i >> n)); return 1; }
+        if (n > SHIFT_BITS_MAX) return 0;
+        { DESCR_t t = rt_big_pow(INTVAL(2), n); if (t.v == DT_FAIL) return 0; return pl_big_binop("divf", a, t, out, ball); } }
+    if (a.v == DT_I) { long long x = a.i;
+        if (x == 0) { *out = INTVAL(0); return 1; }
+        if (n < 63) { long long r = (long long)((unsigned long long)x << n); if ((r >> n) == x) { *out = INTVAL(r); return 1; } } }
+    if (n > SHIFT_BITS_MAX) return 0;
+    { DESCR_t t = rt_big_pow(INTVAL(2), n); if (t.v == DT_FAIL) return 0; *out = rt_big_mul(a, t); return 1; }
 }
 static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void **ball) {
     extern DESCR_t rt_pl_deref_val(DESCR_t); extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int); extern void *rt_pl_ball_eval_error(const char *, const char *, int);
@@ -1680,8 +1700,9 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
         if (ovf) return pl_big_binop(op, a, b, out, ball);
         *out = INTVAL(r); return 1; }
     if (!strcmp(op, "xor")) { if (!ai || !bi) { if (ball && !*ball) *ball = pl_ax_int_ball(a, b, ai); *out = FAILDESCR; return 1; } *out = INTVAL(a.i ^ b.i); return 1; }
-    if (!strcmp(op, "shl")) { if (!ai || !bi) { if (ball && !*ball) *ball = pl_ax_int_ball(a, b, ai); *out = FAILDESCR; return 1; } *out = INTVAL(a.i << b.i); return 1; }
-    if (!strcmp(op, "shr")) { if (!ai || !bi) { if (ball && !*ball) *ball = pl_ax_int_ball(a, b, ai); *out = FAILDESCR; return 1; } *out = INTVAL(a.i >> b.i); return 1; }
+    if (!strcmp(op, "shl") || !strcmp(op, "shr")) { if (!ai || !bi) { if (ball && !*ball) *ball = pl_ax_int_ball(a, b, ai); *out = FAILDESCR; return 1; }
+        if (pl_ax_shift(op, a, b, out, ball)) return 1;
+        *out = INTVAL(!strcmp(op, "shl") ? a.i << b.i : a.i >> b.i); return 1; }
     if (!strcmp(op, "band")) { if (!ai || !bi) { if (ball && !*ball) *ball = pl_ax_int_ball(a, b, ai); *out = FAILDESCR; return 1; } *out = INTVAL(a.i & b.i); return 1; }
     if (!strcmp(op, "bor"))  { if (!ai || !bi) { if (ball && !*ball) *ball = pl_ax_int_ball(a, b, ai); *out = FAILDESCR; return 1; } *out = INTVAL(a.i | b.i); return 1; }
     if (arl || brl) {
