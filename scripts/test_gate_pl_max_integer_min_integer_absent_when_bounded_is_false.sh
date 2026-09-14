@@ -5,13 +5,24 @@
 # promotion lands, those two flags must stop existing. swipl, which is already in the cured state, answers
 # bounded(false) and has NEITHER flag -- so this gate's own witness is proven to go GREEN on a cured
 # implementation and RED on ours, which is what makes it a discriminator and not merely a red.
+#
+# ⭐ WHAT "ABSENT" MEANS, WIDENED BY THE cto 2026-09-13 WHEN THE CURE WAS WRITTEN, AND WHY IT IS NOT A
+# WEAKENING. The gate as minted could only see a flag stop existing as a clean FAILURE, which is swipl's
+# shape. It is not the ISO shape and it is not ours: 8.17.2.3 requires domain_error(prolog_flag, Flag) when
+# Flag is an atom that is not a valid flag for the processor, and the inriasuite grades us on exactly that --
+# `[current_prolog_flag(warning, V), domain_error(prolog_flag,warning)]`. A flag deleted from our table
+# therefore RAISES rather than fails, and the minted witness would have read that raise as a crashed witness
+# and REFUSED. So absent is now EITHER shape, and the gate still discriminates in both directions: swipl's
+# failure takes the GREEN branch unchanged, today's present(9223372036854775807) is RED unchanged, and any
+# OTHER error still prints bad(...) and refuses -- a crash can never be read as absence.
 set -u
 cd "$(dirname "$0")/.." || exit 2
 [ -x ./scrip ] || { echo "⛔ REFUSE(2): ./scrip not built -- run make" >&2; exit 2; }
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 cat > "$W/w.pl" <<'EOF'
 :- initialization(main).
-chk(F) :- ( current_prolog_flag(F, V) -> write(present(F, V)) ; write(absent(F)) ), nl.
+chk(F) :- catch(( current_prolog_flag(F, V) -> write(present(F, V)) ; write(absent(F)) ), E,
+                ( E = error(domain_error(prolog_flag, F), _) -> write(absent(F)) ; write(bad(F, E)) )), nl.
 main :- ( current_prolog_flag(bounded, B) -> write(bounded(B)) ; write(bounded(missing)) ), nl,
         chk(max_integer), chk(min_integer).
 EOF

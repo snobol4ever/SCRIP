@@ -2793,8 +2793,6 @@ static int pl_edin_revert(int is_out) {
 typedef struct { const char *nm; char val[48]; int mod; const char *ok[6]; } pl_flag_t;
 static pl_flag_t pl_flags[] = {
     { "bounded", "false", 0, { 0 } },
-    { "max_integer", "9223372036854775807", 0, { 0 } },
-    { "min_integer", "-9223372036854775808", 0, { 0 } },
     { "integer_rounding_function", "toward_zero", 0, { 0 } },
     { "max_arity", "1024", 0, { 0 } },
     { "char_conversion", "off", 1, { "on", "off", 0 } },
@@ -2832,8 +2830,6 @@ PL_CX_LEAF_HEAD(current_prolog_flag, 2) { extern void *rt_pl_ball_kind2(const ch
     else if ((f.v != (DTYPE_t)DT_S && f.v != (DTYPE_t)DT_A) || !pl_cell_text(args[0], fb, sizeof fb, &fn)) { cx->ball = rt_pl_ball_kind2("type_error", "atom", f); }
     else if (!(fl = pl_flag_find(fn))) { cx->ball = rt_pl_ball_kind2("domain_error", "prolog_flag", f); }
     else if (!strcmp(fl->nm, "argv")) { ok = plw_unify_vals(args[1], pl_nil(), cx); }
-    else if (!strcmp(fl->nm, "max_integer")) { ok = plw_unify_vals(args[1], INTVAL(9223372036854775807LL), cx); }
-    else if (!strcmp(fl->nm, "min_integer")) { ok = plw_unify_vals(args[1], INTVAL(-9223372036854775807LL - 1), cx); }
     else if (!strcmp(fl->nm, "max_arity")) { ok = plw_unify_vals(args[1], INTVAL(1024), cx); }
     else { ok = plw_unify_vals(args[1], pl_mk_atom_dup(fl->val, strlen(fl->val)), cx); } } PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
