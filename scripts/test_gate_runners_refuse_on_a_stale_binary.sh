@@ -119,7 +119,14 @@ graders=0; wired=0; missing=""
 for f in "$HERE"/test_*_suite.sh; do
     grep -q '"\$SCRIP"' "$f" || continue
     graders=$((graders+1))
-    if grep -q 'util_require_fresh.sh' "$f"; then wired=$((wired+1)); else missing="$missing $(basename "$f")"; fi
+    # ⛔⭐ GREP THE CODE, NOT THE COMMENTARY (hq_B 2026-09-13, hq_P's grep-q census, the two util_require_fresh
+    # sites they put at the front). A raw-text grep is satisfied by a runner that merely NAMES the preflight in a
+    # comment, so deleting the live call while leaving a comment behind keeps this census green. ⭐ hq_P PUT THESE
+    # TWO FIRST ON SHAPE, NOT ON MEASUREMENT, AND THE SHAPE ARGUMENT IS RIGHT: this is the STALE-BINARY REFUSAL that
+    # every seat's landing verdict rests on, so it is the one place where a gate losing its power to say no is not a
+    # local cost. ✅ Measured: raw == non-comment at every site today, so nothing is inert -- this is fragility to a
+    # future deletion, cured before it is paid for rather than after.
+    if grep -q 'util_require_fresh.sh' <<<"$(sed 's/^[[:space:]]*#.*$//' "$f")"; then wired=$((wired+1)); else missing="$missing $(basename "$f")"; fi
 done
 echo "    graders=$graders wired=$wired"
 [ "$graders" -ge 15 ] && ck ok "census floor: $graders graders examined (zero-examined would be indistinguishable from all-clean)" \
@@ -127,7 +134,11 @@ echo "    graders=$graders wired=$wired"
 [ -z "$missing" ] && ck ok "all $graders \$SCRIP-grading suite runners carry the staleness preflight" \
                   || ck no "grader(s) with NO staleness preflight:$missing"
 for extra in lib_ladder.sh corpus_suite_harness.py; do
-    grep -q 'util_require_fresh' "$HERE/$extra" && ck ok "$extra calls the preflight" || ck no "$extra lost its preflight call"
+    # ⛔ SAME STRIP, AND NOTE corpus_suite_harness.py IS PYTHON -- `#` is its comment marker too, so one rule covers
+    # both files. They are checked BY NAME rather than by glob because neither is a *_suite.sh and the census above
+    # would never reach them; a hard-coded population never announces what it left out, so if a third orchestrator
+    # ever grades through $SCRIP it must be added here deliberately.
+    grep -q 'util_require_fresh' <<<"$(sed 's/^[[:space:]]*#.*$//' "$HERE/$extra")" && ck ok "$extra calls the preflight" || ck no "$extra lost its preflight call"
 done
 
 echo "--- ARM 10 (the one-copy invariant): the staleness rule is DEFINED exactly once ---"

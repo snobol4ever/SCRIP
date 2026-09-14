@@ -1502,6 +1502,16 @@ case "$cmd" in
              echo "       $0 send $to $topic --stdin <<'MSG'" >&2
              echo "       ...your body, exactly as you mean it..." >&2
              echo "       MSG" >&2
+             # ⛔⭐⭐ THE LAST LINE OF A REFUSAL IS THE ONE THAT GETS READ, AND MINE WAS THE HEREDOC DELIMITER
+             # (cfo 2026-09-13, measured; hq_B's own defect, cured same sitting). The block above is usage-SHAPED, so a
+             # seat doing the ordinary thing and tailing the output saw `MSG` and read it as an echo of a successful
+             # send. The cfo lost FOUR sends before bisecting -- by length, then by recipient, then by rate -- and only
+             # found them by listing the recipient's inbox and seeing nothing there. ⭐ hq_T lost a ruling to the
+             # backtick variant an hour earlier and caught it the same way, and wrote the sentence worth keeping:
+             # READING A SENDER'S OUTPUT FOR A POSITIVE MARKER CANNOT TELL SENT FROM REFUSED, the same way a grep over
+             # a runner cannot tell clean from could-not-measure. ⛔ So a refusal ENDS with its verdict, never with an
+             # example: whatever a reader's eye lands on last must be the thing that happened, not the thing to do next.
+             echo "⛔ REFUSED — NOTHING WAS DELIVERED. Nothing was written to $to's inbox; re-send with --stdin above." >&2
              exit 1
            fi
          fi
@@ -1530,6 +1540,11 @@ case "$cmd" in
    contain a backtick', never 'did this text lose a word to substitution' -- the second is undecidable here,
    because the evidence is gone before send runs. A message can arrive with a hole in it and rc=0. That is why
    the cure is a safe INPUT path, not a validator." >&2
+             # ⛔ SAME RULE AS THE PROSE REFUSAL ABOVE: this one ended on a sentence of doctrine, which is no more a
+             # delivery verdict than a heredoc delimiter is. hq_B's own reply to hq_I hit exactly this refusal and was
+             # not delivered; the send output's last words were about validators, and the inbox was the only honest
+             # witness. The verdict goes last, every time.
+             echo "⛔ REFUSED — NOTHING WAS DELIVERED. Nothing was written to $to's inbox." >&2
              exit 1;;
          esac
          t="$(mktemp "$PO/.msg.XXXXXX")"; { echo "FROM $ME TO $to RE $topic"; echo "$_body"; } > "$t"

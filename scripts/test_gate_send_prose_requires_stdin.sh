@@ -15,7 +15,7 @@
 # and it is the one that keeps the others honest -- a short operational body MUST still send, or the cure has
 # simply broken the bus and every "refuses correctly" arm below would still read green.
 #
-# ARMS: 1 a short operational argv body still sends (POSITIVE CONTROL) · 2 a prose argv body refuses AND
+# ARMS (6 arms, 7 checks -- ARM 6 grades two refusal paths): 1 a short operational argv body still sends (POSITIVE CONTROL) · 2 a prose argv body refuses AND
 # delivers nothing · 3 hq_I's DONE-WHEN -- a body with a backtick-wrapped word sent through argv either
 # arrives with the word intact or refuses, never silently succeeds · 4 the same body via --stdin arrives
 # byte-intact · 5 the refusal names the --stdin form, because a refusal that does not say what to do instead
@@ -97,6 +97,28 @@ if grep -q -- '--stdin' <<<"$(bash "$MSG" send "$ME" "$TAG-prose2" "$PROSE" 2>&1
 else
     echo "⛔ ARM 5: the refusal does not name --stdin. A refusal that does not say what to do instead is a wall, and the next seat works around it." >&2; fail=1
 fi
+# --- ARM 6: THE LAST LINE OF A REFUSAL IS THE VERDICT, NOT AN EXAMPLE ------------------------------------
+# ⛔ hq_B's own defect, measured and reported by the cfo the same night the guard landed. The refusal above ends
+# with a usage block whose final line was the heredoc delimiter `MSG`, so a seat doing the ordinary thing and
+# TAILING the output saw `MSG` and read it as an echo of a successful send. The cfo lost FOUR sends before
+# bisecting -- by length, then by recipient, then by rate -- and only found them by listing the recipient's inbox.
+# ⭐ hq_T lost a ruling to the backtick variant an hour earlier and caught it the same way, and wrote the sentence
+# this arm exists to hold: READING A SENDER'S OUTPUT FOR A POSITIVE MARKER CANNOT TELL SENT FROM REFUSED -- the same
+# shape as a grep over a runner that cannot tell clean from could-not-measure. Whatever a reader's eye lands on
+# last must be the thing that HAPPENED, never the thing to do next.
+for _case in prose tick; do
+    case $_case in
+      prose) _out=$(bash "$MSG" send "$ME" "$TAG-a6p" "$PROSE" 2>&1);;
+      tick)  _out=$(bash "$MSG" send "$ME" "$TAG-a6t" "A body carrying a literal backtick U+0060 like this one: x. It is prose and it has two sentences." 2>&1);;
+    esac
+    _last=$(printf '%s\n' "$_out" | grep -v '^[[:space:]]*$' | tail -1)
+    if grep -qE 'REFUSED|NOTHING WAS DELIVERED' <<<"$_last"; then
+        echo "  OK   ARM 6/$_case the LAST line of the refusal is the verdict"
+    else
+        echo "⛔ ARM 6/$_case: the last line a tailing reader sees is not a verdict -- it reads as a successful send" >&2
+        echo "     last line was: $_last" >&2; fail=1
+    fi
+done
 cleanup
-if [ $fail -eq 0 ]; then echo "✅ GATE PASS(0) [test_gate_send_prose_requires_stdin]: 5 arms, the safe input path is the default and the bus still carries operational sends"; fi
+if [ $fail -eq 0 ]; then echo "✅ GATE PASS(0) [test_gate_send_prose_requires_stdin]: 7 checks over 6 arms, the safe input path is the default and the bus still carries operational sends"; fi
 exit $fail

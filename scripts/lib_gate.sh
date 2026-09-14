@@ -661,10 +661,29 @@ gate_three_way() {
 # echoed into a message -- OR an inline $ROOT/scrip / $HERE/scrip invocation with no intermediate variable.
 # Comments are stripped first: a gate that DESCRIBES the binary in its header is not a gate that runs it, and
 # a textual arm that cannot tell those apart reports red on files whose only sin is documentation.
+# ⛔⭐ SINGLE-QUOTED SPANS ARE STRIPPED TOO, FOR THE SAME REASON COMMENTS ARE: TEXT ABOUT THE BINARY IS NOT A RUN
+# OF IT (hq_B 2026-09-13, on the cto's re-aim of the freshness census under hq_R's row). Measured -- exactly two
+# files in the whole gate population carried $SCRIP ONLY inside single quotes, and NEITHER executes anything:
+# test_gate_mint_refuses_a_prose_donewhen.sh feeds '"$SCRIP" --run w.icn | grep -q ok' to `mint` as a CRITERION
+# STRING to prove mint accepts it, and test_gate_boards_refuse_when_the_binary_moves.sh has '\$SCRIP' inside a
+# grep -lE PATTERN it uses to find copies in other files. Both were named by census #2 as gates executing scrip
+# with no freshness guard.
+# ⛔⛔ AND THE FALSE POSITIVE WAS NOT MERELY NOISE -- ITS "CURE" WOULD HAVE DAMAGED THE TREE. The named file is a
+# PREFLIGHT arm, and `make preflight` is the CHEAP HERMETIC NO-BUILD target whose own recipe says in as many
+# words that the missing `scrip` prerequisite is the entire point and must not be added. Adding the freshness
+# stanza it was being asked for would make preflight REFUSE rc=2 on any stale binary and destroy the one target
+# a seat can run without building. ⭐ A census that names work items must be right about the population, because
+# a wrongly named item is not ignored -- it is FIXED, by someone trusting the instrument, and the fix is the
+# damage. That is a sharper cost than a wrong number and it is the reason this narrowing is worth the risk below.
+# ⛔ THE RISK, NAMED, BECAUSE NARROWING A DETECTOR CAN ONLY CREATE FALSE NEGATIVES: stripping quoted spans could
+# in principle exempt a real executor that happens to invoke through a single-quoted construct. Measured against
+# the whole population before landing -- 268 gates in census #2, exactly the two above change classification,
+# and the second already CARRIES the guard, so no covered gate loses its coverage and the floor (>=50) is
+# untouched at 266. Re-measure this the same way if the detector is ever widened again.
 gate_file_executes_scrip() {
     local _f="$1" _body _ln
     [ -f "$_f" ] || return 1
-    _body="$(grep -vE '^[[:space:]]*#' "$_f")"
+    _body="$(grep -vE '^[[:space:]]*#' "$_f" | sed "s/'[^']*'//g")"
     if grep -qE '\$\{?SCRIP(_BIN)?\}?\b' <<<"$_body"; then
         while IFS= read -r _ln; do
             grep -qE '\$\{?SCRIP(_BIN)?\}?\s*=' <<<"$_ln" && continue
