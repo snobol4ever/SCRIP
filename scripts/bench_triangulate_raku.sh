@@ -101,7 +101,7 @@ TIMED_STR="${timed[*]}"
 A1_OUT="$(KERNELS="$TIMED_STR" bash "$HERE/test_bench_raku_timed.sh" 2>/dev/null)"
 A2_OUT="$(KERNELS="$TIMED_STR" bash "$HERE/bench_raku_fixed_iter.sh" 2>/dev/null)"
 declare -A A1 A2
-parse_angle() { awk -v ncol="$1" '/^-{5,}/{started=1;next} started&&NF==0{started=0} started&&NF>=ncol{print}'; }
+parse_angle() { awk -v ncol="$1" 'done{next} /^-{5,}/{if(!seen){started=1;seen=1} next} started&&NF==0{started=0;done=1;next} started&&NF>=ncol{print}'; }
 while read -r k m3v m4v rkv rest; do
   [ -z "$k" ] && continue
   A1["$k:m3"]="$m3v"; A1["$k:m4"]="$m4v"; A1["$k:rakudo"]="$rkv"

@@ -42,7 +42,7 @@ A2_OUT="$(bash "$HERE/bench_pascal_fixed_iter.sh" 2>/dev/null)"
 
 # state-machine parse, same shape as bench_triangulate_snobol4.sh/bench_triangulate_prolog.sh's own
 # parse_angle1/2: start on the dashes separator line, stop on the first blank line after.
-parse() { awk -v ncol="$1" '/^-{5,}/{started=1;next} started&&NF==0{started=0} started&&NF>=ncol{print}' ; }
+parse() { awk -v ncol="$1" 'done{next} /^-{5,}/{if(!seen){started=1;seen=1} next} started&&NF==0{started=0;done=1;next} started&&NF>=ncol{print}' ; }
 dehuman() { awk -v v="$1" 'BEGIN{ if (v=="NA"||v=="-"||v=="") {print ""; exit} print v+0 }'; }
 
 declare -A A1 A2 KSEEN

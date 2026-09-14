@@ -84,14 +84,14 @@ A1_OUT="$(BENCH_DIR="$RUN_B" SCALETSV="$B/SCALE.tsv" bash "$HERE/test_bench_snob
 A2_OUT="$(BENCH_DIR="$RUN_B" SCALETSV="$B/SCALE.tsv" bash "$HERE/bench_snobol4_fixed_iter.sh" 2>/dev/null)"
 
 # ---- parse each angle's printed table into kernel<TAB>engine<TAB>human-rate ----------------------
-parse_angle1() { awk '/^-{5,}/{started=1;next} started&&NF==0{started=0} started{print $1"\tsbl\t"$2; print $1"\tm3\t"$3; print $1"\tm4\t"$4}'; }
-parse_angle2() { awk '/^-{5,}/{started=1;next} started&&NF==0{started=0} started{print $1"\tsbl\t"$3; print $1"\tm3\t"$4; print $1"\tm4\t"$5}'; }
+parse_angle1() { awk 'done{next} /^-{5,}/{if(!seen){started=1;seen=1} next} started&&NF==0{started=0;done=1;next} started{print $1"\tsbl\t"$2; print $1"\tm3\t"$3; print $1"\tm4\t"$4}'; }
+parse_angle2() { awk 'done{next} /^-{5,}/{if(!seen){started=1;seen=1} next} started&&NF==0{started=0;done=1;next} started{print $1"\tsbl\t"$3; print $1"\tm3\t"$4; print $1"\tm4\t"$5}'; }
 # ⛔ "Correctness gates the timing" (ARCH-BENCH-CAMPAIGN-README-TABLES.md § THREE-ANGLE, binding): each
 # angle already gates its OWN check column (all engines agree + match sbl); a kernel whose rate is
 # numeric but whose check column is not ok/ok(x-eng) ran, but its answer is not trusted -- a rate
 # agreement on a WRONG answer must never read as AGREE. Last field ($NF) is the check column in both.
-parse_angle1_check() { awk '/^-{5,}/{started=1;next} started&&NF==0{started=0} started{print $1"\t"$NF}'; }
-parse_angle2_check() { awk '/^-{5,}/{started=1;next} started&&NF==0{started=0} started{print $1"\t"$NF}'; }
+parse_angle1_check() { awk 'done{next} /^-{5,}/{if(!seen){started=1;seen=1} next} started&&NF==0{started=0;done=1;next} started{print $1"\t"$NF}'; }
+parse_angle2_check() { awk 'done{next} /^-{5,}/{if(!seen){started=1;seen=1} next} started&&NF==0{started=0;done=1;next} started{print $1"\t"$NF}'; }
 dehuman() { awk -v v="$1" 'BEGIN{
   if (v=="NA"||v=="-"||v=="") {print ""; exit}
   u=substr(v,length(v),1)

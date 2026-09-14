@@ -357,6 +357,7 @@ test_gate_suite_set_does_not_move_another_suites_row.sh	WIRED	-	-	-
 test_gate_table_convert_creation_order.sh	WIRED	-	-	-
 test_gate_template_medium_invisible.sh	WIRED	-	-	-
 test_gate_term_wordref_ratchet.sh	WIRED	-	-	-
+test_gate_triangulate_parsers_read_only_the_first_grid.sh	WIRED	-	-	-
 test_gate_two_region.sh	WIRED	-	-	-
 test_gate_umbrella_done_whens_anchor_on_the_board_line.sh	WIRED	-	-	-
 test_gate_xfail_marker_and_index_agree.sh	WIRED	-	-	-
