@@ -162,7 +162,17 @@ if [ "$DO_INV" = 1 ]; then
   [ "$n" -gt 0 ] || { echo "⛔ REFUSE(2) [roast --inventory]: classified ZERO files -- an inventory with no population is not an inventory" >&2; exit 2; }
   graded=$(awk -F'\t' '$2 ~ /^GRADED-/' "$CSV" | wc -l)
   gpass=$(awk -F'\t' '$2=="GRADED-PASS"' "$CSV" | wc -l)
-  echo "ROAST_INVENTORY shipped=$n manifest_lines=$MAN_ALL manifest_in_tier=$MAN_TIER manifest_named_but_absent=$MAN_MISSING roast=$( [ -d "$ROAST/.git" ] && (cd "$ROAST" && git rev-parse --short=9 HEAD 2>/dev/null) || echo unversioned-tree )"
+  ungradable=$(awk -F'\t' '$2 ~ /^UNGRADABLE-/' "$CSV" | wc -l)
+  ungraded=$((n - graded - ungradable))
+  # ⛔⭐ ONE CANONICAL INVENTORY LINE CARRYING shipped/graded/ungraded/ungradable, IN THAT ORDER AND ON ONE
+  # LINE, because the row's own DONE-WHEN greps for exactly that shape (task
+  # raku-every-roast-file-run-graded-against-rakudo-or-named-ungradable: "REFUSES rc=2 until hq_T's
+  # instrument row lands"). Before this line existed the runner printed shipped= and graded= in SEPARATE
+  # sentences and the DONE-WHEN could not match either, so the row was ungradable BY ITS OWN CRITERION --
+  # an instrument and its acceptance test that cannot talk to each other. The identity is asserted, not
+  # assumed: shipped == graded + ungraded + ungradable, and the run REFUSES if it does not close.
+  [ $((graded + ungraded + ungradable)) -eq "$n" ] || { echo "⛔ REFUSE(2) [roast --inventory]: the buckets do not close -- shipped=$n but graded=$graded + ungraded=$ungraded + ungradable=$ungradable; a census whose parts do not sum to its whole is not a census" >&2; exit 2; }
+  echo "ROAST_INVENTORY shipped=$n graded=$graded ungraded=$ungraded ungradable=$ungradable graded_pass=$gpass manifest_lines=$MAN_ALL manifest_in_tier=$MAN_TIER manifest_named_but_absent=$MAN_MISSING roast=$( [ -d "$ROAST/.git" ] && (cd "$ROAST" && git rev-parse --short=9 HEAD 2>/dev/null) || echo unversioned-tree )"
   echo "ROAST_BUCKETS (every shipped file, nothing excluded):"
   awk -F'\t' '{c[$2]++} END{for(k in c) printf "    %-20s %6d  %5.1f%%\n", k, c[k], c[k]*100.0/NR}' "$CSV" | sort -k2 -rn
   echo "ROAST_REACHED_OUR_SEMANTICS graded=$graded of $n ($(awk -v a="$graded" -v b="$n" 'BEGIN{printf "%.1f", a*100.0/b}')%) · of those GRADED-PASS=$gpass"
