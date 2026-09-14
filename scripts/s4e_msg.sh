@@ -3319,7 +3319,34 @@ TASKEOF
          printf '     for the WHOLE fleet until an HQ releases it. "0 batonNNm" = baton written NNm ago; "0 msgsN" = N\n'
          printf '     messages sent since lock: either means that seat is WORKING, in a lane whose output is\n'
          printf '     census/witness/LEDGER/asks rather than commits. DO NOT release it.\n'
-         printf '  Roster is the postoffice mailbox list, never a home-dir glob -- the glob could not see the HQs.\n\n';;
+         printf '  Roster is the postoffice mailbox list, never a home-dir glob -- the glob could not see the HQs.\n'
+         # ⭐⛔ IS THE LAW CONSISTENT WITH ITSELF? -- REPORTED HERE, BLOCKING NOWHERE (hq_B 2026-09-14, row
+         # instruments-mode-line2-can-contradict-itself-and-every-cross-check-is-blind-to-it).
+         # Every other lane instrument compares a READER against MODE line 2, so all of them are blind by
+         # construction to line 2 contradicting ITSELF -- when CEO-723 left "REBUS IS CLOSED ... carries Pascal
+         # and nothing else" standing beside "Rebus moves to hq_S" and "REBUS -- hq_S", the picker gate printed
+         # rebus ✅ and the agreement was REAL. hq_I then routed a co-sign to "hq_S (Rebus)" off those words.
+         # ⛔ IT IS PRINTED, NEVER ENFORCED, AND THE ASYMMETRY IS DELIBERATE. The gate exits 2 on prose it
+         # cannot parse, and line 2 is prose the ceo reinvents at every cut (81 of 91 MODE backups are
+         # unparseable to it, measured). As a blocking arm it would red all thirteen seats the next time a
+         # correct lane cut used a new phrasing -- which is exactly the defect I shipped once already with the
+         # mode-line parser. So the hermetic --selftest is the blocking arm in preflight_arms.txt, and the
+         # LIVE verdict surfaces here, in the health view a seat runs on a cadence and the ceo reads.
+         _l2g="$(dirname "${BASH_SOURCE[0]}")/test_gate_mode_line2_is_self_consistent.sh"
+         if [ -x "$_l2g" ] || [ -r "$_l2g" ]; then
+           _l2o="$(timeout 20 bash "$_l2g" 2>&1)"; _l2r=$?
+           case "$_l2r" in
+             0) printf '  MODE line 2 vs ITSELF: ✅ every language carries one consistent owner.\n';;
+             1) printf '  ⛔ MODE LINE 2 CONTRADICTS ITSELF -- the law disagrees with the law, and every lane gate we own\n'
+                printf '     is comparing its table against the contradiction and printing agreement:\n'
+                printf '%s\n' "$_l2o" | grep -E 'CONTRADICTION|^      byte ' | sed 's/^/    /'
+                printf '     ⛔ This is the ceo'"'"'s line to edit. ASK ceo/inbox with the byte offsets; do not route work\n'
+                printf '        for the named language until it is cured -- a wrong-but-LIVE owner is the dangerous case,\n'
+                printf '        because the message arrives somewhere that can act on it (hq_S, 2026-09-14).\n';;
+             *) printf '  ⚠️  MODE line 2 vs ITSELF: could not measure (rc=%s) -- NOT a clean bill. Run %s\n' "$_l2r" "$_l2g";;
+           esac
+         fi
+         printf '\n';;
   sweep) # ⭐ LAW 4 — THE QUEUE IS A DISPATCH BUFFER, NOT A MEMORY. v1 reached 62% dead rows (112 of 181 DONE) because
          # nothing ever moved a landed row out, so the picker walked a graveyard and HQ re-dispatched finished work.
          # This moves every row whose claim carries DONE into QUEUE.done.tsv (the memory) and rewrites the buffer.
