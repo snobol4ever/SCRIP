@@ -44,22 +44,45 @@ command -v swipl   >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE swipl absent"
 . "$HERE/lib_prolog_bench.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE (rc=2): cannot source lib_prolog_bench.sh -- the ONE loop-output check"; exit 2; }
 WRAP="$ROOT/tools/bench_rusage"
 [ -x "$WRAP" ] || gcc -O2 -o "$WRAP" "$ROOT/tools/bench_rusage.c" || { echo "⛔ REFUSED: bench_rusage failed to build" >&2; exit 2; }
+# ⛔⭐ THE GENERATOR IS THE SOLE PRODUCER OF THE WRAPPED FORM (CEO-567 DONE-WHEN, verbatim: "the harness
+#   is the sole producer of the wrapped self-timing self-counting form").  Until 2026-09-13 THIS SCRIPT
+#   WAS A SECOND PRODUCER: a local mkwrap() that sed'd `main :-` into `bench__main :-` and wrapped it in
+#   a frozen `l__(N)`.  It worked, which is why it survived -- but it emitted NO TIMING BRACKET, so angle
+#   1 had a RATE and no WORK number, and the two-number basis could not exist on this angle at all.
+#   ⭐ Routing through the generator is what fills the WORK and OVERHEAD grids below; the independence
+#   property angle 1 exists for is UNTOUCHED, because what makes angle 1 independent is that N is
+#   DERIVED FRESH by the doubling search, never where the wrapper text comes from.
+GEN="${GEN:-$HERE/bench_prolog_wrap.sh}"
+[ -x "$GEN" ] || { echo "⛔ REFUSED-TO-GRADE: the wrapper generator $GEN is missing or not executable -- angle 1 will not hand-roll a second wrapper (CEO-567)"; exit 2; }
+. "$HERE/lib_perf_fmt.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE: cannot load lib_perf_fmt.sh -- the ONE authority for printing a multiple and the carrier of the load stamp (s266/CEO-697)"; exit 2; }
 # ⛔ timeout -k 5 EVERYWHERE (hq_P 2026-09-02, measured): swipl ignores timeout's SIGTERM -- angle 2 sat 648 s on vanroy/queens.pl
 # under `timeout 60` with the whole triangulation behind it. A bound that the bounded process can decline is not a bound; -k makes
 # the kill unconditional five seconds after the deadline, and the run then reads CRASH(signal 9), never a rate (the exit= gate).
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 ulimit -s unlimited 2>/dev/null || ulimit -s 1048576 2>/dev/null || true
 
-mkwrap() { printf 'main :- l__(%d).\nl__(N__) :- between(1, N__, _), bench__main, fail.\nl__(_).\n' "$2" > "$3.tail"
-  sed 's/^main :-/bench__main :-/' "$1" | grep -v '^:- initialization' > "$3.body"
-  { echo ':- initialization(main).'; cat "$3.body"; cat "$3.tail"; } > "$3"; }
+# genwrap SRC N OUT ENG -- ask the ONE generator for the counted, self-timing form.  ⛔ Never write the
+# wrapper here: a second producer is how angle 1 came to have a rate and no work number for months.
+genwrap() {
+  local src="$1" n="$2" out="$3" eng="$4" ge
+  case "$eng" in gnu) ge=gnu ;; swi) ge=swi ;; *) ge=scrip ;; esac
+  "$GEN" "$src" --mode=iter --n="$n" --engine="$ge" -o "$out" >/dev/null 2>"$W/gen.err"
+}
 
 # one bench_rusage-wrapped run at N iterations; echoes "cpu_us" or "- REASON" -- exit= is the ONLY signal trusted
 run1() {
   local eng="$1" pl="$2" n="${3:-}" exp="${4:-}" out rl xc user sys r
   case "$eng" in
-    gnu) out=$("$WRAP" timeout -k 5 "$T" gprolog --consult-file "$PRO/prelude_gplc.pl" --consult-file "$pl" --query-goal halt >"$W/o.$$" 2>"$W/e.$$") ;;
-    swi) out=$("$WRAP" timeout -k 5 "$T" swipl -q -g halt "$PRO/prelude_swipl.pl" "$pl" >"$W/o.$$" 2>"$W/e.$$") ;;
+    # ⛔⭐ NO SEPARATE --consult-file FOR THE PRELUDE HERE, AND THAT IS NOT AN OMISSION -- THE GENERATOR
+    #   ALREADY INLINED IT (that is what --engine MEANS: it changes only the prelude, never the kernel).
+    #   Passing it a second time defines wall_us/1 and wall_ms/1 TWICE, and gprolog then writes
+    #   "cannot be redefined / previous definition" ON STDOUT, which gnu_filter does not catch -- so the
+    #   run reads LOOP-OUTPUT-MISMATCH(lines=3/1) with the CORRECT answer sitting on the third line.
+    #   MEASURED as a regression against the pre-generator control on nrev: gnu 33243/s ok -> NA.
+    #   ⭐ A doubled prelude is invisible on every engine that tolerates redefinition and fatal on the
+    #   one that does not, which is why this comment is longer than the fix.
+    gnu) out=$("$WRAP" timeout -k 5 "$T" gprolog --consult-file "$pl" --query-goal halt >"$W/o.$$" 2>"$W/e.$$") ;;
+    swi) out=$("$WRAP" timeout -k 5 "$T" swipl -q -g halt "$pl" >"$W/o.$$" 2>"$W/e.$$") ;;
     m3)  out=$("$WRAP" timeout -k 5 "$T" "$SCRIP" --run "$pl" >"$W/o.$$" 2>"$W/e.$$") ;;
     m4)  local s="$W/$$.s" b="$W/$$.bin"
          if ! (cd "$W" && timeout -k 5 "$T" "$SCRIP" --compile --target=x86 "$pl" </dev/null >"$s" 2>/dev/null) || [ ! -s "$s" ]; then echo "- BUILD-ERR"; return; fi
@@ -74,19 +97,32 @@ run1() {
   [ "$xc" -ne 0 ] && { echo "- NONZERO($xc)"; return; }
   r=$(loop_check "$eng" "$W/o.$$" "$n" "$exp") || { echo "- $r"; return; }
   user=$(echo "$rl" | grep -oE 'user_us=[0-9]+' | cut -d= -f2); sys=$(echo "$rl" | grep -oE 'sys_us=[0-9]+' | cut -d= -f2)
-  echo "$(( ${user:-0} + ${sys:-0} ))"
+  # ⛔⛔ THE SUBTRACTION IS WALL MINUS WALL AND THAT IS THE APPLES-TO-APPLES LAW, NOT A DETAIL.
+  #   bench_rusage reports BOTH elapsed_ns (CLOCK_MONOTONIC) and user_us+sys_us (CPU).  The RATE column
+  #   of this angle deliberately uses the CPU pair -- but wall_us/1 inside the generated bracket is
+  #   CLOCK_MONOTONIC, so `user+sys - work` would subtract a WALL number from a CPU one and publish the
+  #   difference of two instruments as an overhead.  On a loaded box it can go NEGATIVE, which is the
+  #   tell.  elapsed_us is therefore carried separately, for this one purpose only.
+  local elns work
+  elns=$(echo "$rl" | grep -oE 'elapsed_ns=[0-9]+' | cut -d= -f2)
+  work=$(grep -oE 'work_us=[0-9]+' "$W/e.$$" 2>/dev/null | tail -1 | cut -d= -f2)
+  echo "$(( ${user:-0} + ${sys:-0} )) $(( ${elns:-0} / 1000 )) ${work:--}"
 }
 # doubling search: largest N whose cpu time >= BUDGET_MS, cap NMAX. Echoes "N rate" or "N -" + reason on the FIRST N that fails.
 search() {
-  local eng="$1" src="$2" N=1 cpu
+  local eng="$1" src="$2" N=1 res cpu el wk
   while :; do
-    mkwrap "$src" "$N" "$W/s.pl"
-    cpu=$(run1 "$eng" "$W/s.pl" "$N" "${src%.pl}.expected")
+    if ! genwrap "$src" "$N" "$W/s.pl" "$eng"; then
+      echo "$N - GEN-REFUSED($(head -1 "$W/gen.err" 2>/dev/null | cut -c1-40))"; return
+    fi
+    res=$(run1 "$eng" "$W/s.pl" "$N" "${src%.pl}.expected")
+    cpu=$(awk '{print $1}' <<<"$res")
     case "$cpu" in
-      -\ *) echo "$N $cpu"; return ;;   # first failure at this N -- report it, caller decides
+      -) echo "$N - $(cut -d' ' -f2- <<<"$res")"; return ;;   # first failure at this N -- report it, caller decides
     esac
     if [ "$cpu" -ge $((BUDGET_MS*1000)) ] || [ "$N" -ge "$NMAX" ]; then
-      awk -v n="$N" -v us="$cpu" 'BEGIN{printf "%d %.4f", n, n/(us/1e6)}'; return
+      el=$(awk '{print $2}' <<<"$res"); wk=$(awk '{print $3}' <<<"$res")
+      awk -v n="$N" -v us="$cpu" -v e="$el" -v w="$wk" 'BEGIN{printf "%d %.4f %s %s", n, n/(us/1e6), e, w}'; return
     fi
     N=$((N*4)); [ "$N" -gt "$NMAX" ] && N=$NMAX
   done
@@ -94,10 +130,16 @@ search() {
 
 echo "TIME-BASED PROLOG BENCHMARKS -- angle 1: fixed wall-time budget (${BUDGET_MS}ms), iterations counted via live doubling search"
 echo "engines: gnu swi m3 m4   corpus: $B   budget: TIME_BUDGET_MS=$BUDGET_MS cap NMAX=$NMAX   external instrument: tools/bench_rusage"
+echo "wrapper: GENERATED per engine by $(basename "$GEN") --mode=iter (never checked in, CEO-567 -- this angle no longer writes its own)"
+# ⛔ CEO-697: A COST WITHOUT THE LOAD IT RAN UNDER IS NOT A COST, and perf_grid_begin welds the load to
+#   the shared-axes line so this harness CANNOT print a rate without it -- two runs of one tree on this
+#   box have been measured differing by up to 2.15x.
+perf_grid_begin "Prolog kernels vs gnu/swi -- angle 1, live doubling search · rate = iterations / CPU(user+sys) · WORK = self-measured wall inside the bracket · RT_OPT=-O0"
 echo
 printf "%-14s %14s %14s %14s %14s  %s\n" BENCHMARK gnu/s swi/s m3/s m4/s check
 printf "%-14s %14s %14s %14s %14s  %s\n" "--------------" "--------------" "--------------" "--------------" "--------------" "-----"
 tot_ok=0; tot_skip=0
+declare -A BWORK=(); declare -A BOVH=(); declare -A BN=(); basis_rows=()
 for pl in "$B"/*.pl; do
   [ -e "$pl" ] || continue
   k=$(basename "${pl%.pl}"); exp="${pl%.pl}.expected"
@@ -114,12 +156,72 @@ for pl in "$B"/*.pl; do
   for eng in gnu swi m3 m4; do
     res=$(search "$eng" "$pl"); n=$(awk '{print $1}' <<<"$res")
     r=$(awk '{print $2}' <<<"$res")
-    case "$r" in -) R[$eng]="NA"; C[$eng]="$eng@N=$n:$(cut -d' ' -f3- <<<"$res")" ;; *) R[$eng]="$r" ;; esac
+    case "$r" in
+      -) R[$eng]="NA"; C[$eng]="$eng@N=$n:$(cut -d' ' -f3- <<<"$res")"
+         BWORK["$k:$eng"]="NA"; BOVH["$k:$eng"]="NA"; BN["$k:$eng"]="-" ;;
+      *) R[$eng]="$r"
+         el=$(awk '{print $3}' <<<"$res"); wk=$(awk '{print $4}' <<<"$res"); BN["$k:$eng"]="$n"
+         # ⛔ A MISSING work_us IS PRINTED AS DARK, NEVER BLANK AND NEVER ZERO (CEO-676, dark-is-worse-
+         #   than-red): an engine whose bracket did not report could not measure its subject, and it
+         #   must say so in its own voice rather than leave the column looking filled.
+         # ⛔⭐ WORK IS PUBLISHED PER ITERATION, AND ON THIS ANGLE THAT IS MANDATORY, NOT A PREFERENCE.
+         #   Angle 2 can print raw work_us because ONE committed N is used for every engine, so its row
+         #   is already apples-to-apples.  Angle 1's N is DERIVED PER ENGINE by the doubling search, so
+         #   a raw work_us row compares gnu at its N against m4 at a different one -- a grid that looks
+         #   like a comparison and is not.  MEASURED on nrev: m3 work 122476 us at its N beside m4
+         #   1024762 us at ITS N, an 8x that is entirely the two N's and says nothing about either
+         #   engine.  Dividing by N is what makes the column mean one thing.
+         case "$wk" in ''|-|*[!0-9]*) BWORK["$k:$eng"]="DARK"; BOVH["$k:$eng"]="DARK" ;;
+           *) BWORK["$k:$eng"]=$(awk -v w="$wk" -v n="$n" 'BEGIN{printf "%.4f", (n>0)?w/n:0}')
+              BOVH["$k:$eng"]=$(( el - wk )) ;; esac ;;
+    esac
   done
+  basis_rows+=("$k")
   ckstat=ok; for eng in gnu swi m3 m4; do [ -n "${C[$eng]:-}" ] && ckstat="${C[$eng]}"; done
   [ "$ckstat" = ok ] && tot_ok=$((tot_ok+1))
   printf "%-14s %14s %14s %14s %14s  %s\n" "$k" "${R[gnu]:-NA}" "${R[swi]:-NA}" "${R[m3]:-NA}" "${R[m4]:-NA}" "$ckstat"
 done
+# ⭐⭐ THE TWO-NUMBER WORK/OVERHEAD BASIS ON ANGLE 1 -- the CEO-567 DONE-WHEN clause "the three angles
+#   run over the wrapped form with the process wrapper's numbers printed beside the self-measured ones".
+#   ⛔ THIS ANGLE COULD NOT CARRY THESE TWO GRIDS AT ALL BEFORE 2026-09-13, and for two stacked reasons,
+#   each of which alone was enough: (a) the local mkwrap() emitted no timing bracket, so there was no
+#   self-measured number to print; (b) SCRIP's Prolog had no wall clock at any spelling, so even a
+#   bracket would have been dark on m3 and m4.  (b) was cured by the cto landing wall_us/1 (05317a5fb)
+#   and (a) by routing this angle through the generator above.
 echo
+echo "N ACTUALLY RUN, PER ENGINE -- the basis of both grids below, printed because it DIFFERS per engine"
+echo "  ⛔ angle 1 derives N live per engine (that is the independence property it exists for), so a RAW"
+echo "  work_us column here would compare each engine at a different N. Read the two grids with these N."
+printf "%-14s %14s %14s %14s %14s\n" BENCHMARK gnu swi m3 m4
+printf "%-14s %14s %14s %14s %14s\n" "--------------" "--------------" "--------------" "--------------" "--------------"
+for k in "${basis_rows[@]}"; do
+  printf "%-14s %14s %14s %14s %14s\n" "$k" "${BN[$k:gnu]:--}" "${BN[$k:swi]:--}" "${BN[$k:m3]:--}" "${BN[$k:m4]:--}"
+done
+echo
+echo "SELF-MEASURED WORK PER ITERATION (us/iter) = work_us / N -- read from INSIDE the generated bracket,"
+echo "  wall clock (CLOCK_MONOTONIC). THIS is the column comparable across engines: it excludes process"
+echo "  startup entirely AND divides out each engine's own N."
+echo "  ⛔ PRECISION FLOOR: gprolog's wall_us is real_time/1 x 1000 -- a UNIT CONVERSION of a 1 ms tick,"
+echo "  not sub-ms precision (prelude_gplc.pl says so in its own header). A gnu cell whose work_us is a"
+echo "  few thousand is a few TICKS; do not build a multiple on it."
+printf "%-14s %14s %14s %14s %14s\n" BENCHMARK gnu swi m3 m4
+printf "%-14s %14s %14s %14s %14s\n" "--------------" "--------------" "--------------" "--------------" "--------------"
+for k in "${basis_rows[@]}"; do
+  printf "%-14s %14s %14s %14s %14s\n" "$k" "${BWORK[$k:gnu]:-DARK}" "${BWORK[$k:swi]:-DARK}" "${BWORK[$k:m3]:-DARK}" "${BWORK[$k:m4]:-DARK}"
+done
+echo
+echo "OVERHEAD (us, PER RUN not per iteration) = external elapsed (tools/bench_rusage, CLOCK_MONOTONIC)"
+echo "  MINUS self-measured work. It is startup+load+teardown, which the kernel never did; it is roughly"
+echo "  N-independent, which is why it is NOT divided by N the way the work column above is."
+echo "  ⛔ wall minus wall, never CPU minus wall -- the rate column above uses CPU and is a DIFFERENT"
+echo "  instrument; subtracting across the two would publish the difference of two clocks as an overhead."
+echo "  DARK = the engine ran but its bracket reported no work_us; it is named, never left blank (CEO-676)."
+printf "%-14s %14s %14s %14s %14s\n" BENCHMARK gnu swi m3 m4
+printf "%-14s %14s %14s %14s %14s\n" "--------------" "--------------" "--------------" "--------------" "--------------"
+for k in "${basis_rows[@]}"; do
+  printf "%-14s %14s %14s %14s %14s\n" "$k" "${BOVH[$k:gnu]:-DARK}" "${BOVH[$k:swi]:-DARK}" "${BOVH[$k:m3]:-DARK}" "${BOVH[$k:m4]:-DARK}"
+done
+echo
+perf_grid_end || true
 echo "CHECK RESULT: measured=$tot_ok correctness-skip=$tot_skip"
 [ "$tot_skip" -eq 0 ]

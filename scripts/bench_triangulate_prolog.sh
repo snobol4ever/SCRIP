@@ -83,7 +83,10 @@ A1_OUT="$(KERNELS="${KERNELS:-}" bash "$HERE/test_bench_prolog_timed.sh" 2>/dev/
 # angle 1's own correctness gate names the live kernel set (bench/ with .expected, minus correctness-skips) --
 # angle 2 is restricted to exactly that set so it never wastes wall-clock re-timing a kernel angle 1 already
 # knows is unmeasurable, and the two tables describe the identical kernel set by construction.
-measured_kernels=$(printf '%s\n' "$A1_OUT" | awk '/^-{5,}/{started=1;next} started&&NF==0{started=0} started&&NF>=6{print $1}')
+# ⛔ SAME FIRST-BLOCK-ONLY RULE AS parse() BELOW, AND FOR THE SAME REASON.  NF>=6 happens to exclude
+#   angle 1's 5-field basis grids TODAY, but that is the same column-count coincidence documented at
+#   parse(): one column either way and the live-kernel list silently grows duplicates from the N grid.
+measured_kernels=$(printf '%s\n' "$A1_OUT" | awk 'done{next} /^-{5,}/{if(!seen){started=1;seen=1} next} started&&NF==0{started=0;done=1;next} started&&NF>=6{print $1}')
 A2_OUT=""
 if [ -n "$measured_kernels" ]; then
   A2_OUT="$(KERNELS="$(printf '%s' "$measured_kernels" | tr '\n' ' ')" bash "$HERE/bench_prolog_fixed_iter.sh" 2>/dev/null)"
@@ -94,7 +97,20 @@ fi
 # "CHECK RESULT: ok=.. bad=.." summary line has enough whitespace-separated fields to slip past a bare
 # NF>=ncol filter and get misread as a fake kernel named "CHECK"; a hardcoded NR>N is equally fragile
 # against either script's header growing by a line).
-parse() { awk -v ncol="$1" '/^-{5,}/{started=1;next} started&&NF==0{started=0} started&&NF>=ncol{print}' ; }
+# ⛔⭐ THE FIRST DASHED BLOCK ONLY, AND THE "done" FLAG IS THE WHOLE POINT (hq_P 2026-09-13).
+#   This state machine used to RESTART on every /^-{5,}/ line, which was harmless only while each angle
+#   printed exactly one table.  Both angles now publish the two-number basis UNDER the rate table, each
+#   grid introduced by its own dashed rule -- so the machine re-armed and kept reading, and because the
+#   consuming `while read` loop assigns by KEY, THE LAST GRID SILENTLY WON: the triangulator would have
+#   compared angle 1's OVERHEAD MICROSECONDS against angle 2's ITERATION RATES and printed a full,
+#   plausible agreement table out of two different quantities.
+#   ⛔ MEASURED, and the measurement is the reason this comment is long: angle 2 is UNAFFECTED TODAY --
+#   but only BY ACCIDENT.  Its rate table carries 7 fields and its basis grids 5, so the NF>=6 filter
+#   happens to exclude them.  Angle 1's rate table carries 6 and is parsed at NF>=5, so its 5-field
+#   grids sail straight in.  ⭐ THE PROTECTION WAS A COLUMN-COUNT COINCIDENCE, NEVER A GUARD -- one
+#   added column on either side and angle 2 joins angle 1.  Stopping at the first blank line after the
+#   first rule does not care how many columns anybody has.
+parse() { awk -v ncol="$1" 'done{next} /^-{5,}/{if(!seen){started=1;seen=1} next} started&&NF==0{started=0;done=1;next} started&&NF>=ncol{print}' ; }
 # ⛔ A NON-NUMBER IS EMPTY, NEVER 0 (hq_P 2026-09-02): angle 1 prints SKIP for a kernel that failed its correctness gate, and `v+0`
 # turned that into a rate of 0 that then printed as a `0 0 n/a` FACT-RULE row -- a zero in a summary is an assertion (RULES.md
 # THE INSTRUMENT LAWS, eighth batch §3). Only a numeric cell is a number.
