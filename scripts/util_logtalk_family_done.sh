@@ -60,6 +60,21 @@ for G in "$@"; do
     echo "  $G  ROUTED $NROUTED case(s) OUT of this row's verdict and INTO another row -- named, never subtracted:"
     for r in $ROUTED; do awk -F'\t' -v g="$G" -v c="$r" '$1==g&&$2==c{printf "      %s  ->  %s\n           %s\n", c, $3, $4}' "$ROUTED_TSV"; done
   fi
+  # ---- the cross-index: the denominator this verdict SHOULD be read against (cto ruling 2026-09-13) -----
+  # ⛔⭐ A PREDICATE'S EPONYMOUS GROUP IS NOT ITS DENOMINATOR. predicates/atom_concat_3 read 28 of 28 before
+  # and after a real cure and predicates/put_code_2 read 10 of 16 before and after, because every case in
+  # both is ASCII and byte indexing and character indexing agree on every ASCII atom -- neither group could
+  # have gone red however wrong its predicate was. An instrument that cannot produce the red is
+  # indistinguishable from one that found none, and only the second is evidence. The cross-index is derived
+  # mechanically from the suite's own ALL.csv feature columns, never hand-kept.
+  # ⚠ REPORTED, NOT ARMED: LOGTALK_CROSSINDEX_STRICT=1 makes a group with no outside witness REFUSE(2).
+  # Measured blast radius on the suite as vendored 2026-09-13: 144 eponymous groups, 104 with outside
+  # evidence, 40 without, and 10 whose own cases never call their own predicate at all. Arming it today
+  # would refuse rows across two seats, so the switch is the cto's to throw, not this script's to assume.
+  if [ -f "$HERE/util_logtalk_crossindex.py" ]; then
+    LOGTALK_SUITE="$SUITE" python3 "$HERE/util_logtalk_crossindex.py" --group "$G" ${LOGTALK_CROSSINDEX_STRICT:+--strict} || {
+      [ -n "${LOGTALK_CROSSINDEX_STRICT:-}" ] && { echo "⛔ REFUSE(2): $G has no independent witness outside itself (LOGTALK_CROSSINDEX_STRICT=1)"; exit 2; }; }
+  fi
   ROUTED_TOTAL=$((ROUTED_TOTAL+NROUTED)); scoped=$((gpop-NROUTED))
   UNROUTED=$(comm -23 <(printf '%s\n' "$REDS" | sed '/^$/d') <(printf '%s\n' "$ROUTED" | sed '/^$/d'))
   if [ "$both" = "$gpop" ]; then echo "  $G  PASS  graded=$gpop both-modes=$both$([ "$out" -gt 0 ] && echo "  (+$out OUTSIDE the baseline, of $pop)")"
