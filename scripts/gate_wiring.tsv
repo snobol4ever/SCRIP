@@ -203,6 +203,7 @@ test_gate_pas_declared_locals_get_frame_slots.sh	WIRED	-	-	-
 test_gate_pas_five_or_more_parameters_arrive.sh	WIRED	-	-	-
 test_gate_pas_heap_table_is_a_movable_root.sh	WIRED	-	-	-
 test_gate_pas_inline_record_char_fields_print_as_chars.sh	WIRED	-	-	-
+test_gate_pas_nested_record_char_field_prints_as_a_char.sh	WIRED	-	-	-
 test_gate_pas_pack_unpack_and_text_get_put.sh	WIRED	-	-	-
 test_gate_pas_port_trace.sh	WIRED	-	-	-
 test_gate_pas_read_at_end_of_line_yields_a_space.sh	WIRED	-	-	-
@@ -296,6 +297,7 @@ test_gate_score_unreadable_package_is_marked.sh	WIRED	-	-	-
 test_gate_seat_identity_one_map.sh	WIRED	-	-	-
 test_gate_shared_builtin_id_table_is_self_consistent.sh	WIRED	-	-	-
 test_gate_sm_dead.sh	WIRED	-	-	-
+test_gate_sn4_replacement_releases_its_post_match_spine.sh	WIRED	-	-	-
 test_gate_sno_byname_goto_zeta_unwind_in_a_loop.sh	WIRED	-	-	-
 test_gate_sno_captured_substring_compares_by_its_own_length.sh	WIRED	-	-	-
 test_gate_sno_chain_entry_establishes_the_pend_top_cold_and_preserves_it_mid_match.sh	WIRED	-	-	-
@@ -325,6 +327,7 @@ test_gate_sno_repl_lvalue_subject.sh	WIRED	-	-	-
 test_gate_sno_runtime_define.sh	WIRED	-	-	-
 test_gate_sno_setexit_resume_matches_oracle.sh	WIRED	-	-	-
 test_gate_sno_stcount_counts_statements_inside_code_fragments.sh	WIRED	-	-	-
+test_gate_sno_subscripted_replacement_does_not_leak_the_spine.sh	WIRED	-	-	-
 test_gate_sno_terminal_read_fails_without_a_tty.sh	WIRED	-	-	-
 test_gate_sno_trace_access_fires_on_a_plain_global_read_via_compile_time_gva_demotion.sh	WIRED	-	-	-
 test_gate_sno_trace_access_fires_on_a_reference_and_is_silent_on_an_assignment.sh	WIRED	-	-	-
@@ -356,7 +359,6 @@ test_gate_queue_is_an_index.sh	RULING	reads the LIVE postoffice: grades rows six
 test_gate_s4e_release_verbs_mark_last_row.sh	RULING	reads the LIVE postoffice: grades rows sixteen seats are editing right now, so it reds on a dirty fleet BY DESIGN (ceo ruling 2026-09-03, stated verbatim in the Makefile test-postoffice header)	ceo	2026-09-03
 test_gate_sno_code_pool_exhaustion_is_a_numbered_error.sh	RULING	REFUSES rc=2 by design until the executable pool can be sized from SCRIP_BB_POOL_MB and its exhaustion is a numbered error (row snobol4-executable-pool-exhaustion-is-silent-and-fragments-are-never-freed, cfo 2026-09-12); wired in the commit that makes it green	cfo	2026-09-12T23:53Z
 test_gate_sno_define_prototype_follows_the_executed_define.sh	RULING	RED by design until the prototype cure lands (row snobol4-gimpel-recursive-list-functions-overflow-the-call-stack-where-spitbol-completes, cfo 2026-09-12): one activation per distinct prototype; a red DONE-WHEN is not an invariant and gets wired in the commit that makes it green	cfo	2026-09-12T19:34Z
-test_gate_sno_subscripted_replacement_does_not_leak_the_spine.sh	RULING	RED BY DESIGN AND NOT hq_S's TO CURE: this gate grades a live defect whose cure is zeta-SPINE depth accounting in src/emitter/emit.cpp (zd_plan / zd_exit_pop_s), which is CONCERN 3 and therefore hq_U's under MODE NONET -- a frame change is an ASK with the measurement, never a landing by this seat. Wiring a RED gate into make test is a broken build, so it lands on disk and runs on demand; hq_U is wiring it WITH their cure (they confirmed PASS=10 FAIL=5 reproduces on their tree, proven by stashing the cure and rebuilding) and is keeping ARM 2, the loop arm, which asserts the INVARIANT that the spine does not drift rather than the SIGSEGV that led us to it.	hq_S	2026-09-13T23:49Z
 test_gate_argnote_sweep.sh	TASK	-	-	-
 test_gate_asm_tabs_identity.sh	TASK	-	-	-
 test_gate_baton_hidden_criterion.sh	TASK	-	-	-
