@@ -44,7 +44,7 @@ tree_t *lp_s_expr(const tree_t *s, const char *tag) { return stmt_attr_expr(stmt
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *lp_strdup(const char *s) {
     if (!s) return NULL;
-    { extern char *rt_pinned_strdup(const char *); return rt_pinned_strdup(s); }
+    { size_t n = strlen(s) + 1; char *q = (char *)malloc(n); if (!q) return NULL; memcpy(q, s, n); return q; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * norm_charseq(DESCR_t d) {
