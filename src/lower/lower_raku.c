@@ -57,6 +57,8 @@ static int rk_method_is_stub(const tree_t * m) {
 static const char * rk_fld_bare(const char * s) { return (s && (s[0] == '.' || s[0] == '!')) ? s + 1 : s; }
 static int rk_fld_priv(const char * s) { return (s && s[0] == '!') ? 1 : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int g_rk_user_write_meth = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * rk_find_type_decl(const tree_t * prog, const char * name) {
     if (!prog || !name) return NULL;
     for (int i = 0; i < prog->n; i++) {
@@ -609,6 +611,11 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 *res = rval; return eval_;
             }
         }
+        if (mname && t->n == 2 && t->c[0] && !g_rk_user_write_meth && (!strcmp(mname, "say") || !strcmp(mname, "print"))) {
+            const tree_t * inv = t->c[0]; const char * wfn = !strcmp(mname, "print") ? "rk_writes" : "rk_write";
+            if (!strcmp(mname, "say")) { if (inv->t == TT_VAR && inv->v.sval && (rk_is_arrlit_scalar(inv->v.sval) || rk_is_array_name(inv->v.sval))) wfn = "rk_write_arr"; else if (rk_yields_list(inv)) wfn = "rk_write_list"; }
+            return lower_rcall1(cx, inv, wfn, γ, ω, res);
+        }
         if (mname && rk_meth_is_bool(mname)) return lower_rcall_bool(cx, t, "meth_call", 0, γ, ω, res);
         return lower_rcall(cx, t, "meth_call", 0, γ, ω, res);
     }
@@ -710,13 +717,14 @@ static void rk_discover_grammars(const tree_t * prog) {
 static void rk_register_classes(const tree_t * prog) {
     extern void record_register(const char *spec);
     if (!prog) return;
-    g_rk_class_n = 0;
+    g_rk_class_n = 0; g_rk_user_write_meth = 0;
     for (int i = 0; i < prog->n; i++) {
         const tree_t * d = prog->c[i];
         if (d && d->t == TT_STMT) { const tree_t * sub = stmt_subj(d); if (!sub) continue; d = sub; }
         if (!d || (d->t != TT_CLASS_DECL && d->t != TT_ROLE_DECL)) continue;
         const char * cname = (d->n > 0 && d->c[0] && d->c[0]->v.sval) ? d->c[0]->v.sval : NULL;
         if (!cname || !*cname) continue;
+        if (rk_type_provides_real_method(d, "say") || rk_type_provides_real_method(d, "print")) g_rk_user_write_meth = 1;
         if (g_rk_class_n < RK_GRAM_MAX && !rk_is_class_name(cname)) g_rk_class_names[g_rk_class_n++] = cname;
         char spec[512]; int pos = 0;
         pos += snprintf(spec + pos, sizeof(spec) - pos, "%s(", cname);

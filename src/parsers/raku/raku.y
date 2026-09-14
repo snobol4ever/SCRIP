@@ -188,6 +188,13 @@ static tree_t *rk_tw_post_incdec(const char *var, int add) {
     expr_add_child(seq, leaf_sval(TT_VAR, tmp));
     return seq;
 }
+static ExprList *rk_group_targets(tree_t *grp) {
+    ExprList *t = exprlist_new();
+    if (grp && grp->t == TT_FNC && grp->v.sval && strcmp(grp->v.sval, "__rk_arr") == 0) { for (int i = 1; i < grp->n; i++) exprlist_append(t, grp->c[i]); }
+    else if (grp) { exprlist_append(t, grp); }
+    return t;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_destructure(ExprList *targets, tree_t *rhs_arr) {
     static int __destr_uid = 0;
     char tmp[32]; snprintf(tmp, sizeof tmp, "__destr_%d", __destr_uid++);
@@ -539,7 +546,7 @@ const char *raku_meth_lookup(const char *classname, const char *methname) {
 %token OP_POW
 %type <node> stmt expr atom range_expr cmp_expr or_expr and_expr tern_expr jct_expr dor_expr add_expr closure
 %type <node> mul_expr unary_expr pow_expr postfix_expr call_expr block
-%type <node> repl_expr addsub_expr divis_expr
+%type <node> repl_expr addsub_expr divis_expr paren_group
 %type <node> if_stmt while_stmt for_stmt sub_decl given_stmt sub_body method_body elsif_tail
 %type <node> unless_stmt until_stmt repeat_stmt loop_stmt loop_incr class_decl grammar_decl role_decl module_decl
 %type <node> pair_list
@@ -590,8 +597,8 @@ stmt
         { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$6);
           ExprList *args=$8; if(args){ for(int i=0;i<args->count;i++) expr_add_child(call,args->items[i]); exprlist_free(args); }
           $$ = rk_destructure($3, call); }
-    | '(' scalar_list ')' '=' expr ';'
-        { $$ = rk_destructure($2, $5); }
+    | paren_group '=' expr ';'
+        { $$ = rk_destructure(rk_group_targets($1), $3); }
     | KW_MY VAR_ARRAY ';'
         { $$ = expr_binary(TT_ASSIGN, var_node($2), make_call("__rk_undef")); }
     | KW_MY VAR_HASH ';'
@@ -1935,6 +1942,15 @@ arg_list
     | arg_list ',' expr { $$=exprlist_append($1,$3); }
     | arg_list ','      { $$=$1; }
     ;
+paren_group
+    : '(' ')'         { $$=make_call("__rk_arr"); }
+    | '(' expr ')'    { $$=$2; }
+    | '(' expr ',' ')'
+        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$2); $$=call; }
+    | '(' expr ',' arg_list ')'
+        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$2);
+          ExprList *a=$4; if(a){ for(int i=0;i<a->count;i++) expr_add_child(call,a->items[i]); exprlist_free(a); } $$=call; }
+    ;
 atom
     : LIT_INT         { tree_t *e=ast_node_new(TT_ILIT); e->v.ival=$1; $$=e; }
     | LIT_BOOL
@@ -2028,13 +2044,7 @@ atom
     | DOLLAR_LBRACKET expr ',' arg_list ']'
         { tree_t *call=make_call("__rk_arr_lit_item"); expr_add_child(call,$2);
           ExprList *a=$4; if(a){ for(int i=0;i<a->count;i++) expr_add_child(call,a->items[i]); exprlist_free(a); } $$=call; }
-    | '(' ')'         { $$=make_call("__rk_arr"); }
-    | '(' expr ')'    { $$=$2; }
-    | '(' expr ',' ')'
-        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$2); $$=call; }
-    | '(' expr ',' arg_list ')'
-        { tree_t *call=make_call("__rk_arr"); expr_add_child(call,$2);
-          ExprList *a=$4; if(a){ for(int i=0;i<a->count;i++) expr_add_child(call,a->items[i]); exprlist_free(a); } $$=call; }
+    | paren_group     { $$=$1; }
     | block           { tree_t *b=ast_node_new(TT_ANON_BLOCK); expr_add_child(b,$1); $$=b; }
     | KW_SUB block    { tree_t *b=ast_node_new(TT_ANON_BLOCK); expr_add_child(b,$2); $$=b; }
     | KW_SUB '(' param_list ')' block
