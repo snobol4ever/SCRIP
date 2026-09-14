@@ -2263,7 +2263,7 @@ static long pl_atom_concat_count(DESCR_t a, DESCR_t b, DESCR_t c) {
     int ha = pl_cell_text(a, ba, sizeof ba, &sa), hb = pl_cell_text(b, bb, sizeof bb, &sb);
     if (ha && hb) return 0;
     if (!pl_cell_text(c, bc, sizeof bc, &sc)) return -1;
-    return (long)strlen(sc);
+    return (long)utf8_strlen(sc);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_atom_concat_n(DESCR_t *args, int nargs) {
@@ -2288,9 +2288,10 @@ static int rt_pl_atom_concat_at_cell(DESCR_t *args, pl_tr_ctx_t *cx) {
         return plw_unify_vals(args[3], pl_mk_atom_dup(cb, la + lb), cx);
     }
     if (!pl_cell_text(args[3], bc, sizeof bc, &sc)) return 0;
-    { long n = (long)strlen(sc), i = (long)iv.i; char *tr0 = cx->tr; int ok;
+    { size_t blen = strlen(sc); long n = (long)utf8_strlen(sc), i = (long)iv.i; char *tr0 = cx->tr; int ok; size_t boff;
       if (i < 0 || i > n) return 0;
-      ok = plw_unify_vals(args[1], pl_mk_atom_dup(sc, (size_t)i), cx) && plw_unify_vals(args[2], pl_mk_atom_dup(sc + i, (size_t)(n - i)), cx);
+      boff = utf8_char_offset(sc, blen, (size_t)i + 1);
+      ok = plw_unify_vals(args[1], pl_mk_atom_dup(sc, boff), cx) && plw_unify_vals(args[2], pl_mk_atom_dup(sc + boff, blen - boff), cx);
       if (!ok) cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0);
       return ok; }
 }
