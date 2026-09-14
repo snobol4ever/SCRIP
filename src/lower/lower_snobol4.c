@@ -127,6 +127,7 @@ static int sno_binop_code(tree_e tt) {
 static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * sx_idx_container(scx_t * cx, const tree_t * t, IR_t * ω, IR_t ** res);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * sco_stmt_hook(scx_t * cx, const tree_t * s, IR_t * body);
 static IR_t * sco_branch(scx_t * cx, const tree_t * pg, IR_t * γ, IR_t * ω) {
     if (!pg) return γ;
     if (pg->t != TT_PROGRAM) { IR_t * r = NULL; return sx_lower(cx, pg, γ, ω, &r); }
@@ -137,7 +138,7 @@ static IR_t * sco_branch(scx_t * cx, const tree_t * pg, IR_t * γ, IR_t * ω) {
         const tree_t * subj = lc_stmt_subj(s);
         if (!subj) continue;
         IR_t * r = NULL;
-        entry = sx_lower(cx, subj, entry, entry, &r);
+        entry = sco_stmt_hook(cx, s, sx_lower(cx, subj, entry, entry, &r));
     }
     return entry;
 }
@@ -899,6 +900,26 @@ static int sno_stmt_is_blank(const tree_t * s) {
     if (lp_s_expr(s, ":subj") || lp_s_expr(s, ":lbl") || lp_s_expr(s, ":pat") || lp_s_expr(s, ":repl") || lp_s_expr(s, ":end")) return 0;
     for (int k = 0; k < s->n; k++) { const tree_t * c = s->c[k]; if (c && (c->t == TT_GOTO_U || c->t == TT_GOTO_S || c->t == TT_GOTO_F || c->t == TT_GOTO_DIRECT)) return 0; }
     return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * sco_stmt_hook(scx_t * cx, const tree_t * s, IR_t * body) {
+    if (!s || !body || lp_s_int(s, ":nocount") || sno_stmt_is_blank(s)) return body;
+    long stno = (long) lp_s_int(s, ":stno");
+    long line = (long) lp_s_int(s, ":line"); if (!line) line = (long) lp_s_int(s, ":lline");
+    if (g_sno_uses_stmtkw) {
+        IR_t * hook = lc_build(cx->g, IR_CALL, body, body); IR_LIT(hook).sval = (char *) "SNO$STMT";
+        IR_t * num = lc_build(cx->g, IR_LIT_INTEGER, hook, hook); IR_LIT(num).ival = (int64_t) stno;
+        IR_t * lnn = lc_build(cx->g, IR_LIT_INTEGER, hook, hook); IR_LIT(lnn).ival = (int64_t) line;
+        lc_γ_to(num, lnn);
+        ir_operand_push(hook, num); ir_operand_push(hook, lnn);
+        return num;
+    }
+    {   extern const char * stmt_src_get_file(void);
+        const char * sf = stmt_src_get_file();
+        if (!sf || !*sf) return body;
+    }
+    IR_t * mark = lc_build(cx->g, IR_STMT_MARK, body, body); IR_LIT(mark).ival = (int64_t) stno; mark->pat_static = (int) line;
+    return mark;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_goto_specials_impossible(const tree_t * expr) {
