@@ -5,6 +5,7 @@
 #include <sys/mman.h>
 #include <link.h>
 #include <time.h>
+#include <dlfcn.h>
 #include "rt_slab.h"
 #include "rt_arena.h"
 #include "gc_heap.h"
@@ -166,7 +167,7 @@ static void rt_alloc_hist_report(void)
     fprintf(stderr, "[AH] per-type (type n bytes):\n");
     for (int t = 0; t < 512; t++) if (g_ah_tn[t]) fprintf(stderr, "[AH] T %d %ld %ld\n", t, g_ah_tn[t], g_ah_tb[t]);
     fprintf(stderr, "[AH] per-callsite (ra type n bytes):\n");
-    for (int i = 0; i < 4096; i++) if (g_ah_ra[i].n) fprintf(stderr, "[AH] R %p %d %ld %ld\n", g_ah_ra[i].ra, (int)g_ah_ra[i].type, g_ah_ra[i].n, g_ah_ra[i].b);
+    for (int i = 0; i < 4096; i++) if (g_ah_ra[i].n) { Dl_info di; const char *sym = (dladdr(g_ah_ra[i].ra, &di) && di.dli_sname) ? di.dli_sname : "?"; long off = (dladdr(g_ah_ra[i].ra, &di) && di.dli_saddr) ? (long)((char *)g_ah_ra[i].ra - (char *)di.dli_saddr) : 0; fprintf(stderr, "[AH] R %p %d %ld %ld  %s+%ld\n", g_ah_ra[i].ra, (int)g_ah_ra[i].type, g_ah_ra[i].n, g_ah_ra[i].b, sym, off); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) int rt_alloc_hist_on(void)
