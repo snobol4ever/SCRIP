@@ -40,6 +40,8 @@ typedef struct {
     int         line;
     Token       peek;
     int         has_peek;
+    TkKind      last_kind;
+    int         fenced;
 } Lexer;
 void lexer_init(Lexer *lx, const char *src);
 Token lexer_next(Lexer *lx);

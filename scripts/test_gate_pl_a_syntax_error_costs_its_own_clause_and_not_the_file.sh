@@ -13,6 +13,19 @@
 # errors -- one real and two cascaded from a reader that never resynchronised -- and answer nothing at all,
 # because the file is abandoned before any clause reaches the database.
 #
+# ⛔ THE m4 ARM DELETES ITS OWN ARTIFACTS BEFORE EACH COMPILE, AND THAT IS NOT HYGIENE, IT IS THE VERDICT.
+# Without the rm, a subject compile that REFUSES leaves the CONTROL arm's .s and binary in place, the gate
+# links and runs those instead, and the subject arm reports three answers from a program it never built --
+# which is exactly what this gate did on its first red run, reading m4 answers=3 for a tree where mode 4
+# produced nothing at all. A stale artifact under a refusing compile is indistinguishable from success.
+#
+# ⛔ WHAT IS COUNTED IS THE PER-SITE DIAGNOSTIC -- a line carrying a source line number and `parse error` or
+# `lex error` -- and NOT the driver's one-line summary of how many there were. Counting both was this gate's
+# own first reading and it made a correct cure read as 2 want 1. In mode 4 the diagnostics are emitted at
+# COMPILE time and the answers at RUN time, so the arm grades the compile log and the program output
+# CONCATENATED; grading only what the binary printed made the m4 subject arm read 0 diagnostics for a file
+# that had just reported one -- the same instrument failure from the opposite side.
+#
 # ⛔ THE ERROR COUNT IS GRADED, NOT JUST THE ANSWERS, and that is deliberate: a reader could be made to
 # limp to the end of the file while emitting a cascade of invented errors, which would answer all three and
 # still leave every diagnostic after the first one useless. One bad clause, one diagnostic, naming its line.
@@ -37,14 +50,14 @@ for m in 3 4; do
   for arm in control subject; do
     src="$W/$arm.pl"
     if [ "$m" = 3 ]; then out="$(timeout 20 ./scrip "$src" </dev/null 2>&1)"; else
+      rm -f "$W/a.s" "$W/a.bin"
       timeout 20 ./scrip --compile -o "$W/a.s" "$src" </dev/null >"$W/c.log" 2>&1
-      if [ -s "$W/a.s" ]; then
-        gcc -no-pie "$W/a.s" -Lout -lscrip_rt -Wl,-rpath,"$PWD/out" -lm -lpthread -o "$W/a.bin" >>"$W/c.log" 2>&1 \
-          && out="$(timeout 20 "$W/a.bin" </dev/null 2>&1)" || out="$(cat "$W/c.log")"
+      if [ -s "$W/a.s" ] && gcc -no-pie "$W/a.s" -Lout -lscrip_rt -Wl,-rpath,"$PWD/out" -lm -lpthread -o "$W/a.bin" >>"$W/c.log" 2>&1
+      then out="$(cat "$W/c.log"; timeout 20 "$W/a.bin" </dev/null 2>&1)"
       else out="$(cat "$W/c.log")"; fi
     fi
     ans="$(printf '%s\n' "$out" | grep -c '^[pqr](\(one\|two\|three\))$')"
-    errs="$(printf '%s\n' "$out" | grep -c 'parse error\|syntax error\|Syntax error')"
+    errs="$(printf '%s\n' "$out" | grep -c ':[0-9][0-9]*: \(parse\|lex\) error')"
     if [ "$arm" = control ]; then
       if [ "$ans" = 3 ] && [ "$errs" = 0 ]; then echo "✅ m$m control: 3 answers, 0 diagnostics"
       else echo "⛔ REFUSE(2): m$m control arm reads answers=$ans diagnostics=$errs, want 3 and 0 -- the subject arm cannot speak; out=[$out]" >&2; exit 2; fi

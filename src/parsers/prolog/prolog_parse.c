@@ -17,6 +17,7 @@ typedef struct {
     Lexer      lx;
     const char *filename;
     int         nerrors;
+    int         clause_errs;
     int         in_args;
     int         quiet;
     IfFrame     ifst[IF_STACK_MAX];
@@ -28,10 +29,27 @@ static int if_currently_active(const Parser *p) {
     return p->ifst[p->ifst_top - 1].active;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void perror_at(Parser *p, int line, const char *msg) {
-    if (!p->quiet) fprintf(stderr, "%s:%d: parse error: %s\n", p->filename, line, msg);
-    p->nerrors++;
+static void resync_past_clause_end(Parser *p) {
+    for (;;) {
+        Token t = lexer_peek(&p->lx);
+        if (t.kind == TK_EOF) return;
+        lexer_next(&p->lx);
+        if (t.kind == TK_DOT) return;
+    }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void perror_at(Parser *p, int line, const char *msg) {
+    if (p->clause_errs == 0) {
+        if (!p->quiet) fprintf(stderr, "%s:%d: parse error: %s\n", p->filename, line, msg);
+        p->nerrors++;
+        p->clause_errs++;
+        if (p->lx.last_kind != TK_DOT) resync_past_clause_end(p);
+        p->lx.fenced = 1;
+        return;
+    }
+    p->clause_errs++;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef enum { ASSOC_NONE, ASSOC_LEFT, ASSOC_RIGHT } Assoc;
 typedef enum { FIX_INFIX, FIX_PREFIX, FIX_POSTFIX } Fixity;
 typedef struct { const char *name; int prec; Assoc assoc; Fixity fixity; } OpEntry;
@@ -1185,6 +1203,7 @@ PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet) {
     lexer_init(&p.lx, src);
     p.filename = filename ? filename : "<input>";
     p.nerrors  = 0;
+    p.clause_errs = 0;
     p.ifst_top = 0;
     p.in_args  = 0;
     p.quiet    = quiet;
@@ -1197,9 +1216,17 @@ PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet) {
                     p.filename, pk.line, pk.text);
             p.nerrors++;
             lexer_next(&p.lx);
+            if (p.lx.last_kind != TK_DOT) resync_past_clause_end(&p);
             continue;
         }
+        p.clause_errs = 0;
         PlClause *cl = parse_clause(&p);
+        if (p.clause_errs > 0) {
+            if (cl) free(cl);
+            p.lx.fenced = 0;
+            p.lx.has_peek = 0;
+            continue;
+        }
         if (!cl) break;
         if (cl->nbody == 0 && cl->tr == NULL) {
             free(cl);

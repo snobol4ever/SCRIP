@@ -296,7 +296,8 @@ static Token scan_graphic(Lexer *lx) {
     return make_tok(TK_OP, buf, line);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-Token lexer_next(Lexer *lx) {
+static Token lexer_next_raw(Lexer *lx) {
+    if (lx->fenced) return make_tok(TK_EOF, strdup(""), lx->line);
     if (lx->has_peek) {
         lx->has_peek = 0;
         return lx->peek;
@@ -354,9 +355,15 @@ Token lexer_next(Lexer *lx) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+Token lexer_next(Lexer *lx) {
+    Token t = lexer_next_raw(lx);
+    lx->last_kind = t.kind;
+    return t;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 Token lexer_peek(Lexer *lx) {
     if (!lx->has_peek) {
-        lx->peek     = lexer_next(lx);
+        lx->peek     = lexer_next_raw(lx);
         lx->has_peek = 1;
     }
     return lx->peek;
@@ -367,5 +374,7 @@ void lexer_init(Lexer *lx, const char *src) {
     lx->pos      = 0;
     lx->line     = 1;
     lx->has_peek = 0;
+    lx->last_kind = TK_EOF;
+    lx->fenced = 0;
     memset(&lx->peek, 0, sizeof lx->peek);
 }
