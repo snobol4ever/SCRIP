@@ -62,6 +62,8 @@
 #   perf_load_stamp                                  -> "load 1.71 on 16 cores (0.11/core)"
 #   perf_grid_begin <axis-line>                      -> the shared-axes line WITH the load stamp
 #   perf_grid_end                                    -> rc=2 if any cell in this grid refused
+#   perf_dark_cell <subject> <why>                   -> bump the dark count from a caller that
+#                                                       prints its own grid; names it on stderr
 #   PERF_COLOR=0 forces plain; PERF_COLOR=1 forces colour even when not a tty.
 #   PERF_DARK_CELLS counts refusals since the last perf_grid_begin.  Read it, do not set it.
 perf_color_on() {
@@ -89,6 +91,26 @@ perf_refuse() {
     printf '⛔ perf: REFUSED to print a multiple for %s -- %s (a dark cell is worse than a red one: CEO-676)\n' \
            "${1:-<unnamed subject>}" "${2:-unmeasurable operand}" >&2
     return 2
+}
+#-----------------------------------------------------------------------------------------------------
+# perf_dark_cell SUBJECT WHY -- for a caller that formats its OWN grid (the three Prolog angle harnesses
+# print aligned work/overhead tables of their own, not perf_row rows) and needs a hand-printed dark cell
+# to reach perf_grid_end.  Prints NOTHING on stdout -- the caller is mid-row and owns its own column
+# text -- bumps the count IN THE CALLER'S SHELL, and names the subject on stderr like every other refusal.
+# ⛔ WHY THIS EXISTS RATHER THAN `PERF_DARK_CELLS=$((...+1))` AT EACH SITE, AND IT IS ARM E's LESSON ONE
+#   LEVEL OUT: angle 1 landed printing literal "DARK" cells and closing with `perf_grid_end || true`, so
+#   its whole-grid verdict was structurally unable to fire -- the counter it reads was never touched by
+#   the cells it exists to count, and the `|| true` discarded even that.  A guard satisfied by the broken
+#   shape is what this lane keeps paying for.  One named function is also what a gate can census for.
+# ⭐ WHAT IS NOT A DARK CELL, per THE DARK-CELL LAW above: a subject the caller KNOWS is below its
+#   instrument and says so in its own words ("<1 tick", "TICK-FLOOR(0)") is a MEASUREMENT -- the reader
+#   is told the truth and no number is fabricated.  Do not bump for those; bump when the cell could not
+#   measure its subject at all (no run, no bracket reading, a build that failed, a generator that refused).
+perf_dark_cell() {
+    PERF_DARK_CELLS=$(( ${PERF_DARK_CELLS:-0} + 1 ))
+    printf '⛔ perf: dark cell for %s -- %s (a dark cell is worse than a red one: CEO-676)\n' \
+           "${1:-<unnamed subject>}" "${2:-could not measure its subject}" >&2
+    return 0
 }
 #-----------------------------------------------------------------------------------------------------
 # perf_mult REF OURS [SUBJECT] -- the multiple, coloured, with its unit.  Nothing else.

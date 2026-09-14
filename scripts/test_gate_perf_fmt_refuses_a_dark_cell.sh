@@ -110,13 +110,23 @@ out="$(perf_grid_end 2>/dev/null)"; rc=$?
 # which DELETES the row when an operand is missing -- shape (3), the invisible cell: the grid looks
 # complete because nobody greps for a row that was never printed.
 echo "F. the bench harnesses cannot delete a row, and they close the grid they open"
-for h in bench_triangulate_pascal.sh bench_triangulate_prolog.sh bench_triangulate_raku.sh bench_triangulate_snobol4.sh bench_triangulate_demos_icon.sh bench_triangulate_demos_snobol4.sh; do
+# ⭐ bench_prolog_perf.sh (angle 3) JOINED THIS LIST 2026-09-13 when it grew the two-number
+# work/overhead basis: it formats its own aligned grids rather than perf_row rows, so it reaches the
+# whole-grid verdict through perf_dark_cell -- arm H below is that path's own guard.
+for h in bench_triangulate_pascal.sh bench_triangulate_prolog.sh bench_triangulate_raku.sh bench_triangulate_snobol4.sh bench_triangulate_demos_icon.sh bench_triangulate_demos_snobol4.sh bench_prolog_perf.sh; do
     f="$HERE/$h"
     [ -r "$f" ] || { bad "$h: unreadable" "a readable harness" "missing"; continue; }
     if grep -q '\[ -n "\$[a-zA-Z0-9_]*" \].*perf_row' "$f"; then
         bad "$h: row-deleting guard present" "no '[ -n ] && perf_row' idiom" "$(grep -c '\[ -n "\$[a-zA-Z0-9_]*" \].*perf_row' "$f") site(s)"
-    elif ! grep -q 'perf_grid_begin' "$f"; then bad "$h: grid never opened" "perf_grid_begin (it carries the load stamp)" "no call"
-    elif ! grep -q 'perf_grid_end'   "$f"; then bad "$h: grid never closed" "perf_grid_end (the whole-grid refusal)" "no call"
+    # ⛔⭐ THE CENSUS READS CODE, NOT COMMENTS, AND THAT COST A FAIL-ONCE TO FIND (hq_P 2026-09-13).
+    # This arm landed as a bare `grep -q 'perf_grid_begin' "$f"`, so A MENTION IN A COMMENT SATISFIED
+    # IT.  Measured: commenting out bench_prolog_perf.sh's only perf_grid_begin CALL left the arm
+    # green, because that harness's header explains what perf_grid_begin is for.  The arm was
+    # therefore inert against the exact deletion it exists to catch -- on all six original entries
+    # too, every one of which discusses the function it is being checked for.  A harness that
+    # documents its own guard was the shape that disabled the guard.  Comment lines are stripped first.
+    elif ! sed 's/^[[:space:]]*#.*$//' "$f" | grep -q 'perf_grid_begin'; then bad "$h: grid never opened" "a perf_grid_begin CALL (it carries the load stamp)" "no call outside comments"
+    elif ! sed 's/^[[:space:]]*#.*$//' "$f" | grep -q 'perf_grid_end'; then bad "$h: grid never closed" "a perf_grid_end CALL (the whole-grid refusal)" "no call outside comments"
     else ok "$h: no row-deleting guard, grid opened and closed"; fi
 done
 #-----------------------------------------------------------------------------------------------------
@@ -138,6 +148,35 @@ for f in "$HERE"/bench_*.sh; do
     [ "$n" -eq 0 ] || { bad "$(basename "$f"): perf_row wrapped in \$( )" "a direct call (the dark-cell bump must land in the harness's own shell)" "$n site(s)"; gsites=$((gsites+n)); }
 done
 [ "$gsites" -eq 0 ] && ok "no bench harness wraps perf_row in \$( ) (census over $HERE/bench_*.sh)"
+#-----------------------------------------------------------------------------------------------------
+# H. perf_dark_cell -- THE HAND-PRINTED DARK CELL'S ONLY ROUTE TO THE GRID VERDICT.  A harness that
+# formats its own grid (the three Prolog angle harnesses print aligned work/overhead tables, not
+# perf_row rows) writes the cell text itself, so nothing it prints can bump the counter.  Before this
+# function existed, angle 1 landed printing literal "DARK" cells and closing with `perf_grid_end ||
+# true`: the counter was never touched by the cells it exists to count, and the `|| true` discarded
+# even that.  ⛔ TWO PROPERTIES, AND THE SECOND IS ARM E's SEAM AGAIN -- it must print NOTHING on
+# stdout, because a caller forced to capture it in $( ) would bump in a subshell of its own making.
+echo "H. perf_dark_cell bumps the caller's own counter and prints nothing on stdout"
+# ⭐ THE FIRST DRAFT OF THIS ARM FAILED ITSELF, AND THE FAILURE IS THE POINT: it captured the call as
+# sout="$(perf_dark_cell ...)" to inspect stdout, and the bump then died in THAT subshell -- arm G's
+# defect, committed by the test written to guard against it, caught on the first run.  The two
+# properties cannot be read from ONE call: capturing stdout requires a subshell, and the bump only
+# lands in the caller's shell.  So the captured calls prove the OUTPUT contract and a DIRECT call
+# proves the COUNTER contract -- which is exactly the discipline a harness must follow.
+perf_grid_begin "x vs rival" >/dev/null 2>&1
+sout="$(perf_dark_cell "kernel q / gnu" "its bracket reported no work_us" 2>/dev/null)"   # subshell ON PURPOSE: stdout only
+[ -z "$sout" ] && ok "perf_dark_cell prints nothing on stdout (so no caller is pushed into \$( ))" \
+                || bad "perf_dark_cell wrote to stdout" "nothing" "'$sout'"
+serr="$(perf_dark_cell "kernel q / swi" "no bracket" 2>&1 >/dev/null)"                    # subshell ON PURPOSE: stderr only
+case "$serr" in *"kernel q / swi"*) ok "perf_dark_cell names its subject on stderr" ;;
+  *) bad "perf_dark_cell must name its subject" "the subject in the stderr text" "'$serr'" ;; esac
+PERF_DARK_CELLS=0
+perf_dark_cell "kernel q / m3" "its bracket reported no work_us" 2>/dev/null              # ⛔ DIRECT: the bump must land HERE
+[ "${PERF_DARK_CELLS:-0}" -eq 1 ] && ok "perf_dark_cell bumped the count in the caller's shell (1)" \
+                || bad "perf_dark_cell did not bump the caller's counter" "PERF_DARK_CELLS=1" "PERF_DARK_CELLS=${PERF_DARK_CELLS:-unset}"
+out="$(perf_grid_end 2>/dev/null)"; rc=$?
+[ "$rc" -eq 2 ] && ok "a grid carrying hand-printed dark cells REFUSES (rc=2)" \
+                || bad "perf_dark_cell must reach perf_grid_end" "rc=2" "rc=$rc ($out)"
 #-----------------------------------------------------------------------------------------------------
 printf '\nGATE %s -- pass=%s fail=%s\n' "$([ "$FAIL" -eq 0 ] && echo PASS || echo FAIL)" "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1
