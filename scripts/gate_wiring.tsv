@@ -236,6 +236,7 @@ test_gate_pl_bagof_setof_grouping.sh	WIRED	-	-	-
 test_gate_pl_bom_is_written_detected_and_reported.sh	WIRED	-	-	-
 test_gate_pl_consult_loads_the_named_file.sh	WIRED	-	-	-
 test_gate_pl_ctx_leaf_thunks_cannot_drop_a_ball.sh	WIRED	-	-	-
+test_gate_pl_format_column_fill_is_a_character_not_a_byte.sh	WIRED	-	-	-
 test_gate_pl_gz6b.sh	WIRED	-	-	-
 test_gate_pl_integer_division_floors_and_int64_overflow_promotes.sh	WIRED	-	-	-
 test_gate_pl_iso_rung1_database_builtins_and_call_local_cut.sh	WIRED	-	-	-
@@ -258,6 +259,7 @@ test_gate_pl_print_1_honours_portray_and_costs_nothing_without_it.sh	WIRED	-	-	-
 test_gate_pl_quad_regs.sh	WIRED	-	-	-
 test_gate_pl_raising_directive_does_not_abort_the_load.sh	WIRED	-	-	-
 test_gate_pl_read_raises_catchable_syntax_error.sh	WIRED	-	-	-
+test_gate_pl_set_stream_position_round_trips_and_refuses.sh	WIRED	-	-	-
 test_gate_pl_stream_arg_errors_are_catchable.sh	WIRED	-	-	-
 test_gate_pl_swi_every_shipped_case_is_graded_by_path.sh	WIRED	-	-	-
 test_gate_pl_swi_shim_runs_a_forall_test_per_instance.sh	WIRED	-	-	-

@@ -24,9 +24,11 @@ void fh_set_encoding(int idx, const char *nm){ extern char *rt_pinned_strdup(con
 const char *fh_encoding(int idx){ fh_ensure_init(); if(idx<0||idx>=FH_MAX) return (const char *)0; if(g_fh[idx].type=='b'||g_fh[idx].untrans) return "octet"; return g_fh[idx].enc ? g_fh[idx].enc : "UTF-8"; }
 void fh_set_bom(int idx, int v){ fh_ensure_init(); if(idx>=0&&idx<FH_MAX) g_fh[idx].bom=(char)(v?1:0); }
 int fh_bom(int idx){ fh_ensure_init(); if(idx<0||idx>=FH_MAX) return 0; return g_fh[idx].bom?1:0; }
+void fh_set_repos(int idx, int v){ fh_ensure_init(); if(idx>=0&&idx<FH_MAX) g_fh[idx].repos=(char)(v?1:0); }
+int fh_repos(int idx){ fh_ensure_init(); if(idx<0||idx>=FH_MAX) return 0; return g_fh[idx].repos?1:0; }
 int fh_alloc(FILE *fp) {
     fh_ensure_init();
-    for(int i=3;i<FH_MAX;i++) if(!g_fh[i].fp){g_fh[i].fp=fp;g_fh[i].name=NULL;g_fh[i].alias=NULL;g_fh[i].enc=NULL;g_fh[i].mode=0;g_fh[i].type='t';g_fh[i].untrans=0;g_fh[i].bom=0;return i;}
+    for(int i=3;i<FH_MAX;i++) if(!g_fh[i].fp){g_fh[i].fp=fp;g_fh[i].name=NULL;g_fh[i].alias=NULL;g_fh[i].enc=NULL;g_fh[i].mode=0;g_fh[i].type='t';g_fh[i].untrans=0;g_fh[i].bom=0;g_fh[i].repos=1;return i;}
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -37,7 +39,7 @@ FILE *fh_get(int idx){
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void fh_free(int idx){
-    if(fh_init&&idx>=3&&idx<FH_MAX){ g_fh[idx].fp=NULL; g_fh[idx].alias=NULL; g_fh[idx].enc=NULL; g_fh[idx].bom=0; }
+    if(fh_init&&idx>=3&&idx<FH_MAX){ g_fh[idx].fp=NULL; g_fh[idx].alias=NULL; g_fh[idx].enc=NULL; g_fh[idx].bom=0; g_fh[idx].repos=1; }
 }
 int   fh_cur_in  = 0;
 int   fh_cur_out = 1;

@@ -916,7 +916,15 @@ static void plc_fb_add(plc_fb *f, const char *s, size_t n)
     for (size_t k = at; k < f->n; k++) if (f->b[k] == '\n') { f->seg = k + 1; f->nf = 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static size_t plc_fb_colat(plc_fb *f, size_t at) { size_t k = at; while (k > 0 && f->b[k - 1] != '\n') k--; return at - k; }
+static size_t plc_fb_colat(plc_fb *f, size_t at) { size_t k = at, col = 0; while (k > 0 && f->b[k - 1] != '\n') k--;
+    for (; k < at; k++) if (((unsigned char)f->b[k] & 0xC0u) != 0x80u) col++;
+    return col; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void plc_fb_u8(plc_fb *f, unsigned cp) { char u[4];
+    if (cp < 0x80u) { u[0] = (char)cp; plc_fb_raw(f, u, 1); return; }
+    if (cp < 0x800u) { u[0] = (char)(0xC0u | (cp >> 6)); u[1] = (char)(0x80u | (cp & 0x3Fu)); plc_fb_raw(f, u, 2); return; }
+    if (cp < 0x10000u) { u[0] = (char)(0xE0u | (cp >> 12)); u[1] = (char)(0x80u | ((cp >> 6) & 0x3Fu)); u[2] = (char)(0x80u | (cp & 0x3Fu)); plc_fb_raw(f, u, 3); return; }
+    u[0] = (char)(0xF0u | (cp >> 18)); u[1] = (char)(0x80u | ((cp >> 12) & 0x3Fu)); u[2] = (char)(0x80u | ((cp >> 6) & 0x3Fu)); u[3] = (char)(0x80u | (cp & 0x3Fu)); plc_fb_raw(f, u, 4); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_fb_tab(plc_fb *f, int fill) { if (f->nf < 256) { f->fpos[f->nf] = f->n; f->fchr[f->nf] = fill; f->nf++; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -930,8 +938,8 @@ static void plc_fb_stop(plc_fb *f, long target)
         if (segn) memcpy(seg, f->b + base, segn); f->n = base; if (f->b) f->b[f->n] = '\0';
         for (size_t k = 0; k <= segn; k++) {
             while (fi < nf && f->fpos[fi] - base == k) {
-                long hi = ((long)(fi + 1) * pad) / nf, lo = ((long)fi * pad) / nf; char c = (char)f->fchr[fi];
-                for (long j = lo; j < hi; j++) plc_fb_raw(f, &c, 1);
+                long hi = ((long)(fi + 1) * pad) / nf, lo = ((long)fi * pad) / nf;
+                for (long j = lo; j < hi; j++) plc_fb_u8(f, (unsigned)f->fchr[fi]);
                 fi++;
             }
             if (k < segn) plc_fb_raw(f, seg + k, 1);

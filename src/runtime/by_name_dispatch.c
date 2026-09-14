@@ -2099,7 +2099,7 @@ static DESCR_t pl_mk_cmp1(const char *f, DESCR_t a0) {
     DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (((uint32_t)prolog_atom_intern(f)) << 16) | 1u; c.p = (void *)kids; return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define PL_SP_NPROP 10
+#define PL_SP_NPROP 11
 void pas_tf_write(FILE *fp, DESCR_t v) {
     if (v.v == DT_I) { unsigned char tg = 'I'; int64_t x = (int64_t)v.i; fwrite(&tg, 1, 1, fp); fwrite(&x, 8, 1, fp); return; }
     if (v.v == DT_R) { unsigned char tg = 'R'; double x = v.r; fwrite(&tg, 1, 1, fp); fwrite(&x, 8, 1, fp); return; }
@@ -2148,6 +2148,7 @@ static int pl_sp_prop(int i, int pidx, DESCR_t *out) {
         if (!a) return 0; *out = pl_mk_cmp1("alias", pl_mk_atom_dup(a, strlen(a))); return 1; }
     case 8: { extern const char *fh_encoding(int); const char *e; if (g_fh[i].type == 'b') return 0; e = fh_encoding(i); if (!e) return 0; *out = pl_mk_cmp1("encoding", pl_mk_atom(e)); return 1; }
     case 9: { if (g_fh[i].type == 'b') return 0; { extern int fh_bom(int); *out = pl_mk_cmp1("bom", pl_mk_atom(fh_bom(i) ? "true" : "false")); } return 1; }
+    case 10: { extern FILE *fh_get(int); FILE *fp = fh_get(i); long off; if (!fp || i < 3) return 0; off = ftell(fp); if (off < 0) return 0; *out = pl_mk_cmp1("position", pl_mk_cmp1("$stream_position", INTVAL((long long)off))); return 1; }
     default: return 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2178,7 +2179,9 @@ static int pl_open_opts(DESCR_t *args, int nargs, int idx, pl_tr_ctx_t *cx, int 
               if (!as) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; } fh_set_alias(idx, as); }
           else if (on && !strcmp(on, "type")) { if (!as || (strcmp(as, "text") && strcmp(as, "binary"))) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; }
               if (idx >= 0 && idx < FH_MAX) g_fh[idx].type = (char)(as[0] == 'b' ? 'b' : 't'); fh_set_untranslated(idx, as[0] == 'b'); }
-          else if (on && (!strcmp(on, "reposition") || !strcmp(on, "eof_action"))) { if (!as) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; } }
+          else if (on && !strcmp(on, "reposition")) { extern void fh_set_repos(int, int); if (!as || (strcmp(as, "true") && strcmp(as, "false"))) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; }
+              fh_set_repos(idx, as[0] == 't'); }
+          else if (on && !strcmp(on, "eof_action")) { if (!as) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; } }
           else if (on && !strcmp(on, "bom")) { if (!as || (strcmp(as, "true") && strcmp(as, "false"))) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_option", opt); return 0; }
               if (bom_opt) *bom_opt = (as[0] == 't'); }
           else if (on && !strcmp(on, "encoding")) { extern void fh_set_encoding(int, const char *); char eb[64];
@@ -2895,6 +2898,24 @@ PL_CX_LEAF_HEAD(current_input, 1) { extern int fh_current_input(void); ok = plw_
 PL_CX_LEAF_HEAD(open, 3) ok = pl_open_leaf(args, 3, cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(open4, 4) ok = pl_open_leaf(args, 4, cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(keysort, 2) ok = rt_pl_keysort_cell(&args[0], &args[1], cx); PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(set_stream_position, 2) { extern void *rt_pl_ball_instantiation(void); extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); extern void *rt_pl_ball_permission3(const char *, const char *, DESCR_t);
+    extern FILE *fh_get(int); extern int prolog_atom_intern(const char *); extern int fh_repos(int);
+    DESCR_t sd = rt_pl_deref_val(args[0]); DESCR_t pd = rt_pl_deref_val(args[1]); const char *nm; int si = -1; ok = 0;
+    if (pl_val_unbound(sd)) { cx->ball = rt_pl_ball_instantiation(); return FAILDESCR; }
+    nm = pl_atom_str(sd);
+    if (nm) { si = pl_sp_named(sd); if (si < 0 || !fh_get(si)) { cx->ball = rt_pl_ball_kind2("existence_error", "stream", sd); return FAILDESCR; } }
+    else if (sd.v == (DTYPE_t)DT_PLREF && (int)(sd.slen >> 16) == prolog_atom_intern("$stream") && (sd.slen & 0xFFFFu) == 1) {
+        DESCR_t a = rt_pl_deref_val(((DESCR_t *)sd.p)[0]);
+        if (a.v != DT_I || (int)a.i < 0 || (int)a.i >= FH_MAX || !fh_get((int)a.i)) { cx->ball = rt_pl_ball_kind2("existence_error", "stream", sd); return FAILDESCR; }
+        si = (int)a.i; }
+    else { cx->ball = rt_pl_ball_kind2("domain_error", "stream_or_alias", sd); return FAILDESCR; }
+    if (pl_val_unbound(pd)) { cx->ball = rt_pl_ball_instantiation(); return FAILDESCR; }
+    if (!(pd.v == (DTYPE_t)DT_PLREF && (int)(pd.slen >> 16) == prolog_atom_intern("$stream_position") && (pd.slen & 0xFFFFu) == 1)) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_position", pd); return FAILDESCR; }
+    { DESCR_t off = rt_pl_deref_val(((DESCR_t *)pd.p)[0]);
+      if (off.v != DT_I) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_position", pd); return FAILDESCR; }
+      if (!fh_repos(si)) { cx->ball = rt_pl_ball_permission3("reposition", "stream", sd); return FAILDESCR; }
+      { FILE *fp = fh_get(si); if (!fp || fseek(fp, (long)off.i, SEEK_SET) != 0) { cx->ball = rt_pl_ball_kind2("domain_error", "stream_position", pd); return FAILDESCR; } }
+      ok = 1; } } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(pl_op_count, 1) { extern int prolog_op_table_count(void); ok = plw_unify_vals(args[0], INTVAL((long long)prolog_op_table_count()), cx); } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(pl_op_nth, 4) { extern int prolog_op_table_get(int, const char **, int *, const char **);
     const char *onm = (const char *)0; const char *oty = (const char *)0; int opr = 0; DESCR_t iv = rt_pl_deref_val(args[0]); ok = 0;
