@@ -37,7 +37,7 @@
 #   in its own header that it is deliberately out of the recipe. NOT ONE DOES. The 8 below are the ceo's
 #   ruling of 2026-09-03, quoted from the Makefile's own test-postoffice header — cited, not invented.
 #   Everything else is TASK because nobody has ruled, which is the honest word for it.
-# TASK-CEILING: 177
+# TASK-CEILING: 170
 test_gate_a_fail_operand_folds_instead_of_refusing_at_the_binop_guard.sh	WIRED	-	-	-
 test_gate_a_master_with_xfails_never_reads_done.sh	WIRED	-	-	-
 test_gate_a_nested_alternation_receded_into_resumes_its_own_arm_not_the_outer_beta.sh	WIRED	-	-	-
@@ -126,6 +126,7 @@ test_gate_icn_no_stack.sh	WIRED	-	-	-
 test_gate_icn_one_reg_frame.sh	WIRED	-	-	-
 test_gate_icn_open_directory_reads_entries.sh	WIRED	-	-	-
 test_gate_icn_outside_baseline_is_read_and_mirrored.sh	WIRED	-	-	-
+test_gate_icn_port_trace.sh	WIRED	-	-	-
 test_gate_icn_pow_large_integer_exponent.sh	WIRED	-	-	-
 test_gate_icn_range_operands_must_be_integers.sh	WIRED	-	-	-
 test_gate_icn_real_str_is_icons_own_convention.sh	WIRED	-	-	-
@@ -162,6 +163,7 @@ test_gate_ladder_walk_v4_exempts_package_class_rows.sh	WIRED	-	-	-
 test_gate_library_driver_generator.sh	WIRED	-	-	-
 test_gate_logtalk_population_is_named_and_sums.sh	WIRED	-	-	-
 test_gate_make_test_loops_and_reports.sh	WIRED	-	-	-
+test_gate_master_banner_seq_is_position.sh	WIRED	-	-	-
 test_gate_master_boards_publish_xpass.sh	WIRED	-	-	-
 test_gate_master_builder_reindex_only.sh	WIRED	-	-	-
 test_gate_master_companions_resolve.sh	WIRED	-	-	-
@@ -202,6 +204,7 @@ test_gate_pas_five_or_more_parameters_arrive.sh	WIRED	-	-	-
 test_gate_pas_heap_table_is_a_movable_root.sh	WIRED	-	-	-
 test_gate_pas_inline_record_char_fields_print_as_chars.sh	WIRED	-	-	-
 test_gate_pas_pack_unpack_and_text_get_put.sh	WIRED	-	-	-
+test_gate_pas_port_trace.sh	WIRED	-	-	-
 test_gate_pas_read_at_end_of_line_yields_a_space.sh	WIRED	-	-	-
 test_gate_pas_real_record_fields_read_back_as_reals.sh	WIRED	-	-	-
 test_gate_pas_record_variables_are_scoped_to_their_procedure.sh	WIRED	-	-	-
@@ -237,6 +240,7 @@ test_gate_pl_meta_wrapper_does_not_break_m4_declarations.sh	WIRED	-	-	-
 test_gate_pl_multifile_initialization_runs_every_file.sh	WIRED	-	-	-
 test_gate_pl_no_value_stack.sh	WIRED	-	-	-
 test_gate_pl_number_syntax_iso.sh	WIRED	-	-	-
+test_gate_pl_port_trace_oracle_diff.sh	WIRED	-	-	-
 test_gate_pl_print_1_honours_portray_and_costs_nothing_without_it.sh	WIRED	-	-	-
 test_gate_pl_quad_regs.sh	WIRED	-	-	-
 test_gate_pl_raising_directive_does_not_abort_the_load.sh	WIRED	-	-	-
@@ -258,6 +262,8 @@ test_gate_progress_rows_carry_the_start_fingerprint.sh	WIRED	-	-	-
 test_gate_prolog_dynamic_predicate_with_file_clauses.sh	WIRED	-	-	-
 test_gate_queue_census_placeholder_arm.sh	WIRED	-	-	-
 test_gate_raku_paren_call_passes_its_arguments.sh	WIRED	-	-	-
+test_gate_raku_port_trace.sh	WIRED	-	-	-
+test_gate_reb_port_trace.sh	WIRED	-	-	-
 test_gate_rebus_derived_refs_match_their_rival_oracle.sh	WIRED	-	-	-
 test_gate_ref_cutters_refuse_a_dead_oracle.sh	WIRED	-	-	-
 test_gate_right_sealed_defer_beta_no_double_teardown.sh	WIRED	-	-	-
@@ -276,6 +282,7 @@ test_gate_s4e_picker_v2.sh	WIRED	-	-	-
 test_gate_s4e_unclaim_keeps_park.sh	WIRED	-	-	-
 test_gate_s_artifact_drift_ignores_the_build_path.sh	WIRED	-	-	-
 test_gate_same_suite_ref_agreement.sh	WIRED	-	-	-
+test_gate_sc_port_trace.sh	WIRED	-	-	-
 test_gate_score_column_semantics.sh	WIRED	-	-	-
 test_gate_score_inventory_clauses_never_vanish.sh	WIRED	-	-	-
 test_gate_score_md_parses_and_github_is_marker_free.sh	WIRED	-	-	-
@@ -311,6 +318,7 @@ test_gate_sno_match_operator_composes_in_value_position.sh	WIRED	-	-	-
 test_gate_sno_mode4_code_call_inherits_the_scc_taint.sh	WIRED	-	-	-
 test_gate_sno_package_runners_append_progress_rows.sh	WIRED	-	-	-
 test_gate_sno_pattern_position_expression.sh	WIRED	-	-	-
+test_gate_sno_port_trace_oracle_diff.sh	WIRED	-	-	-
 test_gate_sno_pos_rpos_dynamic_operand.sh	WIRED	-	-	-
 test_gate_sno_repl_lvalue_subject.sh	WIRED	-	-	-
 test_gate_sno_runtime_define.sh	WIRED	-	-	-
@@ -394,7 +402,6 @@ test_gate_icn_global_no_nv_m3.sh	TASK	-	-	-
 test_gate_icn_ipl_reason_is_the_oracles_own_words.sh	TASK	-	-	-
 test_gate_icn_list_element_alternation_position.sh	TASK	-	-	-
 test_gate_icn_local_no_nv.sh	TASK	-	-	-
-test_gate_icn_port_trace.sh	TASK	-	-	-
 test_gate_icn_pow_error_cases.sh	TASK	-	-	-
 test_gate_icn_rbp_census_ratchet.sh	TASK	-	-	-
 test_gate_icn_rtx_blank_operand_honours_the_error_protocol.sh	TASK	-	-	-
@@ -437,7 +444,6 @@ test_gate_oracle_bf_capable.sh	TASK	-	-	-
 test_gate_out_sweep_flaky.sh	TASK	-	-	-
 test_gate_p7_prolog_setjmp_gone.sh	TASK	-	-	-
 test_gate_pas_frame_pairing.sh	TASK	-	-	-
-test_gate_pas_port_trace.sh	TASK	-	-	-
 test_gate_pascal_empty_corpus_refusal.sh	TASK	-	-	-
 test_gate_pascal_m3.sh	TASK	-	-	-
 test_gate_pascal_m4.sh	TASK	-	-	-
@@ -454,7 +460,6 @@ test_gate_pl_master_board_floor.sh	TASK	-	-	-
 test_gate_pl_no_new_global.sh	TASK	-	-	-
 test_gate_pl_no_synthetic_main.sh	TASK	-	-	-
 test_gate_pl_port_trace.sh	TASK	-	-	-
-test_gate_pl_port_trace_oracle_diff.sh	TASK	-	-	-
 test_gate_pl_rung11_lco.sh	TASK	-	-	-
 test_gate_port_exit_value_contract.sh	TASK	-	-	-
 test_gate_port_functions.sh	TASK	-	-	-
@@ -463,13 +468,11 @@ test_gate_probe_suite_grading_path.sh	TASK	-	-	-
 test_gate_prolog_dynamic_db_both_modes.sh	TASK	-	-	-
 test_gate_prolog_entrypoint_ruling.sh	TASK	-	-	-
 test_gate_prolog_vanroy_kernels_m3.sh	TASK	-	-	-
-test_gate_raku_port_trace.sh	TASK	-	-	-
 test_gate_raku_zframe.sh	TASK	-	-	-
 test_gate_rakugram_precedence.sh	TASK	-	-	-
 test_gate_rbp_census_ratchet.sh	TASK	-	-	-
 test_gate_rbx_quarantine.sh	TASK	-	-	-
 test_gate_rc8a_gc_coverage.sh	TASK	-	-	-
-test_gate_reb_port_trace.sh	TASK	-	-	-
 test_gate_regen_demo_refused_marker.sh	TASK	-	-	-
 test_gate_rt_goto_transfer_failure_is_expressible.sh	TASK	-	-	-
 test_gate_rtcc_block_coverage.sh	TASK	-	-	-
@@ -486,7 +489,6 @@ test_gate_s4e_next_serves_own_lane.sh	TASK	-	-	-
 test_gate_s4e_one_process_per_identity.sh	TASK	-	-	-
 test_gate_s4e_park_additive_blocker.sh	TASK	-	-	-
 test_gate_s_artifacts_verifier_stale_binary_refuses.sh	TASK	-	-	-
-test_gate_sc_port_trace.sh	TASK	-	-	-
 test_gate_score_cell_no_silent_prose_loss.sh	TASK	-	-	-
 test_gate_score_v_clause_carries_its_fraction.sh	TASK	-	-	-
 test_gate_scorecard_suite_aware.sh	TASK	-	-	-
@@ -507,7 +509,6 @@ test_gate_sno_immediate_capture_non_name_target.sh	TASK	-	-	-
 test_gate_sno_lastno_across_call_return.sh	TASK	-	-	-
 test_gate_sno_pat_reg.sh	TASK	-	-	-
 test_gate_sno_port_trace.sh	TASK	-	-	-
-test_gate_sno_port_trace_oracle_diff.sh	TASK	-	-	-
 test_gate_sno_proc_own_name_byname_mid_return.sh	TASK	-	-	-
 test_gate_sno_system_fn_protection_matches_spitbol.sh	TASK	-	-	-
 test_gate_snobol4_master_named_set_equality.sh	TASK	-	-	-
