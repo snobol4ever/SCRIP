@@ -93,6 +93,7 @@ static const char *testop_rt(const char *s) {
     if (!strcmp(s, "diag")) return "__rk_test_diag";
     if (!strcmp(s, "pass")) return "__rk_test_pass";
     if (!strcmp(s, "flunk")) return "__rk_test_flunk";
+    if (!strcmp(s, "subtest")) return "__rk_test_subtest";
     return "__rk_test_ok";
 }
 static tree_t *rk_testop_call(const char *name, ExprList *a) {
@@ -103,6 +104,12 @@ static tree_t *rk_testop_call(const char *name, ExprList *a) {
     if (a->count == 1 && a->items[0] && a->items[0]->t == TT_FNC && a->items[0]->v.sval && !strcmp(a->items[0]->v.sval, "__rk_arr")) {
         tree_t *lst = a->items[0];
         for (int i = 1; i < lst->n; i++) expr_add_child(c, lst->c[i]);
+        return c;
+    }
+    if (a->count == 1 && a->items[0] && a->items[0]->t == TT_FNC && a->items[0]->v.sval && !strcmp(a->items[0]->v.sval, "__rk_pair")
+        && name && !strcmp(name, "__rk_test_subtest") && a->items[0]->n >= 3) {
+        tree_t *pr = a->items[0];
+        for (int i = 1; i < pr->n; i++) expr_add_child(c, pr->c[i]);
         return c;
     }
     for (int i = 0; i < a->count; i++) expr_add_child(c, a->items[i]);
@@ -1011,6 +1018,10 @@ when_list
           exprlist_append($1,$3); exprlist_append($1,$4);
           $$=$1; }
     ;
+sub_trait_list
+    : TESTOP IDENT { free($1); free($2); }
+    | sub_trait_list TESTOP IDENT { free($2); free($3); }
+    ;
 sub_decl
     : KW_SUB IDENT '(' param_list ')' sub_body
         { ExprList *params=$4; tree_t *rkbody=rk_defaults_prologue(params,$6); int np=params?params->count:0;
@@ -1030,6 +1041,20 @@ sub_decl
         { tree_t *e=leaf_sval(TT_SUB_DECL,$2); e->v.ival=(long long)0;
           tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern($2); expr_add_child(e,nn);
           tree_t *body=$3;
+          for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
+          $$=e; }
+    | KW_SUB IDENT '(' param_list ')' sub_trait_list sub_body
+        { ExprList *params=$4; tree_t *rkbody=rk_defaults_prologue(params,$7); int np=params?params->count:0;
+          tree_t *e=leaf_sval(TT_SUB_DECL,$2); e->v.ival=(long long)np;
+          tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern($2); expr_add_child(e,nn);
+          if(params){ for(int i=0;i<np;i++) expr_add_child(e,params->items[i]); exprlist_free(params); }
+          tree_t *body=rkbody;
+          for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
+          $$=e; }
+    | KW_SUB IDENT '(' ')' sub_trait_list sub_body
+        { tree_t *e=leaf_sval(TT_SUB_DECL,$2); e->v.ival=(long long)0;
+          tree_t *nn=ast_node_new(TT_VAR); nn->v.sval=intern($2); expr_add_child(e,nn);
+          tree_t *body=$6;
           for(int i=0;i<body->n;i++) expr_add_child(e,body->c[i]);
           $$=e; }
     | KW_MY KW_SUB IDENT '(' param_list ')' sub_body
@@ -1514,6 +1539,13 @@ named_arg_list
         { $$ = exprlist_new();
           exprlist_append($$, leaf_sval(TT_QLIT, $2)); free($2);
           exprlist_append($$, $4); }
+    | ':' IDENT
+        { $$ = exprlist_new();
+          exprlist_append($$, leaf_sval(TT_QLIT, $2)); free($2);
+          tree_t *tb = ast_node_new(TT_FNC); tb->v.sval = (char *)"__rk_mkbool";
+          tree_t *tn = ast_node_new(TT_VAR); tn->v.sval = (char *)"__rk_mkbool"; ast_push(tb, tn);
+          tree_t *one = ast_node_new(TT_ILIT); one->v.ival = 1; ast_push(tb, one);
+          exprlist_append($$, tb); }
     | named_arg_list ',' IDENT OP_FATARROW expr
         { exprlist_append($1, leaf_sval(TT_QLIT, $3)); free($3);
           exprlist_append($1, $5);

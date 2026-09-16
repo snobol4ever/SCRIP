@@ -52,6 +52,7 @@ WS       [ \t\r]
 "diag"          { raku_yylval.sval = strdup(yytext); return TESTOP; }
 "pass"          { raku_yylval.sval = strdup(yytext); return TESTOP; }
 "flunk"         { raku_yylval.sval = strdup(yytext); return TESTOP; }
+"subtest"       { raku_yylval.sval = strdup(yytext); return TESTOP; }
 "say"           { return KW_SAY; }
 "join"          { return KW_JOIN; }
 "print"         { return KW_PRINT; }

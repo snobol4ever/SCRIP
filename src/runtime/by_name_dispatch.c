@@ -3100,6 +3100,29 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (!strcmp(op, "isnt")) { const char *g = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; const char *e = (nargs > 1) ? to_cstring(args[1], sb2, sizeof sb2) : ""; int c = strcmp(g, e) != 0; const char *d = (nargs > 2) ? to_cstring(args[2], msg, sizeof msg) : ""; rk_tap_proclaim(c, d, ""); *out = INTVAL(c); return 1; }
         if (!strcmp(op, "pass")) { const char *d = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; rk_tap_proclaim(1, d, ""); *out = INTVAL(1); return 1; }
         if (!strcmp(op, "flunk")) { const char *d = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; rk_tap_proclaim(0, d, ""); *out = INTVAL(0); return 1; }
+        if (!strcmp(op, "subtest")) {
+            const char *nm = ""; DESCR_t blk; int haveblk = 0; int havenm = 0; memset(&blk, 0, sizeof blk);
+            for (int i = 0; i < nargs; i++) { if (args[i].v == DT_BLK) { blk = args[i]; haveblk = 1; } else if (!havenm) { nm = to_cstring(args[i], sb1, sizeof sb1); havenm = 1; } }
+            const char *bn = haveblk ? blk.s : (const char *)0;
+            if (!bn || !*bn) { rk_tap_proclaim(0, nm, ""); *out = INTVAL(0); return 1; }
+            if (nm && *nm) printf("# Subtest: %s\n", nm); else printf("# Subtest\n");
+            fflush(stdout);
+            long o_planned = g_tap_planned, o_run = g_tap_run, o_failed = g_tap_failed, o_todo = g_tap_todo_upto; int o_noplan = g_tap_no_plan, o_done = g_tap_done_run;
+            char o_reason[512]; snprintf(o_reason, sizeof o_reason, "%s", g_tap_todo_reason);
+            g_tap_planned = 0; g_tap_run = 0; g_tap_failed = 0; g_tap_no_plan = 1; g_tap_todo_upto = 0; g_tap_todo_reason[0] = 0; g_tap_done_run = 0;
+            fflush(stdout); int saved = dup(fileno(stdout)); FILE *cap = tmpfile();
+            if (saved >= 0 && cap) fflush(stdout), dup2(fileno(cap), fileno(stdout));
+            extern DESCR_t rt_call_proc_descr(const char *name, int nargs); rt_call_proc_descr(bn, 0);
+            if (g_tap_no_plan) { printf("1..%ld\n", g_tap_run); }
+            fflush(stdout);
+            if (saved >= 0 && cap) { dup2(saved, fileno(stdout)); close(saved); rewind(cap); char ln[4096];
+                while (fgets(ln, sizeof ln, cap)) printf("    %s", ln); fflush(stdout); }
+            if (cap) fclose(cap);
+            long i_run = g_tap_run, i_failed = g_tap_failed, i_planned = g_tap_planned; int i_noplan = g_tap_no_plan;
+            g_tap_planned = o_planned; g_tap_run = o_run; g_tap_failed = o_failed; g_tap_no_plan = o_noplan; g_tap_todo_upto = o_todo; g_tap_done_run = o_done;
+            snprintf(g_tap_todo_reason, sizeof g_tap_todo_reason, "%s", o_reason);
+            int okv = (i_failed == 0) && (i_run > 0) && (i_noplan || i_planned == i_run);
+            rk_tap_proclaim(okv, nm, ""); *out = INTVAL(okv); return 1; }
         if (!strcmp(op, "diag")) { const char *d = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; rk_tap_diag(d); *out = NULVCL; return 1; }
         if (!strcmp(op, "todo")) { const char *r = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; long n = (nargs > 1 && IS_INT_fn(args[1])) ? (long)args[1].i : 1; g_tap_todo_upto = g_tap_run + n; snprintf(g_tap_todo_reason, sizeof g_tap_todo_reason, " # TODO %s", r); *out = NULVCL; return 1; }
         if (!strcmp(op, "skip")) { const char *r = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; long n = (nargs > 1 && IS_INT_fn(args[1])) ? (long)args[1].i : 1; for (long i = 0; i < n; i++) rk_tap_proclaim(1, r, "# SKIP "); *out = NULVCL; return 1; }
