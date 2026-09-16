@@ -24,7 +24,8 @@ static inline int rt_list_view(DESCR_t o, DESCR_t **elems, int *n) {
     if (o.v != DT_DATA || !o.u) return 0;
     DATBLK_t *t = o.u->type;
     if (t != g_lf_type) { if (!t || t->nfields < 3 || !t->fields[0] || strcmp(t->fields[0], "frame_elems") != 0) return 0; g_lf_type = t; }
-    DESCR_t gt = o.u->fields[2]; if (gt.v != DT_S || !gt.s || strcmp(gt.s, "list") != 0) return 0;
+    DESCR_t gt = o.u->fields[2]; if (gt.v != DT_S || !gt.s) return 0;
+    if (!(gt.s[0] == 'l' && gt.s[1] == 'i' && gt.s[2] == 's' && gt.s[3] == 't' && gt.s[4] == '\0')) return 0;
     DESCR_t ea = o.u->fields[0]; *elems = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : NULL; *n = (int)o.u->fields[1].i;
     return 1;
 }

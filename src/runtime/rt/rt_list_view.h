@@ -8,7 +8,8 @@ static inline int rt_lv_is_list(DESCR_t o, DESCR_t **elems, int *n) {
     if (o.v != DT_DATA || !o.u) return 0;
     DATBLK_t *t = o.u->type;
     if (t != rt_lv_type_cache) { if (!t || t->nfields < 3 || !t->fields[0] || strcmp(t->fields[0], "frame_elems") != 0) return 0; rt_lv_type_cache = t; }
-    DESCR_t gt = o.u->fields[2]; if (gt.v != DT_S || !gt.s || strcmp(gt.s, "list") != 0) return 0;
+    DESCR_t gt = o.u->fields[2]; if (gt.v != DT_S || !gt.s) return 0;
+    if (!(gt.s[0] == 'l' && gt.s[1] == 'i' && gt.s[2] == 's' && gt.s[3] == 't' && gt.s[4] == '\0')) return 0;
     DESCR_t ea = o.u->fields[0]; if (elems) *elems = (ea.v == DT_DATA) ? (DESCR_t *)ea.ptr : (DESCR_t *)0; if (n) *n = (int)o.u->fields[1].i;
     return 1;
 }
