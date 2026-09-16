@@ -11,7 +11,15 @@
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 [ -d "$ROOT/src" ] || { echo "⛔ REFUSE(2): no src/ under $ROOT -- a census over nothing"; exit 2; }
-hits=$(grep -rnoE 'getenv\("SCRIP_[A-Z0-9_]*(RBP|FRAME|PIN|ZFRAME|CARVE)[A-Z0-9_]*"\)' "$ROOT/src" 2>/dev/null)
+# ⛔ RULING 2026-09-16 (cfo as the collector's officer, cto concurring in writing; row engine-the-zeta-switch-census-counts-the-
+# collectors-own-pin-control-arm-as-a-frame-placement-switch-...): THE SCRIP_GC_ NAMESPACE IS HEAP POLICY, NOT FRAME PLACEMENT, AND IS
+# OUT OF THIS CENSUS. getenv("SCRIP_GC_PIN_AGGREGATES") (gc_heap.c, 24f1ec353, GC-5 rung 1) matched the PIN word here and kept this
+# blocking arm red on the clean tree for three days; it is the live CONTROL ARM of test_gate_gc_aggregates_are_collectable_not_immortal.sh
+# and gc_aggregate_interiors_are_marked_not_only_slotted (the pinned build must still die), and it attributed the gc2 regression in one
+# run (SCRIP 5dafed741). Deleting it would blind two blocking gates to cure a census. PIN in this class meant PINNED FRAMES. The exclusion
+# is exactly the SCRIP_GC_ prefix and nothing wider: the row's DONE-WHEN plants a getenv("SCRIP_PIN_FRAMES") in a scratch tree and proves
+# this gate still reds on it.
+hits=$(grep -rnoE 'getenv\("SCRIP_[A-Z0-9_]*(RBP|FRAME|PIN|ZFRAME|CARVE)[A-Z0-9_]*"\)' "$ROOT/src" 2>/dev/null | grep -vE 'getenv\("SCRIP_GC_' || true)
 n=$(printf '%s' "$hits" | grep -c . || true)
 if [ "$n" -ne 0 ]; then
   echo "⛔ FAIL: $n zeta frame switch(es) under src/ -- the tier is DERIVED, never enumerated (RULES.md, CEO-447):"
