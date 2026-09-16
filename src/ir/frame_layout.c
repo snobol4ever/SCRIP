@@ -74,6 +74,8 @@ static void zls_field(int scope_id, int off, int size, int kind, int audit, cons
 int emit_pl_fence_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_PL_FENCE"); v = (e && *e == (char) 48) ? 0 : 1; } return v; }
 static const IR_graph_t * zls_cur_g = (const IR_graph_t *)0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int emit_pl_surrogate_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_PL_SURROGATE"); v = (e && *e == (char) 48) ? 0 : 1; } return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_fence_widen(void) { return emit_pl_fence_on() && zls_cur_g && zls_cur_g->zframe_pinned_base && zls_cur_g->zframe_graph; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_locals_shifted(IR_e op);

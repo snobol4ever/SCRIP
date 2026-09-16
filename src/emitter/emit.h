@@ -558,8 +558,10 @@ static inline int emit_rec_pin(void) { return emit_jmp_pin_legacy() || emit_heap
 static inline int emit_zframe_pinned(void) { return (g_emit.zframe_pinned_base && g_emit.zframe_graph) ? 1 : 0; }
 #ifdef __cplusplus
 extern "C" int emit_pl_fence_on(void);
+extern "C" int emit_pl_surrogate_on(void);
 #else
 int emit_pl_fence_on(void);
+int emit_pl_surrogate_on(void);
 #endif
 static inline int          emit_rec_fb_num(void) { return 4; }
 static inline const char * emit_rec_fb(void)     { return emit_rec_fb_num() == 5 ? "rbp" : "rsp"; }
