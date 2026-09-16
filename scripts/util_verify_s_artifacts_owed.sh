@@ -319,10 +319,14 @@ echo "============================================================"
 # ⛔ THE OWED SET BY LANE (coo 2026-09-16; row handoff-status-artifact-check-blocks-every-seat-for-one-lanes-debt-...): every owed
 # artifact by repo-relative path, so handoff_status.sh can block ONLY the seat whose lane owes it and name the owner of the rest.
 . "$ROOT/scripts/lib_handoff_verdict.sh"
-_owed_paths="$( { printf '%s\n' "${bench_files:-}"; printf '%s\n' "${demo_files:-}"; printf '%s\n' "${pb_files:-}" | sed 's#^#prolog_bench:#'; for _n in ${icon_names:-}; do printf 'icon_bench:%s\n' "$_n"; done; } | grep . )"
+# an EMPTY list must not become an empty token: each list is filtered for non-empty lines BEFORE its lane prefix is applied (hq_prolog
+# 2026-09-16: 'S-ARTIFACTS-OWED-FILE: prolog_bench:' counted as prolog=1 on a CLEAN run)
+_owed_paths="$( { printf '%s\n' "${bench_files:-}" | grep .; printf '%s\n' "${demo_files:-}" | grep .; printf '%s\n' "${pb_files:-}" | grep . | sed 's#^#prolog_bench:#'; for _n in ${icon_names:-}; do printf 'icon_bench:%s\n' "$_n"; done; } | grep . )"
 printf '%s\n' "$_owed_paths" | grep . | sed 's/^/S-ARTIFACTS-OWED-FILE: /'
 _by_lane="$(printf '%s\n' "$_owed_paths" | grep . | while read -r _f; do handoff_lane_of_artifact "$_f"; done | sort | uniq -c | awk '{printf "%s=%s ", $2, $1}' | sed 's/ $//')"
-echo "S-ARTIFACTS-OWED-BY-LANE: ${_by_lane:-none}"
+# the census names the TREE it was taken on: an owed .s artifact is a diff between the committed file and THIS binary's emission, so the
+# same corpus reads differently from two trees (hq_icon 2026-09-16: icon=9 on the coo's 852eb843d, 0 on their own fresh build)
+echo "S-ARTIFACTS-OWED-BY-LANE: ${_by_lane:-none} (on SCRIP $(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)$([ -n "$(git -C "$ROOT" status --porcelain 2>/dev/null)" ] && echo -DIRTY), corpus $(git -C "$REAL_CORPUS" rev-parse --short HEAD 2>/dev/null || echo unknown); an artifact is owed by its lane's owner against ITS current binary)"
 echo "S-ARTIFACTS-OWED-TOTAL: $owed_total"
 echo "S-ARTIFACTS-TROUBLE-TOTAL: $trouble_total"
 if [ "$owed_total" -eq 0 ] && [ "$trouble_total" -eq 0 ]; then
