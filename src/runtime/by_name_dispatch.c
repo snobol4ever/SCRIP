@@ -728,7 +728,7 @@ static unsigned char *g_pas_heap_dead = (unsigned char *)0;
 static long *g_pas_heap_free = (long *)0;
 static long g_pas_heap_nfree = 0;
 static long g_pas_heap_freecap = 0;
-static struct { DESCR_t buf; int has; } g_pas_tf[512];
+static struct { DESCR_t buf; int has; int mode; } g_pas_tf[512];
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t *pas_heap_cell(long n, int grow) {
     if (n <= 0) return (DESCR_t *)0;
@@ -2100,6 +2100,14 @@ static DESCR_t pl_mk_cmp1(const char *f, DESCR_t a0) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PL_SP_NPROP 11
+void pas_file_err(const char *clause, const char *what, const char *proc) {
+    fflush(stdout);
+    fprintf(stderr, "scrip: pascal runtime error: ISO 7185 %s: %s", clause ? clause : "", what ? what : "");
+    if (proc && !strncmp(proc, "__pas_", 6)) fprintf(stderr, " (in %s)", proc + 6);
+    fputc('\n', stderr); fflush(stderr);
+    exit(1);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void pas_tf_write(FILE *fp, DESCR_t v) {
     if (v.v == DT_I) { unsigned char tg = 'I'; int64_t x = (int64_t)v.i; fwrite(&tg, 1, 1, fp); fwrite(&x, 8, 1, fp); return; }
     if (v.v == DT_R) { unsigned char tg = 'R'; double x = v.r; fwrite(&tg, 1, 1, fp); fwrite(&x, 8, 1, fp); return; }
@@ -3389,29 +3397,41 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
                 else { char tmpl[] = "/tmp/scrip_pas_XXXXXX"; int fd = mkstemp(tmpl); fp = (fd >= 0) ? fdopen(fd, "w+b") : (FILE *)0; }
                 if (!fp) { *out = FAILDESCR; return 1; }
                 idx = fh_alloc(fp); if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; } }
-            if (idx >= 0 && idx < 512) { g_pas_tf[idx].has = 0; g_pas_tf[idx].buf = INTVAL(0); }
+            if (idx >= 0 && idx < 512) { g_pas_tf[idx].has = 0; g_pas_tf[idx].buf = INTVAL(0); g_pas_tf[idx].mode = 1; }
             *out = FHVAL(idx); return 1;
         }
         int pas_tf_read(FILE *fp, DESCR_t *o);
         void pas_tf_write(FILE *fp, DESCR_t v);
+        void pas_file_err(const char *clause, const char *what, const char *proc);
         if (!strcmp(fn, "__pas_treset") && (nargs == 1 || nargs == 2)) {
             FILE *fp = (FILE *)0; int idx = -1;
             if (IS_FH_fn(args[0])) { idx = (int)args[0].i; fp = fh_get(idx); if (fp) { fflush(fp); rewind(fp); } }
             if (!fp) { const char *nm = VARVAL_fn(args[0]); if ((!nm || !nm[0]) && nargs == 2) nm = VARVAL_fn(args[1]); if (!nm || !nm[0]) { *out = FAILDESCR; return 1; }
                 fp = fopen(nm, "rb"); if (!fp) { *out = FAILDESCR; return 1; }
                 idx = fh_alloc(fp); if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; } }
-            if (idx >= 0 && idx < 512) { g_pas_tf[idx].has = pas_tf_read(fp, &g_pas_tf[idx].buf); }
+            if (idx >= 0 && idx < 512) { g_pas_tf[idx].has = pas_tf_read(fp, &g_pas_tf[idx].buf); g_pas_tf[idx].mode = 2; }
             *out = FHVAL(idx); return 1;
         }
-        if (!IS_FH_fn(args[0])) { *out = FAILDESCR; return 1; }
+        if (!IS_FH_fn(args[0])) { pas_file_err("6.6.5.2", "the file is undefined (it has been neither reset nor rewritten)", fn); *out = FAILDESCR; return 1; }
         int idx = (int)args[0].i; FILE *fp = fh_get(idx);
-        if (!fp || idx < 0 || idx >= 512) { *out = FAILDESCR; return 1; }
+        if (!fp || idx < 0 || idx >= 512) { pas_file_err("6.6.5.2", "the file is undefined (no open stream stands behind it)", fn); *out = FAILDESCR; return 1; }
         if (!strcmp(fn, "__pas_fbuf_get") && nargs == 1) { *out = g_pas_tf[idx].has ? g_pas_tf[idx].buf : INTVAL(0); return 1; }
         if (!strcmp(fn, "__pas_fbuf_set") && nargs == 2) { g_pas_tf[idx].buf = args[1]; g_pas_tf[idx].has = 1; *out = NULVCL; return 1; }
-        if (!strcmp(fn, "__pas_fput") && nargs == 1) { pas_tf_write(fp, g_pas_tf[idx].buf); g_pas_tf[idx].has = 0; *out = NULVCL; return 1; }
-        if (!strcmp(fn, "__pas_fget") && nargs == 1) { g_pas_tf[idx].has = pas_tf_read(fp, &g_pas_tf[idx].buf); *out = NULVCL; return 1; }
-        if (!strcmp(fn, "__pas_fwrite") && nargs == 2) { pas_tf_write(fp, args[1]); *out = NULVCL; return 1; }
-        if (!strcmp(fn, "__pas_fread") && nargs == 1) { DESCR_t v = g_pas_tf[idx].has ? g_pas_tf[idx].buf : INTVAL(0); g_pas_tf[idx].has = pas_tf_read(fp, &g_pas_tf[idx].buf); *out = v; return 1; }
+        if (!strcmp(fn, "__pas_fput") && nargs == 1) {
+            if (g_pas_tf[idx].mode != 1) pas_file_err("6.6.5.2", "the file mode is not Generation immediately prior to put", fn);
+            if (!g_pas_tf[idx].has) pas_file_err("6.6.5.2", "the buffer-variable is undefined immediately prior to put", fn);
+            pas_tf_write(fp, g_pas_tf[idx].buf); g_pas_tf[idx].has = 0; *out = NULVCL; return 1; }
+        if (!strcmp(fn, "__pas_fget") && nargs == 1) {
+            if (g_pas_tf[idx].mode != 2) pas_file_err("6.6.5.2", "the file mode is not Inspection immediately prior to get", fn);
+            if (!g_pas_tf[idx].has) pas_file_err("6.6.5.2", "end-of-file is true immediately prior to get", fn);
+            g_pas_tf[idx].has = pas_tf_read(fp, &g_pas_tf[idx].buf); *out = NULVCL; return 1; }
+        if (!strcmp(fn, "__pas_fwrite") && nargs == 2) {
+            if (g_pas_tf[idx].mode != 1) pas_file_err("6.6.5.2", "the file mode is not Generation immediately prior to write", fn);
+            pas_tf_write(fp, args[1]); *out = NULVCL; return 1; }
+        if (!strcmp(fn, "__pas_fread") && nargs == 1) {
+            if (g_pas_tf[idx].mode != 2) pas_file_err("6.6.5.2", "the file mode is not Inspection immediately prior to read", fn);
+            if (!g_pas_tf[idx].has) pas_file_err("6.9.1", "the buffer-variable is undefined immediately prior to read (end-of-file is true)", fn);
+            DESCR_t v = g_pas_tf[idx].buf; g_pas_tf[idx].has = pas_tf_read(fp, &g_pas_tf[idx].buf); *out = v; return 1; }
         if (!strcmp(fn, "__pas_feof_t") && nargs == 1) { *out = INTVAL(g_pas_tf[idx].has ? 0 : 1); return 1; }
         *out = FAILDESCR; return 1;
     }
