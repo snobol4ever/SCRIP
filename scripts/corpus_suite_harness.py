@@ -2496,6 +2496,21 @@ def cmd_run(args):
     _one_runner_guard(args.sno, paths["corpus"], getattr(args, "lang", None))
     _progress_pin(paths)
     check_scrip(paths)
+    # ⛔ THE BINARY IS STAMPED AT THE START AND CHECKED BEFORE ANY BOARD LINE IS PRINTED (coo 2026-09-16; hq_raku's RakM 764/927 graded
+    # across a mid-run make). An outer runner's S4E_BIN_AT_START is kept; otherwise this run stamps its own.
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import util_progress_append as _upa_bin
+    if not os.environ.get("S4E_BIN_AT_START", "").strip():
+        os.environ["S4E_BIN_AT_START"] = _upa_bin.bin_fingerprint().strip()
+    # the baseline is STATED, like the tree stamp: a reader (and the gate's mid-run arm) can see what this run will be held to
+    print(f"BINARY_AT_START {os.environ['S4E_BIN_AT_START']} (md5/12 of scrip, libscrip_rt.so; a rebuild under this run refuses the board)", flush=True)
+    def _bin_unmoved_or_refuse():
+        _mv = _upa_bin.binary_moved_since_start()
+        if _mv:
+            sys.stderr.write("⛔ REFUSE(rc=2) [corpus_suite_harness]: THE BINARY MOVED UNDER THIS BOARD -- start [%s] end [%s]. ./scrip or "
+                             "out/libscrip_rt.so was rebuilt while this run graded: no board is printed and no progress row is recorded, "
+                             "because the verdicts describe no single binary. Re-run on a quiet tree.\n" % _mv)
+            sys.exit(2)
     # ⛔⭐ A SUITE FILE THAT IS NOT THERE IS A REFUSAL, NEVER A CRASH (row harness-refusal-exit-code-unified-on-
     # rc-2, hq_T 2026-09-04, found by that row's OWN gate while it was being written). Until now a missing
     # ALL.<ext> or ALL.ref reached Path.read_text() and died with a FileNotFoundError TRACEBACK, which Python
@@ -2814,6 +2829,7 @@ def cmd_run(args):
         # the ast population, not the suite; likewise the run board. A caller that wants "the suite" adds them
         # deliberately and can see what it is adding.
         a = ast_counts["ast"]
+        _bin_unmoved_or_refuse()
         print(f"SUITE_BOARD_AST family={family} " + (f"{shard_tag} " if shard_tag else "") +
               f"total={len(ast_entries)} ast_pass={a['PASS']} ast_fail={a['FAIL']} ast_crash={a['CRASH']} "
               f"ast_hang={a['HANG']} ast_unproven={a['UNPROVEN']} ast_skip={a['SKIP']} "
@@ -2845,6 +2861,7 @@ def cmd_run(args):
     fields.append(f"all_pass={all_pass} all_n={all_n}")
     if entry_modes and declared_not_requested:
         fields.append(f"declared_not_requested={len(declared_not_requested)}")
+    _bin_unmoved_or_refuse()
     print("SUITE_BOARD " + " ".join(fields))
     _progress_record(args.sno, paths, _progress_rows)
     # ⛔ the 40-line sample is a SUMMARY, not a listing: the 5 FAIL / 8 XPASS / 10 HANG entries of a 371-entry

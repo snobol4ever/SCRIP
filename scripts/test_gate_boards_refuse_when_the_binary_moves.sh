@@ -86,6 +86,38 @@ printf 'AAAA' > "$W/a.bin"; printf 'BBBB' > "$W/b.so"
 # ⛔ EACH ARM RUNS IN ITS OWN SUBSHELL because gate_bin_watch/gate_bin_unmoved `exit` on refusal -- that is
 # their contract (a board must not be able to continue past one) and it is exactly why they cannot be probed
 # in-process. The subshell's rc IS the measurement.
+echo "── ARM 7 (MID-RUN REBUILD): the harness refuses when the binary is rebuilt under it, printing no board and recording no rows ──"
+# (coo 2026-09-16; hq_raku's RakM 764/927 graded across a mid-run make; ceo CEO-802; row instruments-a-board-does-not-refuse-when-its-
+# own-seat-rebuilds-the-binary-under-it-...). A 300-entry cut of the SNOBOL4 master under mktemp (several seconds of m3 grading); the harness runs against a SCRATCH COPY of ./scrip and out/ (SCRIP= and RT_DIR=) with the progress DB redirected; 0.6 s in,
+# while the busy loop still runs, the scratch binary is mutated (a byte appended: same program, new fingerprint) -- the board must end in
+# THE BINARY MOVED UNDER THIS BOARD, rc=2, no SUITE_BOARD, zero rows in the scratch DB. FAIL_ONCE=1 skips the mutation. (The verdict
+# lines are printed after the board, so a poll for them cannot mark mid-run; the busy loop is what holds the run open.)
+M="$HERE/../../corpus/tests/snobol4"; W7="$W/midrun"; mkdir -p "$W7/tests/snobol4" "$W7/out"
+if [ -f "$M/ALL.sno" ] && [ -x "$HERE/../scrip" ] && [ -f "$HERE/../out/libscrip_rt.so" ]; then
+    head -300 "$M/ALL.sno" > "$W7/tests/snobol4/ALL.sno"; head -300 "$M/ALL.ref" > "$W7/tests/snobol4/ALL.ref"   # ~300 entries in m3: several seconds of grading after the baseline is stated
+    cp "$HERE/../scrip" "$W7/scrip"; cp -L "$HERE/../out/libscrip_rt.so" "$W7/out/libscrip_rt.so"; chmod +x "$W7/scrip"
+    printf 'ts_utc\tscrip\tcorpus\tmeasurer\tclass\tsuite\tlang\tprogram\tmode\toutcome\tsecs\tnote\n' > "$W7/db.tsv"
+    ( cd "$HERE/.." && env -u S4E_BIN_AT_START PYTHONUNBUFFERED=1 SCRIP="$W7/scrip" RT_DIR="$W7/out" S4E_PROGRESS_DB="$W7/db.tsv" timeout 300 python3 scripts/corpus_suite_harness.py run "$W7/tests/snobol4/ALL.sno" "$W7/tests/snobol4/ALL.ref" --modes m3 > "$W7/out.txt" 2> "$W7/err.txt"; echo $? > "$W7/rc" ) &
+    _p7=$!; _i=0
+    # wait for the harness to STATE its baseline (BINARY_AT_START, printed after its startup work), then mutate while the busy loop runs
+    while [ $_i -lt 1200 ] && ! grep -q '^BINARY_AT_START ' "$W7/out.txt" 2>/dev/null && kill -0 $_p7 2>/dev/null; do sleep 0.05; _i=$((_i+1)); done
+    sleep 1
+    if kill -0 $_p7 2>/dev/null; then
+        # a rebuild REPLACES the file (the linker writes a new inode and renames it in) -- an in-place append is refused by the kernel
+        # while the old binary executes ("text file busy"), so the mutation is a modified copy renamed over the original, as make does
+        if [ -z "${FAIL_ONCE:-}" ]; then cp "$W7/scrip" "$W7/scrip.new"; printf '\n' >> "$W7/scrip.new"; chmod +x "$W7/scrip.new"; mv -f "$W7/scrip.new" "$W7/scrip"; fi
+        wait $_p7; rc7="$(cat "$W7/rc" 2>/dev/null || echo ?)"
+        rows7="$(( $(grep -c . "$W7/db.tsv") - 1 ))"
+        if [ "$rc7" = 2 ] && grep -q 'THE BINARY MOVED UNDER THIS BOARD' "$W7/err.txt" && ! grep -q '^SUITE_BOARD ' "$W7/out.txt" && [ "$rows7" -eq 0 ]; then
+            ok "ARM 7 MID-RUN: the scratch binary was rebuilt under the harness one second after it stated its baseline; it refused rc=2 naming both fingerprints, printed no SUITE_BOARD and recorded 0 rows"
+        else red "ARM 7 MID-RUN: rc=$rc7 board=$(grep -c '^SUITE_BOARD ' "$W7/out.txt") rows=$rows7 -- $(grep -m1 'MOVED\|REFUSE' "$W7/err.txt" | cut -c1-140)"; fi
+        examined=$((examined+1))
+    else
+        wait $_p7; red "ARM 7 MID-RUN: the harness finished within a second of stating its baseline, so nothing could be rebuilt under it -- the 300-entry cut did not hold the run open (rc=$(cat "$W7/rc" 2>/dev/null)); a fixture that cannot reproduce the defect proves nothing"
+    fi
+else
+    echo "  ----  ARM 7 MID-RUN [UNBUILDABLE: no master at $M, no ./scrip or no out/libscrip_rt.so]"
+fi
 echo "── ARM 3-6: the authority itself ──"
 out3="$( ( . "$HERE/lib_gate.sh"; GATE_NAME=probe gate_bin_watch "$W/a.bin" "$W/b.so"; printf 'CCCC' > "$W/a.bin"; GATE_NAME=probe gate_bin_unmoved; echo "PUBLISHED" ) 2>&1 )"; rc3=$?
 if [ "$rc3" -eq 2 ] && grep -q 'THE BINARY MOVED UNDER THIS BOARD' <<<"$out3" && ! grep -q 'PUBLISHED' <<<"$out3"; then

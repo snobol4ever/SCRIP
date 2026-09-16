@@ -68,7 +68,20 @@ one_runner_seat_admitted() {
   for w in $who; do [ "$seat" = "$w" ] && return 0; done
   return 1
 }
+# ⛔⭐ THE BINARY IS STAMPED WHERE EVERY BOARD STARTS (coo 2026-09-16; hq_raku's report against themselves, ceo CEO-802; row instruments-
+# a-board-does-not-refuse-when-its-own-seat-rebuilds-the-binary-under-it-the-raku-master-graded-a-tree-that-changed-mid-run): a board and a
+# build share one mutable artefact, ./scrip + out/libscrip_rt.so, and a board whose seat ran `make` under it printed RakM 764/927 -- a
+# measurement of nothing. one_runner_guard exports S4E_BIN_AT_START (lib_gate.sh's fingerprint shape: md5 first 12 of each file, space-
+# joined); util_progress_append.py and util_score_row.py REFUSE when the binary they see differs, and corpus_suite_harness.py checks it
+# before printing any board. An outer runner's stamp is kept by an inner one.
+one_runner_bin_fingerprint() {
+  local _root="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}" _b _r
+  _b="${SCRIP:-$_root/SCRIP/scrip}"; _r="${RT_DIR:-$_root/SCRIP/out}/libscrip_rt.so"
+  [ -f "$_b" ] && [ -f "$_r" ] || return 1
+  md5sum "$_b" "$_r" 2>/dev/null | cut -c1-12 | tr '\n' ' '
+}
 one_runner_guard() {
+  if [ -z "${S4E_BIN_AT_START:-}" ]; then S4E_BIN_AT_START="$(one_runner_bin_fingerprint)" && export S4E_BIN_AT_START; fi
   local board="${1:-${0##*/}}" suite="${2:-}" seat who lang
   if [ -n "$suite" ] && ! one_runner_suite_is_a_board "$suite"; then return 0; fi
   seat="$(one_runner_seat)"; lang="$(one_runner_lang "$board" "$suite")"; who="$(one_runner_who "$lang")"

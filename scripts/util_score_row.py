@@ -37,6 +37,7 @@ import difflib
 import importlib.util
 import os, re, subprocess, sys, time
 
+HERE = os.path.dirname(os.path.abspath(__file__))
 S4E = os.environ.get("S4E_HOME") or os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 SCORE_MD = os.path.join(S4E, ".github", "SCORE.md")
 REPOS = ["SCRIP", "corpus"]
@@ -1222,6 +1223,16 @@ def cmd_write(a):
     # comparison that is the whole reason to run one: it is to preview BOTH halves, the cell AND the
     # verdict on whether it lands. Same principle as the --dry-run fix at the display/grid split below:
     # a preview that covers one of a command's two outcomes is a preview of a different command.
+    # ⛔ THE BINARY MOVED UNDER THIS BOARD -> no row (coo 2026-09-16, hq_raku's RakM 764/927 graded across a mid-run make): the stamp
+    # one_runner_guard exported at the board's start is compared to the binary now, before anything is written.
+    try:
+        sys.path.insert(0, HERE); import util_progress_append as _upa
+        _moved = _upa.binary_moved_since_start()
+    except Exception:
+        _moved = None
+    if _moved and not getattr(a, "dry_run", False):
+        die("THE BINARY MOVED UNDER THIS BOARD -- start [%s] end [%s]: ./scrip or out/libscrip_rt.so was rebuilt while the board that produced "
+            "this row graded, so the row describes no single binary. NOTHING WAS WRITTEN. Re-run the board on a quiet tree." % _moved)
     _decl = one_runner_declines(a.measurer, "%s / %s = %s" % (a.lang, a.column, a.text.strip()), a.lang)
     if _decl:
         if not getattr(a, "dry_run", False):

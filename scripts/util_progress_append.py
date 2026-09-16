@@ -169,7 +169,37 @@ def normalize_row(r):
     return out
 
 
+def bin_fingerprint():
+    """lib_gate.sh's shape: md5 first 12 of ./scrip and out/libscrip_rt.so (resolved), space-joined; '' when either is missing."""
+    import hashlib
+    root = os.environ.get("S4E_HOME") or os.path.abspath(os.path.join(HERE, "..", ".."))
+    b = os.environ.get("SCRIP") or os.path.join(root, "SCRIP", "scrip")
+    r = os.path.join(os.environ.get("RT_DIR") or os.path.join(root, "SCRIP", "out"), "libscrip_rt.so")
+    out = []
+    for f in (b, r):
+        try:
+            with open(f, "rb") as fh:
+                out.append(hashlib.md5(fh.read()).hexdigest()[:12])
+        except OSError:
+            return ""
+    return " ".join(out) + " "
+
+
+def binary_moved_since_start():
+    """(start, now) when S4E_BIN_AT_START is set and the binary differs from it, else None (coo 2026-09-16: a board whose seat
+    rebuilt the compiler under it must record NOTHING -- its rows describe no single binary)."""
+    start = os.environ.get("S4E_BIN_AT_START", "").strip()
+    if not start:
+        return None
+    now = bin_fingerprint().strip()
+    return None if now == start else (start, now)
+
+
 def append_rows(rows, db=None):
+    moved = binary_moved_since_start()
+    if moved:
+        raise ProgressGroundMoved("⛔ THE BINARY MOVED UNDER THIS BOARD -- start [%s] end [%s] -- appending NOTHING. ./scrip or out/libscrip_rt.so "
+                                  "was rebuilt while this board graded, so its rows describe no single binary. Re-run on a quiet tree." % moved)
     """Append the rows atomically under a lock. Returns the number written (0 under S4E_PROGRESS_OFF, said aloud)."""
     rows = [normalize_row(r) for r in rows]
     if not rows:
