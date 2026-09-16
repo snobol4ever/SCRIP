@@ -38,6 +38,10 @@ row=$(tail -1 "$W/db.tsv"); nf=$(printf '%s\n' "$row" | awk -F'\t' '{print NF}')
 ts=$(printf '%s' "$row" | cut -f1); tse=$(date -u -d "${ts}Z" +%s 2>/dev/null || echo 0); d=$(( tse - now ))
 [ "$d" -ge -300 ] && [ "$d" -le 300 ] && ck ok "ts_utc $ts is the run's own clock (delta ${d}s)" || ck no "ts_utc $ts is not now (delta ${d}s)"
 [ "$(printf '%s' "$row" | cut -f4)" != "" ] && [ "$(printf '%s' "$row" | cut -f4)" != "unknown-seat" ] && ck ok "measurer is $(printf '%s' "$row" | cut -f4)" || ck no "measurer empty or placeholder"
+# ⛔ S4E_SEAT WINS OVER THE ROOT PATH (coo 2026-09-16; hq_raku's detached-worktree boards were attributed to root:base / root:head):
+# the seat that set S4E_SEAT is the measurer of its rows, whatever root they ran from.
+S4E_SEAT=hq_fixture_seat python3 "$PY" append --class master --suite snobol4-master --lang snobol4 --program gate_probe_seat --mode m3 --outcome FAIL >/dev/null 2>&1
+[ "$(tail -1 "$W/db.tsv" | cut -f4)" = "hq_fixture_seat" ] && ck ok "S4E_SEAT wins over the root path: the row's measurer is hq_fixture_seat" || ck no "S4E_SEAT set to hq_fixture_seat but the row's measurer is '$(tail -1 "$W/db.tsv" | cut -f4)' -- the path map overrode the seat"
 echo "--- ARM 2: an unwritable table refuses rc=2, loudly ---"
 out=$(S4E_PROGRESS_DB=/nonexistent-dir-$$/db.tsv python3 "$PY" append --class master --suite s --lang l --program p --mode m3 --outcome PASS 2>&1); rc=$?
 [ "$rc" = 2 ] && ck ok "unwritable -> rc=2" || ck no "unwritable -> rc=$rc"

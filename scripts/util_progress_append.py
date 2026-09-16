@@ -66,13 +66,17 @@ def context():
         return _CTX
     _CTX["scrip"] = _git_short(os.path.join(S4E, "SCRIP"))
     _CTX["corpus"] = _git_short(os.path.join(S4E, "corpus"))
-    who = ""
-    try:
-        sys.path.insert(0, HERE)
-        import util_score_row  # noqa: E402  -- the ONE root->identity map; never a fourth copy
-        who = util_score_row.derive_measurer() or ""
-    except Exception:
-        who = ""
+    # ⛔ S4E_SEAT WINS OVER THE ROOT PATH (coo 2026-09-16; hq_raku via the cfo: base-vs-head boards graded on two DETACHED WORKTREES
+    # were attributed to root:base and root:head -- a pseudo-seat no LANES: line names -- so a batch audit keyed on measurer could not
+    # see 1854 sound rows). The seat that set S4E_SEAT is the measurer; the path map is the fallback for a seat that set nothing.
+    who = os.environ.get("S4E_SEAT", "").strip()
+    if not who:
+        try:
+            sys.path.insert(0, HERE)
+            import util_score_row  # noqa: E402  -- the ONE root->identity map; never a fourth copy
+            who = util_score_row.derive_measurer() or ""
+        except Exception:
+            who = ""
     _CTX["measurer"] = who or ("root:" + os.path.basename(os.path.abspath(S4E).rstrip("/")))
     return _CTX
 
