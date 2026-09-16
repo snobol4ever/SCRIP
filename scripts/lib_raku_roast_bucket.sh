@@ -32,7 +32,22 @@ roast_bucket() {
   err1=$(head -1 "$se" 2>/dev/null)
   if printf '%s' "$err1" | grep -q 'parse error'; then echo UNGRADED-PARSE; return; fi
   if printf '%s' "$err1" | grep -q 'does not yet cover'; then echo UNGRADED-EMITTER; return; fi
-  if [ "$rc" -ge 124 ]; then echo UNGRADABLE-TIMEOUT; return; fi
+  # ⛔⭐⭐ A CRASH IS NOT A TIMEOUT, AND THIS LINE CALLED EVERY SIGNAL DEATH A TIMEOUT (hq_raku
+  # 2026-09-16, found by doing what the baton said: TIME the three UNGRADABLE-TIMEOUT files before
+  # classifying them). `rc -ge 124` is true for 124 (timeout fired) AND for 134 (SIGABRT) AND 139 (SIGSEGV),
+  # so every crash landed in a bucket named for the clock. THE MEASUREMENT: all three "timeout" files finish
+  # in ~1.4s -- rc=134, rc=139, rc=139. None of them was ever slow. Our front end crashes on them.
+  # ⛔ THE CONSEQUENCE IS THE WHOLE POINT, NOT THE LABEL: UNGRADABLE- reads as "not our problem, out of
+  # the numerator honestly" (the oracle refuses it, it needs input we do not ship). A compiler that SIGSEGVs
+  # is our defect and belongs in the DARK count where it is owed, not in the excused one. Three files were
+  # sitting in the excused column with a SIGSEGV behind them.
+  # ⭐ AND THE INFORMATION WAS ALREADY IN THE BUILDING: classify() below returns "CRASH" for exactly this
+  # condition. The bucket layer re-tested the same rc and overwrote a correct name with a worse one -- which
+  # also made classify()'s CRASH arm dead code on the roast path. When two layers classify the same fact,
+  # the outer one silently wins, so they must not both decide.
+  if [ "$rc" -eq 124 ]; then echo UNGRADABLE-TIMEOUT; return; fi
+  if [ "$rc" -ge 128 ]; then echo UNGRADED-CRASH; return; fi
+  if [ "$rc" -ge 125 ] && [ "$rc" -le 127 ]; then echo UNGRADED-OTHER; return; fi
   case "$(classify "$so" "$se" "$rc")" in
     PASS)   echo GRADED-PASS ;;
     FAIL)   echo GRADED-FAIL ;;

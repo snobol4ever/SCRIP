@@ -23,8 +23,12 @@ set -u
 cd "$(dirname "$0")/.." || exit 2
 ROOT=$(pwd)
 SCRIP="$ROOT/scrip"
-MANIFEST="$ROOT/refs/rakudo-main/t/spectest.data.6.c"
-ROAST="$ROOT/refs/roast"
+# ⛔ THE POPULATION IS RESOLVED, NOT HARDCODED -- SCRIP/refs/ was deleted org-wide 2026-09-16 and this
+# refused rc=2 on every renamed root (hq_raku). Same resolver as the scoreboard and the ablation ranker, so
+# the three roast instruments cannot disagree about where roast lives.
+. "$(dirname "$0")/lib_raku_roast_bucket.sh" 2>/dev/null || true
+if command -v roast_resolve_population >/dev/null 2>&1; then roast_resolve_population "$ROOT" || exit 2; else
+  MANIFEST="$ROOT/refs/rakudo-main/t/spectest.data.6.c"; ROAST="$ROOT/refs/roast"; fi
 OUT="${1:-$(mktemp -d)}"
 [ -x "$SCRIP" ]   || { echo "REFUSE rc=2: no scrip binary (run: make scrip)" >&2; exit 2; }
 [ -f "$MANIFEST" ]|| { echo "REFUSE rc=2: no manifest at $MANIFEST (wire refs/rakudo-main)" >&2; exit 2; }

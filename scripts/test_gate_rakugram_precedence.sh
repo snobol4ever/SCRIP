@@ -28,7 +28,10 @@
 set -u
 cd "$(dirname "$0")/.." || exit 2
 ROOT=$(pwd)
+# ⛔ refs/ WAS DELETED ORG-WIDE 2026-09-16: fall through to the shared read-only checkout rather than
+# refusing on a path that no longer exists anywhere (hq_raku). $RAKUDO_GRAMMAR still wins if set.
 GRAM="${RAKUDO_GRAMMAR:-$ROOT/refs/rakudo-main/src/Perl6/Grammar.nqp}"
+[ -f "$GRAM" ] || GRAM=/home/resources/rakudo-main/src/Perl6/Grammar.nqp
 [ -f "$GRAM" ] || GRAM=/home/resources/rakudo-main/src/Perl6/Grammar.nqp
 [ -f "$GRAM" ] || { echo "⛔ REFUSES rc=2: no Grammar.nqp (wire refs/rakudo-main)"; exit 2; }
 command -v gcc >/dev/null 2>&1 || { echo "⛔ REFUSES rc=2: no gcc"; exit 2; }
