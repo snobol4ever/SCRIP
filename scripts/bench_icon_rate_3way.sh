@@ -29,17 +29,22 @@
 # and accepted, never corrected for by rebuilding.
 #
 # Usage: [REPS=3] [WARM=500] [BUD=1500] bash scripts/bench_icon_rate_3way.sh
-# Oracles: icont_bin()/iconx_bin() (shared /home/resources/icon-master/bin) and refs/jcon-master/bin/{jcont,jcon}.
+# Oracles: icont_bin()/iconx_bin() and jcon_path_export() -- all three from lib_oracle_flags.sh, the ONE authority.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200/s255), Icon-aware since row icon-oracle-accessors-shared." >&2; exit 3; }
 S4E="${S4E_HOME:-$(cd "$HERE/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root
 R="$S4E/SCRIP"; SCRIP=$R/scrip; RT=$R/out
-J=$R/refs/jcon-master/bin
 ICONT_BIN="$(icont_bin)" || exit 2
 iconx_bin >/dev/null || exit 2
 I="$(dirname "$ICONT_BIN")"
-export PATH="$J:$I:$PATH"
+export PATH="$I:$PATH"
+# ⛔ SCRIP/refs IS DELETED ORG-WIDE (CEO-765) -- this line used to read J=$R/refs/jcon-master/bin, putting a DEAD
+# directory on PATH. MEASURED, and it is worse than a blank column: jcont failed silently, jcon timed 0, vs-jcon
+# read "-", and the empty jcon checksum made CHECKSUMS print MISMATCH on EVERY ROW while the board still EXITED 0.
+# jcon_path_export() is the ONE authority (lib_oracle_flags.sh) and it EXPORTS PATH rather than handing back a
+# path, because jcon re-execs BY NAME and resolves its siblings off PATH -- an absolute path alone is not enough.
+eval "$(jcon_path_export)" || { echo "REFUSING(2): the jcon rival is unreachable -- this board prints a jcon column and must never print it blank." >&2; exit 2; }
 S=${S4E_RATE:-$S4E/corpus/benchmarks/icon/rate}
 WARM=${WARM:-500}; BUD=${BUD:-1500}; REPS=${REPS:-3}
 LOAD0=$(cut -d" " -f1-3 /proc/loadavg)

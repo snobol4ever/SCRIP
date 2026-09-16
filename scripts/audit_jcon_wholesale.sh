@@ -19,6 +19,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/resources)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$HERE/.."
+. "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING(3): cannot load lib_oracle_flags.sh -- the ONE oracle-path authority." >&2; exit 3; }
 SCRIP="$ROOT/scrip"; RT="$ROOT/out"
 # ⭐ seat03 2026-08-30: the 94 jcon_audit probes were absorbed into the icon master
 # (icon-scrip-test-icn-absorption) EXCEPT 3 genuine scrip-vs-oracle disagreements, which were
@@ -40,7 +41,13 @@ done
 trap 'rm -rf "$DIR"' EXIT
 FILTER="${1:-}"
 ICONT="${ICONT:-}"
-if [ -z "$ICONT" ]; then for c in $S4A/workspace/refs-src/icon-master/bin/icont "$ROOT/refs/icon-master/bin/icont"; do [ -x "$c" ] && ICONT="$c" && break; done; fi
+# ⛔ THIS PROBE USED TO NAME TWO DEAD PATHS -- $S4A/workspace/refs-src/... (never existed) and $ROOT/refs/...
+# (SCRIP/refs deleted org-wide, CEO-765) -- and it did NOT refuse when both missed: it left ICONT empty, skipped
+# the oracle block entirely, printed "-" in the ORACLE column and silently graded every probe against the
+# checked-in .expected files instead of ground truth. The oracle was reachable the whole time at
+# /home/resources/icon-master/bin/icont. icont_bin() is the ONE authority for that path.
+if [ -z "$ICONT" ]; then ICONT="$(icont_bin 2>/dev/null)" || ICONT=""; fi
+[ -n "$ICONT" ] || echo "⚠ ORACLE UNREACHABLE: the ORACLE column reads '-' and every VERDICT below is graded against the checked-in .expected files, NOT against icont. This is not ground truth." >&2
 [ -n "$ICONT" ] && export PATH="$(dirname "$ICONT"):$PATH"
 W=/tmp/jcon_audit_work; rm -rf "$W"; mkdir -p "$W"
 pass=0; fail=0; probebad=0; skip=0
