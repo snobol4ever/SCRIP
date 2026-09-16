@@ -163,8 +163,13 @@ ENTRY_FLOOR="${ICON_MASTER_ENTRY_FLOOR:-534}"
 # landing. The half that mattered -- that the flip is not mine -- was right either way; the half I had not
 # measured myself was the one I got wrong, and a disclaimed flip still deserves the right owner. The two remaining reds are unchanged and named on the row:
 # CRASH procedure_record_every_replace_12, FAIL procedure_every_scan_replace_13.
-M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-756}"
-M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-756}"
+# ⭐ RE-PINNED 756 -> 826 (hq_icon 2026-09-16, MODE DECTET) in the same commit that makes this board able to
+# MEASURE again: the ast-population guard had refused every run since 2026-09-03 (668b308b9), so the floors
+# below stood at the last value a WRITING board produced while the suite itself walked to 826/826 both modes.
+# Leaving them at 756 would let a 70-program regression pass this board in silence, which is the whole thing
+# a watermark exists to stop. Measured on SCRIP 319e8e7ad + corpus aaadcb56d, m3 826/826 m4 826/826 FAIL=0.
+M3_PASS_FLOOR="${ICON_MASTER_M3_PASS_FLOOR:-826}"
+M4_PASS_FLOOR="${ICON_MASTER_M4_PASS_FLOOR:-826}"
 # ⛔ NO AST_PASS_FLOOR: a self-pin has no floor to regress below, only a CURRENT-run comparison of
 # ap (matched) vs at (total) -- see the AST-SHAPE note above. Removed under ast-dump-refs-are-self-
 # pins-not-oracles rather than kept-but-unused, so a reader cannot mistake its presence for gating.
@@ -310,8 +315,18 @@ fi
 
 astfield() { echo "$astboard" | grep -oE "$1=[0-9]+" | cut -d= -f2; }
 at=$(astfield total); ap=$(astfield ast_pass); af=$(astfield ast_fail); ac=$(astfield ast_crash); ah=$(astfield ast_hang); axp=$(astfield ast_xpass)
-if [ -z "$at" ] || [ "$at" -eq 0 ]; then
-    echo "⛔ BOARD REFUSES (rc=2): the modes column declares an ast population but zero were graded"; exit 2
+_astdecl=$(echo "$split" | grep -oE 'ast_graded=[0-9]+' | cut -d= -f2); _astdecl=${_astdecl:-}
+if [ -z "$at" ]; then
+    echo "⛔ BOARD REFUSES (rc=2): SUITE_BOARD_AST carries no total= field -- the ast population cannot be read at all"; exit 2
+fi
+if [ -z "$_astdecl" ]; then
+    echo "⛔ BOARD REFUSES (rc=2): MODES_COLUMN carries no ast_graded= field, so a zero ast board cannot be told apart from an ungraded one"; exit 2
+fi
+if [ "$at" -eq 0 ] && [ "$_astdecl" -gt 0 ]; then
+    echo "⛔ BOARD REFUSES (rc=2): the modes column declares $_astdecl ast entr(y/ies) but the ast board graded zero"; exit 2
+fi
+if [ "$at" -eq 0 ]; then
+    echo "note: this suite declares NO ast entries (MODES_COLUMN ast_graded=0); it is graded wholly by the run population below, and the AST-shape line reads 0/0 because there is nothing of that kind to drift."
 fi
 graded=$(( mt + at ))
 echo "entries=$graded  (run-graded $mt + ast-graded $at; ALL.csv rows=$CSV_ENTRIES, floor=$ENTRY_FLOOR)"
