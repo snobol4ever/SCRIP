@@ -30,7 +30,7 @@ mkdir -p "$SNAPDIR"
 if [ -n "${PAT_CORPUS:-}" ]; then
   DIR="$PAT_CORPUS"
 else
-  . "$(cd "$(dirname "$0")" && pwd)/lib_master_extract.sh"
+  MASTER_LANG="${MASTER_LANG:-snobol4}" . "$(cd "$(dirname "$0")" && pwd)/lib_master_extract.sh"
   DIR="$SNAPDIR/crosscheck_patterns_src"
   [ -d "$DIR" ] && [ -n "$(ls -A "$DIR" 2>/dev/null)" ] || { mkdir -p "$DIR"; master_extract_family crosscheck_patterns "$DIR" 2>/dev/null; }
 fi

@@ -69,7 +69,26 @@
 # -- the direction this corpus actually moves -- a carried max is not conservative, it is wrong.
 _ME_HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _ME_S4E="${S4E_HOME:-$(cd "$_ME_HERE/../.." && pwd)}"
-MASTER_DIR="${MASTER_DIR:-$_ME_S4E/corpus/tests/snobol4}"
+# ⛔⭐ NO DEFAULT MASTER (coo 2026-09-16; hq_snocone's witness, hq_pascal's precedent lib_ladder.sh:49; row lib-master-extract-defaults-
+# master-dir-to-the-snobol4-master-when-unset-instead-of-refusing). This line used to read MASTER_DIR from the environment OR ELSE
+# default to corpus/tests/snobol4, so a consumer that forgot to set it GRADED THE SNOBOL4 MASTER AND SAID NOTHING -- entry names
+# collide across masters, so the wrong-language answer is well-formed and plausible (hq_snocone's named-entry arm read m3=FAIL
+# m4=BUILDFAIL on three Snocone entries that were SNOBOL4 entries of the same name). Now: MASTER_DIR set explicitly is honoured;
+# else MASTER_LANG names the language and the master is derived; else REFUSE rc=2 naming both variables. 29 consumers repointed
+# with MASTER_LANG=snobol4 in the same landing.
+if [ -z "${MASTER_DIR:-}" ]; then
+  case "${MASTER_LANG:-}" in
+    snobol4) MASTER_DIR="$_ME_S4E/corpus/tests/snobol4"; MASTER_EXT="${MASTER_EXT:-.sno}";;
+    icon)    MASTER_DIR="$_ME_S4E/corpus/tests/icon";    MASTER_EXT="${MASTER_EXT:-.icn}";;
+    prolog)  MASTER_DIR="$_ME_S4E/corpus/tests/prolog";  MASTER_EXT="${MASTER_EXT:-.pl}";;
+    snocone) MASTER_DIR="$_ME_S4E/corpus/tests/snocone"; MASTER_EXT="${MASTER_EXT:-.sc}";;
+    pascal)  MASTER_DIR="$_ME_S4E/corpus/tests/pascal";  MASTER_EXT="${MASTER_EXT:-.pas}";;
+    raku)    MASTER_DIR="$_ME_S4E/corpus/tests/raku";    MASTER_EXT="${MASTER_EXT:-.raku}";;
+    rebus)   MASTER_DIR="$_ME_S4E/corpus/tests/rebus";   MASTER_EXT="${MASTER_EXT:-.reb}";;
+    '') echo "⛔ REFUSE(lib_master_extract, rc=2): MASTER_DIR is unset and MASTER_LANG names no language -- there is no default master. Set MASTER_DIR=<corpus/tests/<lang>> or MASTER_LANG=<snobol4|icon|prolog|snocone|pascal|raku|rebus> before sourcing (a missing language is a refusal, never a quiet snobol4)." >&2; return 2 2>/dev/null || exit 2;;
+    *) echo "⛔ REFUSE(lib_master_extract, rc=2): MASTER_LANG='$MASTER_LANG' is not a language with a master under corpus/tests/." >&2; return 2 2>/dev/null || exit 2;;
+  esac
+fi
 MASTER_EXT="${MASTER_EXT:-.sno}"
 MASTER_SNO="$MASTER_DIR/ALL$MASTER_EXT"
 MASTER_REF="$MASTER_DIR/ALL.ref"

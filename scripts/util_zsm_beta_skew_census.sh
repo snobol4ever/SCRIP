@@ -26,7 +26,7 @@ if [ ${#FILES[@]} -eq 0 ]; then
     # were themselves absorbed into THE ONE FLAT MASTER (tests/snobol4/ALL.{sno,ref,csv}) and deleted.
     # lib_master_extract.sh now materializes both families back out of the master by origin, same
     # scratch-dir contract as before -- nothing downstream of $FILES changed.
-    . "$S4E/SCRIP/scripts/lib_master_extract.sh"
+    MASTER_LANG="${MASTER_LANG:-snobol4}" . "$S4E/SCRIP/scripts/lib_master_extract.sh"
     PTC_TMP="$TMP/ptc_grid"; mkdir -p "$PTC_TMP"
     while IFS= read -r o; do
         base="${o#probe_passthru__}"

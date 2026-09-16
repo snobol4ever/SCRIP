@@ -26,7 +26,7 @@ SCRIP_DIR="${SCRIP_DIR:-$S4E/SCRIP}"
 # lib_master_extract.sh (the ONE authority for this, per its own header) now materializes each
 # origin "probe_passthru__<oldname>" back into a standalone .sno/.ref pair -- same idiom every other
 # re-pointed consumer in this sweep uses.
-. "$SCRIP_DIR/scripts/lib_master_extract.sh"
+MASTER_LANG="${MASTER_LANG:-snobol4}" . "$SCRIP_DIR/scripts/lib_master_extract.sh"
 MODE="${1:-both}"
 FILT="${2:-}"
 TMO="${TMO:-8}"

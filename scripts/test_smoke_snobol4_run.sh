@@ -19,7 +19,7 @@ TIMEOUT="${TIMEOUT:-10}"
 # directory that no longer exists. Same 4 families this dispatcher's sibling test_crosscheck_all_backends.sh
 # names (patterns/assign/arith_new/control_new) -- that script's own OWN delegate scripts are missing
 # entirely (a bigger, separate problem), so it is NOT mirrored here; this fix is scoped to this file only.
-source "$HERE/lib_master_extract.sh"
+MASTER_LANG="${MASTER_LANG:-snobol4}" source "$HERE/lib_master_extract.sh"
 
 if [ ! -x "$SCRIP" ]; then echo "SKIP scrip not built at $SCRIP"; exit 0; fi
 if [ ! -f "$MASTER_SNO" ] || [ ! -f "$MASTER_REF" ]; then echo "SKIP SNOBOL4 master not populated at $MASTER_SNO"; exit 0; fi

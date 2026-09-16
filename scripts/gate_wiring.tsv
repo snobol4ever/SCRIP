@@ -173,6 +173,7 @@ test_gate_kw_integer_hex_refused.sh	WIRED	-	-	-
 test_gate_ladder_asserts_stderr.sh	WIRED	-	-	-
 test_gate_ladder_forms_check_selftest.sh	WIRED	-	-	-
 test_gate_ladder_walk_v4_exempts_package_class_rows.sh	WIRED	-	-	-
+test_gate_lib_master_extract_refuses_without_a_language.sh	WIRED	-	-	-
 test_gate_library_driver_generator.sh	WIRED	-	-	-
 test_gate_logtalk_population_is_named_and_sums.sh	WIRED	-	-	-
 test_gate_make_test_loops_and_reports.sh	WIRED	-	-	-

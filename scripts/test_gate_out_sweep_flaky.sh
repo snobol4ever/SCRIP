@@ -31,7 +31,7 @@ W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 # (corpus da0987478 lineage). Extract by ORIGIN (never re-point at a surviving directory -- that
 # would grade a different population and look green either way, hq_P's FINDING-2026-08-30 on this
 # exact class). Origins confirmed against ALL.csv's own family/origin columns before use.
-source "$HERE/lib_master_extract.sh" || { echo "GATE RED: could not load lib_master_extract.sh"; exit 1; }
+MASTER_LANG="${MASTER_LANG:-snobol4}" source "$HERE/lib_master_extract.sh" || { echo "GATE RED: could not load lib_master_extract.sh"; exit 1; }
 FLAKY="$W/141_pat_eval_double_fn_arbno.sno"; MOVED="$W/140_pat_eval_double_fn_trick.sno"; STABLE="$W/038_pat_literal.sno"
 master_extract_origin crosscheck_patterns__141_pat_eval_double_fn_arbno "$FLAKY" || { echo "GATE RED: could not extract 141_pat_eval_double_fn_arbno from the master"; exit 1; }
 master_extract_origin crosscheck_patterns__140_pat_eval_double_fn_trick "$MOVED" || { echo "GATE RED: could not extract 140_pat_eval_double_fn_trick from the master"; exit 1; }

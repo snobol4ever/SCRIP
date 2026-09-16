@@ -31,7 +31,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; cd "$HERE"
 # repo-wide dead-suite-path consumer sweep): that per-family bb_probes.{sno,ref} pair was itself
 # absorbed into THE ONE FLAT MASTER and deleted; lib_master_extract.sh now extracts each SET member
 # by its ALL.csv origin ("probe_bb_probes__<name>") instead.
-. "$HERE/scripts/lib_master_extract.sh"
+MASTER_LANG="${MASTER_LANG:-snobol4}" . "$HERE/scripts/lib_master_extract.sh"
 SET=(D09 D10 D11 D12 D13 G19 G20 H21 H24 H25 N12 N17 X01 X02 X03 X04 X05 X06 X11)
 [ "${1:-}" = "--quick" ] && SET=(D09 D12 X02)
 command -v gdb >/dev/null || { echo "SETUP: gdb missing (apt-get install -y --no-install-recommends gdb)"; exit 2; }

@@ -9,7 +9,7 @@ S=$S4E/SCRIP; C=$S4E/corpus
 # ⭐ RE-POINTED 2026-08-30 (seat12, repo-wide dead-suite-path consumer sweep): parser/pat_arbno.sno
 # and feat/f04_pattern_primitives.sno were absorbed into THE ONE FLAT MASTER and their loose files
 # deleted; lib_master_extract.sh materializes both back out by origin into a scratch dir.
-. "$S/scripts/lib_master_extract.sh"
+MASTER_LANG="${MASTER_LANG:-snobol4}" . "$S/scripts/lib_master_extract.sh"
 ZRC_W="$(mktemp -d)"; trap 'rm -rf "$ZRC_W"' EXIT
 master_extract_origin parser_pat_arbno__parser_pat_arbno "$ZRC_W/pat_arbno.sno" >/dev/null 2>&1
 master_extract_origin feat__f04_pattern_primitives "$ZRC_W/f04_pattern_primitives.sno" >/dev/null 2>&1

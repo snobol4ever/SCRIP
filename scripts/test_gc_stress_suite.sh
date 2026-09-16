@@ -54,7 +54,7 @@ trap 'rm -rf "$WORKDIR"' EXIT
 # runs the old loose-directory path unchanged, for anyone testing against a hand-built tree.
 if [ -z "${GCDIR:-}" ]; then
     GCDIR="$WORKDIR/gc_src"
-    . "$HERE/lib_master_extract.sh"
+    MASTER_LANG="${MASTER_LANG:-snobol4}" . "$HERE/lib_master_extract.sh"
     master_extract_family crosscheck_gc "$GCDIR" || { echo "GATE UNPROVEN(2) [test_gc_stress_suite]: could not extract the crosscheck_gc family from the master suite"; exit 2; }
 fi
 # ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-

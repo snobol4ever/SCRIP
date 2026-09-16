@@ -50,7 +50,7 @@ if ! command -v gdb >/dev/null 2>&1; then echo "⛔ REFUSED: gdb not available -
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
-. "$ROOT/scripts/lib_master_extract.sh"
+MASTER_LANG="${MASTER_LANG:-snobol4}" . "$ROOT/scripts/lib_master_extract.sh"
 WITNESS="$WORK/diag_regs_witness.sno"
 master_extract_origin probe_diag_regs_witness__diag_regs_witness "$WITNESS" >/dev/null 2>&1
 if [ ! -f "$WITNESS" ]; then echo "⛔ REFUSED: could not extract diag_regs_witness from the master"; exit 2; fi

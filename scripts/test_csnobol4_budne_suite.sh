@@ -35,7 +35,7 @@ SUITE="$CORPUS/packages/snobol4/csnobol4_suite"
 FENCE="$(mktemp -d)"
 trap 'rm -rf "$FENCE"' EXIT
 FENCE_ORIGINS="crosscheck_patterns__058_pat_fence_keyword crosscheck_patterns__059_pat_fence_fn_basic crosscheck_patterns__060_pat_fence_fn_fail crosscheck_patterns__061_pat_fence_fn_seal crosscheck_patterns__062_pat_fence_fn_outer crosscheck_patterns__063_pat_fence_fn_optional crosscheck_patterns__064_pat_fence_fn_capture crosscheck_patterns__065_pat_fence_fn_decimal crosscheck_patterns__066_pat_fence_fn_nested crosscheck_patterns__067_pat_fence_fn_vs_kw"
-if source "$HERE/lib_master_extract.sh" 2>/dev/null; then
+if MASTER_LANG="${MASTER_LANG:-snobol4}" source "$HERE/lib_master_extract.sh" 2>/dev/null; then
     for o in $FENCE_ORIGINS; do
         n="${o#crosscheck_patterns__}"
         master_extract_origin "$o" "$FENCE/$n.sno" "$FENCE/$n.ref" || echo "WARN: could not extract $o from the master" >&2

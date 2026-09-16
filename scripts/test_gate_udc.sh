@@ -26,7 +26,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 set -u
 SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"
 RT="${RT:-$S4E/SCRIP/out}"
-. "$(dirname "$0")/lib_master_extract.sh"
+MASTER_LANG="${MASTER_LANG:-snobol4}" . "$(dirname "$0")/lib_master_extract.sh"
 pass=0; fail=0
 chk() { if [ "$1" = 0 ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "  FAIL: $2"; fi; }
 # ⛔ SUITE_SNO/SUITE_REF/HARNESS RETIRED (row dead-suite-path-consumer-sweep): the dedicated cn.sno/cn.ref

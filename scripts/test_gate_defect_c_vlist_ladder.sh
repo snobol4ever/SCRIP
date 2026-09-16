@@ -52,7 +52,7 @@ command -v valgrind >/dev/null  || { echo "⛔ REFUSES (rc=2): valgrind absent; 
 # (The general law, adopted beside byte-equal-or-no-delete: the conversion guard protects CONTENT and
 # nothing protected SHAPE -- ask whether every instrument that graded a file can still do what it did.)
 PROBE="$W/witnesses"
-. "$SELF_DIR/lib_master_extract.sh"
+MASTER_LANG="${MASTER_LANG:-snobol4}" . "$SELF_DIR/lib_master_extract.sh"
 master_extract_family probe_vlist_select "$PROBE" \
     || { echo "⛔ REFUSES (rc=2): could not extract probe_vlist_select from the master pair at $MASTER_DIR."; exit 2; }
 [ -d "$PROBE" ]                 || { echo "⛔ REFUSES (rc=2): witness dir $PROBE does not resolve."; exit 2; }

@@ -27,7 +27,7 @@ W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 if [ -n "${1:-}" ]; then
   D="$1"
 else
-  . "$SC/scripts/lib_master_extract.sh"
+  MASTER_LANG="${MASTER_LANG:-snobol4}" . "$SC/scripts/lib_master_extract.sh"
   D="$W/crosscheck_patterns_src"; mkdir -p "$D"
   master_extract_family crosscheck_patterns "$D" 2>/dev/null
 fi

@@ -24,7 +24,7 @@ if [ -z "${CORPUS:-}" ]; then
     WORKDIR=$(mktemp -d)
     trap 'rm -rf "$WORKDIR"' EXIT
     CORPUS="$WORKDIR/crosscheck_src"
-    . "$(dirname "${BASH_SOURCE[0]}")/lib_master_extract.sh"
+    MASTER_LANG="${MASTER_LANG:-snobol4}" . "$(dirname "${BASH_SOURCE[0]}")/lib_master_extract.sh"
     master_extract_origin_prefix crosscheck_ "$CORPUS" || { echo "GATE UNPROVEN(2) [util_fc_spine_census]: could not extract the crosscheck_* families from the master suite"; exit 2; }
 fi
 [ -d "$CORPUS" ] || { echo "no corpus dir found"; exit 1; }

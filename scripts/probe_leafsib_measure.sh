@@ -18,7 +18,7 @@ WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 # (itself a 2026-08-29 re-point) was absorbed into THE ONE FLAT MASTER and deleted;
 # lib_master_extract.sh materializes the "probe_leafsib" family back into leafsib_<sib>.sno/.ref --
 # origins strip to exactly that naming, so the SIBS loop below is unchanged.
-. "$HERE/lib_master_extract.sh"
+MASTER_LANG="${MASTER_LANG:-snobol4}" . "$HERE/lib_master_extract.sh"
 P="$WORK/leafsib_src"; mkdir -p "$P"
 master_extract_family probe_leafsib "$P" 2>/dev/null
 [ -n "$(ls -A "$P" 2>/dev/null)" ] || { echo "⛔ REFUSED-TO-GRADE no $P (suite missing or extraction failed)"; exit 2; }

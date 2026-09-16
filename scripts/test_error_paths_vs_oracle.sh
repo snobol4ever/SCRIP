@@ -10,7 +10,7 @@ SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"
 TIMEOUT="${TIMEOUT:-10}"
 . "$(dirname "$0")/lib_gate.sh"
 . "$(dirname "$0")/lib_oracle_flags.sh"
-. "$(dirname "$0")/lib_master_extract.sh"
+MASTER_LANG="${MASTER_LANG:-snobol4}" . "$(dirname "$0")/lib_master_extract.sh"
 gate_require_exec "$SCRIP" "the scrip compiler"
 gate_require "${RT_DIR:-$(dirname "$0")/../out}/libscrip_rt.so" "the runtime shared object out/libscrip_rt.so"
 SBL="$(sbl_correctness_bin)" || exit 2

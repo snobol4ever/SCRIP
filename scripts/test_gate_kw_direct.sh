@@ -19,7 +19,7 @@ SCRIP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIP_BIN="${SCRIP_BIN:-$SCRIP_DIR/scrip}"
 # ⭐ RE-POINTED (ceo s283h, probe total-conversion): corpus/probe/kw is GONE -- kw_direct_read lives in
 # the kw SUITE and is materialized via the harness `extract` verb (test_arbno_witnesses.sh's idiom).
-. "$(dirname "${BASH_SOURCE[0]}")/lib_master_extract.sh"   # zero-subfolders cutover: extract by ORIGIN from the master
+MASTER_LANG="${MASTER_LANG:-snobol4}" . "$(dirname "${BASH_SOURCE[0]}")/lib_master_extract.sh"   # zero-subfolders cutover: extract by ORIGIN from the master
 [[ -x "$SCRIP_BIN" ]] || { echo "GATE BLOCKED: no scrip at $SCRIP_BIN"; exit 2; }
 WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
 WIT="$WORK/kw_direct_read.sno"; REF="$WORK/kw_direct_read.ref"

@@ -44,7 +44,7 @@ BM_DIR="$CORPUS/benchmarks/snobol4"
 CC_FAMILIES="crosscheck_patterns crosscheck_assign crosscheck_arith_new crosscheck_control_new"
 CC_WORK="$(mktemp -d)"
 trap 'rm -rf "$CC_WORK"' EXIT
-source "$(dirname "${BASH_SOURCE[0]}")/lib_master_extract.sh"
+MASTER_LANG="${MASTER_LANG:-snobol4}" source "$(dirname "${BASH_SOURCE[0]}")/lib_master_extract.sh"
 CC_S_FILES=()
 for fam in $CC_FAMILIES; do
     while IFS= read -r origin; do

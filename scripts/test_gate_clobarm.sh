@@ -29,7 +29,7 @@ if [ -z "${DIR:-}" ]; then
     # (itself a 2026-08-29 re-point onto the per-family suite pair) was absorbed into THE ONE FLAT
     # MASTER and deleted; lib_master_extract.sh materializes the "probe_clobarm" family's origins
     # back into a loose-file dir, same idiom this file's own header already documents.
-    . "$HERE/lib_master_extract.sh"
+    MASTER_LANG="${MASTER_LANG:-snobol4}" . "$HERE/lib_master_extract.sh"
     DIR="$WORK/clobarm_src"; mkdir -p "$DIR"
     master_extract_family probe_clobarm "$DIR" 2>/dev/null
 fi
