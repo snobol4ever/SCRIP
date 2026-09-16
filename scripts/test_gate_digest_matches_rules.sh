@@ -183,5 +183,11 @@ check_rule "MAKE-TEST-LOOPS-AND-REPORTS" \
     '.github/RULES.md and GOAL-CEO.md CEO-582 (2026-09-11): make test is scripts/run_blocking_set.sh, which LOOPS every arm and REPORTS green/red/refused with the denominator; the abort-on-first-red twin is make test-sequential; make preflight is the cheap hermetic set (hq_prolog finding, ceo CEO-768, 2026-09-16)' \
     'make test runs a cheapest-first list of about thirteen arms and fails loudly on the first red'
 
+check_rule "NO-CENTRAL-RUNNER" \
+    'coo (is |-- )?THE ONE RUNNER|THE ONE RUNNER IS THE coo|one runner \(the coo\)|the coo.s (next )?pass grades|the coo runs every board|admits the coo' \
+    'no central|per language|PER LANGUAGE|CEO-775|supersed|retire|history|until|used to|was the|before 09-16|runs NO board|no longer' \
+    '.github/RULES.md FACT RULE -- NO CENTRAL RUNNER: ONE RUNNER PER LANGUAGE (Lon 2026-09-16 10:5x, CEO-775): every language HQ runs its own language suites; the coo runs no board' \
+    'THE ONE RUNNER IS THE coo under EXECUTIVE: every master or package board runs once per landing batch by the coo'
+
 gate_floor "$EXAMINED" 2 "root-digest checks (roots × rules)"
 gate_verdict "$VIOLATIONS" "root digest(s) asserting retired FACT RULE text uncorrected"

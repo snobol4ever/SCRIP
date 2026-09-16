@@ -2432,24 +2432,45 @@ def _suite_is_a_board(suite_path, corpus_root):
         return False
 
 
-def _one_runner_who():
-    """WHO the one runner is comes from the LAW, never from a name baked in here (ceo CEO-756, 2026-09-14).
-    lib_one_runner.sh:one_runner_who is the same three lines; the rule is ONE RUNNER, ONE BOARD and was never
-    "the coo, personally" -- under MODE CEO line 2 says the ceo is the one runner, and this copy said coo.
-    It still admits exactly one seat: under MODE CEO the coo is refused in its turn."""
-    try:
-        with open(os.path.join(os.environ.get("S4E_POST", "/home/resources/postoffice"), "MODE"), encoding="utf-8") as fh:
-            mode = fh.readline().strip()
-    except Exception:
-        mode = ""
-    return "ceo" if mode == "CEO" else "coo"
+def _one_runner_lang(suite_path=None, lang=None):
+    """The LANGUAGE a board grades, from its corpus path (tests|packages|benchmarks|demos/<lang>/) else --lang."""
+    if suite_path:
+        parts = os.path.abspath(str(suite_path)).split(os.sep)
+        for i, part in enumerate(parts[:-1]):
+            if part == "corpus" and i + 2 < len(parts) and parts[i + 1] in ("tests", "packages", "benchmarks", "demos"):
+                return parts[i + 2]
+    return lang or "unknown"
 
-def _one_runner_guard(suite_path=None, corpus_root=None):
-    """ONE RUNNER, ONE BOARD (Lon 2026-09-10, CEO-523): a run of a suite UNDER THE CORPUS TREE is a board; refused rc=2 to any
-    seat but the coo unless the bus computed done (S4E_DONE_WHEN_RUN=1) or a loud S4E_ONE_RUNNER_OVERRIDE is set. A suite
-    outside the corpus tree -- a gate's own mktemp fixture -- is not a board and is never refused (CEO-547 part 1). Called with
-    no path it judges the run a board, so a new caller that forgets to say what it is graded is refused, not waved through.
-    Mirrors scripts/lib_one_runner.sh exactly."""
+def _one_runner_who(lang=None):
+    """WHO may run a board comes from the LAW, never from a name baked in here (ceo CEO-756, CEO-775).
+    NO CENTRAL RUNNER (Lon 2026-09-16 10:5x, verbatim: "So do not have a centralized runner at all. Let's each HQ run its
+    language test and benchmark suites."): the seat is the one MODE's LANES: line names for the board's language; a
+    MODE with no LANES line falls back to the pre-DECTET single runner (ceo under CEO, coo otherwise). Mirrors
+    lib_one_runner.sh:one_runner_who word for word in its rule."""
+    post = os.environ.get("S4E_POST", "/home/resources/postoffice")
+    mode, lanes = "", ""
+    try:
+        with open(os.path.join(post, "MODE"), encoding="utf-8") as fh:
+            for i, line in enumerate(fh):
+                if i == 0:
+                    mode = line.strip()
+                if line.startswith("LANES:"):
+                    lanes = line[len("LANES:"):].strip(); break
+    except Exception:
+        pass
+    if not lanes:
+        return ["ceo" if mode == "CEO" else "coo"]
+    table = dict(kv.split("=", 1) for kv in lanes.split() if "=" in kv)
+    if lang == "all":
+        return sorted(set(table.values()))
+    return [table[lang]] if lang in table else []
+
+def _one_runner_guard(suite_path=None, corpus_root=None, lang=None):
+    """ONE RUNNER PER LANGUAGE (Lon 2026-09-10 CEO-523 partitioned by Lon 2026-09-16 CEO-775): a run of a suite UNDER THE CORPUS
+    TREE is a board; refused rc=2 to any seat but the one the LANES line names for that language, unless the bus computed done
+    (S4E_DONE_WHEN_RUN=1) or a loud S4E_ONE_RUNNER_OVERRIDE is set. A suite outside the corpus tree -- a gate's own mktemp
+    fixture -- is not a board and is never refused (CEO-547 part 1). Called with no path it judges the run a board, so a new
+    caller that forgets to say what it is graded is refused, not waved through. Mirrors scripts/lib_one_runner.sh exactly."""
     if suite_path is not None and corpus_root is not None and not _suite_is_a_board(suite_path, corpus_root):
         return
     seat = os.environ.get("S4E_SEAT") or ""
@@ -2459,18 +2480,20 @@ def _one_runner_guard(suite_path=None, corpus_root=None):
             seat = util_score_row.derive_measurer() or ""
         except Exception:
             seat = ""
-    if seat == _one_runner_who():
+    blang = _one_runner_lang(suite_path, lang)
+    who = _one_runner_who(blang)
+    if seat and seat in who:
         return
     if os.environ.get("S4E_DONE_WHEN_RUN") == "1":
         print("ONE-RUNNER: master run under the bus computed done for seat %s (exempt, one run per closure)" % (seat or "?")); return
     if os.environ.get("S4E_ONE_RUNNER_OVERRIDE"):
         print("\u26a0 ONE-RUNNER OVERRIDE by %s: %s" % (seat or "?", os.environ["S4E_ONE_RUNNER_OVERRIDE"])); return
-    sys.stderr.write("\u26d4 REFUSE(2) ONE RUNNER, ONE BOARD: a master suite run is a board and seat %s is not %s, THE ONE RUNNER under MODE line 1 today (Lon 2026-09-10 16:3x, MODE line 2, RULES.md FACT RULES, CEO-523; the runner is read from the law rather than baked in, CEO-756). Your landing verdict is your row DONE-WHEN plus the gates you touched plus make preflight; a DONE-WHEN board clause runs under s4e_msg.sh done. S4E_ONE_RUNNER_OVERRIDE=\"why\" is loud and recorded.\n" % (seat or "?", _one_runner_who()))
+    sys.stderr.write("\u26d4 REFUSE(2) ONE RUNNER, ONE BOARD -- ONE RUNNER PER LANGUAGE: a %s master/package run is a board and seat %s is not %s, the seat MODE LANES: names for %s. Every language HQ runs its OWN language suites, once per landing, on origin HEAD, and writes its own rows (Lon 2026-09-16 10:5x, RULES.md § ONE RUNNER PER LANGUAGE, CEO-775); another language board is an ASK to that language HQ.\n" % (blang, seat or "?", " or ".join(who) if who else "<no seat -- the LANES line names none>", blang))
     sys.exit(2)
 
 def cmd_run(args):
     paths = resolve_paths()
-    _one_runner_guard(args.sno, paths["corpus"])
+    _one_runner_guard(args.sno, paths["corpus"], getattr(args, "lang", None))
     _progress_pin(paths)
     check_scrip(paths)
     # ⛔⭐ A SUITE FILE THAT IS NOT THERE IS A REFUSAL, NEVER A CRASH (row harness-refusal-exit-code-unified-on-

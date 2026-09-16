@@ -2,7 +2,7 @@
 # lib_one_runner.sh -- ONE RUNNER, ONE BOARD (Lon 2026-09-10 16:3x CDT, in-chat to ceo, verbatim: "Quit running the boards over and over
 # again. Co-ordinate with one runner and one board. Do something to alleviate the churn."; RULES.md § FACT RULES, CEO-523).
 # Sourced on line 2 of every master/package board runner and called by corpus_suite_harness.py run: a board is refused (rc=2) to any
-# seat but the coo, THE ONE RUNNER, who runs it once per landing batch on origin HEAD and writes the rows. Exempt: the bus's own
+# seat but the one MODE's LANES: line names for the board's LANGUAGE (CEO-775 below; the centralized coo runner is history). Exempt: the bus's own
 # computed `done`/dispatch run of a DONE-WHEN (S4E_DONE_WHEN_RUN=1, set by s4e_msg.sh, one run per closure) and a loud, named
 # override (S4E_ONE_RUNNER_OVERRIDE="why", printed on the board). Identity: S4E_SEAT if set, else the ONE root-path map in
 # util_score_row.derive_measurer (never a fourth copy). `bash lib_one_runner.sh --check` exits 0/2 silently for a Makefile arm to test.
@@ -25,26 +25,57 @@ one_runner_suite_is_a_board() {
   [ -n "$cr" ] || return 0
   case "$sp" in "$cr"/*|"$cr") return 0;; *) return 1;; esac
 }
-# ⛔⭐⭐ WHO THE ONE RUNNER IS COMES FROM THE LAW, NOT FROM A NAME BAKED IN HERE (ceo CEO-756, 2026-09-14).
-# The rule is ONE RUNNER, ONE BOARD -- it was never "the coo, personally". This file spelled it `coo`, which was
-# right for every mode that had a coo standing and wrong the moment MODE line 1 read CEO, where line 2 says in so
-# many words that with the coo quiet the ceo IS the one runner. A guard that names a seat instead of reading the
-# law is the same second-copy defect as the picker's lane table: correct until the law moves, then silently wrong.
-# ⛔ IT STILL ADMITS EXACTLY ONE SEAT. This is not a loosening -- under MODE CEO the coo is refused in its turn,
-# because a stood-down seat running boards is precisely the concurrent-pass churn the rule exists to stop.
+# ⛔⭐⭐⭐ NO CENTRAL RUNNER: EVERY LANGUAGE HQ RUNS ITS OWN LANGUAGE'S TEST AND BENCHMARK SUITES (Lon 2026-09-16 10:5x CDT, in-chat
+# to ceo, verbatim: "So do not have a centralized runner at all. Let's each HQ run its language test and benchmark suites."; ceo CEO-775,
+# RULES.md § FACT RULE -- ONE RUNNER PER LANGUAGE). The property Lon wanted on 09-10 -- one runner per board, no two seats grading the
+# same suite -- is kept by PARTITIONING the runner by language instead of centralizing it: a board belongs to the language it grades,
+# and the seat that may run it is the seat MODE's LANES: line names for that language (rebus=cfo today). Nobody is the runner of every
+# board; an officer is refused every board its lane does not name, exactly as a non-coo seat was before. The law source is the LANES
+# line, never a name baked in here (CEO-756 still binds). A board with no language (board_packages.sh) is admitted to any LANES seat;
+# its per-language runners refuse the seats that do not own them.
+one_runner_lang() {
+  local board="${1:-}" suite="${2:-}" sp
+  if [ -n "$suite" ]; then
+    sp="$(cd "$(dirname "$suite")" 2>/dev/null && pwd)/$(basename "$suite")"
+    case "$sp" in */corpus/tests/*|*/corpus/packages/*|*/corpus/benchmarks/*|*/corpus/demos/*)
+      printf '%s\n' "$sp" | sed -E 's#.*/corpus/(tests|packages|benchmarks|demos)/([^/]+)/.*#\2#'; return 0;; esac
+  fi
+  case "$board" in
+    *icon*|*jcon*|*ipl*|*arizona*) printf 'icon';;
+    *prolog*|*inria*|*swi*|*gnu*|*logtalk*) printf 'prolog';;
+    *pascal*|*fpc*|*pat_suite*) printf 'pascal';;
+    *raku*|*roast*) printf 'raku';;
+    *snocone*) printf 'snocone';;
+    *rebus*) printf 'rebus';;
+    *snobol4*|*snoflake*|*gimpel*|*aisnobol*|*csnobol4*|*dotnet*|*spitbol*|*testpgms*) printf 'snobol4';;
+    board_packages*) printf 'all';;
+    *) printf 'unknown';;
+  esac
+}
 one_runner_who() {
-  local mode
+  local lang="${1:-}" lanes mode
   mode="$(head -1 "${S4E_POST:-/home/resources/postoffice}/MODE" 2>/dev/null | tr -d '[:space:]')"
-  case "$mode" in CEO) printf 'ceo';; *) printf 'coo';; esac
+  lanes="$(grep -m1 '^LANES:' "${S4E_POST:-/home/resources/postoffice}/MODE" 2>/dev/null | sed 's/^LANES://')"
+  if [ -z "$lanes" ]; then case "$mode" in CEO) printf 'ceo';; *) printf 'coo';; esac; return 0; fi
+  case "$lang" in
+    all) printf '%s' "$lanes" | tr ' ' '\n' | sed -n 's/^[a-z0-9]*=//p' | sort -u | tr '\n' ' ' | sed 's/ $//';;
+    ''|unknown) printf '';;
+    *) printf '%s' "$lanes" | tr ' ' '\n' | sed -n "s/^$lang=//p" | head -1;;
+  esac
+}
+one_runner_seat_admitted() {
+  local seat="$1" who="$2" w
+  for w in $who; do [ "$seat" = "$w" ] && return 0; done
+  return 1
 }
 one_runner_guard() {
-  local board="${1:-${0##*/}}" suite="${2:-}" seat who
+  local board="${1:-${0##*/}}" suite="${2:-}" seat who lang
   if [ -n "$suite" ] && ! one_runner_suite_is_a_board "$suite"; then return 0; fi
-  seat="$(one_runner_seat)"; who="$(one_runner_who)"
-  if [ "$seat" = "$who" ]; then return 0; fi
+  seat="$(one_runner_seat)"; lang="$(one_runner_lang "$board" "$suite")"; who="$(one_runner_who "$lang")"
+  if [ -n "$seat" ] && one_runner_seat_admitted "$seat" "$who"; then return 0; fi
   if [ "${S4E_DONE_WHEN_RUN:-}" = 1 ]; then printf 'ONE-RUNNER: %s runs under the bus computed done for seat %s (exempt, one run per closure)\n' "$board" "${seat:-?}"; return 0; fi
   if [ -n "${S4E_ONE_RUNNER_OVERRIDE:-}" ]; then printf '⚠ ONE-RUNNER OVERRIDE by %s on %s: %s\n' "${seat:-?}" "$board" "$S4E_ONE_RUNNER_OVERRIDE"; return 0; fi
-  printf '⛔ REFUSE(2) ONE RUNNER, ONE BOARD: %s is a board and seat %s is not %s, who is THE ONE RUNNER under MODE line 1 today. That seat runs every board once per landing batch on origin HEAD and writes the rows (Lon 2026-09-10 16:3x, MODE line 2, RULES.md § FACT RULES, CEO-523; the runner is read from the law rather than baked in, CEO-756). Your landing verdict is your row DONE-WHEN plus the gates you touched plus make preflight. A DONE-WHEN board clause runs under s4e_msg.sh done (exempt). S4E_ONE_RUNNER_OVERRIDE="why" is loud and recorded.\n' "$board" "${seat:-?}" "$(one_runner_who)" >&2
+  printf '⛔ REFUSE(2) ONE RUNNER, ONE BOARD -- ONE RUNNER PER LANGUAGE: %s is a %s board and seat %s is not %s, the seat MODE LANES: names for %s. Every language HQ runs its OWN language suites, once per landing, on origin HEAD, and writes its own rows (Lon 2026-09-16 10:5x, MODE line 2, RULES.md § ONE RUNNER PER LANGUAGE, CEO-775); another language board is an ASK to that language HQ. S4E_ONE_RUNNER_OVERRIDE="why" is loud and recorded.\n' "$board" "$lang" "${seat:-?}" "${who:-<no seat -- the LANES line names none for this language>}" "$lang"
   return 2
 }
 # ⛔⭐ THE SEAM: EVERY GUARD SHIPS A SANCTIONED WAY TO BE TRIPPED THAT DOES NOT REQUIRE DOING THE FORBIDDEN THING
@@ -60,7 +91,7 @@ ONE_RUNNER_PROBE_SEAT='__one_runner_probe_not_a_seat__'
 one_runner_prove_seam() {
   local out rc fails=0 outside
   out=$(S4E_SEAT="$ONE_RUNNER_PROBE_SEAT" S4E_DONE_WHEN_RUN='' S4E_ONE_RUNNER_OVERRIDE='' one_runner_guard 'one-runner-seam-probe' "${S4E_CORPUS:-${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/corpus}" 2>&1); rc=$?
-  if [ "$rc" = 2 ] && printf '%s' "$out" | grep -q 'REFUSE(2) ONE RUNNER'; then printf '  OK   ARM 1 the guard REFUSES a board to a non-coo seat (rc=2, message asserted)
+  if [ "$rc" = 2 ] && printf '%s' "$out" | grep -q 'REFUSE(2) ONE RUNNER'; then printf '  OK   ARM 1 the guard REFUSES a board to a seat its language LANE does not name (rc=2, message asserted)
 '
   else printf '  FAIL ARM 1 expected rc=2 and a REFUSE message on a corpus-rooted board, got rc=%s: %s
 ' "$rc" "${out:-<silent>}"; fails=$((fails+1)); fi
@@ -77,9 +108,10 @@ one_runner_prove_seam() {
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
   case "${1:-}" in
     --prove-seam) one_runner_prove_seam; exit $?;;
-    --check) seat="$(one_runner_seat)"; { [ "$seat" = "$(one_runner_who)" ] || [ "${S4E_DONE_WHEN_RUN:-}" = 1 ] || [ -n "${S4E_ONE_RUNNER_OVERRIDE:-}" ]; } && exit 0; exit 2;;
-    --who) one_runner_who; echo; exit 0;;
+    --check) seat="$(one_runner_seat)"; lang="$(one_runner_lang "${2:-}" "${3:-}")"; { { [ -n "$seat" ] && one_runner_seat_admitted "$seat" "$(one_runner_who "$lang")"; } || [ "${S4E_DONE_WHEN_RUN:-}" = 1 ] || [ -n "${S4E_ONE_RUNNER_OVERRIDE:-}" ]; } && exit 0; exit 2;;
+    --who) one_runner_who "$(one_runner_lang "${2:-}" "${3:-}")"; echo; exit 0;;
+    --lang) one_runner_lang "${2:-}" "${3:-}"; echo; exit 0;;
     --seat) one_runner_seat; exit 0;;
-    *) echo "usage: lib_one_runner.sh --check | --seat | --prove-seam  (or source it and call one_runner_guard <board> [suite_path])" >&2; exit 2;;
+    *) echo "usage: lib_one_runner.sh --check <board> [suite] | --who <board> [suite] | --lang <board> [suite] | --seat | --prove-seam  (or source it and call one_runner_guard <board> [suite_path])" >&2; exit 2;;
   esac
 fi

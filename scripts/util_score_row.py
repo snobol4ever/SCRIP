@@ -842,6 +842,10 @@ def mode_file():
 def board_writer_seat():
     """The seat MODE line 2 names as THE ONE RUNNER, plus the provenance of that answer.
 
+    ⛔ SINCE CEO-775 (Lon 2026-09-16, NO CENTRAL RUNNER) MODE line 2 names no THE ONE RUNNER on purpose, so this returns
+    None and the write path falls back to the 2026-09-03 FACT RULE: every language HQ runs its own suites and rewrites its
+    own rows. The clause stays for any future mode that cuts one writer again.
+
     Returns (seat, why).  seat is None when the question CANNOT BE ANSWERED -- unreadable file, no line 2, no ONE
     RUNNER clause, or a clause naming no seat -- and `why` then says which of those it was.  ⛔ A None is never read
     as "nobody may write": an instrument that cannot measure must not be allowed to print an answer, and the honest
