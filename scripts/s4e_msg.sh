@@ -628,15 +628,16 @@ s4e_is_hq() { case "$1" in hq|hq_C|hq_P|hq_B|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V|ceo|c
 s4e_lane_languages() { printf 'icon prolog snobol4 snocone pascal raku rebus'; }
 s4e_lane_owner_of_language() {
     case "$1" in
-      # ⛔ MODE CEO (CEO-755): ONE WORKING SEAT, so every language is the ceo's. This is not seven decisions,
-      # it is one -- and it is written out per language anyway because the gate beside it compares this table
-      # to MODE line 2 LANGUAGE BY LANGUAGE, and a table that collapsed to a default would agree with a line 2
-      # that had drifted on six of them without anything noticing.
+      # ⛔ MODE EXECUTIVE (CEO-759, 2026-09-16, the CEO-748 cut restored on Lon's word): ceo ICON, RAKU and
+      # REBUS; cto PROLOG; cfo SNOBOL4, SNOCONE and PASCAL; the coo owns NO language (CEO-723). Under MODE CEO
+      # (CEO-755, 09-14 to 09-16) every arm read ceo. Written out per language because the gate beside it
+      # compares this table to MODE line 2 LANGUAGE BY LANGUAGE, and a table that collapsed to a default would
+      # agree with a line 2 that had drifted on six of them without anything noticing.
       icon)     printf 'ceo';;
-      prolog)   printf 'ceo';;
-      snobol4)  printf 'ceo';;
-      pascal)   printf 'ceo';;
-      snocone)  printf 'ceo';;
+      prolog)   printf 'cto';;
+      snobol4)  printf 'cfo';;
+      pascal)   printf 'cfo';;
+      snocone)  printf 'cfo';;
       rebus)    printf 'ceo';;
       raku)     printf 'ceo';;
     esac
