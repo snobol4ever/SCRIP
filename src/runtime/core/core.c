@@ -4217,6 +4217,15 @@ void core_gc_roots(void)
             if (e->next) rt_gc_visit_raw((const char **)&e->next);
             rt_gc_visit_descr(&e->val);
             if (e->cell) { rt_gc_visit_raw((const char **)&e->cell); rt_gc_visit_descr(e->cell); } } }
+    for (int b = 0; b < FUNC_BUCKETS; b++) {
+        if (_func_buckets[b]) rt_gc_visit_raw((const char **)&_func_buckets[b]);
+        for (FNCBLK_t *e = _func_buckets[b]; e; e = (FNCBLK_t *)e->next) {
+            if (e->name) rt_gc_visit_raw((const char **)&e->name);
+            if (e->spec) rt_gc_visit_raw((const char **)&e->spec);
+            if (e->entry_label) rt_gc_visit_raw((const char **)&e->entry_label);
+            if (e->params) { rt_gc_visit_raw((const char **)&e->params); for (int i = 0; i < e->nparams; i++) if (e->params[i]) rt_gc_visit_raw((const char **)&e->params[i]); }
+            if (e->locals) { rt_gc_visit_raw((const char **)&e->locals); for (int i = 0; i < e->nlocals; i++) if (e->locals[i]) rt_gc_visit_raw((const char **)&e->locals[i]); }
+            if (e->next) rt_gc_visit_raw((const char **)&e->next); } }
     if (_udef_types) rt_gc_visit_raw((const char **)&_udef_types);
     for (DATBLK_t *t = _udef_types; t; t = t->next) {
         if (t->name) rt_gc_visit_raw((const char **)&t->name);
