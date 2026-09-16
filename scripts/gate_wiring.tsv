@@ -340,6 +340,7 @@ test_gate_score_row_only_the_one_runner_writes.sh	WIRED	-	-	-
 test_gate_score_row_rewrites_in_place.sh	WIRED	-	-	-
 test_gate_score_row_stamps_the_tree_it_graded.sh	WIRED	-	-	-
 test_gate_score_row_text_splices_are_assigned.sh	WIRED	-	-	-
+test_gate_score_row_write_lands_display_and_grid_or_neither.sh	WIRED	-	-	-
 test_gate_score_row_write_names_the_lane_owner_from_mode.sh	WIRED	-	-	-
 test_gate_score_tables_agree.sh	WIRED	-	-	-
 test_gate_score_unreadable_package_is_marked.sh	WIRED	-	-	-

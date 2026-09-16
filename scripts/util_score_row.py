@@ -1467,6 +1467,8 @@ def cmd_write(a):
     gkey = GRID_MIRROR.get(a.column)
     gnote = ""
     _gconflict = False
+    _gnum_update = False
+    _gexpect = None   # (grid line index, suite, fraction) to READ BACK after the write
     if gkey:
         try:
             _gh, growsg, gskipw = find_grid(lines)
@@ -1547,13 +1549,26 @@ def cmd_write(a):
                              "      If one of them is the stale one, land the same number on both lines."
                              % (gkey, a.suite, " · ".join(sorted(_grs)), " · ".join(sorted(_trs))))
                 elif _grs and _trs and not (_grs & _trs):
-                    gnote = ("  ⛔ grid %s CONFLICTS with what you are writing for `%s`: that line states %s, "
-                             "this write states %s. Both lines of SCORE.md carry this language+suite, and a "
-                             "reader takes whichever they meet first.\n"
-                             "      Land the same number on BOTH lines in this sitting -- hand-edit the grid "
-                             "cell, since it refuses auto-update by design (prose no runner models)."
-                             % (gkey, a.suite, " · ".join(sorted(_grs)), " · ".join(sorted(_trs))))
-                    _gconflict = True
+                    # ⛔⭐ ONE MEASUREMENT, TWO CELLS, ONE WRITE (coo 2026-09-16; hq_pascal's PAT 297 display / 296 grid V, and 271 / 283 the
+                    # other way the same day; row util-score-row-write-can-leave-the-grid-cell-behind-the-display-cell-...). The grid clause
+                    # for this suite carries a fraction over the SAME denominator: that is a NUMBER to move, not prose to model, so it is
+                    # replaced IN PLACE -- the grid's own provenance prose survives -- and read back after the write (below). A conflict
+                    # that used to leave the grid stale by design now lands on both lines or on neither.
+                    _new = sorted(_trs)[0]
+                    _gfix = gbare
+                    for _old in sorted(_grs):
+                        _n, _d = _old.split("/")
+                        _gfix = re.sub(r"\b%s\s*/\s*%s\b" % (re.escape(_n), re.escape(_d)), _new, _gfix)
+                    if set(x.replace(" ", "") for x in suite_readings(_gfix, a.suite)) == {_new}:
+                        gnew = _gfix; _gnum_update = True
+                        gnote = ("  grid %s: the `%s` fraction moved in place with the display, %s -> %s (the grid cell's own prose kept)"
+                                 % (gkey, a.suite, " · ".join(sorted(_grs)), _new))
+                    else:
+                        gnote = ("  ⛔ grid %s CONFLICTS with what you are writing for `%s`: that line states %s, "
+                                 "this write states %s, and the fraction could not be replaced in place (%d readings in the cell's clause)."
+                                 "\n      Land the same number on BOTH lines in this sitting -- hand-edit the grid cell."
+                                 % (gkey, a.suite, " · ".join(sorted(_grs)), " · ".join(sorted(_trs)), len(_grs)))
+                        _gconflict = True
             # ⛔⭐ cell_prose_loss ALONE IS THE WRONG GATE HERE AND MEASURING IT SAID SO. It answers "does
             # `new` still contain everything `before` said", so the OLD MEASUREMENT -- which this write
             # exists to supersede -- always reads as a lost sentence. Run against the live board it blocked
@@ -1565,6 +1580,8 @@ def cmd_write(a):
             # wrote it, and a runner does not get to decide whether it survives its number.
             gchunks = [c for c in re.split(r'(?<=[.!?])\s+(?=[A-Z0-9⚠⛔⭐✅])', gbare) if c.strip()]
             gpure = len(gchunks) <= 1 and re.search(r"\d+\s*/\s*\d+|PASS=|FAIL=|\bpass\b", gbare or "", re.I)
+            if _gnum_update:
+                gpure = True   # an in-place fraction move loses no prose by construction
             glost = [] if gpure else cell_prose_loss(gbare, gnew)
             gnew = (gnew + " " + GRID_STAMP % (time.strftime("%Y-%m-%d"), a.measurer or derive_measurer() or "unknown")).strip()
             # ⛔⭐⭐ THE TWO COLUMNS HAVE DIFFERENT CONTRACTS AND A VERBATIM COPY BETWEEN THEM PUBLISHES A
@@ -1624,7 +1641,9 @@ def cmd_write(a):
                         if len(gc) == GRID_NCOLS and gc[0] == a.lang:
                             gc[gi] = gnew
                             lines[gl] = "| " + " | ".join(gc) + " |"
-                            gnote = "  grid %s: updated in the same call (line %d)" % (gkey, gl + 1)
+                            gnote = ("  grid %s: updated in the same call (line %d)" % (gkey, gl + 1)) if not _gnum_update else gnote + " (line %d)" % (gl + 1)
+                            if a.suite:
+                                _gexpect = (gl, a.suite, sorted({x.replace(" ", "") for x in suite_readings(text, a.suite)}))
                             break
     # ⛔⭐⭐ --dry-run PREVIEWS BOTH HALVES OR IT IS NOT A PREVIEW OF THIS COMMAND (hq_T 2026-09-05, found
     # while measuring the ceo's minted grid-dual-write row). The early return used to sit ABOVE the entire
@@ -1655,6 +1674,17 @@ def cmd_write(a):
         return 0
     lines = mark_grid_stamp(lines)
     _write_score_md(lines)
+    # ⛔ READ BOTH CELLS BACK: the display's and the grid's fraction for this suite must agree after the write, or the split state is
+    # NAMED (one measurement, two cells, one write -- coo 2026-09-16). A gate plants a display-only write and proves this reds.
+    if _gexpect:
+        _gl, _gs, _want = _gexpect
+        _back = open(SCORE_MD, encoding="utf-8").read().split("\n")
+        _gc = [x.strip() for x in _back[_gl].strip().strip("|").split("|")]
+        _got = sorted({x.replace(" ", "") for x in suite_readings(_gc[GRID_COLUMNS[gkey][0]] if len(_gc) > GRID_COLUMNS[gkey][0] else "", _gs)})
+        if _want and _got != _want:
+            die("SCORE.md was written but the grid %s cell READ BACK for `%s` states %s while this write states %s -- the display and the grid "
+                "disagree on one measurement. ⛔ PARTIAL: fix the grid cell by hand in this sitting (line %d) and re-run test_gate_score_tables_agree.sh."
+                % (gkey, _gs, " · ".join(_got) or "no fraction", " · ".join(_want), _gl + 1))
     print("SCORE.md: %s/%s rewritten in place (line %d)" % (a.lang, a.column, i + 1))
     if _provdup:
         print(_provdup)
