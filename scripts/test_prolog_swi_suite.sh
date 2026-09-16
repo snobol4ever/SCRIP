@@ -106,7 +106,21 @@ for f in open(files).read().split('\n'):
     for i, row in enumerate(first):
         label, verdict = row[0], row[1]
         if verdict == 'UNGRADED':
-            ungraded_cases += 1; ungraded_reason[row[2].split(' ')[0] if len(row) > 2 else '?'] += 1; continue
+            # ⛔⭐ THE 77 ARE APPENDED, NOT SKIPPED (coo COO-84 4d / CEO-779, 2026-09-16). They were counted, classified
+            # and PRINTED on the board line and then dropped on this `continue`, so the DB carried 2858 programs for a
+            # row whose denominator is 2935 and the CEO-749 identity -- PASS+FAIL+OUTSIDE+UNGRADABLE+UNGRADED+DEFERRED
+            # == population -- could not be checked from the DB at all. ⭐ A case NAMED on the board and ABSENT from the
+            # table is worse than one that is simply missing: the board says the denominator is whole, and the only
+            # instrument that could contradict it has no row to do it with.
+            # The vocabulary already carries both words (util_progress_append.py OUTCOMES), so nothing is invented here:
+            # the 45 the ORACLE refuses are UNGRADABLE -- its reason, never ours -- and the 30 EMPTY plus 2 BLOCKED are
+            # UNGRADED. The reason travels in the note column so the class stays checkable case by case.
+            _why = row[2].split(' ')[0] if len(row) > 2 else '?'
+            ungraded_cases += 1; ungraded_reason[_why] += 1
+            _cls = 'UNGRADABLE' if _why == 'UNGRADABLE' else 'UNGRADED'
+            for m in modes:
+                rows.append('package\tswi\tprolog\t%s:%s\t%s\t%s\t0\t%s' % (rel, label, m, _cls, ((row[2] if len(row) > 2 else _why) or _why)[:60]))
+            continue
         fgraded += 1; graded_cases += 1
         ok_all = True
         for m in modes:

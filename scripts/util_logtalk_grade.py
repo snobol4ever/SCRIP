@@ -1022,9 +1022,32 @@ def main(argv):
     # case names repeat across directories (iso_cut_0_01 style names are unique per file, not globally),
     # and a colliding key silently shrinks the denominator. UNGRADED is a real outcome in this table's own
     # vocabulary and is recorded as itself -- never dropped, and never collapsed into FAIL.
+    # ⛔⭐ THE KEY MUST BE MEASURED UNIQUE, NOT ASSERTED UNIQUE (coo COO-84 / CEO-779, 2026-09-16). The banner
+    # below this line used to say group:name was the fix for name collisions, and it was READ as a guarantee for
+    # weeks while SEVEN pairs collided WITHIN one group -- setof_3:iso_setof_3_11, bagof_3:iso_bagof_3_09,
+    # discontiguous_1:discontiguous_1_01/_02/_03, op_3:iso_op_3_10, op_3:iso_op_3_21. The progress DB keys on
+    # suite+program+mode and keeps the LAST row, so five passes and two fails vanished and each same-named pair
+    # whose verdicts differed read as a FLIP IN THE MEASURE: op_3_10 and op_3_21 read plus, minus, plus inside a
+    # single pass. ⭐ A BANNER ASSERTING A KEY IS UNIQUE IS NOT A MEASUREMENT THAT IT IS; this counts first.
+    # ⛔ AND IT DISAMBIGUATES ONLY THE COLLISIONS, DELIBERATELY. A uniform sequence on every key would re-identify
+    # all 3600 programs at once, so the DB would read mass-VANISHED plus mass-NEW and the flip reader would show a
+    # wall of false red -- the exact failure the Icon per-entry baseline gate exists to warn about, which trains
+    # its reader to re-pin without looking. 3586 keys stay byte-stable; seven gain a #n. The ordinal is per-key
+    # occurrence order, not the global index, so adding or removing an unrelated case cannot renumber a survivor.
+    _key_count = {}
+    for _fc, _p in work:
+        _k = "%s:%s" % (_fc.group, _p.case.name)
+        _key_count[_k] = _key_count.get(_k, 0) + 1
+    _key_seen = {}
     rows = os.path.join(tempfile.gettempdir(), "logtalk_progress_rows.tsv")
     with open(rows, "w") as pf:
         for i, (fc, p) in enumerate(work):
+            _k = "%s:%s" % (fc.group, p.case.name)
+            if _key_count[_k] > 1:
+                _key_seen[_k] = _key_seen.get(_k, 0) + 1
+                _prog = "%s#%d" % (_k, _key_seen[_k])
+            else:
+                _prog = _k
             for m in modes:
                 if p.outside_reason is not None:
                     v, note = "OUTSIDE", p.outside_reason[:60]
@@ -1034,8 +1057,8 @@ def main(argv):
                     v, why = verdict(p, results[(i, m)][0])
                     note = ("iso-13211-1-case-expectation" + ("-file-sequenced" if p.sequenced else "")) \
                         if v == "PASS" else (why or v)[:60]
-                pf.write("package\tlogtalk\tprolog\t%s:%s\t%s\t%s\t0\t%s\n"
-                         % (fc.group, p.case.name, m, v, note))
+                pf.write("package\tlogtalk\tprolog\t%s\t%s\t%s\t0\t%s\n"
+                         % (_prog, m, v, note))
     print("PROGRESS_ROWS_TSV %s" % rows)
     # ⛔ THE OUTSIDE COUNT IS APPENDED, NEVER SUBTRACTED FROM pop HERE. Every reader of this line takes its
     # fields POSITIONALLY, and a shrinking pop would silently re-base every one of them; a trailing field is
