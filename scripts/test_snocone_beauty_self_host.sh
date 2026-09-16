@@ -97,7 +97,11 @@ for f in "${LIB_FILES[@]}"; do
     [[ -f "$p" ]] || { echo "FAIL lib not found: $p" >&2; exit 2; }
     LIBS+=("$p")
 done
-DRIVER="$CORPUS/demos/snobol4/beauty/beauty.sc"
+# ⛔ THE SNOCONE DRIVER LIVES IN THE SNOCONE TREE, NOT BESIDE ITS SNOBOL4 TWIN (repointed
+# 2026-09-16 by hq_snocone -- this line said demos/snobol4/beauty/beauty.sc and REFUSED rc=2
+# with "FAIL driver not found", so this suite had not run since beauty.sc moved. The .sno twin
+# and the INPUT above are still correctly under demos/snobol4/beauty; only the .sc moved.
+DRIVER="$CORPUS/demos/snocone/beauty/beauty.sc"
 [[ -f "$DRIVER" ]] || { echo "FAIL driver not found: $DRIVER" >&2; exit 2; }
 
 # --- Run scrip --------------------------------------------------------------
@@ -147,4 +151,20 @@ if [[ "$DO_DIFF" -eq 1 ]]; then
     exit 1
 fi
 
+# ⛔ A RUN THAT PRODUCED NOTHING IS NOT A PASS (hq_snocone 2026-09-16). This verdict was
+# `rc==0 && exit 0` alone, so the suite reported GREEN on lines=0 -- and it had been doing so
+# because the lib chain is passed as BARE POSITIONALS at the scrip invocation above, and scrip
+# takes the FIRST positional as the source and the rest as program args. Only global.sc ever
+# ran; beauty.sc never executed; rc was 0 because global.sc exits cleanly. Load the same chain
+# by concatenation instead and beauty SIGSEGVs (rc=139), which is the real state this green hid.
+# The empty-output arm below is what makes that visible instead of silent.
+if [[ "$LINES" -eq 0 ]]; then
+    echo "FAIL beauty produced NO OUTPUT (lines=0) -- a run that emitted nothing is not a pass." >&2
+    echo "     scrip rc=$SCRIP_RC. The lib chain above is passed as bare positionals; scrip loads" >&2
+    echo "     only the FIRST and treats the rest as program args, so beauty.sc never runs. A .sc" >&2
+    echo "     program cannot load a chain at all today: -L is collected for every language but" >&2
+    echo "     expanded into -INCLUDE only on the SNOBOL4 path (src/driver/scrip.c:1218), while the" >&2
+    echo "     Snocone branch calls snocone_compile() and never reads n_preload." >&2
+    exit 1
+fi
 [[ "$SCRIP_RC" -eq 0 ]] && exit 0 || exit 1
