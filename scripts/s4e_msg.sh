@@ -111,15 +111,13 @@ if [ -z "$ME" ]; then case "$S4E" in
     /home/claude_cto)       ME=cto;;
     /home/claude_coo)       ME=coo;;
     /home/claude_cfo)       ME=cfo;;
-    /home/claude_C)         ME=hq_C;;
-    /home/claude_P)         ME=hq_P;;
-    /home/claude_B)         ME=hq_B;;
-    /home/claude_T)         ME=hq_T;;
-    /home/claude_U)         ME=hq_U;;
-    /home/claude_S)         ME=hq_S;;
-    /home/claude_I)         ME=hq_I;;
-    /home/claude_R)         ME=hq_R;;
-    /home/claude_V)         ME=hq_V;;
+    /home/claude_icon)           ME=hq_icon;;
+    /home/claude_prolog)         ME=hq_prolog;;
+    /home/claude_raku)           ME=hq_raku;;
+    /home/claude_pascal)         ME=hq_pascal;;
+    /home/claude_snocone)        ME=hq_snocone;;
+    /home/claude_snobol4)        ME=hq_snobol4;;
+    # the nine lettered HQ roots were renamed by language on 2026-09-16 (ceo CEO-767, Lon's word); hq_R folded into hq_prolog, hq_U into the cto, hq_V into the cfo
     /home/claude[0-9][0-9]) ME="seat${S4E#/home/claude}";;
     /home/claude[1-9])      ME="seat0${S4E#/home/claude}";;
     *)                      ME="$(basename "$S4E")";; esac; fi
@@ -594,10 +592,10 @@ s4e_sweep_orphans() { for _o in "$PO"/.msg.*; do [ -f "$_o" ] || continue
 # that INVENTS a dead seat is worse than one that reports nothing: the ceo acts on it. The forward map gained
 # hq_T when the fourth HQ opened; this one did not, because nothing checks that two hand-written tables of the
 # same fact still agree -- the same class as the per-root digests drifting from RULES.md.
-s4e_root() { case "$1" in ceo|hq) if [ -d /home/claude_ceo ]; then echo /home/claude_ceo; else echo /home/claude; fi;; cto) echo /home/claude_cto;; coo) echo /home/claude_coo;; cfo) echo /home/claude_cfo;; hq_C) echo /home/claude_C;; hq_P) echo /home/claude_P;; hq_B) echo /home/claude_B;; hq_T) echo /home/claude_T;; hq_U) echo /home/claude_U;; hq_S) echo /home/claude_S;; hq_I) echo /home/claude_I;; hq_R) echo /home/claude_R;; hq_V) echo /home/claude_V;;
+s4e_root() { case "$1" in ceo|hq) if [ -d /home/claude_ceo ]; then echo /home/claude_ceo; else echo /home/claude; fi;; cto) echo /home/claude_cto;; coo) echo /home/claude_coo;; cfo) echo /home/claude_cfo;; hq_icon) echo /home/claude_icon;; hq_prolog) echo /home/claude_prolog;; hq_raku) echo /home/claude_raku;; hq_pascal) echo /home/claude_pascal;; hq_snocone) echo /home/claude_snocone;; hq_snobol4) echo /home/claude_snobol4;;
     seat0[1-9]|seat1[0-9]|seat20) echo "/home/claude${1#seat}";; *) echo "";; esac; }
-s4e_hqboxes() { for _h in hq hq_C hq_P hq_B hq_T hq_U hq_S hq_I hq_R hq_V ceo cto coo cfo; do [ -d "$PO/$_h/inbox" ] && echo "$_h"; done; }
-s4e_is_hq() { case "$1" in hq|hq_C|hq_P|hq_B|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V|ceo|cto|coo|cfo) return 0;; *) return 1;; esac; }
+s4e_hqboxes() { for _h in hq hq_icon hq_prolog hq_raku hq_pascal hq_snocone hq_snobol4 hq_C hq_P hq_B hq_T hq_U hq_S hq_I hq_R hq_V ceo cto coo cfo; do [ -d "$PO/$_h/inbox" ] && echo "$_h"; done; }
+s4e_is_hq() { case "$1" in hq|hq_icon|hq_prolog|hq_raku|hq_pascal|hq_snocone|hq_snobol4|hq_C|hq_P|hq_B|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V|ceo|cto|coo|cfo) return 0;; *) return 1;; esac; }
 # ⭐⭐ THE LANE — topic->seat and identity->seat, so `next` can restrict dispatch. Topic lane: the owner cell
 # (QUEUE.tsv field 3) wins when it already names a standing seat — an explicit, already-made decision beats a
 # guess; otherwise derived from the topic's LANGUAGE prefix. A topic naming no language (a postoffice/tooling/
@@ -628,18 +626,19 @@ s4e_is_hq() { case "$1" in hq|hq_C|hq_P|hq_B|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V|ceo|c
 s4e_lane_languages() { printf 'icon prolog snobol4 snocone pascal raku rebus'; }
 s4e_lane_owner_of_language() {
     case "$1" in
-      # ⛔ MODE EXECUTIVE (CEO-759 and CEO-766, 2026-09-16, Lon: "CEO is coordination only."): cto PROLOG and
-      # RAKU; cfo SNOBOL4, SNOCONE, PASCAL, ICON and REBUS; the coo owns NO language (CEO-723); the ceo owns
-      # none. Under MODE CEO (CEO-755, 09-14 to 09-16) every arm read ceo. Written out per language because the
+      # ⛔ MODE DECTET (CEO-767, 2026-09-16, Lon: one HQ per language, four officers for the shared nodes): each
+      # language's completeness AND speed owner is its HQ, named for the language; Rebus is closed and folded
+      # into the cfo as keep-green; the officers own no language (cto the spine, cfo the collector and the
+      # SNOBOL4 runtime crash classes, coo the one runner, ceo the loop). Written out per language because the
       # gate beside it compares this table to MODE line 2 LANGUAGE BY LANGUAGE, and a table that collapsed to a
       # default would agree with a line 2 that had drifted on six of them without anything noticing.
-      icon)     printf 'cfo';;
-      prolog)   printf 'cto';;
-      snobol4)  printf 'cfo';;
-      pascal)   printf 'cfo';;
-      snocone)  printf 'cfo';;
+      icon)     printf 'hq_icon';;
+      prolog)   printf 'hq_prolog';;
+      snobol4)  printf 'hq_snobol4';;
+      pascal)   printf 'hq_pascal';;
+      snocone)  printf 'hq_snocone';;
       rebus)    printf 'cfo';;
-      raku)     printf 'cto';;
+      raku)     printf 'hq_raku';;
     esac
 }
 # One line of prose for the `mint` refusal, DERIVED so it cannot drift from the arms above.
@@ -652,7 +651,7 @@ s4e_topic_lane() {
     # through and was re-guessed from its prefix. Under NONET four of the seven completeness owners ARE
     # executives, so "an explicit, already-made decision beats a guess" was switched off for exactly the seats
     # the fallback most often names — and the failure is invisible because a guess still returns something.
-    case "$_owner" in ceo|cto|coo|cfo|hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V) printf '%s' "$_owner"; return 0;; esac
+    case "$_owner" in ceo|cto|coo|cfo|hq_icon|hq_prolog|hq_raku|hq_pascal|hq_snocone|hq_snobol4|hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V) printf '%s' "$_owner"; return 0;; esac
     _lang="${_t%%-*}"
     case " $(s4e_lane_languages) " in *" $_lang "*) s4e_lane_owner_of_language "$_lang";; esac
 }
@@ -667,7 +666,7 @@ s4e_topic_lane() {
 # of every row in the queue.
 s4e_my_lane() {
     case "$ME" in
-      hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V) printf '%s' "$ME"; return 0;;
+      hq_icon|hq_prolog|hq_raku|hq_pascal|hq_snocone|hq_snobol4|hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V) printf '%s' "$ME"; return 0;;
       # ⭐⭐ AN EXECUTIVE'S LANE IS ITSELF, ON THE SAME LAW AS AN HQ's (ceo CEO-748, under MODE EXECUTIVE).
       # ⛔ THIS IS NOT A NEW RULE, IT IS THE OLD RULE REACHING THE SEATS THAT NOW HOLD THE LANES: the table
       # above gives all seven languages to ceo/cto/cfo, so under EXECUTIVE the set of lane-determinable
@@ -686,7 +685,7 @@ s4e_my_lane() {
              # above restricts the ceo IDENTITY, never a seat reporting to it, and under EXECUTIVE every
              # language lane is held by an officer -- so refusing to read an officer's name here would have
              # left every numbered seat lane-blind for the same reason the executives themselves were.
-             case "$_l" in hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V|ceo|cto|cfo|coo) printf '%s' "$_l";; esac ;;
+             case "$_l" in hq_icon|hq_prolog|hq_raku|hq_pascal|hq_snocone|hq_snobol4|hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V|ceo|cto|cfo|coo) printf '%s' "$_l";; esac ;;
     esac
 }
 # ⭐⭐ THE ORDER OF WORK -- THE SET OF LIVE LANGUAGES, READ FROM A MACHINE LINE (row `snobol4-icon-postoffice-
@@ -1413,10 +1412,10 @@ s4e_backfill_owner_lane() {
   _cur="$(printf '%s' "$_row" | cut -f3)"
   case "$_cur" in ''|unassigned) : ;; *) return 0;; esac   # already set -- not this function's decision to change
   case "$_seat" in
-    hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V) _lane="$_seat" ;;
+    hq_icon|hq_prolog|hq_raku|hq_pascal|hq_snocone|hq_snobol4|hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V) _lane="$_seat" ;;
     seat*) [ -f "$PO/$_seat/HQ" ] && _lane="$(head -1 "$PO/$_seat/HQ" | tr -d '[:space:]')" ;;
   esac
-  case "${_lane:-}" in hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V) : ;; *) return 1;; esac   # undeterminable -- leave blank rather than guess
+  case "${_lane:-}" in hq_icon|hq_prolog|hq_raku|hq_pascal|hq_snocone|hq_snobol4|hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V) : ;; *) return 1;; esac   # undeterminable -- leave blank rather than guess
   local _lk="$PO/.mint.lock" _got=0 _i _tmp
   for _i in $(seq 1 20); do mkdir "$_lk" 2>/dev/null && { _got=1; break; }; sleep 0.1; done
   [ "$_got" = 1 ] || return 1
@@ -2354,7 +2353,7 @@ case "$cmd" in
          # language (a postoffice/tooling/meta row, this fix's own first victim) needs the flag; asking for
          # it there, once, is cheaper than another blank cell nobody catches until a seat wanders into it.
          owner=""
-         if [ "${1:-}" = "--owner" ]; then owner="${2:?--owner needs an hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V argument}"; shift 2
+         if [ "${1:-}" = "--owner" ]; then owner="${2:?--owner needs an hq_icon|hq_prolog|hq_raku|hq_pascal|hq_snocone|hq_snobol4|hq_C|hq_B|hq_P|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V argument}"; shift 2
            # ⛔ THE EXECUTIVES WERE REFUSED HERE (hq_B 2026-09-13, CEO-672's class, found while curing it). This
            # accepted only hq_* names, so under NONET -- where FOUR of the seven completeness owners are the
            # ceo, cto, coo and cfo -- `mint --owner ceo` was rejected outright and an Icon row could not be
@@ -2480,11 +2479,11 @@ TASKEOF
            # returns success, so "not refused" and "permitted" are the same observable.
            cto|cfo|coo) case "$_mode" in
                       CEO) _refuse_dispatch "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";; esac;;
-           hq|hq_?) case "$_mode" in
+           hq|hq_*) case "$_mode" in   # hq_* not hq_?: a language HQ is hq_prolog, and a pattern that misses it falls out of the case, which returns success (CEO-755b's class)
                       CEO) _refuse_dispatch "an HQ" "Under CEO no HQ is standing -- the ceo works the rows itself.";;
                       EXECUTIVE) _refuse_dispatch "an HQ" "Under EXECUTIVE only the executives (ceo, cto, coo, cfo) work rows -- every HQ is stood down (Lon 2026-09-07).";; esac;;
            seat*)   case "$_mode" in
-                      CEO|EXECUTIVE|DUO|DUET|TRIO|QUARTET|QUINTET|OCTET|NONET) _refuse_dispatch "a fleet seat" "There is NO FLEET in $_mode -- only the ceo and the HQs work rows. (DUO is the pre-rename spelling of DUET and is refused too.)";; esac;;
+                      CEO|EXECUTIVE|DUO|DUET|TRIO|QUARTET|QUINTET|OCTET|NONET|DECTET) _refuse_dispatch "a fleet seat" "There is NO FLEET in $_mode -- only the ceo and the HQs work rows. (DUO is the pre-rename spelling of DUET and is refused too.)";; esac;;
          esac
          # ⛔⭐ s265 — A STALE CLONE SILENTLY REVERTS TO PRE-V2 DISPATCH, AND THAT IS NOW A REFUSAL, NOT A WARNING.
          # Measured the same day by TWO seats: seat09's clone was 79 commits behind and seat13's was 2, so both ran

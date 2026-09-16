@@ -52,7 +52,7 @@ scan_line2() {  # $1 = path to a MODE-shaped file. prints a report; rc 0 clean �
 import os, re, sys
 
 LANGS = ["snobol4", "icon", "prolog", "snocone", "rebus", "raku", "pascal"]
-SEAT = r"(?:the )?(ceo|cto|coo|cfo|hq_[A-Z])"
+SEAT = r"(?:the )?(ceo|cto|coo|cfo|hq_[A-Za-z0-9]+)"
 MIN = int(os.environ.get("MODE_L2_MIN_LANGS", "7"))
 
 path = sys.argv[1]
@@ -94,7 +94,7 @@ for lang in LANGS:
     for m in re.finditer(r"\b%s -- %s\b" % (U, SEAT), L2):      add(lang, m.group(1), "SEATS-LIST", m)
     for m in re.finditer(r"\b%s -- CLOSED\b" % U, L2):          add(lang, "CLOSED", "SEATS-LIST", m)
     # (2) the CONCERN-1 roster clause:  "ceo ICON" · "cfo SNOBOL4" · "hq_I SNOCONE"                [MENTION ONLY]
-    for m in re.finditer(r"\b(ceo|cto|coo|cfo|hq_[A-Z]) %s\b" % U, L2): add(lang, m.group(1), "ROSTER-CLAUSE", m)
+    for m in re.finditer(r"\b(ceo|cto|coo|cfo|hq_[A-Za-z0-9]+) %s\b" % U, L2): add(lang, m.group(1), "ROSTER-CLAUSE", m)
     # (3) a reassignment fragment:  "PASCAL moves to hq_S" · "Rebus moves to hq_S"                 [AUTHORITATIVE]
     for m in re.finditer(r"\b%s moves to %s\b" % (U, SEAT), L2, re.I): add(lang, m.group(1), "MOVES-TO", m)
     # (4) a closure declaration:  "REBUS IS CLOSED"                                                [AUTHORITATIVE]

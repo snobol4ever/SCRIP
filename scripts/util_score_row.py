@@ -798,7 +798,7 @@ def derive_measurer():
     root = os.path.abspath(S4E).rstrip("/")
     fixed = {"/home/claude": "ceo", "/home/claude_C": "hq_C", "/home/claude_P": "hq_P",
              "/home/claude_B": "hq_B", "/home/claude_T": "hq_T", "/home/claude_U": "hq_U",
-             "/home/claude_S": "hq_S", "/home/claude_I": "hq_I", "/home/claude_R": "hq_R", "/home/claude_V": "hq_V", "/home/claude_ceo": "ceo", "/home/claude_cto": "cto", "/home/claude_coo": "coo", "/home/claude_cfo": "cfo"}
+             "/home/claude_S": "hq_S", "/home/claude_I": "hq_I", "/home/claude_R": "hq_R", "/home/claude_V": "hq_V", "/home/claude_icon": "hq_icon", "/home/claude_prolog": "hq_prolog", "/home/claude_raku": "hq_raku", "/home/claude_pascal": "hq_pascal", "/home/claude_snocone": "hq_snocone", "/home/claude_snobol4": "hq_snobol4", "/home/claude_ceo": "ceo", "/home/claude_cto": "cto", "/home/claude_coo": "coo", "/home/claude_cfo": "cfo"}
     if root in fixed:
         return fixed[root]
     m = re.match(r"^/home/claude([0-9]{1,2})$", root)
@@ -827,7 +827,7 @@ def derive_measurer():
 # other files while two seats' digests went unread; the queue's owner column was 44 rows behind this very lane cut.
 # So the seat who may write is lifted out of MODE line 2 at the moment of the write, and a MODE that names no ONE
 # RUNNER cuts no writer, so nothing is refused.
-MODE_SEAT_RE = r"(?:ceo|cto|coo|cfo|hq_[A-Z])"
+MODE_SEAT_RE = r"(?:ceo|cto|coo|cfo|hq_[A-Za-z0-9]+)"
 
 
 def mode_file():

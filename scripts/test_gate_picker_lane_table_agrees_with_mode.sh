@@ -67,8 +67,8 @@ L2="$(sed -n '2p' "$MODEF")"
 mode_owner() {
     local _lang_uc _a _b
     _lang_uc="$(printf '%s' "$1" | tr '[:lower:]' '[:upper:]')"
-    _a="$(printf '%s' "$L2" | grep -oE "$_lang_uc -- (the )?(ceo|cto|coo|cfo|hq_[A-Z])" | head -1 | sed -E 's/.* -- (the )?//')"
-    _b="$(printf '%s' "$L2" | grep -oE "(ceo|cto|coo|cfo|hq_[A-Z]) $_lang_uc[ ,]" | head -1 | sed -E 's/ .*//')"
+    _a="$(printf '%s' "$L2" | grep -oE "$_lang_uc -- (the )?(ceo|cto|coo|cfo|hq_[A-Za-z0-9]+)" | head -1 | sed -E 's/.* -- (the )?//')"
+    _b="$(printf '%s' "$L2" | grep -oE "(ceo|cto|coo|cfo|hq_[A-Za-z0-9]+) $_lang_uc[ ,]" | head -1 | sed -E 's/ .*//')"
     if [ -z "${_a:-}" ] && [ -z "${_b:-}" ] && printf '%s' "$L2" | grep -qE "$_lang_uc -- CLOSED"; then printf 'CLOSED'; return 0; fi
     if [ -n "$_a" ] && [ -n "$_b" ] && [ "$_a" != "$_b" ]; then printf 'CONFLICT:%s/%s' "$_a" "$_b"; return 0; fi
     printf '%s' "${_a:-$_b}"

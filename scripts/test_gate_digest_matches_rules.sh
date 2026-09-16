@@ -104,12 +104,8 @@ gate_parse_args "$@"
 if [ -n "${DIGEST_GATE_ROOTS:-}" ]; then
     read -r -a ROOTS <<< "$DIGEST_GATE_ROOTS"
 else
-    ROOTS=(/home/claude01/CLAUDE.md /home/claude02/CLAUDE.md /home/claude03/CLAUDE.md /home/claude04/CLAUDE.md \
-           /home/claude05/CLAUDE.md /home/claude06/CLAUDE.md /home/claude07/CLAUDE.md /home/claude08/CLAUDE.md \
-           /home/claude09/CLAUDE.md /home/claude10/CLAUDE.md /home/claude11/CLAUDE.md /home/claude12/CLAUDE.md \
-           /home/claude13/CLAUDE.md /home/claude14/CLAUDE.md /home/claude15/CLAUDE.md /home/claude16/CLAUDE.md \
-           /home/claude17/CLAUDE.md /home/claude18/CLAUDE.md /home/claude19/CLAUDE.md /home/claude20/CLAUDE.md \
-           /home/claude_C/CLAUDE.md /home/claude_P/CLAUDE.md /home/claude_B/CLAUDE.md /home/claude_T/CLAUDE.md /home/claude_U/CLAUDE.md /home/claude_S/CLAUDE.md /home/claude_I/CLAUDE.md /home/claude_R/CLAUDE.md /home/claude_V/CLAUDE.md \
+    ROOTS=(   # the twenty numbered fleet roots and the nine lettered HQ roots were removed by Lon 2026-09-16 (ceo CEO-767); six language HQ roots replace the nine
+           /home/claude_icon/CLAUDE.md /home/claude_prolog/CLAUDE.md /home/claude_raku/CLAUDE.md /home/claude_pascal/CLAUDE.md /home/claude_snocone/CLAUDE.md /home/claude_snobol4/CLAUDE.md \
            /home/claude_ceo/CLAUDE.md /home/claude_cto/CLAUDE.md /home/claude_coo/CLAUDE.md /home/claude_cfo/CLAUDE.md)
 fi
 

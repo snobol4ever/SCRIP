@@ -34,15 +34,13 @@ if [ -z "$ME" ]; then case "$S4E" in
     /home/claude_cto)       ME=cto;;
     /home/claude_coo)       ME=coo;;
     /home/claude_cfo)       ME=cfo;;
-    /home/claude_C)         ME=hq_C;;
-    /home/claude_P)         ME=hq_P;;
-    /home/claude_B)         ME=hq_B;;
-    /home/claude_T)         ME=hq_T;;
-    /home/claude_U)         ME=hq_U;;
-    /home/claude_S)         ME=hq_S;;
-    /home/claude_I)         ME=hq_I;;
-    /home/claude_R)         ME=hq_R;;
-    /home/claude_V)         ME=hq_V;;
+    /home/claude_icon)           ME=hq_icon;;
+    /home/claude_prolog)         ME=hq_prolog;;
+    /home/claude_raku)           ME=hq_raku;;
+    /home/claude_pascal)         ME=hq_pascal;;
+    /home/claude_snocone)        ME=hq_snocone;;
+    /home/claude_snobol4)        ME=hq_snobol4;;
+    # the nine lettered HQ roots were renamed by language on 2026-09-16 (ceo CEO-767, Lon's word); hq_R folded into hq_prolog, hq_U into the cto, hq_V into the cfo
     /home/claude[0-9][0-9]) ME="seat${S4E#/home/claude}";;
     /home/claude[1-9])      ME="seat0${S4E#/home/claude}";;
     *)                      ME="$(basename "$S4E")";; esac; fi
