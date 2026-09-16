@@ -239,7 +239,7 @@ matched_stmt
                                         { sc_emit_struct(st, $2, $4); free($2); free($4); }
             | T_STRUCT T_IDENT T_LBRACE T_RBRACE
                                         { sc_emit_struct(st, $2, strdup("")); free($2); }
-            | label_decl matched_stmt
+            | label_decl
             ;
 unmatched_stmt
             : if_head stmt
@@ -250,7 +250,6 @@ unmatched_stmt
                                         { sc_finalize_while_pst(st, $1, $1->cond); }
             | for_head unmatched_stmt
                                         { sc_finalize_for_pst(st, $1); }
-            | label_decl unmatched_stmt
             ;
 if_head     : T_IF T_LPAREN expr0 T_RPAREN opt_head_sep
                                         { $$ = sc_if_head_new(st, $3); }

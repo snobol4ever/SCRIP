@@ -323,6 +323,7 @@ test_gate_send_prose_requires_stdin.sh	WIRED	-	-	-
 test_gate_shared_builtin_id_table_is_self_consistent.sh	WIRED	-	-	-
 test_gate_sm_dead.sh	WIRED	-	-	-
 test_gate_sn4_replacement_releases_its_post_match_spine.sh	WIRED	-	-	-
+test_gate_snc_a_label_at_end_of_file_is_a_statement.sh	WIRED	-	-	-
 test_gate_sno_a_by_name_call_survives_collect.sh	WIRED	-	-	-
 test_gate_sno_a_captured_number_is_numeric_in_every_coercion_path.sh	WIRED	-	-	-
 test_gate_sno_a_real_that_overflows_is_not_a_value.sh	WIRED	-	-	-
