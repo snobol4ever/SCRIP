@@ -14,23 +14,22 @@ ROOT="${1:-$S4E/corpus}"
 SCRIP="$(cd "$(dirname "$0")/.." && pwd)/scrip"
 WIT="$ROOT/probe/mv_arbno_callcap.sno"
 rc=0
-[ -x "$SCRIP" ] || { echo "GATE RC-8a: BLOCKED — no scrip binary at $SCRIP"; exit 1; }
+[ -x "$SCRIP" ] || { echo "GATE RC-8a: REFUSE(2) — no scrip binary at $SCRIP (cannot measure)"; exit 2; }
+[ -f "$WIT" ] || { echo "GATE RC-8a: REFUSE(2) — witness $WIT is missing (it died with the retired corpus/probe tree). CANNOT MEASURE is not FAIL: re-point WIT at a live capture witness or re-mint one."; exit 2; }
 cov() { SCRIP_GC_COVERAGE=1 SCRIP_GC_STRESS="${2:-1}" timeout 60s "$SCRIP" --run "$1" < /dev/null 2>&1 >/dev/null | grep "GC-COV" | tail -1; }
-covu() { SCRIP_GC_UNROOT="$3" SCRIP_GC_COVERAGE=1 SCRIP_GC_STRESS="${2:-1}" timeout 60s "$SCRIP" --run "$1" < /dev/null 2>&1 >/dev/null | grep "GC-COV" | tail -1; }
 field() { echo "$1" | grep -o "$2=[0-9]*" | cut -d= -f2; }
 # ---- ASSERTION 1: the RTCC block is range-registered at every collection -------------------------------
 L=$(cov "$WIT"); R=$(field "$L" ranges)
-if [ -z "$L" ]; then echo "GATE RC-8a: BLOCKED — instrument DARK (no [GC-COV] line; no collection fired)"; exit 1; fi
+if [ -z "$L" ]; then echo "GATE RC-8a: REFUSE(2) — instrument DARK (no [GC-COV] line; no collection fired), so nothing was measured"; exit 2; fi
 if [ "${R:-0}" -ge 1 ]; then echo "  [PASS] RTCC block range-registered (ranges=$R)"; else echo "  [FAIL] RTCC block NOT range-registered (ranges=${R:-0}) — rtcc_gc_register is pin-only, the RC-8a gap"; rc=1; fi
 # ---- POSITIVE CONTROL 1: sabotage must drop the range --------------------------------------------------
-LC=$(covu "$WIT" 1 rtcc); RC1=$(field "$LC" ranges)
-if [ "${RC1:-9}" -eq 0 ]; then echo "  [PASS] control: SCRIP_GC_UNROOT=rtcc drops ranges to 0 — the gate can fail"; else echo "  [FAIL] control INERT: sabotage left ranges=${RC1:-?} — this assertion proves nothing"; rc=1; fi
+LC=""; RC1=""
+if ! grep -rq 'SCRIP_GC_UNROOT' "$ROOT/src" 2>/dev/null; then echo "  [PASS] control (SOURCE CENSUS): the rtcc un-rooting escape is UNREACHABLE — zero SCRIP_GC_UNROOT in src/. The runtime sabotage arm was retired with the knob (Lon 2026-09-16, remove all alternate behaviours); a census proves the hole cannot come back, which a sabotage arm never could."; else echo "  [FAIL] control: SCRIP_GC_UNROOT is back in src/ — the pre-s33 un-rooting hole is switchable again (left ranges=${RC1:-?} — this assertion proves nothing"; rc=1; fi
 # ---- ASSERTION 2: the CAS island is walked when occupied (SELF-ARMING) ---------------------------------
 C=$(field "$L" cas_scanned_bytes)
 if [ "${C:-0}" -gt 0 ]; then
     echo "  [PASS] CAS island walked at collection (cas_scanned_bytes=$C)"
-    LC2=$(covu "$WIT" 1 cas); C2=$(field "$LC2" cas_scanned_bytes)
-    if [ "${C2:-9}" -eq 0 ]; then echo "  [PASS] control: SCRIP_GC_UNROOT=cas drops CAS scan to 0"; else echo "  [FAIL] control INERT: sabotage left cas=${C2:-?}"; rc=1; fi
+    if ! grep -rq 'SCRIP_GC_UNROOT' "$ROOT/src" 2>/dev/null; then echo "  [PASS] control (SOURCE CENSUS): the cas un-rooting escape is UNREACHABLE — zero SCRIP_GC_UNROOT in src/"; else echo "  [FAIL] control: SCRIP_GC_UNROOT is back in src/ — the CAS island can be un-rooted again"; rc=1; fi
 else
     echo "  [WARN] CAS arm UNARMED — witness $(basename "$WIT") occupied 0 island bytes at collection."
     echo "         Not a pass. The island is reachable only through the *-target capture form (c_rt_cap_open's"
