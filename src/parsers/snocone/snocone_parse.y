@@ -196,7 +196,7 @@ static void     sc_emit_struct         (ScParseState *st, char *name, char *fiel
 %token T_UNKNOWN
 %token T_LBRACE T_RBRACE
 %token T_IF T_ELSE T_WHILE
-%type <expr> expr0 expr1 expr3 expr4 expr5 expr6 expr9 expr11 expr12 expr15 expr17 exprlist exprlist_ne
+%type <expr> expr0 expr1 expr3 expr4 expr5 expr6 expr9 expr11 expr12 expr14 expr15 expr17 exprlist exprlist_ne
 %type <whilehead> while_head
 %type <dohead>    do_head
 %type <ifhead>    if_head
@@ -454,10 +454,37 @@ expr11      : expr12 T_2CARET expr11
             | expr12
                                 { $$ = $1; }
             ;
-expr12      : expr12 T_2DOLLAR expr15
+expr12      : expr12 T_2DOLLAR expr14
                                 { $$ = expr_binary(TT_CAPT_IMMED_ASGN, $1, $3); }
-            | expr12 T_2DOT    expr15
+            | expr12 T_2DOT    expr14
                                 { $$ = expr_binary(TT_CAPT_COND_ASGN,  $1, $3); }
+            | expr14
+                                { $$ = $1; }
+            ;
+expr14      : T_1PLUS  expr14
+                                { $$ = expr_unary(TT_PLS, $2); }
+            | T_1MINUS expr14
+                                { $$ = expr_unary(TT_MNS, $2); }
+            | T_1STAR   expr14  { $$ = expr_unary(TT_DEFER,       $2); }
+            | T_1DOT    expr14  { $$ = expr_unary(TT_NAME,        $2); }
+            | T_1DOLLAR expr14  { $$ = expr_unary(TT_INDIRECT,    $2); }
+            | T_1AT     expr14  { $$ = expr_unary(TT_CAPT_CURSOR, $2); }
+            | T_1TILDE  expr14  { $$ = expr_unary(TT_NOT,         $2); }
+            | T_1QUEST  expr14  { $$ = expr_unary(TT_INTERROGATE, $2); }
+            | T_1AMP    expr14  { tree_t *_e = expr_unary(TT_OPSYN, $2);
+                                  _e->sval = strdup("&"); $$ = _e; }
+            | T_1PERCENT expr14 { tree_t *_e = expr_unary(TT_OPSYN, $2);
+                                  _e->sval = strdup("%"); $$ = _e; }
+            | T_1SLASH   expr14 { tree_t *_e = expr_unary(TT_OPSYN, $2);
+                                  _e->sval = strdup("/"); $$ = _e; }
+            | T_1POUND   expr14 { tree_t *_e = expr_unary(TT_OPSYN, $2);
+                                  _e->sval = strdup("#"); $$ = _e; }
+            | T_1PIPE    expr14 { tree_t *_e = expr_unary(TT_OPSYN, $2);
+                                  _e->sval = strdup("|"); $$ = _e; }
+            | T_1EQUAL   expr14 { tree_t *_e = expr_unary(TT_OPSYN, $2);
+                                  _e->sval = strdup("="); $$ = _e; }
+            | T_1BANG    expr14 { tree_t *_e = expr_unary(TT_OPSYN, $2);
+                                  _e->sval = strdup("!"); $$ = _e; }
             | expr15
                                 { $$ = $1; }
             ;
@@ -516,30 +543,6 @@ expr17      : T_CALL exprlist T_RPAREN
                                   $$ = a; }
             | T_LPAREN T_RPAREN
                                 { $$ = expr_new(TT_NUL); }
-            | T_1PLUS  expr17
-                                { $$ = expr_unary(TT_PLS, $2); }
-            | T_1MINUS expr17
-                                { $$ = expr_unary(TT_MNS, $2); }
-            | T_1STAR   expr17  { $$ = expr_unary(TT_DEFER,       $2); }
-            | T_1DOT    expr17  { $$ = expr_unary(TT_NAME,        $2); }
-            | T_1DOLLAR expr17  { $$ = expr_unary(TT_INDIRECT,    $2); }
-            | T_1AT     expr17  { $$ = expr_unary(TT_CAPT_CURSOR, $2); }
-            | T_1TILDE  expr17  { $$ = expr_unary(TT_NOT,         $2); }
-            | T_1QUEST  expr17  { $$ = expr_unary(TT_INTERROGATE, $2); }
-            | T_1AMP    expr17  { tree_t *_e = expr_unary(TT_OPSYN, $2);
-                                  _e->sval = strdup("&"); $$ = _e; }
-            | T_1PERCENT expr17 { tree_t *_e = expr_unary(TT_OPSYN, $2);
-                                  _e->sval = strdup("%"); $$ = _e; }
-            | T_1SLASH   expr17 { tree_t *_e = expr_unary(TT_OPSYN, $2);
-                                  _e->sval = strdup("/"); $$ = _e; }
-            | T_1POUND   expr17 { tree_t *_e = expr_unary(TT_OPSYN, $2);
-                                  _e->sval = strdup("#"); $$ = _e; }
-            | T_1PIPE    expr17 { tree_t *_e = expr_unary(TT_OPSYN, $2);
-                                  _e->sval = strdup("|"); $$ = _e; }
-            | T_1EQUAL   expr17 { tree_t *_e = expr_unary(TT_OPSYN, $2);
-                                  _e->sval = strdup("="); $$ = _e; }
-            | T_1BANG    expr17 { tree_t *_e = expr_unary(TT_OPSYN, $2);
-                                  _e->sval = strdup("!"); $$ = _e; }
             ;
 %%
 void sc_error(ScParseState *st, const char *msg) {
