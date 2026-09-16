@@ -501,6 +501,7 @@ typedef struct {
     int                          op_zdepth;
     int                          op_zres;
     int                          op_strict;
+    int                          op_sn4;
     int                          op_zgpop;
     int                          op_zread[ZD_NOPS_MAX];
     int                          op_pair_rejoin;
