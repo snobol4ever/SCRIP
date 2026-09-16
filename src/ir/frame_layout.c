@@ -72,6 +72,9 @@ static void zls_field(int scope_id, int off, int size, int kind, int audit, cons
     zf[zf_n++] = (zls_pfield_t){ scope_id, off, size, (unsigned char)kind, (unsigned char)audit, what, nd };
 }
 int emit_pl_fence_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_PL_FENCE"); v = (e && *e == (char) 48) ? 0 : 1; } return v; }
+static const IR_graph_t * zls_cur_g = (const IR_graph_t *)0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zls_fence_widen(void) { return emit_pl_fence_on() && zls_cur_g && zls_cur_g->zframe_pinned_base && zls_cur_g->zframe_graph; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_locals_shifted(IR_e op);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -130,7 +133,7 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
     case IR_SCAN_TAB: case IR_SCAN_MOVE:
         zls_field(scope_id, off, 8, ZK_RAW, 0, "scan.r14 data-backtrack save", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "scan.pad (unused)", nd); return 1;
     case IR_BOUND:
-        zls_field(scope_id, off, 8, ZK_RAW, 0, "bound.saved rsp (Op_Mark: bounded-expression entry frontier; IR_UNMARK restores it, discarding abandoned retained-suspension FC carves — interp.r Op_Unmark rsp=efp-1)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "bound.saved rsp at entry -- the gamma-fence release frontier (rung 9, CEO-690)", nd); if (!emit_pl_fence_on()) return 1; zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "bound.saved B at entry, banked BEFORE rt_pl_disj_open raises it -- the gamma-fence commit target, because a fence that leaves B at this frame's own H pins the frame it just emptied", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "bound.pad (unused)", nd); return 2;
+        zls_field(scope_id, off, 8, ZK_RAW, 0, "bound.saved rsp (Op_Mark: bounded-expression entry frontier; IR_UNMARK restores it, discarding abandoned retained-suspension FC carves — interp.r Op_Unmark rsp=efp-1)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "bound.saved rsp at entry -- the gamma-fence release frontier (rung 9, CEO-690)", nd); if (!zls_fence_widen()) return 1; zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "bound.saved B at entry, banked BEFORE rt_pl_disj_open raises it -- the gamma-fence commit target, because a fence that leaves B at this frame's own H pins the frame it just emptied", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "bound.pad (unused)", nd); return 2;
     case IR_SCAN_UPTO: case IR_SCAN_FIND: case IR_SCAN_MATCH: case IR_SCAN_BAL:
         zls_field(scope_id, off, 8, ZK_RAW, 0, "scan.cursor", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "scan.len/counter", nd); return 1;
     case IR_INITIAL:
@@ -349,6 +352,7 @@ static const char * zls_pas_display_name(int lvl) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_build(IR_graph_t * g) {
     if (!g) return;
+    zls_cur_g = g;
     { int f = 1; for (int i = 0; i < g->n && f; i++) { IR_t * x = g->all[i]; if (!x) continue; if (x->op == IR_GOTO_DEFERRED || x->op == IR_GATE || x->op == IR_MATCH_BEGIN || x->op == IR_MATCH_DEFER) f = 0; else if ((x->op == IR_DEFINE && ir_define_sr_citizen(x))) { long long v = IR_LIT(x).ival; if (v == 1 || v == 2) f = 0; } else if ((x->op == IR_CALL_BUILTIN || x->op == IR_CALL_SNOBOL4 || x->op == IR_CALL) && IR_LIT(x).sval && (!strcmp(IR_LIT(x).sval, "EVAL") || !strcmp(IR_LIT(x).sval, "CODE"))) f = 0; } g_fcc_gfence = f; }
     for (int vi = 0; vi < g->n; vi++) { IR_t * a = g->all[vi]; if (!(a && a->op == IR_ASSIGN && a->n_operands == 1 && a->operands[0])) continue;
         { const char * vn = IR_LIT(a).sval; if (!(vn && is_global(vn) && !graph_has_local(g, vn))) continue; }
