@@ -619,7 +619,17 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (mname && rk_meth_is_bool(mname)) return lower_rcall_bool(cx, t, "meth_call", 0, γ, ω, res);
         return lower_rcall(cx, t, "meth_call", 0, γ, ω, res);
     }
-    case TT_NEW: return lower_rcall(cx, t, "obj_new", 0, γ, ω, res);
+    case TT_NEW: {
+        const char * cls = (t->n > 0 && t->c[0] && t->c[0]->v.sval) ? t->c[0]->v.sval : NULL;
+        char mbase[256]; mbase[0] = 0;
+        if (cls) snprintf(mbase, sizeof mbase, "%s__new", cls);
+        if (cls && rk_is_multi_name(mbase)) {
+            tree_t * mc = ast_node_new(TT_FNC); mc->v.sval = (char *)"__multi_call";
+            tree_t * nmv = ast_node_new(TT_VAR); nmv->v.sval = (char *)"__multi_call"; ast_push(mc, nmv);
+            tree_t * basq = ast_node_new(TT_QLIT); basq->v.sval = (char *)intern(mbase); ast_push(mc, basq);
+            for (int i = 1; i < t->n; i++) ast_push(mc, t->c[i]);
+            return lower_rcall(cx, mc, "__multi_call", 1, γ, ω, res); }
+        return lower_rcall(cx, t, "obj_new", 0, γ, ω, res); }
     case TT_TWIGIL_FIELD: {
         IR_t * nd = build(cx, IR_FIELD_GET, γ, ω); IR_LIT(nd).sval = t->v.sval; IR_t * sv = build(cx, IR_VAR, nd, ω); IR_LIT(sv).sval = "self"; ir_operand_push(nd, sv); *res = nd; return sv;
     }
@@ -1229,6 +1239,23 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
         const char * soh = strchr(nm, '$'); if (!soh) continue;
         char base[128]; int bl = (int)(soh - nm); if (bl > 127) bl = 127; memcpy(base, nm, bl); base[bl] = 0;
         rk_multi_name_add(base);
+    }
+    for (int i = 0; prog && i < prog->n; i++) {
+        const tree_t * d = prog->c[i];
+        if (d && d->t == TT_STMT) { const tree_t * sub = stmt_subj(d); if (!sub) continue; d = sub; }
+        if (!d || d->t != TT_CLASS_DECL) continue;
+        const char * cn = (d->n > 0 && d->c[0] && d->c[0]->v.sval) ? d->c[0]->v.sval : NULL;
+        if (!cn) continue;
+        for (int j = 0; j < d->n; j++) {
+            const tree_t * m = d->c[j];
+            if (!m || m->t != TT_SUB_DECL) continue;
+            const char * mn = (m->n > 0 && m->c[0] && m->c[0]->v.sval) ? m->c[0]->v.sval : NULL;
+            if (!mn) continue;
+            const char * ms = strchr(mn, '$'); if (!ms) continue;
+            char mb[256]; int ml = (int)(ms - mn); if (ml > 200) ml = 200;
+            snprintf(mb, sizeof mb, "%s__%.*s", cn, ml, mn);
+            rk_multi_name_add(mb);
+        }
     }
     rk_discover_procs(prog);
     for (int pi = 0; pi < g_stage2.proc_count; pi++) {
