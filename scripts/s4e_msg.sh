@@ -333,8 +333,19 @@ s4e_promotion_admissible() {   # <promo-topic> <blocked-topic> <rank>
       printf '   Not promoted, not served -- %s stays skipped this pass; ask your HQ to take %s.\n' "$_blocked" "$_p"
       return 1
     fi
+    _tl="$(s4e_topic_lane "$_p")"
+    # ⛔ A SEAT WITH NO LANGUAGE IS REFUSED ANOTHER OWNER'S BLOCKER IN EVERY PASS (CEO-779). This is the check the
+    # own-lane cut below skips in the any-lane pass -- which is exactly how the coo claimed the cfo's rung-2 row and
+    # the ceo locked a Raku row: the fallback pass asked no lane question at all. It reads $ME, not $_my_lane, so the
+    # ceo (whose s4e_my_lane is deliberately empty) is covered too. Printed as information, never a serve.
+    if [ -n "$_tl" ] && [ "$_tl" != "$ME" ] && [ "$_tl" != "${_my_lane:-$ME}" ] && ! s4e_seat_owns_a_language; then
+      _xlane_refused=$(( ${_xlane_refused:-0} + 1 )); _xlane_last="$_p ($_tl's, blocker of $_blocked)"
+      printf '⛔ REFUSED PROMOTION: rank-%s %s is BLOCKED-ON %s, which is %s'"'"'s row -- and %s holds NO language under MODE line 2 / the LANES line, so it is never served another lane'"'"'s row, own-lane pass or fallback (CEO-779).\n' \
+        "$_rank" "$_blocked" "$_p" "$_tl" "$ME"
+      printf '   Information, not a serve: %s stays FREE for %s. An instrument row reaches %s by assign or mint; another lane'"'"'s row is an ASK to its owner.\n' "$_p" "$_tl" "$ME"
+      return 1
+    fi
     if [ -n "${_my_lane:-}" ]; then
-      _tl="$(s4e_topic_lane "$_p")"
       if [ -n "$_tl" ] && [ "$_tl" != "$_my_lane" ] && [ "${_lane_filter:-own-lane}" = own-lane ]; then
         printf '⛔ REFUSED PROMOTION: rank-%s %s is BLOCKED-ON %s, but %s is %s'"'"'s lane and yours is %s.\n' \
           "$_rank" "$_blocked" "$_p" "$_p" "$_tl" "$_my_lane"
@@ -642,6 +653,19 @@ s4e_lane_owner_of_language() {
     esac
 }
 # One line of prose for the `mint` refusal, DERIVED so it cannot drift from the arms above.
+# ⭐ A SEAT THAT OWNS NO LANGUAGE CURES NOTHING IN A LANGUAGE LANE (CEO-779; Lon 2026-09-16 11:22 CDT, verbatim to the ceo:
+# "Get the COO helping. The language seats now run their own tests and benchmarks."; CEO-781). Under DECTET the coo, the
+# ceo and the cto own no language in the LANES table, so the any-lane fallback -- the ordinary path AND the dependency-
+# inversion promotion -- must REFUSE them another owner's row instead of claiming it. MEASURED 2026-09-16 11:00 CDT:
+# `next` on coo CLAIMED the cfo's icon-gc-rung-2 row by promotion (released within the minute, unworked); CEO-771: `next`
+# on ceo LOCKED a Raku cure row. rc 0 = $ME owns a language in the table (an HQ, or the cfo for rebus); rc 1 = owns none.
+# The test is on the seat's RESOLVED lane (s4e_my_lane: an HQ is itself, a numbered seat is whoever its HQ file names,
+# an officer is itself, the ceo is empty and falls back to its identity) -- a seat07 whose HQ file reads hq_icon owns
+# icon THROUGH its HQ and keeps today's cross-lane fallback; the coo, cto and ceo resolve to themselves and own none.
+# An HQ-shaped lane (hq_*) owns the language of its name by definition, table or no table (a legacy hq_C seat under
+# FLEET-16 keeps the fallback; test_gate_s4e_next_serves_own_lane arm (c)); the rule bites the OFFICERS the table
+# names for nothing: ceo, coo, cto today, and the cfo the day rebus leaves its cell.
+s4e_seat_owns_a_language() { local _l _who; _who="$(s4e_my_lane 2>/dev/null)"; [ -n "$_who" ] || _who="$ME"; case "$_who" in hq_*) return 0;; esac; for _l in $(s4e_lane_languages); do [ "$(s4e_lane_owner_of_language "$_l")" = "$_who" ] && return 0; done; return 1; }
 s4e_lane_help() { local _l _o _out=""; for _l in $(s4e_lane_languages); do _o="$(s4e_lane_owner_of_language "$_l")"; _out="$_out$_l -> $_o · "; done; printf '%s' "${_out% · }"; }
 s4e_topic_lane() {
     local _t="$1" _owner _lang
@@ -2800,6 +2824,13 @@ TASKEOF
                if [ -n "$_tl" ] && [ "$_tl" != "$_my_lane" ]; then continue; fi
                [ -n "$_tl" ] && _serve_reason="rank $rank, your OWN LANE ($_tl)"
              elif [ -n "$_tl" ] && [ "$_tl" != "$_my_lane" ]; then
+               # ⛔ THE FALLBACK IS NOT FOR A SEAT THAT OWNS NO LANGUAGE (CEO-779): the coo/cto wander into an HQ's cure
+               # row here exactly as the promotion path did. Counted and reported once at the end, exit 2 -- a refusal
+               # to serve, never "QUEUE EMPTY", because the queue is not empty, it is somebody else's.
+               if ! s4e_seat_owns_a_language; then
+                 _xlane_refused=$(( ${_xlane_refused:-0} + 1 )); _xlane_last="$topic ($_tl's)"
+                 continue
+               fi
                _serve_reason="rank $rank, CROSS-LANE FALLBACK (your lane $_my_lane had nothing servable; this row is $_tl's)"
              fi
            fi
@@ -2835,8 +2866,18 @@ TASKEOF
          # the own-lane pass tries the WHOLE rank-sorted queue before giving up, not just rank<=1 -- a
          # strict rank<=1-only trigger would send a seat cross-lane while its own rank-2 work still sat
          # unclaimed.
+         _xlane_refused=0; _xlane_last=""
          if [ -n "$_my_lane" ]; then _lane_filter=own-lane; s4e_pass3_scan; fi
          _lane_filter=any-lane; s4e_pass3_scan
+         # ⛔ CEO-779: a seat that owns no language, held back ONLY by other lanes' rows, is REFUSED rc=2 -- not told the
+         # queue is empty (it is not; it is the HQs'). rc=2 is "could not serve", the same word every instrument uses.
+         if [ "${_xlane_refused:-0}" -gt 0 ] && ! s4e_seat_owns_a_language; then
+           s4e_report_owned_skips
+           s4e_report_rankcap_skips
+           printf '⛔ REFUSED (rc=2): %s cross-lane row(s) NOT served -- %s holds NO language under MODE line 2 / the LANES line (CEO-779; Lon 2026-09-16: "Get the COO helping. The language seats now run their own tests and benchmarks."). Last skipped: %s\n' "$_xlane_refused" "$ME" "${_xlane_last:-see the REFUSED PROMOTION lines above}"
+           printf '   An instrument row reaches %s by assign or mint (s4e_msg.sh assign %s <topic>); another lane'"'"'s row is an ASK to its owner, never a claim.\n' "$ME" "$ME"
+           exit 2
+         fi
          # ⭐ CURE 3, second half — WHEN NOTHING IS SERVABLE, SAY WHAT GOVERNANCE IS HOLDING. A bare "queue
          # empty" sent seats to ask HQ for work while rows sat waiting on a grant nobody had chased.
          _gw="$(awk -F'\t' '/^[0-9]+\t/ && ($4 ~ /^GRANT-NEEDED/ || $4 ~ /^PARKED-LON-HOLD/) {printf "     rank %s  %s  [%s]\n",$1,$2,$4}' "$q" 2>/dev/null)"
