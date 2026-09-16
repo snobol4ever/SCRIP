@@ -628,18 +628,18 @@ s4e_is_hq() { case "$1" in hq|hq_C|hq_P|hq_B|hq_T|hq_U|hq_S|hq_I|hq_R|hq_V|ceo|c
 s4e_lane_languages() { printf 'icon prolog snobol4 snocone pascal raku rebus'; }
 s4e_lane_owner_of_language() {
     case "$1" in
-      # ⛔ MODE EXECUTIVE (CEO-759, 2026-09-16, the CEO-748 cut restored on Lon's word): ceo ICON, RAKU and
-      # REBUS; cto PROLOG; cfo SNOBOL4, SNOCONE and PASCAL; the coo owns NO language (CEO-723). Under MODE CEO
-      # (CEO-755, 09-14 to 09-16) every arm read ceo. Written out per language because the gate beside it
-      # compares this table to MODE line 2 LANGUAGE BY LANGUAGE, and a table that collapsed to a default would
-      # agree with a line 2 that had drifted on six of them without anything noticing.
-      icon)     printf 'ceo';;
+      # ⛔ MODE EXECUTIVE (CEO-759 and CEO-766, 2026-09-16, Lon: "CEO is coordination only."): cto PROLOG and
+      # RAKU; cfo SNOBOL4, SNOCONE, PASCAL, ICON and REBUS; the coo owns NO language (CEO-723); the ceo owns
+      # none. Under MODE CEO (CEO-755, 09-14 to 09-16) every arm read ceo. Written out per language because the
+      # gate beside it compares this table to MODE line 2 LANGUAGE BY LANGUAGE, and a table that collapsed to a
+      # default would agree with a line 2 that had drifted on six of them without anything noticing.
+      icon)     printf 'cfo';;
       prolog)   printf 'cto';;
       snobol4)  printf 'cfo';;
       pascal)   printf 'cfo';;
       snocone)  printf 'cfo';;
-      rebus)    printf 'ceo';;
-      raku)     printf 'ceo';;
+      rebus)    printf 'cfo';;
+      raku)     printf 'cto';;
     esac
 }
 # One line of prose for the `mint` refusal, DERIVED so it cannot drift from the arms above.
