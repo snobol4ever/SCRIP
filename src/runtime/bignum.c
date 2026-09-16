@@ -3,13 +3,13 @@
 #include <stdio.h>
 #include <math.h>
 #include "descr.h"
-extern void *rt_pinned_alloc(size_t);
+extern void *rt_ws_alloc(size_t);
 extern char *rt_heap_strdup_c(const char *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct BIG_t { int32_t sign; uint32_t n; uint32_t limb[1]; } BIG_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static BIG_t *big_alloc(uint32_t n) {
-    BIG_t *b = (BIG_t *) rt_pinned_alloc(sizeof(BIG_t) + (size_t)(n ? n - 1 : 0) * sizeof(uint32_t));
+    BIG_t *b = (BIG_t *) rt_ws_alloc(sizeof(BIG_t) + (size_t)(n ? n - 1 : 0) * sizeof(uint32_t));
     if (!b) return 0;
     b->sign = 0; b->n = n;
     for (uint32_t i = 0; i < n; i++) b->limb[i] = 0;
@@ -288,9 +288,9 @@ char *rt_big_image_str(DESCR_t d) {
 char *rt_big_str(DESCR_t d) {
     BIG_t *b = big_of(d); if (!b) return rt_heap_strdup_c("");
     if (b->sign == 0) return rt_heap_strdup_c("0");
-    uint32_t n = b->n; uint32_t *t = (uint32_t *) rt_pinned_alloc((size_t)n * 4); if (!t) return rt_heap_strdup_c("");
+    uint32_t n = b->n; uint32_t *t = (uint32_t *) rt_ws_alloc((size_t)n * 4); if (!t) return rt_heap_strdup_c("");
     memcpy(t, b->limb, (size_t)n * 4);
-    size_t cap = (size_t)n * 10 + 4; char *buf = (char *) rt_pinned_alloc(cap); if (!buf) return rt_heap_strdup_c("");
+    size_t cap = (size_t)n * 10 + 4; char *buf = (char *) rt_ws_alloc(cap); if (!buf) return rt_heap_strdup_c("");
     size_t p = cap; buf[--p] = 0;
     while (n > 1 || t[0] != 0) {
         uint64_t rem = 0;

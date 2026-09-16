@@ -19,7 +19,7 @@ long rt_sno_dumpno_next(void) { return ++g_sno_dumpno; }
 void rt_sno_dumpno_undo(void) { if (g_sno_dumpno > 0) g_sno_dumpno--; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ARBLK_t *array_new(int lo, int hi) {
-    ARBLK_t *a = rt_pinned_alloc_tag(sizeof(ARBLK_t), HB_ARR);
+    ARBLK_t *a = rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t));
     a->lo   = lo;
     a->hi   = hi;
     a->ndim = 1;
@@ -28,13 +28,13 @@ ARBLK_t *array_new(int lo, int hi) {
     a->proto = (const char *)0;
     int sz  = hi - lo + 1;
     if (sz < 1) sz = 1;
-    a->data = rt_pinned_alloc(sz * sizeof(DESCR_t));
+    a->data = rt_ws_alloc(sz * sizeof(DESCR_t));
     for (int i = 0; i < sz; i++) a->data[i] = NULVCL;
     return a;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ARBLK_t *array_new2d(int lo1, int hi1, int lo2, int hi2) {
-    ARBLK_t *a = rt_pinned_alloc_tag(sizeof(ARBLK_t), HB_ARR);
+    ARBLK_t *a = rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t));
     a->lo   = lo1;
     a->hi   = hi1;
     a->lo2  = lo2;
@@ -47,7 +47,7 @@ ARBLK_t *array_new2d(int lo1, int hi1, int lo2, int hi2) {
     int cols = hi2 - lo2 + 1;
     if (rows < 1) rows = 1;
     if (cols < 1) cols = 1;
-    a->data = rt_pinned_alloc(rows * cols * sizeof(DESCR_t));
+    a->data = rt_ws_alloc(rows * cols * sizeof(DESCR_t));
     for (int i = 0; i < rows * cols; i++) a->data[i] = NULVCL;
     return a;
 }
@@ -336,7 +336,7 @@ void table_set_descr_d(TBBLK_t *tbl, DESCR_t k, DESCR_t val) {
     if (i < b->len) memmove(&b->ent[i + 1], &b->ent[i], (size_t)(b->len - i) * sizeof(TBPAIR_t));
     { TBPAIR_t *n = &b->ent[i]; n->key = (char *)0; n->key_descr = k; n->val = val; n->hkey = h; }
     b->len++; tbl->size++;
-    if (tbl->ord_len == tbl->ord_cap) { unsigned nc = tbl->ord_cap ? tbl->ord_cap * 2u : 16u; DESCR_t *nv = rt_pinned_alloc((size_t)nc * sizeof(DESCR_t)); if (tbl->ord) memcpy(nv, tbl->ord, (size_t)tbl->ord_len * sizeof(DESCR_t)); tbl->ord = nv; tbl->ord_cap = nc; }
+    if (tbl->ord_len == tbl->ord_cap) { unsigned nc = tbl->ord_cap ? tbl->ord_cap * 2u : 16u; DESCR_t *nv = rt_ws_alloc((size_t)nc * sizeof(DESCR_t)); if (tbl->ord) memcpy(nv, tbl->ord, (size_t)tbl->ord_len * sizeof(DESCR_t)); tbl->ord = nv; tbl->ord_cap = nc; }
     if (tbl->ord_dead > 0u) { for (unsigned oi = 0; oi < tbl->ord_len; oi++) { TBPAIR_t _op; _op.key_descr = tbl->ord[oi]; if (!_tbl_eq_d(&_op, k)) continue; tbl->ord[oi] = k; tbl->ord_dead--; goto _ord_placed; } }
     tbl->ord[tbl->ord_len++] = k;
 _ord_placed: ;

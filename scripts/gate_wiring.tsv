@@ -88,6 +88,7 @@ test_gate_gate_wiring_ratchet.sh	WIRED	-	-	-
 test_gate_gc_aggregate_interiors_are_marked_not_only_slotted.sh	WIRED	-	-	-
 test_gate_gc_aggregates_are_collectable_not_immortal.sh	WIRED	-	-	-
 test_gate_gc_func_table_is_rooted_not_pinned_alive.sh	WIRED	-	-	-
+test_gate_gc_no_pinned_lifetime_class.sh	WIRED	-	-	-
 test_gate_gc_pacing_bounds_a_churning_program.sh	WIRED	-	-	-
 test_gate_gc_record_type_table_is_rooted_not_blanket_marked.sh	WIRED	-	-	-
 test_gate_gc_table_insertion_order_array_is_rooted_not_pinned_alive.sh	WIRED	-	-	-

@@ -19,8 +19,8 @@ void fh_ensure_init(void) {
 int fh_is_untranslated(int idx){ fh_ensure_init(); return (idx>=0 && idx<FH_MAX) ? g_fh[idx].untrans : 0; }
 void fh_set_untranslated(int idx, int v){ fh_ensure_init(); if(idx>=0 && idx<FH_MAX) g_fh[idx].untrans=(char)(v?1:0); }
 int fh_alias_idx(const char *nm){ fh_ensure_init(); if(!nm) return -1; for(int i=3;i<FH_MAX;i++) if(g_fh[i].fp&&g_fh[i].alias&&!strcmp(g_fh[i].alias,nm)) return i; return -1; }
-void fh_set_alias(int idx, const char *nm){ extern char *rt_pinned_strdup(const char *); fh_ensure_init(); if(idx>=3&&idx<FH_MAX) g_fh[idx].alias = nm ? rt_pinned_strdup(nm) : (char *)0; }
-void fh_set_encoding(int idx, const char *nm){ extern char *rt_pinned_strdup(const char *); fh_ensure_init(); if(idx>=0&&idx<FH_MAX) g_fh[idx].enc = nm ? rt_pinned_strdup(nm) : (char *)0; }
+void fh_set_alias(int idx, const char *nm){ extern char *rt_heap_strdup_c(const char *); fh_ensure_init(); if(idx>=3&&idx<FH_MAX) g_fh[idx].alias = nm ? rt_heap_strdup_c(nm) : (char *)0; }
+void fh_set_encoding(int idx, const char *nm){ extern char *rt_heap_strdup_c(const char *); fh_ensure_init(); if(idx>=0&&idx<FH_MAX) g_fh[idx].enc = nm ? rt_heap_strdup_c(nm) : (char *)0; }
 const char *fh_encoding(int idx){ fh_ensure_init(); if(idx<0||idx>=FH_MAX) return (const char *)0; if(g_fh[idx].type=='b'||g_fh[idx].untrans) return "octet"; return g_fh[idx].enc ? g_fh[idx].enc : "UTF-8"; }
 void fh_set_bom(int idx, int v){ fh_ensure_init(); if(idx>=0&&idx<FH_MAX) g_fh[idx].bom=(char)(v?1:0); }
 int fh_bom(int idx){ fh_ensure_init(); if(idx<0||idx>=FH_MAX) return 0; return g_fh[idx].bom?1:0; }

@@ -90,12 +90,12 @@ static void trace_register(const char *name, int kind, const char *tag, const ch
     if (!e) {
         for (int i = 0; i < TRACE_TAB_CAP; i++) if (!trace_tab[i].used) { e = &trace_tab[i]; break; }
         if (!e) return;
-        e->used = 1; e->kind = kind; e->name = rt_pinned_strdup(name); e->eid = 0;
+        e->used = 1; e->kind = kind; e->name = rt_heap_strdup_c(name); e->eid = 0;
         trace_set_n++;
         if (kind == TRK_ACCESS) trace_access_n++;
     }
-    e->tag  = (tag  && *tag)  ? rt_pinned_strdup(tag)  : "";
-    e->cbfn = (cbfn && *cbfn) ? rt_pinned_strdup(cbfn) : (const char *)0;
+    e->tag  = (tag  && *tag)  ? rt_heap_strdup_c(tag)  : "";
+    e->cbfn = (cbfn && *cbfn) ? rt_heap_strdup_c(cbfn) : (const char *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void trace_unregister(const char *name, int kind) {
@@ -584,8 +584,8 @@ static int load_names_file_bin(const char *path) {
     FILE *f = fopen(path, "r");
     if (!f) return -1;
     int   cap = 64;
-    char **names = (char **)rt_pinned_alloc(cap * sizeof(char *));
-    int   *lens  = (int  *)rt_pinned_alloc(cap * sizeof(int));
+    char **names = (char **)rt_ws_alloc(cap * sizeof(char *));
+    int   *lens  = (int  *)rt_ws_alloc(cap * sizeof(int));
     if (!names || !lens) { fclose(f); return -1; }
     int n = 0;
     char *line = NULL; size_t lcap = 0;
@@ -595,11 +595,11 @@ static int load_names_file_bin(const char *path) {
         if (got > 0 && line[got-1] == '\r') { line[got-1] = '\0'; got--; }
         if (n == cap) {
             cap *= 2;
-            names = (char **)rt_pinned_realloc(names, cap * sizeof(char *));
-            lens  = (int  *)rt_pinned_realloc(lens,  cap * sizeof(int));
+            names = (char **)rt_ws_realloc(names, cap * sizeof(char *));
+            lens  = (int  *)rt_ws_realloc(lens,  cap * sizeof(int));
             if (!names || !lens) { fclose(f); free(line); return -1; }
         }
-        char *copy = (char *)rt_pinned_alloc((size_t)got + 1);
+        char *copy = (char *)rt_ws_alloc((size_t)got + 1);
         if (!copy) { fclose(f); free(line); return -1; }
         memcpy(copy, line, (size_t)got + 1);
         names[n] = copy;
@@ -632,8 +632,8 @@ static uint32_t intern_name_bin(const char *p, int len) {
     }
     if (g_bin_n_names == g_bin_names_cap) {
         int new_cap = g_bin_names_cap ? g_bin_names_cap * 2 : 64;
-        char **nn = (char **)rt_pinned_realloc(g_bin_names, (size_t)new_cap * sizeof(char *));
-        int   *nl = (int  *)rt_pinned_realloc(g_bin_name_lens, (size_t)new_cap * sizeof(int));
+        char **nn = (char **)rt_ws_realloc(g_bin_names, (size_t)new_cap * sizeof(char *));
+        int   *nl = (int  *)rt_ws_realloc(g_bin_name_lens, (size_t)new_cap * sizeof(int));
         if (!nn || !nl) {
             if (nn) g_bin_names = nn;
             if (nl) g_bin_name_lens = nl;
@@ -643,7 +643,7 @@ static uint32_t intern_name_bin(const char *p, int len) {
         g_bin_name_lens = nl;
         g_bin_names_cap = new_cap;
     }
-    char *copy = (char *)rt_pinned_alloc((size_t)len + 1);
+    char *copy = (char *)rt_ws_alloc((size_t)len + 1);
     if (!copy) return MW_NAME_ID_NONE;
     if (len > 0) memcpy(copy, p, (size_t)len);
     copy[len] = '\0';
@@ -1575,12 +1575,12 @@ static DESCR_t _ARRAY_(DESCR_t *a, int n) {
                 if (hi2 < 1) hi2 = 1;
             }
             ARBLK_t *arr2d = array_new2d(lo, hi, lo2, hi2);
-            arr2d->proto_bare = 0; arr2d->proto = rt_pinned_strdup(proto);
+            arr2d->proto_bare = 0; arr2d->proto = rt_heap_strdup_c(proto);
             return ARRAY_VAL(arr2d);
         }
         sscanf(proto, "%d:%d", &lo, &hi);
         ARBLK_t *arr1d = array_new(lo, hi);
-        arr1d->proto_bare = 0; arr1d->proto = rt_pinned_strdup(proto);
+        arr1d->proto_bare = 0; arr1d->proto = rt_heap_strdup_c(proto);
         return ARRAY_VAL(arr1d);
     }
     if (proto && strchr(proto, ',')) {
@@ -1589,7 +1589,7 @@ static DESCR_t _ARRAY_(DESCR_t *a, int n) {
         if (r < 1) r = 1;
         if (c < 1) c = 1;
         ARBLK_t *arrrc = array_new2d(1, r, 1, c);
-        arrrc->proto_bare = 1; arrrc->proto = rt_pinned_strdup(proto);
+        arrrc->proto_bare = 1; arrrc->proto = rt_heap_strdup_c(proto);
         return ARRAY_VAL(arrrc);
     }
     int sz = (int)to_int(a[0]);
@@ -1632,26 +1632,26 @@ static DESCR_t _CONVERT_(DESCR_t *a, int n) {
             TBBLK_t *tbl = val.tbl;
             int n = tbl->size;
             if (n == 0) return FAILDESCR;
-            ARBLK_t *a = rt_pinned_alloc_tag(sizeof(ARBLK_t), HB_ARR);
+            ARBLK_t *a = rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t));
             a->dumpno = rt_sno_dumpno_next();
             a->lo = 1; a->hi = n; a->ndim = 1; a->lo2 = 0; a->hi2 = 0;
             a->proto_bare = 1; a->id = rt_agg_serial_list();
-            { char pb[48]; snprintf(pb, sizeof pb, "%d,2", n); a->proto = rt_pinned_strdup(pb); }
-            a->data = rt_pinned_alloc(n * sizeof(DESCR_t));
+            { char pb[48]; snprintf(pb, sizeof pb, "%d,2", n); a->proto = rt_heap_strdup_c(pb); }
+            a->data = rt_ws_alloc(n * sizeof(DESCR_t));
             int row = 0;
             TBPAIR_t *e;
-            TBPAIR_t **ord = rt_pinned_alloc((size_t)n * sizeof(TBPAIR_t *));
+            TBPAIR_t **ord = rt_ws_alloc((size_t)n * sizeof(TBPAIR_t *));
             for (unsigned oi = 0; oi < tbl->ord_len && row < n; oi++) { TBPAIR_t *pe = table_find_pair_d(tbl, tbl->ord[oi]); if (pe) ord[row++] = pe; }
             if (row < n) { TBL_FOREACH(tbl, e) { if (row >= n) break; int seen = 0; for (int q = 0; q < row; q++) if (ord[q] == e) { seen = 1; break; } if (!seen) ord[row++] = e; } }
             for (int oi = 0; oi < row; oi++) { e = ord[oi];
                 DESCR_t kd = (e->key_descr.v != DT_SNUL)
                              ? e->key_descr
                              : STRVAL(tbl_pair_key(e));
-                ARBLK_t *rb = rt_pinned_alloc_tag(sizeof(ARBLK_t), HB_ARR);
+                ARBLK_t *rb = rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t));
                 rb->dumpno = 0;
                 rb->lo = 1; rb->hi = 2; rb->ndim = 1; rb->lo2 = 0; rb->hi2 = 0;
                 rb->proto_bare = 1; rb->proto = 0; rb->id = rt_agg_serial_list();
-                rb->data = rt_pinned_alloc(2 * sizeof(DESCR_t));
+                rb->data = rt_ws_alloc(2 * sizeof(DESCR_t));
                 rb->data[0] = kd;
                 rb->data[1] = e->val;
                 DESCR_t rd = {0}; rd.v = DT_A; rd.arr = rb;
@@ -1740,9 +1740,9 @@ static DESCR_t _COPY_(DESCR_t *a, int n) {
     }
     if (IS_DATA_fn(v) && v.u) {
         DATINST_t *src = (DATINST_t *)v.u; DATBLK_t *blk = src->type; int nf = blk ? blk->nfields : 0;
-        DATINST_t *inst = rt_pinned_alloc_tag(sizeof(DATINST_t), HB_DINST);
+        DATINST_t *inst = rt_gcheap_alloc(HB_DINST, sizeof(DATINST_t));
         inst->type = blk; inst->id = blk ? blk->serial_next++ : 0; inst->dumpno = rt_sno_dumpno_next();
-        inst->fields = rt_pinned_alloc((size_t)(nf > 0 ? nf : 1) * sizeof(DESCR_t));
+        inst->fields = rt_ws_alloc((size_t)(nf > 0 ? nf : 1) * sizeof(DESCR_t));
         for (int i = 0; i < nf; i++) inst->fields[i] = src->fields[i];
         DESCR_t r; r.v = DT_DATA; r.slen = 0; r.u = inst; return r;
     }
@@ -1815,7 +1815,7 @@ static DESCR_t _RSORT_(DESCR_t *a, int n) { return rsort_fn(n>0?a[0]:NULVCL); }
 static DESCR_t _CLEAR_(DESCR_t *a, int n) {
     const char *raw = (n > 0) ? VARVAL_fn(a[0]) : NULL;
     if (!raw || !*raw) { NV_CLEAR_fn(NULL, 0); return NULVCL; }
-    char *tmp = rt_pinned_strdup(raw);
+    char *tmp = rt_heap_strdup_c(raw);
     const char *except[CLEAR_MAX_EXCEPT]; int nexcept = 0;
     char *tok = strtok(tmp, ",");
     while (tok && nexcept < CLEAR_MAX_EXCEPT) {
@@ -1981,11 +1981,11 @@ static DESCR_t _make_ctor(int tidx, DESCR_t *args, int nargs) {
     if (tidx < 0 || tidx >= _data_ntypes) return NULVCL;
     DATBLK_t *t = _udef_lookup(_data_types[tidx].typename);
     if (!t) return NULVCL;
-    DATINST_t *u = rt_pinned_alloc_tag(sizeof(DATINST_t), HB_DINST);
+    DATINST_t *u = rt_gcheap_alloc(HB_DINST, sizeof(DATINST_t));
     u->type   = t;
     u->id     = t->serial_next++;
     u->dumpno = rt_sno_dumpno_next();
-    u->fields = rt_pinned_alloc(t->nfields * sizeof(DESCR_t));
+    u->fields = rt_ws_alloc(t->nfields * sizeof(DESCR_t));
     for (int i = 0; i < t->nfields; i++)
         u->fields[i] = (i < nargs) ? args[i] : NULVCL;
     return (DESCR_t){ .v = DT_DATA, .u = u };
@@ -2218,9 +2218,9 @@ DESCR_t core_DATA_register(DESCR_t *a, int n) {
               fs = (comma < fe) ? comma + 1 : fe;
           }
       } }
-    char *spec = rt_pinned_strdup(raw_spec);
+    char *spec = rt_heap_strdup_c(raw_spec);
     DEFDAT_fn(spec);
-    char *s = rt_pinned_strdup(spec);
+    char *s = rt_heap_strdup_c(spec);
     char *paren = strchr(s, '(');
     if (!paren) return NULVCL;
     *paren = '\0';
@@ -2230,16 +2230,16 @@ DESCR_t core_DATA_register(DESCR_t *a, int n) {
     if (close) *close = '\0';
     if (_data_ntypes >= DATA_MAX_TYPES) return NULVCL;
     int tidx = _data_ntypes++;
-    char *uname = rt_pinned_strdup(tname);
+    char *uname = rt_heap_strdup_c(tname);
     _data_types[tidx].typename = uname;
     int nf = 0;
-    char *tmp = rt_pinned_strdup(fstr);
+    char *tmp = rt_heap_strdup_c(fstr);
     char *tok = strtok(tmp, ",");
     while (tok && nf < DATA_MAX_FIELDS) {
         while (*tok == ' ') tok++;
         char *end = tok + strlen(tok) - 1;
         while (end > tok && *end == ' ') *end-- = '\0';
-        char *fld = rt_pinned_strdup(tok);
+        char *fld = rt_heap_strdup_c(tok);
         _data_types[tidx].fields[nf] = fld;
         nf++;
         tok = strtok(NULL, ",");
@@ -2322,7 +2322,7 @@ static DESCR_t _VALUE_(DESCR_t *a, int n) {
     if (n < 1) return FAILDESCR;
     const char *name = VARVAL_fn(a[0]);
     if (!name) return FAILDESCR;
-    char *fname = rt_pinned_strdup(name);
+    char *fname = rt_heap_strdup_c(name);
     return NV_GET_fn(fname);
 }
 int core_stack_floor_raised = 0;
@@ -2901,7 +2901,7 @@ const char *datatype(DESCR_t v) {
 static DATBLK_t *_udef_types = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int _udef_fields_same(const DATBLK_t *t, const char *fields_str) {
-    char *tmp = rt_pinned_strdup(fields_str);
+    char *tmp = rt_heap_strdup_c(fields_str);
     int i = 0;
     for (char *tok = strtok(tmp, ","); tok; tok = strtok(NULL, ","), i++) {
         while (*tok == ' ') tok++;
@@ -2913,7 +2913,7 @@ static int _udef_fields_same(const DATBLK_t *t, const char *fields_str) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void DEFDAT_fn(const char *spec) {
-    char *s = rt_pinned_strdup(spec);
+    char *s = rt_heap_strdup_c(spec);
     char *paren = strchr(s, '(');
     if (!paren) return;
     *paren = '\0';
@@ -2923,21 +2923,21 @@ void DEFDAT_fn(const char *spec) {
     if (close) *close = '\0';
     DATBLK_t *prev = _udef_lookup(name);
     if (prev && _udef_fields_same(prev, fields_str)) return;
-    DATBLK_t *t = rt_pinned_alloc(sizeof(DATBLK_t));
-    t->name = rt_pinned_strdup(name);
+    DATBLK_t *t = rt_ws_alloc(sizeof(DATBLK_t));
+    t->name = rt_heap_strdup_c(name);
     int nfields = 0;
-    char *tmp = rt_pinned_strdup(fields_str);
+    char *tmp = rt_heap_strdup_c(fields_str);
     char *tok = strtok(tmp, ",");
     while (tok) { nfields++; tok = strtok(NULL, ","); }
     t->nfields = nfields;
-    t->fields  = rt_pinned_alloc(nfields * sizeof(char *));
-    tmp = rt_pinned_strdup(fields_str);
+    t->fields  = rt_ws_alloc(nfields * sizeof(char *));
+    tmp = rt_heap_strdup_c(fields_str);
     tok = strtok(tmp, ",");
     for (int i = 0; i < nfields && tok; i++) {
         while (*tok == ' ') tok++;
         char *end = tok + strlen(tok) - 1;
         while (end > tok && *end == ' ') *end-- = '\0';
-        char *fld = rt_pinned_strdup(tok);
+        char *fld = rt_heap_strdup_c(tok);
         t->fields[i] = fld;
         tok = strtok(NULL, ",");
     }
@@ -2955,11 +2955,11 @@ static DATBLK_t *_udef_lookup(const char *name) {
 DESCR_t DATCON_fn(const char *typename, ...) {
     DATBLK_t *t = _udef_lookup(typename);
     if (!t) return NULVCL;
-    DATINST_t *u = rt_pinned_alloc_tag(sizeof(DATINST_t), HB_DINST);
+    DATINST_t *u = rt_gcheap_alloc(HB_DINST, sizeof(DATINST_t));
     u->type   = t;
     u->id     = t->serial_next++;
     u->dumpno = rt_sno_dumpno_next();
-    u->fields = rt_pinned_alloc(t->nfields * sizeof(DESCR_t));
+    u->fields = rt_ws_alloc(t->nfields * sizeof(DESCR_t));
     for (int i = 0; i < t->nfields; i++) u->fields[i] = NULVCL;
     va_list ap;
     va_start(ap, typename);
@@ -3054,8 +3054,8 @@ static DESCR_t _var_assoc_set(const char *key, DESCR_t val) {
     NV_t *e = _var_bucket_find(key);
     if (e) { e->val = val; return val; }
     unsigned h = _var_hash(key);
-    e = rt_pinned_alloc(sizeof(NV_t));
-    e->name = rt_pinned_strdup(key); e->val = val; e->cell = (DESCR_t *)0; e->is_gva = 0; e->is_const = 0;
+    e = rt_ws_alloc(sizeof(NV_t));
+    e->name = rt_heap_strdup_c(key); e->val = val; e->cell = (DESCR_t *)0; e->is_gva = 0; e->is_const = 0;
     e->next = _var_buckets[h]; _var_buckets[h] = e; g_nv_memo_gen++;
     return val;
 }
@@ -3178,8 +3178,8 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
         }
     }
     { static long _nvc = -1; if (_nvc == -1) { const char *ev = getenv("SCRIP_NV_TRACE"); _nvc = (ev && *ev && *ev != '0') ? 0 : -2; } if (_nvc >= 0) { _nvc++; fprintf(stderr, "[NVC] SET %ld new-var '%s' h=%u\n", _nvc, name, h); fflush(stderr); } }
-    NV_t *e = rt_pinned_alloc(sizeof(NV_t));
-    e->name = rt_pinned_strdup(name);
+    NV_t *e = rt_ws_alloc(sizeof(NV_t));
+    e->name = rt_heap_strdup_c(name);
     e->val  = val;
     e->cell = (DESCR_t *)0;
     e->is_gva = 0;
@@ -3193,7 +3193,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
 int NV_EXISTS_fn(const char *name) { _var_init(); if (!name) return 0; unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && _nv_ordinary(e)) return 1; return 0; }
 int NV_CONST_ASSIGNED_fn(const char *name) { _var_init(); if (!name) return 0; unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) return 1; return 0; }
 DESCR_t NV_KW_GET_fn(const char *name) { _var_init(); if (!name) return NULVCL; if (!_nv_kwsplit()) return NV_GET_fn(name); unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) return e->is_gva ? *e->cell : e->val; return NULVCL; }
-DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val) { _var_init(); if (!name) return val; if (!_nv_kwsplit()) return NV_SET_fn(name, val); { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); } unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) { char eb[192]; snprintf(eb, sizeof eb, "re-assignment of a sealed &constant: %s", e->name); core_runtime_error(341, eb); return val; } NV_t *e = rt_pinned_alloc(sizeof(NV_t)); e->name = rt_pinned_strdup(name); e->val = val; e->cell = (DESCR_t *)0; e->is_gva = 0; e->is_const = 1; e->next = _var_buckets[h]; _var_buckets[h] = e; g_nv_memo_gen++; comm_var(name, val, stmt_src_get_file(), 0, 0); return val; }
+DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val) { _var_init(); if (!name) return val; if (!_nv_kwsplit()) return NV_SET_fn(name, val); { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); } unsigned h = _var_hash(name); for (NV_t *e = _var_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) { char eb[192]; snprintf(eb, sizeof eb, "re-assignment of a sealed &constant: %s", e->name); core_runtime_error(341, eb); return val; } NV_t *e = rt_ws_alloc(sizeof(NV_t)); e->name = rt_heap_strdup_c(name); e->val = val; e->cell = (DESCR_t *)0; e->is_gva = 0; e->is_const = 1; e->next = _var_buckets[h]; _var_buckets[h] = e; g_nv_memo_gen++; comm_var(name, val, stmt_src_get_file(), 0, 0); return val; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t *NV_PTR_fn(const char *name) {
     _var_init();
@@ -3216,8 +3216,8 @@ DESCR_t *NV_PTR_fn(const char *name) {
     for (NV_t *e = _var_buckets[h]; e; e = e->next)
         if (strcmp(e->name, name) == 0 && _nv_ordinary(e)) return e->is_gva ? e->cell : &e->val;
     { static long _nvc = -1; if (_nvc == -1) { const char *ev = getenv("SCRIP_NV_TRACE"); _nvc = (ev && *ev && *ev != '0') ? 0 : -2; } if (_nvc >= 0) { _nvc++; fprintf(stderr, "[NVC] PTR %ld new-var '%s' h=%u\n", _nvc, name, h); fflush(stderr); } }
-    NV_t *e = rt_pinned_alloc(sizeof(NV_t));
-    e->name = rt_pinned_strdup(name);
+    NV_t *e = rt_ws_alloc(sizeof(NV_t));
+    e->name = rt_heap_strdup_c(name);
     e->val  = NULVCL;
     e->cell = (DESCR_t *)0;
     e->is_gva = 0;
@@ -3566,31 +3566,31 @@ static unsigned _func_hash(const char *name) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static FNCBLK_t *_parse_define_spec(const char *spec) {
-    FNCBLK_t *fe = rt_pinned_alloc(sizeof(FNCBLK_t));
-    char *s = rt_pinned_strdup(spec);
-    fe->spec = rt_pinned_strdup(spec);
+    FNCBLK_t *fe = rt_ws_alloc(sizeof(FNCBLK_t));
+    char *s = rt_heap_strdup_c(spec);
+    fe->spec = rt_heap_strdup_c(spec);
     char *paren = strchr(s, '(');
     if (!paren) {
         char *comma = strchr(s, ',');
         if (comma) {
             *comma = '\0';
-            fe->name = rt_pinned_strdup(s);
+            fe->name = rt_heap_strdup_c(s);
             fe->entry_label = fe->name;
-            char *lstr = rt_pinned_strdup(comma + 1);
+            char *lstr = rt_heap_strdup_c(comma + 1);
             int nl = 0;
             char *tok = strtok(lstr, ",");
             while (tok) { nl++; tok = strtok(NULL, ","); }
             fe->nlocals = nl;
-            fe->locals  = rt_pinned_alloc(nl * sizeof(char *));
-            lstr = rt_pinned_strdup(comma + 1);
+            fe->locals  = rt_ws_alloc(nl * sizeof(char *));
+            lstr = rt_heap_strdup_c(comma + 1);
             tok  = strtok(lstr, ",");
             for (int i = 0; i < nl && tok; i++) {
                 while (*tok == ' ') tok++;
-                fe->locals[i] = rt_pinned_strdup(tok);
+                fe->locals[i] = rt_heap_strdup_c(tok);
                 tok = strtok(NULL, ",");
             }
         } else {
-            fe->name = rt_pinned_strdup(s);
+            fe->name = rt_heap_strdup_c(s);
             fe->entry_label = fe->name;
         }
         fe->nparams = 0;
@@ -3598,7 +3598,7 @@ static FNCBLK_t *_parse_define_spec(const char *spec) {
         return fe;
     }
     *paren = '\0';
-    fe->name = rt_pinned_strdup(s);
+    fe->name = rt_heap_strdup_c(s);
     fe->entry_label = fe->name;
     char *close = strchr(paren + 1, ')');
     char *locals_str = NULL;
@@ -3607,20 +3607,20 @@ static FNCBLK_t *_parse_define_spec(const char *spec) {
         if (*locals_str == ',') locals_str++;
         *close = '\0';
     }
-    char *pstr = rt_pinned_strdup(paren + 1);
+    char *pstr = rt_heap_strdup_c(paren + 1);
     int np = 0;
     if (*pstr) {
         char *tok = strtok(pstr, ",");
         while (tok) { np++; tok = strtok(NULL, ","); }
     }
     fe->nparams = np;
-    fe->params  = np ? rt_pinned_alloc(np * sizeof(char *)) : NULL;
+    fe->params  = np ? rt_ws_alloc(np * sizeof(char *)) : NULL;
     if (np) {
-        pstr = rt_pinned_strdup(paren + 1);
+        pstr = rt_heap_strdup_c(paren + 1);
         char *tok = strtok(pstr, ",");
         for (int i = 0; i < np && tok; i++) {
             while (*tok == ' ') tok++;
-            fe->params[i] = rt_pinned_strdup(tok);
+            fe->params[i] = rt_heap_strdup_c(tok);
             tok = strtok(NULL, ",");
         }
     }
@@ -3628,16 +3628,16 @@ static FNCBLK_t *_parse_define_spec(const char *spec) {
     fe->nlocals = 0;
     fe->locals  = NULL;
     if (locals_str && *locals_str) {
-        char *lstr = rt_pinned_strdup(locals_str);
+        char *lstr = rt_heap_strdup_c(locals_str);
         char *tok  = strtok(lstr, ",");
         while (tok) { nl++; tok = strtok(NULL, ","); }
         fe->nlocals = nl;
-        fe->locals  = rt_pinned_alloc(nl * sizeof(char *));
-        lstr = rt_pinned_strdup(locals_str);
+        fe->locals  = rt_ws_alloc(nl * sizeof(char *));
+        lstr = rt_heap_strdup_c(locals_str);
         tok  = strtok(lstr, ",");
         for (int i = 0; i < nl && tok; i++) {
             while (*tok == ' ') tok++;
-            fe->locals[i] = rt_pinned_strdup(tok);
+            fe->locals[i] = rt_heap_strdup_c(tok);
             tok = strtok(NULL, ",");
         }
     }
@@ -3680,7 +3680,7 @@ void DEFINE_fn_entry(const char *spec, FNCPTR_t fn, const char *entry_label) {
     unsigned h = _func_hash(fe->name);
     for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next) {
         if (strcmp(e->name, fe->name) == 0) {
-            char *el = rt_pinned_strdup(entry_label);
+            char *el = rt_heap_strdup_c(entry_label);
             e->entry_label = el;
             return;
         }
@@ -3738,16 +3738,16 @@ int UNLOAD_fn(const char *name) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void register_fn_alias(const char *newname, const char *oldname) {
     _func_init();
-    char *nn = rt_pinned_strdup(newname);
-    char *on = rt_pinned_strdup(oldname);
+    char *nn = rt_heap_strdup_c(newname);
+    char *on = rt_heap_strdup_c(oldname);
     newname = nn; oldname = on;
     FNCBLK_t *old_entry = NULL;
     unsigned ho = _func_hash(oldname);
     for (FNCBLK_t *e = _func_buckets[ho]; e; e = e->next) {
         if (strcmp(e->name, oldname) == 0) { old_entry = e; break; }
     }
-    FNCBLK_t *fe = rt_pinned_alloc(sizeof(FNCBLK_t));
-    fe->name    = rt_pinned_strdup(newname);
+    FNCBLK_t *fe = rt_ws_alloc(sizeof(FNCBLK_t));
+    fe->name    = rt_heap_strdup_c(newname);
     if (old_entry) {
         fe->spec        = old_entry->spec;
         fe->entry_label = old_entry->entry_label;
@@ -3757,7 +3757,7 @@ void register_fn_alias(const char *newname, const char *oldname) {
         fe->nlocals = old_entry->nlocals;
         fe->locals  = old_entry->locals;
     } else {
-        fe->spec = rt_pinned_strdup(newname); fe->fn = NULL;
+        fe->spec = rt_heap_strdup_c(newname); fe->fn = NULL;
         fe->entry_label = on;
         fe->nparams = 0; fe->params = NULL;
         fe->nlocals = 0; fe->locals = NULL;
@@ -3870,7 +3870,7 @@ static const char *_define_cstr(DESCR_t d) {
     const char *s = VARVAL_fn(d);
     { extern int IS_VARREF_fn(DESCR_t); extern DESCR_t rt_deref(DESCR_t); if (IS_VARREF_fn(d)) d = rt_deref(d); }
     if (!s || d.v != DT_S || !d.s) return s;
-    { size_t len = descr_slen(d); char *c = rt_pinned_alloc(len + 1); memcpy(c, d.s, len); c[len] = 0; return c; }
+    { size_t len = descr_slen(d); char *c = rt_ws_alloc(len + 1); memcpy(c, d.s, len); c[len] = 0; return c; }
 }
 static DESCR_t _DEFINE_(DESCR_t *a, int n) {
     if (n < 1) return FAILDESCR;
@@ -3887,10 +3887,10 @@ static DESCR_t _DEFINE_(DESCR_t *a, int n) {
         DEFINE_fn(proto, NULL);
     { int np = probe->nparams, nl = probe->nlocals, k; extern void *rt_heap_alloc_c(size_t); const char **pn = (const char **)rt_heap_alloc_c((size_t)(np + nl + 1) * sizeof(char *));
       if (!pn) return FAILDESCR;
-      for (k = 0; k < np; k++) pn[k] = rt_pinned_strdup(probe->params[k]);
-      for (k = 0; k < nl; k++) pn[np + k] = rt_pinned_strdup(probe->locals[k]);
+      for (k = 0; k < np; k++) pn[k] = rt_heap_strdup_c(probe->params[k]);
+      for (k = 0; k < nl; k++) pn[np + k] = rt_heap_strdup_c(probe->locals[k]);
       pn[np + nl] = (const char *)0;
-      { extern void rt_sno_runtime_define(const char *, const char **, int, int); rt_sno_runtime_define(rt_pinned_strdup(probe->name), pn, np + nl, np); } }
+      { extern void rt_sno_runtime_define(const char *, const char **, int, int); rt_sno_runtime_define(rt_heap_strdup_c(probe->name), pn, np + nl, np); } }
     return NULVCL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4121,7 +4121,7 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
               int c = 5;
               _io_chan_close(c);
               _io_chan[c].fp = _input_fp; _io_chan[c].is_output = 0; _io_chan[c].is_popen = 0;
-              _io_chan[c].varname = rt_pinned_strdup(vn); g_call_fastpath_off = 1;
+              _io_chan[c].varname = rt_heap_strdup_c(vn); g_call_fastpath_off = 1;
           } }
         return NULVCL;
     }
@@ -4137,7 +4137,7 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
         _io_chan[ch].is_output = 0;
         _io_chan[ch].is_popen = is_pipe;
         const char *vn = (n >= 1) ? _io_varname(a[0]) : NULL;
-        _io_chan[ch].varname = vn ? rt_pinned_strdup(vn) : NULL; if (vn) g_call_fastpath_off = 1;
+        _io_chan[ch].varname = vn ? rt_heap_strdup_c(vn) : NULL; if (vn) g_call_fastpath_off = 1;
         if (vn && !strcmp(vn, "INPUT")) { if (_input_fp && _input_fp != stdin) { if (_input_fp_is_popen) pclose(_input_fp); else fclose(_input_fp); } _input_fp = f; _input_fp_is_popen = is_pipe; }
     } else {
         if (_input_fp && _input_fp != stdin) { if (_input_fp_is_popen) pclose(_input_fp); else fclose(_input_fp); }
@@ -4164,7 +4164,7 @@ static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
             int c = 6;
             _io_chan_close(c);
             _io_chan[c].fp = stdout; _io_chan[c].is_output = 1; _io_chan[c].is_popen = 0;
-            _io_chan[c].varname = rt_pinned_strdup(vn); g_call_fastpath_off = 1;
+            _io_chan[c].varname = rt_heap_strdup_c(vn); g_call_fastpath_off = 1;
         }
         return NULVCL;
     }
@@ -4181,7 +4181,7 @@ static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
           _io_chan[ch].fp = nf;
           _io_chan[ch].is_output = 1;
           { const char *vn = (n >= 1) ? _io_varname(a[0]) : NULL;
-            _io_chan[ch].varname = vn ? rt_pinned_strdup(vn) : NULL; if (vn) g_call_fastpath_off = 1; } }
+            _io_chan[ch].varname = vn ? rt_heap_strdup_c(vn) : NULL; if (vn) g_call_fastpath_off = 1; } }
         return NULVCL;
     }
     int is_pipe = (fname[0] == '|');
@@ -4196,7 +4196,7 @@ static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
         _io_chan[ch].is_output = 1;
         _io_chan[ch].is_popen = is_pipe;
         const char *vn = (n >= 1) ? _io_varname(a[0]) : NULL;
-        _io_chan[ch].varname = vn ? rt_pinned_strdup(vn) : NULL; if (vn) g_call_fastpath_off = 1;
+        _io_chan[ch].varname = vn ? rt_heap_strdup_c(vn) : NULL; if (vn) g_call_fastpath_off = 1;
     } else {
         if (is_pipe) pclose(f); else fclose(f);
         return FAILDESCR;

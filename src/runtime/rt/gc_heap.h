@@ -11,7 +11,6 @@
 #define HB_AGGP  207
 #define HB_AGGT  208
 #define HB_PLJ   209
-#define HB_WSS   210
 #define HB_AGGB  211
 #define HB_ARR   212
 #define HB_DINST 213

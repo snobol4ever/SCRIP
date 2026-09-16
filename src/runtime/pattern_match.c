@@ -35,12 +35,12 @@ _Static_assert(__builtin_offsetof(DTP_t, fn) == 0, "bb_match_defer inline cache 
 _Static_assert(__builtin_offsetof(DTP_t, zsz) == 16, "PS-3 ARBNO stride latch reads DTP_t.zsz at offset 16");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pstamp_trace(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_PSTAMP_TRACE"); v = e ? (atoi(e) != 0) : 0; } return v; }
-static DTP_t *dtp_new(void *fn, dtp_rcp_t *rcp) { DTP_t *h = (DTP_t *)rt_pinned_alloc(sizeof(DTP_t)); h->fn = fn; h->rcp = rcp; h->zsz = 0; h->zstatic = 0; h->zpad = 0; h->snap = 0; h->nsnap = 0; return h; }
+static DTP_t *dtp_new(void *fn, dtp_rcp_t *rcp) { DTP_t *h = (DTP_t *)rt_ws_alloc(sizeof(DTP_t)); h->fn = fn; h->rcp = rcp; h->zsz = 0; h->zstatic = 0; h->zpad = 0; h->snap = 0; h->nsnap = 0; return h; }
 void *dtp_wrap_fn(void *fn) { return (void *)dtp_new(fn, (dtp_rcp_t *)0); }
 void *dtp_wrap_fn_sz(void *fn, int64_t zsz, int32_t zstatic) { DTP_t *h = dtp_new(fn, (dtp_rcp_t *)0); h->zsz = zsz; h->zstatic = zstatic; if (pstamp_trace()) fprintf(stderr, "PSTAMP wrap fn=%p zsz=%lld zstatic=%d\n", fn, (long long)zsz, (int)zstatic); return (void *)h; }
 int64_t dtp_zsz_of(void *headv) { DTP_t *h = (DTP_t *)headv; return h ? h->zsz : 0; }
 int dtp_zstatic_of(void *headv) { DTP_t *h = (DTP_t *)headv; return h ? (int)h->zstatic : 0; }
-static dtp_rcp_t *rcp_node(int tt, const char *s, uint32_t n, int64_t iv, dtp_rcp_t *l, dtp_rcp_t *rr) { dtp_rcp_t *r = (dtp_rcp_t *)rt_pinned_alloc(sizeof *r); r->tt = tt; r->s = s; r->slen = n; r->ival = iv; r->l = l; r->r = rr; return r; }
+static dtp_rcp_t *rcp_node(int tt, const char *s, uint32_t n, int64_t iv, dtp_rcp_t *l, dtp_rcp_t *rr) { dtp_rcp_t *r = (dtp_rcp_t *)rt_ws_alloc(sizeof *r); r->tt = tt; r->s = s; r->slen = n; r->ival = iv; r->l = l; r->r = rr; return r; }
 static dtp_rcp_t *rcp_lit(const char *s, uint32_t n) { return rcp_node(TT_QLIT, s ? s : "", n, 0, 0, 0); }
 static dtp_rcp_t *rcp_bin(int tt, dtp_rcp_t *l, dtp_rcp_t *rr) { return rcp_node(tt, 0, 0, 0, l, rr); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -406,7 +406,7 @@ static DESCR_t subscript_get2_s(DESCR_t arr, DESCR_t i, DESCR_t j, int strict) {
                 DESCR_t empty_ptr; empty_ptr.v=DT_DATA; empty_ptr.slen=0; empty_ptr.ptr=NULL;
                 return DATCON_fn("list", empty_ptr, INTVAL(0), STRVAL("list"), INTVAL(0));
             }
-            DESCR_t *rbuf = rt_pinned_alloc(rlen * sizeof(DESCR_t));
+            DESCR_t *rbuf = rt_ws_alloc(rlen * sizeof(DESCR_t));
             for (int k = 0; k < rlen; k++) rbuf[k] = (elems && ii+k-1 >= 0 && ii+k-1 < n) ? elems[ii+k-1] : NULVCL;
             DESCR_t rptr; rptr.v=DT_DATA; rptr.slen=0; rptr.ptr=(void*)rbuf;
             static int list_slice_reg = 0;
@@ -545,9 +545,9 @@ DESCR_t sort_fn(DESCR_t arr) {
         if (!src) return arr;
         int n = src->hi - src->lo + 1;
         if (n <= 0) return arr;
-        DESCR_t *vals = rt_pinned_alloc(n * sizeof(DESCR_t));
-        const char **strs = rt_pinned_alloc(n * sizeof(char *));
-        char *bufblk = rt_pinned_alloc((size_t)n * 64);
+        DESCR_t *vals = rt_ws_alloc(n * sizeof(DESCR_t));
+        const char **strs = rt_ws_alloc(n * sizeof(char *));
+        char *bufblk = rt_ws_alloc((size_t)n * 64);
         for (int i = 0; i < n; i++) { vals[i] = src->data[i]; strs[i] = tbl_key_str(vals[i], bufblk + (size_t)i * 64, 64); }
         for (int i = 1; i < n; i++) {
             DESCR_t tv = vals[i]; const char *ts = strs[i];
@@ -568,9 +568,9 @@ DESCR_t sort_fn(DESCR_t arr) {
     int n = 0; TBPAIR_t *e;
     TBL_FOREACH(tbl, e) n++;
     if (n == 0) return FAILDESCR;
-    const char **keys = rt_pinned_alloc(n * sizeof(char *));
-    DESCR_t *key_descrs = rt_pinned_alloc(n * sizeof(DESCR_t));
-    DESCR_t *vals = rt_pinned_alloc(n * sizeof(DESCR_t));
+    const char **keys = rt_ws_alloc(n * sizeof(char *));
+    DESCR_t *key_descrs = rt_ws_alloc(n * sizeof(DESCR_t));
+    DESCR_t *vals = rt_ws_alloc(n * sizeof(DESCR_t));
     int idx = 0;
     TBL_FOREACH(tbl, e) {
             keys[idx] = tbl_pair_key(e);
@@ -578,7 +578,7 @@ DESCR_t sort_fn(DESCR_t arr) {
             vals[idx] = e->val;
             idx++;
         }
-    int *order = rt_pinned_alloc(n * sizeof(int));
+    int *order = rt_ws_alloc(n * sizeof(int));
     for (int i = 0; i < n; i++) order[i] = i;
     for (int i = 1; i < n; i++) {
         int tmp = order[i];
@@ -590,7 +590,7 @@ DESCR_t sort_fn(DESCR_t arr) {
         }
         order[j+1] = tmp;
     }
-    ARBLK_t *a = rt_pinned_alloc_tag(sizeof(ARBLK_t), HB_ARR);
+    ARBLK_t *a = rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t));
     a->dumpno     = rt_sno_dumpno_next();
     a->lo         = 1;
     a->hi         = n;
@@ -599,12 +599,12 @@ DESCR_t sort_fn(DESCR_t arr) {
     a->hi2        = 0;
     a->proto_bare = 1;
     a->id         = rt_agg_serial_list();
-    { char pb[48]; snprintf(pb, sizeof pb, "%d,2", n); a->proto = rt_pinned_strdup(pb); }
-    a->data = rt_pinned_alloc(n * sizeof(DESCR_t));
+    { char pb[48]; snprintf(pb, sizeof pb, "%d,2", n); a->proto = rt_heap_strdup_c(pb); }
+    a->data = rt_ws_alloc(n * sizeof(DESCR_t));
     for (int i = 0; i < n; i++) {
-        ARBLK_t *row = rt_pinned_alloc_tag(sizeof(ARBLK_t), HB_ARR);
+        ARBLK_t *row = rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t));
         row->lo = 1; row->hi = 2; row->ndim = 1; row->lo2 = 0; row->hi2 = 0; row->proto_bare = 1; row->proto = 0; row->id = rt_agg_serial_list(); row->dumpno = 0;
-        row->data = rt_pinned_alloc(2 * sizeof(DESCR_t));
+        row->data = rt_ws_alloc(2 * sizeof(DESCR_t));
         row->data[0] = key_descrs[order[i]];
         row->data[1] = vals[order[i]];
         DESCR_t rd = {0}; rd.v = DT_A; rd.arr = row;
@@ -850,10 +850,10 @@ void rt_cap_push(void *slot, int delta)
 {
     rt_cap_stk_t *s = (rt_cap_stk_t *)slot;
     if (s->gen != g_cap_gen) { s->sp = 0; s->gen = g_cap_gen; }
-    if (!s->buf) { s->buf = (uint32_t *)rt_pinned_alloc(17 * sizeof(uint32_t)); s->buf[0] = 16; }
+    if (!s->buf) { s->buf = (uint32_t *)rt_ws_alloc(17 * sizeof(uint32_t)); s->buf[0] = 16; }
     if (s->sp == s->buf[0]) {
         uint32_t nc = s->buf[0] * 2;
-        uint32_t *nb = (uint32_t *)rt_pinned_alloc(((size_t)nc + 1) * sizeof(uint32_t));
+        uint32_t *nb = (uint32_t *)rt_ws_alloc(((size_t)nc + 1) * sizeof(uint32_t));
         memcpy(nb + 1, s->buf + 1, (size_t)s->sp * sizeof(uint32_t));
         nb[0] = nc; s->buf = nb;
     }
@@ -1158,7 +1158,7 @@ void rt_patv_freeze(void *hv, const char *bn, long n)
 {
     DTP_t *h = (DTP_t *)hv;
     if (!h || !bn || n <= 0) return;
-    DESCR_t *v = (DESCR_t *)rt_pinned_alloc((size_t)n * sizeof(DESCR_t));
+    DESCR_t *v = (DESCR_t *)rt_ws_alloc((size_t)n * sizeof(DESCR_t));
     for (long i = 0; i < n; i++) { char nb[64]; snprintf(nb, sizeof nb, "%s$V%ld", bn, i); v[i] = NV_GET_fn(nb); }
     h->snap = v; h->nsnap = n;
 }

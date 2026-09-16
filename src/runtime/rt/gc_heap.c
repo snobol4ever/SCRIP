@@ -10,10 +10,7 @@
 #include "rt_arena.h"
 #include "gc_heap.h"
 #define GC_HEAP_MB 512
-static int gc_unpin_wss_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_GC_UNPIN_WSS"); v = (e && *e && *e != (char)48) ? 1 : 0; } return v; }
-static inline int hb_no_move(uint16_t t) { return t == HB_WS || (t == HB_WSS && !gc_unpin_wss_on()) || t == HB_DINST || t == HB_ARR; }
-static inline int hb_scan_interior(uint16_t t) { return t == HB_WS || t == HB_WSS || t == HB_DINST || t == HB_ARR; }
-static inline int hb_root_blanket(uint16_t t) { return t == HB_WS || t == HB_WSS || t == HB_DINST || t == HB_ARR; }
+static inline int hb_scan_interior(uint16_t t) { return t == HB_WS || t == HB_DINST || t == HB_ARR; }
 #include "descr.h"
 #include "pin_va.h"
 _Static_assert(sizeof(rt_hblk_t) == 16, "rt_hblk_t must be one 16-byte title unit");
@@ -238,45 +235,18 @@ char *rt_str_dup(const char *s)
     return b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void *rt_pinned_alloc_core(size_t n, uint16_t ty)
-{
-    uint64_t total = sizeof(rt_hblk_t) + ((((uint64_t)(n ? n : 1)) + 15u) & ~15ull);
-    if (!g_hp_arena) rt_gcheap_init();
-    if (g_hp_top + total > g_hp_end && g_hp_win + total > g_hp_wend) { extern long rt_gc_collect(void); rt_gc_collect(); }
-    if (g_hp_top + total <= g_hp_end) { void *r = rt_gcheap_carve(g_hp_top, total, ty); g_hp_top += total; return r; }
-    if (g_hp_win + total <= g_hp_wend) { uint64_t avail = (uint64_t)(g_hp_wend - g_hp_win); if (avail - total == sizeof(rt_hblk_t)) total += sizeof(rt_hblk_t);
-        void *r = rt_gcheap_carve(g_hp_win, total, ty); g_hp_win += total;
-        if (g_hp_win < g_hp_wend) { rt_hblk_t *fl = (rt_hblk_t *)g_hp_win; fl->fwd = 0; fl->size = (uint32_t)(g_hp_wend - g_hp_win); fl->type = HB_FILL; fl->flags = HBF_TTL; }
-        return r; }
-    fprintf(stderr, "[ZHP] heap exhausted (%d MB, %ld blocks) on a pinned allocation -- raise GC_HEAP_MB\n", (int)GC_HEAP_MB, g_hp_blocks);
-    abort();
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *c_rt_pinned_alloc(size_t n)
+void *rt_ws_alloc(size_t n)
 {
     if (rt_alloc_hist_on()) rt_alloc_hist_ra(__builtin_return_address(0), (uint16_t)HB_WS, (uint64_t)n);
-    return rt_pinned_alloc_core(n, (uint16_t)HB_WS);
+    return rt_gcheap_alloc((uint16_t)HB_WS, (uint64_t)(n ? n : 1));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_pinned_alloc_tag(size_t n, uint16_t ty)
+void *rt_ws_realloc(void *p, size_t n)
 {
-    if (rt_alloc_hist_on()) rt_alloc_hist_ra(__builtin_return_address(0), ty, (uint64_t)n);
-    return rt_pinned_alloc_core(n, ty);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_pinned_realloc(void *p, size_t n)
-{
-    if (!p) return rt_pinned_alloc(n);
+    if (!p) return rt_ws_alloc(n);
     { rt_hblk_t *h = (rt_hblk_t *)p - 1; size_t old = (size_t)h->size - sizeof(rt_hblk_t);
       if (n <= old) return p;
-      { void *q = rt_pinned_alloc(n); memcpy(q, p, old); return q; } }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-char *rt_pinned_strdup(const char *s)
-{
-    if (!s) return (char *)0;
-    if (rt_alloc_hist_on()) rt_alloc_hist_ra(__builtin_return_address(0), (uint16_t)HB_WSS, 0);
-    { size_t n = strlen(s); char *q = (char *)rt_pinned_alloc_core(n + 1, (uint16_t)HB_WSS); memcpy(q, s, n + 1); return q; }
+      { void *q = rt_ws_alloc(n); memcpy(q, p, old); return q; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_heap_alloc_c(size_t n)
@@ -574,7 +544,7 @@ static void gc_coexpr_roots(char **cur_hi)
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int gc_pinned_exact(const char *q, uint16_t want_type)
+static int gc_block_exact(const char *q, uint16_t want_type)
 {
     if (!q || (uintptr_t)q < sizeof(rt_hblk_t) || ((uintptr_t)q & 7u)) return 0;
     { rt_hblk_t *h = gc_blk_of(q); return (h && (char *)(h + 1) == q && h->type == want_type && (h->flags & HBF_TTL)) ? 1 : 0; }
@@ -589,8 +559,8 @@ static void gc_zeta_frame(const char *lo0, const char *hi0)
             if (h && d->s == (char *)(h + 1) && (d->slen == 0xFFFFFFFFu || (uint64_t)d->slen < (uint64_t)h->size)) { rt_gc_visit_descr(d); p += 16; continue; }
             if (d->v == DT_T) { rt_hblk_t *th = gc_blk_of((const char *)d->tbl); if (th && th->type == HB_AGGT && (char *)d->tbl == (char *)(th + 1)) { rt_gc_visit_descr(d); p += 16; continue; } }
             if (d->v == DT_N && d->slen == 2) { rt_hblk_t *vh = gc_blk_of((const char *)d->p); if (vh && vh->type == HB_AGGV && (char *)d->p == (char *)(vh + 1)) { rt_gc_visit_descr(d); p += 16; continue; } }
-            if (d->v == DT_A && gc_pinned_exact((const char *)d->arr, HB_ARR)) { rt_gc_visit_descr(d); p += 16; continue; }
-            if (d->v == DT_DATA && gc_pinned_exact((const char *)d->u, HB_DINST)) { rt_gc_visit_descr(d); p += 16; continue; } }
+            if (d->v == DT_A && gc_block_exact((const char *)d->arr, HB_ARR)) { rt_gc_visit_descr(d); p += 16; continue; }
+            if (d->v == DT_DATA && gc_block_exact((const char *)d->u, HB_DINST)) { rt_gc_visit_descr(d); p += 16; continue; } }
         { const char **loc = (const char **)p; if (gc_blk_of(*loc)) rt_gc_visit_raw(loc); }
         p += 8;
     }
@@ -611,7 +581,7 @@ static void gc_root_cas(void)
 static long gc_collect_ex(int cons_stack)
 {
     extern void core_gc_roots(void); extern void dat_gc_roots(void); extern void gen_gc_roots(void); extern void pas_gc_roots(void); extern void pl_gc_roots(void); extern void rt_gc_root_args(void); extern void rt_gc_ws_roots(void); extern int rt_scan_active(void);
-    char anchor; long nlive = 0, npin = 0, nfill = 0, before_b, after_b; char *dest; rt_hblk_t **liveo; uint64_t *livef; long li = 0; int pz = 0; long nforeign = 0;
+    char anchor; long nlive = 0, nfill = 0, before_b, after_b; char *dest; rt_hblk_t **liveo; uint64_t *livef; long li = 0; int pz = 0; long nforeign = 0;
     long w_cnt = 0, w_idx = 0, w_pmg = 0, w_fwd = 0, w_liv = 0, w_sld = 0, w_vfy = 0, w_cel = 0, w_raw = 0, w_mov = 0; int w_tel = getenv("SCRIP_ZETA_TELEM") ? 1 : 0;
     double n_cnt = 0, n_idx = 0, n_mrk = 0, n_fwd = 0, n_liv = 0, n_sld = 0, n_vfy = 0, n_fix = 0, n_t0 = 0, n_all = w_tel ? gc_walk_ns() : 0;
     g_sxt_owner = (char *)0;
@@ -649,8 +619,6 @@ static long gc_collect_ex(int cons_stack)
     gc_root_cas();
     { static int cov = -1; if (cov < 0) { const char *e = getenv("SCRIP_GC_COVERAGE"); cov = (e && *e && *e != '0') ? 1 : 0; }
       if (cov) fprintf(stderr, "[GC-COV] ranges=%ld cas_scanned_bytes=%ld pz=%d cons_stack=%d\n", g_gc_rrng_n, g_gc_cas_bytes, pz, cons_stack); }
-    { static int fm = -1; if (fm < 0) { const char *e = getenv("SCRIP_GC_PIN_AGGREGATES"); fm = (e && *e && *e != (char)48) ? 1 : 0; }
-      if (fm) for (long i = 0; i < g_gc_nblk; i++) { rt_hblk_t *h = g_gc_idx[i]; if (hb_root_blanket(h->type) && !(h->flags & HBF_MARK)) { h->flags |= HBF_MARK; h->fwd = (uint64_t)(uintptr_t)g_gc_mhead; g_gc_mhead = h; } } }
     core_gc_roots(); dat_gc_roots(); gen_gc_roots(); pas_gc_roots(); pl_gc_roots(); rt_gc_root_args();
     if (pz) { extern uint64_t rtccb[32]; for (int ci = 0; ci < 32; ci++) rt_gc_visit_raw((const char **)&rtccb[ci]); }
     if (pz && g_gc_seam_sp) { char *sst = gc_stack_top(); if (g_gc_seam_sp < sst) gc_zeta_frame(g_gc_seam_sp, sst); }
@@ -683,8 +651,7 @@ static long gc_collect_ex(int cons_stack)
     { int fold = gc_walk_fold();
     if (fold) { gc_live_grow(0); liveo = g_gc_liveo; livef = g_gc_livef; }
     for (long i = 0; i < g_gc_nblk; i++) { rt_hblk_t *h = g_gc_idx[i];
-        if ((h->flags & HBF_MARK) && hb_no_move(h->type)) { h->fwd = (uint64_t)(uintptr_t)h; dest = (char *)h + h->size; nlive++; npin++; }
-        else if (h->flags & HBF_MARK) { h->fwd = (uint64_t)dest; dest += h->size; nlive++; }
+        if (h->flags & HBF_MARK) { h->fwd = (uint64_t)dest; dest += h->size; nlive++; }
         else h->fwd = 0;
         if (fold && h->fwd) { if (li >= g_gc_lcap) { gc_live_grow(li); liveo = g_gc_liveo; livef = g_gc_livef; } liveo[li] = h; livef[li] = h->fwd; li++; } }
     if (w_tel) { w_fwd = g_gc_nblk; n_fwd = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); } }
@@ -710,7 +677,7 @@ static long gc_collect_ex(int cons_stack)
     if (w_tel) fprintf(stderr, "[ZGC-WALK] arm=%s nblk=%ld | count=%ld/%.0fus index=%ld/%.0fus pmap-gran=%ld fwd=%ld/%.0fus live=%ld/%.0fus | mark=%.0fus fixup=%ld+%ld/%.0fus slide=%ld/%.0fus moved=%ldB verify=%ld/%.0fus | walk-floor=%ld titles %.0fus of %.0fus total\n",
         gc_walk_fold() ? "FOLD" : "LEGACY", g_gc_nblk, w_cnt, n_cnt / 1e3, w_idx, n_idx / 1e3, w_pmg, w_fwd, n_fwd / 1e3, w_liv, n_liv / 1e3, n_mrk / 1e3, w_cel, w_raw, n_fix / 1e3, w_sld, n_sld / 1e3, w_mov, w_vfy, n_vfy / 1e3,
         w_cnt + w_idx + w_fwd + w_liv + w_vfy, (n_cnt + n_idx + n_fwd + n_liv + n_vfy) / 1e3, (gc_walk_ns() - n_all) / 1e3);
-    if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZGC] regeneration #%ld (%s): blocks %ld->%ld (pinned %ld, fill %ld) bytes %ld->%ld reclaimed %ld win=%ld slots=%ld interior=%ld\n", g_gc_runs, pz ? "PZ" : "LG", g_gc_nblk, nlive, npin, nfill, before_b, after_b, before_b - after_b, (long)(g_hp_wend - g_hp_win), g_gc_nslot, g_gc_interior);
+    if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZGC] regeneration #%ld (%s): blocks %ld->%ld (fill %ld) bytes %ld->%ld reclaimed %ld win=%ld slots=%ld interior=%ld\n", g_gc_runs, pz ? "PZ" : "LG", g_gc_nblk, nlive, nfill, before_b, after_b, before_b - after_b, (long)(g_hp_wend - g_hp_win), g_gc_nslot, g_gc_interior);
     g_hp_gcline = g_hp_top + gc_line_span((long)((g_hp_end - g_hp_top) >> 1));
     g_hp_fr.line = gc_line_paced() ? g_hp_gcline : g_hp_end;
     g_gc_idx = (rt_hblk_t **)0;

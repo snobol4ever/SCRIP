@@ -10,9 +10,9 @@
 # freed entry's `cell` as a pointer (SIGSEGV in rt_gc_visit_descr). core_gc_roots now marks the table it walks, the
 # way the Pascal heap table became a movable root.
 # ARMS: (1) the 4M-list churn COMPLETES with the right answer and stays under 800 MB; (2) the control arm
-# SCRIP_GC_PIN_AGGREGATES=1 restores the old policy and still dies -- if it ever stops dying this gate is measuring
+# (Historic, pre-CEO-799:) SCRIP_GC_PIN_AGGREGATES=1 restored the old policy and still died; that knob was deleted with the pinning mechanism on 2026-09-16 and the control arm is now the spelling census.
 # nothing; (3) correctness under heavy collection: 200000 lists into a table, byte-identical to icont.
-# FAIL_ONCE=1 runs arm 1 under the control arm, which must fail it.
+# FAIL_ONCE has no control knob to route through any more (CEO-799); the census arm is the control.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
 G="$(basename "${BASH_SOURCE[0]}" .sh)"
@@ -24,18 +24,16 @@ RC=0
 printf 'procedure main()\n   local i, L;\n   every i := 1 to 4000000 do L := [i, i+1, i+2];\n   write("done ", *L);\nend\n' > "$T/churn.icn"
 printf 'procedure main()\n   local i, L, T, R;\n   T := table(0);\n   every i := 1 to 200000 do { L := [i, i+1]; T[i %% 7] := L[1] + L[2] };\n   R := 0; every i := 0 to 6 do R +:= T[i];\n   write("sum ", R, " ", *T);\nend\n' > "$T/corr.icn"
 run_rss() { /usr/bin/time -f '%M' -o "$T/rss" timeout 300 env "$@" >"$T/out" 2>"$T/err"; echo $?; }
-PIN=""; [ -n "${FAIL_ONCE:-}" ] && PIN="SCRIP_GC_PIN_AGGREGATES=1"
-rc=$(run_rss $PIN "$SCRIP" "$T/churn.icn"); rss=$(tail -1 "$T/rss" 2>/dev/null || echo 0); got=$(cat "$T/out")
+rc=$(run_rss "$SCRIP" "$T/churn.icn"); rss=$(tail -1 "$T/rss" 2>/dev/null || echo 0); got=$(cat "$T/out")
 if [ "$rc" = 0 ] && [ "$got" = "done 3" ] && [ "$rss" -lt 819200 ]; then echo "  churn PASS (4M dead lists: completed, answer \"$got\", RSS ${rss} KB under 800 MB)"
 else echo "  churn FAIL (rc=$rc answer=\"$got\" RSS=${rss} KB -- a program holding one list did not survive four million dead ones)"; RC=1; fi
-rc2=$(run_rss SCRIP_GC_PIN_AGGREGATES=1 "$SCRIP" "$T/churn.icn"); rss2=$(tail -1 "$T/rss" 2>/dev/null || echo 0)
-if [ "$rc2" != 0 ]; then echo "  control PASS (SCRIP_GC_PIN_AGGREGATES=1 restores the immortal policy and still dies: rc=$rc2, RSS ${rss2} KB)"
-else echo "  control FAIL (the old policy no longer dies on this witness -- rc=$rc2 RSS=${rss2} KB; this gate is measuring nothing until the witness is made bigger)"; RC=1; fi
+if grep -rqE 'SCRIP_GC_PIN_AGGREGATES|hb_root_blanket' "$ROOT/src"; then echo "  control FAIL (the immortal policy is back in src/ under its old spelling -- CEO-799 deleted it 2026-09-16; test_gate_gc_no_pinned_lifetime_class holds the census)"; RC=1
+else echo "  control PASS (no immortal-policy knob exists in src/ to restore: SCRIP_GC_PIN_AGGREGATES and hb_root_blanket were deleted with the pinning mechanism, CEO-799, 2026-09-16)"; fi
 ( cd "$T" && "$ICONT" -s corr.icn -x ) >"$T/corr.ref" 2>&1
 ( cd "$T" && timeout 120 "$SCRIP" corr.icn </dev/null ) >"$T/corr.out" 2>&1
 if diff -q "$T/corr.ref" "$T/corr.out" >/dev/null; then echo "  correctness PASS (200000 lists through a table under heavy collection, byte-identical to icont: $(cat "$T/corr.ref"))"
 else echo "  correctness FAIL (collection changed the answer: got \"$(cat "$T/corr.out")\", icont \"$(cat "$T/corr.ref")\")"; RC=1; fi
-if [ "$RC" = 0 ]; then echo "GATE PASS [$G]: dead aggregates are reclaimed, the old immortal policy still discriminates, and collection does not change an answer"
+if [ "$RC" = 0 ]; then echo "GATE PASS [$G]: dead aggregates are reclaimed, no immortal-policy knob survives in src/, and collection does not change an answer"
 else echo "GATE FAIL(1) [$G]: aggregates are immortal again, or the control arm stopped discriminating (examined 3 arms)"; fi
 echo "    tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)  measured $(date -u +%Y-%m-%dT%H:%MZ)"
 exit $RC

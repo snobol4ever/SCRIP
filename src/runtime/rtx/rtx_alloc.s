@@ -2,7 +2,6 @@
 RTX_GATE_DEF(alloc)
 #define HBF_TTL 0x0001
 #define HB_AGGV 206
-#define HB_WS   203
 RTX_FUNC(rt_gcheap_alloc)
     RTX_GATE(alloc, c_rt_gcheap_alloc)
     mov     r10, [rip + g_hp_fr@GOTPCREL]
@@ -76,8 +75,4 @@ RTX_FUNC(rt_agg_alloc)
     cmove   rsi, rcx
     jmp     .Lga_armed
 RTX_ENDF(rt_agg_alloc)
-RTX_FUNC(rt_pinned_alloc)
-    RTX_GATE(alloc, c_rt_pinned_alloc)
-    jmp     c_rt_pinned_alloc
-RTX_ENDF(rt_pinned_alloc)
 .section .note.GNU-stack,"",@progbits

@@ -7,8 +7,6 @@ void *rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes);
 void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes);
 char *rt_str_alloc(long n);
 char *c_rt_str_alloc(long n);
-void *rt_pinned_alloc(size_t n);
-void *c_rt_pinned_alloc(size_t n);
 typedef struct { long dtop, dvirgin, dblocks, poff; unsigned long size, type, flags; } delta_t;
 static int fails = 0, n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -44,19 +42,6 @@ static void pair_str(const char *what, long len) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pair_ws(const char *what, size_t sz) {
-    char *pc = (char *)c_rt_pinned_alloc(sz);
-    uint32_t szc = *(uint32_t *)(pc - 8); uint16_t tyc = *(uint16_t *)(pc - 4); uint16_t flc = *(uint16_t *)(pc - 2);
-    char *pa = (char *)rt_pinned_alloc(sz);
-    uint32_t sza = *(uint32_t *)(pa - 8); uint16_t tya = *(uint16_t *)(pa - 4); uint16_t fla = *(uint16_t *)(pa - 2);
-    n++;
-    if (tyc != 203 || flc != 1 || sza != szc || tya != tyc || fla != flc || pa != pc + szc) {
-        fails++;
-        printf("  MISMATCH ws %-18s c{sz=%u ty=%u fl=%u p=%p} asm{sz=%u ty=%u fl=%u p=%p} want_asm_p=%p\n",
-               what, szc, tyc, flc, (void *)pc, sza, tya, fla, (void *)pa, (void *)(pc + szc));
-    }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int main(void) {
     int i;
     for (i = 0; i < 8; i++) (void)c_rt_gcheap_alloc(1, 64);
@@ -83,17 +68,6 @@ int main(void) {
     pair_str("str_alloc -1",  -1);
     pair_str("str_alloc -99", -99);
     pair_str("str_alloc 1000", 1000);
-    (void)c_rt_pinned_alloc(1);
-    pair_ws("ws payload 0",    0);
-    pair_ws("ws payload 1",    1);
-    pair_ws("ws payload 15",   15);
-    pair_ws("ws payload 16",   16);
-    pair_ws("ws payload 17",   17);
-    pair_ws("ws payload 31",   31);
-    pair_ws("ws payload 32",   32);
-    pair_ws("ws payload 33",   33);
-    pair_ws("ws payload 256",  256);
-    pair_ws("ws payload 4096", 4096);
     printf("RTX alloc unit: %d checks, %d mismatches -> %s\n", n, fails, fails ? "FAIL" : "PASS");
     return fails != 0;
 }

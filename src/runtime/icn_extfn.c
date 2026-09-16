@@ -45,7 +45,7 @@ char *alcstr(char *s, icnx_word_t len) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 icnx_realblock_t *alcreal(double v) {
-    icnx_realblock_t *b = (icnx_realblock_t *)rt_pinned_alloc(sizeof *b); if (!b) return b; b->title = ICNX_D_Real; b->rval = v; return b;
+    icnx_realblock_t *b = (icnx_realblock_t *)rt_ws_alloc(sizeof *b); if (!b) return b; b->title = ICNX_D_Real; b->rval = v; return b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 double getdbl(icnx_descr_t *d) { double v = 0.0; if (d) icnx_to_double(d, &v); return v; }
@@ -99,7 +99,7 @@ static DESCR_t icn_extfn_marshal_out(const icnx_descr_t *d) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_extfn_mint(const char *name, void *fn) {
     size_t n = name ? strlen(name) : 0;
-    EXTFN_t *b = (EXTFN_t *)rt_pinned_alloc(sizeof(EXTFN_t) + n + 1); if (!b) return FAILDESCR;
+    EXTFN_t *b = (EXTFN_t *)rt_ws_alloc(sizeof(EXTFN_t) + n + 1); if (!b) return FAILDESCR;
     b->fn = fn; if (n) memcpy(b->name, name, n); b->name[n] = 0;
     return PROCVAL_EXTERNAL(b);
 }
