@@ -131,12 +131,23 @@ for c in rows:
         deferred.append(key); print(f"{tag} {0:>5} {0:>5} {0:>8} {0:>10} {0:>8} {n:>8} = {n:>10}   DEFERRED by ruling ({crit[:60]})"); continue
     if not tree:
         unproven.append(key); print(f"{tag} {'-':>5} {'-':>5} {'-':>8} {'-':>10} {'-':>8} {'-':>8} = {'-':>10}   UNPROVEN: no tree on the row (never measured)"); continue
-    side = set()
+    side = set(); ungradable = set(); ungraded = set()
     sc = SIDECAR.get(key)
     if sc and os.path.exists(os.path.join(corpus, sc)):
         for l in open(os.path.join(corpus, sc), encoding="utf-8", errors="replace"):
             if l.startswith("#") or not l.strip(): continue
             side.add(stem(l.split("\t")[0].strip()))
+        # ⛔ THE PACKAGE INVENTORY IS THE POPULATION AUTHORITY (ceo CEO-798, 2026-09-16): the runner's PACKAGE_INVENTORY line counts
+        # shipped = graded + ungraded + ungradable, and the package keeps UNGRADABLE.tsv / UNGRADED.tsv beside its OUTSIDE file
+        # (csnobol4: 61 UNGRADABLE of which the 49 OUTSIDE are a subset, 12 containers/libraries; 71 graded; 132 shipped). Read
+        # both, OUTSIDE taking precedence, so the population this gate prints is the inventory's, never DB-plus-OUTSIDE alone.
+        for fn, dst in (("UNGRADABLE.tsv", ungradable), ("UNGRADED.tsv", ungraded)):
+            fp = os.path.join(corpus, os.path.dirname(sc), fn)
+            if os.path.exists(fp):
+                for l in open(fp, encoding="utf-8", errors="replace"):
+                    if l.startswith("#") or not l.strip(): continue
+                    dst.add(stem(l.split("\t")[0].strip()))
+        ungradable -= side; ungraded -= side | ungradable
     d = progs.get((DBNAME.get(key, key), tree), {})
     if not d:
         unproven.append(key); print(f"{tag} {'-':>5} {'-':>5} {len(side):>8} {'-':>10} {'-':>8} {'-':>8} = {'-':>10}   UNPROVEN: no progress rows for this suite on {tree} (CEO-750)"); continue
@@ -145,6 +156,8 @@ for c in rows:
     for p, mm in d.items():
         seen.add(stem(p)); cnt[classify(mm, stem(p) in side)] += 1
     cnt["OUTSIDE"] += len(side - seen)
+    cnt["UNGRADABLE"] += len(ungradable - seen)
+    cnt["UNGRADED"] += len(ungraded - seen)
     pop = sum(cnt.values())
     graded += 1
     t = int(T) if T.isdigit() else -1

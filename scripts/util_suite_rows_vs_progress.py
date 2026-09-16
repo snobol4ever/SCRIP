@@ -74,14 +74,24 @@ def read_db(db, want):
 
 
 def sidecar_stems(corpus, key):
+    """(outside, ungradable, ungraded) name sets from the suite's sidecars: the OUTSIDE file the map names, plus the
+    package's UNGRADABLE.tsv / UNGRADED.tsv beside it (ceo CEO-798: the runner's PACKAGE_INVENTORY line is the population
+    authority and those two files are its record on disk; csnobol4: 61 UNGRADABLE of which the 49 OUTSIDE are a subset)."""
     sc = SIDECAR.get(key)
-    out = set()
+    out, ungradable, ungraded = set(), set(), set()
     if sc and os.path.exists(os.path.join(corpus, sc)):
         for l in open(os.path.join(corpus, sc), encoding="utf-8", errors="replace"):
             if l.startswith("#") or not l.strip():
                 continue
             out.add(stem(l.split("\t")[0].strip()))
-    return out
+        for fn, dst in (("UNGRADABLE.tsv", ungradable), ("UNGRADED.tsv", ungraded)):
+            fp = os.path.join(corpus, os.path.dirname(sc), fn)
+            if os.path.exists(fp):
+                for l in open(fp, encoding="utf-8", errors="replace"):
+                    if l.startswith("#") or not l.strip():
+                        continue
+                    dst.add(stem(l.split("\t")[0].strip()))
+    return out, ungradable - out, ungraded - out - ungradable
 
 
 def classify(mm, outside_named):
@@ -128,7 +138,7 @@ def audit(suites, db, corpus, out=print):
             out(f"{tag} {'-':>10} {'-':>5}  {'-':10} {'-':19}  UNPROVEN: no tree on the row (never measured)")
             continue
         d = progs.get((DBNAME.get(key, key), tree), {})
-        side = sidecar_stems(corpus, key)
+        side, s_ungradable, s_ungraded = sidecar_stems(corpus, key)
         if not d:
             unproven.append(key)
             out(f"{tag} {'-':>10} {'-':>5}  {'-':10} {'-':19}  UNPROVEN: no progress rows for this suite on {tree} (CEO-750)")
@@ -143,6 +153,8 @@ def audit(suites, db, corpus, out=print):
             if k == "PASS" and all(n == "xfail" for _o, n in mm.values()):
                 xpass += 1
         cnt["OUTSIDE"] += len(side - seen)
+        cnt["UNGRADABLE"] += len(s_ungradable - seen)
+        cnt["UNGRADED"] += len(s_ungraded - seen)
         pop = sum(cnt.values())
         graded += 1
         p_row = int(P) if P.isdigit() else -1
