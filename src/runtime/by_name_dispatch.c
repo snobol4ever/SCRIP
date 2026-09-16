@@ -542,7 +542,7 @@ static int rk_match_is_nil(DESCR_t d) {
     return FIELD_GET_fn(d, "ok").i == 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rk_is_truthy(DESCR_t v) { extern int rt_is_truthy(DESCR_t); if (rk_match_is_nil(v)) return 0; return rt_is_truthy(v); }
+int rk_is_truthy(DESCR_t v) { extern int rt_is_truthy(DESCR_t); if (rk_match_is_nil(v)) return 0; if (v.v == DT_ORDER) return (v.i != 0); return rt_is_truthy(v); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_match_make(const char *text, const char *caps, int ok) {
     static int rk_match_reg = 0;
@@ -1458,13 +1458,7 @@ static long g_tap_todo_upto = 0;
 static char g_tap_todo_reason[512] = "";
 static int g_tap_done_run = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rk_tap_truthy(DESCR_t v) {
-    if (IS_FAIL_fn(v)) return 0;
-    if (IS_INT_fn(v)) return (v.i != 0);
-    if (IS_REAL_fn(v)) return (v.r != 0.0);
-    if (v.v == DT_SNUL) return 0;
-    { const char *s = v.s ? v.s : ""; return (s[0] != '\0' && !(s[0] == '0' && s[1] == '\0')); }
-}
+static int rk_tap_truthy(DESCR_t v) { return rk_is_truthy(v); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_tap_desc_escape(const char *desc, char *out, size_t cap) {
     size_t o = 0; if (!desc) { out[0] = '\0'; return; }
