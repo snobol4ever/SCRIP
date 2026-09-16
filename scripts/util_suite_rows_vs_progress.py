@@ -96,7 +96,11 @@ def sidecar_stems(corpus, key):
 
 def classify(mm, outside_named):
     v = {o for o, _n in mm.values()}
-    if outside_named or "OUTSIDE" in v:
+    # the runner's recorded class outranks the sidecar (ceo CEO-799): a sidecar-named entry WITH a DB row keeps the DB's class;
+    # the sidecar classes only an entry the DB has no row for (Budne: 49 declared, 22 measured today, 27 UNGRADABLE debt)
+    if "OUTSIDE" in v:
+        return "OUTSIDE"
+    if outside_named and not v:
         return "OUTSIDE"
     if "DEFERRED" in v:
         return "DEFERRED"

@@ -115,7 +115,10 @@ for (s, t, p, m), o in last.items(): progs[(s, t)][p][m] = o
 UNG = {"UNGRADED", "SKIP", "MISSING", "UNPROVEN"}
 def classify(mm, outside_named):
     v = set(mm.values())
-    if outside_named or "OUTSIDE" in v: return "OUTSIDE"
+    # the runner's recorded class outranks the sidecar (ceo CEO-799): a sidecar-named entry WITH a DB row keeps the DB's class;
+    # the sidecar classes only an entry the DB has no row for (Budne: 49 declared, 22 measured today, 27 UNGRADABLE debt)
+    if "OUTSIDE" in v: return "OUTSIDE"
+    if outside_named and not v: return "OUTSIDE"
     if "DEFERRED" in v: return "DEFERRED"
     if v == {"PASS"}: return "PASS"
     if v == {"UNGRADABLE"}: return "UNGRADABLE"
