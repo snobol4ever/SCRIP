@@ -786,6 +786,71 @@ const char * zls_g_vslot_get(const IR_graph_t * g, int i, int * off) {
 static const char * zk_name(int k) { return k == ZK_DESCR ? "DESCR" : k == ZK_RAW ? "RAW" : k == ZK_PTR_GC ? "PTR_GC" : k == ZK_PTR_CODE ? "PTR_CODE" : "?"; }
 static const char * zsc_name(int k) { return k == ZSC_FN ? "FN" : k == ZSC_GROUP ? "GROUP" : k == ZSC_ITER ? "ITER" : k == ZSC_PAT ? "PAT" : k == ZSC_COEXPR ? "COEXPR" : "?"; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zls_reuse_straight(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_REAL || op == IR_LIT_STRING || op == IR_VAR || op == IR_VAR_REF || op == IR_BINOP || op == IR_CMP_TEST || op == IR_LINE_MARK; }
+static int zls_reuse_index(const IR_graph_t * g, const IR_t * nd) { for (int i = 0; i < g->n; i++) if (g->all[i] == nd) return i; return -1; }
+static int zls_reuse_dynamic(const IR_graph_t * g) {
+    for (int i = 0; i < g->n; i++) { const IR_t * d = g->all[i]; if (!d) continue;
+        if (d->op == IR_GOTO_DEFERRED || d->op == IR_GATE || d->op == IR_MATCH_DEFER || d->op == IR_MATCH_FENCE1) return 1;
+        if ((d->op == IR_CALL || d->op == IR_CALL_BUILTIN || d->op == IR_CALL_SNOBOL4) && IR_LIT(d).sval && strcmp(IR_LIT(d).sval, "CODE") == 0) return 1; }
+    return 0;
+}
+static int zls_reuse_walk(const IR_graph_t * g, const IR_t * start, int * pos, int * step, int * loop_lo, int * loop_hi, int * nloop) {
+    const IR_t * c = start;
+    while (c) {
+        int i = zls_reuse_index(g, c);
+        if (i < 0) return 1;
+        if (pos[i] >= 0) { if (pos[i] < *loop_lo) *loop_lo = pos[i]; if (*step - 1 > *loop_hi) *loop_hi = *step - 1; (*nloop)++; return 0; }
+        pos[i] = (*step)++;
+        c = c->γ.node;
+    }
+    return 0;
+}
+static void zls_reuse_dump(FILE * fp, const zls_graph_t * r) {
+    const IR_graph_t * g = r->g;
+    if (!g || g->n <= 0 || !g->all) return;
+    int n = g->n;
+    int * pos = (int *)malloc(sizeof(int) * (size_t)n); int * cp = (int *)malloc(sizeof(int) * (size_t)n);
+    int * lo = (int *)malloc(sizeof(int) * (size_t)n); int * hi = (int *)malloc(sizeof(int) * (size_t)n);
+    for (int i = 0; i < n; i++) { pos[i] = -1; cp[i] = 0; lo[i] = -1; hi[i] = -1; }
+    int step = 0, loop_lo = 0x7fffffff, loop_hi = -1, nloop = 0, opaque = 0;
+    opaque |= zls_reuse_walk(g, g->entry, pos, &step, &loop_lo, &loop_hi, &nloop);
+    if (g->n_alts > 1 && g->alt_entry) for (int k = 1; k < g->n_alts; k++) if (g->alt_entry[k]) opaque |= zls_reuse_walk(g, g->alt_entry[k], pos, &step, &loop_lo, &loop_hi, &nloop);
+    int dynamic = zls_reuse_dynamic(g) || opaque;
+    int ncp = 0;
+    for (int i = 0; i < n; i++) { const IR_t * c = g->all[i]; if (!c) continue;
+        const IR_t * t = c->ω.node; if (t && !zls_is_wiring(t->op)) { int j = zls_reuse_index(g, t); if (j >= 0 && !cp[j]) { cp[j] = 1; ncp++; } }
+        if (pos[i] >= 0 && !zls_is_wiring(c->op) && !zls_reuse_straight(c->op) && !cp[i]) { cp[i] = 1; ncp++; } }
+    int results = 0, cand = 0, pself = 0, pguard = 0, punpl = 0, ploop = 0, pdyn = 0, elided = 0, placed = 0, boxes = 0;
+    for (int i = 0; i < n; i++) { const IR_t * c = g->all[i]; if (!c || zls_is_wiring(c->op)) continue; boxes++; if (pos[i] >= 0) placed++; }
+    for (int i = 0; i < n; i++) {
+        const IR_t * c = g->all[i]; if (!c || zls_is_wiring(c->op)) continue;
+        const zls_entry_t * e = zx_find(c); if (!e || e->scope_id < r->first_scope || e->scope_id >= r->first_scope + r->n_scopes) continue;
+        results++;
+        const char * on = bb_op_name(c->op); if (!on) on = "?";
+        { int shared = 0; for (int q = 0; q < ze_n; q++) if (ze[q].off == e->off && ze[q].scope_id >= r->first_scope && ze[q].scope_id < r->first_scope + r->n_scopes && ze[q].nd != c) shared = 1;
+          if (shared && !e->live) { elided++; fprintf(fp, ";     reuse +%-5d %-18s ELIDED shared dead-result scratch\n", e->off, on); continue; } }
+        if (dynamic) { pdyn++; fprintf(fp, ";     reuse +%-5d %-18s PINNED dynamic entry into this graph\n", e->off, on); continue; }
+        if (pos[i] < 0) { punpl++; fprintf(fp, ";     reuse +%-5d %-18s PINNED unplaced: not on the gamma spine\n", e->off, on); continue; }
+        if (!zls_reuse_straight(c->op)) { pself++; fprintf(fp, ";     reuse +%-5d %-18s w=%-4d PINNED self: beta-capable box, its result may be re-read on resume\n", e->off, on, pos[i]); continue; }
+        int last = pos[i], badreader = 0, nread = 0;
+        for (int k = 0; k < n; k++) { const IR_t * d = g->all[k]; if (!d) continue;
+            for (int j = 0; j < d->n_operands; j++) if (d->operands[j] == c) { nread++; if (pos[k] < 0) badreader = 1; else if (pos[k] > last) last = pos[k]; } }
+        if (badreader) { punpl++; fprintf(fp, ";     reuse +%-5d %-18s w=%-4d PINNED unplaced reader\n", e->off, on, pos[i]); continue; }
+        int guard = -1;
+        for (int m = 0; m < n && guard < 0; m++) if (cp[m] && pos[m] > pos[i] && pos[m] < last) guard = m;
+        if (guard >= 0) { pguard++; const char * gn = bb_op_name(g->all[guard]->op); fprintf(fp, ";     reuse +%-5d %-18s w=%-4d r=%-4d PINNED guard: box @%d %s%s%s can recede between the write and the read\n", e->off, on, pos[i], last, pos[guard], gn ? gn : "?", IR_LIT(g->all[guard]).sval && !zls_reuse_straight(g->all[guard]->op) && g->all[guard]->op != IR_VAR ? " " : "", IR_LIT(g->all[guard]).sval && !zls_reuse_straight(g->all[guard]->op) && g->all[guard]->op != IR_VAR ? IR_LIT(g->all[guard]).sval : ""); continue; }
+        if (nloop && pos[i] < loop_lo && last >= loop_lo) { ploop++; fprintf(fp, ";     reuse +%-5d %-18s w=%-4d r=%-4d PINNED loop: written before a gamma back-edge span [%d..%d] that re-reads it\n", e->off, on, pos[i], last, loop_lo, loop_hi); continue; }
+        cand++; lo[i] = pos[i]; hi[i] = last;
+        fprintf(fp, ";     reuse +%-5d %-18s w=%-4d r=%-4d CANDIDATE reads=%d%s\n", e->off, on, pos[i], last, nread, e->live ? "" : " dead-result");
+    }
+    int packed = 0;
+    for (int i = 0; i < n; i++) if (lo[i] >= 0) for (int t = lo[i]; t <= hi[i]; t++) { int depth = 0; for (int k = 0; k < n; k++) if (lo[k] >= 0 && lo[k] <= t && hi[k] >= t) depth++; if (depth > packed) packed = depth; }
+    int predicted = r->region - 16 * (cand - packed);
+    fprintf(fp, ";   reuse '%s' results=%d candidates=%d pinned=%d (self=%d guard=%d unplaced=%d loop=%d dynamic=%d) elided=%d spine=%d/%d choicepoints=%d loops=%d packed_min=%d predicted_region_end=%d\n",
+            r->name ? r->name : "?", results, cand, pself + pguard + punpl + ploop + pdyn, pself, pguard, punpl, ploop, pdyn, elided, placed, boxes, ncp, nloop, packed, predicted);
+    free(pos); free(cp); free(lo); free(hi);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_dump(FILE * fp) {
                 fprintf(fp, "; FRAME LAYOUT (per-activation, typed)\n");
     fprintf(fp, "; kinds: DESCR = 16B t.p pair (GC traces payload) | RAW = int/cursor/counter (GC skips) | PTR_GC = heap pointer (GC traces+fixes) | PTR_CODE = continuation (GC skips, never relocates)\n");
@@ -803,7 +868,7 @@ void zls_dump(FILE * fp) {
                 fprintf(fp, ";     +%-5d %-3d %-8s %-36s %s%s\n", zf[f].off, zf[f].size, zk_name(zf[f].kind), zf[f].what ? zf[f].what : "", on, zf[f].audit ? "  (audit)" : "");
             }
         }
-        for (int v = r->first_vslot; v < r->first_vslot + r->n_vslots; v++) fprintf(fp, ";   vslot +%-5d 16  DESCR    %s\n", zv[v].off, zv[v].name ? zv[v].name : "?");
+        for (int v = r->first_vslot; v < r->first_vslot + r->n_vslots; v++) fprintf(fp, ";   vslot +%-5d 16  DESCR    %s\n", zv[v].off, zv[v].name ? zv[v].name : "?");        zls_reuse_dump(fp, r);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
