@@ -84,6 +84,7 @@ test_gate_frame_reuse_relation_names_every_recession_edge.sh	WIRED	-	-	-
 test_gate_frame_reuse_rung1_straight_temps_share_a_pool.sh	WIRED	-	-	-
 test_gate_frame_reuse_rung2_det_leaf_argv_share_one_pool.sh	WIRED	-	-	-
 test_gate_frame_reuse_rung3_staged_argv_are_never_addressed_so_never_granted.sh	WIRED	-	-	-
+test_gate_frame_reuse_rung3e_a_single_reader_temp_takes_its_sealed_calls_argv_slot.sh	WIRED	-	-	-
 test_gate_gate_wiring_ratchet.sh	WIRED	-	-	-
 test_gate_gc_aggregate_interiors_are_marked_not_only_slotted.sh	WIRED	-	-	-
 test_gate_gc_aggregates_are_collectable_not_immortal.sh	WIRED	-	-	-

@@ -27,7 +27,7 @@ static zls_graph_t  zg[FL_MAX_GRAPHS];   static int zg_n = 0;
 static zls_vslot_t  zv[FL_MAX_VSLOTS];   static int zv_n = 0;
 static zls_mark_t   zm[FL_MAX_MARKS];    static int zm_n = 0;
 static zls_entry_t * zx[FL_MAX_ENTRIES]; static int zx_n = 0;
-typedef struct zls_reuse_s { const IR_t * nd; int cls; int w; int last; int gpos; const IR_t * guard; int nread; int pooled; int llo; int lhi; } zls_reuse_t;
+typedef struct zls_reuse_s { const IR_t * nd; int cls; int w; int last; int gpos; const IR_t * guard; int nread; int pooled; int llo; int lhi; int direct; } zls_reuse_t;
 #define ZR_CANDIDATE 0
 #define ZR_SELF      1
 #define ZR_GUARD     2
@@ -39,6 +39,7 @@ typedef struct zls_reuse_s { const IR_t * nd; int cls; int w; int last; int gpos
 #define ZR_NONE      -1
 static void zls_reuse_plan(const IR_graph_t * g, zls_reuse_t * rec, int * ncp_out, int * nloop_out);
 static int zls_reuse_detleaf(const IR_t * c);
+static int zls_direct_slot(const IR_graph_t * g, const zls_reuse_t * rec, const char * rb, int nl, const int * mstart, int i, int dl_w);
 typedef struct { const IR_t * nd; int min_off; int span; int zq[8]; int nzq; } zls_ageom_t;
 static zls_ageom_t  za[1024];             static int za_n = 0;
 static struct { const IR_t * head; const IR_t * arbno; int i0; int ia; int b0; int b1; int r1; int fpl; int fpb; int fpr; int fpr_rsp; int span; int rspan; int opsb; int fin; int dfr; const IR_t * wsv[4]; const IR_t * wcd[4]; int nw; } fct[64];
@@ -467,21 +468,21 @@ void zls_build(IR_graph_t * g) {
       int scratch_off = -1;
       zls_reuse_t * rec = (zls_reuse_t *)malloc(sizeof(zls_reuse_t) * (size_t)g->n);
       zls_reuse_plan(g, rec, (int *)0, (int *)0);
-      int pool_free[64], pool_n = 0, pool_base = -1;
+      int pool_free[64], pool_n = 0, pool_base = -1, dl_base = -1, dl_w = 0;
+      for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && rb[i] && zls_reuse_detleaf(nd) && (nl == 0 || i < mstart[0]) && nd->n_operands > dl_w) dl_w = nd->n_operands; }
       { int * order = (int *)malloc(sizeof(int) * (size_t)g->n); int on = 0;
         for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (!nd || !rb[i]) continue; if (nl > 0 && i >= mstart[0]) continue;
             if (eon && lv[i] && rec[i].cls == ZR_CANDIDATE && nd->op != IR_LINE_MARK && !zls_fc_cell(nd) && !fc_vlit_active(nd) && fc_vread_fp(nd) < 0 && !fc_vbinop_active(nd) && !fc_vdj_active(nd)) order[on++] = i; }
         for (int a = 1; a < on; a++) { int v = order[a]; int b = a - 1; while (b >= 0 && rec[order[b]].w > rec[v].w) { order[b + 1] = order[b]; b--; } order[b + 1] = v; }
-        for (int a = 0; a < on; a++) { int i = order[a]; int p = -1; for (int q = 0; q < pool_n && p < 0; q++) if (pool_free[q] < rec[i].w) p = q;
+        for (int a = 0; a < on; a++) { int i = order[a]; int j = zls_direct_slot(g, rec, rb, nl, mstart, i, dl_w); if (j >= 0) { rec[i].direct = j; continue; }
+            int p = -1; for (int q = 0; q < pool_n && p < 0; q++) if (pool_free[q] < rec[i].w) p = q;
             if (p < 0 && pool_n < 64) { p = pool_n++; }
             if (p < 0) continue;
             pool_free[p] = rec[i].last; rec[i].pooled = p; }
         free(order);
         if (pool_n > 0) { pool_base = base + k * 16; for (int q = 0; q < pool_n; q++) zls_field(root, pool_base + q * 16, 16, ZK_DESCR, 0, "result (pooled: straight temps share it by interval colouring on the gamma spine)", (const IR_t *)0); k += pool_n; }
-        for (int i = 0; i < g->n; i++) if (rec[i].pooled >= 0) rec[i].pooled = pool_base + rec[i].pooled * 16; }
-      int dl_base = -1;
-      { int dl_w = 0; for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && rb[i] && zls_reuse_detleaf(nd) && (nl == 0 || i < mstart[0]) && nd->n_operands > dl_w) dl_w = nd->n_operands; }
-        if (dl_w > 0) { dl_base = base + k * 16; for (int q = 0; q < dl_w; q++) zls_field(root, dl_base + q * 16, 16, ZK_DESCR, 0, "call.argv (pooled: every sealed det leaf of this graph marshals here -- live only between one call's alpha and its gamma; the callee returns once and its beta falls to omega)", (const IR_t *)0); k += dl_w; } }
+        if (dl_w > 0) { dl_base = base + k * 16; for (int q = 0; q < dl_w; q++) zls_field(root, dl_base + q * 16, 16, ZK_DESCR, 0, "call.argv (pooled: every sealed det leaf of this graph marshals here -- live only between one call's alpha and its gamma; the callee returns once and its beta falls to omega; a straight temp read only by one sealed call's operand j is granted slot j directly and the marshal copies nothing)", (const IR_t *)0); k += dl_w; }
+        for (int i = 0; i < g->n; i++) { if (rec[i].direct >= 0) rec[i].pooled = dl_base + rec[i].direct * 16; else if (rec[i].pooled >= 0) rec[i].pooled = pool_base + rec[i].pooled * 16; } }
       for (int i = 0; i < g->n; i++) {
         IR_t * nd = g->all[i];
         if (!nd) continue;
@@ -835,6 +836,18 @@ static const char * zsc_name(int k) { return k == ZSC_FN ? "FN" : k == ZSC_GROUP
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_reuse_straight(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_REAL || op == IR_LIT_STRING || op == IR_VAR || op == IR_VAR_REF || op == IR_BINOP || op == IR_CMP_TEST || op == IR_LINE_MARK; }
 static int zls_reuse_detleaf(const IR_t * c) { return c && c->op == IR_CALL && c->seal == IR_SEAL_CALL_DET_LEAF; }
+static int zls_direct_slot(const IR_graph_t * g, const zls_reuse_t * rec, const char * rb, int nl, const int * mstart, int i, int dl_w) {
+    const IR_t * c = g->all[i];
+    if (dl_w <= 0 || rec[i].nread != 1 || rec[i].w < 0 || rec[i].last <= rec[i].w) return -1;
+    int rd = -1, j = -1;
+    for (int k = 0; k < g->n && rd < 0; k++) { const IR_t * d = g->all[k]; if (!d || !rb[k]) continue; for (int m = 0; m < d->n_operands; m++) if (d->operands[m] == c) { rd = k; j = m; break; } }
+    if (rd < 0 || !zls_reuse_detleaf(g->all[rd]) || (nl > 0 && rd >= mstart[0]) || rec[rd].w != rec[i].last || j >= dl_w) return -1;
+    int lo = 2 * rec[i].w + 1, hi = 2 * rec[i].last;
+    for (int k = 0; k < g->n; k++) { const IR_t * d = g->all[k]; if (!d || !rb[k] || k == i) continue;
+        if (k != rd && zls_reuse_detleaf(d) && d->n_operands > j && rec[k].w >= 0 && 2 * rec[k].w >= lo && 2 * rec[k].w <= hi) return -1;
+        if (rec[k].direct == j && 2 * rec[k].w + 1 <= hi && 2 * rec[k].last >= lo) return -1; }
+    return j;
+}
 static int zls_reuse_reader_ok(IR_e op) { return zls_reuse_straight(op) || op == IR_CALL || op == IR_CALL_PROC_STAGED; }
 static int zls_reuse_index(const IR_graph_t * g, const IR_t * nd) { for (int i = 0; i < g->n; i++) if (g->all[i] == nd) return i; return -1; }
 static int zls_reuse_dynamic(const IR_graph_t * g) {
@@ -857,7 +870,7 @@ static int zls_reuse_walk(const IR_graph_t * g, const IR_t * start, int * pos, i
 static void zls_reuse_plan(const IR_graph_t * g, zls_reuse_t * rec, int * ncp_out, int * nloop_out) {
     int n = g->n;
     int * pos = (int *)malloc(sizeof(int) * (size_t)n); int * cp = (int *)malloc(sizeof(int) * (size_t)n);
-    for (int i = 0; i < n; i++) { pos[i] = -1; cp[i] = 0; rec[i] = (zls_reuse_t){ g->all[i], ZR_NONE, -1, -1, -1, (const IR_t *)0, 0, -1, -1, -1 }; }
+    for (int i = 0; i < n; i++) { pos[i] = -1; cp[i] = 0; rec[i] = (zls_reuse_t){ g->all[i], ZR_NONE, -1, -1, -1, (const IR_t *)0, 0, -1, -1, -1, -1 }; }
     int step = 0, loop_lo = 0x7fffffff, loop_hi = -1, nloop = 0, opaque = 0;
     opaque |= zls_reuse_walk(g, g->entry, pos, &step, &loop_lo, &loop_hi, &nloop);
     if (g->n_alts > 1 && g->alt_entry) for (int k = 1; k < g->n_alts; k++) if (g->alt_entry[k]) opaque |= zls_reuse_walk(g, g->alt_entry[k], pos, &step, &loop_lo, &loop_hi, &nloop);
@@ -894,13 +907,14 @@ static void zls_reuse_dump(FILE * fp, const zls_graph_t * r) {
     int n = g->n;
     int * lo = (int *)malloc(sizeof(int) * (size_t)n); int * hi = (int *)malloc(sizeof(int) * (size_t)n);
     for (int i = 0; i < n; i++) { lo[i] = -1; hi[i] = -1; }
-    int results = 0, cand = 0, pdet = 0, pself = 0, pguard = 0, punpl = 0, ploop = 0, pdyn = 0, preader = 0, elided = 0, placed = 0, boxes = 0, pooled = 0, ncp = 0, nloop = 0, pool_slots = 0;
+    int results = 0, cand = 0, pdet = 0, pself = 0, pguard = 0, punpl = 0, ploop = 0, pdyn = 0, preader = 0, elided = 0, placed = 0, boxes = 0, pooled = 0, direct = 0, ncp = 0, nloop = 0, pool_slots = 0;
     { int seen[64]; int sn = 0;
       for (int i = 0; i < n; i++) {
         const IR_t * c = g->all[i]; if (!c || zls_is_wiring(c->op)) continue;
         const zls_reuse_t * q = zls_reuse_find(r, c); if (!q) continue;
         boxes++; if (q->w >= 0) placed++;
-        if (q->pooled >= 0) { int dup = 0; for (int t = 0; t < sn; t++) if (seen[t] == q->pooled) dup = 1; if (!dup && sn < 64) seen[sn++] = q->pooled; }
+        if (q->pooled >= 0 && q->direct < 0) { int dup = 0; for (int t = 0; t < sn; t++) if (seen[t] == q->pooled) dup = 1; if (!dup && sn < 64) seen[sn++] = q->pooled; }
+        if (q->direct >= 0) direct++;
       }
       pool_slots = sn; }
     for (int i = 0; i < n; i++) {
@@ -921,16 +935,17 @@ static void zls_reuse_dump(FILE * fp, const zls_graph_t * r) {
         case ZR_LOOP: ploop++; fprintf(fp, ";     reuse +%-5d %-18s w=%-4d r=%-4d PINNED loop: written before a gamma back-edge span [%d..%d] that re-reads it%s\n", e->off, on, q->w, q->last, q->llo, q->lhi, dls); continue;
         case ZR_READER: preader++; fprintf(fp, ";     reuse +%-5d %-18s w=%-4d r=%-4d PINNED reader: a reader's template is not verified to read operands on alpha only%s\n", e->off, on, q->w, q->last, dls); continue;
         default: break; }
-        cand++; if (q->pooled >= 0) pooled++; else { lo[i] = q->w; hi[i] = q->last; }
-        fprintf(fp, ";     reuse +%-5d %-18s w=%-4d r=%-4d CANDIDATE reads=%d%s%s%s\n", e->off, on, q->w, q->last, q->nread, e->live ? "" : " dead-result", q->pooled >= 0 ? " pooled" : " unpooled", dls);
+        cand++; if (q->pooled >= 0) { if (q->direct < 0) pooled++; } else { lo[i] = q->w; hi[i] = q->last; }
+        { char ds[64]; if (q->direct >= 0) snprintf(ds, sizeof ds, " direct: argv block slot %d, the marshal copies nothing", q->direct); else snprintf(ds, sizeof ds, "%s", q->pooled >= 0 ? " pooled" : " unpooled");
+          fprintf(fp, ";     reuse +%-5d %-18s w=%-4d r=%-4d CANDIDATE reads=%d%s%s%s\n", e->off, on, q->w, q->last, q->nread, e->live ? "" : " dead-result", ds, dls); }
     }
     int packed = 0;
     for (int i = 0; i < n; i++) if (lo[i] >= 0) for (int t = lo[i]; t <= hi[i]; t++) { int depth = 0; for (int k = 0; k < n; k++) if (lo[k] >= 0 && lo[k] <= t && hi[k] >= t) depth++; if (depth > packed) packed = depth; }
     { const zls_reuse_t * q0 = (r->n_reuse > 0) ? &r->reuse[0] : (const zls_reuse_t *)0; if (q0 && q0->lhi >= 0) nloop = 1; }
     for (int i = 0; i < r->n_reuse; i++) if (r->reuse[i].cls == ZR_SELF || r->reuse[i].cls == ZR_GUARD) ncp++;
-    int predicted = r->region - 16 * ((cand - pooled) - packed > 0 ? (cand - pooled) - packed : 0);
-    fprintf(fp, ";   reuse '%s' results=%d candidates=%d pooled=%d pool_slots=%d pinned=%d (self=%d guard=%d unplaced=%d loop=%d dynamic=%d reader=%d detleaf=%d) elided=%d spine=%d/%d betacapable=%d loops=%d packed_min=%d predicted_region_end=%d\n",
-            r->name ? r->name : "?", results, cand, pooled, pool_slots, pself + pguard + punpl + ploop + pdyn + preader, pself, pguard, punpl, ploop, pdyn, preader, pdet, elided, placed, boxes, ncp, nloop, packed, predicted);
+    int predicted = r->region - 16 * ((cand - pooled - direct) - packed > 0 ? (cand - pooled - direct) - packed : 0);
+    fprintf(fp, ";   reuse '%s' results=%d candidates=%d pooled=%d direct=%d pool_slots=%d pinned=%d (self=%d guard=%d unplaced=%d loop=%d dynamic=%d reader=%d detleaf=%d) elided=%d spine=%d/%d betacapable=%d loops=%d packed_min=%d predicted_region_end=%d\n",
+            r->name ? r->name : "?", results, cand, pooled, direct, pool_slots, pself + pguard + punpl + ploop + pdyn + preader, pself, pguard, punpl, ploop, pdyn, preader, pdet, elided, placed, boxes, ncp, nloop, packed, predicted);
     free(lo); free(hi);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

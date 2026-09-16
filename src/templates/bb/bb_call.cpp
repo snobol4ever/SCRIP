@@ -230,6 +230,7 @@ static std::string marshal_arith_rax(IR_graph_t * sg, IR_t * nd) {
 std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner, int idx) {
     if (owner && owner == _.node && idx >= 0 && idx < _.op_arg_slot_n && _.op_arg_slot[idx] >= 0) {
         int ps = _.op_arg_slot[idx];
+        if (ps == aoff) return x86("comment", std::string("marshal arg") + std::to_string(idx) + " = direct: the producer was granted the argv slot [zr+" + std::to_string(aoff) + "], nothing to copy");
         std::string s = x86("comment", std::string("marshal arg") + std::to_string(idx)
                           + " = producer-box slot [zr+" + std::to_string(ps) + "] -> [zr+" + std::to_string(aoff) + "]");
         s += x86("mov", "rax", FRQ(ps));
@@ -296,6 +297,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         int ps = is_local_var ? -1 : bb_slot_get(lf);
         if (ps < 0 && !is_local_var) ps = zoff(lf);
         if (ps >= 0) {
+            if (ps == aoff) return x86("comment", std::string("marshal arg") + std::to_string(idx) + " = direct: the nested producer was granted the argv slot [zr+" + std::to_string(aoff) + "], nothing to copy");
             std::string s = x86("comment", std::string("marshal arg") + std::to_string(idx)
                               + " = nested producer-box slot [zr+" + std::to_string(ps) + "] -> [zr+" + std::to_string(aoff) + "]");
             s += x86("mov", "rax", FRQ(ps));
