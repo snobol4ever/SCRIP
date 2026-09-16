@@ -10,6 +10,7 @@ extern const char *kw_cset_intern(const char *canon, int len);
 extern int kw_cset_len(const char *ptr);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void cset_bits_of(const char *s, int len, unsigned char w[32]) {
+    if (s && len <= 8) { memset(w, 0, 32); for (int i = 0; i < len; i++) { unsigned c = (unsigned char)s[i]; w[c >> 3] |= (unsigned char)(1u << (c & 7)); } return; }
     const unsigned char *kb = s ? kw_cset_bits(s) : (const unsigned char *)0;
     if (kb && kw_cset_len(s) == len) { memcpy(w, kb, 32); return; }
     memset(w, 0, 32);
@@ -17,7 +18,8 @@ static void cset_bits_of(const char *s, int len, unsigned char w[32]) {
 }
 static const char *cset_from_bits(const unsigned char w[32], int *outlen) {
     char buf[257]; int n = 0;
-    for (int by = 0; by < 32; by++) { unsigned char m = w[by]; if (!m) continue; for (int bit = 0; bit < 8; bit++) if (m & (unsigned char)(1u << bit)) buf[n++] = (char)(by * 8 + bit); }
+    for (int base = 0; base < 32; base += 8) { unsigned long long chunk; memcpy(&chunk, w + base, 8); if (!chunk) continue;
+        for (int by = base; by < base + 8; by++) { unsigned m = w[by]; while (m) { int bit = __builtin_ctz(m); buf[n++] = (char)(by * 8 + bit); m &= m - 1; } } }
     buf[n] = '\0';
     if (outlen) *outlen = n;
     return kw_cset_intern(buf, n);
