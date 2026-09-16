@@ -51,6 +51,7 @@ if [ -z "$board" ]; then
   # the shared leaderboard. An instrument that refused must say so, not print the pass/fail shape.
   echo "AISNOBOL_BOARD REFUSED -- harness printed no SUITE_BOARD line, see REFUSING output above"
   python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite aisnobol --modes m3,m4 \
+    ${S4E_CRITERION_CHANGED:+--criterion-changed "$S4E_CRITERION_CHANGED"} \
       --measurer "${S4E_SEAT:-}" \
       --text "aisnobol: REFUSED -- corpus_suite_harness.py produced no measurement this run, see \`test_snobol4_aisnobol_suite.sh\` REFUSING output (\`test_snobol4_aisnobol_suite.sh\`)" \
       || echo "WARNING SCORE.md NOT UPDATED -- record this row by hand (the REFUSING line above says why)"
@@ -132,6 +133,7 @@ if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (
 # must never turn a real measurement into a red gate for a reason unrelated to the code.
 bothp="$(printf '%s\n' "$board" | grep -oE 'all_pass=[0-9]+' | head -1 | cut -d= -f2)"; bothp="${bothp:-$m3p}"
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column vendor --suite aisnobol --modes m3,m4 \
+    ${S4E_CRITERION_CHANGED:+--criterion-changed "$S4E_CRITERION_CHANGED"} \
     --suite-pass "$bothp" --suite-total "$scored" \
     --measurer "${S4E_SEAT:-}" --text "aisnobol $m3p/$scored m3 . $m4p/$scored m4 SCORED (of $shipped shipped, $excl excluded and named) . m3 FAIL=$m3f CRASH=$m3c HANG=$m3h . m4 FAIL=$m4f CRASH=$m4c HANG=$m4h${INV_LINE:+ . $INV_LINE} (\`test_snobol4_aisnobol_suite.sh\`)" \
     || echo "WARNING SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
