@@ -839,6 +839,33 @@ def mode_file():
     return os.path.join(root, "MODE")
 
 
+def lane_writer_seat(lang):
+    """The seat MODE's `LANES:` line names for this board's LANGUAGE, plus the provenance -- the same line
+    lib_one_runner.sh:one_runner_who reads (CEO-775, NO CENTRAL RUNNER: one runner per language; rebus=cfo today).
+    Returns (seat, why); seat is None with a reason when the line is absent or does not name this language.
+    (coo 2026-09-16, ceo CEO-786; row instruments-every-board-write-prints-one-runner-not-determined-under-no-central-
+    runner-read-the-lanes-line: this file used to look only for THE ONE RUNNER on line 2, find none under CEO-775,
+    print 'the older not-determined notice ... this row is yours to discard' to the very seat that OWNS the row, and write.)"""
+    p = mode_file()
+    try:
+        with open(p) as fh:
+            lines = fh.read().split("\n")
+    except Exception as e:
+        return None, "could not read %s (%s)" % (p, e.__class__.__name__)
+    lanes = next((l[len("LANES:"):] for l in lines if l.startswith("LANES:")), None)
+    if lanes is None:
+        return None, "%s carries no LANES: line" % p
+    table = {}
+    for tok in lanes.split():
+        if "=" in tok:
+            k, v = tok.split("=", 1)
+            table[k.strip().lower()] = v.strip()
+    seat = table.get((lang or "").strip().lower())
+    if not seat:
+        return None, "the LANES: line of %s names no seat for language %r (it names: %s)" % (p, lang, ", ".join(sorted(table)) or "nothing")
+    return seat, "LANES: line of %s (%s=%s)" % (p, lang, seat)
+
+
 def board_writer_seat():
     """The seat MODE line 2 names as THE ONE RUNNER, plus the provenance of that answer.
 
@@ -889,7 +916,7 @@ def score_md_is_the_shared_board():
         return False
 
 
-def one_runner_declines(measurer, what):
+def one_runner_declines(measurer, what, lang=None):
     """The announcement to print INSTEAD of writing `what`, or None to go ahead and write it.
 
     Exemptions are lib_one_runner.sh's own, word for word, because two guards over one rule that disagree about their
@@ -900,19 +927,25 @@ def one_runner_declines(measurer, what):
         return None
     if os.environ.get("S4E_DONE_WHEN_RUN", "") == "1":
         return None
-    writer, why = board_writer_seat()
+    # ⛔⭐ THE LANE OWNER FIRST (CEO-775/786): the seat MODE's LANES: line names for this board's language is the writer;
+    # a mode that cuts ONE runner for every board (THE ONE RUNNER on line 2) is read only when no LANES: line answers.
+    writer, why = lane_writer_seat(lang) if lang else (None, "no language given for this write")
     if writer is None:
-        print("⚠ ONE RUNNER NOT DETERMINED: %s -- writing %s as the FACT RULE requires (any suite run updates the "
-              "leaderboard). If you are not the one runner, this row is yours to discard." % (why, what))
+        writer, why2 = board_writer_seat()
+        why = "%s; %s" % (why, why2)
+    if writer is None:
+        print("⚠ LANE OWNER NOT DETERMINED: %s -- writing %s as the 2026-09-03 FACT RULE requires (any suite run "
+              "updates the leaderboard); the seat that measured it stays the writer of record." % (why, what))
         return None
     if (measurer or "").strip() == writer:
+        print("  lane owner: %s writes %s rows (%s)" % (writer, lang or "these", why))
         return None
     ov = os.environ.get("S4E_ONE_RUNNER_OVERRIDE", "").strip()
     if ov:
         print("⚠ ONE-RUNNER OVERRIDE by %s on the leaderboard (%s is the one runner, %s): %s" % (measurer, writer, why, ov))
         return None
-    return ("⚠ SCORE.md NOT UPDATED — seat %s is not %s, THE ONE RUNNER (%s), and under ONE RUNNER, ONE BOARD only the "
-            "one runner writes leaderboard rows. NOTHING WAS WRITTEN and the file is untouched, deliberately: a row "
+    return ("⚠ SCORE.md NOT UPDATED — seat %s is not %s, the lane owner for this board (%s), and under ONE RUNNER PER LANGUAGE, "
+            "ONE BOARD only that seat writes its rows. NOTHING WAS WRITTEN and the file is untouched, deliberately: a row "
             "left in your working tree is swept in by the next stage-everything.\n"
             "  The measurement below stands as your own board line -- %s -- and lands when the one runner's next "
             "pass measures it. Doors, both loud and recorded: the bus's computed `done` run of a DONE-WHEN is exempt, "
@@ -1189,9 +1222,12 @@ def cmd_write(a):
     # comparison that is the whole reason to run one: it is to preview BOTH halves, the cell AND the
     # verdict on whether it lands. Same principle as the --dry-run fix at the display/grid split below:
     # a preview that covers one of a command's two outcomes is a preview of a different command.
-    _decl = one_runner_declines(a.measurer, "%s / %s = %s" % (a.lang, a.column, a.text.strip()))
+    _decl = one_runner_declines(a.measurer, "%s / %s = %s" % (a.lang, a.column, a.text.strip()), a.lang)
     if _decl:
         if not getattr(a, "dry_run", False):
+            # NAMED, byte-unchanged, and NON-FATAL (rc=0): test_gate_score_row_only_the_one_runner_writes.sh arm 1 holds the
+            # standing ruling that a bookkeeping refusal must never red a MEASURED board; CEO-786's baton wording (rc=2)
+            # is reported to the ceo as a conflict with that ruling, not resolved here by one seat (coo 2026-09-16).
             print(_decl)
             return 0
         # ⛔ THE DRY-RUN VERDICT IS ITS OWN SENTENCE, NOT A REPLAY OF THE REAL-RUN REFUSAL, and the
@@ -1203,12 +1239,12 @@ def cmd_write(a):
         # draft. ⭐ The arm was right and its own title said so ("--dry-run is PREVIEWED, never
         # refused"); the first cure here would have satisfied the cfo's complaint by breaking hq_B's
         # guard, and the cure that satisfies both is to say the true thing in the right tense.
-        print("⚠ PREVIEW ONLY, AND THE REAL WRITE WOULD DECLINE: seat %s is not %s, THE ONE RUNNER, so "
+        print("⚠ PREVIEW ONLY, AND THE REAL WRITE WOULD DECLINE: seat %s is not %s, the lane owner for this board, so "
               "re-running this WITHOUT --dry-run would write nothing either. The cell below is what the "
               "row WOULD say when the one runner next measures it -- read it as your own board line, not "
               "as a row that is about to land. (Doors: the bus's computed `done` run of a DONE-WHEN is "
               "exempt, and S4E_ONE_RUNNER_OVERRIDE=\"why\" writes the row and prints the reason.)"
-              % (a.measurer or "?", board_writer_seat()[0] or "?"))
+              % (a.measurer or "?", (lane_writer_seat(a.lang)[0] or board_writer_seat()[0] or "?")))
         print("--- preview follows (nothing is written under --dry-run) ---")
     if a.column in GRID_DIRECT:
         return write_grid_direct(a)
