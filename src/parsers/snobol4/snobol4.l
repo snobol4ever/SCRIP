@@ -8,6 +8,8 @@
 #include <string.h>
 #include <stdarg.h>
 #include <ctype.h>
+#include <errno.h>
+#include <math.h>
 void sno_error(int, const char *, ...);
 char *inc_dirs[64];
 int   n_inc = 0;
@@ -459,7 +461,9 @@ Token flex_lex_next(Lex *lx) {
             return t;
         case T_REAL:
             t.sval = intern(strbuf);
-            t.dval = atof(strbuf);
+            { char *_ne = (char *)0; errno = 0; double _rv = strtod(strbuf, &_ne);
+              if (!isfinite(_rv)) { sno_error(lineno, "syntax error: invalid numeric item"); _rv = 0.0; }
+              t.dval = _rv; }
             return t;
         default:
             return t;
