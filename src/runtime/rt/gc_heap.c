@@ -10,7 +10,8 @@
 #include "rt_arena.h"
 #include "gc_heap.h"
 #define GC_HEAP_MB 512
-static inline int hb_no_move(uint16_t t) { return t == HB_WS || t == HB_WSS || t == HB_DINST || t == HB_ARR; }
+static int gc_unpin_wss_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_GC_UNPIN_WSS"); v = (e && *e && *e != (char)48) ? 1 : 0; } return v; }
+static inline int hb_no_move(uint16_t t) { return t == HB_WS || (t == HB_WSS && !gc_unpin_wss_on()) || t == HB_DINST || t == HB_ARR; }
 static inline int hb_scan_interior(uint16_t t) { return t == HB_WS || t == HB_WSS || t == HB_DINST || t == HB_ARR; }
 static inline int hb_root_blanket(uint16_t t) { return t == HB_WS || t == HB_WSS || t == HB_DINST || t == HB_ARR; }
 #include "descr.h"
