@@ -1088,6 +1088,26 @@ def suite_sync_decide(a):
         die("this write moves a %s cell and resolved suite row %r, but %s.\n"
             "        Row %s.\n"
             "        NOTHING WAS WRITTEN: SCORE.md and SUITES.tsv are both untouched." % (a.column.upper(), key, why, SUITE_SYNC_ROW))
+    # ⛔ A CRITERION CHANGE IS STAMPED BY THE WRITER, NEVER BY A HAND (coo 2026-09-16, CEO-785; row instruments-util-score-row-
+    # cannot-stamp-a-criterion-change-so-every-denominator-move-is-hand-edited-or-unstamped). Two shapes owe the stamp and
+    # REFUSE rc=2 here, BEFORE anything is written: a write whose total differs from the row's previous today_total (the
+    # denominator moved -- CEO-749's shape says the row names why), and a --text that names an INSTRUMENT CHANGE (the
+    # criterion moved even when the total did not: hq_pascal's PAT m4 rejection arm, SCRIP fe37edc72, 284 -> 296 at 427).
+    stamp = getattr(a, "criterion_changed", None) or ""
+    if stamp and not re.match(r"^\d{4}-\d{2}-\d{2}:\S", stamp):
+        die("--criterion-changed takes '<YYYY-MM-DD>:<reason in words>' (the day the criterion moved, a colon, then why); got %r.\n"
+            "        NOTHING WAS WRITTEN: SCORE.md and SUITES.tsv are both untouched." % stamp)
+    rows, _err = suites_rows()
+    prev = next((r.get("today_total", "") for r in rows if r.get("key") == key), "").strip()
+    if prev and str(t) != prev and not stamp:
+        die("this write moves suite row %r's DENOMINATOR %s -> %s and no --criterion-changed '<YYYY-MM-DD>:<reason>' names why.\n"
+            "        A denominator move without its stamp is the dishonest-denominator class (CEO-546, CEO-749): pass the stamp\n"
+            "        (it is APPENDED to SUITES.tsv column 12, never a hand edit), or keep the total.\n"
+            "        NOTHING WAS WRITTEN: SCORE.md and SUITES.tsv are both untouched." % (key, prev, t))
+    if "INSTRUMENT CHANGE" in (a.text or "").upper() and not stamp:
+        die("this --text names an INSTRUMENT CHANGE for suite row %r and no --criterion-changed '<YYYY-MM-DD>:<reason>' stamps it.\n"
+            "        The criterion moved even if the total did not; the row names why, by the writer, in column 12.\n"
+            "        NOTHING WAS WRITTEN: SCORE.md and SUITES.tsv are both untouched." % key)
     return key, p, t, None
 
 
@@ -1102,8 +1122,10 @@ def suite_sync(a, tree, dry_run, decided=None):
         die("suite row %r is owed but %s is missing.\n        Row %s." % (key, SUITE_BANNER, SUITE_SYNC_ROW))
     day = datetime.datetime.now().strftime("%Y-%m-%d")
     env = dict(os.environ); env["S4E_SUITES_TSV"] = SUITES_TSV
-    r = subprocess.run([sys.executable, SUITE_BANNER, "--set", key, str(p), str(t), day, tree],
-                       capture_output=True, text=True, env=env)
+    cmd = [sys.executable, SUITE_BANNER, "--set", key, str(p), str(t), day, tree]
+    if getattr(a, "criterion_changed", None):
+        cmd += ["--criterion-changed", a.criterion_changed]
+    r = subprocess.run(cmd, capture_output=True, text=True, env=env)
     if r.returncode != 0:
         die("util_suite_banner.py --set %s %s %s failed rc=%d: %s\n        Row %s.\n"
             "        ⛔ PARTIAL: SCORE.md WAS rewritten and SUITES.tsv was NOT -- this is the one case where the board\n"
@@ -1799,6 +1821,17 @@ def cmd_selftest(a):
         SUITES_TSV = os.path.join(d, "SUITES.tsv")
         if os.path.exists(real_tsv):
             shutil.copy(real_tsv, SUITES_TSV)
+            # ⛔ SEED THE FIXTURE DENOMINATOR THROUGH THE STAMPED PATH (coo 2026-09-16, CEO-785): every arm below writes the
+            # rebus board row at N/48 while the live row reads 43/43, and since today a write that MOVES a row's total
+            # without --criterion-changed REFUSES rc=2 before touching a byte -- the property the two CEO-785 arms at the
+            # end of this selftest prove. Seeding 48 here, stamped, keeps every older arm what it always was: a write at
+            # the fixture's own denominator, never a denominator move.
+            _seed_env = dict(os.environ); _seed_env["S4E_SUITES_TSV"] = SUITES_TSV; _seed_env["S4E_SCORE_MD"] = SCORE_MD
+            _seed = subprocess.run([sys.executable, SUITE_BANNER, "--set", "reb-master", "0", "48", "2026-09-16", "selftest",
+                                    "--criterion-changed", "2026-09-16:selftest seed -- the fixture denominator is 48, not the row's"],
+                                   capture_output=True, text=True, env=_seed_env)
+            if _seed.returncode != 0:
+                print("SELFTEST FAIL: the fixture seed (reb-master -> 0/48, stamped) refused rc=%d: %s" % (_seed.returncode, (_seed.stderr or _seed.stdout).strip()[:200])); ok = False
         # ⛔ SEED A KNOWN CELL BEFORE PROVING REWRITE-IN-PLACE, rather than inherit whatever prose the LIVE
         # rebus/board cell happens to carry that day. This selftest's own claim ("rewrite-in-place holds")
         # has never depended on the starting content -- only on two known writes landing as one cell -- but
@@ -2212,6 +2245,7 @@ def cmd_selftest(a):
                 a4 = A(); a4.modes = ""; a4.dry_run = False; a4.suite = ""
                 a4.lang = "rebus"; a4.column = "board"; a4.text = "1/1"
                 a4.measurer = "unknown-seat" if "placeholder" in label else ""
+                a4.criterion_changed = "2026-09-16:selftest fixture 1/1 -- the measurer-derivation arm moves the fixture denominator (CEO-785)"
                 try:
                     cmd_write(a4)
                     if a4.measurer == want:
@@ -2223,6 +2257,7 @@ def cmd_selftest(a):
             S4E = "/tmp/not-a-seat-root"
             a5 = A(); a5.modes = ""; a5.dry_run = False; a5.suite = ""
             a5.lang = "rebus"; a5.column = "board"; a5.text = "1/1"; a5.measurer = "unknown-seat"
+            a5.criterion_changed = "2026-09-16:selftest fixture 1/1 (CEO-785)"
             try:
                 cmd_write(a5)
                 print("SELFTEST FAIL: placeholder measurer on an UNKNOWN root did not refuse"); ok = False
@@ -2234,6 +2269,13 @@ def cmd_selftest(a):
         finally:
             S4E = _real_s4e
             if _saved_seat is not None: os.environ["S4E_SEAT"] = _saved_seat
+        # the measurer arms left the fixture row at 1/1; put it back to the fixture denominator, stamped (CEO-785), so
+        # every arm below is a write at 48 and never a denominator move
+        _rs = subprocess.run([sys.executable, SUITE_BANNER, "--set", "reb-master", "0", "48", "2026-09-16", "selftest",
+                              "--criterion-changed", "2026-09-16:selftest re-seed after the measurer arms -- back to the fixture denominator 48"],
+                             capture_output=True, text=True, env=dict(os.environ, S4E_SUITES_TSV=SUITES_TSV, S4E_SCORE_MD=SCORE_MD))
+        if _rs.returncode != 0:
+            print("SELFTEST FAIL: the fixture re-seed (reb-master -> 0/48, stamped) refused rc=%d: %s" % (_rs.returncode, (_rs.stderr or _rs.stdout).strip()[:200])); ok = False
         # ⛔⭐ A FRACTION LABELLED BY A TRAILING FAILURE WORD IS NOT A PASS FRACTION -- and the two arms that
         # matter pull in OPPOSITE directions, which is why both are pinned. Under-drop and `924/986
         # PARSE-FAIL` convicts raku of a conflict with the grid's correct `4/986`; over-drop and icon's real
@@ -2503,6 +2545,29 @@ def cmd_selftest(a):
         except SystemExit as e:
             print("SELFTEST FAIL: a ragged row belonging to ANOTHER language blocked an unrelated write "
                   "(rc=%r) -- that turns one seat's damage into a fleet-wide stop" % (e.code,)); ok = False
+        # ⛔⭐ CEO-785 -- A CRITERION CHANGE IS STAMPED BY THE WRITER, AND A DENOMINATOR MOVE WITHOUT ITS STAMP REFUSES BEFORE
+        # ANY WRITE (coo 2026-09-16; row instruments-util-score-row-cannot-stamp-a-criterion-change-so-every-denominator-move-
+        # is-hand-edited-or-unstamped). Last in the selftest because it leaves the fixture row at 49.
+        _b_md = open(SCORE_MD, "rb").read(); _b_tsv = open(SUITES_TSV, "rb").read()
+        if not _arm("a write that moves the denominator (48 -> 49) without --criterion-changed REFUSES (CEO-785)",
+                    lambda: cmd_write(_A(text="m3 7/49 · m4 7/49")), True): ok = False
+        if open(SCORE_MD, "rb").read() == _b_md and open(SUITES_TSV, "rb").read() == _b_tsv:
+            print("SELFTEST: ...and the refusal left SCORE.md and SUITES.tsv byte-identical")
+        else:
+            print("SELFTEST FAIL: the stampless denominator refusal wrote something -- a refusal must leave both files byte-identical"); ok = False
+        if not _arm("a --text naming an INSTRUMENT CHANGE without --criterion-changed REFUSES (CEO-785)",
+                    lambda: cmd_write(_A(text="m3 7/48 · m4 7/48 INSTRUMENT CHANGE fixture")), True): ok = False
+        if not _arm("a malformed --criterion-changed (no YYYY-MM-DD: prefix) REFUSES",
+                    lambda: cmd_write(_A(text="m3 7/49 · m4 7/49", criterion_changed="because")), True): ok = False
+        _stamp = "2026-09-16:selftest -- the fixture denominator moves 48 -> 49"
+        if not _arm("the same denominator move WITH --criterion-changed lands",
+                    lambda: cmd_write(_A(text="m3 7/49 · m4 7/49", criterion_changed=_stamp)), False): ok = False
+        _r = _tsv_row("reb-master")
+        _cc = (_r or {}).get("criterion_changed", "")
+        if _r and _r["today_total"] == "49" and _cc.endswith(_stamp) and " | " + _stamp in _cc:
+            print("SELFTEST: the stamped move set reb-master to 49 and APPENDED the stamp to column 12 with ' | ' (the seed's stamp kept before it)")
+        else:
+            print("SELFTEST FAIL: stamped move -- total %r, criterion_changed %r" % ((_r or {}).get("today_total"), _cc)); ok = False
     finally:
         SCORE_MD = real
         SUITES_TSV = real_tsv
@@ -3788,6 +3853,9 @@ def main():
     w.add_argument("--suite-key", default="", help="name the .github/SUITES.tsv row explicitly when --lang/--suite cannot resolve it")
     w.add_argument("--suite-pass", type=int, default=None, help="pass count for the suite row (with --suite-total); required when --text carries no single N/M")
     w.add_argument("--suite-total", type=int, default=None, help="total for the suite row (with --suite-pass)")
+    w.add_argument("--criterion-changed", default="", metavar="'YYYY-MM-DD:reason'",
+                   help="STAMP a criterion change into SUITES.tsv column 12 (appended with ' | '); REQUIRED when this write moves the row's "
+                        "denominator or --text names an INSTRUMENT CHANGE, else the write REFUSES rc=2 before touching either file (CEO-785)")
     w.add_argument("--no-suite-sync", action="store_true", help="labelled escape: this V/M write genuinely has no SUITES.tsv row. The banner will read the row STALE")
     w.add_argument("--dry-run", action="store_true")
     w.set_defaults(fn=cmd_write)

@@ -324,6 +324,7 @@ test_gate_sc_port_trace.sh	WIRED	-	-	-
 test_gate_score_column_semantics.sh	WIRED	-	-	-
 test_gate_score_inventory_clauses_never_vanish.sh	WIRED	-	-	-
 test_gate_score_md_parses_and_github_is_marker_free.sh	WIRED	-	-	-
+test_gate_score_row_criterion_change_is_stamped.sh	WIRED	-	-	-
 test_gate_score_row_denominator_includes_xfails.sh	WIRED	-	-	-
 test_gate_score_row_only_the_one_runner_writes.sh	WIRED	-	-	-
 test_gate_score_row_rewrites_in_place.sh	WIRED	-	-	-

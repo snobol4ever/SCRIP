@@ -341,7 +341,8 @@ mkdir -p "$S10/.github/scripts"; cp "$GH/SCORE.md" "$S10/.github/SCORE.md"
 [ -f "$GH/scripts/util_suite_banner.py" ] && cp "$GH/scripts/util_suite_banner.py" "$S10/.github/scripts/util_suite_banner.py"
 d10_before="$(md5sum < "$S10/.github/SCORE.md")"
 d10out="$(S4E_HOME="$S10" python3 "$HELPER" write --lang icon --column vendor --suite Arizona \
-    --text 'Arizona: m3 46/124 · m4 46/124 (`test_icon_arizona_suite.sh`)' --measurer hq_T --dry-run 2>&1)"; d10rc=$?
+    --text 'Arizona: m3 46/124 · m4 46/124 (`test_icon_arizona_suite.sh`)' --measurer hq_T --dry-run \
+    --criterion-changed '2026-09-16:fixture -- this preview arm moves the Arizona denominator, so it carries the stamp CEO-785 requires' 2>&1)"; d10rc=$?
 d10_after="$(md5sum < "$S10/.github/SCORE.md")"
 if [ "$d10rc" -ne 0 ]; then
     echo "GATE FAIL: write --dry-run exited $d10rc over a scratch board (want 0)"
