@@ -70,6 +70,7 @@ test_gate_dispatch_refuses_placeholder_donewhen.sh	WIRED	-	-	-
 test_gate_done_manifest_handoff.sh	WIRED	-	-	-
 test_gate_done_runs_the_master_arm_for_codegen_rows.sh	WIRED	-	-	-
 test_gate_driver_extension_table_lives_once.sh	WIRED	-	-	-
+test_gate_dump_zeta_is_the_emitted_frame.sh	WIRED	-	-	-
 test_gate_emit_fields_read_by_a_template_have_a_writer.sh	WIRED	-	-	-
 test_gate_emit_guard_sink_names_its_guard.sh	WIRED	-	-	-
 test_gate_emit_no_ir_mutation.sh	WIRED	-	-	-
@@ -77,7 +78,6 @@ test_gate_emit_no_lang.sh	WIRED	-	-	-
 test_gate_emit_no_slot_alloc.sh	WIRED	-	-	-
 test_gate_errlimit_survival_is_measured_per_code.sh	WIRED	-	-	-
 test_gate_frame_field_census_names_what_no_template_addresses.sh	WIRED	-	-	-
-test_gate_dump_zeta_is_the_emitted_frame.sh	WIRED	-	-	-
 test_gate_frame_layout_retires_a_dead_graphs_record.sh	WIRED	-	-	-
 test_gate_frame_det_leaf_seal_matches_the_emitter_registry.sh	WIRED	-	-	-
 test_gate_frame_reuse_relation_names_every_recession_edge.sh	WIRED	-	-	-
@@ -391,6 +391,7 @@ test_gate_snobol4_xfail_markers_are_attributed.sh	WIRED	-	-	-
 test_gate_snocone_returns_codegen.sh	WIRED	-	-	-
 test_gate_spitbol_x64_case_conversion_is_oracle_equivalent.sh	WIRED	-	-	-
 test_gate_suite_argv_sidecar.sh	WIRED	-	-	-
+test_gate_suite_board_line_prints_shipped_with_outside_named.sh	WIRED	-	-	-
 test_gate_suite_set_does_not_move_another_suites_row.sh	WIRED	-	-	-
 test_gate_table_convert_creation_order.sh	WIRED	-	-	-
 test_gate_template_medium_invisible.sh	WIRED	-	-	-

@@ -718,12 +718,19 @@ _sn4_killed=""
 # was the master's own $m_all/$mt. So the human reading the cell and the grid reading the declared pair took two
 # different numbers out of one row: the two-readers-of-one-cell shape, in the row that ruling was written about.
 # The wider figure is not dropped -- it is moved to the end and labelled as not being this row.
-_sn4_board="master both-modes $m_all/$mt · m3 $m3p/$mt FAIL=$((m3f+m3c)) xfail=$m3x ($m3xs) xpass=$m3xp · m4 $m4p/$mt FAIL=$((m4f+m4c)) SKIP=$m4s xfail=$m4x ($m4xs) xpass=$m4xp · ast $astp/$astt FAIL=$ASTFAIL xfail=$astx xpass=$astxp MISSING=0$_sn4_killed · runner-wide (master + loop programs, NOT this row) both-modes $BOTH/$TOTAL (\`test_corpus_snobol4.sh\`)"
+# ⛔⭐ THE ROW IS PASS OVER THE SHIPPED POPULATION WITH OUTSIDE NAMED (CEO-749; Lon 2026-09-16: OUTSIDE is debt; coo, row
+# snobol4-master-runner-publishes-over-the-graded-population-1972-not-the-shipped-1980-with-outside-named). The harness prints
+# shipped= and outside= beside total= (graded); this runner quotes all_pass/shipped and REFUSES rather than publish the graded
+# population as the row's denominator -- 1961/1972 was seven outside passes leaving the numerator and eight entries leaving
+# the denominator, read once as engine movement (COO-82). A denominator move needs its stamp: S4E_CRITERION_CHANGED is forwarded.
+_sn4_shipped=$(field shipped); _sn4_outside=$(field outside)
+[ -n "$_sn4_shipped" ] && [ -n "$_sn4_outside" ] || { echo "⛔ GATE REFUSES: the master SUITE_BOARD carries no shipped=/outside= fields -- the row would publish the graded population and drop OUTSIDE silently (CEO-749); the harness beside this runner must print them." >&2; exit 2; }
+_sn4_board="master both-modes $m_all/$_sn4_shipped OUTSIDE=$_sn4_outside (graded $mt) · m3 $m3p/$mt FAIL=$((m3f+m3c)) xfail=$m3x ($m3xs) xpass=$m3xp · m4 $m4p/$mt FAIL=$((m4f+m4c)) SKIP=$m4s xfail=$m4x ($m4xs) xpass=$m4xp · ast $astp/$astt FAIL=$ASTFAIL xfail=$astx xpass=$astxp MISSING=0$_sn4_killed · runner-wide (master + loop programs, NOT this row) both-modes $BOTH/$TOTAL (\`test_corpus_snobol4.sh\`)"
 # ⛔⭐ THE CELL IS NAMED sno-master AND MUST RECEIVE THE MASTER'S OWN PAIR ($m_all/$mt), NOT THE RUNNER'S WIDER ONE.
 # $BOTH/$TOTAL spans the master PLUS the loop programs, so publishing it put a master+loop number in a master cell --
 # the second half of why this row kept re-flipping. The combined figure stays on the terminal, labelled, and the
 # published pair is printed beside it so the board everyone quotes and the terminal cannot silently disagree.
-echo "sno-master ROW PUBLISHED: $m_all/$mt  (master only; m3 xfail=$m3x xpass=$m3xp · m4 xfail=$m4x xpass=$m4xp — xfails counted in the denominator, not the numerator; a nonzero XPASS is a stale marker and is as actionable as a failure, in the opposite direction)"
+echo "sno-master ROW PUBLISHED: $m_all/$_sn4_shipped OUTSIDE=$_sn4_outside (graded $mt)  (master only; m3 xfail=$m3x xpass=$m3xp · m4 xfail=$m4x xpass=$m4xp — xfails counted in the denominator, not the numerator; a nonzero XPASS is a stale marker and is as actionable as a failure, in the opposite direction)"
 echo "runner-wide population (master + loop, NOT the published row): $BOTH/$TOTAL"
 echo "ONE LEADERBOARD: recording this board into .github/SCORE.md (test_corpus_snobol4.sh; skipped with a notice if the tree is dirty)"
 # ⛔⭐ THE SUITE ROW'S PAIR IS DECLARED, NEVER PARSED OUT OF THE LINE ABOVE (hq_T 2026-09-06, ceo CEO-363).
@@ -738,8 +745,9 @@ echo "ONE LEADERBOARD: recording this board into .github/SCORE.md (test_corpus_s
 # worse; the row started counting what it always claimed to count. The cell keeps the per-mode counts beside
 # the number so nobody loses the split, which is the other half of the same ruling.
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column board --modes m3,m4 \
-    --measurer "${S4E_SEAT:-}" --text "$_sn4_board" --suite-pass "$m_all" --suite-total "$mt" \
-    || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
+    --measurer "${S4E_SEAT:-}" --text "$_sn4_board" --suite-pass "$m_all" --suite-total "$_sn4_shipped" \
+    ${S4E_CRITERION_CHANGED:+--criterion-changed "$S4E_CRITERION_CHANGED"} \
+    || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why; a denominator move wants S4E_CRITERION_CHANGED='YYYY-MM-DD:reason' on this runner's call)"
 # ⭐ THE PROGRESS LINE, after the rewrite (see board_icon_master.sh for the same call and why it is here
 # rather than only in lib_gate.sh: this runner writes its row directly, bypassing gate_score_row).
 # ⛔ THE PROGRESS LINE IS DELETED (Lon 2026-09-13, verbatim: "All bogus. Delete that. Do not show

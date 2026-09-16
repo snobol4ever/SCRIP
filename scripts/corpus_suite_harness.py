@@ -2693,11 +2693,21 @@ def cmd_run(args):
         _absent = sorted(_named - _present)
         if _absent:
             refuse(f"--outside {_outside_path}: declares entries that are not in this suite: {_absent} -- a stale outside list silently shrinks nothing and hides that it is stale")
+        # ⛔⭐ THE OUTSIDE ENTRIES LEAVE THE GRADED DENOMINATOR AND STAY IN THE SHIPPED ONE (CEO-749; Lon 2026-09-16 "Get those
+        # fixed" -- OUTSIDE is debt; coo 2026-09-16, row snobol4-master-runner-publishes-over-the-graded-population-1972-not-
+        # the-shipped-1980-with-outside-named). Counted HERE, per shard, as the entries this run actually removed -- never
+        # len(outside) -- so board_combine's field sum across shards reads the true count once, and the SUITE_BOARD prints
+        # total= (graded) shipped= (graded + outside) outside= (removed) side by side. Each removed entry is also recorded in
+        # the progress DB as OUTSIDE with the oracle's own class and reason, so the CEO-749 identity is checkable from the DB.
+        _out_run = [e.name for e in run_entries if e.name in outside]
+        _out_ast = [e.name for e in ast_entries if e.name in outside]
         run_entries = [e for e in run_entries if e.name not in outside]
         ast_entries = [e for e in ast_entries if e.name not in outside]
-        for _n in sorted(outside):
+        for _n in sorted(set(_out_run) | set(_out_ast)):
             print(f"OUTSIDE_BASELINE {_n} {outside[_n][0]}: {outside[_n][1]}")
-        print(f"OUTSIDE_BASELINE_COUNT {len(outside)} entr(ies) out of the graded denominator, named above with the oracle's own reason")
+        print(f"OUTSIDE_BASELINE_COUNT {len(_out_run) + len(_out_ast)} entr(ies) out of the graded denominator and IN the shipped one, named above with the oracle's own reason")
+    else:
+        _out_run, _out_ast = [], []
     unknown_defaulted = sum(1 for e in run_entries if entry_modes.get(e.name, "") == "UNKNOWN") if entry_modes else 0
     # ⛔⭐ HONOUR THE DECLARATION PER ENTRY, WHICH IS WHAT THIS FLAG'S OWN --help PROMISES. Before this, every run
     # entry was graded with the CALLER'S modes and the `modes` column only ever chose ast-vs-run, so a family whose
@@ -2738,6 +2748,11 @@ def cmd_run(args):
     tmp_root = Path(tempfile.mkdtemp(prefix="csh_run_"))
     fails = []
     _progress_rows = []
+    for _n in _out_run:
+        for _m in modes:
+            _progress_rows.append((_n, _m, "OUTSIDE", 0, f"{outside[_n][0]}: {outside[_n][1][:160]}"))
+    for _n in _out_ast:
+        _progress_rows.append((_n, "ast", "OUTSIDE", 0, f"{outside[_n][0]}: {outside[_n][1][:160]}"))
     try:
         for e in ast_entries:
             verdicts = run_suite_entry(paths, e, tmp_root, ["ast"], ext=ext, companion_dir=Path(args.sno).parent)
@@ -2807,14 +2822,17 @@ def cmd_run(args):
               f"ast_xfail_hang={a['XFAIL_HANG']} ast_xfail_unproven={a['XFAIL_UNPROVEN']} ast_xfail_skip={a['XFAIL_SKIP']}")
         print(f"MODES_COLUMN ast_graded={len(ast_entries)}/{len(entries)} run_graded={len(run_entries)}/{len(entries)} "
               f"unknown_defaulted_to_run={unknown_defaulted}")
-    fields = [f"family={family}"] + ([shard_tag] if shard_tag else []) + [f"total={len(run_entries) if entry_modes else len(entries)}"]
+    # total= is the GRADED run denominator on both paths (it used to be len(entries) -- the outside entries still inside
+    # it -- whenever --by-modes-column was absent, and the graded count when it was present: one word, two arithmetics);
+    # shipped= adds the outside entries back, outside= is their count. A row quotes all_pass over shipped with OUTSIDE named.
+    fields = [f"family={family}"] + ([shard_tag] if shard_tag else []) + [f"total={len(run_entries)} shipped={len(run_entries) + len(_out_run)} outside={len(_out_run)}"]
     for m in modes:
         c = counts[m]
         # ⛔ `<m>_n` is the DENOMINATOR FOR THAT MODE and it is printed because it is no longer `total`: once each
         # entry is graded in its own declared modes, a mode's verdicts count only the entries that declared it, and
         # a reader dividing by `total` would understate every rate. A board that changed its arithmetic silently is
         # the defect this whole flag exists to prevent.
-        fields.append(f"{m}_n={mode_n[m] if entry_modes else len(entries)} "
+        fields.append(f"{m}_n={mode_n[m] if entry_modes else len(run_entries)} "
                        f"{m}_pass={c['PASS']} {m}_fail={c['FAIL']} {m}_crash={c['CRASH']} "
                        f"{m}_hang={c['HANG']} {m}_unproven={c['UNPROVEN']} {m}_skip={c['SKIP']} "
                        f"{m}_xfail={c['XFAIL']} {m}_xpass={c['XPASS']} "
