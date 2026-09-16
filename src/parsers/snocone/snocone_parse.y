@@ -74,6 +74,19 @@ static void     sc_append_stmt        (ScParseState *st, tree_t *top);
 static tree_t  *sc_collect_body       (ScParseState *st, STMT_t *snapshot);
 static void     sc_finalize_if_no_else_pst(ScParseState *st, struct IfHead *h);
 static void     sc_finalize_if_else_pst(ScParseState *st, struct IfHead *h, STMT_t *before_else);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_e sc_pat_prim_kind(const char *s) {
+    if (!s) return TT_VAR;
+    static const struct { const char *n; tree_e k; } m[] = {
+        {"ANY",TT_ANY},{"NOTANY",TT_NOTANY},{"SPAN",TT_SPAN},{"BREAK",TT_BREAK},{"BREAKX",TT_BREAKX},
+        {"LEN",TT_LEN},{"POS",TT_POS},{"RPOS",TT_RPOS},{"TAB",TT_TAB},{"RTAB",TT_RTAB},
+        {"ARB",TT_ARB},{"ARBNO",TT_ARBNO},{"REM",TT_REM},{"FAIL",TT_FAIL},{"SUCCEED",TT_SUCCEED},
+        {"FENCE",TT_FENCE},{"ABORT",TT_ABORT},{"BAL",TT_BAL},{NULL,TT_VAR}
+    };
+    for (int i = 0; m[i].n; i++) if (strcmp(s, m[i].n) == 0) return m[i].k;
+    return TT_VAR;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t  *sc_int_literal        (const char *txt);
 static tree_t  *sc_real_literal       (const char *txt);
 static tree_t  *sc_str_literal        (const char *txt);
@@ -512,8 +525,9 @@ exprlist_ne : exprlist_ne T_COMMA expr0
                                 { tree_t *l = expr_new(TT_NUL); expr_add_child(l, $1); $$ = l; }
             ;
 expr17      : T_CALL exprlist T_RPAREN
-                                { tree_t *e = expr_new(TT_FNC);
-                                  e->sval = $1;
+                                { tree_e _k = sc_pat_prim_kind($1);
+                                  tree_t *e = expr_new(_k == TT_VAR ? TT_FNC : _k);
+                                  if (_k == TT_VAR || _k == TT_ARB || _k == TT_BAL || _k == TT_REM || _k == TT_FAIL || _k == TT_SUCCEED || _k == TT_ABORT) e->sval = $1; else free($1);
                                   for (int i = 0; i < $2->nchildren; i++)
                                       expr_add_child(e, $2->children[i]);
                                   if ($2->c) free((char*)$2->c - sizeof(size_t)); free($2);
