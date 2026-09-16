@@ -89,7 +89,7 @@ void array_set2(ARBLK_t *a, int i, int j, DESCR_t v) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static TBBUCK_t **_tbl_vec_new(unsigned nb) {
-    TBBUCK_t **v = rt_gcheap_alloc(HB_AGGB, (unsigned long long)nb * sizeof(TBBUCK_t *));
+    TBBUCK_t **v = rt_gcheap_alloc(HB_AGGBV, (unsigned long long)nb * sizeof(TBBUCK_t *));
     memset(v, 0, (size_t)nb * sizeof(TBBUCK_t *));
     return v;
 }

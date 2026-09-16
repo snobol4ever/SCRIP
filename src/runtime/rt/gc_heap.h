@@ -14,7 +14,8 @@
 #define HB_AGGB  211
 #define HB_ARR   212
 #define HB_DINST 213
-#define HB_IS_AGG(t_) (((t_) >= HB_AGGV && (t_) <= HB_AGGT) || (t_) == HB_AGGB)
+#define HB_AGGBV 214
+#define HB_IS_AGG(t_) (((t_) >= HB_AGGV && (t_) <= HB_AGGT) || (t_) == HB_AGGB || (t_) == HB_AGGBV)
 #define HBF_TTL  0x0001
 #define HBF_MARK 0x0002
 typedef struct rt_hblk_t { uint64_t fwd; uint32_t size; uint16_t type; uint16_t flags; } rt_hblk_t;

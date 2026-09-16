@@ -414,6 +414,22 @@ static void gc_visit_tbblk(struct _TBBLK_t *t)
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int gc_block_exact(const char *q, uint16_t want_type);
+static void gc_visit_tbbuckv(rt_hblk_t *h)
+{
+    TBBUCK_t **v = (TBBUCK_t **)(h + 1);
+    unsigned long n = (unsigned long)(((unsigned long)h->size - sizeof(rt_hblk_t)) / sizeof(TBBUCK_t *));
+    for (unsigned long k = 0; k < n; k++) {
+        if (!gc_block_exact((const char *)v[k], HB_AGGB)) continue;
+        rt_gc_visit_raw((const char **)&v[k]);
+        { TBBUCK_t *bk = v[k];
+          if (!gc_hins((void *)bk)) continue;
+          for (unsigned i = 0; i < bk->len; i++) { TBPAIR_t *e = &bk->ent[i];
+              if (e->key) rt_gc_visit_raw((const char **)&e->key);
+              rt_gc_visit_descr(&e->key_descr); rt_gc_visit_descr(&e->val); } }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_visit_descr(DESCR_t *d)
 {
     if (!d) return;
@@ -629,6 +645,7 @@ static long gc_collect_ex(int cons_stack)
             if (hb_scan_interior(h->type) || h->type == HB_PLJ) { gc_zeta_frame((const char *)(h + 1), (const char *)h + h->size); continue; }
             if (h->type == HB_AGGV) { gc_visit_vcell((VCELL_t *)(h + 1)); continue; }
             if (h->type == HB_AGGB) continue;
+            if (h->type == HB_AGGBV) { gc_visit_tbbuckv(h); continue; }
             if (h->type == HB_AGGP) { TBPAIR_t *e = (TBPAIR_t *)(h + 1); if (e->key) gc_mark_agg(e->key);
                 rt_gc_visit_descr(&e->key_descr); rt_gc_visit_descr(&e->val); continue; }
             if (h->type == HB_AGGT) { struct _TBBLK_t *t = (struct _TBBLK_t *)(h + 1); if (gc_hins((void *)t)) gc_visit_tbblk(t); continue; } } }
@@ -641,6 +658,7 @@ static long gc_collect_ex(int cons_stack)
               if (hb_scan_interior(h->type) || h->type == HB_PLJ) { scanned[i] = 1; changed = 1; nscan++; gc_zeta_frame((const char *)(h + 1), (const char *)h + h->size); continue; }
               if (h->type == HB_AGGV) { scanned[i] = 1; changed = 1; nscan++; gc_visit_vcell((VCELL_t *)(h + 1)); continue; }
               if (h->type == HB_AGGB) { scanned[i] = 1; changed = 1; nscan++; continue; }
+              if (h->type == HB_AGGBV) { scanned[i] = 1; changed = 1; nscan++; gc_visit_tbbuckv(h); continue; }
               if (h->type == HB_AGGP) { TBPAIR_t *e = (TBPAIR_t *)(h + 1); scanned[i] = 1; changed = 1; nscan++; if (e->key) gc_mark_agg(e->key);
                   rt_gc_visit_descr(&e->key_descr); rt_gc_visit_descr(&e->val); continue; }
               if (h->type == HB_AGGT) { struct _TBBLK_t *t = (struct _TBBLK_t *)(h + 1); scanned[i] = 1; changed = 1; nscan++; if (gc_hins((void *)t)) gc_visit_tbblk(t); continue; } } }
