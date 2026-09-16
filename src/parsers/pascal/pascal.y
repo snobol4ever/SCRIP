@@ -143,6 +143,11 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
     }
     if (name && args && args->count >= 1 && pas_is_tfile_node(args->items[0])) {
         tree_t *fa = args->items[0];
+        if (!strcmp(name, "readln") || !strcmp(name, "writeln")) {
+            fprintf(stderr, "pascal: ISO 7185 %s violation: the file parameter of '%s' shall be a textfile, but '%s' is a file of a non-text component-type\n",
+                    !strcmp(name, "readln") ? "6.9.2" : "6.9.4", name, fa->v.sval ? fa->v.sval : "<file>");
+            g_pas_iso_errors++;
+        }
         if (!strcmp(name, "get")) return mk_fnc1("__pas_fget", fa);
         if (!strcmp(name, "put")) return mk_fnc1("__pas_fput", fa);
         if (!strcmp(name, "eof")) return mk_fnc1("__pas_feof_t", fa);
