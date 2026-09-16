@@ -69,6 +69,7 @@ static std::unordered_map<std::string, bb_label_t *> g_label_map;
 static int           g_label_pool_n    = 0;
 static int           g_label_pool_max  = 0;
 static bb_label_t * g_flt_lbl[4] = {0, 0, 0, 0};
+static const char * g_flt_fam = (const char *)0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void emit_label_pool_reset(void)
 {
@@ -93,7 +94,7 @@ extern "C" const char * bb_kind_name(int op) { return flat_label_kind((IR_e)op);
 extern "C" int emit_patzeta_frame_reserve(const char * name, int * bytes);
 static int emit_floater_kind(const IR_t * n) { if (!n) return 0; if (n->op == IR_DEFINE && IR_LIT(n).ival == 1) return 1; if (n->op == IR_DEFINE && IR_LIT(n).ival == 2) return 2; if (n->op == IR_LIT_STRING && n->γ.node && n->γ.node->op == IR_CALL && IR_LIT(n->γ.node).sval && !strcmp(IR_LIT(n->γ.node).sval, "SNO$NRET")) return 3; return 0; }
 static int emit_floater_member(const IR_t * n) { if (!n) return 0; if (emit_floater_kind(n)) return 1; if (n->op == IR_CALL && IR_LIT(n).sval && !strcmp(IR_LIT(n).sval, "SNO$NRET")) return 1; return 0; }
-static bb_label_t * emit_floater_label(int k) { static const char * fn[4] = {0, "RETURN", "FRETURN", "NRETURN"}; if (k < 1 || k > 3) return (bb_label_t *)0; if (!g_flt_lbl[k]) g_flt_lbl[k] = emit_label_alloc("%s", fn[k]); return g_flt_lbl[k]; }
+static bb_label_t * emit_floater_label(int k) { static const char * fn[4] = {0, "RETURN", "FRETURN", "NRETURN"}; if (k < 1 || k > 3) return (bb_label_t *)0; if (!g_flt_lbl[k]) g_flt_lbl[k] = g_flt_fam ? emit_label_alloc("%s_%s", fn[k], g_flt_fam) : emit_label_alloc("%s", fn[k]); return g_flt_lbl[k]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 bb_label_t *emit_label_alloc(const char *fmt, ...)
 {
@@ -2884,6 +2885,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     int _flt_uid_burn[4] = {0, 0, 0, 0};
     const char *fam = (strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix;
     g_emit.flat_fam = fam;
+    g_flt_fam = (strncmp(prefix, "proc_", 5) == 0) ? fam : (const char *)0; g_flt_lbl[1] = g_flt_lbl[2] = g_flt_lbl[3] = (bb_label_t *)0;
     g_emit.x86_uid_kind = (const char *)0;
     emit_label_initf(&lbl_α,      "%s_α",      fam);
     emit_label_initf(&lbl_α_body, "%s_α_body", fam);
