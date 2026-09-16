@@ -77,9 +77,9 @@ test_gate_emit_no_ir_mutation.sh	WIRED	-	-	-
 test_gate_emit_no_lang.sh	WIRED	-	-	-
 test_gate_emit_no_slot_alloc.sh	WIRED	-	-	-
 test_gate_errlimit_survival_is_measured_per_code.sh	WIRED	-	-	-
+test_gate_frame_det_leaf_seal_matches_the_emitter_registry.sh	WIRED	-	-	-
 test_gate_frame_field_census_names_what_no_template_addresses.sh	WIRED	-	-	-
 test_gate_frame_layout_retires_a_dead_graphs_record.sh	WIRED	-	-	-
-test_gate_frame_det_leaf_seal_matches_the_emitter_registry.sh	WIRED	-	-	-
 test_gate_frame_reuse_relation_names_every_recession_edge.sh	WIRED	-	-	-
 test_gate_frame_reuse_rung1_straight_temps_share_a_pool.sh	WIRED	-	-	-
 test_gate_gate_wiring_ratchet.sh	WIRED	-	-	-
@@ -88,6 +88,7 @@ test_gate_gc_aggregates_are_collectable_not_immortal.sh	WIRED	-	-	-
 test_gate_gc_func_table_is_rooted_not_pinned_alive.sh	WIRED	-	-	-
 test_gate_gc_pacing_bounds_a_churning_program.sh	WIRED	-	-	-
 test_gate_gc_record_type_table_is_rooted_not_blanket_marked.sh	WIRED	-	-	-
+test_gate_gc_table_insertion_order_array_is_rooted_not_pinned_alive.sh	WIRED	-	-	-
 test_gate_harness_refusal_is_rc2.sh	WIRED	-	-	-
 test_gate_icn_a_string_with_an_embedded_nul_subscripts_by_its_length.sh	WIRED	-	-	-
 test_gate_icn_a_suspended_variable_images_as_a_variable_not_its_value.sh	WIRED	-	-	-
@@ -377,6 +378,7 @@ test_gate_sno_repl_lvalue_subject.sh	WIRED	-	-	-
 test_gate_sno_rewind_on_an_unopened_unit_raises_174.sh	WIRED	-	-	-
 test_gate_sno_runtime_define.sh	WIRED	-	-	-
 test_gate_sno_setexit_resume_matches_oracle.sh	WIRED	-	-	-
+test_gate_sno_statement_mark_mode_releases_the_hook_residue_before_the_statement.sh	WIRED	-	-	-
 test_gate_sno_stcount_counts_statements_inside_code_fragments.sh	WIRED	-	-	-
 test_gate_sno_subscripted_replacement_does_not_leak_the_spine.sh	WIRED	-	-	-
 test_gate_sno_terminal_read_fails_without_a_tty.sh	WIRED	-	-	-
@@ -582,4 +584,3 @@ test_gate_xfail_has_reason.sh	TASK	-	-	-
 test_gate_zdp_on_null.sh	TASK	-	-	-
 test_gate_zeta_no_arena.sh	TASK	-	-	-
 test_gate_zpop_whitelist.sh	TASK	-	-	-
-test_gate_sno_statement_mark_mode_releases_the_hook_residue_before_the_statement.sh	WIRED	-	-	-

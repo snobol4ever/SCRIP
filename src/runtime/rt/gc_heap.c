@@ -428,6 +428,7 @@ static void gc_visit_tbblk(struct _TBBLK_t *t)
 {
     gc_mark_agg(t);
     rt_gc_visit_descr(&t->dflt);
+    if (t->ord) { rt_gc_visit_raw((const char **)&t->ord); for (unsigned i = 0; i < t->ord_len; i++) rt_gc_visit_descr(&t->ord[i]); }
     if (!t->buckets) return;
     rt_gc_visit_raw((const char **)&t->buckets);
     for (unsigned b = 0; b < t->nbuck; b++) {
