@@ -30,8 +30,11 @@ SUBTREE	tests/snobol4	GATED	test_corpus_snobol4.sh
 # test_gate_corpus_coverage_classified.sh correctly refused on it. The converted pairs are gated by
 # test_snocone_crosscheck_suites.sh under the tests/snocone SUBTREE line below.
 SUBTREE	tests/pascal	GATED	test_gate_pascal_m3.sh
-SUBTREE	tests/snocone	GATED	test_snocone_parser_fixtures.sh
-SUBTREE	tests/raku	GATED	test_raku_parser_fixtures.sh
+# cfo 2026-09-16 (CEO-763): test_snocone_parser_fixtures.sh, test_raku_parser_fixtures.sh and test_rebus_parser_fixtures.sh RETIRED --
+# each graded ONLY the ast `parser` family, which Lon retired 2026-09-13 (corpus a6646f04c), so each refused rc=2 forever and was
+# wired nowhere. The two SUBTREE lines below now name the master runners that actually grade tests/snocone and tests/raku.
+SUBTREE	tests/snocone	GATED	test_snocone_corpus_suite.sh
+SUBTREE	tests/raku	GATED	test_raku_ir_full_suite.sh
 SUBTREE	benchmarks/prolog	GATED	test_bench_prolog_4way.sh
 SUBTREE	tests/rebus	GATED	test_crosscheck_rebus.sh
 SUBTREE	benchmarks/icon	GATED	test_icon_bench_corpus.sh
