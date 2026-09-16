@@ -151,9 +151,19 @@ else
     ck ok "testop node present and no __rk_arr wrapper"
 fi
 echo "--- ARM 7 — the roast program this cure flipped stays green in both modes ---"
-RT="$ROOT/refs/roast/S04-statements/until.t"
+# ⛔⭐ THE WITNESS IS RESOLVED, NOT HARDCODED (hq_raku 2026-09-16). This read "$ROOT/refs/roast/..."
+# until today and SCRIP/refs/ WAS DELETED ORG-WIDE on 2026-09-16, so this BLOCKING arm refused rc=2 on every
+# renamed root -- a COULD-NOT-MEASURE sitting inside the blocking set for all ten seats, which is the class
+# the loop-and-report cure (CEO-582) exists to make visible rather than to tolerate. Same resolver the roast
+# scoreboard and the ablation ranker use, so the three cannot disagree about where roast lives.
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_raku_roast_bucket.sh" 2>/dev/null || true
+if command -v roast_resolve_population >/dev/null 2>&1 && roast_resolve_population "$ROOT" 2>/dev/null; then
+    RT="$ROAST/S04-statements/until.t"
+else
+    RT="$ROOT/refs/roast/S04-statements/until.t"
+fi
 if [ ! -f "$RT" ]; then
-    echo "  ⛔ REFUSED(2) [$GATE_NAME]: no $RT -- refs/roast is per-root and gitignored; symlink it to"
+    echo "  ⛔ REFUSED(2) [$GATE_NAME]: no $RT -- tried \$RAKU_ROAST_TREE, \$ROOT/refs/roast, then the shared"
     echo "     /home/resources/roast-master. A gate that cannot reach its witness REFUSES; it never passes."
     exit 2
 fi

@@ -37,8 +37,8 @@ set -u
 cd "$(dirname "$0")/.." || exit 2
 ROOT=$(pwd)
 SCRIP="$ROOT/scrip"
-MANIFEST="$ROOT/refs/rakudo-main/t/spectest.data.6.c"
-ROAST="$ROOT/refs/roast"
+. "$(dirname "$0")/lib_raku_roast_bucket.sh"   # the ONE bucket rule AND the ONE population resolver
+roast_resolve_population "$ROOT" || exit 2
 OUT="$ROOT/../.github/RAKU-COVERAGE.md"
 DO_M4=0; LIMIT=0; SECTION=""; DO_RUN=0; DO_INV=0
 while [ $# -gt 0 ]; do
@@ -87,20 +87,10 @@ trap 'rm -rf "$TMP"' EXIT
 declare -A SEC_TOT SEC_PASS
 n_intier=0; n_pass=0; n_fail=0; n_parse=0; n_crash=0; n_notap=0; n_missing=0
 n_pass4=0
-classify() {
-  # $1=stdout file  $2=stderr file  $3=rc  -> echoes one of PASS/FAIL/PARSE-FAIL/CRASH/NO-TAP
-  local so="$1" se="$2" rc="$3"
-  if grep -q "parse error" "$se" 2>/dev/null; then echo "PARSE-FAIL"; return; fi
-  if [ "$rc" -ge 124 ]; then echo "CRASH"; return; fi
-  local plan ok notok
-  plan=$(grep -cE '^1\.\.[0-9]+' "$so" 2>/dev/null)
-  ok=$(grep -cE '^ok [0-9]+' "$so" 2>/dev/null)
-  notok=$(grep -cE '^not ok [0-9]+' "$so" 2>/dev/null)
-  if [ "$plan" -eq 0 ] && [ "$ok" -eq 0 ] && [ "$notok" -eq 0 ]; then echo "NO-TAP"; return; fi
-  if [ "$notok" -gt 0 ]; then echo "FAIL"; return; fi
-  if [ "$rc" -ne 0 ]; then echo "FAIL"; return; fi
-  echo "PASS"
-}
+# ⛔⭐ classify() AND THE BUCKET RULE NOW LIVE IN lib_raku_roast_bucket.sh, SOURCED, NOT COPIED
+# (hq_raku 2026-09-16). The ablation ranker must call the same bucket rule this census calls: its
+# measurement is a DIFFERENCE between two classifications, and a difference taken across two copies
+# of a classifier measures the copies as much as it measures the cure.
 # ⭐⭐ --inventory: SHIPPED / GRADED / UNGRADED / UNGRADABLE, THE WAY EVERY OTHER PACKAGE RUNNER IS REQUIRED
 # TO PRINT IT (ceo CEO-744, on Lon's "get the package runner working"). This answers a question the two
 # scoring arms below CANNOT answer and never could: they report how many files PASS, and a suite where
@@ -136,23 +126,9 @@ if [ "$DO_INV" = 1 ]; then
     timeout 10 "$SCRIP" --run "$stage" > "$so" 2> "$se" < /dev/null; rc=$?
     rel="${src#$ROAST/}"
     err1=$(head -1 "$se" 2>/dev/null)
-    # THE BUCKET. GRADED means our compiler ran the file and TAP came out; everything else is a reason it did not.
-    if printf '%s' "$err1" | grep -q 'parse error'; then
-      bucket=UNGRADED-PARSE
-    elif printf '%s' "$err1" | grep -q 'does not yet cover'; then
-      bucket=UNGRADED-EMITTER
-    elif [ "$rc" -ge 124 ]; then
-      bucket=UNGRADABLE-TIMEOUT
-    else
-      case "$(classify "$so" "$se" "$rc")" in
-        PASS)  bucket=GRADED-PASS ;;
-        FAIL)  bucket=GRADED-FAIL ;;
-        NO-TAP) bucket=UNGRADED-NO-TAP ;;
-        *)     bucket=UNGRADED-OTHER ;;
-      esac
-    fi
+    bucket=$(roast_bucket "$so" "$se" "$rc")   # lib_raku_roast_bucket.sh -- the ONE bucket rule
     # The line the parser died on, so the histogram names CONSTRUCTS and not line numbers.
-    ln=$(printf '%s' "$err1" | sed -n 's/.*line \([0-9]\+\).*/\1/p')
+    ln=$(roast_err_line "$err1")
     srcln="."
     [ -n "$ln" ] && srcln=$(sed -n "${ln}p" "$src" 2>/dev/null | sed 's/^[ \t]*//' | cut -c1-90)
     printf '%s\t%s\t%s\t%s\n' "$rel" "$bucket" "${ln:-.}" "${srcln:-.}" >> "$CSV"
@@ -192,7 +168,7 @@ if [ "$DO_INV" = 1 ]; then
   echo "       ablation -- deleting the top construct from its 59 files left 57 still parse-failing on other"
   echo "       constructs and moved 0 into a graded bucket. Rank a cure by ABLATION, never by frequency."
   awk -F'\t' '$2=="UNGRADED-PARSE"{print $4}' "$CSV" \
-    | sed "s/'[^']*'/'STR'/g; s/\"[^\"]*\"/\"STR\"/g; s/[0-9][0-9]*/N/g" \
+    | roast_fold_construct \
     | sort | uniq -c | sort -rn | head -20 | sed 's/^/    /'
   echo "ROAST_INVENTORY_DONE elapsed=$(( $(date +%s) - t0 ))s  ⛔ NOTHING WRITTEN: no SCORE row, no RAKU-COVERAGE.md."
   exit 0

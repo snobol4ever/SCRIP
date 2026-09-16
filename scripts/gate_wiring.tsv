@@ -288,6 +288,7 @@ test_gate_prolog_dynamic_predicate_with_file_clauses.sh	WIRED	-	-	-
 test_gate_queue_census_placeholder_arm.sh	WIRED	-	-	-
 test_gate_raku_paren_call_passes_its_arguments.sh	WIRED	-	-	-
 test_gate_raku_port_trace.sh	WIRED	-	-	-
+test_gate_raku_roast_ablation_ranker.sh	WIRED	-	-	-
 test_gate_reb_port_trace.sh	WIRED	-	-	-
 test_gate_rebus_derived_refs_match_their_rival_oracle.sh	WIRED	-	-	-
 test_gate_ref_cutters_refuse_a_dead_oracle.sh	WIRED	-	-	-
