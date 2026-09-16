@@ -79,6 +79,7 @@ test_gate_errlimit_survival_is_measured_per_code.sh	WIRED	-	-	-
 test_gate_frame_field_census_names_what_no_template_addresses.sh	WIRED	-	-	-
 test_gate_dump_zeta_is_the_emitted_frame.sh	WIRED	-	-	-
 test_gate_frame_layout_retires_a_dead_graphs_record.sh	WIRED	-	-	-
+test_gate_frame_det_leaf_seal_matches_the_emitter_registry.sh	WIRED	-	-	-
 test_gate_frame_reuse_relation_names_every_recession_edge.sh	WIRED	-	-	-
 test_gate_frame_reuse_rung1_straight_temps_share_a_pool.sh	WIRED	-	-	-
 test_gate_gate_wiring_ratchet.sh	WIRED	-	-	-

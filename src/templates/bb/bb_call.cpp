@@ -424,6 +424,7 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
     }
     return (void *)0;
 }
+extern "C" int dop_direct_leaf_known(const char * fn, int narg) { const char * s = 0; return dop_direct_fp(fn, (int64_t)narg, &s) ? 1 : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_call_byname_str(IR_t * pBB) {
     const char * fn   = _.op_sval ? _.op_sval : "";

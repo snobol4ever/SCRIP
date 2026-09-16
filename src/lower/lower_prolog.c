@@ -1540,6 +1540,7 @@ static int pl_new_proc(const char * name, int nparams, int bb_idx) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_graph_stamp(IR_graph_t * g, int arity, int maxlocal) {
     g->body_root = NULL;
+    { extern int dop_direct_leaf_known(const char *, int); for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && nd->op == IR_CALL && nd->sval && nd->sval[0] == '$' && dop_direct_leaf_known(nd->sval, nd->n_operands)) nd->seal = IR_SEAL_CALL_DET_LEAF; } }
     g->nparams = arity;
     if (arity > 0) { g->pnames = (const char **) calloc((size_t) arity, sizeof(const char *)); for (int i = 0; i < arity; i++) g->pnames[i] = pl_param_name(i); }
     if (maxlocal >= 0) { g->nlocals = maxlocal + 1;
