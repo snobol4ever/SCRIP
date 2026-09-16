@@ -1455,6 +1455,22 @@ class_body_list
           for (int i = 0; i < body->n; i++) expr_add_child(e, body->c[i]);
           free($4);
           $$ = exprlist_append($1, e); }
+    | class_body_list KW_MULTI KW_METHOD KW_NEW '(' param_list ')' method_body
+        { ExprList *params = $6; tree_t *rkbody=rk_defaults_prologue(params,$8); int np = params ? params->count : 0;
+          const char *mname = rk_multi_mangle(strdup("new"), params);
+          tree_t *e = ast_node_new(TT_SUB_DECL); e->v.ival = (long long)(np + 1);
+          tree_t *nn = ast_node_new(TT_VAR); nn->v.sval = intern(mname); expr_add_child(e, nn);
+          if (params) { for (int i = 0; i < np; i++) expr_add_child(e, params->items[i]); exprlist_free(params); }
+          tree_t *body=rkbody;
+          for (int i = 0; i < body->n; i++) expr_add_child(e, body->c[i]);
+          $$ = exprlist_append($1, e); }
+    | class_body_list KW_MULTI KW_METHOD KW_NEW '(' ')' method_body
+        { const char *mname = rk_multi_mangle(strdup("new"), NULL);
+          tree_t *e = ast_node_new(TT_SUB_DECL); e->v.ival = (long long)(1);
+          tree_t *nn = ast_node_new(TT_VAR); nn->v.sval = intern(mname); expr_add_child(e, nn);
+          tree_t *body = $7;
+          for (int i = 0; i < body->n; i++) expr_add_child(e, body->c[i]);
+          $$ = exprlist_append($1, e); }
     ;
 grammar_decl
     : KW_GRAMMAR pkg_name '{' grammar_body_list '}'
@@ -1521,6 +1537,8 @@ param_list
     : VAR_SCALAR             { $$=exprlist_append(exprlist_new(),var_node($1)); }
     | VAR_SCALAR TESTOP IDENT { free($2); free($3); $$=exprlist_append(exprlist_new(),var_node($1)); }
     | param_list ',' VAR_SCALAR TESTOP IDENT { free($4); free($5); $$=exprlist_append($1,var_node($3)); }
+    | IDENT VAR_SCALAR TESTOP IDENT { free($3); free($4); $$=exprlist_append(exprlist_new(),rk_typed_param($1,$2)); free($1); }
+    | param_list ',' IDENT VAR_SCALAR TESTOP IDENT { free($5); free($6); $$=exprlist_append($1,rk_typed_param($3,$4)); free($3); }
     | VAR_ARRAY               { $$=exprlist_append(exprlist_new(),rk_byref_param($1)); }
     | param_list ',' VAR_ARRAY { $$=exprlist_append($1,rk_byref_param($3)); }
     | IDENT VAR_SCALAR       { $$=exprlist_append(exprlist_new(),rk_typed_param($1,$2)); free($1); }
@@ -1903,6 +1921,20 @@ call_expr
         { tree_t *c = ast_node_new(TT_METHCALL);
           ast_push(c, $1);
           ast_push(c, leaf_sval(TT_QLIT, $3)); free($3);
+          $$ = c; }
+    | atom '.' meth_name ':' arg_list
+        { tree_t *c = ast_node_new(TT_METHCALL);
+          ast_push(c, $1);
+          ast_push(c, leaf_sval(TT_QLIT, $3)); free($3);
+          ExprList *args = $5;
+          if (args) { for (int i = 0; i < args->count; i++) ast_push(c, args->items[i]); exprlist_free(args); }
+          $$ = c; }
+    | call_expr '.' meth_name ':' arg_list
+        { tree_t *c = ast_node_new(TT_METHCALL);
+          ast_push(c, $1);
+          ast_push(c, leaf_sval(TT_QLIT, $3)); free($3);
+          ExprList *args = $5;
+          if (args) { for (int i = 0; i < args->count; i++) ast_push(c, args->items[i]); exprlist_free(args); }
           $$ = c; }
     | '.' meth_name '(' arg_list ')'
         { tree_t *c = ast_node_new(TT_METHCALL);
