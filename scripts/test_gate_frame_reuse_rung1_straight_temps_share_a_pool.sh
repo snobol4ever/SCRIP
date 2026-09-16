@@ -12,7 +12,14 @@
 # ⛔ THE FAILURE MODE IS SILENCE, so this gate grades ANSWERS as well as bytes: the three witnesses must print
 # their oracle refs in BOTH modes (ok / 11 12 13 / ab) -- a wrong reuse here would be a wrong value, not a crash.
 # BYTES: r/1 of the DONE-WHEN witness read 576 on the rung-0 tree; rung 0's relation predicted 448 from
-# packed_min=2 over 10 candidates.  The bar is <= 448 (RED-BEFORE: 576 on the rung-0 binary, rc=1).
+# packed_min=2 over 10 candidates, and the rung-1 tree read 448 -- ON A DUMP THAT WAS NOT THE EMITTED FRAME.
+# ⛔ RE-BASED 2026-09-16 (cto, rung 2 opener, second instrument): --dump-zeta ran slot assignment without the
+# proc registry, so a staged call to a registered generator callee (every Prolog predicate) was granted no
+# callgen.act quad in the dump while the emitter granted one: r/1 emitted 480 while the dump said 448, and
+# every number this row reported was 32 low (688/576/448 read 720/608/480 in the frame the code addresses).
+# The dump path now shares the compile path's registration and drive (register_procs_all + drive_slots_all,
+# emission byte-identical); test_gate_dump_zeta_is_the_emitted_frame.sh holds that claim.  The bar is the TRUE
+# rung-1 number, <= 480 (RED-BEFORE of rung 1 on the same honest dump: 576 + 32 = 608 on the rung-0 binary by the same correction, not re-measured; rc=1).
 # ⛔ REFUSES rc=2 when --dump-zeta yields no r/1 graph -- a runner that cannot measure never prints the success shape.
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="${S4E_HOME:-$(cd "$HERE/.." && pwd)}"; [ -x "$ROOT/scrip" ] || ROOT="$(cd "$HERE/../.." && pwd)/SCRIP"
@@ -25,8 +32,8 @@ bad=0
 line="$(timeout 20s ./scrip --dump-zeta "$T/w.pl" </dev/null 2>/dev/null | grep -E "^; graph [0-9]+ 'r/1'")"
 [ -n "$line" ] || { echo "⛔ REFUSE(2): --dump-zeta printed no r/1 graph for the witness"; exit 2; }
 end="$(printf '%s\n' "$line" | sed -n 's/.*region_end=\([0-9]*\).*/\1/p')"
-echo "r/1 region_end=$end (bar <= 448; rung-0 tree read 576)"
-[ -n "$end" ] && [ "$end" -le 448 ] || { echo "  ⛔ r/1 frame is $end bytes, above the rung-1 bar of 448"; bad=$((bad+1)); }
+echo "r/1 region_end=$end (bar <= 480, the emitted frame; rung-0 tree read 608 on the same dump)"
+[ -n "$end" ] && [ "$end" -le 480 ] || { echo "  ⛔ r/1 frame is $end bytes, above the rung-1 bar of 480"; bad=$((bad+1)); }
 pooled="$(timeout 20s ./scrip --dump-zeta "$T/w.pl" </dev/null 2>/dev/null | awk "/^; graph [0-9]+ 'r\/1'/{p=1} /^; graph [0-9]+ 'q\/1'/{p=0} p" | grep -c 'CANDIDATE.*pooled')"
 echo "r/1 pooled candidates=$pooled"
 [ "$pooled" -ge 1 ] || { echo "  ⛔ no candidate in r/1 reads pooled -- the plan and the granter disagree"; bad=$((bad+1)); }

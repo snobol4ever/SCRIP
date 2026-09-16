@@ -10,7 +10,7 @@ def mangle(nm):
         out.append(ch if (ch.isalnum() and ord(ch) < 128) or ch in "_$." else "$%02X" % ord(ch))
     return "".join(out)
 GH = re.compile(r"^;\s*graph\s+(\d+)\s+'([^']*)'\s+—\s+slots=(\d+)\s+region_end=(\d+)")
-FLD = re.compile(r"^;\s+\+(\d+)\s+(\d+)\s+(\S+)\s+(.*?)\s{2,}(\S+)\s*$")
+FLD = re.compile(r"^;\s+\+(\d+)\s+(\d+)\s+(\S+)\s+(.*?)\s+(\S+)\s*$")
 REF = re.compile(r"\[(rbp|rsp)\s*\+\s*(\d+)\]")
 def main():
     if len(sys.argv) < 2: print("usage: util_frame_field_reference_census.py <program> [--all]"); return 2

@@ -411,6 +411,34 @@ static int g_gz_no_struct_ptr = 0;
 static int    g_prog_argc = 0;
 static char **g_prog_argv = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void icn_register_locals(const char *pname, IR_graph_t *g);
+static void register_procs_all(stage2_t * s2) {
+    extern void rt_proc_register(const char *name, const char **pnames, int nparams);
+    for (int _pi = 0; _pi < s2->proc_count; _pi++) {
+        const char *pname = s2->proc_table[_pi].name;
+        if (!pname) continue;
+        if (strcmp(pname, "main") == 0) continue;
+        int idx = s2->proc_table[_pi].bb_idx;
+        if (idx < 0 || idx >= s2->bbp.count || !s2->bbp.table[idx] || !s2->bbp.table[idx]->entry) continue;
+        int np = s2->proc_table[_pi].nparams;
+        const char **pn = NULL;
+        if (np > 0) {
+            pn = (const char **)calloc((size_t)np, sizeof(const char *));
+            for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++)
+                pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
+        }
+        rt_proc_register(pname, pn, np);
+        { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }
+        { IR_graph_t *_lg = (idx >= 0 && idx < s2->bbp.count) ? s2->bbp.table[idx] : (IR_graph_t *)0; icn_register_locals(pname, _lg); }
+        { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); } { extern void rt_proc_set_jmpentry(const char *, int); rt_proc_set_jmpentry(pname, !s2->bbp.table[idx]->caller_frame && strncmp(pname, "gram__", 6) != 0); }
+        { extern void rt_proc_set_variadic(const char *, int); rt_proc_set_variadic(pname, s2->proc_table[_pi].is_variadic); }
+        { extern void rt_proc_set_rest_kind(const char *, int); rt_proc_set_rest_kind(pname, s2->proc_table[_pi].rest_kind); }
+        { extern void rt_proc_set_named_rest(const char *, int); rt_proc_set_named_rest(pname, s2->proc_table[_pi].named_rest); }
+        { extern void rt_proc_set_dyn_scope(const char *, int); rt_proc_set_dyn_scope(pname, s2->proc_table[_pi].dyn_scope); }
+        { extern void rt_proc_set_result_name(const char *, const char *); if (s2->proc_table[_pi].result_name) rt_proc_set_result_name(pname, s2->proc_table[_pi].result_name); }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void drive_slots_all(stage2_t * s2) {
     extern void ir_drive_slot_assign(IR_graph_t * g); extern void fl_derive_tier(IR_graph_t * g);
     int _mx = polyglot_main_bb_idx(s2);
@@ -1266,6 +1294,7 @@ int main(int argc, char **argv)
         if (!s2) { fprintf(stderr, "scrip: sm_preamble failed\n"); return 1; }
         ast_tree_free(ast_prog); ast_prog = NULL;
         if (dump_zeta) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
+        { extern void rt_proc_reset(void); rt_proc_reset(); register_procs_all(s2); drive_slots_all(s2); }
         const IR_t ** seen_all = (const IR_t **) calloc(s2->proc_count > 0 ? s2->proc_count : 1, sizeof(const IR_t *));
         int seen_n = 0;
         for (int _pi = 0; _pi < s2->proc_count; _pi++) {
@@ -1279,7 +1308,6 @@ int main(int argc, char **argv)
             seen_all[seen_n++] = (const IR_t *) all;
             if (dump_ir) fprintf(stdout, "; proc %s\n", pname);
             zls_graph_name(s2->bbp.table[idx], pname);
-            ir_drive_slot_assign(s2->bbp.table[idx]);
             if (dump_ir) bb_print_v(s2->bbp.table[idx], stdout, dump_ir_verbose);
         }
         if (dump_zeta) zls_dump(stdout);
@@ -1375,29 +1403,7 @@ int main(int argc, char **argv)
             extern void rt_proc_reset(void);
             int main_bb_idx = polyglot_main_bb_idx(s2);
             rt_proc_reset();
-            for (int _pi = 0; _pi < s2->proc_count; _pi++) {
-                const char *pname = s2->proc_table[_pi].name;
-                if (!pname) continue;
-                if (strcmp(pname, "main") == 0) continue;
-                int idx = s2->proc_table[_pi].bb_idx;
-                if (idx < 0 || idx >= s2->bbp.count || !s2->bbp.table[idx] || !s2->bbp.table[idx]->entry) continue;
-                int np = s2->proc_table[_pi].nparams;
-                const char **pn = NULL;
-                if (np > 0) {
-                    pn = (const char **)calloc((size_t)np, sizeof(const char *));
-                    for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++)
-                        pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
-                }
-                rt_proc_register(pname, pn, np);
-                { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }
-                { IR_graph_t *_lg = (idx >= 0 && idx < s2->bbp.count) ? s2->bbp.table[idx] : (IR_graph_t *)0; icn_register_locals(pname, _lg); }
-                { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); } { extern void rt_proc_set_jmpentry(const char *, int); rt_proc_set_jmpentry(pname, !s2->bbp.table[idx]->caller_frame && strncmp(pname, "gram__", 6) != 0); }
-                { extern void rt_proc_set_variadic(const char *, int); rt_proc_set_variadic(pname, s2->proc_table[_pi].is_variadic); }
-                { extern void rt_proc_set_rest_kind(const char *, int); rt_proc_set_rest_kind(pname, s2->proc_table[_pi].rest_kind); }
-                { extern void rt_proc_set_named_rest(const char *, int); rt_proc_set_named_rest(pname, s2->proc_table[_pi].named_rest); }
-                { extern void rt_proc_set_dyn_scope(const char *, int); rt_proc_set_dyn_scope(pname, s2->proc_table[_pi].dyn_scope); }
-                { extern void rt_proc_set_result_name(const char *, const char *); if (s2->proc_table[_pi].result_name) rt_proc_set_result_name(pname, s2->proc_table[_pi].result_name); }
-            }
+            register_procs_all(s2);
             drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
             { extern void rt_proc_set_frame(const char *, int, int); for (int _pi = 0; _pi < s2->proc_count; _pi++) { const char *_fn = s2->proc_table[_pi].name; int _fx = s2->proc_table[_pi].bb_idx; if (!_fn || strcmp(_fn, "main") == 0 || _fx < 0 || _fx >= s2->bbp.count || !s2->bbp.table[_fx] || !s2->bbp.table[_fx]->entry) continue; IR_graph_t *_fg = s2->bbp.table[_fx]; if (_fg->caller_frame && _fg->nslots > 0) rt_proc_set_frame(_fn, _fg->nslots - 1, s2->proc_table[_pi].decl_level); } }
             { extern int g_proc_direct_active; extern void proc_collect_reset(void); extern void proc_collect_graph(IR_graph_t *); extern int proc_slot_count(void); proc_collect_reset(); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi] && s2->bbp.table[_gi]->static_calls) proc_collect_graph(s2->bbp.table[_gi]); g_proc_direct_active = (proc_slot_count() > 0) ? 1 : 0; }
@@ -1612,29 +1618,7 @@ int main(int argc, char **argv)
                 }
                 if (getenv("SCRIP_M3_GVA_TRACE")) fprintf(stderr, "[M3-GVA] m3 globals via pinned island: active=%d n_gva=%d\n", g_gva_active, n_gva_m3);
             }
-            for (int _pi = 0; _pi < s2->proc_count; _pi++) {
-                const char *pname = s2->proc_table[_pi].name;
-                if (!pname) continue;
-                if (strcmp(pname, "main") == 0) continue;
-                int idx = s2->proc_table[_pi].bb_idx;
-                if (idx < 0 || idx >= s2->bbp.count || !s2->bbp.table[idx] || !s2->bbp.table[idx]->entry) continue;
-                int np = s2->proc_table[_pi].nparams;
-                const char **pn = NULL;
-                if (np > 0) {
-                    pn = (const char **)calloc((size_t)np, sizeof(const char *));
-                    for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++)
-                        pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
-                }
-                rt_proc_register(pname, pn, np);
-                { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }
-                { IR_graph_t *_lg = (idx >= 0 && idx < s2->bbp.count) ? s2->bbp.table[idx] : (IR_graph_t *)0; icn_register_locals(pname, _lg); }
-                { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); } { extern void rt_proc_set_jmpentry(const char *, int); rt_proc_set_jmpentry(pname, !s2->bbp.table[idx]->caller_frame && strncmp(pname, "gram__", 6) != 0); }
-                { extern void rt_proc_set_variadic(const char *, int); rt_proc_set_variadic(pname, s2->proc_table[_pi].is_variadic); }
-                { extern void rt_proc_set_rest_kind(const char *, int); rt_proc_set_rest_kind(pname, s2->proc_table[_pi].rest_kind); }
-                { extern void rt_proc_set_named_rest(const char *, int); rt_proc_set_named_rest(pname, s2->proc_table[_pi].named_rest); }
-                { extern void rt_proc_set_dyn_scope(const char *, int); rt_proc_set_dyn_scope(pname, s2->proc_table[_pi].dyn_scope); }
-                { extern void rt_proc_set_result_name(const char *, const char *); if (s2->proc_table[_pi].result_name) rt_proc_set_result_name(pname, s2->proc_table[_pi].result_name); }
-            }
+            register_procs_all(s2);
             { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
             drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
             { extern void rt_proc_set_frame(const char *, int, int); for (int _pi = 0; _pi < s2->proc_count; _pi++) { const char *_fn = s2->proc_table[_pi].name; int _fx = s2->proc_table[_pi].bb_idx; if (!_fn || strcmp(_fn, "main") == 0 || _fx < 0 || _fx >= s2->bbp.count || !s2->bbp.table[_fx] || !s2->bbp.table[_fx]->entry) continue; IR_graph_t *_fg = s2->bbp.table[_fx]; if (_fg->caller_frame && _fg->nslots > 0) rt_proc_set_frame(_fn, _fg->nslots - 1, s2->proc_table[_pi].decl_level); } }
