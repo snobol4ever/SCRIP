@@ -470,7 +470,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     int resoff  = zoff(_.node);
     if (resoff < 0) return x86_alpha() + x86_bomb("bb_call_byname: no LOWER slot grant (TMP-ERADICATE)");
     if (_.node && (int)narg > _.node->n_operands) return x86_alpha() + x86_bomb("bb_call_byname: arg count exceeds LOWER grant (TMP-ERADICATE)");
-    int argbase = resoff + 16;
+    int argbase = zls_argv_off(pBB); if (argbase < 0) argbase = resoff + 16;
     std::string fl = std::string(".L") + x86_boxkind() + "_bynamefn" + std::to_string((long long)_.nid);
     uint64_t fptr_bl; { DESCR_t (*fp)(const char *, DESCR_t *, int, int) = _.op_strict ? rt_call_arr_bl_strict : rt_call_arr_bl; fptr_bl = (uint64_t)(uintptr_t)(void*)fp; }
     std::string s = x86_alpha()
@@ -522,7 +522,7 @@ static std::string bb_call_byname_gen_str(IR_t * pBB) {
     int resoff  = zoff(_.node);
     if (resoff < 0) return x86_alpha() + x86_bomb("bb_call_byname_gen: no LOWER slot grant (TMP-ERADICATE)");
     if (_.node && (int)narg > _.node->n_operands) return x86_alpha() + x86_bomb("bb_call_byname_gen: arg count exceeds LOWER grant (TMP-ERADICATE)");
-    int argbase = resoff + 16;
+    int argbase = zls_argv_off(pBB); if (argbase < 0) argbase = resoff + 16;
     int genoff  = resoff + 16 * (1 + (int)narg);
     std::string fl = std::string(".L") + x86_boxkind() + "_bynamegenfn" + std::to_string((long long)_.nid);
     uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int, int64_t *) = _.op_strict ? rt_call_arr_gen_strict : rt_call_arr_gen; fptr = (uint64_t)(uintptr_t)(void*)fp; }

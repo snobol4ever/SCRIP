@@ -2,7 +2,7 @@
 import re, sys, os
 HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, HERE)
 import util_frame_field_reference_census as C
-DL = re.compile(r"^;\s+reuse\s+\+\d+\s+IR_CALL\s+.*PINNED .*det leaf (\S+):")
+DL = re.compile(r"^;\s+reuse\s+\+\d+\s+IR_CALL\s+.*det leaf (\S+): no beta, argv dead at gamma")
 BOX = re.compile(r"^(n\d+_call_bx):")
 CALL = re.compile(r"^\s*call\s+([A-Za-z0-9_$.@]+)")
 def main():
@@ -42,7 +42,7 @@ def main():
         if not ok: bad += 1
         print("; detleaf '%s' sealed=%d emitted_direct=%d emitted_byname=%d %s%s" % (g["name"], nb, direct, byname, "agree" if ok else "⛔ DISAGREE", "" if ok else " sealed=" + ",".join(g["leaves"])))
     print("; detleaf TOTAL graphs=%d graded=%d sealed=%d emitted_direct=%d disagree=%d" % (len(graphs), graded, tot_bits, tot_direct, bad))
-    print("; detleaf MEASURES per graph: the calls --dump-zeta prints as PINNED det leaf (the lowerer's seal, read by the reuse relation) against the IR_CALL boxes (n<k>_call_bx) whose first call instruction targets a registry symbol rather than rt_call_arr_bl (the by-name dispatch); the two must agree in both directions, and a graph whose body is not found is NOT GRADED by name")
+    print("; detleaf MEASURES per graph: the calls --dump-zeta prints with the det-leaf claim 'det leaf <name>: no beta, argv dead at gamma' (the lowerer's seal, read by the reuse relation; since rung 2 the result goes through the ordinary reader rule, so the line may read CANDIDATE, ELIDED or PINNED) against the IR_CALL boxes (n<k>_call_bx) whose first call instruction targets a registry symbol rather than rt_call_arr_bl (the by-name dispatch); the two must agree in both directions, and a graph whose body is not found is NOT GRADED by name")
     if graded == 0: return 2
     return 1 if bad else 0
 if __name__ == "__main__": sys.exit(main())
