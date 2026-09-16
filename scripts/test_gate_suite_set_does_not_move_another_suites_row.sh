@@ -67,11 +67,11 @@ ARMS=$((ARMS+1))
 if subject_row | grep -q '107/124'; then echo "  ✓ arm 2: $SUBJECT's own row carries the numbers it was set to (107/124)"
 else echo "  ⛔ arm 2: $SUBJECT's row does NOT carry 107/124 -- the write was scoped away entirely"; echo "      row: $(subject_row)"; RED=$((RED+1)); fi
 
-# ARM 3 — FAIL-ONCE / DETECTOR PROOF: the UNSCOPED path (--render, which is what --set used to do)
+# ARM 3 — FAIL-ONCE / DETECTOR PROOF: the UNSCOPED path (--render --all-rows, which is what --set used to do; a bare --render refuses since 2026-09-16)
 # must still move the victim on this same fixture. If it does not, the fixture stopped reproducing the
 # defect and arm 1 is passing over nothing -- the empty-denominator shape.
 reset_fixture; before="$(victim_row)"
-S4E_SUITES_TSV="$W/SUITES.tsv" S4E_SCORE_MD="$W/SCORE.md" python3 "$BANNER" --render >/dev/null 2>&1
+S4E_SUITES_TSV="$W/SUITES.tsv" S4E_SCORE_MD="$W/SCORE.md" python3 "$BANNER" --render --all-rows >/dev/null 2>&1   # --all-rows: since 2026-09-16 a bare --render REFUSES (coo, hq_raku's row); the unscoped act is asked for by name
 after="$(victim_row)"; ARMS=$((ARMS+1))
 if [ "$before" != "$after" ]; then echo "  ✓ arm 3: the unscoped --render still moves $VICTIM, so arm 1's fixture really does reproduce the defect"
 else echo "  ⛔ arm 3: the unscoped --render did NOT move $VICTIM -- this fixture no longer reproduces the defect, so arm 1 proves nothing"; RED=$((RED+1)); fi
