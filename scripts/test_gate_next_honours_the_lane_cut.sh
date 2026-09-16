@@ -61,9 +61,16 @@ _lane_langs="$(bash -c '. /dev/stdin <<<"$(sed -n "/^s4e_lane_languages()/,/^s4e
 # The frozen language in blocks (d)-(g) is SNOBOL4 by name (the freeze string is prose in MODE), so the
 # fixture's OWN language must be a different one, or (d) would be testing two mechanisms at once.
 _own_lang=""; _own_owner=""
+# ⛔ AND ITS OWNER MUST DIFFER FROM SNOBOL4's (ceo CEO-766, 2026-09-16): blocks (a)-(c) grade a CROSS-lane
+# promotion, and the cross language is snobol4 BY NAME, so an own language that shares snobol4's owner makes
+# the blocker an own-lane row -- the picker promotes it, correctly, and the gate reads 2 of 10 RED on a correct
+# picker. Measured the minute the cfo took icon beside snobol4. Skipping same-owner languages keeps a cross
+# lane in the fixture whenever one exists; when none exists the one-owner logic below decides.
+_sno_owner="$(_lane_owner_of snobol4)"
 for _l in $_lane_langs; do
   [ "$_l" = snobol4 ] && continue
   _o="$(_lane_owner_of "$_l")"
+  [ -n "$_sno_owner" ] && [ "$_o" = "$_sno_owner" ] && continue
   # ⛔ ceo IS ADMITTED HERE AND THAT IS NOT A CONTRADICTION OF THE LAW ABOVE (ceo CEO-755, MODE CEO). The law
   # restricts the ceo IDENTITY -- ME=ceo is never lane-filtered. This fixture never runs AS the ceo: it runs as
   # a numbered seat whose HQ file names the owner, and a seat reporting to the ceo is lane-determinable exactly
