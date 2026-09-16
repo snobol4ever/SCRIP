@@ -19,7 +19,7 @@ typedef struct { const IR_t * nd; int scope_id; int off; int loff; int live; int
 typedef struct { int scope_id; int off; int size; unsigned char kind; unsigned char audit; const char * what; const IR_t * nd; } zls_pfield_t;
 typedef struct { const char * name; int off; } zls_vslot_t;
 typedef struct { const IR_graph_t * g; const char * name; int start_n; const IR_t * anchor; } zls_mark_t;
-typedef struct { const IR_graph_t * g; const char * name; int first_scope; int n_scopes; int nslots; int region; int resume_off; int zeta_mark_off; int locals_off; int first_vslot; int n_vslots; struct zls_reuse_s * reuse; int n_reuse; } zls_graph_t;
+typedef struct { const IR_graph_t * g; const char * name; int first_scope; int n_scopes; int nslots; int region; int resume_off; int zeta_mark_off; int locals_off; int first_vslot; int n_vslots; struct zls_reuse_s * reuse; int n_reuse; int scratch_pool; const IR_t * scratch_hit_w; const IR_t * scratch_hit_t; } zls_graph_t;
 static zls_entry_t  ze[FL_MAX_ENTRIES];  static int ze_n = 0;
 static zls_pfield_t zf[FL_MAX_FIELDS];   static int zf_n = 0;
 static zls_scope_t  zs[FL_MAX_SCOPES];   static int zs_n = 0;
@@ -39,6 +39,7 @@ typedef struct zls_reuse_s { const IR_t * nd; int cls; int w; int last; int gpos
 #define ZR_NONE      -1
 static void zls_reuse_plan(const IR_graph_t * g, zls_reuse_t * rec, int * ncp_out, int * nloop_out);
 static int zls_reuse_detleaf(const IR_t * c);
+static int zls_reuse_straight(IR_e op);
 static int zls_direct_slot(const IR_graph_t * g, const zls_reuse_t * rec, const char * rb, int nl, const int * mstart, int i, int dl_w);
 typedef struct { const IR_t * nd; int min_off; int span; int zq[8]; int nzq; } zls_ageom_t;
 static zls_ageom_t  za[1024];             static int za_n = 0;
@@ -68,7 +69,7 @@ void zls_graph_name(const IR_graph_t * g, const char * name) {
     zls_graph_t * r = zls_g_find(g);
     if (r) { r->name = name; if (r->first_scope >= 0 && r->first_scope < zs_n) zs[r->first_scope].name = name; return; }
     if (zg_n >= FL_MAX_GRAPHS) { fprintf(stderr, "zls: graph table overflow (%d)\n", FL_MAX_GRAPHS); abort(); }
-    zg[zg_n] = (zls_graph_t){ g, name, -1, 0, 0, 0, -1, -1, 0, 0, 0, (struct zls_reuse_s *)0, 0 };
+    zg[zg_n] = (zls_graph_t){ g, name, -1, 0, 0, 0, -1, -1, 0, 0, 0, (struct zls_reuse_s *)0, 0, -1, (const IR_t *)0, (const IR_t *)0 };
     zg_n++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -422,7 +423,7 @@ void zls_build(IR_graph_t * g) {
     if (r && r->first_scope >= 0) return;
     if (!r) {
         if (zg_n >= FL_MAX_GRAPHS) { fprintf(stderr, "zls: graph table overflow (%d)\n", FL_MAX_GRAPHS); abort(); }
-        zg[zg_n] = (zls_graph_t){ g, (const char *)0, -1, 0, 0, 0, -1, -1, 0, 0, 0, (struct zls_reuse_s *)0, 0 }; r = &zg[zg_n]; zg_n++;
+        zg[zg_n] = (zls_graph_t){ g, (const char *)0, -1, 0, 0, 0, -1, -1, 0, 0, 0, (struct zls_reuse_s *)0, 0, -1, (const IR_t *)0, (const IR_t *)0 }; r = &zg[zg_n]; zg_n++;
     }
     static char anon[FL_MAX_GRAPHS][8]; int gi = (int)(r - zg);
     if (!r->name) { snprintf(anon[gi], sizeof anon[gi], "g%d", gi); r->name = anon[gi]; }
@@ -467,7 +468,7 @@ void zls_build(IR_graph_t * g) {
       if (eon) zls_mark_value_refs(g, lv);
       int scratch_off = -1;
       zls_reuse_t * rec = (zls_reuse_t *)malloc(sizeof(zls_reuse_t) * (size_t)g->n);
-      zls_reuse_plan(g, rec, (int *)0, (int *)0);
+      int nloop = 0; zls_reuse_plan(g, rec, (int *)0, &nloop);
       int pool_free[64], pool_n = 0, pool_base = -1, dl_base = -1, dl_w = 0;
       for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && rb[i] && zls_reuse_detleaf(nd) && (nl == 0 || i < mstart[0]) && nd->n_operands > dl_w) dl_w = nd->n_operands; }
       { int * order = (int *)malloc(sizeof(int) * (size_t)g->n); int on = 0;
@@ -482,6 +483,14 @@ void zls_build(IR_graph_t * g) {
         free(order);
         if (pool_n > 0) { pool_base = base + k * 16; for (int q = 0; q < pool_n; q++) zls_field(root, pool_base + q * 16, 16, ZK_DESCR, 0, "result (pooled: straight temps share it by interval colouring on the gamma spine)", (const IR_t *)0); k += pool_n; }
         if (dl_w > 0) { dl_base = base + k * 16; for (int q = 0; q < dl_w; q++) zls_field(root, dl_base + q * 16, 16, ZK_DESCR, 0, "call.argv (pooled: every sealed det leaf of this graph marshals here -- live only between one call's alpha and its gamma; the callee returns once and its beta falls to omega; a straight temp read only by one sealed call's operand j is granted slot j directly and the marshal copies nothing)", (const IR_t *)0); k += dl_w; }
+        r->scratch_pool = -1; r->scratch_hit_w = (const IR_t *)0; r->scratch_hit_t = (const IR_t *)0;
+        for (int q = 0; eon && nloop == 0 && q < pool_n && r->scratch_pool < 0; q++) { int hit = 0;
+            for (int i = 0; i < g->n && !hit; i++) { const IR_t * d = g->all[i]; if (!d || !rb[i] || lv[i] || zls_is_wiring(d->op)) continue; if (!zls_reuse_detleaf(d) && !zls_elide_ok(d->op)) continue;
+                if (rec[i].w < 0 || (nl > 0 && i >= mstart[0]) || (!zls_reuse_detleaf(d) && !zls_reuse_straight(d->op))) { hit = 1; r->scratch_hit_w = d; break; }
+                int p = 2 * rec[i].w + 1;
+                for (int t = 0; t < g->n; t++) if (rec[t].pooled == q && rec[t].direct < 0 && 2 * rec[t].w + 1 <= p && p <= 2 * rec[t].last) { hit = 1; r->scratch_hit_w = d; r->scratch_hit_t = g->all[t]; break; } }
+            if (!hit) r->scratch_pool = q; }
+        if (r->scratch_pool >= 0) scratch_off = pool_base + r->scratch_pool * 16;
         for (int i = 0; i < g->n; i++) { if (rec[i].direct >= 0) rec[i].pooled = dl_base + rec[i].direct * 16; else if (rec[i].pooled >= 0) rec[i].pooled = pool_base + rec[i].pooled * 16; } }
       for (int i = 0; i < g->n; i++) {
         IR_t * nd = g->all[i];
@@ -808,7 +817,7 @@ void zls_forget_graph_nodes(const IR_graph_t * g) {
     zx_n = 0;
     for (int i = 0; i < ze_n; i++) if (ze[i].nd) zx[zx_n++] = &ze[i];
     qsort(zx, zx_n, sizeof(zls_entry_t *), zx_cmp);
-    { zls_graph_t * r = zls_g_find(g); if (r) { if (r->reuse) free(r->reuse); *r = (zls_graph_t){ g, r->name, -1, 0, 0, 0, -1, -1, 0, 0, 0, (struct zls_reuse_s *)0, 0 }; } }
+    { zls_graph_t * r = zls_g_find(g); if (r) { if (r->reuse) free(r->reuse); *r = (zls_graph_t){ g, r->name, -1, 0, 0, 0, -1, -1, 0, 0, 0, (struct zls_reuse_s *)0, 0, -1, (const IR_t *)0, (const IR_t *)0 }; } }
 }
 int zls_g_resume(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->resume_off : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -925,7 +934,7 @@ static void zls_reuse_dump(FILE * fp, const zls_graph_t * r) {
         const char * on = bb_op_name(c->op); if (!on) on = "?";
         char dls[160]; dls[0] = 0; if (zls_reuse_detleaf(c)) { pdet++; if (c->n_operands == 0) snprintf(dls, sizeof dls, "  det leaf %s: no beta, argv dead at gamma, no argv", IR_LIT(c).sval ? IR_LIT(c).sval : "?"); else snprintf(dls, sizeof dls, "  det leaf %s: no beta, argv dead at gamma, argv@+%d%s", IR_LIT(c).sval ? IR_LIT(c).sval : "?", zls_argv_off(c), e->aoff >= 0 ? " pooled" : " own"); }
         { int shared = 0; for (int t = 0; t < ze_n; t++) if (ze[t].off == e->off && ze[t].scope_id >= r->first_scope && ze[t].scope_id < r->first_scope + r->n_scopes && ze[t].nd != c) shared = 1;
-          if (shared && !e->live) { elided++; fprintf(fp, ";     reuse +%-5d %-18s ELIDED shared dead-result scratch%s\n", e->off, on, dls); continue; } }
+          if (shared && !e->live) { elided++; fprintf(fp, ";     reuse +%-5d %-18s w=%-4d ELIDED shared dead-result scratch: its gamma writes here at %d%s\n", e->off, on, q->w, 2 * q->w + 1, dls); continue; } }
         switch (q->cls) {
         case ZR_DYNAMIC: pdyn++; fprintf(fp, ";     reuse +%-5d %-18s PINNED dynamic entry into this graph%s\n", e->off, on, dls); continue;
         case ZR_UNPLACED: punpl++; fprintf(fp, ";     reuse +%-5d %-18s w=%-4d PINNED unplaced: not on the gamma spine, or a reader is not%s\n", e->off, on, q->w, dls); continue;
@@ -944,8 +953,12 @@ static void zls_reuse_dump(FILE * fp, const zls_graph_t * r) {
     { const zls_reuse_t * q0 = (r->n_reuse > 0) ? &r->reuse[0] : (const zls_reuse_t *)0; if (q0 && q0->lhi >= 0) nloop = 1; }
     for (int i = 0; i < r->n_reuse; i++) if (r->reuse[i].cls == ZR_SELF || r->reuse[i].cls == ZR_GUARD) ncp++;
     int predicted = r->region - 16 * ((cand - pooled - direct) - packed > 0 ? (cand - pooled - direct) - packed : 0);
-    fprintf(fp, ";   reuse '%s' results=%d candidates=%d pooled=%d direct=%d pool_slots=%d pinned=%d (self=%d guard=%d unplaced=%d loop=%d dynamic=%d reader=%d detleaf=%d) elided=%d spine=%d/%d betacapable=%d loops=%d packed_min=%d predicted_region_end=%d\n",
-            r->name ? r->name : "?", results, cand, pooled, direct, pool_slots, pself + pguard + punpl + ploop + pdyn + preader, pself, pguard, punpl, ploop, pdyn, preader, pdet, elided, placed, boxes, ncp, nloop, packed, predicted);
+    char scr[200]; if (r->scratch_pool >= 0) snprintf(scr, sizeof scr, "overlay(pool slot %d: no dead write lands inside a pooled interval)", r->scratch_pool);
+    else if (r->scratch_hit_w && r->scratch_hit_t) { const zls_reuse_t * qw = zls_reuse_find(r, r->scratch_hit_w), * qt = zls_reuse_find(r, r->scratch_hit_t); snprintf(scr, sizeof scr, "own(REFUSED: %s dead write at %d lands inside %s [%d..%d] on every pool slot)", bb_op_name(r->scratch_hit_w->op), qw ? 2 * qw->w + 1 : -1, bb_op_name(r->scratch_hit_t->op), qt ? 2 * qt->w + 1 : -1, qt ? 2 * qt->last : -1); }
+    else if (r->scratch_hit_w) snprintf(scr, sizeof scr, "own(REFUSED: %s is a dead writer whose position or scope the plan cannot bound)", bb_op_name(r->scratch_hit_w->op));
+    else snprintf(scr, sizeof scr, "%s", elided ? (pool_slots ? "own(loop: a back-edge re-runs the dead writers)" : "own(no pool slot)") : "none");
+    fprintf(fp, ";   reuse '%s' results=%d candidates=%d pooled=%d direct=%d pool_slots=%d pinned=%d (self=%d guard=%d unplaced=%d loop=%d dynamic=%d reader=%d detleaf=%d) elided=%d spine=%d/%d betacapable=%d loops=%d packed_min=%d predicted_region_end=%d scratch=%s\n",
+            r->name ? r->name : "?", results, cand, pooled, direct, pool_slots, pself + pguard + punpl + ploop + pdyn + preader, pself, pguard, punpl, ploop, pdyn, preader, pdet, elided, placed, boxes, ncp, nloop, packed, predicted, scr);
     free(lo); free(hi);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
