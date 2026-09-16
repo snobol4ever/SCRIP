@@ -2609,6 +2609,13 @@ def cmd_selftest(a):
         except SystemExit as e:
             print("SELFTEST FAIL: a ragged row belonging to ANOTHER language blocked an unrelated write "
                   "(rc=%r) -- that turns one seat's damage into a fleet-wide stop" % (e.code,)); ok = False
+        # ⛔ COLUMN KIND: a master runner named with the vendor suffix classifies M, a vendor runner still V (hq_raku 2026-09-16)
+        _ck = (citation_kind("bash scripts/test_raku_ir_full_suite.sh"), citation_kind("bash scripts/test_icon_ipl_suite.sh"),
+               citation_kind("bash scripts/test_prolog_rung_suite.sh"))
+        if _ck == ("M", "V", "L"):
+            print("SELFTEST: citation_kind reads the Raku master runner as M (its name ends in the vendor suffix), a vendor runner as V, the Prolog rung runner as L")
+        else:
+            print("SELFTEST FAIL: citation_kind gave %r for (raku master, ipl vendor, prolog rung), wanted ('M', 'V', 'L')" % (_ck,)); ok = False
         # ⛔⭐ CEO-785 -- A CRITERION CHANGE IS STAMPED BY THE WRITER, AND A DENOMINATOR MOVE WITHOUT ITS STAMP REFUSES BEFORE
         # ANY WRITE (coo 2026-09-16; row instruments-util-score-row-cannot-stamp-a-criterion-change-so-every-denominator-move-
         # is-hand-edited-or-unstamped). Last in the selftest because it leaves the fixture row at 49.
@@ -3642,10 +3649,19 @@ COLUMN_KINDS = {
     "M": [r"corpus_suite_harness\.py$", r"^board_.*_master\.sh$", r"^test_corpus_.*\.sh$", r"^test_gate_pascal_m[34].*"],
 }
 KIND_ORDER = ("L", "V", "M")
+# ⛔ MASTER RUNNERS WHOSE NAME ENDS IN THE VENDOR SUFFIX (hq_raku 2026-09-16; coo, row util-score-row-citation-kind-classifies-the-
+# raku-master-runner-as-vendor-by-its-suite-suffix): test_raku_ir_full_suite.sh grades corpus/tests/raku/ALL.raku + ALL.ref -- the
+# RAKU MASTER by population -- but `_suite.sh$` is the V pattern and V is tried before M, so a raku M cell naming its own runner
+# went red in test_gate_score_column_semantics.sh and the cell had to omit the runner's name. Named here and tried FIRST, the same
+# cure test_prolog_rung_suite.sh has in L. A name enters this list by what it GRADES (a master pair), never by what it is called.
+MASTER_RUNNERS_WITH_SUITE_SUFFIX = [r"^test_raku_ir_full_suite\.sh$"]
 
 
 def citation_kind(cite):
     base = cite.split("/")[-1]
+    for pat in MASTER_RUNNERS_WITH_SUITE_SUFFIX:
+        if re.search(pat, base):
+            return "M"
     for k in KIND_ORDER:
         for pat in COLUMN_KINDS[k]:
             if re.search(pat, base) or re.search(pat, cite):
