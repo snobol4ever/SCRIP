@@ -8,7 +8,9 @@
 # is invisible to it, and the instrument says so on every run.
 # ⛔ WHAT IT MUST DO TO BE TRUSTED, and what this gate pins:
 #   1. every graph of the Prolog witness is censused (161 of 161) -- a graph with no body found is reported, never skipped silently;
-#   2. r/1 names the staged call's call.argv (+80 today) as NOREF -- the marshal goes over rsp, the frame slot is
+#   2. r/1 names its resume quad as NOREF (the lead that remains); the staged call's call.argv, the lead this gate
+#      first named (+80 on 09c0e5608, the marshal goes over rsp), was CURED at rung 3(a) and must be ABSENT from the
+#      census -- a granted staged argv slot is now a red here.  Original wording of the lead: the frame slot is
 #      never addressed; that is the fact rung 2 consumes first, so it is pinned here as a LEAD by name;
 #   3. on an rsp-placed frame (the SNOBOL4 witness main) the census REFUSES TO GRADE that graph rather than calling
 #      every field NOREF -- a predicate that cannot be evaluated fails closed (cfo, 2026-09-16);
@@ -27,8 +29,9 @@ tot="$(grep -E '^; census TOTAL' "$T/pl.txt")"; [ -n "$tot" ] || { echo "⛔ REF
 g="$(printf '%s' "$tot" | sed -n 's/.*graphs=\([0-9]*\).*/\1/p')"; c="$(printf '%s' "$tot" | sed -n 's/.*censused=\([0-9]*\).*/\1/p')"
 echo "prolog witness: $tot"
 [ "$g" -gt 100 ] && [ "$g" = "$c" ] || { echo "  ⛔ not every graph censused ($c of $g)"; grep 'NOT CENSUSED' "$T/pl.txt" | head -5; bad=$((bad+1)); }
-grep -qE "census 'r/1' \+[0-9]+ +16 +DESCR +refs=0 +lea=0 +NOREF +call.argv +IR_CALL_PROC_STAGED" "$T/pl.txt" || { echo "  ⛔ r/1 does not name the staged call's argv slot as NOREF"; bad=$((bad+1)); }
+grep -qE "census 'r/1' \+[0-9]+ +16 +DESCR .*call.argv +IR_CALL_PROC_STAGED" "$T/pl.txt" && { echo "  ⛔ r/1 still grants a staged call.argv slot -- the rung-3(a) non-grant is not in the frame"; bad=$((bad+1)); }
+grep -qE "census 'r/1' \+[0-9]+ +8 +PTR_CODE +refs=0 +lea=0 +NOREF +resumable-callable" "$T/pl.txt" || { echo "  ⛔ r/1 does not name its resume quad as NOREF (the lead that remains after rung 3(a))"; bad=$((bad+1)); }
 grep -q '^; census MEASURES' "$T/pl.txt" || { echo "  ⛔ the MEASURES line is missing"; bad=$((bad+1)); }
 grep -qE "census 'main' NOT CENSUSED: the frame is not rbp-addressed" "$T/sno.txt" || { echo "  ⛔ the rsp-placed SNOBOL4 main was graded instead of refused"; grep "'main'" "$T/sno.txt" | head -3; bad=$((bad+1)); }
 if [ "$bad" -gt 0 ]; then echo "⛔ GATE FAIL: $bad finding(s) -- the field census is not trustworthy"; exit 1; fi
-echo "GATE OK: $c of $g Prolog graphs censused, the staged argv lead is named, the rsp-placed frame is refused, and the instrument states what it measures"
+echo "GATE OK: $c of $g Prolog graphs censused, the staged argv lead is cured and absent, the resume-quad lead is named, the rsp-placed frame is refused, and the instrument states what it measures"

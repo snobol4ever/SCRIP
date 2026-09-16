@@ -17,6 +17,7 @@ void         zls_build(IR_graph_t * g);
 int          zls_off(const IR_t * nd);
 int          zls_result_off(const IR_t * nd);
 int          zls_argv_off(const IR_t * nd);
+int          zls_act_off(const IR_t * nd);
 int          zls_result_live(const IR_t * nd);
 int          zls_arbno_geom(const IR_t * nd, int * min_off, int * span);
 int          zls_scope_of(const IR_t * nd);

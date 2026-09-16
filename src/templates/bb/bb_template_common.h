@@ -20,5 +20,6 @@ void net_escape_ldstr(FILE *out, const char *s);
 void js_escape(FILE *out, const char *s);
 int zls_off(const IR_t *nd);
 int zls_argv_off(const IR_t *nd);
+int zls_act_off(const IR_t *nd);
 #define _ g_emit
 #define GZ_CELL_OFF(slot) (8 + 16 * (slot))

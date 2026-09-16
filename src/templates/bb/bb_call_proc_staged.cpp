@@ -659,7 +659,7 @@ static std::string bcps_det_arm() {
 static std::string bcps_spine_gen_arm() {
     x86_begin();
     int off = bcps_result_slot(); if (off < 0) return x86_bomb("bb_call_proc_staged: no LOWER slot grant (TMP-ERADICATE)");
-    int act = off + 16 * (1 + (int)_.op_ival);
+    int act = zls_act_off(_.node); if (act < 0) act = off + 16 * (1 + (int)_.op_ival);
     IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
     uint64_t stage_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t open_fp;  { long (*fp)(const char *, int) = rt_proc_call_open; open_fp = (uint64_t)(uintptr_t)(void*)fp; }

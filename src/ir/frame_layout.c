@@ -197,17 +197,18 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
         return 1 + nd->n_operands;
     case IR_PROC_GEN: case IR_CALL_VALUE:
         for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * j, 16, ZK_DESCR, 0, "call.argv", nd);
-        zls_field(scope_id, off + 16 * nd->n_operands, 8, ZK_PTR_GC, 0, "callgen.act — GENP-SPINE s92: the spine arm's epilogue-once flag (0/1, α-zeroed); was the pthread model's RSP-carve activation handle, which legacy non-RSP configs still write via rt_proc_call_gen_h's hout", nd);
-        zls_field(scope_id, off + 16 * nd->n_operands + 8, 8, ZK_RAW, 0, "callgen.act pad (unused)", nd);
+        zls_field(scope_id, off + 16 * nd->n_operands, 8, ZK_RAW, 0, "callgen.act +0 (ZK_RAW: the spine arm writes 0 at alpha and 1 once its epilogue has run; at the gamma landing it holds the callee's RETAINED frame base (rax) or 0 when the callee released -- a machine-stack address, never a heap block; measured from bb_call_proc_staged.cpp)", nd);
+        zls_field(scope_id, off + 16 * nd->n_operands + 8, 8, ZK_PTR_CODE, 0, "callgen.act +8 (WRITTEN, not a pad: the callee's graph beta at the gamma landing, or the saved rsp on the LCO/forwarding arms; read back on beta to resume the callee -- bb_call_proc_staged.cpp)", nd);
         return 1 + nd->n_operands;
     default:
         if (nd->op == IR_CALL || ir_is_call_kind(nd->op)) {
-            for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * j, 16, ZK_DESCR, 0, "call.argv", nd);
-            if (nd->op == IR_CALL_PROC_STAGED && zls_callee_is_gen(nd)) {
-                zls_field(scope_id, off + 16 * nd->n_operands, 8, ZK_PTR_GC, 0, "callgen.act — GENP-SPINE s92: the spine arm's epilogue-once flag (0/1, α-zeroed); was the pthread model's RSP-carve activation handle, which legacy non-RSP configs still write via rt_proc_call_gen_h's hout.  Offset repaired off*(1+n) → off + 16*(1+n), the emitting arms' exact formula", nd);
-                zls_field(scope_id, off + 16 * nd->n_operands + 8, 8, ZK_RAW, 0, "callgen.act pad (unused)", nd);
-                return 1 + nd->n_operands;
+            if (nd->op == IR_CALL_PROC_STAGED) {
+                if (!zls_callee_is_gen(nd)) return 0;
+                zls_field(scope_id, off, 8, ZK_RAW, 0, "callgen.act +0 (ZK_RAW: the spine arm writes 0 at alpha and 1 once its epilogue has run; at the gamma landing it holds the callee's RETAINED frame base (rax) or 0 when the callee released -- a machine-stack address, never a heap block; measured from bb_call_proc_staged.cpp)", nd);
+                zls_field(scope_id, off + 8, 8, ZK_PTR_CODE, 0, "callgen.act +8 (WRITTEN, not a pad: the callee's graph beta at the gamma landing, or the saved rsp on the LCO/forwarding arms; read back on beta to resume the callee -- bb_call_proc_staged.cpp)", nd);
+                return 1;
             }
+            for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * j, 16, ZK_DESCR, 0, "call.argv", nd);
             { const char * cmn = IR_LIT(nd).sval; if (cmn && (!strcmp(cmn, "tab") || !strcmp(cmn, "move"))) {
                 zls_field(scope_id, off + 16 * nd->n_operands, 8, ZK_RAW, 0, "scan.saved_delta — ICN-BYNAME-CURSOR-RESTORE: a cursor-mover (tab/move, and =s == tab(match(s))) reached by-name through rt_call_arr has no inline bb_scan_tab body, so it also had no saved-δ slot and its β degenerated to a bare jmp ω — the backtrack never restored &pos. This quad is that slot; bb_call_byname_str writes r14 here at α and reloads it in β, mirroring bb_scan_tab's restore-δ-and-FAIL port. Same extra-quad shape as callgen.act above.", nd);
                 zls_field(scope_id, off + 16 * nd->n_operands + 8, 8, ZK_RAW, 0, "scan.saved_delta pad (unused)", nd);
@@ -787,6 +788,7 @@ int fc_head_fp(const IR_t * nd) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zls_off(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); if (!e) return -1; return e->loff; }
 int zls_result_off(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); return e ? e->off : -1; }
+int zls_act_off(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); if (!e) return -1; for (int i = 0; i < zf_n; i++) if (zf[i].nd == nd && zf[i].scope_id == e->scope_id && zf[i].what && !strncmp(zf[i].what, "callgen.act +0", 14)) return zf[i].off; return -1; }
 int zls_argv_off(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); if (!e) return -1; return e->aoff >= 0 ? e->aoff : e->off + 16; }
 #define ZNB_MEMO 65536
 static struct { const IR_t * nd; int stamp; int bytes; } znb_memo[ZNB_MEMO];
