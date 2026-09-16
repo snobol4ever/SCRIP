@@ -60,8 +60,24 @@ for f in "$SUITE"/iso7185prt*.pas; do
         # made the tree dirty, which made util_score_row.py correctly REFUSE to write the leaderboard row --
         # so the suite's own debris silently blocked the FACT RULE the suite exists to satisfy. ⭐ The general
         # form: a runner that executes its subjects in the repo root has made the repo part of the experiment.
+        # ⛔⭐⭐ THE m4 ARM COMPILES, LINKS AND RUNS -- IT USED TO ONLY COMPILE, AND THAT WAS A FALSE READING, NOT A
+        # CHEAP ONE (hq_pascal 2026-09-16, cfo ruling, ceo copied; INSTRUMENT CHANGE in the CEO-749 shape, never a cure).
+        # `--compile -o /dev/null` answers "was it refused AT COMPILE TIME", so a witness whose ISO condition fires at
+        # RUN time could never fail this arm -- and most of a REJECTION suite is runtime conditions. MEASURED: eleven
+        # witnesses cured on 2026-09-16 (1826/1827/1842 statically, 1709/1710/1712/1714/1715/1716/1740/1757 at run time)
+        # moved both_pass by ONE, because the m4 column floored it. The acceptance arm below ALREADY compiles, links and
+        # runs; only the rejection arm was asymmetric. ⭐ THE GENERAL FORM, which is why this is worth eight lines: an
+        # instrument that can observe only one half of a cure reports the other half as absent FOREVER, and it does not
+        # get louder as the cure lands -- it gets quieter, because the cure it cannot see keeps arriving.
+        # ⛔ A LINK FAILURE IS NOT A REFUSAL: the compiler accepted the program, so the witness FAILS (it was not
+        # refused) rather than passing on a toolchain accident. test_gate_pas_pat_m4_arm_links_and_runs.sh pins this.
         if [ "$m" = m3 ]; then ( cd "$TMP" && exec timeout 2s "$SCRIP" "$f" </dev/null >"$TMP/o" 2>&1 ); rc=$?
-        else                   ( cd "$TMP" && exec timeout 8s "$SCRIP" --compile -o /dev/null "$f" </dev/null >"$TMP/o" 2>&1 ); rc=$?; fi
+        else ( cd "$TMP" && exec timeout 8s "$SCRIP" --compile -o "$TMP/rj.s" "$f" </dev/null >"$TMP/o" 2>&1 ); rc=$?
+             if [ "$rc" = 0 ]; then
+                 if ( cd "$TMP" && cc -m64 -no-pie rj.s -o rj -L"$HERE/../out" -lscrip_rt -lm -Wl,-rpath,"$HERE/../out" >/dev/null 2>&1 ); then
+                     ( cd "$TMP" && exec timeout 2s ./rj </dev/null >"$TMP/o" 2>&1 ); rc=$?
+                 else : ; fi
+             fi; fi
         # ⛔⭐ THE VERDICT IS STABLE; ONLY THE DIAGNOSIS VARIES (ceo ruling 2026-09-03, after their audit read
         # m3 296/129 where mine read 303/123 on the same tree). THE VERDICT is binary and load-independent:
         # a rejection test PASSES only when scrip REFUSES it with a diagnostic, and everything else -- ran to
