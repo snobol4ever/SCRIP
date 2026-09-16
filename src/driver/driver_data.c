@@ -364,6 +364,18 @@ DatType *dat_find_field(const char *name, int *fidx) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void dat_gc_roots(void) {
+    extern void rt_gc_visit_raw(const char **); extern void rt_gc_visit_descr(DESCR_t *);
+    for (int i = 0; i < dat_ntypes; i++) {
+        DatType *t = &dat_types[i];
+        for (int j = 0; j < t->nfields && j < 64; j++) if (t->has_default[j]) rt_gc_visit_descr(&t->defaults[j]);
+        DATBLK_t *blk = (DATBLK_t *)t->blk; if (!blk) continue;
+        rt_gc_visit_raw((const char **)&t->blk);
+        if (blk->name) rt_gc_visit_raw((const char **)&blk->name);
+        if (blk->fields) { rt_gc_visit_raw((const char **)&blk->fields); for (int j = 0; j < blk->nfields; j++) if (blk->fields[j]) rt_gc_visit_raw((const char **)&blk->fields[j]); }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t dat_alloc_fill(DatType *t, DESCR_t *args, int nargs) {
     DATINST_t *inst = rt_pinned_alloc_tag(sizeof(DATINST_t), HB_DINST);
     { extern long rt_sno_dumpno_next(void); inst->dumpno = rt_sno_dumpno_next(); }

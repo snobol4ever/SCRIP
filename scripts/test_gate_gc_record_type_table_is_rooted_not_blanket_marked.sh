@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# test_gate_gc_record_type_table_is_rooted_not_blanket_marked.sh -- THE ARIZONA gc2 WITNESS, BOTH MODES, BYTE-IDENTICAL TO ITS .std.
+# ⛔ THE MEASURED DEFECT (cfo 2026-09-16, row icon-gc2-arizona-gc-witness-regressed-...): dat_alloc_fill (src/driver/driver_data.c)
+# lazily allocates each record's DATBLK_t with rt_pinned_alloc and keeps the only durable pointer in the STATIC dat_types[] table,
+# which no root walk visited. Under the pre-rung-1 blanket policy every HB_WS block was force-marked, so the table needed no root;
+# after GC-5 rung 1 (24f1ec353) the block is marked only from an instance reached AS A DESCRIPTOR, and an instance reached as a raw
+# frame pointer is interior-scanned as descriptors, so its type pointer marks nothing. The block was reclaimed and slid over
+# (hardware watchpoint: two memcpy writes from gc_collect_ex line 700), and type() then dereferenced garbage: m3 SIGSEGV after 31
+# of 256 lines, m4 rc=0 with 100 empty lines. SCRIP_GC_PIN_AGGREGATES=1 (rung 1's own control) restored both modes, which is the
+# attribution. CURE: dat_gc_roots() roots every DatType's blk, its name, its field-name array and each field name, plus any heap
+# default value, from the collector's root list. This gate ran RED on the pre-cure build (m3 rc=139, m4 DIFF) and GREEN on the cure.
+# A missing witness or a stale binary REFUSES rc=2; nothing here passes vacuously.
+set -u
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"; cd "$ROOT" || exit 2
+bash scripts/util_require_fresh.sh >/dev/null 2>&1 || { echo "REFUSES rc=2: stale or missing ./scrip -- run make"; exit 2; }
+P="$ROOT/../corpus/packages/icon/arizona_tests/general"
+[ -f "$P/gc2.icn" ] && [ -f "$P/gc2.std" ] || { echo "REFUSES rc=2: $P/gc2.icn or gc2.std missing -- the witness is vendored, not synthesised"; exit 2; }
+W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
+bad=0
+( cd "$W" && timeout 120 "$ROOT/scrip" "$P/gc2.icn" < /dev/null > m3.out 2>&1 ); r3=$?
+if [ "$r3" -eq 0 ] && cmp -s "$W/m3.out" "$P/gc2.std"; then echo "  m3 PASS gc2 byte-identical (rc=0)"; else echo "  m3 RED rc=$r3 (a record's type block was reclaimed under a live instance; SIGSEGV in type() is the pre-cure shape)"; diff "$W/m3.out" "$P/gc2.std" | head -3 | sed 's/^/     /'; bad=1; fi
+( cd "$W" && timeout 120 "$ROOT/scrip" --compile -o gc2.s "$P/gc2.icn" < /dev/null 2>c.err && gcc gc2.s -L "$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o gc2 2>l.err && timeout 120 ./gc2 < /dev/null > m4.out 2>&1 ); r4=$?
+if [ "$r4" -eq 0 ] && cmp -s "$W/m4.out" "$P/gc2.std"; then echo "  m4 PASS gc2 byte-identical (rc=0)"; else echo "  m4 RED rc=$r4 (empty lines where the .std has record output is the pre-cure shape)"; diff "$W/m4.out" "$P/gc2.std" | head -3 | sed 's/^/     /'; bad=1; fi
+if [ "$bad" -ne 0 ]; then echo "GATE FAIL(1) [gc_record_type_table_is_rooted_not_blanket_marked]: gc2 is not byte-identical in both modes -- dat_gc_roots is missing from the collector's root list or does not cover every DatType"; exit 1; fi
+echo "GATE PASS(0) [gc_record_type_table_is_rooted_not_blanket_marked]: gc2 byte-identical to its .std in m3 and m4 (2 arms, 0 red)"
