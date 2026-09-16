@@ -20,6 +20,7 @@ int raku_get_lineno(void) { return raku_yylineno; }
 %option prefix="raku_yy"
 %option yylineno
 %x STR_DQ STR_SQ STR_RE STR_SUBST_PAT STR_SUBST_REPL STR_REBODY
+%x STR_CORNER
 %x POD
 DIGIT    [0-9]
 ALPHA    [A-Za-z_]
@@ -144,6 +145,9 @@ WS       [ \t\r]
 "=="            { return OP_EQ; }
 "!="            { return OP_NE; }
 "<=>"           { return OP_CMP3; }
+"≤"          { return OP_LE; }
+"≥"          { return OP_GE; }
+"≠"          { return OP_NE; }
 "<="            { return OP_LE; }
 ">="            { return OP_GE; }
 "&&"            { return OP_AND; }
@@ -250,6 +254,15 @@ WS       [ \t\r]
 <STR_DQ>\n     { raku_strbuf[raku_strpos++] = '\n'; }
 <STR_DQ>.      { raku_strbuf[raku_strpos++] = yytext[0]; }
 "'"             { raku_strpos = 0; BEGIN(STR_SQ); }
+"｢"         { raku_strpos = 0; BEGIN(STR_CORNER); }
+<STR_CORNER>"｣"  {
+    raku_strbuf[raku_strpos] = '\0';
+    raku_yylval.sval = strdup(raku_strbuf);
+    BEGIN(INITIAL);
+    return LIT_STR;
+}
+<STR_CORNER>\n    { if (raku_strpos < 65534) raku_strbuf[raku_strpos++] = '\n'; }
+<STR_CORNER>.      { if (raku_strpos < 65534) raku_strbuf[raku_strpos++] = yytext[0]; }
 <STR_SQ>"'"    {
     raku_strbuf[raku_strpos] = '\0';
     raku_yylval.sval = strdup(raku_strbuf);
