@@ -722,20 +722,11 @@ a compile-time SIGSEGV, and no committed reference, respectively — never silen
 kernels, 4 fully passed all three angles' agreement gate and are published, 3 (`bubble`,
 `intmm`, `perm`) had at least one angle disagree and are withheld rather than averaged past:
 
-| kernel | × vs fpc (m3) | × vs fpc (m4) |
-|---|:---:|:---:|
-| queens | 0.99x | **1.07x** |
-| quick | 0.96x | **1.04x** |
-| sieve | 0.98x | 0.91x |
-| towers | 0.96x | 0.96x |
+⛔ **RETRACTED 2026-09-16 (ceo, CEO-798, on hq_pascal's CEO-782 report):** the four cells that stood here (queens 0.99x/1.07x, quick 0.96x/1.04x, sieve 0.98x/0.91x, towers 0.96x/0.96x) were **the instrument's angle-2-over-angle-1 SELF-AGREEMENT ratio, not a multiple against fpc** — eight of eight cells equal, to two decimals, that column of `triangulation-20260904T021323Z.tsv`, whose true WORK-basis multiples read 0.000675x to 0.032980x, and the same instrument on the same kernels reads the same three-orders-from-parity figure on the 09-04 engine rebuilt and on HEAD (hq_pascal, 2026-09-16, both loads stamped). The grid is a ceo signature and the signature is withdrawn: **no Pascal speed number is published until `bench_triangulate_pascal.sh` exits 0 with every angle agreeing and the ceo signs the run**. Speed is hq_pascal's third axis under DECTET, after completeness.
 
 Oracle: `fpc -O2` at its released default (the rival at the speed the public actually runs,
 not artificially handicapped) vs SCRIP `RT_OPT=-O0` (no `-O2` builds, ever — RULES.md § NO
--O2 BUILDS). Reading: essentially at parity with fpc's own optimizing compiler on four
-classic kernels under real load-noise — a notable result for an `-O0` compiler against an
-`-O2` rival, not yet strong enough to call ahead or behind given the withheld three and the
-load this run carried. A quiet re-run is the natural next step, not required for this basis
-to be citable (the agreement gate is what makes a loaded run trustworthy in the first place).
+-O2 BUILDS). Reading (superseded by the retraction above): the 2026-09-04 prose claimed parity; the cells it read were not multiples. The kernels are three orders of magnitude from fpc on the WORK basis at `-O0`, and that is the number the next signed grid must carry or beat.
 
 ### Snocone
 
