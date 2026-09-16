@@ -70,6 +70,18 @@ m1="$(cat "$TSV" "$W/.github/SCORE.md" | md5sum)"
 [ "$rc" = 2 ] && [ "$m0" = "$m1" ] && grep -q 'criterion-changed' <<<"$out" && ck ok "(e2) write --dry-run moving Arizona's denominator without a stamp REFUSED rc=2 before any write, both files byte-identical" || ck no "(e2) rc=$rc identical=$([ "$m0" = "$m1" ] && echo yes || echo no) -- got: $(tail -2 <<<"$out" | cut -c1-200)"
 out="$(S4E_HOME="$W" python3 "$HELPER" write --lang icon --column vendor --suite Arizona --text 'Arizona: m3 46/124 · m4 46/124 (`test_icon_arizona_suite.sh`)' --measurer coo --dry-run --criterion-changed '2026-09-16:gate fixture preview' 2>&1)"; rc=$?
 [ "$rc" = 0 ] && grep -q 'WOULD' <<<"$out" && ck ok "(e3) the same --dry-run with the stamp previews rc=0" || ck no "(e3) rc=$rc -- got: $(tail -2 <<<"$out" | cut -c1-200)"
+# (f) a planted OLD banner (the flag string removed) -- the writer must refuse BEFORE any write, naming .github behind
+cp "$W/orig.tsv" "$TSV"; cp "$GH/SCORE.md" "$W/.github/SCORE.md"; cp "$BANNER" "$W/.github/scripts/util_suite_banner.py"
+sed -i 's/--criterion-changed/--criterion-chAnged/g' "$W/.github/scripts/util_suite_banner.py"
+m0="$(cat "$TSV" "$W/.github/SCORE.md" | md5sum)"
+out="$(S4E_HOME="$W" python3 "$HELPER" write --lang icon --column vendor --suite Arizona --text 'Arizona: m3 46/124 · m4 46/124 (`test_icon_arizona_suite.sh`)' --measurer coo --criterion-changed '2026-09-16:gate fixture old banner' 2>&1)"; rc=$?
+m1="$(cat "$TSV" "$W/.github/SCORE.md" | md5sum)"
+[ "$rc" = 2 ] && [ "$m0" = "$m1" ] && grep -q 'does not know the flag' <<<"$out" && ck ok "(f) a banner without the flag: write REFUSED rc=2 BEFORE any write, naming the old banner and .github behind origin" || ck no "(f) rc=$rc identical=$([ "$m0" = "$m1" ] && echo yes || echo no) -- got: $(tail -2 <<<"$out" | cut -c1-200)"
+# (g) a planted STUB banner that accepts the flag string and drops it (exits 0, writes nothing) -- the read-back must refuse
+cp "$W/orig.tsv" "$TSV"; cp "$GH/SCORE.md" "$W/.github/SCORE.md"
+printf '#!/usr/bin/env python3\n# stub: knows the words --criterion-changed and --set but writes nothing\nimport sys; print("stub banner: ok"); sys.exit(0)\n' > "$W/.github/scripts/util_suite_banner.py"
+out="$(S4E_HOME="$W" python3 "$HELPER" write --lang icon --column vendor --suite Arizona --text 'Arizona: m3 46/124 · m4 46/124 (`test_icon_arizona_suite.sh`)' --measurer coo --criterion-changed '2026-09-16:gate fixture stub banner' 2>&1)"; rc=$?
+[ "$rc" = 2 ] && grep -q 'READ BACK' <<<"$out" && grep -q 'PARTIAL' <<<"$out" && cmp -s "$TSV" "$W/orig.tsv" && ck ok "(g) a banner that accepts the flag and drops it: the READ-BACK REFUSED rc=2 naming the PARTIAL state (SCORE.md written, SUITES.tsv not)" || ck no "(g) rc=$rc -- got: $(tail -3 <<<"$out" | cut -c1-200)"
 echo "population: $checks arm(s) graded, $fails FAIL"
 [ "$fails" = 0 ] && { echo "GATE PASS [score_row_criterion_change_is_stamped]: $checks of $checks arms hold"; exit 0; }
 echo "⛔ GATE RED [score_row_criterion_change_is_stamped]: $fails of $checks arms FAIL"; exit 1

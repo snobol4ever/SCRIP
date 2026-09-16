@@ -1108,6 +1108,22 @@ def suite_sync_decide(a):
         die("this --text names an INSTRUMENT CHANGE for suite row %r and no --criterion-changed '<YYYY-MM-DD>:<reason>' stamps it.\n"
             "        The criterion moved even if the total did not; the row names why, by the writer, in column 12.\n"
             "        NOTHING WAS WRITTEN: SCORE.md and SUITES.tsv are both untouched." % key)
+    # ⛔⭐ THE STAMP IS A TWO-REPO FEATURE, AND THE GUARD WAS ONE-SIDED (hq_raku 2026-09-16, raku-master 925 -> 927 with column 12
+    # byte-identical; row util-score-row-forwards-the-criterion-stamp-to-a-banner-it-never-checked-and-never-reads-the-row-back):
+    # this file (SCRIP) refuses without the stamp and forwards it; util_suite_banner.py (.github) stores it. A root whose SCRIP is
+    # ahead of its .github ran an old banner that read --set by index and dropped the flag -- the dishonest denominator reached
+    # THROUGH the guard, with the writer saying the stamp was recorded. So: the banner this write will call must carry the flag
+    # BEFORE anything is written, and the row is READ BACK after it returns (suite_sync below).
+    if stamp:
+        try:
+            _btxt = open(SUITE_BANNER, encoding="utf-8").read()
+        except OSError:
+            _btxt = ""
+        if "--criterion-changed" not in _btxt:
+            die("--criterion-changed was given but the banner this write would call, %s, does not know the flag (an older\n"
+                "        util_suite_banner.py reads --set by index and would DROP the stamp while this writer reports it recorded).\n"
+                "        Pull .github to origin (the flag landed at .github 49ca418e) and re-run.\n"
+                "        NOTHING WAS WRITTEN: SCORE.md and SUITES.tsv are both untouched." % SUITE_BANNER)
     return key, p, t, None
 
 
@@ -1132,7 +1148,19 @@ def suite_sync(a, tree, dry_run, decided=None):
             "        moved and its suite row did not.  Do not re-write the cell by hand; fix the banner and re-run,\n"
             "        or set the row with util_suite_banner.py --set %s %s %s."
             % (key, p, t, r.returncode, (r.stderr or r.stdout).strip()[:300], SUITE_SYNC_ROW, key, p, t))
-    return "  suite table: %s -> %s/%s on %s (tree %s) -- SUITES.tsv rewritten in the same call" % (key, p, t, day, tree)
+    # ⛔ READ THE ROW BACK: the banner exited 0, so SUITES.tsv must now carry the numbers AND the stamp this writer forwarded. A
+    # banner that dropped either is caught here, loudly -- SCORE.md WAS written, so the split state is named, never implied.
+    _rows, _err = suites_rows()
+    _r = next((x for x in _rows if x.get("key") == key), None)
+    _cc = (_r or {}).get("criterion_changed", "")
+    _stamp = getattr(a, "criterion_changed", None) or ""
+    if _r is None or _r.get("today_pass") != str(p) or _r.get("today_total") != str(t) or (_stamp and not _cc.endswith(_stamp)):
+        die("util_suite_banner.py --set returned 0 but the row READ BACK from %s does not carry what was forwarded: pass %r total %r stamp %s.\n"
+            "        ⛔ PARTIAL: SCORE.md WAS rewritten and SUITES.tsv did NOT take the write -- the banner beside this writer is not the one\n"
+            "        this flag was landed with (pull .github to origin; the stamp landed at 49ca418e), then re-run this write.\n"
+            "        Row util-score-row-forwards-the-criterion-stamp-to-a-banner-it-never-checked-and-never-reads-the-row-back."
+            % (SUITES_TSV, (_r or {}).get("today_pass"), (_r or {}).get("today_total"), ("PRESENT" if (_stamp and _cc.endswith(_stamp)) else ("ABSENT" if _stamp else "none forwarded"))))
+    return "  suite table: %s -> %s/%s on %s (tree %s) -- SUITES.tsv rewritten in the same call%s" % (key, p, t, day, tree, (" · criterion stamped and read back" if _stamp else ""))
 
 
 def cmd_write(a):
