@@ -53,6 +53,15 @@ WS       [ \t\r]
 "pass"          { raku_yylval.sval = strdup(yytext); return TESTOP; }
 "flunk"         { raku_yylval.sval = strdup(yytext); return TESTOP; }
 "subtest"       { raku_yylval.sval = strdup(yytext); return TESTOP; }
+"is-deeply"     { raku_yylval.sval = strdup(yytext); return TESTOP; }
+"isa-ok"        { raku_yylval.sval = strdup(yytext); return TESTOP; }
+"does-ok"       { raku_yylval.sval = strdup(yytext); return TESTOP; }
+"cmp-ok"        { raku_yylval.sval = strdup(yytext); return TESTOP; }
+"lives-ok"      { raku_yylval.sval = strdup(yytext); return TESTOP; }
+"dies-ok"       { raku_yylval.sval = strdup(yytext); return TESTOP; }
+"throws-like"   { raku_yylval.sval = strdup(yytext); return TESTOP; }
+"eval-lives-ok" { raku_yylval.sval = strdup(yytext); return TESTOP; }
+"eval-dies-ok"  { raku_yylval.sval = strdup(yytext); return TESTOP; }
 "say"           { return KW_SAY; }
 "join"          { return KW_JOIN; }
 "print"         { return KW_PRINT; }

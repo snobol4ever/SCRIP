@@ -94,6 +94,15 @@ static const char *testop_rt(const char *s) {
     if (!strcmp(s, "pass")) return "__rk_test_pass";
     if (!strcmp(s, "flunk")) return "__rk_test_flunk";
     if (!strcmp(s, "subtest")) return "__rk_test_subtest";
+    if (!strcmp(s, "is-deeply")) return "__rk_test_is_deeply";
+    if (!strcmp(s, "isa-ok")) return "__rk_test_isa_ok";
+    if (!strcmp(s, "does-ok")) return "__rk_test_does_ok";
+    if (!strcmp(s, "cmp-ok")) return "__rk_test_cmp_ok";
+    if (!strcmp(s, "lives-ok")) return "__rk_test_lives_ok";
+    if (!strcmp(s, "dies-ok")) return "__rk_test_dies_ok";
+    if (!strcmp(s, "throws-like")) return "__rk_test_throws_like";
+    if (!strcmp(s, "eval-lives-ok")) return "__rk_test_eval_lives_ok";
+    if (!strcmp(s, "eval-dies-ok")) return "__rk_test_eval_dies_ok";
     return "__rk_test_ok";
 }
 static tree_t *rk_testop_call(const char *name, ExprList *a) {

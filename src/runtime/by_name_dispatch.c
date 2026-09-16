@@ -3100,6 +3100,30 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (!strcmp(op, "isnt")) { const char *g = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; const char *e = (nargs > 1) ? to_cstring(args[1], sb2, sizeof sb2) : ""; int c = strcmp(g, e) != 0; const char *d = (nargs > 2) ? to_cstring(args[2], msg, sizeof msg) : ""; rk_tap_proclaim(c, d, ""); *out = INTVAL(c); return 1; }
         if (!strcmp(op, "pass")) { const char *d = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; rk_tap_proclaim(1, d, ""); *out = INTVAL(1); return 1; }
         if (!strcmp(op, "flunk")) { const char *d = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; rk_tap_proclaim(0, d, ""); *out = INTVAL(0); return 1; }
+        if (!strcmp(op, "cmp_ok")) {
+            const char *cop = (nargs > 1) ? to_cstring(args[1], sb1, sizeof sb1) : "";
+            const char *d = (nargs > 3) ? to_cstring(args[3], msg, sizeof msg) : "";
+            int c = 0, known = 1;
+            DESCR_t A = (nargs > 0) ? args[0] : NULVCL, B = (nargs > 2) ? args[2] : NULVCL;
+            int anum = IS_INT_fn(A) || IS_REAL_fn(A), bnum = IS_INT_fn(B) || IS_REAL_fn(B);
+            if (anum && bnum) { double x = IS_REAL_fn(A) ? A.r : (double)A.i, y = IS_REAL_fn(B) ? B.r : (double)B.i;
+                if (!strcmp(cop, "==")) c = (x == y); else if (!strcmp(cop, "!=")) c = (x != y);
+                else if (!strcmp(cop, "<")) c = (x < y); else if (!strcmp(cop, "<=")) c = (x <= y);
+                else if (!strcmp(cop, ">")) c = (x > y); else if (!strcmp(cop, ">=")) c = (x >= y);
+                else known = 0; }
+            if (known && !(anum && bnum)) { char xb[512], yb[512]; const char *x = to_cstring(A, xb, sizeof xb), *y = to_cstring(B, yb, sizeof yb);
+                if (!strcmp(cop, "eq") || !strcmp(cop, "==")) c = !strcmp(x, y); else if (!strcmp(cop, "ne") || !strcmp(cop, "!=")) c = strcmp(x, y) != 0;
+                else if (!strcmp(cop, "lt") || !strcmp(cop, "<")) c = strcmp(x, y) < 0; else if (!strcmp(cop, "le") || !strcmp(cop, "<=")) c = strcmp(x, y) <= 0;
+                else if (!strcmp(cop, "gt") || !strcmp(cop, ">")) c = strcmp(x, y) > 0; else if (!strcmp(cop, "ge") || !strcmp(cop, ">=")) c = strcmp(x, y) >= 0;
+                else known = 0; }
+            if (!known) { rk_tap_proclaim(0, d, ""); char b[256]; snprintf(b, sizeof b, "cmp-ok: comparator '%s' is not implemented -- reported as a FAILURE, never a pass", cop); rk_tap_diag(b); *out = INTVAL(0); return 1; }
+            rk_tap_proclaim(c, d, ""); *out = INTVAL(c); return 1; }
+        { static const struct { const char *nm; int di; } rk_unimpl[] = { { "is_deeply", 2 }, { "isa_ok", 2 }, { "does_ok", 2 }, { "lives_ok", 1 }, { "dies_ok", 1 }, { "throws_like", 2 }, { "eval_lives_ok", 1 }, { "eval_dies_ok", 1 }, { "like", 2 }, { "unlike", 2 }, { (const char *)0, 0 } };
+          for (int i = 0; rk_unimpl[i].nm; i++) if (!strcmp(op, rk_unimpl[i].nm)) {
+              const char *d = (nargs > rk_unimpl[i].di) ? to_cstring(args[rk_unimpl[i].di], msg, sizeof msg) : "";
+              rk_tap_proclaim(0, d, "");
+              char b[256]; snprintf(b, sizeof b, "%s is PARSED BUT NOT IMPLEMENTED -- reported as a FAILURE so it can never be a false green", op); rk_tap_diag(b);
+              *out = INTVAL(0); return 1; } }
         if (!strcmp(op, "subtest")) {
             const char *nm = ""; DESCR_t blk; int haveblk = 0; int havenm = 0; memset(&blk, 0, sizeof blk);
             for (int i = 0; i < nargs; i++) { if (args[i].v == DT_BLK) { blk = args[i]; haveblk = 1; } else if (!havenm) { nm = to_cstring(args[i], sb1, sizeof sb1); havenm = 1; } }
