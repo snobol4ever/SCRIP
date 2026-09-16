@@ -353,7 +353,8 @@ static DESCR_t rt_real_overflow(int spitcode, const char *what, double lv) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_real_zero_divisor(int strict) {
     extern int core_icn_error(int code, DESCR_t val);
-    if (strict) core_icn_error(204, FAILDESCR);
+    if (strict) { core_icn_error(204, FAILDESCR); return FAILDESCR; }
+    core_runtime_error(262, "division caused real overflow");
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
