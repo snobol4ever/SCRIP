@@ -81,10 +81,7 @@ static void zls_field(int scope_id, int off, int size, int kind, int audit, cons
     if (zf_n >= FL_MAX_FIELDS) { fprintf(stderr, "zls: field table overflow (%d)\n", FL_MAX_FIELDS); abort(); }
     zf[zf_n++] = (zls_pfield_t){ scope_id, off, size, (unsigned char)kind, (unsigned char)audit, what, nd };
 }
-int emit_pl_fence_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_PL_FENCE"); v = (e && *e == (char) 48) ? 0 : 1; } return v; }
-static const IR_graph_t * zls_cur_g = (const IR_graph_t *)0;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int zls_fence_widen(void) { return emit_pl_fence_on() && zls_cur_g && zls_cur_g->zframe_pinned_base && zls_cur_g->zframe_graph; }
+static int zls_fence_widen(const IR_graph_t * g) { return g && g->zframe_pinned_base && g->zframe_graph; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_locals_shifted(IR_e op);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -95,7 +92,7 @@ static void zls_entry(const IR_t * nd, int scope_id, int off) {
     ze_n++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
+static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id, int off) {
     switch (nd->op) {
     case IR_TO: case IR_TO_BY:
         zls_field(scope_id, off, 8, ZK_RAW, 0, "to.I counter", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "to.limit", nd); return 1;
@@ -143,7 +140,7 @@ static int zls_grant_locals(const IR_t * nd, int scope_id, int off) {
     case IR_SCAN_TAB: case IR_SCAN_MOVE:
         zls_field(scope_id, off, 8, ZK_RAW, 0, "scan.r14 data-backtrack save", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "scan.pad (unused)", nd); return 1;
     case IR_BOUND:
-        zls_field(scope_id, off, 8, ZK_RAW, 0, "bound.saved rsp (Op_Mark: bounded-expression entry frontier; IR_UNMARK restores it, discarding abandoned retained-suspension FC carves — interp.r Op_Unmark rsp=efp-1)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "bound.saved rsp at entry -- the gamma-fence release frontier (rung 9, CEO-690)", nd); if (!zls_fence_widen()) return 1; zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "bound.saved B at entry, banked BEFORE rt_pl_disj_open raises it -- the gamma-fence commit target, because a fence that leaves B at this frame's own H pins the frame it just emptied", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "bound.pad (unused)", nd); return 2;
+        zls_field(scope_id, off, 8, ZK_RAW, 0, "bound.saved rsp (Op_Mark: bounded-expression entry frontier; IR_UNMARK restores it, discarding abandoned retained-suspension FC carves — interp.r Op_Unmark rsp=efp-1)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "bound.saved rsp at entry -- the gamma-fence release frontier (rung 9, CEO-690)", nd); if (!zls_fence_widen(g)) return 1; zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "bound.saved B at entry, banked BEFORE rt_pl_disj_open raises it -- the gamma-fence commit target, because a fence that leaves B at this frame's own H pins the frame it just emptied", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "bound.pad (unused)", nd); return 2;
     case IR_SCAN_UPTO: case IR_SCAN_FIND: case IR_SCAN_MATCH: case IR_SCAN_BAL:
         zls_field(scope_id, off, 8, ZK_RAW, 0, "scan.cursor", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "scan.len/counter", nd); return 1;
     case IR_INITIAL:
@@ -227,12 +224,12 @@ static int fc_cells_on(void) { return 1; }
 int fc_cells_active(void) { return fc_cells_on(); }
 static int zls_fc_cell(const IR_t * nd) { if (!fc_cells_on()) return 0; if (!nd) return 0; { extern int fc_arm_member(const IR_t *); if (fc_arm_member(nd)) return 0; } switch (nd->op) { case IR_MATCH_SPAN: case IR_MATCH_TAB: case IR_MATCH_RTAB: case IR_MATCH_BREAK: case IR_MATCH_BREAKX: case IR_MATCH_BAL: case IR_MATCH_REM: case IR_MATCH_ARB: return 16; default: return 0; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int zls_grant(const IR_t * nd, int scope_id, int off) {
+static int zls_grant(const IR_graph_t * g, const IR_t * nd, int scope_id, int off) {
     if (zls_is_wiring(nd->op)) return 0;
     zls_entry(nd, scope_id, off);
     zls_field(scope_id, off, 16, ZK_DESCR, 0, "result", nd);
     if (zls_fc_cell(nd)) { ze[ze_n - 1].loff = FL_FC_SYNTH; return 1; }
-    return 1 + zls_grant_locals(nd, scope_id, off + 16);
+    return 1 + zls_grant_locals(g, nd, scope_id, off + 16);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_elide_ok(IR_e op) { return op == IR_MATCH_ANY || op == IR_MATCH_NOTANY || op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_LEN || op == IR_MATCH_LIT || op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_CMP_TEST || op == IR_ASSIGN; }
@@ -244,14 +241,14 @@ static void zls_mark_value_refs(const IR_graph_t * g, char * live) {
         for (int j = 0; j < c->n_operands; j++) { const IR_t * p = c->operands[j]; if (!p) continue; if (j == 0 && (c->op == IR_MATCH_ASSIGN_COND || c->op == IR_MATCH_ASSIGN_IMM)) continue; for (int i = 0; i < g->n; i++) if (g->all[i] == p) { live[i] = 1; break; } } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int zls_grant_elide(const IR_t * nd, int scope_id, int off, int live, int * scratch_off) {
+static int zls_grant_elide(const IR_graph_t * g, const IR_t * nd, int scope_id, int off, int live, int * scratch_off) {
     if (zls_is_wiring(nd->op)) return 0;
     if (!live && zls_elide_ok(nd->op)) {
         if (*scratch_off < 0) { *scratch_off = off; zls_entry(nd, scope_id, off); ze[ze_n - 1].live = 0; zls_field(scope_id, off, 16, ZK_DESCR, 0, "result (SLOT-ELIDE shared dead-result scratch — every later dead leaf in this graph aliases here)", nd); return 1; }
         zls_entry(nd, scope_id, *scratch_off); ze[ze_n - 1].live = 0; return 0;
     }
-    if (!live && zls_s4_ok(nd->op)) { zls_entry(nd, scope_id, off); ze[ze_n - 1].loff = off; ze[ze_n - 1].live = 0; if (zls_fc_cell(nd)) { ze[ze_n - 1].loff = FL_FC_SYNTH; return 0; } return zls_grant_locals(nd, scope_id, off); }
-    int ei = ze_n; int n = zls_grant(nd, scope_id, off); if (ze_n > ei) ze[ei].live = live; return n;
+    if (!live && zls_s4_ok(nd->op)) { zls_entry(nd, scope_id, off); ze[ze_n - 1].loff = off; ze[ze_n - 1].live = 0; if (zls_fc_cell(nd)) { ze[ze_n - 1].loff = FL_FC_SYNTH; return 0; } return zls_grant_locals(g, nd, scope_id, off); }
+    int ei = ze_n; int n = zls_grant(g, nd, scope_id, off); if (ze_n > ei) ze[ei].live = live; return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zls_result_live(const IR_t * nd) { const zls_entry_t * e = nd ? zx_find(nd) : (const zls_entry_t *)0; return e ? e->live : 1; }
@@ -363,7 +360,6 @@ static const char * zls_pas_display_name(int lvl) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_build(IR_graph_t * g) {
     if (!g) return;
-    zls_cur_g = g;
     { int f = 1; for (int i = 0; i < g->n && f; i++) { IR_t * x = g->all[i]; if (!x) continue; if (x->op == IR_GOTO_DEFERRED || x->op == IR_GATE || x->op == IR_MATCH_BEGIN || x->op == IR_MATCH_DEFER) f = 0; else if ((x->op == IR_DEFINE && ir_define_sr_citizen(x))) { long long v = IR_LIT(x).ival; if (v == 1 || v == 2) f = 0; } else if ((x->op == IR_CALL_BUILTIN || x->op == IR_CALL_SNOBOL4 || x->op == IR_CALL) && IR_LIT(x).sval && (!strcmp(IR_LIT(x).sval, "EVAL") || !strcmp(IR_LIT(x).sval, "CODE"))) f = 0; } g_fcc_gfence = f; }
     for (int vi = 0; vi < g->n; vi++) { IR_t * a = g->all[vi]; if (!(a && a->op == IR_ASSIGN && a->n_operands == 1 && a->operands[0])) continue;
         { const char * vn = IR_LIT(a).sval; if (!(vn && is_global(vn) && !graph_has_local(g, vn))) continue; }
@@ -487,7 +483,7 @@ void zls_build(IR_graph_t * g) {
         if (!rb[i]) continue;
         int sc = (cur > 0) ? mfirst[cur - 1] : root;
         if (rec[i].pooled >= 0) { zls_entry(nd, sc, rec[i].pooled); continue; }
-        k += eon ? zls_grant_elide(nd, sc, base + k * 16, lv[i], &scratch_off) : zls_grant(nd, sc, base + k * 16);
+        k += eon ? zls_grant_elide(g, nd, sc, base + k * 16, lv[i], &scratch_off) : zls_grant(g, nd, sc, base + k * 16);
       }
       { int nr = 0; for (int i = 0; i < g->n; i++) if (g->all[i] && rb[i] && !zls_is_wiring(g->all[i]->op)) nr++;
         if (r->reuse) free(r->reuse);
