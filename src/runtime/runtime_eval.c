@@ -199,6 +199,7 @@ static void eval_thunks_emit_from(int pc0)
         const char *pname = g_stage2.proc_table[pi].name;
         int idx = g_stage2.proc_table[pi].bb_idx;
         if (!pname || idx < 0 || idx >= g_stage2.bbp.count || !g_stage2.bbp.table[idx] || !g_stage2.bbp.table[idx]->entry) continue;
+        { extern void zls_forget_graph_nodes(const IR_graph_t *); zls_forget_graph_nodes(g_stage2.bbp.table[idx]); }
         ir_drive_slot_assign(g_stage2.bbp.table[idx]);
         g_emit_cfg = g_stage2.bbp.table[idx];
         g_gen_proc_active = g_stage2.proc_table[pi].is_generator;

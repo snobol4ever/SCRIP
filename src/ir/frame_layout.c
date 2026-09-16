@@ -794,6 +794,7 @@ void zls_forget_graph_nodes(const IR_graph_t * g) {
     zx_n = 0;
     for (int i = 0; i < ze_n; i++) if (ze[i].nd) zx[zx_n++] = &ze[i];
     qsort(zx, zx_n, sizeof(zls_entry_t *), zx_cmp);
+    { zls_graph_t * r = zls_g_find(g); if (r) { if (r->reuse) free(r->reuse); *r = (zls_graph_t){ g, r->name, -1, 0, 0, 0, -1, -1, 0, 0, 0, (struct zls_reuse_s *)0, 0 }; } }
 }
 int zls_g_resume(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->resume_off : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
