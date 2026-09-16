@@ -2207,6 +2207,13 @@ case "$cmd" in
                   done
                 fi
               fi
+              # ⛔⭐ THE RECEIPT (coo 2026-09-16, ceo CEO-790/793; row instruments-a-done-row-with-no-claim-and-no-receipt-was-closed-by-
+              # a-path-that-bypassed-the-computed-done-name-and-refuse-it): a DONE is COMPUTED here, so the claim carries the
+              # computation -- rc, the tree it ran on, how long, computed or overridden, when, by whom. A DONE row whose claim has
+              # no such line reached DONE by a path outside this verb (17 in QUEUE.tsv on 2026-09-16, one reopened RED by audit);
+              # util_queue_visibility_census.py names them (class R) and `sweep` refuses to move them.
+              _dtree="$(git -C "$S4E/SCRIP" rev-parse --short HEAD 2>/dev/null || echo unknown)"; [ -n "$(git -C "$S4E/SCRIP" status --porcelain 2>/dev/null)" ] && _dtree="$_dtree-DIRTY"
+              printf 'RECEIPT done rc=0 tree=%s elapsed=%ss via=%s %s by %s\n' "$_dtree" "${_dwel:-?}" "$([ -n "${S4E_DONE_OVERRIDE:-}" ] && echo override || echo computed)" "$(date -u +%FT%TZ)" "$ME" >> "$c"
               grep -q '^DONE$' "$c" || echo DONE >> "$c"; echo "done $topic"
               # ⛔⭐ (a) DONE CLOSES ITS OWN WINDOW (hq_B scope, 2026-08-28, ratified by ceo as rank 1). Until now
               # this verb latched the CLAIM and never touched QUEUE.tsv -- s4e_mark_row() below writes only the
@@ -3433,6 +3440,22 @@ TASKEOF
            printf '# --- swept %s by %s: %s rows ---\n' "$(date -u +%FT%TZ)" "$ME" "$ng" >> "$d"; cat "$gone" >> "$d"
            mv "$keep" "$q"; chmod 664 "$q"; else rm -f "$keep"; fi
          rm -f "$gone"; printf 'sweep: %s live rows kept, %s DONE rows moved to QUEUE.done.tsv (nothing deleted; buffer backed up)\n' "$nk" "$ng"
+         # ⛔ A DONE ROW WITH NO COMPUTED RECEIPT IS NOT SWEPT -- AND THAT IS SAID, BY NAME, rc=2 (coo 2026-09-16, CEO-790/793). It used
+         # to be kept silently, indistinguishable from a live row; the ceo's audit reads this refusal.
+         _nr=0; _nrl=""
+         while IFS= read -r line; do
+           case "$line" in \#*|'') continue;; esac
+           [ "$(printf '%s' "$line" | cut -f4 | cut -d: -f1)" = DONE ] || continue
+           topic="$(printf '%s' "$line" | cut -f2)"
+           if [ -f "$PO/claims/$topic.claim" ] && grep -q '^DONE$' "$PO/claims/$topic.claim"; then continue; fi
+           _nr=$((_nr+1)); _nrl="$_nrl    rank $(printf '%s' "$line" | cut -f1)  $topic  [owner $(printf '%s' "$line" | cut -f3); claim: $([ -f "$PO/claims/$topic.claim" ] && echo 'present, no DONE' || echo none)]\n"
+         done < "$q"
+         if [ "$_nr" -gt 0 ]; then
+           printf '⛔ sweep REFUSES (rc=2) to move %s DONE row(s) that carry NO COMPUTED RECEIPT (no claims/<topic>.claim with DONE): they reached DONE by a path outside `done` and are NOT landed until re-run through it (or reopened):\n' "$_nr"
+           printf "$_nrl"
+           printf '   util_queue_visibility_census.py --grade-receiptless runs each criterion and classes it prose / refuses / red / green.\n'
+           exit 2
+         fi
          # ⛔⭐ (b) GARBAGE-COLLECT CLAIMS WHOSE TOPIC HAS NO LIVE ROW (hq_B 2026-08-28; runs AFTER (a) by design --
          # `done` now mirrors its close into the column, so a claim reaching this point has already had every chance
          # to be recorded). ⭐ WHY IT MATTERS AND WHY IT IS NOT COSMETIC: PASS 3 skips ANY topic that has a claim

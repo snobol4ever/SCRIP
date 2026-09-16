@@ -86,16 +86,44 @@ def _donewhen_line(t):
     return ''
 P  = sorted(t for t in tasks if not _tombstone(t) and PLACEHOLDER in _donewhen_line(t))
 F  = sorted(t for t, r in rows.items() if ('PARKED' in r['state'] or r['state'] == 'BLOCKED') and r['owner'] == 'unassigned')
+# ⛔⭐ R: a DONE row with NO COMPUTED RECEIPT (coo 2026-09-16, ceo CEO-790/793) -- the state column says DONE but no claims/<topic>.claim
+# carries DONE, so it reached DONE by a path outside `done` (the verb that COMPUTES completion and, since today, writes a
+# RECEIPT line: rc, tree, elapsed, via, time, seat). 17 such rows on 2026-09-16; one, reopened by audit, was RED on origin.
+# --grade-receiptless runs each such row's DONE-WHEN (timeout 120 s) and classes it: prose (no runnable criterion / the mint
+# placeholder), refuses (rc 2, 120, 126, 127), red (any other non-zero), green (rc 0 -- close it through `done` for its receipt).
+R  = sorted(t for t, r in rows.items() if r['state'].split(':')[0] == 'DONE' and not (t in claims and claims[t]['done']))
+Rh = sorted(t for t, r in done_rows.items() if r['state'].split(':')[0] == 'DONE' and not (t in claims and claims[t]['done']))
+GRADE = '--grade-receiptless' in sys.argv
+def _grade(t):
+    import subprocess
+    dw = _donewhen_line(t)
+    if not dw or PLACEHOLDER in dw: return 'prose'
+    body = dw[len('DONE-WHEN:'):].strip()
+    if not body or body.startswith('⛔') or body.startswith('TBD') or body.lower().startswith('tbd'): return 'prose'
+    root = os.environ.get('S4E_HOME') or os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+    try:
+        r = subprocess.run(['bash', '-c', body], cwd=root, env=dict(os.environ, S4E_HOME=root, S4E_DONE_WHEN_RUN='1'), capture_output=True, text=True, timeout=120)
+        rc = r.returncode
+    except subprocess.TimeoutExpired:
+        rc = 124
+    if rc == 0: return 'green (rc 0 -- close it through `done` so the claim carries its receipt)'
+    if rc in (2, 120, 124, 126, 127): return f'refuses (rc {rc})'
+    return f'red (rc {rc})'
 findings = 0
 for name, lst, note in (("A2 FREE-behind-DONE-claim", A2, "verify each DONE, then release"),
                         ("B  claim held by stood-down seat", B, f"MODE={mode}; corroborate then beta"),
                         ("C! rowless task file", Cx, "mint a row or retire with a note"),
                         ("E  no DONE-WHEN line", E, "unclosable by construction"),
                         ("F  parked/blocked, no owner", F, "name an owner/cadence"),
-                        ("P  DONE-WHEN is still the mint placeholder", P, "write a real criterion and prove it RED once; `done` executes this line whole")):
+                        ("P  DONE-WHEN is still the mint placeholder", P, "write a real criterion and prove it RED once; `done` executes this line whole"),
+                        ("R  DONE row with NO COMPUTED RECEIPT (no claim carrying DONE)", R, "reached DONE outside `done`; sweep refuses it; re-run `done` for a receipt, or reopen")):
     if lst:
         findings += len(lst)
         print(f"{name} ({len(lst)}) — {note}:")
-        for t in lst: print(f"    {t}")
+        for t in lst:
+            r = rows.get(t, {})
+            print(f"    {t}" + (f"  [rank {r.get('rank','?')}, owner {r.get('owner','?')}]" + (f"  criterion: {_grade(t)}" if GRADE else "") if name.startswith('R ') else ''))
+if Rh:
+    print(f"R  (history, informational) {len(Rh)} row(s) in QUEUE.done.tsv carry DONE with no claim carrying DONE -- swept before the receipt existed; not counted")
 if findings == 0: print("CENSUS CLEAN: every minted row is pickable, closable, and owned."); sys.exit(0)
 print(f"TOTAL FINDINGS: {findings}"); sys.exit(1)

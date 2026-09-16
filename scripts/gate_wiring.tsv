@@ -310,6 +310,7 @@ test_gate_rtcc_callee_class.sh	WIRED	-	-	-
 test_gate_rtcc_claimed_regs.sh	WIRED	-	-	-
 test_gate_runners_refuse_on_a_stale_binary.sh	WIRED	-	-	-
 test_gate_runtime_trampolines_enter_generated_code_16_byte_aligned.sh	WIRED	-	-	-
+test_gate_s4e_done_rows_carry_a_computed_receipt.sh	WIRED	-	-	-
 test_gate_s4e_done_timeout_is_a_refusal.sh	WIRED	-	-	-
 test_gate_s4e_donewhen_refuses_when_compiler_absent.sh	WIRED	-	-	-
 test_gate_s4e_donewhen_runs_the_whole_criterion.sh	WIRED	-	-	-
