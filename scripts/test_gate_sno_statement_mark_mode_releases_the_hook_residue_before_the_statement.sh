@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 # test_gate_sno_statement_mark_mode_releases_the_hook_residue_before_the_statement.sh -- A PROGRAM THAT READS A
+# ⛔ ROMAN ARM (cfo 2026-09-16, hq_snobol4's batch find within the hour): the first cure released the RAW residue (zd) at the
+# statement boundary and that OVER-RELEASED by 16 wherever a MATCH_REPLACE box had already popped its own hook on the success
+# path -- csnobol4_suite/roman segfaulted both modes (RIP 0, RSP 4 MB below RBP), clean under SCRIP_ZD_HOOK_RELEASE=0. The
+# release is now zd_exit_pop_s(IR_STATEMENT_END, ...) -- the same accounting every exit pop uses. Emission control over 283
+# cross-language programs: 279 byte-identical, 4 changed (roman, spit, genc, bench), spit REF-SAME both modes, genc/bench
+# excluded by the oracle and identical across arms. The vendored roman entry is graded here in both modes so it stays under test.
 # STATEMENT KEYWORD RUNS EVERY STATEMENT AT THE SAME SPINE BASE AS A PROGRAM THAT DOES NOT.
 #
 # WHAT THIS IS: a SNOBOL4 program that mentions &STCOUNT, &STNO, &LASTNO (or the other statement keywords named by
@@ -84,6 +90,14 @@ for a in a1 a2 a3 c1; do
         else echo "  RED  $a $m -- got [$got] want [$want]"; bad=$((bad+1)); fi
     done
 done
+ROMAN="${CORPUS_ROOT:-$(cd "$ROOT/.." && pwd)}/corpus/packages/snobol4/csnobol4_suite/roman.sno"
+if [ -f "$ROMAN" ] && [ -f "${ROMAN%.sno}.ref" ]; then
+    cp "$ROMAN" "$T/roman.sno"; want="$(tr '\n' '/' < "${ROMAN%.sno}.ref")"
+    for m in m3 m4; do got="$(run_$m roman)"
+        if [ "$got" = "$want" ]; then echo "  ok   roman $m -- the csnobol4 package entry matches its shipped ref (345 lines)"
+        else echo "  RED  roman $m -- csnobol4_suite/roman diverged from its shipped ref (rc=139 with RSP 4 MB below RBP is the over-release shape: the boundary release must be the exit-pop amount, not the raw residue, because a match box releases its own hook on the success path)"; bad=$((bad+1)); fi
+    done
+else echo "  SKIP roman -- csnobol4_suite/roman.sno or its ref not present at $ROMAN (the eight minted arms still bind)"; fi
 ctl_fail=0
 w1="$(timeout 60s "$ORACLE" -bf "$T/a1.sno" < /dev/null 2>&1 | tr '\n' '/')"; g1="$(SCRIP_ZD_HOOK_RELEASE=0 run_m3 a1)"; [ "$g1" = "$w1" ] || ctl_fail=1
 echo "  control: with SCRIP_ZD_HOOK_RELEASE=0, k1 m3 got [$g1] want [$w1] -- $([ "$ctl_fail" -eq 1 ] && echo 'pre-cure planner FAILS (the switch is live)' || echo 'pre-cure planner PASSED (inert switch?)')"
