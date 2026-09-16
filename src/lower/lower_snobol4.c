@@ -244,7 +244,7 @@ static IR_t * sx_ident_differ(scx_t * cx, const tree_t * t, int argbase, int is_
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sx_call_named(scx_t * cx, const char * name, const tree_t * t, int argbase, IR_t * γ, IR_t * ω, IR_t ** res) {
-    IR_t * call = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(call).sval = (char *) lp_strdup(name);
+    IR_t * call = lc_build(cx->g, IR_CALL_SNOBOL4, γ, ω); IR_LIT(call).sval = (char *) lp_strdup(name);
     IR_t * sr0 = NULL; static int c2bb = -1; if (c2bb < 0) { const char * e2 = getenv("SCRIP_CALL2BB"); c2bb = (e2 && *e2 == '1') ? 1 : 0; }
     if (c2bb) { sr0 = lc_build(cx->g, IR_DEFINE, call, ω); IR_LIT(sr0).sval = IR_LIT(call).sval; }
     IR_t * tail = sr0 ? sr0 : call;
