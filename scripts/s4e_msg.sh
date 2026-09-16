@@ -1166,6 +1166,11 @@ s4e_donewhen_multiple_contracts() {   # $1 = baton path
     unset _DWM_FIRST
     [ -n "$_dwm_lines" ]; }
 s4e_donewhen_incomplete() {   # $1 = criterion text; rc 0 = bash cannot finish reading it
+    # ⛔ A TRAILING BACKSLASH (or a dangling && / || / |) IS INCOMPLETE SHELL, though `bash -n` swallows it silently (coo 2026-09-16, found by
+    # CEO-786's rc rule: a two-line criterion 'test -f X \' + '&& test -f Y' ran only its first line -- `test -f X \` is a usage error, rc=2 --
+    # which the old `done` mapped to red, so test_gate_s4e_donewhen_runs_the_whole_criterion's arm (A) passed for weeks on a criterion
+    # whose second line never ran). The explicit continuation the format asks for must be READ as one.
+    case "$(printf '%s' "${1:-}" | sed -e 's/[[:space:]]*$//')" in *\\|*'&&'|*'||'|*'|') return 0;; esac
     printf '%s' "${1:-}" | bash -n /dev/stdin 2>&1 \
       | grep -qE 'here-document.*delimited by end-of-file|unexpected EOF while looking for matching|syntax error: unexpected end of file'; }
 s4e_donewhen_unterminated_heredoc() { s4e_donewhen_incomplete "${1:-}"; }
@@ -2106,6 +2111,12 @@ case "$cmd" in
                     if [ "$rc" -eq 124 ]; then
                       printf '\n⛔ REFUSED (rc=2): the DONE-WHEN did NOT FINISH within %ss (elapsed %ss), so `done` COULD NOT MEASURE it.\n' "$_dwto" "$_dwel" >&2
                       printf '    This is NOT a red criterion, NOT a pass and NOT a skip. The claim is UNCHANGED and the row stays open.\n' >&2
+                    elif [ "$rc" -eq 126 ] || [ "$rc" -eq 127 ] || [ "$rc" -eq 2 ]; then
+                      # ⛔ CEO-786 (coo 2026-09-16; hq_prolog's rung-9 row exited 127 in zero seconds for eleven days and was read as RED): rc 126/127
+                      # (not executable / command not found) and rc 2 (the criterion itself REFUSED) are REFUSALS -- the instrument laws:
+                      # cannot measure is not red. The row stays open, the claim unchanged, and the cause is printed from the criterion's own output.
+                      printf '\n⛔ REFUSED (rc=2): the DONE-WHEN exited %s -- %s -- so `done` COULD NOT MEASURE it. This is NOT red: fix the criterion (cd into $S4E_HOME/SCRIP, name a script that exists, make it executable) and re-run.\n' \
+                        "$rc" "$([ "$rc" -eq 127 ] && echo 'command not found' || { [ "$rc" -eq 126 ] && echo 'not executable' || echo 'the criterion itself refused'; })" >&2
                     else
                       printf '\n⛔⛔⛔ NOT DONE — the task DONE-WHEN exited %s after %ss (timeout %ss). The claim is UNCHANGED and the row stays open.\n' "$rc" "$_dwel" "$_dwto" >&2
                     fi
@@ -2119,6 +2130,7 @@ case "$cmd" in
                       printf '      usually a test that never ran (missing file, bad path, rc=127) rather than one that failed.\n' >&2
                     fi
                     rm -f "$_dwlog"
+                    if [ "$rc" -eq 126 ] || [ "$rc" -eq 127 ] || [ "$rc" -eq 2 ]; then exit 2; fi
                     if [ "$rc" -eq 124 ]; then
                       printf '    Give it a real budget for THIS close:  S4E_DONE_TIMEOUT=<seconds> s4e_msg.sh done %s\n' "$topic" >&2
                       printf '    ⭐ Giving a check enough wall-clock is NOT weakening it -- raising the budget is always allowed;\n' >&2
@@ -2306,6 +2318,20 @@ case "$cmd" in
            printf '\n⛔ REFUSED(2): %s HAS A PLACEHOLDER DONE-WHEN -- %s\n' "$topic" "$_ppc_why" >&2
            printf '   Fix the baton'"'"'s DONE-WHEN line to a real command, then assign again. No claim written.\n' >&2
            exit 2
+         fi
+         # ⛔ AN UNRUNNABLE DONE-WHEN IS REFUSED AT ASSIGN, LIKE THE PLACEHOLDER (CEO-786; coo 2026-09-16): the criterion is run once with the
+         # dispatch budget; exit 126/127 (not executable / command not found) or 2 (the criterion refused) is a REFUSAL naming the exit and
+         # the first line the criterion said -- never a red, which is rc=1 with a line beginning RED. rc 0 and rc 1 dispatch as before.
+         if [ "${S4E_NO_DISPATCH_PROBE:-0}" != "1" ]; then
+           _adw="$(s4e_donewhen_text "$PO/tasks/$topic.task.md")"; _alog="$(mktemp)"
+           ( cd "$S4E" && S4E_HOME="$S4E" S4E_SEAT="$seat" S4E_DONE_WHEN_RUN=1 timeout "$(s4e_dispatch_timeout)" bash -c "$_adw" ) >"$_alog" 2>&1; _arc=$?
+           if [ "$_arc" -eq 126 ] || [ "$_arc" -eq 127 ] || [ "$_arc" -eq 2 ]; then
+             printf '\n⛔ REFUSED(2): %s HAS AN UNRUNNABLE DONE-WHEN -- it exited %s (%s) in a probe run; a criterion that cannot run is a refusal, not a red (CEO-786).\n' \
+               "$topic" "$_arc" "$([ "$_arc" -eq 127 ] && echo 'command not found' || { [ "$_arc" -eq 126 ] && echo 'not executable' || echo 'the criterion itself refused'; })" >&2
+             printf '   first line it said: %s\n   Fix the DONE-WHEN (cd "$S4E_HOME/SCRIP", name a script that exists), then assign again. No claim written.\n' "$(grep -m1 . "$_alog" | cut -c1-160)" >&2
+             rm -f "$_alog"; exit 2
+           fi
+           rm -f "$_alog"
          fi
          # ⛔⭐ DISPATCH PROBE, ASSIGN SIDE (same ruling as next's; see s4e_dispatch_probe above). An HQ dispatching
          # a row that is already satisfied is the seat09 five-day case with a person in the loop instead of a picker.
