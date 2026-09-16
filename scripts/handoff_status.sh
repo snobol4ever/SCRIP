@@ -116,12 +116,21 @@ done
 echo "------------------------------------------------------------"
 echo "=== .s ARTIFACT DRIFT (RULES.md handoff step 4) — BLOCKING since 2026-08-30 (ceo: the s272 ramp condition was met — hq_B drove the standing owed count to 0 and confirmed via this script) ==="
 echo "    (owed artifacts now BLOCK the handoff verdict; a verifier REFUSAL (rc=2, cannot measure) still only warns. If blocked and the debt is not yours: run the three regen scripts named in RULES.md handoff step 4 — earlier sessions' unregenerated codegen surfaces on whoever handoffs next, which is correct, not an accusation.)"
+# ⛔ A SUB-CHECK THAT COULD NOT MEASURE MAKES THE COMPOSITE REFUSE, NEVER PASS (coo 2026-09-16, hq_snobol4's witness: a stale-binary
+# refusal here was warn-only and the run ended CHAT SESSION COMPLETE with the check never run; hq_prolog's general form). Every
+# not-measured outcome below goes to `unknown`, which the verdict prints as CHAT SESSION REFUSES (rc=2). And the OWED set blocks
+# only the seat whose LANE owes it (lib_handoff_verdict.sh): another lane's debt is information with its owner named, and the
+# remedy is addressed to that owner, never to the innocent seat reading this.
+. "$SELF_DIR/lib_handoff_verdict.sh"
+_ho_seat="${S4E_SEAT:-$(basename "$(cd "$SELF_DIR/../.." && pwd)" | sed 's/^claude_//')}"
 if [ "${SKIP_S_ARTIFACT_CHECK:-0}" = "1" ]; then
-  echo "  SKIPPED (SKIP_S_ARTIFACT_CHECK=1 set) — .s drift is UNVERIFIED this run."
+  echo "  SKIPPED (SKIP_S_ARTIFACT_CHECK=1 set) — .s drift is UNVERIFIED this run, and an unverified check cannot read COMPLETE."
+  unknown=1; unknown_reasons+=(".s artifact drift NOT GRADED: skipped by SKIP_S_ARTIFACT_CHECK=1 -- unset it and re-run")
 else
   verifier="$SELF_DIR/util_verify_s_artifacts_owed.sh"
   if [ ! -x "$verifier" ]; then
     echo "  ⛔ $verifier missing/not executable — .s drift is UNVERIFIED this run."
+    unknown=1; unknown_reasons+=(".s artifact drift NOT GRADED: the verifier is missing")
   else
     # ⛔⭐⭐ THIS WARN-ONLY CHECK MUST NOT RUN A DESTRUCTIVE BUILD (row `stop-hook-pristine`, hq_P s274; ceo CEO-30).
     # Until now this line invoked the verifier with NO ARGUMENTS, so it defaulted to SKIP_PRISTINE=0 and ran a full
@@ -157,13 +166,22 @@ else
       echo "  ⛔ STALE-BINARY — ./scrip (or out/libscrip_rt.so) is older than the newest tracked src/ change: a stale local build, not corpus drift, so no OWED count was computed. RT_TAG: ${rt_tag:-unknown}"
       printf '%s\n' "$s_out" | sed 's/^/  /'
       echo "  cure: cd SCRIP && make pristine, then re-run — RULES.md:118 keeps pristine owed for exactly this refusal even though ordinary landings loosened it; an incremental 'make' is not certified equivalent here."
+      unknown=1; unknown_reasons+=(".s artifact drift NOT GRADED: the verifier refused on a stale binary (rc=2) -- rebuild and re-run; a check that could not measure cannot read COMPLETE")
     elif [ "$s_rc" -eq 2 ]; then
-      echo "  ⛔ UNVERIFIED — the verifier REFUSED (rc=2, cannot measure; e.g. no built ./scrip). Not blocking, but this run proves nothing about .s drift."
+      echo "  ⛔ UNVERIFIED — the verifier REFUSED (rc=2, cannot measure; e.g. no built ./scrip). This run proves nothing about .s drift, so it cannot read COMPLETE."
+      unknown=1; unknown_reasons+=(".s artifact drift NOT GRADED: the verifier refused (rc=2, could not measure)")
       printf '%s\n' "$s_out" | sed -n '/^VERDICT:/,$p' | sed 's/^/  /'
     else
-      echo "  ⛔⛔⛔ OWED — BLOCKS THE HANDOFF (ramp flipped 2026-08-30, condition met at standing count 0). Run the regen scripts; see the header note if the debt predates your session."
+      _owed_files="$(printf '%s\n' "$s_out" | sed -n 's/^S-ARTIFACTS-OWED-FILE: //p')"
+      echo "  ⛔ OWED .s artifacts, BY LANE (ramp flipped 2026-08-30): $(printf '%s\n' "$s_out" | sed -n 's/^S-ARTIFACTS-OWED-BY-LANE: //p')"
+      _ho_v="$(handoff_owed_verdict "$_ho_seat" "$_owed_files")"; _ho_rc=$?
+      printf '%s\n' "$_ho_v" | sed 's/^/    /'
       printf '%s\n' "$s_out" | sed -n '/^VERDICT:/,$p' | sed 's/^/  /'
-      blocked=1; reasons+=(".s artifacts OWED — regenerate (RULES.md handoff step 4); util_verify_s_artifacts_owed.sh rc=$s_rc")
+      if [ "$_ho_rc" -ne 0 ]; then
+        blocked=1; reasons+=(".s artifacts OWED in YOUR lane — regenerate (RULES.md handoff step 4): $(printf '%s\n' "$_ho_v" | grep '^BLOCK' | cut -d' ' -f2 | tr '\n' ' ')")
+      else
+        echo "  not this seat's blocker: every owed artifact is another lane's, named above with its owner; $_ho_seat does not regenerate it"
+      fi
     fi
   fi
 fi

@@ -316,6 +316,13 @@ fi
 echo "    [icon_bench] rc=$icon_rc owed=$icon_owed trouble=$icon_trouble"
 
 echo "============================================================"
+# ⛔ THE OWED SET BY LANE (coo 2026-09-16; row handoff-status-artifact-check-blocks-every-seat-for-one-lanes-debt-...): every owed
+# artifact by repo-relative path, so handoff_status.sh can block ONLY the seat whose lane owes it and name the owner of the rest.
+. "$ROOT/scripts/lib_handoff_verdict.sh"
+_owed_paths="$( { printf '%s\n' "${bench_files:-}"; printf '%s\n' "${demo_files:-}"; printf '%s\n' "${pb_files:-}" | sed 's#^#prolog_bench:#'; for _n in ${icon_names:-}; do printf 'icon_bench:%s\n' "$_n"; done; } | grep . )"
+printf '%s\n' "$_owed_paths" | grep . | sed 's/^/S-ARTIFACTS-OWED-FILE: /'
+_by_lane="$(printf '%s\n' "$_owed_paths" | grep . | while read -r _f; do handoff_lane_of_artifact "$_f"; done | sort | uniq -c | awk '{printf "%s=%s ", $2, $1}' | sed 's/ $//')"
+echo "S-ARTIFACTS-OWED-BY-LANE: ${_by_lane:-none}"
 echo "S-ARTIFACTS-OWED-TOTAL: $owed_total"
 echo "S-ARTIFACTS-TROUBLE-TOTAL: $trouble_total"
 if [ "$owed_total" -eq 0 ] && [ "$trouble_total" -eq 0 ]; then
