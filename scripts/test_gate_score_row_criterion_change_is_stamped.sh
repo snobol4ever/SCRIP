@@ -21,7 +21,7 @@
 #       line of the TSV differs from the original (numstat 1 1) and every other row is byte-identical
 #   (c) a same-total --set without a stamp still lands (no false refusal)
 #   (d) a malformed stamp (no YYYY-MM-DD: prefix) REFUSES rc=2, TSV byte-identical
-#   (e) util_score_row.py write --help documents --criterion-changed, and a --dry-run write that moves a denominator without
+#   (e) util_score_row.py write --help documents --criterion-changed, and a --dry-run write that moves the Arizona denominator (derived from the live total) without
 #       it REFUSES rc=2 leaving both scratch files byte-identical; the same --dry-run with the stamp previews rc=0
 # FAIL_ONCE=1 strips the stamp back out of the scratch TSV after arm (b)'s write, to prove the column assertion trips.
 # rc 0 = every arm holds; rc 1 = a FAIL named; rc 2 = REFUSED-TO-GRADE (fixture could not be built).
@@ -37,7 +37,10 @@ mkdir -p "$W/.github/scripts"; cp "$GH/SUITES.tsv" "$W/.github/SUITES.tsv"; cp "
 TSV="$W/.github/SUITES.tsv"; cp "$TSV" "$W/orig.tsv"
 KEY="$(awk -F'\t' '!/^#/ && $1!="key" && $10 ~ /^[0-9]+$/ {print $1; exit}' "$TSV")"; [ -n "$KEY" ] || refuse "no SUITES.tsv row with a numeric today_total to plant on"
 OLDT="$(awk -F'\t' -v k="$KEY" '$1==k{print $10}' "$TSV")"; OLDP="$(awk -F'\t' -v k="$KEY" '$1==k{print $9}' "$TSV")"; NEWT=$((OLDT+7))
-echo "    fixture: row $KEY reads $OLDP/$OLDT; the planted move is to $NEWT"
+# ⛔ THE ARIZONA MOVE IS DERIVED FROM THE LIVE TOTAL TOO (ceo CEO-808): arms (e2)/(e3)/(f)/(g) hardcoded 46/124, and when Zona moved to 88/124
+# (.github 1d7c89d2) that became a same-total write, lawful rc=0 -- a gate anchored on a live value (the CEO-554 class) went red fleet-wide.
+AZT="$(awk -F'\t' '!/^#/ && $1=="arizona"{print $10; exit}' "$GH/SUITES.tsv")"; [ -n "$AZT" ] || refuse "no arizona row in SUITES.tsv"; AZN=$((AZT+7)); AZP=46
+echo "    fixture: row $KEY reads $OLDP/$OLDT; the planted move is to $NEWT; the Arizona dry-run moves $AZT -> $AZN"
 set_(){ S4E_SUITES_TSV="$TSV" S4E_SCORE_MD="$W/.github/SCORE.md" python3 "$BANNER" --set "$@" 2>&1; }
 fails=0; checks=0; ck(){ checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; else printf '  FAIL  %s\n' "$2"; fails=$((fails+1)); fi; }
 echo "=== gate: a criterion change is stamped by the writer; a stampless denominator move refuses (CEO-785) ==="
@@ -65,22 +68,22 @@ out="$(set_ "$KEY" "$OLDP" "$((NEWT+1))" 2026-09-16 feedbeef3 --criterion-change
 # (e)
 python3 "$HELPER" write --help 2>&1 | grep -q -- '--criterion-changed' && ck ok "(e1) util_score_row.py write --help documents --criterion-changed" || ck no "(e1) write --help does not mention --criterion-changed"
 cp "$W/orig.tsv" "$TSV"; cp "$GH/SCORE.md" "$W/.github/SCORE.md"; m0="$(cat "$TSV" "$W/.github/SCORE.md" | md5sum)"
-out="$(S4E_HOME="$W" python3 "$HELPER" write --lang icon --column vendor --suite Arizona --text 'Arizona: m3 46/124 · m4 46/124 (`test_icon_arizona_suite.sh`)' --measurer coo --dry-run 2>&1)"; rc=$?
+out="$(S4E_HOME="$W" python3 "$HELPER" write --lang icon --column vendor --suite Arizona --text "Arizona: m3 $AZP/$AZN · m4 $AZP/$AZN (\`test_icon_arizona_suite.sh\`)" --measurer coo --dry-run 2>&1)"; rc=$?
 m1="$(cat "$TSV" "$W/.github/SCORE.md" | md5sum)"
 [ "$rc" = 2 ] && [ "$m0" = "$m1" ] && grep -q 'criterion-changed' <<<"$out" && ck ok "(e2) write --dry-run moving Arizona's denominator without a stamp REFUSED rc=2 before any write, both files byte-identical" || ck no "(e2) rc=$rc identical=$([ "$m0" = "$m1" ] && echo yes || echo no) -- got: $(tail -2 <<<"$out" | cut -c1-200)"
-out="$(S4E_HOME="$W" python3 "$HELPER" write --lang icon --column vendor --suite Arizona --text 'Arizona: m3 46/124 · m4 46/124 (`test_icon_arizona_suite.sh`)' --measurer coo --dry-run --criterion-changed '2026-09-16:gate fixture preview' 2>&1)"; rc=$?
+out="$(S4E_HOME="$W" python3 "$HELPER" write --lang icon --column vendor --suite Arizona --text "Arizona: m3 $AZP/$AZN · m4 $AZP/$AZN (\`test_icon_arizona_suite.sh\`)" --measurer coo --dry-run --criterion-changed '2026-09-16:gate fixture preview' 2>&1)"; rc=$?
 [ "$rc" = 0 ] && grep -q 'WOULD' <<<"$out" && ck ok "(e3) the same --dry-run with the stamp previews rc=0" || ck no "(e3) rc=$rc -- got: $(tail -2 <<<"$out" | cut -c1-200)"
 # (f) a planted OLD banner (the flag string removed) -- the writer must refuse BEFORE any write, naming .github behind
 cp "$W/orig.tsv" "$TSV"; cp "$GH/SCORE.md" "$W/.github/SCORE.md"; cp "$BANNER" "$W/.github/scripts/util_suite_banner.py"
 sed -i 's/--criterion-changed/--criterion-chAnged/g' "$W/.github/scripts/util_suite_banner.py"
 m0="$(cat "$TSV" "$W/.github/SCORE.md" | md5sum)"
-out="$(S4E_HOME="$W" python3 "$HELPER" write --lang icon --column vendor --suite Arizona --text 'Arizona: m3 46/124 · m4 46/124 (`test_icon_arizona_suite.sh`)' --measurer coo --criterion-changed '2026-09-16:gate fixture old banner' 2>&1)"; rc=$?
+out="$(S4E_HOME="$W" python3 "$HELPER" write --lang icon --column vendor --suite Arizona --text "Arizona: m3 $AZP/$AZN · m4 $AZP/$AZN (\`test_icon_arizona_suite.sh\`)" --measurer coo --criterion-changed '2026-09-16:gate fixture old banner' 2>&1)"; rc=$?
 m1="$(cat "$TSV" "$W/.github/SCORE.md" | md5sum)"
 [ "$rc" = 2 ] && [ "$m0" = "$m1" ] && grep -q 'does not know the flag' <<<"$out" && ck ok "(f) a banner without the flag: write REFUSED rc=2 BEFORE any write, naming the old banner and .github behind origin" || ck no "(f) rc=$rc identical=$([ "$m0" = "$m1" ] && echo yes || echo no) -- got: $(tail -2 <<<"$out" | cut -c1-200)"
 # (g) a planted STUB banner that accepts the flag string and drops it (exits 0, writes nothing) -- the read-back must refuse
 cp "$W/orig.tsv" "$TSV"; cp "$GH/SCORE.md" "$W/.github/SCORE.md"
 printf '#!/usr/bin/env python3\n# stub: knows the words --criterion-changed and --set but writes nothing\nimport sys; print("stub banner: ok"); sys.exit(0)\n' > "$W/.github/scripts/util_suite_banner.py"
-out="$(S4E_HOME="$W" python3 "$HELPER" write --lang icon --column vendor --suite Arizona --text 'Arizona: m3 46/124 · m4 46/124 (`test_icon_arizona_suite.sh`)' --measurer coo --criterion-changed '2026-09-16:gate fixture stub banner' 2>&1)"; rc=$?
+out="$(S4E_HOME="$W" python3 "$HELPER" write --lang icon --column vendor --suite Arizona --text "Arizona: m3 $AZP/$AZN · m4 $AZP/$AZN (\`test_icon_arizona_suite.sh\`)" --measurer coo --criterion-changed '2026-09-16:gate fixture stub banner' 2>&1)"; rc=$?
 [ "$rc" = 2 ] && grep -q 'READ BACK' <<<"$out" && grep -q 'PARTIAL' <<<"$out" && cmp -s "$TSV" "$W/orig.tsv" && ck ok "(g) a banner that accepts the flag and drops it: the READ-BACK REFUSED rc=2 naming the PARTIAL state (SCORE.md written, SUITES.tsv not)" || ck no "(g) rc=$rc -- got: $(tail -3 <<<"$out" | cut -c1-200)"
 echo "population: $checks arm(s) graded, $fails FAIL"
 [ "$fails" = 0 ] && { echo "GATE PASS [score_row_criterion_change_is_stamped]: $checks of $checks arms hold"; exit 0; }
