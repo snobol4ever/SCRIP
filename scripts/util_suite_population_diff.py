@@ -28,7 +28,9 @@ are printed.  When it is the board line alone the instrument says the entries ar
 implying a set it never saw.
 
   util_suite_population_diff.py BEFORE AFTER      two files, each a SUITE_BOARD line or a full runner output
-  util_suite_population_diff.py --selftest        planted arms, the recorded ad0f85fae/b12714737 pair included
+  util_suite_population_diff.py --archive .github/board-lines/DATE-WHO.tsv --suite sno-master --from TREE --to TREE
+                                                  two VERBATIM archived lines (ceo CEO-827), the runner's own output
+  util_suite_population_diff.py --selftest        planted arms, plus the real archived pair when it is on disk
 """
 import os
 import re
@@ -75,6 +77,46 @@ def read_board(path, out):
         if kind == "SKIP":
             skips[mode].add(name)
     return {"path": path, "fields": fields, "skips": skips, "has_entries": bool(ENTRY_RX.search(text))}
+
+
+def read_archive(path, suite, tree, out):
+    """one reading out of a board-lines TSV (tree<TAB>suite<TAB>measurer<TAB>verbatim line; ceo CEO-827).
+
+    THIS IS WHY THE ARCHIVE EXISTS.  The pair this instrument was built for -- the SNOBOL4 master's m4_skip 0 -> 3 at
+    b12714737 and 3 -> 0 at a861648ab -- could not be diffed at all on the morning it was ruled, because every receipt
+    in .github paraphrased its board in prose.  A reading reconstructed by hand is faithful at best; it is not the
+    runner's own line, and this instrument will not let one wear the other's authority."""
+    if not os.path.exists(path):
+        out(f"REFUSED(2): no archive at {path} -- nothing was read, and that is not a zero")
+        return None
+    rows = []
+    for ln in open(path, encoding="utf-8", errors="replace"):
+        if ln.startswith("#") or not ln.strip():
+            continue
+        parts = ln.rstrip("\n").split("\t")
+        if len(parts) < 4:
+            continue
+        rows.append(parts[:4])
+    hit = [r for r in rows if r[0].startswith(tree) and r[1] == suite]
+    if not hit:
+        have = sorted({(r[1]) for r in rows})
+        trees = sorted({r[0] for r in rows if r[1] == suite})
+        out(f"REFUSED(2): {path} holds no verbatim line for suite {suite!r} at tree {tree!r}. "
+            + (f"That suite is archived at: {', '.join(trees)}." if trees else f"Suites archived here: {', '.join(have) or 'none'}.")
+            + " A comparison cannot be made from a reading nobody kept")
+        return None
+    lines = {r[3] for r in hit}
+    if len(lines) > 1:
+        out(f"REFUSED(2): {path} holds {len(lines)} DIFFERENT lines for {suite} at {tree} -- two readings of one tree "
+            "disagree, which is a finding of its own, not an input to this one")
+        return None
+    text = hit[0][3]
+    fields = {k: v for k, v in KV_RX.findall(text.split("SUITE_BOARD", 1)[-1])} if "SUITE_BOARD" in text else {}
+    if not fields:
+        out(f"REFUSED(2): the archived line for {suite} at {tree} carries no SUITE_BOARD fields: {text[:80]!r}")
+        return None
+    return {"path": f"{os.path.basename(path)}[{suite}@{hit[0][0]} by {hit[0][2]}]", "fields": fields,
+            "skips": {"m3": set(), "m4": set()}, "has_entries": False}
 
 
 def diff(a, b, out=print):
@@ -213,6 +255,35 @@ def selftest():
     r = diff(read_board(a, buf.append), read_board(b, buf.append), buf.append)
     ck(r == 1 and any("ENTRIES NOT NAMED" in l for l in buf),
        "board lines alone: the instrument says the entries are NOT NAMED and why, rather than implying a set it never saw")
+    # THE ARCHIVE READER (ceo CEO-827): a verbatim line kept by a receipt, and every way it can refuse.
+    arc = put("arc.tsv",
+              "# header\n"
+              "b12714737\tsnobol4-master\tceo\t" + skipped.strip() + "\n"
+              "a861648ab\tsnobol4-master\tceo\t" + base.strip() + "\n"
+              "b12714737\ticon-master\tceo\tSUITE_BOARD family=ALL total=826 m3_n=826 m4_n=826 m4_skip=0\n")
+    buf.clear()
+    ck(diff(read_archive(arc, "snobol4-master", "b12714737", buf.append),
+            read_archive(arc, "snobol4-master", "a861648ab", buf.append), buf.append) == 1
+       and any("SKIP MOVED m4_skip: 3 -> 0" in l for l in buf),
+       "the ARCHIVED pair (the runner's own lines, CEO-827) reds on m4_skip 3 -> 0 -- a reading, not a reconstruction")
+    buf.clear()
+    ck(read_archive(arc, "raku-master", "b12714737", buf.append) is None
+       and any("holds no verbatim line for suite" in l and "Suites archived here" in l for l in buf),
+       "an archive with no line for that suite REFUSES rc=2 and NAMES what it does hold")
+    buf.clear()
+    ck(read_archive(arc, "snobol4-master", "deadbeef", buf.append) is None
+       and any("That suite is archived at: a861648ab, b12714737." in l for l in buf),
+       "a tree the archive never recorded REFUSES rc=2 and names the trees it has for that suite")
+    buf.clear()
+    dupe = put("dupe.tsv", "b12714737\tsnobol4-master\tceo\t" + skipped.strip() + "\n"
+                           "b12714737\tsnobol4-master\thq_snobol4\t" + base.strip() + "\n")
+    ck(read_archive(dupe, "snobol4-master", "b12714737", buf.append) is None
+       and any("DIFFERENT lines" in l for l in buf),
+       "two DIFFERENT archived lines for one tree and suite REFUSE rc=2 -- two readings of one tree disagreeing is its own finding, not an input to this one")
+    buf.clear()
+    ck(read_archive(os.path.join(w, "no-archive.tsv"), "snobol4-master", "b12714737", buf.append) is None
+       and any("no archive at" in l for l in buf),
+       "a missing archive REFUSES rc=2, never an empty reading")
     print(f"population: {arms} selftest arm(s), {fails} FAIL")
     print("SELFTEST " + ("PASS" if fails == 0 else "FAIL"))
     return 0 if fails == 0 else 1
@@ -221,9 +292,24 @@ def selftest():
 def main(argv):
     if "--selftest" in argv:
         return selftest()
+    if "--archive" in argv:
+        # util_suite_population_diff.py --archive F --suite KEY --from TREE --to TREE
+        opt = {}
+        it = iter(range(len(argv)))
+        for i in it:
+            if argv[i].startswith("--") and i + 1 < len(argv):
+                opt[argv[i][2:]] = argv[i + 1]
+        missing = [k for k in ("archive", "suite", "from", "to") if k not in opt]
+        if missing:
+            print(__doc__)
+            print(f"REFUSED(2): --archive needs {' '.join('--' + m for m in missing)}")
+            return 2
+        a = read_archive(opt["archive"], opt["suite"], opt["from"], print)
+        b = read_archive(opt["archive"], opt["suite"], opt["to"], print)
+        return diff(a, b, print)
     if len(argv) != 2:
         print(__doc__)
-        print("REFUSED(2): give exactly two readings (BEFORE AFTER), or --selftest")
+        print("REFUSED(2): give exactly two readings (BEFORE AFTER), or --archive/--suite/--from/--to, or --selftest")
         return 2
     a = read_board(argv[0], print)
     b = read_board(argv[1], print)

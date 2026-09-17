@@ -1125,6 +1125,55 @@ def fraction_from_text(text, p_override, t_override):
                         % (len(uniq), ", ".join("%s/%s" % u for u in uniq)))
 
 
+# ⭐⭐ A BOARD RECEIPT KEEPS THE RUNNER'S VERBATIM LINE (ceo CEO-827, 2026-09-17, on the coo's ask; read by the ceo as
+# the COMPLETION of the standing "a watermark without its command is void" rule rather than a new one).  A receipt that
+# PARAPHRASES its own board cannot be compared by util_suite_population_diff.py -- which is exactly the gap that bit
+# this fleet the same morning: the SNOBOL4 master went m4_skip 0 -> 3 and back again across two landings, and neither
+# reading survived anywhere in .github as anything but prose, so the pair the defect lived in could not be diffed at
+# all.  This writer is the ONE write path for a row, so the line rides with the row write: every `write` archives the
+# verbatim SUITE_BOARD line it was handed, and when it was handed none it SAYS SO in a greppable line rather than
+# leaving the reader to assume one was kept.
+BOARD_LINE_RX = re.compile(r"(?m)^.*?\b([A-Z0-9_]*SUITE_BOARD\b.*)$")
+BOARD_LINES_DIR = os.path.join(S4E, ".github", "board-lines")
+BOARD_LINES_HEADER = (
+    "# VERBATIM RUNNER BOARD LINES, kept so any two readings of one suite are diffable after the fact (ceo CEO-827).\n"
+    "# Each line is the runner's OWN board output, unedited. A receipt that paraphrases a board cannot be compared by\n"
+    "# util_suite_population_diff.py, which is the gap the coo measured on the 2026-09-17 SNOBOL4 pair.\n"
+    "# tree\tsuite\tmeasurer\tverbatim line\n")
+
+
+def archive_board_line(text, suite, measurer, tree, dry=False, out=print):
+    """append the verbatim board line this write was handed; return the path written, or None with a printed reason"""
+    m = BOARD_LINE_RX.search(text or "")
+    if not m:
+        out("  ⛔ BOARD LINE NOT ARCHIVED: --text carries no SUITE_BOARD line, so this receipt is PROSE and no later "
+            "comparison can read it (CEO-827). Pass the runner's own line as --text where one exists.")
+        return None
+    line = " ".join(m.group(1).split())          # one physical line, spacing normalised, tokens untouched
+    row = "\t".join([tree, suite or "<unnamed-suite>", measurer or "<unnamed>", line]) + "\n"
+    path = os.path.join(BOARD_LINES_DIR, "%s-%s.tsv" % (time.strftime("%Y-%m-%d"), (measurer or "unnamed").replace("/", "_")))
+    if dry:
+        out("  board line: WOULD archive to %s" % path)
+        out("    %s" % line[:160])
+        return path
+    try:
+        os.makedirs(BOARD_LINES_DIR, exist_ok=True)
+        existing = open(path, encoding="utf-8").read() if os.path.exists(path) else ""
+        if not existing:
+            existing = BOARD_LINES_HEADER
+        if row in existing:
+            out("  board line: already archived for this tree and suite in %s (unchanged)" % path)
+            return path
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(existing if existing.endswith("\n") else existing + "\n")
+            fh.write(row)
+    except OSError as e:
+        out("  ⛔ BOARD LINE NOT ARCHIVED: %s (%s) -- the row was still written; archive it by hand" % (path, e))
+        return None
+    out("  board line ARCHIVED verbatim: %s  (tree %s, suite %s)" % (path, tree, suite or "<unnamed-suite>"))
+    return path
+
+
 def suite_sync_decide(a):
     """Settle EVERY suite-mirror refusal BEFORE the board is persisted.  Returns (key, p, t) or a note; dies on a refusal.
     ⛔⭐ THE ORDER IS THE POINT (cfo 2026-09-07, ceo-assigned row score-row-write-rewrites-the-board-then-refuses).
@@ -1758,6 +1807,7 @@ def cmd_write(a):
         else:
             print("  ⚠ grid %s: no grid row for %s -- this write touches the display only" % (gkey, a.lang))
         print(suite_sync(a, suite_tree_stamp(), True, _decided))
+        archive_board_line(a.text, _decided[0], a.measurer, suite_tree_stamp(), dry=True)
         print("  (DRY RUN -- nothing written)")
         return 0
     lines = mark_grid_stamp(lines)
@@ -1782,7 +1832,10 @@ def cmd_write(a):
     if gnote:
         print(gnote)
     print(suite_sync(a, suite_tree_stamp(), False, _decided))
-    print("⛔ NOT DONE UNTIL PUSHED: commit .github/SCORE.md AND .github/SUITES.tsv with the landing that carried this measurement.")
+    _arch = archive_board_line(a.text, _decided[0], a.measurer, suite_tree_stamp())
+    print("⛔ NOT DONE UNTIL PUSHED: commit .github/SCORE.md AND .github/SUITES.tsv"
+          + (" AND %s" % os.path.relpath(_arch, os.path.join(S4E, ".github")) if _arch else "")
+          + " with the landing that carried this measurement.")
     return 0
 
 
@@ -2002,12 +2055,18 @@ def cmd_selftest(a):
     # table, so a selftest that redirected only the board would have written its fake rebus numbers into the
     # REAL .github/SUITES.tsv -- the banner Lon reads -- while printing that it grades a scratch copy.  A
     # scratch harness that is scratch in one of its two outputs is not a scratch harness.
-    global SCORE_MD, SUITES_TSV
+    # ⛔ AND THE BOARD-LINE ARCHIVE IS THE THIRD OUTPUT, REDIRECTED FROM THE FIRST LINE (CEO-827, coo 2026-09-17):
+    # cmd_write archives the verbatim board line it is handed, so a selftest that redirected only SCORE.md and
+    # SUITES.tsv would write its fixture lines into the REAL .github/board-lines -- the same lesson as the paragraph
+    # above, one output later. Scratch in ALL of its outputs or it is not a scratch harness.
+    global SCORE_MD, SUITES_TSV, BOARD_LINES_DIR
     real = SCORE_MD
     real_tsv = SUITES_TSV
+    real_bl = BOARD_LINES_DIR
     ok = True
     d = tempfile.mkdtemp(prefix="score_row_selftest.")
     try:
+        BOARD_LINES_DIR = os.path.join(d, "board-lines")
         SCORE_MD = os.path.join(d, "SCORE.md")
         shutil.copy(real, SCORE_MD)
         SUITES_TSV = os.path.join(d, "SUITES.tsv")
@@ -2841,9 +2900,27 @@ def cmd_selftest(a):
             print("SELFTEST: the stamped move set reb-master to 49 and APPENDED the stamp to column 12 with ' | ' (the seed's stamp kept before it)")
         else:
             print("SELFTEST FAIL: stamped move -- total %r, criterion_changed %r" % ((_r or {}).get("today_total"), _cc)); ok = False
+        # ⭐ CEO-827: THE VERBATIM BOARD LINE RIDES WITH THE ROW WRITE.  Three arms, on a scratch archive dir: a
+        # board line is archived once, an identical second write does not duplicate it, and a --text that carries
+        # NO board line says so loudly instead of leaving the reader to assume a line was kept.
+        if True:
+            _buf = []
+            _line = "SUITE_BOARD family=ALL total=1982 m3_pass=1970 m3_skip=0 m4_pass=1967 m4_skip=3"
+            _p1 = archive_board_line("the runner printed: " + _line, "sno-master", "coo", "b12714737", out=_buf.append)
+            _p2 = archive_board_line(_line, "sno-master", "coo", "b12714737", out=_buf.append)
+            _p3 = archive_board_line("the snobol4 master reads 1967/1982", "sno-master", "coo", "b12714737", out=_buf.append)
+            _txt = open(_p1, encoding="utf-8").read() if _p1 else ""
+            if _p1 and _p2 == _p1 and _p3 is None and _txt.count(_line) == 1 \
+               and any("already archived" in x for x in _buf) and any("NOT ARCHIVED" in x for x in _buf):
+                print("SELFTEST: the verbatim board line is archived once, not duplicated on a re-write, and a receipt "
+                      "with no board line SAYS SO (CEO-827)")
+            else:
+                print("SELFTEST FAIL: board-line archive -- p1=%r p2=%r p3=%r occurrences=%d" %
+                      (_p1, _p2, _p3, _txt.count(_line))); ok = False
     finally:
         SCORE_MD = real
         SUITES_TSV = real_tsv
+        BOARD_LINES_DIR = real_bl
         shutil.rmtree(d, ignore_errors=True)
     print("SELFTEST %s" % ("PASS" if ok else "FAIL"))
     return 0 if ok else 1
