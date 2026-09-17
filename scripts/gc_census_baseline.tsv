@@ -6,7 +6,7 @@ conservative	gc_zeta_frame_calls	12	0
 conservative	cons_stack_uses	8	0
 conservative	rt_cas_live_span_uses	2	0
 conservative	hb_scan_interior_uses	2	0
-allocator	rt_gc_collect_calls_in_the_allocator	3	0
+allocator	rt_gc_collect_calls_in_the_allocator	0	0
 safe-points	unpolled	202	0
 safe-points	unresolved	39	0
 callbacks	unwrapped	63	0

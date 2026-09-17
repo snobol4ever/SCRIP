@@ -34,6 +34,9 @@ static char *g_hp_arena = (char *)0;
 static char *g_hp_gcline = (char *)0;
 static char *g_hp_win = (char *)0;
 static char *g_hp_wend = (char *)0;
+static char *g_hp_cap_end = (char *)0;
+static size_t g_hp_chunk = 0;
+static long g_hp_grown = 0;
 static int   g_hp_report_reg = 0;
 static void gc_static_segs_init(void);
 int g_gc_pending;
@@ -129,14 +132,41 @@ static void rt_gcheap_report(void)
     fprintf(stderr, "[ZHP] arena=%dMB blocks=%ld(alloc'd)=%ld(walked) bytes=%ld verify=OK\n", (int)GC_HEAP_MB, g_hp_blocks, live, g_hp_arena ? (long)(g_hp_top - g_hp_arena) : 0L);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void gc_huge_advise(char *a0, char *e0)
+{
+    const char *nh = getenv("SCRIP_NOHUGE");
+    if (nh && *nh && *nh != '0') return;
+    { uintptr_t a = ((uintptr_t)a0 + 0x1FFFFFu) & ~(uintptr_t)0x1FFFFFu, e = ((uintptr_t)e0) & ~(uintptr_t)0x1FFFFFu; if (e > a) madvise((void *)a, (size_t)(e - a), MADV_HUGEPAGE); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rt_gcheap_grow(uint64_t need)
+{
+    size_t left = (size_t)(g_hp_cap_end - g_hp_end);
+    if (!left) return 0;
+    { size_t want = (size_t)need + 16u; if (want < (size_t)0x200000u) want = (size_t)0x200000u; want = (want + 0x1FFFFFu) & ~(size_t)0x1FFFFFu; if (want > left) want = left;
+      if (mprotect(g_hp_end, want, PROT_READ | PROT_WRITE) != 0) { fprintf(stderr, "[ZHP] soft end could not advance %ld MB at %p (reserve cap %ld MB)\n", (long)(want >> 20), (void *)g_hp_end, (long)((g_hp_cap_end - g_hp_arena) >> 20)); return 0; }
+      gc_huge_advise(g_hp_end, g_hp_end + want);
+      g_hp_end += want;
+      g_hp_grown += (long)want;
+      if (!gc_line_paced()) g_hp_fr.line = g_hp_end;
+      if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZHP] soft end -> %ld MB committed of %ld MB reserved (grown %ld MB total)\n", (long)((g_hp_end - g_hp_arena) >> 20), (long)((g_hp_cap_end - g_hp_arena) >> 20), (long)(g_hp_grown >> 20));
+      return 1; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_gcheap_init(void)
 {
-    long mb = (long)GC_HEAP_MB;
+    long mb = (long)GC_HEAP_MB, cap_mb;
     { const char *e = getenv("SCRIP_HEAP_MB"); if (e && *e) { long v = atol(e); if (v >= 1 && v <= 4096) mb = v; } }
-    g_hp_arena = (char *)rt_slab_region((size_t)mb << 20);
-    if (!g_hp_arena) { fprintf(stderr, "[ZHP] heap arena slab failed (%ld MB) — lower GC_HEAP_MB\n", mb); abort(); }
-    g_hp_top = g_hp_arena; g_hp_end = g_hp_arena + ((size_t)mb << 20);
-    { const char *nh = getenv("SCRIP_NOHUGE"); if (!(nh && *nh && *nh != '0')) { uintptr_t a = ((uintptr_t)g_hp_arena + 0x1FFFFFu) & ~(uintptr_t)0x1FFFFFu, e = ((uintptr_t)g_hp_end) & ~(uintptr_t)0x1FFFFFu; if (e > a) madvise((void *)a, (size_t)(e - a), MADV_HUGEPAGE); } }
+    cap_mb = mb * 8;
+    { const char *e = getenv("SCRIP_HEAP_MAX_MB"); if (e && *e) { long v = atol(e); if (v >= mb) cap_mb = v; } }
+    { void *rv = mmap((void *)0, (size_t)cap_mb << 20, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
+      if (rv == MAP_FAILED) { fprintf(stderr, "[ZHP] heap reserve mmap failed (%ld MB reserve) -- lower SCRIP_HEAP_MAX_MB\n", cap_mb); abort(); }
+      g_hp_arena = (char *)rv; }
+    g_hp_cap_end = g_hp_arena + ((size_t)cap_mb << 20);
+    g_hp_chunk = (size_t)mb << 20;
+    if (mprotect(g_hp_arena, g_hp_chunk, PROT_READ | PROT_WRITE) != 0) { fprintf(stderr, "[ZHP] heap window commit failed (%ld MB of a %ld MB reserve)\n", mb, cap_mb); abort(); }
+    g_hp_top = g_hp_arena; g_hp_end = g_hp_arena + g_hp_chunk;
+    gc_huge_advise(g_hp_arena, g_hp_end);
     g_hp_virgin = g_hp_arena;
     g_hp_gcline = g_hp_arena + gc_line_span((long)(((size_t)mb << 20) >> 1));
     g_hp_fr.line = gc_line_paced() ? g_hp_gcline : g_hp_end;
@@ -189,7 +219,7 @@ static int g_alloc_detax = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes)
 {
-    if (g_alloc_detax == 1 && g_ah_on <= 0) { uint64_t tf = sizeof(rt_hblk_t) + ((payload_bytes + 15u) & ~15ull); if (gc_line_paced() && g_hp_gcline && !g_gc_in && g_hp_top + tf > g_hp_gcline) rt_gc_collect(); if (g_hp_top + tf <= g_hp_end) { void *rf = rt_gcheap_carve(g_hp_top, tf, type); g_hp_top += tf; return rf; } }
+    if (g_alloc_detax == 1 && g_ah_on <= 0) { uint64_t tf = sizeof(rt_hblk_t) + ((payload_bytes + 15u) & ~15ull); if (gc_line_paced() && g_hp_gcline && !g_gc_in && g_hp_top + tf > g_hp_gcline) g_gc_pending = 1; if (g_hp_top + tf <= g_hp_end) { void *rf = rt_gcheap_carve(g_hp_top, tf, type); g_hp_top += tf; return rf; } }
     if (g_ah_on > 0) { unsigned t = (unsigned)type & 511u; g_ah_tn[t] += 1; g_ah_tb[t] += (long)payload_bytes; }
     uint64_t total = sizeof(rt_hblk_t) + ((payload_bytes + 15u) & ~15ull);
     void *r;
@@ -203,8 +233,8 @@ void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes)
       if (!g_alloc_detax) g_alloc_detax = (stress_n == 0 && budget == 0 && g_ah_on <= 0 && g_hp_arena && g_hp_report_reg) ? 1 : -1;
       g_hp_fr.armed = (g_alloc_detax == 1 && g_ah_on <= 0) ? 1 : 0;
       if (budget) { since += (long)total; if (since >= budget && (g_hp_top - g_hp_arena) * 2 >= (g_hp_end - g_hp_arena)) { since = 0; g_gc_pending = 2; } } }
-    if (gc_line_paced() && g_hp_gcline && !g_gc_in && g_hp_top + total > g_hp_gcline && g_hp_top + total <= g_hp_end) rt_gc_collect();
-    if (g_hp_top + total > g_hp_end && g_hp_win + total > g_hp_wend) rt_gc_collect();
+    if (gc_line_paced() && g_hp_gcline && !g_gc_in && g_hp_top + total > g_hp_gcline && g_hp_top + total <= g_hp_end) g_gc_pending = 1;
+    if (g_hp_top + total > g_hp_end && g_hp_win + total > g_hp_wend) { g_gc_pending = 1; rt_gcheap_grow(total); }
     if (g_hp_top + total <= g_hp_end) { r = rt_gcheap_carve(g_hp_top, total, type); g_hp_top += total; return r; }
     if (g_hp_win + total <= g_hp_wend) {
         uint64_t avail = (uint64_t)(g_hp_wend - g_hp_win);
@@ -214,7 +244,7 @@ void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes)
         if (g_hp_win < g_hp_wend) { rt_hblk_t *fl = (rt_hblk_t *)g_hp_win; fl->fwd = 0; fl->size = (uint32_t)(g_hp_wend - g_hp_win); fl->type = HB_FILL; fl->flags = HBF_TTL; }
         return r;
     }
-    fprintf(stderr, "[ZHP] heap exhausted (%d MB, %ld blocks) after storage regeneration — raise GC_HEAP_MB or build with -DZC_HEAP_STRINGS=0\n", (int)GC_HEAP_MB, g_hp_blocks);
+    fprintf(stderr, "[ZHP] heap exhausted at the reserve cap (%ld MB committed of %ld MB reserved, %ld blocks) -- raise SCRIP_HEAP_MAX_MB, or a safe point is missing so nothing ever collected\n", (long)((g_hp_end - g_hp_arena) >> 20), (long)((g_hp_cap_end - g_hp_arena) >> 20), g_hp_blocks);
     abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -590,7 +620,7 @@ static long gc_collect_ex(int cons_stack)
     if (g_gc_nblk > g_gc_icap) { g_gc_icap = g_gc_icap ? g_gc_icap : 4096; while (g_gc_icap < g_gc_nblk) g_gc_icap *= 2;
         g_gc_idxbuf = (rt_hblk_t **)realloc((void *)g_gc_idxbuf, (size_t)g_gc_icap * sizeof(*g_gc_idxbuf)); if (!g_gc_idxbuf) abort(); }
     g_gc_idx = g_gc_idxbuf;
-    { char *p = g_hp_arena; long i = 0; int fold = 1; if (!g_gc_pmap) { g_gc_pmap = (uint32_t *)malloc((((size_t)(g_hp_end - g_hp_arena)) >> 9) * sizeof(uint32_t)); if (!g_gc_pmap) abort(); } while (p < g_hp_top) { rt_hblk_t *h = (rt_hblk_t *)p;
+    { char *p = g_hp_arena; long i = 0; int fold = 1; if (!g_gc_pmap) { g_gc_pmap = (uint32_t *)malloc((((size_t)(g_hp_cap_end - g_hp_arena)) >> 9) * sizeof(uint32_t)); if (!g_gc_pmap) abort(); } while (p < g_hp_top) { rt_hblk_t *h = (rt_hblk_t *)p;
         if (fold && i >= g_gc_icap) { g_gc_icap = g_gc_icap ? g_gc_icap * 2 : 4096; g_gc_idxbuf = (rt_hblk_t **)realloc((void *)g_gc_idxbuf, (size_t)g_gc_icap * sizeof(*g_gc_idxbuf)); if (!g_gc_idxbuf) abort(); g_gc_idx = g_gc_idxbuf; }
         h->flags &= (uint16_t)~HBF_MARK;
         if (h->type == HB_ZBLK || h->type == HB_PLJ) nforeign++;

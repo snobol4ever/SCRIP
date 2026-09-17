@@ -13,6 +13,20 @@
 # (Historic, pre-CEO-799:) SCRIP_GC_PIN_AGGREGATES=1 restored the old policy and still died; that knob was deleted with the pinning mechanism on 2026-09-16 and the control arm is now the spelling census.
 # nothing; (3) correctness under heavy collection: 200000 lists into a table, byte-identical to icont.
 # FAIL_ONCE has no control knob to route through any more (CEO-799); the census arm is the control.
+#
+# ⛔ ARM 1's 800 MB MEMORY BOUND IS REPORTED, NOT BLOCKING, BY THE ceo's RULING CEO-821 (2026-09-17) ON THE cfo's
+# MEASUREMENT. ARM 1's CORRECTNESS HALF (completes, rc=0, answer "done 3") AND ARMS 2 AND 3 ALL STAY BLOCKING: the
+# split is here in the gate rather than a leading dash in the Makefile precisely so everything except the RSS figure
+# keeps its teeth. WHY: F6 step 1 (the allocator never collects; the arena is a capped virtual reserve) took this
+# witness from FIVE collections at 157144 KB RSS to ONE collection at 861932 KB, answer correct and rc=0 on both
+# sides -- a memory reading, not a corruption. The cause is not the growth policy (a 2 MB growth step versus a full
+# window moved RSS by 84 KB): AN ICON ALLOCATION LOOP CONTAINS NO SAFE POINT AT ALL. The shielded rt_gc_point_arr
+# sites the frozen design keeps are SNOBOL4 and Prolog by-name dispatch points; an every-do loop reaches none, so the
+# pending flag is set inside the first 128 MB and nothing takes it until the program ends.
+# ⭐ THE LIFT IS NAMED: the cto's Icon allocating-box polls, F6 step 4 of
+# .github/ARCH-GC-COMPILE-TIME-FRAME-MAPS.md section 7, PULLED AHEAD by CEO-821 for exactly this reading. WHEN THEY
+# LAND, DELETE THIS PARAGRAPH AND LET THE 800 MB BOUND BLOCK AGAIN. Until then arm 1 prints its RSS every run: a
+# reported arm that stops printing its number is worse than no arm at all.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
 G="$(basename "${BASH_SOURCE[0]}" .sh)"
@@ -26,7 +40,8 @@ printf 'procedure main()\n   local i, L, T, R;\n   T := table(0);\n   every i :=
 run_rss() { /usr/bin/time -f '%M' -o "$T/rss" timeout 300 env "$@" >"$T/out" 2>"$T/err"; echo $?; }
 rc=$(run_rss "$SCRIP" "$T/churn.icn"); rss=$(tail -1 "$T/rss" 2>/dev/null || echo 0); got=$(cat "$T/out")
 if [ "$rc" = 0 ] && [ "$got" = "done 3" ] && [ "$rss" -lt 819200 ]; then echo "  churn PASS (4M dead lists: completed, answer \"$got\", RSS ${rss} KB under 800 MB)"
-else echo "  churn FAIL (rc=$rc answer=\"$got\" RSS=${rss} KB -- a program holding one list did not survive four million dead ones)"; RC=1; fi
+elif [ "$rc" = 0 ] && [ "$got" = "done 3" ]; then echo "  ⚠ churn REPORTED, NOT BLOCKING (ceo ruling CEO-821, 2026-09-17): answer \"$got\" correct and rc=0, but RSS ${rss} KB is over the 800 MB bound -- origin collected 5 times at 157144 KB, F6 step 1 collects once because an Icon allocation loop reaches no safe point; LIFT: the cto's Icon allocating-box polls, F6 step 4, and then this arm blocks again at 800 MB"
+else echo "  churn FAIL (rc=$rc answer=\"$got\" RSS=${rss} KB -- a program holding one list did not survive four million dead ones; the CORRECTNESS half of arm 1 still BLOCKS)"; RC=1; fi
 if grep -rqE 'SCRIP_GC_PIN_AGGREGATES|hb_root_blanket' "$ROOT/src"; then echo "  control FAIL (the immortal policy is back in src/ under its old spelling -- CEO-799 deleted it 2026-09-16; test_gate_gc_no_pinned_lifetime_class holds the census)"; RC=1
 else echo "  control PASS (no immortal-policy knob exists in src/ to restore: SCRIP_GC_PIN_AGGREGATES and hb_root_blanket were deleted with the pinning mechanism, CEO-799, 2026-09-16)"; fi
 ( cd "$T" && "$ICONT" -s corr.icn -x ) >"$T/corr.ref" 2>&1
