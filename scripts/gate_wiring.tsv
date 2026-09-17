@@ -97,9 +97,9 @@ test_gate_gc_every_safe_point_has_a_compile_time_frame_shape.sh	WIRED	-	-	-
 test_gate_gc_func_table_is_rooted_not_pinned_alive.sh	WIRED	-	-	-
 test_gate_gc_instrument_censuses_are_wired_and_trip.sh	WIRED	-	-	-
 test_gate_gc_no_pinned_lifetime_class.sh	WIRED	-	-	-
+test_gate_gc_pacing_bounds_a_churning_program.sh	WIRED	-	-	-
 test_gate_gc_pas_every_frame_slot_has_a_kind.sh	WIRED	-	-	-
 test_gate_gc_raku_every_frame_slot_has_a_kind.sh	WIRED	-	-	-
-test_gate_gc_pacing_bounds_a_churning_program.sh	WIRED	-	-	-
 test_gate_gc_record_type_table_is_rooted_not_blanket_marked.sh	WIRED	-	-	-
 test_gate_gc_table_insertion_order_array_is_rooted_not_pinned_alive.sh	WIRED	-	-	-
 test_gate_handoff_status_lane_scoped_debt_and_refusal_never_reads_complete.sh	WIRED	-	-	-
@@ -423,6 +423,7 @@ test_gate_spitbol_x64_case_conversion_is_oracle_equivalent.sh	WIRED	-	-	-
 test_gate_suite_argv_sidecar.sh	WIRED	-	-	-
 test_gate_suite_banner_check_writes_nothing_and_render_is_scoped.sh	WIRED	-	-	-
 test_gate_suite_board_line_prints_shipped_with_outside_named.sh	WIRED	-	-	-
+test_gate_suite_population_diff_reds_on_a_moved_skip.sh	WIRED	-	-	-
 test_gate_suite_set_does_not_move_another_suites_row.sh	WIRED	-	-	-
 test_gate_table_convert_creation_order.sh	WIRED	-	-	-
 test_gate_template_medium_invisible.sh	WIRED	-	-	-
