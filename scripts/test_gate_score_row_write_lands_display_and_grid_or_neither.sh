@@ -33,7 +33,8 @@ n="${old%%/*}"; d="${old##*/}"; new="$((n+1))/$d"
 echo "    fixture: grid V PAT reads $old; the write states $new (display line $dl, grid line $gl)"
 fails=0; checks=0; ck(){ checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; else printf '  FAIL  %s\n' "$2"; fails=$((fails+1)); fi; }
 echo "=== gate: a V write lands the display cell AND its grid mirror, or neither ==="
-out="$(env -u S4E_DONE_WHEN_RUN -u S4E_ONE_RUNNER_OVERRIDE S4E_HOME="$W" S4E_MODE_FILE="$MODE" S4E_SEAT=hq_pascal python3 "$HELPER" write --lang pascal --column vendor --suite PAT --modes m3,m4 --measurer hq_pascal --text "PAT: ISO 7185 validation suite (Pascal-P5 1.4.x, vendored corpus/packages/pascal/pat): both-modes $new · m3 $new · m4 $new (test_pascal_pat_suite.sh, gate fixture)" --suite-pass "$((n+1))" --suite-total "$d" 2>&1)"; rc=$?
+export S4E_SEAT=hq_pascal   # the one call shape below reads it (test_gate_seat_identity_one_map ARM 5)
+out="$(env -u S4E_DONE_WHEN_RUN -u S4E_ONE_RUNNER_OVERRIDE S4E_HOME="$W" S4E_MODE_FILE="$MODE" python3 "$HELPER" write --lang pascal --column vendor --suite PAT --modes m3,m4 --measurer "${S4E_SEAT:-}" --text "PAT: ISO 7185 validation suite (Pascal-P5 1.4.x, vendored corpus/packages/pascal/pat): both-modes $new · m3 $new · m4 $new (test_pascal_pat_suite.sh, gate fixture)" --suite-pass "$((n+1))" --suite-total "$d" 2>&1)"; rc=$?
 [ -n "${FAIL_ONCE:-}" ] && sed -i "${gl}s#$new#$old#" "$MD"
 dfr="$(sed -n "${dl}p" "$MD" | grep -oE 'PAT[^|]{0,200}' | head -1 | grep -oE '[0-9]+/[0-9]+' | sort -u | tr '\n' ' ')"
 gfr="$(sed -n "${gl}p" "$MD" | grep -oE 'PAT[^|]{0,200}' | head -1 | grep -oE '[0-9]+/[0-9]+' | sort -u | tr '\n' ' ')"
