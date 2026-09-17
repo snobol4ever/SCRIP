@@ -255,6 +255,28 @@ else
   fi
 fi
 echo "------------------------------------------------------------"
+echo "ALL-LANGUAGE SLOT-KIND SWEEP (util_gc_census.py maps --zls-langs all) — WARN-ONLY, does not affect the verdict below"
+echo "    (CEO-822, 2026-09-17, on the coo's ask: the FAST THREE stay wired in make test — a 35s number that moves once a"
+echo "     day does not belong on every seat's per-landing verdict — and THE SEVEN run HERE, once, at the boundary where a"
+echo "     stale number costs something. SKIP_ZLS_ALL=1 skips it and SAYS SO: a sweep that did not run prints nothing green.)"
+_zls_root="$SELF_DIR/.."
+if [ "${SKIP_ZLS_ALL:-0}" = "1" ]; then
+  echo "  SKIPPED (SKIP_ZLS_ALL=1) — the seven-language reading is UNVERIFIED this run; make test proves the fast three only."
+elif [ ! -f "$SELF_DIR/util_gc_census.py" ]; then
+  echo "  ⛔ NOT MEASURED — $SELF_DIR/util_gc_census.py is missing. Nothing was censused; this is not a zero."
+elif [ ! -x "$_zls_root/scrip" ]; then
+  echo "  ⛔ NOT MEASURED — no ./scrip binary under $_zls_root (run make). A census that cannot compile a master must never print 0."
+else
+  _zls_out="$(cd "$_zls_root" && timeout 300s python3 scripts/util_gc_census.py maps --zls-langs all 2>&1)"; _zls_rc=$?
+  if [ "$_zls_rc" = 124 ]; then
+    echo "  ⛔ NOT MEASURED — the sweep timed out at 300s (load $(cut -d' ' -f1 /proc/loadavg)). No reading this run."
+  else
+    printf '%s\n' "$_zls_out" | grep -E '^CENSUS maps/(slot-kind swept|table [0-9]|slot-kind NOT CENSUSED)|^CENSUS maps slot-kind=' | sed 's/^/  /'
+    printf '%s\n' "$_zls_out" | grep -E '^  (DIVERGENCE|REFUSED)' | sed 's/^/  /'
+    [ "$_zls_rc" = 2 ] && echo "  ⛔ the maps census REFUSED (rc=2) — read the line above; a refusal is not a red and not a pass."
+  fi
+fi
+echo "------------------------------------------------------------"
 if [ "$blocked" -ne 0 ]; then
   echo "CHAT SESSION WAITING — not done:"; printf '  - %s\n' "${reasons[@]}"
   [ "$unknown" -ne 0 ] && { echo "  (also UNKNOWN, see below — fix the known blockers first, they are certain; the unknown repo(s) still need a look)"; printf '  - %s\n' "${unknown_reasons[@]}"; }
