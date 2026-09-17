@@ -2772,7 +2772,7 @@ def cmd_run(args):
         for e in ast_entries:
             verdicts = run_suite_entry(paths, e, tmp_root, ["ast"], ext=ext, companion_dir=Path(args.sno).parent)
             kind = verdicts["ast"].kind
-            _progress_rows.append((e.name, "ast", kind, 0, "xfail" if e.xfail else ""))
+            _progress_rows.append((e.name, "ast", kind, 0, _entry_note(e.xfail, verdicts["ast"], shard_tag)))
             if e.xfail:
                 if kind == "PASS":
                     ast_counts["ast"]["XPASS"] += 1; fails.append((e.name, "ast", verdicts["ast"]))
@@ -2792,7 +2792,7 @@ def cmd_run(args):
             for m in _em:
                 mode_n[m] += 1
                 kind = verdicts[m].kind
-                _progress_rows.append((e.name, m, kind, 0, "xfail" if e.xfail else ""))
+                _progress_rows.append((e.name, m, kind, 0, _entry_note(e.xfail, verdicts[m], shard_tag)))
                 # ⛔ An XFAIL entry (probe/passthru's law-0d witnesses: non-green at conversion time,
                 # see convert_one()) is EXPECTED to stay red -- bucketing it as XFAIL/XPASS instead of
                 # FAIL/PASS keeps a documented, pre-existing defect from inflating a caller's FAIL count
@@ -2870,8 +2870,29 @@ def cmd_run(args):
     import os as _os
     for name, m, v in (fails if _os.environ.get('SUITE_LIST_ALL') else fails[:40]):
         tag = "XPASS(marker stale, promote it)" if v.kind == "PASS" else v.kind
-        print(f"  {tag} {m} {name}: {v.detail}", file=sys.stderr)
+        # the fingerprint of OUR stdout beside every red (see _entry_note): a red that moved is a diff, not a silence
+        print(f"  {tag} {m} {name}: {v.detail} [fp={hashlib.md5(v.stdout or b'').hexdigest()[:8]} rc={'-' if v.returncode is None else v.returncode}]", file=sys.stderr)
     sys.exit(0 if not fails else 1)
+
+
+def _entry_note(xfail, v, shard_tag=""):
+    # ⛔ A RED IS A BUCKET, NOT A VERDICT (hq_snobol4 2026-09-16, row instruments-a-red-is-a-bucket-every-board-prints-a-fingerprint-
+    # beside-each-red-and-the-denominator-of-its-comparison): SnoM read 1962/1981 with a defect and 1962/1981 without it while
+    # testpgms test1 was red on base AND head with a DIFFERENT first diff each time -- every board compared counts, the careful
+    # ones red NAME SETS, and both treat reds as interchangeable.  So every non-PASS row carries a FINGERPRINT of OUR OWN stdout
+    # for that entry (md5/8) and its rc, beside the xfail marker and the shard tag (row instruments-a-sharded-harness-run-appends-
+    # progress-rows-wearing-a-full-boards-suite-name: a --shard k/N run used to append rows a reader could not tell from a
+    # full board's).  The note column is SPACE-SEPARATED TOKENS from here on; every reader splits it (xfail is a token, a
+    # criterion label is a token, fp=/rc=/shard= are tokens).
+    toks = []
+    if xfail:
+        toks.append("xfail")
+    if v is not None and v.kind != "PASS":
+        toks.append("fp=%s" % hashlib.md5(v.stdout or b"").hexdigest()[:8])
+        toks.append("rc=%s" % ("-" if v.returncode is None else v.returncode))
+    if shard_tag:
+        toks.append(shard_tag)
+    return " ".join(toks)
 
 
 PROGRESS_PACKAGE_KEYS = {"arizona_tests": "arizona", "jcon_tests": "jcon", "ipl": "ipl", "csnobol4_suite": "csnobol4", "gimpel": "gimpel",

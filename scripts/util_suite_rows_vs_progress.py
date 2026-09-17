@@ -155,7 +155,7 @@ def audit(suites, db, corpus, out=print):
             seen.add(stem(p))
             k = classify(mm, stem(p) in side)
             cnt[k] += 1
-            if k == "PASS" and all(n == "xfail" for _o, n in mm.values()):
+            if k == "PASS" and all("xfail" in (n or "").split() for _o, n in mm.values()):
                 xpass += 1
         # ⛔ A CRITERION LABEL IN THE DB'S NOTE COLUMN IS THE CONTRACT (hq_prolog 2026-09-17): the INRIA runner records the
         # finest per-ENTRY verdict it retains -- outcome class only, noted `outcome-class` on every row -- while the row it
@@ -163,8 +163,10 @@ def audit(suites, db, corpus, out=print):
         # counters.  The DB's PASS count is then an UPPER BOUND on the row's numerator, not its equal; comparing them as
         # equals convicts an honest row every tick.  A label is a lower-case hyphenated token that is not `xfail`; hashes
         # (the other note shape) never match.  Compare like with like: bounded when every graded row carries the label.
-        labels = {n for mm in d.values() for _o, n in mm.values() if n and CRITERION_NOTE_RX.match(n)}
-        bounded = labels and all((n and n in labels) for mm in d.values() for _o, n in mm.values())
+        # the note column is SPACE-SEPARATED TOKENS (xfail, fp=…, rc=…, shard=k/N, a criterion label): read it token-wise
+        labels = {tok for mm in d.values() for _o, n in mm.values() for tok in (n or "").split() if CRITERION_NOTE_RX.match(tok)}
+        bounded = labels and all(any(tok in labels for tok in (n or "").split()) for mm in d.values() for _o, n in mm.values())
+        shards = {tok for mm in d.values() for _o, n in mm.values() for tok in (n or "").split() if tok.startswith("shard=")}
         cnt["OUTSIDE"] += len(side - seen)
         cnt["UNGRADABLE"] += len(s_ungradable - seen)
         cnt["UNGRADED"] += len(s_ungraded - seen)
@@ -184,6 +186,8 @@ def audit(suites, db, corpus, out=print):
             why.append(f"numerator row {P} vs DB {cnt['PASS']} ({gap:+d})" + (" = xpass: STALE MARKERS, promote them (CEO-753)" if gap == xpass and xpass > 0 else ""))
         if t_row != pop:
             why.append(f"denominator row {T} vs DB population {pop} ({t_row - pop:+d}; PASS {cnt['PASS']} FAIL {cnt['FAIL']} OUTSIDE {cnt['OUTSIDE']} UNGRADABLE {cnt['UNGRADABLE']} UNGRADED {cnt['UNGRADED']} DEFERRED {cnt['DEFERRED']})")
+        if shards:
+            why.append(f"the last reading on this tree is PARTIAL ({', '.join(sorted(shards))}) -- a shard, not a board")
         if why:
             disagree.append(f"{key}: " + "; ".join(why))
             out(f"{line}  DISAGREE: " + "; ".join(why))
