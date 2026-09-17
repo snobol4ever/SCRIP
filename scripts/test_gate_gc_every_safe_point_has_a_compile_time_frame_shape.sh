@@ -67,7 +67,7 @@ SCRIP_GC_MAPS_CHECK=1 SCRIP_GC_MAPS_PLANT=1 ./scrip "$W/w.icn" > /dev/null 2> "$
 if [ "$p3" -ne 0 ] && grep -q 'BAD CELL' "$W/plant3.err" && [ "$p4" -ne 0 ] && grep -q 'BAD CELL' "$W/plant4.err"; then echo "  arm 4 PASS: the planted wrong slen aborts the check in both media (rc $p3 / $p4)"; else echo "  arm 4 RED: planted cell not caught (rc $p3 / $p4)"; bad=1; fi
 if python3 scripts/util_gc_descr_cell_census.py > "$W/census.txt" 2>/dev/null; then g=$(tail -1 "$W/census.txt" | grep -o 'growth_pct=[0-9.]*' | cut -d= -f2); if awk -v g="${g:-100}" 'BEGIN{exit !(g < 25)}'; then echo "  arm 5 PASS: $(tail -1 "$W/census.txt")"; else echo "  arm 5 RED: frame growth ${g:-?} percent is at or above the 25 percent ceiling"; bad=1; fi; else echo "  arm 5 RED: the cell census did not run"; bad=1; fi
 BLOB_CEILING=4
-blobcnt() { awk '{ if (p2 && $1=="sub" && $2=="rsp,") c++; p2 = (p1 && $1=="mov" && $2=="rbp," && $3=="rsp"); p1 = ($1=="push" && $2=="rbp"); } END{print c+0}' "$1"; }
+blobcnt() { awk '{ if (want) { if ($0 !~ /\.Lgcmap_/) c++; want = 0 } if (p2 && $1=="sub" && $2=="rsp,") want = 1; p2 = (p1 && $1=="mov" && $2=="rbp," && $3=="rsp"); p1 = ($1=="push" && $2=="rbp"); } END{print c+0}' "$1"; }
 blobs=0
 for f in "$CORPUS"/*/*.sno "$CORPUS"/*/*.sc "$CORPUS"/*/*.icn "$CORPUS"/*/*.pl "$CORPUS"/*/*.reb "$CORPUS"/*/*.raku "$CORPUS"/*/*.pas "$ROOT/scripts/fixtures/gc_roots_witness.sno"; do
     [ -f "$f" ] || continue
@@ -75,7 +75,7 @@ for f in "$CORPUS"/*/*.sno "$CORPUS"/*/*.sc "$CORPUS"/*/*.icn "$CORPUS"/*/*.pl "
     blobs=$((blobs + $(blobcnt "$W/b.s")))
 done
 if [ "$blobs" -le "$BLOB_CEILING" ]; then
-    echo "  arm 6 PASS: $blobs stored-pattern BLOB activation frame(s) still carry NO map cell, at or under the declared ceiling $BLOB_CEILING"
+    echo "  arm 6 PASS: $blobs stored-pattern BLOB activation frame(s) carry NO map cell, at or under the declared ceiling $BLOB_CEILING (a NAMED exclusion with its own walk rule, ARCH-GC section 6.2b)"
     [ "$blobs" -lt "$BLOB_CEILING" ] && echo "         ⭐ IT FELL: lower BLOB_CEILING to $blobs in this file, in the landing that paid for it"
 else
     echo "  arm 6 RED: $blobs blob activation frames without a map cell, ABOVE the ceiling $BLOB_CEILING -- a NEW frame regime is emitting a frame the walker cannot terminate on"; bad=1
