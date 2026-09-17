@@ -249,6 +249,29 @@ if [ "$DO_RUN" = 1 ]; then
   }
   list_reds M3 "$FAILED_M3"
   list_reds M4 "$FAILED_M4"
+  # ⛔⭐⭐ THE PARSE-COVERAGE ROW, PRINTED BESIDE THE RUN-AND-GRADE CELL AND NEVER LEFT TO BE INFERRED
+  # (cto 2026-09-16, RE parse-coverage-taken-as-68-of-1464-and-the-census-must-be-a-script-on-origin).
+  # ⛔ WHY A BOARD THAT GRADES RUNS MUST ALSO PRINT WHAT PARSES. This board's fraction is a RUN fraction:
+  # it says how many files produced clean TAP. Read alone it invites the reader to derive the front-end
+  # figure by subtracting buckets -- which is precisely the derivation that read 143 when the direct
+  # measurement read 66, because a bucket named for a stage names what it could RECOGNISE, not what the
+  # program REACHED. The row below is measured, not derived: --dump-ast rc=0 per file over this board's own
+  # denominator, by scripts/util_raku_parse_census.sh, which is the instrument on origin so the next figure
+  # cannot be produced by hand again.
+  # ⛔ IT IS CALLED, NOT REIMPLEMENTED: one census body, one population resolver, one construct key. A
+  # second copy inside this board would be free to disagree with the standalone instrument, silently.
+  # ⛔ A CENSUS THAT COULD NOT MEASURE PRINTS ITS REFUSAL AND THE BOARD SAYS SO -- it never blanks the row
+  # and never prints a zero. Its rc=2 is a bookkeeping refusal on a board that already ran, so it does not
+  # red this board (the gate_score_row precedent: a measurement failure beside the board must not void it),
+  # but it is NAMED, because a missing row that reads like a clean one is the whole defect this row cures.
+  PC_ARGS="--summary"
+  [ "$LIMIT" -gt 0 ] && PC_ARGS="$PC_ARGS --limit $LIMIT"
+  if PC_LINE=$(bash "$ROOT/scripts/util_raku_parse_census.sh" $PC_ARGS 2>/dev/null | grep '^RAKU_PARSE_COVERAGE '); then
+    printf '%s\n' "$PC_LINE"
+  else
+    PC_LINE="RAKU_PARSE_COVERAGE UNMEASURED -- util_raku_parse_census.sh refused (rc=2); run it directly for the reason. ⛔ This row is DARK, not zero."
+    printf '%s\n' "$PC_LINE" >&2
+  fi
   printf 'ROAST_BOARD total=%d m3_run_pass=%d m3_run_fail=%d m4_run_pass=%d m4_run_fail=%d both_modes_pass=%d compile_only=%d roast_commit=%s elapsed=%ds\n' \
     "$n" "$m3p" "$m3f" "$m4p" "$m4f" "$both" "$compile_only" "$ROAST_COMMIT" "$elapsed"
   [ "$LIMIT" -gt 0 ] && { printf 'ROAST_PARTIAL: --limit %d was in force, so this is a SMOKE OF THE INSTRUMENT and NOT a board; no SCORE row is written.\n' "$LIMIT"; exit 0; }
@@ -261,7 +284,7 @@ if [ "$DO_RUN" = 1 ]; then
       --suite roast --suite-key roast \
       --suite-pass "$both" --suite-total "$n" \
       --measurer "${S4E_SEAT:-}" \
-      --text "roast run-graded both-modes $both/$n · m3 $m3p/$n · m4 $m4p/$n · compile_only=$compile_only · roast=$ROAST_COMMIT · ⛔ THE DENOMINATOR IS THE POPULATION THIS RUNNER WALKS, every .t file under the vendored tree — ruled by the ceo as THE published roast basis (CEO-784, 2026-09-16, on hq_raku's ask: every shipped .t, CEO-749 shape, the manifest demoted to an inventory column). The 6.c manifest in-tier subset ($MAN_TIER of $MAN_ALL manifest lines, $MAN_MISSING named-but-absent) is a DIFFERENT POPULATION over the same suite, not a disagreement, and it is reported beside this board rather than instead of it. ⛔ THIS NOTE USED TO SAY THE SUBSET WAS ONE NO RUNNER MEASURED. That was FALSE and is corrected here on the ceo's order: the default mode of THIS script measures it and writes RAKU-COVERAGE.md, most recently by hq_raku on 2026-09-16. A runner asserting that nobody measured a number IT ITSELF computes is the worst kind of standing note — it reads as provenance and is self-refuting." \
+      --text "roast run-graded both-modes $both/$n · PARSE COVERAGE: $PC_LINE (measured by scripts/util_raku_parse_census.sh, --dump-ast rc=0 per file over this same population -- NEVER derived by subtracting buckets) · m3 $m3p/$n · m4 $m4p/$n · compile_only=$compile_only · roast=$ROAST_COMMIT · ⛔ THE DENOMINATOR IS THE POPULATION THIS RUNNER WALKS, every .t file under the vendored tree — ruled by the ceo as THE published roast basis (CEO-784, 2026-09-16, on hq_raku's ask: every shipped .t, CEO-749 shape, the manifest demoted to an inventory column). The 6.c manifest in-tier subset ($MAN_TIER of $MAN_ALL manifest lines, $MAN_MISSING named-but-absent) is a DIFFERENT POPULATION over the same suite, not a disagreement, and it is reported beside this board rather than instead of it. ⛔ THIS NOTE USED TO SAY THE SUBSET WAS ONE NO RUNNER MEASURED. That was FALSE and is corrected here on the ceo's order: the default mode of THIS script measures it and writes RAKU-COVERAGE.md, most recently by hq_raku on 2026-09-16. A runner asserting that nobody measured a number IT ITSELF computes is the worst kind of standing note — it reads as provenance and is self-refuting." \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
   exit 0
 fi
