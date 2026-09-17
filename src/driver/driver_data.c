@@ -437,7 +437,7 @@ DESCR_t c_dat_field_get(const char *fname, DESCR_t obj) {
     if (cell) return *cell;
     if (fname && !strcmp(fname, "WHAT")) {
         const char *cn = (const char *)0;
-        if (obj.v >= DT_DATA && obj.u) { DATBLK_t *b = obj.u->type; cn = b ? b->name : (const char *)0; }
+        if (IS_DATA_TAG_fn(obj.v) && obj.u) { DATBLK_t *b = obj.u->type; cn = b ? b->name : (const char *)0; }
         else { const char *s = VARVAL_fn(obj); if (s && dat_find_type(s)) cn = s; }
         if (cn) return STRVAL(rt_heap_strdup_c(cn));
     }

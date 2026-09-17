@@ -6146,7 +6146,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     const int _bid = (bidlen >= 0) ? (int)(bidlen & 0xFFFF) : bid_of(fn, (unsigned)_fnlen);
     { extern long g_bidprof[1024]; extern int g_bidprof_on; extern void bidprof_init(void); if (g_bidprof_on < 0) bidprof_init(); if (g_bidprof_on && _bid >= 0 && _bid < 1024) g_bidprof[_bid]++; }
     { extern int rt_g_want_name;
-      if (rt_g_want_name && nargs == 1 && args[0].v >= DT_DATA) {
+      if (rt_g_want_name && nargs == 1 && IS_DATA_TAG_fn(args[0].v)) {
           extern const char *FUNC_ENTRY_fn(const char *); extern int rt_dat_field_of_any(const char *);
           extern DESCR_t rt_field_var(const char *field, DESCR_t obj);
           const char *_fe = FUNC_ENTRY_fn(fn); if (!_fe) _fe = fn;

@@ -30,6 +30,8 @@ typedef enum {
     DT_CO   = 0x80,
     DT_BOOL = 0x88,
     DT_ORDER = 0x90,
+    DT_RAW  = 0x98,
+    DT_MAP  = 0xA0,
 } DTYPE_t;
 #ifdef __cplusplus
 #define DESCR_SASSERT(c, m) static_assert(c, m)
@@ -53,6 +55,8 @@ DESCR_SASSERT(!(DT_ORDER & DT_NUMERIC_BIT) && (DT_ORDER & (DT_NOTSTR_MASK & 0xFF
 DESCR_SASSERT(!(DT_DATA & DT_NUMERIC_BIT) && !(DT_DATA_STRIDE & DT_NUMERIC_BIT),
                "DATA base and stride must leave NUMERIC clear so no user datatype enters the arith fast path");
 DESCR_SASSERT(DT_FAIL < DT_DATA, "the v >= DT_DATA range tests require every fixed tag below DT_DATA");
+DESCR_SASSERT(DT_RAW > DT_ORDER && DT_MAP > DT_RAW, "DT_RAW and DT_MAP are the two value-never-a-pointer stack-cell codes of ARCH-GC-COMPILE-TIME-FRAME-MAPS.md section 6.1 (CTO-65): every code above DT_ORDER is a cell the collector never visits as a value, and the three open-ended v >= DT_DATA tests (driver_data.c, core.c, by_name_dispatch.c) carry a v < DT_RAW bound for that reason");
+DESCR_SASSERT(!(DT_RAW & DT_NUMERIC_BIT) && (DT_RAW & (DT_NOTSTR_MASK & 0xFF)) && !(DT_MAP & DT_NUMERIC_BIT) && (DT_MAP & (DT_NOTSTR_MASK & 0xFF)), "DT_RAW and DT_MAP read as neither numeric nor string under the 8-bit mask, like DT_FAIL");
 DESCR_SASSERT(DT_T - DT_A == 8, "rtx_icnsub.s array+table share one subscript range guard");
 struct _ARBLK_t;
 struct _TBBLK_t;
@@ -82,6 +86,7 @@ typedef struct _VCELL_t { DESCR_t *cellp; struct _TBBLK_t *tbl; const char *key;
 #define NAMETRAP(vc_) ((DESCR_t){ .v = DT_N, .slen = 2, .p = (void *)(vc_) })
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) int IS_FAIL_fn(DESCR_t v) { return v.v == DT_FAIL; }
+static inline __attribute__((always_inline)) int IS_DATA_TAG_fn(uint8_t v) { return v >= DT_DATA && v < DT_RAW; }
 static inline __attribute__((always_inline)) int IS_NAMETRAP_fn(DESCR_t v) { return v.v == DT_N && v.slen == 2; }
 static inline __attribute__((always_inline)) int IS_VARREF_fn(DESCR_t v) { return v.v == DT_N && (v.slen == 2 || (v.slen == 1 && v.ptr) || (v.slen == 0 && v.s && *v.s)); }
 #define FHVAL(idx_) ((DESCR_t){ .v = DT_FH, .i = (int64_t)(idx_) })

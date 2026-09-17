@@ -13,6 +13,7 @@
 static inline int hb_scan_interior(uint16_t t) { return t == HB_WS || t == HB_DINST || t == HB_ARR; }
 #include "descr.h"
 #include "pin_va.h"
+#include "gc_frame_map.h"
 _Static_assert(sizeof(rt_hblk_t) == 16, "rt_hblk_t must be one 16-byte title unit");
 typedef struct rt_hp_fr_t { char *top; char *end; long blocks; int armed; int _pad; char *virgin; int zfull; int _pad2; char *line; } rt_hp_fr_t;
 rt_hp_fr_t g_hp_fr = { (char *)0, (char *)0, 0, 0, 0, (char *)0, -1, 0, (char *)0 };
@@ -501,6 +502,34 @@ void rt_gc_root_range_add(const char *lo, const char *hi)
     if (g_gc_rrng_n == g_gc_rrng_cap) { g_gc_rrng_cap = g_gc_rrng_cap ? g_gc_rrng_cap * 2 : 64;
         g_gc_rrng = (struct gc_rng_t *)realloc((void *)g_gc_rrng, (size_t)g_gc_rrng_cap * sizeof(*g_gc_rrng)); if (!g_gc_rrng) abort(); }
     g_gc_rrng[g_gc_rrng_n].lo = lo; g_gc_rrng[g_gc_rrng_n].hi = hi; g_gc_rrng_n++;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const gc_frame_map_t **g_gc_maps = (const gc_frame_map_t **)0;
+static int g_gc_maps_n = 0, g_gc_maps_cap = 0, g_gc_map_report_reg = 0;
+static long g_gc_map_checked = 0;
+static int gc_frame_map_registered(const gc_frame_map_t *m) { for (int i = 0; i < g_gc_maps_n; i++) if (g_gc_maps[i] == m) return 1; return 0; }
+void rt_gc_frame_maps_add(const gc_frame_map_t *m)
+{
+    if (!m || gc_frame_map_registered(m)) return;
+    if (m->magic != GC_FRAME_MAP_MAGIC) { fprintf(stderr, "[GC-MAP] rt_gc_frame_maps_add: %p is not a frame map (magic %08x)\n", (const void *)m, m->magic); abort(); }
+    if (g_gc_maps_n == g_gc_maps_cap) { g_gc_maps_cap = g_gc_maps_cap ? g_gc_maps_cap * 2 : 64;
+        g_gc_maps = (const gc_frame_map_t **)realloc((void *)g_gc_maps, (size_t)g_gc_maps_cap * sizeof(*g_gc_maps)); if (!g_gc_maps) abort(); }
+    g_gc_maps[g_gc_maps_n++] = m;
+}
+void rt_gc_frame_maps_install(const gc_frame_map_t *const *maps, int n) { for (int i = 0; i < n; i++) rt_gc_frame_maps_add(maps[i]); }
+void rt_gc_frame_maps_install_counted(const void *tab) { const uint64_t *t = (const uint64_t *)tab; if (!t) return; rt_gc_frame_maps_install((const gc_frame_map_t *const *)(t + 1), (int)t[0]); }
+const gc_frame_map_t *const *rt_gc_frame_maps(int *n) { if (n) *n = g_gc_maps_n; return g_gc_maps; }
+static void gc_frame_map_report(void) { fprintf(stderr, "[GC-MAP] frames_checked=%ld maps=%d\n", g_gc_map_checked, g_gc_maps_n); }
+void rt_gc_frame_map_check(const DESCR_t *cell)
+{
+    const gc_frame_map_t *m = cell ? (const gc_frame_map_t *)cell->p : (const gc_frame_map_t *)0;
+    int reg = gc_frame_map_registered(m);
+    if (!cell || cell->v != DT_MAP || !m || m->magic != GC_FRAME_MAP_MAGIC || m->frame_bytes != cell->slen || !reg) {
+        fprintf(stderr, "[GC-MAP] BAD CELL at %p: v=0x%02x slen=%u map=%p magic=%08x frame_bytes=%u registered=%d graph=%s\n", (const void *)cell, cell ? cell->v : 0, cell ? cell->slen : 0u, (const void *)m, (m && reg) ? m->magic : 0u, (m && reg) ? m->frame_bytes : 0u, reg, (m && reg && m->graph_name) ? m->graph_name : "?");
+        abort();
+    }
+    if (!g_gc_map_report_reg) { g_gc_map_report_reg = 1; atexit(gc_frame_map_report); }
+    g_gc_map_checked++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_root_range_add_topword(const char *lo)

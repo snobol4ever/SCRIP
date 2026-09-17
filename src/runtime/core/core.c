@@ -3795,7 +3795,7 @@ DESCR_t APPLY_fn(const char *name, DESCR_t *args, int nargs) {
         if (strcmp(e->name, name) == 0) {
             { extern int rt_dat_field_of_any_live(const char *); extern DESCR_t dat_field_get(const char *field, DESCR_t obj);
               const char *_tgt = e->entry_label ? e->entry_label : (const char *)0;
-              if (_tgt && nargs == 1 && args && args[0].v >= DT_DATA && strcmp(_tgt, name) != 0 && rt_dat_field_of_any_live(_tgt))
+              if (_tgt && nargs == 1 && args && IS_DATA_TAG_fn(args[0].v) && strcmp(_tgt, name) != 0 && rt_dat_field_of_any_live(_tgt))
                   return dat_field_get(_tgt, args[0]); }
             if (e->fn) {
                 if (e->min_args > 0 && nargs < e->min_args && e->min_args <= CORE_FN_PAD_MAX) {

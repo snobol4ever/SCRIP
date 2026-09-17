@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "frame_layout.h"
+#include "gc_frame_map.h"
 #include "ast.h"
 extern const char * bb_op_name(IR_e k);
 extern int is_global(const char *);
@@ -1075,13 +1076,13 @@ void emit_patzeta_register(const char * name, int frame_bytes, int fp_total, int
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int emit_patzeta_frame_reserve(const char * name, int * bytes) {
     if (!name) return 0;
-    for (int i = 0; i < pz_n; i++) if (!strcmp(pz[i].name, name)) { if (bytes) *bytes = (((32 + pz[i].fb + 15) & ~15) + pz[i].fp + 16); return 1; }
+    for (int i = 0; i < pz_n; i++) if (!strcmp(pz[i].name, name)) { if (bytes) *bytes = (((ZLS_FRAME_ALLOWANCE + pz[i].fb + 15) & ~15) + pz[i].fp); return 1; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int emit_patzeta_lookup(const char * name, int * susp) {
     if (!name) return 0;
-    for (int i = 0; i < pz_n; i++) if (!strcmp(pz[i].name, name)) { if (susp) *susp = (((32 + pz[i].fb + 15) & ~15) + pz[i].fp + 16); return pz[i].uni; }
+    for (int i = 0; i < pz_n; i++) if (!strcmp(pz[i].name, name)) { if (susp) *susp = (((ZLS_FRAME_ALLOWANCE + pz[i].fb + 15) & ~15) + pz[i].fp); return pz[i].uni; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

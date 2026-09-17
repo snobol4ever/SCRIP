@@ -1504,6 +1504,7 @@ int main(int argc, char **argv)
             { extern int rt_is_reassigned_builtin(const char *); for (int k = 0; k < n_gva_icn; k++) if (rt_is_reassigned_builtin(gva_name(k))) emit_textf("  lea rdi, [rip + .Lgvan%d]\n  call rt_note_reassigned_builtin@PLT\n", k); }
             if (n_gva_icn > 0) emit_textf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  call gva_register@PLT\n", n_gva_icn, n_gva_icn);
             if (s2->label_count > 0) emit_textf("  lea rdi, [rip + __label_names]\n  mov esi, %d\n  call rt_label_table_install@PLT\n", s2->label_count);
+            emit_textf("  lea rdi, [rip + __gc_frame_maps]\n  call rt_gc_frame_maps_install_counted@PLT\n");
             { extern int scc_program_ok(void); if (!scc_program_ok()) emit_textf("  call rt_scc_taint_inherit@PLT\n"); }
             { extern int g_monitor_bin; if (g_monitor_bin) emit_textf("  mov edi, dword ptr [rip + __mon_maxst]\n  call rt_mon_set_max_stno@PLT\n"); }
             { extern int prolog_op_user_count(void); extern int prolog_op_user_get(int, const char **, int *, const char **); int n_uop = prolog_op_user_count();
@@ -1563,6 +1564,7 @@ int main(int argc, char **argv)
                 { extern void bb_ab_emit_nodes(IR_graph_t *g, int gva_active); bb_ab_emit_nodes(bbg, g_gva_active); }
                 { extern int g_last_flat_frame_bytes; int _main_fb = g_last_flat_frame_bytes; for (int _q = 0; _q < n_procs; _q++) { if (proc_fb_buf[_q] != 0) continue; int _pi2 = proc_pidx_buf[_q]; if (_pi2 < 0 || _pi2 >= s2->proc_count) continue; const char *_qn = s2->proc_table[_pi2].name; if (!_qn || strncmp(_qn, "LBL__", 5) != 0) continue; if (s2->proc_table[_pi2].bb_idx == main_bb_idx) proc_fb_buf[_q] = _main_fb; } }
                 if (sn4_module_init_bottom()) emit_module_init_body(s2, proc_names_buf, proc_nparams_buf, proc_pidx_buf, proc_fb_buf, proc_ispat_buf, proc_zstatic_buf, n_procs, n_cls_emit, n_gram_emit, "module_init");
+                { extern int emit_gc_map_names_n(void); extern const char *emit_gc_map_name(int); int _nm = emit_gc_map_names_n(); emit_textf("  .section .rodata\n  .align 8\n__gc_frame_maps:\n  .quad %d\n", _nm); for (int _k = 0; _k < _nm; _k++) emit_textf("  .quad %s\n", emit_gc_map_name(_k)); emit_textf("  .section .text\n  .intel_syntax noprefix\n"); }
             }
             for (int _fq = 0; _fq < n_procs; _fq++) if (proc_names_buf[_fq]) { free((void *)proc_names_buf[_fq]); proc_names_buf[_fq] = NULL; }
             free(proc_names_buf); free(proc_nparams_buf); free(proc_pidx_buf); free(proc_fb_buf); free(proc_zstatic_buf);
@@ -1658,6 +1660,7 @@ int main(int argc, char **argv)
                 char _m3pfx[300]; snprintf(_m3pfx, sizeof _m3pfx, "proc_%s", pname);
                 if (getenv("SCRIP_PL_RTASM") && !_islbl3) { fprintf(stderr, "[RTASM] ---- compile-time proc %s ----\n", pname); emit_chain(bb_proc_entry(&s2->proc_table[_pi]), stderr, _m3pfx); fprintf(stderr, "[RTASM] ---- end %s ----\n", pname); }
                 bb_box_fn pfn = _islbl3 ? NULL : emit_chain(bb_proc_entry(&s2->proc_table[_pi]), NULL, _m3pfx);
+                { extern int emit_gc_map_last_off(void); extern void rt_gc_frame_maps_add(const void *); int _mo = emit_gc_map_last_off(); if (pfn && _mo >= 0) rt_gc_frame_maps_add((const void *)((const char *)pfn + _mo)); }
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
@@ -1696,6 +1699,7 @@ int main(int argc, char **argv)
                       IR_t * _bn = s2->proc_table[_q].proc_entry_node; int _bgg = 0; while (_bn && (_bn->op == IR_SUCCEED || _bn->op == IR_FAIL || _bn->op == IR_GOTO) && _bn->γ.node && _bgg++ < 65536) _bn = _bn->γ.node;
                       char _ab[300]; snprintf(_ab, sizeof _ab, "LBL__%s", asm_sym_name(s2->proc_table[_q].name + 5)); bbg->balias_node[bbg->n_balias] = _bn; bbg->balias_name[bbg->n_balias] = strdup(_ab); if (bbg->balias_name[bbg->n_balias]) bbg->n_balias++; } } }
             fn = emit_chain(bbg->entry, NULL, "pat_flat");
+            { extern int emit_gc_map_last_off(void); extern void rt_gc_frame_maps_add(const void *); int _mo = emit_gc_map_last_off(); if (fn && _mo >= 0) rt_gc_frame_maps_add((const void *)((const char *)fn + _mo)); }
             if (fn) { extern int emit_label_lookup_offset(const char *); extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); int _mfb = g_last_flat_frame_bytes;
               for (int _q = 0; _q < s2->proc_count; _q++) { const char * _ln = s2->proc_table[_q].name; if (!_ln || strncmp(_ln, "LBL__", 5) != 0) continue;
                 char _ab[300]; snprintf(_ab, sizeof _ab, "LBL__%s", asm_sym_name(_ln + 5)); int _off = emit_label_lookup_offset(_ab);

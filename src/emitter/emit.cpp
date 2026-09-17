@@ -2,6 +2,7 @@
 #include <unordered_map>
 #include <string>
 #include "emit.h"
+#include "gc_frame_map.h"
 #include "ir_index.h"
 #include "templates/x86/x86_asm.h"
 #include "templates/bb/bb_templates.h"
@@ -2888,6 +2889,55 @@ static std::string icn_trace_tap(const char * pname, int kind, int np) {
     s += x86("def", sk) + x86("mov", "rsp", "rbx") + x86("pop", "rbx") + x86("pop", "rdx") + x86("pop", "rax");
     return s;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static bb_label_t g_gc_map_lbl;
+static int g_gc_map_pending = 0, g_gc_map_off = -1, g_gc_map_fb = 0, g_gc_map_hdr = 0, g_gc_map_last_off = -1, g_gc_map_names_n = 0;
+static unsigned g_gc_map_flags = 0;
+static char * g_gc_map_names[8192];
+static int gc_maps_knob(const char * k) { const char * e = getenv(k); return (e && *e == '1') ? 1 : 0; }
+static int gc_maps_check_on(void) { static int v = -1; if (v < 0) v = gc_maps_knob("SCRIP_GC_MAPS_CHECK"); return v; }
+static int gc_maps_plant_on(void) { static int v = -1; if (v < 0) v = gc_maps_knob("SCRIP_GC_MAPS_PLANT"); return v; }
+static int gc_maps_report_on(void) { static int v = -1; if (v < 0) v = gc_maps_knob("SCRIP_GC_MAPS_REPORT"); return v; }
+extern "C" void rt_gc_frame_map_check(const DESCR_t * cell);
+extern "C++" std::string emit_gc_map_cell(int map_off, int frame_bytes, int header_bytes, unsigned flags, int frame_rel) {
+    if (map_off < 0 || (map_off & 15) || map_off + 16 > frame_bytes) { fprintf(stderr, "FATAL emit_gc_map_cell: map_off=%d frame_bytes=%d (the map cell must be a 16-aligned cell inside the frame)\n", map_off, frame_bytes); abort(); }
+    g_gc_map_pending = 1; g_gc_map_off = map_off; g_gc_map_fb = frame_bytes; g_gc_map_hdr = header_bytes; g_gc_map_flags = flags;
+    emit_label_initf(&g_gc_map_lbl, ".Lgcmap_%s", g_emit.flat_fam ? g_emit.flat_fam : "chain");
+    long slen = (long)frame_bytes + (gc_maps_plant_on() ? 16L : 0L);
+    std::string s = x86("comment", "GC MAP CELL (ARCH-GC-COMPILE-TIME-FRAME-MAPS.md section 6.2, CTO-65): the frame's highest value-region cell is a DT_MAP DESCR { slen = frame_bytes, p = &map }; the map is four sealed quads at the end of this chain, found by the collector through the cell and by the census through rt_gc_frame_maps_install")
+                  + x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)&g_gc_map_lbl);
+    if (frame_rel) s += x86("mov", FRQ(map_off + 8), "rax") + x86("mov", FR(map_off), (long)DT_MAP) + x86("mov", FR(map_off + 4), slen);
+    else           s += x86("mov", RDQ("rsp", map_off + 8), "rax") + x86("mov", RDD("rsp", map_off), (long)DT_MAP) + x86("mov", RDD("rsp", map_off + 4), slen);
+    if (gc_maps_check_on()) {
+        uint64_t fp = (uint64_t)(uintptr_t)(void *)rt_gc_frame_map_check;
+        s += (frame_rel ? x86("lea", "rax", FRQ(map_off)) : x86("lea", "rax", RDQ("rsp", map_off)))
+           + x86("push", "rdi") + x86("push", "rsi") + x86("push", "rdx") + x86("push", "rcx") + x86("push", "r8") + x86("push", "r9") + x86("push", "r10") + x86("push", "r11")
+           + x86("mov", "rdi", "rax")
+           + x86("call", "rt_gc_frame_map_check", fp)
+           + x86("pop", "r11") + x86("pop", "r10") + x86("pop", "r9") + x86("pop", "r8") + x86("pop", "rcx") + x86("pop", "rdx") + x86("pop", "rsi") + x86("pop", "rdi");
+    }
+    return s;
+}
+static void emit_gc_map_data(const char * fam) {
+    if (!g_gc_map_pending) { g_gc_map_last_off = -1; return; }
+    g_gc_map_pending = 0;
+    emit_sep_rule('-'); emit_label_define_bb(&g_gc_map_lbl);
+    uint64_t q0 = (uint64_t)GC_FRAME_MAP_MAGIC | ((uint64_t)(uint32_t)g_gc_map_fb << 32);
+    uint64_t q1 = (uint64_t)(uint32_t)g_gc_map_hdr | ((uint64_t)g_gc_map_flags << 32);
+    if (g_is_text) {
+        char b[1024]; int n = snprintf(b, sizeof b, " .quad %llu\n .quad %llu\n .quad %s_s\n .quad 0\n%s_s: .string \"%s\"\n", (unsigned long long)q0, (unsigned long long)q1, g_gc_map_lbl.name, g_gc_map_lbl.name, fam ? fam : "?");
+        emit_text_n(b, (size_t)n); g_gc_map_last_off = 0;
+    } else {
+        bb_emit_u64(q0); bb_emit_u64(q1); bb_emit_u64((uint64_t)(uintptr_t)strdup(fam ? fam : "?")); bb_emit_u64(0);
+        g_gc_map_last_off = g_gc_map_lbl.offset;
+    }
+    if (g_gc_map_names_n < 8192) g_gc_map_names[g_gc_map_names_n++] = strdup(g_gc_map_lbl.name);
+    if (gc_maps_report_on()) fprintf(stderr, "[GC-MAP] graph=%s frame_bytes=%d header_bytes=%d map_off=%d flags=%u\n", fam ? fam : "?", g_gc_map_fb, g_gc_map_hdr, g_gc_map_off, g_gc_map_flags);
+}
+extern "C" int emit_gc_map_last_off(void) { return g_gc_map_last_off; }
+extern "C" int emit_gc_map_names_n(void) { return g_gc_map_names_n; }
+extern "C" const char * emit_gc_map_name(int i) { return (i >= 0 && i < g_gc_map_names_n) ? g_gc_map_names[i] : (const char *)0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     bb_label_t lbl_α, lbl_α_body, lbl_γ, lbl_ω, lbl_β, lbl_res;
     bb_label_t * lbl_α_orig_p = (bb_label_t *)0;
@@ -3092,6 +3142,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     bb_label_t lbl_stcγ, lbl_stcω;
     if (g_emit.flat_stmt_frame) { emit_label_initf(&lbl_stcγ, "%s_stγ", fam); emit_label_initf(&lbl_stcω, "%s_stω", fam); }
     g_emit.flat_carve_total = 0;
+    if (prefix && (!strcmp(prefix, "main") || !strcmp(prefix, "pat_flat")) && g_emit_cfg && !g_emit.zframe_graph && !(icn_gen_regime() && g_emit.flat_gen) && !g_emit.flat_lcl_proc && !g_emit.flat_pat) { int _rg = g_emit_cfg->jcon_value_region; if (_rg >= 0 && !(_rg & 15)) { if (g_is_text && _rg + 32 > 65536) { fprintf(stderr, "FATAL emit: main's value region %d + the map cell exceeds the mode-4 main frame (65536); SCRIP_M4_HEADROOM is not a cure for a compile-time fact\n", _rg); abort(); } bb_emit_x86(emit_gc_map_cell(_rg, _rg + 16, 0, GC_FRAME_MAP_ROOT | (g_emit_cfg->root_graph ? GC_FRAME_MAP_ROOT : 0u), 1)); } }
     if (g_emit.zframe_graph) {
         { extern void xa_flat_zframe_prologue(void); xa_flat_zframe_prologue(); }
     } else if (icn_gen_regime() && g_emit.flat_gen) {
@@ -3120,6 +3171,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                   + x86("lea", "rcx", RDQ("rsp", 40)) + x86("mov", RDQ("rax", frame_total + 24), "rcx")
                   + x86("lea", "rbp", RDQ("rax", frame_total))
                   + x86("mov", "rsp", "rax")
+                  + emit_gc_map_cell(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, frame_total, frame_total - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16 + 32, GC_FRAME_MAP_GEN_ANCHOR | (g_emit_cfg && g_emit_cfg->root_graph ? GC_FRAME_MAP_ROOT : 0u), 0)
                   + _gseed
                   + x86("mov", "rdi", "rsp") + x86("mov32", "esi", (long)np) + x86("mov32", "edx", (long)nl)
                   + x86("call", _use_zframe_install ? "rt_icn_zframe_args_install" : "rt_lcl_proc_args_install",
@@ -3157,7 +3209,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             _lz += _iws ? snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "sub rsp, %d\n", frame_total)
                         : snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "sub rsp, %d\nmov qword ptr [rsp + %d], rcx\nmov qword ptr [rsp + %d], rdx\n", frame_total, frame_total - 24, frame_total - 16);
             emit_text_n(_lp, strlen(_lp));
-            if (!_pin.empty()) bb_emit_x86(_pin); if (!_lseed.empty()) bb_emit_x86(_lseed);
+            bb_emit_x86(emit_gc_map_cell(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, frame_total, frame_total - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16, (g_emit_cfg && g_emit_cfg->root_graph) ? GC_FRAME_MAP_ROOT : 0u, 0)); if (!_pin.empty()) bb_emit_x86(_pin); if (!_lseed.empty()) bb_emit_x86(_lseed);
             _lz = 0; _lz += snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "mov rdi, rsp\nmov esi, %d\nmov edx, %d\ncall %s@PLT\n", np, nl, _use_zframe_install ? "rt_icn_zframe_args_install" : "rt_lcl_proc_args_install");
             emit_text_n(_lp, strlen(_lp));
         } else {
@@ -3167,7 +3219,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             { int _d = frame_total - 16; ef_b2(0x48, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x54, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0x94, 0x24); bb_emit_u32((uint32_t)_d); } }
             { static int _hd = -1; if (_hd < 0) { const char * _e = getenv("SCRIP_ICN_HDR_DEAD"); _hd = (_e && *_e == '1') ? 1 : 0; } if (_hd) { int _d = frame_total - 8; ef_b2(0x48, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x6C, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0xAC, 0x24); bb_emit_u32((uint32_t)_d); } } }
             }
-            if (!_pin.empty()) bb_emit_x86(_pin); if (!_lseed.empty()) bb_emit_x86(_lseed);
+            bb_emit_x86(emit_gc_map_cell(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, frame_total, frame_total - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16, (g_emit_cfg && g_emit_cfg->root_graph) ? GC_FRAME_MAP_ROOT : 0u, 0)); if (!_pin.empty()) bb_emit_x86(_pin); if (!_lseed.empty()) bb_emit_x86(_lseed);
             ef_b3(0x48, 0x89, 0xE7);
             ef_b1(0xBE); bb_emit_u32((uint32_t)np);
             ef_b1(0xBA); bb_emit_u32((uint32_t)nl);
@@ -3671,6 +3723,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
           g_emit.flat_dc_body_p = (bb_label_t *)0;
           if (!g_is_text) g_last_dc_off = (long)lbl_dc.offset;
       } }
+    emit_gc_map_data(fam);
     if (text_externalise && g_is_text) {
         data_buf_flush_pending_label();
         xa_dispatch(XA_FLAT_DATA_SECTION);
@@ -3769,7 +3822,7 @@ static int emit_jmp_entry_arm_region(IR_graph_t *g) {
     g_emit.flat_layout_unknown = 0;
     if (rg <= 0) { rg = 4096; so = -1; g_emit.flat_layout_unknown = 1; }
     { extern int g_flat_frame_floor; if (g_flat_frame_floor > 0 && rg < g_flat_frame_floor) { rg = g_flat_frame_floor; so = -1; g_emit.flat_layout_unknown = 1; } }
-    g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = (((g_emit_cfg && g_emit_cfg->zframe_pinned_base && g_emit_cfg->zframe_graph && !g_emit_cfg->icn_cells_graph) ? 80 : 48) + (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) + (g_emit_cfg ? 8 * g_emit_cfg->standing_cells : 0) + 15) & ~15;
+    g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = (((g_emit_cfg && g_emit_cfg->zframe_pinned_base && g_emit_cfg->zframe_graph && !g_emit_cfg->icn_cells_graph) ? ZLS_FRAME_ALLOWANCE_PINNED : ZLS_FRAME_ALLOWANCE) + (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) + (g_emit_cfg ? 8 * g_emit_cfg->standing_cells : 0) + 15) & ~15;
     g_emit.flat_seed_off = (so >= 16 && so <= rg) ? so : 0;
     return 1;
 }
@@ -3879,7 +3932,7 @@ bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
         g_emit.flat_lcl_proc = (!g_emit.flat_pat && _gen_ok && g_emit_cfg && ((g_emit.flat_jmp_entry && (g_emit_cfg->nparams > 0 || g_emit_cfg->nlocals > 0)) || g_emit_cfg->icn_cells_graph)) ? 1 : 0; }
       g_emit.zframe_graph = (g_emit_cfg && g_emit_cfg->zframe_graph && !g_emit_cfg->icn_cells_graph) ? 1 : 0;
       g_emit.zframe_pinned_base = (g_emit_cfg && g_emit_cfg->zframe_pinned_base && !g_emit_cfg->icn_cells_graph) ? 1 : 0;
-      if ((g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->icn_cells_graph)) && g_emit.flat_frame_bytes == 0) { g_emit.flat_frame_bytes = ((g_emit.zframe_pinned_base ? 80 : 48) + (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) + (g_emit_cfg ? 8 * g_emit_cfg->standing_cells : 0) + 15) & ~15; }
+      if ((g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->icn_cells_graph)) && g_emit.flat_frame_bytes == 0) { g_emit.flat_frame_bytes = ((g_emit.zframe_pinned_base ? ZLS_FRAME_ALLOWANCE_PINNED : ZLS_FRAME_ALLOWANCE) + (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) + (g_emit_cfg ? 8 * g_emit_cfg->standing_cells : 0) + 15) & ~15; }
       g_emit.flat_stmt_frame = 0; }
     g_last_flat_frame_bytes = g_emit_cfg ? g_emit_cfg->jcon_value_region : 0;
     { if (getenv("SCRIP_N2_FT_PROBE") && g_emit_cfg) { int _rg = g_emit_cfg->jcon_value_region, _np = g_emit_cfg->nparams, _nl = g_emit_cfg->nlocals;
