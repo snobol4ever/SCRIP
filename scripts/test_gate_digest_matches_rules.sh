@@ -190,7 +190,7 @@ check_rule "NO-CENTRAL-RUNNER" \
     'THE ONE RUNNER IS THE coo under EXECUTIVE: every master or package board runs once per landing batch by the coo'
 
 check_rule "NO-FINDING-FILES" \
-    'FINDING-<date>-<seat>|FINDING-\*\.md|a FINDING file (in|under) .?\.github|write (a|the|one) FINDING|FINDINGs? (are|is) named FINDING|[0-9]+\+ .?FINDING-' \
+    'FINDING-<date>-<seat>|(evidence|measurement|finding|proof)s? *(→|->|goes? (in)?to|into|lands? in) *.?FINDING-\*\.md|a FINDING file (in|under) .?\.github|write (a|the|one|up a) FINDING|FINDINGs? (are|is) named FINDING|[0-9]+\+ .?FINDING-' \
     'CEO-760|CEO-796|FINDING(-\*\.md)? files? (are|were|is|was) (removed|gone|retired|history)|no FINDING files?|never (a |be )?(written|filed)( as a FINDING)?|FINDING.{0,40}(removed|folded into|gone)|the record is the LIVE CURSOR' \
     '.github/GOAL-CEO.md CEO-760 (Lon 2026-09-16, verbatim: "Every sinle one of them. Ha!"): every FINDING-*.md is removed from .github and SCRIP; the LIVE CURSOR and the batons are the record, git history keeps a removed file citable; CEO-796: the digests that still say FINDING-<date>-<seat> are retired text' \
     'A defect you find elsewhere is one line to the owner and the ceo (a FINDING file in `.github` when it needs evidence on file).'
