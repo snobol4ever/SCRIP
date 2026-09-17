@@ -843,6 +843,7 @@ const char * zls_g_vslot_get(const IR_graph_t * g, int i, int * off) {
 static const char * zk_name(int k) { return k == ZK_DESCR ? "DESCR" : k == ZK_RAW ? "RAW" : k == ZK_PTR_GC ? "PTR_GC" : k == ZK_PTR_CODE ? "PTR_CODE" : "?"; }
 static const char * zsc_name(int k) { return k == ZSC_FN ? "FN" : k == ZSC_GROUP ? "GROUP" : k == ZSC_ITER ? "ITER" : k == ZSC_PAT ? "PAT" : k == ZSC_COEXPR ? "COEXPR" : "?"; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zls_op_names_a_string(IR_e op) { return op == IR_CALL || op == IR_CALL_BUILTIN || op == IR_CALL_BUILTIN_GEN || op == IR_CALL_ICON || op == IR_CALL_PROC_STAGED || op == IR_CALL_SNOBOL4 || op == IR_CALL_VALUE || op == IR_MATCH_DEFER || op == IR_LIT_STRING || op == IR_VAR || op == IR_VAR_REF; }
 static int zls_reuse_straight(IR_e op) { return op == IR_LIT_INTEGER || op == IR_LIT_REAL || op == IR_LIT_STRING || op == IR_VAR || op == IR_VAR_REF || op == IR_BINOP || op == IR_CMP_TEST || op == IR_LINE_MARK; }
 static int zls_reuse_detleaf(const IR_t * c) { return c && c->op == IR_CALL && c->seal == IR_SEAL_CALL_DET_LEAF; }
 static int zls_direct_slot(const IR_graph_t * g, const zls_reuse_t * rec, const char * rb, int nl, const int * mstart, int i, int dl_w) {
@@ -939,7 +940,7 @@ static void zls_reuse_dump(FILE * fp, const zls_graph_t * r) {
         case ZR_DYNAMIC: pdyn++; fprintf(fp, ";     reuse +%-5d %-18s PINNED dynamic entry into this graph%s\n", e->off, on, dls); continue;
         case ZR_UNPLACED: punpl++; fprintf(fp, ";     reuse +%-5d %-18s w=%-4d PINNED unplaced: not on the gamma spine, or a reader is not%s\n", e->off, on, q->w, dls); continue;
         case ZR_SELF: pself++; fprintf(fp, ";     reuse +%-5d %-18s w=%-4d PINNED self: beta-capable box, its result may be re-read on resume\n", e->off, on, q->w); continue;
-        case ZR_GUARD: { pguard++; const char * gn = q->guard ? bb_op_name(q->guard->op) : "?"; const char * gs = (q->guard && !zls_reuse_straight(q->guard->op) && q->guard->op != IR_VAR && IR_LIT(q->guard).sval) ? IR_LIT(q->guard).sval : "";
+        case ZR_GUARD: { pguard++; const char * gn = q->guard ? bb_op_name(q->guard->op) : "?"; const char * gs = (q->guard && zls_op_names_a_string(q->guard->op) && IR_LIT(q->guard).sval) ? IR_LIT(q->guard).sval : "";
             fprintf(fp, ";     reuse +%-5d %-18s w=%-4d r=%-4d PINNED guard: box @%d %s%s%s can recede between the write and the read%s\n", e->off, on, q->w, q->last, q->gpos, gn ? gn : "?", gs[0] ? " " : "", gs, dls); continue; }
         case ZR_LOOP: ploop++; fprintf(fp, ";     reuse +%-5d %-18s w=%-4d r=%-4d PINNED loop: written before a gamma back-edge span [%d..%d] that re-reads it%s\n", e->off, on, q->w, q->last, q->llo, q->lhi, dls); continue;
         case ZR_READER: preader++; fprintf(fp, ";     reuse +%-5d %-18s w=%-4d r=%-4d PINNED reader: a reader's template is not verified to read operands on alpha only%s\n", e->off, on, q->w, q->last, dls); continue;
