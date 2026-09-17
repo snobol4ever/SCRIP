@@ -10,7 +10,7 @@
 # classifier measures the copies as much as the cure -- so the two arms must be the same bytes, not merely
 # the same intent (CLAUDE.md § Testing: shared authorities are sourced rather than reimplemented).
 # Contract: classify <stdout> <stderr> <rc> -> PASS|FAIL|PARSE-FAIL|CRASH|NO-TAP  (the TAP verdict)
-#           roast_bucket <stdout> <stderr> <rc> -> GRADED-PASS|GRADED-FAIL|UNGRADED-PARSE|UNGRADED-EMITTER|
+#           roast_bucket <stdout> <stderr> <rc> -> GRADED-PASS|GRADED-FAIL|UNGRADED-PARSE|UNGRADED-LEX|UNGRADED-EMITTER|
 #                                                  UNGRADED-NO-TAP|UNGRADED-OTHER|UNGRADABLE-TIMEOUT
 classify() {
   # $1=stdout file  $2=stderr file  $3=rc  -> echoes one of PASS/FAIL/PARSE-FAIL/CRASH/NO-TAP
@@ -31,6 +31,40 @@ roast_bucket() {
   local so="$1" se="$2" rc="$3" err1
   err1=$(head -1 "$se" 2>/dev/null)
   if printf '%s' "$err1" | grep -q 'parse error'; then echo UNGRADED-PARSE; return; fi
+  # ⛔⭐⭐ A LEX FAILURE IS A FRONT-END FAILURE AND THIS FUNCTION HAD NO NAME FOR IT, SO 61 FILES SAT IN
+  # BUCKETS THAT DESCRIBED A LATER STAGE (hq_raku 2026-09-16, found by the parse census this landed beside:
+  # its OTHER class -- rc!=0 with no "parse error" text -- came back 61 files, and every one of them has
+  # `raku lex error` on the first line of stderr).
+  # ⛔ WHERE THEY WERE AND WHY THE NAME LIES. MEASURED over exactly those 61 under --run, before and after
+  # this arm: all 61 read UNGRADED-OTHER, and all 61 now read UNGRADED-LEX. UNGRADED-OTHER reads "it failed
+  # some way we have no name for" about a class we can name exactly, so a reader triaging that bucket goes
+  # looking for a defect in a stage the file never reached.
+  # ⛔⭐⭐ AND THE NUMBER IN THIS COMMENT WAS WRONG ONCE BEFORE IT WAS RIGHT, FOR A REASON WORTH MORE THAN
+  # THE CURE. It first read "53 UNGRADED-OTHER and 8 UNGRADED-NO-TAP", measured by sourcing this file into
+  # the measuring session's OWN shell and calling roast_bucket there. That shell had a `grep` SHELL FUNCTION
+  # (the agent harness routes grep to ugrep -I), and ugrep -I calls a line carrying an invalid UTF-8 byte
+  # BINARY and answers NO MATCH -- so seven lex diagnostics about invalid bytes silently failed to match the
+  # ASCII words `lex error`. A child process never sees a shell function: every script here gets /usr/bin/grep
+  # (GNU 3.11), which matches them all. The split was an artifact of the measuring environment and existed
+  # nowhere in the tree; re-measured through `bash <probe>` the answer is 61 and 0.
+  # ⭐ THE REUSABLE PART: SOURCING A LIBRARY INTO YOUR OWN SHELL IS NOT RUNNING IT. It inherits your
+  # functions, aliases and locale, so it can answer differently than it ever will in production -- and it
+  # answers plausibly, which is why nothing looked wrong. Measure a script the way the script runs: in a
+  # child process. This was nearly landed as a 20-line `grep -a` cure with a fabricated witness attached.
+  # ⭐ THIS IS THE CTO'S OWN RULING BITING THE FUNCTION THAT PROVOKED IT (2026-09-16): a bucket named for a
+  # stage names what it CAN RECOGNISE, not what the program REACHED. The same shape is already recorded two
+  # comments down (`rc -ge 124` filing every SIGSEGV under a bucket named for the clock) and it is recorded
+  # in the baton as the reason parse coverage was published as 143 when it was 66 -- because the complement
+  # of UNGRADED-PARSE counted as "parsed" every file that failed for a reason this rule had no name for.
+  # Three instances, one function: the cure is always to give the unnamed class its own name.
+  # ⛔ IT MOVES NO TOTAL AND NO FRACTION: UNGRADED-LEX carries the UNGRADED- prefix, so the inventory's
+  # graded/ungraded/ungradable split, its closing identity and every published number are byte-for-byte what
+  # they were. Only the 61 files' NAME changes, which is the whole point -- they were never miscounted, they
+  # were misdescribed, and a misdescribed file is one nobody can triage.
+  # ⛔ IT IS TESTED ON head -1 DELIBERATELY, like the parse arm above it: these files carry `lex error` on
+  # line 1 and a bare `parse error in <file>` on line 2, so a whole-stderr grep would file them as parse
+  # failures and hand the ablation ranker 61 files whose dying line is not a construct it can ablate.
+  if printf '%s' "$err1" | grep -q 'lex error'; then echo UNGRADED-LEX; return; fi
   if printf '%s' "$err1" | grep -q 'does not yet cover'; then echo UNGRADED-EMITTER; return; fi
   # ⛔⭐⭐ A CRASH IS NOT A TIMEOUT, AND THIS LINE CALLED EVERY SIGNAL DEATH A TIMEOUT (hq_raku
   # 2026-09-16, found by doing what the baton said: TIME the three UNGRADABLE-TIMEOUT files before
