@@ -12,6 +12,7 @@ extern "C" {
 extern DESCR_t rt_call_arr_gen(const char *, DESCR_t *, int, int64_t *);
 extern DESCR_t rt_call_arr_gen_strict(const char *, DESCR_t *, int, int64_t *);
 extern DESCR_t rt_call_arr_bl_strict(const char *, DESCR_t *, int, int);
+extern DESCR_t rt_call_arr_bl_sn4(const char *, DESCR_t *, int, int);
 int  bb_slot_get(IR_t * nd);
 int  bb_varslot_peek(const char * name);
 int  is_global(const char * name);
@@ -433,7 +434,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     int64_t      narg = _.op_ival;
     IR_graph_t ** subs = (IR_graph_t **)(intptr_t) _.op_counter;
     if (_.op_zres) {
-        uint64_t fptr_bl; { DESCR_t (*fp)(const char *, DESCR_t *, int, int) = _.op_strict ? rt_call_arr_bl_strict : rt_call_arr_bl; fptr_bl = (uint64_t)(uintptr_t)(void*)fp; }
+        uint64_t fptr_bl; { DESCR_t (*fp)(const char *, DESCR_t *, int, int) = (_.op_strict == 2) ? rt_call_arr_bl_sn4 : _.op_strict ? rt_call_arr_bl_strict : rt_call_arr_bl; fptr_bl = (uint64_t)(uintptr_t)(void*)fp; }
         std::string s = x86_alpha()
                       + x86("comment", std::string("BOX CALL ZD-7 byname ") + fn + "(...) -> rt_call_arr [ZD: args from ZOPQ, result to ZRES]");
         if (narg > 0) {
@@ -459,7 +460,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         else          s += x86("xor", "esi", "esi");
         s += x86("mov32", "edx", (long)narg);
         s += x86("mov32", "ecx", bid_bake_of(fn));
-        s += x86("call", (_.op_strict ? "rt_call_arr_bl_strict" : "rt_call_arr_bl"), fptr_bl);
+        s += x86("call", ((_.op_strict == 2) ? "rt_call_arr_bl_sn4" : _.op_strict ? "rt_call_arr_bl_strict" : "rt_call_arr_bl"), fptr_bl);
         if (narg > 0) s += x86("add", "rsp", (long)(narg * 16));
         s += x86("cmp", "al", (long)DT_FAIL);
         s += x86_omega("je");
@@ -474,7 +475,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     if (_.node && (int)narg > _.node->n_operands) return x86_alpha() + x86_bomb("bb_call_byname: arg count exceeds LOWER grant (TMP-ERADICATE)");
     int argbase = zls_argv_off(pBB); if (argbase < 0) argbase = resoff + 16;
     std::string fl = std::string(".L") + x86_boxkind() + "_bynamefn" + std::to_string((long long)_.nid);
-    uint64_t fptr_bl; { DESCR_t (*fp)(const char *, DESCR_t *, int, int) = _.op_strict ? rt_call_arr_bl_strict : rt_call_arr_bl; fptr_bl = (uint64_t)(uintptr_t)(void*)fp; }
+    uint64_t fptr_bl; { DESCR_t (*fp)(const char *, DESCR_t *, int, int) = (_.op_strict == 2) ? rt_call_arr_bl_sn4 : _.op_strict ? rt_call_arr_bl_strict : rt_call_arr_bl; fptr_bl = (uint64_t)(uintptr_t)(void*)fp; }
     std::string s = x86_alpha()
         + x86("comment", std::string("BOX CALL ") + fn + "(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]");
     for (int i = (int)narg - 1; i >= 0; i--)
@@ -502,7 +503,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         s += x86("mov32", "edx", (long)narg);
         s += x86("rtcc_wb");
         s += x86("mov32", "ecx", bid_bake_of(fn));
-        s += x86("call_bare", (_.op_strict ? "rt_call_arr_bl_strict" : "rt_call_arr_bl"), fptr_bl);
+        s += x86("call_bare", ((_.op_strict == 2) ? "rt_call_arr_bl_sn4" : _.op_strict ? "rt_call_arr_bl_strict" : "rt_call_arr_bl"), fptr_bl);
         s += x86("rtcc_rl");
     }
     s += x86("mov", FRQ(resoff), "rax");

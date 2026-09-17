@@ -5161,27 +5161,43 @@ int script_try_hash_builtin(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
 }
 #undef STX
 #undef SOH
-static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict);
+static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict, int sn4);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t rt_call_arr_bl_s(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict);
-DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) { return rt_call_arr_bl_s(fn, args, nargs, -1, 0); }
-DESCR_t rt_call_arr_strict(const char *fn, DESCR_t *args, int nargs) { return rt_call_arr_bl_s(fn, args, nargs, -1, 1); }
-DESCR_t rt_call_arr_bl(const char *fn, DESCR_t *args, int nargs, int bidlen) { return rt_call_arr_bl_s(fn, args, nargs, bidlen, 0); }
-DESCR_t rt_call_arr_bl_strict(const char *fn, DESCR_t *args, int nargs, int bidlen) { return rt_call_arr_bl_s(fn, args, nargs, bidlen, 1); }
+static DESCR_t rt_call_arr_bl_s(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict, int sn4);
+DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) { return rt_call_arr_bl_s(fn, args, nargs, -1, 0, 0); }
+DESCR_t rt_call_arr_strict(const char *fn, DESCR_t *args, int nargs) { return rt_call_arr_bl_s(fn, args, nargs, -1, 1, 0); }
+DESCR_t rt_call_arr_bl(const char *fn, DESCR_t *args, int nargs, int bidlen) { return rt_call_arr_bl_s(fn, args, nargs, bidlen, 0, 0); }
+DESCR_t rt_call_arr_bl_strict(const char *fn, DESCR_t *args, int nargs, int bidlen) { return rt_call_arr_bl_s(fn, args, nargs, bidlen, 1, 0); }
+DESCR_t rt_call_arr_bl_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen) { return rt_call_arr_bl_s(fn, args, nargs, bidlen, 0, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t rt_call_arr_bl_s(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict) {
+static DESCR_t rt_call_arr_bl_s(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict, int sn4) {
     extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
     { static long _rspc = -1; if (_rspc == -1) { const char *ev = getenv("SCRIP_CALLARR_TRACE"); _rspc = (ev && *ev && *ev != '0') ? 0 : -2; } if (_rspc >= 0) { void *rsp_now; __asm__ volatile ("mov %%rsp, %0" : "=r"(rsp_now)); _rspc++; fprintf(stderr, "[RSP] %ld fn='%s' rsp=%p\n", _rspc, fn ? fn : "(null)", rsp_now); fflush(stderr); } }
-    if (g_core_errjmp_n >= 64) { DESCR_t r0 = rt_call_arr_impl(fn, args, nargs, bidlen, strict); return r0; }
+    if (g_core_errjmp_n >= 64) { DESCR_t r0 = rt_call_arr_impl(fn, args, nargs, bidlen, strict, sn4); return r0; }
     int my = g_core_errjmp_n; void * volatile bimark = core_icn_bi_mark();
     if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; core_icn_bi_reset(bimark); return FAILDESCR; }
     g_core_errjmp_n = my + 1;
-    DESCR_t r = rt_call_arr_impl(fn, args, nargs, bidlen, strict);
+    DESCR_t r = rt_call_arr_impl(fn, args, nargs, bidlen, strict, sn4);
     g_core_errjmp_n = my;
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict) {
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sn4_name_is_identifier(const char *fn) { return fn && fn[0] && ((fn[0] >= 'a' && fn[0] <= 'z') || (fn[0] >= 'A' && fn[0] <= 'Z') || fn[0] == '_' || fn[0] == '&'); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sn4_call_in_scope(const char *fn) {
+    extern int rt_proc_is_registered(const char *); extern int FNCEX_fn(const char *); extern int rt_dat_field_of_any_live(const char *);
+    extern int dat_type_count(void); extern int dat_type_live(int); extern const char *dat_type_name(int);
+    if (!fn || !fn[0]) return 0;
+    if (!sn4_name_is_identifier(fn)) return 1;
+    if (strchr(fn, '$')) return 1;
+    if (sn4_is_system_fn(fn)) return 1;
+    if (rt_proc_is_registered(fn) || FNCEX_fn(fn)) return 1;
+    if (rt_dat_field_of_any_live(fn)) return 1;
+    for (int c = 0; c < dat_type_count(); c++) { if (!dat_type_live(c)) continue; const char *tn = dat_type_name(c); if (tn && !strcmp(tn, fn)) return 1; }
+    return 0;
+}
+static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict, int sn4) {
     DESCR_t out = FAILDESCR;
     extern void rt_gc_point_arr(DESCR_t *arr, int n, const char **r0);
     extern int g_gc_pending;
@@ -5191,7 +5207,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
     if (!fn) return out;
     if (fn[0] == 'S' && fn[1] == 'N' && !strcmp(fn, "SNO$NOFAIL")) { extern void rt_nofail_abort(void); rt_nofail_abort(); return out; }
     if (fn[0] == '$' && fn[1]) { if (script_try_call_builtin_by_name(fn, args, nargs, &out)) return out; out = FAILDESCR; }
-    if (fn[0] && !((fn[0] >= 'a' && fn[0] <= 'z') || (fn[0] >= 'A' && fn[0] <= 'Z') || fn[0] == '_' || fn[0] == '&')) {
+    if (fn[0] && !sn4_name_is_identifier(fn)) {
         extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int); extern DESCR_t rt_num_arith_strict(DESCR_t, DESCR_t, int); DESCR_t (*na)(DESCR_t, DESCR_t, int) = strict ? rt_num_arith_strict : rt_num_arith;
         if (nargs == 1) {
             extern DESCR_t rt_random_var(DESCR_t); extern DESCR_t rt_random_var_strict(DESCR_t); extern DESCR_t rt_deref(DESCR_t);
@@ -5233,6 +5249,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
           else if (!strcmp(fn, "==="))  oc = BINOP_EQV; else if (!strcmp(fn, "~===")) oc = BINOP_NEQV;
           if (oc >= 0) { if (!rt_jct_relop(a, b, oc)) return FAILDESCR; if (oc >= BINOP_SLT && oc <= BINOP_SNE) return rt_str_coerce(b); if (oc == BINOP_EQV || oc == BINOP_NEQV) return b; DESCR_t _rv; rt_relop_val_coerce(a, b, &_rv); return _rv; } }
     }
+    if (sn4 && !sn4_call_in_scope(fn)) { core_runtime_error(22, "Undefined function called"); return FAILDESCR; }
     { icn_bi_rec_t bi; core_icn_bi_push(&bi, fn, args, nargs);
       if (core_icn_builtin_argcheck(fn, args, nargs, strict)) { core_icn_bi_pop(&bi); return FAILDESCR; }
       int hit = try_call_builtin_by_name_bl_s(fn, args, nargs, &out, bidlen, strict); core_icn_bi_pop(&bi); if (hit) return out; }
@@ -5259,7 +5276,7 @@ static DESCR_t rt_call_arr_gen_s(const char *fn, DESCR_t *args, int nargs, int64
         if (try_call_builtin_by_name_bl_s(fn, a4, 4, &out, -1, strict) && !IS_FAIL_fn(out)) { *resume = (int)out.i + 1; return out; }
         return FAILDESCR;
     }
-    return rt_call_arr_bl_s(fn, args, nargs, -1, strict);
+    return rt_call_arr_bl_s(fn, args, nargs, -1, strict, 0);
 }
 DESCR_t rt_call_arr_gen(const char *fn, DESCR_t *args, int nargs, int64_t *resume) { return rt_call_arr_gen_s(fn, args, nargs, resume, 0); }
 DESCR_t rt_call_arr_gen_strict(const char *fn, DESCR_t *args, int nargs, int64_t *resume) { return rt_call_arr_gen_s(fn, args, nargs, resume, 1); }
