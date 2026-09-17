@@ -39,9 +39,9 @@ sum="$(grep -E "^;   reuse 'r/1'" "$T/r1.dump")"
 direct="$(printf '%s\n' "$sum" | sed -n 's/.*direct=\([0-9]*\).*/\1/p')"; pslots="$(printf '%s\n' "$sum" | sed -n 's/.*pool_slots=\([0-9]*\).*/\1/p')"
 echo "r/1 region_end=$end (bar <= 224; rung-3(a) tree read 272) direct=${direct:-absent} pool_slots=${pslots:-absent}"
 [ -n "$end" ] && [ "$end" -le 224 ] || { echo "  ⛔ r/1 frame is $end bytes, above the rung-3(e) bar of 224"; bad=$((bad+1)); }
-[ -n "$direct" ] && [ "$direct" -ge 9 ] || { echo "  ⛔ fewer than nine temps of r/1 marshal directly (${direct:-absent})"; bad=$((bad+1)); }
+[ -n "$direct" ] && [ "$direct" -ge 7 ] || { echo "  ⛔ fewer than seven temps of r/1 marshal directly (nine before rung 3(f) removed the head unify and its two operands) (${direct:-absent})"; bad=$((bad+1)); }
 [ -n "$pslots" ] && [ "$pslots" -eq 1 ] || { echo "  ⛔ r/1's result pool is not one slot (${pslots:-absent})"; bad=$((bad+1)); }
-grep -qE '^;     reuse \+[0-9]+ +IR_VAR_REF +w=8 +r=12 +CANDIDATE reads=1 pooled' "$T/r1.dump" || { echo "  ⛔ the outer operand written before the nested sealed call (VAR_REF w=8 r=12) is not REFUSED into the pool -- the interval check is not holding"; bad=$((bad+1)); }
+grep -qE '^;     reuse \+[0-9]+ +IR_VAR_REF +w=5 +r=9 +CANDIDATE reads=1 pooled' "$T/r1.dump" || { echo "  ⛔ the outer operand written before the nested sealed call (VAR_REF w=5 r=9; w=8 r=12 before rung 3(f)) is not REFUSED into the pool -- the interval check is not holding"; bad=$((bad+1)); }
 ndir="$(grep -cE 'CANDIDATE reads=1 direct: argv block slot [0-9]+, the marshal copies nothing' "$T/r1.dump")"
 [ "$ndir" -eq "${direct:-0}" ] || { echo "  ⛔ the summary says direct=$direct but $ndir candidate lines read direct"; bad=$((bad+1)); }
 refs="$(timeout 120s python3 scripts/util_frame_refs_land_in_grants.py "$T/w.pl" 2>/dev/null | grep -E '^; grants TOTAL')"

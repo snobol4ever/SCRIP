@@ -87,7 +87,8 @@ static void pl_decl_other_record(const tree_t * spec) {
         && spec->c[0]->v.sval && spec->c[1] && spec->c[1]->t == TT_ILIT && g_pl_decl_other_n < 256) {
         g_pl_decl_other_name[g_pl_decl_other_n] = spec->c[0]->v.sval; g_pl_decl_other_arity[g_pl_decl_other_n] = (int) spec->c[1]->v.ival; g_pl_decl_other_n++; }
 }
-typedef struct { IR_graph_t * g; IR_t * tω; IR_t * cutω; IR_t * clause_cutω; int cut_scope; int scope_seq; IR_t * meta_redo; int meta_redo_set; } lcx_t;
+typedef struct { IR_graph_t * g; IR_t * tω; IR_t * cutω; IR_t * clause_cutω; int cut_scope; int scope_seq; IR_t * meta_redo; int meta_redo_set; unsigned char valias[1024]; } lcx_t;
+static const char * pl_vname(const lcx_t * cx, int slot);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * build(lcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) { return lc_build(cx->g, op, γ, ω); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -135,7 +136,7 @@ static IR_t * term_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out) {
     case TT_QLIT: { IR_t * nd = build(cx, IR_LIT_STRING, NULL, cx->tω); IR_LIT(nd).sval = t->v.sval; return nd; }
     case TT_ILIT: { IR_t * nd = build(cx, IR_LIT_INTEGER, NULL, cx->tω); IR_LIT(nd).ival = t->v.ival; return nd; }
     case TT_FLIT: { IR_t * nd = build(cx, IR_LIT_REAL, NULL, cx->tω); IR_LIT(nd).dval = t->v.dval; return nd; }
-    case TT_VAR:  { IR_t * nd = build(cx, IR_VAR, NULL, cx->tω); IR_LIT(nd).sval = pl_var_name((int) t->v.ival); return nd; }
+    case TT_VAR:  { IR_t * nd = build(cx, IR_VAR, NULL, cx->tω); IR_LIT(nd).sval = pl_vname(cx, (int) t->v.ival); return nd; }
     case TT_MAKELIST: {
         int bar = (t->v.ival == 1 && t->n > 0);
         IR_t * prev; IR_t * prev_e = NULL;
@@ -173,7 +174,7 @@ static IR_t * term_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * term_lval_e(lcx_t * cx, const tree_t * t, IR_t ** entry_out) {
     if (entry_out) *entry_out = NULL;
-    if (t && t->t == TT_VAR) { IR_t * nd = build(cx, IR_VAR_REF, NULL, cx->tω); IR_LIT(nd).sval = pl_var_name((int) t->v.ival); return nd; }
+    if (t && t->t == TT_VAR) { IR_t * nd = build(cx, IR_VAR_REF, NULL, cx->tω); IR_LIT(nd).sval = pl_vname(cx, (int) t->v.ival); return nd; }
     return term_e(cx, t, entry_out);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -182,6 +183,7 @@ static const char * pl_param_name(int i) {
     if (i >= 0 && i < 64) { if (!cache[i]) { snprintf(buf, sizeof buf, "A%d", i); cache[i] = strdup(buf); } return cache[i]; }
     snprintf(buf, sizeof buf, "A%d", i); return strdup(buf);
 }
+static const char * pl_vname(const lcx_t * cx, int slot) { if (cx && slot >= 0 && slot < 1024 && cx->valias[slot]) return pl_param_name((int) cx->valias[slot] - 1); return pl_var_name(slot); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int max_var_slot(const tree_t * t, int mx) {
     if (!t) return mx;
@@ -1250,7 +1252,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
                 IR_t * te2 = NULL; IR_t * tv2 = term_e(cx, t->c[0], &te2);
                 IR_t ** wk = (IR_t **) calloc((size_t) pl_nfv, sizeof(IR_t *));
                 IR_t ** we = (IR_t **) calloc((size_t) pl_nfv, sizeof(IR_t *));
-                for (int i = 0; i < pl_nfv; i++) { wk[i] = build(cx, IR_VAR, NULL, ωfail); IR_LIT(wk[i]).sval = pl_var_name(pl_fv[i]); we[i] = NULL; }
+                for (int i = 0; i < pl_nfv; i++) { wk[i] = build(cx, IR_VAR, NULL, ωfail); IR_LIT(wk[i]).sval = pl_vname(cx, pl_fv[i]); we[i] = NULL; }
                 IR_t * wce = NULL; IR_t * wc = mkc_node(cx, "$w", pl_nfv, wk, we, &wce);
                 IR_t * pkids[2]; IR_t * pkes[2]; pkids[0] = wc; pkes[0] = wce; pkids[1] = tv2; pkes[1] = te2;
                 IR_t * pe = NULL; IR_t * pr = mkc_node(cx, "-", 2, pkids, pkes, &pe);
@@ -1266,7 +1268,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
                 lc_ω_to(add, lo);
                 IR_t ** rk = (IR_t **) calloc((size_t) pl_nfv, sizeof(IR_t *));
                 IR_t ** rke = (IR_t **) calloc((size_t) pl_nfv, sizeof(IR_t *));
-                for (int i = 0; i < pl_nfv; i++) { rk[i] = build(cx, IR_VAR_REF, NULL, ωfail); IR_LIT(rk[i]).sval = pl_var_name(pl_fv[i]); rke[i] = NULL; }
+                for (int i = 0; i < pl_nfv; i++) { rk[i] = build(cx, IR_VAR_REF, NULL, ωfail); IR_LIT(rk[i]).sval = pl_vname(cx, pl_fv[i]); rke[i] = NULL; }
                 IR_t * wre = NULL; IR_t * wr = mkc_node(cx, "$w", pl_nfv, rk, rke, &wre);
                 IR_t * re2 = NULL; IR_t * rl2 = term_lval_e(cx, t->c[2], &re2);
                 lc_γ_to(rl2, wre ? wre : wr); lc_ω_to(rl2, ωfail);
@@ -1538,15 +1540,18 @@ static int pl_new_proc(const char * name, int nparams, int bb_idx) {
     return pi;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pl_graph_stamp(IR_graph_t * g, int arity, int maxlocal) {
+static void pl_graph_stamp(IR_graph_t * g, int arity, int maxlocal, const unsigned char * aliased) {
     g->body_root = NULL;
     { extern int dop_direct_leaf_known(const char *, int); for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; if (nd && nd->op == IR_CALL && nd->sval && nd->sval[0] == '$' && dop_direct_leaf_known(nd->sval, nd->n_operands)) nd->seal = IR_SEAL_CALL_DET_LEAF; } }
     g->nparams = arity;
     if (arity > 0) { g->pnames = (const char **) calloc((size_t) arity, sizeof(const char *)); for (int i = 0; i < arity; i++) g->pnames[i] = pl_param_name(i); }
-    if (maxlocal >= 0) { g->nlocals = maxlocal + 1;
-        g->lnames = (const char **) calloc((size_t)(maxlocal + 1), sizeof(const char *));
-        for (int k = 0; k <= maxlocal; k++) g->lnames[k] = pl_var_name(k); }
-    g->nslots = arity + (maxlocal + 1) + 8;
+    int nl = 0;
+    if (maxlocal >= 0) { g->lnames = (const char **) calloc((size_t)(maxlocal + 1), sizeof(const char *));
+        for (int k = 0; k <= maxlocal; k++) { const char * nm = pl_var_name(k); int used = !(aliased && k < 1024 && aliased[k]);
+            for (int i = 0; i < g->n && !used; i++) { const IR_t * nd = g->all[i]; if (nd && (nd->op == IR_VAR || nd->op == IR_VAR_REF) && IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, nm)) used = 1; }
+            if (used) g->lnames[nl++] = nm; }
+        g->nlocals = nl; }
+    g->nslots = arity + nl + 8;
     g->resumable_callable = 1;
     g->deterministic = 1;
 }
@@ -1560,7 +1565,7 @@ static void pl_alt_alloc(IR_graph_t * g, int nc) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_graph_t * pl_body_graph(const tree_t * const * gl, int ng) {
     IR_graph_t * g = IR_alloc(4096);
-    lcx_t cx; cx.g = g; cx.tω = NULL; cx.cutω = NULL; cx.clause_cutω = NULL; cx.cut_scope = 0; cx.scope_seq = 0; cx.meta_redo = NULL; cx.meta_redo_set = 0;
+    lcx_t cx; memset(&cx, 0, sizeof cx); cx.g = g; cx.tω = NULL; cx.cutω = NULL; cx.clause_cutω = NULL; cx.cut_scope = 0; cx.scope_seq = 0; cx.meta_redo = NULL; cx.meta_redo_set = 0;
     IR_t * succeed = build(&cx, IR_SUCCEED, NULL, NULL);
     IR_t * fail    = build(&cx, IR_FAIL, NULL, NULL);
     IR_t * step    = build(&cx, IR_FAIL, NULL, NULL);
@@ -1574,7 +1579,7 @@ static IR_graph_t * pl_body_graph(const tree_t * const * gl, int ng) {
     g->entry = entry ? entry : (first ? first : succeed);
     pl_alt_alloc(g, 1);
     g->alt_entry[0] = g->entry; g->alt_ret[0] = succeed; g->alt_redo[0] = redo; g->alt_fail = step;
-    pl_graph_stamp(g, 0, maxlocal);
+    pl_graph_stamp(g, 0, maxlocal, (const unsigned char *)0);
     (void) fail;
     return g;
 }
@@ -1583,12 +1588,12 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
     int nc = (ch->t == TT_CHOICE) ? ch->n : 1;
     if (nc < 1) nc = 1;
     IR_graph_t * g = IR_alloc(1024 + 1024 * nc);
-    lcx_t cx; cx.g = g; cx.tω = NULL; cx.cutω = NULL; cx.clause_cutω = NULL; cx.cut_scope = 0; cx.scope_seq = 0; cx.meta_redo = NULL; cx.meta_redo_set = 0;
+    lcx_t cx; memset(&cx, 0, sizeof cx); cx.g = g; cx.tω = NULL; cx.cutω = NULL; cx.clause_cutω = NULL; cx.cut_scope = 0; cx.scope_seq = 0; cx.meta_redo = NULL; cx.meta_redo_set = 0;
     IR_t * step = build(&cx, IR_FAIL, NULL, NULL);
     cx.cutω = build(&cx, IR_FAIL, NULL, NULL); cx.clause_cutω = cx.cutω;
     pl_alt_alloc(g, nc);
     g->alt_fail = step;
-    int arity = -1; int maxlocal = -1; int fresh_saved = g_pl_fresh_next;
+    int arity = -1; int maxlocal = -1; int fresh_saved = g_pl_fresh_next; unsigned char aliased[1024]; memset(aliased, 0, sizeof aliased);
     for (int k = 0; k < nc; k++) { const tree_t * cl = (ch->t == TT_CHOICE) ? ch->c[k] : ch; if (cl) { int ml = max_var_slot(cl, -1); if (ml > maxlocal) maxlocal = ml; } }
     g_pl_fresh_next = maxlocal + 1;
     for (int k = 0; k < nc; k++) {
@@ -1597,12 +1602,17 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
         int ar = (int) cl->v.dval; if (ar < 0) ar = 0; if (ar > cl->n) ar = cl->n;
         if (arity < 0) arity = ar;
         if (ar != arity) pl_refuse("clauses of differing arity in", key, 2);
+        memset(cx.valias, 0, sizeof cx.valias);
+        for (int i = 0; i < ar; i++) { const tree_t * a = cl->c[i]; if (!a || a->t != TT_VAR) continue; int sl = (int) a->v.ival; if (sl < 0 || sl >= 1024) continue; int seen = 0;
+            for (int j = 0; j < i && !seen; j++) { int vs[256], nv = 0; pl_collect_vars(cl->c[j], vs, &nv, 256); if (nv >= 256) seen = 1; for (int q = 0; q < nv; q++) if (vs[q] == sl) seen = 1; }
+            if (!seen) { cx.valias[sl] = (unsigned char)(i + 1); aliased[sl] = 1; } }
         IR_t * succeed = build(&cx, IR_SUCCEED, NULL, NULL);
         IR_t * bentry = NULL; IR_t * redo = NULL; IR_t * tnode = NULL;
         IR_t * first = pl_lower_conj(&cx, (const tree_t * const *)(cl->c + ar), cl->n - ar, succeed, step, &bentry, &redo, &tnode);
         if (tnode && tnode->op == IR_CALL_PROC_STAGED) tnode->seal = PL_SEAL_TAIL;
         IR_t * next = bentry ? bentry : (first ? first : succeed);
         for (int i = ar - 1; i >= 0; i--) {
+            if (cl->c[i] && cl->c[i]->t == TT_VAR && (int) cl->c[i]->v.ival >= 0 && (int) cl->c[i]->v.ival < 1024 && cx.valias[(int) cl->c[i]->v.ival] == i + 1) continue;
             IR_t * u = build(&cx, IR_CALL, next, step); IR_LIT(u).sval = "$unify";
             IR_t * lhs = build(&cx, IR_VAR_REF, NULL, NULL); IR_LIT(lhs).sval = pl_param_name(i);
             IR_t * he = NULL; IR_t * rhs = term_lval_e(&cx, cl->c[i], &he);
@@ -1616,7 +1626,7 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
     maxlocal = g_pl_fresh_next - 1; g_pl_fresh_next = fresh_saved;
     if (arity < 0) arity = 0;
     g->entry = g->alt_entry[0];
-    pl_graph_stamp(g, arity, maxlocal);
+    pl_graph_stamp(g, arity, maxlocal, aliased);
     g->deterministic = (nc == 1);
     return g;
 }

@@ -832,7 +832,8 @@ int rt_pl_tail_args_safe(int nargs, void *frame_lo, void *frame_hi)
         DESCR_t chain[5]; int nch = 0;
         chain[nch++] = v;
         for (int hop = 0; hop < 4 && v.v == DT_N; hop++) { v = rt_deref(v); if (nch < 5) chain[nch++] = v; }
-        if (v.v == DT_SNUL || v.v == DT_I || v.v == DT_R) { g_call_args[i] = v; continue; }
+        if (v.v == DT_I || v.v == DT_R || (v.v == DT_SNUL && nch == 1)) { g_call_args[i] = v; continue; }
+        if (v.v == DT_SNUL) { void * cell = chain[nch - 2].ptr; if (cell && cell >= frame_lo && cell < frame_hi) { r = 0; break; } g_call_args[i] = chain[nch - 2]; continue; }
         int unsafe = 0;
         for (int k = 0; k < nch; k++) { void *cp = chain[k].ptr; if (cp && cp >= frame_lo && cp < frame_hi) { unsafe = 1; break; } }
         if (unsafe) { r = 0; break; }
