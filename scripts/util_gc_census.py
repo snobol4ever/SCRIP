@@ -4,7 +4,7 @@ row gc-instruments-the-safe-point-census-the-maps-census-and-scrip-gc-coverage-w
 design .github/ARCH-GC-COMPILE-TIME-FRAME-MAPS.md, law RULES.md FACT RULE THE COLLECTOR GUESSES NOTHING).
 
 Five censuses, each a mechanical count printed with its population, each RED until the design lands and each proven
-to trip on a planted violation by --selftest (29 arms, the ratchet included):
+to trip on a planted violation by --selftest (32 arms, the ratchet included):
 
   conservative   src/runtime/rt/gc_heap.c: call sites of the word walker gc_zeta_frame(, uses of cons_stack, of
                  rt_cas_live_span and of hb_scan_interior (Rule 2, Rule 2b).  Want 0 each.
@@ -154,6 +154,13 @@ CRITERION_CHANGES = [
     "closing brace and read the next routine's poll, so bb_call_proc_staged.cpp:88 read a FALSE POLLED. unpolled "
     "202 -> 203 IS THE INSTRUMENT GETTING HONEST, NOT A LANDING GOING BACKWARDS -- the same tree, one site that was "
     "never counted before, and it is genuinely unpolled.",
+    "2026-09-17 coo, same sitting: safe-points. THE CENSUS IS TOLD HOW TO READ A COMPUTED TARGET -- array, macro, "
+    "chooser and resolver-out-parameter, each named beside the site it resolves. The last 7 UNRESOLVED sites entered "
+    "the denominator: unresolved 7 -> 0, allocating_call_sites 203 -> 210, unpolled 203 -> 210. Three of the seven are "
+    "the Prolog direct-dispatch registry (dop_direct_fp, 172 allocating targets among 504 literals) and two are the "
+    "SNOBOL4 capture opens behind the cap_open_sym() macro. A first, looser chooser rule resolved that macro against "
+    "the next routine's literals and read 'none allocating' -- a candidate set that is not the target's is worse than "
+    "UNRESOLVED, so the macro form now reads its own replacement text and an arm plants that trap.",
 ]
 
 # A CALL TARGET IS SPELLED AS THE ASSEMBLER SEES IT, NOT AS ASCII C.  This tree names its four Byrd ports α β γ ω and
@@ -168,21 +175,106 @@ CRITERION_CHANGES = [
 SYM_RX = re.compile(r'"([^\W\d][^\s",()]*)"', re.UNICODE)
 
 
+# TELLING THE CENSUS ABOUT A COMPUTED TARGET.  Seven emitter call sites choose their target at run time, and a site
+# the census cannot read is a site outside its denominator -- so the census would never read GREEN however much poll
+# work landed.  Three shapes are DECIDABLE from the source, and only these three; each is named in the output beside
+# the site, so a reader sees which rule produced the candidate set and can re-derive it:
+#   array    detN_nm[det_nA]  -- a static table of literal symbol names declared in the same file
+#   chooser  cap_open_sym()   -- a nullary function whose body returns literal symbol names
+#   resolver dsym             -- a variable filled in through the out-parameter of a function named in SYM_RESOLVERS
+#                               (dop_direct_fp: the Prolog direct-dispatch registry, ~230 rows of { "$name", ar, "sym" })
+# The candidate set is the STRING LITERALS of that table, body or registry -- an OVER-approximation on purpose: a
+# literal that names nothing ("$unify") matches no runtime symbol and is harmless, while a missed allocating target
+# would be a hole in the denominator.  Anything else stays UNRESOLVED and is printed, never skipped.
+SYM_RESOLVERS = ("dop_direct_fp",)
+
+LIT_RX = re.compile(r'"([^"\\\n]*)"')
+
+
+def _brace_body_literals(text, at):
+    """every string literal of the brace-balanced body whose opening brace is at/after `at` (empty if none closes)"""
+    o = text.find("{", at)
+    if o < 0:
+        return []
+    depth = 0
+    for k in range(o, len(text)):
+        if text[k] == "{":
+            depth += 1
+        elif text[k] == "}":
+            depth -= 1
+            if depth == 0:
+                return LIT_RX.findall(text[o:k])
+    return []
+
+
+def _first_arg(expr):
+    """the call's first argument: up to the first comma at paren/bracket depth 0"""
+    depth = 0
+    for k, c in enumerate(expr):
+        if c in "([":
+            depth += 1
+        elif c in ")]":
+            if depth == 0:
+                return expr[:k]
+            depth -= 1
+        elif c == "," and depth == 0:
+            return expr[:k]
+    return expr
+
+
+def resolve_computed(expr, own_text, all_text):
+    """(candidates, rule) for a computed call target the census has been told how to read; ([], "") otherwise"""
+    e = _first_arg(expr).strip()
+    m = re.match(r"([A-Za-z_]\w*)\s*\[", e)
+    if m and re.search(r"\b" + m.group(1) + r"\s*\[[^\]]*\]\s*=\s*\{", own_text):
+        d = re.search(r"\b" + m.group(1) + r"\s*\[[^\]]*\]\s*=\s*\{", own_text)
+        return _brace_body_literals(own_text, d.end() - 1), f"array {m.group(1)}[]"
+    m = re.match(r"([A-Za-z_]\w*)\s*\(\s*\)\s*$", e)
+    if m:
+        # A CHOOSER IS PROVEN AT ITS DEFINITION OR NOT AT ALL.  cap_open_sym() is a #define, not a function, and a
+        # pattern loose enough to match the macro line and then run on to the next `{` in the file resolves the site
+        # against SOME OTHER routine's literals -- a candidate set that is not the target's is worse than UNRESOLVED.
+        # So: the macro form reads its own (backslash-continued) replacement text, and the function form requires the
+        # opening brace on the SAME line as the parameter list.
+        d = re.search(r"^[ \t]*#[ \t]*define[ \t]+" + m.group(1) + r"\(\)(.*(?:\\\n.*)*)$", own_text, re.M)
+        if d:
+            return LIT_RX.findall(d.group(1)), f"macro {m.group(1)}()"
+        d = re.search(r"\b" + m.group(1) + r"\s*\([^;{\n]*\)[ \t]*\{", own_text)
+        if d:
+            return _brace_body_literals(own_text, d.end() - 1), f"chooser {m.group(1)}()"
+    m = re.match(r"([A-Za-z_]\w*)\s*$", e)
+    if m:
+        for rv in SYM_RESOLVERS:
+            if re.search(re.escape(rv) + r"\s*\([^;]*&\s*" + m.group(1) + r"\b", own_text):
+                d = re.search(r"\b" + re.escape(rv) + r"\s*\([^;{]*\)\s*\{", all_text)
+                if d:
+                    return _brace_body_literals(all_text, d.end() - 1), f"resolver {rv}()"
+    return [], ""
+
+
 def emitter_call_sites(files):
-    """(file, line, [candidate symbols]) for every literal x86("call", ...) in the emitter; a call expression that
-    names no string literal is UNRESOLVED (its symbols are computed) and printed, never skipped."""
-    sites = []
+    """(file, line, [candidate symbols], lines, rule) for every x86("call", ...) in the emitter; a call expression
+    whose target is computed is read through resolve_computed and NAMES its rule, and one the census has not been
+    told how to read is UNRESOLVED and printed, never skipped."""
+    texts = {}
     for f in files:
         try:
-            lines = open(f, encoding="utf-8", errors="replace").read().split("\n")
+            texts[f] = open(f, encoding="utf-8", errors="replace").read()
         except OSError:
             continue
+    joined = "\n".join(texts.values())
+    sites = []
+    for f, text in texts.items():
+        lines = text.split("\n")
         for i, line in enumerate(lines, 1):
             m = CALL_RX.search(line)
             if not m:
                 continue
             syms = SYM_RX.findall(m.group(1))
-            sites.append((f, i, syms, lines))
+            rule = ""
+            if not syms:
+                syms, rule = resolve_computed(m.group(1), text, joined)
+            sites.append((f, i, syms, lines, rule))
     return sites
 
 
@@ -196,11 +288,17 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
         out("CENSUS safe-points REFUSED(2): no x86(\"call\", ...) sites found in the emitter files -- wrong tree?"); return 2
     poll_rx = re.compile(r"g_gc_pending" + (("|" + re.escape(poll_helper)) if poll_helper else ""))
     total = alloc_sites = polled = 0; unpolled = []; unresolved = []
-    for f, i, syms, lines in sites:
+    resolved = []
+    for f, i, syms, lines, rule in sites:
         total += 1
         if not syms:
             unresolved.append(f"{os.path.relpath(f, ROOT)}:{i}")
             continue
+        if rule:
+            al = sorted(set(x for x in syms if x in allocating))
+            resolved.append(f"{os.path.relpath(f, ROOT)}:{i} via {rule}: {len(syms)} candidate(s), "
+                            + (f"{len(al)} allocating: {', '.join(al[:6])}" + (f" ... +{len(al) - 6} more" if len(al) > 6 else "")
+                               if al else "none allocating"))
         if not any(s in allocating for s in syms):
             continue
         alloc_sites += 1
@@ -220,12 +318,15 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
         if poll_rx.search(window):
             polled += 1
         else:
-            unpolled.append(f"{os.path.relpath(f, ROOT)}:{i}:{'/'.join(s for s in syms if s in allocating)}")
+            unpolled.append(f"{os.path.relpath(f, ROOT)}:{i}:{'/'.join(s for s in syms if s in allocating)}"
+                            + (f" [{rule}, {len(syms)} candidate(s)]" if rule else ""))
     out(f"CENSUS safe-points emitter_call_sites={total} allocating_call_sites={alloc_sites} polled={polled} unpolled={len(unpolled)} unresolved={len(unresolved)} want unpolled=0 unresolved=0 (poll = g_gc_pending{' or ' + poll_helper if poll_helper else ''} within {poll_window} lines after the call)")
     for u in unpolled[:25]:
         out(f"  UNPOLLED {u}")
     if len(unpolled) > 25:
         out(f"  ... {len(unpolled) - 25} more unpolled")
+    for r in resolved:
+        out(f"  RESOLVED {r}")
     for u in unresolved[:10]:
         out(f"  UNRESOLVED {u} (the call target is computed; name it with a literal or tell the census)")
     COUNTS.setdefault("safe-points", {}).update({"unpolled": len(unpolled), "unresolved": len(unresolved)})
@@ -559,14 +660,20 @@ def worst(rcs):
     return 2 if 2 in rcs else (1 if 1 in rcs else 0)
 
 
-ARMS = 29
+# THE FLOOR, NOT THE COUNT.  The printed population is COUNTED by ck() as the arms run -- a hand-typed total is a
+# number nobody re-derives, and this one read 29 while 27 arms ran.  This floor catches the other direction: an
+# arm deleted or skipped makes the selftest REFUSE rc=2 instead of passing with less proof.  A landing that adds
+# arms raises it in the same sitting.
+ARMS_FLOOR = 32
 
 
 def selftest():
     """planted violations trip, clean fixtures pass -- the proof each census is an instrument and not a grep that agrees"""
     fails = 0
+    arms = 0
     def ck(ok, label):
-        nonlocal fails
+        nonlocal fails, arms
+        arms += 1
         print(("  ok    " if ok else "  FAIL  ") + label)
         if not ok:
             fails += 1
@@ -616,6 +723,37 @@ def selftest():
     ck(rc == 1 and "allocating_call_sites=2 polled=0 unpolled=2 unresolved=0" in "\n".join(buf)
        and any("UNPOLLED" in l and "rt_epilogue_\u03b3" in l for l in buf),
        "safe-points: a call target spelled with a Greek port letter is a LITERAL, counted and named -- never UNRESOLVED (32 of 39 were this, 2026-09-17)")
+    tpl_rs = os.path.join(w, "resolved.cpp")
+    open(tpl_rs, "w").write(
+        'static const char *tbl[3] = { "rt_concat", "rt_pure_cmp", "rt_nope" };\n'
+        '#define pick_sym() (flag ? "rt_concat" : "rt_pure_cmp")\n'
+        'static const char *chose(void) { if (a) return "rt_concat"; return "rt_pure_cmp"; }\n'
+        'void *dop_direct_fp(const char *fn, int64_t n, const char **sym) {\n'
+        '  static const struct { const char *nm; const char *sy; } t[] = { { "$u", "rt_concat" }, { "$v", "rt_pure_cmp" }, { 0, 0 } };\n'
+        '  return 0;\n'
+        '}\n'
+        'std::string a(){ return x86("call", tbl[k], fp); }\n'
+        'std::string b(){ return x86("call", pick_sym(), fp); }\n'
+        'std::string c(){ return x86("call", chose(), fp); }\n'
+        'std::string d(){ const char *dsym = 0; void *f = dop_direct_fp(fn, 2, &dsym); return x86("call", dsym, f); }\n'
+        'std::string e(){ return x86("call", (flag ? name_a : name_b), fp); }\n')
+    buf.clear(); rc = census_safe_points("", [tpl_rs], out=buf.append, allocating=alloc)
+    txt = "\n".join(buf)
+    ck(rc == 1 and "allocating_call_sites=4 polled=0 unpolled=4 unresolved=1" in txt
+       and "via array tbl[]" in txt and "via macro pick_sym()" in txt and "via chooser chose()" in txt
+       and "via resolver dop_direct_fp()" in txt,
+       "safe-points: the four decidable computed-target shapes (array, macro, chooser, resolver out-parameter) each resolve and NAME their rule")
+    ck(rc == 1 and any("UNRESOLVED" in l for l in buf),
+       "safe-points: a computed target of no decidable shape stays UNRESOLVED beside the four that resolved -- the census does not guess")
+    tpl_tr = os.path.join(w, "macrotrap.cpp")
+    open(tpl_tr, "w").write(
+        '#define pick_sym() (flag ? "rt_pure_cmp" : "rt_nope")\n'
+        'static std::string far_away(void) { return x86("call", "rt_concat", fp); }\n'
+        'std::string a(){ return x86("call", pick_sym(), fp); }\n')
+    buf.clear(); rc = census_safe_points("", [tpl_tr], out=buf.append, allocating=alloc)
+    txt = "\n".join(buf)
+    ck(rc == 1 and "via macro pick_sym(): 2 candidate(s), none allocating" in txt and "allocating_call_sites=1" in txt,
+       "safe-points: a macro chooser reads ITS OWN replacement text -- not the literals of the next routine in the file (the mis-resolution of 2026-09-17, which hid two allocating rt_cap_open_plain sites)")
     tpl_xf = os.path.join(w, "crossfn.cpp")
     open(tpl_xf, "w").write('std::string a(){ return x86("call", "rt_concat", fp);\n'
                             '}\n'
@@ -684,7 +822,11 @@ def selftest():
         ck(rc == 2, "ratchet: a missing baseline REFUSES rc=2, never green")
     finally:
         COUNTS.clear(); COUNTS.update(saved)
-    print(f"population: {ARMS} selftest arm(s), {fails} FAIL")
+    print(f"population: {arms} selftest arm(s), {fails} FAIL")
+    if arms < ARMS_FLOOR:
+        print(f"SELFTEST REFUSED(2): {arms} arm(s) ran, below the recorded floor {ARMS_FLOOR} -- an arm was removed or "
+              "skipped, and less proof is not a pass")
+        return 2
     print("SELFTEST " + ("PASS" if fails == 0 else "FAIL"))
     return 0 if fails == 0 else 1
 
