@@ -1493,7 +1493,10 @@ int main(int argc, char **argv)
             { extern int rt_grammar_count(void); n_gram_emit = rt_grammar_count(); }
             emit_textf("  .globl main\n");
             emit_textf("main:\n");
-            emit_textf("  sub rsp, 65544\n");
+            { extern int g_m4_main_frame_bytes; long _mfb = 65544; int _mrg = bbg ? bbg->jcon_value_region : 0;
+              if (_mrg > 0 && (long)_mrg + 64 > _mfb) _mfb = ((((long)_mrg + 64 + 15) & ~15L) | 8L);
+              g_m4_main_frame_bytes = (int)_mfb;
+              emit_textf("  sub rsp, %ld\n", _mfb); }
             { const char * hr = getenv("SCRIP_M4_HEADROOM"); if (hr && *hr) { long hb = atol(hr); if (hb > 0) { hb = (hb + 15) & ~15L; emit_textf("  sub rsp, %ld\n", hb); } } }
             emit_textf("  push rdi\n");
             emit_textf("  push rsi\n");
