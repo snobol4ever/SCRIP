@@ -23,7 +23,11 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 #
 # Usage: bash scripts/test_prolog_swi_suite.sh [--modes m3|m4|m3,m4] [--jobs N] [--file REL.pl] [--name-reds] [--verbose]
 #   --file REL.pl   grade one file (a development aid, never a board; writes no row)
-#   --name-reds     print every disagreeing case with both verdicts
+#   --name-reds     print every disagreeing case with both verdicts -- ALL of them, and it prints its own count first.
+#                   ⛔ IT USED TO PRINT AT MOST 2000, SILENTLY, while this line said 'every': the board reports ~3580
+#                   disagreements, so a base-vs-head red-NAME-SET diff over that window showed 22 cures leaving it and
+#                   22 untouched pre-existing reds ENTERING it, which reads exactly like 22 regressions (measured on the
+#                   rung 3(f) arm, hq_prolog 2026-09-17). SWI_NAME_REDS_MAX=N re-imposes a cap and the header line says so.
 #   --verbose       also print scrip's raw output for a disagreeing file
 set -uo pipefail
 GATE_NAME=test_prolog_swi_suite
@@ -141,7 +145,10 @@ print('  AND per case (agrees with the oracle in EVERY mode graded, the number t
 print('  identity: graded %d + ungraded %d == declared %d %s' % (graded_cases, ungraded_cases, declared, '✓' if graded_cases + ungraded_cases == declared else '⛔ DOES NOT SUM'))
 print('  UNGRADED by the oracle\'s reason -- named, never a pass: ' + ', '.join('%s=%d' % kv for kv in sorted(ungraded_reason.items(), key=lambda kv: -kv[1])))
 if noref: print('  ⛔ %d file(s) with no .ref beside them (UNGRADED, REF_NOT_CUT): %s' % (len(noref), ' '.join(noref)))
-for r in reds[:2000]: print('    ' + r)
+cap = int(os.environ.get('SWI_NAME_REDS_MAX', '0') or '0')
+shown = reds if cap <= 0 else reds[:cap]
+print('    RED-NAME-SET total=%d shown=%d%s' % (len(reds), len(shown), '' if len(shown) == len(reds) else ' ⛔ TRUNCATED by SWI_NAME_REDS_MAX=%d -- a base-vs-head diff over a truncated window shows cures ENTERING it, not regressions' % cap))
+for r in shown: print('    ' + r)
 open(os.path.join(work, 'rows.tsv'), 'w').write('\n'.join(rows) + ('\n' if rows else ''))
 open(os.path.join(work, 'summary.txt'), 'w').write('%d %d %d %d\n' % (both, declared, graded_cases, len(noref)))
 PY
