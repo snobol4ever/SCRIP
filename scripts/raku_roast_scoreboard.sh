@@ -266,11 +266,19 @@ if [ "$DO_RUN" = 1 ]; then
   # but it is NAMED, because a missing row that reads like a clean one is the whole defect this row cures.
   PC_ARGS="--summary"
   [ "$LIMIT" -gt 0 ] && PC_ARGS="$PC_ARGS --limit $LIMIT"
-  if PC_LINE=$(bash "$ROOT/scripts/util_raku_parse_census.sh" $PC_ARGS 2>/dev/null | grep '^RAKU_PARSE_COVERAGE '); then
+  # ⛔⭐ THE CENSUS'S STDERR IS KEPT, NOT DISCARDED, AND THAT IS A CORRECTION TO THIS BLOCK'S FIRST VERSION
+  # (hq_raku 2026-09-16, caught by running the board and reading its own row). It piped stderr to /dev/null and
+  # told the reader to "run it directly for the reason" -- so the one run that HAD the reason threw it away and
+  # the operator was sent to reproduce a refusal that had already happened. A refusal only works if someone can
+  # read it, which is the same rule this board already applies to its own arms.
+  PC_ERR="$TMP/parse_census.err"
+  if PC_LINE=$(bash "$ROOT/scripts/util_raku_parse_census.sh" $PC_ARGS 2>"$PC_ERR" | grep '^RAKU_PARSE_COVERAGE '); then
     printf '%s\n' "$PC_LINE"
   else
-    PC_LINE="RAKU_PARSE_COVERAGE UNMEASURED -- util_raku_parse_census.sh refused (rc=2); run it directly for the reason. ⛔ This row is DARK, not zero."
-    printf '%s\n' "$PC_LINE" >&2
+    PC_WHY=$(grep -m1 -E 'REFUS|⛔' "$PC_ERR" 2>/dev/null | sed 's/^[[:space:]]*//' | cut -c1-200)
+    [ -n "$PC_WHY" ] || PC_WHY=$(head -1 "$PC_ERR" 2>/dev/null | cut -c1-200)
+    PC_LINE="RAKU_PARSE_COVERAGE UNMEASURED -- util_raku_parse_census.sh refused: ${PC_WHY:-no diagnostic on stderr}. ⛔ This row is DARK, not zero."
+    printf '%s\n' "$PC_LINE"
   fi
   printf 'ROAST_BOARD total=%d m3_run_pass=%d m3_run_fail=%d m4_run_pass=%d m4_run_fail=%d both_modes_pass=%d compile_only=%d roast_commit=%s elapsed=%ds\n' \
     "$n" "$m3p" "$m3f" "$m4p" "$m4f" "$both" "$compile_only" "$ROAST_COMMIT" "$elapsed"
