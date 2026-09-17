@@ -131,6 +131,32 @@ SUPERSEDE_PREFIX = "⛔ SUPERSEDES the reading below"
 SUPERSEDE_MARKER = "⛔ SUPERSEDES the reading below (util_score_row.py folded it forward as provenance -- prose byte-for-byte, fractions spelled into words so no parser reads an archive as a live number; not hand-edited, not asserted still true):"
 
 
+def supersede_marker(prov_before, key, when, measurer):
+    # ⛔ THE FOLDED TAIL NAMES ITS OWN DATE AND TREE, MACHINE-INSERTED (coo 2026-09-16; hq_prolog's third observation, row
+    # util-score-row-board-write-folds-the-replaced-cells-tail-forward-as-provenance-without-a-machine-marker): the fixed
+    # SUPERSEDE_MARKER above says the tail is not asserted, but not WHEN it was true or on WHICH tree -- so hq_prolog's fresh
+    # 542/563 shipped glued to '334 is DOWN from 340' and they hand-labelled the tail 'RETAINED PROVENANCE FROM THE SUPERSEDED
+    # 2026-09-05 READING (b812fb6d1)'.  A seat remembering to write that label is the failure mode; this builder reads the
+    # replaced reading's own `<key>:` provenance clause (the stamp the fold retires) and puts its hash, date and measurer into
+    # the marker.  The hash is written PLAIN (no `SCRIP \`h\`` form) on purpose: TREE_HASH_RX must not read an archived tree as
+    # a claim of the cell (check: the claim is the clause, never a quote), and a later fold splits on SUPERSEDE_PREFIX, which
+    # this marker still begins with.
+    old = ""
+    for clause in (prov_before or "").split(";"):
+        mm = re.match(r"^\s*([A-Za-z0-9_.-]+)\s*:", clause)
+        if mm and mm.group(1) == key:
+            hs = TREE_HASH_RX.findall(clause)
+            dm = re.search(r"(\d{4}-\d{2}-\d{2})(?:[ T]\d{2}:\d{2}(?: [A-Z]{2,5})?)?", clause)
+            sm = re.search(r"·\s*\d{4}-\d{2}-\d{2}[^·]*·\s*([A-Za-z0-9_-]+)", clause)
+            old = "the reading below was stamped %s: SCRIP %s on %s by %s" % (
+                key, hs[0] if hs else "(no tree)", dm.group(1) if dm else "(no date)", sm.group(1) if sm else "(no seat)")
+            break
+    if not old:
+        old = "the reading below carried no `%s:` provenance clause of its own" % key
+    return SUPERSEDE_MARKER.replace("(util_score_row.py folded it forward",
+                                    "(superseded %s by %s; %s; util_score_row.py folded it forward" % (when, measurer, old), 1)
+
+
 def die(msg, rc=2):
     sys.stderr.write("REFUSED(%d) util_score_row: %s\n" % (rc, msg))
     raise SystemExit(rc)
@@ -1437,7 +1463,7 @@ def cmd_write(a):
             # afterwards would break that substring silently and the die() below would fire on every fold;
             # neutralising first keeps the proof exact, with the spelled text as its own reference.
             carried = spell_fractions(before.split(SUPERSEDE_PREFIX, 1)[0].rstrip())
-            new_text = "%s %s %s" % (text, SUPERSEDE_MARKER, carried)
+            new_text = "%s %s %s" % (text, supersede_marker(cells[PROV_COL], key, time.strftime("%Y-%m-%d"), a.measurer or "unknown"), carried)
             still_lost = cell_prose_loss(carried, new_text)
             if still_lost:
                 die("internal error modelling %s/%s: folding the kept reading forward still lost %d "
@@ -2224,6 +2250,7 @@ def cmd_selftest(a):
             return _fidx
 
         _fidx = _seed_floor(real_before)
+        _fold_prov_before = find_table(open(SCORE_MD, encoding="utf-8").read().split("\n"))[1]["rebus"][1][PROV_COL]
         a7 = A(); a7.lang = "rebus"; a7.column = "floor"; a7.measurer = "selftest"; a7.modes = ""; a7.suite = ""
         a7.dry_run = False; a7.text = sentence_dropped
         try:
@@ -2236,6 +2263,16 @@ def cmd_selftest(a):
             else:
                 print("SELFTEST: cmd_write correctly folded the old reading forward (supersede fallback) "
                       "instead of silently dropping it or refusing -- the prior sentence survives in the cell")
+                # ⛔ hq_prolog 2026-09-16: the folded tail names its own stamp, machine-inserted -- the retired `floor:` clause's
+                # hash, date and seat appear in the marker, and 'superseded <today> by selftest' beside them.
+                _pm = re.search(r"floor:\s*SCRIP `([0-9a-f]{7,40})", _fold_prov_before or "")
+                _pd = re.search(r"floor:[^;]*?(\d{4}-\d{2}-\d{2})", _fold_prov_before or "")
+                _want = ("the reading below was stamped floor: SCRIP %s on %s" % (_pm.group(1), _pd.group(1))) if (_pm and _pd) \
+                        else "the reading below carried no `floor:` provenance clause of its own"
+                if _want in _after and ("superseded %s by selftest" % time.strftime("%Y-%m-%d")) in _after:
+                    print("SELFTEST: the folded tail's marker names the superseded reading's own stamp (%s) and the fold's date" % _want)
+                else:
+                    print("SELFTEST FAIL: the folded tail's marker does not name the superseded stamp -- wanted %r in %r" % (_want, _after[:400])); ok = False
         except SystemExit as e:
             print("SELFTEST FAIL: cmd_write refused a lossy overwrite instead of folding the old reading "
                   "forward (rc=%s)" % e.code); ok = False
