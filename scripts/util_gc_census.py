@@ -21,8 +21,15 @@ to trip on a planted violation by --selftest (25 arms, the ratchet included):
                  spellings are FROZEN -- the cfo's walker row prints them, this census only counts them.
   callbacks      by_name_dispatch.c / gen_runtime.c: every call-back into emitted code (the rt_call_* family) sits
                  inside RT_GC_CALLBACK( (Rule 4; the marker is the cfo's to confirm).  Want unwrapped 0.
-  maps           REFUSED rc=2 until ARCH section 6 names the table's exported symbol (--map-symbol); then: one entry
-                 per safe point, keyed by return PC, in the compiled .s.
+  maps           TWO HALVES, printed and graded separately, because a green slot-kind half beside an absent table would
+                 read as if the design existed.  SLOT-KIND: the ceo's util_zls_frame_map_census.py over each language's
+                 master (token frozen CEO-821), want unkinded=0 and holes=0, with no_layout NAMED beside the number and
+                 never folded into it; the wire header past region_end and the spine are NAMED as not censused here
+                 (section 2b makes the spine tagged cells, so its census is the tag census, not a hole count).
+                 TABLE: section 6.4, from three independent producers per witness -- the frame allocator (--dump-zeta),
+                 the emitter (SCRIP_GC_MAPS_REPORT=1, BOTH media) and the assembler text (.Lgcmap_* labels, their
+                 prologue leas, the counted __gc_frame_maps table and each map's four decoded quads).  REFUSES rc=2
+                 while gc_heap.c defines no rt_gc_frame_maps_install.
 
 rc: 0 every census green; 1 any census red; 2 a census could not measure (missing file, no binary, no collection).
 Every count is printed as `CENSUS <name> ... want=...` so a reader re-derives the population, never only the verdict.
@@ -278,10 +285,160 @@ def census_callbacks(files, marker="RT_GC_CALLBACK", out=print):
     return 0 if not unwrapped else 1
 
 
-def census_maps(map_symbol, out=print):
-    if not map_symbol:
-        out("CENSUS maps REFUSED(2): ARCH-GC-COMPILE-TIME-FRAME-MAPS.md section 6 has not named the table's exported symbol yet (--map-symbol); nothing to count"); return 2
-    out(f"CENSUS maps REFUSED(2): the table reader for symbol {map_symbol!r} is not written yet -- section 6 landed after this census; row it"); return 2
+ZLS_TOOL = "util_zls_frame_map_census.py"          # the ceo's slot-kind base tool (CEO-820)
+ZLS_RX = re.compile(r"^ZLS-MAP lang=(\S+) graphs=(\d+) words=(\d+) unkinded=(\d+) holes=(\d+) graded=(\d+) no_layout=(\d+)")
+ZLS_LANGS_ALL = ["rebus", "snocone", "pascal", "icon", "raku", "snobol4", "prolog"]   # ~32 s for the seven
+ZLS_LANGS_FAST = ["rebus", "snocone", "pascal"]                                       # ~2.7 s; the wired gate's default
+GCMAP_RX = re.compile(r"\[GC-MAP\] graph=(\S+) frame_bytes=(\d+) header_bytes=(\d+) map_off=(\d+) flags=(\d+)")
+MAP_MAGIC = 0x50414D5A   # 'ZMAP', section 6.3
+ENTRY_ALIAS = ("pat_flat", "main")   # the mode-3 emitter names the entry graph pat_flat, mode 4 and --dump-zeta name it main
+MAPS_SYMBOLS = ("rt_gc_frame_maps_install", "rt_gc_frame_maps")   # section 6.4: the one exported symbol and its reader
+
+
+def census_maps_slotkind(root, langs, out=print):
+    """HALF A -- every word of every graded graph's zls region has a declared kind (the ceo's tool, token frozen CEO-821).
+    no_layout entries are NAMED beside the number and never folded into it (CEO-749's rule)."""
+    tool = os.path.join(root, "scripts", ZLS_TOOL)
+    if not os.path.exists(tool):
+        out(f"CENSUS maps/slot-kind REFUSED(2): no {ZLS_TOOL} at {tool}"); return 2
+    red = 0; swept = []; nolayout = 0; graded = 0
+    for lang in langs:
+        try:
+            r = subprocess.run([sys.executable, tool, "--lang", lang], capture_output=True, text=True, timeout=600, stdin=subprocess.DEVNULL)
+        except (OSError, subprocess.TimeoutExpired) as e:
+            out(f"CENSUS maps/slot-kind REFUSED(2): {ZLS_TOOL} --lang {lang} failed: {e}"); return 2
+        m = None
+        for line in r.stdout.split("\n"):
+            mm = ZLS_RX.match(line.strip())
+            if mm:
+                m = mm
+        if not m:
+            out(f"CENSUS maps/slot-kind REFUSED(2): {ZLS_TOOL} --lang {lang} printed no ZLS-MAP line (rc={r.returncode}) -- the token is frozen (CEO-821); a census that parses prose is the defect one level up"); return 2
+        _l, graphs, words, unkinded, holes, gr, nl = m.group(1), *(int(x) for x in m.groups()[1:])
+        swept.append(lang); graded += gr; nolayout += nl
+        bad = unkinded + holes
+        red += bad
+        out(f"CENSUS maps/slot-kind lang={lang} graphs={graphs} words={words} unkinded={unkinded} holes={holes} want 0 and 0"
+            f" -- graded={gr}, no_layout={nl} NAMED AND UNCOUNTED (the compiler refused those entries; they are not a pass)"
+            + ("" if not bad else f"  RED"))
+        COUNTS.setdefault("maps", {})[f"slotkind_bad_{lang}"] = bad
+    out(f"CENSUS maps/slot-kind swept {len(swept)} of {len(ZLS_LANGS_ALL)} language(s) ({', '.join(swept)}); graded={graded} no_layout={nolayout} UNCOUNTED; "
+        f"{'GREEN' if red == 0 else 'RED'}"
+        + ("" if len(swept) == len(ZLS_LANGS_ALL) else "  -- A PARTIAL SWEEP IS NOT ALL-LANGUAGE COVERAGE: --zls-langs all for the other " + str(len(ZLS_LANGS_ALL) - len(swept))))
+    out("CENSUS maps/slot-kind NOT CENSUSED HERE, named: the wire header past region_end (the cto's map cell, section 6.7) and the "
+        "spine (section 2b makes it tagged cells, not a map -- its census is the tag census, not a hole count)")
+    return 0 if red == 0 else 1
+
+
+def decode_map_quads(text, label):
+    """the four .quad lines under .Lgcmap_<g> (section 6.7c): magic|frame_bytes<<32, header_bytes|flags<<32, name, 0"""
+    m = re.search(r"^" + re.escape(label) + r":\s*\n((?:\s*\.quad\s+\S+\s*\n){4})", text, re.M)
+    if not m:
+        m = re.search(r"^" + re.escape(label) + r":[^\n]*\n((?:[^\n]*\.quad[^\n]*\n){4})", text, re.M)
+    if not m:
+        return None
+    qs = re.findall(r"\.quad\s+(\S+)", m.group(1))
+    try:
+        q0 = int(qs[0]); q1 = int(qs[1])
+    except (ValueError, IndexError):
+        return None
+    return {"magic": q0 & 0xFFFFFFFF, "frame_bytes": q0 >> 32, "header_bytes": q1 & 0xFFFFFFFF, "flags": q1 >> 32}
+
+
+def read_gcmaps(text):
+    d = {}
+    for m in GCMAP_RX.finditer(text):
+        d[m.group(1)] = {"frame_bytes": int(m.group(2)), "header_bytes": int(m.group(3)), "map_off": int(m.group(4)), "flags": int(m.group(5))}
+    return d
+
+
+def census_maps_table(root, scrip, witnesses, out=print):
+    """HALF B -- section 6.4's table, from THREE independent producers per witness: the frame allocator (--dump-zeta),
+    the emitter (SCRIP_GC_MAPS_REPORT=1, both media) and the assembler text (.Lgcmap_* labels, their leas, the counted
+    __gc_frame_maps table).  The cto's arms (a) one cell per graph naming a map in the table, (b) every map named by
+    exactly one prologue, (d) the two media agree field for field."""
+    gc = os.path.join(root, "src", "runtime", "rt", "gc_heap.c")
+    if not os.path.exists(gc):
+        out(f"CENSUS maps/table REFUSED(2): {gc} missing"); return 2
+    src = strip_comments(open(gc, encoding="utf-8", errors="replace").read())
+    missing = [sym for sym in MAPS_SYMBOLS if not re.search(r"(?<![A-Za-z0-9_])" + sym + r"\s*\(", src)]
+    if missing:
+        out(f"CENSUS maps/table REFUSED(2): section 6.4's symbol(s) {missing} are not defined in gc_heap.c -- the table does not exist yet; nothing to count"); return 2
+    if not (scrip and os.path.exists(scrip)):
+        out(f"CENSUS maps/table REFUSED(2): no scrip binary at {scrip}"); return 2
+    env = dict(os.environ); env["SCRIP_GC_MAPS_REPORT"] = "1"
+    red = 0; total_graphs = 0
+    for w in witnesses:
+        tag = os.path.basename(w)
+        if not os.path.exists(w):
+            out(f"CENSUS maps/table REFUSED(2): witness {w} missing"); return 2
+        try:
+            dz = subprocess.run([scrip, "--dump-zeta", w], capture_output=True, text=True, env=env, timeout=120, stdin=subprocess.DEVNULL)
+            r3 = subprocess.run([scrip, w], capture_output=True, text=True, env=env, timeout=120, stdin=subprocess.DEVNULL)
+            r4 = subprocess.run([scrip, "--compile", w], capture_output=True, text=True, env=env, timeout=120, stdin=subprocess.DEVNULL)
+        except (OSError, subprocess.TimeoutExpired) as e:
+            out(f"CENSUS maps/table REFUSED(2): {tag}: a reading run failed: {e}"); return 2
+        laid = set(re.findall(r"^;\s*graph \d+ '([^']+)'", dz.stdout, re.M))
+        m3 = read_gcmaps(r3.stdout + r3.stderr)
+        m4 = read_gcmaps(r4.stderr)
+        asm = r4.stdout
+        labels = set(re.findall(r"^(\.Lgcmap_[A-Za-z0-9_]+):", asm, re.M)) - set(re.findall(r"^(\.Lgcmap_[A-Za-z0-9_]+_s):", asm, re.M))
+        leas = collections.Counter(re.findall(r"lea\s+\S+,\s*\[rip \+ (\.Lgcmap_[A-Za-z0-9_]+)\]", asm))
+        tbl = re.search(r"^__gc_frame_maps:\s*\.quad\s+(\d+)\s*\n((?:\s*\.quad\s+\.Lgcmap_[A-Za-z0-9_]+\s*\n)+)", asm, re.M)
+        if not (laid and m3 and m4):
+            out(f"CENSUS maps/table REFUSED(2): {tag}: a producer printed nothing (dump-zeta graphs={len(laid)} m3 maps={len(m3)} m4 maps={len(m4)}) -- not measured"); return 2
+        n_declared = int(tbl.group(1)) if tbl else -1
+        entries = re.findall(r"\.quad\s+(\.Lgcmap_[A-Za-z0-9_]+)", tbl.group(2)) if tbl else []
+        # the one NAMED alias: mode 3's emitter calls the entry graph pat_flat where mode 4 and --dump-zeta call it main
+        alias = ENTRY_ALIAS[0] in m3 and ENTRY_ALIAS[0] not in laid and ENTRY_ALIAS[1] in laid
+        m3n = dict(m3)
+        if alias:
+            m3n[ENTRY_ALIAS[1]] = m3n.pop(ENTRY_ALIAS[0])
+        bad = []
+        for g in sorted(laid):
+            if g not in m3n: bad.append(f"graph '{g}' has a frame but NO map cell in mode 3")
+            if g not in m4:  bad.append(f"graph '{g}' has a frame but NO map cell in mode 4")
+        for g in sorted(set(m3n) | set(m4)):
+            if g not in laid: bad.append(f"map cell for '{g}' names a graph the frame allocator never laid out")
+            if g in m3n and g in m4 and m3n[g] != m4[g]:
+                bad.append(f"graph '{g}' reads {m3n[g]} in mode 3 and {m4[g]} in mode 4 -- the media disagree")
+        for g in sorted(m4):
+            lab = ".Lgcmap_" + g
+            if lab not in labels: bad.append(f"'{g}' reports a map cell but the .s has no {lab}")
+            elif leas[lab] != 1:  bad.append(f"{lab} is referenced by {leas[lab]} prologue lea(s), want exactly 1")
+            elif lab not in entries: bad.append(f"{lab} is not in the __gc_frame_maps table")
+            else:
+                q = decode_map_quads(asm, lab)
+                if q is None: bad.append(f"{lab}'s four quads do not decode (section 6.3)")
+                elif q["magic"] != MAP_MAGIC: bad.append(f"{lab} magic 0x{q['magic']:08X}, want 0x{MAP_MAGIC:08X} 'ZMAP'")
+                elif q["frame_bytes"] != m4[g]["frame_bytes"] or q["header_bytes"] != m4[g]["header_bytes"] or q["flags"] != m4[g]["flags"]:
+                    bad.append(f"{lab}'s static map {q} contradicts its own reported cell {m4[g]} -- the double-entry fails")
+        for lab in sorted(labels - {".Lgcmap_" + g for g in m4}):
+            bad.append(f"{lab} is emitted but no graph reports a cell for it")
+        if n_declared != len(entries): bad.append(f"__gc_frame_maps declares n={n_declared} over {len(entries)} entries")
+        total_graphs += len(laid)
+        out(f"CENSUS maps/table {tag}: graphs_laid_out={len(laid)} map_cells_m3={len(m3)} map_cells_m4={len(m4)} "
+            f"asm_maps={len(labels)} table_n={n_declared} entries={len(entries)} divergences={len(bad)} want 0"
+            + ("  [NAMED ALIAS: mode 3 calls the entry graph '%s' where mode 4 and --dump-zeta call it '%s'; same fields, compared as one]" % ENTRY_ALIAS if alias else ""))
+        for b in bad[:12]:
+            out(f"  DIVERGENCE {b}")
+        if len(bad) > 12:
+            out(f"  ... {len(bad) - 12} more")
+        red += len(bad)
+    COUNTS.setdefault("maps", {})["table_divergences"] = red
+    out(f"CENSUS maps/table {len(witnesses)} witness(es), {total_graphs} graph(s) laid out, {red} divergence(s) {'GREEN' if red == 0 else 'RED'}")
+    return 0 if red == 0 else 1
+
+
+def census_maps(root, scrip, langs, witnesses, out=print):
+    """The two halves are printed and graded SEPARATELY on purpose: a green slot-kind half beside an absent table would
+    read as if the design existed (section 6's question is the table's, F1's is the cell's)."""
+    a = census_maps_slotkind(root, langs, out)
+    b = census_maps_table(root, scrip, witnesses, out)
+    rc = worst([a, b])
+    out(f"CENSUS maps slot-kind={'GREEN' if a == 0 else ('RED' if a == 1 else 'REFUSED(2)')} "
+        f"table={'GREEN' if b == 0 else ('RED' if b == 1 else 'REFUSED(2)')} -- {'GREEN' if rc == 0 else ('RED' if rc == 1 else 'REFUSED(2)')}")
+    return rc
 
 
 RATCHET_KEYS = [   # (census, key, is_population) -- a population may only FALL; a verdict may only improve
@@ -294,6 +451,7 @@ RATCHET_KEYS = [   # (census, key, is_population) -- a population may only FALL;
     ("safe-points", "unresolved", True),
     ("callbacks", "unwrapped", True),
     ("coverage", "red", False),
+    ("maps", "table_divergences", True),   # the slot-kind keys are per-language and move with --zls-langs, so they are not ratcheted
 ]
 
 
@@ -352,7 +510,7 @@ def worst(rcs):
     return 2 if 2 in rcs else (1 if 1 in rcs else 0)
 
 
-ARMS = 25
+ARMS = 29
 
 
 def selftest():
@@ -425,8 +583,18 @@ def selftest():
     ck(rc == 0 and "call_back_sites=1 wrapped_in_RT_GC_CALLBACK=1 unwrapped=0" in "\n".join(buf), "callbacks: a definition is not a site; a wrapped call reads GREEN")
     buf.clear(); rc = census_callbacks([cb_bad], out=buf.append)
     ck(rc == 1 and "call_back_sites=2 wrapped_in_RT_GC_CALLBACK=1 unwrapped=1" in "\n".join(buf), "callbacks: a planted unwrapped call-back is counted and RED beside the wrapped one")
-    buf.clear(); rc = census_maps("", out=buf.append)
-    ck(rc == 2, "maps: no exported symbol named yet REFUSES rc=2, never green")
+    nogc = os.path.join(w, "nomaps"); os.makedirs(os.path.join(nogc, "src", "runtime", "rt"), exist_ok=True)
+    open(os.path.join(nogc, "src", "runtime", "rt", "gc_heap.c"), "w").write("void *c_rt_gcheap_alloc(uint16_t t, uint64_t n) { return carve(n); }\n")
+    buf.clear(); rc = census_maps_table(nogc, "/nonexistent/scrip", [], buf.append)
+    ck(rc == 2 and "are not defined in gc_heap.c" in "\n".join(buf),
+       "maps/table: a gc_heap.c without section 6.4's symbol REFUSES rc=2 -- an unbuilt table never reads green")
+    buf.clear(); rc = census_maps_slotkind(nogc, ["rebus"], buf.append)
+    ck(rc == 2 and "no util_zls_frame_map_census.py" in "\n".join(buf), "maps/slot-kind: a missing base tool REFUSES rc=2, never green")
+    ck(decode_map_quads(".Lgcmap_x:\n  .quad 688541224282\n  .quad 4294967296\n  .quad .Lgcmap_x_s\n  .quad 0\n", ".Lgcmap_x")
+       == {"magic": 0x50414D5A, "frame_bytes": 160, "header_bytes": 0, "flags": 1},
+       "maps/table: the four static quads decode to magic ZMAP, frame_bytes, header_bytes and flags (section 6.3)")
+    ck(decode_map_quads(".Lgcmap_y:\n  .quad 1\n  .quad 2\n", ".Lgcmap_y") is None,
+       "maps/table: a map with fewer than four quads does not decode, and an undecodable map is a divergence not a pass")
     # the ratchet itself, against a synthetic COUNTS -- no census runs, so the proof costs nothing
     saved = dict(COUNTS)
     try:
@@ -467,7 +635,8 @@ def main(argv):
     ap.add_argument("--root", default=ROOT)
     ap.add_argument("--poll-window", type=int, default=12)
     ap.add_argument("--poll-helper", default="")
-    ap.add_argument("--map-symbol", default="")
+    ap.add_argument("--zls-langs", default="fast", help="fast (rebus,snocone,pascal ~2.7s), all (the seven, ~32s), or a comma list")
+    ap.add_argument("--map-witness", default="", help="comma list of programs the table half reads (default: the two fixtures)")
     ap.add_argument("--callback-marker", default="RT_GC_CALLBACK")
     ap.add_argument("--witness", default="", help="the program the coverage census runs (default: a small allocating SNOBOL4 loop)")
     a = ap.parse_args(argv)
@@ -500,7 +669,10 @@ def main(argv):
         elif c == "callbacks":
             rcs.append(census_callbacks([os.path.join(R, "src", "runtime", "by_name_dispatch.c"), os.path.join(R, "src", "runtime", "builtins", "gen_runtime.c")], a.callback_marker))
         elif c == "maps":
-            rcs.append(census_maps(a.map_symbol))
+            langs = ZLS_LANGS_ALL if a.zls_langs == "all" else (ZLS_LANGS_FAST if a.zls_langs == "fast" else [x.strip() for x in a.zls_langs.split(",") if x.strip()])
+            wits = [x.strip() for x in a.map_witness.split(",") if x.strip()] or \
+                   [os.path.join(R, "scripts", "fixtures", "gc_roots_witness.sno"), os.path.join(R, "scripts", "fixtures", "gc_map_witness.icn")]
+            rcs.append(census_maps(R, scrip, langs, wits))
     rc = worst(rcs)
     print(f"population: {len(want)} census(es): {rcs.count(0)} green, {rcs.count(1)} red, {rcs.count(2)} not measured -- rc={rc}")
     if a.write_baseline:

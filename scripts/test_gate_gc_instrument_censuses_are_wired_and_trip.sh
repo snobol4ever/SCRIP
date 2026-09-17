@@ -11,7 +11,9 @@
 #   (c) THE RATCHET: every count is exactly its baseline (scripts/gc_census_baseline.tsv).  UP is a regression; DOWN
 #       with the baseline unchanged is a win nobody recorded, and a loose ratchet lets the next regression back in --
 #       the landing that earns the fall runs `util_gc_census.py all --write-baseline scripts/gc_census_baseline.tsv`
-#   (d) the maps census REFUSES rc=2 while section 6 names no exported symbol -- an unbuilt table never reads green
+#   (d) the maps census reports its TWO HALVES separately (slot-kind over the languages' masters; the section 6.4 table
+#       from three independent producers) -- a green slot-kind half folded over an absent table would read as if the
+#       design existed -- and a partial language sweep NAMES itself as partial rather than reading as coverage
 #   (e) hq_snocone's DECIDABLE TEST runs, and its verdict is consistent with the conservative census: "the collector
 #       finds the roots" (rc=0) is admissible only when the word walker is gone (conservative count 0).  A green
 #       decidable test beside a live word walker would mean the instrument is lying, and that is a RED here.
@@ -55,10 +57,16 @@ if printf '%s\n' "$out" | grep -q '^RATCHET GREEN'; then
 else
   ck no "(c) the ratchet is not green -- $(printf '%s\n' "$out" | grep -m2 -E '⛔ WORSE|⭐ BETTER|NOT-MEASURED|^RATCHET (RED|REFUSED)' | tr '\n' ';')"
 fi
-if printf '%s\n' "$out" | grep -q '^CENSUS maps REFUSED(2)'; then
-  ck ok "(d) the maps census REFUSES rc=2 while section 6 names no exported symbol -- an unbuilt table never reads green"
+mapsline="$(printf '%s\n' "$out" | grep -m1 '^CENSUS maps slot-kind=')"
+if [ -n "$mapsline" ] && printf '%s\n' "$out" | grep -q '^CENSUS maps/slot-kind swept' && printf '%s\n' "$out" | grep -qE '^CENSUS maps/table .* (GREEN|RED)$|^CENSUS maps/table REFUSED'; then
+  ck ok "(d) the maps census reports its two halves SEPARATELY -- $mapsline"
 else
-  ck no "(d) the maps census did not refuse: $(printf '%s\n' "$out" | grep -m1 '^CENSUS maps')"
+  ck no "(d) the maps census did not report both halves (a green slot-kind half folded over an absent table would read as if the design existed): ${mapsline:-no verdict line}"
+fi
+if printf '%s\n' "$out" | grep -q 'A PARTIAL SWEEP IS NOT ALL-LANGUAGE COVERAGE' || printf '%s\n' "$out" | grep -q "swept ${ZLS_ALL:-7} of ${ZLS_ALL:-7}"; then
+  ck ok "(d2) a partial slot-kind sweep NAMES itself as partial: $(printf '%s\n' "$out" | grep -m1 '^CENSUS maps/slot-kind swept' | sed 's/.*swept/swept/' | cut -c1-96)"
+else
+  ck no "(d2) the slot-kind half neither swept all seven languages nor said it was partial -- a partial sweep read as coverage is the instrument lying"
 fi
 
 # (e) the decidable test, and its consistency with the conservative census
@@ -82,6 +90,6 @@ else
   ck no "(f) this gate is not named in the Makefile -- an instrument nobody runs is not an instrument"
 fi
 
-echo "population: $checks arm(s) graded, $fails FAIL; census rc=$crc (5 red + 1 refused is the DESIGN state, not this gate's verdict), decidable rc=$drc"
+echo "population: $checks arm(s) graded, $fails FAIL; census rc=$crc (the censuses being red or refused IS the design state, not this gate's verdict), decidable rc=$drc"
 [ "$fails" = 0 ] && { echo "GATE PASS [gc_instrument_censuses_are_wired_and_trip]: $checks of $checks arms hold"; exit 0; }
 echo "⛔ GATE RED [gc_instrument_censuses_are_wired_and_trip]: $fails of $checks arms FAIL"; exit 1
