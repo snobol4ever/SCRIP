@@ -194,6 +194,11 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
         out(f"  UNRESOLVED {u} (the call target is computed; name it with a literal or tell the census)")
     COUNTS.setdefault("safe-points", {}).update({"unpolled": len(unpolled), "unresolved": len(unresolved)})
     ok = not unpolled and not unresolved
+    out("CENSUS safe-points NOTE (the cfo, 2026-09-17): A SITE COUNT IS NOT A COVERAGE MEASURE. An Icon allocation loop "
+        "reaches NO safe point at all -- the shielded rt_gc_point_arr sites are SNOBOL4 and Prolog by-name dispatch points "
+        "and Icon's every-do loop contains none -- so with the allocator silent it collects ONCE (861920 KB RSS) where "
+        "origin collected five times (157144 KB). The RATE, collections-per-program on an allocation loop, lives in "
+        "test_gate_gc_every_allocating_runtime_entry_returns_to_a_safe_point.sh; read it beside this number, never instead.")
     out(f"CENSUS safe-points {'GREEN' if ok else 'RED'}")
     return 0 if ok else 1
 
