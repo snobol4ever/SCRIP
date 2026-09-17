@@ -13,6 +13,15 @@
 # emitter write a wrong slen into one cell; the check MUST abort (rc 134, BAD CELL on stderr) in both media -- the arm
 # that proves the check is not decoration. (5) COST: util_gc_descr_cell_census.py runs and its frame growth reads under
 # the 25 percent ceiling of section 7 F2.
+# ⛔ ARM 6 EXISTS BECAUSE ARMS 1-5 PASSED OVER A REAL HOLE (coo's maps census, SCRIP f57bfb05c, 2026-09-17): the SNOBOL4
+# stored-pattern graph PAT$N gets an emitted RBP activation frame (push rbp; mov rbp,rsp; sub rsp,N -- emit.cpp's R-4(b)
+# blob frame) and NO map cell, in both media, so by section 6.2's rule the walker never meets a DT_MAP and runs off that
+# frame into the caller's segment. Arms 2 and 3 could not see it: arm 2 compares maps to cell-stores to table-entries,
+# which are self-consistent when a whole graph is missing from all three, and the seven witnesses of arm 3 carry no
+# stored pattern. MEASURED at the cure's start: 3 such frames across the 74 compiling benchmark programs and 1 at the
+# coo's fixture = 4. The cure is rung 2 (the frame needs a cell the walk can terminate on without moving the registry
+# slots the templates address from rbp -- the GC_FRAME_MAP_BASE_CELL shape is drafted in the row's NEXT); until then this
+# arm holds the count so the class cannot GROW silently, which is the one thing a named hole must not do.
 # FAIL-ONCE: on origin ad0f85fae arm 1 read 0 codes, arm 2 read 0 maps, arm 3 printed no GC-MAP line. PASS-ONCE: the
 # landing tree, 7 of 7 witnesses both media, planted arm rc=134 both media, growth 0.12 percent.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
@@ -57,5 +66,19 @@ SCRIP_GC_MAPS_CHECK=1 SCRIP_GC_MAPS_PLANT=1 ./scrip "$W/w.icn" > /dev/null 2> "$
 ( SCRIP_GC_MAPS_CHECK=1 SCRIP_GC_MAPS_PLANT=1 ./scrip --compile "$W/w.icn" > "$W/plant.s" 2>/dev/null && gcc "$W/plant.s" -o "$W/plant.bin" -L"$ROOT/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$ROOT/out" 2>/dev/null && ( cd "$W" && ./plant.bin > /dev/null 2> plant4.err ) ); p4=$?
 if [ "$p3" -ne 0 ] && grep -q 'BAD CELL' "$W/plant3.err" && [ "$p4" -ne 0 ] && grep -q 'BAD CELL' "$W/plant4.err"; then echo "  arm 4 PASS: the planted wrong slen aborts the check in both media (rc $p3 / $p4)"; else echo "  arm 4 RED: planted cell not caught (rc $p3 / $p4)"; bad=1; fi
 if python3 scripts/util_gc_descr_cell_census.py > "$W/census.txt" 2>/dev/null; then g=$(tail -1 "$W/census.txt" | grep -o 'growth_pct=[0-9.]*' | cut -d= -f2); if awk -v g="${g:-100}" 'BEGIN{exit !(g < 25)}'; then echo "  arm 5 PASS: $(tail -1 "$W/census.txt")"; else echo "  arm 5 RED: frame growth ${g:-?} percent is at or above the 25 percent ceiling"; bad=1; fi; else echo "  arm 5 RED: the cell census did not run"; bad=1; fi
+BLOB_CEILING=4
+blobcnt() { awk '{ if (p2 && $1=="sub" && $2=="rsp,") c++; p2 = (p1 && $1=="mov" && $2=="rbp," && $3=="rsp"); p1 = ($1=="push" && $2=="rbp"); } END{print c+0}' "$1"; }
+blobs=0
+for f in "$CORPUS"/*/*.sno "$CORPUS"/*/*.sc "$CORPUS"/*/*.icn "$CORPUS"/*/*.pl "$CORPUS"/*/*.reb "$CORPUS"/*/*.raku "$CORPUS"/*/*.pas "$ROOT/scripts/fixtures/gc_roots_witness.sno"; do
+    [ -f "$f" ] || continue
+    timeout 120 ./scrip --compile "$f" > "$W/b.s" 2>/dev/null || continue
+    blobs=$((blobs + $(blobcnt "$W/b.s")))
+done
+if [ "$blobs" -le "$BLOB_CEILING" ]; then
+    echo "  arm 6 PASS: $blobs stored-pattern BLOB activation frame(s) still carry NO map cell, at or under the declared ceiling $BLOB_CEILING"
+    [ "$blobs" -lt "$BLOB_CEILING" ] && echo "         ⭐ IT FELL: lower BLOB_CEILING to $blobs in this file, in the landing that paid for it"
+else
+    echo "  arm 6 RED: $blobs blob activation frames without a map cell, ABOVE the ceiling $BLOB_CEILING -- a NEW frame regime is emitting a frame the walker cannot terminate on"; bad=1
+fi
 if [ "$bad" -ne 0 ]; then echo "GATE FAIL(1) [gc_every_safe_point_has_a_compile_time_frame_shape]: an activation frame does not name its map, or the check does not see a wrong cell"; exit 1; fi
-echo "GATE PASS(0) [gc_every_safe_point_has_a_compile_time_frame_shape]: every frame graph carries a DT_MAP cell naming its static map in both media, verified live in seven frontends, the planted cell trips (5 arms, 0 red)"
+echo "GATE PASS(0) [gc_every_safe_point_has_a_compile_time_frame_shape]: every graph that reaches one of the FOUR CELL-CARRYING PROLOGUES (lcl_proc, generator, zframe, main) names its static map in both media, verified live in seven frontends, the planted cell trips, and the stored-pattern BLOB frames that carry no cell yet are held at their measured count (6 arms, 0 red)"
