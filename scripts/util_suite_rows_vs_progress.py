@@ -30,6 +30,7 @@ env: S4E_SUITES_TSV, S4E_PROGRESS_DB, S4E_CORPUS_ROOT redirect the three inputs 
 import sys, os, re, collections, tempfile, shutil
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+CRITERION_NOTE_RX = re.compile(r"^(?!xfail$)[a-z]+(-[a-z]+)+$")   # a criterion label in the note column, e.g. outcome-class; hashes and xfail never match
 DBNAME = {"sno-master": "snobol4-master", "icn-master": "icon-master", "pl-master": "prolog-master", "pas-master": "pascal-master",
           "raku-master": "raku-master", "snc-master": "snocone-master", "reb-master": "rebus-master", "x64tests": "spitbol_x64"}
 SIDECAR = {"sno-master": "tests/snobol4/ALL.outside.tsv",
@@ -156,6 +157,14 @@ def audit(suites, db, corpus, out=print):
             cnt[k] += 1
             if k == "PASS" and all(n == "xfail" for _o, n in mm.values()):
                 xpass += 1
+        # ⛔ A CRITERION LABEL IN THE DB'S NOTE COLUMN IS THE CONTRACT (hq_prolog 2026-09-17): the INRIA runner records the
+        # finest per-ENTRY verdict it retains -- outcome class only, noted `outcome-class` on every row -- while the row it
+        # publishes is the suite's own criterion (outcome class AND bindings), which the bindings comparator keeps only as
+        # counters.  The DB's PASS count is then an UPPER BOUND on the row's numerator, not its equal; comparing them as
+        # equals convicts an honest row every tick.  A label is a lower-case hyphenated token that is not `xfail`; hashes
+        # (the other note shape) never match.  Compare like with like: bounded when every graded row carries the label.
+        labels = {n for mm in d.values() for _o, n in mm.values() if n and CRITERION_NOTE_RX.match(n)}
+        bounded = labels and all((n and n in labels) for mm in d.values() for _o, n in mm.values())
         cnt["OUTSIDE"] += len(side - seen)
         cnt["UNGRADABLE"] += len(s_ungradable - seen)
         cnt["UNGRADED"] += len(s_ungraded - seen)
@@ -166,7 +175,11 @@ def audit(suites, db, corpus, out=print):
         who = ",".join(sorted(x for x in meas[(DBNAME.get(key, key), tree)] if x))[:10]
         line = f"{tag} {str(cnt['PASS']) + '/' + str(pop):>10} {xpass:>5}  {who:10} {lastts[(DBNAME.get(key, key), tree)][:19]:19}"
         why = []
-        if p_row != cnt["PASS"]:
+        if bounded and p_row <= cnt["PASS"]:
+            pass   # the DB's criterion is looser than the row's: its count bounds the row from above (verdict printed below)
+        elif bounded:
+            why.append(f"numerator row {P} EXCEEDS the DB's '{'/'.join(sorted(labels))}' upper bound {cnt['PASS']} ({cnt['PASS'] - p_row:+d})")
+        elif p_row != cnt["PASS"]:
             gap = cnt["PASS"] - p_row
             why.append(f"numerator row {P} vs DB {cnt['PASS']} ({gap:+d})" + (" = xpass: STALE MARKERS, promote them (CEO-753)" if gap == xpass and xpass > 0 else ""))
         if t_row != pop:
@@ -174,6 +187,9 @@ def audit(suites, db, corpus, out=print):
         if why:
             disagree.append(f"{key}: " + "; ".join(why))
             out(f"{line}  DISAGREE: " + "; ".join(why))
+        elif bounded:
+            agree += 1
+            out(f"{line}  AGREE-BOUNDED: the DB carries criterion '{'/'.join(sorted(labels))}' per entry, an upper bound ({cnt['PASS']}) on the row's own criterion ({P}); compared as a bound, never as equals")
         else:
             agree += 1
             out(f"{line}  AGREE")
@@ -201,7 +217,9 @@ def selftest():
                 "snc-master\tSncM\tx\tsnocone\t2026-09-03\t1\t3\t2026-09-16\t1\t3\tfeedbeef1\tfixture\n",       # DB 2/3, the extra PASS is an xfail-noted one: gap == xpass
                 "gimpel\tGimpel\tx\tsnobol4\t2026-09-04\t1\t2\t2026-09-16\t1\t2\tfeedbeef1\tfixture\n",         # DB 1/3 (1 PASS 1 FAIL 1 UNGRADED): denominator planted
                 "roast\tRoast\tx\traku\t2026-09-03\t4\t986\t2026-09-13\t6\t986\tdeadbeef2\tfixture\n",           # no rows on its tree: UNPROVEN
-                "gnu_fd\tGnuFD\tx\tprolog\t\t\t\t\t\t30\t\tDEFERRED by ruling CEO-579\n"]
+                "gnu_fd\tGnuFD\tx\tprolog\t\t\t\t\t\t30\t\tDEFERRED by ruling CEO-579\n",
+                "inria\tINRIA\tx\tprolog\t2026-09-05\t1\t3\t2026-09-16\t2\t3\tfeedbeef1\tfixture\n",           # DB 3 PASS all noted outcome-class: an upper bound, row 2 <= 3 AGREE-BOUNDED
+                "swi\tSWI\tx\tprolog\t2026-09-05\t1\t3\t2026-09-16\t3\t3\tfeedbeef1\tfixture\n"]              # DB 2 PASS noted outcome-class: row 3 EXCEEDS the bound -> DISAGREE
         open(suites, "w").write("# fixture\n" + hdr + "".join(rows))
         open(os.path.join(w, "corpus", "tests", "snobol4", "ALL.outside.tsv"), "w").write("p_out\tORACLE_REFUSES\tfixture\n")
         def row(tree, suite, prog, mode, out, note=""):
@@ -211,6 +229,8 @@ def selftest():
             lines += [row("feedbeef1", "snobol4-master", "p1", m, "PASS"), row("feedbeef1", "snobol4-master", "p2", m, "PASS"), row("feedbeef1", "snobol4-master", "p3", m, "FAIL")]
             lines += [row("feedbeef1", "snocone-master", "s1", m, "PASS"), row("feedbeef1", "snocone-master", "s2", m, "PASS", "xfail"), row("feedbeef1", "snocone-master", "s3", m, "FAIL")]
             lines += [row("feedbeef1", "gimpel", "g1", m, "PASS"), row("feedbeef1", "gimpel", "g2", m, "CRASH"), row("feedbeef1", "gimpel", "g3", m, "UNGRADED")]
+            lines += [row("feedbeef1", "inria", "i%d" % k, m, "PASS", "outcome-class") for k in (1, 2, 3)]
+            lines += [row("feedbeef1", "swi", "w1", m, "PASS", "outcome-class"), row("feedbeef1", "swi", "w2", m, "PASS", "outcome-class"), row("feedbeef1", "swi", "w3", m, "FAIL", "outcome-class")]
         lines += [row("feedbeef1", "snobol4-master", "p2", "m3", "FAIL"), row("feedbeef1", "snobol4-master", "p2", "m3", "PASS")]   # last row wins
         open(db, "w").write("".join(lines))
         fails = 0
@@ -225,6 +245,9 @@ def selftest():
         ck(rc == 1 and "sno-master" in txt and re.search(r"sno-master .*AGREE", txt) and re.search(r"snc-master .*DISAGREE: numerator row 1 vs DB 2 \(\+1\) = xpass: STALE MARKERS", txt) and
            re.search(r"gimpel .*DISAGREE: denominator row 2 vs DB population 3", txt) and re.search(r"roast .*UNPROVEN", txt) and re.search(r"gnu_fd .*DEFERRED", txt),
            "(a) rc=1: the agreeing row AGREEs, the planted numerator gap is named and equals its xpass (stale markers), the planted denominator gap is named by class, UNPROVEN and DEFERRED named")
+        ck(bool(re.search(r"inria .*AGREE-BOUNDED: the DB carries criterion 'outcome-class' per entry, an upper bound \(3\) on the row's own criterion \(2\)", txt))
+           and bool(re.search(r"swi .*DISAGREE: numerator row 3 EXCEEDS the DB's 'outcome-class' upper bound 2", txt)) and "inria" not in " ".join(l for l in buf if "DISAGREE [" in l),
+           "(a2) a DB whose every row carries a criterion label bounds the row from above: row <= bound reads AGREE-BOUNDED with the label, row > bound DISAGREEs as EXCEEDS (hq_prolog 2026-09-17)")
         open(suites, "w").write("# fixture\n" + hdr + rows[0] + rows[3] + rows[4])
         buf = []
         rc = audit(suites, db, os.path.join(w, "corpus"), out=buf.append)
