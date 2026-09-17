@@ -1794,38 +1794,32 @@ def cmd_check(a):
             if idx >= len(cells):
                 continue
             hs = HASH_RX.findall(cells[idx])
-            if not hs:
+            s = stamp_of.get(key)
+            if not hs and s is None:
                 continue
             graded_any = True
-            d, h = newest(hs)
+            # ⛔ A HASH INSIDE THE CELL BODY IS A QUOTE, NEVER THE CLAIM (coo 2026-09-16; hq_prolog: a vendor cell whose SUPERSEDES clause honestly
+            # cited the reading it replaced, 'hq_C SCRIP 36e277d17 09-05', was read as CLAIMING that tree -- STALE 1169 behind, ADRIFT -- forever,
+            # and the only silence offered was deleting the provenance the rule exists to keep). THE CLAIM IS THE `key:` PROVENANCE CLAUSE's stamp;
+            # a cell with none is UNSTAMPED (its own state, no distance graded); the body's hashes matter only when one is NEWER than the stamp
+            # (the hand-edited case below, which the ancestry check ranks).
+            if s is None:
+                out.append("  %-9s %-9s UNSTAMPED no `%s:` provenance clause names this cell; %s quoted inside it (%s) not read as a claim" % (
+                    lang, key, key, ("the hash" if len(set(hs)) == 1 else "the hashes"), ", ".join(sorted(set(hs))) if hs else "none"))
+                adrift += 1
+                continue
+            d = distance(s); h = s
             if d is None:
-                out.append("  %-9s %-9s UNKNOWN   %s is not a commit origin knows" % (lang, key, h))
+                out.append("  %-9s %-9s UNKNOWN   %s (the `%s:` clause's stamp) is not a commit origin knows" % (lang, key, s, key))
                 unknown += 1
                 continue
             worst = max(worst, d)
             flag = "STALE" if d >= a.threshold else "ok   "
             note = ""
-            # ⛔⭐⭐ THE DEFECT THIS ARM EXISTS FOR (hq_T 2026-09-05, off seat13's make-test refusal report).
-            # Until now `check` read cells[PROV_COL] and nothing else, on the premise that every measurement
-            # arrives through `write`, which stamps there.  That premise holds for writes through this helper
-            # and fails silently for the hand-edit -- and the board is full of hand-edits.  The witness:
-            # snobol4's Master board cell reads "LANE RE-MEASURE 2026-09-05 (hq_P) ... on SCRIP `f3f4870d7`",
-            # while its `board:` clause still reads hq_B 2026-09-04 on `7d7ff2dc5`.  One cell, two trees, two
-            # measurers, and the number every human reader is looking at had never once been graded.
-            # ⛔ THE DANGEROUS DIRECTION IS THE QUIET ONE.  There both trees were past the threshold, so only
-            # the attribution was wrong.  Reverse the freshness and it inverts: a cell re-measured by hand onto
-            # today's tree reads STALE off its old stamp and a seat re-runs a suite that was already current;
-            # a cell left stale beside a freshly-stamped clause reads **ok** and nobody re-runs anything.  A
-            # staleness check that cannot see the cell it grades is the FACT RULE's own failure mode wearing
-            # the FACT RULE's clothes.
-            # ⭐ Reported as its own state, never folded into STALE, because the cure is different: STALE says
-            # "re-run the suite", ADRIFT says "the number came in by hand, so the stamp names the wrong tree
-            # and the wrong measurer" -- and a row can be perfectly CURRENT and still adrift.
-            s = stamp_of.get(key)
-            if s is None:
-                note = "  ⚠ ADRIFT: no `%s:` provenance clause names this cell at all" % key
-                adrift += 1
-            elif s != h:
+            _bd, _bh = newest(hs) if hs else (None, None)
+            if _bh and _bh != s and _bd is not None and _bd < d:
+                h = _bh   # the body carries a NEWER tree than the clause stamps: the hand-edited case, ranked by ancestry below
+            if s != h:
                 sd = distance(s)
                 if sd is None:
                     note = "  ⚠ ADRIFT: `%s:` clause stamps %s, which origin does not know" % (key, s)
@@ -1858,6 +1852,11 @@ def cmd_check(a):
         # Vendor-suite stamps live only in the Tree column -- they have no cell of their own, so they are
         # graded here or nowhere.
         for key, h in sorted(set(extra)):
+            if key == "(unkeyed)":
+                # an unkeyed provenance clause is a historical cross-check (seat16's INRIA cross-confirm of 09-05), not a suite board: no suite
+                # run refreshes it, so it is named and left out of the staleness census (hq_prolog 2026-09-16); key it or retire it
+                out.append("  %-9s %-9s CROSS-CHECK (unkeyed clause, stamp %s): historical, not a board -- not graded for staleness" % (lang, key, h))
+                continue
             d = distance(h)
             if d is None:
                 out.append("  %-9s %-9s UNKNOWN   %s is not a commit origin knows" % (lang, key, h))
@@ -2650,6 +2649,37 @@ def cmd_selftest(a):
         except SystemExit as e:
             print("SELFTEST FAIL: a ragged row belonging to ANOTHER language blocked an unrelated write "
                   "(rc=%r) -- that turns one seat's damage into a fleet-wide stop" % (e.code,)); ok = False
+        # ⛔ A HASH QUOTED INSIDE A CELL IS NOT THE CELL'S CLAIM (hq_prolog 2026-09-16): plant a rebus vendor cell whose body cites an unknown old
+        # tree beside a `vendor:` provenance clause at HEAD -- check must grade the clause (ok/STALE by ITS distance, 'cell claims <HEAD>') and
+        # never the quote; with the clause removed the cell reads UNSTAMPED, naming the quoted hash as not a claim.
+        import io as _io, contextlib as _ctx
+        _head = git("SCRIP", "rev-parse", "--short", "HEAD") or ""
+        _ck_lines = open(SCORE_MD, encoding="utf-8").read().split("\n")
+        _ch, _cr, _ = find_table(_ck_lines); _cri, _crc = _cr["rebus"]
+        _crc[COLUMNS["vendor"][0]] = "Reb: 1/1 both modes; SUPERSEDES the old reading (hq_X SCRIP `deadbeef0` 09-05)"
+        _crc[PROV_COL] = "vendor: SCRIP `%s` · corpus `x` · RT_OPT=-O0 · 2026-09-16 · selftest" % _head
+        _ck_lines[_cri] = "| " + " | ".join(_crc) + " |"; _write_score_md(_ck_lines, seeding=True)
+        _ca = A(); _ca.threshold = 25; _ca.no_fetch = True
+        _buf = _io.StringIO()
+        with _ctx.redirect_stdout(_buf):
+            try: cmd_check(_ca)
+            except SystemExit: pass
+        _vl = [l for l in _buf.getvalue().split("\n") if l.startswith("  rebus") and " vendor " in l]
+        if _vl and "cell claims %s" % _head in _vl[0] and "deadbeef0" not in _vl[0]:
+            print("SELFTEST: check grades the `vendor:` clause's stamp (cell claims %s) and never the hash quoted in the cell body" % _head)
+        else:
+            print("SELFTEST FAIL: quoted hash read as the claim -- %r" % (_vl[:1],)); ok = False
+        _crc[PROV_COL] = "board: SCRIP `%s` · selftest" % _head
+        _ck_lines[_cri] = "| " + " | ".join(_crc) + " |"; _write_score_md(_ck_lines, seeding=True)
+        _buf = _io.StringIO()
+        with _ctx.redirect_stdout(_buf):
+            try: cmd_check(_ca)
+            except SystemExit: pass
+        _vl = [l for l in _buf.getvalue().split("\n") if l.startswith("  rebus") and " vendor " in l]
+        if _vl and "UNSTAMPED" in _vl[0] and "deadbeef0" in _vl[0] and "not read as a claim" in _vl[0]:
+            print("SELFTEST: a cell with no `vendor:` clause reads UNSTAMPED, its quoted hash named as not a claim")
+        else:
+            print("SELFTEST FAIL: unstamped cell -- %r" % (_vl[:1],)); ok = False
         # ⛔ COLUMN KIND: a master runner named with the vendor suffix classifies M, a vendor runner still V (hq_raku 2026-09-16)
         _ck = (citation_kind("bash scripts/test_raku_ir_full_suite.sh"), citation_kind("bash scripts/test_icon_ipl_suite.sh"),
                citation_kind("bash scripts/test_prolog_rung_suite.sh"))
