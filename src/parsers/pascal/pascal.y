@@ -114,7 +114,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         int ispack = !strcmp(name, "pack");
         tree_t *a = args->items[ispack ? 0 : 2]; tree_t *i = args->items[ispack ? 2 : 4]; tree_t *z = args->items[ispack ? 4 : 0];
         long long zhi = -1; long long zlo = 1;
-        if (z && z->t == TT_VAR && z->v.sval) { if (!pas_array_high_get(z->v.sval, &zhi)) zhi = -1; if (pas_is_chararr(z->v.sval)) zlo = pas_chararr_lo(z->v.sval); else { long long _zl = pas_array_low(z->v.sval); if (_zl > 0) zlo = _zl; } }
+        if (z && z->t == TT_VAR && z->v.sval) { if (!pas_array_high_get(z->v.sval, &zhi)) zhi = -1; if (pas_is_chararr(z->v.sval)) { long long _cl = pas_chararr_lo(z->v.sval); if (_cl > 0) zlo = _cl; } else { long long _zl = pas_array_low(z->v.sval); if (_zl > 0) zlo = _zl; } }
         if (a && a->t == TT_VAR && a->v.sval && z && z->t == TT_VAR && z->v.sval && zhi >= 0) {
             long long ahi = -1; int _ahok = pas_array_high_get(a->v.sval, &ahi);
             long long alo = pas_array_low(a->v.sval); if (alo <= 0) alo = 1;
