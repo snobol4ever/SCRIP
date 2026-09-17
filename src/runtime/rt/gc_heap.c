@@ -152,7 +152,7 @@ static void *rt_gcheap_carve(char *at, uint64_t total, uint16_t type)
     if (g_hp_fr.zfull < 0) g_hp_fr.zfull = 0;
     { const int zfull = g_hp_fr.zfull;
     int fresh = !zfull && at >= g_hp_virgin;
-    if (at >= g_hp_virgin && at + total > g_hp_virgin) g_hp_virgin = at + total;
+    if (at + total > g_hp_virgin) g_hp_virgin = at + total;
     if (fresh) { }
     else if (!zfull && pay > 32 && (type == (uint16_t)DT_S || type == HB_WSC)) memset((char *)(h + 1) + (pay - 32), 0, 32);
     else memset((void *)(h + 1), 0, (size_t)pay);
