@@ -135,7 +135,7 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
     case IR_MATCH_ALTERNATE:
         zls_field(scope_id, off, 8, ZK_RAW, 0, "alt.entry cursor save (+0 4B r14d; +4 4B dead — was alt_i, killed by ALT-FLAT s202 address dispatch)", nd); zls_field(scope_id, off + 8, 8, ZK_PTR_CODE, 0, "alt.resume continuation (ALT-FLAT s202: each arm's sigma stub stores its own resume trampoline address via lea rip; beta is one indirect jmp — the alt_i cmp-chain is dead.  Retenants the old dcap-pad quad)", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "alt.pad (unused fourth quad of the 2-slot grant)", nd); zls_field(scope_id, off + 16, 8, ZK_PTR_CODE, 0, "alt.next-entry continuation (ALT-FLAT s202: alpha and each entry stub store the NEXT arm's entry-stub address; the fail-advance is delta-restore + one indirect jmp — the entry cmp-chain is dead)", nd); return 2;
     case IR_SCAN_SEQUENCE:
-        zls_field(scope_id, off, 8, ZK_RAW, 0, "scanseq.entry δ save (+16 from box base, 4B r14d) + seq_i live-element index (+20, 4B; α=0, na_s ++, na_f --, β=N); the value DESCR is the box result slot at [base]", nd); return 1;
+        zls_field(scope_id, off, 8, ZK_RAW, 0, "scanseq.entry δ save (+16 from box base, 4B r14d) + seq_i live-element index (+20, 4B; α=0, na_s ++, na_f --, β=N); the value DESCR is the box result slot at [base]", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "scanseq.pad (unused upper quad of the 1-slot grant; registered CEO-820 so the frame map has no unmapped word)", nd); return 1;
     case IR_SCAN_ALTERNATE:
         zls_field(scope_id, off, 8, ZK_RAW, 0, "scanalt.entry δ save (+16 from box base, 4B r14d) + dcap height (+20, 4B)", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "scanalt.alt_i live-alternative index (+24, 4B; α=0, na_f ++; β dispatches) (+28 pad)", nd); return 2;
     case IR_SCAN:
@@ -158,7 +158,7 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
     case IR_REV_ASSIGN: case IR_REV_ASSIGN_VAR:
         zls_field(scope_id, off, 16, ZK_DESCR, 0, "revasg.saved old value (beta restore; LIVE across suspension — GC must trace)", nd); return 1;
     case IR_REV_SWAP:
-        zls_field(scope_id, off, 16, ZK_DESCR, 0, "revswap.saved lhs old (beta restore; LIVE across suspension — GC must trace)", nd); zls_field(scope_id, off + 16, 16, ZK_DESCR, 0, "revswap.saved rhs old (beta restore; LIVE across suspension — GC must trace)", nd); zls_field(scope_id, off + 32, 8, ZK_RAW, 0, "revswap.delta spill (in-scan r14 round-trip)", nd); zls_field(scope_id, off + 40, 8, ZK_RAW, 0, "revswap.Delta spill (in-scan r15, read-only len)", nd); zls_field(scope_id, off + 48, 8, ZK_RAW, 0, "revswap.lhs cell pointer parked across the rhs NV_PTR_fn lookup (global operand only; a raw interior pointer into the name table, never a heap object -- ZK_RAW so GC does not trace it)", nd); return 4;
+        zls_field(scope_id, off, 16, ZK_DESCR, 0, "revswap.saved lhs old (beta restore; LIVE across suspension — GC must trace)", nd); zls_field(scope_id, off + 16, 16, ZK_DESCR, 0, "revswap.saved rhs old (beta restore; LIVE across suspension — GC must trace)", nd); zls_field(scope_id, off + 32, 8, ZK_RAW, 0, "revswap.delta spill (in-scan r14 round-trip)", nd); zls_field(scope_id, off + 40, 8, ZK_RAW, 0, "revswap.Delta spill (in-scan r15, read-only len)", nd); zls_field(scope_id, off + 48, 8, ZK_RAW, 0, "revswap.lhs cell pointer parked across the rhs NV_PTR_fn lookup (global operand only; a raw interior pointer into the name table, never a heap object -- ZK_RAW so GC does not trace it)", nd); zls_field(scope_id, off + 56, 8, ZK_RAW, 0, "revswap.pad (unused eighth quad of the 4-slot grant; registered CEO-820 so the frame map has no unmapped word)", nd); return 4;
     case IR_KW_ICON: case IR_KW_ICON_GEN:
         zls_field(scope_id, off, 16, ZK_RAW, 0, "kw.gen counter", nd); return 1;
     case IR_KW_SNOBOL4:
@@ -454,6 +454,7 @@ void zls_build(IR_graph_t * g) {
     int s0 = (g->nparams > 0 || g->resumable_callable) ? 1 : 0;
     for (int i = 0; !s0 && i < g->n; i++) if (g->all[i] && rb[i] && (g->all[i]->op == IR_RETURN || g->all[i]->op == IR_SUSPEND)) s0 = 1;
     int base = s0 ? 16 + (g->nparams > 0 ? g->nparams * 16 : 0) : 0;
+    if (s0) zls_field(root, 0, 16, ZK_DESCR, 0, "return value (IR_RETURN stores the graph result DESCR at frame +0 and the graph gamma loads it into rdi:rsi; zeroed by the prologue, a valid null DESCR until then)", (const IR_t *)0);
     int k = 0;
     r->first_vslot = zv_n;
     for (int i = 0; i < g->nparams && g->pnames; i++) if (g->pnames[i]) {
@@ -964,17 +965,19 @@ static void zls_reuse_dump(FILE * fp, const zls_graph_t * r) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_dump(FILE * fp) {
+    static int plant = -1; if (plant < 0) { const char * e = getenv("SCRIP_TEST_PLANT_ZLS_HOLE"); plant = (e && *e == '1') ? 1 : 0; }
                 fprintf(fp, "; FRAME LAYOUT (per-activation, typed)\n");
     fprintf(fp, "; kinds: DESCR = 16B t.p pair (GC traces payload) | RAW = int/cursor/counter (GC skips) | PTR_GC = heap pointer (GC traces+fixes) | PTR_CODE = continuation (GC skips, never relocates)\n");
     fprintf(fp, "; (audit) = kind provisional pending template audit — 2026-07-05 burndown: all shipped grants template-verified, audit=0; any NEW grant lands audit=1 until verified\n");
     for (int i = 0; i < zg_n; i++) {
-        zls_graph_t * r = &zg[i];
+        zls_graph_t * r = &zg[i]; int planted = 0;
         if (r->first_scope < 0) continue;
         fprintf(fp, "; graph %d '%s' — slots=%d region_end=%d resume=%d vslots=%d scopes=%d\n", i, r->name ? r->name : "?", r->nslots, r->region, r->resume_off, r->n_vslots, r->n_scopes);
         for (int s = r->first_scope; s < r->first_scope + r->n_scopes; s++) {
             if (zs[s].n_fields == 0 && zs[s].klass == ZSC_GROUP) { fprintf(fp, ";   scope %-3d %-6s %-24s parent=%-3d (no frame fields)\n", zs[s].id, zsc_name(zs[s].klass), zs[s].name ? zs[s].name : "?", zs[s].parent); continue; }
             fprintf(fp, ";   scope %-3d %-6s %-24s parent=%-3d [%d..%d)\n", zs[s].id, zsc_name(zs[s].klass), zs[s].name ? zs[s].name : "?", zs[s].parent, zs[s].n_fields ? zs[s].lo_off : 0, zs[s].n_fields ? zs[s].hi_off : 0);
             for (int f = 0; f < zf_n; f++) if (zf[f].scope_id == s) {
+                if (plant && !planted) { planted = 1; continue; }
                 const char * on = "-"; char onb[16];
                 if (zf[f].nd) { on = bb_op_name(zf[f].nd->op); if (!on) { snprintf(onb, sizeof onb, "op%d", (int)zf[f].nd->op); on = onb; } }
                 fprintf(fp, ";     +%-5d %-3d %-8s %-36s %s%s\n", zf[f].off, zf[f].size, zk_name(zf[f].kind), zf[f].what ? zf[f].what : "", on, zf[f].audit ? "  (audit)" : "");
