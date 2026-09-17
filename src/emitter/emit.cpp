@@ -3142,7 +3142,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     bb_label_t lbl_stcγ, lbl_stcω;
     if (g_emit.flat_stmt_frame) { emit_label_initf(&lbl_stcγ, "%s_stγ", fam); emit_label_initf(&lbl_stcω, "%s_stω", fam); }
     g_emit.flat_carve_total = 0;
-    if (prefix && (!strcmp(prefix, "main") || !strcmp(prefix, "pat_flat")) && g_emit_cfg && !g_emit.zframe_graph && !(icn_gen_regime() && g_emit.flat_gen) && !g_emit.flat_lcl_proc && !g_emit.flat_pat) { int _rg = g_emit_cfg->jcon_value_region; if (_rg >= 0 && !(_rg & 15)) { if (g_is_text && _rg + 32 > 65536) { fprintf(stderr, "FATAL emit: main's value region %d + the map cell exceeds the mode-4 main frame (65536); SCRIP_M4_HEADROOM is not a cure for a compile-time fact\n", _rg); abort(); } bb_emit_x86(emit_gc_map_cell(_rg, _rg + 16, 0, GC_FRAME_MAP_ROOT | (g_emit_cfg->root_graph ? GC_FRAME_MAP_ROOT : 0u), 1)); } }
+    if (prefix && (!strcmp(prefix, "main") || !strcmp(prefix, "pat_flat")) && !g_rt_fragment_emit && g_emit_cfg && !g_emit.zframe_graph && !(icn_gen_regime() && g_emit.flat_gen) && !g_emit.flat_lcl_proc && !g_emit.flat_pat) { int _rg = g_emit_cfg->jcon_value_region; if (_rg >= 0 && !(_rg & 15)) { if (g_is_text && _rg + 32 > 65536) { fprintf(stderr, "FATAL emit: main's value region %d + the map cell exceeds the mode-4 main frame (65536); SCRIP_M4_HEADROOM is not a cure for a compile-time fact\n", _rg); abort(); } bb_emit_x86(emit_gc_map_cell(_rg, _rg + 16, 0, GC_FRAME_MAP_ROOT | (g_emit_cfg->root_graph ? GC_FRAME_MAP_ROOT : 0u), 1)); } }
     if (g_emit.zframe_graph) {
         { extern void xa_flat_zframe_prologue(void); xa_flat_zframe_prologue(); }
     } else if (icn_gen_regime() && g_emit.flat_gen) {
