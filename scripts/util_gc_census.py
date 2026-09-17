@@ -4,7 +4,7 @@ row gc-instruments-the-safe-point-census-the-maps-census-and-scrip-gc-coverage-w
 design .github/ARCH-GC-COMPILE-TIME-FRAME-MAPS.md, law RULES.md FACT RULE THE COLLECTOR GUESSES NOTHING).
 
 Five censuses, each a mechanical count printed with its population, each RED until the design lands and each proven
-to trip on a planted violation by --selftest (25 arms, the ratchet included):
+to trip on a planted violation by --selftest (29 arms, the ratchet included):
 
   conservative   src/runtime/rt/gc_heap.c: call sites of the word walker gc_zeta_frame(, uses of cons_stack, of
                  rt_cas_live_span and of hb_scan_interior (Rule 2, Rule 2b).  Want 0 each.
@@ -143,6 +143,30 @@ def allocating_entries_from_binary(so, out=print):
 
 CALL_RX = re.compile(r'x86\(\s*"call"\s*,(.*)$')
 
+# A COUNT IS NOT COMPARABLE ACROSS A CHANGE OF ITS CRITERION.  Every line here names a sitting in which the census
+# started counting something it could not see before, so a reader never reads the step as a regression or a win
+# (SUITES.tsv's criterion_changed column, the same rule).  The baseline writer prints them into the file it writes.
+CRITERION_CHANGES = [
+    "2026-09-17 coo, SCRIP e625d1b35 -> this tree: safe-points. (i) A CALL TARGET IS SPELLED AS THE ASSEMBLER SEES IT: "
+    "the ASCII-only symbol rule read the 32 emitter literals naming a Greek Byrd port (rt_proc_call_epilogue_GAMMA and "
+    "kin) as no literal at all, so unresolved fell 39 -> 7 and two ALLOCATING targets entered the denominator "
+    "(allocating_call_sites 202 -> 203). (ii) A POLL BELONGS TO THE CALL'S OWN ROUTINE: the line window walked past the "
+    "closing brace and read the next routine's poll, so bb_call_proc_staged.cpp:88 read a FALSE POLLED. unpolled "
+    "202 -> 203 IS THE INSTRUMENT GETTING HONEST, NOT A LANDING GOING BACKWARDS -- the same tree, one site that was "
+    "never counted before, and it is genuinely unpolled.",
+]
+
+# A CALL TARGET IS SPELLED AS THE ASSEMBLER SEES IT, NOT AS ASCII C.  This tree names its four Byrd ports α β γ ω and
+# puts them IN SYMBOL NAMES: rt_proc_call_epilogue_γ is a C function, an emitter literal and a binary symbol.  An
+# ASCII-only identifier pattern reads such a literal as NO literal at all, so the site reads UNRESOLVED (or, with an
+# ASCII literal beside it on the line, resolves to the wrong candidate set and leaves the graded denominator in
+# silence).  Measured 2026-09-17 on SCRIP e625d1b35 by the coo: 32 of the 39 UNRESOLVED sites were plain string
+# literals the census could not spell, and two of them -- rt_proc_call_epilogue_named_γ and _ω, at
+# src/templates/bb/bb_call_proc_staged.cpp:88 -- REACH rt_gcheap_alloc, so an allocating call site sat outside the
+# denominator that grades the poll landings.  The rule below is the binary's: a letter or underscore in ANY alphabet,
+# then any run of characters that is not whitespace, a quote, a comma or a parenthesis.
+SYM_RX = re.compile(r'"([^\W\d][^\s",()]*)"', re.UNICODE)
+
 
 def emitter_call_sites(files):
     """(file, line, [candidate symbols]) for every literal x86("call", ...) in the emitter; a call expression that
@@ -157,7 +181,7 @@ def emitter_call_sites(files):
             m = CALL_RX.search(line)
             if not m:
                 continue
-            syms = re.findall(r'"([A-Za-z_][A-Za-z0-9_]*)"', m.group(1))
+            syms = SYM_RX.findall(m.group(1))
             sites.append((f, i, syms, lines))
     return sites
 
@@ -180,7 +204,19 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
         if not any(s in allocating for s in syms):
             continue
         alloc_sites += 1
-        window = "\n".join(lines[i:i + poll_window])
+        # A POLL BELONGS TO THE CALL'S OWN FUNCTION.  The window is source lines after the call, so without a stop it
+        # walks out of the emitter routine and reads the NEXT routine's poll as this site's.  Measured 2026-09-17 on
+        # SCRIP e625d1b35 by the coo: bb_call_proc_staged.cpp:88 (rt_proc_call_epilogue_named_γ/ω, allocating) read
+        # POLLED off the g_gc_pending lea in stage_arg_inline, seven lines below and two functions away -- a false
+        # green, the worst direction for this census.  The window stops at the first line that starts a new routine in
+        # this tree's style: a column-0 closing brace or a column-0 /*---- separator.
+        window_lines = lines[i:i + poll_window]
+        stop = len(window_lines)
+        for k, wl in enumerate(window_lines):
+            if wl.startswith("}") or wl.startswith("/*---"):
+                stop = k
+                break
+        window = "\n".join(window_lines[:stop])
         if poll_rx.search(window):
             polled += 1
         else:
@@ -481,6 +517,14 @@ def ratchet(path, out=print):
     base = read_baseline(path)
     if base is None:
         out(f"RATCHET REFUSED(2): no baseline at {path}"); return 2
+    # The criterion lines the baseline carries are printed WHERE THE NUMBERS ARE COMPARED, not only in the file: a
+    # reader who sees 202 -> 203 without them reads a regression that did not happen.
+    try:
+        for line in open(path, encoding="utf-8"):
+            if line.startswith("# CRITERION CHANGED"):
+                out("RATCHET " + line.rstrip()[2:])
+    except OSError:
+        pass
     worse = []; better = []; unmeasured = []
     for census, key, _pop in RATCHET_KEYS:
         want = base.get((census, key))
@@ -565,6 +609,20 @@ def selftest():
        "safe-points: a planted unpolled allocating call and a computed call target are each named and RED")
     buf.clear(); rc = census_safe_points("", [tpl_bad], out=buf.append, allocating=alloc, poll_helper="gc_poll_here")
     ck(rc == 1, "safe-points: naming a poll helper does not excuse a call that has neither")
+    tpl_gk = os.path.join(w, "greek.cpp")
+    open(tpl_gk, "w", encoding="utf-8").write('std::string a(){ return x86("call", "rt_epilogue_\u03b3", fp); }\n'
+                                              'std::string b(){ return x86("call", flag ? "rt_epilogue_\u03c9" : "rt_pure_cmp", fp); }\n')
+    buf.clear(); rc = census_safe_points("", [tpl_gk], out=buf.append, allocating={"rt_epilogue_\u03b3", "rt_epilogue_\u03c9"})
+    ck(rc == 1 and "allocating_call_sites=2 polled=0 unpolled=2 unresolved=0" in "\n".join(buf)
+       and any("UNPOLLED" in l and "rt_epilogue_\u03b3" in l for l in buf),
+       "safe-points: a call target spelled with a Greek port letter is a LITERAL, counted and named -- never UNRESOLVED (32 of 39 were this, 2026-09-17)")
+    tpl_xf = os.path.join(w, "crossfn.cpp")
+    open(tpl_xf, "w").write('std::string a(){ return x86("call", "rt_concat", fp);\n'
+                            '}\n'
+                            'std::string b(){ return x86("lea", "r8", "[rip + __]", (uint64_t)&g_gc_pending, "g_gc_pending"); }\n')
+    buf.clear(); rc = census_safe_points("", [tpl_xf], out=buf.append, allocating=alloc)
+    ck(rc == 1 and "allocating_call_sites=1 polled=0 unpolled=1" in "\n".join(buf),
+       "safe-points: a g_gc_pending poll in the NEXT routine, inside the line window, does NOT make this site polled (the false green of 2026-09-17)")
     # coverage on captured text
     buf.clear(); rc = census_coverage("", "", out=buf.append, cov_text="[GC-COV] ranges=3 words_scanned=0 interior_words=0 pz=1\n[GC-COV] ranges=3 words_scanned=0 interior_words=0 pz=1\n")
     ck(rc == 0, "coverage: every [GC-COV] line carrying words_scanned=0 AND interior_words=0 reads GREEN")
@@ -686,6 +744,8 @@ def main(argv):
             fh.write("# Written by `util_gc_census.py all --write-baseline`; every landing that lowers a count rewrites this file\n")
             fh.write("# in the same sitting -- test_gate_gc_instrument_censuses_are_wired_and_trip.sh reds on an increase AND on an\n")
             fh.write("# unrecorded fall.  census\tkey\tcount\twant\n")
+            for line in CRITERION_CHANGES:
+                fh.write(f"# CRITERION CHANGED {line}\n")
             for census, key, _pop in RATCHET_KEYS:
                 v = COUNTS.get(census, {}).get(key)
                 if v is not None:
