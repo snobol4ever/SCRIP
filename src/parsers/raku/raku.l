@@ -137,6 +137,40 @@ WS       [ \t\r]
 [ \t]+"xx"/[^A-Za-z0-9_-]  { return OP_REP_XX; }
 [ \t]+"x"/[^A-Za-z0-9_-]   { return OP_REP_X; }
 "div"           { return OP_DIV; }
+[ 	]+"gcd"/[ 	]    { return OP_GCD; }
+[ 	]+"lcm"/[ 	]    { return OP_LCM; }
+[ 	]+"mod"/[ 	]    { return OP_MODW; }
+"~&"            { return OP_NBAND; }
+"\xc3\x97"      { return OP_UMUL; }
+"\xc3\xb7"      { return OP_UDIV; }
+"+|"            { return OP_BORT; }
+"~|"            { return OP_NBOR; }
+"?|"            { return OP_QBOR; }
+"?^"            { return OP_QBXOR; }
+"\xe2\x88\x92"  { return OP_UMINUS_I; }
+[ 	]+"o"/[ 	]    { return OP_COMPOSE; }
+"\xe2\x88\x98"  { return OP_COMPOSEU; }
+"(&)"           { return OP_SETINT; }
+"(.)"           { return OP_SETMUL; }
+"(|)"           { return OP_SETUNI; }
+"(+)"           { return OP_SETSUM; }
+"(-)"           { return OP_SETDIF; }
+"(^)"           { return OP_SETSYM; }
+"^.."           { return OP_RANGE_XL; }
+"^..^"          { return OP_RANGE_XB; }
+[ 	]+"coll"/[ 	]    { return OP_COLL; }
+[ 	]+"unicmp"/[ 	]    { return OP_UNICMP; }
+"==="           { return OP_IDENT3; }
+[ 	]+"eqv"/[ 	]    { return OP_EQV; }
+[ 	]+"before"/[ 	]    { return OP_BEFORE; }
+[ 	]+"after"/[ 	]    { return OP_AFTER; }
+"(cont)"        { return OP_SETCONT; }
+"(elem)"        { return OP_SETELEM; }
+"=~="           { return OP_APPROX; }
+"!~~"           { return OP_NSMARTM; }
+[ 	]+"min"/[ 	]    { return OP_MINOP; }
+[ 	]+"max"/[ 	]    { return OP_MAXOP; }
+"^^"            { return OP_XOROP; }
 "..^"           { return OP_RANGE_EX; }
 "..."           { return YADA; }
 "^"             { return CARET; }

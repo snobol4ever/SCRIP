@@ -193,11 +193,49 @@ typedef struct ExprList {
     ADV_DELETE = 374,              /* ADV_DELETE  */
     OP_BAND = 375,                 /* OP_BAND  */
     OP_SHL = 376,                  /* OP_SHL  */
-    OP_DIVIS = 377,                /* OP_DIVIS  */
-    OP_REP_X = 378,                /* OP_REP_X  */
-    OP_REP_XX = 379,               /* OP_REP_XX  */
-    OP_POW = 380,                  /* OP_POW  */
-    UMINUS = 381                   /* UMINUS  */
+    OP_GCD = 377,                  /* OP_GCD  */
+    OP_LCM = 378,                  /* OP_LCM  */
+    OP_MODW = 379,                 /* OP_MODW  */
+    OP_NBAND = 380,                /* OP_NBAND  */
+    OP_UMUL = 381,                 /* OP_UMUL  */
+    OP_UDIV = 382,                 /* OP_UDIV  */
+    OP_BORT = 383,                 /* OP_BORT  */
+    OP_NBOR = 384,                 /* OP_NBOR  */
+    OP_QBOR = 385,                 /* OP_QBOR  */
+    OP_QBXOR = 386,                /* OP_QBXOR  */
+    OP_UMINUS_I = 387,             /* OP_UMINUS_I  */
+    OP_COMPOSE = 388,              /* OP_COMPOSE  */
+    OP_COMPOSEU = 389,             /* OP_COMPOSEU  */
+    OP_SETINT = 390,               /* OP_SETINT  */
+    OP_SETMUL = 391,               /* OP_SETMUL  */
+    OP_SETUNI = 392,               /* OP_SETUNI  */
+    OP_SETSUM = 393,               /* OP_SETSUM  */
+    OP_SETDIF = 394,               /* OP_SETDIF  */
+    OP_SETSYM = 395,               /* OP_SETSYM  */
+    OP_XORJ = 396,                 /* OP_XORJ  */
+    OP_RANGE_XL = 397,             /* OP_RANGE_XL  */
+    OP_RANGE_XB = 398,             /* OP_RANGE_XB  */
+    OP_BUT = 399,                  /* OP_BUT  */
+    OP_DOESW = 400,                /* OP_DOESW  */
+    OP_COLL = 401,                 /* OP_COLL  */
+    OP_UNICMP = 402,               /* OP_UNICMP  */
+    OP_IDENT3 = 403,               /* OP_IDENT3  */
+    OP_EQV = 404,                  /* OP_EQV  */
+    OP_BEFORE = 405,               /* OP_BEFORE  */
+    OP_AFTER = 406,                /* OP_AFTER  */
+    OP_SETCONT = 407,              /* OP_SETCONT  */
+    OP_SETELEM = 408,              /* OP_SETELEM  */
+    OP_APPROX = 409,               /* OP_APPROX  */
+    OP_SMARTM = 410,               /* OP_SMARTM  */
+    OP_NSMARTM = 411,              /* OP_NSMARTM  */
+    OP_MINOP = 412,                /* OP_MINOP  */
+    OP_MAXOP = 413,                /* OP_MAXOP  */
+    OP_XOROP = 414,                /* OP_XOROP  */
+    OP_DIVIS = 415,                /* OP_DIVIS  */
+    OP_REP_X = 416,                /* OP_REP_X  */
+    OP_REP_XX = 417,               /* OP_REP_XX  */
+    OP_POW = 418,                  /* OP_POW  */
+    UMINUS = 419                   /* UMINUS  */
   };
   typedef enum raku_yytokentype raku_yytoken_kind_t;
 #endif
@@ -214,7 +252,7 @@ union RAKU_YYSTYPE
     tree_t  *node;
     ExprList *list;
 
-#line 218 "raku.tab.h"
+#line 256 "raku.tab.h"
 
 };
 typedef union RAKU_YYSTYPE RAKU_YYSTYPE;
