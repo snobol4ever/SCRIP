@@ -105,6 +105,7 @@ TBBLK_t *table_new(void) {
     t->ord = (DESCR_t *)0; t->ord_len = 0; t->ord_cap = 0; t->ord_dead = 0u;
     t->gen_idx = -1; t->gen_pos = -1; t->gen_mask = 0ul; t->gen_lseg = t->gen_lslot = t->gen_lhn = 0ul; t->gen_lseq = 0u; t->gen_have = 0;
     t->icn_mask = 15ul;
+    t->reh_old = (TBBUCK_t **)0; t->reh_n = 0;
     t->nbuck = _tbl_nbuck_for(t->init);
     t->buckets = _tbl_vec_new(t->nbuck);
     return t;
@@ -260,12 +261,14 @@ static inline __attribute__((always_inline)) unsigned _tbl_lower(const TBPAIR_t 
       return lo; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static TBBUCK_t *_tbl_grow(TBBLK_t *tbl, TBBUCK_t *b) {
+static TBBUCK_t *_tbl_grow_at(TBBLK_t *tbl, TBBUCK_t **slot) {
     unsigned nc;
+    TBBUCK_t *b = *slot;
     if (!b)                 { int hint = tbl->init / (int)tbl->nbuck; nc = 1u; while (nc < (unsigned)hint && nc < 64u) nc <<= 1; }
     else if (b->cap < 128u) nc = b->cap * 2u;
     else                    nc = b->cap + 128u;
     TBBUCK_t *nb = rt_gcheap_alloc(HB_AGGB, (unsigned long long)(sizeof(TBBUCK_t) + (size_t)nc * sizeof(TBPAIR_t)));
+    b = *slot;
     if (b && b->len) { memcpy(nb->ent, b->ent, (size_t)b->len * sizeof(TBPAIR_t)); nb->len = b->len; }
     nb->cap = nc;
     return nb;
@@ -306,21 +309,25 @@ int table_delete_d(TBBLK_t *tbl, DESCR_t k) {
 static void _tbl_rehash(TBBLK_t *tbl) {
     unsigned old_n = tbl->nbuck, nb = old_n << 1;
     if (!nb || nb > 1u << 22) return;
-    TBBUCK_t **ov = tbl->buckets, **nv = _tbl_vec_new(nb);
-    tbl->buckets = nv; tbl->nbuck = nb;
+    TBBUCK_t **ov = tbl->buckets;
+    tbl->reh_old = ov; tbl->reh_n = old_n;
+    { TBBUCK_t **nv = _tbl_vec_new(nb);
+      tbl->buckets = nv; tbl->nbuck = nb; }
     for (unsigned b = 0; b < old_n; b++) {
-        TBBUCK_t *ob = ov[b];
-        if (!ob) continue;
-        for (unsigned i = 0; i < ob->len; i++) {
-            TBPAIR_t *e = &ob->ent[i];
-            unsigned  nbi = (unsigned)e->hkey & (nb - 1u);
-            TBBUCK_t *nbk = nv[nbi];
-            if (!nbk || nbk->len == nbk->cap) { nbk = _tbl_grow(tbl, nbk); nv[nbi] = nbk; }
-            unsigned j = _tbl_lower(nbk->ent, nbk->len, e->hkey);
-            if (j < nbk->len) memmove(&nbk->ent[j + 1], &nbk->ent[j], (size_t)(nbk->len - j) * sizeof(TBPAIR_t));
-            nbk->ent[j] = *e; nbk->len++;
+        if (!tbl->reh_old[b]) continue;
+        for (unsigned i = 0; i < tbl->reh_old[b]->len; i++) {
+            unsigned long long hk = tbl->reh_old[b]->ent[i].hkey;
+            unsigned  nbi = (unsigned)hk & (nb - 1u);
+            if (!tbl->buckets[nbi] || tbl->buckets[nbi]->len == tbl->buckets[nbi]->cap) {
+                TBBUCK_t *gr = _tbl_grow_at(tbl, &tbl->buckets[nbi]);
+                tbl->buckets[nbi] = gr; }
+            { TBBUCK_t *nbk = tbl->buckets[nbi];
+              unsigned j = _tbl_lower(nbk->ent, nbk->len, hk);
+              if (j < nbk->len) memmove(&nbk->ent[j + 1], &nbk->ent[j], (size_t)(nbk->len - j) * sizeof(TBPAIR_t));
+              nbk->ent[j] = tbl->reh_old[b]->ent[i]; nbk->len++; }
         }
     }
+    tbl->reh_old = (TBBUCK_t **)0; tbl->reh_n = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void table_set_descr_d(TBBLK_t *tbl, DESCR_t k, DESCR_t val) {
@@ -332,7 +339,7 @@ void table_set_descr_d(TBBLK_t *tbl, DESCR_t k, DESCR_t val) {
     unsigned i = b ? _tbl_lower(b->ent, b->len, h) : 0u;
     if (b) for (; i < b->len && b->ent[i].hkey == h; i++)
         if (_tbl_eq_d(&b->ent[i], k)) { b->ent[i].val = val; b->ent[i].key_descr = k; return; }
-    if (!b || b->len == b->cap) { b = _tbl_grow(tbl, b); tbl->buckets[bi] = b; }
+    if (!b || b->len == b->cap) { b = _tbl_grow_at(tbl, &tbl->buckets[bi]); tbl->buckets[bi] = b; }
     if (i < b->len) memmove(&b->ent[i + 1], &b->ent[i], (size_t)(b->len - i) * sizeof(TBPAIR_t));
     { TBPAIR_t *n = &b->ent[i]; n->key = (char *)0; n->key_descr = k; n->val = val; n->hkey = h; }
     b->len++; tbl->size++;

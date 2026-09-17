@@ -382,6 +382,7 @@ void rt_gc_visit_raw(const char **loc)
 static void gc_mark_agg(const void *p) { rt_hblk_t *h = gc_blk_of((const char *)p); if (h) gc_mark_blk(h, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_visit_tbblk(struct _TBBLK_t *t);
+static void gc_visit_tbbuckv(rt_hblk_t *h);
 static void gc_visit_vcell(VCELL_t *vc)
 {
     gc_mark_agg(vc);
@@ -400,6 +401,9 @@ static void gc_visit_tbblk(struct _TBBLK_t *t)
     gc_mark_agg(t);
     rt_gc_visit_descr(&t->dflt);
     if (t->ord) { rt_gc_visit_raw((const char **)&t->ord); for (unsigned i = 0; i < t->ord_len; i++) rt_gc_visit_descr(&t->ord[i]); }
+    if (t->reh_old) { rt_gc_visit_raw((const char **)&t->reh_old);
+        { rt_hblk_t *rh = gc_blk_of((const char *)t->reh_old);
+          if (rh && rh->type == HB_AGGBV && gc_hins((void *)t->reh_old)) gc_visit_tbbuckv(rh); } }
     if (!t->buckets) return;
     rt_gc_visit_raw((const char **)&t->buckets);
     for (unsigned b = 0; b < t->nbuck; b++) {
