@@ -68,7 +68,7 @@ int prolog_atom_intern(const char *name) {
         atom_names = rt_ws_realloc(atom_names, atom_cap * sizeof(char *));
         memset(atom_names + old_cap, 0, (atom_cap - old_cap) * sizeof(char *));
     }
-    char *copy = rt_heap_strdup_c(name);
+    char *copy = strdup(name);
     int   id   = atom_len++;
     atom_names[id] = copy;
     ht[h].key = copy;
@@ -92,8 +92,6 @@ void prolog_atom_init(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void pl_gc_roots(void) {
     extern void rt_gc_visit_raw(const char **loc);
-    if (ht) { rt_gc_visit_raw((const char **)&ht);
-        for (int i = 0; i < ht_size; i++) if (ht[i].key) rt_gc_visit_raw((const char **)&ht[i].key); }
-    if (atom_names) { rt_gc_visit_raw((const char **)&atom_names);
-        for (int i = 0; i < atom_len; i++) if (atom_names[i]) rt_gc_visit_raw((const char **)&atom_names[i]); }
+    if (ht) rt_gc_visit_raw((const char **)&ht);
+    if (atom_names) rt_gc_visit_raw((const char **)&atom_names);
 }
