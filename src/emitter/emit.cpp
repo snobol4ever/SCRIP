@@ -2688,6 +2688,13 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                     }
                     if (bad) { for (int u = rl0; u < rl; u++) { int ci = run[u]; claim[ci] = -1; rpos[ci] = -1; zarm[ci] = -1; aent[ci] = 0; } rl = rl0; }
                 } } } }
+        { static int _zcc = -1; if (_zcc < 0) { const char * e = getenv("SCRIP_ZD_CONSUMER_CUT"); _zcc = (e && *e == '0') ? 0 : 1; }
+          if (_zcc) { int cut = 1; while (cut && rl > 0) { cut = 0;
+              for (int r = 0; r < rl && !cut; r++) { int i = run[r]; IR_t * p = nodes[i];
+                  if (zd_k(p) != 16 || xop_frame_member(p)) continue;
+                  for (int k = 0; k < n && !cut; k++) { IR_t * c = nodes[k]; if (!c || c == p || strncmp(bb_op_name(c->op), "IR_MATCH_", 9) == 0) continue;
+                      for (int a = 0; a < c->n_operands; a++) if (c->operands[a] == p) { if (claim[k] != hi) { if (_dg) fprintf(stderr, "[ZD] run h=%d CUT at r=%d i=%d (%s): consumer i=%d (%s) is outside the run\n", hi, r, i, bb_op_name(p->op), k, bb_op_name(c->op));
+                          for (int u = r; u < rl; u++) { int ci = run[u]; claim[ci] = -1; rpos[ci] = -1; if (zarm) zarm[ci] = -1; aent[ci] = 0; } rl = r; cut = 1; } break; } } } } } }
         for (int k = 0; k < n; k++) cm[k] = 0;
         int nblob = 0;
         { int wn = 0;

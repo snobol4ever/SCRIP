@@ -426,6 +426,7 @@ test_gate_triangulate_parsers_read_only_the_first_grid.sh	WIRED	-	-	-
 test_gate_two_region.sh	WIRED	-	-	-
 test_gate_umbrella_done_whens_anchor_on_the_board_line.sh	WIRED	-	-	-
 test_gate_xfail_marker_and_index_agree.sh	WIRED	-	-	-
+test_gate_zd_a_run_keeps_no_producer_whose_consumer_is_outside_it.sh	WIRED	-	-	-
 test_gate_zd_omega_head_acceptance.sh	WIRED	-	-	-
 test_gate_baton_donewhen_runnable_live.sh	RULING	reads the LIVE postoffice: grades rows sixteen seats are editing right now, so it reds on a dirty fleet BY DESIGN (ceo ruling 2026-09-03, stated verbatim in the Makefile test-postoffice header)	ceo	2026-09-03
 test_gate_baton_next_blocks.sh	RULING	reads the LIVE postoffice: grades rows sixteen seats are editing right now, so it reds on a dirty fleet BY DESIGN (ceo ruling 2026-09-03, stated verbatim in the Makefile test-postoffice header)	ceo	2026-09-03
