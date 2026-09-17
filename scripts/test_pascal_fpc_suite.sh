@@ -25,6 +25,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIP="${HERE}/../scrip"
 RT_SO="${HERE}/../out/libscrip_rt.so"
 SUITE="$S4E/corpus/packages/pascal/fpc_tests"
+WANTRC="${WANTRC:-$SUITE/ALL.wantrc}"
 RUN_TIMEOUT="${FPC_SUITE_RUN_TIMEOUT:-10}"
 VERBOSE="${FPC_SUITE_VERBOSE:-0}"
 
@@ -74,28 +75,40 @@ for name in "${PAIRS[@]}"; do
     exp="$(cat "$ref")"
 
     m3ok=0
-    m3out=$(cd "$TMP" && timeout "$RUN_TIMEOUT" "$SCRIP" --run "$pas" < "$inp" 2>/dev/null)
-    if [ "$m3out" = "$exp" ]; then
+    # ⛔⭐⭐ THE OUTPUT ALONE IS NOT THE VERDICT -- rc IS GRADED BESIDE IT (hq_pascal 2026-09-16, INSTRUMENT
+    # CHANGE in the CEO-749 shape, the cure shape handed over by hq_icon). 106 of this suite's 181 refs are
+    # EMPTY, and this arm compared stdout only, so a program that DIED before printing anything answered the
+    # question "did stdout stay empty" CORRECTLY and scored PASS. MEASURED: 44 entries passed while exiting
+    # non-zero; fpc compiles all 44 and runs 37 of them to completion with rc=0. The pass was real and the
+    # proposition it proved was not the one this board's header claims.
+    # ⛔ THE EXPECTED rc IS CUT FROM THE ORACLE, NEVER FROM US: corpus/packages/pascal/fpc_tests/ALL.wantrc
+    # carries fpc's own exit status for every entry that is not 0, same filename and format as the Icon
+    # master's. An entry absent from that file expects 0. A line there is the oracle's answer, not a waiver.
+    m3out=$(cd "$TMP" && timeout "$RUN_TIMEOUT" "$SCRIP" --run "$pas" < "$inp" 2>/dev/null); m3rc=$?
+    wantrc=$(awk -F'\t' -v n="$name" '$1==n{print $2; exit}' "$WANTRC" 2>/dev/null); [ -n "$wantrc" ] || wantrc=0
+    if [ "$m3out" = "$exp" ] && [ "$m3rc" = "$wantrc" ]; then
         M3_PASS=$((M3_PASS+1)); m3ok=1
         printf 'package\tfpc\tpascal\t%s\tm3\tPASS\t0\t\n' "$name" >>"$PROG_ROWS"
         [ "$VERBOSE" -eq 1 ] && echo "  m3 PASS $name"
     else
         M3_FAIL=$((M3_FAIL+1)); M3_FAIL_NAMES+=("$name")
-        printf 'package\tfpc\tpascal\t%s\tm3\tFAIL\t0\toutput-differs-from-ref\n' "$name" >>"$PROG_ROWS"
+        if [ "$m3out" = "$exp" ]; then _d3="exit-code-differs(got=$m3rc want=$wantrc)"; else _d3="output-differs-from-ref"; fi
+        printf 'package\tfpc\tpascal\t%s\tm3\tFAIL\t0\t%s\n' "$name" "$_d3" >>"$PROG_ROWS"
         [ "$VERBOSE" -eq 1 ] && echo "  m3 FAIL $name"
     fi
 
     m4bin="$TMP/${name}.bin"; m4s="$TMP/${name}.s"
     if timeout "$RUN_TIMEOUT" "$SCRIP" --compile "$pas" -o "$m4s" < /dev/null 2>/dev/null \
         && gcc -no-pie "$m4s" -L "${HERE}/../out" -lscrip_rt -Wl,-rpath,"${HERE}/../out" -o "$m4bin" 2>/dev/null; then
-        m4out=$(cd "$TMP" && timeout "$RUN_TIMEOUT" "$m4bin" < "$inp" 2>/dev/null)
-        if [ "$m4out" = "$exp" ]; then
+        m4out=$(cd "$TMP" && timeout "$RUN_TIMEOUT" "$m4bin" < "$inp" 2>/dev/null); m4rc=$?
+        if [ "$m4out" = "$exp" ] && [ "$m4rc" = "$wantrc" ]; then
             M4_PASS=$((M4_PASS+1)); [ "$m3ok" -eq 1 ] && BOTH_PASS=$((BOTH_PASS+1))
             printf 'package\tfpc\tpascal\t%s\tm4\tPASS\t0\t\n' "$name" >>"$PROG_ROWS"
             [ "$VERBOSE" -eq 1 ] && echo "  m4 PASS $name"
         else
             M4_FAIL=$((M4_FAIL+1)); M4_FAIL_NAMES+=("$name")
-            printf 'package\tfpc\tpascal\t%s\tm4\tFAIL\t0\toutput-differs-from-ref\n' "$name" >>"$PROG_ROWS"
+            if [ "$m4out" = "$exp" ]; then _d4="exit-code-differs(got=$m4rc want=$wantrc)"; else _d4="output-differs-from-ref"; fi
+            printf 'package\tfpc\tpascal\t%s\tm4\tFAIL\t0\t%s\n' "$name" "$_d4" >>"$PROG_ROWS"
             [ "$VERBOSE" -eq 1 ] && echo "  m4 FAIL $name"
         fi
     else
