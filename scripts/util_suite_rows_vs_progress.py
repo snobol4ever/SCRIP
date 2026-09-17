@@ -114,6 +114,35 @@ def classify(mm, outside_named):
     return "FAIL"
 
 
+def tally(d, side, s_ungradable, s_ungraded):
+    """ONE tally of a suite's DB rows on one tree, shared by this audit and by util_score_row.py's write-time cross-check
+    (row instruments-a-suite-row-set-from-a-runners-printed-line-can-drift-from-the-append-behind-it): the PASS count by
+    program class, the population with the sidecars folded in, the xpass count, and the note-column facts.
+    ⛔ A CRITERION LABEL IN THE DB'S NOTE COLUMN IS THE CONTRACT (hq_prolog 2026-09-17): the INRIA runner records the
+    finest per-ENTRY verdict it retains -- outcome class only, noted `outcome-class` on every row -- while the row it
+    publishes is the suite's own criterion (outcome class AND bindings), which the bindings comparator keeps only as
+    counters.  The DB's PASS count is then an UPPER BOUND on the row's numerator, not its equal; comparing them as
+    equals convicts an honest row every tick.  A label is a lower-case hyphenated token that is not `xfail`; hashes
+    (the other note shape) never match.  Bounded when every graded row carries the label.  The note column is
+    SPACE-SEPARATED TOKENS (xfail, fp=…, rc=…, shard=k/N, a criterion label): read it token-wise."""
+    cnt = collections.Counter()
+    seen = set()
+    xpass = 0
+    for p, mm in d.items():
+        seen.add(stem(p))
+        k = classify(mm, stem(p) in side)
+        cnt[k] += 1
+        if k == "PASS" and all("xfail" in (n or "").split() for _o, n in mm.values()):
+            xpass += 1
+    labels = {tok for mm in d.values() for _o, n in mm.values() for tok in (n or "").split() if CRITERION_NOTE_RX.match(tok)}
+    bounded = bool(labels) and all(any(tok in labels for tok in (n or "").split()) for mm in d.values() for _o, n in mm.values())
+    shards = {tok for mm in d.values() for _o, n in mm.values() for tok in (n or "").split() if tok.startswith("shard=")}
+    cnt["OUTSIDE"] += len(side - seen)
+    cnt["UNGRADABLE"] += len(s_ungradable - seen)
+    cnt["UNGRADED"] += len(s_ungraded - seen)
+    return cnt, sum(cnt.values()), xpass, labels, bounded, shards
+
+
 def audit(suites, db, corpus, out=print):
     rows = read_rows(suites)
     if not rows:
@@ -148,29 +177,7 @@ def audit(suites, db, corpus, out=print):
             unproven.append(key)
             out(f"{tag} {'-':>10} {'-':>5}  {'-':10} {'-':19}  UNPROVEN: no progress rows for this suite on {tree} (CEO-750)")
             continue
-        cnt = collections.Counter()
-        seen = set()
-        xpass = 0
-        for p, mm in d.items():
-            seen.add(stem(p))
-            k = classify(mm, stem(p) in side)
-            cnt[k] += 1
-            if k == "PASS" and all("xfail" in (n or "").split() for _o, n in mm.values()):
-                xpass += 1
-        # ⛔ A CRITERION LABEL IN THE DB'S NOTE COLUMN IS THE CONTRACT (hq_prolog 2026-09-17): the INRIA runner records the
-        # finest per-ENTRY verdict it retains -- outcome class only, noted `outcome-class` on every row -- while the row it
-        # publishes is the suite's own criterion (outcome class AND bindings), which the bindings comparator keeps only as
-        # counters.  The DB's PASS count is then an UPPER BOUND on the row's numerator, not its equal; comparing them as
-        # equals convicts an honest row every tick.  A label is a lower-case hyphenated token that is not `xfail`; hashes
-        # (the other note shape) never match.  Compare like with like: bounded when every graded row carries the label.
-        # the note column is SPACE-SEPARATED TOKENS (xfail, fp=…, rc=…, shard=k/N, a criterion label): read it token-wise
-        labels = {tok for mm in d.values() for _o, n in mm.values() for tok in (n or "").split() if CRITERION_NOTE_RX.match(tok)}
-        bounded = labels and all(any(tok in labels for tok in (n or "").split()) for mm in d.values() for _o, n in mm.values())
-        shards = {tok for mm in d.values() for _o, n in mm.values() for tok in (n or "").split() if tok.startswith("shard=")}
-        cnt["OUTSIDE"] += len(side - seen)
-        cnt["UNGRADABLE"] += len(s_ungradable - seen)
-        cnt["UNGRADED"] += len(s_ungraded - seen)
-        pop = sum(cnt.values())
+        cnt, pop, xpass, labels, bounded, shards = tally(d, side, s_ungradable, s_ungraded)
         graded += 1
         p_row = int(P) if P.isdigit() else -1
         t_row = int(T) if T.isdigit() else -1

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export S4E_DB_CHECK_OVERRIDE="gate fixture: this gate plants no progress rows (util_score_row.py db_crosscheck, hq_raku 2026-09-16)"
 # test_gate_score_row_text_splices_are_assigned.sh -- STATIC GATE (hq_T, on coo's measurement 2026-09-08).
 # ⛔⭐ THE DEFECT: a runner splices ${VAR:+ ... } into the --text it hands util_score_row.py, and never assigns
 # VAR.  test_snobol4_gimpel_suite.sh did exactly that with INV_LINE -- it called inventory_line for its stdout and

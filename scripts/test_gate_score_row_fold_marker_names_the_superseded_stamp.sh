@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export S4E_DB_CHECK_OVERRIDE="gate fixture: this gate plants no progress rows (util_score_row.py db_crosscheck, hq_raku 2026-09-16)"
 # test_gate_score_row_fold_marker_names_the_superseded_stamp.sh -- A FOLDED TAIL NAMES ITS OWN DATE AND TREE, MACHINE-INSERTED
 # (coo 2026-09-16; hq_prolog's third observation the same day, row util-score-row-board-write-folds-the-replaced-cells-tail-forward-
 # as-provenance-without-a-machine-marker).

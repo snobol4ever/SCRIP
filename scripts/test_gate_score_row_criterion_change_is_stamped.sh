@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export S4E_DB_CHECK_OVERRIDE="gate fixture: this gate plants no progress rows (util_score_row.py db_crosscheck, hq_raku 2026-09-16)"
 # test_gate_score_row_criterion_change_is_stamped.sh -- A CRITERION CHANGE IS STAMPED BY THE WRITER, AND A DENOMINATOR MOVE
 # WITHOUT ITS STAMP REFUSES BEFORE ANY WRITE (coo 2026-09-16, ceo CEO-785; row instruments-util-score-row-cannot-stamp-a-
 # criterion-change-so-every-denominator-move-is-hand-edited-or-unstamped).

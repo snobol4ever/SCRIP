@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export S4E_DB_CHECK_OVERRIDE="gate fixture: this gate plants no progress rows (util_score_row.py db_crosscheck, hq_raku 2026-09-16)"
 # test_gate_score_row_stamps_the_tree_it_graded.sh -- GATE (hq_T 2026-09-08).
 # ⛔⭐ THE HAZARD, MEASURED THREE TIMES IN ONE SITTING AND TWICE WHILE DOING THE DISCIPLINED THING. A board takes
 # ten to forty minutes; its SCORE.md write happens at the END. A seat who commits and pushes mid-run moves HEAD

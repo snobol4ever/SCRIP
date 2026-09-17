@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export S4E_DB_CHECK_OVERRIDE="gate fixture: this gate plants no progress rows (util_score_row.py db_crosscheck, hq_raku 2026-09-16)"
 # test_gate_score_row_write_lands_display_and_grid_or_neither.sh -- ONE MEASUREMENT, TWO CELLS, ONE WRITE: a V/M write moves the
 # suite's fraction in the display cell AND in the grid cell it mirrors, the grid's own prose kept, and reads both back (coo 2026-09-16;
 # hq_pascal's two witnesses the same day, PAT 297 display / 296 grid V and 271 / 283 the other way; row util-score-row-write-can-leave-

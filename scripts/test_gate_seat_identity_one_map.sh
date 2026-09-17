@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export S4E_DB_CHECK_OVERRIDE="gate fixture: this gate plants no progress rows (util_score_row.py db_crosscheck, hq_raku 2026-09-16)"
 # test_gate_seat_identity_one_map.sh — seat identity is ONE map, and no runner may sign a board row with a
 # placeholder (row `vendor-runners-stamp-unknown-seat-into-the-leaderboard-when-s4e-seat-is-unset`, hq_T
 # 2026-09-04, GOAL routed by ceo CEO-175).

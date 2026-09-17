@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export S4E_DB_CHECK_OVERRIDE="gate fixture: this gate plants no progress rows (util_score_row.py db_crosscheck, hq_raku 2026-09-16)"
 # test_gate_score_row_rewrites_in_place.sh — the invariant gate for THE ONE LEADERBOARD's write path
 # (row `score-md-rows-are-rewritten-by-the-runner-that-measured-them`, hq_T 2026-09-03).
 #

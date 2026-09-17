@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export S4E_DB_CHECK_OVERRIDE="gate fixture: this gate plants no progress rows (util_score_row.py db_crosscheck, hq_raku 2026-09-16)"
 # test_gate_score_row_only_the_one_runner_writes.sh -- GATE (hq_B 2026-09-13, on hq_I's measurement; row
 # instruments-a-suite-runner-writes-a-score-md-row-for-every-seat-while-one-runner-allows-only-the-coo).
 # ⛔⭐ THE HAZARD, AND NOBODY MADE A MISTAKE MAKING IT. Two rules held at once: the FACT RULE says any suite run

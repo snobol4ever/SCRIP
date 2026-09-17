@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export S4E_DB_CHECK_OVERRIDE="gate fixture: this gate plants no progress rows (util_score_row.py db_crosscheck, hq_raku 2026-09-16)"
 # test_gate_icn_ipl_row_is_the_and_of_both_modes.sh -- the IPL SCORE row is the AND of both modes per program (ceo CEO-627).
 #
 # MEASURED 2026-09-12 on 146d027e7: test_icon_ipl_suite.sh published --suite-pass "$M3_RUN_PASS" alone, so a run that read

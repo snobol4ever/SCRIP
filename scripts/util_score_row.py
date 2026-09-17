@@ -1184,7 +1184,69 @@ def suite_sync_decide(a):
                 "        util_suite_banner.py reads --set by index and would DROP the stamp while this writer reports it recorded).\n"
                 "        Pull .github to origin (the flag landed at .github 49ca418e) and re-run.\n"
                 "        NOTHING WAS WRITTEN: SCORE.md and SUITES.tsv are both untouched." % SUITE_BANNER)
+    db_crosscheck(key, p, t)
     return key, p, t, None
+
+
+def db_crosscheck(key, p, t):
+    # ⛔ THE SETTER TAKES ITS NUMBER FROM THE APPEND, NOT FROM THE PRINT (hq_raku 2026-09-16, row instruments-a-suite-row-set-
+    # from-a-runners-printed-line-can-drift-from-the-append-behind-it-the-writer-reads-the-db-at-write-time): raku-master read
+    # 830/927 on db4a6b1fc while the progress DB on that tree read 829 -- the 830 was a printed line from a pass on
+    # 7b21dcb5b-dirty, stamped with the later tree; the printed fail list (capped at 40) read zero regressed, and only the
+    # DB, 1854 rows key for key, named benchmark_point_class_add m3 PASS -> CRASH.  A row set from a printed line can always
+    # drift from the data behind it, so this write reads the DB for the suite ON THE TREE IT STAMPS and refuses when the
+    # numerator is not the DB's count (bounded, not equal, where the rows carry a criterion label -- the batch audit's rule,
+    # SCRIP e00dd73b1); no rows on that tree is a refusal naming CEO-750, never a pass.  The denominator is WARNED, not
+    # refused: the SNOBOL4 package rows' UNGRADABLE/UNGRADED vocabulary is a ruled, open reconciliation and this writer
+    # does not close it by blocking the numerator.  S4E_DB_CHECK_OVERRIDE='why' is the one door, printed loudly, for a
+    # fixture that plants no rows; a runner never sets it.
+    ov = os.environ.get("S4E_DB_CHECK_OVERRIDE", "")
+    if ov:
+        print("  ⚠ progress DB cross-check OVERRIDDEN (S4E_DB_CHECK_OVERRIDE): %s" % ov)
+        return
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import util_suite_rows_vs_progress as _aud
+    import collections as _c
+    db = os.environ.get("S4E_PROGRESS_DB", "/home/resources/progress/results.tsv")
+    if not os.path.exists(db):
+        die("the progress DB %s does not exist, so this write's --suite-pass cannot be held against the append behind it.\n"
+            "        NOTHING WAS WRITTEN: SCORE.md and SUITES.tsv are both untouched." % db)
+    tree = suite_tree_stamp().replace("-DIRTY", "-dirty")
+    suite = _aud.DBNAME.get(key, key)
+    last = _aud.read_db(db, {(suite, tree): key})
+    if not last:
+        die("no progress rows for suite %r on tree %s in %s: a row without per-program evidence is DARK wearing a number\n"
+            "        (CEO-750: a runner may not write a SCORE row while its own progress append refused).  Append first, or\n"
+            "        if this is a fixture that plants no rows, S4E_DB_CHECK_OVERRIDE='why' (printed).\n"
+            "        NOTHING WAS WRITTEN: SCORE.md and SUITES.tsv are both untouched." % (suite, tree, db))
+    d = _c.defaultdict(dict)
+    for (_s, _t, prog, m), (o, note, _who, _ts) in last.items():
+        d[prog][m] = (o, note)
+    corpus = os.environ.get("S4E_CORPUS_ROOT") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "corpus")
+    side, s_ungradable, s_ungraded = _aud.sidecar_stems(corpus, key)
+    cnt, pop, _xpass, labels, bounded, shards = _aud.tally(d, side, s_ungradable, s_ungraded)
+    p, t = int(p), int(t)
+    if bounded:
+        if p > cnt["PASS"]:
+            die("--suite-pass %d for row %r EXCEEDS the progress DB's %s upper bound %d on %s (the DB's per-entry criterion is\n"
+                "        looser than the row's, so its count bounds the row from above and this write is above it).\n"
+                "        NOTHING WAS WRITTEN: SCORE.md and SUITES.tsv are both untouched." % (p, key, "/".join(sorted(labels)), cnt["PASS"], tree))
+        print("  progress DB: %s on %s reads %d PASS under criterion %s -- an upper bound on --suite-pass %d, held" % (suite, tree, cnt["PASS"], "/".join(sorted(labels)), p))
+    elif p != cnt["PASS"]:
+        die("--suite-pass %d for row %r is NOT what the progress DB reads on the tree this write stamps: %s on %s reads %d PASS\n"
+            "        (population %d: PASS %d FAIL %d OUTSIDE %d UNGRADABLE %d UNGRADED %d DEFERRED %d).  A number from a printed line\n"
+            "        stamped with another tree's hash is a transcribed figure (hq_raku 2026-09-16: 830 printed on 7b21dcb5b-dirty,\n"
+            "        829 in the DB on db4a6b1fc).  Take the number from the append: re-run the suite on this tree, or stamp the tree\n"
+            "        the print came from.\n"
+            "        NOTHING WAS WRITTEN: SCORE.md and SUITES.tsv are both untouched."
+            % (p, key, suite, tree, cnt["PASS"], pop, cnt["PASS"], cnt["FAIL"], cnt["OUTSIDE"], cnt["UNGRADABLE"], cnt["UNGRADED"], cnt["DEFERRED"]))
+    else:
+        print("  progress DB: %s on %s reads %d PASS -- agrees with --suite-pass %d" % (suite, tree, cnt["PASS"], p))
+    if t != pop:
+        print("  ⚠ suite row %r denominator %d vs the DB population %d on %s (PASS %d FAIL %d OUTSIDE %d UNGRADABLE %d UNGRADED %d DEFERRED %d) -- the batch audit will name it"
+              % (key, t, pop, tree, cnt["PASS"], cnt["FAIL"], cnt["OUTSIDE"], cnt["UNGRADABLE"], cnt["UNGRADED"], cnt["DEFERRED"]))
+    if shards:
+        print("  ⚠ the newest rows on %s are PARTIAL (%s) -- a shard, not a board" % (tree, ", ".join(sorted(shards))))
 
 
 def suite_sync(a, tree, dry_run, decided=None):
@@ -1949,6 +2011,9 @@ def cmd_selftest(a):
         SCORE_MD = os.path.join(d, "SCORE.md")
         shutil.copy(real, SCORE_MD)
         SUITES_TSV = os.path.join(d, "SUITES.tsv")
+        # every write arm below plants no progress rows: the DB cross-check (db_crosscheck) is overridden LOUDLY for them
+        # and proven by its own arms, which pop this and plant a scratch DB
+        os.environ["S4E_DB_CHECK_OVERRIDE"] = "selftest: the write arms plant no progress rows"
         if os.path.exists(real_tsv):
             shutil.copy(real_tsv, SUITES_TSV)
             # ⛔ SEED THE FIXTURE DENOMINATOR THROUGH THE STAMPED PATH (coo 2026-09-16, CEO-785): every arm below writes the
@@ -2539,6 +2604,8 @@ def cmd_selftest(a):
             for k, v in kw.items():
                 setattr(x, k, v)
             return x
+        # the existing write arms plant no progress rows: the DB cross-check is overridden LOUDLY for them and proven below
+        os.environ["S4E_DB_CHECK_OVERRIDE"] = "selftest: the suite-sync arms plant no progress rows"
         _before = _tsv_row("reb-master")
         cmd_write(_A(text="m3 7/48 · m4 7/48"))
         _after = _tsv_row("reb-master")
@@ -2560,6 +2627,33 @@ def cmd_selftest(a):
         if not _arm("a text with NO fraction REFUSES", lambda: cmd_write(_A(text="m3 PASS=7 FAIL=41")), True): ok = False
         if not _arm("--no-suite-sync is a labelled escape, not a refusal",
                     lambda: cmd_write(_A(text="m3 PASS=7 FAIL=41", no_suite_sync=True)), False): ok = False
+        # ⛔ THE SETTER TAKES ITS NUMBER FROM THE APPEND (hq_raku 2026-09-16): a scratch DB with 7 PASS + 41 FAIL rebus-master rows on
+        # THIS tree; --suite-pass 7 writes, 8 refuses naming both numbers, a labelled DB bounds (9 PASS outcome-class accepts 7), and a
+        # tree with no rows refuses under CEO-750.
+        os.environ.pop("S4E_DB_CHECK_OVERRIDE", None)
+        _dbp = os.path.join(d, "results.tsv"); _tr = suite_tree_stamp().replace("-DIRTY", "-dirty")
+        def _plant(npass, nfail, note=""):
+            with open(_dbp, "w", encoding="utf-8") as _fh:
+                _fh.write("ts_utc\tscrip\tcorpus\tmeasurer\tclass\tsuite\tlang\tprogram\tmode\toutcome\tsecs\tnote\n")
+                for _i in range(npass + nfail):
+                    for _m in ("m3", "m4"):
+                        _fh.write("2026-09-17T00:00:00\t%s\tc\tselftest\tmaster\trebus-master\trebus\tr%d\t%s\t%s\t0\t%s\n"
+                                  % (_tr, _i, _m, "PASS" if _i < npass else "FAIL", note))
+        os.environ["S4E_PROGRESS_DB"] = _dbp; _plant(9, 39)   # the row stands at 9/48 from the arm above and must still after these
+        if not _arm("DB CROSS-CHECK: --suite-pass 9 with 9 PASS rows on this tree in the progress DB writes",
+                    lambda: cmd_write(_A(text="m3 9/48 · m4 9/48", suite_pass=9, suite_total=48)), False): ok = False
+        if not _arm("DB CROSS-CHECK: --suite-pass 10 against 9 PASS rows on this tree REFUSES (a printed number is not the append)",
+                    lambda: cmd_write(_A(text="m3 10/48 · m4 10/48", suite_pass=10, suite_total=48)), True): ok = False
+        _plant(11, 37, "outcome-class")
+        if not _arm("DB CROSS-CHECK: a DB whose rows carry a criterion label BOUNDS the row (11 PASS outcome-class accepts --suite-pass 9)",
+                    lambda: cmd_write(_A(text="m3 9/48 · m4 9/48", suite_pass=9, suite_total=48)), False): ok = False
+        if not _arm("DB CROSS-CHECK: ...and refuses above the bound (--suite-pass 12 over 11)",
+                    lambda: cmd_write(_A(text="m3 12/48 · m4 12/48", suite_pass=12, suite_total=48)), True): ok = False
+        open(_dbp, "w", encoding="utf-8").write("ts_utc\tscrip\tcorpus\tmeasurer\tclass\tsuite\tlang\tprogram\tmode\toutcome\tsecs\tnote\n")
+        if not _arm("DB CROSS-CHECK: NO rows on this tree REFUSES (CEO-750: a row without per-program evidence is DARK)",
+                    lambda: cmd_write(_A(text="m3 9/48 · m4 9/48", suite_pass=9, suite_total=48)), True): ok = False
+        os.environ.pop("S4E_PROGRESS_DB", None)
+        os.environ["S4E_DB_CHECK_OVERRIDE"] = "selftest: the remaining arms plant no progress rows"
         if not _arm("an unresolvable --suite REFUSES and names the row",
                     lambda: cmd_write(_A(column="vendor", suite="no-such-suite-anywhere")), True): ok = False
         _snap = open(SCORE_MD, encoding="utf-8").read()

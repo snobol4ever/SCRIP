@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export S4E_DB_CHECK_OVERRIDE="gate fixture: this gate plants no progress rows (util_score_row.py db_crosscheck, hq_raku 2026-09-16)"
 # test_gate_score_cell_no_silent_prose_loss.sh -- the invariant gate for cell_prose_loss (row
 # score-md-runners-rewrite-a-cell-in-place-and-silently-discard-the-prose-they-never-modelled, hq_B mint
 # 2026-09-04T00:36:35Z off hq_B's 2026-09-03 ICN4 finding).

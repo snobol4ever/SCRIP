@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export S4E_DB_CHECK_OVERRIDE="gate fixture: this gate plants no progress rows (util_score_row.py db_crosscheck, hq_raku 2026-09-16)"
 # test_gate_score_row_write_names_the_lane_owner_from_mode.sh -- THE SCORE-ROW WRITE PATH READS MODE's LANES: LINE, NAMES THE
 # ADMITTED SEAT FOR THE BOARD'S LANGUAGE, AND REFUSES ANY OTHER SEAT BY NAME (coo 2026-09-16; ceo CEO-786; hq_snobol4's
 # finding; row instruments-every-board-write-prints-one-runner-not-determined-under-no-central-runner-read-the-lanes-line).
@@ -31,7 +32,7 @@ mkdir -p "$W/.github/scripts"; cp "$GH/SCORE.md" "$GH/SUITES.tsv" "$W/.github/";
 MODE="$W/MODE"; printf 'DECTET\n# fixture line 2 -- no THE ONE RUNNER here\nLANES: icon=hq_icon rebus=cfo\n' > "$MODE"
 # the two doors are UNSET here on purpose: the bus's computed `done` runs this gate with S4E_DONE_WHEN_RUN=1 in its environment,
 # and an inherited door would open the refusal arm (b) from outside the fixture (measured 2026-09-16: done rc=1 on this row)
-w(){ env -u S4E_DONE_WHEN_RUN -u S4E_ONE_RUNNER_OVERRIDE S4E_HOME="$W" S4E_MODE_FILE="$MODE" S4E_SEAT="$1" python3 "$HELPER" write --lang rebus --column board --modes m3,m4 --measurer "$1" --text 'master both-modes 43/43 · m3 43/43 FAIL=0 xfail=0 xpass=0 · m4 43/43 FAIL=0 SKIP=0 xfail=0 xpass=0 (gate fixture)' --suite-pass 43 --suite-total 43 "${@:2}" 2>&1; }
+w(){ export S4E_SEAT="$1"; env -u S4E_DONE_WHEN_RUN -u S4E_ONE_RUNNER_OVERRIDE S4E_HOME="$W" S4E_MODE_FILE="$MODE" python3 "$HELPER" write --lang rebus --column board --modes m3,m4 --measurer "${S4E_SEAT:-}" --text 'master both-modes 43/43 · m3 43/43 FAIL=0 xfail=0 xpass=0 · m4 43/43 FAIL=0 SKIP=0 xfail=0 xpass=0 (gate fixture)' --suite-pass 43 --suite-total 43 "${@:2}" 2>&1; }
 fails=0; checks=0; ck(){ checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; else printf '  FAIL  %s\n' "$2"; fails=$((fails+1)); fi; }
 echo "=== gate: the score-row write names the lane owner from MODE LANES: and refuses any other seat (CEO-786) ==="
 m0="$(md5sum < "$W/.github/SCORE.md")"; out="$(w cfo)"; rc=$?; m1="$(md5sum < "$W/.github/SCORE.md")"
@@ -40,7 +41,8 @@ OTHER=coo; [ -n "${FAIL_ONCE:-}" ] && OTHER=cfo
 m0="$(md5sum < "$W/.github/SCORE.md")"; out="$(w $OTHER)"; rc=$?; m1="$(md5sum < "$W/.github/SCORE.md")"
 # rc=0 by the standing ruling of test_gate_score_row_only_the_one_runner_writes.sh arm 1 (a bookkeeping refusal never reds a measured board): named, byte-unchanged, non-fatal
 [ "$rc" = 0 ] && [ "$m0" = "$m1" ] && grep -q 'seat coo is not cfo' <<<"$out" && grep -q 'lane owner' <<<"$out" && ck ok "(b) another seat (coo) writing a rebus row is REFUSED by name (both seats), SCORE.md byte-identical, non-fatal rc=0 per the standing ruling" || ck no "(b) rc=$rc identical=$([ "$m0" = "$m1" ] && echo yes || echo no) -- got: $(grep -E 'NOT UPDATED|lane owner|REFUSED' <<<"$out" | head -2 | cut -c1-200)"
-out="$(S4E_HOME="$W" S4E_MODE_FILE="$MODE" S4E_SEAT=coo S4E_ONE_RUNNER_OVERRIDE='gate fixture: the override door' env -u S4E_DONE_WHEN_RUN python3 "$HELPER" write --lang rebus --column board --modes m3,m4 --measurer coo --text 'master both-modes 43/43 · m3 43/43 FAIL=0 xfail=0 xpass=0 · m4 43/43 FAIL=0 SKIP=0 xfail=0 xpass=0 (gate fixture)' --suite-pass 43 --suite-total 43 2>&1)"; rc=$?
+export S4E_SEAT=coo
+out="$(S4E_HOME="$W" S4E_MODE_FILE="$MODE" S4E_ONE_RUNNER_OVERRIDE='gate fixture: the override door' env -u S4E_DONE_WHEN_RUN python3 "$HELPER" write --lang rebus --column board --modes m3,m4 --measurer "${S4E_SEAT:-}" --text 'master both-modes 43/43 · m3 43/43 FAIL=0 xfail=0 xpass=0 · m4 43/43 FAIL=0 SKIP=0 xfail=0 xpass=0 (gate fixture)' --suite-pass 43 --suite-total 43 2>&1)"; rc=$?
 [ "$rc" = 0 ] && grep -q 'ONE-RUNNER OVERRIDE by coo' <<<"$out" && ck ok "(c) S4E_ONE_RUNNER_OVERRIDE opens the door loudly for the other seat" || ck no "(c) rc=$rc -- got: $(grep -E 'OVERRIDE|NOT UPDATED' <<<"$out" | head -2 | cut -c1-160)"
 printf 'DECTET\n# fixture line 2 -- no THE ONE RUNNER, no LANES either\n' > "$MODE"
 out="$(w coo)"; rc=$?
