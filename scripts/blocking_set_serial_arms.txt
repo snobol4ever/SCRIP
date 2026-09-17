@@ -1,0 +1,28 @@
+# blocking_set_serial_arms.txt -- ARMS THAT RUN ALONE, DECLARED (coo 2026-09-17, ceo CEO-829).
+#
+# run_blocking_set.sh --shards N fans the declared set out over N children. An arm whose COMMAND contains any
+# pattern below is in NO shard: the parent runs it, one at a time, before the fan-out starts.
+#
+# ⛔ WHY DECLARED AND NOT SNIFFED. The ceo's hazard census the hour this row was minted found 280 of 336 arms
+# building a mktemp workdir -- and SAID that the census UNDER-DETECTS, which is the honest reading: a null
+# result bounds the probe, not the thing probed. The three classes below are the ones already KNOWN to break
+# under a naive fan-out, each from a measurement someone already paid for. Add a pattern here with its reason
+# when a fourth is found; the acceptance gate (name-set identity against a sequential run) is what catches one
+# nobody has named yet, and an arm that changes verdict with HOW it was run is THE FINDING, not a nuisance.
+#
+# 1. ARMS THAT WRITE INTO THE CHECKOUT ROOT rather than a mktemp dir. The port-trace gates cd into the root and
+#    CLAUDE.md records their tmp3/tmp4 litter there -- two of them at once write each other's files.
+port_trace
+icn_port_trace
+# 2. THE ONE-RUNNER BOARD ARMS. lib_one_runner.sh admits one board per tree; two shards entering it at once is
+#    two boards on one tree, which is the thing that rule exists to forbid (RULES.md ONE RUNNER, ONE BOARD).
+test_corpus_
+board_
+# 3. TIMING AND RATE ARMS. Their verdict is a duration or a collections-per-program rate read off a box whose
+#    load the fan-out itself changes -- the one class where running faster makes the reading wrong.
+preflight_arms_stay_cheap
+instr_budget
+bench_
+gc_pacing_bounds
+gc_aggregates_are_collectable
+gc_record_type_table_is_rooted
