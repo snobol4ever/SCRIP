@@ -444,7 +444,19 @@ static void gc_visit_tbblk(struct _TBBLK_t *t)
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_gc_visit_descr(DESCR_t *d)
+static DESCR_t **g_gc_wl = (DESCR_t **)0;
+static long g_gc_wln = 0, g_gc_wlcap = 0, g_gc_wlmax = 0;
+static int g_gc_wl_draining = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void gc_wl_push(DESCR_t *d)
+{
+    if (!d) return;
+    if (g_gc_wln == g_gc_wlcap) { g_gc_wlcap = g_gc_wlcap ? g_gc_wlcap * 2 : 4096; g_gc_wl = (DESCR_t **)realloc((void *)g_gc_wl, (size_t)g_gc_wlcap * sizeof(*g_gc_wl)); if (!g_gc_wl) { fprintf(stderr, "[ZGC] mark worklist alloc failed at %ld entries\n", g_gc_wlcap); abort(); } }
+    g_gc_wl[g_gc_wln++] = d;
+    if (g_gc_wln > g_gc_wlmax) g_gc_wlmax = g_gc_wln;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void gc_visit_one(DESCR_t *d)
 {
     if (!d) return;
     switch ((int)d->v) {
@@ -463,7 +475,7 @@ void rt_gc_visit_descr(DESCR_t *d)
         if (a->proto) rt_gc_visit_raw((const char **)&a->proto);
         if (!a->data) return;
         rt_gc_visit_raw((const char **)&a->data);
-        { long n = (long)(a->hi - a->lo + 1); if (a->ndim == 2) n *= (long)(a->hi2 - a->lo2 + 1); if (n < 0) n = 0; for (long i = 0; i < n; i++) rt_gc_visit_descr(&a->data[i]); }
+        { long n = (long)(a->hi - a->lo + 1); if (a->ndim == 2) n *= (long)(a->hi2 - a->lo2 + 1); if (n < 0) n = 0; for (long i = 0; i < n; i++) gc_wl_push(&a->data[i]); }
         return; }
     case DT_T: {
         TBBLK_t *t = d->tbl;
@@ -481,18 +493,28 @@ void rt_gc_visit_descr(DESCR_t *d)
         if ((u->type->nfields == 3 || u->type->nfields == 4) && u->type->fields && u->type->fields[0] && !strcmp(u->type->fields[0], "frame_elems")) {
             long n = (long)u->fields[1].i; DESCR_t *el = (u->fields[0].v == DT_DATA) ? (DESCR_t *)u->fields[0].ptr : NULL;
             if (el) rt_gc_visit_raw((const char **)&u->fields[0].ptr);
-            if (el && n > 0) for (long i = 0; i < n; i++) rt_gc_visit_descr(&el[i]);
-            rt_gc_visit_descr(&u->fields[2]);
+            if (el && n > 0) for (long i = 0; i < n; i++) gc_wl_push(&el[i]);
+            gc_wl_push(&u->fields[2]);
             return; }
-        for (int i = 0; i < u->type->nfields; i++) rt_gc_visit_descr(&u->fields[i]);
+        for (int i = 0; i < u->type->nfields; i++) gc_wl_push(&u->fields[i]);
         return; }
     case DT_N: {
         if (d->slen == 2) { VCELL_t *vc = (VCELL_t *)d->p; gc_slot_reg((void *)&d->p); if (!vc || !gc_hins((void *)vc)) return; gc_visit_vcell(vc); return; }
-        if (d->slen == 1) { DESCR_t *tc = (DESCR_t *)d->ptr; gc_slot_reg((void *)&d->ptr); if (tc) gc_mark_agg((const void *)tc); if (tc && gc_hins((void *)tc)) rt_gc_visit_descr(tc); return; }
+        if (d->slen == 1) { DESCR_t *tc = (DESCR_t *)d->ptr; gc_slot_reg((void *)&d->ptr); if (tc) gc_mark_agg((const void *)tc); if (tc && gc_hins((void *)tc)) gc_wl_push(tc); return; }
         { rt_hblk_t *h = gc_blk_of(d->s); if (h) { gc_mark_blk(h, 0); gc_slot_reg((void *)&d->s); } }
         return; }
     default: return;
     }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_gc_visit_descr(DESCR_t *d)
+{
+    if (!d) return;
+    if (g_gc_wl_draining) { gc_wl_push(d); return; }
+    g_gc_wl_draining = 1;
+    gc_wl_push(d);
+    while (g_gc_wln > 0) gc_visit_one(g_gc_wl[--g_gc_wln]);
+    g_gc_wl_draining = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long g_gc_rrng_ss = 0;
@@ -712,7 +734,7 @@ static long gc_collect_ex(int cons_stack)
     if (w_tel) fprintf(stderr, "[ZGC-WALK] arm=%s nblk=%ld | count=%ld/%.0fus index=%ld/%.0fus pmap-gran=%ld fwd=%ld/%.0fus live=%ld/%.0fus | mark=%.0fus fixup=%ld+%ld/%.0fus slide=%ld/%.0fus moved=%ldB verify=%ld/%.0fus | walk-floor=%ld titles %.0fus of %.0fus total\n",
         "FOLD", g_gc_nblk, w_cnt, n_cnt / 1e3, w_idx, n_idx / 1e3, w_pmg, w_fwd, n_fwd / 1e3, w_liv, n_liv / 1e3, n_mrk / 1e3, w_cel, w_raw, n_fix / 1e3, w_sld, n_sld / 1e3, w_mov, w_vfy, n_vfy / 1e3,
         w_cnt + w_idx + w_fwd + w_liv + w_vfy, (n_cnt + n_idx + n_fwd + n_liv + n_vfy) / 1e3, (gc_walk_ns() - n_all) / 1e3);
-    if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZGC] regeneration #%ld (%s): blocks %ld->%ld (fill %ld) bytes %ld->%ld reclaimed %ld win=%ld slots=%ld interior=%ld\n", g_gc_runs, pz ? "PZ" : "LG", g_gc_nblk, nlive, nfill, before_b, after_b, before_b - after_b, (long)(g_hp_wend - g_hp_win), g_gc_nslot, g_gc_interior);
+    if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZGC] regeneration #%ld (%s): blocks %ld->%ld (fill %ld) bytes %ld->%ld reclaimed %ld win=%ld slots=%ld interior=%ld wl_depth_max=%ld\n", g_gc_runs, pz ? "PZ" : "LG", g_gc_nblk, nlive, nfill, before_b, after_b, before_b - after_b, (long)(g_hp_wend - g_hp_win), g_gc_nslot, g_gc_interior, g_gc_wlmax);
     g_hp_gcline = g_hp_top + gc_line_span((long)((g_hp_end - g_hp_top) >> 1));
     g_hp_fr.line = gc_line_paced() ? g_hp_gcline : g_hp_end;
     g_gc_idx = (rt_hblk_t **)0;
