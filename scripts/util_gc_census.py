@@ -4,7 +4,7 @@ row gc-instruments-the-safe-point-census-the-maps-census-and-scrip-gc-coverage-w
 design .github/ARCH-GC-COMPILE-TIME-FRAME-MAPS.md, law RULES.md FACT RULE THE COLLECTOR GUESSES NOTHING).
 
 Five censuses, each a mechanical count printed with its population, each RED until the design lands and each proven
-to trip on a planted violation by --selftest (32 arms, the ratchet included):
+to trip on a planted violation by --selftest (33 arms, the ratchet included):
 
   conservative   src/runtime/rt/gc_heap.c: call sites of the word walker gc_zeta_frame(, uses of cons_stack, of
                  rt_cas_live_span and of hb_scan_interior (Rule 2, Rule 2b).  Want 0 each.
@@ -494,6 +494,19 @@ def read_gcmaps(text):
     return d
 
 
+# THE BLOB-FRAME CLASS MUST BE IN THE WITNESS SET OR THE CENSUS REFUSES (cto 2026-09-17, after their PAT$0 cure was
+# built, measured against the SNOBOL4 master, cost one entry and was withdrawn under CEO-589).  A stored-pattern
+# activation frame presents NO map cell -- ARCH-GC 6.2b states the walk rule for it -- so a table census run over
+# witnesses that contain no pattern reads 0 divergences BY NEVER LOOKING, the same shape as words_scanned=0 on a run
+# that never collected.  A zero has to be a zero somebody could have failed.
+PATTERN_GRAPH_RX = re.compile(r"^PAT\$")
+
+
+def blob_class_visible(graph_names):
+    """True when the witness set laid out at least one stored-pattern graph, so a 0 here is a measured 0"""
+    return any(PATTERN_GRAPH_RX.match(g) for g in graph_names)
+
+
 def census_maps_table(root, scrip, witnesses, out=print):
     """HALF B -- section 6.4's table, from THREE independent producers per witness: the frame allocator (--dump-zeta),
     the emitter (SCRIP_GC_MAPS_REPORT=1, both media) and the assembler text (.Lgcmap_* labels, their leas, the counted
@@ -509,7 +522,7 @@ def census_maps_table(root, scrip, witnesses, out=print):
     if not (scrip and os.path.exists(scrip)):
         out(f"CENSUS maps/table REFUSED(2): no scrip binary at {scrip}"); return 2
     env = dict(os.environ); env["SCRIP_GC_MAPS_REPORT"] = "1"
-    red = 0; total_graphs = 0
+    red = 0; total_graphs = 0; all_laid = set()
     for w in witnesses:
         tag = os.path.basename(w)
         if not os.path.exists(w):
@@ -558,7 +571,7 @@ def census_maps_table(root, scrip, witnesses, out=print):
         for lab in sorted(labels - {".Lgcmap_" + g for g in m4}):
             bad.append(f"{lab} is emitted but no graph reports a cell for it")
         if n_declared != len(entries): bad.append(f"__gc_frame_maps declares n={n_declared} over {len(entries)} entries")
-        total_graphs += len(laid)
+        total_graphs += len(laid); all_laid |= laid
         out(f"CENSUS maps/table {tag}: graphs_laid_out={len(laid)} map_cells_m3={len(m3)} map_cells_m4={len(m4)} "
             f"asm_maps={len(labels)} table_n={n_declared} entries={len(entries)} divergences={len(bad)} want 0"
             + ("  [NAMED ALIAS: mode 3 calls the entry graph '%s' where mode 4 and --dump-zeta call it '%s'; same fields, compared as one]" % ENTRY_ALIAS if alias else ""))
@@ -567,7 +580,19 @@ def census_maps_table(root, scrip, witnesses, out=print):
         if len(bad) > 12:
             out(f"  ... {len(bad) - 12} more")
         red += len(bad)
+    if not blob_class_visible(all_laid):
+        out(f"CENSUS maps/table REFUSED(2): {len(witnesses)} witness(es), {total_graphs} graph(s), and NOT ONE stored-pattern "
+            "(PAT$...) graph among them -- the blob-frame class (a frame that presents no map cell; ARCH-GC 6.2b holds the "
+            "walk rule, the cto's arm 6 holds the count at 4) CANNOT BE SEEN by this witness set, so the divergence count "
+            "would be a zero by never looking. Add a pattern-bearing witness.")
+        return 2
+    blobs = sorted(g for g in all_laid if PATTERN_GRAPH_RX.match(g))
     COUNTS.setdefault("maps", {})["table_divergences"] = red
+    # The population goes on its OWN line and the verdict line keeps its shape: the wired gate anchors on the verdict
+    # word ending that line, and an instrument that appends to a line another instrument reads by identity breaks it.
+    out(f"CENSUS maps/table blob-frame class VISIBLE in this witness set: {len(blobs)} stored-pattern graph(s) -- "
+        + ", ".join(blobs[:4]) + (f" ... +{len(blobs) - 4} more" if len(blobs) > 4 else "")
+        + " (ARCH-GC 6.2b; a frame that presents no map cell, so a 0 here is a measured 0)")
     out(f"CENSUS maps/table {len(witnesses)} witness(es), {total_graphs} graph(s) laid out, {red} divergence(s) {'GREEN' if red == 0 else 'RED'}")
     return 0 if red == 0 else 1
 
@@ -664,7 +689,7 @@ def worst(rcs):
 # number nobody re-derives, and this one read 29 while 27 arms ran.  This floor catches the other direction: an
 # arm deleted or skipped makes the selftest REFUSE rc=2 instead of passing with less proof.  A landing that adds
 # arms raises it in the same sitting.
-ARMS_FLOOR = 32
+ARMS_FLOOR = 33
 
 
 def selftest():
@@ -723,6 +748,8 @@ def selftest():
     ck(rc == 1 and "allocating_call_sites=2 polled=0 unpolled=2 unresolved=0" in "\n".join(buf)
        and any("UNPOLLED" in l and "rt_epilogue_\u03b3" in l for l in buf),
        "safe-points: a call target spelled with a Greek port letter is a LITERAL, counted and named -- never UNRESOLVED (32 of 39 were this, 2026-09-17)")
+    ck(blob_class_visible({"main", "fn", "PAT$0"}) and not blob_class_visible({"main", "fn", "pattern_helper"}),
+       "maps/table: the blob-frame class is VISIBLE only when a stored-pattern graph is in the witness set -- otherwise the census refuses rather than printing a zero by never looking (cto, ARCH-GC 6.2b)")
     tpl_rs = os.path.join(w, "resolved.cpp")
     open(tpl_rs, "w").write(
         'static const char *tbl[3] = { "rt_concat", "rt_pure_cmp", "rt_nope" };\n'
