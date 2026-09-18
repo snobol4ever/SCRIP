@@ -11,7 +11,8 @@
 # collector."  The rule names three destinations -- the collected heap WITH A ROOT for anything the running
 # program can reach, the compile-time arena for what only the compiler touches, mmap for the collector's own
 # bookkeeping -- and THE ARENA MAY NOT HOLD ANYTHING THE RUNTIME CAN REACH.  An arena allocation under
-# src/runtime is the same evasion as malloc or a pin, one name further out, and arm (c) reds on it.
+# src/runtime is the same evasion as malloc or a pin, one name further out -- ⛔ BUT ONLY WHEN THE SITE CAME OFF
+# THE COLLECTED HEAP, which is the split CEO-846 ordered and which arm (c) now makes.
 #
 # ⛔ THE RULE IS AUTHORITATIVE WHILE THE CURE DOES NOT EXIST (RULES.md line 29), exactly as it is for xfail, so
 # THIS GATE IS RED TODAY BY DESIGN -- 1182 sites at the order.  What it enforces meanwhile is the RATCHET: the
@@ -22,7 +23,12 @@
 # ARMS: (a) the census's own selftest -- planted violations trip, a clean fixture passes, a vacuous zero refuses
 #       (b) the census runs on this tree and prints its population (a REFUSAL here is rc=2, never green)
 #       (c) ARENA-IN-RUNTIME is 0 -- the anti-evasion clause, the population a four-name grep cannot see
+#       (c) THE ARENA CLASS SPLIT (CEO-846): class 1, a site that was on the COLLECTED HEAP and is now in the
+#           arena, is the evasion and a HARD red; class 2, a site that was a libc malloc and is now in the
+#           arena, is transitional DEBT with the lifetime it already had and is ratcheted to zero instead.
+#           Without scripts/c_allocator_sites_baseline.tsv the split is not computable and this REFUSES rc=2.
 #       (d) the ratchet holds against scripts/c_allocator_baseline.tsv
+#       (f) MARK THE CONTAINER, NOT ONLY WHAT IT POINTS AT (CFO-96/97) is graded and printed, with its limit
 #       (e) the census still ANSWERS both halves of CEO-844: it resolves alias CHAINS and counts the calls made
 #           through them, and it reports licence prose APART from the count.  An instrument that goes quiet on
 #           either clause reads green while the thing it was built to see walks past it -- the alias chain
@@ -38,6 +44,7 @@ refuse() { echo "⛔ REFUSED-TO-GRADE rc=2: $1"; exit 2; }
 command -v python3 >/dev/null 2>&1 || refuse "python3 not on PATH"
 [ -f "$CEN" ] || refuse "no census at $CEN"
 [ -f "$BASE" ] || refuse "no ratchet baseline at $BASE -- the counts have nothing to be held against"
+[ -f "$HERE/c_allocator_sites_baseline.tsv" ] || refuse "no per-file provenance baseline at $HERE/c_allocator_sites_baseline.tsv -- without what each site WAS, an evasion (collected heap -> arena) and transitional debt (malloc -> arena) are indistinguishable, and this gate does not guess"
 fails=0; checks=0
 ck() { checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; else printf '  FAIL  %s\n' "$2"; fails=$((fails+1)); fi; }
 echo "=== gate: the four C allocators leave the tree, and every converted site says where it went ==="
@@ -45,7 +52,7 @@ echo "=== gate: the four C allocators leave the tree, and every converted site s
 st="$(timeout 300s python3 "$CEN" --selftest 2>&1)"; strc=$?
 [ "${FAIL_ONCE:-0}" = 1 ] && st="(blanked by FAIL_ONCE)"
 arms="$(printf '%s\n' "$st" | sed -n 's/^population: \([0-9]*\) selftest arm(s).*/\1/p')"
-if [ "$strc" = 0 ] && [ "${arms:-0}" -ge 17 ] 2>/dev/null && printf '%s\n' "$st" | grep -q '^SELFTEST PASS'; then
+if [ "$strc" = 0 ] && [ "${arms:-0}" -ge 24 ] 2>/dev/null && printf '%s\n' "$st" | grep -q '^SELFTEST PASS'; then
   ck ok "(a) the census trips on planted violations and refuses a vacuous zero -- $arms selftest arms, 0 FAIL"
 else
   ck no "(a) the census selftest did not pass (rc=$strc, arms=${arms:-none}): $(printf '%s\n' "$st" | grep -m2 '  FAIL  ' | tr '\n' ';')"
@@ -61,12 +68,40 @@ printf '%s\n' "$out" | grep -m1 '^CENSUS c-allocators SPLIT' | sed 's/^/    /'
 printf '%s\n' "$out" | grep -m1 '^CENSUS c-allocators ALIASES' | sed 's/^/    /'
 printf '%s\n' "$out" | grep -m1 '^CENSUS c-allocators DESTINATIONS' | sed 's/^/    /'
 printf '%s\n' "$out" | grep -m1 '^CENSUS c-allocators PROSE-RESIDUE' | sed 's/^/    /'
+printf '%s\n' "$out" | grep -m1 '^CENSUS c-allocators ARENA-SPLIT' | sed 's/^/    /'
+printf '%s\n' "$out" | grep -m1 '^CENSUS c-allocators CONTAINER-UNMARKED' | sed 's/^/    /'
 
+# ⛔⭐ (c) THE CLASS SPLIT (CEO-846).  The clause was written as one rule over two different acts and only one
+# of them is the evasion, so the TOTAL is not the verdict: what a site WAS decides.  Class 1 -- collected heap
+# -> arena -- is the cfo's f62a33aed shape under a new name and is a HARD RED here, named, never ratcheted.
+# Class 2 -- libc malloc -> arena -- has the lifetime it already had, removes a forbidden call, and is DEBT
+# that arm (d)'s ratchet drives to zero.  ⛔ If the provenance baseline is missing the split is NOT COMPUTABLE
+# and this REFUSES rc=2: guessing would either red an honest sweep or admit the exact thing the clause stops.
+if printf '%s\n' "$out" | grep -q '^CENSUS c-allocators ARENA-SPLIT REFUSED(2)'; then
+  echo "⛔ REFUSED-TO-GRADE rc=2: the per-file provenance baseline is missing, so the arena class split cannot be computed -- $(printf '%s\n' "$out" | grep -m1 'ARENA-SPLIT REFUSED')"
+  exit 2
+fi
+ev="$(printf '%s\n' "$out" | sed -n 's/^CENSUS c-allocators ARENA-SPLIT CLASS-1-EVASION=\([0-9]*\) .*/\1/p' | head -1)"
+dbt="$(printf '%s\n' "$out" | sed -n 's/^CENSUS c-allocators ARENA-SPLIT .*CLASS-2-DEBT=\([0-9]*\) .*/\1/p' | head -1)"
 av="$(printf '%s\n' "$out" | sed -n 's/^CENSUS c-allocators ARENA-IN-RUNTIME=\([0-9]*\) .*/\1/p' | head -1)"
-if [ "${av:-x}" = 0 ]; then
-  ck ok "(c) ARENA-IN-RUNTIME=0 -- nothing the running program can reach is parked in the compile-time arena"
+if [ -z "$ev" ]; then
+  ck no "(c) the arena class split did not print -- the instrument cannot tell an evasion from transitional debt, which is the whole question CEO-846 asked it"
+elif [ "$ev" = 0 ]; then
+  ck ok "(c) CLASS-1-EVASION=0 -- nothing that was on the collected heap has been moved into the arena (ARENA-IN-RUNTIME=${av:-?} of which CLASS-2-DEBT=${dbt:-?} is transitional, ratcheted by arm (d))"
 else
-  ck no "(c) ARENA-IN-RUNTIME=${av:-unreadable} -- the arena is holding runtime-reachable memory, which is the evasion one name further out: $(printf '%s\n' "$out" | grep -m3 'ARENA-IN-RUNTIME ' | tr '\n' ';' | cut -c1-200)"
+  ck no "(c) CLASS-1-EVASION=$ev -- a site that was ON THE COLLECTED HEAP is now in the compile-time arena. THE CURE FOR AN UNROOTED HOLDER IS A ROOT, NEVER A DIFFERENT ALLOCATOR: $(printf '%s\n' "$out" | grep -m3 'CLASS-1-EVASION ' | tr '\n' ';' | cut -c1-300)"
+fi
+
+# ⛔ (f) MARK THE CONTAINER, NOT ONLY WHAT IT POINTS AT (CEO-846, the cfo's CFO-96/97).  A root walk that
+# visits a container's contents and never the container reads as ROOTED to every census ever written -- this
+# gate's own destination column included, which only asks where an allocation went.  Ratcheted by arm (d);
+# graded here so the reading is printed rather than buried, WITH the limit stated: it is a syntactic read of
+# the *_gc_roots functions and a LIVE=0 from it is not a proof.
+cu="$(printf '%s\n' "$out" | sed -n 's/^CENSUS c-allocators CONTAINER-UNMARKED LIVE=\([0-9]*\) .*/\1/p' | head -1)"
+if [ -z "$cu" ]; then
+  ck no "(f) the container census did not print -- an instrument that goes quiet on this property certifies the shape as cured across the whole tree"
+else
+  ck ok "(f) the container property is GRADED and its reading printed: $(printf '%s\n' "$out" | grep -m1 '^CENSUS c-allocators CONTAINER-UNMARKED' | cut -c1-120) (a syntactic read of *_gc_roots; LIVE=0 would not be a proof, and the gate says so rather than certifying)"
 fi
 
 # ⛔ (e) THE TWO CLAUSES OF CEO-844 ARE THEMSELVES A POPULATION, because the failure mode of this instrument is

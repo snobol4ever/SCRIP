@@ -197,7 +197,7 @@ def scan(files, root):
                         if is_declaration(line, m.start()):
                             continue
                         alias_calls.append((rel, i, nm, aliases_lookup(aliases, nm)))
-    return forb, dest, aliases, alias_calls, prose, bare
+    return forb, dest, aliases, alias_calls, prose, bare, texts
 
 
 def aliases_lookup(aliases, nm):
@@ -217,13 +217,153 @@ def is_collector_bookkeeping(rel):
     return os.path.basename(rel) in ("gc_heap.c", "gc_heap.h")
 
 
+SITES_BASELINE = os.path.join(HERE, "c_allocator_sites_baseline.tsv")
+
+_GLOBAL_DECL = re.compile(r"^(?:static\s+|extern\s+)?(?:const\s+)?[A-Za-z_][A-Za-z0-9_]*\s+(\**)\s*"
+                          r"([A-Za-z_][A-Za-z0-9_]*)\s*(\[|=|;)", re.M)
+_ROOTS_FN = re.compile(r"^(?:static\s+)?void\s+([A-Za-z_][A-Za-z0-9_]*_gc_roots)\s*\([^)]*\)\s*\{", re.M)
+_INDEXED = re.compile(r"(?<![A-Za-z0-9_])([A-Za-z_][A-Za-z0-9_]*)\s*(?:\[|->)")
+_ADDR_OF = re.compile(r"&\s*([A-Za-z_][A-Za-z0-9_]*)\s*(?![\w\[])")
+
+
+def container_census(texts, out=print):
+    """⛔⭐ MARK THE CONTAINER, NOT ONLY WHAT IT POINTS AT (CEO-846; the cfo's CFO-96/97 find).
+
+    A root walk that visits a container's CONTENTS but never marks the CONTAINER READS AS ROOTED TO EVERY
+    CENSUS EVER WRITTEN -- including this one's destination column, which only asks where an allocation went.
+    g_name_save was reclaimed under a live call while its walk existed and was being called.  So this asks a
+    different question of each `*_gc_roots` function: which globals does it index or dereference, and does it
+    ever pass the ADDRESS OF THE CONTAINER ITSELF to a visitor?
+
+    ⛔ THE DECLARATION DECIDES WHETHER A MISS IS LIVE OR LATENT, and getting this backwards is how the arm
+    becomes noise: `static NV_t *_var_buckets[VAR_BUCKETS]` is an ARRAY of pointers in static storage -- there
+    is no container block to mark, and marking each slot with `&_var_buckets[b]` is correct and sufficient.
+    `static DESCR_t *g_pas_heap` is a POINTER AT A BLOCK: visiting `&g_pas_heap[n]` marks the contents and
+    leaves the block itself unmarked, which is the g_name_save shape exactly.  A fixed array is reported as
+    LATENT rather than clean, because it becomes the live defect the moment its storage moves to the collected
+    heap -- which is what this whole sweep is doing.
+
+    ⛔ AND THE HONEST HALF: this is a SYNTACTIC read of the root walks, not a proof.  It cannot see a container
+    marked through a helper function, an alias, or a walk not named `*_gc_roots`, and it says so rather than
+    certifying the tree.
+    """
+    gdecl = {}
+    for rel, src in texts.items():
+        for m in _GLOBAL_DECL.finditer(src):
+            star, sym, tail = m.group(1), m.group(2), m.group(3)
+            kind = "array" if tail == "[" else ("pointer" if star else "scalar")
+            gdecl.setdefault(sym, set()).add(kind)
+    live, latent, walks = [], [], 0
+    for rel, src in sorted(texts.items()):
+        for fm in _ROOTS_FN.finditer(src):
+            walks += 1
+            name = fm.group(1)
+            i, depth = fm.end(), 1
+            while i < len(src) and depth:
+                depth += 1 if src[i] == "{" else (-1 if src[i] == "}" else 0)
+                i += 1
+            body = src[fm.end():i]
+            indexed = {x for x in _INDEXED.findall(body) if x in gdecl}
+            marked = set(_ADDR_OF.findall(body))
+            for sym in sorted(indexed - marked):
+                kinds = gdecl[sym]
+                row = (rel, name, sym, "/".join(sorted(kinds)))
+                (live if ("pointer" in kinds and "array" not in kinds) else latent).append(row)
+    out(f"CENSUS c-allocators CONTAINER-UNMARKED LIVE={len(live)} want=0 LATENT={len(latent)} over {walks} root "
+        f"walk(s) -- MARK THE CONTAINER, NOT ONLY WHAT IT POINTS AT (CEO-846, CFO-96/97). A walk that visits a "
+        f"container's contents and never the container reads as ROOTED to every census ever written, this one's "
+        f"destination column included: g_name_save was reclaimed under a live call while its walk existed and "
+        f"was called")
+    for rel, fn, sym, kind in live:
+        out(f"  ⛔ CONTAINER-UNMARKED-LIVE {rel} {fn}() indexes {sym} ({kind} at a heap block) and never marks the "
+            f"block -- visiting {sym}[i] marks the CONTENTS and leaves the container collectable")
+    for rel, fn, sym, kind in latent[:10]:
+        out(f"  CONTAINER-UNMARKED-LATENT {rel} {fn}() indexes {sym} ({kind}) -- static storage today, so there "
+            f"is no block to mark and marking each slot is sufficient; it becomes the live defect the moment "
+            f"that storage moves to the collected heap")
+    out(f"  ⛔ LIMIT, STATED RATHER THAN CERTIFIED: this is a SYNTACTIC read of functions named *_gc_roots. It "
+        f"cannot see a container marked through a helper, through an alias, or by a walk under another name, "
+        f"and a LIVE=0 from it is not a proof that every container in the tree is marked.")
+    return live, latent
+
+
+def per_file(forb, dest):
+    """{relpath: {forbidden, rooted_heap, arena, mmap}} -- the shape the provenance split is keyed on."""
+    agg = {}
+    def cell(rel):
+        return agg.setdefault(rel, {"forbidden": 0, "rooted_heap": 0, "arena": 0, "mmap": 0})
+    for rel, _l, _n in forb:
+        cell(rel)["forbidden"] += 1
+    for rel, _l, _n, d in dest:
+        cell(rel)[{"ROOTED-HEAP": "rooted_heap", "ARENA": "arena", "MMAP": "mmap"}[d]] += 1
+    return agg
+
+
+def read_sites_baseline(path):
+    if not os.path.exists(path):
+        return None
+    base = {}
+    for line in open(path, encoding="utf-8"):
+        if line.startswith("#") or not line.strip():
+            continue
+        f = line.rstrip("\n").split("\t")
+        if len(f) >= 5:
+            base[f[0]] = {"forbidden": int(f[1]), "rooted_heap": int(f[2]), "arena": int(f[3]), "mmap": int(f[4])}
+    return base
+
+
+def provenance(now, base):
+    """⛔⭐ THE SPLIT CEO-846 ORDERED, AND IT TURNS ENTIRELY ON WHAT A SITE WAS BEFORE.
+
+    The clause `the arena may not hold anything the runtime can reach` was written as one rule over two
+    different acts, and only one of them is the evasion:
+
+      CLASS 1 -- a site that was on the COLLECTED HEAP and is now in the ARENA.  That is moving an object out
+        of the collector's sight to avoid rooting it: the cfo's f62a33aed shape under a new name.  HARD RED,
+        named, never ratcheted, never transitional.
+      CLASS 2 -- a site that was a libc `malloc` and is now in the ARENA.  Not a cure and not an evasion: the
+        lifetime is identical to the malloc it replaced (never moves, never freed), so it is exactly as safe
+        as what it replaced AND it removes a forbidden call.  DEBT.  Counted, ratcheted to zero as each
+        holder is rooted, may only FALL.
+
+    ⛔ THE RESOLUTION OF THIS INSTRUMENT IS THE FILE, NOT THE SITE, and saying so is the honest half: line
+    numbers do not survive a sweep that rewrites 79 files, so the discriminator is a CONSERVATION ARGUMENT per
+    file.  If a file's rooted-heap count FELL while its arena count ROSE, that many sites moved off the
+    collected heap into the arena and it is class 1 -- whatever the intervening edits were.  The rest of the
+    arena growth is attributed to the forbidden calls the same file lost, which is class 2.  A file that both
+    roots a new holder and arenas an old malloc in one landing is reported at its NET, and a class-1 site
+    hidden under a same-file class-2 credit is the one shape this cannot see; it is named in the output so
+    nobody reads the number as site-exact.
+    """
+    ev, debt, unknown = [], [], []
+    for rel, cur in sorted(now.items()):
+        if not runtime_reachable(rel) or cur["arena"] == 0:
+            continue
+        was = base.get(rel)
+        if was is None:
+            unknown.append((rel, cur["arena"]))
+            continue
+        d_arena = cur["arena"] - was["arena"]
+        d_rooted = was["rooted_heap"] - cur["rooted_heap"]
+        d_forb = was["forbidden"] - cur["forbidden"]
+        if d_arena <= 0:
+            continue
+        n_ev = min(d_rooted, d_arena) if d_rooted > 0 else 0
+        if n_ev > 0:
+            ev.append((rel, n_ev, was["rooted_heap"], cur["rooted_heap"], was["arena"], cur["arena"]))
+        n_debt = d_arena - n_ev
+        if n_debt > 0:
+            debt.append((rel, n_debt, d_forb))
+    return ev, debt, unknown
+
+
 def census(root, by_dir=False, sites=False, out=print):
     files = source_files(root)
     if not files:
         out(f"CENSUS c-allocators REFUSED(2): no source files under {os.path.join(root, 'src')} -- a zero from a "
             f"tool that read nothing is not a zero")
         return 2
-    forb, dest, aliases, alias_calls, prose, bare = scan(files, root)
+    forb, dest, aliases, alias_calls, prose, bare, texts_for_container = scan(files, root)
     out(f"CENSUS c-allocators SCOPE files={len(files)} under src/ (every {'/'.join(SRC_EXT)} file, generated flex "
         f"and bison output INCLUDED -- a generated file that is checked in is source, CEO-842)")
 
@@ -266,10 +406,54 @@ def census(root, by_dir=False, sites=False, out=print):
     # ⛔ THE ANTI-EVASION POPULATION
     viol = [(r, l, s) for (r, l, s, d) in dest if d == "ARENA" and runtime_reachable(r)]
     mmap_out = [(r, l, s) for (r, l, s, d) in dest if d == "MMAP" and not is_collector_bookkeeping(r)]
-    out(f"CENSUS c-allocators ARENA-IN-RUNTIME={len(viol)} want=0 -- THE ARENA MAY NOT HOLD ANYTHING THE RUNTIME "
-        f"CAN REACH (CEO-842): the same evasion as malloc or a pin, one name further out")
+    out(f"CENSUS c-allocators ARENA-IN-RUNTIME={len(viol)} -- the arena holding runtime-reachable memory. ⛔ THIS "
+        f"TOTAL IS NOT A VERDICT ON ITS OWN (CEO-846): it is split below by WHAT EACH SITE WAS BEFORE, because "
+        f"the clause was one rule over two different acts and only one of them is the evasion")
     for rel, ln, sym in viol[:15]:
         out(f"  ARENA-IN-RUNTIME {rel}:{ln} {sym}")
+
+    # ⛔⭐ THE CLASS SPLIT (CEO-846).  Class 1 is the evasion and is a hard red; class 2 is transitional debt
+    # that the ratchet drives to zero.  The discriminator is the per-file provenance baseline, and WITHOUT IT
+    # THE SPLIT IS NOT COMPUTABLE -- so it REFUSES rather than guessing, and never silently calls debt an
+    # evasion (which would red an honest landing) or an evasion debt (which would admit the very thing the
+    # clause exists to stop).
+    live_c, latent_c = container_census(texts_for_container, out=out)
+    COUNTS["container_unmarked_live"] = len(live_c)
+
+    sbase = read_sites_baseline(SITES_BASELINE)
+    now_pf = per_file(forb, dest)
+    COUNTS["arena_in_runtime"] = len(viol)
+    if sbase is None:
+        out(f"CENSUS c-allocators ARENA-SPLIT REFUSED(2): no per-file provenance baseline at {SITES_BASELINE} -- "
+            f"the discriminator is what each site WAS, and without it this instrument cannot tell the evasion "
+            f"(collected heap -> arena) from transitional debt (malloc -> arena). It does not guess.")
+        COUNTS["arena_in_runtime_evasion"] = None
+        COUNTS["arena_in_runtime_debt"] = None
+        prov_refused = True
+    else:
+        prov_refused = False
+        ev, debt, unknown = provenance(now_pf, sbase)
+        n_ev = sum(x[1] for x in ev)
+        n_debt = sum(x[1] for x in debt)
+        n_unk = sum(x[1] for x in unknown)
+        COUNTS["arena_in_runtime_evasion"] = n_ev + n_unk
+        COUNTS["arena_in_runtime_debt"] = n_debt
+        out(f"CENSUS c-allocators ARENA-SPLIT CLASS-1-EVASION={n_ev} want=0 HARD CLASS-2-DEBT={n_debt} ratcheted "
+            f"UNATTRIBUTABLE={n_unk} -- class 1 is a site that was on the COLLECTED HEAP and is now in the arena "
+            f"(moving an object out of the collector's sight to avoid rooting it, reverted on sight); class 2 was "
+            f"a libc malloc and is now in the arena, the same lifetime it already had, debt and not a cure. ⛔ THE "
+            f"RESOLUTION IS THE FILE, NOT THE SITE: a class-1 site hidden under a same-file class-2 credit in the "
+            f"same landing is the one shape this cannot see, so read the number as per-file NET, not site-exact")
+        for rel, n, r0, r1, a0, a1 in ev[:15]:
+            out(f"  ⛔ CLASS-1-EVASION {rel} {n} site(s): rooted_heap {r0} -> {r1} while arena {a0} -> {a1} -- "
+                f"THE CURE FOR AN UNROOTED HOLDER IS A ROOT, NEVER A DIFFERENT ALLOCATOR")
+        for rel, n, d_forb in debt[:12]:
+            out(f"  CLASS-2-DEBT {rel} {n} site(s) (the file lost {d_forb} forbidden call(s)) -- ratcheted to 0 as "
+                f"the holder is rooted")
+        for rel, n in unknown[:12]:
+            out(f"  ⛔ UNATTRIBUTABLE {rel} {n} arena site(s) in a file the provenance baseline does not name -- "
+                f"counted WITH the evasion, because a site whose history this instrument cannot read is not "
+                f"given the benefit of the doubt")
     out(f"CENSUS c-allocators MMAP-OUTSIDE-GC_HEAP={len(mmap_out)} NAMED, not a verdict -- mmap belongs to the "
         f"collector's own bookkeeping; elsewhere it wants a reason in its commit")
     for rel, ln, sym in mmap_out[:10]:
@@ -310,14 +494,14 @@ def census(root, by_dir=False, sites=False, out=print):
         for rel, ln, n in forb:
             out(f"  FORBIDDEN-SITE {rel}:{ln} {n}")
 
+    COUNTS["__per_file__"] = now_pf
     COUNTS["forbidden_total"] = total
     for n in FORBIDDEN:
         COUNTS[n] = per[n]
     COUNTS["aliases"] = len(aliases)
     COUNTS["alias_calls"] = len(alias_calls)
-    COUNTS["arena_in_runtime"] = len(viol)
     COUNTS["prose_residue"] = n_prose
-    red = total > 0 or viol or aliases or alias_calls
+    red = total > 0 or aliases or alias_calls or COUNTS.get("arena_in_runtime_evasion") or prov_refused
     out(f"CENSUS c-allocators {'RED' if red else 'GREEN'}")
     return 1 if red else 0
 
@@ -325,8 +509,11 @@ def census(root, by_dir=False, sites=False, out=print):
 # ⛔ prose_residue is MEASURED and PRINTED but deliberately NOT ratcheted: it is licence text, it is not ours to
 # drive to zero, and a ratchet on it is an instruction to edit a copyright header.  alias_calls IS ratcheted --
 # that one is ours and it is the half a four-name grep cannot see.
+# ⛔ arena_in_runtime is the TOTAL and is ratcheted like the rest; the two that carry the meaning are split out
+# per CEO-846 -- _evasion is a HARD 0 (it is never debt and never transitional) and _debt only ever falls.
 RATCHET_KEYS = ["forbidden_total", "malloc", "calloc", "realloc", "free", "aliases", "alias_calls",
-                "arena_in_runtime"]
+                "arena_in_runtime", "arena_in_runtime_evasion", "arena_in_runtime_debt",
+                "container_unmarked_live"]
 
 
 def ratchet(path, out=print):
@@ -371,7 +558,7 @@ def ratchet(path, out=print):
     out("RATCHET GREEN: every ratcheted count is exactly its baseline"); return 0
 
 
-ARMS_FLOOR = 17
+ARMS_FLOOR = 24
 
 
 def selftest():
@@ -479,6 +666,46 @@ def selftest():
     ck(rc == 2 and "A vacuous zero is not a pass" in "\n".join(buf),
        "zero forbidden names AND zero destination symbols REFUSES rc=2 -- that is a tool reading the wrong thing, not a cured tree")
 
+    # ⛔⭐ CEO-846: the class split is the arm that decides whether an honest sweep lands or a cfo-f62a33aed
+    # shaped evasion does, so it is tested on BOTH sides -- a debt that must NOT red as an evasion, and an
+    # evasion that must NOT be excused as debt.
+    B = {"src/runtime/a.c": {"forbidden": 4, "rooted_heap": 0, "arena": 0, "mmap": 0},
+         "src/runtime/b.c": {"forbidden": 0, "rooted_heap": 3, "arena": 0, "mmap": 0},
+         "src/lower/c.c":   {"forbidden": 9, "rooted_heap": 0, "arena": 0, "mmap": 0}}
+    N = {"src/runtime/a.c": {"forbidden": 0, "rooted_heap": 0, "arena": 4, "mmap": 0},
+         "src/runtime/b.c": {"forbidden": 0, "rooted_heap": 0, "arena": 3, "mmap": 0},
+         "src/lower/c.c":   {"forbidden": 0, "rooted_heap": 0, "arena": 9, "mmap": 0}}
+    ev, debt, unk = provenance(N, B)
+    ck(sum(x[1] for x in debt) == 4 and any(r == "src/runtime/a.c" for r, _n, _d in debt)
+       and not any(r == "src/runtime/a.c" for r, *_ in ev),
+       "CLASS 2: four libc mallocs that became arena sites are DEBT, not an evasion -- the lifetime is the one they already had, and reading them as an evasion would red an honest sweep")
+    ck(sum(x[1] for x in ev) == 3 and any(r == "src/runtime/b.c" for r, *_ in ev),
+       "CLASS 1: three COLLECTED-HEAP sites that became arena sites are the EVASION and are NAMED -- the cure for an unrooted holder is a root, never a different allocator")
+    ck(not any(r == "src/lower/c.c" for r, *_ in ev) and not any(r == "src/lower/c.c" for r, *_ in debt),
+       "and src/lower is not runtime-reachable, so its nine arena sites are the arena doing its job, not a violation")
+    ev2, _d2, unk2 = provenance({"src/runtime/z.c": {"forbidden": 0, "rooted_heap": 0, "arena": 2, "mmap": 0}}, B)
+    ck(sum(x[1] for x in unk2) == 2,
+       "a runtime arena site in a file the provenance baseline does not name is UNATTRIBUTABLE and is counted WITH the evasion -- a history this instrument cannot read gets no benefit of the doubt")
+
+    # ⛔⭐ CEO-846 / CFO-96-97: the container arm, tested on the shape that fooled every census before it.
+    def cc(body_src):
+        buf2 = []
+        lv, lt = container_census({"src/runtime/t.c": body_src}, out=buf2.append)
+        return lv, lt
+    lv, lt = cc("static DESCR_t *g_blk = (DESCR_t *)0;\n"
+                "void t_gc_roots(void) { for (long n = 0; n < top; n++) rt_gc_visit_descr(&g_blk[n]); }\n")
+    ck(len(lv) == 1 and lv[0][2] == "g_blk",
+       "A POINTER CONTAINER WHOSE CONTENTS ARE VISITED AND WHOSE BLOCK IS NEVER MARKED IS LIVE AND NAMED -- that walk exists, is called, and reads as rooted to every census ever written; it is how g_name_save was reclaimed under a live call")
+    lv, lt = cc("static DESCR_t *g_blk = (DESCR_t *)0;\n"
+                "void t_gc_roots(void) { rt_gc_visit_raw((const char **)&g_blk); "
+                "for (long n = 0; n < top; n++) rt_gc_visit_descr(&g_blk[n]); }\n")
+    ck(len(lv) == 0, "and the same walk with the CONTAINER marked as well reads clean -- the arm grades the cure, not the shape")
+    lv, lt = cc("static NV_t *g_tab[64];\n"
+                "void t_gc_roots(void) { for (int b = 0; b < 64; b++) for (NV_t *e = g_tab[b]; e; e = e->next) "
+                "rt_gc_visit_descr(&e->val); }\n")
+    ck(len(lv) == 0 and any(x[2] == "g_tab" for x in lt),
+       "a FIXED ARRAY of pointers is LATENT, not LIVE -- its storage is static so there is no block to mark, and calling that a defect is how this arm would become noise (it is exactly _var_buckets, which core_gc_roots marks per slot and marks correctly)")
+
     saved = dict(COUNTS)
     try:
         COUNTS.clear(); COUNTS.update({k: 0 for k in RATCHET_KEYS})
@@ -504,6 +731,8 @@ def main(argv):
     ap.add_argument("--root", default=ROOT)
     ap.add_argument("--ratchet", default="")
     ap.add_argument("--write-baseline", default="")
+    ap.add_argument("--write-sites-baseline", default="", help="the PER-FILE provenance baseline the CEO-846 "
+                    "class split is keyed on -- what each file held BEFORE the sweep")
     ap.add_argument("--by-dir", action="store_true", help="the four-name count per directory, for the split")
     ap.add_argument("--sites", action="store_true", help="name every remaining forbidden call site")
     ap.add_argument("--selftest", action="store_true")
@@ -521,6 +750,33 @@ def main(argv):
                 if v is not None:
                     fh.write(f"{k}\t{v}\n")
         print(f"baseline written: {a.write_baseline}")
+    if a.write_sites_baseline:
+        pf = COUNTS.get("__per_file__") or {}
+        import subprocess
+        try:
+            tree = subprocess.run(["git", "-C", a.root, "rev-parse", "--short", "HEAD"],
+                                  capture_output=True, text=True, timeout=20).stdout.strip() or "unknown"
+            dirty = subprocess.run(["git", "-C", a.root, "status", "--porcelain"],
+                                   capture_output=True, text=True, timeout=20).stdout.strip()
+        except Exception:
+            tree, dirty = "unknown", ""
+        with open(a.write_sites_baseline, "w", encoding="utf-8") as fh:
+            fh.write("# c_allocator_sites_baseline.tsv -- WHAT EACH FILE HELD BEFORE THE SWEEP (coo, CEO-846).\n"
+                     "#\n"
+                     "# ⛔ THIS FILE IS THE DISCRIMINATOR AND IT IS THE WHOLE POINT OF THE SPLIT.  The clause `the\n"
+                     "# arena may not hold anything the runtime can reach` covers two different acts: a site that\n"
+                     "# was on the COLLECTED HEAP and is now in the arena is the EVASION (hard red, reverted on\n"
+                     "# sight), and a site that was a libc malloc and is now in the arena is transitional DEBT (the\n"
+                     "# same lifetime it already had, ratcheted to zero).  Nothing in the post-sweep tree can tell\n"
+                     "# those apart -- only what the site WAS can -- so this file is cut from the PRE-SWEEP tree and\n"
+                     "# a landing is graded against it.  Rewriting it from a post-sweep tree destroys the only\n"
+                     "# evidence that separates a cure from an evasion, and reads GREEN forever after.\n"
+                     f"# CUT FROM: SCRIP {tree}{'-DIRTY' if dirty else ''}  (forbidden_total={COUNTS.get('forbidden_total')})\n"
+                     "# file\tforbidden\trooted_heap\tarena\tmmap\n")
+            for rel in sorted(pf):
+                c = pf[rel]
+                fh.write(f"{rel}\t{c['forbidden']}\t{c['rooted_heap']}\t{c['arena']}\t{c['mmap']}\n")
+        print(f"sites baseline written: {a.write_sites_baseline} ({len(pf)} file(s), tree {tree})")
     if a.ratchet:
         rc = 2 if 2 in (rc, ratchet(a.ratchet)) else max(rc, ratchet(a.ratchet))
     return rc

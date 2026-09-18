@@ -3,11 +3,21 @@
 # rewrites this file in the same sitting.  key	count
 # CRITERION CHANGED 2026-09-18 (coo, CEO-844 clause 1): `aliases` 22 -> 40 and the new key `alias_calls`
 # 0 -> 15 are A WIDER AND A CORRECTED DEFINITION, NOT A REGRESSION.  The old reader asked only whether a
-# define's body IS a forbidden name, one level deep and by substring.  That answer was wrong twice: it
-# MISSED bison's `#define YYSTACK_ALLOC YYMALLOC` over `#define YYMALLOC malloc` and the 15 calls made
-# through it, and it INVENTED an alias named `yy` out of flex's `#define yyrealloc pascal_yyrealloc`,
-# which renames flex's own hook and is not C realloc under any spelling.  The new reader resolves the
-# chain by whole word and reports the route.  Both counts still drive to 0.
+# define's body IS a forbidden name, one level deep and by substring: it MISSED bison's `#define
+# YYSTACK_ALLOC YYMALLOC` over `#define YYMALLOC malloc` and the 15 calls made through it, and it
+# INVENTED an alias named `yy` out of flex's `#define yyrealloc pascal_yyrealloc`, which renames flex's
+# own hook and is not C realloc under any spelling.  The new reader resolves the chain by whole word.
+#
+# CRITERION CHANGED 2026-09-18 (coo, CEO-846): `arena_in_runtime` is no longer a verdict on its own.  It
+# is split by WHAT EACH SITE WAS, against the per-file provenance in c_allocator_sites_baseline.tsv:
+#   arena_in_runtime_evasion -- was on the COLLECTED HEAP, now in the arena.  HARD 0, never transitional,
+#     reverted on sight.  Unattributable sites are counted HERE, not as debt: a history the instrument
+#     cannot read gets no benefit of the doubt.
+#   arena_in_runtime_debt -- was a libc malloc, now in the arena.  Same lifetime it already had, so it is
+#     debt and not an evasion; it only ever FALLS, as each holder is rooted.
+# and `container_unmarked_live` 1 is the cfo's CFO-96/97 property: MARK THE CONTAINER, NOT ONLY WHAT IT
+# POINTS AT.  The 1 is pas_gc_roots/g_pas_heap (cfo's disclosure 2), harmless only while that block is
+# off-heap -- it becomes the g_name_save corruption the moment the sweep moves it to the collected heap.
 forbidden_total	1182
 malloc	146
 calloc	163
@@ -16,3 +26,6 @@ free	805
 aliases	40
 alias_calls	15
 arena_in_runtime	0
+arena_in_runtime_evasion	0
+arena_in_runtime_debt	0
+container_unmarked_live	1
