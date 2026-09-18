@@ -111,6 +111,7 @@ fi
 
 VIOLATIONS=0
 EXAMINED=0
+SIGNAL_WINDOW=200
 
 # check_rule <rule_id> <retired_text_grep_-E_pattern> <corrective_signal_grep_-E_pattern> <citation> <canary_line>
 #
@@ -152,13 +153,24 @@ check_rule() {
         fi
         while IFS=: read -r lineno rest; do
             [ -n "${lineno:-}" ] || continue
-            # SAME LINE ONLY -- see the 2026-08-24 CORRECTED addendum above. A wider window let an
-            # unrelated word in a different sentence exempt a real violation.
-            if printf '%s\n' "$rest" | grep -qiE "$signal_re"; then
+            # ⛔ PROXIMITY, NOT SAME-LINE (ceo CEO-859, 2026-09-18). The 2026-08-24 addendum narrowed this
+            # from a multi-line window to SAME LINE because an unrelated word in a different sentence was
+            # exempting real violations -- and that fix is incomplete, because a root digest writes one
+            # PARAGRAPH PER LINE. /home/claude_cto/CLAUDE.md line 9 is 19 KB of one line, so "same line"
+            # was a five-thousand-character window: the bare word `history`, thousands of characters away
+            # from the retired sentence, exempted a live NO-FINDING-FILES violation for two days and this
+            # gate read PASS over it. The signal must sit NEAR the retired text it claims to correct.
+            # Measured: with proximity, the cto root is caught; with it removed, it is not.
+            hit=0
+            while IFS= read -r window; do
+                [ -n "$window" ] || continue
+                printf '%s\n' "$window" | grep -qiE "$signal_re" || hit=1
+            done < <(printf '%s\n' "$rest" | grep -oiE ".{0,$SIGNAL_WINDOW}($retired_re).{0,$SIGNAL_WINDOW}")
+            if [ "$hit" -eq 0 ]; then
                 continue
             fi
             VIOLATIONS=$((VIOLATIONS + 1))
-            echo "GATE HIT [$rule_id] $f:$lineno -- retired text with no corrective signal on the same line"
+            echo "GATE HIT [$rule_id] $f:$lineno -- retired text with no corrective signal within '"$SIGNAL_WINDOW"' chars of it"
             echo "    | $rest"
             echo "    cite: $citation"
         done < <(grep -niE "$retired_re" "$f")
@@ -189,11 +201,11 @@ check_rule "NO-CENTRAL-RUNNER" \
     '.github/RULES.md FACT RULE -- NO CENTRAL RUNNER: ONE RUNNER PER LANGUAGE (Lon 2026-09-16 10:5x, CEO-775): every language HQ runs its own language suites; the coo runs no board' \
     'THE ONE RUNNER IS THE coo under EXECUTIVE: every master or package board runs once per landing batch by the coo'
 
-check_rule "NO-FINDING-FILES" \
-    'FINDING-<date>-<seat>|(evidence|measurement|finding|proof)s? *(→|->|goes? (in)?to|into|lands? in) *.?FINDING-\*\.md|a FINDING file (in|under) .?\.github|write (a|the|one|up a) FINDING|FINDINGs? (are|is) named FINDING|[0-9]+\+ .?FINDING-' \
-    'CEO-760|CEO-796|FINDING(-\*\.md)? files? (are|were|is|was) (removed|gone|retired|history)|no FINDING files?|never (a |be )?(written|filed)( as a FINDING)?|FINDING.{0,40}(removed|folded into|gone)|the record is the LIVE CURSOR' \
-    '.github/GOAL-CEO.md CEO-760 (Lon 2026-09-16, verbatim: "Every sinle one of them. Ha!"): every FINDING-*.md is removed from .github and SCRIP; the LIVE CURSOR and the batons are the record, git history keeps a removed file citable; CEO-796: the digests that still say FINDING-<date>-<seat> are retired text' \
-    'A defect you find elsewhere is one line to the owner and the ceo (a FINDING file in `.github` when it needs evidence on file).'
+check_rule "FINDING-FILES-ARE-PERMITTED-AGAIN" \
+    'FINDING FILES ARE GONE|never (create |be |write )?a .?FINDING|never a .?FINDING-\\*\\.md|gone on Lon.s word 2026-09-16|FINDING files? (are|is) GONE|ZERO .?FINDING-\*\.md|no FINDING files? (exist|remain)|FINDING-\*\.md.{0,30}(is|are) (forbidden|retired|gone)' \
+    'CEO-859|permitted again|may write a .?FINDING|deletes? them periodically|summariz|retired 2026-09-18|no longer forbidden|used to|was the rule|history' \
+    '.github/RULES.md FACT RULE -- FINDING FILES ARE PERMITTED AGAIN (Lon 2026-09-18, in-chat to the cto, verbatim: "You can use as many FINDING files as you want. I will just delete them periodically. We should probably do a summarization when I delete."; CEO-859): the CEO-760/796 prohibition is RETIRED. Any seat may write one. The measured claims go into the citing baton or GOAL cursor IN THE SAME LANDING, because Lon deletes them periodically and a measurement living only in a FINDING has a deletion date.' \
+    "FINDING FILES ARE GONE on Lon word 2026-09-16 (.github a2a311d0, CEO-760/796): never create a FINDING-*.md"
 
 gate_floor "$EXAMINED" 2 "root-digest checks (roots × rules)"
 gate_verdict "$VIOLATIONS" "root digest(s) asserting retired FACT RULE text uncorrected"
