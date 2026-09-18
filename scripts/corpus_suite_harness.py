@@ -2692,22 +2692,58 @@ def cmd_run(args):
     # re-probe elsewhere, not here, and the record carries the date its refusal was checked.
     outside = {}
     _outside_path = getattr(args, "outside", "") or ""
+    _outside_none = bool(getattr(args, "outside_none", False))
+    if _outside_none and _outside_path:
+        refuse("--outside and --outside-none together: one names a baseline and the other refuses every baseline -- a run cannot be graded both ways")
+    # ⛔⭐ THE SIBLING LIST RIDES WITHOUT THE FLAG (coo 2026-09-17, MEASURED: two boards, same corpus a6bcd8097,
+    # 76 minutes apart, disagreed on the SAME SEVEN snobol4-master entries -- cfo 22:55:52Z read PASS, cto
+    # 00:11:39Z read OUTSIDE -- and the accounting closed exactly: cfo PASS 3940 vs cto 3926 (+14 = 7 entries
+    # x 2 modes), cfo FAIL 23 vs cto 21 (+2), 16 = the cto's whole OUTSIDE count. The difference was not the
+    # tree and not the oracle: it was the FLAG. `test_corpus_snobol4.sh` and `board_icon_master.sh` pass
+    # --outside; a direct `corpus_suite_harness.py run` -- the invocation this repo's own digest documents --
+    # did not, so the eight entries the ONE ORACLE REFUSES TO RUN were graded against their stored .ref and
+    # seven of them "passed" by agreeing with our own past output. A ref is evidence about a past oracle run,
+    # never about the oracle (RULES.md), so those were fourteen PASS rows with no ground truth behind them,
+    # appended to the progress DB, where they read as a +7 flip and then a -7 loss in util_progress_flips.
+    # THE INSTRUMENT LAW THIS BREAKS: a declared fact sitting beside the data must not depend on a caller
+    # remembering a flag -- `test_corpus_snobol4.sh` already says in its own comment that "a declared outside
+    # list that no runner passes is INERT", and this closes the other half of that hole. The list is DERIVED
+    # from the suite's own directory whenever the suite is a master (`ALL.<ext>`) with `ALL.outside.tsv`
+    # beside it, and the provenance is PRINTED either way, so no board can be read without knowing which
+    # baseline it was graded against. --outside-none is the loud, printed escape for a run that deliberately
+    # wants the shipped set; it is never the default and never silent.
+    _outside_derived = ""
+    if not _outside_path and not _outside_none:
+        _sib = Path(args.sno).with_name("ALL.outside.tsv")
+        if Path(args.sno).name.startswith("ALL.") and _sib.is_file():
+            _outside_path = str(_sib)
+            _outside_derived = _outside_path
+    if _outside_none:
+        _sib = Path(args.sno).with_name("ALL.outside.tsv")
+        if Path(args.sno).name.startswith("ALL.") and _sib.is_file():
+            print(f"OUTSIDE_BASELINE_LIST NONE --outside-none was given and {_sib} EXISTS: this run grades the SHIPPED set, "
+                  f"declared-outside entries included, and its pass count is NOT comparable to a board graded against the baseline")
+        else:
+            print("OUTSIDE_BASELINE_LIST NONE --outside-none was given (no sibling ALL.outside.tsv beside this suite anyway)")
     if _outside_path:
+        _flag = "--outside" if not _outside_derived else "the sibling outside list"
         _op = Path(_outside_path)
         if not _op.is_file():
-            refuse(f"--outside {_outside_path}: no such file -- a declared outside list that is not there would silently grade the whole set")
+            refuse(f"{_flag} {_outside_path}: no such file -- a declared outside list that is not there would silently grade the whole set")
         for _ln in _op.read_text(encoding="utf-8").splitlines():
             if not _ln.strip() or _ln.lstrip().startswith("#"):
                 continue
             _f = _ln.split("\t")
             if len(_f) < 3:
-                refuse(f"--outside {_outside_path}: line is not name<TAB>CLASS<TAB>reason: {_ln[:80]}")
+                refuse(f"{_flag} {_outside_path}: line is not name<TAB>CLASS<TAB>reason: {_ln[:80]}")
             outside[_f[0].strip()] = (_f[1].strip(), _f[2].strip())
         _named = set(outside)
         _present = {e.name for e in entries}
         _absent = sorted(_named - _present)
         if _absent:
-            refuse(f"--outside {_outside_path}: declares entries that are not in this suite: {_absent} -- a stale outside list silently shrinks nothing and hides that it is stale")
+            refuse(f"{_flag} {_outside_path}: declares entries that are not in this suite: {_absent} -- a stale outside list silently shrinks nothing and hides that it is stale")
+        print(f"OUTSIDE_BASELINE_LIST {_outside_path} ({'DERIVED from the suite directory -- --outside was not given' if _outside_derived else 'passed with --outside'}), "
+              f"{len(outside)} entr(ies) declared")
         # ⛔⭐ THE OUTSIDE ENTRIES LEAVE THE GRADED DENOMINATOR AND STAY IN THE SHIPPED ONE (CEO-749; Lon 2026-09-16 "Get those
         # fixed" -- OUTSIDE is debt; coo 2026-09-16, row snobol4-master-runner-publishes-over-the-graded-population-1972-not-
         # the-shipped-1980-with-outside-named). Counted HERE, per shard, as the entries this run actually removed -- never
@@ -2723,6 +2759,8 @@ def cmd_run(args):
         print(f"OUTSIDE_BASELINE_COUNT {len(_out_run) + len(_out_ast)} entr(ies) out of the graded denominator and IN the shipped one, named above with the oracle's own reason")
     else:
         _out_run, _out_ast = [], []
+        if not _outside_none:
+            print("OUTSIDE_BASELINE_LIST NONE (no ALL.outside.tsv beside this suite, and --outside was not given)")
     unknown_defaulted = sum(1 for e in run_entries if entry_modes.get(e.name, "") == "UNKNOWN") if entry_modes else 0
     # ⛔⭐ HONOUR THE DECLARATION PER ENTRY, WHICH IS WHAT THIS FLAG'S OWN --help PROMISES. Before this, every run
     # entry was graded with the CALLER'S modes and the `modes` column only ever chose ast-vs-run, so a family whose
@@ -3413,6 +3451,10 @@ def main():
                         "Prints the two populations as SEPARATE boards with their OWN denominators. REFUSES rc=2 if the CSV is missing or "
                         "does not cover every entry -- a column that cannot be read is not a column that can be honoured.")
     r.add_argument("--outside", default="", help="TSV of entries OUTSIDE this suite's baseline (name<TAB>CLASS<TAB>reason), each dropped from the graded denominator and printed with its reason -- for a program the language's own oracle refuses to run")
+    r.add_argument("--outside-none", action="store_true", dest="outside_none",
+                   help="grade the SHIPPED set: do NOT pick up the sibling ALL.outside.tsv that a master suite would otherwise "
+                        "ride with. Prints OUTSIDE_BASELINE_LIST NONE loudly, naming the list it skipped, because such a run's "
+                        "pass count is not comparable to a board graded against the baseline. Incompatible with --outside.")
     r.add_argument("--shard", default="", help="k/N: grade only every N-th entry starting at the k-th (1-based, interleaved), so the N shards partition the suite exactly once and their boards SUM to the monolithic board; the SUITE_BOARD line carries shard=k/N and total=<this shard's entries> (row corpus-runner-master-suite-exceeds-single-call-cap, hq_B 2026-09-02)")
     r.set_defaults(func=cmd_run)
 

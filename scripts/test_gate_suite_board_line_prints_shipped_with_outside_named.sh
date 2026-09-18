@@ -20,8 +20,16 @@
 #   (a) with one entry declared outside: SUITE_BOARD total=2 shipped=3 outside=1, all_n=2, m3_n=2 m4_n=2
 #   (b) the OUTSIDE_BASELINE line names the entry with its class and reason, and the count line says IN the shipped one
 #   (c) the scratch DB carries one OUTSIDE row per requested mode for the entry, note = class: reason
-#   (d) CONTROL: the same suite with no --outside prints total=3 shipped=3 outside=0
+#   (d) ⛔ AMENDED 2026-09-17 (coo): the same suite with NO --outside now rides the SIBLING list and still prints
+#       total=2 shipped=3 outside=1, with OUTSIDE_BASELINE_LIST saying DERIVED. This arm used to assert the OPPOSITE
+#       (total=3 shipped=3 outside=0), and that assertion was the defect written down: two boards on the same corpus
+#       a6bcd8097 76 minutes apart disagreed on seven snobol4-master entries -- cfo 22:55:52Z PASS, cto 00:11:39Z
+#       OUTSIDE -- because a direct `corpus_suite_harness.py run` omitted the flag and graded the eight entries the
+#       ONE ORACLE REFUSES against their stored .ref. A declared fact beside the data may not depend on the caller
+#       remembering a flag; the escape is loud, not silent, which is arm (f).
 #   (e) STATIC: test_corpus_snobol4.sh writes --suite-total "$_sn4_shipped" and refuses when shipped=/outside= are absent
+#   (f) --outside-none is the LOUD escape: total=3 shipped=3 outside=0 AND the printed line names the list it skipped
+#       and says the count is not comparable to a baseline board; --outside with --outside-none together REFUSE rc=2
 # FAIL_ONCE=1 rewrites the captured board line's shipped=3 to shipped=2 before arm (a) grades, to prove the arm trips.
 # rc 0 = every arm holds; rc 1 = a FAIL named; rc 2 = REFUSED-TO-GRADE (no binary, no master to cut the fixture from).
 set -uo pipefail
@@ -58,9 +66,19 @@ n_out="$(awk -F'\t' -v p="$NAME" '$8==p && $10=="OUTSIDE"{print $9":"$12}' "$DB"
   || ck no "(c) DB OUTSIDE rows for $NAME: '$n_out'"
 out2="$(S4E_PROGRESS_DB="$DB" timeout 120 python3 "$H" run "$W/tests/snobol4/ALL.sno" "$W/tests/snobol4/ALL.ref" --modes m3,m4 2>&1)"; board2="$(grep '^SUITE_BOARD ' <<<"$out2")"
 g(){ grep -oE " $1=[0-9]+" <<<"$board2" | head -1 | cut -d= -f2; }
-[ "$(g total)" = 3 ] && [ "$(g shipped)" = 3 ] && [ "$(g outside)" = 0 ] && ck ok "(d) CONTROL: without --outside the board prints total=3 shipped=3 outside=0" || ck no "(d) control board: total=$(g total) shipped=$(g shipped) outside=$(g outside)"
+[ "$(g total)" = 2 ] && [ "$(g shipped)" = 3 ] && [ "$(g outside)" = 1 ] && grep -q 'OUTSIDE_BASELINE_LIST .*DERIVED from the suite directory' <<<"$out2" \
+  && ck ok "(d) WITHOUT --outside the sibling list RIDES: total=2 shipped=3 outside=1, and the provenance line says DERIVED" \
+  || ck no "(d) derived board: total=$(g total) shipped=$(g shipped) outside=$(g outside); list line: $(grep '^OUTSIDE_BASELINE_LIST' <<<"$out2" | head -1)"
 R="$HERE/test_corpus_snobol4.sh"
 grep -q -- '--suite-total "\$_sn4_shipped"' "$R" && grep -q 'shipped=/outside= fields' "$R" && ck ok "(e) STATIC: test_corpus_snobol4.sh publishes --suite-total \$_sn4_shipped and refuses when shipped=/outside= are absent" || ck no "(e) test_corpus_snobol4.sh does not publish the shipped population or does not refuse on absent fields"
+out3="$(S4E_PROGRESS_DB="$DB" timeout 120 python3 "$H" run "$W/tests/snobol4/ALL.sno" "$W/tests/snobol4/ALL.ref" --modes m3,m4 --outside-none 2>&1)"; board3="$(grep '^SUITE_BOARD ' <<<"$out3")"
+h(){ grep -oE " $1=[0-9]+" <<<"$board3" | head -1 | cut -d= -f2; }
+S4E_PROGRESS_DB="$DB" timeout 120 python3 "$H" run "$W/tests/snobol4/ALL.sno" "$W/tests/snobol4/ALL.ref" --outside "$W/tests/snobol4/ALL.outside.tsv" --outside-none >/dev/null 2>&1; rc_both=$?
+[ "$(h total)" = 3 ] && [ "$(h shipped)" = 3 ] && [ "$(h outside)" = 0 ] \
+  && grep -q "OUTSIDE_BASELINE_LIST NONE --outside-none was given and .*ALL.outside.tsv EXISTS" <<<"$out3" \
+  && grep -q 'NOT comparable to a board graded against the baseline' <<<"$out3" && [ "$rc_both" = 2 ] \
+  && ck ok "(f) --outside-none grades the shipped set (total=3 outside=0), names the list it skipped and says the count is not comparable; --outside with it refuses rc=2" \
+  || ck no "(f) --outside-none: total=$(h total) shipped=$(h shipped) outside=$(h outside), rc(both flags)=$rc_both, line: $(grep '^OUTSIDE_BASELINE_LIST' <<<"$out3" | head -1)"
 echo "population: $checks arm(s) graded, $fails FAIL"
 [ "$fails" = 0 ] && { echo "GATE PASS [suite_board_line_prints_shipped_with_outside_named]: $checks of $checks arms hold"; exit 0; }
 echo "⛔ GATE RED [suite_board_line_prints_shipped_with_outside_named]: $fails of $checks arms FAIL"; exit 1
